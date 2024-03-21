@@ -17,8 +17,6 @@ proc initFullNode(
     getBeaconTime: GetBeaconTimeFn) {.async.} =
   node.router = new MessageRouter
 
-  await node.addValidators()
-
 import
   "."/spec/forks,
   "."/consensus_object_pools/block_pools_types

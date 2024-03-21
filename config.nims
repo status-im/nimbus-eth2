@@ -47,7 +47,8 @@ when true:
   --define:nimStackTraceOverride
   switch("import", "libbacktrace")
 else:
-  --define:noSignalHandler
+  discard
+  #--define:noSignalHandler
 
 when true:
   --tlsEmulation:off
@@ -56,9 +57,9 @@ when false:
   switch("passC", "-fstack-protector-all")
   switch("passL", "-fstack-protector-all")
 
-when false:
+when true:
   --linedir:off
-
+--debuginfo:on
 --threads:on
 --opt:speed
 --mm:refc
@@ -85,7 +86,7 @@ if defined(macosx):
 # in Git Bash is apparently ignored by the OS, and on Linux where the default of
 # 1024 is good enough for us.
 
-if canEnableDebuggingSymbols:
+if  false and canEnableDebuggingSymbols:
   # add debugging symbols and original files and line numbers
   --debugger:native
 

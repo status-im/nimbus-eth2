@@ -1,11 +1,9 @@
-{.push raises: [].}
-
 import
   std/[os, tables],
   stew/[byteutils],
   chronos,
   ../spec/[
-    eth2_merkleization, forks, signatures],
+    eth2_merkleization, forks],
   ".."/[conf, beacon_clock, beacon_node],
   "."/[
     slashing_protection]
@@ -14,9 +12,6 @@ import ../spec/[datatypes/base, crypto]
 type
   ValidatorKind* {.pure.} = enum
     Local, Remote
-  ValidatorAndIndex = object
-    index: ValidatorIndex
-    validator: Validator
   AttachedValidator = ref object
     case kind*: ValidatorKind
     of ValidatorKind.Local:
@@ -38,19 +33,7 @@ proc getBlockSignature(fork: Fork,
                         blck: ForkedBeaconBlock
                        ): Future[SignatureResult]
                        {.async: (raises: [CancelledError]).} =
-  SignatureResult.ok(get_block_signature(
-    fork, genesis_validators_root, slot, block_root).toValidatorSig())
-proc getEpochSignature(v: AttachedValidator, fork: Fork,
-                        genesis_validators_root: Eth2Digest, epoch: Epoch
-                       ): Future[SignatureResult]
-                       {.async: (raises: [CancelledError]).} =
-  let signature =
-    SignatureResult.ok(get_epoch_signature(
-      fork, genesis_validators_root, epoch).toValidatorSig())
-  if signature.isErr:
-    return signature
-  signature
-
+  SignatureResult.ok(default(ValidatorSig))
 from std/sequtils import mapIt
 import ".."/spec/mev/[capella_mev, deneb_mev]
 from ".."/spec/datatypes/deneb import
@@ -74,26 +57,6 @@ type
     engineBid: Opt[EngineBid]
     builderBid: Opt[BuilderBid[SBBB]]
 
-proc getValidator*(validators: auto,
-                   pubkey: ValidatorPubKey): Opt[ValidatorAndIndex] =
-  let idx = validators.findIt(it.pubkey == pubkey)
-  if idx == -1:
-    Opt.none ValidatorAndIndex
-  else:
-    Opt.some ValidatorAndIndex(index: ValidatorIndex(idx),
-                               validator: validators[idx])
-
-proc addValidators*(node: BeaconNode) {.async: (raises: [CancelledError]).} =
-  when false:
-    for keystore in listLoadableKeystores(node.config, node.keystoreCache):
-      let
-        data = withState(node.genesisState[]):
-          getValidator(forkyState.data.validators.asSeq(), keystore.pubkey)
-        v = node.attachedValidators[].addValidator(keystore, default(Eth1Address), 30000000)
-      if data.get.index == 0:
-        echo data.get.validator.pubkey
-      v.updateValidator(data)
-
 import ".."/consensus_object_pools/block_dag
 let pk = ValidatorPubKey.fromHex("891c64850444b66331ef7888c907b4af71ab6b2c883affe2cebd15d6c3644ac7ce6af96334192efdf95a64bab8ea425a")[]
 proc getValidatorForDuties*(
@@ -110,37 +73,8 @@ proc getValidatorForDuties*(
       index: Opt.some 0.ValidatorIndex,
       validator: Opt.some Validator(pubkey: ValidatorPubKey.fromHex("891c64850444b66331ef7888c907b4af71ab6b2c883affe2cebd15d6c3644ac7ce6af96334192efdf95a64bab8ea425a")[]))
 
-proc isSynced*(node: BeaconNode, head: BlockRef): bool = true
-
-type
-  BlockProposalEth1Data* = object
-    vote*: Eth1Data
-    deposits*: seq[Deposit]
-    hasMissingDeposits*: bool
-
-proc getBlockProposalEth1Data(node: BeaconNode,
-                              state: ForkedHashedBeaconState):
-                              BlockProposalEth1Data = default(BlockProposalEth1Data)
-
-from ".."/spec/datatypes/capella import BeaconBlockValidatorChanges, Withdrawal, shortLog
-proc makeBeaconBlock(
-    cfg: RuntimeConfig,
-    state: var ForkedHashedBeaconState,
-    proposer_index: ValidatorIndex,
-    randao_reveal: ValidatorSig,
-    eth1_data: Eth1Data,
-    graffiti: GraffitiBytes,
-    attestations: seq[Attestation],
-    deposits: seq[Deposit],
-    validator_changes: BeaconBlockValidatorChanges,
-    sync_aggregate: SyncAggregate,
-    executionPayload: ForkyExecutionPayloadForSigning,
-    cache: var StateCache,
-    transactions_root: Opt[Eth2Digest],
-    execution_payload_root: Opt[Eth2Digest],
-    kzg_commitments: Opt[KzgCommitments]):
-    Result[ForkedBeaconBlock, cstring] =
-  ok(default(ForkedBeaconBlock))
+from ".."/spec/datatypes/capella import shortLog
+proc makeBeaconBlock(): Result[ForkedBeaconBlock, cstring] = ok(default(ForkedBeaconBlock))
 
 proc makeBeaconBlockForHeadAndSlot(
     PayloadType: type ForkyExecutionPayloadForSigning,
@@ -195,8 +129,6 @@ proc makeBeaconBlockForHeadAndSlot(
         fut.complete(Opt.some(default(PayloadType)))
         fut
 
-    eth1Proposal = node.getBlockProposalEth1Data(state[])
-
   if false:
     return err("Eth1 deposits not available")
 
@@ -205,22 +137,7 @@ proc makeBeaconBlockForHeadAndSlot(
     payload = payloadRes.valueOr:
       return err("Unable to get execution payload")
 
-  let blck = makeBeaconBlock(
-      node.cfg,
-      state[],
-      validator_index,
-      randao_reveal,
-      eth1Proposal.vote,
-      graffiti,
-      @[],
-      eth1Proposal.deposits,
-      default(BeaconBlockValidatorChanges),
-      SyncAggregate.init(),
-      payload,
-      cache,
-      transactions_root = transactions_root,
-      execution_payload_root = execution_payload_root,
-      kzg_commitments = kzg_commitments).mapErr do (error: cstring) -> string:
+  let blck = makeBeaconBlock().mapErr do (error: cstring) -> string:
     $error
 
   var blobsBundleOpt = Opt.none(BlobsBundle)
@@ -381,40 +298,14 @@ func builderBetterBid(
   scaledBuilderValue >
     scaledEngineValue * (localBlockValueBoost.uint16 + 100).u256
 
-from ".."/spec/datatypes/electra import SignedBeaconBlock, shortLog
-func create_blob_sidecars(
-    forkyBlck: deneb.SignedBeaconBlock | electra.SignedBeaconBlock,
-    kzg_proofs: KzgProofs,
-    blobs: Blobs): seq[BlobSidecar] =
-  template kzg_commitments: untyped =
-    forkyBlck.message.body.blob_kzg_commitments
-  doAssert kzg_proofs.len == blobs.len
-  doAssert kzg_proofs.len == kzg_commitments.len
-
-  var res = newSeqOfCap[BlobSidecar](blobs.len)
-  let signedBlockHeader = forkyBlck.toSignedBeaconBlockHeader()
-  for i in 0 ..< blobs.lenu64:
-    var sidecar = BlobSidecar(
-      index: i,
-      blob: blobs[i],
-      kzg_commitment: kzg_commitments[i],
-      kzg_proof: kzg_proofs[i],
-      signed_block_header: signedBlockHeader)
-    forkyBlck.message.body.build_proof(
-      kzg_commitment_inclusion_proof_gindex(i),
-      sidecar.kzg_commitment_inclusion_proof).expect("Valid gindex")
-    res.add(sidecar)
-  res
-
 from ".."/spec/datatypes/bellatrix import shortLog
 import chronicles
-
+from ".."/spec/datatypes/electra import shortLog
 proc proposeBlockAux(
     SBBB: typedesc, EPS: typedesc, node: BeaconNode,
     validator: AttachedValidator, validator_pubkey: ValidatorPubKey, validator_index: ValidatorIndex,
     head: BlockRef, slot: Slot, randao: ValidatorSig, fork: Fork,
-    genesis_validators_root: Eth2Digest,
-    localBlockValueBoost: uint8): Future[BlockRef] {.async: (raises: [CancelledError]).} =
+    genesis_validators_root: Eth2Digest): Future[BlockRef] {.async: (raises: [CancelledError]).} =
   let
     collectedBids = await collectBids(
       SBBB, EPS, node, validator_pubkey, validator_index,
@@ -423,22 +314,13 @@ proc proposeBlockAux(
     useBuilderBlock =
       if collectedBids.builderBid.isSome():
         collectedBids.engineBid.isNone() or builderBetterBid(
-          localBlockValueBoost,
+          0,
           collectedBids.builderBid.value().blockValue,
           collectedBids.engineBid.value().blockValue)
       else:
         if not collectedBids.engineBid.isSome():
           return head   # errors logged in router
         false
-
-  if collectedBids.engineBid.isSome():
-    if collectedBids.builderBid.isSome():
-      echo "Compared engine and builder block bids"
-    else:
-      echo "Did not receive expected builder bid; using engine block"
-  else:
-    if collectedBids.builderBid.isSome:
-      echo "Did not receive expected engine bid; using builder block"
 
   if useBuilderBlock:
     let
@@ -459,8 +341,7 @@ proc proposeBlockAux(
   withBlck(engineBid.blck):
     let
       blockRoot = hash_tree_root(forkyBlck)
-      signingRoot = compute_block_signing_root(
-        fork, genesis_validators_root, slot, blockRoot)
+      signingRoot = default(Eth2Digest)
 
       notSlashable = registerBlock(validator_index, validator_pubkey, slot, signingRoot)
 
@@ -484,10 +365,7 @@ proc proposeBlockAux(
         message: forkyBlck, signature: signature, root: blockRoot)
       blobsOpt =
         when consensusFork >= ConsensusFork.Deneb:
-          template blobsBundle: untyped =
-            engineBid.blobsBundleOpt.get
-          Opt.some(signedBlock.create_blob_sidecars(
-            blobsBundle.proofs, blobsBundle.blobs))
+          Opt.some(default(seq[BlobSidecar]))
         else:
           Opt.none(seq[BlobSidecar])
 
@@ -503,7 +381,6 @@ proc proposeBlockAux(
       return head # Validation errors logged in router
 
     echo "foo 1"
-
     notice "Block proposed",
       blockRoot = shortLog(blockRoot)
 
@@ -511,52 +388,29 @@ proc proposeBlockAux(
 
     return newBlockRef.get()
 
-proc proposeBlock(node: BeaconNode,
-                  validator: AttachedValidator,
-                  validator_pubkey: ValidatorPubKey,
-                  validator_index: ValidatorIndex,
-                  head: BlockRef,
-                  slot: Slot) {.async: (raises: [CancelledError]).} =
-  if head.slot >= slot:
-    echo "Skipping proposal, have newer head already"
-    return
+proc proposeBlock*(node: BeaconNode,
+                   head: BlockRef,
+                   slot: Slot) {.async: (raises: [CancelledError]).} =
+  let
+    validator_pubkey = pk
+    validator_index = 0.ValidatorIndex
+    validator = node.getValidatorForDuties(validator_index, slot).valueOr:
+      return
 
   let
     fork = node.cfg.forkAtEpoch(slot.epoch)
     genesis_validators_root = getStateField(node.genesisState[], genesis_validators_root)
-    randao = block:
-      let res = await validator.getEpochSignature(
-        fork, genesis_validators_root, slot.epoch)
-      if res.isErr():
-        return
-      res.get()
+    randao = default(ValidatorSig)
 
   template proposeBlockContinuation(type1, type2: untyped): auto =
     await proposeBlockAux(
       type1, type2, node, validator, validator_pubkey, validator_index, head, slot, randao, fork,
-        genesis_validators_root, 0)
+        genesis_validators_root)
 
   discard withConsensusFork(node.cfg.consensusForkAtEpoch(slot.epoch)):
-    when consensusFork >= ConsensusFork.Electra:
+    when consensusFork >= ConsensusFork.Capella:
       default(BlockRef)
-    elif consensusFork >= ConsensusFork.Capella:
-      proposeBlockContinuation(
-        consensusFork.SignedBlindedBeaconBlock,
-        consensusFork.ExecutionPayloadForSigning)
     else:
       proposeBlockContinuation(
         capella_mev.SignedBlindedBeaconBlock,
         bellatrix.ExecutionPayloadForSigning)
-
-proc getProposer(
-    head: BlockRef, slot: Slot): Opt[ValidatorIndex] =
-  Opt.some(0.ValidatorIndex)
-
-proc handleProposal*(node: BeaconNode, head: BlockRef, slot: Slot) {.async: (raises: [CancelledError]).} =
-  let
-    proposer = getProposer(head, slot).valueOr:
-      return
-    validator = node.getValidatorForDuties(proposer, slot).valueOr:
-      return
-
-  await proposeBlock(node, validator, pk, proposer, head, slot)
