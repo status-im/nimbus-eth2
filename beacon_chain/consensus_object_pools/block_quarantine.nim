@@ -105,7 +105,7 @@ func addMissing*(quarantine: var Quarantine, root: Eth2Digest) =
     return
 
   var r = root
-  while true:
+  for i in 0 .. MaxOrphans:  # Blocks are not trusted, avoid endless loops
     if r in quarantine.unviable:
       # Won't get anywhere with this block
       return
@@ -122,7 +122,7 @@ func addMissing*(quarantine: var Quarantine, root: Eth2Digest) =
     # Add if it's not there, but don't update missing counter
     if not found:
       discard quarantine.missing.hasKeyOrPut(r, MissingBlock())
-      break
+      return
 
 func removeOrphan*(
     quarantine: var Quarantine, signedBlock: ForkySignedBeaconBlock) =
