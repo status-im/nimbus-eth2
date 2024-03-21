@@ -263,8 +263,6 @@ proc requestManagerBlockLoop(
       try:
         await allFutures(verifiers)
       except CancelledError as exc:
-        for blockRoot in blockRoots:
-          rman.quarantine[].addMissing blockRoot
         var futs = newSeqOfCap[Future[void].Raising([])](verifiers.len)
         for verifier in verifiers:
           futs.add verifier.cancelAndWait()
