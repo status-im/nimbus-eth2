@@ -4,7 +4,7 @@
 import
   std/[macros, hashes, sets, strutils, tables, typetraits],
   results,
-  stew/[assign2, byteutils, endians2],
+  stew/[byteutils, endians2],
   json_serialization,
   ssz_serialization/types as sszTypes,
   ".."/[beacon_time, crypto, digest, presets]

@@ -2,8 +2,7 @@
 
 import
   std/[os, tables],
-
-  stew/[assign2, byteutils],
+  stew/[byteutils],
   chronos,
   ../spec/[
     eth2_merkleization, forks, signatures],
@@ -79,8 +78,6 @@ proc getValidator*(validators: auto,
                    pubkey: ValidatorPubKey): Opt[ValidatorAndIndex] =
   let idx = validators.findIt(it.pubkey == pubkey)
   if idx == -1:
-    # We allow adding a validator even if its key is not in the state registry:
-    # it might be that the deposit for this validator has not yet been processed
     Opt.none ValidatorAndIndex
   else:
     Opt.some ValidatorAndIndex(index: ValidatorIndex(idx),
@@ -152,7 +149,6 @@ proc makeBeaconBlockForHeadAndSlot(
     validator_index: ValidatorIndex, graffiti: GraffitiBytes, head: BlockRef,
     slot: Slot,
 
-    # These parameters are for the builder API
     execution_payload: Opt[PayloadType],
     transactions_root: Opt[Eth2Digest],
     execution_payload_root: Opt[Eth2Digest],
@@ -182,12 +178,8 @@ proc makeBeaconBlockForHeadAndSlot(
             let withdrawals = List[Withdrawal, MAX_WITHDRAWALS_PER_PAYLOAD](@[])
             if  withdrawals_root.isNone or
                 hash_tree_root(withdrawals) != withdrawals_root.get:
-              # If engine API returned a block, will use that
               return err("Builder relay provided incorrect withdrawals root")
-            # Otherwise, the state transition function notices that there are
-            # too few withdrawals.
-            assign(modified_execution_payload.get.executionPayload.withdrawals,
-                   withdrawals)
+            modified_execution_payload.get.executionPayload.withdrawals = withdrawals
 
         let fut = Future[Opt[PayloadType]].Raising([CancelledError]).init(
           "given-payload")
@@ -211,7 +203,6 @@ proc makeBeaconBlockForHeadAndSlot(
     return err("Eth1 deposits not available")
 
   let
-    # TODO workaround for https://github.com/arnetheduck/nim-results/issues/34
     payloadRes = await payloadFut
     payload = payloadRes.valueOr:
       warn "Unable to get execution payload. Skipping block proposal",
@@ -307,7 +298,6 @@ proc getBuilderBid[
     node, head, validator_pubkey, slot, randao,
     validator_index, default(GraffitiBytes))
   if blindedBlockParts.isErr:
-    # Not signed yet, fine to try to fall back on EL
     return err blindedBlockParts.error()
 
   let (executionPayloadHeader, bidValue, forkedBlck) = blindedBlockParts.get
@@ -455,8 +445,6 @@ proc proposeBlockAux(
         false
 
   if collectedBids.engineBid.isSome():
-    # Three cases: builder bid expected and absent, builder bid expected and
-    # present, and builder bid not expected.
     if collectedBids.builderBid.isSome():
       info "Compared engine and builder block bids",
         localBlockValueBoost,
@@ -467,10 +455,6 @@ proc proposeBlockAux(
       info "Did not receive expected builder bid; using engine block",
         engineBlockValue = ""
   else:
-    # Similar three cases: builder bid expected and absent, builder bid
-    # expected and present, and builder bid not expected. However, only
-    # the second is worth logging, because the other two result in this
-    # block being missed altogether, and with details logged elsewhere.
     if collectedBids.builderBid.isSome:
       info "Did not receive expected engine bid; using builder block",
         builderBlockValue =
@@ -558,8 +542,6 @@ proc proposeBlock(node: BeaconNode,
                   head: BlockRef,
                   slot: Slot) {.async: (raises: [CancelledError]).} =
   if head.slot >= slot:
-    # We should normally not have a head newer than the slot we're proposing for
-    # but this can happen if block proposal is delayed
     warn "Skipping proposal, have newer head already",
       headSlot = shortLog(head.slot),
       headBlockRoot = shortLog(head.root),
@@ -602,7 +584,6 @@ proc getProposer(
 
 proc handleProposal*(node: BeaconNode, head: BlockRef, slot: Slot) {.async: (raises: [CancelledError]).} =
   let
-    # TODO actual DAG stuff, but if can get rid of rest, can probably fake it, it's a ValidatorIndex
     proposer = getProposer(head, slot).valueOr:
       return
     validator = node.getValidatorForDuties(proposer, slot).valueOr:
