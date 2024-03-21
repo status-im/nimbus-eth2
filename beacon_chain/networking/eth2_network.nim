@@ -2013,7 +2013,8 @@ proc p2pProtocolBackendImpl*(p: P2PProtocol): Backend =
 
         try:
           mount `networkVar`.switch,
-                LPProtocol(codecs: @[`codecNameLit`], handler: snappyThunk)
+                LPProtocol.new(
+                  codecs = @[`codecNameLit`], handler = snappyThunk)
         except LPError as exc:
           # Failure here indicates that the mounting was done incorrectly which
           # would be a programming error
