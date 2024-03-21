@@ -311,8 +311,6 @@ proc proposeBlockMEV(
     Future[Result[BlockRef, string]] {.async: (raises: [CancelledError]).} =
   err "foo"
 
-import chronicles
-
 proc collectBids(
     SBBB: typedesc, EPS: typedesc, node: BeaconNode,
     validator_pubkey: ValidatorPubKey,
@@ -409,6 +407,7 @@ func create_blob_sidecars(
   res
 
 from ".."/spec/datatypes/bellatrix import shortLog
+import chronicles
 
 proc proposeBlockAux(
     SBBB: typedesc, EPS: typedesc, node: BeaconNode,
@@ -539,7 +538,6 @@ proc proposeBlock(node: BeaconNode,
 
   discard withConsensusFork(node.cfg.consensusForkAtEpoch(slot.epoch)):
     when consensusFork >= ConsensusFork.Electra:
-      debugRaiseAssert "proposeBlock; fill in Electra support"
       default(BlockRef)
     elif consensusFork >= ConsensusFork.Capella:
       proposeBlockContinuation(

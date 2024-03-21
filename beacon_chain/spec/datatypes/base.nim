@@ -5,12 +5,11 @@ import
   std/[macros, hashes, sets, strutils, tables, typetraits],
   results,
   stew/[byteutils, endians2],
-  json_serialization,
   ssz_serialization/types as sszTypes,
   ".."/[beacon_time, crypto, digest, presets]
 
 export
-  tables, results, endians2, json_serialization, sszTypes, beacon_time, crypto,
+  tables, results, endians2, sszTypes, beacon_time, crypto,
   digest, presets
 
 const SPEC_VERSION* = "1.4.0-beta.7-hotfix"
@@ -28,36 +27,6 @@ const
   BASE_REWARDS_PER_EPOCH* = 4
 
 template maxSize*(n: int) {.pragma.}
-
-# Block validation flow
-# We distinguish 4 cases depending
-# if the signature and/or transition logic of a
-# a block have been verified:
-#
-# |                            | Signature unchecked             | Signature verified          |
-# |----------------------------|-------------------------------  |-----------------------------|
-# | State transition unchecked | - UntrustedBeaconBlock          | - SigVerifiedBeaconBlock    |
-# |                            | - UntrustedIndexedAttestation   | - TrustedIndexedAttestation |
-# |                            | - UntrustedAttestation          | - TrustedAttestation        |
-# |----------------------------|-------------------------------  |-----------------------------|
-# | State transition verified  | - TransitionVerifiedBeaconBlock | - TrustedSignedBeaconBlock  |
-# |                            | - UntrustedIndexedAttestation   | - TrustedIndexedAttestation |
-# |                            | - UntrustedAttestation          | - TrustedAttestation        |
-#
-# At the moment we only introduce SigVerifiedBeaconBlock
-# and keep the old naming where BeaconBlock == UntrustedbeaconBlock
-# Also for Attestation, IndexedAttestation, AttesterSlashing, ProposerSlashing.
-# We only distinguish between the base version and the Trusted version
-# (i.e. Attestation and TrustedAttestation)
-# The Trusted version, at the moment, implies that the cryptographic signature was checked.
-# It DOES NOT imply that the state transition was verified.
-# Currently the code MUST verify the state transition as soon as the signature is verified
-#
-# TODO We could implement the trust level as either static enums or generic tags
-# and reduce duplication and improve maintenance and readability,
-# however this caused problems respectively of:
-# - ambiguous calls, in particular for chronicles, with static enums
-# - broke the compiler in SSZ and nim-serialization
 
 type
   Wei* = UInt256
@@ -529,17 +498,6 @@ template makeLimitedUInt*(T: untyped, limit: SomeUnsignedInt) =
     for i in 0'u64..<limit:
       yield T(i)
 
-  proc writeValue*(writer: var JsonWriter, value: T) {.raises: [IOError].} =
-    writeValue(writer, distinctBase value)
-
-  proc readValue*(reader: var JsonReader, value: var T)
-                {.raises: [IOError, SerializationError].} =
-    let v = T.init(reader.readValue(uint64))
-    if v.isSome():
-      value = v.get()
-    else:
-      raiseUnexpectedValue(reader, $v.error())
-
   template `==`*(x, y: T): bool = distinctBase(x) == distinctBase(y)
   template `==`*(x: T, y: uint64): bool = distinctBase(x) == y
   template `==`*(x: uint64, y: T): bool = x == distinctBase(y)
@@ -599,34 +557,9 @@ func init*(T: type CommitteeIndex, index, committees_per_slot: uint64):
   else:
     err("Committee index out of range for epoch")
 
-template writeValue*(
-    writer: var JsonWriter, value: Version | ForkDigest | DomainType) =
-  writeValue(writer, to0xHex(distinctBase(value)))
-
-proc readValue*(
-    reader: var JsonReader, value: var (Version | ForkDigest | DomainType))
-               {.raises: [IOError, SerializationError].} =
-  let hex = reader.readValue(string)
-  try:
-    hexToByteArray(hex, distinctBase(value))
-  except ValueError:
-    raiseUnexpectedValue(reader, "Hex string of 4 bytes expected")
-
 func `$`*(x: JustificationBits): string =
   # TODO, works around https://github.com/nim-lang/Nim/issues/22191
   "0x" & toHex(uint64(uint8(x)))
-
-proc readValue*(reader: var JsonReader, value: var JustificationBits)
-    {.raises: [IOError, SerializationError].} =
-  let hex = reader.readValue(string)
-  try:
-    value = JustificationBits(hexToByteArray(hex, 1)[0])
-  except ValueError:
-    raiseUnexpectedValue(reader, "Hex string of 1 byte expected")
-
-proc writeValue*(
-    writer: var JsonWriter, value: JustificationBits) {.raises: [IOError].} =
-  writer.writeValue $value
 
 # `ValidatorIndex` seq handling.
 template `[]=`*[T](a: var seq[T], b: ValidatorIndex, c: T) =
@@ -797,20 +730,7 @@ func shortLog*(v: SomeSignedVoluntaryExit): auto =
     signature: shortLog(v.signature)
   )
 
-const
-  # http://facweb.cs.depaul.edu/sjost/it212/documents/ascii-pr.htm
-  PrintableAsciiChars = {' '..'~'}
-
-func toPrettyString*(bytes: openArray[byte]): string =
-  result = strip(string.fromBytes(bytes),
-                 leading = false,
-                 chars = Whitespace + {'\0'})
-
-  # TODO: Perhaps handle UTF-8 at some point
-  if not allCharsInSet(result, PrintableAsciiChars):
-    result = "0x" & toHex(bytes)
-
-func `$`*(value: GraffitiBytes): string = toPrettyString(distinctBase value)
+func `$`*(value: GraffitiBytes): string = ""
 
 func init*(T: type GraffitiBytes, input: string): GraffitiBytes
           {.raises: [ValueError].} =
@@ -845,145 +765,8 @@ func init*(
 
 func defaultGraffitiBytes*(): GraffitiBytes = default(GraffitiBytes)
 
-proc writeValue*(
-    w: var JsonWriter, value: GraffitiBytes) {.raises: [IOError].} =
-  w.writeValue $value
-
 template `==`*(lhs, rhs: GraffitiBytes): bool =
   distinctBase(lhs) == distinctBase(rhs)
 
-proc readValue*(r: var JsonReader, T: type GraffitiBytes): T
-               {.raises: [IOError, SerializationError].} =
-  try:
-    init(GraffitiBytes, r.readValue(string))
-  except ValueError as err:
-    r.raiseUnexpectedValue err.msg
-
-func load*(
-    validators: openArray[ImmutableValidatorData2],
-    index: ValidatorIndex | uint64): Opt[CookedPubKey] =
-  if validators.lenu64() <= index.uint64:
-    Opt.none(CookedPubKey)
-  else:
-    Opt.some(validators[index.int].pubkey)
-
 template hash*(header: BeaconBlockHeader): Hash =
   hash(header.state_root)
-
-static:
-  # Sanity checks - these types should be trivial enough to copy with memcpy
-  doAssert supportsCopyMem(Validator)
-  doAssert supportsCopyMem(Eth2Digest)
-  doAssert ATTESTATION_SUBNET_COUNT <= high(distinctBase SubnetId)
-
-func getSizeofSig(x: auto, n: int = 0): seq[(string, int, int)] =
-  for name, value in x.fieldPairs:
-    when value is tuple|object:
-      result.add getSizeofSig(value, n + 1)
-    # TrustedSig and ValidatorSig differ in that they have otherwise identical
-    # fields where one is "blob" and the other is "data". They're structurally
-    # isomorphic, regardless. Grandfather that exception in, but in general it
-    # is still better to keep field names parallel.
-    result.add((name.replace("blob", "data"), sizeof(value), n))
-
-## At the GC-level, the GC is type-agnostic; it's all type-erased so
-## casting between seq[Attestation] and seq[TrustedAttestation] will
-## not disrupt GC operations.
-##
-## These SHOULD be used in function calls to avoid expensive temporary.
-## see https://github.com/status-im/nimbus-eth2/pull/2250#discussion_r562010679
-template isomorphicCast*[T, U](x: U): T =
-  # Each of these pairs of types has ABI-compatible memory representations.
-  static: doAssert (T is ref) == (U is ref)
-  when T is ref:
-    type
-      TT = typeof default(typeof T)[]
-      UU = typeof default(typeof U)[]
-    static:
-      doAssert sizeof(TT) == sizeof(UU)
-      doAssert getSizeofSig(TT()) == getSizeofSig(UU())
-    cast[T](x)
-  else:
-    static:
-      doAssert getSizeofSig(T()) == getSizeofSig(U())
-      doAssert sizeof(T) == sizeof(U)
-    cast[ptr T](unsafeAddr x)[]
-
-func prune*(cache: var StateCache, epoch: Epoch) =
-  # Prune all cache information that is no longer relevant in order to process
-  # the given epoch
-  if epoch < 2: return
-
-  let
-    pruneEpoch = epoch - 2
-
-  var drops: seq[Slot]
-  block:
-    for k in cache.total_active_balance.keys:
-      if k < pruneEpoch:
-        drops.add pruneEpoch.start_slot
-    for drop in drops:
-      cache.total_active_balance.del drop.epoch
-    drops.setLen(0)
-
-  block:
-    for k in cache.shuffled_active_validator_indices.keys:
-      if k < pruneEpoch:
-        drops.add pruneEpoch.start_slot
-    for drop in drops:
-      cache.shuffled_active_validator_indices.del drop.epoch
-    drops.setLen(0)
-
-  block:
-    for k in cache.beacon_proposer_indices.keys:
-      if k < pruneEpoch.start_slot:
-        drops.add k
-    for drop in drops:
-      cache.beacon_proposer_indices.del drop
-    drops.setLen(0)
-
-  block:
-    for k in cache.sync_committees.keys:
-      if k < pruneEpoch.sync_committee_period:
-        drops.add(k.start_epoch.start_slot)
-    for drop in drops:
-      cache.sync_committees.del drop.sync_committee_period
-    drops.setLen(0)
-
-func clear*(cache: var StateCache) =
-  cache.total_active_balance.clear
-  cache.shuffled_active_validator_indices.clear
-  cache.beacon_proposer_indices.clear
-  cache.sync_committees.clear
-
-func checkForkConsistency*(cfg: RuntimeConfig) =
-  let forkVersions =
-    [cfg.GENESIS_FORK_VERSION, cfg.ALTAIR_FORK_VERSION,
-     cfg.BELLATRIX_FORK_VERSION, cfg.CAPELLA_FORK_VERSION,
-     cfg.DENEB_FORK_VERSION, cfg.ELECTRA_FORK_VERSION]
-
-  for i in 0 ..< forkVersions.len:
-    for j in i+1 ..< forkVersions.len:
-      doAssert distinctBase(forkVersions[i]) != distinctBase(forkVersions[j])
-
-  template assertForkEpochOrder(
-      firstForkEpoch: Epoch, secondForkEpoch: Epoch) =
-    doAssert distinctBase(firstForkEpoch) <= distinctBase(secondForkEpoch)
-
-    # https://github.com/ethereum/consensus-specs/issues/2902 multiple
-    # fork transitions per epoch don't work in a well-defined way.
-    doAssert distinctBase(firstForkEpoch) < distinctBase(secondForkEpoch) or
-             firstForkEpoch in [GENESIS_EPOCH, FAR_FUTURE_EPOCH]
-
-  assertForkEpochOrder(cfg.ALTAIR_FORK_EPOCH, cfg.BELLATRIX_FORK_EPOCH)
-  assertForkEpochOrder(cfg.BELLATRIX_FORK_EPOCH, cfg.CAPELLA_FORK_EPOCH)
-  assertForkEpochOrder(cfg.CAPELLA_FORK_EPOCH, cfg.DENEB_FORK_EPOCH)
-  assertForkEpochOrder(cfg.DENEB_FORK_EPOCH, cfg.ELECTRA_FORK_EPOCH)
-
-func ofLen*[T, N](ListType: type List[T, N], n: int): ListType =
-  if n < N:
-    distinctBase(result).setLen(n)
-  else:
-    raise newException(SszSizeMismatchError)
-
-template debugRaiseAssert*(s: string) = discard
