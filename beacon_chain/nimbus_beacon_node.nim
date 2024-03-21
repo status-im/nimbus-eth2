@@ -23,10 +23,6 @@ import
   "."/spec/forks,
   "."/consensus_object_pools/block_pools_types
 
-proc putBlock(
-    dag: ChainDAGRef, signedBlock: ForkyTrustedSignedBeaconBlock) =
-  dag.db.putBlock(signedBlock)
-
 proc preInit(
     T: type ChainDAGRef, state: ForkedHashedBeaconState) =
   doAssert getStateField(state, slot).is_epoch,

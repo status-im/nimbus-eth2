@@ -410,42 +410,7 @@ type
 
     root* {.dontSerialize.}: Eth2Digest # cached root of signed beacon block
 
-  SigVerifiedSignedBeaconBlock* = object
-    ## A SignedBeaconBlock with signatures verified
-    ## including:
-    ## - Block signature
-    ## - BeaconBlockBody
-    ##   - Randao reveal
-    ##   - Attestations
-    ##   - ProposerSlashing (SignedBeaconBlockHeader)
-    ##   - AttesterSlashing (IndexedAttestation)
-    ##   - SignedVoluntaryExits
-    ##
-    ##   - ETH1Data (Deposits) can contain invalid BLS signatures
-    ##
-    ## The block state transition has NOT been verified
-    message*: SigVerifiedBeaconBlock
-    signature*: TrustedSig
-
-    root* {.dontSerialize.}: Eth2Digest # cached root of signed beacon block
-
-  MsgTrustedSignedBeaconBlock* = object
-    message*: TrustedBeaconBlock
-    signature*: ValidatorSig
-
-    root* {.dontSerialize.}: Eth2Digest # cached root of signed beacon block
-
-  TrustedSignedBeaconBlock* = object
-    message*: TrustedBeaconBlock
-    signature*: TrustedSig
-
-    root* {.dontSerialize.}: Eth2Digest # cached root of signed beacon block
-
-  SomeSignedBeaconBlock* =
-    SignedBeaconBlock |
-    SigVerifiedSignedBeaconBlock |
-    MsgTrustedSignedBeaconBlock |
-    TrustedSignedBeaconBlock
+  SomeSignedBeaconBlock* = SignedBeaconBlock
   SomeBeaconBlock* =
     BeaconBlock |
     SigVerifiedBeaconBlock |
@@ -512,31 +477,3 @@ func shortLog*(v: ExecutionPayload): auto =
     blob_gas_used: $(v.blob_gas_used),
     excess_blob_gas: $(v.excess_blob_gas)
   )
-
-template asSigned*(
-    x: SigVerifiedSignedBeaconBlock |
-       MsgTrustedSignedBeaconBlock |
-       TrustedSignedBeaconBlock): SignedBeaconBlock =
-  isomorphicCast[SignedBeaconBlock](x)
-
-template asSigVerified*(
-    x: SignedBeaconBlock |
-       MsgTrustedSignedBeaconBlock |
-       TrustedSignedBeaconBlock): SigVerifiedSignedBeaconBlock =
-  isomorphicCast[SigVerifiedSignedBeaconBlock](x)
-
-template asSigVerified*(
-    x: BeaconBlock | TrustedBeaconBlock): SigVerifiedBeaconBlock =
-  isomorphicCast[SigVerifiedBeaconBlock](x)
-
-template asMsgTrusted*(
-    x: SignedBeaconBlock |
-       SigVerifiedSignedBeaconBlock |
-       TrustedSignedBeaconBlock): MsgTrustedSignedBeaconBlock =
-  isomorphicCast[MsgTrustedSignedBeaconBlock](x)
-
-template asTrusted*(
-    x: SignedBeaconBlock |
-       SigVerifiedSignedBeaconBlock |
-       MsgTrustedSignedBeaconBlock): TrustedSignedBeaconBlock =
-  isomorphicCast[TrustedSignedBeaconBlock](x)

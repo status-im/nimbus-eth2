@@ -1,5 +1,4 @@
 import
-  std/macros,
   results,
   "."/[
     block_id, eth2_merkleization, eth2_ssz_serialization,
@@ -36,26 +35,8 @@ type
     deneb.BeaconBlock |
     electra.BeaconBlock
 
-  ForkySigVerifiedBeaconBlock =
-    phase0.SigVerifiedBeaconBlock |
-    altair.SigVerifiedBeaconBlock |
-    bellatrix.SigVerifiedBeaconBlock |
-    capella.SigVerifiedBeaconBlock |
-    deneb.SigVerifiedBeaconBlock |
-    electra.SigVerifiedBeaconBlock
-
-  ForkyTrustedBeaconBlock =
-    phase0.TrustedBeaconBlock |
-    altair.TrustedBeaconBlock |
-    bellatrix.TrustedBeaconBlock |
-    capella.TrustedBeaconBlock |
-    deneb.TrustedBeaconBlock |
-    electra.TrustedBeaconBlock
-
   SomeForkyBeaconBlock* =
-    ForkyBeaconBlock |
-    ForkySigVerifiedBeaconBlock |
-    ForkyTrustedBeaconBlock
+    ForkyBeaconBlock
 
   ForkyExecutionPayloadForSigning* =
     bellatrix.ExecutionPayloadForSigning |
@@ -71,10 +52,6 @@ type
     of ConsensusFork.Capella:   capellaData:   capella.BeaconBlock
     of ConsensusFork.Deneb:     denebData:     deneb.BeaconBlock
     of ConsensusFork.Electra:   electraData:   electra.BeaconBlock
-
-  Web3SignerForkedBeaconBlock = object
-    kind: ConsensusFork
-    data: BeaconBlockHeader
 
   ForkedBlindedBeaconBlock = object
     case kind: ConsensusFork
@@ -118,53 +95,8 @@ type
     of ConsensusFork.Deneb:     denebData:     deneb_mev.SignedBlindedBeaconBlock
     of ConsensusFork.Electra:   electraData:   electra.SignedBeaconBlock
 
-  ForkySigVerifiedSignedBeaconBlock =
-    phase0.SigVerifiedSignedBeaconBlock |
-    altair.SigVerifiedSignedBeaconBlock |
-    bellatrix.SigVerifiedSignedBeaconBlock |
-    capella.SigVerifiedSignedBeaconBlock |
-    deneb.SigVerifiedSignedBeaconBlock |
-    electra.SigVerifiedSignedBeaconBlock
-
-  ForkyMsgTrustedSignedBeaconBlock =
-    phase0.MsgTrustedSignedBeaconBlock |
-    altair.MsgTrustedSignedBeaconBlock |
-    bellatrix.MsgTrustedSignedBeaconBlock |
-    capella.MsgTrustedSignedBeaconBlock |
-    deneb.MsgTrustedSignedBeaconBlock |
-    electra.MsgTrustedSignedBeaconBlock
-
-  ForkyTrustedSignedBeaconBlock* =
-    phase0.TrustedSignedBeaconBlock |
-    altair.TrustedSignedBeaconBlock |
-    bellatrix.TrustedSignedBeaconBlock |
-    capella.TrustedSignedBeaconBlock |
-    deneb.TrustedSignedBeaconBlock |
-    electra.TrustedSignedBeaconBlock
-
-  ForkedMsgTrustedSignedBeaconBlock = object
-    case kind: ConsensusFork
-    of ConsensusFork.Phase0:    phase0Data:    phase0.MsgTrustedSignedBeaconBlock
-    of ConsensusFork.Altair:    altairData:    altair.MsgTrustedSignedBeaconBlock
-    of ConsensusFork.Bellatrix: bellatrixData: bellatrix.MsgTrustedSignedBeaconBlock
-    of ConsensusFork.Capella:   capellaData:   capella.MsgTrustedSignedBeaconBlock
-    of ConsensusFork.Deneb:     denebData:     deneb.MsgTrustedSignedBeaconBlock
-    of ConsensusFork.Electra:   electraData:   electra.MsgTrustedSignedBeaconBlock
-
-  ForkedTrustedSignedBeaconBlock = object
-    case kind: ConsensusFork
-    of ConsensusFork.Phase0:    phase0Data:    phase0.TrustedSignedBeaconBlock
-    of ConsensusFork.Altair:    altairData:    altair.TrustedSignedBeaconBlock
-    of ConsensusFork.Bellatrix: bellatrixData: bellatrix.TrustedSignedBeaconBlock
-    of ConsensusFork.Capella:   capellaData:   capella.TrustedSignedBeaconBlock
-    of ConsensusFork.Deneb:     denebData:     deneb.TrustedSignedBeaconBlock
-    of ConsensusFork.Electra:   electraData:   electra.TrustedSignedBeaconBlock
-
   SomeForkySignedBeaconBlock =
-    ForkySignedBeaconBlock |
-    ForkySigVerifiedSignedBeaconBlock |
-    ForkyMsgTrustedSignedBeaconBlock |
-    ForkyTrustedSignedBeaconBlock
+    ForkySignedBeaconBlock
 
 template kind*(
     x: typedesc[
@@ -172,13 +104,7 @@ template kind*(
       phase0.HashedBeaconState |
       phase0.BeaconBlock |
       phase0.SignedBeaconBlock |
-      phase0.TrustedBeaconBlock |
-      phase0.BeaconBlockBody |
-      phase0.SigVerifiedBeaconBlockBody |
-      phase0.TrustedBeaconBlockBody |
-      phase0.SigVerifiedSignedBeaconBlock |
-      phase0.MsgTrustedSignedBeaconBlock |
-      phase0.TrustedSignedBeaconBlock]): ConsensusFork =
+      phase0.BeaconBlockBody]): ConsensusFork =
   ConsensusFork.Phase0
 
 template kind*(
@@ -187,13 +113,7 @@ template kind*(
       altair.HashedBeaconState |
       altair.BeaconBlock |
       altair.SignedBeaconBlock |
-      altair.TrustedBeaconBlock |
-      altair.BeaconBlockBody |
-      altair.SigVerifiedBeaconBlockBody |
-      altair.TrustedBeaconBlockBody |
-      altair.SigVerifiedSignedBeaconBlock |
-      altair.MsgTrustedSignedBeaconBlock |
-      altair.TrustedSignedBeaconBlock]): ConsensusFork =
+      altair.BeaconBlockBody]): ConsensusFork =
   ConsensusFork.Altair
 
 template kind*(
@@ -205,14 +125,8 @@ template kind*(
       bellatrix.ExecutionPayloadHeader |
       bellatrix.BeaconBlock |
       bellatrix.SignedBeaconBlock |
-      bellatrix.TrustedBeaconBlock |
       bellatrix.BeaconBlockBody |
-      bellatrix.SigVerifiedBeaconBlockBody |
-      bellatrix.TrustedBeaconBlockBody |
-      bellatrix.SigVerifiedSignedBeaconBlock |
-      bellatrix.MsgTrustedSignedBeaconBlock |
-      bellatrix.TrustedSignedBeaconBlock] |
-      bellatrix_mev.SignedBlindedBeaconBlock): ConsensusFork =
+      bellatrix_mev.SignedBlindedBeaconBlock]): ConsensusFork =
   ConsensusFork.Bellatrix
 
 template kind*(
@@ -224,13 +138,7 @@ template kind*(
       capella.ExecutionPayloadHeader |
       capella.BeaconBlock |
       capella.SignedBeaconBlock |
-      capella.TrustedBeaconBlock |
       capella.BeaconBlockBody |
-      capella.SigVerifiedBeaconBlockBody |
-      capella.TrustedBeaconBlockBody |
-      capella.SigVerifiedSignedBeaconBlock |
-      capella.MsgTrustedSignedBeaconBlock |
-      capella.TrustedSignedBeaconBlock |
       capella_mev.SignedBlindedBeaconBlock]): ConsensusFork =
   ConsensusFork.Capella
 
@@ -243,13 +151,7 @@ template kind*(
       deneb.ExecutionPayloadHeader |
       deneb.BeaconBlock |
       deneb.SignedBeaconBlock |
-      deneb.TrustedBeaconBlock |
       deneb.BeaconBlockBody |
-      deneb.SigVerifiedBeaconBlockBody |
-      deneb.TrustedBeaconBlockBody |
-      deneb.SigVerifiedSignedBeaconBlock |
-      deneb.MsgTrustedSignedBeaconBlock |
-      deneb.TrustedSignedBeaconBlock |
       deneb_mev.SignedBlindedBeaconBlock]): ConsensusFork =
   ConsensusFork.Deneb
 
@@ -262,13 +164,7 @@ template kind*(
       electra.ExecutionPayloadHeader |
       electra.BeaconBlock |
       electra.SignedBeaconBlock |
-      electra.TrustedBeaconBlock |
-      electra.BeaconBlockBody |
-      electra.SigVerifiedBeaconBlockBody |
-      electra.TrustedBeaconBlockBody |
-      electra.SigVerifiedSignedBeaconBlock |
-      electra.MsgTrustedSignedBeaconBlock |
-      electra.TrustedSignedBeaconBlock]): ConsensusFork =
+      electra.BeaconBlockBody]): ConsensusFork =
   ConsensusFork.Electra
 
 template SignedBeaconBlock*(kind: static ConsensusFork): auto =
@@ -331,10 +227,6 @@ template withConsensusFork*(
     const consensusFork {.inject, used.} = ConsensusFork.Phase0
     body
 
-debugRaiseAssert "eth2_merkleization has been checked and `hash_tree_root` is up to date"
-static: doAssert ConsensusFork.high == ConsensusFork.Electra,
-  "eth2_merkleization has been checked and `hash_tree_root` is up to date"   # TODO
-
 template init*(T: type ForkedSignedBeaconBlock, blck: phase0.SignedBeaconBlock): T =
   T(kind: ConsensusFork.Phase0, phase0Data: blck)
 template init*(T: type ForkedSignedBeaconBlock, blck: altair.SignedBeaconBlock): T =
@@ -380,15 +272,6 @@ template getStateField*(x: ForkedHashedBeaconState, y: untyped): untyped =
     withState(x): unsafeAddr forkyState.data.y)[]
 
 func consensusForkAtEpoch*(cfg: RuntimeConfig, epoch: Epoch): ConsensusFork =
-  static:
-    doAssert high(ConsensusFork) == ConsensusFork.Electra
-    doAssert ConsensusFork.Electra   > ConsensusFork.Deneb
-    doAssert ConsensusFork.Deneb     > ConsensusFork.Capella
-    doAssert ConsensusFork.Capella   > ConsensusFork.Bellatrix
-    doAssert ConsensusFork.Bellatrix > ConsensusFork.Altair
-    doAssert ConsensusFork.Altair    > ConsensusFork.Phase0
-    doAssert GENESIS_EPOCH == 0
-
   if   epoch >= cfg.ELECTRA_FORK_EPOCH:   ConsensusFork.Electra
   elif epoch >= cfg.DENEB_FORK_EPOCH:     ConsensusFork.Deneb
   elif epoch >= cfg.CAPELLA_FORK_EPOCH:   ConsensusFork.Capella
@@ -398,8 +281,8 @@ func consensusForkAtEpoch*(cfg: RuntimeConfig, epoch: Epoch): ConsensusFork =
 
 template withBlck*(
     x: ForkedBeaconBlock |
-       ForkedSignedBeaconBlock | ForkedMsgTrustedSignedBeaconBlock |
-       ForkedTrustedSignedBeaconBlock | ForkedBlindedBeaconBlock |
+       ForkedSignedBeaconBlock |
+       ForkedBlindedBeaconBlock |
        ForkedSignedBlindedBeaconBlock,
     body: untyped): untyped =
   case x.kind
@@ -434,22 +317,13 @@ func proposer_index(x: ForkedBeaconBlock): uint64 =
 func hash_tree_root(x: ForkedBeaconBlock): Eth2Digest =
   withBlck(x): hash_tree_root(forkyBlck)
 
-func hash_tree_root(x: Web3SignerForkedBeaconBlock): Eth2Digest =
-  hash_tree_root(x.data)
-
 func hash_tree_root(_: Opt[auto]) {.error.}
 
 template signature(x: ForkedSignedBeaconBlock |
-                       ForkedMsgTrustedSignedBeaconBlock |
                        ForkedSignedBlindedBeaconBlock): ValidatorSig =
   withBlck(x): forkyBlck.signature
 
-template signature(x: ForkedTrustedSignedBeaconBlock): TrustedSig =
-  withBlck(x): forkyBlck.signature
-
-template slot(x: ForkedSignedBeaconBlock |
-                  ForkedMsgTrustedSignedBeaconBlock |
-                  ForkedTrustedSignedBeaconBlock): Slot =
+template slot(x: ForkedSignedBeaconBlock): Slot =
   withBlck(x): forkyBlck.message.slot
 
 func toBeaconBlockHeader(
@@ -467,11 +341,6 @@ func toBeaconBlockHeader(
 template toBeaconBlockHeader(
     blck: SomeForkySignedBeaconBlock): BeaconBlockHeader =
   blck.message.toBeaconBlockHeader()
-
-template toBeaconBlockHeader(
-    blckParam: ForkedMsgTrustedSignedBeaconBlock |
-               ForkedTrustedSignedBeaconBlock): BeaconBlockHeader =
-  withBlck(blckParam): forkyBlck.toBeaconBlockHeader()
 
 func toSignedBeaconBlockHeader*(
     signedBlock: SomeForkySignedBeaconBlock |

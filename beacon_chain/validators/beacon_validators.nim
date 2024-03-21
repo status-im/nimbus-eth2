@@ -11,9 +11,7 @@ import
   "."/[
     slashing_protection]
 
-import
-  chronos,
-  ../spec/[datatypes/base, signatures, crypto]
+import ../spec/[datatypes/base, crypto]
 type
   ValidatorKind* {.pure.} = enum
     Local, Remote
@@ -35,7 +33,6 @@ func shortLog*(v: AttachedValidator): string =
     ""
   of ValidatorKind.Remote:
     ""
-import ".."/spec/forks
 proc getBlockSignature(fork: Fork,
                         genesis_validators_root: Eth2Digest, slot: Slot,
                         block_root: Eth2Digest,
@@ -58,7 +55,7 @@ proc getEpochSignature(v: AttachedValidator, fork: Fork,
 from std/sequtils import mapIt
 import ".."/spec/mev/[capella_mev, deneb_mev]
 from ".."/spec/datatypes/deneb import
-  BlobSidecar, Blobs, BlobsBundle, KzgProof, KzgProofs, kzg_commitment_inclusion_proof_gindex
+  BlobSidecar, Blobs, BlobsBundle, KzgCommitments, KzgProof, KzgProofs, kzg_commitment_inclusion_proof_gindex, shortLog
 
 type
   EngineBid = tuple[
@@ -129,8 +126,7 @@ proc getBlockProposalEth1Data(node: BeaconNode,
                               BlockProposalEth1Data = default(BlockProposalEth1Data)
 
 import chronicles
-from ".."/spec/datatypes/capella import BeaconBlockValidatorChanges, shortLog
-from ".."/spec/datatypes/deneb import KzgCommitments, shortLog
+from ".."/spec/datatypes/capella import BeaconBlockValidatorChanges, Withdrawal, shortLog
 proc makeBeaconBlock(
     cfg: RuntimeConfig,
     state: var ForkedHashedBeaconState,
@@ -149,8 +145,6 @@ proc makeBeaconBlock(
     kzg_commitments: Opt[KzgCommitments]):
     Result[ForkedBeaconBlock, cstring] =
   ok(default(ForkedBeaconBlock))
-
-from ".."/spec/datatypes/capella import Withdrawal
 
 proc makeBeaconBlockForHeadAndSlot(
     PayloadType: type ForkyExecutionPayloadForSigning,

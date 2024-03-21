@@ -351,44 +351,6 @@ type
 
     body*: BeaconBlockBody
 
-  SigVerifiedBeaconBlock* = object
-    ## A BeaconBlock that contains verified signatures
-    ## but that has not been verified for state transition
-
-    slot*: Slot
-    proposer_index*: uint64 # `ValidatorIndex` after validation
-
-    parent_root*: Eth2Digest
-      ## Root hash of the previous block
-
-    state_root*: Eth2Digest
-      ## The state root, _after_ this block has been processed
-
-    body*: SigVerifiedBeaconBlockBody
-
-  TrustedBeaconBlock* = object
-    ## When we receive blocks from outside sources, they are untrusted and go
-    ## through several layers of validation. Blocks that have gone through
-    ## validations can be trusted to be well-formed, with a correct signature,
-    ## having a parent and applying cleanly to the state that their parent
-    ## left them with.
-    ##
-    ## When loading such blocks from the database, to rewind states for example,
-    ## it is expensive to redo the validations (in particular, the signature
-    ## checks), thus `TrustedBlock` uses a `TrustedSig` type to mark that these
-    ## checks can be skipped.
-    ##
-    ## TODO this could probably be solved with some type trickery, but there
-    ##      too many bugs in nim around generics handling, and we've used up
-    ##      the trickery budget in the serialization library already. Until
-    ##      then, the type must be manually kept compatible with its untrusted
-    ##      cousin.
-    slot*: Slot
-    proposer_index*: uint64 # `ValidatorIndex` after validation
-    parent_root*: Eth2Digest
-    state_root*: Eth2Digest
-    body*: TrustedBeaconBlockBody
-
   # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.7/specs/altair/beacon-chain.md#beaconblockbody
   BeaconBlockBody* = object
     randao_reveal*: ValidatorSig
@@ -408,63 +370,10 @@ type
     # [New in Altair]
     sync_aggregate*: SyncAggregate
 
-  SigVerifiedBeaconBlockBody* = object
-    ## A BeaconBlock body with signatures verified
-    ## including:
-    ## - Randao reveal
-    ## - Attestations
-    ## - ProposerSlashing (SignedBeaconBlockHeader)
-    ## - AttesterSlashing (IndexedAttestation)
-    ## - SignedVoluntaryExits
-    ## - SyncAggregate
-    ##
-    ## However:
-    ## - ETH1Data (Deposits) can contain invalid BLS signatures
-    ##
-    ## The block state transition has NOT been verified
-    randao_reveal*: TrustedSig
-    eth1_data*: Eth1Data
-      ## Eth1 data vote
-
-    graffiti*: GraffitiBytes
-      ## Arbitrary data
-
-    # Operations
-    proposer_slashings*: List[TrustedProposerSlashing, Limit MAX_PROPOSER_SLASHINGS]
-    attester_slashings*: List[TrustedAttesterSlashing, Limit MAX_ATTESTER_SLASHINGS]
-    attestations*: List[TrustedAttestation, Limit MAX_ATTESTATIONS]
-    deposits*: List[Deposit, Limit MAX_DEPOSITS]
-    voluntary_exits*: List[TrustedSignedVoluntaryExit, Limit MAX_VOLUNTARY_EXITS]
-
-    # [New in Altair]
-    sync_aggregate*: TrustedSyncAggregate
-
-  SyncnetBits* = BitArray[SYNC_COMMITTEE_SUBNET_COUNT]
-
   # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.7/specs/altair/p2p-interface.md#metadata
   MetaData* = object
     seq_number*: uint64
     attnets*: AttnetBits
-    syncnets*: SyncnetBits
-
-  TrustedBeaconBlockBody* = object
-    ## A full verified block
-    randao_reveal*: TrustedSig
-    eth1_data*: Eth1Data
-      ## Eth1 data vote
-
-    graffiti*: GraffitiBytes
-      ## Arbitrary data
-
-    # Operations
-    proposer_slashings*: List[TrustedProposerSlashing, Limit MAX_PROPOSER_SLASHINGS]
-    attester_slashings*: List[TrustedAttesterSlashing, Limit MAX_ATTESTER_SLASHINGS]
-    attestations*: List[TrustedAttestation, Limit MAX_ATTESTATIONS]
-    deposits*: List[Deposit, Limit MAX_DEPOSITS]
-    voluntary_exits*: List[TrustedSignedVoluntaryExit, Limit MAX_VOLUNTARY_EXITS]
-
-    # [New in Altair]
-    sync_aggregate*: TrustedSyncAggregate
 
   # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.6/specs/phase0/beacon-chain.md#signedbeaconblock
   SignedBeaconBlock* = object
@@ -473,50 +382,9 @@ type
 
     root* {.dontSerialize.}: Eth2Digest # cached root of signed beacon block
 
-  SigVerifiedSignedBeaconBlock* = object
-    ## A SignedBeaconBlock with signatures verified
-    ## including:
-    ## - Block signature
-    ## - BeaconBlockBody
-    ##   - Randao reveal
-    ##   - Attestations
-    ##   - ProposerSlashing (SignedBeaconBlockHeader)
-    ##   - AttesterSlashing (IndexedAttestation)
-    ##   - SignedVoluntaryExits
-    ##
-    ##   - ETH1Data (Deposits) can contain invalid BLS signatures
-    ##
-    ## The block state transition has NOT been verified
-    message*: SigVerifiedBeaconBlock
-    signature*: TrustedSig
-
-    root* {.dontSerialize.}: Eth2Digest # cached root of signed beacon block
-
-  MsgTrustedSignedBeaconBlock* = object
-    message*: TrustedBeaconBlock
-    signature*: ValidatorSig
-
-    root* {.dontSerialize.}: Eth2Digest # cached root of signed beacon block
-
-  TrustedSignedBeaconBlock* = object
-    message*: TrustedBeaconBlock
-    signature*: TrustedSig
-
-    root* {.dontSerialize.}: Eth2Digest # cached root of signed beacon block
-
-  SomeSignedBeaconBlock* =
-    SignedBeaconBlock |
-    SigVerifiedSignedBeaconBlock |
-    MsgTrustedSignedBeaconBlock |
-    TrustedSignedBeaconBlock
-  SomeBeaconBlock* =
-    BeaconBlock |
-    SigVerifiedBeaconBlock |
-    TrustedBeaconBlock
-  SomeBeaconBlockBody* =
-    BeaconBlockBody |
-    SigVerifiedBeaconBlockBody |
-    TrustedBeaconBlockBody
+  SomeSignedBeaconBlock* = SignedBeaconBlock
+  SomeBeaconBlock* = BeaconBlock
+  SomeBeaconBlockBody* = BeaconBlockBody
 
   SomeSyncAggregate* = SyncAggregate | TrustedSyncAggregate
 
@@ -585,7 +453,6 @@ func shortLog*(v: SomeBeaconBlock): auto =
     attestations_len: v.body.attestations.len(),
     deposits_len: v.body.deposits.len(),
     voluntary_exits_len: v.body.voluntary_exits.len(),
-    sync_committee_participants: v.body.sync_aggregate.num_active_participants,
     block_number: 0'u64, # Bellatrix compat
     block_hash: "",      # Bellatrix compat
     parent_hash: "",     # Bellatrix compat
@@ -689,35 +556,3 @@ func shortLog*(v: LightClientOptimisticUpdate): auto =
 func clear*(info: var EpochInfo) =
   info.validators.setLen(0)
   info.balances = UnslashedParticipatingBalances()
-
-template asSigned*(
-    x: SigVerifiedSignedBeaconBlock |
-       MsgTrustedSignedBeaconBlock |
-       TrustedSignedBeaconBlock): SignedBeaconBlock =
-  isomorphicCast[SignedBeaconBlock](x)
-
-template asSigVerified*(
-    x: SignedBeaconBlock |
-       MsgTrustedSignedBeaconBlock |
-       TrustedSignedBeaconBlock): SigVerifiedSignedBeaconBlock =
-  isomorphicCast[SigVerifiedSignedBeaconBlock](x)
-
-template asSigVerified*(
-    x: BeaconBlock | TrustedBeaconBlock): SigVerifiedBeaconBlock =
-  isomorphicCast[SigVerifiedBeaconBlock](x)
-
-template asMsgTrusted*(
-    x: SignedBeaconBlock |
-       SigVerifiedSignedBeaconBlock |
-       TrustedSignedBeaconBlock): MsgTrustedSignedBeaconBlock =
-  isomorphicCast[MsgTrustedSignedBeaconBlock](x)
-
-template asTrusted*(
-    x: SignedBeaconBlock |
-       SigVerifiedSignedBeaconBlock |
-       MsgTrustedSignedBeaconBlock): TrustedSignedBeaconBlock =
-  isomorphicCast[TrustedSignedBeaconBlock](x)
-
-template asTrusted*(
-    x: SyncAggregate): TrustedSyncAggregate =
-  isomorphicCast[TrustedSyncAggregate](x)
