@@ -647,7 +647,7 @@ type
       # https://github.com/prysmaticlabs/prysm/pull/12227/files
       localBlockValueBoost* {.
         desc: "Increase execution layer block values for builder bid comparison by a percentage"
-        defaultValue: 10
+        defaultValue: 0
         name: "local-block-value-boost" .}: uint8
 
       historyMode* {.
