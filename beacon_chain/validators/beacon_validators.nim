@@ -261,7 +261,7 @@ proc syncStatus*(node: BeaconNode, head: BlockRef): ChainSyncStatus =
     # We may have poor connectivity, wait until more peers are available.
     # This could also be intermittent, as state replays while chain is degraded
     # may take significant amounts of time, during which many peers are lost
-    debug "Chain appears to have stalled, but have low peers",
+    trace "Chain appears to have stalled, but have low peers",
       numPeers, maxPeers = node.config.maxPeers
     return ChainSyncStatus.Syncing
 
