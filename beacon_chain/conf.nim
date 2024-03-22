@@ -4,14 +4,13 @@ import
   stew/[io2, byteutils],
   json_serialization,
   ./spec/crypto,
-  ./spec/datatypes/base,
-  ./networking/network_metadata
+  ./spec/datatypes/base
 
 from std/os import getHomeDir, parentDir, `/`
 from std/strutils import parseBiggestUInt, replace
 export
   uri,
-  defs, parseCmdArg, completeCmdArg, network_metadata
+  defs, parseCmdArg, completeCmdArg
 
 {.pragma: windowsOnly, hidden.}
 {.pragma: posixOnly.}
@@ -333,19 +332,3 @@ template databaseDir*(config: AnyConf): string =
 template writeValue*(writer: var JsonWriter,
                      value: TypedInputFile|InputFile|InputDir|OutPath|OutDir|OutFile) =
   writer.writeValue(string value)
-
-proc loadEth2Network*(eth2Network: Option[string]): Eth2NetworkMetadata =
-  if eth2Network.isSome:
-    getMetadataForNetwork(eth2Network.get)
-  else:
-    when const_preset == "gnosis":
-      getMetadataForNetwork("gnosis")
-    elif const_preset == "mainnet":
-      getMetadataForNetwork("mainnet")
-    else:
-      # Presumably other configurations can have other defaults, but for now
-      # this simplifies the flow
-      quit 1
-
-template loadEth2Network*(config: BeaconNodeConf): Eth2NetworkMetadata =
-  loadEth2Network(config.eth2Network)

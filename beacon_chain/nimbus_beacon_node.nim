@@ -9,10 +9,8 @@ import
 
 proc init(T: type BeaconNode,
           config: BeaconNodeConf,
-          metadata: Eth2NetworkMetadata): Future[BeaconNode]
+          cfg: RuntimeConfig): Future[BeaconNode]
          {.async.} =
-  template cfg: auto = metadata.cfg
-
   let node = BeaconNode(
     cfg: cfg)
 
@@ -64,8 +62,8 @@ when isMainModule:
       raiseAssert exc.msg
   
     let
-      metadata = loadEth2NetworkMetadata(dataDir).expect("Metadata is compatible")
-      node = waitFor BeaconNode.init(runNodeConf, metadata)
+      cfg = RuntimeConfig(ALTAIR_FORK_EPOCH: 0.Epoch, BELLATRIX_FORK_EPOCH: 0.Epoch, CAPELLA_FORK_EPOCH: FAR_FUTURE_EPOCH)
+      node = waitFor BeaconNode.init(runNodeConf, cfg)
   
     node.start()
   
