@@ -49,9 +49,6 @@ proc routeSignedBeaconBlock*(
               msg = ""
             return err("")
 
-  let
-    delay = 0
-
   var blobRefs = Opt.none(BlobSidecars)
   let added = await addBlock(
     ForkedSignedBeaconBlock.init(blck), blobRefs)
