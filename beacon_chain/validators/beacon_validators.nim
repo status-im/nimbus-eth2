@@ -35,7 +35,7 @@ proc getBlockSignature(fork: Fork,
                        {.async: (raises: [CancelledError]).} =
   SignatureResult.ok(default(ValidatorSig))
 from std/sequtils import mapIt
-import ".."/spec/mev/[capella_mev, deneb_mev]
+import ".."/spec/mev/capella_mev
 from ".."/spec/datatypes/deneb import
   BlobSidecar, Blobs, BlobsBundle, KzgCommitments, KzgProof, KzgProofs, kzg_commitment_inclusion_proof_gindex, shortLog
 
@@ -162,28 +162,23 @@ proc makeBeaconBlockForHeadAndSlot(
     kzg_commitments = Opt.none(KzgCommitments))
 
 proc blindedBlockCheckSlashingAndSign[
-    T:
-      capella_mev.SignedBlindedBeaconBlock |
-      deneb_mev.SignedBlindedBeaconBlock](
+    T: capella_mev.SignedBlindedBeaconBlock](
     node: BeaconNode, slot: Slot, validator: AttachedValidator,
     validator_index: ValidatorIndex, nonsignedBlindedBlock: T):
     Future[Result[T, string]] {.async: (raises: [CancelledError]).} =
   return err "foo"
 
 proc getUnsignedBlindedBeaconBlock[
-    T: capella_mev.SignedBlindedBeaconBlock |
-       deneb_mev.SignedBlindedBeaconBlock](
+    T: capella_mev.SignedBlindedBeaconBlock](
     node: BeaconNode, slot: Slot,
     validator_index: ValidatorIndex, forkedBlock: ForkedBeaconBlock,
-    executionPayloadHeader: capella.ExecutionPayloadHeader |
-                            deneb_mev.BlindedExecutionPayloadAndBlobsBundle):
+    executionPayloadHeader: capella.ExecutionPayloadHeader):
     Result[T, string] =
   withBlck(forkedBlock):
     return err("")
 
 proc getBlindedBlockParts[
-    EPH: capella.ExecutionPayloadHeader |
-         deneb_mev.BlindedExecutionPayloadAndBlobsBundle](
+    EPH: capella.ExecutionPayloadHeader](
     node: BeaconNode, head: BlockRef,
     pubkey: ValidatorPubKey, slot: Slot, randao: ValidatorSig,
     validator_index: ValidatorIndex, graffiti: GraffitiBytes):
@@ -192,16 +187,13 @@ proc getBlindedBlockParts[
   return err("")
 
 proc getBuilderBid[
-    SBBB: capella_mev.SignedBlindedBeaconBlock |
-          deneb_mev.SignedBlindedBeaconBlock](
+    SBBB: capella_mev.SignedBlindedBeaconBlock](
     node: BeaconNode, head: BlockRef,
     validator_pubkey: ValidatorPubKey, slot: Slot, randao: ValidatorSig,
     validator_index: ValidatorIndex):
     Future[BlindedBlockResult[SBBB]] {.async: (raises: [CancelledError]).} =
   when SBBB is capella_mev.SignedBlindedBeaconBlock:
     type EPH = capella.ExecutionPayloadHeader
-  elif SBBB is deneb_mev.SignedBlindedBeaconBlock:
-    type EPH = deneb_mev.BlindedExecutionPayloadAndBlobsBundle
   else:
     static: doAssert false
 
@@ -224,7 +216,7 @@ proc getBuilderBid[
 proc proposeBlockMEV(
     node: BeaconNode,
     blindedBlock: capella_mev.SignedBlindedBeaconBlock |
-                  deneb_mev.SignedBlindedBeaconBlock):
+                  capella_mev.SignedBlindedBeaconBlock):
     Future[Result[BlockRef, string]] {.async: (raises: [CancelledError]).} =
   err "foo"
 
