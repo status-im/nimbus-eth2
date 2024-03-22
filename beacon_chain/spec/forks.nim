@@ -4,7 +4,7 @@ import
     block_id,
     presets],
   ./datatypes/[phase0, altair, bellatrix, capella],
-  ./mev/bellatrix_mev, ./mev/capella_mev
+  ./mev/bellatrix_mev
 
 type
   ConsensusFork* {.pure.} = enum
@@ -42,7 +42,7 @@ type
     of ConsensusFork.Phase0:    phase0Data:    phase0.BeaconBlock
     of ConsensusFork.Altair:    altairData:    altair.BeaconBlock
     of ConsensusFork.Bellatrix: bellatrixData: bellatrix_mev.BlindedBeaconBlock
-    of ConsensusFork.Capella:   capellaData:   capella_mev.BlindedBeaconBlock
+    of ConsensusFork.Capella:   capellaData:   phase0.BeaconBlock
     of ConsensusFork.Deneb:     denebData:     phase0.BeaconBlock
     of ConsensusFork.Electra:   electraData:   phase0.BeaconBlock
 
@@ -66,7 +66,7 @@ type
     of ConsensusFork.Phase0:    phase0Data:    phase0.SignedBeaconBlock
     of ConsensusFork.Altair:    altairData:    altair.SignedBeaconBlock
     of ConsensusFork.Bellatrix: bellatrixData: bellatrix_mev.SignedBlindedBeaconBlock
-    of ConsensusFork.Capella:   capellaData:   capella_mev.SignedBlindedBeaconBlock
+    of ConsensusFork.Capella:   capellaData:   phase0.SignedBeaconBlock
     of ConsensusFork.Deneb:     denebData:     phase0.SignedBeaconBlock
     of ConsensusFork.Electra:   electraData:   phase0.SignedBeaconBlock
 
@@ -110,8 +110,7 @@ template kind*(
       capella.ExecutionPayloadHeader |
       capella.BeaconBlock |
       capella.SignedBeaconBlock |
-      capella.BeaconBlockBody |
-      capella_mev.SignedBlindedBeaconBlock]): ConsensusFork =
+      capella.BeaconBlockBody]): ConsensusFork =
   ConsensusFork.Capella
 
 template SignedBeaconBlock*(kind: static ConsensusFork): auto =

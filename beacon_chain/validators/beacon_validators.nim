@@ -134,7 +134,6 @@ proc makeBeaconBlockForHeadAndSlot(
     PayloadType, validator_index, graffiti, head, slot,
     execution_payload = Opt.none(PayloadType))
 
-import ".."/spec/mev/capella_mev
 proc blindedBlockCheckSlashingAndSign[
     T: int](
     slot: Slot, validator: AttachedValidator,
