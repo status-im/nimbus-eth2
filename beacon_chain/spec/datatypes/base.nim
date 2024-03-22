@@ -30,18 +30,6 @@ type
   Gwei = uint64
   Ether = distinct uint64
 
-template ethAmountUnit(typ: type) {.dirty.} =
-  func `+`(x, y: typ): typ {.borrow.}
-  func `-`(x, y: typ): typ {.borrow.}
-  func `*`(x: typ, y: distinctBase(typ)): typ {.borrow.}
-  func `*`(x: distinctBase(typ), y: typ): typ {.borrow.}
-
-  func `div`(x, y: typ): distinctBase(typ) {.borrow.}
-
-  func `<`(x, y: typ): bool {.borrow.}
-
-ethAmountUnit Ether
-
 type
   Eth2Domain = array[32, byte]
 
