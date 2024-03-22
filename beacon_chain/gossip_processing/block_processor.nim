@@ -474,6 +474,16 @@ proc storeBlock(
 
   if parent.isErr():
     if parent.error() == VerifierError.MissingParent:
+      # This indicates that no `BlockRef` is available for the `parent_root`.
+      # However, the block may still be available in local storage. On startup,
+      # only the canonical branch is imported into `blockchain_dag`, while
+      # non-canonical branches are re-discovered with sync/request managers.
+      # Data from non-canonical branches that has already been verified during
+      # a previous run of the beacon node is already stored in the database but
+      # only lacks a `BlockRef`. Loading the branch from the database saves a
+      # lot of time, especially when a non-canonical branch has non-trivial
+      # depth. Note that if it turns out that a non-canonical branch eventually
+      # becomes canonical, it is vital to import it as quickly as possible.
       let
         parent_root = signedBlock.message.parent_root
         parentBlck = dag.getForkedBlock(parent_root)
