@@ -93,7 +93,7 @@ proc makeBeaconBlockForHeadAndSlot(
           "given-payload")
         fut.complete(Opt.some(default(PayloadType)))
         fut
-      elif slot.epoch < node.cfg.BELLATRIX_FORK_EPOCH:
+      elif slot.epoch < 0:
         let fut = Future[Opt[PayloadType]].Raising([CancelledError]).init(
           "empty-payload")
         fut.complete(Opt.some(default(PayloadType)))
@@ -134,14 +134,14 @@ proc makeBeaconBlockForHeadAndSlot(
 
 proc blindedBlockCheckSlashingAndSign[
     T: capella_mev.SignedBlindedBeaconBlock](
-    node: BeaconNode, slot: Slot, validator: AttachedValidator,
+    slot: Slot, validator: AttachedValidator,
     validator_index: ValidatorIndex, nonsignedBlindedBlock: T):
     Future[Result[T, string]] {.async: (raises: [CancelledError]).} =
   return err "foo"
 
 proc getUnsignedBlindedBeaconBlock[
     T: capella_mev.SignedBlindedBeaconBlock](
-    node: BeaconNode, slot: Slot,
+    slot: Slot,
     validator_index: ValidatorIndex, forkedBlock: ForkedBeaconBlock,
     executionPayloadHeader: capella.ExecutionPayloadHeader):
     Result[T, string] =
@@ -150,7 +150,7 @@ proc getUnsignedBlindedBeaconBlock[
 
 proc getBlindedBlockParts[
     EPH: capella.ExecutionPayloadHeader](
-    node: BeaconNode, head: BlockRef,
+    head: BlockRef,
     pubkey: ValidatorPubKey, slot: Slot, randao: ValidatorSig,
     validator_index: ValidatorIndex, graffiti: GraffitiBytes):
     Future[Result[(EPH, UInt256, ForkedBeaconBlock), string]]
@@ -159,7 +159,7 @@ proc getBlindedBlockParts[
 
 proc getBuilderBid[
     SBBB: capella_mev.SignedBlindedBeaconBlock](
-    node: BeaconNode, head: BlockRef,
+    head: BlockRef,
     validator_pubkey: ValidatorPubKey, slot: Slot, randao: ValidatorSig,
     validator_index: ValidatorIndex):
     Future[BlindedBlockResult[SBBB]] {.async: (raises: [CancelledError]).} =
@@ -177,7 +177,7 @@ proc getBuilderBid[
   let (executionPayloadHeader, bidValue, forkedBlck) = blindedBlockParts.get
 
   let unsignedBlindedBlock = getUnsignedBlindedBeaconBlock[SBBB](
-    node, slot, validator_index, forkedBlck, executionPayloadHeader)
+    slot, validator_index, forkedBlck, executionPayloadHeader)
 
   if unsignedBlindedBlock.isErr:
     return err unsignedBlindedBlock.error()
@@ -185,7 +185,6 @@ proc getBuilderBid[
   return ok (unsignedBlindedBlock.get, bidValue)
 
 proc proposeBlockMEV(
-    node: BeaconNode,
     blindedBlock: capella_mev.SignedBlindedBeaconBlock |
                   capella_mev.SignedBlindedBeaconBlock):
     Future[Result[BlockRef, string]] {.async: (raises: [CancelledError]).} =
@@ -288,11 +287,11 @@ proc proposeBlockAux(
   if useBuilderBlock:
     let
       blindedBlock = (await blindedBlockCheckSlashingAndSign(
-        node, slot, validator, validator_index,
+        slot, validator, validator_index,
         collectedBids.builderBid.value().blindedBlckPart)).valueOr:
           return head
       maybeUnblindedBlock = await proposeBlockMEV(
-        node, blindedBlock)
+        blindedBlock)
 
     return maybeUnblindedBlock.valueOr:
       warn "Blinded block proposal incomplete",
