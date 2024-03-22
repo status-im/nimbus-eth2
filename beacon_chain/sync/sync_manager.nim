@@ -408,6 +408,19 @@ proc syncStep[A, B](man: SyncManager[A, B], index: int, peer: A)
           request = req
     return
 
+  let shouldGetBlobs =
+    if not man.shouldGetBlobs(req.slot.epoch):
+      false
+    else:
+      var hasBlobs = false
+      for blck in blockData:
+        withBlck(blck[]):
+          when consensusFork >= ConsensusForkDeneb:
+            if forkyBlck.message.body.blob_kzg_commitments.len > 0:
+              hasBlobs = true
+              break
+      hasBlobs
+
   func combine(acc: seq[Slot], cur: Slot): seq[Slot] =
     var copy = acc
     if copy[copy.len-1] != cur:
@@ -415,7 +428,7 @@ proc syncStep[A, B](man: SyncManager[A, B], index: int, peer: A)
     copy
 
   let blobData =
-    if man.shouldGetBlobs(req.slot.epoch):
+    if shouldGetBlobs:
       let blobs = await man.getBlobSidecars(peer, req)
       if blobs.isErr():
         peer.updateScore(PeerScoreNoValues)
