@@ -1,6 +1,5 @@
 import
-  results,
-  "."/block_id
+  results
 
 type
   ConsensusFork* {.pure.} = enum
@@ -138,6 +137,8 @@ template withBlck*(
     const consensusFork {.inject, used.} = ConsensusFork.Electra
     template forkyBlck: untyped {.inject, used.} = x.electraData
     body
+
+import "."/digest
 
 type
   BeaconStateHeader* = object

@@ -1,16 +1,12 @@
-{.push raises: [].}
-
 import
   results,
   stew/[bitseqs, endians2, objects, byteutils],
-  blscurve,
-  bearssl/rand,
-  json_serialization
+  blscurve
 
 from std/hashes import Hash
 from std/tables import Table, withValue, `[]=`
 
-export results, blscurve, rand, json_serialization
+export results, blscurve
 
 
 const
@@ -174,48 +170,6 @@ template `<`*(x, y: ValidatorPubKey): bool =
 
 
 {.pragma: serializationRaises, raises: [SerializationError, IOError].}
-
-proc writeValue*(
-    writer: var JsonWriter, value: ValidatorPubKey | CookedPubKey
-) {.inline, raises: [IOError].} =
-  writer.writeValue(value.toHex())
-
-proc readValue*(reader: var JsonReader, value: var ValidatorPubKey)
-               {.serializationRaises.} =
-  let key = ValidatorPubKey.fromHex(reader.readValue(string))
-  if key.isOk:
-    value = key.get
-  else:
-    # TODO: Can we provide better diagnostic?
-    raiseUnexpectedValue(reader, "Valid hex-encoded public key expected")
-
-proc writeValue*(
-    writer: var JsonWriter, value: ValidatorSig
-) {.inline, raises: [IOError].} =
-  writer.writeValue(value.toHex())
-
-proc readValue*(reader: var JsonReader, value: var ValidatorSig)
-               {.serializationRaises.} =
-  let sig = ValidatorSig.fromHex(reader.readValue(string))
-  if sig.isOk:
-    value = sig.get
-  else:
-    # TODO: Can we provide better diagnostic?
-    raiseUnexpectedValue(reader, "Valid hex-encoded signature expected")
-
-proc writeValue*(
-    writer: var JsonWriter, value: ValidatorPrivKey
-) {.inline, raises: [IOError].} =
-  writer.writeValue(value.toHex())
-
-proc readValue*(reader: var JsonReader, value: var ValidatorPrivKey)
-               {.serializationRaises.} =
-  let key = ValidatorPrivKey.fromHex(reader.readValue(string))
-  if key.isOk:
-    value = key.get
-  else:
-    # TODO: Can we provide better diagnostic?
-    raiseUnexpectedValue(reader, "Valid hex-encoded private key expected")
 
 template fromSszBytes*(T: type[ValidatorPubKey | ValidatorSig], bytes: openArray[byte]): auto =
   let v = fromRaw(T, bytes)
