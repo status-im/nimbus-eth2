@@ -4,7 +4,7 @@ import
     block_id,
     presets],
   ./datatypes/[phase0, altair, bellatrix, capella, deneb],
-  ./mev/bellatrix_mev, ./mev/capella_mev, ./mev/deneb_mev
+  ./mev/bellatrix_mev, ./mev/capella_mev
 
 type
   ConsensusFork* {.pure.} = enum
@@ -21,13 +21,12 @@ type
     of ConsensusFork.Altair:    altairData:    altair.HashedBeaconState
     of ConsensusFork.Bellatrix: bellatrixData: bellatrix.HashedBeaconState
     of ConsensusFork.Capella:   capellaData:   capella.HashedBeaconState
-    of ConsensusFork.Deneb:     denebData:     deneb.HashedBeaconState
+    of ConsensusFork.Deneb:     denebData:     phase0.HashedBeaconState
     of ConsensusFork.Electra:   electraData:   phase0.HashedBeaconState
 
   ForkyExecutionPayloadForSigning* =
     bellatrix.ExecutionPayloadForSigning |
-    capella.ExecutionPayloadForSigning |
-    deneb.ExecutionPayloadForSigning
+    capella.ExecutionPayloadForSigning
 
   ForkedBeaconBlock* = object
     case kind: ConsensusFork
@@ -35,7 +34,7 @@ type
     of ConsensusFork.Altair:    altairData:    altair.BeaconBlock
     of ConsensusFork.Bellatrix: bellatrixData: bellatrix.BeaconBlock
     of ConsensusFork.Capella:   capellaData:   capella.BeaconBlock
-    of ConsensusFork.Deneb:     denebData:     deneb.BeaconBlock
+    of ConsensusFork.Deneb:     denebData:     phase0.BeaconBlock
     of ConsensusFork.Electra:   electraData:   phase0.BeaconBlock
 
   ForkedBlindedBeaconBlock = object
@@ -44,15 +43,14 @@ type
     of ConsensusFork.Altair:    altairData:    altair.BeaconBlock
     of ConsensusFork.Bellatrix: bellatrixData: bellatrix_mev.BlindedBeaconBlock
     of ConsensusFork.Capella:   capellaData:   capella_mev.BlindedBeaconBlock
-    of ConsensusFork.Deneb:     denebData:     deneb_mev.BlindedBeaconBlock
+    of ConsensusFork.Deneb:     denebData:     phase0.BeaconBlock
     of ConsensusFork.Electra:   electraData:   phase0.BeaconBlock
 
   ForkySignedBeaconBlock* =
     phase0.SignedBeaconBlock |
     altair.SignedBeaconBlock |
     bellatrix.SignedBeaconBlock |
-    capella.SignedBeaconBlock |
-    deneb.SignedBeaconBlock
+    capella.SignedBeaconBlock
 
   ForkedSignedBeaconBlock* = object
     case kind: ConsensusFork
@@ -60,7 +58,7 @@ type
     of ConsensusFork.Altair:    altairData:    altair.SignedBeaconBlock
     of ConsensusFork.Bellatrix: bellatrixData: bellatrix.SignedBeaconBlock
     of ConsensusFork.Capella:   capellaData:   capella.SignedBeaconBlock
-    of ConsensusFork.Deneb:     denebData:     deneb.SignedBeaconBlock
+    of ConsensusFork.Deneb:     denebData:     phase0.SignedBeaconBlock
     of ConsensusFork.Electra:   electraData:   phase0.SignedBeaconBlock
 
   ForkedSignedBlindedBeaconBlock = object
@@ -69,7 +67,7 @@ type
     of ConsensusFork.Altair:    altairData:    altair.SignedBeaconBlock
     of ConsensusFork.Bellatrix: bellatrixData: bellatrix_mev.SignedBlindedBeaconBlock
     of ConsensusFork.Capella:   capellaData:   capella_mev.SignedBlindedBeaconBlock
-    of ConsensusFork.Deneb:     denebData:     deneb_mev.SignedBlindedBeaconBlock
+    of ConsensusFork.Deneb:     denebData:     phase0.SignedBeaconBlock
     of ConsensusFork.Electra:   electraData:   phase0.SignedBeaconBlock
 
 template kind*(
@@ -116,24 +114,11 @@ template kind*(
       capella_mev.SignedBlindedBeaconBlock]): ConsensusFork =
   ConsensusFork.Capella
 
-template kind*(
-    x: typedesc[
-      deneb.BeaconState |
-      deneb.HashedBeaconState |
-      deneb.ExecutionPayload |
-      deneb.ExecutionPayloadForSigning |
-      deneb.ExecutionPayloadHeader |
-      deneb.BeaconBlock |
-      deneb.SignedBeaconBlock |
-      deneb.BeaconBlockBody |
-      deneb_mev.SignedBlindedBeaconBlock]): ConsensusFork =
-  ConsensusFork.Deneb
-
 template SignedBeaconBlock*(kind: static ConsensusFork): auto =
   when kind == ConsensusFork.Electra:
     typedesc[phase0.SignedBeaconBlock]
   elif kind == ConsensusFork.Deneb:
-    typedesc[deneb.SignedBeaconBlock]
+    typedesc[phase0.SignedBeaconBlock]
   elif kind == ConsensusFork.Capella:
     typedesc[capella.SignedBeaconBlock]
   elif kind == ConsensusFork.Bellatrix:
@@ -175,8 +160,6 @@ template init*(T: type ForkedSignedBeaconBlock, blck: bellatrix.SignedBeaconBloc
   T(kind: ConsensusFork.Bellatrix, bellatrixData: blck)
 template init*(T: type ForkedSignedBeaconBlock, blck: capella.SignedBeaconBlock): T =
   T(kind: ConsensusFork.Capella, capellaData: blck)
-template init*(T: type ForkedSignedBeaconBlock, blck: deneb.SignedBeaconBlock): T =
-  T(kind: ConsensusFork.Deneb, denebData: blck)
 
 template withBlck*(
     x: ForkedBeaconBlock |
