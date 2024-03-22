@@ -44,7 +44,7 @@ proc checkSlashableBlockProposalDoubleProposal(
   ok()
 
 proc registerBlock(
-       index: Opt[ValidatorIndex],
+       index: Opt[int32],
        validator: ValidatorPubKey,
        slot: Slot, block_root: Eth2Digest): Result[void, BadProposal] =
   let valID = default(ValidatorInternalID)
@@ -82,7 +82,7 @@ proc loadUnchecked(
     quit 1
 
 proc registerBlock*(
-       index: ValidatorIndex,
+       index: int32,
        validator: ValidatorPubKey,
        slot: Slot, block_signing_root: Eth2Digest): Result[void, BadProposal] =
   registerBlock(Opt.some(index), validator, slot, block_signing_root)

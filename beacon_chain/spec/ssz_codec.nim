@@ -7,9 +7,7 @@ export codec, base, typetraits
 
 template toSszType*(v: Slot|Epoch|SyncCommitteePeriod): auto = uint64(v)
 template toSszType*(v: BlsCurveType): auto = toRaw(v)
-template toSszType*(v: ForkDigest|GraffitiBytes): auto = distinctBase(v)
 template toSszType*(v: Version): auto = distinctBase(v)
-template toSszType*(v: JustificationBits): auto = distinctBase(v)
 
 func fromSszBytes*(
     T: type GraffitiBytes, data: openArray[byte]): T {.raises: [SszError].} =
@@ -27,20 +25,7 @@ template fromSszBytes*(T: type SyncCommitteePeriod, bytes: openArray[byte]): T =
   T fromSszBytes(uint64, bytes)
 
 func fromSszBytes*(
-    T: type ForkDigest, bytes: openArray[byte]): T {.raises: [SszError].} =
-  if bytes.len != sizeof(result):
-    raiseIncorrectSize T
-  copyMem(result.addr, unsafeAddr bytes[0], sizeof(result))
-
-func fromSszBytes*(
     T: type Version, bytes: openArray[byte]): T {.raises: [SszError].} =
-  if bytes.len != sizeof(result):
-    raiseIncorrectSize T
-  copyMem(result.addr, unsafeAddr bytes[0], sizeof(result))
-
-func fromSszBytes*(
-    T: type JustificationBits, bytes: openArray[byte]
-): T {.raises: [SszError].} =
   if bytes.len != sizeof(result):
     raiseIncorrectSize T
   copyMem(result.addr, unsafeAddr bytes[0], sizeof(result))

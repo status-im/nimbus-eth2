@@ -155,5 +155,5 @@ proc runSlotLoop*[T](node: T, startTime: BeaconTime) {.async.} =
       timeToNextSlot = nextSlot.start_beacon_time() - wallTime
       continue
 
-    await proposeBlock(getBlockRef2(ZERO_HASH).get, wallSlot)
+    await proposeBlock(getBlockRef2(static(default(Eth2Digest))).get, wallSlot)
     quit 0

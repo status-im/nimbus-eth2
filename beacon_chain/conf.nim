@@ -236,10 +236,6 @@ type
         defaultValue: false
         name: "enable-yamux" .}: bool
 
-      weakSubjectivityCheckpoint* {.
-        desc: "Weak subjectivity checkpoint in the format block_root:epoch_number"
-        name: "weak-subjectivity-checkpoint" .}: Option[Checkpoint]
-
       externalBeaconApiUrl* {.
         desc: "External beacon API to use for syncing (on empty database)"
         name: "external-beacon-api-url" .}: Option[string]
@@ -307,21 +303,6 @@ func parseCmdArg*(T: type ValidatorPubKey, input: string): T
   let res = ValidatorPubKey.fromHex(input)
   if res.isErr(): raise (ref ValueError)(msg: $res.error())
   res.get()
-
-func parseCmdArg*(T: type Checkpoint, input: string): T
-                 {.raises: [ValueError].} =
-  let sepIdx = find(input, ':')
-  if sepIdx == -1 or sepIdx == input.len - 1:
-    raise newException(ValueError,
-      "The weak subjectivity checkpoint must be provided in the `block_root:epoch_number` format")
-
-  var root: Eth2Digest
-  hexToByteArrayStrict(input.toOpenArray(0, sepIdx - 1), root.data)
-
-  T(root: root, epoch: parseBiggestUInt(input[sepIdx + 1 .. ^1]).Epoch)
-
-func completeCmdArg*(T: type Checkpoint, input: string): seq[string] =
-  return @[]
 
 func parseCmdArg*(T: type Epoch, input: string): T
                  {.raises: [ValueError].} =
