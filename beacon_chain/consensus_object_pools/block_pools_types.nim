@@ -1,1 +1,0 @@
-type ChainDAGRef* = ref object

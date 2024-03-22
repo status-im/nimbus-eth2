@@ -1,8 +1,5 @@
 import
-  std/hashes,
   chronos/timer
-
-export hashes, timer
 
 type
   BeaconTime* = object
