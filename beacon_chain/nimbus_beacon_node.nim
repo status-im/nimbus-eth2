@@ -8,8 +8,6 @@ import
     beacon_node,
     nimbus_binary_common]
 
-from ./spec/datatypes/deneb import SignedBeaconBlock
-
 proc init(T: type BeaconNode,
           config: BeaconNodeConf,
           metadata: Eth2NetworkMetadata): Future[BeaconNode]

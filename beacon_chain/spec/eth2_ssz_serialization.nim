@@ -16,8 +16,6 @@ import
   ./datatypes/[phase0, altair, bellatrix, capella],
   ./eth2_merkleization
 
-from ./datatypes/deneb import SignedBeaconBlock
-
 export phase0, altair, ssz_codec, ssz_serialization, eth2_merkleization
 
 proc readAndUpdateRoot(
@@ -41,9 +39,6 @@ template readSszBytes*(
   readAndUpdateRoot(data, val, updateRoot)
 template readSszBytes*(
     data: openArray[byte], val: var capella.SignedBeaconBlock, updateRoot = true) =
-  readAndUpdateRoot(data, val, updateRoot)
-template readSszBytes*(
-    data: openArray[byte], val: var deneb.SignedBeaconBlock, updateRoot = true) =
   readAndUpdateRoot(data, val, updateRoot)
 
 template readSszBytes*(

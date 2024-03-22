@@ -2,10 +2,10 @@ import
   stew/results,
   chronos,
   chronicles
-from ".."/spec/datatypes/deneb import BlobSidecar
 import ".."/spec/forks
 
 type
+  BlobSidecar = int
   BlobSidecars = seq[ref BlobSidecar]
   VerifierError {.pure.} = enum
     Invalid

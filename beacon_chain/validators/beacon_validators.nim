@@ -29,10 +29,17 @@ proc getBlockSignature(): Future[SignatureResult]
                        {.async: (raises: [CancelledError]).} =
   SignatureResult.ok(default(ValidatorSig))
 import ".."/spec/mev/capella_mev
-from ".."/spec/datatypes/deneb import
-  BlobSidecar, Blobs, BlobsBundle, KzgCommitments, shortLog
 
 type
+  # https://github.com/ethereum/consensus-specs/blob/v1.4.0/specs/deneb/validator.md#blobsbundle
+  KzgProofs = List[int, Limit MAX_BLOB_COMMITMENTS_PER_BLOCK]
+  Blobs = List[int, Limit MAX_BLOB_COMMITMENTS_PER_BLOCK]
+  BlobRoots = List[Eth2Digest, Limit MAX_BLOB_COMMITMENTS_PER_BLOCK]
+
+  BlobsBundle = object
+    proofs*: KzgProofs
+    blobs*: Blobs
+
   EngineBid = tuple[
     blockValue: Wei,
     blobsBundleOpt: Opt[BlobsBundle]]
@@ -114,8 +121,6 @@ proc makeBeaconBlockForHeadAndSlot(
     $error
 
   var blobsBundleOpt = Opt.none(BlobsBundle)
-  when payload is deneb.ExecutionPayloadForSigning:
-    blobsBundleOpt = Opt.some(payload.blobsBundle)
   return if blck.isOk:
     ok((payload.blockValue, blobsBundleOpt))
   else:
@@ -261,6 +266,7 @@ func builderBetterBid(
 from ".."/spec/datatypes/bellatrix import shortLog
 import chronicles
 import "."/message_router
+type BlobSidecar = int
 proc proposeBlockAux(
     SBBB: typedesc, EPS: typedesc,
     validator: AttachedValidator, validator_pubkey: ValidatorPubKey, validator_index: ValidatorIndex,

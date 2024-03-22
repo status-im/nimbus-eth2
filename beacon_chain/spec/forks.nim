@@ -3,7 +3,7 @@ import
   "."/[
     block_id,
     presets],
-  ./datatypes/[phase0, altair, bellatrix, capella, deneb],
+  ./datatypes/[phase0, altair, bellatrix, capella],
   ./mev/bellatrix_mev, ./mev/capella_mev
 
 type
