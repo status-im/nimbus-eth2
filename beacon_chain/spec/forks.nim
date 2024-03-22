@@ -1,9 +1,7 @@
 import
   results,
-  "."/[
-    block_id,
-    presets],
-  ./datatypes/[phase0, altair]
+  "."/block_id,
+  ./datatypes/phase0
 
 type
   ConsensusFork* {.pure.} = enum
@@ -17,7 +15,7 @@ type
   ForkedHashedBeaconState* = object
     case kind*: ConsensusFork
     of ConsensusFork.Phase0:    phase0Data:    phase0.HashedBeaconState
-    of ConsensusFork.Altair:    altairData:    altair.HashedBeaconState
+    of ConsensusFork.Altair:    altairData:    phase0.HashedBeaconState
     of ConsensusFork.Bellatrix: bellatrixData: phase0.HashedBeaconState
     of ConsensusFork.Capella:   capellaData:   phase0.HashedBeaconState
     of ConsensusFork.Deneb:     denebData:     phase0.HashedBeaconState
@@ -28,7 +26,7 @@ type
   ForkedBeaconBlock* = object
     case kind: ConsensusFork
     of ConsensusFork.Phase0:    phase0Data:    phase0.BeaconBlock
-    of ConsensusFork.Altair:    altairData:    altair.BeaconBlock
+    of ConsensusFork.Altair:    altairData:    phase0.BeaconBlock
     of ConsensusFork.Bellatrix: bellatrixData: phase0.BeaconBlock
     of ConsensusFork.Capella:   capellaData:   phase0.BeaconBlock
     of ConsensusFork.Deneb:     denebData:     phase0.BeaconBlock
@@ -37,20 +35,18 @@ type
   ForkedBlindedBeaconBlock = object
     case kind: ConsensusFork
     of ConsensusFork.Phase0:    phase0Data:    phase0.BeaconBlock
-    of ConsensusFork.Altair:    altairData:    altair.BeaconBlock
+    of ConsensusFork.Altair:    altairData:    phase0.BeaconBlock
     of ConsensusFork.Bellatrix: bellatrixData: phase0.BeaconBlock
     of ConsensusFork.Capella:   capellaData:   phase0.BeaconBlock
     of ConsensusFork.Deneb:     denebData:     phase0.BeaconBlock
     of ConsensusFork.Electra:   electraData:   phase0.BeaconBlock
 
-  ForkySignedBeaconBlock* =
-    phase0.SignedBeaconBlock |
-    altair.SignedBeaconBlock
+  ForkySignedBeaconBlock* = phase0.SignedBeaconBlock
 
   ForkedSignedBeaconBlock* = object
     case kind: ConsensusFork
     of ConsensusFork.Phase0:    phase0Data:    phase0.SignedBeaconBlock
-    of ConsensusFork.Altair:    altairData:    altair.SignedBeaconBlock
+    of ConsensusFork.Altair:    altairData:    phase0.SignedBeaconBlock
     of ConsensusFork.Bellatrix: bellatrixData: phase0.SignedBeaconBlock
     of ConsensusFork.Capella:   capellaData:   phase0.SignedBeaconBlock
     of ConsensusFork.Deneb:     denebData:     phase0.SignedBeaconBlock
@@ -59,7 +55,7 @@ type
   ForkedSignedBlindedBeaconBlock = object
     case kind: ConsensusFork
     of ConsensusFork.Phase0:    phase0Data:    phase0.SignedBeaconBlock
-    of ConsensusFork.Altair:    altairData:    altair.SignedBeaconBlock
+    of ConsensusFork.Altair:    altairData:    phase0.SignedBeaconBlock
     of ConsensusFork.Bellatrix: bellatrixData: phase0.SignedBeaconBlock
     of ConsensusFork.Capella:   capellaData:   phase0.SignedBeaconBlock
     of ConsensusFork.Deneb:     denebData:     phase0.SignedBeaconBlock
@@ -74,15 +70,6 @@ template kind*(
       phase0.BeaconBlockBody]): ConsensusFork =
   ConsensusFork.Phase0
 
-template kind*(
-    x: typedesc[
-      altair.BeaconState |
-      altair.HashedBeaconState |
-      altair.BeaconBlock |
-      altair.SignedBeaconBlock |
-      altair.BeaconBlockBody]): ConsensusFork =
-  ConsensusFork.Altair
-
 template SignedBeaconBlock*(kind: static ConsensusFork): auto =
   when kind == ConsensusFork.Electra:
     typedesc[phase0.SignedBeaconBlock]
@@ -93,7 +80,7 @@ template SignedBeaconBlock*(kind: static ConsensusFork): auto =
   elif kind == ConsensusFork.Bellatrix:
     typedesc[phase0.SignedBeaconBlock]
   elif kind == ConsensusFork.Altair:
-    typedesc[altair.SignedBeaconBlock]
+    typedesc[phase0.SignedBeaconBlock]
   elif kind == ConsensusFork.Phase0:
     typedesc[phase0.SignedBeaconBlock]
   else:
@@ -123,8 +110,6 @@ template withConsensusFork*(
 
 template init*(T: type ForkedSignedBeaconBlock, blck: phase0.SignedBeaconBlock): T =
   T(kind: ConsensusFork.Phase0, phase0Data: blck)
-template init*(T: type ForkedSignedBeaconBlock, blck: altair.SignedBeaconBlock): T =
-  T(kind: ConsensusFork.Altair, altairData: blck)
 
 template withBlck*(
     x: ForkedBeaconBlock |

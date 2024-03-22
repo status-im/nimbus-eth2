@@ -6,7 +6,6 @@ import
 
 from ./datatypes/base import HashedValidatorPubKeyItem
 from ./datatypes/phase0 import HashedBeaconState, SignedBeaconBlock
-from ./datatypes/altair import HashedBeaconState, SignedBeaconBlock
 
 export ssz_codec, merkleization, proofs
 

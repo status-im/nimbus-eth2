@@ -1,10 +1,10 @@
 import
   ssz_serialization,
   ./ssz_codec,
-  ./datatypes/[phase0, altair],
+  ./datatypes/phase0,
   ./eth2_merkleization
 
-export phase0, altair, ssz_codec, ssz_serialization, eth2_merkleization
+export phase0, ssz_codec, ssz_serialization, eth2_merkleization
 
 proc readAndUpdateRoot(
     data: openArray[byte], val: var auto, updateRoot = true
@@ -18,9 +18,6 @@ proc readAndUpdateRoot(
 
 template readSszBytes*(
     data: openArray[byte], val: var phase0.SignedBeaconBlock, updateRoot = true) =
-  readAndUpdateRoot(data, val, updateRoot)
-template readSszBytes*(
-    data: openArray[byte], val: var altair.SignedBeaconBlock, updateRoot = true) =
   readAndUpdateRoot(data, val, updateRoot)
 
 template readSszBytes*(

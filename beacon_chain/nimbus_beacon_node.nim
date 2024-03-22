@@ -2,7 +2,6 @@ import
   std/os,
   chronos,
   stew/io2,
-  ./spec/datatypes/[altair, phase0],
   ./validators/beacon_validators,
   "."/[
     beacon_node,
@@ -20,6 +19,7 @@ proc init(T: type BeaconNode,
   node
 
 from "."/consensus_object_pools/block_dag import BlockRef, init
+import "."/spec/digest
 
 func getBlockRef2(root: Eth2Digest): Opt[BlockRef] =
   let newRef = BlockRef.init(
