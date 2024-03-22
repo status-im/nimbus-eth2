@@ -34,7 +34,6 @@ from ".."/spec/datatypes/deneb import
 
 type
   EngineBid = tuple[
-    blck: ForkedBeaconBlock,
     blockValue: Wei,
     blobsBundleOpt: Opt[BlobsBundle]]
 
@@ -120,7 +119,7 @@ proc makeBeaconBlockForHeadAndSlot(
   when payload is deneb.ExecutionPayloadForSigning:
     blobsBundleOpt = Opt.some(payload.blobsBundle)
   return if blck.isOk:
-    ok((default(ForkedBeaconBlock), payload.blockValue, blobsBundleOpt))
+    ok((payload.blockValue, blobsBundleOpt))
   else:
     err(blck.error)
 
@@ -326,7 +325,7 @@ proc proposeBlockAux(
             return head
           res.get()
       signedBlock = consensusFork.SignedBeaconBlock(
-        message: forkyBlck, signature: signature, root: blockRoot)
+        signature: signature, root: blockRoot)
       blobsOpt =
         when consensusFork >= ConsensusFork.Deneb:
           Opt.some(default(seq[BlobSidecar]))
