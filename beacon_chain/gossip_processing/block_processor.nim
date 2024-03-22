@@ -10,7 +10,7 @@
 import
   stew/results,
   chronicles, chronos, metrics,
-  ../spec/[signatures, signatures_batch],
+  ../spec/[forks, signatures, signatures_batch],
   ../sszdump
 
 from std/deques import Deque, addLast, contains, initDeque, items, len, shrink
@@ -20,7 +20,7 @@ from ../consensus_object_pools/consensus_manager import
   runProposalForkchoiceUpdated, shouldSyncOptimistically, updateHead,
   updateHeadWithExecution
 from ../consensus_object_pools/blockchain_dag import
-  getBlockRef, getProposer, forkAtEpoch, loadExecutionBlockHash,
+  getBlockRef, getForkedBlock, getProposer, forkAtEpoch, loadExecutionBlockHash,
   markBlockVerified, validatorKey
 from ../beacon_clock import GetBeaconTimeFn, toFloatSeconds
 from ../consensus_object_pools/block_dag import BlockRef, root, shortLog, slot
@@ -33,7 +33,7 @@ from ../consensus_object_pools/blob_quarantine import
 from ../validators/validator_monitor import
   MsgSource, ValidatorMonitor, registerAttestationInBlock, registerBeaconBlock,
   registerSyncAggregateInBlock
-from ../beacon_chain_db import putBlobSidecar
+from ../beacon_chain_db import getBlobSidecar, putBlobSidecar
 from ../spec/state_transition_block import validate_blobs
 
 export sszdump, signatures_batch
@@ -473,6 +473,44 @@ proc storeBlock(
     parent = dag.checkHeadBlock(signedBlock)
 
   if parent.isErr():
+    # TODO This logic can be removed if the database schema is extended
+    # to store non-canonical heads on top of the canonical head!
+    # If that is done, the database no longer contains extra blocks
+    # that have not yet been assigned a `BlockRef`
+    if parent.error() == VerifierError.MissingParent:
+      # This indicates that no `BlockRef` is available for the `parent_root`.
+      # However, the block may still be available in local storage. On startup,
+      # only the canonical branch is imported into `blockchain_dag`, while
+      # non-canonical branches are re-discovered with sync/request managers.
+      # Data from non-canonical branches that has already been verified during
+      # a previous run of the beacon node is already stored in the database but
+      # only lacks a `BlockRef`. Loading the branch from the database saves a
+      # lot of time, especially when a non-canonical branch has non-trivial
+      # depth. Note that if it turns out that a non-canonical branch eventually
+      # becomes canonical, it is vital to import it as quickly as possible.
+      let
+        parent_root = signedBlock.message.parent_root
+        parentBlck = dag.getForkedBlock(parent_root)
+      if parentBlck.isSome():
+        var blobsOk = true
+        let blobs =
+          withBlck(parentBlck.get()):
+            when consensusFork >= ConsensusFork.Deneb:
+              var blob_sidecars: BlobSidecars
+              for i in 0 ..< forkyBlck.message.body.blob_kzg_commitments.len:
+                let blob = BlobSidecar.new()
+                if not dag.db.getBlobSidecar(parent_root, i.BlobIndex, blob[]):
+                  blobsOk = false  # Pruned, or inconsistent DB
+                  break
+                blob_sidecars.add blob
+              Opt.some blob_sidecars
+            else:
+              Opt.none BlobSidecars
+        if blobsOk:
+          debug "Loaded parent block from storage", parent_root
+          self[].enqueueBlock(
+            MsgSource.gossip, parentBlck.unsafeGet().asSigned(), blobs)
+
     return handleVerifierError(parent.error())
 
   let
