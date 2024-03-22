@@ -1,6 +1,5 @@
 import
   stew/results,
-  std/sequtils,
   chronos,
   chronicles
 from ".."/spec/datatypes/deneb import BlobSidecar
@@ -57,8 +56,6 @@ proc routeSignedBeaconBlock*(
   let added = await addBlock(
     ForkedSignedBeaconBlock.init(blck), blobRefs)
 
-  # The boolean we return tells the caller whether the block was integrated
-  # into the chain
   if added.isErr():
     return if added.error() != VerifierError.Duplicate:
       warn "Unable to add routed block to block pool",

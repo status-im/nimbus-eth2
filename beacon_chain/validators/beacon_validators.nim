@@ -51,7 +51,7 @@ type
 
 import ".."/consensus_object_pools/block_dag
 let pk = ValidatorPubKey.fromHex("891c64850444b66331ef7888c907b4af71ab6b2c883affe2cebd15d6c3644ac7ce6af96334192efdf95a64bab8ea425a")[]
-proc getValidatorForDuties*(
+proc getValidatorForDuties(
     idx: ValidatorIndex, slot: Slot,
     slashingSafe = false): Opt[AttachedValidator] =
   ok AttachedValidator(
@@ -71,7 +71,6 @@ proc getProposalState(
 
 proc makeBeaconBlockForHeadAndSlot(
     PayloadType: type ForkyExecutionPayloadForSigning,
-    randao_reveal: ValidatorSig,
     validator_index: ValidatorIndex, graffiti: GraffitiBytes, head: BlockRef,
     slot: Slot,
     execution_payload: Opt[PayloadType]):
@@ -84,7 +83,6 @@ proc makeBeaconBlockForHeadAndSlot(
     return err($maybeState.error)
 
   let
-    state = maybeState.get
     payloadFut =
       if execution_payload.isSome:
         withConsensusFork(consensusFork):
@@ -124,12 +122,12 @@ proc makeBeaconBlockForHeadAndSlot(
     err(blck.error)
 
 proc makeBeaconBlockForHeadAndSlot(
-    PayloadType: type ForkyExecutionPayloadForSigning, randao_reveal: ValidatorSig,
+    PayloadType: type ForkyExecutionPayloadForSigning,
     validator_index: ValidatorIndex, graffiti: GraffitiBytes, head: BlockRef,
     slot: Slot):
     Future[ForkedBlockResult] =
   return makeBeaconBlockForHeadAndSlot(
-    PayloadType, randao_reveal, validator_index, graffiti, head, slot,
+    PayloadType, validator_index, graffiti, head, slot,
     execution_payload = Opt.none(PayloadType))
 
 proc blindedBlockCheckSlashingAndSign[
@@ -152,7 +150,7 @@ proc getUnsignedBlindedBeaconBlock[
 proc getBlindedBlockParts[
     EPH: capella.ExecutionPayloadHeader](
     head: BlockRef,
-    pubkey: ValidatorPubKey, slot: Slot, randao: ValidatorSig,
+    pubkey: ValidatorPubKey, slot: Slot,
     validator_index: ValidatorIndex, graffiti: GraffitiBytes):
     Future[Result[(EPH, UInt256, ForkedBeaconBlock), string]]
     {.async: (raises: [CancelledError]).} =
@@ -161,7 +159,7 @@ proc getBlindedBlockParts[
 proc getBuilderBid[
     SBBB: capella_mev.SignedBlindedBeaconBlock](
     head: BlockRef,
-    validator_pubkey: ValidatorPubKey, slot: Slot, randao: ValidatorSig,
+    validator_pubkey: ValidatorPubKey, slot: Slot,
     validator_index: ValidatorIndex):
     Future[BlindedBlockResult[SBBB]] {.async: (raises: [CancelledError]).} =
   when SBBB is capella_mev.SignedBlindedBeaconBlock:
@@ -170,7 +168,7 @@ proc getBuilderBid[
     static: doAssert false
 
   let blindedBlockParts = await getBlindedBlockParts[EPH](
-    node, head, validator_pubkey, slot, randao,
+    node, head, validator_pubkey, slot,
     validator_index, default(GraffitiBytes))
   if blindedBlockParts.isErr:
     return err blindedBlockParts.error()
@@ -195,8 +193,7 @@ proc collectBids(
     SBBB: typedesc, EPS: typedesc,
     validator_pubkey: ValidatorPubKey,
     validator_index: ValidatorIndex, graffitiBytes: GraffitiBytes,
-    head: BlockRef, slot: Slot,
-    randao: ValidatorSig): Future[Bids[SBBB]] {.async: (raises: [CancelledError]).} =
+    head: BlockRef, slot: Slot): Future[Bids[SBBB]] {.async: (raises: [CancelledError]).} =
   let usePayloadBuilder = false
 
   let
@@ -204,7 +201,7 @@ proc collectBids(
       if usePayloadBuilder:
         when false:
           getBuilderBid[SBBB](node, head,
-                              validator_pubkey, slot, randao, validator_index)
+                              validator_pubkey, slot, validator_index)
         else:
           let fut = newFuture[BlindedBlockResult[SBBB]]("builder-bid")
           fut.complete(BlindedBlockResult[SBBB].err(
@@ -216,7 +213,7 @@ proc collectBids(
           "either payload builder disabled or liveness failsafe active"))
         fut
     engineBlockFut = makeBeaconBlockForHeadAndSlot(
-      EPS, randao, validator_index, graffitiBytes, head, slot)
+      EPS, validator_index, graffitiBytes, head, slot)
 
   await allFutures(payloadBuilderBidFut, engineBlockFut)
   doAssert payloadBuilderBidFut.finished and engineBlockFut.finished
@@ -268,11 +265,11 @@ import "."/message_router
 proc proposeBlockAux(
     SBBB: typedesc, EPS: typedesc,
     validator: AttachedValidator, validator_pubkey: ValidatorPubKey, validator_index: ValidatorIndex,
-    head: BlockRef, slot: Slot, randao: ValidatorSig, fork: Fork): Future[BlockRef] {.async: (raises: [CancelledError]).} =
+    head: BlockRef, slot: Slot, fork: Fork): Future[BlockRef] {.async: (raises: [CancelledError]).} =
   let
     collectedBids = await collectBids(
       SBBB, EPS, validator_pubkey, validator_index,
-      default(GraffitiBytes), head, slot, randao)
+      default(GraffitiBytes), head, slot)
 
     useBuilderBlock =
       if collectedBids.builderBid.isSome():
@@ -362,17 +359,11 @@ proc proposeBlock*(head: BlockRef,
   let
     fork = default(Fork)
     genesis_validators_root = default(Eth2Digest)
-    randao = default(ValidatorSig)
     cf = ConsensusFork.Bellatrix
-
-  template proposeBlockContinuation(type1, type2: untyped): auto =
-    await proposeBlockAux(
-      type1, type2, validator, validator_pubkey, validator_index, head, slot, randao, fork)
 
   discard withConsensusFork(cf):
     when consensusFork >= ConsensusFork.Capella:
       default(BlockRef)
     else:
-      proposeBlockContinuation(
-        capella_mev.SignedBlindedBeaconBlock,
-        bellatrix.ExecutionPayloadForSigning)
+      await proposeBlockAux(
+        capella_mev.SignedBlindedBeaconBlock, bellatrix.ExecutionPayloadForSigning, validator, validator_pubkey, validator_index, head, slot, fork)
