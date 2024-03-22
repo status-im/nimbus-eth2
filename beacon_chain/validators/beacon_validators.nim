@@ -1,8 +1,8 @@
 import
-  std/[os, tables],
+  std/os,
   chronos,
   ../spec/forks,
-  ".."/[conf, beacon_clock, beacon_node],
+  ".."/[conf, beacon_node],
   "."/[
     slashing_protection]
 
@@ -30,7 +30,7 @@ proc getBlockSignature(): Future[SignatureResult]
   SignatureResult.ok(default(ValidatorSig))
 import ".."/spec/mev/capella_mev
 from ".."/spec/datatypes/deneb import
-  BlobSidecar, Blobs, BlobsBundle, KzgCommitments, kzg_commitment_inclusion_proof_gindex, shortLog
+  BlobSidecar, Blobs, BlobsBundle, KzgCommitments, shortLog
 
 type
   EngineBid = tuple[
@@ -74,9 +74,7 @@ proc makeBeaconBlockForHeadAndSlot(
     node: BeaconNode, randao_reveal: ValidatorSig,
     validator_index: ValidatorIndex, graffiti: GraffitiBytes, head: BlockRef,
     slot: Slot,
-
-    execution_payload: Opt[PayloadType],
-    kzg_commitments: Opt[KzgCommitments]):
+    execution_payload: Opt[PayloadType]):
     Future[ForkedBlockResult] {.async: (raises: [CancelledError]).} =
   var cache = StateCache()
 
@@ -133,8 +131,7 @@ proc makeBeaconBlockForHeadAndSlot(
     Future[ForkedBlockResult] =
   return makeBeaconBlockForHeadAndSlot(
     PayloadType, node, randao_reveal, validator_index, graffiti, head, slot,
-    execution_payload = Opt.none(PayloadType),
-    kzg_commitments = Opt.none(KzgCommitments))
+    execution_payload = Opt.none(PayloadType))
 
 proc blindedBlockCheckSlashingAndSign[
     T: capella_mev.SignedBlindedBeaconBlock](
@@ -303,9 +300,10 @@ proc proposeBlockAux(
        foo = maybeUnblindedBlock.error
       return head
 
+  let engineBid_blck = default(ForkedBeaconBlock)
   let engineBid = collectedBids.engineBid.value()
 
-  withBlck(engineBid.blck):
+  withBlck(engineBid_blck):
     let
       blockRoot = default(Eth2Digest)
       signingRoot = default(Eth2Digest)
