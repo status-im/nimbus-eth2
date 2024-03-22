@@ -479,18 +479,19 @@ template awaitQuota*(peerParam: Peer, costParam: float, protocolIdParam: string)
 
   if not peer.quota.tryConsume(cost.int):
     let protocolId = protocolIdParam
-    debug "Awaiting peer quota", peer, cost, protocolId
+    debug "Awaiting peer quota", peer, cost = cost, protocolId = protocolId
     nbc_reqresp_messages_throttled.inc(1, [protocolId])
     await peer.quota.consume(cost.int)
 
-template awaitQuota*(networkParam: Eth2Node, costParam: float, protocolIdParam: string) =
+template awaitQuota*(
+    networkParam: Eth2Node, costParam: float, protocolIdParam: string) =
   let
     network = networkParam
     cost = int(costParam)
 
   if not network.quota.tryConsume(cost.int):
     let protocolId = protocolIdParam
-    debug "Awaiting network quota", peer, cost, protocolId
+    debug "Awaiting network quota", peer, cost = cost, protocolId = protocolId
     nbc_reqresp_messages_throttled.inc(1, [protocolId])
     await network.quota.consume(cost.int)
 

@@ -20,7 +20,10 @@ logScope:
   topics = "sync_proto"
 
 const
-  blockResponseCost = allowedOpsPerSecondCost(64) # Allow syncing ~64 blocks/sec (minus request costs)
+  blockResponseCost = allowedOpsPerSecondCost(64)
+    ## Allow syncing ~64 blocks/sec (minus request costs)
+  blobResponseCost = allowedOpsPerSecondCost(1000)
+    ## Multiple can exist per block, they are much smaller than blocks
 
 type
   BeaconSyncNetworkState* {.final.} = ref object of RootObj
@@ -275,8 +278,8 @@ p2pProtocol BeaconSync(version = 1,
             bytes = bytes.len(), blck = shortLog(blockRef), blobindex = index
           continue
 
-        peer.awaitQuota(blockResponseCost, "blob_sidecars_by_root/1")
-        peer.network.awaitQuota(blockResponseCost, "blob_sidecars_by_root/1")
+        peer.awaitQuota(blobResponseCost, "blob_sidecars_by_root/1")
+        peer.network.awaitQuota(blobResponseCost, "blob_sidecars_by_root/1")
 
         await response.writeBytesSZ(
           uncompressedLen, bytes,
@@ -345,8 +348,8 @@ p2pProtocol BeaconSync(version = 1,
             continue
 
           # TODO extract from libp2pProtocol
-          peer.awaitQuota(blockResponseCost, "blobs_sidecars_by_range/1")
-          peer.network.awaitQuota(blockResponseCost, "blobs_sidecars_by_range/1")
+          peer.awaitQuota(blobResponseCost, "blobs_sidecars_by_range/1")
+          peer.network.awaitQuota(blobResponseCost, "blobs_sidecars_by_range/1")
 
           await response.writeBytesSZ(
             uncompressedLen, bytes,
