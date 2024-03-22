@@ -34,7 +34,7 @@ proc addBlock(
   return ok()
 type RouteBlockResult = Result[Opt[BlockRef], string]
 proc routeSignedBeaconBlock*(
-    router: ref MessageRouter, blck: ForkySignedBeaconBlock,
+    blck: ForkySignedBeaconBlock,
     blobsOpt: Opt[seq[BlobSidecar]]):
     Future[RouteBlockResult] {.async: (raises: [CancelledError]).} =
   block:

@@ -2,7 +2,7 @@ import
   std/os,
   chronos,
   ../spec/forks,
-  ".."/[conf, beacon_node],
+  ".."/conf,
   "."/[
     slashing_protection]
 
@@ -52,32 +52,32 @@ type
 import ".."/consensus_object_pools/block_dag
 let pk = ValidatorPubKey.fromHex("891c64850444b66331ef7888c907b4af71ab6b2c883affe2cebd15d6c3644ac7ce6af96334192efdf95a64bab8ea425a")[]
 proc getValidatorForDuties*(
-    node: BeaconNode, idx: ValidatorIndex, slot: Slot,
+    idx: ValidatorIndex, slot: Slot,
     slashingSafe = false): Opt[AttachedValidator] =
-  when false:
-    let key = ? validatorKey2(0.ValidatorIndex)
-
-    node.attachedValidators[].getValidatorForDuties(
-      key.toPubKey(), slot, slashingSafe)
-  else:
-    ok AttachedValidator(
-      kind: ValidatorKind.Local,
-      index: Opt.some 0.ValidatorIndex,
-      validator: Opt.some Validator(pubkey: ValidatorPubKey.fromHex("891c64850444b66331ef7888c907b4af71ab6b2c883affe2cebd15d6c3644ac7ce6af96334192efdf95a64bab8ea425a")[]))
+  ok AttachedValidator(
+    kind: ValidatorKind.Local,
+    index: Opt.some 0.ValidatorIndex,
+    validator: Opt.some Validator(pubkey: ValidatorPubKey.fromHex("891c64850444b66331ef7888c907b4af71ab6b2c883affe2cebd15d6c3644ac7ce6af96334192efdf95a64bab8ea425a")[]))
 
 from ".."/spec/datatypes/capella import shortLog
 proc makeBeaconBlock(): Result[phase0.BeaconBlock, cstring] = ok(default(phase0.BeaconBlock))
 
+proc getProposalState(
+    head: BlockRef, slot: Slot, cache: var StateCache):
+    Result[ref ForkedHashedBeaconState, cstring] =
+  let state = assignClone(default(ForkedHashedBeaconState))
+  ok state
+
 proc makeBeaconBlockForHeadAndSlot(
     PayloadType: type ForkyExecutionPayloadForSigning,
-    node: BeaconNode, randao_reveal: ValidatorSig,
+    randao_reveal: ValidatorSig,
     validator_index: ValidatorIndex, graffiti: GraffitiBytes, head: BlockRef,
     slot: Slot,
     execution_payload: Opt[PayloadType]):
     Future[ForkedBlockResult] {.async: (raises: [CancelledError]).} =
   var cache = StateCache()
 
-  let maybeState = node.getProposalState(head, slot, cache)
+  let maybeState = getProposalState(head, slot, cache)
 
   if maybeState.isErr:
     return err($maybeState.error)
@@ -124,12 +124,12 @@ proc makeBeaconBlockForHeadAndSlot(
     err(blck.error)
 
 proc makeBeaconBlockForHeadAndSlot(
-    PayloadType: type ForkyExecutionPayloadForSigning, node: BeaconNode, randao_reveal: ValidatorSig,
+    PayloadType: type ForkyExecutionPayloadForSigning, randao_reveal: ValidatorSig,
     validator_index: ValidatorIndex, graffiti: GraffitiBytes, head: BlockRef,
     slot: Slot):
     Future[ForkedBlockResult] =
   return makeBeaconBlockForHeadAndSlot(
-    PayloadType, node, randao_reveal, validator_index, graffiti, head, slot,
+    PayloadType, randao_reveal, validator_index, graffiti, head, slot,
     execution_payload = Opt.none(PayloadType))
 
 proc blindedBlockCheckSlashingAndSign[
@@ -191,7 +191,7 @@ proc proposeBlockMEV(
   err "foo"
 
 proc collectBids(
-    SBBB: typedesc, EPS: typedesc, node: BeaconNode,
+    SBBB: typedesc, EPS: typedesc,
     validator_pubkey: ValidatorPubKey,
     validator_index: ValidatorIndex, graffitiBytes: GraffitiBytes,
     head: BlockRef, slot: Slot,
@@ -215,7 +215,7 @@ proc collectBids(
           "either payload builder disabled or liveness failsafe active"))
         fut
     engineBlockFut = makeBeaconBlockForHeadAndSlot(
-      EPS, node, randao, validator_index, graffitiBytes, head, slot)
+      EPS, randao, validator_index, graffitiBytes, head, slot)
 
   await allFutures(payloadBuilderBidFut, engineBlockFut)
   doAssert payloadBuilderBidFut.finished and engineBlockFut.finished
@@ -263,14 +263,14 @@ func builderBetterBid(
 from ".."/spec/datatypes/bellatrix import shortLog
 import chronicles
 from ".."/spec/datatypes/electra import shortLog
+import "."/message_router
 proc proposeBlockAux(
-    SBBB: typedesc, EPS: typedesc, node: BeaconNode,
+    SBBB: typedesc, EPS: typedesc,
     validator: AttachedValidator, validator_pubkey: ValidatorPubKey, validator_index: ValidatorIndex,
-    head: BlockRef, slot: Slot, randao: ValidatorSig, fork: Fork,
-    genesis_validators_root: Eth2Digest): Future[BlockRef] {.async: (raises: [CancelledError]).} =
+    head: BlockRef, slot: Slot, randao: ValidatorSig, fork: Fork): Future[BlockRef] {.async: (raises: [CancelledError]).} =
   let
     collectedBids = await collectBids(
-      SBBB, EPS, node, validator_pubkey, validator_index,
+      SBBB, EPS, validator_pubkey, validator_index,
       default(GraffitiBytes), head, slot, randao)
 
     useBuilderBlock =
@@ -335,7 +335,7 @@ proc proposeBlockAux(
     # - Xcode 15.1 (15C65)
     let
       newBlockRef = (
-        await node.router.routeSignedBeaconBlock(signedBlock, blobsOpt)
+        await routeSignedBeaconBlock(signedBlock, blobsOpt)
       ).valueOr:
         return head # Errors logged in router
 
@@ -350,26 +350,25 @@ proc proposeBlockAux(
 
     return newBlockRef.get()
 
-proc proposeBlock*(node: BeaconNode,
-                   head: BlockRef,
+proc proposeBlock*(head: BlockRef,
                    slot: Slot) {.async: (raises: [CancelledError]).} =
   let
     validator_pubkey = pk
     validator_index = 0.ValidatorIndex
-    validator = node.getValidatorForDuties(validator_index, slot).valueOr:
+    validator = getValidatorForDuties(validator_index, slot).valueOr:
       return
 
   let
-    fork = node.cfg.forkAtEpoch(slot.epoch)
-    genesis_validators_root = getStateField(node.genesisState[], genesis_validators_root)
+    fork = default(Fork)
+    genesis_validators_root = default(Eth2Digest)
     randao = default(ValidatorSig)
+    cf = ConsensusFork.Bellatrix
 
   template proposeBlockContinuation(type1, type2: untyped): auto =
     await proposeBlockAux(
-      type1, type2, node, validator, validator_pubkey, validator_index, head, slot, randao, fork,
-        genesis_validators_root)
+      type1, type2, validator, validator_pubkey, validator_index, head, slot, randao, fork)
 
-  discard withConsensusFork(node.cfg.consensusForkAtEpoch(slot.epoch)):
+  discard withConsensusFork(cf):
     when consensusFork >= ConsensusFork.Capella:
       default(BlockRef)
     else:

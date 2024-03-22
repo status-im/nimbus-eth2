@@ -35,9 +35,3 @@ template findIt*(s: openArray, predicate: untyped): int =
 
 proc currentSlot*(node: BeaconNode): Slot =
   node.beaconClock.now.slotOrZero
-
-proc getProposalState*(
-    node: BeaconNode, head: BlockRef, slot: Slot, cache: var StateCache):
-    Result[ref ForkedHashedBeaconState, cstring] =
-  let state = assignClone(node.genesisState[])
-  ok state
