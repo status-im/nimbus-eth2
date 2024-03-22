@@ -1,5 +1,3 @@
-{.push raises: [].}
-
 import
   stew/results,
   std/sequtils,
@@ -12,7 +10,6 @@ import ".."/spec/forks
 
 type
   BlobSidecars = seq[ref BlobSidecar]
-  MessageRouter = object
   VerifierError {.pure.} = enum
     Invalid
     MissingParent

@@ -24,14 +24,6 @@ type
     of ConsensusFork.Deneb:     denebData:     deneb.HashedBeaconState
     of ConsensusFork.Electra:   electraData:   electra.HashedBeaconState
 
-  ForkyBeaconBlock =
-    phase0.BeaconBlock |
-    altair.BeaconBlock |
-    bellatrix.BeaconBlock |
-    capella.BeaconBlock |
-    deneb.BeaconBlock |
-    electra.BeaconBlock
-
   ForkyExecutionPayloadForSigning* =
     bellatrix.ExecutionPayloadForSigning |
     capella.ExecutionPayloadForSigning |

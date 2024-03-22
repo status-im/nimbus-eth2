@@ -10,8 +10,6 @@ import
 
 from ./spec/datatypes/deneb import SignedBeaconBlock
 
-import libp2p/protocols/pubsub/gossipsub
-
 proc initFullNode(
     node: BeaconNode,
     getBeaconTime: GetBeaconTimeFn) {.async.} = discard
