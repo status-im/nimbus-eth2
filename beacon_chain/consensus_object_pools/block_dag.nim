@@ -1,5 +1,3 @@
-import ../spec/datatypes/base
-
 import
   ".."/spec/digest
 

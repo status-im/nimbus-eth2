@@ -59,7 +59,7 @@ when false:
 
 when false:
   --linedir:off
---debuginfo:on
+#--debuginfo:on
 --threads:on
 --opt:speed
 --mm:refc
@@ -86,7 +86,7 @@ if defined(macosx):
 # in Git Bash is apparently ignored by the OS, and on Linux where the default of
 # 1024 is good enough for us.
 
-if  false and canEnableDebuggingSymbols:
+if  canEnableDebuggingSymbols:
   # add debugging symbols and original files and line numbers
   --debugger:native
 

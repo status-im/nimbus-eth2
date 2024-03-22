@@ -1,8 +1,6 @@
-{.push raises: [].}
-
 import
   serialization,
-  ../spec/datatypes/base
+  ../spec/digest
 
 type
   SPDIR* = object
@@ -14,7 +12,7 @@ type
     ## The spec mandates "0x" prefix on serialization
     ## So we need to set custom read/write
 
-  PubKeyBytes* = array[RawPubKeySize, byte]
+  PubKeyBytes* = array[48, byte]
     ## This is the serialized byte representation
     ## of a Validator Public Key.
     ## Portable between backend implementations

@@ -3,8 +3,7 @@ import
   confutils, confutils/defs, confutils/std/net,
   stew/[io2, byteutils],
   json_serialization,
-  ./spec/crypto,
-  ./spec/datatypes/base
+  ./spec/crypto
 
 from std/os import getHomeDir, parentDir, `/`
 export
@@ -243,18 +242,6 @@ type
         defaultValue: true
         name: "sync-light-client" .}: bool
 
-      trustedBlockRoot* {.
-        desc: "Recent trusted finalized block root to sync from external " &
-              "beacon API (with `--external-beacon-api-url`). " &
-              "Uses the light client sync protocol to obtain the latest " &
-              "finalized checkpoint (LC is initialized from trusted block root)"
-        name: "trusted-block-root" .}: Option[Eth2Digest]
-
-      trustedStateRoot* {.
-        desc: "Recent trusted finalized state root to sync from external " &
-              "beacon API (with `--external-beacon-api-url`)"
-        name: "trusted-state-root" .}: Option[Eth2Digest]
-
       finalizedCheckpointState* {.
         desc: "SSZ file specifying a recent finalized state"
         name: "finalized-checkpoint-state" .}: Option[InputFile]
@@ -274,13 +261,6 @@ proc defaultDataDir*[Conf](config: Conf): string =
     ".cache" / "nimbus"
 
   getHomeDir() / dataDir / "BeaconNode"
-
-func parseCmdArg*(T: type Eth2Digest, input: string): T
-                 {.raises: [ValueError].} =
-  Eth2Digest.fromHex(input)
-
-func completeCmdArg*(T: type Eth2Digest, input: string): seq[string] =
-  return @[]
 
 func parseCmdArg*(T: type Uri, input: string): T
                  {.raises: [ValueError].} =

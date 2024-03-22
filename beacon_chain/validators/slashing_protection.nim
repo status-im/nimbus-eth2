@@ -1,6 +1,5 @@
 import
   results,
-  ../spec/datatypes/base,
   ./slashing_protection_common
 
 type
@@ -28,6 +27,8 @@ proc checkSlashableBlockProposalOther(
 
   ok()
 
+import ".."/spec/digest
+
 proc checkSlashableBlockProposalDoubleProposal(
        valID: ValidatorInternalID,
        slot: uint64
@@ -42,6 +43,8 @@ proc checkSlashableBlockProposalDoubleProposal(
         existing_block: root))
 
   ok()
+
+import ".."/spec/crypto
 
 proc registerBlock(
        index: Opt[int32],

@@ -6,8 +6,10 @@ import
   "."/[
     slashing_protection]
 
-import ../spec/[datatypes/base, crypto]
+import ../spec/crypto
 type
+  Validator = object
+    pubkey: ValidatorPubKey
   ValidatorKind {.pure.} = enum
     Local, Remote
   AttachedValidator = ref object
@@ -29,9 +31,11 @@ proc getBlockSignature(): Future[SignatureResult]
                        {.async: (raises: [CancelledError]).} =
   SignatureResult.ok(default(ValidatorSig))
 
+import stint
+
 type
-  KzgProofs = List[int, Limit 6]
-  Blobs = List[int, Limit 6]
+  KzgProofs = seq[int]
+  Blobs = seq[int]
 
   BlobsBundle = object
     proofs: KzgProofs
@@ -64,6 +68,12 @@ proc getValidatorForDuties(
     validator: Opt.some Validator(pubkey: ValidatorPubKey.fromHex("891c64850444b66331ef7888c907b4af71ab6b2c883affe2cebd15d6c3644ac7ce6af96334192efdf95a64bab8ea425a")[]))
 
 proc makeBeaconBlock(): Result[Mock, cstring] = ok(default(Mock))
+
+template assignClone[T: not ref](x: T): ref T =
+  mixin assign
+  let res = new typeof(x) # TODO safe to do noinit here?
+  res[] = x
+  res
 
 proc getProposalState(
     head: BlockRef, slot: uint64):

@@ -3,16 +3,10 @@ import
   chronicles, chronos, confutils, presto,
   chronicles/helpers as chroniclesHelpers, chronicles/topics_registry,
   stew/io2,
-  ./spec/datatypes/base,
   "."/[beacon_clock, conf]
 
 export
   confutils, beacon_clock, conf
-
-type
-  uint64StartProc*[T] = proc(node: T, wallTime: BeaconTime,
-                           lastSlot: uint64): Future[bool] {.gcsafe,
-  raises: [].}
 
 proc updateLogLevel*(logLevel: string) {.raises: [ValueError].} =
   # Updates log levels (without clearing old ones)
@@ -135,6 +129,8 @@ proc setupLogging*(
     except IOError:
       echo "Invalid value for --log-level. " & err.msg
     quit 1
+
+import "."/spec/beacon_time
 
 proc runSlotLoop*[T](node: T, startTime: BeaconTime) {.async.} =
   var
