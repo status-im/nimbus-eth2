@@ -65,7 +65,6 @@ proc getValidatorForDuties(
     index: Opt.some 0.ValidatorIndex,
     validator: Opt.some Validator(pubkey: ValidatorPubKey.fromHex("891c64850444b66331ef7888c907b4af71ab6b2c883affe2cebd15d6c3644ac7ce6af96334192efdf95a64bab8ea425a")[]))
 
-from ".."/spec/datatypes/capella import shortLog
 from ".."/spec/datatypes/phase0 import BeaconBlock, shortLog
 proc makeBeaconBlock(): Result[phase0.BeaconBlock, cstring] = ok(default(phase0.BeaconBlock))
 
@@ -144,19 +143,17 @@ proc blindedBlockCheckSlashingAndSign[
 proc getUnsignedBlindedBeaconBlock[
     T: int](
     slot: Slot,
-    validator_index: ValidatorIndex, forkedBlock: ForkedBeaconBlock,
-    executionPayloadHeader: capella.ExecutionPayloadHeader):
+    validator_index: ValidatorIndex, forkedBlock: ForkedBeaconBlock):
     Result[T, string] =
   var fork = ConsensusFork.Altair
   withConsensusFork(fork):
     return err("")
 
-proc getBlindedBlockParts[
-    EPH: capella.ExecutionPayloadHeader](
+proc getBlindedBlockParts[EPH](
     head: BlockRef,
     pubkey: ValidatorPubKey, slot: Slot,
     validator_index: ValidatorIndex, graffiti: GraffitiBytes):
-    Future[Result[(EPH, UInt256, ForkedBeaconBlock), string]]
+    Future[Result[(UInt256, ForkedBeaconBlock), string]]
     {.async: (raises: [CancelledError]).} =
   return err("")
 

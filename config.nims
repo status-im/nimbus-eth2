@@ -50,14 +50,14 @@ else:
   discard
   #--define:noSignalHandler
 
-when true:
-  --tlsEmulation:off
+#when true:
+#  --tlsEmulation:off
 
 when false:
   switch("passC", "-fstack-protector-all")
   switch("passL", "-fstack-protector-all")
 
-when true:
+when false:
   --linedir:off
 --debuginfo:on
 --threads:on

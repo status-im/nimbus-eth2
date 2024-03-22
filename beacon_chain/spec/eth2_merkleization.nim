@@ -19,7 +19,6 @@ from ./datatypes/base import HashedValidatorPubKeyItem
 from ./datatypes/phase0 import HashedBeaconState, SignedBeaconBlock
 from ./datatypes/altair import HashedBeaconState, SignedBeaconBlock
 from ./datatypes/bellatrix import HashedBeaconState, SignedBeaconBlock
-from ./datatypes/capella import HashedBeaconState, SignedBeaconBlock
 
 export ssz_codec, merkleization, proofs
 
@@ -30,12 +29,12 @@ type
 # creating recursive module dependency through `forks`.
 func hash_tree_root*(
     x: phase0.HashedBeaconState | altair.HashedBeaconState |
-       bellatrix.HashedBeaconState | capella.HashedBeaconState) {.
+       bellatrix.HashedBeaconState) {.
   error: "HashedBeaconState should not be hashed".}
 
 func hash_tree_root*(
     x: phase0.SignedBeaconBlock | altair.SignedBeaconBlock |
-       bellatrix.SignedBeaconBlock | capella.SignedBeaconBlock) {.
+       bellatrix.SignedBeaconBlock) {.
   error: "SignedBeaconBlock should not be hashed".}
 
 func depositCountBytes*(x: uint64): array[32, byte] =

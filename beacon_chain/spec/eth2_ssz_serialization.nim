@@ -13,7 +13,7 @@
 import
   ssz_serialization,
   ./ssz_codec,
-  ./datatypes/[phase0, altair, bellatrix, capella],
+  ./datatypes/[phase0, altair, bellatrix],
   ./eth2_merkleization
 
 export phase0, altair, ssz_codec, ssz_serialization, eth2_merkleization
@@ -36,9 +36,6 @@ template readSszBytes*(
   readAndUpdateRoot(data, val, updateRoot)
 template readSszBytes*(
     data: openArray[byte], val: var bellatrix.SignedBeaconBlock, updateRoot = true) =
-  readAndUpdateRoot(data, val, updateRoot)
-template readSszBytes*(
-    data: openArray[byte], val: var capella.SignedBeaconBlock, updateRoot = true) =
   readAndUpdateRoot(data, val, updateRoot)
 
 template readSszBytes*(
