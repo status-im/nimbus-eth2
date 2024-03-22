@@ -2,7 +2,7 @@ import
   std/os,
   chronos,
   stew/io2,
-  ./spec/datatypes/[altair, bellatrix, phase0],
+  ./spec/datatypes/[altair, phase0],
   ./validators/beacon_validators,
   "."/[
     beacon_node,

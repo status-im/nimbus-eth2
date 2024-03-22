@@ -1,14 +1,3 @@
-# beacon_chain
-# Copyright (c) 2018-2024 Status Research & Development GmbH
-# Licensed and distributed under either of
-#   * MIT license (license terms in the root directory or at https://opensource.org/licenses/MIT).
-#   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
-# at your option. This file may not be copied, modified, or distributed except according to those terms.
-
-{.push raises: [].}
-
-# Import this module to get access to `hash_tree_root` for spec types
-
 import
   stew/endians2,
   std/sets,
@@ -18,24 +7,11 @@ import
 from ./datatypes/base import HashedValidatorPubKeyItem
 from ./datatypes/phase0 import HashedBeaconState, SignedBeaconBlock
 from ./datatypes/altair import HashedBeaconState, SignedBeaconBlock
-from ./datatypes/bellatrix import HashedBeaconState, SignedBeaconBlock
 
 export ssz_codec, merkleization, proofs
 
 type
   DepositsMerkleizer* = SszMerkleizer2[DEPOSIT_CONTRACT_TREE_DEPTH + 1]
-
-# Can't use `ForkyHashedBeaconState`/`ForkyHashedSignedBeaconBlock` without
-# creating recursive module dependency through `forks`.
-func hash_tree_root*(
-    x: phase0.HashedBeaconState | altair.HashedBeaconState |
-       bellatrix.HashedBeaconState) {.
-  error: "HashedBeaconState should not be hashed".}
-
-func hash_tree_root*(
-    x: phase0.SignedBeaconBlock | altair.SignedBeaconBlock |
-       bellatrix.SignedBeaconBlock) {.
-  error: "SignedBeaconBlock should not be hashed".}
 
 func depositCountBytes*(x: uint64): array[32, byte] =
   doAssert(x <= 4294967295'u64)

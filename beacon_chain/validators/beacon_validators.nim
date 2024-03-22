@@ -120,7 +120,7 @@ proc makeBeaconBlockForHeadAndSlot(
 
   var blobsBundleOpt = Opt.none(BlobsBundle)
   return if blck.isOk:
-    ok((payload.blockValue, blobsBundleOpt))
+    ok((0.u256, blobsBundleOpt))
   else:
     err(blck.error)
 
@@ -259,7 +259,6 @@ func builderBetterBid(
   scaledBuilderValue >
     scaledEngineValue * (localBlockValueBoost.uint16 + 100).u256
 
-from ".."/spec/datatypes/bellatrix import shortLog
 import chronicles
 import "."/message_router
 type BlobSidecar = int
@@ -367,4 +366,4 @@ proc proposeBlock*(head: BlockRef,
       default(BlockRef)
     else:
       await proposeBlockAux(
-        int, bellatrix.ExecutionPayloadForSigning, validator, validator_pubkey, validator_index, head, slot, fork)
+        int, int, validator, validator_pubkey, validator_index, head, slot, fork)
