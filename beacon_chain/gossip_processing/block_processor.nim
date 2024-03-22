@@ -473,6 +473,10 @@ proc storeBlock(
     parent = dag.checkHeadBlock(signedBlock)
 
   if parent.isErr():
+    # TODO This logic can be removed if the database schema is extended
+    # to store non-canonical heads on top of the canonical head!
+    # If that is done, the database no longer contains extra blocks
+    # that have not yet been assigned a `BlockRef`
     if parent.error() == VerifierError.MissingParent:
       # This indicates that no `BlockRef` is available for the `parent_root`.
       # However, the block may still be available in local storage. On startup,
@@ -506,6 +510,7 @@ proc storeBlock(
           debug "Loaded parent block from storage", parent_root
           self[].enqueueBlock(
             MsgSource.gossip, parentBlck.unsafeGet().asSigned(), blobs)
+
     return handleVerifierError(parent.error())
 
   let

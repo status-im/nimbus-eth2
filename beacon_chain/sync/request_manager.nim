@@ -247,6 +247,10 @@ proc requestManagerBlockLoop(
     if missingBlockRoots.len == 0:
       continue
 
+    # TODO This logic can be removed if the database schema is extended
+    # to store non-canonical heads on top of the canonical head!
+    # If that is done, the database no longer contains extra blocks
+    # that have not yet been assigned a `BlockRef`
     var blockRoots: seq[Eth2Digest]
     if rman.blockLoader == nil:
       blockRoots = missingBlockRoots
@@ -335,6 +339,10 @@ proc requestManagerBlobLoop(
     if missingBlobIds.len == 0:
       continue
 
+    # TODO This logic can be removed if the database schema is extended
+    # to store non-canonical heads on top of the canonical head!
+    # If that is done, the database no longer contains extra blocks
+    # that have not yet been assigned a `BlockRef`
     var blobIds: seq[BlobIdentifier]
     if rman.blobLoader == nil:
       blobIds = missingBlobIds
