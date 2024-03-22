@@ -3,7 +3,6 @@ import
   std/sequtils,
   chronos,
   chronicles
-from ../spec/state_transition_block import validate_blobs
 from ".."/spec/datatypes/deneb import BlobSidecar
 import ".."/spec/forks
 
@@ -42,16 +41,14 @@ proc routeSignedBeaconBlock*(
         let blobs = blobsOpt.get()
         let kzgCommits = blck.message.body.blob_kzg_commitments.asSeq
         if blobs.len > 0 or kzgCommits.len > 0:
-          let res = validate_blobs(kzgCommits, blobs.mapIt(it.blob),
-                                   blobs.mapIt(it.kzg_proof))
-          if res.isErr():
+          if false:
             warn "blobs failed validation",
               blockRoot = shortLog(blck.root),
               blobs = shortLog(blobs),
               blck = shortLog(blck.message),
               signature = shortLog(blck.signature),
-              msg = res.error()
-            return err(res.error())
+              msg = ""
+            return err("")
 
   let
     delay = 0

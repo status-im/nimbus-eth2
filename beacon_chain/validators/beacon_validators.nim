@@ -87,7 +87,6 @@ proc makeBeaconBlockForHeadAndSlot(
     state = maybeState.get
     payloadFut =
       if execution_payload.isSome:
-        var modified_execution_payload = execution_payload
         withConsensusFork(consensusFork):
           discard
         let fut = Future[Opt[PayloadType]].Raising([CancelledError]).init(

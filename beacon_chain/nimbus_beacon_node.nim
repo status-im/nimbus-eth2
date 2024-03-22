@@ -109,11 +109,9 @@ proc init*(T: type BeaconNode,
 
     getBeaconTime = beaconClock.getBeaconTimeFn()
 
-  let elManager = default(ELManager)
 
   let node = BeaconNode(
     config: config,
-    elManager: elManager,
     beaconClock: beaconClock,
     cfg: cfg,
     genesisState: genesisState)
@@ -130,9 +128,12 @@ func getBlockRef2(root: Eth2Digest): Opt[BlockRef] =
     0.Slot)
   return ok(newRef)
 
+import "."/el/el_manager
+
 proc start(node: BeaconNode) {.raises: [CatchableError].} =
   echo "foo"
-  node.elManager.start()
+  let elManager = default(ELManager)
+  elManager.start()
   let
     wallTime = node.beaconClock.now()
 
