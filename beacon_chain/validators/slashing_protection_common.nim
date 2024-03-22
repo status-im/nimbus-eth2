@@ -27,9 +27,7 @@ type
     ## are valid points on the BLS12-381 G1 curve
     ## (so we skip fromRaw/serialization checks)
 
-  SlotString* = distinct Slot
-    ## The spec mandates string serialization for wide compatibility (javascript)
-  EpochString* = distinct Epoch
+  EpochString* = distinct uint64
     ## The spec mandates string serialization for wide compatibility (javascript)
 
   SPDIR_Meta* = object
@@ -42,7 +40,7 @@ type
     signed_attestations*: seq[SPDIR_SignedAttestation]
 
   SPDIR_SignedBlock* = object
-    slot*: SlotString
+    slot*: EpochString
     signing_root*: Option[Eth2Digest0x] # compute_signing_root(block, domain)
 
   SPDIR_SignedAttestation* = object
@@ -84,16 +82,16 @@ type
       existingAttestation*: Eth2Digest
     of SurroundVote:
       existingAttestationRoot*: Eth2Digest # Many roots might be in conflict
-      sourceExisting*, targetExisting*: Epoch
-      sourceSlashable*, targetSlashable*: Epoch
+      sourceExisting*, targetExisting*: uint64
+      sourceSlashable*, targetSlashable*: uint64
     of TargetPrecedesSource:
       discard
     of MinSourceViolation:
-      minSource*: Epoch
-      candidateSource*: Epoch
+      minSource*: uint64
+      candidateSource*: uint64
     of MinTargetViolation:
-      minTarget*: Epoch
-      candidateTarget*: Epoch
+      minTarget*: uint64
+      candidateTarget*: uint64
     of BadVoteKind.DatabaseError:
       message*: string
 
@@ -109,7 +107,7 @@ type
     of DoubleProposal:
       existingBlock*: Eth2Digest
     of MinSlotViolation:
-      minSlot*: Slot
-      candidateSlot*: Slot
+      minSlot*: uint64
+      candidateSlot*: uint64
     of BadProposalKind.DatabaseError:
       message*: string

@@ -62,7 +62,7 @@ type
       ## Signing over DepositMessage
 
   VoluntaryExit* = object
-    epoch*: Epoch
+    epoch*: uint64
       ## Earliest epoch when voluntary exit can be processed
     validator_index*: uint64 # `ValidatorIndex` after validation
 
@@ -96,13 +96,13 @@ type
 
     slashed*: bool
 
-    activation_eligibility_epoch*: Epoch
+    activation_eligibility_epoch*: uint64
       ## When criteria for activation were met
 
-    activation_epoch*: Epoch
-    exit_epoch*: Epoch
+    activation_epoch*: uint64
+    exit_epoch*: uint64
 
-    withdrawable_epoch*: Epoch
+    withdrawable_epoch*: uint64
       ## When validator can withdraw funds
 
   HistoricalBatch* = object
@@ -113,8 +113,8 @@ type
     previous_version*: Version
     current_version*: Version
 
-    epoch*: Epoch
-      ## Epoch of latest fork
+    epoch*: uint64
+      ## uint64 of latest fork
 
   Eth1Data* = object
     deposit_root*: Eth2Digest
@@ -130,7 +130,7 @@ type
     signature*: TrustedSig
 
   BeaconBlockHeader* = object
-    slot*: Slot
+    slot*: uint64
     proposer_index*: uint64 # `ValidatorIndex` after validation
     parent_root*: Eth2Digest
     state_root*: Eth2Digest
@@ -154,12 +154,6 @@ type
     current_sync_committee*: array[SYNC_COMMITTEE_SIZE, ValidatorIndex]
     next_sync_committee*: array[SYNC_COMMITTEE_SIZE, ValidatorIndex]
 
-  StateCache* = object
-    total_active_balance*: Table[Epoch, Gwei]
-    shuffled_active_validator_indices*: Table[Epoch, seq[ValidatorIndex]]
-    beacon_proposer_indices*: Table[Slot, Opt[ValidatorIndex]]
-    sync_committees*: Table[SyncCommitteePeriod, SyncCommitteeCache]
-
   DepositContractState* = object
     branch*: array[DEPOSIT_CONTRACT_TREE_DEPTH, Eth2Digest]
     deposit_count*: array[32, byte] # Uint256
@@ -176,13 +170,13 @@ type
 
     slashed*: bool
 
-    activation_eligibility_epoch*: Epoch
+    activation_eligibility_epoch*: uint64
       ## When criteria for activation were met
 
-    activation_epoch*: Epoch
-    exit_epoch*: Epoch
+    activation_epoch*: uint64
+    exit_epoch*: uint64
 
-    withdrawable_epoch*: Epoch
+    withdrawable_epoch*: uint64
       ## When validator can withdraw funds
 
   ValidatorStatusCapella* = object
@@ -197,16 +191,14 @@ type
 
     slashed*: bool
 
-    activation_eligibility_epoch*: Epoch
+    activation_eligibility_epoch*: uint64
       ## When criteria for activation were met
 
-    activation_epoch*: Epoch
-    exit_epoch*: Epoch
+    activation_epoch*: uint64
+    exit_epoch*: uint64
 
-    withdrawable_epoch*: Epoch
+    withdrawable_epoch*: uint64
       ## When validator can withdraw funds
-
-  AttnetBits* = BitArray[int ATTESTATION_SUBNET_COUNT]
 
 type
   RewardDelta* = object
@@ -302,8 +294,6 @@ template makeLimitedU64*(T: untyped, limit: uint64) =
   makeLimitedUInt(T, limit)
 
 makeLimitedU64(CommitteeIndex, MAX_COMMITTEES_PER_SLOT)
-makeLimitedU64(SubnetId, ATTESTATION_SUBNET_COUNT)
-makeLimitedU64(BlobId, BLOB_SIDECAR_SUBNET_COUNT)
 
 const
   validatorIndexLimit = min(uint64(int32.high), VALIDATOR_REGISTRY_LIMIT)

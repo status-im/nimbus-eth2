@@ -303,13 +303,6 @@ func parseCmdArg*(T: type ValidatorPubKey, input: string): T
   if res.isErr(): raise (ref ValueError)(msg: $res.error())
   res.get()
 
-func parseCmdArg*(T: type Epoch, input: string): T
-                 {.raises: [ValueError].} =
-  Epoch parseBiggestUInt(input)
-
-func completeCmdArg*(T: type Epoch, input: string): seq[string] =
-  return @[]
-
 func validatorsDir*[Conf](config: Conf): string =
   string config.validatorsDirFlag.get(InputDir(config.dataDir / "validators"))
 

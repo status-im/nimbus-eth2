@@ -19,7 +19,7 @@ type
     ## the canonical chain, or that we have validated it - the type exists to
     ## tie a slot to the root which helps find the block in various indices and
     ## contexts
-    slot*: Slot # slot first for nicer sorting / comparisons :)
+    slot*: uint64 # slot first for nicer sorting / comparisons :)
     root*: Eth2Digest
 
   BlockSlotId* = object
@@ -27,12 +27,12 @@ type
     ## a slot is missing its block, we still need a way to communicate that the
     ## slot has changed - this type provides the necessary infrastructure
     bid*: BlockId
-    slot*: Slot
+    slot*: uint64
 
 func hash*(bid: BlockId): Hash =
   hash(bid.root)
 
-func init*(T: type BlockSlotId, bid: BlockId, slot: Slot): T =
+func init*(T: type BlockSlotId, bid: BlockId, slot: uint64): T =
   doAssert slot >= bid.slot
   BlockSlotId(bid: bid, slot: slot)
 
@@ -41,7 +41,7 @@ func atSlot*(bid: BlockId): BlockSlotId =
   # not share the parent-traversing features of `atSlot(BlockRef)`
   BlockSlotId.init(bid, bid.slot)
 
-func isProposed*(bid: BlockId, slot: Slot): bool =
+func isProposed*(bid: BlockId, slot: uint64): bool =
   ## Return true if `bid` was proposed in the given slot
   bid.slot == slot and not bid.root.isZero
 

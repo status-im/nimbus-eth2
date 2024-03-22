@@ -9,7 +9,7 @@ type
 
 proc checkSlashableBlockProposalOther(
        valID: ValidatorInternalID,
-       slot: Slot
+       slot: uint64
      ): Result[void, BadProposal] =
 
   block:
@@ -22,7 +22,7 @@ proc checkSlashableBlockProposalOther(
       if int64(slot) <= minSlot:
         return err(BadProposal(
           kind: MinSlotViolation,
-          minSlot: Slot minSlot,
+          minSlot: uint64 minSlot,
           candidateSlot: slot
         ))
 
@@ -30,7 +30,7 @@ proc checkSlashableBlockProposalOther(
 
 proc checkSlashableBlockProposalDoubleProposal(
        valID: ValidatorInternalID,
-       slot: Slot
+       slot: uint64
      ): Result[void, BadProposal] =
 
   block:
@@ -46,7 +46,7 @@ proc checkSlashableBlockProposalDoubleProposal(
 proc registerBlock(
        index: Opt[int32],
        validator: ValidatorPubKey,
-       slot: Slot, block_root: Eth2Digest): Result[void, BadProposal] =
+       slot: uint64, block_root: Eth2Digest): Result[void, BadProposal] =
   let valID = default(ValidatorInternalID)
 
   doAssert slot <= high(int64).uint64
@@ -84,5 +84,5 @@ proc loadUnchecked(
 proc registerBlock*(
        index: int32,
        validator: ValidatorPubKey,
-       slot: Slot, block_signing_root: Eth2Digest): Result[void, BadProposal] =
+       slot: uint64, block_signing_root: Eth2Digest): Result[void, BadProposal] =
   registerBlock(Opt.some(index), validator, slot, block_signing_root)

@@ -17,5 +17,5 @@ type
     cfg*: RuntimeConfig
     genesisState*: ref ForkedHashedBeaconState
 
-proc currentSlot*(node: BeaconNode): Slot =
+proc currentSlot*(node: BeaconNode): uint64 =
   node.beaconClock.now.slotOrZero

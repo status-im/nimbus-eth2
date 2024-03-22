@@ -22,7 +22,7 @@ import "."/spec/digest
 func getBlockRef2(root: Eth2Digest): Opt[BlockRef] =
   let newRef = BlockRef.init(
     root,
-    0.Slot)
+    0)
   return ok(newRef)
 
 import "."/el/el_manager
@@ -62,7 +62,7 @@ when isMainModule:
       raiseAssert exc.msg
   
     let
-      cfg = RuntimeConfig(ALTAIR_FORK_EPOCH: 0.Epoch, BELLATRIX_FORK_EPOCH: 0.Epoch, CAPELLA_FORK_EPOCH: FAR_FUTURE_EPOCH)
+      cfg = RuntimeConfig(ALTAIR_FORK_EPOCH: 0, BELLATRIX_FORK_EPOCH: 0, CAPELLA_FORK_EPOCH: (not 0'u64))
       node = waitFor BeaconNode.init(runNodeConf, cfg)
   
     node.start()

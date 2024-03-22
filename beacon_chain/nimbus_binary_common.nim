@@ -10,8 +10,8 @@ export
   confutils, beacon_clock, conf
 
 type
-  SlotStartProc*[T] = proc(node: T, wallTime: BeaconTime,
-                           lastSlot: Slot): Future[bool] {.gcsafe,
+  uint64StartProc*[T] = proc(node: T, wallTime: BeaconTime,
+                           lastSlot: uint64): Future[bool] {.gcsafe,
   raises: [].}
 
 proc updateLogLevel*(logLevel: string) {.raises: [ValueError].} =

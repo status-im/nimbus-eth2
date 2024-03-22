@@ -58,7 +58,7 @@ type
 import ".."/consensus_object_pools/block_dag
 let pk = ValidatorPubKey.fromHex("891c64850444b66331ef7888c907b4af71ab6b2c883affe2cebd15d6c3644ac7ce6af96334192efdf95a64bab8ea425a")[]
 proc getValidatorForDuties(
-    idx: int32, slot: Slot,
+    idx: int32, slot: uint64,
     slashingSafe = false): Opt[AttachedValidator] =
   ok AttachedValidator(
     kind: ValidatorKind.Local,
@@ -68,7 +68,7 @@ proc getValidatorForDuties(
 proc makeBeaconBlock(): Result[Mock, cstring] = ok(default(Mock))
 
 proc getProposalState(
-    head: BlockRef, slot: Slot, cache: var StateCache):
+    head: BlockRef, slot: uint64):
     Result[ref ForkedHashedBeaconState, cstring] =
   let state = assignClone(default(ForkedHashedBeaconState))
   ok state
@@ -76,12 +76,10 @@ proc getProposalState(
 proc makeBeaconBlockForHeadAndSlot(
     PayloadType: type ForkyExecutionPayloadForSigning,
     validator_index: int32, graffiti: GraffitiBytes, head: BlockRef,
-    slot: Slot,
+    slot: uint64,
     execution_payload: Opt[PayloadType]):
     Future[ForkedBlockResult] {.async: (raises: [CancelledError]).} =
-  var cache = StateCache()
-
-  let maybeState = getProposalState(head, slot, cache)
+  let maybeState = getProposalState(head, slot)
   let consensusFork = ConsensusFork.Bellatrix
   if maybeState.isErr:
     return err($maybeState.error)
@@ -126,7 +124,7 @@ proc makeBeaconBlockForHeadAndSlot(
 proc makeBeaconBlockForHeadAndSlot(
     PayloadType: type ForkyExecutionPayloadForSigning,
     validator_index: int32, graffiti: GraffitiBytes, head: BlockRef,
-    slot: Slot):
+    slot: uint64):
     Future[ForkedBlockResult] =
   return makeBeaconBlockForHeadAndSlot(
     PayloadType, validator_index, graffiti, head, slot,
@@ -134,14 +132,14 @@ proc makeBeaconBlockForHeadAndSlot(
 
 proc blindedBlockCheckSlashingAndSign[
     T: int](
-    slot: Slot, validator: AttachedValidator,
+    slot: uint64, validator: AttachedValidator,
     validator_index: int32, nonsignedBlindedBlock: T):
     Future[Result[T, string]] {.async: (raises: [CancelledError]).} =
   return err "foo"
 
 proc getUnsignedBlindedBeaconBlock[
     T: int](
-    slot: Slot,
+    slot: uint64,
     validator_index: int32, forkedBlock: ForkedBeaconBlock):
     Result[T, string] =
   var fork = ConsensusFork.Altair
@@ -150,7 +148,7 @@ proc getUnsignedBlindedBeaconBlock[
 
 proc getBlindedBlockParts[EPH](
     head: BlockRef,
-    pubkey: ValidatorPubKey, slot: Slot,
+    pubkey: ValidatorPubKey, slot: uint64,
     validator_index: int32, graffiti: GraffitiBytes):
     Future[Result[(UInt256, ForkedBeaconBlock), string]]
     {.async: (raises: [CancelledError]).} =
@@ -159,7 +157,7 @@ proc getBlindedBlockParts[EPH](
 proc getBuilderBid[
     SBBB: int](
     head: BlockRef,
-    validator_pubkey: ValidatorPubKey, slot: Slot,
+    validator_pubkey: ValidatorPubKey, slot: uint64,
     validator_index: int32):
     Future[BlindedBlockResult[SBBB]] {.async: (raises: [CancelledError]).} =
   when SBBB is int:
@@ -193,7 +191,7 @@ proc collectBids(
     SBBB: typedesc, EPS: typedesc,
     validator_pubkey: ValidatorPubKey,
     validator_index: int32, graffitiBytes: GraffitiBytes,
-    head: BlockRef, slot: Slot): Future[Bids[SBBB]] {.async: (raises: [CancelledError]).} =
+    head: BlockRef, slot: uint64): Future[Bids[SBBB]] {.async: (raises: [CancelledError]).} =
   let usePayloadBuilder = false
 
   let
@@ -264,7 +262,7 @@ type BlobSidecar = int
 proc proposeBlockAux(
     SBBB: typedesc, EPS: typedesc,
     validator: AttachedValidator, validator_pubkey: ValidatorPubKey, validator_index: int32,
-    head: BlockRef, slot: Slot, fork: Fork): Future[BlockRef] {.async: (raises: [CancelledError]).} =
+    head: BlockRef, slot: uint64, fork: Fork): Future[BlockRef] {.async: (raises: [CancelledError]).} =
   let
     collectedBids = await collectBids(
       SBBB, EPS, validator_pubkey, validator_index,
@@ -347,7 +345,7 @@ proc proposeBlockAux(
     return newBlockRef.get()
 
 proc proposeBlock*(head: BlockRef,
-                   slot: Slot) {.async: (raises: [CancelledError]).} =
+                   slot: uint64) {.async: (raises: [CancelledError]).} =
   let
     validator_pubkey = pk
     validator_index = 0.int32

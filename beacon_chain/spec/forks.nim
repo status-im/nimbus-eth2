@@ -143,4 +143,4 @@ type
   BeaconStateHeader* = object
     genesis_time*: uint64
     genesis_validators_root*: Eth2Digest
-    slot*: Slot
+    slot*: uint64

@@ -7,14 +7,14 @@ type
 
   BlockSlot* = object
     blck: BlockRef
-    slot: Slot
+    slot: uint64
 
 template root*(blck: BlockRef): Eth2Digest = blck.bid.root
-template slot*(blck: BlockRef): Slot = blck.bid.slot
+template slot*(blck: BlockRef): uint64 = blck.bid.slot
 
 func init*(
     T: type BlockRef, root: Eth2Digest,
-    slot: Slot):
+    slot: uint64):
     BlockRef =
   BlockRef(
     bid: BlockId(root: root, slot: slot))

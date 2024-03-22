@@ -19,7 +19,7 @@ import ".."/spec/datatypes/base
 func getBlockRef(root: Eth2Digest): Opt[BlockRef] =
   let newRef = BlockRef.init(
     root,
-    0.Slot)
+    0)
   return ok(newRef)
 proc addBlock(
     blck: ForkedSignedBeaconBlock,

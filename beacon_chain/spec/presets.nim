@@ -1,19 +1,9 @@
-# beacon_chain
-# Copyright (c) 2018-2024 Status Research & Development GmbH
-# Licensed and distributed under either of
-#   * MIT license (license terms in the root directory or at https://opensource.org/licenses/MIT).
-#   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
-# at your option. This file may not be copied, modified, or distributed except according to those terms.
-
 {.push raises: [].}
 
 import
   std/[strutils, parseutils, tables, typetraits],
   chronos/timer,
-  stew/[byteutils], stint, web3/primitives as web3types,
-  ./datatypes/constants
-
-export constants
+  stew/[byteutils], stint, web3/primitives as web3types
 
 export stint, web3types.toHex, web3types.`==`
 
@@ -43,7 +33,7 @@ type
     # Transition
     TERMINAL_TOTAL_DIFFICULTY*: UInt256
     TERMINAL_BLOCK_HASH*: BlockHash
-    TERMINAL_BLOCK_HASH_ACTIVATION_EPOCH*: Epoch  # Not actively used, but part of the spec
+    TERMINAL_BLOCK_HASH_ACTIVATION_EPOCH*: uint64  # Not actively used, but part of the spec
 
     # Genesis
     MIN_GENESIS_ACTIVE_VALIDATOR_COUNT*: uint64
@@ -53,15 +43,15 @@ type
 
     # Forking
     ALTAIR_FORK_VERSION*: Version
-    ALTAIR_FORK_EPOCH*: Epoch
+    ALTAIR_FORK_EPOCH*: uint64
     BELLATRIX_FORK_VERSION*: Version
-    BELLATRIX_FORK_EPOCH*: Epoch
+    BELLATRIX_FORK_EPOCH*: uint64
     CAPELLA_FORK_VERSION*: Version
-    CAPELLA_FORK_EPOCH*: Epoch
+    CAPELLA_FORK_EPOCH*: uint64
     DENEB_FORK_VERSION*: Version
-    DENEB_FORK_EPOCH*: Epoch
+    DENEB_FORK_EPOCH*: uint64
     ELECTRA_FORK_VERSION*: Version
-    ELECTRA_FORK_EPOCH*: Epoch
+    ELECTRA_FORK_EPOCH*: uint64
 
     # Time parameters
     # TODO SECONDS_PER_SLOT*: uint64
@@ -186,19 +176,19 @@ when const_preset == "mainnet":
 
     # Altair
     ALTAIR_FORK_VERSION: Version [byte 0x01, 0x00, 0x00, 0x00],
-    ALTAIR_FORK_EPOCH: FAR_FUTURE_EPOCH,
+    ALTAIR_FORK_EPOCH: (not 0'u64),
     # Bellatrix
     BELLATRIX_FORK_VERSION: Version [byte 0x02, 0x00, 0x00, 0x00],
-    BELLATRIX_FORK_EPOCH: FAR_FUTURE_EPOCH,
+    BELLATRIX_FORK_EPOCH: (not 0'u64),
     # Capella
     CAPELLA_FORK_VERSION: Version [byte 0x03, 0x00, 0x00, 0x00],
-    CAPELLA_FORK_EPOCH: FAR_FUTURE_EPOCH,
+    CAPELLA_FORK_EPOCH: (not 0'u64),
     # Deneb
     DENEB_FORK_VERSION: Version [byte 0x04, 0x00, 0x00, 0x00],
-    DENEB_FORK_EPOCH: FAR_FUTURE_EPOCH,
+    DENEB_FORK_EPOCH: (not 0'u64),
     # Electra
     ELECTRA_FORK_VERSION: Version [byte 0x05, 0x00, 0x00, 0x00],
-    ELECTRA_FORK_EPOCH: FAR_FUTURE_EPOCH,
+    ELECTRA_FORK_EPOCH: (not 0'u64),
 
     # Time parameters
     # ---------------------------------------------------------------
@@ -333,19 +323,19 @@ elif const_preset == "gnosis":
 
     # Altair
     ALTAIR_FORK_VERSION: Version [byte 0x01, 0x00, 0x00, 0x64],
-    ALTAIR_FORK_EPOCH: FAR_FUTURE_EPOCH,
+    ALTAIR_FORK_EPOCH: (not 0'u64),
     # Bellatrix
     BELLATRIX_FORK_VERSION: Version [byte 0x02, 0x00, 0x00, 0x64],
-    BELLATRIX_FORK_EPOCH: FAR_FUTURE_EPOCH,
+    BELLATRIX_FORK_EPOCH: (not 0'u64),
     # Capella
     CAPELLA_FORK_VERSION: Version [byte 0x03, 0x00, 0x00, 0x64],
-    CAPELLA_FORK_EPOCH: FAR_FUTURE_EPOCH,
+    CAPELLA_FORK_EPOCH: (not 0'u64),
     # Deneb
     DENEB_FORK_VERSION: Version [byte 0x04, 0x00, 0x00, 0x64],
-    DENEB_FORK_EPOCH: FAR_FUTURE_EPOCH,
+    DENEB_FORK_EPOCH: (not 0'u64),
     # Electra
     ELECTRA_FORK_VERSION: Version [byte 0x05, 0x00, 0x00, 0x64],
-    ELECTRA_FORK_EPOCH: FAR_FUTURE_EPOCH,
+    ELECTRA_FORK_EPOCH: (not 0'u64),
 
 
     # Time parameters
@@ -476,19 +466,19 @@ elif const_preset == "minimal":
 
     # Altair
     ALTAIR_FORK_VERSION: Version [byte 0x01, 0x00, 0x00, 0x01],
-    ALTAIR_FORK_EPOCH: Epoch(uint64.high),
+    ALTAIR_FORK_EPOCH: uint64(uint64.high),
     # Bellatrix
     BELLATRIX_FORK_VERSION: Version [byte 0x02, 0x00, 0x00, 0x01],
-    BELLATRIX_FORK_EPOCH: Epoch(uint64.high),
+    BELLATRIX_FORK_EPOCH: uint64(uint64.high),
     # Capella
     CAPELLA_FORK_VERSION: Version [byte 0x03, 0x00, 0x00, 0x01],
-    CAPELLA_FORK_EPOCH: Epoch(uint64.high),
+    CAPELLA_FORK_EPOCH: uint64(uint64.high),
     # Deneb
     DENEB_FORK_VERSION: Version [byte 0x04, 0x00, 0x00, 0x01],
-    DENEB_FORK_EPOCH: Epoch(uint64.high),
+    DENEB_FORK_EPOCH: uint64(uint64.high),
     # Electra
     ELECTRA_FORK_VERSION: Version [byte 0x05, 0x00, 0x00, 0x01],
-    ELECTRA_FORK_EPOCH: Epoch(uint64.high),
+    ELECTRA_FORK_EPOCH: uint64(uint64.high),
 
 
     # Time parameters
@@ -623,11 +613,8 @@ func parse(T: type Version, input: string): T
            {.raises: [ValueError].} =
   Version hexToByteArray(input, 4)
 
-template parse(T: type Slot, input: string): T =
-  Slot parse(uint64, input)
-
-template parse(T: type Epoch, input: string): T =
-  Epoch parse(uint64, input)
+template parse(T: type uint64, input: string): T =
+  uint64 parse(uint64, input)
 
 template parse(T: type string, input: string): T =
   input.strip(chars = {'"', '\''})
@@ -640,178 +627,6 @@ template parse(T: type BlockHash, input: string): T =
 
 template parse(T: type UInt256, input: string): T =
   parse(input, UInt256, 10)
-
-func parse(T: type DomainType, input: string): T
-           {.raises: [ValueError].} =
-  DomainType hexToByteArray(input, 4)
-
-proc readRuntimeConfig*(
-    fileContent: string, path: string): (RuntimeConfig, seq[string]) {.
-    raises: [PresetFileError, PresetIncompatibleError].} =
-  var
-    lineNum = 0
-    cfg = defaultRuntimeConfig
-
-  template lineinfo: string =
-    try: "$1($2) " % [path, $lineNum]
-    except ValueError: path
-
-  template fail(msg) =
-    raise newException(PresetFileError, lineinfo() & msg)
-
-  var names: seq[string]
-  for name, field in cfg.fieldPairs():
-    names.add name
-
-  var values: Table[string, string]
-  for line in splitLines(fileContent):
-    inc lineNum
-    if line.len == 0 or line[0] == '#': continue
-    # remove any trailing comments
-    let line = line.split("#")[0]
-    let lineParts = line.split(":")
-    if lineParts.len != 2:
-      fail "Invalid syntax: A preset file should include only assignments in the form 'ConstName: Value'"
-
-    if lineParts[0] in ignoredValues: continue
-
-    values[lineParts[0]] = lineParts[1].strip
-
-  # Certain config keys are baked into the binary at compile-time
-  # and cannot be overridden via config.
-  template checkCompatibility(
-      constValue: untyped, name: string, operator: untyped = `==`): untyped =
-    if values.hasKey(name):
-      const opDesc = astToStr(operator)
-      try:
-        let value = parse(typeof(constValue), values[name])
-        when constValue is distinct:
-          if not operator(distinctBase(value), distinctBase(constValue)):
-            raise (ref PresetFileError)(msg:
-              "Cannot override config" &
-              " (required: " & name & opDesc & $distinctBase(constValue) &
-              " - config: " & name & "=" & values[name] & ")")
-        else:
-          if not operator(value, constValue):
-            raise (ref PresetFileError)(msg:
-              "Cannot override config" &
-              " (required: " & name & opDesc & $constValue &
-              " - config: " & name & "=" & values[name] & ")")
-        values.del name
-      except ValueError:
-        raise (ref PresetFileError)(msg: "Unable to parse " & name)
-
-  template checkCompatibility(
-      constValue: untyped, operator: untyped = `==`): untyped =
-    block:
-      const name = astToStr(constValue)
-      checkCompatibility(constValue, name, operator)
-
-  checkCompatibility SECONDS_PER_SLOT
-
-  checkCompatibility BLS_WITHDRAWAL_PREFIX
-
-  checkCompatibility MAX_COMMITTEES_PER_SLOT
-  checkCompatibility TARGET_COMMITTEE_SIZE
-  checkCompatibility MAX_VALIDATORS_PER_COMMITTEE
-  checkCompatibility SHUFFLE_ROUND_COUNT
-  checkCompatibility HYSTERESIS_QUOTIENT
-  checkCompatibility HYSTERESIS_DOWNWARD_MULTIPLIER
-  checkCompatibility HYSTERESIS_UPWARD_MULTIPLIER
-  checkCompatibility MIN_DEPOSIT_AMOUNT
-  checkCompatibility MAX_EFFECTIVE_BALANCE
-  checkCompatibility EFFECTIVE_BALANCE_INCREMENT
-  checkCompatibility MIN_ATTESTATION_INCLUSION_DELAY
-  checkCompatibility SLOTS_PER_EPOCH
-  checkCompatibility MIN_SEED_LOOKAHEAD
-  checkCompatibility MAX_SEED_LOOKAHEAD
-  checkCompatibility EPOCHS_PER_ETH1_VOTING_PERIOD
-  checkCompatibility SLOTS_PER_HISTORICAL_ROOT
-  checkCompatibility MIN_EPOCHS_TO_INACTIVITY_PENALTY
-  checkCompatibility EPOCHS_PER_HISTORICAL_VECTOR
-  checkCompatibility EPOCHS_PER_SLASHINGS_VECTOR
-  checkCompatibility HISTORICAL_ROOTS_LIMIT
-  checkCompatibility VALIDATOR_REGISTRY_LIMIT
-  checkCompatibility BASE_REWARD_FACTOR
-  checkCompatibility WHISTLEBLOWER_REWARD_QUOTIENT
-  checkCompatibility PROPOSER_REWARD_QUOTIENT
-  checkCompatibility INACTIVITY_PENALTY_QUOTIENT
-  checkCompatibility MIN_SLASHING_PENALTY_QUOTIENT
-  checkCompatibility PROPORTIONAL_SLASHING_MULTIPLIER
-  checkCompatibility MAX_PROPOSER_SLASHINGS
-  checkCompatibility MAX_ATTESTER_SLASHINGS
-  checkCompatibility MAX_ATTESTATIONS
-  checkCompatibility MAX_DEPOSITS
-  checkCompatibility MAX_VOLUNTARY_EXITS
-
-  checkCompatibility TARGET_AGGREGATORS_PER_COMMITTEE
-  checkCompatibility EPOCHS_PER_RANDOM_SUBNET_SUBSCRIPTION
-
-  checkCompatibility DOMAIN_BEACON_PROPOSER
-  checkCompatibility DOMAIN_BEACON_ATTESTER
-  checkCompatibility DOMAIN_RANDAO
-  checkCompatibility DOMAIN_DEPOSIT
-  checkCompatibility DOMAIN_VOLUNTARY_EXIT
-  checkCompatibility DOMAIN_SELECTION_PROOF
-  checkCompatibility DOMAIN_AGGREGATE_AND_PROOF
-  checkCompatibility DOMAIN_SYNC_COMMITTEE
-  checkCompatibility DOMAIN_SYNC_COMMITTEE_SELECTION_PROOF
-  checkCompatibility DOMAIN_CONTRIBUTION_AND_PROOF
-
-  checkCompatibility GOSSIP_MAX_SIZE
-  checkCompatibility MAX_REQUEST_BLOCKS
-  checkCompatibility EPOCHS_PER_SUBNET_SUBSCRIPTION
-  checkCompatibility MAX_CHUNK_SIZE
-  checkCompatibility TTFB_TIMEOUT
-  checkCompatibility RESP_TIMEOUT
-  checkCompatibility ATTESTATION_PROPAGATION_SLOT_RANGE
-  checkCompatibility MAXIMUM_GOSSIP_CLOCK_DISPARITY.milliseconds.uint64,
-                     "MAXIMUM_GOSSIP_CLOCK_DISPARITY"
-  checkCompatibility MESSAGE_DOMAIN_INVALID_SNAPPY
-  checkCompatibility MESSAGE_DOMAIN_VALID_SNAPPY
-  checkCompatibility SUBNETS_PER_NODE
-  checkCompatibility ATTESTATION_SUBNET_COUNT
-  checkCompatibility ATTESTATION_SUBNET_EXTRA_BITS
-  checkCompatibility ATTESTATION_SUBNET_PREFIX_BITS
-
-  checkCompatibility MAX_REQUEST_BLOCKS_DENEB
-  checkCompatibility MAX_REQUEST_BLOCKS_DENEB * MAX_BLOBS_PER_BLOCK,
-                     "MAX_REQUEST_BLOB_SIDECARS"
-  checkCompatibility BLOB_SIDECAR_SUBNET_COUNT
-
-  # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.5/specs/phase0/fork-choice.md#configuration
-  # Isn't being used as a preset in the usual way: at any time, there's one correct value
-  checkCompatibility PROPOSER_SCORE_BOOST
-  checkCompatibility REORG_HEAD_WEIGHT_THRESHOLD
-  checkCompatibility REORG_PARENT_WEIGHT_THRESHOLD
-  checkCompatibility REORG_MAX_EPOCHS_SINCE_FINALIZATION
-
-  for name, field in cfg.fieldPairs():
-    if name in values:
-      try:
-        field = parse(typeof(field), values[name])
-        values.del name
-      except ValueError:
-        raise (ref PresetFileError)(msg: "Unable to parse " & name)
-
-  if cfg.PRESET_BASE != const_preset:
-    raise (ref PresetIncompatibleError)(
-      msg: "Config not compatible with binary, compile with -d:const_preset=" & cfg.PRESET_BASE)
-
-  # Requires initialized `cfg`
-  checkCompatibility cfg.safeMinEpochsForBlockRequests(),
-                     "MIN_EPOCHS_FOR_BLOCK_REQUESTS", `>=`
-
-  var unknowns: seq[string]
-  for name in values.keys:
-    unknowns.add name
-
-  (cfg, unknowns)
-
-proc readRuntimeConfig*(
-    path: string): (RuntimeConfig, seq[string]) {.
-    raises: [IOError, PresetFileError, PresetIncompatibleError].} =
-  readRuntimeConfig(readFile(path), path)
 
 template name*(cfg: RuntimeConfig): string =
   if cfg.CONFIG_NAME.len() > 0:
