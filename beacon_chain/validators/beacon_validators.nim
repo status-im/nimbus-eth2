@@ -28,7 +28,6 @@ func shortLog*(v: AttachedValidator): string =
 proc getBlockSignature(): Future[SignatureResult]
                        {.async: (raises: [CancelledError]).} =
   SignatureResult.ok(default(ValidatorSig))
-import ".."/spec/mev/capella_mev
 
 type
   # https://github.com/ethereum/consensus-specs/blob/v1.4.0/specs/deneb/validator.md#blobsbundle
@@ -135,15 +134,16 @@ proc makeBeaconBlockForHeadAndSlot(
     PayloadType, validator_index, graffiti, head, slot,
     execution_payload = Opt.none(PayloadType))
 
+import ".."/spec/mev/capella_mev
 proc blindedBlockCheckSlashingAndSign[
-    T: capella_mev.SignedBlindedBeaconBlock](
+    T: int](
     slot: Slot, validator: AttachedValidator,
     validator_index: ValidatorIndex, nonsignedBlindedBlock: T):
     Future[Result[T, string]] {.async: (raises: [CancelledError]).} =
   return err "foo"
 
 proc getUnsignedBlindedBeaconBlock[
-    T: capella_mev.SignedBlindedBeaconBlock](
+    T: int](
     slot: Slot,
     validator_index: ValidatorIndex, forkedBlock: ForkedBeaconBlock,
     executionPayloadHeader: capella.ExecutionPayloadHeader):
@@ -162,12 +162,12 @@ proc getBlindedBlockParts[
   return err("")
 
 proc getBuilderBid[
-    SBBB: capella_mev.SignedBlindedBeaconBlock](
+    SBBB: int](
     head: BlockRef,
     validator_pubkey: ValidatorPubKey, slot: Slot,
     validator_index: ValidatorIndex):
     Future[BlindedBlockResult[SBBB]] {.async: (raises: [CancelledError]).} =
-  when SBBB is capella_mev.SignedBlindedBeaconBlock:
+  when SBBB is int:
     type EPH = capella.ExecutionPayloadHeader
   else:
     static: doAssert false
@@ -189,8 +189,8 @@ proc getBuilderBid[
   return ok (unsignedBlindedBlock.get, bidValue)
 
 proc proposeBlockMEV(
-    blindedBlock: capella_mev.SignedBlindedBeaconBlock |
-                  capella_mev.SignedBlindedBeaconBlock):
+    blindedBlock: int |
+                  int):
     Future[Result[BlockRef, string]] {.async: (raises: [CancelledError]).} =
   err "foo"
 
@@ -371,4 +371,4 @@ proc proposeBlock*(head: BlockRef,
       default(BlockRef)
     else:
       await proposeBlockAux(
-        capella_mev.SignedBlindedBeaconBlock, bellatrix.ExecutionPayloadForSigning, validator, validator_pubkey, validator_index, head, slot, fork)
+        int, bellatrix.ExecutionPayloadForSigning, validator, validator_pubkey, validator_index, head, slot, fork)
