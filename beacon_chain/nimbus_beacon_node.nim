@@ -3,10 +3,22 @@ import
   chronos,
   stew/io2,
   ./validators/beacon_validators,
-  "."/[
-    beacon_node,
-    nimbus_binary_common]
+  "."/nimbus_binary_common
 
+import
+  "."/[beacon_clock, conf],
+  ./spec/forks,
+  ./validators/[
+    message_router]
+
+type
+  BeaconNode = ref object
+    beaconClock: BeaconClock
+    cfg: RuntimeConfig
+    genesisState: ref ForkedHashedBeaconState
+
+proc currentSlot(node: BeaconNode): uint64 =
+  node.beaconClock.now.slotOrZero
 proc init(T: type BeaconNode,
           config: BeaconNodeConf,
           cfg: RuntimeConfig): Future[BeaconNode]
