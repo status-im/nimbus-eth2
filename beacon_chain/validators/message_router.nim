@@ -2,8 +2,7 @@ import
   stew/results,
   std/sequtils,
   chronos,
-  chronicles,
-  ./activity_metrics
+  chronicles
 from ../spec/state_transition_block import validate_blobs
 from ".."/spec/datatypes/deneb import BlobSidecar
 import ".."/spec/forks
