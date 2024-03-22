@@ -271,9 +271,9 @@ proc pollForSyncCommitteeDuties*(
       res
 
   for item in addOrReplaceItems:
-    vc.syncCommitteeDuties.mgetOrPut(item.duty.pubkey,
-                           default(SyncPeriodDuties)).duties[item.period] =
-                             item.duty
+    vc.syncCommitteeDuties.mgetOrPut(
+      item.duty.pubkey, default(SyncPeriodDuties)).duties[item.period] =
+        item.duty
   len(addOrReplaceItems)
 
 proc pruneAttesterDuties(service: DutiesServiceRef, epoch: Epoch) =
@@ -285,8 +285,8 @@ proc pruneAttesterDuties(service: DutiesServiceRef, epoch: Epoch) =
       if (epochKey + HISTORICAL_DUTIES_EPOCHS) >= epoch:
         v.duties[epochKey] = epochDuty
       else:
-        debug "Attester duties for the epoch has been pruned", validator = key,
-              epoch = epochKey, loop = AttesterLoop
+        debug "Attester duties for the epoch has been pruned",
+              pubkey = shortLog(key), epoch = epochKey, loop = AttesterLoop
     attesters[key] = v
   vc.attesters = attesters
 

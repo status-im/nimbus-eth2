@@ -5,6 +5,8 @@
 #   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
 # at your option. This file may not be copied, modified, or distributed except according to those terms.
 
+{.push raises: [].}
+
 import
   std/sets,
   chronicles,
@@ -167,7 +169,7 @@ proc produceAndPublishAttestations*(service: AttestationServiceRef,
       if (duty.data.slot != data.slot) or
           (uint64(duty.data.committee_index) != data.index):
         warn "Inconsistent validator duties during attestation signing",
-              validator = shortLog(duty.data.pubkey),
+              pubkey = shortLog(duty.data.pubkey),
               duty_slot = duty.data.slot,
               duty_index = duty.data.committee_index,
               attestation_slot = data.slot, attestation_index = data.index
