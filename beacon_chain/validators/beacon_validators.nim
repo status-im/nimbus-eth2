@@ -321,8 +321,7 @@ proc proposeBlockAux(
           if res.isErr():
             return head
           res.get()
-      signedBlock = consensusFork.SignedBeaconBlock(
-        signature: signature, root: blockRoot)
+      signedBlock = Mock()
       blobsOpt =
         when consensusFork >= ConsensusFork.Deneb:
           Opt.some(default(seq[BlobSidecar]))

@@ -54,25 +54,18 @@ proc routeSignedBeaconBlock*(
 
   if added.isErr():
     return if added.error() != VerifierError.Duplicate:
-      warn "Unable to add routed block to block pool",
-        blockRoot = shortLog(blck.root), blck = shortLog(blck.message),
-        signature = shortLog(blck.signature), err = added.error()
+      warn "Unable to add routed block to block pool"
       ok(Opt.none(BlockRef))
     else:
       # If it's duplicate, there's an existing BlockRef to return. The block
       # shouldn't be finalized already because that requires a couple epochs
       # before occurring, so only check non-finalized resolved blockrefs.
-      let blockRef = getBlockRef(blck.root)
-      if blockRef.isErr:
-        warn "Unable to add routed duplicate block to block pool",
-          blockRoot = shortLog(blck.root), blck = shortLog(blck.message),
-          signature = shortLog(blck.signature), err = added.error()
-      ok(blockRef)
+      if false:
+        warn "Unable to add routed duplicate block to block pool"
+      ok(Opt.none(BlockRef))
 
 
-  let blockRef = getBlockRef(blck.root)
+  let blockRef = getBlockRef(default(Eth2Digest))
   if blockRef.isErr:
-    warn "Block finalised while waiting for block processor",
-      blockRoot = shortLog(blck.root), blck = shortLog(blck.message),
-      signature = shortLog(blck.signature)
+    warn "Block finalised while waiting for block processor"
   ok(blockRef)
