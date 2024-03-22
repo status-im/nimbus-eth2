@@ -1968,12 +1968,16 @@ proc pruneBlocksDAG(dag: ChainDAGRef) =
     dagPruneDur = Moment.now() - startTick
 
 # https://github.com/ethereum/consensus-specs/blob/v1.4.0/sync/optimistic.md#helpers
-template is_optimistic*(dag: ChainDAGRef, bid: BlockId): bool =
+func is_optimistic*(dag: ChainDAGRef, bid: BlockId): bool =
   let blck =
     if bid.slot <= dag.finalizedHead.slot:
       dag.finalizedHead.blck
     else:
-      dag.getBlockRef(bid.root).expect("Non-finalized block is known")
+      dag.getBlockRef(bid.root).valueOr:
+        # The block is part of the DB but is not reachable via `BlockRef`;
+        # it could have been orphaned or the DB is slightly inconsistent.
+        # Report it as optimistic until it becomes reachable or gets deleted
+        return true
   not blck.executionValid
 
 proc markBlockVerified*(dag: ChainDAGRef, blck: BlockRef) =
