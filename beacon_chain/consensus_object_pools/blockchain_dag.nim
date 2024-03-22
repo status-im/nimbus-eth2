@@ -1968,7 +1968,7 @@ proc pruneBlocksDAG(dag: ChainDAGRef) =
     dagPruneDur = Moment.now() - startTick
 
 # https://github.com/ethereum/consensus-specs/blob/v1.4.0/sync/optimistic.md#helpers
-template is_optimistic*(dag: ChainDAGRef, bid: BlockId): bool =
+func is_optimistic*(dag: ChainDAGRef, bid: BlockId): bool =
   let blck =
     if bid.slot <= dag.finalizedHead.slot:
       dag.finalizedHead.blck
