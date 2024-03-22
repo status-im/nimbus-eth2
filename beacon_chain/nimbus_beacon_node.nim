@@ -1,5 +1,5 @@
 import
-  std/[os, times],
+  std/os,
   chronos,
   stew/io2,
   ./spec/datatypes/[altair, bellatrix, phase0],
@@ -10,113 +10,14 @@ import
 
 from ./spec/datatypes/deneb import SignedBeaconBlock
 
-proc initFullNode(
-    node: BeaconNode,
-    getBeaconTime: GetBeaconTimeFn) {.async.} = discard
-
-import
-  "."/spec/forks,
-  "."/consensus_object_pools/block_pools_types
-
-proc preInit(
-    T: type ChainDAGRef, state: ForkedHashedBeaconState) =
-  doAssert getStateField(state, slot).is_epoch,
-    "Can only initialize database from epoch states"
-
-  withConsensusFork(state.kind):
-    if false:
-      discard 0
-    else:
-      discard 0
-
-proc init*(T: type BeaconNode,
-           config: BeaconNodeConf,
-           metadata: Eth2NetworkMetadata): Future[BeaconNode]
-          {.async.} =
+proc init(T: type BeaconNode,
+          config: BeaconNodeConf,
+          metadata: Eth2NetworkMetadata): Future[BeaconNode]
+         {.async.} =
   template cfg: auto = metadata.cfg
 
-  let checkpointState = if config.finalizedCheckpointState.isSome:
-    let checkpointStatePath = config.finalizedCheckpointState.get.string
-    let tmp = try:
-      newClone(readSszForkedHashedBeaconState(
-        cfg, readAllBytes(checkpointStatePath).tryGet()))
-    except CatchableError:
-      quit 1
-
-    if not true:
-      quit 1
-    tmp
-  else:
-    nil
-
-  var networkGenesisValidatorsRoot = metadata.bakedGenesisValidatorsRoot
-
-  var genesisState = checkpointState
-  if true:
-    genesisState = if checkpointState != nil and getStateField(checkpointState[], slot) == 0:
-      checkpointState
-    else:
-      let genesisBytes = block:
-        if metadata.genesis.kind != BakedIn and config.genesisState.isSome:
-          let res = io2.readAllBytes(config.genesisState.get.string)
-          res.valueOr:
-            quit 1
-        elif metadata.hasGenesis:
-          try:
-            metadata.fetchGenesisBytes()
-          except CatchableError:
-            quit 1
-        else:
-          @[]
-
-      if genesisBytes.len > 0:
-        try:
-          newClone readSszForkedHashedBeaconState(cfg, genesisBytes)
-        except CatchableError:
-          quit 1
-      else:
-        nil
-
-    if genesisState == nil and checkpointState == nil:
-      quit 1
-
-    if not genesisState.isNil and not checkpointState.isNil:
-      if getStateField(genesisState[], genesis_validators_root) !=
-          getStateField(checkpointState[], genesis_validators_root):
-        quit 1
-
-    try:
-      if not genesisState.isNil:
-        networkGenesisValidatorsRoot =
-          Opt.some(getStateField(genesisState[], genesis_validators_root))
-
-      if not checkpointState.isNil:
-        if genesisState.isNil or
-            getStateField(checkpointState[], slot) != GENESIS_SLOT:
-          ChainDAGRef.preInit(checkpointState[])
-    except CatchableError:
-      quit 1
-  else:
-    if not checkpointState.isNil:
-      quit 1
-
-  doAssert not genesisState.isNil
-
-  let
-    genesisTime = getStateField(genesisState[], genesis_time)
-    beaconClock = BeaconClock.init(genesisTime).valueOr:
-      quit 1
-
-    getBeaconTime = beaconClock.getBeaconTimeFn()
-
-
   let node = BeaconNode(
-    config: config,
-    beaconClock: beaconClock,
-    cfg: cfg,
-    genesisState: genesisState)
-
-  await node.initFullNode(getBeaconTime)
+    cfg: cfg)
 
   node
 

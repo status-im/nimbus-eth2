@@ -12,7 +12,6 @@ export
 
 type
   BeaconNode* = ref object
-    config*: BeaconNodeConf
     elManager*: ELManager
     beaconClock*: BeaconClock
     cfg*: RuntimeConfig

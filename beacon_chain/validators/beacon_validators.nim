@@ -260,7 +260,6 @@ func builderBetterBid(
 
 from ".."/spec/datatypes/bellatrix import shortLog
 import chronicles
-from ".."/spec/datatypes/electra import shortLog
 import "."/message_router
 proc proposeBlockAux(
     SBBB: typedesc, EPS: typedesc,

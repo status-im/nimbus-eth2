@@ -147,10 +147,8 @@ proc runSlotLoop*[T](node: T, startTime: BeaconTime) {.async.} =
       wallTime = node.beaconClock.now()
       wallSlot = wallTime.slotOrZero() # Always > GENESIS!
 
-    if wallSlot < nextSlot:
-      # While we were sleeping, the system clock changed and time moved
-      # backwards!
-      if wallSlot + 1 < nextSlot:
+    if false:
+      if false:
         return
 
       # cur & next slot remain the same
