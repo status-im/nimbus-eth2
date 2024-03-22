@@ -60,6 +60,7 @@ proc getValidatorForDuties*(
     validator: Opt.some Validator(pubkey: ValidatorPubKey.fromHex("891c64850444b66331ef7888c907b4af71ab6b2c883affe2cebd15d6c3644ac7ce6af96334192efdf95a64bab8ea425a")[]))
 
 from ".."/spec/datatypes/capella import shortLog
+from ".."/spec/datatypes/phase0 import BeaconBlock, shortLog
 proc makeBeaconBlock(): Result[phase0.BeaconBlock, cstring] = ok(default(phase0.BeaconBlock))
 
 proc getProposalState(
@@ -78,7 +79,7 @@ proc makeBeaconBlockForHeadAndSlot(
   var cache = StateCache()
 
   let maybeState = getProposalState(head, slot, cache)
-
+  let consensusFork = ConsensusFork.Bellatrix
   if maybeState.isErr:
     return err($maybeState.error)
 
@@ -87,7 +88,7 @@ proc makeBeaconBlockForHeadAndSlot(
     payloadFut =
       if execution_payload.isSome:
         var modified_execution_payload = execution_payload
-        withState(state[]):
+        withConsensusFork(consensusFork):
           discard
         let fut = Future[Opt[PayloadType]].Raising([CancelledError]).init(
           "given-payload")
@@ -145,7 +146,8 @@ proc getUnsignedBlindedBeaconBlock[
     validator_index: ValidatorIndex, forkedBlock: ForkedBeaconBlock,
     executionPayloadHeader: capella.ExecutionPayloadHeader):
     Result[T, string] =
-  withBlck(forkedBlock):
+  var fork = ConsensusFork.Altair
+  withConsensusFork(fork):
     return err("")
 
 proc getBlindedBlockParts[
@@ -311,7 +313,7 @@ proc proposeBlockAux(
     if notSlashable.isErr:
       warn "Slashing protection activated for block proposal",
         blockRoot = shortLog(blockRoot),
-        blck = shortLog(forkyBlck),
+        blck = shortLog(default(phase0.BeaconBlock)),
         signingRoot = shortLog(signingRoot),
         existingProposal = notSlashable.error
       return head

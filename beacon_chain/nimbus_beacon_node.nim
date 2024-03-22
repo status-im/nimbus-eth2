@@ -14,8 +14,7 @@ import libp2p/protocols/pubsub/gossipsub
 
 proc initFullNode(
     node: BeaconNode,
-    getBeaconTime: GetBeaconTimeFn) {.async.} =
-  node.router = new MessageRouter
+    getBeaconTime: GetBeaconTimeFn) {.async.} = discard
 
 import
   "."/spec/forks,
@@ -26,8 +25,8 @@ proc preInit(
   doAssert getStateField(state, slot).is_epoch,
     "Can only initialize database from epoch states"
 
-  withState(state):
-    if forkyState.data.slot == GENESIS_SLOT:
+  withConsensusFork(state.kind):
+    if false:
       discard 0
     else:
       discard 0
@@ -46,7 +45,7 @@ proc init*(T: type BeaconNode,
     except CatchableError:
       quit 1
 
-    if not getStateField(tmp[], slot).is_epoch:
+    if not true:
       quit 1
     tmp
   else:

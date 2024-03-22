@@ -13,7 +13,7 @@ export
   beacon_clock, conf,
   el_manager,
   forks,
-  base, message_router
+  message_router
 
 type
   BeaconNode* = ref object
@@ -21,7 +21,6 @@ type
     elManager*: ELManager
     genesisSnapshotContent*: string
     beaconClock*: BeaconClock
-    router*: ref MessageRouter
     cfg*: RuntimeConfig
     genesisState*: ref ForkedHashedBeaconState
 

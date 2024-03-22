@@ -11,21 +11,24 @@ from ".."/spec/datatypes/deneb import BlobSidecar
 import ".."/spec/forks
 
 type
-  BlobSidecars* = seq[ref BlobSidecar]
-  MessageRouter* = object
-  VerifierError* {.pure.} = enum
+  BlobSidecars = seq[ref BlobSidecar]
+  MessageRouter = object
+  VerifierError {.pure.} = enum
     Invalid
     MissingParent
     UnviableFork
     Duplicate
 
 from ".."/consensus_object_pools/block_dag import BlockRef, init
-
+import ".."/spec/digest
+import ".."/spec/datatypes/base
 func getBlockRef(root: Eth2Digest): Opt[BlockRef] =
   let newRef = BlockRef.init(
     root,
     0.Slot)
   return ok(newRef)
+
+from ".."/spec/datatypes/altair import shortLog
 
 proc addBlock(
     blck: ForkedSignedBeaconBlock,
