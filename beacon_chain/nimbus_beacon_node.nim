@@ -7,18 +7,15 @@ import
 
 import
   "."/[beacon_clock, conf],
-  ./spec/forks,
-  ./validators/[
-    message_router]
+  ./spec/forks
 
 type
+  RuntimeConfig = object
   BeaconNode = ref object
     beaconClock: BeaconClock
     cfg: RuntimeConfig
     genesisState: ref ForkedHashedBeaconState
 
-proc currentSlot(node: BeaconNode): uint64 =
-  node.beaconClock.now.slotOrZero
 proc init(T: type BeaconNode,
           config: BeaconNodeConf,
           cfg: RuntimeConfig): Future[BeaconNode]
@@ -53,8 +50,7 @@ proc start(node: BeaconNode) {.raises: [CatchableError].} =
 
 when isMainModule:
   import
-    confutils,
-    ../beacon_chain/conf
+    confutils
   const
     dataDir = "./test_keymanager_api"
     nodeDataDir = dataDir / "node-0"
@@ -74,7 +70,7 @@ when isMainModule:
       raiseAssert exc.msg
   
     let
-      cfg = RuntimeConfig(ALTAIR_FORK_EPOCH: 0, BELLATRIX_FORK_EPOCH: 0, CAPELLA_FORK_EPOCH: (not 0'u64))
+      cfg = RuntimeConfig()
       node = waitFor BeaconNode.init(runNodeConf, cfg)
   
     node.start()

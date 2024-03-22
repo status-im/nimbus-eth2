@@ -7,7 +7,6 @@ import
   ./spec/datatypes/base
 
 from std/os import getHomeDir, parentDir, `/`
-from std/strutils import parseBiggestUInt, replace
 export
   uri,
   defs, parseCmdArg, completeCmdArg
@@ -281,13 +280,6 @@ func parseCmdArg*(T: type Eth2Digest, input: string): T
   Eth2Digest.fromHex(input)
 
 func completeCmdArg*(T: type Eth2Digest, input: string): seq[string] =
-  return @[]
-
-func parseCmdArg*(T: type GraffitiBytes, input: string): T
-                 {.raises: [ValueError].} =
-  GraffitiBytes.init(input)
-
-func completeCmdArg*(T: type GraffitiBytes, input: string): seq[string] =
   return @[]
 
 func parseCmdArg*(T: type Uri, input: string): T

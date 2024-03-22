@@ -30,14 +30,12 @@ proc getBlockSignature(): Future[SignatureResult]
   SignatureResult.ok(default(ValidatorSig))
 
 type
-  # https://github.com/ethereum/consensus-specs/blob/v1.4.0/specs/deneb/validator.md#blobsbundle
-  KzgProofs = List[int, Limit MAX_BLOB_COMMITMENTS_PER_BLOCK]
-  Blobs = List[int, Limit MAX_BLOB_COMMITMENTS_PER_BLOCK]
-  BlobRoots = List[Eth2Digest, Limit MAX_BLOB_COMMITMENTS_PER_BLOCK]
+  KzgProofs = List[int, Limit 6]
+  Blobs = List[int, Limit 6]
 
   BlobsBundle = object
-    proofs*: KzgProofs
-    blobs*: Blobs
+    proofs: KzgProofs
+    blobs: Blobs
 
   EngineBid = tuple[
     blockValue: UInt256,
@@ -75,7 +73,7 @@ proc getProposalState(
 
 proc makeBeaconBlockForHeadAndSlot(
     PayloadType: type ForkyExecutionPayloadForSigning,
-    validator_index: int32, graffiti: GraffitiBytes, head: BlockRef,
+    validator_index: int32, head: BlockRef,
     slot: uint64,
     execution_payload: Opt[PayloadType]):
     Future[ForkedBlockResult] {.async: (raises: [CancelledError]).} =
@@ -93,7 +91,7 @@ proc makeBeaconBlockForHeadAndSlot(
           "given-payload")
         fut.complete(Opt.some(default(PayloadType)))
         fut
-      elif slot.epoch < 0:
+      elif slot < 0:
         let fut = Future[Opt[PayloadType]].Raising([CancelledError]).init(
           "empty-payload")
         fut.complete(Opt.some(default(PayloadType)))
@@ -123,11 +121,11 @@ proc makeBeaconBlockForHeadAndSlot(
 
 proc makeBeaconBlockForHeadAndSlot(
     PayloadType: type ForkyExecutionPayloadForSigning,
-    validator_index: int32, graffiti: GraffitiBytes, head: BlockRef,
+    validator_index: int32, head: BlockRef,
     slot: uint64):
     Future[ForkedBlockResult] =
   return makeBeaconBlockForHeadAndSlot(
-    PayloadType, validator_index, graffiti, head, slot,
+    PayloadType, validator_index, head, slot,
     execution_payload = Opt.none(PayloadType))
 
 proc blindedBlockCheckSlashingAndSign[
@@ -149,7 +147,7 @@ proc getUnsignedBlindedBeaconBlock[
 proc getBlindedBlockParts[EPH](
     head: BlockRef,
     pubkey: ValidatorPubKey, slot: uint64,
-    validator_index: int32, graffiti: GraffitiBytes):
+    validator_index: int32):
     Future[Result[(UInt256, ForkedBeaconBlock), string]]
     {.async: (raises: [CancelledError]).} =
   return err("")
@@ -190,7 +188,7 @@ proc proposeBlockMEV(
 proc collectBids(
     SBBB: typedesc, EPS: typedesc,
     validator_pubkey: ValidatorPubKey,
-    validator_index: int32, graffitiBytes: GraffitiBytes,
+    validator_index: int32,
     head: BlockRef, slot: uint64): Future[Bids[SBBB]] {.async: (raises: [CancelledError]).} =
   let usePayloadBuilder = false
 
@@ -211,7 +209,7 @@ proc collectBids(
           "either payload builder disabled or liveness failsafe active"))
         fut
     engineBlockFut = makeBeaconBlockForHeadAndSlot(
-      EPS, validator_index, graffitiBytes, head, slot)
+      EPS, validator_index, head, slot)
 
   await allFutures(payloadBuilderBidFut, engineBlockFut)
   doAssert payloadBuilderBidFut.finished and engineBlockFut.finished
@@ -262,11 +260,11 @@ type BlobSidecar = int
 proc proposeBlockAux(
     SBBB: typedesc, EPS: typedesc,
     validator: AttachedValidator, validator_pubkey: ValidatorPubKey, validator_index: int32,
-    head: BlockRef, slot: uint64, fork: Fork): Future[BlockRef] {.async: (raises: [CancelledError]).} =
+    head: BlockRef, slot: uint64): Future[BlockRef] {.async: (raises: [CancelledError]).} =
   let
     collectedBids = await collectBids(
       SBBB, EPS, validator_pubkey, validator_index,
-      default(GraffitiBytes), head, slot)
+      head, slot)
 
     useBuilderBlock =
       if collectedBids.builderBid.isSome():
@@ -311,13 +309,12 @@ proc proposeBlockAux(
         existingProposal = notSlashable.error
       return head
 
+    discard block:
+      let res = await getBlockSignature()
+      if res.isErr():
+        return head
+      res.get()
     let
-      signature =
-        block:
-          let res = await getBlockSignature()
-          if res.isErr():
-            return head
-          res.get()
       signedBlock = Mock()
       blobsOpt =
         when consensusFork >= ConsensusFork.Deneb:
@@ -353,8 +350,6 @@ proc proposeBlock*(head: BlockRef,
       return
 
   let
-    fork = default(Fork)
-    genesis_validators_root = default(Eth2Digest)
     cf = ConsensusFork.Bellatrix
 
   discard withConsensusFork(cf):
@@ -362,4 +357,4 @@ proc proposeBlock*(head: BlockRef,
       default(BlockRef)
     else:
       await proposeBlockAux(
-        int, int, validator, validator_pubkey, validator_index, head, slot, fork)
+        int, int, validator, validator_pubkey, validator_index, head, slot)
