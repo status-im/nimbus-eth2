@@ -1,16 +1,14 @@
 import
   std/[os, tables],
-  stew/[byteutils],
   chronos,
-  ../spec/[
-    eth2_merkleization, forks],
+  ../spec/forks,
   ".."/[conf, beacon_clock, beacon_node],
   "."/[
     slashing_protection]
 
 import ../spec/[datatypes/base, crypto]
 type
-  ValidatorKind* {.pure.} = enum
+  ValidatorKind {.pure.} = enum
     Local, Remote
   AttachedValidator = ref object
     case kind*: ValidatorKind
@@ -27,17 +25,12 @@ func shortLog*(v: AttachedValidator): string =
     ""
   of ValidatorKind.Remote:
     ""
-proc getBlockSignature(fork: Fork,
-                        genesis_validators_root: Eth2Digest, slot: Slot,
-                        block_root: Eth2Digest,
-                        blck: ForkedBeaconBlock
-                       ): Future[SignatureResult]
+proc getBlockSignature(): Future[SignatureResult]
                        {.async: (raises: [CancelledError]).} =
   SignatureResult.ok(default(ValidatorSig))
-from std/sequtils import mapIt
 import ".."/spec/mev/capella_mev
 from ".."/spec/datatypes/deneb import
-  BlobSidecar, Blobs, BlobsBundle, KzgCommitments, KzgProof, KzgProofs, kzg_commitment_inclusion_proof_gindex, shortLog
+  BlobSidecar, Blobs, BlobsBundle, KzgCommitments, kzg_commitment_inclusion_proof_gindex, shortLog
 
 type
   EngineBid = tuple[
@@ -74,7 +67,7 @@ proc getValidatorForDuties*(
       validator: Opt.some Validator(pubkey: ValidatorPubKey.fromHex("891c64850444b66331ef7888c907b4af71ab6b2c883affe2cebd15d6c3644ac7ce6af96334192efdf95a64bab8ea425a")[]))
 
 from ".."/spec/datatypes/capella import shortLog
-proc makeBeaconBlock(): Result[ForkedBeaconBlock, cstring] = ok(default(ForkedBeaconBlock))
+proc makeBeaconBlock(): Result[phase0.BeaconBlock, cstring] = ok(default(phase0.BeaconBlock))
 
 proc makeBeaconBlockForHeadAndSlot(
     PayloadType: type ForkyExecutionPayloadForSigning,
@@ -83,9 +76,6 @@ proc makeBeaconBlockForHeadAndSlot(
     slot: Slot,
 
     execution_payload: Opt[PayloadType],
-    transactions_root: Opt[Eth2Digest],
-    execution_payload_root: Opt[Eth2Digest],
-    withdrawals_root: Opt[Eth2Digest],
     kzg_commitments: Opt[KzgCommitments]):
     Future[ForkedBlockResult] {.async: (raises: [CancelledError]).} =
   var cache = StateCache()
@@ -99,24 +89,12 @@ proc makeBeaconBlockForHeadAndSlot(
     state = maybeState.get
     payloadFut =
       if execution_payload.isSome:
-        # Builder API
-
-        # In Capella, only get withdrawals root from relay.
-        # The execution payload will be small enough to be safe to copy because
-        # it won't have transactions (it's blinded)
         var modified_execution_payload = execution_payload
         withState(state[]):
-          when  consensusFork >= ConsensusFork.Capella and
-                PayloadType.kind >= ConsensusFork.Capella:
-            let withdrawals = List[Withdrawal, MAX_WITHDRAWALS_PER_PAYLOAD](@[])
-            if  withdrawals_root.isNone or
-                hash_tree_root(withdrawals) != withdrawals_root.get:
-              return err("Builder relay provided incorrect withdrawals root")
-            modified_execution_payload.get.executionPayload.withdrawals = withdrawals
-
+          discard
         let fut = Future[Opt[PayloadType]].Raising([CancelledError]).init(
           "given-payload")
-        fut.complete(modified_execution_payload)
+        fut.complete(Opt.some(default(PayloadType)))
         fut
       elif slot.epoch < node.cfg.BELLATRIX_FORK_EPOCH:
         let fut = Future[Opt[PayloadType]].Raising([CancelledError]).init(
@@ -144,7 +122,7 @@ proc makeBeaconBlockForHeadAndSlot(
   when payload is deneb.ExecutionPayloadForSigning:
     blobsBundleOpt = Opt.some(payload.blobsBundle)
   return if blck.isOk:
-    ok((blck.get, payload.blockValue, blobsBundleOpt))
+    ok((default(ForkedBeaconBlock), payload.blockValue, blobsBundleOpt))
   else:
     err(blck.error)
 
@@ -156,9 +134,6 @@ proc makeBeaconBlockForHeadAndSlot(
   return makeBeaconBlockForHeadAndSlot(
     PayloadType, node, randao_reveal, validator_index, graffiti, head, slot,
     execution_payload = Opt.none(PayloadType),
-    transactions_root = Opt.none(Eth2Digest),
-    execution_payload_root = Opt.none(Eth2Digest),
-    withdrawals_root = Opt.none(Eth2Digest),
     kzg_commitments = Opt.none(KzgCommitments))
 
 proc blindedBlockCheckSlashingAndSign[
@@ -332,7 +307,7 @@ proc proposeBlockAux(
 
   withBlck(engineBid.blck):
     let
-      blockRoot = hash_tree_root(forkyBlck)
+      blockRoot = default(Eth2Digest)
       signingRoot = default(Eth2Digest)
 
       notSlashable = registerBlock(validator_index, validator_pubkey, slot, signingRoot)
@@ -348,8 +323,7 @@ proc proposeBlockAux(
     let
       signature =
         block:
-          let res = await getBlockSignature(
-            fork, genesis_validators_root, slot, blockRoot, engineBid.blck)
+          let res = await getBlockSignature()
           if res.isErr():
             return head
           res.get()
