@@ -1,7 +1,6 @@
 import
   results,
-  "."/block_id,
-  ./datatypes/phase0
+  "."/block_id
 
 type
   ConsensusFork* {.pure.} = enum

@@ -5,8 +5,6 @@ import
   ./ssz_codec
 
 from ./datatypes/base import HashedValidatorPubKeyItem
-from ./datatypes/phase0 import HashedBeaconState, SignedBeaconBlock
-
 export ssz_codec, merkleization, proofs
 
 type

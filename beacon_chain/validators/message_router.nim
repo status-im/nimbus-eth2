@@ -21,8 +21,6 @@ func getBlockRef(root: Eth2Digest): Opt[BlockRef] =
     root,
     0.Slot)
   return ok(newRef)
-from ".."/spec/datatypes/phase0 import shortLog
-
 proc addBlock(
     blck: ForkedSignedBeaconBlock,
     blobs: Opt[BlobSidecars], maybeFinalized = false,
