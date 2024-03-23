@@ -43,7 +43,7 @@ type
     ##
     ## Trivially invalid blocks may be dropped before reaching this stage.
 
-    orphans*: Table[(Eth2Digest, ValidatorSig), ForkedSignedBeaconBlock]
+    orphans*: OrderedTable[(Eth2Digest, ValidatorSig), ForkedSignedBeaconBlock]
       ## Blocks that we don't have a parent for - when we resolve the
       ## parent, we can proceed to resolving the block as well - we
       ## index this by root and signature such that a block with
@@ -52,7 +52,7 @@ type
       ## below) - if so, upon resolving the parent, it should be
       ## added to the blobless table, after verifying its signature.
 
-    blobless*: Table[Eth2Digest, deneb.SignedBeaconBlock]
+    blobless*: OrderedTable[Eth2Digest, deneb.SignedBeaconBlock]
       ## Blocks that we don't have blobs for. When we have received
       ## all blobs for this block, we can proceed to resolving the
       ## block as well. A blobless block inserted into this table must
@@ -271,7 +271,13 @@ func addOrphan*(
   quarantine.addMissing(parent_root)
 
   if quarantine.orphans.lenu64 >= MaxOrphans:
-    return err("block quarantine full")
+    # Evict based on FIFO
+    var oldest_orphan_key: (Eth2Digest, ValidatorSig)
+    for k in quarantine.orphans.keys:
+      oldest_orphan_key = k
+      break
+    quarantine.orphans.del oldest_orphan_key
+    quarantine.blobless.del oldest_orphan_key[0]
 
   quarantine.orphans[(signedBlock.root, signedBlock.signature)] = signedBlock
   quarantine.missing.del(signedBlock.root)
@@ -303,7 +309,11 @@ proc addBlobless*(
   quarantine.cleanupBlobless(finalizedSlot)
 
   if quarantine.blobless.lenu64 >= MaxBlobless:
-    return true
+    var oldest_blobless_key: Eth2Digest
+    for k in quarantine.blobless.keys:
+      oldest_blobless_key = k
+      break
+    quarantine.blobless.del oldest_blobless_key
 
   debug "block quarantine: Adding blobless", blck = shortLog(signedBlock)
   quarantine.blobless[signedBlock.root] = signedBlock
