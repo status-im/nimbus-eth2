@@ -49,12 +49,8 @@ func getBlockRef2(root: Eth2Digest): Opt[BlockRef] =
     0)
   return ok(newRef)
 
-import "."/el/el_manager
-
 proc start(node: BeaconNode) {.raises: [CatchableError].} =
   echo "foo"
-  let elManager = default(ELManager)
-  elManager.start()
   let
     wallTime = node.beaconClock.now()
 
@@ -73,8 +69,6 @@ when isMainModule:
     nodeSecretsDir = nodeDataDir / "secrets"
 
   proc startBeaconNode() {.raises: [CatchableError].} =
-    #copyHalfValidators(nodeDataDir, true)
-  
     let runNodeConf = try: BeaconNodeConf.load(cmdLine = @[
       "--network=" & dataDir,
       "--data-dir=" & nodeDataDir,
