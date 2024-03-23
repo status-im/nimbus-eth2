@@ -112,6 +112,11 @@ proc discoverBranch(
     debug "Peer's head block root is already known"
     return
 
+  const
+    maxRequestsPerBurst = 50,
+    burstDuration = chronos.seconds(30)
+  let bucket = TokenBucket.new(maxRequestsPerBurst, burstDuration)
+
   var parentSlot = peerHeadSlot + 1
   logScope: parentSlot
   while true:
@@ -123,6 +128,7 @@ proc discoverBranch(
       return
 
     debug "Discovering new branch from peer"
+    await bucket.consume(1)
     let rsp = await peer.beaconBlocksByRoot_v2(BlockRootsList @[blockRoot])
     if rsp.isErr:
       # `eth2_network` already descored according to the specific error
@@ -166,6 +172,7 @@ proc discoverBranch(
           debug "Failed to discover new branch from peer"
           return
 
+        await bucket.consume(1)
         let r = await peer.blobSidecarsByRoot(BlobIdentifierList blobIds)
         if r.isErr:
           # `eth2_network` already descored according to the specific error
