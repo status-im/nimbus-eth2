@@ -146,11 +146,11 @@ func cleanupUnviable(quarantine: var Quarantine) =
       break # Cannot modify while for-looping
     quarantine.unviable.del(toDel)
 
-func removeUnviableOrphanTree(quarantine: var Quarantine,
-                        toCheck: var seq[Eth2Digest],
-                        tbl: var Table[(Eth2Digest, ValidatorSig),
-                                       ForkedSignedBeaconBlock]):
-                                         seq[Eth2Digest] =
+func removeUnviableOrphanTree(
+    quarantine: var Quarantine,
+    toCheck: var seq[Eth2Digest],
+    tbl: var OrderedTable[(Eth2Digest, ValidatorSig), ForkedSignedBeaconBlock]
+): seq[Eth2Digest] =
   # Remove the tree of orphans whose ancestor is unviable - they are now also
   # unviable! This helps avoiding junk in the quarantine, because we don't keep
   # unviable parents in the DAG and there's no way to tell an orphan from an
