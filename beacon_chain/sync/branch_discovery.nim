@@ -112,24 +112,21 @@ proc discoverBranch(
     debug "Peer's head block root is already known"
     return
 
-  var batchScore = 0
   while true:
     if self.isBlockKnown(blockRoot):
-      peer.updateScore(batchScore)
-      debug "Branch from peer no longer unknown", batchScore
+      debug "Branch from peer no longer unknown"
       return
     if peer.getScore() < PeerScoreLowLimit:
-      debug "Failed to discover new branch from peer", batchScore
+      debug "Failed to discover new branch from peer"
       return
 
-    debug "Discovering new branch from peer", batchScore
+    debug "Discovering new branch from peer"
     let rsp = await peer.beaconBlocksByRoot_v2(BlockRootsList @[blockRoot])
     if rsp.isErr:
+      # `eth2_network` already descored according to the specific error
       debug "Failed to receive block", err = rsp.error
-      if rsp.error.kind == ReadResponseTimeout:
-        await sleepAsync(RESP_TIMEOUT_DUR)
-        continue
-      return
+      await sleepAsync(RESP_TIMEOUT_DUR)
+      continue
     template blocks: untyped = rsp.get
 
     # The peer was the one providing us with this block root, it should exist
@@ -157,20 +154,18 @@ proc discoverBranch(
     if blobIds.len > 0:
       while true:
         if self.isBlockKnown(blockRoot):
-          peer.updateScore(batchScore)
-          debug "Branch from peer no longer unknown", batchScore
+          debug "Branch from peer no longer unknown"
           return
         if peer.getScore() < PeerScoreLowLimit:
-          debug "Failed to discover new branch from peer", batchScore
+          debug "Failed to discover new branch from peer"
           return
 
         let r = await peer.blobSidecarsByRoot(BlobIdentifierList blobIds)
         if r.isErr:
+          # `eth2_network` already descored according to the specific error
           debug "Failed to receive blobs", err = r.error
-          if r.error.kind == ReadResponseTimeout:
-            await sleepAsync(RESP_TIMEOUT_DUR)
-            continue
-          return
+          await sleepAsync(RESP_TIMEOUT_DUR)
+          continue
         template blobSidecars: untyped = r.unsafeGet
 
         if blobSidecars.len < blobIds.len:
@@ -203,10 +198,9 @@ proc discoverBranch(
         break
 
     let err = (await self.blockVerifier(blck, blobs)).errorOr:
-      batchScore = min(batchScore + PeerScoreGoodBatchValue, PeerScoreHighLimit)
-      peer.updateScore(PeerScoreGoodValues + batchScore)
+      peer.updateScore(PeerScoreGoodBatchValue + PeerScoreGoodValues)
       beacon_sync_branchdiscovery_discovered_blocks.inc()
-      info "Discovered new branch from peer", batchScore
+      info "Discovered new branch from peer"
       break
     case err
     of VerifierError.Invalid:
@@ -218,11 +212,11 @@ proc discoverBranch(
       debug "Received unviable block"
       return
     of VerifierError.Duplicate:
-      peer.updateScore(PeerScoreGoodValues + batchScore)
-      debug "Connected new branch from peer", batchScore
+      peer.updateScore(PeerScoreGoodValues)
+      debug "Connected new branch from peer"
       break
     of VerifierError.MissingParent:
-      batchScore = min(batchScore + PeerScoreGoodBatchValue, PeerScoreHighLimit)
+      peer.updateScore(PeerScoreGoodBatchValue)
       blockRoot = blck.getForkedBlockField(parent_root)
       continue
 
