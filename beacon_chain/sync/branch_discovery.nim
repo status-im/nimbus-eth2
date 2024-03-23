@@ -113,7 +113,7 @@ proc discoverBranch(
     return
 
   const
-    maxRequestsPerBurst = 50,
+    maxRequestsPerBurst = 50
     burstDuration = chronos.seconds(30)
   let bucket = TokenBucket.new(maxRequestsPerBurst, burstDuration)
 
