@@ -291,14 +291,12 @@ proc syncStatus*(node: BeaconNode, head: BlockRef): ChainSyncStatus =
   # We are on the latest slot among all of our peers, and there has been no
   # chain progress for an extended period of time.
   let clearanceSlot = getStateField(node.dag.clearanceState, slot)
-  if clearanceSlot + node.config.syncHorizon < wallSlot.slot or
-      node.dag.clearanceState.latest_block_id != node.dag.head.bid:
+  if clearanceSlot + node.config.syncHorizon < wallSlot.slot:
     # If we were to propose a block now, we would incur a large lag spike
     # that makes our block be way too late to be gossiped
     return ChainSyncStatus.Degraded
 
   # It is reasonable safe to assume that the network has halted, resume duties
-  # but keep the branch discovery module running in case a recent head is synced
   ChainSyncStatus.Synced
 
 proc isSynced*(node: BeaconNode, head: BlockRef): bool =
