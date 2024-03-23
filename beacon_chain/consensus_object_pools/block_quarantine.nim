@@ -178,10 +178,10 @@ func removeUnviableOrphanTree(quarantine: var Quarantine,
 
   checked
 
-func removeUnviableBloblessTree(quarantine: var Quarantine,
-                                toCheck: var seq[Eth2Digest],
-                                tbl: var Table[Eth2Digest,
-                                               deneb.SignedBeaconBlock]) =
+func removeUnviableBloblessTree(
+    quarantine: var Quarantine,
+    toCheck: var seq[Eth2Digest],
+    tbl: var OrderedTable[Eth2Digest, deneb.SignedBeaconBlock]) =
   var
     toRemove: seq[Eth2Digest] # Can't modify while iterating
   while toCheck.len > 0:
