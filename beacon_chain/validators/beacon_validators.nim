@@ -5,10 +5,9 @@ import
   "."/[
     slashing_protection]
 
-import ../spec/crypto
 type
   Validator = object
-    pubkey: ValidatorPubKey
+    pubkey: int
   ValidatorKind {.pure.} = enum
     Local, Remote
   AttachedValidator = ref object
@@ -19,7 +18,7 @@ type
       discard
     index: Opt[int32]
     validator: Opt[Validator]
-  SignatureResult = Result[ValidatorSig, string]
+  SignatureResult = Result[int, string]
 func shortLog*(v: AttachedValidator): string =
   case v.kind
   of ValidatorKind.Local:
@@ -28,7 +27,7 @@ func shortLog*(v: AttachedValidator): string =
     ""
 proc getBlockSignature(): Future[SignatureResult]
                        {.async: (raises: [CancelledError]).} =
-  SignatureResult.ok(default(ValidatorSig))
+  SignatureResult.ok(0)
 
 type
   KzgProofs = seq[int]
@@ -55,14 +54,14 @@ type
     builderBid: Opt[BuilderBid[SBBB]]
 
 import ".."/consensus_object_pools/block_dag
-let pk = ValidatorPubKey.fromHex("891c64850444b66331ef7888c907b4af71ab6b2c883affe2cebd15d6c3644ac7ce6af96334192efdf95a64bab8ea425a")[]
+const pk = 0
 proc getValidatorForDuties(
     idx: int32, slot: uint64,
     slashingSafe = false): Opt[AttachedValidator] =
   ok AttachedValidator(
     kind: ValidatorKind.Local,
     index: Opt.some 0.int32,
-    validator: Opt.some Validator(pubkey: ValidatorPubKey.fromHex("891c64850444b66331ef7888c907b4af71ab6b2c883affe2cebd15d6c3644ac7ce6af96334192efdf95a64bab8ea425a")[]))
+    validator: Opt.some Validator(pubkey: 0))
 
 proc makeBeaconBlock(): Result[Mock, cstring] = ok(default(Mock))
 
@@ -153,7 +152,7 @@ proc getUnsignedBlindedBeaconBlock[
 
 proc getBlindedBlockParts[EPH](
     head: BlockRef,
-    pubkey: ValidatorPubKey, slot: uint64,
+    pubkey: int, slot: uint64,
     validator_index: int32):
     Future[Result[(uint64, ForkedBeaconBlock), string]]
     {.async: (raises: [CancelledError]).} =
@@ -162,7 +161,7 @@ proc getBlindedBlockParts[EPH](
 proc getBuilderBid[
     SBBB: int](
     head: BlockRef,
-    validator_pubkey: ValidatorPubKey, slot: uint64,
+    validator_pubkey: int, slot: uint64,
     validator_index: int32):
     Future[BlindedBlockResult[SBBB]] {.async: (raises: [CancelledError]).} =
   when SBBB is int:
@@ -194,7 +193,7 @@ proc proposeBlockMEV(
 
 proc collectBids(
     SBBB: typedesc, EPS: typedesc,
-    validator_pubkey: ValidatorPubKey,
+    validator_pubkey: int,
     validator_index: int32,
     head: BlockRef, slot: uint64): Future[Bids[SBBB]] {.async: (raises: [CancelledError]).} =
   let usePayloadBuilder = false
@@ -320,7 +319,7 @@ proc routeSignedBeaconBlock*(
   ok(blockRef)
 proc proposeBlockAux(
     SBBB: typedesc, EPS: typedesc,
-    validator: AttachedValidator, validator_pubkey: ValidatorPubKey, validator_index: int32,
+    validator: AttachedValidator, validator_pubkey: int, validator_index: int32,
     head: BlockRef, slot: uint64): Future[BlockRef] {.async: (raises: [CancelledError]).} =
   let
     collectedBids = await collectBids(
@@ -360,7 +359,7 @@ proc proposeBlockAux(
       blockRoot = default(Eth2Digest)
       signingRoot = default(Eth2Digest)
 
-      notSlashable = registerBlock(validator_index, validator_pubkey, slot, signingRoot)
+      notSlashable = registerBlock(validator_index, slot, signingRoot)
 
     if notSlashable.isErr:
       warn "Slashing protection activated for block proposal",

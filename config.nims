@@ -92,15 +92,6 @@ if  canEnableDebuggingSymbols:
 
 --define:nimOldCaseObjects # https://github.com/status-im/nim-confutils/issues/9
 
-# `switch("warning[CaseTransition]", "off")` fails with "Error: invalid command line option: '--warning[CaseTransition]'"
-switch("warning", "CaseTransition:off")
-
-# The compiler doth protest too much, methinks, about all these cases where it can't
-# do its (N)RVO pass: https://github.com/nim-lang/RFCs/issues/230
-switch("warning", "ObservableStores:off")
-
---define:kzgExternalBlst
-
 # ############################################################
 #
 #                    No LTO for crypto
@@ -123,13 +114,3 @@ put("secp256k1.always", "-fno-lto")
 put("aesctr_drbg.always", "-fno-lto")
 put("hmac_drbg.always", "-fno-lto")
 put("sysrng.always", "-fno-lto")
-
-# ############################################################
-#
-#                    Spurious warnings
-#
-# ############################################################
-
-# sqlite3.c: In function ‘sqlite3SelectNew’:
-# vendor/nim-sqlite3-abi/sqlite3.c:124500: warning: function may return address of local variable [-Wreturn-local-addr]
-put("sqlite3.always", "-fno-lto") # -Wno-return-local-addr
