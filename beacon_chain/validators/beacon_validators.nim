@@ -31,8 +31,6 @@ proc getBlockSignature(): Future[SignatureResult]
                        {.async: (raises: [CancelledError]).} =
   SignatureResult.ok(default(ValidatorSig))
 
-import stint
-
 type
   KzgProofs = seq[int]
   Blobs = seq[int]
@@ -42,11 +40,11 @@ type
     blobs: Blobs
 
   EngineBid = tuple[
-    blockValue: UInt256,
+    blockValue: uint64,
     blobsBundleOpt: Opt[BlobsBundle]]
 
   BuilderBid[SBBB] = tuple[
-    blindedBlckPart: SBBB, blockValue: UInt256]
+    blindedBlckPart: SBBB, blockValue: uint64]
 
   ForkedBlockResult =
     Result[EngineBid, string]
@@ -125,7 +123,7 @@ proc makeBeaconBlockForHeadAndSlot(
 
   var blobsBundleOpt = Opt.none(BlobsBundle)
   return if blck.isOk:
-    ok((0.u256, blobsBundleOpt))
+    ok((0'u64, blobsBundleOpt))
   else:
     err(blck.error)
 
@@ -158,7 +156,7 @@ proc getBlindedBlockParts[EPH](
     head: BlockRef,
     pubkey: ValidatorPubKey, slot: uint64,
     validator_index: int32):
-    Future[Result[(UInt256, ForkedBeaconBlock), string]]
+    Future[Result[(uint64, ForkedBeaconBlock), string]]
     {.async: (raises: [CancelledError]).} =
   return err("")
 
@@ -254,15 +252,8 @@ proc collectBids(
     builderBid: builderBid)
 
 func builderBetterBid(
-    localBlockValueBoost: uint8, builderValue: UInt256, engineValue: UInt256): bool =
-  const scalingBits = 10
-  static: doAssert 1 shl scalingBits >
-    high(typeof(localBlockValueBoost)).uint16 + 100
-  let
-    scaledBuilderValue = (builderValue shr scalingBits) * 100
-    scaledEngineValue = engineValue shr scalingBits
-  scaledBuilderValue >
-    scaledEngineValue * (localBlockValueBoost.uint16 + 100).u256
+    localBlockValueBoost: uint8, builderValue: uint64, engineValue: uint64): bool =
+  false
 
 import chronicles
 import

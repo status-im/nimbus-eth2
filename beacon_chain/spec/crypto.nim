@@ -1,6 +1,7 @@
 import
   results,
-  stew/[bitseqs, endians2, objects, byteutils],
+  stew/byteutils,
+  stew/objects,
   blscurve
 
 from std/tables import Table, withValue, `[]=`

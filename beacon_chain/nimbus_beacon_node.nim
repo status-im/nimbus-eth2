@@ -1,20 +1,36 @@
 import
   std/os,
   chronos,
-  stew/io2,
-  ./validators/beacon_validators,
-  "."/nimbus_binary_common
+  ./validators/beacon_validators
 
-import
-  "."/[beacon_clock, conf],
-  ./spec/forks
+import "."/beacon_clock
+import "."/spec/beacon_time
+
+proc runSlotLoop*[T](node: T, startTime: BeaconTime) {.async.} =
+  var
+    curSlot = startTime.slotOrZero()
+    nextSlot = curSlot + 1 # No earlier than GENESIS_SLOT + 1
+    timeToNextSlot = nextSlot.start_beacon_time() - startTime
+
+  while true:
+    let
+      wallTime = node.beaconClock.now()
+      wallSlot = wallTime.slotOrZero() # Always > GENESIS!
+
+    if false:
+      timeToNextSlot = nextSlot.start_beacon_time() - wallTime
+      continue
+
+    await proposeBlock(getBlockRef2(static(default(Eth2Digest))).get, wallSlot)
+    quit 0
+
+import ./conf
 
 type
   RuntimeConfig = object
   BeaconNode = ref object
     beaconClock: BeaconClock
     cfg: RuntimeConfig
-    genesisState: ref ForkedHashedBeaconState
 
 proc init(T: type BeaconNode,
           config: BeaconNodeConf,
