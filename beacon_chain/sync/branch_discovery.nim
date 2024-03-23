@@ -25,7 +25,7 @@
 # Note that request manager is not running while sync manager is running.
 #
 # Once both sync manager and branch discovery stopped resolving new blocks,
-# `syncStatus` will report `ChainSyncStatus.Degraded` and `dag.clearanceState`
+# `syncStatus` will report `ChainSyncStatus.Degraded` and `blockchain_dag` state
 # will be gradually advanced to the wall slot to prepare for block proposal.
 # If at that time, no additional branches were discovered, validator duties
 # will be performed based on local fork choice.
