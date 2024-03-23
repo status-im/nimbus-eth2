@@ -2,7 +2,6 @@ import
   std/os,
   chronos,
   ../spec/forks,
-  ".."/conf,
   "."/[
     slashing_protection]
 

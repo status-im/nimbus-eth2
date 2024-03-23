@@ -4,8 +4,6 @@ import
   stew/objects,
   blscurve
 
-from std/tables import Table, withValue, `[]=`
-
 export blscurve
 
 const

@@ -1,10 +1,54 @@
 import
-  std/os,
   chronos,
   ./validators/beacon_validators
 
-import "."/beacon_clock
-import "."/spec/beacon_time
+type
+  BeaconTime = object
+    ns_since_genesis: int64
+
+  TimeDiff = object
+    nanoseconds: int64
+
+const
+  FAR_FUTURE_BEACON_TIME = BeaconTime(ns_since_genesis: int64.high())
+  NANOSECONDS_PER_SLOT = 12 * 1_000_000_000'u64
+
+func toSlot(t: BeaconTime): tuple[afterGenesis: bool, slot: uint64] =
+  if t == FAR_FUTURE_BEACON_TIME:
+    (true, (not 0'u64))
+  elif t.ns_since_genesis >= 0:
+    (true, uint64(uint64(t.ns_since_genesis) div NANOSECONDS_PER_SLOT))
+  else:
+    (false, uint64(uint64(-t.ns_since_genesis) div NANOSECONDS_PER_SLOT))
+
+template `-`(t: BeaconTime, offset: TimeDiff): BeaconTime =
+  BeaconTime(ns_since_genesis: t.ns_since_genesis - offset.nanoseconds)
+
+template `-`(a, b: BeaconTime): TimeDiff =
+  TimeDiff(nanoseconds: a.ns_since_genesis - b.ns_since_genesis)
+func start_beacon_time(s: uint64): BeaconTime =
+  const maxSlot = uint64(
+    uint64(FAR_FUTURE_BEACON_TIME.ns_since_genesis) div NANOSECONDS_PER_SLOT)
+  if s > maxSlot: FAR_FUTURE_BEACON_TIME
+  else: BeaconTime(ns_since_genesis: int64(uint64(s) * NANOSECONDS_PER_SLOT))
+
+func slotOrZero(time: BeaconTime): uint64 =
+  let exSlot = time.toSlot
+  if exSlot.afterGenesis: exSlot.slot
+  else: uint64(0)
+
+from std/times import Time, getTime, `-`, inNanoseconds
+
+type
+  BeaconClock = object
+    genesis: Time
+
+func toBeaconTime(c: BeaconClock, t: Time): BeaconTime =
+  BeaconTime(ns_since_genesis: inNanoseconds(t - c.genesis))
+
+proc now(c: BeaconClock): BeaconTime =
+  ## Current time, in slots - this may end up being less than GENESIS_SLOT(!)
+  toBeaconTime(c, getTime())
 
 proc runSlotLoop*[T](node: T, startTime: BeaconTime) {.async.} =
   var
@@ -24,8 +68,6 @@ proc runSlotLoop*[T](node: T, startTime: BeaconTime) {.async.} =
     await proposeBlock(getBlockRef2(static(default(Eth2Digest))).get, wallSlot)
     quit 0
 
-import ./conf
-
 type
   RuntimeConfig = object
   BeaconNode = ref object
@@ -33,7 +75,6 @@ type
     cfg: RuntimeConfig
 
 proc init(T: type BeaconNode,
-          config: BeaconNodeConf,
           cfg: RuntimeConfig): Future[BeaconNode]
          {.async.} =
   let node = BeaconNode(
@@ -60,27 +101,10 @@ proc start(node: BeaconNode) {.raises: [CatchableError].} =
     poll()
 
 when isMainModule:
-  import
-    confutils
-  const
-    dataDir = "./test_keymanager_api"
-    nodeDataDir = dataDir / "node-0"
-    nodeValidatorsDir = nodeDataDir / "validators"
-    nodeSecretsDir = nodeDataDir / "secrets"
-
   proc startBeaconNode() {.raises: [CatchableError].} =
-    let runNodeConf = try: BeaconNodeConf.load(cmdLine = @[
-      "--network=" & dataDir,
-      "--data-dir=" & nodeDataDir,
-      "--validators-dir=" & nodeValidatorsDir,
-      "--secrets-dir=" & nodeSecretsDir,
-      "--no-el"])
-    except Exception as exc: # TODO fix confutils exceptions
-      raiseAssert exc.msg
-  
     let
       cfg = RuntimeConfig()
-      node = waitFor BeaconNode.init(runNodeConf, cfg)
+      node = waitFor BeaconNode.init(cfg)
   
     node.start()
   
