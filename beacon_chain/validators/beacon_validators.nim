@@ -277,7 +277,6 @@ type
     UnviableFork
     Duplicate
 
-import ".."/spec/digest
 func getBlockRef(root: Eth2Digest): Opt[BlockRef] =
   let newRef = BlockRef.init(
     root,

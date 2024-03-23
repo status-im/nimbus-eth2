@@ -32,27 +32,9 @@ type
     of ConsensusFork.Deneb:     denebData:     Mock
     of ConsensusFork.Electra:   electraData:   Mock
 
-  ForkedBlindedBeaconBlock = object
-    case kind: ConsensusFork
-    of ConsensusFork.Phase0:    phase0Data:    Mock
-    of ConsensusFork.Altair:    altairData:    Mock
-    of ConsensusFork.Bellatrix: bellatrixData: Mock
-    of ConsensusFork.Capella:   capellaData:   Mock
-    of ConsensusFork.Deneb:     denebData:     Mock
-    of ConsensusFork.Electra:   electraData:   Mock
-
   ForkySignedBeaconBlock* = Mock
 
   ForkedSignedBeaconBlock* = object
-    case kind: ConsensusFork
-    of ConsensusFork.Phase0:    phase0Data:    Mock
-    of ConsensusFork.Altair:    altairData:    Mock
-    of ConsensusFork.Bellatrix: bellatrixData: Mock
-    of ConsensusFork.Capella:   capellaData:   Mock
-    of ConsensusFork.Deneb:     denebData:     Mock
-    of ConsensusFork.Electra:   electraData:   Mock
-
-  ForkedSignedBlindedBeaconBlock = object
     case kind: ConsensusFork
     of ConsensusFork.Phase0:    phase0Data:    Mock
     of ConsensusFork.Altair:    altairData:    Mock
@@ -108,9 +90,7 @@ template init*(T: type ForkedSignedBeaconBlock, blck: Mock): T =
 
 template withBlck*(
     x: ForkedBeaconBlock |
-       ForkedSignedBeaconBlock |
-       ForkedBlindedBeaconBlock |
-       ForkedSignedBlindedBeaconBlock,
+       ForkedSignedBeaconBlock,
     body: untyped): untyped =
   case x.kind
   of ConsensusFork.Phase0:
@@ -137,11 +117,3 @@ template withBlck*(
     const consensusFork {.inject, used.} = ConsensusFork.Electra
     template forkyBlck: untyped {.inject, used.} = x.electraData
     body
-
-import "."/digest
-
-type
-  BeaconStateHeader* = object
-    genesis_time*: uint64
-    genesis_validators_root*: Eth2Digest
-    slot*: uint64

@@ -1,6 +1,6 @@
 import
   serialization,
-  ../spec/digest
+  ../consensus_object_pools/block_dag
 
 type
   SPDIR* = object

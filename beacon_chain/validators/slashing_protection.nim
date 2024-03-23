@@ -27,7 +27,7 @@ proc checkSlashableBlockProposalOther(
 
   ok()
 
-import ".."/spec/digest
+import ".."/consensus_object_pools/block_dag
 
 proc checkSlashableBlockProposalDoubleProposal(
        valID: ValidatorInternalID,

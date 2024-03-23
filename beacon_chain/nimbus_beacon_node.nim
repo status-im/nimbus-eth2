@@ -25,8 +25,7 @@ proc init(T: type BeaconNode,
 
   node
 
-from "."/consensus_object_pools/block_dag import BlockRef, init
-import "."/spec/digest
+import "."/consensus_object_pools/block_dag
 
 func getBlockRef2(root: Eth2Digest): Opt[BlockRef] =
   let newRef = BlockRef.init(
