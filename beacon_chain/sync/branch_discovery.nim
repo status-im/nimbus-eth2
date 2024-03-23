@@ -112,6 +112,8 @@ proc discoverBranch(
     debug "Peer's head block root is already known"
     return
 
+  var parentSlot = peerHeadSlot + 1
+  logScope: parentSlot
   while true:
     if self.isBlockKnown(blockRoot):
       debug "Branch from peer no longer unknown"
@@ -140,6 +142,10 @@ proc discoverBranch(
       debug "Received too many blocks", numBlocks = blocks.len
       return
     template blck: untyped = blocks[0][]
+    if blck.slot >= parentSlot:
+      peer.updateScore(PeerScoreBadResponse)
+      debug "Received block older than parent", receivedSlot = blck.slot
+      return
     if blck.root != blockRoot:
       peer.updateScore(PeerScoreBadResponse)
       debug "Received incorrect block", receivedRoot = blck.root
@@ -217,6 +223,7 @@ proc discoverBranch(
       break
     of VerifierError.MissingParent:
       peer.updateScore(PeerScoreGoodBatchValue)
+      parentSlot = blck.slot
       blockRoot = blck.getForkedBlockField(parent_root)
       continue
 
