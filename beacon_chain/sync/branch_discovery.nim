@@ -128,7 +128,12 @@ proc discoverBranch(
       return
 
     debug "Discovering new branch from peer"
-    await bucket.consume(1)
+    try:
+      await bucket.consume(1)
+    except CancelledError as exc:
+      raise exc
+    except CatchableError as exc:
+      raiseAssert "TokenBucket.consume should not fail: " & $exc.msg
     let rsp = await peer.beaconBlocksByRoot_v2(BlockRootsList @[blockRoot])
     if rsp.isErr:
       # `eth2_network` already descored according to the specific error
