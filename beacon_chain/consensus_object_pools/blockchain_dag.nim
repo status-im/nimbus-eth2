@@ -2395,6 +2395,7 @@ proc updateHead*(
     quit 1
 
   dag.head = newHead
+  dag.resetChainProgressWatchdog()
 
   if  dag.headState.is_merge_transition_complete() and not
       lastHeadMergeComplete and
