@@ -978,7 +978,7 @@ proc makeEth2Request(peer: Peer, protocolId: string, requestBytes: seq[byte],
         peer.updateScore(PeerScoreInvalidRequest)
       else:
         peer.updateScore(PeerScorePoorRequest)
-      return streamRes.error()
+      return err streamRes.error()
 
   try:
     # Send the request
