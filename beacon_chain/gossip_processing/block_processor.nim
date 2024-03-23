@@ -454,7 +454,7 @@ proc storeBlock(
       else:
         if blobsOpt.isSome:
           for blobSidecar in blobsOpt.get:
-            self.blobQuarantine[].put(blobSidecar)
+            self.blobQuarantine.put(blobSidecar)
         debug "Block quarantined",
           blockRoot = shortLog(signedBlock.root),
           blck = shortLog(signedBlock.message),
