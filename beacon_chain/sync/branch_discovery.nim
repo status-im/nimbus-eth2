@@ -177,7 +177,12 @@ proc discoverBranch(
           debug "Failed to discover new branch from peer"
           return
 
-        await bucket.consume(1)
+        try:
+          await bucket.consume(1)
+        except CancelledError as exc:
+          raise exc
+        except CatchableError as exc:
+          raiseAssert "TokenBucket.consume should not fail: " & $exc.msg
         let r = await peer.blobSidecarsByRoot(BlobIdentifierList blobIds)
         if r.isErr:
           # `eth2_network` already descored according to the specific error
