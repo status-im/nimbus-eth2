@@ -281,6 +281,9 @@ proc syncStatus*(node: BeaconNode, head: BlockRef): ChainSyncStatus =
   if node.dag.incrementalState == nil:
     # The head state is too far in the past to timely perform validator duties
     return ChainSyncStatus.Degraded
+  if node.dag.incrementalState[].latest_block_id != dag.head.bid:
+    # The incremental state is not yet on the correct head (see `onSlotEnd`)
+    return ChainSyncStatus.Degraded
   let incrementalSlot = getStateField(node.dag.incrementalState[], slot)
   if incrementalSlot + node.config.syncHorizon < wallSlot.slot:
     # The incremental state still needs to advance further (see `onSlotEnd`)
