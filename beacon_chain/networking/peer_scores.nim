@@ -29,7 +29,7 @@ const
     ## Peer's `status` answer is fine.
   PeerScoreNoValues* = -100
     ## Peer did not respond in time to a request.
-  PeerScoreGoodBatchValue* = 10
+  PeerScoreGoodBatchValue* = 5
     ## Individual portion of peer's multi-step answer is fine.
   PeerScoreGoodValues* = 100
     ## Peer's answer to our request is fine.

@@ -1610,6 +1610,14 @@ func syncStatus(node: BeaconNode, wallSlot: Slot): string =
   let optimistic_head = not node.dag.head.executionValid
   if node.syncManager.inProgress:
     let
+      degradedSuffix =
+        case node.branchDiscovery.state
+        of BranchDiscoveryState.Active:
+          "/discovering"
+        of BranchDiscoveryState.Suspended:
+          "/degraded"
+        of BranchDiscoveryState.Stopped:
+          ""
       optimisticSuffix =
         if optimistic_head:
           "/opt"
@@ -1620,7 +1628,8 @@ func syncStatus(node: BeaconNode, wallSlot: Slot): string =
           " - lc: " & $shortLog(node.consensusManager[].optimisticHead)
         else:
           ""
-    node.syncManager.syncStatus & optimisticSuffix & lightClientSuffix
+    node.syncManager.syncStatus &
+      degradedSuffix & optimisticSuffix & lightClientSuffix
   elif node.backfiller.inProgress:
     "backfill: " & node.backfiller.syncStatus
   elif optimistic_head:

@@ -101,22 +101,22 @@ proc discoverBranch(
     finalizedSlot = self.getFinalizedSlot()
     peerHeadSlot = peer.getHeadSlot()
   if peerHeadSlot <= finalizedSlot:
-    debug "Peer's head slot is already finalized", peerHeadSlot, finalizedSlot
     peer.updateScore(PeerScoreUseless)
+    debug "Peer's head slot is already finalized", peerHeadSlot, finalizedSlot
     return
 
   var blockRoot = peer.getHeadRoot()
   logScope: blockRoot
   if self.isBlockKnown(blockRoot):
-    debug "Peer's head block root is already known"
     peer.updateScore(PeerScoreUseless)
+    debug "Peer's head block root is already known"
     return
 
   var batchScore = 0
   while true:
     if self.isBlockKnown(blockRoot):
-      debug "Branch from peer no longer unknown", batchScore
       peer.updateScore(batchScore)
+      debug "Branch from peer no longer unknown", batchScore
       return
     if peer.getScore() < PeerScoreLowLimit:
       debug "Failed to discover new branch from peer", batchScore
@@ -125,7 +125,6 @@ proc discoverBranch(
     debug "Discovering new branch from peer", batchScore
     let rsp = await peer.beaconBlocksByRoot_v2(BlockRootsList @[blockRoot])
     if rsp.isErr:
-      peer.updateScore(PeerScoreNoValues)
       debug "Failed to receive block", err = rsp.error
       if rsp.error.kind == ReadResponseTimeout:
         await sleepAsync(RESP_TIMEOUT_DUR)
@@ -158,8 +157,8 @@ proc discoverBranch(
     if blobIds.len > 0:
       while true:
         if self.isBlockKnown(blockRoot):
-          debug "Branch from peer no longer unknown", batchScore
           peer.updateScore(batchScore)
+          debug "Branch from peer no longer unknown", batchScore
           return
         if peer.getScore() < PeerScoreLowLimit:
           debug "Failed to discover new branch from peer", batchScore
@@ -167,22 +166,23 @@ proc discoverBranch(
 
         let r = await peer.blobSidecarsByRoot(BlobIdentifierList blobIds)
         if r.isErr:
-          peer.updateScore(PeerScoreNoValues)
           debug "Failed to receive blobs", err = r.error
-          if rsp.error.kind == ReadResponseTimeout:
+          if r.error.kind == ReadResponseTimeout:
             await sleepAsync(RESP_TIMEOUT_DUR)
             continue
           return
         template blobSidecars: untyped = r.unsafeGet
 
         if blobSidecars.len < blobIds.len:
-          peer.updateScore(PeerScoreNoValues)
-          debug "Received not all blobs", numBlobs = blobSidecars.len
+          peer.updateScore(PeerScoreMissingValues)
+          debug "Received not all blobs",
+            numBlobs = blobSidecars.len, expectedNumBlobs = blobIds.len
           await sleepAsync(RESP_TIMEOUT_DUR)
           continue
         if blobSidecars.len > blobIds.len:
           peer.updateScore(PeerScoreBadResponse)
-          debug "Received too many blobs", numBlobs = blobSidecars.len
+          debug "Received too many blobs",
+            numBlobs = blobSidecars.len, expectedNumBlobs = blobIds.len
           return
         for i, blobSidecar in blobSidecars:
           let root = hash_tree_root(blobSidecar[].signed_block_header.message)
@@ -203,10 +203,10 @@ proc discoverBranch(
         break
 
     let err = (await self.blockVerifier(blck, blobs)).errorOr:
-      info "Discovered new branch from peer", batchScore
-      beacon_sync_branchdiscovery_discovered_blocks.inc()
       batchScore = min(batchScore + PeerScoreGoodBatchValue, PeerScoreHighLimit)
       peer.updateScore(PeerScoreGoodValues + batchScore)
+      beacon_sync_branchdiscovery_discovered_blocks.inc()
+      info "Discovered new branch from peer", batchScore
       break
     case err
     of VerifierError.Invalid:
@@ -218,8 +218,8 @@ proc discoverBranch(
       debug "Received unviable block"
       return
     of VerifierError.Duplicate:
-      debug "Connected new branch from peer", batchScore
       peer.updateScore(PeerScoreGoodValues + batchScore)
+      debug "Connected new branch from peer", batchScore
       break
     of VerifierError.MissingParent:
       batchScore = min(batchScore + PeerScoreGoodBatchValue, PeerScoreHighLimit)
@@ -258,6 +258,13 @@ proc start*(self: ref BranchDiscovery) =
   self[].loopFuture = self.loop()
   beacon_sync_branchdiscovery_state.set(self.state.ord().int64)
 
+proc stop*(self: ref BranchDiscovery) {.async: (raises: []).} =
+  if self[].loopFuture != nil:
+    info "Stopping discovery of new branches"
+    await self[].loopFuture.cancelAndWait()
+    self[].loopFuture = nil
+    beacon_sync_branchdiscovery_state.set(self.state.ord().int64)
+
 proc suspend*(self: ref BranchDiscovery) =
   self[].isActive.clear()
   beacon_sync_branchdiscovery_state.set(self.state.ord().int64)
@@ -265,10 +272,3 @@ proc suspend*(self: ref BranchDiscovery) =
 proc resume*(self: ref BranchDiscovery) =
   self[].isActive.fire()
   beacon_sync_branchdiscovery_state.set(self.state.ord().int64)
-
-proc stop*(self: ref BranchDiscovery) {.async: (raises: []).} =
-  if self[].loopFuture != nil:
-    info "Stopping discovery of new branches"
-    await self[].loopFuture.cancelAndWait()
-    self[].loopFuture = nil
-    beacon_sync_branchdiscovery_state.set(self.state.ord().int64)

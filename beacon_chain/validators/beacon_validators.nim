@@ -255,7 +255,7 @@ proc syncStatus*(node: BeaconNode, head: BlockRef): ChainSyncStatus =
 
   if node.dag.chainIsProgressing():
     # Chain is progressing, we are out of sync
-    node.branchDiscovery.suspend()
+    node.branchDiscovery.resume()
     return ChainSyncStatus.Syncing
 
   let numPeers = len(node.network.peerPool)
