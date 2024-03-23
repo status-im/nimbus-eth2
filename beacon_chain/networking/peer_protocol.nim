@@ -219,6 +219,10 @@ proc updateStatus*(peer: Peer): Future[bool] {.async: (raises: [CancelledError])
 
   await peer.handleStatus(nstate, theirStatus)
 
+proc getHeadRoot*(peer: Peer): Eth2Digest =
+  ## Returns head root for specific peer ``peer``.
+  peer.state(PeerSync).statusMsg.headRoot
+
 proc getHeadSlot*(peer: Peer): Slot =
   ## Returns head slot for specific peer ``peer``.
   peer.state(PeerSync).statusMsg.headSlot

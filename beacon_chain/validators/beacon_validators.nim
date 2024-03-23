@@ -250,10 +250,12 @@ proc syncStatus*(node: BeaconNode, head: BlockRef): ChainSyncStatus =
   if not wallSlot.afterGenesis or
       head.slot + node.config.syncHorizon >= wallSlot.slot:
     node.dag.resetChainProgressWatchdog()
+    node.branchDiscovery.suspend()
     return ChainSyncStatus.Synced
 
   if node.dag.chainIsProgressing():
     # Chain is progressing, we are out of sync
+    node.branchDiscovery.suspend()
     return ChainSyncStatus.Syncing
 
   let numPeers = len(node.network.peerPool)
@@ -261,7 +263,17 @@ proc syncStatus*(node: BeaconNode, head: BlockRef): ChainSyncStatus =
     # We may have poor connectivity, wait until more peers are available.
     # This could also be intermittent, as state replays while chain is degraded
     # may take significant amounts of time, during which many peers are lost
+    node.branchDiscovery.suspend()
     return ChainSyncStatus.Syncing
+
+  # Network connectivity is good, but we have trouble making sync progress.
+  # Turn on branch discovery module until we have a recent canonical head.
+  # The branch discovery module specifically targets peers on alternate branches
+  # and supports sync manager in discovering branches that are not widely seen
+  # but that may still have weight from attestations.
+  if node.branchDiscovery.state == BranchDiscoveryState.Stopped:
+    node.branchDiscovery.start()
+  node.branchDiscovery.resume()
 
   let
     maxHeadSlot = node.dag.heads.foldl(max(a, b.slot), GENESIS_SLOT)
@@ -279,12 +291,14 @@ proc syncStatus*(node: BeaconNode, head: BlockRef): ChainSyncStatus =
   # We are on the latest slot among all of our peers, and there has been no
   # chain progress for an extended period of time.
   let clearanceSlot = getStateField(node.dag.clearanceState, slot)
-  if clearanceSlot + node.config.syncHorizon < wallSlot.slot:
+  if clearanceSlot + node.config.syncHorizon < wallSlot.slot or
+      node.dag.clearanceState.latest_block_id != node.dag.head.bid:
     # If we were to propose a block now, we would incur a large lag spike
     # that makes our block be way too late to be gossiped
     return ChainSyncStatus.Degraded
 
   # It is reasonable safe to assume that the network has halted, resume duties
+  # but keep the branch discovery module running in case a recent head is synced
   ChainSyncStatus.Synced
 
 proc isSynced*(node: BeaconNode, head: BlockRef): bool =
