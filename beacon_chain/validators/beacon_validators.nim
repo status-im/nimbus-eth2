@@ -253,17 +253,17 @@ proc syncStatus*(node: BeaconNode, head: BlockRef): ChainSyncStatus =
     node.branchDiscovery.suspend()
     return ChainSyncStatus.Synced
 
-  if node.dag.chainIsProgressing():
-    # Chain is progressing, we are out of sync
-    node.branchDiscovery.resume()
-    return ChainSyncStatus.Syncing
-
   let numPeers = len(node.network.peerPool)
   if numPeers <= node.config.maxPeers div 4:
     # We may have poor connectivity, wait until more peers are available.
     # This could also be intermittent, as state replays while chain is degraded
     # may take significant amounts of time, during which many peers are lost
     node.branchDiscovery.suspend()
+    return ChainSyncStatus.Syncing
+
+  if node.dag.chainIsProgressing():
+    # Chain is progressing, we are out of sync
+    node.branchDiscovery.resume()
     return ChainSyncStatus.Syncing
 
   # Network connectivity is good, but we have trouble making sync progress.
