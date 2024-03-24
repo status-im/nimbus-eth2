@@ -64,6 +64,7 @@ type
     signed_block_header*: SignedBeaconBlockHeader
     kzg_commitment_inclusion_proof*:
       array[KZG_COMMITMENT_INCLUSION_PROOF_DEPTH, Eth2Digest]
+  BlobSidecars* = seq[ref BlobSidecar]
 
   # https://github.com/ethereum/beacon-APIs/blob/4882aa0803b622b75bab286b285599d70b7a2429/apis/eventstream/index.yaml#L138-L142
   # Spec object, not only internal, because it gets serialized out for the

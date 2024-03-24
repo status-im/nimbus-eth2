@@ -250,18 +250,30 @@ proc syncStatus*(node: BeaconNode, head: BlockRef): ChainSyncStatus =
   if not wallSlot.afterGenesis or
       head.slot + node.config.syncHorizon >= wallSlot.slot:
     node.dag.resetChainProgressWatchdog()
+    node.branchDiscovery.suspend()
     return ChainSyncStatus.Synced
-
-  if node.dag.chainIsProgressing():
-    # Chain is progressing, we are out of sync
-    return ChainSyncStatus.Syncing
 
   let numPeers = len(node.network.peerPool)
   if numPeers <= node.config.maxPeers div 4:
     # We may have poor connectivity, wait until more peers are available.
     # This could also be intermittent, as state replays while chain is degraded
     # may take significant amounts of time, during which many peers are lost
+    node.branchDiscovery.suspend()
     return ChainSyncStatus.Syncing
+
+  if node.dag.chainIsProgressing():
+    # Chain is progressing, we are out of sync
+    node.branchDiscovery.resume()
+    return ChainSyncStatus.Syncing
+
+  # Network connectivity is good, but we have trouble making sync progress.
+  # Turn on branch discovery module until we have a recent canonical head.
+  # The branch discovery module specifically targets peers on alternate branches
+  # and supports sync manager in discovering branches that are not widely seen
+  # but that may still have weight from attestations.
+  if node.branchDiscovery.state == BranchDiscoveryState.Stopped:
+    node.branchDiscovery.start()
+  node.branchDiscovery.resume()
 
   let
     maxHeadSlot = node.dag.heads.foldl(max(a, b.slot), GENESIS_SLOT)
