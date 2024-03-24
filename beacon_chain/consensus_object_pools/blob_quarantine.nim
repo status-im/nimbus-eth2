@@ -15,7 +15,9 @@ from std/sequtils import mapIt
 from std/strutils import join
 
 const
-  MaxBlobs = SLOTS_PER_EPOCH * MAX_BLOBS_PER_BLOCK
+  MaxBlobs = 3 * SLOTS_PER_EPOCH * MAX_BLOBS_PER_BLOCK
+    ## Same limit as `MaxOrphans` in `block_quarantine`;
+    ## blobs may arrive before an orphan is tagged `blobless`
 
 type
   BlobQuarantine* = object
