@@ -1633,7 +1633,7 @@ func syncStatus(node: BeaconNode, wallSlot: Slot): string =
             progress =
               (incrementalSlot - headSlot).float /
               max(wallSlot - headSlot, 1).float * 100.float
-          " - ⚠️ catching up: " &
+          " - ⚠️  catching up: " &
             formatFloat(progress, ffDecimal, precision = 2) & "%"
         else:
           ""
