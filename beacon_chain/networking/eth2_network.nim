@@ -971,8 +971,14 @@ proc makeEth2Request(peer: Peer, protocolId: string, requestBytes: seq[byte],
     deadline = sleepAsync timeout
     streamRes =
       awaitWithTimeout(peer.network.openStream(peer, protocolId), deadline):
+        peer.updateScore(PeerScorePoorRequest)
         return neterr StreamOpenTimeout
-    stream = ?streamRes
+    stream = streamRes.valueOr:
+      if streamRes.error().kind in ProtocolViolations:
+        peer.updateScore(PeerScoreInvalidRequest)
+      else:
+        peer.updateScore(PeerScorePoorRequest)
+      return err streamRes.error()
 
   try:
     # Send the request
