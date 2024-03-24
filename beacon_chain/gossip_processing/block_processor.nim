@@ -29,7 +29,7 @@ from ../consensus_object_pools/block_pools_types import
 from ../consensus_object_pools/block_quarantine import
   addBlobless, addOrphan, addUnviable, pop, removeOrphan
 from ../consensus_object_pools/blob_quarantine import
-  BlobQuarantine, hasBlobs, popBlobs
+  BlobQuarantine, hasBlobs, popBlobs, put
 from ../validators/validator_monitor import
   MsgSource, ValidatorMonitor, registerAttestationInBlock, registerBeaconBlock,
   registerSyncAggregateInBlock
@@ -452,6 +452,9 @@ proc storeBlock(
           signature = shortLog(signedBlock.signature),
           err = r.error()
       else:
+        if blobsOpt.isSome:
+          for blobSidecar in blobsOpt.get:
+            self.blobQuarantine[].put(blobSidecar)
         debug "Block quarantined",
           blockRoot = shortLog(signedBlock.root),
           blck = shortLog(signedBlock.message),
