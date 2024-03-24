@@ -278,10 +278,15 @@ proc syncStatus*(node: BeaconNode, head: BlockRef): ChainSyncStatus =
 
   # We are on the latest slot among all of our peers, and there has been no
   # chain progress for an extended period of time.
-  let clearanceSlot = getStateField(node.dag.clearanceState, slot)
-  if clearanceSlot + node.config.syncHorizon < wallSlot.slot:
-    # If we were to propose a block now, we would incur a large lag spike
-    # that makes our block be way too late to be gossiped
+  if node.dag.incrementalState == nil:
+    # The head state is too far in the past to timely perform validator duties
+    return ChainSyncStatus.Degraded
+  if node.dag.incrementalState[].latest_block_id != node.dag.head.bid:
+    # The incremental state is not yet on the correct head (see `onSlotEnd`)
+    return ChainSyncStatus.Degraded
+  let incrementalSlot = getStateField(node.dag.incrementalState[], slot)
+  if incrementalSlot + node.config.syncHorizon < wallSlot.slot:
+    # The incremental state still needs to advance further (see `onSlotEnd`)
     return ChainSyncStatus.Degraded
 
   # It is reasonable safe to assume that the network has halted, resume duties
