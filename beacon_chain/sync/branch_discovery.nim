@@ -113,8 +113,8 @@ proc discoverBranch(
     return
 
   const
-    maxRequestsPerBurst = 50
-    burstDuration = chronos.seconds(30)
+    maxRequestsPerBurst = 40
+    burstDuration = chronos.seconds(45)
   let bucket = TokenBucket.new(maxRequestsPerBurst, burstDuration)
 
   var parentSlot = peerHeadSlot + 1
