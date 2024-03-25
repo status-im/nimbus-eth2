@@ -6,6 +6,9 @@
 # at your option. This file may not be copied, modified, or distributed except according to those terms.
 
 {.used.}
+{.push raises: [].}
+# TODO (cheatfate): This test is going to be rewritten from scratch.
+{.pop.}
 
 import
   std/[typetraits, os, options, json, sequtils, uri, algorithm],
@@ -1044,7 +1047,7 @@ proc runTests(keymanager: KeymanagerToTest) {.async.} =
           responseJson = Json.decode(response.data, JsonNode)
 
         check:
-          response.status == 403
+          response.status == 401
           responseJson["message"].getStr() == InvalidAuthorizationError
 
     asyncTest "Obtaining the fee recipient of a missing validator returns 404" & testFlavour:
@@ -1206,7 +1209,7 @@ proc runTests(keymanager: KeymanagerToTest) {.async.} =
           responseJson = Json.decode(response.data, JsonNode)
 
         check:
-          response.status == 403
+          response.status == 401
           responseJson["message"].getStr() == InvalidAuthorizationError
 
     asyncTest "Obtaining the gas limit of a missing validator returns 404" & testFlavour:
@@ -1260,6 +1263,255 @@ proc runTests(keymanager: KeymanagerToTest) {.async.} =
       let finalResultFromApi = await client.listGasLimit(pubkey, correctTokenValue)
       check:
         finalResultFromApi == defaultGasLimit
+
+  suite "Graffiti management" & testFlavour:
+    asyncTest "Missing Authorization header" & testFlavour:
+      let pubkey = ValidatorPubKey.fromHex(oldPublicKeys[0]).expect("valid key")
+
+      block:
+        let
+          response = await client.getGraffitiPlain(pubkey)
+          responseJson = Json.decode(response.data, JsonNode)
+
+        check:
+          response.status == 401
+          responseJson["message"].getStr() == InvalidAuthorizationError
+
+      block:
+        let
+          response = await client.setGraffitiPlain(
+            pubkey,
+            default SetGraffitiRequest)
+          responseJson = Json.decode(response.data, JsonNode)
+
+        check:
+          response.status == 401
+          responseJson["message"].getStr() == InvalidAuthorizationError
+
+      block:
+        let
+          response = await client.deleteGraffitiPlain(pubkey)
+          responseJson = Json.decode(response.data, JsonNode)
+
+        check:
+          response.status == 401
+          responseJson["message"].getStr() == InvalidAuthorizationError
+
+
+    asyncTest "Invalid Authorization Header" & testFlavour:
+      let pubkey = ValidatorPubKey.fromHex(oldPublicKeys[0]).expect("valid key")
+
+      block:
+        let
+          response = await client.getGraffitiPlain(
+            pubkey,
+            extraHeaders = @[("Authorization", "UnknownAuthScheme X")])
+          responseJson = Json.decode(response.data, JsonNode)
+
+        check:
+          response.status == 401
+          responseJson["message"].getStr() == InvalidAuthorizationError
+
+      block:
+        let
+          response = await client.setGraffitiPlain(
+            pubkey,
+            default SetGraffitiRequest,
+            extraHeaders = @[("Authorization", "UnknownAuthScheme X")])
+          responseJson = Json.decode(response.data, JsonNode)
+
+        check:
+          response.status == 401
+          responseJson["message"].getStr() == InvalidAuthorizationError
+
+      block:
+        let
+          response = await client.deleteGraffitiPlain(
+            pubkey,
+            extraHeaders = @[("Authorization", "UnknownAuthScheme X")])
+          responseJson = Json.decode(response.data, JsonNode)
+
+        check:
+          response.status == 401
+          responseJson["message"].getStr() == InvalidAuthorizationError
+
+    asyncTest "Invalid Authorization Token" & testFlavour:
+      let pubkey = ValidatorPubKey.fromHex(oldPublicKeys[0]).expect("valid key")
+
+      block:
+        let
+          response = await client.getGraffitiPlain(
+            pubkey,
+            extraHeaders = @[("Authorization", "Bearer InvalidToken")])
+          responseJson = Json.decode(response.data, JsonNode)
+
+        check:
+          response.status == 403
+          responseJson["message"].getStr() == InvalidAuthorizationError
+
+      block:
+        let
+          response = await client.setGraffitiPlain(
+            pubkey,
+            default SetGraffitiRequest,
+            extraHeaders = @[("Authorization", "Bearer InvalidToken")])
+          responseJson = Json.decode(response.data, JsonNode)
+
+        check:
+          response.status == 403
+          responseJson["message"].getStr() == InvalidAuthorizationError
+
+      block:
+        let
+          response = await client.deleteGraffitiPlain(
+            pubkey,
+            extraHeaders = @[("Authorization", "Bearer InvalidToken")])
+          responseJson = Json.decode(response.data, JsonNode)
+
+        check:
+          response.status == 401
+          responseJson["message"].getStr() == InvalidAuthorizationError
+
+    asyncTest "Obtaining the graffiti of a missing validator returns 404" &
+              testFlavour:
+      let
+        pubkey =
+          ValidatorPubKey.fromHex(unusedPublicKeys[0]).expect("valid key")
+        response = await client.getGraffitiPlain(
+          pubkey,
+          extraHeaders = @[("Authorization", "Bearer " & correctTokenValue)])
+
+      check:
+        response.status == 404
+
+    asyncTest "Setting the graffiti on a missing validator creates " &
+              "a record for it" & testFlavour:
+      let
+        pubkey =
+          ValidatorPubKey.fromHex(unusedPublicKeys[1]).expect("valid key")
+        graffiti =
+          SetGraffitiRequest(
+            graffiti: GraffitiString.init("🚀\"🍻\"🚀").get())
+
+      let response =
+        await client.setGraffitiPlain(pubkey, graffiti,
+          extraHeaders = @[("Authorization", "Bearer " & correctTokenValue)])
+      check:
+        response.status == 202
+
+      let fromApi =
+        await client.getGraffitiPlain(
+          pubkey,
+          extraHeaders = @[("Authorization", "Bearer " & correctTokenValue)])
+
+      check:
+        fromApi.status == 200
+
+      let res =
+        decodeBytes(GetGraffitiResponse, fromApi.data, fromApi.contentType)
+
+      check:
+        res.isOk()
+        res.get().data.pubkey == pubkey
+        $res.get().data.graffiti == "🚀\"🍻\"🚀"
+
+    asyncTest "Obtaining the graffiti of an unconfigured validator returns " &
+              "the suggested default" & testFlavour:
+      let
+        pubkey = ValidatorPubKey.fromHex(oldPublicKeys[0]).expect("valid key")
+        fromApi = await client.getGraffitiPlain(
+          pubkey,
+          extraHeaders = @[("Authorization", "Bearer " & correctTokenValue)])
+
+      check:
+        fromApi.status == 200
+
+      let res =
+        decodeBytes(GetGraffitiResponse, fromApi.data, fromApi.contentType)
+
+      check:
+        res.isOk()
+        res.get().data.pubkey == pubkey
+
+    asyncTest "Configuring the graffiti" & testFlavour:
+      let
+        pubkey = ValidatorPubKey.fromHex(oldPublicKeys[1]).expect("valid key")
+        firstGraffiti = "🚀"
+        secondGraffiti = "🚀🚀"
+        firstRequest =
+          SetGraffitiRequest(
+            graffiti: GraffitiString.init(firstGraffiti).get())
+        secondRequest =
+          SetGraffitiRequest(
+            graffiti: GraffitiString.init(secondGraffiti).get())
+
+      block:
+        let response =
+          await client.setGraffitiPlain(pubkey, firstRequest,
+            extraHeaders = @[("Authorization", "Bearer " & correctTokenValue)])
+        check:
+          response.status == 202
+
+      block:
+        let resApi = await client.getGraffitiPlain(
+          pubkey,
+          extraHeaders = @[("Authorization", "Bearer " & correctTokenValue)])
+
+        check:
+          resApi.status == 200
+
+        let res =
+          decodeBytes(GetGraffitiResponse, resApi.data, resApi.contentType)
+
+        check:
+          res.isOk()
+          res.get().data.pubkey == pubkey
+          $res.get().data.graffiti == firstGraffiti
+
+      block:
+        let response =
+          await client.setGraffitiPlain(pubkey, secondRequest,
+            extraHeaders = @[("Authorization", "Bearer " & correctTokenValue)])
+        check:
+          response.status == 202
+
+      block:
+        let resApi = await client.getGraffitiPlain(
+          pubkey,
+          extraHeaders = @[("Authorization", "Bearer " & correctTokenValue)])
+
+        check:
+          resApi.status == 200
+
+        let res =
+          decodeBytes(GetGraffitiResponse, resApi.data, resApi.contentType)
+
+        check:
+          res.isOk()
+          res.get().data.pubkey == pubkey
+          $res.get().data.graffiti == secondGraffiti
+
+      block:
+        let response = await client.deleteGraffitiPlain(
+          pubkey,
+          extraHeaders = @[("Authorization", "Bearer " & correctTokenValue)])
+        check:
+          response.status == 204
+
+      block:
+        let resApi = await client.getGraffitiPlain(
+          pubkey,
+          extraHeaders = @[("Authorization", "Bearer " & correctTokenValue)])
+
+        check:
+          resApi.status == 200
+
+        let res =
+          decodeBytes(GetGraffitiResponse, resApi.data, resApi.contentType)
+
+        check:
+          res.isOk()
+          res.get().data.pubkey == pubkey
 
   suite "ImportRemoteKeys/ListRemoteKeys/DeleteRemoteKeys" & testFlavour:
     asyncTest "Importing list of remote keys" & testFlavour:

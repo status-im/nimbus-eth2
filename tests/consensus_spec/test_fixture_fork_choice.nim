@@ -83,11 +83,6 @@ proc initialLoad(
       path/"anchor_block.ssz_snappy",
       SSZ, BlockType)
 
-    signedBlock = ForkedSignedBeaconBlock.init(BlockType.kind.SignedBeaconBlock(
-      message: blck,
-      # signature: - unused as it's trusted
-      root: hash_tree_root(blck)))
-
   ChainDAGRef.preInit(db, forkedState[])
 
   let
@@ -101,10 +96,11 @@ proc initialLoad(
   (dag, fkChoice)
 
 proc loadOps(
-    path: string, fork: ConsensusFork
+    path: string,
+    fork: ConsensusFork
 ): seq[Operation] {.raises: [
     IOError, KeyError, UnconsumedInput, ValueError,
-    YamlParserError, YamlConstructionError].} =
+    YamlConstructionError, YamlParserError].} =
   let stepsYAML = os_ops.readFile(path/"steps.yaml")
   let steps = yaml.loadToJson(stepsYAML)
 
@@ -295,10 +291,11 @@ proc stepChecks(
       raiseAssert "Unsupported check '" & $check & "'"
 
 proc doRunTest(
-    path: string, fork: ConsensusFork
+    path: string,
+    fork: ConsensusFork
 ) {.raises: [
     IOError, KeyError, UnconsumedInput, ValueError,
-    YamlParserError, YamlConstructionError].} =
+    YamlConstructionError, YamlParserError].} =
   let db = BeaconChainDB.new("", inMemory = true)
   defer:
     db.close()
@@ -378,12 +375,7 @@ proc runTest(suiteName: static[string], path: string, fork: ConsensusFork) =
     "basic_is_head_root",
   ]
 
-  let relativePathComponent =
-    try:
-      path.relativePath(SszTestsDir)
-    except Exception as exc:
-      raiseAssert "relativePath failed unexpectedly: " & $exc.msg
-  test suiteName & " - " & relativePathComponent:
+  test suiteName & " - " & path.relativeTestPathComponent():
     when defined(windows):
       # Some test files have very long paths
       skip()

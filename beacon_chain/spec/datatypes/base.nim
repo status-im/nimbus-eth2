@@ -63,7 +63,7 @@
 import
   std/[macros, hashes, sets, strutils, tables, typetraits],
   results,
-  stew/[assign2, byteutils, endians2],
+  stew/[assign2, base10, byteutils, endians2],
   chronicles,
   json_serialization,
   ssz_serialization/types as sszTypes,
@@ -74,7 +74,7 @@ export
   tables, results, endians2, json_serialization, sszTypes, beacon_time, crypto,
   digest, presets
 
-const SPEC_VERSION* = "1.4.0-beta.7-hotfix"
+const SPEC_VERSION* = "1.4.0"
 ## Spec version we're aiming to be compatible with, right now
 
 const
@@ -122,22 +122,39 @@ template maxSize*(n: int) {.pragma.}
 
 type
   Wei* = UInt256
-  Gwei* = uint64
+  Gwei* = distinct uint64
   Ether* = distinct uint64
 
 template ethAmountUnit*(typ: type) {.dirty.} =
-  # Arithmetic
   func `+`*(x, y: typ): typ {.borrow.}
   func `-`*(x, y: typ): typ {.borrow.}
   func `*`*(x: typ, y: distinctBase(typ)): typ {.borrow.}
   func `*`*(x: distinctBase(typ), y: typ): typ {.borrow.}
-
-  # Arithmetic, changing type
   func `div`*(x, y: typ): distinctBase(typ) {.borrow.}
+  func `div`*(x: typ, y: distinctBase(typ)): typ {.borrow.}
+  func `mod`*(x, y: typ): typ {.borrow.}
 
-  # Comparison
+  func `+=`*(x: var typ, y: typ) {.borrow.}
+
   func `<`*(x, y: typ): bool {.borrow.}
+  func `<=`*(x, y: typ): bool {.borrow.}
+  func `==`*(x, y: typ): bool {.borrow.}
 
+  func `$`*(x: typ): string {.borrow.}
+
+  func u256*(n: typ): UInt256 {.borrow.}
+
+  proc toString*(B: typedesc[Base10], value: typ): string {.borrow.}
+
+  proc writeValue*(writer: var JsonWriter, value: typ) {.raises: [IOError].} =
+    writer.writeValue(distinctBase(value))
+
+  proc readValue*(
+      reader: var JsonReader,
+      value: var typ) {.raises: [IOError, SerializationError].} =
+    reader.readValue(distinctBase(value))
+
+ethAmountUnit Gwei
 ethAmountUnit Ether
 
 type
@@ -205,7 +222,7 @@ type
     signed_header_1*: TrustedSignedBeaconBlockHeader
     signed_header_2*: TrustedSignedBeaconBlockHeader
 
-  # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.6/specs/phase0/beacon-chain.md#attesterslashing
+  # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.7/specs/phase0/beacon-chain.md#attesterslashing
   AttesterSlashing* = object
     attestation_1*: IndexedAttestation
     attestation_2*: IndexedAttestation
@@ -285,7 +302,7 @@ type
     withdrawal_credentials*: Eth2Digest
     amount*: Gwei
 
-  # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.6/specs/phase0/beacon-chain.md#depositdata
+  # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.7/specs/phase0/beacon-chain.md#depositdata
   DepositData* = object
     pubkey*: ValidatorPubKey
     withdrawal_credentials*: Eth2Digest
@@ -323,9 +340,16 @@ type
     pubkey*: CookedPubKey
     withdrawal_credentials*: Eth2Digest
 
+  HashedValidatorPubKeyItem* = object
+    key*: ValidatorPubKey
+    root*: Eth2Digest
+
+  HashedValidatorPubKey* = object
+    value*: ptr HashedValidatorPubKeyItem
+
   # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.6/specs/phase0/beacon-chain.md#validator
   Validator* = object
-    pubkey*: ValidatorPubKey
+    pubkeyData*{.serializedFieldName: "pubkey".}: HashedValidatorPubKey
 
     withdrawal_credentials*: Eth2Digest
       ## Commitment to pubkey for withdrawals and transfers
@@ -397,7 +421,7 @@ type
 
   GraffitiBytes* = distinct array[MAX_GRAFFITI_SIZE, byte]
 
-  # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.6/specs/phase0/beacon-chain.md#signedbeaconblockheader
+  # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.7/specs/phase0/beacon-chain.md#signedbeaconblockheader
   SignedBeaconBlockHeader* = object
     message*: BeaconBlockHeader
     signature*: ValidatorSig
@@ -406,13 +430,13 @@ type
     message*: BeaconBlockHeader
     signature*: TrustedSig
 
-  # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.6/specs/phase0/validator.md#aggregateandproof
+  # https://github.com/ethereum/consensus-specs/blob/v1.4.0/specs/phase0/validator.md#aggregateandproof
   AggregateAndProof* = object
     aggregator_index*: uint64 # `ValidatorIndex` after validation
     aggregate*: Attestation
     selection_proof*: ValidatorSig
 
-  # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.6/specs/phase0/validator.md#signedaggregateandproof
+  # https://github.com/ethereum/consensus-specs/blob/v1.4.0/specs/phase0/validator.md#signedaggregateandproof
   SignedAggregateAndProof* = object
     message*: AggregateAndProof
     signature*: ValidatorSig
@@ -430,18 +454,29 @@ type
     sync_committees*: Table[SyncCommitteePeriod, SyncCommitteeCache]
 
   # This matches the mutable state of the Solidity deposit contract
-  # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.6/solidity_deposit_contract/deposit_contract.sol
+  # https://github.com/ethereum/consensus-specs/blob/v1.4.0/solidity_deposit_contract/deposit_contract.sol
   DepositContractState* = object
     branch*: array[DEPOSIT_CONTRACT_TREE_DEPTH, Eth2Digest]
     deposit_count*: array[32, byte] # Uint256
 
-  # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.6/specs/phase0/beacon-chain.md#validator
+  # https://eips.ethereum.org/EIPS/eip-4881
+  FinalizedDepositTreeBranch* =
+    List[Eth2Digest, Limit DEPOSIT_CONTRACT_TREE_DEPTH]
+
+  DepositTreeSnapshot* = object
+    finalized*: FinalizedDepositTreeBranch
+    deposit_root*: Eth2Digest
+    deposit_count*: uint64
+    execution_block_hash*: Eth2Digest
+    execution_block_height*: uint64
+
+  # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.7/specs/phase0/beacon-chain.md#validator
   ValidatorStatus* = object
     # This is a validator without the expensive, immutable, append-only parts
     # serialized. They're represented in memory to allow in-place SSZ reading
     # and writing compatibly with the full Validator object.
 
-    pubkey* {.dontSerialize.}: ValidatorPubKey
+    pubkeyData* {.dontSerialize.}: HashedValidatorPubKey
 
     withdrawal_credentials* {.dontSerialize.}: Eth2Digest
       ## Commitment to pubkey for withdrawals
@@ -467,7 +502,7 @@ type
     # serialized. They're represented in memory to allow in-place SSZ reading
     # and writing compatibly with the full Validator object.
 
-    pubkey* {.dontSerialize.}: ValidatorPubKey
+    pubkeyData* {.dontSerialize.}: HashedValidatorPubKey
 
     withdrawal_credentials*: Eth2Digest
       ## Commitment to pubkey for withdrawals
@@ -544,6 +579,28 @@ type
     delta*: RewardDelta
 
     flags*: set[RewardFlags]
+
+func pubkey*(v: HashedValidatorPubKey): ValidatorPubKey =
+  if isNil(v.value):
+    # This should never happen but we guard against it in case a
+    # default-initialized Validator instance makes it through the other safety
+    # nets
+    ValidatorPubKey()
+  else:
+    v.value[].key
+
+template pubkey*(v: Validator): ValidatorPubKey =
+  v.pubkeyData.pubkey
+
+func hash_tree_root*(v: HashedValidatorPubKey): Eth2Digest =
+  if isNil(v.value):
+    # Safety net - have to use a constant because the general hash_tree_root
+    # function is not yet declared at this point
+    const zeroPubkeyHash = Eth2Digest.fromHex(
+      "fa324a462bcb0f10c24c9e17c326a4e0ebad204feced523eccaf346c686f06ee")
+    zeroPubkeyHash
+  else:
+    v.value[].root
 
 func getImmutableValidatorData*(validator: Validator): ImmutableValidatorData2 =
   let cookedKey = validator.pubkey.loadValid()  # `Validator` has valid key
@@ -718,8 +775,8 @@ template lenu64*(x: untyped): untyped =
 func `$`*(v: ForkDigest | Version | DomainType): string =
   toHex(distinctBase(v))
 
-func toGaugeValue*(x: uint64 | Epoch | Slot): int64 =
-  if x > uint64(int64.high):
+func toGaugeValue*[T: uint64 | Gwei | Slot | Epoch](x: T): int64 =
+  if x > uint64(int64.high).T:
     int64.high
   else:
     int64(x)
@@ -1003,7 +1060,7 @@ func checkForkConsistency*(cfg: RuntimeConfig) =
   let forkVersions =
     [cfg.GENESIS_FORK_VERSION, cfg.ALTAIR_FORK_VERSION,
      cfg.BELLATRIX_FORK_VERSION, cfg.CAPELLA_FORK_VERSION,
-     cfg.DENEB_FORK_VERSION]
+     cfg.DENEB_FORK_VERSION, cfg.ELECTRA_FORK_VERSION]
 
   for i in 0 ..< forkVersions.len:
     for j in i+1 ..< forkVersions.len:
@@ -1021,9 +1078,12 @@ func checkForkConsistency*(cfg: RuntimeConfig) =
   assertForkEpochOrder(cfg.ALTAIR_FORK_EPOCH, cfg.BELLATRIX_FORK_EPOCH)
   assertForkEpochOrder(cfg.BELLATRIX_FORK_EPOCH, cfg.CAPELLA_FORK_EPOCH)
   assertForkEpochOrder(cfg.CAPELLA_FORK_EPOCH, cfg.DENEB_FORK_EPOCH)
+  assertForkEpochOrder(cfg.DENEB_FORK_EPOCH, cfg.ELECTRA_FORK_EPOCH)
 
 func ofLen*[T, N](ListType: type List[T, N], n: int): ListType =
   if n < N:
     distinctBase(result).setLen(n)
   else:
     raise newException(SszSizeMismatchError)
+
+template debugRaiseAssert*(s: string) = discard

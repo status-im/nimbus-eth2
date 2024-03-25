@@ -15,7 +15,9 @@ from std/sequtils import mapIt
 from std/strutils import join
 
 const
-  MaxBlobs = SLOTS_PER_EPOCH * MAX_BLOBS_PER_BLOCK
+  MaxBlobs = 3 * SLOTS_PER_EPOCH * MAX_BLOBS_PER_BLOCK
+    ## Same limit as `MaxOrphans` in `block_quarantine`;
+    ## blobs may arrive before an orphan is tagged `blobless`
 
 type
   BlobQuarantine* = object
@@ -36,7 +38,7 @@ func shortLog*(x: seq[BlobFetchRecord]): string =
   "[" & x.mapIt(shortLog(it.block_root) & shortLog(it.indices)).join(", ") & "]"
 
 func put*(quarantine: var BlobQuarantine, blobSidecar: ref BlobSidecar) =
-  if quarantine.blobs.lenu64 > MaxBlobs:
+  if quarantine.blobs.lenu64 >= MaxBlobs:
     # FIFO if full. For example, sync manager and request manager can race to
     # put blobs in at the same time, so one gets blob insert -> block resolve
     # -> blob insert sequence, which leaves garbage blobs.

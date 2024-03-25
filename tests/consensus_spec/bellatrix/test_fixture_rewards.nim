@@ -5,6 +5,7 @@
 #   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
 # at your option. This file may not be copied, modified, or distributed except according to those terms.
 
+{.push raises: [].}
 {.used.}
 
 import
@@ -73,7 +74,7 @@ proc runTest(rewardsDir, identifier: string) =
     flagDeltas2[TimelyFlag.TIMELY_TARGET_FLAG_INDEX].penalties[validator_index] =
       penalty1
     flagDeltas2[TimelyFlag.TIMELY_HEAD_FLAG_INDEX].penalties[validator_index] =
-      0
+      0.Gwei
     inactivityPenaltyDeltas2.penalties[validator_index] = penalty2
 
   check:

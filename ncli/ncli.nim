@@ -5,8 +5,9 @@
 #   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
 # at your option. This file may not be copied, modified, or distributed except according to those terms.
 
+{.push raises: [].}
+
 import
-  std/strutils,
   confutils, json_serialization,
   snappy,
   ../beacon_chain/spec/eth2_apis/eth2_rest_serialization,
@@ -14,6 +15,7 @@ import
 
 from std/os import splitFile
 from std/stats import RunningStat
+from std/strutils import cmpIgnoreCase
 from stew/byteutils import toHex
 from stew/io2 import readAllBytes
 from ../beacon_chain/networking/network_metadata import getRuntimeConfig
@@ -21,7 +23,7 @@ from ../research/simutils import printTimers, withTimer, withTimerRet
 
 type
   Cmd* = enum
-    hashTreeRoot = "Compute hash tree root of SSZ object"
+    hash_tree_root = "Compute hash tree root of SSZ object"
     pretty = "Pretty-print SSZ object"
     transition = "Run state transition function"
     slots = "Apply empty slots"
@@ -39,7 +41,7 @@ type
     # TODO confutils argument pragma doesn't seem to do much; also, the cases
     # are largely equivalent, but this helps create command line usage text
     case cmd* {.command}: Cmd
-    of hashTreeRoot:
+    of hash_tree_root:
       htrKind* {.
         argument
         desc: "kind of SSZ object: attester_slashing, attestation, signed_block, block, block_body, block_header, deposit, deposit_data, eth1_data, state, proposer_slashing, or voluntary_exit"}: string
@@ -89,27 +91,34 @@ type
         desc: "Filename of state resulting from applying blck to preState"}: string
 
 template saveSSZFile(filename: string, value: ForkedHashedBeaconState) =
-  case value.kind:
-  of ConsensusFork.Phase0:    SSZ.saveFile(filename, value.phase0Data.data)
-  of ConsensusFork.Altair:    SSZ.saveFile(filename, value.altairData.data)
-  of ConsensusFork.Bellatrix: SSZ.saveFile(filename, value.bellatrixData.data)
-  of ConsensusFork.Capella:   SSZ.saveFile(filename, value.capellaData.data)
-  of ConsensusFork.Deneb:     SSZ.saveFile(filename, value.denebData.data)
+  try:
+    case value.kind:
+    of ConsensusFork.Phase0:    SSZ.saveFile(filename, value.phase0Data.data)
+    of ConsensusFork.Altair:    SSZ.saveFile(filename, value.altairData.data)
+    of ConsensusFork.Bellatrix: SSZ.saveFile(filename, value.bellatrixData.data)
+    of ConsensusFork.Capella:   SSZ.saveFile(filename, value.capellaData.data)
+    of ConsensusFork.Deneb:     SSZ.saveFile(filename, value.denebData.data)
+  except IOError:
+    raiseAssert "error saving SSZ file"
 
 proc loadFile(filename: string, bytes: openArray[byte], T: type): T =
   let
     ext = splitFile(filename).ext
 
-  if cmpIgnoreCase(ext, ".ssz") == 0:
-    SSZ.decode(bytes, T)
-  elif cmpIgnoreCase(ext, ".ssz_snappy") == 0:
-    SSZ.decode(snappy.decode(bytes), T)
-  elif cmpIgnoreCase(ext, ".json") == 0:
-    # JSON.loadFile(file, t)
-    echo "TODO needs porting to RestJson"
-    quit 1
-  else:
-    echo "Unknown file type: ", ext
+  try:
+    if cmpIgnoreCase(ext, ".ssz") == 0:
+      SSZ.decode(bytes, T)
+    elif cmpIgnoreCase(ext, ".ssz_snappy") == 0:
+      SSZ.decode(snappy.decode(bytes), T)
+    elif cmpIgnoreCase(ext, ".json") == 0:
+      # JSON.loadFile(file, t)
+      echo "TODO needs porting to RestJson"
+      quit 1
+    else:
+      echo "Unknown file type: ", ext
+      quit 1
+  except CatchableError:
+    echo "failed to load SSZ file"
     quit 1
 
 proc doTransition(conf: NcliConf) =
@@ -123,10 +132,17 @@ proc doTransition(conf: NcliConf) =
   let
     cfg = getRuntimeConfig(conf.eth2Network)
     stateY = withTimerRet(timers[tLoadState]):
-      newClone(readSszForkedHashedBeaconState(
-        cfg, readAllBytes(conf.preState).tryGet()))
-    blckX = readSszForkedSignedBeaconBlock(
-      cfg, readAllBytes(conf.blck).tryGet())
+      try:
+        newClone(readSszForkedHashedBeaconState(
+          cfg, readAllBytes(conf.preState).tryGet()))
+      except CatchableError:
+        raiseAssert "error reading hashed beacon state"
+    blckX =
+      try:
+        readSszForkedSignedBeaconBlock(
+          cfg, readAllBytes(conf.blck).tryGet())
+      except CatchableError:
+        raiseAssert "error reading signed beacon block"
     flags = if not conf.verifyStateRoot: {skipStateRootValidation} else: {}
 
   var
@@ -157,8 +173,11 @@ proc doSlots(conf: NcliConf) =
   let
     cfg = getRuntimeConfig(conf.eth2Network)
     stateY = withTimerRet(timers[tLoadState]):
-      newClone(readSszForkedHashedBeaconState(
-        cfg, readAllBytes(conf.preState2).tryGet()))
+      try:
+        newClone(readSszForkedHashedBeaconState(
+          cfg, readAllBytes(conf.preState2).tryGet()))
+      except CatchableError:
+        raiseAssert "error reading hashed beacon state"
   var
     cache = StateCache()
     info = ForkedEpochInfo()
@@ -183,7 +202,7 @@ proc doSSZ(conf: NcliConf) =
 
   let (kind, file) =
     case conf.cmd:
-    of hashTreeRoot: (conf.htrKind, conf.htrFile)
+    of hash_tree_root: (conf.htrKind, conf.htrFile)
     of pretty: (conf.prettyKind, conf.prettyFile)
     else:
       raiseAssert "doSSZ() only implements hashTreeRoot and pretty commands"
@@ -195,7 +214,7 @@ proc doSSZ(conf: NcliConf) =
       newClone(loadFile(file, bytes, t))
 
     case conf.cmd:
-    of hashTreeRoot:
+    of hash_tree_root:
       let root = withTimerRet(timers[tCompute]):
         when t is ForkySignedBeaconBlock:
           hash_tree_root(v[].message)
@@ -246,7 +265,7 @@ when isMainModule:
     conf = NcliConf.load()
 
   case conf.cmd:
-  of hashTreeRoot: doSSZ(conf)
+  of hash_tree_root: doSSZ(conf)
   of pretty: doSSZ(conf)
   of transition: doTransition(conf)
   of slots: doSlots(conf)

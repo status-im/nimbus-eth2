@@ -112,7 +112,7 @@ proc registerSyncDuty*(
     tracker.syncDuties[pubkey] = until_epoch
     reset(tracker.lastSyncUpdate)
 
-proc hasSyncDuty*(
+func hasSyncDuty*(
     tracker: ActionTracker, pubkey: ValidatorPubKey, epoch: Epoch): bool =
   epoch < tracker.syncDuties.getOrDefault(pubkey, GENESIS_EPOCH)
 
@@ -227,7 +227,7 @@ func updateActions*(
 
   # Update proposals
   tracker.proposingSlots[epoch mod 2] = 0
-  for i, proposer in beacon_proposers:
+  for i, proposer in beaconProposers:
     if proposer.isSome and proposer.get() in validatorIndices:
       tracker.proposingSlots[epoch mod 2] =
         tracker.proposingSlots[epoch mod 2] or (1'u32 shl i)

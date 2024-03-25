@@ -5,6 +5,7 @@
 #   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
 # at your option. This file may not be copied, modified, or distributed except according to those terms.
 
+{.push raises: [].}
 {.used.}
 
 import
@@ -82,9 +83,11 @@ type
 # Type specific checks
 # ------------------------------------------------------------------------
 
-proc checkBasic(T: typedesc,
-                dir: string,
-                expectedHash: SSZHashTreeRoot) =
+proc checkBasic(
+    T: typedesc,
+    dir: string,
+    expectedHash: SSZHashTreeRoot
+) {.raises: [IOError, SerializationError, UnconsumedInput].} =
   let fileContents = snappy.decode(readFileBytes(dir/"serialized.ssz_snappy"), MaxObjectSize)
   let deserialized = newClone(sszDecodeEntireInput(fileContents, T))
 
@@ -142,16 +145,31 @@ macro testVector(typeIdent: string, size: int): untyped =
   result = dispatcher
   # echo result.toStrLit() # view the generated code
 
-proc checkVector(sszSubType, dir: string, expectedHash: SSZHashTreeRoot) =
+proc checkVector(
+    sszSubType, dir: string,
+    expectedHash: SSZHashTreeRoot
+) {.raises: [
+    IOError, SerializationError, TestSizeError, UnconsumedInput, ValueError].} =
   var typeIdent: string
   var size: int
-  let wasMatched = scanf(sszSubType, "vec_$+_$i", typeIdent, size)
+  let wasMatched =
+    try:
+      scanf(sszSubType, "vec_$+_$i", typeIdent, size)
+    except ValueError:
+      false  # Parsed `size` is out of range
   doAssert wasMatched
   testVector(typeIdent, size)
 
-proc checkBitVector(sszSubType, dir: string, expectedHash: SSZHashTreeRoot) =
+proc checkBitVector(
+    sszSubType, dir: string,
+    expectedHash: SSZHashTreeRoot
+) {.raises: [IOError, SerializationError, TestSizeError, UnconsumedInput].} =
   var size: int
-  let wasMatched = scanf(sszSubType, "bitvec_$i", size)
+  let wasMatched =
+    try:
+      scanf(sszSubType, "bitvec_$i", size)
+    except ValueError:
+      false  # Parsed `size` is out of range
   doAssert wasMatched
   case size
   of 1: checkBasic(BitArray[1], dir, expectedHash)
@@ -169,9 +187,33 @@ proc checkBitVector(sszSubType, dir: string, expectedHash: SSZHashTreeRoot) =
   else:
     raise newException(TestSizeError, "Unsupported BitVector of size " & $size)
 
-proc checkBitList(sszSubType, dir: string, expectedHash: SSZHashTreeRoot) =
+proc checkBitList(
+    sszSubType, dir: string,
+    expectedHash: SSZHashTreeRoot
+) {.raises: [IOError, SerializationError, UnconsumedInput, ValueError].} =
+  if sszSubType.startsWith("bitlist_n"):
+    # Invalid data, ensure that it does not deserialize with different sizes
+    checkBasic(BitList[0], dir, expectedHash)
+    checkBasic(BitList[1], dir, expectedHash)
+    checkBasic(BitList[2], dir, expectedHash)
+    checkBasic(BitList[3], dir, expectedHash)
+    checkBasic(BitList[4], dir, expectedHash)
+    checkBasic(BitList[5], dir, expectedHash)
+    checkBasic(BitList[8], dir, expectedHash)
+    checkBasic(BitList[16], dir, expectedHash)
+    checkBasic(BitList[31], dir, expectedHash)
+    checkBasic(BitList[32], dir, expectedHash)
+    checkBasic(BitList[512], dir, expectedHash)
+    checkBasic(BitList[513], dir, expectedHash)
+    return
+
   var maxLen: int
-  discard scanf(sszSubType, "bitlist_$i", maxLen)
+  let wasMatched =
+    try:
+      scanf(sszSubType, "bitlist_$i", maxLen)
+    except ValueError:
+      false  # Parsed `size` is out of range
+  doAssert wasMatched
   case maxLen
   of 0: checkBasic(BitList[0], dir, expectedHash)
   of 1: checkBasic(BitList[1], dir, expectedHash)
@@ -191,7 +233,11 @@ proc checkBitList(sszSubType, dir: string, expectedHash: SSZHashTreeRoot) =
 # Test dispatch for valid inputs
 # ------------------------------------------------------------------------
 
-proc sszCheck(baseDir, sszType, sszSubType: string) =
+proc sszCheck(
+    baseDir, sszType, sszSubType: string
+) {.raises: [
+    Exception, IOError, SerializationError,
+    TestSizeError, UnconsumedInput, ValueError].} =
   let dir = baseDir/sszSubType
 
   # Hash tree root
@@ -206,7 +252,11 @@ proc sszCheck(baseDir, sszType, sszSubType: string) =
   of "boolean": checkBasic(bool, dir, expectedHash)
   of "uints":
     var bitsize: int
-    let wasMatched = scanf(sszSubType, "uint_$i", bitsize)
+    let wasMatched =
+      try:
+        scanf(sszSubType, "uint_$i", bitsize)
+      except ValueError:
+        false  # Parsed `size` is out of range
     doAssert wasMatched
     case bitsize
     of 8:   checkBasic(uint8, dir, expectedHash)

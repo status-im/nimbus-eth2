@@ -19,19 +19,19 @@ type
   SomeTPeer = ref object
     score: int
 
-proc `$`(peer: SomeTPeer): string =
+func `$`(peer: SomeTPeer): string =
   "SomeTPeer"
 
 template shortLog(peer: SomeTPeer): string =
   $peer
 
-proc updateScore(peer: SomeTPeer, score: int) =
+func updateScore(peer: SomeTPeer, score: int) =
   peer[].score += score
 
-proc updateStats(peer: SomeTPeer, index: SyncResponseKind, score: uint64) =
+func updateStats(peer: SomeTPeer, index: SyncResponseKind, score: uint64) =
   discard
 
-proc getStats(peer: SomeTPeer, index: SyncResponseKind): uint64 =
+func getStats(peer: SomeTPeer, index: SyncResponseKind): uint64 =
   0
 
 func getStaticSlotCb(slot: Slot): GetSlotCallback =
@@ -44,7 +44,7 @@ type
     blck*: ForkedSignedBeaconBlock
     resfut*: Future[Result[void, VerifierError]]
 
-proc collector(queue: AsyncQueue[BlockEntry]): BlockVerifier =
+func collector(queue: AsyncQueue[BlockEntry]): BlockVerifier =
   # This sets up a fake block verifiation collector that simply puts the blocks
   # in the async queue, similar to how BlockProcessor does it - as far as
   # testing goes, this is risky because it might introduce differences between
@@ -1143,10 +1143,10 @@ suite "SyncManager test suite":
                                  1'u64, getStaticSlotCb(Slot(0)),
                                  collector(aq), 2)
       let finalizedSlot = start_slot(Epoch(0'u64))
-      let startSlot = start_slot(Epoch(0'u64)) + 1'u64
+      let epochStartSlot = start_slot(Epoch(0'u64)) + 1'u64
       let finishSlot = start_slot(Epoch(2'u64))
 
-      for i in uint64(startSlot) ..< uint64(finishSlot):
+      for i in uint64(epochStartSlot) ..< uint64(finishSlot):
         check queue.getRewindPoint(Slot(i), finalizedSlot) == finalizedSlot
 
     block:
@@ -1155,10 +1155,10 @@ suite "SyncManager test suite":
                                  1'u64, getStaticSlotCb(Slot(0)),
                                  collector(aq), 2)
       let finalizedSlot = start_slot(Epoch(1'u64))
-      let startSlot = start_slot(Epoch(1'u64)) + 1'u64
+      let epochStartSlot = start_slot(Epoch(1'u64)) + 1'u64
       let finishSlot = start_slot(Epoch(3'u64))
 
-      for i in uint64(startSlot) ..< uint64(finishSlot) :
+      for i in uint64(epochStartSlot) ..< uint64(finishSlot) :
         check queue.getRewindPoint(Slot(i), finalizedSlot) == finalizedSlot
 
     block:

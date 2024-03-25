@@ -31,6 +31,7 @@ suite "Light client" & preset():
       res.BELLATRIX_FORK_EPOCH = 2.Epoch
       res.CAPELLA_FORK_EPOCH = (EPOCHS_PER_SYNC_COMMITTEE_PERIOD * 1).Epoch
       res.DENEB_FORK_EPOCH = (EPOCHS_PER_SYNC_COMMITTEE_PERIOD * 2).Epoch
+      res.ELECTRA_FORK_EPOCH = FAR_FUTURE_EPOCH
       res
     altairStartSlot = cfg.ALTAIR_FORK_EPOCH.start_slot
 

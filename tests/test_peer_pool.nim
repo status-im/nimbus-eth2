@@ -1,16 +1,20 @@
 # beacon_chain
-# Copyright (c) 2019-2021 Status Research & Development GmbH
+# Copyright (c) 2019-2024 Status Research & Development GmbH
 # Licensed and distributed under either of
 #   * MIT license (license terms in the root directory or at https://opensource.org/licenses/MIT).
 #   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
 # at your option. This file may not be copied, modified, or distributed except according to those terms.
 
+{.push raises: [].}
 {.used.}
 
 import std/[random, heapqueue, tables]
 import chronos
 import ../beacon_chain/networking/peer_pool
 import ./testutil
+
+template closureScope(raisesAnnotation: untyped, body: untyped): untyped =
+  (proc() {.raises: raisesAnnotation} = body)()
 
 type
   PeerTestID = string
@@ -237,7 +241,7 @@ suite "PeerPool testing suite":
       itemFut23.finished == false
       itemFut24.finished == false
 
-  test "Acquire/Sorting and consistency test": closureScope:
+  test "Acquire/Sorting and consistency test": closureScope([CatchableError]):
     const
       TestsCount = 1000
       MaxNumber = 1_000_000
@@ -411,7 +415,7 @@ suite "PeerPool testing suite":
 
     check waitFor(testPeerLifetime()) == true
 
-  test "Safe/Clear test": closureScope:
+  test "Safe/Clear test": closureScope([CatchableError]):
     var pool = newPeerPool[PeerTest, PeerTestID]()
     var peer1 = PeerTest.init("peer1", 10)
     var peer2 = PeerTest.init("peer2", 9)
@@ -458,7 +462,7 @@ suite "PeerPool testing suite":
     asyncSpawn testConsumer()
     check waitFor(testClose()) == true
 
-  test "Access peers by key test": closureScope:
+  test "Access peers by key test": closureScope([CatchableError]):
     var pool = newPeerPool[PeerTest, PeerTestID]()
     var peer1 = PeerTest.init("peer1", 10)
     var peer2 = PeerTest.init("peer2", 9)

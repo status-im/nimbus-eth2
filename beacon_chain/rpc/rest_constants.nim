@@ -54,6 +54,8 @@ const
     "Bad request. Request was malformed and could not be processed"
   InvalidGasLimitRequestError* =
     "Bad request. Request was malformed and could not be processed"
+  InvalidGraffitiRequestError* =
+    "Bad request. Request was malformed and could not be processed"
   VoluntaryExitValidationError* =
     "Invalid voluntary exit, it will never pass validation so it's rejected"
   VoluntaryExitValidationSuccess* =
@@ -241,6 +243,10 @@ const
     "The given Merkle proof is invalid"
   InvalidMerkleProofIndexError* =
     "The given Merkle proof index is invalid"
+  FailedToObtainForkVersionError* =
+    "Failed to obtain fork version"
+  FailedToObtainConsensusForkError* =
+    "Failed to obtain consensus fork information"
   FailedToObtainForkError* =
     "Failed to obtain fork information"
   InvalidTimestampValue* =
@@ -249,3 +255,7 @@ const
     "Invalid blob index"
   InvalidBroadcastValidationType* =
     "Invalid broadcast_validation type value"
+  PathNotFoundError* =
+    "Path not found"
+  FileReadError* =
+    "Error reading file"

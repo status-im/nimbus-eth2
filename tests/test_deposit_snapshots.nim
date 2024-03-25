@@ -5,13 +5,16 @@
 #   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
 # at your option. This file may not be copied, modified, or distributed except according to those terms.
 
+{.push raises: [].}
 {.used.}
 
 import
-  std/[os, random, strutils, times],
-  chronos, stew/results, unittest2, chronicles,
+  std/[json, os, random, sequtils, strutils, times],
+  chronos, stew/[base10, results], chronicles, unittest2,
+  yaml,
   ../beacon_chain/beacon_chain_db,
-  ../beacon_chain/spec/deposit_snapshots
+  ../beacon_chain/spec/deposit_snapshots,
+  ./consensus_spec/os_ops
 
 from eth/db/kvstore import kvStore
 from nimcrypto import toDigest
@@ -24,15 +27,16 @@ template databaseRoot: string = getTempDir().joinPath(ROOT)
 template key1: array[1, byte] = [byte(kOldDepositContractSnapshot)]
 
 type
-  DepositSnapshotUpgradeProc = proc(old: OldDepositContractSnapshot): DepositTreeSnapshot
-                                   {.gcsafe, raises: [].}
+  DepositSnapshotUpgradeProc = proc(
+      old: OldDepositContractSnapshot
+  ): DepositContractSnapshot {.gcsafe, raises: [].}
 
 proc ifNecessaryMigrateDCS(db: BeaconChainDB,
                            upgradeProc: DepositSnapshotUpgradeProc) =
-  if not db.hasDepositTreeSnapshot():
+  if not db.hasDepositContractSnapshot():
     let oldSnapshot = db.getUpgradableDepositSnapshot()
     if oldSnapshot.isSome:
-      db.putDepositTreeSnapshot upgradeProc(oldSnapshot.get)
+      db.putDepositContractSnapshot upgradeProc(oldSnapshot.get)
 
 # Hexlified copy of
 # eth2-networks/shared/mainnet/genesis_deposit_contract_snapshot.ssz
@@ -83,7 +87,8 @@ proc fixture1() =
   kv.put(key1, compressed).expect("")
   db.close()
 
-proc inspectDCS(snapshot: OldDepositContractSnapshot | DepositTreeSnapshot) =
+proc inspectDCS(
+    snapshot: OldDepositContractSnapshot | DepositContractSnapshot) =
   ## Inspects a DCS and checks if all of its data corresponds to
   ## what's encoded in ds1.
   const zero = toDigest("0000000000000000000000000000000000000000000000000000000000000000")
@@ -117,11 +122,11 @@ proc inspectDCS(snapshot: OldDepositContractSnapshot | DepositTreeSnapshot) =
   # Check deposit root.
   check(snapshot.getDepositRoot == root)
 
-proc inspectDCS(snapshot: DepositTreeSnapshot, wantedBlockHeight: uint64) =
+proc inspectDCS(snapshot: DepositContractSnapshot, wantedBlockHeight: uint64) =
   inspectDCS(snapshot)
   check(snapshot.blockHeight == wantedBlockHeight)
 
-suite "DepositTreeSnapshot":
+suite "DepositContractSnapshot":
   setup:
     randomize()
 
@@ -138,21 +143,22 @@ suite "DepositTreeSnapshot":
     # Start with a fresh database.
     removeDir(databaseRoot)
     createDir(databaseRoot)
-    # Make sure there's no DepositTreeSnapshot yet.
+    # Make sure there's no DepositContractSnapshot yet.
     let db = BeaconChainDB.new(databaseRoot, inMemory=false)
-    check(db.getDepositTreeSnapshot().isErr())
+    check(db.getDepositContractSnapshot().isErr())
     # Setup fixture.
     fixture1()
-    # Make sure there's still no DepositTreeSnapshot as
-    # BeaconChainDB::getDepositTreeSnapshot() checks only for DCSv2.
-    check(db.getDepositTreeSnapshot().isErr())
+    # Make sure there's still no DepositContractSnapshot as
+    # BeaconChainDB::getDepositContractSnapshot() checks only for DCSv2.
+    check(db.getDepositContractSnapshot().isErr())
     # Migrate DB.
-    db.ifNecessaryMigrateDCS do (d: OldDepositContractSnapshot) -> DepositTreeSnapshot:
-      d.toDepositTreeSnapshot(11052984)
+    db.ifNecessaryMigrateDCS do (
+        d: OldDepositContractSnapshot) -> DepositContractSnapshot:
+      d.toDepositContractSnapshot(11052984)
     # Make sure now there actually is a snapshot.
-    check(db.getDepositTreeSnapshot().isOk())
+    check(db.getDepositContractSnapshot().isOk())
     # Inspect content.
-    let snapshot = db.getDepositTreeSnapshot().expect("")
+    let snapshot = db.getDepositContractSnapshot().expect("")
     inspectDCS(snapshot, 11052984)
 
   test "depositCount":
@@ -167,10 +173,8 @@ suite "DepositTreeSnapshot":
     # Use our hard-coded ds1 as a model.
     var model: OldDepositContractSnapshot
     check(decodeSSZ(ds1, model))
-    # Check blockHeight.
-    var dcs = model.toDepositTreeSnapshot(0)
-    check(not dcs.isValid(ds1Root))
-    dcs.blockHeight = 11052984
+    # Check initialization. blockHeight cannot be validated and may be 0.
+    var dcs = model.toDepositContractSnapshot(11052984)
     check(dcs.isValid(ds1Root))
     # Check eth1Block.
     dcs.eth1Block = ZERO
@@ -187,5 +191,120 @@ suite "DepositTreeSnapshot":
     for i in 0..len(dcs.depositContractState.deposit_count)-1:
       dcs.depositContractState.deposit_count[i] = 0
     check(not dcs.isValid(ds1Root))
-    dcs.depositContractState.deposit_count = model.depositContractState.deposit_count
+    dcs.depositContractState.deposit_count =
+      model.depositContractState.deposit_count
     check(dcs.isValid(ds1Root))
+
+suite "EIP-4881":
+  type DepositTestCase = object
+    deposit_data: DepositData
+    deposit_data_root: Eth2Digest
+    eth1_data: Eth1Data
+    block_height: uint64
+    snapshot: DepositTreeSnapshot
+
+  proc loadTestCases(
+      path: string
+  ): seq[DepositTestCase] {.raises: [
+      IOError, KeyError, ValueError, YamlConstructionError, YamlParserError].} =
+    yaml.loadToJson(os_ops.readFile(path))[0].mapIt:
+      DepositTestCase(
+        deposit_data: DepositData(
+          pubkey: ValidatorPubKey.fromHex(
+            it["deposit_data"]["pubkey"].getStr()).expect("valid"),
+          withdrawal_credentials: Eth2Digest.fromHex(
+            it["deposit_data"]["withdrawal_credentials"].getStr()),
+          amount: Gwei(Base10.decode(uint64,
+            it["deposit_data"]["amount"].getStr()).expect("valid")),
+          signature: ValidatorSig.fromHex(
+            it["deposit_data"]["signature"].getStr()).expect("valid")),
+        deposit_data_root: Eth2Digest.fromHex(it["deposit_data_root"].getStr()),
+        eth1_data: Eth1Data(
+          deposit_root: Eth2Digest.fromHex(
+            it["eth1_data"]["deposit_root"].getStr()),
+          deposit_count: Base10.decode(uint64,
+            it["eth1_data"]["deposit_count"].getStr()).expect("valid"),
+          block_hash: Eth2Digest.fromHex(
+            it["eth1_data"]["block_hash"].getStr())),
+        block_height: uint64(it["block_height"].getInt()),
+        snapshot: DepositTreeSnapshot(
+          finalized: it["snapshot"]["finalized"].foldl((block:
+            check: a[].add Eth2Digest.fromHex(b.getStr())
+            a), newClone default(List[
+              Eth2Digest, Limit DEPOSIT_CONTRACT_TREE_DEPTH]))[],
+          deposit_root: Eth2Digest.fromHex(
+            it["snapshot"]["deposit_root"].getStr()),
+          deposit_count: uint64(
+            it["snapshot"]["deposit_count"].getInt()),
+          execution_block_hash: Eth2Digest.fromHex(
+            it["snapshot"]["execution_block_hash"].getStr()),
+          execution_block_height: uint64(
+            it["snapshot"]["execution_block_height"].getInt())))
+
+  const path = currentSourcePath.rsplit(DirSep, 1)[0]/
+    ".."/"vendor"/"EIPs"/"assets"/"eip-4881"/"test_cases.yaml"
+  let testCases = loadTestCases(path)
+  for testCase in testCases:
+    check testCase.deposit_data_root == hash_tree_root(testCase.deposit_data)
+
+  test "empty_root":
+    var empty = DepositsMerkleizer.init()
+    check empty.getDepositsRoot() == Eth2Digest.fromHex(
+      "0xd70a234731285c6804c2a4f56711ddb8c82c99740f207854891028af34e27e5e")
+
+  test "deposit_cases":
+    var tree = DepositsMerkleizer.init()
+    for testCase in testCases:
+      tree.addChunk testCase.deposit_data_root.data
+      var snapshot = DepositsMerkleizer.init(tree.toDepositContractState())
+      let expected = testCase.eth1_data.deposit_root
+      check:
+        snapshot.getDepositsRoot() == expected
+        tree.getDepositsRoot() == expected
+
+  test "finalization":
+    var tree = DepositsMerkleizer.init()
+    for testCase in testCases[0 ..< 128]:
+      tree.addChunk testCase.deposit_data_root.data
+    let originalRoot = tree.getDepositsRoot()
+    check originalRoot == testCases[127].eth1_data.deposit_root
+    var finalized = DepositsMerkleizer.init()
+    for testCase in testCases[0 .. 100]:
+      finalized.addChunk testCase.deposit_data_root.data
+    var snapshot = finalized.getTreeSnapshot(
+      testCases[100].eth1_data.block_hash, testCases[100].block_height)
+    check snapshot == testCases[100].snapshot
+    var copy = DepositsMerkleizer.init(snapshot).expect("just produced")
+    for testCase in testCases[101 ..< 128]:
+      copy.addChunk testCase.deposit_data_root.data
+    check tree.getDepositsRoot() == copy.getDepositsRoot()
+    for testCase in testCases[101 .. 105]:
+      finalized.addChunk testCase.deposit_data_root.data
+    snapshot = finalized.getTreeSnapshot(
+      testCases[105].eth1_data.block_hash, testCases[105].block_height)
+    copy = DepositsMerkleizer.init(snapshot).expect("just produced")
+    var fullTreeCopy = DepositsMerkleizer.init()
+    for testCase in testCases[0 .. 105]:
+      fullTreeCopy.addChunk testCase.deposit_data_root.data
+    let
+      depositRoots = testCases[106 ..< 128].mapIt(it.deposit_data_root)
+      proofs1 = copy.addChunksAndGenMerkleProofs(depositRoots)
+      proofs2 = fullTreeCopy.addChunksAndGenMerkleProofs(depositRoots)
+    check proofs1 == proofs2
+
+  test "snapshot_cases":
+    var tree = DepositsMerkleizer.init()
+    for testCase in testCases:
+      tree.addChunk testCase.deposit_data_root.data
+      let snapshot = tree.getTreeSnapshot(
+        testCase.eth1_data.block_hash, testCase.block_height)
+      check snapshot == testCase.snapshot
+
+  test "invalid_snapshot":
+    let invalidSnapshot = DepositTreeSnapshot(
+      finalized: default(FinalizedDepositTreeBranch),
+      deposit_root: ZERO_HASH,
+      deposit_count: 0,
+      execution_block_hash: ZERO_HASH,
+      execution_block_height: 0)
+    check DepositsMerkleizer.init(invalidSnapshot).isNone()

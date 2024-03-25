@@ -4,6 +4,9 @@
 #   * MIT license (license terms in the root directory or at https://opensource.org/licenses/MIT).
 #   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
 # at your option. This file may not be copied, modified, or distributed except according to those terms.
+
+{.push raises: [].}
+
 import
   stew/io2, presto, metrics, metrics/chronos_httpserver,
   ./rpc/rest_key_management_api,
@@ -348,6 +351,18 @@ proc asyncInit(vc: ValidatorClientRef): Future[ValidatorClientRef] {.async.} =
   let
     keymanagerInitResult = initKeymanagerServer(vc.config, nil)
 
+  func getCapellaForkVersion(): Opt[Version] =
+    if vc.runtimeConfig.forkConfig.isSome():
+      vc.runtimeConfig.forkConfig.get().capellaVersion
+    else:
+      Opt.none(Version)
+
+  func getDenebForkEpoch(): Opt[Epoch] =
+    if vc.runtimeConfig.forkConfig.isSome():
+      Opt.some(vc.runtimeConfig.forkConfig.get().denebEpoch)
+    else:
+      Opt.none(Epoch)
+
   proc getForkForEpoch(epoch: Epoch): Opt[Fork] =
     if len(vc.forks) > 0:
       Opt.some(vc.forkAtEpoch(epoch))
@@ -376,9 +391,12 @@ proc asyncInit(vc: ValidatorClientRef): Future[ValidatorClientRef] {.async.} =
         vc.config.secretsDir,
         vc.config.defaultFeeRecipient,
         vc.config.suggestedGasLimit,
+        vc.config.defaultGraffitiBytes,
         Opt.none(string),
         nil,
         vc.beaconClock.getBeaconTimeFn,
+        getCapellaForkVersion,
+        getDenebForkEpoch,
         getForkForEpoch,
         getGenesisRoot
         )

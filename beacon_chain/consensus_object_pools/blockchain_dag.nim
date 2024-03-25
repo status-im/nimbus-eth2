@@ -10,7 +10,7 @@
 import
   std/[algorithm, sequtils, tables, sets],
   stew/[arrayops, assign2, byteutils],
-  metrics, results, snappy, chronicles,
+  chronos, metrics, results, snappy, chronicles,
   ../spec/[beaconstate, eth2_merkleization, eth2_ssz_serialization, helpers,
     state_transition, validator],
   ../spec/forks,
@@ -236,6 +236,8 @@ func getBlockIdAtSlot*(dag: ChainDAGRef, slot: Slot): Opt[BlockSlotId] =
   tryWithState dag.headState
   tryWithState dag.epochRefState
   tryWithState dag.clearanceState
+  if dag.incrementalState != nil:
+    tryWithState dag.incrementalState[]
 
   # Fallback to database, this only works for backfilled blocks
   let finlow = dag.db.finalizedBlocks.low.expect("at least tailRef written")
@@ -968,40 +970,49 @@ proc advanceSlots*(
 proc applyBlock(
     dag: ChainDAGRef, state: var ForkedHashedBeaconState, bid: BlockId,
     cache: var StateCache, info: var ForkedEpochInfo): Result[void, cstring] =
-
   loadStateCache(dag, cache, bid, getStateField(state, slot).epoch)
 
-  case dag.cfg.consensusForkAtEpoch(bid.slot.epoch)
+  discard case dag.cfg.consensusForkAtEpoch(bid.slot.epoch)
   of ConsensusFork.Phase0:
     let data = getBlock(dag, bid, phase0.TrustedSignedBeaconBlock).valueOr:
       return err("Block load failed")
-    state_transition(
+    ? state_transition(
       dag.cfg, state, data, cache, info,
       dag.updateFlags + {slotProcessed}, noRollback)
   of ConsensusFork.Altair:
     let data = getBlock(dag, bid, altair.TrustedSignedBeaconBlock).valueOr:
       return err("Block load failed")
-    state_transition(
+    ? state_transition(
       dag.cfg, state, data, cache, info,
       dag.updateFlags + {slotProcessed}, noRollback)
   of ConsensusFork.Bellatrix:
     let data = getBlock(dag, bid, bellatrix.TrustedSignedBeaconBlock).valueOr:
       return err("Block load failed")
-    state_transition(
+    ? state_transition(
       dag.cfg, state, data, cache, info,
       dag.updateFlags + {slotProcessed}, noRollback)
   of ConsensusFork.Capella:
     let data = getBlock(dag, bid, capella.TrustedSignedBeaconBlock).valueOr:
       return err("Block load failed")
-    state_transition(
+    ? state_transition(
       dag.cfg, state, data, cache, info,
       dag.updateFlags + {slotProcessed}, noRollback)
   of ConsensusFork.Deneb:
     let data = getBlock(dag, bid, deneb.TrustedSignedBeaconBlock).valueOr:
       return err("Block load failed")
-    state_transition(
+    ? state_transition(
       dag.cfg, state, data, cache, info,
       dag.updateFlags + {slotProcessed}, noRollback)
+
+  ok()
+
+proc resetChainProgressWatchdog*(dag: ChainDAGRef) =
+  dag.lastChainProgress = Moment.now()
+  dag.incrementalState = nil
+
+proc chainIsProgressing*(dag: ChainDAGRef): bool =
+  const watchdogDuration = chronos.minutes(60)
+  dag.lastChainProgress + watchdogDuration >= Moment.now()
 
 proc init*(T: type ChainDAGRef, cfg: RuntimeConfig, db: BeaconChainDB,
            validatorMonitor: ref ValidatorMonitor, updateFlags: UpdateFlags,
@@ -1043,6 +1054,7 @@ proc init*(T: type ChainDAGRef, cfg: RuntimeConfig, db: BeaconChainDB,
       # allow skipping some validation.
       updateFlags: updateFlags * {strictVerification},
       cfg: cfg,
+      lastChainProgress: Moment.now(),
 
       vanityLogs: vanityLogs,
 
@@ -1167,7 +1179,7 @@ proc init*(T: type ChainDAGRef, cfg: RuntimeConfig, db: BeaconChainDB,
   # should have `previous_version` set to `current_version` while
   # this doesn't happen to be the case in network that go through
   # regular hard-fork upgrades. See for example:
-  # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.6/specs/bellatrix/beacon-chain.md#testing
+  # https://github.com/ethereum/consensus-specs/blob/v1.4.0/specs/bellatrix/beacon-chain.md#testing
   if stateFork.current_version != configFork.current_version:
     error "State from database does not match network, check --network parameter",
       tail = dag.tail, headRef, stateFork, configFork
@@ -1505,6 +1517,8 @@ proc computeRandaoMixFromMemory*(
   tryWithState dag.headState
   tryWithState dag.epochRefState
   tryWithState dag.clearanceState
+  if dag.incrementalState != nil:
+    tryWithState dag.incrementalState[]
 
 proc computeRandaoMixFromDatabase*(
     dag: ChainDAGRef, bid: BlockId, lowSlot: Slot): Opt[Eth2Digest] =
@@ -1576,6 +1590,8 @@ proc computeShufflingRefFromMemory*(
   tryWithState dag.headState
   tryWithState dag.epochRefState
   tryWithState dag.clearanceState
+  if dag.incrementalState != nil:
+    tryWithState dag.incrementalState[]
 
 proc getShufflingRef*(
     dag: ChainDAGRef, blck: BlockRef, epoch: Epoch,
@@ -1723,6 +1739,10 @@ proc updateState*(
     elif exactMatch(dag.epochRefState, bsi):
       assign(state, dag.epochRefState)
       found = true
+    elif dag.incrementalState != nil and
+        exactMatch(dag.incrementalState[], bsi):
+      assign(state, dag.incrementalState[])
+      found = true
 
   const RewindBlockThreshold = 64
 
@@ -1752,6 +1772,12 @@ proc updateState*(
 
         if canAdvance(dag.epochRefState, cur):
           assign(state, dag.epochRefState)
+          found = true
+          break
+
+        if dag.incrementalState != nil and
+            canAdvance(dag.incrementalState[], cur):
+          assign(state, dag.incrementalState[])
           found = true
           break
 
@@ -1792,15 +1818,15 @@ proc updateState*(
         # eventually reach bs
         ancestors.add(cur.bid)
 
-      if cur.slot == GENESIS_SLOT or
-          (cur.slot.epoch +  uint64(EPOCHS_PER_STATE_SNAPSHOT) * 2 < startEpoch):
+      if cur.slot == GENESIS_SLOT or (cur.slot < dag.finalizedHead.slot and
+          cur.slot.epoch + uint64(EPOCHS_PER_STATE_SNAPSHOT) * 2 < startEpoch):
         # We've either walked two full state snapshot lengths or hit the tail
         # and still can't find a matching state: this can happen when
         # starting the node from an arbitrary finalized checkpoint and not
         # backfilling the states
         notice "Request for pruned historical state",
           request = shortLog(bsi), tail = shortLog(dag.tail),
-          cur = shortLog(cur)
+          cur = shortLog(cur), finalized = shortLog(dag.finalizedHead)
         return false
 
       # Move slot by slot to capture epoch boundary states
@@ -1958,13 +1984,17 @@ proc pruneBlocksDAG(dag: ChainDAGRef) =
     prunedHeads = hlen - dag.heads.len,
     dagPruneDur = Moment.now() - startTick
 
-# https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.6/sync/optimistic.md#helpers
-template is_optimistic*(dag: ChainDAGRef, bid: BlockId): bool =
+# https://github.com/ethereum/consensus-specs/blob/v1.4.0/sync/optimistic.md#helpers
+func is_optimistic*(dag: ChainDAGRef, bid: BlockId): bool =
   let blck =
     if bid.slot <= dag.finalizedHead.slot:
       dag.finalizedHead.blck
     else:
-      dag.getBlockRef(bid.root).expect("Non-finalized block is known")
+      dag.getBlockRef(bid.root).valueOr:
+        # The block is part of the DB but is not reachable via `BlockRef`;
+        # it could have been orphaned or the DB is slightly inconsistent.
+        # Report it as optimistic until it becomes reachable or gets deleted
+        return true
   not blck.executionValid
 
 proc markBlockVerified*(dag: ChainDAGRef, blck: BlockRef) =
@@ -2382,6 +2412,7 @@ proc updateHead*(
     quit 1
 
   dag.head = newHead
+  dag.resetChainProgressWatchdog()
 
   if  dag.headState.is_merge_transition_complete() and not
       lastHeadMergeComplete and
@@ -2624,7 +2655,12 @@ proc getProposalState*(
 
   # Start with the clearance state, since this one typically has been advanced
   # and thus has a hot hash tree cache
-  let state = assignClone(dag.clearanceState)
+  let state =
+    if dag.incrementalState != nil and
+        dag.incrementalState[].latest_block_id == head.bid:
+      assignClone(dag.incrementalState[])
+    else:
+      assignClone(dag.clearanceState)
 
   var
     info = ForkedEpochInfo()

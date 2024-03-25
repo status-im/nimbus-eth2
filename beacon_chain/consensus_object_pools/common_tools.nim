@@ -16,7 +16,7 @@ from ../spec/eth2_apis/dynamic_fee_recipients import
   DynamicFeeRecipientsStore, getDynamicFeeRecipient
 from ../validators/keystore_management import
      getPerValidatorDefaultFeeRecipient, getSuggestedGasLimit,
-     getSuggestedFeeRecipient
+     getSuggestedFeeRecipient, getSuggestedGraffiti
 from ../spec/beaconstate import has_eth1_withdrawal_credential
 from ../spec/presets import Eth1Address
 
@@ -64,3 +64,9 @@ proc getGasLimit*(configValidatorsDir: string,
                   pubkey: ValidatorPubKey): uint64 =
   getSuggestedGasLimit(configValidatorsDir, pubkey, configGasLimit).valueOr:
     configGasLimit
+
+proc getGraffiti*(configValidatorsDir: string,
+                  configGraffiti: GraffitiBytes,
+                  pubkey: ValidatorPubKey): GraffitiBytes =
+  getSuggestedGraffiti(configValidatorsDir, pubkey, configGraffiti).valueOr:
+    configGraffiti

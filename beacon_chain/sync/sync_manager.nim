@@ -396,7 +396,8 @@ proc syncStep[A, B](man: SyncManager[A, B], index: int, peer: A)
   if blocks.isErr():
     peer.updateScore(PeerScoreNoValues)
     man.queue.push(req)
-    debug "Failed to receive blocks on request", request = req
+    debug "Failed to receive blocks on request",
+          request = req, err = blocks.error
     return
   let blockData = blocks.get().asSeq()
   let blockSmap = getShortMap(req, blockData)
@@ -412,6 +413,19 @@ proc syncStep[A, B](man: SyncManager[A, B], index: int, peer: A)
           request = req
     return
 
+  let shouldGetBlobs =
+    if not man.shouldGetBlobs(req.slot.epoch):
+      false
+    else:
+      var hasBlobs = false
+      for blck in blockData:
+        withBlck(blck[]):
+          when consensusFork >= ConsensusFork.Deneb:
+            if forkyBlck.message.body.blob_kzg_commitments.len > 0:
+              hasBlobs = true
+              break
+      hasBlobs
+
   func combine(acc: seq[Slot], cur: Slot): seq[Slot] =
     var copy = acc
     if copy[copy.len-1] != cur:
@@ -419,12 +433,13 @@ proc syncStep[A, B](man: SyncManager[A, B], index: int, peer: A)
     copy
 
   let blobData =
-    if man.shouldGetBlobs(req.slot.epoch):
+    if shouldGetBlobs:
       let blobs = await man.getBlobSidecars(peer, req)
       if blobs.isErr():
         peer.updateScore(PeerScoreNoValues)
         man.queue.push(req)
-        debug "Failed to receive blobs on request", request = req
+        debug "Failed to receive blobs on request",
+              request = req, err = blobs.error
         return
       let blobData = blobs.get().asSeq()
       let blobSmap = getShortMap(req, blobData)

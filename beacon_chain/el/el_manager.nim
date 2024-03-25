@@ -356,9 +356,6 @@ func isSynced*(m: ELManager): bool =
 template eth1ChainBlocks*(m: ELManager): Deque[Eth1Block] =
   m.eth1Chain.blocks
 
-template toGaugeValue(x: Quantity): int64 =
-  toGaugeValue(distinctBase x)
-
 # TODO: Add cfg validation
 # MIN_GENESIS_ACTIVE_VALIDATOR_COUNT should be larger than SLOTS_PER_EPOCH
 #  doAssert SECONDS_PER_ETH1_BLOCK * cfg.ETH1_FOLLOW_DISTANCE < GENESIS_DELAY,
@@ -623,7 +620,8 @@ proc getBlockByHash(rpcClient: RpcClient, hash: BlockHash): Future[BlockObject] 
 proc getBlockByNumber*(rpcClient: RpcClient,
                        number: Eth1BlockNumber): Future[BlockObject] =
   let hexNumber = try:
-    &"0x{number:X}" # No leading 0's!
+    let num = distinctBase(number)
+    &"0x{num:X}" # No leading 0's!
   except ValueError as exc:
     # Since the format above is valid, failing here should not be possible
     raiseAssert exc.msg
@@ -1138,7 +1136,7 @@ proc forkchoiceUpdated*(m: ELManager,
   # block hash provided by this event is stubbed with
   # `0x0000000000000000000000000000000000000000000000000000000000000000`."
   # and
-  # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.6/specs/bellatrix/validator.md#executionpayload
+  # https://github.com/ethereum/consensus-specs/blob/v1.4.0/specs/bellatrix/validator.md#executionpayload
   # notes "`finalized_block_hash` is the hash of the latest finalized execution
   # payload (`Hash32()` if none yet finalized)"
 
@@ -1371,7 +1369,7 @@ func depositEventsToBlocks(depositsList: openArray[JsonString]): seq[Eth1Block] 
     lastEth1Block.deposits.add DepositData(
       pubkey: ValidatorPubKey.init(pubkey.toArray),
       withdrawal_credentials: Eth2Digest(data: withdrawalCredentials.toArray),
-      amount: bytes_to_uint64(amount.toArray),
+      amount: bytes_to_uint64(amount.toArray).Gwei,
       signature: ValidatorSig.init(signature.toArray))
 
 type
@@ -1514,10 +1512,10 @@ func earliestBlockOfInterest(
     (2 * m.cfg.ETH1_FOLLOW_DISTANCE) +
     votedBlocksSafetyMargin
 
-  if latestEth1BlockNumber > blocksOfInterestRange:
+  if latestEth1BlockNumber > blocksOfInterestRange.Eth1BlockNumber:
     latestEth1BlockNumber - blocksOfInterestRange
   else:
-    0
+    0.Eth1BlockNumber
 
 proc syncBlockRange(m: ELManager,
                     connection: ELConnection,
@@ -1724,8 +1722,10 @@ proc syncEth1Chain(m: ELManager, connection: ELConnection) {.async.} =
 
     debug "Starting Eth1 syncing", `from` = shortLog(m.eth1Chain.blocks[^1])
 
+  var latestBlockNumber: Eth1BlockNumber
   while true:
-    debug "syncEth1Chain tick"
+    debug "syncEth1Chain tick",
+      shouldProcessDeposits, latestBlockNumber, eth1SyncedTo
 
     if bnStatus == BeaconNodeStatus.Stopping:
       await m.stop()
@@ -1742,12 +1742,13 @@ proc syncEth1Chain(m: ELManager, connection: ELConnection) {.async.} =
     except CatchableError as err:
       warn "Failed to obtain the latest block from the EL", err = err.msg
       raise err
+    latestBlockNumber = latestBlock.number
 
     m.syncTargetBlock = some(
-      if Eth1BlockNumber(latestBlock.number) > m.cfg.ETH1_FOLLOW_DISTANCE:
-        Eth1BlockNumber(latestBlock.number) - m.cfg.ETH1_FOLLOW_DISTANCE
+      if latestBlock.number > m.cfg.ETH1_FOLLOW_DISTANCE.Eth1BlockNumber:
+        latestBlock.number - m.cfg.ETH1_FOLLOW_DISTANCE
       else:
-        Eth1BlockNumber(0))
+        0.Eth1BlockNumber)
     if m.syncTargetBlock.get <= eth1SyncedTo:
       # The chain reorged to a lower height.
       # It's relatively safe to ignore that.
@@ -1763,7 +1764,7 @@ proc syncEth1Chain(m: ELManager, connection: ELConnection) {.async.} =
                              depositContract,
                              eth1SyncedTo + 1,
                              m.syncTargetBlock.get,
-                             m.earliestBlockOfInterest(Eth1BlockNumber latestBlock.number))
+                             m.earliestBlockOfInterest(latestBlock.number))
 
     eth1SyncedTo = m.syncTargetBlock.get
     eth1_synced_head.set eth1SyncedTo.toGaugeValue
@@ -1855,4 +1856,4 @@ proc testWeb3Provider*(web3Url: Uri,
     ns = web3.contractSender(DepositContract, depositContractAddress)
 
   discard request "Deposit root":
-    ns.get_deposit_root.call(blockNumber = latestBlock.number.uint64)
+    ns.get_deposit_root.call(blockNumber = latestBlock.number)

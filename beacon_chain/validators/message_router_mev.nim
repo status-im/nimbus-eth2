@@ -14,7 +14,6 @@ import ../beacon_node
 
 from eth/async_utils import awaitWithTimeout
 from ../spec/datatypes/bellatrix import SignedBeaconBlock
-from ../spec/mev/rest_capella_mev_calls import submitBlindedBlock
 from ../spec/mev/rest_deneb_mev_calls import submitBlindedBlock
 
 const
@@ -44,9 +43,7 @@ macro copyFields*(
 
 proc unblindAndRouteBlockMEV*(
     node: BeaconNode, payloadBuilderRestClient: RestClientRef,
-    blindedBlock:
-      capella_mev.SignedBlindedBeaconBlock |
-      deneb_mev.SignedBlindedBeaconBlock):
+    blindedBlock: deneb_mev.SignedBlindedBeaconBlock):
     Future[Result[Opt[BlockRef], string]] {.async: (raises: [CancelledError]).} =
   const consensusFork = typeof(blindedBlock).kind
 
@@ -79,28 +76,16 @@ proc unblindAndRouteBlockMEV*(
     return err("submitBlindedBlock failed with HTTP error code " &
       $response.status & ": " & $shortLog(blindedBlock))
 
-  when consensusFork >= ConsensusFork.Deneb:
-    let
-      res = decodeBytes(
-        SubmitBlindedBlockResponseDeneb, response.data, response.contentType)
+  let
+    res = decodeBytes(
+      SubmitBlindedBlockResponseDeneb, response.data, response.contentType)
 
-      bundle = res.valueOr:
-        return err("Could not decode Deneb blinded block: " & $res.error &
-          " with HTTP status " & $response.status & ", Content-Type " &
-          $response.contentType & " and content " & $response.data)
+    bundle = res.valueOr:
+      return err("Could not decode " & $consensusFork & " blinded block: " & $res.error &
+        " with HTTP status " & $response.status & ", Content-Type " &
+        $response.contentType & " and content " & $response.data)
 
-    template execution_payload: untyped = bundle.data.execution_payload
-  else:
-    let
-      res = decodeBytes(
-        SubmitBlindedBlockResponseCapella, response.data, response.contentType)
-
-      bundle = res.valueOr:
-        return err("Could not decode Capella blinded block: " & $res.error &
-          " with HTTP status " & $response.status & ", Content-Type " &
-          $response.contentType & " and content " & $response.data)
-
-    template execution_payload: untyped = bundle.data
+  template execution_payload: untyped = bundle.data.execution_payload
 
   if hash_tree_root(blindedBlock.message.body.execution_payload_header) !=
       hash_tree_root(execution_payload):

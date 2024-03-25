@@ -5,6 +5,7 @@
 #   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
 # at your option. This file may not be copied, modified, or distributed except according to those terms.
 
+{.push raises: [].}
 {.used.}
 
 import ../../beacon_chain/spec/forks
@@ -15,7 +16,10 @@ from ../testutil import check, preset, suite, test
 from ../../beacon_chain/spec/state_transition import process_slots
 from ../helpers/debug_state import reportDiff
 
-proc runTest(T: type, testDir, forkName: static[string], suiteName, identifier: string) =
+proc runTest(
+    T: type,
+    testDir, forkName: static[string],
+    suiteName, identifier: string) {.raises: [IOError, ValueError].} =
   let
     testDir = testDir / identifier
     num_slots = readLines(testDir / "slots.yaml", 2)[0].parseInt.uint64

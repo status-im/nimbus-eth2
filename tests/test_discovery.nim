@@ -5,6 +5,7 @@
 #   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
 # at your option. This file may not be copied, modified, or distributed except according to those terms.
 
+{.push raises: [].}
 {.used.}
 
 import
@@ -19,14 +20,17 @@ proc new(T: type Eth2DiscoveryProtocol,
     enrIp: Option[IpAddress], enrTcpPort, enrUdpPort: Option[Port],
     bindPort: Port, bindIp: IpAddress,
     enrFields: openArray[(string, seq[byte])] = [],
-    rng: ref HmacDrbgContext):
-    T {.raises: [CatchableError].} =
+    rng: ref HmacDrbgContext): T =
   newProtocol(pk, enrIp, enrTcpPort, enrUdpPort, enrFields,
     bindPort = bindPort, bindIp = bindIp, rng = rng)
 
 proc generateNode(rng: ref HmacDrbgContext, port: Port,
     enrFields: openArray[(string, seq[byte])] = []): Eth2DiscoveryProtocol =
-  let ip = parseIpAddress("127.0.0.1")
+  let ip =
+    try:
+      parseIpAddress("127.0.0.1")
+    except ValueError:
+      raiseAssert "Argument is a valid IP address"
   Eth2DiscoveryProtocol.new(keys.PrivateKey.random(rng[]),
         some(ip), some(port), some(port), port, ip, enrFields, rng = rng)
 

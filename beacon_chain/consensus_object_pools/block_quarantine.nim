@@ -16,6 +16,8 @@ import
 export tables, forks
 
 const
+  MaxRetriesPerMissingItem = 7
+    ## Exponential backoff, double interval between each attempt
   MaxMissingItems = 1024
     ## Arbitrary
   MaxOrphans = SLOTS_PER_EPOCH * 3
@@ -41,7 +43,7 @@ type
     ##
     ## Trivially invalid blocks may be dropped before reaching this stage.
 
-    orphans*: Table[(Eth2Digest, ValidatorSig), ForkedSignedBeaconBlock]
+    orphans*: OrderedTable[(Eth2Digest, ValidatorSig), ForkedSignedBeaconBlock]
       ## Blocks that we don't have a parent for - when we resolve the
       ## parent, we can proceed to resolving the block as well - we
       ## index this by root and signature such that a block with
@@ -50,7 +52,7 @@ type
       ## below) - if so, upon resolving the parent, it should be
       ## added to the blobless table, after verifying its signature.
 
-    blobless*: Table[Eth2Digest, deneb.SignedBeaconBlock]
+    blobless*: OrderedTable[Eth2Digest, deneb.SignedBeaconBlock]
       ## Blocks that we don't have blobs for. When we have received
       ## all blobs for this block, we can proceed to resolving the
       ## block as well. A blobless block inserted into this table must
@@ -83,7 +85,7 @@ func checkMissing*(quarantine: var Quarantine, max: int): seq[FetchRecord] =
   var done: seq[Eth2Digest]
 
   for k, v in quarantine.missing.mpairs():
-    if v.tries > 8:
+    if v.tries > static(1 shl MaxRetriesPerMissingItem):
       done.add(k)
 
   for k in done:
@@ -97,32 +99,30 @@ func checkMissing*(quarantine: var Quarantine, max: int): seq[FetchRecord] =
       if result.len >= max:
         break
 
-# TODO stew/sequtils2
-template anyIt(s, pred: untyped): bool =
-  # https://github.com/nim-lang/Nim/blob/v1.6.10/lib/pure/collections/sequtils.nim#L753-L775
-  # without the items(...)
-  var result = false
-  for it {.inject.} in s:
-    if pred:
-      result = true
-      break
-  result
-
 func addMissing*(quarantine: var Quarantine, root: Eth2Digest) =
   ## Schedule the download a the given block
   if quarantine.missing.len >= MaxMissingItems:
     return
 
-  if root in quarantine.unviable:
-    # Won't get anywhere with this block
-    return
+  var r = root
+  for i in 0 .. MaxOrphans:  # Blocks are not trusted, avoid endless loops
+    if r in quarantine.unviable:
+      # Won't get anywhere with this block
+      return
 
-  # It's not really missing if we're keeping it in the quarantine
-  if anyIt(quarantine.orphans.keys,  it[0] == root):
-    return
+    # It's not really missing if we're keeping it in the quarantine.
+    # In that case, add the next missing parent root instead
+    var found = false
+    for k, blck in quarantine.orphans:
+      if k[0] == r:
+        r = getForkedBlockField(blck, parent_root)
+        found = true
+        break
 
-  # Add if it's not there, but don't update missing counter
-  discard quarantine.missing.hasKeyOrPut(root, MissingBlock())
+    # Add if it's not there, but don't update missing counter
+    if not found:
+      discard quarantine.missing.hasKeyOrPut(r, MissingBlock())
+      return
 
 func removeOrphan*(
     quarantine: var Quarantine, signedBlock: ForkySignedBeaconBlock) =
@@ -146,11 +146,11 @@ func cleanupUnviable(quarantine: var Quarantine) =
       break # Cannot modify while for-looping
     quarantine.unviable.del(toDel)
 
-func removeUnviableOrphanTree(quarantine: var Quarantine,
-                        toCheck: var seq[Eth2Digest],
-                        tbl: var Table[(Eth2Digest, ValidatorSig),
-                                       ForkedSignedBeaconBlock]):
-                                         seq[Eth2Digest] =
+func removeUnviableOrphanTree(
+    quarantine: var Quarantine,
+    toCheck: var seq[Eth2Digest],
+    tbl: var OrderedTable[(Eth2Digest, ValidatorSig), ForkedSignedBeaconBlock]
+): seq[Eth2Digest] =
   # Remove the tree of orphans whose ancestor is unviable - they are now also
   # unviable! This helps avoiding junk in the quarantine, because we don't keep
   # unviable parents in the DAG and there's no way to tell an orphan from an
@@ -178,10 +178,10 @@ func removeUnviableOrphanTree(quarantine: var Quarantine,
 
   checked
 
-func removeUnviableBloblessTree(quarantine: var Quarantine,
-                                toCheck: var seq[Eth2Digest],
-                                tbl: var Table[Eth2Digest,
-                                               deneb.SignedBeaconBlock]) =
+func removeUnviableBloblessTree(
+    quarantine: var Quarantine,
+    toCheck: var seq[Eth2Digest],
+    tbl: var OrderedTable[Eth2Digest, deneb.SignedBeaconBlock]) =
   var
     toRemove: seq[Eth2Digest] # Can't modify while iterating
   while toCheck.len > 0:
@@ -271,7 +271,13 @@ func addOrphan*(
   quarantine.addMissing(parent_root)
 
   if quarantine.orphans.lenu64 >= MaxOrphans:
-    return err("block quarantine full")
+    # Evict based on FIFO
+    var oldest_orphan_key: (Eth2Digest, ValidatorSig)
+    for k in quarantine.orphans.keys:
+      oldest_orphan_key = k
+      break
+    quarantine.orphans.del oldest_orphan_key
+    quarantine.blobless.del oldest_orphan_key[0]
 
   quarantine.orphans[(signedBlock.root, signedBlock.signature)] = signedBlock
   quarantine.missing.del(signedBlock.root)
@@ -303,20 +309,25 @@ proc addBlobless*(
   quarantine.cleanupBlobless(finalizedSlot)
 
   if quarantine.blobless.lenu64 >= MaxBlobless:
-    return true
+    var oldest_blobless_key: Eth2Digest
+    for k in quarantine.blobless.keys:
+      oldest_blobless_key = k
+      break
+    quarantine.blobless.del oldest_blobless_key
 
   debug "block quarantine: Adding blobless", blck = shortLog(signedBlock)
   quarantine.blobless[signedBlock.root] = signedBlock
   quarantine.missing.del(signedBlock.root)
   true
 
-func popBlobless*(quarantine: var Quarantine, root: Eth2Digest):
-         Opt[deneb.SignedBeaconBlock] =
+func popBlobless*(
+    quarantine: var Quarantine,
+    root: Eth2Digest): Opt[ForkedSignedBeaconBlock] =
   var blck: deneb.SignedBeaconBlock
   if quarantine.blobless.pop(root, blck):
-    Opt.some(blck)
+    Opt.some(ForkedSignedBeaconBlock.init(blck))
   else:
-    Opt.none(deneb.SignedBeaconBlock)
+    Opt.none(ForkedSignedBeaconBlock)
 
 iterator peekBlobless*(quarantine: var Quarantine): deneb.SignedBeaconBlock =
   for k, v in quarantine.blobless.mpairs():

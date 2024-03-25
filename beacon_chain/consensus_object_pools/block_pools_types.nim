@@ -202,9 +202,16 @@ type
       ## Cached state used during block clearance - must only be used in
       ## clearance module
 
+    incrementalState*: ref ForkedHashedBeaconState
+      ## State used for intermittent results of expensive computations that
+      ## may take minutes - is only used if unavoidable, and nil otherwise
+
     updateFlags*: UpdateFlags
 
     cfg*: RuntimeConfig
+
+    lastChainProgress*: Moment
+      ## Indicates the last wall time at which meaningful progress was made
 
     shufflingRefs*: LRUCache[16, ShufflingRef]
 
@@ -293,10 +300,11 @@ type
   OnBellatrixBlockAdded* = OnBlockAdded[bellatrix.TrustedSignedBeaconBlock]
   OnCapellaBlockAdded* = OnBlockAdded[capella.TrustedSignedBeaconBlock]
   OnDenebBlockAdded* = OnBlockAdded[deneb.TrustedSignedBeaconBlock]
+  OnElectraBlockAdded* = OnBlockAdded[electra.TrustedSignedBeaconBlock]
 
   OnForkyBlockAdded* =
     OnPhase0BlockAdded | OnAltairBlockAdded | OnBellatrixBlockAdded |
-    OnCapellaBlockAdded | OnDenebBlockAdded
+    OnCapellaBlockAdded | OnDenebBlockAdded | OnElectraBlockAdded
 
   HeadChangeInfoObject* = object
     slot*: Slot
