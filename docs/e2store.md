@@ -116,6 +116,14 @@ data: snappyFramed(ssz(BeaconState))
 
 The fork and thus the exact format of the `BeaconState` should be derived from the `slot`.
 
+## BlobCompressedSidecars
+```
+type: [0x02, 0x00]
+data: ssz(List[snappyFramed(BlobSidecar), MAX_BLOBS_PER_BLOCK])
+```
+
+`BlobCompressedSidecars` contain a list of `BlobSidecar` objects encoded using `SSZ` then compressed using the snappy [framing format](https://github.com/google/snappy/blob/master/framing_format.txt).
+
 ## Empty
 
 ```
@@ -169,7 +177,9 @@ def read_slot_index(f):
   return (start_slot, record_start, slot_offsets)
 ```
 
-# Era files
+# Erb files
+
+Stand-in: like .era files, but blobs instead of blocks.
 
 `.era` files are special instances of `.e2s` files that follow a more strict content format optimised for reading and long-term storage and distribution.
 
@@ -183,11 +193,10 @@ Each era is identified by when it ends. Thus, the genesis era is era `0`, follow
 
 `.era` file names follow a simple convention: `<config-name>-<era-number>-<era-count>-<short-historical-root>.era`:
 
-* `config-name` is the `CONFIG_NAME` field of the runtime configation (`mainnet`, `prater`, `sepolia`, `holesky`, etc)
+* `config-name` is the `CONFIG_NAME` field of the runtime configation (`mainnet`, `sepolia`, `holesky`, etc)
 * `era-number` is the number of the _first_ era stored in the file - for example, the genesis era file has number 0 - as a 5-digit 0-filled decimal integer
 * `short-era-root` is the first 4 bytes of the last historical root in the _last_ state in the era file, lower-case hex-encoded (8 characters), except the genesis era which instead uses the `genesis_validators_root` field from the genesis state.
-  * The root is available as `state.historical_roots[era - 1]` except for genesis, which is `state.genesis_validators_root`
-  * Post-Capella, the root must be computed from `state.historical_summaries[era - state.historical_roots.len - 1]`
+  * The root is available as `state.historical_summaries[era - state.historical_roots.len - 1]`
 
 Era files with multiple eras use the era number of the lowest era stored in the file, and the root of the highest era.
 
@@ -199,9 +208,8 @@ An `.era` file is structured in the following way:
 
 ```
 era := group+
-group := Version | block* | era-state | other-entries* | slot-index(block)? | slot-index(state)
-block := CompressedSignedBeaconBlock
-era-state := CompressedBeaconState
+group := Version | blobs* | other-entries* | slot-index(block)?
+blobs := BlobCompressedSidecars
 ```
 
 The `block` entries of a group include all blocks leading up to the era transition in slot order. For example, the group representing era `1` contains blocks from slot `0` up to and including block `8191`. Empty slots are skipped.
@@ -228,7 +236,7 @@ def read_era_file(name):
   # Print contents of an era file, backwards
   with open(name, "rb") as f:
 
-    # Seek to end of file to figure out the indices of the state and blocks
+    # Seek to end of file to figure out the indices of the blobs
     f.seek(0, 2)
 
     groups = 0
@@ -252,8 +260,8 @@ def read_era_file(name):
         (block_slot, block_index_start, block_slot_offsets) = read_slot_index(f)
 
         print(
-          "Block start slot:", block_slot,
-          "block index start:", block_index_start,
+          "Blob start slot:", block_slot,
+          "blob index start:", block_index_start,
           "offsets", len(block_slot_offsets))
 
         if any((x for x in block_slot_offsets if x != 0)):
@@ -261,7 +269,7 @@ def read_era_file(name):
           prev_group = block_index_start + [x for x in block_slot_offsets if x != 0][0] - 8
 
       print("Previous group starts at:", prev_group)
-      # The beginning of the first block (or the state, if there are no blocks)
+      # The beginning of the first blob list # TODO or the state, if there are no blobs
       # is the end of the previous group
       f.seek(prev_group) # Skip header
 
@@ -273,24 +281,19 @@ def read_era_file(name):
 
 To verify the internal consistency of an era file, the following checks should be made to verify that an era file is valid for a given network:
 
-* each group follows the given structure of era files with regards to blocks, states and their indices
+* each group follows the given structure of era files with regards to blobs and their indices
   * offsets within indices must point to entries of the correct kind that can be decompressed and deserialized
   * era file readers must be prepared to handle malicious inputs, including out-of-range offsets, invalid length prefixes and other trivial errors
   * unknown record types should be ignored, but it is recommended that verifiers report their size and tag
+  * all blobs are consistent with regard to blocks to which the point
 * the state is loadable and consistent with the given runtime configuration
-* the root of each block in the era file matches that of `state.block_roots` - if a slot is empty according to the block index, this should be confirmed by verifying that
-  `state.get_block_root_at_slot(empty_slot - 1) == state.get_block_root_at_slot(empty_slot)` except for the first slot of the era which, if possible, should be verified against `era - 1`
-  * the genesis era file does not have any blocks
-* the signature of each block can be verified by the keys in the given state (or any newer state).
+* TODO need the block era file here; in general, blobs can only be verified to a limited existent standalone
 
 Extended verification consists of verifying a list of era files against a particular history anchored in a checkpoint or a head block. Verification starts from a well-known finalized checkpoint for a slot within the era, using `anchor_state_root = checkpoint_state.state_roots[0]` as anchor and walking the era files as a linked list.
 
 For each era file:
 
-* verify that `hash_tree_root(state) == anchor_state_root`
-  * this anchors the era in a particular history, starting from the given state root - the state root is available from any state within the anchor era.
 * verify the internal consistency of the era, as above
-* set `anchor_state_root == state.state_roots[0]`
 
 # FAQ
 
@@ -351,3 +354,19 @@ Each era file contains a full `BeaconState` object whose `block_roots` field cor
 Offsets in `SSZ` are `uint32` thus from a practical point of view, any one SSZ object may generally not exceed that size.
 
 A future entry type can introduce chunking should larger entries be needed, or spill the remaining size bytes into `reserved`, effectively turning the encoding of the length into a fictive `uint48` type.
+
+## Why are are entire BlobSidecar sets per blob stored together?
+
+SlotIndex only allows one index per slot, and this also allows exact one-to-one correspondence with block-based .era files, while avoiding adding special cases for blocks without blobs.
+
+## Why use a single SSZ structure for this BlobSidecar set per blob?
+
+It similarly creates a mirrored e2s structure between Era and Erb, while reusing existing SSZ parsing and loading code.
+
+## Why use lists of compressed blob sidecars rather than either compressed lists of blob sidecars or uncompressed lists of uncompressed blob sidecars?
+
+This enables req/resp copying directly, which operates on a per-blob-sidecar-basis rather than fetching all blob sidecars at once, without additional Snappy decompression.
+
+## Why separate BlobSidecar from block storage?
+
+Blob sidecars aren't, properly, part of the consensus record. It is reasonable for an archival node to archive only blocks, not blob sidecars. This isn't unique to Era/Erb files, but occurs, e.g., while syncing, where blob verification only must occur within the blob retention window.
