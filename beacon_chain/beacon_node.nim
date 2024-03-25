@@ -25,7 +25,7 @@ import
     attestation_pool, sync_committee_msg_pool, validator_change_pool],
   ./spec/datatypes/[base, altair],
   ./spec/eth2_apis/dynamic_fee_recipients,
-  ./sync/[sync_manager, request_manager],
+  ./sync/[branch_discovery, sync_manager, request_manager],
   ./validators/[
     action_tracker, message_router, validator_monitor, validator_pool,
     keystore_management],
@@ -35,7 +35,7 @@ export
   osproc, chronos, presto, action_tracker,
   beacon_clock, beacon_chain_db, conf, light_client,
   attestation_pool, sync_committee_msg_pool, validator_change_pool,
-  eth2_network, el_manager, request_manager, sync_manager,
+  eth2_network, el_manager, branch_discovery, request_manager, sync_manager,
   eth2_processor, optimistic_processor, blockchain_dag, block_quarantine,
   base, message_router, validator_monitor, validator_pool,
   consensus_manager, dynamic_fee_recipients
@@ -85,6 +85,7 @@ type
     requestManager*: RequestManager
     syncManager*: SyncManager[Peer, PeerId]
     backfiller*: SyncManager[Peer, PeerId]
+    branchDiscovery*: ref BranchDiscovery
     genesisSnapshotContent*: string
     processor*: ref Eth2Processor
     blockProcessor*: ref BlockProcessor
