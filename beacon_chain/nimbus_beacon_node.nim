@@ -445,12 +445,17 @@ proc initFullNode(
       blockProcessor, node.validatorMonitor, dag, attestationPool,
       validatorChangePool, node.attachedValidators, syncCommitteeMsgPool,
       lightClientPool, quarantine, blobQuarantine, rng, getBeaconTime, taskpool)
+    branchDiscovery = BranchDiscovery.new(
+      node.network, getFirstSlotAtFinalizedEpoch, isBlockKnown,
+      branchDiscoveryBlockVerifier)
+    fallbackSyncer = proc(peer: Peer) =
+      branchDiscovery.transferOwnership(peer)
     syncManager = newSyncManager[Peer, PeerId](
       node.network.peerPool,
       dag.cfg.DENEB_FORK_EPOCH, dag.cfg.MIN_EPOCHS_FOR_BLOB_SIDECARS_REQUESTS,
       SyncQueueKind.Forward, getLocalHeadSlot,
       getLocalWallSlot, getFirstSlotAtFinalizedEpoch, getBackfillSlot,
-      getFrontfillSlot, dag.tail.slot, blockVerifier)
+      getFrontfillSlot, dag.tail.slot, blockVerifier, fallbackSyncer)
     backfiller = newSyncManager[Peer, PeerId](
       node.network.peerPool,
       dag.cfg.DENEB_FORK_EPOCH, dag.cfg.MIN_EPOCHS_FOR_BLOB_SIDECARS_REQUESTS,
@@ -458,9 +463,6 @@ proc initFullNode(
       getLocalWallSlot, getFirstSlotAtFinalizedEpoch, getBackfillSlot,
       getFrontfillSlot, dag.backfill.slot, blockVerifier,
       maxHeadAge = 0)
-    branchDiscovery = BranchDiscovery.new(
-      node.network, getFirstSlotAtFinalizedEpoch, isBlockKnown,
-      branchDiscoveryBlockVerifier)
     router = (ref MessageRouter)(
       processor: processor,
       network: node.network)
