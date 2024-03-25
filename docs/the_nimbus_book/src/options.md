@@ -38,6 +38,7 @@ The following options are available:
                                verifying Web3Signer (for example ".execution_payload.fee_recipient").
      --web3-signer-url         Remote Web3Signer URL that will be used as a source of validators.
      --web3-signer-update-interval  Number of seconds between validator list updates [=3600].
+     --web3-signer-key         Validator keys which will be used with remote Web3Signer.
      --secrets-dir             A directory containing validator keystore passwords.
      --wallets-dir             A directory containing wallet files.
      --web3-url                One or more execution layer Engine API URLs.

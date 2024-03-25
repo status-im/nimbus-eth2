@@ -10,7 +10,7 @@
 # Everything needed to run a full Beacon Node
 
 import
-  std/osproc,
+  std/[osproc, sets],
 
   # Nimble packages
   chronos, presto, bearssl/rand,
@@ -32,7 +32,7 @@ import
   ./rpc/state_ttl_cache
 
 export
-  osproc, chronos, presto, action_tracker,
+  osproc, sets, chronos, presto, action_tracker,
   beacon_clock, beacon_chain_db, conf, light_client,
   attestation_pool, sync_committee_msg_pool, validator_change_pool,
   eth2_network, el_manager, branch_discovery, request_manager, sync_manager,
@@ -80,6 +80,7 @@ type
     keymanagerHost*: ref KeymanagerHost
     keymanagerServer*: RestServerRef
     keystoreCache*: KeystoreCacheRef
+    keysFilter*: HashSet[ValidatorPubKey]
     eventBus*: EventBus
     vcProcess*: Process
     requestManager*: RequestManager

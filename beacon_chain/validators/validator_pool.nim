@@ -8,7 +8,7 @@
 {.push raises: [].}
 
 import
-  std/[tables, json, streams, sequtils, uri],
+  std/[tables, sets, json, streams, sequtils, uri],
   chronos, chronicles, metrics,
   json_serialization/std/net,
   presto/client,
@@ -392,13 +392,15 @@ func triggersDoppelganger*(
 proc updateDynamicValidators*(pool: ref ValidatorPool,
                               web3signerUrl: Web3SignerUrl,
                               keystores: openArray[KeystoreData],
+                              keysFilter: HashSet[ValidatorPubKey],
                               addProc: AddValidatorProc) =
   var
     keystoresTable: Table[ValidatorPubKey, Opt[KeystoreData]]
     deleteValidators: seq[ValidatorPubKey]
 
   for keystore in keystores:
-    keystoresTable[keystore.pubkey] = Opt.some(keystore)
+    if (len(keysFilter) == 0) or (keystore.pubkey in keysFilter):
+      keystoresTable[keystore.pubkey] = Opt.some(keystore)
 
   # We preserve `Local` and `Remote` keystores which are not from dynamic set,
   # and also we removing all the dynamic keystores which are not part of new
@@ -422,8 +424,10 @@ proc updateDynamicValidators*(pool: ref ValidatorPool,
     pool[].removeValidator(pubkey)
 
   # Adding new dynamic keystores.
-  for keystore in keystores.items():
-    let res = pool[].getValidator(keystore.pubkey)
+  for value in keystoresTable.values():
+    let
+      keystore = value.get()
+      res = pool[].getValidator(keystore.pubkey)
     if res.isSome():
       let validator = res.get()
       if validator.kind != ValidatorKind.Remote or

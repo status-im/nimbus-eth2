@@ -187,6 +187,10 @@ type
       name: "web3-signer-update-interval"
       defaultValue: 3600 .}: Natural
 
+    web3SignersKeyFilter* {.
+      desc: "Validator keys which will be used with remote Web3Signer"
+      name: "web3-signer-key" .}: seq[ValidatorPubKey]
+
     secretsDirFlag* {.
       desc: "A directory containing validator keystore passwords"
       name: "secrets-dir" .}: Option[InputDir]
@@ -937,6 +941,10 @@ type
     web3Signers* {.
       desc: "Remote Web3Signer URL that will be used as a source of validators"
       name: "web3-signer-url" .}: seq[Uri]
+
+    web3SignersKeyFilter* {.
+      desc: "Validator keys which will be used with remote Web3Signer"
+      name: "web3-signer-key" .}: seq[ValidatorPubKey]
 
     secretsDirFlag* {.
       desc: "A directory containing validator keystore passwords"
