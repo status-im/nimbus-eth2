@@ -29,7 +29,7 @@
 # with lower validator support while the canonical chain was not visible.
 
 import
-  std/algorithm,
+  std/[algorithm, deques],
   chronos, chronicles, metrics, results,
   ../spec/[forks, network],
   ../consensus_object_pools/block_pools_types,
@@ -69,6 +69,7 @@ type
     blockVerifier: BlockVerifierCallback
     isActive: AsyncEvent
     loopFuture: Future[void].Raising([])
+    peerQueue: Deque[Peer]
 
 proc new*(
     T: type BranchDiscovery,
@@ -245,11 +246,14 @@ proc loop(self: ref BranchDiscovery) {.async: (raises: []).} =
       await sleepAsync(RESP_TIMEOUT_DUR)
 
       let peer =
-        try:
-          self[].network.peerPool.acquireNoWait()
-        except PeerPoolError as exc:
-          debug "Failed to acquire peer", exc = exc.msg
-          continue
+        if self[].peerQueue.len > 0:
+          self[].peerQueue.popFirst()
+        else:
+          try:
+            self[].network.peerPool.acquireNoWait()
+          except PeerPoolError as exc:
+            debug "Failed to acquire peer", exc = exc.msg
+            continue
       defer: self[].network.peerPool.release(peer)
 
       await self[].discoverBranch(peer)
@@ -264,6 +268,11 @@ func state*(self: ref BranchDiscovery): BranchDiscoveryState =
   else:
     BranchDiscoveryState.Active
 
+proc clearPeerQueue(self: ref BranchDiscovery) =
+  while self[].peerQueue.len > 0:
+    let peer = self[].peerQueue.popLast()
+    self[].network.peerPool.release(peer)
+
 proc start*(self: ref BranchDiscovery) =
   doAssert self[].loopFuture == nil
   info "Starting discovery of new branches"
@@ -276,11 +285,23 @@ proc stop*(self: ref BranchDiscovery) {.async: (raises: []).} =
     await self[].loopFuture.cancelAndWait()
     self[].loopFuture = nil
     beacon_sync_branchdiscovery_state.set(self.state.ord().int64)
+    self.clearPeerQueue()
 
 proc suspend*(self: ref BranchDiscovery) =
   self[].isActive.clear()
   beacon_sync_branchdiscovery_state.set(self.state.ord().int64)
+  self.clearPeerQueue()
 
 proc resume*(self: ref BranchDiscovery) =
   self[].isActive.fire()
   beacon_sync_branchdiscovery_state.set(self.state.ord().int64)
+
+proc transferOwnership*(self: ref BranchDiscovery, peer: Peer) =
+  const maxPeersInQueue = 10
+  if self.state != BranchDiscoveryState.Active or
+      self[].peerQueue.len >= maxPeersInQueue:
+    self[].network.peerPool.release(peer)
+    return
+  debug "Peer transferred to branch discovery",
+    peer, peer_score = peer.getScore()
+  self[].peerQueue.addLast(peer)
