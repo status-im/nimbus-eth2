@@ -1275,13 +1275,21 @@ proc updateGossipStatus(node: BeaconNode, slot: Slot) {.async.} =
     TOPIC_SUBSCRIBE_THRESHOLD_SLOTS = 64
     HYSTERESIS_BUFFER = 16
 
+  func distanceTo(headSlot: Slot, wallSlot: Slot): uint64 =
+    if wallSlot > headSlot: (wallSlot - headSlot).uint64
+    else: 0'u64
+
   let
     head = node.dag.head
-    headDistance =
-      if slot > head.slot: (slot - head.slot).uint64
-      else: 0'u64
-    isBehind =
-      headDistance > TOPIC_SUBSCRIBE_THRESHOLD_SLOTS + HYSTERESIS_BUFFER
+    headDistance = head.slot.distanceTo(slot)
+    distance =
+      if node.dag.incrementalState != nil and
+          node.dag.incrementalState[].latest_block_id == head.bid:
+        let incrementalSlot = getStateField(node.dag.incrementalState[], slot)
+        incrementalSlot.distanceTo(slot)
+      else:
+        headDistance
+    isBehind = distance > TOPIC_SUBSCRIBE_THRESHOLD_SLOTS + HYSTERESIS_BUFFER
     targetGossipState =
       getTargetGossipState(
         slot.epoch,
@@ -1541,6 +1549,38 @@ proc onSlotEnd(node: BeaconNode, slot: Slot) {.async.} =
     # Update 1 epoch early to block non-fork-ready peers
     node.network.updateForkId(epoch, node.dag.genesis_validators_root)
 
+  if node.config.proposeStale:
+    # If the chain has halted, we have to ensure that the EL gets synced
+    # so that we can perform validator duties again
+    if not node.dag.head.executionValid and not node.dag.chainIsProgressing():
+      let beaconHead = node.attestationPool[].getBeaconHead(head)
+      discard await node.consensusManager.updateExecutionClientHead(beaconHead)
+
+    # If the chain head is far behind, we have to advance it incrementally
+    # to avoid lag spikes when performing validator duties
+    if node.syncStatus(head) == ChainSyncStatus.Degraded:
+      let incrementalTick = Moment.now()
+      if node.dag.incrementalState == nil:
+        node.dag.incrementalState = assignClone(node.dag.headState)
+      elif node.dag.incrementalState[].latest_block_id != node.dag.head.bid:
+        node.dag.incrementalState[].assign(node.dag.headState)
+      else:
+        let
+          incrementalSlot = getStateField(node.dag.incrementalState[], slot)
+          maxSlot = max(incrementalSlot, slot + 1)
+          nextSlot = min((incrementalSlot.epoch + 1).start_slot, maxSlot)
+        var
+          cache: StateCache
+          info: ForkedEpochInfo
+        node.dag.advanceSlots(
+          node.dag.incrementalState[], nextSlot, true, cache, info)
+      let incrementalSlot = getStateField(node.dag.incrementalState[], slot)
+      info "Head state is behind, catching up",
+        headSlot = node.dag.head.slot,
+        progressSlot = incrementalSlot,
+        wallSlot = slot,
+        dur = Moment.now() - incrementalTick
+
   # When we're not behind schedule, we'll speculatively update the clearance
   # state in anticipation of receiving the next block - we do it after
   # logging slot end since the nextActionWaitTime can be short
@@ -1593,7 +1633,20 @@ func syncStatus(node: BeaconNode, wallSlot: Slot): string =
           " - lc: " & $shortLog(node.consensusManager[].optimisticHead)
         else:
           ""
-    node.syncManager.syncStatus & optimisticSuffix & lightClientSuffix
+      catchingUpSuffix =
+        if node.dag.incrementalState != nil:
+          let
+            headSlot = node.dag.head.slot
+            incrementalSlot = getStateField(node.dag.incrementalState[], slot)
+            progress =
+              (incrementalSlot - headSlot).float /
+              max(wallSlot - headSlot, 1).float * 100.float
+          " - catching up: " &
+            formatFloat(progress, ffDecimal, precision = 2) & "%"
+        else:
+          ""
+    node.syncManager.syncStatus & optimisticSuffix &
+      lightClientSuffix & catchingUpSuffix
   elif node.backfiller.inProgress:
     "backfill: " & node.backfiller.syncStatus
   elif optimistic_head:
