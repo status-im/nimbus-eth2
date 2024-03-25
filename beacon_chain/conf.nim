@@ -587,7 +587,7 @@ type
       splitViewsMerge* {.
         hidden
         desc: "Whether or not to try and discover unknown branches in situations where the network has partitioned into split views"
-        defaultValue: false
+        defaultValue: true
         name: "debug-split-views-merge" .}: bool
 
       syncHorizon* {.
