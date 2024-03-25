@@ -367,6 +367,9 @@ proc initFullNode(
   func getFrontfillSlot(): Slot =
     max(dag.frontfill.get(BlockId()).slot, dag.horizon)
 
+  func isBlockKnown(blockRoot: Eth2Digest): bool =
+    dag.getBlockRef(blockRoot).isSome
+
   let
     quarantine = newClone(
       Quarantine.init())
@@ -398,6 +401,13 @@ proc initFullNode(
       # that should probably be reimagined more holistically in the future.
       blockProcessor[].addBlock(
         MsgSource.gossip, signedBlock, blobs, maybeFinalized = maybeFinalized)
+    branchDiscoveryBlockVerifier = proc(
+        signedBlock: ForkedSignedBeaconBlock,
+        blobs: Opt[BlobSidecars]
+    ): Future[Result[void, VerifierError]] {.async: (raises: [
+        CancelledError], raw: true).} =
+      blockProcessor[].addBlock(
+        MsgSource.gossip, signedBlock, blobs, maybeFinalized = false)
     rmanBlockVerifier = proc(signedBlock: ForkedSignedBeaconBlock,
                              maybeFinalized: bool):
         Future[Result[void, VerifierError]] {.async: (raises: [CancelledError]).} =
@@ -448,6 +458,9 @@ proc initFullNode(
       getLocalWallSlot, getFirstSlotAtFinalizedEpoch, getBackfillSlot,
       getFrontfillSlot, dag.backfill.slot, blockVerifier,
       maxHeadAge = 0)
+    branchDiscovery = BranchDiscovery.new(
+      node.network, getFirstSlotAtFinalizedEpoch, isBlockKnown,
+      branchDiscoveryBlockVerifier)
     router = (ref MessageRouter)(
       processor: processor,
       network: node.network)
@@ -490,6 +503,7 @@ proc initFullNode(
   node.requestManager = requestManager
   node.syncManager = syncManager
   node.backfiller = backfiller
+  node.branchDiscovery = branchDiscovery
   node.router = router
 
   await node.addValidators()
@@ -1564,6 +1578,10 @@ proc onSlotEnd(node: BeaconNode, slot: Slot) {.async.} =
 
   await node.updateGossipStatus(slot + 1)
 
+  # Branch discovery module is only used to support ongoing sync manager tasks
+  if not node.syncManager.inProgress:
+    await node.branchDiscovery.stop()
+
 func formatNextConsensusFork(
     node: BeaconNode, withVanityArt = false): Opt[string] =
   let consensusFork =
@@ -1583,6 +1601,14 @@ func syncStatus(node: BeaconNode, wallSlot: Slot): string =
   let optimisticHead = not node.dag.head.executionValid
   if node.syncManager.inProgress:
     let
+      degradedSuffix =
+        case node.branchDiscovery.state
+        of BranchDiscoveryState.Active:
+          "/discovering"
+        of BranchDiscoveryState.Suspended:
+          "/degraded"
+        of BranchDiscoveryState.Stopped:
+          ""
       optimisticSuffix =
         if optimisticHead:
           "/opt"
@@ -1593,7 +1619,8 @@ func syncStatus(node: BeaconNode, wallSlot: Slot): string =
           " - lc: " & $shortLog(node.consensusManager[].optimisticHead)
         else:
           ""
-    node.syncManager.syncStatus & optimisticSuffix & lightClientSuffix
+    node.syncManager.syncStatus & degradedSuffix & optimisticSuffix &
+      lightClientSuffix
   elif node.backfiller.inProgress:
     "backfill: " & node.backfiller.syncStatus
   elif optimistic_head:

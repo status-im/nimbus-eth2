@@ -1004,6 +1004,13 @@ proc applyBlock(
 
   ok()
 
+proc resetChainProgressWatchdog*(dag: ChainDAGRef) =
+  dag.lastChainProgress = Moment.now()
+
+proc chainIsProgressing*(dag: ChainDAGRef): bool =
+  const watchdogDuration = chronos.minutes(60)
+  dag.lastChainProgress + watchdogDuration >= Moment.now()
+
 proc init*(T: type ChainDAGRef, cfg: RuntimeConfig, db: BeaconChainDB,
            validatorMonitor: ref ValidatorMonitor, updateFlags: UpdateFlags,
            eraPath = ".",
@@ -1044,6 +1051,7 @@ proc init*(T: type ChainDAGRef, cfg: RuntimeConfig, db: BeaconChainDB,
       # allow skipping some validation.
       updateFlags: updateFlags * {strictVerification},
       cfg: cfg,
+      lastChainProgress: Moment.now(),
 
       vanityLogs: vanityLogs,
 
@@ -2387,6 +2395,7 @@ proc updateHead*(
     quit 1
 
   dag.head = newHead
+  dag.resetChainProgressWatchdog()
 
   if  dag.headState.is_merge_transition_complete() and not
       lastHeadMergeComplete and

@@ -584,6 +584,12 @@ type
         defaultValue: true
         name: "doppelganger-detection" .}: bool
 
+      splitViewsMerge* {.
+        hidden
+        desc: "Whether or not to try and discover unknown branches in situations where the network has partitioned into split views"
+        defaultValue: false
+        name: "debug-split-views-merge" .}: bool
+
       syncHorizon* {.
         hidden
         desc: "Number of empty slots to process before considering the client out of sync. Defaults to the number of slots in 10 minutes"
