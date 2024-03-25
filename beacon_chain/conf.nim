@@ -594,7 +594,7 @@ type
       proposeStale* {.
         hidden
         desc: "Whether or not to propose blocks on top of a stale head. May increase memory consumption"
-        defaultValue: false
+        defaultValue: true
         name: "debug-propose-stale" .}: bool
 
       terminalTotalDifficultyOverride* {.
