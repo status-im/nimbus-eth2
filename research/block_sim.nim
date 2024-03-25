@@ -490,7 +490,7 @@ cli do(slots = SLOTS_PER_EPOCH * 7,
     verifyConsensus(dag.headState, attesterRatio * blockRatio)
 
     if t == tEpoch:
-      echo ". slot: ", shortLog(slot), "epoch: ", shortLog(slot.epoch)
+      echo ". slot: ", shortLog(slot), " epoch: ", shortLog(slot.epoch)
     else:
       try:
         write(stdout, ".")
