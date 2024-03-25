@@ -236,6 +236,8 @@ func getBlockIdAtSlot*(dag: ChainDAGRef, slot: Slot): Opt[BlockSlotId] =
   tryWithState dag.headState
   tryWithState dag.epochRefState
   tryWithState dag.clearanceState
+  if dag.incrementalState != nil:
+    tryWithState dag.incrementalState[]
 
   # Fallback to database, this only works for backfilled blocks
   let finlow = dag.db.finalizedBlocks.low.expect("at least tailRef written")
@@ -1004,6 +1006,14 @@ proc applyBlock(
 
   ok()
 
+proc resetChainProgressWatchdog*(dag: ChainDAGRef) =
+  dag.lastChainProgress = Moment.now()
+  dag.incrementalState = nil
+
+proc chainIsProgressing*(dag: ChainDAGRef): bool =
+  const watchdogDuration = chronos.minutes(60)
+  dag.lastChainProgress + watchdogDuration >= Moment.now()
+
 proc init*(T: type ChainDAGRef, cfg: RuntimeConfig, db: BeaconChainDB,
            validatorMonitor: ref ValidatorMonitor, updateFlags: UpdateFlags,
            eraPath = ".",
@@ -1044,6 +1054,7 @@ proc init*(T: type ChainDAGRef, cfg: RuntimeConfig, db: BeaconChainDB,
       # allow skipping some validation.
       updateFlags: updateFlags * {strictVerification},
       cfg: cfg,
+      lastChainProgress: Moment.now(),
 
       vanityLogs: vanityLogs,
 
@@ -1506,6 +1517,8 @@ proc computeRandaoMixFromMemory*(
   tryWithState dag.headState
   tryWithState dag.epochRefState
   tryWithState dag.clearanceState
+  if dag.incrementalState != nil:
+    tryWithState dag.incrementalState[]
 
 proc computeRandaoMixFromDatabase*(
     dag: ChainDAGRef, bid: BlockId, lowSlot: Slot): Opt[Eth2Digest] =
@@ -1577,6 +1590,8 @@ proc computeShufflingRefFromMemory*(
   tryWithState dag.headState
   tryWithState dag.epochRefState
   tryWithState dag.clearanceState
+  if dag.incrementalState != nil:
+    tryWithState dag.incrementalState[]
 
 proc getShufflingRef*(
     dag: ChainDAGRef, blck: BlockRef, epoch: Epoch,
@@ -1724,6 +1739,10 @@ proc updateState*(
     elif exactMatch(dag.epochRefState, bsi):
       assign(state, dag.epochRefState)
       found = true
+    elif dag.incrementalState != nil and
+        exactMatch(dag.incrementalState[], bsi):
+      assign(state, dag.incrementalState[])
+      found = true
 
   const RewindBlockThreshold = 64
 
@@ -1753,6 +1772,12 @@ proc updateState*(
 
         if canAdvance(dag.epochRefState, cur):
           assign(state, dag.epochRefState)
+          found = true
+          break
+
+        if dag.incrementalState != nil and
+            canAdvance(dag.incrementalState[], cur):
+          assign(state, dag.incrementalState[])
           found = true
           break
 
@@ -2387,6 +2412,7 @@ proc updateHead*(
     quit 1
 
   dag.head = newHead
+  dag.resetChainProgressWatchdog()
 
   if  dag.headState.is_merge_transition_complete() and not
       lastHeadMergeComplete and
@@ -2629,7 +2655,11 @@ proc getProposalState*(
 
   # Start with the clearance state, since this one typically has been advanced
   # and thus has a hot hash tree cache
-  let state = assignClone(dag.clearanceState)
+  let state =
+    if dag.incrementalState != nil:
+      dag.incrementalState
+    else:
+      assignClone(dag.clearanceState)
 
   var
     info = ForkedEpochInfo()
@@ -2651,6 +2681,8 @@ proc getProposalState*(
       dag.cfg, state[], slot, cache, info,
       {skipLastStateRootCalculation}).expect("advancing 1 slot should not fail")
 
+  # Ensure async operations don't interfere with `incrementalState`
+  dag.resetChainProgressWatchdog()
   ok state
 
 func aggregateAll*(

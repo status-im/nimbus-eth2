@@ -591,6 +591,12 @@ type
         defaultValueDesc: $defaultSyncHorizon
         name: "sync-horizon" .}: uint64
 
+      proposeStale* {.
+        hidden
+        desc: "Whether or not to propose blocks on top of a stale head. May increase memory consumption"
+        defaultValue: false
+        name: "debug-propose-stale" .}: bool
+
       terminalTotalDifficultyOverride* {.
         hidden
         desc: "Deprecated for removal"

@@ -227,29 +227,80 @@ proc getGraffitiBytes*(
   getGraffiti(node.config.validatorsDir, node.config.defaultGraffitiBytes(),
               validator.pubkey)
 
-proc isSynced*(node: BeaconNode, head: BlockRef): bool =
-  ## TODO This function is here as a placeholder for some better heurestics to
-  ##      determine if we're in sync and should be producing blocks and
-  ##      attestations. Generally, the problem is that slot time keeps advancing
-  ##      even when there are no blocks being produced, so there's no way to
-  ##      distinguish validators geniunely going missing from the node not being
-  ##      well connected (during a network split or an internet outage for
-  ##      example). It would generally be correct to simply keep running as if
-  ##      we were the only legit node left alive, but then we run into issues:
-  ##      with enough many empty slots, the validator pool is emptied leading
-  ##      to empty committees and lots of empty slot processing that will be
-  ##      thrown away as soon as we're synced again.
+type ChainSyncStatus* {.pure.} = enum
+  Syncing,
+  Synced,
+  Degraded
 
+proc syncStatus*(node: BeaconNode, head: BlockRef): ChainSyncStatus =
+  ## Generally, the problem is that slot time keeps advancing
+  ## even when there are no blocks being produced, so there's no way to
+  ## distinguish validators geniunely going missing from the node not being
+  ## well connected (during a network split or an internet outage for
+  ## example). It would generally be correct to simply keep running as if
+  ## we were the only legit node left alive, but then we run into issues:
+  ## with enough many empty slots, the validator pool is emptied leading
+  ## to empty committees and lots of empty slot processing that will be
+  ## thrown away as soon as we're synced again.
   let
     # The slot we should be at, according to the clock
     beaconTime = node.beaconClock.now()
     wallSlot = beaconTime.toSlot()
 
-  # TODO if everyone follows this logic, the network will not recover from a
-  #      halt: nobody will be producing blocks because everone expects someone
-  #      else to do it
-  not wallSlot.afterGenesis or
-    head.slot + node.config.syncHorizon >= wallSlot.slot
+  if not wallSlot.afterGenesis or
+      head.slot + node.config.syncHorizon >= wallSlot.slot:
+    node.dag.resetChainProgressWatchdog()
+    return ChainSyncStatus.Synced
+
+  if not node.config.proposeStale:
+    # Continue syncing and wait for someone else to propose the next block
+    return ChainSyncStatus.Syncing
+
+  let
+    numPeers = len(node.network.peerPool)
+    minPeers = max(node.config.maxPeers div 4, SyncWorkersCount * 2)
+  if numPeers <= minPeers:
+    # We may have poor connectivity, wait until more peers are available.
+    # This could also be intermittent, as state replays while chain is degraded
+    # may take significant amounts of time, during which many peers are lost
+    return ChainSyncStatus.Syncing
+
+  if node.dag.chainIsProgressing():
+    # Chain is progressing, we are out of sync
+    return ChainSyncStatus.Syncing
+
+  let
+    maxHeadSlot = node.dag.heads.foldl(max(a, b.slot), GENESIS_SLOT)
+    numPeersWithHigherProgress = node.network.peerPool.peers
+      .countIt(it != nil and it.getHeadSlot() > maxHeadSlot)
+    significantNumPeers = node.config.maxPeers div 8
+  if numPeersWithHigherProgress > significantNumPeers:
+    # A peer indicates that they are on a later slot, wait for sync manager
+    # to progress, or for it to kick the peer if they are faking the status
+    warn "Chain appears to have stalled, but peers indicate higher progress",
+      numPeersWithHigherProgress, numPeers, maxPeers = node.config.maxPeers,
+      head, maxHeadSlot
+    node.dag.resetChainProgressWatchdog()
+    return ChainSyncStatus.Syncing
+
+  # We are on the latest slot among all of our peers, and there has been no
+  # chain progress for an extended period of time.
+  if node.dag.incrementalState == nil:
+    # The head state is too far in the past to timely perform validator duties
+    return ChainSyncStatus.Degraded
+  if node.dag.incrementalState[].latest_block_id != node.dag.head.bid:
+    # The incremental state is not yet on the correct head (see `onSlotEnd`)
+    return ChainSyncStatus.Degraded
+  let incrementalSlot = getStateField(node.dag.incrementalState[], slot)
+  if incrementalSlot + node.config.syncHorizon < wallSlot.slot:
+    # The incremental state still needs to advance further (see `onSlotEnd`)
+    return ChainSyncStatus.Degraded
+
+  # It is reasonable safe to assume that the network has halted, resume duties
+  ChainSyncStatus.Synced
+
+proc isSynced*(node: BeaconNode, head: BlockRef): bool =
+  node.syncStatus(head) == ChainSyncStatus.Synced
 
 proc handleLightClientUpdates*(node: BeaconNode, slot: Slot)
     {.async: (raises: [CancelledError]).} =
