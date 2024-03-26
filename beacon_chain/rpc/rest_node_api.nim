@@ -131,9 +131,9 @@ proc getProtocolArgument(ma: MultiAddress,
       ritem = ? item
       code = ? ritem.protoCode()
     if code == codec:
-      let arg = ? ritem.protoArgument(buffer)
-      if arg > 0:
-        return ok(buffer)
+      let arg = ? ritem.protoAddress()
+      return ok(arg)
+
   err("Multiaddress codec has not been found")
 
 proc checkInterface(iface: NetworkInterface): bool =
@@ -179,7 +179,6 @@ proc getP2PAddresses(node: BeaconNode): Opt[seq[string]] =
             if len(portArg) != sizeof(uint16):
               continue
             Port(uint16.fromBytesLE(portArg))
-
       if IP4.matchPartial(maddress):
         let address4 = maddress.getProtocolArgument(multiCodec("ip4")).valueOr:
           continue
@@ -219,7 +218,9 @@ proc getP2PAddresses(node: BeaconNode): Opt[seq[string]] =
 
   # We assume that an address that appears more then once in list of observed
   # addresses by libp2p identify protocol, can be used as address which can
-  # be dialled (out public address in case when we are behind NAT).
+  # be dialled (out public address in case when we are behind NAT). All
+  # other addresses can be our outgoing addresses, so remote peer will be unable
+  # to connect using this address.
   var addrCounts = initCountTable[TransportAddress]()
   let observed = node.network.switch.peerStore.getMostObservedProtosAndPorts()
   for maddress in observed:
