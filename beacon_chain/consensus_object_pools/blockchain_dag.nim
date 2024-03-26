@@ -2657,9 +2657,12 @@ proc getProposalState*(
   # and thus has a hot hash tree cache
   let state =
     if dag.incrementalState != nil:
+      # The block's pre-state will be needed soon to validate our own block
+      dag.clearanceState.assign(dag.incrementalState[])
       dag.incrementalState
     else:
       assignClone(dag.clearanceState)
+  dag.resetChainProgressWatchdog()
 
   var
     info = ForkedEpochInfo()
@@ -2681,8 +2684,6 @@ proc getProposalState*(
       dag.cfg, state[], slot, cache, info,
       {skipLastStateRootCalculation}).expect("advancing 1 slot should not fail")
 
-  # Ensure async operations don't interfere with `incrementalState`
-  dag.resetChainProgressWatchdog()
   ok state
 
 func aggregateAll*(
