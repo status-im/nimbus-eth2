@@ -299,9 +299,12 @@ proc resume*(self: ref BranchDiscovery) =
 proc transferOwnership*(self: ref BranchDiscovery, peer: Peer) =
   const maxPeersInQueue = 10
   if self.state != BranchDiscoveryState.Active or
-      self[].peerQueue.len >= maxPeersInQueue:
+      self[].peerQueue.len >= maxPeersInQueue or
+      peer.getHeadSlot() <= self[].getFinalizedSlot() or
+      self[].isBlockKnown(peer.getHeadRoot()):
     self[].network.peerPool.release(peer)
     return
+
   debug "Peer transferred to branch discovery",
     peer, peer_score = peer.getScore()
   self[].peerQueue.addLast(peer)

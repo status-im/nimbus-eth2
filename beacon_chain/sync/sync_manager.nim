@@ -526,7 +526,7 @@ proc syncWorker[A, B](man: SyncManager[A, B], index: int) {.async: (raises: [Can
       peer = await man.pool.acquire()
       await man.syncStep(index, peer)
       if man.workers[index].status < SyncWorkerStatus.Downloading and
-          man.fallbackSyncer != nil:
+          peer.getScore() >= PeerScoreLowLimit and man.fallbackSyncer != nil:
         # The peer was not useful for us, hand it over to the fallback syncer.
         # It is the responsibility of the fallback syncer to release the peer
         man.fallbackSyncer(peer)
