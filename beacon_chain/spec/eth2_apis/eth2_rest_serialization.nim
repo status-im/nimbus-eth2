@@ -2104,17 +2104,6 @@ proc readValue*(reader: var JsonReader[RestJson],
           Opt.none(RestPublishedSignedBeaconBlock)
       if signed_message.isNone():
         reader.raiseUnexpectedValue("Incorrect signed_block format")
-
-      # Only needed to signal fork to the blck.kind case selection
-      let blck = ForkedSignedBeaconBlock(signed_message.get())
-      message = Opt.some(RestPublishedBeaconBlock(
-        case blck.kind
-        of ConsensusFork.Phase0, ConsensusFork.Altair, ConsensusFork.Bellatrix,
-           ConsensusFork.Capella:
-          reader.raiseUnexpectedValue("Incorrect signed_block format")
-        of ConsensusFork.Deneb:
-          ForkedBeaconBlock.init(blck.denebData.message)
-      ))
     of "kzg_proofs":
       if kzg_proofs.isSome():
         reader.raiseUnexpectedField(
@@ -2138,69 +2127,49 @@ proc readValue*(reader: var JsonReader[RestJson],
     else:
       unrecognizedFieldWarning()
 
-  if signed_message.isNone():
-    # Pre-Deneb; conditions for when signed_message.isSome checked in case body
-    if signature.isNone():
-      reader.raiseUnexpectedValue("Field `signature` is missing")
-    if message.isNone():
-      reader.raiseUnexpectedValue("Field `message` is missing")
-
-  let blck = ForkedBeaconBlock(message.get())
-
-  if blck.kind >= ConsensusFork.Deneb:
+  if signed_message.isSome():
+    if message.isSome():
+      reader.raiseUnexpectedValue("Field `message` found but unsupported")
+    if signature.isSome():
+      reader.raiseUnexpectedValue("Field `signature` found but unsupported")
     if kzg_proofs.isNone():
       reader.raiseUnexpectedValue("Field `kzg_proofs` is missing")
     if blobs.isNone():
       reader.raiseUnexpectedValue("Field `blobs` is missing")
+    if kzg_proofs.get.len != blobs.get.len:
+      reader.raiseUnexpectedValue("Length mismatch of `kzg_proofs` and `blobs`")
+
+    withBlck(distinctBase(signed_message.get)):
+      when consensusFork >= ConsensusFork.Deneb:
+        template kzg_commitments: untyped =
+          forkyBlck.message.body.blob_kzg_commitments
+        if kzg_proofs.get().len != kzg_commitments.len:
+          reader.raiseUnexpectedValue(
+            "Length mismatch of `kzg_proofs` and `blob_kzg_commitments`")
+        value = RestPublishedSignedBlockContents.init(
+          consensusFork.BlockContents(
+            `block`: forkyBlck.message,
+            kzg_proofs: kzg_proofs.get(),
+            blobs: blobs.get()),
+          forkyBlck.root, forkyBlck.signature)
+      else:
+        reader.raiseUnexpectedValue("`signed_message` supported post-Deneb")
   else:
+    if signature.isNone():
+      reader.raiseUnexpectedValue("Field `signature` is missing")
+    if message.isNone():
+      reader.raiseUnexpectedValue("Field `message` is missing")
     if kzg_proofs.isSome():
       reader.raiseUnexpectedValue("Field `kzg_proofs` found but unsupported")
     if blobs.isSome():
       reader.raiseUnexpectedValue("Field `blobs` found but unsupported")
 
-  case blck.kind
-    of ConsensusFork.Phase0:
-      value = RestPublishedSignedBlockContents(
-        kind: ConsensusFork.Phase0,
-        phase0Data: phase0.SignedBeaconBlock(
-          message: blck.phase0Data,
-          signature: signature.get()
-        )
-      )
-    of ConsensusFork.Altair:
-      value = RestPublishedSignedBlockContents(
-        kind: ConsensusFork.Altair,
-        altairData: altair.SignedBeaconBlock(
-          message: blck.altairData,
-          signature: signature.get()
-        )
-      )
-    of ConsensusFork.Bellatrix:
-      value = RestPublishedSignedBlockContents(
-        kind: ConsensusFork.Bellatrix,
-        bellatrixData: bellatrix.SignedBeaconBlock(
-          message: blck.bellatrixData,
-          signature: signature.get()
-        )
-      )
-    of ConsensusFork.Capella:
-      value = RestPublishedSignedBlockContents(
-        kind: ConsensusFork.Capella,
-        capellaData: capella.SignedBeaconBlock(
-          message: blck.capellaData,
-          signature: signature.get()
-        )
-      )
-    of ConsensusFork.Deneb:
-      value = RestPublishedSignedBlockContents(
-        kind: ConsensusFork.Deneb,
-        denebData: DenebSignedBlockContents(
-          # Constructed to be internally consistent
-          signed_block: signed_message.get().distinctBase.denebData,
-          kzg_proofs: kzg_proofs.get(),
-          blobs: blobs.get()
-        )
-      )
+    withBlck(distinctBase(message.get)):
+      when consensusFork < ConsensusFork.Deneb:
+        value = RestPublishedSignedBlockContents.init(
+          forkyBlck, forkyBlck.hash_tree_root(), signature.get)
+      else:
+        reader.raiseUnexpectedValue("`message` support stopped at Deneb")
 
 ## ForkedSignedBeaconBlock
 proc readValue*(reader: var JsonReader[RestJson],

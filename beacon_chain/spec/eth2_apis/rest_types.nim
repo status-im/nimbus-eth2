@@ -612,20 +612,31 @@ type
 func `==`*(a, b: RestValidatorIndex): bool =
   uint64(a) == uint64(b)
 
-func init*(T: type ForkedSignedBeaconBlock,
-           contents: RestPublishedSignedBlockContents): T =
-  return
-    case contents.kind
-    of ConsensusFork.Phase0:
-      ForkedSignedBeaconBlock.init(contents.phase0Data)
-    of ConsensusFork.Altair:
-      ForkedSignedBeaconBlock.init(contents.altairData)
-    of ConsensusFork.Bellatrix:
-      ForkedSignedBeaconBlock.init(contents.bellatrixData)
-    of ConsensusFork.Capella:
-      ForkedSignedBeaconBlock.init(contents.capellaData)
-    of ConsensusFork.Deneb:
-      ForkedSignedBeaconBlock.init(contents.denebData.signed_block)
+template withForkyBlck*(
+    x: RestPublishedSignedBlockContents, body: untyped): untyped =
+  case x.kind
+  of ConsensusFork.Deneb:
+    const consensusFork {.inject, used.} = ConsensusFork.Deneb
+    template forkyBlck: untyped {.inject, used.} = x.denebData.signed_block
+    template kzg_proofs: untyped {.inject, used.} = x.denebData.kzg_proofs
+    template blobs: untyped {.inject, used.} = x.denebData.blobs
+    body
+  of ConsensusFork.Capella:
+    const consensusFork {.inject, used.} = ConsensusFork.Capella
+    template forkyBlck: untyped {.inject, used.} = x.capellaData
+    body
+  of ConsensusFork.Bellatrix:
+    const consensusFork {.inject, used.} = ConsensusFork.Bellatrix
+    template forkyBlck: untyped {.inject, used.} = x.bellatrixData
+    body
+  of ConsensusFork.Altair:
+    const consensusFork {.inject, used.} = ConsensusFork.Altair
+    template forkyBlck: untyped {.inject, used.} = x.altairData
+    body
+  of ConsensusFork.Phase0:
+    const consensusFork {.inject, used.} = ConsensusFork.Phase0
+    template forkyBlck: untyped {.inject, used.} = x.phase0Data
+    body
 
 func init*(t: typedesc[RestPublishedSignedBlockContents],
            blck: phase0.BeaconBlock, root: Eth2Digest,
