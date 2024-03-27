@@ -202,9 +202,16 @@ type
       ## Cached state used during block clearance - must only be used in
       ## clearance module
 
+    incrementalState*: ref ForkedHashedBeaconState
+      ## State used for incrementally computing a proposal state.
+      ## See `getProposalState`
+
     updateFlags*: UpdateFlags
 
     cfg*: RuntimeConfig
+
+    lastChainProgress*: Moment
+      ## Indicates the last wall time at which meaningful progress was made
 
     shufflingRefs*: LRUCache[16, ShufflingRef]
 
