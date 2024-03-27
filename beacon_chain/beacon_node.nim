@@ -85,7 +85,7 @@ type
     requestManager*: RequestManager
     syncManager*: SyncManager[Peer, PeerId]
     backfiller*: SyncManager[Peer, PeerId]
-    branchDiscovery*: ref BranchDiscovery
+    branchDiscovery*: ref BranchDiscovery[Peer, PeerId]
     genesisSnapshotContent*: string
     processor*: ref Eth2Processor
     blockProcessor*: ref BlockProcessor

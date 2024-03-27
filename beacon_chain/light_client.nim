@@ -43,7 +43,7 @@ type
     getBeaconTime: GetBeaconTimeFn
     store: ref ForkedLightClientStore
     processor: ref LightClientProcessor
-    manager: LightClientManager
+    manager: ref LightClientManager
     gossipState: GossipState
     onFinalizedHeader*, onOptimisticHeader*: LightClientHeaderCallback
     bootstrapObserver*: LightClientBootstrapObserver
@@ -173,7 +173,7 @@ proc createLightClient(
       else:
         GENESIS_SLOT.sync_committee_period
 
-  lightClient.manager = LightClientManager.init(
+  lightClient.manager = LightClientManager.new(
     lightClient.network, rng, getTrustedBlockRoot,
     bootstrapVerifier, updateVerifier, finalityVerifier, optimisticVerifier,
     isLightClientStoreInitialized, isNextSyncCommitteeKnown,
@@ -215,9 +215,17 @@ proc createLightClient*(
     cfg, forkDigests, getBeaconTime, genesis_validators_root, finalizationMode)
 
 proc start*(lightClient: LightClient) =
+  if lightClient.manager.isRunning:
+    return
   notice "Starting light client",
     trusted_block_root = lightClient.trustedBlockRoot
   lightClient.manager.start()
+
+proc stop*(lightClient: LightClient) {.async: (raises: [], raw: true).} =
+  if not lightClient.manager.isRunning:
+    return
+  notice "Stopping light client"
+  lightClient.manager.stop()
 
 proc resetToFinalizedHeader*(
     lightClient: LightClient,

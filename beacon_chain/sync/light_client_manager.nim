@@ -67,7 +67,7 @@ type
     getBeaconTime: GetBeaconTimeFn
     loopFuture: Future[void].Raising([CancelledError])
 
-func init*(
+func new*(
     T: type LightClientManager,
     network: Eth2Node,
     rng: ref HmacDrbgContext,
@@ -81,9 +81,9 @@ func init*(
     getFinalizedPeriod: GetSyncCommitteePeriodCallback,
     getOptimisticPeriod: GetSyncCommitteePeriodCallback,
     getBeaconTime: GetBeaconTimeFn
-): LightClientManager =
+): ref LightClientManager =
   ## Initialize light client manager.
-  LightClientManager(
+  (ref LightClientManager)(
     network: network,
     rng: rng,
     getTrustedBlockRoot: getTrustedBlockRoot,
@@ -99,16 +99,16 @@ func init*(
   )
 
 proc isGossipSupported*(
-    self: LightClientManager,
+    self: ref LightClientManager,
     period: SyncCommitteePeriod
 ): bool =
   ## Indicate whether the light client is sufficiently synced to accept gossip.
-  if not self.isLightClientStoreInitialized():
+  if not self[].isLightClientStoreInitialized():
     return false
 
   period.isGossipSupported(
-    finalizedPeriod = self.getFinalizedPeriod(),
-    isNextSyncCommitteeKnown = self.isNextSyncCommitteeKnown())
+    finalizedPeriod = self[].getFinalizedPeriod(),
+    isNextSyncCommitteeKnown = self[].isNextSyncCommitteeKnown())
 
 # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.5/specs/altair/light-client/p2p-interface.md#getlightclientbootstrap
 proc doRequest(
@@ -381,13 +381,16 @@ proc loop(self: LightClientManager) {.async: (raises: [CancelledError]).} =
       isNextSyncCommitteeKnown = self.isNextSyncCommitteeKnown(),
       didLatestSyncTaskProgress = didProgress)
 
-proc start*(self: var LightClientManager) =
-  ## Start light client manager's loop.
-  doAssert self.loopFuture == nil
-  self.loopFuture = self.loop()
+func isRunning*(self: ref LightClientManager): bool =
+  self[].loopFuture != nil
 
-proc stop*(self: var LightClientManager) {.async: (raises: []).} =
+proc start*(self: ref LightClientManager) =
+  ## Start light client manager's loop.
+  doAssert self[].loopFuture == nil
+  self[].loopFuture = self[].loop()
+
+proc stop*(self: ref LightClientManager) {.async: (raises: []).} =
   ## Stop light client manager's loop.
-  if self.loopFuture != nil:
-    await noCancel self.loopFuture.cancelAndWait()
-    self.loopFuture = nil
+  if self[].loopFuture != nil:
+    await noCancel self[].loopFuture.cancelAndWait()
+    self[].loopFuture = nil

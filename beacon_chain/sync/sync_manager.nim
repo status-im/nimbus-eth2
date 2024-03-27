@@ -28,12 +28,6 @@ const
   SyncWorkersCount* = 10
     ## Number of sync workers to spawn
 
-  StatusUpdateInterval* = chronos.minutes(1)
-    ## Minimum time between two subsequent calls to update peer's status
-
-  StatusExpirationTime* = chronos.minutes(2)
-    ## Time time it takes for the peer's status information to expire.
-
 type
   PeerSyncer*[T] = proc(peer: T) {.gcsafe, raises: [].}
 

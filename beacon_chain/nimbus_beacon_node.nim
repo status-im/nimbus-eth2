@@ -445,8 +445,8 @@ proc initFullNode(
       blockProcessor, node.validatorMonitor, dag, attestationPool,
       validatorChangePool, node.attachedValidators, syncCommitteeMsgPool,
       lightClientPool, quarantine, blobQuarantine, rng, getBeaconTime, taskpool)
-    branchDiscovery = BranchDiscovery.new(
-      node.network, getFirstSlotAtFinalizedEpoch, isBlockKnown,
+    branchDiscovery = BranchDiscovery[Peer, PeerId].new(
+      node.network.peerPool, getFirstSlotAtFinalizedEpoch, isBlockKnown,
       branchDiscoveryBlockVerifier)
     fallbackSyncer = proc(peer: Peer) =
       branchDiscovery.transferOwnership(peer)
@@ -1636,6 +1636,12 @@ proc onSlotEnd(node: BeaconNode, slot: Slot) {.async.} =
   # Branch discovery module is only used to support ongoing sync manager tasks
   if not node.syncManager.inProgress:
     await node.branchDiscovery.stop()
+
+  # Light client is stopped while branch discovery is ongoing
+  if node.branchDiscovery.state != BranchDiscoveryState.Stopped:
+    node.startLightClient()
+  else:
+    await node.stopLightClient()
 
 func formatNextConsensusFork(
     node: BeaconNode, withVanityArt = false): Opt[string] =
