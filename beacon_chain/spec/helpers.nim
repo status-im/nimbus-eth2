@@ -11,6 +11,7 @@
 
 import
   # Status libraries
+  std/times,
   stew/[byteutils, endians2, objects, saturation_arith],
   chronicles,
   eth/common/[eth_types, eth_types_rlp],

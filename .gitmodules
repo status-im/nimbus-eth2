@@ -199,6 +199,13 @@
 	path = vendor/nim-toml-serialization
 	url = https://github.com/status-im/nim-toml-serialization.git
 	ignore = untracked
+[submodule "vendor/DOtherSide"]
+	path = vendor/DOtherSide
+	url = https://github.com/filcuc/DOtherSide.git
+	branch = master
+[submodule "vendor/nimqml"]
+	path = vendor/nimqml
+	url = https://github.com/status-im/nimqml.git
 	branch = master
 [submodule "vendor/gnosis-chain-configs"]
 	path = vendor/gnosis-chain-configs

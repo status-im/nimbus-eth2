@@ -13,6 +13,14 @@ import
 
 export client, rest_types, eth2_rest_serialization
 
+proc getAttesterDuties*(
+       epoch: Epoch,
+       body: seq[ValidatorIndex]
+     ): RestResponse[GetAttesterDutiesResponse] {.
+     rest, endpoint: "/eth/v1/validator/duties/attester/{epoch}",
+     meth: MethodPost.}
+  ## https://ethereum.github.io/beacon-APIs/#/Validator/getAttesterDuties
+
 proc getAttesterDutiesPlain*(
        epoch: Epoch,
        body: seq[ValidatorIndex]
@@ -21,12 +29,27 @@ proc getAttesterDutiesPlain*(
      meth: MethodPost.}
   ## https://ethereum.github.io/beacon-APIs/#/Validator/getAttesterDuties
 
+proc getProposerDuties*(
+       epoch: Epoch
+     ): RestResponse[GetProposerDutiesResponse] {.
+     rest, endpoint: "/eth/v1/validator/duties/proposer/{epoch}",
+     meth: MethodGet.}
+  ## https://ethereum.github.io/beacon-APIs/#/Validator/getProposerDuties
+
 proc getProposerDutiesPlain*(
        epoch: Epoch
      ): RestPlainResponse {.
      rest, endpoint: "/eth/v1/validator/duties/proposer/{epoch}",
      meth: MethodGet.}
   ## https://ethereum.github.io/beacon-APIs/#/Validator/getProposerDuties
+
+proc getSyncCommitteeDuties*(
+       epoch: Epoch,
+       body: seq[ValidatorIndex]
+     ): RestResponse[GetSyncCommitteeDutiesResponse] {.
+     rest, endpoint: "/eth/v1/validator/duties/sync/{epoch}",
+     meth: MethodPost.}
+  ## https://ethereum.github.io/beacon-APIs/#/Validator/getSyncCommitteeDuties
 
 proc getSyncCommitteeDutiesPlain*(
        epoch: Epoch,
