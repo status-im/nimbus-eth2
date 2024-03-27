@@ -221,11 +221,11 @@ proc start*(lightClient: LightClient) =
     trusted_block_root = lightClient.trustedBlockRoot
   lightClient.manager.start()
 
-proc stop*(lightClient: LightClient) {.async: (raises: [], raw: true).} =
+proc stop*(lightClient: LightClient) {.async: (raises: []).} =
   if not lightClient.manager.isRunning:
     return
   notice "Stopping light client"
-  lightClient.manager.stop()
+  await lightClient.manager.stop()
 
 proc resetToFinalizedHeader*(
     lightClient: LightClient,
