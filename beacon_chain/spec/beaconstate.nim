@@ -11,13 +11,11 @@ import
   stew/assign2,
   json_serialization/std/sets,
   chronicles,
-  ../extras,
   ./datatypes/[phase0, altair, bellatrix],
   "."/[eth2_merkleization, forks, signatures, validator]
 
 from std/algorithm import fill
 from std/sequtils import anyIt, mapIt, toSeq
-
 from ./datatypes/capella import BeaconState, ExecutionPayloadHeader, Withdrawal
 
 export extras, forks, validator, chronicles
@@ -104,30 +102,31 @@ func initiate_validator_exit*(
   # Return if validator already initiated exit
   let validator = addr state.validators.mitem(index)
 
-  trace "Validator exiting",
-    index = index,
-    num_validators = state.validators.len,
-    current_epoch = get_current_epoch(state),
-    validator_slashed = validator.slashed,
-    validator_withdrawable_epoch = validator.withdrawable_epoch,
-    validator_exit_epoch = validator.exit_epoch,
-    validator_effective_balance = validator.effective_balance
-
-  var exit_queue_epoch = compute_activation_exit_epoch(get_current_epoch(state))
+  var
+    exit_queue_epoch = compute_activation_exit_epoch(get_current_epoch(state))
+    exit_queue_churn: uint64
   # Compute max exit epoch
   for idx in 0..<state.validators.len:
     let exit_epoch = state.validators.item(idx).exit_epoch
     if exit_epoch != FAR_FUTURE_EPOCH and exit_epoch > exit_queue_epoch:
       exit_queue_epoch = exit_epoch
 
-  var
-    exit_queue_churn: int
-  for idx in 0..<state.validators.len:
-    if state.validators.item(idx).exit_epoch == exit_queue_epoch:
-      exit_queue_churn += 1
+      # Reset exit queue churn counter as the expected exit_queue_epoch updates
+      # via this essentially max()-but-not-FAR_FUTURE_EPOCH loop to restart the
+      # counting the second for loop in spec version does. Only the last count,
+      # the one corresponding to the ultimately correct exit_queue_epoch, won't
+      # be reset.
+      exit_queue_churn = 0
 
-  if exit_queue_churn.uint64 >= get_validator_churn_limit(cfg, state, cache):
-    exit_queue_epoch += 1
+    # Second spec loop body, which there is responsible for taking the already
+    # known exit_queue_epoch, scanning for all validators with that exit epoch
+    # and checking if they'll reach validator_churn_limit(state). Do that here
+    # incrementally to fuse the two loops and save an all-validator iteration.
+    if exit_epoch == exit_queue_epoch:
+      inc exit_queue_churn
+
+  if exit_queue_churn >= get_validator_churn_limit(cfg, state, cache):
+    inc exit_queue_epoch
 
   # Set validator exit epoch and withdrawable epoch
   validator.exit_epoch = exit_queue_epoch
