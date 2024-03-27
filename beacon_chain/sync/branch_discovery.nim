@@ -27,6 +27,49 @@
 # Note that the canonical chain may not be on the highest slot number,
 # as some partitions of the network may have built on top of branches
 # with lower validator support while the canonical chain was not visible.
+#
+# Despite its simplicity and brute-force approach, this module has been highly
+# effective in the final month of Goerli. It managed to sync the entire Nimbus
+# testnet fleet to the same branch, while also tracking >25 alternate branches.
+# Further improvements should be applied:
+#
+# 1. Progress is currently limited by the size of `block_quarantine` per cycle,
+#    as this module downloads in backward order into the quarantine before the
+#    results get applied in forward order. This further limits the concurrency
+#    to a single peer at a time, because there is only a single quarantine that
+#    can hold a pending branch history.
+#
+#    This could be addressed by probing the peer about the branch that it's on.
+#    We could send a by-root request for all our known heads to identify which
+#    ones they are aware of, followed by a binary search back to finalized slot
+#    to determine how far along the peer's progress is. From there on, by range
+#    requests allow forward sync and remembering partial progress along the way.
+#    We also wouldn't have to be as careful to avoid rate limit disconnections.
+#    Empty epoch progress also needs to be remembered across syncing sessions,
+#    because in a split view scenario often there are hundreds of empty epochs,
+#    and by-range syncing is highly ineffective.
+#
+# 2. The peer pool currently provides the best available peer on acquisition.
+#    Its filtering should be extended to have a better targeting for interesting
+#    peers, i.e., those that claim to know about head roots that we are unaware
+#    of and also have a head slot in the past, indicating that sync manager will
+#    not target those peers and will not manage to pull their branches quickly.
+#
+# 3. When monitoring gossip, peers that inform about blocks with unknown parent
+#    roots or aggregates referring to unknown beacon roots should be transferred
+#    into branch discovery as well. Gossip only propagates through peers that
+#    have validated the data themselves, so they must have the parent data.
+#
+# 4. Testing. Beyond Goerli, there is no regular long-lasting low participation
+#    network that reflects a realistic scenario. The network needs to be huge,
+#    geographically distributed with a variety of clients and lots of activity.
+#    Blocks need to take a while to apply to test the slow propagation when
+#    there are lots of empty epochs between blocks. There must be reorgs of
+#    hundreds of blocks to reflect EL suddenly going back to optimistic mode.
+#    A smaller simulation to run in CI may be achieveable by intentionally
+#    setting the `SECONDS_PER_SLOT` to a low value. Furthermore, synthetic
+#    scenarios can be tested in unit tests by mocking peers and blocks and
+#    making timers and rate limits configurable.
 
 import
   std/[algorithm, deques],
