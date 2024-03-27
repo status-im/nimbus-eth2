@@ -92,10 +92,20 @@ proc discoverBranch(
     peer
     peer_score = peer.getScore()
 
-  let
-    finalizedSlot = self.getFinalizedSlot()
-    peerHeadSlot = peer.getHeadSlot()
+  let oldPeerHeadSlot = peer.getHeadSlot()
+  if Moment.now() - peer.getStatusLastTime() >= StatusExpirationTime:
+    if not(await peer.updateStatus()):
+      peer.updateScore(PeerScoreNoStatus)
+      debug "Failed to update status"
+      return
+  let peerHeadSlot = peer.getHeadSlot()
+  if peerHeadSlot != oldPeerHeadSlot:
+    peer.updateScore(PeerScoreGoodStatus)
+    debug "Peer has synced to a new head", oldPeerHeadSlot, peerHeadSlot
+
+  let finalizedSlot = self.getFinalizedSlot()
   if peerHeadSlot <= finalizedSlot:
+    # This peer can sync from different peers, it is useless to us at this time
     peer.updateScore(PeerScoreUseless)
     debug "Peer's head slot is already finalized", peerHeadSlot, finalizedSlot
     return
@@ -103,11 +113,14 @@ proc discoverBranch(
   var blockRoot = peer.getHeadRoot()
   logScope: blockRoot
   if self.isBlockKnown(blockRoot):
-    peer.updateScore(PeerScoreUseless)
+    # This peer may be actively syncing from us, only descore if no disconnect
+    if peer.getScore() >= PeerScoreLowLimit - PeerScoreUseless:
+      peer.updateScore(PeerScoreUseless)
     debug "Peer's head block root is already known"
     return
 
   # Many peers disconnect on rate limit, we have to avoid getting hit by it
+  # to have a chance in picking up branches that don't have good propagation
   const
     maxRequestsPerBurst = 15
     burstDuration = chronos.seconds(30)

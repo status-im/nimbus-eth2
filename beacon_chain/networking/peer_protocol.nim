@@ -208,6 +208,9 @@ proc handleStatus(peer: Peer,
       await peer.handlePeer()
     true
 
+const StatusExpirationTime* = chronos.minutes(2)
+  ## Time time it takes for the peer's status information to expire.
+
 proc updateStatus*(peer: Peer): Future[bool] {.async: (raises: [CancelledError]).} =
   ## Request `status` of remote peer ``peer``.
   let
