@@ -245,11 +245,59 @@ proc isSynced*(node: BeaconNode, head: BlockRef): bool =
     beaconTime = node.beaconClock.now()
     wallSlot = beaconTime.toSlot()
 
+  if not wallSlot.afterGenesis or
+      head.slot + node.config.syncHorizon >= wallSlot.slot:
+    node.dag.resetChainProgressWatchdog()
+    node.branchDiscovery.suspend()
+    return true
+
+  if not node.config.splitViewsMerge:
+    # Continue syncing and wait for someone else to propose the next block
+    return false
+
+  let
+    numPeers = len(node.network.peerPool)
+    minPeers = max(node.config.maxPeers div 4, SyncWorkersCount * 2)
+  if numPeers <= minPeers:
+    # We may have poor connectivity, wait until more peers are available.
+    # This could also be intermittent, as state replays while chain is degraded
+    # may take significant amounts of time, during which many peers are lost
+    node.branchDiscovery.suspend()
+    return false
+
+  if node.dag.chainIsProgressing():
+    # Chain is progressing, we are out of sync
+    node.branchDiscovery.resume()
+    return false
+
+  # Network connectivity is good, but we have trouble making sync progress.
+  # Turn on branch discovery module until we have a recent canonical head.
+  # The branch discovery module specifically targets peers on alternate branches
+  # and supports sync manager in discovering branches that are not widely seen
+  # but that may still have weight from attestations.
+  if node.config.splitViewsMerge and
+      node.branchDiscovery.state == BranchDiscoveryState.Stopped:
+    node.branchDiscovery.start()
+  node.branchDiscovery.resume()
+
+  let
+    maxHeadSlot = node.dag.heads.foldl(max(a, b.slot), GENESIS_SLOT)
+    numPeersWithHigherProgress = node.network.peerPool.peers
+      .countIt(it != nil and it.getHeadSlot() > maxHeadSlot)
+    significantNumPeers = node.config.maxPeers div 8
+  if numPeersWithHigherProgress > significantNumPeers:
+    # A peer indicates that they are on a later slot, wait for sync manager
+    # to progress, or for it to kick the peer if they are faking the status
+    warn "Chain appears to have stalled, but peers indicate higher progress",
+      numPeersWithHigherProgress, numPeers, maxPeers = node.config.maxPeers,
+      head, maxHeadSlot
+    node.dag.resetChainProgressWatchdog()
+    return false
+
   # TODO if everyone follows this logic, the network will not recover from a
   #      halt: nobody will be producing blocks because everone expects someone
   #      else to do it
-  not wallSlot.afterGenesis or
-    head.slot + node.config.syncHorizon >= wallSlot.slot
+  false
 
 proc handleLightClientUpdates*(node: BeaconNode, slot: Slot)
     {.async: (raises: [CancelledError]).} =

@@ -367,6 +367,9 @@ proc initFullNode(
   func getFrontfillSlot(): Slot =
     max(dag.frontfill.get(BlockId()).slot, dag.horizon)
 
+  func isBlockKnown(blockRoot: Eth2Digest): bool =
+    dag.getBlockRef(blockRoot).isSome
+
   let
     quarantine = newClone(
       Quarantine.init())
@@ -398,6 +401,13 @@ proc initFullNode(
       # that should probably be reimagined more holistically in the future.
       blockProcessor[].addBlock(
         MsgSource.gossip, signedBlock, blobs, maybeFinalized = maybeFinalized)
+    branchDiscoveryBlockVerifier = proc(
+        signedBlock: ForkedSignedBeaconBlock,
+        blobs: Opt[BlobSidecars]
+    ): Future[Result[void, VerifierError]] {.async: (raises: [
+        CancelledError], raw: true).} =
+      blockProcessor[].addBlock(
+        MsgSource.gossip, signedBlock, blobs, maybeFinalized = false)
     rmanBlockVerifier = proc(signedBlock: ForkedSignedBeaconBlock,
                              maybeFinalized: bool):
         Future[Result[void, VerifierError]] {.async: (raises: [CancelledError]).} =
@@ -435,12 +445,17 @@ proc initFullNode(
       blockProcessor, node.validatorMonitor, dag, attestationPool,
       validatorChangePool, node.attachedValidators, syncCommitteeMsgPool,
       lightClientPool, quarantine, blobQuarantine, rng, getBeaconTime, taskpool)
+    branchDiscovery = BranchDiscovery[Peer, PeerId].new(
+      node.network.peerPool, getFirstSlotAtFinalizedEpoch, isBlockKnown,
+      branchDiscoveryBlockVerifier)
+    fallbackSyncer = proc(peer: Peer) =
+      branchDiscovery.transferOwnership(peer)
     syncManager = newSyncManager[Peer, PeerId](
       node.network.peerPool,
       dag.cfg.DENEB_FORK_EPOCH, dag.cfg.MIN_EPOCHS_FOR_BLOB_SIDECARS_REQUESTS,
       SyncQueueKind.Forward, getLocalHeadSlot,
       getLocalWallSlot, getFirstSlotAtFinalizedEpoch, getBackfillSlot,
-      getFrontfillSlot, dag.tail.slot, blockVerifier)
+      getFrontfillSlot, dag.tail.slot, blockVerifier, fallbackSyncer)
     backfiller = newSyncManager[Peer, PeerId](
       node.network.peerPool,
       dag.cfg.DENEB_FORK_EPOCH, dag.cfg.MIN_EPOCHS_FOR_BLOB_SIDECARS_REQUESTS,
@@ -490,6 +505,7 @@ proc initFullNode(
   node.requestManager = requestManager
   node.syncManager = syncManager
   node.backfiller = backfiller
+  node.branchDiscovery = branchDiscovery
   node.router = router
 
   await node.addValidators()
@@ -1564,6 +1580,16 @@ proc onSlotEnd(node: BeaconNode, slot: Slot) {.async.} =
 
   await node.updateGossipStatus(slot + 1)
 
+  # Branch discovery module is only used to support ongoing sync manager tasks
+  if not node.syncManager.inProgress:
+    await node.branchDiscovery.stop()
+
+  # Light client is stopped while branch discovery is ongoing
+  if node.branchDiscovery.state != BranchDiscoveryState.Stopped:
+    await node.stopLightClient()
+  else:
+    node.startLightClient()
+
 func formatNextConsensusFork(
     node: BeaconNode, withVanityArt = false): Opt[string] =
   let consensusFork =
@@ -1583,6 +1609,14 @@ func syncStatus(node: BeaconNode, wallSlot: Slot): string =
   let optimisticHead = not node.dag.head.executionValid
   if node.syncManager.inProgress:
     let
+      degradedSuffix =
+        case node.branchDiscovery.state
+        of BranchDiscoveryState.Active:
+          "/discovering"
+        of BranchDiscoveryState.Suspended:
+          "/degraded"
+        of BranchDiscoveryState.Stopped:
+          ""
       optimisticSuffix =
         if optimisticHead:
           "/opt"
@@ -1593,7 +1627,8 @@ func syncStatus(node: BeaconNode, wallSlot: Slot): string =
           " - lc: " & $shortLog(node.consensusManager[].optimisticHead)
         else:
           ""
-    node.syncManager.syncStatus & optimisticSuffix & lightClientSuffix
+    node.syncManager.syncStatus & degradedSuffix & optimisticSuffix &
+      lightClientSuffix
   elif node.backfiller.inProgress:
     "backfill: " & node.backfiller.syncStatus
   elif optimistic_head:

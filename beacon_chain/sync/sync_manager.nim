@@ -28,13 +28,9 @@ const
   SyncWorkersCount* = 10
     ## Number of sync workers to spawn
 
-  StatusUpdateInterval* = chronos.minutes(1)
-    ## Minimum time between two subsequent calls to update peer's status
-
-  StatusExpirationTime* = chronos.minutes(2)
-    ## Time time it takes for the peer's status information to expire.
-
 type
+  PeerSyncer*[T] = proc(peer: T) {.gcsafe, raises: [].}
+
   SyncWorkerStatus* {.pure.} = enum
     Sleeping, WaitingPeer, UpdatingStatus, Requesting, Downloading, Queueing,
     Processing
@@ -65,6 +61,7 @@ type
     queue: SyncQueue[A]
     syncFut: Future[void]
     blockVerifier: BlockVerifier
+    fallbackSyncer: PeerSyncer[A]
     inProgress*: bool
     insSyncSpeed*: float
     avgSyncSpeed*: float
@@ -126,6 +123,7 @@ proc newSyncManager*[A, B](pool: PeerPool[A, B],
                            getFrontfillSlotCb: GetSlotCallback,
                            progressPivot: Slot,
                            blockVerifier: BlockVerifier,
+                           fallbackSyncer: PeerSyncer[A] = nil,
                            maxHeadAge = uint64(SLOTS_PER_EPOCH * 1),
                            chunkSize = uint64(SLOTS_PER_EPOCH),
                            flags: set[SyncManagerFlag] = {},
@@ -150,6 +148,7 @@ proc newSyncManager*[A, B](pool: PeerPool[A, B],
     maxHeadAge: maxHeadAge,
     chunkSize: chunkSize,
     blockVerifier: blockVerifier,
+    fallbackSyncer: fallbackSyncer,
     notInSyncEvent: newAsyncEvent(),
     direction: direction,
     ident: ident,
@@ -520,7 +519,13 @@ proc syncWorker[A, B](man: SyncManager[A, B], index: int) {.async: (raises: [Can
       man.workers[index].status = SyncWorkerStatus.WaitingPeer
       peer = await man.pool.acquire()
       await man.syncStep(index, peer)
-      man.pool.release(peer)
+      if man.workers[index].status < SyncWorkerStatus.Downloading and
+          peer.getScore() >= PeerScoreLowLimit and man.fallbackSyncer != nil:
+        # The peer was not useful for us, hand it over to the fallback syncer.
+        # It is the responsibility of the fallback syncer to release the peer
+        man.fallbackSyncer(peer)
+      else:
+        man.pool.release(peer)
       peer = nil
   finally:
     if not(isNil(peer)):
