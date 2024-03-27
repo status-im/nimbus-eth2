@@ -2295,14 +2295,11 @@ proc createEth2Node*(rng: ref HmacDrbgContext,
   let phase0Prefix = "/eth2/" & $forkDigests.phase0
 
   func msgIdProvider(m: messages.Message): Result[seq[byte], ValidationResult] =
-    template topic: untyped =
-      if m.topicIds.len > 0: m.topicIds[0] else: ""
-
     try:
       # This doesn't have to be a tight bound, just enough to avoid denial of
       # service attacks.
       let decoded = snappy.decode(m.data, static(GOSSIP_MAX_SIZE.uint32))
-      ok(gossipId(decoded, phase0Prefix, topic))
+      ok(gossipId(decoded, phase0Prefix, m.topic))
     except CatchableError:
       err(ValidationResult.Reject)
 
