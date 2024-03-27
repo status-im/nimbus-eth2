@@ -2304,39 +2304,39 @@ proc createEth2Node*(rng: ref HmacDrbgContext,
       err(ValidationResult.Reject)
 
   let
-    params = GossipSubParams(
-      explicit: true,
-      pruneBackoff: chronos.minutes(1),
-      unsubscribeBackoff: chronos.seconds(10),
-      floodPublish: true,
-      gossipFactor: 0.05,
-      d: 8,
-      dLow: 6,
-      dHigh: 12,
-      dScore: 6,
-      dOut: 6 div 2, # less than dlow and no more than dlow/2
-      dLazy: 6,
-      heartbeatInterval: chronos.milliseconds(700),
-      historyLength: 6,
-      historyGossip: 3,
-      fanoutTTL: chronos.seconds(60),
+    params = GossipSubParams.init(
+      explicit = true,
+      pruneBackoff = chronos.minutes(1),
+      unsubscribeBackoff = chronos.seconds(10),
+      floodPublish = true,
+      gossipFactor = 0.05,
+      d = 8,
+      dLow = 6,
+      dHigh = 12,
+      dScore = 6,
+      dOut = 6 div 2, # less than dlow and no more than dlow/2
+      dLazy = 6,
+      heartbeatInterval = chronos.milliseconds(700),
+      historyLength = 6,
+      historyGossip = 3,
+      fanoutTTL = chronos.seconds(60),
       # 2 epochs matching maximum valid attestation lifetime
-      seenTTL: chronos.seconds(int(SECONDS_PER_SLOT * SLOTS_PER_EPOCH * 2)),
-      gossipThreshold: -4000,
-      publishThreshold: -8000,
-      graylistThreshold: -16000, # also disconnect threshold
-      opportunisticGraftThreshold: 0,
-      decayInterval: chronos.seconds(12),
-      decayToZero: 0.01,
-      retainScore: chronos.seconds(385),
-      appSpecificWeight: 0.0,
-      ipColocationFactorWeight: -53.75,
-      ipColocationFactorThreshold: 3.0,
-      behaviourPenaltyWeight: -15.9,
-      behaviourPenaltyDecay: 0.986,
-      disconnectBadPeers: true,
-      directPeers: directPeers,
-      bandwidthEstimatebps: config.bandwidthEstimate.get(100_000_000)
+      seenTTL = chronos.seconds(int(SECONDS_PER_SLOT * SLOTS_PER_EPOCH * 2)),
+      gossipThreshold = -4000,
+      publishThreshold = -8000,
+      graylistThreshold = -16000, # also disconnect threshold
+      opportunisticGraftThreshold = 0,
+      decayInterval = chronos.seconds(12),
+      decayToZero = 0.01,
+      retainScore = chronos.seconds(385),
+      appSpecificWeight = 0.0,
+      ipColocationFactorWeight = -53.75,
+      ipColocationFactorThreshold = 3.0,
+      behaviourPenaltyWeight = -15.9,
+      behaviourPenaltyDecay = 0.986,
+      disconnectBadPeers = true,
+      directPeers = directPeers,
+      bandwidthEstimatebps = config.bandwidthEstimate.get(100_000_000)
     )
     pubsub = GossipSub.init(
       switch = switch,
