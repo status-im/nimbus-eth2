@@ -104,15 +104,6 @@ func initiate_validator_exit*(
   # Return if validator already initiated exit
   let validator = addr state.validators.mitem(index)
 
-  trace "Validator exiting",
-    index = index,
-    num_validators = state.validators.len,
-    current_epoch = get_current_epoch(state),
-    validator_slashed = validator.slashed,
-    validator_withdrawable_epoch = validator.withdrawable_epoch,
-    validator_exit_epoch = validator.exit_epoch,
-    validator_effective_balance = validator.effective_balance
-
   var exit_queue_epoch = compute_activation_exit_epoch(get_current_epoch(state))
   # Compute max exit epoch
   for idx in 0..<state.validators.len:
@@ -120,14 +111,18 @@ func initiate_validator_exit*(
     if exit_epoch != FAR_FUTURE_EPOCH and exit_epoch > exit_queue_epoch:
       exit_queue_epoch = exit_epoch
 
-  var
-    exit_queue_churn: int
+  var exit_queue_churn: uint64
+  let validator_churn_limit = get_validator_churn_limit(cfg, state, cache)
   for idx in 0..<state.validators.len:
     if state.validators.item(idx).exit_epoch == exit_queue_epoch:
-      exit_queue_churn += 1
+      inc exit_queue_churn
 
-  if exit_queue_churn.uint64 >= get_validator_churn_limit(cfg, state, cache):
-    exit_queue_epoch += 1
+      # In spec version, this check occurs only after looping through all
+      # validators, but it is ultimately a binary decision. Once matching
+      # get_validator_churn_limit(state), it can't validly become less.
+      if exit_queue_churn >= validator_churn_limit:
+        inc exit_queue_epoch
+        break
 
   # Set validator exit epoch and withdrawable epoch
   validator.exit_epoch = exit_queue_epoch
