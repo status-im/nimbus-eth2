@@ -125,6 +125,12 @@ proc startLightClient*(node: BeaconNode) =
 
   node.lightClient.start()
 
+proc stopLightClient*(node: BeaconNode) {.async: (raises: []).} =
+  if not node.config.syncLightClient:
+    return
+
+  await node.lightClient.stop()
+
 proc installLightClientMessageValidators*(node: BeaconNode) =
   let eth2Processor =
     if node.config.lightClientDataServe:
