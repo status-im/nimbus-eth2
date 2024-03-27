@@ -654,11 +654,10 @@ OK: 4/4 Fail: 0/4 Skip: 0/4
 OK: 8/8 Fail: 0/8 Skip: 0/8
 ## Network metadata
 ```diff
-+ goerli                                                                                     OK
 + mainnet                                                                                    OK
 + sepolia                                                                                    OK
 ```
-OK: 3/3 Fail: 0/3 Skip: 0/3
+OK: 2/2 Fail: 0/2 Skip: 0/2
 ## Nimbus remote signer/signing test (verifying-web3signer)
 ```diff
 + Signing BeaconBlock (getBlockSignature(capella))                                           OK
@@ -1018,4 +1017,4 @@ OK: 2/2 Fail: 0/2 Skip: 0/2
 OK: 9/9 Fail: 0/9 Skip: 0/9
 
 ---TOTAL---
-OK: 683/688 Fail: 0/688 Skip: 5/688
+OK: 682/687 Fail: 0/687 Skip: 5/687

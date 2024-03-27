@@ -29,7 +29,6 @@ BASE_METRICS_PORT := 8008
 EXECUTOR_NUMBER ?= 0
 
 SEPOLIA_WEB3_URL := "--web3-url=https://rpc.sepolia.dev --web3-url=https://www.sepoliarpc.space"
-GOERLI_WEB3_URL := "--web3-url=wss://goerli.infura.io/ws/v3/809a18497dd74102b5f37d25aae3c85a"
 GNOSIS_WEB3_URLS := "--web3-url=https://rpc.gnosischain.com/"
 
 VALIDATORS := 1
@@ -606,66 +605,6 @@ define CLEAN_NETWORK
 	rm -rf build/data/shared_$(1)*/dump
 	rm -rf build/data/shared_$(1)*/*.log
 endef
-
-###
-### Prater
-###
-prater-build: | nimbus_beacon_node nimbus_signing_node
-
-# https://www.gnu.org/software/make/manual/html_node/Call-Function.html#Call-Function
-prater: | prater-build
-	$(call CONNECT_TO_NETWORK,prater,nimbus_beacon_node,$(GOERLI_WEB3_URL))
-
-prater-vc: | prater-build nimbus_validator_client
-	$(call CONNECT_TO_NETWORK_WITH_VALIDATOR_CLIENT,prater,nimbus_beacon_node,$(GOERLI_WEB3_URL))
-
-prater-lc: | nimbus_light_client
-	$(call CONNECT_TO_NETWORK_WITH_LIGHT_CLIENT,prater)
-
-ifneq ($(LOG_LEVEL), TRACE)
-prater-dev:
-	+ "$(MAKE)" LOG_LEVEL=TRACE $@
-else
-prater-dev: | prater-build
-	$(call CONNECT_TO_NETWORK_IN_DEV_MODE,prater,nimbus_beacon_node,$(GOERLI_WEB3_URL))
-endif
-
-prater-dev-deposit: | prater-build deposit_contract
-	$(call MAKE_DEPOSIT,prater,$(GOERLI_WEB3_URL))
-
-clean-prater:
-	$(call CLEAN_NETWORK,prater)
-
-
-###
-### Goerli
-###
-goerli-build: | nimbus_beacon_node nimbus_signing_node
-
-# https://www.gnu.org/software/make/manual/html_node/Call-Function.html#Call-Function
-goerli: | goerli-build
-	$(call CONNECT_TO_NETWORK,goerli,nimbus_beacon_node,$(GOERLI_WEB3_URL))
-
-goerli-vc: | goerli-build nimbus_validator_client
-	$(call CONNECT_TO_NETWORK_WITH_VALIDATOR_CLIENT,goerli,nimbus_beacon_node,$(GOERLI_WEB3_URL))
-
-goerli-lc: | nimbus_light_client
-	$(call CONNECT_TO_NETWORK_WITH_LIGHT_CLIENT,goerli)
-
-ifneq ($(LOG_LEVEL), TRACE)
-goerli-dev:
-	+ "$(MAKE)" LOG_LEVEL=TRACE $@
-else
-goerli-dev: | goerli-build
-	$(call CONNECT_TO_NETWORK_IN_DEV_MODE,goerli,nimbus_beacon_node,$(GOERLI_WEB3_URL))
-endif
-
-goerli-dev-deposit: | goerli-build deposit_contract
-	$(call MAKE_DEPOSIT,goerli,$(GOERLI_WEB3_URL))
-
-clean-goerli:
-	$(call CLEAN_NETWORK,goerli)
-
 
 ###
 ### Sepolia

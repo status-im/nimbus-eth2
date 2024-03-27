@@ -35,14 +35,6 @@ eth2_mainnet_genesis_end:
 cdecl(eth2_mainnet_genesis_size):
     .quad    eth2_mainnet_genesis_end - eth2_mainnet_genesis_data
 
-eth2_goerli_genesis_data:
-    .incbin "goerli/prater/genesis.ssz"
-eth2_goerli_genesis_end:
-    .global cdecl(eth2_goerli_genesis_size)
-    .p2align 3
-cdecl(eth2_goerli_genesis_size):
-    .quad    eth2_goerli_genesis_end - eth2_goerli_genesis_data
-
 eth2_sepolia_genesis_data:
     .incbin "sepolia/bepolia/genesis.ssz"
 eth2_sepolia_genesis_end:
@@ -61,11 +53,6 @@ cdecl(eth2_sepolia_genesis_size):
     .p2align 3
 cdecl(eth2_mainnet_genesis):
     .quad eth2_mainnet_genesis_data
-
-    .global cdecl(eth2_goerli_genesis)
-    .p2align 3
-cdecl(eth2_goerli_genesis):
-    .quad eth2_goerli_genesis_data
 
     .global cdecl(eth2_sepolia_genesis)
     .p2align 3
