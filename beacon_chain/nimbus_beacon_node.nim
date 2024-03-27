@@ -445,8 +445,8 @@ proc initFullNode(
       blockProcessor, node.validatorMonitor, dag, attestationPool,
       validatorChangePool, node.attachedValidators, syncCommitteeMsgPool,
       lightClientPool, quarantine, blobQuarantine, rng, getBeaconTime, taskpool)
-    branchDiscovery = BranchDiscovery.new(
-      node.network, getFirstSlotAtFinalizedEpoch, isBlockKnown,
+    branchDiscovery = BranchDiscovery[Peer, PeerId].new(
+      node.network.peerPool, getFirstSlotAtFinalizedEpoch, isBlockKnown,
       branchDiscoveryBlockVerifier)
     fallbackSyncer = proc(peer: Peer) =
       branchDiscovery.transferOwnership(peer)
