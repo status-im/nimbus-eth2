@@ -75,6 +75,7 @@ type
     readyQueue: HeapQueue[SyncResult[T]]
     rewind: Option[RewindPoint]
     blockVerifier: BlockVerifier
+    pendingWorkerBlockWaitTime: Duration
     ident*: string
 
 chronicles.formatIt SyncQueueKind: toLowerAscii($it)
@@ -120,8 +121,9 @@ proc getShortMap*[T](req: SyncRequest[T],
       res.add('|')
       continue
     if slot == data[cur].signed_block_header.message.slot:
-      for k in cur..<cur+MAX_BLOBS_PER_BLOCK:
-        if k >= lenu64(data) or slot != data[k].signed_block_header.message.slot:
+      for k in cur ..< cur + MAX_BLOBS_PER_BLOCK:
+        if k >= lenu64(data) or
+           slot != data[k].signed_block_header.message.slot:
           res.add('|')
           break
         else:
@@ -197,7 +199,8 @@ proc init*[T](t1: typedesc[SyncQueue], t2: typedesc[T],
               getSafeSlotCb: GetSlotCallback,
               blockVerifier: BlockVerifier,
               syncQueueSize: int = -1,
-              ident: string = "main"): SyncQueue[T] =
+              ident: string = "main",
+              pendingWorkerWaitTime = InfiniteDuration): SyncQueue[T] =
   ## Create new synchronization queue with parameters
   ##
   ## ``start`` and ``final`` are starting and final Slots.
@@ -267,6 +270,7 @@ proc init*[T](t1: typedesc[SyncQueue], t2: typedesc[T],
     inpSlot: start,
     outSlot: start,
     blockVerifier: blockVerifier,
+    pendingWorkerBlockWaitTime: pendingWorkerWaitTime,
     ident: ident
   )
 
@@ -311,10 +315,13 @@ proc wakeupWaiters[T](sq: SyncQueue[T], reset = false) =
     if not(item.future.finished()):
       item.future.complete()
 
-proc waitForChanges[T](sq: SyncQueue[T]): Future[bool] {.async: (raises: [CancelledError]).} =
+proc waitForChanges[T](sq: SyncQueue[T]): Future[bool] {.
+     async: (raises: [CancelledError]).} =
   ## Create new waiter and wait for completion from `wakeupWaiters()`.
-  let waitfut = Future[void].Raising([CancelledError]).init("SyncQueue.waitForChanges")
-  let waititem = SyncWaiter(future: waitfut)
+  let
+    waitfut =
+      Future[void].Raising([CancelledError]).init("SyncQueue.waitForChanges")
+    waititem = SyncWaiter(future: waitfut)
   sq.waiters.add(waititem)
   try:
     await waitfut
@@ -322,7 +329,8 @@ proc waitForChanges[T](sq: SyncQueue[T]): Future[bool] {.async: (raises: [Cancel
   finally:
     sq.waiters.delete(sq.waiters.find(waititem))
 
-proc wakeupAndWaitWaiters[T](sq: SyncQueue[T]) {.async: (raises: [CancelledError]).} =
+proc wakeupAndWaitWaiters[T](sq: SyncQueue[T]) {.
+     async: (raises: [CancelledError]).} =
   ## This procedure will perform wakeupWaiters(true) and blocks until last
   ## waiter will be awakened.
   var waitChanges = sq.waitForChanges()
@@ -333,7 +341,8 @@ proc clearAndWakeup*[T](sq: SyncQueue[T]) =
   sq.pending.clear()
   sq.wakeupWaiters(true)
 
-proc resetWait*[T](sq: SyncQueue[T], toSlot: Option[Slot]) {.async: (raises: [CancelledError]).} =
+proc resetWait*[T](sq: SyncQueue[T], toSlot: Option[Slot]) {.
+     async: (raises: [CancelledError]).} =
   ## Perform reset of all the blocked waiters in SyncQueue.
   ##
   ## We adding one more waiter to the waiters sequence and
@@ -546,8 +555,9 @@ func getOpt(blobs: Opt[seq[BlobSidecars]], i: int): Opt[BlobSidecars] =
   else:
     Opt.none(BlobSidecars)
 
-iterator blocks[T](sq: SyncQueue[T],
-                   sr: SyncResult[T]): (ref ForkedSignedBeaconBlock, Opt[BlobSidecars]) =
+iterator blocks[T](
+    sq: SyncQueue[T],
+    sr: SyncResult[T]): (ref ForkedSignedBeaconBlock, Opt[BlobSidecars]) =
   case sq.kind
   of SyncQueueKind.Forward:
     for i in countup(0, len(sr.data) - 1):
@@ -576,6 +586,24 @@ proc notInRange[T](sq: SyncQueue[T], sr: SyncRequest[T]): bool =
     (sq.queueSize > 0) and (sr.slot > sq.outSlot)
   of SyncQueueKind.Backward:
     (sq.queueSize > 0) and (sr.lastSlot < sq.outSlot)
+
+func chunksCount*[T](sq: SyncQueue[T], sr: SyncRequest[T]): uint64 =
+  ## Returns number of chunks between current queue position and request's
+  ## position.
+  case sq.kind
+  of SyncQueueKind.Forward:
+    (sr.slot - sq.outSlot) div sq.chunkSize
+  of SyncQueueKind.Backward:
+    (sq.outSlot - sr.lastSlot) div sq.chunkSize
+
+func expectedTime[T](sq: SyncQueue[T], sr: SyncRequest[T]): Duration =
+  ## Returns expected wait time of specific pending request.
+  ## SR3 SR2 SR1 SR0 <CURRENT QUEUE POSITION>
+  ## SR3 expected pending time would be
+  ## <CHUNK SIZE> * <SR2 .. SR0 CHUNKS COUNT> * <BLOCK WAIT TIME>
+  nanoseconds(
+    int64(sq.chunkSize * sq.chunksCount(sr)) *
+      sq.pendingWorkerBlockWaitTime.nanoseconds)
 
 func numAlreadyKnownSlots[T](sq: SyncQueue[T], sr: SyncRequest[T]): uint64 =
   ## Compute the number of slots covered by a given `SyncRequest` that are
@@ -606,11 +634,14 @@ func numAlreadyKnownSlots[T](sq: SyncQueue[T], sr: SyncRequest[T]): uint64 =
       # Entire request is still relevant.
       0
 
-proc push*[T](sq: SyncQueue[T], sr: SyncRequest[T],
-              data: seq[ref ForkedSignedBeaconBlock],
-              blobs: Opt[seq[BlobSidecars]],
-              maybeFinalized: bool = false,
-              processingCb: ProcessingCallback = nil) {.async: (raises: [CancelledError]).} =
+proc push*[T](
+    sq: SyncQueue[T],
+    sr: SyncRequest[T],
+    data: seq[ref ForkedSignedBeaconBlock],
+    blobs: Opt[seq[BlobSidecars]],
+    maybeFinalized: bool = false,
+    processingCb: ProcessingCallback = nil
+) {.async: (raises: [CancelledError]).} =
   logScope:
     sync_ident = sq.ident
     topics = "syncman"
@@ -631,8 +662,18 @@ proc push*[T](sq: SyncQueue[T], sr: SyncRequest[T],
   # all pending `push` requests if `request.slot` not in range.
   while true:
     if sq.notInRange(sr):
-      let reset = await sq.waitForChanges()
-      if reset:
+      let
+        resetWorker =
+          if sq.pendingWorkerBlockWaitTime == InfiniteDuration:
+            await sq.waitForChanges()
+          else:
+            try:
+              await sq.waitForChanges().wait(sq.expectedTime(sr))
+            except AsyncTimeoutError:
+              # Moving request to debts queue without checking pending list.
+              sq.debtsQueue.push(sr)
+              return
+      if resetWorker:
         # SyncQueue reset happens. We are exiting to wake up sync-worker.
         return
     else:
@@ -685,10 +726,8 @@ proc push*[T](sq: SyncQueue[T], sr: SyncRequest[T],
       # Nim versions, remove workaround and move `res` into for loop
       res: Result[void, VerifierError]
 
-    var i=0
     for blk, blb in sq.blocks(item):
       res = await sq.blockVerifier(blk[], blb, maybeFinalized)
-      inc(i)
 
       if res.isOk():
         goodBlock = some(blk[].slot)
