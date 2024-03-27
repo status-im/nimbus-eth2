@@ -1586,9 +1586,9 @@ proc onSlotEnd(node: BeaconNode, slot: Slot) {.async.} =
 
   # Light client is stopped while branch discovery is ongoing
   if node.branchDiscovery.state != BranchDiscoveryState.Stopped:
-    node.startLightClient()
-  else:
     await node.stopLightClient()
+  else:
+    node.startLightClient()
 
 func formatNextConsensusFork(
     node: BeaconNode, withVanityArt = false): Opt[string] =
