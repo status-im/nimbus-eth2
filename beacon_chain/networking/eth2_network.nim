@@ -10,12 +10,6 @@ type
   MessageInfo = object
     protocolMounter: MounterProc
 
-  ResponseCode = enum
-    Success
-    InvalidRequest
-    ServerError
-    ResourceUnavailable
-
   MounterProc = proc() {.gcsafe, raises: [].}
 
   Eth2NetworkingErrorKind = enum
@@ -41,7 +35,6 @@ when libp2p_pki_schemes != "secp256k1":
   {.fatal: "Incorrect building process, please use -d:\"libp2p_pki_schemes=secp256k1\"".}
 
 proc sendErrorResponse(conn: Connection,
-                       responseCode: ResponseCode,
                        errMsg: ErrorMsg): Future[void] = discard
 proc uncompressFramedStream(conn: Connection,
                             expectedSize: int): Future[Result[seq[byte], string]]
@@ -72,14 +65,14 @@ proc handleIncomingStream(conn: Connection,
       return
 
     template returnInvalidRequest(msg: ErrorMsg) =
-      await sendErrorResponse(conn, InvalidRequest, msg)
+      await sendErrorResponse(conn, msg)
       return
 
     template returnInvalidRequest(msg: string) =
       returnInvalidRequest(default(ErrorMsg))
 
     template returnResourceUnavailable(msg: ErrorMsg) =
-      await sendErrorResponse( conn, ResourceUnavailable, msg)
+      await sendErrorResponse( conn, msg)
       return
 
     template returnResourceUnavailable(msg: string) =
@@ -107,7 +100,7 @@ proc handleIncomingStream(conn: Connection,
     except ResourceUnavailableError as exc:
       returnResourceUnavailable exc.msg
     except CatchableError:
-      await sendErrorResponse(conn, ServerError, default(ErrorMsg))
+      await sendErrorResponse(conn, default(ErrorMsg))
 
   except CatchableError:
     discard
