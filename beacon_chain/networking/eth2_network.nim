@@ -48,9 +48,6 @@ proc handleIncomingStream(conn: Connection,
       await sendErrorResponse(conn, msg)
       return
 
-    template returnInvalidRequest(msg: string) =
-      returnInvalidRequest(default(ErrorMsg))
-
     template returnResourceUnavailable(msg: ErrorMsg) =
       await sendErrorResponse( conn, msg)
       return
