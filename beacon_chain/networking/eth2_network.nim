@@ -10,7 +10,7 @@ import
     crypto/secp],
   libp2p/protocols/pubsub/[
       pubsub, gossipsub, rpc/message, rpc/messages, peertable, pubsubpeer],
-  eth/[keys, async_utils],
+  eth/[async_utils],
   ../spec/[eth2_ssz_serialization, network]
 
 type
