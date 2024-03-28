@@ -65,7 +65,7 @@ type
 template RecType(MSG: type beaconBlocksByRange_v2Obj): untyped =
   beaconBlocksByRange_v2Obj
 
-proc mount2*[T](proto: T, matcher: Matcher = nil)
+proc mount2*[T](proto: T)
   {.gcsafe, raises: [LPError].} =
   discard
 proc beaconBlocksByRange_v2Mounter() {.raises: [].} =
