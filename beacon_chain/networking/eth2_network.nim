@@ -7,7 +7,7 @@ import
   chronos,
   libp2p/switch,
   libp2p/protocols/pubsub/[
-      pubsub, gossipsub, rpc/message],
+      pubsub, gossipsub],
   eth/[async_utils],
   ../spec/[eth2_ssz_serialization, network]
 
