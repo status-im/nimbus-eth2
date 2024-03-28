@@ -4,7 +4,7 @@ import
   results,
   chronos,
   libp2p/switch,
-  ../spec/[eth2_ssz_serialization, network]
+  ../spec/[eth2_ssz_serialization]
 
 type
   ErrorMsg = List[byte, 256]
