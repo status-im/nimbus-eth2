@@ -653,12 +653,12 @@ iterator peers*[A, B](pool: PeerPool[A, B],
   ## All peers will be sorted by equation `>`(Peer1, Peer2), so biggest values
   ## will be first.
   var sorted = initHeapQueue[PeerIndex]()
-  for i in 0 ..< len(pool.storage):
-    if pool.storage[i].peerType in filter:
-      sorted.push(PeerIndex(data: i, cmp: pool.cmp))
+  for peerIdx in pool.registry.values():
+    if pool.storage[peerIdx.data].peerType in filter:
+      sorted.push(peerIdx)
   while len(sorted) > 0:
-    let pindex = sorted.pop().data
-    yield pool.storage[pindex].data
+    let peerIdx = sorted.pop()
+    yield pool.storage[peerIdx.data].data
 
 iterator availablePeers*[A, B](pool: PeerPool[A, B],
                                filter = {PeerType.Incoming,
@@ -668,13 +668,13 @@ iterator availablePeers*[A, B](pool: PeerPool[A, B],
   ## All peers will be sorted by equation `>`(Peer1, Peer2), so biggest values
   ## will be first.
   var sorted = initHeapQueue[PeerIndex]()
-  for i in 0 ..< len(pool.storage):
-    if (PeerFlags.Acquired notin pool.storage[i].flags) and
-       (pool.storage[i].peerType in filter):
-      sorted.push(PeerIndex(data: i, cmp: pool.cmp))
+  for peerIdx in pool.registry.values():
+    if (PeerFlags.Acquired notin pool.storage[peerIdx.data].flags) and
+       (pool.storage[peerIdx.data].peerType in filter):
+      sorted.push(peerIdx)
   while len(sorted) > 0:
-    let pindex = sorted.pop().data
-    yield pool.storage[pindex].data
+    let peerIdx = sorted.pop()
+    yield pool.storage[peerIdx.data].data
 
 iterator acquiredPeers*[A, B](pool: PeerPool[A, B],
                               filter = {PeerType.Incoming,
@@ -684,13 +684,13 @@ iterator acquiredPeers*[A, B](pool: PeerPool[A, B],
   ## All peers will be sorted by equation `>`(Peer1, Peer2), so biggest values
   ## will be first.
   var sorted = initHeapQueue[PeerIndex]()
-  for i in 0 ..< len(pool.storage):
-    if (PeerFlags.Acquired in pool.storage[i].flags) and
-       (pool.storage[i].peerType in filter):
-      sorted.push(PeerIndex(data: i, cmp: pool.cmp))
+  for peerIdx in pool.registry.values():
+    if (PeerFlags.Acquired in pool.storage[peerIdx.data].flags) and
+       (pool.storage[peerIdx.data].peerType in filter):
+      sorted.push(peerIdx)
   while len(sorted) > 0:
-    let pindex = sorted.pop().data
-    yield pool.storage[pindex].data
+    let peerIdx = sorted.pop()
+    yield pool.storage[peerIdx.data].data
 
 proc `[]`*[A, B](pool: PeerPool[A, B], key: B): A {.inline, raises: [KeyError].} =
   ## Retrieve peer with key ``key`` from PeerPool ``pool``.
