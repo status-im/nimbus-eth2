@@ -15,8 +15,7 @@ type
 proc sendErrorResponse(conn: Connection,
                        errMsg: ErrorMsg) = discard
 proc readChunkPayload(conn: Connection,
-                       MsgType: type): Future[MsgType]
-                       {.async: (raises: [CancelledError]).} =
+                       MsgType: type): MsgType =
   try:
     SSZ.decode(default(seq[byte]), MsgType)
   except SerializationError:
@@ -46,7 +45,7 @@ proc handleIncomingStream(conn: Connection,
         when isEmptyMsg:
           default(MsgRec)
         else:
-          await(readChunkPayload(conn, MsgRec))
+          readChunkPayload(conn, MsgRec)
       finally:
         discard
 
