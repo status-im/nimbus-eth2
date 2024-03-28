@@ -73,9 +73,7 @@ proc beaconBlocksByRange_v2Mounter() {.raises: [].} =
                                 beaconBlocksByRange_v2Obj)
 
   try:
-    mount2 LPProtocol.new(codecs = @[
-        "/eth2/beacon_chain/req/beacon_blocks_by_range/2/ssz_snappy"],
-        handler = snappyThunk)
+    mount2(snappyThunk)
   except LPError:
     raiseAssert "foo"
 discard MessageInfo(protocolMounter: beaconBlocksByRange_v2Mounter)
