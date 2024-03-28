@@ -303,9 +303,7 @@ proc registerMsg(protocol: ProtocolInfo,
                  name: string,
                  mounter: MounterProc,
                  libp2pCodecName: string) =
-  discard MessageInfo(name: name,
-                                    protocolMounter: mounter,
-                                    libp2pCodecName: libp2pCodecName)
+  discard MessageInfo(name: name, protocolMounter: mounter)
 
 type
   BeaconSync = object
