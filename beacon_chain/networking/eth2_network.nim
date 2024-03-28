@@ -21,8 +21,7 @@ type
     None,
     Connecting,
     Connected,
-    Disconnecting,
-    Disconnected
+    Disconnecting
 
   MessageInfo = object
     protocolMounter: MounterProc
@@ -143,7 +142,7 @@ proc handleIncomingStream(network: Eth2Node,
   let peer = peerFromStream(network, conn)
   try:
     case peer.connectionState
-    of Disconnecting, Disconnected, None:
+    of Disconnecting, None:
       return
     of Connecting:
       discard
