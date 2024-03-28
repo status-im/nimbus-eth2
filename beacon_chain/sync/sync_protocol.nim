@@ -1,7 +1,5 @@
 import
   chronicles, chronos, snappy, snappy/codec,
-  ../spec/datatypes/[phase0, altair, bellatrix, capella, deneb],
-  ../spec/[helpers, forks, network],
   ".."/[beacon_clock],
   ../networking/eth2_network
 
