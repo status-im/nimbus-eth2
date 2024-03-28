@@ -110,8 +110,6 @@ when libp2p_pki_schemes != "secp256k1":
 template libp2pProtocol(name: string, version: int) {.pragma.}
 
 func shortProtocolId(protocolId: string): string = discard
-proc init(T: type Peer, network: Eth2Node, peerId: PeerId): Peer {.gcsafe.}
-
 proc getPeer(node: Eth2Node, peerId: PeerId): Peer = discard
 proc peerFromStream(network: Eth2Node, conn: Connection): Peer =
   result = network.getPeer(conn.peerId)
@@ -274,22 +272,6 @@ proc handleIncomingStream(network: Eth2Node,
       discard
     releasePeer(peer)
 
-proc init(T: type Peer, network: Eth2Node, peerId: PeerId): Peer =
-  let res = Peer(
-    peerId: peerId,
-    network: network,
-    connectionState: ConnectionState.None,
-    lastReqTime: now(chronos.Moment),
-    lastMetadataTime: now(chronos.Moment),
-  )
-  res.protocolStates.setLen(network.protocolStates.len())
-  for proto in network.protocols:
-    if not(isNil(proto.peerStateInitializer)):
-      res.protocolStates[proto.index] = proto.peerStateInitializer(res)
-  res
-
-type
-  BeaconSync = object
 type
   beaconBlocksByRange_v2Obj = object
     reqCount: uint64
