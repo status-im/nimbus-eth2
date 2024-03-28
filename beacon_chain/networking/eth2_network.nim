@@ -854,30 +854,7 @@ proc toPeerAddr*(r: enr.TypedRecord,
 
   ok(PeerAddr(peerId: peerId, addrs: addrs))
 
-proc resolvePeer(peer: Peer) =
-  # Resolve task which performs searching of peer's public key and recovery of
-  # ENR using discovery5. We only resolve ENR for peers we know about to avoid
-  # querying the network - as of now, the ENR is not needed, except for
-  # debuggging
-  logScope: peer = peer.peerId
-  let startTime = now(chronos.Moment)
-  let nodeId =
-    block:
-      var key: PublicKey
-      # `secp256k1` keys are always stored inside PeerId.
-      discard peer.peerId.extractPublicKey(key)
-      keys.PublicKey.fromRaw(key.skkey.getBytes()).get().toNodeId()
-
-  debug "Peer's ENR recovery task started", node_id = $nodeId
-
-  # This is "fast-path" for peers which was dialed. In this case discovery
-  # already has most recent ENR information about this peer.
-  let gnode = peer.network.discovery.getNode(nodeId)
-  if gnode.isSome():
-    peer.enr = Opt.some(gnode.get().record)
-    let delay = now(chronos.Moment) - startTime
-    debug "Peer's ENR recovered", delay
-
+proc resolvePeer(peer: Peer) = discard
 proc handlePeer*(peer: Peer) {.async: (raises: [CancelledError]).} =
   let res = peer.network.peerPool.addPeerNoWait(peer, peer.direction)
   case res:
