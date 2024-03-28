@@ -27,10 +27,6 @@ type
     rng: ref HmacDrbgContext
     peers: Table[PeerId, Peer]
     directPeers: DirectPeers
-    validTopics: HashSet[string]
-    peerPingerHeartbeatFut: Future[void].Raising([CancelledError])
-    peerTrimmerHeartbeatFut: Future[void].Raising([CancelledError])
-    cfg: RuntimeConfig
 
   AverageThroughput = object
     count: uint64
