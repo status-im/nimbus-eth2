@@ -34,9 +34,6 @@ type
     peerPool: PeerPool[Peer, PeerId]
     protocols: seq[ProtocolInfo]
     protocolStates: seq[RootRef]
-    metadata: altair.MetaData
-    connectTimeout: chronos.Duration
-    seenThreshold: chronos.Duration
     connQueue: AsyncQueue[PeerAddr]
     seenTable: Table[PeerId, SeenItem]
     connWorkers: seq[Future[void].Raising([CancelledError])]
