@@ -638,6 +638,21 @@ template withForkyBlck*(
     template forkyBlck: untyped {.inject, used.} = x.phase0Data
     body
 
+func init*(T: type ForkedSignedBeaconBlock,
+           contents: RestPublishedSignedBlockContents): T =
+  return
+    case contents.kind
+    of ConsensusFork.Phase0:
+      ForkedSignedBeaconBlock.init(contents.phase0Data)
+    of ConsensusFork.Altair:
+      ForkedSignedBeaconBlock.init(contents.altairData)
+    of ConsensusFork.Bellatrix:
+      ForkedSignedBeaconBlock.init(contents.bellatrixData)
+    of ConsensusFork.Capella:
+      ForkedSignedBeaconBlock.init(contents.capellaData)
+    of ConsensusFork.Deneb:
+      ForkedSignedBeaconBlock.init(contents.denebData.signed_block)
+
 func init*(t: typedesc[RestPublishedSignedBlockContents],
            blck: phase0.BeaconBlock, root: Eth2Digest,
            signature: ValidatorSig): RestPublishedSignedBlockContents =
