@@ -65,7 +65,7 @@ type
 template RecType(MSG: type beaconBlocksByRange_v2Obj): untyped =
   beaconBlocksByRange_v2Obj
 
-proc mount2*[T](s: Switch, proto: T, matcher: Matcher = nil)
+proc mount2*[T](proto: T, matcher: Matcher = nil)
   {.gcsafe, raises: [LPError].} =
   discard
 proc beaconBlocksByRange_v2Mounter() {.raises: [].} =
@@ -74,7 +74,7 @@ proc beaconBlocksByRange_v2Mounter() {.raises: [].} =
                                 beaconBlocksByRange_v2Obj)
 
   try:
-    mount2 default(Switch), LPProtocol.new(codecs = @[
+    mount2 LPProtocol.new(codecs = @[
         "/eth2/beacon_chain/req/beacon_blocks_by_range/2/ssz_snappy"],
         handler = snappyThunk)
   except LPError:
