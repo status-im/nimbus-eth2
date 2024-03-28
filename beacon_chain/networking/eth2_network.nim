@@ -11,7 +11,7 @@ import
   libp2p/protocols/pubsub/[
       pubsub, gossipsub, rpc/message, rpc/messages, peertable, pubsubpeer],
   eth/[keys, async_utils],
-  ../spec/[eth2_ssz_serialization, network, helpers, forks]
+  ../spec/[eth2_ssz_serialization, network, helpers]
 
 type
   ErrorMsg = List[byte, 256]
