@@ -18,14 +18,6 @@ type
   MessageInfo = object
     protocolMounter: MounterProc
 
-  ProtocolInfoObj = object
-    name: string
-    messages: seq[MessageInfo]
-    index: int # the position of the protocol in the
-                # ordered list of supported protocols
-
-  ProtocolInfo = ptr ProtocolInfoObj
-
   ResponseCode = enum
     Success
     InvalidRequest
