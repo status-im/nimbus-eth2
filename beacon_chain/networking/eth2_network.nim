@@ -25,11 +25,6 @@ type
     Disconnecting,
     Disconnected
 
-  UntypedResponse = ref object
-    peer: Peer
-    stream: Connection
-    writtenChunks: int
-
   MessageInfo = object
     name: string
 
