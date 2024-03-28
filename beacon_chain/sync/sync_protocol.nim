@@ -40,47 +40,7 @@ type
 
 proc readChunkPayload*(
     conn: Connection, peer: Peer, MsgType: type (ref ForkedSignedBeaconBlock)):
-    Future[NetRes[MsgType]] {.async: (raises: [CancelledError]).} =
-  var contextBytes: ForkDigest
-  try:
-    await conn.readExactly(addr contextBytes, sizeof contextBytes)
-  except CancelledError as exc:
-    raise exc
-  except CatchableError:
-    return neterr UnexpectedEOF
-
-  if contextBytes == peer.network.forkDigests.phase0:
-    let res = await readChunkPayload(conn, peer, phase0.SignedBeaconBlock)
-    if res.isOk:
-      return ok newClone(ForkedSignedBeaconBlock.init(res.get))
-    else:
-      return err(res.error)
-  elif contextBytes == peer.network.forkDigests.altair:
-    let res = await readChunkPayload(conn, peer, altair.SignedBeaconBlock)
-    if res.isOk:
-      return ok newClone(ForkedSignedBeaconBlock.init(res.get))
-    else:
-      return err(res.error)
-  elif contextBytes == peer.network.forkDigests.bellatrix:
-    let res = await readChunkPayload(conn, peer, bellatrix.SignedBeaconBlock)
-    if res.isOk:
-      return ok newClone(ForkedSignedBeaconBlock.init(res.get))
-    else:
-      return err(res.error)
-  elif contextBytes == peer.network.forkDigests.capella:
-    let res = await readChunkPayload(conn, peer, capella.SignedBeaconBlock)
-    if res.isOk:
-      return ok newClone(ForkedSignedBeaconBlock.init(res.get))
-    else:
-      return err(res.error)
-  elif contextBytes == peer.network.forkDigests.deneb:
-    let res = await readChunkPayload(conn, peer, deneb.SignedBeaconBlock)
-    if res.isOk:
-      return ok newClone(ForkedSignedBeaconBlock.init(res.get))
-    else:
-      return err(res.error)
-  else:
-    return neterr InvalidContextBytes
+    Future[NetRes[MsgType]] {.async: (raises: [CancelledError]).} = discard
 
 {.pop.} # TODO fix p2p macro for raises
 
