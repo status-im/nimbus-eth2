@@ -111,12 +111,6 @@ type
   OnPeerDisconnectedHandler = proc(peer: Peer): Future[void] {.async: (raises: [CancelledError]).}
   MounterProc = proc(network: Eth2Node) {.gcsafe, raises: [].}
 
-  DisconnectionReason = enum
-    ClientShutDown = 1
-    IrrelevantNetwork = 2
-    FaultOrError = 3
-    PeerScoreLow = 237 # 79  3
-
   Eth2NetworkingErrorKind = enum
     BrokenConnection
     ReceivedErrorResponse
