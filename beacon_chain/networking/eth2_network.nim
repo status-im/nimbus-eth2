@@ -6,8 +6,6 @@ import
   json_serialization, json_serialization/std/[net, sets, options],
   chronos,
   libp2p/switch,
-  libp2p/protocols/pubsub/[
-      pubsub],
   eth/[async_utils],
   ../spec/[eth2_ssz_serialization, network]
 
