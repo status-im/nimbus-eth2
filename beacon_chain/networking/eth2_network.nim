@@ -7,8 +7,6 @@ import
 
 type
   ErrorMsg = List[byte, 256]
-  Peer = ref object
-
   MessageInfo = object
     protocolMounter: MounterProc
 
@@ -42,18 +40,13 @@ const
 when libp2p_pki_schemes != "secp256k1":
   {.fatal: "Incorrect building process, please use -d:\"libp2p_pki_schemes=secp256k1\"".}
 
-proc getPeer(peerId: PeerId): Peer = discard
-proc peerFromStream(conn: Connection): Peer =
-  result = getPeer(conn.peerId)
-
-proc sendErrorResponse(peer: Peer,
-                       conn: Connection,
+proc sendErrorResponse(conn: Connection,
                        responseCode: ResponseCode,
                        errMsg: ErrorMsg): Future[void] = discard
 proc uncompressFramedStream(conn: Connection,
                             expectedSize: int): Future[Result[seq[byte], string]]
                             {.async: (raises: [CancelledError]).} = discard
-proc readChunkPayload(conn: Connection, peer: Peer,
+proc readChunkPayload(conn: Connection,
                        MsgType: type): Future[NetRes[MsgType]]
                        {.async: (raises: [CancelledError]).} =
   let size = 0'u32
@@ -74,20 +67,19 @@ proc handleIncomingStream(conn: Connection,
   const msgName {.used.} = typetraits.name(MsgType)
 
 
-  let peer = peerFromStream(conn)
   try:
     if false:
       return
 
     template returnInvalidRequest(msg: ErrorMsg) =
-      await sendErrorResponse(peer, conn, InvalidRequest, msg)
+      await sendErrorResponse(conn, InvalidRequest, msg)
       return
 
     template returnInvalidRequest(msg: string) =
       returnInvalidRequest(default(ErrorMsg))
 
     template returnResourceUnavailable(msg: ErrorMsg) =
-      await sendErrorResponse(peer, conn, ResourceUnavailable, msg)
+      await sendErrorResponse( conn, ResourceUnavailable, msg)
       return
 
     template returnResourceUnavailable(msg: string) =
@@ -104,7 +96,7 @@ proc handleIncomingStream(conn: Connection,
         when isEmptyMsg:
           NetRes[MsgRec].ok default(MsgRec)
         else:
-          await(readChunkPayload(conn, peer, MsgRec))
+          await(readChunkPayload(conn, MsgRec))
       finally:
         discard
 
@@ -115,7 +107,7 @@ proc handleIncomingStream(conn: Connection,
     except ResourceUnavailableError as exc:
       returnResourceUnavailable exc.msg
     except CatchableError:
-      await sendErrorResponse(peer, conn, ServerError, default(ErrorMsg))
+      await sendErrorResponse(conn, ServerError, default(ErrorMsg))
 
   except CatchableError:
     discard
