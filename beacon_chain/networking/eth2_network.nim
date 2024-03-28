@@ -8,8 +8,6 @@ import
 
 type
   ErrorMsg = List[byte, 256]
-  DirectPeers = Table[PeerId, seq[MultiAddress]]
-
   SeenItem = object
     peerId: PeerId
     stamp: chronos.Moment
@@ -19,9 +17,6 @@ type
     protocols: seq[ProtocolInfo]
     protocolStates: seq[RootRef]
     connQueue: AsyncQueue[PeerAddr]
-    seenTable: Table[PeerId, SeenItem]
-    connWorkers: seq[Future[void].Raising([CancelledError])]
-    connTable: HashSet[PeerId]
 
   AverageThroughput = object
     count: uint64
