@@ -15,7 +15,6 @@ type
   Peer = ref object
     network: Eth2Node
     connectionState: ConnectionState
-    protocolStates: seq[RootRef]
 
   ConnectionState = enum
     None,
