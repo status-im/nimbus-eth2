@@ -6,7 +6,7 @@ import
   stew/[leb128, byteutils, io2],
   stew/shims/macros,
   json_serialization, json_serialization/std/[net, sets, options],
-  chronos, chronos/ratelimit, chronicles,
+  chronos, chronicles,
   libp2p/[switch, peerinfo, multiaddress, multicodec, crypto/crypto,
     crypto/secp, builders],
   libp2p/protocols/pubsub/[
@@ -17,7 +17,6 @@ import
   "."/[eth2_discovery, eth2_protocol_dsl, libp2p_json_serialization, peer_pool, peer_scores]
 
 type
-  PublicKey = crypto.PublicKey
   ErrorMsg = List[byte, 256]
   DirectPeers = Table[PeerId, seq[MultiAddress]]
 
@@ -53,8 +52,6 @@ type
     peerTrimmerHeartbeatFut: Future[void].Raising([CancelledError])
     cfg: RuntimeConfig
 
-    quota: TokenBucket ## Global quota mainly for high-bandwidth stuff
-
   AverageThroughput = object
     count: uint64
     average: float
@@ -67,7 +64,6 @@ type
     protocolStates: seq[RootRef]
     netThroughput: AverageThroughput
     score: int
-    quota: TokenBucket
     lastReqTime: Moment
     connections: int
     enr: Opt[enr.Record]
@@ -189,7 +185,6 @@ when libp2p_pki_schemes != "secp256k1":
 
 template libp2pProtocol(name: string, version: int) {.pragma.}
 
-func shortLog(peer: Peer): string = shortLog(peer.peerId)
 func shortProtocolId(protocolId: string): string =
   let
     start = if protocolId.startsWith(requestPrefix): requestPrefix.len else: 0
@@ -252,10 +247,6 @@ template awaitQuota(peerParam: Peer, costParam: float, protocolIdParam: string) 
   let
     peer = peerParam
     cost = int(costParam)
-
-  if not peer.quota.tryConsume(cost.int):
-    let protocolId = protocolIdParam
-    await peer.quota.consume(cost.int)
 
 template awaitQuota(
     networkParam: Eth2Node, costParam: float, protocolIdParam: string) =
@@ -566,13 +557,13 @@ proc handleIncomingStream(network: Eth2Node,
     except CatchableError as exc:
       await sendErrorResponse(peer, conn, ServerError, ErrorMsg exc.msg.toBytes)
 
-  except CatchableError as exc:
+  except CatchableError:
     discard
 
   finally:
     try:
       await noCancel conn.closeWithEOF()
-    except CatchableError as exc:
+    except CatchableError:
       discard
     releasePeer(peer)
 
@@ -583,7 +574,6 @@ proc init(T: type Peer, network: Eth2Node, peerId: PeerId): Peer =
     connectionState: ConnectionState.None,
     lastReqTime: now(chronos.Moment),
     lastMetadataTime: now(chronos.Moment),
-    quota: TokenBucket.new(maxRequestQuota.int, fullReplenishTime)
   )
   res.protocolStates.setLen(network.protocolStates.len())
   for proto in network.protocols:
