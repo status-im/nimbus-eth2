@@ -176,7 +176,6 @@ proc readChunkPayload(conn: Connection, peer: Peer,
                        MsgType: type): Future[NetRes[MsgType]]
                        {.async: (raises: [CancelledError]).} =
   let
-    sm = now(chronos.Moment)
     size = ? await readVarint2(conn)
 
   const maxSize = chunkMaxSize[MsgType]()
