@@ -6,7 +6,7 @@ import
   stew/[leb128, byteutils, io2],
   json_serialization, json_serialization/std/[net, sets, options],
   chronos,
-  libp2p/[switch, peerinfo, multiaddress, multicodec, crypto/crypto,
+  libp2p/[switch, peerinfo, crypto/crypto,
     crypto/secp],
   libp2p/protocols/pubsub/[
       pubsub, gossipsub, rpc/message, rpc/messages, peertable, pubsubpeer],
