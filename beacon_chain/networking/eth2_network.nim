@@ -20,12 +20,6 @@ type
 
   NetRes[T] = Result[T, Eth2NetworkingError]
 
-const
-  libp2p_pki_schemes {.strdefine.} = ""
-
-when libp2p_pki_schemes != "secp256k1":
-  {.fatal: "Incorrect building process, please use -d:\"libp2p_pki_schemes=secp256k1\"".}
-
 proc sendErrorResponse(conn: Connection,
                        errMsg: ErrorMsg): Future[void] = discard
 proc uncompressFramedStream(conn: Connection,
