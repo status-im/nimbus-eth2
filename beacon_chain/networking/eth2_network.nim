@@ -264,10 +264,6 @@ proc handleIncomingStream(network: Eth2Node,
         when isEmptyMsg:
           NetRes[MsgRec].ok default(MsgRec)
         else:
-          # TODO(zah) The TTFB timeout is not implemented in LibP2P streams
-          # back-end
-          let deadline = sleepAsync RESP_TIMEOUT_DUR
-
           await(readChunkPayload(conn, peer, MsgRec))
 
       finally:
