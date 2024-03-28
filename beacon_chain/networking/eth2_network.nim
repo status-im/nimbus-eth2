@@ -307,12 +307,6 @@ proc beaconBlocksByRange_v2UserHandler(peer: Peer; reqCount: uint64;
 
   discard
 
-template callUserHandler(MSG: type beaconBlocksByRange_v2Obj; peer: Peer;
-                         stream: Connection; msg: beaconBlocksByRange_v2Obj): untyped =
-  var response = init(MultipleChunksResponse[ref uint64,
-      Limit MAX_REQUEST_BLOCKS], peer, stream)
-  beaconBlocksByRange_v2UserHandler(peer, msg.reqCount, msg.reqStep, response)
-
 proc beaconBlocksByRange_v2Mounter(network: Eth2Node) {.raises: [].} =
   proc snappyThunk(stream: Connection; protocol: string): Future[void] {.gcsafe.} =
     return handleIncomingStream(network, stream, protocol,
