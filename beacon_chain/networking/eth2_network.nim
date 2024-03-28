@@ -27,8 +27,6 @@ type
   MounterProc = proc() {.gcsafe, raises: [].}
 
   Eth2NetworkingErrorKind = enum
-    BrokenConnection
-    ReceivedErrorResponse
     UnexpectedEOF
     PotentiallyExpectedEOF
     StreamOpenTimeout
@@ -38,9 +36,6 @@ type
 
   Eth2NetworkingError = object
     case kind: Eth2NetworkingErrorKind
-    of ReceivedErrorResponse:
-      responseCode: ResponseCode
-      errorMsg: string
     else:
       discard
 
