@@ -6,7 +6,7 @@ import
   stew/[leb128, byteutils, io2],
   stew/shims/macros,
   json_serialization, json_serialization/std/[net, sets, options],
-  chronos, chronicles,
+  chronos,
   libp2p/[switch, peerinfo, multiaddress, multicodec, crypto/crypto,
     crypto/secp, builders],
   libp2p/protocols/pubsub/[
@@ -291,10 +291,7 @@ proc disconnect(peer: Peer, reason: DisconnectionReason,
   except CancelledError as exc:
     raise exc
   except CatchableError as exc:
-    warn "Unexpected error while disconnecting peer",
-      peer = peer.peerId,
-      reason = reason,
-      exc = exc.msg
+    discard
 
 proc releasePeer(peer: Peer) =
   if peer.connectionState notin {ConnectionState.Disconnecting,
