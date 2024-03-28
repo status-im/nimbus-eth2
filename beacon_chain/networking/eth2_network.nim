@@ -21,10 +21,6 @@ type
     peerId: PeerId
     connectionState: ConnectionState
     protocolStates: seq[RootRef]
-    netThroughput: AverageThroughput
-    score: int
-    lastReqTime: Moment
-    connections: int
 
   ConnectionState = enum
     None,
@@ -132,22 +128,7 @@ func calcThroughput(dur: Duration, value: uint64): float =
   else:
     float(value) * (secs / float(dur.nanoseconds))
 
-func updateNetThroughput(peer: Peer, dur: Duration,
-                         bytesCount: uint64) {.inline.} =
-  let bytesPerSecond = calcThroughput(dur, bytesCount)
-  let a = peer.netThroughput.average
-  let n = peer.netThroughput.count
-  peer.netThroughput.average = a + (bytesPerSecond - a) / float(n + 1)
-  inc(peer.netThroughput.count)
-
-func `<`(a, b: Peer): bool =
-  if a.score < b.score:
-    true
-  elif a.score == b.score:
-    (a.netThroughput.average < b.netThroughput.average)
-  else:
-    false
-
+func `<`(a, b: Peer): bool = false
 const
   maxRequestQuota = 1000000
   fullReplenishTime = 5.seconds
@@ -223,8 +204,6 @@ proc readChunkPayload(conn: Connection, peer: Peer,
     data = dataRes.valueOr:
       return neterr InvalidSnappyBytes
 
-  peer.updateNetThroughput(now(chronos.Moment) - sm,
-                            uint64(10 + size))
   try:
     ok SSZ.decode(data, MsgType)
   except SerializationError:
