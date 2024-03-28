@@ -298,15 +298,6 @@ type
 template RecType(MSG: type beaconBlocksByRange_v2Obj): untyped =
   beaconBlocksByRange_v2Obj
 
-proc beaconBlocksByRange_v2UserHandler(peer: Peer; reqCount: uint64;
-                                       reqStep: uint64; response: MultipleChunksResponse[
-    ref uint64, Limit MAX_REQUEST_BLOCKS]) {.async,
-    libp2pProtocol("beacon_blocks_by_range", 2), gcsafe.} =
-  type
-    CurrentProtocol {.used.} = BeaconSync
-
-  discard
-
 proc beaconBlocksByRange_v2Mounter(network: Eth2Node) {.raises: [].} =
   proc snappyThunk(stream: Connection; protocol: string): Future[void] {.gcsafe.} =
     return handleIncomingStream(network, stream, protocol,
