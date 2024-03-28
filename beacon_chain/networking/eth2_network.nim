@@ -12,7 +12,7 @@ import
       pubsub, gossipsub, rpc/message, rpc/messages, peertable, pubsubpeer],
   eth/[keys, async_utils],
   ../spec/[eth2_ssz_serialization, network, helpers, forks],
-  "."/[eth2_protocol_dsl, libp2p_json_serialization, peer_pool]
+  "."/[eth2_protocol_dsl, libp2p_json_serialization]
 
 type
   ErrorMsg = List[byte, 256]
@@ -28,7 +28,6 @@ type
     discoveryEnabled: bool
     wantedPeers: int
     hardMaxPeers: int
-    peerPool: PeerPool[Peer, PeerId]
     protocols: seq[ProtocolInfo]
     protocolStates: seq[RootRef]
     connQueue: AsyncQueue[PeerAddr]
@@ -62,7 +61,6 @@ type
     metadata: Opt[altair.MetaData]
     failedMetadataRequests: int
     lastMetadataTime: Moment
-    direction: PeerType
     disconnectedFut: Future[void]
 
   PeerAddr = object
