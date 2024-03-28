@@ -1,10 +1,3 @@
-# beacon_chain
-# Copyright (c) 2018-2024 Status Research & Development GmbH
-# Licensed and distributed under either of
-#   * MIT license (license terms in the root directory or at https://opensource.org/licenses/MIT).
-#   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
-# at your option. This file may not be copied, modified, or distributed except according to those terms.
-
 {.push raises: [].}
 
 import
@@ -16,27 +9,11 @@ import
   ../consensus_object_pools/blockchain_dag,
   ../rpc/rest_constants
 
-logScope:
-  topics = "sync_proto"
-
-const
-  blockResponseCost = allowedOpsPerSecondCost(64)
-    ## Allow syncing ~64 blocks/sec (minus request costs)
-  blobResponseCost = allowedOpsPerSecondCost(1000)
-    ## Multiple can exist per block, they are much smaller than blocks
-
 type
   BeaconSyncNetworkState* {.final.} = ref object of RootObj
     dag: ChainDAGRef
     cfg: RuntimeConfig
     genesisBlockRoot: Eth2Digest
-
-  BlockRootSlot* = object
-    blockRoot: Eth2Digest
-    slot: Slot
-
-  BlockRootsList* = List[Eth2Digest, Limit MAX_REQUEST_BLOCKS]
-  BlobIdentifierList* = List[BlobIdentifier, Limit (MAX_REQUEST_BLOB_SIDECARS)]
 
 proc readChunkPayload*(
     conn: Connection, peer: Peer, MsgType: type (ref ForkedSignedBeaconBlock)):
