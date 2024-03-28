@@ -256,7 +256,7 @@ proc handleIncomingStream(network: Eth2Node,
         awaitQuota(peer, libp2pRequestCost, shortProtocolId(protocolId))
 
     try:
-      await callUserHandler(MsgType, peer, conn, msg.get)
+      discard
     except InvalidInputsError as exc:
       returnInvalidRequest exc.msg
     except ResourceUnavailableError as exc:
