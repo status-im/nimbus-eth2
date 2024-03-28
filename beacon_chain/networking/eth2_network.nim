@@ -158,7 +158,6 @@ const
   SeenTableTimeClientShutDown = 10.minutes
   SeenTableTimeFaultOrError = 10.minutes
   SeenTablePenaltyError = 60.minutes
-  ProtocolViolations = {InvalidResponseCode..Eth2NetworkingErrorKind.high()}
 
 template neterr(kindParam: Eth2NetworkingErrorKind): auto =
   err(type(result), Eth2NetworkingError(kind: kindParam))
@@ -193,7 +192,6 @@ proc peerFromStream(network: Eth2Node, conn: Connection): Peer =
   result = network.getPeer(conn.peerId)
   result.peerId = conn.peerId
 
-func updateScore(peer: Peer, score: int) = discard
 func calcThroughput(dur: Duration, value: uint64): float =
   let secs = float(chronos.seconds(1).nanoseconds)
   if isZero(dur):
@@ -249,27 +247,6 @@ proc addSeen(network: Eth2Node, peerId: PeerId,
       entry.stamp = item.stamp
   do:
     network.seenTable[peerId] = item
-
-proc disconnect(peer: Peer, reason: DisconnectionReason,
-                 notifyOtherPeer = false) {.async: (raises: [CancelledError]).} =
-  try:
-    if peer.connectionState notin {Disconnecting, Disconnected}:
-      peer.connectionState = Disconnecting
-      let seenTime = case reason
-        of ClientShutDown:
-          SeenTableTimeClientShutDown
-        of IrrelevantNetwork:
-          SeenTableTimeIrrelevantNetwork
-        of FaultOrError:
-          SeenTableTimeFaultOrError
-        of PeerScoreLow:
-          SeenTablePenaltyError
-      peer.network.addSeen(peer.peerId, seenTime)
-      await peer.network.switch.disconnect(peer.peerId)
-  except CancelledError as exc:
-    raise exc
-  except CatchableError:
-    discard
 
 proc releasePeer(peer: Peer) = discard
 template errorMsgLit(x: static string): ErrorMsg = default(ErrorMsg)
