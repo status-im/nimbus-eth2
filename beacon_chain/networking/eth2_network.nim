@@ -19,9 +19,6 @@ type
 
   Eth2Node = ref object of RootObj
     switch: Switch
-    discoveryEnabled: bool
-    wantedPeers: int
-    hardMaxPeers: int
     protocols: seq[ProtocolInfo]
     protocolStates: seq[RootRef]
     connQueue: AsyncQueue[PeerAddr]
