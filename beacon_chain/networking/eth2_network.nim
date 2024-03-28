@@ -20,13 +20,8 @@ import
   "."/[eth2_discovery, eth2_protocol_dsl, libp2p_json_serialization, peer_pool, peer_scores]
 
 type
-  NetKeyPair = crypto.KeyPair
   PublicKey = crypto.PublicKey
-  PrivateKey = crypto.PrivateKey
-
   ErrorMsg = List[byte, 256]
-  SendResult = Result[void, cstring]
-
   DirectPeers = Table[PeerId, seq[MultiAddress]]
 
   SeenItem = object
