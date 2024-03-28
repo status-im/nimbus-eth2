@@ -797,38 +797,6 @@ proc toPeerAddr(r: enr.TypedRecord,
   ok(PeerAddr(peerId: peerId, addrs: addrs))
 
 proc resolvePeer(peer: Peer) = discard
-proc handlePeer(peer: Peer) {.async: (raises: [CancelledError]).} =
-  let res = peer.network.peerPool.addPeerNoWait(peer, peer.direction)
-  case res:
-  of PeerStatus.LowScoreError, PeerStatus.NoSpaceError:
-    # Peer has low score or we do not have enough space in PeerPool,
-    # we are going to disconnect it gracefully.
-    # Peer' state will be updated in connection event.
-    debug "Peer has low score or there no space in PeerPool",
-          peer = peer, reason = res
-    await peer.disconnect(FaultOrError)
-  of PeerStatus.DeadPeerError:
-    # Peer's lifetime future is finished, so its already dead,
-    # we do not need to perform gracefull disconect.
-    # Peer's state will be updated in connection event.
-    discard
-  of PeerStatus.DuplicateError:
-    # Peer is already present in PeerPool, we can't perform disconnect,
-    # because in such case we could kill both connections (connection
-    # which is present in PeerPool and new one).
-    # This is possible bug, because we could enter here only if number
-    # of `peer.connections == 1`, it means that Peer's lifetime is not
-    # tracked properly and we still not received `Disconnected` event.
-    debug "Peer is already present in PeerPool", peer = peer
-  of PeerStatus.Success:
-    # Peer was added to PeerPool.
-    peer.score = NewPeerScore
-    peer.connectionState = Connected
-    # We spawn task which will obtain ENR for this peer.
-    resolvePeer(peer)
-    debug "Peer successfully connected", peer = peer,
-                                         connections = peer.connections
-
 proc onConnEvent(
     node: Eth2Node, peerId: PeerId, event: ConnEvent) {.
     async: (raises: [CancelledError]).} =
@@ -977,34 +945,6 @@ proc new(T: type Eth2Node,
   node.peerPool.setOnDeletePeer(onDeletePeer)
 
   node
-
-proc registerProtocol(node: Eth2Node, Proto: type, state: Proto.NetworkState) =
-  # This convoluted registration process is a leftover from the shared p2p macro
-  # and should be refactored
-  let proto = Proto.protocolInfo()
-  node.protocols.add(proto)
-  node.protocolStates.setLen(max(proto.index + 1, node.protocolStates.len))
-  node.protocolStates[proto.index] = state
-
-  for msg in proto.messages:
-    if msg.protocolMounter != nil:
-      msg.protocolMounter node
-
-proc startListening(node: Eth2Node) {.async.} =
-  if node.discoveryEnabled:
-    try:
-       node.discovery.open()
-    except CatchableError as exc:
-      fatal "Failed to start discovery service. UDP port may be already in use",
-            exc = exc.msg
-      quit 1
-
-  try:
-    await node.switch.start()
-  except CatchableError as exc:
-    fatal "Failed to start LibP2P transport. TCP port may be already in use",
-          exc = exc.msg
-    quit 1
 
 proc init(T: type Peer, network: Eth2Node, peerId: PeerId): Peer =
   let res = Peer(
