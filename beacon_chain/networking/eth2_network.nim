@@ -7,7 +7,7 @@ import
   chronos,
   libp2p/switch,
   libp2p/protocols/pubsub/[
-      pubsub, gossipsub],
+      pubsub],
   eth/[async_utils],
   ../spec/[eth2_ssz_serialization, network]
 
@@ -21,7 +21,6 @@ type
 
   Eth2Node = ref object of RootObj
     switch: Switch
-    pubsub: GossipSub
     discoveryEnabled: bool
     wantedPeers: int
     hardMaxPeers: int
