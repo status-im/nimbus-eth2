@@ -1,7 +1,6 @@
 {.push raises: [].}
 
 import
-  std/[typetraits, os, strutils, tables],
   results,
   chronos,
   libp2p/switch,
@@ -150,15 +149,7 @@ when libp2p_pki_schemes != "secp256k1":
 
 template libp2pProtocol(name: string, version: int) {.pragma.}
 
-func shortProtocolId(protocolId: string): string =
-  let
-    start = if protocolId.startsWith(requestPrefix): requestPrefix.len else: 0
-    ends = if protocolId.endsWith(requestSuffix):
-      protocolId.high - requestSuffix.len
-    else:
-      protocolId.high
-  protocolId[start..ends]
-
+func shortProtocolId(protocolId: string): string = discard
 proc init(T: type Peer, network: Eth2Node, peerId: PeerId): Peer {.gcsafe.}
 
 proc getPeer(node: Eth2Node, peerId: PeerId): Peer =
