@@ -20,43 +20,43 @@ import
   "."/[eth2_discovery, eth2_protocol_dsl, libp2p_json_serialization, peer_pool, peer_scores]
 
 type
-  NetKeyPair* = crypto.KeyPair
-  PublicKey* = crypto.PublicKey
-  PrivateKey* = crypto.PrivateKey
+  NetKeyPair = crypto.KeyPair
+  PublicKey = crypto.PublicKey
+  PrivateKey = crypto.PrivateKey
 
   ErrorMsg = List[byte, 256]
-  SendResult* = Result[void, cstring]
+  SendResult = Result[void, cstring]
 
   DirectPeers = Table[PeerId, seq[MultiAddress]]
 
-  SeenItem* = object
-    peerId*: PeerId
-    stamp*: chronos.Moment
+  SeenItem = object
+    peerId: PeerId
+    stamp: chronos.Moment
 
-  Eth2Node* = ref object of RootObj
-    switch*: Switch
-    pubsub*: GossipSub
-    discovery*: Eth2DiscoveryProtocol
-    discoveryEnabled*: bool
-    wantedPeers*: int
-    hardMaxPeers*: int
-    peerPool*: PeerPool[Peer, PeerId]
+  Eth2Node = ref object of RootObj
+    switch: Switch
+    pubsub: GossipSub
+    discovery: Eth2DiscoveryProtocol
+    discoveryEnabled: bool
+    wantedPeers: int
+    hardMaxPeers: int
+    peerPool: PeerPool[Peer, PeerId]
     protocols: seq[ProtocolInfo]
       ## Protocols managed by the DSL and mounted on the switch
-    protocolStates*: seq[RootRef]
-    metadata*: altair.MetaData
-    connectTimeout*: chronos.Duration
-    seenThreshold*: chronos.Duration
+    protocolStates: seq[RootRef]
+    metadata: altair.MetaData
+    connectTimeout: chronos.Duration
+    seenThreshold: chronos.Duration
     connQueue: AsyncQueue[PeerAddr]
     seenTable: Table[PeerId, SeenItem]
     connWorkers: seq[Future[void].Raising([CancelledError])]
     connTable: HashSet[PeerId]
-    forkId*: ENRForkID
-    discoveryForkId*: ENRForkID
-    forkDigests*: ref ForkDigests
-    rng*: ref HmacDrbgContext
-    peers*: Table[PeerId, Peer]
-    directPeers*: DirectPeers
+    forkId: ENRForkID
+    discoveryForkId: ENRForkID
+    forkDigests: ref ForkDigests
+    rng: ref HmacDrbgContext
+    peers: Table[PeerId, Peer]
+    directPeers: DirectPeers
     validTopics: HashSet[string]
     peerPingerHeartbeatFut: Future[void].Raising([CancelledError])
     peerTrimmerHeartbeatFut: Future[void].Raising([CancelledError])
@@ -64,84 +64,84 @@ type
 
     quota: TokenBucket ## Global quota mainly for high-bandwidth stuff
 
-  AverageThroughput* = object
-    count*: uint64
-    average*: float
+  AverageThroughput = object
+    count: uint64
+    average: float
 
-  Peer* = ref object
-    network*: Eth2Node
-    peerId*: PeerId
-    discoveryId*: Eth2DiscoveryId
-    connectionState*: ConnectionState
-    protocolStates*: seq[RootRef]
+  Peer = ref object
+    network: Eth2Node
+    peerId: PeerId
+    discoveryId: Eth2DiscoveryId
+    connectionState: ConnectionState
+    protocolStates: seq[RootRef]
     netThroughput: AverageThroughput
-    score*: int
-    quota*: TokenBucket
-    lastReqTime*: Moment
-    connections*: int
-    enr*: Opt[enr.Record]
-    metadata*: Opt[altair.MetaData]
+    score: int
+    quota: TokenBucket
+    lastReqTime: Moment
+    connections: int
+    enr: Opt[enr.Record]
+    metadata: Opt[altair.MetaData]
     failedMetadataRequests: int
-    lastMetadataTime*: Moment
-    direction*: PeerType
+    lastMetadataTime: Moment
+    direction: PeerType
     disconnectedFut: Future[void]
-    statistics*: SyncResponseStats
+    statistics: SyncResponseStats
 
-  PeerAddr* = object
-    peerId*: PeerId
-    addrs*: seq[MultiAddress]
+  PeerAddr = object
+    peerId: PeerId
+    addrs: seq[MultiAddress]
 
-  ConnectionState* = enum
+  ConnectionState = enum
     None,
     Connecting,
     Connected,
     Disconnecting,
     Disconnected
 
-  UntypedResponse* = ref object
-    peer*: Peer
-    stream*: Connection
-    writtenChunks*: int
+  UntypedResponse = ref object
+    peer: Peer
+    stream: Connection
+    writtenChunks: int
 
-  SingleChunkResponse*[MsgType] = distinct UntypedResponse
+  SingleChunkResponse[MsgType] = distinct UntypedResponse
     ## Protocol requests using this type will produce request-making
     ## client-side procs that return `NetRes[MsgType]`
 
-  MultipleChunksResponse*[MsgType; maxLen: static Limit] = distinct UntypedResponse
+  MultipleChunksResponse[MsgType; maxLen: static Limit] = distinct UntypedResponse
     ## Protocol requests using this type will produce request-making
     ## client-side procs that return `NetRes[List[MsgType, maxLen]]`.
     ## In the future, such procs will return an `InputStream[NetRes[MsgType]]`.
 
-  MessageInfo* = object
-    name*: string
+  MessageInfo = object
+    name: string
 
     # Private fields:
     libp2pCodecName: string
-    protocolMounter*: MounterProc
+    protocolMounter: MounterProc
 
-  ProtocolInfoObj* = object
-    name*: string
-    messages*: seq[MessageInfo]
-    index*: int # the position of the protocol in the
+  ProtocolInfoObj = object
+    name: string
+    messages: seq[MessageInfo]
+    index: int # the position of the protocol in the
                 # ordered list of supported protocols
 
     # Private fields:
-    peerStateInitializer*: PeerStateInitializer
-    networkStateInitializer*: NetworkStateInitializer
-    onPeerConnected*: OnPeerConnectedHandler
-    onPeerDisconnected*: OnPeerDisconnectedHandler
+    peerStateInitializer: PeerStateInitializer
+    networkStateInitializer: NetworkStateInitializer
+    onPeerConnected: OnPeerConnectedHandler
+    onPeerDisconnected: OnPeerDisconnectedHandler
 
-  ProtocolInfo* = ptr ProtocolInfoObj
+  ProtocolInfo = ptr ProtocolInfoObj
 
-  ResponseCode* = enum
+  ResponseCode = enum
     Success
     InvalidRequest
     ServerError
     ResourceUnavailable
 
-  PeerStateInitializer* = proc(peer: Peer): RootRef {.gcsafe, raises: [].}
-  NetworkStateInitializer* = proc(network: Eth2Node): RootRef {.gcsafe, raises: [].}
-  OnPeerConnectedHandler* = proc(peer: Peer, incoming: bool): Future[void] {.async: (raises: [CancelledError]).}
+  PeerStateInitializer = proc(peer: Peer): RootRef {.gcsafe, raises: [].}
+  NetworkStateInitializer = proc(network: Eth2Node): RootRef {.gcsafe, raises: [].}
+  OnPeerConnectedHandler = proc(peer: Peer, incoming: bool): Future[void] {.async: (raises: [CancelledError]).}
   OnPeerDisconnectedHandler* = proc(peer: Peer): Future[void] {.async: (raises: [CancelledError]).}
   ThunkProc* = LPProtoHandler
   MounterProc* = proc(network: Eth2Node) {.gcsafe, raises: [].}
