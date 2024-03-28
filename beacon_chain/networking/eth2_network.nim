@@ -1,10 +1,3 @@
-# beacon_chain
-# Copyright (c) 2018-2024 Status Research & Development GmbH
-# Licensed and distributed under either of
-#   * MIT license (license terms in the root directory or at https://opensource.org/licenses/MIT).
-#   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
-# at your option. This file may not be copied, modified, or distributed except according to those terms.
-
 {.push raises: [].}
 
 import
@@ -2040,11 +2033,6 @@ proc p2pProtocolBackendImpl*(p: P2PProtocol): Backend =
     id.inc(1)
 
     newCall(initProtocol, newLit(p.name), p.peerInit, p.netInit, newLit(tmp))
-
-#Must import here because of cyclicity
-import ./peer_protocol
-export peer_protocol
-
 
 type
   BeaconSyncNetworkState* {.final.} = ref object of RootObj
