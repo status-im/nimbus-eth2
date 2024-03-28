@@ -247,13 +247,6 @@ proc handleIncomingStream(network: Eth2Node,
   except CatchableError:
     discard
 
-  finally:
-    try:
-      await noCancel conn.closeWithEOF()
-    except CatchableError:
-      discard
-    releasePeer(peer)
-
 type
   beaconBlocksByRange_v2Obj = object
     reqCount: uint64
