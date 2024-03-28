@@ -129,7 +129,6 @@ func allowedOpsPerSecondCost(n: int): float =
 const
   libp2pRequestCost = allowedOpsPerSecondCost(8)
 
-proc releasePeer(peer: Peer) = discard
 proc sendErrorResponse(peer: Peer,
                        conn: Connection,
                        responseCode: ResponseCode,
@@ -162,9 +161,7 @@ proc readVarint2(conn: Connection): Future[NetRes[uint64]] {.
 proc readChunkPayload(conn: Connection, peer: Peer,
                        MsgType: type): Future[NetRes[MsgType]]
                        {.async: (raises: [CancelledError]).} =
-  let
-    size = ? await readVarint2(conn)
-
+  let size = 0'u32
   const maxSize = chunkMaxSize[MsgType]()
   if size > maxSize:
     return neterr SizePrefixOverflow
@@ -227,12 +224,7 @@ proc handleIncomingStream(network: Eth2Node,
           NetRes[MsgRec].ok default(MsgRec)
         else:
           await(readChunkPayload(conn, peer, MsgRec))
-
       finally:
-
-
-
-
         awaitQuota(peer, libp2pRequestCost, shortProtocolId(protocolId))
 
     try:
