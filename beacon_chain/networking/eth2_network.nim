@@ -246,7 +246,6 @@ const
 template awaitQuota(peerParam: Peer, costParam: float, protocolIdParam: string) =
   let
     peer = peerParam
-    cost = int(costParam)
 
 template awaitQuota(
     networkParam: Eth2Node, costParam: float, protocolIdParam: string) =
@@ -305,20 +304,6 @@ proc releasePeer(peer: Peer) =
     if peer.score < PeerScoreLowLimit:
       asyncSpawn(peer.disconnect(PeerScoreLow))
 
-proc getRequestProtoName(fn: NimNode): NimNode =
-
-  let pragmas = fn.pragma
-  if pragmas.kind == nnkPragma and pragmas.len > 0:
-    for pragma in pragmas:
-      try:
-        if pragma.len > 0 and $pragma[0] == "libp2pProtocol":
-          let protoName = $(pragma[1])
-          let protoVer = $(pragma[2].intVal)
-          return newLit(requestPrefix & protoName & "/" & protoVer & requestSuffix)
-      except Exception as exc: raiseAssert exc.msg # TODO https://github.com/nim-lang/Nim/issues/17454
-
-  return newLit("")
-
 template errorMsgLit(x: static string): ErrorMsg =
   const val = ErrorMsg toBytes(x)
   val
@@ -327,11 +312,6 @@ proc sendErrorResponse(peer: Peer,
                        conn: Connection,
                        responseCode: ResponseCode,
                        errMsg: ErrorMsg): Future[void] = discard
-proc sendNotificationMsg(peer: Peer, protocolId: string, requestBytes: seq[byte])
-    {.async: (raises: [CancelledError]).} =  discard
-proc sendResponseChunkBytes(
-    response: UntypedResponse, payload: openArray[byte],
-    contextBytes: openArray[byte] = []): Future[void] = discard
 proc uncompressFramedStream(conn: Connection,
                             expectedSize: int): Future[Result[seq[byte], string]]
                             {.async: (raises: [CancelledError]).} = discard
@@ -413,27 +393,6 @@ proc setEventHandlers(p: ProtocolInfo,
                       onPeerDisconnected: OnPeerDisconnectedHandler) =
   p.onPeerConnected = onPeerConnected
   p.onPeerDisconnected = onPeerDisconnected
-
-proc implementSendProcBody(sendProc: SendProc) =
-  let
-    msg = sendProc.msg
-    UntypedResponse = bindSym "UntypedResponse"
-
-  proc sendCallGenerator(peer, bytes: NimNode): NimNode =
-    if msg.kind != msgResponse:
-      let msgProto = getRequestProtoName(msg.procDef)
-      case msg.kind
-      of msgRequest:
-        let ResponseRecord = msg.response.recName
-        quote:
-          makeEth2Request(`peer`, `msgProto`, `bytes`,
-                          `ResponseRecord`, `timeoutVar`)
-      else:
-        quote: sendNotificationMsg(`peer`, `msgProto`, `bytes`)
-    else:
-      quote: sendResponseChunkBytes(`UntypedResponse`(`peer`), `bytes`)
-
-  sendProc.useStandardBody(nil, nil, sendCallGenerator)
 
 proc handleIncomingStream(network: Eth2Node,
                           conn: Connection,
