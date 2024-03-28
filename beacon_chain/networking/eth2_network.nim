@@ -1,10 +1,7 @@
 {.push raises: [].}
 
 import
-  # Std lib
-  std/[typetraits, os, strutils, algorithm, math, tables, macrocache],
-
-  # Status libs
+  std/[typetraits, os, strutils, algorithm, tables, macrocache],
   results,
   stew/[leb128, byteutils, io2],
   stew/shims/macros,
@@ -191,8 +188,6 @@ type
     ## This is type returned from all network requests
 
 const
-  clientId = ""
-
   requestPrefix = "/eth2/beacon_chain/req/"
   requestSuffix = "/ssz_snappy"
 
@@ -242,14 +237,6 @@ proc getState(peer: Peer, proto: ProtocolInfo): RootRef =
   doAssert peer.protocolStates[proto.index] != nil, $proto.index
   peer.protocolStates[proto.index]
 
-template state(peer: Peer, Protocol: type): untyped =
-  ## Returns the state object of a particular protocol for a
-  ## particular connection.
-  mixin State
-  bind getState
-  type S = Protocol.State
-  S(getState(peer, Protocol.protocolInfo))
-
 proc getNetworkState(node: Eth2Node, proto: ProtocolInfo): RootRef =
   doAssert node.protocolStates[proto.index] != nil, $proto.index
   node.protocolStates[proto.index]
@@ -259,25 +246,6 @@ template protocolState(node: Eth2Node, Protocol: type): untyped =
   bind getNetworkState
   type S = Protocol.NetworkState
   S(getNetworkState(node, Protocol.protocolInfo))
-
-proc initProtocolState[T](state: T, x: Peer|Eth2Node)
-    {.gcsafe, raises: [].} =
-  discard
-
-template networkState(connection: Peer, Protocol: type): untyped =
-  ## Returns the network state object of a particular protocol for a
-  ## particular connection.
-  protocolState(connection.network, Protocol)
-
-func peerId(node: Eth2Node): PeerId =
-  node.switch.peerInfo.peerId
-
-func nodeId(node: Eth2Node): NodeId =
-  # `secp256k1` keys are always stored inside PeerId.
-  toNodeId(keys.PublicKey(node.switch.peerInfo.publicKey.skkey))
-
-func enrRecord(node: Eth2Node): Record =
-  node.discovery.localNode.record
 
 proc getPeer(node: Eth2Node, peerId: PeerId): Peer =
   node.peers.withValue(peerId, peer) do:
@@ -298,24 +266,11 @@ proc getFuture(peer: Peer): Future[void] {.inline.} =
     peer.disconnectedFut = newFuture[void]("Peer.disconnectedFut")
   peer.disconnectedFut
 
-func getScore(a: Peer): int =
-  ## Returns current score value for peer ``peer``.
-  a.score
-
 func updateScore(peer: Peer, score: int) {.inline.} =
   ## Update peer's ``peer`` score with value ``score``.
   peer.score = peer.score + score
   if peer.score > PeerScoreHighLimit:
     peer.score = PeerScoreHighLimit
-
-func updateStats(peer: Peer, index: SyncResponseKind,
-                  value: uint64) {.inline.} =
-  ## Update peer's ``peer`` specific ``index`` statistics with value ``value``.
-  peer.statistics.update(index, value)
-
-func getStats(peer: Peer, index: SyncResponseKind): uint64 {.inline.} =
-  ## Returns current statistics value for peer ``peer`` and index ``index``.
-  peer.statistics.get(index)
 
 func calcThroughput(dur: Duration, value: uint64): float =
   let secs = float(chronos.seconds(1).nanoseconds)
@@ -333,10 +288,6 @@ func updateNetThroughput(peer: Peer, dur: Duration,
   peer.netThroughput.average = a + (bytesPerSecond - a) / float(n + 1)
   inc(peer.netThroughput.count)
 
-func netKbps*(peer: Peer): float {.inline.} =
-  ## Returns current network throughput average value in Kbps for peer ``peer``.
-  round(((peer.netThroughput.average / 1024) * 10_000) / 10_000)
-
 func `<`(a, b: Peer): bool =
   ## Comparison function, which first checks peer's scores, and if the peers'
   ## score is equal it compares peers' network throughput.
@@ -353,7 +304,7 @@ const
     ## Roughly, this means we allow 2 peers to sync from us at a time
   fullReplenishTime = 5.seconds
 
-template awaitQuota*(peerParam: Peer, costParam: float, protocolIdParam: string) =
+template awaitQuota(peerParam: Peer, costParam: float, protocolIdParam: string) =
   let
     peer = peerParam
     cost = int(costParam)
@@ -363,7 +314,7 @@ template awaitQuota*(peerParam: Peer, costParam: float, protocolIdParam: string)
     debug "Awaiting peer quota", peer, cost = cost, protocolId = protocolId
     await peer.quota.consume(cost.int)
 
-template awaitQuota*(
+template awaitQuota(
     networkParam: Eth2Node, costParam: float, protocolIdParam: string) =
   let
     network = networkParam
@@ -375,7 +326,7 @@ template awaitQuota*(
     nbc_reqresp_messages_throttled.inc(1, [protocolId])
     await network.quota.consume(cost.int)
 
-func allowedOpsPerSecondCost*(n: int): float =
+func allowedOpsPerSecondCost(n: int): float =
   const replenishRate = (maxRequestQuota / fullReplenishTime.nanoseconds.float)
   (replenishRate * 1000000000'f / n.float)
 
@@ -393,7 +344,7 @@ proc addSeen(network: Eth2Node, peerId: PeerId,
   do:
     network.seenTable[peerId] = item
 
-proc disconnect*(peer: Peer, reason: DisconnectionReason,
+proc disconnect(peer: Peer, reason: DisconnectionReason,
                  notifyOtherPeer = false) {.async: (raises: [CancelledError]).} =
   # Per the specification, we MAY send a disconnect reason to the other peer but
   # we currently don't - the fact that we're disconnecting is obvious and the
@@ -477,15 +428,6 @@ proc sendResponseChunk(
     contextBytes: openArray[byte] = []): Future[void] =
   sendResponseChunkBytes(response, SSZ.encode(val), contextBytes)
 
-template sendUserHandlerResultAsChunkImpl*(stream: Connection,
-                                           handlerResultFut: Future): untyped =
-  let handlerRes = await handlerResultFut
-  writeChunk(stream, Opt.some ResponseCode.Success, SSZ.encode(handlerRes))
-
-template sendUserHandlerResultAsChunkImpl*(stream: Connection,
-                                           handlerResult: auto): untyped =
-  writeChunk(stream, Opt.some ResponseCode.Success, SSZ.encode(handlerResult))
-
 proc uncompressFramedStream(conn: Connection,
                             expectedSize: int): Future[Result[seq[byte], string]]
                             {.async: (raises: [CancelledError]).} = discard
@@ -518,7 +460,7 @@ proc readVarint2(conn: Connection): Future[NetRes[uint64]] {.
     debug "Unexpected error", exc = exc.msg
     neterr UnknownError
 
-proc readChunkPayload*(conn: Connection, peer: Peer,
+proc readChunkPayload(conn: Connection, peer: Peer,
                        MsgType: type): Future[NetRes[MsgType]]
                        {.async: (raises: [CancelledError]).} =
   let
@@ -552,38 +494,38 @@ proc makeEth2Request(peer: Peer, protocolId: string, requestBytes: seq[byte],
                      timeout: Duration): Future[NetRes[ResponseMsg]]
                     {.async: (raises: [CancelledError]).} = discard
 
-proc init*(T: type MultipleChunksResponse, peer: Peer, conn: Connection): T =
+proc init(T: type MultipleChunksResponse, peer: Peer, conn: Connection): T =
   T(UntypedResponse(peer: peer, stream: conn))
 
-proc init*[MsgType](T: type SingleChunkResponse[MsgType],
+proc init[MsgType](T: type SingleChunkResponse[MsgType],
                     peer: Peer, conn: Connection): T =
   T(UntypedResponse(peer: peer, stream: conn))
 
-template write*[M; maxLen: static Limit](
+template write[M; maxLen: static Limit](
     r: MultipleChunksResponse[M, maxLen], val: M,
     contextBytes: openArray[byte] = []): untyped =
   mixin sendResponseChunk
   sendResponseChunk(UntypedResponse(r), val, contextBytes)
 
-template writeSSZ*[M; maxLen: static Limit](
+template writeSSZ[M; maxLen: static Limit](
     r: MultipleChunksResponse[M, maxLen], val: auto,
     contextBytes: openArray[byte] = []): untyped =
   mixin sendResponseChunk
   sendResponseChunk(UntypedResponse(r), val, contextBytes)
 
-template writeBytesSZ*(
+template writeBytesSZ(
     r: MultipleChunksResponse, uncompressedLen: uint64,
     bytes: openArray[byte], contextBytes: openArray[byte]): untyped =
   sendResponseChunkBytesSZ(UntypedResponse(r), uncompressedLen, bytes, contextBytes)
 
-template send*[M](
+template send[M](
     r: SingleChunkResponse[M], val: M,
     contextBytes: openArray[byte] = []): untyped =
   mixin sendResponseChunk
   doAssert UntypedResponse(r).writtenChunks == 0
   sendResponseChunk(UntypedResponse(r), val, contextBytes)
 
-template sendSSZ*[M](
+template sendSSZ[M](
     r: SingleChunkResponse[M], val: auto,
     contextBytes: openArray[byte] = []): untyped =
   mixin sendResponseChunk
@@ -800,7 +742,7 @@ proc handleIncomingStream(network: Eth2Node,
       debug "Unexpected error while closing incoming connection", exc = exc.msg
     releasePeer(peer)
 
-proc toPeerAddr*(r: enr.TypedRecord,
+proc toPeerAddr(r: enr.TypedRecord,
                  proto: IpTransportProtocol): Result[PeerAddr, cstring] =
   if not r.secp256k1.isSome:
     return err("enr: no secp256k1 key in record")
@@ -855,7 +797,7 @@ proc toPeerAddr*(r: enr.TypedRecord,
   ok(PeerAddr(peerId: peerId, addrs: addrs))
 
 proc resolvePeer(peer: Peer) = discard
-proc handlePeer*(peer: Peer) {.async: (raises: [CancelledError]).} =
+proc handlePeer(peer: Peer) {.async: (raises: [CancelledError]).} =
   let res = peer.network.peerPool.addPeerNoWait(peer, peer.direction)
   case res:
   of PeerStatus.LowScoreError, PeerStatus.NoSpaceError:
@@ -903,8 +845,6 @@ proc onConnEvent(
       # other connections be - libp2p limits the number of concurrent
       # connections to the same peer, and only one of these connections will be
       # active. Nonetheless, this quirk will cause a number of odd behaviours:
-      # * For peer limits, we might miscount the incoming vs outgoing quota
-      # * Protocol handshakes are wonky: we'll not necessarily use the newly
       #   connected transport - instead we'll just pick a random one!
       case peer.connectionState
       of Disconnecting:
@@ -996,7 +936,7 @@ proc new(T: type Eth2Node,
     switch: switch,
     pubsub: pubsub,
     wantedPeers: config.maxPeers,
-    hardMaxPeers: config.hardMaxPeers.get(config.maxPeers * 3 div 2), #*1.5
+    hardMaxPeers: config.hardMaxPeers.get(config.maxPeers * 3 div 2), #1.5
     cfg: runtimeCfg,
     peerPool: newPeerPool[Peer, PeerId](),
     # Its important here to create AsyncQueue with limited size, otherwise
@@ -1038,7 +978,7 @@ proc new(T: type Eth2Node,
 
   node
 
-proc registerProtocol*(node: Eth2Node, Proto: type, state: Proto.NetworkState) =
+proc registerProtocol(node: Eth2Node, Proto: type, state: Proto.NetworkState) =
   # This convoluted registration process is a leftover from the shared p2p macro
   # and should be refactored
   let proto = Proto.protocolInfo()
@@ -1050,7 +990,7 @@ proc registerProtocol*(node: Eth2Node, Proto: type, state: Proto.NetworkState) =
     if msg.protocolMounter != nil:
       msg.protocolMounter node
 
-proc startListening*(node: Eth2Node) {.async.} =
+proc startListening(node: Eth2Node) {.async.} =
   if node.discoveryEnabled:
     try:
        node.discovery.open()
@@ -1089,7 +1029,7 @@ proc registerMsg(protocol: ProtocolInfo,
                                     protocolMounter: mounter,
                                     libp2pCodecName: libp2pCodecName)
 
-proc p2pProtocolBackendImpl*(p: P2PProtocol): Backend =
+proc p2pProtocolBackendImpl(p: P2PProtocol): Backend =
   var
     Format = ident "SSZ"
     Connection = bindSym "Connection"
@@ -1215,10 +1155,10 @@ proc p2pProtocolBackendImpl*(p: P2PProtocol): Backend =
     newCall(initProtocol, newLit(p.name), p.peerInit, p.netInit, newLit(tmp))
 
 type
-  BeaconSyncNetworkState* {.final.} = ref object of RootObj
+  BeaconSyncNetworkState {.final.} = ref object of RootObj
     cfg: RuntimeConfig
 
-proc readChunkPayload*(
+proc readChunkPayload(
     conn: Connection, peer: Peer, MsgType: type (ref uint64)):
     Future[NetRes[MsgType]] {.async: (raises: [CancelledError]).} = discard
 
