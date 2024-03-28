@@ -2020,44 +2020,8 @@ proc readValue*(reader: var JsonReader[RestJson],
     reader.raiseUnexpectedValue("Field `message` is missing")
 
   let blck = ForkedBeaconBlock(message.get())
-  value = RestPublishedSignedBeaconBlock(
-    case blck.kind
-    of ConsensusFork.Phase0:
-      ForkedSignedBeaconBlock.init(
-        phase0.SignedBeaconBlock(
-          message: blck.phase0Data,
-          signature: signature.get()
-        )
-      )
-    of ConsensusFork.Altair:
-      ForkedSignedBeaconBlock.init(
-        altair.SignedBeaconBlock(
-          message: blck.altairData,
-          signature: signature.get()
-        )
-      )
-    of ConsensusFork.Bellatrix:
-      ForkedSignedBeaconBlock.init(
-        bellatrix.SignedBeaconBlock(
-          message: blck.bellatrixData,
-          signature: signature.get()
-        )
-      )
-    of ConsensusFork.Capella:
-      ForkedSignedBeaconBlock.init(
-        capella.SignedBeaconBlock(
-          message: blck.capellaData,
-          signature: signature.get()
-        )
-      )
-    of ConsensusFork.Deneb:
-      ForkedSignedBeaconBlock.init(
-        deneb.SignedBeaconBlock(
-          message: blck.denebData,
-          signature: signature.get()
-        )
-      )
-  )
+  value = RestPublishedSignedBeaconBlock ForkedSignedBeaconBlock.init(
+    blck, blck.hash_tree_root(), signature.get())
 
 proc readValue*(reader: var JsonReader[RestJson],
                 value: var RestPublishedSignedBlockContents) {.
