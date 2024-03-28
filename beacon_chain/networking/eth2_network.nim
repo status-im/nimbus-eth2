@@ -135,9 +135,7 @@ type
   NetworkStateInitializer = proc(network: Eth2Node): RootRef {.gcsafe, raises: [].}
   OnPeerConnectedHandler = proc(peer: Peer, incoming: bool): Future[void] {.async: (raises: [CancelledError]).}
   OnPeerDisconnectedHandler = proc(peer: Peer): Future[void] {.async: (raises: [CancelledError]).}
-  ThunkProc = LPProtoHandler
   MounterProc = proc(network: Eth2Node) {.gcsafe, raises: [].}
-  MessageContentPrinter = proc(msg: pointer): string {.gcsafe, raises: [].}
 
   # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.5/specs/phase0/p2p-interface.md#goodbye
   DisconnectionReason = enum
@@ -148,8 +146,6 @@ type
     # Clients MAY use reason codes above 128 to indicate alternative,
     # erroneous request-specific responses.
     PeerScoreLow = 237 # 79  3
-
-  TransmissionError = object of CatchableError
 
   Eth2NetworkingErrorKind = enum
     # Potentially benign errors (network conditions)
@@ -233,19 +229,9 @@ func shortProtocolId(protocolId: string): string =
 
 proc init(T: type Peer, network: Eth2Node, peerId: PeerId): Peer {.gcsafe.}
 
-proc getState(peer: Peer, proto: ProtocolInfo): RootRef =
-  doAssert peer.protocolStates[proto.index] != nil, $proto.index
-  peer.protocolStates[proto.index]
-
 proc getNetworkState(node: Eth2Node, proto: ProtocolInfo): RootRef =
   doAssert node.protocolStates[proto.index] != nil, $proto.index
   node.protocolStates[proto.index]
-
-template protocolState(node: Eth2Node, Protocol: type): untyped =
-  mixin NetworkState
-  bind getNetworkState
-  type S = Protocol.NetworkState
-  S(getNetworkState(node, Protocol.protocolInfo))
 
 proc getPeer(node: Eth2Node, peerId: PeerId): Peer =
   node.peers.withValue(peerId, peer) do:
@@ -403,11 +389,6 @@ proc sendErrorResponse(peer: Peer,
                        errMsg: ErrorMsg): Future[void] = discard
 proc sendNotificationMsg(peer: Peer, protocolId: string, requestBytes: seq[byte])
     {.async: (raises: [CancelledError]).} =  discard
-proc sendResponseChunkBytesSZ(
-    response: UntypedResponse, uncompressedLen: uint64,
-    payloadSZ: openArray[byte],
-    contextBytes: openArray[byte] = []): Future[void] = discard
-
 proc sendResponseChunkBytes(
     response: UntypedResponse, payload: openArray[byte],
     contextBytes: openArray[byte] = []): Future[void] = discard
