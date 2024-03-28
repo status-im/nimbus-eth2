@@ -8,7 +8,6 @@ import
   results,
   stew/[leb128, endians2, byteutils, io2, bitops2],
   stew/shims/macros,
-  snappy,
   json_serialization, json_serialization/std/[net, sets, options],
   chronos, chronos/ratelimit, chronicles,
   libp2p/[switch, peerinfo, multiaddress, multicodec, crypto/crypto,
@@ -557,108 +556,7 @@ template sendUserHandlerResultAsChunkImpl*(stream: Connection,
 
 proc uncompressFramedStream(conn: Connection,
                             expectedSize: int): Future[Result[seq[byte], string]]
-                            {.async: (raises: [CancelledError]).} =
-  var header: array[framingHeader.len, byte]
-  try:
-    await conn.readExactly(addr header[0], header.len)
-  except LPStreamEOFError, LPStreamIncompleteError:
-    return err "Unexpected EOF before snappy header"
-  except CancelledError as exc:
-    raise exc
-  except CatchableError as exc:
-    return err "Unexpected error reading header: " & exc.msg
-
-  if header != framingHeader:
-    return err "Incorrect snappy header"
-
-  static:
-    doAssert maxCompressedFrameDataLen >= maxUncompressedFrameDataLen.uint64
-
-  var
-    frameData = newSeqUninitialized[byte](maxCompressedFrameDataLen + 4)
-    output = newSeqUninitialized[byte](expectedSize)
-    written = 0
-
-  while written < expectedSize:
-    var frameHeader: array[4, byte]
-    try:
-      await conn.readExactly(addr frameHeader[0], frameHeader.len)
-    except LPStreamEOFError, LPStreamIncompleteError:
-      return err "Snappy frame header missing"
-    except CancelledError as exc:
-      raise exc
-    except CatchableError as exc:
-      return err "Unexpected error reading frame header: " & exc.msg
-
-    let (id, dataLen) = decodeFrameHeader(frameHeader)
-
-    if dataLen > frameData.len:
-      # In theory, compressed frames could be bigger and still result in a
-      # valid, small snappy frame, but this would mean they are not getting
-      # compressed correctly
-      return err "Snappy frame too big"
-
-    if dataLen > 0:
-      try:
-        await conn.readExactly(addr frameData[0], dataLen)
-      except LPStreamEOFError, LPStreamIncompleteError:
-        return err "Incomplete snappy frame"
-      except CancelledError as exc:
-        raise exc
-      except CatchableError as exc:
-        return err "Unexpected error reading frame data: " & exc.msg
-
-    if id == chunkCompressed:
-      if dataLen < 6: # At least CRC + 2 bytes of frame data
-        return err "Compressed snappy frame too small"
-
-      let
-        crc = uint32.fromBytesLE frameData.toOpenArray(0, 3)
-        uncompressed =
-          snappy.uncompress(
-            frameData.toOpenArray(4, dataLen - 1),
-            output.toOpenArray(written, output.high)).valueOr:
-              return err "Failed to decompress content"
-
-      if maskedCrc(
-          output.toOpenArray(written, written + uncompressed-1)) != crc:
-        return err "Snappy content CRC checksum failed"
-
-      written += uncompressed
-
-    elif id == chunkUncompressed:
-      if dataLen < 5: # At least one byte of data
-        return err "Uncompressed snappy frame too small"
-
-      let uncompressed = dataLen - 4
-
-      if uncompressed > maxUncompressedFrameDataLen.int:
-        return err "Snappy frame size too large"
-
-      if uncompressed > output.len - written:
-        return err "Too much data"
-
-      let crc = uint32.fromBytesLE frameData.toOpenArray(0, 3)
-      if maskedCrc(frameData.toOpenArray(4, dataLen - 1)) != crc:
-        return err "Snappy content CRC checksum failed"
-
-      output[written..<written + uncompressed] =
-        frameData.toOpenArray(4, dataLen-1)
-      written += uncompressed
-
-    elif id < 0x80:
-      # Reserved unskippable chunks (chunk types 0x02-0x7f)
-      # if we encounter this type of chunk, stop decoding
-      # the spec says it is an error
-      return err "Invalid snappy chunk type"
-
-    else:
-      # Reserved skippable chunks (chunk types 0x80-0xfe)
-      # including STREAM_HEADER (0xff) should be skipped
-      continue
-
-  return ok output
-
+                            {.async: (raises: [CancelledError]).} = discard
 func chunkMaxSize[T](): uint32 =
   # compiler error on (T: type) syntax...
   when isFixedSize(T):
