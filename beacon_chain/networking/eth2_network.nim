@@ -411,11 +411,6 @@ proc sendResponseChunkBytesSZ(
 proc sendResponseChunkBytes(
     response: UntypedResponse, payload: openArray[byte],
     contextBytes: openArray[byte] = []): Future[void] = discard
-proc sendResponseChunk(
-    response: UntypedResponse, val: auto,
-    contextBytes: openArray[byte] = []): Future[void] =
-  sendResponseChunkBytes(response, SSZ.encode(val), contextBytes)
-
 proc uncompressFramedStream(conn: Connection,
                             expectedSize: int): Future[Result[seq[byte], string]]
                             {.async: (raises: [CancelledError]).} = discard
@@ -999,10 +994,6 @@ proc p2pProtocolBackendImpl(p: P2PProtocol): Backend =
 type
   BeaconSyncNetworkState {.final.} = ref object of RootObj
     cfg: RuntimeConfig
-
-proc readChunkPayload(
-    conn: Connection, peer: Peer, MsgType: type (ref uint64)):
-    Future[NetRes[MsgType]] {.async: (raises: [CancelledError]).} = discard
 
 p2pProtocol BeaconSync(version = 1,
                        networkState = BeaconSyncNetworkState):
