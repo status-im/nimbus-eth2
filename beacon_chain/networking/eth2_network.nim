@@ -10,7 +10,7 @@ import
   stew/shims/macros,
   snappy,
   json_serialization, json_serialization/std/[net, sets, options],
-  chronos, chronos/ratelimit, chronicles, metrics,
+  chronos, chronos/ratelimit, chronicles,
   libp2p/[switch, peerinfo, multiaddress, multicodec, crypto/crypto,
     crypto/secp, builders],
   libp2p/protocols/pubsub/[
@@ -237,65 +237,6 @@ const
 template neterr*(kindParam: Eth2NetworkingErrorKind): auto =
   err(type(result), Eth2NetworkingError(kind: kindParam))
 
-# Metrics for tracking attestation and beacon block loss
-declareCounter nbc_gossip_messages_sent,
-  "Number of gossip messages sent by this peer"
-
-declareCounter nbc_gossip_messages_received,
-  "Number of gossip messages received by this peer"
-
-declareCounter nbc_gossip_failed_snappy,
-  "Number of gossip messages that failed snappy decompression"
-
-declareCounter nbc_gossip_failed_ssz,
-  "Number of gossip messages that failed SSZ parsing"
-
-declareCounter nbc_successful_dials,
-  "Number of successfully dialed peers"
-
-declareCounter nbc_failed_dials,
-  "Number of dialing attempts that failed"
-
-declareCounter nbc_timeout_dials,
-  "Number of dialing attempts that exceeded timeout"
-
-declareGauge nbc_peers,
-  "Number of active libp2p peers"
-
-declareCounter nbc_successful_discoveries,
-  "Number of successful discoveries"
-
-declareCounter nbc_failed_discoveries,
-  "Number of failed discoveries"
-
-declareCounter nbc_cycling_kicked_peers,
-  "Number of peers kicked for peer cycling"
-
-declareGauge nbc_gossipsub_low_fanout,
-  "numbers of topics with low fanout"
-
-declareGauge nbc_gossipsub_good_fanout,
-  "numbers of topics with good fanout"
-
-declareGauge nbc_gossipsub_healthy_fanout,
-  "numbers of topics with dHigh fanout"
-
-declareHistogram nbc_resolve_time,
-  "Time(s) used while resolving peer information",
-   buckets = [1.0, 5.0, 10.0, 20.0, 40.0, 60.0]
-
-declareCounter nbc_reqresp_messages_sent,
-  "Number of Req/Resp messages sent", labels = ["protocol"]
-
-declareCounter nbc_reqresp_messages_received,
-  "Number of Req/Resp messages received", labels = ["protocol"]
-
-declareCounter nbc_reqresp_messages_failed,
-  "Number of Req/Resp messages that failed decoding", labels = ["protocol"]
-
-declareCounter nbc_reqresp_messages_throttled,
-  "Number of Req/Resp messages that were throttled", labels = ["protocol"]
-
 const
   libp2p_pki_schemes {.strdefine.} = ""
 
@@ -464,7 +405,6 @@ template awaitQuota*(peerParam: Peer, costParam: float, protocolIdParam: string)
   if not peer.quota.tryConsume(cost.int):
     let protocolId = protocolIdParam
     debug "Awaiting peer quota", peer, cost = cost, protocolId = protocolId
-    nbc_reqresp_messages_throttled.inc(1, [protocolId])
     await peer.quota.consume(cost.int)
 
 template awaitQuota*(
@@ -1004,8 +944,6 @@ proc handleIncomingStream(network: Eth2Node,
     template returnResourceUnavailable(msg: string) =
       returnResourceUnavailable(ErrorMsg msg.toBytes)
 
-    nbc_reqresp_messages_received.inc(1, [shortProtocolId(protocolId)])
-
     const isEmptyMsg = when MsgRec is object:
       # We need nested `when` statements here, because Nim doesn't properly
       # apply boolean short-circuit logic at compile time and this causes
@@ -1029,7 +967,6 @@ proc handleIncomingStream(network: Eth2Node,
             readChunkPayload(conn, peer, MsgRec), deadline):
               # Timeout, e.g., cancellation due to fulfillment by different peer.
               # Treat this similarly to `UnexpectedEOF`, `PotentiallyExpectedEOF`.
-              nbc_reqresp_messages_failed.inc(1, [shortProtocolId(protocolId)])
               await sendErrorResponse(
                 peer, conn, InvalidRequest,
                 errorMsgLit "Request full data not sent in time")
@@ -1062,10 +999,8 @@ proc handleIncomingStream(network: Eth2Node,
       else:
         peer.updateScore(PeerScorePoorRequest)
 
-      nbc_reqresp_messages_failed.inc(1, [shortProtocolId(protocolId)])
       let (responseCode, errMsg) = case msg.error.kind
         of UnexpectedEOF, PotentiallyExpectedEOF:
-          nbc_reqresp_messages_failed.inc(1, [shortProtocolId(protocolId)])
           (InvalidRequest, errorMsgLit "Incomplete request")
 
         of InvalidContextBytes:
@@ -1109,16 +1044,13 @@ proc handleIncomingStream(network: Eth2Node,
       # logReceivedMsg(peer, MsgType(msg.get))
       await callUserHandler(MsgType, peer, conn, msg.get)
     except InvalidInputsError as exc:
-      nbc_reqresp_messages_failed.inc(1, [shortProtocolId(protocolId)])
       returnInvalidRequest exc.msg
     except ResourceUnavailableError as exc:
       returnResourceUnavailable exc.msg
     except CatchableError as exc:
-      nbc_reqresp_messages_failed.inc(1, [shortProtocolId(protocolId)])
       await sendErrorResponse(peer, conn, ServerError, ErrorMsg exc.msg.toBytes)
 
   except CatchableError as exc:
-    nbc_reqresp_messages_failed.inc(1, [shortProtocolId(protocolId)])
     debug "Error processing an incoming request", exc = exc.msg, msgName
 
   finally:
@@ -1219,15 +1151,12 @@ proc dialPeer(node: Eth2Node, peerAddr: PeerAddr, index = 0) {.async: (raises: [
     if workfut.finished():
       if not deadline.finished():
         deadline.cancelSoon()
-      inc nbc_successful_dials
     else:
       debug "Connection to remote peer timed out"
-      inc nbc_timeout_dials
       node.addSeen(peerAddr.peerId, SeenTableTimeTimeout)
       await cancelAndWait(workfut)
   except CatchableError as exc:
     debug "Connection to remote peer failed", msg = exc.msg
-    inc nbc_failed_dials
     node.addSeen(peerAddr.peerId, SeenTableTimeDeadPeer)
 
 proc connectWorker(node: Eth2Node, index: int) {.async: (raises: [CancelledError]).} =
@@ -1338,7 +1267,6 @@ proc trimConnections(node: Eth2Node, count: int) =
     debug "kicking peer", peerId, score=scores[peerId]
     asyncSpawn node.getPeer(peerId).disconnect(PeerScoreLow)
     dec toKick
-    inc(nbc_cycling_kicked_peers)
     if toKick <= 0: return
 
 proc getLowSubnets(node: Eth2Node, epoch: Epoch): (AttnetBits, SyncnetBits) =
@@ -1348,10 +1276,6 @@ proc getLowSubnets(node: Eth2Node, epoch: Epoch): (AttnetBits, SyncnetBits) =
   # - Have 0 subscribed subnet below `dLow`
   # - Have 0 subscribed subnet below `dOut` outgoing peers
   # - Have 0 subnet with < `dHigh` peers from topic subscription
-
-  nbc_gossipsub_low_fanout.set(0)
-  nbc_gossipsub_good_fanout.set(0)
-  nbc_gossipsub_healthy_fanout.set(0)
 
   template findLowSubnets(topicNameGenerator: untyped,
                           SubnetIdType: type,
@@ -1381,14 +1305,6 @@ proc getLowSubnets(node: Eth2Node, epoch: Epoch): (AttnetBits, SyncnetBits) =
       let outPeers = node.pubsub.mesh.getOrDefault(topic).countIt(it.outbound)
       if outPeers < node.pubsub.parameters.dOut:
         belowDOutSubnets.setBit(subNetId)
-
-    nbc_gossipsub_low_fanout.inc(int64(lowOutgoingSubnets.countOnes()))
-    nbc_gossipsub_good_fanout.inc(int64(
-      notHighOutgoingSubnets.countOnes() -
-      lowOutgoingSubnets.countOnes()
-    ))
-    nbc_gossipsub_healthy_fanout.inc(int64(
-      totalSubnets - notHighOutgoingSubnets.countOnes()))
 
     if lowOutgoingSubnets.countOnes() > 0:
       lowOutgoingSubnets
@@ -1501,9 +1417,7 @@ proc resolvePeer(peer: Peer) =
   let gnode = peer.network.discovery.getNode(nodeId)
   if gnode.isSome():
     peer.enr = Opt.some(gnode.get().record)
-    inc(nbc_successful_discoveries)
     let delay = now(chronos.Moment) - startTime
-    nbc_resolve_time.observe(delay.toFloatSeconds())
     debug "Peer's ENR recovered", delay
 
 proc handlePeer*(peer: Peer) {.async: (raises: [CancelledError]).} =
@@ -1721,7 +1635,6 @@ proc startListening*(node: Eth2Node) {.async.} =
 proc start*(node: Eth2Node) {.async: (raises: [CancelledError]).} =
   proc onPeerCountChanged() =
     trace "Number of peers has been changed", length = len(node.peerPool)
-    nbc_peers.set int64(len(node.peerPool))
 
   node.peerPool.setPeerCounter(onPeerCountChanged)
 
