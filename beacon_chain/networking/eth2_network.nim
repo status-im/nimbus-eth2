@@ -30,10 +30,6 @@ type
     lastMetadataTime: Moment
     disconnectedFut: Future[void]
 
-  PeerAddr = object
-    peerId: PeerId
-    addrs: seq[MultiAddress]
-
   ConnectionState = enum
     None,
     Connecting,
