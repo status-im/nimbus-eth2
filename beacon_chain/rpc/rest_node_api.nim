@@ -334,7 +334,7 @@ proc getDiscoveryAddresses(
           # later.
           res.incl(AddressFamily.IPv6)
         res
-  let port = node.config.udpPort
+    port = node.config.udpPort
   # Add known external addresses.
   let externalAddresses =
     node.getExternalAddresses(IpTransportProtocol.udpProtocol)
