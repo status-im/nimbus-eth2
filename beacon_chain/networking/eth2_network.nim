@@ -30,10 +30,6 @@ type
     stream: Connection
     writtenChunks: int
 
-  SingleChunkResponse[MsgType] = distinct UntypedResponse
-
-  MultipleChunksResponse[MsgType; maxLen: static Limit] = distinct UntypedResponse
-
   MessageInfo = object
     name: string
 
@@ -106,8 +102,6 @@ const
 
 when libp2p_pki_schemes != "secp256k1":
   {.fatal: "Incorrect building process, please use -d:\"libp2p_pki_schemes=secp256k1\"".}
-
-template libp2pProtocol(name: string, version: int) {.pragma.}
 
 func shortProtocolId(protocolId: string): string = discard
 proc getPeer(node: Eth2Node, peerId: PeerId): Peer = discard
