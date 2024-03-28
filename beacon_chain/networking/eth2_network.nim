@@ -1,7 +1,6 @@
 {.push raises: [].}
 
 import
-  chronos,
   ../spec/[eth2_ssz_serialization]
 
 type
@@ -19,7 +18,7 @@ proc readChunkPayload(MsgType: type): MsgType =
     raiseAssert "false"
 
 proc handleIncomingStream(protocolId: string,
-                          MsgType: type) {.async: (raises: [CancelledError]).} =
+                          MsgType: type) =
   mixin callUserHandler, RecType
 
   type MsgRec = RecType(MsgType)
@@ -64,8 +63,8 @@ template RecType(MSG: type beaconBlocksByRange_v2Obj): untyped =
 proc mount2*[T](proto: T) =
   discard
 proc beaconBlocksByRange_v2Mounter() {.raises: [].} =
-  proc snappyThunk(protocol: string): Future[void] {.gcsafe.} =
-    return handleIncomingStream(protocol,
+  proc snappyThunk(protocol: string) {.gcsafe.} =
+    handleIncomingStream(protocol,
                                 beaconBlocksByRange_v2Obj)
 
   mount2(snappyThunk)
