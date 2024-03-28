@@ -548,49 +548,29 @@ type
     cfg: RuntimeConfig
 
 
-## Generated at line 631
 type
-  BeaconSync* = object
-template NetworkState*(PROTO: type BeaconSync): type =
+  BeaconSync = object
+template NetworkState(PROTO: type BeaconSync): type =
   ref[BeaconSyncNetworkState]
 
 type
-  beaconBlocksByRange_v2Obj* = object
-    reqCount*: uint64
-    reqStep*: uint64
+  beaconBlocksByRange_v2Obj = object
+    reqCount: uint64
+    reqStep: uint64
 
-template beaconBlocksByRange_v2*(PROTO: type BeaconSync): type =
+template beaconBlocksByRange_v2(PROTO: type BeaconSync): type =
   beaconBlocksByRange_v2Obj
 
-template msgProtocol*(MSG: type beaconBlocksByRange_v2Obj): type =
+template msgProtocol(MSG: type beaconBlocksByRange_v2Obj): type =
   BeaconSync
 
-template RecType*(MSG: type beaconBlocksByRange_v2Obj): untyped =
+template RecType(MSG: type beaconBlocksByRange_v2Obj): untyped =
   beaconBlocksByRange_v2Obj
 
 var BeaconSyncProtocolObj = initProtocol("BeaconSync", nil, nil, 0)
 let BeaconSyncProtocol = addr BeaconSyncProtocolObj
-template protocolInfo*(PROTO: type BeaconSync): auto =
+template protocolInfo(PROTO: type BeaconSync): auto =
   BeaconSyncProtocol
-
-proc beaconBlocksByRange_v2*(peer: Peer; reqCount: uint64; reqStep: uint64;
-                             timeout: Duration = milliseconds(10000'i64)): auto {.
-    gcsafe, libp2pProtocol("beacon_blocks_by_range", 2).} =
-  mixin init, WriterType, beginRecord, endRecord, getOutput
-  let msgBytes = try:
-    var outputStream = memoryOutput()
-    mixin init, writerType, beginRecord, endRecord
-    var writer = init(WriterType(SSZ), outputStream)
-    var recordWriterCtx = beginRecord(writer, beaconBlocksByRange_v2Obj)
-    writeField(writer, recordWriterCtx, "reqCount", reqCount)
-    writeField(writer, recordWriterCtx, "reqStep", reqStep)
-    endRecord(writer, recordWriterCtx)
-    getOutput(outputStream)
-  except IOError:
-    raiseAssert "memoryOutput doesn\'t raise IOError actually"
-  makeEth2Request(peer,
-                  "/eth2/beacon_chain/req/beacon_blocks_by_range/2/ssz_snappy",
-                  msgBytes, List[ref uint64, Limit MAX_REQUEST_BLOCKS], timeout)
 
 proc beaconBlocksByRange_v2UserHandler(peer: Peer; reqCount: uint64;
                                        reqStep: uint64; response: MultipleChunksResponse[
