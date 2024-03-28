@@ -16,7 +16,6 @@ import
       pubsub, gossipsub, rpc/message, rpc/messages, peertable, pubsubpeer],
   libp2p/stream/connection,
   eth/[keys, async_utils],
-  ".."/[version, conf, beacon_clock, conf_light_client],
   ../spec/[eth2_ssz_serialization, network, helpers, forks],
   "."/[eth2_discovery, eth2_protocol_dsl, libp2p_json_serialization, peer_pool, peer_scores]
 
@@ -66,7 +65,6 @@ type
     peerPingerHeartbeatFut: Future[void].Raising([CancelledError])
     peerTrimmerHeartbeatFut: Future[void].Raising([CancelledError])
     cfg: RuntimeConfig
-    getBeaconTime: GetBeaconTimeFn
 
     quota: TokenBucket ## Global quota mainly for high-bandwidth stuff
 
@@ -202,7 +200,7 @@ type
     ## This is type returned from all network requests
 
 const
-  clientId* = "Nimbus beacon node " & fullVersionStr
+  clientId* = ""
 
   requestPrefix = "/eth2/beacon_chain/req/"
   requestSuffix = "/ssz_snappy"
@@ -1226,7 +1224,7 @@ proc runDiscoveryLoop(node: Eth2Node) {.async.} =
 
   while true:
     let
-      currentEpoch = node.getBeaconTime().slotOrZero.epoch
+      currentEpoch = 0.Epoch
       (wantedAttnets, wantedSyncnets) = node.getLowSubnets(currentEpoch)
       wantedAttnetsCount = wantedAttnets.countOnes()
       wantedSyncnetsCount = wantedSyncnets.countOnes()
@@ -1430,9 +1428,9 @@ proc onConnEvent(
       peer.connectionState = Disconnected
 
 proc new(T: type Eth2Node,
-         config: BeaconNodeConf | LightClientConf, runtimeCfg: RuntimeConfig,
+         runtimeCfg: RuntimeConfig,
          enrForkId: ENRForkID, discoveryForkId: ENRForkID,
-         forkDigests: ref ForkDigests, getBeaconTime: GetBeaconTimeFn,
+         forkDigests: ref ForkDigests,
          switch: Switch, pubsub: GossipSub,
          ip: Option[IpAddress], tcpPort, udpPort: Option[Port],
          privKey: keys.PrivateKey, discovery: bool,
@@ -1467,7 +1465,6 @@ proc new(T: type Eth2Node,
     forkId: enrForkId,
     discoveryForkId: discoveryForkId,
     forkDigests: forkDigests,
-    getBeaconTime: getBeaconTime,
     discovery: Eth2DiscoveryProtocol.new(
       config, ip, tcpPort, udpPort, privKey,
       {
