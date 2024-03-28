@@ -14,7 +14,6 @@ type
 
   Peer = ref object
     network: Eth2Node
-    peerId: PeerId
     connectionState: ConnectionState
     protocolStates: seq[RootRef]
 
@@ -102,7 +101,6 @@ func shortProtocolId(protocolId: string): string = discard
 proc getPeer(node: Eth2Node, peerId: PeerId): Peer = discard
 proc peerFromStream(network: Eth2Node, conn: Connection): Peer =
   result = network.getPeer(conn.peerId)
-  result.peerId = conn.peerId
 
 func `<`(a, b: Peer): bool = false
 const
