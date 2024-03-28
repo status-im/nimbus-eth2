@@ -6,7 +6,7 @@ import
 
   # Status libs
   results,
-  stew/[leb128, endians2, byteutils, io2, bitops2],
+  stew/[leb128, byteutils, io2],
   stew/shims/macros,
   json_serialization, json_serialization/std/[net, sets, options],
   chronos, chronos/ratelimit, chronicles,
@@ -28,10 +28,6 @@ type
   SendResult* = Result[void, cstring]
 
   DirectPeers = Table[PeerId, seq[MultiAddress]]
-
-  # TODO: This is here only to eradicate a compiler
-  # warning about unused import (rpc/messages).
-  GossipMsg = messages.Message
 
   SeenItem* = object
     peerId*: PeerId
@@ -238,9 +234,6 @@ const
 when libp2p_pki_schemes != "secp256k1":
   {.fatal: "Incorrect building process, please use -d:\"libp2p_pki_schemes=secp256k1\"".}
 
-const
-  NetworkInsecureKeyPassword = "INSECUREPASSWORD"
-
 template libp2pProtocol*(name: string, version: int) {.pragma.}
 
 func shortLog*(peer: Peer): string = shortLog(peer.peerId)
@@ -255,25 +248,6 @@ func shortProtocolId(protocolId: string): string =
     else:
       protocolId.high
   protocolId[start..ends]
-
-proc openStream(node: Eth2Node,
-                peer: Peer,
-                protocolId: string): Future[NetRes[Connection]]
-                {.async: (raises: [CancelledError]).} =
-  # When dialing here, we do not provide addresses - all new connection
-  # attempts are handled via `connect` which also takes into account
-  # reconnection timeouts
-  try:
-    ok await dial(node.switch, peer.peerId, protocolId)
-  except LPError as exc:
-    debug "Dialing failed", exc = exc.msg
-    neterr BrokenConnection
-  except CancelledError as exc:
-    raise exc
-  except CatchableError as exc:
-    # TODO remove once libp2p supports `raises`
-    debug "Unexpected error when opening stream", exc = exc.msg
-    neterr UnknownError
 
 proc init(T: type Peer, network: Eth2Node, peerId: PeerId): Peer {.gcsafe.}
 
@@ -513,15 +487,6 @@ template errorMsgLit(x: static string): ErrorMsg =
   const val = ErrorMsg toBytes(x)
   val
 
-func formatErrorMsg(msg: ErrorMsg): string =
-  # ErrorMsg "usually" contains a human-readable string - we'll try to parse it
-  # as ASCII and return hex if that fails
-  for c in msg:
-    if c < 32 or c > 127:
-      return byteutils.toHex(asSeq(msg))
-
-  string.fromBytes(asSeq(msg))
-
 proc sendErrorResponse(peer: Peer,
                        conn: Connection,
                        responseCode: ResponseCode,
@@ -563,26 +528,6 @@ func chunkMaxSize[T](): uint32 =
 
 from ../spec/datatypes/capella import SignedBeaconBlock
 from ../spec/datatypes/deneb import SignedBeaconBlock
-
-template gossipMaxSize(T: untyped): uint32 =
-  const maxSize = static:
-    when isFixedSize(T):
-      fixedPortionSize(T).uint32
-    elif T is bellatrix.SignedBeaconBlock or T is capella.SignedBeaconBlock or
-         T is deneb.SignedBeaconBlock or T is electra.SignedBeaconBlock:
-      GOSSIP_MAX_SIZE
-    # TODO https://github.com/status-im/nim-ssz-serialization/issues/20 for
-    # Attestation, AttesterSlashing, and SignedAggregateAndProof, which all
-    # have lists bounded at MAX_VALIDATORS_PER_COMMITTEE (2048) items, thus
-    # having max sizes significantly smaller than GOSSIP_MAX_SIZE.
-    elif T is Attestation or T is AttesterSlashing or
-         T is SignedAggregateAndProof or T is phase0.SignedBeaconBlock or
-         T is altair.SignedBeaconBlock or T is SomeForkyLightClientObject:
-      GOSSIP_MAX_SIZE
-    else:
-      {.fatal: "unknown type " & name(T).}
-  static: doAssert maxSize <= GOSSIP_MAX_SIZE
-  maxSize.uint32
 
 proc readVarint2(conn: Connection): Future[NetRes[uint64]] {.
     async: (raises: [CancelledError]).} =
@@ -630,76 +575,6 @@ proc readChunkPayload*(conn: Connection, peer: Peer,
     ok SSZ.decode(data, MsgType)
   except SerializationError:
     neterr InvalidSszBytes
-
-proc readResponseChunk(
-    conn: Connection, peer: Peer, MsgType: typedesc):
-    Future[NetRes[MsgType]] {.async: (raises: [CancelledError]).} =
-  mixin readChunkPayload
-
-  var responseCodeByte: byte
-  try:
-    await conn.readExactly(addr responseCodeByte, 1)
-  except LPStreamEOFError, LPStreamIncompleteError:
-    return neterr PotentiallyExpectedEOF
-  except CancelledError as exc:
-    raise exc
-  except CatchableError as exc:
-    warn "Unexpected error", exc = exc.msg
-    return neterr UnknownError
-
-  static: assert ResponseCode.low.ord == 0
-  if responseCodeByte > ResponseCode.high.byte:
-    return neterr InvalidResponseCode
-
-  let responseCode = ResponseCode responseCodeByte
-  case responseCode:
-  of InvalidRequest, ServerError, ResourceUnavailable:
-    let
-      errorMsg = ? await readChunkPayload(conn, peer, ErrorMsg)
-      errorMsgStr = toPrettyString(errorMsg.asSeq)
-    debug "Error response from peer", responseCode, errMsg = errorMsgStr
-    return err Eth2NetworkingError(kind: ReceivedErrorResponse,
-                                    responseCode: responseCode,
-                                    errorMsg: errorMsgStr)
-  of Success:
-    discard
-
-  return await readChunkPayload(conn, peer, MsgType)
-
-proc readResponse(conn: Connection, peer: Peer,
-                  MsgType: type, timeout: Duration): Future[NetRes[MsgType]]
-                  {.async: (raises: [CancelledError]).} =
-  when MsgType is List:
-    type E = MsgType.T
-    var results: MsgType
-    while true:
-      # Because we interleave networking with response processing, it may
-      # happen that reading all chunks takes longer than a strict dealine
-      # timeout would allow, so we allow each chunk a new timeout instead.
-      # The problem is exacerbated by the large number of round-trips to the
-      # poll loop that each future along the way causes.
-      trace "reading chunk", conn
-      let nextFut = conn.readResponseChunk(peer, E)
-      if not await nextFut.withTimeout(timeout):
-        return neterr(ReadResponseTimeout)
-      let nextRes = await nextFut
-      if nextRes.isErr:
-        if nextRes.error.kind == PotentiallyExpectedEOF:
-          trace "EOF chunk", conn, err = nextRes.error
-
-          return ok results
-        trace "Error chunk", conn, err = nextRes.error
-
-        return err nextRes.error
-      else:
-        trace "Got chunk", conn
-        if not results.add nextRes.value:
-          return neterr(ResponseChunkOverflow)
-  else:
-    let nextFut = conn.readResponseChunk(peer, MsgType)
-    if not await nextFut.withTimeout(timeout):
-      return neterr(ReadResponseTimeout)
-    return await nextFut # Guaranteed to complete without waiting
 
 proc makeEth2Request(peer: Peer, protocolId: string, requestBytes: seq[byte],
                      ResponseMsg: type,
@@ -1068,156 +943,6 @@ proc connectWorker(node: Eth2Node, index: int) {.async: (raises: [CancelledError
     # Peer was added to `connTable` before adding it to `connQueue`, so we
     # excluding peer here after processing.
     node.connTable.excl(remotePeerAddr.peerId)
-
-proc toPeerAddr(node: Node): Result[PeerAddr, cstring] =
-  let nodeRecord = ? node.record.toTypedRecord()
-  let peerAddr = ? nodeRecord.toPeerAddr(tcpProtocol)
-  ok(peerAddr)
-
-proc trimConnections(node: Eth2Node, count: int) =
-  # Kill `count` peers, scoring them to remove the least useful ones
-
-  var scores = initOrderedTable[PeerId, int]()
-
-  # Take into account the stabilitySubnets
-  # During sync, only this will be used to score peers
-  # since gossipsub is not running yet
-  #
-  # A peer subscribed to all stabilitySubnets will
-  # have 640 points
-  var peersInGracePeriod = 0
-  for peer in node.peers.values:
-    if peer.connectionState != Connected: continue
-
-    # Metadata pinger is used as grace period
-    if peer.metadata.isNone:
-      peersInGracePeriod.inc()
-      continue
-
-    let
-      stabilitySubnets = peer.metadata.get().attnets
-      stabilitySubnetsCount = stabilitySubnets.countOnes()
-      thisPeersScore = 10 * stabilitySubnetsCount
-
-    scores[peer.peerId] = thisPeersScore
-
-
-  # Safegard: if we have too many peers in the grace
-  # period, don't kick anyone. Otherwise, they will be
-  # preferred over long-standing peers
-  if peersInGracePeriod > scores.len div 2:
-    return
-
-  # Split a 1000 points for each topic's peers
-  # + 5 000 points for each subbed topic
-  # This gives priority to peers in topics with few peers
-  # For instance, a topic with `dHigh` peers will give 80 points to each peer
-  # Whereas a topic with `dLow` peers will give 250 points to each peer
-  #
-  # Then, use the average of all topics per peers, to avoid giving too much
-  # point to big peers
-
-  var gossipScores = initTable[PeerId, tuple[sum: int, count: int]]()
-  for topic, _ in node.pubsub.gossipsub:
-    let
-      peersInMesh = node.pubsub.mesh.peers(topic)
-      peersSubbed = node.pubsub.gossipsub.peers(topic)
-      scorePerMeshPeer = 5_000 div max(peersInMesh, 1)
-      scorePerSubbedPeer = 1_000 div max(peersSubbed, 1)
-
-    for peer in node.pubsub.gossipsub.getOrDefault(topic):
-      if peer.peerId notin scores: continue
-      let currentVal = gossipScores.getOrDefault(peer.peerId)
-      gossipScores[peer.peerId] = (
-        currentVal.sum + scorePerSubbedPeer,
-        currentVal.count + 1
-      )
-
-    # Avoid global topics (>75% of peers), which would greatly reduce
-    # the average score for small peers
-    if peersSubbed > scores.len div 4 * 3: continue
-
-    for peer in node.pubsub.mesh.getOrDefault(topic):
-      if peer.peerId notin scores: continue
-      let currentVal = gossipScores.getOrDefault(peer.peerId)
-      gossipScores[peer.peerId] = (
-        currentVal.sum + scorePerMeshPeer,
-        currentVal.count + 1
-      )
-
-  for peerId, gScore in gossipScores:
-    scores[peerId] =
-      scores.getOrDefault(peerId) + (gScore.sum div gScore.count)
-
-  proc sortPerScore(a, b: (PeerId, int)): int =
-    system.cmp(a[1], b[1])
-
-  scores.sort(sortPerScore)
-
-  var toKick = count
-
-  for peerId in scores.keys:
-    if peerId in node.directPeers: continue
-    debug "kicking peer", peerId, score=scores[peerId]
-    asyncSpawn node.getPeer(peerId).disconnect(PeerScoreLow)
-    dec toKick
-    if toKick <= 0: return
-
-proc getLowSubnets(node: Eth2Node, epoch: Epoch): (AttnetBits, SyncnetBits) =
-  # Returns the subnets required to have a healthy mesh
-  # The subnets are computed, to, in order:
-  # - Have 0 subnet with < `dLow` peers from topic subscription
-  # - Have 0 subscribed subnet below `dLow`
-  # - Have 0 subscribed subnet below `dOut` outgoing peers
-  # - Have 0 subnet with < `dHigh` peers from topic subscription
-
-  template findLowSubnets(topicNameGenerator: untyped,
-                          SubnetIdType: type,
-                          totalSubnets: static int): auto =
-    var
-      lowOutgoingSubnets: BitArray[totalSubnets]
-      notHighOutgoingSubnets: BitArray[totalSubnets]
-      belowDSubnets: BitArray[totalSubnets]
-      belowDOutSubnets: BitArray[totalSubnets]
-
-    for subNetId in 0 ..< totalSubnets:
-      let topic =
-        topicNameGenerator(node.forkId.fork_digest, SubnetIdType(subNetId))
-
-      if node.pubsub.gossipsub.peers(topic) < node.pubsub.parameters.dLow:
-        lowOutgoingSubnets.setBit(subNetId)
-
-      if node.pubsub.gossipsub.peers(topic) < node.pubsub.parameters.dHigh:
-        notHighOutgoingSubnets.setBit(subNetId)
-
-      # Not subscribed
-      if topic notin node.pubsub.mesh: continue
-
-      if node.pubsub.mesh.peers(topic) < node.pubsub.parameters.dLow:
-        belowDSubnets.setBit(subNetId)
-
-      let outPeers = node.pubsub.mesh.getOrDefault(topic).countIt(it.outbound)
-      if outPeers < node.pubsub.parameters.dOut:
-        belowDOutSubnets.setBit(subNetId)
-
-    if lowOutgoingSubnets.countOnes() > 0:
-      lowOutgoingSubnets
-    elif belowDSubnets.countOnes() > 0:
-      belowDSubnets
-    elif belowDOutSubnets.countOnes() > 0:
-      belowDOutSubnets
-    else:
-      notHighOutgoingSubnets
-
-  return (
-    findLowSubnets(getAttestationTopic, SubnetId, ATTESTATION_SUBNET_COUNT.int),
-    # We start looking one epoch before the transition in order to allow
-    # some time for the gossip meshes to get healthy:
-    if epoch + 1 >= node.cfg.ALTAIR_FORK_EPOCH:
-      findLowSubnets(getSyncCommitteeTopic, SyncSubcommitteeIndex, SYNC_COMMITTEE_SUBNET_COUNT)
-    else:
-      default(SyncnetBits)
-  )
 
 proc resolvePeer(peer: Peer) =
   # Resolve task which performs searching of peer's public key and recovery of
