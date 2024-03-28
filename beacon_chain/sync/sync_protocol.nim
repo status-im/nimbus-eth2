@@ -8,7 +8,6 @@ import
 type
   BeaconSyncNetworkState* {.final.} = ref object of RootObj
     cfg: RuntimeConfig
-    genesisBlockRoot: Eth2Digest
 
 proc readChunkPayload*(
     conn: Connection, peer: Peer, MsgType: type (ref uint64)):
@@ -18,7 +17,6 @@ p2pProtocol BeaconSync(version = 1,
                        networkState = BeaconSyncNetworkState):
   proc beaconBlocksByRange_v2(
       peer: Peer,
-      startSlot: Slot,
       reqCount: uint64,
       reqStep: uint64,
       response: MultipleChunksResponse[
