@@ -1,7 +1,7 @@
 {.push raises: [].}
 
 import
-  std/[typetraits, os, strutils, tables, macrocache],
+  std/[typetraits, os, strutils, tables],
   results,
   json_serialization, json_serialization/std/[net, sets, options],
   chronos,
