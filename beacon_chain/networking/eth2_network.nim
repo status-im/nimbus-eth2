@@ -12,13 +12,9 @@ type
 
   MounterProc = proc() {.gcsafe, raises: [].}
 
-  Eth2NetworkingError = object
-
   InvalidInputsError = object of CatchableError
 
   ResourceUnavailableError = object of CatchableError
-
-  NetRes[T] = Result[T, Eth2NetworkingError]
 
 proc sendErrorResponse(conn: Connection,
                        errMsg: ErrorMsg): Future[void] = discard
@@ -26,14 +22,14 @@ proc uncompressFramedStream(conn: Connection,
                             expectedSize: int): Future[Result[seq[byte], string]]
                             {.async: (raises: [CancelledError]).} = discard
 proc readChunkPayload(conn: Connection,
-                       MsgType: type): Future[NetRes[MsgType]]
+                       MsgType: type): Future[MsgType]
                        {.async: (raises: [CancelledError]).} =
   let size = 0'u32
   let
     dataRes = await conn.uncompressFramedStream(size.int)
 
   try:
-    ok SSZ.decode(dataRes.get, MsgType)
+    SSZ.decode(dataRes.get, MsgType)
   except SerializationError:
     raiseAssert "false"
 
@@ -73,7 +69,7 @@ proc handleIncomingStream(conn: Connection,
     let msg =
       try:
         when isEmptyMsg:
-          NetRes[MsgRec].ok default(MsgRec)
+          default(MsgRec)
         else:
           await(readChunkPayload(conn, MsgRec))
       finally:
