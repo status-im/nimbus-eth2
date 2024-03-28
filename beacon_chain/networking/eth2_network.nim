@@ -13,7 +13,7 @@ type
   MounterProc = proc() {.gcsafe, raises: [].}
 
 proc sendErrorResponse(conn: Connection,
-                       errMsg: ErrorMsg): Future[void] = discard
+                       errMsg: ErrorMsg) = discard
 proc readChunkPayload(conn: Connection,
                        MsgType: type): Future[MsgType]
                        {.async: (raises: [CancelledError]).} =
@@ -53,7 +53,7 @@ proc handleIncomingStream(conn: Connection,
     try:
       discard
     except CatchableError:
-      await sendErrorResponse(conn, default(ErrorMsg))
+      sendErrorResponse(conn, default(ErrorMsg))
 
   except CatchableError:
     discard
