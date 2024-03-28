@@ -65,8 +65,7 @@ type
 template RecType(MSG: type beaconBlocksByRange_v2Obj): untyped =
   beaconBlocksByRange_v2Obj
 
-proc mount2*[T](proto: T)
-  {.gcsafe, raises: [LPError].} =
+proc mount2*[T](proto: T) =
   discard
 proc beaconBlocksByRange_v2Mounter() {.raises: [].} =
   proc snappyThunk(stream: Connection; protocol: string): Future[void] {.gcsafe.} =
