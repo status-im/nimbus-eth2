@@ -143,21 +143,6 @@ func chunkMaxSize[T](): uint32 =
     static: doAssert MAX_CHUNK_SIZE < high(uint32).uint64
     MAX_CHUNK_SIZE.uint32
 
-proc readVarint2(conn: Connection): Future[NetRes[uint64]] {.
-    async: (raises: [CancelledError]).} =
-  try:
-    ok await conn.readVarint()
-  except LPStreamEOFError: #, LPStreamIncompleteError, InvalidVarintError
-    neterr UnexpectedEOF
-  except LPStreamIncompleteError:
-    neterr UnexpectedEOF
-  except InvalidVarintError:
-    neterr InvalidSizePrefix
-  except CancelledError as exc:
-    raise exc
-  except CatchableError:
-    neterr UnknownError
-
 proc readChunkPayload(conn: Connection, peer: Peer,
                        MsgType: type): Future[NetRes[MsgType]]
                        {.async: (raises: [CancelledError]).} =
