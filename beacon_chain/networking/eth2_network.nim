@@ -192,13 +192,6 @@ proc readChunkPayload(conn: Connection, peer: Peer,
   except SerializationError:
     neterr InvalidSszBytes
 
-proc init(T: type MultipleChunksResponse, peer: Peer, conn: Connection): T =
-  T(UntypedResponse(peer: peer, stream: conn))
-
-proc init[MsgType](T: type SingleChunkResponse[MsgType],
-                    peer: Peer, conn: Connection): T =
-  T(UntypedResponse(peer: peer, stream: conn))
-
 proc handleIncomingStream(network: Eth2Node,
                           conn: Connection,
                           protocolId: string,
