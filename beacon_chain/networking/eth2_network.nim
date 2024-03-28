@@ -9,11 +9,6 @@ type
   ErrorMsg = List[byte, 256]
   Peer = ref object
 
-  ConnectionState = enum
-    None,
-    Connecting,
-    Connected
-
   MessageInfo = object
     protocolMounter: MounterProc
 
@@ -47,34 +42,9 @@ const
 when libp2p_pki_schemes != "secp256k1":
   {.fatal: "Incorrect building process, please use -d:\"libp2p_pki_schemes=secp256k1\"".}
 
-func shortProtocolId(protocolId: string): string = discard
 proc getPeer(peerId: PeerId): Peer = discard
 proc peerFromStream(conn: Connection): Peer =
   result = getPeer(conn.peerId)
-
-const
-  maxRequestQuota = 1000000
-  fullReplenishTime = 5.seconds
-
-template awaitQuota(peerParam: Peer, costParam: float, protocolIdParam: string) = discard
-
-template awaitQuota(
-    costParam: float, protocolIdParam: string) =
-  let
-    network = networkParam
-    cost = int(costParam)
-
-  if not network.quota.tryConsume(cost.int):
-    let protocolId = protocolIdParam
-    nbc_reqresp_messages_throttled.inc(1, [protocolId])
-    await network.quota.consume(cost.int)
-
-func allowedOpsPerSecondCost(n: int): float =
-  const replenishRate = (maxRequestQuota / fullReplenishTime.nanoseconds.float)
-  (replenishRate * 1000000000'f / n.float)
-
-const
-  libp2pRequestCost = allowedOpsPerSecondCost(8)
 
 proc sendErrorResponse(peer: Peer,
                        conn: Connection,
