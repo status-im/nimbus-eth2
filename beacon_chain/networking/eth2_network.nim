@@ -1,7 +1,6 @@
 {.push raises: [].}
 
 import
-  results,
   chronos,
   libp2p/switch,
   ../spec/[eth2_ssz_serialization]
