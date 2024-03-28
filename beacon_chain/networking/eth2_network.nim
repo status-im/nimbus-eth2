@@ -12,7 +12,7 @@ import
       pubsub, gossipsub, rpc/message, rpc/messages, peertable, pubsubpeer],
   eth/[keys, async_utils],
   ../spec/[eth2_ssz_serialization, network, helpers, forks],
-  "."/[eth2_protocol_dsl, libp2p_json_serialization]
+  "."/[eth2_protocol_dsl]
 
 type
   ErrorMsg = List[byte, 256]
