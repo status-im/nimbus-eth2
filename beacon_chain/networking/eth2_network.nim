@@ -8,7 +8,6 @@ import
 type
   ErrorMsg = List[byte, 256]
   Peer = ref object
-    connectionState: ConnectionState
 
   ConnectionState = enum
     None,
