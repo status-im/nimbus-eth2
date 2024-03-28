@@ -1,7 +1,7 @@
 {.push raises: [].}
 
 import
-  std/[typetraits, os, strutils, algorithm, tables, macrocache],
+  std/[typetraits, os, strutils, tables, macrocache],
   results,
   stew/[leb128, byteutils, io2],
   stew/shims/macros,
@@ -187,9 +187,6 @@ const
   requestPrefix = "/eth2/beacon_chain/req/"
   requestSuffix = "/ssz_snappy"
 
-  ConcurrentConnections = 20
-    ## Maximum number of active concurrent connection requests.
-
   SeenTableTimeIrrelevantNetwork = 24.hours
     ## Period of time for `IrrelevantNetwork` error reason.
   SeenTableTimeClientShutDown = 10.minutes
@@ -198,9 +195,6 @@ const
     ## Period of time for `FaultOnError` error reason.
   SeenTablePenaltyError = 60.minutes
     ## Period of time for peers which score below or equal to zero.
-  SeenTableTimeReconnect = 1.minutes
-    ## Minimal time between disconnection and reconnection attempt
-
   ProtocolViolations = {InvalidResponseCode..Eth2NetworkingErrorKind.high()}
 
 template neterr(kindParam: Eth2NetworkingErrorKind): auto =
@@ -278,8 +272,6 @@ func `<`(a, b: Peer): bool =
 
 const
   maxRequestQuota = 1000000
-  maxGlobalQuota = 2 * maxRequestQuota
-    ## Roughly, this means we allow 2 peers to sync from us at a time
   fullReplenishTime = 5.seconds
 
 template awaitQuota(peerParam: Peer, costParam: float, protocolIdParam: string) =
@@ -464,13 +456,6 @@ proc init(T: type MultipleChunksResponse, peer: Peer, conn: Connection): T =
 proc init[MsgType](T: type SingleChunkResponse[MsgType],
                     peer: Peer, conn: Connection): T =
   T(UntypedResponse(peer: peer, stream: conn))
-
-proc performProtocolHandshakes(peer: Peer, incoming: bool) {.async: (raises: [CancelledError]).} =
-  # Loop down serially because it's easier to reason about the connection state
-  # when there are fewer async races, specially during setup
-  for protocol in peer.network.protocols:
-    if protocol.onPeerConnected != nil:
-      await protocol.onPeerConnected(peer, incoming)
 
 proc initProtocol(name: string,
                   peerInit: PeerStateInitializer,
@@ -674,85 +659,6 @@ proc handleIncomingStream(network: Eth2Node,
     except CatchableError as exc:
       debug "Unexpected error while closing incoming connection", exc = exc.msg
     releasePeer(peer)
-
-proc onConnEvent(
-    node: Eth2Node, peerId: PeerId, event: ConnEvent) {.
-    async: (raises: [CancelledError]).} =
-  let peer = node.getPeer(peerId)
-  case event.kind
-  of ConnEventKind.Connected:
-    inc peer.connections
-    debug "Peer connection upgraded", peer = $peerId,
-                                      connections = peer.connections
-    if peer.connections == 1:
-      # Libp2p may connect multiple times to the same peer - using different
-      # transports for both incoming and outgoing. For now, we'll count our
-      # "fist" encounter with the peer as the true connection, leaving the
-      # other connections be - libp2p limits the number of concurrent
-      # connections to the same peer, and only one of these connections will be
-      # active. Nonetheless, this quirk will cause a number of odd behaviours:
-      #   connected transport - instead we'll just pick a random one!
-      case peer.connectionState
-      of Disconnecting:
-        # We got connection with peer which we currently disconnecting.
-        # Normally this does not happen, but if a peer is being disconnected
-        # while a concurrent (incoming for example) connection attempt happens,
-        # we might end up here
-        debug "Got connection attempt from peer that we are disconnecting",
-             peer = peerId
-        try:
-          await node.switch.disconnect(peerId)
-        except CancelledError as exc:
-          raise exc
-        except CatchableError as exc:
-          debug "Unexpected error while disconnecting peer", exc = exc.msg
-        return
-      of None:
-        # We have established a connection with the new peer.
-        peer.connectionState = Connecting
-      of Disconnected:
-        # We have established a connection with the peer that we have seen
-        # before - reusing the existing peer object is fine
-        peer.connectionState = Connecting
-        peer.score = 0 # Will be set to NewPeerScore after handshake
-      of Connecting, Connected:
-        # This means that we got notification event from peer which we already
-        # connected or connecting right now. If this situation will happened,
-        # it means bug on `nim-libp2p` side.
-        warn "Got connection attempt from peer which we already connected",
-             peer = peerId
-        await peer.disconnect(FaultOrError)
-        return
-
-      # Store connection direction inside Peer object.
-      if event.incoming:
-        peer.direction = PeerType.Incoming
-      else:
-        peer.direction = PeerType.Outgoing
-
-      await performProtocolHandshakes(peer, event.incoming)
-
-  of ConnEventKind.Disconnected:
-    dec peer.connections
-    debug "Lost connection to peer", peer = peerId,
-                                     connections = peer.connections
-
-    if peer.connections == 0:
-      debug "Peer disconnected", peer = $peerId, connections = peer.connections
-
-      # Whatever caused disconnection, avoid connection spamming
-      node.addSeen(peerId, SeenTableTimeReconnect)
-
-      let fut = peer.disconnectedFut
-      if not(isNil(fut)):
-        fut.complete()
-        peer.disconnectedFut = nil
-      else:
-        # TODO (cheatfate): This could be removed when bug will be fixed inside
-        # `nim-libp2p`.
-        debug "Got new event while peer is already disconnected",
-              peer = peerId, peer_state = peer.connectionState
-      peer.connectionState = Disconnected
 
 proc init(T: type Peer, network: Eth2Node, peerId: PeerId): Peer =
   let res = Peer(
