@@ -22,11 +22,6 @@ type
     seenTable: Table[PeerId, SeenItem]
     connWorkers: seq[Future[void].Raising([CancelledError])]
     connTable: HashSet[PeerId]
-    forkId: ENRForkID
-    discoveryForkId: ENRForkID
-    rng: ref HmacDrbgContext
-    peers: Table[PeerId, Peer]
-    directPeers: DirectPeers
 
   AverageThroughput = object
     count: uint64
@@ -144,13 +139,7 @@ template libp2pProtocol(name: string, version: int) {.pragma.}
 func shortProtocolId(protocolId: string): string = discard
 proc init(T: type Peer, network: Eth2Node, peerId: PeerId): Peer {.gcsafe.}
 
-proc getPeer(node: Eth2Node, peerId: PeerId): Peer =
-  node.peers.withValue(peerId, peer) do:
-    return peer[]
-  do:
-    let peer = Peer.init(node, peerId)
-    return node.peers.mgetOrPut(peerId, peer)
-
+proc getPeer(node: Eth2Node, peerId: PeerId): Peer = discard
 proc peerFromStream(network: Eth2Node, conn: Connection): Peer =
   result = network.getPeer(conn.peerId)
   result.peerId = conn.peerId
