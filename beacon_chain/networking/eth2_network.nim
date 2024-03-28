@@ -239,15 +239,6 @@ func allowedOpsPerSecondCost(n: int): float =
 const
   libp2pRequestCost = allowedOpsPerSecondCost(8)
 
-proc addSeen(network: Eth2Node, peerId: PeerId,
-              period: chronos.Duration) =
-  let item = SeenItem(peerId: peerId, stamp: now(chronos.Moment) + period)
-  withValue(network.seenTable, peerId, entry) do:
-    if entry.stamp < item.stamp:
-      entry.stamp = item.stamp
-  do:
-    network.seenTable[peerId] = item
-
 proc releasePeer(peer: Peer) = discard
 template errorMsgLit(x: static string): ErrorMsg = default(ErrorMsg)
 proc sendErrorResponse(peer: Peer,
