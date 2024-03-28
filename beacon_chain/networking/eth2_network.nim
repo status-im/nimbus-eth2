@@ -25,10 +25,6 @@ type
     score: int
     lastReqTime: Moment
     connections: int
-    metadata: Opt[altair.MetaData]
-    failedMetadataRequests: int
-    lastMetadataTime: Moment
-    disconnectedFut: Future[void]
 
   ConnectionState = enum
     None,
