@@ -5,7 +5,7 @@
 # at your option. This file may not be copied, modified, or distributed except according to those terms.
 
 import
-  std/[strutils, sequtils],
+  std/[sequtils, tables],
   stew/[byteutils, results, endians2],
   chronicles,
   chronos, chronos/transports/[osnet, ipnet],
@@ -133,30 +133,31 @@ proc getWildcardMultiAddresses(
   suffix: MultiAddress
 ): seq[MultiAddress] =
   var addresses: seq[MultiAddress]
-  for iface in interfaces:
-    if not(iface.checkInterface()):
-      # We support only addresses which are currently UP.
-      continue
-    for ifaddr in iface.addresses:
-      if ifaddr.host.family notin families:
+  if len(families) > 0:
+    for iface in interfaces:
+      if not(iface.checkInterface()):
+        # We support only addresses which are currently UP.
         continue
-      var address = ifaddr.host
-      address.port = port
-      let
-        maddress =
-          case protocol
-          of IpTransportProtocol.udpProtocol:
-            MultiAddress.init(address, IPPROTO_UDP).valueOr:
-              continue
-          of IpTransportProtocol.tcpProtocol:
-            MultiAddress.init(address, IPPROTO_TCP).valueOr:
-              continue
-        suffixed = maddress.concat(suffix).valueOr:
+      for ifaddr in iface.addresses:
+        if ifaddr.host.family notin families:
           continue
-      addresses.add(suffixed)
+        var address = ifaddr.host
+        address.port = port
+        let
+          maddress =
+            case protocol
+            of IpTransportProtocol.udpProtocol:
+              MultiAddress.init(address, IPPROTO_UDP).valueOr:
+                continue
+            of IpTransportProtocol.tcpProtocol:
+              MultiAddress.init(address, IPPROTO_TCP).valueOr:
+                continue
+          suffixed = maddress.concat(suffix).valueOr:
+            continue
+        addresses.add(suffixed)
   addresses
 
-proc getPeerAddresses(node: BeaconNode): seq[MultiAddress] =
+proc getDiscoveryV5Addresses(node: BeaconNode): seq[MultiAddress] =
   var addresses: seq[MultiAddress]
   let
     typedRecord = node.network.enrRecord().toTypedRecord().valueOr:
@@ -171,92 +172,33 @@ proc getPeerAddresses(node: BeaconNode): seq[MultiAddress] =
     addresses.add(res)
   addresses
 
-proc getDiscoveryAddresses(
-    node: BeaconNode,
-    interfaces: openArray[NetworkInterface]
-): seq[string] =
-  var addresses: seq[string]
-  let
-    pinfo = node.network.switch.peerInfo
-    suffix = MultiAddress.init(multiCodec("p2p"), pinfo.peerId).valueOr:
-      return default(seq[string])
-    families =
-      block:
-        var res: set[AddressFamily]
-        case node.config.listenAddress.family
-        of IpAddressFamily.IPv4:
-          res.incl(AddressFamily.IPv4)
-        of IpAddressFamily.IPv6:
-          # TODO (cheatfate): Wildcard addresses (dualstack) will be handled
-          # later.
-          res.incl(AddressFamily.IPv6)
-        res
-  let
-    port = node.config.udpPort
-    wildcardAddresses =
-      interfaces.getWildcardMultiAddresses(
-        families, IpTransportProtocol.udpProtocol, port, suffix)
-  # Add local interface addresses.
-  addresses.add(wildcardAddresses.mapIt($it))
-  # Add public addresses discovered by DiscoveryV5.
-  addresses.add(node.getPeerAddresses().mapIt($it))
+proc getExternalAddresses(node: BeaconNode,
+                          protocol: IpTransportProtocol): seq[MultiAddress] =
+  var addresses: seq[MultiAddress]
+  let suffix = MultiAddress.init(multiCodec("p2p"),
+                                 node.network.peerIdent).valueOr:
+    return default(seq[MultiAddress])
+
+  for eaddress in node.network.externalAddresses:
+    let
+      maddress =
+        case protocol
+        of IpTransportProtocol.tcpProtocol:
+          if eaddress.address.isNone() or eaddress.tcp.isNone():
+            continue
+          MultiAddress.init(eaddress.address.get(), protocol,
+                            eaddress.tcp.get())
+        of IpTransportProtocol.udpProtocol:
+          if eaddress.address.isNone() or eaddress.udp.isNone():
+            continue
+          MultiAddress.init(eaddress.address.get(), protocol,
+                            eaddress.udp.get())
+      suffixed = maddress.concat(suffix).valueOr:
+        continue
+    addresses.add(suffixed)
   addresses
 
-proc getP2PAddresses(
-    node: BeaconNode,
-    interfaces: openArray[NetworkInterface]
-): seq[string] =
-  let
-    pinfo = node.network.switch.peerInfo
-    suffix = MultiAddress.init(multiCodec("p2p"), pinfo.peerId).valueOr:
-      return default(seq[string])
-
-  # In this loop we expand bounded addresses like `0.0.0.0` and `::` to list of
-  # interface addresses.
-  var addresses = newSeq[string]()
-  for maddress in pinfo.addrs:
-    if TCP_IP.matchPartial(maddress):
-      let
-        portArg = maddress.getProtocolArgument(multiCodec("tcp")).valueOr:
-          continue
-        port =
-          block:
-            if len(portArg) != sizeof(uint16):
-              continue
-            Port(uint16.fromBytesLE(portArg))
-      if IP4.matchPartial(maddress):
-        let address4 = maddress.getProtocolArgument(multiCodec("ip4")).valueOr:
-          continue
-        if address4 != AnyAddress.address_v4:
-          let suffixed = maddress.concat(suffix).valueOr:
-            continue
-          addresses.add($suffixed)
-          continue
-        let wildcardAddresses =
-          interfaces.getWildcardMultiAddresses(
-            {AddressFamily.IPv4}, IpTransportProtocol.tcpProtocol, port, suffix)
-        addresses.add(wildcardAddresses.mapIt($it))
-      elif IP6.matchPartial(maddress):
-        let address6 = maddress.getProtocolArgument(multiCodec("ip6")).valueOr:
-          continue
-        if address6 != AnyAddress6.address_v6:
-          let suffixed = maddress.concat(suffix).valueOr:
-            continue
-          addresses.add($suffixed)
-          continue
-        let wildcardAddresses =
-          interfaces.getWildcardMultiAddresses(
-            {AddressFamily.IPv6}, IpTransportProtocol.tcpProtocol, port, suffix)
-        addresses.add(wildcardAddresses.mapIt($it))
-      else:
-        let suffixed = maddress.concat(suffix).valueOr:
-          continue
-        addresses.add($suffixed)
-    else:
-      let suffixed = maddress.concat(suffix).valueOr:
-        continue
-      addresses.add($suffixed)
-
+proc getObservedAddresses(node: BeaconNode): seq[MultiAddress] =
   # Following functionality depends on working `Identify/IdentifyPush` protocol
   # inside `nim-libp2p` (currently disabled).
   #
@@ -265,8 +207,16 @@ proc getP2PAddresses(
   # be dialled (out public address in case when we are behind NAT). All
   # other addresses can be our outgoing addresses, so remote peer will be unable
   # to connect using this address.
-  var addrCounts = initCountTable[TransportAddress]()
-  let observed = node.network.switch.peerStore.getMostObservedProtosAndPorts()
+  var
+    addresses: seq[MultiAddress]
+    addrCounts = initCountTable[TransportAddress]()
+
+  let
+    peerId = node.network.peerIdent
+    suffix = MultiAddress.init(multiCodec("p2p"), peerId).valueOr:
+      return default(seq[MultiAddress])
+    observed = node.network.switch.peerStore.getMostObservedProtosAndPorts()
+
   for maddress in observed:
     if TCP_IP.matchPartial(maddress):
       let
@@ -302,9 +252,138 @@ proc getP2PAddresses(
           continue
         suffixed = maddr.concat(suffix).valueOr:
           continue
-      addresses.add($suffixed)
-
+      addresses.add(suffixed)
   addresses
+
+proc getLibp2pPeerInfoAddresses(
+    node: BeaconNode,
+    interfaces: openArray[NetworkInterface]
+): seq[MultiAddress] =
+  var addresses: seq[MultiAddress]
+  let
+    peerId = node.network.peerIdent
+    pinfo = node.network.switch.peerInfo
+    suffix = MultiAddress.init(multiCodec("p2p"), peerId).valueOr:
+      return default(seq[MultiAddress])
+
+  # In this loop we expand bounded addresses like `0.0.0.0` and `::` to list of
+  # interface addresses.
+  for maddress in pinfo.addrs:
+    if TCP_IP.matchPartial(maddress):
+      let
+        portArg = maddress.getProtocolArgument(multiCodec("tcp")).valueOr:
+          continue
+        port =
+          block:
+            if len(portArg) != sizeof(uint16):
+              continue
+            Port(uint16.fromBytesLE(portArg))
+      if IP4.matchPartial(maddress):
+        let address4 =
+          maddress.getProtocolArgument(multiCodec("ip4")).valueOr:
+            continue
+        if address4 != AnyAddress.address_v4:
+          let suffixed = maddress.concat(suffix).valueOr:
+            continue
+          addresses.add(suffixed)
+          continue
+        let wildcardAddresses =
+          interfaces.getWildcardMultiAddresses(
+            {AddressFamily.IPv4}, IpTransportProtocol.tcpProtocol, port, suffix)
+        addresses.add(wildcardAddresses)
+      elif IP6.matchPartial(maddress):
+        let address6 =
+          maddress.getProtocolArgument(multiCodec("ip6")).valueOr:
+            continue
+        if address6 != AnyAddress6.address_v6:
+          let suffixed = maddress.concat(suffix).valueOr:
+            continue
+          addresses.add(suffixed)
+          continue
+        let wildcardAddresses =
+          interfaces.getWildcardMultiAddresses(
+            {AddressFamily.IPv6}, IpTransportProtocol.tcpProtocol, port, suffix)
+        addresses.add(wildcardAddresses)
+      else:
+        let suffixed = maddress.concat(suffix).valueOr:
+          continue
+        addresses.add(suffixed)
+    else:
+      let suffixed = maddress.concat(suffix).valueOr:
+        continue
+      addresses.add(suffixed)
+  addresses
+
+proc getDiscoveryAddresses(
+    node: BeaconNode,
+    interfaces: openArray[NetworkInterface]
+): seq[string] =
+  var addresses: HashSet[string]
+  let
+    peerId = node.network.peerIdent
+    suffix = MultiAddress.init(multiCodec("p2p"), peerId).valueOr:
+      return default(seq[string])
+    families =
+      block:
+        var res: set[AddressFamily]
+        case node.config.listenAddress.family
+        of IpAddressFamily.IPv4:
+          res.incl(AddressFamily.IPv4)
+        of IpAddressFamily.IPv6:
+          # TODO (cheatfate): Wildcard addresses (dualstack) will be handled
+          # later.
+          res.incl(AddressFamily.IPv6)
+        res
+  let
+    port = node.config.udpPort
+    wildcardAddresses =
+      interfaces.getWildcardMultiAddresses(
+        families, IpTransportProtocol.udpProtocol, port, suffix)
+  # Add known external addresses.
+  let externalAddresses =
+    node.getExternalAddresses(IpTransportProtocol.udpProtocol)
+  for address in externalAddresses:
+    let saddress = $address
+    if saddress notin addresses:
+      addresses.incl(saddress)
+  # Add local interface addresses.
+  for address in wildcardAddresses:
+    let saddress = $address
+    if saddress notin addresses:
+      addresses.incl(saddress)
+  # Add public addresses discovered by DiscoveryV5.
+  let peerAddresses = node.getDiscoveryV5Addresses()
+  for address in peerAddresses:
+    let saddress = $address
+    if saddress notin addresses:
+      addresses.incl(saddress)
+  addresses.toSeq()
+
+proc getP2PAddresses(
+    node: BeaconNode,
+    interfaces: openArray[NetworkInterface]
+): seq[string] =
+  var addresses: HashSet[string]
+  # Add known external addresses.
+  let externalAddresses =
+    node.getExternalAddresses(IpTransportProtocol.tcpProtocol)
+  for address in externalAddresses:
+    let saddress = $address
+    if saddress notin addresses:
+      addresses.incl(saddress)
+  # Add local interface addresses.
+  let wildcardAddresses = node.getLibp2pPeerInfoAddresses(interfaces)
+  for address in wildcardAddresses:
+    let saddress = $address
+    if saddress notin addresses:
+      addresses.incl(saddress)
+  # Add public addresses discovered Libp2p identify protocol.
+  let observedAddresses = node.getDiscoveryV5Addresses()
+  for address in observedAddresses:
+    let saddress = $address
+    if saddress notin addresses:
+      addresses.incl(saddress)
+  addresses.toSeq()
 
 proc installNodeApiHandlers*(router: var RestRouter, node: BeaconNode) =
   let

@@ -57,6 +57,11 @@ type
     peerId*: PeerId
     stamp*: chronos.Moment
 
+  ExternalAddressInfo* = object
+    address*: Opt[IpAddress]
+    tcp*: Opt[Port]
+    udp*: Opt[Port]
+
   Eth2Node* = ref object of RootObj
     switch*: Switch
     pubsub*: GossipSub
@@ -86,8 +91,9 @@ type
     peerTrimmerHeartbeatFut: Future[void].Raising([CancelledError])
     cfg: RuntimeConfig
     getBeaconTime: GetBeaconTimeFn
-
     quota: TokenBucket ## Global quota mainly for high-bandwidth stuff
+    externalAddresses*: seq[ExternalAddressInfo]
+    peerIdent*: PeerId
 
   AverageThroughput* = object
     count*: uint64
@@ -356,6 +362,14 @@ proc openStream(node: Eth2Node,
     neterr UnknownError
 
 proc init(T: type Peer, network: Eth2Node, peerId: PeerId): Peer {.gcsafe.}
+
+proc init(T: type ExternalAddressInfo, ip: Option[IpAddress],
+          tcpPort: Option[Port], udpPort: Option[Port]): ExternalAddressInfo =
+  ExternalAddressInfo(
+    address: if ip.isSome(): Opt.some(ip.get()) else: Opt.none(IpAddress),
+    tcp: if tcpPort.isSome(): Opt.some(tcpPort.get()) else: Opt.none(Port),
+    udp: if udpPort.isSome(): Opt.some(udpPort.get()) else: Opt.none(Port)
+  )
 
 proc getState*(peer: Peer, proto: ProtocolInfo): RootRef =
   doAssert peer.protocolStates[proto.index] != nil, $proto.index
@@ -1766,7 +1780,7 @@ proc new(T: type Eth2Node,
          switch: Switch, pubsub: GossipSub,
          ip: Option[IpAddress], tcpPort, udpPort: Option[Port],
          privKey: keys.PrivateKey, discovery: bool,
-         directPeers: DirectPeers,
+         directPeers: DirectPeers, peerId: PeerId,
          rng: ref HmacDrbgContext): T {.raises: [CatchableError].} =
   when not defined(local_testnet):
     let
@@ -1810,7 +1824,9 @@ proc new(T: type Eth2Node,
     connectTimeout: connectTimeout,
     seenThreshold: seenThreshold,
     directPeers: directPeers,
-    quota: TokenBucket.new(maxGlobalQuota, fullReplenishTime)
+    quota: TokenBucket.new(maxGlobalQuota, fullReplenishTime),
+    externalAddresses: @[ExternalAddressInfo.init(ip, tcpPort, udpPort)],
+    peerIdent: peerId
   )
 
   proc peerHook(peerId: PeerId, event: ConnEvent): Future[void] {.gcsafe.} =
@@ -2357,7 +2373,9 @@ proc createEth2Node*(rng: ref HmacDrbgContext,
   let node = Eth2Node.new(
     config, cfg, enrForkId, discoveryForkId, forkDigests, getBeaconTime, switch, pubsub, extIp,
     extTcpPort, extUdpPort, netKeys.seckey.asEthKey,
-    discovery = config.discv5Enabled, directPeers, rng = rng)
+    discovery = config.discv5Enabled, directPeers,
+    PeerId.init(netKeys.pubkey).get(),
+    rng = rng)
 
   node.pubsub.subscriptionValidator =
     proc(topic: string): bool {.gcsafe, raises: [].} =
