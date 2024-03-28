@@ -119,13 +119,6 @@ proc sendErrorResponse(peer: Peer,
 proc uncompressFramedStream(conn: Connection,
                             expectedSize: int): Future[Result[seq[byte], string]]
                             {.async: (raises: [CancelledError]).} = discard
-func chunkMaxSize[T](): uint32 =
-  when isFixedSize(T):
-    uint32 fixedPortionSize(T)
-  else:
-    static: doAssert MAX_CHUNK_SIZE < high(uint32).uint64
-    MAX_CHUNK_SIZE.uint32
-
 proc readChunkPayload(conn: Connection, peer: Peer,
                        MsgType: type): Future[NetRes[MsgType]]
                        {.async: (raises: [CancelledError]).} =
