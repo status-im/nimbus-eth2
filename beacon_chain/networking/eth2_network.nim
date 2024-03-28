@@ -137,24 +137,24 @@ type
   PeerStateInitializer = proc(peer: Peer): RootRef {.gcsafe, raises: [].}
   NetworkStateInitializer = proc(network: Eth2Node): RootRef {.gcsafe, raises: [].}
   OnPeerConnectedHandler = proc(peer: Peer, incoming: bool): Future[void] {.async: (raises: [CancelledError]).}
-  OnPeerDisconnectedHandler* = proc(peer: Peer): Future[void] {.async: (raises: [CancelledError]).}
-  ThunkProc* = LPProtoHandler
-  MounterProc* = proc(network: Eth2Node) {.gcsafe, raises: [].}
-  MessageContentPrinter* = proc(msg: pointer): string {.gcsafe, raises: [].}
+  OnPeerDisconnectedHandler = proc(peer: Peer): Future[void] {.async: (raises: [CancelledError]).}
+  ThunkProc = LPProtoHandler
+  MounterProc = proc(network: Eth2Node) {.gcsafe, raises: [].}
+  MessageContentPrinter = proc(msg: pointer): string {.gcsafe, raises: [].}
 
   # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.5/specs/phase0/p2p-interface.md#goodbye
-  DisconnectionReason* = enum
+  DisconnectionReason = enum
     # might see other values on the wire!
     ClientShutDown = 1
     IrrelevantNetwork = 2
     FaultOrError = 3
     # Clients MAY use reason codes above 128 to indicate alternative,
     # erroneous request-specific responses.
-    PeerScoreLow = 237 # 79 * 3
+    PeerScoreLow = 237 # 79  3
 
-  TransmissionError* = object of CatchableError
+  TransmissionError = object of CatchableError
 
-  Eth2NetworkingErrorKind* = enum
+  Eth2NetworkingErrorKind = enum
     # Potentially benign errors (network conditions)
     BrokenConnection
     ReceivedErrorResponse
@@ -176,22 +176,22 @@ type
     UnknownError
 
   Eth2NetworkingError = object
-    case kind*: Eth2NetworkingErrorKind
+    case kind: Eth2NetworkingErrorKind
     of ReceivedErrorResponse:
-      responseCode*: ResponseCode
-      errorMsg*: string
+      responseCode: ResponseCode
+      errorMsg: string
     else:
       discard
 
-  InvalidInputsError* = object of CatchableError
+  InvalidInputsError = object of CatchableError
 
-  ResourceUnavailableError* = object of CatchableError
+  ResourceUnavailableError = object of CatchableError
 
-  NetRes*[T] = Result[T, Eth2NetworkingError]
+  NetRes[T] = Result[T, Eth2NetworkingError]
     ## This is type returned from all network requests
 
 const
-  clientId* = ""
+  clientId = ""
 
   requestPrefix = "/eth2/beacon_chain/req/"
   requestSuffix = "/ssz_snappy"
@@ -212,7 +212,7 @@ const
 
   ProtocolViolations = {InvalidResponseCode..Eth2NetworkingErrorKind.high()}
 
-template neterr*(kindParam: Eth2NetworkingErrorKind): auto =
+template neterr(kindParam: Eth2NetworkingErrorKind): auto =
   err(type(result), Eth2NetworkingError(kind: kindParam))
 
 const
@@ -221,9 +221,9 @@ const
 when libp2p_pki_schemes != "secp256k1":
   {.fatal: "Incorrect building process, please use -d:\"libp2p_pki_schemes=secp256k1\"".}
 
-template libp2pProtocol*(name: string, version: int) {.pragma.}
+template libp2pProtocol(name: string, version: int) {.pragma.}
 
-func shortLog*(peer: Peer): string = shortLog(peer.peerId)
+func shortLog(peer: Peer): string = shortLog(peer.peerId)
 chronicles.formatIt(Peer): shortLog(it)
 chronicles.formatIt(PublicKey): byteutils.toHex(it.getBytes().tryGet())
 
@@ -238,11 +238,11 @@ func shortProtocolId(protocolId: string): string =
 
 proc init(T: type Peer, network: Eth2Node, peerId: PeerId): Peer {.gcsafe.}
 
-proc getState*(peer: Peer, proto: ProtocolInfo): RootRef =
+proc getState(peer: Peer, proto: ProtocolInfo): RootRef =
   doAssert peer.protocolStates[proto.index] != nil, $proto.index
   peer.protocolStates[proto.index]
 
-template state*(peer: Peer, Protocol: type): untyped =
+template state(peer: Peer, Protocol: type): untyped =
   ## Returns the state object of a particular protocol for a
   ## particular connection.
   mixin State
@@ -250,33 +250,33 @@ template state*(peer: Peer, Protocol: type): untyped =
   type S = Protocol.State
   S(getState(peer, Protocol.protocolInfo))
 
-proc getNetworkState*(node: Eth2Node, proto: ProtocolInfo): RootRef =
+proc getNetworkState(node: Eth2Node, proto: ProtocolInfo): RootRef =
   doAssert node.protocolStates[proto.index] != nil, $proto.index
   node.protocolStates[proto.index]
 
-template protocolState*(node: Eth2Node, Protocol: type): untyped =
+template protocolState(node: Eth2Node, Protocol: type): untyped =
   mixin NetworkState
   bind getNetworkState
   type S = Protocol.NetworkState
   S(getNetworkState(node, Protocol.protocolInfo))
 
-proc initProtocolState*[T](state: T, x: Peer|Eth2Node)
+proc initProtocolState[T](state: T, x: Peer|Eth2Node)
     {.gcsafe, raises: [].} =
   discard
 
-template networkState*(connection: Peer, Protocol: type): untyped =
+template networkState(connection: Peer, Protocol: type): untyped =
   ## Returns the network state object of a particular protocol for a
   ## particular connection.
   protocolState(connection.network, Protocol)
 
-func peerId*(node: Eth2Node): PeerId =
+func peerId(node: Eth2Node): PeerId =
   node.switch.peerInfo.peerId
 
-func nodeId*(node: Eth2Node): NodeId =
+func nodeId(node: Eth2Node): NodeId =
   # `secp256k1` keys are always stored inside PeerId.
   toNodeId(keys.PublicKey(node.switch.peerInfo.publicKey.skkey))
 
-func enrRecord*(node: Eth2Node): Record =
+func enrRecord(node: Eth2Node): Record =
   node.discovery.localNode.record
 
 proc getPeer(node: Eth2Node, peerId: PeerId): Peer =
@@ -290,7 +290,7 @@ proc peerFromStream(network: Eth2Node, conn: Connection): Peer =
   result = network.getPeer(conn.peerId)
   result.peerId = conn.peerId
 
-func getKey*(peer: Peer): PeerId {.inline.} =
+func getKey(peer: Peer): PeerId {.inline.} =
   peer.peerId
 
 proc getFuture(peer: Peer): Future[void] {.inline.} =
@@ -298,22 +298,22 @@ proc getFuture(peer: Peer): Future[void] {.inline.} =
     peer.disconnectedFut = newFuture[void]("Peer.disconnectedFut")
   peer.disconnectedFut
 
-func getScore*(a: Peer): int =
+func getScore(a: Peer): int =
   ## Returns current score value for peer ``peer``.
   a.score
 
-func updateScore*(peer: Peer, score: int) {.inline.} =
+func updateScore(peer: Peer, score: int) {.inline.} =
   ## Update peer's ``peer`` score with value ``score``.
   peer.score = peer.score + score
   if peer.score > PeerScoreHighLimit:
     peer.score = PeerScoreHighLimit
 
-func updateStats*(peer: Peer, index: SyncResponseKind,
+func updateStats(peer: Peer, index: SyncResponseKind,
                   value: uint64) {.inline.} =
   ## Update peer's ``peer`` specific ``index`` statistics with value ``value``.
   peer.statistics.update(index, value)
 
-func getStats*(peer: Peer, index: SyncResponseKind): uint64 {.inline.} =
+func getStats(peer: Peer, index: SyncResponseKind): uint64 {.inline.} =
   ## Returns current statistics value for peer ``peer`` and index ``index``.
   peer.statistics.get(index)
 
