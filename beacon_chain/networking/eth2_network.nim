@@ -1,5 +1,3 @@
-{.push raises: [].}
-
 import
   ../spec/[eth2_ssz_serialization]
 
