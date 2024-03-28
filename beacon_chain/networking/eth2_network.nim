@@ -199,14 +199,6 @@ const
   ConcurrentConnections = 20
     ## Maximum number of active concurrent connection requests.
 
-  SeenTableTimeTimeout =
-    when not defined(local_testnet): 5.minutes else: 10.seconds
-
-    ## Seen period of time for timeout connections
-  SeenTableTimeDeadPeer =
-    when not defined(local_testnet): 5.minutes else: 10.seconds
-
-    ## Period of time for dead peers.
   SeenTableTimeIrrelevantNetwork = 24.hours
     ## Period of time for `IrrelevantNetwork` error reason.
   SeenTableTimeClientShutDown = 10.minutes
@@ -390,22 +382,6 @@ func allowedOpsPerSecondCost*(n: int): float =
 const
   libp2pRequestCost = allowedOpsPerSecondCost(8)
     ## Maximum number of libp2p requests per peer per second
-
-proc isSeen(network: Eth2Node, peerId: PeerId): bool =
-  ## Returns ``true`` if ``peerId`` present in SeenTable and time period is not
-  ## yet expired.
-  let currentTime = now(chronos.Moment)
-  if peerId notin network.seenTable:
-    false
-  else:
-    let item = try: network.seenTable[peerId]
-    except KeyError: raiseAssert "checked with notin"
-    if currentTime >= item.stamp:
-      # Peer is in SeenTable, but the time period has expired.
-      network.seenTable.del(peerId)
-      false
-    else:
-      true
 
 proc addSeen(network: Eth2Node, peerId: PeerId,
               period: chronos.Duration) =
@@ -877,67 +853,6 @@ proc toPeerAddr*(r: enr.TypedRecord,
     return err("enr: no addresses in record")
 
   ok(PeerAddr(peerId: peerId, addrs: addrs))
-
-proc checkPeer(node: Eth2Node, peerAddr: PeerAddr): bool =
-  logScope: peer = peerAddr.peerId
-  let peerId = peerAddr.peerId
-  if node.peerPool.hasPeer(peerId):
-    trace "Already connected"
-    false
-  else:
-    if node.isSeen(peerId):
-      trace "Recently connected"
-      false
-    else:
-      true
-
-proc dialPeer(node: Eth2Node, peerAddr: PeerAddr, index = 0) {.async: (raises: [CancelledError]).} =
-  ## Establish connection with remote peer identified by address ``peerAddr``.
-  logScope:
-    peer = peerAddr.peerId
-    index = index
-
-  if not(node.checkPeer(peerAddr)):
-    return
-
-  debug "Connecting to discovered peer"
-  var deadline = sleepAsync(node.connectTimeout)
-  var workfut = node.switch.connect(
-    peerAddr.peerId,
-    peerAddr.addrs,
-    forceDial = true
-  )
-
-  try:
-    # `or` operation will only raise exception of `workfut`, because `deadline`
-    # could not raise exception.
-    await workfut or deadline
-    if workfut.finished():
-      if not deadline.finished():
-        deadline.cancelSoon()
-    else:
-      debug "Connection to remote peer timed out"
-      node.addSeen(peerAddr.peerId, SeenTableTimeTimeout)
-      await cancelAndWait(workfut)
-  except CatchableError as exc:
-    debug "Connection to remote peer failed", msg = exc.msg
-    node.addSeen(peerAddr.peerId, SeenTableTimeDeadPeer)
-
-proc connectWorker(node: Eth2Node, index: int) {.async: (raises: [CancelledError]).} =
-  debug "Connection worker started", index = index
-  while true:
-    # This loop will never produce HIGH CPU usage because it will wait
-    # and block until it not obtains new peer from the queue ``connQueue``.
-    let remotePeerAddr = await node.connQueue.popFirst()
-    # Previous worker dial might have hit the maximum peers.
-    # TODO: could clear the whole connTable and connQueue here also, best
-    # would be to have this event based coming from peer pool or libp2p.
-
-    if node.peerPool.len < node.hardMaxPeers:
-      await node.dialPeer(remotePeerAddr, index)
-    # Peer was added to `connTable` before adding it to `connQueue`, so we
-    # excluding peer here after processing.
-    node.connTable.excl(remotePeerAddr.peerId)
 
 proc resolvePeer(peer: Peer) =
   # Resolve task which performs searching of peer's public key and recovery of
