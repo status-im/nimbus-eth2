@@ -1,5 +1,3 @@
-{.push raises: [].}
-
 import
   chronicles, chronos, snappy, snappy/codec,
   ../spec/datatypes/[phase0, altair, bellatrix, capella, deneb],
@@ -18,8 +16,6 @@ type
 proc readChunkPayload*(
     conn: Connection, peer: Peer, MsgType: type (ref ForkedSignedBeaconBlock)):
     Future[NetRes[MsgType]] {.async: (raises: [CancelledError]).} = discard
-
-{.pop.} # TODO fix p2p macro for raises
 
 p2pProtocol BeaconSync(version = 1,
                        networkState = BeaconSyncNetworkState):
