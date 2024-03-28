@@ -346,17 +346,3 @@ p2pProtocol BeaconSync(version = 1,
             warn "Cannot read blobs sidecar size, database corrupt?",
               bytes = bytes.len(), blck = shortLog(blockIds[i])
             continue
-
-          # TODO extract from libp2pProtocol
-          peer.awaitQuota(blobResponseCost, "blobs_sidecars_by_range/1")
-          peer.network.awaitQuota(blobResponseCost, "blobs_sidecars_by_range/1")
-
-          await response.writeBytesSZ(
-            uncompressedLen, bytes,
-            peer.network.forkDigestAtEpoch(blockIds[i].slot.epoch).data)
-          inc found
-        else:
-          break
-
-    debug "BlobSidecar range request done",
-      peer, startSlot, count = reqCount, found
