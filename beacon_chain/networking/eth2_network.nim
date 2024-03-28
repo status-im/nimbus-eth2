@@ -5,7 +5,6 @@ import
   results,
   chronos,
   libp2p/switch,
-  eth/[async_utils],
   ../spec/[eth2_ssz_serialization, network]
 
 type
@@ -352,14 +351,7 @@ proc handleIncomingStream(network: Eth2Node,
           # back-end
           let deadline = sleepAsync RESP_TIMEOUT_DUR
 
-          awaitWithTimeout(
-            readChunkPayload(conn, peer, MsgRec), deadline):
-              # Timeout, e.g., cancellation due to fulfillment by different peer.
-              # Treat this similarly to `UnexpectedEOF`, `PotentiallyExpectedEOF`.
-              await sendErrorResponse(
-                peer, conn, InvalidRequest,
-                errorMsgLit "Request full data not sent in time")
-              return
+          await(readChunkPayload(conn, peer, MsgRec))
 
       finally:
 
