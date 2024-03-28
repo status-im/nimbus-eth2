@@ -356,4 +356,3 @@ proc beaconBlocksByRange_v2Mounter(network: Eth2Node) {.raises: [].} =
 registerMsg(BeaconSyncProtocol, "beaconBlocksByRange_v2",
             beaconBlocksByRange_v2Mounter,
             "/eth2/beacon_chain/req/beacon_blocks_by_range/2/ssz_snappy")
-setEventHandlers(BeaconSyncProtocol, nil, nil)
