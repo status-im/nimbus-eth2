@@ -7,10 +7,7 @@ import
 
 type
   ErrorMsg = List[byte, 256]
-  Eth2Node = ref object of RootObj
-
   Peer = ref object
-    network: Eth2Node
     connectionState: ConnectionState
 
   ConnectionState = enum
@@ -35,7 +32,7 @@ type
     ServerError
     ResourceUnavailable
 
-  MounterProc = proc(network: Eth2Node) {.gcsafe, raises: [].}
+  MounterProc = proc() {.gcsafe, raises: [].}
 
   Eth2NetworkingErrorKind = enum
     BrokenConnection
@@ -68,9 +65,9 @@ when libp2p_pki_schemes != "secp256k1":
   {.fatal: "Incorrect building process, please use -d:\"libp2p_pki_schemes=secp256k1\"".}
 
 func shortProtocolId(protocolId: string): string = discard
-proc getPeer(node: Eth2Node, peerId: PeerId): Peer = discard
-proc peerFromStream(network: Eth2Node, conn: Connection): Peer =
-  result = network.getPeer(conn.peerId)
+proc getPeer(peerId: PeerId): Peer = discard
+proc peerFromStream(conn: Connection): Peer =
+  result = getPeer(conn.peerId)
 
 const
   maxRequestQuota = 1000000
@@ -79,7 +76,7 @@ const
 template awaitQuota(peerParam: Peer, costParam: float, protocolIdParam: string) = discard
 
 template awaitQuota(
-    networkParam: Eth2Node, costParam: float, protocolIdParam: string) =
+    costParam: float, protocolIdParam: string) =
   let
     network = networkParam
     cost = int(costParam)
@@ -115,8 +112,7 @@ proc readChunkPayload(conn: Connection, peer: Peer,
   except SerializationError:
     raiseAssert "false"
 
-proc handleIncomingStream(network: Eth2Node,
-                          conn: Connection,
+proc handleIncomingStream(conn: Connection,
                           protocolId: string,
                           MsgType: type) {.async: (raises: [CancelledError]).} =
   mixin callUserHandler, RecType
@@ -125,7 +121,7 @@ proc handleIncomingStream(network: Eth2Node,
   const msgName {.used.} = typetraits.name(MsgType)
 
 
-  let peer = peerFromStream(network, conn)
+  let peer = peerFromStream(conn)
   try:
     case peer.connectionState
     of None:
@@ -184,9 +180,9 @@ type
 template RecType(MSG: type beaconBlocksByRange_v2Obj): untyped =
   beaconBlocksByRange_v2Obj
 
-proc beaconBlocksByRange_v2Mounter(network: Eth2Node) {.raises: [].} =
+proc beaconBlocksByRange_v2Mounter() {.raises: [].} =
   proc snappyThunk(stream: Connection; protocol: string): Future[void] {.gcsafe.} =
-    return handleIncomingStream(network, stream, protocol,
+    return handleIncomingStream(stream, protocol,
                                 beaconBlocksByRange_v2Obj)
 
   try:
