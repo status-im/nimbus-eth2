@@ -16,18 +16,12 @@ type
 
 proc sendErrorResponse(conn: Connection,
                        errMsg: ErrorMsg): Future[void] = discard
-proc uncompressFramedStream(conn: Connection,
-                            expectedSize: int): Future[Result[seq[byte], string]]
-                            {.async: (raises: [CancelledError]).} = discard
 proc readChunkPayload(conn: Connection,
                        MsgType: type): Future[MsgType]
                        {.async: (raises: [CancelledError]).} =
   let size = 0'u32
-  let
-    dataRes = await conn.uncompressFramedStream(size.int)
-
   try:
-    SSZ.decode(dataRes.get, MsgType)
+    SSZ.decode(default(seq[byte]), MsgType)
   except SerializationError:
     raiseAssert "false"
 
@@ -42,10 +36,6 @@ proc handleIncomingStream(conn: Connection,
 
   try:
     if false:
-      return
-
-    template returnInvalidRequest(msg: ErrorMsg) =
-      await sendErrorResponse(conn, msg)
       return
 
     template returnResourceUnavailable(msg: ErrorMsg) =
