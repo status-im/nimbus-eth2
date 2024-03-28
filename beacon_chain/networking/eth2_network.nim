@@ -1219,77 +1219,6 @@ proc getLowSubnets(node: Eth2Node, epoch: Epoch): (AttnetBits, SyncnetBits) =
       default(SyncnetBits)
   )
 
-proc runDiscoveryLoop(node: Eth2Node) {.async.} =
-  debug "Starting discovery loop"
-
-  while true:
-    let
-      currentEpoch = 0.Epoch
-      (wantedAttnets, wantedSyncnets) = node.getLowSubnets(currentEpoch)
-      wantedAttnetsCount = wantedAttnets.countOnes()
-      wantedSyncnetsCount = wantedSyncnets.countOnes()
-      outgoingPeers = node.peerPool.lenCurrent({PeerType.Outgoing})
-      targetOutgoingPeers = max(node.wantedPeers div 10, 3)
-
-    if wantedAttnetsCount > 0 or wantedSyncnetsCount > 0 or
-        outgoingPeers < targetOutgoingPeers:
-
-      let
-        minScore =
-          if wantedAttnetsCount > 0 or wantedSyncnetsCount > 0:
-            1
-          else:
-            0
-        discoveredNodes = await node.discovery.queryRandom(
-          node.discoveryForkId, wantedAttnets, wantedSyncnets, minScore)
-
-      let newPeers = block:
-        var np = newSeq[PeerAddr]()
-        for discNode in discoveredNodes:
-          let res = discNode.toPeerAddr()
-          if res.isErr():
-            debug "Failed to decode discovery's node address",
-                  node = discNode, errMsg = res.error
-            continue
-
-          let peerAddr = res.get()
-          if node.checkPeer(peerAddr) and
-            peerAddr.peerId notin node.connTable:
-            np.add(peerAddr)
-        np
-
-      let
-        roomCurrent = node.hardMaxPeers - len(node.peerPool)
-        peersToKick = min(newPeers.len - roomCurrent, node.hardMaxPeers div 5)
-
-      if peersToKick > 0 and newPeers.len > 0:
-        node.trimConnections(peersToKick)
-
-      for peerAddr in newPeers:
-          # We adding to pending connections table here, but going
-          # to remove it only in `connectWorker`.
-          node.connTable.incl(peerAddr.peerId)
-          await node.connQueue.addLast(peerAddr)
-
-      debug "Discovery tick",
-            wanted_peers = node.wantedPeers,
-            current_peers = len(node.peerPool),
-            discovered_nodes = len(discoveredNodes),
-            new_peers = len(newPeers)
-
-      if len(newPeers) == 0:
-        let currentPeers = len(node.peerPool)
-        if currentPeers <= node.wantedPeers shr 2: #  25%
-          warn "Peer count low, no new peers discovered",
-            discovered_nodes = len(discoveredNodes), new_peers = newPeers,
-            current_peers = currentPeers, wanted_peers = node.wantedPeers
-
-    # Discovery `queryRandom` can have a synchronous fast path for example
-    # when no peers are in the routing table. Don't run it in continuous loop.
-    #
-    # Also, give some time to dial the discovered nodes and update stats etc
-    await sleepAsync(5.seconds)
-
 proc resolvePeer(peer: Peer) =
   # Resolve task which performs searching of peer's public key and recovery of
   # ENR using discovery5. We only resolve ENR for peers we know about to avoid
@@ -1536,7 +1465,6 @@ proc start*(node: Eth2Node) {.async: (raises: [CancelledError]).} =
 
   if node.discoveryEnabled:
     node.discovery.start()
-    traceAsyncErrors node.runDiscoveryLoop()
   else:
     notice "Discovery disabled; trying bootstrap nodes",
       nodes = node.discovery.bootstrapRecords.len
