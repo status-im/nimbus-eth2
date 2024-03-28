@@ -12,14 +12,11 @@ type
 
   MounterProc = proc() {.gcsafe, raises: [].}
 
-  ResourceUnavailableError = object of CatchableError
-
 proc sendErrorResponse(conn: Connection,
                        errMsg: ErrorMsg): Future[void] = discard
 proc readChunkPayload(conn: Connection,
                        MsgType: type): Future[MsgType]
                        {.async: (raises: [CancelledError]).} =
-  let size = 0'u32
   try:
     SSZ.decode(default(seq[byte]), MsgType)
   except SerializationError:
@@ -38,13 +35,6 @@ proc handleIncomingStream(conn: Connection,
     if false:
       return
 
-    template returnResourceUnavailable(msg: ErrorMsg) =
-      await sendErrorResponse( conn, msg)
-      return
-
-    template returnResourceUnavailable(msg: string) =
-      returnResourceUnavailable(default(ErrorMsg))
-
     const isEmptyMsg = when MsgRec is object:
       when totalSerializedFields(MsgRec) == 0: true
       else: false
@@ -62,8 +52,6 @@ proc handleIncomingStream(conn: Connection,
 
     try:
       discard
-    except ResourceUnavailableError as exc:
-      returnResourceUnavailable exc.msg
     except CatchableError:
       await sendErrorResponse(conn, default(ErrorMsg))
 
