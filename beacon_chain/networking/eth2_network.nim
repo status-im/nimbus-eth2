@@ -196,10 +196,6 @@ func shortProtocolId(protocolId: string): string =
 
 proc init(T: type Peer, network: Eth2Node, peerId: PeerId): Peer {.gcsafe.}
 
-proc getNetworkState(node: Eth2Node, proto: ProtocolInfo): RootRef =
-  doAssert node.protocolStates[proto.index] != nil, $proto.index
-  node.protocolStates[proto.index]
-
 proc getPeer(node: Eth2Node, peerId: PeerId): Peer =
   node.peers.withValue(peerId, peer) do:
     return peer[]
@@ -290,7 +286,7 @@ proc disconnect(peer: Peer, reason: DisconnectionReason,
       await peer.network.switch.disconnect(peer.peerId)
   except CancelledError as exc:
     raise exc
-  except CatchableError as exc:
+  except CatchableError:
     discard
 
 proc releasePeer(peer: Peer) =
@@ -332,7 +328,7 @@ proc readVarint2(conn: Connection): Future[NetRes[uint64]] {.
     neterr InvalidSizePrefix
   except CancelledError as exc:
     raise exc
-  except CatchableError as exc:
+  except CatchableError:
     neterr UnknownError
 
 proc readChunkPayload(conn: Connection, peer: Peer,
@@ -359,11 +355,6 @@ proc readChunkPayload(conn: Connection, peer: Peer,
     ok SSZ.decode(data, MsgType)
   except SerializationError:
     neterr InvalidSszBytes
-
-proc makeEth2Request(peer: Peer, protocolId: string, requestBytes: seq[byte],
-                     ResponseMsg: type,
-                     timeout: Duration): Future[NetRes[ResponseMsg]]
-                    {.async: (raises: [CancelledError]).} = discard
 
 proc init(T: type MultipleChunksResponse, peer: Peer, conn: Connection): T =
   T(UntypedResponse(peer: peer, stream: conn))
@@ -544,34 +535,17 @@ proc registerMsg(protocol: ProtocolInfo,
                                     libp2pCodecName: libp2pCodecName)
 
 type
-  BeaconSyncNetworkState {.final.} = ref object of RootObj
-    cfg: RuntimeConfig
-
-
-type
   BeaconSync = object
-template NetworkState(PROTO: type BeaconSync): type =
-  ref[BeaconSyncNetworkState]
-
 type
   beaconBlocksByRange_v2Obj = object
     reqCount: uint64
     reqStep: uint64
-
-template beaconBlocksByRange_v2(PROTO: type BeaconSync): type =
-  beaconBlocksByRange_v2Obj
-
-template msgProtocol(MSG: type beaconBlocksByRange_v2Obj): type =
-  BeaconSync
 
 template RecType(MSG: type beaconBlocksByRange_v2Obj): untyped =
   beaconBlocksByRange_v2Obj
 
 var BeaconSyncProtocolObj = initProtocol("BeaconSync", nil, nil, 0)
 let BeaconSyncProtocol = addr BeaconSyncProtocolObj
-template protocolInfo(PROTO: type BeaconSync): auto =
-  BeaconSyncProtocol
-
 proc beaconBlocksByRange_v2UserHandler(peer: Peer; reqCount: uint64;
                                        reqStep: uint64; response: MultipleChunksResponse[
     ref uint64, Limit MAX_REQUEST_BLOCKS]) {.async,
