@@ -299,12 +299,6 @@ proc init(T: type Peer, network: Eth2Node, peerId: PeerId): Peer =
       res.protocolStates[proto.index] = proto.peerStateInitializer(res)
   res
 
-proc registerMsg(protocol: ProtocolInfo,
-                 name: string,
-                 mounter: MounterProc,
-                 libp2pCodecName: string) =
-  discard MessageInfo(name: name, protocolMounter: mounter)
-
 type
   BeaconSync = object
 type
@@ -343,7 +337,4 @@ proc beaconBlocksByRange_v2Mounter(network: Eth2Node) {.raises: [].} =
         handler = snappyThunk)
   except LPError:
     raiseAssert "foo"
-
-registerMsg(BeaconSyncProtocol, "beaconBlocksByRange_v2",
-            beaconBlocksByRange_v2Mounter,
-            "/eth2/beacon_chain/req/beacon_blocks_by_range/2/ssz_snappy")
+discard MessageInfo(protocolMounter: beaconBlocksByRange_v2Mounter)
