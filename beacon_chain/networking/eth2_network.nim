@@ -243,9 +243,7 @@ const
   maxRequestQuota = 1000000
   fullReplenishTime = 5.seconds
 
-template awaitQuota(peerParam: Peer, costParam: float, protocolIdParam: string) =
-  let
-    peer = peerParam
+template awaitQuota(peerParam: Peer, costParam: float, protocolIdParam: string) = discard
 
 template awaitQuota(
     networkParam: Eth2Node, costParam: float, protocolIdParam: string) =
@@ -603,9 +601,6 @@ proc beaconBlocksByRange_v2UserHandler(peer: Peer; reqCount: uint64;
     libp2pProtocol("beacon_blocks_by_range", 2), gcsafe.} =
   type
     CurrentProtocol {.used.} = BeaconSync
-  template networkState(peer: Peer): ref[BeaconSyncNetworkState] =
-    cast[ref[BeaconSyncNetworkState]](getNetworkState(peer.network,
-        BeaconSyncProtocol))
 
   discard
 
