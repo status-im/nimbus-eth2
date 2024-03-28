@@ -213,12 +213,6 @@ proc initProtocol(name: string,
     peerStateInitializer: peerInit,
     networkStateInitializer: networkInit)
 
-proc setEventHandlers(p: ProtocolInfo,
-                      onPeerConnected: OnPeerConnectedHandler,
-                      onPeerDisconnected: OnPeerDisconnectedHandler) =
-  p.onPeerConnected = onPeerConnected
-  p.onPeerDisconnected = onPeerDisconnected
-
 proc handleIncomingStream(network: Eth2Node,
                           conn: Connection,
                           protocolId: string,
