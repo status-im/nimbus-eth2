@@ -9,7 +9,7 @@ import
   libp2p/[switch, peerinfo, crypto/crypto,
     crypto/secp],
   libp2p/protocols/pubsub/[
-      pubsub, gossipsub, rpc/message, rpc/messages, peertable, pubsubpeer],
+      pubsub, gossipsub, rpc/message, rpc/messages, pubsubpeer],
   eth/[async_utils],
   ../spec/[eth2_ssz_serialization, network]
 
