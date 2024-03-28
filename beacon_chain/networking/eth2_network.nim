@@ -87,7 +87,6 @@ proc getPeer(node: Eth2Node, peerId: PeerId): Peer = discard
 proc peerFromStream(network: Eth2Node, conn: Connection): Peer =
   result = network.getPeer(conn.peerId)
 
-func `<`(a, b: Peer): bool = false
 const
   maxRequestQuota = 1000000
   fullReplenishTime = 5.seconds
