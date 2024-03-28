@@ -12,15 +12,7 @@ type
 
   MounterProc = proc() {.gcsafe, raises: [].}
 
-  Eth2NetworkingErrorKind = enum
-    ReadResponseTimeout
-
-    UnknownError
-
   Eth2NetworkingError = object
-    case kind: Eth2NetworkingErrorKind
-    else:
-      discard
 
   InvalidInputsError = object of CatchableError
 
