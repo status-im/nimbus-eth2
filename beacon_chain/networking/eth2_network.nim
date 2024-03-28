@@ -5,8 +5,7 @@ import
   results,
   json_serialization, json_serialization/std/[net, sets, options],
   chronos,
-  libp2p/[switch, peerinfo, crypto/crypto,
-    crypto/secp],
+  libp2p/[switch, peerinfo, crypto/crypto],
   libp2p/protocols/pubsub/[
       pubsub, gossipsub, rpc/message, rpc/messages, pubsubpeer],
   eth/[async_utils],
