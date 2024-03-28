@@ -714,6 +714,7 @@ libnimbus_lc.a: | build deps
 		echo -e $(BUILD_END_MSG) "build/$@"
 
 # `-Wno-maybe-uninitialized` in Linux: https://github.com/nim-lang/Nim/issues/22246
+# `-Wno-unsafe-buffer-usage` Support llvm@18 on macOS: https://github.com/status-im/nimbus-eth2/pull/6153
 # `-Wl,--stack,0x0000000000800000` in Windows: MinGW default of 2 MB leads to `SIGSEGV` in `___chkstk_ms` in Nim 2.0
 test_libnimbus_lc: libnimbus_lc.a
 	+ echo -e $(BUILD_MSG) "build/$@" && \
@@ -723,19 +724,45 @@ test_libnimbus_lc: libnimbus_lc.a
 			if (( $${WITH_UBSAN:-0} )); then \
 				EXTRA_FLAGS+=('-fsanitize=undefined'); \
 			fi; \
-			clang -D__DIR__="\"beacon_chain/libnimbus_lc\"" --std=c17 -Weverything -Werror -Wno-declaration-after-statement -Wno-nullability-extension -isysroot /Library/Developer/CommandLineTools/SDKs/MacOSX.sdk -o build/test_libnimbus_lc beacon_chain/libnimbus_lc/test_libnimbus_lc.c build/libnimbus_lc.a -framework Security "$${EXTRA_FLAGS[@]}"; \
+			clang -D__DIR__="\"beacon_chain/libnimbus_lc\"" \
+				--std=c17 \
+				-Weverything -Werror \
+				-Wno-declaration-after-statement -Wno-nullability-extension \
+				-Wno-unsafe-buffer-usage -Wno-unknown-warning-option \
+				-isysroot /Library/Developer/CommandLineTools/SDKs/MacOSX.sdk \
+				-o build/test_libnimbus_lc \
+				beacon_chain/libnimbus_lc/test_libnimbus_lc.c build/libnimbus_lc.a \
+				-framework Security "$${EXTRA_FLAGS[@]}"; \
 			;; \
 		MINGW64_*) \
 			if (( $${WITH_UBSAN:-0} )); then \
 				EXTRA_FLAGS+=('-fsanitize=undefined'); \
 			fi; \
-			gcc -D__DIR__="\"beacon_chain/libnimbus_lc\"" --std=c17 -Wall -Wextra -pedantic -Werror -pedantic-errors -flto -Wno-nullability-extension -Wl,--stack,0x0000000000800000 -o build/test_libnimbus_lc -D_CRT_SECURE_NO_WARNINGS beacon_chain/libnimbus_lc/test_libnimbus_lc.c build/libnimbus_lc.a "$${EXTRA_FLAGS[@]}"; \
+			gcc -D__DIR__="\"beacon_chain/libnimbus_lc\"" \
+				--std=c17 -flto \
+				-pedantic -pedantic-errors \
+				-Wall -Wextra -Werror -Wno-nullability-extension \
+				-Wno-unsafe-buffer-usage -Wno-unknown-warning-option \
+				-Wl,--stack,0x0000000000800000 \
+				-o build/test_libnimbus_lc \
+				-D_CRT_SECURE_NO_WARNINGS \
+				beacon_chain/libnimbus_lc/test_libnimbus_lc.c \
+				build/libnimbus_lc.a \
+				"$${EXTRA_FLAGS[@]}"; \
 			;; \
 		*) \
 			if (( $${WITH_UBSAN:-0} )); then \
 				EXTRA_FLAGS+=('-fsanitize=undefined'); \
 			fi; \
-			gcc -D__DIR__="\"beacon_chain/libnimbus_lc\"" --std=c17 -Wall -Wextra -pedantic -Werror -pedantic-errors -Wno-maybe-uninitialized -flto -o build/test_libnimbus_lc beacon_chain/libnimbus_lc/test_libnimbus_lc.c build/libnimbus_lc.a "$${EXTRA_FLAGS[@]}"; \
+			gcc -D__DIR__="\"beacon_chain/libnimbus_lc\"" \
+				--std=c17 -flto \
+				-pedantic -pedantic-errors \
+				-Wall -Wextra -Werror -Wno-maybe-uninitialized \
+				-Wno-unsafe-buffer-usage -Wno-unknown-warning-option \
+				-o build/test_libnimbus_lc \
+				beacon_chain/libnimbus_lc/test_libnimbus_lc.c \
+				build/libnimbus_lc.a \
+				"$${EXTRA_FLAGS[@]}"; \
 			;; \
 		esac && \
 		echo -e $(BUILD_END_MSG) "build/$@"
