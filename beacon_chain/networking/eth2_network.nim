@@ -8,7 +8,6 @@ import
 type
   ErrorMsg = List[byte, 256]
   Eth2Node = ref object of RootObj
-    switch: Switch
     protocols: seq[ProtocolInfo]
 
   Peer = ref object
@@ -192,7 +191,7 @@ proc beaconBlocksByRange_v2Mounter(network: Eth2Node) {.raises: [].} =
                                 beaconBlocksByRange_v2Obj)
 
   try:
-    mount network.switch, LPProtocol.new(codecs = @[
+    mount default(Switch), LPProtocol.new(codecs = @[
         "/eth2/beacon_chain/req/beacon_blocks_by_range/2/ssz_snappy"],
         handler = snappyThunk)
   except LPError:
