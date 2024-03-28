@@ -14,7 +14,7 @@ import
   libp2p/stream/connection,
   eth/[keys, async_utils],
   ../spec/[eth2_ssz_serialization, network, helpers, forks],
-  "."/[eth2_discovery, eth2_protocol_dsl, libp2p_json_serialization, peer_pool, peer_scores]
+  "."/[eth2_protocol_dsl, libp2p_json_serialization, peer_pool, peer_scores]
 
 type
   ErrorMsg = List[byte, 256]
@@ -27,7 +27,6 @@ type
   Eth2Node = ref object of RootObj
     switch: Switch
     pubsub: GossipSub
-    discovery: Eth2DiscoveryProtocol
     discoveryEnabled: bool
     wantedPeers: int
     hardMaxPeers: int
@@ -56,14 +55,12 @@ type
   Peer = ref object
     network: Eth2Node
     peerId: PeerId
-    discoveryId: Eth2DiscoveryId
     connectionState: ConnectionState
     protocolStates: seq[RootRef]
     netThroughput: AverageThroughput
     score: int
     lastReqTime: Moment
     connections: int
-    enr: Opt[enr.Record]
     metadata: Opt[altair.MetaData]
     failedMetadataRequests: int
     lastMetadataTime: Moment
