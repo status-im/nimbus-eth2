@@ -3,7 +3,6 @@
 import
   std/[typetraits, os, strutils, tables],
   results,
-  json_serialization, json_serialization/std/[net, sets, options],
   chronos,
   libp2p/switch,
   eth/[async_utils],
