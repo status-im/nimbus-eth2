@@ -157,9 +157,6 @@ func chunkMaxSize[T](): uint32 =
     static: doAssert MAX_CHUNK_SIZE < high(uint32).uint64
     MAX_CHUNK_SIZE.uint32
 
-from ../spec/datatypes/capella import SignedBeaconBlock
-from ../spec/datatypes/deneb import SignedBeaconBlock
-
 proc readVarint2(conn: Connection): Future[NetRes[uint64]] {.
     async: (raises: [CancelledError]).} =
   try:
@@ -286,7 +283,7 @@ proc handleIncomingStream(network: Eth2Node,
       returnInvalidRequest exc.msg
     except ResourceUnavailableError as exc:
       returnResourceUnavailable exc.msg
-    except CatchableError as exc:
+    except CatchableError:
       await sendErrorResponse(peer, conn, ServerError, default(ErrorMsg))
 
   except CatchableError:
