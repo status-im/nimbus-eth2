@@ -320,29 +320,3 @@ p2pProtocol BeaconSync(version = 1,
 
     if startSlot.epoch < epochBoundary:
       raise newException(ResourceUnavailableError, BlobsOutOfRange)
-
-    var blockIds: array[int(MAX_REQUEST_BLOB_SIDECARS), BlockId]
-    let
-      count = int min(reqCount, blockIds.lenu64)
-      endIndex = count - 1
-      startIndex =
-        dag.getBlockRange(startSlot, 1, blockIds.toOpenArray(0, endIndex))
-
-    var
-      found = 0
-      bytes: seq[byte]
-
-    for i in startIndex..endIndex:
-      for j in 0..<MAX_BLOBS_PER_BLOCK:
-        if dag.db.getBlobSidecarSZ(blockIds[i].root, BlobIndex(j), bytes):
-          # In general, there is not much intermediate time between post-merge
-          # blocks all being optimistic and none of them being optimistic. The
-          # EL catches up, tells the CL the head is verified, and that's it.
-          if  blockIds[i].slot.epoch >= dag.cfg.BELLATRIX_FORK_EPOCH and
-              not dag.head.executionValid:
-            continue
-
-          let uncompressedLen = uncompressedLenFramed(bytes).valueOr:
-            warn "Cannot read blobs sidecar size, database corrupt?",
-              bytes = bytes.len(), blck = shortLog(blockIds[i])
-            continue
