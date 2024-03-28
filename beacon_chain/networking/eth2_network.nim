@@ -2,7 +2,6 @@
 
 import
   chronos,
-  libp2p/switch,
   ../spec/[eth2_ssz_serialization]
 
 type
@@ -12,17 +11,14 @@ type
 
   MounterProc = proc() {.gcsafe, raises: [].}
 
-proc sendErrorResponse(conn: Connection,
-                       errMsg: ErrorMsg) = discard
-proc readChunkPayload(conn: Connection,
-                       MsgType: type): MsgType =
+proc sendErrorResponse(errMsg: ErrorMsg) = discard
+proc readChunkPayload(MsgType: type): MsgType =
   try:
     SSZ.decode(default(seq[byte]), MsgType)
   except SerializationError:
     raiseAssert "false"
 
-proc handleIncomingStream(conn: Connection,
-                          protocolId: string,
+proc handleIncomingStream(protocolId: string,
                           MsgType: type) {.async: (raises: [CancelledError]).} =
   mixin callUserHandler, RecType
 
@@ -45,14 +41,14 @@ proc handleIncomingStream(conn: Connection,
         when isEmptyMsg:
           default(MsgRec)
         else:
-          readChunkPayload(conn, MsgRec)
+          readChunkPayload(MsgRec)
       finally:
         discard
 
     try:
       discard
     except CatchableError:
-      sendErrorResponse(conn, default(ErrorMsg))
+      sendErrorResponse(default(ErrorMsg))
 
   except CatchableError:
     discard
@@ -68,12 +64,9 @@ template RecType(MSG: type beaconBlocksByRange_v2Obj): untyped =
 proc mount2*[T](proto: T) =
   discard
 proc beaconBlocksByRange_v2Mounter() {.raises: [].} =
-  proc snappyThunk(stream: Connection; protocol: string): Future[void] {.gcsafe.} =
-    return handleIncomingStream(stream, protocol,
+  proc snappyThunk(protocol: string): Future[void] {.gcsafe.} =
+    return handleIncomingStream(protocol,
                                 beaconBlocksByRange_v2Obj)
 
-  try:
-    mount2(snappyThunk)
-  except LPError:
-    raiseAssert "foo"
+  mount2(snappyThunk)
 discard MessageInfo(protocolMounter: beaconBlocksByRange_v2Mounter)
