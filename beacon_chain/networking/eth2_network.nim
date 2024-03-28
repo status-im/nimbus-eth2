@@ -136,7 +136,7 @@ proc handleIncomingStream(conn: Connection,
         else:
           await(readChunkPayload(conn, peer, MsgRec))
       finally:
-        awaitQuota(peer, libp2pRequestCost, shortProtocolId(protocolId))
+        discard
 
     try:
       discard
