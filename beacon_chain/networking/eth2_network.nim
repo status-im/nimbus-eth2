@@ -1195,24 +1195,6 @@ proc start*(node: Eth2Node) {.async: (raises: [CancelledError]).} =
         if pa.isOk():
           await node.connQueue.addLast(pa.get())
 
-proc stop*(node: Eth2Node) {.async: (raises: [CancelledError]).} =
-  # Ignore errors in futures, since we're shutting down (but log them on the
-  # TRACE level, if a timeout is reached).
-  var waitedFutures =
-    @[
-        node.switch.stop(),
-    ]
-
-  if node.discoveryEnabled:
-    waitedFutures &= node.discovery.closeWait()
-
-  let
-    timeout = 5.seconds
-    completed = await withTimeout(allFutures(waitedFutures), timeout)
-  if not completed:
-    trace "Eth2Node.stop(): timeout reached", timeout,
-      futureErrors = waitedFutures.filterIt(it.error != nil).mapIt(it.error.msg)
-
 proc init(T: type Peer, network: Eth2Node, peerId: PeerId): Peer =
   let res = Peer(
     peerId: peerId,
