@@ -166,31 +166,3 @@ if defined(macosx):
 # We ignore this resource limit on Windows, where a default `ulimit -n` of 256
 # in Git Bash is apparently ignored by the OS, and on Linux where the default of
 # 1024 is good enough for us.
-
-if canEnableDebuggingSymbols:
-  # add debugging symbols and original files and line numbers
-  --debugger:native
-
---define:nimOldCaseObjects # https://github.com/status-im/nim-confutils/issues/9
-
-# `switch("warning[CaseTransition]", "off")` fails with "Error: invalid command line option: '--warning[CaseTransition]'"
-switch("warning", "CaseTransition:off")
-
-# The compiler doth protest too much, methinks, about all these cases where it can't
-# do its (N)RVO pass: https://github.com/nim-lang/RFCs/issues/230
-switch("warning", "ObservableStores:off")
-
-# Too many false positives for "Warning: method has lock level <unknown>, but another method has 0 [LockLevel]"
-switch("warning", "LockLevel:off")
-
-# Too many right now to read compiler output. Warnings are legitimate, but
-# should be fixed out-of-band of `unstable` branch.
-switch("warning", "BareExcept:off")
-
-# Too many of these because of Defect compat in 1.2
-switch("hint", "XCannotRaiseY:off")
-
-# Useful for Chronos metrics.
-#--define:chronosFutureTracking
-
---define:kzgExternalBlst
