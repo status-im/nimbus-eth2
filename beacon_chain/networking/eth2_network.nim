@@ -27,9 +27,6 @@ type
   MounterProc = proc() {.gcsafe, raises: [].}
 
   Eth2NetworkingErrorKind = enum
-    UnexpectedEOF
-    PotentiallyExpectedEOF
-    StreamOpenTimeout
     ReadResponseTimeout
 
     UnknownError
