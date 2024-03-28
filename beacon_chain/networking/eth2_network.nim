@@ -2,7 +2,7 @@
 
 import
   # Std lib
-  std/[typetraits, os, sequtils, strutils, algorithm, math, tables, macrocache],
+  std/[typetraits, os, strutils, algorithm, math, tables, macrocache],
 
   # Status libs
   results,
@@ -1173,27 +1173,6 @@ proc startListening*(node: Eth2Node) {.async.} =
     fatal "Failed to start LibP2P transport. TCP port may be already in use",
           exc = exc.msg
     quit 1
-
-proc start*(node: Eth2Node) {.async: (raises: [CancelledError]).} =
-  proc onPeerCountChanged() =
-    trace "Number of peers has been changed", length = len(node.peerPool)
-
-  node.peerPool.setPeerCounter(onPeerCountChanged)
-
-  for i in 0 ..< ConcurrentConnections:
-    node.connWorkers.add connectWorker(node, i)
-
-  if node.discoveryEnabled:
-    node.discovery.start()
-  else:
-    notice "Discovery disabled; trying bootstrap nodes",
-      nodes = node.discovery.bootstrapRecords.len
-    for enr in node.discovery.bootstrapRecords:
-      let tr = enr.toTypedRecord()
-      if tr.isOk():
-        let pa = tr.get().toPeerAddr(tcpProtocol)
-        if pa.isOk():
-          await node.connQueue.addLast(pa.get())
 
 proc init(T: type Peer, network: Eth2Node, peerId: PeerId): Peer =
   let res = Peer(
