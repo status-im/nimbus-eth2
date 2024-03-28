@@ -612,6 +612,32 @@ type
 func `==`*(a, b: RestValidatorIndex): bool =
   uint64(a) == uint64(b)
 
+template withForkyBlck*(
+    x: RestPublishedSignedBlockContents, body: untyped): untyped =
+  case x.kind
+  of ConsensusFork.Deneb:
+    const consensusFork {.inject, used.} = ConsensusFork.Deneb
+    template forkyBlck: untyped {.inject, used.} = x.denebData.signed_block
+    template kzg_proofs: untyped {.inject, used.} = x.denebData.kzg_proofs
+    template blobs: untyped {.inject, used.} = x.denebData.blobs
+    body
+  of ConsensusFork.Capella:
+    const consensusFork {.inject, used.} = ConsensusFork.Capella
+    template forkyBlck: untyped {.inject, used.} = x.capellaData
+    body
+  of ConsensusFork.Bellatrix:
+    const consensusFork {.inject, used.} = ConsensusFork.Bellatrix
+    template forkyBlck: untyped {.inject, used.} = x.bellatrixData
+    body
+  of ConsensusFork.Altair:
+    const consensusFork {.inject, used.} = ConsensusFork.Altair
+    template forkyBlck: untyped {.inject, used.} = x.altairData
+    body
+  of ConsensusFork.Phase0:
+    const consensusFork {.inject, used.} = ConsensusFork.Phase0
+    template forkyBlck: untyped {.inject, used.} = x.phase0Data
+    body
+
 func init*(T: type ForkedSignedBeaconBlock,
            contents: RestPublishedSignedBlockContents): T =
   return
