@@ -154,11 +154,6 @@ const
   requestPrefix = "/eth2/beacon_chain/req/"
   requestSuffix = "/ssz_snappy"
 
-  SeenTableTimeIrrelevantNetwork = 24.hours
-  SeenTableTimeClientShutDown = 10.minutes
-  SeenTableTimeFaultOrError = 10.minutes
-  SeenTablePenaltyError = 60.minutes
-
 template neterr(kindParam: Eth2NetworkingErrorKind): auto =
   err(type(result), Eth2NetworkingError(kind: kindParam))
 
