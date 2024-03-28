@@ -76,9 +76,6 @@ type
 
   NetRes[T] = Result[T, Eth2NetworkingError]
 
-template neterr(kindParam: Eth2NetworkingErrorKind): auto =
-  err(type(result), Eth2NetworkingError(kind: kindParam))
-
 const
   libp2p_pki_schemes {.strdefine.} = ""
 
@@ -133,8 +130,6 @@ proc readChunkPayload(conn: Connection, peer: Peer,
                        MsgType: type): Future[NetRes[MsgType]]
                        {.async: (raises: [CancelledError]).} =
   let size = 0'u32
-  const maxSize = chunkMaxSize[MsgType]()
-
   let
     dataRes = await conn.uncompressFramedStream(size.int)
 
