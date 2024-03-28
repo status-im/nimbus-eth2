@@ -135,7 +135,7 @@ switch("passC", "-fno-omit-frame-pointer")
 switch("passL", "-fno-omit-frame-pointer")
 
 --threads:on
---opt:speed
+--opt:none
 --mm:refc
 --excessiveStackTrace:on
 # enable metric collection
@@ -148,13 +148,6 @@ switch("define", "nim_compiler_path=" & currentDir & "env.sh nim")
 switch("define", "withoutPCRE")
 
 switch("import", "testutils/moduletests")
-
-when not defined(disable_libbacktrace):
-  --define:nimStackTraceOverride
-  switch("import", "libbacktrace")
-else:
-  --stacktrace:on
-  --linetrace:on
 
 var canEnableDebuggingSymbols = true
 if defined(macosx):
@@ -201,36 +194,3 @@ switch("hint", "XCannotRaiseY:off")
 #--define:chronosFutureTracking
 
 --define:kzgExternalBlst
-
-# ############################################################
-#
-#                    No LTO for crypto
-#
-# ############################################################
-
-# This applies per-file compiler flags to C files
-# which do not support {.localPassC: "-fno-lto".}
-# Unfortunately this is filename based instead of path-based
-# Assumes GCC
-
-# BLST
-put("server.always", "-fno-lto")
-put("assembly.always", "-fno-lto")
-
-# Secp256k1
-put("secp256k1.always", "-fno-lto")
-
-# BearSSL - only RNGs
-put("aesctr_drbg.always", "-fno-lto")
-put("hmac_drbg.always", "-fno-lto")
-put("sysrng.always", "-fno-lto")
-
-# ############################################################
-#
-#                    Spurious warnings
-#
-# ############################################################
-
-# sqlite3.c: In function ‘sqlite3SelectNew’:
-# vendor/nim-sqlite3-abi/sqlite3.c:124500: warning: function may return address of local variable [-Wreturn-local-addr]
-put("sqlite3.always", "-fno-lto") # -Wno-return-local-addr

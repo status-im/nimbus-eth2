@@ -360,8 +360,3 @@ p2pProtocol BeaconSync(version = 1,
 
     debug "BlobSidecar range request done",
       peer, startSlot, count = reqCount, found
-
-proc init*(T: type BeaconSync.NetworkState, dag: ChainDAGRef): T =
-  T(
-    dag: dag,
-  )
