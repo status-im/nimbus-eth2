@@ -39,10 +39,6 @@ type
     ServerError
     ResourceUnavailable
 
-  PeerStateInitializer = proc(peer: Peer): RootRef {.gcsafe, raises: [].}
-  NetworkStateInitializer = proc(network: Eth2Node): RootRef {.gcsafe, raises: [].}
-  OnPeerConnectedHandler = proc(peer: Peer, incoming: bool): Future[void] {.async: (raises: [CancelledError]).}
-  OnPeerDisconnectedHandler = proc(peer: Peer): Future[void] {.async: (raises: [CancelledError]).}
   MounterProc = proc(network: Eth2Node) {.gcsafe, raises: [].}
 
   Eth2NetworkingErrorKind = enum
