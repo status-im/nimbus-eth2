@@ -7,7 +7,7 @@ import
   json_serialization, json_serialization/std/[net, sets, options],
   chronos,
   libp2p/[switch, peerinfo, multiaddress, multicodec, crypto/crypto,
-    crypto/secp, builders],
+    crypto/secp],
   libp2p/protocols/pubsub/[
       pubsub, gossipsub, rpc/message, rpc/messages, peertable, pubsubpeer],
   eth/[keys, async_utils],
