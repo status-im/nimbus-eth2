@@ -25,9 +25,6 @@ type
     Disconnected
 
   MessageInfo = object
-    name: string
-
-    libp2pCodecName: string
     protocolMounter: MounterProc
 
   ProtocolInfoObj = object
@@ -62,15 +59,6 @@ type
     PotentiallyExpectedEOF
     StreamOpenTimeout
     ReadResponseTimeout
-
-    InvalidResponseCode
-    InvalidSnappyBytes
-    InvalidSszBytes
-    InvalidSizePrefix
-    ZeroSizePrefix
-    SizePrefixOverflow
-    InvalidContextBytes
-    ResponseChunkOverflow
 
     UnknownError
 
@@ -146,20 +134,14 @@ proc readChunkPayload(conn: Connection, peer: Peer,
                        {.async: (raises: [CancelledError]).} =
   let size = 0'u32
   const maxSize = chunkMaxSize[MsgType]()
-  if size > maxSize:
-    return neterr SizePrefixOverflow
-  if size == 0:
-    return neterr ZeroSizePrefix
 
   let
     dataRes = await conn.uncompressFramedStream(size.int)
-    data = dataRes.valueOr:
-      return neterr InvalidSnappyBytes
 
   try:
-    ok SSZ.decode(data, MsgType)
+    ok SSZ.decode(dataRes.get, MsgType)
   except SerializationError:
-    neterr InvalidSszBytes
+    raiseAssert "false"
 
 proc handleIncomingStream(network: Eth2Node,
                           conn: Connection,
