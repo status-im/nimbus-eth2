@@ -1,6 +1,5 @@
 import
-  chronicles, chronos, snappy, snappy/codec,
-  ".."/[beacon_clock],
+  chronicles, chronos,
   ../networking/eth2_network
 
 type
