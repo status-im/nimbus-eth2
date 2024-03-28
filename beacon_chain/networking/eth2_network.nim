@@ -4,7 +4,6 @@ import
   std/[typetraits, os, strutils, tables, macrocache],
   results,
   stew/[leb128, byteutils, io2],
-  stew/shims/macros,
   json_serialization, json_serialization/std/[net, sets, options],
   chronos,
   libp2p/[switch, peerinfo, multiaddress, multicodec, crypto/crypto,
