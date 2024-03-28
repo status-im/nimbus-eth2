@@ -448,46 +448,6 @@ proc handleIncomingStream(network: Eth2Node,
         peer.updateScore(PeerScoreInvalidRequest)
       else:
         peer.updateScore(PeerScorePoorRequest)
-
-      let (responseCode, errMsg) = case msg.error.kind
-        of UnexpectedEOF, PotentiallyExpectedEOF:
-          (InvalidRequest, errorMsgLit "Incomplete request")
-
-        of InvalidContextBytes:
-          (ServerError, errorMsgLit "Unrecognized context bytes")
-
-        of InvalidSnappyBytes:
-          (InvalidRequest, errorMsgLit "Failed to decompress snappy payload")
-
-        of InvalidSszBytes:
-          (InvalidRequest, errorMsgLit "Failed to decode SSZ payload")
-
-        of InvalidSizePrefix:
-          (InvalidRequest, errorMsgLit "Invalid chunk size prefix")
-
-        of ZeroSizePrefix:
-          (InvalidRequest, errorMsgLit "The request chunk cannot have a size of zero")
-
-        of SizePrefixOverflow:
-          (InvalidRequest, errorMsgLit "The chunk size exceed the maximum allowed")
-
-        of InvalidResponseCode, ReceivedErrorResponse,
-           StreamOpenTimeout, ReadResponseTimeout:
-          # These shouldn't be possible in a request, because
-          # there are no response codes being read, no stream
-          # openings and no reading of responses:
-          (ServerError, errorMsgLit "Internal server error")
-
-        of BrokenConnection:
-          return
-
-        of ResponseChunkOverflow:
-          (InvalidRequest, errorMsgLit "Too many chunks in response")
-
-        of UnknownError:
-          (InvalidRequest, errorMsgLit "Unknown error while processing request")
-
-      await sendErrorResponse(peer, conn, responseCode, errMsg)
       return
 
     try:
