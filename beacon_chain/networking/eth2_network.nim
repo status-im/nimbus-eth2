@@ -190,9 +190,6 @@ when libp2p_pki_schemes != "secp256k1":
 template libp2pProtocol(name: string, version: int) {.pragma.}
 
 func shortLog(peer: Peer): string = shortLog(peer.peerId)
-chronicles.formatIt(Peer): shortLog(it)
-chronicles.formatIt(PublicKey): byteutils.toHex(it.getBytes().tryGet())
-
 func shortProtocolId(protocolId: string): string =
   let
     start = if protocolId.startsWith(requestPrefix): requestPrefix.len else: 0
@@ -258,7 +255,6 @@ template awaitQuota(peerParam: Peer, costParam: float, protocolIdParam: string) 
 
   if not peer.quota.tryConsume(cost.int):
     let protocolId = protocolIdParam
-    debug "Awaiting peer quota", peer, cost = cost, protocolId = protocolId
     await peer.quota.consume(cost.int)
 
 template awaitQuota(
@@ -269,7 +265,6 @@ template awaitQuota(
 
   if not network.quota.tryConsume(cost.int):
     let protocolId = protocolIdParam
-    debug "Awaiting network quota", peer, cost = cost, protocolId = protocolId
     nbc_reqresp_messages_throttled.inc(1, [protocolId])
     await network.quota.consume(cost.int)
 
@@ -317,9 +312,6 @@ proc releasePeer(peer: Peer) =
   if peer.connectionState notin {ConnectionState.Disconnecting,
                                  ConnectionState.Disconnected}:
     if peer.score < PeerScoreLowLimit:
-      debug "Peer was disconnected due to low score", peer = peer,
-            peer_score = peer.score, score_low_limit = PeerScoreLowLimit,
-            score_high_limit = PeerScoreHighLimit
       asyncSpawn(peer.disconnect(PeerScoreLow))
 
 proc getRequestProtoName(fn: NimNode): NimNode =
@@ -375,7 +367,6 @@ proc readVarint2(conn: Connection): Future[NetRes[uint64]] {.
   except CancelledError as exc:
     raise exc
   except CatchableError as exc:
-    debug "Unexpected error", exc = exc.msg
     neterr UnknownError
 
 proc readChunkPayload(conn: Connection, peer: Peer,
@@ -394,7 +385,6 @@ proc readChunkPayload(conn: Connection, peer: Peer,
   let
     dataRes = await conn.uncompressFramedStream(size.int)
     data = dataRes.valueOr:
-      debug "Snappy decompression/read failed", msg = $dataRes.error, conn
       return neterr InvalidSnappyBytes
 
   peer.updateNetThroughput(now(chronos.Moment) - sm,
@@ -468,14 +458,11 @@ proc handleIncomingStream(network: Eth2Node,
   try:
     case peer.connectionState
     of Disconnecting, Disconnected, None:
-      debug "Got incoming request from disconnected peer", peer = peer,
-           message = msgName
       return
     of Connecting:
-      debug "Got incoming request from peer while in handshake", peer = peer,
-            msgName
+      discard
     of Connected:
-      debug "Got incoming request from peer", peer = peer, msgName
+      discard
 
     template returnInvalidRequest(msg: ErrorMsg) =
       peer.updateScore(PeerScoreInvalidRequest)
@@ -580,13 +567,13 @@ proc handleIncomingStream(network: Eth2Node,
       await sendErrorResponse(peer, conn, ServerError, ErrorMsg exc.msg.toBytes)
 
   except CatchableError as exc:
-    debug "Error processing an incoming request", exc = exc.msg, msgName
+    discard
 
   finally:
     try:
       await noCancel conn.closeWithEOF()
     except CatchableError as exc:
-      debug "Unexpected error while closing incoming connection", exc = exc.msg
+      discard
     releasePeer(peer)
 
 proc init(T: type Peer, network: Eth2Node, peerId: PeerId): Peer =
