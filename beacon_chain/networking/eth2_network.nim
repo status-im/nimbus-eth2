@@ -24,14 +24,6 @@ import
   ../validators/keystore_management,
   "."/[eth2_discovery, eth2_protocol_dsl, libp2p_json_serialization, peer_pool, peer_scores]
 
-export
-  tables, chronos, ratelimit, version, multiaddress, peerinfo, p2pProtocol,
-  connection, libp2p_json_serialization, eth2_ssz_serialization, results,
-  eth2_discovery, peer_pool, peer_scores
-
-logScope:
-  topics = "networking"
-
 type
   NetKeyPair* = crypto.KeyPair
   PublicKey* = crypto.PublicKey
