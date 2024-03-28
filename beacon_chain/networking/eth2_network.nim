@@ -11,7 +11,7 @@ import
   libp2p/protocols/pubsub/[
       pubsub, gossipsub, rpc/message, rpc/messages, peertable, pubsubpeer],
   eth/[keys, async_utils],
-  ../spec/[eth2_ssz_serialization, network, helpers]
+  ../spec/[eth2_ssz_serialization, network]
 
 type
   ErrorMsg = List[byte, 256]
@@ -35,7 +35,6 @@ type
     connTable: HashSet[PeerId]
     forkId: ENRForkID
     discoveryForkId: ENRForkID
-    forkDigests: ref ForkDigests
     rng: ref HmacDrbgContext
     peers: Table[PeerId, Peer]
     directPeers: DirectPeers
