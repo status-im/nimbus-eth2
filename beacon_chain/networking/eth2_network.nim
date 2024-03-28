@@ -12,7 +12,7 @@ import
       pubsub, gossipsub, rpc/message, rpc/messages, peertable, pubsubpeer],
   eth/[keys, async_utils],
   ../spec/[eth2_ssz_serialization, network, helpers, forks],
-  "."/[eth2_protocol_dsl, libp2p_json_serialization, peer_pool, peer_scores]
+  "."/[eth2_protocol_dsl, libp2p_json_serialization, peer_pool]
 
 type
   ErrorMsg = List[byte, 256]
@@ -64,7 +64,6 @@ type
     lastMetadataTime: Moment
     direction: PeerType
     disconnectedFut: Future[void]
-    statistics: SyncResponseStats
 
   PeerAddr = object
     peerId: PeerId
@@ -199,11 +198,7 @@ proc peerFromStream(network: Eth2Node, conn: Connection): Peer =
   result = network.getPeer(conn.peerId)
   result.peerId = conn.peerId
 
-func updateScore(peer: Peer, score: int) {.inline.} =
-  peer.score = peer.score + score
-  if peer.score > PeerScoreHighLimit:
-    peer.score = PeerScoreHighLimit
-
+func updateScore(peer: Peer, score: int) = discard
 func calcThroughput(dur: Duration, value: uint64): float =
   let secs = float(chronos.seconds(1).nanoseconds)
   if isZero(dur):
@@ -281,12 +276,7 @@ proc disconnect(peer: Peer, reason: DisconnectionReason,
   except CatchableError:
     discard
 
-proc releasePeer(peer: Peer) =
-  if peer.connectionState notin {ConnectionState.Disconnecting,
-                                 ConnectionState.Disconnected}:
-    if peer.score < PeerScoreLowLimit:
-      asyncSpawn(peer.disconnect(PeerScoreLow))
-
+proc releasePeer(peer: Peer) = discard
 template errorMsgLit(x: static string): ErrorMsg =
   const val = ErrorMsg toBytes(x)
   val
@@ -393,7 +383,6 @@ proc handleIncomingStream(network: Eth2Node,
       discard
 
     template returnInvalidRequest(msg: ErrorMsg) =
-      peer.updateScore(PeerScoreInvalidRequest)
       await sendErrorResponse(peer, conn, InvalidRequest, msg)
       return
 
@@ -437,13 +426,6 @@ proc handleIncomingStream(network: Eth2Node,
 
 
         awaitQuota(peer, libp2pRequestCost, shortProtocolId(protocolId))
-
-    if msg.isErr:
-      if msg.error.kind in ProtocolViolations:
-        peer.updateScore(PeerScoreInvalidRequest)
-      else:
-        peer.updateScore(PeerScorePoorRequest)
-      return
 
     try:
       await callUserHandler(MsgType, peer, conn, msg.get)
