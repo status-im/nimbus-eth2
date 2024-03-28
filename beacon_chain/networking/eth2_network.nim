@@ -107,13 +107,8 @@ proc handleIncomingStream(conn: Connection,
 
   let peer = peerFromStream(conn)
   try:
-    case peer.connectionState
-    of None:
+    if false:
       return
-    of Connecting:
-      discard
-    of Connected:
-      discard
 
     template returnInvalidRequest(msg: ErrorMsg) =
       await sendErrorResponse(peer, conn, InvalidRequest, msg)
