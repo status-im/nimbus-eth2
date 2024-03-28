@@ -309,8 +309,6 @@ type
 template RecType(MSG: type beaconBlocksByRange_v2Obj): untyped =
   beaconBlocksByRange_v2Obj
 
-var BeaconSyncProtocolObj = initProtocol("BeaconSync", nil, nil, 0)
-let BeaconSyncProtocol = addr BeaconSyncProtocolObj
 proc beaconBlocksByRange_v2UserHandler(peer: Peer; reqCount: uint64;
                                        reqStep: uint64; response: MultipleChunksResponse[
     ref uint64, Limit MAX_REQUEST_BLOCKS]) {.async,
