@@ -574,50 +574,6 @@ proc add(s: var seq[byte], pos: var int, bytes: openArray[byte]) =
   s[pos..<pos+bytes.len] = bytes
   pos += bytes.len
 
-proc writeChunkSZ(
-    conn: Connection, responseCode: Opt[ResponseCode],
-    uncompressedLen: uint64, payloadSZ: openArray[byte],
-    contextBytes: openArray[byte] = []): Future[void] =
-  let
-    uncompressedLenBytes = toBytes(uncompressedLen, Leb128)
-
-  var
-    data = newSeqUninitialized[byte](
-      ord(responseCode.isSome) + contextBytes.len + uncompressedLenBytes.len +
-      payloadSZ.len)
-    pos = 0
-
-  if responseCode.isSome:
-    data.add(pos, [byte responseCode.get])
-  data.add(pos, contextBytes)
-  data.add(pos, uncompressedLenBytes.toOpenArray())
-  data.add(pos, payloadSZ)
-  conn.write(data)
-
-proc writeChunk(conn: Connection,
-                responseCode: Opt[ResponseCode],
-                payload: openArray[byte],
-                contextBytes: openArray[byte] = []): Future[void] =
-  let
-    uncompressedLenBytes = toBytes(payload.lenu64, Leb128)
-  var
-    data = newSeqUninitialized[byte](
-      ord(responseCode.isSome) + contextBytes.len + uncompressedLenBytes.len +
-      snappy.maxCompressedLenFramed(payload.len).int)
-    pos = 0
-
-  if responseCode.isSome:
-    data.add(pos, [byte responseCode.get])
-  data.add(pos, contextBytes)
-  data.add(pos, uncompressedLenBytes.toOpenArray())
-  let
-    pre = pos
-    written = snappy.compressFramed(payload, data.toOpenArray(pos, data.high))
-      .expect("compression shouldn't fail with correctly preallocated buffer")
-  data.setLen(pre + written)
-
-  conn.write(data)
-
 template errorMsgLit(x: static string): ErrorMsg =
   const val = ErrorMsg toBytes(x)
   val
@@ -634,53 +590,17 @@ func formatErrorMsg(msg: ErrorMsg): string =
 proc sendErrorResponse(peer: Peer,
                        conn: Connection,
                        responseCode: ResponseCode,
-                       errMsg: ErrorMsg): Future[void] =
-  debug "Error processing request",
-    peer, responseCode, errMsg = formatErrorMsg(errMsg)
-  conn.writeChunk(Opt.some responseCode, SSZ.encode(errMsg))
-
+                       errMsg: ErrorMsg): Future[void] = discard
 proc sendNotificationMsg(peer: Peer, protocolId: string, requestBytes: seq[byte])
-    {.async: (raises: [CancelledError]).} =
-  # Notifications are sent as a best effort, ie errors are not reported back
-  # to the caller
-  let
-    deadline = sleepAsync RESP_TIMEOUT_DUR
-    streamRes = awaitWithTimeout(peer.network.openStream(peer, protocolId), deadline):
-      debug "Timeout while opening stream for notification", peer, protocolId
-      return
-
-  let stream = streamRes.valueOr:
-    debug "Could not open stream for notification",
-      peer, protocolId, error = streamRes.error
-    return
-
-  try:
-    await stream.writeChunk(Opt.none ResponseCode, requestBytes)
-  except CancelledError as exc:
-    raise exc
-  except CatchableError as exc:
-    debug "Error while writing notification", peer, protocolId, exc = exc.msg
-  finally:
-    try:
-      await noCancel stream.close()
-    except CatchableError as exc:
-      debug "Unexpected error while closing notification stream",
-        peer, protocolId, exc = exc.msg
-
+    {.async: (raises: [CancelledError]).} =  discard
 proc sendResponseChunkBytesSZ(
     response: UntypedResponse, uncompressedLen: uint64,
     payloadSZ: openArray[byte],
-    contextBytes: openArray[byte] = []): Future[void] =
-  inc response.writtenChunks
-  response.stream.writeChunkSZ(
-    Opt.some ResponseCode.Success, uncompressedLen, payloadSZ, contextBytes)
+    contextBytes: openArray[byte] = []): Future[void] = discard
 
 proc sendResponseChunkBytes(
     response: UntypedResponse, payload: openArray[byte],
-    contextBytes: openArray[byte] = []): Future[void] =
-  inc response.writtenChunks
-  response.stream.writeChunk(Opt.some ResponseCode.Success, payload, contextBytes)
-
+    contextBytes: openArray[byte] = []): Future[void] = discard
 proc sendResponseChunk(
     response: UntypedResponse, val: auto,
     contextBytes: openArray[byte] = []): Future[void] =
@@ -950,45 +870,7 @@ proc readResponse(conn: Connection, peer: Peer,
 proc makeEth2Request(peer: Peer, protocolId: string, requestBytes: seq[byte],
                      ResponseMsg: type,
                      timeout: Duration): Future[NetRes[ResponseMsg]]
-                    {.async: (raises: [CancelledError]).} =
-  let
-    deadline = sleepAsync timeout
-    streamRes =
-      awaitWithTimeout(peer.network.openStream(peer, protocolId), deadline):
-        return neterr StreamOpenTimeout
-    stream = ?streamRes
-
-  try:
-    # Send the request
-    # Some clients don't want a length sent for empty requests
-    # So don't send anything on empty requests
-    if requestBytes.len > 0:
-      await stream.writeChunk(Opt.none ResponseCode, requestBytes)
-    # Half-close the stream to mark the end of the request - if this is not
-    # done, the other peer might never send us the response.
-    await stream.close()
-
-    nbc_reqresp_messages_sent.inc(1, [shortProtocolId(protocolId)])
-
-    # Read the response
-    let res = await readResponse(stream, peer, ResponseMsg, timeout)
-    if res.isErr():
-      if res.error().kind in ProtocolViolations:
-        peer.updateScore(PeerScoreInvalidRequest)
-      else:
-        peer.updateScore(PeerScorePoorRequest)
-    res
-  except CancelledError as exc:
-    raise exc
-  except CatchableError:
-    peer.updateScore(PeerScorePoorRequest)
-    neterr BrokenConnection
-  finally:
-    try:
-      await noCancel stream.closeWithEOF()
-    except CatchableError as exc:
-      debug "Unexpected error while closing stream",
-        peer, protocolId, exc = exc.msg
+                    {.async: (raises: [CancelledError]).} = discard
 
 proc init*(T: type MultipleChunksResponse, peer: Peer, conn: Connection): T =
   T(UntypedResponse(peer: peer, stream: conn))
