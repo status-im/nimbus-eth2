@@ -3,7 +3,6 @@
 import
   std/[typetraits, os, strutils, tables, macrocache],
   results,
-  stew/[leb128, byteutils, io2],
   json_serialization, json_serialization/std/[net, sets, options],
   chronos,
   libp2p/[switch, peerinfo, crypto/crypto,
@@ -273,10 +272,7 @@ proc disconnect(peer: Peer, reason: DisconnectionReason,
     discard
 
 proc releasePeer(peer: Peer) = discard
-template errorMsgLit(x: static string): ErrorMsg =
-  const val = ErrorMsg toBytes(x)
-  val
-
+template errorMsgLit(x: static string): ErrorMsg = default(ErrorMsg)
 proc sendErrorResponse(peer: Peer,
                        conn: Connection,
                        responseCode: ResponseCode,
@@ -383,14 +379,14 @@ proc handleIncomingStream(network: Eth2Node,
       return
 
     template returnInvalidRequest(msg: string) =
-      returnInvalidRequest(ErrorMsg msg.toBytes)
+      returnInvalidRequest(default(ErrorMsg))
 
     template returnResourceUnavailable(msg: ErrorMsg) =
       await sendErrorResponse(peer, conn, ResourceUnavailable, msg)
       return
 
     template returnResourceUnavailable(msg: string) =
-      returnResourceUnavailable(ErrorMsg msg.toBytes)
+      returnResourceUnavailable(default(ErrorMsg))
 
     const isEmptyMsg = when MsgRec is object:
       when totalSerializedFields(MsgRec) == 0: true
@@ -430,7 +426,7 @@ proc handleIncomingStream(network: Eth2Node,
     except ResourceUnavailableError as exc:
       returnResourceUnavailable exc.msg
     except CatchableError as exc:
-      await sendErrorResponse(peer, conn, ServerError, ErrorMsg exc.msg.toBytes)
+      await sendErrorResponse(peer, conn, ServerError, default(ErrorMsg))
 
   except CatchableError:
     discard
