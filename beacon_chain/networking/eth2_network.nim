@@ -12,10 +12,6 @@ type
     switch: Switch
     protocols: seq[ProtocolInfo]
 
-  AverageThroughput = object
-    count: uint64
-    average: float
-
   Peer = ref object
     network: Eth2Node
     peerId: PeerId
@@ -120,13 +116,6 @@ proc getPeer(node: Eth2Node, peerId: PeerId): Peer = discard
 proc peerFromStream(network: Eth2Node, conn: Connection): Peer =
   result = network.getPeer(conn.peerId)
   result.peerId = conn.peerId
-
-func calcThroughput(dur: Duration, value: uint64): float =
-  let secs = float(chronos.seconds(1).nanoseconds)
-  if isZero(dur):
-    0.0
-  else:
-    float(value) * (secs / float(dur.nanoseconds))
 
 func `<`(a, b: Peer): bool = false
 const
