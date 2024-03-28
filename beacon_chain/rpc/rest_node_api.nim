@@ -277,7 +277,7 @@ proc getLibp2pPeerInfoAddresses(
           block:
             if len(portArg) != sizeof(uint16):
               continue
-            Port(uint16.fromBytesLE(portArg))
+            Port(uint16.fromBytesBE(portArg))
       if IP4.matchPartial(maddress):
         let address4 =
           maddress.getProtocolArgument(multiCodec("ip4")).valueOr:
@@ -334,11 +334,7 @@ proc getDiscoveryAddresses(
           # later.
           res.incl(AddressFamily.IPv6)
         res
-  let
-    port = node.config.udpPort
-    wildcardAddresses =
-      interfaces.getWildcardMultiAddresses(
-        families, IpTransportProtocol.udpProtocol, port, suffix)
+  let port = node.config.udpPort
   # Add known external addresses.
   let externalAddresses =
     node.getExternalAddresses(IpTransportProtocol.udpProtocol)
@@ -347,6 +343,9 @@ proc getDiscoveryAddresses(
     if saddress notin addresses:
       addresses.incl(saddress)
   # Add local interface addresses.
+  let wildcardAddresses =
+    interfaces.getWildcardMultiAddresses(
+      families, IpTransportProtocol.udpProtocol, port, suffix)
   for address in wildcardAddresses:
     let saddress = $address
     if saddress notin addresses:
@@ -378,7 +377,7 @@ proc getP2PAddresses(
     if saddress notin addresses:
       addresses.incl(saddress)
   # Add public addresses discovered Libp2p identify protocol.
-  let observedAddresses = node.getDiscoveryV5Addresses()
+  let observedAddresses = node.getObservedAddresses()
   for address in observedAddresses:
     let saddress = $address
     if saddress notin addresses:
