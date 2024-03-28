@@ -12,6 +12,7 @@ DOC_FILE='docs/the_nimbus_book/src/options.md'
 DOC_USAGE=$(sed -n '/Usage/,/^...$/ { /^...$/d; p; }' "${DOC_FILE}")
 BIN_USAGE=$(
   COLUMNS=200 build/nimbus_beacon_node --help | \
+    sed 's/\x1b\[[0-9;]*m//g' | \
     sed -n '/Usage/,/Available sub-commands/ { /Available sub-commands/d; p; }' | \
     sed 's/\\x1B\\[[0-9;]*[mG]//g' | \
     sed 's/[[:space:]]*$//'
