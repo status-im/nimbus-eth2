@@ -3,13 +3,10 @@ import
   ../spec/datatypes/[phase0, altair, bellatrix, capella, deneb],
   ../spec/[helpers, forks, network],
   ".."/[beacon_clock],
-  ../networking/eth2_network,
-  ../consensus_object_pools/blockchain_dag,
-  ../rpc/rest_constants
+  ../networking/eth2_network
 
 type
   BeaconSyncNetworkState* {.final.} = ref object of RootObj
-    dag: ChainDAGRef
     cfg: RuntimeConfig
     genesisBlockRoot: Eth2Digest
 
