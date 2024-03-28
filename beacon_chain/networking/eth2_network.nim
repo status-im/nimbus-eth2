@@ -134,10 +134,6 @@ type
 
   NetRes[T] = Result[T, Eth2NetworkingError]
 
-const
-  requestPrefix = "/eth2/beacon_chain/req/"
-  requestSuffix = "/ssz_snappy"
-
 template neterr(kindParam: Eth2NetworkingErrorKind): auto =
   err(type(result), Eth2NetworkingError(kind: kindParam))
 
@@ -211,7 +207,6 @@ const
   libp2pRequestCost = allowedOpsPerSecondCost(8)
 
 proc releasePeer(peer: Peer) = discard
-template errorMsgLit(x: static string): ErrorMsg = default(ErrorMsg)
 proc sendErrorResponse(peer: Peer,
                        conn: Connection,
                        responseCode: ResponseCode,
