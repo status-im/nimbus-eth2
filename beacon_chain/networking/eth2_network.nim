@@ -34,7 +34,6 @@ type
     hardMaxPeers: int
     peerPool: PeerPool[Peer, PeerId]
     protocols: seq[ProtocolInfo]
-      ## Protocols managed by the DSL and mounted on the switch
     protocolStates: seq[RootRef]
     metadata: altair.MetaData
     connectTimeout: chronos.Duration
@@ -96,18 +95,12 @@ type
     writtenChunks: int
 
   SingleChunkResponse[MsgType] = distinct UntypedResponse
-    ## Protocol requests using this type will produce request-making
-    ## client-side procs that return `NetRes[MsgType]`
 
   MultipleChunksResponse[MsgType; maxLen: static Limit] = distinct UntypedResponse
-    ## Protocol requests using this type will produce request-making
-    ## client-side procs that return `NetRes[List[MsgType, maxLen]]`.
-    ## In the future, such procs will return an `InputStream[NetRes[MsgType]]`.
 
   MessageInfo = object
     name: string
 
-    # Private fields:
     libp2pCodecName: string
     protocolMounter: MounterProc
 
@@ -117,7 +110,6 @@ type
     index: int # the position of the protocol in the
                 # ordered list of supported protocols
 
-    # Private fields:
     peerStateInitializer: PeerStateInitializer
     networkStateInitializer: NetworkStateInitializer
     onPeerConnected: OnPeerConnectedHandler
@@ -137,18 +129,13 @@ type
   OnPeerDisconnectedHandler = proc(peer: Peer): Future[void] {.async: (raises: [CancelledError]).}
   MounterProc = proc(network: Eth2Node) {.gcsafe, raises: [].}
 
-  # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.5/specs/phase0/p2p-interface.md#goodbye
   DisconnectionReason = enum
-    # might see other values on the wire!
     ClientShutDown = 1
     IrrelevantNetwork = 2
     FaultOrError = 3
-    # Clients MAY use reason codes above 128 to indicate alternative,
-    # erroneous request-specific responses.
     PeerScoreLow = 237 # 79  3
 
   Eth2NetworkingErrorKind = enum
-    # Potentially benign errors (network conditions)
     BrokenConnection
     ReceivedErrorResponse
     UnexpectedEOF
@@ -156,7 +143,6 @@ type
     StreamOpenTimeout
     ReadResponseTimeout
 
-    # Errors for which we descore heavily (protocol violations)
     InvalidResponseCode
     InvalidSnappyBytes
     InvalidSszBytes
@@ -181,20 +167,15 @@ type
   ResourceUnavailableError = object of CatchableError
 
   NetRes[T] = Result[T, Eth2NetworkingError]
-    ## This is type returned from all network requests
 
 const
   requestPrefix = "/eth2/beacon_chain/req/"
   requestSuffix = "/ssz_snappy"
 
   SeenTableTimeIrrelevantNetwork = 24.hours
-    ## Period of time for `IrrelevantNetwork` error reason.
   SeenTableTimeClientShutDown = 10.minutes
-    ## Period of time for `ClientShutDown` error reason.
   SeenTableTimeFaultOrError = 10.minutes
-    ## Period of time for `FaultOnError` error reason.
   SeenTablePenaltyError = 60.minutes
-    ## Period of time for peers which score below or equal to zero.
   ProtocolViolations = {InvalidResponseCode..Eth2NetworkingErrorKind.high()}
 
 template neterr(kindParam: Eth2NetworkingErrorKind): auto =
@@ -239,7 +220,6 @@ proc peerFromStream(network: Eth2Node, conn: Connection): Peer =
   result.peerId = conn.peerId
 
 func updateScore(peer: Peer, score: int) {.inline.} =
-  ## Update peer's ``peer`` score with value ``score``.
   peer.score = peer.score + score
   if peer.score > PeerScoreHighLimit:
     peer.score = PeerScoreHighLimit
@@ -253,7 +233,6 @@ func calcThroughput(dur: Duration, value: uint64): float =
 
 func updateNetThroughput(peer: Peer, dur: Duration,
                          bytesCount: uint64) {.inline.} =
-  ## Update peer's ``peer`` network throughput.
   let bytesPerSecond = calcThroughput(dur, bytesCount)
   let a = peer.netThroughput.average
   let n = peer.netThroughput.count
@@ -261,8 +240,6 @@ func updateNetThroughput(peer: Peer, dur: Duration,
   inc(peer.netThroughput.count)
 
 func `<`(a, b: Peer): bool =
-  ## Comparison function, which first checks peer's scores, and if the peers'
-  ## score is equal it compares peers' network throughput.
   if a.score < b.score:
     true
   elif a.score == b.score:
@@ -302,11 +279,9 @@ func allowedOpsPerSecondCost(n: int): float =
 
 const
   libp2pRequestCost = allowedOpsPerSecondCost(8)
-    ## Maximum number of libp2p requests per peer per second
 
 proc addSeen(network: Eth2Node, peerId: PeerId,
               period: chronos.Duration) =
-  ## Adds peer with PeerId ``peerId`` to SeenTable and timeout ``period``.
   let item = SeenItem(peerId: peerId, stamp: now(chronos.Moment) + period)
   withValue(network.seenTable, peerId, entry) do:
     if entry.stamp < item.stamp:
@@ -316,14 +291,9 @@ proc addSeen(network: Eth2Node, peerId: PeerId,
 
 proc disconnect(peer: Peer, reason: DisconnectionReason,
                  notifyOtherPeer = false) {.async: (raises: [CancelledError]).} =
-  # Per the specification, we MAY send a disconnect reason to the other peer but
-  # we currently don't - the fact that we're disconnecting is obvious and the
-  # reason already known (wrong network is known from status message) or doesn't
-  # greatly matter for the listening side (since it can't be trusted anyway)
   try:
     if peer.connectionState notin {Disconnecting, Disconnected}:
       peer.connectionState = Disconnecting
-      # We adding peer in SeenTable before actual disconnect to avoid races.
       let seenTime = case reason
         of ClientShutDown:
           SeenTableTimeClientShutDown
@@ -338,15 +308,12 @@ proc disconnect(peer: Peer, reason: DisconnectionReason,
   except CancelledError as exc:
     raise exc
   except CatchableError as exc:
-    # switch.disconnect shouldn't raise
     warn "Unexpected error while disconnecting peer",
       peer = peer.peerId,
       reason = reason,
       exc = exc.msg
 
 proc releasePeer(peer: Peer) =
-  ## Checks for peer's score and disconnects peer if score is less than
-  ## `PeerScoreLowLimit`.
   if peer.connectionState notin {ConnectionState.Disconnecting,
                                  ConnectionState.Disconnected}:
     if peer.score < PeerScoreLowLimit:
@@ -356,8 +323,6 @@ proc releasePeer(peer: Peer) =
       asyncSpawn(peer.disconnect(PeerScoreLow))
 
 proc getRequestProtoName(fn: NimNode): NimNode =
-  # `getCustomPragmaVal` doesn't work yet on regular nnkProcDef nodes
-  # (TODO: file as an issue)
 
   let pragmas = fn.pragma
   if pragmas.kind == nnkPragma and pragmas.len > 0:
@@ -388,7 +353,6 @@ proc uncompressFramedStream(conn: Connection,
                             expectedSize: int): Future[Result[seq[byte], string]]
                             {.async: (raises: [CancelledError]).} = discard
 func chunkMaxSize[T](): uint32 =
-  # compiler error on (T: type) syntax...
   when isFixedSize(T):
     uint32 fixedPortionSize(T)
   else:
@@ -403,8 +367,6 @@ proc readVarint2(conn: Connection): Future[NetRes[uint64]] {.
   try:
     ok await conn.readVarint()
   except LPStreamEOFError: #, LPStreamIncompleteError, InvalidVarintError
-    # TODO compiler error - haha, uncaught exception
-    # Error: unhandled exception: closureiters.nim(322, 17) `c[i].kind == nkType`  [AssertionError]
     neterr UnexpectedEOF
   except LPStreamIncompleteError:
     neterr UnexpectedEOF
@@ -429,15 +391,12 @@ proc readChunkPayload(conn: Connection, peer: Peer,
   if size == 0:
     return neterr ZeroSizePrefix
 
-  # The `size.int` conversion is safe because `size` is bounded to `MAX_CHUNK_SIZE`
   let
     dataRes = await conn.uncompressFramedStream(size.int)
     data = dataRes.valueOr:
       debug "Snappy decompression/read failed", msg = $dataRes.error, conn
       return neterr InvalidSnappyBytes
 
-  # `10` is the maximum size of variable integer on wire, so error could
-  # not be significant.
   peer.updateNetThroughput(now(chronos.Moment) - sm,
                             uint64(10 + size))
   try:
@@ -504,29 +463,18 @@ proc handleIncomingStream(network: Eth2Node,
   type MsgRec = RecType(MsgType)
   const msgName {.used.} = typetraits.name(MsgType)
 
-  ## Uncomment this to enable tracing on all incoming requests
-  ## You can include `msgNameLit` in the condition to select
-  ## more specific requests:
-  # when chronicles.runtimeFilteringEnabled:
-  #   setLogLevel(LogLevel.TRACE)
-  #   defer: setLogLevel(LogLevel.DEBUG)
-  #   trace "incoming " & `msgNameLit` & " conn"
 
   let peer = peerFromStream(network, conn)
   try:
     case peer.connectionState
     of Disconnecting, Disconnected, None:
-      # We got incoming stream request while disconnected or disconnecting.
       debug "Got incoming request from disconnected peer", peer = peer,
            message = msgName
       return
     of Connecting:
-      # We got incoming stream request while handshake is not yet finished,
-      # TODO: We could check it here.
       debug "Got incoming request from peer while in handshake", peer = peer,
             msgName
     of Connected:
-      # We got incoming stream from peer with proper connection state.
       debug "Got incoming request from peer", peer = peer, msgName
 
     template returnInvalidRequest(msg: ErrorMsg) =
@@ -545,10 +493,6 @@ proc handleIncomingStream(network: Eth2Node,
       returnResourceUnavailable(ErrorMsg msg.toBytes)
 
     const isEmptyMsg = when MsgRec is object:
-      # We need nested `when` statements here, because Nim doesn't properly
-      # apply boolean short-circuit logic at compile time and this causes
-      # `totalSerializedFields` to be applied to non-object types that it
-      # doesn't know how to support.
       when totalSerializedFields(MsgRec) == 0: true
       else: false
     else:
@@ -573,23 +517,9 @@ proc handleIncomingStream(network: Eth2Node,
               return
 
       finally:
-        # The request quota is shared between all requests - it represents the
-        # cost to perform a service on behalf of a client and is incurred
-        # regardless if the request succeeds or fails - we don't count waiting
-        # for this quota against timeouts so as not to prematurely disconnect
-        # clients that are on the edge - nonetheless, the client will count it.
 
-        # When a client exceeds their quota, they will be slowed down without
-        # notification - as long as they don't make parallel requests (which is
-        # limited by libp2p), this will naturally adapt them to the available
-        # quota.
 
-        # Note that the `msg` will be stored in memory while we wait for the
-        # quota to be available. The amount of such messages in memory is
-        # bounded by the libp2p limit of parallel streams
 
-        # This quota also applies to invalid requests thanks to the use of
-        # `finally`.
 
         awaitQuota(peer, libp2pRequestCost, shortProtocolId(protocolId))
 
@@ -641,7 +571,6 @@ proc handleIncomingStream(network: Eth2Node,
       return
 
     try:
-      # logReceivedMsg(peer, MsgType(msg.get))
       await callUserHandler(MsgType, peer, conn, msg.get)
     except InvalidInputsError as exc:
       returnInvalidRequest exc.msg
@@ -717,19 +646,6 @@ proc p2pProtocolBackendImpl(p: P2PProtocol): Backend =
       codecNameLit = getRequestProtoName(msg.procDef)
       protocolMounterName = ident(msgName & "Mounter")
 
-    ##
-    ## Implement the Thunk:
-    ##
-    ## The protocol handlers in nim-libp2p receive only a `Connection`
-    ## parameter and there is no way to access the wider context (such
-    ## as the current `Switch`). In our handlers, we may need to list all
-    ## peers in the current network, so we must keep a reference to the
-    ## network object in the closure environment of the installed handlers.
-    ##
-    ## For this reason, we define a `protocol mounter` proc that will
-    ## initialize the network object by creating handlers bound to the
-    ## specific network.
-    ##
     var userHandlerCall = newTree(nnkDiscardStmt)
 
     if msg.userHandler != nil:
@@ -780,9 +696,6 @@ proc p2pProtocolBackendImpl(p: P2PProtocol): Backend =
           # Failure here indicates that the mounting was done incorrectly which
           # would be a programming error
           raiseAssert exc.msg
-    ##
-    ## Implement Senders and Handshake
-    ##
     if msg.kind == msgHandshake:
       macros.error "Handshake messages are not supported in LibP2P protocols"
     else:
@@ -797,10 +710,6 @@ proc p2pProtocolBackendImpl(p: P2PProtocol): Backend =
               codecNameLit))
 
   result.implementProtocolInit = proc (p: P2PProtocol): NimNode =
-    # This `macrocache` counter gives each protocol its own integer index which
-    # is later used to index per-protocol, per-instace data kept in the peer and
-    # network - the counter is global across all modules / protocols of the
-    # application
     let
       id = CacheCounter"eth2_network_protocol_id"
       tmp = id.value
