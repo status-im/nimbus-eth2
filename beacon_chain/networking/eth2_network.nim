@@ -1852,9 +1852,6 @@ proc startListening*(node: Eth2Node) {.async.} =
           exc = exc.msg
     quit 1
 
-proc peerPingerHeartbeat(node: Eth2Node): Future[void] {.async: (raises: [CancelledError]).}
-proc peerTrimmerHeartbeat(node: Eth2Node): Future[void] {.async: (raises: [CancelledError]).}
-
 proc start*(node: Eth2Node) {.async: (raises: [CancelledError]).} =
   proc onPeerCountChanged() =
     trace "Number of peers has been changed", length = len(node.peerPool)
@@ -1877,8 +1874,6 @@ proc start*(node: Eth2Node) {.async: (raises: [CancelledError]).} =
         let pa = tr.get().toPeerAddr(tcpProtocol)
         if pa.isOk():
           await node.connQueue.addLast(pa.get())
-  node.peerPingerHeartbeatFut = node.peerPingerHeartbeat()
-  node.peerTrimmerHeartbeatFut = node.peerTrimmerHeartbeat()
 
 proc stop*(node: Eth2Node) {.async: (raises: [CancelledError]).} =
   # Ignore errors in futures, since we're shutting down (but log them on the
@@ -1886,8 +1881,6 @@ proc stop*(node: Eth2Node) {.async: (raises: [CancelledError]).} =
   var waitedFutures =
     @[
         node.switch.stop(),
-        node.peerPingerHeartbeat.cancelAndWait(),
-        node.peerTrimmerHeartbeatFut.cancelAndWait(),
     ]
 
   if node.discoveryEnabled:
@@ -2051,188 +2044,6 @@ proc p2pProtocolBackendImpl*(p: P2PProtocol): Backend =
 #Must import here because of cyclicity
 import ./peer_protocol
 export peer_protocol
-
-proc updatePeerMetadata(node: Eth2Node, peerId: PeerId) {.async: (raises: [CancelledError]).} =
-  trace "updating peer metadata", peerId
-
-  let
-    peer = node.getPeer(peerId)
-    newMetadataRes = await peer.getMetadata_v2()
-    newMetadata = newMetadataRes.valueOr:
-      debug "Failed to retrieve metadata from peer!", peerId, error = newMetadataRes.error
-      peer.failedMetadataRequests.inc()
-      return
-
-  peer.metadata = Opt.some(newMetadata)
-  peer.failedMetadataRequests = 0
-  peer.lastMetadataTime = Moment.now()
-
-const
-  # For Phase0, metadata change every +27 hours
-  MetadataRequestFrequency = 30.minutes
-  MetadataRequestMaxFailures = 3
-
-proc peerPingerHeartbeat(node: Eth2Node) {.async: (raises: [CancelledError]).} =
-  while true:
-    let heartbeatStart_m = Moment.now()
-    var updateFutures: seq[Future[void]]
-
-    for peer in node.peers.values:
-      if peer.connectionState != Connected: continue
-
-      if peer.metadata.isNone or
-          heartbeatStart_m - peer.lastMetadataTime > MetadataRequestFrequency:
-        updateFutures.add(node.updatePeerMetadata(peer.peerId))
-
-    await allFutures(updateFutures)
-
-    reset(updateFutures)
-
-    for peer in node.peers.values:
-      if peer.connectionState != Connected: continue
-
-      if peer.failedMetadataRequests > MetadataRequestMaxFailures:
-        debug "no metadata from peer, kicking it", peer
-        updateFutures.add(peer.disconnect(PeerScoreLow))
-
-    await allFutures(updateFutures)
-
-    await sleepAsync(5.seconds)
-
-proc peerTrimmerHeartbeat(node: Eth2Node) {.async: (raises: [CancelledError]).} =
-  # Disconnect peers in excess of the (soft) max peer count
-  while true:
-    # Only count Connected peers (to avoid counting Disconnecting ones)
-    let
-      connectedPeers = node.peers.values.countIt(
-        it.connectionState == Connected)
-      excessPeers = connectedPeers - node.wantedPeers
-
-    if excessPeers > 0:
-      # Let chronos take back control every trimming
-      node.trimConnections(1)
-
-    await sleepAsync(1.seconds div max(1, excessPeers))
-
-func asEthKey*(key: PrivateKey): keys.PrivateKey =
-  keys.PrivateKey(key.skkey)
-
-template tcpEndPoint(address, port): auto =
-  MultiAddress.init(address, tcpProtocol, port)
-
-func initNetKeys(privKey: PrivateKey): NetKeyPair =
-  let pubKey = privKey.getPublicKey().expect("working public key from random")
-  NetKeyPair(seckey: privKey, pubkey: pubKey)
-
-proc getRandomNetKeys*(rng: var HmacDrbgContext): NetKeyPair =
-  let privKey = PrivateKey.random(Secp256k1, rng).valueOr:
-    fatal "Could not generate random network key file"
-    quit QuitFailure
-  initNetKeys(privKey)
-
-proc getPersistentNetKeys*(
-    rng: var HmacDrbgContext,
-    dataDir, netKeyFile: string,
-    netKeyInsecurePassword: bool,
-    allowLoadExisting: bool): NetKeyPair =
-  if netKeyFile == "random":
-    let
-      keys = rng.getRandomNetKeys()
-      pres = PeerId.init(keys.pubkey).valueOr:
-        fatal "Could not obtain PeerId from network key", error
-        quit QuitFailure
-    info "Generating new networking key",
-      network_public_key = keys.pubkey, network_peer_id = $pres
-    keys
-  else:
-    let
-      # Insecure password used only for automated testing.
-      insecurePassword =
-        if netKeyInsecurePassword:
-          Opt.some(NetworkInsecureKeyPassword)
-        else:
-          Opt.none(string)
-
-      keyPath =
-        if isAbsolute(netKeyFile):
-          netKeyFile
-        else:
-          dataDir / netKeyFile
-    logScope: key_path = keyPath
-
-    if fileAccessible(keyPath, {AccessFlags.Find}) and allowLoadExisting:
-      info "Network key storage is present, unlocking"
-
-      let
-        privKey = loadNetKeystore(keyPath, insecurePassword).valueOr:
-          fatal "Could not load network key file"
-          quit QuitFailure
-        keys = initNetKeys(privKey)
-      info "Network key storage was successfully unlocked",
-        network_public_key = keys.pubkey
-      keys
-    else:
-      if allowLoadExisting:
-        info "Network key storage is missing, creating a new one",
-            key_path = keyPath
-      let
-        keys = rng.getRandomNetKeys()
-        sres = saveNetKeystore(rng, keyPath, keys.seckey, insecurePassword)
-      if sres.isErr():
-        fatal "Could not create network key file"
-        quit QuitFailure
-
-      info "New network key storage was created",
-        network_public_key = keys.pubkey
-      keys
-
-proc getPersistentNetKeys*(
-    rng: var HmacDrbgContext, config: BeaconNodeConf): NetKeyPair =
-  case config.cmd
-  of BNStartUpCmd.noCommand, BNStartUpCmd.record:
-    rng.getPersistentNetKeys(
-      string(config.dataDir), config.netKeyFile, config.netKeyInsecurePassword,
-      allowLoadExisting = true)
-  else:
-    rng.getRandomNetKeys()
-
-func gossipId(
-    data: openArray[byte], phase0Prefix, topic: string): seq[byte] =
-  # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.5/specs/phase0/p2p-interface.md#topics-and-messages
-  # https://github.com/ethereum/consensus-specs/blob/v1.4.0/specs/altair/p2p-interface.md#topics-and-messages
-  const MESSAGE_DOMAIN_VALID_SNAPPY = [0x01'u8, 0x00, 0x00, 0x00]
-  let messageDigest = withEth2Hash:
-    h.update(MESSAGE_DOMAIN_VALID_SNAPPY)
-
-    if not topic.startsWith(phase0Prefix):
-      # everything >= altair
-      h.update topic.len.uint64.toBytesLE
-      h.update topic
-
-    h.update data
-
-  messageDigest.data[0..19]
-
-proc newBeaconSwitch(config: BeaconNodeConf | LightClientConf,
-                     seckey: PrivateKey, address: MultiAddress,
-                     rng: ref HmacDrbgContext): Switch {.raises: [CatchableError].} =
-  var sb =
-    if config.enableYamux:
-      SwitchBuilder.new().withYamux()
-    else:
-      SwitchBuilder.new()
-  # Order of multiplexers matters, the first will be default
-
-  sb
-    .withPrivateKey(seckey)
-    .withAddress(address)
-    .withRng(rng)
-    .withNoise()
-    .withMplex(chronos.minutes(5), chronos.minutes(5))
-    .withMaxConnections(config.maxPeers)
-    .withAgentVersion(config.agentString)
-    .withTcpTransport({ServerFlags.ReuseAddr})
-    .build()
 
 
 type
