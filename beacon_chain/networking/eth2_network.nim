@@ -12,8 +12,6 @@ type
 
   MounterProc = proc() {.gcsafe, raises: [].}
 
-  InvalidInputsError = object of CatchableError
-
   ResourceUnavailableError = object of CatchableError
 
 proc sendErrorResponse(conn: Connection,
@@ -77,8 +75,6 @@ proc handleIncomingStream(conn: Connection,
 
     try:
       discard
-    except InvalidInputsError as exc:
-      returnInvalidRequest exc.msg
     except ResourceUnavailableError as exc:
       returnResourceUnavailable exc.msg
     except CatchableError:
