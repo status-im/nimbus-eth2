@@ -31,11 +31,6 @@ type
     index: int # the position of the protocol in the
                 # ordered list of supported protocols
 
-    peerStateInitializer: PeerStateInitializer
-    networkStateInitializer: NetworkStateInitializer
-    onPeerConnected: OnPeerConnectedHandler
-    onPeerDisconnected: OnPeerDisconnectedHandler
-
   ProtocolInfo = ptr ProtocolInfoObj
 
   ResponseCode = enum
