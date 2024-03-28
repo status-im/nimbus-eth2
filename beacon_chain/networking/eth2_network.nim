@@ -8,15 +8,9 @@ import
 
 type
   ErrorMsg = List[byte, 256]
-  SeenItem = object
-    peerId: PeerId
-    stamp: chronos.Moment
-
   Eth2Node = ref object of RootObj
     switch: Switch
     protocols: seq[ProtocolInfo]
-    protocolStates: seq[RootRef]
-    connQueue: AsyncQueue[PeerAddr]
 
   AverageThroughput = object
     count: uint64
