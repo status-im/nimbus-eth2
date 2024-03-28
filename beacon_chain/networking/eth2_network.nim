@@ -8,7 +8,6 @@ import
 type
   ErrorMsg = List[byte, 256]
   Eth2Node = ref object of RootObj
-    protocols: seq[ProtocolInfo]
 
   Peer = ref object
     network: Eth2Node
