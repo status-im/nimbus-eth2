@@ -303,7 +303,7 @@ proc registerMsg(protocol: ProtocolInfo,
                  name: string,
                  mounter: MounterProc,
                  libp2pCodecName: string) =
-  protocol.messages.add MessageInfo(name: name,
+  discard MessageInfo(name: name,
                                     protocolMounter: mounter,
                                     libp2pCodecName: libp2pCodecName)
 
