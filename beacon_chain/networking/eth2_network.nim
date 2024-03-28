@@ -258,14 +258,6 @@ proc peerFromStream(network: Eth2Node, conn: Connection): Peer =
   result = network.getPeer(conn.peerId)
   result.peerId = conn.peerId
 
-func getKey(peer: Peer): PeerId {.inline.} =
-  peer.peerId
-
-proc getFuture(peer: Peer): Future[void] {.inline.} =
-  if isNil(peer.disconnectedFut):
-    peer.disconnectedFut = newFuture[void]("Peer.disconnectedFut")
-  peer.disconnectedFut
-
 func updateScore(peer: Peer, score: int) {.inline.} =
   ## Update peer's ``peer`` score with value ``score``.
   peer.score = peer.score + score
@@ -401,10 +393,6 @@ proc getRequestProtoName(fn: NimNode): NimNode =
 
   return newLit("")
 
-proc add(s: var seq[byte], pos: var int, bytes: openArray[byte]) =
-  s[pos..<pos+bytes.len] = bytes
-  pos += bytes.len
-
 template errorMsgLit(x: static string): ErrorMsg =
   const val = ErrorMsg toBytes(x)
   val
@@ -500,37 +488,6 @@ proc init(T: type MultipleChunksResponse, peer: Peer, conn: Connection): T =
 proc init[MsgType](T: type SingleChunkResponse[MsgType],
                     peer: Peer, conn: Connection): T =
   T(UntypedResponse(peer: peer, stream: conn))
-
-template write[M; maxLen: static Limit](
-    r: MultipleChunksResponse[M, maxLen], val: M,
-    contextBytes: openArray[byte] = []): untyped =
-  mixin sendResponseChunk
-  sendResponseChunk(UntypedResponse(r), val, contextBytes)
-
-template writeSSZ[M; maxLen: static Limit](
-    r: MultipleChunksResponse[M, maxLen], val: auto,
-    contextBytes: openArray[byte] = []): untyped =
-  mixin sendResponseChunk
-  sendResponseChunk(UntypedResponse(r), val, contextBytes)
-
-template writeBytesSZ(
-    r: MultipleChunksResponse, uncompressedLen: uint64,
-    bytes: openArray[byte], contextBytes: openArray[byte]): untyped =
-  sendResponseChunkBytesSZ(UntypedResponse(r), uncompressedLen, bytes, contextBytes)
-
-template send[M](
-    r: SingleChunkResponse[M], val: M,
-    contextBytes: openArray[byte] = []): untyped =
-  mixin sendResponseChunk
-  doAssert UntypedResponse(r).writtenChunks == 0
-  sendResponseChunk(UntypedResponse(r), val, contextBytes)
-
-template sendSSZ[M](
-    r: SingleChunkResponse[M], val: auto,
-    contextBytes: openArray[byte] = []): untyped =
-  mixin sendResponseChunk
-  doAssert UntypedResponse(r).writtenChunks == 0
-  sendResponseChunk(UntypedResponse(r), val, contextBytes)
 
 proc performProtocolHandshakes(peer: Peer, incoming: bool) {.async: (raises: [CancelledError]).} =
   # Loop down serially because it's easier to reason about the connection state
@@ -742,61 +699,6 @@ proc handleIncomingStream(network: Eth2Node,
       debug "Unexpected error while closing incoming connection", exc = exc.msg
     releasePeer(peer)
 
-proc toPeerAddr(r: enr.TypedRecord,
-                 proto: IpTransportProtocol): Result[PeerAddr, cstring] =
-  if not r.secp256k1.isSome:
-    return err("enr: no secp256k1 key in record")
-
-  let
-    pubKey = ? keys.PublicKey.fromRaw(r.secp256k1.get)
-    peerId = ? PeerId.init(crypto.PublicKey(
-      scheme: Secp256k1, skkey: secp.SkPublicKey(pubKey)))
-
-  var addrs = newSeq[MultiAddress]()
-
-  case proto
-  of tcpProtocol:
-    if r.ip.isSome and r.tcp.isSome:
-      let ip = IpAddress(
-        family: IpAddressFamily.IPv4,
-        address_v4: r.ip.get)
-      addrs.add MultiAddress.init(ip, tcpProtocol, Port r.tcp.get)
-
-    if r.ip6.isSome:
-      let ip = IpAddress(
-        family: IpAddressFamily.IPv6,
-        address_v6: r.ip6.get)
-      if r.tcp6.isSome:
-        addrs.add MultiAddress.init(ip, tcpProtocol, Port r.tcp6.get)
-      elif r.tcp.isSome:
-        addrs.add MultiAddress.init(ip, tcpProtocol, Port r.tcp.get)
-      else:
-        discard
-
-  of udpProtocol:
-    if r.ip.isSome and r.udp.isSome:
-      let ip = IpAddress(
-        family: IpAddressFamily.IPv4,
-        address_v4: r.ip.get)
-      addrs.add MultiAddress.init(ip, udpProtocol, Port r.udp.get)
-
-    if r.ip6.isSome:
-      let ip = IpAddress(
-        family: IpAddressFamily.IPv6,
-        address_v6: r.ip6.get)
-      if r.udp6.isSome:
-        addrs.add MultiAddress.init(ip, udpProtocol, Port r.udp6.get)
-      elif r.udp.isSome:
-        addrs.add MultiAddress.init(ip, udpProtocol, Port r.udp.get)
-      else:
-        discard
-
-  if addrs.len == 0:
-    return err("enr: no addresses in record")
-
-  ok(PeerAddr(peerId: peerId, addrs: addrs))
-
-proc resolvePeer(peer: Peer) = discard
 proc onConnEvent(
     node: Eth2Node, peerId: PeerId, event: ConnEvent) {.
     async: (raises: [CancelledError]).} =
