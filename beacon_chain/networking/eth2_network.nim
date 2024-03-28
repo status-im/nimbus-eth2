@@ -201,17 +201,6 @@ proc init[MsgType](T: type SingleChunkResponse[MsgType],
                     peer: Peer, conn: Connection): T =
   T(UntypedResponse(peer: peer, stream: conn))
 
-proc initProtocol(name: string,
-                  peerInit: PeerStateInitializer,
-                  networkInit: NetworkStateInitializer,
-                  index: int): ProtocolInfoObj =
-  ProtocolInfoObj(
-    name: name,
-    messages: @[],
-    index: index,
-    peerStateInitializer: peerInit,
-    networkStateInitializer: networkInit)
-
 proc handleIncomingStream(network: Eth2Node,
                           conn: Connection,
                           protocolId: string,
