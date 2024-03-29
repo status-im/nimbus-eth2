@@ -1,4 +1,4 @@
-2024-03-28 v24.3.0
+2024-03-29 v24.3.0
 ==================
 
 Nimbus `v24.3.0` is a `low-urgency` upgrade bringing additional beacon API support and resilience to suboptimal network conditions.
