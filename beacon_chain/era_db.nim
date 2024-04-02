@@ -257,7 +257,7 @@ proc verify*(f: EraFile, cfg: RuntimeConfig): Result[Eth2Digest, string] =
           if blck[].signature != default(type(blck[].signature)):
             return err("Genesis slot signature not empty")
 
-    if not batchVerify(verifier, sigs):
+    if sigs.len > 0 and not batchVerify(verifier, sigs):
       return err("Invalid block signature")
 
   ok(getStateRoot(state[]))
