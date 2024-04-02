@@ -30,8 +30,27 @@ from ./deneb import Blobs, BlobsBundle, KzgCommitments, KzgProofs
 
 export json_serialization, base, kzg4844
 
+const
+  # Keep these here for now, since things still in flux
+  # https://github.com/ethereum/consensus-specs/pull/3615
+  MAX_DEPOSIT_RECEIPTS_PER_PAYLOAD* = 8192
+  MAX_EXECUTION_LAYER_EXITS_PER_PAYLOAD* = 16  # there's a discrepancy here, _PER_PAYLOAD or not
+
 type
-  # https://github.com/ethereum/consensus-specs/blob/v1.4.0/specs/deneb/beacon-chain.md#executionpayload
+  # https://github.com/ethereum/consensus-specs/pull/3615
+  DepositReceipt* = object
+    pubkey*: ValidatorPubKey
+    withdrawal_credentials*: Eth2Digest
+    amount*: Gwei
+    signature*: ValidatorSig
+    index*: uint64
+
+  # https://github.com/ethereum/consensus-specs/pull/3615
+  ExecutionLayerExit* = object
+    source_address*: ExecutionAddress
+    validator_pubkey*: ValidatorPubKey
+
+  # https://github.com/ethereum/consensus-specs/pull/3615
   ExecutionPayload* = object
     # Execution block header fields
     parent_hash*: Eth2Digest
@@ -54,8 +73,10 @@ type
     block_hash*: Eth2Digest # Hash of execution block
     transactions*: List[Transaction, MAX_TRANSACTIONS_PER_PAYLOAD]
     withdrawals*: List[Withdrawal, MAX_WITHDRAWALS_PER_PAYLOAD]
-    blob_gas_used*: uint64   # [New in Deneb]
-    excess_blob_gas*: uint64 # [New in Deneb]
+    blob_gas_used*: uint64
+    excess_blob_gas*: uint64
+    deposit_receipts*: List[DepositReceipt, MAX_DEPOSIT_RECEIPTS_PER_PAYLOAD]
+    exits*: List[ExecutionLayerExit, MAX_EXECUTION_LAYER_EXITS_PER_PAYLOAD]
 
   ExecutionPayloadForSigning* = object
     executionPayload*: ExecutionPayload

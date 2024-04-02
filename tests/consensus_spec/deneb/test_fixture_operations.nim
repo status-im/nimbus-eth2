@@ -24,7 +24,8 @@ import
 from std/sequtils import mapIt, toSeq
 from std/strutils import contains
 from ../../../beacon_chain/spec/beaconstate import
-  get_base_reward_per_increment, get_total_active_balance, process_attestation
+  get_base_reward_per_increment, get_state_exit_queue_info,
+  get_total_active_balance, process_attestation
 
 const
   OpDir                     = SszTestsDir/const_preset/"deneb"/"operations"
@@ -90,7 +91,7 @@ suite baseDescription & "Attestation " & preset():
     # This returns the proposer reward for including the attestation, which
     # isn't tested here.
     discard ? process_attestation(
-      preState, attestation, {}, base_reward_per_increment, cache)
+      preState, attestation, {strictVerification}, base_reward_per_increment, cache)
     ok()
 
   for path in walkTests(OpAttestationsDir):
@@ -104,7 +105,9 @@ suite baseDescription & "Attester Slashing " & preset():
       Result[void, cstring] =
     var cache: StateCache
     doAssert (? process_attester_slashing(
-      defaultRuntimeConfig, preState, attesterSlashing, {}, cache)) > 0.Gwei
+      defaultRuntimeConfig, preState, attesterSlashing, {strictVerification},
+      get_state_exit_queue_info(defaultRuntimeConfig, preState, cache),
+      cache))[0] > 0.Gwei
     ok()
 
   for path in walkTests(OpAttSlashingDir):
@@ -177,7 +180,9 @@ suite baseDescription & "Proposer Slashing " & preset():
       Result[void, cstring] =
     var cache: StateCache
     doAssert (? process_proposer_slashing(
-      defaultRuntimeConfig, preState, proposerSlashing, {}, cache)) > 0.Gwei
+      defaultRuntimeConfig, preState, proposerSlashing, {},
+      get_state_exit_queue_info(defaultRuntimeConfig, preState, cache),
+      cache))[0] > 0.Gwei
     ok()
 
   for path in walkTests(OpProposerSlashingDir):
@@ -205,8 +210,13 @@ suite baseDescription & "Voluntary Exit " & preset():
       preState: var deneb.BeaconState, voluntaryExit: SignedVoluntaryExit):
       Result[void, cstring] =
     var cache: StateCache
-    process_voluntary_exit(
-      defaultRuntimeConfig, preState, voluntaryExit, {}, cache)
+    if process_voluntary_exit(
+        defaultRuntimeConfig, preState, voluntaryExit, {},
+        get_state_exit_queue_info(defaultRuntimeConfig, preState, cache),
+        cache).isOk:
+      ok()
+    else:
+      err("")
 
   for path in walkTests(OpVoluntaryExitDir):
     runTest[SignedVoluntaryExit, typeof applyVoluntaryExit](

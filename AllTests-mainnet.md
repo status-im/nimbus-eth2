@@ -459,8 +459,9 @@ OK: 5/5 Fail: 0/5 Skip: 0/5
 + Roundtrip engine RPC V1 and bellatrix ExecutionPayload representations                     OK
 + Roundtrip engine RPC V2 and capella ExecutionPayload representations                       OK
 + Roundtrip engine RPC V3 and deneb ExecutionPayload representations                         OK
++ Roundtrip engine RPC V4 and electra ExecutionPayload representations                       OK
 ```
-OK: 5/5 Fail: 0/5 Skip: 0/5
+OK: 6/6 Fail: 0/6 Skip: 0/6
 ## Eth2 specific discovery tests
 ```diff
 + Invalid attnets field                                                                      OK
@@ -1018,4 +1019,4 @@ OK: 2/2 Fail: 0/2 Skip: 0/2
 OK: 9/9 Fail: 0/9 Skip: 0/9
 
 ---TOTAL---
-OK: 683/688 Fail: 0/688 Skip: 5/688
+OK: 684/689 Fail: 0/689 Skip: 5/689

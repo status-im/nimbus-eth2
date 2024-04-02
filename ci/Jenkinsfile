@@ -1,5 +1,5 @@
 /* beacon_chain
- * Copyright (c) 2019-2023 Status Research & Development GmbH
+ * Copyright (c) 2019-2024 Status Research & Development GmbH
  * Licensed and distributed under either of
  *   * MIT license (license terms in the root directory or at https://opensource.org/licenses/MIT).
  *   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
@@ -68,20 +68,13 @@ pipeline {
     stage('Build') {
       steps { timeout(50) {
         sh 'make LOG_LEVEL=TRACE'
-        /* Check documentation reflects `nimbus_beacon_node --help`. */
-        sh '''#!/usr/bin/env bash
-          if ! diff -u \\
-              <(sed -n '/Usage/,/^...$/ { /^...$/d; p; }' \\
-                docs/the_nimbus_book/src/options.md) \\
-              <(COLUMNS=200 build/nimbus_beacon_node --help | \\
-                sed -n '/Usage/,/Available sub-commands/ { /Available sub-commands/d; p; }' | \\
-                sed 's/\\x1B\\[[0-9;]*[mG]//g' | \\
-                sed 's/[[:space:]]*$//'); then \\
-            echo "Please update 'docs/the_nimbus_book/src/options.md' to match 'COLUMNS=200 nimbus_beacon_node --help'"; \\
-            false; \\
-          fi
-        '''
       } }
+    }
+
+    stage('Check Docs') {
+      steps {
+        sh './scripts/check_docs_help_msg.sh'
+      }
     }
 
     stage('Tests') {

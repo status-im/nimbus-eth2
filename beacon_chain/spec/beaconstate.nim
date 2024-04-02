@@ -11,13 +11,11 @@ import
   stew/assign2,
   json_serialization/std/sets,
   chronicles,
-  ../extras,
   ./datatypes/[phase0, altair, bellatrix],
   "."/[eth2_merkleization, forks, signatures, validator]
 
 from std/algorithm import fill
 from std/sequtils import anyIt, mapIt, toSeq
-
 from ./datatypes/capella import BeaconState, ExecutionPayloadHeader, Withdrawal
 
 export extras, forks, validator, chronicles
@@ -92,42 +90,59 @@ func get_validator_activation_churn_limit*(
     cfg.MAX_PER_EPOCH_ACTIVATION_CHURN_LIMIT,
     get_validator_churn_limit(cfg, state, cache))
 
-# https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.6/specs/phase0/beacon-chain.md#initiate_validator_exit
-func initiate_validator_exit*(
-    cfg: RuntimeConfig, state: var ForkyBeaconState,
-    index: ValidatorIndex, cache: var StateCache): Result[void, cstring] =
-  ## Initiate the exit of the validator with index ``index``.
-
-  if state.validators.item(index).exit_epoch != FAR_FUTURE_EPOCH:
-    return ok() # Before touching cache
-
-  # Return if validator already initiated exit
-  let validator = addr state.validators.mitem(index)
-
-  trace "Validator exiting",
-    index = index,
-    num_validators = state.validators.len,
-    current_epoch = get_current_epoch(state),
-    validator_slashed = validator.slashed,
-    validator_withdrawable_epoch = validator.withdrawable_epoch,
-    validator_exit_epoch = validator.exit_epoch,
-    validator_effective_balance = validator.effective_balance
-
-  var exit_queue_epoch = compute_activation_exit_epoch(get_current_epoch(state))
+# https://github.com/ethereum/consensus-specs/blob/v1.4.0/specs/phase0/beacon-chain.md#initiate_validator_exit
+func get_state_exit_queue_info*(
+    cfg: RuntimeConfig, state: var ForkyBeaconState, cache: var StateCache): ExitQueueInfo =
+  var
+    exit_queue_epoch = compute_activation_exit_epoch(get_current_epoch(state))
+    exit_queue_churn: uint64
   # Compute max exit epoch
   for idx in 0..<state.validators.len:
     let exit_epoch = state.validators.item(idx).exit_epoch
     if exit_epoch != FAR_FUTURE_EPOCH and exit_epoch > exit_queue_epoch:
       exit_queue_epoch = exit_epoch
 
-  var
-    exit_queue_churn: int
-  for idx in 0..<state.validators.len:
-    if state.validators.item(idx).exit_epoch == exit_queue_epoch:
-      exit_queue_churn += 1
+      # Reset exit queue churn counter as the expected exit_queue_epoch updates
+      # via this essentially max()-but-not-FAR_FUTURE_EPOCH loop to restart the
+      # counting the second for loop in spec version does. Only the last count,
+      # the one corresponding to the ultimately correct exit_queue_epoch, won't
+      # be reset.
+      exit_queue_churn = 0
 
-  if exit_queue_churn.uint64 >= get_validator_churn_limit(cfg, state, cache):
-    exit_queue_epoch += 1
+    # Second spec loop body, which there is responsible for taking the already
+    # known exit_queue_epoch, scanning for all validators with that exit epoch
+    # and checking if they'll reach validator_churn_limit(state). Do that here
+    # incrementally to fuse the two loops and save an all-validator iteration.
+    if exit_epoch == exit_queue_epoch:
+      inc exit_queue_churn
+
+  ExitQueueInfo(
+    exit_queue_epoch: exit_queue_epoch, exit_queue_churn: exit_queue_churn)
+
+# https://github.com/ethereum/consensus-specs/blob/v1.4.0/specs/phase0/beacon-chain.md#initiate_validator_exit
+func initiate_validator_exit*(
+    cfg: RuntimeConfig, state: var ForkyBeaconState,
+    index: ValidatorIndex, exit_queue_info: ExitQueueInfo, cache: var StateCache):
+    Result[ExitQueueInfo, cstring] =
+  ## Initiate the exit of the validator with index ``index``.
+
+  if state.validators.item(index).exit_epoch != FAR_FUTURE_EPOCH:
+    return ok(exit_queue_info) # Before touching cache
+
+  # Return if validator already initiated exit
+  let validator = addr state.validators.mitem(index)
+
+  var
+    exit_queue_epoch = exit_queue_info.exit_queue_epoch
+    exit_queue_churn = exit_queue_info.exit_queue_churn
+
+  if exit_queue_churn >= get_validator_churn_limit(cfg, state, cache):
+    inc exit_queue_epoch
+
+  # Bookkeeping for inter-operation caching; include this exit for next time
+    exit_queue_churn = 1
+  else:
+    inc exit_queue_churn
 
   # Set validator exit epoch and withdrawable epoch
   validator.exit_epoch = exit_queue_epoch
@@ -139,7 +154,8 @@ func initiate_validator_exit*(
   validator.withdrawable_epoch =
     validator.exit_epoch + cfg.MIN_VALIDATOR_WITHDRAWABILITY_DELAY
 
-  ok()
+  ok(ExitQueueInfo(
+    exit_queue_epoch: exit_queue_epoch, exit_queue_churn: exit_queue_churn))
 
 from ./datatypes/deneb import BeaconState
 
@@ -184,22 +200,15 @@ func get_proposer_reward(state: ForkyBeaconState, whistleblower_reward: Gwei): G
 # https://github.com/ethereum/consensus-specs/blob/v1.4.0/specs/bellatrix/beacon-chain.md#modified-slash_validator
 proc slash_validator*(
     cfg: RuntimeConfig, state: var ForkyBeaconState,
-    slashed_index: ValidatorIndex, cache: var StateCache):
-    Result[Gwei, cstring] =
+    slashed_index: ValidatorIndex, pre_exit_queue_info: ExitQueueInfo,
+    cache: var StateCache): Result[(Gwei, ExitQueueInfo), cstring] =
   ## Slash the validator with index ``index``.
-  let epoch = get_current_epoch(state)
-  ? initiate_validator_exit(cfg, state, slashed_index, cache)
+  let
+    epoch = get_current_epoch(state)
+    post_exit_queue_info = ? initiate_validator_exit(
+      cfg, state, slashed_index, pre_exit_queue_info, cache)
 
   let validator = addr state.validators.mitem(slashed_index)
-
-  trace "slash_validator: ejecting validator via slashing (validator_leaving)",
-    index = slashed_index,
-    num_validators = state.validators.len,
-    current_epoch = get_current_epoch(state),
-    validator_slashed = validator.slashed,
-    validator_withdrawable_epoch = validator.withdrawable_epoch,
-    validator_exit_epoch = validator.exit_epoch,
-    validator_effective_balance = validator.effective_balance
 
   validator.slashed = true
   validator.withdrawable_epoch =
@@ -213,7 +222,7 @@ proc slash_validator*(
   # The rest doesn't make sense without there being any proposer index, so skip
   let proposer_index = get_beacon_proposer_index(state, cache).valueOr:
     debug "No beacon proposer index and probably no active validators"
-    return ok(0.Gwei)
+    return ok((0.Gwei, post_exit_queue_info))
 
   # Apply proposer and whistleblower rewards
   let
@@ -224,11 +233,13 @@ proc slash_validator*(
 
   increase_balance(state, proposer_index, proposer_reward)
   # TODO: evaluate if spec bug / underflow can be triggered
-  doAssert(whistleblower_reward >= proposer_reward, "Spec bug: underflow in slash_validator")
+  doAssert(
+    whistleblower_reward >= proposer_reward,
+    "Spec bug: underflow in slash_validator")
   increase_balance(
     state, whistleblower_index, whistleblower_reward - proposer_reward)
 
-  ok(proposer_reward)
+  ok((proposer_reward, post_exit_queue_info))
 
 func genesis_time_from_eth1_timestamp(
     cfg: RuntimeConfig, eth1_timestamp: uint64): uint64 =
