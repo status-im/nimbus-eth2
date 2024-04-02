@@ -2295,51 +2295,48 @@ proc createEth2Node*(rng: ref HmacDrbgContext,
   let phase0Prefix = "/eth2/" & $forkDigests.phase0
 
   func msgIdProvider(m: messages.Message): Result[seq[byte], ValidationResult] =
-    template topic: untyped =
-      if m.topicIds.len > 0: m.topicIds[0] else: ""
-
     try:
       # This doesn't have to be a tight bound, just enough to avoid denial of
       # service attacks.
       let decoded = snappy.decode(m.data, static(GOSSIP_MAX_SIZE.uint32))
-      ok(gossipId(decoded, phase0Prefix, topic))
+      ok(gossipId(decoded, phase0Prefix, m.topic))
     except CatchableError:
       err(ValidationResult.Reject)
 
   let
-    params = GossipSubParams(
-      explicit: true,
-      pruneBackoff: chronos.minutes(1),
-      unsubscribeBackoff: chronos.seconds(10),
-      floodPublish: true,
-      gossipFactor: 0.05,
-      d: 8,
-      dLow: 6,
-      dHigh: 12,
-      dScore: 6,
-      dOut: 6 div 2, # less than dlow and no more than dlow/2
-      dLazy: 6,
-      heartbeatInterval: chronos.milliseconds(700),
-      historyLength: 6,
-      historyGossip: 3,
-      fanoutTTL: chronos.seconds(60),
+    params = GossipSubParams.init(
+      explicit = true,
+      pruneBackoff = chronos.minutes(1),
+      unsubscribeBackoff = chronos.seconds(10),
+      floodPublish = true,
+      gossipFactor = 0.05,
+      d = 8,
+      dLow = 6,
+      dHigh = 12,
+      dScore = 6,
+      dOut = 6 div 2, # less than dlow and no more than dlow/2
+      dLazy = 6,
+      heartbeatInterval = chronos.milliseconds(700),
+      historyLength = 6,
+      historyGossip = 3,
+      fanoutTTL = chronos.seconds(60),
       # 2 epochs matching maximum valid attestation lifetime
-      seenTTL: chronos.seconds(int(SECONDS_PER_SLOT * SLOTS_PER_EPOCH * 2)),
-      gossipThreshold: -4000,
-      publishThreshold: -8000,
-      graylistThreshold: -16000, # also disconnect threshold
-      opportunisticGraftThreshold: 0,
-      decayInterval: chronos.seconds(12),
-      decayToZero: 0.01,
-      retainScore: chronos.seconds(385),
-      appSpecificWeight: 0.0,
-      ipColocationFactorWeight: -53.75,
-      ipColocationFactorThreshold: 3.0,
-      behaviourPenaltyWeight: -15.9,
-      behaviourPenaltyDecay: 0.986,
-      disconnectBadPeers: true,
-      directPeers: directPeers,
-      bandwidthEstimatebps: config.bandwidthEstimate.get(100_000_000)
+      seenTTL = chronos.seconds(int(SECONDS_PER_SLOT * SLOTS_PER_EPOCH * 2)),
+      gossipThreshold = -4000,
+      publishThreshold = -8000,
+      graylistThreshold = -16000, # also disconnect threshold
+      opportunisticGraftThreshold = 0,
+      decayInterval = chronos.seconds(12),
+      decayToZero = 0.01,
+      retainScore = chronos.seconds(385),
+      appSpecificWeight = 0.0,
+      ipColocationFactorWeight = -53.75,
+      ipColocationFactorThreshold = 3.0,
+      behaviourPenaltyWeight = -15.9,
+      behaviourPenaltyDecay = 0.986,
+      disconnectBadPeers = true,
+      directPeers = directPeers,
+      bandwidthEstimatebps = config.bandwidthEstimate.get(100_000_000)
     )
     pubsub = GossipSub.init(
       switch = switch,

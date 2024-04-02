@@ -370,7 +370,7 @@ proc checkBloblessSignature(
   let proposer = getProposer(
         dag, parent, signed_beacon_block.message.slot).valueOr:
     return err("checkBloblessSignature: Cannot compute proposer")
-  if uint64(proposer) != signed_beacon_block.message.proposer_index:
+  if distinctBase(proposer) != signed_beacon_block.message.proposer_index:
     return err("checkBloblessSignature: Incorrect proposer")
   if not verify_block_signature(
       dag.forkAtEpoch(signed_beacon_block.message.slot.epoch),
@@ -537,6 +537,7 @@ proc storeBlock(
 
   if NewPayloadStatus.invalid == payloadStatus:
     self.consensusManager.quarantine[].addUnviable(signedBlock.root)
+    self[].dumpInvalidBlock(signedBlock)
     return err((VerifierError.UnviableFork, ProcessingStatus.completed))
 
   if NewPayloadStatus.noResponse == payloadStatus:

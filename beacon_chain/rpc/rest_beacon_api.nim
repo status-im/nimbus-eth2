@@ -129,6 +129,21 @@ proc toString*(kind: ValidatorFilterKind): string =
   of ValidatorFilterKind.WithdrawalDone:
     "withdrawal_done"
 
+func checkRestBlockBlobsValid(
+    forkyBlck: deneb.SignedBeaconBlock | electra.SignedBeaconBlock,
+    kzg_proofs: KzgProofs,
+    blobs: Blobs): Result[void, string] =
+  if kzg_proofs.len != blobs.len:
+    return err("Invalid block publish: " & $kzg_proofs.len & " KZG proofs and " &
+      $blobs.len & " blobs")
+
+  if kzg_proofs.len != forkyBlck.message.body.blob_kzg_commitments.len:
+    return err("Invalid block publish: " & $kzg_proofs.len &
+      " KZG proofs and " & $forkyBlck.message.body.blob_kzg_commitments.len &
+      " KZG commitments")
+
+  ok()
+
 proc installBeaconApiHandlers*(router: var RestRouter, node: BeaconNode) =
   # https://github.com/ethereum/EIPs/blob/master/EIPS/eip-4881.md
   router.api2(MethodGet, "/eth/v1/beacon/deposit_snapshot") do (
@@ -920,6 +935,12 @@ proc installBeaconApiHandlers*(router: var RestRouter, node: BeaconNode) =
         of ConsensusFork.Deneb:
           var blck = restBlock.denebData.signed_block
           blck.root = hash_tree_root(blck.message)
+
+          let validity = checkRestBlockBlobsValid(
+            blck, restBlock.denebData.kzg_proofs, restBlock.denebData.blobs)
+          if validity.isErr:
+            return RestApiResponse.jsonError(Http400, validity.error)
+
           await node.router.routeSignedBeaconBlock(
             blck, Opt.some(blck.create_blob_sidecars(
               restBlock.denebData.kzg_proofs, restBlock.denebData.blobs)))
@@ -996,6 +1017,12 @@ proc installBeaconApiHandlers*(router: var RestRouter, node: BeaconNode) =
         of ConsensusFork.Deneb:
           var blck = restBlock.denebData.signed_block
           blck.root = hash_tree_root(blck.message)
+
+          let validity = checkRestBlockBlobsValid(
+            blck, restBlock.denebData.kzg_proofs, restBlock.denebData.blobs)
+          if validity.isErr:
+            return RestApiResponse.jsonError(Http400, validity.error)
+
           await node.router.routeSignedBeaconBlock(
             blck, Opt.some(blck.create_blob_sidecars(
               restBlock.denebData.kzg_proofs, restBlock.denebData.blobs)))
