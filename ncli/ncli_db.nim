@@ -468,7 +468,7 @@ proc cmdPutBlock(conf: DbConf, cfg: RuntimeConfig) =
         db.putGenesisBlock(forkyBlck.root)
 
 proc cmdPutBlob(conf: DbConf, cfg: RuntimeConfig) =
-  let db = BeaconChainDB.new(conf.databaseDir.string)
+  let db = BeaconChainDB.new(conf.databaseDir.string, cfg)
   defer: db.close()
 
   for file in conf.blobFile:
