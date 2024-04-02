@@ -897,6 +897,9 @@ func process_registry_updates*(
       get_validator_activation_churn_limit(cfg, state, cache)
     else:
       get_validator_churn_limit(cfg, state, cache)
+
+  var maybe_exit_queue_info: Opt[ExitQueueInfo]
+
   for vidx in state.validators.vindices:
     if is_eligible_for_activation_queue(state.validators.item(vidx)):
       state.validators.mitem(vidx).activation_eligibility_epoch =
@@ -904,7 +907,17 @@ func process_registry_updates*(
 
     if is_active_validator(state.validators.item(vidx), get_current_epoch(state)) and
         state.validators.item(vidx).effective_balance <= cfg.EJECTION_BALANCE.Gwei:
-      ? initiate_validator_exit(cfg, state, vidx, cache)
+      # Typically, there will be no ejected validators, and even more rarely,
+      # more than one. Therefore, only calculate the information required for
+      # initiate_validator_exit if there actually is at least one.
+      let exit_queue_info = maybe_exit_queue_info.valueOr:
+        let initial_exit_queue_info = get_state_exit_queue_info(
+          cfg, state, cache)
+        maybe_exit_queue_info = Opt.some initial_exit_queue_info
+        initial_exit_queue_info
+
+      maybe_exit_queue_info = Opt.some (? initiate_validator_exit(
+        cfg, state, vidx, exit_queue_info, cache))
 
     let validator = unsafeAddr state.validators.item(vidx)
     if is_eligible_for_activation(state, validator[]):
