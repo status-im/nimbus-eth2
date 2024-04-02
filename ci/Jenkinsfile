@@ -21,6 +21,11 @@ pipeline {
       description: 'Value for the V make flag to increase log verbosity',
       choices: [0, 1, 2]
     )
+    string(
+      name: 'NIM_COMMIT',
+      description: 'Value for the NIM_COMMIT make flag to choose Nim commit',
+      defaultValue: nimCommitForJob(),
+    )
   }
 
   options {
@@ -50,7 +55,7 @@ pipeline {
 
   environment {
     NPROC = Runtime.getRuntime().availableProcessors()
-    MAKEFLAGS = "V=${params.VERBOSITY} -j${env.NPROC}"
+    MAKEFLAGS = "V=${params.VERBOSITY} NIM_COMMIT=${params.NIM_COMMIT} -j${env.NPROC}"
   }
 
   stages {
@@ -82,7 +87,7 @@ pipeline {
         stage('General') {
           steps { timeout(60) {
             sh 'make DISABLE_TEST_FIXTURES_SCRIPT=1 test'
-            sh 'git diff --exit-code'  /* Check no uncommitted changes. */
+            sh 'git diff --exit-code --ignore-submodules=all'  /* Check no uncommitted changes. */
           } }
         }
 
@@ -157,4 +162,8 @@ def getAgentLabel() {
         if (tokens.contains(it)) { labels.add(it) }
     }
     return labels.join(' && ')
+}
+
+def nimCommitForJob() {
+  return JOB_NAME.contains('-nimv2/') ? 'upstream/version-2-0' : ''
 }
