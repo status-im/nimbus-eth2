@@ -26,7 +26,7 @@ When building from source, you will need additional build dependencies to be ins
 
     ```sh
     # Debian and Ubuntu
-    sudo apt-get install build-essential git cmake
+    sudo apt-get install build-essential git-lfs cmake
 
     # Fedora
     dnf install @development-tools cmake
@@ -68,7 +68,7 @@ When building from source, you will need additional build dependencies to be ins
     Assuming you use Ubuntu PRoot:
 
     ```sh
-    apt install build-essential git
+    apt install build-essential git-lfs
     ```
 
 ## Time

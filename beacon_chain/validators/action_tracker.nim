@@ -5,6 +5,8 @@
 #   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
 # at your option. This file may not be copied, modified, or distributed except according to those terms.
 
+{.push raises: [].}
+
 import
   stew/shims/[sets, hashes], chronicles,
   ../spec/forks
@@ -15,8 +17,6 @@ from ../consensus_object_pools/spec_cache import
   epoch, get_committee_assignments
 
 export forks, tables, sets
-
-{.push raises: [].}
 
 const
   SUBNET_SUBSCRIPTION_LEAD_TIME_SLOTS* = 4
@@ -112,7 +112,7 @@ proc registerSyncDuty*(
     tracker.syncDuties[pubkey] = until_epoch
     reset(tracker.lastSyncUpdate)
 
-proc hasSyncDuty*(
+func hasSyncDuty*(
     tracker: ActionTracker, pubkey: ValidatorPubKey, epoch: Epoch): bool =
   epoch < tracker.syncDuties.getOrDefault(pubkey, GENESIS_EPOCH)
 
@@ -227,7 +227,7 @@ func updateActions*(
 
   # Update proposals
   tracker.proposingSlots[epoch mod 2] = 0
-  for i, proposer in beacon_proposers:
+  for i, proposer in beaconProposers:
     if proposer.isSome and proposer.get() in validatorIndices:
       tracker.proposingSlots[epoch mod 2] =
         tracker.proposingSlots[epoch mod 2] or (1'u32 shl i)

@@ -5,8 +5,10 @@
 #   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
 # at your option. This file may not be copied, modified, or distributed except according to those terms.
 
+{.push raises: [].}
+
 # Minimal preset - Altair
-# https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.6/presets/minimal/altair.yaml
+# https://github.com/ethereum/consensus-specs/blob/v1.4.0/presets/minimal/altair.yaml
 const
   # Updated penalty values
   # ---------------------------------------------------------------

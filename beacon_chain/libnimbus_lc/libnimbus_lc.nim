@@ -78,7 +78,7 @@ proc ETHConsensusConfigCreateFromYaml(
   ## * `NULL` - If the given `config.yaml` is malformed or incompatible.
   ##
   ## See:
-  ## * https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.6/configs/README.md
+  ## * https://github.com/ethereum/consensus-specs/blob/v1.4.0/configs/README.md
   let cfg = RuntimeConfig.new()
   try:
     cfg[] = readRuntimeConfig($configFileContent, "config.yaml")[0]
@@ -143,10 +143,10 @@ proc ETHBeaconStateCreateFromSsz(
   ##
   ## See:
   ## * https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.6/specs/phase0/beacon-chain.md#beaconstate
-  ## * https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.6/specs/altair/beacon-chain.md#beaconstate
-  ## * https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.6/specs/bellatrix/beacon-chain.md#beaconstate
+  ## * https://github.com/ethereum/consensus-specs/blob/v1.4.0/specs/altair/beacon-chain.md#beaconstate
+  ## * https://github.com/ethereum/consensus-specs/blob/v1.4.0/specs/bellatrix/beacon-chain.md#beaconstate
   ## * https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.5/specs/capella/beacon-chain.md#beaconstate
-  ## * https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.6/configs/README.md
+  ## * https://github.com/ethereum/consensus-specs/blob/v1.4.0/configs/README.md
   let
     consensusFork = ConsensusFork.decodeString($consensusVersion).valueOr:
       return nil
@@ -230,6 +230,7 @@ proc ETHForkDigestsDestroy(forkDigests: ptr ForkDigests) {.exported.} =
   forkDigests.destroy()
 
 proc ETHBeaconClockCreateFromState(
+    cfg: ptr RuntimeConfig,
     state: ptr ForkedHashedBeaconState): ptr BeaconClock {.exported.} =
   ## Creates a beacon clock for a given beacon state's `genesis_time` field.
   ##
@@ -237,11 +238,12 @@ proc ETHBeaconClockCreateFromState(
   ##   once no longer needed, to release memory.
   ##
   ## Parameters:
+  ## * `cfg` - Ethereum Consensus Layer network configuration.
   ## * `state` - Beacon state.
   ##
   ## Returns:
-  ## * Pointer to an initialized beacon clock based on the beacon state or NULL
-  ##   if the state contained an invalid time.
+  ## * Pointer to an initialized beacon clock based on the beacon state or
+  ##   NULL if the state contained an invalid time.
   let beaconClock = BeaconClock.new()
   beaconClock[] =
     BeaconClock.init(getStateField(state[], genesis_time)).valueOr:
@@ -327,8 +329,8 @@ proc ETHLightClientStoreCreateFromBootstrap(
   ## See:
   ## * https://ethereum.github.io/beacon-APIs/?urls.primaryName=v2.4.1#/Beacon/getLightClientBootstrap
   ## * https://ethereum.github.io/beacon-APIs/?urls.primaryName=v2.4.1#/Events/eventstream
-  ## * https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.6/specs/altair/light-client/light-client.md
-  ## * https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.6/specs/phase0/weak-subjectivity.md#weak-subjectivity-period
+  ## * https://github.com/ethereum/consensus-specs/blob/v1.4.0/specs/altair/light-client/light-client.md
+  ## * https://github.com/ethereum/consensus-specs/blob/v1.4.0/specs/phase0/weak-subjectivity.md#weak-subjectivity-period
   let
     mediaType = MediaType.init($mediaType)
     consensusFork = ConsensusFork.decodeString($consensusVersion).valueOr:
@@ -754,7 +756,7 @@ func ETHLightClientStoreIsNextSyncCommitteeKnown(
   ##
   ## See:
   ## * https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.5/specs/altair/light-client/sync-protocol.md#is_next_sync_committee_known
-  ## * https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.6/specs/altair/light-client/light-client.md
+  ## * https://github.com/ethereum/consensus-specs/blob/v1.4.0/specs/altair/light-client/light-client.md
   store[].is_next_sync_committee_known
 
 func ETHLightClientStoreGetOptimisticHeader(
@@ -975,7 +977,7 @@ func ETHLightClientHeaderGetExecution(
   ## * Execution payload header.
   ##
   ## See:
-  ## * https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.6/specs/deneb/beacon-chain.md#executionpayloadheader
+  ## * https://github.com/ethereum/consensus-specs/blob/v1.4.0/specs/deneb/beacon-chain.md#executionpayloadheader
   addr header[].execution
 
 func ETHExecutionPayloadHeaderGetParentHash(
@@ -1459,12 +1461,12 @@ proc ETHTransactionsCreateFromJson(
       return nil
 
     # Check fork consistency
-    static: doAssert totalSerializedFields(TransactionObject) == 21,
+    static: doAssert totalSerializedFields(TransactionObject) == 22,
       "Only update this number once code is adjusted to check new fields!"
     let txType =
       case data.`type`.get(0.Quantity):
       of 0.Quantity:
-        if data.accessList.isSome or
+        if data.yParity.isSome or data.accessList.isSome or
             data.maxFeePerGas.isSome or data.maxPriorityFeePerGas.isSome or
             data.maxFeePerBlobGas.isSome or data.blobVersionedHashes.isSome:
           return nil
@@ -1512,8 +1514,15 @@ proc ETHTransactionsCreateFromJson(
       return nil
     if distinctBase(data.gas) > int64.high.uint64:
       return nil
-    if data.v.uint64 > int64.high.uint64:
+    if distinctBase(data.v) > int64.high.uint64:
       return nil
+    if data.yParity.isSome:
+      # This is not always included, but if it is, make sure it's correct
+      let yParity = data.yParity.get
+      if distinctBase(yParity) > 1:
+        return nil
+      if yParity != data.v:
+        return nil
     let
       tx = ExecutionTransaction(
         txType: txType,

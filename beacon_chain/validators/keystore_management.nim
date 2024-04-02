@@ -15,7 +15,7 @@ import
   nimbus_security_resources,
   ".."/spec/[eth2_merkleization, keystore, crypto],
   ".."/spec/datatypes/base,
-  stew/io2, libp2p/crypto/crypto as lcrypto,
+  stew/[io2, byteutils], libp2p/crypto/crypto as lcrypto,
   nimcrypto/utils as ncrutils,
   ".."/[conf, filepath, beacon_clock],
   ".."/networking/network_metadata,
@@ -40,6 +40,7 @@ const
   RemoteKeystoreFileName* = "remote_keystore.json"
   FeeRecipientFilename = "suggested_fee_recipient.hex"
   GasLimitFilename = "suggested_gas_limit.json"
+  GraffitiBytesFilename = "graffiti.hex"
   BuilderConfigPath = "payload_builder.json"
   KeyNameSize = 98 # 0x + hexadecimal key representation 96 characters.
   MaxKeystoreFileSize = 65536
@@ -73,6 +74,10 @@ type
     proc (pubkey: ValidatorPubKey): Opt[ValidatorAndIndex]
          {.raises: [], gcsafe.}
 
+  GetCapellaForkVersionFn* =
+    proc (): Opt[Version] {.raises: [], gcsafe.}
+  GetDenebForkEpochFn* =
+    proc (): Opt[Epoch] {.raises: [], gcsafe.}
   GetForkFn* =
     proc (epoch: Epoch): Opt[Fork] {.raises: [], gcsafe.}
   GetGenesisFn* =
@@ -87,9 +92,12 @@ type
     secretsDir*: string
     defaultFeeRecipient*: Opt[Eth1Address]
     defaultGasLimit*: uint64
+    defaultGraffiti*: GraffitiBytes
     defaultBuilderAddress*: Opt[string]
     getValidatorAndIdxFn*: ValidatorPubKeyToDataFn
     getBeaconTimeFn*: GetBeaconTimeFn
+    getCapellaForkVersionFn*: GetCapellaForkVersionFn
+    getDenebForkEpochFn*: GetDenebForkEpochFn
     getForkFn*: GetForkFn
     getGenesisFn*: GetGenesisFn
 
@@ -97,6 +105,10 @@ type
     previouslyUsedPassword*: string
 
   QueryResult = Result[seq[KeystoreData], string]
+
+  ConfigFileKind* {.pure.} = enum
+    KeystoreFile, RemoteKeystoreFile, FeeRecipientFile, GasLimitFile,
+    BuilderConfigFile, GraffitiFile
 
 const
   minPasswordLen = 12
@@ -119,9 +131,12 @@ func init*(T: type KeymanagerHost,
            secretsDir: string,
            defaultFeeRecipient: Opt[Eth1Address],
            defaultGasLimit: uint64,
+           defaultGraffiti: GraffitiBytes,
            defaultBuilderAddress: Opt[string],
            getValidatorAndIdxFn: ValidatorPubKeyToDataFn,
            getBeaconTimeFn: GetBeaconTimeFn,
+           getCapellaForkVersionFn: GetCapellaForkVersionFn,
+           getDenebForkEpochFn: GetDenebForkEpochFn,
            getForkFn: GetForkFn,
            getGenesisFn: GetGenesisFn): T =
   T(validatorPool: validatorPool,
@@ -132,9 +147,12 @@ func init*(T: type KeymanagerHost,
     secretsDir: secretsDir,
     defaultFeeRecipient: defaultFeeRecipient,
     defaultGasLimit: defaultGasLimit,
+    defaultGraffiti: defaultGraffiti,
     defaultBuilderAddress: defaultBuilderAddress,
     getValidatorAndIdxFn: getValidatorAndIdxFn,
     getBeaconTimeFn: getBeaconTimeFn,
+    getCapellaForkVersionFn: getCapellaForkVersionFn,
+    getDenebForkEpochFn: getDenebForkEpochFn,
     getForkFn: getForkFn,
     getGenesisFn: getGenesisFn)
 
@@ -632,7 +650,8 @@ proc existsKeystore(keystoreDir: string,
       return true
   false
 
-proc queryValidatorsSource*(web3signerUrl: Web3SignerUrl): Future[QueryResult] {.async.} =
+proc queryValidatorsSource*(web3signerUrl: Web3SignerUrl):
+    Future[QueryResult] {.async: (raises: [CancelledError]).} =
   var keystores: seq[KeystoreData]
 
   logScope:
@@ -670,13 +689,6 @@ proc queryValidatorsSource*(web3signerUrl: Web3SignerUrl): Future[QueryResult] {
         res.get()
       except RestError as exc:
         warn "Unable to poll validator's source", reason = $exc.msg
-        return QueryResult.err($exc.msg)
-      except CancelledError as exc:
-        debug "The polling of validator's source was interrupted"
-        raise exc
-      except CatchableError as exc:
-        warn "Unexpected error occured while polling validator's source",
-             error = $exc.name, reason = $exc.msg
         return QueryResult.err($exc.msg)
 
     remoteType = if web3signerUrl.provenBlockProperties.len == 0:
@@ -801,23 +813,36 @@ iterator listLoadableKeystores*(config: AnyConf,
 type
   ValidatorConfigFileStatus* = enum
     noSuchValidator
+    noConfigFile
     malformedConfigFile
 
 func validatorKeystoreDir(
     validatorsDir: string, pubkey: ValidatorPubKey): string =
   validatorsDir / pubkey.fsName
 
-func feeRecipientPath(validatorsDir: string,
-                       pubkey: ValidatorPubKey): string =
-  validatorsDir.validatorKeystoreDir(pubkey) / FeeRecipientFilename
+proc checkValidatorKeystoreDir(validatorsDir: string,
+                               pubkey: ValidatorPubKey): bool =
+  dirExists(validatorsDir.validatorKeystoreDir(pubkey))
 
-func gasLimitPath(validatorsDir: string,
-                  pubkey: ValidatorPubKey): string =
-  validatorsDir.validatorKeystoreDir(pubkey) / GasLimitFilename
+func configFilePath*(validatorsDir: string, kind: ConfigFileKind,
+                     pubkey: ValidatorPubKey): string =
+  case kind
+  of ConfigFileKind.KeystoreFile:
+    validatorsDir.validatorKeystoreDir(pubkey) / KeystoreFileName
+  of ConfigFileKind.RemoteKeystoreFile:
+    validatorsDir.validatorKeystoreDir(pubkey) / RemoteKeystoreFileName
+  of ConfigFileKind.FeeRecipientFile:
+    validatorsDir.validatorKeystoreDir(pubkey) / FeeRecipientFilename
+  of ConfigFileKind.GasLimitFile:
+    validatorsDir.validatorKeystoreDir(pubkey) / GasLimitFilename
+  of ConfigFileKind.BuilderConfigFile:
+    validatorsDir.validatorKeystoreDir(pubkey) / BuilderConfigPath
+  of ConfigFileKind.GraffitiFile:
+    validatorsDir.validatorKeystoreDir(pubkey) / GraffitiBytesFilename
 
-func builderConfigPath(validatorsDir: string,
-                        pubkey: ValidatorPubKey): string =
-  validatorsDir.validatorKeystoreDir(pubkey) / BuilderConfigPath
+proc checkConfigFile*(validatorsDir: string, kind: ConfigFileKind,
+                      pubkey: ValidatorPubKey): bool =
+  fileExists(validatorsDir.configFilePath(kind, pubkey))
 
 proc getSuggestedFeeRecipient*(
     validatorsDir: string, pubkey: ValidatorPubKey,
@@ -829,7 +854,8 @@ proc getSuggestedFeeRecipient*(
   if not dirExists(validatorsDir.validatorKeystoreDir(pubkey)):
     return err noSuchValidator
 
-  let feeRecipientPath = validatorsDir.feeRecipientPath(pubkey)
+  let feeRecipientPath =
+    validatorsDir.configFilePath(ConfigFileKind.FeeRecipientFile, pubkey)
   if not fileExists(feeRecipientPath):
     return ok defaultFeeRecipient
 
@@ -857,7 +883,8 @@ proc getSuggestedGasLimit*(
   if not dirExists(validatorsDir.validatorKeystoreDir(pubkey)):
     return err noSuchValidator
 
-  let gasLimitPath = validatorsDir.gasLimitPath(pubkey)
+  let gasLimitPath =
+    validatorsDir.configFilePath(ConfigFileKind.GasLimitFile, pubkey)
   if not fileExists(gasLimitPath):
     return ok defaultGasLimit
   try:
@@ -872,6 +899,34 @@ proc getSuggestedGasLimit*(
       gasLimitPath, defaultGasLimit,
       err = exc.msg
     err malformedConfigFile
+
+proc getSuggestedGraffiti*(
+    validatorsDir: string,
+    pubkey: ValidatorPubKey,
+    defaultGraffitiBytes: GraffitiBytes
+): Result[GraffitiBytes, ValidatorConfigFileStatus] =
+  # In this particular case, an error might be by design. If the file exists,
+  # but doesn't load or parse that is more urgent. People might prefer not to
+  # override their default suggested gas limit per validator, so don't warn.
+  if not dirExists(validatorsDir.validatorKeystoreDir(pubkey)):
+    return err noSuchValidator
+
+  let graffitiPath =
+    validatorsDir.configFilePath(ConfigFileKind.GraffitiFile, pubkey)
+  if not fileExists(graffitiPath):
+    return ok defaultGraffitiBytes
+
+  let data = readAllChars(graffitiPath).valueOr:
+    warn "Failed to load graffiti file; falling back to default graffiti",
+         reason = ioErrorMsg(error), error = int(error)
+    return err malformedConfigFile
+
+  try:
+    ok GraffitiBytes.init(data)
+  except ValueError as exc:
+    warn "Invalid local graffiti file", graffitiPath,
+         reason = exc.msg
+    return err malformedConfigFile
 
 type
   BuilderConfig = object
@@ -888,7 +943,8 @@ proc getBuilderConfig*(
   if not dirExists(validatorsDir.validatorKeystoreDir(pubkey)):
     return err noSuchValidator
 
-  let builderConfigPath = validatorsDir.builderConfigPath(pubkey)
+  let builderConfigPath =
+    validatorsDir.configFilePath(ConfigFileKind.BuilderConfigFile, pubkey)
   if not fileExists(builderConfigPath):
     return ok defaultBuilderAddress
 
@@ -999,13 +1055,7 @@ proc saveNetKeystore*(rng: var HmacDrbgContext, keystorePath: string,
 
   let keyStore = createNetKeystore(kdfScrypt, rng, netKey,
                                    KeystorePass.init password)
-  var encodedStorage: string
-  try:
-    encodedStorage = Json.encode(keyStore)
-  except SerializationError as exc:
-    error "Could not serialize network key storage", key_path = keystorePath
-    return err(KeystoreGenerationError(
-      kind: FailedToCreateKeystoreFile, error: exc.msg))
+  let encodedStorage = Json.encode(keyStore)
 
   let res = secureWriteFile(keystorePath, encodedStorage)
   if res.isOk():
@@ -1182,14 +1232,7 @@ proc saveKeystore*(
   let keyStore = createKeystore(kdfPbkdf2, rng, signingKey,
                                 keypass, signingKeyPath,
                                 mode = mode, salt = salt)
-
-  let encodedStorage =
-    try:
-      Json.encode(keyStore)
-    except SerializationError as e:
-      error "Could not serialize keystorage", key_path = keystoreFile
-      return err(KeystoreGenerationError(
-        kind: FailedToCreateKeystoreFile, error: e.msg))
+  let encodedStorage = Json.encode(keyStore)
 
   ? createLocalValidatorFiles(secretsDir, validatorsDir,
                               keystoreDir,
@@ -1223,13 +1266,7 @@ proc saveLockedKeystore(
                                 keypass, signingKeyPath,
                                 mode = mode)
 
-  let encodedStorage =
-    try:
-      Json.encode(keyStore)
-    except SerializationError as e:
-      error "Could not serialize keystorage", key_path = keystoreFile
-      return err(KeystoreGenerationError(
-        kind: FailedToCreateKeystoreFile, error: e.msg))
+  let encodedStorage = Json.encode(keyStore)
 
   let lock = ? createLockedLocalValidatorFiles(secretsDir, validatorsDir,
                                                keystoreDir,
@@ -1268,13 +1305,7 @@ proc saveKeystore(
     return err(KeystoreGenerationError(kind: DuplicateKeystoreFile,
       error: "Keystore file already exists"))
 
-  let encodedStorage =
-    try:
-      Json.encode(keyStore)
-    except SerializationError as exc:
-      error "Could not serialize keystorage", key_path = keystoreFile
-      return err(KeystoreGenerationError(
-        kind: FailedToCreateKeystoreFile, error: exc.msg))
+  let encodedStorage = Json.encode(keyStore)
 
   ? createRemoteValidatorFiles(validatorsDir, keystoreDir, keystoreFile,
                                encodedStorage)
@@ -1310,13 +1341,7 @@ proc saveLockedKeystore(
     return err(KeystoreGenerationError(kind: DuplicateKeystoreFile,
       error: "Keystore file already exists"))
 
-  let encodedStorage =
-    try:
-      Json.encode(keyStore)
-    except SerializationError as exc:
-      error "Could not serialize keystorage", key_path = keystoreFile
-      return err(KeystoreGenerationError(
-        kind: FailedToCreateKeystoreFile, error: exc.msg))
+  let encodedStorage = Json.encode(keyStore)
 
   let lock = ? createLockedRemoteValidatorFiles(validatorsDir, keystoreDir,
                                                 keystoreFile, encodedStorage)
@@ -1430,33 +1455,49 @@ func validatorKeystoreDir(host: KeymanagerHost,
                           pubkey: ValidatorPubKey): string =
   host.validatorsDir.validatorKeystoreDir(pubkey)
 
+proc checkValidatorKeystoreDir*(host: KeymanagerHost,
+                                pubkey: ValidatorPubKey): bool =
+  host.validatorsDir.checkValidatorKeystoreDir(pubkey)
+
+proc checkConfigFile*(host: KeymanagerHost, kind: ConfigFileKind,
+                      pubkey: ValidatorPubKey): bool =
+  fileExists(host.validatorsDir.configFilePath(kind, pubkey))
+
 func feeRecipientPath(host: KeymanagerHost,
                       pubkey: ValidatorPubKey): string =
-  host.validatorsDir.feeRecipientPath(pubkey)
+  host.validatorsDir.configFilePath(ConfigFileKind.FeeRecipientFile, pubkey)
 
 func gasLimitPath(host: KeymanagerHost,
                   pubkey: ValidatorPubKey): string =
-  host.validatorsDir.gasLimitPath(pubkey)
+  host.validatorsDir.configFilePath(ConfigFileKind.GasLimitFile, pubkey)
+
+func graffitiPath(host: KeymanagerHost,
+                  pubkey: ValidatorPubKey): string =
+  host.validatorsDir.configFilePath(ConfigFileKind.GraffitiFile, pubkey)
 
 proc removeFeeRecipientFile*(host: KeymanagerHost,
                              pubkey: ValidatorPubKey): Result[void, string] =
   let path = host.feeRecipientPath(pubkey)
   if fileExists(path):
-    let res = io2.removeFile(path)
-    if res.isErr:
-      return err res.error.ioErrorMsg
-
-  return ok()
+    io2.removeFile(path).isOkOr:
+      return err($uint(error) & " " & ioErrorMsg(error))
+  ok()
 
 proc removeGasLimitFile*(host: KeymanagerHost,
                          pubkey: ValidatorPubKey): Result[void, string] =
   let path = host.gasLimitPath(pubkey)
   if fileExists(path):
-    let res = io2.removeFile(path)
-    if res.isErr:
-      return err res.error.ioErrorMsg
+    io2.removeFile(path).isOkOr:
+      return err($uint(error) & " " & ioErrorMsg(error))
+  ok()
 
-  return ok()
+proc removeGraffitiFile*(host: KeymanagerHost,
+                         pubkey: ValidatorPubKey): Result[void, string] =
+  let path = host.graffitiPath(pubkey)
+  if fileExists(path):
+    io2.removeFile(path).isOkOr:
+      return err($uint(error) & " " & ioErrorMsg(error))
+  ok()
 
 proc setFeeRecipient*(host: KeymanagerHost, pubkey: ValidatorPubKey, feeRecipient: Eth1Address): Result[void, string] =
   let validatorKeystoreDir = host.validatorKeystoreDir(pubkey)
@@ -1477,6 +1518,23 @@ proc setGasLimit*(host: KeymanagerHost,
 
   io2.writeFile(validatorKeystoreDir / GasLimitFilename, $gasLimit)
     .mapErr(proc(e: auto): string = "Failed to write gas limit file: " & $e)
+
+proc setGraffiti*(host: KeymanagerHost,
+                  pubkey: ValidatorPubKey,
+                  graffiti: GraffitiBytes): Result[void, string] =
+  let
+    validatorKeystoreDir = host.validatorKeystoreDir(pubkey)
+    path = host.graffitiPath(pubkey)
+
+  ? secureCreatePath(validatorKeystoreDir)
+    .mapErr(proc(e: auto): string =
+      "Could not create wallet directory [" & validatorKeystoreDir & "], " &
+        "reason: (" & $int(e) & ") " & ioErrorMsg(e))
+
+  io2.writeFile(path, to0xHex(distinctBase(graffiti)))
+    .mapErr(proc(e: auto): string =
+      "Failed to write graffiti file," &
+        " reason: (" & $int(e) & ") " & ioErrorMsg(e))
 
 from ".."/spec/beaconstate import has_eth1_withdrawal_credential
 
@@ -1525,6 +1583,12 @@ proc getSuggestedGasLimit*(
     host: KeymanagerHost,
     pubkey: ValidatorPubKey): Result[uint64, ValidatorConfigFileStatus] =
   host.validatorsDir.getSuggestedGasLimit(pubkey, host.defaultGasLimit)
+
+proc getSuggestedGraffiti*(
+    host: KeymanagerHost,
+    pubkey: ValidatorPubKey
+): Result[GraffitiBytes, ValidatorConfigFileStatus] =
+  host.validatorsDir.getSuggestedGraffiti(pubkey, host.defaultGraffiti)
 
 proc getBuilderConfig*(
     host: KeymanagerHost, pubkey: ValidatorPubKey):
@@ -1633,12 +1697,9 @@ proc generateDeposits*(cfg: RuntimeConfig,
   ok deposits
 
 proc saveWallet(wallet: Wallet, outWalletPath: string): Result[void, string] =
-  let walletDir = splitFile(outWalletPath).dir
-  var encodedWallet: string
-  try:
+  let
+    walletDir = splitFile(outWalletPath).dir
     encodedWallet = Json.encode(wallet, pretty = true)
-  except SerializationError:
-    return err("Could not serialize wallet")
 
   ? secureCreatePath(walletDir).mapErr(proc(e: auto): string =
     "Could not create wallet directory [" & walletDir & "]: " & $e)

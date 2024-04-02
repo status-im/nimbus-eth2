@@ -4,6 +4,8 @@
 #   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
 # at your option. This file may not be copied, modified, or distributed except according to those terms.
 
+{.push raises: [].}
+
 import std/[typetraits, sets, sequtils]
 import stew/[results, base10], chronicles
 import ".."/[beacon_chain_db, beacon_node],
@@ -520,7 +522,7 @@ proc installValidatorApiHandlers*(router: var RestRouter, node: BeaconNode) =
       contextFork = node.dag.cfg.consensusForkAtEpoch(node.currentSlot.epoch)
 
     withConsensusFork(contextFork):
-      when consensusFork >= ConsensusFork.Capella:
+      when consensusFork >= ConsensusFork.Deneb:
         let res = await makeBlindedBeaconBlockForHeadAndSlot[
             consensusFork.BlindedBeaconBlock](
           node, payloadBuilderClient, qrandao,
@@ -530,7 +532,7 @@ proc installValidatorApiHandlers*(router: var RestRouter, node: BeaconNode) =
         return responseVersioned(res.get().blindedBlckPart, contextFork)
       elif consensusFork >= ConsensusFork.Bellatrix:
         return RestApiResponse.jsonError(
-          Http400, "Pre-Capella builder API unsupported")
+          Http400, "Pre-Deneb builder API unsupported")
       else:
         # Pre-Bellatrix, this endpoint will return a BeaconBlock
         let res = await makeBeaconBlockForHeadAndSlot(
@@ -630,7 +632,7 @@ proc installValidatorApiHandlers*(router: var RestRouter, node: BeaconNode) =
       return RestApiResponse.jsonError(Http400, InvalidRandaoRevealValue)
 
     withConsensusFork(node.dag.cfg.consensusForkAtEpoch(qslot.epoch)):
-      when consensusFork >= ConsensusFork.Capella:
+      when consensusFork >= ConsensusFork.Deneb:
         let
           message = (await node.makeMaybeBlindedBeaconBlockForHeadAndSlot(
               consensusFork, qrandao, qgraffiti, qhead, qslot)).valueOr:
@@ -670,8 +672,8 @@ proc installValidatorApiHandlers*(router: var RestRouter, node: BeaconNode) =
           message = (await PayloadType.makeBeaconBlockForHeadAndSlot(
               node, qrandao, proposer, qgraffiti, qhead, qslot)).valueOr:
             return RestApiResponse.jsonError(Http500, error)
-          executionValue = Opt.some(UInt256(message.blockValue))
-          consensusValue = Opt.none(UInt256)
+          executionValue = Opt.some(UInt256(message.executionPayloadValue))
+          consensusValue = Opt.some(UInt256(message.consensusBlockValue))
           headers = consensusFork.getMaybeBlindedHeaders(
             isBlinded = false, executionValue, consensusValue)
 

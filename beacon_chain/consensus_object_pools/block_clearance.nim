@@ -144,15 +144,13 @@ proc advanceClearanceState*(dag: ChainDAGRef) =
   let advanced = withState(dag.clearanceState):
     forkyState.data.slot > forkyState.data.latest_block_header.slot
   if not advanced:
-    let next = getStateField(dag.clearanceState, slot) + 1
-
-    let startTick = Moment.now()
+    let
+      startTick = Moment.now()
+      next = getStateField(dag.clearanceState, slot) + 1
     var
       cache = StateCache()
       info = ForkedEpochInfo()
-
     dag.advanceSlots(dag.clearanceState, next, true, cache, info)
-
     debug "Prepared clearance state for next block",
       next, updateStateDur = Moment.now() - startTick
 
@@ -285,7 +283,7 @@ proc addHeadBlockWithParent*(
     var sigs: seq[SignatureSet]
     if (let e = sigs.collectSignatureSets(
         signedBlock, dag.db.immutableValidators,
-        dag.clearanceState, dag.cfg.genesisFork(), dag.cfg.capellaFork(),
+        dag.clearanceState, dag.cfg.genesisFork(), dag.cfg.CAPELLA_FORK_VERSION,
         cache); e.isErr()):
       # A PublicKey or Signature isn't on the BLS12-381 curve
       info "Unable to load signature sets",
@@ -314,25 +312,6 @@ proc addHeadBlockWithParent*(
     sigVerifyDur = sigVerifyTick - stateDataTick,
     stateVerifyDur = stateVerifyTick - sigVerifyTick)
 
-proc addHeadBlock*(
-    dag: ChainDAGRef, verifier: var BatchVerifier,
-    signedBlock: ForkySignedBeaconBlock,
-    executionValid: bool,
-    onBlockAdded: OnForkyBlockAdded
-    ): Result[BlockRef, VerifierError] =
-  addHeadBlockWithParent(
-    dag, verifier, signedBlock, ? dag.checkHeadBlock(signedBlock),
-    executionValid, onBlockAdded)
-
-proc addHeadBlock*(
-    dag: ChainDAGRef, verifier: var BatchVerifier,
-    signedBlock: ForkySignedBeaconBlock,
-    onBlockAdded: OnForkyBlockAdded
-    ): Result[BlockRef, VerifierError] =
-  addHeadBlockWithParent(
-    dag, verifier, signedBlock, ? dag.checkHeadBlock(signedBlock),
-    executionValid = true, onBlockAdded)
-
 proc addBackfillBlock*(
     dag: ChainDAGRef,
     signedBlock: ForkySignedBeaconBlock | ForkySigVerifiedSignedBeaconBlock):
@@ -349,7 +328,7 @@ proc addBackfillBlock*(
     blockRoot = shortLog(signedBlock.root)
     blck = shortLog(signedBlock.message)
     signature = shortLog(signedBlock.signature)
-    backfill = (dag.backfill.slot, shortLog(dag.backfill.parent_root))
+    backfill = shortLog(dag.backfill)
 
   template blck(): untyped = signedBlock.message # shortcuts without copy
   template blockRoot(): untyped = signedBlock.root
@@ -393,18 +372,22 @@ proc addBackfillBlock*(
     if existing.isSome:
       if existing.get().bid.slot == blck.slot and
           existing.get().bid.root == blockRoot:
-
-        # Special case: when starting with only a checkpoint state, we will not
-        # have the head block data in the database
-        if dag.getForkedBlock(existing.get().bid).isNone():
+        let isDuplicate = dag.containsBlock(existing.get().bid)
+        if isDuplicate:
+          debug "Duplicate block"
+        else:
           checkSignature()
-
-          debug "Block backfilled (checkpoint)"
+          debug "Block backfilled (known BlockId)"
           dag.putBlock(signedBlock.asTrusted())
-          return ok()
 
-        debug "Duplicate block"
-        return err(VerifierError.Duplicate)
+        if blockRoot == dag.backfill.parent_root:
+          dag.backfill = blck.toBeaconBlockSummary()
+
+        return
+          if isDuplicate:
+            err(VerifierError.Duplicate)
+          else:
+            ok()
 
       # Block is older than finalized, but different from the block in our
       # canonical history: it must be from an unviable branch

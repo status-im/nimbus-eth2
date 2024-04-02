@@ -1,3 +1,4 @@
+# beacon_chain
 # Copyright (c) 2018-2024 Status Research & Development GmbH
 # Licensed and distributed under either of
 #   * MIT license (license terms in the root directory or at https://opensource.org/licenses/MIT).
@@ -10,7 +11,7 @@ import
   chronos, presto/client, chronicles,
   ".."/".."/validators/slashing_protection_common,
   ".."/datatypes/[phase0, altair, bellatrix],
-  ".."/mev/bellatrix_mev,
+  ".."/mev/[bellatrix_mev, capella_mev],
   ".."/[helpers, forks, keystore, eth2_ssz_serialization],
   "."/[rest_types, rest_common, eth2_rest_serialization]
 

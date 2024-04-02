@@ -11,13 +11,16 @@
 
 import
   stew/endians2,
+  std/sets,
   ssz_serialization/[merkleization, proofs],
   ./ssz_codec
 
+from ./datatypes/base import HashedValidatorPubKeyItem
 from ./datatypes/phase0 import HashedBeaconState, SignedBeaconBlock
 from ./datatypes/altair import HashedBeaconState, SignedBeaconBlock
 from ./datatypes/bellatrix import HashedBeaconState, SignedBeaconBlock
 from ./datatypes/capella import HashedBeaconState, SignedBeaconBlock
+from ./datatypes/deneb import HashedBeaconState, SignedBeaconBlock
 
 export ssz_codec, merkleization, proofs
 
@@ -28,12 +31,14 @@ type
 # creating recursive module dependency through `forks`.
 func hash_tree_root*(
     x: phase0.HashedBeaconState | altair.HashedBeaconState |
-       bellatrix.HashedBeaconState | capella.HashedBeaconState) {.
+       bellatrix.HashedBeaconState | capella.HashedBeaconState |
+       deneb.HashedBeaconState) {.
   error: "HashedBeaconState should not be hashed".}
 
 func hash_tree_root*(
     x: phase0.SignedBeaconBlock | altair.SignedBeaconBlock |
-       bellatrix.SignedBeaconBlock | capella.SignedBeaconBlock) {.
+       bellatrix.SignedBeaconBlock | capella.SignedBeaconBlock |
+       deneb.SignedBeaconBlock) {.
   error: "SignedBeaconBlock should not be hashed".}
 
 func depositCountBytes*(x: uint64): array[32, byte] =
@@ -63,3 +68,40 @@ func toDepositContractState*(merkleizer: DepositsMerkleizer): DepositContractSta
 
 func getDepositsRoot*(m: var DepositsMerkleizer): Eth2Digest =
   mixInLength(m.getFinalHash, int m.totalChunks)
+
+func hash*(v: ref HashedValidatorPubKeyItem): Hash =
+  if not isNil(v):
+    hash(v[].key)
+  else:
+    default(Hash)
+
+func `==`*(a, b: ref HashedValidatorPubKeyItem): bool =
+  if isNil(a):
+    isNil(b)
+  elif isNil(b):
+    false
+  else:
+    a[].key == b[].key
+
+func init*(T: type HashedValidatorPubKey, key: ValidatorPubKey): HashedValidatorPubKey =
+  {.noSideEffect.}:
+    var keys {.threadvar.}: HashSet[ref HashedValidatorPubKeyItem]
+
+    let
+      tmp = (ref HashedValidatorPubKeyItem)(
+        key: key,
+        root: hash_tree_root(key)
+      )
+      cached =
+        if keys.containsOrIncl(tmp):
+          try:
+            # The interface of HashSet is such that we must construct a full
+            # instance to check if it's in the set - then we can return that
+            # instace and discard the one we just created temporarily
+            keys[tmp]
+          except KeyError:
+            raiseAssert "just checked"
+        else:
+          tmp
+
+  HashedValidatorPubKey(value: addr cached[])

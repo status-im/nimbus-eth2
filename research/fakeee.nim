@@ -1,13 +1,13 @@
-## Fake execution engine API implementation useful for testing beacon node without a running execution node
-
-# Nimbus
+# beacon_chain
 # Copyright (c) 2022-2024 Status Research & Development GmbH
-# Licensed under either of
-#  * Apache License, version 2.0, ([LICENSE-APACHE](LICENSE-APACHE))
-#  * MIT license ([LICENSE-MIT](LICENSE-MIT))
-# at your option.
-# This file may not be copied, modified, or distributed except according to
-# those terms.
+# Licensed and distributed under either of
+#   * MIT license (license terms in the root directory or at https://opensource.org/licenses/MIT).
+#   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
+# at your option. This file may not be copied, modified, or distributed except according to those terms.
+
+{.push raises: [].}
+
+## Fake execution engine API implementation useful for testing beacon node without a running execution node
 
 import
   std/typetraits,
@@ -81,7 +81,7 @@ proc setupEngineAPI*(server: RpcServer) =
     info "eth_getBlockByNumber", quantityTag, fullTransactions
 
     return if quantityTag == "latest":
-      JrpcConv.encode(BlockObject(number: 1000.Quantity)).JsonString
+      JrpcConv.encode(BlockObject(number: 1000.BlockNumber)).JsonString
     else:
       "{}".JsonString
 
@@ -89,7 +89,7 @@ proc setupEngineAPI*(server: RpcServer) =
       data: string, fullTransactions: bool) -> BlockObject:
     info "eth_getBlockByHash", data = toHex(data), fullTransactions
 
-    return BlockObject(number: 1000.Quantity)
+    return BlockObject(number: 1000.BlockNumber)
 
   server.rpc("eth_chainId") do() -> Quantity:
     info "eth_chainId"

@@ -150,9 +150,6 @@ type
   ProvenProperty* = object
     path*: string
     description*: Option[string]
-    phase0Index*: Option[GeneralizedIndex]
-    altairIndex*: Option[GeneralizedIndex]
-    bellatrixIndex*: Option[GeneralizedIndex]
     capellaIndex*: Option[GeneralizedIndex]
     denebIndex*: Option[GeneralizedIndex]
 
@@ -449,7 +446,7 @@ proc validateMnemonic*(inputWords: string,
 
   # TODO consider using a SecretString type for inputWords
 
-  let words = strutils.strip(inputWords.string.toNFKD).split(Whitespace)
+  let words = strutils.strip(inputWords.toNFKD).split(Whitespace)
   if words.len < 12 or words.len > 24 or words.len mod 3 != 0:
     return false
 
@@ -730,7 +727,6 @@ func parseProvenBlockProperty*(propertyPath: string): Result[ProvenProperty, str
   if propertyPath == ".execution_payload.fee_recipient":
     ok ProvenProperty(
       path: propertyPath,
-      bellatrixIndex: some GeneralizedIndex(401),
       capellaIndex: some GeneralizedIndex(401),
       denebIndex: some GeneralizedIndex(801))
   elif propertyPath == ".graffiti":
@@ -738,7 +734,6 @@ func parseProvenBlockProperty*(propertyPath: string): Result[ProvenProperty, str
       path: propertyPath,
       # TODO: graffiti is present since genesis, so the correct index in the early
       #       forks can be supplied here
-      bellatrixIndex: some GeneralizedIndex(18),
       capellaIndex: some GeneralizedIndex(18),
       denebIndex: some GeneralizedIndex(18))
   else:
@@ -847,13 +842,11 @@ proc readValue*(reader: var JsonReader, value: var RemoteKeystore)
       var provenProperties = reader.readValue(seq[ProvenProperty])
       for prop in provenProperties.mitems:
         if prop.path == ".execution_payload.fee_recipient":
-          prop.bellatrixIndex = some GeneralizedIndex(401)
           prop.capellaIndex = some GeneralizedIndex(401)
           prop.denebIndex = some GeneralizedIndex(801)
         elif prop.path == ".graffiti":
           # TODO: graffiti is present since genesis, so the correct index in the early
           #       forks can be supplied here
-          prop.bellatrixIndex = some GeneralizedIndex(18)
           prop.capellaIndex = some GeneralizedIndex(18)
           prop.denebIndex = some GeneralizedIndex(18)
         else:
@@ -1386,13 +1379,13 @@ proc createWallet*(kdfKind: KdfKind,
     crypto: crypto,
     nextAccount: nextAccount.get(0))
 
-# https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.6/specs/phase0/validator.md#bls_withdrawal_prefix
+# https://github.com/ethereum/consensus-specs/blob/v1.4.0/specs/phase0/validator.md#bls_withdrawal_prefix
 func makeWithdrawalCredentials*(k: ValidatorPubKey): Eth2Digest =
   var bytes = eth2digest(k.toRaw())
   bytes.data[0] = BLS_WITHDRAWAL_PREFIX.uint8
   bytes
 
-# https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.6/specs/phase0/deposit-contract.md#withdrawal-credentials
+# https://github.com/ethereum/consensus-specs/blob/v1.4.0/specs/phase0/deposit-contract.md#withdrawal-credentials
 proc makeWithdrawalCredentials*(k: CookedPubKey): Eth2Digest =
   makeWithdrawalCredentials(k.toPubKey())
 

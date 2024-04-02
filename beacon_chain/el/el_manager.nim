@@ -30,7 +30,7 @@ export
   eth1_chain, el_conf, engine_api, base
 
 logScope:
-  topics = "elmon"
+  topics = "elman"
 
 type
   PubKeyBytes = DynamicBytes[48, 48]
@@ -158,7 +158,7 @@ type
       ## reconnecting after a lost connetion. You can wait on
       ## the future below for the moment the connection is active.
 
-    connectingFut: Future[Result[Web3, string]]
+    connectingFut: Future[Result[Web3, string]].Raising([CancelledError])
       ## This future will be replaced when the connection is lost.
 
     etcStatus: EtcStatus
@@ -356,9 +356,6 @@ func isSynced*(m: ELManager): bool =
 template eth1ChainBlocks*(m: ELManager): Deque[Eth1Block] =
   m.eth1Chain.blocks
 
-template toGaugeValue(x: Quantity): int64 =
-  toGaugeValue(distinctBase x)
-
 # TODO: Add cfg validation
 # MIN_GENESIS_ACTIVE_VALIDATOR_COUNT should be larger than SLOTS_PER_EPOCH
 #  doAssert SECONDS_PER_ETH1_BLOCK * cfg.ETH1_FOLLOW_DISTANCE < GENESIS_DELAY,
@@ -485,6 +482,54 @@ func asConsensusType*(payload: engine_api.GetPayloadV3Response):
       blobs: Blobs.init(
         payload.blobsBundle.blobs.mapIt(it.bytes))))
 
+func asConsensusType*(rpcExecutionPayload: ExecutionPayloadV4):
+    electra.ExecutionPayload =
+  template getTransaction(tt: TypedTransaction): bellatrix.Transaction =
+    bellatrix.Transaction.init(tt.distinctBase)
+
+  template getDepositReceipt(dr: DepositReceiptV1): DepositReceipt =
+    DepositReceipt(
+      pubkey: ValidatorPubKey(blob: dr.pubkey.distinctBase),
+      withdrawal_credentials: dr.withdrawalCredentials.asEth2Digest,
+      amount: dr.amount.Gwei,
+      signature: ValidatorSig(blob: dr.signature.distinctBase),
+      index: dr.index.uint64)
+
+  template getExecutionLayerExit(ele: ExitV1): ExecutionLayerExit =
+    ExecutionLayerExit(
+      source_address: ExecutionAddress(data: ele.sourceAddress.distinctBase),
+      validator_pubkey: ValidatorPubKey(
+        blob: ele.validatorPublicKey.distinctBase))
+
+  electra.ExecutionPayload(
+    parent_hash: rpcExecutionPayload.parentHash.asEth2Digest,
+    feeRecipient:
+      ExecutionAddress(data: rpcExecutionPayload.feeRecipient.distinctBase),
+    state_root: rpcExecutionPayload.stateRoot.asEth2Digest,
+    receipts_root: rpcExecutionPayload.receiptsRoot.asEth2Digest,
+    logs_bloom: BloomLogs(data: rpcExecutionPayload.logsBloom.distinctBase),
+    prev_randao: rpcExecutionPayload.prevRandao.asEth2Digest,
+    block_number: rpcExecutionPayload.blockNumber.uint64,
+    gas_limit: rpcExecutionPayload.gasLimit.uint64,
+    gas_used: rpcExecutionPayload.gasUsed.uint64,
+    timestamp: rpcExecutionPayload.timestamp.uint64,
+    extra_data: List[byte, MAX_EXTRA_DATA_BYTES].init(
+      rpcExecutionPayload.extraData.bytes),
+    base_fee_per_gas: rpcExecutionPayload.baseFeePerGas,
+    block_hash: rpcExecutionPayload.blockHash.asEth2Digest,
+    transactions: List[bellatrix.Transaction, MAX_TRANSACTIONS_PER_PAYLOAD].init(
+      mapIt(rpcExecutionPayload.transactions, it.getTransaction)),
+    withdrawals: List[capella.Withdrawal, MAX_WITHDRAWALS_PER_PAYLOAD].init(
+      mapIt(rpcExecutionPayload.withdrawals, it.asConsensusWithdrawal)),
+    blob_gas_used: rpcExecutionPayload.blobGasUsed.uint64,
+    excess_blob_gas: rpcExecutionPayload.excessBlobGas.uint64,
+    deposit_receipts:
+      List[electra.DepositReceipt, MAX_DEPOSIT_RECEIPTS_PER_PAYLOAD].init(
+        mapIt(rpcExecutionPayload.depositReceipts, it.getDepositReceipt)),
+    exits:
+      List[electra.ExecutionLayerExit, MAX_EXECUTION_LAYER_EXITS_PER_PAYLOAD].init(
+        mapIt(rpcExecutionPayload.exits, it.getExecutionLayerExit)))
+
 func asEngineExecutionPayload*(executionPayload: bellatrix.ExecutionPayload):
     ExecutionPayloadV1 =
   template getTypedTransaction(tt: bellatrix.Transaction): TypedTransaction =
@@ -561,6 +606,47 @@ func asEngineExecutionPayload*(executionPayload: deneb.ExecutionPayload):
     blobGasUsed: Quantity(executionPayload.blob_gas_used),
     excessBlobGas: Quantity(executionPayload.excess_blob_gas))
 
+func asEngineExecutionPayload*(executionPayload: electra.ExecutionPayload):
+    ExecutionPayloadV4 =
+  template getTypedTransaction(tt: bellatrix.Transaction): TypedTransaction =
+    TypedTransaction(tt.distinctBase)
+
+  template getDepositReceipt(dr: DepositReceipt): DepositReceiptV1 =
+    DepositReceiptV1(
+      pubkey: FixedBytes[RawPubKeySize](dr.pubkey.blob),
+      withdrawalCredentials: FixedBytes[32](dr.withdrawal_credentials.data),
+      amount: dr.amount.Quantity,
+      signature: FixedBytes[RawSigSize](dr.signature.blob),
+      index: dr.index.Quantity)
+
+  template getExecutionLayerExit(ele: ExecutionLayerExit): ExitV1 =
+    ExitV1(
+      sourceAddress: Address(ele.source_address.data),
+      validatorPublicKey: FixedBytes[RawPubKeySize](ele.validator_pubkey.blob))
+
+  engine_api.ExecutionPayloadV4(
+    parentHash: executionPayload.parent_hash.asBlockHash,
+    feeRecipient: Address(executionPayload.fee_recipient.data),
+    stateRoot: executionPayload.state_root.asBlockHash,
+    receiptsRoot: executionPayload.receipts_root.asBlockHash,
+    logsBloom:
+      FixedBytes[BYTES_PER_LOGS_BLOOM](executionPayload.logs_bloom.data),
+    prevRandao: executionPayload.prev_randao.asBlockHash,
+    blockNumber: Quantity(executionPayload.block_number),
+    gasLimit: Quantity(executionPayload.gas_limit),
+    gasUsed: Quantity(executionPayload.gas_used),
+    timestamp: Quantity(executionPayload.timestamp),
+    extraData: DynamicBytes[0, MAX_EXTRA_DATA_BYTES](executionPayload.extra_data),
+    baseFeePerGas: executionPayload.base_fee_per_gas,
+    blockHash: executionPayload.block_hash.asBlockHash,
+    transactions: mapIt(executionPayload.transactions, it.getTypedTransaction),
+    withdrawals: mapIt(executionPayload.withdrawals, it.asEngineWithdrawal),
+    blobGasUsed: Quantity(executionPayload.blob_gas_used),
+    excessBlobGas: Quantity(executionPayload.excess_blob_gas),
+    depositReceipts: mapIt(
+      executionPayload.deposit_receipts, it.getDepositReceipt),
+    exits: mapIt(executionPayload.exits, it.getExecutionLayerExit))
+
 func isConnected(connection: ELConnection): bool =
   connection.web3.isSome
 
@@ -580,8 +666,9 @@ proc newWeb3*(engineUrl: EngineApiUrl): Future[Web3] =
           getJsonRpcRequestHeaders(engineUrl.jwtSecret),
           httpFlags = {HttpClientFlag.NewConnectionAlways})
 
-proc establishEngineApiConnection*(url: EngineApiUrl):
-                                   Future[Result[Web3, string]] {.async.} =
+proc establishEngineApiConnection(url: EngineApiUrl):
+                                  Future[Result[Web3, string]] {.
+                                  async: (raises: [CancelledError]).} =
   try:
     ok(await newWeb3(url).wait(engineApiConnectionTimeout))
   except AsyncTimeoutError:
@@ -589,9 +676,10 @@ proc establishEngineApiConnection*(url: EngineApiUrl):
   except CancelledError as exc:
     raise exc
   except CatchableError as exc:
-    err "Engine API connection failed: " & exc.msg
+    err exc.msg
 
-proc tryConnecting(connection: ELConnection): Future[bool] {.async.} =
+proc tryConnecting(connection: ELConnection): Future[bool] {.
+    async: (raises: [CancelledError]).} =
   if connection.isConnected:
     return true
 
@@ -601,12 +689,14 @@ proc tryConnecting(connection: ELConnection): Future[bool] {.async.} =
 
   let web3Res = await connection.connectingFut
   if web3Res.isErr:
+    warn "Engine API connection failed", err = web3Res.error
     return false
   else:
     connection.web3 = some web3Res.get
     return true
 
-proc connectedRpcClient(connection: ELConnection): Future[RpcClient] {.async.} =
+proc connectedRpcClient(connection: ELConnection): Future[RpcClient] {.
+    async: (raises: [CancelledError]).} =
   while not connection.isConnected:
     if not await connection.tryConnecting():
       await sleepAsync(chronos.seconds(10))
@@ -619,7 +709,8 @@ proc getBlockByHash(rpcClient: RpcClient, hash: BlockHash): Future[BlockObject] 
 proc getBlockByNumber*(rpcClient: RpcClient,
                        number: Eth1BlockNumber): Future[BlockObject] =
   let hexNumber = try:
-    &"0x{number:X}" # No leading 0's!
+    let num = distinctBase(number)
+    &"0x{num:X}" # No leading 0's!
   except ValueError as exc:
     # Since the format above is valid, failing here should not be possible
     raiseAssert exc.msg
@@ -768,7 +859,7 @@ proc getPayload*(m: ELManager,
                  randomData: Eth2Digest,
                  suggestedFeeRecipient: Eth1Address,
                  withdrawals: seq[capella.Withdrawal]):
-                 Future[Opt[PayloadType]] {.async.} =
+                 Future[Opt[PayloadType]] {.async: (raises: [CancelledError]).} =
   if m.elConnections.len == 0:
     return err()
 
@@ -790,14 +881,17 @@ proc getPayload*(m: ELManager,
     ))
     requestsCompleted = allFutures(requests)
 
+  # TODO cancel requests on cancellation
   await requestsCompleted or deadline
 
   var bestPayloadIdx = none int
   for idx, req in requests:
     if not req.finished:
+      warn "Timeout while getting execution payload",
+        url = m.elConnections[idx].engineUrl.url
       req.cancelSoon()
     elif req.failed:
-      error "Failed to get execution payload from EL",
+      warn "Failed to get execution payload from EL",
              url = m.elConnections[idx].engineUrl.url,
              err = req.error.msg
     else:
@@ -807,40 +901,44 @@ proc getPayload*(m: ELManager,
           # TODO: The engine_api module may offer an alternative API where it is guaranteed
           #       to return the correct response type (i.e. the rule below will be enforced
           #       during deserialization).
-          if req.read.executionPayload.withdrawals.isNone:
+          if req.value().executionPayload.withdrawals.isNone:
             warn "Execution client returned a block without a 'withdrawals' field for a post-Shanghai block",
                   url = m.elConnections[idx].engineUrl.url
             continue
 
-        if engineApiWithdrawals != req.read.executionPayload.withdrawals.maybeDeref:
+        if engineApiWithdrawals != req.value().executionPayload.withdrawals.maybeDeref:
           # otherwise it formats as "@[(index: ..., validatorIndex: ...,
           # address: ..., amount: ...), (index: ..., validatorIndex: ...,
           # address: ..., amount: ...)]"
           warn "Execution client did not return correct withdrawals",
             withdrawals_from_cl_len = engineApiWithdrawals.len,
             withdrawals_from_el_len =
-              req.read.executionPayload.withdrawals.maybeDeref.len,
+              req.value().executionPayload.withdrawals.maybeDeref.len,
             withdrawals_from_cl =
               mapIt(engineApiWithdrawals, it.asConsensusWithdrawal),
             withdrawals_from_el =
               mapIt(
-                req.read.executionPayload.withdrawals.maybeDeref,
-                it.asConsensusWithdrawal)
+                req.value().executionPayload.withdrawals.maybeDeref,
+                it.asConsensusWithdrawal),
+            url = m.elConnections[idx].engineUrl.url
 
-      if req.read.executionPayload.extraData.len > MAX_EXTRA_DATA_BYTES:
+      if req.value().executionPayload.extraData.len > MAX_EXTRA_DATA_BYTES:
         warn "Execution client provided a block with invalid extraData (size exceeds limit)",
-             size = req.read.executionPayload.extraData.len,
+             url = m.elConnections[idx].engineUrl.url,
+             size = req.value().executionPayload.extraData.len,
              limit = MAX_EXTRA_DATA_BYTES
         continue
 
       if bestPayloadIdx.isNone:
         bestPayloadIdx = some idx
       else:
-        if cmpGetPayloadResponses(req.read, requests[bestPayloadIdx.get].read) > 0:
+        if cmpGetPayloadResponses(req.value(), requests[bestPayloadIdx.get].value()) > 0:
           bestPayloadIdx = some idx
 
+  deadline.cancelSoon()
+
   if bestPayloadIdx.isSome:
-    return ok requests[bestPayloadIdx.get].read.asConsensusType
+    return ok requests[bestPayloadIdx.get].value().asConsensusType
   else:
     return err()
 
@@ -1127,7 +1225,7 @@ proc forkchoiceUpdated*(m: ELManager,
   # block hash provided by this event is stubbed with
   # `0x0000000000000000000000000000000000000000000000000000000000000000`."
   # and
-  # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.6/specs/bellatrix/validator.md#executionpayload
+  # https://github.com/ethereum/consensus-specs/blob/v1.4.0/specs/bellatrix/validator.md#executionpayload
   # notes "`finalized_block_hash` is the hash of the latest finalized execution
   # payload (`Hash32()` if none yet finalized)"
 
@@ -1274,26 +1372,6 @@ proc exchangeConfigWithSingleEL(m: ELManager, connection: ELConnection) {.async.
 
   connection.etcStatus = EtcStatus.match
 
-  # https://github.com/ethereum/execution-apis/blob/c4089414bbbe975bbc4bf1ccf0a3d31f76feb3e1/src/engine/cancun.md#deprecate-engine_exchangetransitionconfigurationv1
-  # Consensus layer clients MUST NOT call this method.
-  if m.eth1Chain.cfg.DENEB_FORK_EPOCH != FAR_FUTURE_EPOCH:
-    return
-
-  # https://github.com/ethereum/execution-apis/blob/v1.0.0-beta.3/src/engine/paris.md#engine_exchangetransitionconfigurationv1
-  let
-    ourConf = TransitionConfigurationV1(
-      terminalTotalDifficulty: m.eth1Chain.cfg.TERMINAL_TOTAL_DIFFICULTY,
-      terminalBlockHash: m.eth1Chain.cfg.TERMINAL_BLOCK_HASH,
-      terminalBlockNumber: Quantity 0)
-  try:
-    discard connection.trackedRequestWithTimeout(
-      "exchangeTransitionConfiguration",
-      rpcClient.engine_exchangeTransitionConfigurationV1(ourConf),
-      timeout = 1.seconds)
-  except CatchableError as err:
-    warn "Failed to exchange transition configuration",
-          url = connection.engineUrl, err = err.msg
-
 proc exchangeTransitionConfiguration*(m: ELManager) {.async.} =
   if m.elConnections.len == 0:
     return
@@ -1380,7 +1458,7 @@ func depositEventsToBlocks(depositsList: openArray[JsonString]): seq[Eth1Block] 
     lastEth1Block.deposits.add DepositData(
       pubkey: ValidatorPubKey.init(pubkey.toArray),
       withdrawal_credentials: Eth2Digest(data: withdrawalCredentials.toArray),
-      amount: bytes_to_uint64(amount.toArray),
+      amount: bytes_to_uint64(amount.toArray).Gwei,
       signature: ValidatorSig.init(signature.toArray))
 
 type
@@ -1398,7 +1476,7 @@ when hasDepositRootChecks:
 
   proc fetchDepositContractData(connection: ELConnection,
                                 rpcClient: RpcClient,
-                                depositContact: Sender[DepositContract],
+                                depositContract: Sender[DepositContract],
                                 blk: Eth1Block): Future[DepositContractDataStatus] {.async.} =
     let
       startTime = Moment.now
@@ -1416,8 +1494,10 @@ when hasDepositRootChecks:
       failureAllowed = true)
 
     try:
-      let fetchedRoot = asEth2Digest(
-        awaitWithTimeout(depositRoot, deadline))
+      let fetchedRoot = asEth2Digest(block:
+        awaitWithTimeout(depositRoot, deadline):
+          raise newException(DataProviderTimeout,
+            "Request time out while obtaining deposits root"))
       if blk.depositRoot.isZero:
         blk.depositRoot = fetchedRoot
         result = Fetched
@@ -1432,8 +1512,10 @@ when hasDepositRootChecks:
       result = DepositRootUnavailable
 
     try:
-      let fetchedCount = bytes_to_uint64(
-        awaitWithTimeout(rawCount, deadline).toArray)
+      let fetchedCount = bytes_to_uint64((block:
+        awaitWithTimeout(rawCount, deadline):
+          raise newException(DataProviderTimeout,
+            "Request time out while obtaining deposits count")).toArray)
       if blk.depositCount == 0:
         blk.depositCount = fetchedCount
       elif blk.depositCount != fetchedCount:
@@ -1519,10 +1601,10 @@ func earliestBlockOfInterest(
     (2 * m.cfg.ETH1_FOLLOW_DISTANCE) +
     votedBlocksSafetyMargin
 
-  if latestEth1BlockNumber > blocksOfInterestRange:
+  if latestEth1BlockNumber > blocksOfInterestRange.Eth1BlockNumber:
     latestEth1BlockNumber - blocksOfInterestRange
   else:
-    0
+    0.Eth1BlockNumber
 
 proc syncBlockRange(m: ELManager,
                     connection: ELConnection,
@@ -1610,7 +1692,8 @@ proc syncBlockRange(m: ELManager,
       template lastBlock: auto = blocksWithDeposits[lastIdx]
 
       let status = when hasDepositRootChecks:
-        rpcClient.fetchDepositContractData(depositContract, lastBlock)
+        await fetchDepositContractData(
+          connection, rpcClient, depositContract, lastBlock)
       else:
         DepositRootUnavailable
 
@@ -1728,8 +1811,10 @@ proc syncEth1Chain(m: ELManager, connection: ELConnection) {.async.} =
 
     debug "Starting Eth1 syncing", `from` = shortLog(m.eth1Chain.blocks[^1])
 
+  var latestBlockNumber: Eth1BlockNumber
   while true:
-    debug "syncEth1Chain tick"
+    debug "syncEth1Chain tick",
+      shouldProcessDeposits, latestBlockNumber, eth1SyncedTo
 
     if bnStatus == BeaconNodeStatus.Stopping:
       await m.stop()
@@ -1746,12 +1831,13 @@ proc syncEth1Chain(m: ELManager, connection: ELConnection) {.async.} =
     except CatchableError as err:
       warn "Failed to obtain the latest block from the EL", err = err.msg
       raise err
+    latestBlockNumber = latestBlock.number
 
     m.syncTargetBlock = some(
-      if Eth1BlockNumber(latestBlock.number) > m.cfg.ETH1_FOLLOW_DISTANCE:
-        Eth1BlockNumber(latestBlock.number) - m.cfg.ETH1_FOLLOW_DISTANCE
+      if latestBlock.number > m.cfg.ETH1_FOLLOW_DISTANCE.Eth1BlockNumber:
+        latestBlock.number - m.cfg.ETH1_FOLLOW_DISTANCE
       else:
-        Eth1BlockNumber(0))
+        0.Eth1BlockNumber)
     if m.syncTargetBlock.get <= eth1SyncedTo:
       # The chain reorged to a lower height.
       # It's relatively safe to ignore that.
@@ -1767,7 +1853,7 @@ proc syncEth1Chain(m: ELManager, connection: ELConnection) {.async.} =
                              depositContract,
                              eth1SyncedTo + 1,
                              m.syncTargetBlock.get,
-                             m.earliestBlockOfInterest(Eth1BlockNumber latestBlock.number))
+                             m.earliestBlockOfInterest(latestBlock.number))
 
     eth1SyncedTo = m.syncTargetBlock.get
     eth1_synced_head.set eth1SyncedTo.toGaugeValue
@@ -1859,4 +1945,4 @@ proc testWeb3Provider*(web3Url: Uri,
     ns = web3.contractSender(DepositContract, depositContractAddress)
 
   discard request "Deposit root":
-    ns.get_deposit_root.call(blockNumber = latestBlock.number.uint64)
+    ns.get_deposit_root.call(blockNumber = latestBlock.number)

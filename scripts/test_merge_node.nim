@@ -5,6 +5,8 @@
 #   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
 # at your option. This file may not be copied, modified, or distributed except according to those terms.
 
+{.push raises: [].}
+
 # https://notes.ethereum.org/@9AeMAlpyQYaAAyuj47BzRw/rkwW3ceVY
 # Monitor traffic: socat -v TCP-LISTEN:9550,fork TCP-CONNECT:127.0.0.1:8550
 
@@ -13,8 +15,6 @@ import
   stew/results,
   chronos,
   ../beacon_chain/el/el_manager
-
-{.push raises: [].}
 
 from std/os import paramCount, paramStr
 from nimcrypto/utils import fromHex
@@ -55,7 +55,7 @@ proc run() {.async.} =
   let
     elManager = newClone ELManager.init(
       defaultRuntimeConfig, db = nil, nil, @[paramStr(1)],
-      none(DepositTreeSnapshot), none(Eth1Network), false,
+      none(DepositContractSnapshot), none(Eth1Network), false,
       some readJwtSecret(paramStr(2)).get)
 
   try:

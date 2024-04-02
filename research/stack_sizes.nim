@@ -5,12 +5,18 @@
 #   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
 # at your option. This file may not be copied, modified, or distributed except according to those terms.
 
+{.push raises: [].}
+
 import ../beacon_chain/spec/datatypes/phase0
 
 import std/[typetraits, strformat, strutils]
 
 proc print(t: auto, n: string, indent: int) =
-  echo fmt"{sizeof(t):>8}  {spaces(indent)}{n}: {typeof(t).name}"
+  try:
+    echo fmt"{sizeof(t):>8}  {spaces(indent)}{n}: {typeof(t).name}"
+  except ValueError:
+    # https://github.com/nim-lang/Nim/pull/23356
+    raiseAssert "Arguments match the format string"
 
   when t is object|tuple:
     for n, p in t.fieldPairs:

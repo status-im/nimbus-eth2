@@ -5,6 +5,8 @@
 #   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
 # at your option. This file may not be copied, modified, or distributed except according to those terms.
 
+{.push raises: [].}
+
 import
   std/[os, strutils],
   stew/bitops2,
@@ -124,8 +126,9 @@ static:
       "15227487_86601706.echop"]: # Wrong extension
     doAssert not filename.matchFilenameAggregatedFiles
 
-proc getUnaggregatedFilesEpochRange*(dir: string):
-    tuple[firstEpoch, lastEpoch: Epoch] =
+proc getUnaggregatedFilesEpochRange*(
+    dir: string
+): tuple[firstEpoch, lastEpoch: Epoch] {.raises: [OSError, ValueError].} =
   var smallestEpochFileName =
     '9'.repeat(epochInfoFileNameDigitsCount) & epochFileNameExtension
   var largestEpochFileName =
@@ -141,10 +144,12 @@ proc getUnaggregatedFilesEpochRange*(dir: string):
   result.lastEpoch = parseUInt(
     largestEpochFileName[0 ..< epochInfoFileNameDigitsCount]).Epoch
 
-proc getUnaggregatedFilesLastEpoch*(dir: string): Epoch =
+proc getUnaggregatedFilesLastEpoch*(
+    dir: string): Epoch {.raises: [OSError, ValueError].} =
   dir.getUnaggregatedFilesEpochRange.lastEpoch
 
-proc getAggregatedFilesLastEpoch*(dir: string): Epoch =
+proc getAggregatedFilesLastEpoch*(
+    dir: string): Epoch {.raises: [OSError, ValueError].}=
   var largestEpochInFileName = 0'u
   for (_, fn) in walkDir(dir.string, relative = true):
     if fn.matchFilenameAggregatedFiles:
@@ -219,7 +224,7 @@ proc collectEpochRewardsAndPenalties*(
   let
     finality_delay = get_finality_delay(state)
     total_balance = info.balances.current_epoch
-    total_balance_sqrt = integer_squareroot(total_balance)
+    total_balance_sqrt = integer_squareroot(distinctBase(total_balance))
 
   for index, validator in info.validators:
     if not is_eligible_validator(validator):
@@ -228,9 +233,10 @@ proc collectEpochRewardsAndPenalties*(
     let base_reward  = get_base_reward_sqrt(
       state, index.ValidatorIndex, total_balance_sqrt)
 
-    template get_attestation_component_reward_helper(attesting_balance: Gwei): Gwei =
+    template get_attestation_component_reward_helper(
+        attesting_balance: Gwei): Gwei =
       get_attestation_component_reward(attesting_balance,
-        info.balances.current_epoch, base_reward.uint64, finality_delay)
+        info.balances.current_epoch, base_reward, finality_delay)
 
     template rp: untyped = rewardsAndPenalties[index]
 
@@ -269,7 +275,7 @@ proc collectEpochRewardsAndPenalties*(
 proc collectEpochRewardsAndPenalties*(
     rewardsAndPenalties: var seq[RewardsAndPenalties],
     state: var (altair.BeaconState | bellatrix.BeaconState |
-                capella.BeaconState | deneb.BeaconState),
+                capella.BeaconState | deneb.BeaconState | electra.BeaconState),
     cache: var StateCache, cfg: RuntimeConfig, flags: UpdateFlags) =
   if get_current_epoch(state) == GENESIS_EPOCH:
     return
@@ -369,7 +375,7 @@ func collectFromAttestations(
     when consensusFork > ConsensusFork.Phase0:
       let base_reward_per_increment = get_base_reward_per_increment(
         get_total_active_balance(forkyState.data, cache))
-      doAssert base_reward_per_increment > 0
+      doAssert base_reward_per_increment > 0.Gwei
       for attestation in forkyBlck.message.body.attestations:
         doAssert check_attestation(
           forkyState.data, attestation, {}, cache).isOk
@@ -403,9 +409,15 @@ proc collectFromDeposits(
       var index = findValidatorIndex(forkyState.data, pubkey)
       if index.isNone:
         if pubkey in pubkeyToIndex:
-          index = Opt[ValidatorIndex].ok(pubkeyToIndex[pubkey])
+          try:
+            index = Opt[ValidatorIndex].ok(pubkeyToIndex[pubkey])
+          except KeyError as e:
+            raiseAssert "pubkey was checked to exist: " & e.msg
       if index.isSome:
-        rewardsAndPenalties[index.get()].deposits += amount
+        try:
+          rewardsAndPenalties[index.get()].deposits += amount
+        except KeyError as e:
+          raiseAssert "rewardsAndPenalties lacks expected index " & $index.get()
       elif verify_deposit_signature(cfg, deposit.data):
         pubkeyToIndex[pubkey] = ValidatorIndex(rewardsAndPenalties.len)
         rewardsAndPenalties.add(

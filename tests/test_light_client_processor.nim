@@ -5,6 +5,7 @@
 #   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
 # at your option. This file may not be copied, modified, or distributed except according to those terms.
 
+{.push raises: [].}
 {.used.}
 
 import
@@ -17,6 +18,8 @@ import
   ../beacon_chain/spec/[beacon_time, light_client_sync, state_transition],
   # Test utilities
   ./testutil, ./testdbutil
+
+from ./testbcutil import addHeadBlock
 
 suite "Light client processor" & preset():
   const  # Test config, should be long enough to cover interesting transitions
@@ -31,6 +34,7 @@ suite "Light client processor" & preset():
       res.BELLATRIX_FORK_EPOCH = 2.Epoch
       res.CAPELLA_FORK_EPOCH = (EPOCHS_PER_SYNC_COMMITTEE_PERIOD * 1).Epoch
       res.DENEB_FORK_EPOCH = (EPOCHS_PER_SYNC_COMMITTEE_PERIOD * 2).Epoch
+      res.ELECTRA_FORK_EPOCH = FAR_FUTURE_EPOCH
       res
 
   const numValidators = SLOTS_PER_EPOCH

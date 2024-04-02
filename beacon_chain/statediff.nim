@@ -31,7 +31,7 @@ func applyValidatorIdentities(
     hl: auto) =
   for item in hl:
     if not validators.add Validator(
-        pubkey: item.pubkey.toPubKey(),
+        pubkeyData: HashedValidatorPubKey.init(item.pubkey.toPubKey()),
         withdrawal_credentials: item.withdrawal_credentials):
       raiseAssert "cannot readd"
 

@@ -7,6 +7,11 @@ Ethereum consensus nodes are required to keep a minimum of 5 months of historica
 
 Nimbus can be configured to either retain or remove historical data past that point using the `--history` option. By default, Nimbus prunes historical data.
 
+!!! note "EIP-4844 blob archival"
+    In the default `prune` mode, EIP-4844 blobs are retained for ~18 days. To retain blobs beyond that, enable `--history=archive` which also archives blob data in the Nimbus database.
+
+    Future versions of Nimbus will allow exporting retained blobs to [erb](https://github.com/status-im/nimbus-eth2/pull/5882) files.
+
 ## History modes
 
 The history mode controls how far back Nimbus supports answering historical queries in the [REST API](./rest-api.md).

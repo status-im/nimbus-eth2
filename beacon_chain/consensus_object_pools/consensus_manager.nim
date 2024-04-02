@@ -25,6 +25,8 @@ from ../validators/keystore_management import
   getSuggestedGasLimit
 from ../validators/action_tracker import ActionTracker, getNextProposalSlot
 
+logScope: topics = "cman"
+
 type
   ConsensusManager* = object
     expectedSlot: Slot
@@ -145,7 +147,7 @@ func shouldSyncOptimistically*(self: ConsensusManager, wallSlot: Slot): bool =
 func optimisticHead*(self: ConsensusManager): BlockId =
   self.optimisticHead.bid
 
-func optimisticExecutionPayloadHash*(self: ConsensusManager): Eth2Digest =
+func optimisticExecutionBlockHash*(self: ConsensusManager): Eth2Digest =
   self.optimisticHead.execution_block_hash
 
 func setOptimisticHead*(
@@ -153,20 +155,35 @@ func setOptimisticHead*(
     bid: BlockId, execution_block_hash: Eth2Digest) =
   self.optimisticHead = (bid: bid, execution_block_hash: execution_block_hash)
 
-proc updateExecutionClientHead(self: ref ConsensusManager,
-                               newHead: BeaconHead): Future[Opt[void]] {.async: (raises: [CancelledError]).} =
-  let headExecutionPayloadHash = self.dag.loadExecutionBlockHash(newHead.blck)
+proc updateExecutionClientHead*(
+    self: ref ConsensusManager,
+    newHead: BeaconHead
+): Future[Opt[void]] {.async: (raises: [CancelledError]).} =
+  let headExecutionBlockHash =
+    self.dag.loadExecutionBlockHash(newHead.blck).valueOr:
+      # `BlockRef` are only created for blocks that have passed
+      # execution block hash validation, either explicitly in
+      # `block_processor.storeBlock`, or implicitly, e.g., through
+      # checkpoint sync. With checkpoint sync, the checkpoint block
+      # is initially not available, so if there is a reorg to it,
+      # this may be triggered. Such a reorg could happen if the first
+      # imported chain is completely invalid (after the checkpoint block)
+      # and is subsequently pruned, in which case checkpoint block is head.
+      # Because execution block hash validation has already passed,
+      # we can treat this as `SYNCING`.
+      warn "Failed to load head execution block hash", head = newHead.blck
+      return Opt[void].ok()
 
-  if headExecutionPayloadHash.isZero:
+  if headExecutionBlockHash.isZero:
     # Blocks without execution payloads can't be optimistic.
     self.dag.markBlockVerified(newHead.blck)
     return Opt[void].ok()
 
   template callForkchoiceUpdated(attributes: untyped): auto =
     await self.elManager.forkchoiceUpdated(
-      headBlockHash = headExecutionPayloadHash,
-      safeBlockHash = newHead.safeExecutionPayloadHash,
-      finalizedBlockHash = newHead.finalizedExecutionPayloadHash,
+      headBlockHash = headExecutionBlockHash,
+      safeBlockHash = newHead.safeExecutionBlockHash,
+      finalizedBlockHash = newHead.finalizedExecutionBlockHash,
       payloadAttributes = none attributes)
 
   # Can't use dag.head here because it hasn't been updated yet
@@ -240,13 +257,15 @@ proc updateHead*(self: var ConsensusManager, wallSlot: Slot) =
   ## `pruneFinalized` must be called for pruning.
 
   # Grab the new head according to our latest attestation data
-  let newHead = self.attestationPool[].selectOptimisticHead(
-      wallSlot.start_beacon_time).valueOr:
-    warn "Head selection failed, using previous head",
-      head = shortLog(self.dag.head), wallSlot
-    return
+  let
+    newHead = self.attestationPool[].selectOptimisticHead(
+        wallSlot.start_beacon_time).valueOr:
+      warn "Head selection failed, using previous head",
+        head = shortLog(self.dag.head), wallSlot
+      return
+    executionBlockHash = self.dag.loadExecutionBlockHash(newHead.blck)
 
-  if self.dag.loadExecutionBlockHash(newHead.blck).isZero:
+  if executionBlockHash.isSome and executionBlockHash.unsafeGet.isZero:
     # Blocks without execution payloads can't be optimistic.
     self.dag.markBlockVerified(newHead.blck)
 
@@ -261,8 +280,6 @@ func isSynced(dag: ChainDAGRef, wallSlot: Slot): bool =
   # the defaultSyncHorizon, it will start triggering in time so that potential
   # discrepancies between the head here, and the head the DAG has (which might
   # not yet be updated) won't be visible.
-  const defaultSyncHorizon = 50
-
   if dag.head.slot + defaultSyncHorizon < wallSlot:
     false
   else:
@@ -347,18 +364,18 @@ proc runProposalForkchoiceUpdated*(
     feeRecipient = self[].getFeeRecipient(
       nextProposer, Opt.some(validatorIndex), nextWallSlot.epoch)
     beaconHead = self.attestationPool[].getBeaconHead(self.dag.head)
-    headBlockHash = self.dag.loadExecutionBlockHash(beaconHead.blck)
+    headBlockHash = ? self.dag.loadExecutionBlockHash(beaconHead.blck)
 
   if headBlockHash.isZero:
     return err()
 
-  let safeBlockHash = beaconHead.safeExecutionPayloadHash
+  let safeBlockHash = beaconHead.safeExecutionBlockHash
 
   withState(self.dag.headState):
     template callForkchoiceUpdated(fcPayloadAttributes: auto) =
       let (status, _) = await self.elManager.forkchoiceUpdated(
         headBlockHash, safeBlockHash,
-        beaconHead.finalizedExecutionPayloadHash,
+        beaconHead.finalizedExecutionBlockHash,
         payloadAttributes = some fcPayloadAttributes)
       debug "Fork-choice updated for proposal", status
 

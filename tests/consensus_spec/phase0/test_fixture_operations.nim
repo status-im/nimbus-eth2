@@ -5,11 +5,10 @@
 #   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
 # at your option. This file may not be copied, modified, or distributed except according to those terms.
 
+{.push raises: [].}
 {.used.}
 
 import
-  # Standard library
-  std/[sequtils, sets],
   # Utilities
   chronicles,
   unittest2,
@@ -21,6 +20,8 @@ import
   ../../testutil,
   ../fixtures_utils, ../os_ops,
   ../../helpers/debug_state
+
+from std/sequtils import mapIt, toSeq
 
 const
   OpDir                 = SszTestsDir/const_preset/"phase0"/"operations"
@@ -69,8 +70,10 @@ suite baseDescription & "Attestation " & preset():
   proc applyAttestation(
       preState: var phase0.BeaconState, attestation: Attestation):
       Result[void, cstring] =
-    var cache = StateCache()
-    process_attestation(preState, attestation, {}, 0.Gwei, cache)
+    var cache: StateCache
+    doAssert (? process_attestation(
+      preState, attestation, {}, 0.Gwei, cache)) == 0.Gwei
+    ok()
 
   for path in walkTests(OpAttestationsDir):
     runTest[Attestation, typeof applyAttestation](
@@ -81,9 +84,12 @@ suite baseDescription & "Attester Slashing " & preset():
   proc applyAttesterSlashing(
       preState: var phase0.BeaconState, attesterSlashing: AttesterSlashing):
       Result[void, cstring] =
-    var cache = StateCache()
-    process_attester_slashing(
-      defaultRuntimeConfig, preState, attesterSlashing, {}, cache)
+    var cache: StateCache
+    doAssert (? process_attester_slashing(
+      defaultRuntimeConfig, preState, attesterSlashing, {strictVerification},
+      get_state_exit_queue_info(defaultRuntimeConfig, preState, cache),
+      cache))[0] > 0.Gwei
+    ok()
 
   for path in walkTests(OpAttSlashingDir):
     runTest[AttesterSlashing, typeof applyAttesterSlashing](
@@ -94,7 +100,7 @@ suite baseDescription & "Block Header " & preset():
   func applyBlockHeader(
       preState: var phase0.BeaconState, blck: phase0.BeaconBlock):
       Result[void, cstring] =
-    var cache = StateCache()
+    var cache: StateCache
     process_block_header(preState, blck, {}, cache)
 
   for path in walkTests(OpBlockHeaderDir):
@@ -102,11 +108,15 @@ suite baseDescription & "Block Header " & preset():
       OpBlockHeaderDir, suiteName, "Block Header", "block",
       applyBlockHeader, path)
 
+from ".."/".."/".."/beacon_chain/bloomfilter import constructBloomFilter
+
 suite baseDescription & "Deposit " & preset():
   proc applyDeposit(
       preState: var phase0.BeaconState, deposit: Deposit):
       Result[void, cstring] =
-    process_deposit(defaultRuntimeConfig, preState, deposit, {})
+    process_deposit(
+      defaultRuntimeConfig, preState,
+      constructBloomFilter(preState.validators.asSeq)[], deposit, {})
 
   for path in walkTests(OpDepositsDir):
     runTest[Deposit, typeof applyDeposit](
@@ -116,9 +126,12 @@ suite baseDescription & "Proposer Slashing " & preset():
   proc applyProposerSlashing(
       preState: var phase0.BeaconState, proposerSlashing: ProposerSlashing):
       Result[void, cstring] =
-    var cache = StateCache()
-    process_proposer_slashing(
-      defaultRuntimeConfig, preState, proposerSlashing, {}, cache)
+    var cache: StateCache
+    doAssert (? process_proposer_slashing(
+      defaultRuntimeConfig, preState, proposerSlashing, {},
+      get_state_exit_queue_info(defaultRuntimeConfig, preState,
+      cache), cache))[0] > 0.Gwei
+    ok()
 
   for path in walkTests(OpProposerSlashingDir):
     runTest[ProposerSlashing, typeof applyProposerSlashing](
@@ -129,9 +142,14 @@ suite baseDescription & "Voluntary Exit " & preset():
   proc applyVoluntaryExit(
       preState: var phase0.BeaconState, voluntaryExit: SignedVoluntaryExit):
       Result[void, cstring] =
-    var cache = StateCache()
-    process_voluntary_exit(
-      defaultRuntimeConfig, preState, voluntaryExit, {}, cache)
+    var cache: StateCache
+    if process_voluntary_exit(
+        defaultRuntimeConfig, preState, voluntaryExit, {},
+        get_state_exit_queue_info(defaultRuntimeConfig, preState, cache),
+        cache).isOk:
+      ok()
+    else:
+      err("")
 
   for path in walkTests(OpVoluntaryExitDir):
     runTest[SignedVoluntaryExit, typeof applyVoluntaryExit](

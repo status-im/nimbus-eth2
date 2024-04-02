@@ -5,6 +5,7 @@
 #   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
 # at your option. This file may not be copied, modified, or distributed except according to those terms.
 
+{.push raises: [].}
 {.used.}
 
 import
@@ -17,6 +18,8 @@ import
   # Test utilities
   ./testutil, ./testdbutil
 
+from ./testbcutil import addHeadBlock
+
 suite "Light client" & preset():
   const  # Test config, should be long enough to cover interesting transitions
     headPeriod = 3.SyncCommitteePeriod
@@ -28,6 +31,7 @@ suite "Light client" & preset():
       res.BELLATRIX_FORK_EPOCH = 2.Epoch
       res.CAPELLA_FORK_EPOCH = (EPOCHS_PER_SYNC_COMMITTEE_PERIOD * 1).Epoch
       res.DENEB_FORK_EPOCH = (EPOCHS_PER_SYNC_COMMITTEE_PERIOD * 2).Epoch
+      res.ELECTRA_FORK_EPOCH = FAR_FUTURE_EPOCH
       res
     altairStartSlot = cfg.ALTAIR_FORK_EPOCH.start_slot
 

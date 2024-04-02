@@ -5,11 +5,11 @@
 #   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
 # at your option. This file may not be copied, modified, or distributed except according to those terms.
 
+{.push raises: [].}
+
 import std/[algorithm, sequtils]
 import chronicles, chronos, metrics
 import "."/[common, api]
-
-{.push raises: [].}
 
 declareGauge client_slot_signatures_time,
   "Time used to obtain slot signatures"
@@ -217,7 +217,7 @@ proc fillAttestationSelectionProofs*(
                 notice "Found missing validator while processing " &
                        "beacon committee selections", validator_index = vindex,
                        slot = selection.slot,
-                       validator = shortLog(key.get()),
+                       pubkey = shortLog(key.get()),
                        selection_proof = shortLog(selection.selection_proof)
                 continue
 
@@ -483,7 +483,7 @@ proc fillSyncCommitteeSelectionProofs*(
                 notice "Found missing validator while processing " &
                        "sync committee selections", validator_index = vindex,
                        slot = slot,
-                       validator = shortLog(key.get()),
+                       pubkey = shortLog(key.get()),
                        selection_proof = shortLog(selection.selection_proof)
                 continue
           request =
@@ -494,7 +494,7 @@ proc fillSyncCommitteeSelectionProofs*(
                 warn "Found sync committee selection proof which was not " &
                      "requested",
                      slot = slot, subcommittee_index = subcommittee_index,
-                     validator = shortLog(validator),
+                     validator = validatorLog(validator),
                      selection_proof = shortLog(selection.selection_proof)
                 continue
               res.get()

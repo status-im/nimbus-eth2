@@ -5,25 +5,23 @@
 #   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
 # at your option. This file may not be copied, modified, or distributed except according to those terms.
 
+{.push raises: [].}
+
 # Types used by both client and server in the common REST API:
 # https://ethereum.github.io/beacon-APIs/
 # Be mindful that changing these changes the serialization and deserialization
 # in the API which may lead to incompatibilities between clients - tread
 # carefully!
 
-{.push raises: [].}
-
 import
   std/[json, tables],
   stew/base10, web3/primitives, httputils,
-  ".."/forks,
-  ".."/datatypes/[phase0, altair, bellatrix, deneb],
-  ".."/mev/[capella_mev, deneb_mev]
+  ".."/[deposit_snapshots, forks],
+  ".."/mev/deneb_mev
 
 from ".."/datatypes/capella import BeaconBlockBody
 
-export forks, phase0, altair, bellatrix, capella, capella_mev, deneb_mev,
-       tables, httputils
+export forks, phase0, altair, bellatrix, capella, deneb_mev, tables, httputils
 
 const
   # https://github.com/ethereum/eth2.0-APIs/blob/master/apis/beacon/states/validator_balances.yaml#L17
@@ -263,9 +261,10 @@ type
     connected*: uint64
     disconnecting*: uint64
 
-  RestChainHead* = object
+  RestChainHeadV2* = object
     root*: Eth2Digest
     slot*: Slot
+    execution_optimistic*: bool
 
   RestMetadata* = object
     seq_number*: string
@@ -330,6 +329,11 @@ type
     kzg_proofs*: deneb.KzgProofs
     blobs*: deneb.Blobs
 
+  ElectraSignedBlockContents* = object
+    signed_block*: electra.SignedBeaconBlock
+    kzg_proofs*: deneb.KzgProofs
+    blobs*: deneb.Blobs
+
   RestPublishedSignedBlockContents* = object
     case kind*: ConsensusFork
     of ConsensusFork.Phase0:    phase0Data*:    phase0.SignedBeaconBlock
@@ -356,18 +360,13 @@ type
     of ConsensusFork.Capella:   capellaData*:   capella.BeaconBlock
     of ConsensusFork.Deneb:     denebData*:     deneb.BlockContents
 
+  ProduceBlockResponseV3* = ForkedMaybeBlindedBeaconBlock
+
   VCRuntimeConfig* = Table[string, string]
 
   RestDepositContract* = object
     chain_id*: string
     address*: string
-
-  RestDepositSnapshot* = object
-    finalized*: array[DEPOSIT_CONTRACT_TREE_DEPTH, Eth2Digest]
-    deposit_root*: Eth2Digest
-    deposit_count*: uint64
-    execution_block_hash*: Eth2Digest
-    execution_block_height*: uint64
 
   RestBlockInfo* = object
     slot*: Slot
@@ -539,13 +538,12 @@ type
   GetBlockHeaderResponse* = DataOptimisticAndFinalizedObject[RestBlockHeaderInfo]
   GetBlockHeadersResponse* = DataEnclosedObject[seq[RestBlockHeaderInfo]]
   GetBlockRootResponse* = DataOptimisticObject[RestRoot]
-  GetDebugChainHeadsResponse* = DataEnclosedObject[seq[RestChainHead]]
+  GetDebugChainHeadsV2Response* = DataEnclosedObject[seq[RestChainHeadV2]]
   GetDepositContractResponse* = DataEnclosedObject[RestDepositContract]
-  GetDepositSnapshotResponse* = DataEnclosedObject[RestDepositSnapshot]
+  GetDepositSnapshotResponse* = DataEnclosedObject[DepositTreeSnapshot]
   GetEpochCommitteesResponse* = DataEnclosedObject[seq[RestBeaconStatesCommittees]]
   GetForkScheduleResponse* = DataEnclosedObject[seq[Fork]]
   GetGenesisResponse* = DataEnclosedObject[RestGenesis]
-  GetHeaderResponseCapella* = DataVersionEnclosedObject[capella_mev.SignedBuilderBid]
   GetHeaderResponseDeneb* = DataVersionEnclosedObject[deneb_mev.SignedBuilderBid]
   GetNetworkIdentityResponse* = DataEnclosedObject[RestNetworkIdentity]
   GetPeerCountResponse* = DataMetaEnclosedObject[RestPeerCount]
@@ -572,7 +570,6 @@ type
   ProduceAttestationDataResponse* = DataEnclosedObject[AttestationData]
   ProduceBlindedBlockResponse* = ForkedBlindedBeaconBlock
   ProduceSyncCommitteeContributionResponse* = DataEnclosedObject[SyncCommitteeContribution]
-  SubmitBlindedBlockResponseCapella* = DataEnclosedObject[capella.ExecutionPayload]
   SubmitBlindedBlockResponseDeneb* = DataEnclosedObject[deneb_mev.ExecutionPayloadAndBlobsBundle]
   GetValidatorsActivityResponse* = DataEnclosedObject[seq[RestActivityItem]]
   GetValidatorsLivenessResponse* = DataEnclosedObject[seq[RestLivenessItem]]
@@ -630,6 +627,68 @@ func init*(T: type ForkedSignedBeaconBlock,
     of ConsensusFork.Deneb:
       ForkedSignedBeaconBlock.init(contents.denebData.signed_block)
 
+func init*(t: typedesc[RestPublishedSignedBlockContents],
+           blck: phase0.BeaconBlock, root: Eth2Digest,
+           signature: ValidatorSig): RestPublishedSignedBlockContents =
+  RestPublishedSignedBlockContents(
+    kind: ConsensusFork.Phase0,
+    phase0Data: phase0.SignedBeaconBlock(
+      message: blck, root: root, signature: signature
+    )
+  )
+
+func init*(t: typedesc[RestPublishedSignedBlockContents],
+           blck: altair.BeaconBlock, root: Eth2Digest,
+           signature: ValidatorSig): RestPublishedSignedBlockContents =
+  RestPublishedSignedBlockContents(
+    kind: ConsensusFork.Altair,
+    altairData: altair.SignedBeaconBlock(
+      message: blck, root: root, signature: signature
+    )
+  )
+
+func init*(t: typedesc[RestPublishedSignedBlockContents],
+           blck: bellatrix.BeaconBlock, root: Eth2Digest,
+           signature: ValidatorSig): RestPublishedSignedBlockContents =
+  RestPublishedSignedBlockContents(
+    kind: ConsensusFork.Bellatrix,
+    bellatrixData: bellatrix.SignedBeaconBlock(
+      message: blck, root: root, signature: signature
+    )
+  )
+
+func init*(t: typedesc[RestPublishedSignedBlockContents],
+           blck: capella.BeaconBlock, root: Eth2Digest,
+           signature: ValidatorSig): RestPublishedSignedBlockContents =
+  RestPublishedSignedBlockContents(
+    kind: ConsensusFork.Capella,
+    capellaData: capella.SignedBeaconBlock(
+      message: blck, root: root, signature: signature
+    )
+  )
+
+func init*(t: typedesc[RestPublishedSignedBlockContents],
+           contents: deneb.BlockContents, root: Eth2Digest,
+           signature: ValidatorSig): RestPublishedSignedBlockContents =
+  RestPublishedSignedBlockContents(
+    kind: ConsensusFork.Deneb,
+    denebData: DenebSignedBlockContents(
+      signed_block: deneb.SignedBeaconBlock(
+        message: contents.`block`,
+        root: root,
+        signature: signature
+      ),
+      kzg_proofs: contents.kzg_proofs,
+      blobs: contents.blobs
+    )
+  )
+
+func init*(t: typedesc[RestPublishedSignedBlockContents],
+           contents: electra.BeaconBlock, root: Eth2Digest,
+           signature: ValidatorSig): RestPublishedSignedBlockContents =
+  debugRaiseAssert "init*(t: typedesc[RestPublishedSignedBlockContents],"
+  default(RestPublishedSignedBlockContents)
+
 func init*(t: typedesc[StateIdent], v: StateIdentType): StateIdent =
   StateIdent(kind: StateQueryKind.Named, value: v)
 
@@ -660,13 +719,13 @@ func init*(t: typedesc[RestBlockInfo],
     RestBlockInfo(slot: forkyBlck.message.slot, blck: forkyBlck.root)
 
 func init*(t: typedesc[RestValidator], index: ValidatorIndex,
-           balance: uint64, status: string,
+           balance: Gwei, status: string,
            validator: Validator): RestValidator =
   RestValidator(index: index, balance: Base10.toString(balance),
                 status: status, validator: validator)
 
 func init*(t: typedesc[RestValidatorBalance], index: ValidatorIndex,
-           balance: uint64): RestValidatorBalance =
+           balance: Gwei): RestValidatorBalance =
   RestValidatorBalance(index: index, balance: Base10.toString(balance))
 
 func init*(t: typedesc[Web3SignerRequest], fork: Fork,

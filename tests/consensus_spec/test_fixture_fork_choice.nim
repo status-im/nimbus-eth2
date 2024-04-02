@@ -5,6 +5,7 @@
 #   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
 # at your option. This file may not be copied, modified, or distributed except according to those terms.
 
+{.push raises: [].}
 {.used.}
 
 import
@@ -27,6 +28,7 @@ from std/json import
   JsonNode, getBool, getInt, getStr, hasKey, items, len, pairs, `$`, `[]`
 from std/sequtils import mapIt, toSeq
 from std/strutils import contains
+from ../testbcutil import addHeadBlock
 
 # Test format described at https://github.com/ethereum/consensus-specs/tree/v1.3.0/tests/formats/fork_choice
 # Note that our implementation has been optimized with "ProtoArray"
@@ -39,7 +41,7 @@ type
     opOnBlock
     opOnMergeBlock
     opOnAttesterSlashing
-    opInvalidateRoot
+    opInvalidateHash
     opChecks
 
   BlobData = object
@@ -61,8 +63,8 @@ type
       powBlock: PowBlock
     of opOnAttesterSlashing:
       attesterSlashing: AttesterSlashing
-    of opInvalidateRoot:
-      invalidatedRoot: Eth2Digest
+    of opInvalidateHash:
+      invalidatedHash: Eth2Digest
       latestValidHash: Eth2Digest
     of opChecks:
       checks: JsonNode
@@ -70,7 +72,8 @@ type
 proc initialLoad(
     path: string, db: BeaconChainDB,
     StateType, BlockType: typedesc
-): tuple[dag: ChainDAGRef, fkChoice: ref ForkChoice] =
+): tuple[dag: ChainDAGRef, fkChoice: ref ForkChoice] {.raises: [
+    IOError, UnconsumedInput].} =
   let
     forkedState = loadForkedState(
       path/"anchor_state.ssz_snappy",
@@ -79,11 +82,6 @@ proc initialLoad(
     blck = parseTest(
       path/"anchor_block.ssz_snappy",
       SSZ, BlockType)
-
-    signedBlock = ForkedSignedBeaconBlock.init(BlockType.kind.SignedBeaconBlock(
-      message: blck,
-      # signature: - unused as it's trusted
-      root: hash_tree_root(blck)))
 
   ChainDAGRef.preInit(db, forkedState[])
 
@@ -97,7 +95,12 @@ proc initialLoad(
 
   (dag, fkChoice)
 
-proc loadOps(path: string, fork: ConsensusFork): seq[Operation] =
+proc loadOps(
+    path: string,
+    fork: ConsensusFork
+): seq[Operation] {.raises: [
+    IOError, KeyError, UnconsumedInput, ValueError,
+    YamlConstructionError, YamlParserError].} =
   let stepsYAML = os_ops.readFile(path/"steps.yaml")
   let steps = yaml.loadToJson(stepsYAML)
 
@@ -153,16 +156,16 @@ proc loadOps(path: string, fork: ConsensusFork): seq[Operation] =
         attesterSlashing: attesterSlashing)
     elif step.hasKey"payload_status":
       if step["payload_status"]["status"].getStr() == "INVALID":
-        result.add Operation(kind: opInvalidateRoot,
+        result.add Operation(kind: opInvalidateHash,
           valid: true,
-          invalidatedRoot: Eth2Digest.fromHex(step["block_hash"].getStr()),
+          invalidatedHash: Eth2Digest.fromHex(step["block_hash"].getStr()),
           latestValidHash: Eth2Digest.fromHex(
             step["payload_status"]["latest_valid_hash"].getStr()))
     elif step.hasKey"checks":
       result.add Operation(kind: opChecks,
         checks: step["checks"])
     else:
-      doAssert false, "Unknown test step: " & $step
+      raiseAssert "Unknown test step: " & $step
 
     if step.hasKey"valid":
       doAssert step.len == 2 + numExtraFields
@@ -180,7 +183,7 @@ proc stepOnBlock(
        signedBlock: ForkySignedBeaconBlock,
        blobData: Opt[BlobData],
        time: BeaconTime,
-       invalidatedRoots: Table[Eth2Digest, Eth2Digest]):
+       invalidatedHashes: Table[Eth2Digest, Eth2Digest]):
        Result[BlockRef, VerifierError] =
   # 1. Validate blobs
   when typeof(signedBlock).kind >= ConsensusFork.Deneb:
@@ -210,18 +213,18 @@ proc stepOnBlock(
   # would also have `true` validity because it'd not be known they weren't, so
   # adding this mock of the block processor is realistic and sufficient.
   when consensusFork >= ConsensusFork.Bellatrix:
-    let executionPayloadHash =
+    let executionBlockHash =
       signedBlock.message.body.execution_payload.block_hash
-    if executionPayloadHash in invalidatedRoots:
+    if executionBlockHash in invalidatedHashes:
       # Mocks fork choice INVALID list application. These tests sequence this
       # in a way the block processor does not, specifying each payload_status
       # before the block itself, while Nimbus fork choice treats invalidating
       # a non-existent block root as a no-op and does not remember it for the
       # future.
-      let lvh = invalidatedRoots.getOrDefault(
-        executionPayloadHash, static(default(Eth2Digest)))
+      let lvh = invalidatedHashes.getOrDefault(
+        executionBlockHash, static(default(Eth2Digest)))
       fkChoice[].mark_root_invalid(dag.getEarliestInvalidBlockRoot(
-        signedBlock.message.parent_root, lvh, executionPayloadHash))
+        signedBlock.message.parent_root, lvh, executionBlockHash))
 
       return err VerifierError.Invalid
 
@@ -246,11 +249,10 @@ proc stepOnBlock(
   blockAdded
 
 proc stepChecks(
-       checks: JsonNode,
-       dag: ChainDAGRef,
-       fkChoice: ref ForkChoice,
-       time: BeaconTime
-     ) =
+    checks: JsonNode,
+    dag: ChainDAGRef,
+    fkChoice: ref ForkChoice,
+    time: BeaconTime) {.raises: [KeyError].} =
   doAssert checks.len >= 1, "No checks found"
   for check, val in checks:
     if check == "time":
@@ -286,9 +288,14 @@ proc stepChecks(
       # We do not store genesis in fork choice..
       discard
     else:
-      doAssert false, "Unsupported check '" & $check & "'"
+      raiseAssert "Unsupported check '" & $check & "'"
 
-proc doRunTest(path: string, fork: ConsensusFork) =
+proc doRunTest(
+    path: string,
+    fork: ConsensusFork
+) {.raises: [
+    IOError, KeyError, UnconsumedInput, ValueError,
+    YamlConstructionError, YamlParserError].} =
   let db = BeaconChainDB.new("", inMemory = true)
   defer:
     db.close()
@@ -299,12 +306,18 @@ proc doRunTest(path: string, fork: ConsensusFork) =
         path, db, consensusFork.BeaconState, consensusFork.BeaconBlock)
 
     rng = HmacDrbgContext.new()
-    taskpool = Taskpool.new()
+    taskpool =
+      try:
+        Taskpool.new()
+      except Exception as exc:
+        fatal "Failed to initialize Taskpool", exc = exc.msg
+        fail()
+        return
   var verifier = BatchVerifier.init(rng, taskpool)
 
   let steps = loadOps(path, fork)
   var time = stores.fkChoice.checkpoints.time
-  var invalidatedRoots: Table[Eth2Digest, Eth2Digest]
+  var invalidatedHashes: Table[Eth2Digest, Eth2Digest]
 
   let state = newClone(stores.dag.headState)
   var stateCache = StateCache()
@@ -325,7 +338,7 @@ proc doRunTest(path: string, fork: ConsensusFork) =
         let status = stepOnBlock(
           stores.dag, stores.fkChoice,
           verifier, state[], stateCache,
-          forkyBlck, step.blobData, time, invalidatedRoots)
+          forkyBlck, step.blobData, time, invalidatedHashes)
         doAssert status.isOk == step.valid
     of opOnAttesterSlashing:
       let indices =
@@ -334,12 +347,12 @@ proc doRunTest(path: string, fork: ConsensusFork) =
         for idx in indices.get:
           stores.fkChoice[].process_equivocation(idx)
       doAssert indices.isOk == step.valid
-    of opInvalidateRoot:
-      invalidatedRoots[step.invalidatedRoot] = step.latestValidHash
+    of opInvalidateHash:
+      invalidatedHashes[step.invalidatedHash] = step.latestValidHash
     of opChecks:
       stepChecks(step.checks, stores.dag, stores.fkChoice, time)
     else:
-      doAssert false, "Unsupported"
+      raiseAssert "Unsupported"
 
 proc runTest(suiteName: static[string], path: string, fork: ConsensusFork) =
   const SKIP = [
@@ -362,7 +375,7 @@ proc runTest(suiteName: static[string], path: string, fork: ConsensusFork) =
     "basic_is_head_root",
   ]
 
-  test suiteName & " - " & path.relativePath(SszTestsDir):
+  test suiteName & " - " & path.relativeTestPathComponent():
     when defined(windows):
       # Some test files have very long paths
       skip()

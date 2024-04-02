@@ -5,6 +5,8 @@
 #   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
 # at your option. This file may not be copied, modified, or distributed except according to those terms.
 
+{.push raises: [].}
+
 import
   std/[typetraits, sequtils, sets],
   stew/[results, base10],
@@ -14,7 +16,7 @@ import
   ../beacon_node,
   ../consensus_object_pools/[blockchain_dag, spec_cache, validator_change_pool],
   ../spec/[deposit_snapshots, eth2_merkleization, forks, network, validator],
-  ../spec/mev/bellatrix_mev,
+  ../spec/mev/[bellatrix_mev, capella_mev],
   ../validators/message_router_mev
 
 export rest_utils
@@ -98,10 +100,10 @@ proc getStatus(validator: Validator,
       ok(ValidatorFilterKind.ExitedSlashed)
   elif validator.withdrawable_epoch <= current_epoch:
     # withdrawal
-    if validator.effective_balance != 0:
+    if validator.effective_balance != 0.Gwei:
       ok(ValidatorFilterKind.WithdrawalPossible)
     else:
-      # validator.effective_balance == 0
+      # validator.effective_balance == 0.Gwei
       ok(ValidatorFilterKind.WithdrawalDone)
   else:
     err("Invalid validator status")
@@ -127,11 +129,26 @@ proc toString*(kind: ValidatorFilterKind): string =
   of ValidatorFilterKind.WithdrawalDone:
     "withdrawal_done"
 
+func checkRestBlockBlobsValid(
+    forkyBlck: deneb.SignedBeaconBlock | electra.SignedBeaconBlock,
+    kzg_proofs: KzgProofs,
+    blobs: Blobs): Result[void, string] =
+  if kzg_proofs.len != blobs.len:
+    return err("Invalid block publish: " & $kzg_proofs.len & " KZG proofs and " &
+      $blobs.len & " blobs")
+
+  if kzg_proofs.len != forkyBlck.message.body.blob_kzg_commitments.len:
+    return err("Invalid block publish: " & $kzg_proofs.len &
+      " KZG proofs and " & $forkyBlck.message.body.blob_kzg_commitments.len &
+      " KZG commitments")
+
+  ok()
+
 proc installBeaconApiHandlers*(router: var RestRouter, node: BeaconNode) =
   # https://github.com/ethereum/EIPs/blob/master/EIPS/eip-4881.md
   router.api2(MethodGet, "/eth/v1/beacon/deposit_snapshot") do (
     ) -> RestApiResponse:
-    let snapshot = node.db.getDepositTreeSnapshot().valueOr:
+    let snapshot = node.db.getDepositContractSnapshot().valueOr:
       # This can happen in a very short window after the client is started,
       # but the snapshot record still haven't been upgraded in the database.
       # Returning 404 should be easy to handle for the clients - they just need
@@ -139,13 +156,7 @@ proc installBeaconApiHandlers*(router: var RestRouter, node: BeaconNode) =
       return RestApiResponse.jsonError(Http404,
                                        NoFinalizedSnapshotAvailableError)
 
-    RestApiResponse.jsonResponse(
-      RestDepositSnapshot(
-        finalized: snapshot.depositContractState.branch,
-        deposit_root: snapshot.getDepositRoot(),
-        deposit_count: snapshot.getDepositCountU64(),
-        execution_block_hash: snapshot.eth1Block,
-        execution_block_height: snapshot.blockHeight))
+    RestApiResponse.jsonResponse(snapshot.getTreeSnapshot())
 
   # https://ethereum.github.io/beacon-APIs/#/Beacon/getGenesis
   router.api2(MethodGet, "/eth/v1/beacon/genesis") do () -> RestApiResponse:
@@ -924,6 +935,12 @@ proc installBeaconApiHandlers*(router: var RestRouter, node: BeaconNode) =
         of ConsensusFork.Deneb:
           var blck = restBlock.denebData.signed_block
           blck.root = hash_tree_root(blck.message)
+
+          let validity = checkRestBlockBlobsValid(
+            blck, restBlock.denebData.kzg_proofs, restBlock.denebData.blobs)
+          if validity.isErr:
+            return RestApiResponse.jsonError(Http400, validity.error)
+
           await node.router.routeSignedBeaconBlock(
             blck, Opt.some(blck.create_blob_sidecars(
               restBlock.denebData.kzg_proofs, restBlock.denebData.blobs)))
@@ -1000,6 +1017,12 @@ proc installBeaconApiHandlers*(router: var RestRouter, node: BeaconNode) =
         of ConsensusFork.Deneb:
           var blck = restBlock.denebData.signed_block
           blck.root = hash_tree_root(blck.message)
+
+          let validity = checkRestBlockBlobsValid(
+            blck, restBlock.denebData.kzg_proofs, restBlock.denebData.blobs)
+          if validity.isErr:
+            return RestApiResponse.jsonError(Http400, validity.error)
+
           await node.router.routeSignedBeaconBlock(
             blck, Opt.some(blck.create_blob_sidecars(
               restBlock.denebData.kzg_proofs, restBlock.denebData.blobs)))
@@ -1080,7 +1103,7 @@ proc installBeaconApiHandlers*(router: var RestRouter, node: BeaconNode) =
       return RestApiResponse.jsonError(Http400, BlockIncorrectFork)
 
     withConsensusFork(currentEpochFork):
-      when consensusFork >= ConsensusFork.Capella:
+      when consensusFork >= ConsensusFork.Deneb:
         let
           restBlock = decodeBodyJsonOrSsz(
               consensusFork.SignedBlindedBeaconBlock, body).valueOr:

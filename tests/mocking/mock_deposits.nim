@@ -5,15 +5,15 @@
 #   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
 # at your option. This file may not be copied, modified, or distributed except according to those terms.
 
+{.push raises: [].}
+
 # Mocking deposits and genesis deposits
 # ---------------------------------------------------------------
 
 import
-  # Standard library
-  std/math,
-
   # Specs
-  ../../beacon_chain/spec/[eth2_merkleization, keystore, forks, signatures],
+  ../../beacon_chain/spec/[
+    eth2_merkleization, keystore, forks, helpers, signatures],
   ../../beacon_chain/spec/datatypes/base,
 
   # Internals
@@ -23,10 +23,7 @@ import
   # Test utilities
   ../testblockutil
 
-func mockDepositData(
-        pubkey: ValidatorPubKey,
-        amount: uint64,
-      ): DepositData =
+func mockDepositData(pubkey: ValidatorPubKey, amount: Gwei): DepositData =
   # Insecurely use pubkey as withdrawal key
   DepositData(
     pubkey: pubkey,
@@ -35,12 +32,12 @@ func mockDepositData(
   )
 
 func mockDepositData(
-        pubkey: ValidatorPubKey,
-        privkey: ValidatorPrivKey,
-        amount: uint64,
-        # withdrawal_credentials: Eth2Digest,
-        flags: UpdateFlags = {}
-      ): DepositData =
+    pubkey: ValidatorPubKey,
+    privkey: ValidatorPrivKey,
+    amount: Gwei,
+    # withdrawal_credentials: Eth2Digest,
+    flags: UpdateFlags = {}
+): DepositData =
   var ret = mockDepositData(pubkey, amount)
   if skipBlsValidation notin flags:
     ret.signature = defaultRuntimeConfig.get_deposit_signature(ret, privkey).toValidatorSig()
@@ -90,10 +87,10 @@ template mockGenesisDepositsImpl(
       depositsDataHash.add hash_tree_root(result[valIdx])
 
 proc mockGenesisBalancedDeposits*(
-        validatorCount: uint64,
-        amountInEth: Positive,
-        flags: UpdateFlags = {}
-      ): seq[DepositData] =
+    validatorCount: uint64,
+    amountInEth: Ether,
+    flags: UpdateFlags = {}
+): seq[DepositData] =
   ## The amount should be strictly positive
   ## - 1 is the minimum deposit amount (MIN_DEPOSIT_AMOUNT)
   ## - 16 is the ejection balance (EJECTION_BALANCE)
@@ -102,19 +99,17 @@ proc mockGenesisBalancedDeposits*(
   ##
   ## Only validators with 32 ETH will be active at genesis
 
-  let amount = amountInEth.uint64 * 10'u64^9
+  let amount = amountInEth.toGwei()
   mockGenesisDepositsImpl(result, validatorCount,amount,flags):
     discard
 
 proc mockUpdateStateForNewDeposit*(
        state: var ForkyBeaconState,
        validator_index: uint64,
-       amount: uint64,
+       amount: Gwei,
        # withdrawal_credentials: Eth2Digest
        flags: UpdateFlags
     ): Deposit =
-
-
   # TODO withdrawal credentials
 
   result.data = mockDepositData(

@@ -5,6 +5,8 @@
 #   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
 # at your option. This file may not be copied, modified, or distributed except according to those terms.
 
+{.push raises: [].}
+
 # At the time of writing, the exact definitions of what should be used for
 # cryptography in the spec is in flux, with sizes and test vectors still being
 # hashed out. This layer helps isolate those chagnes.
@@ -20,8 +22,6 @@
 # combined overlapping aggregates - ie if we have an aggregate of signatures of
 # A, B and C, and another with B, C and D, we cannot practically combine them
 # even if in theory it is possible to allow this in BLS.
-
-{.push raises: [].}
 
 import
   # Status
@@ -47,7 +47,7 @@ const
   RawSigSize* = 96
   RawPubKeySize* = 48
   UncompressedPubKeySize* = 96
-  # RawPrivKeySize* = 48 for Miracl / 32 for BLST
+  # RawPrivKeySize* = 32 for BLST
 
 type
   ValidatorPubKey* = object ##\
@@ -388,13 +388,9 @@ func `$`*(x: ValidatorPubKey | ValidatorSig): string =
 
 func toRaw*(x: ValidatorPrivKey): array[32, byte] =
   # TODO: distinct type - see https://github.com/status-im/nim-blscurve/pull/67
-  when BLS_BACKEND == BLST:
-    result = SecretKey(x).exportRaw()
-  else:
-    # Miracl exports to 384-bit arrays, but Curve order is 256-bit
-    let raw = SecretKey(x).exportRaw()
-    result[0..32-1] = raw.toOpenArray(48-32, 48-1)
-
+  static: doAssert BLS_BACKEND == BLST
+  result = SecretKey(x).exportRaw()
+  
 template toRaw*(x: ValidatorPubKey | ValidatorSig): auto =
   x.blob
 

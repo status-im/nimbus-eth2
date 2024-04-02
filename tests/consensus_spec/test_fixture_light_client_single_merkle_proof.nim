@@ -5,6 +5,7 @@
 #   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
 # at your option. This file may not be copied, modified, or distributed except according to those terms.
 
+{.push raises: [].}
 {.used.}
 
 import
@@ -21,7 +22,8 @@ import
   ./fixtures_utils, ./os_ops
 
 proc runTest[T](suiteName, path: string, objType: typedesc[T]) =
-  test "Light client - Single merkle proof - " & path.relativePath(SszTestsDir):
+  let relativePathComponent = path.relativeTestPathComponent()
+  test "Light client - Single merkle proof - " & relativePathComponent:
     type
       TestProof = object
         leaf: string

@@ -5,6 +5,7 @@
 #   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
 # at your option. This file may not be copied, modified, or distributed except according to those terms.
 
+{.push raises: [].}
 {.used.}
 
 import
@@ -35,7 +36,8 @@ block:
       "/../../vendor/nim-kzg4844/kzg4844/csources/src/trusted_setup.txt").isOk
 
 proc runBlobToKzgCommitmentTest(suiteName, suitePath, path: string) =
-  test "KZG - Blob to KZG commitment - " & path.relativePath(suitePath):
+  let relativePathComponent = path.relativeTestPathComponent(suitePath)
+  test "KZG - Blob to KZG commitment - " & relativePathComponent:
     let
       data = yaml.loadToJson(os_ops.readFile(path/"data.yaml"))[0]
       output = data["output"]
@@ -56,7 +58,8 @@ proc runBlobToKzgCommitmentTest(suiteName, suitePath, path: string) =
           commitment.get == fromHex[48](output.getStr).get
 
 proc runVerifyKzgProofTest(suiteName, suitePath, path: string) =
-  test "KZG - Verify KZG proof - " & path.relativePath(suitePath):
+  let relativePathComponent = path.relativeTestPathComponent(suitePath)
+  test "KZG - Verify KZG proof - " & relativePathComponent:
     let
       data = yaml.loadToJson(os_ops.readFile(path/"data.yaml"))[0]
       output = data["output"]
@@ -80,7 +83,8 @@ proc runVerifyKzgProofTest(suiteName, suitePath, path: string) =
           v.get == output.getBool
 
 proc runVerifyBlobKzgProofTest(suiteName, suitePath, path: string) =
-  test "KZG - Verify blob KZG proof - " & path.relativePath(suitePath):
+  let relativePathComponent = path.relativeTestPathComponent(suitePath)
+  test "KZG - Verify blob KZG proof - " & relativePathComponent:
     let
       data = yaml.loadToJson(os_ops.readFile(path/"data.yaml"))[0]
       output = data["output"]
@@ -104,7 +108,8 @@ proc runVerifyBlobKzgProofTest(suiteName, suitePath, path: string) =
           v.get == output.getBool
 
 proc runVerifyBlobKzgProofBatchTest(suiteName, suitePath, path: string) =
-  test "KZG - Verify blob KZG proof batch - " & path.relativePath(suitePath):
+  let relativePathComponent = path.relativeTestPathComponent(suitePath)
+  test "KZG - Verify blob KZG proof batch - " & relativePathComponent:
     let
       data = yaml.loadToJson(os_ops.readFile(path/"data.yaml"))[0]
       output = data["output"]
@@ -130,7 +135,8 @@ proc runVerifyBlobKzgProofBatchTest(suiteName, suitePath, path: string) =
           v.get == output.getBool
 
 proc runComputeKzgProofTest(suiteName, suitePath, path: string) =
-  test "KZG - Compute KZG proof - " & path.relativePath(suitePath):
+  let relativePathComponent = path.relativeTestPathComponent(suitePath)
+  test "KZG - Compute KZG proof - " & relativePathComponent:
     let
       data = yaml.loadToJson(os_ops.readFile(path/"data.yaml"))[0]
       output = data["output"]
@@ -156,7 +162,8 @@ proc runComputeKzgProofTest(suiteName, suitePath, path: string) =
           p.get.y == y.get
 
 proc runComputeBlobKzgProofTest(suiteName, suitePath, path: string) =
-  test "KZG - Compute blob KZG proof - " & path.relativePath(suitePath):
+  let relativePathComponent = path.relativeTestPathComponent(suitePath)
+  test "KZG - Compute blob KZG proof - " & relativePathComponent:
     let
       data = yaml.loadToJson(os_ops.readFile(path/"data.yaml"))[0]
       output = data["output"]

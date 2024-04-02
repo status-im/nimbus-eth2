@@ -1,3 +1,4 @@
+# beacon_chain
 # Copyright (c) 2018-2024 Status Research & Development GmbH
 # Licensed and distributed under either of
 #   * MIT license (license terms in the root directory or at https://opensource.org/licenses/MIT).
@@ -115,6 +116,22 @@ proc deleteGasLimitPlain *(pubkey: ValidatorPubKey,
      rest, endpoint: "/eth/v1/validator/{pubkey}/gas_limit",
      meth: MethodDelete.}
   ## https://ethereum.github.io/keymanager-APIs/#/Gas%20Limit/deleteGasLimit
+
+proc getGraffitiPlain*(pubkey: ValidatorPubKey): RestPlainResponse {.
+     rest, endpoint: "/eth/v1/validator/{pubkey}/graffiti",
+     meth: MethodGet.}
+  ## https://ethereum.github.io/keymanager-APIs/?urls.primaryName=dev#/Graffiti/getGraffiti
+
+proc setGraffitiPlain*(pubkey: ValidatorPubKey,
+                       body: SetGraffitiRequest): RestPlainResponse {.
+     rest, endpoint: "/eth/v1/validator/{pubkey}/graffiti",
+     meth: MethodPost.}
+  ## https://ethereum.github.io/keymanager-APIs/?urls.primaryName=dev#/Graffiti/setGraffiti
+
+proc deleteGraffitiPlain*(pubkey: ValidatorPubKey): RestPlainResponse {.
+     rest, endpoint: "/eth/v1/validator/{pubkey}/graffiti",
+     meth: MethodDelete.}
+  ## https://ethereum.github.io/keymanager-APIs/?urls.primaryName=dev#/Graffiti/deleteGraffiti
 
 proc listRemoteDistributedKeysPlain*(): RestPlainResponse {.
      rest, endpoint: "/eth/v1/remotekeys/distributed",

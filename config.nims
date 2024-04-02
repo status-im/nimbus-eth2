@@ -225,9 +225,6 @@ put("aesctr_drbg.always", "-fno-lto")
 put("hmac_drbg.always", "-fno-lto")
 put("sysrng.always", "-fno-lto")
 
-# Miracl - only ECP to derive public key from private key
-put("ecp_BLS12381.always", "-fno-lto")
-
 # ############################################################
 #
 #                    Spurious warnings

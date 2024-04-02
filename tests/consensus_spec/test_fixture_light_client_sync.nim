@@ -5,6 +5,7 @@
 #   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
 # at your option. This file may not be copied, modified, or distributed except according to those terms.
 
+{.push raises: [].}
 {.used.}
 
 import
@@ -52,13 +53,17 @@ type
     current_slot: Slot
     checks: TestChecks
 
-proc loadSteps(path: string, fork_digests: ForkDigests): seq[TestStep] =
+proc loadSteps(
+    path: string,
+    fork_digests: ForkDigests
+): seq[TestStep] {.raises: [
+    KeyError, ValueError, YamlConstructionError, YamlParserError].} =
   let stepsYAML = os_ops.readFile(path/"steps.yaml")
   let steps = yaml.loadToJson(stepsYAML)
 
   result = @[]
   for step in steps[0]:
-    func getChecks(c: JsonNode): TestChecks =
+    func getChecks(c: JsonNode): TestChecks {.raises: [KeyError].} =
       TestChecks(
         finalized_slot:
           c["finalized_header"]["slot"].getInt().Slot,
@@ -122,9 +127,11 @@ proc loadSteps(path: string, fork_digests: ForkDigests): seq[TestStep] =
       doAssert false, "Unknown test step: " & $step
 
 proc runTest(suiteName, path: string) =
-  test "Light client - Sync - " & path.relativePath(SszTestsDir):
+  let relativePathComponent = path.relativeTestPathComponent()
+  test "Light client - Sync - " & relativePathComponent:
     # Reduce stack size by making this a `proc`
-    proc loadTestMeta(): (RuntimeConfig, TestMeta) =
+    proc loadTestMeta(): (RuntimeConfig, TestMeta) {.raises: [
+        Exception, IOError, PresetFileError, PresetIncompatibleError].} =
       let (cfg, _) = readRuntimeConfig(path/"config.yaml")
 
       when false:

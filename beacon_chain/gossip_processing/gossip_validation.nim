@@ -268,7 +268,8 @@ template validateBeaconBlockBellatrix(
     signed_beacon_block:
       bellatrix.SignedBeaconBlock |
       capella.SignedBeaconBlock |
-      deneb.SignedBeaconBlock,
+      deneb.SignedBeaconBlock |
+      electra.SignedBeaconBlock,
     parent: BlockRef): untyped =
   # If the execution is enabled for the block -- i.e.
   # is_execution_enabled(state, block.body) then validate the following:
@@ -281,12 +282,22 @@ template validateBeaconBlockBellatrix(
   #
   # `is_merge_transition_complete(state)` tests for
   # `state.latest_execution_payload_header != ExecutionPayloadHeader()`, while
-  # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.6/specs/bellatrix/beacon-chain.md#block-processing
+  # https://github.com/ethereum/consensus-specs/blob/v1.4.0/specs/bellatrix/beacon-chain.md#block-processing
   # shows that `state.latest_execution_payload_header` being default or not is
   # exactly equivalent to whether that block's execution payload is default or
   # not, so test cached block information rather than reconstructing a state.
-  if  signed_beacon_block.message.is_execution_block or
-      not dag.loadExecutionBlockHash(parent).isZero:
+  let isExecutionEnabled =
+    if signed_beacon_block.message.is_execution_block:
+      true
+    else:
+      # If we don't know whether the parent block had execution enabled,
+      # assume it didn't. This way, we don't reject here if the timestamp
+      # is invalid, and let state transition check the timestamp.
+      # This is an edge case, and may be hit in a pathological scenario with
+      # checkpoint sync, because the checkpoint block may be unavailable
+      # and it could already be the parent of the new block before backfill.
+      not dag.loadExecutionBlockHash(parent).get(ZERO_HASH).isZero
+  if isExecutionEnabled:
     # [REJECT] The block's execution payload timestamp is correct with respect
     # to the slot -- i.e. execution_payload.timestamp ==
     # compute_timestamp_at_slot(state, block.slot).
@@ -523,15 +534,34 @@ proc validateBeaconBlock*(
       # https://github.com/ethereum/consensus-specs/blob/v1.3.0/specs/bellatrix/p2p-interface.md#beacon_block
       # `is_execution_enabled(state, block.body)` check, but unlike in
       # validateBeaconBlockBellatrix() don't have parent BlockRef.
-      if  signed_beacon_block.message.is_execution_block or
-          not dag.loadExecutionBlockHash(dag.finalizedHead.blck).isZero:
+      if signed_beacon_block.message.is_execution_block:
         # Blocks with execution enabled will be permitted to propagate
         # regardless of the validity of the execution payload. This prevents
         # network segregation between optimistic and non-optimistic nodes.
         #
-        # [IGNORE] The block's parent (defined by `block.parent_root`)
-        # passes all validation (including execution node verification of the
-        # `block.body.execution_payload`).
+        # If execution_payload verification of block's parent by an execution
+        # node is not complete:
+        #
+        # - [REJECT] The block's parent (defined by `block.parent_root`) passes
+        #   all validation (excluding execution node verification of the
+        #   `block.body.execution_payload`).
+        #
+        # otherwise:
+        #
+        # - [IGNORE] The block's parent (defined by `block.parent_root`) passes
+        #   all validation (including execution node verification of the
+        #   `block.body.execution_payload`).
+
+        # Implementation restrictions:
+        #
+        # - We don't know if the parent state had execution enabled.
+        #   If it had, and the block doesn't have it enabled anymore,
+        #   we end up in the pre-Merge path below (`else`) and REJECT.
+        #   Such a block is clearly invalid, though, without asking the EL.
+        #
+        # - We know that the parent was marked unviable, but don't know
+        #   whether it was marked unviable due to consensus (REJECT) or
+        #   execution (IGNORE) verification failure. We err on the IGNORE side.
         return errIgnore("BeaconBlock: ignored, parent from unviable fork")
       else:
         # [REJECT] The block's parent (defined by `block.parent_root`) passes
@@ -1000,7 +1030,7 @@ proc validateAggregate*(
 
   return ok((attesting_indices, sig))
 
-# https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.6/specs/capella/p2p-interface.md#bls_to_execution_change
+# https://github.com/ethereum/consensus-specs/blob/v1.4.0/specs/capella/p2p-interface.md#bls_to_execution_change
 proc validateBlsToExecutionChange*(
     pool: ValidatorChangePool, batchCrypto: ref BatchCrypto,
     signed_address_change: SignedBLSToExecutionChange,

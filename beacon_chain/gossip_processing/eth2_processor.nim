@@ -246,12 +246,8 @@ proc processSignedBeaconBlock*(
         if self.blobQuarantine[].hasBlobs(signedBlock):
           Opt.some(self.blobQuarantine[].popBlobs(signedBlock.root, signedBlock))
         else:
-          if not self.quarantine[].addBlobless(self.dag.finalizedHead.slot,
-                                               signedBlock):
-            notice "Block quarantine full (blobless)",
-              blockRoot = shortLog(signedBlock.root),
-              blck = shortLog(signedBlock.message),
-              signature = shortLog(signedBlock.signature)
+          discard self.quarantine[].addBlobless(self.dag.finalizedHead.slot,
+                                                signedBlock)
           return v
       else:
         Opt.none(BlobSidecars)
@@ -307,15 +303,17 @@ proc processBlobSidecar*(
   let block_root = hash_tree_root(block_header)
   if (let o = self.quarantine[].popBlobless(block_root); o.isSome):
     let blobless = o.unsafeGet()
-
-    if self.blobQuarantine[].hasBlobs(blobless):
-      self.blockProcessor[].enqueueBlock(
-        MsgSource.gossip,
-        ForkedSignedBeaconBlock.init(blobless),
-        Opt.some(self.blobQuarantine[].popBlobs(block_root, blobless)))
-    else:
-      discard self.quarantine[].addBlobless(self.dag.finalizedHead.slot,
-                                            blobless)
+    withBlck(blobless):
+      when consensusFork >= ConsensusFork.Deneb:
+        if self.blobQuarantine[].hasBlobs(forkyBlck):
+          self.blockProcessor[].enqueueBlock(
+            MsgSource.gossip, blobless,
+            Opt.some(self.blobQuarantine[].popBlobs(block_root, forkyBlck)))
+        else:
+          discard self.quarantine[].addBlobless(
+            self.dag.finalizedHead.slot, forkyBlck)
+      else:
+        raiseAssert "Could not have been added as blobless"
 
   blob_sidecars_received.inc()
   blob_sidecar_delay.observe(delay.toFloatSeconds())
@@ -408,7 +406,7 @@ proc processAttestation*(
 
     ok()
   else:
-    debug "Dropping attestation", reason = v.error
+    debug "Dropping attestation", reason = $v.error
     beacon_attestations_dropped.inc(1, [$v.error[0]])
     err(v.error())
 
@@ -464,7 +462,7 @@ proc processSignedAggregateAndProof*(
 
     ok()
   else:
-    debug "Dropping aggregate", reason = v.error
+    debug "Dropping aggregate", reason = $v.error
     beacon_aggregates_dropped.inc(1, [$v.error[0]])
 
     err(v.error())
@@ -488,7 +486,7 @@ proc processBlsToExecutionChange*(
     self.validatorChangePool[].addMessage(
       blsToExecutionChange, src == MsgSource.api)
   else:
-    debug "Dropping BLS to execution change", reason = v.error
+    debug "Dropping BLS to execution change", reason = $v.error
     beacon_attester_slashings_dropped.inc(1, [$v.error[0]])
 
   return v
@@ -512,7 +510,7 @@ proc processAttesterSlashing*(
 
     beacon_attester_slashings_received.inc()
   else:
-    debug "Dropping attester slashing", reason = v.error
+    debug "Dropping attester slashing", reason = $v.error
     beacon_attester_slashings_dropped.inc(1, [$v.error[0]])
 
   v
@@ -535,7 +533,7 @@ proc processProposerSlashing*(
 
     beacon_proposer_slashings_received.inc()
   else:
-    debug "Dropping proposer slashing", reason = v.error
+    debug "Dropping proposer slashing", reason = $v.error
     beacon_proposer_slashings_dropped.inc(1, [$v.error[0]])
 
   v
@@ -559,7 +557,7 @@ proc processSignedVoluntaryExit*(
 
     beacon_voluntary_exits_received.inc()
   else:
-    debug "Dropping voluntary exit", reason = v.error
+    debug "Dropping voluntary exit", reason = $v.error
     beacon_voluntary_exits_dropped.inc(1, [$v.error[0]])
 
   v
@@ -605,7 +603,7 @@ proc processSyncCommitteeMessage*(
 
     ok()
   else:
-    debug "Dropping sync committee message", reason = v.error
+    debug "Dropping sync committee message", reason = $v.error
     beacon_sync_committee_messages_dropped.inc(1, [$v.error[0]])
     err(v.error())
 
@@ -650,7 +648,7 @@ proc processSignedContributionAndProof*(
 
     ok()
   else:
-    debug "Dropping contribution", reason = v.error
+    debug "Dropping contribution", reason = $v.error
     beacon_sync_committee_contributions_dropped.inc(1, [$v.error[0]])
 
     err(v.error())

@@ -1,3 +1,102 @@
+2024-03-29 v24.3.0
+==================
+
+Nimbus `v24.3.0` is a `low-urgency` upgrade bringing additional beacon API support and resilience to suboptimal network conditions.
+
+### Improvements
+
+* Add keymanager API graffiti endpoints:
+  https://github.com/status-im/nimbus-eth2/pull/6054
+
+* Remember gossip messages longer to avoid potentially slow handling of irrelevant messages:
+  https://github.com/status-im/nimbus-eth2/pull/6098
+
+* Nimbus processes blocks with deposits in a more optimized way:
+  https://github.com/status-im/nimbus-eth2/pull/5982
+
+* Fork choice performance during periods of nonfinality has been improved:
+  https://github.com/status-im/nimbus-eth2/pull/6076
+
+* Nimbus will continue validating even without external chain progression:
+  https://github.com/status-im/nimbus-eth2/pull/6101
+
+* Locally built blocks via the engine API are preferentially selected by default over similarly valuable builder API blocks:
+  https://github.com/status-im/nimbus-eth2/pull/6103
+
+### Fixes
+
+* Add required header `eth-consensus-block-value` in produceBlockV3 REST beacon API call in beacon node:
+  https://github.com/status-im/nimbus-eth2/pull/5873
+
+* Restore usage of certain mainnet bootstrap nodes to enable faster and more reliable node connectivity at startup:
+  https://github.com/status-im/nimbus-eth2/pull/6052
+
+* The network configuration `INACTIVITY_SCORE_RECOVERY_RATE` can now be overridden:
+  https://github.com/status-im/nimbus-eth2/pull/6091
+
+
+2023-02-27 v24.2.2
+==================
+
+Nimbus `v24.2.2` is a hotfix release addressing a consensus violation issue affecting Deneb-transitioned network such as Holešky. Please upgrade as soon as possible if your node is affected.
+
+### Improvements
+
+* Added metrics `validator_monitor_block_hit` and `validator_monitor_block_miss` tracking the number of successful and missed block proposals:
+  https://github.com/status-im/nimbus-eth2/pull/5913
+
+### Fixes
+
+* Nimbus had an incomplete implementation of EIP-7044 (Perpetually Valid Signed Voluntary Exits):
+  https://github.com/status-im/nimbus-eth2/pull/5953
+  https://github.com/status-im/nimbus-eth2/pull/5954
+  https://github.com/status-im/nimbus-eth2/pull/5959
+  https://github.com/status-im/nimbus-eth2/pull/5966
+
+* The Nimbus `v24.2.1` validator client was crashing with a `RangeDefect` error message during block proposal when paired with a `v24.1.x` beacon node:
+  https://github.com/status-im/nim-stint/pull/148
+
+
+2023-02-20 v24.2.1
+==================
+
+Nimbus `v24.2.1` is a `medium-urgency` release that includes full support for the upcoming Ethereum mainnet Deneb hard-fork that will be executed on 13th of March. The same support is also provided for Gnosis Chain where the hard-fork will be executed on 11th of March. Other stability and performance improvements make this release a compelling upgrade for all Nimbus users.
+
+### Improvements
+
+* The Deneb hard-fork has been scheduled for Mainnet and Gnosis Chain:
+  https://github.com/status-im/nimbus-eth2/pull/5868
+
+* The Nimbus validator client now uses the `/eth/v3/validator/blocks/{slot}` Beacon API endpoint when the configured beacon node supports it:
+  https://github.com/status-im/nimbus-eth2/pull/5842
+
+* The list of bootstrap nodes for Mainnet has been updated:
+  https://github.com/status-im/nimbus-eth2/pull/5848
+
+* Improved use of buffering reduces the risk of EL request timeouts:
+  https://github.com/status-im/nimbus-eth2/pull/5893
+
+### Fixes
+
+* A regression in the implementation of `eth_getLogs` was preventing Nimbus from syncing deposits correctly:
+  https://github.com/status-im/nimbus-eth2/pull/5857
+
+* A performance regression was causing high CPU load during the backfill process after checkpoint sync:
+  https://github.com/status-im/nimbus-eth2/pull/5869
+
+* Under certain conditions, the backfill process after checkpoint sync could fail to persist the starting checkpoint block:
+  https://github.com/status-im/nimbus-eth2/pull/5863
+
+* Under certain conditions, valid blocks with blobs that are not observed yet were permanently considered unviable for inclusion in the blockchain:
+  https://github.com/status-im/nimbus-eth2/pull/5858
+
+ * The Nimbus validator client was not tracking DNS record changes when dynamic host names are used instead of IP addresses:
+ https://github.com/status-im/nimbus-eth2/pull/5846
+
+ * The REST server was becoming unresponsive under certain rare conditions:
+  https://github.com/status-im/nimbus-eth2/pull/5892
+
+
 2023-02-02 v24.2.0
 ==================
 

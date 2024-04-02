@@ -1,3 +1,10 @@
+# beacon_chain
+# Copyright (c) 2021-2024 Status Research & Development GmbH
+# Licensed and distributed under either of
+#   * MIT license (license terms in the root directory or at https://opensource.org/licenses/MIT).
+#   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
+# at your option. This file may not be copied, modified, or distributed except according to those terms.
+
 name: Daily
 on:
   schedule:
@@ -19,8 +26,13 @@ jobs:
             cpu: amd64
           - os: windows
             cpu: amd64
-        branch: [version-1-6, devel]
+        branch: [upstream/version-1-6, upstream/devel]
         include:
+          - branch: upstream/version-1-6
+            branch-short: version-1-6
+          - branch: upstream/devel
+            branch-short: devel
+            nimflags-extra: --mm:refc
           - target:
               os: linux
             builder: ubuntu-20.04
@@ -38,19 +50,19 @@ jobs:
       run:
         shell: ${{ matrix.shell }}
 
-    name: '${{ matrix.target.os }}-${{ matrix.target.cpu }} (Nim ${{ matrix.branch }})'
+    name: '${{ matrix.target.os }}-${{ matrix.target.cpu }} (Nim ${{ matrix.branch-short }})'
     runs-on: ${{ matrix.builder }}
-    continue-on-error: ${{ matrix.branch == 'devel' }}
+    continue-on-error: ${{ matrix.branch-short == 'devel' }}
     steps:
       - name: Checkout
         if: ${{ github.event_name != 'pull_request' }}
-        uses: actions/checkout@v2
+        uses: actions/checkout@v4
         with:
           ref: unstable
 
       - name: Checkout (pull request)
         if: ${{ github.event_name == 'pull_request' }}
-        uses: actions/checkout@v2
+        uses: actions/checkout@v4
 
       - name: Install build dependencies (Linux i386)
         if: runner.os == 'Linux' && matrix.target.cpu == 'i386'
@@ -85,7 +97,7 @@ jobs:
       - name: Restore Nim DLLs dependencies (Windows) from cache
         if: runner.os == 'Windows'
         id: windows-dlls-cache
-        uses: actions/cache@v2
+        uses: actions/cache@v4
         with:
           path: external/dlls
           key: 'dlls-${{ matrix.target.cpu }}'
@@ -125,7 +137,6 @@ jobs:
           # Stack usage test on recent enough gcc:
           if [[ '${{ runner.os }}' == 'Linux' && '${{ matrix.target.cpu }}' == 'amd64' ]]; then
             export NIMFLAGS="${NIMFLAGS} -d:limitStackUsage"
-            echo "NIMFLAGS=${NIMFLAGS}" >> $GITHUB_ENV
           fi
 
           # libminiupnp / natpmp
@@ -133,6 +144,9 @@ jobs:
             export CFLAGS="${CFLAGS} -m32 -mno-adx"
             echo "CFLAGS=${CFLAGS}" >> $GITHUB_ENV
           fi
+
+          export NIMFLAGS="${NIMFLAGS} ${{ matrix.nimflags-extra }}"
+          echo "NIMFLAGS=${NIMFLAGS}" >> $GITHUB_ENV
 
           ncpu=""
           make_cmd="make"
@@ -168,7 +182,7 @@ jobs:
 
       - name: Restore Ethereum Foundation fixtures from cache
         id: fixtures-cache
-        uses: actions/cache@v2
+        uses: actions/cache@v4
         with:
           path: fixturesCache
           key: 'eth2-scenarios-${{ steps.fixtures_version.outputs.fixtures }}'

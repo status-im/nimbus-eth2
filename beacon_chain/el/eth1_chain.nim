@@ -5,16 +5,21 @@
 #   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
 # at your option. This file may not be copied, modified, or distributed except according to those terms.
 
+{.push raises: [].}
+
 import
   std/[deques, tables, strformat],
   chronicles, metrics,
   ../beacon_chain_db,
   ../spec/[deposit_snapshots, digest, eth2_merkleization, forks, network],
   ../spec/datatypes/base,
-  web3/[primitives, eth_api_types],
+  web3/[conversions, eth_api_types],
   ./merkle_minimal
 
 export beacon_chain_db, deques, digest, base, forks
+
+logScope:
+  topics = "elchain"
 
 declarePublicGauge eth1_finalized_head,
   "Block number of the highest Eth1 block finalized by Eth2 consensus"
@@ -25,8 +30,11 @@ declarePublicGauge eth1_finalized_deposits,
 declareGauge eth1_chain_len,
   "The length of the in-memory chain of Eth1 blocks"
 
+template toGaugeValue*(x: Quantity | BlockNumber): int64 =
+  toGaugeValue(distinctBase x)
+
 type
-  Eth1BlockNumber* = uint64
+  Eth1BlockNumber* = BlockNumber
   Eth1BlockTimestamp* = uint64
 
   Eth1BlockObj* = object
@@ -78,11 +86,11 @@ func asEth2Digest*(x: BlockHash): Eth2Digest =
 template asBlockHash*(x: Eth2Digest): BlockHash =
   BlockHash(x.data)
 
-# https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.6/specs/phase0/validator.md#get_eth1_data
+# https://github.com/ethereum/consensus-specs/blob/v1.4.0/specs/phase0/validator.md#get_eth1_data
 func compute_time_at_slot(genesis_time: uint64, slot: Slot): uint64 =
   genesis_time + slot * SECONDS_PER_SLOT
 
-# https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.6/specs/phase0/validator.md#get_eth1_data
+# https://github.com/ethereum/consensus-specs/blob/v1.4.0/specs/phase0/validator.md#get_eth1_data
 func voting_period_start_time(state: ForkedHashedBeaconState): uint64 =
   let eth1_voting_period_start_slot =
     getStateField(state, slot) - getStateField(state, slot) mod
@@ -90,7 +98,7 @@ func voting_period_start_time(state: ForkedHashedBeaconState): uint64 =
   compute_time_at_slot(
     getStateField(state, genesis_time), eth1_voting_period_start_slot)
 
-# https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.6/specs/phase0/validator.md#get_eth1_data
+# https://github.com/ethereum/consensus-specs/blob/v1.4.0/specs/phase0/validator.md#get_eth1_data
 func is_candidate_block(cfg: RuntimeConfig,
                         blk: Eth1Block,
                         period_start: uint64): bool =
@@ -161,10 +169,10 @@ proc pruneOldBlocks(chain: var Eth1Chain, depositIndex: uint64) =
 
   if chain.finalizedDepositsMerkleizer.getChunkCount > initialChunks:
     chain.finalizedBlockHash = lastBlock.hash
-    chain.db.putDepositTreeSnapshot DepositTreeSnapshot(
+    chain.db.putDepositContractSnapshot DepositContractSnapshot(
       eth1Block: lastBlock.hash,
       depositContractState: chain.finalizedDepositsMerkleizer.toDepositContractState,
-      blockHeight: lastBlock.number)
+      blockHeight: distinctBase(lastBlock.number))
 
     eth1_finalized_head.set lastBlock.number.toGaugeValue
     eth1_finalized_deposits.set lastBlock.depositCount.toGaugeValue
@@ -270,7 +278,7 @@ proc trackFinalizedState*(chain: var Eth1Chain,
   if result:
     chain.pruneOldBlocks(finalizedStateDepositIndex)
 
-# https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.6/specs/phase0/validator.md#get_eth1_data
+# https://github.com/ethereum/consensus-specs/blob/v1.4.0/specs/phase0/validator.md#get_eth1_data
 proc getBlockProposalData*(chain: var Eth1Chain,
                            state: ForkedHashedBeaconState,
                            finalizedEth1Data: Eth1Data,
@@ -357,23 +365,24 @@ func clear*(chain: var Eth1Chain) =
   chain.headMerkleizer = chain.finalizedDepositsMerkleizer
   chain.hasConsensusViolation = false
 
-proc init*(T: type Eth1Chain,
-           cfg: RuntimeConfig,
-           db: BeaconChainDB,
-           depositContractBlockNumber: uint64,
-           depositContractBlockHash: Eth2Digest): T =
+proc init*(
+    T: type Eth1Chain,
+    cfg: RuntimeConfig,
+    db: BeaconChainDB,
+    depositContractBlockNumber: uint64,
+    depositContractBlockHash: Eth2Digest): T =
   let
     (finalizedBlockHash, depositContractState) =
       if db != nil:
-        let treeSnapshot = db.getDepositTreeSnapshot()
-        if treeSnapshot.isSome:
-          (treeSnapshot.get.eth1Block, treeSnapshot.get.depositContractState)
+        let snapshot = db.getDepositContractSnapshot()
+        if snapshot.isSome:
+          (snapshot.get.eth1Block, snapshot.get.depositContractState)
         else:
           let oldSnapshot = db.getUpgradableDepositSnapshot()
           if oldSnapshot.isSome:
             (oldSnapshot.get.eth1Block, oldSnapshot.get.depositContractState)
           else:
-            db.putDepositTreeSnapshot DepositTreeSnapshot(
+            db.putDepositContractSnapshot DepositContractSnapshot(
               eth1Block: depositContractBlockHash,
               blockHeight: depositContractBlockNumber)
             (depositContractBlockHash, default(DepositContractState))

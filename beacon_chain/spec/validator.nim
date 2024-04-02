@@ -4,9 +4,9 @@
 #   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
 # at your option. This file may not be copied, modified, or distributed except according to those terms.
 
-# Helpers and functions pertaining to managing the validator set
-
 {.push raises: [].}
+
+# Helpers and functions pertaining to managing the validator set
 
 import ./helpers
 export helpers
@@ -156,13 +156,13 @@ func get_shuffled_active_validator_indices*(
   withState(state):
     cache.get_shuffled_active_validator_indices(forkyState.data, epoch)
 
-# https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.6/specs/phase0/beacon-chain.md#get_active_validator_indices
+# https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.7/specs/phase0/beacon-chain.md#get_active_validator_indices
 func count_active_validators*(state: ForkyBeaconState,
                               epoch: Epoch,
                               cache: var StateCache): uint64 =
   cache.get_shuffled_active_validator_indices(state, epoch).lenu64
 
-# https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.6/specs/phase0/beacon-chain.md#get_committee_count_per_slot
+# https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.7/specs/phase0/beacon-chain.md#get_committee_count_per_slot
 func get_committee_count_per_slot*(num_active_validators: uint64): uint64 =
   clamp(
     num_active_validators div SLOTS_PER_EPOCH div TARGET_COMMITTEE_SIZE,
@@ -372,7 +372,7 @@ template compute_proposer_index(state: ForkyBeaconState,
         random_byte = (eth2digest(buffer).data)[i mod 32]
         effective_balance = state.validators[candidate_index].effective_balance
       if effective_balance * MAX_RANDOM_BYTE >=
-          MAX_EFFECTIVE_BALANCE * random_byte:
+          MAX_EFFECTIVE_BALANCE.Gwei * random_byte:
         res = Opt.some(candidate_index)
         break
       i += 1
@@ -455,7 +455,7 @@ func get_beacon_proposer_index*(state: ForkedHashedBeaconState,
   withState(state):
     get_beacon_proposer_index(forkyState.data, cache, slot)
 
-# https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.6/specs/phase0/validator.md#aggregation-selection
+# https://github.com/ethereum/consensus-specs/blob/v1.4.0/specs/phase0/validator.md#aggregation-selection
 func is_aggregator*(committee_len: uint64, slot_signature: ValidatorSig): bool =
   let modulo = max(1'u64, committee_len div TARGET_AGGREGATORS_PER_COMMITTEE)
   bytes_to_uint64(eth2digest(
