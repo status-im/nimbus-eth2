@@ -186,9 +186,10 @@ proc check_proposer_slashing*(
 proc process_proposer_slashing*(
     cfg: RuntimeConfig, state: var ForkyBeaconState,
     proposer_slashing: SomeProposerSlashing, flags: UpdateFlags,
-    cache: var StateCache): Result[Gwei, cstring] =
+    exit_queue_info: ExitQueueInfo, cache: var StateCache):
+    Result[(Gwei, ExitQueueInfo), cstring] =
   let proposer_index = ? check_proposer_slashing(state, proposer_slashing, flags)
-  slash_validator(cfg, state, proposer_index, cache)
+  slash_validator(cfg, state, proposer_index, exit_queue_info, cache)
 
 # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.6/specs/phase0/beacon-chain.md#is_slashable_attestation_data
 func is_slashable_attestation_data(
@@ -250,17 +251,24 @@ proc process_attester_slashing*(
     state: var ForkyBeaconState,
     attester_slashing: SomeAttesterSlashing,
     flags: UpdateFlags,
-    cache: var StateCache
-    ): Result[Gwei, cstring] =
+    exit_queue_info: ExitQueueInfo, cache: var StateCache
+    ): Result[(Gwei, ExitQueueInfo), cstring] =
   let slashed_attesters =
     ? check_attester_slashing(state, attester_slashing, flags)
 
-  var proposer_reward: Gwei
+  var
+    proposer_reward: Gwei
+    cur_exit_queue_info = exit_queue_info
 
   for index in slashed_attesters:
-    proposer_reward += ? slash_validator(cfg, state, index, cache)
+    doAssert strictVerification notin flags or
+      cur_exit_queue_info == get_state_exit_queue_info(cfg, state, cache)
+    let (new_proposer_reward, new_exit_queue_info) = ? slash_validator(
+      cfg, state, index, cur_exit_queue_info, cache)
+    proposer_reward += new_proposer_reward
+    cur_exit_queue_info = new_exit_queue_info
 
-  ok(proposer_reward)
+  ok((proposer_reward, cur_exit_queue_info))
 
 func findValidatorIndex*(state: ForkyBeaconState, pubkey: ValidatorPubKey):
     Opt[ValidatorIndex] =
@@ -410,12 +418,12 @@ proc process_voluntary_exit*(
     cfg: RuntimeConfig,
     state: var ForkyBeaconState,
     signed_voluntary_exit: SomeSignedVoluntaryExit,
-    flags: UpdateFlags,
-    cache: var StateCache): Result[void, cstring] =
+    flags: UpdateFlags, exit_queue_info: ExitQueueInfo,
+    cache: var StateCache): Result[ExitQueueInfo, cstring] =
   let exited_validator =
     ? check_voluntary_exit(cfg, state, signed_voluntary_exit, flags)
-  ? initiate_validator_exit(cfg, state, exited_validator, cache)
-  ok()
+  ok(? initiate_validator_exit(
+    cfg, state, exited_validator, exit_queue_info, cache))
 
 proc process_bls_to_execution_change*(
     cfg: RuntimeConfig,
@@ -464,12 +472,25 @@ proc process_operations(cfg: RuntimeConfig,
 
   var operations_rewards: BlockRewards
 
+  # It costs a full validator set scan to construct these values; only do so if
+  # there will be some kind of exit.
+  var exit_queue_info =
+    if body.proposer_slashings.len + body.attester_slashings.len +
+        body.voluntary_exits.len > 0:
+      get_state_exit_queue_info(cfg, state, cache)
+    else:
+      default(ExitQueueInfo)  # not used
+
   for op in body.proposer_slashings:
-    operations_rewards.proposer_slashings +=
-      ? process_proposer_slashing(cfg, state, op, flags, cache)
+    let (proposer_slashing_reward, new_exit_queue_info) =
+      ? process_proposer_slashing(cfg, state, op, flags, exit_queue_info, cache)
+    operations_rewards.proposer_slashings += proposer_slashing_reward
+    exit_queue_info = new_exit_queue_info
   for op in body.attester_slashings:
-    operations_rewards.attester_slashings +=
-      ? process_attester_slashing(cfg, state, op, flags, cache)
+    let (attester_slashing_reward, new_exit_queue_info) =
+      ? process_attester_slashing(cfg, state, op, flags, exit_queue_info, cache)
+    operations_rewards.attester_slashings += attester_slashing_reward
+    exit_queue_info = new_exit_queue_info
   for op in body.attestations:
     operations_rewards.attestations +=
       ? process_attestation(state, op, flags, base_reward_per_increment, cache)
@@ -478,7 +499,8 @@ proc process_operations(cfg: RuntimeConfig,
     for op in body.deposits:
       ? process_deposit(cfg, state, bloom_filter[], op, flags)
   for op in body.voluntary_exits:
-    ? process_voluntary_exit(cfg, state, op, flags, cache)
+    exit_queue_info = ? process_voluntary_exit(
+      cfg, state, op, flags, exit_queue_info, cache)
   when typeof(body).kind >= ConsensusFork.Capella:
     for op in body.bls_to_execution_changes:
       ? process_bls_to_execution_change(cfg, state, op)
