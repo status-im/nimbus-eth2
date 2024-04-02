@@ -580,6 +580,10 @@ type
 
     flags*: set[RewardFlags]
 
+  ExitQueueInfo* = object
+    exit_queue_epoch*: Epoch
+    exit_queue_churn*: uint64
+
 func pubkey*(v: HashedValidatorPubKey): ValidatorPubKey =
   if isNil(v.value):
     # This should never happen but we guard against it in case a
