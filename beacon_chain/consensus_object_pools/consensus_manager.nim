@@ -333,8 +333,6 @@ proc getFeeRecipient*(
 proc getGasLimit*(self: ConsensusManager, pubkey: ValidatorPubKey): uint64 =
   getGasLimit(self.validatorsDir, self.defaultGasLimit, pubkey)
 
-from ../spec/datatypes/bellatrix import PayloadID
-
 proc runProposalForkchoiceUpdated*(
     self: ref ConsensusManager, wallSlot: Slot): Future[Opt[void]] {.async: (raises: [CancelledError]).} =
   let
