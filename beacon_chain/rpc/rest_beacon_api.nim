@@ -944,6 +944,7 @@ proc installBeaconApiHandlers*(router: var RestRouter, node: BeaconNode) =
               return RestApiResponse.jsonError(error)
 
         withForkyBlck(restBlock):
+          # TODO (henridf): handle broadcast_validation flag
           if restBlock.kind != node.dag.cfg.consensusForkAtEpoch(
               forkyBlck.message.slot.epoch):
             doAssert strictVerification notin node.dag.updateFlags
