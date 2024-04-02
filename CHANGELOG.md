@@ -1,3 +1,40 @@
+2024-03-29 v24.3.0
+==================
+
+Nimbus `v24.3.0` is a `low-urgency` upgrade bringing additional beacon API support and resilience to suboptimal network conditions.
+
+### Improvements
+
+* Add keymanager API graffiti endpoints:
+  https://github.com/status-im/nimbus-eth2/pull/6054
+
+* Remember gossip messages longer to avoid potentially slow handling of irrelevant messages:
+  https://github.com/status-im/nimbus-eth2/pull/6098
+
+* Nimbus processes blocks with deposits in a more optimized way:
+  https://github.com/status-im/nimbus-eth2/pull/5982
+
+* Fork choice performance during periods of nonfinality has been improved:
+  https://github.com/status-im/nimbus-eth2/pull/6076
+
+* Nimbus will continue validating even without external chain progression:
+  https://github.com/status-im/nimbus-eth2/pull/6101
+
+* Locally built blocks via the engine API are preferentially selected by default over similarly valuable builder API blocks:
+  https://github.com/status-im/nimbus-eth2/pull/6103
+
+### Fixes
+
+* Add required header `eth-consensus-block-value` in produceBlockV3 REST beacon API call in beacon node:
+  https://github.com/status-im/nimbus-eth2/pull/5873
+
+* Restore usage of certain mainnet bootstrap nodes to enable faster and more reliable node connectivity at startup:
+  https://github.com/status-im/nimbus-eth2/pull/6052
+
+* The network configuration `INACTIVITY_SCORE_RECOVERY_RATE` can now be overridden:
+  https://github.com/status-im/nimbus-eth2/pull/6091
+
+
 2023-02-27 v24.2.2
 ==================
 

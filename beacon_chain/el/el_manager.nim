@@ -482,6 +482,54 @@ func asConsensusType*(payload: engine_api.GetPayloadV3Response):
       blobs: Blobs.init(
         payload.blobsBundle.blobs.mapIt(it.bytes))))
 
+func asConsensusType*(rpcExecutionPayload: ExecutionPayloadV4):
+    electra.ExecutionPayload =
+  template getTransaction(tt: TypedTransaction): bellatrix.Transaction =
+    bellatrix.Transaction.init(tt.distinctBase)
+
+  template getDepositReceipt(dr: DepositReceiptV1): DepositReceipt =
+    DepositReceipt(
+      pubkey: ValidatorPubKey(blob: dr.pubkey.distinctBase),
+      withdrawal_credentials: dr.withdrawalCredentials.asEth2Digest,
+      amount: dr.amount.Gwei,
+      signature: ValidatorSig(blob: dr.signature.distinctBase),
+      index: dr.index.uint64)
+
+  template getExecutionLayerExit(ele: ExitV1): ExecutionLayerExit =
+    ExecutionLayerExit(
+      source_address: ExecutionAddress(data: ele.sourceAddress.distinctBase),
+      validator_pubkey: ValidatorPubKey(
+        blob: ele.validatorPublicKey.distinctBase))
+
+  electra.ExecutionPayload(
+    parent_hash: rpcExecutionPayload.parentHash.asEth2Digest,
+    feeRecipient:
+      ExecutionAddress(data: rpcExecutionPayload.feeRecipient.distinctBase),
+    state_root: rpcExecutionPayload.stateRoot.asEth2Digest,
+    receipts_root: rpcExecutionPayload.receiptsRoot.asEth2Digest,
+    logs_bloom: BloomLogs(data: rpcExecutionPayload.logsBloom.distinctBase),
+    prev_randao: rpcExecutionPayload.prevRandao.asEth2Digest,
+    block_number: rpcExecutionPayload.blockNumber.uint64,
+    gas_limit: rpcExecutionPayload.gasLimit.uint64,
+    gas_used: rpcExecutionPayload.gasUsed.uint64,
+    timestamp: rpcExecutionPayload.timestamp.uint64,
+    extra_data: List[byte, MAX_EXTRA_DATA_BYTES].init(
+      rpcExecutionPayload.extraData.bytes),
+    base_fee_per_gas: rpcExecutionPayload.baseFeePerGas,
+    block_hash: rpcExecutionPayload.blockHash.asEth2Digest,
+    transactions: List[bellatrix.Transaction, MAX_TRANSACTIONS_PER_PAYLOAD].init(
+      mapIt(rpcExecutionPayload.transactions, it.getTransaction)),
+    withdrawals: List[capella.Withdrawal, MAX_WITHDRAWALS_PER_PAYLOAD].init(
+      mapIt(rpcExecutionPayload.withdrawals, it.asConsensusWithdrawal)),
+    blob_gas_used: rpcExecutionPayload.blobGasUsed.uint64,
+    excess_blob_gas: rpcExecutionPayload.excessBlobGas.uint64,
+    deposit_receipts:
+      List[electra.DepositReceipt, MAX_DEPOSIT_RECEIPTS_PER_PAYLOAD].init(
+        mapIt(rpcExecutionPayload.depositReceipts, it.getDepositReceipt)),
+    exits:
+      List[electra.ExecutionLayerExit, MAX_EXECUTION_LAYER_EXITS_PER_PAYLOAD].init(
+        mapIt(rpcExecutionPayload.exits, it.getExecutionLayerExit)))
+
 func asEngineExecutionPayload*(executionPayload: bellatrix.ExecutionPayload):
     ExecutionPayloadV1 =
   template getTypedTransaction(tt: bellatrix.Transaction): TypedTransaction =
@@ -557,6 +605,47 @@ func asEngineExecutionPayload*(executionPayload: deneb.ExecutionPayload):
     withdrawals: mapIt(executionPayload.withdrawals, it.asEngineWithdrawal),
     blobGasUsed: Quantity(executionPayload.blob_gas_used),
     excessBlobGas: Quantity(executionPayload.excess_blob_gas))
+
+func asEngineExecutionPayload*(executionPayload: electra.ExecutionPayload):
+    ExecutionPayloadV4 =
+  template getTypedTransaction(tt: bellatrix.Transaction): TypedTransaction =
+    TypedTransaction(tt.distinctBase)
+
+  template getDepositReceipt(dr: DepositReceipt): DepositReceiptV1 =
+    DepositReceiptV1(
+      pubkey: FixedBytes[RawPubKeySize](dr.pubkey.blob),
+      withdrawalCredentials: FixedBytes[32](dr.withdrawal_credentials.data),
+      amount: dr.amount.Quantity,
+      signature: FixedBytes[RawSigSize](dr.signature.blob),
+      index: dr.index.Quantity)
+
+  template getExecutionLayerExit(ele: ExecutionLayerExit): ExitV1 =
+    ExitV1(
+      sourceAddress: Address(ele.source_address.data),
+      validatorPublicKey: FixedBytes[RawPubKeySize](ele.validator_pubkey.blob))
+
+  engine_api.ExecutionPayloadV4(
+    parentHash: executionPayload.parent_hash.asBlockHash,
+    feeRecipient: Address(executionPayload.fee_recipient.data),
+    stateRoot: executionPayload.state_root.asBlockHash,
+    receiptsRoot: executionPayload.receipts_root.asBlockHash,
+    logsBloom:
+      FixedBytes[BYTES_PER_LOGS_BLOOM](executionPayload.logs_bloom.data),
+    prevRandao: executionPayload.prev_randao.asBlockHash,
+    blockNumber: Quantity(executionPayload.block_number),
+    gasLimit: Quantity(executionPayload.gas_limit),
+    gasUsed: Quantity(executionPayload.gas_used),
+    timestamp: Quantity(executionPayload.timestamp),
+    extraData: DynamicBytes[0, MAX_EXTRA_DATA_BYTES](executionPayload.extra_data),
+    baseFeePerGas: executionPayload.base_fee_per_gas,
+    blockHash: executionPayload.block_hash.asBlockHash,
+    transactions: mapIt(executionPayload.transactions, it.getTypedTransaction),
+    withdrawals: mapIt(executionPayload.withdrawals, it.asEngineWithdrawal),
+    blobGasUsed: Quantity(executionPayload.blob_gas_used),
+    excessBlobGas: Quantity(executionPayload.excess_blob_gas),
+    depositReceipts: mapIt(
+      executionPayload.deposit_receipts, it.getDepositReceipt),
+    exits: mapIt(executionPayload.exits, it.getExecutionLayerExit))
 
 func isConnected(connection: ELConnection): bool =
   connection.web3.isSome
