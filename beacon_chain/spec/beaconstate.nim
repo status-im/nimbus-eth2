@@ -91,8 +91,7 @@ func get_validator_activation_churn_limit*(
     get_validator_churn_limit(cfg, state, cache))
 
 # https://github.com/ethereum/consensus-specs/blob/v1.4.0/specs/phase0/beacon-chain.md#initiate_validator_exit
-func get_state_exit_queue_info*(
-    cfg: RuntimeConfig, state: var ForkyBeaconState, cache: var StateCache): ExitQueueInfo =
+func get_state_exit_queue_info*(state: ForkyBeaconState): ExitQueueInfo =
   var
     exit_queue_epoch = compute_activation_exit_epoch(get_current_epoch(state))
     exit_queue_churn: uint64

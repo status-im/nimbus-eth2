@@ -911,8 +911,7 @@ func process_registry_updates*(
       # more than one. Therefore, only calculate the information required for
       # initiate_validator_exit if there actually is at least one.
       let exit_queue_info = maybe_exit_queue_info.valueOr:
-        let initial_exit_queue_info = get_state_exit_queue_info(
-          cfg, state, cache)
+        let initial_exit_queue_info = get_state_exit_queue_info(state)
         maybe_exit_queue_info = Opt.some initial_exit_queue_info
         initial_exit_queue_info
 
