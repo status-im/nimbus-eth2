@@ -63,7 +63,7 @@
 import
   std/[macros, hashes, sets, strutils, tables, typetraits],
   results,
-  stew/[assign2, byteutils, endians2],
+  stew/[assign2, base10, byteutils, endians2],
   chronicles,
   json_serialization,
   ssz_serialization/types as sszTypes,
@@ -74,7 +74,7 @@ export
   tables, results, endians2, json_serialization, sszTypes, beacon_time, crypto,
   digest, presets
 
-const SPEC_VERSION* = "1.4.0-beta.7-hotfix"
+const SPEC_VERSION* = "1.4.0"
 ## Spec version we're aiming to be compatible with, right now
 
 const
@@ -122,22 +122,39 @@ template maxSize*(n: int) {.pragma.}
 
 type
   Wei* = UInt256
-  Gwei* = uint64
+  Gwei* = distinct uint64
   Ether* = distinct uint64
 
 template ethAmountUnit*(typ: type) {.dirty.} =
-  # Arithmetic
   func `+`*(x, y: typ): typ {.borrow.}
   func `-`*(x, y: typ): typ {.borrow.}
   func `*`*(x: typ, y: distinctBase(typ)): typ {.borrow.}
   func `*`*(x: distinctBase(typ), y: typ): typ {.borrow.}
-
-  # Arithmetic, changing type
   func `div`*(x, y: typ): distinctBase(typ) {.borrow.}
+  func `div`*(x: typ, y: distinctBase(typ)): typ {.borrow.}
+  func `mod`*(x, y: typ): typ {.borrow.}
 
-  # Comparison
+  func `+=`*(x: var typ, y: typ) {.borrow.}
+
   func `<`*(x, y: typ): bool {.borrow.}
+  func `<=`*(x, y: typ): bool {.borrow.}
+  func `==`*(x, y: typ): bool {.borrow.}
 
+  func `$`*(x: typ): string {.borrow.}
+
+  func u256*(n: typ): UInt256 {.borrow.}
+
+  proc toString*(B: typedesc[Base10], value: typ): string {.borrow.}
+
+  proc writeValue*(writer: var JsonWriter, value: typ) {.raises: [IOError].} =
+    writer.writeValue(distinctBase(value))
+
+  proc readValue*(
+      reader: var JsonReader,
+      value: var typ) {.raises: [IOError, SerializationError].} =
+    reader.readValue(distinctBase(value))
+
+ethAmountUnit Gwei
 ethAmountUnit Ether
 
 type
@@ -413,13 +430,13 @@ type
     message*: BeaconBlockHeader
     signature*: TrustedSig
 
-  # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.7/specs/phase0/validator.md#aggregateandproof
+  # https://github.com/ethereum/consensus-specs/blob/v1.4.0/specs/phase0/validator.md#aggregateandproof
   AggregateAndProof* = object
     aggregator_index*: uint64 # `ValidatorIndex` after validation
     aggregate*: Attestation
     selection_proof*: ValidatorSig
 
-  # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.7/specs/phase0/validator.md#signedaggregateandproof
+  # https://github.com/ethereum/consensus-specs/blob/v1.4.0/specs/phase0/validator.md#signedaggregateandproof
   SignedAggregateAndProof* = object
     message*: AggregateAndProof
     signature*: ValidatorSig
@@ -437,10 +454,21 @@ type
     sync_committees*: Table[SyncCommitteePeriod, SyncCommitteeCache]
 
   # This matches the mutable state of the Solidity deposit contract
-  # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.7/solidity_deposit_contract/deposit_contract.sol
+  # https://github.com/ethereum/consensus-specs/blob/v1.4.0/solidity_deposit_contract/deposit_contract.sol
   DepositContractState* = object
     branch*: array[DEPOSIT_CONTRACT_TREE_DEPTH, Eth2Digest]
     deposit_count*: array[32, byte] # Uint256
+
+  # https://eips.ethereum.org/EIPS/eip-4881
+  FinalizedDepositTreeBranch* =
+    List[Eth2Digest, Limit DEPOSIT_CONTRACT_TREE_DEPTH]
+
+  DepositTreeSnapshot* = object
+    finalized*: FinalizedDepositTreeBranch
+    deposit_root*: Eth2Digest
+    deposit_count*: uint64
+    execution_block_hash*: Eth2Digest
+    execution_block_height*: uint64
 
   # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.7/specs/phase0/beacon-chain.md#validator
   ValidatorStatus* = object
@@ -551,6 +579,10 @@ type
     delta*: RewardDelta
 
     flags*: set[RewardFlags]
+
+  ExitQueueInfo* = object
+    exit_queue_epoch*: Epoch
+    exit_queue_churn*: uint64
 
 func pubkey*(v: HashedValidatorPubKey): ValidatorPubKey =
   if isNil(v.value):
@@ -747,8 +779,8 @@ template lenu64*(x: untyped): untyped =
 func `$`*(v: ForkDigest | Version | DomainType): string =
   toHex(distinctBase(v))
 
-func toGaugeValue*(x: uint64 | Epoch | Slot): int64 =
-  if x > uint64(int64.high):
+func toGaugeValue*[T: uint64 | Gwei | Slot | Epoch](x: T): int64 =
+  if x > uint64(int64.high).T:
     int64.high
   else:
     int64(x)

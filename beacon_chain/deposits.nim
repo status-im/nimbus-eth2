@@ -166,10 +166,10 @@ proc restValidatorExit(config: BeaconNodeConf) {.async.} =
   else:
     var decryptor: MultipleKeystoresDecryptor
     defer: dispose decryptor
-    for pubKey in config.exitedValidators:
+    for pubkey in config.exitedValidators:
       let validatorStorage = decryptor.getValidator(pubkey).valueOr:
         fatal "Incorrect validator index, key or keystore path specified",
-              value = pubKey, reason = error
+              value = pubkey, reason = error
         quit 1
       validators.add validatorStorage
 

@@ -16,14 +16,12 @@
 import
   std/[json, tables],
   stew/base10, web3/primitives, httputils,
-  ".."/forks,
-  ".."/datatypes/[phase0, altair, bellatrix, deneb, electra],
-  ".."/mev/[capella_mev, deneb_mev]
+  ".."/[deposit_snapshots, forks],
+  ".."/mev/deneb_mev
 
 from ".."/datatypes/capella import BeaconBlockBody
 
-export forks, phase0, altair, bellatrix, capella, capella_mev, deneb_mev,
-       tables, httputils
+export forks, phase0, altair, bellatrix, capella, deneb_mev, tables, httputils
 
 const
   # https://github.com/ethereum/eth2.0-APIs/blob/master/apis/beacon/states/validator_balances.yaml#L17
@@ -370,13 +368,6 @@ type
     chain_id*: string
     address*: string
 
-  RestDepositSnapshot* = object
-    finalized*: array[DEPOSIT_CONTRACT_TREE_DEPTH, Eth2Digest]
-    deposit_root*: Eth2Digest
-    deposit_count*: uint64
-    execution_block_hash*: Eth2Digest
-    execution_block_height*: uint64
-
   RestBlockInfo* = object
     slot*: Slot
     blck* {.serializedFieldName: "block".}: Eth2Digest
@@ -549,11 +540,10 @@ type
   GetBlockRootResponse* = DataOptimisticObject[RestRoot]
   GetDebugChainHeadsV2Response* = DataEnclosedObject[seq[RestChainHeadV2]]
   GetDepositContractResponse* = DataEnclosedObject[RestDepositContract]
-  GetDepositSnapshotResponse* = DataEnclosedObject[RestDepositSnapshot]
+  GetDepositSnapshotResponse* = DataEnclosedObject[DepositTreeSnapshot]
   GetEpochCommitteesResponse* = DataEnclosedObject[seq[RestBeaconStatesCommittees]]
   GetForkScheduleResponse* = DataEnclosedObject[seq[Fork]]
   GetGenesisResponse* = DataEnclosedObject[RestGenesis]
-  GetHeaderResponseCapella* = DataVersionEnclosedObject[capella_mev.SignedBuilderBid]
   GetHeaderResponseDeneb* = DataVersionEnclosedObject[deneb_mev.SignedBuilderBid]
   GetNetworkIdentityResponse* = DataEnclosedObject[RestNetworkIdentity]
   GetPeerCountResponse* = DataMetaEnclosedObject[RestPeerCount]
@@ -580,7 +570,6 @@ type
   ProduceAttestationDataResponse* = DataEnclosedObject[AttestationData]
   ProduceBlindedBlockResponse* = ForkedBlindedBeaconBlock
   ProduceSyncCommitteeContributionResponse* = DataEnclosedObject[SyncCommitteeContribution]
-  SubmitBlindedBlockResponseCapella* = DataEnclosedObject[capella.ExecutionPayload]
   SubmitBlindedBlockResponseDeneb* = DataEnclosedObject[deneb_mev.ExecutionPayloadAndBlobsBundle]
   GetValidatorsActivityResponse* = DataEnclosedObject[seq[RestActivityItem]]
   GetValidatorsLivenessResponse* = DataEnclosedObject[seq[RestLivenessItem]]
@@ -730,13 +719,13 @@ func init*(t: typedesc[RestBlockInfo],
     RestBlockInfo(slot: forkyBlck.message.slot, blck: forkyBlck.root)
 
 func init*(t: typedesc[RestValidator], index: ValidatorIndex,
-           balance: uint64, status: string,
+           balance: Gwei, status: string,
            validator: Validator): RestValidator =
   RestValidator(index: index, balance: Base10.toString(balance),
                 status: status, validator: validator)
 
 func init*(t: typedesc[RestValidatorBalance], index: ValidatorIndex,
-           balance: uint64): RestValidatorBalance =
+           balance: Gwei): RestValidatorBalance =
   RestValidatorBalance(index: index, balance: Base10.toString(balance))
 
 func init*(t: typedesc[Web3SignerRequest], fork: Fork,

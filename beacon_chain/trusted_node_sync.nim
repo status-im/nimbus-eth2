@@ -24,26 +24,19 @@ const
   largeRequestsTimeout = 60.seconds # Downloading large items such as states.
   smallRequestsTimeout = 30.seconds # Downloading smaller items such as blocks and deposit snapshots.
 
-proc fetchDepositSnapshot(client: RestClientRef):
-                          Future[Result[DepositTreeSnapshot, string]] {.async.} =
+proc fetchDepositSnapshot(
+    client: RestClientRef
+): Future[Result[DepositContractSnapshot, string]] {.async.} =
   let resp = try:
     awaitWithTimeout(client.getDepositSnapshot(), smallRequestsTimeout):
       return err "Fetching /eth/v1/beacon/deposit_snapshot timed out"
   except CatchableError as e:
     return err("The trusted node likely does not support the /eth/v1/beacon/deposit_snapshot end-point:" & e.msg)
 
-  let data = resp.data.data
-  let snapshot = DepositTreeSnapshot(
-    eth1Block: data.execution_block_hash,
-    depositContractState: DepositContractState(
-      branch: data.finalized,
-      deposit_count: depositCountBytes(data.deposit_count)),
-    blockHeight: data.execution_block_height)
-
-  if not snapshot.isValid(data.deposit_root):
+  let snapshot = DepositContractSnapshot.init(resp.data.data).valueOr:
     return err "The obtained deposit snapshot contains self-contradictory data"
 
-  return ok snapshot
+  ok snapshot
 
 from ./spec/datatypes/deneb import asSigVerified, shortLog
 
@@ -178,7 +171,7 @@ proc doTrustedNodeSync*(
     let stateId =
       case syncTarget.kind
       of TrustedNodeSyncKind.TrustedBlockRoot:
-        # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.7/specs/altair/light-client/light-client.md#light-client-sync-process
+        # https://github.com/ethereum/consensus-specs/blob/v1.4.0/specs/altair/light-client/light-client.md#light-client-sync-process
         const lcDataFork = LightClientDataFork.high
         var bestViableCheckpoint: Opt[tuple[slot: Slot, state_root: Eth2Digest]]
         func trackBestViableCheckpoint(store: lcDataFork.LightClientStore) =
@@ -393,7 +386,7 @@ proc doTrustedNodeSync*(
           info "Writing deposit contracts snapshot",
                depositRoot = depositSnapshot.get.getDepositRoot(),
                depositCount = depositSnapshot.get.getDepositCountU64
-          db.putDepositTreeSnapshot(depositSnapshot.get)
+          db.putDepositContractSnapshot(depositSnapshot.get)
         else:
           warn "The downloaded deposit snapshot does not agree with the downloaded state"
       else:

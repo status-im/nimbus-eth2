@@ -377,7 +377,7 @@ proc get_head*(self: var ForkChoice,
     self.checkpoints.justified.balances,
     self.checkpoints.proposer_boost_root)
 
-# https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.7/fork_choice/safe-block.md#get_safe_beacon_block_root
+# https://github.com/ethereum/consensus-specs/blob/v1.4.0/fork_choice/safe-block.md#get_safe_beacon_block_root
 func get_safe_beacon_block_root*(self: ForkChoice): Eth2Digest =
   # Use most recent justified block as a stopgap
   self.checkpoints.justified.checkpoint.root
@@ -434,7 +434,7 @@ func compute_deltas(
     # If the validator was not included in `old_balances` (i.e. did not exist)
     # its balance is zero
     let old_balance = if val_index < old_balances.len: old_balances[val_index]
-                      else: 0
+                      else: 0.Gwei
 
     # If the validator is not known in the `new_balances` then use balance of zero
     #
@@ -444,7 +444,7 @@ func compute_deltas(
     #
     # Note that attesters are not different as they are activated only under finality
     let new_balance = if val_index < new_balances.len: new_balances[val_index]
-                      else: 0
+                      else: 0.Gwei
 
     if vote.current_root != vote.next_root or old_balance != new_balance:
       # Ignore the current or next vote if it is not known in `indices`.

@@ -17,12 +17,12 @@ import
     block_id, eth2_merkleization, eth2_ssz_serialization,
     forks_light_client, presets],
   ./datatypes/[phase0, altair, bellatrix, capella, deneb, electra],
-  ./mev/bellatrix_mev, ./mev/capella_mev, ./mev/deneb_mev
+  ./mev/[bellatrix_mev, capella_mev, deneb_mev]
 
 export
   extras, block_id, phase0, altair, bellatrix, capella, deneb, electra,
   eth2_merkleization, eth2_ssz_serialization, forks_light_client,
-  presets, capella_mev, deneb_mev
+  presets, deneb_mev
 
 # This file contains helpers for dealing with forks - we have two ways we can
 # deal with forks:
@@ -147,9 +147,7 @@ type
     deneb.ExecutionPayloadForSigning |
     electra.ExecutionPayloadForSigning
 
-  ForkyBlindedBeaconBlock* =
-    capella_mev.BlindedBeaconBlock |
-    deneb_mev.BlindedBeaconBlock
+  ForkyBlindedBeaconBlock* = deneb_mev.BlindedBeaconBlock
 
   ForkedBeaconBlock* = object
     case kind*: ConsensusFork
@@ -472,6 +470,11 @@ template SignedBlindedBeaconBlock*(kind: static ConsensusFork): auto =
     static: raiseAssert "Unsupported"
   else:
     static: raiseAssert "Unreachable"
+
+template Forky*(
+    x: typedesc[ForkedSignedBeaconBlock],
+    kind: static ConsensusFork): auto =
+  kind.SignedBeaconBlock
 
 template withAll*(
     x: typedesc[ConsensusFork], body: untyped): untyped =
@@ -797,18 +800,15 @@ template withEpochInfo*(
   template info: untyped {.inject.} = x.altairData
   body
 
-{.push warning[ProveField]:off.}
 func assign*(tgt: var ForkedHashedBeaconState, src: ForkedHashedBeaconState) =
-  if tgt.kind == src.kind:
-    withState(tgt):
-      template forkyTgt: untyped = forkyState
-      template forkySrc: untyped = src.forky(consensusFork)
-      assign(forkyTgt, forkySrc)
-  else:
-    # Ensure case object and discriminator get updated simultaneously, even
-    # with nimOldCaseObjects. This is infrequent.
-    tgt = src
-{.pop.}
+  if tgt.kind != src.kind:
+    # Avoid temporary with ref
+    tgt = (ref ForkedHashedBeaconState)(kind: src.kind)[]
+
+  withState(tgt):
+    template forkyTgt: untyped = forkyState
+    template forkySrc: untyped = src.forky(consensusFork)
+    assign(forkyTgt, forkySrc)
 
 template getStateField*(x: ForkedHashedBeaconState, y: untyped): untyped =
   # The use of `unsafeAddr` avoids excessive copying in certain situations, e.g.,
@@ -1086,10 +1086,8 @@ template withStateAndBlck*(
     body
 
 func toBeaconBlockHeader*(
-    blck: SomeForkyBeaconBlock |
-          capella_mev.BlindedBeaconBlock |
-          deneb_mev.BlindedBeaconBlock
-): BeaconBlockHeader =
+    blck: SomeForkyBeaconBlock | deneb_mev.BlindedBeaconBlock):
+    BeaconBlockHeader =
   ## Reduce a given `BeaconBlock` to its `BeaconBlockHeader`.
   BeaconBlockHeader(
     slot: blck.slot,
@@ -1111,9 +1109,7 @@ template toBeaconBlockHeader*(
 
 func toSignedBeaconBlockHeader*(
     signedBlock: SomeForkySignedBeaconBlock |
-                 capella_mev.SignedBlindedBeaconBlock |
-                 deneb_mev.SignedBlindedBeaconBlock
-): SignedBeaconBlockHeader =
+                 deneb_mev.SignedBlindedBeaconBlock): SignedBeaconBlockHeader =
   ## Reduce a given `SignedBeaconBlock` to its `SignedBeaconBlockHeader`.
   SignedBeaconBlockHeader(
     message: signedBlock.message.toBeaconBlockHeader(),

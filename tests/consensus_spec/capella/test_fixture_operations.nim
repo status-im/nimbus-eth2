@@ -24,7 +24,8 @@ import
 from std/sequtils import mapIt, toSeq
 from std/strutils import contains
 from ../../../beacon_chain/spec/beaconstate import
-  get_base_reward_per_increment, get_total_active_balance, process_attestation
+  get_base_reward_per_increment, get_state_exit_queue_info,
+  get_total_active_balance, process_attestation
 
 const
   OpDir                     = SszTestsDir/const_preset/"capella"/"operations"
@@ -81,14 +82,17 @@ suite baseDescription & "Attestation " & preset():
   proc applyAttestation(
       preState: var capella.BeaconState, attestation: Attestation):
       Result[void, cstring] =
-    var cache = StateCache()
+    var cache: StateCache
     let
       total_active_balance = get_total_active_balance(preState, cache)
       base_reward_per_increment =
         get_base_reward_per_increment(total_active_balance)
 
-    process_attestation(
+    # This returns the proposer reward for including the attestation, which
+    # isn't tested here.
+    discard ? process_attestation(
       preState, attestation, {}, base_reward_per_increment, cache)
+    ok()
 
   for path in walkTests(OpAttestationsDir):
     runTest[Attestation, typeof applyAttestation](
@@ -99,9 +103,12 @@ suite baseDescription & "Attester Slashing " & preset():
   proc applyAttesterSlashing(
       preState: var capella.BeaconState, attesterSlashing: AttesterSlashing):
       Result[void, cstring] =
-    var cache = StateCache()
-    process_attester_slashing(
-      defaultRuntimeConfig, preState, attesterSlashing, {}, cache)
+    var cache: StateCache
+    doAssert (? process_attester_slashing(
+      defaultRuntimeConfig, preState, attesterSlashing, {strictVerification},
+      get_state_exit_queue_info(defaultRuntimeConfig, preState,
+      cache), cache))[0] > 0.Gwei
+    ok()
 
   for path in walkTests(OpAttSlashingDir):
     runTest[AttesterSlashing, typeof applyAttesterSlashing](
@@ -112,7 +119,7 @@ suite baseDescription & "Block Header " & preset():
   func applyBlockHeader(
       preState: var capella.BeaconState, blck: capella.BeaconBlock):
       Result[void, cstring] =
-    var cache = StateCache()
+    var cache: StateCache
     process_block_header(preState, blck, {}, cache)
 
   for path in walkTests(OpBlockHeaderDir):
@@ -133,11 +140,15 @@ suite baseDescription & "BLS to execution change " & preset():
       OpBlsToExecutionChangeDir, suiteName, "BLS to execution change", "address_change",
       applyBlsToExecutionChange, path)
 
+from ".."/".."/".."/beacon_chain/bloomfilter import constructBloomFilter
+
 suite baseDescription & "Deposit " & preset():
   proc applyDeposit(
       preState: var capella.BeaconState, deposit: Deposit):
       Result[void, cstring] =
-    process_deposit(defaultRuntimeConfig, preState, deposit, {})
+    process_deposit(
+      defaultRuntimeConfig, preState,
+      constructBloomFilter(preState.validators.asSeq)[], deposit, {})
 
   for path in walkTests(OpDepositsDir):
     runTest[Deposit, typeof applyDeposit](
@@ -165,9 +176,12 @@ suite baseDescription & "Proposer Slashing " & preset():
   proc applyProposerSlashing(
       preState: var capella.BeaconState, proposerSlashing: ProposerSlashing):
       Result[void, cstring] =
-    var cache = StateCache()
-    process_proposer_slashing(
-      defaultRuntimeConfig, preState, proposerSlashing, {}, cache)
+    var cache: StateCache
+    doAssert (? process_proposer_slashing(
+      defaultRuntimeConfig, preState, proposerSlashing, {},
+      get_state_exit_queue_info(defaultRuntimeConfig, preState, cache),
+      cache))[0] > 0.Gwei
+    ok()
 
   for path in walkTests(OpProposerSlashingDir):
     runTest[ProposerSlashing, typeof applyProposerSlashing](
@@ -178,10 +192,11 @@ suite baseDescription & "Sync Aggregate " & preset():
   proc applySyncAggregate(
       preState: var capella.BeaconState, syncAggregate: SyncAggregate):
       Result[void, cstring] =
-    var cache = StateCache()
-    process_sync_aggregate(
+    var cache: StateCache
+    doAssert (? process_sync_aggregate(
       preState, syncAggregate, get_total_active_balance(preState, cache),
-      {}, cache)
+      {}, cache)) > 0.Gwei
+    ok()
 
   for path in walkTests(OpSyncAggregateDir):
     runTest[SyncAggregate, typeof applySyncAggregate](
@@ -192,9 +207,14 @@ suite baseDescription & "Voluntary Exit " & preset():
   proc applyVoluntaryExit(
       preState: var capella.BeaconState, voluntaryExit: SignedVoluntaryExit):
       Result[void, cstring] =
-    var cache = StateCache()
-    process_voluntary_exit(
-      defaultRuntimeConfig, preState, voluntaryExit, {}, cache)
+    var cache: StateCache
+    if process_voluntary_exit(
+        defaultRuntimeConfig, preState, voluntaryExit, {},
+        get_state_exit_queue_info(defaultRuntimeConfig, preState, cache),
+        cache).isOk:
+      ok()
+    else:
+      err("")
 
   for path in walkTests(OpVoluntaryExitDir):
     runTest[SignedVoluntaryExit, typeof applyVoluntaryExit](

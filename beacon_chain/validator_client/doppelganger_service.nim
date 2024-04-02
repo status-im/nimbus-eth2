@@ -5,6 +5,8 @@
 #   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
 # at your option. This file may not be copied, modified, or distributed except according to those terms.
 
+{.push raises: [].}
+
 import chronicles
 import "."/[common, api]
 
@@ -35,7 +37,7 @@ proc processActivities(service: DoppelgangerServiceRef, epoch: Epoch,
 
           if item.is_live and validator.triggersDoppelganger(epoch):
             warn "Doppelganger detection triggered",
-              validator = shortLog(validator), epoch
+              validator = validatorLog(validator), epoch
 
             vc.doppelExit.fire()
             return

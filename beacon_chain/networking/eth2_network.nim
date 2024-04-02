@@ -479,18 +479,19 @@ template awaitQuota*(peerParam: Peer, costParam: float, protocolIdParam: string)
 
   if not peer.quota.tryConsume(cost.int):
     let protocolId = protocolIdParam
-    debug "Awaiting peer quota", peer, cost, protocolId
+    debug "Awaiting peer quota", peer, cost = cost, protocolId = protocolId
     nbc_reqresp_messages_throttled.inc(1, [protocolId])
     await peer.quota.consume(cost.int)
 
-template awaitQuota*(networkParam: Eth2Node, costParam: float, protocolIdParam: string) =
+template awaitQuota*(
+    networkParam: Eth2Node, costParam: float, protocolIdParam: string) =
   let
     network = networkParam
     cost = int(costParam)
 
   if not network.quota.tryConsume(cost.int):
     let protocolId = protocolIdParam
-    debug "Awaiting network quota", peer, cost, protocolId
+    debug "Awaiting network quota", peer, cost = cost, protocolId = protocolId
     nbc_reqresp_messages_throttled.inc(1, [protocolId])
     await network.quota.consume(cost.int)
 
@@ -970,8 +971,14 @@ proc makeEth2Request(peer: Peer, protocolId: string, requestBytes: seq[byte],
     deadline = sleepAsync timeout
     streamRes =
       awaitWithTimeout(peer.network.openStream(peer, protocolId), deadline):
+        peer.updateScore(PeerScorePoorRequest)
         return neterr StreamOpenTimeout
-    stream = ?streamRes
+    stream = streamRes.valueOr:
+      if streamRes.error().kind in ProtocolViolations:
+        peer.updateScore(PeerScoreInvalidRequest)
+      else:
+        peer.updateScore(PeerScorePoorRequest)
+      return err streamRes.error()
 
   try:
     # Send the request
@@ -2013,7 +2020,8 @@ proc p2pProtocolBackendImpl*(p: P2PProtocol): Backend =
 
         try:
           mount `networkVar`.switch,
-                LPProtocol(codecs: @[`codecNameLit`], handler: snappyThunk)
+                LPProtocol.new(
+                  codecs = @[`codecNameLit`], handler = snappyThunk)
         except LPError as exc:
           # Failure here indicates that the mounting was done incorrectly which
           # would be a programming error
@@ -2197,7 +2205,7 @@ proc getPersistentNetKeys*(
 func gossipId(
     data: openArray[byte], phase0Prefix, topic: string): seq[byte] =
   # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.5/specs/phase0/p2p-interface.md#topics-and-messages
-  # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.7/specs/altair/p2p-interface.md#topics-and-messages
+  # https://github.com/ethereum/consensus-specs/blob/v1.4.0/specs/altair/p2p-interface.md#topics-and-messages
   const MESSAGE_DOMAIN_VALID_SNAPPY = [0x01'u8, 0x00, 0x00, 0x00]
   let messageDigest = withEth2Hash:
     h.update(MESSAGE_DOMAIN_VALID_SNAPPY)
@@ -2287,50 +2295,48 @@ proc createEth2Node*(rng: ref HmacDrbgContext,
   let phase0Prefix = "/eth2/" & $forkDigests.phase0
 
   func msgIdProvider(m: messages.Message): Result[seq[byte], ValidationResult] =
-    template topic: untyped =
-      if m.topicIds.len > 0: m.topicIds[0] else: ""
-
     try:
       # This doesn't have to be a tight bound, just enough to avoid denial of
       # service attacks.
       let decoded = snappy.decode(m.data, static(GOSSIP_MAX_SIZE.uint32))
-      ok(gossipId(decoded, phase0Prefix, topic))
+      ok(gossipId(decoded, phase0Prefix, m.topic))
     except CatchableError:
       err(ValidationResult.Reject)
 
   let
-    params = GossipSubParams(
-      explicit: true,
-      pruneBackoff: chronos.minutes(1),
-      unsubscribeBackoff: chronos.seconds(10),
-      floodPublish: true,
-      gossipFactor: 0.05,
-      d: 8,
-      dLow: 6,
-      dHigh: 12,
-      dScore: 6,
-      dOut: 6 div 2, # less than dlow and no more than dlow/2
-      dLazy: 6,
-      heartbeatInterval: chronos.milliseconds(700),
-      historyLength: 6,
-      historyGossip: 3,
-      fanoutTTL: chronos.seconds(60),
-      seenTTL: chronos.seconds(385),
-      gossipThreshold: -4000,
-      publishThreshold: -8000,
-      graylistThreshold: -16000, # also disconnect threshold
-      opportunisticGraftThreshold: 0,
-      decayInterval: chronos.seconds(12),
-      decayToZero: 0.01,
-      retainScore: chronos.seconds(385),
-      appSpecificWeight: 0.0,
-      ipColocationFactorWeight: -53.75,
-      ipColocationFactorThreshold: 3.0,
-      behaviourPenaltyWeight: -15.9,
-      behaviourPenaltyDecay: 0.986,
-      disconnectBadPeers: true,
-      directPeers: directPeers,
-      bandwidthEstimatebps: config.bandwidthEstimate.get(100_000_000)
+    params = GossipSubParams.init(
+      explicit = true,
+      pruneBackoff = chronos.minutes(1),
+      unsubscribeBackoff = chronos.seconds(10),
+      floodPublish = true,
+      gossipFactor = 0.05,
+      d = 8,
+      dLow = 6,
+      dHigh = 12,
+      dScore = 6,
+      dOut = 6 div 2, # less than dlow and no more than dlow/2
+      dLazy = 6,
+      heartbeatInterval = chronos.milliseconds(700),
+      historyLength = 6,
+      historyGossip = 3,
+      fanoutTTL = chronos.seconds(60),
+      # 2 epochs matching maximum valid attestation lifetime
+      seenTTL = chronos.seconds(int(SECONDS_PER_SLOT * SLOTS_PER_EPOCH * 2)),
+      gossipThreshold = -4000,
+      publishThreshold = -8000,
+      graylistThreshold = -16000, # also disconnect threshold
+      opportunisticGraftThreshold = 0,
+      decayInterval = chronos.seconds(12),
+      decayToZero = 0.01,
+      retainScore = chronos.seconds(385),
+      appSpecificWeight = 0.0,
+      ipColocationFactorWeight = -53.75,
+      ipColocationFactorThreshold = 3.0,
+      behaviourPenaltyWeight = -15.9,
+      behaviourPenaltyDecay = 0.986,
+      disconnectBadPeers = true,
+      directPeers = directPeers,
+      bandwidthEstimatebps = config.bandwidthEstimate.get(100_000_000)
     )
     pubsub = GossipSub.init(
       switch = switch,
@@ -2493,7 +2499,7 @@ proc subscribeAttestationSubnets*(
 
 proc unsubscribeAttestationSubnets*(
     node: Eth2Node, subnets: AttnetBits, forkDigest: ForkDigest) =
-  # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.7/specs/phase0/p2p-interface.md#attestations-and-aggregation
+  # https://github.com/ethereum/consensus-specs/blob/v1.4.0/specs/phase0/p2p-interface.md#attestations-and-aggregation
   # Nimbus won't score attestation subnets for now; we just rely on block and
   # aggregate which are more stable and reliable
 
@@ -2522,7 +2528,7 @@ proc updateStabilitySubnetMetadata*(node: Eth2Node, attnets: AttnetBits) =
     debug "Stability subnets changed; updated ENR attnets", attnets
 
 proc updateSyncnetsMetadata*(node: Eth2Node, syncnets: SyncnetBits) =
-  # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.7/specs/altair/validator.md#sync-committee-subnet-stability
+  # https://github.com/ethereum/consensus-specs/blob/v1.4.0/specs/altair/validator.md#sync-committee-subnet-stability
   if node.metadata.syncnets == syncnets:
     return
 

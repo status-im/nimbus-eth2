@@ -356,9 +356,6 @@ func isSynced*(m: ELManager): bool =
 template eth1ChainBlocks*(m: ELManager): Deque[Eth1Block] =
   m.eth1Chain.blocks
 
-template toGaugeValue(x: Quantity): int64 =
-  toGaugeValue(distinctBase x)
-
 # TODO: Add cfg validation
 # MIN_GENESIS_ACTIVE_VALIDATOR_COUNT should be larger than SLOTS_PER_EPOCH
 #  doAssert SECONDS_PER_ETH1_BLOCK * cfg.ETH1_FOLLOW_DISTANCE < GENESIS_DELAY,
@@ -485,6 +482,54 @@ func asConsensusType*(payload: engine_api.GetPayloadV3Response):
       blobs: Blobs.init(
         payload.blobsBundle.blobs.mapIt(it.bytes))))
 
+func asConsensusType*(rpcExecutionPayload: ExecutionPayloadV4):
+    electra.ExecutionPayload =
+  template getTransaction(tt: TypedTransaction): bellatrix.Transaction =
+    bellatrix.Transaction.init(tt.distinctBase)
+
+  template getDepositReceipt(dr: DepositReceiptV1): DepositReceipt =
+    DepositReceipt(
+      pubkey: ValidatorPubKey(blob: dr.pubkey.distinctBase),
+      withdrawal_credentials: dr.withdrawalCredentials.asEth2Digest,
+      amount: dr.amount.Gwei,
+      signature: ValidatorSig(blob: dr.signature.distinctBase),
+      index: dr.index.uint64)
+
+  template getExecutionLayerExit(ele: ExitV1): ExecutionLayerExit =
+    ExecutionLayerExit(
+      source_address: ExecutionAddress(data: ele.sourceAddress.distinctBase),
+      validator_pubkey: ValidatorPubKey(
+        blob: ele.validatorPublicKey.distinctBase))
+
+  electra.ExecutionPayload(
+    parent_hash: rpcExecutionPayload.parentHash.asEth2Digest,
+    feeRecipient:
+      ExecutionAddress(data: rpcExecutionPayload.feeRecipient.distinctBase),
+    state_root: rpcExecutionPayload.stateRoot.asEth2Digest,
+    receipts_root: rpcExecutionPayload.receiptsRoot.asEth2Digest,
+    logs_bloom: BloomLogs(data: rpcExecutionPayload.logsBloom.distinctBase),
+    prev_randao: rpcExecutionPayload.prevRandao.asEth2Digest,
+    block_number: rpcExecutionPayload.blockNumber.uint64,
+    gas_limit: rpcExecutionPayload.gasLimit.uint64,
+    gas_used: rpcExecutionPayload.gasUsed.uint64,
+    timestamp: rpcExecutionPayload.timestamp.uint64,
+    extra_data: List[byte, MAX_EXTRA_DATA_BYTES].init(
+      rpcExecutionPayload.extraData.bytes),
+    base_fee_per_gas: rpcExecutionPayload.baseFeePerGas,
+    block_hash: rpcExecutionPayload.blockHash.asEth2Digest,
+    transactions: List[bellatrix.Transaction, MAX_TRANSACTIONS_PER_PAYLOAD].init(
+      mapIt(rpcExecutionPayload.transactions, it.getTransaction)),
+    withdrawals: List[capella.Withdrawal, MAX_WITHDRAWALS_PER_PAYLOAD].init(
+      mapIt(rpcExecutionPayload.withdrawals, it.asConsensusWithdrawal)),
+    blob_gas_used: rpcExecutionPayload.blobGasUsed.uint64,
+    excess_blob_gas: rpcExecutionPayload.excessBlobGas.uint64,
+    deposit_receipts:
+      List[electra.DepositReceipt, MAX_DEPOSIT_RECEIPTS_PER_PAYLOAD].init(
+        mapIt(rpcExecutionPayload.depositReceipts, it.getDepositReceipt)),
+    exits:
+      List[electra.ExecutionLayerExit, MAX_EXECUTION_LAYER_EXITS_PER_PAYLOAD].init(
+        mapIt(rpcExecutionPayload.exits, it.getExecutionLayerExit)))
+
 func asEngineExecutionPayload*(executionPayload: bellatrix.ExecutionPayload):
     ExecutionPayloadV1 =
   template getTypedTransaction(tt: bellatrix.Transaction): TypedTransaction =
@@ -561,6 +606,47 @@ func asEngineExecutionPayload*(executionPayload: deneb.ExecutionPayload):
     blobGasUsed: Quantity(executionPayload.blob_gas_used),
     excessBlobGas: Quantity(executionPayload.excess_blob_gas))
 
+func asEngineExecutionPayload*(executionPayload: electra.ExecutionPayload):
+    ExecutionPayloadV4 =
+  template getTypedTransaction(tt: bellatrix.Transaction): TypedTransaction =
+    TypedTransaction(tt.distinctBase)
+
+  template getDepositReceipt(dr: DepositReceipt): DepositReceiptV1 =
+    DepositReceiptV1(
+      pubkey: FixedBytes[RawPubKeySize](dr.pubkey.blob),
+      withdrawalCredentials: FixedBytes[32](dr.withdrawal_credentials.data),
+      amount: dr.amount.Quantity,
+      signature: FixedBytes[RawSigSize](dr.signature.blob),
+      index: dr.index.Quantity)
+
+  template getExecutionLayerExit(ele: ExecutionLayerExit): ExitV1 =
+    ExitV1(
+      sourceAddress: Address(ele.source_address.data),
+      validatorPublicKey: FixedBytes[RawPubKeySize](ele.validator_pubkey.blob))
+
+  engine_api.ExecutionPayloadV4(
+    parentHash: executionPayload.parent_hash.asBlockHash,
+    feeRecipient: Address(executionPayload.fee_recipient.data),
+    stateRoot: executionPayload.state_root.asBlockHash,
+    receiptsRoot: executionPayload.receipts_root.asBlockHash,
+    logsBloom:
+      FixedBytes[BYTES_PER_LOGS_BLOOM](executionPayload.logs_bloom.data),
+    prevRandao: executionPayload.prev_randao.asBlockHash,
+    blockNumber: Quantity(executionPayload.block_number),
+    gasLimit: Quantity(executionPayload.gas_limit),
+    gasUsed: Quantity(executionPayload.gas_used),
+    timestamp: Quantity(executionPayload.timestamp),
+    extraData: DynamicBytes[0, MAX_EXTRA_DATA_BYTES](executionPayload.extra_data),
+    baseFeePerGas: executionPayload.base_fee_per_gas,
+    blockHash: executionPayload.block_hash.asBlockHash,
+    transactions: mapIt(executionPayload.transactions, it.getTypedTransaction),
+    withdrawals: mapIt(executionPayload.withdrawals, it.asEngineWithdrawal),
+    blobGasUsed: Quantity(executionPayload.blob_gas_used),
+    excessBlobGas: Quantity(executionPayload.excess_blob_gas),
+    depositReceipts: mapIt(
+      executionPayload.deposit_receipts, it.getDepositReceipt),
+    exits: mapIt(executionPayload.exits, it.getExecutionLayerExit))
+
 func isConnected(connection: ELConnection): bool =
   connection.web3.isSome
 
@@ -623,7 +709,8 @@ proc getBlockByHash(rpcClient: RpcClient, hash: BlockHash): Future[BlockObject] 
 proc getBlockByNumber*(rpcClient: RpcClient,
                        number: Eth1BlockNumber): Future[BlockObject] =
   let hexNumber = try:
-    &"0x{number:X}" # No leading 0's!
+    let num = distinctBase(number)
+    &"0x{num:X}" # No leading 0's!
   except ValueError as exc:
     # Since the format above is valid, failing here should not be possible
     raiseAssert exc.msg
@@ -1138,7 +1225,7 @@ proc forkchoiceUpdated*(m: ELManager,
   # block hash provided by this event is stubbed with
   # `0x0000000000000000000000000000000000000000000000000000000000000000`."
   # and
-  # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.7/specs/bellatrix/validator.md#executionpayload
+  # https://github.com/ethereum/consensus-specs/blob/v1.4.0/specs/bellatrix/validator.md#executionpayload
   # notes "`finalized_block_hash` is the hash of the latest finalized execution
   # payload (`Hash32()` if none yet finalized)"
 
@@ -1371,7 +1458,7 @@ func depositEventsToBlocks(depositsList: openArray[JsonString]): seq[Eth1Block] 
     lastEth1Block.deposits.add DepositData(
       pubkey: ValidatorPubKey.init(pubkey.toArray),
       withdrawal_credentials: Eth2Digest(data: withdrawalCredentials.toArray),
-      amount: bytes_to_uint64(amount.toArray),
+      amount: bytes_to_uint64(amount.toArray).Gwei,
       signature: ValidatorSig.init(signature.toArray))
 
 type
@@ -1514,10 +1601,10 @@ func earliestBlockOfInterest(
     (2 * m.cfg.ETH1_FOLLOW_DISTANCE) +
     votedBlocksSafetyMargin
 
-  if latestEth1BlockNumber > blocksOfInterestRange:
+  if latestEth1BlockNumber > blocksOfInterestRange.Eth1BlockNumber:
     latestEth1BlockNumber - blocksOfInterestRange
   else:
-    0
+    0.Eth1BlockNumber
 
 proc syncBlockRange(m: ELManager,
                     connection: ELConnection,
@@ -1724,8 +1811,10 @@ proc syncEth1Chain(m: ELManager, connection: ELConnection) {.async.} =
 
     debug "Starting Eth1 syncing", `from` = shortLog(m.eth1Chain.blocks[^1])
 
+  var latestBlockNumber: Eth1BlockNumber
   while true:
-    debug "syncEth1Chain tick"
+    debug "syncEth1Chain tick",
+      shouldProcessDeposits, latestBlockNumber, eth1SyncedTo
 
     if bnStatus == BeaconNodeStatus.Stopping:
       await m.stop()
@@ -1742,12 +1831,13 @@ proc syncEth1Chain(m: ELManager, connection: ELConnection) {.async.} =
     except CatchableError as err:
       warn "Failed to obtain the latest block from the EL", err = err.msg
       raise err
+    latestBlockNumber = latestBlock.number
 
     m.syncTargetBlock = some(
-      if Eth1BlockNumber(latestBlock.number) > m.cfg.ETH1_FOLLOW_DISTANCE:
-        Eth1BlockNumber(latestBlock.number) - m.cfg.ETH1_FOLLOW_DISTANCE
+      if latestBlock.number > m.cfg.ETH1_FOLLOW_DISTANCE.Eth1BlockNumber:
+        latestBlock.number - m.cfg.ETH1_FOLLOW_DISTANCE
       else:
-        Eth1BlockNumber(0))
+        0.Eth1BlockNumber)
     if m.syncTargetBlock.get <= eth1SyncedTo:
       # The chain reorged to a lower height.
       # It's relatively safe to ignore that.
@@ -1763,7 +1853,7 @@ proc syncEth1Chain(m: ELManager, connection: ELConnection) {.async.} =
                              depositContract,
                              eth1SyncedTo + 1,
                              m.syncTargetBlock.get,
-                             m.earliestBlockOfInterest(Eth1BlockNumber latestBlock.number))
+                             m.earliestBlockOfInterest(latestBlock.number))
 
     eth1SyncedTo = m.syncTargetBlock.get
     eth1_synced_head.set eth1SyncedTo.toGaugeValue
@@ -1855,4 +1945,4 @@ proc testWeb3Provider*(web3Url: Uri,
     ns = web3.contractSender(DepositContract, depositContractAddress)
 
   discard request "Deposit root":
-    ns.get_deposit_root.call(blockNumber = latestBlock.number.uint64)
+    ns.get_deposit_root.call(blockNumber = latestBlock.number)

@@ -5,11 +5,11 @@
 #   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
 # at your option. This file may not be copied, modified, or distributed except according to those terms.
 
+{.push raises: [].}
+
 # `wss_sim` loads a state and a set of validator keys, then simulates a
 # beacon chain running with the given validators producing blocks
 # and attesting when they're supposed to.
-
-{.push raises: [].}
 
 import
   std/[strformat, sequtils, tables],
@@ -33,9 +33,9 @@ template findIt*(s: openArray, predicate: untyped): int =
       break
   res
 
-func findValidator(validators: seq[Validator], pubKey: ValidatorPubKey):
+func findValidator(validators: seq[Validator], pubkey: ValidatorPubKey):
     Opt[ValidatorIndex] =
-  let idx = validators.findIt(it.pubkey == pubKey)
+  let idx = validators.findIt(it.pubkey == pubkey)
   if idx == -1:
     Opt.none ValidatorIndex
   else:
@@ -120,7 +120,7 @@ cli do(validatorsDir: string, secretsDir: string,
         active = withState(state[]):
           get_active_validator_indices_len(forkyState.data, slot.epoch)
         balance = block:
-          var b: uint64
+          var b: Gwei
           for k, _ in validators:
             if is_active_validator(getStateField(state[], validators).asSeq[k], slot.epoch):
               b += getStateField(state[], balances).asSeq[k]

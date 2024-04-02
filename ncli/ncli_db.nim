@@ -976,9 +976,9 @@ proc cmdValidatorDb(conf: DbConf, cfg: RuntimeConfig) =
        startEpoch = startEpoch, endEpoch = endEpoch
 
   let
-    startSlot = startEpoch.start_slot
+    startEpochSlot = startEpoch.start_slot
     endSlot = endEpoch.start_slot + SLOTS_PER_EPOCH
-    blockRefs = dag.getBlockRange(startSlot, endSlot)
+    blockRefs = dag.getBlockRange(startEpochSlot, endSlot)
 
   if not unaggregatedFilesOutputDir.dirExists:
     try:
@@ -1006,7 +1006,7 @@ proc cmdValidatorDb(conf: DbConf, cfg: RuntimeConfig) =
 
   let tmpState = newClone(dag.headState)
   var cache = StateCache()
-  let slot = if startSlot > 0: startSlot - 1 else: 0.Slot
+  let slot = if startEpochSlot > 0: startEpochSlot - 1 else: 0.Slot
   if blockRefs.len > 0:
     discard dag.updateState(
       tmpState[], dag.atSlot(blockRefs[^1], slot).expect("block"), false, cache)

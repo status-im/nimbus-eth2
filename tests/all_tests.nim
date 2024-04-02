@@ -5,6 +5,8 @@
 #   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
 # at your option. This file may not be copied, modified, or distributed except according to those terms.
 
+{.push raises: [].}
+
 # All tests except scenarios, which as compiled separately for mainnet and minimal
 
 import
@@ -15,9 +17,11 @@ import # Unit test
   ./test_attestation_pool,
   ./test_beacon_chain_db,
   ./test_beacon_time,
+  ./test_blockchain_dag,
   ./test_block_dag,
   ./test_block_processor,
   ./test_block_quarantine,
+  ./test_bloom_filter,
   ./test_conf,
   ./test_datatypes,
   ./test_deposit_snapshots,
@@ -31,6 +35,8 @@ import # Unit test
   ./test_gossip_validation,
   ./test_helpers,
   ./test_honest_validator,
+  ./test_keystore,
+  ./test_keystore_management,
   ./test_key_splitting,
   ./test_light_client_processor,
   ./test_light_client,
@@ -54,14 +60,7 @@ import # Unit test
   ./slashing_protection/test_slashing_protection_db,
   ./test_validator_client
 
-when not defined(i386):
-  # Avoids "Out of memory" CI failures
-  import
-    ./test_blockchain_dag,
-    ./test_keystore,
-    ./test_keystore_management
-
-  when not defined(windows):
-    import ./test_keymanager_api
+when not defined(windows):
+  import ./test_keymanager_api
 
 summarizeLongTests("AllTests")

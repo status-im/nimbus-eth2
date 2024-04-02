@@ -62,7 +62,7 @@ proc makeDeposit*(
   result = DepositData(
     pubkey: pubkey,
     withdrawal_credentials: withdrawal_credentials,
-    amount: MAX_EFFECTIVE_BALANCE)
+    amount: MAX_EFFECTIVE_BALANCE.Gwei)
 
   if skipBlsValidation notin flags:
     result.signature = get_deposit_signature(cfg, result, privkey).toValidatorSig()
@@ -270,7 +270,7 @@ func makeAttestationData*(
     "Computed epoch was " & $slot.epoch &
     "  while the state current_epoch was " & $current_epoch
 
-  # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.7/specs/phase0/validator.md#attestation-data
+  # https://github.com/ethereum/consensus-specs/blob/v1.4.0/specs/phase0/validator.md#attestation-data
   AttestationData(
     slot: slot,
     index: committee_index.uint64,

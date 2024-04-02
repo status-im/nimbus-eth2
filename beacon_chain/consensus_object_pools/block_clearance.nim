@@ -144,15 +144,13 @@ proc advanceClearanceState*(dag: ChainDAGRef) =
   let advanced = withState(dag.clearanceState):
     forkyState.data.slot > forkyState.data.latest_block_header.slot
   if not advanced:
-    let next = getStateField(dag.clearanceState, slot) + 1
-
-    let startTick = Moment.now()
+    let
+      startTick = Moment.now()
+      next = getStateField(dag.clearanceState, slot) + 1
     var
       cache = StateCache()
       info = ForkedEpochInfo()
-
     dag.advanceSlots(dag.clearanceState, next, true, cache, info)
-
     debug "Prepared clearance state for next block",
       next, updateStateDur = Moment.now() - startTick
 

@@ -9,10 +9,10 @@
 
 # State transition - block processing, as described in
 # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.7/specs/phase0/beacon-chain.md#block-processing
-# https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.7/specs/altair/beacon-chain.md#block-processing
-# https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.7/specs/bellatrix/beacon-chain.md#block-processing
-# https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.7/specs/capella/beacon-chain.md#block-processing
-# https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.7/specs/deneb/beacon-chain.md#block-processing
+# https://github.com/ethereum/consensus-specs/blob/v1.4.0/specs/altair/beacon-chain.md#block-processing
+# https://github.com/ethereum/consensus-specs/blob/v1.4.0/specs/bellatrix/beacon-chain.md#block-processing
+# https://github.com/ethereum/consensus-specs/blob/v1.4.0/specs/capella/beacon-chain.md#block-processing
+# https://github.com/ethereum/consensus-specs/blob/v1.4.0/specs/deneb/beacon-chain.md#block-processing
 #
 # The entry point is `process_block` which is at the bottom of this file.
 #
@@ -186,11 +186,10 @@ proc check_proposer_slashing*(
 proc process_proposer_slashing*(
     cfg: RuntimeConfig, state: var ForkyBeaconState,
     proposer_slashing: SomeProposerSlashing, flags: UpdateFlags,
-    cache: var StateCache):
-    Result[void, cstring] =
+    exit_queue_info: ExitQueueInfo, cache: var StateCache):
+    Result[(Gwei, ExitQueueInfo), cstring] =
   let proposer_index = ? check_proposer_slashing(state, proposer_slashing, flags)
-  ? slash_validator(cfg, state, proposer_index, cache)
-  ok()
+  slash_validator(cfg, state, proposer_index, exit_queue_info, cache)
 
 # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.6/specs/phase0/beacon-chain.md#is_slashable_attestation_data
 func is_slashable_attestation_data(
@@ -252,15 +251,24 @@ proc process_attester_slashing*(
     state: var ForkyBeaconState,
     attester_slashing: SomeAttesterSlashing,
     flags: UpdateFlags,
-    cache: var StateCache
-    ): Result[void, cstring] =
+    exit_queue_info: ExitQueueInfo, cache: var StateCache
+    ): Result[(Gwei, ExitQueueInfo), cstring] =
   let slashed_attesters =
     ? check_attester_slashing(state, attester_slashing, flags)
 
-  for index in slashed_attesters:
-    ? slash_validator(cfg, state, index, cache)
+  var
+    proposer_reward: Gwei
+    cur_exit_queue_info = exit_queue_info
 
-  ok()
+  for index in slashed_attesters:
+    doAssert strictVerification notin flags or
+      cur_exit_queue_info == get_state_exit_queue_info(cfg, state, cache)
+    let (new_proposer_reward, new_exit_queue_info) = ? slash_validator(
+      cfg, state, index, cur_exit_queue_info, cache)
+    proposer_reward += new_proposer_reward
+    cur_exit_queue_info = new_exit_queue_info
+
+  ok((proposer_reward, cur_exit_queue_info))
 
 func findValidatorIndex*(state: ForkyBeaconState, pubkey: ValidatorPubKey):
     Opt[ValidatorIndex] =
@@ -287,10 +295,13 @@ func findValidatorIndex*(state: ForkyBeaconState, pubkey: ValidatorPubKey):
     if state.validators.asSeq[vidx - 1].pubkey == pubkey:
       return Opt[ValidatorIndex].ok((vidx - 1).ValidatorIndex)
 
-proc process_deposit*(cfg: RuntimeConfig,
-                      state: var ForkyBeaconState,
-                      deposit: Deposit,
-                      flags: UpdateFlags): Result[void, cstring] =
+from ".."/bloomfilter import
+  PubkeyBloomFilter, constructBloomFilter, incl, mightContain
+
+proc process_deposit*(
+    cfg: RuntimeConfig, state: var ForkyBeaconState,
+    bloom_filter: var PubkeyBloomFilter, deposit: Deposit, flags: UpdateFlags):
+    Result[void, cstring] =
   ## Process an Eth1 deposit, registering a validator or increasing its balance.
 
   # Verify the Merkle branch
@@ -309,7 +320,11 @@ proc process_deposit*(cfg: RuntimeConfig,
   let
     pubkey = deposit.data.pubkey
     amount = deposit.data.amount
-    index = findValidatorIndex(state, pubkey)
+    index =
+      if bloom_filter.mightContain(pubkey):
+        findValidatorIndex(state, pubkey)
+      else:
+        Opt.none(ValidatorIndex)
 
   if index.isSome():
     # Increase balance by deposit amount
@@ -335,6 +350,7 @@ proc process_deposit*(cfg: RuntimeConfig,
           return err("process_deposit: too many validators (inactivity_scores)")
 
       doAssert state.validators.len == state.balances.len
+      bloom_filter.incl pubkey
     else:
       # Deposits may come with invalid signatures - in that case, they are not
       # turned into a validator but still get processed to keep the deposit
@@ -402,12 +418,12 @@ proc process_voluntary_exit*(
     cfg: RuntimeConfig,
     state: var ForkyBeaconState,
     signed_voluntary_exit: SomeSignedVoluntaryExit,
-    flags: UpdateFlags,
-    cache: var StateCache): Result[void, cstring] =
+    flags: UpdateFlags, exit_queue_info: ExitQueueInfo,
+    cache: var StateCache): Result[ExitQueueInfo, cstring] =
   let exited_validator =
     ? check_voluntary_exit(cfg, state, signed_voluntary_exit, flags)
-  ? initiate_validator_exit(cfg, state, exited_validator, cache)
-  ok()
+  ok(? initiate_validator_exit(
+    cfg, state, exited_validator, exit_queue_info, cache))
 
 proc process_bls_to_execution_change*(
     cfg: RuntimeConfig,
@@ -428,6 +444,14 @@ proc process_bls_to_execution_change*(
 
   ok()
 
+type
+  # https://ethereum.github.io/beacon-APIs/?urls.primaryName=v2.5.0#/Rewards/getBlockRewards
+  BlockRewards* = object
+    attestations*: Gwei
+    sync_aggregate*: Gwei
+    proposer_slashings*: Gwei
+    attester_slashings*: Gwei
+
 # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.6/specs/phase0/beacon-chain.md#operations
 # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.5/specs/capella/beacon-chain.md#modified-process_operations
 proc process_operations(cfg: RuntimeConfig,
@@ -435,7 +459,7 @@ proc process_operations(cfg: RuntimeConfig,
                         body: SomeForkyBeaconBlockBody,
                         base_reward_per_increment: Gwei,
                         flags: UpdateFlags,
-                        cache: var StateCache): Result[void, cstring] =
+                        cache: var StateCache): Result[BlockRewards, cstring] =
   # Verify that outstanding deposits are processed up to the maximum number of
   # deposits
   let
@@ -446,27 +470,48 @@ proc process_operations(cfg: RuntimeConfig,
       body.deposits.lenu64 != req_deposits:
     return err("incorrect number of deposits")
 
+  var operations_rewards: BlockRewards
+
+  # It costs a full validator set scan to construct these values; only do so if
+  # there will be some kind of exit.
+  var exit_queue_info =
+    if body.proposer_slashings.len + body.attester_slashings.len +
+        body.voluntary_exits.len > 0:
+      get_state_exit_queue_info(cfg, state, cache)
+    else:
+      default(ExitQueueInfo)  # not used
+
   for op in body.proposer_slashings:
-    ? process_proposer_slashing(cfg, state, op, flags, cache)
+    let (proposer_slashing_reward, new_exit_queue_info) =
+      ? process_proposer_slashing(cfg, state, op, flags, exit_queue_info, cache)
+    operations_rewards.proposer_slashings += proposer_slashing_reward
+    exit_queue_info = new_exit_queue_info
   for op in body.attester_slashings:
-    ? process_attester_slashing(cfg, state, op, flags, cache)
+    let (attester_slashing_reward, new_exit_queue_info) =
+      ? process_attester_slashing(cfg, state, op, flags, exit_queue_info, cache)
+    operations_rewards.attester_slashings += attester_slashing_reward
+    exit_queue_info = new_exit_queue_info
   for op in body.attestations:
-    ? process_attestation(state, op, flags, base_reward_per_increment, cache)
-  for op in body.deposits:
-    ? process_deposit(cfg, state, op, flags)
+    operations_rewards.attestations +=
+      ? process_attestation(state, op, flags, base_reward_per_increment, cache)
+  if body.deposits.len > 0:
+    let bloom_filter = constructBloomFilter(state.validators.asSeq)
+    for op in body.deposits:
+      ? process_deposit(cfg, state, bloom_filter[], op, flags)
   for op in body.voluntary_exits:
-    ? process_voluntary_exit(cfg, state, op, flags, cache)
+    exit_queue_info = ? process_voluntary_exit(
+      cfg, state, op, flags, exit_queue_info, cache)
   when typeof(body).kind >= ConsensusFork.Capella:
     for op in body.bls_to_execution_changes:
       ? process_bls_to_execution_change(cfg, state, op)
 
-  ok()
+  ok(operations_rewards)
 
-# https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.7/specs/altair/beacon-chain.md#sync-aggregate-processing
+# https://github.com/ethereum/consensus-specs/blob/v1.4.0/specs/altair/beacon-chain.md#sync-aggregate-processing
 func get_participant_reward*(total_active_balance: Gwei): Gwei =
   let
     total_active_increments =
-      total_active_balance div EFFECTIVE_BALANCE_INCREMENT
+      total_active_balance div EFFECTIVE_BALANCE_INCREMENT.Gwei
     total_base_rewards =
       get_base_reward_per_increment(total_active_balance) *
         total_active_increments
@@ -475,18 +520,16 @@ func get_participant_reward*(total_active_balance: Gwei): Gwei =
         WEIGHT_DENOMINATOR div SLOTS_PER_EPOCH
   max_participant_rewards div SYNC_COMMITTEE_SIZE
 
-# https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.7/specs/altair/beacon-chain.md#sync-aggregate-processing
+# https://github.com/ethereum/consensus-specs/blob/v1.4.0/specs/altair/beacon-chain.md#sync-aggregate-processing
 func get_proposer_reward*(participant_reward: Gwei): Gwei =
   participant_reward * PROPOSER_WEIGHT div (WEIGHT_DENOMINATOR - PROPOSER_WEIGHT)
 
-# https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.7/specs/altair/beacon-chain.md#sync-aggregate-processing
+# https://github.com/ethereum/consensus-specs/blob/v1.4.0/specs/altair/beacon-chain.md#sync-aggregate-processing
 proc process_sync_aggregate*(
     state: var (altair.BeaconState | bellatrix.BeaconState |
                 capella.BeaconState | deneb.BeaconState | electra.BeaconState),
     sync_aggregate: SomeSyncAggregate, total_active_balance: Gwei,
-    flags: UpdateFlags,
-    cache: var StateCache):
-    Result[void, cstring]  =
+    flags: UpdateFlags, cache: var StateCache): Result[Gwei, cstring] =
   if strictVerification in flags and state.slot > 1.Slot:
     template sync_committee_bits(): auto = sync_aggregate.sync_committee_bits
     let num_active_participants = countOnes(sync_committee_bits).uint64
@@ -541,7 +584,7 @@ proc process_sync_aggregate*(
     else:
       decrease_balance(state, participant_index, participant_reward)
 
-  ok()
+  ok(proposer_reward)
 
 # https://github.com/ethereum/consensus-specs/blob/v1.3.0/specs/bellatrix/beacon-chain.md#process_execution_payload
 proc process_execution_payload*(
@@ -739,7 +782,7 @@ proc process_execution_payload*(
 
   ok()
 
-# https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.7/specs/capella/beacon-chain.md#new-process_withdrawals
+# https://github.com/ethereum/consensus-specs/blob/v1.4.0/specs/capella/beacon-chain.md#new-process_withdrawals
 func process_withdrawals*(
     state: var (capella.BeaconState | deneb.BeaconState | electra.BeaconState),
     payload: capella.ExecutionPayload | deneb.ExecutionPayload |
@@ -782,10 +825,10 @@ func process_withdrawals*(
 
   ok()
 
-# https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.7/specs/deneb/beacon-chain.md#kzg_commitment_to_versioned_hash
+# https://github.com/ethereum/consensus-specs/blob/v1.4.0/specs/deneb/beacon-chain.md#kzg_commitment_to_versioned_hash
 func kzg_commitment_to_versioned_hash*(
     kzg_commitment: KzgCommitment): VersionedHash =
-  # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.7/specs/deneb/beacon-chain.md#blob
+  # https://github.com/ethereum/consensus-specs/blob/v1.4.0/specs/deneb/beacon-chain.md#blob
   const VERSIONED_HASH_VERSION_KZG = 0x01'u8
 
   var res: VersionedHash
@@ -811,7 +854,7 @@ type SomePhase0Block =
 proc process_block*(
     cfg: RuntimeConfig,
     state: var phase0.BeaconState, blck: SomePhase0Block, flags: UpdateFlags,
-    cache: var StateCache): Result[void, cstring]=
+    cache: var StateCache): Result[BlockRewards, cstring]=
   ## When there's a new block, we need to verify that the block is sane and
   ## update the state accordingly - the state is left in an unknown state when
   ## block application fails (!)
@@ -819,11 +862,10 @@ proc process_block*(
   ? process_block_header(state, blck, flags, cache)
   ? process_randao(state, blck.body, flags, cache)
   ? process_eth1_data(state, blck.body)
-  ? process_operations(cfg, state, blck.body, 0.Gwei, flags, cache)
 
-  ok()
+  ok(? process_operations(cfg, state, blck.body, 0.Gwei, flags, cache))
 
-# https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.7/specs/altair/beacon-chain.md#block-processing
+# https://github.com/ethereum/consensus-specs/blob/v1.4.0/specs/altair/beacon-chain.md#block-processing
 # TODO workaround for https://github.com/nim-lang/Nim/issues/18095
 # copy of datatypes/altair.nim
 type SomeAltairBlock =
@@ -831,7 +873,7 @@ type SomeAltairBlock =
 proc process_block*(
     cfg: RuntimeConfig,
     state: var altair.BeaconState, blck: SomeAltairBlock, flags: UpdateFlags,
-    cache: var StateCache): Result[void, cstring]=
+    cache: var StateCache): Result[BlockRewards, cstring]=
   ## When there's a new block, we need to verify that the block is sane and
   ## update the state accordingly - the state is left in an unknown state when
   ## block application fails (!)
@@ -844,23 +886,22 @@ proc process_block*(
     total_active_balance = get_total_active_balance(state, cache)
     base_reward_per_increment =
       get_base_reward_per_increment(total_active_balance)
-
-  ? process_operations(
+  var operations_rewards = ? process_operations(
     cfg, state, blck.body, base_reward_per_increment, flags, cache)
-  ? process_sync_aggregate(
+  operations_rewards.sync_aggregate = ? process_sync_aggregate(
     state, blck.body.sync_aggregate, total_active_balance,
     flags, cache)  # [New in Altair]
 
-  ok()
+  ok(operations_rewards)
 
-# https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.7/specs/bellatrix/beacon-chain.md#block-processing
+# https://github.com/ethereum/consensus-specs/blob/v1.4.0/specs/bellatrix/beacon-chain.md#block-processing
 # TODO workaround for https://github.com/nim-lang/Nim/issues/18095
 type SomeBellatrixBlock =
   bellatrix.BeaconBlock | bellatrix.SigVerifiedBeaconBlock | bellatrix.TrustedBeaconBlock
 proc process_block*(
     cfg: RuntimeConfig,
     state: var bellatrix.BeaconState, blck: SomeBellatrixBlock,
-    flags: UpdateFlags, cache: var StateCache): Result[void, cstring]=
+    flags: UpdateFlags, cache: var StateCache): Result[BlockRewards, cstring]=
   ## When there's a new block, we need to verify that the block is sane and
   ## update the state accordingly - the state is left in an unknown state when
   ## block application fails (!)
@@ -877,12 +918,12 @@ proc process_block*(
     total_active_balance = get_total_active_balance(state, cache)
     base_reward_per_increment =
       get_base_reward_per_increment(total_active_balance)
-  ? process_operations(
+  var operations_rewards = ? process_operations(
     cfg, state, blck.body, base_reward_per_increment, flags, cache)
-  ? process_sync_aggregate(
+  operations_rewards.sync_aggregate = ? process_sync_aggregate(
     state, blck.body.sync_aggregate, total_active_balance, flags, cache)
 
-  ok()
+  ok(operations_rewards)
 
 # https://github.com/ethereum/consensus-specs/blob/v1.3.0/specs/capella/beacon-chain.md#block-processing
 # TODO workaround for https://github.com/nim-lang/Nim/issues/18095
@@ -891,7 +932,7 @@ type SomeCapellaBlock =
 proc process_block*(
     cfg: RuntimeConfig,
     state: var capella.BeaconState, blck: SomeCapellaBlock,
-    flags: UpdateFlags, cache: var StateCache): Result[void, cstring]=
+    flags: UpdateFlags, cache: var StateCache): Result[BlockRewards, cstring] =
   ## When there's a new block, we need to verify that the block is sane and
   ## update the state accordingly - the state is left in an unknown state when
   ## block application fails (!)
@@ -913,13 +954,13 @@ proc process_block*(
     total_active_balance = get_total_active_balance(state, cache)
     base_reward_per_increment =
       get_base_reward_per_increment(total_active_balance)
-  ? process_operations(
+  var operations_rewards = ? process_operations(
     cfg, state, blck.body, base_reward_per_increment,
     flags, cache)  # [Modified in Capella]
-  ? process_sync_aggregate(
+  operations_rewards.sync_aggregate = ? process_sync_aggregate(
     state, blck.body.sync_aggregate, total_active_balance, flags, cache)
 
-  ok()
+  ok(operations_rewards)
 
 # https://github.com/ethereum/consensus-specs/blob/v1.3.0/specs/deneb/beacon-chain.md#block-processing
 # TODO workaround for https://github.com/nim-lang/Nim/issues/18095
@@ -928,7 +969,7 @@ type SomeDenebBlock =
 proc process_block*(
     cfg: RuntimeConfig,
     state: var deneb.BeaconState, blck: SomeDenebBlock,
-    flags: UpdateFlags, cache: var StateCache): Result[void, cstring]=
+    flags: UpdateFlags, cache: var StateCache): Result[BlockRewards, cstring] =
   ## When there's a new block, we need to verify that the block is sane and
   ## update the state accordingly - the state is left in an unknown state when
   ## block application fails (!)
@@ -949,12 +990,12 @@ proc process_block*(
     total_active_balance = get_total_active_balance(state, cache)
     base_reward_per_increment =
       get_base_reward_per_increment(total_active_balance)
-  ? process_operations(
+  var operations_rewards = ? process_operations(
     cfg, state, blck.body, base_reward_per_increment, flags, cache)
-  ? process_sync_aggregate(
+  operations_rewards.sync_aggregate = ? process_sync_aggregate(
     state, blck.body.sync_aggregate, total_active_balance, flags, cache)
 
-  ok()
+  ok(operations_rewards)
 
 # https://github.com/ethereum/consensus-specs/blob/v1.3.0/specs/deneb/beacon-chain.md#block-processing
 # TODO workaround for https://github.com/nim-lang/Nim/issues/18095
@@ -963,7 +1004,7 @@ type SomeElectraBlock =
 proc process_block*(
     cfg: RuntimeConfig,
     state: var electra.BeaconState, blck: SomeElectraBlock,
-    flags: UpdateFlags, cache: var StateCache): Result[void, cstring]=
+    flags: UpdateFlags, cache: var StateCache): Result[BlockRewards, cstring] =
   ## When there's a new block, we need to verify that the block is sane and
   ## update the state accordingly - the state is left in an unknown state when
   ## block application fails (!)
@@ -984,9 +1025,9 @@ proc process_block*(
     total_active_balance = get_total_active_balance(state, cache)
     base_reward_per_increment =
       get_base_reward_per_increment(total_active_balance)
-  ? process_operations(
-    cfg, state, blck.body, base_reward_per_increment, flags, cache)
+    operations_rewards = ? process_operations(
+      cfg, state, blck.body, base_reward_per_increment, flags, cache)
   ? process_sync_aggregate(
     state, blck.body.sync_aggregate, total_active_balance, flags, cache)
 
-  ok()
+  ok(operations_rewards)

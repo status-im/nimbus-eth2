@@ -5,11 +5,15 @@
 #   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
 # at your option. This file may not be copied, modified, or distributed except according to those terms.
 
+{.push raises: [].}
+
 import
   confutils, presto,
   ../beacon_chain/spec/datatypes/capella,
-  ../beacon_chain/rpc/rest_utils,
-  ../beacon_chain/spec/eth2_apis/rest_beacon_client
+  ../beacon_chain/spec/eth2_apis/rest_beacon_client,
+  ../beacon_chain/rpc/rest_utils
+
+from ../beacon_chain/spec/mev/capella_mev import SignedBlindedBeaconBlock
 
 const HttpOk = 200
 
@@ -81,7 +85,7 @@ proc getInfo(parent_hash: Eth2Digest):
     parent_hash: parent_hash,
     fee_recipient: default(ExecutionAddress), # only a CL suggestion
     logs_bloom: default(BloomLogs),
-    timestamp: parentBlockInfo.timestamp,
+    timestamp: parent_block_info.timestamp,
     prev_randao: prev_randao,
     block_number: parent_block_info.block_number,
     gas_limit: DEFAULT_GAS_LIMIT,

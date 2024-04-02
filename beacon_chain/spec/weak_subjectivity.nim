@@ -10,10 +10,10 @@
 import
   ./datatypes/base, ./beaconstate, ./forks, ./helpers
 
-# https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.7/specs/phase0/weak-subjectivity.md#configuration
+# https://github.com/ethereum/consensus-specs/blob/v1.4.0/specs/phase0/weak-subjectivity.md#configuration
 const SAFETY_DECAY* = 10'u64
 
-# https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.7/specs/phase0/weak-subjectivity.md#compute_weak_subjectivity_period
+# https://github.com/ethereum/consensus-specs/blob/v1.4.0/specs/phase0/weak-subjectivity.md#compute_weak_subjectivity_period
 func compute_weak_subjectivity_period(
     cfg: RuntimeConfig, state: ForkyBeaconState): uint64 =
   ## Returns the weak subjectivity period for the current ``state``.
@@ -29,8 +29,8 @@ func compute_weak_subjectivity_period(
     ws_period = cfg.MIN_VALIDATOR_WITHDRAWABILITY_DELAY
   let
     N = get_active_validator_indices_len(state, get_current_epoch(state))
-    t = (get_total_active_balance(state, cache) div N).toEther
-  const T = MAX_EFFECTIVE_BALANCE.toEther
+    t = (get_total_active_balance(state, cache) div N).toEther()
+  const T = MAX_EFFECTIVE_BALANCE.Gwei.toEther()
   let delta = cfg.get_validator_churn_limit(state, cache)
   const
     Delta = MAX_DEPOSITS * SLOTS_PER_EPOCH
@@ -49,7 +49,7 @@ func compute_weak_subjectivity_period(
 
   ws_period
 
-# https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.7/specs/phase0/weak-subjectivity.md#is_within_weak_subjectivity_period
+# https://github.com/ethereum/consensus-specs/blob/v1.4.0/specs/phase0/weak-subjectivity.md#is_within_weak_subjectivity_period
 func is_within_weak_subjectivity_period*(cfg: RuntimeConfig, current_slot: Slot,
                                          ws_state: ForkedHashedBeaconState,
                                          ws_checkpoint: Checkpoint): bool =

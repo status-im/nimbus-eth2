@@ -5,6 +5,7 @@
 #   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
 # at your option. This file may not be copied, modified, or distributed except according to those terms.
 
+{.push raises: [].}
 {.used.}
 
 import
@@ -57,7 +58,7 @@ proc runTest(rewardsDir, identifier: string) =
   info.process_attestations(state[], cache)
   let
     total_balance = info.balances.current_epoch
-    total_balance_sqrt = integer_squareroot(total_balance)
+    total_balance_sqrt = integer_squareroot(distinctBase(total_balance))
 
   var
     sourceDeltas2 = Deltas.init(state[].validators.len)

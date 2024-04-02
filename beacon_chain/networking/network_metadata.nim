@@ -8,13 +8,18 @@
 {.push raises: [].}
 
 import
-  std/[sequtils, strutils, os],
+  std/os,
   stew/[byteutils, objects], stew/shims/macros, nimcrypto/hash,
   web3/[conversions],
   web3/primitives as web3types,
   chronicles,
   eth/common/eth_types_json_serialization,
   ../spec/[eth2_ssz_serialization, forks]
+
+from std/sequtils import deduplicate, filterIt, mapIt
+from std/strutils import
+  escape, parseBiggestUInt, replace, splitLines, startsWith, strip,
+  toLowerAscii
 
 # TODO(zah):
 # We can compress the embedded states with snappy before embedding them here.
@@ -83,7 +88,6 @@ type
     depositContractBlockHash*: Eth2Digest
 
     genesis*: GenesisMetadata
-    genesisDepositsSnapshot*: string
 
 func hasGenesis*(metadata: Eth2NetworkMetadata): bool =
   metadata.genesis.kind != NoGenesis
@@ -119,7 +123,6 @@ proc loadEth2NetworkMetadata*(
   try:
     let
       genesisPath = path & "/genesis.ssz"
-      genesisDepositsSnapshotPath = path & "/genesis_deposit_contract_snapshot.ssz"
       configPath = path & "/config.yaml"
       deployBlockPath = path & "/deploy_block.txt"
       depositContractBlockPath = path & "/deposit_contract_block.txt"
@@ -179,11 +182,6 @@ proc loadEth2NetworkMetadata*(
         readBootstrapNodes(bootstrapNodesPath) &
         readBootEnr(bootEnrPath))
 
-      genesisDepositsSnapshot = if fileExists(genesisDepositsSnapshotPath):
-        readFile(genesisDepositsSnapshotPath)
-      else:
-        ""
-
     ok Eth2NetworkMetadata(
       eth1Network: eth1Network,
       cfg: runtimeConfig,
@@ -200,8 +198,7 @@ proc loadEth2NetworkMetadata*(
         elif fileExists(genesisPath) and not isCompileTime:
           GenesisMetadata(kind: UserSuppliedFile, path: genesisPath)
         else:
-          GenesisMetadata(kind: NoGenesis),
-      genesisDepositsSnapshot: genesisDepositsSnapshot)
+          GenesisMetadata(kind: NoGenesis))
 
   except PresetIncompatibleError as err:
     err err.msg
@@ -244,7 +241,7 @@ when const_preset == "gnosis":
       chiadoGenesisSize* {.importc: "gnosis_chiado_genesis_size".}: int
 
     # let `.incbin` in assembly file find the binary file through search path
-    {.passc: "-I" & vendorDir.}
+    {.passc: "-I" & escape(vendorDir).}
     {.compile: "network_metadata_gnosis.S".}
 
   else:
@@ -271,9 +268,6 @@ when const_preset == "gnosis":
       checkForkConsistency(network.cfg)
 
     for network in [gnosisMetadata, chiadoMetadata]:
-      doAssert network.cfg.ALTAIR_FORK_EPOCH < FAR_FUTURE_EPOCH
-      doAssert network.cfg.BELLATRIX_FORK_EPOCH < FAR_FUTURE_EPOCH
-      doAssert network.cfg.CAPELLA_FORK_EPOCH < FAR_FUTURE_EPOCH
       doAssert network.cfg.DENEB_FORK_EPOCH < FAR_FUTURE_EPOCH
       doAssert network.cfg.ELECTRA_FORK_EPOCH == FAR_FUTURE_EPOCH
       static: doAssert ConsensusFork.high == ConsensusFork.Deneb
@@ -295,7 +289,7 @@ elif const_preset == "mainnet":
     {.pop.}
 
     # let `.incbin` in assembly file find the binary file through search path
-    {.passc: "-I" & vendorDir.}
+    {.passc: "-I" & escape(vendorDir).}
     {.compile: "network_metadata_mainnet.S".}
 
   else:
@@ -337,9 +331,6 @@ elif const_preset == "mainnet":
       checkForkConsistency(network.cfg)
 
     for network in [mainnetMetadata, praterMetadata, sepoliaMetadata, holeskyMetadata]:
-      doAssert network.cfg.ALTAIR_FORK_EPOCH < FAR_FUTURE_EPOCH
-      doAssert network.cfg.BELLATRIX_FORK_EPOCH < FAR_FUTURE_EPOCH
-      doAssert network.cfg.CAPELLA_FORK_EPOCH < FAR_FUTURE_EPOCH
       doAssert network.cfg.DENEB_FORK_EPOCH < FAR_FUTURE_EPOCH
       doAssert network.cfg.ELECTRA_FORK_EPOCH == FAR_FUTURE_EPOCH
       static: doAssert ConsensusFork.high == ConsensusFork.Deneb

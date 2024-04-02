@@ -853,6 +853,7 @@ publish-book: | book auditors-book
 		if [[ "$${CURRENT_BRANCH}" != "stable" && "$${CURRENT_BRANCH}" != "unstable" ]]; then \
 			echo -e "\nWarning: you're publishing the books from a branch that is neither 'stable' nor 'unstable'!\n"; \
 		fi
+	CURRENT_COMMIT="$$(git rev-parse --short HEAD)" && \
 	git branch -D gh-pages && \
 	git branch --track gh-pages origin/gh-pages && \
 	git worktree add tmp-book gh-pages && \
@@ -863,7 +864,7 @@ publish-book: | book auditors-book
 	cp -a docs/the_auditors_handbook/book/* tmp-book/auditors-book/ && \
 	cd tmp-book && \
 	git add . && { \
-		git commit -m "make publish-book $$(git rev-parse --short HEAD)" && \
+		git commit -m "make publish-book $${CURRENT_COMMIT}" && \
 		git push origin gh-pages || true; } && \
 	cd .. && \
 	git worktree remove -f tmp-book && \

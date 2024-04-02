@@ -5,6 +5,8 @@
 #   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
 # at your option. This file may not be copied, modified, or distributed except according to those terms.
 
+{.push raises: [].}
+
 # Everything needed to run a full Beacon Node
 
 import
@@ -87,7 +89,7 @@ type
     processor*: ref Eth2Processor
     blockProcessor*: ref BlockProcessor
     consensusManager*: ref ConsensusManager
-    attachedValidatorBalanceTotal*: uint64
+    attachedValidatorBalanceTotal*: Gwei
     gossipState*: GossipState
     blocksGossipState*: GossipState
     beaconClock*: BeaconClock
@@ -102,9 +104,6 @@ type
       ## Number of validators that we've checked for activation
     processingDelay*: Opt[Duration]
     lastValidAttestedBlock*: Opt[BlockSlot]
-
-const
-  MaxEmptySlotCount* = uint64(10*60) div SECONDS_PER_SLOT
 
 # TODO stew/sequtils2
 template findIt*(s: openArray, predicate: untyped): int =

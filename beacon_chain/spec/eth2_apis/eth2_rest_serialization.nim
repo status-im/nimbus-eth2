@@ -27,10 +27,10 @@ from ".."/datatypes/deneb import BeaconState
 export
   eth2_ssz_serialization, results, peerid, common, serialization, chronicles,
   json_serialization, net, sets, rest_types, slashing_protection_common,
-  jsonSerializationResults
+  jsonSerializationResults, rest_keymanager_types
 
-from web3/primitives import BlockHash
-export primitives.BlockHash
+from web3/primitives import BlockHash, BlockNumber
+export primitives.BlockHash, primitives.BlockNumber
 
 func decodeMediaType*(
     contentType: Opt[ContentTypeData]): Result[MediaType, string] =
@@ -67,6 +67,7 @@ RestJson.useDefaultSerializationFor(
   DenebSignedBlockContents,
   Deposit,
   DepositData,
+  DepositTreeSnapshot,
   DistributedKeystoreInfo,
   EmptyBody,
   Eth1Data,
@@ -84,7 +85,6 @@ RestJson.useDefaultSerializationFor(
   GetForkChoiceResponse,
   GetForkScheduleResponse,
   GetGenesisResponse,
-  GetHeaderResponseCapella,
   GetHeaderResponseDeneb,
   GetKeystoresResponse,
   GetNextWithdrawalsResponse,
@@ -109,6 +109,8 @@ RestJson.useDefaultSerializationFor(
   KeystoreInfo,
   ListFeeRecipientResponse,
   ListGasLimitResponse,
+  GetGraffitiResponse,
+  GraffitiResponse,
   PendingAttestation,
   PostKeystoresResponse,
   PrepareBeaconProposer,
@@ -126,7 +128,6 @@ RestJson.useDefaultSerializationFor(
   RestCommitteeSubscription,
   RestContributionAndProof,
   RestDepositContract,
-  RestDepositSnapshot,
   RestEpochRandao,
   RestEpochSyncCommittee,
   RestExecutionPayload,
@@ -162,13 +163,13 @@ RestJson.useDefaultSerializationFor(
   SPDIR_Validator,
   SetFeeRecipientRequest,
   SetGasLimitRequest,
+  SetGraffitiRequest,
   SignedAggregateAndProof,
   SignedBLSToExecutionChange,
   SignedBeaconBlockHeader,
   SignedContributionAndProof,
   SignedValidatorRegistrationV1,
   SignedVoluntaryExit,
-  SubmitBlindedBlockResponseCapella,
   SubmitBlindedBlockResponseDeneb,
   SyncAggregate,
   SyncAggregatorSelectionData,
@@ -221,9 +222,7 @@ RestJson.useDefaultSerializationFor(
   capella.SignedBeaconBlock,
   capella_mev.BlindedBeaconBlock,
   capella_mev.BlindedBeaconBlockBody,
-  capella_mev.BuilderBid,
   capella_mev.SignedBlindedBeaconBlock,
-  capella_mev.SignedBuilderBid,
   deneb.BeaconBlock,
   deneb.BeaconBlockBody,
   deneb.BeaconState,
@@ -318,7 +317,8 @@ type
     SignedValidatorRegistrationV1 |
     SignedVoluntaryExit |
     Web3SignerRequest |
-    RestNimbusTimestamp1
+    RestNimbusTimestamp1 |
+    SetGraffitiRequest
 
   EncodeOctetTypes* =
     altair.SignedBeaconBlock |
@@ -371,7 +371,8 @@ type
     SomeForkedLightClientObject |
     seq[SomeForkedLightClientObject] |
     RestNimbusTimestamp1 |
-    RestNimbusTimestamp2
+    RestNimbusTimestamp2 |
+    GetGraffitiResponse
 
   DecodeConsensysTypes* =
     ProduceBlockResponseV2 | ProduceBlindedBlockResponse
@@ -482,8 +483,6 @@ proc prepareJsonResponse*(t: typedesc[RestApiResponse], d: auto): seq[byte] =
         writer.writeField("data", d)
         writer.endRecord()
         stream.getOutput(seq[byte])
-      except SerializationError:
-        default
       except IOError:
         default
   res
@@ -503,8 +502,6 @@ proc prepareJsonStringResponse*[T: SomeForkedLightClientObject](
             writer.writeField("data", forkyObject)
             writer.endRecord()
         stream.getOutput(string)
-      except SerializationError:
-        default
       except IOError:
         default
   res
@@ -518,8 +515,6 @@ proc prepareJsonStringResponse*(t: typedesc[RestApiResponse], d: auto): string =
         var writer = JsonWriter[RestJson].init(stream)
         writer.writeValue(d)
         stream.getOutput(string)
-      except SerializationError:
-        default
       except IOError:
         default
   res
@@ -540,8 +535,6 @@ proc jsonResponseWRoot*(t: typedesc[RestApiResponse], data: auto,
         writer.writeField("data", data)
         writer.endRecord()
         stream.getOutput(seq[byte])
-      except SerializationError:
-        default
       except IOError:
         default
   RestApiResponse.response(res, Http200, "application/json")
@@ -557,8 +550,6 @@ proc jsonResponse*(t: typedesc[RestApiResponse], data: auto): RestApiResponse =
         writer.writeField("data", data)
         writer.endRecord()
         stream.getOutput(seq[byte])
-      except SerializationError:
-        default
       except IOError:
         default
   RestApiResponse.response(res, Http200, "application/json")
@@ -584,8 +575,6 @@ proc jsonResponseBlock*(t: typedesc[RestApiResponse],
           writer.writeField("data", data)
           writer.endRecord()
           stream.getOutput(seq[byte])
-        except SerializationError:
-          default
         except IOError:
           default
   RestApiResponse.response(res, Http200, "application/json", headers = headers)
@@ -611,8 +600,6 @@ proc jsonResponseBlock*(t: typedesc[RestApiResponse],
             writer.writeField("data", forkyBlck)
           writer.endRecord()
           stream.getOutput(seq[byte])
-        except SerializationError:
-          default
         except IOError:
           default
   RestApiResponse.response(res, Http200, "application/json", headers = headers)
@@ -636,8 +623,6 @@ proc jsonResponseState*(t: typedesc[RestApiResponse],
             writer.writeField("data", forkyState.data)
           writer.endRecord()
           stream.getOutput(seq[byte])
-        except SerializationError:
-          default
         except IOError:
           default
   RestApiResponse.response(res, Http200, "application/json", headers = headers)
@@ -656,8 +641,6 @@ proc jsonResponseWOpt*(t: typedesc[RestApiResponse], data: auto,
         writer.writeField("data", data)
         writer.endRecord()
         stream.getOutput(seq[byte])
-      except SerializationError:
-        default
       except IOError:
         default
   RestApiResponse.response(res, Http200, "application/json")
@@ -678,8 +661,6 @@ proc jsonResponseFinalized*(t: typedesc[RestApiResponse], data: auto,
         writer.writeField("data", data)
         writer.endRecord()
         stream.getOutput(seq[byte])
-      except SerializationError:
-        default
       except IOError:
         default
   RestApiResponse.response(res, Http200, "application/json")
@@ -699,8 +680,6 @@ proc jsonResponseWVersion*(t: typedesc[RestApiResponse], data: auto,
           writer.writeField("data", data)
           writer.endRecord()
           stream.getOutput(seq[byte])
-        except SerializationError:
-          default
         except IOError:
           default
   RestApiResponse.response(res, Http200, "application/json", headers = headers)
@@ -722,8 +701,6 @@ proc jsonResponseVersioned*[T: SomeForkedLightClientObject](
               writer.writeField("data", forkyObject)
               writer.endRecord()
         stream.getOutput(seq[byte])
-      except SerializationError:
-        default
       except IOError:
         default
   RestApiResponse.response(res, Http200, "application/json")
@@ -738,8 +715,6 @@ proc jsonResponsePlain*(t: typedesc[RestApiResponse],
         var writer = JsonWriter[RestJson].init(stream)
         writer.writeValue(data)
         stream.getOutput(seq[byte])
-      except SerializationError:
-        default
       except IOError:
         default
   RestApiResponse.response(res, Http200, "application/json")
@@ -754,8 +729,6 @@ proc jsonResponsePlain*(t: typedesc[RestApiResponse],
         var writer = JsonWriter[RestJson].init(stream)
         writer.writeValue(data)
         stream.getOutput(seq[byte])
-      except SerializationError:
-        default
       except IOError:
         default
   RestApiResponse.response(res, Http200, "application/json", headers = headers)
@@ -773,8 +746,6 @@ proc jsonResponseWMeta*(t: typedesc[RestApiResponse],
         writer.writeField("meta", meta)
         writer.endRecord()
         stream.getOutput(seq[byte])
-      except SerializationError:
-        default
       except IOError:
         default
   RestApiResponse.response(res, Http200, "application/json")
@@ -792,8 +763,6 @@ proc jsonMsgResponse*(t: typedesc[RestApiResponse],
         writer.writeField("message", msg)
         writer.endRecord()
         stream.getOutput(seq[byte])
-      except SerializationError:
-        default
       except IOError:
         default
   RestApiResponse.response(data, Http200, "application/json")
@@ -811,8 +780,6 @@ proc jsonError*(t: typedesc[RestApiResponse], status: HttpCode = Http200,
         writer.writeField("message", msg)
         writer.endRecord()
         stream.getOutput(string)
-      except SerializationError:
-        default
       except IOError:
         default
   RestApiResponse.error(status, data, "application/json")
@@ -832,8 +799,6 @@ proc jsonError*(t: typedesc[RestApiResponse], status: HttpCode = Http200,
           writer.writeField("stacktraces", [stacktrace])
         writer.endRecord()
         stream.getOutput(string)
-      except SerializationError:
-        default
       except IOError:
         default
   RestApiResponse.error(status, data, "application/json")
@@ -853,8 +818,6 @@ proc jsonError*(t: typedesc[RestApiResponse], status: HttpCode = Http200,
         writer.writeField("stacktraces", stacktraces)
         writer.endRecord()
         stream.getOutput(string)
-      except SerializationError:
-        default
       except IOError:
         default
   RestApiResponse.error(status, data, "application/json")
@@ -874,8 +837,6 @@ proc jsonError*(t: typedesc[RestApiResponse],
           writer.writeField("stacktraces", rmsg.stacktraces)
         writer.endRecord()
         stream.getOutput(string)
-      except SerializationError:
-        default
       except IOError:
         default
   RestApiResponse.error(rmsg.code.toHttpCode().get(), data, "application/json")
@@ -895,8 +856,6 @@ proc jsonErrorList*(t: typedesc[RestApiResponse],
         writer.writeField("failures", failures)
         writer.endRecord()
         stream.getOutput(string)
-      except SerializationError:
-        default
       except IOError:
         default
   RestApiResponse.error(status, data, "application/json")
@@ -919,8 +878,6 @@ proc sszResponseVersioned*[T: SomeForkedLightClientObject](
               writer.writeValue forkyUpdate
               cursor.finalWrite (stream.pos - initPos).uint64.toBytesLE()
         stream.getOutput(seq[byte])
-      except SerializationError:
-        default
       except IOError:
         default
   RestApiResponse.response(res, Http200, "application/octet-stream")
@@ -942,8 +899,6 @@ proc sszResponse*(t: typedesc[RestApiResponse], data: auto,
         var writer = SszWriter.init(stream)
         writer.writeValue(data)
         stream.getOutput(seq[byte])
-      except SerializationError:
-        default
       except IOError:
         default
   RestApiResponse.response(res, Http200, "application/octet-stream",
@@ -959,8 +914,6 @@ proc sszResponse*(t: typedesc[RestApiResponse], data: auto,
         var writer = SszWriter.init(stream)
         writer.writeValue(data)
         stream.getOutput(seq[byte])
-      except SerializationError:
-        default
       except IOError:
         default
   RestApiResponse.response(res, Http200, "application/octet-stream",
@@ -1006,6 +959,16 @@ proc readValue*(reader: var JsonReader[RestJson], value: var uint8) {.
   else:
     reader.raiseUnexpectedValue($res.error() & ": " & svalue)
 
+## BlockNumber
+proc writeValue*(
+    w: var JsonWriter[RestJson], value: BlockNumber) {.raises: [IOError].} =
+  w.writeValue(distinctBase(value))
+
+proc readValue*(
+    reader: var JsonReader[RestJson],
+    value: var BlockNumber) {.raises: [IOError, SerializationError].} =
+  reader.readValue(distinctBase(value))
+
 ## RestNumeric
 proc writeValue*(w: var JsonWriter[RestJson],
                  value: RestNumeric) {.raises: [IOError].} =
@@ -1044,6 +1007,16 @@ proc readValue*(reader: var JsonReader[RestJson], value: var UInt256) {.
   except ValueError:
     raiseUnexpectedValue(reader,
                          "UInt256 value should be a valid decimal string")
+
+## Gwei
+proc writeValue*(
+    writer: var JsonWriter[RestJson], value: Gwei) {.raises: [IOError].} =
+  writer.writeValue(distinctBase(value))
+
+proc readValue*(
+    reader: var JsonReader[RestJson],
+    value: var Gwei) {.raises: [IOError, SerializationError].} =
+  reader.readValue(distinctBase(value))
 
 ## Slot
 proc writeValue*(
@@ -1417,18 +1390,8 @@ template prepareForkedBlockReading(blockType: typedesc,
         reader.raiseUnexpectedField("Multiple version fields found",
                                     blockType.name)
       let vres = reader.readValue(string).toLowerAscii()
-      case vres
-      of "phase0":
-        version = Opt.some(ConsensusFork.Phase0)
-      of "altair":
-        version = Opt.some(ConsensusFork.Altair)
-      of "bellatrix":
-        version = Opt.some(ConsensusFork.Bellatrix)
-      of "capella":
-        version = Opt.some(ConsensusFork.Capella)
-      of "deneb":
-        version = Opt.some(ConsensusFork.Deneb)
-      else:
+      version = ConsensusFork.init(vres)
+      if version.isNone():
         reader.raiseUnexpectedValue("Incorrect version field value")
     of "data":
       when (blockType is ProduceBlockResponseV2) or
@@ -1497,68 +1460,62 @@ proc readValue*[BlockType: ProduceBlockResponseV2](
   of ConsensusFork.Phase0:
     let res =
       try:
-        Opt.some(RestJson.decode(string(data.get()),
-                                 phase0.BeaconBlock,
-                                 requireAllFields = true,
-                                 allowUnknownFields = true))
+        RestJson.decode(string(data.get()),
+                        phase0.BeaconBlock,
+                        requireAllFields = true,
+                        allowUnknownFields = true)
       except SerializationError:
-        Opt.none(phase0.BeaconBlock)
-    if res.isNone():
-      reader.raiseUnexpectedValue("Incorrect phase0 block format")
+        reader.raiseUnexpectedValue("Incorrect phase0 block format")
     value = ProduceBlockResponseV2(kind: ConsensusFork.Phase0,
-                                   phase0Data: res.get())
+                                   phase0Data: res)
   of ConsensusFork.Altair:
     let res =
       try:
-        Opt.some(RestJson.decode(string(data.get()),
-                                 altair.BeaconBlock,
-                                 requireAllFields = true,
-                                 allowUnknownFields = true))
+        RestJson.decode(string(data.get()),
+                        altair.BeaconBlock,
+                        requireAllFields = true,
+                        allowUnknownFields = true)
       except SerializationError:
-        Opt.none(altair.BeaconBlock)
-    if res.isNone():
-      reader.raiseUnexpectedValue("Incorrect altair block format")
+        reader.raiseUnexpectedValue("Incorrect altair block format")
+
     value = ProduceBlockResponseV2(kind: ConsensusFork.Altair,
-                                   altairData: res.get())
+                                   altairData: res)
   of ConsensusFork.Bellatrix:
     let res =
       try:
-        Opt.some(RestJson.decode(string(data.get()),
-                                 bellatrix.BeaconBlock,
-                                 requireAllFields = true,
-                                 allowUnknownFields = true))
+        RestJson.decode(string(data.get()),
+                        bellatrix.BeaconBlock,
+                        requireAllFields = true,
+                        allowUnknownFields = true)
       except SerializationError:
-        Opt.none(bellatrix.BeaconBlock)
-    if res.isNone():
-      reader.raiseUnexpectedValue("Incorrect bellatrix block format")
+        reader.raiseUnexpectedValue("Incorrect bellatrix block format")
+
     value = ProduceBlockResponseV2(kind: ConsensusFork.Bellatrix,
-                                   bellatrixData: res.get())
+                                   bellatrixData: res)
   of ConsensusFork.Capella:
     let res =
       try:
-        Opt.some(RestJson.decode(string(data.get()),
-                                 capella.BeaconBlock,
-                                 requireAllFields = true,
-                                 allowUnknownFields = true))
+        RestJson.decode(string(data.get()),
+                        capella.BeaconBlock,
+                        requireAllFields = true,
+                        allowUnknownFields = true)
       except SerializationError:
-        Opt.none(capella.BeaconBlock)
-    if res.isNone():
-      reader.raiseUnexpectedValue("Incorrect capella block format")
+        reader.raiseUnexpectedValue("Incorrect capella block format")
+
     value = ProduceBlockResponseV2(kind: ConsensusFork.Capella,
-                                   capellaData: res.get())
+                                   capellaData: res)
   of ConsensusFork.Deneb:
     let res =
       try:
-        Opt.some(RestJson.decode(string(data.get()),
-                                 deneb.BlockContents,
-                                 requireAllFields = true,
-                                 allowUnknownFields = true))
+        RestJson.decode(string(data.get()),
+                        deneb.BlockContents,
+                        requireAllFields = true,
+                        allowUnknownFields = true)
       except SerializationError:
-        Opt.none(deneb.BlockContents)
-    if res.isNone():
-      reader.raiseUnexpectedValue("Incorrect deneb block format")
+        reader.raiseUnexpectedValue("Incorrect deneb block format")
+
     value = ProduceBlockResponseV2(kind: ConsensusFork.Deneb,
-                                   denebData: res.get())
+                                   denebData: res)
 
 proc readValue*[BlockType: ForkedBlindedBeaconBlock](
        reader: var JsonReader[RestJson],
@@ -1585,6 +1542,7 @@ proc readValue*[BlockType: ForkedBlindedBeaconBlock](
       except SerializationError as exc:
         reader.raiseUnexpectedValue("Incorrect phase0 block format, [" &
                                     exc.formatMsg("BlindedBlock") & "]")
+
     value = ForkedBlindedBeaconBlock(kind: ConsensusFork.Phase0,
                                      phase0Data: res)
   of ConsensusFork.Altair:
@@ -1639,20 +1597,20 @@ proc readValue*[BlockType: Web3SignerForkedBeaconBlock](
   prepareForkedBlockReading(BlockType, reader, version, data, blinded,
                             payloadValue, blockValue)
 
-  let res =
-    try:
-      Opt.some(RestJson.decode(string(data.get()),
-                               BeaconBlockHeader,
-                               requireAllFields = true,
-                               allowUnknownFields = true))
-    except SerializationError:
-      Opt.none(BeaconBlockHeader)
-  if res.isNone():
-    reader.raiseUnexpectedValue("Incorrect block header format")
   if version.get() <= ConsensusFork.Altair:
     reader.raiseUnexpectedValue(
       "Web3Signer implementation supports Bellatrix and newer")
-  value = Web3SignerForkedBeaconBlock(kind: version.get(), data: res.get())
+
+  let res =
+    try:
+      RestJson.decode(string(data.get()),
+                      BeaconBlockHeader,
+                      requireAllFields = true,
+                      allowUnknownFields = true)
+    except SerializationError:
+      reader.raiseUnexpectedValue("Incorrect block header format")
+
+  value = Web3SignerForkedBeaconBlock(kind: version.get(), data: res)
 
 proc writeValue*[BlockType: Web3SignerForkedBeaconBlock](
     writer: var JsonWriter[RestJson], value: BlockType) {.raises: [IOError].} =
@@ -2289,63 +2247,58 @@ proc readValue*(reader: var JsonReader[RestJson],
   of ConsensusFork.Phase0:
     let res =
       try:
-        Opt.some(RestJson.decode(string(data.get()),
-                                 phase0.SignedBeaconBlock,
-                                 requireAllFields = true,
-                                 allowUnknownFields = true))
+        RestJson.decode(string(data.get()),
+                        phase0.SignedBeaconBlock,
+                        requireAllFields = true,
+                        allowUnknownFields = true)
       except SerializationError:
-        Opt.none(phase0.SignedBeaconBlock)
-    if res.isNone():
-      reader.raiseUnexpectedValue("Incorrect phase0 block format")
-    value = ForkedSignedBeaconBlock.init(res.get())
+        reader.raiseUnexpectedValue("Incorrect phase0 block format")
+
+    value = ForkedSignedBeaconBlock.init(res)
   of ConsensusFork.Altair:
     let res =
       try:
-        Opt.some(RestJson.decode(string(data.get()),
-                                 altair.SignedBeaconBlock,
-                                 requireAllFields = true,
-                                 allowUnknownFields = true))
+        RestJson.decode(string(data.get()),
+                        altair.SignedBeaconBlock,
+                        requireAllFields = true,
+                        allowUnknownFields = true)
       except SerializationError:
-        Opt.none(altair.SignedBeaconBlock)
-    if res.isNone():
-      reader.raiseUnexpectedValue("Incorrect altair block format")
-    value = ForkedSignedBeaconBlock.init(res.get())
+        reader.raiseUnexpectedValue("Incorrect altair block format")
+
+    value = ForkedSignedBeaconBlock.init(res)
   of ConsensusFork.Bellatrix:
     let res =
       try:
-        Opt.some(RestJson.decode(string(data.get()),
-                                 bellatrix.SignedBeaconBlock,
-                                 requireAllFields = true,
-                                 allowUnknownFields = true))
+        RestJson.decode(string(data.get()),
+                        bellatrix.SignedBeaconBlock,
+                        requireAllFields = true,
+                        allowUnknownFields = true)
       except SerializationError:
-        Opt.none(bellatrix.SignedBeaconBlock)
-    if res.isNone():
-      reader.raiseUnexpectedValue("Incorrect bellatrix block format")
-    value = ForkedSignedBeaconBlock.init(res.get())
+        reader.raiseUnexpectedValue("Incorrect bellatrix block format")
+
+    value = ForkedSignedBeaconBlock.init(res)
   of ConsensusFork.Capella:
     let res =
       try:
-        Opt.some(RestJson.decode(string(data.get()),
-                                 capella.SignedBeaconBlock,
-                                 requireAllFields = true,
-                                 allowUnknownFields = true))
+        RestJson.decode(string(data.get()),
+                        capella.SignedBeaconBlock,
+                        requireAllFields = true,
+                        allowUnknownFields = true)
       except SerializationError:
-        Opt.none(capella.SignedBeaconBlock)
-    if res.isNone():
-      reader.raiseUnexpectedValue("Incorrect capella block format")
-    value = ForkedSignedBeaconBlock.init(res.get())
+        reader.raiseUnexpectedValue("Incorrect capella block format")
+
+    value = ForkedSignedBeaconBlock.init(res)
   of ConsensusFork.Deneb:
     let res =
       try:
-        Opt.some(RestJson.decode(string(data.get()),
-                                 deneb.SignedBeaconBlock,
-                                 requireAllFields = true,
-                                 allowUnknownFields = true))
+        RestJson.decode(string(data.get()),
+                        deneb.SignedBeaconBlock,
+                        requireAllFields = true,
+                        allowUnknownFields = true)
       except SerializationError:
-        Opt.none(deneb.SignedBeaconBlock)
-    if res.isNone():
-      reader.raiseUnexpectedValue("Incorrect deneb block format")
-    value = ForkedSignedBeaconBlock.init(res.get())
+        reader.raiseUnexpectedValue("Incorrect deneb block format")
+
+    value = ForkedSignedBeaconBlock.init(res)
   withBlck(value):
     forkyBlck.root = hash_tree_root(forkyBlck.message)
 
@@ -3478,6 +3431,18 @@ proc parseRoot(value: string): Result[Eth2Digest, cstring] =
     ok(Eth2Digest(data: hexToByteArray[32](value)))
   except ValueError:
     err("Unable to decode root value")
+
+## GraffitiString
+proc writeValue*(writer: var JsonWriter[RestJson], value: GraffitiString) {.
+     raises: [IOError].} =
+  writeValue(writer, $value)
+
+proc readValue*(reader: var JsonReader[RestJson], T: type GraffitiString): T {.
+     raises: [IOError, SerializationError].} =
+  let res = init(GraffitiString, reader.readValue(string))
+  if res.isErr():
+    reader.raiseUnexpectedValue res.error
+  res.get
 
 proc decodeBody*(
        t: typedesc[RestPublishedSignedBeaconBlock],
