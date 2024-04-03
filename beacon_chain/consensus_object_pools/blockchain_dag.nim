@@ -1276,7 +1276,7 @@ proc init*(T: type ChainDAGRef, cfg: RuntimeConfig, db: BeaconChainDB,
         # If we end up in here, we failed the root comparison just below in
         # an earlier iteration
         fatal "Era summaries don't lead up to backfill, database or era files corrupt?",
-          bid
+          bid, backfillSlot
         quit 1
 
       # In BeaconState.block_roots, empty slots are filled with the root of
@@ -1299,7 +1299,7 @@ proc init*(T: type ChainDAGRef, cfg: RuntimeConfig, db: BeaconChainDB,
       blocks += 1
 
     if blocks > 0:
-      info "Front-filled blocks from era files", blocks
+      info "Front-filled blocks from era files", blocks, backfillSlot
 
   let frontfillTick = Moment.now()
 
