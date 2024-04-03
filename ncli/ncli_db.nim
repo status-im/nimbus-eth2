@@ -266,6 +266,9 @@ proc cmdBench(conf: DbConf, cfg: RuntimeConfig) =
       of ConsensusFork.Deneb:
         blocks[4].add dag.db.getBlock(
           blck.root, deneb.TrustedSignedBeaconBlock).get()
+      of ConsensusFork.Electra:
+        debugRaiseAssert ""
+        let x = 5
 
   let stateData = newClone(dag.headState)
 
@@ -338,6 +341,9 @@ proc cmdBench(conf: DbConf, cfg: RuntimeConfig) =
               of ConsensusFork.Deneb:
                 doAssert dbBenchmark.getState(
                   forkyState.root, loadedState[4][].data, noRollback)
+              of ConsensusFork.Electra:
+                debugRaiseAssert ""
+                let x = 5
 
             if forkyState.data.slot.epoch mod 16 == 0:
               let loadedRoot = case consensusFork
@@ -346,6 +352,9 @@ proc cmdBench(conf: DbConf, cfg: RuntimeConfig) =
                 of ConsensusFork.Bellatrix: hash_tree_root(loadedState[2][].data)
                 of ConsensusFork.Capella:   hash_tree_root(loadedState[3][].data)
                 of ConsensusFork.Deneb:     hash_tree_root(loadedState[4][].data)
+                of ConsensusFork.Electra:
+                  debugRaiseAssert ""
+                  ZERO_HASH
               doAssert hash_tree_root(forkyState.data) == loadedRoot
 
   processBlocks(blocks[0])

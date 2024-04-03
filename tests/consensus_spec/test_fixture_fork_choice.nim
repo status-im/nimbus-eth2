@@ -123,29 +123,32 @@ proc loadOps(
       let filename = step["block"].getStr()
       doAssert step.hasKey"blobs" == step.hasKey"proofs"
       withConsensusFork(fork):
-        let
-          blck = parseTest(
-            path/filename & ".ssz_snappy",
-            SSZ, consensusFork.SignedBeaconBlock)
+        when consensusFork != ConsensusFork.Electra:
+          let
+            blck = parseTest(
+              path/filename & ".ssz_snappy",
+              SSZ, consensusFork.SignedBeaconBlock)
 
-          blobData =
-            when consensusFork >= ConsensusFork.Deneb:
-              if step.hasKey"blobs":
-                numExtraFields += 2
-                Opt.some BlobData(
-                  blobs: distinctBase(parseTest(
-                    path/(step["blobs"].getStr()) & ".ssz_snappy",
-                    SSZ, List[KzgBlob, Limit MAX_BLOBS_PER_BLOCK])),
-                  proofs: step["proofs"].mapIt(KzgProof.fromHex(it.getStr())))
+            blobData =
+              when consensusFork >= ConsensusFork.Electra:
+                debugRaiseAssert "no electra support in fc test"
+              elif consensusFork >= ConsensusFork.Deneb:
+                if step.hasKey"blobs":
+                  numExtraFields += 2
+                  Opt.some BlobData(
+                    blobs: distinctBase(parseTest(
+                      path/(step["blobs"].getStr()) & ".ssz_snappy",
+                      SSZ, List[KzgBlob, Limit MAX_BLOBS_PER_BLOCK])),
+                    proofs: step["proofs"].mapIt(KzgProof.fromHex(it.getStr())))
+                else:
+                  Opt.none(BlobData)
               else:
+                doAssert not step.hasKey"blobs"
                 Opt.none(BlobData)
-            else:
-              doAssert not step.hasKey"blobs"
-              Opt.none(BlobData)
 
-        result.add Operation(kind: opOnBlock,
-          blck: ForkedSignedBeaconBlock.init(blck),
-          blobData: blobData)
+          result.add Operation(kind: opOnBlock,
+            blck: ForkedSignedBeaconBlock.init(blck),
+            blobData: blobData)
     elif step.hasKey"attester_slashing":
       let filename = step["attester_slashing"].getStr()
       let attesterSlashing = parseTest(
@@ -302,8 +305,13 @@ proc doRunTest(
 
   let
     stores = withConsensusFork(fork):
-      initialLoad(
-        path, db, consensusFork.BeaconState, consensusFork.BeaconBlock)
+      when consensusFork != ConsensusFork.Electra:
+        # another withFoo when it statically knows, sure, ok, so this means another place it has to be disabled
+        initialLoad(
+          path, db, consensusFork.BeaconState, consensusFork.BeaconBlock)
+      else:
+        debugRaiseAssert "electra etc"
+        default(tuple[dag: ChainDAGRef, fkChoice: ref ForkChoice])
 
     rng = HmacDrbgContext.new()
     taskpool =
@@ -335,11 +343,13 @@ proc doRunTest(
       doAssert status.isOk == step.valid
     of opOnBlock:
       withBlck(step.blck):
-        let status = stepOnBlock(
-          stores.dag, stores.fkChoice,
-          verifier, state[], stateCache,
-          forkyBlck, step.blobData, time, invalidatedHashes)
-        doAssert status.isOk == step.valid
+        debugRaiseAssert "electra etc"
+        when typeof(forkyBlck).kind != ConsensusFork.Electra:
+          let status = stepOnBlock(
+            stores.dag, stores.fkChoice,
+            verifier, state[], stateCache,
+            forkyBlck, step.blobData, time, invalidatedHashes)
+          doAssert status.isOk == step.valid
     of opOnAttesterSlashing:
       let indices =
         check_attester_slashing(state[], step.attesterSlashing, flags = {})
@@ -396,12 +406,14 @@ template fcSuite(suiteName: static[string], testPathElem: static[string]) =
         continue
       let fork = forkForPathComponent(path).valueOr:
         raiseAssert "Unknown test fork: " & testsPath
-      for kind, path in walkDir(testsPath, relative = true, checkDir = true):
-        let basePath = testsPath/path/"pyspec_tests"
-        if kind != pcDir:
-          continue
-        for kind, path in walkDir(basePath, relative = true, checkDir = true):
-          runTest(suiteName, basePath/path, fork)
+      if true:
+        debugRaiseAssert "no electra in fc tests"
+        for kind, path in walkDir(testsPath, relative = true, checkDir = true):
+          let basePath = testsPath/path/"pyspec_tests"
+          if kind != pcDir:
+            continue
+          for kind, path in walkDir(basePath, relative = true, checkDir = true):
+            runTest(suiteName, basePath/path, fork)
 
 from ../../beacon_chain/conf import loadKzgTrustedSetup
 discard loadKzgTrustedSetup()  # Required for Deneb tests

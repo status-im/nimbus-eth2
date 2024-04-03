@@ -421,6 +421,9 @@ proc getExecutionPayload(
       PayloadType, beaconHead.blck.bid.root, executionHead, latestSafe,
       latestFinalized, timestamp, random, feeRecipient, withdrawals)
 
+# BlockRewards has issues resolving somehow otherwise
+import ".."/spec/state_transition_block
+
 proc makeBeaconBlockForHeadAndSlot*(
     PayloadType: type ForkyExecutionPayloadForSigning,
     node: BeaconNode, randao_reveal: ValidatorSig,
@@ -1195,7 +1198,10 @@ proc proposeBlock(node: BeaconNode,
         genesis_validators_root, node.config.localBlockValueBoost)
 
   return withConsensusFork(node.dag.cfg.consensusForkAtEpoch(slot.epoch)):
-    when consensusFork >= ConsensusFork.Deneb:
+    when consensusFork >= ConsensusFork.Electra:
+      debugRaiseAssert "can't propose electra block"
+      return default(BlockRef)
+    elif consensusFork >= ConsensusFork.Deneb:
       proposeBlockContinuation(
         consensusFork.SignedBlindedBeaconBlock,
         consensusFork.ExecutionPayloadForSigning)

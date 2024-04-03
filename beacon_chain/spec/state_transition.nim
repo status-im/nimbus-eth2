@@ -295,7 +295,10 @@ proc state_transition_block*(
   doAssert not rollback.isNil, "use noRollback if it's ok to mess up state"
 
   let res = withState(state):
-    when consensusFork == type(signedBlock).kind:
+    when consensusFork == ConsensusFork.Electra:
+      debugRaiseAssert "electra state_transition_block"
+      err("no")
+    elif consensusFork == type(signedBlock).kind:
       state_transition_block_aux(cfg, forkyState, signedBlock, cache, flags)
     else:
       err("State/block fork mismatch")
@@ -457,6 +460,8 @@ proc makeBeaconBlockWithRewards*(
             ])
           else:
             raiseAssert "Attempt to use non-Deneb payload with post-Deneb state"
+        elif consensusFork == ConsensusFork.Electra:
+          debugRaiseAssert "makeBeaconBlock doesn't support Electra"
         else:
           static: raiseAssert "Unreachable"
 
@@ -480,6 +485,8 @@ proc makeBeaconBlockWithRewards*(
     case state.kind
     of ConsensusFork.Deneb:     makeBeaconBlock(deneb)
     else: raiseAssert "Attempt to use Deneb payload with non-Deneb state"
+  elif payloadFork == ConsensusFork.Electra:
+    debugRaiseAssert "Electra block production missing"
   else:
     {.error: "Unsupported fork".}
 

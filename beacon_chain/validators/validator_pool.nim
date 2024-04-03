@@ -535,7 +535,8 @@ proc getBlockSignature*(v: AttachedValidator, fork: Fork,
     let web3signerRequest =
       when blck is ForkedBlindedBeaconBlock:
         case blck.kind
-        of ConsensusFork.Phase0 .. ConsensusFork.Capella:
+        of ConsensusFork.Phase0 .. ConsensusFork.Capella, ConsensusFork.Electra:
+          debugRaiseAssert "move electra case out"
           return SignatureResult.err("Invalid blinded beacon block fork")
         of ConsensusFork.Deneb:
           case v.data.remoteType
@@ -613,6 +614,9 @@ proc getBlockSignature*(v: AttachedValidator, fork: Fork,
                   Web3SignerForkedBeaconBlock(kind: ConsensusFork.Deneb,
                     data: forkyMaybeBlindedBlck.`block`.toBeaconBlockHeader),
                       proofs)
+          elif consensusFork == ConsensusFork.Electra:
+            debugRaiseAssert ""
+            default(Web3SignerRequest)
       else:
         case blck.kind
         of ConsensusFork.Phase0 .. ConsensusFork.Bellatrix:
@@ -643,6 +647,9 @@ proc getBlockSignature*(v: AttachedValidator, fork: Fork,
               Web3SignerForkedBeaconBlock(kind: ConsensusFork.Deneb,
                 data: blck.denebData.toBeaconBlockHeader),
               proofs)
+        of ConsensusFork.Electra:
+          debugRaiseAssert "validator pool"
+          return SignatureResult.err("Invalid beacon block fork: electra")
     await v.signData(web3signerRequest)
 
 # https://github.com/ethereum/consensus-specs/blob/v1.4.0/specs/phase0/validator.md#aggregate-signature

@@ -73,7 +73,7 @@ proc getTestStates*(
     info = ForkedEpochInfo()
     cfg = defaultRuntimeConfig
 
-  static: doAssert high(ConsensusFork) == ConsensusFork.Deneb
+  static: doAssert high(ConsensusFork) == ConsensusFork.Electra
   if consensusFork >= ConsensusFork.Altair:
     cfg.ALTAIR_FORK_EPOCH = 1.Epoch
   if consensusFork >= ConsensusFork.Bellatrix:
@@ -82,6 +82,8 @@ proc getTestStates*(
     cfg.CAPELLA_FORK_EPOCH = 3.Epoch
   if consensusFork >= ConsensusFork.Deneb:
     cfg.DENEB_FORK_EPOCH = 4.Epoch
+
+  debugRaiseAssert "ELECTRA_FORK_EPOCH"
 
   for i, epoch in stateEpochs:
     let slot = epoch.Epoch.start_slot
