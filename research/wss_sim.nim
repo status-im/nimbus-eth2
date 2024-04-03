@@ -221,6 +221,9 @@ cli do(validatorsDir: string, secretsDir: string,
               fork, genesis_validators_root, slot, blockRoot,
               validators[proposer]).toValidatorSig())
           dump(".", signedBlock)
+        of ConsensusFork.Electra:
+          debugRaiseAssert ""
+          let x  =5
       except CatchableError:
         raiseAssert "unreachable"
       notice "Block proposed", message, blockRoot

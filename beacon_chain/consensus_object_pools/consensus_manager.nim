@@ -370,34 +370,38 @@ proc runProposalForkchoiceUpdated*(
   let safeBlockHash = beaconHead.safeExecutionBlockHash
 
   withState(self.dag.headState):
-    template callForkchoiceUpdated(fcPayloadAttributes: auto) =
-      let (status, _) = await self.elManager.forkchoiceUpdated(
-        headBlockHash, safeBlockHash,
-        beaconHead.finalizedExecutionBlockHash,
-        payloadAttributes = some fcPayloadAttributes)
-      debug "Fork-choice updated for proposal", status
+    debugRaiseAssert "foo"
+    when consensusFork != ConsensusFork.Electra:
+      template callForkchoiceUpdated(fcPayloadAttributes: auto) =
+        let (status, _) = await self.elManager.forkchoiceUpdated(
+          headBlockHash, safeBlockHash,
+          beaconHead.finalizedExecutionBlockHash,
+          payloadAttributes = some fcPayloadAttributes)
+        debug "Fork-choice updated for proposal", status
 
-    static: doAssert high(ConsensusFork) == ConsensusFork.Deneb
-    when consensusFork >= ConsensusFork.Deneb:
-      callForkchoiceUpdated(PayloadAttributesV3(
-        timestamp: Quantity timestamp,
-        prevRandao: FixedBytes[32] randomData,
-        suggestedFeeRecipient: feeRecipient,
-        withdrawals:
-          toEngineWithdrawals get_expected_withdrawals(forkyState.data),
-        parentBeaconBlockRoot: beaconHead.blck.bid.root.asBlockHash))
-    elif consensusFork >= ConsensusFork.Capella:
-      callForkchoiceUpdated(PayloadAttributesV2(
-        timestamp: Quantity timestamp,
-        prevRandao: FixedBytes[32] randomData,
-        suggestedFeeRecipient: feeRecipient,
-        withdrawals:
-          toEngineWithdrawals get_expected_withdrawals(forkyState.data)))
-    else:
-      callForkchoiceUpdated(PayloadAttributesV1(
-        timestamp: Quantity timestamp,
-        prevRandao: FixedBytes[32] randomData,
-        suggestedFeeRecipient: feeRecipient))
+      static: doAssert high(ConsensusFork) == ConsensusFork.Electra
+      when consensusFork >= ConsensusFork.Electra:
+        debugRaiseAssert "foobar"
+      elif consensusFork >= ConsensusFork.Deneb:
+        callForkchoiceUpdated(PayloadAttributesV3(
+          timestamp: Quantity timestamp,
+          prevRandao: FixedBytes[32] randomData,
+          suggestedFeeRecipient: feeRecipient,
+          withdrawals:
+            toEngineWithdrawals get_expected_withdrawals(forkyState.data),
+          parentBeaconBlockRoot: beaconHead.blck.bid.root.asBlockHash))
+      elif consensusFork >= ConsensusFork.Capella:
+        callForkchoiceUpdated(PayloadAttributesV2(
+          timestamp: Quantity timestamp,
+          prevRandao: FixedBytes[32] randomData,
+          suggestedFeeRecipient: feeRecipient,
+          withdrawals:
+            toEngineWithdrawals get_expected_withdrawals(forkyState.data)))
+      else:
+        callForkchoiceUpdated(PayloadAttributesV1(
+          timestamp: Quantity timestamp,
+          prevRandao: FixedBytes[32] randomData,
+          suggestedFeeRecipient: feeRecipient))
 
   ok()
 

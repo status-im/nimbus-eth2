@@ -198,7 +198,8 @@ type
   SomeEnginePayloadWithValue =
     BellatrixExecutionPayloadWithValue |
     GetPayloadV2Response |
-    GetPayloadV3Response
+    GetPayloadV3Response |
+    GetPayloadV4Response
 
 declareCounter failed_web3_requests,
   "Failed web3 requests"
@@ -530,6 +531,11 @@ func asConsensusType*(rpcExecutionPayload: ExecutionPayloadV4):
       List[electra.ExecutionLayerExit, MAX_EXECUTION_LAYER_EXITS_PER_PAYLOAD].init(
         mapIt(rpcExecutionPayload.exits, it.getExecutionLayerExit)))
 
+func asConsensusType*(payload: engine_api.GetPayloadV4Response):
+    electra.ExecutionPayloadForSigning =
+  debugRaiseAssert "well, not empty maybe"
+  default(electra.ExecutionPayloadForSigning)
+
 func asEngineExecutionPayload*(executionPayload: bellatrix.ExecutionPayload):
     ExecutionPayloadV1 =
   template getTypedTransaction(tt: bellatrix.Transaction): TypedTransaction =
@@ -804,6 +810,9 @@ proc getPayloadFromSingleEL(
             suggestedFeeRecipient: suggestedFeeRecipient,
             withdrawals: withdrawals,
             parentBeaconBlockRoot: consensusHead.asBlockHash))
+      elif GetPayloadResponseType is engine_api.GetPayloadV4Response:
+        debugRaiseAssert "electra"
+        let response = default(ForkchoiceUpdatedResponse)
       else:
         static: doAssert false
 
@@ -824,6 +833,9 @@ proc getPayloadFromSingleEL(
     return BellatrixExecutionPayloadWithValue(
       executionPayload: payload,
       blockValue: computeBlockValue payload)
+  elif GetPayloadResponseType is engine_api.GetPayloadV4Response:
+    debugRaiseAssert "foo"
+    return default(engine_api.GetPayloadV4Response)
   else:
     return await engine_api.getPayload(rpcClient, GetPayloadResponseType, payloadId)
 
@@ -838,6 +850,9 @@ template EngineApiResponseType*(T: type capella.ExecutionPayloadForSigning): typ
 
 template EngineApiResponseType*(T: type deneb.ExecutionPayloadForSigning): type =
   engine_api.GetPayloadV3Response
+
+template EngineApiResponseType*(T: type electra.ExecutionPayloadForSigning): type =
+  engine_api.GetPayloadV4Response
 
 template toEngineWithdrawals*(withdrawals: seq[capella.Withdrawal]): seq[WithdrawalV1] =
   mapIt(withdrawals, toEngineWithdrawal(it))
@@ -1150,6 +1165,9 @@ proc sendNewPayload*(m: ELManager, blck: SomeForkyBeaconBlock):
         elif payload is engine_api.ExecutionPayloadV1 or
              payload is engine_api.ExecutionPayloadV2:
           sendNewPayloadToSingleEL(it, payload)
+        elif payload is engine_api.ExecutionPayloadV4:
+          debugRaiseAssert "similar to V3 case, check for details"
+          default(Future[PayloadStatusV1])
         else:
           static: doAssert false
       trackEngineApiRequest(it, req, "newPayload", startTime, deadline)

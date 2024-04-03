@@ -341,6 +341,7 @@ type
     of ConsensusFork.Bellatrix: bellatrixData*: bellatrix.SignedBeaconBlock
     of ConsensusFork.Capella:   capellaData*:   capella.SignedBeaconBlock
     of ConsensusFork.Deneb:     denebData*:     DenebSignedBlockContents
+    of ConsensusFork.Electra:   electraData*:   ElectraSignedBlockContents
 
   RestPublishedBeaconBlock* = distinct ForkedBeaconBlock
 
@@ -351,6 +352,7 @@ type
     of ConsensusFork.Bellatrix: bellatrixBody*: bellatrix.BeaconBlockBody
     of ConsensusFork.Capella:   capellaBody*:   capella.BeaconBlockBody
     of ConsensusFork.Deneb:     denebBody*:     deneb.BeaconBlockBody
+    of ConsensusFork.Electra:   electraBody*:   electra.BeaconBlockBody
 
   ProduceBlockResponseV2* = object
     case kind*: ConsensusFork
@@ -359,6 +361,7 @@ type
     of ConsensusFork.Bellatrix: bellatrixData*: bellatrix.BeaconBlock
     of ConsensusFork.Capella:   capellaData*:   capella.BeaconBlock
     of ConsensusFork.Deneb:     denebData*:     deneb.BlockContents
+    of ConsensusFork.Electra:   electraData*:   electra.BlockContents
 
   ProduceBlockResponseV3* = ForkedMaybeBlindedBeaconBlock
 
@@ -615,6 +618,12 @@ func `==`*(a, b: RestValidatorIndex): bool =
 template withForkyBlck*(
     x: RestPublishedSignedBlockContents, body: untyped): untyped =
   case x.kind
+  of ConsensusFork.Electra:
+    const consensusFork {.inject, used.} = ConsensusFork.Electra
+    template forkyBlck: untyped {.inject, used.} = x.electraData.signed_block
+    template kzg_proofs: untyped {.inject, used.} = x.electraData.kzg_proofs
+    template blobs: untyped {.inject, used.} = x.electraData.blobs
+    body
   of ConsensusFork.Deneb:
     const consensusFork {.inject, used.} = ConsensusFork.Deneb
     template forkyBlck: untyped {.inject, used.} = x.denebData.signed_block
@@ -652,6 +661,9 @@ func init*(T: type ForkedSignedBeaconBlock,
       ForkedSignedBeaconBlock.init(contents.capellaData)
     of ConsensusFork.Deneb:
       ForkedSignedBeaconBlock.init(contents.denebData.signed_block)
+    of ConsensusFork.Electra:
+      debugRaiseAssert "electra init ForkedSignedBeaconBlock from RestPublished*"
+      default(ForkedSignedBeaconBlock)
 
 func init*(t: typedesc[RestPublishedSignedBlockContents],
            blck: phase0.BeaconBlock, root: Eth2Digest,

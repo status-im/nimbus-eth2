@@ -716,6 +716,9 @@ proc storeBlock(
         template callForkChoiceUpdated: auto =
           case self.consensusManager.dag.cfg.consensusForkAtEpoch(
               newHead.get.blck.bid.slot.epoch)
+          of ConsensusFork.Electra:
+            let x = 4
+            debugRaiseAssert "callFCU"
           of ConsensusFork.Deneb:
             callExpectValidFCU(payloadAttributeType = PayloadAttributesV3)
           of ConsensusFork.Capella:
@@ -766,7 +769,8 @@ proc storeBlock(
       quarantined = shortLog(quarantined.root)
 
     withBlck(quarantined):
-      when typeof(forkyBlck).kind < ConsensusFork.Deneb:
+      debugRaiseAssert "electra has blobs"
+      when typeof(forkyBlck).kind < ConsensusFork.Deneb or typeof(forkyBlck).kind == ConsensusFork.Electra:
         self[].enqueueBlock(
           MsgSource.gossip, quarantined, Opt.none(BlobSidecars))
       else:

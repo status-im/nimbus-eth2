@@ -472,6 +472,9 @@ cli do(slots = SLOTS_PER_EPOCH * 7,
     if blockRatio > 0.0:
       withTimer(timers[t]):
         case dag.cfg.consensusForkAtEpoch(slot.epoch)
+        of ConsensusFork.Electra:
+          echo "no electra here"
+          debugRaiseAssert "no electra"
         of ConsensusFork.Deneb:     proposeDenebBlock(slot)
         of ConsensusFork.Capella:   proposeCapellaBlock(slot)
         of ConsensusFork.Bellatrix, ConsensusFork.Altair, ConsensusFork.Phase0:
