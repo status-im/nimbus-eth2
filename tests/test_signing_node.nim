@@ -136,8 +136,9 @@ func init(t: typedesc[Web3SignerForkedBeaconBlock],
       kind: ConsensusFork.Deneb,
       data: forked.denebData.toBeaconBlockHeader)
   of ConsensusFork.Electra:
-    debugRaiseAssert "electra missing"
-    raiseAssert "electra missing"
+    Web3SignerForkedBeaconBlock(
+      kind: ConsensusFork.Electra,
+      data: forked.electraData.toBeaconBlockHeader)
 
 proc createKeystore(dataDir, pubkey,
                     store, password: string): Result[void, string] =

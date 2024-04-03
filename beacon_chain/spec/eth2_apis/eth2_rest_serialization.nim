@@ -67,11 +67,13 @@ RestJson.useDefaultSerializationFor(
   DenebSignedBlockContents,
   Deposit,
   DepositData,
+  DepositReceipt,
   DepositTreeSnapshot,
   DistributedKeystoreInfo,
   EmptyBody,
   Eth1Data,
   EventBeaconBlockObject,
+  ExecutionLayerExit,
   ExecutionPayloadAndBlobsBundle,
   Fork,
   GetBlockAttestationsResponse,
@@ -240,6 +242,12 @@ RestJson.useDefaultSerializationFor(
   deneb_mev.BuilderBid,
   deneb_mev.SignedBlindedBeaconBlock,
   deneb_mev.SignedBuilderBid,
+  electra.BeaconBlock,
+  electra.BeaconState,
+  electra.BeaconBlockBody,
+  electra.ExecutionPayload,
+  electra.ExecutionPayloadHeader,
+  electra.SignedBeaconBlock,
   phase0.BeaconBlock,
   phase0.BeaconBlockBody,
   phase0.BeaconState,
@@ -597,9 +605,7 @@ proc jsonResponseBlock*(t: typedesc[RestApiResponse],
             writer.writeField("execution_optimistic", execOpt.get())
           writer.writeField("finalized", finalized)
           withBlck(data):
-            debugRaiseAssert "foo"
-            when consensusFork != ConsensusFork.Electra:
-              writer.writeField("data", forkyBlck)
+            writer.writeField("data", forkyBlck)
           writer.endRecord()
           stream.getOutput(seq[byte])
         except IOError:
@@ -622,9 +628,7 @@ proc jsonResponseState*(t: typedesc[RestApiResponse],
           if execOpt.isSome():
             writer.writeField("execution_optimistic", execOpt.get())
           withState(data):
-            debugRaiseAssert "foo"
-            when consensusFork != ConsensusFork.Electra:
-              writer.writeField("data", forkyState.data)
+            writer.writeField("data", forkyState.data)
           writer.endRecord()
           stream.getOutput(seq[byte])
         except IOError:
@@ -2007,8 +2011,15 @@ proc readValue*(reader: var JsonReader[RestJson],
         )
       )
     of ConsensusFork.Electra:
-      debugRaiseAssert "electra missing"
-      default(ForkedBeaconBlock)
+      ForkedBeaconBlock.init(
+        electra.BeaconBlock(
+          slot: slot.get(),
+          proposer_index: proposer_index.get(),
+          parent_root: parent_root.get(),
+          state_root: state_root.get(),
+          body: body.electraBody
+        )
+      )
   )
 
 ## RestPublishedSignedBeaconBlock
@@ -2253,7 +2264,16 @@ proc readValue*(reader: var JsonReader[RestJson],
 
     value = ForkedSignedBeaconBlock.init(res)
   of ConsensusFork.Electra:
-    debugRaiseAssert "electra support missing"
+    let res =
+      try:
+        RestJson.decode(string(data.get()),
+                        electra.SignedBeaconBlock,
+                        requireAllFields = true,
+                        allowUnknownFields = true)
+      except SerializationError:
+        reader.raiseUnexpectedValue("Incorrect electra block format")
+
+    value = ForkedSignedBeaconBlock.init(res)
   withBlck(value):
     forkyBlck.root = hash_tree_root(forkyBlck.message)
 
@@ -2278,6 +2298,7 @@ proc writeValue*(
     writer.writeField("version", "deneb")
     writer.writeField("data", value.denebData)
   of ConsensusFork.Electra:
+    writer.writeField("version", "electra")
     debugRaiseAssert "writeValue RestJson Electra ForkedSignedBaconBlock"
   writer.endRecord()
 
@@ -2303,6 +2324,7 @@ proc readValue*(reader: var JsonReader[RestJson],
       of "bellatrix": Opt.some(ConsensusFork.Bellatrix)
       of "capella": Opt.some(ConsensusFork.Capella)
       of "deneb": Opt.some(ConsensusFork.Deneb)
+      of "electra": Opt.some(ConsensusFork.Electra)
       else: reader.raiseUnexpectedValue("Incorrect version field value")
     of "data":
       if data.isSome():
@@ -2383,8 +2405,15 @@ proc readValue*(reader: var JsonReader[RestJson],
       reader.raiseUnexpectedValue("Incorrect deneb beacon state format")
     toValue(denebData)
   of ConsensusFork.Electra:
-    debugRaiseAssert "electra missing"
-    reader.raiseUnexpectedValue("electra missing")
+    try:
+      tmp[].electraData.data = RestJson.decode(
+        string(data.get()),
+        electra.BeaconState,
+        requireAllFields = true,
+        allowUnknownFields = true)
+    except SerializationError:
+      reader.raiseUnexpectedValue("Incorrect electra beacon state format")
+    toValue(electraData)
 
 proc writeValue*(
     writer: var JsonWriter[RestJson], value: ForkedHashedBeaconState
@@ -2407,7 +2436,8 @@ proc writeValue*(
     writer.writeField("version", "deneb")
     writer.writeField("data", value.denebData.data)
   of ConsensusFork.Electra:
-    debugRaiseAssert "writeValue RestJson ForkedHashedBeaconState Electra missing"
+    writer.writeField("version", "electra")
+    writer.writeField("data", value.electraData.data)
   writer.endRecord()
 
 ## SomeForkedLightClientObject
