@@ -171,7 +171,7 @@ type
     depositContractSyncStatus: DepositContractSyncStatus
       ## Are we sure that this EL has synced the deposit contract?
 
-    lastPayloadId: Option[engine_api.PayloadID]
+    lastPayloadId: Option[PayloadID]
 
   FullBlockId* = object
     number: Eth1BlockNumber
