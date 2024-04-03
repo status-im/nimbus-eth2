@@ -299,8 +299,10 @@ proc getMissingBlobs(rman: RequestManager): seq[BlobIdentifier] =
     delay = wallTime - wallSlot.start_beacon_time()
     waitDur = TimeDiff(nanoseconds: BLOB_GOSSIP_WAIT_TIME_NS)
 
-  var fetches: seq[BlobIdentifier]
-  for blobless in rman.quarantine[].peekBlobless():
+  var
+    fetches: seq[BlobIdentifier]
+    ready: seq[Eth2Digest]
+  for root, blobless in rman.quarantine[].peekBlobless():
     # give blobs a chance to arrive over gossip
     if blobless.message.slot == wallSlot and delay < waitDur:
       debug "Not handling missing blobs early in slot"
@@ -321,9 +323,11 @@ proc getMissingBlobs(rman: RequestManager): seq[BlobIdentifier] =
       warn "missing blob handler found blobless block with all blobs",
          blk=blobless.root,
          commitments=len(blobless.message.body.blob_kzg_commitments)
-      discard rman.blockVerifier(ForkedSignedBeaconBlock.init(blobless),
-                                 false)
-      rman.quarantine[].removeBlobless(blobless)
+      ready.add(root)
+  for root in ready:
+    let blobless = rman.quarantine[].popBlobless(root).valueOr:
+      continue
+    discard rman.blockVerifier(blobless, false)
   fetches
 
 proc requestManagerBlobLoop(
