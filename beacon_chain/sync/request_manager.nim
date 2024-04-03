@@ -302,7 +302,7 @@ proc getMissingBlobs(rman: RequestManager): seq[BlobIdentifier] =
   var
     fetches: seq[BlobIdentifier]
     ready: seq[Eth2Digest]
-  for root, blobless in rman.quarantine[].peekBlobless():
+  for blobless in rman.quarantine[].peekBlobless():
     # give blobs a chance to arrive over gossip
     if blobless.message.slot == wallSlot and delay < waitDur:
       debug "Not handling missing blobs early in slot"
@@ -323,7 +323,7 @@ proc getMissingBlobs(rman: RequestManager): seq[BlobIdentifier] =
       warn "missing blob handler found blobless block with all blobs",
          blk=blobless.root,
          commitments=len(blobless.message.body.blob_kzg_commitments)
-      ready.add(root)
+      ready.add(blobless.root)
   for root in ready:
     let blobless = rman.quarantine[].popBlobless(root).valueOr:
       continue
