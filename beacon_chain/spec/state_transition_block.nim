@@ -262,7 +262,7 @@ proc process_attester_slashing*(
 
   for index in slashed_attesters:
     doAssert strictVerification notin flags or
-      cur_exit_queue_info == get_state_exit_queue_info(cfg, state, cache)
+      cur_exit_queue_info == get_state_exit_queue_info(state)
     let (new_proposer_reward, new_exit_queue_info) = ? slash_validator(
       cfg, state, index, cur_exit_queue_info, cache)
     proposer_reward += new_proposer_reward
@@ -477,7 +477,7 @@ proc process_operations(cfg: RuntimeConfig,
   var exit_queue_info =
     if body.proposer_slashings.len + body.attester_slashings.len +
         body.voluntary_exits.len > 0:
-      get_state_exit_queue_info(cfg, state, cache)
+      get_state_exit_queue_info(state)
     else:
       default(ExitQueueInfo)  # not used
 
