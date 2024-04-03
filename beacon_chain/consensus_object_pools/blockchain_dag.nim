@@ -1131,10 +1131,6 @@ proc init*(T: type ChainDAGRef, cfg: RuntimeConfig, db: BeaconChainDB,
         head = shortLog(head), tail = shortLog(dag.tail)
       quit 1
 
-  withState(dag.headState):
-    when consensusFork >= ConsensusFork.Altair:
-      dag.headSyncCommittees = forkyState.data.get_sync_committee_cache(cache)
-
   block:
     # EpochRef needs an epoch boundary state
     assign(dag.epochRefState, dag.headState)
@@ -1148,6 +1144,10 @@ proc init*(T: type ChainDAGRef, cfg: RuntimeConfig, db: BeaconChainDB,
 
     dag.head = headRef
     dag.heads = @[headRef]
+
+    withState(dag.headState):
+      when consensusFork >= ConsensusFork.Altair:
+        dag.headSyncCommittees = forkyState.data.get_sync_committee_cache(cache)
 
     assign(dag.clearanceState, dag.headState)
 
