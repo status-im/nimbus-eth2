@@ -57,11 +57,7 @@ proc installDebugApiHandlers*(router: var RestRouter, node: BeaconNode) =
         elif contentType == sszMediaType:
           let headers = [("eth-consensus-version", state.kind.toString())]
           withState(state):
-            debugRaiseAssert "debug beacon API"
-            when consensusFork != ConsensusFork.Electra:
-              RestApiResponse.sszResponse(forkyState.data, headers)
-            else:
-              RestApiResponse.jsonError(Http500, InvalidAcceptError)
+            RestApiResponse.sszResponse(forkyState.data, headers)
         else:
           RestApiResponse.jsonError(Http500, InvalidAcceptError)
 

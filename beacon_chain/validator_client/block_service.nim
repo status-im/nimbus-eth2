@@ -113,8 +113,14 @@ proc produceBlock(
                                         kzgProofsOpt: Opt.some(kzgProofs),
                                         blobsOpt: Opt.some(blobs)))
   of ConsensusFork.Electra:
-    debugRaiseAssert ""
-    return Opt.none(PreparedBeaconBlock)
+    let
+      blck = produceBlockResponse.electraData.`block`
+      kzgProofs = produceBlockResponse.electraData.kzg_proofs
+      blobs = produceBlockResponse.electraData.blobs
+    return Opt.some(PreparedBeaconBlock(blockRoot: hash_tree_root(blck),
+                                        data: ForkedBeaconBlock.init(blck),
+                                        kzgProofsOpt: Opt.some(kzgProofs),
+                                        blobsOpt: Opt.some(blobs)))
 
 proc produceBlindedBlock(
        vc: ValidatorClientRef,

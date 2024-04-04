@@ -662,8 +662,7 @@ func init*(T: type ForkedSignedBeaconBlock,
     of ConsensusFork.Deneb:
       ForkedSignedBeaconBlock.init(contents.denebData.signed_block)
     of ConsensusFork.Electra:
-      debugRaiseAssert "electra init ForkedSignedBeaconBlock from RestPublished*"
-      default(ForkedSignedBeaconBlock)
+      ForkedSignedBeaconBlock.init(contents.electraData.signed_block)
 
 func init*(t: typedesc[RestPublishedSignedBlockContents],
            blck: phase0.BeaconBlock, root: Eth2Digest,

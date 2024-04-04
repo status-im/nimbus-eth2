@@ -222,8 +222,14 @@ cli do(validatorsDir: string, secretsDir: string,
               validators[proposer]).toValidatorSig())
           dump(".", signedBlock)
         of ConsensusFork.Electra:
-          debugRaiseAssert ""
-          let x  =5
+          blockRoot = hash_tree_root(message.electraData)
+          let signedBlock = electra.SignedBeaconBlock(
+            message: message.electraData,
+            root: blockRoot,
+            signature: get_block_signature(
+              fork, genesis_validators_root, slot, blockRoot,
+              validators[proposer]).toValidatorSig())
+          dump(".", signedBlock)
       except CatchableError:
         raiseAssert "unreachable"
       notice "Block proposed", message, blockRoot

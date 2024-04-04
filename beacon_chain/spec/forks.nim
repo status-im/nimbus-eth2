@@ -517,10 +517,9 @@ template Forky*(
 template withAll*(
     x: typedesc[ConsensusFork], body: untyped): untyped =
   static: doAssert ConsensusFork.high == ConsensusFork.Electra
-  debugRaiseAssert "don't turn on electra here yet"
-  #block:
-  #  const consensusFork {.inject, used.} = ConsensusFork.Electra
-  #  body
+  block:
+    const consensusFork {.inject, used.} = ConsensusFork.Electra
+    body
   block:
     const consensusFork {.inject, used.} = ConsensusFork.Deneb
     body
@@ -638,6 +637,8 @@ template init*(T: type ForkedBeaconBlock, blck: capella.BeaconBlock): T =
   T(kind: ConsensusFork.Capella, capellaData: blck)
 template init*(T: type ForkedBeaconBlock, blck: deneb.BeaconBlock): T =
   T(kind: ConsensusFork.Deneb, denebData: blck)
+template init*(T: type ForkedBeaconBlock, blck: electra.BeaconBlock): T =
+  T(kind: ConsensusFork.Electra, electraData: blck)
 
 template init*(T: type ForkedSignedBeaconBlock, blck: phase0.SignedBeaconBlock): T =
   T(kind: ConsensusFork.Phase0, phase0Data: blck)
