@@ -11,7 +11,6 @@ import
   chronos, presto/client, chronicles,
   ".."/".."/validators/slashing_protection_common,
   ".."/datatypes/[phase0, altair, bellatrix],
-  ".."/mev/[bellatrix_mev, capella_mev],
   ".."/[helpers, forks, keystore, eth2_ssz_serialization],
   "."/[rest_types, rest_common, eth2_rest_serialization]
 
@@ -205,18 +204,6 @@ proc publishBlindedBlock*(body: phase0.SignedBeaconBlock): RestPlainResponse {.
   ## https://ethereum.github.io/beacon-APIs/#/Beacon/publishBlindedBlock
 
 proc publishBlindedBlock*(body: altair.SignedBeaconBlock): RestPlainResponse {.
-     rest, endpoint: "/eth/v1/beacon/blinded_blocks",
-     meth: MethodPost.}
-  ## https://ethereum.github.io/beacon-APIs/#/Beacon/publishBlindedBlock
-
-proc publishBlindedBlock*(body: bellatrix_mev.SignedBlindedBeaconBlock):
-       RestPlainResponse {.
-     rest, endpoint: "/eth/v1/beacon/blinded_blocks",
-     meth: MethodPost.}
-  ## https://ethereum.github.io/beacon-APIs/#/Beacon/publishBlindedBlock
-
-proc publishBlindedBlock*(body: capella_mev.SignedBlindedBeaconBlock):
-       RestPlainResponse {.
      rest, endpoint: "/eth/v1/beacon/blinded_blocks",
      meth: MethodPost.}
   ## https://ethereum.github.io/beacon-APIs/#/Beacon/publishBlindedBlock

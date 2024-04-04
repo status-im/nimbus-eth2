@@ -16,7 +16,6 @@ import results, stew/[assign2, base10, byteutils, endians2], presto/common,
 import ".."/[eth2_ssz_serialization, forks, keystore],
        ".."/../consensus_object_pools/block_pools_types,
        ".."/datatypes/[phase0, altair, bellatrix],
-       ".."/mev/[bellatrix_mev, capella_mev],
        ".."/../validators/slashing_protection_common,
        "."/[rest_types, rest_keymanager_types]
 import nimcrypto/utils as ncrutils
@@ -208,9 +207,6 @@ RestJson.useDefaultSerializationFor(
   bellatrix.ExecutionPayload,
   bellatrix.ExecutionPayloadHeader,
   bellatrix.SignedBeaconBlock,
-  bellatrix_mev.BlindedBeaconBlockBody,
-  bellatrix_mev.BlindedBeaconBlock,
-  bellatrix_mev.SignedBlindedBeaconBlock,
   capella.BeaconBlock,
   capella.BeaconBlockBody,
   capella.BeaconState,
@@ -222,9 +218,6 @@ RestJson.useDefaultSerializationFor(
   capella.LightClientOptimisticUpdate,
   capella.LightClientUpdate,
   capella.SignedBeaconBlock,
-  capella_mev.BlindedBeaconBlock,
-  capella_mev.BlindedBeaconBlockBody,
-  capella_mev.SignedBlindedBeaconBlock,
   deneb.BeaconBlock,
   deneb.BeaconBlockBody,
   deneb.BeaconState,
@@ -319,8 +312,6 @@ type
     ProposerSlashing |
     SetFeeRecipientRequest |
     SetGasLimitRequest |
-    bellatrix_mev.SignedBlindedBeaconBlock |
-    capella_mev.SignedBlindedBeaconBlock |
     deneb_mev.SignedBlindedBeaconBlock |
     SignedValidatorRegistrationV1 |
     SignedVoluntaryExit |
@@ -392,8 +383,7 @@ type
 
   RestBlockTypes* = phase0.BeaconBlock | altair.BeaconBlock |
                     bellatrix.BeaconBlock | capella.BeaconBlock |
-                    deneb.BlockContents | capella_mev.BlindedBeaconBlock |
-                    deneb_mev.BlindedBeaconBlock
+                    deneb.BlockContents | deneb_mev.BlindedBeaconBlock
 
 func readStrictHexChar(c: char, radix: static[uint8]): Result[int8, cstring] =
   ## Converts an hex char to an int
@@ -1571,20 +1561,8 @@ proc readValue*[BlockType: ForkedBlindedBeaconBlock](
                                     exc.formatMsg("BlindedBlock") & "]")
     value = ForkedBlindedBeaconBlock(kind: ConsensusFork.Altair,
                                      altairData: res)
-  of ConsensusFork.Bellatrix:
-    reader.raiseUnexpectedValue("Bellatrix blinded block format unsupported")
-  of ConsensusFork.Capella:
-    let res =
-      try:
-        RestJson.decode(string(data.get()),
-                        capella_mev.BlindedBeaconBlock,
-                        requireAllFields = true,
-                        allowUnknownFields = true)
-      except SerializationError as exc:
-        reader.raiseUnexpectedValue("Incorrect capella block format, [" &
-                                    exc.formatMsg("BlindedBlock") & "]")
-    value = ForkedBlindedBeaconBlock(kind: ConsensusFork.Capella,
-                                     capellaData: res)
+  of ConsensusFork.Bellatrix, ConsensusFork.Capella:
+    reader.raiseUnexpectedValue("Pre-Deneb blinded block format unsupported")
   of ConsensusFork.Deneb:
     let res =
       try:
@@ -3930,14 +3908,8 @@ proc decodeBytes*[T: DecodeConsensysTypes](
           forked = ForkedBlindedBeaconBlock(
             kind: ConsensusFork.Deneb, denebData: blck)
         ok(ProduceBlindedBlockResponse(forked))
-      of ConsensusFork.Capella:
-        let
-          blck = ? readSszResBytes(capella_mev.BlindedBeaconBlock, value)
-          forked = ForkedBlindedBeaconBlock(
-            kind: ConsensusFork.Capella, capellaData: blck)
-        ok(ProduceBlindedBlockResponse(forked))
-      of ConsensusFork.Bellatrix, ConsensusFork.Altair, ConsensusFork.Phase0:
-        err("Unable to decode blinded block for Bellatrix, Altair, and Phase0 forks")
+      of ConsensusFork.Phase0 .. ConsensusFork.Capella:
+        err("Unable to decode blinded block for pre-Deneb forks")
   else:
     err("Unsupported Content-Type")
 

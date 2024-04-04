@@ -2461,10 +2461,8 @@ proc publishBlindedBlock*(
           publishBlindedBlock(it, data.phase0Data)
         of ConsensusFork.Altair:
           publishBlindedBlock(it, data.altairData)
-        of ConsensusFork.Bellatrix:
-          publishBlindedBlock(it, data.bellatrixData)
-        of ConsensusFork.Capella:
-          publishBlindedBlock(it, data.capellaData)
+        of ConsensusFork.Bellatrix, ConsensusFork.Capella:
+          raise (ref ValidatorApiError)(msg: ResponseNotImplementedError)
         of ConsensusFork.Deneb:
           publishBlindedBlock(it, data.denebData)
         of ConsensusFork.Electra:
@@ -2509,10 +2507,8 @@ proc publishBlindedBlock*(
         publishBlindedBlock(it, data.phase0Data)
       of ConsensusFork.Altair:
         publishBlindedBlock(it, data.altairData)
-      of ConsensusFork.Bellatrix:
-        publishBlindedBlock(it, data.bellatrixData)
-      of ConsensusFork.Capella:
-        publishBlindedBlock(it, data.capellaData)
+      of ConsensusFork.Bellatrix, ConsensusFork.Capella:
+        raise (ref ValidatorApiError)(msg: ResponseNotImplementedError)
       of ConsensusFork.Deneb:
         publishBlindedBlock(it, data.denebData)
       of ConsensusFork.Electra:
