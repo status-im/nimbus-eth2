@@ -8,22 +8,24 @@
 {.push raises: [].}
 
 import
-  std/[strformat, strutils, sequtils, typetraits, uri, json],
+  std/[strformat, typetraits, json],
   # Nimble packages:
   chronos, metrics, chronicles/timings,
   json_rpc/[client, errors],
   web3, web3/[engine_api, primitives, conversions],
-  eth/common/[eth_types, transaction],
+  eth/common/eth_types,
   eth/async_utils, results,
   stew/[assign2, byteutils, objects],
   # Local modules:
-  ../spec/[eth2_merkleization, forks, helpers],
+  ../spec/[eth2_merkleization, forks],
   ../networking/network_metadata,
   ".."/[beacon_node_status, future_combinators],
   "."/[eth1_chain, el_conf]
 
+from std/sequtils import anyIt, mapIt
 from std/times import getTime, inSeconds, initTime, `-`
 from ../spec/engine_authentication import getSignedIatToken
+from ../spec/helpers import bytes_to_uint64
 from ../spec/state_transition_block import kzg_commitment_to_versioned_hash
 
 export
@@ -198,7 +200,8 @@ type
   SomeEnginePayloadWithValue =
     BellatrixExecutionPayloadWithValue |
     GetPayloadV2Response |
-    GetPayloadV3Response
+    GetPayloadV3Response |
+    GetPayloadV4Response
 
 declareCounter failed_web3_requests,
   "Failed web3 requests"
@@ -530,6 +533,11 @@ func asConsensusType*(rpcExecutionPayload: ExecutionPayloadV4):
       List[electra.ExecutionLayerExit, MAX_EXECUTION_LAYER_EXITS_PER_PAYLOAD].init(
         mapIt(rpcExecutionPayload.exits, it.getExecutionLayerExit)))
 
+func asConsensusType*(payload: engine_api.GetPayloadV4Response):
+    electra.ExecutionPayloadForSigning =
+  debugRaiseAssert "well, not empty maybe"
+  default(electra.ExecutionPayloadForSigning)
+
 func asEngineExecutionPayload*(executionPayload: bellatrix.ExecutionPayload):
     ExecutionPayloadV1 =
   template getTypedTransaction(tt: bellatrix.Transaction): TypedTransaction =
@@ -747,12 +755,6 @@ proc forkchoiceUpdated(rpcClient: RpcClient,
   else:
     static: doAssert false
 
-func computeBlockValue(blk: ExecutionPayloadV1): UInt256 {.raises: [RlpError].} =
-  for transactionBytes in blk.transactions:
-    var rlp = rlpFromBytes distinctBase(transactionBytes)
-    let transaction = rlp.read(eth_types.Transaction)
-    result += distinctBase(effectiveGasTip(transaction, blk.baseFeePerGas)).u256
-
 proc getPayloadFromSingleEL(
     connection: ELConnection,
     GetPayloadResponseType: type,
@@ -804,6 +806,9 @@ proc getPayloadFromSingleEL(
             suggestedFeeRecipient: suggestedFeeRecipient,
             withdrawals: withdrawals,
             parentBeaconBlockRoot: consensusHead.asBlockHash))
+      elif GetPayloadResponseType is engine_api.GetPayloadV4Response:
+        debugRaiseAssert "electra"
+        let response = default(ForkchoiceUpdatedResponse)
       else:
         static: doAssert false
 
@@ -822,8 +827,10 @@ proc getPayloadFromSingleEL(
     let payload =
       await engine_api.getPayload(rpcClient, ExecutionPayloadV1, payloadId)
     return BellatrixExecutionPayloadWithValue(
-      executionPayload: payload,
-      blockValue: computeBlockValue payload)
+      executionPayload: payload, blockValue: Wei.zero)
+  elif GetPayloadResponseType is engine_api.GetPayloadV4Response:
+    debugRaiseAssert "foo"
+    return default(engine_api.GetPayloadV4Response)
   else:
     return await engine_api.getPayload(rpcClient, GetPayloadResponseType, payloadId)
 
@@ -838,6 +845,9 @@ template EngineApiResponseType*(T: type capella.ExecutionPayloadForSigning): typ
 
 template EngineApiResponseType*(T: type deneb.ExecutionPayloadForSigning): type =
   engine_api.GetPayloadV3Response
+
+template EngineApiResponseType*(T: type electra.ExecutionPayloadForSigning): type =
+  engine_api.GetPayloadV4Response
 
 template toEngineWithdrawals*(withdrawals: seq[capella.Withdrawal]): seq[WithdrawalV1] =
   mapIt(withdrawals, toEngineWithdrawal(it))
@@ -1150,6 +1160,9 @@ proc sendNewPayload*(m: ELManager, blck: SomeForkyBeaconBlock):
         elif payload is engine_api.ExecutionPayloadV1 or
              payload is engine_api.ExecutionPayloadV2:
           sendNewPayloadToSingleEL(it, payload)
+        elif payload is engine_api.ExecutionPayloadV4:
+          debugRaiseAssert "similar to V3 case, check for details"
+          default(Future[PayloadStatusV1])
         else:
           static: doAssert false
       trackEngineApiRequest(it, req, "newPayload", startTime, deadline)

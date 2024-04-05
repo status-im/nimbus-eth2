@@ -98,6 +98,9 @@ template saveSSZFile(filename: string, value: ForkedHashedBeaconState) =
     of ConsensusFork.Bellatrix: SSZ.saveFile(filename, value.bellatrixData.data)
     of ConsensusFork.Capella:   SSZ.saveFile(filename, value.capellaData.data)
     of ConsensusFork.Deneb:     SSZ.saveFile(filename, value.denebData.data)
+    of ConsensusFork.Electra:
+      debugRaiseAssert ""
+      let x = 5
   except IOError:
     raiseAssert "error saving SSZ file"
 

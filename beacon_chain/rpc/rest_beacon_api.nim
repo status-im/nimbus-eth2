@@ -1003,7 +1003,11 @@ proc installBeaconApiHandlers*(router: var RestRouter, node: BeaconNode) =
         RestApiResponse.jsonError(Http500, InvalidAcceptError)
 
     withBlck(bdata.asSigned()):
-      when consensusFork <= ConsensusFork.Altair:
+      when consensusFork == ConsensusFork.Electra:
+        debugRaiseAssert "electra, beacon API missing"
+        let x = 5
+        RestApiResponse.jsonError(Http500, InvalidAcceptError)
+      elif consensusFork <= ConsensusFork.Altair:
         respondSszOrJson(forkyBlck, consensusFork)
       else:
         respondSszOrJson(toSignedBlindedBeaconBlock(forkyBlck), consensusFork)
@@ -1034,7 +1038,11 @@ proc installBeaconApiHandlers*(router: var RestRouter, node: BeaconNode) =
       return RestApiResponse.jsonError(Http400, BlockIncorrectFork)
 
     withConsensusFork(currentEpochFork):
-      when consensusFork >= ConsensusFork.Deneb:
+      when consensusFork >= ConsensusFork.Electra:
+        debugRaiseAssert "beacon API builder API"
+        return RestApiResponse.jsonError(
+          Http400, $consensusFork & " builder API unsupported")
+      elif consensusFork >= ConsensusFork.Deneb:
         let
           restBlock = decodeBodyJsonOrSsz(
               consensusFork.SignedBlindedBeaconBlock, body).valueOr:

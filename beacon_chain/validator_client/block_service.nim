@@ -38,7 +38,10 @@ func shortLog(v: Opt[UInt256]): auto =
 
 func shortLog(v: ForkedMaybeBlindedBeaconBlock): auto =
   withForkyMaybeBlindedBlck(v):
-    when consensusFork < ConsensusFork.Deneb:
+    when consensusFork == ConsensusFork.Electra:
+      debugRaiseAssert ""
+      shortLog(default(phase0.BeaconBlock))
+    elif consensusFork < ConsensusFork.Deneb:
       shortLog(forkyMaybeBlindedBlck)
     else:
       when isBlinded:
@@ -105,6 +108,15 @@ proc produceBlock(
       blck = produceBlockResponse.denebData.`block`
       kzgProofs = produceBlockResponse.denebData.kzg_proofs
       blobs = produceBlockResponse.denebData.blobs
+    return Opt.some(PreparedBeaconBlock(blockRoot: hash_tree_root(blck),
+                                        data: ForkedBeaconBlock.init(blck),
+                                        kzgProofsOpt: Opt.some(kzgProofs),
+                                        blobsOpt: Opt.some(blobs)))
+  of ConsensusFork.Electra:
+    let
+      blck = produceBlockResponse.electraData.`block`
+      kzgProofs = produceBlockResponse.electraData.kzg_proofs
+      blobs = produceBlockResponse.electraData.blobs
     return Opt.some(PreparedBeaconBlock(blockRoot: hash_tree_root(blck),
                                         data: ForkedBeaconBlock.init(blck),
                                         kzgProofsOpt: Opt.some(kzgProofs),
@@ -323,9 +335,12 @@ proc publishBlockV3(vc: ValidatorClientRef, currentSlot, slot: Slot,
         warn "Blinded block was not accepted by beacon node"
         false
     else:
+      debugRaiseAssert "electra htr"
       let
         blockRoot = hash_tree_root(
-          when consensusFork < ConsensusFork.Deneb:
+          when consensusFork == ConsensusFork.Electra:
+            default(Attestation)
+          elif consensusFork < ConsensusFork.Deneb:
             forkyMaybeBlindedBlck
           else:
             forkyMaybeBlindedBlck.`block`
@@ -345,9 +360,12 @@ proc publishBlockV3(vc: ValidatorClientRef, currentSlot, slot: Slot,
           .slashingProtection
           .registerBlock(vindex, validator.pubkey, slot, signingRoot)
 
+      debugRaiseAssert "electra logging"
       logScope:
         blck = shortLog(
-          when consensusFork < ConsensusFork.Deneb:
+          when consensusFork == ConsensusFork.Electra:
+            default(phase0.BeaconBlock)
+          elif consensusFork < ConsensusFork.Deneb:
             forkyMaybeBlindedBlck
           else:
             forkyMaybeBlindedBlck.`block`
@@ -599,6 +617,9 @@ proc publishBlockV2(vc: ValidatorClientRef, currentSlot, slot: Slot,
                   signature: signature),
                 kzg_proofs: preparedBlock.kzgProofsOpt.get,
                 blobs: preparedBlock.blobsOpt.get))
+          of ConsensusFork.Electra:
+            debugRaiseAssert ""
+            default(RestPublishedSignedBlockContents)
 
         res =
           try:

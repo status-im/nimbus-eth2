@@ -77,6 +77,9 @@ proc initLightClient*(
 
               case node.dag.cfg.consensusForkAtEpoch(
                   forkyBlck.message.slot.epoch)
+              of ConsensusFork.Electra:
+                debugRaiseAssert ""
+                discard
               of ConsensusFork.Deneb:
                 callForkchoiceUpdated(PayloadAttributesV3)
               of ConsensusFork.Capella:
