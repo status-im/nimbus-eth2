@@ -255,6 +255,7 @@ func getRemoteKeystoreData(data: string, basePort: int,
       pubkey: publicKey
     )
 
+  debugRaiseAssert "check electraIndex"
   ok case rt
     of RemoteSignerType.Web3Signer:
       KeystoreData(
@@ -270,6 +271,7 @@ func getRemoteKeystoreData(data: string, basePort: int,
         provenBlockProperties: @[
           ProvenProperty(
             path: ".execution_payload.fee_recipient",
+            electraIndex: some GeneralizedIndex(801),
             denebIndex: some GeneralizedIndex(801),
             capellaIndex: some GeneralizedIndex(401)
           )

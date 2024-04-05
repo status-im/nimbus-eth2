@@ -508,7 +508,8 @@ proc getBlockSignature*(v: AttachedValidator, fork: Fork,
   type SomeBlockBody =
     capella.BeaconBlockBody |
     deneb.BeaconBlockBody |
-    deneb_mev.BlindedBeaconBlockBody
+    deneb_mev.BlindedBeaconBlockBody |
+    electra.BeaconBlockBody
 
   template blockPropertiesProofs(blockBody: SomeBlockBody,
                                  forkIndexField: untyped): seq[Web3SignerMerkleProof] =
@@ -648,8 +649,18 @@ proc getBlockSignature*(v: AttachedValidator, fork: Fork,
                 data: blck.denebData.toBeaconBlockHeader),
               proofs)
         of ConsensusFork.Electra:
-          debugRaiseAssert "validator pool"
-          return SignatureResult.err("Invalid beacon block fork: electra")
+          case v.data.remoteType
+          of RemoteSignerType.Web3Signer:
+            Web3SignerRequest.init(fork, genesis_validators_root,
+              Web3SignerForkedBeaconBlock(kind: ConsensusFork.Electra,
+                data: blck.electraData.toBeaconBlockHeader))
+          of RemoteSignerType.VerifyingWeb3Signer:
+            let proofs = blockPropertiesProofs(
+              blck.electraData.body, electraIndex)
+            Web3SignerRequest.init(fork, genesis_validators_root,
+              Web3SignerForkedBeaconBlock(kind: ConsensusFork.Electra,
+                data: blck.electraData.toBeaconBlockHeader),
+              proofs)
     await v.signData(web3signerRequest)
 
 # https://github.com/ethereum/consensus-specs/blob/v1.4.0/specs/phase0/validator.md#aggregate-signature
