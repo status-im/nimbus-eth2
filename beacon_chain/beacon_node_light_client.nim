@@ -77,10 +77,7 @@ proc initLightClient*(
 
               case node.dag.cfg.consensusForkAtEpoch(
                   forkyBlck.message.slot.epoch)
-              of ConsensusFork.Electra:
-                debugRaiseAssert ""
-                discard
-              of ConsensusFork.Deneb:
+              of ConsensusFork.Deneb, ConsensusFork.Electra:
                 callForkchoiceUpdated(PayloadAttributesV3)
               of ConsensusFork.Capella:
                 # https://github.com/ethereum/execution-apis/blob/v1.0.0-beta.3/src/engine/shanghai.md#specification-1

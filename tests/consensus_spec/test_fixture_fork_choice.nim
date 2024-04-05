@@ -343,13 +343,11 @@ proc doRunTest(
       doAssert status.isOk == step.valid
     of opOnBlock:
       withBlck(step.blck):
-        debugRaiseAssert "electra etc"
-        when typeof(forkyBlck).kind != ConsensusFork.Electra:
-          let status = stepOnBlock(
-            stores.dag, stores.fkChoice,
-            verifier, state[], stateCache,
-            forkyBlck, step.blobData, time, invalidatedHashes)
-          doAssert status.isOk == step.valid
+        let status = stepOnBlock(
+          stores.dag, stores.fkChoice,
+          verifier, state[], stateCache,
+          forkyBlck, step.blobData, time, invalidatedHashes)
+        doAssert status.isOk == step.valid
     of opOnAttesterSlashing:
       let indices =
         check_attester_slashing(state[], step.attesterSlashing, flags = {})

@@ -48,9 +48,7 @@ proc makeTestDB*(
   # Upgrade genesis state to later fork, if required by fork schedule
   cfg.maybeUpgradeState(genState[])
   withState(genState[]):
-    when consensusFork >= ConsensusFork.Electra:
-      debugRaiseAssert "makeTestDB electra missing"
-    elif consensusFork > ConsensusFork.Phase0:
+    when consensusFork > ConsensusFork.Phase0:
       forkyState.data.fork.previous_version =
         forkyState.data.fork.current_version
       forkyState.data.latest_block_header.body_root =
