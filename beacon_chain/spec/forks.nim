@@ -412,7 +412,9 @@ template BeaconState*(kind: static ConsensusFork): auto =
     static: raiseAssert "Unreachable"
 
 template BeaconBlock*(kind: static ConsensusFork): auto =
-  when kind == ConsensusFork.Deneb:
+  when kind == ConsensusFork.Electra:
+    typedesc[electra.BeaconBlock]
+  elif kind == ConsensusFork.Deneb:
     typedesc[deneb.BeaconBlock]
   elif kind == ConsensusFork.Capella:
     typedesc[capella.BeaconBlock]

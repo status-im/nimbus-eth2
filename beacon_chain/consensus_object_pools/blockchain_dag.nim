@@ -1005,8 +1005,11 @@ proc applyBlock(
       dag.cfg, state, data, cache, info,
       dag.updateFlags + {slotProcessed}, noRollback)
   of ConsensusFork.Electra:
-    debugRaiseAssert "electra applyblock missing"
-    return ok()
+    let data = getBlock(dag, bid, electra.TrustedSignedBeaconBlock).valueOr:
+      return err("Block load failed")
+    ? state_transition(
+      dag.cfg, state, data, cache, info,
+      dag.updateFlags + {slotProcessed}, noRollback)
 
   ok()
 

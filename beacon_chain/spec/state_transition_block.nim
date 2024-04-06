@@ -1025,9 +1025,9 @@ proc process_block*(
     total_active_balance = get_total_active_balance(state, cache)
     base_reward_per_increment =
       get_base_reward_per_increment(total_active_balance)
-    operations_rewards = ? process_operations(
-      cfg, state, blck.body, base_reward_per_increment, flags, cache)
-  ? process_sync_aggregate(
+  var operations_rewards = ? process_operations(
+    cfg, state, blck.body, base_reward_per_increment, flags, cache)
+  operations_rewards.sync_aggregate = ? process_sync_aggregate(
     state, blck.body.sync_aggregate, total_active_balance, flags, cache)
 
   ok(operations_rewards)

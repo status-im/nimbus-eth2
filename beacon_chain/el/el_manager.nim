@@ -794,7 +794,10 @@ proc getPayloadFromSingleEL(
             prevRandao: FixedBytes[32] randomData.data,
             suggestedFeeRecipient: suggestedFeeRecipient,
             withdrawals: withdrawals))
-      elif GetPayloadResponseType is engine_api.GetPayloadV3Response:
+      elif  GetPayloadResponseType is engine_api.GetPayloadV3Response or
+            GetPayloadResponseType is engine_api.GetPayloadV4Response:
+        # https://github.com/ethereum/execution-apis/blob/90a46e9137c89d58e818e62fa33a0347bba50085/src/engine/prague.md
+        # does not define any new forkchoiceUpdated, so reuse V3 from Dencun
         let response = await rpcClient.forkchoiceUpdated(
           ForkchoiceStateV1(
             headBlockHash: headBlock.asBlockHash,
@@ -806,9 +809,6 @@ proc getPayloadFromSingleEL(
             suggestedFeeRecipient: suggestedFeeRecipient,
             withdrawals: withdrawals,
             parentBeaconBlockRoot: consensusHead.asBlockHash))
-      elif GetPayloadResponseType is engine_api.GetPayloadV4Response:
-        debugRaiseAssert "electra"
-        let response = default(ForkchoiceUpdatedResponse)
       else:
         static: doAssert false
 

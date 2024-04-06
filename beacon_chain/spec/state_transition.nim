@@ -295,10 +295,7 @@ proc state_transition_block*(
   doAssert not rollback.isNil, "use noRollback if it's ok to mess up state"
 
   let res = withState(state):
-    when consensusFork == ConsensusFork.Electra:
-      debugRaiseAssert "electra state_transition_block"
-      err("no")
-    elif consensusFork == type(signedBlock).kind:
+    when consensusFork == type(signedBlock).kind:
       state_transition_block_aux(cfg, forkyState, signedBlock, cache, flags)
     else:
       err("State/block fork mismatch")
@@ -382,6 +379,8 @@ func partialBeaconBlock*(
   # https://github.com/ethereum/consensus-specs/blob/v1.3.0/specs/deneb/validator.md#constructing-the-beaconblockbody
   when consensusFork >= ConsensusFork.Deneb:
     res.body.blob_kzg_commitments = execution_payload.blobsBundle.commitments
+
+  debugRaiseAssert "check for new fields or conditions to ensure in electra"
 
   res
 
@@ -486,7 +485,9 @@ proc makeBeaconBlockWithRewards*(
     of ConsensusFork.Deneb:     makeBeaconBlock(deneb)
     else: raiseAssert "Attempt to use Deneb payload with non-Deneb state"
   elif payloadFork == ConsensusFork.Electra:
-    debugRaiseAssert "Electra block production missing"
+    case state.kind
+    of ConsensusFork.Electra:     makeBeaconBlock(electra)
+    else: raiseAssert "Attempt to use Electra payload with non-Electra state"
   else:
     {.error: "Unsupported fork".}
 
