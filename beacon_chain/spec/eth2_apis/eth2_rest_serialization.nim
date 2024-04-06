@@ -70,6 +70,7 @@ RestJson.useDefaultSerializationFor(
   DepositReceipt,
   DepositTreeSnapshot,
   DistributedKeystoreInfo,
+  ElectraSignedBlockContents,
   EmptyBody,
   Eth1Data,
   EventBeaconBlockObject,
@@ -245,6 +246,7 @@ RestJson.useDefaultSerializationFor(
   electra.BeaconBlock,
   electra.BeaconState,
   electra.BeaconBlockBody,
+  electra.BlockContents,
   electra.ExecutionPayload,
   electra.ExecutionPayloadHeader,
   electra.SignedBeaconBlock,
@@ -2299,7 +2301,7 @@ proc writeValue*(
     writer.writeField("data", value.denebData)
   of ConsensusFork.Electra:
     writer.writeField("version", "electra")
-    debugRaiseAssert "writeValue RestJson Electra ForkedSignedBaconBlock"
+    writer.writeField("data", value.electraData)
   writer.endRecord()
 
 # ForkedHashedBeaconState is used where a `ForkedBeaconState` normally would
@@ -3616,8 +3618,17 @@ proc decodeBody*(
       ok(RestPublishedSignedBlockContents(
         kind: ConsensusFork.Deneb, denebData: blckContents))
     of ConsensusFork.Electra:
-      debugRaiseAssert "electra"
-      return err(RestErrorMessage.init(Http400, UnexpectedDecodeError))
+      let blckContents =
+        try:
+          SSZ.decode(body.data, ElectraSignedBlockContents)
+        except SerializationError as exc:
+          return err(RestErrorMessage.init(Http400, UnableDecodeError,
+                                           [version, exc.formatMsg("<data>")]))
+        except CatchableError as exc:
+          return err(RestErrorMessage.init(Http400, UnexpectedDecodeError,
+                                           [version, $exc.msg]))
+      ok(RestPublishedSignedBlockContents(
+        kind: ConsensusFork.Electra, electraData: blckContents))
   else:
     err(RestErrorMessage.init(Http415, "Invalid content type",
                               [version, $body.contentType]))
@@ -3748,9 +3759,24 @@ proc decodeBodyJsonOrSsz*(
       ok(RestPublishedSignedBlockContents(
         kind: ConsensusFork.Deneb, denebData: blckContents))
     of ConsensusFork.Electra:
-      debugRaiseAssert "electra"
-      return err(
-        RestErrorMessage.init(Http400, UnexpectedDecodeError))
+      let blckContents =
+        try:
+          RestJson.decode(body.data, ElectraSignedBlockContents,
+                          requireAllFields = true,
+                          allowUnknownFields = true)
+        except SerializationError as exc:
+          debug "Failed to decode JSON data",
+               err = exc.formatMsg("<data>"),
+               data = string.fromBytes(body.data)
+          return err(
+            RestErrorMessage.init(Http400, UnableDecodeError,
+                                  [version, exc.formatMsg("<data>")]))
+        except CatchableError as exc:
+          return err(
+            RestErrorMessage.init(Http400, UnexpectedDecodeError,
+                                  [version, $exc.msg]))
+      ok(RestPublishedSignedBlockContents(
+        kind: ConsensusFork.Electra, electraData: blckContents))
   else:
     err(RestErrorMessage.init(Http415, "Invalid content type",
                               [version, $body.contentType]))

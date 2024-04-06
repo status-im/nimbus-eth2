@@ -275,8 +275,8 @@ proc cmdBench(conf: DbConf, cfg: RuntimeConfig) =
         blocks[4].add dag.db.getBlock(
           blck.root, deneb.TrustedSignedBeaconBlock).get()
       of ConsensusFork.Electra:
-        debugRaiseAssert ""
-        let x = 5
+        blocks[5].add dag.db.getBlock(
+          blck.root, electra.TrustedSignedBeaconBlock).get()
 
   let stateData = newClone(dag.headState)
 
