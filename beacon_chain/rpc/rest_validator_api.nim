@@ -409,8 +409,11 @@ proc installValidatorApiHandlers*(router: var RestRouter, node: BeaconNode) =
       withBlck(message.blck):
         let data =
           when consensusFork >= ConsensusFork.Electra:
-            debugRaiseAssert "validator API, electra"
-            default(phase0.BeaconBlock)
+            let blobsBundle = message.blobsBundleOpt.get()
+            electra.BlockContents(
+              `block`: forkyBlck,
+              kzg_proofs: blobsBundle.proofs,
+              blobs: blobsBundle.blobs)
           elif consensusFork >= ConsensusFork.Deneb:
             let blobsBundle = message.blobsBundleOpt.get()
             deneb.BlockContents(

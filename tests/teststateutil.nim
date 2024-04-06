@@ -82,8 +82,8 @@ proc getTestStates*(
     cfg.CAPELLA_FORK_EPOCH = 3.Epoch
   if consensusFork >= ConsensusFork.Deneb:
     cfg.DENEB_FORK_EPOCH = 4.Epoch
-
-  debugRaiseAssert "ELECTRA_FORK_EPOCH"
+  if consensusFork >= ConsensusFork.Electra:
+    cfg.ELECTRA_FORK_EPOCH = 5.Epoch
 
   for i, epoch in stateEpochs:
     let slot = epoch.Epoch.start_slot

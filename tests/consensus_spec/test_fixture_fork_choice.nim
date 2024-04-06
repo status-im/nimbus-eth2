@@ -130,9 +130,7 @@ proc loadOps(
               SSZ, consensusFork.SignedBeaconBlock)
 
             blobData =
-              when consensusFork >= ConsensusFork.Electra:
-                debugRaiseAssert "no electra support in fc test"
-              elif consensusFork >= ConsensusFork.Deneb:
+              when consensusFork >= ConsensusFork.Deneb:
                 if step.hasKey"blobs":
                   numExtraFields += 2
                   Opt.some BlobData(

@@ -536,8 +536,7 @@ proc getBlockSignature*(v: AttachedValidator, fork: Fork,
     let web3signerRequest =
       when blck is ForkedBlindedBeaconBlock:
         case blck.kind
-        of ConsensusFork.Phase0 .. ConsensusFork.Capella, ConsensusFork.Electra:
-          debugRaiseAssert "move electra case out"
+        of ConsensusFork.Phase0 .. ConsensusFork.Capella:
           return SignatureResult.err("Invalid blinded beacon block fork")
         of ConsensusFork.Deneb:
           case v.data.remoteType
@@ -551,6 +550,19 @@ proc getBlockSignature*(v: AttachedValidator, fork: Fork,
             Web3SignerRequest.init(fork, genesis_validators_root,
               Web3SignerForkedBeaconBlock(kind: ConsensusFork.Deneb,
                 data: blck.denebData.toBeaconBlockHeader),
+              proofs)
+        of ConsensusFork.Electra:
+          case v.data.remoteType
+          of RemoteSignerType.Web3Signer:
+            Web3SignerRequest.init(fork, genesis_validators_root,
+              Web3SignerForkedBeaconBlock(kind: ConsensusFork.Electra,
+                data: blck.electraData.toBeaconBlockHeader))
+          of RemoteSignerType.VerifyingWeb3Signer:
+            let proofs = blockPropertiesProofs(
+              blck.electraData.body, electraIndex)
+            Web3SignerRequest.init(fork, genesis_validators_root,
+              Web3SignerForkedBeaconBlock(kind: ConsensusFork.Electra,
+                data: blck.electraData.toBeaconBlockHeader),
               proofs)
       elif blck is deneb_mev.BlindedBeaconBlock:
         case v.data.remoteType
