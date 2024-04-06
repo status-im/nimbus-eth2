@@ -3363,10 +3363,7 @@ proc writeValue*(writer: var JsonWriter[RestJson],
     if value.consensusValue.isSome():
       writer.writeField("consensus_block_value",
                         $(value.consensusValue.get()))
-    when consensusFork == ConsensusFork.Electra:
-      debugRaiseAssert "electra JsonWriter ProduceBlockV3 missing"
-    else:
-      writer.writeField("data", forkyMaybeBlindedBlck)
+    writer.writeField("data", forkyMaybeBlindedBlck)
   writer.endRecord()
 
 proc readValue*(reader: var JsonReader[RestJson],

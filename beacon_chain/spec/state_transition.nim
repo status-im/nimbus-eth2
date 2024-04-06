@@ -216,12 +216,25 @@ func maybeUpgradeStateToDeneb(
       denebData: deneb.HashedBeaconState(
         root: hash_tree_root(newState[]), data: newState[]))[]
 
+func maybeUpgradeStateToElectra(
+    cfg: RuntimeConfig, state: var ForkedHashedBeaconState) =
+  # Both process_slots() and state_transition_block() call this, so only run it
+  # once by checking for existing fork.
+  if getStateField(state, slot).epoch == cfg.ELECTRA_FORK_EPOCH and
+      state.kind == ConsensusFork.Deneb:
+    let newState = upgrade_to_electra(cfg, state.denebData.data)
+    state = (ref ForkedHashedBeaconState)(
+      kind: ConsensusFork.Electra,
+      electraData: electra.HashedBeaconState(
+        root: hash_tree_root(newState[]), data: newState[]))[]
+
 func maybeUpgradeState*(
     cfg: RuntimeConfig, state: var ForkedHashedBeaconState) =
   cfg.maybeUpgradeStateToAltair(state)
   cfg.maybeUpgradeStateToBellatrix(state)
   cfg.maybeUpgradeStateToCapella(state)
   cfg.maybeUpgradeStateToDeneb(state)
+  cfg.maybeUpgradeStateToElectra(state)
 
 proc process_slots*(
     cfg: RuntimeConfig, state: var ForkedHashedBeaconState, slot: Slot,

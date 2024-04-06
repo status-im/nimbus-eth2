@@ -303,13 +303,8 @@ proc doRunTest(
 
   let
     stores = withConsensusFork(fork):
-      when consensusFork != ConsensusFork.Electra:
-        # another withFoo when it statically knows, sure, ok, so this means another place it has to be disabled
-        initialLoad(
-          path, db, consensusFork.BeaconState, consensusFork.BeaconBlock)
-      else:
-        debugRaiseAssert "electra etc"
-        default(tuple[dag: ChainDAGRef, fkChoice: ref ForkChoice])
+      initialLoad(
+        path, db, consensusFork.BeaconState, consensusFork.BeaconBlock)
 
     rng = HmacDrbgContext.new()
     taskpool =
@@ -402,14 +397,12 @@ template fcSuite(suiteName: static[string], testPathElem: static[string]) =
         continue
       let fork = forkForPathComponent(path).valueOr:
         raiseAssert "Unknown test fork: " & testsPath
-      if true:
-        debugRaiseAssert "no electra in fc tests"
-        for kind, path in walkDir(testsPath, relative = true, checkDir = true):
-          let basePath = testsPath/path/"pyspec_tests"
-          if kind != pcDir:
-            continue
-          for kind, path in walkDir(basePath, relative = true, checkDir = true):
-            runTest(suiteName, basePath/path, fork)
+      for kind, path in walkDir(testsPath, relative = true, checkDir = true):
+        let basePath = testsPath/path/"pyspec_tests"
+        if kind != pcDir:
+          continue
+        for kind, path in walkDir(basePath, relative = true, checkDir = true):
+          runTest(suiteName, basePath/path, fork)
 
 from ../../beacon_chain/conf import loadKzgTrustedSetup
 discard loadKzgTrustedSetup()  # Required for Deneb tests

@@ -370,38 +370,36 @@ proc runProposalForkchoiceUpdated*(
   let safeBlockHash = beaconHead.safeExecutionBlockHash
 
   withState(self.dag.headState):
-    debugRaiseAssert "foo"
-    when consensusFork != ConsensusFork.Electra:
-      template callForkchoiceUpdated(fcPayloadAttributes: auto) =
-        let (status, _) = await self.elManager.forkchoiceUpdated(
-          headBlockHash, safeBlockHash,
-          beaconHead.finalizedExecutionBlockHash,
-          payloadAttributes = some fcPayloadAttributes)
-        debug "Fork-choice updated for proposal", status
+    template callForkchoiceUpdated(fcPayloadAttributes: auto) =
+      let (status, _) = await self.elManager.forkchoiceUpdated(
+        headBlockHash, safeBlockHash,
+        beaconHead.finalizedExecutionBlockHash,
+        payloadAttributes = some fcPayloadAttributes)
+      debug "Fork-choice updated for proposal", status
 
-      static: doAssert high(ConsensusFork) == ConsensusFork.Electra
-      when consensusFork >= ConsensusFork.Deneb:
-        # https://github.com/ethereum/execution-apis/blob/90a46e9137c89d58e818e62fa33a0347bba50085/src/engine/prague.md
-        # does not define any new forkchoiceUpdated, so reuse V3 from Dencun
-        callForkchoiceUpdated(PayloadAttributesV3(
-          timestamp: Quantity timestamp,
-          prevRandao: FixedBytes[32] randomData,
-          suggestedFeeRecipient: feeRecipient,
-          withdrawals:
-            toEngineWithdrawals get_expected_withdrawals(forkyState.data),
-          parentBeaconBlockRoot: beaconHead.blck.bid.root.asBlockHash))
-      elif consensusFork >= ConsensusFork.Capella:
-        callForkchoiceUpdated(PayloadAttributesV2(
-          timestamp: Quantity timestamp,
-          prevRandao: FixedBytes[32] randomData,
-          suggestedFeeRecipient: feeRecipient,
-          withdrawals:
-            toEngineWithdrawals get_expected_withdrawals(forkyState.data)))
-      else:
-        callForkchoiceUpdated(PayloadAttributesV1(
-          timestamp: Quantity timestamp,
-          prevRandao: FixedBytes[32] randomData,
-          suggestedFeeRecipient: feeRecipient))
+    static: doAssert high(ConsensusFork) == ConsensusFork.Electra
+    when consensusFork >= ConsensusFork.Deneb:
+      # https://github.com/ethereum/execution-apis/blob/90a46e9137c89d58e818e62fa33a0347bba50085/src/engine/prague.md
+      # does not define any new forkchoiceUpdated, so reuse V3 from Dencun
+      callForkchoiceUpdated(PayloadAttributesV3(
+        timestamp: Quantity timestamp,
+        prevRandao: FixedBytes[32] randomData,
+        suggestedFeeRecipient: feeRecipient,
+        withdrawals:
+          toEngineWithdrawals get_expected_withdrawals(forkyState.data),
+        parentBeaconBlockRoot: beaconHead.blck.bid.root.asBlockHash))
+    elif consensusFork >= ConsensusFork.Capella:
+      callForkchoiceUpdated(PayloadAttributesV2(
+        timestamp: Quantity timestamp,
+        prevRandao: FixedBytes[32] randomData,
+        suggestedFeeRecipient: feeRecipient,
+        withdrawals:
+          toEngineWithdrawals get_expected_withdrawals(forkyState.data)))
+    else:
+      callForkchoiceUpdated(PayloadAttributesV1(
+        timestamp: Quantity timestamp,
+        prevRandao: FixedBytes[32] randomData,
+        suggestedFeeRecipient: feeRecipient))
 
   ok()
 
