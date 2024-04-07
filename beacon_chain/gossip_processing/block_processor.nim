@@ -716,10 +716,9 @@ proc storeBlock(
         template callForkChoiceUpdated: auto =
           case self.consensusManager.dag.cfg.consensusForkAtEpoch(
               newHead.get.blck.bid.slot.epoch)
-          of ConsensusFork.Electra:
-            let x = 4
-            debugRaiseAssert "callFCU"
-          of ConsensusFork.Deneb:
+          of ConsensusFork.Deneb, ConsensusFork.Electra:
+            # https://github.com/ethereum/execution-apis/blob/90a46e9137c89d58e818e62fa33a0347bba50085/src/engine/prague.md
+            # does not define any new forkchoiceUpdated, so reuse V3 from Dencun
             callExpectValidFCU(payloadAttributeType = PayloadAttributesV3)
           of ConsensusFork.Capella:
             callExpectValidFCU(payloadAttributeType = PayloadAttributesV2)
