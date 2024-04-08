@@ -106,6 +106,8 @@ type
     withdrawals_root*: Eth2Digest
     blob_gas_used*: uint64   # [New in Deneb:EIP4844]
     excess_blob_gas*: uint64 # [New in Deneb:EIP4844]
+    deposit_receipts_root*: Eth2Digest
+    exits_root*: Eth2Digest
 
   ExecutePayload* = proc(
     execution_payload: ExecutionPayload): bool {.gcsafe, raises: [].}
