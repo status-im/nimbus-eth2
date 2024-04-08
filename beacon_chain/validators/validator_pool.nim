@@ -509,7 +509,8 @@ proc getBlockSignature*(v: AttachedValidator, fork: Fork,
     capella.BeaconBlockBody |
     deneb.BeaconBlockBody |
     deneb_mev.BlindedBeaconBlockBody |
-    electra.BeaconBlockBody
+    electra.BeaconBlockBody |
+    electra_mev.BlindedBeaconBlockBody
 
   template blockPropertiesProofs(blockBody: SomeBlockBody,
                                  forkIndexField: untyped): seq[Web3SignerMerkleProof] =
