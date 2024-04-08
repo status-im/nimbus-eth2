@@ -173,7 +173,7 @@ type
     of ConsensusFork.Deneb:
       denebData*: deneb_mev.MaybeBlindedBeaconBlock
     of ConsensusFork.Electra:
-      electraData*: electra.BeaconBlock
+      electraData*: electra_mev.MaybeBlindedBeaconBlock
     consensusValue*: Opt[UInt256]
     executionValue*: Opt[UInt256]
 
@@ -188,7 +188,7 @@ type
     of ConsensusFork.Bellatrix: bellatrixData*: bellatrix_mev.BlindedBeaconBlock
     of ConsensusFork.Capella:   capellaData*:   capella_mev.BlindedBeaconBlock
     of ConsensusFork.Deneb:     denebData*:     deneb_mev.BlindedBeaconBlock
-    of ConsensusFork.Electra:   electraData*:   electra.BeaconBlock
+    of ConsensusFork.Electra:   electraData*:   electra_mev.BlindedBeaconBlock
 
   ForkySignedBeaconBlock* =
     phase0.SignedBeaconBlock |
@@ -212,7 +212,8 @@ type
     altair.SignedBeaconBlock |
     bellatrix_mev.SignedBlindedBeaconBlock |
     capella_mev.SignedBlindedBeaconBlock |
-    deneb_mev.SignedBlindedBeaconBlock
+    deneb_mev.SignedBlindedBeaconBlock |
+    electra_mev.SignedBlindedBeaconBlock
 
   ForkedSignedBlindedBeaconBlock* = object
     case kind*: ConsensusFork
@@ -221,7 +222,7 @@ type
     of ConsensusFork.Bellatrix: bellatrixData*: bellatrix_mev.SignedBlindedBeaconBlock
     of ConsensusFork.Capella:   capellaData*:   capella_mev.SignedBlindedBeaconBlock
     of ConsensusFork.Deneb:     denebData*:     deneb_mev.SignedBlindedBeaconBlock
-    of ConsensusFork.Electra:   electraData*:   electra.SignedBeaconBlock
+    of ConsensusFork.Electra:   electraData*:   electra_mev.SignedBlindedBeaconBlock
 
   ForkySigVerifiedSignedBeaconBlock* =
     phase0.SigVerifiedSignedBeaconBlock |
@@ -496,7 +497,9 @@ template BlindedBeaconBlock*(kind: static ConsensusFork): auto =
     static: raiseAssert "Unreachable"
 
 template MaybeBlindedBeaconBlock*(kind: static ConsensusFork): auto =
-  when kind == ConsensusFork.Deneb:
+  when kind == ConsensusFork.Electra:
+    typedesc[electra_mev.MaybeBlindedBeaconBlock]
+  elif kind == ConsensusFork.Deneb:
     typedesc[deneb_mev.MaybeBlindedBeaconBlock]
   elif kind == ConsensusFork.Capella or kind == ConsensusFork.Bellatrix:
     static: raiseAssert "Unsupported"
@@ -716,9 +719,8 @@ func init*(T: type ForkedSignedBlindedBeaconBlock,
                                                     signature: signature))
   of ConsensusFork.Electra:
     T(kind: ConsensusFork.Electra,
-      electraData: electra.SignedBeaconBlock(message: forked.electraData,
-                                             root: blockRoot,
-                                             signature: signature))
+      electraData: electra_mev.SignedBlindedBeaconBlock(message: forked.electraData,
+                                                        signature: signature))
 
 template init*(T: type ForkedSignedBlindedBeaconBlock,
                blck: capella_mev.BlindedBeaconBlock, blockRoot: Eth2Digest,
@@ -732,6 +734,13 @@ template init*(T: type ForkedSignedBlindedBeaconBlock,
                signature: ValidatorSig): T =
   T(kind: ConsensusFork.Deneb,
     denebData: deneb_mev.SignedBlindedBeaconBlock(
+      message: blck, signature: signature))
+
+template init*(T: type ForkedSignedBlindedBeaconBlock,
+               blck: electra_mev.BlindedBeaconBlock, blockRoot: Eth2Digest,
+               signature: ValidatorSig): T =
+  T(kind: ConsensusFork.Electra,
+    electraData: electra_mev.SignedBlindedBeaconBlock(
       message: blck, signature: signature))
 
 template init*(T: type ForkedMsgTrustedSignedBeaconBlock, blck: phase0.MsgTrustedSignedBeaconBlock): T =
@@ -1104,11 +1113,17 @@ template withForkyMaybeBlindedBlck*(
     body: untyped): untyped =
   case b.kind
   of ConsensusFork.Electra:
-    const
-      consensusFork {.inject, used.} = ConsensusFork.Electra
-      isBlinded {.inject, used.} = false
-    template forkyMaybeBlindedBlck: untyped {.inject, used.} = b.electraData
-    body
+    const consensusFork {.inject, used.} = ConsensusFork.Electra
+    template d: untyped = b.electraData
+    case d.isBlinded:
+    of true:
+      const isBlinded {.inject, used.} = true
+      template forkyMaybeBlindedBlck: untyped {.inject, used.} = d.blindedData
+      body
+    of false:
+      const isBlinded {.inject, used.} = false
+      template forkyMaybeBlindedBlck: untyped {.inject, used.} = d.data
+      body
   of ConsensusFork.Deneb:
     const consensusFork {.inject, used.} = ConsensusFork.Deneb
     template d: untyped = b.denebData
@@ -1185,8 +1200,8 @@ template withStateAndBlck*(
     body
 
 func toBeaconBlockHeader*(
-    blck: SomeForkyBeaconBlock | deneb_mev.BlindedBeaconBlock):
-    BeaconBlockHeader =
+    blck: SomeForkyBeaconBlock | deneb_mev.BlindedBeaconBlock |
+    electra_mev.BlindedBeaconBlock): BeaconBlockHeader =
   ## Reduce a given `BeaconBlock` to its `BeaconBlockHeader`.
   BeaconBlockHeader(
     slot: blck.slot,

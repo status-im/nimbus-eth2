@@ -1003,11 +1003,7 @@ proc installBeaconApiHandlers*(router: var RestRouter, node: BeaconNode) =
         RestApiResponse.jsonError(Http500, InvalidAcceptError)
 
     withBlck(bdata.asSigned()):
-      when consensusFork == ConsensusFork.Electra:
-        debugRaiseAssert "electra, beacon API missing"
-        let x = 5
-        RestApiResponse.jsonError(Http500, InvalidAcceptError)
-      elif consensusFork <= ConsensusFork.Altair:
+      when consensusFork <= ConsensusFork.Altair:
         respondSszOrJson(forkyBlck, consensusFork)
       else:
         respondSszOrJson(toSignedBlindedBeaconBlock(forkyBlck), consensusFork)

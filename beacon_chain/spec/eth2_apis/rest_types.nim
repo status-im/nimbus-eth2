@@ -721,10 +721,20 @@ func init*(t: typedesc[RestPublishedSignedBlockContents],
   )
 
 func init*(t: typedesc[RestPublishedSignedBlockContents],
-           contents: electra.BeaconBlock, root: Eth2Digest,
+           contents: electra.BlockContents, root: Eth2Digest,
            signature: ValidatorSig): RestPublishedSignedBlockContents =
-  debugRaiseAssert "init*(t: typedesc[RestPublishedSignedBlockContents],"
-  default(RestPublishedSignedBlockContents)
+  RestPublishedSignedBlockContents(
+    kind: ConsensusFork.Electra,
+    electraData: ElectraSignedBlockContents(
+      signed_block: electra.SignedBeaconBlock(
+        message: contents.`block`,
+        root: root,
+        signature: signature
+      ),
+      kzg_proofs: contents.kzg_proofs,
+      blobs: contents.blobs
+    )
+  )
 
 func init*(t: typedesc[StateIdent], v: StateIdentType): StateIdent =
   StateIdent(kind: StateQueryKind.Named, value: v)
