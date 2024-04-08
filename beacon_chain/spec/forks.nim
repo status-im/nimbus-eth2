@@ -393,7 +393,8 @@ template kind*(
       electra.TrustedBeaconBlockBody |
       electra.SigVerifiedSignedBeaconBlock |
       electra.MsgTrustedSignedBeaconBlock |
-      electra.TrustedSignedBeaconBlock]): ConsensusFork =
+      electra.TrustedSignedBeaconBlock |
+      electra_mev.SignedBlindedBeaconBlock]): ConsensusFork =
   ConsensusFork.Electra
 
 template BeaconState*(kind: static ConsensusFork): auto =
@@ -507,7 +508,9 @@ template MaybeBlindedBeaconBlock*(kind: static ConsensusFork): auto =
     static: raiseAssert "Unreachable"
 
 template SignedBlindedBeaconBlock*(kind: static ConsensusFork): auto =
-  when kind == ConsensusFork.Deneb:
+  when kind == ConsensusFork.Electra:
+    typedesc[electra_mev.SignedBlindedBeaconBlock]
+  elif kind == ConsensusFork.Deneb:
     typedesc[deneb_mev.SignedBlindedBeaconBlock]
   elif kind == ConsensusFork.Capella or kind == ConsensusFork.Bellatrix:
     static: raiseAssert "Unsupported"

@@ -173,6 +173,7 @@ RestJson.useDefaultSerializationFor(
   SignedValidatorRegistrationV1,
   SignedVoluntaryExit,
   SubmitBlindedBlockResponseDeneb,
+  SubmitBlindedBlockResponseElectra,
   SyncAggregate,
   SyncAggregatorSelectionData,
   SyncCommittee,
@@ -328,6 +329,7 @@ type
     bellatrix_mev.SignedBlindedBeaconBlock |
     capella_mev.SignedBlindedBeaconBlock |
     deneb_mev.SignedBlindedBeaconBlock |
+    electra_mev.SignedBlindedBeaconBlock |
     SignedValidatorRegistrationV1 |
     SignedVoluntaryExit |
     Web3SignerRequest |
