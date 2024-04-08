@@ -80,8 +80,9 @@ OK: 2/2 Fail: 0/2 Skip: 0/2
 + Bellatrix toSignedBlindedBlock                                                             OK
 + Capella toSignedBlindedBlock                                                               OK
 + Deneb toSignedBlindedBlock                                                                 OK
++ Electra toSignedBlindedBlock                                                               OK
 ```
-OK: 3/3 Fail: 0/3 Skip: 0/3
+OK: 4/4 Fail: 0/4 Skip: 0/4
 ## Block pool altair processing [Preset: mainnet]
 ```diff
 + Invalid signatures [Preset: mainnet]                                                       OK
@@ -1018,4 +1019,4 @@ OK: 2/2 Fail: 0/2 Skip: 0/2
 OK: 9/9 Fail: 0/9 Skip: 0/9
 
 ---TOTAL---
-OK: 683/688 Fail: 0/688 Skip: 5/688
+OK: 684/689 Fail: 0/689 Skip: 5/689
