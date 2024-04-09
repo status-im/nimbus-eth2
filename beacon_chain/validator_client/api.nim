@@ -2260,8 +2260,7 @@ proc publishBlock*(
         of ConsensusFork.Deneb:
           publishBlock(it, data.denebData)
         of ConsensusFork.Electra:
-          debugRaiseAssert "electra missing"
-          publishBlock(it, data.denebData)
+          publishBlock(it, data.electraData)
       do:
         if apiResponse.isErr():
           handleCommunicationError()
