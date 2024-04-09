@@ -535,8 +535,21 @@ func asConsensusType*(rpcExecutionPayload: ExecutionPayloadV4):
 
 func asConsensusType*(payload: engine_api.GetPayloadV4Response):
     electra.ExecutionPayloadForSigning =
-  debugRaiseAssert "well, not empty maybe"
-  default(electra.ExecutionPayloadForSigning)
+  debugRaiseAssert "after updating/fixing nim-web3, re-enable executionPayload field"
+  electra.ExecutionPayloadForSigning(
+    #executionPayload: payload.executionPayload.asConsensusType,
+    blockValue: payload.blockValue,
+    # TODO
+    # The `mapIt` calls below are necessary only because we use different distinct
+    # types for KZG commitments and Blobs in the `web3` and the `deneb` spec types.
+    # Both are defined as `array[N, byte]` under the hood.
+    blobsBundle: BlobsBundle(
+      commitments: KzgCommitments.init(
+        payload.blobsBundle.commitments.mapIt(it.bytes)),
+      proofs: KzgProofs.init(
+        payload.blobsBundle.proofs.mapIt(it.bytes)),
+      blobs: Blobs.init(
+        payload.blobsBundle.blobs.mapIt(it.bytes))))
 
 func asEngineExecutionPayload*(executionPayload: bellatrix.ExecutionPayload):
     ExecutionPayloadV1 =

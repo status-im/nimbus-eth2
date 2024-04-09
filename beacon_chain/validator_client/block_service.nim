@@ -38,10 +38,7 @@ func shortLog(v: Opt[UInt256]): auto =
 
 func shortLog(v: ForkedMaybeBlindedBeaconBlock): auto =
   withForkyMaybeBlindedBlck(v):
-    when consensusFork == ConsensusFork.Electra:
-      debugRaiseAssert ""
-      shortLog(default(phase0.BeaconBlock))
-    elif consensusFork < ConsensusFork.Deneb:
+    when consensusFork < ConsensusFork.Deneb:
       shortLog(forkyMaybeBlindedBlck)
     else:
       when isBlinded:
@@ -335,12 +332,9 @@ proc publishBlockV3(vc: ValidatorClientRef, currentSlot, slot: Slot,
         warn "Blinded block was not accepted by beacon node"
         false
     else:
-      debugRaiseAssert "electra htr"
       let
         blockRoot = hash_tree_root(
-          when consensusFork == ConsensusFork.Electra:
-            default(Attestation)
-          elif consensusFork < ConsensusFork.Deneb:
+          when consensusFork < ConsensusFork.Deneb:
             forkyMaybeBlindedBlck
           else:
             forkyMaybeBlindedBlck.`block`
@@ -360,12 +354,9 @@ proc publishBlockV3(vc: ValidatorClientRef, currentSlot, slot: Slot,
           .slashingProtection
           .registerBlock(vindex, validator.pubkey, slot, signingRoot)
 
-      debugRaiseAssert "electra logging"
       logScope:
         blck = shortLog(
-          when consensusFork == ConsensusFork.Electra:
-            default(phase0.BeaconBlock)
-          elif consensusFork < ConsensusFork.Deneb:
+          when consensusFork < ConsensusFork.Deneb:
             forkyMaybeBlindedBlck
           else:
             forkyMaybeBlindedBlck.`block`
@@ -618,8 +609,14 @@ proc publishBlockV2(vc: ValidatorClientRef, currentSlot, slot: Slot,
                 kzg_proofs: preparedBlock.kzgProofsOpt.get,
                 blobs: preparedBlock.blobsOpt.get))
           of ConsensusFork.Electra:
-            debugRaiseAssert ""
-            default(RestPublishedSignedBlockContents)
+            RestPublishedSignedBlockContents(kind: ConsensusFork.Electra,
+              electraData: ElectraSignedBlockContents(
+                signed_block: electra.SignedBeaconBlock(
+                  message: preparedBlock.data.electraData,
+                  root: preparedBlock.blockRoot,
+                  signature: signature),
+                kzg_proofs: preparedBlock.kzgProofsOpt.get,
+                blobs: preparedBlock.blobsOpt.get))
 
         res =
           try:

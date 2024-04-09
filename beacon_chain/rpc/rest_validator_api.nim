@@ -528,12 +528,7 @@ proc installValidatorApiHandlers*(router: var RestRouter, node: BeaconNode) =
       contextFork = node.dag.cfg.consensusForkAtEpoch(node.currentSlot.epoch)
 
     withConsensusFork(contextFork):
-      when consensusFork >= ConsensusFork.Electra:
-        # why not, it's a true error message. also:
-        debugRaiseAssert ""
-        return RestApiResponse.jsonError(
-          Http400, "Pre-Deneb builder API unsupported")
-      elif consensusFork >= ConsensusFork.Deneb:
+      when consensusFork >= ConsensusFork.Deneb:
         let res = await makeBlindedBeaconBlockForHeadAndSlot[
             consensusFork.BlindedBeaconBlock](
           node, payloadBuilderClient, qrandao,
@@ -643,10 +638,7 @@ proc installValidatorApiHandlers*(router: var RestRouter, node: BeaconNode) =
       return RestApiResponse.jsonError(Http400, InvalidRandaoRevealValue)
 
     withConsensusFork(node.dag.cfg.consensusForkAtEpoch(qslot.epoch)):
-      when consensusFork >= ConsensusFork.Electra:
-        debugRaiseAssert "foo"
-        return RestApiResponse.jsonError(Http400, InvalidRandaoRevealValue)
-      elif consensusFork >= ConsensusFork.Deneb:
+      when consensusFork >= ConsensusFork.Deneb:
         let
           message = (await node.makeMaybeBlindedBeaconBlockForHeadAndSlot(
               consensusFork, qrandao, qgraffiti, qhead, qslot)).valueOr:
