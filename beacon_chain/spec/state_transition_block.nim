@@ -573,7 +573,6 @@ proc process_sync_aggregate*(
   # Apply participant and proposer rewards
   let indices = get_sync_committee_cache(state, cache).current_sync_committee
 
-  # TODO could use a sequtils2 zipIt
   for i in 0 ..< min(
     state.current_sync_committee.pubkeys.len,
     sync_aggregate.sync_committee_bits.len):

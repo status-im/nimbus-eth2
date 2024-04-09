@@ -13,6 +13,14 @@ import
 
 export chronos, client, rest_types, eth2_rest_serialization
 
+proc getHeaderElectra*(slot: Slot,
+                     parent_hash: Eth2Digest,
+                     pubkey: ValidatorPubKey
+                    ): RestPlainResponse {.
+     rest, endpoint: "/eth/v1/builder/header/{slot}/{parent_hash}/{pubkey}",
+     meth: MethodGet, connection: {Dedicated, Close}.}
+  ## https://github.com/ethereum/builder-specs/blob/v0.4.0/apis/builder/header.yaml
+
 proc submitBlindedBlock*(body: electra_mev.SignedBlindedBeaconBlock
                         ): RestPlainResponse {.
      rest, endpoint: "/eth/v1/builder/blinded_blocks",

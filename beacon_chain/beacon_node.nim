@@ -105,7 +105,6 @@ type
     processingDelay*: Opt[Duration]
     lastValidAttestedBlock*: Opt[BlockSlot]
 
-# TODO stew/sequtils2
 template findIt*(s: openArray, predicate: untyped): int =
   var res = -1
   for i, it {.inject.} in s:

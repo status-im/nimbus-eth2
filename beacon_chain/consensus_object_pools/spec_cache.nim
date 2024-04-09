@@ -168,7 +168,6 @@ func get_attesting_indices*(shufflingRef: ShufflingRef,
                             committee_index: CommitteeIndex,
                             bits: CommitteeValidatorsBits):
                               seq[ValidatorIndex] =
-  # TODO sequtils2 mapIt
   for idx in get_attesting_indices(shufflingRef, slot, committee_index, bits):
     result.add(idx)
 
