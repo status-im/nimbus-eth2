@@ -1048,6 +1048,15 @@ proc sendNewPayloadToSingleEL(connection: ELConnection,
   return await rpcClient.engine_newPayloadV3(
     payload, versioned_hashes, parent_beacon_block_root)
 
+proc sendNewPayloadToSingleEL(connection: ELConnection,
+                              payload: engine_api.ExecutionPayloadV4,
+                              versioned_hashes: seq[engine_api.VersionedHash],
+                              parent_beacon_block_root: FixedBytes[32]):
+                              Future[PayloadStatusV1] {.async.} =
+  let rpcClient = await connection.connectedRpcClient()
+  return await rpcClient.engine_newPayloadV4(
+    payload, versioned_hashes, parent_beacon_block_root)
+
 type
   StatusRelation = enum
     newStatusIsPreferable
@@ -1147,7 +1156,8 @@ proc sendNewPayload*(m: ELManager, blck: SomeForkyBeaconBlock):
     payload = blck.body.execution_payload.asEngineExecutionPayload
     requests = m.elConnections.mapIt:
       let req =
-        when payload is engine_api.ExecutionPayloadV3:
+        when payload is engine_api.ExecutionPayloadV3 or
+             payload is engine_api.ExecutionPayloadV4:
           # https://github.com/ethereum/consensus-specs/blob/v1.4.0-alpha.1/specs/deneb/beacon-chain.md#process_execution_payload
           # Verify the execution payload is valid
           # [Modified in Deneb] Pass `versioned_hashes` to Execution Engine
@@ -1160,9 +1170,6 @@ proc sendNewPayload*(m: ELManager, blck: SomeForkyBeaconBlock):
         elif payload is engine_api.ExecutionPayloadV1 or
              payload is engine_api.ExecutionPayloadV2:
           sendNewPayloadToSingleEL(it, payload)
-        elif payload is engine_api.ExecutionPayloadV4:
-          debugRaiseAssert "similar to V3 case, check for details"
-          default(Future[PayloadStatusV1])
         else:
           static: doAssert false
       trackEngineApiRequest(it, req, "newPayload", startTime, deadline)
