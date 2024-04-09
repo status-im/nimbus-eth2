@@ -345,6 +345,7 @@ type
     capella.SignedBeaconBlock |
     phase0.SignedBeaconBlock |
     DenebSignedBlockContents |
+    ElectraSignedBlockContents |
     ForkedMaybeBlindedBeaconBlock
 
   EncodeArrays* =
@@ -403,8 +404,8 @@ type
 
   RestBlockTypes* = phase0.BeaconBlock | altair.BeaconBlock |
                     bellatrix.BeaconBlock | capella.BeaconBlock |
-                    deneb.BlockContents | capella_mev.BlindedBeaconBlock |
-                    deneb_mev.BlindedBeaconBlock
+                    deneb.BlockContents | deneb_mev.BlindedBeaconBlock |
+                    electra.BlockContents | electra_mev.BlindedBeaconBlock
 
 func readStrictHexChar(c: char, radix: static[uint8]): Result[int8, cstring] =
   ## Converts an hex char to an int
@@ -3970,14 +3971,8 @@ proc decodeBytes*[T: DecodeConsensysTypes](
           forked = ForkedBlindedBeaconBlock(
             kind: ConsensusFork.Deneb, denebData: blck)
         ok(ProduceBlindedBlockResponse(forked))
-      of ConsensusFork.Capella:
-        let
-          blck = ? readSszResBytes(capella_mev.BlindedBeaconBlock, value)
-          forked = ForkedBlindedBeaconBlock(
-            kind: ConsensusFork.Capella, capellaData: blck)
-        ok(ProduceBlindedBlockResponse(forked))
-      of ConsensusFork.Bellatrix, ConsensusFork.Altair, ConsensusFork.Phase0:
-        err("Unable to decode blinded block for Bellatrix, Altair, and Phase0 forks")
+      of ConsensusFork.Phase0 .. ConsensusFork.Capella:
+        err("Unable to decode blinded block for pre-Deneb forks")
   else:
     err("Unsupported Content-Type")
 
@@ -4036,10 +4031,7 @@ proc decodeBytes*[T: ProduceBlockResponseV3](
           except ValueError:
             return err("Incorrect `Eth-Consensus-Block-Value` header value")
     withConsensusFork(fork):
-      when consensusFork >= ConsensusFork.Electra:
-        debugRaiseAssert "eth2 rest serialization"
-        return err("electra missing")
-      elif consensusFork >= ConsensusFork.Deneb:
+      when consensusFork >= ConsensusFork.Deneb:
         if blinded:
           let contents =
             ? readSszResBytes(consensusFork.BlindedBlockContents, value)

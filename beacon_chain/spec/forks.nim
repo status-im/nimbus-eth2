@@ -585,7 +585,9 @@ template BlockContents*(
 
 template BlindedBlockContents*(
     kind: static ConsensusFork): auto =
-  when kind == ConsensusFork.Deneb:
+  when kind == ConsensusFork.Electra:
+    typedesc[electra_mev.BlindedBeaconBlock]
+  elif kind == ConsensusFork.Deneb:
     typedesc[deneb_mev.BlindedBeaconBlock]
   else:
     {.error: "BlindedBlockContents does not support " & $kind.}
@@ -1492,6 +1494,28 @@ template init*(T: type ForkedMaybeBlindedBeaconBlock,
   ForkedMaybeBlindedBeaconBlock(
     kind: ConsensusFork.Deneb,
     denebData: deneb_mev.MaybeBlindedBeaconBlock(
+      isBlinded: true,
+      blindedData: blck),
+    consensusValue: cvalue,
+    executionValue: evalue)
+
+template init*(T: type ForkedMaybeBlindedBeaconBlock,
+               blck: electra.BlockContents,
+               evalue: Opt[UInt256], cvalue: Opt[UInt256]): T =
+  ForkedMaybeBlindedBeaconBlock(
+    kind: ConsensusFork.Electra,
+    electraData: electra_mev.MaybeBlindedBeaconBlock(
+      isBlinded: false,
+      data: blck),
+    consensusValue: cvalue,
+    executionValue: evalue)
+
+template init*(T: type ForkedMaybeBlindedBeaconBlock,
+               blck: electra_mev.BlindedBeaconBlock,
+               evalue: Opt[UInt256], cvalue: Opt[UInt256]): T =
+  ForkedMaybeBlindedBeaconBlock(
+    kind: ConsensusFork.Electra,
+    electraData: electra_mev.MaybeBlindedBeaconBlock(
       isBlinded: true,
       blindedData: blck),
     consensusValue: cvalue,
