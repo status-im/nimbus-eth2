@@ -33,11 +33,13 @@ macro copyFields*(
     dst: untyped, src: untyped, fieldNames: static[seq[string]]): untyped =
   result = newStmtList()
   for name in fieldNames:
+    debugRaiseAssert "deposit_receipts_root and exits_root are not currently filled in anywhere properly, so blinded electra proposals will fail"
     if name notin [
         # These fields are the ones which vary between the blinded and
         # unblinded objects, and can't simply be copied.
         "transactions_root", "execution_payload",
-        "execution_payload_header", "body", "withdrawals_root"]:
+        "execution_payload_header", "body", "withdrawals_root",
+        "deposit_receipts_root", "exits_root"]:
       # TODO use stew/assign2
       result.add newAssignment(
         newDotExpr(dst, ident(name)), newDotExpr(src, ident(name)))
