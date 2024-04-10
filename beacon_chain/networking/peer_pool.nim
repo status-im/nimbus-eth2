@@ -502,7 +502,8 @@ proc acquireItemImpl[A, B](pool: PeerPool[A, B],
   let pindex =
     if filter == {PeerType.Incoming, PeerType.Outgoing}:
       if len(pool.outQueue) > 0 and len(pool.incQueue) > 0:
-        # Don't think `<` is actually `<` here.
+        # `<` here is the `PeerIndex` implementation (`HeapQueue` uses `<`),
+        # which then flips the arguments to rank `>` on `A` using `pool.cmp`
         if pool.incQueue[0] < pool.outQueue[0]:
           inc(pool.acqIncPeersCount)
           let item = pool.incQueue.pop()
