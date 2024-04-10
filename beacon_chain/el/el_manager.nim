@@ -828,11 +828,9 @@ proc getPayloadFromSingleEL(
       await engine_api.getPayload(rpcClient, ExecutionPayloadV1, payloadId)
     return BellatrixExecutionPayloadWithValue(
       executionPayload: payload, blockValue: Wei.zero)
-  elif GetPayloadResponseType is engine_api.GetPayloadV4Response:
-    debugRaiseAssert "foo"
-    return default(engine_api.GetPayloadV4Response)
   else:
-    return await engine_api.getPayload(rpcClient, GetPayloadResponseType, payloadId)
+    return await engine_api.getPayload(
+      rpcClient, GetPayloadResponseType, payloadId)
 
 func cmpGetPayloadResponses(lhs, rhs: SomeEnginePayloadWithValue): int =
   cmp(distinctBase lhs.blockValue, distinctBase rhs.blockValue)
