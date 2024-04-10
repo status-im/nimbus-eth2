@@ -216,12 +216,25 @@ func maybeUpgradeStateToDeneb(
       denebData: deneb.HashedBeaconState(
         root: hash_tree_root(newState[]), data: newState[]))[]
 
+func maybeUpgradeStateToElectra(
+    cfg: RuntimeConfig, state: var ForkedHashedBeaconState) =
+  # Both process_slots() and state_transition_block() call this, so only run it
+  # once by checking for existing fork.
+  if getStateField(state, slot).epoch == cfg.ELECTRA_FORK_EPOCH and
+      state.kind == ConsensusFork.Deneb:
+    let newState = upgrade_to_electra(cfg, state.denebData.data)
+    state = (ref ForkedHashedBeaconState)(
+      kind: ConsensusFork.Electra,
+      electraData: electra.HashedBeaconState(
+        root: hash_tree_root(newState[]), data: newState[]))[]
+
 func maybeUpgradeState*(
     cfg: RuntimeConfig, state: var ForkedHashedBeaconState) =
   cfg.maybeUpgradeStateToAltair(state)
   cfg.maybeUpgradeStateToBellatrix(state)
   cfg.maybeUpgradeStateToCapella(state)
   cfg.maybeUpgradeStateToDeneb(state)
+  cfg.maybeUpgradeStateToElectra(state)
 
 proc process_slots*(
     cfg: RuntimeConfig, state: var ForkedHashedBeaconState, slot: Slot,
@@ -380,6 +393,8 @@ func partialBeaconBlock*(
   when consensusFork >= ConsensusFork.Deneb:
     res.body.blob_kzg_commitments = execution_payload.blobsBundle.commitments
 
+  debugRaiseAssert "check for new fields or conditions to ensure in electra"
+
   res
 
 proc makeBeaconBlockWithRewards*(
@@ -457,6 +472,8 @@ proc makeBeaconBlockWithRewards*(
             ])
           else:
             raiseAssert "Attempt to use non-Deneb payload with post-Deneb state"
+        elif consensusFork == ConsensusFork.Electra:
+          debugRaiseAssert "makeBeaconBlock doesn't support Electra"
         else:
           static: raiseAssert "Unreachable"
 
@@ -480,6 +497,10 @@ proc makeBeaconBlockWithRewards*(
     case state.kind
     of ConsensusFork.Deneb:     makeBeaconBlock(deneb)
     else: raiseAssert "Attempt to use Deneb payload with non-Deneb state"
+  elif payloadFork == ConsensusFork.Electra:
+    case state.kind
+    of ConsensusFork.Electra:     makeBeaconBlock(electra)
+    else: raiseAssert "Attempt to use Electra payload with non-Electra state"
   else:
     {.error: "Unsupported fork".}
 

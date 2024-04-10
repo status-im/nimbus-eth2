@@ -67,12 +67,14 @@ RestJson.useDefaultSerializationFor(
   DenebSignedBlockContents,
   Deposit,
   DepositData,
+  DepositReceipt,
   DepositTreeSnapshot,
   DistributedKeystoreInfo,
+  ElectraSignedBlockContents,
   EmptyBody,
   Eth1Data,
   EventBeaconBlockObject,
-  ExecutionPayloadAndBlobsBundle,
+  ExecutionLayerExit,
   Fork,
   GetBlockAttestationsResponse,
   GetBlockHeaderResponse,
@@ -86,6 +88,7 @@ RestJson.useDefaultSerializationFor(
   GetForkScheduleResponse,
   GetGenesisResponse,
   GetHeaderResponseDeneb,
+  GetHeaderResponseElectra,
   GetKeystoresResponse,
   GetNextWithdrawalsResponse,
   GetPoolAttesterSlashingsResponse,
@@ -171,6 +174,7 @@ RestJson.useDefaultSerializationFor(
   SignedValidatorRegistrationV1,
   SignedVoluntaryExit,
   SubmitBlindedBlockResponseDeneb,
+  SubmitBlindedBlockResponseElectra,
   SyncAggregate,
   SyncAggregatorSelectionData,
   SyncCommittee,
@@ -238,8 +242,22 @@ RestJson.useDefaultSerializationFor(
   deneb_mev.BlindedBeaconBlock,
   deneb_mev.BlindedBeaconBlockBody,
   deneb_mev.BuilderBid,
+  deneb_mev.ExecutionPayloadAndBlobsBundle,
   deneb_mev.SignedBlindedBeaconBlock,
   deneb_mev.SignedBuilderBid,
+  electra.BeaconBlock,
+  electra.BeaconState,
+  electra.BeaconBlockBody,
+  electra.BlockContents,
+  electra.ExecutionPayload,
+  electra.ExecutionPayloadHeader,
+  electra.SignedBeaconBlock,
+  electra_mev.BlindedBeaconBlock,
+  electra_mev.BlindedBeaconBlockBody,
+  electra_mev.BuilderBid,
+  electra_mev.ExecutionPayloadAndBlobsBundle,
+  electra_mev.SignedBlindedBeaconBlock,
+  electra_mev.SignedBuilderBid,
   phase0.BeaconBlock,
   phase0.BeaconBlockBody,
   phase0.BeaconState,
@@ -314,6 +332,7 @@ type
     bellatrix_mev.SignedBlindedBeaconBlock |
     capella_mev.SignedBlindedBeaconBlock |
     deneb_mev.SignedBlindedBeaconBlock |
+    electra_mev.SignedBlindedBeaconBlock |
     SignedValidatorRegistrationV1 |
     SignedVoluntaryExit |
     Web3SignerRequest |
@@ -326,6 +345,7 @@ type
     capella.SignedBeaconBlock |
     phase0.SignedBeaconBlock |
     DenebSignedBlockContents |
+    ElectraSignedBlockContents |
     ForkedMaybeBlindedBeaconBlock
 
   EncodeArrays* =
@@ -384,8 +404,8 @@ type
 
   RestBlockTypes* = phase0.BeaconBlock | altair.BeaconBlock |
                     bellatrix.BeaconBlock | capella.BeaconBlock |
-                    deneb.BlockContents | capella_mev.BlindedBeaconBlock |
-                    deneb_mev.BlindedBeaconBlock
+                    deneb.BlockContents | deneb_mev.BlindedBeaconBlock |
+                    electra.BlockContents | electra_mev.BlindedBeaconBlock
 
 func readStrictHexChar(c: char, radix: static[uint8]): Result[int8, cstring] =
   ## Converts an hex char to an int
@@ -677,7 +697,9 @@ proc jsonResponseWVersion*(t: typedesc[RestApiResponse], data: auto,
           var writer = JsonWriter[RestJson].init(stream)
           writer.beginRecord()
           writer.writeField("version", version.toString())
-          writer.writeField("data", data)
+          when (not (data is electra.BeaconState)) and (not (data is electra.HashedBeaconState)) and (not (data is electra.ExecutionPayload)) and (not (data is electra.ExecutionPayloadForSigning)) and (not (data is electra.ExecutionPayloadHeader)) and (not (data is electra.BeaconBlock)) and (not (data is electra.SignedBeaconBlock)):
+            debugRaiseAssert "foo"
+            writer.writeField("data", data)
           writer.endRecord()
           stream.getOutput(seq[byte])
         except IOError:
@@ -1517,6 +1539,10 @@ proc readValue*[BlockType: ProduceBlockResponseV2](
     value = ProduceBlockResponseV2(kind: ConsensusFork.Deneb,
                                    denebData: res)
 
+  of ConsensusFork.Electra:
+    debugRaiseAssert "electra"
+    reader.raiseUnexpectedValue("electra missing")
+
 proc readValue*[BlockType: ForkedBlindedBeaconBlock](
        reader: var JsonReader[RestJson],
        value: var BlockType
@@ -1583,6 +1609,9 @@ proc readValue*[BlockType: ForkedBlindedBeaconBlock](
                                     exc.formatMsg("BlindedBlock") & "]")
     value = ForkedBlindedBeaconBlock(kind: ConsensusFork.Deneb,
                                      denebData: res)
+  of ConsensusFork.Electra:
+    debugRaiseAssert "electra, REST reading"
+    reader.raiseUnexpectedValue("Incorrect electra block format")
 
 proc readValue*[BlockType: Web3SignerForkedBeaconBlock](
     reader: var JsonReader[RestJson],
@@ -1885,6 +1914,8 @@ proc readValue*(reader: var JsonReader[RestJson],
     assign(
       value.denebBody.execution_payload.excess_blob_gas,
       ep_src.excess_blob_gas.get())
+  of ConsensusFork.Electra:
+    debugRaiseAssert "electra support missing"
 
 ## RestPublishedBeaconBlock
 proc readValue*(reader: var JsonReader[RestJson],
@@ -1991,6 +2022,16 @@ proc readValue*(reader: var JsonReader[RestJson],
           body: body.denebBody
         )
       )
+    of ConsensusFork.Electra:
+      ForkedBeaconBlock.init(
+        electra.BeaconBlock(
+          slot: slot.get(),
+          proposer_index: proposer_index.get(),
+          parent_root: parent_root.get(),
+          state_root: state_root.get(),
+          body: body.electraBody
+        )
+      )
   )
 
 ## RestPublishedSignedBeaconBlock
@@ -2020,44 +2061,8 @@ proc readValue*(reader: var JsonReader[RestJson],
     reader.raiseUnexpectedValue("Field `message` is missing")
 
   let blck = ForkedBeaconBlock(message.get())
-  value = RestPublishedSignedBeaconBlock(
-    case blck.kind
-    of ConsensusFork.Phase0:
-      ForkedSignedBeaconBlock.init(
-        phase0.SignedBeaconBlock(
-          message: blck.phase0Data,
-          signature: signature.get()
-        )
-      )
-    of ConsensusFork.Altair:
-      ForkedSignedBeaconBlock.init(
-        altair.SignedBeaconBlock(
-          message: blck.altairData,
-          signature: signature.get()
-        )
-      )
-    of ConsensusFork.Bellatrix:
-      ForkedSignedBeaconBlock.init(
-        bellatrix.SignedBeaconBlock(
-          message: blck.bellatrixData,
-          signature: signature.get()
-        )
-      )
-    of ConsensusFork.Capella:
-      ForkedSignedBeaconBlock.init(
-        capella.SignedBeaconBlock(
-          message: blck.capellaData,
-          signature: signature.get()
-        )
-      )
-    of ConsensusFork.Deneb:
-      ForkedSignedBeaconBlock.init(
-        deneb.SignedBeaconBlock(
-          message: blck.denebData,
-          signature: signature.get()
-        )
-      )
-  )
+  value = RestPublishedSignedBeaconBlock ForkedSignedBeaconBlock.init(
+    blck, blck.hash_tree_root(), signature.get())
 
 proc readValue*(reader: var JsonReader[RestJson],
                 value: var RestPublishedSignedBlockContents) {.
@@ -2104,17 +2109,6 @@ proc readValue*(reader: var JsonReader[RestJson],
           Opt.none(RestPublishedSignedBeaconBlock)
       if signed_message.isNone():
         reader.raiseUnexpectedValue("Incorrect signed_block format")
-
-      # Only needed to signal fork to the blck.kind case selection
-      let blck = ForkedSignedBeaconBlock(signed_message.get())
-      message = Opt.some(RestPublishedBeaconBlock(
-        case blck.kind
-        of ConsensusFork.Phase0, ConsensusFork.Altair, ConsensusFork.Bellatrix,
-           ConsensusFork.Capella:
-          reader.raiseUnexpectedValue("Incorrect signed_block format")
-        of ConsensusFork.Deneb:
-          ForkedBeaconBlock.init(blck.denebData.message)
-      ))
     of "kzg_proofs":
       if kzg_proofs.isSome():
         reader.raiseUnexpectedField(
@@ -2138,69 +2132,51 @@ proc readValue*(reader: var JsonReader[RestJson],
     else:
       unrecognizedFieldWarning()
 
-  if signed_message.isNone():
-    # Pre-Deneb; conditions for when signed_message.isSome checked in case body
-    if signature.isNone():
-      reader.raiseUnexpectedValue("Field `signature` is missing")
-    if message.isNone():
-      reader.raiseUnexpectedValue("Field `message` is missing")
-
-  let blck = ForkedBeaconBlock(message.get())
-
-  if blck.kind >= ConsensusFork.Deneb:
+  if signed_message.isSome():
+    if message.isSome():
+      reader.raiseUnexpectedValue("Field `message` found but unsupported")
+    if signature.isSome():
+      reader.raiseUnexpectedValue("Field `signature` found but unsupported")
     if kzg_proofs.isNone():
       reader.raiseUnexpectedValue("Field `kzg_proofs` is missing")
     if blobs.isNone():
       reader.raiseUnexpectedValue("Field `blobs` is missing")
+    if kzg_proofs.get.len != blobs.get.len:
+      reader.raiseUnexpectedValue("Length mismatch of `kzg_proofs` and `blobs`")
+
+    withBlck(distinctBase(signed_message.get)):
+      when consensusFork >= ConsensusFork.Electra:
+        debugRaiseAssert "electra support missing"
+      elif consensusFork >= ConsensusFork.Deneb:
+        template kzg_commitments: untyped =
+          forkyBlck.message.body.blob_kzg_commitments
+        if kzg_proofs.get().len != kzg_commitments.len:
+          reader.raiseUnexpectedValue(
+            "Length mismatch of `kzg_proofs` and `blob_kzg_commitments`")
+        value = RestPublishedSignedBlockContents.init(
+          consensusFork.BlockContents(
+            `block`: forkyBlck.message,
+            kzg_proofs: kzg_proofs.get(),
+            blobs: blobs.get()),
+          forkyBlck.root, forkyBlck.signature)
+      else:
+        reader.raiseUnexpectedValue("`signed_message` supported post-Deneb")
   else:
+    if signature.isNone():
+      reader.raiseUnexpectedValue("Field `signature` is missing")
+    if message.isNone():
+      reader.raiseUnexpectedValue("Field `message` is missing")
     if kzg_proofs.isSome():
       reader.raiseUnexpectedValue("Field `kzg_proofs` found but unsupported")
     if blobs.isSome():
       reader.raiseUnexpectedValue("Field `blobs` found but unsupported")
 
-  case blck.kind
-    of ConsensusFork.Phase0:
-      value = RestPublishedSignedBlockContents(
-        kind: ConsensusFork.Phase0,
-        phase0Data: phase0.SignedBeaconBlock(
-          message: blck.phase0Data,
-          signature: signature.get()
-        )
-      )
-    of ConsensusFork.Altair:
-      value = RestPublishedSignedBlockContents(
-        kind: ConsensusFork.Altair,
-        altairData: altair.SignedBeaconBlock(
-          message: blck.altairData,
-          signature: signature.get()
-        )
-      )
-    of ConsensusFork.Bellatrix:
-      value = RestPublishedSignedBlockContents(
-        kind: ConsensusFork.Bellatrix,
-        bellatrixData: bellatrix.SignedBeaconBlock(
-          message: blck.bellatrixData,
-          signature: signature.get()
-        )
-      )
-    of ConsensusFork.Capella:
-      value = RestPublishedSignedBlockContents(
-        kind: ConsensusFork.Capella,
-        capellaData: capella.SignedBeaconBlock(
-          message: blck.capellaData,
-          signature: signature.get()
-        )
-      )
-    of ConsensusFork.Deneb:
-      value = RestPublishedSignedBlockContents(
-        kind: ConsensusFork.Deneb,
-        denebData: DenebSignedBlockContents(
-          # Constructed to be internally consistent
-          signed_block: signed_message.get().distinctBase.denebData,
-          kzg_proofs: kzg_proofs.get(),
-          blobs: blobs.get()
-        )
-      )
+    withBlck(distinctBase(message.get)):
+      when consensusFork < ConsensusFork.Deneb:
+        value = RestPublishedSignedBlockContents.init(
+          forkyBlck, forkyBlck.hash_tree_root(), signature.get)
+      else:
+        reader.raiseUnexpectedValue("`message` support stopped at Deneb")
 
 ## ForkedSignedBeaconBlock
 proc readValue*(reader: var JsonReader[RestJson],
@@ -2299,6 +2275,17 @@ proc readValue*(reader: var JsonReader[RestJson],
         reader.raiseUnexpectedValue("Incorrect deneb block format")
 
     value = ForkedSignedBeaconBlock.init(res)
+  of ConsensusFork.Electra:
+    let res =
+      try:
+        RestJson.decode(string(data.get()),
+                        electra.SignedBeaconBlock,
+                        requireAllFields = true,
+                        allowUnknownFields = true)
+      except SerializationError:
+        reader.raiseUnexpectedValue("Incorrect electra block format")
+
+    value = ForkedSignedBeaconBlock.init(res)
   withBlck(value):
     forkyBlck.root = hash_tree_root(forkyBlck.message)
 
@@ -2322,6 +2309,9 @@ proc writeValue*(
   of ConsensusFork.Deneb:
     writer.writeField("version", "deneb")
     writer.writeField("data", value.denebData)
+  of ConsensusFork.Electra:
+    writer.writeField("version", "electra")
+    writer.writeField("data", value.electraData)
   writer.endRecord()
 
 # ForkedHashedBeaconState is used where a `ForkedBeaconState` normally would
@@ -2346,6 +2336,7 @@ proc readValue*(reader: var JsonReader[RestJson],
       of "bellatrix": Opt.some(ConsensusFork.Bellatrix)
       of "capella": Opt.some(ConsensusFork.Capella)
       of "deneb": Opt.some(ConsensusFork.Deneb)
+      of "electra": Opt.some(ConsensusFork.Electra)
       else: reader.raiseUnexpectedValue("Incorrect version field value")
     of "data":
       if data.isSome():
@@ -2425,6 +2416,16 @@ proc readValue*(reader: var JsonReader[RestJson],
     except SerializationError:
       reader.raiseUnexpectedValue("Incorrect deneb beacon state format")
     toValue(denebData)
+  of ConsensusFork.Electra:
+    try:
+      tmp[].electraData.data = RestJson.decode(
+        string(data.get()),
+        electra.BeaconState,
+        requireAllFields = true,
+        allowUnknownFields = true)
+    except SerializationError:
+      reader.raiseUnexpectedValue("Incorrect electra beacon state format")
+    toValue(electraData)
 
 proc writeValue*(
     writer: var JsonWriter[RestJson], value: ForkedHashedBeaconState
@@ -2446,6 +2447,9 @@ proc writeValue*(
   of ConsensusFork.Deneb:
     writer.writeField("version", "deneb")
     writer.writeField("data", value.denebData.data)
+  of ConsensusFork.Electra:
+    writer.writeField("version", "electra")
+    writer.writeField("data", value.electraData.data)
   writer.endRecord()
 
 ## SomeForkedLightClientObject
@@ -3395,7 +3399,9 @@ proc readValue*(reader: var JsonReader[RestJson],
     reader.raiseUnexpectedValue("Field `data` is missing")
 
   withConsensusFork(version.get):
-    when consensusFork >= ConsensusFork.Deneb:
+    when consensusFork >= ConsensusFork.Electra:
+      debugRaiseAssert "electra missing"
+    elif consensusFork >= ConsensusFork.Deneb:
       if blinded.get:
         value = ForkedMaybeBlindedBeaconBlock.init(
           RestJson.decode(
@@ -3525,6 +3531,17 @@ proc decodeBody*(
           return err(RestErrorMessage.init(Http400, UnexpectedDecodeError,
                                            [version, $exc.msg]))
       ok(RestPublishedSignedBeaconBlock(ForkedSignedBeaconBlock.init(blck)))
+    of ConsensusFork.Electra:
+      let blck =
+        try:
+          SSZ.decode(body.data, electra.SignedBeaconBlock)
+        except SerializationError as exc:
+          return err(RestErrorMessage.init(Http400, UnableDecodeError,
+                                           [version, exc.formatMsg("<data>")]))
+        except CatchableError as exc:
+          return err(RestErrorMessage.init(Http400, UnexpectedDecodeError,
+                                           [version, $exc.msg]))
+      ok(RestPublishedSignedBeaconBlock(ForkedSignedBeaconBlock.init(blck)))
   else:
     err(RestErrorMessage.init(Http415, "Invalid content type",
                               [version, $body.contentType]))
@@ -3615,6 +3632,18 @@ proc decodeBody*(
                                            [version, $exc.msg]))
       ok(RestPublishedSignedBlockContents(
         kind: ConsensusFork.Deneb, denebData: blckContents))
+    of ConsensusFork.Electra:
+      let blckContents =
+        try:
+          SSZ.decode(body.data, ElectraSignedBlockContents)
+        except SerializationError as exc:
+          return err(RestErrorMessage.init(Http400, UnableDecodeError,
+                                           [version, exc.formatMsg("<data>")]))
+        except CatchableError as exc:
+          return err(RestErrorMessage.init(Http400, UnexpectedDecodeError,
+                                           [version, $exc.msg]))
+      ok(RestPublishedSignedBlockContents(
+        kind: ConsensusFork.Electra, electraData: blckContents))
   else:
     err(RestErrorMessage.init(Http415, "Invalid content type",
                               [version, $body.contentType]))
@@ -3744,6 +3773,25 @@ proc decodeBodyJsonOrSsz*(
                                   [version, $exc.msg]))
       ok(RestPublishedSignedBlockContents(
         kind: ConsensusFork.Deneb, denebData: blckContents))
+    of ConsensusFork.Electra:
+      let blckContents =
+        try:
+          RestJson.decode(body.data, ElectraSignedBlockContents,
+                          requireAllFields = true,
+                          allowUnknownFields = true)
+        except SerializationError as exc:
+          debug "Failed to decode JSON data",
+               err = exc.formatMsg("<data>"),
+               data = string.fromBytes(body.data)
+          return err(
+            RestErrorMessage.init(Http400, UnableDecodeError,
+                                  [version, exc.formatMsg("<data>")]))
+        except CatchableError as exc:
+          return err(
+            RestErrorMessage.init(Http400, UnexpectedDecodeError,
+                                  [version, $exc.msg]))
+      ok(RestPublishedSignedBlockContents(
+        kind: ConsensusFork.Electra, electraData: blckContents))
   else:
     err(RestErrorMessage.init(Http415, "Invalid content type",
                               [version, $body.contentType]))
@@ -3887,6 +3935,9 @@ proc decodeBytes*[T: DecodeConsensysTypes](
       let fork = ConsensusFork.decodeString(consensusVersion).valueOr:
         return err("Invalid or Unsupported consensus version")
       case fork
+      of ConsensusFork.Electra:
+        debugRaiseAssert "electra in REST decodeBytes"
+        return err("Invalid or Unsupported consensus version")
       of ConsensusFork.Deneb:
         let blckContents = ? readSszResBytes(deneb.BlockContents, value)
         ok(ProduceBlockResponseV2(kind: ConsensusFork.Deneb,
@@ -3911,20 +3962,17 @@ proc decodeBytes*[T: DecodeConsensysTypes](
       let fork = ConsensusFork.decodeString(consensusVersion).valueOr:
         return err("Invalid or Unsupported consensus version")
       case fork
+      of ConsensusFork.Electra:
+        debugRaiseAssert "rest decoding blinded"
+        err("electra missing")
       of ConsensusFork.Deneb:
         let
           blck = ? readSszResBytes(deneb_mev.BlindedBeaconBlock, value)
           forked = ForkedBlindedBeaconBlock(
             kind: ConsensusFork.Deneb, denebData: blck)
         ok(ProduceBlindedBlockResponse(forked))
-      of ConsensusFork.Capella:
-        let
-          blck = ? readSszResBytes(capella_mev.BlindedBeaconBlock, value)
-          forked = ForkedBlindedBeaconBlock(
-            kind: ConsensusFork.Capella, capellaData: blck)
-        ok(ProduceBlindedBlockResponse(forked))
-      of ConsensusFork.Bellatrix, ConsensusFork.Altair, ConsensusFork.Phase0:
-        err("Unable to decode blinded block for Bellatrix, Altair, and Phase0 forks")
+      of ConsensusFork.Phase0 .. ConsensusFork.Capella:
+        err("Unable to decode blinded block for pre-Deneb forks")
   else:
     err("Unsupported Content-Type")
 

@@ -8,22 +8,24 @@
 {.push raises: [].}
 
 import
-  std/[strformat, strutils, sequtils, typetraits, uri, json],
+  std/[strformat, typetraits, json],
   # Nimble packages:
   chronos, metrics, chronicles/timings,
   json_rpc/[client, errors],
   web3, web3/[engine_api, primitives, conversions],
-  eth/common/[eth_types, transaction],
+  eth/common/eth_types,
   eth/async_utils, results,
   stew/[assign2, byteutils, objects],
   # Local modules:
-  ../spec/[eth2_merkleization, forks, helpers],
+  ../spec/[eth2_merkleization, forks],
   ../networking/network_metadata,
   ".."/[beacon_node_status, future_combinators],
   "."/[eth1_chain, el_conf]
 
+from std/sequtils import anyIt, mapIt
 from std/times import getTime, inSeconds, initTime, `-`
 from ../spec/engine_authentication import getSignedIatToken
+from ../spec/helpers import bytes_to_uint64
 from ../spec/state_transition_block import kzg_commitment_to_versioned_hash
 
 export
@@ -171,7 +173,7 @@ type
     depositContractSyncStatus: DepositContractSyncStatus
       ## Are we sure that this EL has synced the deposit contract?
 
-    lastPayloadId: Option[engine_api.PayloadID]
+    lastPayloadId: Option[PayloadID]
 
   FullBlockId* = object
     number: Eth1BlockNumber
@@ -198,7 +200,8 @@ type
   SomeEnginePayloadWithValue =
     BellatrixExecutionPayloadWithValue |
     GetPayloadV2Response |
-    GetPayloadV3Response
+    GetPayloadV3Response |
+    GetPayloadV4Response
 
 declareCounter failed_web3_requests,
   "Failed web3 requests"
@@ -530,6 +533,11 @@ func asConsensusType*(rpcExecutionPayload: ExecutionPayloadV4):
       List[electra.ExecutionLayerExit, MAX_EXECUTION_LAYER_EXITS_PER_PAYLOAD].init(
         mapIt(rpcExecutionPayload.exits, it.getExecutionLayerExit)))
 
+func asConsensusType*(payload: engine_api.GetPayloadV4Response):
+    electra.ExecutionPayloadForSigning =
+  debugRaiseAssert "well, not empty maybe"
+  default(electra.ExecutionPayloadForSigning)
+
 func asEngineExecutionPayload*(executionPayload: bellatrix.ExecutionPayload):
     ExecutionPayloadV1 =
   template getTypedTransaction(tt: bellatrix.Transaction): TypedTransaction =
@@ -747,12 +755,6 @@ proc forkchoiceUpdated(rpcClient: RpcClient,
   else:
     static: doAssert false
 
-func computeBlockValue(blk: ExecutionPayloadV1): UInt256 {.raises: [RlpError].} =
-  for transactionBytes in blk.transactions:
-    var rlp = rlpFromBytes distinctBase(transactionBytes)
-    let transaction = rlp.read(eth_types.Transaction)
-    result += distinctBase(effectiveGasTip(transaction, blk.baseFeePerGas)).u256
-
 proc getPayloadFromSingleEL(
     connection: ELConnection,
     GetPayloadResponseType: type,
@@ -792,7 +794,10 @@ proc getPayloadFromSingleEL(
             prevRandao: FixedBytes[32] randomData.data,
             suggestedFeeRecipient: suggestedFeeRecipient,
             withdrawals: withdrawals))
-      elif GetPayloadResponseType is engine_api.GetPayloadV3Response:
+      elif  GetPayloadResponseType is engine_api.GetPayloadV3Response or
+            GetPayloadResponseType is engine_api.GetPayloadV4Response:
+        # https://github.com/ethereum/execution-apis/blob/90a46e9137c89d58e818e62fa33a0347bba50085/src/engine/prague.md
+        # does not define any new forkchoiceUpdated, so reuse V3 from Dencun
         let response = await rpcClient.forkchoiceUpdated(
           ForkchoiceStateV1(
             headBlockHash: headBlock.asBlockHash,
@@ -822,8 +827,10 @@ proc getPayloadFromSingleEL(
     let payload =
       await engine_api.getPayload(rpcClient, ExecutionPayloadV1, payloadId)
     return BellatrixExecutionPayloadWithValue(
-      executionPayload: payload,
-      blockValue: computeBlockValue payload)
+      executionPayload: payload, blockValue: Wei.zero)
+  elif GetPayloadResponseType is engine_api.GetPayloadV4Response:
+    debugRaiseAssert "foo"
+    return default(engine_api.GetPayloadV4Response)
   else:
     return await engine_api.getPayload(rpcClient, GetPayloadResponseType, payloadId)
 
@@ -838,6 +845,9 @@ template EngineApiResponseType*(T: type capella.ExecutionPayloadForSigning): typ
 
 template EngineApiResponseType*(T: type deneb.ExecutionPayloadForSigning): type =
   engine_api.GetPayloadV3Response
+
+template EngineApiResponseType*(T: type electra.ExecutionPayloadForSigning): type =
+  engine_api.GetPayloadV4Response
 
 template toEngineWithdrawals*(withdrawals: seq[capella.Withdrawal]): seq[WithdrawalV1] =
   mapIt(withdrawals, toEngineWithdrawal(it))
@@ -1038,6 +1048,15 @@ proc sendNewPayloadToSingleEL(connection: ELConnection,
   return await rpcClient.engine_newPayloadV3(
     payload, versioned_hashes, parent_beacon_block_root)
 
+proc sendNewPayloadToSingleEL(connection: ELConnection,
+                              payload: engine_api.ExecutionPayloadV4,
+                              versioned_hashes: seq[engine_api.VersionedHash],
+                              parent_beacon_block_root: FixedBytes[32]):
+                              Future[PayloadStatusV1] {.async.} =
+  let rpcClient = await connection.connectedRpcClient()
+  return await rpcClient.engine_newPayloadV4(
+    payload, versioned_hashes, parent_beacon_block_root)
+
 type
   StatusRelation = enum
     newStatusIsPreferable
@@ -1137,7 +1156,8 @@ proc sendNewPayload*(m: ELManager, blck: SomeForkyBeaconBlock):
     payload = blck.body.execution_payload.asEngineExecutionPayload
     requests = m.elConnections.mapIt:
       let req =
-        when payload is engine_api.ExecutionPayloadV3:
+        when payload is engine_api.ExecutionPayloadV3 or
+             payload is engine_api.ExecutionPayloadV4:
           # https://github.com/ethereum/consensus-specs/blob/v1.4.0-alpha.1/specs/deneb/beacon-chain.md#process_execution_payload
           # Verify the execution payload is valid
           # [Modified in Deneb] Pass `versioned_hashes` to Execution Engine

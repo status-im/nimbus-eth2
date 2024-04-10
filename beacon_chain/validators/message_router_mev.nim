@@ -15,6 +15,7 @@ import ../beacon_node
 from eth/async_utils import awaitWithTimeout
 from ../spec/datatypes/bellatrix import SignedBeaconBlock
 from ../spec/mev/rest_deneb_mev_calls import submitBlindedBlock
+from ../spec/mev/rest_electra_mev_calls import submitBlindedBlock
 
 const
   BUILDER_BLOCK_SUBMISSION_DELAY_TOLERANCE = 5.seconds
@@ -32,18 +33,22 @@ macro copyFields*(
     dst: untyped, src: untyped, fieldNames: static[seq[string]]): untyped =
   result = newStmtList()
   for name in fieldNames:
+    debugRaiseAssert "deposit_receipts_root and exits_root are not currently filled in anywhere properly, so blinded electra proposals will fail"
     if name notin [
         # These fields are the ones which vary between the blinded and
         # unblinded objects, and can't simply be copied.
         "transactions_root", "execution_payload",
-        "execution_payload_header", "body", "withdrawals_root"]:
+        "execution_payload_header", "body", "withdrawals_root",
+        "deposit_receipts_root", "exits_root"]:
       # TODO use stew/assign2
       result.add newAssignment(
         newDotExpr(dst, ident(name)), newDotExpr(src, ident(name)))
 
 proc unblindAndRouteBlockMEV*(
     node: BeaconNode, payloadBuilderRestClient: RestClientRef,
-    blindedBlock: deneb_mev.SignedBlindedBeaconBlock):
+    blindedBlock:
+      deneb_mev.SignedBlindedBeaconBlock |
+      electra_mev.SignedBlindedBeaconBlock):
     Future[Result[Opt[BlockRef], string]] {.async: (raises: [CancelledError]).} =
   const consensusFork = typeof(blindedBlock).kind
 
@@ -76,14 +81,19 @@ proc unblindAndRouteBlockMEV*(
     return err("submitBlindedBlock failed with HTTP error code " &
       $response.status & ": " & $shortLog(blindedBlock))
 
-  let
-    res = decodeBytes(
+  when blindedBlock is deneb_mev.SignedBlindedBeaconBlock:
+    let res = decodeBytes(
       SubmitBlindedBlockResponseDeneb, response.data, response.contentType)
+  elif blindedBlock is electra_mev.SignedBlindedBeaconBlock:
+    let res = decodeBytes(
+      SubmitBlindedBlockResponseElectra, response.data, response.contentType)
+  else:
+    static: doAssert false
 
-    bundle = res.valueOr:
-      return err("Could not decode " & $consensusFork & " blinded block: " & $res.error &
-        " with HTTP status " & $response.status & ", Content-Type " &
-        $response.contentType & " and content " & $response.data)
+  let bundle = res.valueOr:
+    return err("Could not decode " & $consensusFork & " blinded block: " & $res.error &
+      " with HTTP status " & $response.status & ", Content-Type " &
+      $response.contentType & " and content " & $response.data)
 
   template execution_payload: untyped = bundle.data.execution_payload
 

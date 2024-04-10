@@ -13,7 +13,7 @@ import ".."/[beacon_chain_db, beacon_node],
        ".."/consensus_object_pools/[blockchain_dag, spec_cache,
                                     attestation_pool, sync_committee_msg_pool],
        ".."/validators/beacon_validators,
-       ".."/spec/[beaconstate, forks, network],
+       ".."/spec/[beaconstate, forks, network, state_transition_block],
        ".."/spec/datatypes/[phase0, altair],
        "."/[rest_utils, state_ttl_cache]
 
@@ -408,7 +408,13 @@ proc installValidatorApiHandlers*(router: var RestRouter, node: BeaconNode) =
     return
       withBlck(message.blck):
         let data =
-          when consensusFork >= ConsensusFork.Deneb:
+          when consensusFork >= ConsensusFork.Electra:
+            let blobsBundle = message.blobsBundleOpt.get()
+            electra.BlockContents(
+              `block`: forkyBlck,
+              kzg_proofs: blobsBundle.proofs,
+              blobs: blobsBundle.blobs)
+          elif consensusFork >= ConsensusFork.Deneb:
             let blobsBundle = message.blobsBundleOpt.get()
             deneb.BlockContents(
               `block`: forkyBlck,
@@ -522,7 +528,12 @@ proc installValidatorApiHandlers*(router: var RestRouter, node: BeaconNode) =
       contextFork = node.dag.cfg.consensusForkAtEpoch(node.currentSlot.epoch)
 
     withConsensusFork(contextFork):
-      when consensusFork >= ConsensusFork.Deneb:
+      when consensusFork >= ConsensusFork.Electra:
+        # why not, it's a true error message. also:
+        debugRaiseAssert ""
+        return RestApiResponse.jsonError(
+          Http400, "Pre-Deneb builder API unsupported")
+      elif consensusFork >= ConsensusFork.Deneb:
         let res = await makeBlindedBeaconBlockForHeadAndSlot[
             consensusFork.BlindedBeaconBlock](
           node, payloadBuilderClient, qrandao,
@@ -632,7 +643,10 @@ proc installValidatorApiHandlers*(router: var RestRouter, node: BeaconNode) =
       return RestApiResponse.jsonError(Http400, InvalidRandaoRevealValue)
 
     withConsensusFork(node.dag.cfg.consensusForkAtEpoch(qslot.epoch)):
-      when consensusFork >= ConsensusFork.Deneb:
+      when consensusFork >= ConsensusFork.Electra:
+        debugRaiseAssert "foo"
+        return RestApiResponse.jsonError(Http400, InvalidRandaoRevealValue)
+      elif consensusFork >= ConsensusFork.Deneb:
         let
           message = (await node.makeMaybeBlindedBeaconBlockForHeadAndSlot(
               consensusFork, qrandao, qgraffiti, qhead, qslot)).valueOr:
