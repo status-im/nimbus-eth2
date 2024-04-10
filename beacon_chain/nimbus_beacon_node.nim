@@ -1353,7 +1353,6 @@ proc updateGossipStatus(node: BeaconNode, slot: Slot) {.async.} =
 
   let forkDigests = node.forkDigests()
 
-  debugRaiseAssert "check if electra has new gossip"
   const removeMessageHandlers: array[ConsensusFork, auto] = [
     removePhase0MessageHandlers,
     removeAltairMessageHandlers,
