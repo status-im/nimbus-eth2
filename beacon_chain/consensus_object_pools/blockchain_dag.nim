@@ -270,8 +270,11 @@ proc getForkedBlock*(db: BeaconChainDB, root: Eth2Digest):
     Opt[ForkedTrustedSignedBeaconBlock] =
   # When we only have a digest, we don't know which fork it's from so we try
   # them one by one - this should be used sparingly
-  static: doAssert high(ConsensusFork) == ConsensusFork.Deneb
-  if (let blck = db.getBlock(root, deneb.TrustedSignedBeaconBlock);
+  static: doAssert high(ConsensusFork) == ConsensusFork.Electra
+  if (let blck = db.getBlock(root, electra.TrustedSignedBeaconBlock);
+      blck.isSome()):
+    ok(ForkedTrustedSignedBeaconBlock.init(blck.get()))
+  elif (let blck = db.getBlock(root, deneb.TrustedSignedBeaconBlock);
       blck.isSome()):
     ok(ForkedTrustedSignedBeaconBlock.init(blck.get()))
   elif (let blck = db.getBlock(root, capella.TrustedSignedBeaconBlock);
@@ -1003,6 +1006,12 @@ proc applyBlock(
     ? state_transition(
       dag.cfg, state, data, cache, info,
       dag.updateFlags + {slotProcessed}, noRollback)
+  of ConsensusFork.Electra:
+    let data = getBlock(dag, bid, electra.TrustedSignedBeaconBlock).valueOr:
+      return err("Block load failed")
+    ? state_transition(
+      dag.cfg, state, data, cache, info,
+      dag.updateFlags + {slotProcessed}, noRollback)
 
   ok()
 
@@ -1136,10 +1145,6 @@ proc init*(T: type ChainDAGRef, cfg: RuntimeConfig, db: BeaconChainDB,
         head = shortLog(head), tail = shortLog(dag.tail)
       quit 1
 
-  withState(dag.headState):
-    when consensusFork >= ConsensusFork.Altair:
-      dag.headSyncCommittees = forkyState.data.get_sync_committee_cache(cache)
-
   block:
     # EpochRef needs an epoch boundary state
     assign(dag.epochRefState, dag.headState)
@@ -1154,6 +1159,10 @@ proc init*(T: type ChainDAGRef, cfg: RuntimeConfig, db: BeaconChainDB,
     dag.head = headRef
     dag.heads = @[headRef]
 
+    withState(dag.headState):
+      when consensusFork >= ConsensusFork.Altair:
+        dag.headSyncCommittees = forkyState.data.get_sync_committee_cache(cache)
+
     assign(dag.clearanceState, dag.headState)
 
     if dag.headState.latest_block_root == tail.root:
@@ -1167,11 +1176,12 @@ proc init*(T: type ChainDAGRef, cfg: RuntimeConfig, db: BeaconChainDB,
 
   let
     configFork = case dag.headState.kind
-      of ConsensusFork.Phase0: genesisFork(cfg)
-      of ConsensusFork.Altair: altairFork(cfg)
+      of ConsensusFork.Phase0:    genesisFork(cfg)
+      of ConsensusFork.Altair:    altairFork(cfg)
       of ConsensusFork.Bellatrix: bellatrixFork(cfg)
-      of ConsensusFork.Capella: capellaFork(cfg)
-      of ConsensusFork.Deneb:   denebFork(cfg)
+      of ConsensusFork.Capella:   capellaFork(cfg)
+      of ConsensusFork.Deneb:     denebFork(cfg)
+      of ConsensusFork.Electra:   electraFork(cfg)
     stateFork = getStateField(dag.headState, fork)
 
   # Here, we check only the `current_version` field because the spec
@@ -1287,7 +1297,7 @@ proc init*(T: type ChainDAGRef, cfg: RuntimeConfig, db: BeaconChainDB,
         # If we end up in here, we failed the root comparison just below in
         # an earlier iteration
         fatal "Era summaries don't lead up to backfill, database or era files corrupt?",
-          bid
+          bid, backfillSlot
         quit 1
 
       # In BeaconState.block_roots, empty slots are filled with the root of
@@ -1310,7 +1320,7 @@ proc init*(T: type ChainDAGRef, cfg: RuntimeConfig, db: BeaconChainDB,
       blocks += 1
 
     if blocks > 0:
-      info "Front-filled blocks from era files", blocks
+      info "Front-filled blocks from era files", blocks, backfillSlot
 
   let frontfillTick = Moment.now()
 
@@ -2421,7 +2431,7 @@ proc updateHead*(
 
   if dag.headState.kind > lastHeadKind:
     case dag.headState.kind
-    of ConsensusFork.Phase0 .. ConsensusFork.Bellatrix:
+    of ConsensusFork.Phase0 .. ConsensusFork.Bellatrix, ConsensusFork.Electra:
       discard
     of ConsensusFork.Capella:
       if dag.vanityLogs.onUpgradeToCapella != nil:

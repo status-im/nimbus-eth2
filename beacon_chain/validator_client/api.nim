@@ -2259,6 +2259,8 @@ proc publishBlock*(
           publishBlock(it, data.capellaData)
         of ConsensusFork.Deneb:
           publishBlock(it, data.denebData)
+        of ConsensusFork.Electra:
+          publishBlock(it, data.electraData)
       do:
         if apiResponse.isErr():
           handleCommunicationError()
@@ -2304,6 +2306,9 @@ proc publishBlock*(
       of ConsensusFork.Capella:
         publishBlock(it, data.capellaData)
       of ConsensusFork.Deneb:
+        publishBlock(it, data.denebData)
+      of ConsensusFork.Electra:
+        debugRaiseAssert "electra in vc"
         publishBlock(it, data.denebData)
 
     do:
@@ -2461,6 +2466,9 @@ proc publishBlindedBlock*(
           publishBlindedBlock(it, data.capellaData)
         of ConsensusFork.Deneb:
           publishBlindedBlock(it, data.denebData)
+        of ConsensusFork.Electra:
+          debugRaiseAssert "vc part something"
+          publishBlindedBlock(it, data.denebData)
       do:
         if apiResponse.isErr():
           handleCommunicationError()
@@ -2505,6 +2513,9 @@ proc publishBlindedBlock*(
       of ConsensusFork.Capella:
         publishBlindedBlock(it, data.capellaData)
       of ConsensusFork.Deneb:
+        publishBlindedBlock(it, data.denebData)
+      of ConsensusFork.Electra:
+        debugRaiseAssert "more electra vc"
         publishBlindedBlock(it, data.denebData)
     do:
       if apiResponse.isErr():

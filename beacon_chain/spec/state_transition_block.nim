@@ -262,7 +262,7 @@ proc process_attester_slashing*(
 
   for index in slashed_attesters:
     doAssert strictVerification notin flags or
-      cur_exit_queue_info == get_state_exit_queue_info(cfg, state, cache)
+      cur_exit_queue_info == get_state_exit_queue_info(state)
     let (new_proposer_reward, new_exit_queue_info) = ? slash_validator(
       cfg, state, index, cur_exit_queue_info, cache)
     proposer_reward += new_proposer_reward
@@ -477,7 +477,7 @@ proc process_operations(cfg: RuntimeConfig,
   var exit_queue_info =
     if body.proposer_slashings.len + body.attester_slashings.len +
         body.voluntary_exits.len > 0:
-      get_state_exit_queue_info(cfg, state, cache)
+      get_state_exit_queue_info(state)
     else:
       default(ExitQueueInfo)  # not used
 
@@ -573,7 +573,6 @@ proc process_sync_aggregate*(
   # Apply participant and proposer rewards
   let indices = get_sync_committee_cache(state, cache).current_sync_committee
 
-  # TODO could use a sequtils2 zipIt
   for i in 0 ..< min(
     state.current_sync_committee.pubkeys.len,
     sync_aggregate.sync_committee_bits.len):
@@ -1025,9 +1024,9 @@ proc process_block*(
     total_active_balance = get_total_active_balance(state, cache)
     base_reward_per_increment =
       get_base_reward_per_increment(total_active_balance)
-    operations_rewards = ? process_operations(
-      cfg, state, blck.body, base_reward_per_increment, flags, cache)
-  ? process_sync_aggregate(
+  var operations_rewards = ? process_operations(
+    cfg, state, blck.body, base_reward_per_increment, flags, cache)
+  operations_rewards.sync_aggregate = ? process_sync_aggregate(
     state, blck.body.sync_aggregate, total_active_balance, flags, cache)
 
   ok(operations_rewards)
