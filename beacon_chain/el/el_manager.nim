@@ -535,9 +535,8 @@ func asConsensusType*(rpcExecutionPayload: ExecutionPayloadV4):
 
 func asConsensusType*(payload: engine_api.GetPayloadV4Response):
     electra.ExecutionPayloadForSigning =
-  debugRaiseAssert "after updating/fixing nim-web3, re-enable executionPayload field"
   electra.ExecutionPayloadForSigning(
-    #executionPayload: payload.executionPayload.asConsensusType,
+    executionPayload: payload.executionPayload.asConsensusType,
     blockValue: payload.blockValue,
     # TODO
     # The `mapIt` calls below are necessary only because we use different distinct
