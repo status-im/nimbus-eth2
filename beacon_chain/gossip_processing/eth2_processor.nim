@@ -241,11 +241,8 @@ proc processSignedBeaconBlock*(
     # propagation of seemingly good blocks
     trace "Block validated"
 
-    debugRaiseAssert "electra has blobs"
     let blobs =
-      when typeof(signedBlock).kind >= ConsensusFork.Electra:
-        Opt.none(BlobSidecars)
-      elif typeof(signedBlock).kind >= ConsensusFork.Deneb:
+      when typeof(signedBlock).kind >= ConsensusFork.Deneb:
         if self.blobQuarantine[].hasBlobs(signedBlock):
           Opt.some(self.blobQuarantine[].popBlobs(signedBlock.root, signedBlock))
         else:
@@ -307,10 +304,7 @@ proc processBlobSidecar*(
   if (let o = self.quarantine[].popBlobless(block_root); o.isSome):
     let blobless = o.unsafeGet()
     withBlck(blobless):
-      when consensusFork >= ConsensusFork.Electra:
-        debugRaiseAssert "no electra here yet"
-        let x = 5
-      elif consensusFork >= ConsensusFork.Deneb:
+      when consensusFork >= ConsensusFork.Deneb:
         if self.blobQuarantine[].hasBlobs(forkyBlck):
           self.blockProcessor[].enqueueBlock(
             MsgSource.gossip, blobless,
