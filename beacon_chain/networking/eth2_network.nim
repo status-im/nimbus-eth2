@@ -2305,7 +2305,6 @@ proc createEth2Node*(rng: ref HmacDrbgContext,
 
   let
     params = GossipSubParams.init(
-      explicit = true,
       pruneBackoff = chronos.minutes(1),
       unsubscribeBackoff = chronos.seconds(10),
       floodPublish = true,
