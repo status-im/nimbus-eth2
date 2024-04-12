@@ -530,7 +530,7 @@ func asConsensusType*(rpcExecutionPayload: ExecutionPayloadV4):
       List[electra.DepositReceipt, MAX_DEPOSIT_RECEIPTS_PER_PAYLOAD].init(
         mapIt(rpcExecutionPayload.depositReceipts, it.getDepositReceipt)),
     exits:
-      List[electra.ExecutionLayerExit, MAX_EXECUTION_LAYER_EXITS_PER_PAYLOAD].init(
+      List[electra.ExecutionLayerExit, MAX_EXECUTION_LAYER_EXITS].init(
         mapIt(rpcExecutionPayload.exits, it.getExecutionLayerExit)))
 
 func asConsensusType*(payload: engine_api.GetPayloadV4Response):

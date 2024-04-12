@@ -30,14 +30,8 @@ from ./deneb import Blobs, BlobsBundle, KzgCommitments, KzgProofs
 
 export json_serialization, base, kzg4844
 
-const
-  # Keep these here for now, since things still in flux
-  # https://github.com/ethereum/consensus-specs/pull/3615
-  MAX_DEPOSIT_RECEIPTS_PER_PAYLOAD* = 8192
-  MAX_EXECUTION_LAYER_EXITS_PER_PAYLOAD* = 16  # there's a discrepancy here, _PER_PAYLOAD or not
-
 type
-  # https://github.com/ethereum/consensus-specs/pull/3615
+  # https://github.com/ethereum/consensus-specs/blob/94a0b6c581f2809aa8aca4ef7ee6fbb63f9d74e9/specs/electra/beacon-chain.md#depositreceipt
   DepositReceipt* = object
     pubkey*: ValidatorPubKey
     withdrawal_credentials*: Eth2Digest
@@ -45,7 +39,7 @@ type
     signature*: ValidatorSig
     index*: uint64
 
-  # https://github.com/ethereum/consensus-specs/pull/3615
+  # https://github.com/ethereum/consensus-specs/blob/94a0b6c581f2809aa8aca4ef7ee6fbb63f9d74e9/specs/electra/beacon-chain.md#executionlayerexit
   ExecutionLayerExit* = object
     source_address*: ExecutionAddress
     validator_pubkey*: ValidatorPubKey
@@ -76,7 +70,7 @@ type
     blob_gas_used*: uint64
     excess_blob_gas*: uint64
     deposit_receipts*: List[DepositReceipt, MAX_DEPOSIT_RECEIPTS_PER_PAYLOAD]
-    exits*: List[ExecutionLayerExit, MAX_EXECUTION_LAYER_EXITS_PER_PAYLOAD]
+    exits*: List[ExecutionLayerExit, MAX_EXECUTION_LAYER_EXITS]
 
   ExecutionPayloadForSigning* = object
     executionPayload*: ExecutionPayload

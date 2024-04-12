@@ -1641,7 +1641,7 @@ suite "Eth1 monitor":
             signature:              ValidatorSig(blob: hexToByteArray[96]("0x943c3c3818d5aa98fbf8344ef4cdc9c13cdabfdeb7762efc8bb32d2ea32d3bbb4ef069a254f5f35325f48609fad7bbafb6389e204767a9b3bbe46a04f8baa850bfd4d3747aaf2816c7e18fc2ebe4fa41088d195d09c761819c7a2e57a3451148")),
             index:                  900883336538271514'u64),
         ]),
-        exits:            List[ExecutionLayerExit, MAX_EXECUTION_LAYER_EXITS_PER_PAYLOAD].init(@[
+        exits:            List[ExecutionLayerExit, MAX_EXECUTION_LAYER_EXITS].init(@[
         ]),
       ),
       (electra.ExecutionPayload)(
@@ -1699,7 +1699,7 @@ suite "Eth1 monitor":
             signature:              ValidatorSig(blob: hexToByteArray[96]("0x0d543b0e9b934586fb877615c8d2551e11998f020bce6b96901fb8045ef42eb41f6039e813136043fe5c63d91a11e1e15e5c4063d1775f95ae1715cb87b21b7690b44ec38efd1a825e1e3ac68d21940f772b3309edb3ddebb24204e06d4924c2")),
             index:                  12423850076890731216'u64),
         ]),
-        exits:            List[ExecutionLayerExit, MAX_EXECUTION_LAYER_EXITS_PER_PAYLOAD].init(@[
+        exits:            List[ExecutionLayerExit, MAX_EXECUTION_LAYER_EXITS].init(@[
           ExecutionLayerExit(
             source_address:   ExecutionAddress.fromHex("0x39554fbddf13facd81344d536c08ed5769304749"),
             validator_pubkey: ValidatorPubKey(blob: hexToByteArray[48]("0xc4f5b2c07cc2f6758dd8eaef217247f767bcd88a8f5c93b030023d420568f47735d113df344627759f4ea1b56c53136f"))),
@@ -1739,7 +1739,7 @@ suite "Eth1 monitor":
             signature:              ValidatorSig(blob: hexToByteArray[96]("0x143a1a4dcac6db342901feb541dc0c95830a4ca1aca9c3fcb55e2dcb9a5b31e2bd9214b1a3a12e17e140d37ba7ebfd11d6d8a38eea5d0755402dd400386aaefcc70d12fb1409f92797923bf964bea3f916b562f3ff2b522c48b748c8e8c632d4")),
             index:                  15872726372973140071'u64),
         ]),
-        exits:            List[ExecutionLayerExit, MAX_EXECUTION_LAYER_EXITS_PER_PAYLOAD].init(@[
+        exits:            List[ExecutionLayerExit, MAX_EXECUTION_LAYER_EXITS].init(@[
           ExecutionLayerExit(
             source_address:   ExecutionAddress.fromHex("0x3a8a707225d47dbddb01c1ca39181af823d57d97"),
             validator_pubkey: ValidatorPubKey(blob: hexToByteArray[48]("0x9cf008ca8159512ffffa1fe56de68bb9e44f9c4bb3c2c4924f5d7bf1bb810cc807b155f11ddd55a4972346f8e75f06ab"))),
@@ -1801,7 +1801,7 @@ suite "Eth1 monitor":
             signature:              ValidatorSig(blob: hexToByteArray[96]("0x94cb986143fdae936c832d08977520c41a6a9b1569b012a8486678571ea5ce2e913f55c9d5631a8f02d1b75aca414969c56f22cf0b6e5193f7ac3568b09c9ae955581c69095908ccab9c5ff5c47b2edef262f2843ccc7cbc69eb35b14c66886c")),
             index:                  11423537419700559218'u64),
         ]),
-        exits:            List[ExecutionLayerExit, MAX_EXECUTION_LAYER_EXITS_PER_PAYLOAD].init(@[
+        exits:            List[ExecutionLayerExit, MAX_EXECUTION_LAYER_EXITS].init(@[
           ExecutionLayerExit(
             source_address:   ExecutionAddress.fromHex("0x44754b90f7b23eee1dddafa745ac723dcc147404"),
             validator_pubkey: ValidatorPubKey(blob: hexToByteArray[48]("0x8d13edc45159cdcf6ed780fc7b93e74434fa392b0842dfa92458cc59515aaac127317df24def9701eb6d5ea060eaffea"))),
@@ -1841,7 +1841,7 @@ suite "Eth1 monitor":
             signature:              ValidatorSig(blob: hexToByteArray[96]("0x9e2864164d275e436ed45120245d2063dbedc87d555cceabe8c18622fe462411ecbe7fa4a262989a45795efea09d21f8e4254cedd5c787bf80211be0a3c6ffc1bcc5f364387f32f746647e0194a599653f3af5f6e1151244df02bb7b3f7270cc")),
             index:                  1665528005288012054'u64),
         ]),
-        exits:            List[ExecutionLayerExit, MAX_EXECUTION_LAYER_EXITS_PER_PAYLOAD].init(@[
+        exits:            List[ExecutionLayerExit, MAX_EXECUTION_LAYER_EXITS].init(@[
         ]),
       ),
       (electra.ExecutionPayload)(
@@ -1890,7 +1890,7 @@ suite "Eth1 monitor":
             signature:              ValidatorSig(blob: hexToByteArray[96]("0xca03e6b82cd3df289ed574c2deca216a089928bc944abd3efd26ee3124c45b22e7f541c02cc95f71ea8b52f0fed044ca14863b651c07b6e52abbce8afb500556a32e33a5f57a33ca6103237aa1c5bc409f4a2745b9828d6eff5360a2ba63d162")),
             index:                  18335046601207607970'u64),
         ]),
-        exits:            List[ExecutionLayerExit, MAX_EXECUTION_LAYER_EXITS_PER_PAYLOAD].init(@[
+        exits:            List[ExecutionLayerExit, MAX_EXECUTION_LAYER_EXITS].init(@[
         ]),
       ),
       (electra.ExecutionPayload)(
@@ -1947,7 +1947,7 @@ suite "Eth1 monitor":
             signature:              ValidatorSig(blob: hexToByteArray[96]("0x42a5b14b6d5018eedf1dc9bb07cd64ae2d25f583ad805d58d89b4c8381db8740fe188a70f1a1d2eb0e486807cefff900f93ebed94fbe2539edddf06f91bf347281f9dcc891db49d6107c2f88d678d32e5e9849a2be7b082919edb769b7c70abf")),
             index:                  16997402741851403011'u64),
         ]),
-        exits:            List[ExecutionLayerExit, MAX_EXECUTION_LAYER_EXITS_PER_PAYLOAD].init(@[
+        exits:            List[ExecutionLayerExit, MAX_EXECUTION_LAYER_EXITS].init(@[
           ExecutionLayerExit(
             source_address:   ExecutionAddress.fromHex("0x4bd763bcdfcf9fd2ce667c75408bc1157fa9730a"),
             validator_pubkey: ValidatorPubKey(blob: hexToByteArray[48]("0xdf62e8946d1457a50ce017fae0c36e5dc5177e642c18b74dd6df192620f8a32bef5f02453f0835583f6082f213df7245"))),
@@ -2002,7 +2002,7 @@ suite "Eth1 monitor":
             signature:              ValidatorSig(blob: hexToByteArray[96]("0xbd837ceae239191f7e958fabc91efc7b3830da9814f4d888ec278ed0fbf870e811db948bf81377fd53339db9095f3c71b36de09b6f5b38a18caba6d3e8f337bbcb107380ee3d50058e3d266653860b1c6a9309eb60f142948f53041a07109f4d")),
             index:                  2237248193846176262'u64),
         ]),
-        exits:            List[ExecutionLayerExit, MAX_EXECUTION_LAYER_EXITS_PER_PAYLOAD].init(@[
+        exits:            List[ExecutionLayerExit, MAX_EXECUTION_LAYER_EXITS].init(@[
           ExecutionLayerExit(
             source_address:   ExecutionAddress.fromHex("0x614d16bedf5dfe9d06171e3ef50671e66fadfce4"),
             validator_pubkey: ValidatorPubKey(blob: hexToByteArray[48]("0x9f92a4aa0e58f82ff2ec0bbe4aca6d338fd08ffff3213f64bef81148f7dbb163eb25add8ccc540ec0dd1bf9d237e26f9"))),
@@ -2048,7 +2048,7 @@ suite "Eth1 monitor":
             signature:              ValidatorSig(blob: hexToByteArray[96]("0x7a4df2b27bded4e1cc2e20120e70f576e9991369d77dfad54186d3067416bfe1f7cb7a1021a9c0722370680367fe4c12e571902c2f4ce4c2754a4738c10ead67b1d9a1a82b2ecd4ce3b6567c87e0066c979664bf79025851cd9583c5ed2f7c2f")),
             index:                  4361690020859323832'u64),
         ]),
-        exits:            List[ExecutionLayerExit, MAX_EXECUTION_LAYER_EXITS_PER_PAYLOAD].init(@[
+        exits:            List[ExecutionLayerExit, MAX_EXECUTION_LAYER_EXITS].init(@[
           ExecutionLayerExit(
             source_address:   ExecutionAddress.fromHex("0x9c2b1570328c29ef47c715cd021aead97695741e"),
             validator_pubkey: ValidatorPubKey(blob: hexToByteArray[48]("0x6d3da7dd6f61e0818830bf11df8c91af8be664041d8832ca48b0c90566963acaa54695da7fb9ae2904d1aa0d7de5dcbd"))),
@@ -2086,7 +2086,7 @@ suite "Eth1 monitor":
         excess_blob_gas:  1,
         deposit_receipts: List[DepositReceipt, MAX_DEPOSIT_RECEIPTS_PER_PAYLOAD].init(@[
         ]),
-        exits:            List[ExecutionLayerExit, MAX_EXECUTION_LAYER_EXITS_PER_PAYLOAD].init(@[
+        exits:            List[ExecutionLayerExit, MAX_EXECUTION_LAYER_EXITS].init(@[
           ExecutionLayerExit(
             source_address:   ExecutionAddress.fromHex("0xe4bed2d5de111ca1d0a77bf6006c09ced6c6cc89"),
             validator_pubkey: ValidatorPubKey(blob: hexToByteArray[48]("0x814d7cd0b6d428414fa787584e1eb52a5f215b8f0e7792499365f465ac43f5696e8d18ab579568c348f6dde75c189301"))),
@@ -2138,7 +2138,7 @@ suite "Eth1 monitor":
             signature:              ValidatorSig(blob: hexToByteArray[96]("0xc614759dcdc309a46d9f24ae6b2840625bc5ddecd802c2907f9141d9091966e3367d78b3963717877a6110d741f40b45486acd32ac0e7bf1b4c36e681411570a7d1156dda127c1c5e5c6011ff857222ea51086016c01346e6cd2c8764bc7e7f4")),
             index:                  9892892756897161299'u64),
         ]),
-        exits:            List[ExecutionLayerExit, MAX_EXECUTION_LAYER_EXITS_PER_PAYLOAD].init(@[
+        exits:            List[ExecutionLayerExit, MAX_EXECUTION_LAYER_EXITS].init(@[
           ExecutionLayerExit(
             source_address:   ExecutionAddress.fromHex("0x9892501906b7abf06fdb6893b8e1767884bc17f5"),
             validator_pubkey: ValidatorPubKey(blob: hexToByteArray[48]("0x30099e0ee2adf0d51a0a96d10fd2fd5cf6f17cdb4b4ea88b5a0e205bd10d40319595e0403891aaa1bac82b980ef76f23"))),
@@ -2179,7 +2179,7 @@ suite "Eth1 monitor":
             signature:              ValidatorSig(blob: hexToByteArray[96]("0x967057d2edd3b53ae9fb665fe668ab2319403b4f8e4620064b11f0933f9def18d952cae5f50395ffd1a8e8554604d95371b7643386df808a18c913e186a7a915e5a5c65908dd6668f2c0d02e404eb88d3499c096967e93b791d814429caae9a2")),
             index:                  7603599240231509693'u64),
         ]),
-        exits:            List[ExecutionLayerExit, MAX_EXECUTION_LAYER_EXITS_PER_PAYLOAD].init(@[
+        exits:            List[ExecutionLayerExit, MAX_EXECUTION_LAYER_EXITS].init(@[
         ]),
       ),
       (electra.ExecutionPayload)(
@@ -2210,7 +2210,7 @@ suite "Eth1 monitor":
             signature:              ValidatorSig(blob: hexToByteArray[96]("0xd6a92f4de599923ba4955c360b2cd54bd544e2b75947127fefa9ec08f5e53cf02bf398b63a0420226dd356fc5d50683eaead8a5aa8a6d4fdbe62296506c813e5e02a2513b6457c1ca408e1189fba32e80d74c48e389f62c7b0b0ff3c1881ec55")),
             index:                  14462442824619447645'u64),
         ]),
-        exits:            List[ExecutionLayerExit, MAX_EXECUTION_LAYER_EXITS_PER_PAYLOAD].init(@[
+        exits:            List[ExecutionLayerExit, MAX_EXECUTION_LAYER_EXITS].init(@[
           ExecutionLayerExit(
             source_address:   ExecutionAddress.fromHex("0xf55f4b626328f2b7a725d8a3f8485072eebf7f6e"),
             validator_pubkey: ValidatorPubKey(blob: hexToByteArray[48]("0x3eb1812d045ff1d2f7d96f919c41230db2993ed8194de6ba564fad54047e3b45fb925e5216cc47f69e184a4e2c45ce39"))),
@@ -2258,7 +2258,7 @@ suite "Eth1 monitor":
             signature:              ValidatorSig(blob: hexToByteArray[96]("0x2f470357ded569d4fe968b5da6619cbeb414271e71ec7abc8e0e6c7c962b1932934bef085f682bc6af358670bdaf80572dd4ee3fdf80711e60205868aad5859971a858f30eaeee2883bad62b5c4e6ada3ea38ae1ab516f294a16b18c099fa760")),
             index:                  3956355178667798015'u64),
         ]),
-        exits:            List[ExecutionLayerExit, MAX_EXECUTION_LAYER_EXITS_PER_PAYLOAD].init(@[
+        exits:            List[ExecutionLayerExit, MAX_EXECUTION_LAYER_EXITS].init(@[
           ExecutionLayerExit(
             source_address:   ExecutionAddress.fromHex("0x98410af351e5be94f9d37f7cc9f97a85e9bd0dad"),
             validator_pubkey: ValidatorPubKey(blob: hexToByteArray[48]("0xd96132438444f4582e21aaa4950d907a84d56f5edaf5d4262439210d6b6aae00ef67d15caa1e95040484b977ba677f31"))),
@@ -2300,7 +2300,7 @@ suite "Eth1 monitor":
         excess_blob_gas:  1233408100755176706'u64,
         deposit_receipts: List[DepositReceipt, MAX_DEPOSIT_RECEIPTS_PER_PAYLOAD].init(@[
         ]),
-        exits:            List[ExecutionLayerExit, MAX_EXECUTION_LAYER_EXITS_PER_PAYLOAD].init(@[
+        exits:            List[ExecutionLayerExit, MAX_EXECUTION_LAYER_EXITS].init(@[
           ExecutionLayerExit(
             source_address:   ExecutionAddress.fromHex("0x16c6ba72f97bd60af3008e747aa0045eace969dd"),
             validator_pubkey: ValidatorPubKey(blob: hexToByteArray[48]("0x79b68340894f69a82de6d6ac26b6cffd1f84be9008f7cec5a8f740c5dcd73103e50366cb45ec0c2a0984b37597011784"))),
@@ -2349,7 +2349,7 @@ suite "Eth1 monitor":
             signature:              ValidatorSig(blob: hexToByteArray[96]("0x0b7a4a77b5554a3be5f9338c31158e9f0b0b5fc95e9ef176ca38183ceb3aaf214711af03ecf194091cbc99a11aa7a376d721b3c1e27e71447828326ee811a07f4680c5a73fb52106bfe9b66eadd40cf80f027f0db90e41c77c78552edaccf295")),
             index:                  659556622372086172'u64),
         ]),
-        exits:            List[ExecutionLayerExit, MAX_EXECUTION_LAYER_EXITS_PER_PAYLOAD].init(@[
+        exits:            List[ExecutionLayerExit, MAX_EXECUTION_LAYER_EXITS].init(@[
           ExecutionLayerExit(
             source_address:   ExecutionAddress.fromHex("0xa80127ae927ef2fc72e527bee414d2a899e1050f"),
             validator_pubkey: ValidatorPubKey(blob: hexToByteArray[48]("0x463d04b11a5f2b3a5ff5d93f7c20acb46b06d8a434d9dcbbcde024be06f50b6542ebca1a759d8cf8381e7142bce4bd1c"))),
@@ -2390,7 +2390,7 @@ suite "Eth1 monitor":
         excess_blob_gas:  10785611890433610477'u64,
         deposit_receipts: List[DepositReceipt, MAX_DEPOSIT_RECEIPTS_PER_PAYLOAD].init(@[
         ]),
-        exits:            List[ExecutionLayerExit, MAX_EXECUTION_LAYER_EXITS_PER_PAYLOAD].init(@[
+        exits:            List[ExecutionLayerExit, MAX_EXECUTION_LAYER_EXITS].init(@[
           ExecutionLayerExit(
             source_address:   ExecutionAddress.fromHex("0x027404a69d1a1a8b931d0deb6ef4c90cc23fe74e"),
             validator_pubkey: ValidatorPubKey(blob: hexToByteArray[48]("0x144cd543ddf6cc88499595246d2373629467e69048b4c638824b8c4d82296fb635028f495c7516174670ed1c5b320462"))),
@@ -2440,7 +2440,7 @@ suite "Eth1 monitor":
             signature:              ValidatorSig(blob: hexToByteArray[96]("0x655e809ad38376a8d7fdd895a30d8a1ac52861864f67e1ce885cc40cbdf3ff27a8a6f8cb1b33f74254c5bfef90de22f6b1c724e888d284438995fab628ecdc5278319435192ed259b56ab6d2f18ad3ba53aa534e85fa802e15c1a1ec9fe3b7e1")),
             index:                  15032238460111462081'u64),
         ]),
-        exits:            List[ExecutionLayerExit, MAX_EXECUTION_LAYER_EXITS_PER_PAYLOAD].init(@[
+        exits:            List[ExecutionLayerExit, MAX_EXECUTION_LAYER_EXITS].init(@[
           ExecutionLayerExit(
             source_address:   ExecutionAddress.fromHex("0xc8bcdf0144cd4eb45e62b4fa76b7d5963fa912ec"),
             validator_pubkey: ValidatorPubKey(blob: hexToByteArray[48]("0x4569a134a3f6e0ac638b19e8d88c9010f7281449f78adcbad225d11d2358790b2454504ac56209ac54cf66d5df779bce"))),
@@ -2498,7 +2498,7 @@ suite "Eth1 monitor":
             signature:              ValidatorSig(blob: hexToByteArray[96]("0x97ea0a8e3f3e73fb11ded1814f4232e8bfb1e7b71bce608f3f181e5609bdaab3ffde52b1ff98d94c3d02ffefa6b3716cd83deda00888224f24716619f685c940da205910227b976bedf7f0cfc16262e2ec48dd837509326c97e329fe666846ab")),
             index:                  8630770799181013738'u64),
         ]),
-        exits:            List[ExecutionLayerExit, MAX_EXECUTION_LAYER_EXITS_PER_PAYLOAD].init(@[
+        exits:            List[ExecutionLayerExit, MAX_EXECUTION_LAYER_EXITS].init(@[
           ExecutionLayerExit(
             source_address:   ExecutionAddress.fromHex("0x4e4c648248758aaba856a20f8496700f036a9177"),
             validator_pubkey: ValidatorPubKey(blob: hexToByteArray[48]("0x96902ac59a4940715d171f1d6ec3e03b0c1557fc0100abb930b6626917b9792aabd48ec1bc1e37737c582fe11c966658"))),
@@ -2544,7 +2544,7 @@ suite "Eth1 monitor":
             signature:              ValidatorSig(blob: hexToByteArray[96]("0xac560bee8d8dd4dad94f2bd5b480e7799f7a8445adf3e0070747f8b5724d442453fbba2f332cc69af3a450dce80249b6b7afe19340f4fc5dc54a5c0e56cd4c484c94c61480bc56c75eef44e55c1288bd58739b8354caa93da5d2502bb38546df")),
             index:                  7086745948630243467'u64),
         ]),
-        exits:            List[ExecutionLayerExit, MAX_EXECUTION_LAYER_EXITS_PER_PAYLOAD].init(@[
+        exits:            List[ExecutionLayerExit, MAX_EXECUTION_LAYER_EXITS].init(@[
           ExecutionLayerExit(
             source_address:   ExecutionAddress.fromHex("0x91810ed86a3244c89274f94fd510532cf12d7074"),
             validator_pubkey: ValidatorPubKey(blob: hexToByteArray[48]("0xbb480d96367f62ab5790cbfdeeac6344e21774681edd0afe64c50b48f4d07795e584468821788948c7d8c151733ad01f"))),
@@ -2573,7 +2573,7 @@ suite "Eth1 monitor":
         excess_blob_gas:  1,
         deposit_receipts: List[DepositReceipt, MAX_DEPOSIT_RECEIPTS_PER_PAYLOAD].init(@[
         ]),
-        exits:            List[ExecutionLayerExit, MAX_EXECUTION_LAYER_EXITS_PER_PAYLOAD].init(@[
+        exits:            List[ExecutionLayerExit, MAX_EXECUTION_LAYER_EXITS].init(@[
           ExecutionLayerExit(
             source_address:   ExecutionAddress.fromHex("0x08396e3d726ff055f903e2b4e7b743fd8c128f4b"),
             validator_pubkey: ValidatorPubKey(blob: hexToByteArray[48]("0x01c1c045960d8121bc8ab57c4728dfb3c07289818df71893c002352eca51c54f03db8840f608607bea01bd7b0f02284d"))),
@@ -2622,7 +2622,7 @@ suite "Eth1 monitor":
             signature:              ValidatorSig(blob: hexToByteArray[96]("0x121632563dca7d7a560e5b243d7f27dc7dc72319f1486f67cb41751c5f5a42bd9f8efdd14e3f811e03c84e3ba36295a0cb2313bb9792cfc7d80a1669f0adc30934440adbd665ef96b3c30a2762cbaf932e6eb1b4a1c93063ec7f0b6f6aa2a9db")),
             index:                  10368232928814555152'u64),
         ]),
-        exits:            List[ExecutionLayerExit, MAX_EXECUTION_LAYER_EXITS_PER_PAYLOAD].init(@[
+        exits:            List[ExecutionLayerExit, MAX_EXECUTION_LAYER_EXITS].init(@[
           ExecutionLayerExit(
             source_address:   ExecutionAddress.fromHex("0x7bee235a632b5f79831f376843209740d409b9f8"),
             validator_pubkey: ValidatorPubKey(blob: hexToByteArray[48]("0x8f40af9186eb70dea2f3105785a930511368e60d2235055c34a0be1a591c5b580eed67542c89a0f8a024c4a6bd1f9bb7"))),
@@ -2669,7 +2669,7 @@ suite "Eth1 monitor":
             signature:              ValidatorSig(blob: hexToByteArray[96]("0x8e274ccbdef898449a07a296386e5983ec423f7ddee02bb9d480ec99dca4f5074b8f6cf469758a45586f031e2ae0a5448aa133531cddf88e9bd2b9fae191fdc817c1989124f1866753fbc833f79fb78f89677df12bc6d288693e5362f2a972bd")),
             index:                  15922103202526011942'u64),
         ]),
-        exits:            List[ExecutionLayerExit, MAX_EXECUTION_LAYER_EXITS_PER_PAYLOAD].init(@[
+        exits:            List[ExecutionLayerExit, MAX_EXECUTION_LAYER_EXITS].init(@[
           ExecutionLayerExit(
             source_address:   ExecutionAddress.fromHex("0xe368e59ddc49ffac6818f01b4be692a517b6838e"),
             validator_pubkey: ValidatorPubKey(blob: hexToByteArray[48]("0x9c7a489a7498cada308db339f80aafeeff5e38ef7dc5803344a725b3b7f23d6d6162a33798a69660417b8fffb51c3d50")))
@@ -2730,7 +2730,7 @@ suite "Eth1 monitor":
             signature:              ValidatorSig(blob: hexToByteArray[96]("0x232d34989ba30727e4ae0aa874a4bfc3934d61d0295d8f1c5f8416523f5cd05a3181a03543ff7318c4f4b9207d006267dde451177612bd888f69b43ebea83a4289cd6615526160d7ecf2a09842d4c2e90ae9f207a440a348ed8ef31e0cf1fe8b")),
             index:                  4403524705240661292'u64),
         ]),
-        exits:            List[ExecutionLayerExit, MAX_EXECUTION_LAYER_EXITS_PER_PAYLOAD].init(@[
+        exits:            List[ExecutionLayerExit, MAX_EXECUTION_LAYER_EXITS].init(@[
         ])
       )]
 

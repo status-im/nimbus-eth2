@@ -8,8 +8,8 @@
 import
   ./gnosis/[
     phase0_preset, altair_preset, bellatrix_preset, capella_preset,
-    deneb_preset]
+    deneb_preset, electra_preset]
 
 export
   phase0_preset, altair_preset, bellatrix_preset, capella_preset,
-  deneb_preset
+  deneb_preset, electra_preset
