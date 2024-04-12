@@ -1,0 +1,29 @@
+name: Update libp2p branch
+on:
+  push:
+    branches:
+      - unstable
+  workflow_dispatch:
+
+jobs:
+  bumpProjects:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          submodules: true
+
+      - name: Update libp2p branch
+        run: |
+          cd vendor/nim-libp2p
+          git checkout unstable
+
+      - name: Commit this update
+        run: |
+          git config --global user.email "${{ github.actor }}@users.noreply.github.com"
+          git config --global user.name = "${{ github.actor }}"
+          git commit --allow-empty -a -m "update nimbus unstable and auto-bump nim-libp2p"
+          git branch -D nim-libp2p-auto-bump-${GITHUB_REF##*/} || true
+          git switch -c nim-libp2p-auto-bump-${GITHUB_REF##*/}
+          git push -f origin nim-libp2p-auto-bump-${GITHUB_REF##*/}
