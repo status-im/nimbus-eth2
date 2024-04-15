@@ -106,8 +106,7 @@ suite baseDescription & "Attester Slashing " & preset():
     var cache: StateCache
     doAssert (? process_attester_slashing(
       defaultRuntimeConfig, preState, attesterSlashing, {strictVerification},
-      get_state_exit_queue_info(defaultRuntimeConfig, preState,
-      cache), cache))[0] > 0.Gwei
+      get_state_exit_queue_info(preState), cache))[0] > 0.Gwei
     ok()
 
   for path in walkTests(OpAttSlashingDir):
@@ -179,8 +178,7 @@ suite baseDescription & "Proposer Slashing " & preset():
     var cache: StateCache
     doAssert (? process_proposer_slashing(
       defaultRuntimeConfig, preState, proposerSlashing, {},
-      get_state_exit_queue_info(defaultRuntimeConfig, preState, cache),
-      cache))[0] > 0.Gwei
+      get_state_exit_queue_info(preState), cache))[0] > 0.Gwei
     ok()
 
   for path in walkTests(OpProposerSlashingDir):
@@ -210,8 +208,7 @@ suite baseDescription & "Voluntary Exit " & preset():
     var cache: StateCache
     if process_voluntary_exit(
         defaultRuntimeConfig, preState, voluntaryExit, {},
-        get_state_exit_queue_info(defaultRuntimeConfig, preState, cache),
-        cache).isOk:
+        get_state_exit_queue_info(preState), cache).isOk:
       ok()
     else:
       err("")

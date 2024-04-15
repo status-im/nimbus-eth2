@@ -12,7 +12,7 @@ import
   # Beacon chain internals
   ../beacon_chain/spec/helpers,
   ../beacon_chain/spec/datatypes/[bellatrix, capella],
-  ../beacon_chain/spec/mev/[bellatrix_mev, capella_mev, deneb_mev],
+  ../beacon_chain/spec/mev/[bellatrix_mev, capella_mev, deneb_mev, electra_mev],
   # Test utilities
   unittest2
 
@@ -130,3 +130,11 @@ suite "Blinded block conversions":
     bellatrix_steps
     capella_steps
     deneb_steps
+
+  test "Electra toSignedBlindedBlock":
+    var b = default(electra.SignedBeaconBlock)
+    do_check
+    bellatrix_steps
+    capella_steps
+    deneb_steps
+    debugRaiseAssert "add electra_steps"

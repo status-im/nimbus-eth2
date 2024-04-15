@@ -170,6 +170,8 @@ func getVanityLogs(stdoutKind: StdoutLogKind): VanityLogs =
 
 func getVanityMascot(consensusFork: ConsensusFork): string =
   case consensusFork
+  of ConsensusFork.Electra:
+    "  "
   of ConsensusFork.Deneb:
     "🐟"
   of ConsensusFork.Capella:
@@ -412,7 +414,12 @@ proc initFullNode(
                              maybeFinalized: bool):
         Future[Result[void, VerifierError]] {.async: (raises: [CancelledError]).} =
       withBlck(signedBlock):
-        when consensusFork >= ConsensusFork.Deneb:
+        when consensusFork >= ConsensusFork.Electra:
+          debugRaiseAssert "foo"
+          await blockProcessor[].addBlock(MsgSource.gossip, signedBlock,
+                                    Opt.none(BlobSidecars),
+                                    maybeFinalized = maybeFinalized)
+        elif consensusFork >= ConsensusFork.Deneb:
           if not blobQuarantine[].hasBlobs(forkyBlck):
             # We don't have all the blobs for this block, so we have
             # to put it in blobless quarantine.
@@ -932,7 +939,8 @@ func forkDigests(node: BeaconNode): auto =
     node.dag.forkDigests.altair,
     node.dag.forkDigests.bellatrix,
     node.dag.forkDigests.capella,
-    node.dag.forkDigests.deneb]
+    node.dag.forkDigests.deneb,
+    node.dag.forkDigests.electra]
   forkDigestsArray
 
 # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.5/specs/phase0/p2p-interface.md#attestation-subnet-subscription
@@ -1369,12 +1377,14 @@ proc updateGossipStatus(node: BeaconNode, slot: Slot) {.async.} =
 
   let forkDigests = node.forkDigests()
 
+  debugRaiseAssert "check if electra has new gossip"
   const removeMessageHandlers: array[ConsensusFork, auto] = [
     removePhase0MessageHandlers,
     removeAltairMessageHandlers,
     removeAltairMessageHandlers,  # bellatrix (altair handlers, different forkDigest)
     removeCapellaMessageHandlers,
-    removeDenebMessageHandlers
+    removeDenebMessageHandlers,
+    removeDenebMessageHandlers   # maybe duplicate is correct, don't know yet
   ]
 
   for gossipFork in oldGossipForks:
@@ -1385,7 +1395,8 @@ proc updateGossipStatus(node: BeaconNode, slot: Slot) {.async.} =
     addAltairMessageHandlers,
     addAltairMessageHandlers,  # bellatrix (altair handlers, different forkDigest)
     addCapellaMessageHandlers,
-    addDenebMessageHandlers
+    addDenebMessageHandlers,
+    addDenebMessageHandlers  # repeat is probably correct
   ]
 
   for gossipFork in newGossipForks:

@@ -247,7 +247,8 @@ proc cmdBench(conf: DbConf, cfg: RuntimeConfig) =
       seq[altair.TrustedSignedBeaconBlock],
       seq[bellatrix.TrustedSignedBeaconBlock],
       seq[capella.TrustedSignedBeaconBlock],
-      seq[deneb.TrustedSignedBeaconBlock])
+      seq[deneb.TrustedSignedBeaconBlock],
+      seq[electra.TrustedSignedBeaconBlock])
 
   echo "Loaded head slot ", dag.head.slot,
     " selected ", blockRefs.len, " blocks"
@@ -273,6 +274,9 @@ proc cmdBench(conf: DbConf, cfg: RuntimeConfig) =
       of ConsensusFork.Deneb:
         blocks[4].add dag.db.getBlock(
           blck.root, deneb.TrustedSignedBeaconBlock).get()
+      of ConsensusFork.Electra:
+        blocks[5].add dag.db.getBlock(
+          blck.root, electra.TrustedSignedBeaconBlock).get()
 
   let stateData = newClone(dag.headState)
 
@@ -284,7 +288,8 @@ proc cmdBench(conf: DbConf, cfg: RuntimeConfig) =
       (ref altair.HashedBeaconState)(),
       (ref bellatrix.HashedBeaconState)(),
       (ref capella.HashedBeaconState)(),
-      (ref deneb.HashedBeaconState)())
+      (ref deneb.HashedBeaconState)(),
+      (ref electra.HashedBeaconState)())
 
   withTimer(timers[tLoadState]):
     doAssert dag.updateState(
@@ -345,6 +350,9 @@ proc cmdBench(conf: DbConf, cfg: RuntimeConfig) =
               of ConsensusFork.Deneb:
                 doAssert dbBenchmark.getState(
                   forkyState.root, loadedState[4][].data, noRollback)
+              of ConsensusFork.Electra:
+                doAssert dbBenchmark.getState(
+                  forkyState.root, loadedState[5][].data, noRollback)
 
             if forkyState.data.slot.epoch mod 16 == 0:
               let loadedRoot = case consensusFork
@@ -353,6 +361,7 @@ proc cmdBench(conf: DbConf, cfg: RuntimeConfig) =
                 of ConsensusFork.Bellatrix: hash_tree_root(loadedState[2][].data)
                 of ConsensusFork.Capella:   hash_tree_root(loadedState[3][].data)
                 of ConsensusFork.Deneb:     hash_tree_root(loadedState[4][].data)
+                of ConsensusFork.Electra:   hash_tree_root(loadedState[5][].data)
               doAssert hash_tree_root(forkyState.data) == loadedRoot
 
   processBlocks(blocks[0])
@@ -360,6 +369,7 @@ proc cmdBench(conf: DbConf, cfg: RuntimeConfig) =
   processBlocks(blocks[2])
   processBlocks(blocks[3])
   processBlocks(blocks[4])
+  processBlocks(blocks[5])
 
   printTimers(false, timers)
 

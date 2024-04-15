@@ -14,6 +14,7 @@ import
 from ./spec/datatypes/capella import
   ExecutionPayloadHeader, HistoricalSummary, Withdrawal
 from ./spec/datatypes/deneb import ExecutionPayloadHeader
+from ./spec/datatypes/electra import ExecutionPayloadHeader
 
 type
   # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.6/specs/phase0/beacon-chain.md#beaconstate
@@ -388,7 +389,7 @@ type
     next_sync_committee*: SyncCommittee
 
     # Execution
-    latest_execution_payload_header*: deneb.ExecutionPayloadHeader
+    latest_execution_payload_header*: electra.ExecutionPayloadHeader
 
     # Withdrawals
     next_withdrawal_index*: WithdrawalIndex
