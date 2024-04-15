@@ -155,8 +155,10 @@ func setOptimisticHead*(
     bid: BlockId, execution_block_hash: Eth2Digest) =
   self.optimisticHead = (bid: bid, execution_block_hash: execution_block_hash)
 
-proc updateExecutionClientHead(self: ref ConsensusManager,
-                               newHead: BeaconHead): Future[Opt[void]] {.async: (raises: [CancelledError]).} =
+proc updateExecutionClientHead*(
+    self: ref ConsensusManager,
+    newHead: BeaconHead
+): Future[Opt[void]] {.async: (raises: [CancelledError]).} =
   let headExecutionBlockHash =
     self.dag.loadExecutionBlockHash(newHead.blck).valueOr:
       # `BlockRef` are only created for blocks that have passed
@@ -278,8 +280,6 @@ func isSynced(dag: ChainDAGRef, wallSlot: Slot): bool =
   # the defaultSyncHorizon, it will start triggering in time so that potential
   # discrepancies between the head here, and the head the DAG has (which might
   # not yet be updated) won't be visible.
-  const defaultSyncHorizon = 50
-
   if dag.head.slot + defaultSyncHorizon < wallSlot:
     false
   else:

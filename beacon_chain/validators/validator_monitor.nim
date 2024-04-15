@@ -585,8 +585,8 @@ proc registerState*(self: var ValidatorMonitor, state: ForkyBeaconState) =
 
   if self.totals:
     var
-      balance: uint64
-      effective_balance: uint64
+      balance: Gwei
+      effective_balance: Gwei
       slashed: int64
       active: int64
       exited: int64

@@ -36,7 +36,7 @@ export results
 # - https://notes.ethereum.org/@djrtwo/Bkn3zpwxB#Validator-responsibilities
 #
 # Phase 0 spec - Honest Validator - how to avoid slashing
-# - https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.6/specs/phase0/validator.md#how-to-avoid-slashing
+# - https://github.com/ethereum/consensus-specs/blob/v1.4.0/specs/phase0/validator.md#how-to-avoid-slashing
 #
 # In-depth reading on slashing conditions
 #
@@ -58,7 +58,7 @@ export results
 #   2. An attester can get slashed for signing
 #      two attestations that together violate
 #      the Casper FFG slashing conditions.
-# - https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.6/specs/phase0/validator.md#ffg-vote
+# - https://github.com/ethereum/consensus-specs/blob/v1.4.0/specs/phase0/validator.md#ffg-vote
 #   The "source" is the current_justified_epoch
 #   The "target" is the current_epoch
 #
@@ -789,7 +789,7 @@ proc getValidatorInternalID(
     db.internalIds.withValue(index.get(), internal) do:
       return Opt.some(internal[])
 
-  let serializedPubkey = validator.toRaw() # Miracl/BLST to bytes
+  let serializedPubkey = validator.toRaw() # Backend-specific to bytes
   var valID: ValidatorInternalID
   let status = db.sqlGetValidatorInternalID.exec(serializedPubkey) do (res: ValidatorInternalID):
     valID = res
@@ -1080,7 +1080,7 @@ proc registerValidator(db: SlashingProtectionDB_v2, validator: ValidatorPubKey) 
   ## Get validator from the database
   ## or register it
   ## Assumes the validator does not exist
-  let serializedPubkey = validator.toRaw() # Miracl/BLST to bytes
+  let serializedPubkey = validator.toRaw() # Backend-specific to bytes
   let status = db.sqlInsertValidator.exec(serializedPubkey)
   doAssert status.isOk()
 

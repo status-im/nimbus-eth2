@@ -10,7 +10,7 @@
 import
   std/[algorithm, sequtils, tables, sets],
   stew/[arrayops, assign2, byteutils],
-  metrics, results, snappy, chronicles,
+  chronos, metrics, results, snappy, chronicles,
   ../spec/[beaconstate, eth2_merkleization, eth2_ssz_serialization, helpers,
     state_transition, validator],
   ../spec/forks,
@@ -49,7 +49,7 @@ declareGauge beacon_current_active_validators, "Number of validators in the acti
 declareGauge beacon_pending_deposits, "Number of pending deposits (state.eth1_data.deposit_count - state.eth1_deposit_index)" # On block
 declareGauge beacon_processed_deposits_total, "Number of total deposits included on chain" # On block
 
-declareCounter total_state_replay_seconds, "Total time spent replaying states"
+declareCounter beacon_dag_state_replay_seconds, "Time spent replaying states"
 
 const
   EPOCHS_PER_STATE_SNAPSHOT* = 32
@@ -968,40 +968,48 @@ proc advanceSlots*(
 proc applyBlock(
     dag: ChainDAGRef, state: var ForkedHashedBeaconState, bid: BlockId,
     cache: var StateCache, info: var ForkedEpochInfo): Result[void, cstring] =
-
   loadStateCache(dag, cache, bid, getStateField(state, slot).epoch)
 
-  case dag.cfg.consensusForkAtEpoch(bid.slot.epoch)
+  discard case dag.cfg.consensusForkAtEpoch(bid.slot.epoch)
   of ConsensusFork.Phase0:
     let data = getBlock(dag, bid, phase0.TrustedSignedBeaconBlock).valueOr:
       return err("Block load failed")
-    state_transition(
+    ? state_transition(
       dag.cfg, state, data, cache, info,
       dag.updateFlags + {slotProcessed}, noRollback)
   of ConsensusFork.Altair:
     let data = getBlock(dag, bid, altair.TrustedSignedBeaconBlock).valueOr:
       return err("Block load failed")
-    state_transition(
+    ? state_transition(
       dag.cfg, state, data, cache, info,
       dag.updateFlags + {slotProcessed}, noRollback)
   of ConsensusFork.Bellatrix:
     let data = getBlock(dag, bid, bellatrix.TrustedSignedBeaconBlock).valueOr:
       return err("Block load failed")
-    state_transition(
+    ? state_transition(
       dag.cfg, state, data, cache, info,
       dag.updateFlags + {slotProcessed}, noRollback)
   of ConsensusFork.Capella:
     let data = getBlock(dag, bid, capella.TrustedSignedBeaconBlock).valueOr:
       return err("Block load failed")
-    state_transition(
+    ? state_transition(
       dag.cfg, state, data, cache, info,
       dag.updateFlags + {slotProcessed}, noRollback)
   of ConsensusFork.Deneb:
     let data = getBlock(dag, bid, deneb.TrustedSignedBeaconBlock).valueOr:
       return err("Block load failed")
-    state_transition(
+    ? state_transition(
       dag.cfg, state, data, cache, info,
       dag.updateFlags + {slotProcessed}, noRollback)
+
+  ok()
+
+proc resetChainProgressWatchdog*(dag: ChainDAGRef) =
+  dag.lastChainProgress = Moment.now()
+
+proc chainIsProgressing*(dag: ChainDAGRef): bool =
+  const watchdogDuration = chronos.minutes(60)
+  dag.lastChainProgress + watchdogDuration >= Moment.now()
 
 proc init*(T: type ChainDAGRef, cfg: RuntimeConfig, db: BeaconChainDB,
            validatorMonitor: ref ValidatorMonitor, updateFlags: UpdateFlags,
@@ -1043,6 +1051,7 @@ proc init*(T: type ChainDAGRef, cfg: RuntimeConfig, db: BeaconChainDB,
       # allow skipping some validation.
       updateFlags: updateFlags * {strictVerification},
       cfg: cfg,
+      lastChainProgress: Moment.now(),
 
       vanityLogs: vanityLogs,
 
@@ -1167,7 +1176,7 @@ proc init*(T: type ChainDAGRef, cfg: RuntimeConfig, db: BeaconChainDB,
   # should have `previous_version` set to `current_version` while
   # this doesn't happen to be the case in network that go through
   # regular hard-fork upgrades. See for example:
-  # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.6/specs/bellatrix/beacon-chain.md#testing
+  # https://github.com/ethereum/consensus-specs/blob/v1.4.0/specs/bellatrix/beacon-chain.md#testing
   if stateFork.current_version != configFork.current_version:
     error "State from database does not match network, check --network parameter",
       tail = dag.tail, headRef, stateFork, configFork
@@ -1792,15 +1801,15 @@ proc updateState*(
         # eventually reach bs
         ancestors.add(cur.bid)
 
-      if cur.slot == GENESIS_SLOT or
-          (cur.slot.epoch +  uint64(EPOCHS_PER_STATE_SNAPSHOT) * 2 < startEpoch):
+      if cur.slot == GENESIS_SLOT or (cur.slot < dag.finalizedHead.slot and
+          cur.slot.epoch + uint64(EPOCHS_PER_STATE_SNAPSHOT) * 2 < startEpoch):
         # We've either walked two full state snapshot lengths or hit the tail
         # and still can't find a matching state: this can happen when
         # starting the node from an arbitrary finalized checkpoint and not
         # backfilling the states
         notice "Request for pruned historical state",
           request = shortLog(bsi), tail = shortLog(dag.tail),
-          cur = shortLog(cur)
+          cur = shortLog(cur), finalized = shortLog(dag.finalizedHead)
         return false
 
       # Move slot by slot to capture epoch boundary states
@@ -1845,7 +1854,7 @@ proc updateState*(
   let
     assignDur = assignTick - startTick
     replayDur = Moment.now() - assignTick
-  total_state_replay_seconds.inc(replayDur.toFloatSeconds)
+  beacon_dag_state_replay_seconds.inc(replayDur.toFloatSeconds)
 
   # TODO https://github.com/status-im/nim-chronicles/issues/108
   if (assignDur + replayDur) >= MinSignificantProcessingDuration:
@@ -1958,13 +1967,17 @@ proc pruneBlocksDAG(dag: ChainDAGRef) =
     prunedHeads = hlen - dag.heads.len,
     dagPruneDur = Moment.now() - startTick
 
-# https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.6/sync/optimistic.md#helpers
-template is_optimistic*(dag: ChainDAGRef, bid: BlockId): bool =
+# https://github.com/ethereum/consensus-specs/blob/v1.4.0/sync/optimistic.md#helpers
+func is_optimistic*(dag: ChainDAGRef, bid: BlockId): bool =
   let blck =
     if bid.slot <= dag.finalizedHead.slot:
       dag.finalizedHead.blck
     else:
-      dag.getBlockRef(bid.root).expect("Non-finalized block is known")
+      dag.getBlockRef(bid.root).valueOr:
+        # The block is part of the DB but is not reachable via `BlockRef`;
+        # it could have been orphaned or the DB is slightly inconsistent.
+        # Report it as optimistic until it becomes reachable or gets deleted
+        return true
   not blck.executionValid
 
 proc markBlockVerified*(dag: ChainDAGRef, blck: BlockRef) =

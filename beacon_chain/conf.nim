@@ -335,7 +335,7 @@ type
         hidden
         desc: "Enable the Yamux multiplexer"
         defaultValue: false
-        name: "enable-yamux" .}: bool
+        name: "debug-enable-yamux" .}: bool
 
       weakSubjectivityCheckpoint* {.
         desc: "Weak subjectivity checkpoint in the format block_root:epoch_number"
@@ -586,9 +586,9 @@ type
 
       syncHorizon* {.
         hidden
-        desc: "Number of empty slots to process before considering the client out of sync"
-        defaultValue: MaxEmptySlotCount
-        defaultValueDesc: "50"
+        desc: "Number of empty slots to process before considering the client out of sync. Defaults to the number of slots in 10 minutes"
+        defaultValue: defaultSyncHorizon
+        defaultValueDesc: $defaultSyncHorizon
         name: "sync-horizon" .}: uint64
 
       terminalTotalDifficultyOverride* {.
@@ -1434,6 +1434,12 @@ func defaultFeeRecipient*(conf: AnyConf): Opt[Eth1Address] =
   else:
     # https://github.com/nim-lang/Nim/issues/19802
     (static(Opt.none Eth1Address))
+
+func defaultGraffitiBytes*(conf: AnyConf): GraffitiBytes =
+  if conf.graffiti.isSome:
+    conf.graffiti.get
+  else:
+    defaultGraffitiBytes()
 
 proc loadJwtSecret(
     rng: var HmacDrbgContext,

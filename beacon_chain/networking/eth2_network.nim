@@ -479,18 +479,19 @@ template awaitQuota*(peerParam: Peer, costParam: float, protocolIdParam: string)
 
   if not peer.quota.tryConsume(cost.int):
     let protocolId = protocolIdParam
-    debug "Awaiting peer quota", peer, cost, protocolId
+    debug "Awaiting peer quota", peer, cost = cost, protocolId = protocolId
     nbc_reqresp_messages_throttled.inc(1, [protocolId])
     await peer.quota.consume(cost.int)
 
-template awaitQuota*(networkParam: Eth2Node, costParam: float, protocolIdParam: string) =
+template awaitQuota*(
+    networkParam: Eth2Node, costParam: float, protocolIdParam: string) =
   let
     network = networkParam
     cost = int(costParam)
 
   if not network.quota.tryConsume(cost.int):
     let protocolId = protocolIdParam
-    debug "Awaiting network quota", peer, cost, protocolId
+    debug "Awaiting network quota", peer, cost = cost, protocolId = protocolId
     nbc_reqresp_messages_throttled.inc(1, [protocolId])
     await network.quota.consume(cost.int)
 
@@ -830,7 +831,7 @@ template gossipMaxSize(T: untyped): uint32 =
     when isFixedSize(T):
       fixedPortionSize(T).uint32
     elif T is bellatrix.SignedBeaconBlock or T is capella.SignedBeaconBlock or
-         T is deneb.SignedBeaconBlock:
+         T is deneb.SignedBeaconBlock or T is electra.SignedBeaconBlock:
       GOSSIP_MAX_SIZE
     # TODO https://github.com/status-im/nim-ssz-serialization/issues/20 for
     # Attestation, AttesterSlashing, and SignedAggregateAndProof, which all
@@ -1276,11 +1277,15 @@ proc toPeerAddr*(r: enr.TypedRecord,
   case proto
   of tcpProtocol:
     if r.ip.isSome and r.tcp.isSome:
-      let ip = ipv4(r.ip.get)
+      let ip = IpAddress(
+        family: IpAddressFamily.IPv4,
+        address_v4: r.ip.get)
       addrs.add MultiAddress.init(ip, tcpProtocol, Port r.tcp.get)
 
     if r.ip6.isSome:
-      let ip = ipv6(r.ip6.get)
+      let ip = IpAddress(
+        family: IpAddressFamily.IPv6,
+        address_v6: r.ip6.get)
       if r.tcp6.isSome:
         addrs.add MultiAddress.init(ip, tcpProtocol, Port r.tcp6.get)
       elif r.tcp.isSome:
@@ -1290,11 +1295,15 @@ proc toPeerAddr*(r: enr.TypedRecord,
 
   of udpProtocol:
     if r.ip.isSome and r.udp.isSome:
-      let ip = ipv4(r.ip.get)
+      let ip = IpAddress(
+        family: IpAddressFamily.IPv4,
+        address_v4: r.ip.get)
       addrs.add MultiAddress.init(ip, udpProtocol, Port r.udp.get)
 
     if r.ip6.isSome:
-      let ip = ipv6(r.ip6.get)
+      let ip = IpAddress(
+        family: IpAddressFamily.IPv6,
+        address_v6: r.ip6.get)
       if r.udp6.isSome:
         addrs.add MultiAddress.init(ip, udpProtocol, Port r.udp6.get)
       elif r.udp.isSome:
@@ -2005,7 +2014,8 @@ proc p2pProtocolBackendImpl*(p: P2PProtocol): Backend =
 
         try:
           mount `networkVar`.switch,
-                LPProtocol(codecs: @[`codecNameLit`], handler: snappyThunk)
+                LPProtocol.new(
+                  codecs = @[`codecNameLit`], handler = snappyThunk)
         except LPError as exc:
           # Failure here indicates that the mounting was done incorrectly which
           # would be a programming error
@@ -2189,7 +2199,7 @@ proc getPersistentNetKeys*(
 func gossipId(
     data: openArray[byte], phase0Prefix, topic: string): seq[byte] =
   # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.5/specs/phase0/p2p-interface.md#topics-and-messages
-  # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.6/specs/altair/p2p-interface.md#topics-and-messages
+  # https://github.com/ethereum/consensus-specs/blob/v1.4.0/specs/altair/p2p-interface.md#topics-and-messages
   const MESSAGE_DOMAIN_VALID_SNAPPY = [0x01'u8, 0x00, 0x00, 0x00]
   let messageDigest = withEth2Hash:
     h.update(MESSAGE_DOMAIN_VALID_SNAPPY)
@@ -2307,7 +2317,8 @@ proc createEth2Node*(rng: ref HmacDrbgContext,
       historyLength: 6,
       historyGossip: 3,
       fanoutTTL: chronos.seconds(60),
-      seenTTL: chronos.seconds(385),
+      # 2 epochs matching maximum valid attestation lifetime
+      seenTTL: chronos.seconds(int(SECONDS_PER_SLOT * SLOTS_PER_EPOCH * 2)),
       gossipThreshold: -4000,
       publishThreshold: -8000,
       graylistThreshold: -16000, # also disconnect threshold
@@ -2485,7 +2496,7 @@ proc subscribeAttestationSubnets*(
 
 proc unsubscribeAttestationSubnets*(
     node: Eth2Node, subnets: AttnetBits, forkDigest: ForkDigest) =
-  # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.5/specs/phase0/p2p-interface.md#attestations-and-aggregation
+  # https://github.com/ethereum/consensus-specs/blob/v1.4.0/specs/phase0/p2p-interface.md#attestations-and-aggregation
   # Nimbus won't score attestation subnets for now; we just rely on block and
   # aggregate which are more stable and reliable
 
@@ -2514,7 +2525,7 @@ proc updateStabilitySubnetMetadata*(node: Eth2Node, attnets: AttnetBits) =
     debug "Stability subnets changed; updated ENR attnets", attnets
 
 proc updateSyncnetsMetadata*(node: Eth2Node, syncnets: SyncnetBits) =
-  # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.6/specs/altair/validator.md#sync-committee-subnet-stability
+  # https://github.com/ethereum/consensus-specs/blob/v1.4.0/specs/altair/validator.md#sync-committee-subnet-stability
   if node.metadata.syncnets == syncnets:
     return
 
@@ -2627,6 +2638,12 @@ proc broadcastBeaconBlock*(
     node: Eth2Node, blck: deneb.SignedBeaconBlock):
     Future[SendResult] {.async: (raises: [CancelledError], raw: true).} =
   let topic = getBeaconBlocksTopic(node.forkDigests.deneb)
+  node.broadcast(topic, blck)
+
+proc broadcastBeaconBlock*(
+    node: Eth2Node, blck: electra.SignedBeaconBlock):
+    Future[SendResult] {.async: (raises: [CancelledError], raw: true).} =
+  let topic = getBeaconBlocksTopic(node.forkDigests.electra)
   node.broadcast(topic, blck)
 
 proc broadcastBlobSidecar*(

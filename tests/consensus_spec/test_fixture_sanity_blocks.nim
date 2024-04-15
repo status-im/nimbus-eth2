@@ -5,6 +5,7 @@
 #   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
 # at your option. This file may not be copied, modified, or distributed except according to those terms.
 
+{.push raises: [].}
 {.used.}
 
 import
@@ -46,7 +47,9 @@ proc runTest(
         SSZ, consensusFork.SignedBeaconBlock)
 
       if hasPostState:
-        state_transition(
+        # The return value is the block rewards, which aren't tested here;
+        # the .expect() already handles the the validaty check.
+        discard state_transition(
           defaultRuntimeConfig, fhPreState[], blck, cache, info, flags = {},
           noRollback).expect("should apply block")
       else:
@@ -93,4 +96,5 @@ template runForkBlockTests(consensusFork: static ConsensusFork) =
         RandomDir, suiteName, path)
 
 withAll(ConsensusFork):
-  runForkBlockTests(consensusFork)
+  when consensusFork <= ConsensusFork.Deneb:
+    runForkBlockTests(consensusFork)

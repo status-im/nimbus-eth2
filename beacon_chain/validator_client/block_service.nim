@@ -33,6 +33,19 @@ type
     blockRoot*: Eth2Digest
     data*: ForkedBlindedBeaconBlock
 
+func shortLog(v: Opt[UInt256]): auto =
+  if v.isNone(): "<not available>" else: toString(v.get, 10)
+
+func shortLog(v: ForkedMaybeBlindedBeaconBlock): auto =
+  withForkyMaybeBlindedBlck(v):
+    when consensusFork < ConsensusFork.Deneb:
+      shortLog(forkyMaybeBlindedBlck)
+    else:
+      when isBlinded:
+        shortLog(forkyMaybeBlindedBlck)
+      else:
+        shortLog(forkyMaybeBlindedBlck.`block`)
+
 proc proposeBlock(vc: ValidatorClientRef, slot: Slot,
                   proposerKey: ValidatorPubKey) {.async.}
 
@@ -46,7 +59,7 @@ proc produceBlock(
   logScope:
     slot = slot
     wall_slot = currentSlot
-    validator = shortLog(validator)
+    validator = validatorLog(validator)
   let
     produceBlockResponse =
       try:
@@ -107,7 +120,7 @@ proc produceBlindedBlock(
   logScope:
     slot = slot
     wall_slot = currentSlot
-    validator = shortLog(validator)
+    validator = validatorLog(validator)
   let
     beaconBlock =
       try:
@@ -165,17 +178,17 @@ proc prepareRandao(vc: ValidatorClientRef, slot: Slot,
       timeElapsed = Moment.now() - start
     if rsig.isErr():
       debug "Unable to prepare RANDAO signature", epoch = epoch,
-            validator = shortLog(validator), elapsed_time = timeElapsed,
+            validator = validatorLog(validator), elapsed_time = timeElapsed,
             current_slot = currentSlot, destination_slot = destSlot,
             delay = vc.getDelay(deadline)
     else:
       debug "RANDAO signature has been prepared", epoch = epoch,
-            validator = shortLog(validator), elapsed_time = timeElapsed,
+            validator = validatorLog(validator), elapsed_time = timeElapsed,
             current_slot = currentSlot, destination_slot = destSlot,
             delay = vc.getDelay(deadline)
   else:
     debug "RANDAO signature preparation timed out", epoch = epoch,
-          validator = shortLog(validator),
+          validator = validatorLog(validator),
           current_slot = currentSlot, destination_slot = destSlot,
           delay = vc.getDelay(deadline)
 
@@ -212,7 +225,7 @@ proc publishBlockV3(vc: ValidatorClientRef, currentSlot, slot: Slot,
     vindex = validator.index.get()
 
   logScope:
-    validator = shortLog(validator)
+    validator = validatorLog(validator)
     validator_index = vindex
     slot = slot
     wall_slot = currentSlot
@@ -237,6 +250,15 @@ proc publishBlockV3(vc: ValidatorClientRef, currentSlot, slot: Slot,
     when isBlinded:
       let
         blockRoot = hash_tree_root(forkyMaybeBlindedBlck)
+
+      debug "Block produced",
+            block_type = "blinded",
+            block_root = shortLog(blockRoot),
+            blck = shortLog(maybeBlock),
+            execution_value = shortLog(maybeBlock.executionValue),
+            consensus_value = shortLog(maybeBlock.consensusValue)
+
+      let
         signingRoot =
           compute_block_signing_root(fork, genesisRoot, slot, blockRoot)
         notSlashable = vc.attachedValidators[]
@@ -308,6 +330,15 @@ proc publishBlockV3(vc: ValidatorClientRef, currentSlot, slot: Slot,
           else:
             forkyMaybeBlindedBlck.`block`
         )
+
+      debug "Block produced",
+            block_type = "non-blinded",
+            block_root = shortLog(blockRoot),
+            blck = shortLog(maybeBlock),
+            execution_value = shortLog(maybeBlock.executionValue),
+            consensus_value = shortLog(maybeBlock.consensusValue)
+
+      let
         signingRoot =
           compute_block_signing_root(fork, genesisRoot, slot, blockRoot)
         notSlashable = vc.attachedValidators[]
@@ -380,15 +411,11 @@ proc publishBlockV2(vc: ValidatorClientRef, currentSlot, slot: Slot,
                     validator: AttachedValidator) {.async.} =
   let
     genesisRoot = vc.beaconGenesis.genesis_validators_root
-    graffiti =
-      if vc.config.graffiti.isSome():
-        vc.config.graffiti.get()
-      else:
-        defaultGraffitiBytes()
+    graffiti = vc.getGraffitiBytes(validator)
     vindex = validator.index.get()
 
   logScope:
-    validator = shortLog(validator)
+    validator = validatorLog(validator)
     validator_index = vindex
     slot = slot
     wall_slot = currentSlot
@@ -602,16 +629,12 @@ proc publishBlock(vc: ValidatorClientRef, currentSlot, slot: Slot,
                   validator: AttachedValidator) {.async.} =
   let
     genesisRoot = vc.beaconGenesis.genesis_validators_root
-    graffiti =
-      if vc.config.graffiti.isSome():
-        vc.config.graffiti.get()
-      else:
-        defaultGraffitiBytes()
+    graffiti = vc.getGraffitiBytes(validator)
     fork = vc.forkAtEpoch(slot.epoch)
     vindex = validator.index.get()
 
   logScope:
-    validator = shortLog(validator)
+    validator = validatorLog(validator)
     validator_index = vindex
     slot = slot
     wall_slot = currentSlot
@@ -667,11 +690,11 @@ proc proposeBlock(vc: ValidatorClientRef, slot: Slot,
     await vc.publishBlock(currentSlot, slot, validator)
   except CancelledError as exc:
     debug "Block proposing process was interrupted",
-          slot = slot, validator = shortLog(proposerKey)
+          slot = slot, validator = validatorLog(validator)
     raise exc
   except CatchableError:
     error "Unexpected error encountered while proposing block",
-          slot = slot, validator = shortLog(validator)
+          slot = slot, validator = validatorLog(validator)
 
 proc contains(data: openArray[RestProposerDuty], task: ProposerTask): bool =
   for item in data:
@@ -692,12 +715,12 @@ proc checkDuty(duty: RestProposerDuty, epoch: Epoch, slot: Slot): bool =
       true
     else:
       warn "Block proposal duty is in the far future, ignoring",
-           duty_slot = duty.slot, validator = shortLog(duty.pubkey),
+           duty_slot = duty.slot, pubkey = shortLog(duty.pubkey),
            wall_slot = slot, last_slot_in_epoch = (lastSlot - 1'u64)
       false
   else:
     warn "Block proposal duty is in the past, ignoring", duty_slot = duty.slot,
-         validator = shortLog(duty.pubkey), wall_slot = slot
+         pubkey = shortLog(duty.pubkey), wall_slot = slot
     false
 
 proc addOrReplaceProposers*(vc: ValidatorClientRef, epoch: Epoch,
@@ -724,20 +747,20 @@ proc addOrReplaceProposers*(vc: ValidatorClientRef, epoch: Epoch,
               # Task is no more relevant, so cancel it.
               debug "Cancelling running proposal duty tasks",
                     slot = task.duty.slot,
-                    validator = shortLog(task.duty.pubkey)
+                    pubkey = shortLog(task.duty.pubkey)
               task.proposeFut.cancelSoon()
               task.randaoFut.cancelSoon()
             else:
               # If task is already running for proper slot, we keep it alive.
               debug "Keep running previous proposal duty tasks",
                     slot = task.duty.slot,
-                    validator = shortLog(task.duty.pubkey)
+                    pubkey = shortLog(task.duty.pubkey)
               res.add(task)
 
           for duty in duties:
             if duty notin res:
-              debug "New proposal duty received", slot = duty.slot,
-                    validator = shortLog(duty.pubkey)
+              info "Received new proposer duty", slot = duty.slot,
+                    pubkey = shortLog(duty.pubkey)
               if checkDuty(duty, epoch, currentSlot):
                 let task = vc.spawnProposalTask(duty)
                 if duty.slot in hashset:
@@ -758,8 +781,8 @@ proc addOrReplaceProposers*(vc: ValidatorClientRef, epoch: Epoch,
         var hashset = initHashSet[Slot]()
         var res: seq[ProposerTask]
         for duty in duties:
-          debug "New proposal duty received", slot = duty.slot,
-                validator = shortLog(duty.pubkey)
+          info "Received new proposer duty", slot = duty.slot,
+                pubkey = shortLog(duty.pubkey)
           if checkDuty(duty, epoch, currentSlot):
             let task = vc.spawnProposalTask(duty)
             if duty.slot in hashset:

@@ -55,7 +55,7 @@ proc run() {.async.} =
   let
     elManager = newClone ELManager.init(
       defaultRuntimeConfig, db = nil, nil, @[paramStr(1)],
-      none(DepositTreeSnapshot), none(Eth1Network), false,
+      none(DepositContractSnapshot), none(Eth1Network), false,
       some readJwtSecret(paramStr(2)).get)
 
   try:

@@ -5,6 +5,7 @@
 #   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
 # at your option. This file may not be copied, modified, or distributed except according to those terms.
 
+{.push raises: [].}
 {.used.}
 
 import
@@ -30,12 +31,13 @@ proc directoryItemsCount(dir: string): int {.raises: [OSError].} =
   for el in walkDir(dir):
     result += 1
 
-proc validatorPubKeysInDir(dir: string): seq[string] =
+proc validatorPubKeysInDir(dir: string): seq[string] {.raises: [OSError].} =
   for kind, file in walkDir(dir):
     if kind == pcDir:
       result.add(splitFile(file).name)
 
-proc contentEquals(filePath, expectedContent: string): bool =
+proc contentEquals(
+    filePath, expectedContent: string): bool {.raises: [IOError].} =
   var file: File
 
   discard open(file, filePath)
@@ -54,7 +56,7 @@ proc namesEqual(a, b: openArray[string]): bool =
   sorted(a) == sorted(b)
 
 when not defined(windows):
-  proc isEmptyDir(dir: string): bool =
+  proc isEmptyDir(dir: string): bool {.raises: [OSError].} =
     directoryItemsCount(dir) == 0
 
 if validatorDirRes.isErr():

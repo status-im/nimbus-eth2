@@ -11,7 +11,7 @@
 # please keep imports clear of `rest_utils` or any other module which imports
 # beacon node's specific networking code.
 
-import std/[tables, strutils, uri]
+import std/[tables, strutils, uri,]
 import chronos, chronicles, confutils,
        results, stew/[base10, io2], blscurve, presto
 import ".."/spec/[keystore, crypto]
@@ -375,10 +375,12 @@ proc installKeymanagerHandlers*(router: var RestRouter, host: KeymanagerHost) =
         ethaddress: ethaddress.get))
     else:
       case ethaddress.error
+      of noConfigFile:
+        keymanagerApiError(Http404, PathNotFoundError)
       of noSuchValidator:
-        keymanagerApiError(Http404, "No matching validator found")
+        keymanagerApiError(Http404, ValidatorNotFoundError)
       of malformedConfigFile:
-        keymanagerApiError(Http500, "Error reading fee recipient file")
+        keymanagerApiError(Http500, FileReadError)
 
   # https://ethereum.github.io/keymanager-APIs/#/Fee%20Recipient/SetFeeRecipient
   router.api2(MethodPost, "/eth/v1/validator/{pubkey}/feerecipient") do (
@@ -402,7 +404,7 @@ proc installKeymanagerHandlers*(router: var RestRouter, host: KeymanagerHost) =
       status = host.setFeeRecipient(pubkey, feeRecipientReq.ethaddress)
 
     if status.isOk:
-      RestApiResponse.response("", Http202, "text/plain")
+      RestApiResponse.response(Http202)
     else:
       keymanagerApiError(
         Http500, "Failed to set fee recipient: " & status.error)
@@ -412,17 +414,22 @@ proc installKeymanagerHandlers*(router: var RestRouter, host: KeymanagerHost) =
              pubkey: ValidatorPubKey) -> RestApiResponse:
     let authStatus = checkAuthorization(request, host)
     if authStatus.isErr():
-      return authErrorResponse authStatus.error
-    let
-      pubkey = pubkey.valueOr:
-        return keymanagerApiError(Http400, InvalidValidatorPublicKey)
-      res = host.removeFeeRecipientFile(pubkey)
+      return keymanagerApiError(Http401, InvalidAuthorizationError)
 
+    let pubkey = pubkey.valueOr:
+      return keymanagerApiError(Http400, InvalidValidatorPublicKey)
+
+    if not(host.checkValidatorKeystoreDir(pubkey)):
+      return keymanagerApiError(Http404, ValidatorNotFoundError)
+    if not(host.checkConfigFile(ConfigFileKind.FeeRecipientFile, pubkey)):
+      return keymanagerApiError(Http404, PathNotFoundError)
+
+    let res = host.removeFeeRecipientFile(pubkey)
     if res.isOk:
-      RestApiResponse.response("", Http204, "text/plain")
+      RestApiResponse.response(Http204)
     else:
       keymanagerApiError(
-        Http500, "Failed to remove fee recipient file: " & res.error)
+        Http403, "Failed to remove fee recipient file: " & res.error)
 
   # https://ethereum.github.io/keymanager-APIs/#/Gas%20Limit/getGasLimit
   router.api2(MethodGet, "/eth/v1/validator/{pubkey}/gas_limit") do (
@@ -442,10 +449,12 @@ proc installKeymanagerHandlers*(router: var RestRouter, host: KeymanagerHost) =
         gas_limit: gasLimit.get))
     else:
       case gasLimit.error
+      of noConfigFile:
+        keymanagerApiError(Http404, PathNotFoundError)
       of noSuchValidator:
-        keymanagerApiError(Http404, "No matching validator found")
+        keymanagerApiError(Http404, ValidatorNotFoundError)
       of malformedConfigFile:
-        keymanagerApiError(Http500, "Error reading gas limit file")
+        keymanagerApiError(Http500, FileReadError)
 
   # https://ethereum.github.io/keymanager-APIs/#/Gas%20Limit/setGasLimit
   router.api2(MethodPost, "/eth/v1/validator/{pubkey}/gas_limit") do (
@@ -469,7 +478,7 @@ proc installKeymanagerHandlers*(router: var RestRouter, host: KeymanagerHost) =
       status = host.setGasLimit(pubkey, gasLimitReq.gas_limit)
 
     if status.isOk:
-      RestApiResponse.response("", Http202, "text/plain")
+      RestApiResponse.response(Http202)
     else:
       keymanagerApiError(
         Http500, "Failed to set gas limit: " & status.error)
@@ -479,17 +488,22 @@ proc installKeymanagerHandlers*(router: var RestRouter, host: KeymanagerHost) =
               pubkey: ValidatorPubKey) -> RestApiResponse:
     let authStatus = checkAuthorization(request, host)
     if authStatus.isErr():
-      return authErrorResponse authStatus.error
-    let
-      pubkey = pubkey.valueOr:
-        return keymanagerApiError(Http400, InvalidValidatorPublicKey)
-      res = host.removeGasLimitFile(pubkey)
+      return keymanagerApiError(Http401, InvalidAuthorizationError)
 
+    let pubkey = pubkey.valueOr:
+      return keymanagerApiError(Http400, InvalidValidatorPublicKey)
+
+    if not(host.checkValidatorKeystoreDir(pubkey)):
+      return keymanagerApiError(Http404, ValidatorNotFoundError)
+    if not(host.checkConfigFile(ConfigFileKind.GasLimitFile, pubkey)):
+      return keymanagerApiError(Http404, PathNotFoundError)
+
+    let res = host.removeGasLimitFile(pubkey)
     if res.isOk:
-      RestApiResponse.response("", Http204, "text/plain")
+      RestApiResponse.response(Http204)
     else:
       keymanagerApiError(
-        Http500, "Failed to remove gas limit file: " & res.error)
+        Http403, "Failed to remove gas limit file: " & res.error)
 
   # TODO: These URLs will be changed once we submit a proposal for
   #       /eth/v2/remotekeys that supports distributed keys.
@@ -609,3 +623,78 @@ proc installKeymanagerHandlers*(router: var RestRouter, host: KeymanagerHost) =
         signature: signature
       )
     RestApiResponse.jsonResponse(response)
+
+  # https://ethereum.github.io/keymanager-APIs/?urls.primaryName=dev#/Graffiti/getGraffiti
+  router.api2(MethodGet, "/eth/v1/validator/{pubkey}/graffiti") do (
+              pubkey: ValidatorPubKey) -> RestApiResponse:
+    let authStatus = checkAuthorization(request, host)
+    if authStatus.isErr():
+      return authErrorResponse authStatus.error
+
+    let
+      pubkey = pubkey.valueOr:
+        return keymanagerApiError(Http400, InvalidValidatorPublicKey)
+      graffiti = host.getSuggestedGraffiti(pubkey)
+
+    if graffiti.isOk:
+      RestApiResponse.jsonResponse(
+        GraffitiResponse(pubkey: pubkey,
+                         graffiti: GraffitiString.init(graffiti.get)))
+    else:
+      case graffiti.error
+      of noConfigFile:
+        keymanagerApiError(Http404, PathNotFoundError)
+      of noSuchValidator:
+        keymanagerApiError(Http404, ValidatorNotFoundError)
+      of malformedConfigFile:
+        keymanagerApiError(Http500, FileReadError)
+
+  # https://ethereum.github.io/keymanager-APIs/?urls.primaryName=dev#/Graffiti/setGraffiti
+  router.api2(MethodPost, "/eth/v1/validator/{pubkey}/graffiti") do (
+              pubkey: ValidatorPubKey,
+              contentBody: Option[ContentBody]) -> RestApiResponse:
+    let authStatus = checkAuthorization(request, host)
+    if authStatus.isErr():
+      return authErrorResponse authStatus.error
+
+    let
+      pubkey = pubkey.valueOr:
+        return keymanagerApiError(Http400, InvalidValidatorPublicKey)
+      req =
+        block:
+          if contentBody.isNone():
+            return keymanagerApiError(Http400, InvalidGraffitiRequestError)
+          decodeBody(SetGraffitiRequest, contentBody.get()).valueOr:
+            return keymanagerApiError(Http400, InvalidGraffitiRequestError)
+
+    if not(host.checkValidatorKeystoreDir(pubkey)):
+      return keymanagerApiError(Http404, ValidatorNotFoundError)
+
+    let status = host.setGraffiti(pubkey, GraffitiBytes.init(req.graffiti))
+    if status.isOk:
+      RestApiResponse.response(Http202)
+    else:
+      keymanagerApiError(
+        Http500, "Failed to set graffiti: " & status.error)
+
+  # https://ethereum.github.io/keymanager-APIs/?urls.primaryName=dev#/Graffiti/deleteGraffiti
+  router.api2(MethodDelete, "/eth/v1/validator/{pubkey}/graffiti") do (
+              pubkey: ValidatorPubKey) -> RestApiResponse:
+    let authStatus = checkAuthorization(request, host)
+    if authStatus.isErr():
+      return keymanagerApiError(Http401, InvalidAuthorizationError)
+
+    let pubkey = pubkey.valueOr:
+      return keymanagerApiError(Http400, InvalidValidatorPublicKey)
+
+    if not(host.checkValidatorKeystoreDir(pubkey)):
+      return keymanagerApiError(Http404, ValidatorNotFoundError)
+    if not(host.checkConfigFile(ConfigFileKind.GraffitiFile, pubkey)):
+      return keymanagerApiError(Http404, PathNotFoundError)
+
+    let res = host.removeGraffitiFile(pubkey)
+    if res.isOk:
+      RestApiResponse.response(Http204)
+    else:
+      keymanagerApiError(
+        Http403, "Failed to remove grafiti file: " & res.error)

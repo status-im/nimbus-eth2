@@ -15,7 +15,7 @@ import
   nimbus_security_resources,
   ".."/spec/[eth2_merkleization, keystore, crypto],
   ".."/spec/datatypes/base,
-  stew/io2, libp2p/crypto/crypto as lcrypto,
+  stew/[io2, byteutils], libp2p/crypto/crypto as lcrypto,
   nimcrypto/utils as ncrutils,
   ".."/[conf, filepath, beacon_clock],
   ".."/networking/network_metadata,
@@ -40,6 +40,7 @@ const
   RemoteKeystoreFileName* = "remote_keystore.json"
   FeeRecipientFilename = "suggested_fee_recipient.hex"
   GasLimitFilename = "suggested_gas_limit.json"
+  GraffitiBytesFilename = "graffiti.hex"
   BuilderConfigPath = "payload_builder.json"
   KeyNameSize = 98 # 0x + hexadecimal key representation 96 characters.
   MaxKeystoreFileSize = 65536
@@ -91,6 +92,7 @@ type
     secretsDir*: string
     defaultFeeRecipient*: Opt[Eth1Address]
     defaultGasLimit*: uint64
+    defaultGraffiti*: GraffitiBytes
     defaultBuilderAddress*: Opt[string]
     getValidatorAndIdxFn*: ValidatorPubKeyToDataFn
     getBeaconTimeFn*: GetBeaconTimeFn
@@ -103,6 +105,10 @@ type
     previouslyUsedPassword*: string
 
   QueryResult = Result[seq[KeystoreData], string]
+
+  ConfigFileKind* {.pure.} = enum
+    KeystoreFile, RemoteKeystoreFile, FeeRecipientFile, GasLimitFile,
+    BuilderConfigFile, GraffitiFile
 
 const
   minPasswordLen = 12
@@ -125,6 +131,7 @@ func init*(T: type KeymanagerHost,
            secretsDir: string,
            defaultFeeRecipient: Opt[Eth1Address],
            defaultGasLimit: uint64,
+           defaultGraffiti: GraffitiBytes,
            defaultBuilderAddress: Opt[string],
            getValidatorAndIdxFn: ValidatorPubKeyToDataFn,
            getBeaconTimeFn: GetBeaconTimeFn,
@@ -140,6 +147,7 @@ func init*(T: type KeymanagerHost,
     secretsDir: secretsDir,
     defaultFeeRecipient: defaultFeeRecipient,
     defaultGasLimit: defaultGasLimit,
+    defaultGraffiti: defaultGraffiti,
     defaultBuilderAddress: defaultBuilderAddress,
     getValidatorAndIdxFn: getValidatorAndIdxFn,
     getBeaconTimeFn: getBeaconTimeFn,
@@ -805,23 +813,36 @@ iterator listLoadableKeystores*(config: AnyConf,
 type
   ValidatorConfigFileStatus* = enum
     noSuchValidator
+    noConfigFile
     malformedConfigFile
 
 func validatorKeystoreDir(
     validatorsDir: string, pubkey: ValidatorPubKey): string =
   validatorsDir / pubkey.fsName
 
-func feeRecipientPath(validatorsDir: string,
-                       pubkey: ValidatorPubKey): string =
-  validatorsDir.validatorKeystoreDir(pubkey) / FeeRecipientFilename
+proc checkValidatorKeystoreDir(validatorsDir: string,
+                               pubkey: ValidatorPubKey): bool =
+  dirExists(validatorsDir.validatorKeystoreDir(pubkey))
 
-func gasLimitPath(validatorsDir: string,
-                  pubkey: ValidatorPubKey): string =
-  validatorsDir.validatorKeystoreDir(pubkey) / GasLimitFilename
+func configFilePath*(validatorsDir: string, kind: ConfigFileKind,
+                     pubkey: ValidatorPubKey): string =
+  case kind
+  of ConfigFileKind.KeystoreFile:
+    validatorsDir.validatorKeystoreDir(pubkey) / KeystoreFileName
+  of ConfigFileKind.RemoteKeystoreFile:
+    validatorsDir.validatorKeystoreDir(pubkey) / RemoteKeystoreFileName
+  of ConfigFileKind.FeeRecipientFile:
+    validatorsDir.validatorKeystoreDir(pubkey) / FeeRecipientFilename
+  of ConfigFileKind.GasLimitFile:
+    validatorsDir.validatorKeystoreDir(pubkey) / GasLimitFilename
+  of ConfigFileKind.BuilderConfigFile:
+    validatorsDir.validatorKeystoreDir(pubkey) / BuilderConfigPath
+  of ConfigFileKind.GraffitiFile:
+    validatorsDir.validatorKeystoreDir(pubkey) / GraffitiBytesFilename
 
-func builderConfigPath(validatorsDir: string,
-                        pubkey: ValidatorPubKey): string =
-  validatorsDir.validatorKeystoreDir(pubkey) / BuilderConfigPath
+proc checkConfigFile*(validatorsDir: string, kind: ConfigFileKind,
+                      pubkey: ValidatorPubKey): bool =
+  fileExists(validatorsDir.configFilePath(kind, pubkey))
 
 proc getSuggestedFeeRecipient*(
     validatorsDir: string, pubkey: ValidatorPubKey,
@@ -833,7 +854,8 @@ proc getSuggestedFeeRecipient*(
   if not dirExists(validatorsDir.validatorKeystoreDir(pubkey)):
     return err noSuchValidator
 
-  let feeRecipientPath = validatorsDir.feeRecipientPath(pubkey)
+  let feeRecipientPath =
+    validatorsDir.configFilePath(ConfigFileKind.FeeRecipientFile, pubkey)
   if not fileExists(feeRecipientPath):
     return ok defaultFeeRecipient
 
@@ -861,7 +883,8 @@ proc getSuggestedGasLimit*(
   if not dirExists(validatorsDir.validatorKeystoreDir(pubkey)):
     return err noSuchValidator
 
-  let gasLimitPath = validatorsDir.gasLimitPath(pubkey)
+  let gasLimitPath =
+    validatorsDir.configFilePath(ConfigFileKind.GasLimitFile, pubkey)
   if not fileExists(gasLimitPath):
     return ok defaultGasLimit
   try:
@@ -876,6 +899,34 @@ proc getSuggestedGasLimit*(
       gasLimitPath, defaultGasLimit,
       err = exc.msg
     err malformedConfigFile
+
+proc getSuggestedGraffiti*(
+    validatorsDir: string,
+    pubkey: ValidatorPubKey,
+    defaultGraffitiBytes: GraffitiBytes
+): Result[GraffitiBytes, ValidatorConfigFileStatus] =
+  # In this particular case, an error might be by design. If the file exists,
+  # but doesn't load or parse that is more urgent. People might prefer not to
+  # override their default suggested gas limit per validator, so don't warn.
+  if not dirExists(validatorsDir.validatorKeystoreDir(pubkey)):
+    return err noSuchValidator
+
+  let graffitiPath =
+    validatorsDir.configFilePath(ConfigFileKind.GraffitiFile, pubkey)
+  if not fileExists(graffitiPath):
+    return ok defaultGraffitiBytes
+
+  let data = readAllChars(graffitiPath).valueOr:
+    warn "Failed to load graffiti file; falling back to default graffiti",
+         reason = ioErrorMsg(error), error = int(error)
+    return err malformedConfigFile
+
+  try:
+    ok GraffitiBytes.init(data)
+  except ValueError as exc:
+    warn "Invalid local graffiti file", graffitiPath,
+         reason = exc.msg
+    return err malformedConfigFile
 
 type
   BuilderConfig = object
@@ -892,7 +943,8 @@ proc getBuilderConfig*(
   if not dirExists(validatorsDir.validatorKeystoreDir(pubkey)):
     return err noSuchValidator
 
-  let builderConfigPath = validatorsDir.builderConfigPath(pubkey)
+  let builderConfigPath =
+    validatorsDir.configFilePath(ConfigFileKind.BuilderConfigFile, pubkey)
   if not fileExists(builderConfigPath):
     return ok defaultBuilderAddress
 
@@ -1403,33 +1455,49 @@ func validatorKeystoreDir(host: KeymanagerHost,
                           pubkey: ValidatorPubKey): string =
   host.validatorsDir.validatorKeystoreDir(pubkey)
 
+proc checkValidatorKeystoreDir*(host: KeymanagerHost,
+                                pubkey: ValidatorPubKey): bool =
+  host.validatorsDir.checkValidatorKeystoreDir(pubkey)
+
+proc checkConfigFile*(host: KeymanagerHost, kind: ConfigFileKind,
+                      pubkey: ValidatorPubKey): bool =
+  fileExists(host.validatorsDir.configFilePath(kind, pubkey))
+
 func feeRecipientPath(host: KeymanagerHost,
                       pubkey: ValidatorPubKey): string =
-  host.validatorsDir.feeRecipientPath(pubkey)
+  host.validatorsDir.configFilePath(ConfigFileKind.FeeRecipientFile, pubkey)
 
 func gasLimitPath(host: KeymanagerHost,
                   pubkey: ValidatorPubKey): string =
-  host.validatorsDir.gasLimitPath(pubkey)
+  host.validatorsDir.configFilePath(ConfigFileKind.GasLimitFile, pubkey)
+
+func graffitiPath(host: KeymanagerHost,
+                  pubkey: ValidatorPubKey): string =
+  host.validatorsDir.configFilePath(ConfigFileKind.GraffitiFile, pubkey)
 
 proc removeFeeRecipientFile*(host: KeymanagerHost,
                              pubkey: ValidatorPubKey): Result[void, string] =
   let path = host.feeRecipientPath(pubkey)
   if fileExists(path):
-    let res = io2.removeFile(path)
-    if res.isErr:
-      return err res.error.ioErrorMsg
-
-  return ok()
+    io2.removeFile(path).isOkOr:
+      return err($uint(error) & " " & ioErrorMsg(error))
+  ok()
 
 proc removeGasLimitFile*(host: KeymanagerHost,
                          pubkey: ValidatorPubKey): Result[void, string] =
   let path = host.gasLimitPath(pubkey)
   if fileExists(path):
-    let res = io2.removeFile(path)
-    if res.isErr:
-      return err res.error.ioErrorMsg
+    io2.removeFile(path).isOkOr:
+      return err($uint(error) & " " & ioErrorMsg(error))
+  ok()
 
-  return ok()
+proc removeGraffitiFile*(host: KeymanagerHost,
+                         pubkey: ValidatorPubKey): Result[void, string] =
+  let path = host.graffitiPath(pubkey)
+  if fileExists(path):
+    io2.removeFile(path).isOkOr:
+      return err($uint(error) & " " & ioErrorMsg(error))
+  ok()
 
 proc setFeeRecipient*(host: KeymanagerHost, pubkey: ValidatorPubKey, feeRecipient: Eth1Address): Result[void, string] =
   let validatorKeystoreDir = host.validatorKeystoreDir(pubkey)
@@ -1450,6 +1518,23 @@ proc setGasLimit*(host: KeymanagerHost,
 
   io2.writeFile(validatorKeystoreDir / GasLimitFilename, $gasLimit)
     .mapErr(proc(e: auto): string = "Failed to write gas limit file: " & $e)
+
+proc setGraffiti*(host: KeymanagerHost,
+                  pubkey: ValidatorPubKey,
+                  graffiti: GraffitiBytes): Result[void, string] =
+  let
+    validatorKeystoreDir = host.validatorKeystoreDir(pubkey)
+    path = host.graffitiPath(pubkey)
+
+  ? secureCreatePath(validatorKeystoreDir)
+    .mapErr(proc(e: auto): string =
+      "Could not create wallet directory [" & validatorKeystoreDir & "], " &
+        "reason: (" & $int(e) & ") " & ioErrorMsg(e))
+
+  io2.writeFile(path, to0xHex(distinctBase(graffiti)))
+    .mapErr(proc(e: auto): string =
+      "Failed to write graffiti file," &
+        " reason: (" & $int(e) & ") " & ioErrorMsg(e))
 
 from ".."/spec/beaconstate import has_eth1_withdrawal_credential
 
@@ -1498,6 +1583,12 @@ proc getSuggestedGasLimit*(
     host: KeymanagerHost,
     pubkey: ValidatorPubKey): Result[uint64, ValidatorConfigFileStatus] =
   host.validatorsDir.getSuggestedGasLimit(pubkey, host.defaultGasLimit)
+
+proc getSuggestedGraffiti*(
+    host: KeymanagerHost,
+    pubkey: ValidatorPubKey
+): Result[GraffitiBytes, ValidatorConfigFileStatus] =
+  host.validatorsDir.getSuggestedGraffiti(pubkey, host.defaultGraffiti)
 
 proc getBuilderConfig*(
     host: KeymanagerHost, pubkey: ValidatorPubKey):

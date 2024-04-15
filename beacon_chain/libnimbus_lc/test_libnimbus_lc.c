@@ -1,6 +1,6 @@
 /**
  * beacon_chain
- * Copyright (c) 2023 Status Research & Development GmbH
+ * Copyright (c) 2023-2024 Status Research & Development GmbH
  * Licensed and distributed under either of
  *   * MIT license (license terms in the root directory or at https://opensource.org/licenses/MIT).
  *   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
@@ -268,7 +268,7 @@ int main(void)
     ETHBeaconState *genesisState = loadGenesis(cfg, __DIR__ "/test_files/genesis.ssz");
     ETHRoot *genesisValRoot = ETHBeaconStateCopyGenesisValidatorsRoot(genesisState);
     ETHForkDigests *forkDigests = ETHForkDigestsCreateFromState(cfg, genesisState);
-    ETHBeaconClock *beaconClock = ETHBeaconClockCreateFromState(genesisState);
+    ETHBeaconClock *beaconClock = ETHBeaconClockCreateFromState(cfg, genesisState);
     ETHBeaconStateDestroy(genesisState);
     printf("Current slot: %d\n", ETHBeaconClockGetSlot(beaconClock));
     printf("\n");

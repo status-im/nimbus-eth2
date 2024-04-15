@@ -83,7 +83,6 @@ type
     depositContractBlockHash*: Eth2Digest
 
     genesis*: GenesisMetadata
-    genesisDepositsSnapshot*: string
 
 func hasGenesis*(metadata: Eth2NetworkMetadata): bool =
   metadata.genesis.kind != NoGenesis
@@ -119,7 +118,6 @@ proc loadEth2NetworkMetadata*(
   try:
     let
       genesisPath = path & "/genesis.ssz"
-      genesisDepositsSnapshotPath = path & "/genesis_deposit_contract_snapshot.ssz"
       configPath = path & "/config.yaml"
       deployBlockPath = path & "/deploy_block.txt"
       depositContractBlockPath = path & "/deposit_contract_block.txt"
@@ -179,11 +177,6 @@ proc loadEth2NetworkMetadata*(
         readBootstrapNodes(bootstrapNodesPath) &
         readBootEnr(bootEnrPath))
 
-      genesisDepositsSnapshot = if fileExists(genesisDepositsSnapshotPath):
-        readFile(genesisDepositsSnapshotPath)
-      else:
-        ""
-
     ok Eth2NetworkMetadata(
       eth1Network: eth1Network,
       cfg: runtimeConfig,
@@ -200,8 +193,7 @@ proc loadEth2NetworkMetadata*(
         elif fileExists(genesisPath) and not isCompileTime:
           GenesisMetadata(kind: UserSuppliedFile, path: genesisPath)
         else:
-          GenesisMetadata(kind: NoGenesis),
-      genesisDepositsSnapshot: genesisDepositsSnapshot)
+          GenesisMetadata(kind: NoGenesis))
 
   except PresetIncompatibleError as err:
     err err.msg
@@ -275,6 +267,7 @@ when const_preset == "gnosis":
       doAssert network.cfg.BELLATRIX_FORK_EPOCH < FAR_FUTURE_EPOCH
       doAssert network.cfg.CAPELLA_FORK_EPOCH < FAR_FUTURE_EPOCH
       doAssert network.cfg.DENEB_FORK_EPOCH < FAR_FUTURE_EPOCH
+      doAssert network.cfg.ELECTRA_FORK_EPOCH == FAR_FUTURE_EPOCH
       static: doAssert ConsensusFork.high == ConsensusFork.Deneb
 
 elif const_preset == "mainnet":
@@ -340,6 +333,7 @@ elif const_preset == "mainnet":
       doAssert network.cfg.BELLATRIX_FORK_EPOCH < FAR_FUTURE_EPOCH
       doAssert network.cfg.CAPELLA_FORK_EPOCH < FAR_FUTURE_EPOCH
       doAssert network.cfg.DENEB_FORK_EPOCH < FAR_FUTURE_EPOCH
+      doAssert network.cfg.ELECTRA_FORK_EPOCH == FAR_FUTURE_EPOCH
       static: doAssert ConsensusFork.high == ConsensusFork.Deneb
 
 proc getMetadataForNetwork*(networkName: string): Eth2NetworkMetadata =

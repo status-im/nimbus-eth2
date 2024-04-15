@@ -224,7 +224,7 @@ proc collectEpochRewardsAndPenalties*(
   let
     finality_delay = get_finality_delay(state)
     total_balance = info.balances.current_epoch
-    total_balance_sqrt = integer_squareroot(total_balance)
+    total_balance_sqrt = integer_squareroot(distinctBase(total_balance))
 
   for index, validator in info.validators:
     if not is_eligible_validator(validator):
@@ -233,9 +233,10 @@ proc collectEpochRewardsAndPenalties*(
     let base_reward  = get_base_reward_sqrt(
       state, index.ValidatorIndex, total_balance_sqrt)
 
-    template get_attestation_component_reward_helper(attesting_balance: Gwei): Gwei =
+    template get_attestation_component_reward_helper(
+        attesting_balance: Gwei): Gwei =
       get_attestation_component_reward(attesting_balance,
-        info.balances.current_epoch, base_reward.uint64, finality_delay)
+        info.balances.current_epoch, base_reward, finality_delay)
 
     template rp: untyped = rewardsAndPenalties[index]
 
@@ -274,7 +275,7 @@ proc collectEpochRewardsAndPenalties*(
 proc collectEpochRewardsAndPenalties*(
     rewardsAndPenalties: var seq[RewardsAndPenalties],
     state: var (altair.BeaconState | bellatrix.BeaconState |
-                capella.BeaconState | deneb.BeaconState),
+                capella.BeaconState | deneb.BeaconState | electra.BeaconState),
     cache: var StateCache, cfg: RuntimeConfig, flags: UpdateFlags) =
   if get_current_epoch(state) == GENESIS_EPOCH:
     return
@@ -374,7 +375,7 @@ func collectFromAttestations(
     when consensusFork > ConsensusFork.Phase0:
       let base_reward_per_increment = get_base_reward_per_increment(
         get_total_active_balance(forkyState.data, cache))
-      doAssert base_reward_per_increment > 0
+      doAssert base_reward_per_increment > 0.Gwei
       for attestation in forkyBlck.message.body.attestations:
         doAssert check_attestation(
           forkyState.data, attestation, {}, cache).isOk

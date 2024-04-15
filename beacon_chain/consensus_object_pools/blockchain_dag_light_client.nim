@@ -111,7 +111,7 @@ func lightClientHeader(
     lcDataForkAtConsensusFork(typeof(blck).kind), LightClientDataFork.Altair)
   ForkedLightClientHeader.init(blck.toLightClientHeader(lcDataFork))
 
-func syncAggregate(
+func sync_aggregate(
     blck: ForkyTrustedSignedBeaconBlock): SyncAggregate =
   blck.asSigned().message.body.sync_aggregate
 
@@ -140,7 +140,7 @@ proc getExistingSyncAggregate(
 
   let res = withBlck(bdata.get):
     when consensusFork >= ConsensusFork.Altair:
-      Opt.some forkyBlck.syncAggregate()
+      Opt.some forkyBlck.sync_aggregate()
     else:
       return Opt.none(SyncAggregate)
   dag.cacheRecentSyncAggregate(bid, res.get)
@@ -482,7 +482,7 @@ proc cacheLightClientData(
   if dag.lcDataStore.cache.data.hasKeyOrPut(bid, cachedData):
     doAssert false, "Redundant `cacheLightClientData` call"
   dag.cacheRecentLightClientHeader(bid, blck.lightClientHeader())
-  dag.cacheRecentSyncAggregate(bid, blck.syncAggregate())
+  dag.cacheRecentSyncAggregate(bid, blck.sync_aggregate())
 
 func shouldImportLcData(dag: ChainDAGRef): bool =
   dag.lcDataStore.importMode != LightClientDataImportMode.None and
