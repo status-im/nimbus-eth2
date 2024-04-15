@@ -3403,10 +3403,7 @@ proc writeValue*(writer: var JsonWriter[RestJson],
   writer.beginRecord()
   withForkyMaybeBlindedBlck(value):
     writer.writeField("version", consensusFork.toString())
-    when isBlinded:
-      writer.writeField("execution_payload_blinded", "true")
-    else:
-      writer.writeField("execution_payload_blinded", "false")
+    writer.writeField("execution_payload_blinded", isBlinded)
     if value.executionValue.isSome():
       writer.writeField("execution_payload_value",
                         $(value.executionValue.get()))
