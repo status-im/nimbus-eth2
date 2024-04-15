@@ -104,4 +104,4 @@ func init*(T: type HashedValidatorPubKey, key: ValidatorPubKey): HashedValidator
         else:
           addr tmp[]
 
-  HashedValidatorPubKey(value: cached)
+  HashedValidatorPubKey(value: cached)  # https://github.com/nim-lang/Nim/issues/23505
