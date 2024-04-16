@@ -444,6 +444,43 @@ proc process_bls_to_execution_change*(
 
   ok()
 
+# https://github.com/ethereum/consensus-specs/blob/94a0b6c581f2809aa8aca4ef7ee6fbb63f9d74e9/specs/electra/beacon-chain.md#new-process_execution_layer_exit
+func process_execution_layer_exit(
+    cfg: RuntimeConfig, state: var electra.BeaconState,
+    execution_layer_exit: ExecutionLayerExit, exit_queue_info: ExitQueueInfo,
+    cache: var StateCache): Result[ExitQueueInfo, cstring] =
+  # Verify pubkey exists
+  let
+    pubkey_to_exit = execution_layer_exit.validator_pubkey
+    validator_index = findValidatorIndex(state, pubkey_to_exit).valueOr:
+      return err("process_execution_layer_exit: unknown index for validator pubkey")
+    validator = state.validators.item(validator_index)
+
+  # Verify withdrawal credentials
+  let
+    is_execution_address = validator.has_eth1_withdrawal_credential
+    is_correct_source_address =
+      validator.withdrawal_credentials.data.toOpenArray(12, 31) ==
+        execution_layer_exit.source_address.data
+  if not (is_execution_address and is_correct_source_address):
+    return err("process_execution_layer_exit: not both execution address and correct source address")
+
+  # Verify the validator is active
+  if not is_active_validator(validator, get_current_epoch(state)):
+    return err("process_execution_layer_exit: not active validator")
+
+  # Verify exit has not been initiated
+  if validator.exit_epoch != FAR_FUTURE_EPOCH:
+    return err("process_execution_layer_exit: validator exit already initiated")
+
+  # Verify the validator has been active long enough
+  if get_current_epoch(state) < validator.activation_epoch + cfg.SHARD_COMMITTEE_PERIOD:
+    return err("process_execution_layer_exit: validator not active long enough")
+
+  # Initiate exit
+  ok(? initiate_validator_exit(
+    cfg, state, validator_index, exit_queue_info, cache))
+
 type
   # https://ethereum.github.io/beacon-APIs/?urls.primaryName=v2.5.0#/Rewards/getBlockRewards
   BlockRewards* = object
@@ -454,6 +491,7 @@ type
 
 # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.6/specs/phase0/beacon-chain.md#operations
 # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.5/specs/capella/beacon-chain.md#modified-process_operations
+# https://github.com/ethereum/consensus-specs/blob/94a0b6c581f2809aa8aca4ef7ee6fbb63f9d74e9/specs/electra/beacon-chain.md#modified-process_operations
 proc process_operations(cfg: RuntimeConfig,
                         state: var ForkyBeaconState,
                         body: SomeForkyBeaconBlockBody,
@@ -501,6 +539,10 @@ proc process_operations(cfg: RuntimeConfig,
   for op in body.voluntary_exits:
     exit_queue_info = ? process_voluntary_exit(
       cfg, state, op, flags, exit_queue_info, cache)
+  when typeof(body).kind >= ConsensusFork.Electra:
+    for op in body.execution_payload.exits:
+      exit_queue_info = ? process_execution_layer_exit(
+        cfg, state, op, exit_queue_info, cache)
   when typeof(body).kind >= ConsensusFork.Capella:
     for op in body.bls_to_execution_changes:
       ? process_bls_to_execution_change(cfg, state, op)
