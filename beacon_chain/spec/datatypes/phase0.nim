@@ -257,6 +257,31 @@ type
 
     root* {.dontSerialize.}: Eth2Digest # cached root of signed beacon block
 
+  # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.6/specs/phase0/beacon-chain.md#attestation
+  Attestation* = object
+    aggregation_bits*: CommitteeValidatorsBits
+    data*: AttestationData
+    signature*: ValidatorSig
+
+  TrustedAttestation* = object
+    # The Trusted version, at the moment, implies that the cryptographic signature was checked.
+    # It DOES NOT imply that the state transition was verified.
+    # Currently the code MUST verify the state transition as soon as the signature is verified
+    aggregation_bits*: CommitteeValidatorsBits
+    data*: AttestationData
+    signature*: TrustedSig
+
+  # https://github.com/ethereum/consensus-specs/blob/v1.4.0/specs/phase0/validator.md#aggregateandproof
+  AggregateAndProof* = object
+    aggregator_index*: uint64 # `ValidatorIndex` after validation
+    aggregate*: Attestation
+    selection_proof*: ValidatorSig
+
+  # https://github.com/ethereum/consensus-specs/blob/v1.4.0/specs/phase0/validator.md#signedaggregateandproof
+  SignedAggregateAndProof* = object
+    message*: AggregateAndProof
+    signature*: ValidatorSig
+
   SomeSignedBeaconBlock* =
     SignedBeaconBlock |
     SigVerifiedSignedBeaconBlock |
@@ -270,6 +295,7 @@ type
     BeaconBlockBody |
     SigVerifiedBeaconBlockBody |
     TrustedBeaconBlockBody
+  SomeAttestation* = Attestation | TrustedAttestation
 
   EpochInfo* = object
     ## Information about the outcome of epoch processing
@@ -277,6 +303,7 @@ type
     balances*: TotalBalances
 
 chronicles.formatIt BeaconBlock: it.shortLog
+chronicles.formatIt Attestation: it.shortLog
 
 func clear*(info: var EpochInfo) =
   info.validators.setLen(0)
@@ -314,6 +341,16 @@ func shortLog*(v: SomeSignedBeaconBlock): auto =
     signature: shortLog(v.signature)
   )
 
+func shortLog*(v: SomeAttestation): auto =
+  (
+    aggregation_bits: v.aggregation_bits,
+    data: shortLog(v.data),
+    signature: shortLog(v.signature)
+  )
+
+template asTrusted*(x: Attestation): TrustedAttestation =
+  isomorphicCast[TrustedAttestation](x)
+
 template asSigned*(
     x: SigVerifiedSignedBeaconBlock |
        MsgTrustedSignedBeaconBlock |
@@ -341,3 +378,20 @@ template asTrusted*(
        SigVerifiedSignedBeaconBlock |
        MsgTrustedSignedBeaconBlock): TrustedSignedBeaconBlock =
   isomorphicCast[TrustedSignedBeaconBlock](x)
+
+func init*(
+    T: type Attestation,
+    indices_in_committee: openArray[uint64],
+    committee_len: int,
+    data: AttestationData,
+    signature: ValidatorSig): Result[T, cstring] =
+  var bits = CommitteeValidatorsBits.init(committee_len)
+  for index_in_committee in indices_in_committee:
+    if index_in_committee >= committee_len.uint64: return err("Invalid index for committee")
+    bits.setBit index_in_committee
+
+  ok Attestation(
+    aggregation_bits: bits,
+    data: data,
+    signature: signature
+  )
