@@ -10,6 +10,7 @@
 import ".."/datatypes/[altair, electra]
 
 from stew/byteutils import to0xHex
+from ".."/datatypes/phase0 import Attestation
 from ../datatypes/bellatrix import ExecutionAddress
 from ".."/datatypes/capella import SignedBLSToExecutionChange
 from ".."/datatypes/deneb import BlobsBundle, KzgCommitments
