@@ -210,7 +210,7 @@ type
   # SSZ / hashing purposes
   JustificationBits* = distinct uint8
 
-  # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.6/specs/phase0/beacon-chain.md#proposerslashing
+  # https://github.com/ethereum/consensus-specs/blob/v1.4.0/specs/phase0/beacon-chain.md#proposerslashing
   ProposerSlashing* = object
     signed_header_1*: SignedBeaconBlockHeader
     signed_header_2*: SignedBeaconBlockHeader
@@ -332,7 +332,7 @@ type
   HashedValidatorPubKey* = object
     value*: ptr HashedValidatorPubKeyItem
 
-  # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.6/specs/phase0/beacon-chain.md#validator
+  # https://github.com/ethereum/consensus-specs/blob/v1.4.0/specs/phase0/beacon-chain.md#validator
   Validator* = object
     pubkeyData*{.serializedFieldName: "pubkey".}: HashedValidatorPubKey
 
@@ -382,7 +382,7 @@ type
     deposit_count*: uint64
     block_hash*: Eth2Digest
 
-  # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.6/specs/phase0/beacon-chain.md#signedvoluntaryexit
+  # https://github.com/ethereum/consensus-specs/blob/v1.4.0/specs/phase0/beacon-chain.md#signedvoluntaryexit
   SignedVoluntaryExit* = object
     message*: VoluntaryExit
     signature*: ValidatorSig
@@ -444,7 +444,7 @@ type
     execution_block_hash*: Eth2Digest
     execution_block_height*: uint64
 
-  # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.7/specs/phase0/beacon-chain.md#validator
+  # https://github.com/ethereum/consensus-specs/blob/v1.4.0/specs/phase0/beacon-chain.md#validator
   ValidatorStatus* = object
     # This is a validator without the expensive, immutable, append-only parts
     # serialized. They're represented in memory to allow in-place SSZ reading

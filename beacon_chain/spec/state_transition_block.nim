@@ -361,7 +361,7 @@ proc process_deposit*(
   ok()
 
 # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.6/specs/phase0/beacon-chain.md#voluntary-exits
-# https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.1/specs/deneb/beacon-chain.md#modified-process_voluntary_exit
+# https://github.com/ethereum/consensus-specs/blob/v1.4.0/specs/deneb/beacon-chain.md#modified-process_voluntary_exit
 proc check_voluntary_exit*(
     cfg: RuntimeConfig,
     state: ForkyBeaconState,
