@@ -660,7 +660,7 @@ proc registerAttestation*(
     self: var ValidatorMonitor,
     src: MsgSource,
     seen_timestamp: BeaconTime,
-    attestation: Attestation,
+    attestation: phase0.Attestation,
     idx: ValidatorIndex) =
   let
     slot = attestation.data.slot

@@ -1192,7 +1192,7 @@ proc installBeaconApiHandlers*(router: var RestRouter, node: BeaconNode) =
         Opt.some(rslot.get())
       else:
         Opt.none(Slot)
-    var res: seq[Attestation]
+    var res: seq[phase0.Attestation]
     for item in node.attestationPool[].attestations(vslot, vindex):
       res.add(item)
     RestApiResponse.jsonResponse(res)
@@ -1204,7 +1204,7 @@ proc installBeaconApiHandlers*(router: var RestRouter, node: BeaconNode) =
       block:
         if contentBody.isNone():
           return RestApiResponse.jsonError(Http400, EmptyRequestBodyError)
-        let dres = decodeBody(seq[Attestation], contentBody.get())
+        let dres = decodeBody(seq[phase0.Attestation], contentBody.get())
         if dres.isErr():
           return RestApiResponse.jsonError(Http400,
                                            InvalidAttestationObjectError,

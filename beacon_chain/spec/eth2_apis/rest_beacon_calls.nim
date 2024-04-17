@@ -321,7 +321,8 @@ proc getPoolAttestations*(
      meth: MethodGet.}
   ## https://ethereum.github.io/beacon-APIs/#/Beacon/getPoolAttestations
 
-proc submitPoolAttestations*(body: seq[Attestation]): RestPlainResponse {.
+proc submitPoolAttestations*(body: seq[phase0.Attestation]):
+     RestPlainResponse {.
      rest, endpoint: "/eth/v1/beacon/pool/attestations",
      meth: MethodPost.}
   ## https://ethereum.github.io/beacon-APIs/#/Beacon/submitPoolAttestations

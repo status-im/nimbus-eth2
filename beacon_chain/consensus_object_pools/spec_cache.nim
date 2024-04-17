@@ -98,7 +98,7 @@ iterator get_attesting_indices*(shufflingRef: ShufflingRef,
         yield validator_index
 
 iterator get_attesting_indices*(
-    dag: ChainDAGRef, attestation: TrustedAttestation): ValidatorIndex =
+    dag: ChainDAGRef, attestation: phase0.TrustedAttestation): ValidatorIndex =
   block: # `return` is not allowed in an inline iterator
     let
       slot =
