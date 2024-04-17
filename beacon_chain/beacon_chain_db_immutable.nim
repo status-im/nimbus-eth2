@@ -17,7 +17,7 @@ from ./spec/datatypes/deneb import ExecutionPayloadHeader
 from ./spec/datatypes/electra import ExecutionPayloadHeader
 
 type
-  # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.6/specs/phase0/beacon-chain.md#beaconstate
+  # https://github.com/ethereum/consensus-specs/blob/v1.4.0/specs/phase0/beacon-chain.md#beaconstate
   # Memory-representation-equivalent to a phase0 BeaconState for in-place SSZ
   # reading and writing
   Phase0BeaconStateNoImmutableValidators* = object
