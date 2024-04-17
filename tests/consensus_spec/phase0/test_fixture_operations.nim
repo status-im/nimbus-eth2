@@ -68,7 +68,7 @@ proc runTest[T, U](
 
 suite baseDescription & "Attestation " & preset():
   proc applyAttestation(
-      preState: var phase0.BeaconState, attestation: Attestation):
+      preState: var phase0.BeaconState, attestation: phase0.Attestation):
       Result[void, cstring] =
     var cache: StateCache
     doAssert (? process_attestation(
@@ -76,7 +76,7 @@ suite baseDescription & "Attestation " & preset():
     ok()
 
   for path in walkTests(OpAttestationsDir):
-    runTest[Attestation, typeof applyAttestation](
+    runTest[phase0.Attestation, typeof applyAttestation](
       OpAttestationsDir, suiteName, "Attestation", "attestation",
       applyAttestation, path)
 

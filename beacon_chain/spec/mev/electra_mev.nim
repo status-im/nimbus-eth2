@@ -34,7 +34,7 @@ type
     graffiti*: GraffitiBytes
     proposer_slashings*: List[ProposerSlashing, Limit MAX_PROPOSER_SLASHINGS]
     attester_slashings*: List[AttesterSlashing, Limit MAX_ATTESTER_SLASHINGS]
-    attestations*: List[Attestation, Limit MAX_ATTESTATIONS]
+    attestations*: List[phase0.Attestation, Limit MAX_ATTESTATIONS]
     deposits*: List[Deposit, Limit MAX_DEPOSITS]
     voluntary_exits*: List[SignedVoluntaryExit, Limit MAX_VOLUNTARY_EXITS]
     sync_aggregate*: SyncAggregate

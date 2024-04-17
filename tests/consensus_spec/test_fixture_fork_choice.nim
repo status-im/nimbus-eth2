@@ -55,7 +55,7 @@ type
     of opOnTick:
       tick: int
     of opOnAttestation:
-      att: Attestation
+      att: phase0.Attestation
     of opOnBlock:
       blck: ForkedSignedBeaconBlock
       blobData: Opt[BlobData]
@@ -115,7 +115,7 @@ proc loadOps(
       let filename = step["attestation"].getStr()
       let att = parseTest(
           path/filename & ".ssz_snappy",
-          SSZ, Attestation
+          SSZ, phase0.Attestation
       )
       result.add Operation(kind: opOnAttestation,
         att: att)

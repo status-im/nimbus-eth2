@@ -63,7 +63,7 @@ proc makeSimulationBlock(
     randao_reveal: ValidatorSig,
     eth1_data: Eth1Data,
     graffiti: GraffitiBytes,
-    attestations: seq[Attestation],
+    attestations: seq[phase0.Attestation],
     deposits: seq[Deposit],
     exits: BeaconBlockValidatorChanges,
     sync_aggregate: SyncAggregate,
@@ -106,7 +106,7 @@ proc makeSimulationBlock(
     randao_reveal: ValidatorSig,
     eth1_data: Eth1Data,
     graffiti: GraffitiBytes,
-    attestations: seq[Attestation],
+    attestations: seq[phase0.Attestation],
     deposits: seq[Deposit],
     exits: BeaconBlockValidatorChanges,
     sync_aggregate: SyncAggregate,
@@ -149,7 +149,7 @@ proc makeSimulationBlock(
     randao_reveal: ValidatorSig,
     eth1_data: Eth1Data,
     graffiti: GraffitiBytes,
-    attestations: seq[Attestation],
+    attestations: seq[phase0.Attestation],
     deposits: seq[Deposit],
     exits: BeaconBlockValidatorChanges,
     sync_aggregate: SyncAggregate,
@@ -259,7 +259,7 @@ cli do(slots = SLOTS_PER_EPOCH * 7,
                 get_attestation_signature(
                   fork, genesis_validators_root, data,
                   MockPrivKeys[validator_index])
-              attestation = Attestation.init(
+              attestation = phase0.Attestation.init(
                 [uint64 index_in_committee], committee.len, data,
                 sig.toValidatorSig()).expect("valid data")
 

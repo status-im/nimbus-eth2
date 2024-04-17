@@ -157,7 +157,7 @@ proc addTestBlock*(
     state: var ForkedHashedBeaconState,
     cache: var StateCache,
     eth1_data: Eth1Data = Eth1Data(),
-    attestations: seq[Attestation] = newSeq[Attestation](),
+    attestations: seq[phase0.Attestation] = newSeq[phase0.Attestation](),
     deposits: seq[Deposit] = newSeq[Deposit](),
     sync_aggregate: SyncAggregate = SyncAggregate.init(),
     graffiti: GraffitiBytes = default(GraffitiBytes),
@@ -242,7 +242,7 @@ proc makeTestBlock*(
     state: ForkedHashedBeaconState,
     cache: var StateCache,
     eth1_data = Eth1Data(),
-    attestations = newSeq[Attestation](),
+    attestations = newSeq[phase0.Attestation](),
     deposits = newSeq[Deposit](),
     sync_aggregate = SyncAggregate.init(),
     graffiti = default(GraffitiBytes),
@@ -323,7 +323,7 @@ func makeAttestation(
     state: ForkedHashedBeaconState, beacon_block_root: Eth2Digest,
     committee: seq[ValidatorIndex], slot: Slot, committee_index: CommitteeIndex,
     validator_index: ValidatorIndex, cache: var StateCache,
-    flags: UpdateFlags = {}): Attestation =
+    flags: UpdateFlags = {}): phase0.Attestation =
   let
     index_in_committee = committee.find(validator_index)
     data = makeAttestationData(state, slot, committee_index, beacon_block_root)
@@ -341,7 +341,7 @@ func makeAttestation(
       getStateField(state, genesis_validators_root),
       data, committee, aggregation_bits)
 
-  Attestation(
+  phase0.Attestation(
     data: data,
     aggregation_bits: aggregation_bits,
     signature: sig
@@ -364,7 +364,7 @@ func find_beacon_committee(
 
 func makeAttestation*(
     state: ForkedHashedBeaconState, beacon_block_root: Eth2Digest,
-    validator_index: ValidatorIndex, cache: var StateCache): Attestation =
+    validator_index: ValidatorIndex, cache: var StateCache): phase0.Attestation =
   let (committee, slot, index) =
     find_beacon_committee(state, validator_index, cache)
   makeAttestation(state, beacon_block_root, committee, slot, index,
@@ -373,7 +373,7 @@ func makeAttestation*(
 func makeFullAttestations*(
     state: ForkedHashedBeaconState, beacon_block_root: Eth2Digest, slot: Slot,
     cache: var StateCache,
-    flags: UpdateFlags = {}): seq[Attestation] =
+    flags: UpdateFlags = {}): seq[phase0.Attestation] =
   # Create attestations in which the full committee participates for each shard
   # that should be attested to during a particular slot
   let committees_per_slot = get_committee_count_per_slot(
@@ -384,7 +384,7 @@ func makeFullAttestations*(
       data = makeAttestationData(state, slot, committee_index, beacon_block_root)
 
     doAssert committee.len() >= 1
-    var attestation = Attestation(
+    var attestation = phase0.Attestation(
       aggregation_bits: CommitteeValidatorsBits.init(committee.len),
       data: data)
     for i in 0..<committee.len:
