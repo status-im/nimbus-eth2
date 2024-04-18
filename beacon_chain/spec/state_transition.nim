@@ -315,7 +315,7 @@ proc state_transition*(
   ## given state must be of a lower slot, or, in case the `slotProcessed` flag
   ## is set, can be the slot state of the same slot as the block (where the
   ## slot state is the state without any block applied). To create a slot state,
-  ## advance the state corresponding to the the parent block using
+  ## advance the state corresponding to the parent block using
   ## `process_slots`.
   ##
   ## To run the state transition function in preparation for block production,
