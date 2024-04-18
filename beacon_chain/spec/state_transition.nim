@@ -348,7 +348,9 @@ proc state_transition*(
 
 func partialBeaconBlock*(
     cfg: RuntimeConfig,
-    state: var ForkyHashedBeaconState,
+    state: var (phase0.HashedBeaconState | altair.HashedBeaconState |
+                bellatrix.HashedBeaconState | capella.HashedBeaconState |
+                deneb.HashedBeaconState),
     proposer_index: ValidatorIndex,
     randao_reveal: ValidatorSig,
     eth1_data: Eth1Data,
@@ -394,7 +396,57 @@ func partialBeaconBlock*(
   when consensusFork >= ConsensusFork.Deneb:
     res.body.blob_kzg_commitments = execution_payload.blobsBundle.commitments
 
-  debugRaiseAssert "check for new fields or conditions to ensure in electra"
+  res
+
+func partialBeaconBlock*(
+    cfg: RuntimeConfig,
+    state: var electra.HashedBeaconState,
+    proposer_index: ValidatorIndex,
+    randao_reveal: ValidatorSig,
+    eth1_data: Eth1Data,
+    graffiti: GraffitiBytes,
+    attestations: seq[phase0.Attestation],
+    deposits: seq[Deposit],
+    validator_changes: BeaconBlockValidatorChanges,
+    sync_aggregate: SyncAggregate,
+    execution_payload: ForkyExecutionPayloadForSigning
+): auto =
+  const consensusFork = typeof(state).kind
+
+  # https://github.com/ethereum/consensus-specs/blob/v1.3.0/specs/phase0/validator.md#preparing-for-a-beaconblock
+  var res = consensusFork.BeaconBlock(
+    slot: state.data.slot,
+    proposer_index: proposer_index.uint64,
+    parent_root: state.latest_block_root,
+    body: consensusFork.BeaconBlockBody(
+      randao_reveal: randao_reveal,
+      eth1_data: eth1_data,
+      graffiti: graffiti,
+      proposer_slashings: validator_changes.proposer_slashings,
+      #attester_slashings: validator_changes.attester_slashings,
+      attestations:
+        List[phase0.Attestation, Limit MAX_ATTESTATIONS_ELECTRA](attestations),
+      deposits: List[Deposit, Limit MAX_DEPOSITS](deposits),
+      voluntary_exits: validator_changes.voluntary_exits))
+
+  # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.1/specs/altair/validator.md#preparing-a-beaconblock
+  when consensusFork >= ConsensusFork.Altair:
+    res.body.sync_aggregate = sync_aggregate
+
+  # https://github.com/ethereum/consensus-specs/blob/v1.4.0/specs/bellatrix/validator.md#block-proposal
+  when consensusFork >= ConsensusFork.Bellatrix:
+    res.body.execution_payload = execution_payload.executionPayload
+
+  # https://github.com/ethereum/consensus-specs/blob/v1.4.0/specs/capella/validator.md#block-proposal
+  when consensusFork >= ConsensusFork.Capella:
+    res.body.bls_to_execution_changes =
+      validator_changes.bls_to_execution_changes
+
+  # https://github.com/ethereum/consensus-specs/blob/v1.3.0/specs/deneb/validator.md#constructing-the-beaconblockbody
+  when consensusFork >= ConsensusFork.Deneb:
+    res.body.blob_kzg_commitments = execution_payload.blobsBundle.commitments
+
+  debugRaiseAssert "either consolidate this within separate function or recombine, re when consensusFork >= foo and atts/attslashings; here to allow noninterference with pre-pectra"
 
   res
 

@@ -7,14 +7,49 @@
 
 {.push raises: [].}
 
-# Gnosis preset - Electra (not present in Gnosis yet; using EF mainnet until then)
-# https://github.com/ethereum/consensus-specs/blob/497d7999a606ddab0844e1702682500d3a339f83/presets/mainnet/electra.yaml
+# Gnosis preset - Electra (Gnosis version not avilable yet; EF mainnet for now)
+# https://github.com/ethereum/consensus-specs/blob/82133085a1295e93394ebdf71df8f2f6e0962588/presets/mainnet/electra.yaml
 const
+  # Gwei values
+  # ---------------------------------------------------------------
+  # 2**5 * 10**9 (= 32,000,000,000) Gwei
+  MIN_ACTIVATION_BALANCE* = 32000000000
+  # 2**11 * 10**9 (= 2,048,000,000,000) Gwei
+  MAX_EFFECTIVE_BALANCE_ELECTRA* = 2048000000000
+
+  # State list lengths
+  # ---------------------------------------------------------------
+  # `uint64(2**27)` (= 134,217,728)
+  PENDING_BALANCE_DEPOSITS_LIMIT*: uint64 = 134217728
+  # `uint64(2**27)` (= 134,217,728)
+  PENDING_PARTIAL_WITHDRAWALS_LIMIT*: uint64 = 134217728
+  # `uint64(2**18)` (= 262,144)
+  PENDING_CONSOLIDATIONS_LIMIT*: uint64 = 262144
+
+  # Reward and penalty quotients
+  # ---------------------------------------------------------------
+  # `uint64(2**12)` (= 4,096)
+  MIN_SLASHING_PENALTY_QUOTIENT_ELECTRA*: uint64 = 4096
+  # `uint64(2**12)` (= 4,096)
+  WHISTLEBLOWER_REWARD_QUOTIENT_ELECTRA*: uint64 = 4096
+
+  # # Max operations per block
+  # ---------------------------------------------------------------
   # `uint64(2**0)` (= 1)
   MAX_ATTESTER_SLASHINGS_ELECTRA*: uint64 = 1
   # `uint64(2**3)` (= 8)
   MAX_ATTESTATIONS_ELECTRA*: uint64 = 8
+  # `uint64(2**0)` (= 1)
+  MAX_CONSOLIDATIONS*: uint64 = 1
+
+  # Execution
+  # ---------------------------------------------------------------
   # 2**13 (= 8192) receipts
   MAX_DEPOSIT_RECEIPTS_PER_PAYLOAD* = 8192
-  # 2**4 (= 16) exits
-  MAX_EXECUTION_LAYER_EXITS* = 16
+  # 2**4 (= 16) withdrawal requests
+  MAX_WITHDRAWAL_REQUESTS_PER_PAYLOAD* = 16
+
+  # Withdrawals processing
+  # ---------------------------------------------------------------
+  # 2**3 ( = 8) pending withdrawals
+  MAX_PENDING_PARTIALS_PER_WITHDRAWALS_SWEEP* = 8
