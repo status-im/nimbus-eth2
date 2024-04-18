@@ -52,7 +52,7 @@ type
     from_bls_pubkey*: ValidatorPubKey
     to_execution_address*: ExecutionAddress
 
-  # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.5/specs/capella/beacon-chain.md#signedblstoexecutionchange
+  # https://github.com/ethereum/consensus-specs/blob/v1.4.0/specs/capella/beacon-chain.md#signedblstoexecutionchange
   SignedBLSToExecutionChange* = object
     message*: BLSToExecutionChange
     signature*: ValidatorSig

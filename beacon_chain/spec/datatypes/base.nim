@@ -257,7 +257,7 @@ type
     current_version*: Version
     genesis_validators_root*: Eth2Digest
 
-  # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.6/specs/phase0/beacon-chain.md#checkpoint
+  # https://github.com/ethereum/consensus-specs/blob/v1.4.0/specs/phase0/beacon-chain.md#checkpoint
   Checkpoint* = object
     epoch*: Epoch
     root*: Eth2Digest
@@ -298,7 +298,7 @@ type
     signature*: ValidatorSig
       ## Signing over DepositMessage
 
-  # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.6/specs/phase0/beacon-chain.md#voluntaryexit
+  # https://github.com/ethereum/consensus-specs/blob/v1.4.0/specs/phase0/beacon-chain.md#voluntaryexit
   VoluntaryExit* = object
     epoch*: Epoch
       ## Earliest epoch when voluntary exit can be processed
@@ -354,7 +354,7 @@ type
     withdrawable_epoch*: Epoch
       ## When validator can withdraw funds
 
-  # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.6/specs/phase0/beacon-chain.md#pendingattestation
+  # https://github.com/ethereum/consensus-specs/blob/v1.4.0/specs/phase0/beacon-chain.md#pendingattestation
   PendingAttestation* = object
     aggregation_bits*: CommitteeValidatorsBits
     data*: AttestationData
@@ -406,7 +406,7 @@ type
 
   GraffitiBytes* = distinct array[MAX_GRAFFITI_SIZE, byte]
 
-  # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.7/specs/phase0/beacon-chain.md#signedbeaconblockheader
+  # https://github.com/ethereum/consensus-specs/blob/v1.4.0/specs/phase0/beacon-chain.md#signedbeaconblockheader
   SignedBeaconBlockHeader* = object
     message*: BeaconBlockHeader
     signature*: ValidatorSig

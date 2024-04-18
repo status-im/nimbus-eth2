@@ -381,7 +381,7 @@ func partialBeaconBlock*(
   when consensusFork >= ConsensusFork.Altair:
     res.body.sync_aggregate = sync_aggregate
 
-  # https://github.com/ethereum/consensus-specs/blob/v1.3.0/specs/bellatrix/validator.md#block-proposal
+  # https://github.com/ethereum/consensus-specs/blob/v1.4.0/specs/bellatrix/validator.md#block-proposal
   when consensusFork >= ConsensusFork.Bellatrix:
     res.body.execution_payload = execution_payload.executionPayload
 

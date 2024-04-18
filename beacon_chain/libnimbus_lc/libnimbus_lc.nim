@@ -142,7 +142,7 @@ proc ETHBeaconStateCreateFromSsz(
   ## * `NULL` - If the given `sszBytes` is malformed.
   ##
   ## See:
-  ## * https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.6/specs/phase0/beacon-chain.md#beaconstate
+  ## * https://github.com/ethereum/consensus-specs/blob/v1.4.0/specs/phase0/beacon-chain.md#beaconstate
   ## * https://github.com/ethereum/consensus-specs/blob/v1.4.0/specs/altair/beacon-chain.md#beaconstate
   ## * https://github.com/ethereum/consensus-specs/blob/v1.4.0/specs/bellatrix/beacon-chain.md#beaconstate
   ## * https://github.com/ethereum/consensus-specs/blob/v1.4.0/specs/capella/beacon-chain.md#beaconstate

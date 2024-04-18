@@ -30,7 +30,7 @@ func increase_balance*(
   if delta != 0.Gwei: # avoid dirtying the balance cache if not needed
     increase_balance(state.balances.mitem(index), delta)
 
-# https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.6/specs/phase0/beacon-chain.md#decrease_balance
+# https://github.com/ethereum/consensus-specs/blob/v1.4.0/specs/phase0/beacon-chain.md#decrease_balance
 func decrease_balance*(balance: var Gwei, delta: Gwei) =
   balance =
     if delta > balance:
@@ -158,7 +158,7 @@ func initiate_validator_exit*(
 
 from ./datatypes/deneb import BeaconState
 
-# https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.7/specs/phase0/beacon-chain.md#slash_validator
+# https://github.com/ethereum/consensus-specs/blob/v1.4.0/specs/phase0/beacon-chain.md#slash_validator
 # https://github.com/ethereum/consensus-specs/blob/v1.4.0/specs/altair/beacon-chain.md#modified-slash_validator
 # https://github.com/ethereum/consensus-specs/blob/v1.4.0/specs/bellatrix/beacon-chain.md#modified-slash_validator
 func get_slashing_penalty*(state: ForkyBeaconState,
@@ -341,7 +341,7 @@ func get_block_root_at_slot*(
   withState(state):
     get_block_root_at_slot(forkyState.data, slot)
 
-# https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.6/specs/phase0/beacon-chain.md#get_block_root
+# https://github.com/ethereum/consensus-specs/blob/v1.4.0/specs/phase0/beacon-chain.md#get_block_root
 func get_block_root*(state: ForkyBeaconState, epoch: Epoch): Eth2Digest =
   ## Return the block root at the start of a recent ``epoch``.
   get_block_root_at_slot(state, epoch.start_slot())
@@ -509,7 +509,7 @@ func check_attestation_target_epoch(
 
 # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.6/specs/phase0/beacon-chain.md#attestations
 # https://github.com/ethereum/consensus-specs/blob/v1.4.0/specs/altair/beacon-chain.md#modified-process_attestation
-# https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.0/specs/deneb/beacon-chain.md#modified-process_attestation
+# https://github.com/ethereum/consensus-specs/blob/v1.4.0/specs/deneb/beacon-chain.md#modified-process_attestation
 func check_attestation_inclusion(
     consensusFork: static ConsensusFork, attestation_slot: Slot,
     current_slot: Slot): Result[void, cstring] =
@@ -611,7 +611,7 @@ func get_attestation_participation_flag_indices(
 # TODO these duplicate some stuff in state_transition_epoch which uses TotalBalances
 # better to centralize around that if feasible
 
-# https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.6/specs/phase0/beacon-chain.md#get_total_active_balance
+# https://github.com/ethereum/consensus-specs/blob/v1.4.0/specs/phase0/beacon-chain.md#get_total_active_balance
 func get_total_active_balance*(state: ForkyBeaconState, cache: var StateCache): Gwei =
   ## Return the combined effective balance of the active validators.
   ## Note: ``get_total_balance`` returns ``EFFECTIVE_BALANCE_INCREMENT`` Gwei
@@ -838,7 +838,7 @@ func has_eth1_withdrawal_credential*(validator: Validator): bool =
   ## Check if ``validator`` has an 0x01 prefixed "eth1" withdrawal credential.
   validator.withdrawal_credentials.data[0] == ETH1_ADDRESS_WITHDRAWAL_PREFIX
 
-# https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.5/specs/capella/beacon-chain.md#is_fully_withdrawable_validator
+# https://github.com/ethereum/consensus-specs/blob/v1.4.0/specs/capella/beacon-chain.md#is_fully_withdrawable_validator
 func is_fully_withdrawable_validator(
     validator: Validator, balance: Gwei, epoch: Epoch): bool =
   ## Check if ``validator`` is fully withdrawable.
