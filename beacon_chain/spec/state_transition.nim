@@ -424,8 +424,8 @@ func partialBeaconBlock*(
       graffiti: graffiti,
       proposer_slashings: validator_changes.proposer_slashings,
       #attester_slashings: validator_changes.attester_slashings,
-      #attestations:
-      #  List[phase0.Attestation, Limit MAX_ATTESTATIONS](attestations),
+      attestations:
+        List[phase0.Attestation, Limit MAX_ATTESTATIONS_ELECTRA](attestations),
       deposits: List[Deposit, Limit MAX_DEPOSITS](deposits),
       voluntary_exits: validator_changes.voluntary_exits))
 
