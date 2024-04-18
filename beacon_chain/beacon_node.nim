@@ -44,7 +44,7 @@ type
   EventBus* = object
     headQueue*: AsyncEventQueue[HeadChangeInfoObject]
     blocksQueue*: AsyncEventQueue[EventBeaconBlockObject]
-    attestQueue*: AsyncEventQueue[Attestation]
+    attestQueue*: AsyncEventQueue[phase0.Attestation]
     exitQueue*: AsyncEventQueue[SignedVoluntaryExit]
     blsToExecQueue*: AsyncEventQueue[SignedBLSToExecutionChange]
     propSlashQueue*: AsyncEventQueue[ProposerSlashing]

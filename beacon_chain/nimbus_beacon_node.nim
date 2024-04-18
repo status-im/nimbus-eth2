@@ -277,7 +277,7 @@ proc initFullNode(
     getBeaconTime: GetBeaconTimeFn) {.async.} =
   template config(): auto = node.config
 
-  proc onAttestationReceived(data: Attestation) =
+  proc onAttestationReceived(data: phase0.Attestation) =
     node.eventBus.attestQueue.emit(data)
   proc onSyncContribution(data: SignedContributionAndProof) =
     node.eventBus.contribQueue.emit(data)
@@ -1753,7 +1753,7 @@ proc installMessageValidators(node: BeaconNode) =
           let subnet_id = it
           node.network.addAsyncValidator(
             getAttestationTopic(digest, subnet_id), proc (
-              attestation: Attestation
+              attestation: phase0.Attestation
             ): Future[ValidationResult] {.async: (raises: [CancelledError]).} =
               return toValidationResult(
                 await node.processor.processAttestation(

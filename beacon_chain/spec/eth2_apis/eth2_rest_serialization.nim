@@ -45,7 +45,6 @@ createJsonFlavor RestJson
 
 RestJson.useDefaultSerializationFor(
   AggregateAndProof,
-  Attestation,
   AttestationData,
   AttesterSlashing,
   BLSToExecutionChange,
@@ -54,6 +53,7 @@ RestJson.useDefaultSerializationFor(
   BlobSidecarInfoObject,
   BlobsBundle,
   Checkpoint,
+  Consolidation,
   ContributionAndProof,
   DataEnclosedObject,
   DataMetaEnclosedObject,
@@ -74,7 +74,7 @@ RestJson.useDefaultSerializationFor(
   EmptyBody,
   Eth1Data,
   EventBeaconBlockObject,
-  ExecutionLayerExit,
+  ExecutionLayerWithdrawalRequest,
   Fork,
   GetBlockAttestationsResponse,
   GetBlockHeaderResponse,
@@ -115,6 +115,9 @@ RestJson.useDefaultSerializationFor(
   GetGraffitiResponse,
   GraffitiResponse,
   PendingAttestation,
+  PendingBalanceDeposit,
+  PendingConsolidation,
+  PendingPartialWithdrawal,
   PostKeystoresResponse,
   PrepareBeaconProposer,
   ProposerSlashing,
@@ -170,6 +173,7 @@ RestJson.useDefaultSerializationFor(
   SignedAggregateAndProof,
   SignedBLSToExecutionChange,
   SignedBeaconBlockHeader,
+  SignedConsolidation,
   SignedContributionAndProof,
   SignedValidatorRegistrationV1,
   SignedVoluntaryExit,
@@ -180,7 +184,6 @@ RestJson.useDefaultSerializationFor(
   SyncCommittee,
   SyncCommitteeContribution,
   SyncCommitteeMessage,
-  TrustedAttestation,
   Validator,
   ValidatorRegistrationV1,
   VoluntaryExit,
@@ -258,10 +261,12 @@ RestJson.useDefaultSerializationFor(
   electra_mev.ExecutionPayloadAndBlobsBundle,
   electra_mev.SignedBlindedBeaconBlock,
   electra_mev.SignedBuilderBid,
+  phase0.Attestation,
   phase0.BeaconBlock,
   phase0.BeaconBlockBody,
   phase0.BeaconState,
   phase0.SignedBeaconBlock,
+  phase0.TrustedAttestation
 )
 
 # TODO
@@ -349,7 +354,7 @@ type
     ForkedMaybeBlindedBeaconBlock
 
   EncodeArrays* =
-    seq[Attestation] |
+    seq[phase0.Attestation] |
     seq[PrepareBeaconProposer] |
     seq[RemoteKeystoreInfo] |
     seq[RestCommitteeSubscription] |
@@ -1705,7 +1710,7 @@ proc readValue*(reader: var JsonReader[RestJson],
       Opt[List[ProposerSlashing, Limit MAX_PROPOSER_SLASHINGS]]
     attester_slashings:
       Opt[List[AttesterSlashing, Limit MAX_ATTESTER_SLASHINGS]]
-    attestations: Opt[List[Attestation, Limit MAX_ATTESTATIONS]]
+    attestations: Opt[List[phase0.Attestation, Limit MAX_ATTESTATIONS]]
     deposits: Opt[List[Deposit, Limit MAX_DEPOSITS]]
     voluntary_exits: Opt[List[SignedVoluntaryExit, Limit MAX_VOLUNTARY_EXITS]]
     sync_aggregate: Opt[SyncAggregate]
@@ -1749,7 +1754,7 @@ proc readValue*(reader: var JsonReader[RestJson],
         reader.raiseUnexpectedField("Multiple `attestations` fields found",
                                     "RestPublishedBeaconBlockBody")
       attestations = Opt.some(
-        reader.readValue(List[Attestation, Limit MAX_ATTESTATIONS]))
+        reader.readValue(List[phase0.Attestation, Limit MAX_ATTESTATIONS]))
     of "deposits":
       if deposits.isSome():
         reader.raiseUnexpectedField("Multiple `deposits` fields found",
@@ -1937,8 +1942,8 @@ proc readValue*(reader: var JsonReader[RestJson],
         eth1_data: eth1_data.get(),
         graffiti: graffiti.get(),
         proposer_slashings: proposer_slashings.get(),
-        attester_slashings: attester_slashings.get(),
-        attestations: attestations.get(),
+        #attester_slashings: attester_slashings.get(),
+        #attestations: attestations.get(),
         deposits: deposits.get(),
         voluntary_exits: voluntary_exits.get(),
         sync_aggregate: sync_aggregate.get(),
@@ -1957,7 +1962,7 @@ proc readValue*(reader: var JsonReader[RestJson],
       value.electraBody.execution_payload.excess_blob_gas,
       ep_src.excess_blob_gas.get())
 
-    debugRaiseAssert "electra support missing"
+    debugRaiseAssert "electra support missing, including attslashing/atts"
 
 ## RestPublishedBeaconBlock
 proc readValue*(reader: var JsonReader[RestJson],
@@ -3403,10 +3408,7 @@ proc writeValue*(writer: var JsonWriter[RestJson],
   writer.beginRecord()
   withForkyMaybeBlindedBlck(value):
     writer.writeField("version", consensusFork.toString())
-    when isBlinded:
-      writer.writeField("execution_payload_blinded", "true")
-    else:
-      writer.writeField("execution_payload_blinded", "false")
+    writer.writeField("execution_payload_blinded", isBlinded)
     if value.executionValue.isSome():
       writer.writeField("execution_payload_value",
                         $(value.executionValue.get()))

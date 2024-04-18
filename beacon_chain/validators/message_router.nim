@@ -191,7 +191,7 @@ proc routeSignedBeaconBlock*(
   ok(blockRef)
 
 proc routeAttestation*(
-    router: ref MessageRouter, attestation: Attestation,
+    router: ref MessageRouter, attestation: phase0.Attestation,
     subnet_id: SubnetId, checkSignature: bool):
     Future[SendResult] {.async: (raises: [CancelledError]).} =
   ## Process and broadcast attestation - processing will register the it with
@@ -223,7 +223,7 @@ proc routeAttestation*(
   return ok()
 
 proc routeAttestation*(
-    router: ref MessageRouter, attestation: Attestation):
+    router: ref MessageRouter, attestation: phase0.Attestation):
     Future[SendResult] {.async: (raises: [CancelledError]).} =
   # Compute subnet, then route attestation
   let

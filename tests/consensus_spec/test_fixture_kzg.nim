@@ -43,7 +43,7 @@ proc runBlobToKzgCommitmentTest(suiteName, suitePath, path: string) =
       output = data["output"]
       blob = fromHex[131072](data["input"]["blob"].getStr)
 
-    # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.6/tests/formats/kzg/blob_to_kzg_commitment.md#condition
+    # https://github.com/ethereum/consensus-specs/blob/v1.4.0/tests/formats/kzg/blob_to_kzg_commitment.md#condition
     # If the blob is invalid (e.g. incorrect length or one of the 32-byte
     # blocks does not represent a BLS field element) it should error, i.e. the
     # output should be `null`.
@@ -117,7 +117,7 @@ proc runVerifyBlobKzgProofBatchTest(suiteName, suitePath, path: string) =
       commitments = data["input"]["commitments"].mapIt(fromHex[48](it.getStr))
       proofs = data["input"]["proofs"].mapIt(fromHex[48](it.getStr))
 
-    # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.6/tests/formats/kzg/verify_blob_kzg_proof_batch.md#condition
+    # https://github.com/ethereum/consensus-specs/blob/v1.4.0/tests/formats/kzg/verify_blob_kzg_proof_batch.md#condition
     # "If any of the commitments or proofs are invalid (e.g. not on the curve or
     # not in the G1 subgroup of the BLS curve) or any blob is invalid (e.g.
     # incorrect length or one of the 32-byte blocks does not represent a BLS
@@ -143,7 +143,7 @@ proc runComputeKzgProofTest(suiteName, suitePath, path: string) =
       blob = fromHex[131072](data["input"]["blob"].getStr)
       z = fromHex[32](data["input"]["z"].getStr)
 
-    # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.6/tests/formats/kzg/compute_kzg_proof.md#condition
+    # https://github.com/ethereum/consensus-specs/blob/v1.4.0/tests/formats/kzg/compute_kzg_proof.md#condition
     # "If the blob is invalid (e.g. incorrect length or one of the 32-byte
     # blocks does not represent a BLS field element) or z is not a valid BLS
     # field element, it should error, i.e. the output should be null."

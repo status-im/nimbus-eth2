@@ -161,7 +161,7 @@ proc getSyncCommitteeMessageDataScore*(
     vc.rootsSeen, vc.beaconClock.now().slotOrZero(), cdata)
 
 proc processVotes(bits: var CommitteeBitsArray,
-                  attestation: Attestation): int =
+                  attestation: phase0.Attestation): int =
   doAssert(len(attestation.aggregation_bits) <= len(bits))
   var res = 0
   for index in 0 ..< len(attestation.aggregation_bits):
@@ -171,7 +171,7 @@ proc processVotes(bits: var CommitteeBitsArray,
         bits[index] = true
   res
 
-proc getUniqueVotes*(attestations: openArray[Attestation]): int =
+proc getUniqueVotes*(attestations: openArray[phase0.Attestation]): int =
   var
     res = 0
     attested: Table[Slot, CommitteeTable]

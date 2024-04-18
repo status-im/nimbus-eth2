@@ -164,7 +164,7 @@ cli do(validatorsDir: string, secretsDir: string,
     blockRoot = withState(state[]): forkyState.latest_block_root
     cache: StateCache
     info: ForkedEpochInfo
-    aggregates: seq[Attestation]
+    aggregates: seq[phase0.Attestation]
     syncAggregate = SyncAggregate.init()
 
   let
@@ -341,7 +341,7 @@ cli do(validatorsDir: string, secretsDir: string,
           forkyState.data, slot, committee_index, cache)
 
         var
-          attestation = Attestation(
+          attestation = phase0.Attestation(
             data: makeAttestationData(
               forkyState.data, slot, committee_index, blockRoot),
             aggregation_bits: CommitteeValidatorsBits.init(committee.len))

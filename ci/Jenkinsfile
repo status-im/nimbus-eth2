@@ -165,5 +165,5 @@ def getAgentLabel() {
 }
 
 def nimCommitForJob() {
-  return JOB_NAME.contains('-nimv2/') ? 'upstream/version-2-0' : ''
+  return JOB_NAME.contains('nimv2') ? 'upstream/version-2-0' : ''
 }

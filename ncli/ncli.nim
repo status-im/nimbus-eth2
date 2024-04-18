@@ -233,7 +233,7 @@ proc doSSZ(conf: NcliConf) =
 
   case kind
   of "attester_slashing": printit(AttesterSlashing)
-  of "attestation": printit(Attestation)
+  of "attestation": printit(phase0.Attestation)
   of "phase0_signed_block": printit(phase0.SignedBeaconBlock)
   of "altair_signed_block": printit(altair.SignedBeaconBlock)
   of "bellatrix_signed_block": printit(bellatrix.SignedBeaconBlock)

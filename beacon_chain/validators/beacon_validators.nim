@@ -1530,7 +1530,7 @@ proc signAndSendAggregate(
       shufflingRef, slot, committee_index, selectionProof):
     return
 
-  # https://github.com/ethereum/consensus-specs/blob/v1.3.0/specs/phase0/validator.md#construct-aggregate
+  # https://github.com/ethereum/consensus-specs/blob/v1.4.0/specs/phase0/validator.md#construct-aggregate
   # https://github.com/ethereum/consensus-specs/blob/v1.4.0/specs/phase0/validator.md#aggregateandproof
   var
     msg = SignedAggregateAndProof(

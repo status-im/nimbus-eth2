@@ -98,10 +98,10 @@ func init*(T: type HashedValidatorPubKey, key: ValidatorPubKey): HashedValidator
             # The interface of HashSet is such that we must construct a full
             # instance to check if it's in the set - then we can return that
             # instace and discard the one we just created temporarily
-            keys[tmp]
+            addr keys[tmp][]
           except KeyError:
             raiseAssert "just checked"
         else:
-          tmp
+          addr tmp[]
 
-  HashedValidatorPubKey(value: addr cached[])
+  HashedValidatorPubKey(value: cached)  # https://github.com/nim-lang/Nim/issues/23505

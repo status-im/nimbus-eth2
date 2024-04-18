@@ -1489,7 +1489,7 @@ proc produceAttestationData*(
 
 proc submitPoolAttestations*(
        vc: ValidatorClientRef,
-       data: seq[Attestation],
+       data: seq[phase0.Attestation],
        strategy: ApiStrategyKind
      ): Future[bool] {.async.} =
   const
@@ -1635,7 +1635,7 @@ proc getAggregatedAttestation*(
        slot: Slot,
        root: Eth2Digest,
        strategy: ApiStrategyKind
-     ): Future[Attestation] {.async.} =
+     ): Future[phase0.Attestation] {.async.} =
   const
     RequestName = "getAggregatedAttestation"
 

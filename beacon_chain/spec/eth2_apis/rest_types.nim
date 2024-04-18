@@ -289,7 +289,7 @@ type
 
   RestWithdrawalPrefix* = distinct array[1, byte]
 
-  # https://github.com/ethereum/consensus-specs/blob/v1.3.0/specs/capella/beacon-chain.md#executionpayload
+  # https://github.com/ethereum/consensus-specs/blob/v1.4.0/specs/capella/beacon-chain.md#executionpayload
   RestExecutionPayload* = object
     # Execution block header fields
     parent_hash*: Eth2Digest
@@ -535,9 +535,9 @@ type
 
   # Types based on the OAPI yaml file - used in responses to requests
   GetBeaconHeadResponse* = DataEnclosedObject[Slot]
-  GetAggregatedAttestationResponse* = DataEnclosedObject[Attestation]
+  GetAggregatedAttestationResponse* = DataEnclosedObject[phase0.Attestation]
   GetAttesterDutiesResponse* = DataRootEnclosedObject[seq[RestAttesterDuty]]
-  GetBlockAttestationsResponse* = DataEnclosedObject[seq[Attestation]]
+  GetBlockAttestationsResponse* = DataEnclosedObject[seq[phase0.Attestation]]
   GetBlockHeaderResponse* = DataOptimisticAndFinalizedObject[RestBlockHeaderInfo]
   GetBlockHeadersResponse* = DataEnclosedObject[seq[RestBlockHeaderInfo]]
   GetBlockRootResponse* = DataOptimisticObject[RestRoot]
@@ -553,7 +553,7 @@ type
   GetPeerCountResponse* = DataMetaEnclosedObject[RestPeerCount]
   GetPeerResponse* = DataMetaEnclosedObject[RestNodePeer]
   GetPeersResponse* = DataMetaEnclosedObject[seq[RestNodePeer]]
-  GetPoolAttestationsResponse* = DataEnclosedObject[seq[Attestation]]
+  GetPoolAttestationsResponse* = DataEnclosedObject[seq[phase0.Attestation]]
   GetPoolAttesterSlashingsResponse* = DataEnclosedObject[seq[AttesterSlashing]]
   GetPoolProposerSlashingsResponse* = DataEnclosedObject[seq[ProposerSlashing]]
   GetPoolVoluntaryExitsResponse* = DataEnclosedObject[seq[SignedVoluntaryExit]]

@@ -10,6 +10,7 @@
 import ".."/datatypes/[altair, electra]
 
 from stew/byteutils import to0xHex
+from ".."/datatypes/phase0 import Attestation
 from ../datatypes/bellatrix import ExecutionAddress
 from ".."/datatypes/capella import SignedBLSToExecutionChange
 from ".."/datatypes/deneb import BlobsBundle, KzgCommitments
@@ -32,8 +33,9 @@ type
     eth1_data*: Eth1Data
     graffiti*: GraffitiBytes
     proposer_slashings*: List[ProposerSlashing, Limit MAX_PROPOSER_SLASHINGS]
-    attester_slashings*: List[AttesterSlashing, Limit MAX_ATTESTER_SLASHINGS]
-    attestations*: List[Attestation, Limit MAX_ATTESTATIONS]
+    attester_slashings*:
+      List[AttesterSlashing, Limit MAX_ATTESTER_SLASHINGS_ELECTRA]
+    attestations*: List[phase0.Attestation, Limit MAX_ATTESTATIONS_ELECTRA]
     deposits*: List[Deposit, Limit MAX_DEPOSITS]
     voluntary_exits*: List[SignedVoluntaryExit, Limit MAX_VOLUNTARY_EXITS]
     sync_aggregate*: SyncAggregate
@@ -42,6 +44,7 @@ type
       List[SignedBLSToExecutionChange,
         Limit MAX_BLS_TO_EXECUTION_CHANGES]
     blob_kzg_commitments*: KzgCommitments # [New in Deneb]
+    consolidations*: List[SignedConsolidation, Limit MAX_CONSOLIDATIONS]
 
   # https://github.com/ethereum/builder-specs/blob/v0.4.0/specs/bellatrix/builder.md#blindedbeaconblock
   BlindedBeaconBlock* = object
@@ -141,8 +144,9 @@ func toSignedBlindedBeaconBlock*(blck: electra.SignedBeaconBlock):
             hash_tree_root(blck.message.body.execution_payload.withdrawals),
           deposit_receipts_root: hash_tree_root(
             blck.message.body.execution_payload.deposit_receipts),
-          exits_root:
-            hash_tree_root(blck.message.body.execution_payload.exits)),
+          withdrawal_requests_root:
+            hash_tree_root(
+              blck.message.body.execution_payload.withdrawal_requests)),
         bls_to_execution_changes: blck.message.body.bls_to_execution_changes,
         blob_kzg_commitments: blck.message.body.blob_kzg_commitments)),
     signature: blck.signature)

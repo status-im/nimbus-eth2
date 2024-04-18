@@ -30,14 +30,8 @@ from ./deneb import Blobs, BlobsBundle, KzgCommitments, KzgProofs
 
 export json_serialization, base, kzg4844
 
-const
-  # Keep these here for now, since things still in flux
-  # https://github.com/ethereum/consensus-specs/pull/3615
-  MAX_DEPOSIT_RECEIPTS_PER_PAYLOAD* = 8192
-  MAX_EXECUTION_LAYER_EXITS_PER_PAYLOAD* = 16  # there's a discrepancy here, _PER_PAYLOAD or not
-
 type
-  # https://github.com/ethereum/consensus-specs/pull/3615
+  # https://github.com/ethereum/consensus-specs/blob/94a0b6c581f2809aa8aca4ef7ee6fbb63f9d74e9/specs/electra/beacon-chain.md#depositreceipt
   DepositReceipt* = object
     pubkey*: ValidatorPubKey
     withdrawal_credentials*: Eth2Digest
@@ -45,12 +39,7 @@ type
     signature*: ValidatorSig
     index*: uint64
 
-  # https://github.com/ethereum/consensus-specs/pull/3615
-  ExecutionLayerExit* = object
-    source_address*: ExecutionAddress
-    validator_pubkey*: ValidatorPubKey
-
-  # https://github.com/ethereum/consensus-specs/pull/3615
+  # https://github.com/ethereum/consensus-specs/blob/82133085a1295e93394ebdf71df8f2f6e0962588/specs/electra/beacon-chain.md#executionpayload
   ExecutionPayload* = object
     # Execution block header fields
     parent_hash*: Eth2Digest
@@ -76,14 +65,17 @@ type
     blob_gas_used*: uint64
     excess_blob_gas*: uint64
     deposit_receipts*: List[DepositReceipt, MAX_DEPOSIT_RECEIPTS_PER_PAYLOAD]
-    exits*: List[ExecutionLayerExit, MAX_EXECUTION_LAYER_EXITS_PER_PAYLOAD]
+      ## [New in Electra:EIP6110]
+    withdrawal_requests*:
+      List[ExecutionLayerWithdrawalRequest, MAX_WITHDRAWAL_REQUESTS_PER_PAYLOAD]
+      ## [New in Electra:EIP6110]
 
   ExecutionPayloadForSigning* = object
     executionPayload*: ExecutionPayload
     blockValue*: Wei
     blobsBundle*: BlobsBundle
 
-  # https://github.com/ethereum/consensus-specs/blob/v1.4.0/specs/deneb/beacon-chain.md#executionpayloadheader
+  # https://github.com/ethereum/consensus-specs/blob/82133085a1295e93394ebdf71df8f2f6e0962588/specs/electra/beacon-chain.md#executionpayloadheader
   ExecutionPayloadHeader* = object
     # Execution block header fields
     parent_hash*: Eth2Digest
@@ -104,13 +96,50 @@ type
       ## Hash of execution block
     transactions_root*: Eth2Digest
     withdrawals_root*: Eth2Digest
-    blob_gas_used*: uint64   # [New in Deneb:EIP4844]
-    excess_blob_gas*: uint64 # [New in Deneb:EIP4844]
-    deposit_receipts_root*: Eth2Digest
-    exits_root*: Eth2Digest
+    blob_gas_used*: uint64
+    excess_blob_gas*: uint64
+    deposit_receipts_root*: Eth2Digest  # [New in Electra:EIP6110]
+    withdrawal_requests_root*: Eth2Digest  # [New in Electra:EIP7002:EIP7251]
 
   ExecutePayload* = proc(
     execution_payload: ExecutionPayload): bool {.gcsafe, raises: [].}
+
+  # https://github.com/ethereum/consensus-specs/blob/82133085a1295e93394ebdf71df8f2f6e0962588/specs/electra/beacon-chain.md#depositreceipt
+  PendingBalanceDeposit* = object
+    index*: uint64
+    amount*: Gwei
+
+  # https://github.com/ethereum/consensus-specs/blob/82133085a1295e93394ebdf71df8f2f6e0962588/specs/electra/beacon-chain.md#pendingpartialwithdrawal
+  PendingPartialWithdrawal* = object
+    index*: uint64
+    amount*: Gwei
+    withdrawable_epoch*: Epoch
+
+  # https://github.com/ethereum/consensus-specs/blob/82133085a1295e93394ebdf71df8f2f6e0962588/specs/electra/beacon-chain.md#executionlayerwithdrawalrequest
+  ExecutionLayerWithdrawalRequest* = object
+    source_address*: ExecutionAddress
+    validator_pubkey*: ValidatorPubKey
+    amount*: Gwei
+
+  # https://github.com/ethereum/consensus-specs/blob/82133085a1295e93394ebdf71df8f2f6e0962588/specs/electra/beacon-chain.md#consolidation
+  Consolidation* = object
+    source_index*: uint64
+    target_index*: uint64
+    epoch*: Epoch
+
+  # https://github.com/ethereum/consensus-specs/blob/82133085a1295e93394ebdf71df8f2f6e0962588/specs/electra/beacon-chain.md#signedconsolidation
+  SignedConsolidation* = object
+    message*: Consolidation
+    signature*: ValidatorSig
+
+  TrustedSignedConsolidation* = object
+    message*: Consolidation
+    signature*: TrustedSig
+
+  # https://github.com/ethereum/consensus-specs/blob/82133085a1295e93394ebdf71df8f2f6e0962588/specs/electra/beacon-chain.md#pendingconsolidation
+  PendingConsolidation* = object
+    source_index*: uint64
+    target_index*: uint64
 
   # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.5/specs/capella/light-client/sync-protocol.md#modified-lightclientheader
   LightClientHeader* = object
@@ -210,8 +239,7 @@ type
       ## (used to compute safety threshold)
     current_max_active_participants*: uint64
 
-  # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.5/specs/capella/beacon-chain.md#beaconstate
-  # changes indirectly via ExecutionPayloadHeader
+  # https://github.com/ethereum/consensus-specs/blob/82133085a1295e93394ebdf71df8f2f6e0962588/specs/electra/beacon-chain.md#beaconstate
   BeaconState* = object
     # Versioning
     genesis_time*: uint64
@@ -268,6 +296,7 @@ type
 
     # Execution
     latest_execution_payload_header*: ExecutionPayloadHeader
+      ## [Modified in Electra:EIP6110:EIP7002]
 
     # Withdrawals
     next_withdrawal_index*: WithdrawalIndex
@@ -276,6 +305,23 @@ type
     # Deep history valid from Capella onwards
     historical_summaries*:
       HashList[HistoricalSummary, Limit HISTORICAL_ROOTS_LIMIT]
+
+    deposit_receipts_start_index*: uint64  # [New in Electra:EIP6110]
+    deposit_balance_to_consume*: Gwei  # [New in Electra:EIP7251]
+    exit_balance_to_consume*: Gwei  # [New in Electra:EIP7251]
+    earliest_exit_epoch*: Epoch  # [New in Electra:EIP7251]
+    consolidation_balance_to_consume*: Gwei  # [New in Electra:EIP7251]
+    earliest_consolidation_epoch*: Epoch  # [New in Electra:EIP7251]
+    pending_balance_deposits*:
+      HashList[PendingBalanceDeposit, Limit PENDING_BALANCE_DEPOSITS_LIMIT]
+      ## [New in Electra:EIP7251]
+
+    # [New in Electra:EIP7251]
+    pending_partial_withdrawals*:
+      HashList[PendingPartialWithdrawal, Limit PENDING_PARTIAL_WITHDRAWALS_LIMIT]
+    pending_consolidations*:
+      HashList[PendingConsolidation, Limit PENDING_CONSOLIDATIONS_LIMIT]
+      ## [New in Electra:EIP7251]
 
   # TODO Careful, not nil analysis is broken / incomplete and the semantics will
   #      likely change in future versions of the language:
@@ -345,7 +391,7 @@ type
     state_root*: Eth2Digest
     body*: TrustedBeaconBlockBody
 
-  # https://github.com/ethereum/consensus-specs/blob/v1.4.0/specs/deneb/beacon-chain.md#beaconblockbody
+  # https://github.com/ethereum/consensus-specs/blob/82133085a1295e93394ebdf71df8f2f6e0962588/specs/electra/beacon-chain.md#beaconblockbody
   BeaconBlockBody* = object
     randao_reveal*: ValidatorSig
     eth1_data*: Eth1Data
@@ -356,17 +402,22 @@ type
 
     # Operations
     proposer_slashings*: List[ProposerSlashing, Limit MAX_PROPOSER_SLASHINGS]
-    attester_slashings*: List[AttesterSlashing, Limit MAX_ATTESTER_SLASHINGS]
-    attestations*: List[Attestation, Limit MAX_ATTESTATIONS]
+    attester_slashings*:
+      List[AttesterSlashing, Limit MAX_ATTESTER_SLASHINGS_ELECTRA]
+      ## [Modified in Electra:EIP7549]
+    attestations*: List[Attestation, Limit MAX_ATTESTATIONS_ELECTRA]
+      ## [Modified in Electra:EIP7549]
     deposits*: List[Deposit, Limit MAX_DEPOSITS]
     voluntary_exits*: List[SignedVoluntaryExit, Limit MAX_VOLUNTARY_EXITS]
 
     sync_aggregate*: SyncAggregate
 
     # Execution
-    execution_payload*: ExecutionPayload  # [Modified in Deneb]
+    execution_payload*: ExecutionPayload   # [Modified in Electra:EIP6110:EIP7002]
     bls_to_execution_changes*: SignedBLSToExecutionChangeList
-    blob_kzg_commitments*: KzgCommitments  # [New in Deneb]
+    blob_kzg_commitments*: KzgCommitments
+    consolidations*: List[SignedConsolidation, Limit MAX_CONSOLIDATIONS]
+      ## [New in Electra:EIP7251]
 
   SigVerifiedBeaconBlockBody* = object
     ## A BeaconBlock body with signatures verified
@@ -390,18 +441,24 @@ type
       ## Arbitrary data
 
     # Operations
-    proposer_slashings*: List[TrustedProposerSlashing, Limit MAX_PROPOSER_SLASHINGS]
-    attester_slashings*: List[TrustedAttesterSlashing, Limit MAX_ATTESTER_SLASHINGS]
-    attestations*: List[TrustedAttestation, Limit MAX_ATTESTATIONS]
+    proposer_slashings*:
+      List[TrustedProposerSlashing, Limit MAX_PROPOSER_SLASHINGS]
+    attester_slashings*:
+      List[TrustedAttesterSlashing, Limit MAX_ATTESTER_SLASHINGS_ELECTRA]
+      ## [Modified in Electra:EIP7549]
+    attestations*: List[TrustedAttestation, Limit MAX_ATTESTATIONS_ELECTRA]
+      ## [Modified in Electra:EIP7549]
     deposits*: List[Deposit, Limit MAX_DEPOSITS]
     voluntary_exits*: List[TrustedSignedVoluntaryExit, Limit MAX_VOLUNTARY_EXITS]
 
     sync_aggregate*: TrustedSyncAggregate
 
     # Execution
-    execution_payload*: ExecutionPayload  # [Modified in Deneb]
+    execution_payload*: ExecutionPayload   # [Modified in Electra:EIP6110:EIP7002]
     bls_to_execution_changes*: SignedBLSToExecutionChangeList
-    blob_kzg_commitments*: KzgCommitments  # [New in Deneb]
+    blob_kzg_commitments*: KzgCommitments
+    consolidations*: List[TrustedSignedConsolidation, Limit MAX_CONSOLIDATIONS]
+      ## [New in Electra:EIP7251]
 
   TrustedBeaconBlockBody* = object
     ## A full verified block
@@ -413,18 +470,24 @@ type
       ## Arbitrary data
 
     # Operations
-    proposer_slashings*: List[TrustedProposerSlashing, Limit MAX_PROPOSER_SLASHINGS]
-    attester_slashings*: List[TrustedAttesterSlashing, Limit MAX_ATTESTER_SLASHINGS]
-    attestations*: List[TrustedAttestation, Limit MAX_ATTESTATIONS]
+    proposer_slashings*:
+      List[TrustedProposerSlashing, Limit MAX_PROPOSER_SLASHINGS]
+    attester_slashings*:
+      List[TrustedAttesterSlashing, Limit MAX_ATTESTER_SLASHINGS_ELECTRA]
+      ## [Modified in Electra:EIP7549]
+    attestations*: List[TrustedAttestation, Limit MAX_ATTESTATIONS_ELECTRA]
+      ## [Modified in Electra:EIP7549]
     deposits*: List[Deposit, Limit MAX_DEPOSITS]
     voluntary_exits*: List[TrustedSignedVoluntaryExit, Limit MAX_VOLUNTARY_EXITS]
 
     sync_aggregate*: TrustedSyncAggregate
 
     # Execution
-    execution_payload*: ExecutionPayload  # [Modified in Deneb]
+    execution_payload*: ExecutionPayload   # [Modified in Electra:EIP6110:EIP7002]
     bls_to_execution_changes*: SignedBLSToExecutionChangeList
-    blob_kzg_commitments*: KzgCommitments  # [New in Deneb]
+    blob_kzg_commitments*: KzgCommitments
+    consolidations*: List[TrustedSignedConsolidation, Limit MAX_CONSOLIDATIONS]
+      ## [New in Electra:EIP7251]
 
   # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.6/specs/phase0/beacon-chain.md#signedbeaconblock
   SignedBeaconBlock* = object
