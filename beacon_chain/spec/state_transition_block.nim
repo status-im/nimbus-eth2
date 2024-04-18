@@ -445,15 +445,16 @@ proc process_bls_to_execution_change*(
   ok()
 
 # https://github.com/ethereum/consensus-specs/blob/94a0b6c581f2809aa8aca4ef7ee6fbb63f9d74e9/specs/electra/beacon-chain.md#new-process_execution_layer_exit
-func process_execution_layer_exit(
+func process_execution_layer_withdrawal_request(
     cfg: RuntimeConfig, state: var electra.BeaconState,
-    execution_layer_exit: ExecutionLayerExit, exit_queue_info: ExitQueueInfo,
-    cache: var StateCache): Result[ExitQueueInfo, cstring] =
+    execution_layer_withdrawal_request: ExecutionLayerWithdrawalRequest,
+    exit_queue_info: ExitQueueInfo, cache: var StateCache):
+    Result[ExitQueueInfo, cstring] =
   # Verify pubkey exists
   let
-    pubkey_to_exit = execution_layer_exit.validator_pubkey
+    pubkey_to_exit = execution_layer_withdrawal_request.validator_pubkey
     validator_index = findValidatorIndex(state, pubkey_to_exit).valueOr:
-      return err("process_execution_layer_exit: unknown index for validator pubkey")
+      return err("process_execution_layer_withdrawal_request: unknown index for validator pubkey")
     validator = state.validators.item(validator_index)
 
   # Verify withdrawal credentials
@@ -461,21 +462,21 @@ func process_execution_layer_exit(
     is_execution_address = validator.has_eth1_withdrawal_credential
     is_correct_source_address =
       validator.withdrawal_credentials.data.toOpenArray(12, 31) ==
-        execution_layer_exit.source_address.data
+        execution_layer_withdrawal_request.source_address.data
   if not (is_execution_address and is_correct_source_address):
-    return err("process_execution_layer_exit: not both execution address and correct source address")
+    return err("process_execution_layer_withdrawal_request: not both execution address and correct source address")
 
   # Verify the validator is active
   if not is_active_validator(validator, get_current_epoch(state)):
-    return err("process_execution_layer_exit: not active validator")
+    return err("process_execution_layer_withdrawal_request: not active validator")
 
   # Verify exit has not been initiated
   if validator.exit_epoch != FAR_FUTURE_EPOCH:
-    return err("process_execution_layer_exit: validator exit already initiated")
+    return err("process_execution_layer_withdrawal_request: validator exit already initiated")
 
   # Verify the validator has been active long enough
   if get_current_epoch(state) < validator.activation_epoch + cfg.SHARD_COMMITTEE_PERIOD:
-    return err("process_execution_layer_exit: validator not active long enough")
+    return err("process_execution_layer_withdrawal_request: validator not active long enough")
 
   # Initiate exit
   ok(? initiate_validator_exit(
@@ -540,8 +541,8 @@ proc process_operations(cfg: RuntimeConfig,
     exit_queue_info = ? process_voluntary_exit(
       cfg, state, op, flags, exit_queue_info, cache)
   when typeof(body).kind >= ConsensusFork.Electra:
-    for op in body.execution_payload.exits:
-      exit_queue_info = ? process_execution_layer_exit(
+    for op in body.execution_payload.withdrawal_requests:
+      exit_queue_info = ? process_execution_layer_withdrawal_request(
         cfg, state, op, exit_queue_info, cache)
   when typeof(body).kind >= ConsensusFork.Capella:
     for op in body.bls_to_execution_changes:

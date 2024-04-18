@@ -14,7 +14,9 @@ import
 from ./spec/datatypes/capella import
   ExecutionPayloadHeader, HistoricalSummary, Withdrawal
 from ./spec/datatypes/deneb import ExecutionPayloadHeader
-from ./spec/datatypes/electra import ExecutionPayloadHeader
+from ./spec/datatypes/electra import
+  ExecutionPayloadHeader, PendingConsolidation, PendingBalanceDeposit,
+  PendingPartialWithdrawal
 
 type
   # https://github.com/ethereum/consensus-specs/blob/v1.4.0/specs/phase0/beacon-chain.md#beaconstate
@@ -398,3 +400,20 @@ type
     # Deep history valid from Capella onwards
     historical_summaries*:
       HashList[HistoricalSummary, Limit HISTORICAL_ROOTS_LIMIT]
+
+    deposit_receipts_start_index*: uint64  # [New in Electra:EIP6110]
+    deposit_balance_to_consume*: Gwei  # [New in Electra:EIP7251]
+    exit_balance_to_consume*: Gwei  # [New in Electra:EIP7251]
+    earliest_exit_epoch*: Epoch  # [New in Electra:EIP7251]
+    consolidation_balance_to_consume*: Gwei  # [New in Electra:EIP7251]
+    earliest_consolidation_epoch*: Epoch  # [New in Electra:EIP7251]
+    pending_balance_deposits*:
+      HashList[PendingBalanceDeposit, Limit PENDING_BALANCE_DEPOSITS_LIMIT]
+      ## [New in Electra:EIP7251]
+
+    # [New in Electra:EIP7251]
+    pending_partial_withdrawals*:
+      HashList[PendingPartialWithdrawal, Limit PENDING_PARTIAL_WITHDRAWALS_LIMIT]
+    pending_consolidations*:
+      HashList[PendingConsolidation, Limit PENDING_CONSOLIDATIONS_LIMIT]
+      ## [New in Electra:EIP7251]
