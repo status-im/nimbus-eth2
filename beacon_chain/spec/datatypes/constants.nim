@@ -58,6 +58,9 @@ const
   # https://github.com/ethereum/consensus-specs/blob/v1.4.0/specs/capella/beacon-chain.md#domain-types
   DOMAIN_BLS_TO_EXECUTION_CHANGE* = DomainType([byte 0x0a, 0x00, 0x00, 0x00])
 
+  # https://github.com/ethereum/consensus-specs/blob/82133085a1295e93394ebdf71df8f2f6e0962588/specs/electra/beacon-chain.md#domains
+  DOMAIN_CONSOLIDATION* = DomainType([byte 0x0b, 0x00, 0x00, 0x00])
+
   # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.5/specs/phase0/fork-choice.md#configuration
   PROPOSER_SCORE_BOOST*: uint64 = 40
   REORG_HEAD_WEIGHT_THRESHOLD*: uint64 = 20
@@ -79,3 +82,6 @@ const
 
   # https://github.com/ethereum/consensus-specs/blob/v1.4.0/specs/deneb/p2p-interface.md#configuration
   MAX_REQUEST_BLOCKS_DENEB*: uint64 = 128 # TODO Make use of in request code
+
+  # https://github.com/ethereum/consensus-specs/blob/82133085a1295e93394ebdf71df8f2f6e0962588/specs/electra/beacon-chain.md#withdrawal-prefixes
+  COMPOUNDING_WITHDRAWAL_PREFIX* = 0x02

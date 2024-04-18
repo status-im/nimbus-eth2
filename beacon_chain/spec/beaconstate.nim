@@ -856,6 +856,23 @@ func is_partially_withdrawable_validator(
   has_eth1_withdrawal_credential(validator) and
     has_max_effective_balance and has_excess_balance
 
+# https://github.com/ethereum/consensus-specs/blob/82133085a1295e93394ebdf71df8f2f6e0962588/specs/electra/beacon-chain.md#new-is_compounding_withdrawal_credential
+func is_compounding_withdrawal_credential(
+    withdrawal_credentials: Eth2Digest): bool =
+  withdrawal_credentials.data[0] == COMPOUNDING_WITHDRAWAL_PREFIX
+
+# https://github.com/ethereum/consensus-specs/blob/82133085a1295e93394ebdf71df8f2f6e0962588/specs/electra/beacon-chain.md#new-has_compounding_withdrawal_credential
+func has_compounding_withdrawal_credential(validator: Validator): bool =
+  ## Check if ``validator`` has an 0x02 prefixed "compounding" withdrawal
+  ## credential.
+  is_compounding_withdrawal_credential(validator.withdrawal_credentials)
+
+# https://github.com/ethereum/consensus-specs/blob/82133085a1295e93394ebdf71df8f2f6e0962588/specs/electra/beacon-chain.md#new-has_execution_withdrawal_credential
+func has_execution_withdrawal_credential(validator: Validator): bool =
+  ## Check if ``validator`` has a 0x01 or 0x02 prefixed withdrawal credential.
+  has_compounding_withdrawal_credential(validator) or
+    has_eth1_withdrawal_credential(validator)
+
 # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.5/specs/capella/beacon-chain.md#new-get_expected_withdrawals
 func get_expected_withdrawals*(
     state: capella.BeaconState | deneb.BeaconState | electra.BeaconState):
