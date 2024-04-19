@@ -878,7 +878,7 @@ proc runBlockEventMonitor(service: BlockServiceRef,
               plain = RestPlainResponse(status: resp.status,
                         contentType: resp.contentType, data: body)
               reason = plain.getErrorMessage()
-            debug "Unable to to obtain events stream", code = resp.status,
+            debug "Unable to obtain events stream", code = resp.status,
                   reason = reason
             Opt.none(HttpClientResponseRef)
         except RestError as exc:

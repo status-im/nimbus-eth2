@@ -309,7 +309,7 @@ The state stores the block root of the latest `SLOTS_PER_HISTORICAL_ROOT` blocks
 
 ## Why include the state at all?
 
-This is a tradeoff between being able to access state data such as validator keys and balances directly vs and recreating it by applying each block one by one from from genesis. Given an era file, it is possible to start processing the chain from there onwards.
+This is a tradeoff between being able to access state data such as validator keys and balances directly vs and recreating it by applying each block one by one from genesis. Given an era file, it is possible to start processing the chain from there onwards.
 
 ## Why the weird file name?
 
