@@ -49,6 +49,7 @@ proc readChunkPayload*(
   except CatchableError:
     return neterr UnexpectedEOF
 
+  static: doAssert ConsensusFork.high == ConsensusFork.Electra
   if contextBytes == peer.network.forkDigests.phase0:
     let res = await readChunkPayload(conn, peer, phase0.SignedBeaconBlock)
     if res.isOk:
@@ -75,6 +76,12 @@ proc readChunkPayload*(
       return err(res.error)
   elif contextBytes == peer.network.forkDigests.deneb:
     let res = await readChunkPayload(conn, peer, deneb.SignedBeaconBlock)
+    if res.isOk:
+      return ok newClone(ForkedSignedBeaconBlock.init(res.get))
+    else:
+      return err(res.error)
+  elif contextBytes == peer.network.forkDigests.electra:
+    let res = await readChunkPayload(conn, peer, electra.SignedBeaconBlock)
     if res.isOk:
       return ok newClone(ForkedSignedBeaconBlock.init(res.get))
     else:

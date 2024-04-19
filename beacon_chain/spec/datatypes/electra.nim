@@ -18,17 +18,35 @@
 import
   std/typetraits,
   chronicles,
-  stew/byteutils,
   json_serialization,
   ssz_serialization/[merkleization, proofs],
   ssz_serialization/types as sszTypes,
   ../digest,
-  "."/[base, phase0, altair, bellatrix, capella]
+  "."/[base, phase0]
 
 from kzg4844 import KzgCommitment, KzgProof
+from stew/bitops2 import log2trunc
+from stew/byteutils import to0xHex
+from ./altair import
+  EpochParticipationFlags, InactivityScores, SyncAggregate, SyncCommittee,
+  TrustedSyncAggregate
+from ./bellatrix import BloomLogs, ExecutionAddress, Transaction
+from ./capella import
+  HistoricalSummary, SignedBLSToExecutionChangeList, Withdrawal
 from ./deneb import Blobs, BlobsBundle, KzgCommitments, KzgProofs
 
 export json_serialization, base, kzg4844
+
+const
+  # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.5/specs/altair/light-client/sync-protocol.md#constants
+  # All of these indices are rooted in `BeaconState`.
+  # The first member (`genesis_time`) is 64, subsequent members +1 each.
+  # If there are ever more than 64 members in `BeaconState`, indices change!
+  # `FINALIZED_ROOT_GINDEX` is one layer deeper, i.e., `84 * 2 + 1`.
+  # https://github.com/ethereum/consensus-specs/blob/v1.4.0/ssz/merkle-proofs.md
+  FINALIZED_ROOT_GINDEX = 169.GeneralizedIndex  # finalized_checkpoint > root
+  CURRENT_SYNC_COMMITTEE_GINDEX = 86.GeneralizedIndex  # current_sync_committee
+  NEXT_SYNC_COMMITTEE_GINDEX = 87.GeneralizedIndex  # next_sync_committee
 
 type
   # https://github.com/ethereum/consensus-specs/blob/94a0b6c581f2809aa8aca4ef7ee6fbb63f9d74e9/specs/electra/beacon-chain.md#depositreceipt
@@ -75,7 +93,7 @@ type
     blockValue*: Wei
     blobsBundle*: BlobsBundle
 
-  # https://github.com/ethereum/consensus-specs/blob/82133085a1295e93394ebdf71df8f2f6e0962588/specs/electra/beacon-chain.md#executionpayloadheader
+  # https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.0/specs/electra/beacon-chain.md#executionpayloadheader
   ExecutionPayloadHeader* = object
     # Execution block header fields
     parent_hash*: Eth2Digest
@@ -141,12 +159,21 @@ type
     source_index*: uint64
     target_index*: uint64
 
+  FinalityBranch =
+    array[log2trunc(FINALIZED_ROOT_GINDEX), Eth2Digest]
+
+  CurrentSyncCommitteeBranch =
+    array[log2trunc(CURRENT_SYNC_COMMITTEE_GINDEX), Eth2Digest]
+
+  NextSyncCommitteeBranch =
+    array[log2trunc(NEXT_SYNC_COMMITTEE_GINDEX), Eth2Digest]
+
   # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.5/specs/capella/light-client/sync-protocol.md#modified-lightclientheader
   LightClientHeader* = object
     beacon*: BeaconBlockHeader
       ## Beacon block header
 
-    execution*: ExecutionPayloadHeader
+    execution*: electra.ExecutionPayloadHeader
       ## Execution payload header corresponding to `beacon.body_root` (from Capella onward)
     execution_branch*: capella.ExecutionBranch
 
@@ -157,7 +184,7 @@ type
 
     current_sync_committee*: SyncCommittee
       ## Current sync committee corresponding to `header.beacon.state_root`
-    current_sync_committee_branch*: altair.CurrentSyncCommitteeBranch
+    current_sync_committee_branch*: CurrentSyncCommitteeBranch
 
   # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.5/specs/altair/light-client/sync-protocol.md#lightclientupdate
   LightClientUpdate* = object
@@ -167,11 +194,11 @@ type
     next_sync_committee*: SyncCommittee
       ## Next sync committee corresponding to
       ## `attested_header.beacon.state_root`
-    next_sync_committee_branch*: altair.NextSyncCommitteeBranch
+    next_sync_committee_branch*: NextSyncCommitteeBranch
 
     # Finalized header corresponding to `attested_header.beacon.state_root`
     finalized_header*: LightClientHeader
-    finality_branch*: altair.FinalityBranch
+    finality_branch*: FinalityBranch
 
     sync_aggregate*: SyncAggregate
       ## Sync committee aggregate signature
@@ -185,7 +212,7 @@ type
 
     # Finalized header corresponding to `attested_header.beacon.state_root`
     finalized_header*: LightClientHeader
-    finality_branch*: altair.FinalityBranch
+    finality_branch*: FinalityBranch
 
     # Sync committee aggregate signature
     sync_aggregate*: SyncAggregate
@@ -405,7 +432,7 @@ type
     attester_slashings*:
       List[AttesterSlashing, Limit MAX_ATTESTER_SLASHINGS_ELECTRA]
       ## [Modified in Electra:EIP7549]
-    attestations*: List[Attestation, Limit MAX_ATTESTATIONS_ELECTRA]
+    attestations*: List[phase0.Attestation, Limit MAX_ATTESTATIONS_ELECTRA]
       ## [Modified in Electra:EIP7549]
     deposits*: List[Deposit, Limit MAX_DEPOSITS]
     voluntary_exits*: List[SignedVoluntaryExit, Limit MAX_VOLUNTARY_EXITS]
@@ -526,6 +553,9 @@ type
     signature*: TrustedSig
 
     root* {.dontSerialize.}: Eth2Digest # cached root of signed beacon block
+
+  ElectraCommitteeValidatorsBits* =
+    BitList[Limit MAX_VALIDATORS_PER_COMMITTEE * MAX_COMMITTEES_PER_SLOT]
 
   SomeSignedBeaconBlock* =
     SignedBeaconBlock |
