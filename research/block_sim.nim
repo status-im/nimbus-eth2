@@ -149,7 +149,7 @@ proc makeSimulationBlock(
     randao_reveal: ValidatorSig,
     eth1_data: Eth1Data,
     graffiti: GraffitiBytes,
-    attestations: seq[phase0.Attestation],
+    attestations: seq[electra.Attestation],
     deposits: seq[Deposit],
     exits: BeaconBlockValidatorChanges,
     sync_aggregate: SyncAggregate,
@@ -400,7 +400,10 @@ cli do(slots = SLOTS_PER_EPOCH * 7,
           slot.epoch, privKey).toValidatorSig(),
         eth1ProposalData.vote,
         default(GraffitiBytes),
-        attPool.getAttestationsForBlock(state, cache),
+        when T is electra.SignedBeaconBlock:
+          default(seq[electra.Attestation])
+        else:
+          attPool.getAttestationsForBlock(state, cache),
         eth1ProposalData.deposits,
         BeaconBlockValidatorChanges(),
         sync_aggregate,
@@ -415,6 +418,8 @@ cli do(slots = SLOTS_PER_EPOCH * 7,
         static(default(SignedBLSToExecutionChangeList)),
         noRollback,
         cache)
+
+    debugRaiseAssert "block_sim only uses empty attestations, which means it can't j/f Electra at the moment"
 
     var newBlock = T(message: message.get())
 

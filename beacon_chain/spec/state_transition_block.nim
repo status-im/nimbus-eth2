@@ -245,6 +245,22 @@ proc check_attester_slashing*(
   withState(state):
     check_attester_slashing(forkyState.data, attester_slashing, flags)
 
+debugRaiseAssert "implement check_attester_slashing for Electra attester slashings"
+
+# https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.6/specs/phase0/beacon-chain.md#attester-slashings
+proc check_attester_slashing*(
+    state: ForkyBeaconState,
+    attester_slashing: ElectraAttesterSlashing | TrustedElectraAttesterSlashing,
+    flags: UpdateFlags): Result[seq[ValidatorIndex], cstring] =
+  ok default(seq[ValidatorIndex])
+
+proc check_attester_slashing*(
+    state: var ForkedHashedBeaconState,
+    attester_slashing: ElectraAttesterSlashing | TrustedElectraAttesterSlashing,
+    flags: UpdateFlags): Result[seq[ValidatorIndex], cstring] =
+  withState(state):
+    check_attester_slashing(forkyState.data, attester_slashing, flags)
+
 # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.6/specs/phase0/beacon-chain.md#attester-slashings
 proc process_attester_slashing*(
     cfg: RuntimeConfig,
@@ -526,10 +542,12 @@ proc process_operations(cfg: RuntimeConfig,
     operations_rewards.proposer_slashings += proposer_slashing_reward
     exit_queue_info = new_exit_queue_info
   for op in body.attester_slashings:
-    let (attester_slashing_reward, new_exit_queue_info) =
-      ? process_attester_slashing(cfg, state, op, flags, exit_queue_info, cache)
-    operations_rewards.attester_slashings += attester_slashing_reward
-    exit_queue_info = new_exit_queue_info
+    debugRaiseAssert "add process_attester_slashing for electra"
+    when typeof(body).kind != ConsensusFork.Electra:
+      let (attester_slashing_reward, new_exit_queue_info) =
+        ? process_attester_slashing(cfg, state, op, flags, exit_queue_info, cache)
+      operations_rewards.attester_slashings += attester_slashing_reward
+      exit_queue_info = new_exit_queue_info
   for op in body.attestations:
     operations_rewards.attestations +=
       ? process_attestation(state, op, flags, base_reward_per_increment, cache)

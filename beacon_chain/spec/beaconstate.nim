@@ -419,7 +419,7 @@ proc is_valid_indexed_attestation*(
 # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.6/specs/phase0/beacon-chain.md#get_attesting_indices
 iterator get_attesting_indices_iter*(state: ForkyBeaconState,
                                      data: AttestationData,
-                                     bits: CommitteeValidatorsBits,
+                                     bits: CommitteeValidatorsBits | ElectraCommitteeValidatorsBits,
                                      cache: var StateCache): ValidatorIndex =
   ## Return the set of attesting indices corresponding to ``data`` and ``bits``
   ## or nothing if `data` is invalid
@@ -440,7 +440,7 @@ iterator get_attesting_indices_iter*(state: ForkyBeaconState,
 # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.6/specs/phase0/beacon-chain.md#get_attesting_indices
 func get_attesting_indices*(state: ForkyBeaconState,
                             data: AttestationData,
-                            bits: CommitteeValidatorsBits,
+                            bits: CommitteeValidatorsBits | ElectraCommitteeValidatorsBits,
                             cache: var StateCache): seq[ValidatorIndex] =
   ## Return the set of attesting indices corresponding to ``data`` and ``bits``
   ## or nothing if `data` is invalid
@@ -449,7 +449,7 @@ func get_attesting_indices*(state: ForkyBeaconState,
 
 func get_attesting_indices*(state: ForkedHashedBeaconState;
                             data: AttestationData;
-                            bits: CommitteeValidatorsBits;
+                            bits: CommitteeValidatorsBits | ElectraCommitteeValidatorsBits;
                             cache: var StateCache): seq[ValidatorIndex] =
   # TODO when https://github.com/nim-lang/Nim/issues/18188 fixed, use an
   # iterator
@@ -685,6 +685,13 @@ proc check_attestation*(
 
   ok()
 
+debugRaiseAssert "implement check_attestation for Electra attestations"
+
+proc check_attestation*(
+    state: ForkyBeaconState, attestation: electra.Attestation | electra.TrustedAttestation, flags: UpdateFlags,
+    cache: var StateCache): Result[void, cstring] =
+  ok()
+
 # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.5/specs/capella/beacon-chain.md#new-process_bls_to_execution_change
 proc check_bls_to_execution_change*(
     genesisFork: Fork,
@@ -741,6 +748,15 @@ func get_proposer_reward*(
 
   result div proposer_reward_denominator
 
+func get_proposer_reward*(
+    state: ForkyBeaconState,
+    attestation: electra.Attestation | electra.TrustedAttestation,
+    base_reward_per_increment: Gwei,
+    cache: var StateCache,
+    epoch_participation: var EpochParticipationFlags): Gwei =
+  debugRaiseAssert "implement get_proposal_reward for Electra attestations"
+  0.Gwei
+
 proc process_attestation*(
     state: var ForkyBeaconState, attestation: SomeAttestation, flags: UpdateFlags,
     base_reward_per_increment: Gwei, cache: var StateCache):
@@ -793,6 +809,14 @@ proc process_attestation*(
         updateParticipationFlags(state.previous_epoch_participation)
 
   ok(proposer_reward)
+
+proc process_attestation*(
+    state: var ForkyBeaconState,
+    attestation: electra.Attestation | electra.TrustedAttestation,
+    flags: UpdateFlags, base_reward_per_increment: Gwei,
+    cache: var StateCache): Result[Gwei, cstring] =
+  debugRaiseAssert "electra process_attestation"
+  ok(0.Gwei)
 
 # https://github.com/ethereum/consensus-specs/blob/v1.4.0/specs/altair/beacon-chain.md#get_next_sync_committee_indices
 func get_next_sync_committee_keys(
