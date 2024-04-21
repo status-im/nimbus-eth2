@@ -393,7 +393,8 @@ type
 
     # Operations
     proposer_slashings*: List[ProposerSlashing, Limit MAX_PROPOSER_SLASHINGS]
-    attester_slashings*: List[AttesterSlashing, Limit MAX_ATTESTER_SLASHINGS]
+    attester_slashings*:
+      List[phase0.AttesterSlashing, Limit MAX_ATTESTER_SLASHINGS]
     attestations*: List[Attestation, Limit MAX_ATTESTATIONS]
     deposits*: List[Deposit, Limit MAX_DEPOSITS]
     voluntary_exits*: List[SignedVoluntaryExit, Limit MAX_VOLUNTARY_EXITS]
@@ -428,7 +429,8 @@ type
 
     # Operations
     proposer_slashings*: List[TrustedProposerSlashing, Limit MAX_PROPOSER_SLASHINGS]
-    attester_slashings*: List[TrustedAttesterSlashing, Limit MAX_ATTESTER_SLASHINGS]
+    attester_slashings*:
+      List[phase0.TrustedAttesterSlashing, Limit MAX_ATTESTER_SLASHINGS]
     attestations*: List[TrustedAttestation, Limit MAX_ATTESTATIONS]
     deposits*: List[Deposit, Limit MAX_DEPOSITS]
     voluntary_exits*: List[TrustedSignedVoluntaryExit, Limit MAX_VOLUNTARY_EXITS]
@@ -451,7 +453,8 @@ type
 
     # Operations
     proposer_slashings*: List[TrustedProposerSlashing, Limit MAX_PROPOSER_SLASHINGS]
-    attester_slashings*: List[TrustedAttesterSlashing, Limit MAX_ATTESTER_SLASHINGS]
+    attester_slashings*:
+      List[phase0.TrustedAttesterSlashing, Limit MAX_ATTESTER_SLASHINGS]
     attestations*: List[TrustedAttestation, Limit MAX_ATTESTATIONS]
     deposits*: List[Deposit, Limit MAX_DEPOSITS]
     voluntary_exits*: List[TrustedSignedVoluntaryExit, Limit MAX_VOLUNTARY_EXITS]

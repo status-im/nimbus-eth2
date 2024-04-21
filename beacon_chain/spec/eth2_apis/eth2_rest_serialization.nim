@@ -46,7 +46,6 @@ createJsonFlavor RestJson
 RestJson.useDefaultSerializationFor(
   AggregateAndProof,
   AttestationData,
-  AttesterSlashing,
   BLSToExecutionChange,
   BeaconBlockHeader,
   BlobSidecar,
@@ -107,7 +106,6 @@ RestJson.useDefaultSerializationFor(
   HistoricalSummary,
   ImportDistributedKeystoresBody,
   ImportRemoteKeystoresBody,
-  IndexedAttestation,
   KeymanagerGenericError,
   KeystoreInfo,
   ListFeeRecipientResponse,
@@ -262,9 +260,11 @@ RestJson.useDefaultSerializationFor(
   electra_mev.SignedBlindedBeaconBlock,
   electra_mev.SignedBuilderBid,
   phase0.Attestation,
+  phase0.AttesterSlashing,
   phase0.BeaconBlock,
   phase0.BeaconBlockBody,
   phase0.BeaconState,
+  phase0.IndexedAttestation,
   phase0.SignedBeaconBlock,
   phase0.TrustedAttestation
 )
@@ -323,7 +323,6 @@ const
 
 type
   EncodeTypes* =
-    AttesterSlashing |
     BlobSidecarInfoObject |
     DeleteKeystoresBody |
     EmptyBody |
@@ -338,6 +337,7 @@ type
     capella_mev.SignedBlindedBeaconBlock |
     deneb_mev.SignedBlindedBeaconBlock |
     electra_mev.SignedBlindedBeaconBlock |
+    phase0.AttesterSlashing |
     SignedValidatorRegistrationV1 |
     SignedVoluntaryExit |
     Web3SignerRequest |
@@ -1709,7 +1709,7 @@ proc readValue*(reader: var JsonReader[RestJson],
     proposer_slashings:
       Opt[List[ProposerSlashing, Limit MAX_PROPOSER_SLASHINGS]]
     attester_slashings:
-      Opt[List[AttesterSlashing, Limit MAX_ATTESTER_SLASHINGS]]
+      Opt[List[phase0.AttesterSlashing, Limit MAX_ATTESTER_SLASHINGS]]
     attestations: Opt[List[phase0.Attestation, Limit MAX_ATTESTATIONS]]
     deposits: Opt[List[Deposit, Limit MAX_DEPOSITS]]
     voluntary_exits: Opt[List[SignedVoluntaryExit, Limit MAX_VOLUNTARY_EXITS]]
@@ -1748,7 +1748,8 @@ proc readValue*(reader: var JsonReader[RestJson],
           "Multiple `attester_slashings` fields found",
           "RestPublishedBeaconBlockBody")
       attester_slashings = Opt.some(
-        reader.readValue(List[AttesterSlashing, Limit MAX_ATTESTER_SLASHINGS]))
+        reader.readValue(
+          List[phase0.AttesterSlashing, Limit MAX_ATTESTER_SLASHINGS]))
     of "attestations":
       if attestations.isSome():
         reader.raiseUnexpectedField("Multiple `attestations` fields found",

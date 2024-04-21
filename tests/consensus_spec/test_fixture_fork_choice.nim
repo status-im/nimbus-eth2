@@ -62,7 +62,7 @@ type
     of opOnMergeBlock:
       powBlock: PowBlock
     of opOnAttesterSlashing:
-      attesterSlashing: AttesterSlashing
+      attesterSlashing: phase0.AttesterSlashing
     of opInvalidateHash:
       invalidatedHash: Eth2Digest
       latestValidHash: Eth2Digest
@@ -151,7 +151,7 @@ proc loadOps(
       let filename = step["attester_slashing"].getStr()
       let attesterSlashing = parseTest(
         path/filename & ".ssz_snappy",
-        SSZ, AttesterSlashing
+        SSZ, phase0.AttesterSlashing
       )
       result.add Operation(kind: opOnAttesterSlashing,
         attesterSlashing: attesterSlashing)

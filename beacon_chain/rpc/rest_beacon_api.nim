@@ -1257,7 +1257,7 @@ proc installBeaconApiHandlers*(router: var RestRouter, node: BeaconNode) =
       block:
         if contentBody.isNone():
           return RestApiResponse.jsonError(Http400, EmptyRequestBodyError)
-        let dres = decodeBody(AttesterSlashing, contentBody.get())
+        let dres = decodeBody(phase0.AttesterSlashing, contentBody.get())
         if dres.isErr():
           return RestApiResponse.jsonError(Http400,
                                            InvalidAttesterSlashingObjectError,

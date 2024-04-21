@@ -287,7 +287,7 @@ proc initFullNode(
     node.eventBus.blsToExecQueue.emit(data)
   proc onProposerSlashingAdded(data: ProposerSlashing) =
     node.eventBus.propSlashQueue.emit(data)
-  proc onAttesterSlashingAdded(data: AttesterSlashing) =
+  proc onAttesterSlashingAdded(data: phase0.AttesterSlashing) =
     node.eventBus.attSlashQueue.emit(data)
   proc onBlobSidecarAdded(data: BlobSidecar) =
     node.eventBus.blobSidecarQueue.emit(
@@ -1773,7 +1773,7 @@ proc installMessageValidators(node: BeaconNode) =
       # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.5/specs/phase0/p2p-interface.md#attester_slashing
       node.network.addValidator(
         getAttesterSlashingsTopic(digest), proc (
-          attesterSlashing: AttesterSlashing
+          attesterSlashing: phase0.AttesterSlashing
         ): ValidationResult =
           toValidationResult(
             node.processor[].processAttesterSlashing(

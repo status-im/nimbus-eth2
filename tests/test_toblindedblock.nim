@@ -53,7 +53,8 @@ template bellatrix_steps() =
   do_check
   check: b.message.body.proposer_slashings.add(default(ProposerSlashing))
   do_check
-  check: b.message.body.attester_slashings.add(default(AttesterSlashing))
+  check:
+    b.message.body.attester_slashings.add(default(phase0.AttesterSlashing))
   do_check
   check: b.message.body.attestations.add(
     phase0.Attestation(aggregation_bits: CommitteeValidatorsBits.init(1)))
