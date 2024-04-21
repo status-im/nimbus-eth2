@@ -554,7 +554,8 @@ type
   GetPeerResponse* = DataMetaEnclosedObject[RestNodePeer]
   GetPeersResponse* = DataMetaEnclosedObject[seq[RestNodePeer]]
   GetPoolAttestationsResponse* = DataEnclosedObject[seq[phase0.Attestation]]
-  GetPoolAttesterSlashingsResponse* = DataEnclosedObject[seq[AttesterSlashing]]
+  GetPoolAttesterSlashingsResponse* =
+    DataEnclosedObject[seq[phase0.AttesterSlashing]]
   GetPoolProposerSlashingsResponse* = DataEnclosedObject[seq[ProposerSlashing]]
   GetPoolVoluntaryExitsResponse* = DataEnclosedObject[seq[SignedVoluntaryExit]]
   GetProposerDutiesResponse* = DataRootEnclosedObject[seq[RestProposerDuty]]

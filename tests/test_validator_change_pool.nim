@@ -29,12 +29,14 @@ func makeSignedBeaconBlockHeader(
 
 func makeIndexedAttestation(
     fork: Fork, genesis_validators_root: Eth2Digest, slot: Slot,
-    validator_index: uint64, beacon_block_root: Eth2Digest): IndexedAttestation =
+    validator_index: uint64, beacon_block_root: Eth2Digest):
+    phase0.IndexedAttestation =
   let tmp = AttestationData(slot: slot, beacon_block_root: beacon_block_root)
 
-  IndexedAttestation(
+  phase0.IndexedAttestation(
     data: tmp,
-    attesting_indices: List[uint64, Limit MAX_VALIDATORS_PER_COMMITTEE](@[validator_index]),
+    attesting_indices:
+      List[uint64, Limit MAX_VALIDATORS_PER_COMMITTEE](@[validator_index]),
     signature: get_attestation_signature(
       fork, genesis_validators_root, tmp,
       MockPrivKeys[validator_index]).toValidatorSig)
@@ -97,7 +99,7 @@ suite "Validator change pool testing suite":
     for i in 0'u64 .. MAX_ATTESTER_SLASHINGS + 5:
       for j in 0'u64 .. i:
         let
-          msg = AttesterSlashing(
+          msg = phase0.AttesterSlashing(
             attestation_1: makeIndexedAttestation(
               fork, genesis_validators_root, Slot(1), j, makeFakeHash(0)),
             attestation_2: makeIndexedAttestation(

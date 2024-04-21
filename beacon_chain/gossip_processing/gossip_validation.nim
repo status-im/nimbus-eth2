@@ -1087,7 +1087,7 @@ proc validateBlsToExecutionChange*(
 
 # https://github.com/ethereum/consensus-specs/blob/v1.3.0/specs/phase0/p2p-interface.md#attester_slashing
 proc validateAttesterSlashing*(
-    pool: ValidatorChangePool, attester_slashing: AttesterSlashing):
+    pool: ValidatorChangePool, attester_slashing: phase0.AttesterSlashing):
     Result[void, ValidationError] =
   # [IGNORE] At least one index in the intersection of the attesting indices of
   # each attestation has not yet been seen in any prior attester_slashing (i.e.
