@@ -2396,6 +2396,65 @@ OK: 25/25 Fail: 0/25 Skip: 0/25
 + test_process_light_client_update_not_timeout                                               OK
 ```
 OK: 4/4 Fail: 0/4 Skip: 0/4
+## EF - Electra - SSZ consensus objects  [Preset: mainnet]
+```diff
++   Testing    AggregateAndProof                                                             OK
++   Testing    Attestation                                                                   OK
++   Testing    AttestationData                                                               OK
++   Testing    AttesterSlashing                                                              OK
++   Testing    BLSToExecutionChange                                                          OK
++   Testing    BeaconBlock                                                                   OK
++   Testing    BeaconBlockBody                                                               OK
++   Testing    BeaconBlockHeader                                                             OK
++   Testing    BeaconState                                                                   OK
++   Testing    BlobIdentifier                                                                OK
++   Testing    BlobSidecar                                                                   OK
++   Testing    Checkpoint                                                                    OK
++   Testing    Consolidation                                                                 OK
++   Testing    ContributionAndProof                                                          OK
++   Testing    Deposit                                                                       OK
++   Testing    DepositData                                                                   OK
++   Testing    DepositMessage                                                                OK
++   Testing    DepositReceipt                                                                OK
++   Testing    Eth1Block                                                                     OK
++   Testing    Eth1Data                                                                      OK
++   Testing    ExecutionLayerWithdrawalRequest                                               OK
++   Testing    ExecutionPayload                                                              OK
++   Testing    ExecutionPayloadHeader                                                        OK
++   Testing    Fork                                                                          OK
++   Testing    ForkData                                                                      OK
++   Testing    HistoricalBatch                                                               OK
++   Testing    HistoricalSummary                                                             OK
++   Testing    IndexedAttestation                                                            OK
++   Testing    LightClientBootstrap                                                          OK
++   Testing    LightClientFinalityUpdate                                                     OK
++   Testing    LightClientHeader                                                             OK
++   Testing    LightClientOptimisticUpdate                                                   OK
++   Testing    LightClientUpdate                                                             OK
++   Testing    PendingAttestation                                                            OK
++   Testing    PendingBalanceDeposit                                                         OK
++   Testing    PendingConsolidation                                                          OK
++   Testing    PendingPartialWithdrawal                                                      OK
++   Testing    PowBlock                                                                      OK
++   Testing    ProposerSlashing                                                              OK
++   Testing    SignedAggregateAndProof                                                       OK
++   Testing    SignedBLSToExecutionChange                                                    OK
++   Testing    SignedBeaconBlock                                                             OK
++   Testing    SignedBeaconBlockHeader                                                       OK
++   Testing    SignedConsolidation                                                           OK
++   Testing    SignedContributionAndProof                                                    OK
++   Testing    SignedVoluntaryExit                                                           OK
++   Testing    SigningData                                                                   OK
++   Testing    SyncAggregate                                                                 OK
++   Testing    SyncAggregatorSelectionData                                                   OK
++   Testing    SyncCommittee                                                                 OK
++   Testing    SyncCommitteeContribution                                                     OK
++   Testing    SyncCommitteeMessage                                                          OK
++   Testing    Validator                                                                     OK
++   Testing    VoluntaryExit                                                                 OK
++   Testing    Withdrawal                                                                    OK
+```
+OK: 55/55 Fail: 0/55 Skip: 0/55
 ## EF - Light client - Single merkle proof [Preset: mainnet]
 ```diff
 + Light client - Single merkle proof - mainnet/altair/light_client/single_merkle_proof/Beaco OK
@@ -2924,4 +2983,4 @@ OK: 69/88 Fail: 0/88 Skip: 19/88
 OK: 3/3 Fail: 0/3 Skip: 0/3
 
 ---TOTAL---
-OK: 2343/2362 Fail: 0/2362 Skip: 19/2362
+OK: 2398/2417 Fail: 0/2417 Skip: 19/2417

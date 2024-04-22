@@ -579,7 +579,7 @@ proc init*(T: type BeaconNode,
     eventBus = EventBus(
       headQueue: newAsyncEventQueue[HeadChangeInfoObject](),
       blocksQueue: newAsyncEventQueue[EventBeaconBlockObject](),
-      attestQueue: newAsyncEventQueue[Attestation](),
+      attestQueue: newAsyncEventQueue[phase0.Attestation](),
       exitQueue: newAsyncEventQueue[SignedVoluntaryExit](),
       blsToExecQueue: newAsyncEventQueue[SignedBLSToExecutionChange](),
       propSlashQueue: newAsyncEventQueue[ProposerSlashing](),

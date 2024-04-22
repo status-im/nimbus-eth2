@@ -16,6 +16,9 @@ import
   ../spec/datatypes/base,
   ./block_pools_types, blockchain_dag
 
+debugRaiseAssert "probably just need Electra shortLog here"
+import ../spec/forks # prune this, it's for electra attestation logging
+
 export
   base, extras, block_pools_types, results
 
@@ -78,7 +81,7 @@ func get_beacon_committee_len*(
 
 # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.6/specs/phase0/beacon-chain.md#get_attesting_indices
 func compatible_with_shuffling*(
-    bits: CommitteeValidatorsBits,
+    bits: CommitteeValidatorsBits | ElectraCommitteeValidatorsBits,
     shufflingRef: ShufflingRef,
     slot: Slot,
     committee_index: CommitteeIndex): bool =
@@ -87,7 +90,7 @@ func compatible_with_shuffling*(
 iterator get_attesting_indices*(shufflingRef: ShufflingRef,
                                 slot: Slot,
                                 committee_index: CommitteeIndex,
-                                bits: CommitteeValidatorsBits):
+                                bits: CommitteeValidatorsBits | ElectraCommitteeValidatorsBits):
                                   ValidatorIndex =
   if not bits.compatible_with_shuffling(shufflingRef, slot, committee_index):
     trace "get_attesting_indices: inconsistent aggregation and committee length"
@@ -98,7 +101,7 @@ iterator get_attesting_indices*(shufflingRef: ShufflingRef,
         yield validator_index
 
 iterator get_attesting_indices*(
-    dag: ChainDAGRef, attestation: phase0.TrustedAttestation): ValidatorIndex =
+    dag: ChainDAGRef, attestation: phase0.TrustedAttestation | electra.TrustedAttestation): ValidatorIndex =
   block: # `return` is not allowed in an inline iterator
     let
       slot =

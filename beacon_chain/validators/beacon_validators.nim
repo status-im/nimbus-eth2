@@ -497,9 +497,13 @@ proc makeBeaconBlockForHeadAndSlot*(
     warn "Eth1 deposits not available. Skipping block proposal", slot
     return err("Eth1 deposits not available")
 
+  debugRaiseAssert "b_v makeBeaconBlockForHeadAndSlot doesn't know how to get Electra attestations because attpool doesn't either"
   let
     attestations =
-      node.attestationPool[].getAttestationsForBlock(state[], cache)
+      when PayloadType.kind == ConsensusFork.Electra:
+        default(seq[electra.Attestation])
+      else:
+        node.attestationPool[].getAttestationsForBlock(state[], cache)
     exits = withState(state[]):
       node.validatorChangePool[].getBeaconBlockValidatorChanges(
         node.dag.cfg, forkyState.data)

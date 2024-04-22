@@ -48,6 +48,9 @@ const
   CURRENT_SYNC_COMMITTEE_GINDEX = 86.GeneralizedIndex  # current_sync_committee
   NEXT_SYNC_COMMITTEE_GINDEX = 87.GeneralizedIndex  # next_sync_committee
 
+debugRaiseAssert "rename ElectraIndexedAttestation to IndexedAttestation"
+debugRaiseAssert "rename ElectraAttesterSlashing to AttesterSlashing"
+
 type
   # https://github.com/ethereum/consensus-specs/blob/94a0b6c581f2809aa8aca4ef7ee6fbb63f9d74e9/specs/electra/beacon-chain.md#depositreceipt
   DepositReceipt* = object
@@ -56,6 +59,34 @@ type
     amount*: Gwei
     signature*: ValidatorSig
     index*: uint64
+
+  # https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.0/specs/electra/beacon-chain.md#indexedattestation
+  ElectraIndexedAttestation* = object
+    attesting_indices*:
+      List[uint64, Limit MAX_VALIDATORS_PER_COMMITTEE * MAX_COMMITTEES_PER_SLOT]
+    data*: AttestationData
+    signature*: ValidatorSig
+
+  TrustedElectraIndexedAttestation* = object
+    # The Trusted version, at the moment, implies that the cryptographic signature was checked.
+    # It DOES NOT imply that the state transition was verified.
+    # Currently the code MUST verify the state transition as soon as the signature is verified
+    attesting_indices*:
+      List[uint64, Limit MAX_VALIDATORS_PER_COMMITTEE * MAX_COMMITTEES_PER_SLOT]
+    data*: AttestationData
+    signature*: TrustedSig
+
+  # https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.0/specs/electra/beacon-chain.md#attesterslashing
+  ElectraAttesterSlashing* = object
+    attestation_1*: ElectraIndexedAttestation  # [Modified in Electra:EIP7549]
+    attestation_2*: ElectraIndexedAttestation  # [Modified in Electra:EIP7549]
+
+  TrustedElectraAttesterSlashing* = object
+    # The Trusted version, at the moment, implies that the cryptographic signature was checked.
+    # It DOES NOT imply that the state transition was verified.
+    # Currently the code MUST verify the state transition as soon as the signature is verified
+    attestation_1*: TrustedIndexedAttestation  # Modified in Electra:EIP7549]
+    attestation_2*: TrustedIndexedAttestation  # Modified in Electra:EIP7549]
 
   # https://github.com/ethereum/consensus-specs/blob/82133085a1295e93394ebdf71df8f2f6e0962588/specs/electra/beacon-chain.md#executionpayload
   ExecutionPayload* = object
@@ -418,7 +449,7 @@ type
     state_root*: Eth2Digest
     body*: TrustedBeaconBlockBody
 
-  # https://github.com/ethereum/consensus-specs/blob/82133085a1295e93394ebdf71df8f2f6e0962588/specs/electra/beacon-chain.md#beaconblockbody
+  # https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.0/specs/electra/beacon-chain.md#beaconblockbody
   BeaconBlockBody* = object
     randao_reveal*: ValidatorSig
     eth1_data*: Eth1Data
@@ -430,9 +461,9 @@ type
     # Operations
     proposer_slashings*: List[ProposerSlashing, Limit MAX_PROPOSER_SLASHINGS]
     attester_slashings*:
-      List[AttesterSlashing, Limit MAX_ATTESTER_SLASHINGS_ELECTRA]
+      List[ElectraAttesterSlashing, Limit MAX_ATTESTER_SLASHINGS_ELECTRA]
       ## [Modified in Electra:EIP7549]
-    attestations*: List[phase0.Attestation, Limit MAX_ATTESTATIONS_ELECTRA]
+    attestations*: List[electra.Attestation, Limit MAX_ATTESTATIONS_ELECTRA]
       ## [Modified in Electra:EIP7549]
     deposits*: List[Deposit, Limit MAX_DEPOSITS]
     voluntary_exits*: List[SignedVoluntaryExit, Limit MAX_VOLUNTARY_EXITS]
@@ -440,7 +471,7 @@ type
     sync_aggregate*: SyncAggregate
 
     # Execution
-    execution_payload*: ExecutionPayload   # [Modified in Electra:EIP6110:EIP7002]
+    execution_payload*: electra.ExecutionPayload   # [Modified in Electra:EIP6110:EIP7002]
     bls_to_execution_changes*: SignedBLSToExecutionChangeList
     blob_kzg_commitments*: KzgCommitments
     consolidations*: List[SignedConsolidation, Limit MAX_CONSOLIDATIONS]
@@ -471,7 +502,7 @@ type
     proposer_slashings*:
       List[TrustedProposerSlashing, Limit MAX_PROPOSER_SLASHINGS]
     attester_slashings*:
-      List[TrustedAttesterSlashing, Limit MAX_ATTESTER_SLASHINGS_ELECTRA]
+      List[TrustedElectraAttesterSlashing, Limit MAX_ATTESTER_SLASHINGS_ELECTRA]
       ## [Modified in Electra:EIP7549]
     attestations*: List[TrustedAttestation, Limit MAX_ATTESTATIONS_ELECTRA]
       ## [Modified in Electra:EIP7549]
@@ -500,7 +531,7 @@ type
     proposer_slashings*:
       List[TrustedProposerSlashing, Limit MAX_PROPOSER_SLASHINGS]
     attester_slashings*:
-      List[TrustedAttesterSlashing, Limit MAX_ATTESTER_SLASHINGS_ELECTRA]
+      List[TrustedElectraAttesterSlashing, Limit MAX_ATTESTER_SLASHINGS_ELECTRA]
       ## [Modified in Electra:EIP7549]
     attestations*: List[TrustedAttestation, Limit MAX_ATTESTATIONS_ELECTRA]
       ## [Modified in Electra:EIP7549]
@@ -556,6 +587,22 @@ type
 
   ElectraCommitteeValidatorsBits* =
     BitList[Limit MAX_VALIDATORS_PER_COMMITTEE * MAX_COMMITTEES_PER_SLOT]
+
+  # https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.0/specs/electra/beacon-chain.md#attestation
+  Attestation* = object
+    aggregation_bits*: ElectraCommitteeValidatorsBits
+    data*: AttestationData
+    commiteee_bits*: BitArray[static(MAX_COMMITTEES_PER_SLOT.int)]  # [New in Electra:EIP7549]
+    signature*: ValidatorSig
+
+  TrustedAttestation* = object
+    # The Trusted version, at the moment, implies that the cryptographic signature was checked.
+    # It DOES NOT imply that the state transition was verified.
+    # Currently the code MUST verify the state transition as soon as the signature is verified
+    aggregation_bits*: ElectraCommitteeValidatorsBits
+    data*: AttestationData
+    commiteee_bits*: BitArray[static(MAX_COMMITTEES_PER_SLOT.int)]  # [New in Electra:EIP7549]
+    signature*: TrustedSig
 
   SomeSignedBeaconBlock* =
     SignedBeaconBlock |
@@ -656,3 +703,24 @@ template asTrusted*(
        SigVerifiedSignedBeaconBlock |
        MsgTrustedSignedBeaconBlock): TrustedSignedBeaconBlock =
   isomorphicCast[TrustedSignedBeaconBlock](x)
+
+debugRaiseAssert "this whole section with getValidatorIndices/shortLog needs refactoring and probably can be combined with identical implementations elsewhere"
+
+from std/sets import toHashSet
+
+iterator getValidatorIndices*(attester_slashing: ElectraAttesterSlashing | TrustedElectraAttesterSlashing): uint64 =
+  template attestation_1(): auto = attester_slashing.attestation_1
+  template attestation_2(): auto = attester_slashing.attestation_2
+
+  let attestation_2_indices = toHashSet(attestation_2.attesting_indices.asSeq)
+  for validator_index in attestation_1.attesting_indices.asSeq:
+    if validator_index notin attestation_2_indices:
+      continue
+    yield validator_index
+
+func shortLog*(v: electra.Attestation | electra.TrustedAttestation): auto =
+  (
+    aggregation_bits: v.aggregation_bits,
+    data: shortLog(v.data),
+    signature: shortLog(v.signature)
+  )
