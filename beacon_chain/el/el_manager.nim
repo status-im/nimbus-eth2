@@ -8,13 +8,13 @@
 {.push raises: [].}
 
 import
-  std/[strformat, typetraits, json],
+  std/[strformat, typetraits, json, sequtils],
   # Nimble packages:
   chronos, metrics, chronicles/timings,
   json_rpc/[client, errors],
   web3, web3/[engine_api, primitives, conversions],
   eth/common/eth_types,
-  eth/async_utils, results,
+  results,
   stew/[assign2, byteutils, objects],
   # Local modules:
   ../spec/[eth2_merkleization, forks],
@@ -147,7 +147,7 @@ type
     notSynced
     synced
 
-  ConnectionState = enum
+  ELConnectionState {.pure.} = enum
     NeverTested
     Working
     Degraded
@@ -155,7 +155,7 @@ type
   ELConnection* = ref object
     engineUrl: EngineApiUrl
 
-    web3: Option[Web3]
+    web3: Opt[Web3]
       ## This will be `none` before connecting and while we are
       ## reconnecting after a lost connetion. You can wait on
       ## the future below for the moment the connection is active.
@@ -167,7 +167,7 @@ type
       ## The latest status of the `exchangeTransitionConfiguration`
       ## exchange.
 
-    state: ConnectionState
+    state: ELConnectionState
     hysteresisCounter: int
 
     depositContractSyncStatus: DepositContractSyncStatus
@@ -182,6 +182,7 @@ type
   DataProviderFailure* = object of CatchableError
   CorruptDataProvider* = object of DataProviderFailure
   DataProviderTimeout* = object of DataProviderFailure
+  DataProviderConnectionFailure* = object of DataProviderFailure
 
   DisconnectHandler* = proc () {.gcsafe, raises: [].}
 
@@ -229,10 +230,19 @@ declareCounter engine_api_last_minute_forkchoice_updates_sent,
   "Number of last minute requests to the forkchoiceUpdated Engine API end-point just before block proposals",
   labels = ["url"]
 
-proc close(connection: ELConnection): Future[void] {.async.} =
+proc close(connection: ELConnection): Future[void] {.async: (raises: []).} =
   if connection.web3.isSome:
-    awaitWithTimeout(connection.web3.get.close(), 30.seconds):
-      debug "Failed to close data provider in time"
+    try:
+      let web3 = connection.web3.get
+      await noCancel web3.close().wait(30.seconds)
+    except AsyncTimeoutError:
+      debug "Failed to close execution layer data provider in time",
+            timeout = 30.seconds
+    except CatchableError as exc:
+      # TODO (cheatfate): This handler should be removed when `nim-web3` will
+      # adopt `asyncraises`.
+      debug "Failed to close execution layer", error = $exc.name,
+            reason = $exc.msg
 
 proc increaseCounterTowardsStateChange(connection: ELConnection): bool =
   result = connection.hysteresisCounter >= connectionStateChangeHysteresisThreshold
@@ -249,13 +259,15 @@ proc decreaseCounterTowardsStateChange(connection: ELConnection) =
     # between success and failure is roughly 50:50%
     connection.hysteresisCounter = connection.hysteresisCounter div 5
 
-proc setDegradedState(connection: ELConnection,
-                      requestName: string,
-                      statusCode: int, errMsg: string) =
+proc setDegradedState(
+    connection: ELConnection,
+    requestName: string,
+    statusCode: int,
+    errMsg: string
+): Future[void] {.async: (raises: []).} =
   debug "Failed EL Request", requestName, statusCode, err = errMsg
-
   case connection.state
-  of NeverTested, Working:
+  of ELConnectionState.NeverTested, ELConnectionState.Working:
     if connection.increaseCounterTowardsStateChange():
       warn "Connection to EL node degraded",
         url = url(connection.engineUrl),
@@ -264,79 +276,64 @@ proc setDegradedState(connection: ELConnection,
 
       connection.state = Degraded
 
-      asyncSpawn connection.close()
-      connection.web3 = none[Web3]()
-  of Degraded:
+      await connection.close()
+      connection.web3 = Opt.none(Web3)
+  of ELConnectionState.Degraded:
     connection.decreaseCounterTowardsStateChange()
 
 proc setWorkingState(connection: ELConnection) =
   case connection.state
-  of NeverTested:
+  of ELConnectionState.NeverTested:
     connection.hysteresisCounter = 0
     connection.state = Working
-  of Degraded:
+  of ELConnectionState.Degraded:
     if connection.increaseCounterTowardsStateChange():
       info "Connection to EL node restored",
         url = url(connection.engineUrl)
-
       connection.state = Working
-  of Working:
+  of ELConnectionState.Working:
     connection.decreaseCounterTowardsStateChange()
 
-proc trackEngineApiRequest(connection: ELConnection,
-                           request: FutureBase, requestName: string,
-                           startTime: Moment, deadline: Future[void],
-                           failureAllowed = false) =
-  request.addCallback do (udata: pointer) {.gcsafe, raises: [].}:
-    # TODO `udata` is nil here. How come?
-    # This forces us to create a GC cycle between the Future and the closure
-    if request.completed:
-      engine_api_request_duration_seconds.observe(
-        float(milliseconds(Moment.now - startTime)) / 1000.0,
+proc engineApiRequest[T](
+    connection: ELConnection,
+    request: Future[T],
+    requestName: string,
+    startTime: Moment,
+    deadline: Future[void] | Duration,
+    failureAllowed = false
+): Future[T] {.async: (raises: [CatchableError]).} =
+  ## This procedure raises `CancelledError` and `DataProviderTimeout`
+  ## exceptions, and everything what `request` could raise.
+  try:
+    let res = await request.wait(deadline)
+    engine_api_request_duration_seconds.observe(
+      float(milliseconds(Moment.now - startTime)) / 1000.0,
         [connection.engineUrl.url, requestName])
-
-      connection.setWorkingState()
-
-  deadline.addCallback do (udata: pointer) {.gcsafe, raises: [].}:
-    if not request.finished:
-      request.cancelSoon()
-      engine_api_timeouts.inc(1, [connection.engineUrl.url, requestName])
-      if not failureAllowed:
-        connection.setDegradedState(requestName, 0, "Request timed out")
-    else:
-      let statusCode = if not request.failed:
-        200
-      elif request.error of ErrorResponse:
+    engine_api_responses.inc(
+      1, [connection.engineUrl.url, requestName, "200"])
+    connection.setWorkingState()
+    res
+  except AsyncTimeoutError as exc:
+    engine_api_timeouts.inc(1, [connection.engineUrl.url, requestName])
+    if not(failureAllowed):
+      await connection.setDegradedState(requestName, 0, "Request timed out")
+    raise newException(DataProviderTimeout, "Request timed out")
+  except CancelledError as exc:
+    if not(failureAllowed):
+      await connection.setDegradedState(requestName, 0, "Request interrupted")
+    raise exc
+  except CatchableError as exc:
+    let statusCode =
+      if request.error of ErrorResponse:
         ((ref ErrorResponse) request.error).status
       else:
         0
-
-      if request.failed and not failureAllowed:
-        connection.setDegradedState(requestName, statusCode, request.error.msg)
-
-      engine_api_responses.inc(1, [connection.engineUrl.url, requestName, $statusCode])
-
-template awaitOrRaiseOnTimeout[T](fut: Future[T],
-                                  timeout: Duration): T =
-  awaitWithTimeout(fut, timeout):
-    raise newException(DataProviderTimeout, "Timeout")
-
-template trackedRequestWithTimeout[T](connection: ELConnection,
-                                      requestName: static string,
-                                      lazyRequestExpression: Future[T],
-                                      timeout: Duration,
-                                      failureAllowed = false): T =
-  let
-    connectionParam = connection
-    startTime = Moment.now
-    deadline = sleepAsync(timeout)
-    request = lazyRequestExpression
-
-  connectionParam.trackEngineApiRequest(
-    request, requestName, startTime, deadline, failureAllowed)
-
-  awaitWithTimeout(request, deadline):
-    raise newException(DataProviderTimeout, "Timeout")
+    engine_api_responses.inc(
+      1, [connection.engineUrl.url, requestName, $statusCode])
+    if not(failureAllowed):
+      await connection.setDegradedState(
+        requestName, statusCode, request.error.msg)
+    raise exc
 
 func raiseIfNil(web3block: BlockObject): BlockObject {.raises: [ValueError].} =
   if web3block == nil:
@@ -689,8 +686,7 @@ func getJsonRpcRequestHeaders(jwtSecret: Opt[seq[byte]]):
 
 proc newWeb3*(engineUrl: EngineApiUrl): Future[Web3] =
   newWeb3(engineUrl.url,
-          getJsonRpcRequestHeaders(engineUrl.jwtSecret),
-          httpFlags = {HttpClientFlag.NewConnectionAlways})
+          getJsonRpcRequestHeaders(engineUrl.jwtSecret), httpFlags = {})
 
 proc establishEngineApiConnection(url: EngineApiUrl):
                                   Future[Result[Web3, string]] {.
@@ -711,23 +707,24 @@ proc tryConnecting(connection: ELConnection): Future[bool] {.
 
   if connection.connectingFut == nil or
      connection.connectingFut.finished: # The previous attempt was not successful
-    connection.connectingFut = establishEngineApiConnection(connection.engineUrl)
+    connection.connectingFut =
+      establishEngineApiConnection(connection.engineUrl)
 
   let web3Res = await connection.connectingFut
   if web3Res.isErr:
     warn "Engine API connection failed", err = web3Res.error
-    return false
+    false
   else:
-    connection.web3 = some web3Res.get
-    return true
+    connection.web3 = Opt.some(web3Res.get)
+    true
 
 proc connectedRpcClient(connection: ELConnection): Future[RpcClient] {.
     async: (raises: [CancelledError]).} =
   while not connection.isConnected:
-    if not await connection.tryConnecting():
+    if not(await connection.tryConnecting()):
       await sleepAsync(chronos.seconds(10))
 
-  return connection.web3.get.provider
+  connection.web3.get.provider
 
 proc getBlockByHash(rpcClient: RpcClient, hash: BlockHash): Future[BlockObject] =
   rpcClient.eth_getBlockByHash(hash, false)
@@ -969,8 +966,9 @@ proc getPayload*(m: ELManager,
     return err()
 
 proc waitELToSyncDeposits(connection: ELConnection,
-                          minimalRequiredBlock: BlockHash) {.async.} =
-  var rpcClient = await connection.connectedRpcClient()
+                          minimalRequiredBlock: BlockHash) {.
+     async: (raises: [CancelledError]).} =
+  var rpcClient: RpcClient = nil
 
   if connection.depositContractSyncStatus == DepositContractSyncStatus.synced:
     return
@@ -978,36 +976,38 @@ proc waitELToSyncDeposits(connection: ELConnection,
   var attempt = 0
 
   while true:
+    if isNil(rpcClient):
+      rpcClient = await connection.connectedRpcClient()
+
     try:
-      discard raiseIfNil connection.trackedRequestWithTimeout(
-        "getBlockByHash",
+      discard raiseIfNil await connection.engineApiRequest(
         rpcClient.getBlockByHash(minimalRequiredBlock),
-        web3RequestsTimeout,
-        failureAllowed = true)
+        "getBlockByHash", Moment.now(),
+        web3RequestsTimeout, failureAllowed = true)
       connection.depositContractSyncStatus = DepositContractSyncStatus.synced
       return
-    except CancelledError as err:
-      trace "waitELToSyncDepositContract cancelled",
+    except CancelledError as exc:
+      trace "waitELToSyncDepositContract interrupted",
              url = connection.engineUrl.url
-      raise err
-    except CatchableError as err:
+      raise exc
+    except CatchableError as exc:
       connection.depositContractSyncStatus = DepositContractSyncStatus.notSynced
       if attempt == 0:
-        warn "Failed to obtain the most recent known block from the execution " &
-             "layer node (the node is probably not synced)",
+        warn "Failed to obtain the most recent known block from the " &
+             "execution layer node (the node is probably not synced)",
              url = connection.engineUrl.url,
              blk = minimalRequiredBlock,
-             err = err.msg
+             reason = exc.msg
       elif attempt mod 60 == 0:
         # This warning will be produced every 30 minutes
         warn "Still failing to obtain the most recent known block from the " &
              "execution layer node (the node is probably still not synced)",
              url = connection.engineUrl.url,
              blk = minimalRequiredBlock,
-             err = err.msg
-      inc attempt
+             reason = exc.msg
+      inc(attempt)
       await sleepAsync(seconds(30))
-      rpcClient = await connection.connectedRpcClient()
+      rpcClient = nil
 
 func networkHasDepositContract(m: ELManager): bool =
   not m.cfg.DEPOSIT_CONTRACT_ADDRESS.isDefaultValue
@@ -1018,30 +1018,41 @@ func mostRecentKnownBlock(m: ELManager): BlockHash =
   else:
     m.depositContractBlockHash
 
-proc selectConnectionForChainSyncing(m: ELManager): Future[ELConnection] {.async.} =
+proc selectConnectionForChainSyncing(m: ELManager): Future[ELConnection] {.
+     async: (raises: [CancelledError, DataProviderConnectionFailure]).} =
   doAssert m.elConnections.len > 0
 
-  let connectionsFuts = mapIt(
-    m.elConnections,
+  let pendingConnections = m.elConnections.mapIt(
     if m.networkHasDepositContract:
       FutureBase waitELToSyncDeposits(it, m.mostRecentKnownBlock)
     else:
       FutureBase connectedRpcClient(it))
 
-  # TODO: Ideally, the cancellation will be handled automatically
-  #       by a helper like `firstCompletedFuture`
-  let firstConnected = try:
-    await firstCompletedFuture(connectionsFuts)
-  except CancelledError as err:
-    for future in connectionsFuts:
-      future.cancelSoon()
-    raise err
+  while true:
+    var pendingFutures = pendingConnections
+    try:
+      discard await race(pendingFutures)
+    except ValueError as exc:
+      raiseAssert "pendingFutures should not be empty at this moment"
+    except CancelledError as exc:
+      let pending = pendingConnections.filterIt(not(it.finished())).
+                      mapIt(it.cancelAndWait())
+      await noCancel allFutures(pending)
+      raise exc
 
-  for future in connectionsFuts:
-    if future != firstConnected:
-      future.cancelSoon()
+    pendingFutures.reset()
+    for index, future in pendingConnections.pairs():
+      if future.completed():
+        let pending = pendingConnections.filterIt(not(it.finished())).
+                        mapIt(it.cancelAndWait())
+        await noCancel allFutures(pending)
+        return m.elConnections[index]
+      elif not(future.finished()):
+        pendingFutures.add(future)
 
-  return m.elConnections[find(connectionsFuts, firstConnected)]
+    if len(pendingFutures) == 0:
+      raise newException(DataProviderConnectionFailure,
+                         "Unable to establish connection for chain syncing")
 
 proc sendNewPayloadToSingleEL(connection: ELConnection,
                               payload: engine_api.ExecutionPayloadV1):
@@ -1133,22 +1144,21 @@ func init(T: type ELConsensusViolationDetector): T =
   ELConsensusViolationDetector(selectedResponse: none int,
                                disagreementAlreadyDetected: false)
 
-proc processResponse[ELResponseType](
+proc processResponse(
     d: var ELConsensusViolationDetector,
+    elResponseType: typedesc,
     connections: openArray[ELConnection],
-    requests: openArray[Future[ELResponseType]],
+    requests: auto,
     idx: int) =
 
   if not requests[idx].completed:
     return
 
-  let status = try: requests[idx].read.status
-               except CatchableError: raiseAssert "checked above"
+  let status = requests[idx].value().status
   if d.selectedResponse.isNone:
     d.selectedResponse = some idx
   elif not d.disagreementAlreadyDetected:
-    let prevStatus = try: requests[d.selectedResponse.get].read.status
-                     except CatchableError: raiseAssert "previously checked"
+    let prevStatus = requests[d.selectedResponse.get].value().status
     case compareStatuses(status, prevStatus)
     of newStatusIsPreferable:
       d.selectedResponse = some idx
@@ -1157,7 +1167,7 @@ proc processResponse[ELResponseType](
     of disagreement:
       d.disagreementAlreadyDetected = true
       error "Execution layer consensus violation detected",
-            responseType = name(ELResponseType),
+            responseType = name(elResponseType),
             url1 = connections[d.selectedResponse.get].engineUrl.url,
             status1 = prevStatus,
             url2 = connections[idx].engineUrl.url,
@@ -1188,12 +1198,19 @@ proc sendNewPayload*(m: ELManager, blck: SomeForkyBeaconBlock):
           sendNewPayloadToSingleEL(it, payload)
         else:
           static: doAssert false
-      trackEngineApiRequest(it, req, "newPayload", startTime, deadline)
-      req
+      engineApiRequest(it, req, "newPayload", startTime, deadline)
 
     requestsCompleted = allFutures(requests)
 
-  await requestsCompleted or earlyDeadline
+  try:
+    await requestsCompleted.wait(earlyDeadline)
+  except AsyncTimeoutError:
+    discard
+  except CancelledError as exc:
+    let pending =
+      requests.filterIt(not(it.finished())).mapIt(it.cancelAndWait())
+    await noCancel allFutures(pending)
+    raise exc
 
   var
     stillPending = newSeq[Future[PayloadStatusV1]]()
@@ -1203,18 +1220,28 @@ proc sendNewPayload*(m: ELManager, blck: SomeForkyBeaconBlock):
     if not req.finished:
       stillPending.add req
     elif req.completed:
-      responseProcessor.processResponse(m.elConnections, requests, idx)
+      responseProcessor.processResponse(type(payload),
+                                        m.elConnections, requests, idx)
 
   if responseProcessor.disagreementAlreadyDetected:
     return PayloadExecutionStatus.invalid
   elif responseProcessor.selectedResponse.isSome:
     return requests[responseProcessor.selectedResponse.get].read.status
 
-  await requestsCompleted or deadline
+  try:
+    await requestsCompleted.wait(deadline)
+  except AsyncTimeoutError:
+    discard
+  except CancelledError as exc:
+    let pending =
+      requests.filterIt(not(it.finished())).mapIt(it.cancelAndWait())
+    await noCancel allFutures(pending)
+    raise exc
 
   for idx, req in requests:
     if req.completed and req in stillPending:
-      responseProcessor.processResponse(m.elConnections, requests, idx)
+      responseProcessor.processResponse(type(payload),
+                                        m.elConnections, requests, idx)
 
   return if responseProcessor.disagreementAlreadyDetected:
     PayloadExecutionStatus.invalid
@@ -1312,11 +1339,18 @@ proc forkchoiceUpdated*(m: ELManager,
     deadline = sleepAsync(FORKCHOICEUPDATED_TIMEOUT)
     requests = m.elConnections.mapIt:
       let req = it.forkchoiceUpdatedForSingleEL(state, payloadAttributes)
-      trackEngineApiRequest(it, req, "forkchoiceUpdated", startTime, deadline)
-      req
+      engineApiRequest(it, req, "forkchoiceUpdated", startTime, deadline)
     requestsCompleted = allFutures(requests)
 
-  await requestsCompleted or earlyDeadline
+  try:
+    await requestsCompleted.wait(earlyDeadline)
+  except AsyncTimeoutError:
+    discard
+  except CancelledError as exc:
+    let pending =
+      requests.filterIt(not(it.finished())).mapIt(it.cancelAndWait())
+    await noCancel allFutures(pending)
+    raise exc
 
   var
     stillPending = newSeq[Future[PayloadStatusV1]]()
@@ -1326,7 +1360,8 @@ proc forkchoiceUpdated*(m: ELManager,
     if not req.finished:
       stillPending.add req
     elif req.completed:
-      responseProcessor.processResponse(m.elConnections, requests, idx)
+      responseProcessor.processResponse(
+        PayloadStatusV1, m.elConnections, requests, idx)
 
   template assignNextExpectedPayloadParams() =
     # Ensure that there's no race condition window where getPayload's check for
@@ -1343,12 +1378,7 @@ proc forkchoiceUpdated*(m: ELManager,
         payloadAttributes: payloadAttributesV3))
 
   template getSelected: untyped =
-    let
-      data =
-        try:
-          requests[responseProcessor.selectedResponse.get].read
-        except CatchableError:
-          raiseAssert "Only completed requests get selected"
+    let data = requests[responseProcessor.selectedResponse.get].value()
     (data.status, data.latestValidHash)
 
   if responseProcessor.disagreementAlreadyDetected:
@@ -1357,11 +1387,20 @@ proc forkchoiceUpdated*(m: ELManager,
     assignNextExpectedPayloadParams()
     return getSelected()
 
-  await requestsCompleted or deadline
+  try:
+    await requestsCompleted.wait(deadline)
+  except AsyncTimeoutError:
+    discard
+  except CancelledError as exc:
+    let pending =
+      requests.filterIt(not(it.finished())).mapIt(it.cancelAndWait())
+    await noCancel allFutures(pending)
+    raise exc
 
   for idx, req in requests:
     if req.completed and req in stillPending:
-      responseProcessor.processResponse(m.elConnections, requests, idx)
+      responseProcessor.processResponse(
+        PayloadStatusV1, m.elConnections, requests, idx)
 
   return if responseProcessor.disagreementAlreadyDetected:
     (PayloadExecutionStatus.invalid, none BlockHash)
@@ -1374,18 +1413,17 @@ proc forkchoiceUpdated*(m: ELManager,
 # TODO can't be defined within exchangeConfigWithSingleEL
 func `==`(x, y: Quantity): bool {.borrow.}
 
-proc exchangeConfigWithSingleEL(m: ELManager, connection: ELConnection) {.async.} =
+proc exchangeConfigWithSingleEL(m: ELManager, connection: ELConnection) {.
+     async: (raises: [CancelledError]).} =
   let rpcClient = await connection.connectedRpcClient()
 
   if m.eth1Network.isSome and
      connection.etcStatus == EtcStatus.notExchangedYet:
     try:
       let
-        providerChain =
-          connection.trackedRequestWithTimeout(
-            "chainId",
-            rpcClient.eth_chainId(),
-            web3RequestsTimeout)
+        providerChain = await connection.engineApiRequest(
+          rpcClient.eth_chainId(), "chainId", Moment.now(),
+          web3RequestsTimeout)
 
         # https://chainid.network/
         expectedChain = case m.eth1Network.get
@@ -1400,33 +1438,53 @@ proc exchangeConfigWithSingleEL(m: ELManager, connection: ELConnection) {.async.
               actualChain = distinctBase(providerChain)
         connection.etcStatus = EtcStatus.mismatch
         return
+    except CancelledError as exc:
+      debug "Configuration exchange was interrupted"
+      raise exc
     except CatchableError as exc:
       # Typically because it's not synced through EIP-155, assuming this Web3
       # endpoint has been otherwise working.
-      debug "Failed to obtain eth_chainId",
-             error = exc.msg
+      debug "Failed to obtain eth_chainId", reason = exc.msg
 
   connection.etcStatus = EtcStatus.match
 
-proc exchangeTransitionConfiguration*(m: ELManager) {.async.} =
+proc exchangeTransitionConfiguration*(m: ELManager) {.
+     async: (raises: [CancelledError]).} =
   if m.elConnections.len == 0:
     return
 
-  let
-    deadline = sleepAsync(3.seconds)
-    requests = m.elConnections.mapIt(m.exchangeConfigWithSingleEL(it))
-    requestsCompleted = allFutures(requests)
+  let requests = m.elConnections.mapIt(m.exchangeConfigWithSingleEL(it))
+  try:
+    await allFutures(requests).wait(3.seconds)
+  except AsyncTimeoutError:
+    discard
+  except CancelledError as exc:
+    let pending = requests.filterIt(not(it.finished())).
+                    mapIt(it.cancelAndWait())
+    await noCancel allFutures(pending)
+    raise exc
 
-  await requestsCompleted or deadline
+  let (pending, failed, finished) =
+    block:
+      var
+        failed = 0
+        done = 0
+        pending: seq[Future[void]]
+      for req in requests:
+        if not req.finished():
+          pending.add(req.cancelAndWait())
+        else:
+          if req.completed():
+            inc(done)
+          else:
+            inc(failed)
+      (pending, failed, done)
 
-  var cancelled = 0
-  for idx, req in requests:
-    if not req.finished:
-      req.cancelSoon()
-      inc cancelled
+  await noCancel allFutures(pending)
 
-  if cancelled == requests.len:
-    warn "Failed to exchange configuration with the configured EL end-points"
+  if (len(pending) > 0) or (failed != 0):
+    warn "Failed to exchange configuration with the configured EL end-points",
+         completed = finished, failed = failed, timed_out = len(pending)
 
 template readJsonField(logEvent, field: untyped, ValueType: type): untyped =
   if logEvent.field.isNone:
@@ -1437,17 +1495,16 @@ template readJsonField(logEvent, field: untyped, ValueType: type): untyped =
 template init[N: static int](T: type DynamicBytes[N, N]): T =
   T newSeq[byte](N)
 
-proc fetchTimestamp(connection: ELConnection,
-                    rpcClient: RpcClient,
-                    blk: Eth1Block) {.async.} =
+proc fetchTimestamp(connection: ELConnection, rpcClient: RpcClient,
+                    blk: Eth1Block) {.
+     async: (raises: [CancelledError, CatchableError]).} =
   debug "Fetching block timestamp", blockNum = blk.number
 
-  let web3block = raiseIfNil connection.trackedRequestWithTimeout(
-    "getBlockByHash",
+  let web3block = raiseIfNil await connection.engineApiRequest(
     rpcClient.getBlockByHash(blk.hash.asBlockHash),
-    web3RequestsTimeout)
+    "getBlockByHash", Moment.now(), web3RequestsTimeout)
 
-  blk.timestamp = Eth1BlockTimestamp web3block.timestamp
+  blk.timestamp = Eth1BlockTimestamp(web3block.timestamp)
 
 func depositEventsToBlocks(depositsList: openArray[JsonString]): seq[Eth1Block] {.
     raises: [CatchableError].} =
@@ -1510,58 +1567,68 @@ when hasDepositRootChecks:
   const
     contractCallTimeout = 60.seconds
 
-  proc fetchDepositContractData(connection: ELConnection,
-                                rpcClient: RpcClient,
-                                depositContract: Sender[DepositContract],
-                                blk: Eth1Block): Future[DepositContractDataStatus] {.async.} =
+  proc fetchDepositContractData(
+      connection: ELConnection,
+      rpcClient: RpcClient,
+      depositContract: Sender[DepositContract],
+      blk: Eth1Block
+  ): Future[DepositContractDataStatus] {.async: (raises: [CancelledError]).} =
     let
-      startTime = Moment.now
+      startTime = Moment.now()
       deadline = sleepAsync(contractCallTimeout)
-      depositRoot = depositContract.get_deposit_root.call(blockNumber = blk.number)
-      rawCount = depositContract.get_deposit_count.call(blockNumber = blk.number)
-
-    # We allow failures on these requests becaues the clients
-    # are expected to prune the state data for historical blocks
-    connection.trackEngineApiRequest(
-      depositRoot, "get_deposit_root", startTime, deadline,
-      failureAllowed = true)
-    connection.trackEngineApiRequest(
-      rawCount, "get_deposit_count", startTime, deadline,
-      failureAllowed = true)
+      depositRootFut =
+        depositContract.get_deposit_root.call(blockNumber = blk.number)
+      rawCountFut =
+        depositContract.get_deposit_count.call(blockNumber = blk.number)
+      engineFut1 = connection.awaitEngineApiRequest(
+        depositRootFut, "get_deposit_root", startTime, deadline,
+        failureAllowed = true)
+      engineFut2 = connection.awaitEngineApiRequest(
+        rawCountFut, "get_deposit_count", startTime, deadline,
+        failureAllowed = true)
 
     try:
-      let fetchedRoot = asEth2Digest(block:
-        awaitWithTimeout(depositRoot, deadline):
-          raise newException(DataProviderTimeout,
-            "Request time out while obtaining deposits root"))
+      await allFutures(engineFut1, engineFut2)
+    except CancelledError as exc:
+      var pending: seq[Future[void]]
+      if not(engineFut1.finished()):
+        pending.add(engineFut1.cancelAndWait())
+      if not(engineFut2.finished()):
+        pending.add(engineFut2.cancelAndWait())
+      await noCancel allFutures(pending)
+      raise exc
+
+    var res: DepositContractDataStatus
+
+    try:
+      # `engineFut1` could hold timeout exception `DataProviderTimeout`.
+      engineFut1.read()
+      let fetchedRoot = asEth2Digest(depositRootFut.read())
       if blk.depositRoot.isZero:
         blk.depositRoot = fetchedRoot
-        result = Fetched
+        res = Fetched
       elif blk.depositRoot == fetchedRoot:
-        result = VerifiedCorrect
+        res = VerifiedCorrect
       else:
-        result = DepositRootIncorrect
-    except CatchableError as err:
-      debug "Failed to fetch deposits root",
-        blockNumber = blk.number,
-        err = err.msg
-      result = DepositRootUnavailable
+        res = DepositRootIncorrect
+    except CatchableError as exc:
+      debug "Failed to fetch deposits root", block_number = blk.number,
+            reason = exc.msg
+      res = DepositRootUnavailable
 
     try:
-      let fetchedCount = bytes_to_uint64((block:
-        awaitWithTimeout(rawCount, deadline):
-          raise newException(DataProviderTimeout,
-            "Request time out while obtaining deposits count")).toArray)
+      # `engineFut2` could hold timeout exception `DataProviderTimeout`.
+      engineFut2.read()
+      let fetchedCount = bytes_to_uint64(rawCountFut.read().toArray)
       if blk.depositCount == 0:
         blk.depositCount = fetchedCount
       elif blk.depositCount != fetchedCount:
-        result = DepositCountIncorrect
-    except CatchableError as err:
-      debug "Failed to fetch deposits count",
-            blockNumber = blk.number,
-            err = err.msg
-      result = DepositCountUnavailable
-
+        res = DepositCountIncorrect
+    except CatchableError as exc:
+      debug "Failed to fetch deposits count", block_number = blk.number,
+            reason = exc.msg
+      res = DepositCountUnavailable
+    res
 
 template trackFinalizedState*(m: ELManager,
                               finalizedEth1Data: Eth1Data,
@@ -1647,7 +1714,8 @@ proc syncBlockRange(m: ELManager,
                     rpcClient: RpcClient,
                     depositContract: Sender[DepositContract],
                     fromBlock, toBlock,
-                    fullSyncFromBlock: Eth1BlockNumber) {.gcsafe, async.} =
+                    fullSyncFromBlock: Eth1BlockNumber) {.
+     async: (raises: [CancelledError, CatchableError]).} =
   doAssert m.eth1Chain.blocks.len > 0
 
   var currentBlock = fromBlock
@@ -1670,31 +1738,27 @@ proc syncBlockRange(m: ELManager,
         # Reduce all request rate until we have a more general solution
         # for dealing with Infura's rate limits
         await sleepAsync(milliseconds(backoff))
-        let
-          startTime = Moment.now
-          deadline = sleepAsync 30.seconds
-          jsonLogsFut = depositContract.getJsonLogs(
-            DepositEvent,
-            fromBlock = some blockId(currentBlock),
-            toBlock = some blockId(maxBlockNumberRequested))
 
-        connection.trackEngineApiRequest(
-          jsonLogsFut, "getLogs", startTime, deadline)
-
-        depositLogs = try:
-          # Downloading large amounts of deposits may take several minutes
-          awaitWithTimeout(jsonLogsFut, deadline):
-            raise newException(DataProviderTimeout,
-              "Request time out while obtaining json logs")
-        except CatchableError as err:
-          debug "Request for deposit logs failed", err = err.msg
-          inc failed_web3_requests
-          backoff = (backoff * 3) div 2
-          m.blocksPerLogsRequest = m.blocksPerLogsRequest div 2
-          if m.blocksPerLogsRequest == 0:
-            m.blocksPerLogsRequest = 1
-            raise err
-          continue
+        let depositLogs =
+          try:
+            await connection.engineApiRequest(
+              depositContract.getJsonLogs(
+                DepositEvent,
+                fromBlock = some blockId(currentBlock),
+                toBlock = some blockId(maxBlockNumberRequested)),
+              "getLogs", Moment.now(), 30.seconds)
+          except CancelledError as exc:
+            debug "Request for deposit logs was interrupted"
+            raise exc
+          except CatchableError as exc:
+            debug "Request for deposit logs failed", reason = exc.msg
+            inc failed_web3_requests
+            backoff = (backoff * 3) div 2
+            m.blocksPerLogsRequest = m.blocksPerLogsRequest div 2
+            if m.blocksPerLogsRequest == 0:
+              m.blocksPerLogsRequest = 1
+              raise exc
+            continue
         m.blocksPerLogsRequest = min(
           (m.blocksPerLogsRequest * 3 + 1) div 2,
           targetBlocksPerLogsRequest)
@@ -1707,14 +1771,32 @@ proc syncBlockRange(m: ELManager,
     for i in 0 ..< blocksWithDeposits.len:
       let blk = blocksWithDeposits[i]
       if blk.number > fullSyncFromBlock:
-        await fetchTimestamp(connection, rpcClient, blk)
+        try:
+          await fetchTimestamp(connection, rpcClient, blk)
+        except CancelledError as exc:
+          debug "Request for block timestamp was interrupted",
+                block_number = blk.number
+          raise exc
+        except CatchableError as exc:
+          debug "Request for block timestamp was failed",
+                block_number = blk.number, reason = exc.msg
+
         let lastBlock = m.eth1Chain.blocks.peekLast
         for n in max(lastBlock.number + 1, fullSyncFromBlock) ..< blk.number:
           debug "Obtaining block without deposits", blockNum = n
-          let noDepositsBlock = raiseIfNil connection.trackedRequestWithTimeout(
-            "getBlockByNumber",
-            rpcClient.getBlockByNumber(n),
-            web3RequestsTimeout)
+          let noDepositsBlock =
+            try:
+              raiseIfNil await connection.engineApiRequest(
+                rpcClient.getBlockByNumber(n),
+                "getBlockByNumber", Moment.now(), web3RequestsTimeout)
+            except CancelledError as exc:
+              debug "The process of obtaining the block was interrupted",
+                    block_number = n
+              raise exc
+            except CatchableError as exc:
+              debug "Request for block was failed", block_number = n,
+                    reason = exc.msg
+              raise exc
 
           m.eth1Chain.addBlock(
             lastBlock.makeSuccessorWithoutDeposits(noDepositsBlock))
@@ -1727,11 +1809,12 @@ proc syncBlockRange(m: ELManager,
       let lastIdx = blocksWithDeposits.len - 1
       template lastBlock: auto = blocksWithDeposits[lastIdx]
 
-      let status = when hasDepositRootChecks:
-        await fetchDepositContractData(
-          connection, rpcClient, depositContract, lastBlock)
-      else:
-        DepositRootUnavailable
+      let status =
+        when hasDepositRootChecks:
+          await fetchDepositContractData(
+            connection, rpcClient, depositContract, lastBlock)
+        else:
+          DepositRootUnavailable
 
       when hasDepositRootChecks:
         debug "Deposit contract state verified",
@@ -1763,18 +1846,25 @@ func hasProperlyConfiguredConnection*(m: ELManager): bool =
 
   false
 
-proc startExchangeTransitionConfigurationLoop(m: ELManager) {.async.} =
+proc startExchangeTransitionConfigurationLoop(m: ELManager) {.
+     async: (raises: [CancelledError]).} =
   debug "Starting exchange transition configuration loop"
 
   while true:
     # https://github.com/ethereum/execution-apis/blob/v1.0.0-beta.3/src/engine/paris.md#specification-3
     debug "Exchange transition configuration tick"
-    traceAsyncErrors m.exchangeTransitionConfiguration()
+    await m.exchangeTransitionConfiguration()
     await sleepAsync(60.seconds)
 
-proc syncEth1Chain(m: ELManager, connection: ELConnection) {.async.} =
-  let rpcClient = awaitOrRaiseOnTimeout(connection.connectedRpcClient(),
-                                        1.seconds)
+proc syncEth1Chain(m: ELManager, connection: ELConnection) {.
+     async: (raises: [CancelledError, DataProviderTimeout,
+                      CatchableError]).} =
+  let rpcClient =
+    try:
+      await connection.connectedRpcClient().wait(1.seconds)
+    except AsyncTimeoutError:
+      raise newException(DataProviderTimeout, "Connection timed out")
+
   let
     # BEWARE
     # `connectedRpcClient` guarantees that connection.web3 will not be
@@ -1812,10 +1902,20 @@ proc syncEth1Chain(m: ELManager, connection: ELConnection) {.async.} =
     let needsReset = m.eth1Chain.hasConsensusViolation or (block:
       let
         lastKnownBlock = m.eth1Chain.blocks.peekLast
-        matchingBlockAtNewEl = raiseIfNil connection.trackedRequestWithTimeout(
-          "getBlockByNumber",
-          rpcClient.getBlockByNumber(lastKnownBlock.number),
-          web3RequestsTimeout)
+        matchingBlockAtNewEl =
+          try:
+            raiseIfNil await connection.engineApiRequest(
+              rpcClient.getBlockByNumber(lastKnownBlock.number),
+              "getBlockByNumber", Moment.now(), web3RequestsTimeout)
+          except CancelledError as exc:
+            debug "getBlockByNumber request has been interrupted",
+                  last_known_block_number = lastKnownBlock.number
+            raise exc
+          except CatchableError as exc:
+            debug "getBlockByNumber request has been failed",
+                  last_known_block_number = lastKnownBlock.number,
+                  reason = exc.msg
+            raise exc
 
       lastKnownBlock.hash.asBlockHash != matchingBlockAtNewEl.hash)
 
@@ -1828,10 +1928,20 @@ proc syncEth1Chain(m: ELManager, connection: ELConnection) {.async.} =
   if shouldProcessDeposits:
     if m.eth1Chain.blocks.len == 0:
       let finalizedBlockHash = m.eth1Chain.finalizedBlockHash.asBlockHash
-      let startBlock = raiseIfNil connection.trackedRequestWithTimeout(
-        "getBlockByHash",
-        rpcClient.getBlockByHash(finalizedBlockHash),
-        web3RequestsTimeout)
+      let startBlock =
+        try:
+          raiseIfNil await connection.engineApiRequest(
+            rpcClient.getBlockByHash(finalizedBlockHash),
+            "getBlockByHash", Moment.now(), web3RequestsTimeout)
+        except CancelledError as exc:
+          debug "getBlockByHash() request has been interrupted",
+                finalized_block_hash = finalizedBlockHash
+          raise exc
+        except CatchableError as exc:
+          debug "getBlockByHash() request has been failed",
+                finalized_block_hash = finalizedBlockHash,
+                reason = exc.msg
+          raise exc
 
       m.eth1Chain.addBlock Eth1Block(
         hash: m.eth1Chain.finalizedBlockHash,
@@ -1852,21 +1962,27 @@ proc syncEth1Chain(m: ELManager, connection: ELConnection) {.async.} =
     debug "syncEth1Chain tick",
       shouldProcessDeposits, latestBlockNumber, eth1SyncedTo
 
+    # TODO (cheatfate): This should be removed
     if bnStatus == BeaconNodeStatus.Stopping:
-      await m.stop()
+      await noCancel m.stop()
       return
 
     if m.eth1Chain.hasConsensusViolation:
-      raise newException(CorruptDataProvider, "Eth1 chain contradicts Eth2 consensus")
+      raise newException(CorruptDataProvider,
+                         "Eth1 chain contradicts Eth2 consensus")
 
-    let latestBlock = try:
-      raiseIfNil connection.trackedRequestWithTimeout(
-        "getBlockByNumber",
-        rpcClient.eth_getBlockByNumber(blockId("latest"), false),
-        web3RequestsTimeout)
-    except CatchableError as err:
-      warn "Failed to obtain the latest block from the EL", err = err.msg
-      raise err
+    let latestBlock =
+      try:
+        raiseIfNil await connection.engineApiRequest(
+          rpcClient.eth_getBlockByNumber(blockId("latest"), false),
+          "getBlockByNumber", Moment.now(), web3RequestsTimeout)
+      except CancelledError as exc:
+        debug "Latest block request has been interrupted"
+        raise exc
+      except CatchableError as exc:
+        warn "Failed to obtain the latest block from the EL", reason = exc.msg
+        raise exc
+
     latestBlockNumber = latestBlock.number
 
     m.syncTargetBlock = some(
@@ -1884,12 +2000,19 @@ proc syncEth1Chain(m: ELManager, connection: ELConnection) {.async.} =
 
     if shouldProcessDeposits and
        latestBlock.number.uint64 > m.cfg.ETH1_FOLLOW_DISTANCE:
-      await m.syncBlockRange(connection,
-                             rpcClient,
-                             depositContract,
-                             eth1SyncedTo + 1,
-                             m.syncTargetBlock.get,
-                             m.earliestBlockOfInterest(latestBlock.number))
+      try:
+        await m.syncBlockRange(connection,
+                               rpcClient,
+                               depositContract,
+                               eth1SyncedTo + 1,
+                               m.syncTargetBlock.get,
+                               m.earliestBlockOfInterest(latestBlock.number))
+      except CancelledError as exc:
+        debug "Syncing block range process has been interrupted"
+        raise exc
+      except CatchableError as exc:
+        debug "Syncing block range process has been failed", reason = exc.msg
+        raise exc
 
     eth1SyncedTo = m.syncTargetBlock.get
     eth1_synced_head.set eth1SyncedTo.toGaugeValue
@@ -1901,21 +2024,22 @@ proc startChainSyncingLoop(m: ELManager) {.async.} =
   var syncedConnectionFut = m.selectConnectionForChainSyncing()
   info "Connection attempt started"
 
-  while true:
+  var runLoop = true
+
+  while runLoop:
     try:
-      await syncedConnectionFut or sleepAsync(60.seconds)
-      if not syncedConnectionFut.finished:
-        notice "No synced execution layer available for deposit syncing"
-        await sleepAsync(chronos.seconds(30))
-        continue
-
-      await syncEth1Chain(m, syncedConnectionFut.read)
-    except CatchableError:
+      let connection = await syncedConnectionFut.wait(60.seconds)
+      await syncEth1Chain(m, connection)
+    except AsyncTimeoutError:
+      notice "No synced EL nodes available for deposit syncing"
+      await sleepAsync(chronos.seconds(30))
+    except CancelledError:
+      debug "EL chain syncing process has been stopped"
+      runLoop = false
+    except CatchableError as exc:
       await sleepAsync(10.seconds)
-
-      # A more detailed error is already logged by trackEngineApiRequest
       debug "Restarting the deposit syncing loop"
-
+      # A more detailed error is already logged by trackEngineApiRequest
       # To be extra safe, we will make a fresh connection attempt
       await syncedConnectionFut.cancelAndWait()
       syncedConnectionFut = m.selectConnectionForChainSyncing()
@@ -1943,15 +2067,15 @@ proc testWeb3Provider*(web3Url: Uri,
                        depositContractAddress: Eth1Address,
                        jwtSecret: Opt[seq[byte]]) {.async.} =
   stdout.write "Establishing web3 connection..."
-  var web3: Web3
-  try:
-    web3 = awaitOrRaiseOnTimeout(
-      newWeb3($web3Url, getJsonRpcRequestHeaders(jwtSecret)),
-      5.seconds)
-    stdout.write "\rEstablishing web3 connection: Connected\n"
-  except CatchableError as err:
-    stdout.write "\rEstablishing web3 connection: Failure(" & err.msg & ")\n"
-    quit 1
+  let web3 =
+    try:
+      await newWeb3($web3Url,
+                    getJsonRpcRequestHeaders(jwtSecret)).wait(5.seconds)
+    except CatchableError as exc:
+      stdout.write "\rEstablishing web3 connection: Failure(" & exc.msg & ")\n"
+      quit 1
+
+  stdout.write "\rEstablishing web3 connection: Connected\n"
 
   template request(actionDesc: static string,
                    action: untyped): untyped =
@@ -1959,7 +2083,8 @@ proc testWeb3Provider*(web3Url: Uri,
     stdout.flushFile()
     var res: typeof(read action)
     try:
-      res = awaitOrRaiseOnTimeout(action, web3RequestsTimeout)
+      let fut = action
+      res = await fut.wait(web3RequestsTimeout)
       when res is BlockObject:
         res = raiseIfNil res
       stdout.write "\r" & actionDesc & ": " & $res
