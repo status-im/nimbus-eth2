@@ -1602,7 +1602,7 @@ when hasDepositRootChecks:
 
     try:
       # `engineFut1` could hold timeout exception `DataProviderTimeout`.
-      engineFut1.read()
+      discard engineFut1.read()
       let fetchedRoot = asEth2Digest(depositRootFut.read())
       if blk.depositRoot.isZero:
         blk.depositRoot = fetchedRoot
@@ -1618,7 +1618,7 @@ when hasDepositRootChecks:
 
     try:
       # `engineFut2` could hold timeout exception `DataProviderTimeout`.
-      engineFut2.read()
+      discard engineFut2.read()
       let fetchedCount = bytes_to_uint64(rawCountFut.read().toArray)
       if blk.depositCount == 0:
         blk.depositCount = fetchedCount
