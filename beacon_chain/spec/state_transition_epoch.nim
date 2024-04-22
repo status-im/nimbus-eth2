@@ -1221,7 +1221,7 @@ func init*(
 func init*(
     T: type altair.EpochInfo,
     state: altair.BeaconState | bellatrix.BeaconState | capella.BeaconState |
-           deneb.BeaconState): T =
+           deneb.BeaconState | electra.BeaconState): T =
   init(result, state)
 
 # https://github.com/ethereum/consensus-specs/blob/v1.4.0/specs/altair/beacon-chain.md#epoch-processing
