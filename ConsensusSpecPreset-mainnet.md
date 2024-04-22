@@ -2396,6 +2396,118 @@ OK: 25/25 Fail: 0/25 Skip: 0/25
 + test_process_light_client_update_not_timeout                                               OK
 ```
 OK: 4/4 Fail: 0/4 Skip: 0/4
+## EF - Electra - Operations - BLS to execution change  [Preset: mainnet]
+```diff
++ [Invalid] EF - Electra - Operations - BLS to execution change - invalid_already_0x01       OK
++ [Invalid] EF - Electra - Operations - BLS to execution change - invalid_bad_signature      OK
++ [Invalid] EF - Electra - Operations - BLS to execution change - invalid_current_fork_versi OK
++ [Invalid] EF - Electra - Operations - BLS to execution change - invalid_genesis_validators OK
++ [Invalid] EF - Electra - Operations - BLS to execution change - invalid_incorrect_from_bls OK
++ [Invalid] EF - Electra - Operations - BLS to execution change - invalid_previous_fork_vers OK
++ [Invalid] EF - Electra - Operations - BLS to execution change - invalid_val_index_out_of_r OK
++ [Valid]   EF - Electra - Operations - BLS to execution change - genesis_fork_version       OK
++ [Valid]   EF - Electra - Operations - BLS to execution change - success                    OK
++ [Valid]   EF - Electra - Operations - BLS to execution change - success_exited             OK
++ [Valid]   EF - Electra - Operations - BLS to execution change - success_in_activation_queu OK
++ [Valid]   EF - Electra - Operations - BLS to execution change - success_in_exit_queue      OK
++ [Valid]   EF - Electra - Operations - BLS to execution change - success_not_activated      OK
++ [Valid]   EF - Electra - Operations - BLS to execution change - success_withdrawable       OK
+```
+OK: 14/14 Fail: 0/14 Skip: 0/14
+## EF - Electra - Operations - Block Header  [Preset: mainnet]
+```diff
++ [Invalid] EF - Electra - Operations - Block Header - invalid_multiple_blocks_single_slot   OK
++ [Invalid] EF - Electra - Operations - Block Header - invalid_parent_root                   OK
++ [Invalid] EF - Electra - Operations - Block Header - invalid_proposer_index                OK
++ [Invalid] EF - Electra - Operations - Block Header - invalid_proposer_slashed              OK
++ [Invalid] EF - Electra - Operations - Block Header - invalid_slot_block_header             OK
++ [Valid]   EF - Electra - Operations - Block Header - basic_block_header                    OK
+```
+OK: 6/6 Fail: 0/6 Skip: 0/6
+## EF - Electra - Operations - Sync Aggregate  [Preset: mainnet]
+```diff
++ [Invalid] EF - Electra - Operations - Sync Aggregate - invalid_signature_bad_domain        OK
++ [Invalid] EF - Electra - Operations - Sync Aggregate - invalid_signature_extra_participant OK
++ [Invalid] EF - Electra - Operations - Sync Aggregate - invalid_signature_infinite_signatur OK
++ [Invalid] EF - Electra - Operations - Sync Aggregate - invalid_signature_infinite_signatur OK
++ [Invalid] EF - Electra - Operations - Sync Aggregate - invalid_signature_missing_participa OK
++ [Invalid] EF - Electra - Operations - Sync Aggregate - invalid_signature_no_participants   OK
++ [Invalid] EF - Electra - Operations - Sync Aggregate - invalid_signature_past_block        OK
++ [Valid]   EF - Electra - Operations - Sync Aggregate - random_all_but_one_participating_wi OK
++ [Valid]   EF - Electra - Operations - Sync Aggregate - random_high_participation_with_dupl OK
++ [Valid]   EF - Electra - Operations - Sync Aggregate - random_low_participation_with_dupli OK
++ [Valid]   EF - Electra - Operations - Sync Aggregate - random_misc_balances_and_half_parti OK
++ [Valid]   EF - Electra - Operations - Sync Aggregate - random_only_one_participant_with_du OK
++ [Valid]   EF - Electra - Operations - Sync Aggregate - random_with_exits_with_duplicates   OK
++ [Valid]   EF - Electra - Operations - Sync Aggregate - sync_committee_rewards_duplicate_co OK
++ [Valid]   EF - Electra - Operations - Sync Aggregate - sync_committee_rewards_duplicate_co OK
++ [Valid]   EF - Electra - Operations - Sync Aggregate - sync_committee_rewards_duplicate_co OK
++ [Valid]   EF - Electra - Operations - Sync Aggregate - sync_committee_rewards_duplicate_co OK
++ [Valid]   EF - Electra - Operations - Sync Aggregate - sync_committee_rewards_duplicate_co OK
++ [Valid]   EF - Electra - Operations - Sync Aggregate - sync_committee_rewards_duplicate_co OK
++ [Valid]   EF - Electra - Operations - Sync Aggregate - sync_committee_rewards_duplicate_co OK
++ [Valid]   EF - Electra - Operations - Sync Aggregate - sync_committee_rewards_empty_partic OK
++ [Valid]   EF - Electra - Operations - Sync Aggregate - sync_committee_rewards_not_full_par OK
++ [Valid]   EF - Electra - Operations - Sync Aggregate - sync_committee_with_nonparticipatin OK
++ [Valid]   EF - Electra - Operations - Sync Aggregate - sync_committee_with_nonparticipatin OK
++ [Valid]   EF - Electra - Operations - Sync Aggregate - sync_committee_with_participating_e OK
++ [Valid]   EF - Electra - Operations - Sync Aggregate - sync_committee_with_participating_w OK
+```
+OK: 26/26 Fail: 0/26 Skip: 0/26
+## EF - Electra - Operations - Withdrawals  [Preset: mainnet]
+```diff
++ [Invalid] EF - Electra - Operations - Withdrawals - invalid_a_lot_fully_withdrawable_too_f OK
++ [Invalid] EF - Electra - Operations - Withdrawals - invalid_a_lot_mixed_withdrawable_in_qu OK
++ [Invalid] EF - Electra - Operations - Withdrawals - invalid_a_lot_partially_withdrawable_t OK
++ [Invalid] EF - Electra - Operations - Withdrawals - invalid_incorrect_address_full         OK
++ [Invalid] EF - Electra - Operations - Withdrawals - invalid_incorrect_address_partial      OK
++ [Invalid] EF - Electra - Operations - Withdrawals - invalid_incorrect_amount_full          OK
++ [Invalid] EF - Electra - Operations - Withdrawals - invalid_incorrect_amount_partial       OK
++ [Invalid] EF - Electra - Operations - Withdrawals - invalid_incorrect_withdrawal_index     OK
++ [Invalid] EF - Electra - Operations - Withdrawals - invalid_many_incorrectly_full          OK
++ [Invalid] EF - Electra - Operations - Withdrawals - invalid_many_incorrectly_partial       OK
++ [Invalid] EF - Electra - Operations - Withdrawals - invalid_max_per_slot_full_withdrawals_ OK
++ [Invalid] EF - Electra - Operations - Withdrawals - invalid_max_per_slot_partial_withdrawa OK
++ [Invalid] EF - Electra - Operations - Withdrawals - invalid_non_withdrawable_non_empty_wit OK
++ [Invalid] EF - Electra - Operations - Withdrawals - invalid_one_expected_full_withdrawal_a OK
++ [Invalid] EF - Electra - Operations - Withdrawals - invalid_one_expected_full_withdrawal_a OK
++ [Invalid] EF - Electra - Operations - Withdrawals - invalid_one_expected_partial_withdrawa OK
++ [Invalid] EF - Electra - Operations - Withdrawals - invalid_one_of_many_incorrectly_full   OK
++ [Invalid] EF - Electra - Operations - Withdrawals - invalid_one_of_many_incorrectly_partia OK
++ [Invalid] EF - Electra - Operations - Withdrawals - invalid_two_expected_partial_withdrawa OK
++ [Valid]   EF - Electra - Operations - Withdrawals - all_withdrawal                         OK
++ [Valid]   EF - Electra - Operations - Withdrawals - no_withdrawals_but_some_next_epoch     OK
++ [Valid]   EF - Electra - Operations - Withdrawals - random_0                               OK
++ [Valid]   EF - Electra - Operations - Withdrawals - random_full_withdrawals_0              OK
++ [Valid]   EF - Electra - Operations - Withdrawals - random_full_withdrawals_1              OK
++ [Valid]   EF - Electra - Operations - Withdrawals - random_full_withdrawals_2              OK
++ [Valid]   EF - Electra - Operations - Withdrawals - random_full_withdrawals_3              OK
++ [Valid]   EF - Electra - Operations - Withdrawals - random_partial_withdrawals_1           OK
++ [Valid]   EF - Electra - Operations - Withdrawals - random_partial_withdrawals_2           OK
++ [Valid]   EF - Electra - Operations - Withdrawals - random_partial_withdrawals_3           OK
++ [Valid]   EF - Electra - Operations - Withdrawals - random_partial_withdrawals_4           OK
++ [Valid]   EF - Electra - Operations - Withdrawals - random_partial_withdrawals_5           OK
++ [Valid]   EF - Electra - Operations - Withdrawals - success_all_fully_withdrawable_in_one_ OK
++ [Valid]   EF - Electra - Operations - Withdrawals - success_all_partially_withdrawable_in_ OK
++ [Valid]   EF - Electra - Operations - Withdrawals - success_excess_balance_but_no_max_effe OK
++ [Valid]   EF - Electra - Operations - Withdrawals - success_max_partial_withdrawable       OK
++ [Valid]   EF - Electra - Operations - Withdrawals - success_mixed_fully_and_partial_withdr OK
++ [Valid]   EF - Electra - Operations - Withdrawals - success_no_excess_balance              OK
++ [Valid]   EF - Electra - Operations - Withdrawals - success_no_max_effective_balance       OK
++ [Valid]   EF - Electra - Operations - Withdrawals - success_one_full_withdrawal            OK
++ [Valid]   EF - Electra - Operations - Withdrawals - success_one_partial_withdrawable_activ OK
++ [Valid]   EF - Electra - Operations - Withdrawals - success_one_partial_withdrawable_exite OK
++ [Valid]   EF - Electra - Operations - Withdrawals - success_one_partial_withdrawable_exite OK
++ [Valid]   EF - Electra - Operations - Withdrawals - success_one_partial_withdrawable_in_ex OK
++ [Valid]   EF - Electra - Operations - Withdrawals - success_one_partial_withdrawable_not_y OK
++ [Valid]   EF - Electra - Operations - Withdrawals - success_one_partial_withdrawal         OK
++ [Valid]   EF - Electra - Operations - Withdrawals - success_two_partial_withdrawable       OK
++ [Valid]   EF - Electra - Operations - Withdrawals - success_zero_expected_withdrawals      OK
++ [Valid]   EF - Electra - Operations - Withdrawals - withdrawable_epoch_but_0_balance       OK
++ [Valid]   EF - Electra - Operations - Withdrawals - withdrawable_epoch_but_0_effective_bal OK
++ [Valid]   EF - Electra - Operations - Withdrawals - withdrawable_epoch_but_0_effective_bal OK
+```
+OK: 50/50 Fail: 0/50 Skip: 0/50
 ## EF - Electra - SSZ consensus objects  [Preset: mainnet]
 ```diff
 +   Testing    AggregateAndProof                                                             OK
@@ -2983,4 +3095,4 @@ OK: 69/88 Fail: 0/88 Skip: 19/88
 OK: 3/3 Fail: 0/3 Skip: 0/3
 
 ---TOTAL---
-OK: 2398/2417 Fail: 0/2417 Skip: 19/2417
+OK: 2494/2513 Fail: 0/2513 Skip: 19/2513

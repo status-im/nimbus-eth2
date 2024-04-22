@@ -9,4 +9,5 @@
 {.used.}
 
 import
+  ./test_fixture_operations,
   ./test_fixture_ssz_consensus_objects
