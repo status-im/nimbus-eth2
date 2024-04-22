@@ -303,7 +303,7 @@ proc engineApiRequest[T](
     failureAllowed = false
 ): Future[T] {.async: (raises: [CatchableError]).} =
   ## This procedure raises `CancelledError` and `DataProviderTimeout`
-  ## exceptions, and everything what `request` could raise.
+  ## exceptions, and everything which `request` could raise.
   try:
     let res = await request.wait(deadline)
     engine_api_request_duration_seconds.observe(
@@ -1580,10 +1580,10 @@ when hasDepositRootChecks:
         depositContract.get_deposit_root.call(blockNumber = blk.number)
       rawCountFut =
         depositContract.get_deposit_count.call(blockNumber = blk.number)
-      engineFut1 = connection.awaitEngineApiRequest(
+      engineFut1 = connection.engineApiRequest(
         depositRootFut, "get_deposit_root", startTime, deadline,
         failureAllowed = true)
-      engineFut2 = connection.awaitEngineApiRequest(
+      engineFut2 = connection.engineApiRequest(
         rawCountFut, "get_deposit_count", startTime, deadline,
         failureAllowed = true)
 
@@ -1778,7 +1778,7 @@ proc syncBlockRange(m: ELManager,
                 block_number = blk.number
           raise exc
         except CatchableError as exc:
-          debug "Request for block timestamp was failed",
+          debug "Request for block timestamp failed",
                 block_number = blk.number, reason = exc.msg
 
         let lastBlock = m.eth1Chain.blocks.peekLast
@@ -1794,7 +1794,7 @@ proc syncBlockRange(m: ELManager,
                     block_number = n
               raise exc
             except CatchableError as exc:
-              debug "Request for block was failed", block_number = n,
+              debug "Request for block failed", block_number = n,
                     reason = exc.msg
               raise exc
 
@@ -1912,7 +1912,7 @@ proc syncEth1Chain(m: ELManager, connection: ELConnection) {.
                   last_known_block_number = lastKnownBlock.number
             raise exc
           except CatchableError as exc:
-            debug "getBlockByNumber request has been failed",
+            debug "getBlockByNumber request failed",
                   last_known_block_number = lastKnownBlock.number,
                   reason = exc.msg
             raise exc
@@ -1938,7 +1938,7 @@ proc syncEth1Chain(m: ELManager, connection: ELConnection) {.
                 finalized_block_hash = finalizedBlockHash
           raise exc
         except CatchableError as exc:
-          debug "getBlockByHash() request has been failed",
+          debug "getBlockByHash() request has failed",
                 finalized_block_hash = finalizedBlockHash,
                 reason = exc.msg
           raise exc
