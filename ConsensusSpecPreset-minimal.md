@@ -2793,6 +2793,16 @@ OK: 51/51 Fail: 0/51 Skip: 0/51
 +   Testing    Withdrawal                                                                    OK
 ```
 OK: 55/55 Fail: 0/55 Skip: 0/55
+## EF - Electra - Sanity - Slots  [Preset: minimal]
+```diff
++ EF - Electra - Slots - double_empty_epoch [Preset: minimal]                                OK
++ EF - Electra - Slots - empty_epoch [Preset: minimal]                                       OK
++ EF - Electra - Slots - historical_accumulator [Preset: minimal]                            OK
++ EF - Electra - Slots - over_epoch_boundary [Preset: minimal]                               OK
++ EF - Electra - Slots - slots_1 [Preset: minimal]                                           OK
++ EF - Electra - Slots - slots_2 [Preset: minimal]                                           OK
+```
+OK: 6/6 Fail: 0/6 Skip: 0/6
 ## EF - Light client - Single merkle proof [Preset: minimal]
 ```diff
 + Light client - Single merkle proof - minimal/altair/light_client/single_merkle_proof/Beaco OK
@@ -3482,4 +3492,4 @@ OK: 185/207 Fail: 0/207 Skip: 22/207
 OK: 3/3 Fail: 0/3 Skip: 0/3
 
 ---TOTAL---
-OK: 2810/2832 Fail: 0/2832 Skip: 22/2832
+OK: 2816/2838 Fail: 0/2838 Skip: 22/2838

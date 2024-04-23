@@ -2674,6 +2674,16 @@ OK: 50/50 Fail: 0/50 Skip: 0/50
 +   Testing    Withdrawal                                                                    OK
 ```
 OK: 55/55 Fail: 0/55 Skip: 0/55
+## EF - Electra - Sanity - Slots  [Preset: mainnet]
+```diff
++ EF - Electra - Slots - double_empty_epoch [Preset: mainnet]                                OK
++ EF - Electra - Slots - empty_epoch [Preset: mainnet]                                       OK
++ EF - Electra - Slots - historical_accumulator [Preset: mainnet]                            OK
++ EF - Electra - Slots - over_epoch_boundary [Preset: mainnet]                               OK
++ EF - Electra - Slots - slots_1 [Preset: mainnet]                                           OK
++ EF - Electra - Slots - slots_2 [Preset: mainnet]                                           OK
+```
+OK: 6/6 Fail: 0/6 Skip: 0/6
 ## EF - Light client - Single merkle proof [Preset: mainnet]
 ```diff
 + Light client - Single merkle proof - mainnet/altair/light_client/single_merkle_proof/Beaco OK
@@ -3202,4 +3212,4 @@ OK: 69/88 Fail: 0/88 Skip: 19/88
 OK: 3/3 Fail: 0/3 Skip: 0/3
 
 ---TOTAL---
-OK: 2561/2580 Fail: 0/2580 Skip: 19/2580
+OK: 2567/2586 Fail: 0/2586 Skip: 19/2586
