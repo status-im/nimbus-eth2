@@ -2615,6 +2615,44 @@ OK: 26/26 Fail: 0/26 Skip: 0/26
 + [Valid]   EF - Electra - Operations - Withdrawals - withdrawable_epoch_but_0_effective_bal OK
 ```
 OK: 50/50 Fail: 0/50 Skip: 0/50
+## EF - Electra - Rewards  [Preset: mainnet]
+```diff
++ EF - Electra - Rewards - all_balances_too_low_for_reward [Preset: mainnet]                 OK
++ EF - Electra - Rewards - empty [Preset: mainnet]                                           OK
++ EF - Electra - Rewards - empty_leak [Preset: mainnet]                                      OK
++ EF - Electra - Rewards - full_all_correct [Preset: mainnet]                                OK
++ EF - Electra - Rewards - full_but_partial_participation [Preset: mainnet]                  OK
++ EF - Electra - Rewards - full_but_partial_participation_leak [Preset: mainnet]             OK
++ EF - Electra - Rewards - full_leak [Preset: mainnet]                                       OK
++ EF - Electra - Rewards - full_random_0 [Preset: mainnet]                                   OK
++ EF - Electra - Rewards - full_random_1 [Preset: mainnet]                                   OK
++ EF - Electra - Rewards - full_random_2 [Preset: mainnet]                                   OK
++ EF - Electra - Rewards - full_random_3 [Preset: mainnet]                                   OK
++ EF - Electra - Rewards - full_random_4 [Preset: mainnet]                                   OK
++ EF - Electra - Rewards - full_random_leak [Preset: mainnet]                                OK
++ EF - Electra - Rewards - full_random_low_balances_0 [Preset: mainnet]                      OK
++ EF - Electra - Rewards - full_random_low_balances_1 [Preset: mainnet]                      OK
++ EF - Electra - Rewards - full_random_misc_balances [Preset: mainnet]                       OK
++ EF - Electra - Rewards - full_random_seven_epoch_leak [Preset: mainnet]                    OK
++ EF - Electra - Rewards - full_random_ten_epoch_leak [Preset: mainnet]                      OK
++ EF - Electra - Rewards - full_random_without_leak_0 [Preset: mainnet]                      OK
++ EF - Electra - Rewards - full_random_without_leak_and_current_exit_0 [Preset: mainnet]     OK
++ EF - Electra - Rewards - half_full [Preset: mainnet]                                       OK
++ EF - Electra - Rewards - half_full_leak [Preset: mainnet]                                  OK
++ EF - Electra - Rewards - quarter_full [Preset: mainnet]                                    OK
++ EF - Electra - Rewards - quarter_full_leak [Preset: mainnet]                               OK
++ EF - Electra - Rewards - some_very_low_effective_balances_that_attested [Preset: mainnet]  OK
++ EF - Electra - Rewards - some_very_low_effective_balances_that_attested_leak [Preset: main OK
++ EF - Electra - Rewards - some_very_low_effective_balances_that_did_not_attest [Preset: mai OK
++ EF - Electra - Rewards - some_very_low_effective_balances_that_did_not_attest_leak [Preset OK
++ EF - Electra - Rewards - with_exited_validators [Preset: mainnet]                          OK
++ EF - Electra - Rewards - with_exited_validators_leak [Preset: mainnet]                     OK
++ EF - Electra - Rewards - with_not_yet_activated_validators [Preset: mainnet]               OK
++ EF - Electra - Rewards - with_not_yet_activated_validators_leak [Preset: mainnet]          OK
++ EF - Electra - Rewards - with_slashed_validators [Preset: mainnet]                         OK
++ EF - Electra - Rewards - with_slashed_validators_leak [Preset: mainnet]                    OK
+```
+OK: 34/34 Fail: 0/34 Skip: 0/34
 ## EF - Electra - SSZ consensus objects  [Preset: mainnet]
 ```diff
 +   Testing    AggregateAndProof                                                             OK
@@ -3212,4 +3250,4 @@ OK: 69/88 Fail: 0/88 Skip: 19/88
 OK: 3/3 Fail: 0/3 Skip: 0/3
 
 ---TOTAL---
-OK: 2567/2586 Fail: 0/2586 Skip: 19/2586
+OK: 2601/2620 Fail: 0/2620 Skip: 19/2620
