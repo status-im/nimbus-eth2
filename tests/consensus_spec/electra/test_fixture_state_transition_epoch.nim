@@ -17,10 +17,8 @@ import
   # Test utilities
   ../../testutil,
   ../fixtures_utils, ../os_ops,
-  #./test_fixture_rewards,
+  ./test_fixture_rewards,
   ../../helpers/debug_state
-
-debugRaiseAssert "uncomment test_fixture_rewards import"
 
 from std/sequtils import mapIt, toSeq
 from std/strutils import rsplit
