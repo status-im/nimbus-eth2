@@ -101,6 +101,9 @@ type
     finalizedBlockHash*: Eth2Digest
     payloadAttributes*: PayloadAttributesV3
 
+  ELManagerState* {.pure.} = enum
+    Running, Closing, Closed
+
   ELManager* = ref object
     eth1Network: Option[Eth1Network]
       ## If this value is supplied the EL manager will check whether
@@ -133,7 +136,7 @@ type
 
     chainSyncingLoopFut: Future[void]
     exchangeTransitionConfigurationLoopFut: Future[void]
-    stopFut: Future[void]
+    managerState: ELManagerState
 
     nextExpectedPayloadParams*: Option[NextExpectedPayloadParams]
 
@@ -701,7 +704,7 @@ proc establishEngineApiConnection(url: EngineApiUrl):
     err exc.msg
 
 proc tryConnecting(connection: ELConnection): Future[bool] {.
-    async: (raises: [CancelledError]).} =
+     async: (raises: [CancelledError]).} =
   if connection.isConnected:
     return true
 
@@ -719,18 +722,23 @@ proc tryConnecting(connection: ELConnection): Future[bool] {.
     true
 
 proc connectedRpcClient(connection: ELConnection): Future[RpcClient] {.
-    async: (raises: [CancelledError]).} =
+     async: (raises: [CancelledError]).} =
   while not connection.isConnected:
     if not(await connection.tryConnecting()):
       await sleepAsync(chronos.seconds(10))
 
   connection.web3.get.provider
 
-proc getBlockByHash(rpcClient: RpcClient, hash: BlockHash): Future[BlockObject] =
+proc getBlockByHash(
+    rpcClient: RpcClient,
+    hash: BlockHash
+): Future[BlockObject] {.async: (raising: [CatchableError], raw: true).} =
   rpcClient.eth_getBlockByHash(hash, false)
 
-proc getBlockByNumber*(rpcClient: RpcClient,
-                       number: Eth1BlockNumber): Future[BlockObject] =
+proc getBlockByNumber*(
+    rpcClient: RpcClient,
+    number: Eth1BlockNumber
+): Future[BlockObject] {.async: (raising: [CatchableError], raw: true).} =
   let hexNumber = try:
     let num = distinctBase(number)
     &"0x{num:X}" # No leading 0's!
@@ -779,7 +787,8 @@ proc getPayloadFromSingleEL(
     timestamp: uint64,
     randomData: Eth2Digest,
     suggestedFeeRecipient: Eth1Address,
-    withdrawals: seq[WithdrawalV1]): Future[GetPayloadResponseType] {.async.} =
+    withdrawals: seq[WithdrawalV1]
+): Future[GetPayloadResponseType] {.async: (raises: [CatchableError]).} =
 
   let
     rpcClient = await connection.connectedRpcClient()
@@ -874,15 +883,16 @@ template kind(T: typedesc[ExecutionPayloadV1OrV2|ExecutionPayloadV2]): Consensus
 template kind(T: type ExecutionPayloadV3): ConsensusFork =
   ConsensusFork.Deneb
 
-proc getPayload*(m: ELManager,
-                 PayloadType: type ForkyExecutionPayloadForSigning,
-                 consensusHead: Eth2Digest,
-                 headBlock, safeBlock, finalizedBlock: Eth2Digest,
-                 timestamp: uint64,
-                 randomData: Eth2Digest,
-                 suggestedFeeRecipient: Eth1Address,
-                 withdrawals: seq[capella.Withdrawal]):
-                 Future[Opt[PayloadType]] {.async: (raises: [CancelledError]).} =
+proc getPayload*(
+    m: ELManager,
+    PayloadType: type ForkyExecutionPayloadForSigning,
+    consensusHead: Eth2Digest,
+    headBlock, safeBlock, finalizedBlock: Eth2Digest,
+    timestamp: uint64,
+    randomData: Eth2Digest,
+    suggestedFeeRecipient: Eth1Address,
+    withdrawals: seq[capella.Withdrawal]
+): Future[Opt[PayloadType]] {.async: (raises: [CancelledError]).} =
   if m.elConnections.len == 0:
     return err()
 
@@ -965,9 +975,10 @@ proc getPayload*(m: ELManager,
   else:
     return err()
 
-proc waitELToSyncDeposits(connection: ELConnection,
-                          minimalRequiredBlock: BlockHash) {.
-     async: (raises: [CancelledError]).} =
+proc waitELToSyncDeposits(
+    connection: ELConnection,
+    minimalRequiredBlock: BlockHash
+) {.async: (raises: [CancelledError]).} =
   var rpcClient: RpcClient = nil
 
   if connection.depositContractSyncStatus == DepositContractSyncStatus.synced:
@@ -1018,8 +1029,10 @@ func mostRecentKnownBlock(m: ELManager): BlockHash =
   else:
     m.depositContractBlockHash
 
-proc selectConnectionForChainSyncing(m: ELManager): Future[ELConnection] {.
-     async: (raises: [CancelledError, DataProviderConnectionFailure]).} =
+proc selectConnectionForChainSyncing(
+    m: ELManager
+): Future[ELConnection] {.async: (raises: [CancelledError,
+                                           DataProviderConnectionFailure]).} =
   doAssert m.elConnections.len > 0
 
   let pendingConnections = m.elConnections.mapIt(
@@ -1054,34 +1067,38 @@ proc selectConnectionForChainSyncing(m: ELManager): Future[ELConnection] {.
       raise newException(DataProviderConnectionFailure,
                          "Unable to establish connection for chain syncing")
 
-proc sendNewPayloadToSingleEL(connection: ELConnection,
-                              payload: engine_api.ExecutionPayloadV1):
-                              Future[PayloadStatusV1] {.async.} =
+proc sendNewPayloadToSingleEL(
+    connection: ELConnection,
+    payload: engine_api.ExecutionPayloadV1
+): Future[PayloadStatusV1] {.async: (raises: [CatchableError]).} =
   let rpcClient = await connection.connectedRpcClient()
-  return await rpcClient.engine_newPayloadV1(payload)
+  await rpcClient.engine_newPayloadV1(payload)
 
-proc sendNewPayloadToSingleEL(connection: ELConnection,
-                              payload: engine_api.ExecutionPayloadV2):
-                              Future[PayloadStatusV1] {.async.} =
+proc sendNewPayloadToSingleEL(
+    connection: ELConnection,
+    payload: engine_api.ExecutionPayloadV2
+): Future[PayloadStatusV1] {.async: (raises: [CatchableError]).} =
   let rpcClient = await connection.connectedRpcClient()
-  return await rpcClient.engine_newPayloadV2(payload)
+  await rpcClient.engine_newPayloadV2(payload)
 
-proc sendNewPayloadToSingleEL(connection: ELConnection,
-                              payload: engine_api.ExecutionPayloadV3,
-                              versioned_hashes: seq[engine_api.VersionedHash],
-                              parent_beacon_block_root: FixedBytes[32]):
-                              Future[PayloadStatusV1] {.async.} =
+proc sendNewPayloadToSingleEL(
+    connection: ELConnection,
+    payload: engine_api.ExecutionPayloadV3,
+    versioned_hashes: seq[engine_api.VersionedHash],
+    parent_beacon_block_root: FixedBytes[32]
+): Future[PayloadStatusV1] {.async: (raises: [CatchableError]).} =
   let rpcClient = await connection.connectedRpcClient()
-  return await rpcClient.engine_newPayloadV3(
+  await rpcClient.engine_newPayloadV3(
     payload, versioned_hashes, parent_beacon_block_root)
 
-proc sendNewPayloadToSingleEL(connection: ELConnection,
-                              payload: engine_api.ExecutionPayloadV4,
-                              versioned_hashes: seq[engine_api.VersionedHash],
-                              parent_beacon_block_root: FixedBytes[32]):
-                              Future[PayloadStatusV1] {.async.} =
+proc sendNewPayloadToSingleEL(
+    connection: ELConnection,
+    payload: engine_api.ExecutionPayloadV4,
+    versioned_hashes: seq[engine_api.VersionedHash],
+    parent_beacon_block_root: FixedBytes[32]
+): Future[PayloadStatusV1] {.async: (raises: [CatchableError]).} =
   let rpcClient = await connection.connectedRpcClient()
-  return await rpcClient.engine_newPayloadV4(
+  await rpcClient.engine_newPayloadV4(
     payload, versioned_hashes, parent_beacon_block_root)
 
 type
@@ -1090,7 +1107,9 @@ type
     oldStatusIsOk
     disagreement
 
-func compareStatuses(newStatus, prevStatus: PayloadExecutionStatus): StatusRelation =
+func compareStatuses(
+    newStatus, prevStatus: PayloadExecutionStatus
+): StatusRelation =
   case prevStatus
   of PayloadExecutionStatus.syncing:
     if newStatus == PayloadExecutionStatus.syncing:
@@ -1173,8 +1192,10 @@ proc processResponse(
             url2 = connections[idx].engineUrl.url,
             status2 = status
 
-proc sendNewPayload*(m: ELManager, blck: SomeForkyBeaconBlock):
-                     Future[PayloadExecutionStatus] {.async.} =
+proc sendNewPayload*(
+    m: ELManager,
+    blck: SomeForkyBeaconBlock
+): Future[PayloadExecutionStatus] {.async: (raises: [CancelledError]).} =
   let
     earlyDeadline = sleepAsync(chronos.seconds 1)
     startTime = Moment.now
@@ -1226,7 +1247,7 @@ proc sendNewPayload*(m: ELManager, blck: SomeForkyBeaconBlock):
   if responseProcessor.disagreementAlreadyDetected:
     return PayloadExecutionStatus.invalid
   elif responseProcessor.selectedResponse.isSome:
-    return requests[responseProcessor.selectedResponse.get].read.status
+    return requests[responseProcessor.selectedResponse.get].value().status
 
   try:
     await requestsCompleted.wait(deadline)
@@ -1246,7 +1267,7 @@ proc sendNewPayload*(m: ELManager, blck: SomeForkyBeaconBlock):
   return if responseProcessor.disagreementAlreadyDetected:
     PayloadExecutionStatus.invalid
   elif responseProcessor.selectedResponse.isSome:
-    requests[responseProcessor.selectedResponse.get].read.status
+    requests[responseProcessor.selectedResponse.get].value().status
   else:
     PayloadExecutionStatus.syncing
 
@@ -1255,8 +1276,8 @@ proc forkchoiceUpdatedForSingleEL(
     state: ref ForkchoiceStateV1,
     payloadAttributes: Option[PayloadAttributesV1] |
                        Option[PayloadAttributesV2] |
-                       Option[PayloadAttributesV3]):
-    Future[PayloadStatusV1] {.async.} =
+                       Option[PayloadAttributesV3]
+): Future[PayloadStatusV1] {.async: (raises: [CatchableError]).} =
   let
     rpcClient = await connection.connectedRpcClient()
     response = await rpcClient.forkchoiceUpdated(state[], payloadAttributes)
@@ -1272,13 +1293,15 @@ proc forkchoiceUpdatedForSingleEL(
 
   return response.payloadStatus
 
-proc forkchoiceUpdated*(m: ELManager,
-                        headBlockHash, safeBlockHash,
-                        finalizedBlockHash: Eth2Digest,
-                        payloadAttributes: Option[PayloadAttributesV1] |
-                                           Option[PayloadAttributesV2] |
-                                           Option[PayloadAttributesV3]):
-                        Future[(PayloadExecutionStatus, Option[BlockHash])] {.async: (raises: [CancelledError]).} =
+proc forkchoiceUpdated*(
+    m: ELManager,
+    headBlockHash, safeBlockHash, finalizedBlockHash: Eth2Digest,
+    payloadAttributes: Option[PayloadAttributesV1] |
+                       Option[PayloadAttributesV2] |
+                       Option[PayloadAttributesV3]
+): Future[(PayloadExecutionStatus, Option[BlockHash])] {.
+   async: (raises: [CancelledError]).} =
+
   doAssert not headBlockHash.isZero
 
   # Allow finalizedBlockHash to be 0 to avoid sync deadlocks.
@@ -1413,8 +1436,10 @@ proc forkchoiceUpdated*(m: ELManager,
 # TODO can't be defined within exchangeConfigWithSingleEL
 func `==`(x, y: Quantity): bool {.borrow.}
 
-proc exchangeConfigWithSingleEL(m: ELManager, connection: ELConnection) {.
-     async: (raises: [CancelledError]).} =
+proc exchangeConfigWithSingleEL(
+    m: ELManager,
+    connection: ELConnection
+) {.async: (raises: [CancelledError]).} =
   let rpcClient = await connection.connectedRpcClient()
 
   if m.eth1Network.isSome and
@@ -1448,8 +1473,9 @@ proc exchangeConfigWithSingleEL(m: ELManager, connection: ELConnection) {.
 
   connection.etcStatus = EtcStatus.match
 
-proc exchangeTransitionConfiguration*(m: ELManager) {.
-     async: (raises: [CancelledError]).} =
+proc exchangeTransitionConfiguration*(
+    m: ELManager
+) {.async: (raises: [CancelledError]).} =
   if m.elConnections.len == 0:
     return
 
@@ -1495,9 +1521,11 @@ template readJsonField(logEvent, field: untyped, ValueType: type): untyped =
 template init[N: static int](T: type DynamicBytes[N, N]): T =
   T newSeq[byte](N)
 
-proc fetchTimestamp(connection: ELConnection, rpcClient: RpcClient,
-                    blk: Eth1Block) {.
-     async: (raises: [CancelledError, CatchableError]).} =
+proc fetchTimestamp(
+    connection: ELConnection,
+    rpcClient: RpcClient,
+    blk: Eth1Block
+) {.async: (raises: [CatchableError]).} =
   debug "Fetching block timestamp", blockNum = blk.number
 
   let web3block = raiseIfNil await connection.engineApiRequest(
@@ -1506,8 +1534,9 @@ proc fetchTimestamp(connection: ELConnection, rpcClient: RpcClient,
 
   blk.timestamp = Eth1BlockTimestamp(web3block.timestamp)
 
-func depositEventsToBlocks(depositsList: openArray[JsonString]): seq[Eth1Block] {.
-    raises: [CatchableError].} =
+func depositEventsToBlocks(
+    depositsList: openArray[JsonString]
+): seq[Eth1Block] {.raises: [CatchableError].} =
   var lastEth1Block: Eth1Block
 
   for logEventData in depositsList:
@@ -1643,8 +1672,7 @@ template getBlockProposalData*(m: ELManager,
   getBlockProposalData(
     m.eth1Chain, state, finalizedEth1Data, finalizedStateDepositIndex)
 
-func new*(T: type ELConnection,
-          engineUrl: EngineApiUrl): T =
+func new*(T: type ELConnection, engineUrl: EngineApiUrl): T =
   ELConnection(
     engineUrl: engineUrl,
     depositContractSyncStatus: DepositContractSyncStatus.unknown)
@@ -1670,28 +1698,23 @@ proc new*(T: type ELManager,
     depositContractBlockHash: depositContractBlockHash.asBlockHash,
     elConnections: mapIt(engineApiUrls, ELConnection.new(it)),
     eth1Network: eth1Network,
-    blocksPerLogsRequest: targetBlocksPerLogsRequest)
+    blocksPerLogsRequest: targetBlocksPerLogsRequest,
+    managerState: ELManagerState.Running)
 
-proc safeCancel(fut: var Future[void]) =
-  if not fut.isNil and not fut.finished:
-    fut.cancelSoon()
-  fut = nil
-
-proc doStop(m: ELManager) {.async.} =
-  safeCancel m.chainSyncingLoopFut
-  safeCancel m.exchangeTransitionConfigurationLoopFut
-
-  if m.elConnections.len > 0:
-    let closeConnectionFutures = mapIt(m.elConnections, close(it))
-    await allFutures(closeConnectionFutures)
-
-proc stop(m: ELManager) {.async.} =
-  if not m.stopFut.isNil:
-    await m.stopFut
-  else:
-    m.stopFut = m.doStop()
-    await m.stopFut
-    m.stopFut = nil
+proc stop(m: ELManager) {.async: (raises: []).} =
+  if m.managerState notin {ELManagerState.Closing, ELManagerState.Closed}:
+    m.managerState = ELManagerState.Closing
+    var pending: seq[Future[void].Raising([])]
+    if not(m.chainSyncingLoopFut.isNil()) and
+       not(m.chainSyncingLoopFut.finished()):
+      pending.add(m.chainSyncingLoopFut.cancelAndWait())
+    if not(m.exchangeTransitionConfigurationLoopFut.isNil()) and
+       not(m.exchangeTransitionConfigurationLoopFut.finished()):
+      pending.add(m.exchangeTransitionConfigurationLoopFut.cancelAndWait())
+    for connection in m.elConnections:
+      pending.add(connection.close())
+    await noCancel allFutures(pending)
+    m.managerState = ELManagerState.Closed
 
 const
   votedBlocksSafetyMargin = 50
@@ -1709,13 +1732,14 @@ func earliestBlockOfInterest(
   else:
     0.Eth1BlockNumber
 
-proc syncBlockRange(m: ELManager,
-                    connection: ELConnection,
-                    rpcClient: RpcClient,
-                    depositContract: Sender[DepositContract],
-                    fromBlock, toBlock,
-                    fullSyncFromBlock: Eth1BlockNumber) {.
-     async: (raises: [CancelledError, CatchableError]).} =
+proc syncBlockRange(
+    m: ELManager,
+    connection: ELConnection,
+    rpcClient: RpcClient,
+    depositContract: Sender[DepositContract],
+    fromBlock, toBlock,
+    fullSyncFromBlock: Eth1BlockNumber
+) {.async: (raises: [CatchableError]).} =
   doAssert m.eth1Chain.blocks.len > 0
 
   var currentBlock = fromBlock
@@ -1846,8 +1870,9 @@ func hasProperlyConfiguredConnection*(m: ELManager): bool =
 
   false
 
-proc startExchangeTransitionConfigurationLoop(m: ELManager) {.
-     async: (raises: [CancelledError]).} =
+proc startExchangeTransitionConfigurationLoop(
+    m: ELManager
+) {.async: (raises: [CancelledError]).} =
   debug "Starting exchange transition configuration loop"
 
   while true:
@@ -1856,9 +1881,10 @@ proc startExchangeTransitionConfigurationLoop(m: ELManager) {.
     await m.exchangeTransitionConfiguration()
     await sleepAsync(60.seconds)
 
-proc syncEth1Chain(m: ELManager, connection: ELConnection) {.
-     async: (raises: [CancelledError, DataProviderTimeout,
-                      CatchableError]).} =
+proc syncEth1Chain(
+    m: ELManager,
+    connection: ELConnection
+) {.async: (raises: [CatchableError]).} =
   let rpcClient =
     try:
       await connection.connectedRpcClient().wait(1.seconds)
@@ -2017,7 +2043,9 @@ proc syncEth1Chain(m: ELManager, connection: ELConnection) {.
     eth1SyncedTo = m.syncTargetBlock.get
     eth1_synced_head.set eth1SyncedTo.toGaugeValue
 
-proc startChainSyncingLoop(m: ELManager) {.async.} =
+proc startChainSyncingLoop(
+    m: ELManager
+) {.async: (raises: []).} =
   info "Starting execution layer deposit syncing",
         contract = $m.depositContractAddress
 
@@ -2025,24 +2053,31 @@ proc startChainSyncingLoop(m: ELManager) {.async.} =
   info "Connection attempt started"
 
   var runLoop = true
-
   while runLoop:
     try:
       let connection = await syncedConnectionFut.wait(60.seconds)
       await syncEth1Chain(m, connection)
     except AsyncTimeoutError:
       notice "No synced EL nodes available for deposit syncing"
-      await sleepAsync(chronos.seconds(30))
+      try:
+        await sleepAsync(chronos.seconds(30))
+      except CancelledError:
+        runLoop = false
     except CancelledError:
-      debug "EL chain syncing process has been stopped"
       runLoop = false
     except CatchableError as exc:
-      await sleepAsync(10.seconds)
+      try:
+        await sleepAsync(10.seconds)
+      except CancelledError:
+        runLoop = false
+        break
       debug "Restarting the deposit syncing loop"
       # A more detailed error is already logged by trackEngineApiRequest
       # To be extra safe, we will make a fresh connection attempt
       await syncedConnectionFut.cancelAndWait()
       syncedConnectionFut = m.selectConnectionForChainSyncing()
+
+  debug "EL chain syncing process has been stopped"
 
 proc start*(m: ELManager, syncChain = true) {.gcsafe.} =
   if m.elConnections.len == 0:
@@ -2063,9 +2098,12 @@ func `$`(x: Quantity): string =
 func `$`(x: BlockObject): string =
   $(x.number) & " [" & $(x.hash) & "]"
 
-proc testWeb3Provider*(web3Url: Uri,
-                       depositContractAddress: Eth1Address,
-                       jwtSecret: Opt[seq[byte]]) {.async.} =
+proc testWeb3Provider*(
+    web3Url: Uri,
+    depositContractAddress: Eth1Address,
+    jwtSecret: Opt[seq[byte]]
+) {.async: (raises: [CatchableError]).} =
+
   stdout.write "Establishing web3 connection..."
   let web3 =
     try:
