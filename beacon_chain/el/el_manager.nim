@@ -19,7 +19,7 @@ import
   # Local modules:
   ../spec/[eth2_merkleization, forks],
   ../networking/network_metadata,
-  ".."/[beacon_node_status, future_combinators],
+  ".."/beacon_node_status,
   "."/[eth1_chain, el_conf]
 
 from std/sequtils import anyIt, mapIt
@@ -39,6 +39,7 @@ type
   WithdrawalCredentialsBytes = DynamicBytes[32, 32]
   SignatureBytes = DynamicBytes[96, 96]
   Int64LeBytes = DynamicBytes[8, 8]
+  WithoutTimeout* = distinct int
 
 contract(DepositContract):
   proc deposit(pubkey: PubKeyBytes,
@@ -56,6 +57,7 @@ contract(DepositContract):
                     index: Int64LeBytes) {.event.}
 
 const
+  noTimeout = WithoutTimeout(0)
   hasDepositRootChecks = defined(has_deposit_root_checks)
 
   targetBlocksPerLogsRequest = 1000'u64
@@ -302,13 +304,17 @@ proc engineApiRequest[T](
     request: Future[T],
     requestName: string,
     startTime: Moment,
-    deadline: Future[void] | Duration,
+    deadline: Future[void] | Duration | WithoutTimeout,
     failureAllowed = false
 ): Future[T] {.async: (raises: [CatchableError]).} =
   ## This procedure raises `CancelledError` and `DataProviderTimeout`
   ## exceptions, and everything which `request` could raise.
   try:
-    let res = await request.wait(deadline)
+    let res =
+      when deadline is WithoutTimeout:
+        await request
+      else:
+        await request.wait(deadline)
     engine_api_request_duration_seconds.observe(
       float(milliseconds(Moment.now - startTime)) / 1000.0,
         [connection.engineUrl.url, requestName])
@@ -322,8 +328,15 @@ proc engineApiRequest[T](
       await connection.setDegradedState(requestName, 0, "Request timed out")
     raise newException(DataProviderTimeout, "Request timed out")
   except CancelledError as exc:
-    if not(failureAllowed):
-      await connection.setDegradedState(requestName, 0, "Request interrupted")
+    when deadline is WithoutTimeout:
+      # When `deadline` is set to `noTimeout`, we usually get cancelled on
+      # timeout which was handled by caller.
+      engine_api_timeouts.inc(1, [connection.engineUrl.url, requestName])
+      if not(failureAllowed):
+        await connection.setDegradedState(requestName, 0, "Request timed out")
+    else:
+      if not(failureAllowed):
+        await connection.setDegradedState(requestName, 0, "Request interrupted")
     raise exc
   except CatchableError as exc:
     let statusCode =
@@ -1156,12 +1169,14 @@ func compareStatuses(
 
 type
   ELConsensusViolationDetector = object
-    selectedResponse: Option[int]
+    selectedResponse: Opt[int]
     disagreementAlreadyDetected: bool
 
 func init(T: type ELConsensusViolationDetector): T =
-  ELConsensusViolationDetector(selectedResponse: none int,
-                               disagreementAlreadyDetected: false)
+  ELConsensusViolationDetector(
+    selectedResponse: Opt.none(int),
+    disagreementAlreadyDetected: false
+  )
 
 proc processResponse(
     d: var ELConsensusViolationDetector,
@@ -1175,12 +1190,12 @@ proc processResponse(
 
   let status = requests[idx].value().status
   if d.selectedResponse.isNone:
-    d.selectedResponse = some idx
+    d.selectedResponse = Opt.some(idx)
   elif not d.disagreementAlreadyDetected:
     let prevStatus = requests[d.selectedResponse.get].value().status
     case compareStatuses(status, prevStatus)
     of newStatusIsPreferable:
-      d.selectedResponse = some idx
+      d.selectedResponse = Opt.some(idx)
     of oldStatusIsOk:
       discard
     of disagreement:
@@ -1192,84 +1207,109 @@ proc processResponse(
             url2 = connections[idx].engineUrl.url,
             status2 = status
 
+proc lazyWait(futures: seq[FutureBase]) {.async: (raises: []).} =
+  doAssert len(futures) > 0
+  try:
+    let pending = futures.filterIt(not(it.finished()))
+    await allFutures(pending).wait(30.seconds)
+  except CancelledError:
+    discard
+  except AsyncTimeoutError:
+    discard
+
+  try:
+    let pending = futures.filterIt(not(it.finished())).mapIt(it.cancelAndWait())
+    await allFutures(pending)
+  except CancelledError:
+    discard
+
 proc sendNewPayload*(
     m: ELManager,
     blck: SomeForkyBeaconBlock
 ): Future[PayloadExecutionStatus] {.async: (raises: [CancelledError]).} =
   let
-    earlyDeadline = sleepAsync(chronos.seconds 1)
-    startTime = Moment.now
+    startTime = Moment.now()
     deadline = sleepAsync(NEWPAYLOAD_TIMEOUT)
     payload = blck.body.execution_payload.asEngineExecutionPayload
-    requests = m.elConnections.mapIt:
-      let req =
-        when payload is engine_api.ExecutionPayloadV3 or
-             payload is engine_api.ExecutionPayloadV4:
-          # https://github.com/ethereum/consensus-specs/blob/v1.4.0-alpha.1/specs/deneb/beacon-chain.md#process_execution_payload
-          # Verify the execution payload is valid
-          # [Modified in Deneb] Pass `versioned_hashes` to Execution Engine
-          let versioned_hashes = mapIt(
-            blck.body.blob_kzg_commitments,
-            engine_api.VersionedHash(kzg_commitment_to_versioned_hash(it)))
-          sendNewPayloadToSingleEL(
-            it, payload, versioned_hashes,
-            FixedBytes[32] blck.parent_root.data)
-        elif payload is engine_api.ExecutionPayloadV1 or
-             payload is engine_api.ExecutionPayloadV2:
-          sendNewPayloadToSingleEL(it, payload)
-        else:
-          static: doAssert false
-      engineApiRequest(it, req, "newPayload", startTime, deadline)
-
-    requestsCompleted = allFutures(requests)
-
-  try:
-    await requestsCompleted.wait(earlyDeadline)
-  except AsyncTimeoutError:
-    discard
-  except CancelledError as exc:
-    let pending =
-      requests.filterIt(not(it.finished())).mapIt(it.cancelAndWait())
-    await noCancel allFutures(pending)
-    raise exc
-
   var
-    stillPending = newSeq[Future[PayloadStatusV1]]()
-    responseProcessor = init ELConsensusViolationDetector
+    responseProcessor = ELConsensusViolationDetector.init()
 
-  for idx, req in requests:
-    if not req.finished:
-      stillPending.add req
-    elif req.completed:
-      responseProcessor.processResponse(type(payload),
-                                        m.elConnections, requests, idx)
+  while true:
+    block mainLoop:
+      let
+        requests = m.elConnections.mapIt:
+          let req =
+            when payload is engine_api.ExecutionPayloadV3 or
+                 payload is engine_api.ExecutionPayloadV4:
+              # https://github.com/ethereum/consensus-specs/blob/v1.4.0-alpha.1/specs/deneb/beacon-chain.md#process_execution_payload
+              # Verify the execution payload is valid
+              # [Modified in Deneb] Pass `versioned_hashes` to Execution Engine
+              let versioned_hashes = mapIt(
+                blck.body.blob_kzg_commitments,
+                engine_api.VersionedHash(kzg_commitment_to_versioned_hash(it)))
+              sendNewPayloadToSingleEL(
+                it, payload, versioned_hashes,
+                FixedBytes[32] blck.parent_root.data)
+            elif payload is engine_api.ExecutionPayloadV1 or
+                 payload is engine_api.ExecutionPayloadV2:
+              sendNewPayloadToSingleEL(it, payload)
+            else:
+              static: doAssert false
+          engineApiRequest(it, req, "newPayload", startTime, noTimeout)
 
-  if responseProcessor.disagreementAlreadyDetected:
-    return PayloadExecutionStatus.invalid
-  elif responseProcessor.selectedResponse.isSome:
-    return requests[responseProcessor.selectedResponse.get].value().status
+      var pendingRequests = requests
 
-  try:
-    await requestsCompleted.wait(deadline)
-  except AsyncTimeoutError:
-    discard
-  except CancelledError as exc:
-    let pending =
-      requests.filterIt(not(it.finished())).mapIt(it.cancelAndWait())
-    await noCancel allFutures(pending)
-    raise exc
+      while true:
+        let timeoutExceeded =
+          try:
+            discard await race(pendingRequests).wait(deadline)
+            false
+          except AsyncTimeoutError:
+            true
+          except ValueError:
+            raiseAssert "pendingRequests should not be empty!"
+          except CancelledError as exc:
+            let pending =
+              requests.filterIt(not(it.finished())).mapIt(it.cancelAndWait())
+            await noCancel allFutures(pending)
+            raise exc
 
-  for idx, req in requests:
-    if req.completed and req in stillPending:
-      responseProcessor.processResponse(type(payload),
-                                        m.elConnections, requests, idx)
+        var stillPending: type(pendingRequests)
+        for request in pendingRequests:
+          if not(request.finished()):
+            stillPending.add(request)
+          elif request.completed():
+            let index = requests.find(request)
+            doAssert(index >= 0)
+            responseProcessor.processResponse(type(payload),
+                                              m.elConnections, requests, index)
+        pendingRequests = stillPending
 
-  return if responseProcessor.disagreementAlreadyDetected:
-    PayloadExecutionStatus.invalid
-  elif responseProcessor.selectedResponse.isSome:
-    requests[responseProcessor.selectedResponse.get].value().status
-  else:
-    PayloadExecutionStatus.syncing
+        if responseProcessor.disagreementAlreadyDetected:
+          let pending =
+            pendingRequests.filterIt(not(it.finished())).
+              mapIt(it.cancelAndWait())
+          await noCancel allFutures(pending)
+          return PayloadExecutionStatus.invalid
+        elif responseProcessor.selectedResponse.isSome():
+          # We spawn task which will wait for all other responses which are
+          # still pending, after 30.seconds all pending requests will be
+          # cancelled.
+          asyncSpawn lazyWait(pendingRequests.mapIt(FutureBase(it)))
+          return requests[responseProcessor.selectedResponse.get].value().status
+
+        if timeoutExceeded:
+          # Timeout exceeded, cancelling all pending requests.
+          let pending =
+            pendingRequests.filterIt(not(it.finished())).
+              mapIt(it.cancelAndWait())
+          await noCancel allFutures(pending)
+          return PayloadExecutionStatus.syncing
+
+        if len(pendingRequests) == 0:
+          # All requests failed, we will continue our attempts until deadline
+          # is not finished.
+          break mainLoop
 
 proc forkchoiceUpdatedForSingleEL(
     connection: ELConnection,
@@ -1360,78 +1400,90 @@ proc forkchoiceUpdated*(
     earlyDeadline = sleepAsync(chronos.seconds 1)
     startTime = Moment.now
     deadline = sleepAsync(FORKCHOICEUPDATED_TIMEOUT)
-    requests = m.elConnections.mapIt:
-      let req = it.forkchoiceUpdatedForSingleEL(state, payloadAttributes)
-      engineApiRequest(it, req, "forkchoiceUpdated", startTime, deadline)
-    requestsCompleted = allFutures(requests)
-
-  try:
-    await requestsCompleted.wait(earlyDeadline)
-  except AsyncTimeoutError:
-    discard
-  except CancelledError as exc:
-    let pending =
-      requests.filterIt(not(it.finished())).mapIt(it.cancelAndWait())
-    await noCancel allFutures(pending)
-    raise exc
-
   var
-    stillPending = newSeq[Future[PayloadStatusV1]]()
-    responseProcessor = init ELConsensusViolationDetector
+    responseProcessor = ELConsensusViolationDetector.init()
 
-  for idx, req in requests:
-    if not req.finished:
-      stillPending.add req
-    elif req.completed:
-      responseProcessor.processResponse(
-        PayloadStatusV1, m.elConnections, requests, idx)
+  while true:
+    block mainLoop:
+      let requests =
+        m.elConnections.mapIt:
+          let req = it.forkchoiceUpdatedForSingleEL(state, payloadAttributes)
+          engineApiRequest(it, req, "forkchoiceUpdated", startTime, noTimeout)
 
-  template assignNextExpectedPayloadParams() =
-    # Ensure that there's no race condition window where getPayload's check for
-    # whether it needs to trigger a new fcU payload, due to cache invalidation,
-    # falsely suggests that the expected payload matches, and similarly that if
-    # the fcU fails or times out for other reasons, the expected payload params
-    # remain synchronized with EL state.
-    assign(
-      m.nextExpectedPayloadParams,
-      some NextExpectedPayloadParams(
-        headBlockHash: headBlockHash,
-        safeBlockHash: safeBlockHash,
-        finalizedBlockHash: finalizedBlockHash,
-        payloadAttributes: payloadAttributesV3))
+      var pendingRequests = requests
 
-  template getSelected: untyped =
-    let data = requests[responseProcessor.selectedResponse.get].value()
-    (data.status, data.latestValidHash)
+      while true:
+        let timeoutExceeded =
+          try:
+            discard await race(pendingRequests).wait(deadline)
+            false
+          except ValueError:
+            raiseAssert "pendingRequests should not be empty!"
+          except AsyncTimeoutError:
+            true
+          except CancelledError as exc:
+            let pending =
+              pendingRequests.filterIt(not(it.finished())).
+                mapIt(it.cancelAndWait())
+            await noCancel allFutures(pending)
+            raise exc
 
-  if responseProcessor.disagreementAlreadyDetected:
-    return (PayloadExecutionStatus.invalid, none BlockHash)
-  elif responseProcessor.selectedResponse.isSome:
-    assignNextExpectedPayloadParams()
-    return getSelected()
+        var stillPending: type(pendingRequests)
+        for request in pendingRequests:
+          if not(request.finished()):
+            stillPending.add(request)
+          elif request.completed():
+            let index = requests.find(request)
+            doAssert(index >= 0)
+            responseProcessor.processResponse(
+              PayloadStatusV1, m.elConnections, requests, index)
+        pendingRequests = stillPending
 
-  try:
-    await requestsCompleted.wait(deadline)
-  except AsyncTimeoutError:
-    discard
-  except CancelledError as exc:
-    let pending =
-      requests.filterIt(not(it.finished())).mapIt(it.cancelAndWait())
-    await noCancel allFutures(pending)
-    raise exc
+        template assignNextExpectedPayloadParams() =
+          # Ensure that there's no race condition window where getPayload's
+          # check for whether it needs to trigger a new fcU payload, due to
+          # cache invalidation, falsely suggests that the expected payload
+          # matches, and similarly that if the fcU fails or times out for other
+          # reasons, the expected payload params remain synchronized with
+          # EL state.
+          assign(
+            m.nextExpectedPayloadParams,
+            some NextExpectedPayloadParams(
+              headBlockHash: headBlockHash,
+              safeBlockHash: safeBlockHash,
+              finalizedBlockHash: finalizedBlockHash,
+              payloadAttributes: payloadAttributesV3))
 
-  for idx, req in requests:
-    if req.completed and req in stillPending:
-      responseProcessor.processResponse(
-        PayloadStatusV1, m.elConnections, requests, idx)
+        template getSelected: untyped =
+          let data = requests[responseProcessor.selectedResponse.get].value()
+          (data.status, data.latestValidHash)
 
-  return if responseProcessor.disagreementAlreadyDetected:
-    (PayloadExecutionStatus.invalid, none BlockHash)
-  elif responseProcessor.selectedResponse.isSome:
-    assignNextExpectedPayloadParams()
-    getSelected()
-  else:
-    (PayloadExecutionStatus.syncing, none BlockHash)
+        if responseProcessor.disagreementAlreadyDetected:
+          let pending =
+            pendingRequests.filterIt(not(it.finished())).
+              mapIt(it.cancelAndWait())
+          await noCancel allFutures(pending)
+          return (PayloadExecutionStatus.invalid, none BlockHash)
+        elif responseProcessor.selectedResponse.isSome:
+          # We spawn task which will wait for all other responses which are
+          # still pending, after 30.seconds all pending requests will be
+          # cancelled.
+          asyncSpawn lazyWait(pendingRequests.mapIt(FutureBase(it)))
+          assignNextExpectedPayloadParams()
+          return getSelected()
+
+        if timeoutExceeded:
+          # Timeout exceeded, cancelling all pending requests.
+          let pending =
+            pendingRequests.filterIt(not(it.finished())).
+              mapIt(it.cancelAndWait())
+          await noCancel allFutures(pending)
+          return (PayloadExecutionStatus.syncing, none BlockHash)
+
+        if len(pendingRequests) == 0:
+          # All requests failed, we will continue our attempts until deadline
+          # is not finished.
+          break mainLoop
 
 # TODO can't be defined within exchangeConfigWithSingleEL
 func `==`(x, y: Quantity): bool {.borrow.}
@@ -1575,7 +1627,8 @@ func depositEventsToBlocks(
        amount.len != 8 or
        signature.len != 96 or
        index.len != 8:
-      raise newException(CorruptDataProvider, "Web3 provider supplied invalid deposit logs")
+      raise newException(CorruptDataProvider,
+                         "Web3 provider supplied invalid deposit logs")
 
     lastEth1Block.deposits.add DepositData(
       pubkey: ValidatorPubKey.init(pubkey.toArray),
