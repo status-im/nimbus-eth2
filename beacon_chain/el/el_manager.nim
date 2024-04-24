@@ -1208,20 +1208,20 @@ proc processResponse(
             status2 = status
 
 proc lazyWait(futures: seq[FutureBase]) {.async: (raises: []).} =
-  doAssert len(futures) > 0
-  try:
+  block:
     let pending = futures.filterIt(not(it.finished()))
-    await allFutures(pending).wait(30.seconds)
-  except CancelledError:
-    discard
-  except AsyncTimeoutError:
-    discard
+    if len(pending) > 0:
+      try:
+        await allFutures(pending).wait(30.seconds)
+      except CancelledError:
+        discard
+      except AsyncTimeoutError:
+        discard
 
-  try:
+  block:
     let pending = futures.filterIt(not(it.finished())).mapIt(it.cancelAndWait())
-    await allFutures(pending)
-  except CancelledError:
-    discard
+    if len(pending) > 0:
+      await noCancel allFutures(pending)
 
 proc sendNewPayload*(
     m: ELManager,
