@@ -77,6 +77,8 @@ type
     MIN_PER_EPOCH_CHURN_LIMIT*: uint64
     CHURN_LIMIT_QUOTIENT*: uint64
     MAX_PER_EPOCH_ACTIVATION_CHURN_LIMIT*: uint64
+    MIN_PER_EPOCH_CHURN_LIMIT_ELECTRA*: uint64
+    MAX_PER_EPOCH_ACTIVATION_EXIT_CHURN_LIMIT*: uint64
 
     # Fork choice
     # TODO PROPOSER_SCORE_BOOST*: uint64
@@ -151,8 +153,6 @@ when const_preset == "mainnet":
     # Free-form short name of the network that this configuration applies to - known
     # canonical network names include:
     # * 'mainnet' - there can be only one
-    # * 'prater' - testnet
-    # * 'ropsten' - testnet
     # * 'sepolia' - testnet
     # * 'holesky' - testnet
     # Must match the regex: [a-z0-9\-]
@@ -228,6 +228,10 @@ when const_preset == "mainnet":
     CHURN_LIMIT_QUOTIENT: 65536,
     # [New in Deneb:EIP7514] 2**3 (= 8)
     MAX_PER_EPOCH_ACTIVATION_CHURN_LIMIT: 8,
+    # [New in Electra:EIP7251] 2**7 * 10**9 (= 128,000,000,000)
+    MIN_PER_EPOCH_CHURN_LIMIT_ELECTRA: 128000000000'u64,
+    # [New in Electra:EIP7251] 2**8 * 10**9 (= 256,000,000,000)
+    MAX_PER_EPOCH_ACTIVATION_EXIT_CHURN_LIMIT: 256000000000'u64,
 
     # Deposit contract
     # ---------------------------------------------------------------
@@ -298,8 +302,6 @@ elif const_preset == "gnosis":
     # Free-form short name of the network that this configuration applies to - known
     # canonical network names include:
     # * 'mainnet' - there can be only one
-    # * 'prater' - testnet
-    # * 'ropsten' - testnet
     # * 'sepolia' - testnet
     # * 'holesky' - testnet
     # Must match the regex: [a-z0-9\-]
@@ -376,6 +378,10 @@ elif const_preset == "gnosis":
     CHURN_LIMIT_QUOTIENT: 4096,
     # [New in Deneb:EIP7514] 2**3 (= 8)
     MAX_PER_EPOCH_ACTIVATION_CHURN_LIMIT: 8,
+    # [New in Electra:EIP7251] 2**7 * 10**9 (= 128,000,000,000) (copied from EF mainnet)
+    MIN_PER_EPOCH_CHURN_LIMIT_ELECTRA: 128000000000'u64,
+    # [New in Electra:EIP7251] 2**8 * 10**9 (= 256,000,000,000) (copied from EF mainnet)
+    MAX_PER_EPOCH_ACTIVATION_EXIT_CHURN_LIMIT: 256000000000'u64,
 
     # Deposit contract
     # ---------------------------------------------------------------
@@ -440,8 +446,6 @@ elif const_preset == "minimal":
     # Free-form short name of the network that this configuration applies to - known
     # canonical network names include:
     # * 'mainnet' - there can be only one
-    # * 'prater' - testnet
-    # * 'ropsten' - testnet
     # * 'sepolia' - testnet
     # * 'holesky' - testnet
     # Must match the regex: [a-z0-9\-]
@@ -519,6 +523,10 @@ elif const_preset == "minimal":
     CHURN_LIMIT_QUOTIENT: 32,
     # [New in Deneb:EIP7514] [customized]
     MAX_PER_EPOCH_ACTIVATION_CHURN_LIMIT: 4,
+    # [New in Electra:EIP7251] 2**6 * 10**9 (= 64,000,000,000)
+    MIN_PER_EPOCH_CHURN_LIMIT_ELECTRA: 64000000000'u64,
+    # [New in Electra:EIP7251] 2**7 * 10**9 (= 128,000,000,000)
+    MAX_PER_EPOCH_ACTIVATION_EXIT_CHURN_LIMIT: 128000000000'u64,
 
 
     # Deposit contract

@@ -38,15 +38,17 @@ const
   SyncCommitteeDir =             RootDir/"sync_committee_updates"
   RewardsAndPenaltiesDir =       RootDir/"rewards_and_penalties"
   HistoricalSummariesUpdateDir = RootDir/"historical_summaries_update"
+  PendingBalanceDepositsDir =    RootDir/"pending_balance_deposits"
+  PendingConsolidationsDir =     RootDir/"pending_consolidations"
 
-debugRaiseAssert "check Electra state transition epoch subdirectories"
-doAssert true or (toHashSet(mapIt(toSeq(walkDir(RootDir, relative = false)), it.path)) -
+doAssert (toHashSet(mapIt(toSeq(walkDir(RootDir, relative = false)), it.path)) -
     toHashSet([SyncCommitteeDir])) ==
   toHashSet([
     JustificationFinalizationDir, InactivityDir, RegistryUpdatesDir,
     SlashingsDir, Eth1DataResetDir, EffectiveBalanceUpdatesDir,
     SlashingsResetDir, RandaoMixesResetDir, ParticipationFlagDir,
-    RewardsAndPenaltiesDir, HistoricalSummariesUpdateDir])
+    RewardsAndPenaltiesDir, HistoricalSummariesUpdateDir,
+    PendingBalanceDepositsDir, PendingConsolidationsDir])
 
 template runSuite(
     suiteDir, testName: string, transitionProc: untyped): untyped =
@@ -95,10 +97,8 @@ runSuite(RewardsAndPenaltiesDir, "Rewards and penalties"):
 
 # Registry updates
 # ---------------------------------------------------------------
-when false:
-  debugRaiseAssert "re-enable registry updates tests in Electra state transition epoch checks"
-  runSuite(RegistryUpdatesDir, "Registry updates"):
-    process_registry_updates(cfg, state, cache)
+runSuite(RegistryUpdatesDir, "Registry updates"):
+  process_registry_updates(cfg, state, cache)
 
 # Slashings
 # ---------------------------------------------------------------
@@ -140,6 +140,18 @@ runSuite(HistoricalSummariesUpdateDir, "Historical summaries update"):
 # ---------------------------------------------------------------
 runSuite(ParticipationFlagDir, "Participation flag updates"):
   process_participation_flag_updates(state)
+  Result[void, cstring].ok()
+
+# Pending balance deposits
+# ---------------------------------------------------------------
+runSuite(PendingBalanceDepositsDir, "Pending balance deposits"):
+  process_pending_balance_deposits(cfg, state, cache)
+  Result[void, cstring].ok()
+
+# Pending consolidations
+# ---------------------------------------------------------------
+runSuite(PendingConsolidationsDir, "Pending consolidations"):
+  process_pending_consolidations(cfg, state)
   Result[void, cstring].ok()
 
 # Sync committee updates
