@@ -190,7 +190,7 @@ func get_activation_exit_churn_limit*(
     get_balance_churn_limit(cfg, state, cache))
 
 # https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.0/specs/electra/beacon-chain.md#new-compute_exit_epoch_and_update_churn
-func compute_exit_epoch_and_update_churn(
+func compute_exit_epoch_and_update_churn*(
     cfg: RuntimeConfig, state: var electra.BeaconState, exit_balance: Gwei,
     cache: var StateCache): Epoch =
   var earliest_exit_epoch = max(state.earliest_exit_epoch,
@@ -228,7 +228,7 @@ func initiate_validator_exit*(
   # Return if validator already initiated exit
   var validator = state.validators.item(index)
   if validator.exit_epoch != FAR_FUTURE_EPOCH:
-    return
+    return ok(static(default(ExitQueueInfo)))
 
   # Compute exit queue epoch [Modified in Electra:EIP7251]
   let exit_queue_epoch = compute_exit_epoch_and_update_churn(
@@ -250,25 +250,34 @@ from ./datatypes/deneb import BeaconState
 # https://github.com/ethereum/consensus-specs/blob/v1.4.0/specs/phase0/beacon-chain.md#slash_validator
 # https://github.com/ethereum/consensus-specs/blob/v1.4.0/specs/altair/beacon-chain.md#modified-slash_validator
 # https://github.com/ethereum/consensus-specs/blob/v1.4.0/specs/bellatrix/beacon-chain.md#modified-slash_validator
-func get_slashing_penalty*(state: ForkyBeaconState,
-                           validator_effective_balance: Gwei): Gwei =
-  # TODO Consider whether this is better than splitting the functions apart; in
-  # each case, tradeoffs. Here, it's just changing a couple of constants.
+# https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.0/specs/electra/beacon-chain.md#updated-slash_validator
+func get_slashing_penalty*(
+    state: ForkyBeaconState, validator_effective_balance: Gwei): Gwei =
   when state is phase0.BeaconState:
-      validator_effective_balance div MIN_SLASHING_PENALTY_QUOTIENT
+    validator_effective_balance div MIN_SLASHING_PENALTY_QUOTIENT
   elif state is altair.BeaconState:
-      validator_effective_balance div MIN_SLASHING_PENALTY_QUOTIENT_ALTAIR
+    validator_effective_balance div MIN_SLASHING_PENALTY_QUOTIENT_ALTAIR
   elif state is bellatrix.BeaconState or state is capella.BeaconState or
-       state is deneb.BeaconState or state is electra.BeaconState:
-      validator_effective_balance div MIN_SLASHING_PENALTY_QUOTIENT_BELLATRIX
+       state is deneb.BeaconState:
+    validator_effective_balance div MIN_SLASHING_PENALTY_QUOTIENT_BELLATRIX
+  elif state is electra.BeaconState:
+    validator_effective_balance div MIN_SLASHING_PENALTY_QUOTIENT_ELECTRA
   else:
     {.fatal: "invalid BeaconState type".}
 
 # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.7/specs/phase0/beacon-chain.md#slash_validator
 # https://github.com/ethereum/consensus-specs/blob/v1.4.0/specs/altair/beacon-chain.md#modified-slash_validator
 # https://github.com/ethereum/consensus-specs/blob/v1.4.0/specs/bellatrix/beacon-chain.md#modified-slash_validator
-func get_whistleblower_reward*(validator_effective_balance: Gwei): Gwei =
+func get_whistleblower_reward*(
+    state: phase0.BeaconState | altair.BeaconState | bellatrix.BeaconState |
+           capella.BeaconState | deneb.BeaconState,
+    validator_effective_balance: Gwei): Gwei =
   validator_effective_balance div WHISTLEBLOWER_REWARD_QUOTIENT
+
+# https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.0/specs/electra/beacon-chain.md#updated-slash_validator
+func get_whistleblower_reward*(
+    state: electra.BeaconState, validator_effective_balance: Gwei): Gwei =
+  validator_effective_balance div WHISTLEBLOWER_REWARD_QUOTIENT_ELECTRA
 
 # https://github.com/ethereum/consensus-specs/blob/v1.4.0/specs/phase0/beacon-chain.md#slash_validator
 # https://github.com/ethereum/consensus-specs/blob/v1.4.0/specs/altair/beacon-chain.md#modified-slash_validator
@@ -316,7 +325,8 @@ proc slash_validator*(
   let
     # Spec has whistleblower_index as optional param, but it's never used.
     whistleblower_index = proposer_index
-    whistleblower_reward = get_whistleblower_reward(validator.effective_balance)
+    whistleblower_reward =
+      get_whistleblower_reward(state, validator.effective_balance)
     proposer_reward = get_proposer_reward(state, whistleblower_reward)
 
   increase_balance(state, proposer_index, proposer_reward)
@@ -470,7 +480,9 @@ func is_eligible_for_activation*(
 
 # https://github.com/ethereum/consensus-specs/blob/v1.4.0/specs/phase0/beacon-chain.md#is_valid_indexed_attestation
 proc is_valid_indexed_attestation*(
-    state: ForkyBeaconState, indexed_attestation: SomeIndexedAttestation,
+    state: ForkyBeaconState,
+    indexed_attestation: SomeIndexedAttestation | ElectraIndexedAttestation |
+                         TrustedElectraIndexedAttestation,
     flags: UpdateFlags): Result[void, cstring] =
   ## Check if ``indexed_attestation`` is not empty, has sorted and unique
   ## indices and has a valid aggregate signature.
@@ -970,19 +982,19 @@ func is_partially_withdrawable_validator(
   has_eth1_withdrawal_credential(validator) and
     has_max_effective_balance and has_excess_balance
 
-# https://github.com/ethereum/consensus-specs/blob/82133085a1295e93394ebdf71df8f2f6e0962588/specs/electra/beacon-chain.md#new-is_compounding_withdrawal_credential
+# https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.0/specs/electra/beacon-chain.md#new-is_compounding_withdrawal_credential
 func is_compounding_withdrawal_credential(
     withdrawal_credentials: Eth2Digest): bool =
   withdrawal_credentials.data[0] == COMPOUNDING_WITHDRAWAL_PREFIX
 
-# https://github.com/ethereum/consensus-specs/blob/82133085a1295e93394ebdf71df8f2f6e0962588/specs/electra/beacon-chain.md#new-has_compounding_withdrawal_credential
-func has_compounding_withdrawal_credential(validator: Validator): bool =
+# https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.0/specs/electra/beacon-chain.md#new-has_compounding_withdrawal_credential
+func has_compounding_withdrawal_credential*(validator: Validator): bool =
   ## Check if ``validator`` has an 0x02 prefixed "compounding" withdrawal
   ## credential.
   is_compounding_withdrawal_credential(validator.withdrawal_credentials)
 
-# https://github.com/ethereum/consensus-specs/blob/82133085a1295e93394ebdf71df8f2f6e0962588/specs/electra/beacon-chain.md#new-has_execution_withdrawal_credential
-func has_execution_withdrawal_credential(validator: Validator): bool =
+# https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.0/specs/electra/beacon-chain.md#new-has_execution_withdrawal_credential
+func has_execution_withdrawal_credential*(validator: Validator): bool =
   ## Check if ``validator`` has a 0x01 or 0x02 prefixed withdrawal credential.
   has_compounding_withdrawal_credential(validator) or
     has_eth1_withdrawal_credential(validator)
@@ -1021,6 +1033,16 @@ func switch_to_compounding_validator*(
   if has_eth1_withdrawal_credential(validator[]):
     validator.withdrawal_credentials.data[0] = COMPOUNDING_WITHDRAWAL_PREFIX
     queue_excess_active_balance(state, index)
+
+# https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.0/specs/electra/beacon-chain.md#new-get_pending_balance_to_withdraw
+func get_pending_balance_to_withdraw*(
+    state: Electra.BeaconState, validator_index: ValidatorIndex): Gwei =
+  var pending_balance: Gwei
+  for withdrawal in state.pending_partial_withdrawals:
+    if withdrawal.index == validator_index:
+      pending_balance += withdrawal.amount
+
+  pending_balance
 
 # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.5/specs/capella/beacon-chain.md#new-get_expected_withdrawals
 func get_expected_withdrawals*(

@@ -13,6 +13,7 @@
 # https://github.com/ethereum/consensus-specs/blob/v1.4.0/specs/bellatrix/beacon-chain.md#block-processing
 # https://github.com/ethereum/consensus-specs/blob/v1.4.0/specs/capella/beacon-chain.md#block-processing
 # https://github.com/ethereum/consensus-specs/blob/v1.4.0/specs/deneb/beacon-chain.md#block-processing
+# https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.0/specs/electra/beacon-chain.md#block-processing
 #
 # The entry point is `process_block` which is at the bottom of this file.
 #
@@ -35,6 +36,7 @@ from std/sequtils import count, filterIt, mapIt
 from ./datatypes/capella import
   BeaconState, MAX_WITHDRAWALS_PER_PAYLOAD, SignedBLSToExecutionChange,
   Withdrawal
+from ./datatypes/electra import PendingPartialWithdrawal
 
 export extras, phase0, altair
 
@@ -205,10 +207,10 @@ func is_slashable_attestation_data(
 
 # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.6/specs/phase0/beacon-chain.md#attester-slashings
 proc check_attester_slashing*(
-       state: ForkyBeaconState,
-       attester_slashing: SomeAttesterSlashing,
-       flags: UpdateFlags
-     ): Result[seq[ValidatorIndex], cstring] =
+    state: ForkyBeaconState,
+    attester_slashing: SomeAttesterSlashing | ElectraAttesterSlashing |
+                       TrustedElectraAttesterSlashing,
+    flags: UpdateFlags): Result[seq[ValidatorIndex], cstring] =
   let
     attestation_1 = attester_slashing.attestation_1
     attestation_2 = attester_slashing.attestation_2
@@ -240,23 +242,9 @@ proc check_attester_slashing*(
   ok slashed_indices
 
 proc check_attester_slashing*(
-    state: var ForkedHashedBeaconState, attester_slashing: SomeAttesterSlashing,
-    flags: UpdateFlags): Result[seq[ValidatorIndex], cstring] =
-  withState(state):
-    check_attester_slashing(forkyState.data, attester_slashing, flags)
-
-debugRaiseAssert "implement check_attester_slashing for Electra attester slashings"
-
-# https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.6/specs/phase0/beacon-chain.md#attester-slashings
-proc check_attester_slashing*(
-    state: ForkyBeaconState,
-    attester_slashing: ElectraAttesterSlashing | TrustedElectraAttesterSlashing,
-    flags: UpdateFlags): Result[seq[ValidatorIndex], cstring] =
-  ok default(seq[ValidatorIndex])
-
-proc check_attester_slashing*(
     state: var ForkedHashedBeaconState,
-    attester_slashing: ElectraAttesterSlashing | TrustedElectraAttesterSlashing,
+    attester_slashing: SomeAttesterSlashing | ElectraAttesterSlashing |
+                       TrustedElectraAttesterSlashing,
     flags: UpdateFlags): Result[seq[ValidatorIndex], cstring] =
   withState(state):
     check_attester_slashing(forkyState.data, attester_slashing, flags)
@@ -265,7 +253,8 @@ proc check_attester_slashing*(
 proc process_attester_slashing*(
     cfg: RuntimeConfig,
     state: var ForkyBeaconState,
-    attester_slashing: SomeAttesterSlashing,
+    attester_slashing: SomeAttesterSlashing | ElectraAttesterSlashing |
+                       TrustedElectraAttesterSlashing,
     flags: UpdateFlags,
     exit_queue_info: ExitQueueInfo, cache: var StateCache
     ): Result[(Gwei, ExitQueueInfo), cstring] =
@@ -356,8 +345,7 @@ proc process_deposit*(
         static: doAssert state.balances.maxLen == state.validators.maxLen
         raiseAssert "adding validator succeeded, so should balances"
 
-      when state is altair.BeaconState or state is bellatrix.BeaconState or
-           state is capella.BeaconState or state is deneb.BeaconState:
+      when typeof(state).kind >= ConsensusFork.Altair:
         if not state.previous_epoch_participation.add(ParticipationFlags(0)):
           return err("process_deposit: too many validators (previous_epoch_participation)")
         if not state.current_epoch_participation.add(ParticipationFlags(0)):
@@ -378,6 +366,7 @@ proc process_deposit*(
 
 # https://github.com/ethereum/consensus-specs/blob/v1.4.0/specs/phase0/beacon-chain.md#voluntary-exits
 # https://github.com/ethereum/consensus-specs/blob/v1.4.0/specs/deneb/beacon-chain.md#modified-process_voluntary_exit
+# https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.0/specs/electra/beacon-chain.md#updated-process_voluntary_exit
 proc check_voluntary_exit*(
     cfg: RuntimeConfig,
     state: ForkyBeaconState,
@@ -409,6 +398,13 @@ proc check_voluntary_exit*(
       cfg.SHARD_COMMITTEE_PERIOD):
     return err("Exit: not in validator set long enough")
 
+  when typeof(state).kind >= ConsensusFork.Electra:
+    # Only exit validator if it has no pending withdrawals in the queue
+    debugRaiseAssert "truncating"
+    if not (get_pending_balance_to_withdraw(
+        state, voluntary_exit.validator_index.ValidatorIndex) == 0.Gwei):
+      return err("Exit: still has pending withdrawals")
+
   # Verify signature
   if skipBlsValidation notin flags:
     const consensusFork = typeof(state).kind
@@ -430,6 +426,7 @@ proc check_voluntary_exit*(
     check_voluntary_exit(cfg, forkyState.data, signed_voluntary_exit, flags)
 
 # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.7/specs/phase0/beacon-chain.md#voluntary-exits
+# https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.0/specs/electra/beacon-chain.md#updated-process_voluntary_exit
 proc process_voluntary_exit*(
     cfg: RuntimeConfig,
     state: var ForkyBeaconState,
@@ -884,6 +881,86 @@ func process_withdrawals*(
     state.next_withdrawal_validator_index = next_validator_index
 
   ok()
+
+# https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.0/specs/electra/beacon-chain.md#new-process_execution_layer_withdrawal_request
+func process_execution_layer_withdrawal_request*(
+    cfg: RuntimeConfig, state: var electra.BeaconState,
+    execution_layer_withdrawal_request: ExecutionLayerWithdrawalRequest,
+    cache: var StateCache) =
+  let
+    amount = execution_layer_withdrawal_request.amount
+    is_full_exit_request = amount == static(FULL_EXIT_REQUEST_AMOUNT.Gwei)
+
+  # If partial withdrawal queue is full, only full exits are processed
+  if lenu64(state.pending_partial_withdrawals) ==
+      PENDING_PARTIAL_WITHDRAWALS_LIMIT and not is_full_exit_request:
+    return
+
+  let
+    request_pubkey = execution_layer_withdrawal_request.validator_pubkey
+    index = findValidatorIndex(state, request_pubkey).valueOr:
+      return
+    validator = state.validators.item(index)
+
+  # Verify withdrawal credentials
+  let
+    has_correct_credential = has_execution_withdrawal_credential(validator)
+    is_correct_source_address =
+      validator.withdrawal_credentials.data.toOpenArray(12, 31) ==
+        execution_layer_withdrawal_request.source_address.data
+
+  if not (has_correct_credential and is_correct_source_address):
+    return
+
+  # Verify the validator is active
+  if not is_active_validator(validator, get_current_epoch(state)):
+    return
+
+  # Verify exit has not been initiated
+  if validator.exit_epoch != FAR_FUTURE_EPOCH:
+    return
+
+  # Verify the validator has been active long enough
+  if get_current_epoch(state) <
+      validator.activation_epoch + cfg.SHARD_COMMITTEE_PERIOD:
+    return
+
+  let pending_balance_to_withdraw =
+    get_pending_balance_to_withdraw(state, index)
+
+  if is_full_exit_request:
+    # Only exit validator if it has no pending withdrawals in the queue
+    if pending_balance_to_withdraw == 0.Gwei:
+      if initiate_validator_exit(cfg, state, index, default(ExitQueueInfo),
+          cache).isErr():
+        return
+    return
+
+  let
+    has_sufficient_effective_balance =
+      validator.effective_balance >= static(MIN_ACTIVATION_BALANCE.Gwei)
+    has_excess_balance = state.balances.item(index) >
+      static(MIN_ACTIVATION_BALANCE.Gwei) + pending_balance_to_withdraw
+
+  # Only allow partial withdrawals with compounding withdrawal credentials
+  if  has_compounding_withdrawal_credential(validator) and
+      has_sufficient_effective_balance and has_excess_balance:
+    let
+      to_withdraw = min(
+        state.balances.item(index) - static(MIN_ACTIVATION_BALANCE.Gwei) -
+          pending_balance_to_withdraw,
+        amount
+      )
+      exit_queue_epoch =
+        compute_exit_epoch_and_update_churn(cfg, state, to_withdraw, cache)
+      withdrawable_epoch =
+       Epoch(exit_queue_epoch + cfg.MIN_VALIDATOR_WITHDRAWABILITY_DELAY)
+    debugRaiseAssert "check return value of HashList.add"
+    discard state.pending_partial_withdrawals.add(PendingPartialWithdrawal(
+      index: index.uint64,
+      amount: to_withdraw,
+      withdrawable_epoch: withdrawable_epoch,
+    ))
 
 # https://github.com/ethereum/consensus-specs/blob/v1.4.0/specs/deneb/beacon-chain.md#kzg_commitment_to_versioned_hash
 func kzg_commitment_to_versioned_hash*(
