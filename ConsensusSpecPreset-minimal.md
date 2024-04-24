@@ -2576,11 +2576,51 @@ OK: 10/10 Fail: 0/10 Skip: 0/10
 + Participation flag updates - slightly_larger_random [Preset: minimal]                      OK
 ```
 OK: 12/12 Fail: 0/12 Skip: 0/12
+## EF - Electra - Epoch Processing - Pending balance deposits [Preset: minimal]
+```diff
++ Pending balance deposits - multiple_pending_deposits_above_churn [Preset: minimal]         OK
++ Pending balance deposits - multiple_pending_deposits_below_churn [Preset: minimal]         OK
++ Pending balance deposits - pending_deposit_balance_above_churn [Preset: minimal]           OK
++ Pending balance deposits - pending_deposit_balance_equal_churn [Preset: minimal]           OK
++ Pending balance deposits - pending_deposit_min_activation_balance [Preset: minimal]        OK
++ Pending balance deposits - pending_deposit_preexisting_churn [Preset: minimal]             OK
+```
+OK: 6/6 Fail: 0/6 Skip: 0/6
+## EF - Electra - Epoch Processing - Pending consolidations [Preset: minimal]
+```diff
++ Pending consolidations - all_consolidation_cases_together [Preset: minimal]                OK
++ Pending consolidations - basic_pending_consolidation [Preset: minimal]                     OK
++ Pending consolidations - consolidation_not_yet_withdrawable_validator [Preset: minimal]    OK
++ Pending consolidations - skip_consolidation_when_source_slashed [Preset: minimal]          OK
+```
+OK: 4/4 Fail: 0/4 Skip: 0/4
 ## EF - Electra - Epoch Processing - RANDAO mixes reset [Preset: minimal]
 ```diff
 + RANDAO mixes reset - updated_randao_mixes [Preset: minimal]                                OK
 ```
 OK: 1/1 Fail: 0/1 Skip: 0/1
+## EF - Electra - Epoch Processing - Registry updates [Preset: minimal]
+```diff
++ Registry updates - activation_churn_limit__equal_to_activation_limit [Preset: minimal]     OK
++ Registry updates - activation_churn_limit__greater_than_activation_limit [Preset: minimal] OK
++ Registry updates - activation_churn_limit__less_than_activation_limit [Preset: minimal]    OK
++ Registry updates - activation_queue_activation_and_ejection__1 [Preset: minimal]           OK
++ Registry updates - activation_queue_activation_and_ejection__churn_limit [Preset: minimal] OK
++ Registry updates - activation_queue_activation_and_ejection__exceed_churn_limit [Preset: m OK
++ Registry updates - activation_queue_activation_and_ejection__exceed_scaled_churn_limit [Pr OK
++ Registry updates - activation_queue_activation_and_ejection__scaled_churn_limit [Preset: m OK
++ Registry updates - activation_queue_efficiency_min [Preset: minimal]                       OK
++ Registry updates - activation_queue_efficiency_scaled [Preset: minimal]                    OK
++ Registry updates - activation_queue_no_activation_no_finality [Preset: minimal]            OK
++ Registry updates - activation_queue_sorting [Preset: minimal]                              OK
++ Registry updates - activation_queue_to_activated_if_finalized [Preset: minimal]            OK
++ Registry updates - add_to_activation_queue [Preset: minimal]                               OK
++ Registry updates - ejection [Preset: minimal]                                              OK
++ Registry updates - ejection_past_churn_limit_min [Preset: minimal]                         OK
++ Registry updates - ejection_past_churn_limit_scaled [Preset: minimal]                      OK
++ Registry updates - invalid_large_withdrawable_epoch [Preset: minimal]                      OK
+```
+OK: 18/18 Fail: 0/18 Skip: 0/18
 ## EF - Electra - Epoch Processing - Rewards and penalties [Preset: minimal]
 ```diff
 + Rewards and penalties - almost_empty_attestations [Preset: minimal]                        OK
@@ -3530,4 +3570,4 @@ OK: 185/207 Fail: 0/207 Skip: 22/207
 OK: 3/3 Fail: 0/3 Skip: 0/3
 
 ---TOTAL---
-OK: 2850/2872 Fail: 0/2872 Skip: 22/2872
+OK: 2878/2900 Fail: 0/2900 Skip: 22/2900

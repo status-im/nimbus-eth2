@@ -91,7 +91,9 @@ func get_validator_activation_churn_limit*(
     get_validator_churn_limit(cfg, state, cache))
 
 # https://github.com/ethereum/consensus-specs/blob/v1.4.0/specs/phase0/beacon-chain.md#initiate_validator_exit
-func get_state_exit_queue_info*(state: ForkyBeaconState): ExitQueueInfo =
+func get_state_exit_queue_info*(
+    state: phase0.BeaconState | altair.BeaconState | bellatrix.BeaconState |
+    capella.BeaconState | deneb.BeaconState): ExitQueueInfo =
   var
     exit_queue_epoch = compute_activation_exit_epoch(get_current_epoch(state))
     exit_queue_churn: uint64
@@ -118,11 +120,19 @@ func get_state_exit_queue_info*(state: ForkyBeaconState): ExitQueueInfo =
   ExitQueueInfo(
     exit_queue_epoch: exit_queue_epoch, exit_queue_churn: exit_queue_churn)
 
+func get_state_exit_queue_info*(state: electra.BeaconState): ExitQueueInfo =
+  # Electra initiate_validator_exit doesn't have same quadratic aspect given
+  # StateCache balance caching
+  default(ExitQueueInfo)
+
 # https://github.com/ethereum/consensus-specs/blob/v1.4.0/specs/phase0/beacon-chain.md#initiate_validator_exit
 func initiate_validator_exit*(
-    cfg: RuntimeConfig, state: var ForkyBeaconState,
-    index: ValidatorIndex, exit_queue_info: ExitQueueInfo, cache: var StateCache):
-    Result[ExitQueueInfo, cstring] =
+    cfg: RuntimeConfig,
+    state: var (phase0.BeaconState | altair.BeaconState |
+                bellatrix.BeaconState | capella.BeaconState |
+                deneb.BeaconState),
+    index: ValidatorIndex, exit_queue_info: ExitQueueInfo,
+    cache: var StateCache): Result[ExitQueueInfo, cstring] =
   ## Initiate the exit of the validator with index ``index``.
 
   if state.validators.item(index).exit_epoch != FAR_FUTURE_EPOCH:
@@ -155,6 +165,85 @@ func initiate_validator_exit*(
 
   ok(ExitQueueInfo(
     exit_queue_epoch: exit_queue_epoch, exit_queue_churn: exit_queue_churn))
+
+func get_total_active_balance*(state: ForkyBeaconState, cache: var StateCache): Gwei
+
+# https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.0/specs/electra/beacon-chain.md#new-get_balance_churn_limit
+func get_balance_churn_limit(
+    cfg: RuntimeConfig, state: electra.BeaconState,
+    cache: var StateCache): Gwei =
+  ## Return the churn limit for the current epoch.
+  let churn = max(
+    cfg.MIN_PER_EPOCH_CHURN_LIMIT_ELECTRA.Gwei,
+    get_total_active_balance(state, cache) div cfg.CHURN_LIMIT_QUOTIENT
+  )
+  churn - churn mod EFFECTIVE_BALANCE_INCREMENT.Gwei
+
+# https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.0/specs/electra/beacon-chain.md#new-get_activation_exit_churn_limit
+func get_activation_exit_churn_limit*(
+    cfg: RuntimeConfig, state: electra.BeaconState, cache: var StateCache):
+    Gwei =
+  ## Return the churn limit for the current epoch dedicated to activations and
+  ## exits.
+  min(
+    cfg.MAX_PER_EPOCH_ACTIVATION_EXIT_CHURN_LIMIT.Gwei,
+    get_balance_churn_limit(cfg, state, cache))
+
+# https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.0/specs/electra/beacon-chain.md#new-compute_exit_epoch_and_update_churn
+func compute_exit_epoch_and_update_churn(
+    cfg: RuntimeConfig, state: var electra.BeaconState, exit_balance: Gwei,
+    cache: var StateCache): Epoch =
+  var earliest_exit_epoch = max(state.earliest_exit_epoch,
+    compute_activation_exit_epoch(get_current_epoch(state)))
+  let per_epoch_churn = get_activation_exit_churn_limit(cfg, state, cache)
+
+  # New epoch for exits.
+  var exit_balance_to_consume =
+    if state.earliest_exit_epoch < earliest_exit_epoch:
+      per_epoch_churn
+    else:
+      state.exit_balance_to_consume
+
+  # Exit doesn't fit in the current earliest epoch.
+  if exit_balance > exit_balance_to_consume:
+    let
+      balance_to_process = exit_balance - exit_balance_to_consume
+      additional_epochs = (balance_to_process - 1.Gwei) div per_epoch_churn + 1
+    earliest_exit_epoch += additional_epochs
+    exit_balance_to_consume += additional_epochs * per_epoch_churn
+
+  # Consume the balance and update state variables.
+  state.exit_balance_to_consume = exit_balance_to_consume - exit_balance
+  state.earliest_exit_epoch = earliest_exit_epoch
+
+  state.earliest_exit_epoch
+
+# https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.0/specs/electra/beacon-chain.md#updated--initiate_validator_exit
+func initiate_validator_exit*(
+    cfg: RuntimeConfig, state: var electra.BeaconState,
+    index: ValidatorIndex, exit_queue_info: ExitQueueInfo,
+    cache: var StateCache): Result[ExitQueueInfo, cstring] =
+  ## Initiate the exit of the validator with index ``index``.
+
+  # Return if validator already initiated exit
+  var validator = state.validators.item(index)
+  if validator.exit_epoch != FAR_FUTURE_EPOCH:
+    return
+
+  # Compute exit queue epoch [Modified in Electra:EIP7251]
+  let exit_queue_epoch = compute_exit_epoch_and_update_churn(
+    cfg, state, validator.effective_balance, cache)
+
+  # Set validator exit epoch and withdrawable epoch
+  validator.exit_epoch = exit_queue_epoch
+  validator.withdrawable_epoch =
+    Epoch(validator.exit_epoch + cfg.MIN_VALIDATOR_WITHDRAWABILITY_DELAY)
+  if validator.withdrawable_epoch < validator.exit_epoch:
+    return err("Invalid large withdrawable epoch")
+  state.validators.mitem(index) = validator
+
+  # The Electra initiate_validator_exit() isn't accidentally quadratic; ignore
+  ok(static(default(ExitQueueInfo)))
 
 from ./datatypes/deneb import BeaconState
 
@@ -304,7 +393,8 @@ func get_initial_beacon_block*(state: deneb.HashedBeaconState):
   deneb.TrustedSignedBeaconBlock(
     message: message, root: hash_tree_root(message))
 
-from ./datatypes/electra import HashedBeaconState, TrustedSignedBeaconBlock
+from ./datatypes/electra import
+  HashedBeaconState, PendingBalanceDeposit, TrustedSignedBeaconBlock
 
 # TODO spec link here when it exists
 func get_initial_beacon_block*(state: electra.HashedBeaconState):
@@ -896,6 +986,41 @@ func has_execution_withdrawal_credential(validator: Validator): bool =
   ## Check if ``validator`` has a 0x01 or 0x02 prefixed withdrawal credential.
   has_compounding_withdrawal_credential(validator) or
     has_eth1_withdrawal_credential(validator)
+
+# https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.0/specs/electra/beacon-chain.md#get_validator_max_effective_balance
+func get_validator_max_effective_balance(validator: Validator): Gwei =
+  ## Get max effective balance for ``validator``.
+  if has_compounding_withdrawal_credential(validator):
+    MAX_EFFECTIVE_BALANCE_ELECTRA.Gwei
+  else:
+    MIN_ACTIVATION_BALANCE.Gwei
+
+# https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.0/specs/electra/beacon-chain.md#new-get_active_balance
+func get_active_balance*(
+    state: electra.BeaconState, validator_index: ValidatorIndex): Gwei =
+  let max_effective_balance =
+    get_validator_max_effective_balance(state.validators[validator_index])
+  min(state.balances[validator_index], max_effective_balance)
+
+# https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.0/specs/electra/beacon-chain.md#new-queue_excess_active_balance
+func queue_excess_active_balance(
+    state: var electra.BeaconState, index: ValidatorIndex) =
+  let balance = state.balances.item(index)
+  if balance > MIN_ACTIVATION_BALANCE.Gwei:
+    let excess_balance = balance - MIN_ACTIVATION_BALANCE.Gwei
+    state.balances.mitem(index) = MIN_ACTIVATION_BALANCE.Gwei
+    debugRaiseAssert "maybe check return value"
+    discard state.pending_balance_deposits.add(
+      PendingBalanceDeposit(index: index.uint64, amount: excess_balance)
+    )
+
+# https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.0/specs/electra/beacon-chain.md#new-switch_to_compounding_validator
+func switch_to_compounding_validator*(
+    state: var electra.BeaconState, index: ValidatorIndex) =
+  let validator = addr state.validators.mitem(index)
+  if has_eth1_withdrawal_credential(validator[]):
+    validator.withdrawal_credentials.data[0] = COMPOUNDING_WITHDRAWAL_PREFIX
+    queue_excess_active_balance(state, index)
 
 # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.5/specs/capella/beacon-chain.md#new-get_expected_withdrawals
 func get_expected_withdrawals*(

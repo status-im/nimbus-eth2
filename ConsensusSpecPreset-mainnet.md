@@ -2465,11 +2465,44 @@ OK: 10/10 Fail: 0/10 Skip: 0/10
 + Participation flag updates - random_genesis [Preset: mainnet]                              OK
 ```
 OK: 10/10 Fail: 0/10 Skip: 0/10
+## EF - Electra - Epoch Processing - Pending balance deposits [Preset: mainnet]
+```diff
++ Pending balance deposits - multiple_pending_deposits_above_churn [Preset: mainnet]         OK
++ Pending balance deposits - multiple_pending_deposits_below_churn [Preset: mainnet]         OK
++ Pending balance deposits - pending_deposit_balance_above_churn [Preset: mainnet]           OK
++ Pending balance deposits - pending_deposit_balance_equal_churn [Preset: mainnet]           OK
++ Pending balance deposits - pending_deposit_min_activation_balance [Preset: mainnet]        OK
++ Pending balance deposits - pending_deposit_preexisting_churn [Preset: mainnet]             OK
+```
+OK: 6/6 Fail: 0/6 Skip: 0/6
+## EF - Electra - Epoch Processing - Pending consolidations [Preset: mainnet]
+```diff
++ Pending consolidations - all_consolidation_cases_together [Preset: mainnet]                OK
++ Pending consolidations - basic_pending_consolidation [Preset: mainnet]                     OK
++ Pending consolidations - consolidation_not_yet_withdrawable_validator [Preset: mainnet]    OK
++ Pending consolidations - skip_consolidation_when_source_slashed [Preset: mainnet]          OK
+```
+OK: 4/4 Fail: 0/4 Skip: 0/4
 ## EF - Electra - Epoch Processing - RANDAO mixes reset [Preset: mainnet]
 ```diff
 + RANDAO mixes reset - updated_randao_mixes [Preset: mainnet]                                OK
 ```
 OK: 1/1 Fail: 0/1 Skip: 0/1
+## EF - Electra - Epoch Processing - Registry updates [Preset: mainnet]
+```diff
++ Registry updates - activation_queue_activation_and_ejection__1 [Preset: mainnet]           OK
++ Registry updates - activation_queue_activation_and_ejection__churn_limit [Preset: mainnet] OK
++ Registry updates - activation_queue_activation_and_ejection__exceed_churn_limit [Preset: m OK
++ Registry updates - activation_queue_efficiency_min [Preset: mainnet]                       OK
++ Registry updates - activation_queue_no_activation_no_finality [Preset: mainnet]            OK
++ Registry updates - activation_queue_sorting [Preset: mainnet]                              OK
++ Registry updates - activation_queue_to_activated_if_finalized [Preset: mainnet]            OK
++ Registry updates - add_to_activation_queue [Preset: mainnet]                               OK
++ Registry updates - ejection [Preset: mainnet]                                              OK
++ Registry updates - ejection_past_churn_limit_min [Preset: mainnet]                         OK
++ Registry updates - invalid_large_withdrawable_epoch [Preset: mainnet]                      OK
+```
+OK: 11/11 Fail: 0/11 Skip: 0/11
 ## EF - Electra - Epoch Processing - Rewards and penalties [Preset: mainnet]
 ```diff
 + Rewards and penalties - almost_empty_attestations [Preset: mainnet]                        OK
@@ -3250,4 +3283,4 @@ OK: 69/88 Fail: 0/88 Skip: 19/88
 OK: 3/3 Fail: 0/3 Skip: 0/3
 
 ---TOTAL---
-OK: 2601/2620 Fail: 0/2620 Skip: 19/2620
+OK: 2622/2641 Fail: 0/2641 Skip: 19/2641
