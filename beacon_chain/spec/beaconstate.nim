@@ -47,8 +47,10 @@ func decrease_balance*(
 
 # https://github.com/ethereum/consensus-specs/blob/v1.4.0-alpha.3/specs/phase0/beacon-chain.md#deposits
 # https://github.com/ethereum/consensus-specs/blob/v1.3.0/specs/altair/beacon-chain.md#modified-apply_deposit
-func get_validator_from_deposit*(deposit: DepositData):
-    Validator =
+func get_validator_from_deposit*(
+    state: phase0.BeaconState | altair.BeaconState | bellatrix.BeaconState |
+           capella.BeaconState | deneb.BeaconState,
+    deposit: DepositData): Validator =
   let
     amount = deposit.amount
     effective_balance = min(
@@ -63,6 +65,19 @@ func get_validator_from_deposit*(deposit: DepositData):
     exit_epoch: FAR_FUTURE_EPOCH,
     withdrawable_epoch: FAR_FUTURE_EPOCH,
     effective_balance: effective_balance
+  )
+
+# https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.0/specs/electra/beacon-chain.md#updated-get_validator_from_deposit
+func get_validator_from_deposit*(
+    state: electra.BeaconState, deposit: DepositData): Validator =
+  Validator(
+    pubkeyData: HashedValidatorPubKey.init(deposit.pubkey),
+    withdrawal_credentials: deposit.withdrawal_credentials,
+    activation_eligibility_epoch: FAR_FUTURE_EPOCH,
+    activation_epoch: FAR_FUTURE_EPOCH,
+    exit_epoch: FAR_FUTURE_EPOCH,
+    withdrawable_epoch: FAR_FUTURE_EPOCH,
+    effective_balance: 0.Gwei  # [Modified in Electra:EIP7251]
   )
 
 # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.7/specs/phase0/beacon-chain.md#compute_activation_exit_epoch
@@ -1020,7 +1035,7 @@ func is_partially_withdrawable_validator(
     has_max_effective_balance and has_excess_balance
 
 # https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.0/specs/electra/beacon-chain.md#new-is_compounding_withdrawal_credential
-func is_compounding_withdrawal_credential(
+func is_compounding_withdrawal_credential*(
     withdrawal_credentials: Eth2Digest): bool =
   withdrawal_credentials.data[0] == COMPOUNDING_WITHDRAWAL_PREFIX
 
@@ -1198,7 +1213,7 @@ proc initialize_beacon_state_from_eth1(
       if skipBlsValidation in flags or
          verify_deposit_signature(cfg, deposit):
         pubkeyToIndex[pubkey] = ValidatorIndex(state.validators.len)
-        if not state.validators.add(get_validator_from_deposit(deposit)):
+        if not state.validators.add(get_validator_from_deposit(state, deposit)):
           raiseAssert "too many validators"
         if not state.balances.add(amount):
           raiseAssert "same as validators"
@@ -1303,7 +1318,7 @@ proc initialize_beacon_state_from_eth1*(
       if skipBlsValidation in flags or
          verify_deposit_signature(cfg, deposit):
         pubkeyToIndex[pubkey] = ValidatorIndex(state.validators.len)
-        if not state.validators.add(get_validator_from_deposit(deposit)):
+        if not state.validators.add get_validator_from_deposit(state, deposit):
           raiseAssert "too many validators"
         if not state.balances.add(amount):
           raiseAssert "same as validators"
