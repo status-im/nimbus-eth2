@@ -96,14 +96,9 @@ proc new*(T: type Eth2DiscoveryProtocol,
     if fileExists(persistentBootstrapFile):
       loadBootstrapFile(persistentBootstrapFile, bootstrapEnrs)
 
-  if config.listenAddress.isSome():
-    newProtocol(pk, enrIp, enrTcpPort, enrUdpPort, enrFields, bootstrapEnrs,
-      bindPort = config.udpPort, bindIp = config.listenAddress.get(),
-      enrAutoUpdate = config.enrAutoUpdate, rng = rng)
-  else:
-    newProtocol(pk, enrIp, enrTcpPort, enrUdpPort, enrFields, bootstrapEnrs,
-      bindPort = config.udpPort, bindIp = Opt.none(IpAddress),
-      enrAutoUpdate = config.enrAutoUpdate, rng = rng)
+  newProtocol(pk, enrIp, enrTcpPort, enrUdpPort, enrFields, bootstrapEnrs,
+    bindPort = config.udpPort, bindIp = config.listenAddress,
+    enrAutoUpdate = config.enrAutoUpdate, rng = rng)
 
 func isCompatibleForkId*(discoveryForkId: ENRForkID, peerForkId: ENRForkID): bool =
   if discoveryForkId.fork_digest == peerForkId.fork_digest:
