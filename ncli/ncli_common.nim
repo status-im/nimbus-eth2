@@ -332,8 +332,11 @@ func collectFromSlashedValidator(
     rewardsAndPenalties: var seq[RewardsAndPenalties],
     state: ForkyBeaconState, slashedIndex, proposerIndex: ValidatorIndex) =
   template slashed_validator: untyped = state.validators[slashedIndex]
-  let slashingPenalty = get_slashing_penalty(state, slashed_validator.effective_balance)
-  let whistleblowerReward = get_whistleblower_reward(slashed_validator.effective_balance)
+  let
+    slashingPenalty =
+      get_slashing_penalty(state, slashed_validator.effective_balance)
+    whistleblowerReward =
+      get_whistleblower_reward(state, slashed_validator.effective_balance)
   rewardsAndPenalties[slashedIndex].slashing_outcome -= slashingPenalty.int64
   rewardsAndPenalties[proposerIndex].slashing_outcome += whistleblowerReward.int64
 

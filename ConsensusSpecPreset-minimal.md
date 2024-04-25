@@ -2663,6 +2663,40 @@ OK: 1/1 Fail: 0/1 Skip: 0/1
 + Sync committee updates - sync_committees_progress_not_genesis [Preset: minimal]            OK
 ```
 OK: 5/5 Fail: 0/5 Skip: 0/5
+## EF - Electra - Operations - Attester Slashing  [Preset: minimal]
+```diff
++ [Invalid] EF - Electra - Operations - Attester Slashing - invalid_all_empty_indices        OK
++ [Invalid] EF - Electra - Operations - Attester Slashing - invalid_att1_bad_extra_index     OK
++ [Invalid] EF - Electra - Operations - Attester Slashing - invalid_att1_bad_replaced_index  OK
++ [Invalid] EF - Electra - Operations - Attester Slashing - invalid_att1_duplicate_index_dou OK
++ [Invalid] EF - Electra - Operations - Attester Slashing - invalid_att1_duplicate_index_nor OK
++ [Invalid] EF - Electra - Operations - Attester Slashing - invalid_att1_empty_indices       OK
++ [Invalid] EF - Electra - Operations - Attester Slashing - invalid_att1_high_index          OK
++ [Invalid] EF - Electra - Operations - Attester Slashing - invalid_att2_bad_extra_index     OK
++ [Invalid] EF - Electra - Operations - Attester Slashing - invalid_att2_bad_replaced_index  OK
++ [Invalid] EF - Electra - Operations - Attester Slashing - invalid_att2_duplicate_index_dou OK
++ [Invalid] EF - Electra - Operations - Attester Slashing - invalid_att2_duplicate_index_nor OK
++ [Invalid] EF - Electra - Operations - Attester Slashing - invalid_att2_empty_indices       OK
++ [Invalid] EF - Electra - Operations - Attester Slashing - invalid_att2_high_index          OK
++ [Invalid] EF - Electra - Operations - Attester Slashing - invalid_incorrect_sig_1          OK
++ [Invalid] EF - Electra - Operations - Attester Slashing - invalid_incorrect_sig_1_and_2    OK
++ [Invalid] EF - Electra - Operations - Attester Slashing - invalid_incorrect_sig_2          OK
++ [Invalid] EF - Electra - Operations - Attester Slashing - invalid_no_double_or_surround    OK
++ [Invalid] EF - Electra - Operations - Attester Slashing - invalid_participants_already_sla OK
++ [Invalid] EF - Electra - Operations - Attester Slashing - invalid_same_data                OK
++ [Invalid] EF - Electra - Operations - Attester Slashing - invalid_unsorted_att_1           OK
++ [Invalid] EF - Electra - Operations - Attester Slashing - invalid_unsorted_att_2           OK
++ [Valid]   EF - Electra - Operations - Attester Slashing - already_exited_long_ago          OK
++ [Valid]   EF - Electra - Operations - Attester Slashing - already_exited_recent            OK
++ [Valid]   EF - Electra - Operations - Attester Slashing - attestation_from_future          OK
++ [Valid]   EF - Electra - Operations - Attester Slashing - basic_double                     OK
++ [Valid]   EF - Electra - Operations - Attester Slashing - basic_surround                   OK
++ [Valid]   EF - Electra - Operations - Attester Slashing - low_balances                     OK
++ [Valid]   EF - Electra - Operations - Attester Slashing - misc_balances                    OK
++ [Valid]   EF - Electra - Operations - Attester Slashing - proposer_index_slashed           OK
++ [Valid]   EF - Electra - Operations - Attester Slashing - with_effective_balance_disparity OK
+```
+OK: 30/30 Fail: 0/30 Skip: 0/30
 ## EF - Electra - Operations - BLS to execution change  [Preset: minimal]
 ```diff
 + [Invalid] EF - Electra - Operations - BLS to execution change - invalid_already_0x01       OK
@@ -2691,6 +2725,53 @@ OK: 14/14 Fail: 0/14 Skip: 0/14
 + [Valid]   EF - Electra - Operations - Block Header - basic_block_header                    OK
 ```
 OK: 6/6 Fail: 0/6 Skip: 0/6
+## EF - Electra - Operations - Execution Layer Withdrawal Request  [Preset: minimal]
+```diff
++ [Valid]   EF - Electra - Operations - Execution Layer Withdrawal Request - activation_epoc OK
++ [Valid]   EF - Electra - Operations - Execution Layer Withdrawal Request - basic_partial_w OK
++ [Valid]   EF - Electra - Operations - Execution Layer Withdrawal Request - basic_partial_w OK
++ [Valid]   EF - Electra - Operations - Execution Layer Withdrawal Request - basic_partial_w OK
++ [Valid]   EF - Electra - Operations - Execution Layer Withdrawal Request - basic_withdrawa OK
++ [Valid]   EF - Electra - Operations - Execution Layer Withdrawal Request - basic_withdrawa OK
++ [Valid]   EF - Electra - Operations - Execution Layer Withdrawal Request - basic_withdrawa OK
++ [Valid]   EF - Electra - Operations - Execution Layer Withdrawal Request - incorrect_sourc OK
++ [Valid]   EF - Electra - Operations - Execution Layer Withdrawal Request - incorrect_withd OK
++ [Valid]   EF - Electra - Operations - Execution Layer Withdrawal Request - insufficient_ef OK
++ [Valid]   EF - Electra - Operations - Execution Layer Withdrawal Request - no_compounding_ OK
++ [Valid]   EF - Electra - Operations - Execution Layer Withdrawal Request - no_excess_balan OK
++ [Valid]   EF - Electra - Operations - Execution Layer Withdrawal Request - on_withdrawal_r OK
++ [Valid]   EF - Electra - Operations - Execution Layer Withdrawal Request - partial_withdra OK
++ [Valid]   EF - Electra - Operations - Execution Layer Withdrawal Request - partial_withdra OK
++ [Valid]   EF - Electra - Operations - Execution Layer Withdrawal Request - partial_withdra OK
++ [Valid]   EF - Electra - Operations - Execution Layer Withdrawal Request - partial_withdra OK
++ [Valid]   EF - Electra - Operations - Execution Layer Withdrawal Request - partial_withdra OK
++ [Valid]   EF - Electra - Operations - Execution Layer Withdrawal Request - partial_withdra OK
++ [Valid]   EF - Electra - Operations - Execution Layer Withdrawal Request - partial_withdra OK
++ [Valid]   EF - Electra - Operations - Execution Layer Withdrawal Request - partial_withdra OK
++ [Valid]   EF - Electra - Operations - Execution Layer Withdrawal Request - partial_withdra OK
++ [Valid]   EF - Electra - Operations - Execution Layer Withdrawal Request - partial_withdra OK
++ [Valid]   EF - Electra - Operations - Execution Layer Withdrawal Request - pending_withdra OK
+```
+OK: 24/24 Fail: 0/24 Skip: 0/24
+## EF - Electra - Operations - Proposer Slashing  [Preset: minimal]
+```diff
++ [Invalid] EF - Electra - Operations - Proposer Slashing - invalid_different_proposer_indic OK
++ [Invalid] EF - Electra - Operations - Proposer Slashing - invalid_headers_are_same_sigs_ar OK
++ [Invalid] EF - Electra - Operations - Proposer Slashing - invalid_headers_are_same_sigs_ar OK
++ [Invalid] EF - Electra - Operations - Proposer Slashing - invalid_incorrect_proposer_index OK
++ [Invalid] EF - Electra - Operations - Proposer Slashing - invalid_incorrect_sig_1          OK
++ [Invalid] EF - Electra - Operations - Proposer Slashing - invalid_incorrect_sig_1_and_2    OK
++ [Invalid] EF - Electra - Operations - Proposer Slashing - invalid_incorrect_sig_1_and_2_sw OK
++ [Invalid] EF - Electra - Operations - Proposer Slashing - invalid_incorrect_sig_2          OK
++ [Invalid] EF - Electra - Operations - Proposer Slashing - invalid_proposer_is_not_activate OK
++ [Invalid] EF - Electra - Operations - Proposer Slashing - invalid_proposer_is_slashed      OK
++ [Invalid] EF - Electra - Operations - Proposer Slashing - invalid_proposer_is_withdrawn    OK
++ [Invalid] EF - Electra - Operations - Proposer Slashing - invalid_slots_of_different_epoch OK
++ [Valid]   EF - Electra - Operations - Proposer Slashing - basic                            OK
++ [Valid]   EF - Electra - Operations - Proposer Slashing - block_header_from_future         OK
++ [Valid]   EF - Electra - Operations - Proposer Slashing - slashed_and_proposer_index_the_s OK
+```
+OK: 15/15 Fail: 0/15 Skip: 0/15
 ## EF - Electra - Operations - Sync Aggregate  [Preset: minimal]
 ```diff
 + [Invalid] EF - Electra - Operations - Sync Aggregate - invalid_signature_bad_domain        OK
@@ -2719,6 +2800,30 @@ OK: 6/6 Fail: 0/6 Skip: 0/6
 + [Valid]   EF - Electra - Operations - Sync Aggregate - valid_signature_future_committee    OK
 ```
 OK: 24/24 Fail: 0/24 Skip: 0/24
+## EF - Electra - Operations - Voluntary Exit  [Preset: minimal]
+```diff
++ [Invalid] EF - Electra - Operations - Voluntary Exit - invalid_incorrect_signature         OK
++ [Invalid] EF - Electra - Operations - Voluntary Exit - invalid_validator_already_exited    OK
++ [Invalid] EF - Electra - Operations - Voluntary Exit - invalid_validator_exit_in_future    OK
++ [Invalid] EF - Electra - Operations - Voluntary Exit - invalid_validator_has_pending_withd OK
++ [Invalid] EF - Electra - Operations - Voluntary Exit - invalid_validator_incorrect_validat OK
++ [Invalid] EF - Electra - Operations - Voluntary Exit - invalid_validator_not_active        OK
++ [Invalid] EF - Electra - Operations - Voluntary Exit - invalid_validator_not_active_long_e OK
++ [Invalid] EF - Electra - Operations - Voluntary Exit - invalid_voluntary_exit_with_current OK
++ [Invalid] EF - Electra - Operations - Voluntary Exit - invalid_voluntary_exit_with_current OK
++ [Invalid] EF - Electra - Operations - Voluntary Exit - invalid_voluntary_exit_with_genesis OK
++ [Invalid] EF - Electra - Operations - Voluntary Exit - invalid_voluntary_exit_with_genesis OK
++ [Invalid] EF - Electra - Operations - Voluntary Exit - voluntary_exit_with_previous_fork_v OK
++ [Invalid] EF - Electra - Operations - Voluntary Exit - voluntary_exit_with_previous_fork_v OK
++ [Valid]   EF - Electra - Operations - Voluntary Exit - basic                               OK
++ [Valid]   EF - Electra - Operations - Voluntary Exit - default_exit_epoch_subsequent_exit  OK
++ [Valid]   EF - Electra - Operations - Voluntary Exit - min_balance_exit                    OK
++ [Valid]   EF - Electra - Operations - Voluntary Exit - min_balance_exits_above_churn       OK
++ [Valid]   EF - Electra - Operations - Voluntary Exit - min_balance_exits_up_to_churn       OK
++ [Valid]   EF - Electra - Operations - Voluntary Exit - success_exit_queue__min_churn       OK
++ [Valid]   EF - Electra - Operations - Voluntary Exit - success_exit_queue__scaled_churn    OK
+```
+OK: 20/20 Fail: 0/20 Skip: 0/20
 ## EF - Electra - Operations - Withdrawals  [Preset: minimal]
 ```diff
 + [Invalid] EF - Electra - Operations - Withdrawals - invalid_a_lot_fully_withdrawable_too_f OK
@@ -3570,4 +3675,4 @@ OK: 185/207 Fail: 0/207 Skip: 22/207
 OK: 3/3 Fail: 0/3 Skip: 0/3
 
 ---TOTAL---
-OK: 2878/2900 Fail: 0/2900 Skip: 22/2900
+OK: 2967/2989 Fail: 0/2989 Skip: 22/2989
