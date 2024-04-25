@@ -2598,6 +2598,21 @@ OK: 14/14 Fail: 0/14 Skip: 0/14
 + [Valid]   EF - Electra - Operations - Block Header - basic_block_header                    OK
 ```
 OK: 6/6 Fail: 0/6 Skip: 0/6
+## EF - Electra - Operations - Consolidation  [Preset: mainnet]
+```diff
++ [Invalid] EF - Electra - Operations - Consolidation - invalid_before_specified_epoch       OK
++ [Invalid] EF - Electra - Operations - Consolidation - invalid_different_credentials        OK
++ [Invalid] EF - Electra - Operations - Consolidation - invalid_exited_source                OK
++ [Invalid] EF - Electra - Operations - Consolidation - invalid_exited_target                OK
++ [Invalid] EF - Electra - Operations - Consolidation - invalid_inactive_source              OK
++ [Invalid] EF - Electra - Operations - Consolidation - invalid_inactive_target              OK
++ [Invalid] EF - Electra - Operations - Consolidation - invalid_no_execution_withdrawal_cred OK
++ [Invalid] EF - Electra - Operations - Consolidation - invalid_not_enough_consolidation_chu OK
++ [Invalid] EF - Electra - Operations - Consolidation - invalid_source_equals_target         OK
++ [Invalid] EF - Electra - Operations - Consolidation - invalid_source_signature             OK
++ [Invalid] EF - Electra - Operations - Consolidation - invalid_target_signature             OK
+```
+OK: 11/11 Fail: 0/11 Skip: 0/11
 ## EF - Electra - Operations - Execution Layer Withdrawal Request  [Preset: mainnet]
 ```diff
 + [Valid]   EF - Electra - Operations - Execution Layer Withdrawal Request - activation_epoc OK
@@ -3382,4 +3397,4 @@ OK: 69/88 Fail: 0/88 Skip: 19/88
 OK: 3/3 Fail: 0/3 Skip: 0/3
 
 ---TOTAL---
-OK: 2705/2724 Fail: 0/2724 Skip: 19/2724
+OK: 2716/2735 Fail: 0/2735 Skip: 19/2735

@@ -148,7 +148,26 @@ suite baseDescription & "BLS to execution change " & preset():
       OpBlsToExecutionChangeDir, suiteName, "BLS to execution change", "address_change",
       applyBlsToExecutionChange, path)
 
-debugRaiseAssert "consolidations tests"
+suite baseDescription & "Consolidation " & preset():
+  proc applyConsolidation(
+      preState: var electra.BeaconState,
+      signed_consolidation: SignedConsolidation):
+      Result[void, cstring] =
+    var cache: StateCache
+    process_consolidation(
+      defaultRuntimeConfig, preState, signed_consolidation, cache)
+
+  for path in walkTests(OpConsolidationDir):
+    if path in [
+        "multiple_consolidations_below_churn",  # missing consolidation.ssz
+        "multiple_consolidations_equal_churn",  # missing consolidation.ssz
+        "multiple_consolidations_equal_twice_churn",  # missing consolidation.ssz
+        "invalid_exceed_pending_consolidations_limit",    # apparently invalid prestate SSZ
+        ]:
+      continue
+    runTest[SignedConsolidation, typeof applyConsolidation](
+      OpConsolidationDir, suiteName, "Consolidation", "consolidation",
+      applyConsolidation, path)
 
 when false:
   from ".."/".."/".."/beacon_chain/bloomfilter import constructBloomFilter
