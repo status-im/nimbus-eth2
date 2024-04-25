@@ -2725,6 +2725,30 @@ OK: 14/14 Fail: 0/14 Skip: 0/14
 + [Valid]   EF - Electra - Operations - Block Header - basic_block_header                    OK
 ```
 OK: 6/6 Fail: 0/6 Skip: 0/6
+## EF - Electra - Operations - Consolidation  [Preset: minimal]
+```diff
++ [Invalid] EF - Electra - Operations - Consolidation - invalid_before_specified_epoch       OK
++ [Invalid] EF - Electra - Operations - Consolidation - invalid_different_credentials        OK
++ [Invalid] EF - Electra - Operations - Consolidation - invalid_exited_source                OK
++ [Invalid] EF - Electra - Operations - Consolidation - invalid_exited_target                OK
++ [Invalid] EF - Electra - Operations - Consolidation - invalid_inactive_source              OK
++ [Invalid] EF - Electra - Operations - Consolidation - invalid_inactive_target              OK
++ [Invalid] EF - Electra - Operations - Consolidation - invalid_no_execution_withdrawal_cred OK
++ [Invalid] EF - Electra - Operations - Consolidation - invalid_not_enough_consolidation_chu OK
++ [Invalid] EF - Electra - Operations - Consolidation - invalid_source_equals_target         OK
++ [Invalid] EF - Electra - Operations - Consolidation - invalid_source_signature             OK
++ [Invalid] EF - Electra - Operations - Consolidation - invalid_target_signature             OK
++ [Valid]   EF - Electra - Operations - Consolidation - basic_consolidation_in_current_conso OK
++ [Valid]   EF - Electra - Operations - Consolidation - basic_consolidation_in_new_consolida OK
++ [Valid]   EF - Electra - Operations - Consolidation - basic_consolidation_with_compounding OK
++ [Valid]   EF - Electra - Operations - Consolidation - basic_consolidation_with_insufficien OK
++ [Valid]   EF - Electra - Operations - Consolidation - basic_consolidation_with_preexisting OK
++ [Valid]   EF - Electra - Operations - Consolidation - consolidation_balance_larger_than_ch OK
++ [Valid]   EF - Electra - Operations - Consolidation - consolidation_balance_through_two_ch OK
++ [Valid]   EF - Electra - Operations - Consolidation - consolidation_churn_limit_balance    OK
++ [Valid]   EF - Electra - Operations - Consolidation - multiple_consolidations_above_churn  OK
+```
+OK: 20/20 Fail: 0/20 Skip: 0/20
 ## EF - Electra - Operations - Execution Layer Withdrawal Request  [Preset: minimal]
 ```diff
 + [Valid]   EF - Electra - Operations - Execution Layer Withdrawal Request - activation_epoc OK
@@ -3675,4 +3699,4 @@ OK: 185/207 Fail: 0/207 Skip: 22/207
 OK: 3/3 Fail: 0/3 Skip: 0/3
 
 ---TOTAL---
-OK: 2967/2989 Fail: 0/2989 Skip: 22/2989
+OK: 2987/3009 Fail: 0/3009 Skip: 22/3009

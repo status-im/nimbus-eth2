@@ -962,6 +962,84 @@ func process_execution_layer_withdrawal_request*(
       withdrawable_epoch: withdrawable_epoch,
     ))
 
+# https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.0/specs/electra/beacon-chain.md#consolidations
+func process_consolidation*(
+    cfg: RuntimeConfig, state: var electra.BeaconState,
+    signed_consolidation: SignedConsolidation, cache: var StateCache):
+    Result[void, cstring] =
+  # If the pending consolidations queue is full, no consolidations are allowed
+  # in the block
+  if not(lenu64(state.pending_consolidations) < PENDING_CONSOLIDATIONS_LIMIT):
+    return err("Consolidation: too many pending consolidations already")
+
+  # If there is too little available consolidation churn limit, no
+  # consolidations are allowed in the block
+  if not (get_consolidation_churn_limit(cfg, state, cache) >
+      static(MIN_ACTIVATION_BALANCE.Gwei)):
+    return err("Consolidation: insufficient available consolidation churn limit")
+
+  let consolidation = signed_consolidation.message
+
+  # Verify that source != target, so a consolidation cannot be used as an exit.
+  if not(consolidation.source_index != consolidation.target_index):
+    return err("Consolidation: a consolidation cannot be used as an exit")
+
+  let
+    source_validator = addr state.validators.mitem(consolidation.source_index)
+    target_validator = state.validators.item(consolidation.target_index)
+
+  # Verify the source and the target are active
+  let current_epoch = get_current_epoch(state)
+
+  if not is_active_validator(source_validator[], current_epoch):
+    return err("Consolidation: source validator not active")
+  if not is_active_validator(target_validator, current_epoch):
+    return err("Consolidation: target validator not active")
+
+  # Verify exits for source and target have not been initiated
+  if not (source_validator[].exit_epoch == FAR_FUTURE_EPOCH):
+    return err("Consolidation: exit for source validator already initiated")
+  if not (target_validator.exit_epoch == FAR_FUTURE_EPOCH):
+    return err("Consolidation: exit for target validator already initiated")
+
+  # Consolidations must specify an epoch when they become valid; they are not
+  # valid before then
+  if not (current_epoch >= consolidation.epoch):
+    return err("Consolidation: consolidation not valid before specified epoch")
+
+  # Verify the source and the target have Execution layer withdrawal credentials
+  if not has_execution_withdrawal_credential(source_validator[]):
+    return err("Consolidation: source doesn't have execution layer withdrawal credentials")
+  if not has_execution_withdrawal_credential(target_validator):
+    return err("Consolidation: target doesn't have execution layer withdrawal credentials")
+
+  # Verify the same withdrawal address
+  if not (source_validator[].withdrawal_credentials.data.toOpenArray(12, 31) ==
+      target_validator.withdrawal_credentials.data.toOpenArray(12, 31)):
+    return err("Consolidation: source and target don't have same withdrawal address")
+
+  debugRaiseAssert "add signature checking for process_consolidation, which oddly isn't tested"
+  # Verify consolidation is signed by the source and the target
+  #let
+  #  domain = compute_domain(
+  #    DOMAIN_CONSOLIDATION, genesis_validators_root=state.genesis_validators_root)
+  #  signing_root = compute_signing_root(consolidation, domain)
+  #  pubkeys = [source_validator.pubkey, target_validator.pubkey]
+  #assert bls.FastAggregateVerify(pubkeys, signing_root, signed_consolidation.signature)
+
+  # Initiate source validator exit and append pending consolidation
+  source_validator[].exit_epoch = compute_consolidation_epoch_and_update_churn(
+    cfg, state, source_validator[].effective_balance, cache)
+  source_validator[].withdrawable_epoch =
+    source_validator[].exit_epoch + cfg.MIN_VALIDATOR_WITHDRAWABILITY_DELAY
+  debugRaiseAssert "check HashList add return value"
+  discard state.pending_consolidations.add(PendingConsolidation(
+    source_index: consolidation.source_index,
+    target_index: consolidation.target_index
+  ))
+
+  ok()
+
 # https://github.com/ethereum/consensus-specs/blob/v1.4.0/specs/deneb/beacon-chain.md#kzg_commitment_to_versioned_hash
 func kzg_commitment_to_versioned_hash*(
     kzg_commitment: KzgCommitment): VersionedHash =

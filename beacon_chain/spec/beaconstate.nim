@@ -189,6 +189,13 @@ func get_activation_exit_churn_limit*(
     cfg.MAX_PER_EPOCH_ACTIVATION_EXIT_CHURN_LIMIT.Gwei,
     get_balance_churn_limit(cfg, state, cache))
 
+# https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.0/specs/electra/beacon-chain.md#new-get_consolidation_churn_limit
+func get_consolidation_churn_limit*(
+    cfg: RuntimeConfig, state: electra.BeaconState, cache: var StateCache):
+    Gwei =
+  get_balance_churn_limit(cfg, state, cache) -
+    get_activation_exit_churn_limit(cfg, state, cache)
+
 # https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.0/specs/electra/beacon-chain.md#new-compute_exit_epoch_and_update_churn
 func compute_exit_epoch_and_update_churn*(
     cfg: RuntimeConfig, state: var electra.BeaconState, exit_balance: Gwei,
@@ -217,6 +224,36 @@ func compute_exit_epoch_and_update_churn*(
   state.earliest_exit_epoch = earliest_exit_epoch
 
   state.earliest_exit_epoch
+
+# https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.0/specs/electra/beacon-chain.md#new-compute_consolidation_epoch_and_update_churn
+func compute_consolidation_epoch_and_update_churn*(
+    cfg: RuntimeConfig, state: var electra.BeaconState,
+    consolidation_balance: Gwei, cache: var StateCache): Epoch =
+  var earliest_consolidation_epoch = max(state.earliest_consolidation_epoch,
+    compute_activation_exit_epoch(get_current_epoch(state)))
+  let per_epoch_consolidation_churn =
+    get_consolidation_churn_limit(cfg, state, cache)
+
+  # New epoch for consolidations.
+  var consolidation_balance_to_consume =
+    if state.earliest_consolidation_epoch < earliest_consolidation_epoch:
+      per_epoch_consolidation_churn
+    else:
+      state.consolidation_balance_to_consume
+
+  # Consolidation doesn't fit in the current earliest epoch.
+  if consolidation_balance > consolidation_balance_to_consume:
+    let
+      balance_to_process = consolidation_balance - consolidation_balance_to_consume
+      additional_epochs = (balance_to_process - 1.Gwei) div per_epoch_consolidation_churn + 1
+    earliest_consolidation_epoch += additional_epochs
+    consolidation_balance_to_consume += additional_epochs * per_epoch_consolidation_churn
+
+  # Consume the balance and update state variables.
+  state.consolidation_balance_to_consume = consolidation_balance_to_consume - consolidation_balance
+  state.earliest_consolidation_epoch = earliest_consolidation_epoch
+
+  state.earliest_consolidation_epoch
 
 # https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.0/specs/electra/beacon-chain.md#updated--initiate_validator_exit
 func initiate_validator_exit*(
