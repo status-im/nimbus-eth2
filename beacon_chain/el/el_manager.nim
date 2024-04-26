@@ -920,73 +920,99 @@ proc getPayload*(
   let
     timeout = GETPAYLOAD_TIMEOUT + extraProcessingOverhead
     deadline = sleepAsync(timeout)
-    requests = m.elConnections.mapIt(it.getPayloadFromSingleEL(
-      EngineApiResponseType(PayloadType),
-      isFcUpToDate, consensusHead, headBlock, safeBlock, finalizedBlock,
-      timestamp, randomData, suggestedFeeRecipient, engineApiWithdrawals
-    ))
-    requestsCompleted = allFutures(requests)
 
-  # TODO cancel requests on cancellation
-  await requestsCompleted or deadline
+  var bestPayloadIdx = Opt.none(int)
 
-  var bestPayloadIdx = none int
-  for idx, req in requests:
-    if not req.finished:
-      warn "Timeout while getting execution payload",
-        url = m.elConnections[idx].engineUrl.url
-      req.cancelSoon()
-    elif req.failed:
-      warn "Failed to get execution payload from EL",
+  while true:
+    let requests =
+      m.elConnections.mapIt(
+        it.getPayloadFromSingleEL(EngineApiResponseType(PayloadType),
+          isFcUpToDate, consensusHead, headBlock, safeBlock, finalizedBlock,
+          timestamp, randomData, suggestedFeeRecipient, engineApiWithdrawals))
+
+    let timeoutExceeded =
+      try:
+        await allFutures(requests).wait(deadline)
+        false
+      except AsyncTimeoutError as exc:
+        true
+      except CancelledError as exc:
+        let pending =
+          requests.filterIt(not(it.finished())).mapIt(it.cancelAndWait())
+        await noCancel allFutures(pending)
+        raise exc
+
+    for idx, req in requests:
+      if not(req.finished()):
+        warn "Timeout while getting execution payload",
+             url = m.elConnections[idx].engineUrl.url
+      elif req.failed():
+        warn "Failed to get execution payload from EL",
              url = m.elConnections[idx].engineUrl.url,
-             err = req.error.msg
-    else:
-      const payloadFork = PayloadType.kind
-      when payloadFork >= ConsensusFork.Capella:
-        when payloadFork == ConsensusFork.Capella:
-          # TODO: The engine_api module may offer an alternative API where it is guaranteed
-          #       to return the correct response type (i.e. the rule below will be enforced
-          #       during deserialization).
-          if req.value().executionPayload.withdrawals.isNone:
-            warn "Execution client returned a block without a 'withdrawals' field for a post-Shanghai block",
-                  url = m.elConnections[idx].engineUrl.url
-            continue
-
-        if engineApiWithdrawals != req.value().executionPayload.withdrawals.maybeDeref:
-          # otherwise it formats as "@[(index: ..., validatorIndex: ...,
-          # address: ..., amount: ...), (index: ..., validatorIndex: ...,
-          # address: ..., amount: ...)]"
-          warn "Execution client did not return correct withdrawals",
-            withdrawals_from_cl_len = engineApiWithdrawals.len,
-            withdrawals_from_el_len =
-              req.value().executionPayload.withdrawals.maybeDeref.len,
-            withdrawals_from_cl =
-              mapIt(engineApiWithdrawals, it.asConsensusWithdrawal),
-            withdrawals_from_el =
-              mapIt(
-                req.value().executionPayload.withdrawals.maybeDeref,
-                it.asConsensusWithdrawal),
-            url = m.elConnections[idx].engineUrl.url
-
-      if req.value().executionPayload.extraData.len > MAX_EXTRA_DATA_BYTES:
-        warn "Execution client provided a block with invalid extraData (size exceeds limit)",
-             url = m.elConnections[idx].engineUrl.url,
-             size = req.value().executionPayload.extraData.len,
-             limit = MAX_EXTRA_DATA_BYTES
-        continue
-
-      if bestPayloadIdx.isNone:
-        bestPayloadIdx = some idx
+             reason = req.error.msg
       else:
-        if cmpGetPayloadResponses(req.value(), requests[bestPayloadIdx.get].value()) > 0:
-          bestPayloadIdx = some idx
+        const payloadFork = PayloadType.kind
+        when payloadFork >= ConsensusFork.Capella:
+          when payloadFork == ConsensusFork.Capella:
+            # TODO: The engine_api module may offer an alternative API where
+            # it is guaranteed to return the correct response type (i.e. the
+            # rule below will be enforced during deserialization).
+            if req.value().executionPayload.withdrawals.isNone:
+              warn "Execution client returned a block without a " &
+                   "'withdrawals' field for a post-Shanghai block",
+                    url = m.elConnections[idx].engineUrl.url
+              continue
 
-  deadline.cancelSoon()
+          if engineApiWithdrawals !=
+             req.value().executionPayload.withdrawals.maybeDeref:
+            # otherwise it formats as "@[(index: ..., validatorIndex: ...,
+            # address: ..., amount: ...), (index: ..., validatorIndex: ...,
+            # address: ..., amount: ...)]"
+            # TODO (cheatfate): should we have `continue` statement at the
+            # end of this branch. If no such payload could be choosen as
+            # best one.
+            warn "Execution client did not return correct withdrawals",
+              withdrawals_from_cl_len = engineApiWithdrawals.len,
+              withdrawals_from_el_len =
+                req.value().executionPayload.withdrawals.maybeDeref.len,
+              withdrawals_from_cl =
+                mapIt(engineApiWithdrawals, it.asConsensusWithdrawal),
+              withdrawals_from_el =
+                mapIt(
+                  req.value().executionPayload.withdrawals.maybeDeref,
+                  it.asConsensusWithdrawal),
+              url = m.elConnections[idx].engineUrl.url
+            # If we have more than one EL connection we consider this as
+            # a failure.
+            if len(requests) > 1:
+              continue
 
-  if bestPayloadIdx.isSome:
-    return ok requests[bestPayloadIdx.get].value().asConsensusType
-  else:
-    return err()
+        if req.value().executionPayload.extraData.len > MAX_EXTRA_DATA_BYTES:
+          warn "Execution client provided a block with invalid extraData " &
+               "(size exceeds limit)",
+               url = m.elConnections[idx].engineUrl.url,
+               size = req.value().executionPayload.extraData.len,
+               limit = MAX_EXTRA_DATA_BYTES
+          continue
+
+        if bestPayloadIdx.isNone:
+          bestPayloadIdx = Opt.some(idx)
+        else:
+          if cmpGetPayloadResponses(
+               req.value(), requests[bestPayloadIdx.get].value()) > 0:
+            bestPayloadIdx = Opt.some(idx)
+
+    let pending =
+      requests.filterIt(not(it.finished())).mapIt(it.cancelAndWait())
+    await noCancel allFutures(pending)
+
+    if bestPayloadIdx.isSome():
+      return ok(requests[bestPayloadIdx.get()].value().asConsensusType)
+
+    if timeoutExceeded:
+      break
+
+  err()
 
 proc waitELToSyncDeposits(
     connection: ELConnection,
