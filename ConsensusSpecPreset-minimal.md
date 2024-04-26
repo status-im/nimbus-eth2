@@ -2749,6 +2749,31 @@ OK: 6/6 Fail: 0/6 Skip: 0/6
 + [Valid]   EF - Electra - Operations - Consolidation - multiple_consolidations_above_churn  OK
 ```
 OK: 20/20 Fail: 0/20 Skip: 0/20
+## EF - Electra - Operations - Deposit  [Preset: minimal]
+```diff
++ [Invalid] EF - Electra - Operations - Deposit - invalid_bad_merkle_proof                   OK
++ [Invalid] EF - Electra - Operations - Deposit - invalid_wrong_deposit_for_deposit_count    OK
++ [Valid]   EF - Electra - Operations - Deposit - correct_sig_but_forked_state               OK
++ [Valid]   EF - Electra - Operations - Deposit - effective_deposit_with_genesis_fork_versio OK
++ [Valid]   EF - Electra - Operations - Deposit - incorrect_sig_new_deposit                  OK
++ [Valid]   EF - Electra - Operations - Deposit - incorrect_sig_top_up                       OK
++ [Valid]   EF - Electra - Operations - Deposit - incorrect_withdrawal_credentials_top_up    OK
++ [Valid]   EF - Electra - Operations - Deposit - ineffective_deposit_with_bad_fork_version  OK
++ [Valid]   EF - Electra - Operations - Deposit - ineffective_deposit_with_current_fork_vers OK
++ [Valid]   EF - Electra - Operations - Deposit - ineffective_deposit_with_previous_fork_ver OK
++ [Valid]   EF - Electra - Operations - Deposit - key_validate_invalid_decompression         OK
++ [Valid]   EF - Electra - Operations - Deposit - key_validate_invalid_subgroup              OK
++ [Valid]   EF - Electra - Operations - Deposit - new_deposit_eth1_withdrawal_credentials    OK
++ [Valid]   EF - Electra - Operations - Deposit - new_deposit_max                            OK
++ [Valid]   EF - Electra - Operations - Deposit - new_deposit_non_versioned_withdrawal_crede OK
++ [Valid]   EF - Electra - Operations - Deposit - new_deposit_over_max                       OK
++ [Valid]   EF - Electra - Operations - Deposit - new_deposit_under_max                      OK
++ [Valid]   EF - Electra - Operations - Deposit - success_top_up_to_withdrawn_validator      OK
++ [Valid]   EF - Electra - Operations - Deposit - top_up__less_effective_balance             OK
++ [Valid]   EF - Electra - Operations - Deposit - top_up__max_effective_balance              OK
++ [Valid]   EF - Electra - Operations - Deposit - top_up__zero_balance                       OK
+```
+OK: 21/21 Fail: 0/21 Skip: 0/21
 ## EF - Electra - Operations - Execution Layer Withdrawal Request  [Preset: minimal]
 ```diff
 + [Valid]   EF - Electra - Operations - Execution Layer Withdrawal Request - activation_epoc OK
@@ -3699,4 +3724,4 @@ OK: 185/207 Fail: 0/207 Skip: 22/207
 OK: 3/3 Fail: 0/3 Skip: 0/3
 
 ---TOTAL---
-OK: 2987/3009 Fail: 0/3009 Skip: 22/3009
+OK: 3008/3030 Fail: 0/3030 Skip: 22/3030

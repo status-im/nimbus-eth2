@@ -85,7 +85,7 @@ proc runTest[T, U](
 when false:
   debugRaiseAssert "when these are fixed..."
   suite baseDescription & "Attestation " & preset():
-    proc applyAttestation(
+    func applyAttestation(
         preState: var electra.BeaconState, attestation: Attestation):
         Result[void, cstring] =
       var cache: StateCache
@@ -149,7 +149,7 @@ suite baseDescription & "BLS to execution change " & preset():
       applyBlsToExecutionChange, path)
 
 suite baseDescription & "Consolidation " & preset():
-  proc applyConsolidation(
+  func applyConsolidation(
       preState: var electra.BeaconState,
       signed_consolidation: SignedConsolidation):
       Result[void, cstring] =
@@ -169,23 +169,23 @@ suite baseDescription & "Consolidation " & preset():
       OpConsolidationDir, suiteName, "Consolidation", "consolidation",
       applyConsolidation, path)
 
+from ".."/".."/".."/beacon_chain/bloomfilter import constructBloomFilter
+
+suite baseDescription & "Deposit " & preset():
+  func applyDeposit(
+      preState: var electra.BeaconState, deposit: Deposit):
+      Result[void, cstring] =
+    process_deposit(
+      defaultRuntimeConfig, preState,
+      constructBloomFilter(preState.validators.asSeq)[], deposit, {})
+
+  for path in walkTests(OpDepositsDir):
+    runTest[Deposit, typeof applyDeposit](
+      OpDepositsDir, suiteName, "Deposit", "deposit", applyDeposit, path)
+
 when false:
-  from ".."/".."/".."/beacon_chain/bloomfilter import constructBloomFilter
-
-  suite baseDescription & "Deposit " & preset():
-    proc applyDeposit(
-        preState: var electra.BeaconState, deposit: Deposit):
-        Result[void, cstring] =
-      process_deposit(
-        defaultRuntimeConfig, preState,
-        constructBloomFilter(preState.validators.asSeq)[], deposit, {})
-
-    for path in walkTests(OpDepositsDir):
-      runTest[Deposit, typeof applyDeposit](
-        OpDepositsDir, suiteName, "Deposit", "deposit", applyDeposit, path)
-
   suite baseDescription & "Execution Payload " & preset():
-    proc makeApplyExecutionPayloadCb(path: string): auto =
+    func makeApplyExecutionPayloadCb(path: string): auto =
       return proc(
           preState: var electra.BeaconState, body: electra.BeaconBlockBody):
           Result[void, cstring] {.raises: [IOError].} =
@@ -204,7 +204,7 @@ when false:
 debugRaiseAssert "deposit receipts"
 
 suite baseDescription & "Execution Layer Withdrawal Request " & preset():
-  proc applyExecutionLayerWithdrawalRequest(
+  func applyExecutionLayerWithdrawalRequest(
       preState: var electra.BeaconState,
       executionLayerWithdrawalRequest: ExecutionLayerWithdrawalRequest):
       Result[void, cstring] =
@@ -269,7 +269,7 @@ suite baseDescription & "Voluntary Exit " & preset():
       applyVoluntaryExit, path)
 
 suite baseDescription & "Withdrawals " & preset():
-  proc applyWithdrawals(
+  func applyWithdrawals(
       preState: var electra.BeaconState,
       executionPayload: electra.ExecutionPayload): Result[void, cstring] =
     process_withdrawals(preState, executionPayload)
