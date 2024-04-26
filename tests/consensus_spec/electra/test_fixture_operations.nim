@@ -22,7 +22,7 @@ import
   ../../helpers/debug_state
 
 from std/sequtils import mapIt, toSeq
-#from std/strutils import contains
+from std/strutils import contains
 from ../../../beacon_chain/spec/beaconstate import
   get_base_reward_per_increment, get_state_exit_queue_info,
   get_total_active_balance, process_attestation
@@ -183,7 +183,7 @@ suite baseDescription & "Deposit " & preset():
     runTest[Deposit, typeof applyDeposit](
       OpDepositsDir, suiteName, "Deposit", "deposit", applyDeposit, path)
 
-suite baseDescription & "Deposit Receipt" & preset():
+suite baseDescription & "Deposit Receipt " & preset():
   func applyDepositReceipt(
       preState: var electra.BeaconState, depositReceipt: DepositReceipt):
       Result[void, cstring] =
@@ -196,23 +196,22 @@ suite baseDescription & "Deposit Receipt" & preset():
       OpDepositReceiptDir, suiteName, "Deposit Receipt", "deposit_receipt",
       applyDepositReceipt, path)
 
-when false:
-  suite baseDescription & "Execution Payload " & preset():
-    func makeApplyExecutionPayloadCb(path: string): auto =
-      return proc(
-          preState: var electra.BeaconState, body: electra.BeaconBlockBody):
-          Result[void, cstring] {.raises: [IOError].} =
-        let payloadValid = os_ops.readFile(
-            OpExecutionPayloadDir/"pyspec_tests"/path/"execution.yaml"
-          ).contains("execution_valid: true")
-        func executePayload(_: electra.ExecutionPayload): bool = payloadValid
-        process_execution_payload(preState, body, executePayload)
+suite baseDescription & "Execution Payload " & preset():
+  func makeApplyExecutionPayloadCb(path: string): auto =
+    return proc(
+        preState: var electra.BeaconState, body: electra.BeaconBlockBody):
+        Result[void, cstring] {.raises: [IOError].} =
+      let payloadValid = os_ops.readFile(
+          OpExecutionPayloadDir/"pyspec_tests"/path/"execution.yaml"
+        ).contains("execution_valid: true")
+      func executePayload(_: electra.ExecutionPayload): bool = payloadValid
+      process_execution_payload(preState, body, executePayload)
 
-    for path in walkTests(OpExecutionPayloadDir):
-      let applyExecutionPayload = makeApplyExecutionPayloadCb(path)
-      runTest[electra.BeaconBlockBody, typeof applyExecutionPayload](
-        OpExecutionPayloadDir, suiteName, "Execution Payload", "body",
-        applyExecutionPayload, path)
+  for path in walkTests(OpExecutionPayloadDir):
+    let applyExecutionPayload = makeApplyExecutionPayloadCb(path)
+    runTest[electra.BeaconBlockBody, typeof applyExecutionPayload](
+      OpExecutionPayloadDir, suiteName, "Execution Payload", "body",
+      applyExecutionPayload, path)
 
 suite baseDescription & "Execution Layer Withdrawal Request " & preset():
   func applyExecutionLayerWithdrawalRequest(

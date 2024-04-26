@@ -2774,7 +2774,7 @@ OK: 20/20 Fail: 0/20 Skip: 0/20
 + [Valid]   EF - Electra - Operations - Deposit - top_up__zero_balance                       OK
 ```
 OK: 21/21 Fail: 0/21 Skip: 0/21
-## EF - Electra - Operations - Deposit Receipt [Preset: minimal]
+## EF - Electra - Operations - Deposit Receipt  [Preset: minimal]
 ```diff
 + [Valid]   EF - Electra - Operations - Deposit Receipt - correct_sig_but_forked_state       OK
 + [Valid]   EF - Electra - Operations - Deposit Receipt - effective_deposit_with_genesis_for OK
@@ -2823,6 +2823,48 @@ OK: 17/17 Fail: 0/17 Skip: 0/17
 + [Valid]   EF - Electra - Operations - Execution Layer Withdrawal Request - pending_withdra OK
 ```
 OK: 24/24 Fail: 0/24 Skip: 0/24
+## EF - Electra - Operations - Execution Payload  [Preset: minimal]
+```diff
++ [Invalid] EF - Electra - Operations - Execution Payload - invalid_bad_everything_first_pay OK
++ [Invalid] EF - Electra - Operations - Execution Payload - invalid_bad_everything_regular_p OK
++ [Invalid] EF - Electra - Operations - Execution Payload - invalid_bad_execution_first_payl OK
++ [Invalid] EF - Electra - Operations - Execution Payload - invalid_bad_execution_regular_pa OK
++ [Invalid] EF - Electra - Operations - Execution Payload - invalid_bad_parent_hash_first_pa OK
++ [Invalid] EF - Electra - Operations - Execution Payload - invalid_bad_parent_hash_regular_ OK
++ [Invalid] EF - Electra - Operations - Execution Payload - invalid_bad_pre_randao_regular_p OK
++ [Invalid] EF - Electra - Operations - Execution Payload - invalid_bad_prev_randao_first_pa OK
++ [Invalid] EF - Electra - Operations - Execution Payload - invalid_correct_input__execution OK
++ [Invalid] EF - Electra - Operations - Execution Payload - invalid_exceed_max_blobs_per_blo OK
++ [Invalid] EF - Electra - Operations - Execution Payload - invalid_future_timestamp_first_p OK
++ [Invalid] EF - Electra - Operations - Execution Payload - invalid_future_timestamp_regular OK
++ [Invalid] EF - Electra - Operations - Execution Payload - invalid_past_timestamp_first_pay OK
++ [Invalid] EF - Electra - Operations - Execution Payload - invalid_past_timestamp_regular_p OK
++ [Invalid] EF - Electra - Operations - Execution Payload - invalid_randomized_non_validated OK
++ [Invalid] EF - Electra - Operations - Execution Payload - invalid_randomized_non_validated OK
++ [Valid]   EF - Electra - Operations - Execution Payload - incorrect_blob_tx_type           OK
++ [Valid]   EF - Electra - Operations - Execution Payload - incorrect_block_hash             OK
++ [Valid]   EF - Electra - Operations - Execution Payload - incorrect_commitment             OK
++ [Valid]   EF - Electra - Operations - Execution Payload - incorrect_commitments_order      OK
++ [Valid]   EF - Electra - Operations - Execution Payload - incorrect_transaction_length_1_b OK
++ [Valid]   EF - Electra - Operations - Execution Payload - incorrect_transaction_length_1_e OK
++ [Valid]   EF - Electra - Operations - Execution Payload - incorrect_transaction_length_32_ OK
++ [Valid]   EF - Electra - Operations - Execution Payload - incorrect_transaction_length_emp OK
++ [Valid]   EF - Electra - Operations - Execution Payload - no_transactions_with_commitments OK
++ [Valid]   EF - Electra - Operations - Execution Payload - non_empty_extra_data_first_paylo OK
++ [Valid]   EF - Electra - Operations - Execution Payload - non_empty_extra_data_regular_pay OK
++ [Valid]   EF - Electra - Operations - Execution Payload - non_empty_transactions_first_pay OK
++ [Valid]   EF - Electra - Operations - Execution Payload - non_empty_transactions_regular_p OK
++ [Valid]   EF - Electra - Operations - Execution Payload - randomized_non_validated_executi OK
++ [Valid]   EF - Electra - Operations - Execution Payload - randomized_non_validated_executi OK
++ [Valid]   EF - Electra - Operations - Execution Payload - success_first_payload            OK
++ [Valid]   EF - Electra - Operations - Execution Payload - success_first_payload_with_gap_s OK
++ [Valid]   EF - Electra - Operations - Execution Payload - success_regular_payload          OK
++ [Valid]   EF - Electra - Operations - Execution Payload - success_regular_payload_with_gap OK
++ [Valid]   EF - Electra - Operations - Execution Payload - zero_length_transaction_first_pa OK
++ [Valid]   EF - Electra - Operations - Execution Payload - zero_length_transaction_regular_ OK
++ [Valid]   EF - Electra - Operations - Execution Payload - zeroed_commitment                OK
+```
+OK: 38/38 Fail: 0/38 Skip: 0/38
 ## EF - Electra - Operations - Proposer Slashing  [Preset: minimal]
 ```diff
 + [Invalid] EF - Electra - Operations - Proposer Slashing - invalid_different_proposer_indic OK
@@ -3745,4 +3787,4 @@ OK: 185/207 Fail: 0/207 Skip: 22/207
 OK: 3/3 Fail: 0/3 Skip: 0/3
 
 ---TOTAL---
-OK: 3025/3047 Fail: 0/3047 Skip: 22/3047
+OK: 3063/3085 Fail: 0/3085 Skip: 22/3085
