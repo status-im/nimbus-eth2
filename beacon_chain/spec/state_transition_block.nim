@@ -822,7 +822,7 @@ type SomeElectraBeaconBlockBody =
   electra.BeaconBlockBody | electra.SigVerifiedBeaconBlockBody |
   electra.TrustedBeaconBlockBody
 
-# TODO spec ref URL when available
+# https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.0/specs/electra/beacon-chain.md#modified-process_execution_payload
 proc process_execution_payload*(
     state: var electra.BeaconState, body: SomeElectraBeaconBlockBody,
     notify_new_payload: electra.ExecutePayload): Result[void, cstring] =
@@ -868,7 +868,11 @@ proc process_execution_payload*(
     transactions_root: hash_tree_root(payload.transactions),
     withdrawals_root: hash_tree_root(payload.withdrawals),
     blob_gas_used: payload.blob_gas_used,
-    excess_blob_gas: payload.excess_blob_gas)
+    excess_blob_gas: payload.excess_blob_gas,
+    deposit_receipts_root:
+      hash_tree_root(payload.deposit_receipts),  # [New in Electra:EIP6110]
+    withdrawal_requests_root:
+      hash_tree_root(payload.withdrawal_requests))  # [New in Electra:EIP7002:EIP7251]
 
   ok()
 
