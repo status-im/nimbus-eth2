@@ -183,6 +183,19 @@ suite baseDescription & "Deposit " & preset():
     runTest[Deposit, typeof applyDeposit](
       OpDepositsDir, suiteName, "Deposit", "deposit", applyDeposit, path)
 
+suite baseDescription & "Deposit Receipt" & preset():
+  func applyDepositReceipt(
+      preState: var electra.BeaconState, depositReceipt: DepositReceipt):
+      Result[void, cstring] =
+    process_deposit_receipt(
+      defaultRuntimeConfig, preState,
+      constructBloomFilter(preState.validators.asSeq)[], depositReceipt, {})
+
+  for path in walkTests(OpDepositReceiptDir):
+    runTest[DepositReceipt, typeof applyDepositReceipt](
+      OpDepositReceiptDir, suiteName, "Deposit Receipt", "deposit_receipt",
+      applyDepositReceipt, path)
+
 when false:
   suite baseDescription & "Execution Payload " & preset():
     func makeApplyExecutionPayloadCb(path: string): auto =
@@ -200,8 +213,6 @@ when false:
       runTest[electra.BeaconBlockBody, typeof applyExecutionPayload](
         OpExecutionPayloadDir, suiteName, "Execution Payload", "body",
         applyExecutionPayload, path)
-
-debugRaiseAssert "deposit receipts"
 
 suite baseDescription & "Execution Layer Withdrawal Request " & preset():
   func applyExecutionLayerWithdrawalRequest(
