@@ -2638,6 +2638,27 @@ OK: 11/11 Fail: 0/11 Skip: 0/11
 + [Valid]   EF - Electra - Operations - Deposit - top_up__zero_balance                       OK
 ```
 OK: 21/21 Fail: 0/21 Skip: 0/21
+## EF - Electra - Operations - Deposit Receipt [Preset: mainnet]
+```diff
++ [Valid]   EF - Electra - Operations - Deposit Receipt - correct_sig_but_forked_state       OK
++ [Valid]   EF - Electra - Operations - Deposit Receipt - effective_deposit_with_genesis_for OK
++ [Valid]   EF - Electra - Operations - Deposit Receipt - incorrect_sig_new_deposit          OK
++ [Valid]   EF - Electra - Operations - Deposit Receipt - incorrect_sig_top_up               OK
++ [Valid]   EF - Electra - Operations - Deposit Receipt - incorrect_withdrawal_credentials_t OK
++ [Valid]   EF - Electra - Operations - Deposit Receipt - ineffective_deposit_with_previous_ OK
++ [Valid]   EF - Electra - Operations - Deposit Receipt - key_validate_invalid_decompression OK
++ [Valid]   EF - Electra - Operations - Deposit Receipt - key_validate_invalid_subgroup      OK
++ [Valid]   EF - Electra - Operations - Deposit Receipt - new_deposit_eth1_withdrawal_creden OK
++ [Valid]   EF - Electra - Operations - Deposit Receipt - new_deposit_max                    OK
++ [Valid]   EF - Electra - Operations - Deposit Receipt - new_deposit_non_versioned_withdraw OK
++ [Valid]   EF - Electra - Operations - Deposit Receipt - new_deposit_over_max               OK
++ [Valid]   EF - Electra - Operations - Deposit Receipt - new_deposit_under_max              OK
++ [Valid]   EF - Electra - Operations - Deposit Receipt - success_top_up_to_withdrawn_valida OK
++ [Valid]   EF - Electra - Operations - Deposit Receipt - top_up__less_effective_balance     OK
++ [Valid]   EF - Electra - Operations - Deposit Receipt - top_up__max_effective_balance      OK
++ [Valid]   EF - Electra - Operations - Deposit Receipt - top_up__zero_balance               OK
+```
+OK: 17/17 Fail: 0/17 Skip: 0/17
 ## EF - Electra - Operations - Execution Layer Withdrawal Request  [Preset: mainnet]
 ```diff
 + [Valid]   EF - Electra - Operations - Execution Layer Withdrawal Request - activation_epoc OK
@@ -3422,4 +3443,4 @@ OK: 69/88 Fail: 0/88 Skip: 19/88
 OK: 3/3 Fail: 0/3 Skip: 0/3
 
 ---TOTAL---
-OK: 2737/2756 Fail: 0/2756 Skip: 19/2756
+OK: 2754/2773 Fail: 0/2773 Skip: 19/2773

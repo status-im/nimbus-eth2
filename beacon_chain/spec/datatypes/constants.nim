@@ -84,6 +84,7 @@ const
   MAX_REQUEST_BLOCKS_DENEB*: uint64 = 128 # TODO Make use of in request code
 
   # https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.0/specs/electra/beacon-chain.md#misc
+  UNSET_DEPOSIT_RECEIPTS_START_INDEX*: uint64 = not 0'u64
   FULL_EXIT_REQUEST_AMOUNT*: uint64 = 0
 
   # https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.0/specs/electra/beacon-chain.md#withdrawal-prefixes

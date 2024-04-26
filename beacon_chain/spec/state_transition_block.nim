@@ -305,6 +305,77 @@ from ".."/bloomfilter import
 
 # https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.0/specs/phase0/beacon-chain.md#deposits
 # https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.0/specs/electra/beacon-chain.md#updated--apply_deposit
+proc apply_deposit(
+    cfg: RuntimeConfig, state: var ForkyBeaconState,
+    bloom_filter: var PubkeyBloomFilter, deposit_data: DepositData,
+    flags: UpdateFlags): Result[void, cstring] =
+  let
+    pubkey = deposit_data.pubkey
+    amount = deposit_data.amount
+    index =
+      if bloom_filter.mightContain(pubkey):
+        findValidatorIndex(state, pubkey)
+      else:
+        Opt.none(ValidatorIndex)
+
+  if index.isSome():
+    # Increase balance by deposit amount
+    when typeof(state).kind < ConsensusFork.Electra:
+      increase_balance(state, index.get(), amount)
+    else:
+      debugRaiseAssert "check hashlist add return"
+      discard state.pending_balance_deposits.add PendingBalanceDeposit(
+        index: index.get.uint64, amount: amount)  # [Modified in Electra:EIP-7251]
+
+      # Check if valid deposit switch to compounding credentials
+      if  is_compounding_withdrawal_credential(
+            deposit_data.withdrawal_credentials) and
+          has_eth1_withdrawal_credential(state.validators.item(index.get)) and
+          verify_deposit_signature(cfg, deposit_data):
+        switch_to_compounding_validator(state, index.get)
+  else:
+    # Verify the deposit signature (proof of possession) which is not checked
+    # by the deposit contract
+    if verify_deposit_signature(cfg, deposit_data):
+      # New validator! Add validator and balance entries
+      if not state.validators.add(
+          get_validator_from_deposit(state, deposit_data)):
+        return err("apply_deposit: too many validators")
+
+      let initial_balance =
+        when typeof(state).kind >= ConsensusFork.Electra:
+          0.Gwei
+        else:
+          amount
+      if not state.balances.add(initial_balance):
+        static: doAssert state.balances.maxLen == state.validators.maxLen
+        raiseAssert "adding validator succeeded, so should balances"
+
+      when typeof(state).kind >= ConsensusFork.Altair:
+        if not state.previous_epoch_participation.add(ParticipationFlags(0)):
+          return err("apply_deposit: too many validators (previous_epoch_participation)")
+        if not state.current_epoch_participation.add(ParticipationFlags(0)):
+          return err("apply_deposit: too many validators (current_epoch_participation)")
+        if not state.inactivity_scores.add(0'u64):
+          return err("apply_deposit: too many validators (inactivity_scores)")
+      when typeof(state).kind >= ConsensusFork.Electra:
+        debugRaiseAssert "check hashlist add return"
+
+        # [New in Electra:EIP7251]
+        discard state.pending_balance_deposits.add PendingBalanceDeposit(
+          index: state.validators.lenu64 - 1, amount: amount)
+      doAssert state.validators.len == state.balances.len
+      bloom_filter.incl pubkey
+    else:
+      # Deposits may come with invalid signatures - in that case, they are not
+      # turned into a validator but still get processed to keep the deposit
+      # index correct
+      trace "Skipping deposit with invalid signature",
+        deposit = shortLog(deposit_data)
+
+  ok()
+
+# https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.0/specs/phase0/beacon-chain.md#deposits
 proc process_deposit*(
     cfg: RuntimeConfig, state: var ForkyBeaconState,
     bloom_filter: var PubkeyBloomFilter, deposit: Deposit, flags: UpdateFlags):
@@ -324,71 +395,7 @@ proc process_deposit*(
   # Deposits must be processed in order
   state.eth1_deposit_index += 1
 
-  let
-    pubkey = deposit.data.pubkey
-    amount = deposit.data.amount
-    index =
-      if bloom_filter.mightContain(pubkey):
-        findValidatorIndex(state, pubkey)
-      else:
-        Opt.none(ValidatorIndex)
-
-  if index.isSome():
-    # Increase balance by deposit amount
-    when typeof(state).kind < ConsensusFork.Electra:
-      increase_balance(state, index.get(), amount)
-    else:
-      debugRaiseAssert "check hashlist add return"
-      discard state.pending_balance_deposits.add PendingBalanceDeposit(
-        index: index.get.uint64, amount: amount)  # [Modified in Electra:EIP-7251]
-
-      # Check if valid deposit switch to compounding credentials
-      if  is_compounding_withdrawal_credential(
-            deposit.data.withdrawal_credentials) and
-          has_eth1_withdrawal_credential(state.validators.item(index.get)) and
-          verify_deposit_signature(cfg, deposit.data):
-        switch_to_compounding_validator(state, index.get)
-  else:
-    # Verify the deposit signature (proof of possession) which is not checked
-    # by the deposit contract
-    if verify_deposit_signature(cfg, deposit.data):
-      # New validator! Add validator and balance entries
-      if not state.validators.add(
-          get_validator_from_deposit(state, deposit.data)):
-        return err("process_deposit: too many validators")
-
-      let initial_balance =
-        when typeof(state).kind >= ConsensusFork.Electra:
-          0.Gwei
-        else:
-          amount
-      if not state.balances.add(initial_balance):
-        static: doAssert state.balances.maxLen == state.validators.maxLen
-        raiseAssert "adding validator succeeded, so should balances"
-
-      when typeof(state).kind >= ConsensusFork.Altair:
-        if not state.previous_epoch_participation.add(ParticipationFlags(0)):
-          return err("process_deposit: too many validators (previous_epoch_participation)")
-        if not state.current_epoch_participation.add(ParticipationFlags(0)):
-          return err("process_deposit: too many validators (current_epoch_participation)")
-        if not state.inactivity_scores.add(0'u64):
-          return err("process_deposit: too many validators (inactivity_scores)")
-      when typeof(state).kind >= ConsensusFork.Electra:
-        debugRaiseAssert "check hashlist add return"
-
-        # [New in Electra:EIP7251]
-        discard state.pending_balance_deposits.add PendingBalanceDeposit(
-          index: state.validators.lenu64 - 1, amount: amount)
-      doAssert state.validators.len == state.balances.len
-      bloom_filter.incl pubkey
-    else:
-      # Deposits may come with invalid signatures - in that case, they are not
-      # turned into a validator but still get processed to keep the deposit
-      # index correct
-      trace "Skipping deposit with invalid signature",
-        deposit = shortLog(deposit.data)
-
-  ok()
+  apply_deposit(cfg, state, bloom_filter, deposit.data, flags)
 
 # https://github.com/ethereum/consensus-specs/blob/v1.4.0/specs/phase0/beacon-chain.md#voluntary-exits
 # https://github.com/ethereum/consensus-specs/blob/v1.4.0/specs/deneb/beacon-chain.md#modified-process_voluntary_exit
@@ -1065,6 +1072,23 @@ func process_consolidation*(
   ))
 
   ok()
+
+# https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.0/specs/electra/beacon-chain.md#new-process_deposit_receipt
+func process_deposit_receipt*(
+    cfg: RuntimeConfig, state: var electra.BeaconState,
+    bloom_filter: var PubkeyBloomFilter, deposit_receipt: DepositReceipt,
+    flags: UpdateFlags): Result[void, cstring] =
+  # Set deposit receipt start index
+  if state.deposit_receipts_start_index ==
+      UNSET_DEPOSIT_RECEIPTS_START_INDEX:
+    state.deposit_receipts_start_index = deposit_receipt.index
+
+  apply_deposit(
+    cfg, state, bloom_filter, DepositData(
+      pubkey: deposit_receipt.pubkey,
+      withdrawal_credentials: deposit_receipt.withdrawal_credentials,
+      amount: deposit_receipt.amount,
+      signature: deposit_receipt.signature), flags)
 
 # https://github.com/ethereum/consensus-specs/blob/v1.4.0/specs/deneb/beacon-chain.md#kzg_commitment_to_versioned_hash
 func kzg_commitment_to_versioned_hash*(
