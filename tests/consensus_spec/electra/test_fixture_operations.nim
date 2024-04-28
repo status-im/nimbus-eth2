@@ -147,7 +147,7 @@ suite baseDescription & "BLS to execution change " & preset():
       applyBlsToExecutionChange, path)
 
 suite baseDescription & "Consolidation " & preset():
-  func applyConsolidation(
+  proc applyConsolidation(
       preState: var electra.BeaconState,
       signed_consolidation: SignedConsolidation):
       Result[void, cstring] =
@@ -157,9 +157,6 @@ suite baseDescription & "Consolidation " & preset():
 
   for path in walkTests(OpConsolidationDir):
     if path in [
-        "multiple_consolidations_below_churn",  # missing consolidation.ssz
-        "multiple_consolidations_equal_churn",  # missing consolidation.ssz
-        "multiple_consolidations_equal_twice_churn",  # missing consolidation.ssz
         "invalid_exceed_pending_consolidations_limit",    # apparently invalid prestate SSZ
         ]:
       continue

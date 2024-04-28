@@ -2399,8 +2399,9 @@ OK: 4/4 Fail: 0/4 Skip: 0/4
 ## EF - Electra - Epoch Processing - Effective balance updates [Preset: mainnet]
 ```diff
 + Effective balance updates - effective_balance_hysteresis [Preset: mainnet]                 OK
++ Effective balance updates - effective_balance_hysteresis_with_compounding_credentials [Pre OK
 ```
-OK: 1/1 Fail: 0/1 Skip: 0/1
+OK: 2/2 Fail: 0/2 Skip: 0/2
 ## EF - Electra - Epoch Processing - Eth1 data reset [Preset: mainnet]
 ```diff
 + Eth1 data reset - eth1_vote_no_reset [Preset: mainnet]                                     OK
@@ -2658,10 +2659,8 @@ OK: 6/6 Fail: 0/6 Skip: 0/6
 + [Invalid] EF - Electra - Operations - Consolidation - invalid_no_execution_withdrawal_cred OK
 + [Invalid] EF - Electra - Operations - Consolidation - invalid_not_enough_consolidation_chu OK
 + [Invalid] EF - Electra - Operations - Consolidation - invalid_source_equals_target         OK
-+ [Invalid] EF - Electra - Operations - Consolidation - invalid_source_signature             OK
-+ [Invalid] EF - Electra - Operations - Consolidation - invalid_target_signature             OK
 ```
-OK: 11/11 Fail: 0/11 Skip: 0/11
+OK: 9/9 Fail: 0/9 Skip: 0/9
 ## EF - Electra - Operations - Deposit  [Preset: mainnet]
 ```diff
 + [Invalid] EF - Electra - Operations - Deposit - invalid_bad_merkle_proof                   OK
@@ -3026,12 +3025,13 @@ OK: 6/6 Fail: 0/6 Skip: 0/6
 OK: 14/14 Fail: 0/14 Skip: 0/14
 ## EF - Merkle proof [Preset: mainnet]
 ```diff
+  Merkle proof - Single merkle proof - eip7594                                               Skip
 + Merkle proof - Single merkle proof - mainnet/deneb/merkle_proof/single_merkle_proof/Beacon OK
 + Merkle proof - Single merkle proof - mainnet/deneb/merkle_proof/single_merkle_proof/Beacon OK
 + Merkle proof - Single merkle proof - mainnet/deneb/merkle_proof/single_merkle_proof/Beacon OK
 + Merkle proof - Single merkle proof - mainnet/deneb/merkle_proof/single_merkle_proof/Beacon OK
 ```
-OK: 4/4 Fail: 0/4 Skip: 0/4
+OK: 4/5 Fail: 0/5 Skip: 1/5
 ## EF - Phase 0 - Epoch Processing - Effective balance updates [Preset: mainnet]
 ```diff
 + Effective balance updates - effective_balance_hysteresis [Preset: mainnet]                 OK
@@ -3534,4 +3534,4 @@ OK: 69/88 Fail: 0/88 Skip: 19/88
 OK: 3/3 Fail: 0/3 Skip: 0/3
 
 ---TOTAL---
-OK: 2837/2856 Fail: 0/2856 Skip: 19/2856
+OK: 2836/2856 Fail: 0/2856 Skip: 20/2856
