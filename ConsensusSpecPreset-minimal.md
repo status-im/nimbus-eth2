@@ -2508,8 +2508,9 @@ OK: 4/4 Fail: 0/4 Skip: 0/4
 ## EF - Electra - Epoch Processing - Effective balance updates [Preset: minimal]
 ```diff
 + Effective balance updates - effective_balance_hysteresis [Preset: minimal]                 OK
++ Effective balance updates - effective_balance_hysteresis_with_compounding_credentials [Pre OK
 ```
-OK: 1/1 Fail: 0/1 Skip: 0/1
+OK: 2/2 Fail: 0/2 Skip: 0/2
 ## EF - Electra - Epoch Processing - Eth1 data reset [Preset: minimal]
 ```diff
 + Eth1 data reset - eth1_vote_no_reset [Preset: minimal]                                     OK
@@ -2795,9 +2796,8 @@ OK: 6/6 Fail: 0/6 Skip: 0/6
 + [Valid]   EF - Electra - Operations - Consolidation - consolidation_balance_larger_than_ch OK
 + [Valid]   EF - Electra - Operations - Consolidation - consolidation_balance_through_two_ch OK
 + [Valid]   EF - Electra - Operations - Consolidation - consolidation_churn_limit_balance    OK
-+ [Valid]   EF - Electra - Operations - Consolidation - multiple_consolidations_above_churn  OK
 ```
-OK: 20/20 Fail: 0/20 Skip: 0/20
+OK: 19/19 Fail: 0/19 Skip: 0/19
 ## EF - Electra - Operations - Deposit  [Preset: minimal]
 ```diff
 + [Invalid] EF - Electra - Operations - Deposit - invalid_bad_merkle_proof                   OK
@@ -3199,12 +3199,13 @@ OK: 20/20 Fail: 0/20 Skip: 0/20
 OK: 4/4 Fail: 0/4 Skip: 0/4
 ## EF - Merkle proof [Preset: minimal]
 ```diff
+  Merkle proof - Single merkle proof - eip7594                                               Skip
 + Merkle proof - Single merkle proof - minimal/deneb/merkle_proof/single_merkle_proof/Beacon OK
 + Merkle proof - Single merkle proof - minimal/deneb/merkle_proof/single_merkle_proof/Beacon OK
 + Merkle proof - Single merkle proof - minimal/deneb/merkle_proof/single_merkle_proof/Beacon OK
 + Merkle proof - Single merkle proof - minimal/deneb/merkle_proof/single_merkle_proof/Beacon OK
 ```
-OK: 4/4 Fail: 0/4 Skip: 0/4
+OK: 4/5 Fail: 0/5 Skip: 1/5
 ## EF - Phase 0 - Epoch Processing - Effective balance updates [Preset: minimal]
 ```diff
 + Effective balance updates - effective_balance_hysteresis [Preset: minimal]                 OK
@@ -3836,4 +3837,4 @@ OK: 185/207 Fail: 0/207 Skip: 22/207
 OK: 3/3 Fail: 0/3 Skip: 0/3
 
 ---TOTAL---
-OK: 3108/3130 Fail: 0/3130 Skip: 22/3130
+OK: 3108/3131 Fail: 0/3131 Skip: 23/3131

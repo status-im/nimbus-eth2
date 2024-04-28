@@ -1000,7 +1000,7 @@ func process_execution_layer_withdrawal_request*(
     ))
 
 # https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.0/specs/electra/beacon-chain.md#consolidations
-func process_consolidation*(
+proc process_consolidation*(
     cfg: RuntimeConfig, state: var electra.BeaconState,
     signed_consolidation: SignedConsolidation, cache: var StateCache):
     Result[void, cstring] =
@@ -1055,14 +1055,18 @@ func process_consolidation*(
       target_validator.withdrawal_credentials.data.toOpenArray(12, 31)):
     return err("Consolidation: source and target don't have same withdrawal address")
 
-  debugRaiseAssert "add signature checking for process_consolidation, which oddly isn't tested"
+  debugRaiseAssert "this is per spec, near-verbatim, but Nimbus generally factors this out into spec/signatures.nim. so, create verify_consolidation_signature infra there, call here"
   # Verify consolidation is signed by the source and the target
-  #let
-  #  domain = compute_domain(
-  #    DOMAIN_CONSOLIDATION, genesis_validators_root=state.genesis_validators_root)
-  #  signing_root = compute_signing_root(consolidation, domain)
-  #  pubkeys = [source_validator.pubkey, target_validator.pubkey]
-  #assert bls.FastAggregateVerify(pubkeys, signing_root, signed_consolidation.signature)
+  let
+    domain = compute_domain(
+      DOMAIN_CONSOLIDATION, cfg.GENESIS_FORK_VERSION,
+      genesis_validators_root=state.genesis_validators_root)
+    signing_root = compute_signing_root(consolidation, domain)
+    pubkeys = [source_validator[].pubkey, target_validator.pubkey]
+
+  if not blsFastAggregateVerify(
+      pubkeys, signing_root.data, signed_consolidation.signature):
+    return err("Consolidation: invalid signature")
 
   # Initiate source validator exit and append pending consolidation
   source_validator[].exit_epoch = compute_consolidation_epoch_and_update_churn(

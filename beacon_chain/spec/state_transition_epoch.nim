@@ -1033,7 +1033,10 @@ template effective_balance_might_update*(
     effective_balance + UPWARD_THRESHOLD < balance
 
 # https://github.com/ethereum/consensus-specs/blob/v1.4.0/specs/phase0/beacon-chain.md#effective-balances-updates
-func process_effective_balance_updates*(state: var ForkyBeaconState) =
+func process_effective_balance_updates*(
+    state: var (phase0.BeaconState | altair.BeaconState |
+                bellatrix.BeaconState | capella.BeaconState |
+                deneb.BeaconState)) =
   # Update effective balances with hysteresis
   for vidx in state.validators.vindices:
     let
@@ -1044,6 +1047,35 @@ func process_effective_balance_updates*(state: var ForkyBeaconState) =
         min(
           balance - balance mod EFFECTIVE_BALANCE_INCREMENT.Gwei,
           MAX_EFFECTIVE_BALANCE.Gwei)
+      # Protect against unnecessary cache invalidation
+      if new_effective_balance != effective_balance:
+        state.validators.mitem(vidx).effective_balance = new_effective_balance
+
+# https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.1/specs/electra/beacon-chain.md#updated-process_effective_balance_updates
+func process_effective_balance_updates*(state: var electra.BeaconState) =
+  # Update effective balances with hysteresis
+  for vidx in state.validators.vindices:
+    let
+      balance = state.balances.item(vidx)
+      effective_balance = state.validators.item(vidx).effective_balance
+    if effective_balance_might_update(balance, effective_balance):
+      debugRaiseAssert "amortize validator read access"
+      # Wrapping MAX_EFFECTIVE_BALANCE_ELECTRA.Gwei and
+      # MIN_ACTIVATION_BALANCE.Gwei in static() results
+      # in
+      # beacon_chain/spec/state_transition_epoch.nim(1067, 20) Error: expected: ':', but got: '('
+      # even though it'd be better to statically verify safety
+      let
+        effective_balance_limit =
+          if has_compounding_withdrawal_credential(
+              state.validators.item(vidx)):
+            MAX_EFFECTIVE_BALANCE_ELECTRA.Gwei
+          else:
+            MIN_ACTIVATION_BALANCE.Gwei
+        new_effective_balance =
+          min(
+            balance - balance mod EFFECTIVE_BALANCE_INCREMENT.Gwei,
+            effective_balance_limit)
       # Protect against unnecessary cache invalidation
       if new_effective_balance != effective_balance:
         state.validators.mitem(vidx).effective_balance = new_effective_balance
