@@ -13,7 +13,7 @@
 # https://github.com/ethereum/consensus-specs/blob/v1.4.0/specs/bellatrix/beacon-chain.md#block-processing
 # https://github.com/ethereum/consensus-specs/blob/v1.4.0/specs/capella/beacon-chain.md#block-processing
 # https://github.com/ethereum/consensus-specs/blob/v1.4.0/specs/deneb/beacon-chain.md#block-processing
-# https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.0/specs/electra/beacon-chain.md#block-processing
+# https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.1/specs/electra/beacon-chain.md#block-processing
 #
 # The entry point is `process_block` which is at the bottom of this file.
 #
@@ -538,18 +538,27 @@ type
 
 # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.6/specs/phase0/beacon-chain.md#operations
 # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.5/specs/capella/beacon-chain.md#modified-process_operations
-# https://github.com/ethereum/consensus-specs/blob/94a0b6c581f2809aa8aca4ef7ee6fbb63f9d74e9/specs/electra/beacon-chain.md#modified-process_operations
-proc process_operations(cfg: RuntimeConfig,
-                        state: var ForkyBeaconState,
-                        body: SomeForkyBeaconBlockBody,
-                        base_reward_per_increment: Gwei,
-                        flags: UpdateFlags,
-                        cache: var StateCache): Result[BlockRewards, cstring] =
+# https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.1/specs/electra/beacon-chain.md#modified-process_operations
+proc process_operations(
+    cfg: RuntimeConfig, state: var ForkyBeaconState,
+    body: SomeForkyBeaconBlockBody, base_reward_per_increment: Gwei,
+    flags: UpdateFlags, cache: var StateCache): Result[BlockRewards, cstring] =
   # Verify that outstanding deposits are processed up to the maximum number of
   # deposits
-  let
-    req_deposits = min(MAX_DEPOSITS,
-                       state.eth1_data.deposit_count - state.eth1_deposit_index)
+  when typeof(body).kind >= ConsensusFork.Electra:
+    # Disable former deposit mechanism once all prior deposits are processed
+    let
+      eth1_deposit_index_limit =
+        min(state.eth1_data.deposit_count, state.deposit_receipts_start_index)
+      req_deposits =
+        if state.eth1_deposit_index < eth1_deposit_index_limit:
+          min(
+            MAX_DEPOSITS, eth1_deposit_index_limit - state.eth1_deposit_index)
+        else:
+          0
+  else:
+    let req_deposits = min(
+      MAX_DEPOSITS, state.eth1_data.deposit_count - state.eth1_deposit_index)
 
   if state.eth1_data.deposit_count < state.eth1_deposit_index or
       body.deposits.lenu64 != req_deposits:
@@ -572,12 +581,10 @@ proc process_operations(cfg: RuntimeConfig,
     operations_rewards.proposer_slashings += proposer_slashing_reward
     exit_queue_info = new_exit_queue_info
   for op in body.attester_slashings:
-    debugRaiseAssert "add process_attester_slashing for electra"
-    when typeof(body).kind != ConsensusFork.Electra:
-      let (attester_slashing_reward, new_exit_queue_info) =
-        ? process_attester_slashing(cfg, state, op, flags, exit_queue_info, cache)
-      operations_rewards.attester_slashings += attester_slashing_reward
-      exit_queue_info = new_exit_queue_info
+    let (attester_slashing_reward, new_exit_queue_info) =
+      ? process_attester_slashing(cfg, state, op, flags, exit_queue_info, cache)
+    operations_rewards.attester_slashings += attester_slashing_reward
+    exit_queue_info = new_exit_queue_info
   for op in body.attestations:
     operations_rewards.attestations +=
       ? process_attestation(state, op, flags, base_reward_per_increment, cache)
@@ -588,13 +595,21 @@ proc process_operations(cfg: RuntimeConfig,
   for op in body.voluntary_exits:
     exit_queue_info = ? process_voluntary_exit(
       cfg, state, op, flags, exit_queue_info, cache)
-  when typeof(body).kind >= ConsensusFork.Electra:
-    for op in body.execution_payload.withdrawal_requests:
-      exit_queue_info = ? process_execution_layer_withdrawal_request(
-        cfg, state, op, exit_queue_info, cache)
   when typeof(body).kind >= ConsensusFork.Capella:
     for op in body.bls_to_execution_changes:
       ? process_bls_to_execution_change(cfg, state, op)
+
+  # [New in Electra:EIP7002:EIP7251]
+  when typeof(body).kind >= ConsensusFork.Electra:
+    for op in body.execution_payload.withdrawal_requests:
+      discard ? process_execution_layer_withdrawal_request(
+        cfg, state, op, default(ExitQueueInfo), cache)
+    for op in body.execution_payload.deposit_receipts:
+      debugRaiseAssert "combine with previous bloom filter construction"
+      let bloom_filter = constructBloomFilter(state.validators.asSeq)
+      ? process_deposit_receipt(cfg, state, bloom_filter[], op, {})
+    for op in body.consolidations:
+      ? process_consolidation(cfg, state, op, cache)
 
   ok(operations_rewards)
 
@@ -1002,8 +1017,8 @@ func process_execution_layer_withdrawal_request*(
 # https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.0/specs/electra/beacon-chain.md#consolidations
 proc process_consolidation*(
     cfg: RuntimeConfig, state: var electra.BeaconState,
-    signed_consolidation: SignedConsolidation, cache: var StateCache):
-    Result[void, cstring] =
+    signed_consolidation: SignedConsolidation | TrustedSignedConsolidation,
+    cache: var StateCache): Result[void, cstring] =
   # If the pending consolidations queue is full, no consolidations are allowed
   # in the block
   if not(lenu64(state.pending_consolidations) < PENDING_CONSOLIDATIONS_LIMIT):
@@ -1064,9 +1079,11 @@ proc process_consolidation*(
     signing_root = compute_signing_root(consolidation, domain)
     pubkeys = [source_validator[].pubkey, target_validator.pubkey]
 
-  if not blsFastAggregateVerify(
-      pubkeys, signing_root.data, signed_consolidation.signature):
-    return err("Consolidation: invalid signature")
+  debugRaiseAssert "as a good example, this trustedsig hack typically/should live in spec/signatures.nim"
+  when not (signed_consolidation.signature is TrustedSig):
+    if not blsFastAggregateVerify(
+        pubkeys, signing_root.data, signed_consolidation.signature):
+      return err("Consolidation: invalid signature")
 
   # Initiate source validator exit and append pending consolidation
   source_validator[].exit_epoch = compute_consolidation_epoch_and_update_churn(
@@ -1270,7 +1287,7 @@ proc process_block*(
 
   ok(operations_rewards)
 
-# https://github.com/ethereum/consensus-specs/blob/v1.3.0/specs/deneb/beacon-chain.md#block-processing
+# https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.1/specs/electra/beacon-chain.md#block-processing
 # TODO workaround for https://github.com/nim-lang/Nim/issues/18095
 type SomeElectraBlock =
   electra.BeaconBlock | electra.SigVerifiedBeaconBlock | electra.TrustedBeaconBlock

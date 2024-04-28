@@ -2537,6 +2537,15 @@ OK: 5/5 Fail: 0/5 Skip: 0/5
 + Slashings reset - flush_slashings [Preset: mainnet]                                        OK
 ```
 OK: 1/1 Fail: 0/1 Skip: 0/1
+## EF - Electra - Finality  [Preset: mainnet]
+```diff
++ [Valid]   EF - Electra - Finality - finality_no_updates_at_genesis [Preset: mainnet]       OK
++ [Valid]   EF - Electra - Finality - finality_rule_1 [Preset: mainnet]                      OK
++ [Valid]   EF - Electra - Finality - finality_rule_2 [Preset: mainnet]                      OK
++ [Valid]   EF - Electra - Finality - finality_rule_3 [Preset: mainnet]                      OK
++ [Valid]   EF - Electra - Finality - finality_rule_4 [Preset: mainnet]                      OK
+```
+OK: 5/5 Fail: 0/5 Skip: 0/5
 ## EF - Electra - Operations - Attestation  [Preset: mainnet]
 ```diff
 + [Invalid] EF - Electra - Operations - Attestation - invalid_after_max_inclusion_slot       OK
@@ -2898,6 +2907,26 @@ OK: 24/24 Fail: 0/24 Skip: 0/24
 + [Valid]   EF - Electra - Operations - Withdrawals - withdrawable_epoch_but_0_effective_bal OK
 ```
 OK: 50/50 Fail: 0/50 Skip: 0/50
+## EF - Electra - Random  [Preset: mainnet]
+```diff
++ [Valid]   EF - Electra - Random - randomized_0 [Preset: mainnet]                           OK
++ [Valid]   EF - Electra - Random - randomized_1 [Preset: mainnet]                           OK
++ [Valid]   EF - Electra - Random - randomized_10 [Preset: mainnet]                          OK
++ [Valid]   EF - Electra - Random - randomized_11 [Preset: mainnet]                          OK
++ [Valid]   EF - Electra - Random - randomized_12 [Preset: mainnet]                          OK
++ [Valid]   EF - Electra - Random - randomized_13 [Preset: mainnet]                          OK
++ [Valid]   EF - Electra - Random - randomized_14 [Preset: mainnet]                          OK
++ [Valid]   EF - Electra - Random - randomized_15 [Preset: mainnet]                          OK
++ [Valid]   EF - Electra - Random - randomized_2 [Preset: mainnet]                           OK
++ [Valid]   EF - Electra - Random - randomized_3 [Preset: mainnet]                           OK
++ [Valid]   EF - Electra - Random - randomized_4 [Preset: mainnet]                           OK
++ [Valid]   EF - Electra - Random - randomized_5 [Preset: mainnet]                           OK
++ [Valid]   EF - Electra - Random - randomized_6 [Preset: mainnet]                           OK
++ [Valid]   EF - Electra - Random - randomized_7 [Preset: mainnet]                           OK
++ [Valid]   EF - Electra - Random - randomized_8 [Preset: mainnet]                           OK
++ [Valid]   EF - Electra - Random - randomized_9 [Preset: mainnet]                           OK
+```
+OK: 16/16 Fail: 0/16 Skip: 0/16
 ## EF - Electra - Rewards  [Preset: mainnet]
 ```diff
 + EF - Electra - Rewards - all_balances_too_low_for_reward [Preset: mainnet]                 OK
@@ -2995,6 +3024,86 @@ OK: 34/34 Fail: 0/34 Skip: 0/34
 +   Testing    Withdrawal                                                                    OK
 ```
 OK: 55/55 Fail: 0/55 Skip: 0/55
+## EF - Electra - Sanity - Blocks  [Preset: mainnet]
+```diff
++ [Invalid] EF - Electra - Sanity - Blocks - deposit_transition__invalid_eth1_deposits_overl OK
++ [Invalid] EF - Electra - Sanity - Blocks - deposit_transition__invalid_not_enough_eth1_dep OK
++ [Invalid] EF - Electra - Sanity - Blocks - deposit_transition__invalid_too_many_eth1_depos OK
++ [Invalid] EF - Electra - Sanity - Blocks - invalid_all_zeroed_sig [Preset: mainnet]        OK
++ [Invalid] EF - Electra - Sanity - Blocks - invalid_duplicate_bls_changes_same_block [Prese OK
++ [Invalid] EF - Electra - Sanity - Blocks - invalid_duplicate_deposit_same_block [Preset: m OK
++ [Invalid] EF - Electra - Sanity - Blocks - invalid_duplicate_proposer_slashings_same_block OK
++ [Invalid] EF - Electra - Sanity - Blocks - invalid_duplicate_validator_exit_same_block [Pr OK
++ [Invalid] EF - Electra - Sanity - Blocks - invalid_exceed_max_blobs_per_block [Preset: mai OK
++ [Invalid] EF - Electra - Sanity - Blocks - invalid_incorrect_block_sig [Preset: mainnet]   OK
++ [Invalid] EF - Electra - Sanity - Blocks - invalid_incorrect_proposer_index_sig_from_expec OK
++ [Invalid] EF - Electra - Sanity - Blocks - invalid_incorrect_proposer_index_sig_from_propo OK
++ [Invalid] EF - Electra - Sanity - Blocks - invalid_incorrect_state_root [Preset: mainnet]  OK
++ [Invalid] EF - Electra - Sanity - Blocks - invalid_is_execution_enabled_false [Preset: mai OK
++ [Invalid] EF - Electra - Sanity - Blocks - invalid_max_blobs_per_block_two_txs [Preset: ma OK
++ [Invalid] EF - Electra - Sanity - Blocks - invalid_one_blob_max_plus_one_txs [Preset: main OK
++ [Invalid] EF - Electra - Sanity - Blocks - invalid_only_increase_deposit_count [Preset: ma OK
++ [Invalid] EF - Electra - Sanity - Blocks - invalid_parent_from_same_slot [Preset: mainnet] OK
++ [Invalid] EF - Electra - Sanity - Blocks - invalid_prev_slot_block_transition [Preset: mai OK
++ [Invalid] EF - Electra - Sanity - Blocks - invalid_same_slot_block_transition [Preset: mai OK
++ [Invalid] EF - Electra - Sanity - Blocks - invalid_similar_proposer_slashings_same_block [ OK
++ [Invalid] EF - Electra - Sanity - Blocks - invalid_two_bls_changes_of_different_addresses_ OK
++ [Invalid] EF - Electra - Sanity - Blocks - invalid_withdrawal_fail_second_block_payload_is OK
++ [Invalid] EF - Electra - Sanity - Blocks - slash_and_exit_same_index [Preset: mainnet]     OK
++ [Valid]   EF - Electra - Sanity - Blocks - attestation [Preset: mainnet]                   OK
++ [Valid]   EF - Electra - Sanity - Blocks - attester_slashing [Preset: mainnet]             OK
++ [Valid]   EF - Electra - Sanity - Blocks - balance_driven_status_transitions [Preset: main OK
++ [Valid]   EF - Electra - Sanity - Blocks - block_transition_randomized_payload [Preset: ma OK
++ [Valid]   EF - Electra - Sanity - Blocks - bls_change [Preset: mainnet]                    OK
++ [Valid]   EF - Electra - Sanity - Blocks - deposit_and_bls_change [Preset: mainnet]        OK
++ [Valid]   EF - Electra - Sanity - Blocks - deposit_in_block [Preset: mainnet]              OK
++ [Valid]   EF - Electra - Sanity - Blocks - deposit_top_up [Preset: mainnet]                OK
++ [Valid]   EF - Electra - Sanity - Blocks - deposit_transition__deposit_and_top_up_same_blo OK
++ [Valid]   EF - Electra - Sanity - Blocks - deposit_transition__process_eth1_deposits [Pres OK
++ [Valid]   EF - Electra - Sanity - Blocks - deposit_transition__process_eth1_deposits_up_to OK
++ [Valid]   EF - Electra - Sanity - Blocks - deposit_transition__process_max_eth1_deposits [ OK
++ [Valid]   EF - Electra - Sanity - Blocks - deposit_transition__start_index_is_set [Preset: OK
++ [Valid]   EF - Electra - Sanity - Blocks - duplicate_attestation_same_block [Preset: mainn OK
++ [Valid]   EF - Electra - Sanity - Blocks - empty_block_transition [Preset: mainnet]        OK
++ [Valid]   EF - Electra - Sanity - Blocks - empty_block_transition_no_tx [Preset: mainnet]  OK
++ [Valid]   EF - Electra - Sanity - Blocks - empty_epoch_transition [Preset: mainnet]        OK
++ [Valid]   EF - Electra - Sanity - Blocks - exit_and_bls_change [Preset: mainnet]           OK
++ [Valid]   EF - Electra - Sanity - Blocks - full_random_operations_0 [Preset: mainnet]      OK
++ [Valid]   EF - Electra - Sanity - Blocks - full_random_operations_1 [Preset: mainnet]      OK
++ [Valid]   EF - Electra - Sanity - Blocks - full_random_operations_2 [Preset: mainnet]      OK
++ [Valid]   EF - Electra - Sanity - Blocks - full_random_operations_3 [Preset: mainnet]      OK
++ [Valid]   EF - Electra - Sanity - Blocks - full_withdrawal_in_epoch_transition [Preset: ma OK
++ [Valid]   EF - Electra - Sanity - Blocks - high_proposer_index [Preset: mainnet]           OK
++ [Valid]   EF - Electra - Sanity - Blocks - historical_batch [Preset: mainnet]              OK
++ [Valid]   EF - Electra - Sanity - Blocks - inactivity_scores_full_participation_leaking [P OK
++ [Valid]   EF - Electra - Sanity - Blocks - inactivity_scores_leaking [Preset: mainnet]     OK
++ [Valid]   EF - Electra - Sanity - Blocks - many_partial_withdrawals_in_epoch_transition [P OK
++ [Valid]   EF - Electra - Sanity - Blocks - max_blobs_per_block [Preset: mainnet]           OK
++ [Valid]   EF - Electra - Sanity - Blocks - mix_blob_tx_and_non_blob_tx [Preset: mainnet]   OK
++ [Valid]   EF - Electra - Sanity - Blocks - multiple_different_proposer_slashings_same_bloc OK
++ [Valid]   EF - Electra - Sanity - Blocks - multiple_different_validator_exits_same_block [ OK
++ [Valid]   EF - Electra - Sanity - Blocks - one_blob [Preset: mainnet]                      OK
++ [Valid]   EF - Electra - Sanity - Blocks - one_blob_max_txs [Preset: mainnet]              OK
++ [Valid]   EF - Electra - Sanity - Blocks - one_blob_two_txs [Preset: mainnet]              OK
++ [Valid]   EF - Electra - Sanity - Blocks - partial_withdrawal_in_epoch_transition [Preset: OK
++ [Valid]   EF - Electra - Sanity - Blocks - proposer_after_inactive_index [Preset: mainnet] OK
++ [Valid]   EF - Electra - Sanity - Blocks - proposer_self_slashing [Preset: mainnet]        OK
++ [Valid]   EF - Electra - Sanity - Blocks - proposer_slashing [Preset: mainnet]             OK
++ [Valid]   EF - Electra - Sanity - Blocks - skipped_slots [Preset: mainnet]                 OK
++ [Valid]   EF - Electra - Sanity - Blocks - slash_and_exit_diff_index [Preset: mainnet]     OK
++ [Valid]   EF - Electra - Sanity - Blocks - sync_committee_committee__empty [Preset: mainne OK
++ [Valid]   EF - Electra - Sanity - Blocks - sync_committee_committee__full [Preset: mainnet OK
++ [Valid]   EF - Electra - Sanity - Blocks - sync_committee_committee__half [Preset: mainnet OK
++ [Valid]   EF - Electra - Sanity - Blocks - sync_committee_committee_genesis__empty [Preset OK
++ [Valid]   EF - Electra - Sanity - Blocks - sync_committee_committee_genesis__full [Preset: OK
++ [Valid]   EF - Electra - Sanity - Blocks - sync_committee_committee_genesis__half [Preset: OK
++ [Valid]   EF - Electra - Sanity - Blocks - top_up_and_partial_withdrawable_validator [Pres OK
++ [Valid]   EF - Electra - Sanity - Blocks - top_up_to_fully_withdrawn_validator [Preset: ma OK
++ [Valid]   EF - Electra - Sanity - Blocks - voluntary_exit [Preset: mainnet]                OK
++ [Valid]   EF - Electra - Sanity - Blocks - withdrawal_success_two_blocks [Preset: mainnet] OK
++ [Valid]   EF - Electra - Sanity - Blocks - zero_blob [Preset: mainnet]                     OK
+```
+OK: 76/76 Fail: 0/76 Skip: 0/76
 ## EF - Electra - Sanity - Slots  [Preset: mainnet]
 ```diff
 + EF - Electra - Slots - double_empty_epoch [Preset: mainnet]                                OK
@@ -3534,4 +3643,4 @@ OK: 69/88 Fail: 0/88 Skip: 19/88
 OK: 3/3 Fail: 0/3 Skip: 0/3
 
 ---TOTAL---
-OK: 2836/2856 Fail: 0/2856 Skip: 20/2856
+OK: 2933/2953 Fail: 0/2953 Skip: 20/2953

@@ -1428,7 +1428,7 @@ proc process_epoch*(
 
   ok()
 
-# https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.5/specs/capella/beacon-chain.md#epoch-processing
+# https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.1/specs/electra/beacon-chain.md#epoch-processing
 proc process_epoch*(
     cfg: RuntimeConfig, state: var electra.BeaconState,
     flags: UpdateFlags, cache: var StateCache, info: var altair.EpochInfo):
@@ -1458,13 +1458,15 @@ proc process_epoch*(
   process_rewards_and_penalties(cfg, state, info)
 
   # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.6/specs/phase0/beacon-chain.md#registry-updates
-  ? process_registry_updates(cfg, state, cache)
+  ? process_registry_updates(cfg, state, cache)  # [Modified in Electra:EIP7251]
 
   # https://github.com/ethereum/consensus-specs/blob/v1.4.0/specs/altair/beacon-chain.md#slashings
   process_slashings(state, info.balances.current_epoch)
 
   process_eth1_data_reset(state)
-  process_effective_balance_updates(state)
+  process_pending_balance_deposits(cfg, state, cache)  # [New in Electra:EIP7251]
+  process_pending_consolidations(cfg, state)  # [New in Electra:EIP7251]
+  process_effective_balance_updates(state)  # [Modified in Electra:EIP7251]
   process_slashings_reset(state)
   process_randao_mixes_reset(state)
   ? process_historical_summaries_update(state)  # [Modified in Capella]
