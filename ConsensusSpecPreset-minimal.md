@@ -2673,6 +2673,24 @@ OK: 5/5 Fail: 0/5 Skip: 0/5
 + [Valid]   EF - Electra - Finality - finality_rule_4 [Preset: minimal]                      OK
 ```
 OK: 5/5 Fail: 0/5 Skip: 0/5
+## EF - Electra - Fork  [Preset: minimal]
+```diff
++ EF - Electra - Fork - electra_fork_random_0 [Preset: minimal]                              OK
++ EF - Electra - Fork - electra_fork_random_1 [Preset: minimal]                              OK
++ EF - Electra - Fork - electra_fork_random_2 [Preset: minimal]                              OK
++ EF - Electra - Fork - electra_fork_random_3 [Preset: minimal]                              OK
++ EF - Electra - Fork - electra_fork_random_large_validator_set [Preset: minimal]            OK
++ EF - Electra - Fork - electra_fork_random_low_balances [Preset: minimal]                   OK
++ EF - Electra - Fork - electra_fork_random_misc_balances [Preset: minimal]                  OK
++ EF - Electra - Fork - fork_base_state [Preset: minimal]                                    OK
++ EF - Electra - Fork - fork_many_next_epoch [Preset: minimal]                               OK
++ EF - Electra - Fork - fork_next_epoch [Preset: minimal]                                    OK
++ EF - Electra - Fork - fork_next_epoch_with_block [Preset: minimal]                         OK
++ EF - Electra - Fork - fork_random_large_validator_set [Preset: minimal]                    OK
++ EF - Electra - Fork - fork_random_low_balances [Preset: minimal]                           OK
++ EF - Electra - Fork - fork_random_misc_balances [Preset: minimal]                          OK
+```
+OK: 14/14 Fail: 0/14 Skip: 0/14
 ## EF - Electra - Operations - Attestation  [Preset: minimal]
 ```diff
 + [Invalid] EF - Electra - Operations - Attestation - invalid_after_max_inclusion_slot       OK
@@ -3263,6 +3281,40 @@ OK: 83/83 Fail: 0/83 Skip: 0/83
 + EF - Electra - Slots - slots_2 [Preset: minimal]                                           OK
 ```
 OK: 6/6 Fail: 0/6 Skip: 0/6
+## EF - Electra - Transition  [Preset: minimal]
+```diff
++ EF - Electra - Transition - higher_churn_limit_to_lower [Preset: minimal]                  OK
++ EF - Electra - Transition - non_empty_historical_roots [Preset: minimal]                   OK
++ EF - Electra - Transition - normal_transition [Preset: minimal]                            OK
++ EF - Electra - Transition - simple_transition [Preset: minimal]                            OK
++ EF - Electra - Transition - transition_attestation_from_previous_fork_with_new_range [Pres OK
++ EF - Electra - Transition - transition_missing_first_post_block [Preset: minimal]          OK
++ EF - Electra - Transition - transition_missing_last_pre_fork_block [Preset: minimal]       OK
++ EF - Electra - Transition - transition_only_blocks_post_fork [Preset: minimal]             OK
++ EF - Electra - Transition - transition_randomized_state [Preset: minimal]                  OK
++ EF - Electra - Transition - transition_with_activation_at_fork_epoch [Preset: minimal]     OK
++ EF - Electra - Transition - transition_with_attester_slashing_right_after_fork [Preset: mi OK
++ EF - Electra - Transition - transition_with_attester_slashing_right_before_fork [Preset: m OK
++ EF - Electra - Transition - transition_with_btec_right_after_fork [Preset: minimal]        OK
++ EF - Electra - Transition - transition_with_btec_right_before_fork [Preset: minimal]       OK
++ EF - Electra - Transition - transition_with_deposit_right_after_fork [Preset: minimal]     OK
++ EF - Electra - Transition - transition_with_deposit_right_before_fork [Preset: minimal]    OK
++ EF - Electra - Transition - transition_with_finality [Preset: minimal]                     OK
++ EF - Electra - Transition - transition_with_leaking_at_fork [Preset: minimal]              OK
++ EF - Electra - Transition - transition_with_leaking_pre_fork [Preset: minimal]             OK
++ EF - Electra - Transition - transition_with_no_attestations_until_after_fork [Preset: mini OK
++ EF - Electra - Transition - transition_with_non_empty_activation_queue [Preset: minimal]   OK
++ EF - Electra - Transition - transition_with_one_fourth_exiting_validators_exit_at_fork [Pr OK
++ EF - Electra - Transition - transition_with_one_fourth_exiting_validators_exit_post_fork [ OK
++ EF - Electra - Transition - transition_with_one_fourth_slashed_active_validators_pre_fork  OK
++ EF - Electra - Transition - transition_with_proposer_slashing_right_after_fork [Preset: mi OK
++ EF - Electra - Transition - transition_with_proposer_slashing_right_before_fork [Preset: m OK
++ EF - Electra - Transition - transition_with_random_half_participation [Preset: minimal]    OK
++ EF - Electra - Transition - transition_with_random_three_quarters_participation [Preset: m OK
++ EF - Electra - Transition - transition_with_voluntary_exit_right_after_fork [Preset: minim OK
++ EF - Electra - Transition - transition_with_voluntary_exit_right_before_fork [Preset: mini OK
+```
+OK: 30/30 Fail: 0/30 Skip: 0/30
 ## EF - Light client - Single merkle proof [Preset: minimal]
 ```diff
 + Light client - Single merkle proof - minimal/altair/light_client/single_merkle_proof/Beaco OK
@@ -3953,4 +4005,4 @@ OK: 185/207 Fail: 0/207 Skip: 22/207
 OK: 3/3 Fail: 0/3 Skip: 0/3
 
 ---TOTAL---
-OK: 3212/3235 Fail: 0/3235 Skip: 23/3235
+OK: 3256/3279 Fail: 0/3279 Skip: 23/3279

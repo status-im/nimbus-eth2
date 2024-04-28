@@ -46,7 +46,8 @@ proc makeTestDB*(
       forkyState.root = hash_tree_root(forkyState.data)
 
   # Upgrade genesis state to later fork, if required by fork schedule
-  cfg.maybeUpgradeState(genState[])
+  var cache: StateCache
+  cfg.maybeUpgradeState(genState[], cache)
   withState(genState[]):
     when consensusFork > ConsensusFork.Phase0:
       forkyState.data.fork.previous_version =

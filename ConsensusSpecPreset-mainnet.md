@@ -2546,6 +2546,22 @@ OK: 1/1 Fail: 0/1 Skip: 0/1
 + [Valid]   EF - Electra - Finality - finality_rule_4 [Preset: mainnet]                      OK
 ```
 OK: 5/5 Fail: 0/5 Skip: 0/5
+## EF - Electra - Fork  [Preset: mainnet]
+```diff
++ EF - Electra - Fork - electra_fork_random_0 [Preset: mainnet]                              OK
++ EF - Electra - Fork - electra_fork_random_1 [Preset: mainnet]                              OK
++ EF - Electra - Fork - electra_fork_random_2 [Preset: mainnet]                              OK
++ EF - Electra - Fork - electra_fork_random_3 [Preset: mainnet]                              OK
++ EF - Electra - Fork - electra_fork_random_low_balances [Preset: mainnet]                   OK
++ EF - Electra - Fork - electra_fork_random_misc_balances [Preset: mainnet]                  OK
++ EF - Electra - Fork - fork_base_state [Preset: mainnet]                                    OK
++ EF - Electra - Fork - fork_many_next_epoch [Preset: mainnet]                               OK
++ EF - Electra - Fork - fork_next_epoch [Preset: mainnet]                                    OK
++ EF - Electra - Fork - fork_next_epoch_with_block [Preset: mainnet]                         OK
++ EF - Electra - Fork - fork_random_low_balances [Preset: mainnet]                           OK
++ EF - Electra - Fork - fork_random_misc_balances [Preset: mainnet]                          OK
+```
+OK: 12/12 Fail: 0/12 Skip: 0/12
 ## EF - Electra - Operations - Attestation  [Preset: mainnet]
 ```diff
 + [Invalid] EF - Electra - Operations - Attestation - invalid_after_max_inclusion_slot       OK
@@ -3114,6 +3130,35 @@ OK: 76/76 Fail: 0/76 Skip: 0/76
 + EF - Electra - Slots - slots_2 [Preset: mainnet]                                           OK
 ```
 OK: 6/6 Fail: 0/6 Skip: 0/6
+## EF - Electra - Transition  [Preset: mainnet]
+```diff
++ EF - Electra - Transition - non_empty_historical_roots [Preset: mainnet]                   OK
++ EF - Electra - Transition - normal_transition [Preset: mainnet]                            OK
++ EF - Electra - Transition - simple_transition [Preset: mainnet]                            OK
++ EF - Electra - Transition - transition_attestation_from_previous_fork_with_new_range [Pres OK
++ EF - Electra - Transition - transition_missing_first_post_block [Preset: mainnet]          OK
++ EF - Electra - Transition - transition_missing_last_pre_fork_block [Preset: mainnet]       OK
++ EF - Electra - Transition - transition_only_blocks_post_fork [Preset: mainnet]             OK
++ EF - Electra - Transition - transition_randomized_state [Preset: mainnet]                  OK
++ EF - Electra - Transition - transition_with_activation_at_fork_epoch [Preset: mainnet]     OK
++ EF - Electra - Transition - transition_with_attester_slashing_right_after_fork [Preset: ma OK
++ EF - Electra - Transition - transition_with_attester_slashing_right_before_fork [Preset: m OK
++ EF - Electra - Transition - transition_with_btec_right_after_fork [Preset: mainnet]        OK
++ EF - Electra - Transition - transition_with_btec_right_before_fork [Preset: mainnet]       OK
++ EF - Electra - Transition - transition_with_deposit_right_after_fork [Preset: mainnet]     OK
++ EF - Electra - Transition - transition_with_deposit_right_before_fork [Preset: mainnet]    OK
++ EF - Electra - Transition - transition_with_finality [Preset: mainnet]                     OK
++ EF - Electra - Transition - transition_with_leaking_at_fork [Preset: mainnet]              OK
++ EF - Electra - Transition - transition_with_leaking_pre_fork [Preset: mainnet]             OK
++ EF - Electra - Transition - transition_with_no_attestations_until_after_fork [Preset: main OK
++ EF - Electra - Transition - transition_with_non_empty_activation_queue [Preset: mainnet]   OK
++ EF - Electra - Transition - transition_with_one_fourth_exiting_validators_exit_at_fork [Pr OK
++ EF - Electra - Transition - transition_with_proposer_slashing_right_after_fork [Preset: ma OK
++ EF - Electra - Transition - transition_with_proposer_slashing_right_before_fork [Preset: m OK
++ EF - Electra - Transition - transition_with_random_half_participation [Preset: mainnet]    OK
++ EF - Electra - Transition - transition_with_random_three_quarters_participation [Preset: m OK
+```
+OK: 25/25 Fail: 0/25 Skip: 0/25
 ## EF - Light client - Single merkle proof [Preset: mainnet]
 ```diff
 + Light client - Single merkle proof - mainnet/altair/light_client/single_merkle_proof/Beaco OK
@@ -3643,4 +3688,4 @@ OK: 69/88 Fail: 0/88 Skip: 19/88
 OK: 3/3 Fail: 0/3 Skip: 0/3
 
 ---TOTAL---
-OK: 2933/2953 Fail: 0/2953 Skip: 20/2953
+OK: 2970/2990 Fail: 0/2990 Skip: 20/2990

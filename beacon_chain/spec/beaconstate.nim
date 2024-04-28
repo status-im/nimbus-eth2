@@ -14,7 +14,7 @@ import
   ./datatypes/[phase0, altair, bellatrix],
   "."/[eth2_merkleization, forks, signatures, validator]
 
-from std/algorithm import fill
+from std/algorithm import fill, sort
 from std/sequtils import anyIt, mapIt, toSeq
 from ./datatypes/capella import BeaconState, ExecutionPayloadHeader, Withdrawal
 
@@ -1214,7 +1214,7 @@ func get_active_balance*(
     get_validator_max_effective_balance(state.validators[validator_index])
   min(state.balances[validator_index], max_effective_balance)
 
-# https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.0/specs/electra/beacon-chain.md#new-queue_excess_active_balance
+# https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.1/specs/electra/beacon-chain.md#new-queue_excess_active_balance
 func queue_excess_active_balance(
     state: var electra.BeaconState, index: ValidatorIndex) =
   let balance = state.balances.item(index)
@@ -1540,6 +1540,18 @@ func translate_participation(
         state.previous_epoch_participation[index] =
           add_flag(state.previous_epoch_participation.item(index), flag_index)
 
+# https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.1/specs/electra/beacon-chain.md#new-queue_entire_balance_and_reset_validator
+func queue_entire_balance_and_reset_validator(
+    state: var electra.BeaconState, index: uint64) =
+  let balance = state.balances.item(index)
+  state.balances[index] = 0.Gwei
+  let validator = addr state.validators.mitem(index)
+  validator[].effective_balance = 0.Gwei
+  validator[].activation_eligibility_epoch = FAR_FUTURE_EPOCH
+  debugRaiseAssert "check hashlist add return"
+  discard state.pending_balance_deposits.add PendingBalanceDeposit(
+    index: index, amount: balance)
+
 func upgrade_to_altair*(cfg: RuntimeConfig, pre: phase0.BeaconState):
     ref altair.BeaconState =
   var
@@ -1829,9 +1841,10 @@ func upgrade_to_deneb*(cfg: RuntimeConfig, pre: capella.BeaconState):
     historical_summaries: pre.historical_summaries
   )
 
-func upgrade_to_electra*(cfg: RuntimeConfig, pre: deneb.BeaconState):
+# https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.1/specs/electra/fork.md#upgrading-the-state
+func upgrade_to_electra*(
+    cfg: RuntimeConfig, pre: deneb.BeaconState, cache: var StateCache):
     ref electra.BeaconState =
-  debugRaiseAssert "verify upgrade_to_electra"
   let
     epoch = get_current_epoch(pre)
     latest_execution_payload_header = electra.ExecutionPayloadHeader(
@@ -1850,18 +1863,32 @@ func upgrade_to_electra*(cfg: RuntimeConfig, pre: deneb.BeaconState):
       block_hash: pre.latest_execution_payload_header.block_hash,
       transactions_root: pre.latest_execution_payload_header.transactions_root,
       withdrawals_root: pre.latest_execution_payload_header.withdrawals_root,
-      blob_gas_used: 0,  # [New in Deneb]
-      excess_blob_gas: 0 # [New in Deneb]
+      blob_gas_used: 0,
+      excess_blob_gas: 0,
+      deposit_receipts_root: ZERO_HASH,  # [New in Electra:EIP6110]
+      withdrawal_requests_root: ZERO_HASH,  # [New in ELectra:EIP7002]
     )
 
-  (ref electra.BeaconState)(
+  var max_exit_epoch = FAR_FUTURE_EPOCH
+  for v in pre.validators:
+    if v.exit_epoch != FAR_FUTURE_EPOCH:
+      max_exit_epoch =
+        if max_exit_epoch == FAR_FUTURE_EPOCH:
+          v.exit_epoch
+        else:
+          max(max_exit_epoch, v.exit_epoch)
+  if max_exit_epoch == FAR_FUTURE_EPOCH:
+    max_exit_epoch = get_current_epoch(pre)
+  let earliest_exit_epoch = max_exit_epoch + 1
+
+  let post = (ref electra.BeaconState)(
     # Versioning
     genesis_time: pre.genesis_time,
     genesis_validators_root: pre.genesis_validators_root,
     slot: pre.slot,
     fork: Fork(
       previous_version: pre.fork.current_version,
-      current_version: cfg.ELECTRA_FORK_VERSION, # [Modified in Deneb]
+      current_version: cfg.ELECTRA_FORK_VERSION, # [Modified in Electra:EIP6110]
       epoch: epoch
     ),
 
@@ -1904,15 +1931,54 @@ func upgrade_to_electra*(cfg: RuntimeConfig, pre: deneb.BeaconState):
     next_sync_committee: pre.next_sync_committee,
 
     # Execution-layer
-    latest_execution_payload_header: latest_execution_payload_header,  # [Modified in Deneb]
+    latest_execution_payload_header: latest_execution_payload_header,
 
     # Withdrawals
     next_withdrawal_index: pre.next_withdrawal_index,
     next_withdrawal_validator_index: pre.next_withdrawal_validator_index,
 
     # Deep history valid from Capella onwards
-    historical_summaries: pre.historical_summaries
+    historical_summaries: pre.historical_summaries,
+
+    # [New in Electra:EIP6110]
+    deposit_receipts_start_index: UNSET_DEPOSIT_RECEIPTS_START_INDEX,
+
+    # [New in Electra:EIP7251]
+    deposit_balance_to_consume: 0.Gwei,
+    exit_balance_to_consume: 0.Gwei,
+    earliest_exit_epoch: earliest_exit_epoch,
+    consolidation_balance_to_consume: 0.Gwei,
+    earliest_consolidation_epoch:
+      compute_activation_exit_epoch(get_current_epoch(pre))
+
+    # pending_balance_deposits, pending_partial_withdrawals, and
+    # pending_consolidations are default empty lists
   )
+
+  post.exit_balance_to_consume =
+    get_activation_exit_churn_limit(cfg, post[], cache)
+  post.consolidation_balance_to_consume =
+    get_consolidation_churn_limit(cfg, post[], cache)
+
+  # [New in Electra:EIP7251]
+  # add validators that are not yet active to pending balance deposits
+  var pre_activation: seq[(Epoch, uint64)]
+  for index, validator in post.validators:
+    if validator.activation_epoch == FAR_FUTURE_EPOCH:
+      pre_activation.add((validator.activation_eligibility_epoch, index.uint64))
+  sort(pre_activation)
+
+  for (_, index) in pre_activation:
+    queue_entire_balance_and_reset_validator(post[], index)
+
+  # Ensure early adopters of compounding credentials go through the activation
+  # churn
+  for index, validator in post.validators:
+    if has_compounding_withdrawal_credential(validator):
+      debugRaiseAssert "in theory truncating"
+      queue_excess_active_balance(post[], ValidatorIndex(index))
+
+  post
 
 func latest_block_root(state: ForkyBeaconState, state_root: Eth2Digest):
     Eth2Digest =
