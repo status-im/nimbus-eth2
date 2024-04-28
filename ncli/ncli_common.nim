@@ -394,10 +394,18 @@ func collectFromAttestations(
         rewardsAndPenalties[forkyBlck.message.proposer_index]
           .proposer_outcome += proposerReward.int64
         let inclusionDelay = forkyState.data.slot - attestation.data.slot
-        for index in get_attesting_indices(
-            forkyState.data, attestation.data, attestation.aggregation_bits,
-            cache):
-          rewardsAndPenalties[index].inclusion_delay = some(inclusionDelay.uint64)
+        when consensusFork >= ConsensusFork.Electra:
+          for index in get_attesting_indices(
+              forkyState.data, attestation.data, attestation.aggregation_bits,
+              attestation.committee_bits, cache):
+            rewardsAndPenalties[index].inclusion_delay =
+              some(inclusionDelay.uint64)
+        else:
+          for index in get_attesting_indices(
+              forkyState.data, attestation.data, attestation.aggregation_bits,
+              cache):
+            rewardsAndPenalties[index].inclusion_delay =
+              some(inclusionDelay.uint64)
 
 proc collectFromDeposits(
     rewardsAndPenalties: var seq[RewardsAndPenalties],

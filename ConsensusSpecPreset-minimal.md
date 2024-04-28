@@ -2663,6 +2663,55 @@ OK: 1/1 Fail: 0/1 Skip: 0/1
 + Sync committee updates - sync_committees_progress_not_genesis [Preset: minimal]            OK
 ```
 OK: 5/5 Fail: 0/5 Skip: 0/5
+## EF - Electra - Operations - Attestation  [Preset: minimal]
+```diff
++ [Invalid] EF - Electra - Operations - Attestation - invalid_after_max_inclusion_slot       OK
++ [Invalid] EF - Electra - Operations - Attestation - invalid_attestation_data_index_not_zer OK
++ [Invalid] EF - Electra - Operations - Attestation - invalid_attestation_signature          OK
++ [Invalid] EF - Electra - Operations - Attestation - invalid_bad_source_root                OK
++ [Invalid] EF - Electra - Operations - Attestation - invalid_before_inclusion_delay         OK
++ [Invalid] EF - Electra - Operations - Attestation - invalid_committe_index                 OK
++ [Invalid] EF - Electra - Operations - Attestation - invalid_correct_attestation_included_a OK
++ [Invalid] EF - Electra - Operations - Attestation - invalid_current_source_root            OK
++ [Invalid] EF - Electra - Operations - Attestation - invalid_empty_participants_seemingly_v OK
++ [Invalid] EF - Electra - Operations - Attestation - invalid_empty_participants_zeroes_sig  OK
++ [Invalid] EF - Electra - Operations - Attestation - invalid_future_target_epoch            OK
++ [Invalid] EF - Electra - Operations - Attestation - invalid_incorrect_head_and_target_incl OK
++ [Invalid] EF - Electra - Operations - Attestation - invalid_incorrect_head_included_after_ OK
++ [Invalid] EF - Electra - Operations - Attestation - invalid_incorrect_target_included_afte OK
++ [Invalid] EF - Electra - Operations - Attestation - invalid_index                          OK
++ [Invalid] EF - Electra - Operations - Attestation - invalid_mismatched_target_and_slot     OK
++ [Invalid] EF - Electra - Operations - Attestation - invalid_new_source_epoch               OK
++ [Invalid] EF - Electra - Operations - Attestation - invalid_nonset_committe_bits           OK
++ [Invalid] EF - Electra - Operations - Attestation - invalid_old_source_epoch               OK
++ [Invalid] EF - Electra - Operations - Attestation - invalid_old_target_epoch               OK
++ [Invalid] EF - Electra - Operations - Attestation - invalid_previous_source_root           OK
++ [Invalid] EF - Electra - Operations - Attestation - invalid_source_root_is_target_root     OK
++ [Invalid] EF - Electra - Operations - Attestation - invalid_too_few_aggregation_bits       OK
++ [Invalid] EF - Electra - Operations - Attestation - invalid_too_many_aggregation_bits      OK
++ [Invalid] EF - Electra - Operations - Attestation - invalid_too_many_committe_bits         OK
++ [Invalid] EF - Electra - Operations - Attestation - invalid_wrong_index_for_committee_sign OK
++ [Invalid] EF - Electra - Operations - Attestation - invalid_wrong_index_for_slot_0         OK
++ [Invalid] EF - Electra - Operations - Attestation - invalid_wrong_index_for_slot_1         OK
++ [Valid]   EF - Electra - Operations - Attestation - at_max_inclusion_slot                  OK
++ [Valid]   EF - Electra - Operations - Attestation - correct_attestation_included_at_max_in OK
++ [Valid]   EF - Electra - Operations - Attestation - correct_attestation_included_at_min_in OK
++ [Valid]   EF - Electra - Operations - Attestation - correct_attestation_included_at_one_ep OK
++ [Valid]   EF - Electra - Operations - Attestation - correct_attestation_included_at_sqrt_e OK
++ [Valid]   EF - Electra - Operations - Attestation - incorrect_head_and_target_included_at_ OK
++ [Valid]   EF - Electra - Operations - Attestation - incorrect_head_and_target_included_at_ OK
++ [Valid]   EF - Electra - Operations - Attestation - incorrect_head_and_target_min_inclusio OK
++ [Valid]   EF - Electra - Operations - Attestation - incorrect_head_included_at_max_inclusi OK
++ [Valid]   EF - Electra - Operations - Attestation - incorrect_head_included_at_min_inclusi OK
++ [Valid]   EF - Electra - Operations - Attestation - incorrect_head_included_at_sqrt_epoch_ OK
++ [Valid]   EF - Electra - Operations - Attestation - incorrect_target_included_at_epoch_del OK
++ [Valid]   EF - Electra - Operations - Attestation - incorrect_target_included_at_min_inclu OK
++ [Valid]   EF - Electra - Operations - Attestation - incorrect_target_included_at_sqrt_epoc OK
++ [Valid]   EF - Electra - Operations - Attestation - multi_proposer_index_iterations        OK
++ [Valid]   EF - Electra - Operations - Attestation - one_basic_attestation                  OK
++ [Valid]   EF - Electra - Operations - Attestation - previous_epoch                         OK
+```
+OK: 45/45 Fail: 0/45 Skip: 0/45
 ## EF - Electra - Operations - Attester Slashing  [Preset: minimal]
 ```diff
 + [Invalid] EF - Electra - Operations - Attester Slashing - invalid_all_empty_indices        OK
@@ -3787,4 +3836,4 @@ OK: 185/207 Fail: 0/207 Skip: 22/207
 OK: 3/3 Fail: 0/3 Skip: 0/3
 
 ---TOTAL---
-OK: 3063/3085 Fail: 0/3085 Skip: 22/3085
+OK: 3108/3130 Fail: 0/3130 Skip: 22/3130

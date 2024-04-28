@@ -368,11 +368,20 @@ proc collectSignatureSets*(
     # fixed in 1.4.2
     template attestation: untyped = signed_block.message.body.attestations[i]
 
+    when typeof(signed_block).kind < ConsensusFork.Electra:
+      let
+        key = ? aggregateAttesters(
+          get_attesting_indices(
+            state, attestation.data, attestation.aggregation_bits, cache),
+          validatorKeys)
+    else:
+      let
+        key = ? aggregateAttesters(
+          get_attesting_indices(
+            state, attestation.data, attestation.aggregation_bits,
+              attestation.committee_bits, cache),
+          validatorKeys)
     let
-      key = ? aggregateAttesters(
-        get_attesting_indices(
-          state, attestation.data, attestation.aggregation_bits, cache),
-        validatorKeys)
       sig = attestation.signature.load().valueOr:
         return err("Invalid attestation signature")
 

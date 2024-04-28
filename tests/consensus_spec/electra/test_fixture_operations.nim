@@ -82,28 +82,26 @@ proc runTest[T, U](
     else:
       check: done.isErr() # No post state = processing should fail
 
-when false:
-  debugRaiseAssert "when these are fixed..."
-  suite baseDescription & "Attestation " & preset():
-    func applyAttestation(
-        preState: var electra.BeaconState, attestation: Attestation):
-        Result[void, cstring] =
-      var cache: StateCache
-      let
-        total_active_balance = get_total_active_balance(preState, cache)
-        base_reward_per_increment =
-          get_base_reward_per_increment(total_active_balance)
+suite baseDescription & "Attestation " & preset():
+  proc applyAttestation(
+      preState: var electra.BeaconState, attestation: electra.Attestation):
+      Result[void, cstring] =
+    var cache: StateCache
+    let
+      total_active_balance = get_total_active_balance(preState, cache)
+      base_reward_per_increment =
+        get_base_reward_per_increment(total_active_balance)
 
-      # This returns the proposer reward for including the attestation, which
-      # isn't tested here.
-      discard ? process_attestation(
-        preState, attestation, {strictVerification}, base_reward_per_increment, cache)
-      ok()
+    # This returns the proposer reward for including the attestation, which
+    # isn't tested here.
+    discard ? process_attestation(
+      preState, attestation, {strictVerification}, base_reward_per_increment, cache)
+    ok()
 
-    for path in walkTests(OpAttestationsDir):
-      runTest[Attestation, typeof applyAttestation](
-        OpAttestationsDir, suiteName, "Attestation", "attestation",
-        applyAttestation, path)
+  for path in walkTests(OpAttestationsDir):
+    runTest[electra.Attestation, typeof applyAttestation](
+      OpAttestationsDir, suiteName, "Attestation", "attestation",
+      applyAttestation, path)
 
 suite baseDescription & "Attester Slashing " & preset():
   proc applyAttesterSlashing(

@@ -90,7 +90,7 @@ func compatible_with_shuffling*(
 iterator get_attesting_indices*(shufflingRef: ShufflingRef,
                                 slot: Slot,
                                 committee_index: CommitteeIndex,
-                                bits: CommitteeValidatorsBits | ElectraCommitteeValidatorsBits):
+                                bits: CommitteeValidatorsBits):
                                   ValidatorIndex =
   if not bits.compatible_with_shuffling(shufflingRef, slot, committee_index):
     trace "get_attesting_indices: inconsistent aggregation and committee length"
@@ -99,6 +99,14 @@ iterator get_attesting_indices*(shufflingRef: ShufflingRef,
         shufflingRef, slot, committee_index):
       if bits[index_in_committee]:
         yield validator_index
+
+# https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.0/specs/electra/beacon-chain.md#modified-get_attesting_indices
+iterator get_attesting_indices*(shufflingRef: ShufflingRef,
+                                slot: Slot,
+                                committee_index: CommitteeIndex,
+                                bits: ElectraCommitteeValidatorsBits):
+                                  ValidatorIndex =
+  debugRaiseAssert "spec cache get_attesting_indices for electra"
 
 iterator get_attesting_indices*(
     dag: ChainDAGRef, attestation: phase0.TrustedAttestation | electra.TrustedAttestation): ValidatorIndex =
