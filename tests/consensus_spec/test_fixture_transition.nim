@@ -61,7 +61,7 @@ proc runTest(
             flags = {skipStateRootValidation}, noRollback)
 
         # The return value is the block rewards, which aren't tested here;
-        # the .expect() already handles the the validaty check.
+        # the .expect() already handles the validaty check.
         discard res.expect("no failure when applying block " & $i)
       else:
         let
@@ -72,7 +72,7 @@ proc runTest(
             flags = {skipStateRootValidation}, noRollback)
 
         # The return value is the block rewards, which aren't tested here;
-        # the .expect() already handles the the validaty check.
+        # the .expect() already handles the validaty check.
         discard res.expect("no failure when applying block " & $i)
 
     let postState = newClone(

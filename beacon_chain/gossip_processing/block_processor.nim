@@ -525,7 +525,7 @@ proc storeBlock(
         # has been finalized - this speeds up forward sync - in the worst case
         # that the claim is false, we will correct every time we process a block
         # from an honest source (or when we're close to head).
-        # Occasionally we also send a payload to the the EL so that it can
+        # Occasionally we also send a payload to the EL so that it can
         # progress in its own sync.
         NewPayloadStatus.noResponse
       else:
@@ -768,8 +768,7 @@ proc storeBlock(
       quarantined = shortLog(quarantined.root)
 
     withBlck(quarantined):
-      debugRaiseAssert "electra has blobs"
-      when typeof(forkyBlck).kind < ConsensusFork.Deneb or typeof(forkyBlck).kind == ConsensusFork.Electra:
+      when typeof(forkyBlck).kind < ConsensusFork.Deneb:
         self[].enqueueBlock(
           MsgSource.gossip, quarantined, Opt.none(BlobSidecars))
       else:

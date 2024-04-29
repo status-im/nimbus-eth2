@@ -158,7 +158,8 @@ func check_beacon_and_target_block(
   ok(target)
 
 func check_aggregation_count(
-    attestation: Attestation, singular: bool): Result[void, ValidationError] =
+    attestation: phase0.Attestation, singular: bool):
+    Result[void, ValidationError] =
   let ones = attestation.aggregation_bits.countOnes()
   if singular and ones != 1:
     return errReject("Attestation must have a single attestation bit set")
@@ -650,7 +651,7 @@ proc validateBeaconBlock*(
 proc validateAttestation*(
     pool: ref AttestationPool,
     batchCrypto: ref BatchCrypto,
-    attestation: Attestation,
+    attestation: phase0.Attestation,
     wallTime: BeaconTime,
     subnet_id: SubnetId, checkSignature: bool):
     Future[Result[

@@ -149,7 +149,9 @@ type
     deneb.ExecutionPayloadForSigning |
     electra.ExecutionPayloadForSigning
 
-  ForkyBlindedBeaconBlock* = deneb_mev.BlindedBeaconBlock
+  ForkyBlindedBeaconBlock* =
+    deneb_mev.BlindedBeaconBlock |
+    electra_mev.BlindedBeaconBlock
 
   ForkedBeaconBlock* = object
     case kind*: ConsensusFork
@@ -490,7 +492,9 @@ template ExecutionPayloadForSigning*(kind: static ConsensusFork): auto =
     static: raiseAssert "Unreachable"
 
 template BlindedBeaconBlock*(kind: static ConsensusFork): auto =
-  when kind == ConsensusFork.Deneb:
+  when kind == ConsensusFork.Electra:
+    typedesc[electra_mev.BlindedBeaconBlock]
+  elif kind == ConsensusFork.Deneb:
     typedesc[deneb_mev.BlindedBeaconBlock]
   elif kind == ConsensusFork.Capella or kind == ConsensusFork.Bellatrix:
     static: raiseAssert "Unsupported"
@@ -612,8 +616,8 @@ template PayloadAttributes*(
 # `eth2_merkleization` cannot import `forks` (circular), so the check is here
 static: doAssert ConsensusFork.high == ConsensusFork.Electra,
   "eth2_merkleization has been checked and `hash_tree_root` is up to date"
-debugRaiseAssert("this has not actually been checked for Electra, but it doesn't matter unless the electra fork is entered")
 
+# TODO are these used?
 # TODO when https://github.com/nim-lang/Nim/issues/21086 fixed, use return type
 # `ref T`
 func new*(T: type ForkedHashedBeaconState, data: phase0.BeaconState):
@@ -1386,7 +1390,7 @@ func readSszForkedSignedBeaconBlock*(
   withBlck(result):
     readSszBytes(data, forkyBlck)
 
-# https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.6/specs/phase0/beacon-chain.md#compute_fork_data_root
+# https://github.com/ethereum/consensus-specs/blob/v1.4.0/specs/phase0/beacon-chain.md#compute_fork_data_root
 func compute_fork_data_root*(current_version: Version,
     genesis_validators_root: Eth2Digest): Eth2Digest =
   ## Return the 32-byte fork data root for the ``current_version`` and

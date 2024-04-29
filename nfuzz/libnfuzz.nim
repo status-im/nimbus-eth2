@@ -21,7 +21,7 @@ import
 type
   AttestationInput = object
     state: phase0.BeaconState
-    attestation: Attestation
+    attestation: phase0.Attestation
   AttesterSlashingInput = object
     state: phase0.BeaconState
     attesterSlashing: AttesterSlashing

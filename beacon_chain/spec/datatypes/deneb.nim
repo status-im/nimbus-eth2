@@ -53,7 +53,7 @@ type
   # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.5/specs/deneb/polynomial-commitments.md#custom-types
   Blob* = array[BYTES_PER_FIELD_ELEMENT * FIELD_ELEMENTS_PER_BLOB, byte]
 
-  # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.7/specs/deneb/p2p-interface.md#blobsidecar
+  # https://github.com/ethereum/consensus-specs/blob/v1.4.0/specs/deneb/p2p-interface.md#blobsidecar
   BlobSidecar* = object
     index*: BlobIndex
       ## Index of blob in block

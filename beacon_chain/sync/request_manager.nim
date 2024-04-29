@@ -303,27 +303,30 @@ proc getMissingBlobs(rman: RequestManager): seq[BlobIdentifier] =
     fetches: seq[BlobIdentifier]
     ready: seq[Eth2Digest]
   for blobless in rman.quarantine[].peekBlobless():
-    # give blobs a chance to arrive over gossip
-    if blobless.message.slot == wallSlot and delay < waitDur:
-      debug "Not handling missing blobs early in slot"
-      continue
+    withBlck(blobless):
+      when consensusFork >= ConsensusFork.Deneb:
+        # give blobs a chance to arrive over gossip
+        if forkyBlck.message.slot == wallSlot and delay < waitDur:
+          debug "Not handling missing blobs early in slot"
+          continue
 
-    if not rman.blobQuarantine[].hasBlobs(blobless):
-      let missing = rman.blobQuarantine[].blobFetchRecord(blobless)
-      if len(missing.indices) == 0:
-        warn "quarantine missing blobs, but missing indices is empty",
-         blk=blobless.root,
-         commitments=len(blobless.message.body.blob_kzg_commitments)
-      for idx in missing.indices:
-        let id = BlobIdentifier(block_root: blobless.root, index: idx)
-        if id notin fetches:
-          fetches.add(id)
-    else:
-      # this is a programming error should it occur.
-      warn "missing blob handler found blobless block with all blobs",
-         blk=blobless.root,
-         commitments=len(blobless.message.body.blob_kzg_commitments)
-      ready.add(blobless.root)
+        if not rman.blobQuarantine[].hasBlobs(forkyBlck):
+          let missing = rman.blobQuarantine[].blobFetchRecord(forkyBlck)
+          if len(missing.indices) == 0:
+            warn "quarantine missing blobs, but missing indices is empty",
+             blk=blobless.root,
+             commitments=len(forkyBlck.message.body.blob_kzg_commitments)
+          for idx in missing.indices:
+            let id = BlobIdentifier(block_root: blobless.root, index: idx)
+            if id notin fetches:
+              fetches.add(id)
+        else:
+          # this is a programming error should it occur.
+          warn "missing blob handler found blobless block with all blobs",
+             blk=blobless.root,
+             commitments=len(forkyBlck.message.body.blob_kzg_commitments)
+          ready.add(blobless.root)
+
   for root in ready:
     let blobless = rman.quarantine[].popBlobless(root).valueOr:
       continue

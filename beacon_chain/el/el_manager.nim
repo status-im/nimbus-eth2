@@ -498,11 +498,12 @@ func asConsensusType*(rpcExecutionPayload: ExecutionPayloadV4):
       signature: ValidatorSig(blob: dr.signature.distinctBase),
       index: dr.index.uint64)
 
-  template getExecutionLayerExit(ele: ExitV1): ExecutionLayerExit =
-    ExecutionLayerExit(
-      source_address: ExecutionAddress(data: ele.sourceAddress.distinctBase),
+  template getExecutionLayerWithdrawalRequest(elwr: ExitV1):
+      ExecutionLayerWithdrawalRequest =
+    ExecutionLayerWithdrawalRequest(
+      source_address: ExecutionAddress(data: elwr.sourceAddress.distinctBase),
       validator_pubkey: ValidatorPubKey(
-        blob: ele.validatorPublicKey.distinctBase))
+        blob: elwr.validatorPublicKey.distinctBase))
 
   electra.ExecutionPayload(
     parent_hash: rpcExecutionPayload.parentHash.asEth2Digest,
@@ -529,14 +530,26 @@ func asConsensusType*(rpcExecutionPayload: ExecutionPayloadV4):
     deposit_receipts:
       List[electra.DepositReceipt, MAX_DEPOSIT_RECEIPTS_PER_PAYLOAD].init(
         mapIt(rpcExecutionPayload.depositReceipts, it.getDepositReceipt)),
-    exits:
-      List[electra.ExecutionLayerExit, MAX_EXECUTION_LAYER_EXITS_PER_PAYLOAD].init(
-        mapIt(rpcExecutionPayload.exits, it.getExecutionLayerExit)))
+    withdrawal_requests:
+      List[electra.ExecutionLayerWithdrawalRequest, MAX_WITHDRAWAL_REQUESTS_PER_PAYLOAD].init(
+        mapIt(rpcExecutionPayload.exits, it.getExecutionLayerWithdrawalRequest)))
 
 func asConsensusType*(payload: engine_api.GetPayloadV4Response):
     electra.ExecutionPayloadForSigning =
-  debugRaiseAssert "well, not empty maybe"
-  default(electra.ExecutionPayloadForSigning)
+  electra.ExecutionPayloadForSigning(
+    executionPayload: payload.executionPayload.asConsensusType,
+    blockValue: payload.blockValue,
+    # TODO
+    # The `mapIt` calls below are necessary only because we use different distinct
+    # types for KZG commitments and Blobs in the `web3` and the `deneb` spec types.
+    # Both are defined as `array[N, byte]` under the hood.
+    blobsBundle: BlobsBundle(
+      commitments: KzgCommitments.init(
+        payload.blobsBundle.commitments.mapIt(it.bytes)),
+      proofs: KzgProofs.init(
+        payload.blobsBundle.proofs.mapIt(it.bytes)),
+      blobs: Blobs.init(
+        payload.blobsBundle.blobs.mapIt(it.bytes))))
 
 func asEngineExecutionPayload*(executionPayload: bellatrix.ExecutionPayload):
     ExecutionPayloadV1 =
@@ -627,10 +640,13 @@ func asEngineExecutionPayload*(executionPayload: electra.ExecutionPayload):
       signature: FixedBytes[RawSigSize](dr.signature.blob),
       index: dr.index.Quantity)
 
-  template getExecutionLayerExit(ele: ExecutionLayerExit): ExitV1 =
+  template getExecutionLayerWithdrawalRequest(
+      elwr: ExecutionLayerWithdrawalRequest): ExitV1 =
     ExitV1(
-      sourceAddress: Address(ele.source_address.data),
-      validatorPublicKey: FixedBytes[RawPubKeySize](ele.validator_pubkey.blob))
+      sourceAddress: Address(elwr.source_address.data),
+      validatorPublicKey: FixedBytes[RawPubKeySize](elwr.validator_pubkey.blob))
+
+  debugRaiseAssert "nim-web3 needs to change exits to withdrawalRequests; maybe it already has been"
 
   engine_api.ExecutionPayloadV4(
     parentHash: executionPayload.parent_hash.asBlockHash,
@@ -653,7 +669,9 @@ func asEngineExecutionPayload*(executionPayload: electra.ExecutionPayload):
     excessBlobGas: Quantity(executionPayload.excess_blob_gas),
     depositReceipts: mapIt(
       executionPayload.deposit_receipts, it.getDepositReceipt),
-    exits: mapIt(executionPayload.exits, it.getExecutionLayerExit))
+    exits:
+      mapIt(executionPayload.withdrawal_requests,
+        it.getExecutionLayerWithdrawalRequest))
 
 func isConnected(connection: ELConnection): bool =
   connection.web3.isSome
@@ -828,11 +846,9 @@ proc getPayloadFromSingleEL(
       await engine_api.getPayload(rpcClient, ExecutionPayloadV1, payloadId)
     return BellatrixExecutionPayloadWithValue(
       executionPayload: payload, blockValue: Wei.zero)
-  elif GetPayloadResponseType is engine_api.GetPayloadV4Response:
-    debugRaiseAssert "foo"
-    return default(engine_api.GetPayloadV4Response)
   else:
-    return await engine_api.getPayload(rpcClient, GetPayloadResponseType, payloadId)
+    return await engine_api.getPayload(
+      rpcClient, GetPayloadResponseType, payloadId)
 
 func cmpGetPayloadResponses(lhs, rhs: SomeEnginePayloadWithValue): int =
   cmp(distinctBase lhs.blockValue, distinctBase rhs.blockValue)

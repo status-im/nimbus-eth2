@@ -30,8 +30,9 @@ type
     data*: AttestationData
 
 proc toAttestation*(
-    registered: RegisteredAttestation, signature: ValidatorSig): Attestation =
-  Attestation.init(
+    registered: RegisteredAttestation, signature: ValidatorSig):
+    phase0.Attestation =
+  phase0.Attestation.init(
     [registered.index_in_committee], registered.committee_len,
     registered.data, signature).expect("valid data")
 

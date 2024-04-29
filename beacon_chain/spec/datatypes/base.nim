@@ -74,7 +74,7 @@ export
   tables, results, endians2, json_serialization, sszTypes, beacon_time, crypto,
   digest, presets
 
-const SPEC_VERSION* = "1.4.0"
+const SPEC_VERSION* = "1.5.0-alpha.0"
 ## Spec version we're aiming to be compatible with, right now
 
 const
@@ -210,7 +210,7 @@ type
   # SSZ / hashing purposes
   JustificationBits* = distinct uint8
 
-  # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.6/specs/phase0/beacon-chain.md#proposerslashing
+  # https://github.com/ethereum/consensus-specs/blob/v1.4.0/specs/phase0/beacon-chain.md#proposerslashing
   ProposerSlashing* = object
     signed_header_1*: SignedBeaconBlockHeader
     signed_header_2*: SignedBeaconBlockHeader
@@ -250,20 +250,6 @@ type
 
   CommitteeValidatorsBits* = BitList[Limit MAX_VALIDATORS_PER_COMMITTEE]
 
-  # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.6/specs/phase0/beacon-chain.md#attestation
-  Attestation* = object
-    aggregation_bits*: CommitteeValidatorsBits
-    data*: AttestationData
-    signature*: ValidatorSig
-
-  TrustedAttestation* = object
-    # The Trusted version, at the moment, implies that the cryptographic signature was checked.
-    # It DOES NOT imply that the state transition was verified.
-    # Currently the code MUST verify the state transition as soon as the signature is verified
-    aggregation_bits*: CommitteeValidatorsBits
-    data*: AttestationData
-    signature*: TrustedSig
-
   ForkDigest* = distinct array[4, byte]
 
   # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.6/specs/phase0/beacon-chain.md#forkdata
@@ -271,7 +257,7 @@ type
     current_version*: Version
     genesis_validators_root*: Eth2Digest
 
-  # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.6/specs/phase0/beacon-chain.md#checkpoint
+  # https://github.com/ethereum/consensus-specs/blob/v1.4.0/specs/phase0/beacon-chain.md#checkpoint
   Checkpoint* = object
     epoch*: Epoch
     root*: Eth2Digest
@@ -312,13 +298,12 @@ type
     signature*: ValidatorSig
       ## Signing over DepositMessage
 
-  # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.6/specs/phase0/beacon-chain.md#voluntaryexit
+  # https://github.com/ethereum/consensus-specs/blob/v1.4.0/specs/phase0/beacon-chain.md#voluntaryexit
   VoluntaryExit* = object
     epoch*: Epoch
       ## Earliest epoch when voluntary exit can be processed
     validator_index*: uint64 # `ValidatorIndex` after validation
 
-  SomeAttestation* = Attestation | TrustedAttestation
   SomeIndexedAttestation* = IndexedAttestation | TrustedIndexedAttestation
   SomeProposerSlashing* = ProposerSlashing | TrustedProposerSlashing
   SomeAttesterSlashing* = AttesterSlashing | TrustedAttesterSlashing
@@ -347,7 +332,7 @@ type
   HashedValidatorPubKey* = object
     value*: ptr HashedValidatorPubKeyItem
 
-  # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.6/specs/phase0/beacon-chain.md#validator
+  # https://github.com/ethereum/consensus-specs/blob/v1.4.0/specs/phase0/beacon-chain.md#validator
   Validator* = object
     pubkeyData*{.serializedFieldName: "pubkey".}: HashedValidatorPubKey
 
@@ -369,7 +354,7 @@ type
     withdrawable_epoch*: Epoch
       ## When validator can withdraw funds
 
-  # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.6/specs/phase0/beacon-chain.md#pendingattestation
+  # https://github.com/ethereum/consensus-specs/blob/v1.4.0/specs/phase0/beacon-chain.md#pendingattestation
   PendingAttestation* = object
     aggregation_bits*: CommitteeValidatorsBits
     data*: AttestationData
@@ -397,7 +382,7 @@ type
     deposit_count*: uint64
     block_hash*: Eth2Digest
 
-  # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.6/specs/phase0/beacon-chain.md#signedvoluntaryexit
+  # https://github.com/ethereum/consensus-specs/blob/v1.4.0/specs/phase0/beacon-chain.md#signedvoluntaryexit
   SignedVoluntaryExit* = object
     message*: VoluntaryExit
     signature*: ValidatorSig
@@ -421,7 +406,7 @@ type
 
   GraffitiBytes* = distinct array[MAX_GRAFFITI_SIZE, byte]
 
-  # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.7/specs/phase0/beacon-chain.md#signedbeaconblockheader
+  # https://github.com/ethereum/consensus-specs/blob/v1.4.0/specs/phase0/beacon-chain.md#signedbeaconblockheader
   SignedBeaconBlockHeader* = object
     message*: BeaconBlockHeader
     signature*: ValidatorSig
@@ -429,17 +414,6 @@ type
   TrustedSignedBeaconBlockHeader* = object
     message*: BeaconBlockHeader
     signature*: TrustedSig
-
-  # https://github.com/ethereum/consensus-specs/blob/v1.4.0/specs/phase0/validator.md#aggregateandproof
-  AggregateAndProof* = object
-    aggregator_index*: uint64 # `ValidatorIndex` after validation
-    aggregate*: Attestation
-    selection_proof*: ValidatorSig
-
-  # https://github.com/ethereum/consensus-specs/blob/v1.4.0/specs/phase0/validator.md#signedaggregateandproof
-  SignedAggregateAndProof* = object
-    message*: AggregateAndProof
-    signature*: ValidatorSig
 
   SyncCommitteeCache* = object
     current_sync_committee*: array[SYNC_COMMITTEE_SIZE, ValidatorIndex]
@@ -470,7 +444,7 @@ type
     execution_block_hash*: Eth2Digest
     execution_block_height*: uint64
 
-  # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.7/specs/phase0/beacon-chain.md#validator
+  # https://github.com/ethereum/consensus-specs/blob/v1.4.0/specs/phase0/beacon-chain.md#validator
   ValidatorStatus* = object
     # This is a validator without the expensive, immutable, append-only parts
     # serialized. They're represented in memory to allow in-place SSZ reading
@@ -842,16 +816,6 @@ func shortLog*(v: PendingAttestation): auto =
     proposer_index: v.proposer_index
   )
 
-func shortLog*(v: SomeAttestation): auto =
-  (
-    aggregation_bits: v.aggregation_bits,
-    data: shortLog(v.data),
-    signature: shortLog(v.signature)
-  )
-
-template asTrusted*(x: Attestation): TrustedAttestation =
-  isomorphicCast[TrustedAttestation](x)
-
 func shortLog*(v: SomeIndexedAttestation): auto =
   (
     attestating_indices: v.attesting_indices,
@@ -894,7 +858,6 @@ func shortLog*(v: SomeSignedVoluntaryExit): auto =
   )
 
 chronicles.formatIt AttestationData: it.shortLog
-chronicles.formatIt Attestation: it.shortLog
 chronicles.formatIt Checkpoint: it.shortLog
 
 const
@@ -925,23 +888,6 @@ func init*(T: type GraffitiBytes, input: string): GraffitiBytes
     if input.len > MAX_GRAFFITI_SIZE:
       raise newException(ValueError, "The graffiti value should be 32 characters or less")
     distinctBase(result)[0 ..< input.len] = toBytes(input)
-
-func init*(
-    T: type Attestation,
-    indices_in_committee: openArray[uint64],
-    committee_len: int,
-    data: AttestationData,
-    signature: ValidatorSig): Result[T, cstring] =
-  var bits = CommitteeValidatorsBits.init(committee_len)
-  for index_in_committee in indices_in_committee:
-    if index_in_committee >= committee_len.uint64: return err("Invalid index for committee")
-    bits.setBit index_in_committee
-
-  ok Attestation(
-    aggregation_bits: bits,
-    data: data,
-    signature: signature
-  )
 
 func defaultGraffitiBytes*(): GraffitiBytes =
   const graffitiBytes =

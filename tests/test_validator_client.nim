@@ -465,8 +465,8 @@ proc init(t: typedesc[ProduceAttestationDataResponse],
     target: Checkpoint(epoch: Epoch(ad.target))
   ))
 
-proc init(t: typedesc[Attestation], bits: string,
-          slot: Slot = GENESIS_SLOT, index: uint64 = 0'u64): Attestation =
+proc init(t: typedesc[phase0.Attestation], bits: string,
+          slot: Slot = GENESIS_SLOT, index: uint64 = 0'u64): phase0.Attestation =
   let
     jdata = "{\"data\":\"" & bits & "\"}"
     bits =
@@ -767,8 +767,8 @@ suite "Validator Client test suite":
   test "getUniqueVotes() test vectors":
     for vector in AttestationBitsVectors:
       let
-        a1 = Attestation.init(vector[0][0][0], vector[0][0][1], vector[0][0][2])
-        a2 = Attestation.init(vector[0][1][0], vector[0][1][1], vector[0][1][2])
+        a1 = phase0.Attestation.init(vector[0][0][0], vector[0][0][1], vector[0][0][2])
+        a2 = phase0.Attestation.init(vector[0][1][0], vector[0][1][1], vector[0][1][2])
       check getUniqueVotes([a1, a2]) == vector[1]
 
   asyncTest "firstSuccessParallel() API timeout test":

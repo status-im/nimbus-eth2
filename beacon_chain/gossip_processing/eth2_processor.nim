@@ -241,11 +241,8 @@ proc processSignedBeaconBlock*(
     # propagation of seemingly good blocks
     trace "Block validated"
 
-    debugRaiseAssert "electra has blobs"
     let blobs =
-      when typeof(signedBlock).kind >= ConsensusFork.Electra:
-        Opt.none(BlobSidecars)
-      elif typeof(signedBlock).kind >= ConsensusFork.Deneb:
+      when typeof(signedBlock).kind >= ConsensusFork.Deneb:
         if self.blobQuarantine[].hasBlobs(signedBlock):
           Opt.some(self.blobQuarantine[].popBlobs(signedBlock.root, signedBlock))
         else:
@@ -307,10 +304,7 @@ proc processBlobSidecar*(
   if (let o = self.quarantine[].popBlobless(block_root); o.isSome):
     let blobless = o.unsafeGet()
     withBlck(blobless):
-      when consensusFork >= ConsensusFork.Electra:
-        debugRaiseAssert "no electra here yet"
-        let x = 5
-      elif consensusFork >= ConsensusFork.Deneb:
+      when consensusFork >= ConsensusFork.Deneb:
         if self.blobQuarantine[].hasBlobs(forkyBlck):
           self.blockProcessor[].enqueueBlock(
             MsgSource.gossip, blobless,
@@ -348,7 +342,7 @@ proc clearDoppelgangerProtection*(self: var Eth2Processor) =
   self.doppelgangerDetection.broadcastStartEpoch = FAR_FUTURE_EPOCH
 
 proc checkForPotentialDoppelganger(
-    self: var Eth2Processor, attestation: Attestation,
+    self: var Eth2Processor, attestation: phase0.Attestation,
     attesterIndices: openArray[ValidatorIndex]) =
   # Only check for attestations after node launch. There might be one slot of
   # overlap in quick intra-slot restarts so trade off a few true negatives in
@@ -370,7 +364,7 @@ proc checkForPotentialDoppelganger(
 
 proc processAttestation*(
     self: ref Eth2Processor, src: MsgSource,
-    attestation: Attestation, subnet_id: SubnetId,
+    attestation: phase0.Attestation, subnet_id: SubnetId,
     checkSignature: bool = true): Future[ValidationRes] {.async: (raises: [CancelledError]).} =
   var wallTime = self.getCurrentBeaconTime()
   let (afterGenesis, wallSlot) = wallTime.toSlot()

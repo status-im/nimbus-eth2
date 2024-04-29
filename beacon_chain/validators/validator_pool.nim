@@ -643,8 +643,33 @@ proc getBlockSignature*(v: AttachedValidator, fork: Fork,
                     data: forkyMaybeBlindedBlck.`block`.toBeaconBlockHeader),
                       proofs)
           elif consensusFork == ConsensusFork.Electra:
-            debugRaiseAssert ""
-            default(Web3SignerRequest)
+            when isBlinded:
+              case v.data.remoteType
+              of RemoteSignerType.Web3Signer:
+                Web3SignerRequest.init(fork, genesis_validators_root,
+                  Web3SignerForkedBeaconBlock(kind: ConsensusFork.Electra,
+                    data: forkyMaybeBlindedBlck.toBeaconBlockHeader))
+              of RemoteSignerType.VerifyingWeb3Signer:
+                let proofs =
+                  blockPropertiesProofs(forkyMaybeBlindedBlck.body,
+                                        electraIndex)
+                Web3SignerRequest.init(fork, genesis_validators_root,
+                  Web3SignerForkedBeaconBlock(kind: ConsensusFork.Electra,
+                    data: forkyMaybeBlindedBlck.toBeaconBlockHeader), proofs)
+            else:
+              case v.data.remoteType
+              of RemoteSignerType.Web3Signer:
+                Web3SignerRequest.init(fork, genesis_validators_root,
+                  Web3SignerForkedBeaconBlock(kind: ConsensusFork.Electra,
+                    data: forkyMaybeBlindedBlck.`block`.toBeaconBlockHeader))
+              of RemoteSignerType.VerifyingWeb3Signer:
+                let proofs =
+                  blockPropertiesProofs(forkyMaybeBlindedBlck.`block`.body,
+                                        electraIndex)
+                Web3SignerRequest.init(fork, genesis_validators_root,
+                  Web3SignerForkedBeaconBlock(kind: ConsensusFork.Electra,
+                    data: forkyMaybeBlindedBlck.`block`.toBeaconBlockHeader),
+                      proofs)
       else:
         case blck.kind
         of ConsensusFork.Phase0 .. ConsensusFork.Bellatrix:

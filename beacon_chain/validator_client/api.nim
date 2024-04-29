@@ -1489,7 +1489,7 @@ proc produceAttestationData*(
 
 proc submitPoolAttestations*(
        vc: ValidatorClientRef,
-       data: seq[Attestation],
+       data: seq[phase0.Attestation],
        strategy: ApiStrategyKind
      ): Future[bool] {.async.} =
   const
@@ -1635,7 +1635,7 @@ proc getAggregatedAttestation*(
        slot: Slot,
        root: Eth2Digest,
        strategy: ApiStrategyKind
-     ): Future[Attestation] {.async.} =
+     ): Future[phase0.Attestation] {.async.} =
   const
     RequestName = "getAggregatedAttestation"
 
@@ -2308,8 +2308,7 @@ proc publishBlock*(
       of ConsensusFork.Deneb:
         publishBlock(it, data.denebData)
       of ConsensusFork.Electra:
-        debugRaiseAssert "electra in vc"
-        publishBlock(it, data.denebData)
+        publishBlock(it, data.electraData)
 
     do:
       if apiResponse.isErr():
@@ -2467,8 +2466,7 @@ proc publishBlindedBlock*(
         of ConsensusFork.Deneb:
           publishBlindedBlock(it, data.denebData)
         of ConsensusFork.Electra:
-          debugRaiseAssert "vc part something"
-          publishBlindedBlock(it, data.denebData)
+          publishBlindedBlock(it, data.electraData)
       do:
         if apiResponse.isErr():
           handleCommunicationError()
@@ -2515,8 +2513,7 @@ proc publishBlindedBlock*(
       of ConsensusFork.Deneb:
         publishBlindedBlock(it, data.denebData)
       of ConsensusFork.Electra:
-        debugRaiseAssert "more electra vc"
-        publishBlindedBlock(it, data.denebData)
+        publishBlindedBlock(it, data.electraData)
     do:
       if apiResponse.isErr():
         handleCommunicationError()

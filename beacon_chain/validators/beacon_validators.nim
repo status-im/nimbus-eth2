@@ -734,6 +734,8 @@ proc constructSignableBlindedBlock[T: electra_mev.SignedBlindedBeaconBlock](
     blindedBlock.message.body.blob_kzg_commitments,
     blindedBundle.blob_kzg_commitments)
 
+  debugRaiseAssert "check for any additional electra mev requirements"
+
   blindedBlock
 
 func constructPlainBlindedBlock[T: deneb_mev.BlindedBeaconBlock](
@@ -757,6 +759,32 @@ func constructPlainBlindedBlock[T: deneb_mev.BlindedBeaconBlock](
   assign(
     blindedBlock.body.blob_kzg_commitments,
     blindedBundle.blob_kzg_commitments)
+
+  blindedBlock
+
+func constructPlainBlindedBlock[T: electra_mev.BlindedBeaconBlock](
+    blck: ForkyBeaconBlock,
+    blindedBundle: electra_mev.BlindedExecutionPayloadAndBlobsBundle): T =
+  # https://github.com/nim-lang/Nim/issues/23020 workaround
+  static: doAssert T is electra_mev.BlindedBeaconBlock
+
+  const
+    blckFields = getFieldNames(typeof(blck))
+    blckBodyFields = getFieldNames(typeof(blck.body))
+
+  var blindedBlock: T
+
+  # https://github.com/ethereum/builder-specs/blob/v0.4.0/specs/bellatrix/validator.md#block-proposal
+  copyFields(blindedBlock, blck, blckFields)
+  copyFields(blindedBlock.body, blck.body, blckBodyFields)
+  assign(
+    blindedBlock.body.execution_payload_header,
+    blindedBundle.execution_payload_header)
+  assign(
+    blindedBlock.body.blob_kzg_commitments,
+    blindedBundle.blob_kzg_commitments)
+
+  debugRaiseAssert "check for any additional electra mev requirements"
 
   blindedBlock
 
@@ -1002,7 +1030,9 @@ proc makeBlindedBeaconBlockForHeadAndSlot*[BBB: ForkyBlindedBeaconBlock](
   ##
   ## This function is used by the validator client, but not the beacon node for
   ## its own validators.
-  when BBB is deneb_mev.BlindedBeaconBlock:
+  when BBB is electra_mev.BlindedBeaconBlock:
+    type EPH = electra_mev.BlindedExecutionPayloadAndBlobsBundle
+  elif BBB is deneb_mev.BlindedBeaconBlock:
     type EPH = deneb_mev.BlindedExecutionPayloadAndBlobsBundle
   else:
     static: doAssert false
@@ -1035,11 +1065,11 @@ proc makeBlindedBeaconBlockForHeadAndSlot*[BBB: ForkyBlindedBeaconBlock](
   let (executionPayloadHeader, bidValue, consensusValue, forkedBlck) =
     blindedBlockParts.get
   withBlck(forkedBlck):
-    when consensusFork >= ConsensusFork.Capella:
+    when consensusFork >= ConsensusFork.Deneb:
       when ((consensusFork == ConsensusFork.Deneb and
              EPH is deneb_mev.BlindedExecutionPayloadAndBlobsBundle) or
-            (consensusFork == ConsensusFork.Capella and
-             EPH is capella.ExecutionPayloadHeader)):
+            (consensusFork == ConsensusFork.Electra and
+             EPH is electra_mev.BlindedExecutionPayloadAndBlobsBundle)):
         return ok(
           BuilderBid[BBB](
             blindedBlckPart:
@@ -1049,7 +1079,7 @@ proc makeBlindedBeaconBlockForHeadAndSlot*[BBB: ForkyBlindedBeaconBlock](
       else:
         return err("makeBlindedBeaconBlockForHeadAndSlot: mismatched block/payload types")
     else:
-      return err("Attempt to create pre-Capella blinded block")
+      return err("Attempt to create pre-Deneb blinded block")
 
 proc collectBids(
     SBBB: typedesc, EPS: typedesc, node: BeaconNode,
@@ -1566,7 +1596,7 @@ proc signAndSendAggregate(
       shufflingRef, slot, committee_index, selectionProof):
     return
 
-  # https://github.com/ethereum/consensus-specs/blob/v1.3.0/specs/phase0/validator.md#construct-aggregate
+  # https://github.com/ethereum/consensus-specs/blob/v1.4.0/specs/phase0/validator.md#construct-aggregate
   # https://github.com/ethereum/consensus-specs/blob/v1.4.0/specs/phase0/validator.md#aggregateandproof
   var
     msg = SignedAggregateAndProof(
@@ -2043,7 +2073,7 @@ proc makeMaybeBlindedBeaconBlockForHeadAndSlotImpl[ResultType](
     ResultType.ok((
       blck: consensusFork.MaybeBlindedBeaconBlock(
         isBlinded: false,
-        data: deneb.BlockContents(
+        data: consensusFork.BlockContents(
           `block`: forkyBlck,
           kzg_proofs: blobsBundle.proofs,
           blobs: blobsBundle.blobs)),
