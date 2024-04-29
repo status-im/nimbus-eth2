@@ -48,9 +48,6 @@ const
   CURRENT_SYNC_COMMITTEE_GINDEX = 86.GeneralizedIndex  # current_sync_committee
   NEXT_SYNC_COMMITTEE_GINDEX = 87.GeneralizedIndex  # next_sync_committee
 
-debugRaiseAssert "rename ElectraIndexedAttestation to IndexedAttestation"
-debugRaiseAssert "rename ElectraAttesterSlashing to AttesterSlashing"
-
 type
   # https://github.com/ethereum/consensus-specs/blob/94a0b6c581f2809aa8aca4ef7ee6fbb63f9d74e9/specs/electra/beacon-chain.md#depositreceipt
   DepositReceipt* = object
@@ -61,13 +58,13 @@ type
     index*: uint64
 
   # https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.0/specs/electra/beacon-chain.md#indexedattestation
-  ElectraIndexedAttestation* = object
+  IndexedAttestation* = object
     attesting_indices*:
       List[uint64, Limit MAX_VALIDATORS_PER_COMMITTEE * MAX_COMMITTEES_PER_SLOT]
     data*: AttestationData
     signature*: ValidatorSig
 
-  TrustedElectraIndexedAttestation* = object
+  TrustedIndexedAttestation* = object
     # The Trusted version, at the moment, implies that the cryptographic signature was checked.
     # It DOES NOT imply that the state transition was verified.
     # Currently the code MUST verify the state transition as soon as the signature is verified
@@ -77,11 +74,11 @@ type
     signature*: TrustedSig
 
   # https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.0/specs/electra/beacon-chain.md#attesterslashing
-  ElectraAttesterSlashing* = object
-    attestation_1*: ElectraIndexedAttestation  # [Modified in Electra:EIP7549]
-    attestation_2*: ElectraIndexedAttestation  # [Modified in Electra:EIP7549]
+  AttesterSlashing* = object
+    attestation_1*: IndexedAttestation  # [Modified in Electra:EIP7549]
+    attestation_2*: IndexedAttestation  # [Modified in Electra:EIP7549]
 
-  TrustedElectraAttesterSlashing* = object
+  TrustedAttesterSlashing* = object
     # The Trusted version, at the moment, implies that the cryptographic signature was checked.
     # It DOES NOT imply that the state transition was verified.
     # Currently the code MUST verify the state transition as soon as the signature is verified
@@ -461,7 +458,7 @@ type
     # Operations
     proposer_slashings*: List[ProposerSlashing, Limit MAX_PROPOSER_SLASHINGS]
     attester_slashings*:
-      List[ElectraAttesterSlashing, Limit MAX_ATTESTER_SLASHINGS_ELECTRA]
+      List[AttesterSlashing, Limit MAX_ATTESTER_SLASHINGS_ELECTRA]
       ## [Modified in Electra:EIP7549]
     attestations*: List[electra.Attestation, Limit MAX_ATTESTATIONS_ELECTRA]
       ## [Modified in Electra:EIP7549]
@@ -502,7 +499,7 @@ type
     proposer_slashings*:
       List[TrustedProposerSlashing, Limit MAX_PROPOSER_SLASHINGS]
     attester_slashings*:
-      List[TrustedElectraAttesterSlashing, Limit MAX_ATTESTER_SLASHINGS_ELECTRA]
+      List[TrustedAttesterSlashing, Limit MAX_ATTESTER_SLASHINGS_ELECTRA]
       ## [Modified in Electra:EIP7549]
     attestations*: List[TrustedAttestation, Limit MAX_ATTESTATIONS_ELECTRA]
       ## [Modified in Electra:EIP7549]
@@ -531,7 +528,7 @@ type
     proposer_slashings*:
       List[TrustedProposerSlashing, Limit MAX_PROPOSER_SLASHINGS]
     attester_slashings*:
-      List[TrustedElectraAttesterSlashing, Limit MAX_ATTESTER_SLASHINGS_ELECTRA]
+      List[TrustedAttesterSlashing, Limit MAX_ATTESTER_SLASHINGS_ELECTRA]
       ## [Modified in Electra:EIP7549]
     attestations*: List[TrustedAttestation, Limit MAX_ATTESTATIONS_ELECTRA]
       ## [Modified in Electra:EIP7549]
@@ -708,7 +705,7 @@ debugRaiseAssert "this whole section with getValidatorIndices/shortLog needs ref
 
 from std/sets import toHashSet
 
-iterator getValidatorIndices*(attester_slashing: ElectraAttesterSlashing | TrustedElectraAttesterSlashing): uint64 =
+iterator getValidatorIndices*(attester_slashing: AttesterSlashing | TrustedAttesterSlashing): uint64 =
   template attestation_1(): auto = attester_slashing.attestation_1
   template attestation_2(): auto = attester_slashing.attestation_2
 

@@ -208,8 +208,8 @@ func is_slashable_attestation_data(
 # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.6/specs/phase0/beacon-chain.md#attester-slashings
 proc check_attester_slashing*(
     state: ForkyBeaconState,
-    attester_slashing: SomeAttesterSlashing | ElectraAttesterSlashing |
-                       TrustedElectraAttesterSlashing,
+    attester_slashing: SomeAttesterSlashing | electra.AttesterSlashing |
+                       electra.TrustedAttesterSlashing,
     flags: UpdateFlags): Result[seq[ValidatorIndex], cstring] =
   let
     attestation_1 = attester_slashing.attestation_1
@@ -243,8 +243,8 @@ proc check_attester_slashing*(
 
 proc check_attester_slashing*(
     state: var ForkedHashedBeaconState,
-    attester_slashing: SomeAttesterSlashing | ElectraAttesterSlashing |
-                       TrustedElectraAttesterSlashing,
+    attester_slashing: SomeAttesterSlashing | electra.AttesterSlashing |
+                       electra.TrustedAttesterSlashing,
     flags: UpdateFlags): Result[seq[ValidatorIndex], cstring] =
   withState(state):
     check_attester_slashing(forkyState.data, attester_slashing, flags)
@@ -253,8 +253,8 @@ proc check_attester_slashing*(
 proc process_attester_slashing*(
     cfg: RuntimeConfig,
     state: var ForkyBeaconState,
-    attester_slashing: SomeAttesterSlashing | ElectraAttesterSlashing |
-                       TrustedElectraAttesterSlashing,
+    attester_slashing: SomeAttesterSlashing | electra.AttesterSlashing |
+                       electra.TrustedAttesterSlashing,
     flags: UpdateFlags,
     exit_queue_info: ExitQueueInfo, cache: var StateCache
     ): Result[(Gwei, ExitQueueInfo), cstring] =
@@ -1108,7 +1108,8 @@ func process_execution_layer_withdrawal_request*(
         compute_exit_epoch_and_update_churn(cfg, state, to_withdraw, cache)
       withdrawable_epoch =
        Epoch(exit_queue_epoch + cfg.MIN_VALIDATOR_WITHDRAWABILITY_DELAY)
-    debugRaiseAssert "check return value of HashList.add"
+
+    # In theory can fail, but failing/early returning here is indistinguishable
     discard state.pending_partial_withdrawals.add(PendingPartialWithdrawal(
       index: index.uint64,
       amount: to_withdraw,

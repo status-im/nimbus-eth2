@@ -106,7 +106,7 @@ suite baseDescription & "Attestation " & preset():
 suite baseDescription & "Attester Slashing " & preset():
   proc applyAttesterSlashing(
       preState: var electra.BeaconState,
-      attesterSlashing: ElectraAttesterSlashing): Result[void, cstring] =
+      attesterSlashing: electra.AttesterSlashing): Result[void, cstring] =
     var cache: StateCache
     doAssert (? process_attester_slashing(
       defaultRuntimeConfig, preState, attesterSlashing, {},
@@ -114,7 +114,7 @@ suite baseDescription & "Attester Slashing " & preset():
     ok()
 
   for path in walkTests(OpAttSlashingDir):
-    runTest[ElectraAttesterSlashing, typeof applyAttesterSlashing](
+    runTest[electra.AttesterSlashing, typeof applyAttesterSlashing](
       OpAttSlashingDir, suiteName, "Attester Slashing", "attester_slashing",
       applyAttesterSlashing, path)
 
