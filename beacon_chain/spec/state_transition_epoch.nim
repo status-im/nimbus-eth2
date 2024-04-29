@@ -40,7 +40,7 @@ export extras, phase0, altair
 logScope: topics = "consens"
 
 # Accessors that implement the max condition in `get_total_balance`:
-# https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.6/specs/phase0/beacon-chain.md#get_total_balance
+# https://github.com/ethereum/consensus-specs/blob/v1.4.0/specs/phase0/beacon-chain.md#get_total_balance
 template current_epoch*(v: TotalBalances): Gwei =
   max(EFFECTIVE_BALANCE_INCREMENT.Gwei, v.current_epoch_raw)
 template previous_epoch*(v: TotalBalances): Gwei =
@@ -806,7 +806,7 @@ iterator get_flag_and_inactivity_deltas*(
       active_increments, penalty_denominator, epoch_participation,
       participating_increments, info, vidx)
 
-# https://github.com/ethereum/consensus-specs/blob/v1.4.0-alpha.3/specs/phase0/beacon-chain.md#rewards-and-penalties-1
+# https://github.com/ethereum/consensus-specs/blob/v1.4.0/specs/phase0/beacon-chain.md#rewards-and-penalties-1
 func process_rewards_and_penalties*(
     state: var phase0.BeaconState, info: var phase0.EpochInfo) =
   # No rewards are applied at the end of `GENESIS_EPOCH` because rewards are
@@ -897,6 +897,9 @@ func process_registry_updates*(
       get_validator_activation_churn_limit(cfg, state, cache)
     else:
       get_validator_churn_limit(cfg, state, cache)
+
+  var maybe_exit_queue_info: Opt[ExitQueueInfo]
+
   for vidx in state.validators.vindices:
     if is_eligible_for_activation_queue(state.validators.item(vidx)):
       state.validators.mitem(vidx).activation_eligibility_epoch =
@@ -904,7 +907,16 @@ func process_registry_updates*(
 
     if is_active_validator(state.validators.item(vidx), get_current_epoch(state)) and
         state.validators.item(vidx).effective_balance <= cfg.EJECTION_BALANCE.Gwei:
-      ? initiate_validator_exit(cfg, state, vidx, cache)
+      # Typically, there will be no ejected validators, and even more rarely,
+      # more than one. Therefore, only calculate the information required for
+      # initiate_validator_exit if there actually is at least one.
+      let exit_queue_info = maybe_exit_queue_info.valueOr:
+        let initial_exit_queue_info = get_state_exit_queue_info(state)
+        maybe_exit_queue_info = Opt.some initial_exit_queue_info
+        initial_exit_queue_info
+
+      maybe_exit_queue_info = Opt.some (? initiate_validator_exit(
+        cfg, state, vidx, exit_queue_info, cache))
 
     let validator = unsafeAddr state.validators.item(vidx)
     if is_eligible_for_activation(state, validator[]):
@@ -1000,7 +1012,7 @@ template effective_balance_might_update*(
   balance + DOWNWARD_THRESHOLD < effective_balance or
     effective_balance + UPWARD_THRESHOLD < balance
 
-# https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.7/specs/phase0/beacon-chain.md#effective-balances-updates
+# https://github.com/ethereum/consensus-specs/blob/v1.4.0/specs/phase0/beacon-chain.md#effective-balances-updates
 func process_effective_balance_updates*(state: var ForkyBeaconState) =
   # Update effective balances with hysteresis
   for vidx in state.validators.vindices:
@@ -1016,7 +1028,7 @@ func process_effective_balance_updates*(state: var ForkyBeaconState) =
       if new_effective_balance != effective_balance:
         state.validators.mitem(vidx).effective_balance = new_effective_balance
 
-# https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.6/specs/phase0/beacon-chain.md#slashings-balances-updates
+# https://github.com/ethereum/consensus-specs/blob/v1.4.0/specs/phase0/beacon-chain.md#slashings-balances-updates
 func process_slashings_reset*(state: var ForkyBeaconState) =
   let next_epoch = get_current_epoch(state) + 1
 
@@ -1154,7 +1166,7 @@ func process_historical_summaries_update*(
 
   ok()
 
-# https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.6/specs/phase0/beacon-chain.md#epoch-processing
+# https://github.com/ethereum/consensus-specs/blob/v1.4.0/specs/phase0/beacon-chain.md#epoch-processing
 proc process_epoch*(
     cfg: RuntimeConfig, state: var phase0.BeaconState, flags: UpdateFlags,
     cache: var StateCache, info: var phase0.EpochInfo): Result[void, cstring] =
@@ -1242,7 +1254,7 @@ proc process_epoch*(
   # https://github.com/ethereum/consensus-specs/blob/v1.4.0/specs/altair/beacon-chain.md#rewards-and-penalties
   process_rewards_and_penalties(cfg, state, info)  # [Modified in Altair]
 
-  # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.6/specs/phase0/beacon-chain.md#registry-updates
+  # https://github.com/ethereum/consensus-specs/blob/v1.4.0/specs/phase0/beacon-chain.md#registry-updates
   ? process_registry_updates(cfg, state, cache)
 
   # https://github.com/ethereum/consensus-specs/blob/v1.4.0/specs/altair/beacon-chain.md#slashings

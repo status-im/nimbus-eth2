@@ -21,7 +21,7 @@ import
 type
   AttestationInput = object
     state: phase0.BeaconState
-    attestation: Attestation
+    attestation: phase0.Attestation
   AttesterSlashingInput = object
     state: phase0.BeaconState
     attesterSlashing: AttesterSlashing
@@ -108,7 +108,9 @@ proc nfuzz_attestation(input: openArray[byte], xoutput: ptr byte,
 proc nfuzz_attester_slashing(input: openArray[byte], xoutput: ptr byte,
     xoutput_size: ptr uint, disable_bls: bool): bool {.exportc, raises: [FuzzCrashError].} =
   decodeAndProcess(AttesterSlashingInput):
-    process_attester_slashing(getRuntimeConfig(some "mainnet"), data.state, data.attesterSlashing, flags, cache).isOk
+    process_attester_slashing(getRuntimeConfig(some "mainnet"), data.state,
+    data.attesterSlashing, flags,
+    get_state_exit_queue_info(data.state), cache).isOk
 
 proc nfuzz_block(input: openArray[byte], xoutput: ptr byte,
     xoutput_size: ptr uint, disable_bls: bool): bool {.exportc, raises: [FuzzCrashError].} =
@@ -152,12 +154,16 @@ proc nfuzz_deposit(input: openArray[byte], xoutput: ptr byte,
 proc nfuzz_proposer_slashing(input: openArray[byte], xoutput: ptr byte,
     xoutput_size: ptr uint, disable_bls: bool): bool {.exportc, raises: [FuzzCrashError].} =
   decodeAndProcess(ProposerSlashingInput):
-    process_proposer_slashing(getRuntimeConfig(some "mainnet"), data.state, data.proposerSlashing, flags, cache).isOk
+    process_proposer_slashing(getRuntimeConfig(some "mainnet"), data.state,
+    data.proposerSlashing, flags,
+    get_state_exit_queue_info(data.state), cache).isOk
 
 proc nfuzz_voluntary_exit(input: openArray[byte], xoutput: ptr byte,
     xoutput_size: ptr uint, disable_bls: bool): bool {.exportc, raises: [FuzzCrashError].} =
   decodeAndProcess(VoluntaryExitInput):
-    process_voluntary_exit(getRuntimeConfig(some "mainnet"), data.state, data.exit, flags, cache).isOk
+    process_voluntary_exit(getRuntimeConfig(some "mainnet"), data.state,
+    data.exit, flags,
+    get_state_exit_queue_info(data.state), cache).isOk
 
 # Note: Could also accept raw input pointer and access list_size + seed here.
 # However, list_size needs to be known also outside this proc to allocate xoutput.

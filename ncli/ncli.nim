@@ -98,6 +98,7 @@ template saveSSZFile(filename: string, value: ForkedHashedBeaconState) =
     of ConsensusFork.Bellatrix: SSZ.saveFile(filename, value.bellatrixData.data)
     of ConsensusFork.Capella:   SSZ.saveFile(filename, value.capellaData.data)
     of ConsensusFork.Deneb:     SSZ.saveFile(filename, value.denebData.data)
+    of ConsensusFork.Electra:   SSZ.saveFile(filename, value.electraData.data)
   except IOError:
     raiseAssert "error saving SSZ file"
 
@@ -232,7 +233,7 @@ proc doSSZ(conf: NcliConf) =
 
   case kind
   of "attester_slashing": printit(AttesterSlashing)
-  of "attestation": printit(Attestation)
+  of "attestation": printit(phase0.Attestation)
   of "phase0_signed_block": printit(phase0.SignedBeaconBlock)
   of "altair_signed_block": printit(altair.SignedBeaconBlock)
   of "bellatrix_signed_block": printit(bellatrix.SignedBeaconBlock)

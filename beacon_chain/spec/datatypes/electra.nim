@@ -18,20 +18,46 @@
 import
   std/typetraits,
   chronicles,
-  stew/byteutils,
   json_serialization,
   ssz_serialization/[merkleization, proofs],
   ssz_serialization/types as sszTypes,
   ../digest,
-  "."/[base, phase0, altair, bellatrix, capella]
+  "."/[base, phase0]
 
 from kzg4844 import KzgCommitment, KzgProof
+from stew/bitops2 import log2trunc
+from stew/byteutils import to0xHex
+from ./altair import
+  EpochParticipationFlags, InactivityScores, SyncAggregate, SyncCommittee,
+  TrustedSyncAggregate
+from ./bellatrix import BloomLogs, ExecutionAddress, Transaction
+from ./capella import
+  HistoricalSummary, SignedBLSToExecutionChangeList, Withdrawal
 from ./deneb import Blobs, BlobsBundle, KzgCommitments, KzgProofs
 
 export json_serialization, base, kzg4844
 
+const
+  # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.5/specs/altair/light-client/sync-protocol.md#constants
+  # All of these indices are rooted in `BeaconState`.
+  # The first member (`genesis_time`) is 64, subsequent members +1 each.
+  # If there are ever more than 64 members in `BeaconState`, indices change!
+  # `FINALIZED_ROOT_GINDEX` is one layer deeper, i.e., `84 * 2 + 1`.
+  # https://github.com/ethereum/consensus-specs/blob/v1.4.0/ssz/merkle-proofs.md
+  FINALIZED_ROOT_GINDEX = 169.GeneralizedIndex  # finalized_checkpoint > root
+  CURRENT_SYNC_COMMITTEE_GINDEX = 86.GeneralizedIndex  # current_sync_committee
+  NEXT_SYNC_COMMITTEE_GINDEX = 87.GeneralizedIndex  # next_sync_committee
+
 type
-  # https://github.com/ethereum/consensus-specs/blob/v1.4.0/specs/deneb/beacon-chain.md#executionpayload
+  # https://github.com/ethereum/consensus-specs/blob/94a0b6c581f2809aa8aca4ef7ee6fbb63f9d74e9/specs/electra/beacon-chain.md#depositreceipt
+  DepositReceipt* = object
+    pubkey*: ValidatorPubKey
+    withdrawal_credentials*: Eth2Digest
+    amount*: Gwei
+    signature*: ValidatorSig
+    index*: uint64
+
+  # https://github.com/ethereum/consensus-specs/blob/82133085a1295e93394ebdf71df8f2f6e0962588/specs/electra/beacon-chain.md#executionpayload
   ExecutionPayload* = object
     # Execution block header fields
     parent_hash*: Eth2Digest
@@ -54,15 +80,20 @@ type
     block_hash*: Eth2Digest # Hash of execution block
     transactions*: List[Transaction, MAX_TRANSACTIONS_PER_PAYLOAD]
     withdrawals*: List[Withdrawal, MAX_WITHDRAWALS_PER_PAYLOAD]
-    blob_gas_used*: uint64   # [New in Deneb]
-    excess_blob_gas*: uint64 # [New in Deneb]
+    blob_gas_used*: uint64
+    excess_blob_gas*: uint64
+    deposit_receipts*: List[DepositReceipt, MAX_DEPOSIT_RECEIPTS_PER_PAYLOAD]
+      ## [New in Electra:EIP6110]
+    withdrawal_requests*:
+      List[ExecutionLayerWithdrawalRequest, MAX_WITHDRAWAL_REQUESTS_PER_PAYLOAD]
+      ## [New in Electra:EIP6110]
 
   ExecutionPayloadForSigning* = object
     executionPayload*: ExecutionPayload
     blockValue*: Wei
     blobsBundle*: BlobsBundle
 
-  # https://github.com/ethereum/consensus-specs/blob/v1.4.0/specs/deneb/beacon-chain.md#executionpayloadheader
+  # https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.0/specs/electra/beacon-chain.md#executionpayloadheader
   ExecutionPayloadHeader* = object
     # Execution block header fields
     parent_hash*: Eth2Digest
@@ -83,18 +114,66 @@ type
       ## Hash of execution block
     transactions_root*: Eth2Digest
     withdrawals_root*: Eth2Digest
-    blob_gas_used*: uint64   # [New in Deneb:EIP4844]
-    excess_blob_gas*: uint64 # [New in Deneb:EIP4844]
+    blob_gas_used*: uint64
+    excess_blob_gas*: uint64
+    deposit_receipts_root*: Eth2Digest  # [New in Electra:EIP6110]
+    withdrawal_requests_root*: Eth2Digest  # [New in Electra:EIP7002:EIP7251]
 
   ExecutePayload* = proc(
     execution_payload: ExecutionPayload): bool {.gcsafe, raises: [].}
+
+  # https://github.com/ethereum/consensus-specs/blob/82133085a1295e93394ebdf71df8f2f6e0962588/specs/electra/beacon-chain.md#depositreceipt
+  PendingBalanceDeposit* = object
+    index*: uint64
+    amount*: Gwei
+
+  # https://github.com/ethereum/consensus-specs/blob/82133085a1295e93394ebdf71df8f2f6e0962588/specs/electra/beacon-chain.md#pendingpartialwithdrawal
+  PendingPartialWithdrawal* = object
+    index*: uint64
+    amount*: Gwei
+    withdrawable_epoch*: Epoch
+
+  # https://github.com/ethereum/consensus-specs/blob/82133085a1295e93394ebdf71df8f2f6e0962588/specs/electra/beacon-chain.md#executionlayerwithdrawalrequest
+  ExecutionLayerWithdrawalRequest* = object
+    source_address*: ExecutionAddress
+    validator_pubkey*: ValidatorPubKey
+    amount*: Gwei
+
+  # https://github.com/ethereum/consensus-specs/blob/82133085a1295e93394ebdf71df8f2f6e0962588/specs/electra/beacon-chain.md#consolidation
+  Consolidation* = object
+    source_index*: uint64
+    target_index*: uint64
+    epoch*: Epoch
+
+  # https://github.com/ethereum/consensus-specs/blob/82133085a1295e93394ebdf71df8f2f6e0962588/specs/electra/beacon-chain.md#signedconsolidation
+  SignedConsolidation* = object
+    message*: Consolidation
+    signature*: ValidatorSig
+
+  TrustedSignedConsolidation* = object
+    message*: Consolidation
+    signature*: TrustedSig
+
+  # https://github.com/ethereum/consensus-specs/blob/82133085a1295e93394ebdf71df8f2f6e0962588/specs/electra/beacon-chain.md#pendingconsolidation
+  PendingConsolidation* = object
+    source_index*: uint64
+    target_index*: uint64
+
+  FinalityBranch =
+    array[log2trunc(FINALIZED_ROOT_GINDEX), Eth2Digest]
+
+  CurrentSyncCommitteeBranch =
+    array[log2trunc(CURRENT_SYNC_COMMITTEE_GINDEX), Eth2Digest]
+
+  NextSyncCommitteeBranch =
+    array[log2trunc(NEXT_SYNC_COMMITTEE_GINDEX), Eth2Digest]
 
   # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.5/specs/capella/light-client/sync-protocol.md#modified-lightclientheader
   LightClientHeader* = object
     beacon*: BeaconBlockHeader
       ## Beacon block header
 
-    execution*: ExecutionPayloadHeader
+    execution*: electra.ExecutionPayloadHeader
       ## Execution payload header corresponding to `beacon.body_root` (from Capella onward)
     execution_branch*: capella.ExecutionBranch
 
@@ -105,7 +184,7 @@ type
 
     current_sync_committee*: SyncCommittee
       ## Current sync committee corresponding to `header.beacon.state_root`
-    current_sync_committee_branch*: altair.CurrentSyncCommitteeBranch
+    current_sync_committee_branch*: CurrentSyncCommitteeBranch
 
   # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.5/specs/altair/light-client/sync-protocol.md#lightclientupdate
   LightClientUpdate* = object
@@ -115,11 +194,11 @@ type
     next_sync_committee*: SyncCommittee
       ## Next sync committee corresponding to
       ## `attested_header.beacon.state_root`
-    next_sync_committee_branch*: altair.NextSyncCommitteeBranch
+    next_sync_committee_branch*: NextSyncCommitteeBranch
 
     # Finalized header corresponding to `attested_header.beacon.state_root`
     finalized_header*: LightClientHeader
-    finality_branch*: altair.FinalityBranch
+    finality_branch*: FinalityBranch
 
     sync_aggregate*: SyncAggregate
       ## Sync committee aggregate signature
@@ -133,7 +212,7 @@ type
 
     # Finalized header corresponding to `attested_header.beacon.state_root`
     finalized_header*: LightClientHeader
-    finality_branch*: altair.FinalityBranch
+    finality_branch*: FinalityBranch
 
     # Sync committee aggregate signature
     sync_aggregate*: SyncAggregate
@@ -187,8 +266,7 @@ type
       ## (used to compute safety threshold)
     current_max_active_participants*: uint64
 
-  # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.5/specs/capella/beacon-chain.md#beaconstate
-  # changes indirectly via ExecutionPayloadHeader
+  # https://github.com/ethereum/consensus-specs/blob/82133085a1295e93394ebdf71df8f2f6e0962588/specs/electra/beacon-chain.md#beaconstate
   BeaconState* = object
     # Versioning
     genesis_time*: uint64
@@ -245,6 +323,7 @@ type
 
     # Execution
     latest_execution_payload_header*: ExecutionPayloadHeader
+      ## [Modified in Electra:EIP6110:EIP7002]
 
     # Withdrawals
     next_withdrawal_index*: WithdrawalIndex
@@ -253,6 +332,23 @@ type
     # Deep history valid from Capella onwards
     historical_summaries*:
       HashList[HistoricalSummary, Limit HISTORICAL_ROOTS_LIMIT]
+
+    deposit_receipts_start_index*: uint64  # [New in Electra:EIP6110]
+    deposit_balance_to_consume*: Gwei  # [New in Electra:EIP7251]
+    exit_balance_to_consume*: Gwei  # [New in Electra:EIP7251]
+    earliest_exit_epoch*: Epoch  # [New in Electra:EIP7251]
+    consolidation_balance_to_consume*: Gwei  # [New in Electra:EIP7251]
+    earliest_consolidation_epoch*: Epoch  # [New in Electra:EIP7251]
+    pending_balance_deposits*:
+      HashList[PendingBalanceDeposit, Limit PENDING_BALANCE_DEPOSITS_LIMIT]
+      ## [New in Electra:EIP7251]
+
+    # [New in Electra:EIP7251]
+    pending_partial_withdrawals*:
+      HashList[PendingPartialWithdrawal, Limit PENDING_PARTIAL_WITHDRAWALS_LIMIT]
+    pending_consolidations*:
+      HashList[PendingConsolidation, Limit PENDING_CONSOLIDATIONS_LIMIT]
+      ## [New in Electra:EIP7251]
 
   # TODO Careful, not nil analysis is broken / incomplete and the semantics will
   #      likely change in future versions of the language:
@@ -322,7 +418,7 @@ type
     state_root*: Eth2Digest
     body*: TrustedBeaconBlockBody
 
-  # https://github.com/ethereum/consensus-specs/blob/v1.4.0/specs/deneb/beacon-chain.md#beaconblockbody
+  # https://github.com/ethereum/consensus-specs/blob/82133085a1295e93394ebdf71df8f2f6e0962588/specs/electra/beacon-chain.md#beaconblockbody
   BeaconBlockBody* = object
     randao_reveal*: ValidatorSig
     eth1_data*: Eth1Data
@@ -333,17 +429,22 @@ type
 
     # Operations
     proposer_slashings*: List[ProposerSlashing, Limit MAX_PROPOSER_SLASHINGS]
-    attester_slashings*: List[AttesterSlashing, Limit MAX_ATTESTER_SLASHINGS]
-    attestations*: List[Attestation, Limit MAX_ATTESTATIONS]
+    attester_slashings*:
+      List[AttesterSlashing, Limit MAX_ATTESTER_SLASHINGS_ELECTRA]
+      ## [Modified in Electra:EIP7549]
+    attestations*: List[phase0.Attestation, Limit MAX_ATTESTATIONS_ELECTRA]
+      ## [Modified in Electra:EIP7549]
     deposits*: List[Deposit, Limit MAX_DEPOSITS]
     voluntary_exits*: List[SignedVoluntaryExit, Limit MAX_VOLUNTARY_EXITS]
 
     sync_aggregate*: SyncAggregate
 
     # Execution
-    execution_payload*: ExecutionPayload  # [Modified in Deneb]
+    execution_payload*: ExecutionPayload   # [Modified in Electra:EIP6110:EIP7002]
     bls_to_execution_changes*: SignedBLSToExecutionChangeList
-    blob_kzg_commitments*: KzgCommitments  # [New in Deneb]
+    blob_kzg_commitments*: KzgCommitments
+    consolidations*: List[SignedConsolidation, Limit MAX_CONSOLIDATIONS]
+      ## [New in Electra:EIP7251]
 
   SigVerifiedBeaconBlockBody* = object
     ## A BeaconBlock body with signatures verified
@@ -367,18 +468,24 @@ type
       ## Arbitrary data
 
     # Operations
-    proposer_slashings*: List[TrustedProposerSlashing, Limit MAX_PROPOSER_SLASHINGS]
-    attester_slashings*: List[TrustedAttesterSlashing, Limit MAX_ATTESTER_SLASHINGS]
-    attestations*: List[TrustedAttestation, Limit MAX_ATTESTATIONS]
+    proposer_slashings*:
+      List[TrustedProposerSlashing, Limit MAX_PROPOSER_SLASHINGS]
+    attester_slashings*:
+      List[TrustedAttesterSlashing, Limit MAX_ATTESTER_SLASHINGS_ELECTRA]
+      ## [Modified in Electra:EIP7549]
+    attestations*: List[TrustedAttestation, Limit MAX_ATTESTATIONS_ELECTRA]
+      ## [Modified in Electra:EIP7549]
     deposits*: List[Deposit, Limit MAX_DEPOSITS]
     voluntary_exits*: List[TrustedSignedVoluntaryExit, Limit MAX_VOLUNTARY_EXITS]
 
     sync_aggregate*: TrustedSyncAggregate
 
     # Execution
-    execution_payload*: ExecutionPayload  # [Modified in Deneb]
+    execution_payload*: ExecutionPayload   # [Modified in Electra:EIP6110:EIP7002]
     bls_to_execution_changes*: SignedBLSToExecutionChangeList
-    blob_kzg_commitments*: KzgCommitments  # [New in Deneb]
+    blob_kzg_commitments*: KzgCommitments
+    consolidations*: List[TrustedSignedConsolidation, Limit MAX_CONSOLIDATIONS]
+      ## [New in Electra:EIP7251]
 
   TrustedBeaconBlockBody* = object
     ## A full verified block
@@ -390,18 +497,24 @@ type
       ## Arbitrary data
 
     # Operations
-    proposer_slashings*: List[TrustedProposerSlashing, Limit MAX_PROPOSER_SLASHINGS]
-    attester_slashings*: List[TrustedAttesterSlashing, Limit MAX_ATTESTER_SLASHINGS]
-    attestations*: List[TrustedAttestation, Limit MAX_ATTESTATIONS]
+    proposer_slashings*:
+      List[TrustedProposerSlashing, Limit MAX_PROPOSER_SLASHINGS]
+    attester_slashings*:
+      List[TrustedAttesterSlashing, Limit MAX_ATTESTER_SLASHINGS_ELECTRA]
+      ## [Modified in Electra:EIP7549]
+    attestations*: List[TrustedAttestation, Limit MAX_ATTESTATIONS_ELECTRA]
+      ## [Modified in Electra:EIP7549]
     deposits*: List[Deposit, Limit MAX_DEPOSITS]
     voluntary_exits*: List[TrustedSignedVoluntaryExit, Limit MAX_VOLUNTARY_EXITS]
 
     sync_aggregate*: TrustedSyncAggregate
 
     # Execution
-    execution_payload*: ExecutionPayload  # [Modified in Deneb]
+    execution_payload*: ExecutionPayload   # [Modified in Electra:EIP6110:EIP7002]
     bls_to_execution_changes*: SignedBLSToExecutionChangeList
-    blob_kzg_commitments*: KzgCommitments  # [New in Deneb]
+    blob_kzg_commitments*: KzgCommitments
+    consolidations*: List[TrustedSignedConsolidation, Limit MAX_CONSOLIDATIONS]
+      ## [New in Electra:EIP7251]
 
   # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.6/specs/phase0/beacon-chain.md#signedbeaconblock
   SignedBeaconBlock* = object
@@ -440,6 +553,9 @@ type
     signature*: TrustedSig
 
     root* {.dontSerialize.}: Eth2Digest # cached root of signed beacon block
+
+  ElectraCommitteeValidatorsBits* =
+    BitList[Limit MAX_VALIDATORS_PER_COMMITTEE * MAX_COMMITTEES_PER_SLOT]
 
   SomeSignedBeaconBlock* =
     SignedBeaconBlock |

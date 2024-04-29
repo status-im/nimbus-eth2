@@ -17,13 +17,18 @@ import
   confutils,
   stew/io2,
   ../tests/testblockutil,
+  ../beacon_chain/el/el_manager,
   ../beacon_chain/networking/network_metadata,
   ../beacon_chain/[beacon_clock, sszdump],
   ../beacon_chain/spec/eth2_apis/eth2_rest_serialization,
   ../beacon_chain/spec/datatypes/[phase0, altair, bellatrix],
   ../beacon_chain/spec/[
-    beaconstate, crypto, forks, helpers, signatures, state_transition],
+    beaconstate, crypto, engine_authentication, forks, helpers,
+    signatures, state_transition],
   ../beacon_chain/validators/[keystore_management, validator_pool]
+
+from ../beacon_chain/gossip_processing/block_processor import
+  newExecutionPayload
 
 template findIt*(s: openArray, predicate: untyped): int =
   var res = -1
@@ -45,15 +50,96 @@ from ../beacon_chain/spec/datatypes/capella import SignedBeaconBlock
 from ../beacon_chain/spec/datatypes/deneb import SignedBeaconBlock
 
 cli do(validatorsDir: string, secretsDir: string,
-       startState: string, network: string):
+       startState: string, startBlock: string,
+       network: string, elUrl: string, jwtSecret: string,
+       suggestedFeeRecipient: string, graffiti = "insecura"):
   let
-    cfg = getMetadataForNetwork(network).cfg
-    state =
+    metadata = getMetadataForNetwork(network)
+    cfg = metadata.cfg
+    state = block:
+      let data = readAllBytes(startState)
+      if data.isErr:
+        fatal "failed to read hashed beacon state", err = $data.error
+        quit QuitFailure
       try:
-        newClone(readSszForkedHashedBeaconState(
-          cfg, readAllBytes(startState).tryGet()))
-      except CatchableError:
-        raiseAssert "failed to read hashed beacon state"
+        newClone(readSszForkedHashedBeaconState(cfg, data.get))
+      except SerializationError as exc:
+        fatal "failed to parse hashed beacon state", err = exc.msg
+        quit QuitFailure
+    blck = block:
+      let data = readAllBytes(startBlock)
+      if data.isErr:
+        fatal "failed to read signed beacon block", err = $data.error
+        quit QuitFailure
+      try:
+        newClone(readSszForkedSignedBeaconBlock(cfg, data.get))
+      except SerializationError as exc:
+        fatal "failed to parse signed beacon block", err = exc.msg
+        quit QuitFailure
+    engineApiUrl = block:
+      let
+        jwtSecretFile =
+          try:
+            InputFile.parseCmdArg(jwtSecret)
+          except ValueError as exc:
+            fatal "failed to read JWT secret file", err = exc.msg
+            quit QuitFailure
+        jwtSecret = loadJwtSecretFile(jwtSecretFile)
+      if jwtSecret.isErr:
+        fatal "failed to parse JWT secret file", err = jwtSecret.error
+        quit QuitFailure
+      let finalUrl = EngineApiUrlConfigValue(url: elUrl)
+        .toFinalUrl(Opt.some jwtSecret.get)
+      if finalUrl.isErr:
+        fatal "failed to read EL URL", err = finalUrl.error
+        quit QuitFailure
+      finalUrl.get
+    elManager = ELManager.new(
+      cfg,
+      metadata.depositContractBlock,
+      metadata.depositContractBlockHash,
+      db = nil,
+      @[engineApiUrl],
+      metadata.eth1Network)
+    feeRecipient =
+      try:
+        Address.fromHex(suggestedFeeRecipient)
+      except ValueError as exc:
+        fatal "failed to parse suggested fee recipient", err = exc.msg
+        quit QuitFailure
+    graffitiValue =
+      try:
+        GraffitiBytes.init(graffiti)
+      except ValueError as exc:
+        fatal "failed to parse graffiti", err = exc.msg
+        quit QuitFailure
+
+  # Sync EL to initial state. Note that to construct the new branch, the EL
+  # should not have advanced to a later block via `engine_forkchoiceUpdated`.
+  # The EL may otherwise refuse to produce new heads
+  elManager.start(syncChain = false)
+  withBlck(blck[]):
+    when consensusFork >= ConsensusFork.Bellatrix:
+      if forkyBlck.message.is_execution_block:
+        template payload(): auto = forkyBlck.message.body.execution_payload
+        if not payload.block_hash.isZero:
+          notice "Syncing EL", elUrl, jwtSecret
+          while true:
+            waitFor noCancel sleepAsync(chronos.seconds(2))
+            (waitFor noCancel elManager
+                .newExecutionPayload(forkyBlck.message)).isOkOr:
+              continue
+
+            let (status, _) = waitFor noCancel elManager.forkchoiceUpdated(
+              headBlockHash = payload.block_hash,
+              safeBlockHash = payload.block_hash,
+              finalizedBlockHash = ZERO_HASH,
+              payloadAttributes = none(consensusFork.PayloadAttributes))
+            if status != PayloadExecutionStatus.valid:
+              continue
+
+            notice "EL synced", elUrl, jwtSecret
+            break
 
   var
     clock = BeaconClock.init(getStateField(state[], genesis_time)).valueOr:
@@ -72,13 +158,13 @@ cli do(validatorsDir: string, secretsDir: string,
       validators[idx.get()] = item.privateKey
       validatorKeys[pubkey] = item.privateKey
     else:
-      warn "Unkownn validator", pubkey
+      warn "Unknown validator", pubkey
 
   var
     blockRoot = withState(state[]): forkyState.latest_block_root
     cache: StateCache
     info: ForkedEpochInfo
-    aggregates: seq[Attestation]
+    aggregates: seq[phase0.Attestation]
     syncAggregate = SyncAggregate.init()
 
   let
@@ -159,71 +245,89 @@ cli do(validatorsDir: string, secretsDir: string,
           # should never fall back to default value
           validators.getOrDefault(
             proposer, default(ValidatorPrivKey))).toValidatorSig()
-        message = makeBeaconBlock(
-          cfg,
-          state[],
-          proposer,
-          randao_reveal,
-          getStateField(state[], eth1_data),
-          static(GraffitiBytes.init("insecura")),
-          blockAggregates,
-          @[],
-          BeaconBlockValidatorChanges(),
-          syncAggregate,
-          default(bellatrix.ExecutionPayloadForSigning),
-          noRollback,
-          cache).get()
+      withState(state[]):
+        let
+          payload =
+            when consensusFork >= ConsensusFork.Bellatrix:
+              let
+                executionHead =
+                  forkyState.data.latest_execution_payload_header.block_hash
+                withdrawals =
+                  when consensusFork >= ConsensusFork.Capella:
+                    get_expected_withdrawals(forkyState.data)
+                  else:
+                    newSeq[Withdrawal]()
 
-      try:
-        case message.kind
-        of ConsensusFork.Phase0:
-          blockRoot = hash_tree_root(message.phase0Data)
-          let signedBlock = phase0.SignedBeaconBlock(
-            message: message.phase0Data,
+              var pl: consensusFork.ExecutionPayloadForSigning
+              while true:
+                pl = (waitFor noCancel elManager.getPayload(
+                    consensusFork.ExecutionPayloadForSigning,
+                    consensusHead = forkyState.latest_block_root,
+                    headBlock = executionHead,
+                    safeBlock = executionHead,
+                    finalizedBlock = ZERO_HASH,
+                    timestamp = compute_timestamp_at_slot(
+                      forkyState.data, forkyState.data.slot),
+                    randomData = get_randao_mix(
+                      forkyState.data, get_current_epoch(forkyState.data)),
+                    suggestedFeeRecipient = feeRecipient,
+                    withdrawals = withdrawals)).valueOr:
+                  waitFor noCancel sleepAsync(chronos.seconds(2))
+                  continue
+                break
+              pl
+            else:
+              default(bellatrix.ExecutionPayloadForSigning)
+          message = makeBeaconBlock(
+            cfg,
+            state[],
+            proposer,
+            randao_reveal,
+            forkyState.data.eth1_data,
+            graffitiValue,
+            blockAggregates,
+            @[],
+            BeaconBlockValidatorChanges(),
+            syncAggregate,
+            payload,
+            noRollback,
+            cache).get()
+
+        blockRoot = message.forky(consensusFork).hash_tree_root()
+        let
+          proposerPrivkey =
+            try:
+              validators[proposer]
+            except KeyError as exc:
+              raiseAssert "Proposer key not available: " & exc.msg
+          signedBlock = consensusFork.SignedBeaconBlock(
+            message: message.forky(consensusFork),
             root: blockRoot,
             signature: get_block_signature(
               fork, genesis_validators_root, slot, blockRoot,
-              validators[proposer]).toValidatorSig())
-          dump(".", signedBlock)
-        of ConsensusFork.Altair:
-          blockRoot = hash_tree_root(message.altairData)
-          let signedBlock = altair.SignedBeaconBlock(
-            message: message.altairData,
-            root: blockRoot,
-            signature: get_block_signature(
-              fork, genesis_validators_root, slot, blockRoot,
-              validators[proposer]).toValidatorSig())
-          dump(".", signedBlock)
-        of ConsensusFork.Bellatrix:
-          blockRoot = hash_tree_root(message.bellatrixData)
-          let signedBlock = bellatrix.SignedBeaconBlock(
-            message: message.bellatrixData,
-            root: blockRoot,
-            signature: get_block_signature(
-              fork, genesis_validators_root, slot, blockRoot,
-              validators[proposer]).toValidatorSig())
-          dump(".", signedBlock)
-        of ConsensusFork.Capella:
-          blockRoot = hash_tree_root(message.capellaData)
-          let signedBlock = capella.SignedBeaconBlock(
-            message: message.capellaData,
-            root: blockRoot,
-            signature: get_block_signature(
-              fork, genesis_validators_root, slot, blockRoot,
-              validators[proposer]).toValidatorSig())
-          dump(".", signedBlock)
-        of ConsensusFork.Deneb:
-          blockRoot = hash_tree_root(message.denebData)
-          let signedBlock = deneb.SignedBeaconBlock(
-            message: message.denebData,
-            root: blockRoot,
-            signature: get_block_signature(
-              fork, genesis_validators_root, slot, blockRoot,
-              validators[proposer]).toValidatorSig())
-          dump(".", signedBlock)
-      except CatchableError:
-        raiseAssert "unreachable"
-      notice "Block proposed", message, blockRoot
+              proposerPrivkey).toValidatorSig())
+
+        dump(".", signedBlock)
+        when consensusFork >= ConsensusFork.Deneb:
+          let blobs = signedBlock.create_blob_sidecars(
+            payload.blobsBundle.proofs, payload.blobsBundle.blobs)
+          for blob in blobs:
+            dump(".", blob)
+
+        notice "Block proposed", message, blockRoot
+
+        when consensusFork >= ConsensusFork.Bellatrix:
+          while true:
+            let status = waitFor noCancel elManager
+              .newExecutionPayload(signedBlock.message)
+            if status.isNone:
+              waitFor noCancel sleepAsync(chronos.seconds(2))
+              continue
+            doAssert status.get in [
+              PayloadExecutionStatus.valid,
+              PayloadExecutionStatus.accepted,
+              PayloadExecutionStatus.syncing]
+            break
 
       aggregates.setLen(0)
 
@@ -237,7 +341,7 @@ cli do(validatorsDir: string, secretsDir: string,
           forkyState.data, slot, committee_index, cache)
 
         var
-          attestation = Attestation(
+          attestation = phase0.Attestation(
             data: makeAttestationData(
               forkyState.data, slot, committee_index, blockRoot),
             aggregation_bits: CommitteeValidatorsBits.init(committee.len))

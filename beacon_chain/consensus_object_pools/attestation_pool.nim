@@ -30,7 +30,7 @@ const
     ## that potentially could be added to a newly created block
 
 type
-  OnAttestationCallback = proc(data: Attestation) {.gcsafe, raises: [].}
+  OnAttestationCallback = proc(data: phase0.Attestation) {.gcsafe, raises: [].}
 
   Validation = object
     ## Validations collect a set of signatures for a distict attestation - in
@@ -222,8 +222,9 @@ func oneIndex(bits: CommitteeValidatorsBits): Opt[int] =
         return Opt.none(int)
   res
 
-func toAttestation(entry: AttestationEntry, validation: Validation): Attestation =
-  Attestation(
+func toAttestation(entry: AttestationEntry, validation: Validation):
+    phase0.Attestation =
+  phase0.Attestation(
     aggregation_bits: validation.aggregation_bits,
     data: entry.data,
     signature: validation.aggregate_signature.finish().toValidatorSig()
@@ -293,7 +294,7 @@ func covers(entry: AttestationEntry, bits: CommitteeValidatorsBits): bool =
   false
 
 proc addAttestation(entry: var AttestationEntry,
-                    attestation: Attestation,
+                    attestation: phase0.Attestation,
                     signature: CookedSig): bool =
   logScope:
     attestation = shortLog(attestation)
@@ -335,7 +336,7 @@ proc addAttestation(entry: var AttestationEntry,
   true
 
 proc addAttestation*(pool: var AttestationPool,
-                     attestation: Attestation,
+                     attestation: phase0.Attestation,
                      attesting_indices: openArray[ValidatorIndex],
                      signature: CookedSig,
                      wallTime: BeaconTime) =
@@ -419,8 +420,9 @@ proc addForkChoice*(pool: var AttestationPool,
     error "Couldn't add block to fork choice, bug?",
       blck = shortLog(blck), err = state.error
 
-iterator attestations*(pool: AttestationPool, slot: Opt[Slot],
-                       committee_index: Opt[CommitteeIndex]): Attestation =
+iterator attestations*(
+    pool: AttestationPool, slot: Opt[Slot],
+    committee_index: Opt[CommitteeIndex]): phase0.Attestation =
   let candidateIndices =
     if slot.isSome():
       let candidateIdx = pool.candidateIdx(slot.get())
@@ -434,7 +436,7 @@ iterator attestations*(pool: AttestationPool, slot: Opt[Slot],
   for candidateIndex in candidateIndices:
     for _, entry in pool.candidates[candidateIndex]:
       if committee_index.isNone() or entry.data.index == committee_index.get():
-        var singleAttestation = Attestation(
+        var singleAttestation = phase0.Attestation(
           aggregation_bits: CommitteeValidatorsBits.init(entry.committee_len),
           data: entry.data)
 
@@ -555,7 +557,7 @@ proc check_attestation_compatible*(
 
 proc getAttestationsForBlock*(pool: var AttestationPool,
                               state: ForkyHashedBeaconState,
-                              cache: var StateCache): seq[Attestation] =
+                              cache: var StateCache): seq[phase0.Attestation] =
   ## Retrieve attestations that may be added to a new block at the slot of the
   ## given state
   ## https://github.com/ethereum/consensus-specs/blob/v1.4.0/specs/phase0/validator.md#attestations
@@ -641,7 +643,7 @@ proc getAttestationsForBlock*(pool: var AttestationPool,
         state.data.previous_epoch_attestations.maxLen -
           state.data.previous_epoch_attestations.len()
 
-  var res: seq[Attestation]
+  var res: seq[phase0.Attestation]
   let totalCandidates = candidates.len()
   while candidates.len > 0 and res.lenu64() < MAX_ATTESTATIONS:
     let entryCacheKey = block:
@@ -698,7 +700,7 @@ proc getAttestationsForBlock*(pool: var AttestationPool,
 
 proc getAttestationsForBlock*(pool: var AttestationPool,
                               state: ForkedHashedBeaconState,
-                              cache: var StateCache): seq[Attestation] =
+                              cache: var StateCache): seq[phase0.Attestation] =
   withState(state):
     pool.getAttestationsForBlock(forkyState, cache)
 
@@ -717,13 +719,13 @@ func bestValidation(aggregates: openArray[Validation]): (int, int) =
       bestIndex = i
   (bestIndex, best)
 
-func getAggregatedAttestation*(pool: var AttestationPool,
-                               slot: Slot,
-                               attestation_data_root: Eth2Digest): Opt[Attestation] =
+func getAggregatedAttestation*(
+    pool: var AttestationPool, slot: Slot, attestation_data_root: Eth2Digest):
+    Opt[phase0.Attestation] =
   let
     candidateIdx = pool.candidateIdx(slot)
   if candidateIdx.isNone:
-    return Opt.none(Attestation)
+    return Opt.none(phase0.Attestation)
 
   pool.candidates[candidateIdx.get].withValue(attestation_data_root, entry):
     entry[].updateAggregates()
@@ -733,19 +735,19 @@ func getAggregatedAttestation*(pool: var AttestationPool,
     # Found the right hash, no need to look further
     return Opt.some(entry[].toAttestation(entry[].aggregates[bestIndex]))
 
-  Opt.none(Attestation)
+  Opt.none(phase0.Attestation)
 
-func getAggregatedAttestation*(pool: var AttestationPool,
-                               slot: Slot,
-                               index: CommitteeIndex): Opt[Attestation] =
+func getAggregatedAttestation*(
+    pool: var AttestationPool, slot: Slot, index: CommitteeIndex):
+    Opt[phase0.Attestation] =
   ## Select the attestation that has the most votes going for it in the given
   ## slot/index
   ## https://github.com/ethereum/consensus-specs/blob/v1.4.0/specs/phase0/validator.md#construct-aggregate
   let candidateIdx = pool.candidateIdx(slot)
   if candidateIdx.isNone:
-    return Opt.none(Attestation)
+    return Opt.none(phase0.Attestation)
 
-  var res: Opt[Attestation]
+  var res: Opt[phase0.Attestation]
   for _, entry in pool.candidates[candidateIdx.get].mpairs():
     doAssert entry.data.slot == slot
     if index != entry.data.index:

@@ -55,7 +55,7 @@ type
     of opOnTick:
       tick: int
     of opOnAttestation:
-      att: Attestation
+      att: phase0.Attestation
     of opOnBlock:
       blck: ForkedSignedBeaconBlock
       blobData: Opt[BlobData]
@@ -115,7 +115,7 @@ proc loadOps(
       let filename = step["attestation"].getStr()
       let att = parseTest(
           path/filename & ".ssz_snappy",
-          SSZ, Attestation
+          SSZ, phase0.Attestation
       )
       result.add Operation(kind: opOnAttestation,
         att: att)
@@ -123,29 +123,30 @@ proc loadOps(
       let filename = step["block"].getStr()
       doAssert step.hasKey"blobs" == step.hasKey"proofs"
       withConsensusFork(fork):
-        let
-          blck = parseTest(
-            path/filename & ".ssz_snappy",
-            SSZ, consensusFork.SignedBeaconBlock)
+        when consensusFork != ConsensusFork.Electra:
+          let
+            blck = parseTest(
+              path/filename & ".ssz_snappy",
+              SSZ, consensusFork.SignedBeaconBlock)
 
-          blobData =
-            when consensusFork >= ConsensusFork.Deneb:
-              if step.hasKey"blobs":
-                numExtraFields += 2
-                Opt.some BlobData(
-                  blobs: distinctBase(parseTest(
-                    path/(step["blobs"].getStr()) & ".ssz_snappy",
-                    SSZ, List[KzgBlob, Limit MAX_BLOBS_PER_BLOCK])),
-                  proofs: step["proofs"].mapIt(KzgProof.fromHex(it.getStr())))
+            blobData =
+              when consensusFork >= ConsensusFork.Deneb:
+                if step.hasKey"blobs":
+                  numExtraFields += 2
+                  Opt.some BlobData(
+                    blobs: distinctBase(parseTest(
+                      path/(step["blobs"].getStr()) & ".ssz_snappy",
+                      SSZ, List[KzgBlob, Limit MAX_BLOBS_PER_BLOCK])),
+                    proofs: step["proofs"].mapIt(KzgProof.fromHex(it.getStr())))
+                else:
+                  Opt.none(BlobData)
               else:
+                doAssert not step.hasKey"blobs"
                 Opt.none(BlobData)
-            else:
-              doAssert not step.hasKey"blobs"
-              Opt.none(BlobData)
 
-        result.add Operation(kind: opOnBlock,
-          blck: ForkedSignedBeaconBlock.init(blck),
-          blobData: blobData)
+          result.add Operation(kind: opOnBlock,
+            blck: ForkedSignedBeaconBlock.init(blck),
+            blobData: blobData)
     elif step.hasKey"attester_slashing":
       let filename = step["attester_slashing"].getStr()
       let attesterSlashing = parseTest(
@@ -392,7 +393,7 @@ template fcSuite(suiteName: static[string], testPathElem: static[string]) =
       let testsPath = presetPath/path/testPathElem
       if kind != pcDir or not os_ops.dirExists(testsPath):
         continue
-      if testsPath.contains("/eip6110/") or testsPath.contains("\\eip6110\\"):
+      if testsPath.contains("/electra/") or testsPath.contains("\\electra\\"):
         continue
       let fork = forkForPathComponent(path).valueOr:
         raiseAssert "Unknown test fork: " & testsPath

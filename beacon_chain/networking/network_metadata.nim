@@ -8,13 +8,18 @@
 {.push raises: [].}
 
 import
-  std/[sequtils, strutils, os],
+  std/os,
   stew/[byteutils, objects], stew/shims/macros, nimcrypto/hash,
   web3/[conversions],
   web3/primitives as web3types,
   chronicles,
   eth/common/eth_types_json_serialization,
   ../spec/[eth2_ssz_serialization, forks]
+
+from std/sequtils import deduplicate, filterIt, mapIt
+from std/strutils import
+  escape, parseBiggestUInt, replace, splitLines, startsWith, strip,
+  toLowerAscii
 
 # TODO(zah):
 # We can compress the embedded states with snappy before embedding them here.
@@ -236,7 +241,7 @@ when const_preset == "gnosis":
       chiadoGenesisSize* {.importc: "gnosis_chiado_genesis_size".}: int
 
     # let `.incbin` in assembly file find the binary file through search path
-    {.passc: "-I" & vendorDir.}
+    {.passc: "-I" & escape(vendorDir).}
     {.compile: "network_metadata_gnosis.S".}
 
   else:
@@ -263,12 +268,9 @@ when const_preset == "gnosis":
       checkForkConsistency(network.cfg)
 
     for network in [gnosisMetadata, chiadoMetadata]:
-      doAssert network.cfg.ALTAIR_FORK_EPOCH < FAR_FUTURE_EPOCH
-      doAssert network.cfg.BELLATRIX_FORK_EPOCH < FAR_FUTURE_EPOCH
-      doAssert network.cfg.CAPELLA_FORK_EPOCH < FAR_FUTURE_EPOCH
       doAssert network.cfg.DENEB_FORK_EPOCH < FAR_FUTURE_EPOCH
       doAssert network.cfg.ELECTRA_FORK_EPOCH == FAR_FUTURE_EPOCH
-      static: doAssert ConsensusFork.high == ConsensusFork.Deneb
+      static: doAssert ConsensusFork.high == ConsensusFork.Electra
 
 elif const_preset == "mainnet":
   when incbinEnabled:
@@ -279,24 +281,18 @@ elif const_preset == "mainnet":
       mainnetGenesis* {.importc: "eth2_mainnet_genesis".}: ptr UncheckedArray[byte]
       mainnetGenesisSize* {.importc: "eth2_mainnet_genesis_size".}: int
 
-      praterGenesis* {.importc: "eth2_goerli_genesis".}: ptr UncheckedArray[byte]
-      praterGenesisSize* {.importc: "eth2_goerli_genesis_size".}: int
-
       sepoliaGenesis* {.importc: "eth2_sepolia_genesis".}: ptr UncheckedArray[byte]
       sepoliaGenesisSize* {.importc: "eth2_sepolia_genesis_size".}: int
     {.pop.}
 
     # let `.incbin` in assembly file find the binary file through search path
-    {.passc: "-I" & vendorDir.}
+    {.passc: "-I" & escape(vendorDir).}
     {.compile: "network_metadata_mainnet.S".}
 
   else:
     const
       mainnetGenesis* = slurp(
         vendorDir & "/eth2-networks/shared/mainnet/genesis.ssz")
-
-      praterGenesis* = slurp(
-        vendorDir & "/goerli/prater/genesis.ssz")
 
       sepoliaGenesis* = slurp(
         vendorDir & "/sepolia/bepolia/genesis.ssz")
@@ -306,11 +302,6 @@ elif const_preset == "mainnet":
       vendorDir & "/eth2-networks/shared/mainnet",
       some mainnet,
       useBakedInGenesis = some "mainnet")
-
-    praterMetadata = loadCompileTimeNetworkMetadata(
-      vendorDir & "/goerli/prater",
-      some goerli,
-      useBakedInGenesis = some "prater")
 
     holeskyMetadata = loadCompileTimeNetworkMetadata(
       vendorDir & "/holesky/custom_config_data",
@@ -325,16 +316,13 @@ elif const_preset == "mainnet":
       useBakedInGenesis = some "sepolia")
 
   static:
-    for network in [mainnetMetadata, praterMetadata, sepoliaMetadata, holeskyMetadata]:
+    for network in [mainnetMetadata, sepoliaMetadata, holeskyMetadata]:
       checkForkConsistency(network.cfg)
 
-    for network in [mainnetMetadata, praterMetadata, sepoliaMetadata, holeskyMetadata]:
-      doAssert network.cfg.ALTAIR_FORK_EPOCH < FAR_FUTURE_EPOCH
-      doAssert network.cfg.BELLATRIX_FORK_EPOCH < FAR_FUTURE_EPOCH
-      doAssert network.cfg.CAPELLA_FORK_EPOCH < FAR_FUTURE_EPOCH
+    for network in [mainnetMetadata, sepoliaMetadata, holeskyMetadata]:
       doAssert network.cfg.DENEB_FORK_EPOCH < FAR_FUTURE_EPOCH
       doAssert network.cfg.ELECTRA_FORK_EPOCH == FAR_FUTURE_EPOCH
-      static: doAssert ConsensusFork.high == ConsensusFork.Deneb
+      static: doAssert ConsensusFork.high == ConsensusFork.Electra
 
 proc getMetadataForNetwork*(networkName: string): Eth2NetworkMetadata =
   template loadRuntimeMetadata(): auto =
@@ -376,8 +364,6 @@ proc getMetadataForNetwork*(networkName: string): Eth2NetworkMetadata =
       case toLowerAscii(networkName)
       of "mainnet":
         mainnetMetadata
-      of "prater", "goerli":
-        praterMetadata
       of "holesky":
         holeskyMetadata
       of "sepolia":
@@ -436,11 +422,6 @@ when const_preset in ["mainnet", "gnosis"]:
     of "mainnet":
       when const_preset == "mainnet":
         bakedInGenesisStateAsBytes mainnet
-      else:
-        raiseAssert availableOnlyInMainnetBuild
-    of "prater":
-      when const_preset == "mainnet":
-        bakedInGenesisStateAsBytes prater
       else:
         raiseAssert availableOnlyInMainnetBuild
     of "sepolia":

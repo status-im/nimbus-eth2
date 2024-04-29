@@ -60,7 +60,8 @@ func getSimulationConfig*(): RuntimeConfig {.compileTime.} =
   cfg.ALTAIR_FORK_EPOCH = 0.Epoch
   cfg.BELLATRIX_FORK_EPOCH = 0.Epoch
   cfg.CAPELLA_FORK_EPOCH = 0.Epoch
-  cfg.DENEB_FORK_EPOCH = 2.Epoch
+  cfg.DENEB_FORK_EPOCH = 1.Epoch
+  cfg.ELECTRA_FORK_EPOCH = 3.Epoch
   cfg
 
 proc loadGenesis*(

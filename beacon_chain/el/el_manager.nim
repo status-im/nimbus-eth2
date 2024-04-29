@@ -8,22 +8,24 @@
 {.push raises: [].}
 
 import
-  std/[strformat, strutils, sequtils, typetraits, uri, json],
+  std/[strformat, typetraits, json],
   # Nimble packages:
   chronos, metrics, chronicles/timings,
   json_rpc/[client, errors],
   web3, web3/[engine_api, primitives, conversions],
-  eth/common/[eth_types, transaction],
+  eth/common/eth_types,
   eth/async_utils, results,
   stew/[assign2, byteutils, objects],
   # Local modules:
-  ../spec/[eth2_merkleization, forks, helpers],
+  ../spec/[eth2_merkleization, forks],
   ../networking/network_metadata,
   ".."/[beacon_node_status, future_combinators],
   "."/[eth1_chain, el_conf]
 
+from std/sequtils import anyIt, mapIt
 from std/times import getTime, inSeconds, initTime, `-`
 from ../spec/engine_authentication import getSignedIatToken
+from ../spec/helpers import bytes_to_uint64
 from ../spec/state_transition_block import kzg_commitment_to_versioned_hash
 
 export
@@ -171,7 +173,7 @@ type
     depositContractSyncStatus: DepositContractSyncStatus
       ## Are we sure that this EL has synced the deposit contract?
 
-    lastPayloadId: Option[engine_api.PayloadID]
+    lastPayloadId: Option[PayloadID]
 
   FullBlockId* = object
     number: Eth1BlockNumber
@@ -198,7 +200,8 @@ type
   SomeEnginePayloadWithValue =
     BellatrixExecutionPayloadWithValue |
     GetPayloadV2Response |
-    GetPayloadV3Response
+    GetPayloadV3Response |
+    GetPayloadV4Response
 
 declareCounter failed_web3_requests,
   "Failed web3 requests"
@@ -482,6 +485,72 @@ func asConsensusType*(payload: engine_api.GetPayloadV3Response):
       blobs: Blobs.init(
         payload.blobsBundle.blobs.mapIt(it.bytes))))
 
+func asConsensusType*(rpcExecutionPayload: ExecutionPayloadV4):
+    electra.ExecutionPayload =
+  template getTransaction(tt: TypedTransaction): bellatrix.Transaction =
+    bellatrix.Transaction.init(tt.distinctBase)
+
+  template getDepositReceipt(dr: DepositReceiptV1): DepositReceipt =
+    DepositReceipt(
+      pubkey: ValidatorPubKey(blob: dr.pubkey.distinctBase),
+      withdrawal_credentials: dr.withdrawalCredentials.asEth2Digest,
+      amount: dr.amount.Gwei,
+      signature: ValidatorSig(blob: dr.signature.distinctBase),
+      index: dr.index.uint64)
+
+  template getExecutionLayerWithdrawalRequest(elwr: ExitV1):
+      ExecutionLayerWithdrawalRequest =
+    ExecutionLayerWithdrawalRequest(
+      source_address: ExecutionAddress(data: elwr.sourceAddress.distinctBase),
+      validator_pubkey: ValidatorPubKey(
+        blob: elwr.validatorPublicKey.distinctBase))
+
+  electra.ExecutionPayload(
+    parent_hash: rpcExecutionPayload.parentHash.asEth2Digest,
+    feeRecipient:
+      ExecutionAddress(data: rpcExecutionPayload.feeRecipient.distinctBase),
+    state_root: rpcExecutionPayload.stateRoot.asEth2Digest,
+    receipts_root: rpcExecutionPayload.receiptsRoot.asEth2Digest,
+    logs_bloom: BloomLogs(data: rpcExecutionPayload.logsBloom.distinctBase),
+    prev_randao: rpcExecutionPayload.prevRandao.asEth2Digest,
+    block_number: rpcExecutionPayload.blockNumber.uint64,
+    gas_limit: rpcExecutionPayload.gasLimit.uint64,
+    gas_used: rpcExecutionPayload.gasUsed.uint64,
+    timestamp: rpcExecutionPayload.timestamp.uint64,
+    extra_data: List[byte, MAX_EXTRA_DATA_BYTES].init(
+      rpcExecutionPayload.extraData.bytes),
+    base_fee_per_gas: rpcExecutionPayload.baseFeePerGas,
+    block_hash: rpcExecutionPayload.blockHash.asEth2Digest,
+    transactions: List[bellatrix.Transaction, MAX_TRANSACTIONS_PER_PAYLOAD].init(
+      mapIt(rpcExecutionPayload.transactions, it.getTransaction)),
+    withdrawals: List[capella.Withdrawal, MAX_WITHDRAWALS_PER_PAYLOAD].init(
+      mapIt(rpcExecutionPayload.withdrawals, it.asConsensusWithdrawal)),
+    blob_gas_used: rpcExecutionPayload.blobGasUsed.uint64,
+    excess_blob_gas: rpcExecutionPayload.excessBlobGas.uint64,
+    deposit_receipts:
+      List[electra.DepositReceipt, MAX_DEPOSIT_RECEIPTS_PER_PAYLOAD].init(
+        mapIt(rpcExecutionPayload.depositReceipts, it.getDepositReceipt)),
+    withdrawal_requests:
+      List[electra.ExecutionLayerWithdrawalRequest, MAX_WITHDRAWAL_REQUESTS_PER_PAYLOAD].init(
+        mapIt(rpcExecutionPayload.exits, it.getExecutionLayerWithdrawalRequest)))
+
+func asConsensusType*(payload: engine_api.GetPayloadV4Response):
+    electra.ExecutionPayloadForSigning =
+  electra.ExecutionPayloadForSigning(
+    executionPayload: payload.executionPayload.asConsensusType,
+    blockValue: payload.blockValue,
+    # TODO
+    # The `mapIt` calls below are necessary only because we use different distinct
+    # types for KZG commitments and Blobs in the `web3` and the `deneb` spec types.
+    # Both are defined as `array[N, byte]` under the hood.
+    blobsBundle: BlobsBundle(
+      commitments: KzgCommitments.init(
+        payload.blobsBundle.commitments.mapIt(it.bytes)),
+      proofs: KzgProofs.init(
+        payload.blobsBundle.proofs.mapIt(it.bytes)),
+      blobs: Blobs.init(
+        payload.blobsBundle.blobs.mapIt(it.bytes))))
+
 func asEngineExecutionPayload*(executionPayload: bellatrix.ExecutionPayload):
     ExecutionPayloadV1 =
   template getTypedTransaction(tt: bellatrix.Transaction): TypedTransaction =
@@ -557,6 +626,52 @@ func asEngineExecutionPayload*(executionPayload: deneb.ExecutionPayload):
     withdrawals: mapIt(executionPayload.withdrawals, it.asEngineWithdrawal),
     blobGasUsed: Quantity(executionPayload.blob_gas_used),
     excessBlobGas: Quantity(executionPayload.excess_blob_gas))
+
+func asEngineExecutionPayload*(executionPayload: electra.ExecutionPayload):
+    ExecutionPayloadV4 =
+  template getTypedTransaction(tt: bellatrix.Transaction): TypedTransaction =
+    TypedTransaction(tt.distinctBase)
+
+  template getDepositReceipt(dr: DepositReceipt): DepositReceiptV1 =
+    DepositReceiptV1(
+      pubkey: FixedBytes[RawPubKeySize](dr.pubkey.blob),
+      withdrawalCredentials: FixedBytes[32](dr.withdrawal_credentials.data),
+      amount: dr.amount.Quantity,
+      signature: FixedBytes[RawSigSize](dr.signature.blob),
+      index: dr.index.Quantity)
+
+  template getExecutionLayerWithdrawalRequest(
+      elwr: ExecutionLayerWithdrawalRequest): ExitV1 =
+    ExitV1(
+      sourceAddress: Address(elwr.source_address.data),
+      validatorPublicKey: FixedBytes[RawPubKeySize](elwr.validator_pubkey.blob))
+
+  debugRaiseAssert "nim-web3 needs to change exits to withdrawalRequests; maybe it already has been"
+
+  engine_api.ExecutionPayloadV4(
+    parentHash: executionPayload.parent_hash.asBlockHash,
+    feeRecipient: Address(executionPayload.fee_recipient.data),
+    stateRoot: executionPayload.state_root.asBlockHash,
+    receiptsRoot: executionPayload.receipts_root.asBlockHash,
+    logsBloom:
+      FixedBytes[BYTES_PER_LOGS_BLOOM](executionPayload.logs_bloom.data),
+    prevRandao: executionPayload.prev_randao.asBlockHash,
+    blockNumber: Quantity(executionPayload.block_number),
+    gasLimit: Quantity(executionPayload.gas_limit),
+    gasUsed: Quantity(executionPayload.gas_used),
+    timestamp: Quantity(executionPayload.timestamp),
+    extraData: DynamicBytes[0, MAX_EXTRA_DATA_BYTES](executionPayload.extra_data),
+    baseFeePerGas: executionPayload.base_fee_per_gas,
+    blockHash: executionPayload.block_hash.asBlockHash,
+    transactions: mapIt(executionPayload.transactions, it.getTypedTransaction),
+    withdrawals: mapIt(executionPayload.withdrawals, it.asEngineWithdrawal),
+    blobGasUsed: Quantity(executionPayload.blob_gas_used),
+    excessBlobGas: Quantity(executionPayload.excess_blob_gas),
+    depositReceipts: mapIt(
+      executionPayload.deposit_receipts, it.getDepositReceipt),
+    exits:
+      mapIt(executionPayload.withdrawal_requests,
+        it.getExecutionLayerWithdrawalRequest))
 
 func isConnected(connection: ELConnection): bool =
   connection.web3.isSome
@@ -658,12 +773,6 @@ proc forkchoiceUpdated(rpcClient: RpcClient,
   else:
     static: doAssert false
 
-func computeBlockValue(blk: ExecutionPayloadV1): UInt256 {.raises: [RlpError].} =
-  for transactionBytes in blk.transactions:
-    var rlp = rlpFromBytes distinctBase(transactionBytes)
-    let transaction = rlp.read(eth_types.Transaction)
-    result += distinctBase(effectiveGasTip(transaction, blk.baseFeePerGas)).u256
-
 proc getPayloadFromSingleEL(
     connection: ELConnection,
     GetPayloadResponseType: type,
@@ -703,7 +812,10 @@ proc getPayloadFromSingleEL(
             prevRandao: FixedBytes[32] randomData.data,
             suggestedFeeRecipient: suggestedFeeRecipient,
             withdrawals: withdrawals))
-      elif GetPayloadResponseType is engine_api.GetPayloadV3Response:
+      elif  GetPayloadResponseType is engine_api.GetPayloadV3Response or
+            GetPayloadResponseType is engine_api.GetPayloadV4Response:
+        # https://github.com/ethereum/execution-apis/blob/90a46e9137c89d58e818e62fa33a0347bba50085/src/engine/prague.md
+        # does not define any new forkchoiceUpdated, so reuse V3 from Dencun
         let response = await rpcClient.forkchoiceUpdated(
           ForkchoiceStateV1(
             headBlockHash: headBlock.asBlockHash,
@@ -733,10 +845,10 @@ proc getPayloadFromSingleEL(
     let payload =
       await engine_api.getPayload(rpcClient, ExecutionPayloadV1, payloadId)
     return BellatrixExecutionPayloadWithValue(
-      executionPayload: payload,
-      blockValue: computeBlockValue payload)
+      executionPayload: payload, blockValue: Wei.zero)
   else:
-    return await engine_api.getPayload(rpcClient, GetPayloadResponseType, payloadId)
+    return await engine_api.getPayload(
+      rpcClient, GetPayloadResponseType, payloadId)
 
 func cmpGetPayloadResponses(lhs, rhs: SomeEnginePayloadWithValue): int =
   cmp(distinctBase lhs.blockValue, distinctBase rhs.blockValue)
@@ -749,6 +861,9 @@ template EngineApiResponseType*(T: type capella.ExecutionPayloadForSigning): typ
 
 template EngineApiResponseType*(T: type deneb.ExecutionPayloadForSigning): type =
   engine_api.GetPayloadV3Response
+
+template EngineApiResponseType*(T: type electra.ExecutionPayloadForSigning): type =
+  engine_api.GetPayloadV4Response
 
 template toEngineWithdrawals*(withdrawals: seq[capella.Withdrawal]): seq[WithdrawalV1] =
   mapIt(withdrawals, toEngineWithdrawal(it))
@@ -949,6 +1064,15 @@ proc sendNewPayloadToSingleEL(connection: ELConnection,
   return await rpcClient.engine_newPayloadV3(
     payload, versioned_hashes, parent_beacon_block_root)
 
+proc sendNewPayloadToSingleEL(connection: ELConnection,
+                              payload: engine_api.ExecutionPayloadV4,
+                              versioned_hashes: seq[engine_api.VersionedHash],
+                              parent_beacon_block_root: FixedBytes[32]):
+                              Future[PayloadStatusV1] {.async.} =
+  let rpcClient = await connection.connectedRpcClient()
+  return await rpcClient.engine_newPayloadV4(
+    payload, versioned_hashes, parent_beacon_block_root)
+
 type
   StatusRelation = enum
     newStatusIsPreferable
@@ -1048,7 +1172,8 @@ proc sendNewPayload*(m: ELManager, blck: SomeForkyBeaconBlock):
     payload = blck.body.execution_payload.asEngineExecutionPayload
     requests = m.elConnections.mapIt:
       let req =
-        when payload is engine_api.ExecutionPayloadV3:
+        when payload is engine_api.ExecutionPayloadV3 or
+             payload is engine_api.ExecutionPayloadV4:
           # https://github.com/ethereum/consensus-specs/blob/v1.4.0-alpha.1/specs/deneb/beacon-chain.md#process_execution_payload
           # Verify the execution payload is valid
           # [Modified in Deneb] Pass `versioned_hashes` to Execution Engine

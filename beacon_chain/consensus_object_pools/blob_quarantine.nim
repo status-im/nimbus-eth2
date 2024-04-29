@@ -15,7 +15,9 @@ from std/sequtils import mapIt
 from std/strutils import join
 
 const
-  MaxBlobs = SLOTS_PER_EPOCH * MAX_BLOBS_PER_BLOCK
+  MaxBlobs = 3 * SLOTS_PER_EPOCH * MAX_BLOBS_PER_BLOCK
+    ## Same limit as `MaxOrphans` in `block_quarantine`;
+    ## blobs may arrive before an orphan is tagged `blobless`
 
 type
   BlobQuarantine* = object
@@ -36,7 +38,7 @@ func shortLog*(x: seq[BlobFetchRecord]): string =
   "[" & x.mapIt(shortLog(it.block_root) & shortLog(it.indices)).join(", ") & "]"
 
 func put*(quarantine: var BlobQuarantine, blobSidecar: ref BlobSidecar) =
-  if quarantine.blobs.lenu64 > MaxBlobs:
+  if quarantine.blobs.lenu64 >= MaxBlobs:
     # FIFO if full. For example, sync manager and request manager can race to
     # put blobs in at the same time, so one gets blob insert -> block resolve
     # -> blob insert sequence, which leaves garbage blobs.
@@ -69,7 +71,8 @@ func hasBlob*(
 
 func popBlobs*(
     quarantine: var BlobQuarantine, digest: Eth2Digest,
-    blck: deneb.SignedBeaconBlock): seq[ref BlobSidecar] =
+    blck: deneb.SignedBeaconBlock | electra.SignedBeaconBlock):
+    seq[ref BlobSidecar] =
   var r: seq[ref BlobSidecar] = @[]
   for idx, kzg_commitment in blck.message.body.blob_kzg_commitments:
     var b: ref BlobSidecar
@@ -77,15 +80,15 @@ func popBlobs*(
       r.add(b)
   r
 
-func hasBlobs*(quarantine: BlobQuarantine, blck: deneb.SignedBeaconBlock):
-     bool =
+func hasBlobs*(quarantine: BlobQuarantine,
+    blck: deneb.SignedBeaconBlock | electra.SignedBeaconBlock): bool =
   for idx, kzg_commitment in blck.message.body.blob_kzg_commitments:
     if (blck.root, BlobIndex idx, kzg_commitment) notin quarantine.blobs:
       return false
   true
 
-func blobFetchRecord*(quarantine: BlobQuarantine, blck: deneb.SignedBeaconBlock):
-     BlobFetchRecord =
+func blobFetchRecord*(quarantine: BlobQuarantine,
+    blck: deneb.SignedBeaconBlock | electra.SignedBeaconBlock): BlobFetchRecord =
   var indices: seq[BlobIndex]
   for i in 0..<len(blck.message.body.blob_kzg_commitments):
     let idx = BlobIndex(i)

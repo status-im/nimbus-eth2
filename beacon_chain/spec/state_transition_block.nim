@@ -186,9 +186,10 @@ proc check_proposer_slashing*(
 proc process_proposer_slashing*(
     cfg: RuntimeConfig, state: var ForkyBeaconState,
     proposer_slashing: SomeProposerSlashing, flags: UpdateFlags,
-    cache: var StateCache): Result[Gwei, cstring] =
+    exit_queue_info: ExitQueueInfo, cache: var StateCache):
+    Result[(Gwei, ExitQueueInfo), cstring] =
   let proposer_index = ? check_proposer_slashing(state, proposer_slashing, flags)
-  slash_validator(cfg, state, proposer_index, cache)
+  slash_validator(cfg, state, proposer_index, exit_queue_info, cache)
 
 # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.6/specs/phase0/beacon-chain.md#is_slashable_attestation_data
 func is_slashable_attestation_data(
@@ -250,17 +251,24 @@ proc process_attester_slashing*(
     state: var ForkyBeaconState,
     attester_slashing: SomeAttesterSlashing,
     flags: UpdateFlags,
-    cache: var StateCache
-    ): Result[Gwei, cstring] =
+    exit_queue_info: ExitQueueInfo, cache: var StateCache
+    ): Result[(Gwei, ExitQueueInfo), cstring] =
   let slashed_attesters =
     ? check_attester_slashing(state, attester_slashing, flags)
 
-  var proposer_reward: Gwei
+  var
+    proposer_reward: Gwei
+    cur_exit_queue_info = exit_queue_info
 
   for index in slashed_attesters:
-    proposer_reward += ? slash_validator(cfg, state, index, cache)
+    doAssert strictVerification notin flags or
+      cur_exit_queue_info == get_state_exit_queue_info(state)
+    let (new_proposer_reward, new_exit_queue_info) = ? slash_validator(
+      cfg, state, index, cur_exit_queue_info, cache)
+    proposer_reward += new_proposer_reward
+    cur_exit_queue_info = new_exit_queue_info
 
-  ok(proposer_reward)
+  ok((proposer_reward, cur_exit_queue_info))
 
 func findValidatorIndex*(state: ForkyBeaconState, pubkey: ValidatorPubKey):
     Opt[ValidatorIndex] =
@@ -352,8 +360,8 @@ proc process_deposit*(
 
   ok()
 
-# https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.6/specs/phase0/beacon-chain.md#voluntary-exits
-# https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.1/specs/deneb/beacon-chain.md#modified-process_voluntary_exit
+# https://github.com/ethereum/consensus-specs/blob/v1.4.0/specs/phase0/beacon-chain.md#voluntary-exits
+# https://github.com/ethereum/consensus-specs/blob/v1.4.0/specs/deneb/beacon-chain.md#modified-process_voluntary_exit
 proc check_voluntary_exit*(
     cfg: RuntimeConfig,
     state: ForkyBeaconState,
@@ -410,12 +418,12 @@ proc process_voluntary_exit*(
     cfg: RuntimeConfig,
     state: var ForkyBeaconState,
     signed_voluntary_exit: SomeSignedVoluntaryExit,
-    flags: UpdateFlags,
-    cache: var StateCache): Result[void, cstring] =
+    flags: UpdateFlags, exit_queue_info: ExitQueueInfo,
+    cache: var StateCache): Result[ExitQueueInfo, cstring] =
   let exited_validator =
     ? check_voluntary_exit(cfg, state, signed_voluntary_exit, flags)
-  ? initiate_validator_exit(cfg, state, exited_validator, cache)
-  ok()
+  ok(? initiate_validator_exit(
+    cfg, state, exited_validator, exit_queue_info, cache))
 
 proc process_bls_to_execution_change*(
     cfg: RuntimeConfig,
@@ -436,6 +444,44 @@ proc process_bls_to_execution_change*(
 
   ok()
 
+# https://github.com/ethereum/consensus-specs/blob/94a0b6c581f2809aa8aca4ef7ee6fbb63f9d74e9/specs/electra/beacon-chain.md#new-process_execution_layer_exit
+func process_execution_layer_withdrawal_request(
+    cfg: RuntimeConfig, state: var electra.BeaconState,
+    execution_layer_withdrawal_request: ExecutionLayerWithdrawalRequest,
+    exit_queue_info: ExitQueueInfo, cache: var StateCache):
+    Result[ExitQueueInfo, cstring] =
+  # Verify pubkey exists
+  let
+    pubkey_to_exit = execution_layer_withdrawal_request.validator_pubkey
+    validator_index = findValidatorIndex(state, pubkey_to_exit).valueOr:
+      return err("process_execution_layer_withdrawal_request: unknown index for validator pubkey")
+    validator = state.validators.item(validator_index)
+
+  # Verify withdrawal credentials
+  let
+    is_execution_address = validator.has_eth1_withdrawal_credential
+    is_correct_source_address =
+      validator.withdrawal_credentials.data.toOpenArray(12, 31) ==
+        execution_layer_withdrawal_request.source_address.data
+  if not (is_execution_address and is_correct_source_address):
+    return err("process_execution_layer_withdrawal_request: not both execution address and correct source address")
+
+  # Verify the validator is active
+  if not is_active_validator(validator, get_current_epoch(state)):
+    return err("process_execution_layer_withdrawal_request: not active validator")
+
+  # Verify exit has not been initiated
+  if validator.exit_epoch != FAR_FUTURE_EPOCH:
+    return err("process_execution_layer_withdrawal_request: validator exit already initiated")
+
+  # Verify the validator has been active long enough
+  if get_current_epoch(state) < validator.activation_epoch + cfg.SHARD_COMMITTEE_PERIOD:
+    return err("process_execution_layer_withdrawal_request: validator not active long enough")
+
+  # Initiate exit
+  ok(? initiate_validator_exit(
+    cfg, state, validator_index, exit_queue_info, cache))
+
 type
   # https://ethereum.github.io/beacon-APIs/?urls.primaryName=v2.5.0#/Rewards/getBlockRewards
   BlockRewards* = object
@@ -446,6 +492,7 @@ type
 
 # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.6/specs/phase0/beacon-chain.md#operations
 # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.5/specs/capella/beacon-chain.md#modified-process_operations
+# https://github.com/ethereum/consensus-specs/blob/94a0b6c581f2809aa8aca4ef7ee6fbb63f9d74e9/specs/electra/beacon-chain.md#modified-process_operations
 proc process_operations(cfg: RuntimeConfig,
                         state: var ForkyBeaconState,
                         body: SomeForkyBeaconBlockBody,
@@ -464,12 +511,25 @@ proc process_operations(cfg: RuntimeConfig,
 
   var operations_rewards: BlockRewards
 
+  # It costs a full validator set scan to construct these values; only do so if
+  # there will be some kind of exit.
+  var exit_queue_info =
+    if body.proposer_slashings.len + body.attester_slashings.len +
+        body.voluntary_exits.len > 0:
+      get_state_exit_queue_info(state)
+    else:
+      default(ExitQueueInfo)  # not used
+
   for op in body.proposer_slashings:
-    operations_rewards.proposer_slashings +=
-      ? process_proposer_slashing(cfg, state, op, flags, cache)
+    let (proposer_slashing_reward, new_exit_queue_info) =
+      ? process_proposer_slashing(cfg, state, op, flags, exit_queue_info, cache)
+    operations_rewards.proposer_slashings += proposer_slashing_reward
+    exit_queue_info = new_exit_queue_info
   for op in body.attester_slashings:
-    operations_rewards.attester_slashings +=
-      ? process_attester_slashing(cfg, state, op, flags, cache)
+    let (attester_slashing_reward, new_exit_queue_info) =
+      ? process_attester_slashing(cfg, state, op, flags, exit_queue_info, cache)
+    operations_rewards.attester_slashings += attester_slashing_reward
+    exit_queue_info = new_exit_queue_info
   for op in body.attestations:
     operations_rewards.attestations +=
       ? process_attestation(state, op, flags, base_reward_per_increment, cache)
@@ -478,7 +538,12 @@ proc process_operations(cfg: RuntimeConfig,
     for op in body.deposits:
       ? process_deposit(cfg, state, bloom_filter[], op, flags)
   for op in body.voluntary_exits:
-    ? process_voluntary_exit(cfg, state, op, flags, cache)
+    exit_queue_info = ? process_voluntary_exit(
+      cfg, state, op, flags, exit_queue_info, cache)
+  when typeof(body).kind >= ConsensusFork.Electra:
+    for op in body.execution_payload.withdrawal_requests:
+      exit_queue_info = ? process_execution_layer_withdrawal_request(
+        cfg, state, op, exit_queue_info, cache)
   when typeof(body).kind >= ConsensusFork.Capella:
     for op in body.bls_to_execution_changes:
       ? process_bls_to_execution_change(cfg, state, op)
@@ -551,7 +616,6 @@ proc process_sync_aggregate*(
   # Apply participant and proposer rewards
   let indices = get_sync_committee_cache(state, cache).current_sync_committee
 
-  # TODO could use a sequtils2 zipIt
   for i in 0 ..< min(
     state.current_sync_committee.pubkeys.len,
     sync_aggregate.sync_committee_bits.len):
@@ -1003,9 +1067,9 @@ proc process_block*(
     total_active_balance = get_total_active_balance(state, cache)
     base_reward_per_increment =
       get_base_reward_per_increment(total_active_balance)
-    operations_rewards = ? process_operations(
-      cfg, state, blck.body, base_reward_per_increment, flags, cache)
-  ? process_sync_aggregate(
+  var operations_rewards = ? process_operations(
+    cfg, state, blck.body, base_reward_per_increment, flags, cache)
+  operations_rewards.sync_aggregate = ? process_sync_aggregate(
     state, blck.body.sync_aggregate, total_active_balance, flags, cache)
 
   ok(operations_rewards)

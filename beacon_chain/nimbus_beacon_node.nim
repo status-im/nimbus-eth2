@@ -170,6 +170,8 @@ func getVanityLogs(stdoutKind: StdoutLogKind): VanityLogs =
 
 func getVanityMascot(consensusFork: ConsensusFork): string =
   case consensusFork
+  of ConsensusFork.Electra:
+    "  "
   of ConsensusFork.Deneb:
     "🐟"
   of ConsensusFork.Capella:
@@ -275,7 +277,7 @@ proc initFullNode(
     getBeaconTime: GetBeaconTimeFn) {.async.} =
   template config(): auto = node.config
 
-  proc onAttestationReceived(data: Attestation) =
+  proc onAttestationReceived(data: phase0.Attestation) =
     node.eventBus.attestQueue.emit(data)
   proc onSyncContribution(data: SignedContributionAndProof) =
     node.eventBus.contribQueue.emit(data)
@@ -402,7 +404,12 @@ proc initFullNode(
                              maybeFinalized: bool):
         Future[Result[void, VerifierError]] {.async: (raises: [CancelledError]).} =
       withBlck(signedBlock):
-        when consensusFork >= ConsensusFork.Deneb:
+        when consensusFork >= ConsensusFork.Electra:
+          debugRaiseAssert "foo"
+          await blockProcessor[].addBlock(MsgSource.gossip, signedBlock,
+                                    Opt.none(BlobSidecars),
+                                    maybeFinalized = maybeFinalized)
+        elif consensusFork >= ConsensusFork.Deneb:
           if not blobQuarantine[].hasBlobs(forkyBlck):
             # We don't have all the blobs for this block, so we have
             # to put it in blobless quarantine.
@@ -916,7 +923,8 @@ func forkDigests(node: BeaconNode): auto =
     node.dag.forkDigests.altair,
     node.dag.forkDigests.bellatrix,
     node.dag.forkDigests.capella,
-    node.dag.forkDigests.deneb]
+    node.dag.forkDigests.deneb,
+    node.dag.forkDigests.electra]
   forkDigestsArray
 
 # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.5/specs/phase0/p2p-interface.md#attestation-subnet-subscription
@@ -1281,8 +1289,7 @@ proc updateGossipStatus(node: BeaconNode, slot: Slot) {.async.} =
       if slot > head.slot: (slot - head.slot).uint64
       else: 0'u64
     isBehind =
-      headDistance > TOPIC_SUBSCRIBE_THRESHOLD_SLOTS + HYSTERESIS_BUFFER and
-      node.syncStatus(head) == ChainSyncStatus.Syncing
+      headDistance > TOPIC_SUBSCRIBE_THRESHOLD_SLOTS + HYSTERESIS_BUFFER
     targetGossipState =
       getTargetGossipState(
         slot.epoch,
@@ -1351,7 +1358,8 @@ proc updateGossipStatus(node: BeaconNode, slot: Slot) {.async.} =
     removeAltairMessageHandlers,
     removeAltairMessageHandlers,  # bellatrix (altair handlers, different forkDigest)
     removeCapellaMessageHandlers,
-    removeDenebMessageHandlers
+    removeDenebMessageHandlers,
+    removeDenebMessageHandlers   # maybe duplicate is correct, don't know yet
   ]
 
   for gossipFork in oldGossipForks:
@@ -1362,7 +1370,8 @@ proc updateGossipStatus(node: BeaconNode, slot: Slot) {.async.} =
     addAltairMessageHandlers,
     addAltairMessageHandlers,  # bellatrix (altair handlers, different forkDigest)
     addCapellaMessageHandlers,
-    addDenebMessageHandlers
+    addDenebMessageHandlers,
+    addDenebMessageHandlers  # repeat is probably correct
   ]
 
   for gossipFork in newGossipForks:
@@ -1543,25 +1552,17 @@ proc onSlotEnd(node: BeaconNode, slot: Slot) {.async.} =
     node.network.updateForkId(epoch, node.dag.genesis_validators_root)
 
   # When we're not behind schedule, we'll speculatively update the clearance
-  # state in anticipation of receiving the next block - we do it after logging
-  # slot end since the nextActionWaitTime can be short
-  let
-    advanceCutoff = node.beaconClock.fromNow(
-      slot.start_beacon_time() + chronos.seconds(int(SECONDS_PER_SLOT - 1)))
+  # state in anticipation of receiving the next block - we do it after
+  # logging slot end since the nextActionWaitTime can be short
+  let advanceCutoff = node.beaconClock.fromNow(
+    slot.start_beacon_time() + chronos.seconds(int(SECONDS_PER_SLOT - 1)))
   if advanceCutoff.inFuture:
     # We wait until there's only a second left before the next slot begins, then
     # we advance the clearance state to the next slot - this gives us a high
     # probability of being prepared for the block that will arrive and the
     # epoch processing that follows
     await sleepAsync(advanceCutoff.offset)
-    node.dag.advanceClearanceState(slot,
-      chainIsDegraded = (node.syncStatus(head) == ChainSyncStatus.Degraded))
-
-    # If the chain has halted, we have to ensure that the EL gets synced
-    # so that we can perform validator duties again
-    if not node.dag.head.executionValid and not node.dag.chainIsProgressing():
-      let beaconHead = node.attestationPool[].getBeaconHead(head)
-      discard await node.consensusManager.updateExecutionClientHead(beaconHead)
+    node.dag.advanceClearanceState()
 
   # Prepare action tracker for the next slot
   node.consensusManager[].actionTracker.updateSlot(slot + 1)
@@ -1589,11 +1590,11 @@ func formatNextConsensusFork(
     $nextConsensusFork & ":" & $nextForkEpoch)
 
 func syncStatus(node: BeaconNode, wallSlot: Slot): string =
-  let optimistic_head = not node.dag.head.executionValid
+  let optimisticHead = not node.dag.head.executionValid
   if node.syncManager.inProgress:
     let
       optimisticSuffix =
-        if optimistic_head:
+        if optimisticHead:
           "/opt"
         else:
           ""
@@ -1752,7 +1753,7 @@ proc installMessageValidators(node: BeaconNode) =
           let subnet_id = it
           node.network.addAsyncValidator(
             getAttestationTopic(digest, subnet_id), proc (
-              attestation: Attestation
+              attestation: phase0.Attestation
             ): Future[ValidationResult] {.async: (raises: [CancelledError]).} =
               return toValidationResult(
                 await node.processor.processAttestation(

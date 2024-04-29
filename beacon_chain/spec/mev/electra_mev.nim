@@ -1,5 +1,5 @@
 # beacon_chain
-# Copyright (c) 2023-2024 Status Research & Development GmbH
+# Copyright (c) 2024 Status Research & Development GmbH
 # Licensed and distributed under either of
 #   * MIT license (license terms in the root directory or at https://opensource.org/licenses/MIT).
 #   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
@@ -7,44 +7,74 @@
 
 {.push raises: [].}
 
-import ".."/datatypes/[altair, capella]
-from ".."/datatypes/phase0 import Attestation
-from stew/byteutils import to0xHex
+import ".."/datatypes/[altair, electra]
 
-from ../eth2_merkleization import fromSszBytes, hash_tree_root, toSszType
+from stew/byteutils import to0xHex
+from ".."/datatypes/phase0 import Attestation
+from ../datatypes/bellatrix import ExecutionAddress
+from ".."/datatypes/capella import SignedBLSToExecutionChange
+from ".."/datatypes/deneb import BlobsBundle, KzgCommitments
+from ".."/eth2_merkleization import hash_tree_root
 
 type
-  # https://github.com/ethereum/builder-specs/blob/v0.4.0/specs/capella/builder.md#blindedbeaconblockbody
+  BuilderBid* = object
+    header*: electra.ExecutionPayloadHeader
+    blob_kzg_commitments*: KzgCommitments
+    value*: UInt256
+    pubkey*: ValidatorPubKey
+
+  # https://github.com/ethereum/builder-specs/blob/v0.4.0/specs/bellatrix/builder.md#signedbuilderbid
+  SignedBuilderBid* = object
+    message*: BuilderBid
+    signature*: ValidatorSig
+
   BlindedBeaconBlockBody* = object
     randao_reveal*: ValidatorSig
     eth1_data*: Eth1Data
     graffiti*: GraffitiBytes
     proposer_slashings*: List[ProposerSlashing, Limit MAX_PROPOSER_SLASHINGS]
-    attester_slashings*: List[AttesterSlashing, Limit MAX_ATTESTER_SLASHINGS]
-    attestations*: List[Attestation, Limit MAX_ATTESTATIONS]
+    attester_slashings*:
+      List[AttesterSlashing, Limit MAX_ATTESTER_SLASHINGS_ELECTRA]
+    attestations*: List[phase0.Attestation, Limit MAX_ATTESTATIONS_ELECTRA]
     deposits*: List[Deposit, Limit MAX_DEPOSITS]
     voluntary_exits*: List[SignedVoluntaryExit, Limit MAX_VOLUNTARY_EXITS]
     sync_aggregate*: SyncAggregate
-    execution_payload_header*:
-      capella.ExecutionPayloadHeader # [Modified in Capella]
+    execution_payload_header*: electra.ExecutionPayloadHeader
     bls_to_execution_changes*:
       List[SignedBLSToExecutionChange,
-        Limit MAX_BLS_TO_EXECUTION_CHANGES]  # [New in Capella]
+        Limit MAX_BLS_TO_EXECUTION_CHANGES]
+    blob_kzg_commitments*: KzgCommitments # [New in Deneb]
+    consolidations*: List[SignedConsolidation, Limit MAX_CONSOLIDATIONS]
 
   # https://github.com/ethereum/builder-specs/blob/v0.4.0/specs/bellatrix/builder.md#blindedbeaconblock
-  # https://github.com/ethereum/builder-specs/blob/v0.4.0/specs/capella/builder.md#blindedbeaconblockbody
   BlindedBeaconBlock* = object
     slot*: Slot
     proposer_index*: uint64
     parent_root*: Eth2Digest
     state_root*: Eth2Digest
-    body*: BlindedBeaconBlockBody # [Modified in Capella]
+    body*: BlindedBeaconBlockBody # [Modified in Deneb]
+
+  MaybeBlindedBeaconBlock* = object
+    case isBlinded*: bool
+    of false:
+      data*: electra.BlockContents
+    of true:
+      blindedData*: BlindedBeaconBlock
 
   # https://github.com/ethereum/builder-specs/blob/v0.4.0/specs/bellatrix/builder.md#signedblindedbeaconblock
   # https://github.com/ethereum/builder-specs/blob/v0.4.0/specs/capella/builder.md#blindedbeaconblockbody
   SignedBlindedBeaconBlock* = object
     message*: BlindedBeaconBlock
     signature*: ValidatorSig
+
+  ExecutionPayloadAndBlobsBundle* = object
+    execution_payload*: electra.ExecutionPayload
+    blobs_bundle*: BlobsBundle
+
+  # Not spec, but suggested by spec
+  BlindedExecutionPayloadAndBlobsBundle* = object
+    execution_payload_header*: electra.ExecutionPayloadHeader
+    blob_kzg_commitments*: KzgCommitments # [New in Deneb]
 
 func shortLog*(v: BlindedBeaconBlock): auto =
   (
@@ -75,7 +105,7 @@ func shortLog*(v: SignedBlindedBeaconBlock): auto =
     signature: shortLog(v.signature)
   )
 
-func toSignedBlindedBeaconBlock*(blck: capella.SignedBeaconBlock):
+func toSignedBlindedBeaconBlock*(blck: electra.SignedBeaconBlock):
     SignedBlindedBeaconBlock =
   SignedBlindedBeaconBlock(
     message: BlindedBeaconBlock(
@@ -111,6 +141,12 @@ func toSignedBlindedBeaconBlock*(blck: capella.SignedBeaconBlock):
           transactions_root:
             hash_tree_root(blck.message.body.execution_payload.transactions),
           withdrawals_root:
-            hash_tree_root(blck.message.body.execution_payload.withdrawals)),
-        bls_to_execution_changes: blck.message.body.bls_to_execution_changes)),
+            hash_tree_root(blck.message.body.execution_payload.withdrawals),
+          deposit_receipts_root: hash_tree_root(
+            blck.message.body.execution_payload.deposit_receipts),
+          withdrawal_requests_root:
+            hash_tree_root(
+              blck.message.body.execution_payload.withdrawal_requests)),
+        bls_to_execution_changes: blck.message.body.bls_to_execution_changes,
+        blob_kzg_commitments: blck.message.body.blob_kzg_commitments)),
     signature: blck.signature)

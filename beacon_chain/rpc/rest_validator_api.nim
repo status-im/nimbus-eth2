@@ -13,7 +13,7 @@ import ".."/[beacon_chain_db, beacon_node],
        ".."/consensus_object_pools/[blockchain_dag, spec_cache,
                                     attestation_pool, sync_committee_msg_pool],
        ".."/validators/beacon_validators,
-       ".."/spec/[beaconstate, forks, network],
+       ".."/spec/[beaconstate, forks, network, state_transition_block],
        ".."/spec/datatypes/[phase0, altair],
        "."/[rest_utils, state_ttl_cache]
 
@@ -408,7 +408,13 @@ proc installValidatorApiHandlers*(router: var RestRouter, node: BeaconNode) =
     return
       withBlck(message.blck):
         let data =
-          when consensusFork >= ConsensusFork.Deneb:
+          when consensusFork >= ConsensusFork.Electra:
+            let blobsBundle = message.blobsBundleOpt.get()
+            electra.BlockContents(
+              `block`: forkyBlck,
+              kzg_proofs: blobsBundle.proofs,
+              blobs: blobsBundle.blobs)
+          elif consensusFork >= ConsensusFork.Deneb:
             let blobsBundle = message.blobsBundleOpt.get()
             deneb.BlockContents(
               `block`: forkyBlck,
