@@ -109,6 +109,15 @@ proc produceBlock(
                                         data: ForkedBeaconBlock.init(blck),
                                         kzgProofsOpt: Opt.some(kzgProofs),
                                         blobsOpt: Opt.some(blobs)))
+  of ConsensusFork.Electra:
+    let
+      blck = produceBlockResponse.electraData.`block`
+      kzgProofs = produceBlockResponse.electraData.kzg_proofs
+      blobs = produceBlockResponse.electraData.blobs
+    return Opt.some(PreparedBeaconBlock(blockRoot: hash_tree_root(blck),
+                                        data: ForkedBeaconBlock.init(blck),
+                                        kzgProofsOpt: Opt.some(kzgProofs),
+                                        blobsOpt: Opt.some(blobs)))
 
 proc produceBlindedBlock(
        vc: ValidatorClientRef,
@@ -599,6 +608,15 @@ proc publishBlockV2(vc: ValidatorClientRef, currentSlot, slot: Slot,
                   signature: signature),
                 kzg_proofs: preparedBlock.kzgProofsOpt.get,
                 blobs: preparedBlock.blobsOpt.get))
+          of ConsensusFork.Electra:
+            RestPublishedSignedBlockContents(kind: ConsensusFork.Electra,
+              electraData: ElectraSignedBlockContents(
+                signed_block: electra.SignedBeaconBlock(
+                  message: preparedBlock.data.electraData,
+                  root: preparedBlock.blockRoot,
+                  signature: signature),
+                kzg_proofs: preparedBlock.kzgProofsOpt.get,
+                blobs: preparedBlock.blobsOpt.get))
 
         res =
           try:
@@ -860,7 +878,7 @@ proc runBlockEventMonitor(service: BlockServiceRef,
               plain = RestPlainResponse(status: resp.status,
                         contentType: resp.contentType, data: body)
               reason = plain.getErrorMessage()
-            debug "Unable to to obtain events stream", code = resp.status,
+            debug "Unable to obtain events stream", code = resp.status,
                   reason = reason
             Opt.none(HttpClientResponseRef)
         except RestError as exc:

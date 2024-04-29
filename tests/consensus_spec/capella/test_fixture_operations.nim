@@ -106,8 +106,7 @@ suite baseDescription & "Attester Slashing " & preset():
     var cache: StateCache
     doAssert (? process_attester_slashing(
       defaultRuntimeConfig, preState, attesterSlashing, {strictVerification},
-      get_state_exit_queue_info(defaultRuntimeConfig, preState,
-      cache), cache))[0] > 0.Gwei
+      get_state_exit_queue_info(preState), cache))[0] > 0.Gwei
     ok()
 
   for path in walkTests(OpAttSlashingDir):
@@ -143,7 +142,7 @@ suite baseDescription & "BLS to execution change " & preset():
 from ".."/".."/".."/beacon_chain/bloomfilter import constructBloomFilter
 
 suite baseDescription & "Deposit " & preset():
-  proc applyDeposit(
+  func applyDeposit(
       preState: var capella.BeaconState, deposit: Deposit):
       Result[void, cstring] =
     process_deposit(
@@ -155,7 +154,7 @@ suite baseDescription & "Deposit " & preset():
       OpDepositsDir, suiteName, "Deposit", "deposit", applyDeposit, path)
 
 suite baseDescription & "Execution Payload " & preset():
-  proc makeApplyExecutionPayloadCb(path: string): auto =
+  func makeApplyExecutionPayloadCb(path: string): auto =
     return proc(
         preState: var capella.BeaconState, body: capella.BeaconBlockBody):
         Result[void, cstring] {.raises: [IOError].} =
@@ -179,8 +178,7 @@ suite baseDescription & "Proposer Slashing " & preset():
     var cache: StateCache
     doAssert (? process_proposer_slashing(
       defaultRuntimeConfig, preState, proposerSlashing, {},
-      get_state_exit_queue_info(defaultRuntimeConfig, preState, cache),
-      cache))[0] > 0.Gwei
+      get_state_exit_queue_info(preState), cache))[0] > 0.Gwei
     ok()
 
   for path in walkTests(OpProposerSlashingDir):
@@ -210,8 +208,7 @@ suite baseDescription & "Voluntary Exit " & preset():
     var cache: StateCache
     if process_voluntary_exit(
         defaultRuntimeConfig, preState, voluntaryExit, {},
-        get_state_exit_queue_info(defaultRuntimeConfig, preState, cache),
-        cache).isOk:
+        get_state_exit_queue_info(preState), cache).isOk:
       ok()
     else:
       err("")
@@ -222,7 +219,7 @@ suite baseDescription & "Voluntary Exit " & preset():
       applyVoluntaryExit, path)
 
 suite baseDescription & "Withdrawals " & preset():
-  proc applyWithdrawals(
+  func applyWithdrawals(
       preState: var capella.BeaconState,
       executionPayload: capella.ExecutionPayload): Result[void, cstring] =
     process_withdrawals(preState, executionPayload)

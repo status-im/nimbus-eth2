@@ -111,7 +111,7 @@ suite "EF - Bellatrix - SSZ consensus objects " & preset():
           of "AggregateAndProof": checkSSZ(AggregateAndProof, path, hash)
           of "Attestation": checkSSZ(Attestation, path, hash)
           of "AttestationData": checkSSZ(AttestationData, path, hash)
-          of "AttesterSlashing": checkSSZ(AttesterSlashing, path, hash)
+          of "AttesterSlashing": checkSSZ(phase0.AttesterSlashing, path, hash)
           of "BeaconBlock": checkSSZ(bellatrix.BeaconBlock, path, hash)
           of "BeaconBlockBody": checkSSZ(bellatrix.BeaconBlockBody, path, hash)
           of "BeaconBlockHeader": checkSSZ(BeaconBlockHeader, path, hash)
@@ -129,7 +129,8 @@ suite "EF - Bellatrix - SSZ consensus objects " & preset():
           of "Fork": checkSSZ(Fork, path, hash)
           of "ForkData": checkSSZ(ForkData, path, hash)
           of "HistoricalBatch": checkSSZ(HistoricalBatch, path, hash)
-          of "IndexedAttestation": checkSSZ(IndexedAttestation, path, hash)
+          of "IndexedAttestation":
+            checkSSZ(phase0.IndexedAttestation, path, hash)
           of "LightClientBootstrap":
             checkSSZ(altair.LightClientBootstrap, path, hash)
           of "LightClientHeader":

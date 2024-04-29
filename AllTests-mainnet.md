@@ -80,8 +80,9 @@ OK: 2/2 Fail: 0/2 Skip: 0/2
 + Bellatrix toSignedBlindedBlock                                                             OK
 + Capella toSignedBlindedBlock                                                               OK
 + Deneb toSignedBlindedBlock                                                                 OK
++ Electra toSignedBlindedBlock                                                               OK
 ```
-OK: 3/3 Fail: 0/3 Skip: 0/3
+OK: 4/4 Fail: 0/4 Skip: 0/4
 ## Block pool altair processing [Preset: mainnet]
 ```diff
 + Invalid signatures [Preset: mainnet]                                                       OK
@@ -655,11 +656,10 @@ OK: 4/4 Fail: 0/4 Skip: 0/4
 OK: 8/8 Fail: 0/8 Skip: 0/8
 ## Network metadata
 ```diff
-+ goerli                                                                                     OK
 + mainnet                                                                                    OK
 + sepolia                                                                                    OK
 ```
-OK: 3/3 Fail: 0/3 Skip: 0/3
+OK: 2/2 Fail: 0/2 Skip: 0/2
 ## Nimbus remote signer/signing test (verifying-web3signer)
 ```diff
 + Signing BeaconBlock (getBlockSignature(capella))                                           OK

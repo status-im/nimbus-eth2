@@ -129,21 +129,6 @@ proc toString*(kind: ValidatorFilterKind): string =
   of ValidatorFilterKind.WithdrawalDone:
     "withdrawal_done"
 
-func checkRestBlockBlobsValid(
-    forkyBlck: deneb.SignedBeaconBlock | electra.SignedBeaconBlock,
-    kzg_proofs: KzgProofs,
-    blobs: Blobs): Result[void, string] =
-  if kzg_proofs.len != blobs.len:
-    return err("Invalid block publish: " & $kzg_proofs.len & " KZG proofs and " &
-      $blobs.len & " blobs")
-
-  if kzg_proofs.len != forkyBlck.message.body.blob_kzg_commitments.len:
-    return err("Invalid block publish: " & $kzg_proofs.len &
-      " KZG proofs and " & $forkyBlck.message.body.blob_kzg_commitments.len &
-      " KZG commitments")
-
-  ok()
-
 proc installBeaconApiHandlers*(router: var RestRouter, node: BeaconNode) =
   # https://github.com/ethereum/EIPs/blob/master/EIPS/eip-4881.md
   router.api2(MethodGet, "/eth/v1/beacon/deposit_snapshot") do (
@@ -900,50 +885,23 @@ proc installBeaconApiHandlers*(router: var RestRouter, node: BeaconNode) =
         let
           body = contentBody.get()
           version = request.headers.getString("eth-consensus-version")
-        var
-          restBlock = decodeBody(RestPublishedSignedBlockContents, body,
-                                 version).valueOr:
-            return RestApiResponse.jsonError(error)
-          forked = ForkedSignedBeaconBlock.init(restBlock)
+          restBlock = decodeBody(
+            RestPublishedSignedBlockContents, body, version).valueOr:
+              return RestApiResponse.jsonError(error)
 
-        if restBlock.kind != node.dag.cfg.consensusForkAtEpoch(
-             getForkedBlockField(forked, slot).epoch):
-          doAssert strictVerification notin node.dag.updateFlags
-          return RestApiResponse.jsonError(Http400, InvalidBlockObjectError)
+        withForkyBlck(restBlock):
+          if restBlock.kind != node.dag.cfg.consensusForkAtEpoch(
+              forkyBlck.message.slot.epoch):
+            doAssert strictVerification notin node.dag.updateFlags
+            return RestApiResponse.jsonError(Http400, InvalidBlockObjectError)
 
-        case restBlock.kind
-        of ConsensusFork.Phase0:
-          var blck = restBlock.phase0Data
-          blck.root = hash_tree_root(blck.message)
-          await node.router.routeSignedBeaconBlock(
-            blck, Opt.none(seq[BlobSidecar]))
-        of ConsensusFork.Altair:
-          var blck = restBlock.altairData
-          blck.root = hash_tree_root(blck.message)
-          await node.router.routeSignedBeaconBlock(
-            blck, Opt.none(seq[BlobSidecar]))
-        of ConsensusFork.Bellatrix:
-          var blck = restBlock.bellatrixData
-          blck.root = hash_tree_root(blck.message)
-          await node.router.routeSignedBeaconBlock(
-            blck, Opt.none(seq[BlobSidecar]))
-        of ConsensusFork.Capella:
-          var blck = restBlock.capellaData
-          blck.root = hash_tree_root(blck.message)
-          await node.router.routeSignedBeaconBlock(
-            blck, Opt.none(seq[BlobSidecar]))
-        of ConsensusFork.Deneb:
-          var blck = restBlock.denebData.signed_block
-          blck.root = hash_tree_root(blck.message)
-
-          let validity = checkRestBlockBlobsValid(
-            blck, restBlock.denebData.kzg_proofs, restBlock.denebData.blobs)
-          if validity.isErr:
-            return RestApiResponse.jsonError(Http400, validity.error)
-
-          await node.router.routeSignedBeaconBlock(
-            blck, Opt.some(blck.create_blob_sidecars(
-              restBlock.denebData.kzg_proofs, restBlock.denebData.blobs)))
+          when consensusFork >= ConsensusFork.Deneb:
+            await node.router.routeSignedBeaconBlock(
+              forkyBlck, Opt.some(
+                forkyBlck.create_blob_sidecars(kzg_proofs, blobs)))
+          else:
+            await node.router.routeSignedBeaconBlock(
+              forkyBlck, Opt.none(seq[BlobSidecar]))
 
     if res.isErr():
       return RestApiResponse.jsonError(
@@ -981,51 +939,24 @@ proc installBeaconApiHandlers*(router: var RestRouter, node: BeaconNode) =
               if contentBody.isNone():
                 return RestApiResponse.jsonError(Http400, EmptyRequestBodyError)
               contentBody.get()
-        var
-          restBlock = decodeBodyJsonOrSsz(RestPublishedSignedBlockContents,
-                                          body, version).valueOr:
-            return RestApiResponse.jsonError(error)
-          forked = ForkedSignedBeaconBlock.init(restBlock)
+          restBlock = decodeBodyJsonOrSsz(
+            RestPublishedSignedBlockContents, body, version).valueOr:
+              return RestApiResponse.jsonError(error)
 
-        # TODO (henridf): handle broadcast_validation flag
-        if restBlock.kind != node.dag.cfg.consensusForkAtEpoch(
-             getForkedBlockField(forked, slot).epoch):
-          doAssert strictVerification notin node.dag.updateFlags
-          return RestApiResponse.jsonError(Http400, InvalidBlockObjectError)
+        withForkyBlck(restBlock):
+          # TODO (henridf): handle broadcast_validation flag
+          if restBlock.kind != node.dag.cfg.consensusForkAtEpoch(
+              forkyBlck.message.slot.epoch):
+            doAssert strictVerification notin node.dag.updateFlags
+            return RestApiResponse.jsonError(Http400, InvalidBlockObjectError)
 
-        case restBlock.kind
-        of ConsensusFork.Phase0:
-          var blck = restBlock.phase0Data
-          blck.root = hash_tree_root(blck.message)
-          await node.router.routeSignedBeaconBlock(
-            blck, Opt.none(seq[BlobSidecar]))
-        of ConsensusFork.Altair:
-          var blck = restBlock.altairData
-          blck.root = hash_tree_root(blck.message)
-          await node.router.routeSignedBeaconBlock(
-            blck, Opt.none(seq[BlobSidecar]))
-        of ConsensusFork.Bellatrix:
-          var blck = restBlock.bellatrixData
-          blck.root = hash_tree_root(blck.message)
-          await node.router.routeSignedBeaconBlock(
-            blck, Opt.none(seq[BlobSidecar]))
-        of ConsensusFork.Capella:
-          var blck = restBlock.capellaData
-          blck.root = hash_tree_root(blck.message)
-          await node.router.routeSignedBeaconBlock(
-            blck, Opt.none(seq[BlobSidecar]))
-        of ConsensusFork.Deneb:
-          var blck = restBlock.denebData.signed_block
-          blck.root = hash_tree_root(blck.message)
-
-          let validity = checkRestBlockBlobsValid(
-            blck, restBlock.denebData.kzg_proofs, restBlock.denebData.blobs)
-          if validity.isErr:
-            return RestApiResponse.jsonError(Http400, validity.error)
-
-          await node.router.routeSignedBeaconBlock(
-            blck, Opt.some(blck.create_blob_sidecars(
-              restBlock.denebData.kzg_proofs, restBlock.denebData.blobs)))
+          when consensusFork >= ConsensusFork.Deneb:
+            await node.router.routeSignedBeaconBlock(
+              forkyBlck, Opt.some(
+                forkyBlck.create_blob_sidecars(kzg_proofs, blobs)))
+          else:
+            await node.router.routeSignedBeaconBlock(
+              forkyBlck, Opt.none(seq[BlobSidecar]))
 
     if res.isErr():
       return RestApiResponse.jsonError(
@@ -1261,7 +1192,7 @@ proc installBeaconApiHandlers*(router: var RestRouter, node: BeaconNode) =
         Opt.some(rslot.get())
       else:
         Opt.none(Slot)
-    var res: seq[Attestation]
+    var res: seq[phase0.Attestation]
     for item in node.attestationPool[].attestations(vslot, vindex):
       res.add(item)
     RestApiResponse.jsonResponse(res)
@@ -1273,7 +1204,7 @@ proc installBeaconApiHandlers*(router: var RestRouter, node: BeaconNode) =
       block:
         if contentBody.isNone():
           return RestApiResponse.jsonError(Http400, EmptyRequestBodyError)
-        let dres = decodeBody(seq[Attestation], contentBody.get())
+        let dres = decodeBody(seq[phase0.Attestation], contentBody.get())
         if dres.isErr():
           return RestApiResponse.jsonError(Http400,
                                            InvalidAttestationObjectError,
@@ -1326,7 +1257,7 @@ proc installBeaconApiHandlers*(router: var RestRouter, node: BeaconNode) =
       block:
         if contentBody.isNone():
           return RestApiResponse.jsonError(Http400, EmptyRequestBodyError)
-        let dres = decodeBody(AttesterSlashing, contentBody.get())
+        let dres = decodeBody(phase0.AttesterSlashing, contentBody.get())
         if dres.isErr():
           return RestApiResponse.jsonError(Http400,
                                            InvalidAttesterSlashingObjectError,

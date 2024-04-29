@@ -92,6 +92,9 @@ func init(T: type ForkedBeaconBlock, contents: ProduceBlockResponseV2): T =
     return ForkedBeaconBlock.init(contents.capellaData)
   of ConsensusFork.Deneb:
     return ForkedBeaconBlock.init(contents.denebData.`block`)
+  of ConsensusFork.Electra:
+    debugRaiseAssert "probably like the deneb case"
+    return default(T)
 
 proc getBlock(
     fork: ConsensusFork,
@@ -104,6 +107,9 @@ proc getBlock(
         of ConsensusFork.Phase0 .. ConsensusFork.Bellatrix:    raiseAssert "Unsupported fork"
         of ConsensusFork.Capella:   CapellaBlock % [feeRecipient]
         of ConsensusFork.Deneb:     DenebBlockContents % [feeRecipient]
+        of ConsensusFork.Electra:
+          debugRaiseAssert "electra test signing node getblock"
+          raiseAssert "electra unsupported"
       except ValueError:
         # https://github.com/nim-lang/Nim/pull/23356
         raiseAssert "Arguments match the format string"
@@ -129,6 +135,10 @@ func init(t: typedesc[Web3SignerForkedBeaconBlock],
     Web3SignerForkedBeaconBlock(
       kind: ConsensusFork.Deneb,
       data: forked.denebData.toBeaconBlockHeader)
+  of ConsensusFork.Electra:
+    Web3SignerForkedBeaconBlock(
+      kind: ConsensusFork.Electra,
+      data: forked.electraData.toBeaconBlockHeader)
 
 proc createKeystore(dataDir, pubkey,
                     store, password: string): Result[void, string] =
@@ -245,6 +255,7 @@ func getRemoteKeystoreData(data: string, basePort: int,
       pubkey: publicKey
     )
 
+  debugRaiseAssert "check electraIndex"
   ok case rt
     of RemoteSignerType.Web3Signer:
       KeystoreData(
@@ -260,6 +271,7 @@ func getRemoteKeystoreData(data: string, basePort: int,
         provenBlockProperties: @[
           ProvenProperty(
             path: ".execution_payload.fee_recipient",
+            electraIndex: some GeneralizedIndex(801),
             denebIndex: some GeneralizedIndex(801),
             capellaIndex: some GeneralizedIndex(401)
           )

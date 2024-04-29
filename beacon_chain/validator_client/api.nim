@@ -1489,7 +1489,7 @@ proc produceAttestationData*(
 
 proc submitPoolAttestations*(
        vc: ValidatorClientRef,
-       data: seq[Attestation],
+       data: seq[phase0.Attestation],
        strategy: ApiStrategyKind
      ): Future[bool] {.async.} =
   const
@@ -1635,7 +1635,7 @@ proc getAggregatedAttestation*(
        slot: Slot,
        root: Eth2Digest,
        strategy: ApiStrategyKind
-     ): Future[Attestation] {.async.} =
+     ): Future[phase0.Attestation] {.async.} =
   const
     RequestName = "getAggregatedAttestation"
 
@@ -2259,6 +2259,8 @@ proc publishBlock*(
           publishBlock(it, data.capellaData)
         of ConsensusFork.Deneb:
           publishBlock(it, data.denebData)
+        of ConsensusFork.Electra:
+          publishBlock(it, data.electraData)
       do:
         if apiResponse.isErr():
           handleCommunicationError()
@@ -2305,6 +2307,8 @@ proc publishBlock*(
         publishBlock(it, data.capellaData)
       of ConsensusFork.Deneb:
         publishBlock(it, data.denebData)
+      of ConsensusFork.Electra:
+        publishBlock(it, data.electraData)
 
     do:
       if apiResponse.isErr():
@@ -2461,6 +2465,8 @@ proc publishBlindedBlock*(
           publishBlindedBlock(it, data.capellaData)
         of ConsensusFork.Deneb:
           publishBlindedBlock(it, data.denebData)
+        of ConsensusFork.Electra:
+          publishBlindedBlock(it, data.electraData)
       do:
         if apiResponse.isErr():
           handleCommunicationError()
@@ -2506,6 +2512,8 @@ proc publishBlindedBlock*(
         publishBlindedBlock(it, data.capellaData)
       of ConsensusFork.Deneb:
         publishBlindedBlock(it, data.denebData)
+      of ConsensusFork.Electra:
+        publishBlindedBlock(it, data.electraData)
     do:
       if apiResponse.isErr():
         handleCommunicationError()
