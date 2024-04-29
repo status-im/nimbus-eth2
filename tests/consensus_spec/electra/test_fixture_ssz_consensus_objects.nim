@@ -121,7 +121,7 @@ suite "EF - Electra - SSZ consensus objects " & preset():
           of "AggregateAndProof": discard # checkSSZ(AggregateAndProof, path, hash)
           of "Attestation": checkSSZ(electra.Attestation, path, hash)
           of "AttestationData": checkSSZ(AttestationData, path, hash)
-          of "AttesterSlashing": checkSSZ(ElectraAttesterSlashing, path, hash)
+          of "AttesterSlashing": checkSSZ(electra.AttesterSlashing, path, hash)
           of "BeaconBlock": checkSSZ(electra.BeaconBlock, path, hash)
           of "BeaconBlockBody": checkSSZ(electra.BeaconBlockBody, path, hash)
           of "BeaconBlockHeader": checkSSZ(BeaconBlockHeader, path, hash)
@@ -147,7 +147,7 @@ suite "EF - Electra - SSZ consensus objects " & preset():
           of "ForkData": checkSSZ(ForkData, path, hash)
           of "HistoricalBatch": checkSSZ(HistoricalBatch, path, hash)
           of "HistoricalSummary": checkSSZ(HistoricalSummary, path, hash)
-          of "IndexedAttestation": checkSSZ(ElectraIndexedAttestation, path, hash)
+          of "IndexedAttestation": checkSSZ(electra.IndexedAttestation, path, hash)
           of "LightClientBootstrap":
             checkSSZ(electra.LightClientBootstrap, path, hash)
           of "LightClientHeader": checkSSZ(electra.LightClientHeader, path, hash)

@@ -533,8 +533,8 @@ func is_eligible_for_activation*(
 # https://github.com/ethereum/consensus-specs/blob/v1.4.0/specs/phase0/beacon-chain.md#is_valid_indexed_attestation
 proc is_valid_indexed_attestation*(
     state: ForkyBeaconState,
-    indexed_attestation: SomeIndexedAttestation | ElectraIndexedAttestation |
-                         TrustedElectraIndexedAttestation,
+    indexed_attestation: SomeIndexedAttestation | electra.IndexedAttestation |
+                         electra.TrustedIndexedAttestation,
     flags: UpdateFlags): Result[void, cstring] =
   ## Check if ``indexed_attestation`` is not empty, has sorted and unique
   ## indices and has a valid aggregate signature.
