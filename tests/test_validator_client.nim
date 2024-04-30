@@ -746,6 +746,15 @@ suite "Validator Client test suite":
         score = shortScore(getAggregatedAttestationDataScore(adata))
       check score == vector[1]
 
+  test "getAggregatedAttestationDataScore() default test":
+    let
+      adata = GetAggregatedAttestationResponse(
+        data: LowestScoreAggregatedAttestation)
+      score = shortScore(getAggregatedAttestationDataScore(adata))
+    check:
+      score == "0.0000"
+      isLowestScoreAggregatedAttestation(adata.data) == true
+
   test "getSyncCommitteeContributionDataScore() test vectors":
     for vector in ContributionDataVectors:
       let
