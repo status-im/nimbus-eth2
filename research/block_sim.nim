@@ -30,7 +30,7 @@ from std/random import Rand, gauss, initRand, rand
 from std/stats import RunningStat
 from ../beacon_chain/consensus_object_pools/attestation_pool import
   AttestationPool, addAttestation, addForkChoice, getAttestationsForBlock,
-  init, prune
+  getElectraAttestationsForBlock, init, prune
 from ../beacon_chain/consensus_object_pools/block_quarantine import
   Quarantine, init
 from ../beacon_chain/consensus_object_pools/sync_committee_msg_pool import
@@ -252,19 +252,44 @@ cli do(slots = SLOTS_PER_EPOCH * 7,
 
         for index_in_committee, validator_index in committee:
           if rand(r, 1.0) <= attesterRatio:
-            let
-              data = makeAttestationData(
-                updatedState, slot, committee_index, bid.root)
-              sig =
-                get_attestation_signature(
-                  fork, genesis_validators_root, data,
-                  MockPrivKeys[validator_index])
-              attestation = phase0.Attestation.init(
-                [uint64 index_in_committee], committee.len, data,
-                sig.toValidatorSig()).expect("valid data")
+            if tmpState.kind < ConsensusFork.Electra:
+              let
+                data = makeAttestationData(
+                  updatedState, slot, committee_index, bid.root)
+                sig =
+                  get_attestation_signature(
+                    fork, genesis_validators_root, data,
+                    MockPrivKeys[validator_index])
+                attestation = phase0.Attestation.init(
+                  [uint64 index_in_committee], committee.len, data,
+                  sig.toValidatorSig()).expect("valid data")
 
-            attPool.addAttestation(
-              attestation, [validator_index], sig, data.slot.start_beacon_time)
+              attPool.addAttestation(
+                attestation, [validator_index], sig, data.slot.start_beacon_time)
+            else:
+              var
+                data = makeAttestationData(
+                  updatedState, slot, committee_index, bid.root)
+                committee_bits: BitArray[static(MAX_COMMITTEES_PER_SLOT.int)]
+                aggregation_bits = ElectraCommitteeValidatorsBits.init(committee.len)
+              let committeeidx = data.index
+              aggregation_bits.setBit(index_in_committee)
+              committee_bits.setBit(committeeidx)
+              data.index = 0   # obviously, fix in makeAttestationData for Electra
+              let
+                sig =
+                  get_attestation_signature(
+                    fork, genesis_validators_root, data,
+                    MockPrivKeys[validator_index])
+                attestation = electra.Attestation(
+                  # https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.1/specs/electra/validator.md#construct-attestation
+                  aggregation_bits: aggregation_bits,
+                  data: data,
+                  committee_bits: committee_bits,
+                  signature: sig.toValidatorSig())
+
+              attPool.addAttestation(
+                attestation, [validator_index], sig, data.slot.start_beacon_time)
     do:
       raiseAssert "withUpdatedState failed"
 
@@ -401,7 +426,7 @@ cli do(slots = SLOTS_PER_EPOCH * 7,
         eth1ProposalData.vote,
         default(GraffitiBytes),
         when T is electra.SignedBeaconBlock:
-          default(seq[electra.Attestation])
+          attPool.getElectraAttestationsForBlock(state, cache)
         else:
           attPool.getAttestationsForBlock(state, cache),
         eth1ProposalData.deposits,
@@ -418,8 +443,6 @@ cli do(slots = SLOTS_PER_EPOCH * 7,
         static(default(SignedBLSToExecutionChangeList)),
         noRollback,
         cache)
-
-    debugRaiseAssert "block_sim only uses empty attestations, which means it can't j/f Electra at the moment"
 
     var newBlock = T(message: message.get())
 
