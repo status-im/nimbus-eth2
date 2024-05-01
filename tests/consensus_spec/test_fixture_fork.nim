@@ -29,11 +29,16 @@ proc runTest(
       postState = newClone(
         parseTest(testDir/"post.ssz_snappy", SSZ, BeaconStatePost))
 
-    var cfg = defaultRuntimeConfig
+    var
+      cfg = defaultRuntimeConfig
+      cache: StateCache
     when BeaconStateAnte is phase0.BeaconState:
       cfg.ALTAIR_FORK_EPOCH = preState[].slot.epoch
 
-    let upgradedState = upgrade_func(cfg, preState[])
+    when compiles(upgrade_func(cfg, preState[], cache)):
+      let upgradedState = upgrade_func(cfg, preState[], cache)
+    else:
+      let upgradedState = upgrade_func(cfg, preState[])
     check: upgradedState[].hash_tree_root() == postState[].hash_tree_root()
     reportDiff(upgradedState, postState)
 
@@ -72,3 +77,12 @@ suite "EF - Deneb - Fork " & preset():
   for kind, path in walkDir(OpForkDir, relative = true, checkDir = true):
     runTest(capella.BeaconState, deneb.BeaconState, "Deneb", OpForkDir,
             upgrade_to_deneb, suiteName, path)
+
+from ../../beacon_chain/spec/datatypes/electra import BeaconState
+
+suite "EF - Electra - Fork " & preset():
+  const OpForkDir =
+    SszTestsDir/const_preset/"electra"/"fork"/"fork"/"pyspec_tests"
+  for kind, path in walkDir(OpForkDir, relative = true, checkDir = true):
+    runTest(deneb.BeaconState, electra.BeaconState, "Electra", OpForkDir,
+            upgrade_to_electra, suiteName, path)

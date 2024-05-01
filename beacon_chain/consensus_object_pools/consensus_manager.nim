@@ -333,8 +333,6 @@ proc getFeeRecipient*(
 proc getGasLimit*(self: ConsensusManager, pubkey: ValidatorPubKey): uint64 =
   getGasLimit(self.validatorsDir, self.defaultGasLimit, pubkey)
 
-from ../spec/datatypes/bellatrix import PayloadID
-
 proc runProposalForkchoiceUpdated*(
     self: ref ConsensusManager, wallSlot: Slot): Future[Opt[void]] {.async: (raises: [CancelledError]).} =
   let
@@ -379,8 +377,10 @@ proc runProposalForkchoiceUpdated*(
         payloadAttributes = some fcPayloadAttributes)
       debug "Fork-choice updated for proposal", status
 
-    static: doAssert high(ConsensusFork) == ConsensusFork.Deneb
+    static: doAssert high(ConsensusFork) == ConsensusFork.Electra
     when consensusFork >= ConsensusFork.Deneb:
+      # https://github.com/ethereum/execution-apis/blob/90a46e9137c89d58e818e62fa33a0347bba50085/src/engine/prague.md
+      # does not define any new forkchoiceUpdated, so reuse V3 from Dencun
       callForkchoiceUpdated(PayloadAttributesV3(
         timestamp: Quantity timestamp,
         prevRandao: FixedBytes[32] randomData,

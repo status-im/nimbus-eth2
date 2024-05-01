@@ -12,7 +12,7 @@ import
   # Beacon chain internals
   ../beacon_chain/spec/helpers,
   ../beacon_chain/spec/datatypes/[bellatrix, capella],
-  ../beacon_chain/spec/mev/[bellatrix_mev, capella_mev, deneb_mev],
+  ../beacon_chain/spec/mev/[bellatrix_mev, capella_mev, deneb_mev, electra_mev],
   # Test utilities
   unittest2
 
@@ -53,11 +53,14 @@ template bellatrix_steps() =
   do_check
   check: b.message.body.proposer_slashings.add(default(ProposerSlashing))
   do_check
-  check: b.message.body.attester_slashings.add(default(AttesterSlashing))
-  do_check
-  check: b.message.body.attestations.add(
-    Attestation(aggregation_bits: CommitteeValidatorsBits.init(1)))
-  do_check
+  when false:
+    debugRaiseAssert "both Electra attestations and attestation slashings need to be done iff Electra"
+    check:
+      b.message.body.attester_slashings.add(default(phase0.AttesterSlashing))
+    do_check
+    check: b.message.body.attestations.add(
+      phase0.Attestation(aggregation_bits: CommitteeValidatorsBits.init(1)))
+    do_check
   check: b.message.body.deposits.add(default(Deposit))
   do_check
   check: b.message.body.voluntary_exits.add(default(SignedVoluntaryExit))
@@ -130,3 +133,11 @@ suite "Blinded block conversions":
     bellatrix_steps
     capella_steps
     deneb_steps
+
+  test "Electra toSignedBlindedBlock":
+    var b = default(electra.SignedBeaconBlock)
+    do_check
+    bellatrix_steps
+    capella_steps
+    deneb_steps
+    debugRaiseAssert "add electra_steps"

@@ -52,12 +52,12 @@ type
     from_bls_pubkey*: ValidatorPubKey
     to_execution_address*: ExecutionAddress
 
-  # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.5/specs/capella/beacon-chain.md#signedblstoexecutionchange
+  # https://github.com/ethereum/consensus-specs/blob/v1.4.0/specs/capella/beacon-chain.md#signedblstoexecutionchange
   SignedBLSToExecutionChange* = object
     message*: BLSToExecutionChange
     signature*: ValidatorSig
 
-  # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.5/specs/capella/beacon-chain.md#historicalsummary
+  # https://github.com/ethereum/consensus-specs/blob/v1.4.0/specs/capella/beacon-chain.md#historicalsummary
   HistoricalSummary* = object
     # `HistoricalSummary` matches the components of the phase0
     # `HistoricalBatch` making the two hash_tree_root-compatible.
@@ -368,7 +368,8 @@ type
 
     # Operations
     proposer_slashings*: List[ProposerSlashing, Limit MAX_PROPOSER_SLASHINGS]
-    attester_slashings*: List[AttesterSlashing, Limit MAX_ATTESTER_SLASHINGS]
+    attester_slashings*:
+      List[phase0.AttesterSlashing, Limit MAX_ATTESTER_SLASHINGS]
     attestations*: List[Attestation, Limit MAX_ATTESTATIONS]
     deposits*: List[Deposit, Limit MAX_DEPOSITS]
     voluntary_exits*: List[SignedVoluntaryExit, Limit MAX_VOLUNTARY_EXITS]
@@ -405,7 +406,8 @@ type
 
     # Operations
     proposer_slashings*: List[TrustedProposerSlashing, Limit MAX_PROPOSER_SLASHINGS]
-    attester_slashings*: List[TrustedAttesterSlashing, Limit MAX_ATTESTER_SLASHINGS]
+    attester_slashings*:
+      List[phase0.TrustedAttesterSlashing, Limit MAX_ATTESTER_SLASHINGS]
     attestations*: List[TrustedAttestation, Limit MAX_ATTESTATIONS]
     deposits*: List[Deposit, Limit MAX_DEPOSITS]
     voluntary_exits*: List[TrustedSignedVoluntaryExit, Limit MAX_VOLUNTARY_EXITS]
@@ -429,7 +431,8 @@ type
 
     # Operations
     proposer_slashings*: List[TrustedProposerSlashing, Limit MAX_PROPOSER_SLASHINGS]
-    attester_slashings*: List[TrustedAttesterSlashing, Limit MAX_ATTESTER_SLASHINGS]
+    attester_slashings*:
+      List[phase0.TrustedAttesterSlashing, Limit MAX_ATTESTER_SLASHINGS]
     attestations*: List[TrustedAttestation, Limit MAX_ATTESTATIONS]
     deposits*: List[Deposit, Limit MAX_DEPOSITS]
     voluntary_exits*: List[TrustedSignedVoluntaryExit, Limit MAX_VOLUNTARY_EXITS]
@@ -497,7 +500,8 @@ type
   BeaconBlockValidatorChanges* = object
     # Collection of exits that are suitable for block production
     proposer_slashings*: List[ProposerSlashing, Limit MAX_PROPOSER_SLASHINGS]
-    attester_slashings*: List[AttesterSlashing, Limit MAX_ATTESTER_SLASHINGS]
+    attester_slashings*:
+      List[phase0.AttesterSlashing, Limit MAX_ATTESTER_SLASHINGS]
     voluntary_exits*: List[SignedVoluntaryExit, Limit MAX_VOLUNTARY_EXITS]
     bls_to_execution_changes*:
       List[SignedBLSToExecutionChange, Limit MAX_BLS_TO_EXECUTION_CHANGES]

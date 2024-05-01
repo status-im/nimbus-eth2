@@ -660,7 +660,7 @@ proc registerAttestation*(
     self: var ValidatorMonitor,
     src: MsgSource,
     seen_timestamp: BeaconTime,
-    attestation: Attestation,
+    attestation: phase0.Attestation,
     idx: ValidatorIndex) =
   let
     slot = attestation.data.slot
@@ -884,7 +884,8 @@ proc registerProposerSlashing*(
       epochSummary.proposer_slashings += 1
 
 proc registerAttesterSlashing*(
-    self: var ValidatorMonitor, src: MsgSource, slashing: AttesterSlashing) =
+    self: var ValidatorMonitor, src: MsgSource,
+    slashing: phase0.AttesterSlashing) =
   let data = slashing.attestation_1.data
 
   for idx in slashing.attestation_2.attesting_indices:

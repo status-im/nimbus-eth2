@@ -40,7 +40,7 @@ export extras, phase0, altair
 logScope: topics = "consens"
 
 # Accessors that implement the max condition in `get_total_balance`:
-# https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.6/specs/phase0/beacon-chain.md#get_total_balance
+# https://github.com/ethereum/consensus-specs/blob/v1.4.0/specs/phase0/beacon-chain.md#get_total_balance
 template current_epoch*(v: TotalBalances): Gwei =
   max(EFFECTIVE_BALANCE_INCREMENT.Gwei, v.current_epoch_raw)
 template previous_epoch*(v: TotalBalances): Gwei =
@@ -806,7 +806,7 @@ iterator get_flag_and_inactivity_deltas*(
       active_increments, penalty_denominator, epoch_participation,
       participating_increments, info, vidx)
 
-# https://github.com/ethereum/consensus-specs/blob/v1.4.0-alpha.3/specs/phase0/beacon-chain.md#rewards-and-penalties-1
+# https://github.com/ethereum/consensus-specs/blob/v1.4.0/specs/phase0/beacon-chain.md#rewards-and-penalties-1
 func process_rewards_and_penalties*(
     state: var phase0.BeaconState, info: var phase0.EpochInfo) =
   # No rewards are applied at the end of `GENESIS_EPOCH` because rewards are
@@ -867,18 +867,12 @@ from std/heapqueue import HeapQueue, `[]`, len, push, replace
 
 # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.6/specs/phase0/beacon-chain.md#registry-updates
 func process_registry_updates*(
-    cfg: RuntimeConfig, state: var ForkyBeaconState, cache: var StateCache):
-    Result[void, cstring] =
+    cfg: RuntimeConfig,
+    state: var (phase0.BeaconState | altair.BeaconState |
+                bellatrix.BeaconState | capella.BeaconState |
+                deneb.BeaconState),
+    cache: var StateCache): Result[void, cstring] =
   ## Process activation eligibility and ejections
-
-  # Make visible, e.g.,
-  # https://github.com/status-im/nimbus-eth2/pull/608
-  # https://github.com/sigp/lighthouse/pull/657
-  let epoch {.used.} = get_current_epoch(state)
-  trace "process_registry_updates validator balances",
-    balances=state.balances,
-    active_validator_indices=get_active_validator_indices(state, epoch),
-    epoch=epoch
 
   # is_active_validator(...) is activation_epoch <= epoch < exit_epoch,
   # and changes here to either activation_epoch or exit_epoch only take
@@ -911,8 +905,7 @@ func process_registry_updates*(
       # more than one. Therefore, only calculate the information required for
       # initiate_validator_exit if there actually is at least one.
       let exit_queue_info = maybe_exit_queue_info.valueOr:
-        let initial_exit_queue_info = get_state_exit_queue_info(
-          cfg, state, cache)
+        let initial_exit_queue_info = get_state_exit_queue_info(state)
         maybe_exit_queue_info = Opt.some initial_exit_queue_info
         initial_exit_queue_info
 
@@ -937,6 +930,32 @@ func process_registry_updates*(
     state.validators.mitem(
       high(distinctBase(ValidatorIndex)) - vidx_complement).activation_epoch =
         compute_activation_exit_epoch(get_current_epoch(state))
+
+  ok()
+
+# https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.0/specs/electra/beacon-chain.md#updated--process_registry_updates
+func process_registry_updates*(
+    cfg: RuntimeConfig, state: var electra.BeaconState, cache: var StateCache):
+    Result[void, cstring] =
+  # Process activation eligibility and ejections
+  for index in 0 ..< state.validators.len:
+    let validator = state.validators.item(index)
+    if is_eligible_for_activation_queue(validator):
+      # Usually not too many at once, so do this individually
+      state.validators.mitem(index).activation_eligibility_epoch =
+        get_current_epoch(state) + 1
+
+    if  is_active_validator(validator, get_current_epoch(state)) and
+        distinctBase(validator.effective_balance) <= cfg.EJECTION_BALANCE:
+      discard ? initiate_validator_exit(
+        cfg, state, ValidatorIndex(index), static(default(ExitQueueInfo)), cache)
+
+  # Activate all eligible validators
+  let activation_epoch =
+    compute_activation_exit_epoch(get_current_epoch(state))
+  for index in 0 ..< state.validators.len:
+    if is_eligible_for_activation(state, state.validators.item(index)):
+      state.validators.mitem(index).activation_epoch = activation_epoch
 
   ok()
 
@@ -1013,8 +1032,11 @@ template effective_balance_might_update*(
   balance + DOWNWARD_THRESHOLD < effective_balance or
     effective_balance + UPWARD_THRESHOLD < balance
 
-# https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.7/specs/phase0/beacon-chain.md#effective-balances-updates
-func process_effective_balance_updates*(state: var ForkyBeaconState) =
+# https://github.com/ethereum/consensus-specs/blob/v1.4.0/specs/phase0/beacon-chain.md#effective-balances-updates
+func process_effective_balance_updates*(
+    state: var (phase0.BeaconState | altair.BeaconState |
+                bellatrix.BeaconState | capella.BeaconState |
+                deneb.BeaconState)) =
   # Update effective balances with hysteresis
   for vidx in state.validators.vindices:
     let
@@ -1029,7 +1051,36 @@ func process_effective_balance_updates*(state: var ForkyBeaconState) =
       if new_effective_balance != effective_balance:
         state.validators.mitem(vidx).effective_balance = new_effective_balance
 
-# https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.6/specs/phase0/beacon-chain.md#slashings-balances-updates
+# https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.1/specs/electra/beacon-chain.md#updated-process_effective_balance_updates
+func process_effective_balance_updates*(state: var electra.BeaconState) =
+  # Update effective balances with hysteresis
+  for vidx in state.validators.vindices:
+    let
+      balance = state.balances.item(vidx)
+      effective_balance = state.validators.item(vidx).effective_balance
+    if effective_balance_might_update(balance, effective_balance):
+      debugRaiseAssert "amortize validator read access"
+      # Wrapping MAX_EFFECTIVE_BALANCE_ELECTRA.Gwei and
+      # MIN_ACTIVATION_BALANCE.Gwei in static() results
+      # in
+      # beacon_chain/spec/state_transition_epoch.nim(1067, 20) Error: expected: ':', but got: '('
+      # even though it'd be better to statically verify safety
+      let
+        effective_balance_limit =
+          if has_compounding_withdrawal_credential(
+              state.validators.item(vidx)):
+            MAX_EFFECTIVE_BALANCE_ELECTRA.Gwei
+          else:
+            MIN_ACTIVATION_BALANCE.Gwei
+        new_effective_balance =
+          min(
+            balance - balance mod EFFECTIVE_BALANCE_INCREMENT.Gwei,
+            effective_balance_limit)
+      # Protect against unnecessary cache invalidation
+      if new_effective_balance != effective_balance:
+        state.validators.mitem(vidx).effective_balance = new_effective_balance
+
+# https://github.com/ethereum/consensus-specs/blob/v1.4.0/specs/phase0/beacon-chain.md#slashings-balances-updates
 func process_slashings_reset*(state: var ForkyBeaconState) =
   let next_epoch = get_current_epoch(state) + 1
 
@@ -1167,7 +1218,67 @@ func process_historical_summaries_update*(
 
   ok()
 
-# https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.6/specs/phase0/beacon-chain.md#epoch-processing
+# https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.0/specs/electra/beacon-chain.md#new-process_pending_balance_deposits
+func process_pending_balance_deposits*(
+    cfg: RuntimeConfig, state: var electra.BeaconState,
+    cache: var StateCache) =
+  let
+    available_for_processing = state.deposit_balance_to_consume +
+      get_activation_exit_churn_limit(cfg, state, cache)
+  var
+    processed_amount = 0.Gwei
+    next_deposit_index = 0.Gwei
+
+  for deposit in state.pending_balance_deposits:
+    if processed_amount + deposit.amount > available_for_processing:
+      break
+    debugRaiseAssert "do this validatorindex check properly (it truncates)"
+    increase_balance(state, deposit.index.ValidatorIndex, deposit.amount)
+    processed_amount += deposit.amount
+    inc next_deposit_index
+
+  state.pending_balance_deposits =
+    HashList[PendingBalanceDeposit, Limit PENDING_BALANCE_DEPOSITS_LIMIT].init(
+      state.pending_balance_deposits.asSeq[next_deposit_index..^1])
+
+  if len(state.pending_balance_deposits) == 0:
+    state.deposit_balance_to_consume = Gwei(0)
+  else:
+    state.deposit_balance_to_consume =
+      available_for_processing - processed_amount
+
+# https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.0/specs/electra/beacon-chain.md#new-process_pending_consolidations
+func process_pending_consolidations*(cfg: RuntimeConfig, state: var electra.BeaconState) =
+  var next_pending_consolidation = 0
+  for pending_consolidation in state.pending_consolidations:
+    let source_validator =
+      state.validators.item(pending_consolidation.source_index)
+    if source_validator.slashed:
+      next_pending_consolidation += 1
+      continue
+    if source_validator.withdrawable_epoch > get_current_epoch(state):
+      break
+
+    # Churn any target excess active balance of target and raise its max
+    debugRaiseAssert "truncating integer conversion"
+    switch_to_compounding_validator(
+      state, pending_consolidation.target_index.ValidatorIndex)
+
+    # Move active balance to target. Excess balance is withdrawable.
+    debugRaiseAssert "Truncating"
+    let active_balance = get_active_balance(
+      state, pending_consolidation.source_index.ValidatorIndex)
+    decrease_balance(
+      state, pending_consolidation.source_index.ValidatorIndex, active_balance)
+    increase_balance(
+      state, pending_consolidation.target_index.ValidatorIndex, active_balance)
+    inc next_pending_consolidation
+
+  state.pending_consolidations =
+    HashList[PendingConsolidation, Limit PENDING_CONSOLIDATIONS_LIMIT].init(
+      state.pending_consolidations.asSeq[next_pending_consolidation..^1])
+
+# https://github.com/ethereum/consensus-specs/blob/v1.4.0/specs/phase0/beacon-chain.md#epoch-processing
 proc process_epoch*(
     cfg: RuntimeConfig, state: var phase0.BeaconState, flags: UpdateFlags,
     cache: var StateCache, info: var phase0.EpochInfo): Result[void, cstring] =
@@ -1222,7 +1333,7 @@ func init*(
 func init*(
     T: type altair.EpochInfo,
     state: altair.BeaconState | bellatrix.BeaconState | capella.BeaconState |
-           deneb.BeaconState): T =
+           deneb.BeaconState | electra.BeaconState): T =
   init(result, state)
 
 # https://github.com/ethereum/consensus-specs/blob/v1.4.0/specs/altair/beacon-chain.md#epoch-processing
@@ -1255,7 +1366,7 @@ proc process_epoch*(
   # https://github.com/ethereum/consensus-specs/blob/v1.4.0/specs/altair/beacon-chain.md#rewards-and-penalties
   process_rewards_and_penalties(cfg, state, info)  # [Modified in Altair]
 
-  # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.6/specs/phase0/beacon-chain.md#registry-updates
+  # https://github.com/ethereum/consensus-specs/blob/v1.4.0/specs/phase0/beacon-chain.md#registry-updates
   ? process_registry_updates(cfg, state, cache)
 
   # https://github.com/ethereum/consensus-specs/blob/v1.4.0/specs/altair/beacon-chain.md#slashings
@@ -1274,7 +1385,7 @@ proc process_epoch*(
 # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.5/specs/capella/beacon-chain.md#epoch-processing
 proc process_epoch*(
     cfg: RuntimeConfig,
-    state: var (capella.BeaconState | deneb.BeaconState | electra.BeaconState),
+    state: var (capella.BeaconState | deneb.BeaconState),
     flags: UpdateFlags, cache: var StateCache, info: var altair.EpochInfo):
     Result[void, cstring] =
   let epoch = get_current_epoch(state)
@@ -1309,6 +1420,53 @@ proc process_epoch*(
 
   process_eth1_data_reset(state)
   process_effective_balance_updates(state)
+  process_slashings_reset(state)
+  process_randao_mixes_reset(state)
+  ? process_historical_summaries_update(state)  # [Modified in Capella]
+  process_participation_flag_updates(state)
+  process_sync_committee_updates(state)
+
+  ok()
+
+# https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.1/specs/electra/beacon-chain.md#epoch-processing
+proc process_epoch*(
+    cfg: RuntimeConfig, state: var electra.BeaconState,
+    flags: UpdateFlags, cache: var StateCache, info: var altair.EpochInfo):
+    Result[void, cstring] =
+  let epoch = get_current_epoch(state)
+  trace "process_epoch", epoch
+
+  info.init(state)
+
+  # https://github.com/ethereum/consensus-specs/blob/v1.4.0/specs/altair/beacon-chain.md#justification-and-finalization
+  process_justification_and_finalization(state, info.balances, flags)
+
+  # state.slot hasn't been incremented yet.
+  if strictVerification in flags:
+    # Rule 2/3/4 finalization results in the most pessimal case. The other
+    # three finalization rules finalize more quickly as long as the any of
+    # the finalization rules triggered.
+    if (epoch >= 2 and state.current_justified_checkpoint.epoch + 2 < epoch) or
+       (epoch >= 3 and state.finalized_checkpoint.epoch + 3 < epoch):
+      fatal "The network did not finalize",
+             epoch, finalizedEpoch = state.finalized_checkpoint.epoch
+      quit 1
+
+  process_inactivity_updates(cfg, state, info)
+
+  # https://github.com/ethereum/consensus-specs/blob/v1.4.0/specs/altair/beacon-chain.md#rewards-and-penalties
+  process_rewards_and_penalties(cfg, state, info)
+
+  # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.6/specs/phase0/beacon-chain.md#registry-updates
+  ? process_registry_updates(cfg, state, cache)  # [Modified in Electra:EIP7251]
+
+  # https://github.com/ethereum/consensus-specs/blob/v1.4.0/specs/altair/beacon-chain.md#slashings
+  process_slashings(state, info.balances.current_epoch)
+
+  process_eth1_data_reset(state)
+  process_pending_balance_deposits(cfg, state, cache)  # [New in Electra:EIP7251]
+  process_pending_consolidations(cfg, state)  # [New in Electra:EIP7251]
+  process_effective_balance_updates(state)  # [Modified in Electra:EIP7251]
   process_slashings_reset(state)
   process_randao_mixes_reset(state)
   ? process_historical_summaries_update(state)  # [Modified in Capella]

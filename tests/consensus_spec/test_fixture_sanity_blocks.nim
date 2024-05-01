@@ -48,7 +48,7 @@ proc runTest(
 
       if hasPostState:
         # The return value is the block rewards, which aren't tested here;
-        # the .expect() already handles the the validaty check.
+        # the .expect() already handles the validaty check.
         discard state_transition(
           defaultRuntimeConfig, fhPreState[], blck, cache, info, flags = {},
           noRollback).expect("should apply block")
@@ -79,6 +79,14 @@ template runForkBlockTests(consensusFork: static ConsensusFork) =
 
   suite "EF - " & forkHumanName & " - Sanity - Blocks " & preset():
     for kind, path in walkDir(SanityBlocksDir, relative = true, checkDir = true):
+      debugRaiseAssert "this should be fixed in alpha.2; remove workaround"
+      if consensusFork == ConsensusFork.Electra and path in [
+          "multiple_consolidations_above_churn",  # no pre.ssz
+          "multiple_consolidations_below_churn",  # assert block.parent_root == hash_tree_root(state.latest_block_header)
+          "multiple_consolidations_equal_churn",  # assert block.parent_root == hash_tree_root(state.latest_block_header)
+          "multiple_consolidations_equal_twice_churn",  # assert block.parent_root == hash_tree_root(state.latest_block_header)
+          ]:
+        continue
       consensusFork.runTest(
         "EF - " & forkHumanName & " - Sanity - Blocks",
         SanityBlocksDir, suiteName, path)
@@ -96,5 +104,4 @@ template runForkBlockTests(consensusFork: static ConsensusFork) =
         RandomDir, suiteName, path)
 
 withAll(ConsensusFork):
-  when consensusFork <= ConsensusFork.Deneb:
-    runForkBlockTests(consensusFork)
+  runForkBlockTests(consensusFork)

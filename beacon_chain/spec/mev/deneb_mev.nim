@@ -10,6 +10,7 @@
 import ".."/datatypes/[altair, deneb]
 
 from stew/byteutils import to0xHex
+from ".."/datatypes/phase0 import Attestation, AttesterSlashing
 from ../datatypes/bellatrix import ExecutionAddress
 from ".."/datatypes/capella import SignedBLSToExecutionChange
 from ".."/eth2_merkleization import hash_tree_root

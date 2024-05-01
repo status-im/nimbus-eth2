@@ -158,7 +158,8 @@ func check_beacon_and_target_block(
   ok(target)
 
 func check_aggregation_count(
-    attestation: Attestation, singular: bool): Result[void, ValidationError] =
+    attestation: phase0.Attestation, singular: bool):
+    Result[void, ValidationError] =
   let ones = attestation.aggregation_bits.countOnes()
   if singular and ones != 1:
     return errReject("Attestation must have a single attestation bit set")
@@ -650,7 +651,7 @@ proc validateBeaconBlock*(
 proc validateAttestation*(
     pool: ref AttestationPool,
     batchCrypto: ref BatchCrypto,
-    attestation: Attestation,
+    attestation: phase0.Attestation,
     wallTime: BeaconTime,
     subnet_id: SubnetId, checkSignature: bool):
     Future[Result[
@@ -1086,7 +1087,7 @@ proc validateBlsToExecutionChange*(
 
 # https://github.com/ethereum/consensus-specs/blob/v1.3.0/specs/phase0/p2p-interface.md#attester_slashing
 proc validateAttesterSlashing*(
-    pool: ValidatorChangePool, attester_slashing: AttesterSlashing):
+    pool: ValidatorChangePool, attester_slashing: phase0.AttesterSlashing):
     Result[void, ValidationError] =
   # [IGNORE] At least one index in the intersection of the attesting indices of
   # each attestation has not yet been seen in any prior attester_slashing (i.e.

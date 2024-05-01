@@ -21,7 +21,7 @@ source "${SCRIPTS_DIR}/bash_utils.sh"
 
 download_geth_stable() {
   if [[ ! -e "${STABLE_GETH_BINARY}" ]]; then
-    GETH_VERSION="1.13.14-2bd6bd01"  # https://geth.ethereum.org/downloads
+    GETH_VERSION="1.14.0-87246f3c"  # https://geth.ethereum.org/downloads
     GETH_URL="https://gethstore.blob.core.windows.net/builds/"
 
     case "${OS}-${ARCH}" in

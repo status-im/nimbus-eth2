@@ -42,7 +42,7 @@ import
   ".."/[conf, beacon_clock, beacon_node],
   "."/[
     keystore_management, slashing_protection, validator_duties, validator_pool],
-  ".."/spec/mev/rest_deneb_mev_calls
+  ".."/spec/mev/[rest_deneb_mev_calls, rest_electra_mev_calls]
 
 from std/sequtils import countIt, foldl, mapIt
 from eth/async_utils import awaitWithTimeout
@@ -421,6 +421,9 @@ proc getExecutionPayload(
       PayloadType, beaconHead.blck.bid.root, executionHead, latestSafe,
       latestFinalized, timestamp, random, feeRecipient, withdrawals)
 
+# BlockRewards has issues resolving somehow otherwise
+import ".."/spec/state_transition_block
+
 proc makeBeaconBlockForHeadAndSlot*(
     PayloadType: type ForkyExecutionPayloadForSigning,
     node: BeaconNode, randao_reveal: ValidatorSig,
@@ -494,9 +497,13 @@ proc makeBeaconBlockForHeadAndSlot*(
     warn "Eth1 deposits not available. Skipping block proposal", slot
     return err("Eth1 deposits not available")
 
+  debugRaiseAssert "b_v makeBeaconBlockForHeadAndSlot doesn't know how to get Electra attestations because attpool doesn't either"
   let
     attestations =
-      node.attestationPool[].getAttestationsForBlock(state[], cache)
+      when PayloadType.kind == ConsensusFork.Electra:
+        default(seq[electra.Attestation])
+      else:
+        node.attestationPool[].getAttestationsForBlock(state[], cache)
     exits = withState(state[]):
       node.validatorChangePool[].getBeaconBlockValidatorChanges(
         node.dag.cfg, forkyState.data)
@@ -562,7 +569,8 @@ proc makeBeaconBlockForHeadAndSlot*(
     kzg_commitments = Opt.none(KzgCommitments))
 
 proc getBlindedExecutionPayload[
-    EPH: deneb_mev.BlindedExecutionPayloadAndBlobsBundle](
+    EPH: deneb_mev.BlindedExecutionPayloadAndBlobsBundle |
+         electra_mev.BlindedExecutionPayloadAndBlobsBundle](
     node: BeaconNode, payloadBuilderClient: RestClientRef, slot: Slot,
     executionBlockHash: Eth2Digest, pubkey: ValidatorPubKey):
     Future[BlindedBlockResult[EPH]] {.async: (raises: [CancelledError, RestError]).} =
@@ -584,6 +592,22 @@ proc getBlindedExecutionPayload[
           "Unable to decode Deneb blinded header: " & $res.error &
             " with HTTP status " & $response.status & ", Content-Type " &
             $response.contentType & " and content " & $response.data)
+  elif EPH is electra_mev.BlindedExecutionPayloadAndBlobsBundle:
+    let
+      response = awaitWithTimeout(
+        payloadBuilderClient.getHeaderElectra(
+          slot, executionBlockHash, pubkey),
+        BUILDER_PROPOSAL_DELAY_TOLERANCE):
+          return err "Timeout obtaining Electra blinded header from builder"
+
+      res = decodeBytes(
+        GetHeaderResponseElectra, response.data, response.contentType)
+
+      blindedHeader = res.valueOr:
+        return err(
+          "Unable to decode Electra blinded header: " & $res.error &
+            " with HTTP status " & $response.status & ", Content-Type " &
+            $response.contentType & " and content " & $response.data)
   else:
     static: doAssert false
 
@@ -596,15 +620,12 @@ proc getBlindedExecutionPayload[
         blindedHeader.data.message.pubkey, blindedHeader.data.signature):
       return err "getBlindedExecutionPayload: signature verification failed"
 
-    when EPH is deneb_mev.BlindedExecutionPayloadAndBlobsBundle:
-      template builderBid: untyped = blindedHeader.data.message
-      return ok(BuilderBid[EPH](
-        blindedBlckPart: EPH(
-          execution_payload_header: builderBid.header,
-          blob_kzg_commitments: builderBid.blob_kzg_commitments),
-        executionPayloadValue: builderBid.value))
-    else:
-      static: doAssert false
+    template builderBid: untyped = blindedHeader.data.message
+    return ok(BuilderBid[EPH](
+      blindedBlckPart: EPH(
+        execution_payload_header: builderBid.header,
+        blob_kzg_commitments: builderBid.blob_kzg_commitments),
+      executionPayloadValue: builderBid.value))
 
 from ./message_router_mev import
   copyFields, getFieldNames, unblindAndRouteBlockMEV
@@ -628,6 +649,30 @@ proc constructSignableBlindedBlock[T: deneb_mev.SignedBlindedBeaconBlock](
   assign(
     blindedBlock.message.body.blob_kzg_commitments,
     blindedBundle.blob_kzg_commitments)
+
+  blindedBlock
+
+proc constructSignableBlindedBlock[T: electra_mev.SignedBlindedBeaconBlock](
+    blck: electra.BeaconBlock,
+    blindedBundle: electra_mev.BlindedExecutionPayloadAndBlobsBundle): T =
+  # Leaves signature field default, to be filled in by caller
+  const
+    blckFields = getFieldNames(typeof(blck))
+    blckBodyFields = getFieldNames(typeof(blck.body))
+
+  var blindedBlock: T
+
+  # https://github.com/ethereum/builder-specs/blob/v0.4.0/specs/bellatrix/validator.md#block-proposal
+  copyFields(blindedBlock.message, blck, blckFields)
+  copyFields(blindedBlock.message.body, blck.body, blckBodyFields)
+  assign(
+    blindedBlock.message.body.execution_payload_header,
+    blindedBundle.execution_payload_header)
+  assign(
+    blindedBlock.message.body.blob_kzg_commitments,
+    blindedBundle.blob_kzg_commitments)
+
+  debugRaiseAssert "check for any additional electra mev requirements"
 
   blindedBlock
 
@@ -655,7 +700,35 @@ func constructPlainBlindedBlock[T: deneb_mev.BlindedBeaconBlock](
 
   blindedBlock
 
-proc blindedBlockCheckSlashingAndSign[T: deneb_mev.SignedBlindedBeaconBlock](
+func constructPlainBlindedBlock[T: electra_mev.BlindedBeaconBlock](
+    blck: ForkyBeaconBlock,
+    blindedBundle: electra_mev.BlindedExecutionPayloadAndBlobsBundle): T =
+  # https://github.com/nim-lang/Nim/issues/23020 workaround
+  static: doAssert T is electra_mev.BlindedBeaconBlock
+
+  const
+    blckFields = getFieldNames(typeof(blck))
+    blckBodyFields = getFieldNames(typeof(blck.body))
+
+  var blindedBlock: T
+
+  # https://github.com/ethereum/builder-specs/blob/v0.4.0/specs/bellatrix/validator.md#block-proposal
+  copyFields(blindedBlock, blck, blckFields)
+  copyFields(blindedBlock.body, blck.body, blckBodyFields)
+  assign(
+    blindedBlock.body.execution_payload_header,
+    blindedBundle.execution_payload_header)
+  assign(
+    blindedBlock.body.blob_kzg_commitments,
+    blindedBundle.blob_kzg_commitments)
+
+  debugRaiseAssert "check for any additional electra mev requirements"
+
+  blindedBlock
+
+proc blindedBlockCheckSlashingAndSign[
+    T: deneb_mev.SignedBlindedBeaconBlock |
+       electra_mev.SignedBlindedBeaconBlock](
     node: BeaconNode, slot: Slot, validator: AttachedValidator,
     validator_index: ValidatorIndex, nonsignedBlindedBlock: T):
     Future[Result[T, string]] {.async: (raises: [CancelledError]).} =
@@ -687,17 +760,21 @@ proc blindedBlockCheckSlashingAndSign[T: deneb_mev.SignedBlindedBeaconBlock](
 
   return ok blindedBlock
 
-proc getUnsignedBlindedBeaconBlock[T: deneb_mev.SignedBlindedBeaconBlock](
+proc getUnsignedBlindedBeaconBlock[
+    T: deneb_mev.SignedBlindedBeaconBlock |
+       electra_mev.SignedBlindedBeaconBlock](
     node: BeaconNode, slot: Slot,
     validator_index: ValidatorIndex, forkedBlock: ForkedBeaconBlock,
-    executionPayloadHeader: capella.ExecutionPayloadHeader |
-                            deneb_mev.BlindedExecutionPayloadAndBlobsBundle):
+    executionPayloadHeader: deneb_mev.BlindedExecutionPayloadAndBlobsBundle |
+                            electra_mev.BlindedExecutionPayloadAndBlobsBundle):
     Result[T, string] =
   withBlck(forkedBlock):
     when consensusFork >= ConsensusFork.Deneb:
       when not (
           (T is deneb_mev.SignedBlindedBeaconBlock and
-           consensusFork == ConsensusFork.Deneb)):
+           consensusFork == ConsensusFork.Deneb) or
+          (T is electra_mev.SignedBlindedBeaconBlock and
+           consensusFork == ConsensusFork.Electra)):
         return err("getUnsignedBlindedBeaconBlock: mismatched block/payload types")
       else:
         return ok constructSignableBlindedBlock[T](
@@ -706,8 +783,8 @@ proc getUnsignedBlindedBeaconBlock[T: deneb_mev.SignedBlindedBeaconBlock](
       return err("getUnsignedBlindedBeaconBlock: attempt to construct pre-Deneb blinded block")
 
 proc getBlindedBlockParts[
-    EPH: capella.ExecutionPayloadHeader |
-         deneb_mev.BlindedExecutionPayloadAndBlobsBundle](
+    EPH: deneb_mev.BlindedExecutionPayloadAndBlobsBundle |
+         electra_mev.BlindedExecutionPayloadAndBlobsBundle](
     node: BeaconNode, payloadBuilderClient: RestClientRef, head: BlockRef,
     pubkey: ValidatorPubKey, slot: Slot, randao: ValidatorSig,
     validator_index: ValidatorIndex, graffiti: GraffitiBytes):
@@ -752,18 +829,7 @@ proc getBlindedBlockParts[
   #
   # This doesn't have withdrawals, which each node has regardless of engine or
   # builder API. makeBeaconBlockForHeadAndSlot fills it in later.
-  when EPH is capella.ExecutionPayloadHeader:
-    type PayloadType = capella.ExecutionPayloadForSigning
-    template actualEPH: untyped = executionPayloadHeader.get.blindedBlckPart
-    let withdrawals_root =
-      Opt.some executionPayloadHeader.get.blindedBlckPart.withdrawals_root
-    const kzg_commitments = Opt.none KzgCommitments
-
-    var shimExecutionPayload: PayloadType
-    copyFields(
-      shimExecutionPayload.executionPayload,
-      executionPayloadHeader.get.blindedBlckPart, getFieldNames(EPH))
-  elif EPH is deneb_mev.BlindedExecutionPayloadAndBlobsBundle:
+  when EPH is deneb_mev.BlindedExecutionPayloadAndBlobsBundle:
     type PayloadType = deneb.ExecutionPayloadForSigning
     template actualEPH: untyped =
       executionPayloadHeader.get.blindedBlckPart.execution_payload_header
@@ -777,6 +843,20 @@ proc getBlindedBlockParts[
       deneb_mev.BlindedExecutionPayloadAndBlobsBundle.execution_payload_header
     copyFields(
       shimExecutionPayload.executionPayload, actualEPH, getFieldNames(DenebEPH))
+  elif EPH is electra_mev.BlindedExecutionPayloadAndBlobsBundle:
+    type PayloadType = electra.ExecutionPayloadForSigning
+    template actualEPH: untyped =
+      executionPayloadHeader.get.blindedBlckPart.execution_payload_header
+    let
+      withdrawals_root = Opt.some actualEPH.withdrawals_root
+      kzg_commitments = Opt.some(
+        executionPayloadHeader.get.blindedBlckPart.blob_kzg_commitments)
+
+    var shimExecutionPayload: PayloadType
+    type ElectraEPH =
+      electra_mev.BlindedExecutionPayloadAndBlobsBundle.execution_payload_header
+    copyFields(
+      shimExecutionPayload.executionPayload, actualEPH, getFieldNames(ElectraEPH))
   else:
     static: doAssert false
 
@@ -800,7 +880,9 @@ proc getBlindedBlockParts[
      forkedBlck.consensusBlockValue,
      forkedBlck.blck))
 
-proc getBuilderBid[SBBB: deneb_mev.SignedBlindedBeaconBlock](
+proc getBuilderBid[
+    SBBB: deneb_mev.SignedBlindedBeaconBlock |
+          electra_mev.SignedBlindedBeaconBlock](
     node: BeaconNode, payloadBuilderClient: RestClientRef, head: BlockRef,
     validator_pubkey: ValidatorPubKey, slot: Slot, randao: ValidatorSig,
     graffitiBytes: GraffitiBytes, validator_index: ValidatorIndex):
@@ -809,6 +891,8 @@ proc getBuilderBid[SBBB: deneb_mev.SignedBlindedBeaconBlock](
   ## Used by the BN's own validators, but not the REST server
   when SBBB is deneb_mev.SignedBlindedBeaconBlock:
     type EPH = deneb_mev.BlindedExecutionPayloadAndBlobsBundle
+  elif SBBB is electra_mev.SignedBlindedBeaconBlock:
+    type EPH = electra_mev.BlindedExecutionPayloadAndBlobsBundle
   else:
     static: doAssert false
 
@@ -839,7 +923,9 @@ proc getBuilderBid[SBBB: deneb_mev.SignedBlindedBeaconBlock](
 
 proc proposeBlockMEV(
     node: BeaconNode, payloadBuilderClient: RestClientRef,
-    blindedBlock: deneb_mev.SignedBlindedBeaconBlock):
+    blindedBlock:
+      deneb_mev.SignedBlindedBeaconBlock |
+      electra_mev.SignedBlindedBeaconBlock):
     Future[Result[BlockRef, string]] {.async: (raises: [CancelledError]).} =
   let unblindedBlockRef = await node.unblindAndRouteBlockMEV(
     payloadBuilderClient, blindedBlock)
@@ -882,7 +968,9 @@ proc makeBlindedBeaconBlockForHeadAndSlot*[BBB: ForkyBlindedBeaconBlock](
   ##
   ## This function is used by the validator client, but not the beacon node for
   ## its own validators.
-  when BBB is deneb_mev.BlindedBeaconBlock:
+  when BBB is electra_mev.BlindedBeaconBlock:
+    type EPH = electra_mev.BlindedExecutionPayloadAndBlobsBundle
+  elif BBB is deneb_mev.BlindedBeaconBlock:
     type EPH = deneb_mev.BlindedExecutionPayloadAndBlobsBundle
   else:
     static: doAssert false
@@ -915,11 +1003,11 @@ proc makeBlindedBeaconBlockForHeadAndSlot*[BBB: ForkyBlindedBeaconBlock](
   let (executionPayloadHeader, bidValue, consensusValue, forkedBlck) =
     blindedBlockParts.get
   withBlck(forkedBlck):
-    when consensusFork >= ConsensusFork.Capella:
+    when consensusFork >= ConsensusFork.Deneb:
       when ((consensusFork == ConsensusFork.Deneb and
              EPH is deneb_mev.BlindedExecutionPayloadAndBlobsBundle) or
-            (consensusFork == ConsensusFork.Capella and
-             EPH is capella.ExecutionPayloadHeader)):
+            (consensusFork == ConsensusFork.Electra and
+             EPH is electra_mev.BlindedExecutionPayloadAndBlobsBundle)):
         return ok(
           BuilderBid[BBB](
             blindedBlckPart:
@@ -929,7 +1017,7 @@ proc makeBlindedBeaconBlockForHeadAndSlot*[BBB: ForkyBlindedBeaconBlock](
       else:
         return err("makeBlindedBeaconBlockForHeadAndSlot: mismatched block/payload types")
     else:
-      return err("Attempt to create pre-Capella blinded block")
+      return err("Attempt to create pre-Deneb blinded block")
 
 proc collectBids(
     SBBB: typedesc, EPS: typedesc, node: BeaconNode,
@@ -1446,7 +1534,7 @@ proc signAndSendAggregate(
       shufflingRef, slot, committee_index, selectionProof):
     return
 
-  # https://github.com/ethereum/consensus-specs/blob/v1.3.0/specs/phase0/validator.md#construct-aggregate
+  # https://github.com/ethereum/consensus-specs/blob/v1.4.0/specs/phase0/validator.md#construct-aggregate
   # https://github.com/ethereum/consensus-specs/blob/v1.4.0/specs/phase0/validator.md#aggregateandproof
   var
     msg = SignedAggregateAndProof(
@@ -1923,7 +2011,7 @@ proc makeMaybeBlindedBeaconBlockForHeadAndSlotImpl[ResultType](
     ResultType.ok((
       blck: consensusFork.MaybeBlindedBeaconBlock(
         isBlinded: false,
-        data: deneb.BlockContents(
+        data: consensusFork.BlockContents(
           `block`: forkyBlck,
           kzg_proofs: blobsBundle.proofs,
           blobs: blobsBundle.blobs)),
