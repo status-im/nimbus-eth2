@@ -270,7 +270,7 @@ when const_preset == "gnosis":
     for network in [gnosisMetadata, chiadoMetadata]:
       doAssert network.cfg.DENEB_FORK_EPOCH < FAR_FUTURE_EPOCH
       doAssert network.cfg.ELECTRA_FORK_EPOCH == FAR_FUTURE_EPOCH
-      static: doAssert ConsensusFork.high == ConsensusFork.Deneb
+      static: doAssert ConsensusFork.high == ConsensusFork.Electra
 
 elif const_preset == "mainnet":
   when incbinEnabled:
@@ -280,9 +280,6 @@ elif const_preset == "mainnet":
     let
       mainnetGenesis* {.importc: "eth2_mainnet_genesis".}: ptr UncheckedArray[byte]
       mainnetGenesisSize* {.importc: "eth2_mainnet_genesis_size".}: int
-
-      praterGenesis* {.importc: "eth2_goerli_genesis".}: ptr UncheckedArray[byte]
-      praterGenesisSize* {.importc: "eth2_goerli_genesis_size".}: int
 
       sepoliaGenesis* {.importc: "eth2_sepolia_genesis".}: ptr UncheckedArray[byte]
       sepoliaGenesisSize* {.importc: "eth2_sepolia_genesis_size".}: int
@@ -297,9 +294,6 @@ elif const_preset == "mainnet":
       mainnetGenesis* = slurp(
         vendorDir & "/eth2-networks/shared/mainnet/genesis.ssz")
 
-      praterGenesis* = slurp(
-        vendorDir & "/goerli/prater/genesis.ssz")
-
       sepoliaGenesis* = slurp(
         vendorDir & "/sepolia/bepolia/genesis.ssz")
 
@@ -308,11 +302,6 @@ elif const_preset == "mainnet":
       vendorDir & "/eth2-networks/shared/mainnet",
       some mainnet,
       useBakedInGenesis = some "mainnet")
-
-    praterMetadata = loadCompileTimeNetworkMetadata(
-      vendorDir & "/goerli/prater",
-      some goerli,
-      useBakedInGenesis = some "prater")
 
     holeskyMetadata = loadCompileTimeNetworkMetadata(
       vendorDir & "/holesky/custom_config_data",
@@ -327,13 +316,13 @@ elif const_preset == "mainnet":
       useBakedInGenesis = some "sepolia")
 
   static:
-    for network in [mainnetMetadata, praterMetadata, sepoliaMetadata, holeskyMetadata]:
+    for network in [mainnetMetadata, sepoliaMetadata, holeskyMetadata]:
       checkForkConsistency(network.cfg)
 
-    for network in [mainnetMetadata, praterMetadata, sepoliaMetadata, holeskyMetadata]:
+    for network in [mainnetMetadata, sepoliaMetadata, holeskyMetadata]:
       doAssert network.cfg.DENEB_FORK_EPOCH < FAR_FUTURE_EPOCH
       doAssert network.cfg.ELECTRA_FORK_EPOCH == FAR_FUTURE_EPOCH
-      static: doAssert ConsensusFork.high == ConsensusFork.Deneb
+      static: doAssert ConsensusFork.high == ConsensusFork.Electra
 
 proc getMetadataForNetwork*(networkName: string): Eth2NetworkMetadata =
   template loadRuntimeMetadata(): auto =
@@ -375,8 +364,6 @@ proc getMetadataForNetwork*(networkName: string): Eth2NetworkMetadata =
       case toLowerAscii(networkName)
       of "mainnet":
         mainnetMetadata
-      of "prater", "goerli":
-        praterMetadata
       of "holesky":
         holeskyMetadata
       of "sepolia":
@@ -435,11 +422,6 @@ when const_preset in ["mainnet", "gnosis"]:
     of "mainnet":
       when const_preset == "mainnet":
         bakedInGenesisStateAsBytes mainnet
-      else:
-        raiseAssert availableOnlyInMainnetBuild
-    of "prater":
-      when const_preset == "mainnet":
-        bakedInGenesisStateAsBytes prater
       else:
         raiseAssert availableOnlyInMainnetBuild
     of "sepolia":

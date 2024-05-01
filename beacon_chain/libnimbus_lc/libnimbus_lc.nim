@@ -142,10 +142,10 @@ proc ETHBeaconStateCreateFromSsz(
   ## * `NULL` - If the given `sszBytes` is malformed.
   ##
   ## See:
-  ## * https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.6/specs/phase0/beacon-chain.md#beaconstate
+  ## * https://github.com/ethereum/consensus-specs/blob/v1.4.0/specs/phase0/beacon-chain.md#beaconstate
   ## * https://github.com/ethereum/consensus-specs/blob/v1.4.0/specs/altair/beacon-chain.md#beaconstate
   ## * https://github.com/ethereum/consensus-specs/blob/v1.4.0/specs/bellatrix/beacon-chain.md#beaconstate
-  ## * https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.5/specs/capella/beacon-chain.md#beaconstate
+  ## * https://github.com/ethereum/consensus-specs/blob/v1.4.0/specs/capella/beacon-chain.md#beaconstate
   ## * https://github.com/ethereum/consensus-specs/blob/v1.4.0/configs/README.md
   let
     consensusFork = ConsensusFork.decodeString($consensusVersion).valueOr:
@@ -755,7 +755,7 @@ func ETHLightClientStoreIsNextSyncCommitteeKnown(
   ## * Whether or not the next sync committee is currently known.
   ##
   ## See:
-  ## * https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.5/specs/altair/light-client/sync-protocol.md#is_next_sync_committee_known
+  ## * https://github.com/ethereum/consensus-specs/blob/v1.4.0/specs/altair/light-client/sync-protocol.md#is_next_sync_committee_known
   ## * https://github.com/ethereum/consensus-specs/blob/v1.4.0/specs/altair/light-client/light-client.md
   store[].is_next_sync_committee_known
 
@@ -796,7 +796,7 @@ func ETHLightClientStoreGetSafetyThreshold(
   ## * Light client store safety threshold.
   ##
   ## See:
-  ## * https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.5/specs/altair/light-client/sync-protocol.md#get_safety_threshold
+  ## * https://github.com/ethereum/consensus-specs/blob/v1.4.0/specs/altair/light-client/sync-protocol.md#get_safety_threshold
   store[].get_safety_threshold.cint
 
 proc ETHLightClientHeaderCreateCopy(

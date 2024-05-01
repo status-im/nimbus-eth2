@@ -525,7 +525,7 @@ proc storeBlock(
         # has been finalized - this speeds up forward sync - in the worst case
         # that the claim is false, we will correct every time we process a block
         # from an honest source (or when we're close to head).
-        # Occasionally we also send a payload to the the EL so that it can
+        # Occasionally we also send a payload to the EL so that it can
         # progress in its own sync.
         NewPayloadStatus.noResponse
       else:
@@ -716,7 +716,9 @@ proc storeBlock(
         template callForkChoiceUpdated: auto =
           case self.consensusManager.dag.cfg.consensusForkAtEpoch(
               newHead.get.blck.bid.slot.epoch)
-          of ConsensusFork.Deneb:
+          of ConsensusFork.Deneb, ConsensusFork.Electra:
+            # https://github.com/ethereum/execution-apis/blob/90a46e9137c89d58e818e62fa33a0347bba50085/src/engine/prague.md
+            # does not define any new forkchoiceUpdated, so reuse V3 from Dencun
             callExpectValidFCU(payloadAttributeType = PayloadAttributesV3)
           of ConsensusFork.Capella:
             callExpectValidFCU(payloadAttributeType = PayloadAttributesV2)

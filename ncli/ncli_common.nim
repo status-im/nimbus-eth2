@@ -332,8 +332,11 @@ func collectFromSlashedValidator(
     rewardsAndPenalties: var seq[RewardsAndPenalties],
     state: ForkyBeaconState, slashedIndex, proposerIndex: ValidatorIndex) =
   template slashed_validator: untyped = state.validators[slashedIndex]
-  let slashingPenalty = get_slashing_penalty(state, slashed_validator.effective_balance)
-  let whistleblowerReward = get_whistleblower_reward(slashed_validator.effective_balance)
+  let
+    slashingPenalty =
+      get_slashing_penalty(state, slashed_validator.effective_balance)
+    whistleblowerReward =
+      get_whistleblower_reward(state, slashed_validator.effective_balance)
   rewardsAndPenalties[slashedIndex].slashing_outcome -= slashingPenalty.int64
   rewardsAndPenalties[proposerIndex].slashing_outcome += whistleblowerReward.int64
 
@@ -391,10 +394,18 @@ func collectFromAttestations(
         rewardsAndPenalties[forkyBlck.message.proposer_index]
           .proposer_outcome += proposerReward.int64
         let inclusionDelay = forkyState.data.slot - attestation.data.slot
-        for index in get_attesting_indices(
-            forkyState.data, attestation.data, attestation.aggregation_bits,
-            cache):
-          rewardsAndPenalties[index].inclusion_delay = some(inclusionDelay.uint64)
+        when consensusFork >= ConsensusFork.Electra:
+          for index in get_attesting_indices(
+              forkyState.data, attestation.data, attestation.aggregation_bits,
+              attestation.committee_bits, cache):
+            rewardsAndPenalties[index].inclusion_delay =
+              some(inclusionDelay.uint64)
+        else:
+          for index in get_attesting_indices(
+              forkyState.data, attestation.data, attestation.aggregation_bits,
+              cache):
+            rewardsAndPenalties[index].inclusion_delay =
+              some(inclusionDelay.uint64)
 
 proc collectFromDeposits(
     rewardsAndPenalties: var seq[RewardsAndPenalties],

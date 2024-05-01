@@ -55,14 +55,14 @@ type
     of opOnTick:
       tick: int
     of opOnAttestation:
-      att: Attestation
+      att: phase0.Attestation
     of opOnBlock:
       blck: ForkedSignedBeaconBlock
       blobData: Opt[BlobData]
     of opOnMergeBlock:
       powBlock: PowBlock
     of opOnAttesterSlashing:
-      attesterSlashing: AttesterSlashing
+      attesterSlashing: phase0.AttesterSlashing
     of opInvalidateHash:
       invalidatedHash: Eth2Digest
       latestValidHash: Eth2Digest
@@ -115,7 +115,7 @@ proc loadOps(
       let filename = step["attestation"].getStr()
       let att = parseTest(
           path/filename & ".ssz_snappy",
-          SSZ, Attestation
+          SSZ, phase0.Attestation
       )
       result.add Operation(kind: opOnAttestation,
         att: att)
@@ -150,7 +150,7 @@ proc loadOps(
       let filename = step["attester_slashing"].getStr()
       let attesterSlashing = parseTest(
         path/filename & ".ssz_snappy",
-        SSZ, AttesterSlashing
+        SSZ, phase0.AttesterSlashing
       )
       result.add Operation(kind: opOnAttesterSlashing,
         attesterSlashing: attesterSlashing)
@@ -392,7 +392,7 @@ template fcSuite(suiteName: static[string], testPathElem: static[string]) =
       let testsPath = presetPath/path/testPathElem
       if kind != pcDir or not os_ops.dirExists(testsPath):
         continue
-      if testsPath.contains("/eip6110/") or testsPath.contains("\\eip6110\\"):
+      if testsPath.contains("/electra/") or testsPath.contains("\\electra\\"):
         continue
       let fork = forkForPathComponent(path).valueOr:
         raiseAssert "Unknown test fork: " & testsPath

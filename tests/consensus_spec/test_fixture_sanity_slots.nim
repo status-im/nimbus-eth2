@@ -89,3 +89,12 @@ suite "EF - Deneb - Sanity - Slots " & preset():
   for kind, path in walkDir(
       denebSanitySlotsDir, relative = true, checkDir = true):
     runTest(deneb.BeaconState, denebSanitySlotsDir, "Deneb", suiteName, path)
+
+from ../../beacon_chain/spec/datatypes/electra import BeaconState
+
+suite "EF - Electra - Sanity - Slots " & preset():
+  const electraSanitySlotsDir = sanitySlotsDir("electra")
+  for kind, path in walkDir(
+      electraSanitySlotsDir, relative = true, checkDir = true):
+    runTest(
+      electra.BeaconState, electraSanitySlotsDir, "Electra", suiteName, path)

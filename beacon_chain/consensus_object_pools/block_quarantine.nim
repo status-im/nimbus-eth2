@@ -52,7 +52,7 @@ type
       ## below) - if so, upon resolving the parent, it should be
       ## added to the blobless table, after verifying its signature.
 
-    blobless*: OrderedTable[Eth2Digest, deneb.SignedBeaconBlock]
+    blobless*: OrderedTable[Eth2Digest, ForkedSignedBeaconBlock]
       ## Blocks that we don't have blobs for. When we have received
       ## all blobs for this block, we can proceed to resolving the
       ## block as well. A blobless block inserted into this table must
@@ -181,13 +181,15 @@ func removeUnviableOrphanTree(
 func removeUnviableBloblessTree(
     quarantine: var Quarantine,
     toCheck: var seq[Eth2Digest],
-    tbl: var OrderedTable[Eth2Digest, deneb.SignedBeaconBlock]) =
+    tbl: var OrderedTable[Eth2Digest, ForkedSignedBeaconBlock]) =
   var
     toRemove: seq[Eth2Digest] # Can't modify while iterating
   while toCheck.len > 0:
     let root = toCheck.pop()
     for k, v in tbl.mpairs():
-      let blockRoot = v.message.parent_root
+      let blockRoot =
+        withBlck(v):
+          forkyBlck.message.parent_root
       if blockRoot == root:
         toCheck.add(k)
         toRemove.add(k)
@@ -226,8 +228,9 @@ func cleanupBlobless(quarantine: var Quarantine, finalizedSlot: Slot) =
   var toDel: seq[Eth2Digest]
 
   for k, v in quarantine.blobless:
-    if not isViable(finalizedSlot, v.message.slot):
-      toDel.add k
+    withBlck(v):
+      if not isViable(finalizedSlot, forkyBlck.message.slot):
+        toDel.add k
 
   for k in toDel:
     quarantine.addUnviable k
@@ -300,7 +303,7 @@ iterator pop*(quarantine: var Quarantine, root: Eth2Digest):
 
 proc addBlobless*(
     quarantine: var Quarantine, finalizedSlot: Slot,
-    signedBlock: deneb.SignedBeaconBlock): bool =
+    signedBlock: deneb.SignedBeaconBlock | electra.SignedBeaconBlock): bool =
 
   if not isViable(finalizedSlot, signedBlock.message.slot):
     quarantine.addUnviable(signedBlock.root)
@@ -316,19 +319,20 @@ proc addBlobless*(
     quarantine.blobless.del oldest_blobless_key
 
   debug "block quarantine: Adding blobless", blck = shortLog(signedBlock)
-  quarantine.blobless[signedBlock.root] = signedBlock
+  quarantine.blobless[signedBlock.root] =
+    ForkedSignedBeaconBlock.init(signedBlock)
   quarantine.missing.del(signedBlock.root)
   true
 
 func popBlobless*(
     quarantine: var Quarantine,
     root: Eth2Digest): Opt[ForkedSignedBeaconBlock] =
-  var blck: deneb.SignedBeaconBlock
+  var blck: ForkedSignedBeaconBlock
   if quarantine.blobless.pop(root, blck):
-    Opt.some(ForkedSignedBeaconBlock.init(blck))
+    Opt.some(blck)
   else:
     Opt.none(ForkedSignedBeaconBlock)
 
-iterator peekBlobless*(quarantine: var Quarantine): deneb.SignedBeaconBlock =
+iterator peekBlobless*(quarantine: var Quarantine): ForkedSignedBeaconBlock =
   for k, v in quarantine.blobless.mpairs():
     yield v

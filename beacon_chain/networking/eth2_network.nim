@@ -456,15 +456,15 @@ func netKbps*(peer: Peer): float {.inline.} =
   ## Returns current network throughput average value in Kbps for peer ``peer``.
   round(((peer.netThroughput.average / 1024) * 10_000) / 10_000)
 
-func `<`(a, b: Peer): bool =
-  ## Comparison function, which first checks peer's scores, and if the peers'
-  ## score is equal it compares peers' network throughput.
-  if a.score < b.score:
-    true
-  elif a.score == b.score:
-    (a.netThroughput.average < b.netThroughput.average)
+# /!\ Must be exported to be seen by `peerCmp`
+func `<`*(a, b: Peer): bool =
+  ## Comparison function indicating `true` if peer `a` ranks worse than peer `b`
+  if a.score != b.score:
+    a.score < b.score
+  elif a.netThroughput.average != b.netThroughput.average:
+    a.netThroughput.average < b.netThroughput.average
   else:
-    false
+    system.`<`(a, b)
 
 const
   maxRequestQuota = 1000000
@@ -837,7 +837,7 @@ template gossipMaxSize(T: untyped): uint32 =
     # Attestation, AttesterSlashing, and SignedAggregateAndProof, which all
     # have lists bounded at MAX_VALIDATORS_PER_COMMITTEE (2048) items, thus
     # having max sizes significantly smaller than GOSSIP_MAX_SIZE.
-    elif T is Attestation or T is AttesterSlashing or
+    elif T is phase0.Attestation or T is phase0.AttesterSlashing or
          T is SignedAggregateAndProof or T is phase0.SignedBeaconBlock or
          T is altair.SignedBeaconBlock or T is SomeForkyLightClientObject:
       GOSSIP_MAX_SIZE
@@ -2204,7 +2204,7 @@ proc getPersistentNetKeys*(
 
 func gossipId(
     data: openArray[byte], phase0Prefix, topic: string): seq[byte] =
-  # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.5/specs/phase0/p2p-interface.md#topics-and-messages
+  # https://github.com/ethereum/consensus-specs/blob/v1.4.0/specs/phase0/p2p-interface.md#topics-and-messages
   # https://github.com/ethereum/consensus-specs/blob/v1.4.0/specs/altair/p2p-interface.md#topics-and-messages
   const MESSAGE_DOMAIN_VALID_SNAPPY = [0x01'u8, 0x00, 0x00, 0x00]
   let messageDigest = withEth2Hash:
@@ -2305,7 +2305,6 @@ proc createEth2Node*(rng: ref HmacDrbgContext,
 
   let
     params = GossipSubParams.init(
-      explicit = true,
       pruneBackoff = chronos.minutes(1),
       unsubscribeBackoff = chronos.seconds(10),
       floodPublish = true,
@@ -2566,7 +2565,7 @@ proc getWallEpoch(node: Eth2Node): Epoch =
   node.getBeaconTime().slotOrZero.epoch
 
 proc broadcastAttestation*(
-    node: Eth2Node, subnet_id: SubnetId, attestation: Attestation):
+    node: Eth2Node, subnet_id: SubnetId, attestation: phase0.Attestation):
     Future[SendResult] {.async: (raises: [CancelledError], raw: true).} =
   # Regardless of the contents of the attestation,
   # https://github.com/ethereum/consensus-specs/blob/v1.3.0/specs/altair/p2p-interface.md#transitioning-the-gossip
@@ -2586,7 +2585,7 @@ proc broadcastVoluntaryExit*(
   node.broadcast(topic, exit)
 
 proc broadcastAttesterSlashing*(
-    node: Eth2Node, slashing: AttesterSlashing):
+    node: Eth2Node, slashing: phase0.AttesterSlashing):
     Future[SendResult] {.async: (raises: [CancelledError], raw: true).} =
   let topic = getAttesterSlashingsTopic(
     node.forkDigestAtEpoch(node.getWallEpoch))

@@ -61,7 +61,8 @@ suite "Message signatures":
 
   test "Aggregate and proof signatures":
     let aggregate_and_proof = AggregateAndProof(
-      aggregate: Attestation(aggregation_bits: CommitteeValidatorsBits.init(8)))
+      aggregate: phase0.Attestation(
+        aggregation_bits: CommitteeValidatorsBits.init(8)))
 
     check:
       # Matching public/private keys and genesis validator roots

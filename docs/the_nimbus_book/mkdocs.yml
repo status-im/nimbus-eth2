@@ -16,18 +16,19 @@ theme:
     - navigation.top
     - content.tabs.link
   palette:
-    - scheme: default
-      primary: orange
-      accent: amber
-      toggle:
-        icon: material/brightness-7
-        name: Switch to dark mode
     - scheme: slate
       primary: black
       accent: light blue
       toggle:
         icon: material/brightness-4
         name: Switch to light mode
+    - scheme: default
+      primary: white
+      accent: light blue
+      toggle:
+        icon: material/brightness-7
+        name: Switch to dark mode
+
 extra_css:
   - stylesheets/extra.css
 

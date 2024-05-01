@@ -148,6 +148,11 @@ proc publishBlock*(body: DenebSignedBlockContents): RestPlainResponse {.
      meth: MethodPost.}
   ## https://ethereum.github.io/beacon-APIs/#/Beacon/publishBlock
 
+proc publishBlock*(body: ElectraSignedBlockContents): RestPlainResponse {.
+     rest, endpoint: "/eth/v1/beacon/blocks",
+     meth: MethodPost.}
+  ## https://ethereum.github.io/beacon-APIs/#/Beacon/publishBlock
+
 proc publishSszBlock*(
        client: RestClientRef,
        blck: ForkySignedBeaconBlock
@@ -222,6 +227,12 @@ proc publishBlindedBlock*(body: capella_mev.SignedBlindedBeaconBlock):
   ## https://ethereum.github.io/beacon-APIs/#/Beacon/publishBlindedBlock
 
 proc publishBlindedBlock*(body: deneb_mev.SignedBlindedBeaconBlock):
+       RestPlainResponse {.
+     rest, endpoint: "/eth/v1/beacon/blinded_blocks",
+     meth: MethodPost.}
+  ## https://ethereum.github.io/beacon-APIs/#/Beacon/publishBlindedBlock
+
+proc publishBlindedBlock*(body: electra_mev.SignedBlindedBeaconBlock):
        RestPlainResponse {.
      rest, endpoint: "/eth/v1/beacon/blinded_blocks",
      meth: MethodPost.}
@@ -310,7 +321,8 @@ proc getPoolAttestations*(
      meth: MethodGet.}
   ## https://ethereum.github.io/beacon-APIs/#/Beacon/getPoolAttestations
 
-proc submitPoolAttestations*(body: seq[Attestation]): RestPlainResponse {.
+proc submitPoolAttestations*(body: seq[phase0.Attestation]):
+     RestPlainResponse {.
      rest, endpoint: "/eth/v1/beacon/pool/attestations",
      meth: MethodPost.}
   ## https://ethereum.github.io/beacon-APIs/#/Beacon/submitPoolAttestations
@@ -320,7 +332,8 @@ proc getPoolAttesterSlashings*(): RestResponse[GetPoolAttesterSlashingsResponse]
      meth: MethodGet.}
   ## https://ethereum.github.io/beacon-APIs/#/Beacon/getPoolAttesterSlashings
 
-proc submitPoolAttesterSlashings*(body: AttesterSlashing): RestPlainResponse {.
+proc submitPoolAttesterSlashings*(body: phase0.AttesterSlashing):
+     RestPlainResponse {.
      rest, endpoint: "/eth/v1/beacon/pool/attester_slashings",
      meth: MethodPost.}
   ## https://ethereum.github.io/beacon-APIs/#/Beacon/submitPoolAttesterSlashings

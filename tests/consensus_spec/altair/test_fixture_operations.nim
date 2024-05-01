@@ -70,7 +70,7 @@ proc runTest[T, U](
 
 suite baseDescription & "Attestation " & preset():
   proc applyAttestation(
-      preState: var altair.BeaconState, attestation: Attestation):
+      preState: var altair.BeaconState, attestation: phase0.Attestation):
       Result[void, cstring] =
     var cache: StateCache
     let
@@ -85,23 +85,22 @@ suite baseDescription & "Attestation " & preset():
     ok()
 
   for path in walkTests(OpAttestationsDir):
-    runTest[Attestation, typeof applyAttestation](
+    runTest[phase0.Attestation, typeof applyAttestation](
       OpAttestationsDir, suiteName, "Attestation", "attestation",
       applyAttestation, path)
 
 suite baseDescription & "Attester Slashing " & preset():
   proc applyAttesterSlashing(
-      preState: var altair.BeaconState, attesterSlashing: AttesterSlashing):
-      Result[void, cstring] =
+      preState: var altair.BeaconState,
+      attesterSlashing: phase0.AttesterSlashing): Result[void, cstring] =
     var cache: StateCache
     doAssert (? process_attester_slashing(
       defaultRuntimeConfig, preState, attesterSlashing, {strictVerification},
-      get_state_exit_queue_info(defaultRuntimeConfig, preState, cache),
-      cache))[0] > 0.Gwei
+      get_state_exit_queue_info(preState), cache))[0] > 0.Gwei
     ok()
 
   for path in walkTests(OpAttSlashingDir):
-    runTest[AttesterSlashing, typeof applyAttesterSlashing](
+    runTest[phase0.AttesterSlashing, typeof applyAttesterSlashing](
       OpAttSlashingDir, suiteName, "Attester Slashing", "attester_slashing",
       applyAttesterSlashing, path)
 
@@ -137,8 +136,7 @@ suite baseDescription & "Proposer Slashing " & preset():
     var cache: StateCache
     doAssert (? process_proposer_slashing(
       defaultRuntimeConfig, preState, proposerSlashing, {},
-      get_state_exit_queue_info(defaultRuntimeConfig, preState, cache),
-      cache))[0] > 0.Gwei
+      get_state_exit_queue_info(preState), cache))[0] > 0.Gwei
     ok()
 
   for path in walkTests(OpProposerSlashingDir):
@@ -168,8 +166,7 @@ suite baseDescription & "Voluntary Exit " & preset():
     var cache: StateCache
     if process_voluntary_exit(
         defaultRuntimeConfig, preState, voluntaryExit, {},
-        get_state_exit_queue_info(defaultRuntimeConfig, preState, cache),
-        cache).isOk:
+        get_state_exit_queue_info(preState), cache).isOk:
       ok()
     else:
       err("")

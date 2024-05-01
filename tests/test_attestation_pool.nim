@@ -28,7 +28,7 @@ import
 from std/sequtils import toSeq
 from ./testbcutil import addHeadBlock
 
-func combine(tgt: var Attestation, src: Attestation) =
+func combine(tgt: var phase0.Attestation, src: phase0.Attestation) =
   ## Combine the signature and participation bitfield, with the assumption that
   ## the same data is being signed - if the signatures overlap, they are not
   ## combined.
@@ -47,7 +47,7 @@ func combine(tgt: var Attestation, src: Attestation) =
   agg.aggregate(src.signature.load.get())
   tgt.signature = agg.finish().toValidatorSig()
 
-func loadSig(a: Attestation): CookedSig =
+func loadSig(a: phase0.Attestation): CookedSig =
   a.signature.load.get()
 
 proc pruneAtFinalization(dag: ChainDAGRef, attPool: AttestationPool) =
@@ -666,7 +666,7 @@ suite "Attestation pool processing" & preset():
 
     # -------------------------------------------------------------
     # Pass an epoch
-    var attestations: seq[Attestation]
+    var attestations: seq[phase0.Attestation]
 
     for epoch in 0 ..< 5:
       let start_slot = start_slot(Epoch epoch)
@@ -703,7 +703,7 @@ suite "Attestation pool processing" & preset():
           for v in 0 ..< committee.len * 2 div 3 + 1:
             aggregation_bits[v] = true
 
-          attestations.add Attestation(
+          attestations.add phase0.Attestation(
             aggregation_bits: aggregation_bits,
             data: makeAttestationData(state[], getStateField(state[], slot),
               committee_index, blockRef.get().root)

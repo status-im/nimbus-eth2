@@ -61,7 +61,7 @@ proc runTest(
             flags = {skipStateRootValidation}, noRollback)
 
         # The return value is the block rewards, which aren't tested here;
-        # the .expect() already handles the the validaty check.
+        # the .expect() already handles the validaty check.
         discard res.expect("no failure when applying block " & $i)
       else:
         let
@@ -72,7 +72,7 @@ proc runTest(
             flags = {skipStateRootValidation}, noRollback)
 
         # The return value is the block rewards, which aren't tested here;
-        # the .expect() already handles the the validaty check.
+        # the .expect() already handles the validaty check.
         discard res.expect("no failure when applying block " & $i)
 
     let postState = newClone(
@@ -145,4 +145,20 @@ suite "EF - Deneb - Transition " & preset():
     runTest(
       capella.BeaconState, deneb.BeaconState, capella.SignedBeaconBlock,
       deneb.SignedBeaconBlock, cfg, "EF - Deneb - Transition",
+      TransitionDir, suiteName, path, transitionInfo.fork_block)
+
+from ../../beacon_chain/spec/datatypes/electra import
+  BeaconState, SignedBeaconBlock
+
+suite "EF - Electra - Transition " & preset():
+  const TransitionDir =
+    SszTestsDir/const_preset/"electra"/"transition"/"core"/"pyspec_tests"
+
+  for kind, path in walkDir(TransitionDir, relative = true, checkDir = true):
+    let transitionInfo = getTransitionInfo(TransitionDir / path)
+    var cfg = defaultRuntimeConfig
+    cfg.ELECTRA_FORK_EPOCH = transitionInfo.fork_epoch.Epoch
+    runTest(
+      deneb.BeaconState, electra.BeaconState, deneb.SignedBeaconBlock,
+      electra.SignedBeaconBlock, cfg, "EF - Electra - Transition",
       TransitionDir, suiteName, path, transitionInfo.fork_block)

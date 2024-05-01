@@ -1,3 +1,36 @@
+2024-04-29 v24.4.0
+==================
+
+Nimbus `v24.4.0` is a `low-urgency` release with stability and performance improvements. It also [removes built-in Prater/Goerli chain support](https://blog.ethereum.org/2023/11/30/goerli-lts-update); people are encouraged to migrate to Holesky or Sepolia.
+
+### Improvements
+
+* Large numbers of exits in a single block or epoch don't cause disproportionate slowdowns:
+  https://github.com/status-im/nimbus-eth2/pull/6161
+
+* Support for using era file for the initial checkpoint block:
+  https://github.com/status-im/nimbus-eth2/pull/6164
+
+* ncli_db supports importing blobs:
+  https://github.com/status-im/nimbus-eth2/pull/6166
+
+### Fixes
+
+* produceBlockV3 correctly encodes execution_payload_blinded response:
+  https://github.com/status-im/nimbus-eth2/pull/6204
+
+* Avoid a crash when handling blob backfill:
+  https://github.com/status-im/nimbus-eth2/pull/6168
+
+* Avoid spurious errors verifying era files with empty epochs:
+  https://github.com/status-im/nimbus-eth2/pull/6163
+
+* Address cases where REST blocks submitted have mismatched KZG commitments and blobs:
+  https://github.com/status-im/nimbus-eth2/pull/6150
+
+* Fix a rare block verification failure depending on initialization spanning sync committees:
+  https://github.com/status-im/nimbus-eth2/pull/6160
+
 2024-03-29 v24.3.0
 ==================
 
