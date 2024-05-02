@@ -12,7 +12,6 @@ import metrics
 import stew/assign2
 import ../beacon_node
 
-from eth/async_utils import awaitWithTimeout
 from ../spec/datatypes/bellatrix import SignedBeaconBlock
 from ../spec/mev/rest_deneb_mev_calls import submitBlindedBlock
 from ../spec/mev/rest_electra_mev_calls import submitBlindedBlock
