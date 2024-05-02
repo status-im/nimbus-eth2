@@ -59,16 +59,21 @@ proc unblindAndRouteBlockMEV*(
   # protection check
   let response =
     try:
-      awaitWithTimeout(
-          payloadBuilderRestClient.submitBlindedBlock(blindedBlock),
-          BUILDER_BLOCK_SUBMISSION_DELAY_TOLERANCE):
-        return err("Submitting blinded block timed out")
+      await payloadBuilderRestClient.submitBlindedBlock(blindedBlock).
+        wait(BUILDER_BLOCK_SUBMISSION_DELAY_TOLERANCE)
       # From here on, including error paths, disallow local EL production by
       # returning Opt.some, regardless of whether on head or newBlock.
-    except RestDecodingError as exc:
-      return err("REST decoding error submitting blinded block: " & exc.msg)
-    except RestError as exc:
-      return err("exception in submitBlindedBlock: " & exc.msg)
+    except AsyncTimeoutError:
+      return err("Submitting blinded block timed out")
+    except RestEncodingError as exc:
+      return err(
+        "REST encoding error submitting blinded block, reason " & exc.msg)
+    except RestDnsResolveError as exc:
+      return err(
+        "REST unable to resolve remote host, reason " & exc.msg)
+    except RestCommunicationError as exc:
+      return err(
+        "REST unable to communicate with remote host, reason " & exc.msg)
 
   const httpOk = 200
   if response.status != httpOk:

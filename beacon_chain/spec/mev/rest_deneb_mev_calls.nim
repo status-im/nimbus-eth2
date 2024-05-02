@@ -28,8 +28,21 @@ proc getHeaderDeneb*(slot: Slot,
      meth: MethodGet, connection: {Dedicated, Close}.}
   ## https://github.com/ethereum/builder-specs/blob/v0.4.0/apis/builder/header.yaml
 
-proc submitBlindedBlock*(body: deneb_mev.SignedBlindedBeaconBlock
-                        ): RestPlainResponse {.
-     rest, endpoint: "/eth/v1/builder/blinded_blocks",
-     meth: MethodPost, connection: {Dedicated, Close}.}
+proc submitBlindedBlockPlain*(
+    body: deneb_mev.SignedBlindedBeaconBlock
+): RestPlainResponse {.
+   rest, endpoint: "/eth/v1/builder/blinded_blocks",
+   meth: MethodPost, connection: {Dedicated, Close}.}
   ## https://github.com/ethereum/builder-specs/blob/v0.4.0/apis/builder/blinded_blocks.yaml
+
+proc submitBlindedBlock*(
+  client: RestClientRef,
+  body: deneb_mev.SignedBlindedBeaconBlock
+): Future[RestPlainResponse] {.
+  async: (raises: [CancelledError, RestEncodingError, RestDnsResolveError,
+                   RestCommunicationError]).} =
+  ## https://github.com/ethereum/builder-specs/blob/v0.4.0/apis/builder/blinded_blocks.yaml
+  await client.submitBlindedBlockPlain(
+    body,
+    extraHeaders = @[("eth-consensus-version", toString(ConsensusFork.Deneb))]
+  )
