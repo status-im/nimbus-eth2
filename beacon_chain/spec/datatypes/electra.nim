@@ -27,6 +27,8 @@ import
 
 export json_serialization, base
 
+## NOTE: Code is still buggy as forkChoice, state transition, and other functions aren't tested yet. This is mostly a save work push
+
 const
   # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.5/specs/capella/light-client/sync-protocol.md#constants
   # This index is rooted in `BeaconBlockBody`.
