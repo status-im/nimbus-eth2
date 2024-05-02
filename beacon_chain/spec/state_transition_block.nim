@@ -712,15 +712,14 @@ type SomeElectraBeaconBlockBody =
 
 # TODO spec ref URL when available
 proc process_execution_payload*(
-    state: var electra.BeaconState, body: SomeElectraBeaconBlockBody,
+    state: var electra.BeaconState, payload: electra.ExecutionPayload,
     notify_new_payload: electra.ExecutePayload): Result[void, cstring] =
-  template payload: auto = body.execution_payload
-
   # Verify consistency of the parent hash with respect to the previous
   # execution payload header
-  if not (payload.parent_hash ==
-      state.latest_execution_payload_header.block_hash):
-    return err("process_execution_payload: payload and state parent hash mismatch")
+  if is_merge_transition_complete(state):
+    if not (payload.parent_hash ==
+        state.latest_execution_payload_header.block_hash):
+      return err("process_execution_payload: payload and state parent hash mismatch")
 
   # Verify prev_randao
   if not (payload.prev_randao == get_randao_mix(state, get_current_epoch(state))):
@@ -729,10 +728,6 @@ proc process_execution_payload*(
   # Verify timestamp
   if not (payload.timestamp == compute_timestamp_at_slot(state, state.slot)):
     return err("process_execution_payload: invalid timestamp")
-
-  # [New in Deneb] Verify commitments are under limit
-  if not (lenu64(body.blob_kzg_commitments) <= MAX_BLOBS_PER_BLOCK):
-    return err("process_execution_payload: too many KZG commitments")
 
   # Verify the execution payload is valid
   if not notify_new_payload(payload):
@@ -754,9 +749,8 @@ proc process_execution_payload*(
     block_hash: payload.block_hash,
     extra_data: payload.extra_data,
     transactions_root: hash_tree_root(payload.transactions),
-    withdrawals_root: hash_tree_root(payload.withdrawals),
-    blob_gas_used: payload.blob_gas_used,
-    excess_blob_gas: payload.excess_blob_gas)
+    withdrawals_root: hash_tree_root(payload.withdrawals), # [New in Capella]
+    execution_witness_root: hash_tree_root(payload.execution_witness)) # [New in Verge]
 
   ok()
 
