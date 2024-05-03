@@ -939,7 +939,7 @@ proc installBeaconApiHandlers*(router: var RestRouter, node: BeaconNode) =
               if contentBody.isNone():
                 return RestApiResponse.jsonError(Http400, EmptyRequestBodyError)
               contentBody.get()
-          restBlock = decodeBodyJsonOrSsz(
+          restBlock = decodeBody(
             RestPublishedSignedBlockContents, body, version).valueOr:
               return RestApiResponse.jsonError(error)
 
