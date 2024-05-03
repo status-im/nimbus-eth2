@@ -2382,17 +2382,23 @@ proc publishBlockV2*(
                               {BeaconNodeRole.BlockProposalPublish}):
         case data.kind
         of ConsensusFork.Phase0:
-          publishBlockV2(it, data.phase0Data)
+          publishBlockV2(it, data.phase0Data, Opt.some(validation),
+                         Opt.some(contentType))
         of ConsensusFork.Altair:
-          publishBlockV2(it, data.altairData)
+          publishBlockV2(it, data.altairData, Opt.some(validation),
+                         Opt.some(contentType))
         of ConsensusFork.Bellatrix:
-          publishBlockV2(it, data.bellatrixData)
+          publishBlockV2(it, data.bellatrixData, Opt.some(validation),
+                         Opt.some(contentType))
         of ConsensusFork.Capella:
-          publishBlockV2(it, data.capellaData)
+          publishBlockV2(it, data.capellaData, Opt.some(validation),
+                         Opt.some(contentType))
         of ConsensusFork.Deneb:
-          publishBlockV2(it, data.denebData)
+          publishBlockV2(it, data.denebData, Opt.some(validation),
+                         Opt.some(contentType))
         of ConsensusFork.Electra:
-          publishBlockV2(it, data.electraData)
+          publishBlockV2(it, data.electraData, Opt.some(validation),
+                         Opt.some(contentType))
       do:
         if apiResponse.isErr():
           handleCommunicationError()
@@ -2433,17 +2439,23 @@ proc publishBlockV2*(
                               {BeaconNodeRole.BlockProposalPublish}):
       case data.kind
       of ConsensusFork.Phase0:
-        publishBlock(it, data.phase0Data)
+        publishBlockV2(it, data.phase0Data, Opt.some(validation),
+                       Opt.some(contentType))
       of ConsensusFork.Altair:
-        publishBlock(it, data.altairData)
+        publishBlockV2(it, data.altairData, Opt.some(validation),
+                       Opt.some(contentType))
       of ConsensusFork.Bellatrix:
-        publishBlock(it, data.bellatrixData)
+        publishBlockV2(it, data.bellatrixData, Opt.some(validation),
+                       Opt.some(contentType))
       of ConsensusFork.Capella:
-        publishBlock(it, data.capellaData)
+        publishBlockV2(it, data.capellaData, Opt.some(validation),
+                       Opt.some(contentType))
       of ConsensusFork.Deneb:
-        publishBlock(it, data.denebData)
+        publishBlockV2(it, data.denebData, Opt.some(validation),
+                       Opt.some(contentType))
       of ConsensusFork.Electra:
-        publishBlock(it, data.electraData)
+        publishBlockV2(it, data.electraData, Opt.some(validation),
+                       Opt.some(contentType))
 
     do:
       if apiResponse.isErr():
