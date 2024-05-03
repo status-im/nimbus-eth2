@@ -165,44 +165,80 @@ proc publishSszBlock*(
       extraHeaders = @[("eth-consensus-version", consensus)])
   return resp
 
-proc publishBlockV2Plain(body: phase0.SignedBeaconBlock): RestPlainResponse {.
-     rest, endpoint: "/eth/v2/beacon/blocks",
-     meth: MethodPost.}
+proc publishBlockV2Plain(
+  broadcast_validation: Option[BroadcastValidationType],
+  body: phase0.SignedBeaconBlock
+): RestPlainResponse {.
+  rest, endpoint: "/eth/v2/beacon/blocks", meth: MethodPost.}
   ## https://ethereum.github.io/beacon-APIs/#/Beacon/publishBlockV2
 
-proc publishBlockV2Plain(body: altair.SignedBeaconBlock): RestPlainResponse {.
-     rest, endpoint: "/eth/v2/beacon/blocks",
-     meth: MethodPost.}
+proc publishBlockV2Plain(
+  broadcast_validation: Option[BroadcastValidationType],
+  body: altair.SignedBeaconBlock
+): RestPlainResponse {.
+  rest, endpoint: "/eth/v2/beacon/blocks", meth: MethodPost.}
   ## https://ethereum.github.io/beacon-APIs/#/Beacon/publishBlockV2
 
-proc publishBlockV2Plain(body: bellatrix.SignedBeaconBlock): RestPlainResponse {.
-     rest, endpoint: "/eth/v2/beacon/blocks",
-     meth: MethodPost.}
+proc publishBlockV2Plain(
+  broadcast_validation: Option[BroadcastValidationType],
+  body: bellatrix.SignedBeaconBlock
+): RestPlainResponse {.
+  rest, endpoint: "/eth/v2/beacon/blocks", meth: MethodPost.}
   ## https://ethereum.github.io/beacon-APIs/#/Beacon/publishBlockV2
 
-proc publishBlockV2Plain(body: capella.SignedBeaconBlock): RestPlainResponse {.
-     rest, endpoint: "/eth/v2/beacon/blocks",
-     meth: MethodPost.}
+proc publishBlockV2Plain(
+  broadcast_validation: Option[BroadcastValidationType],
+  body: capella.SignedBeaconBlock
+): RestPlainResponse {.
+  rest, endpoint: "/eth/v2/beacon/blocks", meth: MethodPost.}
   ## https://ethereum.github.io/beacon-APIs/#/Beacon/publishBlockV2
 
-proc publishBlockV2Plain(body: DenebSignedBlockContents): RestPlainResponse {.
-     rest, endpoint: "/eth/v2/beacon/blocks",
-     meth: MethodPost.}
+proc publishBlockV2Plain(
+  broadcast_validation: Option[BroadcastValidationType],
+  body: DenebSignedBlockContents
+): RestPlainResponse {.
+  rest, endpoint: "/eth/v2/beacon/blocks", meth: MethodPost.}
+  ## https://ethereum.github.io/beacon-APIs/#/Beacon/publishBlockV2
+
+proc publishBlockV2Plain(
+  broadcast_validation: Option[BroadcastValidationType],
+  body: ElectraSignedBlockContents
+): RestPlainResponse {.
+  rest, endpoint: "/eth/v2/beacon/blocks", meth: MethodPost.}
   ## https://ethereum.github.io/beacon-APIs/#/Beacon/publishBlockV2
 
 proc publishBlockV2*(
-       client: RestClientRef,
-       blck: phase0.SignedBeaconBlock | altair.SignedBeaconBlock |
-       bellatrix.SignedBeaconBlock | capella.SignedBeaconBlock |
-       deneb.SignedBeaconBlock
-     ): Future[RestPlainResponse] {.async} =
+    client: RestClientRef,
+    blck: phase0.SignedBeaconBlock | altair.SignedBeaconBlock |
+          bellatrix.SignedBeaconBlock | capella.SignedBeaconBlock |
+          DenebSignedBlockContents | ElectraSignedBlockContents,
+    validation: Opt[BroadcastValidationType] =
+      Opt.none(BroadcastValidationType),
+    contentType: Opt[MediaType] = Opt.none(MediaType)
+): Future[RestPlainResponse] {.
+  async: (raises: [CancelledError, RestEncodingError, RestDnsResolveError,
+                   RestCommunicationError])} =
+  ## https://ethereum.github.io/beacon-APIs/#/Beacon/publishBlockV2
   let
-    consensus = typeof(blck).kind.toString()
-    resp = await client.publishBlockV2Plain(
-      blck, extraHeaders = @[
-        ("eth-consensus-version", consensus),
-        ("broadcast_validation", "gossip")])
-  return resp
+    consensus =
+      when blck is DenebSignedBlockContents:
+        toString(ConsensusFork.Deneb)
+      elif blck is ElectraSignedBlockContents:
+        toString(ConsensusFork.Electra)
+      else:
+        typeof(blck).kind.toString()
+    mediaType = contentType.valueOr:
+      ApplicationJsonMediaType
+    broadcastValidation =
+      if validation.isSome():
+        some[BroadcastValidationType](validation.get())
+      else:
+        none[BroadcastValidationType]()
+  await client.publishBlockV2Plain(
+    broadcastValidation,
+    blck,
+    restContentType = $mediaType,
+    extraHeaders = @[("eth-consensus-version", consensus)])
 
 proc publishBlindedBlock*(body: phase0.SignedBeaconBlock): RestPlainResponse {.
      rest, endpoint: "/eth/v1/beacon/blinded_blocks",

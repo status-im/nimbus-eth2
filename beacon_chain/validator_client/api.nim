@@ -25,6 +25,8 @@ const
   ResponseECNotInSyncError* = "Execution client not in sync"
   ResponseNotImplementedError =
     "Received endpoint not implemented error response"
+  ResponseUnsupportedContentTypeError =
+    "Server does not support provided content type"
 
 type
   ApiResponse*[T] = Result[T, string]
@@ -759,6 +761,11 @@ template handle404(): untyped {.dirty.} =
   let failure = ApiNodeFailure.init(ApiFailure.NotFound, RequestName,
     strategy, node, response.status, response.getErrorMessage())
   node.updateStatus(RestBeaconNodeStatus.Incompatible, failure)
+  failures.add(failure)
+
+template handle415(): untyped {.dirty.} =
+  let failure = ApiNodeFailure.init(ApiFailure.NotSupportedContentType,
+    RequestName, strategy, node, response.status, response.getErrorMessage())
   failures.add(failure)
 
 template handle500(): untyped {.dirty.} =
@@ -2284,6 +2291,9 @@ proc publishBlock*(
           of 400:
             handle400()
             ApiResponse[bool].err(ResponseInvalidError)
+          of 415:
+            handle415()
+            ApiResponse[bool].err(ResponseUnsupportedContentTypeError)
           of 500:
             handle500()
             ApiResponse[bool].err(ResponseInternalError)
@@ -2332,6 +2342,127 @@ proc publishBlock*(
           return true
         of 400:
           handle400()
+          false
+        of 415:
+          handle415()
+          false
+        of 500:
+          handle500()
+          false
+        of 503:
+          handle503()
+          false
+        else:
+          handleUnexpectedCode()
+          false
+
+    raise (ref ValidatorApiError)(
+      msg: "Failed to publish block", data: failures)
+
+proc publishBlockV2*(
+       vc: ValidatorClientRef,
+       data: RestPublishedSignedBlockContents,
+       validation: BroadcastValidationType,
+       contentType: MediaType,
+       strategy: ApiStrategyKind
+     ): Future[bool] {.async.} =
+  const
+    RequestName = "publishBlockV2"
+    BlockBroadcasted = "Block not passed validation, but still published"
+
+  var failures: seq[ApiNodeFailure]
+
+  case strategy
+  of ApiStrategyKind.First, ApiStrategyKind.Best:
+    let res = block:
+      vc.firstSuccessParallel(RestPlainResponse,
+                              bool,
+                              SlotDuration,
+                              ViableNodeStatus,
+                              {BeaconNodeRole.BlockProposalPublish}):
+        case data.kind
+        of ConsensusFork.Phase0:
+          publishBlockV2(it, data.phase0Data)
+        of ConsensusFork.Altair:
+          publishBlockV2(it, data.altairData)
+        of ConsensusFork.Bellatrix:
+          publishBlockV2(it, data.bellatrixData)
+        of ConsensusFork.Capella:
+          publishBlockV2(it, data.capellaData)
+        of ConsensusFork.Deneb:
+          publishBlockV2(it, data.denebData)
+        of ConsensusFork.Electra:
+          publishBlockV2(it, data.electraData)
+      do:
+        if apiResponse.isErr():
+          handleCommunicationError()
+          ApiResponse[bool].err(apiResponse.error)
+        else:
+          let response = apiResponse.get()
+          case response.status:
+          of 200:
+            ApiResponse[bool].ok(true)
+          of 202:
+            debug BlockBroadcasted, node = node,
+                  blck = shortLog(ForkedSignedBeaconBlock.init(data))
+            ApiResponse[bool].ok(true)
+          of 400:
+            handle400()
+            ApiResponse[bool].err(ResponseInvalidError)
+          of 415:
+            handle415()
+            ApiResponse[bool].err(ResponseUnsupportedContentTypeError)
+          of 500:
+            handle500()
+            ApiResponse[bool].err(ResponseInternalError)
+          of 503:
+            handle503()
+            ApiResponse[bool].err(ResponseNoSyncError)
+          else:
+            handleUnexpectedCode()
+            ApiResponse[bool].err(ResponseUnexpectedError)
+
+    if res.isErr():
+      raise (ref ValidatorApiError)(msg: res.error, data: failures)
+    return res.get()
+
+  of ApiStrategyKind.Priority:
+    vc.firstSuccessSequential(RestPlainResponse,
+                              SlotDuration,
+                              ViableNodeStatus,
+                              {BeaconNodeRole.BlockProposalPublish}):
+      case data.kind
+      of ConsensusFork.Phase0:
+        publishBlock(it, data.phase0Data)
+      of ConsensusFork.Altair:
+        publishBlock(it, data.altairData)
+      of ConsensusFork.Bellatrix:
+        publishBlock(it, data.bellatrixData)
+      of ConsensusFork.Capella:
+        publishBlock(it, data.capellaData)
+      of ConsensusFork.Deneb:
+        publishBlock(it, data.denebData)
+      of ConsensusFork.Electra:
+        publishBlock(it, data.electraData)
+
+    do:
+      if apiResponse.isErr():
+        handleCommunicationError()
+        false
+      else:
+        let response = apiResponse.get()
+        case response.status:
+        of 200:
+          return true
+        of 202:
+          debug BlockBroadcasted, node = node,
+           blck = shortLog(ForkedSignedBeaconBlock.init(data))
+          return true
+        of 400:
+          handle400()
+          false
+        of 415:
+          handle415()
           false
         of 500:
           handle500()

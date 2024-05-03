@@ -242,7 +242,8 @@ type
 
   ApiFailure* {.pure.} = enum
     Communication, Invalid, NotFound, OptSynced, NotSynced, Internal,
-    NotImplemented, UnexpectedCode, UnexpectedResponse, NoError
+    NotImplemented, UnexpectedCode, UnexpectedResponse, NotSupportedContentType,
+    NoError
 
   ApiNodeFailure* = object
     node*: BeaconNodeServerRef
@@ -377,6 +378,7 @@ proc `$`*(failure: ApiFailure): string =
   of ApiFailure.UnexpectedCode: "unexpected-code"
   of ApiFailure.UnexpectedResponse: "unexpected-data"
   of ApiFailure.NoError: "status-update"
+  of ApiFailure.NotSupportedContentType: "not-supported-content-type"
 
 proc getNodeCounts*(vc: ValidatorClientRef): BeaconNodesCounters =
   var res = BeaconNodesCounters()

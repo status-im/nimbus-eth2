@@ -393,7 +393,12 @@ proc publishBlockV3(vc: ValidatorClientRef, currentSlot, slot: Slot,
         res =
           try:
             debug "Sending block"
-            await vc.publishBlock(signedBlockContents, ApiStrategyKind.First)
+            await vc.publishBlockV2(
+              signedBlockContents,
+              BroadcastValidationType.Gossip,
+              ApplicationJsonMediaType,
+              ApiStrategyKind.First
+            )
           except ValidatorApiError as exc:
             warn "Unable to publish block", reason = exc.getFailureReason()
             return false
