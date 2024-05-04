@@ -1624,7 +1624,7 @@ proc ETHTransactionsCreateFromJson(
         address: ExecutionAddress
         storage_keys: List[Eth2Digest, Limit MAX_ACCESS_LIST_STORAGE_KEYS]
 
-      Eip6493TransactionPayload = object
+      Eip6493TransactionPayload {.sszStableContainer: 32.} = object
         nonce: uint64
         max_fee_per_gas: UInt256
         gas: uint64
@@ -1646,13 +1646,13 @@ proc ETHTransactionsCreateFromJson(
         blob_versioned_hashes:
           Opt[List[deneb.VersionedHash, Limit MAX_BLOB_COMMITMENTS_PER_BLOCK]]
 
-      Eip6493TransactionSignature = object
+      Eip6493TransactionSignature {.sszStableContainer: 16.} = object
         `from`: ExecutionAddress
         ecdsa_signature: array[65, byte]
 
       Eip6493Transaction = object
-        payload: StableContainer[Eip6493TransactionPayload, 32]
-        signature: StableContainer[Eip6493TransactionSignature, 16]
+        payload: Eip6493TransactionPayload
+        signature: Eip6493TransactionSignature
 
     var eip6493Tx: Eip6493Transaction
 
@@ -1669,13 +1669,13 @@ proc ETHTransactionsCreateFromJson(
     case tx.txType
     of TxLegacy:
       if tx.V notin [27'i64, 28'i64]:  # With replay protection
-        `.`(eip6493Tx.payload, `type`).ok(0x00)
+        eip6493Tx.payload.`type`.ok(0x00)
     of TxEip2930:
-      `.`(eip6493Tx.payload, `type`).ok(0x01)
+      eip6493Tx.payload.`type`.ok(0x01)
     of TxEip1559:
-      `.`(eip6493Tx.payload, `type`).ok(0x02)
+      eip6493Tx.payload.`type`.ok(0x02)
     of TxEip4844:
-      `.`(eip6493Tx.payload, `type`).ok(0x03)
+      eip6493Tx.payload.`type`.ok(0x03)
     if tx.txType >= TxEip2930:
       if tx.accessList.len > MAX_ACCESS_LIST_SIZE:
         return nil
@@ -2351,7 +2351,7 @@ proc ETHReceiptsCreateFromJson(
         topics: List[Eth2Digest, Limit MAX_TOPICS_PER_LOG]
         data: List[byte, Limit MAX_LOG_DATA_SIZE]
 
-      Eip6493ReceiptPayload = object
+      Eip6493Receipt {.sszStableContainer: 32.} = object
         root: Opt[Eth2Digest]
         gas_used: uint64
         contract_address: Opt[ExecutionAddress]
@@ -2360,8 +2360,6 @@ proc ETHReceiptsCreateFromJson(
 
         # EIP-658
         status: Opt[bool]
-
-      Eip6493Receipt = StableContainer[Eip6493ReceiptPayload, 32]
 
     var eip6493Rec: Eip6493Receipt
     let transaction = ETHTransactionsGet(transactions, i.cint)
