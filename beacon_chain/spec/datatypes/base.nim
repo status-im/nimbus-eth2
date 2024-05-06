@@ -985,4 +985,5 @@ func ofLen*[T, N](ListType: type List[T, N], n: int): ListType =
   else:
     raise newException(SszSizeMismatchError)
 
+template debugComment*(s: string) = discard
 template debugRaiseAssert*(s: string) = discard
