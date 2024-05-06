@@ -62,6 +62,8 @@ type
     DENEB_FORK_EPOCH*: Epoch
     ELECTRA_FORK_VERSION*: Version
     ELECTRA_FORK_EPOCH*: Epoch
+    VERGE_FORK_VERSION*: Version
+    VERGE_FORK_EPOCH*: Epoch
 
     # Time parameters
     # TODO SECONDS_PER_SLOT*: uint64

@@ -23,7 +23,7 @@ import
   ssz_serialization/[merkleization, proofs],
   ssz_serialization/types as sszTypes,
   ../digest,
-  "."/[base, phase0, altair, bellatrix]
+  "."/[base, phase0, altair, bellatrix, capella]
 
 export json_serialization, base
 
@@ -71,12 +71,12 @@ type
   #   message*: BLSToExecutionChange
   #   signature*: ValidatorSig
 
-  # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.5/specs/capella/beacon-chain.md#historicalsummary
-  HistoricalSummary* = object
-    # `HistoricalSummary` matches the components of the phase0
-    # `HistoricalBatch` making the two hash_tree_root-compatible.
-    block_summary_root*: Eth2Digest
-    state_summary_root*: Eth2Digest
+  # # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.5/specs/capella/beacon-chain.md#historicalsummary
+  # HistoricalSummary* = object
+  #   # `HistoricalSummary` matches the components of the phase0
+  #   # `HistoricalBatch` making the two hash_tree_root-compatible.
+  #   block_summary_root*: Eth2Digest
+  #   state_summary_root*: Eth2Digest
 
   SuffixStateDiff* = object
     suffix*: Eth2Digest
@@ -334,8 +334,7 @@ type
 
     # Deep history valid from Capella onwards
     historical_summaries*:
-      HashList[HistoricalSummary,
-        Limit HISTORICAL_ROOTS_LIMIT]  # [New in Capella]
+      HashList[HistoricalSummary, Limit HISTORICAL_ROOTS_LIMIT]  # [New in Capella]
 
   # TODO Careful, not nil analysis is broken / incomplete and the semantics will
   #      likely change in future versions of the language:
