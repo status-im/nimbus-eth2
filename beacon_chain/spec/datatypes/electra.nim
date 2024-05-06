@@ -180,94 +180,94 @@ type
       ## Execution payload header corresponding to `beacon.body_root` (from Capella onward)
     execution_branch*: ExecutionBranch
 
-  # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.5/specs/altair/light-client/sync-protocol.md#lightclientbootstrap
-  LightClientBootstrap* = object
-    header*: LightClientHeader
-      ## Header matching the requested beacon block root
+  # # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.5/specs/altair/light-client/sync-protocol.md#lightclientbootstrap
+  # LightClientBootstrap* = object
+  #   header*: LightClientHeader
+  #     ## Header matching the requested beacon block root
 
-    current_sync_committee*: SyncCommittee
-      ## Current sync committee corresponding to `header.beacon.state_root`
-    current_sync_committee_branch*: altair.CurrentSyncCommitteeBranch
+  #   current_sync_committee*: SyncCommittee
+  #     ## Current sync committee corresponding to `header.beacon.state_root`
+  #   current_sync_committee_branch*: altair.CurrentSyncCommitteeBranch
 
-  # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.5/specs/altair/light-client/sync-protocol.md#lightclientupdate
-  LightClientUpdate* = object
-    attested_header*: LightClientHeader
-      ## Header attested to by the sync committee
+  # # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.5/specs/altair/light-client/sync-protocol.md#lightclientupdate
+  # LightClientUpdate* = object
+  #   attested_header*: LightClientHeader
+  #     ## Header attested to by the sync committee
 
-    next_sync_committee*: SyncCommittee
-      ## Next sync committee corresponding to
-      ## `attested_header.beacon.state_root`
-    next_sync_committee_branch*: altair.NextSyncCommitteeBranch
+  #   next_sync_committee*: SyncCommittee
+  #     ## Next sync committee corresponding to
+  #     ## `attested_header.beacon.state_root`
+  #   next_sync_committee_branch*: altair.NextSyncCommitteeBranch
 
-    # Finalized header corresponding to `attested_header.beacon.state_root`
-    finalized_header*: LightClientHeader
-    finality_branch*: altair.FinalityBranch
+  #   # Finalized header corresponding to `attested_header.beacon.state_root`
+  #   finalized_header*: LightClientHeader
+  #   finality_branch*: altair.FinalityBranch
 
-    sync_aggregate*: SyncAggregate
-      ## Sync committee aggregate signature
-    signature_slot*: Slot
-      ## Slot at which the aggregate signature was created (untrusted)
+  #   sync_aggregate*: SyncAggregate
+  #     ## Sync committee aggregate signature
+  #   signature_slot*: Slot
+  #     ## Slot at which the aggregate signature was created (untrusted)
 
-  # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.5/specs/altair/light-client/sync-protocol.md#lightclientfinalityupdate
-  LightClientFinalityUpdate* = object
-    # Header attested to by the sync committee
-    attested_header*: LightClientHeader
+  # # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.5/specs/altair/light-client/sync-protocol.md#lightclientfinalityupdate
+  # LightClientFinalityUpdate* = object
+  #   # Header attested to by the sync committee
+  #   attested_header*: LightClientHeader
 
-    # Finalized header corresponding to `attested_header.beacon.state_root`
-    finalized_header*: LightClientHeader
-    finality_branch*: altair.FinalityBranch
+  #   # Finalized header corresponding to `attested_header.beacon.state_root`
+  #   finalized_header*: LightClientHeader
+  #   finality_branch*: altair.FinalityBranch
 
-    # Sync committee aggregate signature
-    sync_aggregate*: SyncAggregate
-    # Slot at which the aggregate signature was created (untrusted)
-    signature_slot*: Slot
+  #   # Sync committee aggregate signature
+  #   sync_aggregate*: SyncAggregate
+  #   # Slot at which the aggregate signature was created (untrusted)
+  #   signature_slot*: Slot
 
-  # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.5/specs/altair/light-client/sync-protocol.md#lightclientoptimisticupdate
-  LightClientOptimisticUpdate* = object
-    # Header attested to by the sync committee
-    attested_header*: LightClientHeader
+  # # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.5/specs/altair/light-client/sync-protocol.md#lightclientoptimisticupdate
+  # LightClientOptimisticUpdate* = object
+  #   # Header attested to by the sync committee
+  #   attested_header*: LightClientHeader
 
-    # Sync committee aggregate signature
-    sync_aggregate*: SyncAggregate
-    # Slot at which the aggregate signature was created (untrusted)
-    signature_slot*: Slot
+  #   # Sync committee aggregate signature
+  #   sync_aggregate*: SyncAggregate
+  #   # Slot at which the aggregate signature was created (untrusted)
+  #   signature_slot*: Slot
 
-  SomeLightClientUpdateWithSyncCommittee* =
-    LightClientUpdate
+  # SomeLightClientUpdateWithSyncCommittee* =
+  #   LightClientUpdate
 
-  SomeLightClientUpdateWithFinality* =
-    LightClientUpdate |
-    LightClientFinalityUpdate
+  # SomeLightClientUpdateWithFinality* =
+  #   LightClientUpdate |
+  #   LightClientFinalityUpdate
 
-  SomeLightClientUpdate* =
-    LightClientUpdate |
-    LightClientFinalityUpdate |
-    LightClientOptimisticUpdate
+  # SomeLightClientUpdate* =
+  #   LightClientUpdate |
+  #   LightClientFinalityUpdate |
+  #   LightClientOptimisticUpdate
 
-  SomeLightClientObject* =
-    LightClientBootstrap |
-    SomeLightClientUpdate
+  # SomeLightClientObject* =
+  #   LightClientBootstrap |
+  #   SomeLightClientUpdate
 
-  # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.5/specs/altair/light-client/sync-protocol.md#lightclientstore
-  LightClientStore* = object
-    finalized_header*: LightClientHeader
-      ## Header that is finalized
+  # # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.5/specs/altair/light-client/sync-protocol.md#lightclientstore
+  # LightClientStore* = object
+  #   finalized_header*: LightClientHeader
+  #     ## Header that is finalized
 
-    current_sync_committee*: SyncCommittee
-      ## Sync committees corresponding to the finalized header
-    next_sync_committee*: SyncCommittee
+  #   current_sync_committee*: SyncCommittee
+  #     ## Sync committees corresponding to the finalized header
+  #   next_sync_committee*: SyncCommittee
 
-    best_valid_update*: Opt[LightClientUpdate]
-      ## Best available header to switch finalized head to
-      ## if we see nothing else
+  #   best_valid_update*: Opt[LightClientUpdate]
+  #     ## Best available header to switch finalized head to
+  #     ## if we see nothing else
 
-    optimistic_header*: LightClientHeader
-      ## Most recent available reasonably-safe header
+  #   optimistic_header*: LightClientHeader
+  #     ## Most recent available reasonably-safe header
 
-    previous_max_active_participants*: uint64
-      ## Max number of active participants in a sync committee
-      ## (used to compute safety threshold)
-    current_max_active_participants*: uint64
+  #   previous_max_active_participants*: uint64
+  #     ## Max number of active participants in a sync committee
+  #     ## (used to compute safety threshold)
+  #   current_max_active_participants*: uint64
 
   # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.5/specs/capella/beacon-chain.md#beaconstate
   BeaconState* = object
@@ -336,73 +336,73 @@ type
     historical_summaries*:
       HashList[HistoricalSummary, Limit HISTORICAL_ROOTS_LIMIT]  # [New in Capella]
 
-  # TODO Careful, not nil analysis is broken / incomplete and the semantics will
-  #      likely change in future versions of the language:
-  #      https://github.com/nim-lang/RFCs/issues/250
-  BeaconStateRef* = ref BeaconState not nil
-  NilableBeaconStateRef* = ref BeaconState
+  # # TODO Careful, not nil analysis is broken / incomplete and the semantics will
+  # #      likely change in future versions of the language:
+  # #      https://github.com/nim-lang/RFCs/issues/250
+  # BeaconStateRef* = ref BeaconState not nil
+  # NilableBeaconStateRef* = ref BeaconState
 
-  # TODO: There should be only a single generic HashedBeaconState definition
-  HashedBeaconState* = object
-    data*: BeaconState
-    root*: Eth2Digest # hash_tree_root(data)
+  # # TODO: There should be only a single generic HashedBeaconState definition
+  # HashedBeaconState* = object
+  #   data*: BeaconState
+  #   root*: Eth2Digest # hash_tree_root(data)
 
-  # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.6/specs/phase0/beacon-chain.md#beaconblock
-  BeaconBlock* = object
-    ## For each slot, a proposer is chosen from the validator pool to propose
-    ## a new block. Once the block as been proposed, it is transmitted to
-    ## validators that will have a chance to vote on it through attestations.
-    ## Each block collects attestations, or votes, on past blocks, thus a chain
-    ## is formed.
+  # # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.6/specs/phase0/beacon-chain.md#beaconblock
+  # BeaconBlock* = object
+  #   ## For each slot, a proposer is chosen from the validator pool to propose
+  #   ## a new block. Once the block as been proposed, it is transmitted to
+  #   ## validators that will have a chance to vote on it through attestations.
+  #   ## Each block collects attestations, or votes, on past blocks, thus a chain
+  #   ## is formed.
 
-    slot*: Slot
-    proposer_index*: uint64 # `ValidatorIndex` after validation
+  #   slot*: Slot
+  #   proposer_index*: uint64 # `ValidatorIndex` after validation
 
-    parent_root*: Eth2Digest
-      ## Root hash of the previous block
+  #   parent_root*: Eth2Digest
+  #     ## Root hash of the previous block
 
-    state_root*: Eth2Digest
-      ## The state root, _after_ this block has been processed
+  #   state_root*: Eth2Digest
+  #     ## The state root, _after_ this block has been processed
 
-    body*: BeaconBlockBody
+  #   body*: BeaconBlockBody
 
-  SigVerifiedBeaconBlock* = object
-    ## A BeaconBlock that contains verified signatures
-    ## but that has not been verified for state transition
+  # SigVerifiedBeaconBlock* = object
+  #   ## A BeaconBlock that contains verified signatures
+  #   ## but that has not been verified for state transition
 
-    slot*: Slot
-    proposer_index*: uint64 # `ValidatorIndex` after validation
+  #   slot*: Slot
+  #   proposer_index*: uint64 # `ValidatorIndex` after validation
 
-    parent_root*: Eth2Digest
-      ## Root hash of the previous block
+  #   parent_root*: Eth2Digest
+  #     ## Root hash of the previous block
 
-    state_root*: Eth2Digest
-      ## The state root, _after_ this block has been processed
+  #   state_root*: Eth2Digest
+  #     ## The state root, _after_ this block has been processed
 
-    body*: SigVerifiedBeaconBlockBody
+  #   body*: SigVerifiedBeaconBlockBody
 
-  TrustedBeaconBlock* = object
-    ## When we receive blocks from outside sources, they are untrusted and go
-    ## through several layers of validation. Blocks that have gone through
-    ## validations can be trusted to be well-formed, with a correct signature,
-    ## having a parent and applying cleanly to the state that their parent
-    ## left them with.
-    ##
-    ## When loading such blocks from the database, to rewind states for example,
-    ## it is expensive to redo the validations (in particular, the signature
-    ## checks), thus `TrustedBlock` uses a `TrustedSig` type to mark that these
-    ## checks can be skipped.
-    ##
-    ## TODO this could probably be solved with some type trickery, but there
-    ##      too many bugs in nim around generics handling, and we've used up
-    ##      the trickery budget in the serialization library already. Until
-    ##      then, the type must be manually kept compatible with its untrusted
-    ##      cousin.
-    slot*: Slot
-    proposer_index*: uint64 # `ValidatorIndex` after validation
-    parent_root*: Eth2Digest
-    state_root*: Eth2Digest
-    body*: TrustedBeaconBlockBody
+  # TrustedBeaconBlock* = object
+  #   ## When we receive blocks from outside sources, they are untrusted and go
+  #   ## through several layers of validation. Blocks that have gone through
+  #   ## validations can be trusted to be well-formed, with a correct signature,
+  #   ## having a parent and applying cleanly to the state that their parent
+  #   ## left them with.
+  #   ##
+  #   ## When loading such blocks from the database, to rewind states for example,
+  #   ## it is expensive to redo the validations (in particular, the signature
+  #   ## checks), thus `TrustedBlock` uses a `TrustedSig` type to mark that these
+  #   ## checks can be skipped.
+  #   ##
+  #   ## TODO this could probably be solved with some type trickery, but there
+  #   ##      too many bugs in nim around generics handling, and we've used up
+  #   ##      the trickery budget in the serialization library already. Until
+  #   ##      then, the type must be manually kept compatible with its untrusted
+  #   ##      cousin.
+  #   slot*: Slot
+  #   proposer_index*: uint64 # `ValidatorIndex` after validation
+  #   parent_root*: Eth2Digest
+  #   state_root*: Eth2Digest
+  #   body*: TrustedBeaconBlockBody
 
   # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.5/specs/capella/beacon-chain.md#beaconblockbody
   BeaconBlockBody* = object
@@ -489,57 +489,57 @@ type
     # # Capella operations
     # bls_to_execution_changes*: SignedBLSToExecutionChangeList  # [New in Capella]
 
-  # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.6/specs/phase0/beacon-chain.md#signedbeaconblock
-  SignedBeaconBlock* = object
-    message*: BeaconBlock
-    signature*: ValidatorSig
+  # # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.6/specs/phase0/beacon-chain.md#signedbeaconblock
+  # SignedBeaconBlock* = object
+  #   message*: BeaconBlock
+  #   signature*: ValidatorSig
 
-    root* {.dontSerialize.}: Eth2Digest # cached root of signed beacon block
+  #   root* {.dontSerialize.}: Eth2Digest # cached root of signed beacon block
 
-  SigVerifiedSignedBeaconBlock* = object
-    ## A SignedBeaconBlock with signatures verified
-    ## including:
-    ## - Block signature
-    ## - BeaconBlockBody
-    ##   - Randao reveal
-    ##   - Attestations
-    ##   - ProposerSlashing (SignedBeaconBlockHeader)
-    ##   - AttesterSlashing (IndexedAttestation)
-    ##   - SignedVoluntaryExits
-    ##
-    ##   - ETH1Data (Deposits) can contain invalid BLS signatures
-    ##
-    ## The block state transition has NOT been verified
-    message*: SigVerifiedBeaconBlock
-    signature*: TrustedSig
+  # SigVerifiedSignedBeaconBlock* = object
+  #   ## A SignedBeaconBlock with signatures verified
+  #   ## including:
+  #   ## - Block signature
+  #   ## - BeaconBlockBody
+  #   ##   - Randao reveal
+  #   ##   - Attestations
+  #   ##   - ProposerSlashing (SignedBeaconBlockHeader)
+  #   ##   - AttesterSlashing (IndexedAttestation)
+  #   ##   - SignedVoluntaryExits
+  #   ##
+  #   ##   - ETH1Data (Deposits) can contain invalid BLS signatures
+  #   ##
+  #   ## The block state transition has NOT been verified
+  #   message*: SigVerifiedBeaconBlock
+  #   signature*: TrustedSig
 
-    root* {.dontSerialize.}: Eth2Digest # cached root of signed beacon block
+  #   root* {.dontSerialize.}: Eth2Digest # cached root of signed beacon block
 
-  MsgTrustedSignedBeaconBlock* = object
-    message*: TrustedBeaconBlock
-    signature*: ValidatorSig
+  # MsgTrustedSignedBeaconBlock* = object
+  #   message*: TrustedBeaconBlock
+  #   signature*: ValidatorSig
 
-    root* {.dontSerialize.}: Eth2Digest # cached root of signed beacon block
+  #   root* {.dontSerialize.}: Eth2Digest # cached root of signed beacon block
 
-  TrustedSignedBeaconBlock* = object
-    message*: TrustedBeaconBlock
-    signature*: TrustedSig
+  # TrustedSignedBeaconBlock* = object
+  #   message*: TrustedBeaconBlock
+  #   signature*: TrustedSig
 
-    root* {.dontSerialize.}: Eth2Digest # cached root of signed beacon block
+  #   root* {.dontSerialize.}: Eth2Digest # cached root of signed beacon block
 
-  SomeSignedBeaconBlock* =
-    SignedBeaconBlock |
-    SigVerifiedSignedBeaconBlock |
-    MsgTrustedSignedBeaconBlock |
-    TrustedSignedBeaconBlock
-  SomeBeaconBlock* =
-    BeaconBlock |
-    SigVerifiedBeaconBlock |
-    TrustedBeaconBlock
-  SomeBeaconBlockBody* =
-    BeaconBlockBody |
-    SigVerifiedBeaconBlockBody |
-    TrustedBeaconBlockBody
+  # SomeSignedBeaconBlock* =
+  #   SignedBeaconBlock |
+  #   SigVerifiedSignedBeaconBlock |
+  #   MsgTrustedSignedBeaconBlock |
+  #   TrustedSignedBeaconBlock
+  # SomeBeaconBlock* =
+  #   BeaconBlock |
+  #   SigVerifiedBeaconBlock |
+  #   TrustedBeaconBlock
+  # SomeBeaconBlockBody* =
+  #   BeaconBlockBody |
+  #   SigVerifiedBeaconBlockBody |
+  #   TrustedBeaconBlockBody
 
   # BeaconBlockValidatorChanges* = object
   #   # Collection of exits that are suitable for block production
@@ -549,16 +549,16 @@ type
   #   bls_to_execution_changes*:
   #     List[SignedBLSToExecutionChange, Limit MAX_BLS_TO_EXECUTION_CHANGES]
 
-  BeaconStateDiffPreSnapshot* = object
-    eth1_data_votes_recent*: seq[Eth1Data]
-    eth1_data_votes_len*: int
-    slot*: Slot
-    historical_summaries_len*: int
-    eth1_withdrawal_credential*: seq[bool]
+  # BeaconStateDiffPreSnapshot* = object
+  #   eth1_data_votes_recent*: seq[Eth1Data]
+  #   eth1_data_votes_len*: int
+  #   slot*: Slot
+  #   historical_summaries_len*: int
+  #   eth1_withdrawal_credential*: seq[bool]
 
-  IndexedWithdrawalCredentials* = object
-    validator_index*: uint64
-    withdrawal_credentials*: Eth2Digest
+  # IndexedWithdrawalCredentials* = object
+  #   validator_index*: uint64
+  #   withdrawal_credentials*: Eth2Digest
 
   BeaconStateDiff* = object
     # Small and/or static; always include
@@ -636,38 +636,38 @@ type
     historical_summary_added*: bool
     historical_summary*: HistoricalSummary
 
-# TODO: There should be only a single generic HashedBeaconState definition
-func initHashedBeaconState*(s: BeaconState): HashedBeaconState =
-  HashedBeaconState(data: s)
+# # TODO: There should be only a single generic HashedBeaconState definition
+# func initHashedBeaconState*(s: BeaconState): HashedBeaconState =
+#   HashedBeaconState(data: s)
 
-func shortLog*(v: SomeBeaconBlock): auto =
-  (
-    slot: shortLog(v.slot),
-    proposer_index: v.proposer_index,
-    parent_root: shortLog(v.parent_root),
-    state_root: shortLog(v.state_root),
-    eth1data: v.body.eth1_data,
-    graffiti: $v.body.graffiti,
-    proposer_slashings_len: v.body.proposer_slashings.len(),
-    attester_slashings_len: v.body.attester_slashings.len(),
-    attestations_len: v.body.attestations.len(),
-    deposits_len: v.body.deposits.len(),
-    voluntary_exits_len: v.body.voluntary_exits.len(),
-    sync_committee_participants: v.body.sync_aggregate.num_active_participants,
-    block_number: v.body.execution_payload.block_number,
-    # TODO checksum hex? shortlog?
-    block_hash: to0xHex(v.body.execution_payload.block_hash.data),
-    parent_hash: to0xHex(v.body.execution_payload.parent_hash.data),
-    fee_recipient: to0xHex(v.body.execution_payload.fee_recipient.data),
-    bls_to_execution_changes_len: v.body.bls_to_execution_changes.len(),
-    blob_kzg_commitments_len: 0,  # Deneb compat
-  )
+# func shortLog*(v: SomeBeaconBlock): auto =
+#   (
+#     slot: shortLog(v.slot),
+#     proposer_index: v.proposer_index,
+#     parent_root: shortLog(v.parent_root),
+#     state_root: shortLog(v.state_root),
+#     eth1data: v.body.eth1_data,
+#     graffiti: $v.body.graffiti,
+#     proposer_slashings_len: v.body.proposer_slashings.len(),
+#     attester_slashings_len: v.body.attester_slashings.len(),
+#     attestations_len: v.body.attestations.len(),
+#     deposits_len: v.body.deposits.len(),
+#     voluntary_exits_len: v.body.voluntary_exits.len(),
+#     sync_committee_participants: v.body.sync_aggregate.num_active_participants,
+#     block_number: v.body.execution_payload.block_number,
+#     # TODO checksum hex? shortlog?
+#     block_hash: to0xHex(v.body.execution_payload.block_hash.data),
+#     parent_hash: to0xHex(v.body.execution_payload.parent_hash.data),
+#     fee_recipient: to0xHex(v.body.execution_payload.fee_recipient.data),
+#     bls_to_execution_changes_len: v.body.bls_to_execution_changes.len(),
+#     blob_kzg_commitments_len: 0,  # Deneb compat
+#   )
 
-func shortLog*(v: SomeSignedBeaconBlock): auto =
-  (
-    blck: shortLog(v.message),
-    signature: shortLog(v.signature)
-  )
+# func shortLog*(v: SomeSignedBeaconBlock): auto =
+#   (
+#     blck: shortLog(v.message),
+#     signature: shortLog(v.signature)
+#   )
 
 func shortLog*(v: ExecutionPayload): auto =
   (
@@ -687,12 +687,12 @@ func shortLog*(v: ExecutionPayload): auto =
     num_withdrawals: len(v.withdrawals)
   )
 
-func shortLog*(v: BLSToExecutionChange): auto =
-  (
-    validator_index: v.validator_index,
-    from_bls_pubkey: shortLog(v.from_bls_pubkey),
-    to_execution_address: $v.to_execution_address
-  )
+# func shortLog*(v: BLSToExecutionChange): auto =
+#   (
+#     validator_index: v.validator_index,
+#     from_bls_pubkey: shortLog(v.from_bls_pubkey),
+#     to_execution_address: $v.to_execution_address
+#   )
 
 # func shortLog*(v: SignedBLSToExecutionChange): auto =
 #   (
@@ -733,43 +733,43 @@ func upgrade_lc_header_to_capella*(
   LightClientHeader(
     beacon: pre.beacon)
 
-# https://github.com/ethereum/consensus-specs/blob/v1.4.0/specs/capella/light-client/fork.md#upgrading-light-client-data
-func upgrade_lc_bootstrap_to_capella*(
-    pre: altair.LightClientBootstrap): LightClientBootstrap =
-  LightClientBootstrap(
-    header: upgrade_lc_header_to_capella(pre.header),
-    current_sync_committee: pre.current_sync_committee,
-    current_sync_committee_branch: pre.current_sync_committee_branch)
+# # https://github.com/ethereum/consensus-specs/blob/v1.4.0/specs/capella/light-client/fork.md#upgrading-light-client-data
+# func upgrade_lc_bootstrap_to_capella*(
+#     pre: altair.LightClientBootstrap): LightClientBootstrap =
+#   LightClientBootstrap(
+#     header: upgrade_lc_header_to_capella(pre.header),
+#     current_sync_committee: pre.current_sync_committee,
+#     current_sync_committee_branch: pre.current_sync_committee_branch)
 
-# https://github.com/ethereum/consensus-specs/blob/v1.4.0/specs/capella/light-client/fork.md#upgrading-light-client-data
-func upgrade_lc_update_to_capella*(
-    pre: altair.LightClientUpdate): LightClientUpdate =
-  LightClientUpdate(
-    attested_header: upgrade_lc_header_to_capella(pre.attested_header),
-    next_sync_committee: pre.next_sync_committee,
-    next_sync_committee_branch: pre.next_sync_committee_branch,
-    finalized_header: upgrade_lc_header_to_capella(pre.finalized_header),
-    finality_branch: pre.finality_branch,
-    sync_aggregate: pre.sync_aggregate,
-    signature_slot: pre.signature_slot)
+# # https://github.com/ethereum/consensus-specs/blob/v1.4.0/specs/capella/light-client/fork.md#upgrading-light-client-data
+# func upgrade_lc_update_to_capella*(
+#     pre: altair.LightClientUpdate): LightClientUpdate =
+#   LightClientUpdate(
+#     attested_header: upgrade_lc_header_to_capella(pre.attested_header),
+#     next_sync_committee: pre.next_sync_committee,
+#     next_sync_committee_branch: pre.next_sync_committee_branch,
+#     finalized_header: upgrade_lc_header_to_capella(pre.finalized_header),
+#     finality_branch: pre.finality_branch,
+#     sync_aggregate: pre.sync_aggregate,
+#     signature_slot: pre.signature_slot)
 
-# https://github.com/ethereum/consensus-specs/blob/v1.4.0/specs/capella/light-client/fork.md#upgrading-light-client-data
-func upgrade_lc_finality_update_to_capella*(
-    pre: altair.LightClientFinalityUpdate): LightClientFinalityUpdate =
-  LightClientFinalityUpdate(
-    attested_header: upgrade_lc_header_to_capella(pre.attested_header),
-    finalized_header: upgrade_lc_header_to_capella(pre.finalized_header),
-    finality_branch: pre.finality_branch,
-    sync_aggregate: pre.sync_aggregate,
-    signature_slot: pre.signature_slot)
+# # https://github.com/ethereum/consensus-specs/blob/v1.4.0/specs/capella/light-client/fork.md#upgrading-light-client-data
+# func upgrade_lc_finality_update_to_capella*(
+#     pre: altair.LightClientFinalityUpdate): LightClientFinalityUpdate =
+#   LightClientFinalityUpdate(
+#     attested_header: upgrade_lc_header_to_capella(pre.attested_header),
+#     finalized_header: upgrade_lc_header_to_capella(pre.finalized_header),
+#     finality_branch: pre.finality_branch,
+#     sync_aggregate: pre.sync_aggregate,
+#     signature_slot: pre.signature_slot)
 
-# https://github.com/ethereum/consensus-specs/blob/v1.4.0/specs/capella/light-client/fork.md#upgrading-light-client-data
-func upgrade_lc_optimistic_update_to_capella*(
-    pre: altair.LightClientOptimisticUpdate): LightClientOptimisticUpdate =
-  LightClientOptimisticUpdate(
-    attested_header: upgrade_lc_header_to_capella(pre.attested_header),
-    sync_aggregate: pre.sync_aggregate,
-    signature_slot: pre.signature_slot)
+# # https://github.com/ethereum/consensus-specs/blob/v1.4.0/specs/capella/light-client/fork.md#upgrading-light-client-data
+# func upgrade_lc_optimistic_update_to_capella*(
+#     pre: altair.LightClientOptimisticUpdate): LightClientOptimisticUpdate =
+#   LightClientOptimisticUpdate(
+#     attested_header: upgrade_lc_header_to_capella(pre.attested_header),
+#     sync_aggregate: pre.sync_aggregate,
+#     signature_slot: pre.signature_slot)
 
 func shortLog*(v: LightClientHeader): auto =
   (
@@ -779,82 +779,82 @@ func shortLog*(v: LightClientHeader): auto =
       block_number: v.execution.block_number)
   )
 
-func shortLog*(v: LightClientBootstrap): auto =
-  (
-    header: shortLog(v.header)
-  )
+# func shortLog*(v: LightClientBootstrap): auto =
+#   (
+#     header: shortLog(v.header)
+#   )
 
-func shortLog*(v: LightClientUpdate): auto =
-  (
-    attested: shortLog(v.attested_header),
-    has_next_sync_committee:
-      v.next_sync_committee != default(typeof(v.next_sync_committee)),
-    finalized: shortLog(v.finalized_header),
-    num_active_participants: v.sync_aggregate.num_active_participants,
-    signature_slot: v.signature_slot
-  )
+# func shortLog*(v: LightClientUpdate): auto =
+#   (
+#     attested: shortLog(v.attested_header),
+#     has_next_sync_committee:
+#       v.next_sync_committee != default(typeof(v.next_sync_committee)),
+#     finalized: shortLog(v.finalized_header),
+#     num_active_participants: v.sync_aggregate.num_active_participants,
+#     signature_slot: v.signature_slot
+#   )
 
-func shortLog*(v: LightClientFinalityUpdate): auto =
-  (
-    attested: shortLog(v.attested_header),
-    finalized: shortLog(v.finalized_header),
-    num_active_participants: v.sync_aggregate.num_active_participants,
-    signature_slot: v.signature_slot
-  )
+# func shortLog*(v: LightClientFinalityUpdate): auto =
+#   (
+#     attested: shortLog(v.attested_header),
+#     finalized: shortLog(v.finalized_header),
+#     num_active_participants: v.sync_aggregate.num_active_participants,
+#     signature_slot: v.signature_slot
+#   )
 
-func shortLog*(v: LightClientOptimisticUpdate): auto =
-  (
-    attested: shortLog(v.attested_header),
-    num_active_participants: v.sync_aggregate.num_active_participants,
-    signature_slot: v.signature_slot,
-  )
+# func shortLog*(v: LightClientOptimisticUpdate): auto =
+#   (
+#     attested: shortLog(v.attested_header),
+#     num_active_participants: v.sync_aggregate.num_active_participants,
+#     signature_slot: v.signature_slot,
+#   )
 
-chronicles.formatIt LightClientBootstrap: shortLog(it)
-chronicles.formatIt LightClientUpdate: shortLog(it)
-chronicles.formatIt LightClientFinalityUpdate: shortLog(it)
-chronicles.formatIt LightClientOptimisticUpdate: shortLog(it)
+# chronicles.formatIt LightClientBootstrap: shortLog(it)
+# chronicles.formatIt LightClientUpdate: shortLog(it)
+# chronicles.formatIt LightClientFinalityUpdate: shortLog(it)
+# chronicles.formatIt LightClientOptimisticUpdate: shortLog(it)
 
-# https://github.com/ethereum/consensus-specs/blob/v1.4.0/specs/capella/light-client/fork.md#upgrading-the-store
-func upgrade_lc_store_to_capella*(
-    pre: altair.LightClientStore): LightClientStore =
-  let best_valid_update =
-    if pre.best_valid_update.isNone:
-      Opt.none(LightClientUpdate)
-    else:
-      Opt.some upgrade_lc_update_to_capella(pre.best_valid_update.get)
-  LightClientStore(
-    finalized_header: upgrade_lc_header_to_capella(pre.finalized_header),
-    current_sync_committee: pre.current_sync_committee,
-    next_sync_committee: pre.next_sync_committee,
-    best_valid_update: best_valid_update,
-    optimistic_header: upgrade_lc_header_to_capella(pre.optimistic_header),
-    previous_max_active_participants: pre.previous_max_active_participants,
-    current_max_active_participants: pre.current_max_active_participants)
+# # https://github.com/ethereum/consensus-specs/blob/v1.4.0/specs/capella/light-client/fork.md#upgrading-the-store
+# func upgrade_lc_store_to_capella*(
+#     pre: altair.LightClientStore): LightClientStore =
+#   let best_valid_update =
+#     if pre.best_valid_update.isNone:
+#       Opt.none(LightClientUpdate)
+#     else:
+#       Opt.some upgrade_lc_update_to_capella(pre.best_valid_update.get)
+#   LightClientStore(
+#     finalized_header: upgrade_lc_header_to_capella(pre.finalized_header),
+#     current_sync_committee: pre.current_sync_committee,
+#     next_sync_committee: pre.next_sync_committee,
+#     best_valid_update: best_valid_update,
+#     optimistic_header: upgrade_lc_header_to_capella(pre.optimistic_header),
+#     previous_max_active_participants: pre.previous_max_active_participants,
+#     current_max_active_participants: pre.current_max_active_participants)
 
-template asSigned*(
-    x: SigVerifiedSignedBeaconBlock |
-       MsgTrustedSignedBeaconBlock |
-       TrustedSignedBeaconBlock): SignedBeaconBlock =
-  isomorphicCast[SignedBeaconBlock](x)
+# template asSigned*(
+#     x: SigVerifiedSignedBeaconBlock |
+#        MsgTrustedSignedBeaconBlock |
+#        TrustedSignedBeaconBlock): SignedBeaconBlock =
+#   isomorphicCast[SignedBeaconBlock](x)
 
-template asSigVerified*(
-    x: SignedBeaconBlock |
-       MsgTrustedSignedBeaconBlock |
-       TrustedSignedBeaconBlock): SigVerifiedSignedBeaconBlock =
-  isomorphicCast[SigVerifiedSignedBeaconBlock](x)
+# template asSigVerified*(
+#     x: SignedBeaconBlock |
+#        MsgTrustedSignedBeaconBlock |
+#        TrustedSignedBeaconBlock): SigVerifiedSignedBeaconBlock =
+#   isomorphicCast[SigVerifiedSignedBeaconBlock](x)
 
-template asSigVerified*(
-    x: BeaconBlock | TrustedBeaconBlock): SigVerifiedBeaconBlock =
-  isomorphicCast[SigVerifiedBeaconBlock](x)
+# template asSigVerified*(
+#     x: BeaconBlock | TrustedBeaconBlock): SigVerifiedBeaconBlock =
+#   isomorphicCast[SigVerifiedBeaconBlock](x)
 
-template asMsgTrusted*(
-    x: SignedBeaconBlock |
-       SigVerifiedSignedBeaconBlock |
-       TrustedSignedBeaconBlock): MsgTrustedSignedBeaconBlock =
-  isomorphicCast[MsgTrustedSignedBeaconBlock](x)
+# template asMsgTrusted*(
+#     x: SignedBeaconBlock |
+#        SigVerifiedSignedBeaconBlock |
+#        TrustedSignedBeaconBlock): MsgTrustedSignedBeaconBlock =
+#   isomorphicCast[MsgTrustedSignedBeaconBlock](x)
 
-template asTrusted*(
-    x: SignedBeaconBlock |
-       SigVerifiedSignedBeaconBlock |
-       MsgTrustedSignedBeaconBlock): TrustedSignedBeaconBlock =
-  isomorphicCast[TrustedSignedBeaconBlock](x)
+# template asTrusted*(
+#     x: SignedBeaconBlock |
+#        SigVerifiedSignedBeaconBlock |
+#        MsgTrustedSignedBeaconBlock): TrustedSignedBeaconBlock =
+#   isomorphicCast[TrustedSignedBeaconBlock](x)
