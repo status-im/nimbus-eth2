@@ -589,7 +589,7 @@ type
   Attestation* = object
     aggregation_bits*: ElectraCommitteeValidatorsBits
     data*: AttestationData
-    committee_bits*: BitArray[static(MAX_COMMITTEES_PER_SLOT.int)]  # [New in Electra:EIP7549]
+    committee_bits*: BitArray[MAX_COMMITTEES_PER_SLOT.int]  # [New in Electra:EIP7549]
     signature*: ValidatorSig
 
   TrustedAttestation* = object
@@ -598,7 +598,7 @@ type
     # Currently the code MUST verify the state transition as soon as the signature is verified
     aggregation_bits*: ElectraCommitteeValidatorsBits
     data*: AttestationData
-    committee_bits*: BitArray[static(MAX_COMMITTEES_PER_SLOT.int)]  # [New in Electra:EIP7549]
+    committee_bits*: BitArray[MAX_COMMITTEES_PER_SLOT.int]  # [New in Electra:EIP7549]
     signature*: TrustedSig
 
   SomeSignedBeaconBlock* =
