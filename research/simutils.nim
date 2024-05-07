@@ -61,8 +61,7 @@ func getSimulationConfig*(): RuntimeConfig {.compileTime.} =
   cfg.BELLATRIX_FORK_EPOCH = 0.Epoch
   cfg.CAPELLA_FORK_EPOCH = 0.Epoch
   cfg.DENEB_FORK_EPOCH = 1.Epoch
-  debugRaiseAssert "set ELECTRA_FORK_EPOCH to 3.Epoch"
-  cfg.ELECTRA_FORK_EPOCH = FAR_FUTURE_EPOCH
+  cfg.ELECTRA_FORK_EPOCH = 3.Epoch
   cfg
 
 proc loadGenesis*(
