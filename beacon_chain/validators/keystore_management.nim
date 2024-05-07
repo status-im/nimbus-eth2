@@ -1816,8 +1816,9 @@ proc importKeystoresFromDir*(rng: var HmacDrbgContext, meth: ImportMethod,
       fatal "No keystore file found at kyes path"
       quit 1
 
-    var invalidFlag = false
-    var hasValid = false
+    var 
+      invalidFlag = false
+      hasValid = false
     for file in importedFiles:
       let filenameParts = splitFile(file)
       if toLowerAscii(filenameParts.ext) != ".json":
