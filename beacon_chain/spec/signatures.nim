@@ -394,7 +394,7 @@ proc verify_builder_signature*(
 # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.5/specs/capella/beacon-chain.md#new-process_bls_to_execution_change
 func compute_bls_to_execution_change_signing_root*(
     genesisFork: Fork, genesis_validators_root: Eth2Digest,
-    msg: electra.BLSToExecutionChange): Eth2Digest =
+    msg: BLSToExecutionChange): Eth2Digest =
   # So the epoch doesn't matter when calling get_domain
   doAssert genesisFork.previous_version == genesisFork.current_version
 
@@ -406,7 +406,7 @@ func compute_bls_to_execution_change_signing_root*(
 
 proc get_bls_to_execution_change_signature*(
     genesisFork: Fork, genesis_validators_root: Eth2Digest,
-    msg: electra.BLSToExecutionChange, privkey: ValidatorPrivKey):
+    msg: BLSToExecutionChange, privkey: ValidatorPrivKey):
     CookedSig =
   let signing_root = compute_bls_to_execution_change_signing_root(
     genesisFork, genesis_validators_root, msg)

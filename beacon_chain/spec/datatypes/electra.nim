@@ -53,18 +53,18 @@ type
 
   BanderwagonFieldElement* = Eth2Digest
 
-  # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.5/specs/capella/beacon-chain.md#withdrawal
-  Withdrawal* = object
-    index*: WithdrawalIndex
-    validator_index*: uint64
-    address*: ExecutionAddress
-    amount*: Gwei
+  # # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.5/specs/capella/beacon-chain.md#withdrawal
+  # Withdrawal* = object
+  #   index*: WithdrawalIndex
+  #   validator_index*: uint64
+  #   address*: ExecutionAddress
+  #   amount*: Gwei
 
-  # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.5/specs/capella/beacon-chain.md#blstoexecutionchange
-  BLSToExecutionChange* = object
-    validator_index*: uint64
-    from_bls_pubkey*: ValidatorPubKey
-    to_execution_address*: ExecutionAddress
+  # # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.5/specs/capella/beacon-chain.md#blstoexecutionchange
+  # BLSToExecutionChange* = object
+  #   validator_index*: uint64
+  #   from_bls_pubkey*: ValidatorPubKey
+  #   to_execution_address*: ExecutionAddress
 
   # # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.5/specs/capella/beacon-chain.md#signedblstoexecutionchange
   # SignedBLSToExecutionChange* = object
@@ -342,67 +342,67 @@ type
   # BeaconStateRef* = ref BeaconState not nil
   # NilableBeaconStateRef* = ref BeaconState
 
-  # # TODO: There should be only a single generic HashedBeaconState definition
-  # HashedBeaconState* = object
-  #   data*: BeaconState
-  #   root*: Eth2Digest # hash_tree_root(data)
+  # TODO: There should be only a single generic HashedBeaconState definition
+  HashedBeaconState* = object
+    data*: BeaconState
+    root*: Eth2Digest # hash_tree_root(data)
 
   # # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.6/specs/phase0/beacon-chain.md#beaconblock
-  # BeaconBlock* = object
-  #   ## For each slot, a proposer is chosen from the validator pool to propose
-  #   ## a new block. Once the block as been proposed, it is transmitted to
-  #   ## validators that will have a chance to vote on it through attestations.
-  #   ## Each block collects attestations, or votes, on past blocks, thus a chain
-  #   ## is formed.
+  BeaconBlock* = object
+    ## For each slot, a proposer is chosen from the validator pool to propose
+    ## a new block. Once the block as been proposed, it is transmitted to
+    ## validators that will have a chance to vote on it through attestations.
+    ## Each block collects attestations, or votes, on past blocks, thus a chain
+    ## is formed.
 
-  #   slot*: Slot
-  #   proposer_index*: uint64 # `ValidatorIndex` after validation
+    slot*: Slot
+    proposer_index*: uint64 # `ValidatorIndex` after validation
 
-  #   parent_root*: Eth2Digest
-  #     ## Root hash of the previous block
+    parent_root*: Eth2Digest
+      ## Root hash of the previous block
 
-  #   state_root*: Eth2Digest
-  #     ## The state root, _after_ this block has been processed
+    state_root*: Eth2Digest
+      ## The state root, _after_ this block has been processed
 
-  #   body*: BeaconBlockBody
+    body*: BeaconBlockBody
 
-  # SigVerifiedBeaconBlock* = object
-  #   ## A BeaconBlock that contains verified signatures
-  #   ## but that has not been verified for state transition
+  SigVerifiedBeaconBlock* = object
+    ## A BeaconBlock that contains verified signatures
+    ## but that has not been verified for state transition
 
-  #   slot*: Slot
-  #   proposer_index*: uint64 # `ValidatorIndex` after validation
+    slot*: Slot
+    proposer_index*: uint64 # `ValidatorIndex` after validation
 
-  #   parent_root*: Eth2Digest
-  #     ## Root hash of the previous block
+    parent_root*: Eth2Digest
+      ## Root hash of the previous block
 
-  #   state_root*: Eth2Digest
-  #     ## The state root, _after_ this block has been processed
+    state_root*: Eth2Digest
+      ## The state root, _after_ this block has been processed
 
-  #   body*: SigVerifiedBeaconBlockBody
+    body*: SigVerifiedBeaconBlockBody
 
-  # TrustedBeaconBlock* = object
-  #   ## When we receive blocks from outside sources, they are untrusted and go
-  #   ## through several layers of validation. Blocks that have gone through
-  #   ## validations can be trusted to be well-formed, with a correct signature,
-  #   ## having a parent and applying cleanly to the state that their parent
-  #   ## left them with.
-  #   ##
-  #   ## When loading such blocks from the database, to rewind states for example,
-  #   ## it is expensive to redo the validations (in particular, the signature
-  #   ## checks), thus `TrustedBlock` uses a `TrustedSig` type to mark that these
-  #   ## checks can be skipped.
-  #   ##
-  #   ## TODO this could probably be solved with some type trickery, but there
-  #   ##      too many bugs in nim around generics handling, and we've used up
-  #   ##      the trickery budget in the serialization library already. Until
-  #   ##      then, the type must be manually kept compatible with its untrusted
-  #   ##      cousin.
-  #   slot*: Slot
-  #   proposer_index*: uint64 # `ValidatorIndex` after validation
-  #   parent_root*: Eth2Digest
-  #   state_root*: Eth2Digest
-  #   body*: TrustedBeaconBlockBody
+  TrustedBeaconBlock* = object
+    ## When we receive blocks from outside sources, they are untrusted and go
+    ## through several layers of validation. Blocks that have gone through
+    ## validations can be trusted to be well-formed, with a correct signature,
+    ## having a parent and applying cleanly to the state that their parent
+    ## left them with.
+    ##
+    ## When loading such blocks from the database, to rewind states for example,
+    ## it is expensive to redo the validations (in particular, the signature
+    ## checks), thus `TrustedBlock` uses a `TrustedSig` type to mark that these
+    ## checks can be skipped.
+    ##
+    ## TODO this could probably be solved with some type trickery, but there
+    ##      too many bugs in nim around generics handling, and we've used up
+    ##      the trickery budget in the serialization library already. Until
+    ##      then, the type must be manually kept compatible with its untrusted
+    ##      cousin.
+    slot*: Slot
+    proposer_index*: uint64 # `ValidatorIndex` after validation
+    parent_root*: Eth2Digest
+    state_root*: Eth2Digest
+    body*: TrustedBeaconBlockBody
 
   # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.5/specs/capella/beacon-chain.md#beaconblockbody
   BeaconBlockBody* = object
@@ -490,56 +490,56 @@ type
     # bls_to_execution_changes*: SignedBLSToExecutionChangeList  # [New in Capella]
 
   # # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.6/specs/phase0/beacon-chain.md#signedbeaconblock
-  # SignedBeaconBlock* = object
-  #   message*: BeaconBlock
-  #   signature*: ValidatorSig
+  SignedBeaconBlock* = object
+    message*: BeaconBlock
+    signature*: ValidatorSig
 
-  #   root* {.dontSerialize.}: Eth2Digest # cached root of signed beacon block
+    root* {.dontSerialize.}: Eth2Digest # cached root of signed beacon block
 
-  # SigVerifiedSignedBeaconBlock* = object
-  #   ## A SignedBeaconBlock with signatures verified
-  #   ## including:
-  #   ## - Block signature
-  #   ## - BeaconBlockBody
-  #   ##   - Randao reveal
-  #   ##   - Attestations
-  #   ##   - ProposerSlashing (SignedBeaconBlockHeader)
-  #   ##   - AttesterSlashing (IndexedAttestation)
-  #   ##   - SignedVoluntaryExits
-  #   ##
-  #   ##   - ETH1Data (Deposits) can contain invalid BLS signatures
-  #   ##
-  #   ## The block state transition has NOT been verified
-  #   message*: SigVerifiedBeaconBlock
-  #   signature*: TrustedSig
+  SigVerifiedSignedBeaconBlock* = object
+    ## A SignedBeaconBlock with signatures verified
+    ## including:
+    ## - Block signature
+    ## - BeaconBlockBody
+    ##   - Randao reveal
+    ##   - Attestations
+    ##   - ProposerSlashing (SignedBeaconBlockHeader)
+    ##   - AttesterSlashing (IndexedAttestation)
+    ##   - SignedVoluntaryExits
+    ##
+    ##   - ETH1Data (Deposits) can contain invalid BLS signatures
+    ##
+    ## The block state transition has NOT been verified
+    message*: SigVerifiedBeaconBlock
+    signature*: TrustedSig
 
-  #   root* {.dontSerialize.}: Eth2Digest # cached root of signed beacon block
+    root* {.dontSerialize.}: Eth2Digest # cached root of signed beacon block
 
-  # MsgTrustedSignedBeaconBlock* = object
-  #   message*: TrustedBeaconBlock
-  #   signature*: ValidatorSig
+  MsgTrustedSignedBeaconBlock* = object
+    message*: TrustedBeaconBlock
+    signature*: ValidatorSig
 
-  #   root* {.dontSerialize.}: Eth2Digest # cached root of signed beacon block
+    root* {.dontSerialize.}: Eth2Digest # cached root of signed beacon block
 
-  # TrustedSignedBeaconBlock* = object
-  #   message*: TrustedBeaconBlock
-  #   signature*: TrustedSig
+  TrustedSignedBeaconBlock* = object
+    message*: TrustedBeaconBlock
+    signature*: TrustedSig
 
-  #   root* {.dontSerialize.}: Eth2Digest # cached root of signed beacon block
+    root* {.dontSerialize.}: Eth2Digest # cached root of signed beacon block
 
-  # SomeSignedBeaconBlock* =
-  #   SignedBeaconBlock |
-  #   SigVerifiedSignedBeaconBlock |
-  #   MsgTrustedSignedBeaconBlock |
-  #   TrustedSignedBeaconBlock
-  # SomeBeaconBlock* =
-  #   BeaconBlock |
-  #   SigVerifiedBeaconBlock |
-  #   TrustedBeaconBlock
-  # SomeBeaconBlockBody* =
-  #   BeaconBlockBody |
-  #   SigVerifiedBeaconBlockBody |
-  #   TrustedBeaconBlockBody
+  SomeSignedBeaconBlock* =
+    SignedBeaconBlock |
+    SigVerifiedSignedBeaconBlock |
+    MsgTrustedSignedBeaconBlock |
+    TrustedSignedBeaconBlock
+  SomeBeaconBlock* =
+    BeaconBlock |
+    SigVerifiedBeaconBlock |
+    TrustedBeaconBlock
+  SomeBeaconBlockBody* =
+    BeaconBlockBody |
+    SigVerifiedBeaconBlockBody |
+    TrustedBeaconBlockBody
 
   # BeaconBlockValidatorChanges* = object
   #   # Collection of exits that are suitable for block production
@@ -549,96 +549,96 @@ type
   #   bls_to_execution_changes*:
   #     List[SignedBLSToExecutionChange, Limit MAX_BLS_TO_EXECUTION_CHANGES]
 
-  # BeaconStateDiffPreSnapshot* = object
-  #   eth1_data_votes_recent*: seq[Eth1Data]
-  #   eth1_data_votes_len*: int
-  #   slot*: Slot
-  #   historical_summaries_len*: int
-  #   eth1_withdrawal_credential*: seq[bool]
-
-  # IndexedWithdrawalCredentials* = object
-  #   validator_index*: uint64
-  #   withdrawal_credentials*: Eth2Digest
-
-  BeaconStateDiff* = object
-    # Small and/or static; always include
+  BeaconStateDiffPreSnapshot* = object
+    eth1_data_votes_recent*: seq[Eth1Data]
+    eth1_data_votes_len*: int
     slot*: Slot
-    latest_block_header*: BeaconBlockHeader
+    historical_summaries_len*: int
+    eth1_withdrawal_credential*: seq[bool]
 
-    # Mod-increment/circular
-    block_roots*: array[SLOTS_PER_EPOCH.int, Eth2Digest]
-    state_roots*: array[SLOTS_PER_EPOCH.int, Eth2Digest]
+  IndexedWithdrawalCredentials* = object
+    validator_index*: uint64
+    withdrawal_credentials*: Eth2Digest
 
-    # Replace
-    eth1_data*: Eth1Data
+  # BeaconStateDiff* = object
+  #   # Small and/or static; always include
+  #   slot*: Slot
+  #   latest_block_header*: BeaconBlockHeader
 
-    eth1_data_votes_replaced*: bool
-    eth1_data_votes*:
-      List[Eth1Data, Limit(EPOCHS_PER_ETH1_VOTING_PERIOD * SLOTS_PER_EPOCH)]
+  #   # Mod-increment/circular
+  #   block_roots*: array[SLOTS_PER_EPOCH.int, Eth2Digest]
+  #   state_roots*: array[SLOTS_PER_EPOCH.int, Eth2Digest]
 
-    # Replace
-    eth1_deposit_index*: uint64
+  #   # Replace
+  #   eth1_data*: Eth1Data
 
-    # Validators come in two parts, the immutable public key and mutable
-    # entrance/exit/slashed information about that validator.
-    #
-    # Capella allows changing from BLS to execution withdrawal credentials, so
-    # it's not completely immutable, but it's a one-time change per validator,
-    # and no other possibilities exist. So for diff purposes still optimize if
-    # and when possible, by using the version of ValidatorStatus which doesn't
-    # serialize withdrawal_credentials, and including only those necessary for
-    # a correct state reconstruction.
-    #
-    # It's worth some complexity here, because a full Validator object is 128
-    # bytes, of which 48 bytes are the pubkey, and 32 withdrawal credentials,
-    # so using a (128 - 48) = 80 byte baseline for sometimes-mutable parts of
-    # the Validator objecet, one typically save another 40% of incompressible
-    # hash data by avoiding repeating this when feasible.
-    validator_statuses*:
-      List[ValidatorStatus, Limit VALIDATOR_REGISTRY_LIMIT]
-    withdrawal_credential_changes*:
-      List[IndexedWithdrawalCredentials, Limit VALIDATOR_REGISTRY_LIMIT]
+  #   eth1_data_votes_replaced*: bool
+  #   eth1_data_votes*:
+  #     List[Eth1Data, Limit(EPOCHS_PER_ETH1_VOTING_PERIOD * SLOTS_PER_EPOCH)]
 
-    # Represent in full
-    balances*: List[Gwei, Limit VALIDATOR_REGISTRY_LIMIT]
+  #   # Replace
+  #   eth1_deposit_index*: uint64
 
-    # Mod-increment
-    randao_mix*: Eth2Digest
-    slashing*: Gwei
+  #   # Validators come in two parts, the immutable public key and mutable
+  #   # entrance/exit/slashed information about that validator.
+  #   #
+  #   # Capella allows changing from BLS to execution withdrawal credentials, so
+  #   # it's not completely immutable, but it's a one-time change per validator,
+  #   # and no other possibilities exist. So for diff purposes still optimize if
+  #   # and when possible, by using the version of ValidatorStatus which doesn't
+  #   # serialize withdrawal_credentials, and including only those necessary for
+  #   # a correct state reconstruction.
+  #   #
+  #   # It's worth some complexity here, because a full Validator object is 128
+  #   # bytes, of which 48 bytes are the pubkey, and 32 withdrawal credentials,
+  #   # so using a (128 - 48) = 80 byte baseline for sometimes-mutable parts of
+  #   # the Validator objecet, one typically save another 40% of incompressible
+  #   # hash data by avoiding repeating this when feasible.
+  #   validator_statuses*:
+  #     List[ValidatorStatus, Limit VALIDATOR_REGISTRY_LIMIT]
+  #   withdrawal_credential_changes*:
+  #     List[IndexedWithdrawalCredentials, Limit VALIDATOR_REGISTRY_LIMIT]
 
-    # Represent in full; for the next epoch, current_epoch_participation in
-    # epoch n is previous_epoch_participation in epoch n+1 but this doesn't
-    # generalize.
-    previous_epoch_participation*: EpochParticipationFlags
-    current_epoch_participation*: EpochParticipationFlags
+  #   # Represent in full
+  #   balances*: List[Gwei, Limit VALIDATOR_REGISTRY_LIMIT]
 
-    justification_bits*: JustificationBits
-    previous_justified_checkpoint*: Checkpoint
-    current_justified_checkpoint*: Checkpoint
-    finalized_checkpoint*: Checkpoint
+  #   # Mod-increment
+  #   randao_mix*: Eth2Digest
+  #   slashing*: Gwei
 
-    # Represent in full
-    inactivity_scores*: List[uint64, Limit VALIDATOR_REGISTRY_LIMIT]
+  #   # Represent in full; for the next epoch, current_epoch_participation in
+  #   # epoch n is previous_epoch_participation in epoch n+1 but this doesn't
+  #   # generalize.
+  #   previous_epoch_participation*: EpochParticipationFlags
+  #   current_epoch_participation*: EpochParticipationFlags
 
-    # Represent in full; for the next epoch, next_sync_committee is
-    # current_sync_committee, but this doesn't generalize.
-    current_sync_committee*: SyncCommittee
-    next_sync_committee*: SyncCommittee
+  #   justification_bits*: JustificationBits
+  #   previous_justified_checkpoint*: Checkpoint
+  #   current_justified_checkpoint*: Checkpoint
+  #   finalized_checkpoint*: Checkpoint
 
-    # Not tiny, but small and infeasible to reliably reduce much
-    latest_execution_payload_header*: ExecutionPayloadHeader
+  #   # Represent in full
+  #   inactivity_scores*: List[uint64, Limit VALIDATOR_REGISTRY_LIMIT]
 
-    # Small, so represent in full
-    next_withdrawal_index*: WithdrawalIndex
-    next_withdrawal_validator_index*: uint64
+  #   # Represent in full; for the next epoch, next_sync_committee is
+  #   # current_sync_committee, but this doesn't generalize.
+  #   current_sync_committee*: SyncCommittee
+  #   next_sync_committee*: SyncCommittee
 
-    # Append-only; either 0 or 1 per epoch
-    historical_summary_added*: bool
-    historical_summary*: HistoricalSummary
+  #   # Not tiny, but small and infeasible to reliably reduce much
+  #   latest_execution_payload_header*: ExecutionPayloadHeader
 
-# # TODO: There should be only a single generic HashedBeaconState definition
-# func initHashedBeaconState*(s: BeaconState): HashedBeaconState =
-#   HashedBeaconState(data: s)
+  #   # Small, so represent in full
+  #   next_withdrawal_index*: WithdrawalIndex
+  #   next_withdrawal_validator_index*: uint64
+
+  #   # Append-only; either 0 or 1 per epoch
+  #   historical_summary_added*: bool
+  #   historical_summary*: HistoricalSummary
+
+# TODO: There should be only a single generic HashedBeaconState definition
+func initHashedBeaconState*(s: BeaconState): HashedBeaconState =
+  HashedBeaconState(data: s)
 
 # func shortLog*(v: SomeBeaconBlock): auto =
 #   (
@@ -831,30 +831,30 @@ func shortLog*(v: LightClientHeader): auto =
 #     previous_max_active_participants: pre.previous_max_active_participants,
 #     current_max_active_participants: pre.current_max_active_participants)
 
-# template asSigned*(
-#     x: SigVerifiedSignedBeaconBlock |
-#        MsgTrustedSignedBeaconBlock |
-#        TrustedSignedBeaconBlock): SignedBeaconBlock =
-#   isomorphicCast[SignedBeaconBlock](x)
+template asSigned*(
+    x: SigVerifiedSignedBeaconBlock |
+       MsgTrustedSignedBeaconBlock |
+       TrustedSignedBeaconBlock): SignedBeaconBlock =
+  isomorphicCast[SignedBeaconBlock](x)
 
-# template asSigVerified*(
-#     x: SignedBeaconBlock |
-#        MsgTrustedSignedBeaconBlock |
-#        TrustedSignedBeaconBlock): SigVerifiedSignedBeaconBlock =
-#   isomorphicCast[SigVerifiedSignedBeaconBlock](x)
+template asSigVerified*(
+    x: SignedBeaconBlock |
+       MsgTrustedSignedBeaconBlock |
+       TrustedSignedBeaconBlock): SigVerifiedSignedBeaconBlock =
+  isomorphicCast[SigVerifiedSignedBeaconBlock](x)
 
-# template asSigVerified*(
-#     x: BeaconBlock | TrustedBeaconBlock): SigVerifiedBeaconBlock =
-#   isomorphicCast[SigVerifiedBeaconBlock](x)
+template asSigVerified*(
+    x: BeaconBlock | TrustedBeaconBlock): SigVerifiedBeaconBlock =
+  isomorphicCast[SigVerifiedBeaconBlock](x)
 
-# template asMsgTrusted*(
-#     x: SignedBeaconBlock |
-#        SigVerifiedSignedBeaconBlock |
-#        TrustedSignedBeaconBlock): MsgTrustedSignedBeaconBlock =
-#   isomorphicCast[MsgTrustedSignedBeaconBlock](x)
+template asMsgTrusted*(
+    x: SignedBeaconBlock |
+       SigVerifiedSignedBeaconBlock |
+       TrustedSignedBeaconBlock): MsgTrustedSignedBeaconBlock =
+  isomorphicCast[MsgTrustedSignedBeaconBlock](x)
 
-# template asTrusted*(
-#     x: SignedBeaconBlock |
-#        SigVerifiedSignedBeaconBlock |
-#        MsgTrustedSignedBeaconBlock): TrustedSignedBeaconBlock =
-#   isomorphicCast[TrustedSignedBeaconBlock](x)
+template asTrusted*(
+    x: SignedBeaconBlock |
+       SigVerifiedSignedBeaconBlock |
+       MsgTrustedSignedBeaconBlock): TrustedSignedBeaconBlock =
+  isomorphicCast[TrustedSignedBeaconBlock](x)

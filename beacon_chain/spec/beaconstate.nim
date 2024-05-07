@@ -849,7 +849,7 @@ func is_partially_withdrawable_validator(
 # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.5/specs/capella/beacon-chain.md#new-get_expected_withdrawals
 func get_expected_withdrawals*(
     state: capella.BeaconState | deneb.BeaconState | electra.BeaconState):
-    seq[electra.Withdrawal] =
+    seq[Withdrawal] =
   let
     epoch = get_current_epoch(state)
     num_validators = lenu64(state.validators)
