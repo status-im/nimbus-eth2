@@ -493,7 +493,7 @@ proc processBlsToExecutionChange*(
 
 proc processAttesterSlashing*(
     self: var Eth2Processor, src: MsgSource,
-    attesterSlashing: AttesterSlashing): ValidationRes =
+    attesterSlashing: phase0.AttesterSlashing): ValidationRes =
   logScope:
     attesterSlashing = shortLog(attesterSlashing)
 

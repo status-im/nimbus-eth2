@@ -55,7 +55,7 @@ The following options are available:
                                verifying/generating JWT tokens.
  -b, --bootstrap-node          Specifies one or more bootstrap nodes to use when connecting to the network.
      --bootstrap-file          Specifies a line-delimited file of bootstrap Ethereum network addresses.
-     --listen-address          Listening address for the Ethereum LibP2P and Discovery v5 traffic [=0.0.0.0].
+     --listen-address          Listening address for the Ethereum LibP2P and Discovery v5 traffic [=*].
      --tcp-port                Listening TCP port for Ethereum LibP2P traffic [=9000].
      --udp-port                Listening UDP port for node discovery [=9000].
      --max-peers               The target number of peers to connect to [=160].

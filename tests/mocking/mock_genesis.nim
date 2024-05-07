@@ -33,7 +33,8 @@ proc initGenesisState*(
     phase0Data: initialize_hashed_beacon_state_from_eth1(
       cfg, mockEth1BlockHash, 0, deposits, {}))
 
-  maybeUpgradeState(cfg, result[])
+  var cache: StateCache
+  maybeUpgradeState(cfg, result[], cache)
 
 when isMainModule:
   # Smoke test

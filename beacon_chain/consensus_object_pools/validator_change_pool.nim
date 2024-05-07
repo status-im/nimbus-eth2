@@ -35,14 +35,14 @@ type
   OnProposerSlashingCallback =
     proc(data: ProposerSlashing) {.gcsafe, raises: [].}
   OnAttesterSlashingCallback =
-    proc(data: AttesterSlashing) {.gcsafe, raises: [].}
+    proc(data: phase0.AttesterSlashing) {.gcsafe, raises: [].}
 
   ValidatorChangePool* = object
     ## The validator change pool tracks attester slashings, proposer slashings,
     ## voluntary exits, and BLS to execution changes that could be added to a
     ## proposed block.
 
-    attester_slashings*: Deque[AttesterSlashing]  ## \
+    attester_slashings*: Deque[phase0.AttesterSlashing]  ## \
     ## Not a function of chain DAG branch; just used as a FIFO queue for blocks
 
     proposer_slashings*: Deque[ProposerSlashing]  ## \
@@ -86,7 +86,8 @@ func init*(T: type ValidatorChangePool, dag: ChainDAGRef,
   T(
     # Allow filtering some validator change messages during block production
     attester_slashings:
-      initDeque[AttesterSlashing](initialSize = ATTESTER_SLASHINGS_BOUND.int),
+      initDeque[phase0.AttesterSlashing](
+        initialSize = ATTESTER_SLASHINGS_BOUND.int),
     proposer_slashings:
       initDeque[ProposerSlashing](initialSize = PROPOSER_SLASHINGS_BOUND.int),
     voluntary_exits:
@@ -132,7 +133,7 @@ iterator getValidatorIndices(
     bls_to_execution_change: SignedBLSToExecutionChange): uint64 =
   yield bls_to_execution_change.message.validator_index
 
-func isSeen*(pool: ValidatorChangePool, msg: AttesterSlashing): bool =
+func isSeen*(pool: ValidatorChangePool, msg: phase0.AttesterSlashing): bool =
   for idx in getValidatorIndices(msg):
     # One index is enough!
     if idx notin pool.prior_seen_attester_slashed_indices:
@@ -150,7 +151,7 @@ func isSeen*(pool: ValidatorChangePool, msg: SignedBLSToExecutionChange): bool =
   msg.message.validator_index in
     pool.prior_seen_bls_to_execution_change_indices
 
-func addMessage*(pool: var ValidatorChangePool, msg: AttesterSlashing) =
+func addMessage*(pool: var ValidatorChangePool, msg: phase0.AttesterSlashing) =
   for idx in getValidatorIndices(msg):
     pool.prior_seen_attester_slashed_indices.incl idx
     if pool.attestationPool != nil:
@@ -191,7 +192,8 @@ proc validateValidatorChangeMessage(
     cfg: RuntimeConfig, state: ForkyBeaconState, msg: ProposerSlashing): bool =
   check_proposer_slashing(state, msg, {}).isOk
 proc validateValidatorChangeMessage(
-    cfg: RuntimeConfig, state: ForkyBeaconState, msg: AttesterSlashing): bool =
+    cfg: RuntimeConfig, state: ForkyBeaconState, msg:
+    phase0.AttesterSlashing): bool =
   check_attester_slashing(state, msg, {}).isOk
 proc validateValidatorChangeMessage(
     cfg: RuntimeConfig, state: ForkyBeaconState, msg: SignedVoluntaryExit):

@@ -163,6 +163,7 @@ proc verify_attestation_signature*(
 
     blsFastAggregateVerify(pubkeys, signing_root.data, signature)
 
+# https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.0/specs/electra/beacon-chain.md#new-is_valid_deposit_signature
 func compute_deposit_signing_root(
     version: Version,
     deposit_message: DepositMessage): Eth2Digest =

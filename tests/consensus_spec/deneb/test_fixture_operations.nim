@@ -145,7 +145,7 @@ suite baseDescription & "BLS to execution change " & preset():
 from ".."/".."/".."/beacon_chain/bloomfilter import constructBloomFilter
 
 suite baseDescription & "Deposit " & preset():
-  proc applyDeposit(
+  func applyDeposit(
       preState: var deneb.BeaconState, deposit: Deposit):
       Result[void, cstring] =
     process_deposit(
@@ -157,7 +157,7 @@ suite baseDescription & "Deposit " & preset():
       OpDepositsDir, suiteName, "Deposit", "deposit", applyDeposit, path)
 
 suite baseDescription & "Execution Payload " & preset():
-  proc makeApplyExecutionPayloadCb(path: string): auto =
+  func makeApplyExecutionPayloadCb(path: string): auto =
     return proc(
         preState: var deneb.BeaconState, body: deneb.BeaconBlockBody):
         Result[void, cstring] {.raises: [IOError].} =
@@ -221,7 +221,7 @@ suite baseDescription & "Voluntary Exit " & preset():
       applyVoluntaryExit, path)
 
 suite baseDescription & "Withdrawals " & preset():
-  proc applyWithdrawals(
+  func applyWithdrawals(
       preState: var deneb.BeaconState,
       executionPayload: deneb.ExecutionPayload): Result[void, cstring] =
     process_withdrawals(preState, executionPayload)

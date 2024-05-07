@@ -368,11 +368,20 @@ proc collectSignatureSets*(
     # fixed in 1.4.2
     template attestation: untyped = signed_block.message.body.attestations[i]
 
+    when typeof(signed_block).kind < ConsensusFork.Electra:
+      let
+        key = ? aggregateAttesters(
+          get_attesting_indices(
+            state, attestation.data, attestation.aggregation_bits, cache),
+          validatorKeys)
+    else:
+      let
+        key = ? aggregateAttesters(
+          get_attesting_indices(
+            state, attestation.data, attestation.aggregation_bits,
+              attestation.committee_bits, cache),
+          validatorKeys)
     let
-      key = ? aggregateAttesters(
-        get_attesting_indices(
-          state, attestation.data, attestation.aggregation_bits, cache),
-        validatorKeys)
       sig = attestation.signature.load().valueOr:
         return err("Invalid attestation signature")
 
@@ -452,6 +461,10 @@ proc collectSignatureSets*(
             sigs.add bls_to_execution_change_signature_set(
               genesis_fork, genesis_validators_root, bls_change.message,
               validator_pubkey, sig)
+
+  block:
+    # 9. Consolidations
+    debugRaiseAssert "check consolidations signatures"
 
   ok()
 

@@ -45,6 +45,9 @@ const
 
 const
   preferSSZ* = "application/octet-stream,application/json;q=0.9"
+  LowestScoreAggregatedAttestation* =
+    phase0.Attestation(
+      aggregation_bits: CommitteeValidatorsBits(BitSeq.init(1)))
 
 static:
   doAssert(ClientMaximumValidatorIds <= ServerMaximumValidatorIds)
@@ -554,7 +557,8 @@ type
   GetPeerResponse* = DataMetaEnclosedObject[RestNodePeer]
   GetPeersResponse* = DataMetaEnclosedObject[seq[RestNodePeer]]
   GetPoolAttestationsResponse* = DataEnclosedObject[seq[phase0.Attestation]]
-  GetPoolAttesterSlashingsResponse* = DataEnclosedObject[seq[AttesterSlashing]]
+  GetPoolAttesterSlashingsResponse* =
+    DataEnclosedObject[seq[phase0.AttesterSlashing]]
   GetPoolProposerSlashingsResponse* = DataEnclosedObject[seq[ProposerSlashing]]
   GetPoolVoluntaryExitsResponse* = DataEnclosedObject[seq[SignedVoluntaryExit]]
   GetProposerDutiesResponse* = DataRootEnclosedObject[seq[RestProposerDuty]]
@@ -613,6 +617,10 @@ type
     finalized_checkpoint*: Checkpoint
     fork_choice_nodes*: seq[RestNode]
     extra_data*: RestExtraData
+
+func isLowestScoreAggregatedAttestation*(a: phase0.Attestation): bool =
+  (a.data.slot == Slot(0)) and (a.data.index == 0'u64) and
+  (a.data.source.epoch == Epoch(0)) and (a.data.target.epoch == Epoch(0))
 
 func `==`*(a, b: RestValidatorIndex): bool =
   uint64(a) == uint64(b)

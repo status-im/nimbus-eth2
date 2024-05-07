@@ -617,7 +617,6 @@ template PayloadAttributes*(
 static: doAssert ConsensusFork.high == ConsensusFork.Electra,
   "eth2_merkleization has been checked and `hash_tree_root` is up to date"
 
-# TODO are these used?
 # TODO when https://github.com/nim-lang/Nim/issues/21086 fixed, use return type
 # `ref T`
 func new*(T: type ForkedHashedBeaconState, data: phase0.BeaconState):
@@ -639,6 +638,10 @@ func new*(T: type ForkedHashedBeaconState, data: capella.BeaconState):
 func new*(T: type ForkedHashedBeaconState, data: deneb.BeaconState):
     ref ForkedHashedBeaconState =
   (ref T)(kind: ConsensusFork.Deneb, denebData: deneb.HashedBeaconState(
+    data: data, root: hash_tree_root(data)))
+func new*(T: type ForkedHashedBeaconState, data: electra.BeaconState):
+    ref ForkedHashedBeaconState =
+  (ref T)(kind: ConsensusFork.Electra, electraData: electra.HashedBeaconState(
     data: data, root: hash_tree_root(data)))
 
 template init*(T: type ForkedBeaconBlock, blck: phase0.BeaconBlock): T =

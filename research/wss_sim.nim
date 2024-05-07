@@ -285,7 +285,12 @@ cli do(validatorsDir: string, secretsDir: string,
             randao_reveal,
             forkyState.data.eth1_data,
             graffitiValue,
-            blockAggregates,
+            when typeof(payload).kind == ConsensusFork.Electra:
+              block:
+                debugRaiseAssert "wss_sim electra aggregates"
+                default(seq[electra.Attestation])
+            else:
+              blockAggregates,
             @[],
             BeaconBlockValidatorChanges(),
             syncAggregate,

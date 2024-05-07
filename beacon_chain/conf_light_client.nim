@@ -63,9 +63,7 @@ type LightClientConf* = object
 
   listenAddress* {.
     desc: "Listening address for the Ethereum LibP2P and Discovery v5 traffic"
-    defaultValue: defaultListenAddress
-    defaultValueDesc: $defaultListenAddressDesc
-    name: "listen-address" .}: IpAddress
+    name: "listen-address" .}: Option[IpAddress]
 
   tcpPort* {.
     desc: "Listening TCP port for Ethereum LibP2P traffic"

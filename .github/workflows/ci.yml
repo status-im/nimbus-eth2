@@ -15,6 +15,8 @@ on:
       - unstable
   pull_request:
     paths-ignore: ['media/**', 'docs/**', '**/*.md']
+    branches-ignore:
+      - stable
   workflow_dispatch:
 
 concurrency: # Cancel stale PR builds (but not push builds)
@@ -33,7 +35,7 @@ jobs:
             cpu: amd64
           - os: windows
             cpu: amd64
-        branch: [~, upstream/version-1-6, upstream/version-2-0]
+        branch: [~, upstream/version-1-6, v2.0.4]
         exclude:
           - target:
               os: macos
@@ -47,7 +49,7 @@ jobs:
         include:
           - branch: upstream/version-1-6
             branch-short: version-1-6
-          - branch: upstream/version-2-0
+          - branch: v2.0.4
             branch-short: version-2-0
             nimflags-extra: --mm:refc
           - target:
@@ -136,6 +138,10 @@ jobs:
             fi
           fi
 
+          if [[ '${{ runner.os }}' == 'Windows' ]]; then
+            export NIMFLAGS="${NIMFLAGS} --cc:clang"
+          fi
+
           export NIMFLAGS="${NIMFLAGS} ${{ matrix.nimflags-extra }}"
           echo "NIMFLAGS=${NIMFLAGS}" >> $GITHUB_ENV
 
@@ -176,7 +182,7 @@ jobs:
 
       - name: Build binaries (with trace logging enabled)
         run: |
-          ${make_cmd} -j ${ncpu} V=1 NIM_COMMIT=${{ matrix.branch }} LOG_LEVEL=TRACE NIMFLAGS="-u:release --opt:none ${{ matrix.nimflags-extra }}"
+          ${make_cmd} -j ${ncpu} V=1 NIM_COMMIT=${{ matrix.branch }} LOG_LEVEL=TRACE NIMFLAGS="-u:release --opt:none ${NIMFLAGS}"
           # The Windows image runs out of disk space, so make some room
           rm -rf build nimcache
 
@@ -238,7 +244,7 @@ jobs:
         if: ${{ !cancelled() }} && github.event_name == 'pull_request'
         run: |
           excluded_files="config.yaml"
-          excluded_extensions="ans|cfg|json|json\\.template|md|png|service|ssz|txt"
+          excluded_extensions="ans|cfg|json|json\\.template|md|png|service|ssz|txt|lock|nix"
 
           current_year=$(date +"%Y")
           problematic_files=()

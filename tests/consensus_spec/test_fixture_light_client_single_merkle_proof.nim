@@ -68,13 +68,11 @@ suite "EF - Light client - Single merkle proof" & preset():
         continue
       let objName = path
       withConsensusFork(fork):
-        debugRaiseAssert ""
-        when consensusFork != ConsensusFork.Electra:
-          for kind, path in walkDir(suitePath, relative = true, checkDir = true):
-            case objName
-            of "BeaconBlockBody":
-              runTest(suiteName, suitePath/path, consensusFork.BeaconBlockBody)
-            of "BeaconState":
-              runTest(suiteName, suitePath/path, consensusFork.BeaconState)
-            else:
-              raiseAssert "Unknown test object: " & suitePath/path
+        for kind, path in walkDir(suitePath, relative = true, checkDir = true):
+          case objName
+          of "BeaconBlockBody":
+            runTest(suiteName, suitePath/path, consensusFork.BeaconBlockBody)
+          of "BeaconState":
+            runTest(suiteName, suitePath/path, consensusFork.BeaconState)
+          else:
+            raiseAssert "Unknown test object: " & suitePath/path

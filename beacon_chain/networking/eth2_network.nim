@@ -837,7 +837,7 @@ template gossipMaxSize(T: untyped): uint32 =
     # Attestation, AttesterSlashing, and SignedAggregateAndProof, which all
     # have lists bounded at MAX_VALIDATORS_PER_COMMITTEE (2048) items, thus
     # having max sizes significantly smaller than GOSSIP_MAX_SIZE.
-    elif T is phase0.Attestation or T is AttesterSlashing or
+    elif T is phase0.Attestation or T is phase0.AttesterSlashing or
          T is SignedAggregateAndProof or T is phase0.SignedBeaconBlock or
          T is altair.SignedBeaconBlock or T is SomeForkyLightClientObject:
       GOSSIP_MAX_SIZE
@@ -2255,10 +2255,15 @@ proc createEth2Node*(rng: ref HmacDrbgContext,
     discoveryForkId = getDiscoveryForkID(
       cfg, getBeaconTime().slotOrZero.epoch, genesis_validators_root)
 
-    (extIp, extTcpPort, extUdpPort) = try: setupAddress(
-      config.nat, config.listenAddress, config.tcpPort, config.udpPort,
-      clientId)
-    except CatchableError as exc: raise exc
+    listenAddress =
+      if config.listenAddress.isSome():
+        config.listenAddress.get()
+      else:
+        getAutoAddress(Port(0)).toIpAddress()
+
+    (extIp, extTcpPort, extUdpPort) =
+      setupAddress(config.nat, listenAddress, config.tcpPort,
+                   config.udpPort, clientId)
 
     directPeers = block:
       var res: DirectPeers
@@ -2278,7 +2283,7 @@ proc createEth2Node*(rng: ref HmacDrbgContext,
         info "Adding privileged direct peer", peerId, address
       res
 
-    hostAddress = tcpEndPoint(config.listenAddress, config.tcpPort)
+    hostAddress = tcpEndPoint(listenAddress, config.tcpPort)
     announcedAddresses =
       if extIp.isNone() or extTcpPort.isNone(): @[]
       else: @[tcpEndPoint(extIp.get(), extTcpPort.get())]
@@ -2585,7 +2590,7 @@ proc broadcastVoluntaryExit*(
   node.broadcast(topic, exit)
 
 proc broadcastAttesterSlashing*(
-    node: Eth2Node, slashing: AttesterSlashing):
+    node: Eth2Node, slashing: phase0.AttesterSlashing):
     Future[SendResult] {.async: (raises: [CancelledError], raw: true).} =
   let topic = getAttesterSlashingsTopic(
     node.forkDigestAtEpoch(node.getWallEpoch))

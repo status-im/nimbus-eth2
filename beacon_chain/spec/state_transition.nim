@@ -217,24 +217,26 @@ func maybeUpgradeStateToDeneb(
         root: hash_tree_root(newState[]), data: newState[]))[]
 
 func maybeUpgradeStateToElectra(
-    cfg: RuntimeConfig, state: var ForkedHashedBeaconState) =
+    cfg: RuntimeConfig, state: var ForkedHashedBeaconState,
+    cache: var StateCache) =
   # Both process_slots() and state_transition_block() call this, so only run it
   # once by checking for existing fork.
   if getStateField(state, slot).epoch == cfg.ELECTRA_FORK_EPOCH and
       state.kind == ConsensusFork.Deneb:
-    let newState = upgrade_to_electra(cfg, state.denebData.data)
+    let newState = upgrade_to_electra(cfg, state.denebData.data, cache)
     state = (ref ForkedHashedBeaconState)(
       kind: ConsensusFork.Electra,
       electraData: electra.HashedBeaconState(
         root: hash_tree_root(newState[]), data: newState[]))[]
 
 func maybeUpgradeState*(
-    cfg: RuntimeConfig, state: var ForkedHashedBeaconState) =
+    cfg: RuntimeConfig, state: var ForkedHashedBeaconState,
+    cache: var StateCache) =
   cfg.maybeUpgradeStateToAltair(state)
   cfg.maybeUpgradeStateToBellatrix(state)
   cfg.maybeUpgradeStateToCapella(state)
   cfg.maybeUpgradeStateToDeneb(state)
-  cfg.maybeUpgradeStateToElectra(state)
+  cfg.maybeUpgradeStateToElectra(state, cache)
 
 proc process_slots*(
     cfg: RuntimeConfig, state: var ForkedHashedBeaconState, slot: Slot,
@@ -257,7 +259,7 @@ proc process_slots*(
         # block after
         forkyState.root = hash_tree_root(forkyState.data)
 
-    maybeUpgradeState(cfg, state)
+    maybeUpgradeState(cfg, state, cache)
 
   ok()
 
@@ -405,7 +407,7 @@ func partialBeaconBlock*(
     randao_reveal: ValidatorSig,
     eth1_data: Eth1Data,
     graffiti: GraffitiBytes,
-    attestations: seq[phase0.Attestation],
+    attestations: seq[electra.Attestation],
     deposits: seq[Deposit],
     validator_changes: BeaconBlockValidatorChanges,
     sync_aggregate: SyncAggregate,
@@ -425,7 +427,7 @@ func partialBeaconBlock*(
       proposer_slashings: validator_changes.proposer_slashings,
       #attester_slashings: validator_changes.attester_slashings,
       attestations:
-        List[phase0.Attestation, Limit MAX_ATTESTATIONS_ELECTRA](attestations),
+        List[electra.Attestation, Limit MAX_ATTESTATIONS_ELECTRA](attestations),
       deposits: List[Deposit, Limit MAX_DEPOSITS](deposits),
       voluntary_exits: validator_changes.voluntary_exits))
 
@@ -457,7 +459,7 @@ proc makeBeaconBlockWithRewards*(
     randao_reveal: ValidatorSig,
     eth1_data: Eth1Data,
     graffiti: GraffitiBytes,
-    attestations: seq[phase0.Attestation],
+    attestations: seq[phase0.Attestation] | seq[electra.Attestation],
     deposits: seq[Deposit],
     validator_changes: BeaconBlockValidatorChanges,
     sync_aggregate: SyncAggregate,
@@ -528,7 +530,30 @@ proc makeBeaconBlockWithRewards*(
           else:
             raiseAssert "Attempt to use non-Deneb payload with post-Deneb state"
         elif consensusFork == ConsensusFork.Electra:
-          debugRaiseAssert "makeBeaconBlock doesn't support Electra"
+          forkyState.data.latest_execution_payload_header.transactions_root =
+            transactions_root.get
+
+          debugRaiseAssert "makeBeaconBlock doesn't support Electra (i.e. check for missing beaconblock body fields)"
+          when executionPayload is electra.ExecutionPayloadForSigning:
+            # https://github.com/ethereum/consensus-specs/blob/v1.4.0/specs/deneb/beacon-chain.md#beaconblockbody
+            forkyState.data.latest_block_header.body_root = hash_tree_root(
+              [hash_tree_root(randao_reveal),
+               hash_tree_root(eth1_data),
+               hash_tree_root(graffiti),
+               hash_tree_root(validator_changes.proposer_slashings),
+               hash_tree_root(validator_changes.attester_slashings),
+               hash_tree_root(
+                 List[electra.Attestation, Limit MAX_ATTESTATIONS](
+                   attestations)),
+               hash_tree_root(List[Deposit, Limit MAX_DEPOSITS](deposits)),
+               hash_tree_root(validator_changes.voluntary_exits),
+               hash_tree_root(sync_aggregate),
+               execution_payload_root.get,
+               hash_tree_root(validator_changes.bls_to_execution_changes),
+               hash_tree_root(kzg_commitments.get)
+            ])
+          else:
+            raiseAssert "Attempt to use non-Electra payload with post-Deneb state"
         else:
           static: raiseAssert "Unreachable"
 
@@ -554,7 +579,7 @@ proc makeBeaconBlockWithRewards*(
     else: raiseAssert "Attempt to use Deneb payload with non-Deneb state"
   elif payloadFork == ConsensusFork.Electra:
     case state.kind
-    of ConsensusFork.Electra:     makeBeaconBlock(electra)
+    of ConsensusFork.Electra:   makeBeaconBlock(electra)
     else: raiseAssert "Attempt to use Electra payload with non-Electra state"
   else:
     {.error: "Unsupported fork".}
@@ -563,7 +588,8 @@ proc makeBeaconBlock*(
     cfg: RuntimeConfig, state: var ForkedHashedBeaconState,
     proposer_index: ValidatorIndex, randao_reveal: ValidatorSig,
     eth1_data: Eth1Data, graffiti: GraffitiBytes,
-    attestations: seq[phase0.Attestation], deposits: seq[Deposit],
+    attestations: seq[phase0.Attestation] | seq[electra.Attestation],
+    deposits: seq[Deposit],
     validator_changes: BeaconBlockValidatorChanges,
     sync_aggregate: SyncAggregate,
     executionPayload: ForkyExecutionPayloadForSigning,
@@ -585,7 +611,8 @@ proc makeBeaconBlock*(
     cfg: RuntimeConfig, state: var ForkedHashedBeaconState,
     proposer_index: ValidatorIndex, randao_reveal: ValidatorSig,
     eth1_data: Eth1Data, graffiti: GraffitiBytes,
-    attestations: seq[phase0.Attestation], deposits: seq[Deposit],
+    attestations: seq[phase0.Attestation] | seq[electra.Attestation],
+    deposits: seq[Deposit],
     validator_changes: BeaconBlockValidatorChanges,
     sync_aggregate: SyncAggregate,
     executionPayload: ForkyExecutionPayloadForSigning,
@@ -603,7 +630,8 @@ proc makeBeaconBlock*(
     cfg: RuntimeConfig, state: var ForkedHashedBeaconState,
     proposer_index: ValidatorIndex, randao_reveal: ValidatorSig,
     eth1_data: Eth1Data, graffiti: GraffitiBytes,
-    attestations: seq[phase0.Attestation], deposits: seq[Deposit],
+    attestations: seq[phase0.Attestation] | seq[electra.Attestation],
+    deposits: seq[Deposit],
     validator_changes: BeaconBlockValidatorChanges,
     sync_aggregate: SyncAggregate,
     executionPayload: ForkyExecutionPayloadForSigning,
