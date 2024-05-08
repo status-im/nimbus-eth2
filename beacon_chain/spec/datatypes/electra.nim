@@ -549,16 +549,16 @@ type
   #   bls_to_execution_changes*:
   #     List[SignedBLSToExecutionChange, Limit MAX_BLS_TO_EXECUTION_CHANGES]
 
-  BeaconStateDiffPreSnapshot* = object
-    eth1_data_votes_recent*: seq[Eth1Data]
-    eth1_data_votes_len*: int
-    slot*: Slot
-    historical_summaries_len*: int
-    eth1_withdrawal_credential*: seq[bool]
+  # BeaconStateDiffPreSnapshot* = object
+  #   eth1_data_votes_recent*: seq[Eth1Data]
+  #   eth1_data_votes_len*: int
+  #   slot*: Slot
+  #   historical_summaries_len*: int
+  #   eth1_withdrawal_credential*: seq[bool]
 
-  IndexedWithdrawalCredentials* = object
-    validator_index*: uint64
-    withdrawal_credentials*: Eth2Digest
+  # IndexedWithdrawalCredentials* = object
+  #   validator_index*: uint64
+  #   withdrawal_credentials*: Eth2Digest
 
   # BeaconStateDiff* = object
   #   # Small and/or static; always include

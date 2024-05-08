@@ -61,8 +61,8 @@ type
     altair.HashedBeaconState |
     bellatrix.HashedBeaconState |
     capella.HashedBeaconState |
-    deneb.HashedBeaconState #|
-    # electra.HashedBeaconState
+    deneb.HashedBeaconState |
+    electra.HashedBeaconState
 
   ForkedHashedBeaconState* = object
     case kind*: ConsensusFork
@@ -117,24 +117,24 @@ type
     altair.BeaconBlock |
     bellatrix.BeaconBlock |
     capella.BeaconBlock |
-    deneb.BeaconBlock #|
-    # electra.BeaconBlock
+    deneb.BeaconBlock |
+    electra.BeaconBlock
 
   ForkySigVerifiedBeaconBlock* =
     phase0.SigVerifiedBeaconBlock |
     altair.SigVerifiedBeaconBlock |
     bellatrix.SigVerifiedBeaconBlock |
     capella.SigVerifiedBeaconBlock |
-    deneb.SigVerifiedBeaconBlock #|
-    # electra.SigVerifiedBeaconBlock
+    deneb.SigVerifiedBeaconBlock |
+    electra.SigVerifiedBeaconBlock
 
   ForkyTrustedBeaconBlock* =
     phase0.TrustedBeaconBlock |
     altair.TrustedBeaconBlock |
     bellatrix.TrustedBeaconBlock |
     capella.TrustedBeaconBlock |
-    deneb.TrustedBeaconBlock #|
-    # electra.TrustedBeaconBlock
+    deneb.TrustedBeaconBlock |
+    electra.TrustedBeaconBlock
 
   SomeForkyBeaconBlock* =
     ForkyBeaconBlock |
@@ -189,8 +189,8 @@ type
     altair.SignedBeaconBlock |
     bellatrix.SignedBeaconBlock |
     capella.SignedBeaconBlock |
-    deneb.SignedBeaconBlock #|
-    # electra.SignedBeaconBlock
+    deneb.SignedBeaconBlock |
+    electra.SignedBeaconBlock
 
   ForkedSignedBeaconBlock* = object
     case kind*: ConsensusFork
@@ -220,24 +220,24 @@ type
     altair.SigVerifiedSignedBeaconBlock |
     bellatrix.SigVerifiedSignedBeaconBlock |
     capella.SigVerifiedSignedBeaconBlock |
-    deneb.SigVerifiedSignedBeaconBlock #|
-    # electra.SigVerifiedSignedBeaconBlock
+    deneb.SigVerifiedSignedBeaconBlock |
+    electra.SigVerifiedSignedBeaconBlock
 
   ForkyMsgTrustedSignedBeaconBlock* =
     phase0.MsgTrustedSignedBeaconBlock |
     altair.MsgTrustedSignedBeaconBlock |
     bellatrix.MsgTrustedSignedBeaconBlock |
     capella.MsgTrustedSignedBeaconBlock |
-    deneb.MsgTrustedSignedBeaconBlock #|
-    # electra.MsgTrustedSignedBeaconBlock
+    deneb.MsgTrustedSignedBeaconBlock |
+    electra.MsgTrustedSignedBeaconBlock
 
   ForkyTrustedSignedBeaconBlock* =
     phase0.TrustedSignedBeaconBlock |
     altair.TrustedSignedBeaconBlock |
     bellatrix.TrustedSignedBeaconBlock |
     capella.TrustedSignedBeaconBlock |
-    deneb.TrustedSignedBeaconBlock #|
-    # electra.TrustedSignedBeaconBlock
+    deneb.TrustedSignedBeaconBlock |
+    electra.TrustedSignedBeaconBlock
 
   ForkedMsgTrustedSignedBeaconBlock* = object
     case kind*: ConsensusFork
