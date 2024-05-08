@@ -2673,19 +2673,6 @@ OK: 14/14 Fail: 0/14 Skip: 0/14
 + [Valid]   EF - Electra - Operations - Block Header - basic_block_header                    OK
 ```
 OK: 6/6 Fail: 0/6 Skip: 0/6
-## EF - Electra - Operations - Consolidation  [Preset: mainnet]
-```diff
-+ [Invalid] EF - Electra - Operations - Consolidation - invalid_before_specified_epoch       OK
-+ [Invalid] EF - Electra - Operations - Consolidation - invalid_different_credentials        OK
-+ [Invalid] EF - Electra - Operations - Consolidation - invalid_exited_source                OK
-+ [Invalid] EF - Electra - Operations - Consolidation - invalid_exited_target                OK
-+ [Invalid] EF - Electra - Operations - Consolidation - invalid_inactive_source              OK
-+ [Invalid] EF - Electra - Operations - Consolidation - invalid_inactive_target              OK
-+ [Invalid] EF - Electra - Operations - Consolidation - invalid_no_execution_withdrawal_cred OK
-+ [Invalid] EF - Electra - Operations - Consolidation - invalid_not_enough_consolidation_chu OK
-+ [Invalid] EF - Electra - Operations - Consolidation - invalid_source_equals_target         OK
-```
-OK: 9/9 Fail: 0/9 Skip: 0/9
 ## EF - Electra - Operations - Deposit  [Preset: mainnet]
 ```diff
 + [Invalid] EF - Electra - Operations - Deposit - invalid_bad_merkle_proof                   OK
@@ -3688,4 +3675,4 @@ OK: 69/88 Fail: 0/88 Skip: 19/88
 OK: 3/3 Fail: 0/3 Skip: 0/3
 
 ---TOTAL---
-OK: 2970/2990 Fail: 0/2990 Skip: 20/2990
+OK: 2961/2981 Fail: 0/2981 Skip: 20/2981
