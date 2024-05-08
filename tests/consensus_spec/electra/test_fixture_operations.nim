@@ -45,13 +45,17 @@ const
 
   baseDescription = "EF - Electra - Operations - "
 
-doAssert toHashSet(mapIt(toSeq(walkDir(OpDir, relative = false)), it.path)) ==
-  toHashSet([
-    OpAttestationsDir, OpAttSlashingDir, OpBlockHeaderDir,
-    OpBlsToExecutionChangeDir, OpConsolidationDir, OpDepositReceiptDir,
-    OpDepositsDir, OpExecutionLayerWithdrawalRequestDir,
-    OpExecutionPayloadDir, OpProposerSlashingDir, OpSyncAggregateDir,
-    OpVoluntaryExitDir, OpWithdrawalsDir])
+
+var testDirs = toHashSet([
+  OpAttestationsDir, OpAttSlashingDir, OpBlockHeaderDir,
+  OpBlsToExecutionChangeDir, OpDepositReceiptDir, OpDepositsDir,
+  OpExecutionLayerWithdrawalRequestDir, OpExecutionPayloadDir,
+  OpProposerSlashingDir, OpSyncAggregateDir, OpVoluntaryExitDir,
+  OpWithdrawalsDir])
+when const_preset == "minimal":
+  testDirs.incl OpConsolidationDir
+doAssert toHashSet(
+  mapIt(toSeq(walkDir(OpDir, relative = false)), it.path)) == testDirs
 
 proc runTest[T, U](
     testSuiteDir, suiteName, opName, applyFile: string,
@@ -146,23 +150,24 @@ suite baseDescription & "BLS to execution change " & preset():
       OpBlsToExecutionChangeDir, suiteName, "BLS to execution change", "address_change",
       applyBlsToExecutionChange, path)
 
-suite baseDescription & "Consolidation " & preset():
-  proc applyConsolidation(
-      preState: var electra.BeaconState,
-      signed_consolidation: SignedConsolidation):
-      Result[void, cstring] =
-    var cache: StateCache
-    process_consolidation(
-      defaultRuntimeConfig, preState, signed_consolidation, cache)
+when const_preset == "minimal":
+  suite baseDescription & "Consolidation " & preset():
+    proc applyConsolidation(
+        preState: var electra.BeaconState,
+        signed_consolidation: SignedConsolidation):
+        Result[void, cstring] =
+      var cache: StateCache
+      process_consolidation(
+        defaultRuntimeConfig, preState, signed_consolidation, cache)
 
-  for path in walkTests(OpConsolidationDir):
-    if path in [
-        "invalid_exceed_pending_consolidations_limit",    # apparently invalid prestate SSZ
-        ]:
-      continue
-    runTest[SignedConsolidation, typeof applyConsolidation](
-      OpConsolidationDir, suiteName, "Consolidation", "consolidation",
-      applyConsolidation, path)
+    for path in walkTests(OpConsolidationDir):
+      if path in [
+          "invalid_exceed_pending_consolidations_limit",    # apparently invalid prestate SSZ
+          ]:
+        continue
+      runTest[SignedConsolidation, typeof applyConsolidation](
+        OpConsolidationDir, suiteName, "Consolidation", "consolidation",
+        applyConsolidation, path)
 
 from ".."/".."/".."/beacon_chain/bloomfilter import constructBloomFilter
 
