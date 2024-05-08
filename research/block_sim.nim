@@ -58,49 +58,6 @@ type Timers = enum
 # example of the non-forked version because it enables fork bootstrapping.
 proc makeSimulationBlock(
     cfg: RuntimeConfig,
-    state: var capella.HashedBeaconState,
-    proposer_index: ValidatorIndex,
-    randao_reveal: ValidatorSig,
-    eth1_data: Eth1Data,
-    graffiti: GraffitiBytes,
-    attestations: seq[phase0.Attestation],
-    deposits: seq[Deposit],
-    exits: BeaconBlockValidatorChanges,
-    sync_aggregate: SyncAggregate,
-    execution_payload: capella.ExecutionPayloadForSigning,
-    bls_to_execution_changes: SignedBLSToExecutionChangeList,
-    rollback: RollbackHashedProc[capella.HashedBeaconState],
-    cache: var StateCache,
-    # TODO:
-    # `verificationFlags` is needed only in tests and can be
-    # removed if we don't use invalid signatures there
-    verificationFlags: UpdateFlags = {}): Result[capella.BeaconBlock, cstring] =
-  ## Create a block for the given state. The latest block applied to it will
-  ## be used for the parent_root value, and the slot will be take from
-  ## state.slot meaning process_slots must be called up to the slot for which
-  ## the block is to be created.
-
-  # To create a block, we'll first apply a partial block to the state, skipping
-  # some validations.
-
-  var blck = partialBeaconBlock(
-    cfg, state, proposer_index, randao_reveal, eth1_data, graffiti,
-    attestations, deposits, exits, sync_aggregate, execution_payload)
-
-  let res = process_block(
-    cfg, state.data, blck.asSigVerified(), verificationFlags, cache)
-
-  if res.isErr:
-    rollback(state)
-    return err(res.error())
-
-  state.root = hash_tree_root(state.data)
-  blck.state_root = state.root
-
-  ok(blck)
-
-proc makeSimulationBlock(
-    cfg: RuntimeConfig,
     state: var deneb.HashedBeaconState,
     proposer_index: ValidatorIndex,
     randao_reveal: ValidatorSig,
@@ -407,9 +364,7 @@ cli do(slots = SLOTS_PER_EPOCH * 7,
       sync_aggregate =
         syncCommitteePool[].produceSyncAggregate(dag.head.bid, slot)
       hashedState =
-        when T is capella.SignedBeaconBlock:
-          addr state.capellaData
-        elif T is deneb.SignedBeaconBlock:
+        when T is deneb.SignedBeaconBlock:
           addr state.denebData
         elif T is electra.SignedBeaconBlock:
           addr state.electraData
@@ -432,14 +387,12 @@ cli do(slots = SLOTS_PER_EPOCH * 7,
         eth1ProposalData.deposits,
         BeaconBlockValidatorChanges(),
         sync_aggregate,
-        when T is electra.SignedBeaconBlock:
+        (when T is electra.SignedBeaconBlock:
           default(electra.ExecutionPayloadForSigning)
         elif T is deneb.SignedBeaconBlock:
           default(deneb.ExecutionPayloadForSigning)
-        elif T is capella.SignedBeaconBlock:
-          default(capella.ExecutionPayloadForSigning)
         else:
-          default(bellatrix.ExecutionPayloadForSigning),
+          static: doAssert false),
         static(default(SignedBLSToExecutionChangeList)),
         noRollback,
         cache)
@@ -463,28 +416,6 @@ cli do(slots = SLOTS_PER_EPOCH * 7,
   # HTTP server's state function, combine all proposeForkBlock functions into a
   # single generic function. Until https://github.com/nim-lang/Nim/issues/20811
   # is fixed, that generic function must take `blockRatio` as a parameter.
-  proc proposeCapellaBlock(slot: Slot) =
-    if rand(r, 1.0) > blockRatio:
-      return
-
-    dag.withUpdatedState(tmpState[], dag.getBlockIdAtSlot(slot).expect("block")) do:
-      let
-        newBlock = getNewBlock[capella.SignedBeaconBlock](updatedState, slot, cache)
-        added = dag.addHeadBlock(verifier, newBlock) do (
-            blckRef: BlockRef, signedBlock: capella.TrustedSignedBeaconBlock,
-            epochRef: EpochRef, unrealized: FinalityCheckpoints):
-          # Callback add to fork choice if valid
-          attPool.addForkChoice(
-            epochRef, blckRef, unrealized, signedBlock.message,
-            blckRef.slot.start_beacon_time)
-
-      dag.updateHead(added[], quarantine[], [])
-      if dag.needStateCachesAndForkChoicePruning():
-        dag.pruneStateCachesDAG()
-        attPool.prune()
-    do:
-      raiseAssert "withUpdatedState failed"
-
   proc proposeDenebBlock(slot: Slot) =
     if rand(r, 1.0) > blockRatio:
       return
@@ -571,8 +502,7 @@ cli do(slots = SLOTS_PER_EPOCH * 7,
         case dag.cfg.consensusForkAtEpoch(slot.epoch)
         of ConsensusFork.Electra:   proposeElectraBlock(slot)
         of ConsensusFork.Deneb:     proposeDenebBlock(slot)
-        of ConsensusFork.Capella:   proposeCapellaBlock(slot)
-        of ConsensusFork.Phase0 .. ConsensusFork.Bellatrix:
+        of ConsensusFork.Phase0 .. ConsensusFork.Capella:
           doAssert false
     if attesterRatio > 0.0:
       withTimer(timers[tAttest]):
