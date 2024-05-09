@@ -283,7 +283,7 @@ template validateBeaconBlockBellatrix(
   #
   # `is_merge_transition_complete(state)` tests for
   # `state.latest_execution_payload_header != ExecutionPayloadHeader()`, while
-  # https://github.com/ethereum/consensus-specs/blob/v1.4.0/specs/bellatrix/beacon-chain.md#block-processing
+  # https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.2/specs/bellatrix/beacon-chain.md#block-processing
   # shows that `state.latest_execution_payload_header` being default or not is
   # exactly equivalent to whether that block's execution payload is default or
   # not, so test cached block information rather than reconstructing a state.
@@ -1031,7 +1031,7 @@ proc validateAggregate*(
 
   return ok((attesting_indices, sig))
 
-# https://github.com/ethereum/consensus-specs/blob/v1.4.0/specs/capella/p2p-interface.md#bls_to_execution_change
+# https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.2/specs/capella/p2p-interface.md#bls_to_execution_change
 proc validateBlsToExecutionChange*(
     pool: ValidatorChangePool, batchCrypto: ref BatchCrypto,
     signed_address_change: SignedBLSToExecutionChange,

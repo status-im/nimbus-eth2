@@ -10,8 +10,8 @@
 # State transition - block processing, as described in
 # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.7/specs/phase0/beacon-chain.md#block-processing
 # https://github.com/ethereum/consensus-specs/blob/v1.4.0/specs/altair/beacon-chain.md#block-processing
-# https://github.com/ethereum/consensus-specs/blob/v1.4.0/specs/bellatrix/beacon-chain.md#block-processing
-# https://github.com/ethereum/consensus-specs/blob/v1.4.0/specs/capella/beacon-chain.md#block-processing
+# https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.2/specs/bellatrix/beacon-chain.md#block-processing
+# https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.2/specs/capella/beacon-chain.md#block-processing
 # https://github.com/ethereum/consensus-specs/blob/v1.4.0/specs/deneb/beacon-chain.md#block-processing
 # https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.1/specs/electra/beacon-chain.md#block-processing
 #
@@ -992,7 +992,7 @@ proc process_execution_payload*(
 
   ok()
 
-# https://github.com/ethereum/consensus-specs/blob/v1.4.0/specs/capella/beacon-chain.md#new-process_withdrawals
+# https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.2/specs/capella/beacon-chain.md#new-process_withdrawals
 func process_withdrawals*(
     state: var (capella.BeaconState | deneb.BeaconState | electra.BeaconState),
     payload: capella.ExecutionPayload | deneb.ExecutionPayload |
@@ -1185,7 +1185,7 @@ proc process_block*(
 
   ok(operations_rewards)
 
-# https://github.com/ethereum/consensus-specs/blob/v1.4.0/specs/bellatrix/beacon-chain.md#block-processing
+# https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.2/specs/bellatrix/beacon-chain.md#block-processing
 # TODO workaround for https://github.com/nim-lang/Nim/issues/18095
 type SomeBellatrixBlock =
   bellatrix.BeaconBlock | bellatrix.SigVerifiedBeaconBlock | bellatrix.TrustedBeaconBlock

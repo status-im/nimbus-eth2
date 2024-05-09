@@ -8,7 +8,7 @@
 {.push raises: [].}
 
 # Mainnet preset - Deneb
-# https://github.com/ethereum/consensus-specs/blob/v1.4.0/presets/mainnet/deneb.yaml
+# https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.2/presets/mainnet/deneb.yaml
 const
   # `uint64(4096)`
   FIELD_ELEMENTS_PER_BLOB*: uint64 = 4096

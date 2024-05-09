@@ -2532,7 +2532,7 @@ proc updateStabilitySubnetMetadata*(node: Eth2Node, attnets: AttnetBits) =
     debug "Stability subnets changed; updated ENR attnets", attnets
 
 proc updateSyncnetsMetadata*(node: Eth2Node, syncnets: SyncnetBits) =
-  # https://github.com/ethereum/consensus-specs/blob/v1.4.0/specs/altair/validator.md#sync-committee-subnet-stability
+  # https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.2/specs/altair/validator.md#sync-committee-subnet-stability
   if node.metadata.syncnets == syncnets:
     return
 
