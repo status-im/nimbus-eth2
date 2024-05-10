@@ -24,7 +24,7 @@ jobs:
       - name: Update libp2p branch
         run: |
           cd vendor/nim-libp2p
-          git checkout unstable
+          git checkout master
 
       - name: Commit this update
         run: |
