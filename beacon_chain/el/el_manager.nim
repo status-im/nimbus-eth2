@@ -543,7 +543,7 @@ func asConsensusType*(payload: engine_api.GetPayloadV4Response):
     # The `mapIt` calls below are necessary only because we use different distinct
     # types for KZG commitments and Blobs in the `web3` and the `deneb` spec types.
     # Both are defined as `array[N, byte]` under the hood.
-    blobsBundle: BlobsBundle(
+    blobsBundle: deneb.BlobsBundle(
       commitments: KzgCommitments.init(
         payload.blobsBundle.commitments.mapIt(it.bytes)),
       proofs: KzgProofs.init(
