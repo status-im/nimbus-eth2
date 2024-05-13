@@ -1367,7 +1367,7 @@ func readSszForkedHashedBeaconState*(cfg: RuntimeConfig, data: openArray[byte]):
     data.toOpenArray(0, numHeaderBytes - 1), BeaconStateHeader)
 
   # TODO https://github.com/nim-lang/Nim/issues/19357
-  readSszForkedHashedBeaconState(cfg, header.slot, data)
+  result = readSszForkedHashedBeaconState(cfg, header.slot, data)
 
 type
   ForkedBeaconBlockHeader = object
