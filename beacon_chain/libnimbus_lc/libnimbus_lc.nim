@@ -1423,6 +1423,11 @@ type
     eip6493Root: Eth2Digest
     eip6493Bytes: seq[byte]
 
+template toSszType*(v: ChainId): auto = uint64(v)
+
+template fromSszBytes*(T: type ChainId, bytes: openArray[byte]): T =
+  T fromSszBytes(uint64, bytes)
+
 proc ETHTransactionsCreateFromJson(
     transactionsRoot #[optional]#: ptr Eth2Digest,
     transactionsJson: cstring): ptr seq[ETHTransaction] {.exported.} =
@@ -1625,15 +1630,18 @@ proc ETHTransactionsCreateFromJson(
         storage_keys: List[Eth2Digest, Limit MAX_ACCESS_LIST_STORAGE_KEYS]
 
       Eip6493TransactionPayload {.sszStableContainer: 32.} = object
+        # EIP-2718
+        `type`: uint8
+
+        # EIP-155
+        chain_id: Opt[ChainId]
+
         nonce: uint64
         max_fee_per_gas: UInt256
         gas: uint64
         to: Opt[ExecutionAddress]
         value: UInt256
         input: List[byte, Limit MAX_CALLDATA_SIZE]
-
-        # EIP-2718
-        `type`: Opt[uint8]
 
         # EIP-2930
         access_list: Opt[List[Eip6493AccessTuple, Limit MAX_ACCESS_LIST_SIZE]]
@@ -1656,6 +1664,18 @@ proc ETHTransactionsCreateFromJson(
 
     var eip6493Tx: Eip6493Transaction
 
+    case tx.txType
+    of TxLegacy:
+      eip6493Tx.payload.`type` = 0x00
+    of TxEip2930:
+      eip6493Tx.payload.`type` = 0x01
+    of TxEip1559:
+      eip6493Tx.payload.`type` = 0x02
+    of TxEip4844:
+      eip6493Tx.payload.`type` = 0x03
+    if tx.txType != TxLegacy or tx.V notin [27'i64, 28'i64]:
+      # With replay protection
+      eip6493Tx.payload.chain_id.ok tx.chainId
     eip6493Tx.payload.nonce = tx.nonce
     eip6493Tx.payload.max_fee_per_gas = tx.maxFee.u256
     eip6493Tx.payload.gas = tx.gasLimit.uint64
@@ -1666,16 +1686,6 @@ proc ETHTransactionsCreateFromJson(
       return nil
     eip6493Tx.payload.input =
       List[byte, Limit MAX_CALLDATA_SIZE].init(tx.payload)
-    case tx.txType
-    of TxLegacy:
-      if tx.V notin [27'i64, 28'i64]:  # With replay protection
-        eip6493Tx.payload.`type`.ok(0x00)
-    of TxEip2930:
-      eip6493Tx.payload.`type`.ok(0x01)
-    of TxEip1559:
-      eip6493Tx.payload.`type`.ok(0x02)
-    of TxEip4844:
-      eip6493Tx.payload.`type`.ok(0x03)
     if tx.txType >= TxEip2930:
       if tx.accessList.len > MAX_ACCESS_LIST_SIZE:
         return nil
