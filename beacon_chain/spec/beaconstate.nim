@@ -938,7 +938,7 @@ proc check_attestation*(
     return err("Electra attestation data index not 0")
 
   var participants_count = 0
-  debugRaiseAssert "cache doesn't know about forks"
+  debugComment "cache doesn't know about forks"
   for index in attestation.committee_bits.oneIndices:
     if not (index.uint64 < get_committee_count_per_slot(
         state, data.target.epoch, cache)):
@@ -1548,7 +1548,7 @@ func queue_entire_balance_and_reset_validator(
   let validator = addr state.validators.mitem(index)
   validator[].effective_balance = 0.Gwei
   validator[].activation_eligibility_epoch = FAR_FUTURE_EPOCH
-  debugRaiseAssert "check hashlist add return"
+  debugComment "check hashlist add return"
   discard state.pending_balance_deposits.add PendingBalanceDeposit(
     index: index, amount: balance)
 
@@ -1975,7 +1975,7 @@ func upgrade_to_electra*(
   # churn
   for index, validator in post.validators:
     if has_compounding_withdrawal_credential(validator):
-      debugRaiseAssert "in theory truncating"
+      debugComment "in theory truncating"
       queue_excess_active_balance(post[], ValidatorIndex(index))
 
   post

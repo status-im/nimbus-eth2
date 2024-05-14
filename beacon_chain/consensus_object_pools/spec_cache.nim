@@ -16,7 +16,7 @@ import
   ../spec/datatypes/base,
   ./block_pools_types, blockchain_dag
 
-debugRaiseAssert "probably just need Electra shortLog here"
+debugComment "probably just need Electra shortLog here"
 import ../spec/forks # prune this, it's for electra attestation logging
 
 export

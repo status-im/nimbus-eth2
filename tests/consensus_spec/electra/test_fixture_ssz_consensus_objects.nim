@@ -99,8 +99,6 @@ proc loadExpectedHashTreeRoot(
 # Test runner
 # ----------------------------------------------------------------
 
-debugRaiseAssert "re-enable AggregateAndProof and SignedAggregateAndProof"
-
 suite "EF - Electra - SSZ consensus objects " & preset():
   doAssert dirExists(SSZDir), "You need to run the \"download_test_vectors.sh\" script to retrieve the consensus spec test vectors."
   for pathKind, sszType in walkDir(SSZDir, relative = true, checkDir = true):
@@ -118,7 +116,7 @@ suite "EF - Electra - SSZ consensus objects " & preset():
           let hash = loadExpectedHashTreeRoot(path)
 
           case sszType:
-          of "AggregateAndProof": discard # checkSSZ(AggregateAndProof, path, hash)
+          of "AggregateAndProof": checkSSZ(electra.AggregateAndProof, path, hash)
           of "Attestation": checkSSZ(electra.Attestation, path, hash)
           of "AttestationData": checkSSZ(AttestationData, path, hash)
           of "AttesterSlashing": checkSSZ(electra.AttesterSlashing, path, hash)
@@ -165,7 +163,7 @@ suite "EF - Electra - SSZ consensus objects " & preset():
           of "PowBlock": checkSSZ(PowBlock, path, hash)
           of "ProposerSlashing": checkSSZ(ProposerSlashing, path, hash)
           of "SignedAggregateAndProof":
-            discard #checkSSZ(SignedAggregateAndProof, path, hash)
+            checkSSZ(electra.SignedAggregateAndProof, path, hash)
           of "SignedBeaconBlock":
             checkSSZ(electra.SignedBeaconBlock, path, hash)
           of "SignedBeaconBlockHeader":
