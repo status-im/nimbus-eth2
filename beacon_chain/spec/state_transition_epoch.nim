@@ -1059,7 +1059,7 @@ func process_effective_balance_updates*(state: var electra.BeaconState) =
       balance = state.balances.item(vidx)
       effective_balance = state.validators.item(vidx).effective_balance
     if effective_balance_might_update(balance, effective_balance):
-      debugRaiseAssert "amortize validator read access"
+      debugComment "amortize validator read access"
       # Wrapping MAX_EFFECTIVE_BALANCE_ELECTRA.Gwei and
       # MIN_ACTIVATION_BALANCE.Gwei in static() results
       # in
@@ -1232,7 +1232,7 @@ func process_pending_balance_deposits*(
   for deposit in state.pending_balance_deposits:
     if processed_amount + deposit.amount > available_for_processing:
       break
-    debugRaiseAssert "do this validatorindex check properly (it truncates)"
+    debugComment "do this validatorindex check properly (it truncates)"
     increase_balance(state, deposit.index.ValidatorIndex, deposit.amount)
     processed_amount += deposit.amount
     inc next_deposit_index
@@ -1260,12 +1260,12 @@ func process_pending_consolidations*(cfg: RuntimeConfig, state: var electra.Beac
       break
 
     # Churn any target excess active balance of target and raise its max
-    debugRaiseAssert "truncating integer conversion"
+    debugComment "truncating integer conversion"
     switch_to_compounding_validator(
       state, pending_consolidation.target_index.ValidatorIndex)
 
     # Move active balance to target. Excess balance is withdrawable.
-    debugRaiseAssert "Truncating"
+    debugComment "Truncating"
     let active_balance = get_active_balance(
       state, pending_consolidation.source_index.ValidatorIndex)
     decrease_balance(

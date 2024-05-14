@@ -596,7 +596,7 @@ iterator get_attesting_indices_iter*(
     aggregation_bits: ElectraCommitteeValidatorsBits,
     committee_bits: auto,
     cache: var StateCache): ValidatorIndex =
-  debugRaiseAssert "replace this implementation with actual iterator, after checking on conditions re repeat vals, ordering, etc; this is almost direct transcription of spec link algorithm in one of the places it doesn't make sense"
+  debugComment "replace this implementation with actual iterator, after checking on conditions re repeat vals, ordering, etc; this is almost direct transcription of spec link algorithm in one of the places it doesn't make sense"
   ## Return the set of attesting indices corresponding to ``aggregation_bits``
   ## and ``committee_bits``.
   var output: HashSet[ValidatorIndex]
@@ -1221,7 +1221,7 @@ func queue_excess_active_balance(
   if balance > MIN_ACTIVATION_BALANCE.Gwei:
     let excess_balance = balance - MIN_ACTIVATION_BALANCE.Gwei
     state.balances.mitem(index) = MIN_ACTIVATION_BALANCE.Gwei
-    debugRaiseAssert "maybe check return value"
+    debugComment "maybe check return value"
     discard state.pending_balance_deposits.add(
       PendingBalanceDeposit(index: index.uint64, amount: excess_balance)
     )
