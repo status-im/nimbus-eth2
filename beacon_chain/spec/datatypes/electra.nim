@@ -712,7 +712,7 @@ template asTrusted*(
        MsgTrustedSignedBeaconBlock): TrustedSignedBeaconBlock =
   isomorphicCast[TrustedSignedBeaconBlock](x)
 
-debugRaiseAssert "this whole section with getValidatorIndices/shortLog needs refactoring and probably can be combined with identical implementations elsewhere"
+debugComment "this whole section with getValidatorIndices/shortLog needs refactoring and probably can be combined with identical implementations elsewhere"
 
 from std/sets import toHashSet
 

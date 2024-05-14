@@ -448,7 +448,7 @@ func partialBeaconBlock*(
   when consensusFork >= ConsensusFork.Deneb:
     res.body.blob_kzg_commitments = execution_payload.blobsBundle.commitments
 
-  debugRaiseAssert "either consolidate this within separate function or recombine, re when consensusFork >= foo and atts/attslashings; here to allow noninterference with pre-pectra"
+  debugComment "either consolidate this within separate function or recombine, re when consensusFork >= foo and atts/attslashings; here to allow noninterference with pre-pectra"
 
   res
 

@@ -464,7 +464,7 @@ proc collectSignatureSets*(
 
   block:
     # 9. Consolidations
-    debugRaiseAssert "check consolidations signatures"
+    debugComment "check consolidations signatures"
 
   ok()
 

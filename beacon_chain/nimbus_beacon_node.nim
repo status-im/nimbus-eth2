@@ -1372,7 +1372,6 @@ proc updateGossipStatus(node: BeaconNode, slot: Slot) {.async.} =
   for gossipFork in oldGossipForks:
     removeMessageHandlers[gossipFork](node, forkDigests[gossipFork])
 
-  debugRaiseAssert "electra does have different gossip, add add/RemoveElectraFoo"
   const addMessageHandlers: array[ConsensusFork, auto] = [
     addPhase0MessageHandlers,
     addAltairMessageHandlers,

@@ -323,7 +323,7 @@ proc apply_deposit(
     when typeof(state).kind < ConsensusFork.Electra:
       increase_balance(state, index.get(), amount)
     else:
-      debugRaiseAssert "check hashlist add return"
+      debugComment "check hashlist add return"
       discard state.pending_balance_deposits.add PendingBalanceDeposit(
         index: index.get.uint64, amount: amount)  # [Modified in Electra:EIP-7251]
 
@@ -359,7 +359,7 @@ proc apply_deposit(
         if not state.inactivity_scores.add(0'u64):
           return err("apply_deposit: too many validators (inactivity_scores)")
       when typeof(state).kind >= ConsensusFork.Electra:
-        debugRaiseAssert "check hashlist add return"
+        debugComment "check hashlist add return"
 
         # [New in Electra:EIP7251]
         discard state.pending_balance_deposits.add PendingBalanceDeposit(
@@ -450,7 +450,7 @@ proc check_voluntary_exit*(
 
   when typeof(state).kind >= ConsensusFork.Electra:
     # Only exit validator if it has no pending withdrawals in the queue
-    debugRaiseAssert "truncating"
+    debugComment "truncating"
     if not (get_pending_balance_to_withdraw(
         state, voluntary_exit.validator_index.ValidatorIndex) == 0.Gwei):
       return err("Exit: still has pending withdrawals")

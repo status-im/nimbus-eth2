@@ -54,7 +54,7 @@ template bellatrix_steps() =
   check: b.message.body.proposer_slashings.add(default(ProposerSlashing))
   do_check
   when false:
-    debugRaiseAssert "both Electra attestations and attestation slashings need to be done iff Electra"
+    debugComment "both Electra attestations and attestation slashings need to be done iff Electra"
     check:
       b.message.body.attester_slashings.add(default(phase0.AttesterSlashing))
     do_check
@@ -140,4 +140,4 @@ suite "Blinded block conversions":
     bellatrix_steps
     capella_steps
     deneb_steps
-    debugRaiseAssert "add electra_steps"
+    debugComment "add electra_steps"

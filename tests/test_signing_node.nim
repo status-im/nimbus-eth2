@@ -93,7 +93,7 @@ func init(T: type ForkedBeaconBlock, contents: ProduceBlockResponseV2): T =
   of ConsensusFork.Deneb:
     return ForkedBeaconBlock.init(contents.denebData.`block`)
   of ConsensusFork.Electra:
-    debugRaiseAssert "probably like the deneb case"
+    debugComment "probably like the deneb case"
     return default(T)
 
 proc getBlock(
@@ -108,7 +108,7 @@ proc getBlock(
         of ConsensusFork.Capella:   CapellaBlock % [feeRecipient]
         of ConsensusFork.Deneb:     DenebBlockContents % [feeRecipient]
         of ConsensusFork.Electra:
-          debugRaiseAssert "electra test signing node getblock"
+          debugComment "electra test signing node getblock"
           raiseAssert "electra unsupported"
       except ValueError:
         # https://github.com/nim-lang/Nim/pull/23356
@@ -255,7 +255,7 @@ func getRemoteKeystoreData(data: string, basePort: int,
       pubkey: publicKey
     )
 
-  debugRaiseAssert "check electraIndex"
+  debugComment "check electraIndex"
   ok case rt
     of RemoteSignerType.Web3Signer:
       KeystoreData(
