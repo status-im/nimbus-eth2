@@ -1967,7 +1967,7 @@ proc readValue*(reader: var JsonReader[RestJson],
       value.electraBody.execution_payload.excess_blob_gas,
       ep_src.excess_blob_gas.get())
 
-    debugRaiseAssert "electra support missing, including attslashing/atts"
+    debugComment "electra support missing, including attslashing/atts"
 
 ## RestPublishedBeaconBlock
 proc readValue*(reader: var JsonReader[RestJson],

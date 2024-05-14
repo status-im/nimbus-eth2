@@ -497,7 +497,7 @@ proc makeBeaconBlockForHeadAndSlot*(
     warn "Eth1 deposits not available. Skipping block proposal", slot
     return err("Eth1 deposits not available")
 
-  debugRaiseAssert "b_v makeBeaconBlockForHeadAndSlot doesn't know how to get Electra attestations because attpool doesn't either"
+  debugComment "b_v makeBeaconBlockForHeadAndSlot doesn't know how to get Electra attestations because attpool doesn't either"
   let
     attestations =
       when PayloadType.kind == ConsensusFork.Electra:
@@ -672,7 +672,7 @@ proc constructSignableBlindedBlock[T: electra_mev.SignedBlindedBeaconBlock](
     blindedBlock.message.body.blob_kzg_commitments,
     blindedBundle.blob_kzg_commitments)
 
-  debugRaiseAssert "check for any additional electra mev requirements"
+  debugComment "check for any additional electra mev requirements"
 
   blindedBlock
 
@@ -722,7 +722,7 @@ func constructPlainBlindedBlock[T: electra_mev.BlindedBeaconBlock](
     blindedBlock.body.blob_kzg_commitments,
     blindedBundle.blob_kzg_commitments)
 
-  debugRaiseAssert "check for any additional electra mev requirements"
+  debugComment "check for any additional electra mev requirements"
 
   blindedBlock
 

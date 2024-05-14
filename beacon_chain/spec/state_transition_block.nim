@@ -601,7 +601,7 @@ proc process_consolidation*(
       target_validator.withdrawal_credentials.data.toOpenArray(12, 31)):
     return err("Consolidation: source and target don't have same withdrawal address")
 
-  debugRaiseAssert "this is per spec, near-verbatim, but Nimbus generally factors this out into spec/signatures.nim. so, create verify_consolidation_signature infra there, call here"
+  debugComment "this is per spec, near-verbatim, but Nimbus generally factors this out into spec/signatures.nim. so, create verify_consolidation_signature infra there, call here"
   # Verify consolidation is signed by the source and the target
   let
     domain = compute_domain(
@@ -610,7 +610,7 @@ proc process_consolidation*(
     signing_root = compute_signing_root(consolidation, domain)
     pubkeys = [source_validator[].pubkey, target_validator.pubkey]
 
-  debugRaiseAssert "as a good example, this trustedsig hack typically/should live in spec/signatures.nim"
+  debugComment "as a good example, this trustedsig hack typically/should live in spec/signatures.nim"
   when not (signed_consolidation.signature is TrustedSig):
     if not blsFastAggregateVerify(
         pubkeys, signing_root.data, signed_consolidation.signature):
@@ -621,7 +621,7 @@ proc process_consolidation*(
     cfg, state, source_validator[].effective_balance, cache)
   source_validator[].withdrawable_epoch =
     source_validator[].exit_epoch + cfg.MIN_VALIDATOR_WITHDRAWABILITY_DELAY
-  debugRaiseAssert "check HashList add return value"
+  debugComment "check HashList add return value"
   discard state.pending_consolidations.add(PendingConsolidation(
     source_index: consolidation.source_index,
     target_index: consolidation.target_index
@@ -706,7 +706,7 @@ proc process_operations(
       discard ? process_execution_layer_withdrawal_request(
         cfg, state, op, default(ExitQueueInfo), cache)
     for op in body.execution_payload.deposit_receipts:
-      debugRaiseAssert "combine with previous bloom filter construction"
+      debugComment "combine with previous bloom filter construction"
       let bloom_filter = constructBloomFilter(state.validators.asSeq)
       ? process_deposit_receipt(cfg, state, bloom_filter[], op, {})
     for op in body.consolidations:

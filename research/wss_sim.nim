@@ -287,7 +287,7 @@ cli do(validatorsDir: string, secretsDir: string,
             graffitiValue,
             when typeof(payload).kind == ConsensusFork.Electra:
               block:
-                debugRaiseAssert "wss_sim electra aggregates"
+                debugComment "wss_sim electra aggregates"
                 default(seq[electra.Attestation])
             else:
               blockAggregates,
