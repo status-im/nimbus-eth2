@@ -168,6 +168,12 @@ func check_aggregation_count(
 
   ok()
 
+func check_aggregation_count(
+    attestation: electra.Attestation, singular: bool):
+    Result[void, ValidationError] =
+  debugComment "it's sometimes not"
+  ok()
+
 func check_attestation_subnet(
     shufflingRef: ShufflingRef, slot: Slot, committee_index: CommitteeIndex,
     subnet_id: SubnetId): Result[void, ValidationError] =
@@ -817,6 +823,71 @@ proc validateAttestation*(
 
   return ok((validator_index, sig))
 
+proc validateAttestation*(
+    pool: ref AttestationPool,
+    batchCrypto: ref BatchCrypto,
+    attestation: electra.Attestation,
+    wallTime: BeaconTime,
+    subnet_id: SubnetId, checkSignature: bool):
+    Future[Result[
+      tuple[attesting_index: ValidatorIndex, sig: CookedSig],
+      ValidationError]] {.async: (raises: [CancelledError]).} =
+  debugComment "should reject a bunch"
+  # [REJECT] The attestation's epoch matches its target -- i.e.
+  # attestation.data.target.epoch ==
+  # compute_epoch_at_slot(attestation.data.slot)
+  let slot = block:
+    let v = check_attestation_slot_target(attestation.data)
+    if v.isErr():
+      return pool.checkedReject(v.error())
+    v.get()
+
+  # The block being voted for (attestation.data.beacon_block_root) has been seen
+  # (via both gossip and non-gossip sources) (a client MAY queue attestations
+  # for processing once block is retrieved).
+  # [REJECT] The block being voted for (attestation.data.beacon_block_root)
+  # passes validation.
+  # [IGNORE] if block is unseen so far and enqueue it in missing blocks
+  let target = block:
+    let v = check_beacon_and_target_block(pool[], attestation.data)
+    if v.isErr():  # [IGNORE/REJECT]
+      return pool.checkedResult(v.error)
+    v.get()
+
+  # The following rule follows implicitly from that we clear out any
+  # unviable blocks from the chain dag:
+  #
+  # [IGNORE] The current finalized_checkpoint is an ancestor of the block
+  # defined by attestation.data.beacon_block_root -- i.e.
+  # get_checkpoint_block(store, attestation.data.beacon_block_root,
+  # store.finalized_checkpoint.epoch) == store.finalized_checkpoint.root
+  let
+    shufflingRef =
+      pool.dag.getShufflingRef(target.blck, target.slot.epoch, false).valueOr:
+        # Target is verified - shouldn't happen
+        warn "No shuffling for attestation - report bug",
+          attestation = shortLog(attestation), target = shortLog(target)
+        return errIgnore("Attestation: no shuffling")
+
+  let
+    fork = pool.dag.forkAtEpoch(attestation.data.slot.epoch)
+    attesting_index = get_attesting_indices_one(
+      shufflingRef, slot, attestation.committee_bits, attestation.aggregation_bits)
+
+  # The number of aggregation bits matches the committee size, which ensures
+  # this condition holds.
+  doAssert attesting_index.isSome(),
+    "We've checked bits length and one count already"
+  let validator_index = attesting_index.get()
+
+  # In the spec, is_valid_indexed_attestation is used to verify the signature -
+  # here, we do a batch verification instead
+  let sig =
+    attestation.signature.load().valueOr:
+      return pool.checkedReject("Attestation: unable to load signature")
+
+  return ok((validator_index, sig))
+
 # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.1/specs/phase0/p2p-interface.md#beacon_aggregate_and_proof
 # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.5/specs/deneb/p2p-interface.md#beacon_aggregate_and_proof
 proc validateAggregate*(
@@ -1030,6 +1101,64 @@ proc validateAggregate*(
     aggregate.data.target.epoch + 1
 
   return ok((attesting_indices, sig))
+
+proc validateAggregate*(
+    pool: ref AttestationPool,
+    batchCrypto: ref BatchCrypto,
+    signedAggregateAndProof: electra.SignedAggregateAndProof,
+    wallTime: BeaconTime,
+    checkSignature = true, checkCover = true):
+    Future[Result[
+      tuple[attestingIndices: seq[ValidatorIndex], sig: CookedSig],
+      ValidationError]] {.async: (raises: [CancelledError]).} =
+  debugComment "is not"
+  template aggregate_and_proof: untyped = signedAggregateAndProof.message
+  template aggregate: untyped = aggregate_and_proof.aggregate
+
+  # [REJECT] The aggregate attestation's epoch matches its target -- i.e.
+  # `aggregate.data.target.epoch == compute_epoch_at_slot(aggregate.data.slot)`
+  let slot = block:
+    let v = check_attestation_slot_target(aggregate.data)
+    if v.isErr():
+      return pool.checkedReject(v.error)
+    v.get()
+
+  # [REJECT] The block being voted for (aggregate.data.beacon_block_root)
+  # passes validation.
+  # [IGNORE] if block is unseen so far and enqueue it in missing blocks
+  let target = block:
+    let v = check_beacon_and_target_block(pool[], aggregate.data)
+    if v.isErr():  # [IGNORE/REJECT]
+      return pool.checkedResult(v.error)
+    v.get()
+
+  let
+    shufflingRef =
+      pool.dag.getShufflingRef(target.blck, target.slot.epoch, false).valueOr:
+        # Target is verified - shouldn't happen
+        warn "No shuffling for attestation - report bug",
+          aggregate = shortLog(aggregate), target = shortLog(target)
+        return errIgnore("Aggregate: no shuffling")
+
+  # [REJECT] The committee index is within the expected range -- i.e.
+  # data.index < get_committee_count_per_slot(state, data.target.epoch).
+  let committee_index = block:
+    let idx = shufflingRef.get_committee_index(aggregate.data.index)
+    if idx.isErr():
+      return pool.checkedReject(
+        "Attestation: committee index not within expected range")
+    idx.get()
+  let
+    fork = pool.dag.forkAtEpoch(aggregate.data.slot.epoch)
+    attesting_indices = get_attesting_indices(
+      shufflingRef, slot, committee_index, aggregate.aggregation_bits)
+
+  let
+    sig =
+      aggregate.signature.load().valueOr:
+        return pool.checkedReject("Aggregate: unable to load signature")
+
+  ok((attesting_indices, sig))
 
 # https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.2/specs/capella/p2p-interface.md#bls_to_execution_change
 proc validateBlsToExecutionChange*(

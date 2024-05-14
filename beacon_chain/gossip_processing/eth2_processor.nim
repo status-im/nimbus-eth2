@@ -342,7 +342,8 @@ proc clearDoppelgangerProtection*(self: var Eth2Processor) =
   self.doppelgangerDetection.broadcastStartEpoch = FAR_FUTURE_EPOCH
 
 proc checkForPotentialDoppelganger(
-    self: var Eth2Processor, attestation: phase0.Attestation,
+    self: var Eth2Processor,
+    attestation: phase0.Attestation | electra.Attestation,
     attesterIndices: openArray[ValidatorIndex]) =
   # Only check for attestations after node launch. There might be one slot of
   # overlap in quick intra-slot restarts so trade off a few true negatives in
@@ -364,7 +365,7 @@ proc checkForPotentialDoppelganger(
 
 proc processAttestation*(
     self: ref Eth2Processor, src: MsgSource,
-    attestation: phase0.Attestation, subnet_id: SubnetId,
+    attestation: phase0.Attestation | electra.Attestation, subnet_id: SubnetId,
     checkSignature: bool = true): Future[ValidationRes] {.async: (raises: [CancelledError]).} =
   var wallTime = self.getCurrentBeaconTime()
   let (afterGenesis, wallSlot) = wallTime.toSlot()
@@ -412,8 +413,10 @@ proc processAttestation*(
 
 proc processSignedAggregateAndProof*(
     self: ref Eth2Processor, src: MsgSource,
-    signedAggregateAndProof: phase0.SignedAggregateAndProof,
-    checkSignature = true, checkCover = true): Future[ValidationRes] {.async: (raises: [CancelledError]).} =
+    signedAggregateAndProof:
+      phase0.SignedAggregateAndProof | electra.SignedAggregateAndProof,
+    checkSignature = true, checkCover = true): Future[ValidationRes]
+    {.async: (raises: [CancelledError]).} =
   var wallTime = self.getCurrentBeaconTime()
   let (afterGenesis, wallSlot) = wallTime.toSlot()
 

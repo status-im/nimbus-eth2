@@ -1755,28 +1755,47 @@ proc installMessageValidators(node: BeaconNode) =
 
       # beacon_attestation_{subnet_id}
       # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.5/specs/phase0/p2p-interface.md#beacon_attestation_subnet_id
-      for it in SubnetId:
-        debugRaiseAssert "allow for electra.Attestation"
-        closureScope:  # Needed for inner `proc`; don't lift it out of loop.
-          let subnet_id = it
-          node.network.addAsyncValidator(
-            getAttestationTopic(digest, subnet_id), proc (
-              attestation: phase0.Attestation
-            ): Future[ValidationResult] {.async: (raises: [CancelledError]).} =
-              return toValidationResult(
-                await node.processor.processAttestation(
-                  MsgSource.gossip, attestation, subnet_id)))
+      when consensusFork >= ConsensusFork.Electra:
+        for it in SubnetId:
+          closureScope:  # Needed for inner `proc`; don't lift it out of loop.
+            let subnet_id = it
+            node.network.addAsyncValidator(
+              getAttestationTopic(digest, subnet_id), proc (
+                attestation: electra.Attestation
+              ): Future[ValidationResult] {.async: (raises: [CancelledError]).} =
+                return toValidationResult(
+                  await node.processor.processAttestation(
+                    MsgSource.gossip, attestation, subnet_id)))
+      else:
+        for it in SubnetId:
+          closureScope:  # Needed for inner `proc`; don't lift it out of loop.
+            let subnet_id = it
+            node.network.addAsyncValidator(
+              getAttestationTopic(digest, subnet_id), proc (
+                attestation: phase0.Attestation
+              ): Future[ValidationResult] {.async: (raises: [CancelledError]).} =
+                return toValidationResult(
+                  await node.processor.processAttestation(
+                    MsgSource.gossip, attestation, subnet_id)))
 
       # beacon_aggregate_and_proof
       # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.4/specs/phase0/p2p-interface.md#beacon_aggregate_and_proof
-      debugRaiseAssert "allow for electra.SignedAggregateAndProof"
-      node.network.addAsyncValidator(
-        getAggregateAndProofsTopic(digest), proc (
-          signedAggregateAndProof: phase0.SignedAggregateAndProof
-        ): Future[ValidationResult] {.async: (raises: [CancelledError]).} =
-          return toValidationResult(
-            await node.processor.processSignedAggregateAndProof(
-              MsgSource.gossip, signedAggregateAndProof)))
+      when consensusFork >= ConsensusFork.Electra:
+        node.network.addAsyncValidator(
+          getAggregateAndProofsTopic(digest), proc (
+            signedAggregateAndProof: electra.SignedAggregateAndProof
+          ): Future[ValidationResult] {.async: (raises: [CancelledError]).} =
+            return toValidationResult(
+              await node.processor.processSignedAggregateAndProof(
+                MsgSource.gossip, signedAggregateAndProof)))
+      else:
+        node.network.addAsyncValidator(
+          getAggregateAndProofsTopic(digest), proc (
+            signedAggregateAndProof: phase0.SignedAggregateAndProof
+          ): Future[ValidationResult] {.async: (raises: [CancelledError]).} =
+            return toValidationResult(
+              await node.processor.processSignedAggregateAndProof(
+                MsgSource.gossip, signedAggregateAndProof)))
 
       # attester_slashing
       # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.5/specs/phase0/p2p-interface.md#attester_slashing
@@ -1855,9 +1874,6 @@ proc installMessageValidators(node: BeaconNode) =
                 toValidationResult(
                   node.processor[].processBlobSidecar(
                     MsgSource.gossip, blobSidecar, subnet_id)))
-
-      when consensusFork >= ConsensusFork.Electra:
-        discard
 
   node.installLightClientMessageValidators()
 

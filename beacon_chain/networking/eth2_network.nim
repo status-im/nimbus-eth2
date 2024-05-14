@@ -839,6 +839,7 @@ template gossipMaxSize(T: untyped): uint32 =
     # having max sizes significantly smaller than GOSSIP_MAX_SIZE.
     elif T is phase0.Attestation or T is phase0.AttesterSlashing or
          T is phase0.SignedAggregateAndProof or T is phase0.SignedBeaconBlock or
+         T is electra.SignedAggregateAndProof or T is electra.Attestation or
          T is altair.SignedBeaconBlock or T is SomeForkyLightClientObject:
       GOSSIP_MAX_SIZE
     else:
