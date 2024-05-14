@@ -108,7 +108,7 @@ proc verify_block_signature*(
 
 func compute_aggregate_and_proof_signing_root*(
     fork: Fork, genesis_validators_root: Eth2Digest,
-    aggregate_and_proof: AggregateAndProof): Eth2Digest =
+    aggregate_and_proof: phase0.AggregateAndProof): Eth2Digest =
   let
     epoch = epoch(aggregate_and_proof.aggregate.data.slot)
     domain = get_domain(
@@ -117,7 +117,7 @@ func compute_aggregate_and_proof_signing_root*(
 
 # https://github.com/ethereum/consensus-specs/blob/v1.4.0/specs/phase0/validator.md#broadcast-aggregate
 func get_aggregate_and_proof_signature*(fork: Fork, genesis_validators_root: Eth2Digest,
-                                        aggregate_and_proof: AggregateAndProof,
+                                        aggregate_and_proof: phase0.AggregateAndProof,
                                         privkey: ValidatorPrivKey): CookedSig =
   let signing_root = compute_aggregate_and_proof_signing_root(
     fork, genesis_validators_root, aggregate_and_proof)
@@ -126,7 +126,7 @@ func get_aggregate_and_proof_signature*(fork: Fork, genesis_validators_root: Eth
 
 proc verify_aggregate_and_proof_signature*(
     fork: Fork, genesis_validators_root: Eth2Digest,
-    aggregate_and_proof: AggregateAndProof,
+    aggregate_and_proof: phase0.AggregateAndProof,
     pubkey: ValidatorPubKey | CookedPubKey, signature: SomeSig): bool =
   withTrust(signature):
     let signing_root = compute_aggregate_and_proof_signing_root(

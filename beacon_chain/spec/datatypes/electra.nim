@@ -196,6 +196,17 @@ type
   NextSyncCommitteeBranch =
     array[log2trunc(NEXT_SYNC_COMMITTEE_GINDEX), Eth2Digest]
 
+  # https://github.com/ethereum/consensus-specs/blob/v1.4.0/specs/phase0/validator.md#aggregateandproof
+  AggregateAndProof* = object
+    aggregator_index*: uint64 # `ValidatorIndex` after validation
+    aggregate*: Attestation
+    selection_proof*: ValidatorSig
+
+  # https://github.com/ethereum/consensus-specs/blob/v1.4.0/specs/phase0/validator.md#signedaggregateandproof
+  SignedAggregateAndProof* = object
+    message*: AggregateAndProof
+    signature*: ValidatorSig
+
   # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.5/specs/capella/light-client/sync-protocol.md#modified-lightclientheader
   LightClientHeader* = object
     beacon*: BeaconBlockHeader

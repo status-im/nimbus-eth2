@@ -685,7 +685,7 @@ proc registerAggregate*(
     self: var ValidatorMonitor,
     src: MsgSource,
     seen_timestamp: BeaconTime,
-    aggregate_and_proof: AggregateAndProof,
+    aggregate_and_proof: phase0.AggregateAndProof,
     attesting_indices: openArray[ValidatorIndex]) =
   let
     slot = aggregate_and_proof.aggregate.data.slot

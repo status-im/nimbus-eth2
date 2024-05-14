@@ -678,7 +678,7 @@ block:
           GetAggregatedAttestationResponse,
           AgAttestation.toOpenArrayByte(0, len(AgAttestation) - 1),
           Opt.some(contentType)).tryGet().data
-        agProof = AggregateAndProof(
+        agProof = phase0.AggregateAndProof(
           aggregator_index: 1'u64,
           aggregate: agAttestation,
           selection_proof: ValidatorSig.fromHex(SomeSignature).get())

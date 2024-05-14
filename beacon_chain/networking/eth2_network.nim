@@ -838,7 +838,7 @@ template gossipMaxSize(T: untyped): uint32 =
     # have lists bounded at MAX_VALIDATORS_PER_COMMITTEE (2048) items, thus
     # having max sizes significantly smaller than GOSSIP_MAX_SIZE.
     elif T is phase0.Attestation or T is phase0.AttesterSlashing or
-         T is SignedAggregateAndProof or T is phase0.SignedBeaconBlock or
+         T is phase0.SignedAggregateAndProof or T is phase0.SignedBeaconBlock or
          T is altair.SignedBeaconBlock or T is SomeForkyLightClientObject:
       GOSSIP_MAX_SIZE
     else:
@@ -2611,7 +2611,7 @@ proc broadcastBlsToExecutionChange*(
   node.broadcast(topic, bls_to_execution_change)
 
 proc broadcastAggregateAndProof*(
-    node: Eth2Node, proof: SignedAggregateAndProof):
+    node: Eth2Node, proof: phase0.SignedAggregateAndProof):
     Future[SendResult] {.async: (raises: [CancelledError], raw: true).} =
   let topic = getAggregateAndProofsTopic(
     node.forkDigestAtEpoch(node.getWallEpoch))

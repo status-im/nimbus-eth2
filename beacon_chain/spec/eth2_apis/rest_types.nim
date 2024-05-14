@@ -477,7 +477,7 @@ type
         serializedFieldName: "aggregation_slot".}: Web3SignerAggregationSlotData
     of Web3SignerRequestKind.AggregateAndProof:
       aggregateAndProof* {.
-        serializedFieldName: "aggregate_and_proof".}: AggregateAndProof
+        serializedFieldName: "aggregate_and_proof".}: phase0.AggregateAndProof
     of Web3SignerRequestKind.Attestation:
       attestation*: AttestationData
     of Web3SignerRequestKind.BlockV2:
@@ -799,7 +799,7 @@ func init*(t: typedesc[Web3SignerRequest], fork: Fork,
   )
 
 func init*(t: typedesc[Web3SignerRequest], fork: Fork,
-           genesis_validators_root: Eth2Digest, data: AggregateAndProof,
+           genesis_validators_root: Eth2Digest, data: phase0.AggregateAndProof,
            signingRoot: Opt[Eth2Digest] = Opt.none(Eth2Digest)
           ): Web3SignerRequest =
   Web3SignerRequest(

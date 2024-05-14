@@ -735,7 +735,7 @@ proc getAttestationSignature*(v: AttachedValidator, fork: Fork,
 proc getAggregateAndProofSignature*(v: AttachedValidator,
                                     fork: Fork,
                                     genesis_validators_root: Eth2Digest,
-                                    aggregate_and_proof: AggregateAndProof
+                                    aggregate_and_proof: phase0.AggregateAndProof
                                    ): Future[SignatureResult]
                                    {.async: (raises: [CancelledError]).} =
   case v.kind

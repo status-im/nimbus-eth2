@@ -822,7 +822,7 @@ proc validateAttestation*(
 proc validateAggregate*(
     pool: ref AttestationPool,
     batchCrypto: ref BatchCrypto,
-    signedAggregateAndProof: SignedAggregateAndProof,
+    signedAggregateAndProof: phase0.SignedAggregateAndProof,
     wallTime: BeaconTime,
     checkSignature = true, checkCover = true):
     Future[Result[
