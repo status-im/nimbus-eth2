@@ -533,7 +533,7 @@ proc makeBeaconBlockWithRewards*(
           forkyState.data.latest_execution_payload_header.transactions_root =
             transactions_root.get
 
-          debugRaiseAssert "makeBeaconBlock doesn't support Electra (i.e. check for missing beaconblock body fields)"
+          debugComment "makeBeaconBlock doesn't support Electra (i.e. check for missing beaconblock body fields)"
           when executionPayload is electra.ExecutionPayloadForSigning:
             # https://github.com/ethereum/consensus-specs/blob/v1.4.0/specs/deneb/beacon-chain.md#beaconblockbody
             forkyState.data.latest_block_header.body_root = hash_tree_root(

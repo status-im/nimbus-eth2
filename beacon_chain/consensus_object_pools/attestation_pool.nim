@@ -45,8 +45,6 @@ type
   Phase0Validation = Validation[CommitteeValidatorsBits]
   ElectraValidation = Validation[ElectraCommitteeValidatorsBits]
 
-  AttestationCommitteeBits = BitArray[MAX_COMMITTEES_PER_SLOT.int]
-
   Phase0AttestationEntry = object
     ## Each entry holds the known signatures for a particular, distinct vote
     data: AttestationData

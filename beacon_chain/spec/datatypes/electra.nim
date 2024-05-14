@@ -596,11 +596,13 @@ type
   ElectraCommitteeValidatorsBits* =
     BitList[Limit MAX_VALIDATORS_PER_COMMITTEE * MAX_COMMITTEES_PER_SLOT]
 
+  AttestationCommitteeBits* = BitArray[MAX_COMMITTEES_PER_SLOT.int]
+
   # https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.0/specs/electra/beacon-chain.md#attestation
   Attestation* = object
     aggregation_bits*: ElectraCommitteeValidatorsBits
     data*: AttestationData
-    committee_bits*: BitArray[MAX_COMMITTEES_PER_SLOT.int]  # [New in Electra:EIP7549]
+    committee_bits*: AttestationCommitteeBits  # [New in Electra:EIP7549]
     signature*: ValidatorSig
 
   TrustedAttestation* = object
@@ -609,7 +611,7 @@ type
     # Currently the code MUST verify the state transition as soon as the signature is verified
     aggregation_bits*: ElectraCommitteeValidatorsBits
     data*: AttestationData
-    committee_bits*: BitArray[MAX_COMMITTEES_PER_SLOT.int]  # [New in Electra:EIP7549]
+    committee_bits*: AttestationCommitteeBits  # [New in Electra:EIP7549]
     signature*: TrustedSig
 
   SomeSignedBeaconBlock* =

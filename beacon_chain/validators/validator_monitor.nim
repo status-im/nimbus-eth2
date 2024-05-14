@@ -660,7 +660,7 @@ proc registerAttestation*(
     self: var ValidatorMonitor,
     src: MsgSource,
     seen_timestamp: BeaconTime,
-    attestation: phase0.Attestation,
+    attestation: phase0.Attestation | electra.Attestation,
     idx: ValidatorIndex) =
   let
     slot = attestation.data.slot
@@ -685,7 +685,7 @@ proc registerAggregate*(
     self: var ValidatorMonitor,
     src: MsgSource,
     seen_timestamp: BeaconTime,
-    aggregate_and_proof: phase0.AggregateAndProof,
+    aggregate_and_proof: phase0.AggregateAndProof | electra.AggregateAndProof,
     attesting_indices: openArray[ValidatorIndex]) =
   let
     slot = aggregate_and_proof.aggregate.data.slot
