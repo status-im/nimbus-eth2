@@ -80,7 +80,7 @@ proc getAggregatedAttestationPlain*(
   ## https://ethereum.github.io/beacon-APIs/#/Validator/getAggregatedAttestation
 
 proc publishAggregateAndProofs*(
-       body: seq[SignedAggregateAndProof]
+       body: seq[phase0.SignedAggregateAndProof]
      ): RestPlainResponse {.
      rest, endpoint: "/eth/v1/validator/aggregate_and_proofs",
      meth: MethodPost.}

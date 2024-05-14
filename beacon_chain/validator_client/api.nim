@@ -1890,7 +1890,7 @@ proc produceSyncCommitteeContribution*(
 
 proc publishAggregateAndProofs*(
        vc: ValidatorClientRef,
-       data: seq[SignedAggregateAndProof],
+       data: seq[phase0.SignedAggregateAndProof],
        strategy: ApiStrategyKind
      ): Future[bool] {.async.} =
   const

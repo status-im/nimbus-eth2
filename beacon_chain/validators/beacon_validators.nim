@@ -1537,8 +1537,8 @@ proc signAndSendAggregate(
   # https://github.com/ethereum/consensus-specs/blob/v1.4.0/specs/phase0/validator.md#construct-aggregate
   # https://github.com/ethereum/consensus-specs/blob/v1.4.0/specs/phase0/validator.md#aggregateandproof
   var
-    msg = SignedAggregateAndProof(
-      message: AggregateAndProof(
+    msg = phase0.SignedAggregateAndProof(
+      message: phase0.AggregateAndProof(
         aggregator_index: uint64 validator_index,
         selection_proof: selectionProof))
 

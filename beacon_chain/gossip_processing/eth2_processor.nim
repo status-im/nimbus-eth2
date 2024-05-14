@@ -412,7 +412,7 @@ proc processAttestation*(
 
 proc processSignedAggregateAndProof*(
     self: ref Eth2Processor, src: MsgSource,
-    signedAggregateAndProof: SignedAggregateAndProof,
+    signedAggregateAndProof: phase0.SignedAggregateAndProof,
     checkSignature = true, checkCover = true): Future[ValidationRes] {.async: (raises: [CancelledError]).} =
   var wallTime = self.getCurrentBeaconTime()
   let (afterGenesis, wallSlot) = wallTime.toSlot()

@@ -1111,6 +1111,10 @@ proc addDenebMessageHandlers(
   for topic in blobSidecarTopics(forkDigest):
     node.network.subscribe(topic, basicParams)
 
+proc addElectraMessageHandlers(
+    node: BeaconNode, forkDigest: ForkDigest, slot: Slot) =
+  node.addDenebMessageHandlers(forkDigest, slot)
+
 proc removeAltairMessageHandlers(node: BeaconNode, forkDigest: ForkDigest) =
   node.removePhase0MessageHandlers(forkDigest)
 
@@ -1130,6 +1134,9 @@ proc removeDenebMessageHandlers(node: BeaconNode, forkDigest: ForkDigest) =
   node.removeCapellaMessageHandlers(forkDigest)
   for topic in blobSidecarTopics(forkDigest):
     node.network.unsubscribe(topic)
+
+proc removeElectraMessageHandlers(node: BeaconNode, forkDigest: ForkDigest) =
+  node.removeDenebMessageHandlers(forkDigest)
 
 proc updateSyncCommitteeTopics(node: BeaconNode, slot: Slot) =
   template lastSyncUpdate: untyped =
@@ -1359,7 +1366,7 @@ proc updateGossipStatus(node: BeaconNode, slot: Slot) {.async.} =
     removeAltairMessageHandlers,  # bellatrix (altair handlers, different forkDigest)
     removeCapellaMessageHandlers,
     removeDenebMessageHandlers,
-    removeDenebMessageHandlers   # maybe duplicate is correct, don't know yet
+    removeElectraMessageHandlers
   ]
 
   for gossipFork in oldGossipForks:
@@ -1372,7 +1379,7 @@ proc updateGossipStatus(node: BeaconNode, slot: Slot) {.async.} =
     addAltairMessageHandlers,  # bellatrix (altair handlers, different forkDigest)
     addCapellaMessageHandlers,
     addDenebMessageHandlers,
-    addDenebMessageHandlers  # repeat is probably correct
+    addElectraMessageHandlers
   ]
 
   for gossipFork in newGossipForks:
@@ -1750,6 +1757,7 @@ proc installMessageValidators(node: BeaconNode) =
       # beacon_attestation_{subnet_id}
       # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.5/specs/phase0/p2p-interface.md#beacon_attestation_subnet_id
       for it in SubnetId:
+        debugRaiseAssert "allow for electra.Attestation"
         closureScope:  # Needed for inner `proc`; don't lift it out of loop.
           let subnet_id = it
           node.network.addAsyncValidator(
@@ -1762,9 +1770,10 @@ proc installMessageValidators(node: BeaconNode) =
 
       # beacon_aggregate_and_proof
       # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.4/specs/phase0/p2p-interface.md#beacon_aggregate_and_proof
+      debugRaiseAssert "allow for electra.SignedAggregateAndProof"
       node.network.addAsyncValidator(
         getAggregateAndProofsTopic(digest), proc (
-          signedAggregateAndProof: SignedAggregateAndProof
+          signedAggregateAndProof: phase0.SignedAggregateAndProof
         ): Future[ValidationResult] {.async: (raises: [CancelledError]).} =
           return toValidationResult(
             await node.processor.processSignedAggregateAndProof(
@@ -1847,6 +1856,9 @@ proc installMessageValidators(node: BeaconNode) =
                 toValidationResult(
                   node.processor[].processBlobSidecar(
                     MsgSource.gossip, blobSidecar, subnet_id)))
+
+      when consensusFork >= ConsensusFork.Electra:
+        discard
 
   node.installLightClientMessageValidators()
 

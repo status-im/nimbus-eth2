@@ -44,7 +44,6 @@ type
 createJsonFlavor RestJson
 
 RestJson.useDefaultSerializationFor(
-  AggregateAndProof,
   AttestationData,
   BLSToExecutionChange,
   BeaconBlockHeader,
@@ -168,7 +167,6 @@ RestJson.useDefaultSerializationFor(
   SetFeeRecipientRequest,
   SetGasLimitRequest,
   SetGraffitiRequest,
-  SignedAggregateAndProof,
   SignedBLSToExecutionChange,
   SignedBeaconBlockHeader,
   SignedConsolidation,
@@ -263,12 +261,14 @@ RestJson.useDefaultSerializationFor(
   electra_mev.ExecutionPayloadAndBlobsBundle,
   electra_mev.SignedBlindedBeaconBlock,
   electra_mev.SignedBuilderBid,
+  phase0.AggregateAndProof,
   phase0.Attestation,
   phase0.AttesterSlashing,
   phase0.BeaconBlock,
   phase0.BeaconBlockBody,
   phase0.BeaconState,
   phase0.IndexedAttestation,
+  phase0.SignedAggregateAndProof,
   phase0.SignedBeaconBlock,
   phase0.TrustedAttestation
 )
@@ -365,7 +365,7 @@ type
     seq[RestSignedContributionAndProof] |
     seq[RestSyncCommitteeMessage] |
     seq[RestSyncCommitteeSubscription] |
-    seq[SignedAggregateAndProof] |
+    seq[phase0.SignedAggregateAndProof] |
     seq[SignedValidatorRegistrationV1] |
     seq[ValidatorIndex] |
     seq[RestBeaconCommitteeSelection] |
@@ -2743,7 +2743,7 @@ proc readValue*(reader: var JsonReader[RestJson],
         reader.raiseUnexpectedValue("Field `fork_info` is missing")
       let data =
         block:
-          let res = decodeJsonString(AggregateAndProof, data.get())
+          let res = decodeJsonString(phase0.AggregateAndProof, data.get())
           if res.isErr():
             reader.raiseUnexpectedValue(
               "Incorrect field `aggregate_and_proof` format")

@@ -801,7 +801,7 @@ proc installValidatorApiHandlers*(router: var RestRouter, node: BeaconNode) =
       block:
         if contentBody.isNone():
           return RestApiResponse.jsonError(Http400, EmptyRequestBodyError)
-        let dres = decodeBody(seq[SignedAggregateAndProof], contentBody.get())
+        let dres = decodeBody(seq[phase0.SignedAggregateAndProof], contentBody.get())
         if dres.isErr():
           return RestApiResponse.jsonError(Http400,
                                            InvalidAggregateAndProofObjectError,

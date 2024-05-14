@@ -252,7 +252,7 @@ proc routeAttestation*(
     attestation, subnet_id, checkSignature = true)
 
 proc routeSignedAggregateAndProof*(
-    router: ref MessageRouter, proof: SignedAggregateAndProof,
+    router: ref MessageRouter, proof: phase0.SignedAggregateAndProof,
     checkSignature = true):
     Future[SendResult] {.async: (raises: [CancelledError]).} =
   ## Validate and broadcast aggregate
