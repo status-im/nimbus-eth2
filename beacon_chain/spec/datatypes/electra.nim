@@ -155,19 +155,19 @@ type
     index*: uint64
     amount*: Gwei
 
-  # https://github.com/ethereum/consensus-specs/blob/82133085a1295e93394ebdf71df8f2f6e0962588/specs/electra/beacon-chain.md#pendingpartialwithdrawal
+  # https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.2/specs/electra/beacon-chain.md#pendingpartialwithdrawal
   PendingPartialWithdrawal* = object
     index*: uint64
     amount*: Gwei
     withdrawable_epoch*: Epoch
 
-  # https://github.com/ethereum/consensus-specs/blob/82133085a1295e93394ebdf71df8f2f6e0962588/specs/electra/beacon-chain.md#executionlayerwithdrawalrequest
+  # https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.2/specs/electra/beacon-chain.md#executionlayerwithdrawalrequest
   ExecutionLayerWithdrawalRequest* = object
     source_address*: ExecutionAddress
     validator_pubkey*: ValidatorPubKey
     amount*: Gwei
 
-  # https://github.com/ethereum/consensus-specs/blob/82133085a1295e93394ebdf71df8f2f6e0962588/specs/electra/beacon-chain.md#consolidation
+  # https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.2/specs/electra/beacon-chain.md#consolidation
   Consolidation* = object
     source_index*: uint64
     target_index*: uint64
