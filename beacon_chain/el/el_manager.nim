@@ -322,7 +322,7 @@ proc engineApiRequest[T](
       1, [connection.engineUrl.url, requestName, "200"])
     connection.setWorkingState()
     res
-  except AsyncTimeoutError as exc:
+  except AsyncTimeoutError:
     engine_api_timeouts.inc(1, [connection.engineUrl.url, requestName])
     if not(failureAllowed):
       await connection.setDegradedState(requestName, 0, "Request timed out")
@@ -511,12 +511,13 @@ func asConsensusType*(rpcExecutionPayload: ExecutionPayloadV4):
       signature: ValidatorSig(blob: dr.signature.distinctBase),
       index: dr.index.uint64)
 
-  template getExecutionLayerWithdrawalRequest(elwr: ExitV1):
+  template getExecutionLayerWithdrawalRequest(elwr: WithdrawalRequestV1):
       ExecutionLayerWithdrawalRequest =
     ExecutionLayerWithdrawalRequest(
       source_address: ExecutionAddress(data: elwr.sourceAddress.distinctBase),
       validator_pubkey: ValidatorPubKey(
-        blob: elwr.validatorPublicKey.distinctBase))
+        blob: elwr.validatorPublicKey.distinctBase),
+      amount: elwr.amount.Gwei)
 
   electra.ExecutionPayload(
     parent_hash: rpcExecutionPayload.parentHash.asEth2Digest,
@@ -654,10 +655,11 @@ func asEngineExecutionPayload*(executionPayload: electra.ExecutionPayload):
       index: dr.index.Quantity)
 
   template getExecutionLayerWithdrawalRequest(
-      elwr: ExecutionLayerWithdrawalRequest): ExitV1 =
-    ExitV1(
+      elwr: ExecutionLayerWithdrawalRequest): WithdrawalRequestV1 =
+    WithdrawalRequestV1(
       sourceAddress: Address(elwr.source_address.data),
-      validatorPublicKey: FixedBytes[RawPubKeySize](elwr.validator_pubkey.blob))
+      validatorPublicKey: FixedBytes[RawPubKeySize](elwr.validator_pubkey.blob),
+      amount: elwr.amount.Quantity)
 
   debugRaiseAssert "nim-web3 needs to change exits to withdrawalRequests; maybe it already has been"
 
@@ -1084,7 +1086,7 @@ proc selectConnectionForChainSyncing(
     var pendingFutures = pendingConnections
     try:
       discard await race(pendingFutures)
-    except ValueError as exc:
+    except ValueError:
       raiseAssert "pendingFutures should not be empty at this moment"
     except CancelledError as exc:
       let pending = pendingConnections.filterIt(not(it.finished())).
@@ -2144,7 +2146,7 @@ proc startChainSyncingLoop(
         runLoop = false
     except CancelledError:
       runLoop = false
-    except CatchableError as exc:
+    except CatchableError:
       try:
         await sleepAsync(10.seconds)
       except CancelledError:
