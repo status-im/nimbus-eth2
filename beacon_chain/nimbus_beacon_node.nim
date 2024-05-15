@@ -810,6 +810,9 @@ proc init*(T: type BeaconNode,
   func getDenebForkEpoch(): Opt[Epoch] =
     Opt.some(cfg.DENEB_FORK_EPOCH)
 
+  func getElectraForkEpoch(): Opt[Epoch] =
+    Opt.some(cfg.ELECTRA_FORK_EPOCH)
+
   proc getForkForEpoch(epoch: Epoch): Opt[Fork] =
     Opt.some(dag.forkAtEpoch(epoch))
 
@@ -979,7 +982,8 @@ proc updateBlocksGossipStatus*(
 
     targetGossipState = getTargetGossipState(
       slot.epoch, cfg.ALTAIR_FORK_EPOCH, cfg.BELLATRIX_FORK_EPOCH,
-      cfg.CAPELLA_FORK_EPOCH, cfg.DENEB_FORK_EPOCH, isBehind)
+      cfg.CAPELLA_FORK_EPOCH, cfg.DENEB_FORK_EPOCH, cfg.ELECTRA_FORK_EPOCH,
+      isBehind)
 
   template currentGossipState(): auto = node.blocksGossipState
   if currentGossipState == targetGossipState:
@@ -1285,6 +1289,8 @@ proc updateGossipStatus(node: BeaconNode, slot: Slot) {.async.} =
     TOPIC_SUBSCRIBE_THRESHOLD_SLOTS = 64
     HYSTERESIS_BUFFER = 16
 
+  static: doAssert high(ConsensusFork) == ConsensusFork.Electra
+
   let
     head = node.dag.head
     headDistance =
@@ -1299,6 +1305,7 @@ proc updateGossipStatus(node: BeaconNode, slot: Slot) {.async.} =
         node.dag.cfg.BELLATRIX_FORK_EPOCH,
         node.dag.cfg.CAPELLA_FORK_EPOCH,
         node.dag.cfg.DENEB_FORK_EPOCH,
+        node.dag.cfg.ELECTRA_FORK_EPOCH,
         isBehind)
 
   doAssert targetGossipState.card <= 2

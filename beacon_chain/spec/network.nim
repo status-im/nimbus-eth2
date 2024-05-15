@@ -155,13 +155,15 @@ func getDiscoveryForkID*(cfg: RuntimeConfig,
 type GossipState* = set[ConsensusFork]
 func getTargetGossipState*(
     epoch, ALTAIR_FORK_EPOCH, BELLATRIX_FORK_EPOCH, CAPELLA_FORK_EPOCH,
-    DENEB_FORK_EPOCH: Epoch, isBehind: bool): GossipState =
+    DENEB_FORK_EPOCH: Epoch, ELECTRA_FORK_EPOCH: Epoch, isBehind: bool):
+    GossipState =
   if isBehind:
     return {}
 
   doAssert BELLATRIX_FORK_EPOCH >= ALTAIR_FORK_EPOCH
   doAssert CAPELLA_FORK_EPOCH >= BELLATRIX_FORK_EPOCH
   doAssert DENEB_FORK_EPOCH >= CAPELLA_FORK_EPOCH
+  doAssert ELECTRA_FORK_EPOCH >= DENEB_FORK_EPOCH
 
   # https://github.com/ethereum/consensus-specs/issues/2902
   # Don't care whether ALTAIR_FORK_EPOCH == BELLATRIX_FORK_EPOCH or
@@ -187,7 +189,9 @@ func getTargetGossipState*(
   maybeIncludeFork(
     ConsensusFork.Capella,   CAPELLA_FORK_EPOCH,   DENEB_FORK_EPOCH)
   maybeIncludeFork(
-    ConsensusFork.Deneb,     DENEB_FORK_EPOCH,     FAR_FUTURE_EPOCH)
+    ConsensusFork.Deneb,     DENEB_FORK_EPOCH,     ELECTRA_FORK_EPOCH)
+  maybeIncludeFork(
+    ConsensusFork.Electra,   ELECTRA_FORK_EPOCH,   FAR_FUTURE_EPOCH)
 
   doAssert len(targetForks) <= 2
   targetForks
