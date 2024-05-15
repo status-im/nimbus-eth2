@@ -542,7 +542,7 @@ proc makeBeaconBlockForHeadAndSlot*(
     $error
 
   var blobsBundleOpt = Opt.none(BlobsBundle)
-  when payload is deneb.ExecutionPayloadForSigning:
+  when typeof(payload).kind >= ConsensusFork.Deneb:
     blobsBundleOpt = Opt.some(payload.blobsBundle)
 
   if res.isOk:
