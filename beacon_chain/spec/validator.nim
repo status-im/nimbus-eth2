@@ -8,7 +8,7 @@
 
 # Helpers and functions pertaining to managing the validator set
 
-import ./helpers
+import "."/[crypto, helpers]
 export helpers
 
 const
@@ -541,3 +541,59 @@ func compute_subscribed_subnet(node_id: UInt256, epoch: Epoch, index: uint64):
 iterator compute_subscribed_subnets*(node_id: UInt256, epoch: Epoch): SubnetId =
   for index in 0'u64 ..< SUBNETS_PER_NODE:
     yield compute_subscribed_subnet(node_id, epoch, index)
+
+iterator get_committee_indices*(bits: AttestationCommitteeBits): CommitteeIndex =
+  for index, b in bits:
+    if b:
+      yield CommitteeIndex.init(uint64(index)).valueOr:
+        break # Too many bits! Shouldn't happen
+
+func get_committee_index_one*(bits: AttestationCommitteeBits): Opt[CommitteeIndex] =
+  var res = Opt.none(CommitteeIndex)
+  for committee_index in get_committee_indices(bits):
+    if res.isSome(): return Opt.none(CommitteeIndex)
+    res = Opt.some(committee_index)
+  res
+
+proc compute_on_chain_aggregate*(
+    network_aggregates: openArray[electra.Attestation]): Opt[electra.Attestation] =
+
+  # aggregates = sorted(network_aggregates, key=lambda a: get_committee_indices(a.committee_bits)[0])
+  let aggregates = @network_aggregates # assume already sorted
+
+  let data = aggregates[0].data
+
+  var agg: AggregateSignature
+  var committee_bits: AttestationCommitteeBits
+
+  var totalLen = 0
+  for i, a in aggregates:
+    totalLen += a.aggregation_bits.len
+
+  var aggregation_bits = ElectraCommitteeValidatorsBits.init(totalLen)
+  var committee_offset = 0
+  for i, a in aggregates:
+    let committee_index = ? get_committee_index_one(a.committee_bits)
+
+    let first = aggregation_bits.len == 0
+    for idx, b in a.aggregation_bits:
+      aggregation_bits[committee_offset + idx] = b
+    committee_offset += a.aggregation_bits.len()
+
+    if i == 0:
+      let sig = ? a.signature.load() # Expensive
+      if first:
+        agg = AggregateSignature.init(sig)
+      else:
+        agg.aggregate(sig)
+
+    committee_bits[int(committee_index)] = true
+
+  let signature = agg.finish()
+
+  ok electra.Attestation(
+      aggregation_bits: aggregation_bits,
+      data: data,
+      committee_bits: committee_bits,
+      signature: signature.toValidatorSig(),
+  )

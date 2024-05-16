@@ -90,7 +90,7 @@ func compatible_with_shuffling*(
 iterator get_attesting_indices*(shufflingRef: ShufflingRef,
                                 slot: Slot,
                                 committee_index: CommitteeIndex,
-                                bits: CommitteeValidatorsBits):
+                                bits: CommitteeValidatorsBits | ElectraCommitteeValidatorsBits):
                                   ValidatorIndex =
   if not bits.compatible_with_shuffling(shufflingRef, slot, committee_index):
     trace "get_attesting_indices: inconsistent aggregation and committee length"
@@ -104,34 +104,28 @@ iterator get_attesting_indices*(shufflingRef: ShufflingRef,
 iterator get_attesting_indices*(shufflingRef: ShufflingRef,
                                 slot: Slot,
                                 committee_bits: AttestationCommitteeBits,
-                                aggregation_bits: ElectraCommitteeValidatorsBits):
+                                aggregation_bits: ElectraCommitteeValidatorsBits, on_chain: static bool):
                                   ValidatorIndex =
-  debugRaiseAssert "compatible with shuffling? needs checking"
-  #if not aggregation_bits.compatible_with_shuffling(shufflingRef, slot, committee_index):
-  if false:
-    trace "get_attesting_indices: inconsistent aggregation and committee length"
+  when on_chain:
+    var committee_offset = 0'u64
+    for committee_index in get_committee_indices(committee_bits):
+      for index_in_committee, validator_index in get_beacon_committee(
+          shufflingRef, slot, committee_index):
+
+        if aggregation_bits[int(committee_offset) + index_in_committee]:
+          yield validator_index
+
+      committee_offset +=
+        get_beacon_committee_len(shufflingRef, slot, committee_index)
   else:
-    debugComment "replace this implementation with actual iterator, after checking on conditions re repeat vals, ordering, etc; this is almost direct transcription of spec link algorithm in one of the places it doesn't make sense"
-    ## Return the set of attesting indices corresponding to ``aggregation_bits``
-    ## and ``committee_bits``.
-    var output: HashSet[ValidatorIndex]
-    let committee_indices = toSeq(committee_bits.oneIndices)
-    var committee_offset = 0
-    for index in committee_indices:
-      let committee = get_beacon_committee(shufflingRef, slot, index.CommitteeIndex)
-      var committee_attesters: HashSet[ValidatorIndex]
-      for i, index in committee:
-        if aggregation_bits[committee_offset + i]:
-          committee_attesters.incl index
-      output.incl committee_attesters
-
-      committee_offset += len(committee)
-
-    for validatorIndex in output:
-      yield validatorIndex
+    let committee_index = get_committee_index_one(committee_bits)
+    for validator_index in get_attesting_indices(
+        shufflingRef, slot, committee_index, aggregation_bits, on_chain):
+      yield validator_index
 
 iterator get_attesting_indices*(
-    dag: ChainDAGRef, attestation: phase0.TrustedAttestation): ValidatorIndex =
+    dag: ChainDAGRef, attestation: phase0.TrustedAttestation,
+    on_chain: static bool = true): ValidatorIndex =
   block: # `return` is not allowed in an inline iterator
     let
       slot =
@@ -182,8 +176,8 @@ iterator get_attesting_indices*(
       yield validator
 
 iterator get_attesting_indices*(
-    dag: ChainDAGRef, attestation: electra.TrustedAttestation): ValidatorIndex =
-  debugRaiseAssert "bad duplication, mostly to avoid the get_attesting_index call from potentially getting screwed up in deployment version"
+    dag: ChainDAGRef, attestation: electra.TrustedAttestation,
+    on_chain: static bool): ValidatorIndex =
   block: # `return` is not allowed in an inline iterator
     let
       slot =
@@ -220,13 +214,14 @@ iterator get_attesting_indices*(
           break
 
     for validator in get_attesting_indices(
-        shufflingRef, slot, attestation.committee_bits, attestation.aggregation_bits):
+        shufflingRef, slot, attestation.committee_bits,
+        attestation.aggregation_bits, on_chain):
       yield validator
 
 func get_attesting_indices_one*(shufflingRef: ShufflingRef,
                                 slot: Slot,
                                 committee_index: CommitteeIndex,
-                                bits: CommitteeValidatorsBits):
+                                bits: CommitteeValidatorsBits | ElectraCommitteeValidatorsBits):
                                   Option[ValidatorIndex] =
   # A variation on get_attesting_indices that returns the validator index only
   # if only one validator index is set
@@ -239,16 +234,20 @@ func get_attesting_indices_one*(shufflingRef: ShufflingRef,
 
 func get_attesting_indices_one*(shufflingRef: ShufflingRef,
                                 slot: Slot,
-                                committee_indices: AttestationCommitteeBits,
-                                aggregation_bits: ElectraCommitteeValidatorsBits):
-                                  Option[ValidatorIndex] =
+                                committee_bits: AttestationCommitteeBits,
+                                aggregation_bits: ElectraCommitteeValidatorsBits,
+                                on_chain: static bool):
+                                  Opt[ValidatorIndex] =
   # A variation on get_attesting_indices that returns the validator index only
   # if only one validator index is set
-  var res = none(ValidatorIndex)
+  static: doAssert not on_chain, "only on_chain supported"
+
+  var res = Opt.none(ValidatorIndex)
+  let committee_index = ? get_committee_index_one(committee_bits)
   for validator_index in get_attesting_indices(
-      shufflingRef, slot, committee_indices, aggregation_bits):
-    if res.isSome(): return none(ValidatorIndex)
-    res = some(validator_index)
+      shufflingRef, slot, committee_index, aggregation_bits):
+    if res.isSome(): return Opt.none(ValidatorIndex)
+    res = Opt.some(validator_index)
   res
 
 # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.6/specs/phase0/beacon-chain.md#get_attesting_indices
@@ -263,8 +262,11 @@ func get_attesting_indices*(shufflingRef: ShufflingRef,
 func get_attesting_indices*(shufflingRef: ShufflingRef,
                             slot: Slot,
                             committee_index: CommitteeIndex,
-                            bits: ElectraCommitteeValidatorsBits):
+                            bits: ElectraCommitteeValidatorsBits,
+                            on_chain: static bool):
                               seq[ValidatorIndex] =
+  static: doAssert not on_chain, "only on_chain supported"
+
   for idx in get_attesting_indices(shufflingRef, slot, committee_index, bits):
     result.add(idx)
 

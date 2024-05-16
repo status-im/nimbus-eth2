@@ -872,7 +872,8 @@ proc validateAttestation*(
   let
     fork = pool.dag.forkAtEpoch(attestation.data.slot.epoch)
     attesting_index = get_attesting_indices_one(
-      shufflingRef, slot, attestation.committee_bits, attestation.aggregation_bits)
+      shufflingRef, slot, attestation.committee_bits,
+      attestation.aggregation_bits, false)
 
   # The number of aggregation bits matches the committee size, which ensures
   # this condition holds.
@@ -1151,7 +1152,7 @@ proc validateAggregate*(
   let
     fork = pool.dag.forkAtEpoch(aggregate.data.slot.epoch)
     attesting_indices = get_attesting_indices(
-      shufflingRef, slot, committee_index, aggregate.aggregation_bits)
+      shufflingRef, slot, committee_index, aggregate.aggregation_bits, false)
 
   let
     sig =

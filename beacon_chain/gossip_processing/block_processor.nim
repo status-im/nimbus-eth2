@@ -602,7 +602,7 @@ proc storeBlock(
         src, wallTime, trustedBlock.message)
 
       for attestation in trustedBlock.message.body.attestations:
-        for validator_index in dag.get_attesting_indices(attestation):
+        for validator_index in dag.get_attesting_indices(attestation, true):
           vm[].registerAttestationInBlock(attestation.data, validator_index,
             trustedBlock.message.slot)
 
