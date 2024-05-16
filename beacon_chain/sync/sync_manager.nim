@@ -25,7 +25,7 @@ logScope:
   topics = "syncman"
 
 const
-  SyncWorkersCount* = 10
+  SyncWorkersCount* = 3
     ## Number of sync workers to spawn
 
   StatusUpdateInterval* = chronos.minutes(1)
