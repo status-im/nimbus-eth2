@@ -1141,11 +1141,10 @@ func builderBetterBid*(builderBoostFactor: uint64,
     true
   else:
     let
-      zero256 = 0.u256
       multiplier = builderBoostFactor.u256
       multipledBuilderValue = builderValue * multiplier
       overflow =
-        if builderValue == zero256:
+        if builderValue == UInt256.zero:
           false
         else:
           builderValue != multipledBuilderValue div multiplier
