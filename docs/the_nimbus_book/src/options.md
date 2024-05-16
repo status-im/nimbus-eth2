@@ -136,8 +136,9 @@ The following options are available:
      --suggested-gas-limit     Suggested gas limit [=defaultGasLimit].
      --payload-builder         Enable external payload builder [=false].
      --payload-builder-url     Payload builder URL.
-     --local-block-value-boost  Increase execution layer block values for builder bid comparison by a percentage
-                               [=10].
+     --builder-boost-factor    Percentage multiplier to apply to the builder's payload value when choosing
+                               between a builder payload header and payload from the paired execution node.
+                               [=100].
      --history                 Retention strategy for historical data (archive/prune) [=HistoryMode.Prune].
 
 ...
