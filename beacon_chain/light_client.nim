@@ -366,6 +366,8 @@ proc updateGossipStatus*(
     lightClient: LightClient, slot: Slot, dagIsBehind = default(Option[bool])) =
   template cfg(): auto = lightClient.cfg
 
+  debugComment "when LC on electra works, add cfg.ELECTRA_FORK_EPOCH"
+
   let
     epoch = slot.epoch
 
@@ -382,7 +384,7 @@ proc updateGossipStatus*(
 
     currentEpochTargetGossipState = getTargetGossipState(
       epoch, cfg.ALTAIR_FORK_EPOCH, cfg.BELLATRIX_FORK_EPOCH,
-      cfg.CAPELLA_FORK_EPOCH, cfg.DENEB_FORK_EPOCH, cfg.ELECTRA_FORK_EPOCH,
+      cfg.CAPELLA_FORK_EPOCH, cfg.DENEB_FORK_EPOCH, FAR_FUTURE_EPOCH,
       isBehind)
     targetGossipState =
       if lcBehind or epoch < 1:
@@ -393,7 +395,7 @@ proc updateGossipStatus*(
         # Therefore, LC topic subscriptions are kept for 1 extra epoch.
         let previousEpochTargetGossipState = getTargetGossipState(
           epoch - 1, cfg.ALTAIR_FORK_EPOCH, cfg.BELLATRIX_FORK_EPOCH,
-          cfg.CAPELLA_FORK_EPOCH, cfg.DENEB_FORK_EPOCH, cfg.ELECTRA_FORK_EPOCH,
+          cfg.CAPELLA_FORK_EPOCH, cfg.DENEB_FORK_EPOCH, FAR_FUTURE_EPOCH,
           isBehind)
         currentEpochTargetGossipState + previousEpochTargetGossipState
 
