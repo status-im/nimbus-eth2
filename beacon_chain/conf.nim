@@ -640,12 +640,13 @@ type
         defaultValue: ""
         name: "payload-builder-url" .}: string
 
-      builderBoostFactor* {.
-        desc: "Percentage multiplier to apply to the builder's payload value " &
-              "when choosing between a builder payload header and payload " &
-              "from the paired execution node."
-        defaultValue: 100,
-        name: "builder-boost-factor".}: uint64
+      # Flag name and semantics borrowed from Prysm
+      # https://github.com/prysmaticlabs/prysm/pull/12227/files
+      localBlockValueBoost* {.
+        desc: "Increase execution layer block values for builder bid " &
+              "comparison by a percentage"
+        defaultValue: 10
+        name: "local-block-value-boost" .}: uint8
 
       historyMode* {.
         desc: "Retention strategy for historical data (archive/prune)"
