@@ -903,15 +903,18 @@ proc getElectraAttestationsForBlock*(
 
   var res: seq[electra.Attestation]
   let totalCandidates = candidates.len()
-  while candidates.len > 0 and res.lenu64() < MAX_ATTESTATIONS_ELECTRA:
+  while candidates.len > 0 and res.lenu64() <
+      MAX_ATTESTATIONS_ELECTRA * MAX_COMMITTEES_PER_SLOT:
     let entryCacheKey = block:
       # Find the candidate with the highest score - slot is used as a
       # tie-breaker so that more recent attestations are added first
       let
         candidate =
           # Fast path for when all remaining candidates fit
-          if candidates.lenu64 < MAX_ATTESTATIONS_ELECTRA: candidates.len - 1
-          else: maxIndex(candidates)
+          if candidates.lenu64 < MAX_ATTESTATIONS_ELECTRA * MAX_COMMITTEES_PER_SLOT:
+            candidates.len - 1
+          else:
+            maxIndex(candidates)
         (_, _, entry, j) = candidates[candidate]
 
       candidates.del(candidate) # careful, `del` reorders candidates
@@ -946,16 +949,34 @@ proc getElectraAttestationsForBlock*(
         # Only keep candidates that might add coverage
         it.score > 0
 
+  # TODO sort candidates by score - or really, rewrite the whole loop above ;)
   var res2: seq[electra.Attestation]
+  var perBlock: Table[(Eth2Digest, Slot), seq[electra.Attestation]]
 
   for a in res:
+    let key = (a.data.beacon_block_root, a.data.slot)
+    perBlock.mGetOrPut(key, newSeq[electra.Attestation](0)).add(a)
+
+  for a in perBlock.values():
     # TODO this will create on-chain aggregates that contain only one
     #      committee index - this is obviously wrong but fixing requires
     #      a more significant rewrite - we should combine the best aggregates
     #      for each beacon block root
-    let x = compute_on_chain_aggregate([a]).valueOr:
+    let x = compute_on_chain_aggregate(a).valueOr:
       continue
-    res2.add x
+
+    res2.add(x)
+    if res2.lenu64 == MAX_ATTESTATIONS_ELECTRA:
+      break
+
+  let
+    packingDur = Moment.now() - startPackingTick
+
+  debug "Packed attestations for block",
+    newBlockSlot, packingDur, totalCandidates, attestations = res2.len()
+  attestation_pool_block_attestation_packing_time.set(
+    packingDur.toFloatSeconds())
+
   res2
 
 proc getElectraAttestationsForBlock*(

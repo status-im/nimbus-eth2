@@ -501,7 +501,7 @@ proc makeBeaconBlockForHeadAndSlot*(
   let
     attestations =
       when PayloadType.kind == ConsensusFork.Electra:
-        default(seq[electra.Attestation])
+        node.attestationPool[].getElectraAttestationsForBlock(state[], cache)
       else:
         node.attestationPool[].getAttestationsForBlock(state[], cache)
     exits = withState(state[]):

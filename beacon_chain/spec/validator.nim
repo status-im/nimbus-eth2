@@ -557,7 +557,6 @@ func get_committee_index_one*(bits: AttestationCommitteeBits): Opt[CommitteeInde
 
 proc compute_on_chain_aggregate*(
     network_aggregates: openArray[electra.Attestation]): Opt[electra.Attestation] =
-
   # aggregates = sorted(network_aggregates, key=lambda a: get_committee_indices(a.committee_bits)[0])
   let aggregates = @network_aggregates # assume already sorted
 
@@ -573,9 +572,10 @@ proc compute_on_chain_aggregate*(
   var aggregation_bits = ElectraCommitteeValidatorsBits.init(totalLen)
   var committee_offset = 0
   for i, a in aggregates:
-    let committee_index = ? get_committee_index_one(a.committee_bits)
+    let
+      committee_index = ? get_committee_index_one(a.committee_bits)
+      first = committee_offset == 0
 
-    let first = aggregation_bits.len == 0
     for idx, b in a.aggregation_bits:
       aggregation_bits[committee_offset + idx] = b
     committee_offset += a.aggregation_bits.len()
