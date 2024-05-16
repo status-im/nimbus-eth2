@@ -543,10 +543,12 @@ func asConsensusType*(rpcExecutionPayload: ExecutionPayloadV4):
     excess_blob_gas: rpcExecutionPayload.excessBlobGas.uint64,
     deposit_receipts:
       List[electra.DepositReceipt, MAX_DEPOSIT_RECEIPTS_PER_PAYLOAD].init(
-        mapIt(rpcExecutionPayload.depositReceipts, it.getDepositReceipt)),
+        mapIt(rpcExecutionPayload.depositRequests, it.getDepositReceipt)),
     withdrawal_requests:
-      List[electra.ExecutionLayerWithdrawalRequest, MAX_WITHDRAWAL_REQUESTS_PER_PAYLOAD].init(
-        mapIt(rpcExecutionPayload.exits, it.getExecutionLayerWithdrawalRequest)))
+      List[electra.ExecutionLayerWithdrawalRequest,
+        MAX_WITHDRAWAL_REQUESTS_PER_PAYLOAD].init(
+          mapIt(rpcExecutionPayload.withdrawalRequests,
+            it.getExecutionLayerWithdrawalRequest)))
 
 func asConsensusType*(payload: engine_api.GetPayloadV4Response):
     electra.ExecutionPayloadForSigning =
@@ -661,8 +663,6 @@ func asEngineExecutionPayload*(executionPayload: electra.ExecutionPayload):
       validatorPublicKey: FixedBytes[RawPubKeySize](elwr.validator_pubkey.blob),
       amount: elwr.amount.Quantity)
 
-  debugRaiseAssert "nim-web3 needs to change exits to withdrawalRequests; maybe it already has been"
-
   engine_api.ExecutionPayloadV4(
     parentHash: executionPayload.parent_hash.asBlockHash,
     feeRecipient: Address(executionPayload.fee_recipient.data),
@@ -682,9 +682,9 @@ func asEngineExecutionPayload*(executionPayload: electra.ExecutionPayload):
     withdrawals: mapIt(executionPayload.withdrawals, it.asEngineWithdrawal),
     blobGasUsed: Quantity(executionPayload.blob_gas_used),
     excessBlobGas: Quantity(executionPayload.excess_blob_gas),
-    depositReceipts: mapIt(
+    depositRequests: mapIt(
       executionPayload.deposit_receipts, it.getDepositReceipt),
-    exits:
+    withdrawalRequests:
       mapIt(executionPayload.withdrawal_requests,
         it.getExecutionLayerWithdrawalRequest))
 
