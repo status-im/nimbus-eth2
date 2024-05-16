@@ -22,7 +22,6 @@ import
   ".."/beacon_node_status,
   "."/[eth1_chain, el_conf]
 
-from std/sequtils import anyIt, mapIt
 from std/times import getTime, inSeconds, initTime, `-`
 from ../spec/engine_authentication import getSignedIatToken
 from ../spec/helpers import bytes_to_uint64
@@ -747,13 +746,13 @@ proc connectedRpcClient(connection: ELConnection): Future[RpcClient] {.
 proc getBlockByHash(
     rpcClient: RpcClient,
     hash: BlockHash
-): Future[BlockObject] {.async: (raising: [CatchableError], raw: true).} =
-  rpcClient.eth_getBlockByHash(hash, false)
+): Future[BlockObject] {.async: (raises: [CatchableError]).} =
+  await rpcClient.eth_getBlockByHash(hash, false)
 
 proc getBlockByNumber*(
     rpcClient: RpcClient,
     number: Eth1BlockNumber
-): Future[BlockObject] {.async: (raising: [CatchableError], raw: true).} =
+): Future[BlockObject] {.async: (raises: [CatchableError]).} =
   let hexNumber = try:
     let num = distinctBase(number)
     &"0x{num:X}" # No leading 0's!
@@ -761,7 +760,7 @@ proc getBlockByNumber*(
     # Since the format above is valid, failing here should not be possible
     raiseAssert exc.msg
 
-  rpcClient.eth_getBlockByNumber(hexNumber, false)
+  await rpcClient.eth_getBlockByNumber(hexNumber, false)
 
 func areSameAs(expectedParams: Option[NextExpectedPayloadParams],
                latestHead, latestSafe, latestFinalized: Eth2Digest,
@@ -936,7 +935,7 @@ proc getPayload*(
       try:
         await allFutures(requests).wait(deadline)
         false
-      except AsyncTimeoutError as exc:
+      except AsyncTimeoutError:
         true
       except CancelledError as exc:
         let pending =
@@ -1425,7 +1424,6 @@ proc forkchoiceUpdated*(
       headBlockHash: headBlockHash.asBlockHash,
       safeBlockHash: safeBlockHash.asBlockHash,
       finalizedBlockHash: finalizedBlockHash.asBlockHash)
-    earlyDeadline = sleepAsync(chronos.seconds 1)
     startTime = Moment.now
     deadline = sleepAsync(FORKCHOICEUPDATED_TIMEOUT)
   var
@@ -1844,7 +1842,7 @@ proc syncBlockRange(
         # for dealing with Infura's rate limits
         await sleepAsync(milliseconds(backoff))
 
-        let depositLogs =
+        depositLogs =
           try:
             await connection.engineApiRequest(
               depositContract.getJsonLogs(
