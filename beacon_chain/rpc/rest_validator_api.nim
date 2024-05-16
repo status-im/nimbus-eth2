@@ -650,7 +650,8 @@ proc installValidatorApiHandlers*(router: var RestRouter, node: BeaconNode) =
       when consensusFork >= ConsensusFork.Deneb:
         let
           message = (await node.makeMaybeBlindedBeaconBlockForHeadAndSlot(
-              consensusFork, qrandao, qgraffiti, qhead, qslot)).valueOr:
+              consensusFork, qrandao, qgraffiti, qhead, qslot,
+              qboostFactor)).valueOr:
             # HTTP 400 error is only for incorrect parameters.
             return RestApiResponse.jsonError(Http500, error)
           headers = consensusFork.getMaybeBlindedHeaders(

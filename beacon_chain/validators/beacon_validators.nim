@@ -1126,26 +1126,12 @@ func builderBetterBid*(builderBoostFactor: uint64,
     else:
       (multipledBuilderValue div 100) >= engineValue
 
-func builderBetterBid(
-    localBlockValueBoost: uint8, builderValue: UInt256, engineValue: Wei): bool =
-  # Scale down to ensure no overflows; if lower few bits would have been
-  # otherwise decisive, was close enough not to matter. Calibrate to let
-  # uint8-range percentages avoid overflowing.
-  const scalingBits = 10
-  static: doAssert 1 shl scalingBits >
-    high(typeof(localBlockValueBoost)).uint16 + 100
-  let
-    scaledBuilderValue = (builderValue shr scalingBits) * 100
-    scaledEngineValue = engineValue shr scalingBits
-  scaledBuilderValue >
-    scaledEngineValue * (localBlockValueBoost.uint16 + 100).u256
-
 proc proposeBlockAux(
     SBBB: typedesc, EPS: typedesc, node: BeaconNode,
     validator: AttachedValidator, validator_index: ValidatorIndex,
     head: BlockRef, slot: Slot, randao: ValidatorSig, fork: Fork,
     genesis_validators_root: Eth2Digest,
-    localBlockValueBoost: uint8): Future[BlockRef] {.async: (raises: [CancelledError]).} =
+    builderBoostFactor: uint64): Future[BlockRef] {.async: (raises: [CancelledError]).} =
   let
     graffitiBytes = node.getGraffitiBytes(validator)
     payloadBuilderClient =
@@ -1158,7 +1144,7 @@ proc proposeBlockAux(
     useBuilderBlock =
       if collectedBids.builderBid.isSome():
         collectedBids.engineBid.isNone() or builderBetterBid(
-          localBlockValueBoost,
+          builderBoostFactor,
           collectedBids.builderBid.value().executionPayloadValue,
           collectedBids.engineBid.value().executionPayloadValue)
       else:
@@ -1178,7 +1164,7 @@ proc proposeBlockAux(
     # present, and builder bid not expected.
     if collectedBids.builderBid.isSome():
       info "Compared engine and builder block bids",
-        localBlockValueBoost,
+        builderBoostFactor,
         useBuilderBlock,
         builderBlockValue =
           toString(collectedBids.builderBid.value().executionPayloadValue, 10),
@@ -1305,7 +1291,7 @@ proc proposeBlock(node: BeaconNode,
   template proposeBlockContinuation(type1, type2: untyped): auto =
     await proposeBlockAux(
       type1, type2, node, validator, validator_index, head, slot, randao, fork,
-        genesis_validators_root, node.config.localBlockValueBoost)
+        genesis_validators_root, node.config.builderBoostFactor)
 
   return withConsensusFork(node.dag.cfg.consensusForkAtEpoch(slot.epoch)):
     when consensusFork >= ConsensusFork.Deneb:
@@ -1986,7 +1972,8 @@ proc registerDuties*(node: BeaconNode, wallSlot: Slot) {.async: (raises: [Cancel
 proc makeMaybeBlindedBeaconBlockForHeadAndSlotImpl[ResultType](
     node: BeaconNode, consensusFork: static ConsensusFork,
     randao_reveal: ValidatorSig, graffiti: GraffitiBytes,
-    head: BlockRef, slot: Slot): Future[ResultType] {.async: (raises: [CancelledError]).} =
+    head: BlockRef, slot: Slot,
+    builderBoostFactor: uint64): Future[ResultType] {.async: (raises: [CancelledError]).} =
   let
     proposer = node.dag.getProposer(head, slot).valueOr:
       return ResultType.err(
@@ -1995,7 +1982,6 @@ proc makeMaybeBlindedBeaconBlockForHeadAndSlotImpl[ResultType](
 
     payloadBuilderClient =
       node.getPayloadBuilderClient(proposer.distinctBase).valueOr(nil)
-    localBlockValueBoost = node.config.localBlockValueBoost
 
     collectedBids =
       await collectBids(consensusFork.SignedBlindedBeaconBlock,
@@ -2007,7 +1993,7 @@ proc makeMaybeBlindedBeaconBlockForHeadAndSlotImpl[ResultType](
     useBuilderBlock =
       if collectedBids.builderBid.isSome():
         collectedBids.engineBid.isNone() or builderBetterBid(
-          localBlockValueBoost,
+          builderBoostFactor,
           collectedBids.builderBid.value().executionPayloadValue,
           collectedBids.engineBid.value().executionPayloadValue)
       else:
@@ -2053,11 +2039,12 @@ proc makeMaybeBlindedBeaconBlockForHeadAndSlotImpl[ResultType](
 proc makeMaybeBlindedBeaconBlockForHeadAndSlot*(
     node: BeaconNode, consensusFork: static ConsensusFork,
     randao_reveal: ValidatorSig, graffiti: GraffitiBytes,
-    head: BlockRef, slot: Slot): auto =
+    head: BlockRef, slot: Slot, builderBoostFactor: uint64): auto =
   type ResultType = Result[tuple[
     blck: consensusFork.MaybeBlindedBeaconBlock,
     executionValue: Opt[UInt256],
     consensusValue: Opt[UInt256]], string]
 
   makeMaybeBlindedBeaconBlockForHeadAndSlotImpl[ResultType](
-    node, consensusFork, randao_reveal, graffiti, head, slot)
+    node, consensusFork, randao_reveal, graffiti, head, slot,
+    builderBoostFactor)
