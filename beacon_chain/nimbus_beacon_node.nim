@@ -404,7 +404,7 @@ proc initFullNode(
                              maybeFinalized: bool):
         Future[Result[void, VerifierError]] {.async: (raises: [CancelledError]).} =
       withBlck(signedBlock):
-        when consensusFork >= ConsensusFork.Deneb:
+        when consensusFork == ConsensusFork.Deneb:
           if not blobQuarantine[].hasBlobs(forkyBlck):
             # We don't have all the blobs for this block, so we have
             # to put it in blobless quarantine.
@@ -1757,7 +1757,7 @@ proc installMessageValidators(node: BeaconNode) =
 
       # beacon_attestation_{subnet_id}
       # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.5/specs/phase0/p2p-interface.md#beacon_attestation_subnet_id
-      when consensusFork >= ConsensusFork.Electra:
+      when false and consensusFork >= ConsensusFork.Electra:
         for it in SubnetId:
           closureScope:  # Needed for inner `proc`; don't lift it out of loop.
             let subnet_id = it
@@ -1782,7 +1782,7 @@ proc installMessageValidators(node: BeaconNode) =
 
       # beacon_aggregate_and_proof
       # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.4/specs/phase0/p2p-interface.md#beacon_aggregate_and_proof
-      when consensusFork >= ConsensusFork.Electra:
+      when false and consensusFork >= ConsensusFork.Electra:
         node.network.addAsyncValidator(
           getAggregateAndProofsTopic(digest), proc (
             signedAggregateAndProof: electra.SignedAggregateAndProof
