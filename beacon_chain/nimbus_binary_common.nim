@@ -440,13 +440,4 @@ proc initKeymanagerServer*(
   KeymanagerInitResult(server: keymanagerServer, token: token)
 
 proc quitDoppelganger*() =
-  # Avoid colliding with
-  # https://www.freedesktop.org/software/systemd/man/systemd.exec.html#Process%20Exit%20Codes
-  # This error code is used to permanently shut down validators
-  fatal "Doppelganger detection triggered! It appears a validator loaded into " &
-    "this process is already live on the network - the validator is at high " &
-    "risk of being slashed due to the same keys being used in two setups. " &
-    "See https://nimbus.guide/doppelganger-detection.html for more information!"
-
-  const QuitDoppelganger = 129
-  quit QuitDoppelganger
+  discard

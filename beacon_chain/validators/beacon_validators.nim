@@ -1295,100 +1295,7 @@ proc proposeBlock(node: BeaconNode,
         max(ConsensusFork.Bellatrix, consensusFork).ExecutionPayloadForSigning)
 
 proc sendAttestations(node: BeaconNode, head: BlockRef, slot: Slot) =
-  ## Perform all attestations that the validators attached to this node should
-  ## perform during the given slot
-  if slot + SLOTS_PER_EPOCH < head.slot:
-    # The latest block we know about is a lot newer than the slot we're being
-    # asked to attest to - this makes it unlikely that it will be included
-    # at all.
-    # TODO the oldest attestations allowed are those that are older than the
-    #      finalized epoch.. also, it seems that posting very old attestations
-    #      is risky from a slashing perspective. More work is needed here.
-    warn "Skipping attestation, head is too recent",
-      head = shortLog(head),
-      slot = shortLog(slot)
-    return
-
-  if slot < node.dag.finalizedHead.slot:
-    # During checkpoint sync, we implicitly finalize the given slot even if the
-    # state transition does not yet consider it final - this is a sanity check
-    # mostly to ensure the `atSlot` below works as expected
-    warn "Skipping attestation - slot already finalized",
-      head = shortLog(head),
-      slot = shortLog(slot),
-      finalized = shortLog(node.dag.finalizedHead)
-    return
-
-  let attestationHead = head.atSlot(slot)
-  if head != attestationHead.blck:
-    # In rare cases, such as when we're busy syncing or just slow, we'll be
-    # attesting to a past state - we must then recreate the world as it looked
-    # like back then
-    notice "Attesting to a state in the past, falling behind?",
-      attestationHead = shortLog(attestationHead),
-      head = shortLog(head)
-
-  trace "Checking attestations",
-    attestationHead = shortLog(attestationHead),
-    head = shortLog(head)
-
-  # We need to run attestations exactly for the slot that we're attesting to.
-  # In case blocks went missing, this means advancing past the latest block
-  # using empty slots as fillers.
-  # https://github.com/ethereum/consensus-specs/blob/v1.4.0/specs/phase0/validator.md#validator-assignments
-  let
-    epochRef = node.dag.getEpochRef(
-      attestationHead.blck, slot.epoch, false).valueOr:
-        warn "Cannot construct EpochRef for attestation head, report bug",
-          attestationHead = shortLog(attestationHead), slot, error
-        return
-    committees_per_slot = get_committee_count_per_slot(epochRef.shufflingRef)
-    fork = node.dag.forkAtEpoch(slot.epoch)
-    genesis_validators_root = node.dag.genesis_validators_root
-    registeredRes = node.attachedValidators.slashingProtection.withContext:
-      var tmp: seq[(RegisteredAttestation, SubnetId)]
-
-      for committee_index in get_committee_indices(committees_per_slot):
-        let
-          committee = get_beacon_committee(
-            epochRef.shufflingRef, slot, committee_index)
-          subnet_id = compute_subnet_for_attestation(
-            committees_per_slot, slot, committee_index)
-
-        for index_in_committee, validator_index in committee:
-          let
-            validator = node.getValidatorForDuties(validator_index, slot).valueOr:
-              continue
-            data = makeAttestationData(epochRef, attestationHead, committee_index)
-            # TODO signing_root is recomputed in produceAndSignAttestation/signAttestation just after
-            signingRoot = compute_attestation_signing_root(
-              fork, genesis_validators_root, data)
-            registered = registerAttestationInContext(
-              validator_index, validator.pubkey, data.source.epoch,
-              data.target.epoch, signingRoot)
-          if registered.isErr():
-            warn "Slashing protection activated for attestation",
-              attestationData = shortLog(data),
-              signingRoot = shortLog(signingRoot),
-              validator_index,
-              validator = shortLog(validator),
-              badVoteDetails = $registered.error()
-            continue
-
-          tmp.add((RegisteredAttestation(
-            validator: validator,
-            index_in_committee: uint64 index_in_committee,
-            committee_len: committee.len(), data: data), subnet_id
-          ))
-      tmp
-
-  if registeredRes.isErr():
-    warn "Could not update slashing database, skipping attestation duties",
-      error = registeredRes.error()
-  else:
-    for attestation in registeredRes[]:
-      asyncSpawn createAndSendAttestation(
-        node, fork, genesis_validators_root, attestation[0], attestation[1])
+  discard
 
 proc createAndSendSyncCommitteeMessage(node: BeaconNode,
                                        validator: AttachedValidator,
@@ -1495,22 +1402,7 @@ proc sendSyncCommitteeContributions(
 
 proc handleProposal(node: BeaconNode, head: BlockRef, slot: Slot):
     Future[BlockRef] {.async: (raises: [CancelledError]).} =
-  ## Perform the proposal for the given slot, iff we have a validator attached
-  ## that is supposed to do so, given the shuffling at that slot for the given
-  ## head - to compute the proposer, we need to advance a state to the given
-  ## slot
-  let
-    proposer = node.dag.getProposer(head, slot).valueOr:
-      return head
-    proposerKey = node.dag.validatorKey(proposer).get().toPubKey
-    validator = node.getValidatorForDuties(proposer, slot).valueOr:
-      debug "Expecting block proposal", headRoot = shortLog(head.root),
-                                        slot = shortLog(slot),
-                                        proposer_index = proposer,
-                                        proposer = shortLog(proposerKey)
-      return head
-
-  return await proposeBlock(node, validator, proposer, head, slot)
+  return head
 
 proc signAndSendAggregate(
     node: BeaconNode, validator: AttachedValidator, shufflingRef: ShufflingRef,
@@ -1564,23 +1456,7 @@ proc signAndSendAggregate(
 
 proc sendAggregatedAttestations(
     node: BeaconNode, head: BlockRef, slot: Slot) =
-  # Aggregated attestations must be sent by members of the beacon committees for
-  # the given slot, for which `is_aggregator` returns `true`.
-
-  let
-    shufflingRef = node.dag.getShufflingRef(head, slot.epoch, false).valueOr:
-      warn "Cannot construct EpochRef for head, report bug",
-        head = shortLog(head), slot
-      return
-    committees_per_slot = get_committee_count_per_slot(shufflingRef)
-
-  for committee_index in get_committee_indices(committees_per_slot):
-    for _, validator_index in
-        get_beacon_committee(shufflingRef, slot, committee_index):
-      let validator = node.getValidatorForDuties(validator_index, slot).valueOr:
-        continue
-      asyncSpawn signAndSendAggregate(node, validator, shufflingRef, slot,
-                                      committee_index)
+  discard
 
 proc updateValidatorMetrics*(node: BeaconNode) =
   # Technically, this only needs to be done on epoch transitions and if there's
