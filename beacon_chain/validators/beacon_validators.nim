@@ -1101,6 +1101,31 @@ proc collectBids(
     engineBid: engineBid,
     builderBid: builderBid)
 
+func builderBetterBid*(builderBoostFactor: uint64,
+                       builderValue: UInt256, engineValue: Wei): bool =
+  if builderBoostFactor == 0'u64:
+    false
+  elif builderBoostFactor == 100'u64:
+    builderValue >= engineValue
+  elif builderBoostFactor == high(uint64):
+    true
+  else:
+    let
+      zero256 = 0.u256
+      multiplier = builderBoostFactor.u256
+      multipledBuilderValue = builderValue * multiplier
+      overflow =
+        if builderValue == zero256:
+          false
+        else:
+          builderValue != multipledBuilderValue div multiplier
+
+    if overflow:
+      # In case of overflow we will use `builderValue`.
+      true
+    else:
+      (multipledBuilderValue div 100) >= engineValue
+
 func builderBetterBid(
     localBlockValueBoost: uint8, builderValue: UInt256, engineValue: Wei): bool =
   # Scale down to ensure no overflows; if lower few bits would have been

@@ -1031,6 +1031,13 @@ type
       defaultValue: false
       name: "distributed".}: bool
 
+    builderBoostFactor* {.
+      desc: "Percentage multiplier to apply to the builder's payload value " &
+            "when choosing between a builder payload header and payload " &
+            "from the paired execution node."
+      defaultValue: 100,
+      name: "builder-boost-factor".}: uint64
+
     beaconNodes* {.
       desc: "URL addresses to one or more beacon node HTTP REST APIs",
       defaultValue: @[defaultBeaconNodeUri]

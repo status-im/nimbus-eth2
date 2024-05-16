@@ -243,6 +243,7 @@ proc publishBlockV3(vc: ValidatorClientRef, currentSlot, slot: Slot,
     maybeBlock =
       try:
         await vc.produceBlockV3(slot, randao_reveal, graffiti,
+                                vc.config.builderBoostFactor,
                                 ApiStrategyKind.Best)
       except ValidatorApiError as exc:
         warn "Unable to retrieve block data", reason = exc.getFailureReason()

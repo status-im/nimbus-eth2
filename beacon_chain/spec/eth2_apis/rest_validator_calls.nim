@@ -48,7 +48,8 @@ proc produceBlockV2Plain*(
 proc produceBlockV3Plain*(
        slot: Slot,
        randao_reveal: ValidatorSig,
-       graffiti: GraffitiBytes
+       graffiti: GraffitiBytes,
+       builder_boost_factor: uint64
      ): RestPlainResponse {.
      rest, endpoint: "/eth/v3/validator/blocks/{slot}",
      accept: preferSSZ, meth: MethodGet.}
