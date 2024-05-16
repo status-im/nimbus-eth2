@@ -426,19 +426,19 @@ proc addAttestation*(
   template committee_bits(_: phase0.Attestation): auto =
     const res = default(AttestationCommitteeBits)
     res
-  let candidate_key = getAttestationCandidateKey(
-    attestation.data, attestation.committee_bits)
 
   # TODO withValue is an abomination but hard to use anything else too without
   #      creating an unnecessary AttestationEntry on the hot path and avoiding
   #      multiple lookups
   template addAttToPool(attCandidates: untyped, entry: untyped) =
-    attCandidates[candidateIdx.get()].withValue(candidate_key, entry) do:
+    let attestation_data_root = hash_tree_root(entry.data)
+
+    attCandidates[candidateIdx.get()].withValue(attestation_data_root, entry) do:
       if not addAttestation(entry[], attestation, signature):
         return
     do:
       if not addAttestation(
-          attCandidates[candidateIdx.get()].mgetOrPut(candidate_key, entry),
+          attCandidates[candidateIdx.get()].mgetOrPut(attestation_data_root, entry),
           attestation, signature):
         # Returns from overall function, not only template
         return
@@ -465,7 +465,7 @@ proc addAttestation*(
         source: attestation.data.source,
         target: attestation.data.target)
     let newAttEntry = ElectraAttestationEntry(
-      data: attestation.data,
+      data: data,
       committee_len: attestation.aggregation_bits.len)
     addAttToPool(pool.electraCandidates, newAttEntry)
     pool.addForkChoiceVotes(

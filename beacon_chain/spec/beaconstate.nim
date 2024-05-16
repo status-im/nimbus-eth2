@@ -598,16 +598,14 @@ iterator get_attesting_indices_iter*(
     cache: var StateCache): ValidatorIndex =
   ## Return the set of attesting indices corresponding to ``aggregation_bits``
   ## and ``committee_bits``.
-  var committee_offset = 0'u64
+  var pos = 0
   for committee_index in get_committee_indices(committee_bits):
-    for index_in_committee, validator_index in get_beacon_committee(
+    for _, validator_index in get_beacon_committee(
         state, data.slot, committee_index, cache):
 
-      if aggregation_bits[int(committee_offset) + index_in_committee]:
+      if aggregation_bits[pos]:
         yield validator_index
-
-    committee_offset +=
-      get_beacon_committee_len(state, data.slot, committee_index, cache)
+      pos += 1
 
 # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.6/specs/phase0/beacon-chain.md#get_attesting_indices
 func get_attesting_indices*(

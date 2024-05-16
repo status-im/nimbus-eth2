@@ -107,16 +107,14 @@ iterator get_attesting_indices*(shufflingRef: ShufflingRef,
                                 aggregation_bits: ElectraCommitteeValidatorsBits, on_chain: static bool):
                                   ValidatorIndex =
   when on_chain:
-    var committee_offset = 0'u64
+    var pos = 0
     for committee_index in get_committee_indices(committee_bits):
-      for index_in_committee, validator_index in get_beacon_committee(
+      for _, validator_index in get_beacon_committee(
           shufflingRef, slot, committee_index):
 
-        if aggregation_bits[int(committee_offset) + index_in_committee]:
+        if aggregation_bits[pos]:
           yield validator_index
-
-      committee_offset +=
-        get_beacon_committee_len(shufflingRef, slot, committee_index)
+          pos += 1
   else:
     let committee_index = get_committee_index_one(committee_bits)
     for validator_index in get_attesting_indices(
