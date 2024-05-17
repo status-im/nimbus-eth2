@@ -735,3 +735,25 @@ func shortLog*(v: electra.Attestation | electra.TrustedAttestation): auto =
     data: shortLog(v.data),
     signature: shortLog(v.signature)
   )
+
+func init*(
+    T: type Attestation,
+    committee_index: CommitteeIndex,
+    indices_in_committee: openArray[uint64],
+    committee_len: int,
+    data: AttestationData,
+    signature: ValidatorSig): Result[T, cstring] =
+  var committee_bits: AttestationCommitteeBits
+  committee_bits[int(committee_index)] = true
+
+  var bits = ElectraCommitteeValidatorsBits.init(committee_len)
+  for index_in_committee in indices_in_committee:
+    if index_in_committee >= committee_len.uint64: return err("Invalid index for committee")
+    bits.setBit index_in_committee
+
+  ok Attestation(
+    aggregation_bits: bits,
+    committee_bits: committee_bits,
+    data: data,
+    signature: signature
+  )
