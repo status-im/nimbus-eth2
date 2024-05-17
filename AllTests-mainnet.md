@@ -863,6 +863,7 @@ OK: 7/7 Fail: 0/7 Skip: 0/7
 + [SyncQueue#Backward] Pass through established limits test                                  OK
 + [SyncQueue#Backward] Smoke test                                                            OK
 + [SyncQueue#Backward] Start and finish slots equal                                          OK
++ [SyncQueue#Backward] SyncQueue worker timeout test                                         OK
 + [SyncQueue#Backward] Two full requests success/fail                                        OK
 + [SyncQueue#Backward] getRewindPoint() test                                                 OK
 + [SyncQueue#Forward] Async unordered push test                                              OK
@@ -872,6 +873,7 @@ OK: 7/7 Fail: 0/7 Skip: 0/7
 + [SyncQueue#Forward] Pass through established limits test                                   OK
 + [SyncQueue#Forward] Smoke test                                                             OK
 + [SyncQueue#Forward] Start and finish slots equal                                           OK
++ [SyncQueue#Forward] SyncQueue worker timeout test                                          OK
 + [SyncQueue#Forward] Two full requests success/fail                                         OK
 + [SyncQueue#Forward] getRewindPoint() test                                                  OK
 + [SyncQueue] checkResponse() test                                                           OK
@@ -879,7 +881,7 @@ OK: 7/7 Fail: 0/7 Skip: 0/7
 + [SyncQueue] getLastNonEmptySlot() test                                                     OK
 + [SyncQueue] hasEndGap() test                                                               OK
 ```
-OK: 24/24 Fail: 0/24 Skip: 0/24
+OK: 26/26 Fail: 0/26 Skip: 0/26
 ## Type helpers
 ```diff
 + BeaconBlock                                                                                OK

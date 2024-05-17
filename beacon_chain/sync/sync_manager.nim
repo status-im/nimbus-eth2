@@ -71,6 +71,7 @@ type
     syncStatus*: string
     direction: SyncQueueKind
     ident*: string
+    pendingWorkerBlockWaitTime*: Duration
     flags: set[SyncManagerFlag]
 
   SyncMoment* = object
@@ -100,7 +101,7 @@ proc initQueue[A, B](man: SyncManager[A, B]) =
     man.queue = SyncQueue.init(A, man.direction, man.getFirstSlot(),
                                man.getLastSlot(), man.chunkSize,
                                man.getSafeSlot, man.blockVerifier,
-                               1, man.ident)
+                               1, man.ident, man.pendingWorkerBlockWaitTime)
   of SyncQueueKind.Backward:
     let
       firstSlot = man.getFirstSlot()
@@ -113,7 +114,8 @@ proc initQueue[A, B](man: SyncManager[A, B]) =
                     Slot(firstSlot - 1'u64)
     man.queue = SyncQueue.init(A, man.direction, startSlot, lastSlot,
                                man.chunkSize, man.getSafeSlot,
-                               man.blockVerifier, 1, man.ident)
+                               man.blockVerifier, 1, man.ident,
+                               man.pendingWorkerBlockWaitTime)
 
 proc newSyncManager*[A, B](pool: PeerPool[A, B],
                            denebEpoch: Epoch,
@@ -128,6 +130,7 @@ proc newSyncManager*[A, B](pool: PeerPool[A, B],
                            blockVerifier: BlockVerifier,
                            maxHeadAge = uint64(SLOTS_PER_EPOCH * 1),
                            chunkSize = uint64(SLOTS_PER_EPOCH),
+                           workerBlockWaitTimeout = InfiniteDuration,
                            flags: set[SyncManagerFlag] = {},
                            ident = "main"
                            ): SyncManager[A, B] =
@@ -153,6 +156,7 @@ proc newSyncManager*[A, B](pool: PeerPool[A, B],
     notInSyncEvent: newAsyncEvent(),
     direction: direction,
     ident: ident,
+    pendingWorkerBlockWaitTime: workerBlockWaitTimeout,
     flags: flags
   )
   res.initQueue()
