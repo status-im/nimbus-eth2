@@ -477,6 +477,192 @@ proc validateBeaconBlock*(
     dag: ChainDAGRef, quarantine: ref Quarantine,
     signed_beacon_block: phase0.SignedBeaconBlock | altair.SignedBeaconBlock | bellatrix.SignedBeaconBlock | capella.SignedBeaconBlock | deneb.SignedBeaconBlock,
     wallTime: BeaconTime, flags: UpdateFlags): Result[void, ValidationError] =
+  # In general, checks are ordered from cheap to expensive. Especially, crypto
+  # verification could be quite a bit more expensive than the rest. This is an
+  # externally easy-to-invoke function by tossing network packets at the node.
+
+  # [IGNORE] The block is not from a future slot (with a
+  # MAXIMUM_GOSSIP_CLOCK_DISPARITY allowance) -- i.e. validate that
+  # signed_beacon_block.message.slot <= current_slot (a client MAY queue future
+  # blocks for processing at the appropriate slot).
+  if not (signed_beacon_block.message.slot <=
+      (wallTime + MAXIMUM_GOSSIP_CLOCK_DISPARITY).slotOrZero):
+    return errIgnore("BeaconBlock: slot too high")
+
+  # [IGNORE] The block is from a slot greater than the latest finalized slot --
+  # i.e. validate that signed_beacon_block.message.slot >
+  # compute_start_slot_at_epoch(state.finalized_checkpoint.epoch)
+  if not (signed_beacon_block.message.slot > dag.finalizedHead.slot):
+    return errIgnore("BeaconBlock: slot already finalized")
+
+  # [IGNORE] The block is the first block with valid signature received for the
+  # proposer for the slot, signed_beacon_block.message.slot.
+  #
+  # While this condition is similar to the proposer slashing condition at
+  # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.1/specs/phase0/validator.md#proposer-slashing
+  # it's not identical, and this check does not address slashing:
+  #
+  # (1) The beacon blocks must be conflicting, i.e. different, for the same
+  #     slot and proposer. This check also catches identical blocks.
+  #
+  # (2) By this point in the function, it's not been checked whether they're
+  #     signed yet. As in general, expensive checks should be deferred, this
+  #     would add complexity not directly relevant this function.
+  #
+  # (3) As evidenced by point (1), the similarity in the validation condition
+  #     and slashing condition, while not coincidental, aren't similar enough
+  #     to combine, as one or the other might drift.
+  #
+  # (4) Furthermore, this function, as much as possible, simply returns a yes
+  #     or no answer, without modifying other state for p2p network interface
+  #     validation. Complicating this interface, for the sake of sharing only
+  #     couple lines of code, wouldn't be worthwhile.
+  #
+  # TODO might check unresolved/orphaned blocks too, and this might not see all
+  # blocks at a given slot (though, in theory, those get checked elsewhere), or
+  # adding metrics that count how often these conditions occur.
+  if dag.containsForkBlock(signed_beacon_block.root):
+    # The gossip algorithm itself already does one round of hashing to find
+    # already-seen data, but it is fairly aggressive about forgetting about
+    # what it has seen already
+    # "[IGNORE] The block is the first block ..."
+    return errIgnore("BeaconBlock: already seen")
+
+  let
+    slotBlock = getBlockIdAtSlot(dag, signed_beacon_block.message.slot)
+
+  if slotBlock.isSome() and slotBlock.get().isProposed() and
+      slotBlock.get().bid.slot == signed_beacon_block.message.slot:
+    let curBlock = dag.getForkedBlock(slotBlock.get().bid)
+    if curBlock.isOk():
+      let data = curBlock.get()
+      if getForkedBlockField(data, proposer_index) ==
+            signed_beacon_block.message.proposer_index and
+          data.signature.toRaw() != signed_beacon_block.signature.toRaw():
+        return errIgnore("BeaconBlock: already proposed in the same slot")
+
+  # [IGNORE] The block's parent (defined by block.parent_root) has been seen
+  # (via both gossip and non-gossip sources) (a client MAY queue blocks for
+  # processing once the parent block is retrieved).
+  #
+  # [REJECT] The block's parent (defined by block.parent_root)
+  # passes validation.
+  let parent = dag.getBlockRef(signed_beacon_block.message.parent_root).valueOr:
+    if signed_beacon_block.message.parent_root in quarantine[].unviable:
+      quarantine[].addUnviable(signed_beacon_block.root)
+
+      # https://github.com/ethereum/consensus-specs/blob/v1.3.0/specs/bellatrix/p2p-interface.md#beacon_block
+      # `is_execution_enabled(state, block.body)` check, but unlike in
+      # validateBeaconBlockBellatrix() don't have parent BlockRef.
+      if signed_beacon_block.message.is_execution_block:
+        # Blocks with execution enabled will be permitted to propagate
+        # regardless of the validity of the execution payload. This prevents
+        # network segregation between optimistic and non-optimistic nodes.
+        #
+        # If execution_payload verification of block's parent by an execution
+        # node is not complete:
+        #
+        # - [REJECT] The block's parent (defined by `block.parent_root`) passes
+        #   all validation (excluding execution node verification of the
+        #   `block.body.execution_payload`).
+        #
+        # otherwise:
+        #
+        # - [IGNORE] The block's parent (defined by `block.parent_root`) passes
+        #   all validation (including execution node verification of the
+        #   `block.body.execution_payload`).
+
+        # Implementation restrictions:
+        #
+        # - We don't know if the parent state had execution enabled.
+        #   If it had, and the block doesn't have it enabled anymore,
+        #   we end up in the pre-Merge path below (`else`) and REJECT.
+        #   Such a block is clearly invalid, though, without asking the EL.
+        #
+        # - We know that the parent was marked unviable, but don't know
+        #   whether it was marked unviable due to consensus (REJECT) or
+        #   execution (IGNORE) verification failure. We err on the IGNORE side.
+        return errIgnore("BeaconBlock: ignored, parent from unviable fork")
+      else:
+        # [REJECT] The block's parent (defined by `block.parent_root`) passes
+        # validation.
+        return dag.checkedReject(
+          "BeaconBlock: rejected, parent from unviable fork")
+
+    # When the parent is missing, we can't validate the block - we'll queue it
+    # in the quarantine for later processing
+    if (let r = quarantine[].addOrphan(
+        dag.finalizedHead.slot,
+        ForkedSignedBeaconBlock.init(signed_beacon_block)); r.isErr):
+      debug "validateBeaconBlock: could not add orphan",
+       blockRoot = shortLog(signed_beacon_block.root),
+       blck = shortLog(signed_beacon_block.message),
+       err = r.error()
+    else:
+      debug "Block quarantined",
+        blockRoot = shortLog(signed_beacon_block.root),
+        blck = shortLog(signed_beacon_block.message),
+        signature = shortLog(signed_beacon_block.signature)
+    return errIgnore("BeaconBlock: parent not found")
+
+  # Continues block parent validity checking in optimistic case, where it does
+  # appear as a `BlockRef` (and not handled above) but isn't usable for gossip
+  # validation.
+  validateBeaconBlockBellatrix(signed_beacon_block, parent)
+
+  # [REJECT] The block is from a higher slot than its parent.
+  if not (signed_beacon_block.message.slot > parent.bid.slot):
+    return dag.checkedReject(
+      "BeaconBlock: block not from higher slot than its parent")
+
+  # [REJECT] The current finalized_checkpoint is an ancestor of block -- i.e.
+  # get_ancestor(store, block.parent_root,
+  # compute_start_slot_at_epoch(store.finalized_checkpoint.epoch)) ==
+  # store.finalized_checkpoint.root
+  let
+    finalized_checkpoint = getStateField(dag.headState, finalized_checkpoint)
+    ancestor = get_ancestor(parent, finalized_checkpoint.epoch.start_slot)
+
+  if ancestor.isNil:
+    # This shouldn't happen: we should always be able to trace the parent back
+    # to the finalized checkpoint (else it wouldn't be in the DAG)
+    return errIgnore("BeaconBlock: Can't find ancestor")
+
+  if not (
+      finalized_checkpoint.root == ancestor.root or
+      finalized_checkpoint.root.isZero):
+    quarantine[].addUnviable(signed_beacon_block.root)
+    return dag.checkedReject(
+      "BeaconBlock: Finalized checkpoint not an ancestor")
+
+  # [REJECT] The block is proposed by the expected proposer_index for the
+  # block's slot in the context of the current shuffling (defined by
+  # parent_root/slot). If the proposer_index cannot immediately be verified
+  # against the expected shuffling, the block MAY be queued for later
+  # processing while proposers for the block's branch are calculated -- in such
+  # a case do not REJECT, instead IGNORE this message.
+  let
+    proposer = getProposer(
+        dag, parent, signed_beacon_block.message.slot).valueOr:
+      warn "cannot compute proposer for block"
+      return errIgnore("BeaconBlock: Cannot compute proposer") # internal issue
+
+  if uint64(proposer) != signed_beacon_block.message.proposer_index:
+    quarantine[].addUnviable(signed_beacon_block.root)
+    return dag.checkedReject("BeaconBlock: Unexpected proposer")
+
+  # [REJECT] The proposer signature, signed_beacon_block.signature, is valid
+  # with respect to the proposer_index pubkey.
+  if not verify_block_signature(
+      dag.forkAtEpoch(signed_beacon_block.message.slot.epoch),
+      getStateField(dag.headState, genesis_validators_root),
+      signed_beacon_block.message.slot,
+      signed_beacon_block.root,
+      dag.validatorKey(proposer).get(),
+      signed_beacon_block.signature):
+    quarantine[].addUnviable(signed_beacon_block.root)
+    return dag.checkedReject("BeaconBlock: Invalid proposer signature")
+
   ok()
 
 proc validateBeaconBlock*(
