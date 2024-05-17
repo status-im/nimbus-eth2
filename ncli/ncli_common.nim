@@ -381,7 +381,7 @@ func collectFromAttestations(
       doAssert base_reward_per_increment > 0.Gwei
       for attestation in forkyBlck.message.body.attestations:
         doAssert check_attestation(
-          forkyState.data, attestation, {}, cache).isOk
+          forkyState.data, attestation, {}, cache, true).isOk
         let proposerReward =
           if attestation.data.target.epoch == get_current_epoch(forkyState.data):
             get_proposer_reward(

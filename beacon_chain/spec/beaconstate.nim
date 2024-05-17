@@ -878,7 +878,7 @@ func get_base_reward(
 # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.6/specs/phase0/beacon-chain.md#attestations
 proc check_attestation*(
     state: ForkyBeaconState, attestation: SomeAttestation, flags: UpdateFlags,
-    cache: var StateCache): Result[void, cstring] =
+    cache: var StateCache, on_chain: static bool = true): Result[void, cstring] =
   ## Check that an attestation follows the rules of being included in the state
   ## at the current slot. When acting as a proposer, the same rules need to
   ## be followed!
