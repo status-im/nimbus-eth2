@@ -462,7 +462,7 @@ proc validateBlobSidecar*(
 # https://github.com/ethereum/consensus-specs/blob/v1.3.0/specs/bellatrix/p2p-interface.md#beacon_block
 proc validateBeaconBlock*(
     dag: ChainDAGRef, quarantine: ref Quarantine,
-    signed_beacon_block: ForkySignedBeaconBlock,
+    signed_beacon_block: phase0.SignedBeaconBlock | altair.SignedBeaconBlock | bellatrix.SignedBeaconBlock | capella.SignedBeaconBlock | deneb.SignedBeaconBlock,
     wallTime: BeaconTime, flags: UpdateFlags): Result[void, ValidationError] =
   # In general, checks are ordered from cheap to expensive. Especially, crypto
   # verification could be quite a bit more expensive than the rest. This is an
@@ -650,6 +650,13 @@ proc validateBeaconBlock*(
     quarantine[].addUnviable(signed_beacon_block.root)
     return dag.checkedReject("BeaconBlock: Invalid proposer signature")
 
+  ok()
+
+proc validateBeaconBlock*(
+    dag: ChainDAGRef, quarantine: ref Quarantine,
+    signed_beacon_block: electra.SignedBeaconBlock,
+    wallTime: BeaconTime, flags: UpdateFlags): Result[void, ValidationError] =
+  debugComment "it's sometimes not"
   ok()
 
 # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.1/specs/phase0/p2p-interface.md#beacon_attestation_subnet_id
