@@ -731,6 +731,7 @@ iterator getValidatorIndices*(attester_slashing: AttesterSlashing | TrustedAttes
 func shortLog*(v: electra.Attestation | electra.TrustedAttestation): auto =
   (
     aggregation_bits: v.aggregation_bits,
+    committee_bits: v.committee_bits,
     data: shortLog(v.data),
     signature: shortLog(v.signature)
   )
