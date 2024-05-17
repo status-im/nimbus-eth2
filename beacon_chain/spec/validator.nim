@@ -8,7 +8,9 @@
 
 # Helpers and functions pertaining to managing the validator set
 
-import "."/[algorithm, crypto, helpers]
+import
+  std/algorithm,
+  "."/[crypto, helpers]
 export helpers
 
 const
