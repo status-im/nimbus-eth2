@@ -1527,3 +1527,13 @@ template init*(T: type ForkedMaybeBlindedBeaconBlock,
       blindedData: blck),
     consensusValue: cvalue,
     executionValue: evalue)
+
+func committee_index*(
+    v: phase0.Attestation, on_chain: static bool = false): uint64 =
+  v.data.index
+
+func committee_index*(v: electra.Attestation, on_chain: static bool): uint64 =
+  when on_chain:
+    {.error: "cannot get single committee_index for on_chain attestation".}
+  else:
+    uint64 v.committee_bits.get_committee_index_one().expect("network attestation")

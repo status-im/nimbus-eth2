@@ -171,7 +171,20 @@ func check_aggregation_count(
 func check_aggregation_count(
     attestation: electra.Attestation, singular: bool):
     Result[void, ValidationError] =
-  debugComment "it's sometimes not"
+  block:
+    let ones = attestation.committee_bits.countOnes()
+    if singular and ones != 1:
+      return errReject("Attestation must have a single committee bit set")
+    elif not singular and ones < 1:
+      return errReject("Attestation must have at least one committee bit set")
+
+  block:
+    let ones = attestation.aggregation_bits.countOnes()
+    if singular and ones != 1:
+      return errReject("Attestation must have a single attestation bit set")
+    elif not singular and ones < 1:
+      return errReject("Attestation must have at least one attestation bit set")
+
   ok()
 
 func check_attestation_subnet(

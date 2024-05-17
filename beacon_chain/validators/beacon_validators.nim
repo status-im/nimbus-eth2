@@ -337,19 +337,26 @@ proc createAndSendAttestation(node: BeaconNode,
               error_msg = res.error()
         return
       res.get()
-    attestation = registered.toAttestation(signature)
+    epoch = registered.data.slot.epoch
 
-  registered.validator.doppelgangerActivity(attestation.data.slot.epoch)
+  registered.validator.doppelgangerActivity(epoch)
 
   # Logged in the router
-  let res = await node.router.routeAttestation(
-    attestation, subnet_id, checkSignature = false)
+  let
+    consensusFork = node.dag.cfg.consensusForkAtEpoch(epoch)
+    res =
+      if consensusFork >= ConsensusFork.Electra:
+        await node.router.routeAttestation(
+          registered.toElectraAttestation(signature), subnet_id, checkSignature = false)
+      else:
+        await node.router.routeAttestation(
+          registered.toAttestation(signature), subnet_id, checkSignature = false)
   if not res.isOk():
     return
 
   if node.config.dumpEnabled:
     dump(
-      node.config.dumpDirOutgoing, attestation.data,
+      node.config.dumpDirOutgoing, registered.data,
       registered.validator.pubkey)
 
 proc getBlockProposalEth1Data*(node: BeaconNode,
@@ -497,7 +504,6 @@ proc makeBeaconBlockForHeadAndSlot*(
     warn "Eth1 deposits not available. Skipping block proposal", slot
     return err("Eth1 deposits not available")
 
-  debugComment "b_v makeBeaconBlockForHeadAndSlot doesn't know how to get Electra attestations because attpool doesn't either"
   let
     attestations =
       when PayloadType.kind == ConsensusFork.Electra:
@@ -1344,6 +1350,7 @@ proc sendAttestations(node: BeaconNode, head: BlockRef, slot: Slot) =
         return
     committees_per_slot = get_committee_count_per_slot(epochRef.shufflingRef)
     fork = node.dag.forkAtEpoch(slot.epoch)
+    consensusFork = node.dag.cfg.consensusForkAtEpoch(slot.epoch)
     genesis_validators_root = node.dag.genesis_validators_root
     registeredRes = node.attachedValidators.slashingProtection.withContext:
       var tmp: seq[(RegisteredAttestation, SubnetId)]
@@ -1359,7 +1366,11 @@ proc sendAttestations(node: BeaconNode, head: BlockRef, slot: Slot) =
           let
             validator = node.getValidatorForDuties(validator_index, slot).valueOr:
               continue
-            data = makeAttestationData(epochRef, attestationHead, committee_index)
+            data =
+              if consensusFork >= ConsensusFork.Electra:
+                makeAttestationData(epochRef, attestationHead, CommitteeIndex(0))
+              else:
+                makeAttestationData(epochRef, attestationHead, committee_index)
             # TODO signing_root is recomputed in produceAndSignAttestation/signAttestation just after
             signingRoot = compute_attestation_signing_root(
               fork, genesis_validators_root, data)
@@ -1376,7 +1387,7 @@ proc sendAttestations(node: BeaconNode, head: BlockRef, slot: Slot) =
             continue
 
           tmp.add((RegisteredAttestation(
-            validator: validator,
+            validator: validator, committee_index: committee_index,
             index_in_committee: uint64 index_in_committee,
             committee_len: committee.len(), data: data), subnet_id
           ))
