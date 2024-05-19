@@ -80,6 +80,11 @@ OK: 7/7 Fail: 0/7 Skip: 0/7
 + basics                                                                                     OK
 ```
 OK: 2/2 Fail: 0/2 Skip: 0/2
+## Beacon validators test suite
+```diff
++ builderBetterBid(builderBoostFactor) test                                                  OK
+```
+OK: 1/1 Fail: 0/1 Skip: 0/1
 ## Blinded block conversions
 ```diff
 + Bellatrix toSignedBlindedBlock                                                             OK

@@ -58,7 +58,8 @@ import # Unit test
   ./consensus_spec/all_tests as consensus_all_tests,
   ./slashing_protection/test_fixtures,
   ./slashing_protection/test_slashing_protection_db,
-  ./test_validator_client
+  ./test_validator_client,
+  ./test_beacon_validators
 
 when not defined(windows):
   import ./test_keymanager_api

@@ -2118,6 +2118,7 @@ proc produceBlockV3*(
        slot: Slot,
        randao_reveal: ValidatorSig,
        graffiti: GraffitiBytes,
+       builder_boost_factor: uint64,
        strategy: ApiStrategyKind
      ): Future[ProduceBlockResponseV3] {.async.} =
   const
@@ -2133,7 +2134,8 @@ proc produceBlockV3*(
       SlotDuration,
       ViableNodeStatus,
       {BeaconNodeRole.BlockProposalData},
-      produceBlockV3Plain(it, slot, randao_reveal, graffiti)):
+      produceBlockV3Plain(it, slot, randao_reveal, graffiti,
+                          builder_boost_factor)):
       if apiResponse.isErr():
         handleCommunicationError()
         ApiResponse[ProduceBlockResponseV3].err(apiResponse.error)
@@ -2189,7 +2191,8 @@ proc produceBlockV3*(
       SlotDuration,
       ViableNodeStatus,
       {BeaconNodeRole.BlockProposalData},
-      produceBlockV3Plain(it, slot, randao_reveal, graffiti)):
+      produceBlockV3Plain(it, slot, randao_reveal, graffiti,
+                          builder_boost_factor)):
       if apiResponse.isErr():
         handleCommunicationError()
         false

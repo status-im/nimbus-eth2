@@ -571,7 +571,8 @@ proc installValidatorApiHandlers*(router: var RestRouter, node: BeaconNode) =
   router.api(MethodGet, "/eth/v3/validator/blocks/{slot}") do (
       slot: Slot, randao_reveal: Option[ValidatorSig],
       graffiti: Option[GraffitiBytes],
-      skip_randao_verification: Option[string]) -> RestApiResponse:
+      skip_randao_verification: Option[string],
+      builder_boost_factor: Option[uint64]) -> RestApiResponse:
     let
       contentType = preferredContentType(jsonMediaType, sszMediaType).valueOr:
         return RestApiResponse.jsonError(Http406, ContentNotAcceptableError)
@@ -630,6 +631,14 @@ proc installValidatorApiHandlers*(router: var RestRouter, node: BeaconNode) =
           if not tres.executionValid:
             return RestApiResponse.jsonError(Http503, BeaconNodeInSyncError)
           tres
+      qboostFactor {.used.} =
+        if builder_boost_factor.isNone():
+          100'u64
+        else:
+          let res = builder_boost_factor.get()
+          if res.isErr():
+            return RestApiResponse.jsonError(Http400, )
+          res.get()
       proposer = node.dag.getProposer(qhead, qslot).valueOr:
         return RestApiResponse.jsonError(Http400, ProposerNotFoundError)
 
@@ -641,7 +650,8 @@ proc installValidatorApiHandlers*(router: var RestRouter, node: BeaconNode) =
       when consensusFork >= ConsensusFork.Deneb:
         let
           message = (await node.makeMaybeBlindedBeaconBlockForHeadAndSlot(
-              consensusFork, qrandao, qgraffiti, qhead, qslot)).valueOr:
+              consensusFork, qrandao, qgraffiti, qhead, qslot,
+              qboostFactor)).valueOr:
             # HTTP 400 error is only for incorrect parameters.
             return RestApiResponse.jsonError(Http500, error)
           headers = consensusFork.getMaybeBlindedHeaders(
