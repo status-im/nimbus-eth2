@@ -117,7 +117,6 @@ type
 
   RestBeaconNodeFeature* {.pure.} = enum
     NoNimbusExtensions, ## BN does not support Nimbus Extensions
-    NoProduceBlockV3    ## BN does not support produceBlockV3 call
 
   TimeOffset* = object
     value: int64
