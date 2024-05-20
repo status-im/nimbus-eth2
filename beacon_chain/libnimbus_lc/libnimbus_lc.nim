@@ -1625,6 +1625,12 @@ proc ETHTransactionsCreateFromJson(
       MAX_BLOB_COMMITMENTS_PER_BLOCK = 4_096
 
     type
+      FeePerGas = UInt256
+
+      FeesPerGas {.sszStableContainer: 16.} = object
+        regular: Opt[FeePerGas]
+        blob: Opt[FeePerGas]
+
       Eip6493AccessTuple = object
         address: ExecutionAddress
         storage_keys: List[Eth2Digest, Limit MAX_ACCESS_LIST_STORAGE_KEYS]
@@ -1637,7 +1643,7 @@ proc ETHTransactionsCreateFromJson(
         chain_id: Opt[ChainId]
 
         nonce: uint64
-        max_fee_per_gas: UInt256
+        max_fees_per_gas: Opt[FeesPerGas]
         gas: uint64
         to: Opt[ExecutionAddress]
         value: UInt256
@@ -1647,10 +1653,9 @@ proc ETHTransactionsCreateFromJson(
         access_list: Opt[List[Eip6493AccessTuple, Limit MAX_ACCESS_LIST_SIZE]]
 
         # EIP-1559
-        max_priority_fee_per_gas: Opt[UInt256]
+        max_priority_fees_per_gas: Opt[FeesPerGas]
 
         # EIP-4844
-        max_fee_per_blob_gas: Opt[UInt256]
         blob_versioned_hashes:
           Opt[List[deneb.VersionedHash, Limit MAX_BLOB_COMMITMENTS_PER_BLOCK]]
 
@@ -1677,7 +1682,13 @@ proc ETHTransactionsCreateFromJson(
       # With replay protection
       eip6493Tx.payload.chain_id.ok tx.chainId
     eip6493Tx.payload.nonce = tx.nonce
-    eip6493Tx.payload.max_fee_per_gas = tx.maxFee.u256
+    eip6493Tx.payload.max_fees_per_gas.ok FeesPerGas(
+      regular: Opt.some tx.maxFee.u256,
+      blob:
+        if tx.txType == TxEip4844:
+          Opt.some tx.maxFeePerBlobGas
+        else:
+          Opt.none FeePerGas)
     eip6493Tx.payload.gas = tx.gasLimit.uint64
     if tx.to.isSome:
       eip6493Tx.payload.to.ok(ExecutionAddress(data: tx.to.get))
@@ -1699,7 +1710,13 @@ proc ETHTransactionsCreateFromJson(
             storage_keys: List[Eth2Digest, Limit MAX_ACCESS_LIST_STORAGE_KEYS]
               .init(it.storageKeys.mapIt(Eth2Digest(data: it)))))))
     if tx.txType >= TxEip1559:
-      eip6493Tx.payload.max_priority_fee_per_gas.ok(tx.maxPriorityFee.u256)
+      eip6493Tx.payload.max_priority_fees_per_gas.ok FeesPerGas(
+        regular: Opt.some tx.maxPriorityFee.u256,
+        blob:
+          if tx.txType == TxEip4844:
+            Opt.some FeePerGas(UInt256.zero)
+          else:
+            Opt.none FeePerGas)
 
     eip6493Tx.signature.`from` = ExecutionAddress(data: fromAddress)
     eip6493Tx.signature.ecdsa_signature = rawSig
