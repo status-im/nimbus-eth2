@@ -1173,6 +1173,16 @@ template withForkyMaybeBlindedBlck*(
     template forkyMaybeBlindedBlck: untyped {.inject, used.} = b.phase0Data
     body
 
+template shortLog*(x: ForkedMaybeBlindedBeaconBlock): auto =
+  withForkyMaybeBlindedBlck(x):
+    when consensusFork >= ConsensusFork.Deneb:
+      when isBlinded == true:
+        shortLog(forkyMaybeBlindedBlck)
+      else:
+        shortLog(forkyMaybeBlindedBlck.`block`)
+    else:
+      shortLog(forkyMaybeBlindedBlck)
+
 template withStateAndBlck*(
     s: ForkedHashedBeaconState,
     b: ForkedBeaconBlock | ForkedSignedBeaconBlock |

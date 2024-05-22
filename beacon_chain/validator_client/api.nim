@@ -39,14 +39,14 @@ type
     status*: ApiOperation
     data*: seq[ApiNodeResponse[T]]
 
-  ApiScore* = object
+  ApiScore*[T] = object
     index*: int
-    score*: Opt[float64]
+    score*: Opt[T]
 
-  BestNodeResponse*[T] = object
+  BestNodeResponse*[T, X] = object
     node*: BeaconNodeServerRef
     data*: ApiResponse[T]
-    score*: float64
+    score*: X
 
 const
   ViableNodeStatus* = {
@@ -56,7 +56,7 @@ const
     RestBeaconNodeStatus.Synced
   }
 
-proc `$`*(s: ApiScore): string =
+proc `$`*[T](s: ApiScore[T]): string =
   var res = Base10.toString(uint64(s.index))
   res.add(": ")
   if s.score.isSome():
@@ -65,22 +65,27 @@ proc `$`*(s: ApiScore): string =
     res.add("<n/a>")
   res
 
-proc `$`*(ss: openArray[ApiScore]): string =
+proc `$`*[T](ss: openArray[ApiScore[T]]): string =
   "[" & ss.mapIt($it).join(",") & "]"
 
 chronicles.formatIt(seq[ApiScore]):
   $it
 
 func init*(t: typedesc[ApiScore], node: BeaconNodeServerRef,
-           score: float64): ApiScore =
-  ApiScore(index: node.index, score: Opt.some(score))
+           score: float64): ApiScore[float64] =
+  ApiScore[float64](index: node.index, score: Opt.some(score))
 
-func init*(t: typedesc[ApiScore], node: BeaconNodeServerRef): ApiScore =
-  ApiScore(index: node.index, score: Opt.none(float64))
+func init*(t: typedesc[ApiScore], node: BeaconNodeServerRef,
+           score: UInt256): ApiScore[UInt256] =
+  ApiScore[UInt256](index: node.index, score: Opt.some(score))
 
-func init*[T](t: typedesc[BestNodeResponse], node: BeaconNodeServerRef,
-              data: ApiResponse[T], score: float64): BestNodeResponse[T] =
-  BestNodeResponse[T](node: node, data: data, score: score)
+func init*(tt: typedesc[ApiScore],
+           node: BeaconNodeServerRef, T: typedesc): ApiScore[T] =
+  ApiScore[T](index: node.index, score: Opt.none(T))
+
+func init*[T, X](t: typedesc[BestNodeResponse], node: BeaconNodeServerRef,
+                 data: ApiResponse[T], score: X): BestNodeResponse[T, X] =
+  BestNodeResponse[T, X](node: node, data: data, score: score)
 
 proc lazyWaiter(node: BeaconNodeServerRef, request: FutureBase,
                 requestName: string, strategy: ApiStrategyKind) {.async.} =
@@ -234,7 +239,7 @@ template firstSuccessParallel*(
             pendingNodes.del(index)
 
             let
-              node {.inject.} = beaconNode
+              node {.inject, used.} = beaconNode
               apiResponse {.inject.} =
                 apiResponseOr[responseType](requestFut, timerFut,
                   "Timeout exceeded while awaiting for the response")
@@ -283,6 +288,7 @@ template bestSuccess*(
            vc: ValidatorClientRef,
            responseType: typedesc,
            handlerType: typedesc,
+           scoreType: typedesc,
            timeout: Duration,
            statuses: set[RestBeaconNodeStatus],
            roles: set[BeaconNodeRole],
@@ -301,8 +307,8 @@ template bestSuccess*(
 
   var
     retRes: ApiResponse[handlerType]
-    scores: seq[ApiScore]
-    bestResponse: Opt[BestNodeResponse[handlerType]]
+    scores: seq[ApiScore[scoreType]]
+    bestResponse: Opt[BestNodeResponse[handlerType, scoreType]]
 
   block mainLoop:
     while true:
@@ -395,7 +401,7 @@ template bestSuccess*(
                         perfectScoreFound = true
                         break
                   else:
-                    scores.add(ApiScore.init(node))
+                    scores.add(ApiScore.init(node, scoreType))
 
               if perfectScoreFound:
                 # lazyWait will cancel `pendingRequests` on timeout.
@@ -1181,6 +1187,7 @@ proc getHeadBlockRoot*(
     let res = vc.bestSuccess(
       RestPlainResponse,
       GetBlockRootResponse,
+      float64,
       SlotDuration,
       ViableNodeStatus,
       {BeaconNodeRole.SyncCommitteeData},
@@ -1413,6 +1420,7 @@ proc produceAttestationData*(
     let res = vc.bestSuccess(
       RestPlainResponse,
       ProduceAttestationDataResponse,
+      float64,
       OneThirdDuration,
       ViableNodeStatus,
       {BeaconNodeRole.AttestationData},
@@ -1685,6 +1693,7 @@ proc getAggregatedAttestation*(
     let res = vc.bestSuccess(
       RestPlainResponse,
       GetAggregatedAttestationResponse,
+      float64,
       OneThirdDuration,
       ViableNodeStatus,
       {BeaconNodeRole.AggregatedData},
@@ -1818,6 +1827,7 @@ proc produceSyncCommitteeContribution*(
     let res = vc.bestSuccess(
       RestPlainResponse,
       ProduceSyncCommitteeContributionResponse,
+      float64,
       OneThirdDuration,
       ViableNodeStatus,
       {BeaconNodeRole.SyncCommitteeData},
@@ -2036,7 +2046,59 @@ proc produceBlockV3*(
   var failures: seq[ApiNodeFailure]
 
   case strategy
-  of ApiStrategyKind.First, ApiStrategyKind.Best:
+  of ApiStrategyKind.Best:
+    let res = vc.bestSuccess(
+      RestPlainResponse,
+      ProduceBlockResponseV3,
+      UInt256,
+      SlotDuration,
+      ViableNodeStatus,
+      {BeaconNodeRole.BlockProposalData},
+      produceBlockV3Plain(it, slot, randao_reveal, graffiti,
+                          builder_boost_factor),
+      getProduceBlockResponseV3Score(itresponse)):
+      if apiResponse.isErr():
+        handleCommunicationError()
+        ApiResponse[ProduceBlockResponseV3].err(apiResponse.error)
+      else:
+        let response = apiResponse.get()
+        case response.status
+        of 200:
+          let
+            version = response.headers.getString("eth-consensus-version")
+            blinded =
+              response.headers.getString("eth-execution-payload-blinded")
+            executionValue =
+              response.headers.getString("eth-execution-payload-value")
+            consensusValue =
+              response.headers.getString("eth-consensus-block-value")
+            res = decodeBytes(ProduceBlockResponseV3, response.data,
+                              response.contentType, version, blinded,
+                              executionValue, consensusValue)
+          if res.isErr():
+            handleUnexpectedData()
+            ApiResponse[ProduceBlockResponseV3].err($res.error)
+          else:
+            ApiResponse[ProduceBlockResponseV3].ok(res.get())
+        of 400:
+          handle400()
+          ApiResponse[ProduceBlockResponseV3].err(ResponseInvalidError)
+        of 500:
+          handle500()
+          ApiResponse[ProduceBlockResponseV3].err(ResponseInternalError)
+        of 503:
+          handle503()
+          ApiResponse[ProduceBlockResponseV3].err(
+            ResponseNoSyncError)
+        else:
+          handleUnexpectedCode()
+          ApiResponse[ProduceBlockResponseV3].err(
+            ResponseUnexpectedError)
+    if res.isErr():
+      raise (ref ValidatorApiError)(msg: res.error, data: failures)
+    return res.get()
+
+  of ApiStrategyKind.First:
     let res = vc.firstSuccessParallel(
       RestPlainResponse,
       ProduceBlockResponseV3,
