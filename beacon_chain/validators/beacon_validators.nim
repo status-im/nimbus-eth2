@@ -1627,23 +1627,7 @@ proc signAndSendAggregate(
 
 proc sendAggregatedAttestations(
     node: BeaconNode, head: BlockRef, slot: Slot) =
-  # Aggregated attestations must be sent by members of the beacon committees for
-  # the given slot, for which `is_aggregator` returns `true`.
-
-  let
-    shufflingRef = node.dag.getShufflingRef(head, slot.epoch, false).valueOr:
-      warn "Cannot construct EpochRef for head, report bug",
-        head = shortLog(head), slot
-      return
-    committees_per_slot = get_committee_count_per_slot(shufflingRef)
-
-  for committee_index in get_committee_indices(committees_per_slot):
-    for _, validator_index in
-        get_beacon_committee(shufflingRef, slot, committee_index):
-      let validator = node.getValidatorForDuties(validator_index, slot).valueOr:
-        continue
-      asyncSpawn signAndSendAggregate(node, validator, shufflingRef, slot,
-                                      committee_index)
+  discard
 
 proc updateValidatorMetrics*(node: BeaconNode) =
   # Technically, this only needs to be done on epoch transitions and if there's

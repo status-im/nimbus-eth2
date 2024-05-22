@@ -48,7 +48,19 @@ const
   CURRENT_SYNC_COMMITTEE_GINDEX = 86.GeneralizedIndex  # current_sync_committee
   NEXT_SYNC_COMMITTEE_GINDEX = 87.GeneralizedIndex  # next_sync_committee
 
+  # https://eips.ethereum.org/EIPS/eip-7688
+  MAX_ATTESTATION_FIELDS* = 8
+  MAX_INDEXED_ATTESTATION_FIELDS* = 8
+  MAX_EXECUTION_PAYLOAD_FIELDS* = 64
+  MAX_BEACON_BLOCK_BODY_FIELDS* = 64
+  MAX_BEACON_STATE_FIELDS* = 128
+
 type
+  ElectraCommitteeValidatorsBits* =
+    BitList[Limit MAX_VALIDATORS_PER_COMMITTEE * MAX_COMMITTEES_PER_SLOT]
+
+  AttestationCommitteeBits* = BitArray[MAX_COMMITTEES_PER_SLOT.int]
+
   # https://github.com/ethereum/consensus-specs/blob/94a0b6c581f2809aa8aca4ef7ee6fbb63f9d74e9/specs/electra/beacon-chain.md#depositreceipt
   DepositReceipt* = object
     pubkey*: ValidatorPubKey
@@ -57,14 +69,201 @@ type
     signature*: ValidatorSig
     index*: uint64
 
-  # https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.0/specs/electra/beacon-chain.md#indexedattestation
-  IndexedAttestation* = object
+  # https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.2/specs/electra/beacon-chain.md#executionlayerwithdrawalrequest
+  ExecutionLayerWithdrawalRequest* = object
+    source_address*: ExecutionAddress
+    validator_pubkey*: ValidatorPubKey
+    amount*: Gwei
+
+  # https://eips.ethereum.org/EIPS/eip-7688
+  StableAttestation* {.
+      sszStableContainer: MAX_ATTESTATION_FIELDS.} = object
+    aggregation_bits*: ElectraCommitteeValidatorsBits
+    data*: AttestationData
+    signature*: ValidatorSig
+    committee_bits*: AttestationCommitteeBits
+
+  StableIndexedAttestation* {.
+      sszStableContainer: MAX_INDEXED_ATTESTATION_FIELDS.} = object
     attesting_indices*:
       List[uint64, Limit MAX_VALIDATORS_PER_COMMITTEE * MAX_COMMITTEES_PER_SLOT]
     data*: AttestationData
     signature*: ValidatorSig
 
-  TrustedIndexedAttestation* = object
+  StableAttesterSlashing* = object
+    attestation_1*: StableIndexedAttestation
+    attestation_2*: StableIndexedAttestation
+
+  StableExecutionPayload* {.
+      sszStableContainer: MAX_EXECUTION_PAYLOAD_FIELDS.} = object
+    # Execution block header fields
+    parent_hash*: Eth2Digest
+    fee_recipient*: ExecutionAddress
+      ## 'beneficiary' in the yellow paper
+    state_root*: Eth2Digest
+    receipts_root*: Eth2Digest
+    logs_bloom*: BloomLogs
+    prev_randao*: Eth2Digest
+      ## 'difficulty' in the yellow paper
+    block_number*: uint64
+      ## 'number' in the yellow paper
+    gas_limit*: uint64
+    gas_used*: uint64
+    timestamp*: uint64
+    extra_data*: List[byte, MAX_EXTRA_DATA_BYTES]
+    base_fee_per_gas*: UInt256
+
+    # Extra payload fields
+    block_hash*: Eth2Digest # Hash of execution block
+    transactions*: List[Transaction, MAX_TRANSACTIONS_PER_PAYLOAD]
+    withdrawals*: List[Withdrawal, MAX_WITHDRAWALS_PER_PAYLOAD]
+    blob_gas_used*: uint64
+    excess_blob_gas*: uint64
+    deposit_receipts*: List[DepositReceipt, MAX_DEPOSIT_RECEIPTS_PER_PAYLOAD]
+    withdrawal_requests*:
+      List[ExecutionLayerWithdrawalRequest, MAX_WITHDRAWAL_REQUESTS_PER_PAYLOAD]
+
+  StableExecutionPayloadHeader* {.
+      sszStableContainer: MAX_EXECUTION_PAYLOAD_FIELDS.} = object
+    # Execution block header fields
+    parent_hash*: Eth2Digest
+    fee_recipient*: ExecutionAddress
+    state_root*: Eth2Digest
+    receipts_root*: Eth2Digest
+    logs_bloom*: BloomLogs
+    prev_randao*: Eth2Digest
+    block_number*: uint64
+    gas_limit*: uint64
+    gas_used*: uint64
+    timestamp*: uint64
+    extra_data*: List[byte, MAX_EXTRA_DATA_BYTES]
+    base_fee_per_gas*: UInt256
+
+    # Extra payload fields
+    block_hash*: Eth2Digest
+      ## Hash of execution block
+    transactions_root*: Eth2Digest
+    withdrawals_root*: Eth2Digest
+    blob_gas_used*: uint64
+    excess_blob_gas*: uint64
+    deposit_receipts_root*: Eth2Digest
+    withdrawal_requests_root*: Eth2Digest
+
+  StableBeaconBlockBody* {.
+      sszStableContainer: MAX_BEACON_BLOCK_BODY_FIELDS.} = object
+    randao_reveal*: ValidatorSig
+    eth1_data*: Eth1Data
+      ## Eth1 data vote
+
+    graffiti*: GraffitiBytes
+      ## Arbitrary data
+
+    # Operations
+    proposer_slashings*: List[ProposerSlashing, Limit MAX_PROPOSER_SLASHINGS]
+    attester_slashings*:
+      List[StableAttesterSlashing, Limit MAX_ATTESTER_SLASHINGS_ELECTRA]
+    attestations*: List[StableAttestation, Limit MAX_ATTESTATIONS_ELECTRA]
+    deposits*: List[Deposit, Limit MAX_DEPOSITS]
+    voluntary_exits*: List[SignedVoluntaryExit, Limit MAX_VOLUNTARY_EXITS]
+
+    sync_aggregate*: SyncAggregate
+
+    # Execution
+    execution_payload*: StableExecutionPayload
+    bls_to_execution_changes*: SignedBLSToExecutionChangeList
+    blob_kzg_commitments*: KzgCommitments
+    consolidations*: List[SignedConsolidation, Limit MAX_CONSOLIDATIONS]
+
+  StableBeaconState* {.
+      sszStableContainer: MAX_BEACON_STATE_FIELDS.} = object
+    # Versioning
+    genesis_time*: uint64
+    genesis_validators_root*: Eth2Digest
+    slot*: Slot
+    fork*: Fork
+
+    # History
+    latest_block_header*: BeaconBlockHeader
+      ## `latest_block_header.state_root == ZERO_HASH` temporarily
+
+    block_roots*: HashArray[Limit SLOTS_PER_HISTORICAL_ROOT, Eth2Digest]
+      ## Needed to process attestations, older to newer
+
+    state_roots*: HashArray[Limit SLOTS_PER_HISTORICAL_ROOT, Eth2Digest]
+    historical_roots*: HashList[Eth2Digest, Limit HISTORICAL_ROOTS_LIMIT]
+      ## Frozen in Capella, replaced by historical_summaries
+
+    # Eth1
+    eth1_data*: Eth1Data
+    eth1_data_votes*:
+      HashList[Eth1Data, Limit(EPOCHS_PER_ETH1_VOTING_PERIOD * SLOTS_PER_EPOCH)]
+    eth1_deposit_index*: uint64
+
+    # Registry
+    validators*: HashList[Validator, Limit VALIDATOR_REGISTRY_LIMIT]
+    balances*: HashList[Gwei, Limit VALIDATOR_REGISTRY_LIMIT]
+
+    # Randomness
+    randao_mixes*: HashArray[Limit EPOCHS_PER_HISTORICAL_VECTOR, Eth2Digest]
+
+    # Slashings
+    slashings*: HashArray[Limit EPOCHS_PER_SLASHINGS_VECTOR, Gwei]
+      ## Per-epoch sums of slashed effective balances
+
+    # Participation
+    previous_epoch_participation*: EpochParticipationFlags
+    current_epoch_participation*: EpochParticipationFlags
+
+    # Finality
+    justification_bits*: JustificationBits
+      ## Bit set for every recent justified epoch
+
+    previous_justified_checkpoint*: Checkpoint
+    current_justified_checkpoint*: Checkpoint
+    finalized_checkpoint*: Checkpoint
+
+    # Inactivity
+    inactivity_scores*: InactivityScores
+
+    # Light client sync committees
+    current_sync_committee*: SyncCommittee
+    next_sync_committee*: SyncCommittee
+
+    # Execution
+    latest_execution_payload_header*: StableExecutionPayloadHeader
+
+    # Withdrawals
+    next_withdrawal_index*: WithdrawalIndex
+    next_withdrawal_validator_index*: uint64
+
+    # Deep history valid from Capella onwards
+    historical_summaries*:
+      HashList[HistoricalSummary, Limit HISTORICAL_ROOTS_LIMIT]
+
+    deposit_receipts_start_index*: uint64
+    deposit_balance_to_consume*: Gwei
+    exit_balance_to_consume*: Gwei
+    earliest_exit_epoch*: Epoch
+    consolidation_balance_to_consume*: Gwei
+    earliest_consolidation_epoch*: Epoch
+    pending_balance_deposits*:
+      HashList[PendingBalanceDeposit, Limit PENDING_BALANCE_DEPOSITS_LIMIT]
+
+    pending_partial_withdrawals*:
+      HashList[PendingPartialWithdrawal, Limit PENDING_PARTIAL_WITHDRAWALS_LIMIT]
+    pending_consolidations*:
+      HashList[PendingConsolidation, Limit PENDING_CONSOLIDATIONS_LIMIT]
+
+  # https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.0/specs/electra/beacon-chain.md#indexedattestation
+  IndexedAttestation* {.
+      sszProfile: StableIndexedAttestation.} = object
+    attesting_indices*:
+      List[uint64, Limit MAX_VALIDATORS_PER_COMMITTEE * MAX_COMMITTEES_PER_SLOT]
+    data*: AttestationData
+    signature*: ValidatorSig
+
+  TrustedIndexedAttestation* {.
+      sszProfile: StableIndexedAttestation.} = object
     # The Trusted version, at the moment, implies that the cryptographic signature was checked.
     # It DOES NOT imply that the state transition was verified.
     # Currently the code MUST verify the state transition as soon as the signature is verified
@@ -74,7 +273,8 @@ type
     signature*: TrustedSig
 
   # https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.0/specs/electra/beacon-chain.md#attesterslashing
-  AttesterSlashing* = object
+  AttesterSlashing* {.
+      sszProfile: StableAttesterSlashing.} = object
     attestation_1*: IndexedAttestation  # [Modified in Electra:EIP7549]
     attestation_2*: IndexedAttestation  # [Modified in Electra:EIP7549]
 
@@ -86,7 +286,8 @@ type
     attestation_2*: TrustedIndexedAttestation  # Modified in Electra:EIP7549]
 
   # https://github.com/ethereum/consensus-specs/blob/82133085a1295e93394ebdf71df8f2f6e0962588/specs/electra/beacon-chain.md#executionpayload
-  ExecutionPayload* = object
+  ExecutionPayload* {.
+      sszProfile: StableExecutionPayload.} = object
     # Execution block header fields
     parent_hash*: Eth2Digest
     fee_recipient*: ExecutionAddress
@@ -122,7 +323,8 @@ type
     blobsBundle*: BlobsBundle
 
   # https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.0/specs/electra/beacon-chain.md#executionpayloadheader
-  ExecutionPayloadHeader* = object
+  ExecutionPayloadHeader* {.
+      sszProfile: StableExecutionPayloadHeader.} = object
     # Execution block header fields
     parent_hash*: Eth2Digest
     fee_recipient*: ExecutionAddress
@@ -160,12 +362,6 @@ type
     index*: uint64
     amount*: Gwei
     withdrawable_epoch*: Epoch
-
-  # https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.2/specs/electra/beacon-chain.md#executionlayerwithdrawalrequest
-  ExecutionLayerWithdrawalRequest* = object
-    source_address*: ExecutionAddress
-    validator_pubkey*: ValidatorPubKey
-    amount*: Gwei
 
   # https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.2/specs/electra/beacon-chain.md#consolidation
   Consolidation* = object
@@ -306,7 +502,8 @@ type
     current_max_active_participants*: uint64
 
   # https://github.com/ethereum/consensus-specs/blob/82133085a1295e93394ebdf71df8f2f6e0962588/specs/electra/beacon-chain.md#beaconstate
-  BeaconState* = object
+  BeaconState* {.
+      sszProfile: StableBeaconState.}= object
     # Versioning
     genesis_time*: uint64
     genesis_validators_root*: Eth2Digest
@@ -458,7 +655,8 @@ type
     body*: TrustedBeaconBlockBody
 
   # https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.0/specs/electra/beacon-chain.md#beaconblockbody
-  BeaconBlockBody* = object
+  BeaconBlockBody* {.
+      sszProfile: StableBeaconBlockBody.} = object
     randao_reveal*: ValidatorSig
     eth1_data*: Eth1Data
       ## Eth1 data vote
@@ -485,7 +683,8 @@ type
     consolidations*: List[SignedConsolidation, Limit MAX_CONSOLIDATIONS]
       ## [New in Electra:EIP7251]
 
-  SigVerifiedBeaconBlockBody* = object
+  SigVerifiedBeaconBlockBody* {.
+      sszProfile: StableBeaconBlockBody.}  = object
     ## A BeaconBlock body with signatures verified
     ## including:
     ## - Randao reveal
@@ -526,7 +725,8 @@ type
     consolidations*: List[TrustedSignedConsolidation, Limit MAX_CONSOLIDATIONS]
       ## [New in Electra:EIP7251]
 
-  TrustedBeaconBlockBody* = object
+  TrustedBeaconBlockBody* {.
+      sszProfile: StableBeaconBlockBody.}  = object
     ## A full verified block
     randao_reveal*: TrustedSig
     eth1_data*: Eth1Data
@@ -593,26 +793,23 @@ type
 
     root* {.dontSerialize.}: Eth2Digest # cached root of signed beacon block
 
-  ElectraCommitteeValidatorsBits* =
-    BitList[Limit MAX_VALIDATORS_PER_COMMITTEE * MAX_COMMITTEES_PER_SLOT]
-
-  AttestationCommitteeBits* = BitArray[MAX_COMMITTEES_PER_SLOT.int]
-
   # https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.0/specs/electra/beacon-chain.md#attestation
-  Attestation* = object
+  Attestation* {.
+      sszProfile: StableAttestation.} = object
     aggregation_bits*: ElectraCommitteeValidatorsBits
     data*: AttestationData
-    committee_bits*: AttestationCommitteeBits  # [New in Electra:EIP7549]
     signature*: ValidatorSig
+    committee_bits*: AttestationCommitteeBits  # [New in Electra:EIP7549]
 
-  TrustedAttestation* = object
+  TrustedAttestation* {.
+      sszProfile: StableAttestation.} = object
     # The Trusted version, at the moment, implies that the cryptographic signature was checked.
     # It DOES NOT imply that the state transition was verified.
     # Currently the code MUST verify the state transition as soon as the signature is verified
     aggregation_bits*: ElectraCommitteeValidatorsBits
     data*: AttestationData
-    committee_bits*: AttestationCommitteeBits  # [New in Electra:EIP7549]
     signature*: TrustedSig
+    committee_bits*: AttestationCommitteeBits  # [New in Electra:EIP7549]
 
   SomeSignedBeaconBlock* =
     SignedBeaconBlock |
