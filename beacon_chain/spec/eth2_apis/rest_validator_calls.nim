@@ -36,15 +36,6 @@ proc getSyncCommitteeDutiesPlain*(
      meth: MethodPost.}
   ## https://ethereum.github.io/beacon-APIs/#/Validator/getSyncCommitteeDuties
 
-proc produceBlockV2Plain*(
-       slot: Slot,
-       randao_reveal: ValidatorSig,
-       graffiti: GraffitiBytes
-     ): RestPlainResponse {.
-     rest, endpoint: "/eth/v2/validator/blocks/{slot}",
-     accept: preferSSZ, meth: MethodGet.}
-  ## https://ethereum.github.io/beacon-APIs/#/Validator/produceBlockV2
-
 proc produceBlockV3Plain*(
        slot: Slot,
        randao_reveal: ValidatorSig,
