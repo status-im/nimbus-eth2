@@ -289,7 +289,7 @@ func initiate_validator_exit*(
   # Set validator exit epoch and withdrawable epoch
   validator.exit_epoch = exit_queue_epoch
   validator.withdrawable_epoch =
-    Epoch(validator.exit_epoch + cfg.MIN_VALIDATOR_WITHDRAWABILITY_DELAY)
+    validator.exit_epoch + cfg.MIN_VALIDATOR_WITHDRAWABILITY_DELAY
   if validator.withdrawable_epoch < validator.exit_epoch:
     return err("Invalid large withdrawable epoch")
   state.validators.mitem(index) = validator

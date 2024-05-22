@@ -9,11 +9,7 @@
 
 import
   chronicles,
-  ../spec/datatypes/[phase0, altair, bellatrix],
   ../spec/forks
-
-from ../spec/datatypes/capella import SomeBeaconBlock, TrustedBeaconBlock
-from ../spec/datatypes/deneb import SomeBeaconBlock, TrustedBeaconBlock
 
 export chronicles, forks
 
@@ -76,7 +72,7 @@ func init*(
           deneb.SomeBeaconBlock | deneb.TrustedBeaconBlock |
           electra.SomeBeaconBlock | electra.TrustedBeaconBlock): BlockRef =
   BlockRef.init(
-    root, Opt.some Eth2Digest(blck.body.execution_payload.block_hash),
+    root, Opt.some blck.body.execution_payload.block_hash,
     executionValid =
       executionValid or blck.body.execution_payload.block_hash == ZERO_HASH,
     blck.slot)
