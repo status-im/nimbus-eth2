@@ -1511,7 +1511,7 @@ proc `+`*(slot: Slot, epochs: Epoch): Slot =
 
 func finish_slot*(epoch: Epoch): Slot =
   ## Return the last slot of ``epoch``.
-  Slot((epoch + 1).start_slot() - 1)
+  (epoch + 1).start_slot() - 1
 
 proc getGraffitiBytes*(vc: ValidatorClientRef,
                        validator: AttachedValidator): GraffitiBytes =

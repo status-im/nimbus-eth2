@@ -579,7 +579,7 @@ func process_execution_layer_withdrawal_request*(
       exit_queue_epoch =
         compute_exit_epoch_and_update_churn(cfg, state, to_withdraw, cache)
       withdrawable_epoch =
-       Epoch(exit_queue_epoch + cfg.MIN_VALIDATOR_WITHDRAWABILITY_DELAY)
+        exit_queue_epoch + cfg.MIN_VALIDATOR_WITHDRAWABILITY_DELAY
 
     # In theory can fail, but failing/early returning here is indistinguishable
     discard state.pending_partial_withdrawals.add(PendingPartialWithdrawal(
