@@ -9,7 +9,6 @@
 
 import std/macros
 import metrics
-import stew/assign2
 import ../beacon_node
 
 from ../spec/datatypes/bellatrix import SignedBeaconBlock
@@ -117,7 +116,9 @@ proc unblindAndRouteBlockMEV*(
   copyFields(
     signedBlock.message.body, blindedBlock.message.body,
     getFieldNames(typeof(signedBlock.message.body)))
-  assign(signedBlock.message.body.execution_payload, execution_payload)
+  copyFields(
+    signedBlock.message.body.execution_payload, execution_payload,
+    getFieldNames(typeof(signedBlock.message.body.execution_payload)))
   signedBlock.root = hash_tree_root(signedBlock.message)
   doAssert signedBlock.root == hash_tree_root(blindedBlock.message)
 

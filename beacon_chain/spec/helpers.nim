@@ -439,16 +439,19 @@ func compute_timestamp_at_slot*(state: ForkyBeaconState, slot: Slot): uint64 =
 
 proc computeTransactionsTrieRoot*(
     payload: ForkyExecutionPayload): ExecutionHash256 =
-  if payload.transactions.len == 0:
-    return EMPTY_ROOT_HASH
+  when typeof(payload) is electra.ExecutionPayload:
+    payload.transactions.hash_tree_root()
+  else:
+    if payload.transactions.len == 0:
+      return EMPTY_ROOT_HASH
 
-  var tr = initHexaryTrie(newMemoryDB())
-  for i, transaction in payload.transactions:
-    try:
-      tr.put(rlp.encode(i), distinctBase(transaction))  # Already RLP encoded
-    except RlpError as exc:
-      doAssert false, "HexaryTrie.put failed: " & $exc.msg
-  tr.rootHash()
+    var tr = initHexaryTrie(newMemoryDB())
+    for i, transaction in payload.transactions:
+      try:
+        tr.put(rlp.encode(i), distinctBase(transaction))  # Already RLP encoded
+      except RlpError as exc:
+        doAssert false, "HexaryTrie.put failed: " & $exc.msg
+    tr.rootHash()
 
 func toExecutionWithdrawal*(
     withdrawal: capella.Withdrawal): ExecutionWithdrawal =

@@ -292,6 +292,19 @@ type
 
   RestWithdrawalPrefix* = distinct array[1, byte]
 
+  RestTransactionsKind* {.pure.} = enum
+    Bellatrix,
+    Electra
+
+  RestTransactions* = object
+    case kind*: RestTransactionsKind
+    of RestTransactionsKind.Bellatrix:
+      bellatrixData*: List[
+        bellatrix.Transaction, MAX_TRANSACTIONS_PER_PAYLOAD]
+    of RestTransactionsKind.Electra:
+      electraData*: List[
+        electra.Eip6493Transaction, MAX_TRANSACTIONS_PER_PAYLOAD]
+
   # https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.2/specs/capella/beacon-chain.md#executionpayload
   RestExecutionPayload* = object
     # Execution block header fields
@@ -314,7 +327,7 @@ type
     # Extra payload fields
     block_hash*: Eth2Digest
       ## Hash of execution block
-    transactions*: List[Transaction, MAX_TRANSACTIONS_PER_PAYLOAD]
+    transactions*: RestTransactions
     withdrawals*: Option[List[Withdrawal, MAX_WITHDRAWALS_PER_PAYLOAD]]
       ## [New in Capella]
     blob_gas_used*: Option[uint64]   ## [New in Deneb]
@@ -745,6 +758,48 @@ func init*(t: typedesc[RestPublishedSignedBlockContents],
       blobs: contents.blobs
     )
   )
+
+func init*(
+    t: typedesc[RestPublishedBeaconBlockBody],
+    body: phase0.BeaconBlockBody): RestPublishedBeaconBlockBody =
+  RestPublishedBeaconBlockBody(
+    kind: ConsensusFork.Phase0,
+    phase0Body: body)
+
+func init*(
+    t: typedesc[RestPublishedBeaconBlockBody],
+    body: altair.BeaconBlockBody): RestPublishedBeaconBlockBody =
+  RestPublishedBeaconBlockBody(
+    kind: ConsensusFork.Altair,
+    altairBody: body)
+
+func init*(
+    t: typedesc[RestPublishedBeaconBlockBody],
+    body: bellatrix.BeaconBlockBody): RestPublishedBeaconBlockBody =
+  RestPublishedBeaconBlockBody(
+    kind: ConsensusFork.Bellatrix,
+    bellatrixBody: body)
+
+func init*(
+    t: typedesc[RestPublishedBeaconBlockBody],
+    body: capella.BeaconBlockBody): RestPublishedBeaconBlockBody =
+  RestPublishedBeaconBlockBody(
+    kind: ConsensusFork.Capella,
+    capellaBody: body)
+
+func init*(
+    t: typedesc[RestPublishedBeaconBlockBody],
+    body: deneb.BeaconBlockBody): RestPublishedBeaconBlockBody =
+  RestPublishedBeaconBlockBody(
+    kind: ConsensusFork.Deneb,
+    denebBody: body)
+
+func init*(
+    t: typedesc[RestPublishedBeaconBlockBody],
+    body: electra.BeaconBlockBody): RestPublishedBeaconBlockBody =
+  RestPublishedBeaconBlockBody(
+    kind: ConsensusFork.Electra,
+    electraBody: body)
 
 func init*(t: typedesc[StateIdent], v: StateIdentType): StateIdent =
   StateIdent(kind: StateQueryKind.Named, value: v)

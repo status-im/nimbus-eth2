@@ -8,7 +8,7 @@
 {.push raises: [].}
 
 import
-  std/[strformat, typetraits, json, sequtils],
+  std/[options, strformat, typetraits, json, sequtils],
   # Nimble packages:
   chronos, metrics, chronicles/timings,
   json_rpc/[client, errors],
@@ -499,8 +499,94 @@ func asConsensusType*(payload: engine_api.GetPayloadV3Response):
 
 func asConsensusType*(rpcExecutionPayload: ExecutionPayloadV4):
     electra.ExecutionPayload =
-  template getTransaction(tt: TypedTransaction): bellatrix.Transaction =
-    bellatrix.Transaction.init(tt.distinctBase)
+  template getTransaction(
+      tt: engine_api_types.Transaction): electra.Eip6493Transaction =
+    electra.Eip6493Transaction(
+      payload: Eip6493TransactionPayload(
+        `type`:
+          if tt.payload.`type`.isSome:
+            Opt.some(tt.payload.`type`.get.uint64.uint8)
+          else:
+            Opt.none(uint8),
+        chain_id:
+          if tt.payload.chainId.isSome:
+            Opt.some(tt.payload.chainId.get.uint64)
+          else:
+            Opt.none(uint64),
+        nonce:
+          if tt.payload.nonce.isSome:
+            Opt.some(tt.payload.nonce.get.uint64)
+          else:
+            Opt.none(uint64),
+        max_fee_per_gas:
+          if tt.payload.maxFeePerGas.isSome:
+            Opt.some(tt.payload.maxFeePerGas.get)
+          else:
+            Opt.none(UInt256),
+        gas:
+          if tt.payload.gas.isSome:
+            Opt.some(tt.payload.gas.get.uint64)
+          else:
+            Opt.none(uint64),
+        to:
+          if tt.payload.to.isSome:
+            Opt.some(ExecutionAddress(data: tt.payload.to.get.distinctBase))
+          else:
+            Opt.none(ExecutionAddress),
+        value:
+          if tt.payload.value.isSome:
+            Opt.some(tt.payload.value.get)
+          else:
+            Opt.none(UInt256),
+        input:
+          if tt.payload.input.isSome:
+            Opt.some(List[byte, Limit MAX_CALLDATA_SIZE].init(
+              tt.payload.input.get))
+          else:
+            Opt.none(List[byte, Limit MAX_CALLDATA_SIZE]),
+        access_list:
+          if tt.payload.accessList.isSome:
+            Opt.some(List[Eip6493AccessTuple, Limit MAX_ACCESS_LIST_SIZE].init(
+              tt.payload.accessList.get.mapIt(
+                Eip6493AccessTuple(
+                  address: ExecutionAddress(data: distinctBase(it.address)),
+                  storage_keys:
+                    List[Eth2Digest, Limit MAX_ACCESS_LIST_STORAGE_KEYS]
+                      .init(it.storage_keys.mapIt(
+                        Eth2Digest(data: distinctBase(it))))))))
+          else:
+            Opt.none(List[Eip6493AccessTuple, Limit MAX_ACCESS_LIST_SIZE]),
+        max_priority_fee_per_gas:
+          if tt.payload.maxPriorityFeePerGas.isSome:
+            Opt.some(tt.payload.maxPriorityFeePerGas.get)
+          else:
+            Opt.none(UInt256),
+        max_fee_per_blob_gas:
+          if tt.payload.maxFeePerBlobGas.isSome:
+            Opt.some(tt.payload.maxFeePerBlobGas.get)
+          else:
+            Opt.none(UInt256),
+        blob_versioned_hashes:
+          if tt.payload.blobVersionedHashes.isSome:
+            Opt.some(
+              List[deneb.VersionedHash, Limit MAX_BLOB_COMMITMENTS_PER_BLOCK]
+                .init(tt.payload.blobVersionedHashes.get.mapIt(
+                  deneb.VersionedHash(it))))
+          else:
+            Opt.none(
+              List[deneb.VersionedHash, Limit MAX_BLOB_COMMITMENTS_PER_BLOCK])),
+      signature: Eip6493TransactionSignature(
+        `from`:
+          if tt.signature.`from`.isSome:
+            Opt.some(ExecutionAddress(
+              data: distinctBase(tt.signature.`from`.get)))
+          else:
+            Opt.none(ExecutionAddress),
+        ecdsa_signature:
+          if tt.signature.ecdsaSignature.isSome:
+            Opt.some(array[65, byte](tt.signature.ecdsaSignature.get))
+          else:
+            Opt.none(array[65, byte])))
 
   template getDepositReceipt(dr: DepositReceiptV1): DepositReceipt =
     DepositReceipt(
@@ -534,7 +620,7 @@ func asConsensusType*(rpcExecutionPayload: ExecutionPayloadV4):
       rpcExecutionPayload.extraData.bytes),
     base_fee_per_gas: rpcExecutionPayload.baseFeePerGas,
     block_hash: rpcExecutionPayload.blockHash.asEth2Digest,
-    transactions: List[bellatrix.Transaction, MAX_TRANSACTIONS_PER_PAYLOAD].init(
+    transactions: List[Eip6493Transaction, MAX_TRANSACTIONS_PER_PAYLOAD].init(
       mapIt(rpcExecutionPayload.transactions, it.getTransaction)),
     withdrawals: List[capella.Withdrawal, MAX_WITHDRAWALS_PER_PAYLOAD].init(
       mapIt(rpcExecutionPayload.withdrawals, it.asConsensusWithdrawal)),
@@ -644,8 +730,86 @@ func asEngineExecutionPayload*(executionPayload: deneb.ExecutionPayload):
 
 func asEngineExecutionPayload*(executionPayload: electra.ExecutionPayload):
     ExecutionPayloadV4 =
-  template getTypedTransaction(tt: bellatrix.Transaction): TypedTransaction =
-    TypedTransaction(tt.distinctBase)
+  template getTypedTransaction(
+      tt: electra.Eip6493Transaction): engine_api_types.Transaction =
+    engine_api_types.Transaction(
+      payload: engine_api_types.TransactionPayload(
+        `type`:
+          if tt.payload.`type`.isSome:
+            options.some(tt.payload.`type`.get.Quantity)
+          else:
+            options.none(Quantity),
+        chainId:
+          if tt.payload.chain_id.isSome:
+            options.some(tt.payload.chain_id.get.Quantity)
+          else:
+            options.none(Quantity),
+        nonce:
+          if tt.payload.nonce.isSome:
+            options.some(tt.payload.nonce.get.Quantity)
+          else:
+            options.none(Quantity),
+        maxFeePerGas:
+          if tt.payload.max_fee_per_gas.isSome:
+            options.some(tt.payload.max_fee_per_gas.get)
+          else:
+            options.none(UInt256),
+        gas:
+          if tt.payload.gas.isSome:
+            options.some(tt.payload.gas.get.Quantity)
+          else:
+            options.none(Quantity),
+        to:
+          if tt.payload.to.isSome:
+            options.some(Address(tt.payload.to.get.data))
+          else:
+            options.none(Address),
+        value:
+          if tt.payload.value.isSome:
+            options.some(tt.payload.value.get)
+          else:
+            options.none(UInt256),
+        input:
+          if tt.payload.input.isSome:
+            options.some(distinctBase(tt.payload.input.get))
+          else:
+            options.none(seq[byte]),
+        accessList:
+          if tt.payload.access_list.isSome:
+            options.some(distinctBase(tt.payload.access_list.get).mapIt(
+              AccessTuple(
+                address: Address(it.address.data),
+                storage_keys: distinctBase(it.storage_keys)
+                  .mapIt(FixedBytes[32](it.data)))))
+          else:
+            options.none(seq[AccessTuple]),
+        maxPriorityFeePerGas:
+          if tt.payload.max_priority_fee_per_gas.isSome:
+            options.some(tt.payload.max_priority_fee_per_gas.get)
+          else:
+            options.none(UInt256),
+        maxFeePerBlobGas:
+          if tt.payload.max_fee_per_blob_gas.isSome:
+            options.some(tt.payload.max_fee_per_blob_gas.get)
+          else:
+            options.none(UInt256),
+        blobVersionedHashes:
+          if tt.payload.blob_versioned_hashes.isSome:
+            options.some(distinctBase(tt.payload.blob_versioned_hashes.get)
+              .mapIt(FixedBytes[32](it)))
+          else:
+            options.none(seq[FixedBytes[32]])),
+      signature: engine_api_types.TransactionSignature(
+        `from`:
+          if tt.signature.`from`.isSome:
+            options.some(Address(tt.signature.`from`.get.data))
+          else:
+            options.none(Address),
+        ecdsaSignature:
+          if tt.signature.ecdsa_signature.isSome:
+            options.some(FixedBytes[65](tt.signature.ecdsa_signature.get))
+          else:
+            options.none(FixedBytes[65])))
 
   template getDepositReceipt(dr: DepositReceipt): DepositReceiptV1 =
     DepositReceiptV1(

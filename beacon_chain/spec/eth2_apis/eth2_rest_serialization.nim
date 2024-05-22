@@ -68,6 +68,10 @@ RestJson.useDefaultSerializationFor(
   DepositReceipt,
   DepositTreeSnapshot,
   DistributedKeystoreInfo,
+  Eip6493AccessTuple,
+  Eip6493Transaction,
+  Eip6493TransactionPayload,
+  Eip6493TransactionSignature,
   ElectraSignedBlockContents,
   EmptyBody,
   Eth1Data,
@@ -1404,6 +1408,21 @@ template unrecognizedFieldWarning =
 template unrecognizedFieldIgnore =
   discard readValue(reader, JsonString)
 
+## RestTransactions
+proc readValue*(
+    reader: var JsonReader[RestJson],
+    value: var RestTransactions) {.raises: [IOError, SerializationError].} =
+  case reader.tokKind
+  of JsonValueKind.Object:
+    value = RestTransactions(kind: RestTransactionsKind.Electra)
+    reader.readValue(value.electraData)
+  of JsonValueKind.String:
+    value = RestTransactions(kind: RestTransactionsKind.Bellatrix)
+    reader.readValue(value.bellatrixData)
+  else:
+    reader.raiseUnexpectedValue(
+      "Expected a valid hex string or a valid Transaction object")
+
 ## ForkedBeaconBlock
 template prepareForkedBlockReading(blockType: typedesc,
                                    reader: var JsonReader[RestJson],
@@ -1829,145 +1848,56 @@ proc readValue*(reader: var JsonReader[RestJson],
     else:
       ConsensusFork.Phase0
 
-  template ep_src: auto = execution_payload.get()
-  template copy_ep_bellatrix(ep_dst: auto) =
-    assign(ep_dst.parent_hash, ep_src.parent_hash)
-    assign(ep_dst.fee_recipient, ep_src.fee_recipient)
-    assign(ep_dst.state_root, ep_src.state_root)
-    assign(ep_dst.receipts_root, ep_src.receipts_root)
-    assign(ep_dst.logs_bloom, ep_src.logs_bloom)
-    assign(ep_dst.prev_randao, ep_src.prev_randao)
-    assign(ep_dst.block_number, ep_src.block_number)
-    assign(ep_dst.gas_limit, ep_src.gas_limit)
-    assign(ep_dst.gas_used, ep_src.gas_used)
-    assign(ep_dst.timestamp, ep_src.timestamp)
-    assign(ep_dst.extra_data, ep_src.extra_data)
-    assign(ep_dst.base_fee_per_gas, ep_src.base_fee_per_gas)
-    assign(ep_dst.block_hash, ep_src.block_hash)
-    assign(ep_dst.transactions, ep_src.transactions)
+  withConsensusFork(bodyKind):
+    when consensusFork >= ConsensusFork.Bellatrix:
+      const transactionsKind =
+        when consensusFork >= ConsensusFork.Electra:
+          RestTransactionsKind.Electra
+        else:
+          RestTransactionsKind.Bellatrix
+      template ep_src: auto = execution_payload.get()
+      if ep_src.transactions.kind != transactionsKind:
+        reader.raiseUnexpectedValue("Field `transactions` has wrong format")
 
-  case bodyKind
-  of ConsensusFork.Phase0:
-    value = RestPublishedBeaconBlockBody(
-      kind: ConsensusFork.Phase0,
-      phase0Body: phase0.BeaconBlockBody(
-        randao_reveal: randao_reveal.get(),
-        eth1_data: eth1_data.get(),
-        graffiti: graffiti.get(),
-        proposer_slashings: proposer_slashings.get(),
-        attester_slashings: attester_slashings.get(),
-        attestations: attestations.get(),
-        deposits: deposits.get(),
-        voluntary_exits: voluntary_exits.get()
-      )
-    )
-  of ConsensusFork.Altair:
-    value = RestPublishedBeaconBlockBody(
-      kind: ConsensusFork.Altair,
-      altairBody: altair.BeaconBlockBody(
-        randao_reveal: randao_reveal.get(),
-        eth1_data: eth1_data.get(),
-        graffiti: graffiti.get(),
-        proposer_slashings: proposer_slashings.get(),
-        attester_slashings: attester_slashings.get(),
-        attestations: attestations.get(),
-        deposits: deposits.get(),
-        voluntary_exits: voluntary_exits.get(),
-        sync_aggregate: sync_aggregate.get()
-      )
-    )
-  of ConsensusFork.Bellatrix:
-    value = RestPublishedBeaconBlockBody(
-      kind: ConsensusFork.Bellatrix,
-      bellatrixBody: bellatrix.BeaconBlockBody(
-        randao_reveal: randao_reveal.get(),
-        eth1_data: eth1_data.get(),
-        graffiti: graffiti.get(),
-        proposer_slashings: proposer_slashings.get(),
-        attester_slashings: attester_slashings.get(),
-        attestations: attestations.get(),
-        deposits: deposits.get(),
-        voluntary_exits: voluntary_exits.get(),
-        sync_aggregate: sync_aggregate.get(),
-      )
-    )
-    copy_ep_bellatrix(value.bellatrixBody.execution_payload)
-  of ConsensusFork.Capella:
-    value = RestPublishedBeaconBlockBody(
-      kind: ConsensusFork.Capella,
-      capellaBody: capella.BeaconBlockBody(
-        randao_reveal: randao_reveal.get(),
-        eth1_data: eth1_data.get(),
-        graffiti: graffiti.get(),
-        proposer_slashings: proposer_slashings.get(),
-        attester_slashings: attester_slashings.get(),
-        attestations: attestations.get(),
-        deposits: deposits.get(),
-        voluntary_exits: voluntary_exits.get(),
-        sync_aggregate: sync_aggregate.get(),
-        bls_to_execution_changes: bls_to_execution_changes.get()
-      )
-    )
-    copy_ep_bellatrix(value.capellaBody.execution_payload)
-    assign(
-      value.capellaBody.execution_payload.withdrawals,
-      ep_src.withdrawals.get())
-  of ConsensusFork.Deneb:
-    value = RestPublishedBeaconBlockBody(
-      kind: ConsensusFork.Deneb,
-      denebBody: deneb.BeaconBlockBody(
-        randao_reveal: randao_reveal.get(),
-        eth1_data: eth1_data.get(),
-        graffiti: graffiti.get(),
-        proposer_slashings: proposer_slashings.get(),
-        attester_slashings: attester_slashings.get(),
-        attestations: attestations.get(),
-        deposits: deposits.get(),
-        voluntary_exits: voluntary_exits.get(),
-        sync_aggregate: sync_aggregate.get(),
-        bls_to_execution_changes: bls_to_execution_changes.get(),
-        blob_kzg_commitments: blob_kzg_commitments.get()
-      )
-    )
-    copy_ep_bellatrix(value.denebBody.execution_payload)
-    assign(
-      value.denebBody.execution_payload.withdrawals,
-      ep_src.withdrawals.get())
-    assign(
-      value.denebBody.execution_payload.blob_gas_used,
-      ep_src.blob_gas_used.get())
-    assign(
-      value.denebBody.execution_payload.excess_blob_gas,
-      ep_src.excess_blob_gas.get())
-  of ConsensusFork.Electra:
-    value = RestPublishedBeaconBlockBody(
-      kind: ConsensusFork.Electra,
-      electraBody: electra.BeaconBlockBody(
-        randao_reveal: randao_reveal.get(),
-        eth1_data: eth1_data.get(),
-        graffiti: graffiti.get(),
-        proposer_slashings: proposer_slashings.get(),
-        #attester_slashings: attester_slashings.get(),
-        #attestations: attestations.get(),
-        deposits: deposits.get(),
-        voluntary_exits: voluntary_exits.get(),
-        sync_aggregate: sync_aggregate.get(),
-        bls_to_execution_changes: bls_to_execution_changes.get(),
-        blob_kzg_commitments: blob_kzg_commitments.get()
-      )
-    )
-    copy_ep_bellatrix(value.electraBody.execution_payload)
-    assign(
-      value.electraBody.execution_payload.withdrawals,
-      ep_src.withdrawals.get())
-    assign(
-      value.electraBody.execution_payload.blob_gas_used,
-      ep_src.blob_gas_used.get())
-    assign(
-      value.electraBody.execution_payload.excess_blob_gas,
-      ep_src.excess_blob_gas.get())
-
-    debugComment "electra support missing, including attslashing/atts"
+    var body = consensusFork.BeaconBlockBody(
+      randao_reveal: randao_reveal.get(),
+      eth1_data: eth1_data.get(),
+      graffiti: graffiti.get(),
+      proposer_slashings: proposer_slashings.get(),
+      deposits: deposits.get(),
+      voluntary_exits: voluntary_exits.get())
+    when consensusFork >= ConsensusFork.Electra:
+      debugComment "electra support missing, including attslashing/atts"
+    else:
+      body.attester_slashings = attester_slashings.get()
+      body.attestations = attestations.get()
+    when consensusFork >= ConsensusFork.Altair:
+      body.sync_aggregate = sync_aggregate.get()
+    when consensusFork >= ConsensusFork.Bellatrix:
+      template ep_dst: untyped = body.execution_payload
+      assign(ep_dst.parent_hash, ep_src.parent_hash)
+      assign(ep_dst.fee_recipient, ep_src.fee_recipient)
+      assign(ep_dst.state_root, ep_src.state_root)
+      assign(ep_dst.receipts_root, ep_src.receipts_root)
+      assign(ep_dst.logs_bloom, ep_src.logs_bloom)
+      assign(ep_dst.prev_randao, ep_src.prev_randao)
+      assign(ep_dst.block_number, ep_src.block_number)
+      assign(ep_dst.gas_limit, ep_src.gas_limit)
+      assign(ep_dst.gas_used, ep_src.gas_used)
+      assign(ep_dst.timestamp, ep_src.timestamp)
+      assign(ep_dst.extra_data, ep_src.extra_data)
+      assign(ep_dst.base_fee_per_gas, ep_src.base_fee_per_gas)
+      assign(ep_dst.block_hash, ep_src.block_hash)
+      when consensusFork >= ConsensusFork.Electra:
+        ep_dst.transactions = ep_src.transactions.electraData
+      else:
+        ep_dst.transactions = ep_src.transactions.bellatrixData
+    when consensusFork >= ConsensusFork.Capella:
+      assign(ep_dst.withdrawals, ep_src.withdrawals.get())
+    when consensusFork >= ConsensusFork.Deneb:
+      assign(ep_dst.blob_gas_used, ep_src.blob_gas_used.get())
+      assign(ep_dst.excess_blob_gas, ep_src.excess_blob_gas.get())
+    value = RestPublishedBeaconBlockBody.init(body)
 
 ## RestPublishedBeaconBlock
 proc readValue*(reader: var JsonReader[RestJson],

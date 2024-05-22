@@ -30,7 +30,7 @@ from stew/byteutils import to0xHex
 from ./altair import
   EpochParticipationFlags, InactivityScores, SyncAggregate, SyncCommittee,
   TrustedSyncAggregate
-from ./bellatrix import BloomLogs, ExecutionAddress, Transaction
+from ./bellatrix import BloomLogs, ExecutionAddress
 from ./capella import
   HistoricalSummary, SignedBLSToExecutionChangeList, Withdrawal
 from ./deneb import Blobs, BlobsBundle, KzgCommitments, KzgProofs
@@ -48,7 +48,51 @@ const
   CURRENT_SYNC_COMMITTEE_GINDEX = 86.GeneralizedIndex  # current_sync_committee
   NEXT_SYNC_COMMITTEE_GINDEX = 87.GeneralizedIndex  # next_sync_committee
 
+  # https://eips.ethereum.org/EIPS/eip-6493
+  MAX_CALLDATA_SIZE* = 16_777_216
+  MAX_ACCESS_LIST_STORAGE_KEYS* = 524_288
+  MAX_ACCESS_LIST_SIZE* = 524_288
+
 type
+  ChainId* = uint64
+
+  Eip6493AccessTuple* = object
+    address*: ExecutionAddress
+    storage_keys*: List[Eth2Digest, Limit MAX_ACCESS_LIST_STORAGE_KEYS]
+
+  Eip6493TransactionPayload* {.sszStableContainer: 32.} = object
+    # EIP-2718
+    `type`*: Opt[uint8]
+
+    # EIP-155
+    chain_id*: Opt[ChainId]
+
+    nonce*: Opt[uint64]
+    max_fee_per_gas*: Opt[UInt256]
+    gas*: Opt[uint64]
+    to*: Opt[ExecutionAddress]
+    value*: Opt[UInt256]
+    input*: Opt[List[byte, Limit MAX_CALLDATA_SIZE]]
+
+    # EIP-2930
+    access_list*: Opt[List[Eip6493AccessTuple, Limit MAX_ACCESS_LIST_SIZE]]
+
+    # EIP-1559
+    max_priority_fee_per_gas*: Opt[UInt256]
+
+    # EIP-4844
+    max_fee_per_blob_gas*: Opt[UInt256]
+    blob_versioned_hashes*:
+      Opt[List[deneb.VersionedHash, Limit MAX_BLOB_COMMITMENTS_PER_BLOCK]]
+
+  Eip6493TransactionSignature* {.sszStableContainer: 16.} = object
+    `from`*: Opt[ExecutionAddress]
+    ecdsa_signature*: Opt[array[65, byte]]
+
+  Eip6493Transaction* = object
+    payload*: Eip6493TransactionPayload
+    signature*: Eip6493TransactionSignature
+
   # https://github.com/ethereum/consensus-specs/blob/94a0b6c581f2809aa8aca4ef7ee6fbb63f9d74e9/specs/electra/beacon-chain.md#depositreceipt
   DepositReceipt* = object
     pubkey*: ValidatorPubKey
@@ -106,7 +150,7 @@ type
 
     # Extra payload fields
     block_hash*: Eth2Digest # Hash of execution block
-    transactions*: List[Transaction, MAX_TRANSACTIONS_PER_PAYLOAD]
+    transactions*: List[Eip6493Transaction, MAX_TRANSACTIONS_PER_PAYLOAD]
     withdrawals*: List[Withdrawal, MAX_WITHDRAWALS_PER_PAYLOAD]
     blob_gas_used*: uint64
     excess_blob_gas*: uint64

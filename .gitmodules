@@ -39,7 +39,7 @@
 	path = vendor/nim-web3
 	url = https://github.com/status-im/nim-web3.git
 	ignore = untracked
-	branch = master
+	branch = feat/eip-6493
 [submodule "vendor/nim-nat-traversal"]
 	path = vendor/nim-nat-traversal
 	url = https://github.com/status-im/nim-nat-traversal.git
@@ -184,7 +184,7 @@
 	path = vendor/nim-ssz-serialization
 	url = https://github.com/status-im/nim-ssz-serialization.git
 	ignore = untracked
-	branch = master
+	branch = feat/eip-7495
 [submodule "vendor/nim-websock"]
 	path = vendor/nim-websock
 	url = https://github.com/status-im/nim-websock.git
