@@ -10,7 +10,7 @@
 
 import
   # Beacon chain internals
-  ../../../beacon_chain/spec/[beaconstate, presets, state_transition_epoch],
+  ../../../beacon_chain/spec/[presets, state_transition_epoch],
   ../../../beacon_chain/spec/datatypes/[altair, bellatrix],
   # Test utilities
   ../../testutil,

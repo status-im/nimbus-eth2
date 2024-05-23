@@ -92,8 +92,7 @@ func init(
   of ConsensusFork.Deneb:
     return ForkedBeaconBlock.init(contents.denebData.signed_block.message)
   of ConsensusFork.Electra:
-    debugComment "probably like the deneb case"
-    return default(T)
+    return ForkedBeaconBlock.init(contents.electraData.signed_block.message)
 
 proc getBlock(
     fork: ConsensusFork,
