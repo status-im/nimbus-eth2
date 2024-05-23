@@ -1,3 +1,27 @@
+2024-05-23 v24.5.1
+==================
+
+Nimbus `v24.5.0` is a `low-urgency` release with stability, performance, and beacon and builder API improvements.
+
+### Improvements
+
+* Enable IPv6 for Discovery v5 protocol:
+  https://github.com/status-im/nimbus-eth2/pull/6242
+
+### Fixes
+
+* Fix potential crash on slow libp2p sending:
+  https://github.com/status-im/nimbus-eth2/pull/6280
+
+* Fix `publishBlockV2` to correctly verify block signature:
+  https://github.com/status-im/nimbus-eth2/pull/6261
+
+* Fix `submitBlindedBlock` to include `Eth-Consensus-Version` header:
+  https://github.com/status-im/nimbus-eth2/pull/6256
+
+* Fix `getAggregatedAttestation` 404 handling in Nimbus VC:
+  https://github.com/status-im/nimbus-eth2/pull/6254
+
 2024-05-23 v24.5.0
 ==================
 
