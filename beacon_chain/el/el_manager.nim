@@ -518,11 +518,21 @@ func asConsensusType*(rpcExecutionPayload: ExecutionPayloadV4):
             Opt.some(tt.payload.nonce.get.uint64)
           else:
             Opt.none(uint64),
-        max_fee_per_gas:
-          if tt.payload.maxFeePerGas.isSome:
-            Opt.some(tt.payload.maxFeePerGas.get)
+        max_fees_per_gas:
+          if tt.payload.maxFeesPerGas.isSome:
+            Opt.some(Eip6493FeesPerGas(
+              regular:
+                if tt.payload.maxFeesPerGas.get.regular.isSome:
+                  Opt.some(tt.payload.maxFeesPerGas.get.regular.get)
+                else:
+                  Opt.none(Uint256),
+              blob:
+                if tt.payload.maxFeesPerGas.get.blob.isSome:
+                  Opt.some(tt.payload.maxFeesPerGas.get.blob.get)
+                else:
+                  Opt.none(Uint256)))
           else:
-            Opt.none(UInt256),
+            Opt.none(Eip6493FeesPerGas),
         gas:
           if tt.payload.gas.isSome:
             Opt.some(tt.payload.gas.get.uint64)
@@ -556,16 +566,21 @@ func asConsensusType*(rpcExecutionPayload: ExecutionPayloadV4):
                         Eth2Digest(data: distinctBase(it))))))))
           else:
             Opt.none(List[Eip6493AccessTuple, Limit MAX_ACCESS_LIST_SIZE]),
-        max_priority_fee_per_gas:
-          if tt.payload.maxPriorityFeePerGas.isSome:
-            Opt.some(tt.payload.maxPriorityFeePerGas.get)
+        max_priority_fees_per_gas:
+          if tt.payload.maxPriorityFeesPerGas.isSome:
+            Opt.some(Eip6493FeesPerGas(
+              regular:
+                if tt.payload.maxPriorityFeesPerGas.get.regular.isSome:
+                  Opt.some(tt.payload.maxPriorityFeesPerGas.get.regular.get)
+                else:
+                  Opt.none(Uint256),
+              blob:
+                if tt.payload.maxPriorityFeesPerGas.get.blob.isSome:
+                  Opt.some(tt.payload.maxPriorityFeesPerGas.get.blob.get)
+                else:
+                  Opt.none(Uint256)))
           else:
-            Opt.none(UInt256),
-        max_fee_per_blob_gas:
-          if tt.payload.maxFeePerBlobGas.isSome:
-            Opt.some(tt.payload.maxFeePerBlobGas.get)
-          else:
-            Opt.none(UInt256),
+            Opt.none(Eip6493FeesPerGas),
         blob_versioned_hashes:
           if tt.payload.blobVersionedHashes.isSome:
             Opt.some(
@@ -749,11 +764,21 @@ func asEngineExecutionPayload*(executionPayload: electra.ExecutionPayload):
             options.some(tt.payload.nonce.get.Quantity)
           else:
             options.none(Quantity),
-        maxFeePerGas:
-          if tt.payload.max_fee_per_gas.isSome:
-            options.some(tt.payload.max_fee_per_gas.get)
+        maxFeesPerGas:
+          if tt.payload.max_fees_per_gas.isSome:
+            options.some(engine_api_types.TransactionFeesPerGas(
+              regular:
+                if tt.payload.max_fees_per_gas.get.regular.isSome:
+                  options.some(tt.payload.max_fees_per_gas.get.regular.get)
+                else:
+                  options.none(UInt256),
+              blob:
+                if tt.payload.max_fees_per_gas.get.blob.isSome:
+                  options.some(tt.payload.max_fees_per_gas.get.blob.get)
+                else:
+                  options.none(UInt256)))
           else:
-            options.none(UInt256),
+            options.none(engine_api_types.TransactionFeesPerGas),
         gas:
           if tt.payload.gas.isSome:
             options.some(tt.payload.gas.get.Quantity)
@@ -783,16 +808,23 @@ func asEngineExecutionPayload*(executionPayload: electra.ExecutionPayload):
                   .mapIt(FixedBytes[32](it.data)))))
           else:
             options.none(seq[AccessTuple]),
-        maxPriorityFeePerGas:
-          if tt.payload.max_priority_fee_per_gas.isSome:
-            options.some(tt.payload.max_priority_fee_per_gas.get)
+        maxPriorityFeesPerGas:
+          if tt.payload.max_priority_fees_per_gas.isSome:
+            options.some(engine_api_types.TransactionFeesPerGas(
+              regular:
+                if tt.payload.max_priority_fees_per_gas.get.regular.isSome:
+                  options.some(
+                    tt.payload.max_priority_fees_per_gas.get.regular.get)
+                else:
+                  options.none(UInt256),
+              blob:
+                if tt.payload.max_priority_fees_per_gas.get.blob.isSome:
+                  options.some(
+                    tt.payload.max_priority_fees_per_gas.get.blob.get)
+                else:
+                  options.none(UInt256)))
           else:
-            options.none(UInt256),
-        maxFeePerBlobGas:
-          if tt.payload.max_fee_per_blob_gas.isSome:
-            options.some(tt.payload.max_fee_per_blob_gas.get)
-          else:
-            options.none(UInt256),
+            options.none(engine_api_types.TransactionFeesPerGas),
         blobVersionedHashes:
           if tt.payload.blob_versioned_hashes.isSome:
             options.some(distinctBase(tt.payload.blob_versioned_hashes.get)

@@ -69,6 +69,7 @@ RestJson.useDefaultSerializationFor(
   DepositTreeSnapshot,
   DistributedKeystoreInfo,
   Eip6493AccessTuple,
+  Eip6493FeesPerGas,
   Eip6493Transaction,
   Eip6493TransactionPayload,
   Eip6493TransactionSignature,

@@ -56,6 +56,12 @@ const
 type
   ChainId* = uint64
 
+  Eip6493FeesPerGas* {.sszStableContainer: 16.} = object
+    regular*: Opt[UInt256]
+
+    # EIP-4844
+    blob*: Opt[UInt256]
+
   Eip6493AccessTuple* = object
     address*: ExecutionAddress
     storage_keys*: List[Eth2Digest, Limit MAX_ACCESS_LIST_STORAGE_KEYS]
@@ -68,7 +74,7 @@ type
     chain_id*: Opt[ChainId]
 
     nonce*: Opt[uint64]
-    max_fee_per_gas*: Opt[UInt256]
+    max_fees_per_gas*: Opt[Eip6493FeesPerGas]
     gas*: Opt[uint64]
     to*: Opt[ExecutionAddress]
     value*: Opt[UInt256]
@@ -78,10 +84,9 @@ type
     access_list*: Opt[List[Eip6493AccessTuple, Limit MAX_ACCESS_LIST_SIZE]]
 
     # EIP-1559
-    max_priority_fee_per_gas*: Opt[UInt256]
+    max_priority_fees_per_gas*: Opt[Eip6493FeesPerGas]
 
     # EIP-4844
-    max_fee_per_blob_gas*: Opt[UInt256]
     blob_versioned_hashes*:
       Opt[List[deneb.VersionedHash, Limit MAX_BLOB_COMMITMENTS_PER_BLOCK]]
 
