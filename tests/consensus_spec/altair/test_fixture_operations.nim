@@ -91,8 +91,8 @@ suite baseDescription & "Attestation " & preset():
 
 suite baseDescription & "Attester Slashing " & preset():
   proc applyAttesterSlashing(
-      preState: var altair.BeaconState, attesterSlashing: AttesterSlashing):
-      Result[void, cstring] =
+      preState: var altair.BeaconState,
+      attesterSlashing: phase0.AttesterSlashing): Result[void, cstring] =
     var cache: StateCache
     doAssert (? process_attester_slashing(
       defaultRuntimeConfig, preState, attesterSlashing, {strictVerification},
@@ -100,7 +100,7 @@ suite baseDescription & "Attester Slashing " & preset():
     ok()
 
   for path in walkTests(OpAttSlashingDir):
-    runTest[AttesterSlashing, typeof applyAttesterSlashing](
+    runTest[phase0.AttesterSlashing, typeof applyAttesterSlashing](
       OpAttSlashingDir, suiteName, "Attester Slashing", "attester_slashing",
       applyAttesterSlashing, path)
 

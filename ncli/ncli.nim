@@ -232,7 +232,7 @@ proc doSSZ(conf: NcliConf) =
       printTimers(false, timers)
 
   case kind
-  of "attester_slashing": printit(AttesterSlashing)
+  of "attester_slashing": printit(phase0.AttesterSlashing)
   of "attestation": printit(phase0.Attestation)
   of "phase0_signed_block": printit(phase0.SignedBeaconBlock)
   of "altair_signed_block": printit(altair.SignedBeaconBlock)

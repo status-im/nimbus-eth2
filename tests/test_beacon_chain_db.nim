@@ -113,6 +113,8 @@ proc getTestStates(consensusFork: ConsensusFork): auto =
 
   testStates
 
+debugRaiseAssert "add some electra states, and test electra state/block loading/etc"
+
 # Each set of states gets used twice, so scope them to module
 let
   testStatesPhase0    = getTestStates(ConsensusFork.Phase0)

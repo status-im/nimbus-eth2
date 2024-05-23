@@ -62,7 +62,7 @@ type
     of opOnMergeBlock:
       powBlock: PowBlock
     of opOnAttesterSlashing:
-      attesterSlashing: AttesterSlashing
+      attesterSlashing: phase0.AttesterSlashing
     of opInvalidateHash:
       invalidatedHash: Eth2Digest
       latestValidHash: Eth2Digest
@@ -123,35 +123,34 @@ proc loadOps(
       let filename = step["block"].getStr()
       doAssert step.hasKey"blobs" == step.hasKey"proofs"
       withConsensusFork(fork):
-        when consensusFork != ConsensusFork.Electra:
-          let
-            blck = parseTest(
-              path/filename & ".ssz_snappy",
-              SSZ, consensusFork.SignedBeaconBlock)
+        let
+          blck = parseTest(
+            path/filename & ".ssz_snappy",
+            SSZ, consensusFork.SignedBeaconBlock)
 
-            blobData =
-              when consensusFork >= ConsensusFork.Deneb:
-                if step.hasKey"blobs":
-                  numExtraFields += 2
-                  Opt.some BlobData(
-                    blobs: distinctBase(parseTest(
-                      path/(step["blobs"].getStr()) & ".ssz_snappy",
-                      SSZ, List[KzgBlob, Limit MAX_BLOBS_PER_BLOCK])),
-                    proofs: step["proofs"].mapIt(KzgProof.fromHex(it.getStr())))
-                else:
-                  Opt.none(BlobData)
+          blobData =
+            when consensusFork >= ConsensusFork.Deneb:
+              if step.hasKey"blobs":
+                numExtraFields += 2
+                Opt.some BlobData(
+                  blobs: distinctBase(parseTest(
+                    path/(step["blobs"].getStr()) & ".ssz_snappy",
+                    SSZ, List[KzgBlob, Limit MAX_BLOBS_PER_BLOCK])),
+                  proofs: step["proofs"].mapIt(KzgProof.fromHex(it.getStr())))
               else:
-                doAssert not step.hasKey"blobs"
                 Opt.none(BlobData)
+            else:
+              doAssert not step.hasKey"blobs"
+              Opt.none(BlobData)
 
-          result.add Operation(kind: opOnBlock,
-            blck: ForkedSignedBeaconBlock.init(blck),
-            blobData: blobData)
+        result.add Operation(kind: opOnBlock,
+          blck: ForkedSignedBeaconBlock.init(blck),
+          blobData: blobData)
     elif step.hasKey"attester_slashing":
       let filename = step["attester_slashing"].getStr()
       let attesterSlashing = parseTest(
         path/filename & ".ssz_snappy",
-        SSZ, AttesterSlashing
+        SSZ, phase0.AttesterSlashing
       )
       result.add Operation(kind: opOnAttesterSlashing,
         attesterSlashing: attesterSlashing)

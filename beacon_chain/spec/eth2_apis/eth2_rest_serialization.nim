@@ -46,7 +46,6 @@ createJsonFlavor RestJson
 RestJson.useDefaultSerializationFor(
   AggregateAndProof,
   AttestationData,
-  AttesterSlashing,
   BLSToExecutionChange,
   BeaconBlockHeader,
   BlobSidecar,
@@ -107,7 +106,6 @@ RestJson.useDefaultSerializationFor(
   HistoricalSummary,
   ImportDistributedKeystoresBody,
   ImportRemoteKeystoresBody,
-  IndexedAttestation,
   KeymanagerGenericError,
   KeystoreInfo,
   ListFeeRecipientResponse,
@@ -248,13 +246,17 @@ RestJson.useDefaultSerializationFor(
   deneb_mev.ExecutionPayloadAndBlobsBundle,
   deneb_mev.SignedBlindedBeaconBlock,
   deneb_mev.SignedBuilderBid,
+  electra.Attestation,
+  electra.AttesterSlashing,
   electra.BeaconBlock,
   electra.BeaconState,
   electra.BeaconBlockBody,
   electra.BlockContents,
   electra.ExecutionPayload,
   electra.ExecutionPayloadHeader,
+  electra.IndexedAttestation,
   electra.SignedBeaconBlock,
+  electra.TrustedAttestation,
   electra_mev.BlindedBeaconBlock,
   electra_mev.BlindedBeaconBlockBody,
   electra_mev.BuilderBid,
@@ -262,9 +264,11 @@ RestJson.useDefaultSerializationFor(
   electra_mev.SignedBlindedBeaconBlock,
   electra_mev.SignedBuilderBid,
   phase0.Attestation,
+  phase0.AttesterSlashing,
   phase0.BeaconBlock,
   phase0.BeaconBlockBody,
   phase0.BeaconState,
+  phase0.IndexedAttestation,
   phase0.SignedBeaconBlock,
   phase0.TrustedAttestation
 )
@@ -323,7 +327,6 @@ const
 
 type
   EncodeTypes* =
-    AttesterSlashing |
     BlobSidecarInfoObject |
     DeleteKeystoresBody |
     EmptyBody |
@@ -338,6 +341,7 @@ type
     capella_mev.SignedBlindedBeaconBlock |
     deneb_mev.SignedBlindedBeaconBlock |
     electra_mev.SignedBlindedBeaconBlock |
+    phase0.AttesterSlashing |
     SignedValidatorRegistrationV1 |
     SignedVoluntaryExit |
     Web3SignerRequest |
@@ -1709,7 +1713,7 @@ proc readValue*(reader: var JsonReader[RestJson],
     proposer_slashings:
       Opt[List[ProposerSlashing, Limit MAX_PROPOSER_SLASHINGS]]
     attester_slashings:
-      Opt[List[AttesterSlashing, Limit MAX_ATTESTER_SLASHINGS]]
+      Opt[List[phase0.AttesterSlashing, Limit MAX_ATTESTER_SLASHINGS]]
     attestations: Opt[List[phase0.Attestation, Limit MAX_ATTESTATIONS]]
     deposits: Opt[List[Deposit, Limit MAX_DEPOSITS]]
     voluntary_exits: Opt[List[SignedVoluntaryExit, Limit MAX_VOLUNTARY_EXITS]]
@@ -1748,7 +1752,8 @@ proc readValue*(reader: var JsonReader[RestJson],
           "Multiple `attester_slashings` fields found",
           "RestPublishedBeaconBlockBody")
       attester_slashings = Opt.some(
-        reader.readValue(List[AttesterSlashing, Limit MAX_ATTESTER_SLASHINGS]))
+        reader.readValue(
+          List[phase0.AttesterSlashing, Limit MAX_ATTESTER_SLASHINGS]))
     of "attestations":
       if attestations.isSome():
         reader.raiseUnexpectedField("Multiple `attestations` fields found",
@@ -3705,136 +3710,6 @@ proc decodeBody*[T](t: typedesc[T],
     except CatchableError:
       return err("Unexpected deserialization error")
   ok(data)
-
-proc decodeBodyJsonOrSsz*(
-       t: typedesc[RestPublishedSignedBlockContents],
-       body: ContentBody,
-       version: string
-     ): Result[RestPublishedSignedBlockContents, RestErrorMessage] =
-  if body.contentType == OctetStreamMediaType:
-    decodeBody(RestPublishedSignedBlockContents, body, version)
-  elif body.contentType == ApplicationJsonMediaType:
-    let consensusFork = ConsensusFork.decodeString(version).valueOr:
-      return err(RestErrorMessage.init(Http400, UnableDecodeVersionError,
-                                       [version, $error]))
-    case consensusFork
-    of ConsensusFork.Phase0:
-      let blck =
-        try:
-          RestJson.decode(body.data, phase0.SignedBeaconBlock,
-                          requireAllFields = true,
-                          allowUnknownFields = true)
-        except SerializationError as exc:
-          debug "Failed to decode JSON data",
-               err = exc.formatMsg("<data>"),
-               data = string.fromBytes(body.data)
-          return err(
-            RestErrorMessage.init(Http400, UnableDecodeError,
-                                  [version, exc.formatMsg("<data>")]))
-        except CatchableError as exc:
-          return err(
-            RestErrorMessage.init(Http400, UnexpectedDecodeError,
-                                  [version, $exc.msg]))
-      ok(RestPublishedSignedBlockContents(
-        kind: ConsensusFork.Phase0, phase0Data: blck))
-    of ConsensusFork.Altair:
-      let blck =
-        try:
-          RestJson.decode(body.data, altair.SignedBeaconBlock,
-                          requireAllFields = true,
-                          allowUnknownFields = true)
-        except SerializationError as exc:
-          debug "Failed to decode JSON data",
-               err = exc.formatMsg("<data>"),
-               data = string.fromBytes(body.data)
-          return err(
-            RestErrorMessage.init(Http400, UnableDecodeError,
-                                  [version, exc.formatMsg("<data>")]))
-        except CatchableError as exc:
-          return err(
-            RestErrorMessage.init(Http400, UnexpectedDecodeError,
-                                  [version, $exc.msg]))
-      ok(RestPublishedSignedBlockContents(
-        kind: ConsensusFork.Altair, altairData: blck))
-    of ConsensusFork.Bellatrix:
-      let blck =
-        try:
-          RestJson.decode(body.data, bellatrix.SignedBeaconBlock,
-                          requireAllFields = true,
-                          allowUnknownFields = true)
-        except SerializationError as exc:
-          debug "Failed to decode JSON data",
-               err = exc.formatMsg("<data>"),
-               data = string.fromBytes(body.data)
-          return err(
-            RestErrorMessage.init(Http400, UnableDecodeError,
-                                  [version, exc.formatMsg("<data>")]))
-        except CatchableError as exc:
-          return err(
-            RestErrorMessage.init(Http400, UnexpectedDecodeError,
-                                  [version, $exc.msg]))
-      ok(RestPublishedSignedBlockContents(
-        kind: ConsensusFork.Bellatrix, bellatrixData: blck))
-    of ConsensusFork.Capella:
-      let blck =
-        try:
-          RestJson.decode(body.data, capella.SignedBeaconBlock,
-                          requireAllFields = true,
-                          allowUnknownFields = true)
-        except SerializationError as exc:
-          debug "Failed to decode JSON data",
-               err = exc.formatMsg("<data>"),
-               data = string.fromBytes(body.data)
-          return err(
-            RestErrorMessage.init(Http400, UnableDecodeError,
-                                  [version, exc.formatMsg("<data>")]))
-        except CatchableError as exc:
-          return err(
-            RestErrorMessage.init(Http400, UnexpectedDecodeError,
-                                  [version, $exc.msg]))
-      ok(RestPublishedSignedBlockContents(
-        kind: ConsensusFork.Capella, capellaData: blck))
-    of ConsensusFork.Deneb:
-      let blckContents =
-        try:
-          RestJson.decode(body.data, DenebSignedBlockContents,
-                          requireAllFields = true,
-                          allowUnknownFields = true)
-        except SerializationError as exc:
-          debug "Failed to decode JSON data",
-               err = exc.formatMsg("<data>"),
-               data = string.fromBytes(body.data)
-          return err(
-            RestErrorMessage.init(Http400, UnableDecodeError,
-                                  [version, exc.formatMsg("<data>")]))
-        except CatchableError as exc:
-          return err(
-            RestErrorMessage.init(Http400, UnexpectedDecodeError,
-                                  [version, $exc.msg]))
-      ok(RestPublishedSignedBlockContents(
-        kind: ConsensusFork.Deneb, denebData: blckContents))
-    of ConsensusFork.Electra:
-      let blckContents =
-        try:
-          RestJson.decode(body.data, ElectraSignedBlockContents,
-                          requireAllFields = true,
-                          allowUnknownFields = true)
-        except SerializationError as exc:
-          debug "Failed to decode JSON data",
-               err = exc.formatMsg("<data>"),
-               data = string.fromBytes(body.data)
-          return err(
-            RestErrorMessage.init(Http400, UnableDecodeError,
-                                  [version, exc.formatMsg("<data>")]))
-        except CatchableError as exc:
-          return err(
-            RestErrorMessage.init(Http400, UnexpectedDecodeError,
-                                  [version, $exc.msg]))
-      ok(RestPublishedSignedBlockContents(
-        kind: ConsensusFork.Electra, electraData: blckContents))
-  else:
-    err(RestErrorMessage.init(Http415, "Invalid content type",
-                              [version, $body.contentType]))
 
 proc decodeBodyJsonOrSsz*[T](t: typedesc[T],
                              body: ContentBody): Result[T, RestErrorMessage] =

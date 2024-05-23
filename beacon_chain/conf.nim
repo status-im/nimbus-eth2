@@ -21,6 +21,7 @@ import
   eth/common/eth_types as commonEthTypes, eth/net/nat,
   eth/p2p/discoveryv5/enr,
   json_serialization, web3/[primitives, confutils_defs],
+  chronos/transports/common,
   kzg4844/kzg_ex,
   ./spec/[engine_authentication, keystore, network, crypto],
   ./spec/datatypes/base,
@@ -49,14 +50,11 @@ declareGauge network_name, "network name", ["name"]
 const
   # TODO: How should we select between IPv4 and IPv6
   # Maybe there should be a config option for this.
-  defaultListenAddress* = (static parseIpAddress("0.0.0.0"))
   defaultAdminListenAddress* = (static parseIpAddress("127.0.0.1"))
   defaultSigningNodeRequestTimeout* = 60
   defaultBeaconNode* = "http://127.0.0.1:" & $defaultEth2RestPort
   defaultBeaconNodeUri* = parseUri(defaultBeaconNode)
   defaultGasLimit* = 30_000_000
-
-  defaultListenAddressDesc* = $defaultListenAddress
   defaultAdminListenAddressDesc* = $defaultAdminListenAddress
   defaultBeaconNodeDesc = $defaultBeaconNode
 
@@ -292,9 +290,8 @@ type
 
       listenAddress* {.
         desc: "Listening address for the Ethereum LibP2P and Discovery v5 traffic"
-        defaultValue: defaultListenAddress
-        defaultValueDesc: $defaultListenAddressDesc
-        name: "listen-address" .}: IpAddress
+        defaultValueDesc: "*"
+        name: "listen-address" .}: Option[IpAddress]
 
       tcpPort* {.
         desc: "Listening TCP port for Ethereum LibP2P traffic"
@@ -1509,3 +1506,9 @@ proc loadKzgTrustedSetup*(trustedSetupPath: string): Result[void, string] =
     Kzg.loadTrustedSetupFromString(readFile(trustedSetupPath))
   except IOError as err:
     err(err.msg)
+
+proc formatIt*(v: Option[IpAddress]): string =
+  if v.isSome():
+    $v.get()
+  else:
+    "*"

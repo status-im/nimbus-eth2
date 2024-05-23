@@ -287,7 +287,7 @@ proc initFullNode(
     node.eventBus.blsToExecQueue.emit(data)
   proc onProposerSlashingAdded(data: ProposerSlashing) =
     node.eventBus.propSlashQueue.emit(data)
-  proc onAttesterSlashingAdded(data: AttesterSlashing) =
+  proc onAttesterSlashingAdded(data: phase0.AttesterSlashing) =
     node.eventBus.attSlashQueue.emit(data)
   proc onBlobSidecarAdded(data: BlobSidecar) =
     node.eventBus.blobSidecarQueue.emit(
@@ -595,7 +595,7 @@ proc init*(T: type BeaconNode,
     eventBus = EventBus(
       headQueue: newAsyncEventQueue[HeadChangeInfoObject](),
       blocksQueue: newAsyncEventQueue[EventBeaconBlockObject](),
-      attestQueue: newAsyncEventQueue[Attestation](),
+      attestQueue: newAsyncEventQueue[phase0.Attestation](),
       exitQueue: newAsyncEventQueue[SignedVoluntaryExit](),
       blsToExecQueue: newAsyncEventQueue[SignedBLSToExecutionChange](),
       propSlashQueue: newAsyncEventQueue[ProposerSlashing](),
@@ -1389,6 +1389,7 @@ proc updateGossipStatus(node: BeaconNode, slot: Slot) {.async.} =
   for gossipFork in oldGossipForks:
     removeMessageHandlers[gossipFork](node, forkDigests[gossipFork])
 
+  debugRaiseAssert "electra does have different gossip, add add/RemoveElectraFoo"
   const addMessageHandlers: array[ConsensusFork, auto] = [
     addPhase0MessageHandlers,
     addAltairMessageHandlers,
@@ -1873,7 +1874,7 @@ proc installMessageValidators(node: BeaconNode) =
       # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.5/specs/phase0/p2p-interface.md#attester_slashing
       node.network.addValidator(
         getAttesterSlashingsTopic(digest), proc (
-          attesterSlashing: AttesterSlashing
+          attesterSlashing: phase0.AttesterSlashing
         ): ValidationResult =
           toValidationResult(
             node.processor[].processAttesterSlashing(
@@ -1924,7 +1925,7 @@ proc installMessageValidators(node: BeaconNode) =
                 MsgSource.gossip, msg)))
 
       when consensusFork >= ConsensusFork.Capella:
-        # https://github.com/ethereum/consensus-specs/blob/v1.4.0/specs/capella/p2p-interface.md#bls_to_execution_change
+        # https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.2/specs/capella/p2p-interface.md#bls_to_execution_change
         node.network.addAsyncValidator(
           getBlsToExecutionChangeTopic(digest), proc (
             msg: SignedBLSToExecutionChange

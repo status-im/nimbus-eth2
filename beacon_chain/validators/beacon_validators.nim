@@ -563,9 +563,13 @@ proc makeBeaconBlockForHeadAndSlot*(
     warn "Eth1 deposits not available. Skipping block proposal", slot
     return err("Eth1 deposits not available")
 
+  debugRaiseAssert "b_v makeBeaconBlockForHeadAndSlot doesn't know how to get Electra attestations because attpool doesn't either"
   let
     attestations =
-      node.attestationPool[].getAttestationsForBlock(state[], cache)
+      when PayloadType.kind == ConsensusFork.Electra:
+        default(seq[electra.Attestation])
+      else:
+        node.attestationPool[].getAttestationsForBlock(state[], cache)
     exits = withState(state[]):
       node.validatorChangePool[].getBeaconBlockValidatorChanges(
         node.dag.cfg, forkyState.data)
@@ -1959,7 +1963,7 @@ proc handleValidatorDuties*(node: BeaconNode, lastSlot, slot: Slot) {.async: (ra
   updateValidatorMetrics(node) # the important stuff is done, update the vanity numbers
 
   # https://github.com/ethereum/consensus-specs/blob/v1.4.0/specs/phase0/validator.md#broadcast-aggregate
-  # https://github.com/ethereum/consensus-specs/blob/v1.4.0/specs/altair/validator.md#broadcast-sync-committee-contribution
+  # https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.2/specs/altair/validator.md#broadcast-sync-committee-contribution
   # Wait 2 / 3 of the slot time to allow messages to propagate, then collect
   # the result in aggregates
   static:
