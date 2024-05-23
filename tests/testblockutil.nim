@@ -207,6 +207,8 @@ proc addTestBlock*(
       else:
         default(bellatrix.ExecutionPayloadForSigning)
 
+    debugRaiseAssert "addTestBlock Electra attestation support"
+
     makeBeaconBlock(
       cfg,
       state,
@@ -218,7 +220,10 @@ proc addTestBlock*(
         deposit_count: forkyState.data.eth1_deposit_index + deposits.lenu64,
         block_hash: eth1_data.block_hash),
       graffiti,
-      attestations,
+      when consensusFork == ConsensusFork.Electra:
+        default(seq[electra.Attestation])
+      else:
+        attestations,
       deposits,
       BeaconBlockValidatorChanges(),
       sync_aggregate,

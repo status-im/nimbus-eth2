@@ -19,6 +19,8 @@ import
   chronicles,
   ./base
 
+from std/sets import toHashSet
+
 export base
 
 type
@@ -257,6 +259,32 @@ type
 
     root* {.dontSerialize.}: Eth2Digest # cached root of signed beacon block
 
+  # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.7/specs/phase0/beacon-chain.md#attesterslashing
+  AttesterSlashing* = object
+    attestation_1*: IndexedAttestation
+    attestation_2*: IndexedAttestation
+
+  TrustedAttesterSlashing* = object
+    # The Trusted version, at the moment, implies that the cryptographic signature was checked.
+    # It DOES NOT imply that the state transition was verified.
+    # Currently the code MUST verify the state transition as soon as the signature is verified
+    attestation_1*: TrustedIndexedAttestation
+    attestation_2*: TrustedIndexedAttestation
+
+  # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.6/specs/phase0/beacon-chain.md#indexedattestation
+  IndexedAttestation* = object
+    attesting_indices*: List[uint64, Limit MAX_VALIDATORS_PER_COMMITTEE]
+    data*: AttestationData
+    signature*: ValidatorSig
+
+  TrustedIndexedAttestation* = object
+    # The Trusted version, at the moment, implies that the cryptographic signature was checked.
+    # It DOES NOT imply that the state transition was verified.
+    # Currently the code MUST verify the state transition as soon as the signature is verified
+    attesting_indices*: List[uint64, Limit MAX_VALIDATORS_PER_COMMITTEE]
+    data*: AttestationData
+    signature*: TrustedSig
+
   # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.6/specs/phase0/beacon-chain.md#attestation
   Attestation* = object
     aggregation_bits*: CommitteeValidatorsBits
@@ -282,6 +310,8 @@ type
     message*: AggregateAndProof
     signature*: ValidatorSig
 
+  SomeIndexedAttestation* = IndexedAttestation | TrustedIndexedAttestation
+  SomeAttesterSlashing* = AttesterSlashing | TrustedAttesterSlashing
   SomeSignedBeaconBlock* =
     SignedBeaconBlock |
     SigVerifiedSignedBeaconBlock |
@@ -308,6 +338,29 @@ chronicles.formatIt Attestation: it.shortLog
 func clear*(info: var EpochInfo) =
   info.validators.setLen(0)
   info.balances = TotalBalances()
+
+func shortLog*(v: SomeIndexedAttestation): auto =
+  (
+    attestating_indices: v.attesting_indices,
+    data: shortLog(v.data),
+    signature: shortLog(v.signature)
+  )
+
+iterator getValidatorIndices*(attester_slashing: SomeAttesterSlashing): uint64 =
+  template attestation_1(): auto = attester_slashing.attestation_1
+  template attestation_2(): auto = attester_slashing.attestation_2
+
+  let attestation_2_indices = toHashSet(attestation_2.attesting_indices.asSeq)
+  for validator_index in attestation_1.attesting_indices.asSeq:
+    if validator_index notin attestation_2_indices:
+      continue
+    yield validator_index
+
+func shortLog*(v: SomeAttesterSlashing): auto =
+  (
+    attestation_1: shortLog(v.attestation_1),
+    attestation_2: shortLog(v.attestation_2),
+  )
 
 func shortLog*(v: SomeBeaconBlock): auto =
   (

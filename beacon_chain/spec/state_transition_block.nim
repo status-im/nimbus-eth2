@@ -10,9 +10,10 @@
 # State transition - block processing, as described in
 # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.7/specs/phase0/beacon-chain.md#block-processing
 # https://github.com/ethereum/consensus-specs/blob/v1.4.0/specs/altair/beacon-chain.md#block-processing
-# https://github.com/ethereum/consensus-specs/blob/v1.4.0/specs/bellatrix/beacon-chain.md#block-processing
-# https://github.com/ethereum/consensus-specs/blob/v1.4.0/specs/capella/beacon-chain.md#block-processing
+# https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.2/specs/bellatrix/beacon-chain.md#block-processing
+# https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.2/specs/capella/beacon-chain.md#block-processing
 # https://github.com/ethereum/consensus-specs/blob/v1.4.0/specs/deneb/beacon-chain.md#block-processing
+# https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.1/specs/electra/beacon-chain.md#block-processing
 #
 # The entry point is `process_block` which is at the bottom of this file.
 #
@@ -35,6 +36,7 @@ from std/sequtils import count, filterIt, mapIt
 from ./datatypes/capella import
   BeaconState, MAX_WITHDRAWALS_PER_PAYLOAD, SignedBLSToExecutionChange,
   Withdrawal
+from ./datatypes/electra import PendingPartialWithdrawal
 
 export extras, phase0, altair
 
@@ -205,10 +207,10 @@ func is_slashable_attestation_data(
 
 # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.6/specs/phase0/beacon-chain.md#attester-slashings
 proc check_attester_slashing*(
-       state: ForkyBeaconState,
-       attester_slashing: SomeAttesterSlashing,
-       flags: UpdateFlags
-     ): Result[seq[ValidatorIndex], cstring] =
+    state: ForkyBeaconState,
+    attester_slashing: SomeAttesterSlashing | electra.AttesterSlashing |
+                       electra.TrustedAttesterSlashing,
+    flags: UpdateFlags): Result[seq[ValidatorIndex], cstring] =
   let
     attestation_1 = attester_slashing.attestation_1
     attestation_2 = attester_slashing.attestation_2
@@ -240,7 +242,9 @@ proc check_attester_slashing*(
   ok slashed_indices
 
 proc check_attester_slashing*(
-    state: var ForkedHashedBeaconState, attester_slashing: SomeAttesterSlashing,
+    state: var ForkedHashedBeaconState,
+    attester_slashing: SomeAttesterSlashing | electra.AttesterSlashing |
+                       electra.TrustedAttesterSlashing,
     flags: UpdateFlags): Result[seq[ValidatorIndex], cstring] =
   withState(state):
     check_attester_slashing(forkyState.data, attester_slashing, flags)
@@ -249,7 +253,8 @@ proc check_attester_slashing*(
 proc process_attester_slashing*(
     cfg: RuntimeConfig,
     state: var ForkyBeaconState,
-    attester_slashing: SomeAttesterSlashing,
+    attester_slashing: SomeAttesterSlashing | electra.AttesterSlashing |
+                       electra.TrustedAttesterSlashing,
     flags: UpdateFlags,
     exit_queue_info: ExitQueueInfo, cache: var StateCache
     ): Result[(Gwei, ExitQueueInfo), cstring] =
@@ -298,6 +303,79 @@ func findValidatorIndex*(state: ForkyBeaconState, pubkey: ValidatorPubKey):
 from ".."/bloomfilter import
   PubkeyBloomFilter, constructBloomFilter, incl, mightContain
 
+# https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.0/specs/phase0/beacon-chain.md#deposits
+# https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.0/specs/electra/beacon-chain.md#updated--apply_deposit
+proc apply_deposit(
+    cfg: RuntimeConfig, state: var ForkyBeaconState,
+    bloom_filter: var PubkeyBloomFilter, deposit_data: DepositData,
+    flags: UpdateFlags): Result[void, cstring] =
+  let
+    pubkey = deposit_data.pubkey
+    amount = deposit_data.amount
+    index =
+      if bloom_filter.mightContain(pubkey):
+        findValidatorIndex(state, pubkey)
+      else:
+        Opt.none(ValidatorIndex)
+
+  if index.isSome():
+    # Increase balance by deposit amount
+    when typeof(state).kind < ConsensusFork.Electra:
+      increase_balance(state, index.get(), amount)
+    else:
+      debugRaiseAssert "check hashlist add return"
+      discard state.pending_balance_deposits.add PendingBalanceDeposit(
+        index: index.get.uint64, amount: amount)  # [Modified in Electra:EIP-7251]
+
+      # Check if valid deposit switch to compounding credentials
+      if  is_compounding_withdrawal_credential(
+            deposit_data.withdrawal_credentials) and
+          has_eth1_withdrawal_credential(state.validators.item(index.get)) and
+          verify_deposit_signature(cfg, deposit_data):
+        switch_to_compounding_validator(state, index.get)
+  else:
+    # Verify the deposit signature (proof of possession) which is not checked
+    # by the deposit contract
+    if verify_deposit_signature(cfg, deposit_data):
+      # New validator! Add validator and balance entries
+      if not state.validators.add(
+          get_validator_from_deposit(state, deposit_data)):
+        return err("apply_deposit: too many validators")
+
+      let initial_balance =
+        when typeof(state).kind >= ConsensusFork.Electra:
+          0.Gwei
+        else:
+          amount
+      if not state.balances.add(initial_balance):
+        static: doAssert state.balances.maxLen == state.validators.maxLen
+        raiseAssert "adding validator succeeded, so should balances"
+
+      when typeof(state).kind >= ConsensusFork.Altair:
+        if not state.previous_epoch_participation.add(ParticipationFlags(0)):
+          return err("apply_deposit: too many validators (previous_epoch_participation)")
+        if not state.current_epoch_participation.add(ParticipationFlags(0)):
+          return err("apply_deposit: too many validators (current_epoch_participation)")
+        if not state.inactivity_scores.add(0'u64):
+          return err("apply_deposit: too many validators (inactivity_scores)")
+      when typeof(state).kind >= ConsensusFork.Electra:
+        debugRaiseAssert "check hashlist add return"
+
+        # [New in Electra:EIP7251]
+        discard state.pending_balance_deposits.add PendingBalanceDeposit(
+          index: state.validators.lenu64 - 1, amount: amount)
+      doAssert state.validators.len == state.balances.len
+      bloom_filter.incl pubkey
+    else:
+      # Deposits may come with invalid signatures - in that case, they are not
+      # turned into a validator but still get processed to keep the deposit
+      # index correct
+      trace "Skipping deposit with invalid signature",
+        deposit = shortLog(deposit_data)
+
+  ok()
+
+# https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.0/specs/phase0/beacon-chain.md#deposits
 proc process_deposit*(
     cfg: RuntimeConfig, state: var ForkyBeaconState,
     bloom_filter: var PubkeyBloomFilter, deposit: Deposit, flags: UpdateFlags):
@@ -317,51 +395,28 @@ proc process_deposit*(
   # Deposits must be processed in order
   state.eth1_deposit_index += 1
 
-  let
-    pubkey = deposit.data.pubkey
-    amount = deposit.data.amount
-    index =
-      if bloom_filter.mightContain(pubkey):
-        findValidatorIndex(state, pubkey)
-      else:
-        Opt.none(ValidatorIndex)
+  apply_deposit(cfg, state, bloom_filter, deposit.data, flags)
 
-  if index.isSome():
-    # Increase balance by deposit amount
-    increase_balance(state, index.get(), amount)
-  else:
-    # Verify the deposit signature (proof of possession) which is not checked
-    # by the deposit contract
-    if verify_deposit_signature(cfg, deposit.data):
-      # New validator! Add validator and balance entries
-      if not state.validators.add(get_validator_from_deposit(deposit.data)):
-        return err("process_deposit: too many validators")
-      if not state.balances.add(amount):
-        static: doAssert state.balances.maxLen == state.validators.maxLen
-        raiseAssert "adding validator succeeded, so should balances"
+# https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.0/specs/electra/beacon-chain.md#new-process_deposit_receipt
+func process_deposit_receipt*(
+    cfg: RuntimeConfig, state: var electra.BeaconState,
+    bloom_filter: var PubkeyBloomFilter, deposit_receipt: DepositReceipt,
+    flags: UpdateFlags): Result[void, cstring] =
+  # Set deposit receipt start index
+  if state.deposit_receipts_start_index ==
+      UNSET_DEPOSIT_RECEIPTS_START_INDEX:
+    state.deposit_receipts_start_index = deposit_receipt.index
 
-      when state is altair.BeaconState or state is bellatrix.BeaconState or
-           state is capella.BeaconState or state is deneb.BeaconState:
-        if not state.previous_epoch_participation.add(ParticipationFlags(0)):
-          return err("process_deposit: too many validators (previous_epoch_participation)")
-        if not state.current_epoch_participation.add(ParticipationFlags(0)):
-          return err("process_deposit: too many validators (current_epoch_participation)")
-        if not state.inactivity_scores.add(0'u64):
-          return err("process_deposit: too many validators (inactivity_scores)")
-
-      doAssert state.validators.len == state.balances.len
-      bloom_filter.incl pubkey
-    else:
-      # Deposits may come with invalid signatures - in that case, they are not
-      # turned into a validator but still get processed to keep the deposit
-      # index correct
-      trace "Skipping deposit with invalid signature",
-        deposit = shortLog(deposit.data)
-
-  ok()
+  apply_deposit(
+    cfg, state, bloom_filter, DepositData(
+      pubkey: deposit_receipt.pubkey,
+      withdrawal_credentials: deposit_receipt.withdrawal_credentials,
+      amount: deposit_receipt.amount,
+      signature: deposit_receipt.signature), flags)
 
 # https://github.com/ethereum/consensus-specs/blob/v1.4.0/specs/phase0/beacon-chain.md#voluntary-exits
 # https://github.com/ethereum/consensus-specs/blob/v1.4.0/specs/deneb/beacon-chain.md#modified-process_voluntary_exit
+# https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.0/specs/electra/beacon-chain.md#updated-process_voluntary_exit
 proc check_voluntary_exit*(
     cfg: RuntimeConfig,
     state: ForkyBeaconState,
@@ -393,6 +448,13 @@ proc check_voluntary_exit*(
       cfg.SHARD_COMMITTEE_PERIOD):
     return err("Exit: not in validator set long enough")
 
+  when typeof(state).kind >= ConsensusFork.Electra:
+    # Only exit validator if it has no pending withdrawals in the queue
+    debugRaiseAssert "truncating"
+    if not (get_pending_balance_to_withdraw(
+        state, voluntary_exit.validator_index.ValidatorIndex) == 0.Gwei):
+      return err("Exit: still has pending withdrawals")
+
   # Verify signature
   if skipBlsValidation notin flags:
     const consensusFork = typeof(state).kind
@@ -414,6 +476,7 @@ proc check_voluntary_exit*(
     check_voluntary_exit(cfg, forkyState.data, signed_voluntary_exit, flags)
 
 # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.7/specs/phase0/beacon-chain.md#voluntary-exits
+# https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.0/specs/electra/beacon-chain.md#updated-process_voluntary_exit
 proc process_voluntary_exit*(
     cfg: RuntimeConfig,
     state: var ForkyBeaconState,
@@ -482,6 +545,90 @@ func process_execution_layer_withdrawal_request(
   ok(? initiate_validator_exit(
     cfg, state, validator_index, exit_queue_info, cache))
 
+# https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.0/specs/electra/beacon-chain.md#consolidations
+proc process_consolidation*(
+    cfg: RuntimeConfig, state: var electra.BeaconState,
+    signed_consolidation: SignedConsolidation | TrustedSignedConsolidation,
+    cache: var StateCache): Result[void, cstring] =
+  # If the pending consolidations queue is full, no consolidations are allowed
+  # in the block
+  if not(lenu64(state.pending_consolidations) < PENDING_CONSOLIDATIONS_LIMIT):
+    return err("Consolidation: too many pending consolidations already")
+
+  # If there is too little available consolidation churn limit, no
+  # consolidations are allowed in the block
+  if not (get_consolidation_churn_limit(cfg, state, cache) >
+      static(MIN_ACTIVATION_BALANCE.Gwei)):
+    return err("Consolidation: insufficient available consolidation churn limit")
+
+  let consolidation = signed_consolidation.message
+
+  # Verify that source != target, so a consolidation cannot be used as an exit.
+  if not(consolidation.source_index != consolidation.target_index):
+    return err("Consolidation: a consolidation cannot be used as an exit")
+
+  let
+    source_validator = addr state.validators.mitem(consolidation.source_index)
+    target_validator = state.validators.item(consolidation.target_index)
+
+  # Verify the source and the target are active
+  let current_epoch = get_current_epoch(state)
+
+  if not is_active_validator(source_validator[], current_epoch):
+    return err("Consolidation: source validator not active")
+  if not is_active_validator(target_validator, current_epoch):
+    return err("Consolidation: target validator not active")
+
+  # Verify exits for source and target have not been initiated
+  if not (source_validator[].exit_epoch == FAR_FUTURE_EPOCH):
+    return err("Consolidation: exit for source validator already initiated")
+  if not (target_validator.exit_epoch == FAR_FUTURE_EPOCH):
+    return err("Consolidation: exit for target validator already initiated")
+
+  # Consolidations must specify an epoch when they become valid; they are not
+  # valid before then
+  if not (current_epoch >= consolidation.epoch):
+    return err("Consolidation: consolidation not valid before specified epoch")
+
+  # Verify the source and the target have Execution layer withdrawal credentials
+  if not has_execution_withdrawal_credential(source_validator[]):
+    return err("Consolidation: source doesn't have execution layer withdrawal credentials")
+  if not has_execution_withdrawal_credential(target_validator):
+    return err("Consolidation: target doesn't have execution layer withdrawal credentials")
+
+  # Verify the same withdrawal address
+  if not (source_validator[].withdrawal_credentials.data.toOpenArray(12, 31) ==
+      target_validator.withdrawal_credentials.data.toOpenArray(12, 31)):
+    return err("Consolidation: source and target don't have same withdrawal address")
+
+  debugRaiseAssert "this is per spec, near-verbatim, but Nimbus generally factors this out into spec/signatures.nim. so, create verify_consolidation_signature infra there, call here"
+  # Verify consolidation is signed by the source and the target
+  let
+    domain = compute_domain(
+      DOMAIN_CONSOLIDATION, cfg.GENESIS_FORK_VERSION,
+      genesis_validators_root=state.genesis_validators_root)
+    signing_root = compute_signing_root(consolidation, domain)
+    pubkeys = [source_validator[].pubkey, target_validator.pubkey]
+
+  debugRaiseAssert "as a good example, this trustedsig hack typically/should live in spec/signatures.nim"
+  when not (signed_consolidation.signature is TrustedSig):
+    if not blsFastAggregateVerify(
+        pubkeys, signing_root.data, signed_consolidation.signature):
+      return err("Consolidation: invalid signature")
+
+  # Initiate source validator exit and append pending consolidation
+  source_validator[].exit_epoch = compute_consolidation_epoch_and_update_churn(
+    cfg, state, source_validator[].effective_balance, cache)
+  source_validator[].withdrawable_epoch =
+    source_validator[].exit_epoch + cfg.MIN_VALIDATOR_WITHDRAWABILITY_DELAY
+  debugRaiseAssert "check HashList add return value"
+  discard state.pending_consolidations.add(PendingConsolidation(
+    source_index: consolidation.source_index,
+    target_index: consolidation.target_index
+  ))
+
+  ok()
+
 type
   # https://ethereum.github.io/beacon-APIs/?urls.primaryName=v2.5.0#/Rewards/getBlockRewards
   BlockRewards* = object
@@ -492,18 +639,27 @@ type
 
 # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.6/specs/phase0/beacon-chain.md#operations
 # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.5/specs/capella/beacon-chain.md#modified-process_operations
-# https://github.com/ethereum/consensus-specs/blob/94a0b6c581f2809aa8aca4ef7ee6fbb63f9d74e9/specs/electra/beacon-chain.md#modified-process_operations
-proc process_operations(cfg: RuntimeConfig,
-                        state: var ForkyBeaconState,
-                        body: SomeForkyBeaconBlockBody,
-                        base_reward_per_increment: Gwei,
-                        flags: UpdateFlags,
-                        cache: var StateCache): Result[BlockRewards, cstring] =
+# https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.1/specs/electra/beacon-chain.md#modified-process_operations
+proc process_operations(
+    cfg: RuntimeConfig, state: var ForkyBeaconState,
+    body: SomeForkyBeaconBlockBody, base_reward_per_increment: Gwei,
+    flags: UpdateFlags, cache: var StateCache): Result[BlockRewards, cstring] =
   # Verify that outstanding deposits are processed up to the maximum number of
   # deposits
-  let
-    req_deposits = min(MAX_DEPOSITS,
-                       state.eth1_data.deposit_count - state.eth1_deposit_index)
+  when typeof(body).kind >= ConsensusFork.Electra:
+    # Disable former deposit mechanism once all prior deposits are processed
+    let
+      eth1_deposit_index_limit =
+        min(state.eth1_data.deposit_count, state.deposit_receipts_start_index)
+      req_deposits =
+        if state.eth1_deposit_index < eth1_deposit_index_limit:
+          min(
+            MAX_DEPOSITS, eth1_deposit_index_limit - state.eth1_deposit_index)
+        else:
+          0
+  else:
+    let req_deposits = min(
+      MAX_DEPOSITS, state.eth1_data.deposit_count - state.eth1_deposit_index)
 
   if state.eth1_data.deposit_count < state.eth1_deposit_index or
       body.deposits.lenu64 != req_deposits:
@@ -540,13 +696,21 @@ proc process_operations(cfg: RuntimeConfig,
   for op in body.voluntary_exits:
     exit_queue_info = ? process_voluntary_exit(
       cfg, state, op, flags, exit_queue_info, cache)
-  when typeof(body).kind >= ConsensusFork.Electra:
-    for op in body.execution_payload.withdrawal_requests:
-      exit_queue_info = ? process_execution_layer_withdrawal_request(
-        cfg, state, op, exit_queue_info, cache)
   when typeof(body).kind >= ConsensusFork.Capella:
     for op in body.bls_to_execution_changes:
       ? process_bls_to_execution_change(cfg, state, op)
+
+  # [New in Electra:EIP7002:EIP7251]
+  when typeof(body).kind >= ConsensusFork.Electra:
+    for op in body.execution_payload.withdrawal_requests:
+      discard ? process_execution_layer_withdrawal_request(
+        cfg, state, op, default(ExitQueueInfo), cache)
+    for op in body.execution_payload.deposit_receipts:
+      debugRaiseAssert "combine with previous bloom filter construction"
+      let bloom_filter = constructBloomFilter(state.validators.asSeq)
+      ? process_deposit_receipt(cfg, state, bloom_filter[], op, {})
+    for op in body.consolidations:
+      ? process_consolidation(cfg, state, op, cache)
 
   ok(operations_rewards)
 
@@ -774,7 +938,7 @@ type SomeElectraBeaconBlockBody =
   electra.BeaconBlockBody | electra.SigVerifiedBeaconBlockBody |
   electra.TrustedBeaconBlockBody
 
-# TODO spec ref URL when available
+# https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.0/specs/electra/beacon-chain.md#modified-process_execution_payload
 proc process_execution_payload*(
     state: var electra.BeaconState, body: SomeElectraBeaconBlockBody,
     notify_new_payload: electra.ExecutePayload): Result[void, cstring] =
@@ -820,11 +984,15 @@ proc process_execution_payload*(
     transactions_root: hash_tree_root(payload.transactions),
     withdrawals_root: hash_tree_root(payload.withdrawals),
     blob_gas_used: payload.blob_gas_used,
-    excess_blob_gas: payload.excess_blob_gas)
+    excess_blob_gas: payload.excess_blob_gas,
+    deposit_receipts_root:
+      hash_tree_root(payload.deposit_receipts),  # [New in Electra:EIP6110]
+    withdrawal_requests_root:
+      hash_tree_root(payload.withdrawal_requests))  # [New in Electra:EIP7002:EIP7251]
 
   ok()
 
-# https://github.com/ethereum/consensus-specs/blob/v1.4.0/specs/capella/beacon-chain.md#new-process_withdrawals
+# https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.2/specs/capella/beacon-chain.md#new-process_withdrawals
 func process_withdrawals*(
     state: var (capella.BeaconState | deneb.BeaconState | electra.BeaconState),
     payload: capella.ExecutionPayload | deneb.ExecutionPayload |
@@ -866,6 +1034,87 @@ func process_withdrawals*(
     state.next_withdrawal_validator_index = next_validator_index
 
   ok()
+
+# https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.0/specs/electra/beacon-chain.md#new-process_execution_layer_withdrawal_request
+func process_execution_layer_withdrawal_request*(
+    cfg: RuntimeConfig, state: var electra.BeaconState,
+    execution_layer_withdrawal_request: ExecutionLayerWithdrawalRequest,
+    cache: var StateCache) =
+  let
+    amount = execution_layer_withdrawal_request.amount
+    is_full_exit_request = amount == static(FULL_EXIT_REQUEST_AMOUNT.Gwei)
+
+  # If partial withdrawal queue is full, only full exits are processed
+  if lenu64(state.pending_partial_withdrawals) ==
+      PENDING_PARTIAL_WITHDRAWALS_LIMIT and not is_full_exit_request:
+    return
+
+  let
+    request_pubkey = execution_layer_withdrawal_request.validator_pubkey
+    index = findValidatorIndex(state, request_pubkey).valueOr:
+      return
+    validator = state.validators.item(index)
+
+  # Verify withdrawal credentials
+  let
+    has_correct_credential = has_execution_withdrawal_credential(validator)
+    is_correct_source_address =
+      validator.withdrawal_credentials.data.toOpenArray(12, 31) ==
+        execution_layer_withdrawal_request.source_address.data
+
+  if not (has_correct_credential and is_correct_source_address):
+    return
+
+  # Verify the validator is active
+  if not is_active_validator(validator, get_current_epoch(state)):
+    return
+
+  # Verify exit has not been initiated
+  if validator.exit_epoch != FAR_FUTURE_EPOCH:
+    return
+
+  # Verify the validator has been active long enough
+  if get_current_epoch(state) <
+      validator.activation_epoch + cfg.SHARD_COMMITTEE_PERIOD:
+    return
+
+  let pending_balance_to_withdraw =
+    get_pending_balance_to_withdraw(state, index)
+
+  if is_full_exit_request:
+    # Only exit validator if it has no pending withdrawals in the queue
+    if pending_balance_to_withdraw == 0.Gwei:
+      if initiate_validator_exit(cfg, state, index, default(ExitQueueInfo),
+          cache).isErr():
+        return
+    return
+
+  let
+    has_sufficient_effective_balance =
+      validator.effective_balance >= static(MIN_ACTIVATION_BALANCE.Gwei)
+    has_excess_balance = state.balances.item(index) >
+      static(MIN_ACTIVATION_BALANCE.Gwei) + pending_balance_to_withdraw
+
+  # Only allow partial withdrawals with compounding withdrawal credentials
+  if  has_compounding_withdrawal_credential(validator) and
+      has_sufficient_effective_balance and has_excess_balance:
+    let
+      to_withdraw = min(
+        state.balances.item(index) - static(MIN_ACTIVATION_BALANCE.Gwei) -
+          pending_balance_to_withdraw,
+        amount
+      )
+      exit_queue_epoch =
+        compute_exit_epoch_and_update_churn(cfg, state, to_withdraw, cache)
+      withdrawable_epoch =
+       Epoch(exit_queue_epoch + cfg.MIN_VALIDATOR_WITHDRAWABILITY_DELAY)
+
+    # In theory can fail, but failing/early returning here is indistinguishable
+    discard state.pending_partial_withdrawals.add(PendingPartialWithdrawal(
+      index: index.uint64,
+      amount: to_withdraw,
+      withdrawable_epoch: withdrawable_epoch,
+    ))
 
 # https://github.com/ethereum/consensus-specs/blob/v1.4.0/specs/deneb/beacon-chain.md#kzg_commitment_to_versioned_hash
 func kzg_commitment_to_versioned_hash*(
@@ -936,7 +1185,7 @@ proc process_block*(
 
   ok(operations_rewards)
 
-# https://github.com/ethereum/consensus-specs/blob/v1.4.0/specs/bellatrix/beacon-chain.md#block-processing
+# https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.2/specs/bellatrix/beacon-chain.md#block-processing
 # TODO workaround for https://github.com/nim-lang/Nim/issues/18095
 type SomeBellatrixBlock =
   bellatrix.BeaconBlock | bellatrix.SigVerifiedBeaconBlock | bellatrix.TrustedBeaconBlock
@@ -1039,7 +1288,7 @@ proc process_block*(
 
   ok(operations_rewards)
 
-# https://github.com/ethereum/consensus-specs/blob/v1.3.0/specs/deneb/beacon-chain.md#block-processing
+# https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.1/specs/electra/beacon-chain.md#block-processing
 # TODO workaround for https://github.com/nim-lang/Nim/issues/18095
 type SomeElectraBlock =
   electra.BeaconBlock | electra.SigVerifiedBeaconBlock | electra.TrustedBeaconBlock

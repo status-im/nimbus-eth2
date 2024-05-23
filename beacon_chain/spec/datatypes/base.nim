@@ -74,7 +74,7 @@ export
   tables, results, endians2, json_serialization, sszTypes, beacon_time, crypto,
   digest, presets
 
-const SPEC_VERSION* = "1.5.0-alpha.0"
+const SPEC_VERSION* = "1.5.0-alpha.2"
 ## Spec version we're aiming to be compatible with, right now
 
 const
@@ -222,32 +222,6 @@ type
     signed_header_1*: TrustedSignedBeaconBlockHeader
     signed_header_2*: TrustedSignedBeaconBlockHeader
 
-  # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.7/specs/phase0/beacon-chain.md#attesterslashing
-  AttesterSlashing* = object
-    attestation_1*: IndexedAttestation
-    attestation_2*: IndexedAttestation
-
-  TrustedAttesterSlashing* = object
-    # The Trusted version, at the moment, implies that the cryptographic signature was checked.
-    # It DOES NOT imply that the state transition was verified.
-    # Currently the code MUST verify the state transition as soon as the signature is verified
-    attestation_1*: TrustedIndexedAttestation
-    attestation_2*: TrustedIndexedAttestation
-
-  # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.6/specs/phase0/beacon-chain.md#indexedattestation
-  IndexedAttestation* = object
-    attesting_indices*: List[uint64, Limit MAX_VALIDATORS_PER_COMMITTEE]
-    data*: AttestationData
-    signature*: ValidatorSig
-
-  TrustedIndexedAttestation* = object
-    # The Trusted version, at the moment, implies that the cryptographic signature was checked.
-    # It DOES NOT imply that the state transition was verified.
-    # Currently the code MUST verify the state transition as soon as the signature is verified
-    attesting_indices*: List[uint64, Limit MAX_VALIDATORS_PER_COMMITTEE]
-    data*: AttestationData
-    signature*: TrustedSig
-
   CommitteeValidatorsBits* = BitList[Limit MAX_VALIDATORS_PER_COMMITTEE]
 
   ForkDigest* = distinct array[4, byte]
@@ -304,9 +278,7 @@ type
       ## Earliest epoch when voluntary exit can be processed
     validator_index*: uint64 # `ValidatorIndex` after validation
 
-  SomeIndexedAttestation* = IndexedAttestation | TrustedIndexedAttestation
   SomeProposerSlashing* = ProposerSlashing | TrustedProposerSlashing
-  SomeAttesterSlashing* = AttesterSlashing | TrustedAttesterSlashing
   SomeSignedBeaconBlockHeader* = SignedBeaconBlockHeader | TrustedSignedBeaconBlockHeader
   SomeSignedVoluntaryExit* = SignedVoluntaryExit | TrustedSignedVoluntaryExit
 
@@ -428,7 +400,7 @@ type
     sync_committees*: Table[SyncCommitteePeriod, SyncCommitteeCache]
 
   # This matches the mutable state of the Solidity deposit contract
-  # https://github.com/ethereum/consensus-specs/blob/v1.4.0/solidity_deposit_contract/deposit_contract.sol
+  # https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.2/solidity_deposit_contract/deposit_contract.sol
   DepositContractState* = object
     branch*: array[DEPOSIT_CONTRACT_TREE_DEPTH, Eth2Digest]
     deposit_count*: array[32, byte] # Uint256
@@ -816,29 +788,6 @@ func shortLog*(v: PendingAttestation): auto =
     proposer_index: v.proposer_index
   )
 
-func shortLog*(v: SomeIndexedAttestation): auto =
-  (
-    attestating_indices: v.attesting_indices,
-    data: shortLog(v.data),
-    signature: shortLog(v.signature)
-  )
-
-iterator getValidatorIndices*(attester_slashing: SomeAttesterSlashing): uint64 =
-  template attestation_1(): auto = attester_slashing.attestation_1
-  template attestation_2(): auto = attester_slashing.attestation_2
-
-  let attestation_2_indices = toHashSet(attestation_2.attesting_indices.asSeq)
-  for validator_index in attestation_1.attesting_indices.asSeq:
-    if validator_index notin attestation_2_indices:
-      continue
-    yield validator_index
-
-func shortLog*(v: SomeAttesterSlashing): auto =
-  (
-    attestation_1: shortLog(v.attestation_1),
-    attestation_2: shortLog(v.attestation_2),
-  )
-
 func shortLog*(v: SomeProposerSlashing): auto =
   (
     signed_header_1: shortLog(v.signed_header_1),
@@ -1036,4 +985,5 @@ func ofLen*[T, N](ListType: type List[T, N], n: int): ListType =
   else:
     raise newException(SszSizeMismatchError)
 
+template debugComment*(s: string) = discard
 template debugRaiseAssert*(s: string) = discard

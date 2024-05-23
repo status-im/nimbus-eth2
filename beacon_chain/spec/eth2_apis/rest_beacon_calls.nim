@@ -332,7 +332,8 @@ proc getPoolAttesterSlashings*(): RestResponse[GetPoolAttesterSlashingsResponse]
      meth: MethodGet.}
   ## https://ethereum.github.io/beacon-APIs/#/Beacon/getPoolAttesterSlashings
 
-proc submitPoolAttesterSlashings*(body: AttesterSlashing): RestPlainResponse {.
+proc submitPoolAttesterSlashings*(body: phase0.AttesterSlashing):
+     RestPlainResponse {.
      rest, endpoint: "/eth/v1/beacon/pool/attester_slashings",
      meth: MethodPost.}
   ## https://ethereum.github.io/beacon-APIs/#/Beacon/submitPoolAttesterSlashings

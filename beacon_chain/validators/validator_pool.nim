@@ -750,7 +750,7 @@ proc getAggregateAndProofSignature*(v: AttachedValidator,
       fork, genesis_validators_root, aggregate_and_proof)
     await v.signData(request)
 
-# https://github.com/ethereum/consensus-specs/blob/v1.4.0/specs/altair/validator.md#prepare-sync-committee-message
+# https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.2/specs/altair/validator.md#prepare-sync-committee-message
 proc getSyncCommitteeMessage*(v: AttachedValidator,
                               fork: Fork,
                               genesis_validators_root: Eth2Digest,
@@ -781,7 +781,7 @@ proc getSyncCommitteeMessage*(v: AttachedValidator,
     )
   )
 
-# https://github.com/ethereum/consensus-specs/blob/v1.4.0/specs/altair/validator.md#aggregation-selection
+# https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.2/specs/altair/validator.md#aggregation-selection
 proc getSyncCommitteeSelectionProof*(v: AttachedValidator, fork: Fork,
                                      genesis_validators_root: Eth2Digest,
                                      slot: Slot,
@@ -801,7 +801,7 @@ proc getSyncCommitteeSelectionProof*(v: AttachedValidator, fork: Fork,
     )
     await v.signData(request)
 
-# https://github.com/ethereum/consensus-specs/blob/v1.4.0/specs/altair/validator.md#broadcast-sync-committee-contribution
+# https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.2/specs/altair/validator.md#broadcast-sync-committee-contribution
 proc getContributionAndProofSignature*(v: AttachedValidator, fork: Fork,
                                        genesis_validators_root: Eth2Digest,
                                        contribution_and_proof: ContributionAndProof

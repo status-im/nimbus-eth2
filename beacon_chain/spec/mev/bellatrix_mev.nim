@@ -8,7 +8,7 @@
 {.push raises: [].}
 
 import ".."/datatypes/altair
-from ".."/datatypes/phase0 import Attestation
+from ".."/datatypes/phase0 import Attestation, AttesterSlashing
 from ".."/datatypes/bellatrix import ExecutionPayloadHeader
 from ".."/eth2_merkleization import hash_tree_root
 

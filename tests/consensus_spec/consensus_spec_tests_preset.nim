@@ -17,6 +17,7 @@ import
   ./bellatrix/all_bellatrix_fixtures,
   ./capella/all_capella_fixtures,
   ./deneb/all_deneb_fixtures,
+  ./electra/all_electra_fixtures,
   ./test_fixture_fork,
   ./test_fixture_fork_choice,
   ./test_fixture_light_client_single_merkle_proof,

@@ -1708,6 +1708,13 @@ proc getAggregatedAttestation*(
           handle400()
           ApiResponse[GetAggregatedAttestationResponse].err(
             ResponseInvalidError)
+        of 404:
+          # A 404 error must be returned if no attestation is available for the
+          # requested `attestation_data_root`. To address the issue #6184, we
+          # use empty GetAggregatedAttestationResponse.
+          ApiResponse[GetAggregatedAttestationResponse].ok(
+            GetAggregatedAttestationResponse(
+              data: LowestScoreAggregatedAttestation))
         of 500:
           handle500()
           ApiResponse[GetAggregatedAttestationResponse].err(

@@ -296,6 +296,12 @@ proc produceAndPublishAggregates(service: AttestationServiceRef,
               err_name = exc.name, err_msg = exc.msg
         return
 
+    if isLowestScoreAggregatedAttestation(aggAttestation):
+      warn "Aggregated attestation with the root was not seen by the " &
+           "beacon node",
+           attestation_root = shortLog(attestationRoot)
+      return
+
     let pendingAggregates =
       block:
         var res: seq[Future[bool]]

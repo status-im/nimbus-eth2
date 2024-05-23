@@ -10,7 +10,7 @@
 import ".."/datatypes/[altair, electra]
 
 from stew/byteutils import to0xHex
-from ".."/datatypes/phase0 import Attestation
+from ".."/datatypes/phase0 import AttesterSlashing
 from ../datatypes/bellatrix import ExecutionAddress
 from ".."/datatypes/capella import SignedBLSToExecutionChange
 from ".."/datatypes/deneb import BlobsBundle, KzgCommitments
@@ -34,8 +34,8 @@ type
     graffiti*: GraffitiBytes
     proposer_slashings*: List[ProposerSlashing, Limit MAX_PROPOSER_SLASHINGS]
     attester_slashings*:
-      List[AttesterSlashing, Limit MAX_ATTESTER_SLASHINGS_ELECTRA]
-    attestations*: List[phase0.Attestation, Limit MAX_ATTESTATIONS_ELECTRA]
+      List[electra.AttesterSlashing, Limit MAX_ATTESTER_SLASHINGS_ELECTRA]
+    attestations*: List[electra.Attestation, Limit MAX_ATTESTATIONS_ELECTRA]
     deposits*: List[Deposit, Limit MAX_DEPOSITS]
     voluntary_exits*: List[SignedVoluntaryExit, Limit MAX_VOLUNTARY_EXITS]
     sync_aggregate*: SyncAggregate
