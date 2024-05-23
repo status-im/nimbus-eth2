@@ -1,7 +1,7 @@
 2024-05-23 v24.5.1
 ==================
 
-Nimbus `v24.5.0` is a `low-urgency` release with stability, performance, and beacon and builder API improvements.
+Nimbus `v24.5.1` is a `low-urgency` release with stability, performance, and beacon and builder API improvements.
 
 ### Improvements
 
