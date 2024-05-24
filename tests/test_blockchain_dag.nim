@@ -1336,8 +1336,7 @@ suite "State history":
     res = process_slots(cfg, dag.headState, 5.Slot, cache, info, flags = {})
     check res.isOk
     for i in 0.Slot .. 5.Slot:
-      check state.getBlockIdAtSlot(i) ==
-        Opt.some BlockSlotId.init(gen, i.Slot)
+      check state.getBlockIdAtSlot(i) == Opt.some BlockSlotId.init(gen, i)
     check state.getBlockIdAtSlot(6.Slot).isNone
 
     # Fill 5 slots

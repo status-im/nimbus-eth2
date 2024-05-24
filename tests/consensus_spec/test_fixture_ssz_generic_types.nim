@@ -80,6 +80,132 @@ type
     D: BitList[6]
     E: BitArray[8]
 
+  # https://github.com/wemeetagain/consensus-specs/blob/eip-7495/tests/generators/ssz_generic/ssz_stablecontainer.py
+  SingleFieldTestStableStruct {.sszStableContainer: 4.} = object
+    A: Opt[byte]
+
+  SmallTestStableStruct {.sszStableContainer: 4.} = object
+    A: Opt[uint16]
+    B: Opt[uint16]
+
+  FixedTestStableStruct {.sszStableContainer: 4.} = object
+    A: Opt[uint8]
+    B: Opt[uint64]
+    C: Opt[uint32]
+
+  VarTestStableStruct {.sszStableContainer: 4.} = object
+    A: Opt[uint16]
+    B: Opt[List[uint16, 1024]]
+    C: Opt[uint8]
+
+  ComplexTestStableStruct {.sszStableContainer: 8.} = object
+    A: Opt[uint16]
+    B: Opt[List[uint16, 128]]
+    C: Opt[uint8]
+    D: Opt[List[byte, 256]]
+    E: Opt[VarTestStableStruct]
+    F: Opt[array[4, FixedTestStableStruct]]
+    G: Opt[array[2, VarTestStableStruct]]
+
+  BitsStableStruct {.sszStableContainer: 8.} = object
+    A: Opt[BitList[5]]
+    B: Opt[BitArray[2]]
+    C: Opt[BitArray[1]]
+    D: Opt[BitList[6]]
+    E: Opt[BitArray[8]]
+
+  # https://github.com/wemeetagain/consensus-specs/blob/eip-7495/tests/generators/ssz_generic/ssz_profile.py
+  SingleFieldTestProfile {.sszProfile: SingleFieldTestStableStruct.} = object
+    A: byte
+
+  SmallTestProfile1 {.sszProfile: SmallTestStableStruct.} = object
+    A: uint16
+    B: uint16
+
+  SmallTestProfile2 {.sszProfile: SmallTestStableStruct.} = object
+    A: uint16
+
+  SmallTestProfile3 {.sszProfile: SmallTestStableStruct.} = object
+    B: uint16
+
+  FixedTestProfile1 {.sszProfile: FixedTestStableStruct.} = object
+    A: uint8
+    B: uint64
+    C: uint32
+
+  FixedTestProfile2 {.sszProfile: FixedTestStableStruct.} = object
+    A: uint8
+    B: uint64
+
+  FixedTestProfile3 {.sszProfile: FixedTestStableStruct.} = object
+    A: uint8
+    C: uint32
+
+  FixedTestProfile4 {.sszProfile: FixedTestStableStruct.} = object
+    C: uint32
+
+  VarTestProfile1 {.sszProfile: VarTestStableStruct.} = object
+    A: uint16
+    B: List[uint16, 1024]
+    C: uint8
+
+  VarTestProfile2 {.sszProfile: VarTestStableStruct.} = object
+    B: List[uint16, 1024]
+    C: uint8
+
+  VarTestProfile3 {.sszProfile: VarTestStableStruct.} = object
+    B: List[uint16, 1024]
+
+  ComplexTestProfile1 {.sszProfile: ComplexTestStableStruct.} = object
+    A: uint16
+    B: List[uint16, 128]
+    C: uint8
+    D: List[byte, 256]
+    E: VarTestStableStruct
+    F: array[4, FixedTestStableStruct]
+    G: array[2, VarTestStableStruct]
+
+  ComplexTestProfile2 {.sszProfile: ComplexTestStableStruct.} = object
+    A: uint16
+    B: List[uint16, 128]
+    C: uint8
+    D: List[byte, 256]
+    E: VarTestStableStruct
+
+  ComplexTestProfile3 {.sszProfile: ComplexTestStableStruct.} = object
+    A: uint16
+    C: uint8
+    E: VarTestStableStruct
+    G: array[2, VarTestStableStruct]
+
+  ComplexTestProfile4 {.sszProfile: ComplexTestStableStruct.} = object
+    B: List[uint16, 128]
+    D: List[byte, 256]
+    F: array[4, FixedTestStableStruct]
+
+  ComplexTestProfile5 {.sszProfile: ComplexTestStableStruct.} = object
+    E: VarTestStableStruct
+    F: array[4, FixedTestStableStruct]
+    G: array[2, VarTestStableStruct]
+
+  BitsProfile1 {.sszProfile: BitsStableStruct.} = object
+    A: BitList[5]
+    B: BitArray[2]
+    C: BitArray[1]
+    D: BitList[6]
+    E: BitArray[8]
+
+  BitsProfile2 {.sszProfile: BitsStableStruct.} = object
+    A: BitList[5]
+    B: BitArray[2]
+    C: BitArray[1]
+    D: BitList[6]
+
+  BitsProfile3 {.sszProfile: BitsStableStruct.} = object
+    A: BitList[5]
+    D: BitList[6]
+    E: BitArray[8]
+
 # Type specific checks
 # ------------------------------------------------------------------------
 
@@ -285,6 +411,71 @@ proc sszCheck(
     of "BitsStruct": checkBasic(BitsStruct, dir, expectedHash)
     else:
       raise newException(ValueError, "unknown container in test: " & sszSubType)
+  of "profiles":
+    var name: string
+    let wasMatched = scanf(sszSubType, "$+_", name)
+    doAssert wasMatched
+    case name
+    of "BitsProfile1":
+      checkBasic(BitsProfile1, dir, expectedHash)
+    of "BitsProfile2":
+      checkBasic(BitsProfile2, dir, expectedHash)
+    of "BitsProfile3":
+      checkBasic(BitsProfile3, dir, expectedHash)
+    of "ComplexTestProfile1":
+      checkBasic(ComplexTestProfile1, dir, expectedHash)
+    of "ComplexTestProfile2":
+      checkBasic(ComplexTestProfile2, dir, expectedHash)
+    of "ComplexTestProfile3":
+      checkBasic(ComplexTestProfile3, dir, expectedHash)
+    of "ComplexTestProfile4":
+      checkBasic(ComplexTestProfile4, dir, expectedHash)
+    of "ComplexTestProfile5":
+      checkBasic(ComplexTestProfile5, dir, expectedHash)
+    of "FixedTestProfile1":
+      checkBasic(FixedTestProfile1, dir, expectedHash)
+    of "FixedTestProfile2":
+      checkBasic(FixedTestProfile2, dir, expectedHash)
+    of "FixedTestProfile3":
+      checkBasic(FixedTestProfile3, dir, expectedHash)
+    of "FixedTestProfile4":
+      checkBasic(FixedTestProfile4, dir, expectedHash)
+    of "SingleFieldTestProfile":
+      checkBasic(SingleFieldTestProfile, dir, expectedHash)
+    of "SmallTestProfile1":
+      checkBasic(SmallTestProfile1, dir, expectedHash)
+    of "SmallTestProfile2":
+      checkBasic(SmallTestProfile2, dir, expectedHash)
+    of "SmallTestProfile3":
+      checkBasic(SmallTestProfile3, dir, expectedHash)
+    of "VarTestProfile1":
+      checkBasic(VarTestProfile1, dir, expectedHash)
+    of "VarTestProfile2":
+      checkBasic(VarTestProfile2, dir, expectedHash)
+    of "VarTestProfile3":
+      checkBasic(VarTestProfile3, dir, expectedHash)
+    else:
+      raise newException(ValueError, "unknown profile in test: " & sszSubType)
+  of "stablecontainers":
+    var name: string
+    let wasMatched = scanf(sszSubType, "$+_", name)
+    doAssert wasMatched
+    case name
+    of "BitsStableStruct":
+      checkBasic(BitsStableStruct, dir, expectedHash)
+    of "ComplexTestStableStruct":
+      checkBasic(ComplexTestStableStruct, dir, expectedHash)
+    of "FixedTestStableStruct":
+      checkBasic(FixedTestStableStruct, dir, expectedHash)
+    of "SingleFieldTestStableStruct":
+      checkBasic(SingleFieldTestStableStruct, dir, expectedHash)
+    of "SmallTestStableStruct":
+      checkBasic(SmallTestStableStruct, dir, expectedHash)
+    of "VarTestStableStruct":
+      checkBasic(VarTestStableStruct, dir, expectedHash)
+    else:
+      raise newException(ValueError,
+        "unknown stablecontainer in test: " & sszSubType)
   else:
     raise newException(ValueError, "unknown ssz type in test: " & sszType)
 
@@ -306,26 +497,27 @@ suite "EF - SSZ generic types":
     of "containers":
       skipped = " - skipping BitsStruct"
 
-    test &"Testing {sszType:12} inputs - valid" & skipped:
+    test &"Testing {sszType:16} inputs - valid" & skipped:
       let path = SSZDir/sszType/"valid"
       for pathKind, sszSubType in walkDir(
           path, relative = true, checkDir = true):
         if pathKind != pcDir: continue
         sszCheck(path, sszType, sszSubType)
 
-    test &"Testing {sszType:12} inputs - invalid" & skipped:
-      let path = SSZDir/sszType/"invalid"
-      for pathKind, sszSubType in walkDir(
-          path, relative = true, checkDir = true):
-        if pathKind != pcDir: continue
-        try:
-          sszCheck(path, sszType, sszSubType)
-        except SszError, UnconsumedInput:
-          discard
-        except TestSizeError as err:
-          echo err.msg
-          skip()
-        except:
-          checkpoint getStackTrace(getCurrentException())
-          checkpoint getCurrentExceptionMsg()
-          check false
+    template invalidPath: untyped = SSZDir/sszType/"invalid"
+    if os_ops.dirExists(invalidPath):
+      test &"Testing {sszType:16} inputs - invalid" & skipped:
+        for pathKind, sszSubType in walkDir(
+            invalidPath, relative = true, checkDir = true):
+          if pathKind != pcDir: continue
+          try:
+            sszCheck(invalidPath, sszType, sszSubType)
+          except SszError, UnconsumedInput:
+            discard
+          except TestSizeError as err:
+            echo err.msg
+            skip()
+          except:
+            checkpoint getStackTrace(getCurrentException())
+            checkpoint getCurrentExceptionMsg()
+            check false
