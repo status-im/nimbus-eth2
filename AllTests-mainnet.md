@@ -431,20 +431,22 @@ OK: 2/2 Fail: 0/2 Skip: 0/2
 OK: 253/253 Fail: 0/253 Skip: 0/253
 ## EF - SSZ generic types
 ```diff
-  Testing basic_vector inputs - invalid                                                      Skip
-+ Testing basic_vector inputs - valid                                                        OK
-+ Testing bitlist      inputs - invalid                                                      OK
-+ Testing bitlist      inputs - valid                                                        OK
-  Testing bitvector    inputs - invalid                                                      Skip
-+ Testing bitvector    inputs - valid                                                        OK
-+ Testing boolean      inputs - invalid                                                      OK
-+ Testing boolean      inputs - valid                                                        OK
-+ Testing containers   inputs - invalid - skipping BitsStruct                                OK
-+ Testing containers   inputs - valid - skipping BitsStruct                                  OK
-+ Testing uints        inputs - invalid                                                      OK
-+ Testing uints        inputs - valid                                                        OK
+  Testing basic_vector     inputs - invalid                                                  Skip
++ Testing basic_vector     inputs - valid                                                    OK
++ Testing bitlist          inputs - invalid                                                  OK
++ Testing bitlist          inputs - valid                                                    OK
+  Testing bitvector        inputs - invalid                                                  Skip
++ Testing bitvector        inputs - valid                                                    OK
++ Testing boolean          inputs - invalid                                                  OK
++ Testing boolean          inputs - valid                                                    OK
++ Testing containers       inputs - invalid - skipping BitsStruct                            OK
++ Testing containers       inputs - valid - skipping BitsStruct                              OK
++ Testing profiles         inputs - valid                                                    OK
++ Testing stablecontainers inputs - valid                                                    OK
++ Testing uints            inputs - invalid                                                  OK
++ Testing uints            inputs - valid                                                    OK
 ```
-OK: 10/12 Fail: 0/12 Skip: 2/12
+OK: 12/14 Fail: 0/14 Skip: 2/14
 ## EIP-4881
 ```diff
 + deposit_cases                                                                              OK
@@ -1030,4 +1032,4 @@ OK: 2/2 Fail: 0/2 Skip: 0/2
 OK: 9/9 Fail: 0/9 Skip: 0/9
 
 ---TOTAL---
-OK: 686/691 Fail: 0/691 Skip: 5/691
+OK: 689/694 Fail: 0/694 Skip: 5/694

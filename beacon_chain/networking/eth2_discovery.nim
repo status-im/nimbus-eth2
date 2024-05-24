@@ -26,10 +26,10 @@ type
 
 func parseBootstrapAddress*(address: string):
     Result[enr.Record, cstring] =
-  let lowerCaseAddress = toLowerAscii(string address)
+  let lowerCaseAddress = toLowerAscii(address)
   if lowerCaseAddress.startsWith("enr:"):
     var enrRec: enr.Record
-    if enrRec.fromURI(string address):
+    if enrRec.fromURI(address):
       return ok enrRec
     return err "Invalid ENR bootstrap record"
   elif lowerCaseAddress.startsWith("enode:"):

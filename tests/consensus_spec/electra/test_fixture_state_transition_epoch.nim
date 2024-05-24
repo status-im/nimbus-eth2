@@ -12,7 +12,7 @@ import
   # Status internals
   chronicles,
   # Beacon chain internals
-  ../../../beacon_chain/spec/[beaconstate, presets, state_transition_epoch],
+  ../../../beacon_chain/spec/[presets, state_transition_epoch],
   ../../../beacon_chain/spec/datatypes/[altair, electra],
   # Test utilities
   ../../testutil,
@@ -146,13 +146,11 @@ runSuite(ParticipationFlagDir, "Participation flag updates"):
 # ---------------------------------------------------------------
 runSuite(PendingBalanceDepositsDir, "Pending balance deposits"):
   process_pending_balance_deposits(cfg, state, cache)
-  Result[void, cstring].ok()
 
 # Pending consolidations
 # ---------------------------------------------------------------
 runSuite(PendingConsolidationsDir, "Pending consolidations"):
   process_pending_consolidations(cfg, state)
-  Result[void, cstring].ok()
 
 # Sync committee updates
 # ---------------------------------------------------------------

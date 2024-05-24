@@ -408,8 +408,7 @@ type
     RestNimbusTimestamp2 |
     GetGraffitiResponse
 
-  DecodeConsensysTypes* =
-    ProduceBlockResponseV2 | ProduceBlindedBlockResponse
+  DecodeConsensysTypes* = ProduceBlindedBlockResponse
 
   RestVersioned*[T] = object
     data*: T
@@ -1443,8 +1442,7 @@ template prepareForkedBlockReading(blockType: typedesc,
       if version.isNone():
         reader.raiseUnexpectedValue("Incorrect version field value")
     of "data":
-      when (blockType is ProduceBlockResponseV2) or
-           (blockType is ForkedBlindedBeaconBlock) or
+      when (blockType is ForkedBlindedBeaconBlock) or
            (blockType is ProduceBlockResponseV3):
         if data.isSome():
           reader.raiseUnexpectedField(
@@ -1491,92 +1489,6 @@ template prepareForkedBlockReading(blockType: typedesc,
     reader.raiseUnexpectedValue("Field `version` is missing")
   if data.isNone():
     reader.raiseUnexpectedValue("Field `data` is missing")
-
-proc readValue*[BlockType: ProduceBlockResponseV2](
-    reader: var JsonReader[RestJson],
-    value: var BlockType) {.raises: [IOError, SerializationError].} =
-  var
-    version: Opt[ConsensusFork]
-    data: Opt[JsonString]
-    blinded: Opt[bool]
-    payloadValue: Opt[Uint256]
-    blockValue: Opt[Uint256]
-
-  prepareForkedBlockReading(BlockType, reader, version, data, blinded,
-                            payloadValue, blockValue)
-
-  case version.get():
-  of ConsensusFork.Phase0:
-    let res =
-      try:
-        RestJson.decode(string(data.get()),
-                        phase0.BeaconBlock,
-                        requireAllFields = true,
-                        allowUnknownFields = true)
-      except SerializationError:
-        reader.raiseUnexpectedValue("Incorrect phase0 block format")
-    value = ProduceBlockResponseV2(kind: ConsensusFork.Phase0,
-                                   phase0Data: res)
-  of ConsensusFork.Altair:
-    let res =
-      try:
-        RestJson.decode(string(data.get()),
-                        altair.BeaconBlock,
-                        requireAllFields = true,
-                        allowUnknownFields = true)
-      except SerializationError:
-        reader.raiseUnexpectedValue("Incorrect altair block format")
-
-    value = ProduceBlockResponseV2(kind: ConsensusFork.Altair,
-                                   altairData: res)
-  of ConsensusFork.Bellatrix:
-    let res =
-      try:
-        RestJson.decode(string(data.get()),
-                        bellatrix.BeaconBlock,
-                        requireAllFields = true,
-                        allowUnknownFields = true)
-      except SerializationError:
-        reader.raiseUnexpectedValue("Incorrect bellatrix block format")
-
-    value = ProduceBlockResponseV2(kind: ConsensusFork.Bellatrix,
-                                   bellatrixData: res)
-  of ConsensusFork.Capella:
-    let res =
-      try:
-        RestJson.decode(string(data.get()),
-                        capella.BeaconBlock,
-                        requireAllFields = true,
-                        allowUnknownFields = true)
-      except SerializationError:
-        reader.raiseUnexpectedValue("Incorrect capella block format")
-
-    value = ProduceBlockResponseV2(kind: ConsensusFork.Capella,
-                                   capellaData: res)
-  of ConsensusFork.Deneb:
-    let res =
-      try:
-        RestJson.decode(string(data.get()),
-                        deneb.BlockContents,
-                        requireAllFields = true,
-                        allowUnknownFields = true)
-      except SerializationError:
-        reader.raiseUnexpectedValue("Incorrect deneb block format")
-
-    value = ProduceBlockResponseV2(kind: ConsensusFork.Deneb,
-                                   denebData: res)
-  of ConsensusFork.Electra:
-    let res =
-      try:
-        RestJson.decode(string(data.get()),
-                        electra.BlockContents,
-                        requireAllFields = true,
-                        allowUnknownFields = true)
-      except SerializationError:
-        reader.raiseUnexpectedValue("Incorrect electra block format")
-
-    value = ProduceBlockResponseV2(kind: ConsensusFork.Electra,
-                                   electraData: res)
 
 proc readValue*[BlockType: ForkedBlindedBeaconBlock](
        reader: var JsonReader[RestJson],
@@ -3777,35 +3689,7 @@ proc decodeBytes*[T: DecodeConsensysTypes](
             data = string.fromBytes(value)
       return err("Serialization error")
   elif mediaType == OctetStreamMediaType:
-    when t is ProduceBlockResponseV2:
-      let fork = ConsensusFork.decodeString(consensusVersion).valueOr:
-        return err("Invalid or Unsupported consensus version")
-      case fork
-      of ConsensusFork.Electra:
-        let blckContents = ? readSszResBytes(electra.BlockContents, value)
-        ok(ProduceBlockResponseV2(kind: ConsensusFork.Electra,
-                                  electraData: blckContents))
-      of ConsensusFork.Deneb:
-        let blckContents = ? readSszResBytes(deneb.BlockContents, value)
-        ok(ProduceBlockResponseV2(kind: ConsensusFork.Deneb,
-                                  denebData: blckContents))
-      of ConsensusFork.Capella:
-        let blck = ? readSszResBytes(capella.BeaconBlock, value)
-        ok(ProduceBlockResponseV2(kind: ConsensusFork.Capella,
-                                  capellaData: blck))
-      of ConsensusFork.Bellatrix:
-        let blck = ? readSszResBytes(bellatrix.BeaconBlock, value)
-        ok(ProduceBlockResponseV2(kind: ConsensusFork.Bellatrix,
-                                  bellatrixData: blck))
-      of ConsensusFork.Altair:
-        let blck = ? readSszResBytes(altair.BeaconBlock, value)
-        ok(ProduceBlockResponseV2(kind: ConsensusFork.Altair,
-                                  altairData: blck))
-      of ConsensusFork.Phase0:
-        let blck = ? readSszResBytes(phase0.BeaconBlock, value)
-        ok(ProduceBlockResponseV2(kind: ConsensusFork.Phase0,
-                                  phase0Data: blck))
-    elif t is ProduceBlindedBlockResponse:
+    when t is ProduceBlindedBlockResponse:
       let fork = ConsensusFork.decodeString(consensusVersion).valueOr:
         return err("Invalid or Unsupported consensus version")
       case fork

@@ -369,7 +369,7 @@ suite "SyncManager test suite":
       aq = newAsyncQueue[BlockEntry]()
       chunkSize = 3'u64
       numberOfChunks = 3'u64
-      finishSlot = Slot(startSlot + numberOfChunks * chunkSize - 1'u64)
+      finishSlot = startSlot + numberOfChunks * chunkSize - 1'u64
       queueSize = 1
 
     var counter =
@@ -734,7 +734,7 @@ suite "SyncManager test suite":
       startSlot = Slot(0)
       chunkSize = SLOTS_PER_EPOCH
       numberOfChunks = 4'u64
-      finishSlot = Slot(startSlot + numberOfChunks * chunkSize - 1'u64)
+      finishSlot = startSlot + numberOfChunks * chunkSize - 1'u64
       queueSize = 1
 
     var counter = int(startSlot)
@@ -855,7 +855,7 @@ suite "SyncManager test suite":
       startSlot = Slot(0)
       chunkSize = SLOTS_PER_EPOCH
       numberOfChunks = 1'u64
-      finishSlot = Slot(startSlot + numberOfChunks * chunkSize - 1'u64)
+      finishSlot = startSlot + numberOfChunks * chunkSize - 1'u64
       queueSize = 1
 
     var counter = int(startSlot)
@@ -902,7 +902,7 @@ suite "SyncManager test suite":
       startSlot = Slot(0)
       chunkSize = SLOTS_PER_EPOCH
       numberOfChunks = 4'u64
-      finishSlot = Slot(startSlot + numberOfChunks * chunkSize - 1'u64)
+      finishSlot = startSlot + numberOfChunks * chunkSize - 1'u64
       queueSize = 1
 
     var

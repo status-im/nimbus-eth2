@@ -6,6 +6,7 @@
 # at your option. This file may not be copied, modified, or distributed except according to those terms.
 
 {.push raises: [].}
+{.used.}
 
 import unittest2, results, chronos, stint
 import ../beacon_chain/validators/beacon_validators,

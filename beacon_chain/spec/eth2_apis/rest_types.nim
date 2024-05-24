@@ -370,15 +370,6 @@ type
     of ConsensusFork.Deneb:     denebBody*:     deneb.BeaconBlockBody
     of ConsensusFork.Electra:   electraBody*:   electra.BeaconBlockBody
 
-  ProduceBlockResponseV2* = object
-    case kind*: ConsensusFork
-    of ConsensusFork.Phase0:    phase0Data*:    phase0.BeaconBlock
-    of ConsensusFork.Altair:    altairData*:    altair.BeaconBlock
-    of ConsensusFork.Bellatrix: bellatrixData*: bellatrix.BeaconBlock
-    of ConsensusFork.Capella:   capellaData*:   capella.BeaconBlock
-    of ConsensusFork.Deneb:     denebData*:     deneb.BlockContents
-    of ConsensusFork.Electra:   electraData*:   electra.BlockContents
-
   ProduceBlockResponseV3* = ForkedMaybeBlindedBeaconBlock
 
   VCRuntimeConfig* = Table[string, string]
@@ -1113,27 +1104,3 @@ func toValidatorIndex*(value: RestValidatorIndex): Result[ValidatorIndex,
       err(ValidatorIndexError.TooHighValue)
   else:
     doAssert(false, "ValidatorIndex type size is incorrect")
-
-template withBlck*(x: ProduceBlockResponseV2,
-                   body: untyped): untyped =
-  case x.kind
-  of ConsensusFork.Phase0:
-    const consensusFork {.inject, used.} = ConsensusFork.Phase0
-    template blck: untyped {.inject.} = x.phase0Data
-    body
-  of ConsensusFork.Altair:
-    const consensusFork {.inject, used.} = ConsensusFork.Altair
-    template blck: untyped {.inject.} = x.altairData
-    body
-  of ConsensusFork.Bellatrix:
-    const consensusFork {.inject, used.} = ConsensusFork.Bellatrix
-    template blck: untyped {.inject.} = x.bellatrixData
-    body
-  of ConsensusFork.Capella:
-    const consensusFork {.inject, used.} = ConsensusFork.Capella
-    template blck: untyped {.inject.} = x.capellaData
-    body
-  of ConsensusFork.Deneb:
-    const consensusFork {.inject, used.} = ConsensusFork.Deneb
-    template blck: untyped {.inject.} = x.denebData.blck
-    body

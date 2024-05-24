@@ -688,8 +688,8 @@ proc installValidatorApiHandlers*(router: var RestRouter, node: BeaconNode) =
           message = (await PayloadType.makeBeaconBlockForHeadAndSlot(
               node, qrandao, proposer, qgraffiti, qhead, qslot)).valueOr:
             return RestApiResponse.jsonError(Http500, error)
-          executionValue = Opt.some(UInt256(message.executionPayloadValue))
-          consensusValue = Opt.some(UInt256(message.consensusBlockValue))
+          executionValue = Opt.some(message.executionPayloadValue)
+          consensusValue = Opt.some(message.consensusBlockValue)
           headers = consensusFork.getMaybeBlindedHeaders(
             isBlinded = false, executionValue, consensusValue)
 
@@ -914,7 +914,7 @@ proc installValidatorApiHandlers*(router: var RestRouter, node: BeaconNode) =
           request.validator_index).pubkey
 
       node.validatorMonitor[].addAutoMonitor(
-        validator_pubkey, ValidatorIndex(request.validator_index))
+        validator_pubkey, request.validator_index)
 
     RestApiResponse.jsonMsgResponse(BeaconCommitteeSubscriptionSuccess)
 
@@ -955,7 +955,7 @@ proc installValidatorApiHandlers*(router: var RestRouter, node: BeaconNode) =
         validator_pubkey, item.until_epoch)
 
       node.validatorMonitor[].addAutoMonitor(
-        validator_pubkey, ValidatorIndex(item.validator_index))
+        validator_pubkey, item.validator_index)
 
     RestApiResponse.jsonMsgResponse(SyncCommitteeSubscriptionSuccess)
 
