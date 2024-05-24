@@ -53,7 +53,7 @@ proc addBootstrapNode*(bootstrapAddr: string,
     return
 
   # Ignore comments in
-  # https://github.com/eth-clients/eth2-networks/blob/063f826a03676c33c95a66306916f18b690d35eb/shared/mainnet/bootstrap_nodes.txt
+  # https://github.com/eth-clients/mainnet/blob/main/metadata/bootstrap_nodes.txt
   let enrRes = parseBootstrapAddress(bootstrapAddr.split(" # ")[0])
   if enrRes.isOk:
     bootstrapEnrs.add enrRes.value

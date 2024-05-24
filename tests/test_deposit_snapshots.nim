@@ -39,7 +39,7 @@ proc ifNecessaryMigrateDCS(db: BeaconChainDB,
       db.putDepositContractSnapshot upgradeProc(oldSnapshot.get)
 
 # Hexlified copy of
-# eth2-networks/shared/mainnet/genesis_deposit_contract_snapshot.ssz
+# mainnet/metadata/genesis_deposit_contract_snapshot.ssz
 let ds1: seq[byte] = hexToSeqByte(
   """
   eeea1373d4aa9e099d7c9deddb694db9aeb4577755ef83f9b6345ce4357d9abfca3bfce2c

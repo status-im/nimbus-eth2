@@ -593,7 +593,7 @@ define MAKE_DEPOSIT
 
 	build/deposit_contract sendDeposits \
 		$(2) \
-		--deposit-contract=$$(cat vendor/eth2-networks/shared/$(1)/deposit_contract.txt) \
+		--deposit-contract=$$(cat vendor/$(1)/metadata/deposit_contract.txt) \
 		--deposits-file=nbc-$(1)-deposits.json \
 		--min-delay=$(DEPOSITS_DELAY) \
 		--max-delay=$(DEPOSITS_DELAY) \

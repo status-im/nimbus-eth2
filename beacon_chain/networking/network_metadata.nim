@@ -117,8 +117,8 @@ proc loadEth2NetworkMetadata*(
     downloadGenesisFrom = none(DownloadInfo),
     useBakedInGenesis = none(string)
 ): Result[Eth2NetworkMetadata, string] {.raises: [IOError, PresetFileError].} =
-  # Load data in eth2-networks format
-  # https://github.com/eth-clients/eth2-networks
+  # Load data in mainnet format
+  # https://github.com/eth-clients/mainnet
 
   try:
     let
@@ -292,14 +292,14 @@ elif const_preset == "mainnet":
   else:
     const
       mainnetGenesis* = slurp(
-        vendorDir & "/eth2-networks/shared/mainnet/genesis.ssz")
+        vendorDir & "/mainnet/metadata/genesis.ssz")
 
       sepoliaGenesis* = slurp(
         vendorDir & "/sepolia/bepolia/genesis.ssz")
 
   const
     mainnetMetadata = loadCompileTimeNetworkMetadata(
-      vendorDir & "/eth2-networks/shared/mainnet",
+      vendorDir & "/mainnet/metadata",
       some mainnet,
       useBakedInGenesis = some "mainnet")
 
