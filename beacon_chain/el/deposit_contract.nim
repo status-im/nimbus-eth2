@@ -137,7 +137,7 @@ proc sendEth(web3: Web3, to: Eth1Address, valueEth: int): Future[TxHash] =
     # TODO: Force json-rpc to generate 'data' field
     # should not be needed anymore, new execution-api schema
     # is using `input` field
-    data: some(newSeq[byte]()), 
+    data: some(newSeq[byte]()),
     gas: Quantity(3000000).some,
     gasPrice: Quantity(1).some,
     value: some(valueEth.u256 * 1000000000000000000.u256),
@@ -273,7 +273,7 @@ proc main() {.async.} =
       error "Failed to read an Eth1 private key from standard input"
 
     if privateKey.len > 0:
-      conf.privateKey = privateKey.string
+      conf.privateKey = privateKey
 
   let web3 = await initWeb3(conf.web3Url, conf.privateKey)
 

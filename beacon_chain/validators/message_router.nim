@@ -191,7 +191,8 @@ proc routeSignedBeaconBlock*(
   ok(blockRef)
 
 proc routeAttestation*(
-    router: ref MessageRouter, attestation: phase0.Attestation,
+    router: ref MessageRouter,
+    attestation: phase0.Attestation | electra.Attestation,
     subnet_id: SubnetId, checkSignature: bool):
     Future[SendResult] {.async: (raises: [CancelledError]).} =
   ## Process and broadcast attestation - processing will register the it with
@@ -223,7 +224,7 @@ proc routeAttestation*(
   return ok()
 
 proc routeAttestation*(
-    router: ref MessageRouter, attestation: phase0.Attestation):
+    router: ref MessageRouter, attestation: phase0.Attestation | electra.Attestation):
     Future[SendResult] {.async: (raises: [CancelledError]).} =
   # Compute subnet, then route attestation
   let
@@ -240,7 +241,7 @@ proc routeAttestation*(
         attestation = shortLog(attestation)
       return
     committee_index =
-      shufflingRef.get_committee_index(attestation.data.index).valueOr:
+      shufflingRef.get_committee_index(attestation.committee_index()).valueOr:
         notice "Invalid committee index in attestation",
           attestation = shortLog(attestation)
         return err("Invalid committee index in attestation")
@@ -252,7 +253,7 @@ proc routeAttestation*(
     attestation, subnet_id, checkSignature = true)
 
 proc routeSignedAggregateAndProof*(
-    router: ref MessageRouter, proof: SignedAggregateAndProof,
+    router: ref MessageRouter, proof: phase0.SignedAggregateAndProof,
     checkSignature = true):
     Future[SendResult] {.async: (raises: [CancelledError]).} =
   ## Validate and broadcast aggregate

@@ -36,19 +36,11 @@ proc getSyncCommitteeDutiesPlain*(
      meth: MethodPost.}
   ## https://ethereum.github.io/beacon-APIs/#/Validator/getSyncCommitteeDuties
 
-proc produceBlockV2Plain*(
-       slot: Slot,
-       randao_reveal: ValidatorSig,
-       graffiti: GraffitiBytes
-     ): RestPlainResponse {.
-     rest, endpoint: "/eth/v2/validator/blocks/{slot}",
-     accept: preferSSZ, meth: MethodGet.}
-  ## https://ethereum.github.io/beacon-APIs/#/Validator/produceBlockV2
-
 proc produceBlockV3Plain*(
        slot: Slot,
        randao_reveal: ValidatorSig,
-       graffiti: GraffitiBytes
+       graffiti: GraffitiBytes,
+       builder_boost_factor: uint64
      ): RestPlainResponse {.
      rest, endpoint: "/eth/v3/validator/blocks/{slot}",
      accept: preferSSZ, meth: MethodGet.}
@@ -80,7 +72,7 @@ proc getAggregatedAttestationPlain*(
   ## https://ethereum.github.io/beacon-APIs/#/Validator/getAggregatedAttestation
 
 proc publishAggregateAndProofs*(
-       body: seq[SignedAggregateAndProof]
+       body: seq[phase0.SignedAggregateAndProof]
      ): RestPlainResponse {.
      rest, endpoint: "/eth/v1/validator/aggregate_and_proofs",
      meth: MethodPost.}

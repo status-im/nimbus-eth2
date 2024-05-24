@@ -35,7 +35,7 @@ jobs:
             cpu: amd64
           - os: windows
             cpu: amd64
-        branch: [~, upstream/version-1-6, v2.0.4]
+        branch: [~, upstream/version-1-6, upstream/version-2-0]
         exclude:
           - target:
               os: macos
@@ -49,7 +49,7 @@ jobs:
         include:
           - branch: upstream/version-1-6
             branch-short: version-1-6
-          - branch: v2.0.4
+          - branch: upstream/version-2-0
             branch-short: version-2-0
             nimflags-extra: --mm:refc
           - target:
@@ -244,7 +244,7 @@ jobs:
         if: ${{ !cancelled() }} && github.event_name == 'pull_request'
         run: |
           excluded_files="config.yaml"
-          excluded_extensions="ans|cfg|json|json\\.template|md|png|service|ssz|txt"
+          excluded_extensions="ans|cfg|json|json\\.template|md|png|service|ssz|txt|lock|nix"
 
           current_year=$(date +"%Y")
           problematic_files=()

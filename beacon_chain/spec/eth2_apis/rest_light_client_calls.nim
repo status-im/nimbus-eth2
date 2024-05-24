@@ -212,7 +212,7 @@ proc getLightClientBootstrap*(
       let consensusForkRes = ConsensusFork.decodeString(
         resp.headers.getString("eth-consensus-version"))
       if consensusForkRes.isErr:
-        raiseRestDecodingBytesError(cstring(consensusForkRes.error))
+        raiseRestDecodingBytesError(consensusForkRes.error)
       ForkedLightClientBootstrap.decodeHttpLightClientObject(
         data, resp.contentType, consensusForkRes.get, cfg)
     of 404:
@@ -294,7 +294,7 @@ proc getLightClientFinalityUpdate*(
       let consensusForkRes = ConsensusFork.decodeString(
         resp.headers.getString("eth-consensus-version"))
       if consensusForkRes.isErr:
-        raiseRestDecodingBytesError(cstring(consensusForkRes.error))
+        raiseRestDecodingBytesError(consensusForkRes.error)
       ForkedLightClientFinalityUpdate.decodeHttpLightClientObject(
         data, resp.contentType, consensusForkRes.get, cfg)
     of 404:
@@ -336,7 +336,7 @@ proc getLightClientOptimisticUpdate*(
       let consensusForkRes = ConsensusFork.decodeString(
         resp.headers.getString("eth-consensus-version"))
       if consensusForkRes.isErr:
-        raiseRestDecodingBytesError(cstring(consensusForkRes.error))
+        raiseRestDecodingBytesError(consensusForkRes.error)
       ForkedLightClientOptimisticUpdate.decodeHttpLightClientObject(
         data, resp.contentType, consensusForkRes.get, cfg)
     of 404:

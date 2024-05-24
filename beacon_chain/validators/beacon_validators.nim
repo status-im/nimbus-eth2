@@ -97,6 +97,22 @@ type
     engineBid: Opt[EngineBid]
     builderBid: Opt[BuilderBid[SBBB]]
 
+  BoostFactorKind {.pure.} = enum
+    Local, Builder
+
+  BoostFactor = object
+    case kind: BoostFactorKind
+    of BoostFactorKind.Local:
+      value8: uint8
+    of BoostFactorKind.Builder:
+      value64: uint64
+
+func init(t: typedesc[BoostFactor], value: uint8): BoostFactor =
+  BoostFactor(kind: BoostFactorKind.Local, value8: value)
+
+func init(t: typedesc[BoostFactor], value: uint64): BoostFactor =
+  BoostFactor(kind: BoostFactorKind.Builder, value64: value)
+
 proc getValidator*(validators: auto,
                    pubkey: ValidatorPubKey): Opt[ValidatorAndIndex] =
   let idx = validators.findIt(it.pubkey == pubkey)
@@ -337,19 +353,26 @@ proc createAndSendAttestation(node: BeaconNode,
               error_msg = res.error()
         return
       res.get()
-    attestation = registered.toAttestation(signature)
+    epoch = registered.data.slot.epoch
 
-  registered.validator.doppelgangerActivity(attestation.data.slot.epoch)
+  registered.validator.doppelgangerActivity(epoch)
 
   # Logged in the router
-  let res = await node.router.routeAttestation(
-    attestation, subnet_id, checkSignature = false)
+  let
+    consensusFork = node.dag.cfg.consensusForkAtEpoch(epoch)
+    res =
+      if consensusFork >= ConsensusFork.Electra:
+        await node.router.routeAttestation(
+          registered.toElectraAttestation(signature), subnet_id, checkSignature = false)
+      else:
+        await node.router.routeAttestation(
+          registered.toAttestation(signature), subnet_id, checkSignature = false)
   if not res.isOk():
     return
 
   if node.config.dumpEnabled:
     dump(
-      node.config.dumpDirOutgoing, attestation.data,
+      node.config.dumpDirOutgoing, registered.data,
       registered.validator.pubkey)
 
 proc getBlockProposalEth1Data*(node: BeaconNode,
@@ -497,11 +520,10 @@ proc makeBeaconBlockForHeadAndSlot*(
     warn "Eth1 deposits not available. Skipping block proposal", slot
     return err("Eth1 deposits not available")
 
-  debugRaiseAssert "b_v makeBeaconBlockForHeadAndSlot doesn't know how to get Electra attestations because attpool doesn't either"
   let
     attestations =
       when PayloadType.kind == ConsensusFork.Electra:
-        default(seq[electra.Attestation])
+        node.attestationPool[].getElectraAttestationsForBlock(state[], cache)
       else:
         node.attestationPool[].getAttestationsForBlock(state[], cache)
     exits = withState(state[]):
@@ -542,7 +564,7 @@ proc makeBeaconBlockForHeadAndSlot*(
     $error
 
   var blobsBundleOpt = Opt.none(BlobsBundle)
-  when payload is deneb.ExecutionPayloadForSigning:
+  when typeof(payload).kind >= ConsensusFork.Deneb:
     blobsBundleOpt = Opt.some(payload.blobsBundle)
 
   if res.isOk:
@@ -672,7 +694,7 @@ proc constructSignableBlindedBlock[T: electra_mev.SignedBlindedBeaconBlock](
     blindedBlock.message.body.blob_kzg_commitments,
     blindedBundle.blob_kzg_commitments)
 
-  debugRaiseAssert "check for any additional electra mev requirements"
+  debugComment "check for any additional electra mev requirements"
 
   blindedBlock
 
@@ -722,7 +744,7 @@ func constructPlainBlindedBlock[T: electra_mev.BlindedBeaconBlock](
     blindedBlock.body.blob_kzg_commitments,
     blindedBundle.blob_kzg_commitments)
 
-  debugRaiseAssert "check for any additional electra mev requirements"
+  debugComment "check for any additional electra mev requirements"
 
   blindedBlock
 
@@ -1101,8 +1123,8 @@ proc collectBids(
     engineBid: engineBid,
     builderBid: builderBid)
 
-func builderBetterBid(
-    localBlockValueBoost: uint8, builderValue: UInt256, engineValue: Wei): bool =
+func builderBetterBid(localBlockValueBoost: uint8,
+                      builderValue: UInt256, engineValue: Wei): bool =
   # Scale down to ensure no overflows; if lower few bits would have been
   # otherwise decisive, was close enough not to matter. Calibrate to let
   # uint8-range percentages avoid overflowing.
@@ -1115,13 +1137,47 @@ func builderBetterBid(
   scaledBuilderValue >
     scaledEngineValue * (localBlockValueBoost.uint16 + 100).u256
 
+func builderBetterBid*(builderBoostFactor: uint64,
+                       builderValue: UInt256, engineValue: Wei): bool =
+  if builderBoostFactor == 0'u64:
+    false
+  elif builderBoostFactor == 100'u64:
+    builderValue >= engineValue
+  elif builderBoostFactor == high(uint64):
+    true
+  else:
+    let
+      multiplier = builderBoostFactor.u256
+      multipledBuilderValue = builderValue * multiplier
+      overflow =
+        if builderValue == UInt256.zero:
+          false
+        else:
+          builderValue != multipledBuilderValue div multiplier
+
+    if overflow:
+      # In case of overflow we will use `builderValue`.
+      true
+    else:
+      (multipledBuilderValue div 100) >= engineValue
+
+func builderBetterBid(boostFactor: BoostFactor, builderValue: UInt256,
+                      engineValue: Wei): bool =
+  case boostFactor.kind
+  of BoostFactorKind.Local:
+    builderBetterBid(boostFactor.value8, builderValue, engineValue)
+  of BoostFactorKind.Builder:
+    builderBetterBid(boostFactor.value64, builderValue, engineValue)
+
 proc proposeBlockAux(
     SBBB: typedesc, EPS: typedesc, node: BeaconNode,
     validator: AttachedValidator, validator_index: ValidatorIndex,
     head: BlockRef, slot: Slot, randao: ValidatorSig, fork: Fork,
     genesis_validators_root: Eth2Digest,
-    localBlockValueBoost: uint8): Future[BlockRef] {.async: (raises: [CancelledError]).} =
+    localBlockValueBoost: uint8
+): Future[BlockRef] {.async: (raises: [CancelledError]).} =
   let
+    boostFactor = BoostFactor.init(localBlockValueBoost)
     graffitiBytes = node.getGraffitiBytes(validator)
     payloadBuilderClient =
       node.getPayloadBuilderClient(validator_index.distinctBase).valueOr(nil)
@@ -1133,7 +1189,7 @@ proc proposeBlockAux(
     useBuilderBlock =
       if collectedBids.builderBid.isSome():
         collectedBids.engineBid.isNone() or builderBetterBid(
-          localBlockValueBoost,
+          boostFactor,
           collectedBids.builderBid.value().executionPayloadValue,
           collectedBids.engineBid.value().executionPayloadValue)
       else:
@@ -1251,11 +1307,13 @@ proc proposeBlockAux(
 
     return newBlockRef.get()
 
-proc proposeBlock(node: BeaconNode,
-                  validator: AttachedValidator,
-                  validator_index: ValidatorIndex,
-                  head: BlockRef,
-                  slot: Slot): Future[BlockRef] {.async: (raises: [CancelledError]).} =
+proc proposeBlock(
+    node: BeaconNode,
+    validator: AttachedValidator,
+    validator_index: ValidatorIndex,
+    head: BlockRef,
+    slot: Slot
+): Future[BlockRef] {.async: (raises: [CancelledError]).} =
   if head.slot >= slot:
     # We should normally not have a head newer than the slot we're proposing for
     # but this can happen if block proposal is delayed
@@ -1344,6 +1402,7 @@ proc sendAttestations(node: BeaconNode, head: BlockRef, slot: Slot) =
         return
     committees_per_slot = get_committee_count_per_slot(epochRef.shufflingRef)
     fork = node.dag.forkAtEpoch(slot.epoch)
+    consensusFork = node.dag.cfg.consensusForkAtEpoch(slot.epoch)
     genesis_validators_root = node.dag.genesis_validators_root
     registeredRes = node.attachedValidators.slashingProtection.withContext:
       var tmp: seq[(RegisteredAttestation, SubnetId)]
@@ -1359,7 +1418,11 @@ proc sendAttestations(node: BeaconNode, head: BlockRef, slot: Slot) =
           let
             validator = node.getValidatorForDuties(validator_index, slot).valueOr:
               continue
-            data = makeAttestationData(epochRef, attestationHead, committee_index)
+            data =
+              if consensusFork >= ConsensusFork.Electra:
+                makeAttestationData(epochRef, attestationHead, CommitteeIndex(0))
+              else:
+                makeAttestationData(epochRef, attestationHead, committee_index)
             # TODO signing_root is recomputed in produceAndSignAttestation/signAttestation just after
             signingRoot = compute_attestation_signing_root(
               fork, genesis_validators_root, data)
@@ -1376,7 +1439,7 @@ proc sendAttestations(node: BeaconNode, head: BlockRef, slot: Slot) =
             continue
 
           tmp.add((RegisteredAttestation(
-            validator: validator,
+            validator: validator, committee_index: committee_index,
             index_in_committee: uint64 index_in_committee,
             committee_len: committee.len(), data: data), subnet_id
           ))
@@ -1537,8 +1600,8 @@ proc signAndSendAggregate(
   # https://github.com/ethereum/consensus-specs/blob/v1.4.0/specs/phase0/validator.md#construct-aggregate
   # https://github.com/ethereum/consensus-specs/blob/v1.4.0/specs/phase0/validator.md#aggregateandproof
   var
-    msg = SignedAggregateAndProof(
-      message: AggregateAndProof(
+    msg = phase0.SignedAggregateAndProof(
+      message: phase0.AggregateAndProof(
         aggregator_index: uint64 validator_index,
         selection_proof: selectionProof))
 
@@ -1897,7 +1960,7 @@ proc handleValidatorDuties*(node: BeaconNode, lastSlot, slot: Slot) {.async: (ra
   updateValidatorMetrics(node) # the important stuff is done, update the vanity numbers
 
   # https://github.com/ethereum/consensus-specs/blob/v1.4.0/specs/phase0/validator.md#broadcast-aggregate
-  # https://github.com/ethereum/consensus-specs/blob/v1.4.0/specs/altair/validator.md#broadcast-sync-committee-contribution
+  # https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.2/specs/altair/validator.md#broadcast-sync-committee-contribution
   # Wait 2 / 3 of the slot time to allow messages to propagate, then collect
   # the result in aggregates
   static:
@@ -1961,7 +2024,8 @@ proc registerDuties*(node: BeaconNode, wallSlot: Slot) {.async: (raises: [Cancel
 proc makeMaybeBlindedBeaconBlockForHeadAndSlotImpl[ResultType](
     node: BeaconNode, consensusFork: static ConsensusFork,
     randao_reveal: ValidatorSig, graffiti: GraffitiBytes,
-    head: BlockRef, slot: Slot): Future[ResultType] {.async: (raises: [CancelledError]).} =
+    head: BlockRef, slot: Slot,
+    builderBoostFactor: uint64): Future[ResultType] {.async: (raises: [CancelledError]).} =
   let
     proposer = node.dag.getProposer(head, slot).valueOr:
       return ResultType.err(
@@ -1970,7 +2034,6 @@ proc makeMaybeBlindedBeaconBlockForHeadAndSlotImpl[ResultType](
 
     payloadBuilderClient =
       node.getPayloadBuilderClient(proposer.distinctBase).valueOr(nil)
-    localBlockValueBoost = node.config.localBlockValueBoost
 
     collectedBids =
       await collectBids(consensusFork.SignedBlindedBeaconBlock,
@@ -1982,7 +2045,7 @@ proc makeMaybeBlindedBeaconBlockForHeadAndSlotImpl[ResultType](
     useBuilderBlock =
       if collectedBids.builderBid.isSome():
         collectedBids.engineBid.isNone() or builderBetterBid(
-          localBlockValueBoost,
+          BoostFactor.init(builderBoostFactor),
           collectedBids.builderBid.value().executionPayloadValue,
           collectedBids.engineBid.value().executionPayloadValue)
       else:
@@ -2028,11 +2091,12 @@ proc makeMaybeBlindedBeaconBlockForHeadAndSlotImpl[ResultType](
 proc makeMaybeBlindedBeaconBlockForHeadAndSlot*(
     node: BeaconNode, consensusFork: static ConsensusFork,
     randao_reveal: ValidatorSig, graffiti: GraffitiBytes,
-    head: BlockRef, slot: Slot): auto =
+    head: BlockRef, slot: Slot, builderBoostFactor: uint64): auto =
   type ResultType = Result[tuple[
     blck: consensusFork.MaybeBlindedBeaconBlock,
     executionValue: Opt[UInt256],
     consensusValue: Opt[UInt256]], string]
 
   makeMaybeBlindedBeaconBlockForHeadAndSlotImpl[ResultType](
-    node, consensusFork, randao_reveal, graffiti, head, slot)
+    node, consensusFork, randao_reveal, graffiti, head, slot,
+    builderBoostFactor)

@@ -164,7 +164,7 @@ func block_signature_set*(
 # See also: verify_aggregate_and_proof_signature
 func aggregate_and_proof_signature_set*(
     fork: Fork, genesis_validators_root: Eth2Digest,
-    aggregate_and_proof: AggregateAndProof,
+    aggregate_and_proof: phase0.AggregateAndProof,
     pubkey: CookedPubKey, signature: CookedSig): SignatureSet =
   let signing_root = compute_aggregate_and_proof_signing_root(
     fork, genesis_validators_root, aggregate_and_proof)
@@ -464,7 +464,7 @@ proc collectSignatureSets*(
 
   block:
     # 9. Consolidations
-    debugRaiseAssert "check consolidations signatures"
+    debugComment "check consolidations signatures"
 
   ok()
 

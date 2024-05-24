@@ -5,6 +5,11 @@ AllTests-mainnet
 + ancestorSlot                                                                               OK
 ```
 OK: 1/1 Fail: 0/1 Skip: 0/1
+## Attestation pool electra processing [Preset: mainnet]
+```diff
++ Can add and retrieve simple electra attestations [Preset: mainnet]                         OK
+```
+OK: 1/1 Fail: 0/1 Skip: 0/1
 ## Attestation pool processing [Preset: mainnet]
 ```diff
 + Attestation from different branch [Preset: mainnet]                                        OK
@@ -75,6 +80,11 @@ OK: 7/7 Fail: 0/7 Skip: 0/7
 + basics                                                                                     OK
 ```
 OK: 2/2 Fail: 0/2 Skip: 0/2
+## Beacon validators test suite
+```diff
++ builderBetterBid(builderBoostFactor) test                                                  OK
+```
+OK: 1/1 Fail: 0/1 Skip: 0/1
 ## Blinded block conversions
 ```diff
 + Bellatrix toSignedBlindedBlock                                                             OK
@@ -1020,4 +1030,4 @@ OK: 2/2 Fail: 0/2 Skip: 0/2
 OK: 9/9 Fail: 0/9 Skip: 0/9
 
 ---TOTAL---
-OK: 685/690 Fail: 0/690 Skip: 5/690
+OK: 687/692 Fail: 0/692 Skip: 5/692

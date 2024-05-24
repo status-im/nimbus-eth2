@@ -1890,7 +1890,7 @@ proc produceSyncCommitteeContribution*(
 
 proc publishAggregateAndProofs*(
        vc: ValidatorClientRef,
-       data: seq[SignedAggregateAndProof],
+       data: seq[phase0.SignedAggregateAndProof],
        strategy: ApiStrategyKind
      ): Future[bool] {.async.} =
   const
@@ -2022,102 +2022,12 @@ proc publishContributionAndProofs*(
     raise (ref ValidatorApiError)(
       msg: "Failed to publish sync committee contribution", data: failures)
 
-proc produceBlockV2*(
-       vc: ValidatorClientRef,
-       slot: Slot,
-       randao_reveal: ValidatorSig,
-       graffiti: GraffitiBytes,
-       strategy: ApiStrategyKind
-     ): Future[ProduceBlockResponseV2] {.async.} =
-  const
-    RequestName = "produceBlockV2"
-
-  var failures: seq[ApiNodeFailure]
-
-  case strategy
-  of ApiStrategyKind.First, ApiStrategyKind.Best:
-    let res = vc.firstSuccessParallel(
-      RestPlainResponse,
-      ProduceBlockResponseV2,
-      SlotDuration,
-      ViableNodeStatus,
-      {BeaconNodeRole.BlockProposalData},
-      produceBlockV2Plain(it, slot, randao_reveal, graffiti)):
-      if apiResponse.isErr():
-        handleCommunicationError()
-        ApiResponse[ProduceBlockResponseV2].err(apiResponse.error)
-      else:
-        let response = apiResponse.get()
-        case response.status:
-        of 200:
-          let
-            version = response.headers.getString("eth-consensus-version")
-            res = decodeBytes(ProduceBlockResponseV2, response.data,
-                              response.contentType, version)
-          if res.isErr():
-            handleUnexpectedData()
-            ApiResponse[ProduceBlockResponseV2].err($res.error)
-          else:
-            ApiResponse[ProduceBlockResponseV2].ok(res.get())
-        of 400:
-          handle400()
-          ApiResponse[ProduceBlockResponseV2].err(ResponseInvalidError)
-        of 500:
-          handle500()
-          ApiResponse[ProduceBlockResponseV2].err(ResponseInternalError)
-        of 503:
-          handle503()
-          ApiResponse[ProduceBlockResponseV2].err(ResponseNoSyncError)
-        else:
-          handleUnexpectedCode()
-          ApiResponse[ProduceBlockResponseV2].err(ResponseUnexpectedError)
-
-    if res.isErr():
-      raise (ref ValidatorApiError)(msg: res.error, data: failures)
-    return res.get()
-
-  of ApiStrategyKind.Priority:
-    vc.firstSuccessSequential(
-      RestPlainResponse,
-      SlotDuration,
-      ViableNodeStatus,
-      {BeaconNodeRole.BlockProposalData},
-      produceBlockV2Plain(it, slot, randao_reveal, graffiti)):
-      if apiResponse.isErr():
-        handleCommunicationError()
-        false
-      else:
-        let response = apiResponse.get()
-        case response.status:
-        of 200:
-          let
-            version = response.headers.getString("eth-consensus-version")
-            res = decodeBytes(ProduceBlockResponseV2, response.data,
-                              response.contentType, version)
-          if res.isOk(): return res.get()
-          handleUnexpectedData()
-          false
-        of 400:
-          handle400()
-          false
-        of 500:
-          handle500()
-          false
-        of 503:
-          handle503()
-          false
-        else:
-          handleUnexpectedCode()
-          false
-
-    raise (ref ValidatorApiError)(
-      msg: "Failed to produce block", data: failures)
-
 proc produceBlockV3*(
        vc: ValidatorClientRef,
        slot: Slot,
        randao_reveal: ValidatorSig,
        graffiti: GraffitiBytes,
+       builder_boost_factor: uint64,
        strategy: ApiStrategyKind
      ): Future[ProduceBlockResponseV3] {.async.} =
   const
@@ -2133,7 +2043,8 @@ proc produceBlockV3*(
       SlotDuration,
       ViableNodeStatus,
       {BeaconNodeRole.BlockProposalData},
-      produceBlockV3Plain(it, slot, randao_reveal, graffiti)):
+      produceBlockV3Plain(it, slot, randao_reveal, graffiti,
+                          builder_boost_factor)):
       if apiResponse.isErr():
         handleCommunicationError()
         ApiResponse[ProduceBlockResponseV3].err(apiResponse.error)
@@ -2159,24 +2070,15 @@ proc produceBlockV3*(
             ApiResponse[ProduceBlockResponseV3].ok(res.get())
         of 400:
           handle400()
-          node.features.incl(RestBeaconNodeFeature.NoProduceBlockV3)
-          ApiResponse[ProduceBlockResponseV3].err(ResponseInvalidError)
-        of 404:
-          # TODO (cheatfate): Remove this handler when produceBlockV2 support
-          # will be dropped.
-          handle400()
-          node.features.incl(RestBeaconNodeFeature.NoProduceBlockV3)
           ApiResponse[ProduceBlockResponseV3].err(ResponseInvalidError)
         of 500:
           handle500()
-          node.features.incl(RestBeaconNodeFeature.NoProduceBlockV3)
           ApiResponse[ProduceBlockResponseV3].err(ResponseInternalError)
         of 503:
           handle503()
           ApiResponse[ProduceBlockResponseV3].err(ResponseNoSyncError)
         else:
           handleUnexpectedCode()
-          node.features.incl(RestBeaconNodeFeature.NoProduceBlockV3)
           ApiResponse[ProduceBlockResponseV3].err(ResponseUnexpectedError)
 
     if res.isErr():
@@ -2189,7 +2091,8 @@ proc produceBlockV3*(
       SlotDuration,
       ViableNodeStatus,
       {BeaconNodeRole.BlockProposalData},
-      produceBlockV3Plain(it, slot, randao_reveal, graffiti)):
+      produceBlockV3Plain(it, slot, randao_reveal, graffiti,
+                          builder_boost_factor)):
       if apiResponse.isErr():
         handleCommunicationError()
         false
@@ -2213,24 +2116,15 @@ proc produceBlockV3*(
           false
         of 400:
           handle400()
-          node.features.incl(RestBeaconNodeFeature.NoProduceBlockV3)
-          false
-        of 404:
-          # TODO (cheatfate): Remove this handler when produceBlockV2 support
-          # will be dropped.
-          handle400()
-          node.features.incl(RestBeaconNodeFeature.NoProduceBlockV3)
           false
         of 500:
           handle500()
-          node.features.incl(RestBeaconNodeFeature.NoProduceBlockV3)
           false
         of 503:
           handle503()
           false
         else:
           handleUnexpectedCode()
-          node.features.incl(RestBeaconNodeFeature.NoProduceBlockV3)
           false
 
     raise (ref ValidatorApiError)(
