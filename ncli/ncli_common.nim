@@ -126,14 +126,13 @@ static:
       "15227487_86601706.echop"]: # Wrong extension
     doAssert not filename.matchFilenameAggregatedFiles
 
-proc getUnaggregatedFilesEpochRange*(
-    dir: string
-): tuple[firstEpoch, lastEpoch: Epoch] {.raises: [OSError, ValueError].} =
+proc getUnaggregatedFilesEpochRange*(dir: string):
+    tuple[firstEpoch, lastEpoch: Epoch] {.raises: [OSError, ValueError].} =
   var smallestEpochFileName =
     '9'.repeat(epochInfoFileNameDigitsCount) & epochFileNameExtension
   var largestEpochFileName =
     '0'.repeat(epochInfoFileNameDigitsCount) & epochFileNameExtension
-  for (_, fn) in walkDir(dir.string, relative = true):
+  for (_, fn) in walkDir(dir, relative = true):
     if fn.matchFilenameUnaggregatedFiles:
       if fn < smallestEpochFileName:
         smallestEpochFileName = fn
@@ -151,7 +150,7 @@ proc getUnaggregatedFilesLastEpoch*(
 proc getAggregatedFilesLastEpoch*(
     dir: string): Epoch {.raises: [OSError, ValueError].}=
   var largestEpochInFileName = 0'u
-  for (_, fn) in walkDir(dir.string, relative = true):
+  for (_, fn) in walkDir(dir, relative = true):
     if fn.matchFilenameAggregatedFiles:
       let fileLastEpoch = parseUInt(
         fn[epochInfoFileNameDigitsCount + 1 .. 2 * epochInfoFileNameDigitsCount])

@@ -553,8 +553,8 @@ proc sendDeposits(deposits: seq[LaunchPadDeposit],
 
   var web3 = await initWeb3(web3Url, privateKey)
   let gasPrice = int(await web3.provider.eth_gasPrice()) * 2
-  let depositContract = web3.contractSender(DepositContract,
-                                            Eth1Address depositContractAddress)
+  let depositContract = web3.contractSender(
+    DepositContract, depositContractAddress)
   for i in 4200 ..< deposits.len:
     let dp = deposits[i] as DepositData
 
@@ -656,7 +656,7 @@ when isMainModule:
         error "Failed to read an Eth1 private key from standard input"
 
       if privateKey.len > 0:
-        conf.privateKey = privateKey.string
+        conf.privateKey = privateKey
 
     case conf.cmd
     of StartUpCommand.createTestnet:

@@ -1360,19 +1360,19 @@ func readSszForkedHashedBeaconState*(cfg: RuntimeConfig, data: openArray[byte]):
     ForkedHashedBeaconState {.raises: [SerializationError].} =
   ## Read a state picking the right fork by first reading the slot from the byte
   ## source
-  if data.len() < sizeof(BeaconStateHeader):
-    raise (ref MalformedSszError)(msg: "Not enough data for BeaconState header")
+  const numHeaderBytes = fixedPortionSize(BeaconStateHeader)
+  if data.len() < numHeaderBytes:
+    raise (ref MalformedSszError)(msg: "Incomplete BeaconState header")
   let header = SSZ.decode(
-    data.toOpenArray(0, sizeof(BeaconStateHeader) - 1),
-    BeaconStateHeader)
+    data.toOpenArray(0, numHeaderBytes - 1), BeaconStateHeader)
 
   # TODO https://github.com/nim-lang/Nim/issues/19357
   result = readSszForkedHashedBeaconState(cfg, header.slot, data)
 
 type
   ForkedBeaconBlockHeader = object
-    message*: uint32 # message offset
-    signature*: ValidatorSig
+    message: uint32 # message offset
+    signature: ValidatorSig
     slot: Slot # start of BeaconBlock
 
 func readSszForkedSignedBeaconBlock*(
@@ -1380,11 +1380,11 @@ func readSszForkedSignedBeaconBlock*(
     ForkedSignedBeaconBlock {.raises: [SerializationError].} =
   ## Helper to read a header from bytes when it's not certain what kind of block
   ## it is
-  if data.len() < sizeof(ForkedBeaconBlockHeader):
-    raise (ref MalformedSszError)(msg: "Not enough data for SignedBeaconBlock header")
+  const numHeaderBytes = fixedPortionSize(ForkedBeaconBlockHeader)
+  if data.len() < numHeaderBytes:
+    raise (ref MalformedSszError)(msg: "Incomplete SignedBeaconBlock header")
   let header = SSZ.decode(
-    data.toOpenArray(0, sizeof(ForkedBeaconBlockHeader) - 1),
-    ForkedBeaconBlockHeader)
+    data.toOpenArray(0, numHeaderBytes - 1), ForkedBeaconBlockHeader)
 
   # TODO https://github.com/nim-lang/Nim/issues/19357
   result = ForkedSignedBeaconBlock(

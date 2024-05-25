@@ -326,8 +326,7 @@ cli do(slots = SLOTS_PER_EPOCH * 7,
             contribution: contribution,
             selection_proof: aggregator.selectionProof)
 
-          validatorPrivKey =
-            MockPrivKeys[aggregator.validatorIdx.ValidatorIndex]
+          validatorPrivKey = MockPrivKeys[aggregator.validatorIdx]
 
           signedContributionAndProof = SignedContributionAndProof(
             message: contributionAndProof,

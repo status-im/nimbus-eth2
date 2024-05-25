@@ -366,8 +366,6 @@ proc updateGossipStatus*(
     lightClient: LightClient, slot: Slot, dagIsBehind = default(Option[bool])) =
   template cfg(): auto = lightClient.cfg
 
-  debugComment "when LC on electra works, add cfg.ELECTRA_FORK_EPOCH"
-
   let
     epoch = slot.epoch
 
