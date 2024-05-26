@@ -35,15 +35,6 @@ const
   NEWPAYLOAD_TIMEOUT* = 8.seconds
 
 type
-  # https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.2/specs/bellatrix/beacon-chain.md#custom-types
-  Transaction* = List[byte, Limit MAX_BYTES_PER_TRANSACTION]
-
-  ExecutionAddress* = object
-    data*: array[20, byte]  # TODO there's a network_metadata type, but the import hierarchy's inconvenient
-
-  BloomLogs* = object
-    data*: array[BYTES_PER_LOGS_BLOOM, byte]
-
   # https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.2/specs/bellatrix/beacon-chain.md#executionpayload
   ExecutionPayload* = object
     # Execution block header fields
@@ -360,29 +351,6 @@ type
 # TODO: There should be only a single generic HashedBeaconState definition
 func initHashedBeaconState*(s: BeaconState): HashedBeaconState =
   HashedBeaconState(data: s)
-
-func fromHex*(T: typedesc[BloomLogs], s: string): T {.
-     raises: [ValueError].} =
-  hexToByteArray(s, result.data)
-
-func fromHex*(T: typedesc[ExecutionAddress], s: string): T {.
-     raises: [ValueError].} =
-  hexToByteArray(s, result.data)
-
-proc writeValue*(
-    writer: var JsonWriter, value: ExecutionAddress) {.raises: [IOError].} =
-  writer.writeValue to0xHex(value.data)
-
-proc readValue*(reader: var JsonReader, value: var ExecutionAddress) {.
-     raises: [IOError, SerializationError].} =
-  try:
-    hexToByteArray(reader.readValue(string), value.data)
-  except ValueError:
-    raiseUnexpectedValue(reader,
-                         "ExecutionAddress value should be a valid hex string")
-
-func `$`*(v: ExecutionAddress): string =
-  v.data.toHex()
 
 func shortLog*(v: SomeBeaconBlock): auto =
   (
