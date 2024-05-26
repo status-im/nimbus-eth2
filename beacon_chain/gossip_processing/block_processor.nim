@@ -187,7 +187,7 @@ proc storeBackfillBlock(
       let blobs = blobsOpt.get()
       let kzgCommits = signedBlock.message.body.blob_kzg_commitments.asSeq
       if blobs.len > 0 or kzgCommits.len > 0:
-        let r = validate_blobs(kzgCommits, blobs.mapIt(it.blob),
+        let r = validate_blobs(kzgCommits, blobs.mapIt(KzgBlob(it.blob)),
                                blobs.mapIt(it.kzg_proof))
         if r.isErr():
           debug "backfill blob validation failed",
@@ -576,7 +576,7 @@ proc storeBlock(
       let blobs = blobsOpt.get()
       let kzgCommits = signedBlock.message.body.blob_kzg_commitments.asSeq
       if blobs.len > 0 or kzgCommits.len > 0:
-        let r = validate_blobs(kzgCommits, blobs.mapIt(it.blob),
+        let r = validate_blobs(kzgCommits, blobs.mapIt(KzgBlob(it.blob)),
                                blobs.mapIt(it.kzg_proof))
         if r.isErr():
           debug "blob validation failed",
