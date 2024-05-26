@@ -224,6 +224,11 @@ type
 
   CommitteeValidatorsBits* = BitList[Limit MAX_VALIDATORS_PER_COMMITTEE]
 
+  ElectraCommitteeValidatorsBits* =
+    BitList[Limit MAX_VALIDATORS_PER_COMMITTEE * MAX_COMMITTEES_PER_SLOT]
+
+  AttestationCommitteeBits* = BitArray[MAX_COMMITTEES_PER_SLOT.int]
+
   ForkDigest* = distinct array[4, byte]
 
   # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.6/specs/phase0/beacon-chain.md#forkdata
@@ -281,6 +286,7 @@ type
   SomeProposerSlashing* = ProposerSlashing | TrustedProposerSlashing
   SomeSignedBeaconBlockHeader* = SignedBeaconBlockHeader | TrustedSignedBeaconBlockHeader
   SomeSignedVoluntaryExit* = SignedVoluntaryExit | TrustedSignedVoluntaryExit
+  SomeSyncAggregate* = SyncAggregate | TrustedSyncAggregate
 
   # Legacy database type, see BeaconChainDB
   ImmutableValidatorData* = object
@@ -362,6 +368,52 @@ type
   TrustedSignedVoluntaryExit* = object
     message*: VoluntaryExit
     signature*: TrustedSig
+
+  # https://github.com/ethereum/consensus-specs/blob/v1.4.0/specs/altair/beacon-chain.md#syncaggregate
+  SyncAggregate* = object
+    sync_committee_bits*: BitArray[SYNC_COMMITTEE_SIZE]
+    sync_committee_signature*: ValidatorSig
+
+  TrustedSyncAggregate* = object
+    sync_committee_bits*: BitArray[SYNC_COMMITTEE_SIZE]
+    sync_committee_signature*: TrustedSig
+
+  # https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.2/specs/bellatrix/beacon-chain.md#custom-types
+  Transaction* = List[byte, Limit MAX_BYTES_PER_TRANSACTION]
+
+  ExecutionAddress* = object
+    data*: array[20, byte]  # TODO there's a network_metadata type, but the import hierarchy's inconvenient
+
+  BloomLogs* = object
+    data*: array[BYTES_PER_LOGS_BLOOM, byte]
+
+  # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.5/specs/capella/beacon-chain.md#withdrawal
+  Withdrawal* = object
+    index*: WithdrawalIndex
+    validator_index*: uint64
+    address*: ExecutionAddress
+    amount*: Gwei
+
+  # https://github.com/ethereum/consensus-specs/blob/94a0b6c581f2809aa8aca4ef7ee6fbb63f9d74e9/specs/electra/beacon-chain.md#depositreceipt
+  DepositReceipt* = object
+    pubkey*: ValidatorPubKey
+    withdrawal_credentials*: Eth2Digest
+    amount*: Gwei
+    signature*: ValidatorSig
+    index*: uint64
+
+  # https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.2/specs/electra/beacon-chain.md#executionlayerwithdrawalrequest
+  ExecutionLayerWithdrawalRequest* = object
+    source_address*: ExecutionAddress
+    validator_pubkey*: ValidatorPubKey
+    amount*: Gwei
+
+  # https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.2/specs/capella/beacon-chain.md#historicalsummary
+  HistoricalSummary* = object
+    # `HistoricalSummary` matches the components of the phase0
+    # `HistoricalBatch` making the two hash_tree_root-compatible.
+    block_summary_root*: Eth2Digest
+    state_summary_root*: Eth2Digest
 
   # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.6/specs/phase0/beacon-chain.md#beaconblockheader
   BeaconBlockHeader* = object
@@ -805,6 +857,51 @@ func shortLog*(v: SomeSignedVoluntaryExit): auto =
     message: shortLog(v.message),
     signature: shortLog(v.signature)
   )
+
+func shortLog*(v: SomeSyncAggregate): auto =
+  $(v.sync_committee_bits)
+
+func init*(T: type SyncAggregate): SyncAggregate =
+  SyncAggregate(sync_committee_signature: ValidatorSig.infinity)
+
+template asTrusted*(
+    x: SyncAggregate): TrustedSyncAggregate =
+  isomorphicCast[TrustedSyncAggregate](x)
+
+func num_active_participants*(v: SomeSyncAggregate): int =
+  countOnes(v.sync_committee_bits)
+
+func hasSupermajoritySyncParticipation*(
+    num_active_participants: uint64): bool =
+  const max_active_participants = SYNC_COMMITTEE_SIZE.uint64
+  num_active_participants * 3 >= static(max_active_participants * 2)
+
+func hasSupermajoritySyncParticipation*(v: SomeSyncAggregate): bool =
+  hasSupermajoritySyncParticipation(v.num_active_participants.uint64)
+
+func fromHex*(
+    T: typedesc[BloomLogs], s: string): T {.raises: [ValueError].} =
+  hexToByteArray(s, result.data)
+
+func fromHex*(
+    T: typedesc[ExecutionAddress], s: string): T {.raises: [ValueError].} =
+  hexToByteArray(s, result.data)
+
+proc writeValue*(
+    writer: var JsonWriter, value: ExecutionAddress) {.raises: [IOError].} =
+  writer.writeValue to0xHex(value.data)
+
+proc readValue*(
+    reader: var JsonReader,
+    value: var ExecutionAddress) {.raises: [IOError, SerializationError].} =
+  try:
+    hexToByteArray(reader.readValue(string), value.data)
+  except ValueError:
+    reader.raiseUnexpectedValue(
+      "ExecutionAddress value should be a valid hex string")
+
+func `$`*(v: ExecutionAddress): string =
+  v.data.toHex()
 
 chronicles.formatIt AttestationData: it.shortLog
 chronicles.formatIt Checkpoint: it.shortLog

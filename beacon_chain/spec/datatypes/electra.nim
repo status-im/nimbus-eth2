@@ -56,25 +56,6 @@ const
   MAX_BEACON_STATE_FIELDS* = 128
 
 type
-  ElectraCommitteeValidatorsBits* =
-    BitList[Limit MAX_VALIDATORS_PER_COMMITTEE * MAX_COMMITTEES_PER_SLOT]
-
-  AttestationCommitteeBits* = BitArray[MAX_COMMITTEES_PER_SLOT.int]
-
-  # https://github.com/ethereum/consensus-specs/blob/94a0b6c581f2809aa8aca4ef7ee6fbb63f9d74e9/specs/electra/beacon-chain.md#depositreceipt
-  DepositReceipt* = object
-    pubkey*: ValidatorPubKey
-    withdrawal_credentials*: Eth2Digest
-    amount*: Gwei
-    signature*: ValidatorSig
-    index*: uint64
-
-  # https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.2/specs/electra/beacon-chain.md#executionlayerwithdrawalrequest
-  ExecutionLayerWithdrawalRequest* = object
-    source_address*: ExecutionAddress
-    validator_pubkey*: ValidatorPubKey
-    amount*: Gwei
-
   # https://eips.ethereum.org/EIPS/eip-7688
   StableAttestation* {.
       sszStableContainer: MAX_ATTESTATION_FIELDS.} = object
