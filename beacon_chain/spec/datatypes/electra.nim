@@ -49,14 +49,6 @@ const
   NEXT_SYNC_COMMITTEE_GINDEX = 87.GeneralizedIndex  # next_sync_committee
 
 type
-  # https://github.com/ethereum/consensus-specs/blob/94a0b6c581f2809aa8aca4ef7ee6fbb63f9d74e9/specs/electra/beacon-chain.md#depositreceipt
-  DepositReceipt* = object
-    pubkey*: ValidatorPubKey
-    withdrawal_credentials*: Eth2Digest
-    amount*: Gwei
-    signature*: ValidatorSig
-    index*: uint64
-
   # https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.0/specs/electra/beacon-chain.md#indexedattestation
   IndexedAttestation* = object
     attesting_indices*:
@@ -160,12 +152,6 @@ type
     index*: uint64
     amount*: Gwei
     withdrawable_epoch*: Epoch
-
-  # https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.2/specs/electra/beacon-chain.md#executionlayerwithdrawalrequest
-  ExecutionLayerWithdrawalRequest* = object
-    source_address*: ExecutionAddress
-    validator_pubkey*: ValidatorPubKey
-    amount*: Gwei
 
   # https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.2/specs/electra/beacon-chain.md#consolidation
   Consolidation* = object
@@ -592,11 +578,6 @@ type
     signature*: TrustedSig
 
     root* {.dontSerialize.}: Eth2Digest # cached root of signed beacon block
-
-  ElectraCommitteeValidatorsBits* =
-    BitList[Limit MAX_VALIDATORS_PER_COMMITTEE * MAX_COMMITTEES_PER_SLOT]
-
-  AttestationCommitteeBits* = BitArray[MAX_COMMITTEES_PER_SLOT.int]
 
   # https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.0/specs/electra/beacon-chain.md#attestation
   Attestation* = object

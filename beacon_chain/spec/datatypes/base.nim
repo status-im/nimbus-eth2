@@ -224,6 +224,11 @@ type
 
   CommitteeValidatorsBits* = BitList[Limit MAX_VALIDATORS_PER_COMMITTEE]
 
+  ElectraCommitteeValidatorsBits* =
+    BitList[Limit MAX_VALIDATORS_PER_COMMITTEE * MAX_COMMITTEES_PER_SLOT]
+
+  AttestationCommitteeBits* = BitArray[MAX_COMMITTEES_PER_SLOT.int]
+
   ForkDigest* = distinct array[4, byte]
 
   # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.6/specs/phase0/beacon-chain.md#forkdata
@@ -387,6 +392,20 @@ type
     index*: WithdrawalIndex
     validator_index*: uint64
     address*: ExecutionAddress
+    amount*: Gwei
+
+  # https://github.com/ethereum/consensus-specs/blob/94a0b6c581f2809aa8aca4ef7ee6fbb63f9d74e9/specs/electra/beacon-chain.md#depositreceipt
+  DepositReceipt* = object
+    pubkey*: ValidatorPubKey
+    withdrawal_credentials*: Eth2Digest
+    amount*: Gwei
+    signature*: ValidatorSig
+    index*: uint64
+
+  # https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.2/specs/electra/beacon-chain.md#executionlayerwithdrawalrequest
+  ExecutionLayerWithdrawalRequest* = object
+    source_address*: ExecutionAddress
+    validator_pubkey*: ValidatorPubKey
     amount*: Gwei
 
   # https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.2/specs/capella/beacon-chain.md#historicalsummary
