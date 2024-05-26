@@ -281,6 +281,7 @@ type
   SomeProposerSlashing* = ProposerSlashing | TrustedProposerSlashing
   SomeSignedBeaconBlockHeader* = SignedBeaconBlockHeader | TrustedSignedBeaconBlockHeader
   SomeSignedVoluntaryExit* = SignedVoluntaryExit | TrustedSignedVoluntaryExit
+  SomeSyncAggregate* = SyncAggregate | TrustedSyncAggregate
 
   # Legacy database type, see BeaconChainDB
   ImmutableValidatorData* = object
@@ -362,6 +363,15 @@ type
   TrustedSignedVoluntaryExit* = object
     message*: VoluntaryExit
     signature*: TrustedSig
+
+  # https://github.com/ethereum/consensus-specs/blob/v1.4.0/specs/altair/beacon-chain.md#syncaggregate
+  SyncAggregate* = object
+    sync_committee_bits*: BitArray[SYNC_COMMITTEE_SIZE]
+    sync_committee_signature*: ValidatorSig
+
+  TrustedSyncAggregate* = object
+    sync_committee_bits*: BitArray[SYNC_COMMITTEE_SIZE]
+    sync_committee_signature*: TrustedSig
 
   # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.6/specs/phase0/beacon-chain.md#beaconblockheader
   BeaconBlockHeader* = object
@@ -805,6 +815,27 @@ func shortLog*(v: SomeSignedVoluntaryExit): auto =
     message: shortLog(v.message),
     signature: shortLog(v.signature)
   )
+
+func shortLog*(v: SomeSyncAggregate): auto =
+  $(v.sync_committee_bits)
+
+func init*(T: type SyncAggregate): SyncAggregate =
+  SyncAggregate(sync_committee_signature: ValidatorSig.infinity)
+
+template asTrusted*(
+    x: SyncAggregate): TrustedSyncAggregate =
+  isomorphicCast[TrustedSyncAggregate](x)
+
+func num_active_participants*(v: SomeSyncAggregate): int =
+  countOnes(v.sync_committee_bits)
+
+func hasSupermajoritySyncParticipation*(
+    num_active_participants: uint64): bool =
+  const max_active_participants = SYNC_COMMITTEE_SIZE.uint64
+  num_active_participants * 3 >= static(max_active_participants * 2)
+
+func hasSupermajoritySyncParticipation*(v: SomeSyncAggregate): bool =
+  hasSupermajoritySyncParticipation(v.num_active_participants.uint64)
 
 chronicles.formatIt AttestationData: it.shortLog
 chronicles.formatIt Checkpoint: it.shortLog

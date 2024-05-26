@@ -84,15 +84,6 @@ type
     ## effectively making the cost of clearing the cache higher than the typical
     ## gains
 
-  # https://github.com/ethereum/consensus-specs/blob/v1.4.0/specs/altair/beacon-chain.md#syncaggregate
-  SyncAggregate* = object
-    sync_committee_bits*: BitArray[SYNC_COMMITTEE_SIZE]
-    sync_committee_signature*: ValidatorSig
-
-  TrustedSyncAggregate* = object
-    sync_committee_bits*: BitArray[SYNC_COMMITTEE_SIZE]
-    sync_committee_signature*: TrustedSig
-
   # https://github.com/ethereum/consensus-specs/blob/v1.4.0/specs/altair/beacon-chain.md#synccommittee
   SyncCommittee* = object
     pubkeys*: HashArray[Limit SYNC_COMMITTEE_SIZE, ValidatorPubKey]
@@ -529,8 +520,6 @@ type
     SigVerifiedBeaconBlockBody |
     TrustedBeaconBlockBody
 
-  SomeSyncAggregate* = SyncAggregate | TrustedSyncAggregate
-
   SyncSubcommitteeIndex* = distinct uint8
   IndexInSyncCommittee* = distinct uint16
 
@@ -630,23 +619,6 @@ func shortLog*(v: SyncCommitteeMessage): auto =
     signature: shortLog(v.signature)
   )
 
-func init*(T: type SyncAggregate): SyncAggregate =
-  SyncAggregate(sync_committee_signature: ValidatorSig.infinity)
-
-func num_active_participants*(v: SomeSyncAggregate): int =
-  countOnes(v.sync_committee_bits)
-
-func hasSupermajoritySyncParticipation*(
-    num_active_participants: uint64): bool =
-  const max_active_participants = SYNC_COMMITTEE_SIZE.uint64
-  num_active_participants * 3 >= static(max_active_participants * 2)
-
-func hasSupermajoritySyncParticipation*(v: SomeSyncAggregate): bool =
-  hasSupermajoritySyncParticipation(v.num_active_participants.uint64)
-
-func shortLog*(v: SyncAggregate): auto =
-  $(v.sync_committee_bits)
-
 func shortLog*(v: ContributionAndProof): auto =
   (
     aggregator_index: v.aggregator_index,
@@ -741,7 +713,3 @@ template asTrusted*(
        SigVerifiedSignedBeaconBlock |
        MsgTrustedSignedBeaconBlock): TrustedSignedBeaconBlock =
   isomorphicCast[TrustedSignedBeaconBlock](x)
-
-template asTrusted*(
-    x: SyncAggregate): TrustedSyncAggregate =
-  isomorphicCast[TrustedSyncAggregate](x)
