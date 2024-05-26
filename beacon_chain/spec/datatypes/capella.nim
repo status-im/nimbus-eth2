@@ -39,13 +39,6 @@ type
   SignedBLSToExecutionChangeList* =
     List[SignedBLSToExecutionChange, Limit MAX_BLS_TO_EXECUTION_CHANGES]
 
-  # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.5/specs/capella/beacon-chain.md#withdrawal
-  Withdrawal* = object
-    index*: WithdrawalIndex
-    validator_index*: uint64
-    address*: ExecutionAddress
-    amount*: Gwei
-
   # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.5/specs/capella/beacon-chain.md#blstoexecutionchange
   BLSToExecutionChange* = object
     validator_index*: uint64
@@ -56,13 +49,6 @@ type
   SignedBLSToExecutionChange* = object
     message*: BLSToExecutionChange
     signature*: ValidatorSig
-
-  # https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.2/specs/capella/beacon-chain.md#historicalsummary
-  HistoricalSummary* = object
-    # `HistoricalSummary` matches the components of the phase0
-    # `HistoricalBatch` making the two hash_tree_root-compatible.
-    block_summary_root*: Eth2Digest
-    state_summary_root*: Eth2Digest
 
   # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.5/specs/capella/beacon-chain.md#executionpayload
   ExecutionPayload* = object
