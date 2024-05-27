@@ -36,9 +36,6 @@ const
   BLS_MODULUS* = "52435875175126190479447740508185965837690552500527637822603658699938581184513".u256
 
 type
-  # https://github.com/ethereum/consensus-specs/blob/v1.4.0/specs/deneb/beacon-chain.md#beaconblockbody
-  KzgCommitments* = List[KzgCommitment, Limit MAX_BLOB_COMMITMENTS_PER_BLOCK]
-
   # TODO this apparently is suppposed to be SSZ-equivalent to Bytes32, but
   # current spec doesn't ever SSZ-serialize it or hash_tree_root it
   # TODO make `distinct` then add a REST serialization for it specifically, via
@@ -51,7 +48,8 @@ type
   BlobIndex* = uint64
 
   # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.5/specs/deneb/polynomial-commitments.md#custom-types
-  Blob* = array[BYTES_PER_FIELD_ELEMENT * FIELD_ELEMENTS_PER_BLOB, byte]
+  Blob* = array[
+    BYTES_PER_FIELD_ELEMENT * deneb_preset.FIELD_ELEMENTS_PER_BLOB, byte]
 
   # https://github.com/ethereum/consensus-specs/blob/v1.4.0/specs/deneb/p2p-interface.md#blobsidecar
   BlobSidecar* = object
@@ -616,7 +614,7 @@ func kzg_commitment_inclusion_proof_gindex*(
       (BLOB_KZG_COMMITMENTS_GINDEX shl 1) + 0
     # List depth
     BLOB_KZG_COMMITMENTS_PROOF_DEPTH =
-      log2trunc(nextPow2(deneb.KzgCommitments.maxLen.uint64))
+      log2trunc(nextPow2(KzgCommitments.maxLen.uint64))
     # First item
     BLOB_KZG_COMMITMENTS_FIRST_GINDEX =
       (BLOB_KZG_COMMITMENTS_BASE_GINDEX shl BLOB_KZG_COMMITMENTS_PROOF_DEPTH)

@@ -70,9 +70,11 @@ import
   ../../version,
   ".."/[beacon_time, crypto, digest, presets]
 
+from kzg4844 import KzgCommitment
+
 export
   tables, results, endians2, json_serialization, sszTypes, beacon_time, crypto,
-  digest, presets
+  digest, presets, kzg4844
 
 const SPEC_VERSION* = "1.5.0-alpha.2"
 ## Spec version we're aiming to be compatible with, right now
@@ -421,6 +423,9 @@ type
 
   SignedBLSToExecutionChangeList* =
     List[SignedBLSToExecutionChange, Limit MAX_BLS_TO_EXECUTION_CHANGES]
+
+  # https://github.com/ethereum/consensus-specs/blob/v1.4.0/specs/deneb/beacon-chain.md#beaconblockbody
+  KzgCommitments* = List[KzgCommitment, Limit MAX_BLOB_COMMITMENTS_PER_BLOCK]
 
   # https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.2/specs/capella/beacon-chain.md#historicalsummary
   HistoricalSummary* = object
