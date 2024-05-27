@@ -1866,16 +1866,26 @@ proc installMessageValidators(node: BeaconNode) =
       when consensusFork >= ConsensusFork.Deneb:
         # blob_sidecar_{subnet_id}
         # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.5/specs/deneb/p2p-interface.md#blob_sidecar_subnet_id
-        for it in BlobId:
+        # for it in BlobId:
+        #   closureScope:  # Needed for inner `proc`; don't lift it out of loop.
+        #     let subnet_id = it
+        #     node.network.addValidator(
+        #       getBlobSidecarTopic(digest, subnet_id), proc (
+        #         blobSidecar: deneb.BlobSidecar
+        #       ): ValidationResult =
+        #         toValidationResult(
+        #           node.processor[].processBlobSidecar(
+        #             MsgSource.gossip, blobSidecar, subnet_id)))
+        for it in 0'u64..<DATA_COLUMN_SIDECAR_SUBNET_COUNT:
           closureScope:  # Needed for inner `proc`; don't lift it out of loop.
             let subnet_id = it
             node.network.addValidator(
-              getBlobSidecarTopic(digest, subnet_id), proc (
-                blobSidecar: deneb.BlobSidecar
+              getDataColumnSidecarTopic(digest, subnet_id), proc (
+                dataColumnSidecar: DataColumnSidecar
               ): ValidationResult =
                 toValidationResult(
-                  node.processor[].processBlobSidecar(
-                    MsgSource.gossip, blobSidecar, subnet_id)))
+                  node.processor[].processDataColumnSidecar(
+                    MsgSource.gossip, dataColumnSidecar, subnet_id)))
 
   node.installLightClientMessageValidators()
 
