@@ -427,12 +427,43 @@ type
   # https://github.com/ethereum/consensus-specs/blob/v1.4.0/specs/deneb/beacon-chain.md#beaconblockbody
   KzgCommitments* = List[KzgCommitment, Limit MAX_BLOB_COMMITMENTS_PER_BLOCK]
 
+  # https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.2/specs/electra/beacon-chain.md#consolidation
+  Consolidation* = object
+    source_index*: uint64
+    target_index*: uint64
+    epoch*: Epoch
+
+  # https://github.com/ethereum/consensus-specs/blob/82133085a1295e93394ebdf71df8f2f6e0962588/specs/electra/beacon-chain.md#signedconsolidation
+  SignedConsolidation* = object
+    message*: Consolidation
+    signature*: ValidatorSig
+
+  TrustedSignedConsolidation* = object
+    message*: Consolidation
+    signature*: TrustedSig
+
   # https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.2/specs/capella/beacon-chain.md#historicalsummary
   HistoricalSummary* = object
     # `HistoricalSummary` matches the components of the phase0
     # `HistoricalBatch` making the two hash_tree_root-compatible.
     block_summary_root*: Eth2Digest
     state_summary_root*: Eth2Digest
+
+  # https://github.com/ethereum/consensus-specs/blob/82133085a1295e93394ebdf71df8f2f6e0962588/specs/electra/beacon-chain.md#depositreceipt
+  PendingBalanceDeposit* = object
+    index*: uint64
+    amount*: Gwei
+
+  # https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.2/specs/electra/beacon-chain.md#pendingpartialwithdrawal
+  PendingPartialWithdrawal* = object
+    index*: uint64
+    amount*: Gwei
+    withdrawable_epoch*: Epoch
+
+  # https://github.com/ethereum/consensus-specs/blob/82133085a1295e93394ebdf71df8f2f6e0962588/specs/electra/beacon-chain.md#pendingconsolidation
+  PendingConsolidation* = object
+    source_index*: uint64
+    target_index*: uint64
 
   # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.6/specs/phase0/beacon-chain.md#beaconblockheader
   BeaconBlockHeader* = object
