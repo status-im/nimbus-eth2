@@ -685,6 +685,11 @@ proc readRuntimeConfig*(
 
     values[lineParts[0]] = lineParts[1].strip
 
+  values.withValue("DENEB_FORK_EPOCH", v):
+    values["EIP7594_FORK_EPOCH"] = v[]
+  values.withValue("DENEB_FORK_VERSION", v):
+    values["EIP7594_FORK_VERSION"] = v[]
+
   # Certain config keys are baked into the binary at compile-time
   # and cannot be overridden via config.
   template checkCompatibility(

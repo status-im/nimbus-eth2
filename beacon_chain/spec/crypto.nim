@@ -46,6 +46,7 @@ export results, blscurve, rand, json_serialization
 const
   RawSigSize* = 96
   RawPubKeySize* = 48
+  RawPointSize* = 48
   UncompressedPubKeySize* = 96
   # RawPrivKeySize* = 32 for BLST
 
@@ -93,6 +94,13 @@ type
   SecretShare* = object
     key*: ValidatorPrivKey
     id*: uint32
+
+  Point* = object
+    blob*: array[RawPointSize, byte]
+
+  BLSCommitment* = object
+
+
 
 export
   AggregateSignature
@@ -390,7 +398,7 @@ func toRaw*(x: ValidatorPrivKey): array[32, byte] =
   # TODO: distinct type - see https://github.com/status-im/nim-blscurve/pull/67
   static: doAssert BLS_BACKEND == BLST
   result = SecretKey(x).exportRaw()
-  
+
 template toRaw*(x: ValidatorPubKey | ValidatorSig): auto =
   x.blob
 

@@ -9,7 +9,7 @@
 
 import
   "."/[helpers, forks],
-  "."/datatypes/base
+  "."/datatypes/[base, constants, eip7594]
 
 export base
 
@@ -155,8 +155,7 @@ func getDiscoveryForkID*(cfg: RuntimeConfig,
 type GossipState* = set[ConsensusFork]
 func getTargetGossipState*(
     epoch, ALTAIR_FORK_EPOCH, BELLATRIX_FORK_EPOCH, CAPELLA_FORK_EPOCH,
-    DENEB_FORK_EPOCH: Epoch, ELECTRA_FORK_EPOCH: Epoch, isBehind: bool):
-    GossipState =
+    DENEB_FORK_EPOCH: Epoch, ELECTRA_FORK_EPOCH: Epoch, isBehind: bool): GossipState =
   if isBehind:
     return {}
 
@@ -226,3 +225,20 @@ func getSyncSubnets*(
 iterator blobSidecarTopics*(forkDigest: ForkDigest): string =
   for subnet_id in BlobId:
     yield getBlobSidecarTopic(forkDigest, subnet_id)
+
+
+const
+  KZG_COMMITMENTS_INCLUSION_PROOF_DEPTH* = 32
+  MAX_REQUEST_DATA_COLUMN_SIDECARS* = MAX_REQUEST_BLOCKS_DENEB * NUMBER_OF_COLUMNS
+  MIN_EPOCHS_FOR_DATA_COLUMN_SIDECARS_REQUESTS* = 4096
+
+func getDataColumnSidecarTopic*(forkDigest: ForkDigest,
+                             subnet_id: uint64): string =
+  eth2Prefix(forkDigest) & "data_column_sidecar_" & $subnet_id & "/ssz_snappy"
+
+func compute_subnet_for_data_column_sidecar*(column_index: ColumnIndex): uint64 =
+    uint64(column_index mod DATA_COLUMN_SIDECAR_SUBNET_COUNT)
+
+iterator dataColumnSidecarTopics*(forkDigest: ForkDigest): string =
+  for subnet_id in 0'u64..<DATA_COLUMN_SIDECAR_SUBNET_COUNT:
+    yield getDataColumnSidecarTopic(forkDigest, subnet_id)

@@ -214,7 +214,7 @@
 	path = vendor/nim-kzg4844
 	url = https://github.com/status-im/nim-kzg4844.git
 	ignore = untracked
-	branch = master
+	branch = peerdas
 [submodule "vendor/nim-results"]
 	path = vendor/nim-results
 	url = https://github.com/arnetheduck/nim-results.git

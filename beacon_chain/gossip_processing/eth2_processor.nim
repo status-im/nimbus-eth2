@@ -12,7 +12,7 @@ import
   stew/results,
   chronicles, chronos, metrics, taskpools,
   ../spec/[helpers, forks],
-  ../spec/datatypes/[altair, phase0, deneb],
+  ../spec/datatypes/[altair, phase0, deneb, eip7594],
   ../consensus_object_pools/[
     blob_quarantine, block_clearance, block_quarantine, blockchain_dag,
     attestation_pool, light_client_pool, sync_committee_msg_pool,
@@ -47,6 +47,10 @@ declareCounter blob_sidecars_received,
   "Number of valid blobs processed by this node"
 declareCounter blob_sidecars_dropped,
   "Number of invalid blobs dropped by this node", labels = ["reason"]
+declareCounter data_column_sidecars_received,
+  "Number of valid data column sidecars processed by this node"
+declareCounter data_column_sidecars_dropped,
+  "Number of invalid data column sidecars dropped by this node", labels = ["reason"]
 declareCounter beacon_attester_slashings_received,
   "Number of valid attester slashings processed by this node"
 declareCounter beacon_attester_slashings_dropped,
@@ -93,6 +97,9 @@ declareHistogram beacon_block_delay,
 
 declareHistogram blob_sidecar_delay,
   "Time(s) between slot start and blob sidecar reception", buckets = delayBuckets
+
+declareHistogram data_column_sidecar_delay,
+  "Time(s) between slot start and data column sidecar reception", buckets = delayBuckets
 
 type
   DoppelgangerProtection = object
@@ -320,6 +327,41 @@ proc processBlobSidecar*(
 
   v
 
+proc processDataColumnSidecar*(
+    self: var Eth2Processor, src: MsgSource,
+    dataColumnSidecar: DataColumnSidecar, subnet_id: uint64): ValidationRes =
+  template block_header: untyped = dataColumnSidecar.signed_block_header.message
+
+  let
+    wallTime = self.getCurrentBeaconTime()
+    (_, wallSlot) = wallTime.toSlot()
+
+  logScope:
+    dcs = shortLog(dataColumnSidecar)
+    wallSlot
+
+  # Potential under/overflows are fine; would just create odd metrics and logs
+  let delay = wallTime - block_header.slot.start_beacon_time
+  debug "Data column received", delay
+
+  let v =
+    self.dag.validateDataColumnSidecar(self.quarantine, self.blobQuarantine,
+                                 dataColumnSidecar, wallTime, subnet_id)
+
+  if v.isErr():
+    debug "Dropping data column", error = v.error()
+    blob_sidecars_dropped.inc(1, [$v.error[0]])
+    return v
+
+  debug "Data column validated"
+
+  # TODO do something with it!
+
+  data_column_sidecars_received.inc()
+  data_column_sidecar_delay.observe(delay.toFloatSeconds())
+
+  v
+
 proc setupDoppelgangerDetection*(self: var Eth2Processor, slot: Slot) =
   # When another client's already running, this is very likely to detect
   # potential duplicate validators, which can trigger slashing.
@@ -342,8 +384,7 @@ proc clearDoppelgangerProtection*(self: var Eth2Processor) =
   self.doppelgangerDetection.broadcastStartEpoch = FAR_FUTURE_EPOCH
 
 proc checkForPotentialDoppelganger(
-    self: var Eth2Processor,
-    attestation: phase0.Attestation | electra.Attestation,
+    self: var Eth2Processor, attestation: phase0.Attestation | electra.Attestation,
     attesterIndices: openArray[ValidatorIndex]) =
   # Only check for attestations after node launch. There might be one slot of
   # overlap in quick intra-slot restarts so trade off a few true negatives in
@@ -413,10 +454,8 @@ proc processAttestation*(
 
 proc processSignedAggregateAndProof*(
     self: ref Eth2Processor, src: MsgSource,
-    signedAggregateAndProof:
-      phase0.SignedAggregateAndProof | electra.SignedAggregateAndProof,
-    checkSignature = true, checkCover = true): Future[ValidationRes]
-    {.async: (raises: [CancelledError]).} =
+    signedAggregateAndProof: phase0.SignedAggregateAndProof | electra.SignedAggregateAndProof,
+    checkSignature = true, checkCover = true): Future[ValidationRes] {.async: (raises: [CancelledError]).} =
   var wallTime = self.getCurrentBeaconTime()
   let (afterGenesis, wallSlot) = wallTime.toSlot()
 

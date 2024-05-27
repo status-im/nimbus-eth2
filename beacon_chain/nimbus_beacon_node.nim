@@ -1107,7 +1107,7 @@ proc addCapellaMessageHandlers(
 proc addDenebMessageHandlers(
     node: BeaconNode, forkDigest: ForkDigest, slot: Slot) =
   node.addCapellaMessageHandlers(forkDigest, slot)
-  for topic in blobSidecarTopics(forkDigest):
+  for topic in dataColumnSidecarTopics(forkDigest):
     node.network.subscribe(topic, basicParams)
 
 proc addElectraMessageHandlers(
@@ -1131,7 +1131,7 @@ proc removeCapellaMessageHandlers(node: BeaconNode, forkDigest: ForkDigest) =
 
 proc removeDenebMessageHandlers(node: BeaconNode, forkDigest: ForkDigest) =
   node.removeCapellaMessageHandlers(forkDigest)
-  for topic in blobSidecarTopics(forkDigest):
+  for topic in dataColumnSidecarTopics(forkDigest):
     node.network.unsubscribe(topic)
 
 proc removeElectraMessageHandlers(node: BeaconNode, forkDigest: ForkDigest) =

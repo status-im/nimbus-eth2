@@ -471,6 +471,120 @@ proc validateBlobSidecar*(
 
   ok()
 
+# https://github.com/ethereum/consensus-specs/blob/5f48840f4d768bf0e0a8156a3ed06ec333589007/specs/_features/eip7594/p2p-interface.md#the-gossip-domain-gossipsub
+proc validateDataColumnSidecar*(
+    dag: ChainDAGRef, quarantine: ref Quarantine,
+    blobQuarantine: ref BlobQuarantine, data_column_sidecar: DataColumnSidecar,
+    wallTime: BeaconTime, subnet_id: uint64): Result[void, ValidationError] =
+
+  template block_header: untyped = data_column_sidecar.signed_block_header.message
+
+  # [REJECT] The sidecar's index is consistent with `NUMBER_OF_COLUMNS`
+  # -- i.e. `blob_sidecar.index < NUMBER_OF_COLUMNS`
+  if not (data_column_sidecar.index < NUMBER_OF_COLUMNS):
+    return dag.checkedReject("DataColumnSidecar: The sidecar's index should be consistent with NUMBER_OF_COLUMNS")
+
+  # [REJECT] The sidecar is for the correct subnet 
+  # -- i.e. `compute_subnet_for_data_column_sidecar(blob_sidecar.index) == subnet_id`.
+  if not (compute_subnet_for_data_column_sidecar(data_column_sidecar.index) == subnet_id):
+    return dag.checkedReject("DataColumnSidecar: The sidecar is not for the correct subnet")
+
+  # [IGNORE] The sidecar is not from a future slot (with a `MAXIMUM_GOSSIP_CLOCK_DISPARITY` allowance)
+  # -- i.e. validate that `block_header.slot <= current_slot` (a client MAY queue future sidecars for 
+  # processing at the appropriate slot).
+  if not (block_header.slot <=
+      (wallTime + MAXIMUM_GOSSIP_CLOCK_DISPARITY).slotOrZero):
+    return errIgnore("DataColumnSidecar: slot too high")
+
+  # [IGNORE] The sidecar is from a slot greater than the latest
+  # finalized slot -- i.e. validate that `block_header.slot >
+  # compute_start_slot_at_epoch(state.finalized_checkpoint.epoch)`
+  if not (block_header.slot > dag.finalizedHead.slot):
+    return errIgnore("DataColumnSidecar: slot already finalized")
+
+  # TODO: [REJECT] The sidecar's `kzg_commitments` inclusion proof is valid as verified by
+  # `verify_data_column_sidecar_inclusion_proof(sidecar)`.
+
+  # TODO: [REJECT] The sidecar's column data is valid as 
+  # verified by `verify_data_column_kzg_proofs(sidecar)`
+
+  # [IGNORE] The sidecar is the first sidecar for the tuple
+  # (block_header.slot, block_header.proposer_index, blob_sidecar.index)
+  # with valid header signature, sidecar inclusion proof, and kzg proof.
+  let block_root = hash_tree_root(block_header)
+  if dag.getBlockRef(block_root).isSome():
+    return errIgnore("BlobSidecar: already have block")
+  if blobQuarantine[].hasBlob(
+      block_header.slot, block_header.proposer_index, data_column_sidecar.index):
+    return errIgnore("BlobSidecar: already have valid blob from same proposer")
+
+  # [IGNORE] The sidecar's block's parent (defined by
+  # `block_header.parent_root`) has been seen (via both gossip and
+  # non-gossip sources) (a client MAY queue sidecars for processing
+  # once the parent block is retrieved).
+  #
+  # [REJECT] The sidecar's block's parent (defined by
+  # `block_header.parent_root`) passes validation.
+  let parent = dag.getBlockRef(block_header.parent_root).valueOr:
+    if block_header.parent_root in quarantine[].unviable:
+      quarantine[].addUnviable(block_root)
+      return dag.checkedReject("DataColumnSidecar: parent not validated")
+    else:
+      quarantine[].addMissing(block_header.parent_root)
+      return errIgnore("DataColumnSidecar: parent not found")
+
+  # [REJECT] The sidecar is proposed by the expected `proposer_index`
+  # for the block's slot in the context of the current shuffling
+  # (defined by `block_header.parent_root`/`block_header.slot`).
+  # If the proposer_index cannot immediately be verified against the expected
+  # shuffling, the sidecar MAY be queued for later processing while proposers
+  # for the block's branch are calculated -- in such a case do not
+  # REJECT, instead IGNORE this message.
+  let proposer = getProposer(dag, parent, block_header.slot).valueOr:
+    warn "cannot compute proposer for blob"
+    return errIgnore("BlobSidecar: Cannot compute proposer") # internal issue
+
+  if uint64(proposer) != block_header.proposer_index:
+    return dag.checkedReject("BlobSidecar: Unexpected proposer")
+
+  # [REJECT] The proposer signature of `blob_sidecar.signed_block_header`,
+  # is valid with respect to the `block_header.proposer_index` pubkey.
+  if not verify_block_signature(
+      dag.forkAtEpoch(block_header.slot.epoch),
+      getStateField(dag.headState, genesis_validators_root),
+      block_header.slot,
+      block_root,
+      dag.validatorKey(proposer).get(),
+      data_column_sidecar.signed_block_header.signature):
+    return dag.checkedReject("DataColumnSidecar: Invalid proposer signature")
+
+  # [REJECT] The sidecar is from a higher slot than the sidecar's
+  # block's parent (defined by `block_header.parent_root`).
+  if not (block_header.slot > parent.bid.slot):
+    return dag.checkedReject("DataColumnSidecar: slot lower than parents'")
+
+  # [REJECT] The current finalized_checkpoint is an ancestor of the sidecar's
+  # block -- i.e. `get_checkpoint_block(store, block_header.parent_root,
+  # store.finalized_checkpoint.epoch) == store.finalized_checkpoint.root`.
+  let
+    finalized_checkpoint = getStateField(dag.headState, finalized_checkpoint)
+    ancestor = get_ancestor(parent, finalized_checkpoint.epoch.start_slot)
+
+  if ancestor.isNil:
+    # This shouldn't happen: we should always be able to trace the parent back
+    # to the finalized checkpoint (else it wouldn't be in the DAG)
+    return errIgnore("DataColumnSidecar: Can't find ancestor")
+
+  if not (
+      finalized_checkpoint.root == ancestor.root or
+      finalized_checkpoint.root.isZero):
+    quarantine[].addUnviable(block_root)
+    return dag.checkedReject(
+      "DataColumnSidecar: Finalized checkpoint not an ancestor")
+
+  ok()
+
+
 # https://github.com/ethereum/consensus-specs/blob/v1.3.0/specs/phase0/p2p-interface.md#beacon_block
 # https://github.com/ethereum/consensus-specs/blob/v1.3.0/specs/bellatrix/p2p-interface.md#beacon_block
 proc validateBeaconBlock*(
