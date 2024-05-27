@@ -474,6 +474,8 @@ type
     ## effectively making the cost of clearing the cache higher than the typical
     ## gains
 
+  InactivityScores* = HashList[uint64, Limit VALIDATOR_REGISTRY_LIMIT]
+
   # https://github.com/ethereum/consensus-specs/blob/v1.4.0/specs/altair/beacon-chain.md#synccommittee
   SyncCommittee* = object
     pubkeys*: HashArray[Limit SYNC_COMMITTEE_SIZE, ValidatorPubKey]

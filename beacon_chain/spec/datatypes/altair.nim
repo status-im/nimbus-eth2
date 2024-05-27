@@ -232,8 +232,6 @@ type
       ## (used to compute safety threshold)
     current_max_active_participants*: uint64
 
-  InactivityScores* = HashList[uint64, Limit VALIDATOR_REGISTRY_LIMIT]
-
   # https://github.com/ethereum/consensus-specs/blob/v1.4.0/specs/altair/beacon-chain.md#beaconstate
   BeaconState* = object
     # Versioning
