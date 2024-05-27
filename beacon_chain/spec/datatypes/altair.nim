@@ -75,20 +75,6 @@ static: doAssert TIMELY_SOURCE_WEIGHT + TIMELY_TARGET_WEIGHT +
 type
   ### New types
 
-  # https://github.com/ethereum/consensus-specs/blob/v1.4.0/specs/altair/beacon-chain.md#custom-types
-  ParticipationFlags* = uint8
-
-  EpochParticipationFlags* =
-    distinct List[ParticipationFlags, Limit VALIDATOR_REGISTRY_LIMIT]
-    ## Not a HashList because the list sees significant updates every block
-    ## effectively making the cost of clearing the cache higher than the typical
-    ## gains
-
-  # https://github.com/ethereum/consensus-specs/blob/v1.4.0/specs/altair/beacon-chain.md#synccommittee
-  SyncCommittee* = object
-    pubkeys*: HashArray[Limit SYNC_COMMITTEE_SIZE, ValidatorPubKey]
-    aggregate_pubkey*: ValidatorPubKey
-
   # https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.2/specs/altair/validator.md#synccommitteemessage
   SyncCommitteeMessage* = object
     slot*: Slot
@@ -245,8 +231,6 @@ type
       ## Max number of active participants in a sync committee
       ## (used to compute safety threshold)
     current_max_active_participants*: uint64
-
-  InactivityScores* = HashList[uint64, Limit VALIDATOR_REGISTRY_LIMIT]
 
   # https://github.com/ethereum/consensus-specs/blob/v1.4.0/specs/altair/beacon-chain.md#beaconstate
   BeaconState* = object
@@ -535,45 +519,6 @@ template `[]`*(arr: array[SYNC_COMMITTEE_SIZE, auto] | seq;
 
 makeLimitedU8(SyncSubcommitteeIndex, SYNC_COMMITTEE_SUBNET_COUNT)
 makeLimitedU16(IndexInSyncCommittee, SYNC_COMMITTEE_SIZE)
-
-template asList*(epochFlags: EpochParticipationFlags): untyped =
-  List[ParticipationFlags, Limit VALIDATOR_REGISTRY_LIMIT] epochFlags
-template asList*(epochFlags: var EpochParticipationFlags): untyped =
-  let tmp = cast[ptr List[ParticipationFlags, Limit VALIDATOR_REGISTRY_LIMIT]](addr epochFlags)
-  tmp[]
-
-template asSeq*(epochFlags: EpochParticipationFlags): untyped =
-  seq[ParticipationFlags] asList(epochFlags)
-
-template asSeq*(epochFlags: var EpochParticipationFlags): untyped =
-  let tmp = cast[ptr seq[ParticipationFlags]](addr epochFlags)
-  tmp[]
-
-template item*(epochFlags: EpochParticipationFlags, idx: ValidatorIndex): ParticipationFlags =
-  asList(epochFlags)[idx]
-
-template `[]`*(epochFlags: EpochParticipationFlags, idx: ValidatorIndex|uint64|int): ParticipationFlags =
-  asList(epochFlags)[idx]
-
-template `[]=`*(epochFlags: EpochParticipationFlags, idx: ValidatorIndex, flags: ParticipationFlags) =
-  asList(epochFlags)[idx] = flags
-
-template add*(epochFlags: var EpochParticipationFlags, flags: ParticipationFlags): bool =
-  asList(epochFlags).add flags
-
-template len*(epochFlags: EpochParticipationFlags): int =
-  asList(epochFlags).len
-
-template low*(epochFlags: EpochParticipationFlags): int =
-  asSeq(epochFlags).low
-template high*(epochFlags: EpochParticipationFlags): int =
-  asSeq(epochFlags).high
-
-template assign*(v: var EpochParticipationFlags, src: EpochParticipationFlags) =
-  # TODO https://github.com/nim-lang/Nim/issues/21123
-  mixin assign
-  var tmp = cast[ptr seq[ParticipationFlags]](addr v)
-  assign(tmp[], distinctBase src)
 
 func shortLog*(v: SomeBeaconBlock): auto =
   (

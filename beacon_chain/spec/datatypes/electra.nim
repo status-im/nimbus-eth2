@@ -333,37 +333,6 @@ type
   ExecutePayload* = proc(
     execution_payload: ExecutionPayload): bool {.gcsafe, raises: [].}
 
-  # https://github.com/ethereum/consensus-specs/blob/82133085a1295e93394ebdf71df8f2f6e0962588/specs/electra/beacon-chain.md#depositreceipt
-  PendingBalanceDeposit* = object
-    index*: uint64
-    amount*: Gwei
-
-  # https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.2/specs/electra/beacon-chain.md#pendingpartialwithdrawal
-  PendingPartialWithdrawal* = object
-    index*: uint64
-    amount*: Gwei
-    withdrawable_epoch*: Epoch
-
-  # https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.2/specs/electra/beacon-chain.md#consolidation
-  Consolidation* = object
-    source_index*: uint64
-    target_index*: uint64
-    epoch*: Epoch
-
-  # https://github.com/ethereum/consensus-specs/blob/82133085a1295e93394ebdf71df8f2f6e0962588/specs/electra/beacon-chain.md#signedconsolidation
-  SignedConsolidation* = object
-    message*: Consolidation
-    signature*: ValidatorSig
-
-  TrustedSignedConsolidation* = object
-    message*: Consolidation
-    signature*: TrustedSig
-
-  # https://github.com/ethereum/consensus-specs/blob/82133085a1295e93394ebdf71df8f2f6e0962588/specs/electra/beacon-chain.md#pendingconsolidation
-  PendingConsolidation* = object
-    source_index*: uint64
-    target_index*: uint64
-
   FinalityBranch =
     array[log2trunc(FINALIZED_ROOT_GINDEX), Eth2Digest]
 
