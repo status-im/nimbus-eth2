@@ -408,6 +408,20 @@ type
     validator_pubkey*: ValidatorPubKey
     amount*: Gwei
 
+  # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.5/specs/capella/beacon-chain.md#blstoexecutionchange
+  BLSToExecutionChange* = object
+    validator_index*: uint64
+    from_bls_pubkey*: ValidatorPubKey
+    to_execution_address*: ExecutionAddress
+
+  # https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.2/specs/capella/beacon-chain.md#signedblstoexecutionchange
+  SignedBLSToExecutionChange* = object
+    message*: BLSToExecutionChange
+    signature*: ValidatorSig
+
+  SignedBLSToExecutionChangeList* =
+    List[SignedBLSToExecutionChange, Limit MAX_BLS_TO_EXECUTION_CHANGES]
+
   # https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.2/specs/capella/beacon-chain.md#historicalsummary
   HistoricalSummary* = object
     # `HistoricalSummary` matches the components of the phase0
@@ -902,6 +916,19 @@ proc readValue*(
 
 func `$`*(v: ExecutionAddress): string =
   v.data.toHex()
+
+func shortLog*(v: BLSToExecutionChange): auto =
+  (
+    validator_index: v.validator_index,
+    from_bls_pubkey: shortLog(v.from_bls_pubkey),
+    to_execution_address: $v.to_execution_address
+  )
+
+func shortLog*(v: SignedBLSToExecutionChange): auto =
+  (
+    bls_to_execution_change: shortLog(v.message),
+    signature: shortLog(v.signature)
+  )
 
 chronicles.formatIt AttestationData: it.shortLog
 chronicles.formatIt Checkpoint: it.shortLog
