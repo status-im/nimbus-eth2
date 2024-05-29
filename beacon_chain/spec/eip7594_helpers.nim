@@ -9,9 +9,7 @@
 
 # Uncategorized helper functions from the spec
 import
-  tables,
-  algorithm,
-  std/macros,
+  std/[algorithm, macros, tables],
   stew/results,
   ssz_serialization/proofs,
   chronicles,
@@ -39,14 +37,14 @@ proc get_custody_columns*(node_id: NodeId, custody_subnet_count: uint64): Result
   if not (custody_subnet_count <= DATA_COLUMN_SIDECAR_SUBNET_COUNT):
     return err("Eip7594: Custody subnet count exceeds the DATA_COLUMN_SIDECAR_SUBNET_COUNT")
 
-  var subnet_ids: HashSet[uint64]
-  var current_id = node_id
+  var 
+    subnet_ids: HashSet[uint64]
+    current_id = node_id
 
   while subnet_ids.len < int(custody_subnet_count):
-  
-    # var subnet_id_bytes: seq[byte]
     let subnet_id_bytes = eth2digest(current_id.toBytesLE().toOpenArray(0,8))
-    var subnet_id = bytes_to_uint64(subnet_id_bytes.data) mod DATA_COLUMN_SIDECAR_SUBNET_COUNT
+    var subnet_id = bytes_to_uint64(subnet_id_bytes.data) mod 
+        DATA_COLUMN_SIDECAR_SUBNET_COUNT
     
     if subnet_id notin subnet_ids:
         subnet_ids.incl(subnet_id)
@@ -81,7 +79,6 @@ proc compute_extended_matrix* (blobs: seq[KzgBlob]): Result[ExtendedMatrix, cstr
     
 # https://github.com/ethereum/consensus-specs/blob/5f48840f4d768bf0e0a8156a3ed06ec333589007/specs/_features/eip7594/das-core.md#recover_matrix    
 proc recover_matrix*(cells_dict: Table[(BlobIndex, CellID), KzgCell], blobCount: uint64): Result[ExtendedMatrix, cstring] =
-  
   # This helper demonstrates how to apply recover_all_cells
   # The data structure for storing cells is implementation-dependent
 
@@ -97,7 +94,7 @@ proc recover_matrix*(cells_dict: Table[(BlobIndex, CellID), KzgCell], blobCount:
       if blIdx == blobIndex:
         cellIds.add(cellId)
 
-    var cells: seq[KzgCell] = @[]
+    var cells: seq[KzgCell]
     for cellId in cellIds:
       var interim_key = (BlobIndex(blobIndex), cellId)
       
@@ -109,13 +106,13 @@ proc recover_matrix*(cells_dict: Table[(BlobIndex, CellID), KzgCell], blobCount:
           debug "DataColumn: Key not found in Cell Dictionary", interim_key
 
     let allCellsForRow = recoverAllCells(ctx, cellIds, cells)
-    discard extended_matrix.add(allCellsForRow.get()) 
+    let check = extended_matrix.add(allCellsForRow.get())
+    doAssert check == true, "DataColumn: Could not add cells to the extended matrix"
 
   ok(extended_matrix)
 
 # https://github.com/ethereum/consensus-specs/blob/5f48840f4d768bf0e0a8156a3ed06ec333589007/specs/_features/eip7594/das-core.md#get_data_column_sidecars
 proc get_data_column_sidecars*(signed_block: deneb.SignedBeaconBlock, blobs: seq[KzgBlob]): Result[seq[DataColumnSidecar], cstring] =
-
   var sidecar: DataColumnSidecar
   var signed_block_header: deneb.SignedBeaconBlockHeader
   var blck = signed_block.message
@@ -194,18 +191,20 @@ proc verify_data_column_sidecar_kzg_proofs*(sidecar: DataColumnSidecar): Result[
     return err("EIP7594: Data column sidecar kzg_commitments length is not equal to the kzg_proofs length")
 
   # Iterate through the row indices
-  var rowIndices: seq[RowIndex] = @[]
+  var rowIndices: seq[RowIndex]
   for i in 0..<sidecar.column.len:
     rowIndices.add(RowIndex(i))
 
   # Iterate through the column indices
-  var colIndices: seq[ColumnIndex] = @[]
-  for i in 0..<sidecar.column.len:
-    colIndices.add(sidecar.index * uint64(sidecar.column.len))
+  var colIndices: seq[ColumnIndex]
+  for _ in 0..<sidecar.column.len:
+    colIndices.add(sidecar.index * sidecar.column.lenu64)
 
-  let kzgCommits = sidecar.kzg_commitments.asSeq
-  let sidecarCol = sidecar.column.asSeq
-  let kzgProofs = sidecar.kzg_proofs.asSeq
+  let 
+    kzgCommits = sidecar.kzg_commitments.asSeq
+    sidecarCol = sidecar.column.asSeq
+    kzgProofs = sidecar.kzg_proofs.asSeq
+
   # KZG batch verifies that the cells match the corresponding commitments and KZG proofs
   let res = validate_data_column_sidecar(
     kzgCommits,
@@ -234,3 +233,4 @@ proc verify_data_column_sidecar_inclusion_proof*(sidecar: DataColumnSidecar): Re
     return err("DataColumnSidecar: inclusion proof not valid")
 
   ok()
+  
