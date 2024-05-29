@@ -166,7 +166,6 @@ proc get_data_column_sidecars*(signed_block: deneb.SignedBeaconBlock, blobs: seq
 proc validate_data_column_sidecar*(
     expected_commitments: seq[KzgCommitment], rowIndex: seq[RowIndex], columnIndex: seq[ColumnIndex], column: seq[KzgCell],
     proofs: seq[KzgProof]): Result[void, string] =
-  
   let res = verifyCellKzgProofBatch(expected_commitments, rowIndex, columnIndex, column, proofs).valueOr:
     return err("DataColumnSidecar: Proof verification error: " & error())
 
@@ -220,7 +219,6 @@ proc verify_data_column_sidecar_kzg_proofs*(sidecar: DataColumnSidecar): Result[
 
 # https://github.com/ethereum/consensus-specs/blob/5f48840f4d768bf0e0a8156a3ed06ec333589007/specs/_features/eip7594/p2p-interface.md#verify_data_column_sidecar_inclusion_proof
 proc verify_data_column_sidecar_inclusion_proof*(sidecar: DataColumnSidecar): Result[void, string] =
-
   # Verify if the given KZG commitments are included in the beacon block
   let gindex = kzg_commitment_inclusion_proof_gindex(sidecar.index)
   if not is_valid_merkle_branch(
@@ -233,4 +231,3 @@ proc verify_data_column_sidecar_inclusion_proof*(sidecar: DataColumnSidecar): Re
     return err("DataColumnSidecar: inclusion proof not valid")
 
   ok()
-  
