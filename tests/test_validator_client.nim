@@ -389,6 +389,7 @@ const
     ("0xfffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffe01", "0.9995"),
     ("0x0000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000101", "0.0005"),
   ]
+
   ContributionDataVectors = [
     ("0xffffffffffffffffffffffffffff7f7f", "0.9844"),
     ("0xffffffffffffffffffffffff7f7f7f7f", "0.9688"),
@@ -444,6 +445,15 @@ const
     ([("0xff01", Slot(0), 0'u64), ("0xff01", Slot(0), 0'u64)], 8),
     ([("0xff01", Slot(0), 0'u64), ("0xff01", Slot(1), 0'u64)], 16),
     ([("0xff01", Slot(0), 0'u64), ("0xff01", Slot(0), 1'u64)], 16)
+  ]
+
+  UInt256ScoreVectors = [
+    ("0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff",
+     "0x0000000000000000000000000000000000000000000000000000000000000001",
+     "0"),
+    ("0x10",
+     "0x10",
+     "32")
   ]
 
 proc init(t: typedesc[Eth2Digest], data: string): Eth2Digest =
@@ -755,6 +765,25 @@ suite "Validator Client test suite":
       score == "0.0000"
       isLowestScoreAggregatedAttestation(adata.data) == true
 
+  test "getProduceBlockResponseV3Score() default test":
+    let
+      bdata1 = ProduceBlockResponseV3()
+      bdata2 = ProduceBlockResponseV3(
+        consensusValue: Opt.some(UInt256.zero)
+      )
+      bdata3 = ProduceBlockResponseV3(
+        executionValue: Opt.some(UInt256.zero),
+      )
+      bdata4 = ProduceBlockResponseV3(
+        consensusValue: Opt.some(UInt256.zero),
+        executionValue: Opt.some(UInt256.zero)
+      )
+    check:
+      shortScore(getProduceBlockResponseV3Score(bdata1)) == "0"
+      shortScore(getProduceBlockResponseV3Score(bdata2)) == "0"
+      shortScore(getProduceBlockResponseV3Score(bdata3)) == "0"
+      shortScore(getProduceBlockResponseV3Score(bdata4)) == "0"
+
   test "getSyncCommitteeContributionDataScore() test vectors":
     for vector in ContributionDataVectors:
       let
@@ -773,11 +802,24 @@ suite "Validator Client test suite":
       check:
         score == vector[5]
 
+  test "getProduceBlockResponseV3Score() test vectors":
+    for vector in UInt256ScoreVectors:
+      let
+        value1 = strictParse(vector[0], UInt256, 16).get()
+        value2 = strictParse(vector[1], UInt256, 16).get()
+        bdata = ProduceBlockResponseV3(
+          executionValue: Opt.some(value1),
+          consensusValue: Opt.some(value2)
+        )
+      check shortScore(getProduceBlockResponseV3Score(bdata)) == vector[2]
+
   test "getUniqueVotes() test vectors":
     for vector in AttestationBitsVectors:
       let
-        a1 = phase0.Attestation.init(vector[0][0][0], vector[0][0][1], vector[0][0][2])
-        a2 = phase0.Attestation.init(vector[0][1][0], vector[0][1][1], vector[0][1][2])
+        a1 = phase0.Attestation.init(vector[0][0][0], vector[0][0][1],
+                                     vector[0][0][2])
+        a2 = phase0.Attestation.init(vector[0][1][0], vector[0][1][1],
+                                     vector[0][1][2])
       check getUniqueVotes([a1, a2]) == vector[1]
 
   asyncTest "firstSuccessParallel() API timeout test":
@@ -850,6 +892,7 @@ suite "Validator Client test suite":
     let response = vc.bestSuccess(
       RestPlainResponse,
       uint64,
+      float64,
       100.milliseconds,
       AllBeaconNodeStatuses,
       {BeaconNodeRole.Duties},

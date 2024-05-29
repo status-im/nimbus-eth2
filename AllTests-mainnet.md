@@ -905,12 +905,14 @@ OK: 1/1 Fail: 0/1 Skip: 0/1
 + getAggregatedAttestationDataScore() test vectors                                           OK
 + getAttestationDataScore() test vectors                                                     OK
 + getLiveness() response deserialization test                                                OK
++ getProduceBlockResponseV3Score() default test                                              OK
++ getProduceBlockResponseV3Score() test vectors                                              OK
 + getSyncCommitteeContributionDataScore() test vectors                                       OK
 + getSyncCommitteeMessageDataScore() test vectors                                            OK
 + getUniqueVotes() test vectors                                                              OK
 + normalizeUri() test vectors                                                                OK
 ```
-OK: 12/12 Fail: 0/12 Skip: 0/12
+OK: 14/14 Fail: 0/14 Skip: 0/14
 ## Validator change pool testing suite
 ```diff
 + addValidatorChangeMessage/getAttesterSlashingMessage                                       OK
@@ -1030,4 +1032,4 @@ OK: 2/2 Fail: 0/2 Skip: 0/2
 OK: 9/9 Fail: 0/9 Skip: 0/9
 
 ---TOTAL---
-OK: 687/692 Fail: 0/692 Skip: 5/692
+OK: 689/694 Fail: 0/694 Skip: 5/694
