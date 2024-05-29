@@ -693,6 +693,28 @@ proc jsonResponseFinalized*(t: typedesc[RestApiResponse], data: auto,
         default
   RestApiResponse.response(res, Http200, "application/json")
 
+proc jsonResponseFinalized*(t: typedesc[RestApiResponse], data: auto,
+                            exec: Opt[bool],
+                            finalized: bool,
+                            proof: seq[Eth2Digest]): RestApiResponse =
+  let res =
+    block:
+      var default: seq[byte]
+      try:
+        var stream = memoryOutput()
+        var writer = JsonWriter[RestJson].init(stream)
+        writer.beginRecord()
+        if exec.isSome():
+          writer.writeField("execution_optimistic", exec.get())
+        writer.writeField("finalized", finalized)
+        writer.writeField("data", data)
+        writer.writeField("proof", proof)
+        writer.endRecord()
+        stream.getOutput(seq[byte])
+      except IOError:
+        default
+  RestApiResponse.response(res, Http200, "application/json")
+
 proc jsonResponseWVersion*(t: typedesc[RestApiResponse], data: auto,
                            version: ConsensusFork): RestApiResponse =
   let

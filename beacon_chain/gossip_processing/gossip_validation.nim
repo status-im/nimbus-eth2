@@ -179,7 +179,7 @@ func check_aggregation_count(
       return errReject("Attestation must have at least one committee bit set")
 
   block:
-    let ones = attestation.aggregation_bits.countOnes()
+    let ones = attestation.participant_bits.countOnes()
     if singular and ones != 1:
       return errReject("Attestation must have a single attestation bit set")
     elif not singular and ones < 1:
@@ -893,7 +893,7 @@ proc validateAttestation*(
     fork = pool.dag.forkAtEpoch(attestation.data.slot.epoch)
     attesting_index = get_attesting_indices_one(
       shufflingRef, slot, attestation.committee_bits,
-      attestation.aggregation_bits, false)
+      attestation.participant_bits, false)
 
   # The number of aggregation bits matches the committee size, which ensures
   # this condition holds.
@@ -1172,7 +1172,7 @@ proc validateAggregate*(
   let
     fork = pool.dag.forkAtEpoch(aggregate.data.slot.epoch)
     attesting_indices = get_attesting_indices(
-      shufflingRef, slot, committee_index, aggregate.aggregation_bits, false)
+      shufflingRef, slot, committee_index, aggregate.participant_bits, false)
 
   let
     sig =

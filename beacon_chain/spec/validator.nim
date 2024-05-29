@@ -569,17 +569,17 @@ proc compute_on_chain_aggregate*(
 
   var totalLen = 0
   for i, a in aggregates:
-    totalLen += a.aggregation_bits.len
+    totalLen += a.participant_bits.len
 
-  var aggregation_bits = ElectraCommitteeValidatorsBits.init(totalLen)
+  var participant_bits = ElectraCommitteeValidatorsBits.init(totalLen)
   var pos = 0
   for i, a in aggregates:
     let
       committee_index = ? get_committee_index_one(a.committee_bits)
       first = pos == 0
 
-    for b in a.aggregation_bits:
-      aggregation_bits[pos] = b
+    for b in a.participant_bits:
+      participant_bits[pos] = b
       pos += 1
 
     let sig = ? a.signature.load() # Expensive
@@ -593,8 +593,8 @@ proc compute_on_chain_aggregate*(
   let signature = agg.finish()
 
   ok electra.Attestation(
-      aggregation_bits: aggregation_bits,
       data: data,
-      committee_bits: committee_bits,
       signature: signature.toValidatorSig(),
+      participant_bits: participant_bits,
+      committee_bits: committee_bits,
   )

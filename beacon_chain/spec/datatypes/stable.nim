@@ -25,17 +25,19 @@ type
   # https://eips.ethereum.org/EIPS/eip-7688
   StableAttestation* {.
       sszStableContainer: MAX_ATTESTATION_FIELDS.} = object
-    aggregation_bits*: Opt[ElectraCommitteeValidatorsBits]
+    aggregation_bits*: Opt[CommitteeValidatorsBits]
     data*: Opt[AttestationData]
     signature*: Opt[ValidatorSig]
+    participant_bits*: Opt[ElectraCommitteeValidatorsBits]
     committee_bits*: Opt[AttestationCommitteeBits]
 
   StableIndexedAttestation* {.
       sszStableContainer: MAX_INDEXED_ATTESTATION_FIELDS.} = object
-    attesting_indices*: Opt[List[uint64,
-      Limit MAX_VALIDATORS_PER_COMMITTEE * MAX_COMMITTEES_PER_SLOT]]
+    attesting_indices*: Opt[List[uint64, Limit MAX_VALIDATORS_PER_COMMITTEE]]
     data*: Opt[AttestationData]
     signature*: Opt[ValidatorSig]
+    participant_indices*: Opt[List[uint64,
+      Limit MAX_VALIDATORS_PER_COMMITTEE * MAX_COMMITTEES_PER_SLOT]]
 
   StableAttesterSlashing* = object
     attestation_1*: StableIndexedAttestation

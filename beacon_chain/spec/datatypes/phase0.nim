@@ -17,11 +17,11 @@
 
 import
   chronicles,
-  ./base
+  ./stable
 
 from std/sets import toHashSet
 
-export base
+export stable
 
 type
   # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.6/specs/phase0/beacon-chain.md#beaconstate
@@ -272,12 +272,12 @@ type
     attestation_2*: TrustedIndexedAttestation
 
   # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.6/specs/phase0/beacon-chain.md#indexedattestation
-  IndexedAttestation* = object
+  IndexedAttestation* {.sszProfile: StableIndexedAttestation.} = object
     attesting_indices*: List[uint64, Limit MAX_VALIDATORS_PER_COMMITTEE]
     data*: AttestationData
     signature*: ValidatorSig
 
-  TrustedIndexedAttestation* = object
+  TrustedIndexedAttestation* {.sszProfile: StableIndexedAttestation.} = object
     # The Trusted version, at the moment, implies that the cryptographic signature was checked.
     # It DOES NOT imply that the state transition was verified.
     # Currently the code MUST verify the state transition as soon as the signature is verified
@@ -286,12 +286,12 @@ type
     signature*: TrustedSig
 
   # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.6/specs/phase0/beacon-chain.md#attestation
-  Attestation* = object
+  Attestation* {.sszProfile: StableAttestation.} = object
     aggregation_bits*: CommitteeValidatorsBits
     data*: AttestationData
     signature*: ValidatorSig
 
-  TrustedAttestation* = object
+  TrustedAttestation* {.sszProfile: StableAttestation.} = object
     # The Trusted version, at the moment, implies that the cryptographic signature was checked.
     # It DOES NOT imply that the state transition was verified.
     # Currently the code MUST verify the state transition as soon as the signature is verified

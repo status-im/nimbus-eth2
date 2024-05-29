@@ -80,7 +80,7 @@ type
     index*: BlobIndex
 
   # https://github.com/ethereum/consensus-specs/blob/v1.4.0/specs/deneb/beacon-chain.md#executionpayload
-  ExecutionPayload* = object
+  ExecutionPayload* {.sszProfile: StableExecutionPayload.} = object
     # Execution block header fields
     parent_hash*: Eth2Digest
     fee_recipient*: ExecutionAddress
@@ -121,7 +121,7 @@ type
     blobsBundle*: BlobsBundle
 
   # https://github.com/ethereum/consensus-specs/blob/v1.4.0/specs/deneb/beacon-chain.md#executionpayloadheader
-  ExecutionPayloadHeader* = object
+  ExecutionPayloadHeader* {.sszProfile: StableExecutionPayloadHeader.} = object
     # Execution block header fields
     parent_hash*: Eth2Digest
     fee_recipient*: ExecutionAddress
@@ -247,7 +247,7 @@ type
 
   # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.5/specs/capella/beacon-chain.md#beaconstate
   # changes indirectly via ExecutionPayloadHeader
-  BeaconState* = object
+  BeaconState* {.sszProfile: StableBeaconState.} = object
     # Versioning
     genesis_time*: uint64
     genesis_validators_root*: Eth2Digest
@@ -381,7 +381,7 @@ type
     body*: TrustedBeaconBlockBody
 
   # https://github.com/ethereum/consensus-specs/blob/v1.4.0/specs/deneb/beacon-chain.md#beaconblockbody
-  BeaconBlockBody* = object
+  BeaconBlockBody* {.sszProfile: StableBeaconBlockBody.} = object
     randao_reveal*: ValidatorSig
     eth1_data*: Eth1Data
       ## Eth1 data vote
@@ -404,7 +404,7 @@ type
     bls_to_execution_changes*: SignedBLSToExecutionChangeList
     blob_kzg_commitments*: KzgCommitments  # [New in Deneb]
 
-  SigVerifiedBeaconBlockBody* = object
+  SigVerifiedBeaconBlockBody* {.sszProfile: StableBeaconBlockBody.} = object
     ## A BeaconBlock body with signatures verified
     ## including:
     ## - Randao reveal
@@ -440,7 +440,7 @@ type
     bls_to_execution_changes*: SignedBLSToExecutionChangeList
     blob_kzg_commitments*: KzgCommitments  # [New in Deneb]
 
-  TrustedBeaconBlockBody* = object
+  TrustedBeaconBlockBody* {.sszProfile: StableBeaconBlockBody.} = object
     ## A full verified block
     randao_reveal*: TrustedSig
     eth1_data*: Eth1Data

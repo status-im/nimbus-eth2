@@ -227,9 +227,14 @@ proc check_attester_slashing*(
 
   var slashed_indices: seq[ValidatorIndex]
 
-  let attesting_indices_2 = toHashSet(attestation_2.attesting_indices.asSeq)
+  func participant_indices(
+      indexed_attestation: SomeIndexedAttestation
+  ): List[uint64, Limit MAX_VALIDATORS_PER_COMMITTEE] =
+    indexed_attestation.attesting_indices
+
+  let attesting_indices_2 = toHashSet(attestation_2.participant_indices.asSeq)
   for index in sorted(filterIt(
-      attestation_1.attesting_indices.asSeq, it in attesting_indices_2),
+      attestation_1.participant_indices.asSeq, it in attesting_indices_2),
       system.cmp):
     if is_slashable_validator(
         state.validators[index], get_current_epoch(state)):

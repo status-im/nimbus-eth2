@@ -50,22 +50,20 @@ const
 
 type
   # https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.0/specs/electra/beacon-chain.md#indexedattestation
-  IndexedAttestation* {.
-      sszProfile: StableIndexedAttestation.} = object
-    attesting_indices*:
-      List[uint64, Limit MAX_VALIDATORS_PER_COMMITTEE * MAX_COMMITTEES_PER_SLOT]
+  IndexedAttestation* {.sszProfile: StableIndexedAttestation.} = object
     data*: AttestationData
     signature*: ValidatorSig
+    participant_indices*:
+      List[uint64, Limit MAX_VALIDATORS_PER_COMMITTEE * MAX_COMMITTEES_PER_SLOT]
 
-  TrustedIndexedAttestation* {.
-      sszProfile: StableIndexedAttestation.} = object
+  TrustedIndexedAttestation* {.sszProfile: StableIndexedAttestation.} = object
     # The Trusted version, at the moment, implies that the cryptographic signature was checked.
     # It DOES NOT imply that the state transition was verified.
     # Currently the code MUST verify the state transition as soon as the signature is verified
-    attesting_indices*:
-      List[uint64, Limit MAX_VALIDATORS_PER_COMMITTEE * MAX_COMMITTEES_PER_SLOT]
     data*: AttestationData
     signature*: TrustedSig
+    participant_indices*:
+      List[uint64, Limit MAX_VALIDATORS_PER_COMMITTEE * MAX_COMMITTEES_PER_SLOT]
 
   # https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.0/specs/electra/beacon-chain.md#attesterslashing
   AttesterSlashing* {.
@@ -267,7 +265,7 @@ type
 
   # https://github.com/ethereum/consensus-specs/blob/82133085a1295e93394ebdf71df8f2f6e0962588/specs/electra/beacon-chain.md#beaconstate
   BeaconState* {.
-      sszProfile: StableBeaconState.}= object
+      sszProfile: StableBeaconState.} = object
     # Versioning
     genesis_time*: uint64
     genesis_validators_root*: Eth2Digest
@@ -560,9 +558,9 @@ type
   # https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.0/specs/electra/beacon-chain.md#attestation
   Attestation* {.
       sszProfile: StableAttestation.} = object
-    aggregation_bits*: ElectraCommitteeValidatorsBits
     data*: AttestationData
     signature*: ValidatorSig
+    participant_bits*: ElectraCommitteeValidatorsBits
     committee_bits*: AttestationCommitteeBits  # [New in Electra:EIP7549]
 
   TrustedAttestation* {.
@@ -570,9 +568,9 @@ type
     # The Trusted version, at the moment, implies that the cryptographic signature was checked.
     # It DOES NOT imply that the state transition was verified.
     # Currently the code MUST verify the state transition as soon as the signature is verified
-    aggregation_bits*: ElectraCommitteeValidatorsBits
     data*: AttestationData
     signature*: TrustedSig
+    participant_bits*: ElectraCommitteeValidatorsBits
     committee_bits*: AttestationCommitteeBits  # [New in Electra:EIP7549]
 
   SomeSignedBeaconBlock* =
@@ -683,18 +681,18 @@ iterator getValidatorIndices*(attester_slashing: AttesterSlashing | TrustedAttes
   template attestation_1(): auto = attester_slashing.attestation_1
   template attestation_2(): auto = attester_slashing.attestation_2
 
-  let attestation_2_indices = toHashSet(attestation_2.attesting_indices.asSeq)
-  for validator_index in attestation_1.attesting_indices.asSeq:
+  let attestation_2_indices = toHashSet(attestation_2.participant_indices.asSeq)
+  for validator_index in attestation_1.participant_indices.asSeq:
     if validator_index notin attestation_2_indices:
       continue
     yield validator_index
 
 func shortLog*(v: electra.Attestation | electra.TrustedAttestation): auto =
   (
-    aggregation_bits: v.aggregation_bits,
-    committee_bits: v.committee_bits,
     data: shortLog(v.data),
-    signature: shortLog(v.signature)
+    signature: shortLog(v.signature),
+    participant_bits: v.participant_bits,
+    committee_bits: v.committee_bits,
   )
 
 func init*(
@@ -713,8 +711,7 @@ func init*(
     bits.setBit index_in_committee
 
   ok Attestation(
-    aggregation_bits: bits,
-    committee_bits: committee_bits,
     data: data,
-    signature: signature
-  )
+    signature: signature,
+    participant_bits: bits,
+    committee_bits: committee_bits,)

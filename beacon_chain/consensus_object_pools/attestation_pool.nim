@@ -258,16 +258,15 @@ func toElectraAttestation(
   committee_bits[int(entry.data.index)] = true
 
   electra.Attestation(
-    aggregation_bits: validation.aggregation_bits,
-    committee_bits: committee_bits,
     data: AttestationData(
       slot: entry.data.slot,
       index: 0,
       beacon_block_root: entry.data.beacon_block_root,
       source: entry.data.source,
       target: entry.data.target),
-    signature: validation.aggregate_signature.finish().toValidatorSig()
-  )
+    signature: validation.aggregate_signature.finish().toValidatorSig(),
+    participant_bits: validation.aggregation_bits,
+    committee_bits: committee_bits)
 
 func updateAggregates(entry: var AttestationEntry) =
   # Upgrade the list of aggregates to ensure that there is at least one
@@ -349,8 +348,12 @@ proc addAttestation(
   logScope:
     attestation = shortLog(attestation)
 
+  func participant_bits(
+      attestation: phase0.Attestation): CommitteeValidatorsBits =
+    attestation.aggregation_bits
+
   let
-    singleIndex = oneIndex(attestation.aggregation_bits)
+    singleIndex = oneIndex(attestation.participant_bits)
 
   if singleIndex.isSome():
     if singleIndex.get() in entry.singles:
@@ -367,16 +370,16 @@ proc addAttestation(
     entry.singles[singleIndex.get()] = signature
   else:
     # More than one vote in this attestation
-    if entry.covers(attestation.aggregation_bits):
+    if entry.covers(attestation.participant_bits):
       return false
 
     # Since we're adding a new aggregate, we can now remove existing
     # aggregates that don't add any new votes
     entry.aggregates.keepItIf(
-      not it.aggregation_bits.isSubsetOf(attestation.aggregation_bits))
+      not it.aggregation_bits.isSubsetOf(attestation.participant_bits))
 
     entry.aggregates.add(Validation[typeof(entry).CVBType](
-      aggregation_bits: attestation.aggregation_bits,
+      aggregation_bits: attestation.participant_bits,
       aggregate_signature: AggregateSignature.init(signature)))
 
     debug "Aggregate resolved",
@@ -466,7 +469,7 @@ proc addAttestation*(
         target: attestation.data.target)
     let newAttEntry = ElectraAttestationEntry(
       data: data,
-      committee_len: attestation.aggregation_bits.len)
+      committee_len: attestation.participant_bits.len)
     addAttToPool(pool.electraCandidates, newAttEntry)
     pool.addForkChoiceVotes(
       attestation.data.slot, attesting_indices,

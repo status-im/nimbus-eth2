@@ -212,7 +212,7 @@ iterator get_attesting_indices*(
 
     for validator in get_attesting_indices(
         shufflingRef, slot, attestation.committee_bits,
-        attestation.aggregation_bits, on_chain):
+        attestation.participant_bits, on_chain):
       yield validator
 
 func get_attesting_indices_one*(shufflingRef: ShufflingRef,

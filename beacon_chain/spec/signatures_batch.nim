@@ -336,11 +336,16 @@ proc collectSignatureSets*(
     # Alias
     template slashing: untyped = signed_block.message.body.attester_slashings[i]
 
+    func participant_indices(
+      indexed_attestation: SomeIndexedAttestation
+    ): List[uint64, Limit MAX_VALIDATORS_PER_COMMITTEE] =
+      indexed_attestation.attesting_indices
+
     # Attestation 1
     block:
       let
         key = ? aggregateAttesters(
-          slashing.attestation_1.attesting_indices.asSeq(), validatorKeys)
+          slashing.attestation_1.participant_indices.asSeq(), validatorKeys)
         sig = slashing.attestation_1.signature.load().valueOr:
           return err("Invalid attestation slashing signature 1")
       sigs.add attestation_signature_set(
@@ -350,7 +355,7 @@ proc collectSignatureSets*(
     block:
       let
         key = ? aggregateAttesters(
-          slashing.attestation_2.attesting_indices.asSeq(), validatorKeys)
+          slashing.attestation_2.participant_indices.asSeq(), validatorKeys)
         sig = slashing.attestation_2.signature.load().valueOr:
           return err("Invalid attestation slashing signature 2")
       sigs.add attestation_signature_set(
@@ -378,7 +383,7 @@ proc collectSignatureSets*(
       let
         key = ? aggregateAttesters(
           get_attesting_indices(
-            state, attestation.data, attestation.aggregation_bits,
+            state, attestation.data, attestation.participant_bits,
               attestation.committee_bits, cache),
           validatorKeys)
     let

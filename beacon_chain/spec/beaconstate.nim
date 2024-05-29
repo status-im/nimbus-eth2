@@ -547,22 +547,27 @@ proc is_valid_indexed_attestation*(
         break
     res
 
-  if len(indexed_attestation.attesting_indices) == 0:
+  func participant_indices(
+      indexed_attestation: SomeIndexedAttestation
+  ): List[uint64, Limit MAX_VALIDATORS_PER_COMMITTEE] =
+    indexed_attestation.attesting_indices
+
+  if len(indexed_attestation.participant_indices) == 0:
     return err("indexed_attestation: no attesting indices")
 
   # Not from spec, but this function gets used in front-line roles, not just
   # behind firewall.
   let num_validators = state.validators.lenu64
-  if anyIt(indexed_attestation.attesting_indices, it >= num_validators):
+  if anyIt(indexed_attestation.participant_indices, it >= num_validators):
     return err("indexed attestation: not all indices valid validators")
 
-  if not is_sorted_and_unique(indexed_attestation.attesting_indices):
+  if not is_sorted_and_unique(indexed_attestation.participant_indices):
     return err("indexed attestation: indices not sorted and unique")
 
   # Verify aggregate signature
   if not (skipBlsValidation in flags or indexed_attestation.signature is TrustedSig):
     let pubkeys = mapIt(
-      indexed_attestation.attesting_indices, state.validators[it].pubkey)
+      indexed_attestation.participant_indices, state.validators[it].pubkey)
     if not verify_attestation_signature(
         state.fork, state.genesis_validators_root, indexed_attestation.data,
         pubkeys, indexed_attestation.signature):
@@ -694,7 +699,7 @@ proc is_valid_indexed_attestation(
   # order doesn't matter and we can proceed straight to validating the
   # signature instead
 
-  let sigs = attestation.aggregation_bits.countOnes()
+  let sigs = attestation.participant_bits.countOnes()
   if sigs == 0:
     return err("is_valid_indexed_attestation: no attesting indices")
 
@@ -703,7 +708,8 @@ proc is_valid_indexed_attestation(
     var
       pubkeys = newSeqOfCap[ValidatorPubKey](sigs)
     for index in get_attesting_indices_iter(
-        state, attestation.data, attestation.aggregation_bits, attestation.committee_bits, cache):
+        state, attestation.data,
+        attestation.participant_bits, attestation.committee_bits, cache):
       pubkeys.add(state.validators[index].pubkey)
 
     if not verify_attestation_signature(
@@ -939,14 +945,14 @@ proc check_attestation*(
       participants_count +=
         get_beacon_committee_len(state, data.slot, index.CommitteeIndex, cache)
 
-    if not (lenu64(attestation.aggregation_bits) == participants_count):
+    if not (lenu64(attestation.participant_bits) == participants_count):
       return err("attestation wrong aggregation bit length")
   else:
     let
       committee_index = get_committee_index_one(attestation.committee_bits).valueOr:
         return err("Network attestation without single committee index")
 
-    if not (lenu64(attestation.aggregation_bits) ==
+    if not (lenu64(attestation.participant_bits) ==
         get_beacon_committee_len(state, data.slot, committee_index, cache)):
       return err("attestation wrong aggregation bit length")
 
@@ -1026,7 +1032,8 @@ func get_proposer_reward*(
   let participation_flag_indices = get_attestation_participation_flag_indices(
     state, attestation.data, state.slot - attestation.data.slot)
   for index in get_attesting_indices_iter(
-      state, attestation.data, attestation.aggregation_bits, attestation.committee_bits, cache):
+      state, attestation.data,
+      attestation.participant_bits, attestation.committee_bits, cache):
     let
       base_reward = get_base_reward(state, index, base_reward_per_increment)
     for flag_index, weight in PARTICIPATION_FLAG_WEIGHTS:

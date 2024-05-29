@@ -9,7 +9,7 @@
 
 import
   std/[typetraits, sequtils, sets],
-  stew/[results, base10],
+  stew/[bitops2, results, base10],
   chronicles, metrics,
   ./rest_utils,
   ./state_ttl_cache,
@@ -497,11 +497,40 @@ proc installBeaconApiHandlers*(router: var RestRouter, node: BeaconNode) =
                                                ValidatorStatusNotFoundError,
                                                $sres.get())
             toString(sres.get())
-      return RestApiResponse.jsonResponseFinalized(
-        RestValidator.init(vindex, balance, status, validator),
-        node.getStateOptimistic(state),
-        node.dag.isFinalized(bslot.bid)
-      )
+
+      withState(state):
+        when consensusFork >= ConsensusFork.Deneb:
+          const
+            # StableContainer + 0 = items, + 1 = active_fields
+            STATE_DATA_GINDEX =
+              (1.GeneralizedIndex shl 1) + 0
+            # BeaconState depth
+            STATE_PROOF_DEPTH =
+              log2trunc(nextPow2(MAX_BEACON_STATE_FIELDS.uint64))
+            # validators is the 11th field within BeaconState (0-indexed)
+            VALIDATORS_GINDEX =
+              (STATE_DATA_GINDEX shl STATE_PROOF_DEPTH) + 11
+            # List + 0 = items, + 1 = len
+            VALIDATORS_BASE_GINDEX =
+              (VALIDATORS_GINDEX shl 1) + 0
+            # List depth
+            VALIDATORS_PROOF_DEPTH =
+              log2trunc(nextPow2(VALIDATOR_REGISTRY_LIMIT))
+            # First item
+            VALIDATORS_FIRST_GINDEX =
+              (VALIDATORS_BASE_GINDEX shl VALIDATORS_PROOF_DEPTH)
+          let proof = forkyState.data.build_proof(
+            VALIDATORS_FIRST_GINDEX + vindex.distinctBase.GeneralizedIndex).get
+          return RestApiResponse.jsonResponseFinalized(
+            RestValidator.init(vindex, balance, status, validator),
+            node.getStateOptimistic(state),
+            node.dag.isFinalized(bslot.bid),
+            proof)
+        else:
+          return RestApiResponse.jsonResponseFinalized(
+            RestValidator.init(vindex, balance, status, validator),
+            node.getStateOptimistic(state),
+            node.dag.isFinalized(bslot.bid))
 
     RestApiResponse.jsonError(Http404, StateNotFoundError)
 
