@@ -8,21 +8,20 @@
 {.push raises: [].}
 
 # Uncategorized helper functions from the spec
-
 import
   tables,
   algorithm,
   std/macros,
-  results,
-  stew/assign2,
-  nim-ssz-serialization/ssz_serialization/proofs,
+  stew/results,
+  ssz_serialization/proofs,
   chronicles,
-  std/sequtils,
   ./[beacon_time, crypto],
   eth/p2p/discoveryv5/[node],
   ./helpers,
   ./datatypes/[eip7594, deneb]
+  
 
+var ctx: KzgCtx
 
 proc sortedColumnIndices*(columnsPerSubnet: ColumnIndex, subnetIds: HashSet[uint64]): seq[ColumnIndex] =
   var res: seq[ColumnIndex] = @[]
@@ -33,6 +32,7 @@ proc sortedColumnIndices*(columnsPerSubnet: ColumnIndex, subnetIds: HashSet[uint
   res.sort()
   res
 
+# https://github.com/ethereum/consensus-specs/blob/5f48840f4d768bf0e0a8156a3ed06ec333589007/specs/_features/eip7594/das-core.md#get_custody_columns
 proc get_custody_columns*(node_id: NodeId, custody_subnet_count: uint64): Result[seq[ColumnIndex], cstring] =
     
   # assert custody_subnet_count <= DATA_COLUMN_SIDECAR_SUBNET_COUNT
@@ -65,18 +65,23 @@ proc get_custody_columns*(node_id: NodeId, custody_subnet_count: uint64): Result
   
   ok(sortedColumnIndices(ColumnIndex(columns_per_subnet), subnet_ids))
 
-
-# #### `compute_extended_matrix`
-
+# https://github.com/ethereum/consensus-specs/blob/5f48840f4d768bf0e0a8156a3ed06ec333589007/specs/_features/eip7594/das-core.md#compute_extended_matrix
 proc compute_extended_matrix* (blobs: seq[KzgBlob]): Result[ExtendedMatrix, cstring] =
   # This helper demonstrates the relationship between blobs and `ExtendedMatrix`
   var extended_matrix: ExtendedMatrix
   for blob in blobs:
-    let computed_cell = computeCellsAndKzgProofs(blob)
-    discard extended_matrix.add(computed_cell)
+    let res = computeCells(ctx, blob)
+
+    if res.isErr:
+        return err("Error computing kzg cells and kzg proofs")
+
+    discard extended_matrix.add(res.get())
+
   ok(extended_matrix)
     
-proc recover_matrix*(cells_dict: Table[(BlobIndex, CellID), Cell], blobCount: uint64): Result[ExtendedMatrix, cstring] =
+# https://github.com/ethereum/consensus-specs/blob/5f48840f4d768bf0e0a8156a3ed06ec333589007/specs/_features/eip7594/das-core.md#recover_matrix    
+proc recover_matrix*(cells_dict: Table[(BlobIndex, CellID), KzgCell], blobCount: uint64): Result[ExtendedMatrix, cstring] =
+  
   # This helper demonstrates how to apply recover_all_cells
   # The data structure for storing cells is implementation-dependent
 
@@ -92,7 +97,7 @@ proc recover_matrix*(cells_dict: Table[(BlobIndex, CellID), Cell], blobCount: ui
       if blIdx == blobIndex:
         cellIds.add(cellId)
 
-    var cells: seq[Cell] = @[]
+    var cells: seq[KzgCell] = @[]
     for cellId in cellIds:
       var interim_key = (BlobIndex(blobIndex), cellId)
       
@@ -102,79 +107,91 @@ proc recover_matrix*(cells_dict: Table[(BlobIndex, CellID), Cell], blobCount: ui
           cells.add(cell)
         except:
           debug "DataColumn: Key not found in Cell Dictionary", interim_key
-    var allCellsForRow: Cells 
-    allCellsForRow = recoverAllCells(cellIds, cells)
-    discard extended_matrix.add(allCellsForRow) 
+
+    let allCellsForRow = recoverAllCells(ctx, cellIds, cells)
+    discard extended_matrix.add(allCellsForRow.get()) 
 
   ok(extended_matrix)
 
-proc get_data_column_sidecars*(signed_block: deneb.SignedBeaconBlock, blobs: seq[KzgBlob]): Result[seq[DataColumnSidecar]] =
+# https://github.com/ethereum/consensus-specs/blob/5f48840f4d768bf0e0a8156a3ed06ec333589007/specs/_features/eip7594/das-core.md#get_data_column_sidecars
+proc get_data_column_sidecars*(signed_block: deneb.SignedBeaconBlock, blobs: seq[KzgBlob]): Result[seq[DataColumnSidecar], cstring] =
 
-# #### `get_data_column_sidecars`
-
+  var sidecar: DataColumnSidecar
   var signed_block_header: deneb.SignedBeaconBlockHeader
   var blck = signed_block.message
-  let 
-    kzgCommitmentInclusionProof = build_proof(blck.body, 32'u64)
 
-  if kzgCommitmentInclusionProof.isErr():
-    fatal "EIP7549: Could not compute Merkle proof"
-
-  var cellsAndProofs: seq[CellsAndProofs]
+  var cellsAndProofs: seq[KzgCellsAndKzgProofs] = @[]
 
   for blob in blobs:
     let
-      computed_cell = computeCellsAndKzgProofs(blob)
+      computed_cell = computeCellsAndKzgProofs(ctx, blob)
 
     if computed_cell.isErr():
       fatal "EIP7549: Could not compute cells"
 
-    cellsAndProofs.add(computed_cell)
+    cellsAndProofs.add(computed_cell.get())
 
   let blobCount = blobs.len
-  var cells: seq[seq[Cell]] = @[]
-  var proofs: seq[seq[KzgProof]] = @[]
+  var
+    cells: seq[seq[KzgCell]]
+    proofs: seq[seq[KzgProof]]
 
   for i in 0..<blobCount:
-    cells.add(cellsAndProofs.cells)
-    proofs.add(cellsAndProofs.proofs)
+    cells[i].add(cellsAndProofs[i].cells[0])
+    proofs[i].add(cellsAndProofs[i].proofs[1])
 
   var sidecars: seq[DataColumnSidecar] = @[]
 
   for columnIndex in 0..<NUMBER_OF_COLUMNS:
     var column: DataColumn
-    var cellsForColumn: seq[Cell] = @[]
     for rowIndex in 0..<blobCount:
-      cellsForColumn.add(cells[rowIndex][columnIndex])
-    column = DataColumn(cellsForColumn)
+      column[rowIndex] = cells[rowIndex][columnIndex]
 
-    var kzgProofOfColumn: seq[KzgProof] = @[]
+    var kzgProofOfColumn: List[KzgProof, Limit(MAX_BLOB_COMMITMENTS_PER_BLOCK)]
     for rowIndex in 0..<blobCount:
-      kzgProofOfColumn.add(proofs[rowIndex][columnIndex])
+      kzgProofOfColumn[rowIndex] = proofs[rowIndex][columnIndex]
 
-    var sidecar = DataColumnSidecar(
-      index: columnIndex,
+    sidecar = DataColumnSidecar(
+      index: uint64(columnIndex),
       column: column,
       kzgCommitments: blck.body.blob_kzg_commitments,
       kzgProofs: kzgProofOfColumn,
-      signed_block_header: signed_block_header,
-      kzg_commitments_inclusion_proof: kzgCommitmentInclusionProof
+      signed_block_header: signed_block_header
     )
+    blck.body.build_proof(
+      kzg_commitment_inclusion_proof_gindex(BlobIndex(columnIndex)),
+      sidecar.kzg_commitments_inclusion_proof).expect("Valid gindex")
     sidecars.add(sidecar)
 
   ok(sidecars)
 
+# Helper function to `verifyCellKzgProofBatch` at https://github.com/ethereum/c-kzg-4844/blob/das/bindings/nim/kzg_ex.nim#L170
+proc validate_data_column_sidecar*(
+    expected_commitments: seq[KzgCommitment], rowIndex: seq[RowIndex], columnIndex: seq[ColumnIndex], column: seq[KzgCell],
+    proofs: seq[KzgProof]): Result[void, string] =
+  
+  let res = verifyCellKzgProofBatch(expected_commitments, rowIndex, columnIndex, column, proofs).valueOr:
+    return err("DataColumnSidecar: Proof verification error: " & error())
 
-proc verify_data_column_sidecar_kzg_proofs* (sidecar: DataColumnSidecar): Result[bool, cstring] =
+  if not res:
+    return err("DataColumnSidecar: Proof verification failed")
+
+  ok()
+
+# https://github.com/ethereum/consensus-specs/blob/5f48840f4d768bf0e0a8156a3ed06ec333589007/specs/_features/eip7594/p2p-interface.md#verify_data_column_sidecar_kzg_proofs
+proc verify_data_column_sidecar_kzg_proofs*(sidecar: DataColumnSidecar): Result[void, string] =
   # Verifying if the KZG proofs are correct
 
   # Check if the data column sidecar index < NUMBER_OF_COLUMNS
   if not (sidecar.index < NUMBER_OF_COLUMNS):
-    return err("EIP7549: Data column sidecar index exceeds the NUMBER_OF_COLUMNS")
+    return err("EIP7594: Data column sidecar index exceeds the NUMBER_OF_COLUMNS")
 
   # Check is the sidecar column length == sidecar.kzg_commitments length == sidecar.kzg_proofs mixInLength
-  if not (sidecar.column.len == sidecar.kzg_commitments.len and sidecar.kzg_commitments.len == sidecar.kzg_proofs.len):
-    return err("EIP7549: Data column sidecar column length does not match the kzg_commitments length or kzg_proofs length")
+  if not (sidecar.column.len == sidecar.kzg_commitments.len):
+    return err("EIP7594: Data column sidecar length is not equal to the kzg_commitments length")
+
+  if not (sidecar.kzg_commitments.len == sidecar.kzg_proofs.len):
+    return err("EIP7594: Data column sidecar kzg_commitments length is not equal to the kzg_proofs length")
 
   # Iterate through the row indices
   var rowIndices: seq[RowIndex] = @[]
@@ -184,15 +201,36 @@ proc verify_data_column_sidecar_kzg_proofs* (sidecar: DataColumnSidecar): Result
   # Iterate through the column indices
   var colIndices: seq[ColumnIndex] = @[]
   for i in 0..<sidecar.column.len:
-    colIndices.add(ColumnIndex(i))
+    colIndices.add(sidecar.index * uint64(sidecar.column.len))
 
+  let kzgCommits = sidecar.kzg_commitments.asSeq
+  let sidecarCol = sidecar.column.asSeq
+  let kzgProofs = sidecar.kzg_proofs.asSeq
   # KZG batch verifies that the cells match the corresponding commitments and KZG proofs
-  var res = verifyCellKzgProofBatch(
-    sidecar.kzg_commitments,
+  let res = validate_data_column_sidecar(
+    kzgCommits,
     rowIndices,
     colIndices,
-    sidecar.column,
-    sidecar.kzg_proofs
-  )
-  
-  ok(res)
+    sidecarCol,
+    kzgProofs)
+
+  if res.isErr():
+    return err("DataColumnSidecar: validation failed")
+
+  ok()
+
+# https://github.com/ethereum/consensus-specs/blob/5f48840f4d768bf0e0a8156a3ed06ec333589007/specs/_features/eip7594/p2p-interface.md#verify_data_column_sidecar_inclusion_proof
+proc verify_data_column_sidecar_inclusion_proof*(sidecar: DataColumnSidecar): Result[void, string] =
+
+  # Verify if the given KZG commitments are included in the beacon block
+  let gindex = kzg_commitment_inclusion_proof_gindex(sidecar.index)
+  if not is_valid_merkle_branch(
+    hash_tree_root(sidecar.kzg_commitments),
+    sidecar.kzg_commitments_inclusion_proof,
+    KZG_COMMITMENT_INCLUSION_PROOF_DEPTH,
+    get_subtree_index(gindex),
+    sidecar.signed_block_header.message.body_root):
+    
+    return err("DataColumnSidecar: inclusion proof not valid")
+
+  ok()

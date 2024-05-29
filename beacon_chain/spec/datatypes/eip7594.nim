@@ -20,6 +20,8 @@ type
   Coset* = array[FIELD_ELEMENTS_PER_CELL, BLSFieldElement]
   CosetEvals* = array[FIELD_ELEMENTS_PER_CELL, BLSFieldElement]
   Cell* = KzgCell
+  Cells* = KzgCells
+  CellsAndProofs* = KzgCellsAndKzgProofs
   CellID* = uint64
   RowIndex* = uint64
   ColumnIndex* = uint64
@@ -34,8 +36,8 @@ const
   TARGET_NUMBER_OF_PEERS* = 70
 
 type
-  DataColumn* = List[Cell, Limit(MAX_BLOB_COMMITMENTS_PER_BLOCK)]
-  ExtendedMatrix* = List[Cell, Limit(MAX_CELLS_IN_EXTENDED_MATRIX)]
+  DataColumn* = List[KzgCell, Limit(MAX_BLOB_COMMITMENTS_PER_BLOCK)]
+  ExtendedMatrix* = List[KzgCell, Limit(MAX_CELLS_IN_EXTENDED_MATRIX)]
 
   DataColumnSidecar* = object
     index*: ColumnIndex # Index of column in extended matrix
@@ -44,7 +46,7 @@ type
     kzg_proofs*: List[KzgProof, Limit(MAX_BLOB_COMMITMENTS_PER_BLOCK)]
     signed_block_header*: SignedBeaconBlockHeader
     kzg_commitments_inclusion_proof*:
-      array[KZG_COMMITMENTS_INCLUSION_PROOF_DEPTH, KzgBytes32]
+      array[KZG_COMMITMENTS_INCLUSION_PROOF_DEPTH, Eth2Digest]
 
 func shortLog*(v: DataColumnSidecar): auto =
   (

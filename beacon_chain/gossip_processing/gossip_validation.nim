@@ -13,7 +13,7 @@ import
   results,
   # Internals
   ../spec/[
-    beaconstate, state_transition_block, forks, helpers, network, signatures],
+    beaconstate, state_transition_block, forks, helpers, network, signatures, eip7594_helpers],
   ../consensus_object_pools/[
     attestation_pool, blockchain_dag, blob_quarantine, block_quarantine,
     spec_cache, light_client_pool, sync_committee_msg_pool,
@@ -206,6 +206,18 @@ func check_blob_sidecar_inclusion_proof(
     return errReject(res.error)
 
   ok()
+
+func check_data_column_sidecar_inclusion_proof(
+  data_column_sidecar: DataColumnSidecar): Result[void, ValidationError] =
+  let res = data_column_sidecar.verify_data_column_sidecar_inclusion_proof()
+  if res.isErr:
+    return errReject(res.error)
+
+proc check_data_column_sidecar_kzg_proofs(
+  data_column_sidecar: DataColumnSidecar): Result[void, ValidationError] =
+  let res = data_column_sidecar.verify_data_column_sidecar_kzg_proofs()
+  if res.isErr:
+    return errReject(res.error)
 
 # Gossip Validation
 # ----------------------------------------------------------------
@@ -502,11 +514,19 @@ proc validateDataColumnSidecar*(
   if not (block_header.slot > dag.finalizedHead.slot):
     return errIgnore("DataColumnSidecar: slot already finalized")
 
-  # TODO: [REJECT] The sidecar's `kzg_commitments` inclusion proof is valid as verified by
+  # [REJECT] The sidecar's `kzg_commitments` inclusion proof is valid as verified by
   # `verify_data_column_sidecar_inclusion_proof(sidecar)`.
+  block:
+    let v = check_data_column_sidecar_inclusion_proof(data_column_sidecar)
+    if v.isErr:
+      return dag.checkedReject(v.error)
 
-  # TODO: [REJECT] The sidecar's column data is valid as 
+  # [REJECT] The sidecar's column data is valid as 
   # verified by `verify_data_column_kzg_proofs(sidecar)`
+  block:
+    let r = check_data_column_sidecar_kzg_proofs(data_column_sidecar)
+    if r.isErr:
+      return dag.checkedReject(r.error)
 
   # [IGNORE] The sidecar is the first sidecar for the tuple
   # (block_header.slot, block_header.proposer_index, blob_sidecar.index)
