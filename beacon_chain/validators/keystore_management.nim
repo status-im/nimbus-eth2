@@ -1813,7 +1813,7 @@ proc importKeystoresFromDir*(rng: var HmacDrbgContext, meth: ImportMethod,
   try:
     let importedFiles = walkDirRec(importedDir).toSeq
     if importedFiles.len == 0:
-      fatal "No keystore file found at kyes path"
+      fatal "No keystore file found at keystore path"
       quit 1
 
     var 
@@ -1905,7 +1905,7 @@ proc importKeystoresFromDir*(rng: var HmacDrbgContext, meth: ImportMethod,
           if password.len == 0:
             break
     if not hasValid and invalidFlag:
-      fatal "Not found valid file,the keystore file must ending by .json and not start with deposit_data"
+      fatal "No valid keystore file found; the keystore file must have a .json extension and not start with deposit_data"
       quit 1
 
   except OSError:
