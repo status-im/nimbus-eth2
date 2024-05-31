@@ -17,9 +17,6 @@ import
   eth/p2p/discoveryv5/[node],
   ./helpers,
   ./datatypes/[eip7594, deneb]
-  
-
-var ctx: KzgCtx
 
 proc sortedColumnIndices*(columnsPerSubnet: ColumnIndex, subnetIds: HashSet[uint64]): seq[ColumnIndex] =
   var res: seq[ColumnIndex] = @[]
@@ -68,7 +65,7 @@ proc compute_extended_matrix* (blobs: seq[KzgBlob]): Result[ExtendedMatrix, cstr
   # This helper demonstrates the relationship between blobs and `ExtendedMatrix`
   var extended_matrix: ExtendedMatrix
   for blob in blobs:
-    let res = computeCells(ctx, blob)
+    let res = computeCells(blob)
 
     if res.isErr:
         return err("Error computing kzg cells and kzg proofs")
@@ -76,7 +73,7 @@ proc compute_extended_matrix* (blobs: seq[KzgBlob]): Result[ExtendedMatrix, cstr
     discard extended_matrix.add(res.get())
 
   ok(extended_matrix)
-    
+
 # https://github.com/ethereum/consensus-specs/blob/5f48840f4d768bf0e0a8156a3ed06ec333589007/specs/_features/eip7594/das-core.md#recover_matrix    
 proc recover_matrix*(cells_dict: Table[(BlobIndex, CellID), KzgCell], blobCount: uint64): Result[ExtendedMatrix, cstring] =
   # This helper demonstrates how to apply recover_all_cells
@@ -105,7 +102,7 @@ proc recover_matrix*(cells_dict: Table[(BlobIndex, CellID), KzgCell], blobCount:
         except:
           debug "DataColumn: Key not found in Cell Dictionary", interim_key
 
-    let allCellsForRow = recoverAllCells(ctx, cellIds, cells)
+    let allCellsForRow = recoverAllCells(cellIds, cells)
     let check = extended_matrix.add(allCellsForRow.get())
     doAssert check == true, "DataColumn: Could not add cells to the extended matrix"
 
@@ -121,7 +118,7 @@ proc get_data_column_sidecars*(signed_block: deneb.SignedBeaconBlock, blobs: seq
 
   for blob in blobs:
     let
-      computed_cell = computeCellsAndKzgProofs(ctx, blob)
+      computed_cell = computeCellsAndKzgProofs(blob)
 
     if computed_cell.isErr():
       fatal "EIP7549: Could not compute cells"
