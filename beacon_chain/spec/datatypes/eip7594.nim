@@ -1,3 +1,12 @@
+# beacon_chain
+# Copyright (c) 2022-2024 Status Research & Development GmbH
+# Licensed and distributed under either of
+#   * MIT license (license terms in the root directory or at https://opensource.org/licenses/MIT).
+#   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
+# at your option. This file may not be copied, modified, or distributed except according to those terms.
+
+{.push raises: [].}
+
 import "."/[base, deneb], kzg4844
 
 export base, kzg4844
@@ -20,6 +29,8 @@ type
   Coset* = array[FIELD_ELEMENTS_PER_CELL, BLSFieldElement]
   CosetEvals* = array[FIELD_ELEMENTS_PER_CELL, BLSFieldElement]
   Cell* = KzgCell
+  Cells* = KzgCells
+  CellsAndProofs* = KzgCellsAndKzgProofs
   CellID* = uint64
   RowIndex* = uint64
   ColumnIndex* = uint64
@@ -34,8 +45,8 @@ const
   TARGET_NUMBER_OF_PEERS* = 70
 
 type
-  DataColumn* = List[Cell, Limit(MAX_BLOB_COMMITMENTS_PER_BLOCK)]
-  ExtendedMatrix* = List[Cell, Limit(MAX_CELLS_IN_EXTENDED_MATRIX)]
+  DataColumn* = List[KzgCell, Limit(MAX_BLOB_COMMITMENTS_PER_BLOCK)]
+  ExtendedMatrix* = List[KzgCell, Limit(MAX_CELLS_IN_EXTENDED_MATRIX)]
 
   DataColumnSidecar* = object
     index*: ColumnIndex # Index of column in extended matrix
@@ -44,7 +55,7 @@ type
     kzg_proofs*: List[KzgProof, Limit(MAX_BLOB_COMMITMENTS_PER_BLOCK)]
     signed_block_header*: SignedBeaconBlockHeader
     kzg_commitments_inclusion_proof*:
-      array[KZG_COMMITMENTS_INCLUSION_PROOF_DEPTH, KzgBytes32]
+      array[KZG_COMMITMENTS_INCLUSION_PROOF_DEPTH, Eth2Digest]
 
 func shortLog*(v: DataColumnSidecar): auto =
   (
