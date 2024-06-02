@@ -213,11 +213,15 @@ func check_data_column_sidecar_inclusion_proof(
   if res.isErr:
     return errReject(res.error)
 
+  ok()
+
 proc check_data_column_sidecar_kzg_proofs(
   data_column_sidecar: DataColumnSidecar): Result[void, ValidationError] =
   let res = data_column_sidecar.verify_data_column_sidecar_kzg_proofs()
   if res.isErr:
     return errReject(res.error)
+
+  ok()
 
 # Gossip Validation
 # ----------------------------------------------------------------
@@ -523,10 +527,10 @@ proc validateDataColumnSidecar*(
 
   # # [REJECT] The sidecar's column data is valid as 
   # # verified by `verify_data_column_kzg_proofs(sidecar)`
-  # block:
-  #   let r = check_data_column_sidecar_kzg_proofs(data_column_sidecar)
-  #   if r.isErr:
-  #     return dag.checkedReject(r.error)
+  block:
+    let r = check_data_column_sidecar_kzg_proofs(data_column_sidecar)
+    if r.isErr:
+      return dag.checkedReject(r.error)
 
   # [IGNORE] The sidecar is the first sidecar for the tuple
   # (block_header.slot, block_header.proposer_index, blob_sidecar.index)
