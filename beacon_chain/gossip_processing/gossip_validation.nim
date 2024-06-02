@@ -549,8 +549,8 @@ proc validateDataColumnSidecar*(
     if block_header.parent_root in quarantine[].unviable:
       quarantine[].addUnviable(block_root)
       return dag.checkedReject("DataColumnSidecar: parent not validated")
-    else:
-      quarantine[].addMissing(block_header.parent_root)
+    # else:
+    #   quarantine[].addMissing(block_header.parent_root)
       # return errIgnore("DataColumnSidecar: parent not found")
 
   # [REJECT] The sidecar is proposed by the expected `proposer_index`
