@@ -521,22 +521,22 @@ proc validateDataColumnSidecar*(
     if v.isErr:
       return dag.checkedReject(v.error)
 
-  # [REJECT] The sidecar's column data is valid as 
-  # verified by `verify_data_column_kzg_proofs(sidecar)`
-  block:
-    let r = check_data_column_sidecar_kzg_proofs(data_column_sidecar)
-    if r.isErr:
-      return dag.checkedReject(r.error)
+  # # [REJECT] The sidecar's column data is valid as 
+  # # verified by `verify_data_column_kzg_proofs(sidecar)`
+  # block:
+  #   let r = check_data_column_sidecar_kzg_proofs(data_column_sidecar)
+  #   if r.isErr:
+  #     return dag.checkedReject(r.error)
 
   # [IGNORE] The sidecar is the first sidecar for the tuple
   # (block_header.slot, block_header.proposer_index, blob_sidecar.index)
   # with valid header signature, sidecar inclusion proof, and kzg proof.
   let block_root = hash_tree_root(block_header)
   if dag.getBlockRef(block_root).isSome():
-    return errIgnore("BlobSidecar: already have block")
+    return errIgnore("DataColumnSidecar: already have block")
   if blobQuarantine[].hasBlob(
       block_header.slot, block_header.proposer_index, data_column_sidecar.index):
-    return errIgnore("BlobSidecar: already have valid blob from same proposer")
+    return errIgnore("DataColumnSidecar: already have valid blob from same proposer")
 
   # [IGNORE] The sidecar's block's parent (defined by
   # `block_header.parent_root`) has been seen (via both gossip and
@@ -545,13 +545,13 @@ proc validateDataColumnSidecar*(
   #
   # [REJECT] The sidecar's block's parent (defined by
   # `block_header.parent_root`) passes validation.
-  let parent = dag.getBlockRef(block_header.parent_root).valueOr:
-    if block_header.parent_root in quarantine[].unviable:
-      quarantine[].addUnviable(block_root)
-      return dag.checkedReject("DataColumnSidecar: parent not validated")
-    else:
-      quarantine[].addMissing(block_header.parent_root)
-      return errIgnore("DataColumnSidecar: parent not found")
+  # let parent = dag.getBlockRef(block_header.parent_root).valueOr:
+  #   if block_header.parent_root in quarantine[].unviable:
+  #     quarantine[].addUnviable(block_root)
+  #     return dag.checkedReject("DataColumnSidecar: parent not validated")
+  #   else:
+  #     quarantine[].addMissing(block_header.parent_root)
+  #     return errIgnore("DataColumnSidecar: parent not found")
 
   # [REJECT] The sidecar is proposed by the expected `proposer_index`
   # for the block's slot in the context of the current shuffling
@@ -562,10 +562,10 @@ proc validateDataColumnSidecar*(
   # REJECT, instead IGNORE this message.
   let proposer = getProposer(dag, parent, block_header.slot).valueOr:
     warn "cannot compute proposer for blob"
-    return errIgnore("BlobSidecar: Cannot compute proposer") # internal issue
+    return errIgnore("DataColumnSidecar: Cannot compute proposer") # internal issue
 
   if uint64(proposer) != block_header.proposer_index:
-    return dag.checkedReject("BlobSidecar: Unexpected proposer")
+    return dag.checkedReject("DataColumnSidecar: Unexpected proposer")
 
   # [REJECT] The proposer signature of `blob_sidecar.signed_block_header`,
   # is valid with respect to the `block_header.proposer_index` pubkey.
