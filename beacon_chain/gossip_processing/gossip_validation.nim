@@ -545,13 +545,13 @@ proc validateDataColumnSidecar*(
   #
   # [REJECT] The sidecar's block's parent (defined by
   # `block_header.parent_root`) passes validation.
-  # let parent = dag.getBlockRef(block_header.parent_root).valueOr:
-  #   if block_header.parent_root in quarantine[].unviable:
-  #     quarantine[].addUnviable(block_root)
-  #     return dag.checkedReject("DataColumnSidecar: parent not validated")
-  #   else:
-  #     quarantine[].addMissing(block_header.parent_root)
-  #     return errIgnore("DataColumnSidecar: parent not found")
+  let parent = dag.getBlockRef(block_header.parent_root).valueOr:
+    if block_header.parent_root in quarantine[].unviable:
+      quarantine[].addUnviable(block_root)
+      return dag.checkedReject("DataColumnSidecar: parent not validated")
+    else:
+      quarantine[].addMissing(block_header.parent_root)
+      # return errIgnore("DataColumnSidecar: parent not found")
 
   # [REJECT] The sidecar is proposed by the expected `proposer_index`
   # for the block's slot in the context of the current shuffling
