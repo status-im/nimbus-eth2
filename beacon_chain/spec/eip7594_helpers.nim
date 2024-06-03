@@ -201,13 +201,15 @@ proc verify_data_column_sidecar_kzg_proofs*(sidecar: DataColumnSidecar): Result[
     sidecarCol = sidecar.column.asSeq
     kzgProofs = sidecar.kzg_proofs.asSeq
 
-  # KZG batch verifies that the cells match the corresponding commitments and KZG proofs
-  let res = validate_data_column_sidecar(
-    kzgCommits,
-    rowIndices,
-    colIndices,
-    sidecarCol,
-    kzgProofs)
+  let res = verifyCellKzgProofBatch(kzgCommits, rowIndices, colIndices, sidecarCol, kzgProofs)
+
+  # # KZG batch verifies that the cells match the corresponding commitments and KZG proofs
+  # let res = validate_data_column_sidecar(
+  #   kzgCommits,
+  #   rowIndices,
+  #   colIndices,
+  #   sidecarCol,
+  #   kzgProofs)
 
   if res.isErr():
     return err("DataColumnSidecar: validation failed")
