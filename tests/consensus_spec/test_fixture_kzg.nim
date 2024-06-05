@@ -207,7 +207,7 @@ proc runComputeCellsTest(suiteName2, suitePath2, path: string) =
     if blob.isNone:
       check output.kind == JNull
     else:
-      let p = computeCells(blob.get)
+      let p = computeCellsKzg(blob.get)
       if p.isErr:
         check output.kind == JNull
       else:
