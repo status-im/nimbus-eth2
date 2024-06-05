@@ -193,8 +193,8 @@ proc runComputeBlobKzgProofTest(suiteName, suitePath, path: string) =
       else:
         check p.get == fromHex[48](output.getStr).get
 
-proc runComputeCellsTest(suiteName2, suitePath2, path: string) =
-  let relativePathComponent = path.relativeTestPathComponent(suitePath2)
+proc runComputeCellsTest(suiteName, suitePath, path: string) =
+  let relativePathComponent = path.relativeTestPathComponent(suitePath)
   test "KZG - Compute Cells - " & relativePathComponent:
     let
       data = yaml.loadToJson(os_ops.readFile(path/"data.yaml"))[0]
@@ -210,14 +210,13 @@ proc runComputeCellsTest(suiteName2, suitePath2, path: string) =
     else:
       let p = computeCells(blob.get)
       if p.isErr:
-        fatal "Failed to retrieve p value", err = p.error
         check output.kind == JNull
       else:
         for i in 0..<128:
-          check p.get[i] == fromHex[2048](output.getStr).get
+          check p.get[i] == fromHex[2048](output[i].getStr).get
 
-proc runComputeCellsAndProofsTest(suiteName2, suitePath2, path: string) =
-  let relativePathComponent = path.relativeTestPathComponent(suitePath2)
+proc runComputeCellsAndProofsTest(suiteName, suitePath, path: string) =
+  let relativePathComponent = path.relativeTestPathComponent(suitePath)
   test "KZG - Compute Cells And Proofs - " & relativePathComponent:
     let 
       data = yaml.loadToJson(os_ops.readFile(path/"data.yaml"))[0]
@@ -236,11 +235,11 @@ proc runComputeCellsAndProofsTest(suiteName2, suitePath2, path: string) =
         check output.kind == JNull
       else:
         for i in 0..<128:
-          check p.get.cells[i] == fromHex[2048](output["cells"].getStr).get
-          check p.get.proofs[i] == fromHex[48](output["proofs"].getStr).get
+          check p.get.cells[i] == fromHex[2048](output[0][i].getStr).get
+          check p.get.proofs[i] == fromHex[48](output[1][i].getStr).get
 
-proc runVerifyCellKzgProofsTest(suiteName2, suitePath2, path: string) =
-  let relativePathComponent = path.relativeTestPathComponent(suitePath2)
+proc runVerifyCellKzgProofsTest(suiteName, suitePath, path: string) =
+  let relativePathComponent = path.relativeTestPathComponent(suitePath)
   test "KZG - Verify Cell Kzg Proof - " & relativePathComponent:
     let 
       data = yaml.loadToJson(os_ops.readFile(path/"data.yaml"))[0]
@@ -263,8 +262,8 @@ proc runVerifyCellKzgProofsTest(suiteName2, suitePath2, path: string) =
       else:
         check p.get == output.getBool
 
-proc runVerifyCellKzgProofBatchTest(suiteName2, suitePath2, path: string) =
-  let relativePathCompnent = path.relativeTestPathComponent(suitePath2)
+proc runVerifyCellKzgProofBatchTest(suiteName, suitePath, path: string) =
+  let relativePathCompnent = path.relativeTestPathComponent(suitePath)
   test "KZG - Verify Cell Kzg Proof Batch - " & relativePathCompnent:
     let
       data = yaml.loadToJson(os_ops.readFile(path/"data.yaml"))[0]
@@ -297,8 +296,8 @@ proc runVerifyCellKzgProofBatchTest(suiteName2, suitePath2, path: string) =
         else:
           v.get == output.getBool
 
-proc runRecoverAllCellsTest(suiteName2, suitePath2, path: string) =
-  let relativePathComponent = path.relativeTestPathComponent(suitePath2)
+proc runRecoverAllCellsTest(suiteName, suitePath, path: string) =
+  let relativePathComponent = path.relativeTestPathComponent(suitePath)
   test "KZG - Recover All Cells - " & relativePathComponent:
     let
       data = yaml.loadToJson(os_ops.readFile(path/"data.yaml"))[0]
@@ -318,11 +317,11 @@ proc runRecoverAllCellsTest(suiteName2, suitePath2, path: string) =
         check output.kind == JNull
       else:
         for i in 0..<128:
-          check v.get[i] == fromHex[2048](output.getStr).get
+          check v.get[i] == fromHex[2048](output[i].getStr).get
 
 from std/algorithm import sorted
 
-const suiteName = "EF - KZG"
+var suiteName = "EF - KZG"
 
 suite suiteName:
   const suitePath = SszTestsDir/"general"/"deneb"/"kzg"
@@ -364,42 +363,40 @@ suite suiteName:
     for kind, path in walkDir(testsDir, relative = true, checkDir = true):
       runComputeBlobKzgProofTest(suiteName, testsDir, testsDir / path)
 
-doAssert Kzg.freeTrustedSetup().isOk
+suiteName = "EF - KZG - EIP7594"
 
-const suiteName2 = "EF - KZG - EIP7594"
-
-suite suiteName2:
-  const suitePath2 = SszTestsDir/"general"/"eip7594"/"kzg"
+suite suiteName:
+  const suitePath = SszTestsDir/"general"/"eip7594"/"kzg"
 
   # TODO also check that the only direct subdirectory of each is kzg-mainnet
   doAssert sorted(mapIt(
-      toSeq(walkDir(suitePath2, relative = true, checkDir = true)), it.path)) ==
+      toSeq(walkDir(suitePath, relative = true, checkDir = true)), it.path)) ==
     ["compute_cells", "compute_cells_and_kzg_proofs", "recover_all_cells",
      "verify_cell_kzg_proof", "verify_cell_kzg_proof_batch"]
 
   block:
-    let testsDir = suitePath2/"compute_cells"/"kzg-mainnet"
+    let testsDir = suitePath/"compute_cells"/"kzg-mainnet"
     for kind, path in walkDir(testsDir, relative = true, checkDir = true):
-      runComputeCellsTest(suiteName2, testsDir, testsDir/path)
+      runComputeCellsTest(suiteName, testsDir, testsDir/path)
 
   block:
-    let testsDir = suitePath2/"compute_cells_and_kzg_proofs"/"kzg-mainnet"
+    let testsDir = suitePath/"compute_cells_and_kzg_proofs"/"kzg-mainnet"
     for kind, path in walkDir(testsDir, relative = true, checkDir = true):
-      runComputeCellsAndProofsTest(suiteName2, testsDir, testsDir/path)
+      runComputeCellsAndProofsTest(suiteName, testsDir, testsDir/path)
 
   block:
-    let testsDir = suitePath2/"recover_all_cells"/"kzg-mainnet"
+    let testsDir = suitePath/"recover_all_cells"/"kzg-mainnet"
     for kind, path in walkDir(testsDir, relative = true, checkDir = true):
-      runRecoverAllCellsTest(suiteName2, testsDir, testsDir/path)
+      runRecoverAllCellsTest(suiteName, testsDir, testsDir/path)
 
   block:
-    let testsDir = suitePath2/"verify_cell_kzg_proof"/"kzg-mainnet"
+    let testsDir = suitePath/"verify_cell_kzg_proof"/"kzg-mainnet"
     for kind, path in walkDir(testsDir, relative = true, checkDir = true):
-      runVerifyCellKzgProofsTest(suiteName2, testsDir, testsDir/path)
+      runVerifyCellKzgProofsTest(suiteName, testsDir, testsDir/path)
 
   block:
-    let testsDir = suitePath2/"verify_cell_kzg_proof_batch"/"kzg-mainnet"
+    let testsDir = suitePath/"verify_cell_kzg_proof_batch"/"kzg-mainnet"
     for kind, path in walkDir(testsDir, relative = true, checkDir = true):
-      runVerifyCellKzgProofBatchTest(suiteName2, testsDir, testsDir/path)
+      runVerifyCellKzgProofBatchTest(suiteName, testsDir, testsDir/path)
 
 doAssert Kzg.freeTrustedSetup().isOk
