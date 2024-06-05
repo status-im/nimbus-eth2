@@ -13,6 +13,7 @@ import
   yaml,
   kzg4844/kzg_ex,
   stint,
+  chronicles,
   stew/[byteutils, results],
   ../testutil,
   ./fixtures_utils, ./os_ops
@@ -207,8 +208,9 @@ proc runComputeCellsTest(suiteName2, suitePath2, path: string) =
     if blob.isNone:
       check output.kind == JNull
     else:
-      let p = computeCellsKzg(blob.get)
+      let p = computeCells(blob.get)
       if p.isErr:
+        fatal "Failed to retrieve p value", err = p.error
         check output.kind == JNull
       else:
         for i in 0..<128:
