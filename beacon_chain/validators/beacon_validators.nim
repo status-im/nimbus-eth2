@@ -152,7 +152,7 @@ proc addValidatorsFromWeb3Signer(
       gasLimit = node.consensusManager[].getGasLimit(keystore.pubkey)
       v = node.attachedValidators[].addValidator(keystore, feeRecipient,
                                                  gasLimit)
-    v.updateValidator(data)
+    node.attachedValidators[].updateValidator(v, data)
 
 proc addValidators*(node: BeaconNode) {.async: (raises: [CancelledError]).} =
   info "Loading validators", validatorsDir = node.config.validatorsDir(),
@@ -174,7 +174,7 @@ proc addValidators*(node: BeaconNode) {.async: (raises: [CancelledError]).} =
 
       v = node.attachedValidators[].addValidator(keystore, feeRecipient,
                                                  gasLimit)
-    v.updateValidator(data)
+    node.attachedValidators[].updateValidator(v, data)
 
   # We use `allFutures` because all failures are already reported as
   # user-visible warnings in `queryValidatorsSource`.
@@ -363,10 +363,12 @@ proc createAndSendAttestation(node: BeaconNode,
     res =
       if consensusFork >= ConsensusFork.Electra:
         await node.router.routeAttestation(
-          registered.toElectraAttestation(signature), subnet_id, checkSignature = false)
+          registered.toElectraAttestation(signature), subnet_id,
+          checkSignature = false, checkValidator = false)
       else:
         await node.router.routeAttestation(
-          registered.toAttestation(signature), subnet_id, checkSignature = false)
+          registered.toAttestation(signature), subnet_id,
+          checkSignature = false, checkValidator = false)
   if not res.isOk():
     return
 
@@ -1292,7 +1294,8 @@ proc proposeBlockAux(
         else:
           Opt.none(seq[BlobSidecar])
       newBlockRef = (
-        await node.router.routeSignedBeaconBlock(signedBlock, blobsOpt)
+        await node.router.routeSignedBeaconBlock(signedBlock, blobsOpt,
+          checkValidator = false)
       ).valueOr:
         return head # Errors logged in router
 
@@ -1869,7 +1872,7 @@ proc updateValidators(
     let
       v = node.attachedValidators[].getValidator(validators[i].pubkey).valueOr:
         continue
-    v.index = Opt.some ValidatorIndex(i)
+    node.attachedValidators[].setValidatorIndex(v, ValidatorIndex(i))
 
   node.dutyValidatorCount = validators.len
 
@@ -1879,10 +1882,12 @@ proc updateValidators(
       # Activation epoch can change after index is assigned..
       let index = validator.index.get()
       if index < validators.lenu64:
-        validator.updateValidator(
+        node.attachedValidators[].updateValidator(
+          validator,
           Opt.some(ValidatorAndIndex(
             index: index, validator: validators[int index]
-          )))
+          ))
+        )
 
 proc handleFallbackAttestations(node: BeaconNode, lastSlot, slot: Slot) =
   # Neither block proposal nor sync committee duties can be done in this
