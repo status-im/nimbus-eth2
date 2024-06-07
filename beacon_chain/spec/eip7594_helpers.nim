@@ -39,8 +39,11 @@ proc get_custody_columns*(node_id: NodeId, custody_subnet_count: uint64): Result
     current_id = node_id
 
   while subnet_ids.len < int(custody_subnet_count):
-    let subnet_id_bytes = eth2digest(current_id.toBytesLE().toOpenArray(0,8))
-    var subnet_id = bytes_to_uint64(subnet_id_bytes.data) mod 
+
+    var subnet_id_bytes: array[8, byte]
+    subnet_id_bytes[0..7] = current_id.toBytesLE().toOpenArray(0,7)
+
+    var subnet_id = bytes_to_uint64(subnet_id_bytes) mod 
         DATA_COLUMN_SIDECAR_SUBNET_COUNT
     
     if subnet_id notin subnet_ids:
