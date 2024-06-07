@@ -1047,7 +1047,7 @@ type
 
     monitoringType* {.
       desc: "Enable block monitoring which are seen by beacon node (BETA)"
-      defaultValue: BlockMonitoringType.Disabled
+      defaultValue: BlockMonitoringType.Event
       name: "block-monitor-type".}: BlockMonitoringType
 
   SigningNodeConf* = object
