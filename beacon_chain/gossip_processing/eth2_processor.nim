@@ -366,7 +366,7 @@ proc checkForPotentialDoppelganger(
 proc processAttestation*(
     self: ref Eth2Processor, src: MsgSource,
     attestation: phase0.Attestation | electra.Attestation, subnet_id: SubnetId,
-    checkSignature: bool = true, checkValidator: bool = false
+    checkSignature, checkValidator: bool
 ): Future[ValidationRes] {.async: (raises: [CancelledError]).} =
   var wallTime = self.getCurrentBeaconTime()
   let (afterGenesis, wallSlot) = wallTime.toSlot()

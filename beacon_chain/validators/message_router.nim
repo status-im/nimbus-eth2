@@ -208,7 +208,8 @@ proc routeAttestation*(
   ## the attestation pool
   block:
     let res = await router[].processor.processAttestation(
-      MsgSource.api, attestation, subnet_id, checkSignature, checkValidator)
+      MsgSource.api, attestation, subnet_id,
+      checkSignature = checkSignature, checkValidator = checkValidator)
 
     if not res.isGoodForSending:
       warn "Attestation failed validation",

@@ -1767,7 +1767,8 @@ proc installMessageValidators(node: BeaconNode) =
               ): Future[ValidationResult] {.async: (raises: [CancelledError]).} =
                 return toValidationResult(
                   await node.processor.processAttestation(
-                    MsgSource.gossip, attestation, subnet_id)))
+                    MsgSource.gossip, attestation, subnet_id,
+                    checkSignature = true, checkValidator = false)))
       else:
         for it in SubnetId:
           closureScope:  # Needed for inner `proc`; don't lift it out of loop.
@@ -1778,7 +1779,8 @@ proc installMessageValidators(node: BeaconNode) =
               ): Future[ValidationResult] {.async: (raises: [CancelledError]).} =
                 return toValidationResult(
                   await node.processor.processAttestation(
-                    MsgSource.gossip, attestation, subnet_id)))
+                    MsgSource.gossip, attestation, subnet_id,
+                    checkSignature = true, checkValidator = false)))
 
       # beacon_aggregate_and_proof
       # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.4/specs/phase0/p2p-interface.md#beacon_aggregate_and_proof
