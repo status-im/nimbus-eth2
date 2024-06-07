@@ -93,7 +93,7 @@ type
 
   ValidatorPool* = object
     validators*: Table[ValidatorPubKey, AttachedValidator]
-    indices*: HashSet[ValidatorIndex]
+    indexSet*: HashSet[ValidatorIndex]
     slashingProtection*: SlashingProtectionDB
     doppelgangerDetectionEnabled*: bool
 
@@ -226,15 +226,15 @@ func contains*(pool: ValidatorPool, pubkey: ValidatorPubKey): bool =
 
 proc contains*(pool: ValidatorPool, index: ValidatorIndex): bool =
   ## Returns ``true`` if validator with index ``index`` present in ``pool``.
-  pool.indices.contains(index)
+  pool.indexSet.contains(index)
 
 proc setValidatorIndex*(pool: var ValidatorPool, validator: AttachedValidator,
                         index: ValidatorIndex) =
-  pool.indices.incl(index)
+  pool.indexSet.incl(index)
   validator.index = Opt.some(index)
 
 proc removeValidatorIndex*(pool: var ValidatorPool, index: ValidatorIndex) =
-  pool.indices.excl(index)
+  pool.indexSet.excl(index)
 
 proc removeValidator*(pool: var ValidatorPool, pubkey: ValidatorPubKey) =
   ## Delete validator with public key ``pubkey`` from ``pool``.

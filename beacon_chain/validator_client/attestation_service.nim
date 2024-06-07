@@ -70,6 +70,9 @@ proc serveAttestation(
     except CancelledError as exc:
       debug "Attestation publishing process was interrupted"
       raise exc
+    except ValidatorApiCriticalError:
+      vc.doppelExit.fire()
+      return false
     except CatchableError as exc:
       error "Unexpected error occured while publishing attestation",
             err_name = exc.name, err_msg = exc.msg

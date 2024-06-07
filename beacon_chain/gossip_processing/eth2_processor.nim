@@ -399,7 +399,7 @@ proc processAttestation*(
            "validator that is also manager by beacon node",
            validator_index = attester_index
       errReject("An attestation could not be sent from a validator that is " &
-                "also managed by the beacon node")
+                "also managed by the beacon node. (NIMBUS#E0001)")
     else:
       self[].checkForPotentialDoppelganger(attestation, [attester_index])
 

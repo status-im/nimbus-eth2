@@ -279,6 +279,9 @@ proc publishBlockV3(vc: ValidatorClientRef, currentSlot, slot: Slot,
           except CancelledError as exc:
             debug "Block publication has been interrupted"
             raise exc
+          except ValidatorApiCriticalError:
+            vc.doppelExit.fire()
+            return
           except CatchableError as exc:
             error "An unexpected error occurred while publishing block",
                   error_name = exc.name, error_msg = exc.msg

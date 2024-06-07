@@ -56,6 +56,9 @@ const
     RestBeaconNodeStatus.Synced
   }
 
+  DoppelgangerErrorMessage =
+    "Beacon node(s) reports about doppelganger validators"
+
 proc `$`*[T](s: ApiScore[T]): string =
   var res = Base10.toString(uint64(s.index))
   res.add(": ")
@@ -720,16 +723,30 @@ template firstSuccessSequential*(
       break
 
 proc getErrorMessage*(response: RestPlainResponse): string =
-  let res = decodeBytes(RestErrorMessage, response.data,
-                        response.contentType)
-  if res.isOk():
-    let errorObj = res.get()
-    if errorObj.stacktraces.isSome():
-      errorObj.message & ": [" & errorObj.stacktraces.get().join("; ") & "]"
-    else:
-      errorObj.message
+  let res =
+    decodeBytes(RestErrorMessage, response.data, response.contentType).valueOr:
+      return "Unable to decode error response: [" & $error & "]"
+
+  if res.stacktraces.isSome():
+    res.message & ": [" & res.stacktraces.get().join("; ") & "]"
   else:
-    "Unable to decode error response: [" & $res.error & "]"
+    res.message
+
+proc unpackErrorMessage*(response: RestPlainResponse): RestIndexedErrorMessage =
+  decodeBytes(RestIndexedErrorMessage, response.data,
+              response.contentType).valueOr:
+    let message = "Unable to decode error response: [" & $error & "]"
+    return RestIndexedErrorMessage(
+      code: -1,
+      message: message,
+      failures: default(seq[RestIndexedErrorMessageItem]))
+
+proc getErrorMessage*(msg: RestIndexedErrorMessage): string =
+  if len(msg.failures) > 0:
+    msg.message & ": [" &
+      msg.failures.mapIt($it.index & ":" & it.message).join("; ") & "]"
+  else:
+    msg.message
 
 template handleCommunicationError(): untyped {.dirty.} =
   let failure = ApiNodeFailure.init(ApiFailure.Communication, RequestName,
@@ -740,6 +757,13 @@ template handleCommunicationError(): untyped {.dirty.} =
 template handleUnexpectedCode(): untyped {.dirty.} =
   let failure = ApiNodeFailure.init(ApiFailure.UnexpectedCode, RequestName,
     strategy, node, response.status, response.getErrorMessage())
+  node.updateStatus(RestBeaconNodeStatus.UnexpectedCode, failure)
+  failures.add(failure)
+
+template handleUnexpectedCodeIndexed(): untyped {.dirty.} =
+  let failure = ApiNodeFailure.init(ApiFailure.UnexpectedCode, RequestName,
+    strategy, node, response.status,
+    response.unpackErrorMessage().getErrorMessage())
   node.updateStatus(RestBeaconNodeStatus.UnexpectedCode, failure)
   failures.add(failure)
 
@@ -761,6 +785,13 @@ template handle400(): untyped {.dirty.} =
   node.updateStatus(RestBeaconNodeStatus.Incompatible, failure)
   failures.add(failure)
 
+template handle400Indexed(): untyped {.dirty.} =
+  let failure = ApiNodeFailure.init(ApiFailure.Invalid, RequestName,
+    strategy, node, response.status,
+    response.unpackErrorMessage().getErrorMessage())
+  node.updateStatus(RestBeaconNodeStatus.Incompatible, failure)
+  failures.add(failure)
+
 template handle404(): untyped {.dirty.} =
   let failure = ApiNodeFailure.init(ApiFailure.NotFound, RequestName,
     strategy, node, response.status, response.getErrorMessage())
@@ -770,6 +801,13 @@ template handle404(): untyped {.dirty.} =
 template handle500(): untyped {.dirty.} =
   let failure = ApiNodeFailure.init(ApiFailure.Internal, RequestName,
     strategy, node, response.status, response.getErrorMessage())
+  node.updateStatus(RestBeaconNodeStatus.InternalError, failure)
+  failures.add(failure)
+
+template handle500Indexed(): untyped {.dirty.} =
+  let failure = ApiNodeFailure.init(ApiFailure.Internal, RequestName,
+    strategy, node, response.status,
+    response.unpackErrorMessage().getErrorMessage())
   node.updateStatus(RestBeaconNodeStatus.InternalError, failure)
   failures.add(failure)
 
@@ -1503,7 +1541,10 @@ proc submitPoolAttestations*(
   const
     RequestName = "submitPoolAttestations"
 
-  var failures: seq[ApiNodeFailure]
+  var
+    failures: seq[ApiNodeFailure]
+    doppelgangerCount = 0
+    critical = false
 
   case strategy
   of ApiStrategyKind.First, ApiStrategyKind.Best:
@@ -1522,17 +1563,37 @@ proc submitPoolAttestations*(
         of 200:
           ApiResponse[bool].ok(true)
         of 400:
-          handle400()
+          # We check for Nimbus specific error which beacon node could produce
+          # if it manages same validator as we do.
+          let idxerr = response.unpackErrorMessage()
+          for item in idxerr.failures:
+            if "NIMBUS#E0001" in item.message:
+              inc(doppelgangerCount)
+              critical = true
+
+          if critical:
+            warn DoppelgangerErrorMessage,
+                 endpoint = node, doppelganger_count = doppelgangerCount
+            doppelgangerCount = 0
+
+          let failure = ApiNodeFailure.init(ApiFailure.Invalid, RequestName,
+            strategy, node, response.status, idxerr.getErrorMessage())
+          node.updateStatus(RestBeaconNodeStatus.Incompatible, failure)
+          failures.add(failure)
           ApiResponse[bool].err(ResponseInvalidError)
         of 500:
-          handle500()
+          handle500Indexed()
           ApiResponse[bool].err(ResponseInternalError)
         else:
           handleUnexpectedCode()
           ApiResponse[bool].err(ResponseUnexpectedError)
 
     if res.isErr():
-      raise (ref ValidatorApiError)(msg: res.error, data: failures)
+      if critical:
+        raise (ref ValidatorApiCriticalError)(msg: DoppelgangerErrorMessage,
+                                              data: failures)
+      else:
+        raise (ref ValidatorApiError)(msg: res.error, data: failures)
     return res.get()
 
   of ApiStrategyKind.Priority:
@@ -1550,10 +1611,30 @@ proc submitPoolAttestations*(
         of 200:
           return true
         of 400:
-          handle400()
+          # We check for Nimbus specific error which beacon node could produce
+          # if it manages same validator as we do.
+          let idxerr = response.unpackErrorMessage()
+          for item in idxerr.failures:
+            if "NIMBUS#E0001" in item.message:
+              inc(doppelgangerCount)
+              critical = true
+
+          if critical:
+            warn DoppelgangerErrorMessage,
+                 endpoint = node, doppelganger_count = doppelgangerCount
+            doppelgangerCount = 0
+
+          let failure = ApiNodeFailure.init(ApiFailure.Invalid, RequestName,
+            strategy, node, response.status, idxerr.getErrorMessage())
+          node.updateStatus(RestBeaconNodeStatus.Incompatible, failure)
+          failures.add(failure)
+
+          if critical:
+            raise (ref ValidatorApiCriticalError)(msg: DoppelgangerErrorMessage,
+                                                  data: failures)
           false
         of 500:
-          handle500()
+          handle500Indexed()
           false
         else:
           handleUnexpectedCode()
@@ -1597,10 +1678,10 @@ proc submitPoolSyncCommitteeSignature*(
         of 200:
           ApiResponse[bool].ok(true)
         of 400:
-          handle400()
+          handle400Indexed()
           ApiResponse[bool].err(ResponseInvalidError)
         of 500:
-          handle500()
+          handle500Indexed()
           ApiResponse[bool].err(ResponseInternalError)
         else:
           handleUnexpectedCode()
@@ -1626,10 +1707,10 @@ proc submitPoolSyncCommitteeSignature*(
         of 200:
           return true
         of 400:
-          handle400()
+          handle400Indexed()
           false
         of 500:
-          handle500()
+          handle500Indexed()
           false
         else:
           handleUnexpectedCode()
@@ -2201,7 +2282,9 @@ proc publishBlock*(
     RequestName = "publishBlock"
     BlockBroadcasted = "Block not passed validation, but still published"
 
-  var failures: seq[ApiNodeFailure]
+  var
+    failures: seq[ApiNodeFailure]
+    critical = false
 
   case strategy
   of ApiStrategyKind.First, ApiStrategyKind.Best:
@@ -2238,7 +2321,18 @@ proc publishBlock*(
              blck = shortLog(ForkedSignedBeaconBlock.init(data))
             ApiResponse[bool].ok(true)
           of 400:
-            handle400()
+            # We check for Nimbus specific error which beacon node could produce
+            # if it manages same validator as we do.
+            let emsg = response.getErrorMessage()
+            if "NIMBUS#E0001" in emsg:
+              critical = true
+              warn DoppelgangerErrorMessage, endpoint = node
+
+            let failure =
+              ApiNodeFailure.init(ApiFailure.Invalid, RequestName,
+                                  strategy, node, response.status, emsg)
+            node.updateStatus(RestBeaconNodeStatus.Incompatible, failure)
+            failures.add(failure)
             ApiResponse[bool].err(ResponseInvalidError)
           of 500:
             handle500()
@@ -2251,7 +2345,11 @@ proc publishBlock*(
             ApiResponse[bool].err(ResponseUnexpectedError)
 
     if res.isErr():
-      raise (ref ValidatorApiError)(msg: res.error, data: failures)
+      if critical:
+        raise (ref ValidatorApiCriticalError)(msg: DoppelgangerErrorMessage,
+                                              data: failures)
+      else:
+        raise (ref ValidatorApiError)(msg: res.error, data: failures)
     return res.get()
 
   of ApiStrategyKind.Priority:
@@ -2284,10 +2382,23 @@ proc publishBlock*(
           return true
         of 202:
           debug BlockBroadcasted, node = node,
-           blck = shortLog(ForkedSignedBeaconBlock.init(data))
+                blck = shortLog(ForkedSignedBeaconBlock.init(data))
           return true
         of 400:
-          handle400()
+          let emsg = response.getErrorMessage()
+          if "NIMBUS#E0001" in emsg:
+            critical = true
+            warn DoppelgangerErrorMessage, endpoint = node
+
+          let failure =
+            ApiNodeFailure.init(ApiFailure.Invalid, RequestName,
+                                strategy, node, response.status, emsg)
+          node.updateStatus(RestBeaconNodeStatus.Incompatible, failure)
+          failures.add(failure)
+
+          if critical:
+            raise (ref ValidatorApiCriticalError)(msg: DoppelgangerErrorMessage,
+                                                  data: failures)
           false
         of 500:
           handle500()

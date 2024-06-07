@@ -99,7 +99,7 @@ proc routeSignedBeaconBlock*(
            "validator that is also manager by beacon node",
            validator_index = vindex
       return err("Block could not be sent from validator that is also " &
-                 "managed by the beacon node")
+                 "managed by the beacon node. (NIMBUS#E0001)")
 
   # Start with a quick gossip validation check such that broadcasting the
   # block doesn't get the node into trouble
