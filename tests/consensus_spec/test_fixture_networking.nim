@@ -71,12 +71,8 @@ proc runGetCustodyColumns(suiteName, path: string) =
           check column == uint64(reslt[count])
           count = count + 1
 
-from std/algorithm import sorted
-
-var suiteName = "EF - EIP7594"
-
 suite "EF - EIP7594 - Networking" & preset():
-  const presetPath = SszTestsDir/"minimal"
+  const presetPath = SszTestsDir/const_preset
   let basePath =
     presetPath/"eip7594"/"networking"/"get_custody_columns"/"pyspec_tests"
   for kind, path in walkDir(basePath, relative = true, checkDir = true):
