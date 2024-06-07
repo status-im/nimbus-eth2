@@ -172,6 +172,19 @@ OK: 1/1 Fail: 0/1 Skip: 0/1
 + Tail block only in common                                                                  OK
 ```
 OK: 2/2 Fail: 0/2 Skip: 0/2
+## EF - EIP7594 - Networking [Preset: mainnet]
+```diff
++ Networking - Get Custody Columns - minimal/eip7594/networking/get_custody_columns/pyspec_t OK
++ Networking - Get Custody Columns - minimal/eip7594/networking/get_custody_columns/pyspec_t OK
++ Networking - Get Custody Columns - minimal/eip7594/networking/get_custody_columns/pyspec_t OK
++ Networking - Get Custody Columns - minimal/eip7594/networking/get_custody_columns/pyspec_t OK
++ Networking - Get Custody Columns - minimal/eip7594/networking/get_custody_columns/pyspec_t OK
++ Networking - Get Custody Columns - minimal/eip7594/networking/get_custody_columns/pyspec_t OK
++ Networking - Get Custody Columns - minimal/eip7594/networking/get_custody_columns/pyspec_t OK
++ Networking - Get Custody Columns - minimal/eip7594/networking/get_custody_columns/pyspec_t OK
++ Networking - Get Custody Columns - minimal/eip7594/networking/get_custody_columns/pyspec_t OK
+```
+OK: 9/9 Fail: 0/9 Skip: 0/9
 ## EF - KZG
 ```diff
 + KZG - Blob to KZG commitment - blob_to_kzg_commitment_case_invalid_blob_59d64ff6b4648fad   OK
@@ -1141,4 +1154,4 @@ OK: 2/2 Fail: 0/2 Skip: 0/2
 OK: 9/9 Fail: 0/9 Skip: 0/9
 
 ---TOTAL---
-OK: 794/799 Fail: 0/799 Skip: 5/799
+OK: 803/808 Fail: 0/808 Skip: 5/808
