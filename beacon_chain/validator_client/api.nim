@@ -56,9 +56,6 @@ const
     RestBeaconNodeStatus.Synced
   }
 
-  DoppelgangerErrorMessage =
-    "Beacon node(s) reports about doppelganger validators"
-
 proc `$`*[T](s: ApiScore[T]): string =
   var res = Base10.toString(uint64(s.index))
   res.add(": ")
@@ -1527,10 +1524,7 @@ proc submitPoolAttestations*(
   const
     RequestName = "submitPoolAttestations"
 
-  var
-    failures: seq[ApiNodeFailure]
-    doppelgangerCount = 0
-    critical = false
+  var failures: seq[ApiNodeFailure]
 
   case strategy
   of ApiStrategyKind.First, ApiStrategyKind.Best:
@@ -1549,23 +1543,7 @@ proc submitPoolAttestations*(
         of 200:
           ApiResponse[bool].ok(true)
         of 400:
-          # We check for Nimbus specific error which beacon node could produce
-          # if it manages same validator as we do.
-          let idxerr = response.unpackErrorMessage()
-          for item in idxerr.failures:
-            if "NIMBUS#E0001" in item.message:
-              inc(doppelgangerCount)
-              critical = true
-
-          if critical:
-            warn DoppelgangerErrorMessage,
-                 endpoint = node, doppelganger_count = doppelgangerCount
-            doppelgangerCount = 0
-
-          let failure = ApiNodeFailure.init(ApiFailure.Invalid, RequestName,
-            strategy, node, response.status, idxerr.getErrorMessage())
-          node.updateStatus(RestBeaconNodeStatus.Incompatible, failure)
-          failures.add(failure)
+          handle400Indexed()
           ApiResponse[bool].err(ResponseInvalidError)
         of 500:
           handle500()
@@ -1575,11 +1553,7 @@ proc submitPoolAttestations*(
           ApiResponse[bool].err(ResponseUnexpectedError)
 
     if res.isErr():
-      if critical:
-        raise (ref ValidatorApiCriticalError)(msg: DoppelgangerErrorMessage,
-                                              data: failures)
-      else:
-        raise (ref ValidatorApiError)(msg: res.error, data: failures)
+      raise (ref ValidatorApiError)(msg: res.error, data: failures)
     return res.get()
 
   of ApiStrategyKind.Priority:
@@ -1597,27 +1571,7 @@ proc submitPoolAttestations*(
         of 200:
           return true
         of 400:
-          # We check for Nimbus specific error which beacon node could produce
-          # if it manages same validator as we do.
-          let idxerr = response.unpackErrorMessage()
-          for item in idxerr.failures:
-            if "NIMBUS#E0001" in item.message:
-              inc(doppelgangerCount)
-              critical = true
-
-          if critical:
-            warn DoppelgangerErrorMessage,
-                 endpoint = node, doppelganger_count = doppelgangerCount
-            doppelgangerCount = 0
-
-          let failure = ApiNodeFailure.init(ApiFailure.Invalid, RequestName,
-            strategy, node, response.status, idxerr.getErrorMessage())
-          node.updateStatus(RestBeaconNodeStatus.Incompatible, failure)
-          failures.add(failure)
-
-          if critical:
-            raise (ref ValidatorApiCriticalError)(msg: DoppelgangerErrorMessage,
-                                                  data: failures)
+          handle400Indexed()
           false
         of 500:
           handle500()
@@ -2268,9 +2222,7 @@ proc publishBlock*(
     RequestName = "publishBlock"
     BlockBroadcasted = "Block not passed validation, but still published"
 
-  var
-    failures: seq[ApiNodeFailure]
-    critical = false
+  var failures: seq[ApiNodeFailure]
 
   case strategy
   of ApiStrategyKind.First, ApiStrategyKind.Best:
@@ -2307,18 +2259,7 @@ proc publishBlock*(
              blck = shortLog(ForkedSignedBeaconBlock.init(data))
             ApiResponse[bool].ok(true)
           of 400:
-            # We check for Nimbus specific error which beacon node could produce
-            # if it manages same validator as we do.
-            let emsg = response.getErrorMessage()
-            if "NIMBUS#E0001" in emsg:
-              critical = true
-              warn DoppelgangerErrorMessage, endpoint = node
-
-            let failure =
-              ApiNodeFailure.init(ApiFailure.Invalid, RequestName,
-                                  strategy, node, response.status, emsg)
-            node.updateStatus(RestBeaconNodeStatus.Incompatible, failure)
-            failures.add(failure)
+            handle400()
             ApiResponse[bool].err(ResponseInvalidError)
           of 500:
             handle500()
@@ -2331,11 +2272,7 @@ proc publishBlock*(
             ApiResponse[bool].err(ResponseUnexpectedError)
 
     if res.isErr():
-      if critical:
-        raise (ref ValidatorApiCriticalError)(msg: DoppelgangerErrorMessage,
-                                              data: failures)
-      else:
-        raise (ref ValidatorApiError)(msg: res.error, data: failures)
+      raise (ref ValidatorApiError)(msg: res.error, data: failures)
     return res.get()
 
   of ApiStrategyKind.Priority:
@@ -2371,20 +2308,7 @@ proc publishBlock*(
                 blck = shortLog(ForkedSignedBeaconBlock.init(data))
           return true
         of 400:
-          let emsg = response.getErrorMessage()
-          if "NIMBUS#E0001" in emsg:
-            critical = true
-            warn DoppelgangerErrorMessage, endpoint = node
-
-          let failure =
-            ApiNodeFailure.init(ApiFailure.Invalid, RequestName,
-                                strategy, node, response.status, emsg)
-          node.updateStatus(RestBeaconNodeStatus.Incompatible, failure)
-          failures.add(failure)
-
-          if critical:
-            raise (ref ValidatorApiCriticalError)(msg: DoppelgangerErrorMessage,
-                                                  data: failures)
+          handle400()
           false
         of 500:
           handle500()

@@ -256,8 +256,6 @@ type
   ValidatorClientError* = object of CatchableError
   ValidatorApiError* = object of ValidatorClientError
     data*: seq[ApiNodeFailure]
-  ValidatorApiCriticalError* = object of ValidatorClientError
-    data*: seq[ApiNodeFailure]
 
 const
   DefaultDutyAndProof* = DutyAndProof(epoch: FAR_FUTURE_EPOCH)
