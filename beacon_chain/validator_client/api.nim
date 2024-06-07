@@ -760,13 +760,6 @@ template handleUnexpectedCode(): untyped {.dirty.} =
   node.updateStatus(RestBeaconNodeStatus.UnexpectedCode, failure)
   failures.add(failure)
 
-template handleUnexpectedCodeIndexed(): untyped {.dirty.} =
-  let failure = ApiNodeFailure.init(ApiFailure.UnexpectedCode, RequestName,
-    strategy, node, response.status,
-    response.unpackErrorMessage().getErrorMessage())
-  node.updateStatus(RestBeaconNodeStatus.UnexpectedCode, failure)
-  failures.add(failure)
-
 template handleUnexpectedData(): untyped {.dirty.} =
   let failure = ApiNodeFailure.init(ApiFailure.UnexpectedResponse, RequestName,
     strategy, node, response.status, $res.error)
@@ -801,13 +794,6 @@ template handle404(): untyped {.dirty.} =
 template handle500(): untyped {.dirty.} =
   let failure = ApiNodeFailure.init(ApiFailure.Internal, RequestName,
     strategy, node, response.status, response.getErrorMessage())
-  node.updateStatus(RestBeaconNodeStatus.InternalError, failure)
-  failures.add(failure)
-
-template handle500Indexed(): untyped {.dirty.} =
-  let failure = ApiNodeFailure.init(ApiFailure.Internal, RequestName,
-    strategy, node, response.status,
-    response.unpackErrorMessage().getErrorMessage())
   node.updateStatus(RestBeaconNodeStatus.InternalError, failure)
   failures.add(failure)
 
@@ -1582,7 +1568,7 @@ proc submitPoolAttestations*(
           failures.add(failure)
           ApiResponse[bool].err(ResponseInvalidError)
         of 500:
-          handle500Indexed()
+          handle500()
           ApiResponse[bool].err(ResponseInternalError)
         else:
           handleUnexpectedCode()
@@ -1634,7 +1620,7 @@ proc submitPoolAttestations*(
                                                   data: failures)
           false
         of 500:
-          handle500Indexed()
+          handle500()
           false
         else:
           handleUnexpectedCode()
@@ -1681,7 +1667,7 @@ proc submitPoolSyncCommitteeSignature*(
           handle400Indexed()
           ApiResponse[bool].err(ResponseInvalidError)
         of 500:
-          handle500Indexed()
+          handle500()
           ApiResponse[bool].err(ResponseInternalError)
         else:
           handleUnexpectedCode()
@@ -1710,7 +1696,7 @@ proc submitPoolSyncCommitteeSignature*(
           handle400Indexed()
           false
         of 500:
-          handle500Indexed()
+          handle500()
           false
         else:
           handleUnexpectedCode()
