@@ -395,8 +395,8 @@ proc processAttestation*(
     let (attester_index, sig) = v.get()
 
     if checkValidator and (attester_index in self.validatorPool[]):
-      warn "A validator client attempts to send an attestation from " &
-           "validator that is also manager by beacon node",
+      warn "A validator client has attempted to send an attestation from " &
+           "validator that is also managed by the beacon node",
            validator_index = attester_index
       errReject("An attestation could not be sent from a validator that is " &
                 "also managed by the beacon node. (NIMBUS#E0001)")
