@@ -31,14 +31,6 @@ func toUInt64(s: SomeInteger): Opt[uint64] =
   except ValueError:
     Opt.none uint64
 
-# func toUInt256(s: SomeInteger): Opt[UInt256] =
-#   if s < 0:
-#     return Opt.none UInt256
-#   try:
-#     Opt.some u256(s)
-#   except ValueError:
-#     Opt.none
-
 func fromHex[N: static int](s: string): Opt[array[N, byte]] =
   if s.len != 2*(N+1):
     # 0x prefix
