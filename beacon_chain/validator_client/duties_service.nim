@@ -655,9 +655,9 @@ proc dynamicValidatorsLoop*(service: DutiesServiceRef,
               debug "Web3Signer has been polled for validators",
                     keystores_found = len(keystores),
                     web3signer_url = web3signerUrl.url
-              vc.attachedValidators.updateDynamicValidators(web3signerUrl,
-                                                            keystores,
-                                                            addValidatorProc)
+              vc.attachedValidators.updateDynamicValidators(
+                web3signerUrl, keystores, vc.keysFilter,
+                addValidatorProc)
               seconds(intervalInSeconds)
             else:
               seconds(5)

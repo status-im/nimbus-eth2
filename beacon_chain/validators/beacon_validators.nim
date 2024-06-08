@@ -137,22 +137,22 @@ proc addValidatorsFromWeb3Signer(
     (await queryValidatorsSource(web3signerUrl)).valueOr(
       default(seq[KeystoreData]))
 
-  for keystore in dynamicStores:
+  proc addValidatorProc(keystore: KeystoreData) =
     let
-      data =
-        withState(node.dag.headState):
-          getValidator(forkyState.data.validators.asSeq(), keystore.pubkey)
-      index =
-        if data.isSome():
-          Opt.some(data.get().index)
-        else:
-          Opt.none(ValidatorIndex)
+      epoch = node.currentSlot().epoch
+      index = Opt.none(ValidatorIndex)
       feeRecipient =
         node.consensusManager[].getFeeRecipient(keystore.pubkey, index, epoch)
-      gasLimit = node.consensusManager[].getGasLimit(keystore.pubkey)
-      v = node.attachedValidators[].addValidator(keystore, feeRecipient,
-                                                 gasLimit)
-    v.updateValidator(data)
+      gasLimit =
+        node.consensusManager[].getGasLimit(keystore.pubkey)
+    discard node.attachedValidators[].addValidator(keystore, feeRecipient,
+                                                   gasLimit)
+
+  debug "Validators source has been polled for validators",
+        keystores_found = len(dynamicStores),
+        web3signer_url = web3signerUrl.url
+  node.attachedValidators.updateDynamicValidators(
+    web3signerUrl, dynamicStores, node.keysFilter, addValidatorProc)
 
 proc addValidators*(node: BeaconNode) {.async: (raises: [CancelledError]).} =
   info "Loading validators", validatorsDir = node.config.validatorsDir(),

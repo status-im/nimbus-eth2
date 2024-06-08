@@ -234,6 +234,7 @@ type
     rootsSeen*: Table[Eth2Digest, Slot]
     processingDelay*: Opt[Duration]
     finalizedEpoch*: Opt[Epoch]
+    keysFilter*: HashSet[ValidatorPubKey]
     rng*: ref HmacDrbgContext
 
   ApiStrategyKind* {.pure.} = enum
@@ -905,24 +906,6 @@ proc getSubcommitteeIndex*(index: IndexInSyncCommittee): SyncSubcommitteeIndex =
 proc currentSlot*(vc: ValidatorClientRef): Slot =
   vc.beaconClock.now().slotOrZero()
 
-proc addValidator*(vc: ValidatorClientRef, keystore: KeystoreData) =
-  let
-    withdrawalAddress =
-      if vc.keymanagerHost.isNil:
-        Opt.none Eth1Address
-      else:
-        vc.keymanagerHost[].getValidatorWithdrawalAddress(keystore.pubkey)
-    perValidatorDefaultFeeRecipient = getPerValidatorDefaultFeeRecipient(
-      vc.config.defaultFeeRecipient, withdrawalAddress)
-    feeRecipient = vc.config.validatorsDir.getSuggestedFeeRecipient(
-      keystore.pubkey, perValidatorDefaultFeeRecipient).valueOr(
-        perValidatorDefaultFeeRecipient)
-    gasLimit = vc.config.validatorsDir.getSuggestedGasLimit(
-      keystore.pubkey, vc.config.suggestedGasLimit).valueOr(
-        vc.config.suggestedGasLimit)
-
-  discard vc.attachedValidators[].addValidator(keystore, feeRecipient, gasLimit)
-
 proc removeValidator*(vc: ValidatorClientRef,
                       pubkey: ValidatorPubKey) {.async.} =
   let validator = vc.attachedValidators[].getValidator(pubkey).valueOr:
@@ -954,6 +937,19 @@ proc getGasLimit(vc: ValidatorClientRef,
                  validator: AttachedValidator): uint64 =
   getGasLimit(vc.config.validatorsDir, vc.config.suggestedGasLimit,
               validator.pubkey)
+
+proc addValidator*(vc: ValidatorClientRef, keystore: KeystoreData) =
+  let
+    currentEpoch = vc.beaconClock.now().slotOrZero().epoch()
+    feeRecipient = getFeeRecipient(
+      vc.dynamicFeeRecipientsStore, keystore.pubkey, Opt.none(ValidatorIndex),
+      Opt.none(Validator), vc.config.defaultFeeRecipient(),
+      vc.config.validatorsDir(), currentEpoch)
+    gasLimit =
+      getGasLimit(vc.config.validatorsDir, vc.config.suggestedGasLimit,
+      keystore.pubkey)
+
+  discard vc.attachedValidators[].addValidator(keystore, feeRecipient, gasLimit)
 
 proc prepareProposersList*(vc: ValidatorClientRef,
                            epoch: Epoch): seq[PrepareBeaconProposer] =

@@ -101,12 +101,29 @@ proc initGenesis(vc: ValidatorClientRef): Future[RestGenesis] {.async.} =
             dec(counter)
       return melem
 
-proc addValidatorsFromWeb3Signer(vc: ValidatorClientRef, web3signerUrl: Web3SignerUrl) {.async.} =
-  let res = await queryValidatorsSource(web3signerUrl)
-  if res.isOk():
-    let dynamicKeystores = res.get()
-    for keystore in dynamicKeystores:
-      vc.addValidator(keystore)
+proc addValidatorsFromWeb3Signer(vc: ValidatorClientRef,
+                                 web3signerUrl: Web3SignerUrl) {.async.} =
+  let keystores =
+    try:
+      let res = await queryValidatorsSource(web3signerUrl)
+      if res.isErr():
+        # Error is already reported via log warning.
+        default(seq[KeystoreData])
+      else:
+        res.get()
+    except CatchableError as exc:
+      warn "Unexpected error happens while polling validator's source",
+           error = $exc.name, reason = $exc.msg
+      default(seq[KeystoreData])
+
+  proc addValidatorProc(data: KeystoreData) =
+    vc.addValidator(data)
+
+  debug "Web3Signer has been polled for validators",
+        keystores_found = len(keystores),
+        web3signer_url = web3signerUrl.url
+  vc.attachedValidators.updateDynamicValidators(
+    web3signerUrl, keystores, vc.keysFilter, addValidatorProc)
 
 proc initValidators(vc: ValidatorClientRef): Future[bool] {.async.} =
   info "Loading validators", validatorsDir = vc.config.validatorsDir()
@@ -286,6 +303,7 @@ proc new*(T: type ValidatorClientRef,
       doppelExit: newAsyncEvent(),
       indicesAvailable: newAsyncEvent(),
       dynamicFeeRecipientsStore: newClone(DynamicFeeRecipientsStore.init()),
+      keysFilter: toHashSet(config.web3SignersKeyFilter),
       sigintHandleFut: waitSignal(SIGINT),
       sigtermHandleFut: waitSignal(SIGTERM),
       keystoreCache: KeystoreCacheRef.init()
@@ -303,6 +321,7 @@ proc new*(T: type ValidatorClientRef,
       indicesAvailable: newAsyncEvent(),
       doppelExit: newAsyncEvent(),
       dynamicFeeRecipientsStore: newClone(DynamicFeeRecipientsStore.init()),
+      keysFilter: toHashSet(config.web3SignersKeyFilter),
       sigintHandleFut: newFuture[void]("sigint_placeholder"),
       sigtermHandleFut: newFuture[void]("sigterm_placeholder"),
       keystoreCache: KeystoreCacheRef.init()
