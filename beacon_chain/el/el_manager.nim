@@ -1956,7 +1956,6 @@ proc startExchangeTransitionConfigurationLoop(
 
   while true:
     # https://github.com/ethereum/execution-apis/blob/v1.0.0-beta.3/src/engine/paris.md#specification-3
-    debug "Exchange transition configuration tick"
     await m.exchangeTransitionConfiguration()
     await sleepAsync(60.seconds)
 
