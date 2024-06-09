@@ -57,6 +57,10 @@ type
     kzg_commitments_inclusion_proof*:
       array[KZG_COMMITMENTS_INCLUSION_PROOF_DEPTH, Eth2Digest]
 
+  DataColumnIdentifier* = object 
+    block_root*: Eth2Digest
+    index*: ColumnIndex
+    
 func shortLog*(v: DataColumnSidecar): auto =
   (
     index: v.index,
