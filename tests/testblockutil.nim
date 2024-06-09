@@ -208,8 +208,6 @@ proc addTestBlock*(
       else:
         default(bellatrix.ExecutionPayloadForSigning)
 
-    debugComment "addTestBlock Electra attestation support"
-
     makeBeaconBlock(
       cfg,
       state,
