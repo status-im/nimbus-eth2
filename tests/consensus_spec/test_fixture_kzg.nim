@@ -12,7 +12,7 @@ import
   std/json,
   yaml,
   kzg4844/kzg_ex,
-  stew/[byteutils, results],
+  stew/byteutils,
   ../testutil,
   ./fixtures_utils, ./os_ops
 

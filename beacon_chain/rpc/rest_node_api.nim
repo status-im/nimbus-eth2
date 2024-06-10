@@ -5,7 +5,7 @@
 # at your option. This file may not be copied, modified, or distributed except according to those terms.
 
 import
-  stew/[byteutils, results],
+  stew/byteutils,
   chronicles,
   eth/p2p/discoveryv5/enr,
   libp2p/[multiaddress, multicodec, peerstore],

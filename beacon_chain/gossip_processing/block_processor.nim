@@ -8,7 +8,6 @@
 {.push raises: [].}
 
 import
-  stew/results,
   chronicles, chronos, metrics,
   ../spec/[forks, signatures, signatures_batch],
   ../sszdump

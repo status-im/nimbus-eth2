@@ -10,7 +10,8 @@
 
 import
   std/[json, os, random, sequtils, strutils, times],
-  chronos, stew/[base10, results], chronicles, unittest2,
+  chronos,
+  stew/base10, chronicles, unittest2,
   yaml,
   ../beacon_chain/beacon_chain_db,
   ../beacon_chain/spec/deposit_snapshots,

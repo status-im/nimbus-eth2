@@ -9,7 +9,7 @@
 
 import
   std/[algorithm, sequtils],
-  chronos, chronicles, stew/results,
+  chronos, chronicles,
   eth/p2p/discoveryv5/[enr, protocol, node, random2],
   ../spec/datatypes/altair,
   ../spec/eth2_ssz_serialization,

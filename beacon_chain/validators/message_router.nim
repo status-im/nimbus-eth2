@@ -8,7 +8,6 @@
 {.push raises: [].}
 
 import
-  stew/results,
   std/sequtils,
   chronicles,
   metrics,

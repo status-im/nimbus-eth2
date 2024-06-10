@@ -7,7 +7,7 @@
 
 import
   std/[sequtils],
-  stew/[results, base10],
+  stew/base10,
   chronicles,
   chronos/apps/http/httpdebug,
   libp2p/[multiaddress, multicodec, peerstore],

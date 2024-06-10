@@ -8,7 +8,7 @@
 {.push raises: [].}
 
 import
-  stew/[base10, results],
+  stew/base10,
   chronicles, chronos, eth/async_utils,
   ./sync/[light_client_sync_helpers, sync_manager],
   ./consensus_object_pools/[block_clearance, blockchain_dag],
