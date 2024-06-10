@@ -85,7 +85,7 @@ proc makeSimulationBlock(
 
   var blck = partialBeaconBlock(
     cfg, state, proposer_index, randao_reveal, eth1_data, graffiti,
-    attestations, deposits, exits, sync_aggregate, execution_payload)
+    attestations, deposits, exits, sync_aggregate, execution_payload, @[])
 
   let res = process_block(
     cfg, state.data, blck.asSigVerified(), verificationFlags, cache)
@@ -128,7 +128,7 @@ proc makeSimulationBlock(
 
   var blck = partialBeaconBlock(
     cfg, state, proposer_index, randao_reveal, eth1_data, graffiti,
-    attestations, deposits, exits, sync_aggregate, execution_payload)
+    attestations, deposits, exits, sync_aggregate, execution_payload, @[])
 
   let res = process_block(
     cfg, state.data, blck.asSigVerified(), verificationFlags, cache)
