@@ -495,7 +495,7 @@ func asConsensusType*(payload: engine_api.GetPayloadV3Response):
           kzg_abi.KzgCommitment(bytes: it.bytes))),
       proofs: KzgProofs.init(
         payload.blobsBundle.proofs.mapIt(
-          kzg_abi.KzgProof(bytes: it.bytes)))
+          kzg_abi.KzgProof(bytes: it.bytes))),
       blobs: Blobs.init(
         payload.blobsBundle.blobs.mapIt(it.bytes))))
 
