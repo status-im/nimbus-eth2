@@ -233,7 +233,7 @@ proc setValidatorIndex*(pool: var ValidatorPool, validator: AttachedValidator,
   pool.indexSet.incl(index)
   validator.index = Opt.some(index)
 
-proc removeValidatorIndex*(pool: var ValidatorPool, index: ValidatorIndex) =
+proc removeValidatorIndex(pool: var ValidatorPool, index: ValidatorIndex) =
   pool.indexSet.excl(index)
 
 proc removeValidator*(pool: var ValidatorPool, pubkey: ValidatorPubKey) =
