@@ -528,7 +528,7 @@ func initHashedBeaconState*(s: BeaconState): HashedBeaconState =
   HashedBeaconState(data: s)
 
 func shortLog*(v: KzgCommitment | KzgProof): auto =
-  to0xHex(v)
+  to0xHex(v.bytes)
 
 func shortLog*(v: Blob): auto =
   to0xHex(v.toOpenArray(0, 31))
