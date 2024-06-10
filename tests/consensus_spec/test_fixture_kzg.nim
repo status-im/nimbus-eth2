@@ -50,12 +50,12 @@ proc runBlobToKzgCommitmentTest(suiteName, suitePath, path: string) =
     if blob.isNone:
       check output.kind == JNull
     else:
-      let commitment = blobToKzgCommitment(blob.get)
+      let commitment = blobToKzgCommitment(KzgBlob(bytes: blob.get))
       check:
         if commitment.isErr:
           output.kind == JNull
         else:
-          commitment.get == fromHex[48](output.getStr).get
+          commitment.get().bytes == fromHex[48](output.getStr).get
 
 proc runVerifyKzgProofTest(suiteName, suitePath, path: string) =
   let relativePathComponent = path.relativeTestPathComponent(suitePath)
@@ -75,7 +75,10 @@ proc runVerifyKzgProofTest(suiteName, suitePath, path: string) =
     if commitment.isNone or z.isNone or y.isNone or proof.isNone:
       check output.kind == JNull
     else:
-      let v = verifyProof(commitment.get, z.get, y.get, proof.get)
+      let v = verifyProof(
+        KzgCommitment(bytes: commitment.get),
+        KzgBytes32(bytes: z.get), KzgBytes32(bytes: y.get),
+        KzgBytes48(bytes: proof.get))
       check:
         if v.isErr:
           output.kind == JNull
@@ -100,7 +103,10 @@ proc runVerifyBlobKzgProofTest(suiteName, suitePath, path: string) =
     if blob.isNone or commitment.isNone or proof.isNone:
       check output.kind == JNull
     else:
-      let v = verifyBlobKzgProof(blob.get, commitment.get, proof.get)
+      let v = verifyBlobKzgProof(
+        KzgBlob(bytes: blob.get),
+        KzgBytes48(bytes: commitment.get),
+        KzgBytes48(bytes: proof.get))
       check:
         if v.isErr:
           output.kind == JNull
@@ -127,7 +133,9 @@ proc runVerifyBlobKzgProofBatchTest(suiteName, suitePath, path: string) =
       check output.kind == JNull
     else:
       let v = verifyBlobKzgProofBatch(
-        blobs.mapIt(it.get), commitments.mapIt(it.get), proofs.mapIt(it.get))
+        blobs.mapIt(KzgBlob(bytes: it.get)),
+        commitments.mapIt(KzgCommitment(bytes: it.get)),
+        proofs.mapIt(KzgProof(bytes: it.get)))
       check:
         if v.isErr:
           output.kind == JNull
@@ -150,7 +158,8 @@ proc runComputeKzgProofTest(suiteName, suitePath, path: string) =
     if blob.isNone or z.isNone:
       check output.kind == JNull
     else:
-      let p = computeKzgProof(blob.get, z.get)
+      let p = computeKzgProof(
+        KzgBlob(bytes: blob.get), KzgBytes32(bytes: z.get))
       if p.isErr:
         check output.kind == JNull
       else:
@@ -158,8 +167,8 @@ proc runComputeKzgProofTest(suiteName, suitePath, path: string) =
           proof = fromHex[48](output[0].getStr)
           y = fromHex[32](output[1].getStr)
         check:
-          p.get.proof == proof.get
-          p.get.y == y.get
+          p.get.proof.bytes == proof.get
+          p.get.y.bytes == y.get
 
 proc runComputeBlobKzgProofTest(suiteName, suitePath, path: string) =
   let relativePathComponent = path.relativeTestPathComponent(suitePath)
@@ -177,11 +186,12 @@ proc runComputeBlobKzgProofTest(suiteName, suitePath, path: string) =
     if blob.isNone or commitment.isNone:
       check output.kind == JNull
     else:
-      let p = computeBlobKzgProof(blob.get, commitment.get)
+      let p = computeBlobKzgProof(
+        KzgBlob(bytes: blob.get), KzgBytes48(bytes: commitment.get))
       if p.isErr:
         check output.kind == JNull
       else:
-        check p.get == fromHex[48](output.getStr).get
+        check p.get.bytes == fromHex[48](output.getStr).get
 
 from std/algorithm import sorted
 
