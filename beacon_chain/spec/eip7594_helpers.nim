@@ -78,7 +78,7 @@ proc compute_extended_matrix* (blobs: seq[KzgBlob]): Result[ExtendedMatrix, cstr
   ok(extended_matrix)
 
 # https://github.com/ethereum/consensus-specs/blob/5f48840f4d768bf0e0a8156a3ed06ec333589007/specs/_features/eip7594/das-core.md#recover_matrix    
-proc recover_matrix*(cells_dict: Table[(BlobIndex, CellID), KzgCell], blobCount: uint64): Result[ExtendedMatrix, cstring] =
+proc recover_matrix*(cells_dict: Table[(BlobIndex, CellID), Cell], blobCount: uint64): Result[ExtendedMatrix, cstring] =
   # This helper demonstrates how to apply recover_all_cells
   # The data structure for storing cells is implementation-dependent
 
@@ -94,7 +94,7 @@ proc recover_matrix*(cells_dict: Table[(BlobIndex, CellID), KzgCell], blobCount:
       if blIdx == blobIndex:
         cellIds.add(cellId)
 
-    var cells: seq[KzgCell]
+    var cells: seq[Cell]
     for cellId in cellIds:
       var interim_key = (BlobIndex(blobIndex), cellId)
       
@@ -130,7 +130,7 @@ proc get_data_column_sidecars*(signed_block: deneb.SignedBeaconBlock, blobs: seq
 
   let blobCount = blobs.len
   var
-    cells: seq[seq[KzgCell]]
+    cells: seq[seq[Cell]]
     proofs: seq[seq[KzgProof]]
 
   for i in 0..<blobCount:
@@ -164,7 +164,7 @@ proc get_data_column_sidecars*(signed_block: deneb.SignedBeaconBlock, blobs: seq
 
 # Helper function to `verifyCellKzgProofBatch` at https://github.com/ethereum/c-kzg-4844/blob/das/bindings/nim/kzg_ex.nim#L170
 proc validate_data_column_sidecar*(
-    expected_commitments: seq[KzgCommitment], rowIndex: seq[RowIndex], columnIndex: seq[ColumnIndex], column: seq[KzgCell],
+    expected_commitments: seq[KzgCommitment], rowIndex: seq[RowIndex], columnIndex: seq[ColumnIndex], column: seq[Cell],
     proofs: seq[KzgProof]): Result[void, string] =
   let res = verifyCellKzgProofBatch(expected_commitments, rowIndex, columnIndex, column, proofs).valueOr:
     return err("DataColumnSidecar: Proof verification error: " & error())
