@@ -87,9 +87,9 @@ proc pollForValidatorIndices*(service: DutiesServiceRef) {.async.} =
     if validator.isNone():
       missing.add(validatorLog(item.validator.pubkey, item.index))
     else:
-      validator.get().updateValidator(Opt.some ValidatorAndIndex(
-        index: item.index,
-        validator: item.validator))
+      vc.attachedValidators[].updateValidator(validator.get(),
+        Opt.some ValidatorAndIndex(index: item.index,
+                                   validator: item.validator))
       updated.add(validatorLog(item.validator.pubkey, item.index))
       list.add(validator.get())
 

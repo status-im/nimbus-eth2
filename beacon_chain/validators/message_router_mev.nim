@@ -143,7 +143,8 @@ proc unblindAndRouteBlockMEV*(
     blck = shortLog(signedBlock)
 
   let newBlockRef =
-    (await node.router.routeSignedBeaconBlock(signedBlock, blobsOpt)).valueOr:
+    (await node.router.routeSignedBeaconBlock(
+      signedBlock, blobsOpt, checkValidator = false)).valueOr:
       # submitBlindedBlock has run, so don't allow fallback to run
       return err("routeSignedBeaconBlock error") # Errors logged in router
 

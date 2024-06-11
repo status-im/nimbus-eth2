@@ -720,16 +720,30 @@ template firstSuccessSequential*(
       break
 
 proc getErrorMessage*(response: RestPlainResponse): string =
-  let res = decodeBytes(RestErrorMessage, response.data,
-                        response.contentType)
-  if res.isOk():
-    let errorObj = res.get()
-    if errorObj.stacktraces.isSome():
-      errorObj.message & ": [" & errorObj.stacktraces.get().join("; ") & "]"
-    else:
-      errorObj.message
+  let res =
+    decodeBytes(RestErrorMessage, response.data, response.contentType).valueOr:
+      return "Unable to decode error response: [" & $error & "]"
+
+  if res.stacktraces.isSome():
+    res.message & ": [" & res.stacktraces.get().join("; ") & "]"
   else:
-    "Unable to decode error response: [" & $res.error & "]"
+    res.message
+
+proc unpackErrorMessage*(response: RestPlainResponse): RestIndexedErrorMessage =
+  decodeBytes(RestIndexedErrorMessage, response.data,
+              response.contentType).valueOr:
+    let message = "Unable to decode error response: [" & $error & "]"
+    return RestIndexedErrorMessage(
+      code: -1,
+      message: message,
+      failures: default(seq[RestIndexedErrorMessageItem]))
+
+proc getErrorMessage*(msg: RestIndexedErrorMessage): string =
+  if len(msg.failures) > 0:
+    msg.message & ": [" &
+      msg.failures.mapIt($it.index & ":" & it.message).join("; ") & "]"
+  else:
+    msg.message
 
 template handleCommunicationError(): untyped {.dirty.} =
   let failure = ApiNodeFailure.init(ApiFailure.Communication, RequestName,
@@ -758,6 +772,13 @@ template handleOptimistic(): untyped {.dirty.} =
 template handle400(): untyped {.dirty.} =
   let failure = ApiNodeFailure.init(ApiFailure.Invalid, RequestName,
     strategy, node, response.status, response.getErrorMessage())
+  node.updateStatus(RestBeaconNodeStatus.Incompatible, failure)
+  failures.add(failure)
+
+template handle400Indexed(): untyped {.dirty.} =
+  let failure = ApiNodeFailure.init(ApiFailure.Invalid, RequestName,
+    strategy, node, response.status,
+    response.unpackErrorMessage().getErrorMessage())
   node.updateStatus(RestBeaconNodeStatus.Incompatible, failure)
   failures.add(failure)
 
@@ -1522,7 +1543,7 @@ proc submitPoolAttestations*(
         of 200:
           ApiResponse[bool].ok(true)
         of 400:
-          handle400()
+          handle400Indexed()
           ApiResponse[bool].err(ResponseInvalidError)
         of 500:
           handle500()
@@ -1550,7 +1571,7 @@ proc submitPoolAttestations*(
         of 200:
           return true
         of 400:
-          handle400()
+          handle400Indexed()
           false
         of 500:
           handle500()
@@ -1597,7 +1618,7 @@ proc submitPoolSyncCommitteeSignature*(
         of 200:
           ApiResponse[bool].ok(true)
         of 400:
-          handle400()
+          handle400Indexed()
           ApiResponse[bool].err(ResponseInvalidError)
         of 500:
           handle500()
@@ -1626,7 +1647,7 @@ proc submitPoolSyncCommitteeSignature*(
         of 200:
           return true
         of 400:
-          handle400()
+          handle400Indexed()
           false
         of 500:
           handle500()
@@ -2284,7 +2305,7 @@ proc publishBlock*(
           return true
         of 202:
           debug BlockBroadcasted, node = node,
-           blck = shortLog(ForkedSignedBeaconBlock.init(data))
+                blck = shortLog(ForkedSignedBeaconBlock.init(data))
           return true
         of 400:
           handle400()

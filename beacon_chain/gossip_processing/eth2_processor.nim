@@ -122,7 +122,7 @@ type
     # ----------------------------------------------------------------
     dag*: ChainDAGRef
     attestationPool*: ref AttestationPool
-    validatorPool: ref ValidatorPool
+    validatorPool*: ref ValidatorPool
     syncCommitteeMsgPool: ref SyncCommitteeMsgPool
     lightClientPool: ref LightClientPool
 
@@ -366,7 +366,8 @@ proc checkForPotentialDoppelganger(
 proc processAttestation*(
     self: ref Eth2Processor, src: MsgSource,
     attestation: phase0.Attestation | electra.Attestation, subnet_id: SubnetId,
-    checkSignature: bool = true): Future[ValidationRes] {.async: (raises: [CancelledError]).} =
+    checkSignature, checkValidator: bool
+): Future[ValidationRes] {.async: (raises: [CancelledError]).} =
   var wallTime = self.getCurrentBeaconTime()
   let (afterGenesis, wallSlot) = wallTime.toSlot()
 
@@ -393,19 +394,26 @@ proc processAttestation*(
 
     let (attester_index, sig) = v.get()
 
-    self[].checkForPotentialDoppelganger(attestation, [attester_index])
+    if checkValidator and (attester_index in self.validatorPool[]):
+      warn "A validator client has attempted to send an attestation from " &
+           "validator that is also managed by the beacon node",
+           validator_index = attester_index
+      errReject("An attestation could not be sent from a validator that is " &
+                "also managed by the beacon node")
+    else:
+      self[].checkForPotentialDoppelganger(attestation, [attester_index])
 
-    trace "Attestation validated"
-    self.attestationPool[].addAttestation(
-      attestation, [attester_index], sig, wallTime)
+      trace "Attestation validated"
+      self.attestationPool[].addAttestation(
+        attestation, [attester_index], sig, wallTime)
 
-    self.validatorMonitor[].registerAttestation(
-      src, wallTime, attestation, attester_index)
+      self.validatorMonitor[].registerAttestation(
+        src, wallTime, attestation, attester_index)
 
-    beacon_attestations_received.inc()
-    beacon_attestation_delay.observe(delay.toFloatSeconds())
+      beacon_attestations_received.inc()
+      beacon_attestation_delay.observe(delay.toFloatSeconds())
 
-    ok()
+      ok()
   else:
     debug "Dropping attestation", reason = $v.error
     beacon_attestations_dropped.inc(1, [$v.error[0]])
