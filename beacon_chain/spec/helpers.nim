@@ -484,24 +484,24 @@ proc blockToBlockHeader*(blck: ForkyBeaconBlock): ExecutionBlockHeader =
     txRoot = payload.computeTransactionsTrieRoot()
     withdrawalsRoot =
       when typeof(payload).kind >= ConsensusFork.Capella:
-        some payload.computeWithdrawalsTrieRoot()
+        Opt.some payload.computeWithdrawalsTrieRoot()
       else:
-        none(ExecutionHash256)
+        Opt.none(ExecutionHash256)
     blobGasUsed =
       when typeof(payload).kind >= ConsensusFork.Deneb:
-        some payload.blob_gas_used
+        Opt.some payload.blob_gas_used
       else:
-        none(uint64)
+        Opt.none(uint64)
     excessBlobGas =
       when typeof(payload).kind >= ConsensusFork.Deneb:
-        some payload.excess_blob_gas
+        Opt.some payload.excess_blob_gas
       else:
-        none(uint64)
+        Opt.none(uint64)
     parentBeaconBlockRoot =
       when typeof(payload).kind >= ConsensusFork.Deneb:
-        some ExecutionHash256(data: blck.parent_root.data)
+        Opt.some ExecutionHash256(data: blck.parent_root.data)
       else:
-        none(ExecutionHash256)
+        Opt.none(ExecutionHash256)
 
   ExecutionBlockHeader(
     parentHash            : payload.parent_hash,
@@ -509,17 +509,17 @@ proc blockToBlockHeader*(blck: ForkyBeaconBlock): ExecutionBlockHeader =
     coinbase              : EthAddress payload.fee_recipient.data,
     stateRoot             : payload.state_root,
     txRoot                : txRoot,
-    receiptRoot           : payload.receipts_root,
-    bloom                 : payload.logs_bloom.data,
+    receiptsRoot          : payload.receipts_root,
+    logsBloom             : payload.logs_bloom.data,
     difficulty            : default(DifficultyInt),
-    blockNumber           : payload.block_number.u256,
+    number                : payload.block_number,
     gasLimit              : cast[GasInt](payload.gas_limit),
     gasUsed               : cast[GasInt](payload.gas_used),
     timestamp             : EthTime(int64.saturate payload.timestamp),
     extraData             : payload.extra_data.asSeq,
-    mixDigest             : payload.prev_randao, # EIP-4399 `mixDigest` -> `prevRandao`
+    mixHash               : payload.prev_randao, # EIP-4399 `mixHash` -> `prevRandao`
     nonce                 : default(BlockNonce),
-    fee                   : some payload.base_fee_per_gas,
+    baseFeePerGas         : Opt.some payload.base_fee_per_gas,
     withdrawalsRoot       : withdrawalsRoot,
     blobGasUsed           : blobGasUsed,           # EIP-4844
     excessBlobGas         : excessBlobGas,         # EIP-4844

@@ -184,7 +184,7 @@ proc updateExecutionClientHead*(
       headBlockHash = headExecutionBlockHash,
       safeBlockHash = newHead.safeExecutionBlockHash,
       finalizedBlockHash = newHead.finalizedExecutionBlockHash,
-      payloadAttributes = none attributes)
+      payloadAttributes = Opt.none attributes)
 
   # Can't use dag.head here because it hasn't been updated yet
   let
@@ -374,7 +374,7 @@ proc runProposalForkchoiceUpdated*(
       let (status, _) = await self.elManager.forkchoiceUpdated(
         headBlockHash, safeBlockHash,
         beaconHead.finalizedExecutionBlockHash,
-        payloadAttributes = some fcPayloadAttributes)
+        payloadAttributes = Opt.some fcPayloadAttributes)
       debug "Fork-choice updated for proposal", status
 
     static: doAssert high(ConsensusFork) == ConsensusFork.Electra
