@@ -9,8 +9,8 @@
 
 import
   std/tables,
-  stew/results,
-  chronicles, chronos, metrics, taskpools,
+  chronicles, chronos, metrics,
+  taskpools,
   ../spec/[helpers, forks],
   ../spec/datatypes/[altair, phase0, deneb],
   ../consensus_object_pools/[

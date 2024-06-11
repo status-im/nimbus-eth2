@@ -8,7 +8,7 @@
 {.push raises: [].}
 
 import std/[strutils, sequtils, algorithm]
-import stew/[results, base10], chronos, chronicles
+import stew/base10, chronos, chronicles
 import
   ../spec/datatypes/[phase0, altair],
   ../spec/eth2_apis/rest_types,

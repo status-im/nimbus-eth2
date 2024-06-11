@@ -9,7 +9,7 @@
 
 import
   std/[typetraits, sequtils, sets],
-  stew/[results, base10],
+  stew/base10,
   chronicles, metrics,
   ./rest_utils,
   ./state_ttl_cache,
