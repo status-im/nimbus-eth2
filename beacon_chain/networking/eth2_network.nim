@@ -1550,7 +1550,7 @@ proc getLowSubnets(node: Eth2Node, epoch: Epoch): (AttnetBits, SyncnetBits) =
       default(SyncnetBits)
   )
 
-proc runDiscoveryLoop(node: Eth2Node) {.async.} =
+proc runDiscoveryLoop(node: Eth2Node) {.async: (raises: [CancelledError]).} =
   debug "Starting discovery loop"
 
   while true:

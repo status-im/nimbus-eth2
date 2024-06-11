@@ -127,7 +127,7 @@ proc queryRandom*(
     forkId: ENRForkID,
     wantedAttnets: AttnetBits,
     wantedSyncnets: SyncnetBits,
-    minScore: int): Future[seq[Node]] {.async.} =
+    minScore: int): Future[seq[Node]] {.async: (raises: [CancelledError]).} =
   ## Perform a discovery query for a random target
   ## (forkId) and matching at least one of the attestation subnets.
 
@@ -143,7 +143,7 @@ proc queryRandom*(
       peerForkId =
         try:
           SSZ.decode(eth2FieldBytes, ENRForkID)
-        except SszError as e:
+        except SerializationError as e:
           debug "Could not decode the eth2 field of peer",
             peer = n.record.toURI(), exception = e.name, msg = e.msg
           continue
@@ -156,7 +156,7 @@ proc queryRandom*(
       let attnetsNode =
         try:
           SSZ.decode(attnetsBytes.get(), AttnetBits)
-        except SszError as e:
+        except SerializationError as e:
           debug "Could not decode the attnets ERN bitfield of peer",
             peer = n.record.toURI(), exception = e.name, msg = e.msg
           continue
@@ -170,7 +170,7 @@ proc queryRandom*(
       let syncnetsNode =
         try:
           SSZ.decode(syncnetsBytes.get(), SyncnetBits)
-        except SszError as e:
+        except SerializationError as e:
           debug "Could not decode the syncnets ENR bitfield of peer",
             peer = n.record.toURI(), exception = e.name, msg = e.msg
           continue
