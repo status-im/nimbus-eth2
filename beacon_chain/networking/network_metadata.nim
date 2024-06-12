@@ -78,7 +78,7 @@ type
     # additional checks to ensure we are connecting to a web3 provider
     # serving data for the same network. The value can be set to `None`
     # for custom networks and testing purposes.
-    eth1Network*: Option[Eth1Network]
+    eth1Network*: Opt[Eth1Network]
     cfg*: RuntimeConfig
 
     # Parsing `enr.Records` is still not possible at compile-time
@@ -112,10 +112,10 @@ proc readBootEnr*(path: string): seq[string] {.raises: [IOError].} =
 
 proc loadEth2NetworkMetadata*(
     path: string,
-    eth1Network = none(Eth1Network),
+    eth1Network = Opt.none(Eth1Network),
     isCompileTime = false,
-    downloadGenesisFrom = none(DownloadInfo),
-    useBakedInGenesis = none(string)
+    downloadGenesisFrom = Opt.none(DownloadInfo),
+    useBakedInGenesis = Opt.none(string)
 ): Result[Eth2NetworkMetadata, string] {.raises: [IOError, PresetFileError].} =
   # Load data in mainnet format
   # https://github.com/eth-clients/mainnet
@@ -208,9 +208,9 @@ proc loadEth2NetworkMetadata*(
 
 proc loadCompileTimeNetworkMetadata(
     path: string,
-    eth1Network = none(Eth1Network),
-    useBakedInGenesis = none(string),
-    downloadGenesisFrom = none(DownloadInfo)): Eth2NetworkMetadata =
+    eth1Network = Opt.none(Eth1Network),
+    useBakedInGenesis = Opt.none(string),
+    downloadGenesisFrom = Opt.none(DownloadInfo)): Eth2NetworkMetadata =
   if fileExists(path & "/config.yaml"):
     try:
       let res = loadEth2NetworkMetadata(
@@ -255,13 +255,13 @@ when const_preset == "gnosis":
   const
     gnosisMetadata = loadCompileTimeNetworkMetadata(
       vendorDir & "/gnosis-chain-configs/mainnet",
-      none(Eth1Network),
-      useBakedInGenesis = some "gnosis")
+      Opt.none(Eth1Network),
+      useBakedInGenesis = Opt.some "gnosis")
 
     chiadoMetadata = loadCompileTimeNetworkMetadata(
       vendorDir & "/gnosis-chain-configs/chiado",
-      none(Eth1Network),
-      useBakedInGenesis = some "chiado")
+      Opt.none(Eth1Network),
+      useBakedInGenesis = Opt.some "chiado")
 
   static:
     for network in [gnosisMetadata, chiadoMetadata]:
@@ -300,20 +300,20 @@ elif const_preset == "mainnet":
   const
     mainnetMetadata = loadCompileTimeNetworkMetadata(
       vendorDir & "/mainnet/metadata",
-      some mainnet,
-      useBakedInGenesis = some "mainnet")
+      Opt.some mainnet,
+      useBakedInGenesis = Opt.some "mainnet")
 
     holeskyMetadata = loadCompileTimeNetworkMetadata(
       vendorDir & "/holesky/custom_config_data",
-      some holesky,
-      downloadGenesisFrom = some DownloadInfo(
+      Opt.some holesky,
+      downloadGenesisFrom = Opt.some DownloadInfo(
         url: "https://github.com/status-im/nimbus-eth2/releases/download/v23.9.1/holesky-genesis.ssz.sz",
         digest: Eth2Digest.fromHex "0x0ea3f6f9515823b59c863454675fefcd1d8b4f2dbe454db166206a41fda060a0"))
 
     sepoliaMetadata = loadCompileTimeNetworkMetadata(
       vendorDir & "/sepolia/bepolia",
-      some sepolia,
-      useBakedInGenesis = some "sepolia")
+      Opt.some sepolia,
+      useBakedInGenesis = Opt.some "sepolia")
 
   static:
     for network in [mainnetMetadata, sepoliaMetadata, holeskyMetadata]:
