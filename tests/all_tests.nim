@@ -26,6 +26,7 @@ import # Unit test
   ./test_datatypes,
   ./test_deposit_snapshots,
   ./test_discovery,
+  ./test_eip7594_helpers,
   ./test_engine_authentication,
   ./test_el_manager,
   ./test_el_conf,

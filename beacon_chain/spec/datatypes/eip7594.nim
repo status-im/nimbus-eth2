@@ -9,7 +9,7 @@
 
 import "."/[base, deneb], kzg4844
 
-export base, kzg4844
+export base
 
 const
   FIELD_ELEMENTS_PER_EXT_BLOB* = 2 * kzg_abi.FIELD_ELEMENTS_PER_BLOB

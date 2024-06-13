@@ -14,6 +14,7 @@ import
   ssz_serialization/proofs,
   chronicles,
   ./[beacon_time, crypto],
+  kzg4844/kzg_ex,
   eth/p2p/discoveryv5/[node],
   ./helpers,
   ./datatypes/[eip7594, deneb]
@@ -67,14 +68,15 @@ proc get_custody_columns*(node_id: NodeId, custody_subnet_count: uint64): Result
 proc compute_extended_matrix* (blobs: seq[KzgBlob]): Result[ExtendedMatrix, cstring] =
   # This helper demonstrates the relationship between blobs and `ExtendedMatrix`
   var extended_matrix: ExtendedMatrix
-  for blob in blobs:
-    let res = computeCells(blob)
-
+  for i in 0..<blobs.len:
+    debugEcho "Checkpoint 1"
+    let res = computeCells(blobs[i])
+    debugEcho "Checkpoint 2"
     if res.isErr:
         return err("Error computing kzg cells and kzg proofs")
-
+    debugEcho "Checkpoint 3"
     discard extended_matrix.add(res.get())
-
+    debugEcho "Checkpoint 4"
   ok(extended_matrix)
 
 # https://github.com/ethereum/consensus-specs/blob/5f48840f4d768bf0e0a8156a3ed06ec333589007/specs/_features/eip7594/das-core.md#recover_matrix    
@@ -117,7 +119,7 @@ proc get_data_column_sidecars*(signed_block: deneb.SignedBeaconBlock, blobs: seq
   var signed_block_header: deneb.SignedBeaconBlockHeader
   var blck = signed_block.message
 
-  var cellsAndProofs: seq[KzgCellsAndKzgProofs] = @[]
+  var cellsAndProofs: seq[KzgCellsAndKzgProofs]
 
   for blob in blobs:
     let
@@ -137,7 +139,7 @@ proc get_data_column_sidecars*(signed_block: deneb.SignedBeaconBlock, blobs: seq
     cells[i].add(cellsAndProofs[i].cells[0])
     proofs[i].add(cellsAndProofs[i].proofs[1])
 
-  var sidecars: seq[DataColumnSidecar] = @[]
+  var sidecars: seq[DataColumnSidecar]
 
   for columnIndex in 0..<NUMBER_OF_COLUMNS:
     var column: DataColumn
@@ -205,14 +207,6 @@ proc verify_data_column_sidecar_kzg_proofs*(sidecar: DataColumnSidecar): Result[
     kzgProofs = sidecar.kzg_proofs.asSeq
 
   let res = verifyCellKzgProofBatch(kzgCommits, rowIndices, colIndices, sidecarCol, kzgProofs)
-
-  # # KZG batch verifies that the cells match the corresponding commitments and KZG proofs
-  # let res = validate_data_column_sidecar(
-  #   kzgCommits,
-  #   rowIndices,
-  #   colIndices,
-  #   sidecarCol,
-  #   kzgProofs)
 
   if res.isErr():
     return err("DataColumnSidecar: validation failed")
