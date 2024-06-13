@@ -71,13 +71,14 @@ func checkResponse(a, b: openArray[KeystoreData]): bool =
 suite "Validator pool":
   test "Doppelganger for genesis validator":
     let
+      pool = newClone(ValidatorPool())
       v = AttachedValidator(activationEpoch: FAR_FUTURE_EPOCH)
 
     check:
       not v.triggersDoppelganger(GENESIS_EPOCH) # no check
       not v.doppelgangerReady(GENESIS_EPOCH.start_slot) # no activation
 
-    v.updateValidator(makeValidatorAndIndex(ValidatorIndex(1), GENESIS_EPOCH))
+    pool[].updateValidator(v, makeValidatorAndIndex(ValidatorIndex(1), GENESIS_EPOCH))
 
     check:
       not v.triggersDoppelganger(GENESIS_EPOCH) # no check
@@ -94,6 +95,7 @@ suite "Validator pool":
 
   test "Doppelganger for validator that activates in same epoch as check":
     let
+      pool = newClone(ValidatorPool())
       v = AttachedValidator(activationEpoch: FAR_FUTURE_EPOCH)
       now = Epoch(10).start_slot()
 
@@ -104,7 +106,7 @@ suite "Validator pool":
       not v.doppelgangerReady(GENESIS_EPOCH.start_slot)
       not v.doppelgangerReady(now)
 
-    v.updateValidator(makeValidatorAndIndex(ValidatorIndex(5), FAR_FUTURE_EPOCH))
+    pool[].updateValidator(v, makeValidatorAndIndex(ValidatorIndex(5), FAR_FUTURE_EPOCH))
 
     check: # We still don't know when validator activates so we wouldn't trigger
       not v.triggersDoppelganger(GENESIS_EPOCH)
@@ -113,7 +115,7 @@ suite "Validator pool":
       not v.doppelgangerReady(GENESIS_EPOCH.start_slot)
       not v.doppelgangerReady(now)
 
-    v.updateValidator(makeValidatorAndIndex(ValidatorIndex(5), now.epoch()))
+    pool[].updateValidator(v, makeValidatorAndIndex(ValidatorIndex(5), now.epoch()))
 
     check: # No check done yet
       not v.triggersDoppelganger(GENESIS_EPOCH)

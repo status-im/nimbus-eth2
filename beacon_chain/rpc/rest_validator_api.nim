@@ -7,7 +7,7 @@
 {.push raises: [].}
 
 import std/[typetraits, sets, sequtils]
-import stew/[results, base10], chronicles
+import stew/base10, chronicles
 import ".."/[beacon_chain_db, beacon_node],
        ".."/networking/eth2_network,
        ".."/consensus_object_pools/[blockchain_dag, spec_cache,

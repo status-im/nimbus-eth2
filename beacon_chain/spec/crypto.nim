@@ -77,7 +77,7 @@ type
   BlsResult*[T] = Result[T, cstring]
 
   TrustedSig* = object
-    data* {.align: 16.}: array[RawSigSize, byte]
+    blob* {.align: 16.}: array[RawSigSize, byte]
 
   SomeSig* = TrustedSig | ValidatorSig
 
@@ -390,12 +390,9 @@ func toRaw*(x: ValidatorPrivKey): array[32, byte] =
   # TODO: distinct type - see https://github.com/status-im/nim-blscurve/pull/67
   static: doAssert BLS_BACKEND == BLST
   result = SecretKey(x).exportRaw()
-  
-template toRaw*(x: ValidatorPubKey | ValidatorSig): auto =
-  x.blob
 
-template toRaw*(x: TrustedSig): auto =
-  x.data
+template toRaw*(x: ValidatorPubKey | SomeSig): auto =
+  x.blob
 
 func toHex*(x: BlsCurveType): string =
   toHex(toRaw(x))
@@ -507,7 +504,7 @@ template fromSszBytes*(T: type[ValidatorPubKey | ValidatorSig], bytes: openArray
 # Logging
 # ----------------------------------------------------------------------
 
-func shortLog*(x: ValidatorPubKey | ValidatorSig): string =
+func shortLog*(x: ValidatorPubKey | SomeSig): string =
   ## Logging for wrapped BLS types
   ## that may contain valid or non-validated data
   byteutils.toHex(x.blob.toOpenArray(0, 3))
@@ -519,9 +516,6 @@ func shortLog*(x: CookedPubKey): string =
 func shortLog*(x: ValidatorPrivKey): string =
   ## Logging for raw unwrapped BLS types
   "<private key>"
-
-func shortLog*(x: TrustedSig): string =
-  byteutils.toHex(x.data.toOpenArray(0, 3))
 
 # Initialization
 # ----------------------------------------------------------------------

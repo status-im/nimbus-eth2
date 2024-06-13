@@ -123,25 +123,25 @@ contract(DepositContract):
 
 proc deployContract*(web3: Web3, code: seq[byte]): Future[ReceiptObject] {.async.} =
   let tr = TransactionArgs(
-    `from`: web3.defaultAccount.some,
-    data: code.some,
-    gas: Quantity(3000000).some,
-    gasPrice: Quantity(1).some)
+    `from`: Opt.some web3.defaultAccount,
+    data: Opt.some code,
+    gas: Opt.some Quantity(3000000),
+    gasPrice: Opt.some Quantity(1))
 
   let r = await web3.send(tr)
   result = await web3.getMinedTransactionReceipt(r)
 
 proc sendEth(web3: Web3, to: Eth1Address, valueEth: int): Future[TxHash] =
   let tr = TransactionArgs(
-    `from`: web3.defaultAccount.some,
+    `from`: Opt.some web3.defaultAccount,
     # TODO: Force json-rpc to generate 'data' field
     # should not be needed anymore, new execution-api schema
     # is using `input` field
-    data: some(newSeq[byte]()),
-    gas: Quantity(3000000).some,
-    gasPrice: Quantity(1).some,
-    value: some(valueEth.u256 * 1000000000000000000.u256),
-    to: some(to))
+    data: Opt.some(newSeq[byte]()),
+    gas: Opt.some Quantity(3000000),
+    gasPrice: Opt.some Quantity(1),
+    value: Opt.some(valueEth.u256 * 1000000000000000000.u256),
+    to: Opt.some(to))
   web3.send(tr)
 
 type
@@ -153,7 +153,7 @@ proc ethToWei(eth: UInt256): UInt256 =
 proc initWeb3(web3Url, privateKey: string): Future[Web3] {.async.} =
   result = await newWeb3(web3Url)
   if privateKey.len != 0:
-    result.privateKey = some(PrivateKey.fromHex(privateKey)[])
+    result.privateKey = Opt.some(PrivateKey.fromHex(privateKey)[])
   else:
     let accounts = await result.provider.eth_accounts()
     doAssert(accounts.len > 0)

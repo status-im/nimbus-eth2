@@ -106,7 +106,7 @@ type
     Running, Closing, Closed
 
   ELManager* = ref object
-    eth1Network: Option[Eth1Network]
+    eth1Network: Opt[Eth1Network]
       ## If this value is supplied the EL manager will check whether
       ## all configured EL nodes are connected to the same network.
 
@@ -133,7 +133,7 @@ type
       ## also includes blocks without deposits because we must
       ## vote for a block only if it's part of our known history.
 
-    syncTargetBlock: Option[Eth1BlockNumber]
+    syncTargetBlock: Opt[Eth1BlockNumber]
 
     chainSyncingLoopFut: Future[void]
     exchangeTransitionConfigurationLoopFut: Future[void]
@@ -177,7 +177,7 @@ type
     depositContractSyncStatus: DepositContractSyncStatus
       ## Are we sure that this EL has synced the deposit contract?
 
-    lastPayloadId: Option[PayloadID]
+    lastPayloadId: Opt[PayloadID]
 
   FullBlockId* = object
     number: Eth1BlockNumber
@@ -419,7 +419,7 @@ func asConsensusType*(payloadWithValue: BellatrixExecutionPayloadWithValue):
     executionPayload: payloadWithValue.executionPayload.asConsensusType,
     blockValue: payloadWithValue.blockValue)
 
-template maybeDeref[T](o: Option[T]): T = o.get
+template maybeDeref[T](o: Opt[T]): T = o.get
 template maybeDeref[V](v: V): V = v
 
 func asConsensusType*(rpcExecutionPayload: ExecutionPayloadV1OrV2|ExecutionPayloadV2):
@@ -584,12 +584,13 @@ func asConsensusType*(rpcExecutionPayload: ExecutionPayloadV4):
         blob_versioned_hashes:
           if tt.payload.blobVersionedHashes.isSome:
             Opt.some(
-              List[deneb.VersionedHash, Limit MAX_BLOB_COMMITMENTS_PER_BLOCK]
+              List[stable.VersionedHash, Limit MAX_BLOB_COMMITMENTS_PER_BLOCK]
                 .init(tt.payload.blobVersionedHashes.get.mapIt(
-                  deneb.VersionedHash(it))))
+                  stable.VersionedHash(it))))
           else:
             Opt.none(
-              List[deneb.VersionedHash, Limit MAX_BLOB_COMMITMENTS_PER_BLOCK])),
+              List[stable.VersionedHash,
+                Limit MAX_BLOB_COMMITMENTS_PER_BLOCK])),
       signature: Eip6493TransactionSignature(
         `from`:
           if tt.signature.`from`.isSome:
@@ -751,97 +752,97 @@ func asEngineExecutionPayload*(executionPayload: electra.ExecutionPayload):
       payload: engine_api_types.TransactionPayload(
         `type`:
           if tt.payload.`type`.isSome:
-            options.some(tt.payload.`type`.get.Quantity)
+            Opt.some(tt.payload.`type`.get.Quantity)
           else:
-            options.none(Quantity),
+            Opt.none(Quantity),
         chainId:
           if tt.payload.chain_id.isSome:
-            options.some(tt.payload.chain_id.get.Quantity)
+            Opt.some(tt.payload.chain_id.get.Quantity)
           else:
-            options.none(Quantity),
+            Opt.none(Quantity),
         nonce:
           if tt.payload.nonce.isSome:
-            options.some(tt.payload.nonce.get.Quantity)
+            Opt.some(tt.payload.nonce.get.Quantity)
           else:
-            options.none(Quantity),
+            Opt.none(Quantity),
         maxFeesPerGas:
           if tt.payload.max_fees_per_gas.isSome:
-            options.some(engine_api_types.TransactionFeesPerGas(
+            Opt.some(engine_api_types.TransactionFeesPerGas(
               regular:
                 if tt.payload.max_fees_per_gas.get.regular.isSome:
-                  options.some(tt.payload.max_fees_per_gas.get.regular.get)
+                  Opt.some(tt.payload.max_fees_per_gas.get.regular.get)
                 else:
-                  options.none(UInt256),
+                  Opt.none(UInt256),
               blob:
                 if tt.payload.max_fees_per_gas.get.blob.isSome:
-                  options.some(tt.payload.max_fees_per_gas.get.blob.get)
+                  Opt.some(tt.payload.max_fees_per_gas.get.blob.get)
                 else:
-                  options.none(UInt256)))
+                  Opt.none(UInt256)))
           else:
-            options.none(engine_api_types.TransactionFeesPerGas),
+            Opt.none(engine_api_types.TransactionFeesPerGas),
         gas:
           if tt.payload.gas.isSome:
-            options.some(tt.payload.gas.get.Quantity)
+            Opt.some(tt.payload.gas.get.Quantity)
           else:
-            options.none(Quantity),
+            Opt.none(Quantity),
         to:
           if tt.payload.to.isSome:
-            options.some(Address(tt.payload.to.get.data))
+            Opt.some(Address(tt.payload.to.get.data))
           else:
-            options.none(Address),
+            Opt.none(Address),
         value:
           if tt.payload.value.isSome:
-            options.some(tt.payload.value.get)
+            Opt.some(tt.payload.value.get)
           else:
-            options.none(UInt256),
+            Opt.none(UInt256),
         input:
           if tt.payload.input.isSome:
-            options.some(distinctBase(tt.payload.input.get))
+            Opt.some(distinctBase(tt.payload.input.get))
           else:
-            options.none(seq[byte]),
+            Opt.none(seq[byte]),
         accessList:
           if tt.payload.access_list.isSome:
-            options.some(distinctBase(tt.payload.access_list.get).mapIt(
+            Opt.some(distinctBase(tt.payload.access_list.get).mapIt(
               AccessTuple(
                 address: Address(it.address.data),
                 storage_keys: distinctBase(it.storage_keys)
                   .mapIt(FixedBytes[32](it.data)))))
           else:
-            options.none(seq[AccessTuple]),
+            Opt.none(seq[AccessTuple]),
         maxPriorityFeesPerGas:
           if tt.payload.max_priority_fees_per_gas.isSome:
-            options.some(engine_api_types.TransactionFeesPerGas(
+            Opt.some(engine_api_types.TransactionFeesPerGas(
               regular:
                 if tt.payload.max_priority_fees_per_gas.get.regular.isSome:
-                  options.some(
+                  Opt.some(
                     tt.payload.max_priority_fees_per_gas.get.regular.get)
                 else:
-                  options.none(UInt256),
+                  Opt.none(UInt256),
               blob:
                 if tt.payload.max_priority_fees_per_gas.get.blob.isSome:
-                  options.some(
+                  Opt.some(
                     tt.payload.max_priority_fees_per_gas.get.blob.get)
                 else:
-                  options.none(UInt256)))
+                  Opt.none(UInt256)))
           else:
-            options.none(engine_api_types.TransactionFeesPerGas),
+            Opt.none(engine_api_types.TransactionFeesPerGas),
         blobVersionedHashes:
           if tt.payload.blob_versioned_hashes.isSome:
-            options.some(distinctBase(tt.payload.blob_versioned_hashes.get)
+            Opt.some(distinctBase(tt.payload.blob_versioned_hashes.get)
               .mapIt(FixedBytes[32](it)))
           else:
-            options.none(seq[FixedBytes[32]])),
+            Opt.none(seq[FixedBytes[32]])),
       signature: engine_api_types.TransactionSignature(
         `from`:
           if tt.signature.`from`.isSome:
-            options.some(Address(tt.signature.`from`.get.data))
+            Opt.some(Address(tt.signature.`from`.get.data))
           else:
-            options.none(Address),
+            Opt.none(Address),
         ecdsaSignature:
           if tt.signature.ecdsa_signature.isSome:
-            options.some(FixedBytes[65](tt.signature.ecdsa_signature.get))
+            Opt.some(FixedBytes[65](tt.signature.ecdsa_signature.get))
           else:
-            options.none(FixedBytes[65])))
+            Opt.none(FixedBytes[65])))
 
   template getDepositReceipt(dr: DepositReceipt): DepositReceiptV1 =
     DepositReceiptV1(
@@ -975,15 +976,15 @@ func areSameAs(expectedParams: Option[NextExpectedPayloadParams],
 
 proc forkchoiceUpdated(rpcClient: RpcClient,
                        state: ForkchoiceStateV1,
-                       payloadAttributes: Option[PayloadAttributesV1] |
-                                          Option[PayloadAttributesV2] |
-                                          Option[PayloadAttributesV3]):
+                       payloadAttributes: Opt[PayloadAttributesV1] |
+                                          Opt[PayloadAttributesV2] |
+                                          Opt[PayloadAttributesV3]):
                        Future[ForkchoiceUpdatedResponse] =
-  when payloadAttributes is Option[PayloadAttributesV1]:
+  when payloadAttributes is Opt[PayloadAttributesV1]:
     rpcClient.engine_forkchoiceUpdatedV1(state, payloadAttributes)
-  elif payloadAttributes is Option[PayloadAttributesV2]:
+  elif payloadAttributes is Opt[PayloadAttributesV2]:
     rpcClient.engine_forkchoiceUpdatedV2(state, payloadAttributes)
-  elif payloadAttributes is Option[PayloadAttributesV3]:
+  elif payloadAttributes is Opt[PayloadAttributesV3]:
     rpcClient.engine_forkchoiceUpdatedV3(state, payloadAttributes)
   else:
     static: doAssert false
@@ -1013,7 +1014,7 @@ proc getPayloadFromSingleEL(
             headBlockHash: headBlock.asBlockHash,
             safeBlockHash: safeBlock.asBlockHash,
             finalizedBlockHash: finalizedBlock.asBlockHash),
-          some PayloadAttributesV1(
+          Opt.some PayloadAttributesV1(
             timestamp: Quantity timestamp,
             prevRandao: FixedBytes[32] randomData.data,
             suggestedFeeRecipient: suggestedFeeRecipient))
@@ -1023,7 +1024,7 @@ proc getPayloadFromSingleEL(
             headBlockHash: headBlock.asBlockHash,
             safeBlockHash: safeBlock.asBlockHash,
             finalizedBlockHash: finalizedBlock.asBlockHash),
-          some PayloadAttributesV2(
+          Opt.some PayloadAttributesV2(
             timestamp: Quantity timestamp,
             prevRandao: FixedBytes[32] randomData.data,
             suggestedFeeRecipient: suggestedFeeRecipient,
@@ -1037,7 +1038,7 @@ proc getPayloadFromSingleEL(
             headBlockHash: headBlock.asBlockHash,
             safeBlockHash: safeBlock.asBlockHash,
             finalizedBlockHash: finalizedBlock.asBlockHash),
-          some PayloadAttributesV3(
+          Opt.some PayloadAttributesV3(
             timestamp: Quantity timestamp,
             prevRandao: FixedBytes[32] randomData.data,
             suggestedFeeRecipient: suggestedFeeRecipient,
@@ -1537,9 +1538,9 @@ proc sendNewPayload*(
 proc forkchoiceUpdatedForSingleEL(
     connection: ELConnection,
     state: ref ForkchoiceStateV1,
-    payloadAttributes: Option[PayloadAttributesV1] |
-                       Option[PayloadAttributesV2] |
-                       Option[PayloadAttributesV3]
+    payloadAttributes: Opt[PayloadAttributesV1] |
+                       Opt[PayloadAttributesV2] |
+                       Opt[PayloadAttributesV3]
 ): Future[PayloadStatusV1] {.async: (raises: [CatchableError]).} =
   let
     rpcClient = await connection.connectedRpcClient()
@@ -1559,10 +1560,10 @@ proc forkchoiceUpdatedForSingleEL(
 proc forkchoiceUpdated*(
     m: ELManager,
     headBlockHash, safeBlockHash, finalizedBlockHash: Eth2Digest,
-    payloadAttributes: Option[PayloadAttributesV1] |
-                       Option[PayloadAttributesV2] |
-                       Option[PayloadAttributesV3]
-): Future[(PayloadExecutionStatus, Option[BlockHash])] {.
+    payloadAttributes: Opt[PayloadAttributesV1] |
+                       Opt[PayloadAttributesV2] |
+                       Opt[PayloadAttributesV3]
+): Future[(PayloadExecutionStatus, Opt[BlockHash])] {.
    async: (raises: [CancelledError]).} =
 
   doAssert not headBlockHash.isZero
@@ -1579,16 +1580,16 @@ proc forkchoiceUpdated*(
   # payload (`Hash32()` if none yet finalized)"
 
   if m.elConnections.len == 0:
-    return (PayloadExecutionStatus.syncing, none BlockHash)
+    return (PayloadExecutionStatus.syncing, Opt.none BlockHash)
 
-  when payloadAttributes is Option[PayloadAttributesV3]:
+  when payloadAttributes is Opt[PayloadAttributesV3]:
     template payloadAttributesV3(): auto =
       if payloadAttributes.isSome:
         payloadAttributes.get
       else:
         # As timestamp and prevRandao are both 0, won't false-positive match
         (static(default(PayloadAttributesV3)))
-  elif payloadAttributes is Option[PayloadAttributesV2]:
+  elif payloadAttributes is Opt[PayloadAttributesV2]:
     template payloadAttributesV3(): auto =
       if payloadAttributes.isSome:
         PayloadAttributesV3(
@@ -1600,7 +1601,7 @@ proc forkchoiceUpdated*(
       else:
         # As timestamp and prevRandao are both 0, won't false-positive match
         (static(default(PayloadAttributesV3)))
-  elif payloadAttributes is Option[PayloadAttributesV1]:
+  elif payloadAttributes is Opt[PayloadAttributesV1]:
     template payloadAttributesV3(): auto =
       if payloadAttributes.isSome:
         PayloadAttributesV3(
@@ -1685,7 +1686,7 @@ proc forkchoiceUpdated*(
             pendingRequests.filterIt(not(it.finished())).
               mapIt(it.cancelAndWait())
           await noCancel allFutures(pending)
-          return (PayloadExecutionStatus.invalid, none BlockHash)
+          return (PayloadExecutionStatus.invalid, Opt.none BlockHash)
         elif responseProcessor.selectedResponse.isSome:
           # We spawn task which will wait for all other responses which are
           # still pending, after 30.seconds all pending requests will be
@@ -1700,7 +1701,7 @@ proc forkchoiceUpdated*(
             pendingRequests.filterIt(not(it.finished())).
               mapIt(it.cancelAndWait())
           await noCancel allFutures(pending)
-          return (PayloadExecutionStatus.syncing, none BlockHash)
+          return (PayloadExecutionStatus.syncing, Opt.none BlockHash)
 
         if len(pendingRequests) == 0:
           # All requests failed, we will continue our attempts until deadline
@@ -1958,7 +1959,7 @@ proc new*(T: type ELManager,
           depositContractBlockHash: Eth2Digest,
           db: BeaconChainDB,
           engineApiUrls: seq[EngineApiUrl],
-          eth1Network: Option[Eth1Network]): T =
+          eth1Network: Opt[Eth1Network]): T =
   let
     eth1Chain = Eth1Chain.init(
       cfg, db, depositContractBlockNumber, depositContractBlockHash)
@@ -2043,8 +2044,8 @@ proc syncBlockRange(
             await connection.engineApiRequest(
               depositContract.getJsonLogs(
                 DepositEvent,
-                fromBlock = some blockId(currentBlock),
-                toBlock = some blockId(maxBlockNumberRequested)),
+                fromBlock = Opt.some blockId(currentBlock),
+                toBlock = Opt.some blockId(maxBlockNumberRequested)),
               "getLogs", Moment.now(), 30.seconds)
           except CancelledError as exc:
             debug "Request for deposit logs was interrupted"
@@ -2152,7 +2153,6 @@ proc startExchangeTransitionConfigurationLoop(
 
   while true:
     # https://github.com/ethereum/execution-apis/blob/v1.0.0-beta.3/src/engine/paris.md#specification-3
-    debug "Exchange transition configuration tick"
     await m.exchangeTransitionConfiguration()
     await sleepAsync(60.seconds)
 
@@ -2286,7 +2286,7 @@ proc syncEth1Chain(
 
     latestBlockNumber = latestBlock.number
 
-    m.syncTargetBlock = some(
+    m.syncTargetBlock = Opt.some(
       if latestBlock.number > m.cfg.ETH1_FOLLOW_DISTANCE.Eth1BlockNumber:
         latestBlock.number - m.cfg.ETH1_FOLLOW_DISTANCE
       else:

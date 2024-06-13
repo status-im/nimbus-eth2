@@ -9,7 +9,7 @@
 
 import
   std/[typetraits, sequtils, sets],
-  stew/[results, base10],
+  stew/base10,
   chronicles, metrics,
   ./rest_utils,
   ./state_ttl_cache,
@@ -911,10 +911,12 @@ proc installBeaconApiHandlers*(router: var RestRouter, node: BeaconNode) =
           when consensusFork >= ConsensusFork.Deneb:
             await node.router.routeSignedBeaconBlock(
               forkyBlck, Opt.some(
-                forkyBlck.create_blob_sidecars(kzg_proofs, blobs)))
+                forkyBlck.create_blob_sidecars(kzg_proofs, blobs)),
+              checkValidator = true)
           else:
             await node.router.routeSignedBeaconBlock(
-              forkyBlck, Opt.none(seq[BlobSidecar]))
+              forkyBlck, Opt.none(seq[BlobSidecar]),
+              checkValidator = true)
 
     if res.isErr():
       return RestApiResponse.jsonError(
@@ -966,10 +968,12 @@ proc installBeaconApiHandlers*(router: var RestRouter, node: BeaconNode) =
           when consensusFork >= ConsensusFork.Deneb:
             await node.router.routeSignedBeaconBlock(
               forkyBlck, Opt.some(
-                forkyBlck.create_blob_sidecars(kzg_proofs, blobs)))
+                forkyBlck.create_blob_sidecars(kzg_proofs, blobs)),
+              checkValidator = true)
           else:
             await node.router.routeSignedBeaconBlock(
-              forkyBlck, Opt.none(seq[BlobSidecar]))
+              forkyBlck, Opt.none(seq[BlobSidecar]),
+              checkValidator = true)
 
     if res.isErr():
       return RestApiResponse.jsonError(
@@ -1087,7 +1091,8 @@ proc installBeaconApiHandlers*(router: var RestRouter, node: BeaconNode) =
         let res = withBlck(forked):
           forkyBlck.root = hash_tree_root(forkyBlck.message)
           await node.router.routeSignedBeaconBlock(
-            forkyBlck, Opt.none(seq[BlobSidecar]))
+            forkyBlck, Opt.none(seq[BlobSidecar]),
+            checkValidator = true)
 
         if res.isErr():
           return RestApiResponse.jsonError(

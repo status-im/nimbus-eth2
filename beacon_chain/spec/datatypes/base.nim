@@ -70,9 +70,11 @@ import
   ../../version,
   ".."/[beacon_time, crypto, digest, presets]
 
+from kzg4844 import KzgCommitment
+
 export
   tables, results, endians2, json_serialization, sszTypes, beacon_time, crypto,
-  digest, presets
+  digest, presets, kzg4844
 
 const SPEC_VERSION* = "1.5.0-alpha.2"
 ## Spec version we're aiming to be compatible with, right now
@@ -224,6 +226,11 @@ type
 
   CommitteeValidatorsBits* = BitList[Limit MAX_VALIDATORS_PER_COMMITTEE]
 
+  ElectraCommitteeValidatorsBits* =
+    BitList[Limit MAX_VALIDATORS_PER_COMMITTEE * MAX_COMMITTEES_PER_SLOT]
+
+  AttestationCommitteeBits* = BitArray[MAX_COMMITTEES_PER_SLOT.int]
+
   ForkDigest* = distinct array[4, byte]
 
   # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.6/specs/phase0/beacon-chain.md#forkdata
@@ -281,6 +288,7 @@ type
   SomeProposerSlashing* = ProposerSlashing | TrustedProposerSlashing
   SomeSignedBeaconBlockHeader* = SignedBeaconBlockHeader | TrustedSignedBeaconBlockHeader
   SomeSignedVoluntaryExit* = SignedVoluntaryExit | TrustedSignedVoluntaryExit
+  SomeSyncAggregate* = SyncAggregate | TrustedSyncAggregate
 
   # Legacy database type, see BeaconChainDB
   ImmutableValidatorData* = object
@@ -362,6 +370,116 @@ type
   TrustedSignedVoluntaryExit* = object
     message*: VoluntaryExit
     signature*: TrustedSig
+
+  # https://github.com/ethereum/consensus-specs/blob/v1.4.0/specs/altair/beacon-chain.md#syncaggregate
+  SyncAggregate* = object
+    sync_committee_bits*: BitArray[SYNC_COMMITTEE_SIZE]
+    sync_committee_signature*: ValidatorSig
+
+  TrustedSyncAggregate* = object
+    sync_committee_bits*: BitArray[SYNC_COMMITTEE_SIZE]
+    sync_committee_signature*: TrustedSig
+
+  # https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.2/specs/bellatrix/beacon-chain.md#custom-types
+  Transaction* = List[byte, Limit MAX_BYTES_PER_TRANSACTION]
+
+  ExecutionAddress* = object
+    data*: array[20, byte]  # TODO there's a network_metadata type, but the import hierarchy's inconvenient
+
+  BloomLogs* = object
+    data*: array[BYTES_PER_LOGS_BLOOM, byte]
+
+  # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.5/specs/capella/beacon-chain.md#withdrawal
+  Withdrawal* = object
+    index*: WithdrawalIndex
+    validator_index*: uint64
+    address*: ExecutionAddress
+    amount*: Gwei
+
+  # https://github.com/ethereum/consensus-specs/blob/94a0b6c581f2809aa8aca4ef7ee6fbb63f9d74e9/specs/electra/beacon-chain.md#depositreceipt
+  DepositReceipt* = object
+    pubkey*: ValidatorPubKey
+    withdrawal_credentials*: Eth2Digest
+    amount*: Gwei
+    signature*: ValidatorSig
+    index*: uint64
+
+  # https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.2/specs/electra/beacon-chain.md#executionlayerwithdrawalrequest
+  ExecutionLayerWithdrawalRequest* = object
+    source_address*: ExecutionAddress
+    validator_pubkey*: ValidatorPubKey
+    amount*: Gwei
+
+  # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.5/specs/capella/beacon-chain.md#blstoexecutionchange
+  BLSToExecutionChange* = object
+    validator_index*: uint64
+    from_bls_pubkey*: ValidatorPubKey
+    to_execution_address*: ExecutionAddress
+
+  # https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.2/specs/capella/beacon-chain.md#signedblstoexecutionchange
+  SignedBLSToExecutionChange* = object
+    message*: BLSToExecutionChange
+    signature*: ValidatorSig
+
+  SignedBLSToExecutionChangeList* =
+    List[SignedBLSToExecutionChange, Limit MAX_BLS_TO_EXECUTION_CHANGES]
+
+  # https://github.com/ethereum/consensus-specs/blob/v1.4.0/specs/deneb/beacon-chain.md#beaconblockbody
+  KzgCommitments* = List[KzgCommitment, Limit MAX_BLOB_COMMITMENTS_PER_BLOCK]
+
+  # https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.2/specs/electra/beacon-chain.md#consolidation
+  Consolidation* = object
+    source_index*: uint64
+    target_index*: uint64
+    epoch*: Epoch
+
+  # https://github.com/ethereum/consensus-specs/blob/82133085a1295e93394ebdf71df8f2f6e0962588/specs/electra/beacon-chain.md#signedconsolidation
+  SignedConsolidation* = object
+    message*: Consolidation
+    signature*: ValidatorSig
+
+  TrustedSignedConsolidation* = object
+    message*: Consolidation
+    signature*: TrustedSig
+
+  # https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.2/specs/capella/beacon-chain.md#historicalsummary
+  HistoricalSummary* = object
+    # `HistoricalSummary` matches the components of the phase0
+    # `HistoricalBatch` making the two hash_tree_root-compatible.
+    block_summary_root*: Eth2Digest
+    state_summary_root*: Eth2Digest
+
+  # https://github.com/ethereum/consensus-specs/blob/82133085a1295e93394ebdf71df8f2f6e0962588/specs/electra/beacon-chain.md#depositreceipt
+  PendingBalanceDeposit* = object
+    index*: uint64
+    amount*: Gwei
+
+  # https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.2/specs/electra/beacon-chain.md#pendingpartialwithdrawal
+  PendingPartialWithdrawal* = object
+    index*: uint64
+    amount*: Gwei
+    withdrawable_epoch*: Epoch
+
+  # https://github.com/ethereum/consensus-specs/blob/82133085a1295e93394ebdf71df8f2f6e0962588/specs/electra/beacon-chain.md#pendingconsolidation
+  PendingConsolidation* = object
+    source_index*: uint64
+    target_index*: uint64
+
+  # https://github.com/ethereum/consensus-specs/blob/v1.4.0/specs/altair/beacon-chain.md#custom-types
+  ParticipationFlags* = uint8
+
+  EpochParticipationFlags* =
+    distinct List[ParticipationFlags, Limit VALIDATOR_REGISTRY_LIMIT]
+    ## Not a HashList because the list sees significant updates every block
+    ## effectively making the cost of clearing the cache higher than the typical
+    ## gains
+
+  InactivityScores* = HashList[uint64, Limit VALIDATOR_REGISTRY_LIMIT]
+
+  # https://github.com/ethereum/consensus-specs/blob/v1.4.0/specs/altair/beacon-chain.md#synccommittee
+  SyncCommittee* = object
+    pubkeys*: HashArray[Limit SYNC_COMMITTEE_SIZE, ValidatorPubKey]
+    aggregate_pubkey*: ValidatorPubKey
 
   # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.6/specs/phase0/beacon-chain.md#beaconblockheader
   BeaconBlockHeader* = object
@@ -806,8 +924,105 @@ func shortLog*(v: SomeSignedVoluntaryExit): auto =
     signature: shortLog(v.signature)
   )
 
+func shortLog*(v: SomeSyncAggregate): auto =
+  $(v.sync_committee_bits)
+
+func init*(T: type SyncAggregate): SyncAggregate =
+  SyncAggregate(sync_committee_signature: ValidatorSig.infinity)
+
+template asTrusted*(
+    x: SyncAggregate): TrustedSyncAggregate =
+  isomorphicCast[TrustedSyncAggregate](x)
+
+func num_active_participants*(v: SomeSyncAggregate): int =
+  countOnes(v.sync_committee_bits)
+
+func hasSupermajoritySyncParticipation*(
+    num_active_participants: uint64): bool =
+  const max_active_participants = SYNC_COMMITTEE_SIZE.uint64
+  num_active_participants * 3 >= static(max_active_participants * 2)
+
+func hasSupermajoritySyncParticipation*(v: SomeSyncAggregate): bool =
+  hasSupermajoritySyncParticipation(v.num_active_participants.uint64)
+
+func fromHex*(
+    T: typedesc[BloomLogs], s: string): T {.raises: [ValueError].} =
+  hexToByteArray(s, result.data)
+
+func fromHex*(
+    T: typedesc[ExecutionAddress], s: string): T {.raises: [ValueError].} =
+  hexToByteArray(s, result.data)
+
+proc writeValue*(
+    writer: var JsonWriter, value: ExecutionAddress) {.raises: [IOError].} =
+  writer.writeValue to0xHex(value.data)
+
+proc readValue*(
+    reader: var JsonReader,
+    value: var ExecutionAddress) {.raises: [IOError, SerializationError].} =
+  try:
+    hexToByteArray(reader.readValue(string), value.data)
+  except ValueError:
+    reader.raiseUnexpectedValue(
+      "ExecutionAddress value should be a valid hex string")
+
+func `$`*(v: ExecutionAddress): string =
+  v.data.toHex()
+
+func shortLog*(v: BLSToExecutionChange): auto =
+  (
+    validator_index: v.validator_index,
+    from_bls_pubkey: shortLog(v.from_bls_pubkey),
+    to_execution_address: $v.to_execution_address
+  )
+
+func shortLog*(v: SignedBLSToExecutionChange): auto =
+  (
+    bls_to_execution_change: shortLog(v.message),
+    signature: shortLog(v.signature)
+  )
+
 chronicles.formatIt AttestationData: it.shortLog
 chronicles.formatIt Checkpoint: it.shortLog
+
+template asList*(epochFlags: EpochParticipationFlags): untyped =
+  List[ParticipationFlags, Limit VALIDATOR_REGISTRY_LIMIT] epochFlags
+template asList*(epochFlags: var EpochParticipationFlags): untyped =
+  let tmp = cast[ptr List[ParticipationFlags, Limit VALIDATOR_REGISTRY_LIMIT]](addr epochFlags)
+  tmp[]
+
+template asSeq*(epochFlags: EpochParticipationFlags): untyped =
+  seq[ParticipationFlags] asList(epochFlags)
+
+template asSeq*(epochFlags: var EpochParticipationFlags): untyped =
+  let tmp = cast[ptr seq[ParticipationFlags]](addr epochFlags)
+  tmp[]
+
+template item*(epochFlags: EpochParticipationFlags, idx: ValidatorIndex): ParticipationFlags =
+  asList(epochFlags)[idx]
+
+template `[]`*(epochFlags: EpochParticipationFlags, idx: ValidatorIndex|uint64|int): ParticipationFlags =
+  asList(epochFlags)[idx]
+
+template `[]=`*(epochFlags: EpochParticipationFlags, idx: ValidatorIndex, flags: ParticipationFlags) =
+  asList(epochFlags)[idx] = flags
+
+template add*(epochFlags: var EpochParticipationFlags, flags: ParticipationFlags): bool =
+  asList(epochFlags).add flags
+
+template len*(epochFlags: EpochParticipationFlags): int =
+  asList(epochFlags).len
+
+template low*(epochFlags: EpochParticipationFlags): int =
+  asSeq(epochFlags).low
+template high*(epochFlags: EpochParticipationFlags): int =
+  asSeq(epochFlags).high
+
+template assign*(v: var EpochParticipationFlags, src: EpochParticipationFlags) =
+  # TODO https://github.com/nim-lang/Nim/issues/21123
+  mixin assign
+  var tmp = cast[ptr seq[ParticipationFlags]](addr v)
+  assign(tmp[], distinctBase src)
 
 const
   # http://facweb.cs.depaul.edu/sjost/it212/documents/ascii-pr.htm

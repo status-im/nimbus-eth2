@@ -644,20 +644,11 @@ proc process_consolidation*(
       target_validator.withdrawal_credentials.data.toOpenArray(12, 31)):
     return err("Consolidation: source and target don't have same withdrawal address")
 
-  debugComment "this is per spec, near-verbatim, but Nimbus generally factors this out into spec/signatures.nim. so, create verify_consolidation_signature infra there, call here"
   # Verify consolidation is signed by the source and the target
-  let
-    domain = compute_domain(
-      DOMAIN_CONSOLIDATION, cfg.GENESIS_FORK_VERSION,
-      genesis_validators_root=state.genesis_validators_root)
-    signing_root = compute_signing_root(consolidation, domain)
-    pubkeys = [source_validator[].pubkey, target_validator.pubkey]
-
-  debugComment "as a good example, this trustedsig hack typically/should live in spec/signatures.nim"
-  when not (signed_consolidation.signature is TrustedSig):
-    if not blsFastAggregateVerify(
-        pubkeys, signing_root.data, signed_consolidation.signature):
-      return err("Consolidation: invalid signature")
+  if not verify_consolidation_signature(
+      cfg.genesisFork, state.genesis_validators_root, signed_consolidation,
+      [source_validator[].pubkey, target_validator.pubkey]):
+    return err("Consolidation: invalid signature")
 
   # Initiate source validator exit and append pending consolidation
   source_validator[].exit_epoch = compute_consolidation_epoch_and_update_churn(
@@ -667,8 +658,7 @@ proc process_consolidation*(
   debugComment "check HashList add return value"
   discard state.pending_consolidations.add(PendingConsolidation(
     source_index: consolidation.source_index,
-    target_index: consolidation.target_index
-  ))
+    target_index: consolidation.target_index))
 
   ok()
 

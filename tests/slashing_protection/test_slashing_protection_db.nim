@@ -10,10 +10,10 @@
 
 import
   # Standard library
-  std/[os],
+  std/os,
   # Status lib
   eth/db/[kvstore, kvstore_sqlite3],
-  stew/[results, endians2],
+  stew/endians2,
   # Internal
   ../../beacon_chain/validators/slashing_protection,
   ../../beacon_chain/spec/[helpers],

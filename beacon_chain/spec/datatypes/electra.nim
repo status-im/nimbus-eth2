@@ -7,7 +7,7 @@
 
 {.push raises: [].}
 
-# Types specific to Deneb (i.e. known to have changed across hard forks) - see
+# Types specific to Electra (i.e. known to have changed across hard forks) - see
 # `base` for types and guidelines common across forks
 
 # TODO Careful, not nil analysis is broken / incomplete and the semantics will
@@ -22,7 +22,7 @@ import
   ssz_serialization/[merkleization, proofs],
   ssz_serialization/types as sszTypes,
   ../digest,
-  "."/[base, phase0]
+  "."/[stable, phase0]
 
 from kzg4844 import KzgCommitment, KzgProof
 from stew/bitops2 import log2trunc
@@ -35,7 +35,7 @@ from ./capella import
   HistoricalSummary, SignedBLSToExecutionChangeList, Withdrawal
 from ./deneb import Blobs, BlobsBundle, KzgCommitments, KzgProofs
 
-export json_serialization, base, kzg4844
+export json_serialization, stable, kzg4844
 
 const
   # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.5/specs/altair/light-client/sync-protocol.md#constants
@@ -48,72 +48,17 @@ const
   CURRENT_SYNC_COMMITTEE_GINDEX = 86.GeneralizedIndex  # current_sync_committee
   NEXT_SYNC_COMMITTEE_GINDEX = 87.GeneralizedIndex  # next_sync_committee
 
-  # https://eips.ethereum.org/EIPS/eip-6493
-  MAX_CALLDATA_SIZE* = 16_777_216
-  MAX_ACCESS_LIST_STORAGE_KEYS* = 524_288
-  MAX_ACCESS_LIST_SIZE* = 524_288
-
 type
-  ChainId* = uint64
-
-  Eip6493FeesPerGas* {.sszStableContainer: 16.} = object
-    regular*: Opt[UInt256]
-
-    # EIP-4844
-    blob*: Opt[UInt256]
-
-  Eip6493AccessTuple* = object
-    address*: ExecutionAddress
-    storage_keys*: List[Eth2Digest, Limit MAX_ACCESS_LIST_STORAGE_KEYS]
-
-  Eip6493TransactionPayload* {.sszStableContainer: 32.} = object
-    # EIP-2718
-    `type`*: Opt[uint8]
-
-    # EIP-155
-    chain_id*: Opt[ChainId]
-
-    nonce*: Opt[uint64]
-    max_fees_per_gas*: Opt[Eip6493FeesPerGas]
-    gas*: Opt[uint64]
-    to*: Opt[ExecutionAddress]
-    value*: Opt[UInt256]
-    input*: Opt[List[byte, Limit MAX_CALLDATA_SIZE]]
-
-    # EIP-2930
-    access_list*: Opt[List[Eip6493AccessTuple, Limit MAX_ACCESS_LIST_SIZE]]
-
-    # EIP-1559
-    max_priority_fees_per_gas*: Opt[Eip6493FeesPerGas]
-
-    # EIP-4844
-    blob_versioned_hashes*:
-      Opt[List[deneb.VersionedHash, Limit MAX_BLOB_COMMITMENTS_PER_BLOCK]]
-
-  Eip6493TransactionSignature* {.sszStableContainer: 16.} = object
-    `from`*: Opt[ExecutionAddress]
-    ecdsa_signature*: Opt[array[65, byte]]
-
-  Eip6493Transaction* = object
-    payload*: Eip6493TransactionPayload
-    signature*: Eip6493TransactionSignature
-
-  # https://github.com/ethereum/consensus-specs/blob/94a0b6c581f2809aa8aca4ef7ee6fbb63f9d74e9/specs/electra/beacon-chain.md#depositreceipt
-  DepositReceipt* = object
-    pubkey*: ValidatorPubKey
-    withdrawal_credentials*: Eth2Digest
-    amount*: Gwei
-    signature*: ValidatorSig
-    index*: uint64
-
   # https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.0/specs/electra/beacon-chain.md#indexedattestation
-  IndexedAttestation* = object
+  IndexedAttestation* {.
+      sszProfile: StableIndexedAttestation.} = object
     attesting_indices*:
       List[uint64, Limit MAX_VALIDATORS_PER_COMMITTEE * MAX_COMMITTEES_PER_SLOT]
     data*: AttestationData
     signature*: ValidatorSig
 
-  TrustedIndexedAttestation* = object
+  TrustedIndexedAttestation* {.
+      sszProfile: StableIndexedAttestation.} = object
     # The Trusted version, at the moment, implies that the cryptographic signature was checked.
     # It DOES NOT imply that the state transition was verified.
     # Currently the code MUST verify the state transition as soon as the signature is verified
@@ -135,7 +80,8 @@ type
     attestation_2*: TrustedIndexedAttestation  # Modified in Electra:EIP7549]
 
   # https://github.com/ethereum/consensus-specs/blob/82133085a1295e93394ebdf71df8f2f6e0962588/specs/electra/beacon-chain.md#executionpayload
-  ExecutionPayload* = object
+  ExecutionPayload* {.
+      sszProfile: StableExecutionPayload.} = object
     # Execution block header fields
     parent_hash*: Eth2Digest
     fee_recipient*: ExecutionAddress
@@ -171,7 +117,8 @@ type
     blobsBundle*: BlobsBundle
 
   # https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.0/specs/electra/beacon-chain.md#executionpayloadheader
-  ExecutionPayloadHeader* = object
+  ExecutionPayloadHeader* {.
+      sszProfile: StableExecutionPayloadHeader.} = object
     # Execution block header fields
     parent_hash*: Eth2Digest
     fee_recipient*: ExecutionAddress
@@ -198,43 +145,6 @@ type
 
   ExecutePayload* = proc(
     execution_payload: ExecutionPayload): bool {.gcsafe, raises: [].}
-
-  # https://github.com/ethereum/consensus-specs/blob/82133085a1295e93394ebdf71df8f2f6e0962588/specs/electra/beacon-chain.md#depositreceipt
-  PendingBalanceDeposit* = object
-    index*: uint64
-    amount*: Gwei
-
-  # https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.2/specs/electra/beacon-chain.md#pendingpartialwithdrawal
-  PendingPartialWithdrawal* = object
-    index*: uint64
-    amount*: Gwei
-    withdrawable_epoch*: Epoch
-
-  # https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.2/specs/electra/beacon-chain.md#executionlayerwithdrawalrequest
-  ExecutionLayerWithdrawalRequest* = object
-    source_address*: ExecutionAddress
-    validator_pubkey*: ValidatorPubKey
-    amount*: Gwei
-
-  # https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.2/specs/electra/beacon-chain.md#consolidation
-  Consolidation* = object
-    source_index*: uint64
-    target_index*: uint64
-    epoch*: Epoch
-
-  # https://github.com/ethereum/consensus-specs/blob/82133085a1295e93394ebdf71df8f2f6e0962588/specs/electra/beacon-chain.md#signedconsolidation
-  SignedConsolidation* = object
-    message*: Consolidation
-    signature*: ValidatorSig
-
-  TrustedSignedConsolidation* = object
-    message*: Consolidation
-    signature*: TrustedSig
-
-  # https://github.com/ethereum/consensus-specs/blob/82133085a1295e93394ebdf71df8f2f6e0962588/specs/electra/beacon-chain.md#pendingconsolidation
-  PendingConsolidation* = object
-    source_index*: uint64
-    target_index*: uint64
 
   FinalityBranch =
     array[log2trunc(FINALIZED_ROOT_GINDEX), Eth2Digest]
@@ -355,7 +265,8 @@ type
     current_max_active_participants*: uint64
 
   # https://github.com/ethereum/consensus-specs/blob/82133085a1295e93394ebdf71df8f2f6e0962588/specs/electra/beacon-chain.md#beaconstate
-  BeaconState* = object
+  BeaconState* {.
+      sszProfile: StableBeaconState.}= object
     # Versioning
     genesis_time*: uint64
     genesis_validators_root*: Eth2Digest
@@ -507,7 +418,8 @@ type
     body*: TrustedBeaconBlockBody
 
   # https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.0/specs/electra/beacon-chain.md#beaconblockbody
-  BeaconBlockBody* = object
+  BeaconBlockBody* {.
+      sszProfile: StableBeaconBlockBody.} = object
     randao_reveal*: ValidatorSig
     eth1_data*: Eth1Data
       ## Eth1 data vote
@@ -534,7 +446,8 @@ type
     consolidations*: List[SignedConsolidation, Limit MAX_CONSOLIDATIONS]
       ## [New in Electra:EIP7251]
 
-  SigVerifiedBeaconBlockBody* = object
+  SigVerifiedBeaconBlockBody* {.
+      sszProfile: StableBeaconBlockBody.}  = object
     ## A BeaconBlock body with signatures verified
     ## including:
     ## - Randao reveal
@@ -575,7 +488,8 @@ type
     consolidations*: List[TrustedSignedConsolidation, Limit MAX_CONSOLIDATIONS]
       ## [New in Electra:EIP7251]
 
-  TrustedBeaconBlockBody* = object
+  TrustedBeaconBlockBody* {.
+      sszProfile: StableBeaconBlockBody.}  = object
     ## A full verified block
     randao_reveal*: TrustedSig
     eth1_data*: Eth1Data
@@ -642,26 +556,23 @@ type
 
     root* {.dontSerialize.}: Eth2Digest # cached root of signed beacon block
 
-  ElectraCommitteeValidatorsBits* =
-    BitList[Limit MAX_VALIDATORS_PER_COMMITTEE * MAX_COMMITTEES_PER_SLOT]
-
-  AttestationCommitteeBits* = BitArray[MAX_COMMITTEES_PER_SLOT.int]
-
   # https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.0/specs/electra/beacon-chain.md#attestation
-  Attestation* = object
+  Attestation* {.
+      sszProfile: StableAttestation.} = object
     aggregation_bits*: ElectraCommitteeValidatorsBits
     data*: AttestationData
-    committee_bits*: AttestationCommitteeBits  # [New in Electra:EIP7549]
     signature*: ValidatorSig
+    committee_bits*: AttestationCommitteeBits  # [New in Electra:EIP7549]
 
-  TrustedAttestation* = object
+  TrustedAttestation* {.
+      sszProfile: StableAttestation.} = object
     # The Trusted version, at the moment, implies that the cryptographic signature was checked.
     # It DOES NOT imply that the state transition was verified.
     # Currently the code MUST verify the state transition as soon as the signature is verified
     aggregation_bits*: ElectraCommitteeValidatorsBits
     data*: AttestationData
-    committee_bits*: AttestationCommitteeBits  # [New in Electra:EIP7549]
     signature*: TrustedSig
+    committee_bits*: AttestationCommitteeBits  # [New in Electra:EIP7549]
 
   SomeSignedBeaconBlock* =
     SignedBeaconBlock |
