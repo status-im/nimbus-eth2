@@ -68,8 +68,7 @@ type
     signature*: TrustedSig
 
   # https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.0/specs/electra/beacon-chain.md#attesterslashing
-  AttesterSlashing* {.
-      sszProfile: StableAttesterSlashing.} = object
+  AttesterSlashing* = object
     attestation_1*: IndexedAttestation  # [Modified in Electra:EIP7549]
     attestation_2*: IndexedAttestation  # [Modified in Electra:EIP7549]
 

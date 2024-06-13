@@ -123,8 +123,7 @@ type
     blob_kzg_commitments*: Opt[KzgCommitments]
     consolidations*: Opt[List[SignedConsolidation, Limit MAX_CONSOLIDATIONS]]
 
-  StableBeaconState* {.
-      sszStableContainer: MAX_BEACON_STATE_FIELDS.} = object
+  StableBeaconState* {.sszStableContainer: MAX_BEACON_STATE_FIELDS.} = object
     # Versioning
     genesis_time*: Opt[uint64]
     genesis_validators_root*: Opt[Eth2Digest]
@@ -146,7 +145,7 @@ type
     eth1_data*: Opt[Eth1Data]
     eth1_data_votes*: Opt[HashList[Eth1Data,
       Limit(EPOCHS_PER_ETH1_VOTING_PERIOD * SLOTS_PER_EPOCH)]]
-    eth1_deposit_index*: uint64
+    eth1_deposit_index*: Opt[uint64]
 
     # Registry
     validators*: Opt[HashList[Validator, Limit VALIDATOR_REGISTRY_LIMIT]]
