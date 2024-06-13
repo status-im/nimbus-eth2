@@ -114,6 +114,23 @@ proc recover_matrix*(cells_dict: Table[(BlobIndex, CellID), Cell], blobCount: ui
 
   ok(extended_matrix)
 
+proc recover_matrix*(partial_matrix: seq[MatrixEntry], blobCount: int): Result[seq[MatrixEntry], cstring] =
+  # This helper demonstrates how to apply recover_cells_and_kzg_proofs
+  # The data structure for storing cells is implementation-dependent
+
+  var extended_matrix: seq[MatrixEntry]
+  for blob_index in 0..<blobCount:
+    var
+      cell_indices: seq[CellID]
+      cells: seq[Cell]
+      proofs: seq[KzgProof]
+  
+    for e in partial_matrix:
+      if e.row_index == uint64(blob_index):
+        cell_indices.add(e.column_index)
+        cells.add(e.cell)
+        proofs.add(e.kzg_proof)
+
 # https://github.com/ethereum/consensus-specs/blob/5f48840f4d768bf0e0a8156a3ed06ec333589007/specs/_features/eip7594/das-core.md#get_data_column_sidecars
 proc get_data_column_sidecars*(signed_block: deneb.SignedBeaconBlock, blobs: seq[KzgBlob]): Result[seq[DataColumnSidecar], cstring] =
   var sidecar: DataColumnSidecar

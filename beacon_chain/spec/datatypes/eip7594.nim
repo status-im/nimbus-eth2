@@ -60,6 +60,12 @@ type
   DataColumnIdentifier* = object 
     block_root*: Eth2Digest
     index*: ColumnIndex
+
+  MatrixEntry* = object
+    cell*: Cell
+    kzg_proof*: KzgProof
+    column_index*: ColumnIndex
+    row_index*: RowIndex
     
 func shortLog*(v: DataColumnSidecar): auto =
   (
