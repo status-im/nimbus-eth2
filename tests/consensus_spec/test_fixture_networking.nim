@@ -77,7 +77,3 @@ suite "EF - EIP7594 - Networking" & preset():
     presetPath/"eip7594"/"networking"/"get_custody_columns"/"pyspec_tests"
   for kind, path in walkDir(basePath, relative = true, checkDir = true):
     runGetCustodyColumns(suiteName, basePath/path)
-
-
-    
-        

@@ -87,9 +87,10 @@ proc recover_matrix*(cells_dict: Table[(BlobIndex, CellID), Cell], blobCount: ui
   var extended_matrix: ExtendedMatrix
 
   for blobIndex in 0'u64..<blobCount:
-    var cellIds: seq[CellID] = @[]
-    var blIdx: BlobIndex
-    var cellId: CellID
+    var 
+      cellIds: seq[CellID] = @[]
+      blIdx: BlobIndex
+      cellId: CellID
     let key = (blIdx, cellId)
 
     for key, cell in pairs(cells_dict):
@@ -126,7 +127,7 @@ proc get_data_column_sidecars*(signed_block: deneb.SignedBeaconBlock, blobs: seq
       computed_cell = computeCellsAndKzgProofs(blob)
 
     if computed_cell.isErr():
-      fatal "EIP7549: Could not compute cells"
+      return err("EIP7549: Could not compute cells")
 
     cellsAndProofs.add(computed_cell.get())
 
