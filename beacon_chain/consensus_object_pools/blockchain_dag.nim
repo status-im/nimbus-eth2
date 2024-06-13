@@ -2408,7 +2408,7 @@ proc updateHead*(
 
   if dag.headState.kind > lastHeadKind:
     case dag.headState.kind
-    of ConsensusFork.Phase0 .. ConsensusFork.Bellatrix, ConsensusFork.Electra:
+    of ConsensusFork.Phase0 .. ConsensusFork.Bellatrix:
       discard
     of ConsensusFork.Capella:
       if dag.vanityLogs.onUpgradeToCapella != nil:
@@ -2416,6 +2416,9 @@ proc updateHead*(
     of ConsensusFork.Deneb:
       if dag.vanityLogs.onUpgradeToDeneb != nil:
         dag.vanityLogs.onUpgradeToDeneb()
+    of ConsensusFork.Electra:
+      if dag.vanityLogs.onUpgradeToElectra != nil:
+        dag.vanityLogs.onUpgradeToElectra()
 
   if  dag.vanityLogs.onKnownBlsToExecutionChange != nil and
       checkBlsToExecutionChanges(

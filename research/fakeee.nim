@@ -57,7 +57,7 @@ proc setupEngineAPI*(server: RpcServer) =
   # https://github.com/ethereum/execution-apis/blob/v1.0.0-beta.3/src/engine/paris.md#engine_forkchoiceupdatedv1
   server.rpc("engine_forkchoiceUpdatedV1") do(
       update: ForkchoiceStateV1,
-      payloadAttributes: Option[PayloadAttributesV1]) -> ForkchoiceUpdatedResponse:
+      payloadAttributes: Opt[PayloadAttributesV1]) -> ForkchoiceUpdatedResponse:
     info "engine_forkchoiceUpdatedV1",
       update,
       payloadAttributes
@@ -68,7 +68,7 @@ proc setupEngineAPI*(server: RpcServer) =
 
   # https://github.com/ethereum/execution-apis/blob/v1.0.0-beta.3/src/engine/shanghai.md#engine_forkchoiceupdatedv2
   server.rpc("engine_forkchoiceUpdatedV2") do(
-      forkchoiceState: ForkchoiceStateV1, payloadAttributes: Option[PayloadAttributesV2]) -> ForkchoiceUpdatedResponse:
+      forkchoiceState: ForkchoiceStateV1, payloadAttributes: Opt[PayloadAttributesV2]) -> ForkchoiceUpdatedResponse:
     info "engine_forkchoiceUpdatedV2",
       forkchoiceState, payloadAttributes
 

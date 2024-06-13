@@ -8,7 +8,6 @@
 {.push raises: [].}
 
 import
-  stew/results,
   chronicles, chronos, metrics,
   ../spec/[forks, signatures, signatures_batch],
   ../sszdump
@@ -243,7 +242,7 @@ proc expectValidForkchoiceUpdated(
       headBlockHash = headBlockHash,
       safeBlockHash = safeBlockHash,
       finalizedBlockHash = finalizedBlockHash,
-      payloadAttributes = none headBlockPayloadAttributesType)
+      payloadAttributes = Opt.none headBlockPayloadAttributesType)
     receivedExecutionBlockHash =
       when typeof(receivedBlock).kind >= ConsensusFork.Bellatrix:
         receivedBlock.message.body.execution_payload.block_hash
@@ -685,7 +684,7 @@ proc storeBlock(
               self.consensusManager[].optimisticExecutionBlockHash,
             safeBlockHash = newHead.get.safeExecutionBlockHash,
             finalizedBlockHash = newHead.get.finalizedExecutionBlockHash,
-            payloadAttributes = none attributes)
+            payloadAttributes = Opt.none attributes)
 
       let consensusFork = self.consensusManager.dag.cfg.consensusForkAtEpoch(
         newHead.get.blck.bid.slot.epoch)

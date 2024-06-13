@@ -73,7 +73,7 @@ proc initLightClient*(
                   headBlockHash = blckPayload.block_hash,
                   safeBlockHash = beaconHead.safeExecutionBlockHash,
                   finalizedBlockHash = beaconHead.finalizedExecutionBlockHash,
-                  payloadAttributes = none attributes)
+                  payloadAttributes = Opt.none attributes)
 
               case node.dag.cfg.consensusForkAtEpoch(
                   forkyBlck.message.slot.epoch)

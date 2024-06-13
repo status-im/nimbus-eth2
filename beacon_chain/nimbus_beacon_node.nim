@@ -147,14 +147,16 @@ func getVanityLogs(stdoutKind: StdoutLogKind): VanityLogs =
       onFinalizedMergeTransitionBlock: bellatrixBlink,
       onUpgradeToCapella:              capellaColor,
       onKnownBlsToExecutionChange:     capellaBlink,
-      onUpgradeToDeneb:                denebColor)
+      onUpgradeToDeneb:                denebColor,
+      onUpgradeToElectra:              electraColor)
   of StdoutLogKind.NoColors:
     VanityLogs(
       onMergeTransitionBlock:          bellatrixMono,
       onFinalizedMergeTransitionBlock: bellatrixMono,
       onUpgradeToCapella:              capellaMono,
       onKnownBlsToExecutionChange:     capellaMono,
-      onUpgradeToDeneb:                denebMono)
+      onUpgradeToDeneb:                denebMono,
+      onUpgradeToElectra:              electraMono)
   of StdoutLogKind.Json, StdoutLogKind.None:
     VanityLogs(
       onMergeTransitionBlock:
@@ -166,12 +168,14 @@ func getVanityLogs(stdoutKind: StdoutLogKind): VanityLogs =
       onKnownBlsToExecutionChange:
         (proc() = notice "🦉 BLS to execution changed 🦉"),
       onUpgradeToDeneb:
-        (proc() = notice "🐟 Proto-Danksharding is ON 🐟"))
+        (proc() = notice "🐟 Proto-Danksharding is ON 🐟"),
+      onUpgradeToElectra:
+        (proc() = notice "🦒 [PH] Electra 🦒"))
 
 func getVanityMascot(consensusFork: ConsensusFork): string =
   case consensusFork
   of ConsensusFork.Electra:
-    "  "
+    "🦒"
   of ConsensusFork.Deneb:
     "🐟"
   of ConsensusFork.Capella:
@@ -1767,7 +1771,8 @@ proc installMessageValidators(node: BeaconNode) =
               ): Future[ValidationResult] {.async: (raises: [CancelledError]).} =
                 return toValidationResult(
                   await node.processor.processAttestation(
-                    MsgSource.gossip, attestation, subnet_id)))
+                    MsgSource.gossip, attestation, subnet_id,
+                    checkSignature = true, checkValidator = false)))
       else:
         for it in SubnetId:
           closureScope:  # Needed for inner `proc`; don't lift it out of loop.
@@ -1778,7 +1783,8 @@ proc installMessageValidators(node: BeaconNode) =
               ): Future[ValidationResult] {.async: (raises: [CancelledError]).} =
                 return toValidationResult(
                   await node.processor.processAttestation(
-                    MsgSource.gossip, attestation, subnet_id)))
+                    MsgSource.gossip, attestation, subnet_id,
+                    checkSignature = true, checkValidator = false)))
 
       # beacon_aggregate_and_proof
       # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.4/specs/phase0/p2p-interface.md#beacon_aggregate_and_proof
