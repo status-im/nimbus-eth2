@@ -1637,17 +1637,17 @@ proc ETHTransactionsCreateFromJson(
 
       Eip6493TransactionPayload {.sszStableContainer: 32.} = object
         # EIP-2718
-        `type`: uint8
+        `type`: Opt[uint8]
 
         # EIP-155
         chain_id: Opt[ChainId]
 
-        nonce: uint64
+        nonce: Opt[uint64]
         max_fees_per_gas: Opt[FeesPerGas]
-        gas: uint64
+        gas: Opt[uint64]
         to: Opt[ExecutionAddress]
-        value: UInt256
-        input: List[byte, Limit MAX_CALLDATA_SIZE]
+        value: Opt[UInt256]
+        input: Opt[List[byte, Limit MAX_CALLDATA_SIZE]]
 
         # EIP-2930
         access_list: Opt[List[Eip6493AccessTuple, Limit MAX_ACCESS_LIST_SIZE]]
@@ -1660,8 +1660,8 @@ proc ETHTransactionsCreateFromJson(
           Opt[List[deneb.VersionedHash, Limit MAX_BLOB_COMMITMENTS_PER_BLOCK]]
 
       Eip6493TransactionSignature {.sszStableContainer: 16.} = object
-        `from`: ExecutionAddress
-        ecdsa_signature: array[65, byte]
+        `from`: Opt[ExecutionAddress]
+        ecdsa_signature: Opt[array[65, byte]]
 
       Eip6493Transaction = object
         payload: Eip6493TransactionPayload
@@ -1671,17 +1671,17 @@ proc ETHTransactionsCreateFromJson(
 
     case tx.txType
     of TxLegacy:
-      eip6493Tx.payload.`type` = 0x00
+      eip6493Tx.payload.`type`.ok 0x00'u8
     of TxEip2930:
-      eip6493Tx.payload.`type` = 0x01
+      eip6493Tx.payload.`type`.ok 0x01'u8
     of TxEip1559:
-      eip6493Tx.payload.`type` = 0x02
+      eip6493Tx.payload.`type`.ok 0x02'u8
     of TxEip4844:
-      eip6493Tx.payload.`type` = 0x03
+      eip6493Tx.payload.`type`.ok 0x03'u8
     if tx.txType != TxLegacy or tx.V notin [27'i64, 28'i64]:
       # With replay protection
       eip6493Tx.payload.chain_id.ok tx.chainId
-    eip6493Tx.payload.nonce = tx.nonce
+    eip6493Tx.payload.nonce.ok tx.nonce
     eip6493Tx.payload.max_fees_per_gas.ok FeesPerGas(
       regular: Opt.some tx.maxFee.u256,
       blob:
@@ -1689,26 +1689,26 @@ proc ETHTransactionsCreateFromJson(
           Opt.some tx.maxFeePerBlobGas
         else:
           Opt.none FeePerGas)
-    eip6493Tx.payload.gas = tx.gasLimit.uint64
+    eip6493Tx.payload.gas.ok tx.gasLimit.uint64
     if tx.to.isSome:
       eip6493Tx.payload.to.ok(ExecutionAddress(data: tx.to.get))
-    eip6493Tx.payload.value = tx.value
+    eip6493Tx.payload.value.ok tx.value
     if tx.payload.len > MAX_CALLDATA_SIZE:
       return nil
-    eip6493Tx.payload.input =
-      List[byte, Limit MAX_CALLDATA_SIZE].init(tx.payload)
+    eip6493Tx.payload.input
+      .ok List[byte, Limit MAX_CALLDATA_SIZE].init(tx.payload)
     if tx.txType >= TxEip2930:
       if tx.accessList.len > MAX_ACCESS_LIST_SIZE:
         return nil
       for it in tx.accessList:
         if it.storageKeys.len > MAX_ACCESS_LIST_STORAGE_KEYS:
           return nil
-      eip6493Tx.payload.access_list.ok(
-        List[Eip6493AccessTuple, Limit MAX_ACCESS_LIST_SIZE]
+      eip6493Tx.payload.access_list
+        .ok List[Eip6493AccessTuple, Limit MAX_ACCESS_LIST_SIZE]
           .init(tx.accessList.mapIt(Eip6493AccessTuple(
             address: ExecutionAddress(data: it.address),
             storage_keys: List[Eth2Digest, Limit MAX_ACCESS_LIST_STORAGE_KEYS]
-              .init(it.storageKeys.mapIt(Eth2Digest(data: it)))))))
+              .init(it.storageKeys.mapIt(Eth2Digest(data: it))))))
     if tx.txType >= TxEip1559:
       eip6493Tx.payload.max_priority_fees_per_gas.ok FeesPerGas(
         regular: Opt.some tx.maxPriorityFee.u256,
@@ -1718,8 +1718,8 @@ proc ETHTransactionsCreateFromJson(
           else:
             Opt.none FeePerGas)
 
-    eip6493Tx.signature.`from` = ExecutionAddress(data: fromAddress)
-    eip6493Tx.signature.ecdsa_signature = rawSig
+    eip6493Tx.signature.`from`.ok ExecutionAddress(data: fromAddress)
+    eip6493Tx.signature.ecdsa_signature.ok rawSig
 
     # Nim 1.6.14: Inlining `SSZ.encode` into constructor may corrupt memory.
     let eip6493Bytes = SSZ.encode(eip6493Tx)
@@ -2380,10 +2380,10 @@ proc ETHReceiptsCreateFromJson(
 
       Eip6493Receipt {.sszStableContainer: 32.} = object
         root: Opt[Eth2Digest]
-        gas_used: uint64
+        gas_used: Opt[uint64]
         contract_address: Opt[ExecutionAddress]
-        logs_bloom: BloomLogs
-        logs: List[Eip6493Log, MAX_LOGS_PER_RECEIPT]
+        logs_bloom: Opt[BloomLogs]
+        logs: Opt[List[Eip6493Log, MAX_LOGS_PER_RECEIPT]]
 
         # EIP-658
         status: Opt[bool]
@@ -2392,19 +2392,19 @@ proc ETHReceiptsCreateFromJson(
     let transaction = ETHTransactionsGet(transactions, i.cint)
 
     if rec.isHash:
-      eip6493Rec.root.ok(rec.hash)
-    eip6493Rec.gas_used = distinctBase(data.gasUsed)  # See sanity checks.
+      eip6493Rec.root.ok rec.hash
+    eip6493Rec.gas_used.ok distinctBase(data.gasUsed)  # See validity checks
     if ETHTransactionIsCreatingContract(transaction):
-      eip6493Rec.contract_address.ok(ETHTransactionGetTo(transaction)[])
-    eip6493Rec.logs_bloom = BloomLogs(data: rec.bloom)
-    eip6493Rec.logs = List[Eip6493Log, MAX_LOGS_PER_RECEIPT]
+      eip6493Rec.contract_address.ok ETHTransactionGetTo(transaction)[]
+    eip6493Rec.logs_bloom.ok BloomLogs(data: rec.bloom)
+    eip6493Rec.logs.ok List[Eip6493Log, MAX_LOGS_PER_RECEIPT]
       .init(rec.logs.mapIt(Eip6493Log(
         address: ExecutionAddress(data: it.address),
         topics: List[Eth2Digest, Limit MAX_TOPICS_PER_LOG]
           .init(it.topics.mapIt(Eth2Digest(data: it))),
         data: List[byte, Limit MAX_LOG_DATA_SIZE].init(it.data))))
     if not rec.isHash:
-      eip6493Rec.status.ok(rec.status)
+      eip6493Rec.status.ok rec.status
 
     # Nim 1.6.14: Inlining `SSZ.encode` into constructor may corrupt memory.
     let eip6493Bytes = SSZ.encode(eip6493Rec)
