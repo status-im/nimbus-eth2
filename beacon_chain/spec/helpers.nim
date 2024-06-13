@@ -513,9 +513,9 @@ proc blockToBlockHeader*(blck: ForkyBeaconBlock): ExecutionBlockHeader =
     logsBloom             : payload.logs_bloom.data,
     difficulty            : default(DifficultyInt),
     number                : payload.block_number,
-    gasLimit              : cast[GasInt](payload.gas_limit),
-    gasUsed               : cast[GasInt](payload.gas_used),
-    timestamp             : EthTime(int64.saturate payload.timestamp),
+    gasLimit              : GasInt.saturate(payload.gas_limit),
+    gasUsed               : GasInt.saturate(payload.gas_used),
+    timestamp             : EthTime(payload.timestamp),
     extraData             : payload.extra_data.asSeq,
     mixHash               : payload.prev_randao, # EIP-4399 `mixHash` -> `prevRandao`
     nonce                 : default(BlockNonce),
