@@ -1607,7 +1607,7 @@ proc addValidator*(
 
   if not isNil(host.getValidatorAndIdxFn):
     let data = host.getValidatorAndIdxFn(keystore.pubkey)
-    v.updateValidator(data)
+    host.validatorPool[].updateValidator(v, data)
 
 proc generateDeposits*(cfg: RuntimeConfig,
                        rng: var HmacDrbgContext,

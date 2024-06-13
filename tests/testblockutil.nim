@@ -118,8 +118,6 @@ proc build_empty_merge_execution_payload(state: bellatrix.BeaconState):
   bellatrix.ExecutionPayloadForSigning(executionPayload: payload,
                                        blockValue: Wei.zero)
 
-from stew/saturating_arith import saturate
-
 proc build_empty_execution_payload(
     state: bellatrix.BeaconState,
     feeRecipient: Eth1Address): bellatrix.ExecutionPayloadForSigning =
@@ -129,8 +127,8 @@ proc build_empty_execution_payload(
     latest = state.latest_execution_payload_header
     timestamp = compute_timestamp_at_slot(state, state.slot)
     randao_mix = get_randao_mix(state, get_current_epoch(state))
-    base_fee = calcEip1599BaseFee(GasInt.saturate latest.gas_limit,
-                                  GasInt.saturate latest.gas_used,
+    base_fee = calcEip1599BaseFee(latest.gas_limit,
+                                  latest.gas_used,
                                   latest.base_fee_per_gas)
 
   var payload = bellatrix.ExecutionPayloadForSigning(
@@ -172,6 +170,8 @@ proc addTestBlock*(
       cfg, state, getStateField(state, slot) + 1, cache, info, flags).expect(
         "can advance 1")
 
+  debugComment "add consolidations support to addTestBlock"
+
   let
     proposer_index = get_beacon_proposer_index(
       state, cache, getStateField(state, slot)).expect("valid proposer index")
@@ -208,8 +208,6 @@ proc addTestBlock*(
       else:
         default(bellatrix.ExecutionPayloadForSigning)
 
-    debugComment "addTestBlock Electra attestation support"
-
     makeBeaconBlock(
       cfg,
       state,
@@ -229,6 +227,7 @@ proc addTestBlock*(
       BeaconBlockValidatorChanges(),
       sync_aggregate,
       execution_payload,
+      @[],
       noRollback,
       cache,
       verificationFlags = {skipBlsValidation})

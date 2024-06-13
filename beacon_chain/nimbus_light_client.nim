@@ -123,7 +123,7 @@ programMain:
                 headBlockHash = payload.block_hash,
                 safeBlockHash = payload.block_hash,  # stub value
                 finalizedBlockHash = ZERO_HASH,
-                payloadAttributes = none(consensusFork.PayloadAttributes))
+                payloadAttributes = Opt.none(consensusFork.PayloadAttributes))
         else: discard
     optimisticProcessor = initOptimisticProcessor(
       getBeaconTime, optimisticHandler)

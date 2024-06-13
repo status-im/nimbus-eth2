@@ -10,7 +10,7 @@
 
 import
   # Status libraries
-  stew/[byteutils, results], chronicles,
+  stew/byteutils, chronicles,
   taskpools,
   # Internals
   ../../beacon_chain/spec/[helpers, forks, state_transition_block],
