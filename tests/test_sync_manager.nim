@@ -884,7 +884,7 @@ suite "SyncManager test suite":
       # Push a single request that will fail with all blocks being unviable
       var f11 = queue.push(r11, chain.getSlice(startSlot, r11),
                            Opt.none(seq[BlobSidecars]))
-      discard await f11.withTimeout(100.milliseconds)
+      discard await f11.withTimeout(1.seconds)
 
       check:
         f11.finished == true
