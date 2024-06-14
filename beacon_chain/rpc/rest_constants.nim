@@ -213,6 +213,8 @@ const
     "LC finality update unavailable"
   LCOptUpdateUnavailable* =
     "LC optimistic update unavailable"
+  DataColumnsOutOfRange* =
+    "Requested slot is out of data column window"
   DeprecatedRemovalBeaconBlocksDebugStateV1* =
     "v1/beacon/blocks/{block_id} and v1/debug/beacon/states/{state_id} " &
       "endpoints were deprecated and replaced by v2: " &
