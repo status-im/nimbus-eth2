@@ -34,6 +34,10 @@ const
   MAX_REQUEST_BLOB_SIDECARS*: uint64 =
     MAX_REQUEST_BLOCKS_DENEB * MAX_BLOBS_PER_BLOCK
 
+  # https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.2/specs/_features/eip7594/p2p-interface.md#configuration
+  MAX_REQUEST_DATA_COLUMNS*: uint64 =
+    MAX_REQUEST_BLOCKS_DENEB * NUMBER_OF_COLUMNS
+
   defaultEth2TcpPort* = 9000
   defaultEth2TcpPortDesc* = $defaultEth2TcpPort
 

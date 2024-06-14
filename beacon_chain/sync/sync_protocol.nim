@@ -37,6 +37,7 @@ type
 
   BlockRootsList* = List[Eth2Digest, Limit MAX_REQUEST_BLOCKS]
   BlobIdentifierList* = List[BlobIdentifier, Limit (MAX_REQUEST_BLOB_SIDECARS)]
+  DataColumnIdentifierList* = List[DataColumnIdentifier, Limit (MAX_REQUEST_DATA_COLUMNS)]
 
 proc readChunkPayload*(
     conn: Connection, peer: Peer, MsgType: type (ref ForkedSignedBeaconBlock)):
