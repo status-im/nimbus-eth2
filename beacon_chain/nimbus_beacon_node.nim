@@ -1619,7 +1619,7 @@ func syncStatus(node: BeaconNode, wallSlot: Slot): string =
     node.syncManager.syncStatus & optimisticSuffix & lightClientSuffix
   elif node.backfiller.inProgress:
     "backfill: " & node.backfiller.syncStatus
-  elif optimistic_head:
+  elif optimisticHead:
     "synced/opt"
   else:
     "synced"
@@ -1768,7 +1768,8 @@ proc installMessageValidators(node: BeaconNode) =
             node.network.addAsyncValidator(
               getAttestationTopic(digest, subnet_id), proc (
                 attestation: electra.Attestation
-              ): Future[ValidationResult] {.async: (raises: [CancelledError]).} =
+              ): Future[ValidationResult] {.
+                  async: (raises: [CancelledError]).} =
                 return toValidationResult(
                   await node.processor.processAttestation(
                     MsgSource.gossip, attestation, subnet_id,
@@ -1780,7 +1781,8 @@ proc installMessageValidators(node: BeaconNode) =
             node.network.addAsyncValidator(
               getAttestationTopic(digest, subnet_id), proc (
                 attestation: phase0.Attestation
-              ): Future[ValidationResult] {.async: (raises: [CancelledError]).} =
+              ): Future[ValidationResult] {.
+                  async: (raises: [CancelledError]).} =
                 return toValidationResult(
                   await node.processor.processAttestation(
                     MsgSource.gossip, attestation, subnet_id,
