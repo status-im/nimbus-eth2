@@ -491,9 +491,11 @@ func asConsensusType*(payload: engine_api.GetPayloadV3Response):
     # Both are defined as `array[N, byte]` under the hood.
     blobsBundle: deneb.BlobsBundle(
       commitments: KzgCommitments.init(
-        payload.blobsBundle.commitments.mapIt(it.bytes)),
+        payload.blobsBundle.commitments.mapIt(
+          kzg_abi.KzgCommitment(bytes: it.bytes))),
       proofs: KzgProofs.init(
-        payload.blobsBundle.proofs.mapIt(it.bytes)),
+        payload.blobsBundle.proofs.mapIt(
+          kzg_abi.KzgProof(bytes: it.bytes))),
       blobs: Blobs.init(
         payload.blobsBundle.blobs.mapIt(it.bytes))))
 
@@ -560,9 +562,11 @@ func asConsensusType*(payload: engine_api.GetPayloadV4Response):
     # Both are defined as `array[N, byte]` under the hood.
     blobsBundle: deneb.BlobsBundle(
       commitments: KzgCommitments.init(
-        payload.blobsBundle.commitments.mapIt(it.bytes)),
+        payload.blobsBundle.commitments.mapIt(
+          kzg_abi.KzgCommitment(bytes: it.bytes))),
       proofs: KzgProofs.init(
-        payload.blobsBundle.proofs.mapIt(it.bytes)),
+        payload.blobsBundle.proofs.mapIt(
+          kzg_abi.KzgProof(bytes: it.bytes))),
       blobs: Blobs.init(
         payload.blobsBundle.blobs.mapIt(it.bytes))))
 

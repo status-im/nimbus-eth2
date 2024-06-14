@@ -1358,7 +1358,7 @@ proc readValue*(reader: var JsonReader[RestJson],
      value: var (KzgCommitment|KzgProof)) {.
      raises: [IOError, SerializationError].} =
   try:
-    hexToByteArray(reader.readValue(string), distinctBase(value))
+    hexToByteArray(reader.readValue(string), distinctBase(value.bytes))
   except ValueError:
     raiseUnexpectedValue(reader,
                          "KzgCommitment value should be a valid hex string")
@@ -1366,7 +1366,7 @@ proc readValue*(reader: var JsonReader[RestJson],
 proc writeValue*(
     writer: var JsonWriter[RestJson], value: KzgCommitment | KzgProof
 ) {.raises: [IOError].} =
-  writeValue(writer, hexOriginal(distinctBase(value)))
+  writeValue(writer, hexOriginal(distinctBase(value.bytes)))
 
 ## GraffitiBytes
 proc writeValue*(
