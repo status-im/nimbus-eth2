@@ -25,7 +25,7 @@ import
 export
   eth2_merkleization, forks, rlp, ssz_codec
 
-# https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.2/specs/phase0/weak-subjectivity.md#constants
+# https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.3/specs/phase0/weak-subjectivity.md#constants
 const ETH_TO_GWEI = 1_000_000_000.Gwei
 
 func toEther*(gwei: Gwei): Ether =
@@ -271,7 +271,7 @@ template is_finality_update*(update: SomeForkyLightClientUpdate): bool =
   else:
     false
 
-# https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.2/specs/altair/light-client/sync-protocol.md#is_next_sync_committee_known
+# https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.3/specs/altair/light-client/sync-protocol.md#is_next_sync_committee_known
 template is_next_sync_committee_known*(store: ForkyLightClientStore): bool =
   store.next_sync_committee !=
     static(default(typeof(store.next_sync_committee)))
@@ -384,7 +384,7 @@ func contextEpoch*(bootstrap: ForkyLightClientBootstrap): Epoch =
 func contextEpoch*(update: SomeForkyLightClientUpdate): Epoch =
   update.attested_header.beacon.slot.epoch
 
-# https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.2/specs/bellatrix/beacon-chain.md#is_merge_transition_complete
+# https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.3/specs/bellatrix/beacon-chain.md#is_merge_transition_complete
 func is_merge_transition_complete*(
     state: bellatrix.BeaconState | capella.BeaconState | deneb.BeaconState |
            electra.BeaconState): bool =
@@ -392,7 +392,7 @@ func is_merge_transition_complete*(
     default(typeof(state.latest_execution_payload_header))
   state.latest_execution_payload_header != defaultExecutionPayloadHeader
 
-# https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.2/sync/optimistic.md#helpers
+# https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.3/sync/optimistic.md#helpers
 func is_execution_block*(blck: SomeForkyBeaconBlock): bool =
   when typeof(blck).kind >= ConsensusFork.Bellatrix:
     const defaultExecutionPayload =
@@ -401,7 +401,7 @@ func is_execution_block*(blck: SomeForkyBeaconBlock): bool =
   else:
     false
 
-# https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.2/specs/bellatrix/beacon-chain.md#is_merge_transition_block
+# https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.3/specs/bellatrix/beacon-chain.md#is_merge_transition_block
 func is_merge_transition_block(
     state: bellatrix.BeaconState | capella.BeaconState | deneb.BeaconState |
            electra.BeaconState,
@@ -417,7 +417,7 @@ func is_merge_transition_block(
   not is_merge_transition_complete(state) and
     body.execution_payload != defaultExecutionPayload
 
-# https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.2/specs/bellatrix/beacon-chain.md#is_execution_enabled
+# https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.3/specs/bellatrix/beacon-chain.md#is_execution_enabled
 func is_execution_enabled*(
     state: bellatrix.BeaconState | capella.BeaconState | deneb.BeaconState |
            electra.BeaconState,
@@ -431,7 +431,7 @@ func is_execution_enabled*(
           electra.SigVerifiedBeaconBlockBody): bool =
   is_merge_transition_block(state, body) or is_merge_transition_complete(state)
 
-# https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.2/specs/bellatrix/beacon-chain.md#compute_timestamp_at_slot
+# https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.3/specs/bellatrix/beacon-chain.md#compute_timestamp_at_slot
 func compute_timestamp_at_slot*(state: ForkyBeaconState, slot: Slot): uint64 =
   # Note: This function is unsafe with respect to overflows and underflows.
   let slots_since_genesis = slot - GENESIS_SLOT

@@ -10,7 +10,7 @@
 # State transition - epoch processing, as described in
 # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.6/specs/phase0/beacon-chain.md#epoch-processing
 # https://github.com/ethereum/consensus-specs/blob/v1.4.0/specs/altair/beacon-chain.md#epoch-processing
-# https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.2/specs/bellatrix/beacon-chain.md#epoch-processing
+# https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.3/specs/bellatrix/beacon-chain.md#epoch-processing
 # https://github.com/ethereum/consensus-specs/blob/v1.3.0/specs/capella/beacon-chain.md#epoch-processing
 #
 # The entry point is `process_epoch`, which is at the bottom of this file.
@@ -701,7 +701,7 @@ func get_active_increments*(
 
 # https://github.com/ethereum/consensus-specs/blob/v1.4.0/specs/altair/beacon-chain.md#get_flag_index_deltas
 # https://github.com/ethereum/consensus-specs/blob/v1.4.0/specs/altair/beacon-chain.md#modified-get_inactivity_penalty_deltas
-# https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.2/specs/bellatrix/beacon-chain.md#modified-get_inactivity_penalty_deltas
+# https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.3/specs/bellatrix/beacon-chain.md#modified-get_inactivity_penalty_deltas
 # Combines get_flag_index_deltas() and get_inactivity_penalty_deltas()
 template get_flag_and_inactivity_delta(
     state: altair.BeaconState | bellatrix.BeaconState | capella.BeaconState |
@@ -961,7 +961,7 @@ func process_registry_updates*(
 
 # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.7/specs/phase0/beacon-chain.md#slashings
 # https://github.com/ethereum/consensus-specs/blob/v1.4.0/specs/altair/beacon-chain.md#slashings
-# https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.2/specs/bellatrix/beacon-chain.md#slashings
+# https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.3/specs/bellatrix/beacon-chain.md#slashings
 func get_adjusted_total_slashing_balance*(
     state: ForkyBeaconState, total_balance: Gwei): Gwei =
   const multiplier =
@@ -980,14 +980,14 @@ func get_adjusted_total_slashing_balance*(
 
 # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.7/specs/phase0/beacon-chain.md#slashings
 # https://github.com/ethereum/consensus-specs/blob/v1.4.0/specs/altair/beacon-chain.md#slashings
-# https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.2/specs/bellatrix/beacon-chain.md#slashings
+# https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.3/specs/bellatrix/beacon-chain.md#slashings
 func slashing_penalty_applies*(validator: Validator, epoch: Epoch): bool =
   validator.slashed and
   epoch + EPOCHS_PER_SLASHINGS_VECTOR div 2 == validator.withdrawable_epoch
 
 # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.7/specs/phase0/beacon-chain.md#slashings
 # https://github.com/ethereum/consensus-specs/blob/v1.4.0/specs/altair/beacon-chain.md#slashings
-# https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.2/specs/bellatrix/beacon-chain.md#slashings
+# https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.3/specs/bellatrix/beacon-chain.md#slashings
 func get_slashing_penalty*(validator: Validator,
                           adjusted_total_slashing_balance,
                           total_balance: Gwei): Gwei =
@@ -999,7 +999,7 @@ func get_slashing_penalty*(validator: Validator,
 
 # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.7/specs/phase0/beacon-chain.md#slashings
 # https://github.com/ethereum/consensus-specs/blob/v1.4.0/specs/altair/beacon-chain.md#slashings
-# https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.2/specs/bellatrix/beacon-chain.md#slashings
+# https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.3/specs/bellatrix/beacon-chain.md#slashings
 func process_slashings*(state: var ForkyBeaconState, total_balance: Gwei) =
   let
     epoch = get_current_epoch(state)

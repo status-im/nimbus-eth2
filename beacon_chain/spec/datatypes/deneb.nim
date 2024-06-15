@@ -606,7 +606,7 @@ func kzg_commitment_inclusion_proof_gindex*(
   # This index is rooted in `BeaconBlockBody`.
   # The first member (`randao_reveal`) is 16, subsequent members +1 each.
   # If there are ever more than 16 members in `BeaconBlockBody`, indices change!
-  # https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.2/ssz/merkle-proofs.md
+  # https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.3/ssz/merkle-proofs.md
   const
     # blob_kzg_commitments
     BLOB_KZG_COMMITMENTS_GINDEX =
@@ -677,7 +677,7 @@ func is_valid_light_client_header*(
     get_subtree_index(EXECUTION_PAYLOAD_GINDEX),
     header.beacon.body_root)
 
-# https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.2/specs/deneb/light-client/fork.md#upgrading-light-client-data
+# https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.3/specs/deneb/light-client/fork.md#upgrading-light-client-data
 func upgrade_lc_header_to_deneb*(
     pre: capella.LightClientHeader): LightClientHeader =
   LightClientHeader(
@@ -702,7 +702,7 @@ func upgrade_lc_header_to_deneb*(
         excess_blob_gas: 0),  # [New in Deneb:EIP4844]
     execution_branch: pre.execution_branch)
 
-# https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.2/specs/deneb/light-client/fork.md#upgrading-light-client-data
+# https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.3/specs/deneb/light-client/fork.md#upgrading-light-client-data
 func upgrade_lc_bootstrap_to_deneb*(
     pre: capella.LightClientBootstrap): LightClientBootstrap =
   LightClientBootstrap(
@@ -710,7 +710,7 @@ func upgrade_lc_bootstrap_to_deneb*(
     current_sync_committee: pre.current_sync_committee,
     current_sync_committee_branch: pre.current_sync_committee_branch)
 
-# https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.2/specs/deneb/light-client/fork.md#upgrading-light-client-data
+# https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.3/specs/deneb/light-client/fork.md#upgrading-light-client-data
 func upgrade_lc_update_to_deneb*(
     pre: capella.LightClientUpdate): LightClientUpdate =
   LightClientUpdate(
@@ -722,7 +722,7 @@ func upgrade_lc_update_to_deneb*(
     sync_aggregate: pre.sync_aggregate,
     signature_slot: pre.signature_slot)
 
-# https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.2/specs/deneb/light-client/fork.md#upgrading-light-client-data
+# https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.3/specs/deneb/light-client/fork.md#upgrading-light-client-data
 func upgrade_lc_finality_update_to_deneb*(
     pre: capella.LightClientFinalityUpdate): LightClientFinalityUpdate =
   LightClientFinalityUpdate(
@@ -732,7 +732,7 @@ func upgrade_lc_finality_update_to_deneb*(
     sync_aggregate: pre.sync_aggregate,
     signature_slot: pre.signature_slot)
 
-# https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.2/specs/deneb/light-client/fork.md#upgrading-light-client-data
+# https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.3/specs/deneb/light-client/fork.md#upgrading-light-client-data
 func upgrade_lc_optimistic_update_to_deneb*(
     pre: capella.LightClientOptimisticUpdate): LightClientOptimisticUpdate =
   LightClientOptimisticUpdate(
@@ -783,7 +783,7 @@ chronicles.formatIt LightClientUpdate: shortLog(it)
 chronicles.formatIt LightClientFinalityUpdate: shortLog(it)
 chronicles.formatIt LightClientOptimisticUpdate: shortLog(it)
 
-# https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.2/specs/deneb/light-client/fork.md#upgrading-the-store
+# https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.3/specs/deneb/light-client/fork.md#upgrading-the-store
 func upgrade_lc_store_to_deneb*(
     pre: capella.LightClientStore): LightClientStore =
   let best_valid_update =

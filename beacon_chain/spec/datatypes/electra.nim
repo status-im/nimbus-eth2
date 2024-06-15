@@ -43,7 +43,7 @@ const
   # The first member (`genesis_time`) is 64, subsequent members +1 each.
   # If there are ever more than 64 members in `BeaconState`, indices change!
   # `FINALIZED_ROOT_GINDEX` is one layer deeper, i.e., `84 * 2 + 1`.
-  # https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.2/ssz/merkle-proofs.md
+  # https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.3/ssz/merkle-proofs.md
   FINALIZED_ROOT_GINDEX = 169.GeneralizedIndex  # finalized_checkpoint > root
   CURRENT_SYNC_COMMITTEE_GINDEX = 86.GeneralizedIndex  # current_sync_committee
   NEXT_SYNC_COMMITTEE_GINDEX = 87.GeneralizedIndex  # next_sync_committee
