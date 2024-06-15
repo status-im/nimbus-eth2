@@ -373,6 +373,21 @@ proc initFullNode(
   func getFrontfillSlot(): Slot =
     max(dag.frontfill.get(BlockId()).slot, dag.horizon)
 
+  proc isWithinWeakSubjectivityPeriod(): bool =
+    let
+      currentSlot = node.beaconClock.now().slotOrZero()
+      checkpoint = Checkpoint(
+        epoch: epoch(getStateField(node.dag.headState, slot)),
+        root: getStateField(node.dag.headState, latest_block_header).state_root)
+    is_within_weak_subjectivity_period(node.dag.cfg, currentSlot,
+                                       node.dag.headState, checkpoint)
+
+  proc eventWaiter(): Future[void] {.async: (raises: [CancelledError]).} =
+    await node.shutdownEvent.wait()
+    bnStatus = BeaconNodeStatus.Stopping
+
+  asyncSpawn eventWaiter()
+
   let
     quarantine = newClone(
       Quarantine.init())
@@ -441,19 +456,29 @@ proc initFullNode(
       blockProcessor, node.validatorMonitor, dag, attestationPool,
       validatorChangePool, node.attachedValidators, syncCommitteeMsgPool,
       lightClientPool, quarantine, blobQuarantine, rng, getBeaconTime, taskpool)
+    syncManagerFlags =
+      if node.config.longRangeSync != LongRangeSyncMode.Lenient:
+        {SyncManagerFlag.NoGenesisSync}
+      else:
+        {}
     syncManager = newSyncManager[Peer, PeerId](
       node.network.peerPool,
       dag.cfg.DENEB_FORK_EPOCH, dag.cfg.MIN_EPOCHS_FOR_BLOB_SIDECARS_REQUESTS,
       SyncQueueKind.Forward, getLocalHeadSlot,
       getLocalWallSlot, getFirstSlotAtFinalizedEpoch, getBackfillSlot,
-      getFrontfillSlot, dag.tail.slot, blockVerifier)
+      getFrontfillSlot, isWithinWeakSubjectivityPeriod,
+      dag.tail.slot, blockVerifier,
+      shutdownEvent = node.shutdownEvent,
+      flags = syncManagerFlags)
     backfiller = newSyncManager[Peer, PeerId](
       node.network.peerPool,
       dag.cfg.DENEB_FORK_EPOCH, dag.cfg.MIN_EPOCHS_FOR_BLOB_SIDECARS_REQUESTS,
       SyncQueueKind.Backward, getLocalHeadSlot,
       getLocalWallSlot, getFirstSlotAtFinalizedEpoch, getBackfillSlot,
-      getFrontfillSlot, dag.backfill.slot, blockVerifier,
-      maxHeadAge = 0)
+      getFrontfillSlot, isWithinWeakSubjectivityPeriod,
+      dag.backfill.slot, blockVerifier, maxHeadAge = 0,
+      shutdownEvent = node.shutdownEvent,
+      flags = syncManagerFlags)
     router = (ref MessageRouter)(
       processor: processor,
       network: node.network)
@@ -885,6 +910,7 @@ proc init*(T: type BeaconNode,
     beaconClock: beaconClock,
     validatorMonitor: validatorMonitor,
     stateTtlCache: stateTtlCache,
+    shutdownEvent: newAsyncEvent(),
     dynamicFeeRecipientsStore: newClone(DynamicFeeRecipientsStore.init()))
 
   node.initLightClient(

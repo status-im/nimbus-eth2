@@ -8,7 +8,7 @@
 {.push raises: [].}
 
 import std/[strutils, sequtils, algorithm]
-import stew/base10, chronos, chronicles
+import stew/base10, chronos, chronicles, results
 import
   ../spec/datatypes/[phase0, altair],
   ../spec/eth2_apis/rest_types,
@@ -40,7 +40,7 @@ type
     Processing
 
   SyncManagerFlag* {.pure.} = enum
-    NoMonitor
+    NoMonitor, NoGenesisSync
 
   SyncWorker*[A, B] = object
     future: Future[void].Raising([CancelledError])
@@ -52,6 +52,7 @@ type
     MIN_EPOCHS_FOR_BLOB_SIDECARS_REQUESTS: uint64
     responseTimeout: chronos.Duration
     maxHeadAge: uint64
+    isWithinWeakSubjectivityPeriod: GetBoolCallback
     getLocalHeadSlot: GetSlotCallback
     getLocalWallSlot: GetSlotCallback
     getSafeSlot: GetSlotCallback
@@ -60,6 +61,7 @@ type
     progressPivot: Slot
     workers: array[SyncWorkersCount, SyncWorker[A, B]]
     notInSyncEvent: AsyncEvent
+    shutdownEvent: AsyncEvent
     rangeAge: uint64
     chunkSize: uint64
     queue: SyncQueue[A]
@@ -124,8 +126,10 @@ proc newSyncManager*[A, B](pool: PeerPool[A, B],
                            getFinalizedSlotCb: GetSlotCallback,
                            getBackfillSlotCb: GetSlotCallback,
                            getFrontfillSlotCb: GetSlotCallback,
+                           weakSubjectivityPeriodCb: GetBoolCallback,
                            progressPivot: Slot,
                            blockVerifier: BlockVerifier,
+                           shutdownEvent: AsyncEvent,
                            maxHeadAge = uint64(SLOTS_PER_EPOCH * 1),
                            chunkSize = uint64(SLOTS_PER_EPOCH),
                            flags: set[SyncManagerFlag] = {},
@@ -143,6 +147,7 @@ proc newSyncManager*[A, B](pool: PeerPool[A, B],
     MIN_EPOCHS_FOR_BLOB_SIDECARS_REQUESTS: minEpochsForBlobSidecarsRequests,
     getLocalHeadSlot: getLocalHeadSlotCb,
     getLocalWallSlot: getLocalWallSlotCb,
+    isWithinWeakSubjectivityPeriod: weakSubjectivityPeriodCb,
     getSafeSlot: getSafeSlot,
     getFirstSlot: getFirstSlot,
     getLastSlot: getLastSlot,
@@ -152,6 +157,7 @@ proc newSyncManager*[A, B](pool: PeerPool[A, B],
     blockVerifier: blockVerifier,
     notInSyncEvent: newAsyncEvent(),
     direction: direction,
+    shutdownEvent: shutdownEvent,
     ident: ident,
     flags: flags
   )
@@ -566,6 +572,11 @@ proc startWorkers[A, B](man: SyncManager[A, B]) =
   for i in 0 ..< len(man.workers):
     man.workers[i].future = syncWorker[A, B](man, i)
 
+proc stopWorkers[A, B](man: SyncManager[A, B]) {.async: (raises: []).} =
+  # Cancelling all the synchronization workers.
+  let pending = man.workers.mapIt(it.future.cancelAndWait())
+  await noCancel allFutures(pending)
+
 proc toTimeLeftString*(d: Duration): string =
   if d == InfiniteDuration:
     "--h--m"
@@ -710,6 +721,18 @@ proc syncLoop[A, B](man: SyncManager[A, B]) {.async.} =
                     (done * 100).formatBiggestFloat(ffDecimal, 2) & "%) " &
                     man.avgSyncSpeed.formatBiggestFloat(ffDecimal, 4) &
                     "slots/s (" & map & ":" & currentSlot & ")"
+
+    info "Debug: Sync manager loop", queue_kind = man.queue.kind,
+         flags = man.flags, is_within = man.isWithinWeakSubjectivityPeriod()
+
+    if (man.queue.kind == SyncQueueKind.Forward) and
+       (SyncManagerFlag.NoGenesisSync in man.flags):
+      if not(man.isWithinWeakSubjectivityPeriod()):
+        warn "Unable to sync with the network, because of configuration " &
+             "settings"
+        await man.stopWorkers()
+        man.shutdownEvent.fire()
+        return
 
     if man.remainingSlots() <= man.maxHeadAge:
       man.notInSyncEvent.clear()

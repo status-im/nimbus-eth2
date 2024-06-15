@@ -131,6 +131,10 @@ type
     url*: Uri
     provenBlockProperties*: seq[string] # empty if this is not a verifying Web3Signer
 
+  LongRangeSyncMode* {.pure.} = enum
+    Light = "light",
+    Lenient = "lenient"
+
   BeaconNodeConf* = object
     configFile* {.
       desc: "Loads the configuration from a TOML file"
@@ -556,6 +560,11 @@ type
       lightClientDataMaxPeriods* {.
         desc: "Maximum number of sync committee periods to retain light client data"
         name: "light-client-data-max-periods" .}: Option[uint64]
+
+      longRangeSync* {.
+        desc: "Enable long-range syncing (genesis sync)",
+        defaultValue: LongRangeSyncMode.Light,
+        name: "long-range-sync".}: LongRangeSyncMode
 
       inProcessValidators* {.
         desc: "Disable the push model (the beacon node tells a signing process with the private keys of the validators what to sign and when) and load the validators in the beacon node itself"
