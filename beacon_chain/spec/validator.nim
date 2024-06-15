@@ -349,6 +349,7 @@ func compute_inverted_shuffled_index*(
     countdown(SHUFFLE_ROUND_COUNT.uint8 - 1, 0'u8, 1)
 
 # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.6/specs/phase0/beacon-chain.md#compute_proposer_index
+# https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.3/specs/electra/beacon-chain.md#updated-compute_proposer_index
 template compute_proposer_index(state: ForkyBeaconState,
     indices: openArray[ValidatorIndex], seed: Eth2Digest,
     unshuffleTransform: untyped): Opt[ValidatorIndex] =
@@ -373,8 +374,13 @@ template compute_proposer_index(state: ForkyBeaconState,
         candidate_index = indices[unshuffleTransform]
         random_byte = (eth2digest(buffer).data)[i mod 32]
         effective_balance = state.validators[candidate_index].effective_balance
+      const max_effective_balance =
+        when typeof(state).kind >= ConsensusFork.Electra:
+          MAX_EFFECTIVE_BALANCE_ELECTRA.Gwei  # [Modified in Electra:EIP7251]
+        else:
+          MAX_EFFECTIVE_BALANCE.Gwei
       if effective_balance * MAX_RANDOM_BYTE >=
-          MAX_EFFECTIVE_BALANCE.Gwei * random_byte:
+          max_effective_balance * random_byte:
         res = Opt.some(candidate_index)
         break
       i += 1

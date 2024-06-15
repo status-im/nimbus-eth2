@@ -539,7 +539,6 @@ proc makeBeaconBlockForHeadAndSlot*(
         slot, validator_index
       return err("Unable to get execution payload")
 
-  debugComment "flesh out consolidations"
   let res = makeBeaconBlockWithRewards(
       node.dag.cfg,
       state[],
@@ -552,7 +551,6 @@ proc makeBeaconBlockForHeadAndSlot*(
       exits,
       node.syncCommitteeMsgPool[].produceSyncAggregate(head.bid, slot),
       payload,
-      @[],    # consolidations
       noRollback, # Temporary state - no need for rollback
       cache,
       verificationFlags = {},

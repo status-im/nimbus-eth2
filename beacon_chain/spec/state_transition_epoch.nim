@@ -1218,25 +1218,45 @@ func process_historical_summaries_update*(
 
   ok()
 
-# https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.0/specs/electra/beacon-chain.md#new-process_pending_balance_deposits
+# https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.3/specs/electra/beacon-chain.md#new-process_pending_balance_deposits
 func process_pending_balance_deposits*(
     cfg: RuntimeConfig, state: var electra.BeaconState,
     cache: var StateCache): Result[void, cstring] =
-  let
-    available_for_processing = state.deposit_balance_to_consume +
-      get_activation_exit_churn_limit(cfg, state, cache)
+  let available_for_processing = state.deposit_balance_to_consume +
+    get_activation_exit_churn_limit(cfg, state, cache)
   var
     processed_amount = 0.Gwei
-    next_deposit_index = 0.Gwei
+    next_deposit_index = 0
+    deposits_to_postpone: seq[PendingBalanceDeposit]
 
   for deposit in state.pending_balance_deposits:
-    if processed_amount + deposit.amount > available_for_processing:
-      break
+    let validator = state.validators.item(deposit.index)
+
     let deposit_validator_index = ValidatorIndex.init(deposit.index).valueOr:
+      # TODO this function in spec doesn't really have error returns as such
       return err("process_pending_balance_deposits: deposit index out of range")
-    increase_balance(state, deposit_validator_index, deposit.amount)
-    processed_amount += deposit.amount
-    inc next_deposit_index
+
+    # Validator is exiting, postpone the deposit until after withdrawable epoch
+    if validator.exit_epoch < FAR_FUTURE_EPOCH:
+      if get_current_epoch(state) <= validator.withdrawable_epoch:
+        deposits_to_postpone.add(deposit)
+      # Deposited balance will never become active. Increase balance but do not
+      # consume churn
+      else:
+        increase_balance(state, deposit_validator_index, deposit.amount)
+    # Validator is not exiting, attempt to process deposit
+    else:
+      # Deposit does not fit in the churn, no more deposit processing in this
+      # epoch.
+      if processed_amount + deposit.amount > available_for_processing:
+        break
+      # Deposit fits in the churn, process it. Increase balance and consume churn.
+      else:
+        increase_balance(state, deposit_validator_index, deposit.amount)
+        processed_amount += deposit.amount
+
+    # Regardless of how the deposit was handled, we move on in the queue.
+    next_deposit_index += 1
 
   state.pending_balance_deposits =
     HashList[PendingBalanceDeposit, Limit PENDING_BALANCE_DEPOSITS_LIMIT].init(
@@ -1247,6 +1267,10 @@ func process_pending_balance_deposits*(
   else:
     state.deposit_balance_to_consume =
       available_for_processing - processed_amount
+
+  debugComment "yet another in-theory-might-overflow-maybe things, look at these more carefully"
+  if len(deposits_to_postpone) > 0:
+    discard state.pending_balance_deposits.add deposits_to_postpone
 
   ok()
 
