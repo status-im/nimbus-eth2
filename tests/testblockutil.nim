@@ -229,7 +229,6 @@ proc addTestBlock*(
       BeaconBlockValidatorChanges(),
       sync_aggregate,
       execution_payload,
-      @[],
       noRollback,
       cache,
       verificationFlags = {skipBlsValidation})

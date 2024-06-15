@@ -401,7 +401,7 @@ type
     historical_summaries*:
       HashList[HistoricalSummary, Limit HISTORICAL_ROOTS_LIMIT]
 
-    deposit_receipts_start_index*: uint64  # [New in Electra:EIP6110]
+    deposit_requests_start_index*: uint64  # [New in Electra:EIP6110]
     deposit_balance_to_consume*: Gwei  # [New in Electra:EIP7251]
     exit_balance_to_consume*: Gwei  # [New in Electra:EIP7251]
     earliest_exit_epoch*: Epoch  # [New in Electra:EIP7251]

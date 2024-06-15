@@ -502,8 +502,8 @@ func asConsensusType*(rpcExecutionPayload: ExecutionPayloadV4):
   template getTransaction(tt: TypedTransaction): bellatrix.Transaction =
     bellatrix.Transaction.init(tt.distinctBase)
 
-  template getDepositReceipt(dr: DepositReceiptV1): DepositReceipt =
-    DepositReceipt(
+  template getDepositRequest(dr: DepositReceiptV1): DepositRequest =
+    DepositRequest(
       pubkey: ValidatorPubKey(blob: dr.pubkey.distinctBase),
       withdrawal_credentials: dr.withdrawalCredentials.asEth2Digest,
       amount: dr.amount.Gwei,
@@ -511,8 +511,8 @@ func asConsensusType*(rpcExecutionPayload: ExecutionPayloadV4):
       index: dr.index.uint64)
 
   template getExecutionLayerWithdrawalRequest(elwr: WithdrawalRequestV1):
-      ExecutionLayerWithdrawalRequest =
-    ExecutionLayerWithdrawalRequest(
+      WithdrawalRequest =
+    WithdrawalRequest(
       source_address: ExecutionAddress(data: elwr.sourceAddress.distinctBase),
       validator_pubkey: ValidatorPubKey(
         blob: elwr.validatorPublicKey.distinctBase),
@@ -540,11 +540,11 @@ func asConsensusType*(rpcExecutionPayload: ExecutionPayloadV4):
       mapIt(rpcExecutionPayload.withdrawals, it.asConsensusWithdrawal)),
     blob_gas_used: rpcExecutionPayload.blobGasUsed.uint64,
     excess_blob_gas: rpcExecutionPayload.excessBlobGas.uint64,
-    deposit_receipts:
-      List[electra.DepositReceipt, MAX_DEPOSIT_RECEIPTS_PER_PAYLOAD].init(
-        mapIt(rpcExecutionPayload.depositRequests, it.getDepositReceipt)),
+    deposit_requests:
+      List[electra.DepositRequest, MAX_DEPOSIT_REQUESTS_PER_PAYLOAD].init(
+        mapIt(rpcExecutionPayload.depositRequests, it.getDepositRequest)),
     withdrawal_requests:
-      List[electra.ExecutionLayerWithdrawalRequest,
+      List[electra.WithdrawalRequest,
         MAX_WITHDRAWAL_REQUESTS_PER_PAYLOAD].init(
           mapIt(rpcExecutionPayload.withdrawalRequests,
             it.getExecutionLayerWithdrawalRequest)))
@@ -647,7 +647,7 @@ func asEngineExecutionPayload*(executionPayload: electra.ExecutionPayload):
   template getTypedTransaction(tt: bellatrix.Transaction): TypedTransaction =
     TypedTransaction(tt.distinctBase)
 
-  template getDepositReceipt(dr: DepositReceipt): DepositReceiptV1 =
+  template getDepositRequest(dr: DepositRequest): DepositReceiptV1 =
     DepositReceiptV1(
       pubkey: FixedBytes[RawPubKeySize](dr.pubkey.blob),
       withdrawalCredentials: FixedBytes[32](dr.withdrawal_credentials.data),
@@ -655,12 +655,11 @@ func asEngineExecutionPayload*(executionPayload: electra.ExecutionPayload):
       signature: FixedBytes[RawSigSize](dr.signature.blob),
       index: dr.index.Quantity)
 
-  template getExecutionLayerWithdrawalRequest(
-      elwr: ExecutionLayerWithdrawalRequest): WithdrawalRequestV1 =
+  template getWithdrawalRequest(wr: WithdrawalRequest): WithdrawalRequestV1 =
     WithdrawalRequestV1(
-      sourceAddress: Address(elwr.source_address.data),
-      validatorPublicKey: FixedBytes[RawPubKeySize](elwr.validator_pubkey.blob),
-      amount: elwr.amount.Quantity)
+      sourceAddress: Address(wr.source_address.data),
+      validatorPublicKey: FixedBytes[RawPubKeySize](wr.validator_pubkey.blob),
+      amount: wr.amount.Quantity)
 
   engine_api.ExecutionPayloadV4(
     parentHash: executionPayload.parent_hash.asBlockHash,
@@ -682,10 +681,9 @@ func asEngineExecutionPayload*(executionPayload: electra.ExecutionPayload):
     blobGasUsed: Quantity(executionPayload.blob_gas_used),
     excessBlobGas: Quantity(executionPayload.excess_blob_gas),
     depositRequests: mapIt(
-      executionPayload.deposit_receipts, it.getDepositReceipt),
+      executionPayload.deposit_requests, it.getDepositRequest),
     withdrawalRequests:
-      mapIt(executionPayload.withdrawal_requests,
-        it.getExecutionLayerWithdrawalRequest))
+      mapIt(executionPayload.withdrawal_requests, it.getWithdrawalRequest))
 
 func isConnected(connection: ELConnection): bool =
   connection.web3.isSome
