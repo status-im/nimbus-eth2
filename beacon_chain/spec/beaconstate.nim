@@ -301,7 +301,7 @@ from ./datatypes/deneb import BeaconState
 
 # https://github.com/ethereum/consensus-specs/blob/v1.4.0/specs/phase0/beacon-chain.md#slash_validator
 # https://github.com/ethereum/consensus-specs/blob/v1.4.0/specs/altair/beacon-chain.md#modified-slash_validator
-# https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.2/specs/bellatrix/beacon-chain.md#modified-slash_validator
+# https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.3/specs/bellatrix/beacon-chain.md#modified-slash_validator
 # https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.0/specs/electra/beacon-chain.md#updated-slash_validator
 func get_slashing_penalty*(
     state: ForkyBeaconState, validator_effective_balance: Gwei): Gwei =
@@ -319,7 +319,7 @@ func get_slashing_penalty*(
 
 # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.7/specs/phase0/beacon-chain.md#slash_validator
 # https://github.com/ethereum/consensus-specs/blob/v1.4.0/specs/altair/beacon-chain.md#modified-slash_validator
-# https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.2/specs/bellatrix/beacon-chain.md#modified-slash_validator
+# https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.3/specs/bellatrix/beacon-chain.md#modified-slash_validator
 func get_whistleblower_reward*(
     state: phase0.BeaconState | altair.BeaconState | bellatrix.BeaconState |
            capella.BeaconState | deneb.BeaconState,
@@ -333,7 +333,7 @@ func get_whistleblower_reward*(
 
 # https://github.com/ethereum/consensus-specs/blob/v1.4.0/specs/phase0/beacon-chain.md#slash_validator
 # https://github.com/ethereum/consensus-specs/blob/v1.4.0/specs/altair/beacon-chain.md#modified-slash_validator
-# https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.2/specs/bellatrix/beacon-chain.md#modified-slash_validator
+# https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.3/specs/bellatrix/beacon-chain.md#modified-slash_validator
 func get_proposer_reward(state: ForkyBeaconState, whistleblower_reward: Gwei): Gwei =
   when state is phase0.BeaconState:
     whistleblower_reward div PROPOSER_REWARD_QUOTIENT
@@ -346,7 +346,7 @@ func get_proposer_reward(state: ForkyBeaconState, whistleblower_reward: Gwei): G
 
 # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.7/specs/phase0/beacon-chain.md#slash_validator
 # https://github.com/ethereum/consensus-specs/blob/v1.4.0/specs/altair/beacon-chain.md#modified-slash_validator
-# https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.2/specs/bellatrix/beacon-chain.md#modified-slash_validator
+# https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.3/specs/bellatrix/beacon-chain.md#modified-slash_validator
 proc slash_validator*(
     cfg: RuntimeConfig, state: var ForkyBeaconState,
     slashed_index: ValidatorIndex, pre_exit_queue_info: ExitQueueInfo,
@@ -419,7 +419,7 @@ func get_initial_beacon_block*(state: altair.HashedBeaconState):
   altair.TrustedSignedBeaconBlock(
     message: message, root: hash_tree_root(message))
 
-# https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.2/specs/bellatrix/beacon-chain.md#testing
+# https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.3/specs/bellatrix/beacon-chain.md#testing
 func get_initial_beacon_block*(state: bellatrix.HashedBeaconState):
     bellatrix.TrustedSignedBeaconBlock =
   # The genesis block is implicitly trusted
@@ -431,7 +431,7 @@ func get_initial_beacon_block*(state: bellatrix.HashedBeaconState):
   bellatrix.TrustedSignedBeaconBlock(
     message: message, root: hash_tree_root(message))
 
-# https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.2/specs/capella/beacon-chain.md#testing
+# https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.3/specs/capella/beacon-chain.md#testing
 func get_initial_beacon_block*(state: capella.HashedBeaconState):
     capella.TrustedSignedBeaconBlock =
   # The genesis block is implicitly trusted
@@ -1188,7 +1188,7 @@ func has_execution_withdrawal_credential*(validator: Validator): bool =
   has_compounding_withdrawal_credential(validator) or
     has_eth1_withdrawal_credential(validator)
 
-# https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.2/specs/capella/beacon-chain.md#is_fully_withdrawable_validator
+# https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.3/specs/capella/beacon-chain.md#is_fully_withdrawable_validator
 # https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.3/specs/electra/beacon-chain.md#updated-is_fully_withdrawable_validator
 func is_fully_withdrawable_validator(
     fork: static ConsensusFork, validator: Validator, balance: Gwei,
@@ -1506,8 +1506,8 @@ proc initialize_hashed_beacon_state_from_eth1*(
       cfg, eth1_block_hash, eth1_timestamp, deposits, flags))
   result.root = hash_tree_root(result.data)
 
-# https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.2/specs/bellatrix/beacon-chain.md#testing
-# https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.2/specs/capella/beacon-chain.md#testing
+# https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.3/specs/bellatrix/beacon-chain.md#testing
+# https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.3/specs/capella/beacon-chain.md#testing
 # https://github.com/ethereum/consensus-specs/blob/v1.3.0/specs/deneb/beacon-chain.md#testing
 proc initialize_beacon_state_from_eth1*(
     cfg: RuntimeConfig,

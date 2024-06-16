@@ -15,7 +15,7 @@ export base
 
 const
   # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.1/specs/phase0/p2p-interface.md#topics-and-messages
-  # https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.2/specs/capella/p2p-interface.md#topics-and-messages
+  # https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.3/specs/capella/p2p-interface.md#topics-and-messages
   topicBeaconBlocksSuffix* = "beacon_block/ssz_snappy"
   topicVoluntaryExitsSuffix* = "voluntary_exit/ssz_snappy"
   topicProposerSlashingsSuffix* = "proposer_slashing/ssz_snappy"
@@ -63,7 +63,7 @@ func getAttesterSlashingsTopic*(forkDigest: ForkDigest): string =
 func getAggregateAndProofsTopic*(forkDigest: ForkDigest): string =
   eth2Prefix(forkDigest) & topicAggregateAndProofsSuffix
 
-# https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.2/specs/capella/p2p-interface.md#topics-and-messages
+# https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.3/specs/capella/p2p-interface.md#topics-and-messages
 func getBlsToExecutionChangeTopic*(forkDigest: ForkDigest): string =
   eth2Prefix(forkDigest) & topicBlsToExecutionChangeSuffix
 
@@ -197,7 +197,7 @@ func getTargetGossipState*(
   targetForks
 
 func nearSyncCommitteePeriod*(epoch: Epoch): Opt[uint64] =
-  # https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.2/specs/altair/validator.md#sync-committee-subnet-stability
+  # https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.3/specs/altair/validator.md#sync-committee-subnet-stability
   if epoch.is_sync_committee_period():
     return Opt.some 0'u64
   let epochsBefore =
@@ -216,7 +216,7 @@ func getSyncSubnets*(
     if not nodeHasPubkey(pubkey):
       continue
 
-    # https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.2/specs/altair/validator.md#broadcast-sync-committee-message
+    # https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.3/specs/altair/validator.md#broadcast-sync-committee-message
     # The first quarter of the pubkeys map to subnet 0, the second quarter to
     # subnet 1, the third quarter to subnet 2 and the final quarter to subnet
     # 3.

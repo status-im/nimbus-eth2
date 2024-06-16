@@ -400,7 +400,7 @@ type
     sync_committees*: Table[SyncCommitteePeriod, SyncCommitteeCache]
 
   # This matches the mutable state of the Solidity deposit contract
-  # https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.2/solidity_deposit_contract/deposit_contract.sol
+  # https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.3/solidity_deposit_contract/deposit_contract.sol
   DepositContractState* = object
     branch*: array[DEPOSIT_CONTRACT_TREE_DEPTH, Eth2Digest]
     deposit_count*: array[32, byte] # Uint256
