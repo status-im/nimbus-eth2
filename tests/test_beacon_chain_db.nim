@@ -863,6 +863,106 @@ suite "Beacon chain DB" & preset():
 
     db.close()
 
+  test "sanity check data columns" & preset():
+    const
+      blockHeader0 = SignedBeaconBlockHeader(
+        message: BeaconBlockHeader(slot: Slot(0)))
+      blockHeader1 = SignedBeaconBlockHeader(
+        message: BeaconBlockHeader(slot: Slot(1)))
+
+    let
+      blockRoot0 = hash_tree_root(blockHeader0.message)
+      blockRoot1 = hash_tree_root(blockHeader1.message)
+
+      # Ensure minimal-difference pairs on both block root and 
+      # data column index to verify that the columnkey uses both
+      dataColumnSidecar0 = DataColumnSidecar(signed_block_header: blockHeader0, index: 3)
+      dataColumnSidecar1 = DataColumnSidecar(signed_block_header: blockHeader0, index: 2)
+      dataColumnSidecar2 = DataColumnSidecar(signed_block_header: blockHeader1, index: 2)
+
+      db = makeTestDB(SLOTS_PER_EPOCH)
+
+    var
+      buf: seq[byte]
+      dataColumnSidecar: DataColumnSidecar
+
+    check:
+      not db.getDataColumnSidecar(blockRoot0, 3, dataColumnSidecar)
+      not db.getDataColumnSidecar(blockRoot0, 2, dataColumnSidecar)
+      not db.getDataColumnSidecar(blockRoot1, 2, dataColumnSidecar)
+      not db.getDataColumnSidecarSZ(blockRoot0, 3, buf)
+      not db.getDataColumnSidecarSZ(blockRoot0, 3, buf)
+      not db.getDataColumnSidecarSZ(blockRoot1, 2, buf)
+
+    db.putDataColumnSidecar(dataColumnSidecar0)
+    
+    check:
+      db.getDataColumnSidecar(blockRoot0, 3, dataColumnSidecar)
+      dataColumnSidecar == dataColumnSidecar0
+      not db.getDataColumnSidecar(blockRoot0, 2, dataColumnSidecar)
+      not db.getDataColumnSidecar(blockRoot1, 2, dataColumnSidecar)
+      db.getDataColumnSidecarSZ(blockRoot0, 3, buf)
+      not db.getDataColumnSidecarSZ(blockRoot0, 2, buf)
+      not db.getDataColumnSidecarSZ(blockRoot1, 2, buf)
+
+    db.putDataColumnSidecar(dataColumnSidecar1)
+
+    check:
+      db.getDataColumnSidecar(blockRoot0, 3, dataColumnSidecar)
+      dataColumnSidecar == dataColumnSidecar0
+      db.getDataColumnSidecar(blockRoot0, 2, dataColumnSidecar)
+      dataColumnSidecar == dataColumnSidecar1
+      not db.getDataColumnSidecar(blockRoot1, 2, dataColumnSidecar)
+      db.getDataColumnSidecarSZ(blockRoot0, 3, buf)
+      db.getDataColumnSidecarSZ(blockRoot0, 2, buf)
+      not db.getDataColumnSidecarSZ(blockRoot1, 2, buf)
+
+    check db.delDataColumnSidecar(blockRoot0, 3)
+
+    check:
+      not db.getDataColumnSidecar(blockRoot0, 3, dataColumnSidecar)
+      db.getDataColumnSidecar(blockRoot0, 2, dataColumnSidecar)
+      dataColumnSidecar == dataColumnSidecar1
+      not db.getDataColumnSidecar(blockRoot1, 2, dataColumnSidecar)
+      not db.getDataColumnSidecarSZ(blockRoot0, 3, buf)
+      db.getDataColumnSidecarSZ(blockRoot0, 2, buf)
+      not db.getDataColumnSidecarSZ(blockRoot1, 2, buf)
+
+    db.putDataColumnSidecar(dataColumnSidecar2)
+
+    check:
+      not db.getDataColumnSidecar(blockRoot0, 3, dataColumnSidecar)
+      db.getDataColumnSidecar(blockRoot0, 2, dataColumnSidecar)
+      dataColumnSidecar == dataColumnSidecar1
+      db.getDataColumnSidecar(blockRoot1, 2, dataColumnSidecar)
+      dataColumnSidecar == dataColumnSidecar2
+      not db.getDataColumnSidecarSZ(blockRoot0, 3, buf)
+      db.getDataColumnSidecarSZ(blockRoot0, 2, buf)
+      db.getDataColumnSidecarSZ(blockRoot1, 2, buf)
+
+    check db.delDataColumnSidecar(blockRoot0, 2)
+
+    check:
+      not db.getDataColumnSidecar(blockRoot0, 3, dataColumnSidecar)
+      not db.getDataColumnSidecar(blockRoot0, 2, dataColumnSidecar)
+      db.getDataColumnSidecar(blockRoot1, 2, dataColumnSidecar)
+      dataColumnSidecar == dataColumnSidecar2
+      not db.getDataColumnSidecarSZ(blockRoot0, 3, buf)
+      not db.getDataColumnSidecarSZ(blockRoot0, 2, buf)
+      db.getDataColumnSidecarSZ(blockRoot1, 2, buf)
+
+    check db.delDataColumnSidecar(blockRoot1, 2)
+
+    check:
+      not db.getDataColumnSidecar(blockRoot0, 3, dataColumnSidecar)
+      not db.getDataColumnSidecar(blockRoot0, 2, dataColumnSidecar)
+      not db.getDataColumnSidecar(blockRoot1, 2, dataColumnSidecar)
+      not db.getDataColumnSidecarSZ(blockRoot0, 3, buf)
+      not db.getDataColumnSidecarSZ(blockRoot0, 2, buf)
+      not db.getDataColumnSidecarSZ(blockRoot1, 2, buf)
+
+    db.close()
+
 suite "FinalizedBlocks" & preset():
   test "Basic ops" & preset():
     var
