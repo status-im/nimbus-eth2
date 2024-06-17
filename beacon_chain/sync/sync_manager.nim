@@ -34,6 +34,9 @@ const
   StatusExpirationTime* = chronos.minutes(2)
     ## Time time it takes for the peer's status information to expire.
 
+  WeakSubjectivityLogMessage* =
+    "Unable to sync with the network, <placeholder>"
+
 type
   SyncWorkerStatus* {.pure.} = enum
     Sleeping, WaitingPeer, UpdatingStatus, Requesting, Downloading, Queueing,
@@ -722,14 +725,10 @@ proc syncLoop[A, B](man: SyncManager[A, B]) {.async.} =
                     man.avgSyncSpeed.formatBiggestFloat(ffDecimal, 4) &
                     "slots/s (" & map & ":" & currentSlot & ")"
 
-    info "Debug: Sync manager loop", queue_kind = man.queue.kind,
-         flags = man.flags, is_within = man.isWithinWeakSubjectivityPeriod()
-
     if (man.queue.kind == SyncQueueKind.Forward) and
        (SyncManagerFlag.NoGenesisSync in man.flags):
       if not(man.isWithinWeakSubjectivityPeriod()):
-        warn "Unable to sync with the network, because of configuration " &
-             "settings"
+        fatal WeakSubjectivityLogMessage, current_slot = wallSlot
         await man.stopWorkers()
         man.shutdownEvent.fire()
         return

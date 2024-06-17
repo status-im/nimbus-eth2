@@ -579,6 +579,27 @@ proc init*(T: type BeaconNode,
   template cfg: auto = metadata.cfg
   template eth1Network: auto = metadata.eth1Network
 
+  if not(isDir(config.databaseDir)):
+    # If database directory missing, we going to use genesis state to check
+    # for weak_subjectivity_period.
+    let
+      genesisState =
+        await fetchGenesisState(
+          metadata, config.genesisState, config.genesisStateUrl)
+      genesisTime = getStateField(genesisState[], genesis_time)
+      beaconClock = BeaconClock.init(genesisTime).valueOr:
+        fatal "Invalid genesis time in genesis state", genesisTime
+        quit 1
+      currentSlot = beaconClock.now().slotOrZero()
+      checkpoint = Checkpoint(
+        epoch: epoch(getStateField(genesisState[], slot)),
+        root: getStateField(genesisState[], latest_block_header).state_root)
+    if config.longRangeSync == LongRangeSyncMode.Light:
+      if not is_within_weak_subjectivity_period(metadata.cfg, currentSlot,
+                                                genesisState[], checkpoint):
+        fatal WeakSubjectivityLogMessage, current_slot = currentSlot
+        quit 1
+
   try:
     if config.numThreads < 0:
       fatal "The number of threads --numThreads cannot be negative."
