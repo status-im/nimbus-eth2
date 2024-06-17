@@ -462,10 +462,6 @@ proc collectSignatureSets*(
               genesis_fork, genesis_validators_root, bls_change.message,
               validator_pubkey, sig)
 
-  block:
-    # 9. Consolidations
-    debugComment "check consolidations signatures"
-
   ok()
 
 proc batchVerify*(verifier: var BatchVerifier, sigs: openArray[SignatureSet]): bool =

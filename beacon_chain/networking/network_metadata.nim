@@ -47,7 +47,6 @@ type
 
   Eth1Network* = enum
     mainnet
-    goerli
     sepolia
     holesky
 

@@ -1529,7 +1529,6 @@ proc exchangeConfigWithSingleEL(
         # https://chainid.network/
         expectedChain = case m.eth1Network.get
           of mainnet: 1.Quantity
-          of goerli:  5.Quantity
           of sepolia: 11155111.Quantity
           of holesky: 17000.Quantity
       if expectedChain != providerChain:
