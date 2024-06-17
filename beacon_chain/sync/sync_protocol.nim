@@ -391,6 +391,7 @@ p2pProtocol BeaconSync(version = 1,
     debug "BlobSidecar range request done",
       peer, startSlot, count = reqCount, found
 
+  # https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.2/specs/_features/eip7594/p2p-interface.md#datacolumnsidecarsbyroot-v1
   proc dataColumnSidecarsByRoot(
       peer: Peer,
       columnIds: DataColumnIdentifierList,
@@ -431,7 +432,7 @@ p2pProtocol BeaconSync(version = 1,
     debug "Data column root request done",
       peer, roots = columnIds.len, count, found
 
-  # https://github.com/ethereum/consensus-specs/blob/dev/specs/_features/eip7594/p2p-interface.md#datacolumnsidecarsbyrange-v1
+  # https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.2/specs/_features/eip7594/p2p-interface.md#datacolumnsidecarsbyrange-v1
   proc dataColumnSidecarByRange(
       peer: Peer,
       startSlot: Slot,
