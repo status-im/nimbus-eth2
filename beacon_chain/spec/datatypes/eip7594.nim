@@ -9,6 +9,9 @@
 
 import "."/[base, deneb], kzg4844
 
+from std/sequtils import mapIt
+from std/strutils import join
+
 export base
 
 const
@@ -51,8 +54,8 @@ type
   DataColumnSidecar* = object
     index*: ColumnIndex # Index of column in extended matrix
     column*: DataColumn
-    kzg_commitments*: List[KzgCommitment, Limit(MAX_BLOB_COMMITMENTS_PER_BLOCK)]
-    kzg_proofs*: List[KzgProof, Limit(MAX_BLOB_COMMITMENTS_PER_BLOCK)]
+    kzg_commitments*: KzgCommitments
+    kzg_proofs*: KzgProofs
     signed_block_header*: SignedBeaconBlockHeader
     kzg_commitments_inclusion_proof*:
       array[KZG_COMMITMENTS_INCLUSION_PROOF_DEPTH, Eth2Digest]
@@ -75,3 +78,6 @@ func shortLog*(v: DataColumnSidecar): auto =
     kzg_proofs: v.kzg_proofs.len,
     block_header: shortLog(v.signed_block_header.message),
   )
+
+func shortLog*(x: seq[DataColumnIdentifier]): string =
+  "[" & x.mapIt(shortLog(it.block_root) & "/" & $it.index).join(", ") & "]"

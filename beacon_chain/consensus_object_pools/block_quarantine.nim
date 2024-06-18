@@ -57,6 +57,8 @@ type
       ## all blobs for this block, we can proceed to resolving the
       ## block as well. A blobless block inserted into this table must
       ## have a resolved parent (i.e., it is not an orphan).
+    
+    columnless: OrderedTable[Eth2Digest, ForkedSignedBeaconBlock]
 
     unviable*: OrderedTable[Eth2Digest, tuple[]]
       ## Unviable blocks are those that come from a history that does not
@@ -335,4 +337,17 @@ func popBlobless*(
 
 iterator peekBlobless*(quarantine: var Quarantine): ForkedSignedBeaconBlock =
   for k, v in quarantine.blobless.mpairs():
+    yield v
+
+func popColumnless*(
+    quarantine: var Quarantine,
+    root: Eth2Digest): Opt[ForkedSignedBeaconBlock] =
+  var blck: ForkedSignedBeaconBlock
+  if quarantine.columnless.pop(root, blck):
+    Opt.some(blck)
+  else:
+    Opt.none(ForkedSignedBeaconBlock)
+
+iterator peekColumless*(quarantine: var Quarantine): ForkedSignedBeaconBlock =
+  for k,v in quarantine.columnless.mpairs():
     yield v

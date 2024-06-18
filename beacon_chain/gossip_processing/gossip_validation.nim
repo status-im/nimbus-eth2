@@ -16,7 +16,7 @@ import
     beaconstate, state_transition_block, forks, helpers, network, signatures, eip7594_helpers],
   ../consensus_object_pools/[
     attestation_pool, blockchain_dag, blob_quarantine, block_quarantine,
-    spec_cache, light_client_pool, sync_committee_msg_pool,
+    data_column_quarantine, spec_cache, light_client_pool, sync_committee_msg_pool,
     validator_change_pool],
   ".."/[beacon_clock],
   ./batch_validation
@@ -490,7 +490,7 @@ proc validateBlobSidecar*(
 # https://github.com/ethereum/consensus-specs/blob/5f48840f4d768bf0e0a8156a3ed06ec333589007/specs/_features/eip7594/p2p-interface.md#the-gossip-domain-gossipsub
 proc validateDataColumnSidecar*(
     dag: ChainDAGRef, quarantine: ref Quarantine,
-    blobQuarantine: ref BlobQuarantine, data_column_sidecar: DataColumnSidecar,
+    dataColumnQuarantine: ref DataColumnQuarantine, data_column_sidecar: DataColumnSidecar,
     wallTime: BeaconTime, subnet_id: uint64): Result[void, ValidationError] =
 
   template block_header: untyped = data_column_sidecar.signed_block_header.message
@@ -538,7 +538,7 @@ proc validateDataColumnSidecar*(
   let block_root = hash_tree_root(block_header)
   if dag.getBlockRef(block_root).isSome():
     return errIgnore("DataColumnSidecar: already have block")
-  if blobQuarantine[].hasBlob(
+  if dataColumnQuarantine[].hasDataColumn(
       block_header.slot, block_header.proposer_index, data_column_sidecar.index):
     return errIgnore("DataColumnSidecar: already have valid data column from same proposer")
 

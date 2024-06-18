@@ -22,7 +22,7 @@ import
   ./el/el_manager,
   ./consensus_object_pools/[
     blockchain_dag, blob_quarantine, block_quarantine, consensus_manager,
-    attestation_pool, sync_committee_msg_pool, validator_change_pool],
+    data_column_quarantine, attestation_pool, sync_committee_msg_pool, validator_change_pool],
   ./spec/datatypes/[base, altair],
   ./spec/eth2_apis/dynamic_fee_recipients,
   ./sync/[sync_manager, request_manager],
@@ -71,6 +71,7 @@ type
     dag*: ChainDAGRef
     quarantine*: ref Quarantine
     blobQuarantine*: ref BlobQuarantine
+    dataColumnQuarantine*: ref DataColumnQuarantine
     attestationPool*: ref AttestationPool
     syncCommitteeMsgPool*: ref SyncCommitteeMsgPool
     lightClientPool*: ref LightClientPool

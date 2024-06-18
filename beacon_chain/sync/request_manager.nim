@@ -11,10 +11,11 @@ import std/[sequtils, strutils]
 import chronos, chronicles
 import
   ../spec/datatypes/[phase0, deneb],
-  ../spec/[forks, network],
+  ../spec/[forks, network, eip7594_helpers],
   ../networking/eth2_network,
   ../consensus_object_pools/block_quarantine,
   ../consensus_object_pools/blob_quarantine,
+  ../consensus_object_pools/data_column_quarantine,
   "."/sync_protocol, "."/sync_manager,
   ../gossip_processing/block_processor
 
@@ -49,6 +50,10 @@ type
   BlobLoaderFn* = proc(
       blobId: BlobIdentifier): Opt[ref BlobSidecar] {.gcsafe, raises: [].}
 
+  DataColumnLoaderFn* = proc(
+      columnId: DataColumnIdentifier
+  ): Opt[ref DataColumnSidecar] {.gcsafe, raises: [].}
+
   InhibitFn* = proc: bool {.gcsafe, raises: [].}
 
   RequestManager* = object
@@ -57,6 +62,7 @@ type
     inhibit: InhibitFn
     quarantine: ref Quarantine
     blobQuarantine: ref BlobQuarantine
+    dataColumnQuarantine: ref DataColumnQuarantine
     blockVerifier: BlockVerifierFn
     blockLoader: BlockLoaderFn
     blobLoader: BlobLoaderFn
@@ -116,6 +122,23 @@ proc checkResponse(idList: seq[BlobIdentifier],
     if not found:
       return false
     blob[].verify_blob_sidecar_inclusion_proof().isOkOr:
+      return false
+  true
+
+proc checkResponse(colIdList: seq[DataColumnIdentifier],
+                   columns: openArray[ref DataColumnSidecar]): bool =
+  if len(columns) > len(colIdList):
+    return false
+  for column in columns:
+    let block_root = hash_tree_root(column.signed_block_header.message)
+    var found = false
+    for id in colIdList:
+      if id.block_root == block_root and id.index == column.index:
+        found = true
+        break
+    if not found:
+      return false
+    column[].verify_data_column_sidecar_inclusion_proof().isOkOr:
       return false
   true
 
@@ -231,6 +254,46 @@ proc fetchBlobsFromNetwork(self: RequestManager,
   finally:
     if not(isNil(peer)):
       self.network.peerPool.release(peer)
+
+proc fetchDataColumnsFromNetwork(rman: RequestManager,
+                                 colIdList: seq[DataColumnIdentifier])
+                                 {.async: (raises: [CancelledError]).} =
+  var peer: Peer
+
+  try:
+    peer = await rman.network.peerPool.acquire()
+    debug "Requesting data columns by root", peer = peer, columns = shortLog(colIdList),
+                                                     peer_score = peer.getScore()
+    
+    let columns = await dataColumnSidecarsByRoot(peer, DataColumnIdentifierList colIdList)
+
+    if columns.isOk:
+      let ucolumns = columns.get()
+      if not checkResponse(colIdList, ucolumns.asSeq()):
+        debug "Mismatched response to data columns by root",
+          peer = peer, columns = shortLog(colIdList), ucolumns = len(ucolumns)
+        peer.updateScore(PeerScoreBadResponse)
+        return
+
+      for col in ucolumns:
+        rman.dataColumnQuarantine[].put(col)
+      var curRoot: Eth2Digest
+      for col in ucolumns:
+        let block_root = hash_tree_root(col.signed_block_header.message)
+        if block_root != curRoot:
+          curRoot = block_root
+          if (let o = rman.quarantine[].popColumnless(curRoot); o.isSome):
+            let col = o.unsafeGet()
+            discard await rman.blockVerifier(col, false)
+
+    else:
+      debug "Data Columns by root request failed",
+        peer = peer, columns = shortLog(colIdList), err = columns.error()
+      peer.updateScore(PeerScoreNoValues)
+
+  finally:
+    if not(isNil(peer)):
+      rman.network.peerPool.release(peer)
 
 proc requestManagerBlockLoop(
     rman: RequestManager) {.async: (raises: [CancelledError]).} =

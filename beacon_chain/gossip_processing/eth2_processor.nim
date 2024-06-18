@@ -15,8 +15,8 @@ import
   ../spec/datatypes/[altair, phase0, deneb, eip7594],
   ../consensus_object_pools/[
     blob_quarantine, block_clearance, block_quarantine, blockchain_dag,
-    attestation_pool, light_client_pool, sync_committee_msg_pool,
-    validator_change_pool],
+    data_column_quarantine, attestation_pool, light_client_pool, 
+    sync_committee_msg_pool, validator_change_pool],
   ../validators/validator_pool,
   ../beacon_clock,
   "."/[gossip_validation, block_processor, batch_validation],
@@ -155,6 +155,8 @@ type
     quarantine*: ref Quarantine
 
     blobQuarantine*: ref BlobQuarantine
+
+    dataColumnQuarantine*: ref DataColumnQuarantine
 
     # Application-provided current time provider (to facilitate testing)
     getCurrentBeaconTime*: GetBeaconTimeFn
@@ -345,7 +347,7 @@ proc processDataColumnSidecar*(
   debug "Data column received", delay
 
   let v =
-    self.dag.validateDataColumnSidecar(self.quarantine, self.blobQuarantine,
+    self.dag.validateDataColumnSidecar(self.quarantine, self.dataColumnQuarantine,
                                  dataColumnSidecar, wallTime, subnet_id)
 
   if v.isErr():
