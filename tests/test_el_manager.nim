@@ -1643,6 +1643,8 @@ suite "Eth1 monitor":
         ]),
         withdrawal_requests: List[WithdrawalRequest, MAX_WITHDRAWAL_REQUESTS_PER_PAYLOAD].init(@[
         ]),
+        consolidation_requests: List[ConsolidationRequest, Limit MAX_CONSOLIDATION_REQUESTS_PER_PAYLOAD].init(@[
+          ]),
       ),
       (electra.ExecutionPayload)(
         parent_hash:      Eth2Digest.fromHex("0x2cb54ddf357864102f4ab6bce57317a75cee972f303449bf7047f4e0e5809127"),
@@ -1710,6 +1712,8 @@ suite "Eth1 monitor":
             source_address:   ExecutionAddress.fromHex("0x462f156d8d950c7ffd40d7ba149bcc34093bbdb7"),
             validator_pubkey: ValidatorPubKey(blob: hexToByteArray[48]("0xd6d7f2281c2b9c98a8a5dc0b7f41783eb91b838973207239852e817ed412e164e330003ac9ab0e96bc65886e15b5cbe9"))),
         ]),
+        consolidation_requests: List[ConsolidationRequest, Limit MAX_CONSOLIDATION_REQUESTS_PER_PAYLOAD].init(@[
+          ]),
       ),
       (electra.ExecutionPayload)(
         parent_hash:      Eth2Digest.fromHex("0xac5a7347865f503e1578d1b47271c8e60027b5ba24b0da8e7c3733bcdbeda220"),
@@ -1806,6 +1810,8 @@ suite "Eth1 monitor":
             source_address:   ExecutionAddress.fromHex("0x44754b90f7b23eee1dddafa745ac723dcc147404"),
             validator_pubkey: ValidatorPubKey(blob: hexToByteArray[48]("0x8d13edc45159cdcf6ed780fc7b93e74434fa392b0842dfa92458cc59515aaac127317df24def9701eb6d5ea060eaffea"))),
         ]),
+        consolidation_requests: List[ConsolidationRequest, Limit MAX_CONSOLIDATION_REQUESTS_PER_PAYLOAD].init(@[
+          ]),
       ),
       (electra.ExecutionPayload)(
         parent_hash:      Eth2Digest.fromHex("0x06504beb0dc3bae44ef75678d29ec5138d87da68d307ca7d43e259cede60fda6"),
@@ -1843,6 +1849,8 @@ suite "Eth1 monitor":
         ]),
         withdrawal_requests: List[WithdrawalRequest, MAX_WITHDRAWAL_REQUESTS_PER_PAYLOAD].init(@[
         ]),
+        consolidation_requests: List[ConsolidationRequest, Limit MAX_CONSOLIDATION_REQUESTS_PER_PAYLOAD].init(@[
+          ]),
       ),
       (electra.ExecutionPayload)(
         parent_hash:      Eth2Digest.fromHex("0xb5d4a5eae3a1ea004ed573b0b8f8a22c847616758c0faf1e7e9589f16e55415c"),
@@ -1892,6 +1900,12 @@ suite "Eth1 monitor":
         ]),
         withdrawal_requests: List[WithdrawalRequest, MAX_WITHDRAWAL_REQUESTS_PER_PAYLOAD].init(@[
         ]),
+        consolidation_requests: List[ConsolidationRequest, Limit MAX_CONSOLIDATION_REQUESTS_PER_PAYLOAD].init(@[
+          ConsolidationRequest(
+            source_address: ExecutionAddress.fromHex("0xf059ccccbe2c2c647c9eb7443e500f59b185a682"),
+            source_pubkey:  ValidatorPubKey(blob: hexToByteArray[48]("0xebb87808992003e0482b3e56df9b966fb33c46798b637a6663239157d19655d48f1e553905f7bc49f61d1f42223bb475")),
+            target_pubkey:  ValidatorPubKey(blob: hexToByteArray[48]("0xb5ff2f18bf7efc34ee68ecfae0ff51611f382e9fc7dc34634f32a1b4387c3010e996dbdee44e26f591aa2e69c3b58f8c")))
+          ]),
       ),
       (electra.ExecutionPayload)(
         parent_hash:      Eth2Digest.fromHex("0x2629683cfc70198038837270bde3c60176c2a4aeeced0d4a4f14dc99a380c377"),
@@ -1952,6 +1966,8 @@ suite "Eth1 monitor":
             source_address:   ExecutionAddress.fromHex("0x4bd763bcdfcf9fd2ce667c75408bc1157fa9730a"),
             validator_pubkey: ValidatorPubKey(blob: hexToByteArray[48]("0xdf62e8946d1457a50ce017fae0c36e5dc5177e642c18b74dd6df192620f8a32bef5f02453f0835583f6082f213df7245"))),
         ]),
+        consolidation_requests: List[ConsolidationRequest, Limit MAX_CONSOLIDATION_REQUESTS_PER_PAYLOAD].init(@[
+          ]),
       ),
       (electra.ExecutionPayload)(
         parent_hash:      Eth2Digest.fromHex("0x86d7b430f69b215ab5ae863998ce41f01a5016376c8bec7f5b7a6e16a2326d92"),
@@ -2010,6 +2026,12 @@ suite "Eth1 monitor":
             source_address:   ExecutionAddress.fromHex("0x4cff44c8f0353fa6dee31f6c87e4b8c3bcaf1c38"),
             validator_pubkey: ValidatorPubKey(blob: hexToByteArray[48]("0x3166f8e41daae4a0af1549a00b95ad9280d73e91a882d49c827bc078c88300264e7171cbbf50e3598da77bcdb175a203"))),
         ]),
+        consolidation_requests: List[ConsolidationRequest, Limit MAX_CONSOLIDATION_REQUESTS_PER_PAYLOAD].init(@[
+          ConsolidationRequest(
+            source_address: ExecutionAddress.fromHex("0x6a8481544d310f4ab07679dc86cff400e403f789"),
+            source_pubkey:  ValidatorPubKey(blob: hexToByteArray[48]("0x5a89a8355effbeee155130234f8cb602f5648a01290f216272d532cf8a6c2996a55875a804012d4dd2217d4f11353b94")),
+            target_pubkey:  ValidatorPubKey(blob: hexToByteArray[48]("0x9fe9b12de144e810792b4a82bcbaa538249fd5809df54b5a83f32fc9f290b4ce222575e589d59291cc9c0adc4ccedb8f")))
+          ]),
       ),
       (electra.ExecutionPayload)(
         parent_hash:      Eth2Digest.fromHex("0xc51bf481df9be981c6656081e3854ffcf27551e2b4fdaed4ab12b355f247f4e1"),
@@ -2065,6 +2087,8 @@ suite "Eth1 monitor":
             source_address:   ExecutionAddress.fromHex("0xc61710d4969b77326cfe3ee23b65023c23e8789e"),
             validator_pubkey: ValidatorPubKey(blob: hexToByteArray[48]("0xb2952e0f7d6581c3032f95f4908bf76f6df8d7e866b7b67996254597ef73ce9a15dac375b78a3456d4f7f156af2b5ed5"))),
         ]),
+        consolidation_requests: List[ConsolidationRequest, Limit MAX_CONSOLIDATION_REQUESTS_PER_PAYLOAD].init(@[
+          ]),
       ),
       (electra.ExecutionPayload)(
         parent_hash:      Eth2Digest.fromHex("0x8b3e7e8d447527b9d00693389928260e7ea9da6855efd99369182bd9c213988a"),
@@ -2094,6 +2118,12 @@ suite "Eth1 monitor":
             source_address:   ExecutionAddress.fromHex("0x95137ca91b36a9a753441d911bdf91677931615c"),
             validator_pubkey: ValidatorPubKey(blob: hexToByteArray[48]("0x0e223fadbfa2985e293f13e083bbe22a9a208d0e9f37fd99d24be92b3e329d77f1d40d61b891e2bdfed12ca746eeec50"))),
         ]),
+        consolidation_requests: List[ConsolidationRequest, Limit MAX_CONSOLIDATION_REQUESTS_PER_PAYLOAD].init(@[
+          ConsolidationRequest(
+            source_address: ExecutionAddress.fromHex("0xbcd0cbd6a0bf406f2af8b28c0d7509f80bc020ae"),
+            source_pubkey:  ValidatorPubKey(blob: hexToByteArray[48]("0xd51d34ca13ca3ae5c9f2821414457e0a0e19ac03057e84371954b0f20d4e834997d9592c9e5c3b548097a2497fa4b230")),
+            target_pubkey:  ValidatorPubKey(blob: hexToByteArray[48]("0x097c5ccdf7e60c886c2fced51dedd5be62f20aed504898cb89e215d655bd5cc450a2219b805717497c978c1fabd7faa0")))
+          ]),
       ),
       (electra.ExecutionPayload)(
         parent_hash:      Eth2Digest.fromHex("0xa4854e346d2e9a921cc6b3c4ce9fc739c99795cf10002924089f9886f8624d59"),
@@ -2143,6 +2173,8 @@ suite "Eth1 monitor":
             source_address:   ExecutionAddress.fromHex("0x9892501906b7abf06fdb6893b8e1767884bc17f5"),
             validator_pubkey: ValidatorPubKey(blob: hexToByteArray[48]("0x30099e0ee2adf0d51a0a96d10fd2fd5cf6f17cdb4b4ea88b5a0e205bd10d40319595e0403891aaa1bac82b980ef76f23"))),
         ]),
+        consolidation_requests: List[ConsolidationRequest, Limit MAX_CONSOLIDATION_REQUESTS_PER_PAYLOAD].init(@[
+          ]),
       ),
       (electra.ExecutionPayload)(
         parent_hash:      Eth2Digest.fromHex("0x5e7b12465e0461e5dfa59a3254282378c55961b0e411023ce89d968bbdc33e9c"),
@@ -2181,6 +2213,8 @@ suite "Eth1 monitor":
         ]),
         withdrawal_requests: List[WithdrawalRequest, MAX_WITHDRAWAL_REQUESTS_PER_PAYLOAD].init(@[
         ]),
+        consolidation_requests: List[ConsolidationRequest, Limit MAX_CONSOLIDATION_REQUESTS_PER_PAYLOAD].init(@[
+          ]),
       ),
       (electra.ExecutionPayload)(
         parent_hash:      Eth2Digest.fromHex("0xa8f90a617f1f230506d200c6026bd60e38f599930ed04f90cdc320a6d45bb022"),
@@ -2215,6 +2249,8 @@ suite "Eth1 monitor":
             source_address:   ExecutionAddress.fromHex("0xf55f4b626328f2b7a725d8a3f8485072eebf7f6e"),
             validator_pubkey: ValidatorPubKey(blob: hexToByteArray[48]("0x3eb1812d045ff1d2f7d96f919c41230db2993ed8194de6ba564fad54047e3b45fb925e5216cc47f69e184a4e2c45ce39"))),
         ]),
+        consolidation_requests: List[ConsolidationRequest, Limit MAX_CONSOLIDATION_REQUESTS_PER_PAYLOAD].init(@[
+          ]),
       ),
       (electra.ExecutionPayload)(
         parent_hash:      Eth2Digest.fromHex("0xc914f63464f3f1588a32d3751900d415bbf1fe002c42068650f5c7c588b1935c"),
@@ -2275,6 +2311,12 @@ suite "Eth1 monitor":
             source_address:   ExecutionAddress.fromHex("0x04fb4574aa211ef818aa9c13135f20f4694b8ce3"),
             validator_pubkey: ValidatorPubKey(blob: hexToByteArray[48]("0x8d381b3ee22253692bd5861ede4c0d62cb2f6c90df6afd180831ec183ac3f8bcccbbfb5fa1f3ee38d5c3871ca8e28ba3"))),
         ]),
+        consolidation_requests: List[ConsolidationRequest, Limit MAX_CONSOLIDATION_REQUESTS_PER_PAYLOAD].init(@[
+          ConsolidationRequest(
+            source_address: ExecutionAddress.fromHex("0x459b669c12e0acba7faa0ba7e6233644ee3d6b80"),
+            source_pubkey:  ValidatorPubKey(blob: hexToByteArray[48]("0x6d00f156d7db5c9f2a0f1dd38917c5a0062f7ed54436f35e6e363e5db15ea60434482236614e41e37a25b0fcaf19ea5c")),
+            target_pubkey:  ValidatorPubKey(blob: hexToByteArray[48]("0xc13b30ba7af6c7be66f9af3bf6c6b837a54eb67a88ca19b156285327da4ad7a24205356a862bb7805ccae30f78b2bcc9")))
+          ]),
       ),
       (electra.ExecutionPayload)(
         parent_hash:      Eth2Digest.fromHex("0x086322b79160568c7d096747ef351338ddc93f252dab1df3ef65aaf24723d2c3"),
@@ -2314,6 +2356,8 @@ suite "Eth1 monitor":
             source_address:   ExecutionAddress.fromHex("0x1e6d99ec506e2b79322f77283f3e18dfc0561346"),
             validator_pubkey: ValidatorPubKey(blob: hexToByteArray[48]("0x25931e58a52265a5a90f7004706cd736fdb762d50aff67039d5e0242039dfc49fd6670e6f4cf62639d7debe3efe5298b"))),
         ]),
+        consolidation_requests: List[ConsolidationRequest, Limit MAX_CONSOLIDATION_REQUESTS_PER_PAYLOAD].init(@[
+          ]),
       ),
       (electra.ExecutionPayload)(
         parent_hash:      Eth2Digest.fromHex("0xcfba7f4aa4ff01d3d9de84dbe1761c79627a10c3188fb0a7c8adfa0d489e6441"),
@@ -2366,6 +2410,12 @@ suite "Eth1 monitor":
             source_address:   ExecutionAddress.fromHex("0x722d597ea5a6f82a0f9b06bd8af0449d18f78795"),
             validator_pubkey: ValidatorPubKey(blob: hexToByteArray[48]("0x1de64f16597d52214d1a5987abc026398d310712ad0db48d48e747e7783204579a886bbd9a58a47704d9874a83726a50"))),
         ]),
+        consolidation_requests: List[ConsolidationRequest, Limit MAX_CONSOLIDATION_REQUESTS_PER_PAYLOAD].init(@[
+          ConsolidationRequest(
+            source_address: ExecutionAddress.fromHex("0x70ce642845a24bd208442a6aeb263b5d9977926f"),
+            source_pubkey:  ValidatorPubKey(blob: hexToByteArray[48]("0x581a1e6d7b11b2512426c8aacdc735470ba2b85e164a65062fabbf1341f6cd994ca0c8b2fa8640d679ad481abaa70555")),
+            target_pubkey:  ValidatorPubKey(blob: hexToByteArray[48]("0x17d58eca3304640ac6da21ac5a629b32573cc99602971e7a751db3ec253e3e75810488fcd60c59dd43cc80ad9cbf66a1")))
+          ]),
       ),
       (electra.ExecutionPayload)(
         parent_hash:      Eth2Digest.fromHex("0x063bc56b731eeeff8bf1c33d88523a04a14fa0c745eb3c750139842d88244982"),
@@ -2398,6 +2448,12 @@ suite "Eth1 monitor":
             source_address:   ExecutionAddress.fromHex("0x748168ee6835196ae76808fe3232a422b40e42a7"),
             validator_pubkey: ValidatorPubKey(blob: hexToByteArray[48]("0x5e024d736b5c4d340929745f59b7d681eeb151107f895a87d534491b5af13fbf7bed890a2f41dc8debacf2f65fce2c20"))),
         ]),
+        consolidation_requests: List[ConsolidationRequest, Limit MAX_CONSOLIDATION_REQUESTS_PER_PAYLOAD].init(@[
+          ConsolidationRequest(
+            source_address: ExecutionAddress.fromHex("0xc80ff3b9e9f68f8a64b9207600adfe37ba1fad50"),
+            source_pubkey:  ValidatorPubKey(blob: hexToByteArray[48]("0x9495309c1e65aa3ba8097bf1bee00be1f067910a8abcc897f5752eab5962387973e394caf9c873ea71c958c3c08e1b4f")),
+            target_pubkey:  ValidatorPubKey(blob: hexToByteArray[48]("0xf1a12eaa4fe32257839694fdf8fb17083d6c35fe20d045db01ffa1b45721021b68efc2a7f7f5360493bc1f0902ff121e")))
+          ]),
       ),
       (electra.ExecutionPayload)(
         parent_hash:      Eth2Digest.fromHex("0xb31c41d39ef7e9a9b905cc93d82264415024d7daef48d886f1b3bc0fd6545edb"),
@@ -2448,6 +2504,12 @@ suite "Eth1 monitor":
             source_address:   ExecutionAddress.fromHex("0x308d3b908ce2fb2ebd207120422994608d8c3354"),
             validator_pubkey: ValidatorPubKey(blob: hexToByteArray[48]("0x3deec67ff0f69aeeeddf322043b694ed4ec79aa2cd2414797bb95da5691b2b9731d3fe3d3627684d022241f80504f3ad"))),
         ]),
+        consolidation_requests: List[ConsolidationRequest, Limit MAX_CONSOLIDATION_REQUESTS_PER_PAYLOAD].init(@[
+          ConsolidationRequest(
+            source_address: ExecutionAddress.fromHex("0xfa3b832100b4deb83db5776ebb5c920b88c5ee4f"),
+            source_pubkey:  ValidatorPubKey(blob: hexToByteArray[48]("0xc414a06a2bfafdb6ccde87c98b99de8124cfedf66b86832cae0ada7005c4939608282a7b947d43b322918765f1cdb1fd")),
+            target_pubkey:  ValidatorPubKey(blob: hexToByteArray[48]("0x0b4c6a47a37b9fa0633348712fc45033dbd7ab958c8aa8a2c99dbdb325917728586b4dab8846da152df1a51c8301fd9f")))
+          ]),
       ),
       (electra.ExecutionPayload)(
         parent_hash:      Eth2Digest.fromHex("0xf6cba3ced37c08da230babbf9d1e360661e5a21ac235fefa75cbe756f15809de"),
@@ -2515,6 +2577,8 @@ suite "Eth1 monitor":
             source_address:   ExecutionAddress.fromHex("0x14bce680ec1a632aac5f77cb4d5eca52f74bd1e6"),
             validator_pubkey: ValidatorPubKey(blob: hexToByteArray[48]("0xb4f363283d5276f12a6c2c98c58484c6a6e8e3c7f5b3adfc044d2de76365bef427f8b9ac1e321baa7a611447010f9e8d"))),
         ]),
+        consolidation_requests: List[ConsolidationRequest, Limit MAX_CONSOLIDATION_REQUESTS_PER_PAYLOAD].init(@[
+          ]),
       ),
       (electra.ExecutionPayload)(
         parent_hash:      Eth2Digest.fromHex("0x62ce6a6d68578309c4730f96f98a809d4b4225fc3d37a285daf26288b10f9590"),
@@ -2552,6 +2616,8 @@ suite "Eth1 monitor":
             source_address:   ExecutionAddress.fromHex("0xe16b15a5256815cf6d338498a5cb0e8ec0d5bfec"),
             validator_pubkey: ValidatorPubKey(blob: hexToByteArray[48]("0x79b49178606e2a5cda067c04b982d445df7b41d09d4361e5498b7a454d0e8a37a6975da56c3bd20694a3fcb467f7ff59"))),
         ]),
+        consolidation_requests: List[ConsolidationRequest, Limit MAX_CONSOLIDATION_REQUESTS_PER_PAYLOAD].init(@[
+          ]),
       ),
       (electra.ExecutionPayload)(
         parent_hash:      Eth2Digest.fromHex("0x4f8251c361a23171de8648d1e96c91fea2cc5a691dcd884e3a957dc8f6a8802a"),
@@ -2587,6 +2653,12 @@ suite "Eth1 monitor":
             source_address:   ExecutionAddress.fromHex("0x032d5223828ee1c8943fdacfbcd25ce4bb2eacfd"),
             validator_pubkey: ValidatorPubKey(blob: hexToByteArray[48]("0xf42315c025ae7ef0e8a04175441e9617b0e315a9e7c8fc5f0a0bba4efc9775fea3a8af9b40c4aa37633718ccb5b3260d"))),
         ]),
+        consolidation_requests: List[ConsolidationRequest, Limit MAX_CONSOLIDATION_REQUESTS_PER_PAYLOAD].init(@[
+          ConsolidationRequest(
+            source_address: ExecutionAddress.fromHex("0x548760f25ecda293ef4950d60520003770b31964"),
+            source_pubkey:  ValidatorPubKey(blob: hexToByteArray[48]("0x1e384047c673119fbed6c635e11f4db74edddd17cc6e51634f5eea100a21a07012fc9b89d2c7677c282bab0d1136cead")),
+            target_pubkey:  ValidatorPubKey(blob: hexToByteArray[48]("0x9454bddf457231bf55c91db6a018a0501e97e31d0cb2e7fa180910b75aa1a98e80739885ba4a878df2ef7ac3f2db9fad")))
+          ]),
       ),
       (electra.ExecutionPayload)(
         parent_hash:      Eth2Digest.fromHex("0x0c67b44b492590ffb9e6d2a63c84714821be7526ce1c337c06276e33a62b7b93"),
@@ -2633,6 +2705,8 @@ suite "Eth1 monitor":
             source_address:   ExecutionAddress.fromHex("0xd3a0f8518063d55c61423dce1bfcd2abd9a27a62"),
             validator_pubkey: ValidatorPubKey(blob: hexToByteArray[48]("0x82bec5cd588df021e98087c703b995075ee1cfde2257eebed5e27f53a3a16903479fa2e6864ab3c3c397cd25b6ba3d4f"))),
         ]),
+        consolidation_requests: List[ConsolidationRequest, Limit MAX_CONSOLIDATION_REQUESTS_PER_PAYLOAD].init(@[
+          ]),
       ),
       (electra.ExecutionPayload)(
         parent_hash:      Eth2Digest.fromHex("0x7a9d6ab34c0314959d5bdceb0bd80f142e59e5e2addedcd178612303897e7a8a"),
@@ -2673,7 +2747,13 @@ suite "Eth1 monitor":
           WithdrawalRequest(
             source_address:   ExecutionAddress.fromHex("0xe368e59ddc49ffac6818f01b4be692a517b6838e"),
             validator_pubkey: ValidatorPubKey(blob: hexToByteArray[48]("0x9c7a489a7498cada308db339f80aafeeff5e38ef7dc5803344a725b3b7f23d6d6162a33798a69660417b8fffb51c3d50")))
-        ])
+        ]),
+        consolidation_requests: List[ConsolidationRequest, Limit MAX_CONSOLIDATION_REQUESTS_PER_PAYLOAD].init(@[
+          ConsolidationRequest(
+            source_address: ExecutionAddress.fromHex("0x45c3398e59b885ccf52ef5d36ab2acc3c3f9d584"),
+            source_pubkey:  ValidatorPubKey(blob: hexToByteArray[48]("0x47faa2f4d2bc6e1b2c8366db1e4300fb6fb099f26c9e0cd53b87b22f4fd038751b8fef08f6c1e636116c95874bab5bb1")),
+            target_pubkey:  ValidatorPubKey(blob: hexToByteArray[48]("0x632e3e022a91046f0a6769abfd159b998321363c79d77b7bc139359fafb4cce331322599fc05fd8c5b1d6aef94e810ed")))
+          ]),
       ),
       (electra.ExecutionPayload)(
         parent_hash:      Eth2Digest.fromHex("0x806a868f0f31e8f519fa6339ad18c414dba17feb03aaf6ca3775b152bac64f3b"),
@@ -2731,7 +2811,13 @@ suite "Eth1 monitor":
             index:                  4403524705240661292'u64),
         ]),
         withdrawal_requests: List[WithdrawalRequest, MAX_WITHDRAWAL_REQUESTS_PER_PAYLOAD].init(@[
-        ])
+        ]),
+        consolidation_requests: List[ConsolidationRequest, Limit MAX_CONSOLIDATION_REQUESTS_PER_PAYLOAD].init(@[
+          ConsolidationRequest(
+            source_address: ExecutionAddress.fromHex("0xaa3e4b371bd5d3c907eae23ce4c4f6b5dfe0cb65"),
+            source_pubkey:  ValidatorPubKey(blob: hexToByteArray[48]("0x5bfc2cffb681249ff93734c176a8bac7cb207859a77658019f7fadf0a49f8f5b2496c7fcb2a270ea99f9a80f15b95ac1")),
+            target_pubkey:  ValidatorPubKey(blob: hexToByteArray[48]("0x495170003efda9e294e95cd4d80c903b4fe6c48846b1c8fcbca71b21837e6ca8ffecd0f224aead3e1088ae755a882ae5")))
+          ]),
       )]
 
     for executionPayload in executionPayloads:
