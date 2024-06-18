@@ -78,7 +78,7 @@ proc loadBootstrapFile*(bootstrapFile: string,
 
 proc new*(T: type Eth2DiscoveryProtocol,
           config: BeaconNodeConf | LightClientConf,
-          enrIp: Option[IpAddress], enrTcpPort, enrUdpPort: Option[Port],
+          enrIp: Opt[IpAddress], enrTcpPort, enrUdpPort: Opt[Port],
           pk: PrivateKey,
           enrFields: openArray[(string, seq[byte])], rng: ref HmacDrbgContext):
           T =
