@@ -14,6 +14,7 @@ import
   stew/[byteutils, io2],
   eth/p2p/discoveryv5/[enr, random2],
   ./consensus_object_pools/blob_quarantine,
+  ./consensus_object_pools/data_column_quarantine,
   ./consensus_object_pools/vanity_logs/vanity_logs,
   ./networking/[topic_params, network_metadata_downloads],
   ./rpc/[rest_api, state_ttl_cache],

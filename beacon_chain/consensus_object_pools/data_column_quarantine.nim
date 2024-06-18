@@ -69,3 +69,35 @@ func hasDataColumn*(
       return true
   false
 
+func popDataColumns*(
+    quarantine: var DataColumnQuarantine, digest: Eth2Digest,
+    blck: deneb.SignedBeaconBlock | electra.SignedBeaconBlock):
+    seq[ref DataColumnSidecar] =
+  var r: seq[ref DataColumnSidecar]
+  for idx in 0..<len(blck.message.body.blob_kzg_commitments):
+    var c: ref DataColumnSidecar
+    if quarantine.data_columns.pop((digest, ColumnIndex idx), c):
+      r.add(c)
+  true
+
+func hasDataColumns*(quarantine: DataColumnQuarantine,
+    blck: deneb.SignedBeaconBlock | electra.SignedBeaconBlock): bool =
+  for idx in 0..<len(blck.message.body.blob_kzg_commitments):
+    if (blck.root, ColumnIndex idx) notin quarantine.data_columns:
+      return false
+  true
+
+func dataColumnFetchRecord*(quarantine: DataColumnQuarantine,
+    blck: deneb.SignedBeaconBlock | electra.SignedBeaconBlock): DataColumnFetchRecord =
+  var indices: seq[ColumnIndex]
+  for i in 0..<len(blck.message.body.blob_kzg_commitments):
+    let idx = ColumnIndex(i)
+    if not quarantine.data_columns.hasKey(
+        (blck.root, idx)):
+      indices.add(idx)
+  DataColumnFetchRecord(block_root: blck.root, indices: indices)
+
+func init*(
+    T: type DataColumnQuarantine, onDataColumnSidecarCallback: OnDataColumnSidecarCallback): T =
+  T(onDataColumnSidecarCallback: onDataColumnSidecarCallback)
+

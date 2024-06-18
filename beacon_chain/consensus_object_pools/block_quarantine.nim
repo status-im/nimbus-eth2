@@ -348,6 +348,6 @@ func popColumnless*(
   else:
     Opt.none(ForkedSignedBeaconBlock)
 
-iterator peekColumless*(quarantine: var Quarantine): ForkedSignedBeaconBlock =
+iterator peekColumnless*(quarantine: var Quarantine): ForkedSignedBeaconBlock =
   for k,v in quarantine.columnless.mpairs():
     yield v
