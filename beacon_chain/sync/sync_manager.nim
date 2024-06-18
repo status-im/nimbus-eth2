@@ -35,7 +35,11 @@ const
     ## Time time it takes for the peer's status information to expire.
 
   WeakSubjectivityLogMessage* =
-    "Unable to sync with the network, <placeholder>"
+    "Database state missing or too old, cannot sync - resync the client " &
+    "using a trusted node or allow lenient long-range syncing with the " &
+    "`--long-range-sync=lenient` option. See " &
+    "https://nimbus.guide/faq.html#what-is-long-range-sync " &
+    "for more information"
 
 type
   SyncWorkerStatus* {.pure.} = enum
