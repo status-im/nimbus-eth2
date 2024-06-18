@@ -1765,7 +1765,7 @@ proc new(T: type Eth2Node,
          enrForkId: ENRForkID, discoveryForkId: ENRForkID,
          forkDigests: ref ForkDigests, getBeaconTime: GetBeaconTimeFn,
          switch: Switch, pubsub: GossipSub,
-         ip: Option[IpAddress], tcpPort, udpPort: Option[Port],
+         ip: Opt[IpAddress], tcpPort, udpPort: Opt[Port],
          privKey: keys.PrivateKey, discovery: bool,
          directPeers: DirectPeers,
          rng: ref HmacDrbgContext): T {.raises: [CatchableError].} =

@@ -2271,9 +2271,9 @@ proc doRecord(config: BeaconNodeConf, rng: var HmacDrbgContext) {.
     let record = enr.Record.init(
       config.seqNumber,
       netKeys.seckey.asEthKey,
-      some(config.ipExt),
-      some(config.tcpPortExt),
-      some(config.udpPortExt),
+      Opt.some(config.ipExt),
+      Opt.some(config.tcpPortExt),
+      Opt.some(config.udpPortExt),
       fieldPairs).expect("Record within size limits")
 
     echo record.toURI()
