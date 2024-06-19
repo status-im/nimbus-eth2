@@ -1411,6 +1411,24 @@ proc pruneBlobs(node: BeaconNode, slot: Slot) =
               count = count + 1
     debug "pruned blobs", count, blobPruneEpoch
 
+proc pruneDataColumns(node: BeaconNode, slot: Slot) =
+  let dataColumnPruneEpoch = (slot.epoch -
+                              node.dag.cfg.MIN_EPOCHS_FOR_DATA_COLUMN_SIDECARS_REQUESTS - 1)
+  if slot.is_epoch() and dataColumnPruneEpoch >= node.dag.cfg.DENEB_FORK_EPOCH:
+    var blocks: array[SLOTS_PER_EPOCH.int, BlockId]
+    var count = 0
+    let startIndex = node.dag.getBlockRange(
+      dataColumnPruneEpoch.start_slot, 1, blocks.toopenArray(0, SLOTS_PER_EPOCH - 1))
+    for i in startIndex..<SLOTS_PER_EPOCH:
+      let blck = node.dag.getForkedBlock(blocks[int(i)]).valueOr: continue
+      withBlck(blck):
+        when typeof(forkyBlck).kind < ConsensusFork.Deneb: continue
+        else:
+          for j in 0..len(forkyBlck.message.body.blob_kzg_commitments) - 1:
+            if node.db.delDataColumnSidecar(blocks[int(i)].root, ColumnIndex(j)):
+              count = count + 1
+    debug "pruned data columns", count, dataColumnPruneEpoch
+
 proc onSlotEnd(node: BeaconNode, slot: Slot) {.async.} =
   # Things we do when slot processing has ended and we're about to wait for the
   # next slot
@@ -1445,6 +1463,7 @@ proc onSlotEnd(node: BeaconNode, slot: Slot) {.async.} =
       # the pruning for later
       node.dag.pruneHistory()
       node.pruneBlobs(slot)
+      node.pruneDataColumns(slot)
 
   when declared(GC_fullCollect):
     # The slots in the beacon node work as frames in a game: we want to make
