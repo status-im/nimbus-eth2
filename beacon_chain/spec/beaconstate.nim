@@ -1155,7 +1155,7 @@ func get_next_sync_committee_keys(
       random_byte = eth2digest(hash_buffer).data[i mod 32]
       effective_balance = state.validators[candidate_index].effective_balance
     const meb =
-      when typeof(state).kind >= Electra:
+      when typeof(state).kind >= ConsensusFork.Electra:
         MAX_EFFECTIVE_BALANCE_ELECTRA.Gwei  # [Modified in Electra:EIP7251]
       else:
         MAX_EFFECTIVE_BALANCE.Gwei
@@ -1262,7 +1262,7 @@ func switch_to_compounding_validator*(
 
 # https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.0/specs/electra/beacon-chain.md#new-get_pending_balance_to_withdraw
 func get_pending_balance_to_withdraw*(
-    state: Electra.BeaconState, validator_index: ValidatorIndex): Gwei =
+    state: electra.BeaconState, validator_index: ValidatorIndex): Gwei =
   var pending_balance: Gwei
   for withdrawal in state.pending_partial_withdrawals:
     if withdrawal.index == validator_index:
