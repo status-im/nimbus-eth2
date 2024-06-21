@@ -28,13 +28,15 @@ logScope: topics = "lcdata"
 # - Altair: ~38 KB per `SyncCommitteePeriod` (~1.0 MB per month)
 # - Capella: ~221 KB per `SyncCommitteePeriod` (~6.0 MB per month)
 # - Deneb: ~225 KB per `SyncCommitteePeriod` (~6.2 MB per month)
+# - Electra: ~249 KB per `SyncCommitteePeriod` (~6.8 MB per month)
 #
-# `lc_altair_current_branches` holds Merkle proofs needed to
+# `lc_xxxxx_current_branches` holds Merkle proofs needed to
 # construct `LightClientBootstrap` objects.
 # SSZ because this data does not compress well, and because this data
 # needs to be bundled together with other data to fulfill requests.
 # Mainnet data size (all columns):
 # - Altair ... Deneb: ~42 KB per `SyncCommitteePeriod` (~1.1 MB per month)
+# - Electra: ~50 KB per `SyncCommitteePeriod` (~1.4 MB per month)
 #
 # `lc_altair_sync_committees` contains a copy of finalized sync committees.
 # They are initially populated from the main DAG (usually a fast state access).
@@ -42,7 +44,7 @@ logScope: topics = "lcdata"
 # SSZ because this data does not compress well, and because this data
 # needs to be bundled together with other data to fulfill requests.
 # Mainnet data size (all columns):
-# - Altair ... Deneb: ~24 KB per `SyncCommitteePeriod` (~0.7 MB per month)
+# - Altair ... Electra: ~24 KB per `SyncCommitteePeriod` (~0.7 MB per month)
 #
 # `lc_best_updates` holds full `LightClientUpdate` objects in SSZ form.
 # These objects are frequently queried in bulk, but there is only one per
@@ -59,6 +61,7 @@ logScope: topics = "lcdata"
 # - Altair: ~25 KB per `SyncCommitteePeriod` (~0.7 MB per month)
 # - Capella: ~26 KB per `SyncCommitteePeriod` (~0.7 MB per month)
 # - Deneb: ~26 KB per `SyncCommitteePeriod` (~0.7 MB per month)
+# - Electra: ~27 KB per `SyncCommitteePeriod` (~0.7 MB per month)
 #
 # `lc_sealed_periods` contains the sync committee periods for which
 # full light client data was imported. Data for these periods may no longer
@@ -73,12 +76,16 @@ logScope: topics = "lcdata"
 #   600 = 32+20+32+32+256+32+8+8+8+8+4+32+32+32+32+32
 # - Deneb: 256*(112+4+616+128+40)/1024*28/1024
 #   616 = 32+20+32+32+256+32+8+8+8+8+4+32+32+32+32+32+8+8
+# - Electra: 256*(112+4+712+128+40)/1024*28/1024
+#   712 = 32+20+32+32+256+32+8+8+8+8+4+32+32+32+32+32+8+8+32+32+32
 #
 # Committee branch computations:
 # - Altair: 256*(5*32+8)/1024*28/1024
+# - Electra: 256*(6*32+8)/1024*28/1024
 #
 # Finality branch computations:
 # - Altair: 256*(6*32+8)/1024*28/1024
+# - Electra: 256*(7*32+8)/1024*28/1024
 #
 # Committee computations:
 # - Altair: (24624+8)/1024*28/1024
@@ -91,12 +98,18 @@ logScope: topics = "lcdata"
 # - Altair: (112+24624+5*32+112+6*32+112+8+9)/1024*28/1024
 # - Capella: (4+884+24624+5*32+4+884+6*32+112+8+9)/1024*28/1024
 # - Deneb: (4+900+24624+5*32+4+900+6*32+112+8+9)/1024*28/1024
+# - Electra: (4+996+24624+6*32+4+996+7*32+112+8+9)/1024*28/1024
 
 type
   LightClientHeaderStore = object
     getStmt: SqliteStmt[array[32, byte], seq[byte]]
     putStmt: SqliteStmt[(array[32, byte], int64, seq[byte]), void]
     keepFromStmt: SqliteStmt[int64, void]
+
+  BranchFork {.pure.} = enum
+    None = 0,
+    Altair,
+    Electra
 
   CurrentSyncCommitteeBranchStore = object
     containsStmt: SqliteStmt[int64, int64]
@@ -135,8 +148,8 @@ type
       ## Eth2Digest -> (Slot, LightClientHeader)
       ## Cached block headers to support longer retention than block storage.
 
-    currentBranches: CurrentSyncCommitteeBranchStore
-      ## Slot -> altair.CurrentSyncCommitteeBranch
+    currentBranches: array[BranchFork, CurrentSyncCommitteeBranchStore]
+      ## Slot -> CurrentSyncCommitteeBranch
       ## Cached data for creating future `LightClientBootstrap` instances.
       ## Key is the block slot of which the post state was used to get the data.
       ## Data stored for all finalized epoch boundary blocks.
@@ -234,12 +247,14 @@ func putHeader*[T: ForkyLightClientHeader](
 
 proc initCurrentBranchesStore(
     backend: SqStoreRef,
-    name: string): KvResult[CurrentSyncCommitteeBranchStore] =
+    name, typeName: string): KvResult[CurrentSyncCommitteeBranchStore] =
+  if name == "":
+    return ok CurrentSyncCommitteeBranchStore()
   if not backend.readOnly:
     ? backend.exec("""
       CREATE TABLE IF NOT EXISTS `""" & name & """` (
         `slot` INTEGER PRIMARY KEY,  -- `Slot` (up through 2^63-1)
-        `branch` BLOB                -- `altair.CurrentSyncCommitteeBranch` (SSZ)
+        `branch` BLOB                -- `""" & typeName & """` (SSZ)
       );
     """)
   if not ? backend.hasTable(name):
@@ -278,40 +293,46 @@ func close(store: var CurrentSyncCommitteeBranchStore) =
   store.putStmt.disposeSafe()
   store.keepFromStmt.disposeSafe()
 
-func hasCurrentSyncCommitteeBranch*(
+template kind(x: typedesc[altair.CurrentSyncCommitteeBranch]): BranchFork =
+  BranchFork.Altair
+
+template kind(x: typedesc[electra.CurrentSyncCommitteeBranch]): BranchFork =
+  BranchFork.Electra
+
+func hasCurrentSyncCommitteeBranch*[T: ForkyCurrentSyncCommitteeBranch](
     db: LightClientDataDB, slot: Slot): bool =
   if not slot.isSupportedBySQLite or
-      distinctBase(db.currentBranches.containsStmt) == nil:
+      distinctBase(db.currentBranches[T.kind].containsStmt) == nil:
     return false
   var exists: int64
-  for res in db.currentBranches.containsStmt.exec(slot.int64, exists):
+  for res in db.currentBranches[T.kind].containsStmt.exec(slot.int64, exists):
     res.expect("SQL query OK")
     doAssert exists == 1
     return true
   false
 
-proc getCurrentSyncCommitteeBranch*(
-    db: LightClientDataDB, slot: Slot): Opt[altair.CurrentSyncCommitteeBranch] =
+proc getCurrentSyncCommitteeBranch*[T: ForkyCurrentSyncCommitteeBranch](
+    db: LightClientDataDB, slot: Slot): Opt[T] =
   if not slot.isSupportedBySQLite or
-      distinctBase(db.currentBranches.getStmt) == nil:
-    return Opt.none(altair.CurrentSyncCommitteeBranch)
+      distinctBase(db.currentBranches[T.kind].getStmt) == nil:
+    return Opt.none(T)
   var branch: seq[byte]
-  for res in db.currentBranches.getStmt.exec(slot.int64, branch):
+  for res in db.currentBranches[T.kind].getStmt.exec(slot.int64, branch):
     res.expect("SQL query OK")
     try:
-      return ok SSZ.decode(branch, altair.CurrentSyncCommitteeBranch)
+      return ok SSZ.decode(branch, T)
     except SerializationError as exc:
-      error "LC data store corrupted", store = "currentBranches",
+      error "LC data store corrupted", store = "currentBranches", kind = T.kind,
         slot, exc = exc.msg
-      return Opt.none(altair.CurrentSyncCommitteeBranch)
+      return Opt.none(T)
 
-func putCurrentSyncCommitteeBranch*(
-    db: LightClientDataDB, slot: Slot,
-    branch: altair.CurrentSyncCommitteeBranch) =
+func putCurrentSyncCommitteeBranch*[T: ForkyCurrentSyncCommitteeBranch](
+    db: LightClientDataDB, slot: Slot, branch: T) =
   doAssert not db.backend.readOnly  # All `stmt` are non-nil
   if not slot.isSupportedBySQLite:
     return
-  let res = db.currentBranches.putStmt.exec((slot.int64, SSZ.encode(branch)))
+  let res = db.currentBranches[T.kind].putStmt.exec(
+    (slot.int64, SSZ.encode(branch)))
   res.expect("SQL query OK")
 
 proc initSyncCommitteesStore(
@@ -643,9 +664,11 @@ func keepPeriodsFrom*(
     let res = db.syncCommittees.keepFromStmt.exec(minPeriod.int64)
     res.expect("SQL query OK")
   let minSlot = min(minPeriod.start_slot, int64.high.Slot)
-  block:
-    let res = db.currentBranches.keepFromStmt.exec(minSlot.int64)
-    res.expect("SQL query OK")
+  for branchFork, store in db.currentBranches:
+    if branchFork > BranchFork.None and
+        distinctBase(store.keepFromStmt) != nil:
+      let res = store.keepFromStmt.exec(minSlot.int64)
+      res.expect("SQL query OK")
   for lcDataFork, store in db.headers:
     if lcDataFork > LightClientDataFork.None and
         distinctBase(store.keepFromStmt) != nil:
@@ -656,7 +679,9 @@ type LightClientDataDBNames* = object
   altairHeaders*: string
   capellaHeaders*: string
   denebHeaders*: string
+  electraHeaders*: string
   altairCurrentBranches*: string
+  electraCurrentBranches*: string
   altairSyncCommittees*: string
   legacyAltairBestUpdates*: string
   bestUpdates*: string
@@ -665,7 +690,7 @@ type LightClientDataDBNames* = object
 proc initLightClientDataDB*(
     backend: SqStoreRef,
     names: LightClientDataDBNames): KvResult[LightClientDataDB] =
-  static: doAssert LightClientDataFork.high == LightClientDataFork.Deneb
+  static: doAssert LightClientDataFork.high == LightClientDataFork.Electra
   let
     headers = [
       # LightClientDataFork.None
@@ -678,10 +703,21 @@ proc initLightClientDataDB*(
         names.capellaHeaders, "capella.LightClientHeader"),
       # LightClientDataFork.Deneb
       ? backend.initHeadersStore(
-        names.denebHeaders, "deneb.LightClientHeader")
+        names.denebHeaders, "deneb.LightClientHeader"),
+      # LightClientDataFork.Electra
+      ? backend.initHeadersStore(
+        names.electraHeaders, "electra.LightClientHeader"),
     ]
-    currentBranches =
-      ? backend.initCurrentBranchesStore(names.altairCurrentBranches)
+    currentBranches = [
+      # BranchFork.None
+      CurrentSyncCommitteeBranchStore(),
+      # BranchFork.Altair
+      ? backend.initCurrentBranchesStore(
+        names.altairCurrentBranches, "altair.CurrentSyncCommitteeBranch"),
+      # BranchFork.Electra
+      ? backend.initCurrentBranchesStore(
+        names.electraCurrentBranches, "electra.CurrentSyncCommitteeBranch"),
+    ]
     syncCommittees =
       ? backend.initSyncCommitteesStore(names.altairSyncCommittees)
     legacyBestUpdates =
@@ -706,7 +742,9 @@ proc close*(db: LightClientDataDB) =
     for lcDataFork in LightClientDataFork:
       if lcDataFork > LightClientDataFork.None:
         db.headers[lcDataFork].close()
-    db.currentBranches.close()
+    for branchFork in BranchFork:
+      if branchFork > BranchFork.None:
+        db.currentBranches[branchFork].close()
     db.syncCommittees.close()
     db.legacyBestUpdates.close()
     db.bestUpdates.close()
