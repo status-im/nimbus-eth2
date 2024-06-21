@@ -760,7 +760,7 @@ func is_valid_light_client_header*(
 # https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.3/specs/electra/light-client/fork.md#normalize_merkle_branch
 func normalize_merkle_branch*[N](
     branch: array[N, Eth2Digest],
-    gindex: static GeneralizedIndex): array[log2trunc(gindex), Eth2Digest] =
+    gindex: static GeneralizedIndex): auto =
   const depth = log2trunc(gindex)
   var res: array[depth, Eth2Digest]
   when depth >= branch.len:
