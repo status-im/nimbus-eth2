@@ -329,7 +329,8 @@ proc getCurrentSyncCommitteeBranch*[T: ForkyCurrentSyncCommitteeBranch](
 func putCurrentSyncCommitteeBranch*[T: ForkyCurrentSyncCommitteeBranch](
     db: LightClientDataDB, slot: Slot, branch: T) =
   doAssert not db.backend.readOnly  # All `stmt` are non-nil
-  if not slot.isSupportedBySQLite:
+  if not slot.isSupportedBySQLite or
+      distinctBase(db.currentBranches[T.kind].getStmt) == nil:
     return
   let res = db.currentBranches[T.kind].putStmt.exec(
     (slot.int64, SSZ.encode(branch)))
