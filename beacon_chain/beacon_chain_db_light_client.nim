@@ -26,8 +26,8 @@ logScope: topics = "lcdata"
 # needs to be bundled together with other data to fulfill requests.
 # Mainnet data size (all columns):
 # - Altair: ~38 KB per `SyncCommitteePeriod` (~1.0 MB per month)
-# - Capella: ~222 KB per `SyncCommitteePeriod` (~6.1 MB per month)
-# - Deneb: ~230 KB per `SyncCommitteePeriod` (~6.3 MB per month)
+# - Capella: ~221 KB per `SyncCommitteePeriod` (~6.0 MB per month)
+# - Deneb: ~225 KB per `SyncCommitteePeriod` (~6.2 MB per month)
 #
 # `lc_altair_current_branches` holds Merkle proofs needed to
 # construct `LightClientBootstrap` objects.
@@ -42,7 +42,7 @@ logScope: topics = "lcdata"
 # SSZ because this data does not compress well, and because this data
 # needs to be bundled together with other data to fulfill requests.
 # Mainnet data size (all columns):
-# - Altair ... Deneb: ~32 KB per `SyncCommitteePeriod` (~0.9 MB per month)
+# - Altair ... Deneb: ~24 KB per `SyncCommitteePeriod` (~0.7 MB per month)
 #
 # `lc_best_updates` holds full `LightClientUpdate` objects in SSZ form.
 # These objects are frequently queried in bulk, but there is only one per
@@ -56,9 +56,9 @@ logScope: topics = "lcdata"
 # the fork digest, because the same storage format may be used across forks.
 # SSZ storage selected due to the small size and reduced logic complexity.
 # Mainnet data size (all columns):
-# - Altair: ~33 KB per `SyncCommitteePeriod` (~0.9 MB per month)
-# - Capella: ~34 KB per `SyncCommitteePeriod` (~0.9 MB per month)
-# - Deneb: ~34 KB per `SyncCommitteePeriod` (~0.9 MB per month)
+# - Altair: ~25 KB per `SyncCommitteePeriod` (~0.7 MB per month)
+# - Capella: ~26 KB per `SyncCommitteePeriod` (~0.7 MB per month)
+# - Deneb: ~26 KB per `SyncCommitteePeriod` (~0.7 MB per month)
 #
 # `lc_sealed_periods` contains the sync committee periods for which
 # full light client data was imported. Data for these periods may no longer
@@ -66,6 +66,31 @@ logScope: topics = "lcdata"
 # when restarting the program.
 # Mainnet data size (all columns):
 # - All forks: 8 bytes per `SyncCommitteePeriod` (~0.0 MB per month)
+#
+# Header computations:
+# - Altair: 256*(112+40)/1024*28/1024
+# - Capella: 256*(112+4+600+128+40)/1024*28/1024
+#   600 = 32+20+32+32+256+32+8+8+8+8+4+32+32+32+32+32
+# - Deneb: 256*(112+4+616+128+40)/1024*28/1024
+#   616 = 32+20+32+32+256+32+8+8+8+8+4+32+32+32+32+32+8+8
+#
+# Committee branch computations:
+# - Altair: 256*(5*32+8)/1024*28/1024
+#
+# Finality branch computations:
+# - Altair: 256*(6*32+8)/1024*28/1024
+#
+# Committee computations:
+# - Altair: (24624+8)/1024*28/1024
+#   513*48 = 24624
+#
+# Aggregate computations:
+# - Altair: 112 = 512/8+48
+#
+# Update computations:
+# - Altair: (112+24624+5*32+112+6*32+112+8+9)/1024*28/1024
+# - Capella: (4+884+24624+5*32+4+884+6*32+112+8+9)/1024*28/1024
+# - Deneb: (4+900+24624+5*32+4+900+6*32+112+8+9)/1024*28/1024
 
 type
   LightClientHeaderStore = object
