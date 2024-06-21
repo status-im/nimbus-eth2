@@ -227,8 +227,14 @@ jobs:
       - name: Build files with isMainModule
         run: |
           source env.sh
+          nim c beacon_chain/el/deposit_contract
+          nim c beacon_chain/fork_choice/fork_choice
+          nim c beacon_chain/fork_choice/proto_array
+          nim c beacon_chain/networking/network_metadata_downloads
           nim c beacon_chain/era_db
           nim c beacon_chain/trusted_node_sync
+          nim c benchmarks/rest_api_benchmark
+          nim c tests/mocking/mock_genesis
 
   lint:
     name: "Lint"
