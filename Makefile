@@ -74,7 +74,7 @@ TOOLS_CORE := \
 	ncli_testnet \
 	$(TOOLS_CORE_CUSTOMCOMPILE)
 
-# This TOOLS/TOOLS_CORE decomposition is a workaroud so nimbus_beacon_node can
+# This TOOLS/TOOLS_CORE decomposition is a workaround so nimbus_beacon_node can
 # build on its own, and if/when that becomes a non-issue, it can be recombined
 # to a single TOOLS list.
 TOOLS := $(TOOLS_CORE) nimbus_beacon_node
