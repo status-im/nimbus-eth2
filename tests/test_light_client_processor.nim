@@ -146,22 +146,35 @@ suite "Light client processor" & preset():
       proc applyPeriodWithoutSupermajority(
           period: SyncCommitteePeriod, update: ref ForkedLightClientUpdate) =
         for i in 0 ..< 2:
-          res = processor[].storeObject(
-            MsgSource.gossip, getBeaconTime(), update[])
-          check update[].kind <= store[].kind
-          if finalizationMode == LightClientFinalizationMode.Optimistic or
-              period == lastPeriodWithSupermajority + 1:
+          # Reduce stack size by making this a `proc`
+          proc applyInitial(update: ref ForkedLightClientUpdate) =
+            res = processor[].storeObject(
+              MsgSource.gossip, getBeaconTime(), update[])
+            check update[].kind <= store[].kind
             if finalizationMode == LightClientFinalizationMode.Optimistic or
-                i == 0:
-              withForkyStore(store[]):
-                when lcDataFork > LightClientDataFork.None:
-                  let upgraded = newClone(
-                    update[].migratingToDataFork(lcDataFork))
-                  template forkyUpdate: untyped = upgraded[].forky(lcDataFork)
-                  check:
-                    res.isOk
-                    forkyStore.best_valid_update.isSome
-                    forkyStore.best_valid_update.get.matches(forkyUpdate)
+                period == lastPeriodWithSupermajority + 1:
+              if finalizationMode == LightClientFinalizationMode.Optimistic or
+                  i == 0:
+                withForkyStore(store[]):
+                  when lcDataFork > LightClientDataFork.None:
+                    let upgraded = newClone(
+                      update[].migratingToDataFork(lcDataFork))
+                    template forkyUpdate: untyped = upgraded[].forky(lcDataFork)
+                    check:
+                      res.isOk
+                      forkyStore.best_valid_update.isSome
+                      forkyStore.best_valid_update.get.matches(forkyUpdate)
+              else:
+                withForkyStore(store[]):
+                  when lcDataFork > LightClientDataFork.None:
+                    let upgraded = newClone(
+                      update[].migratingToDataFork(lcDataFork))
+                    template forkyUpdate: untyped = upgraded[].forky(lcDataFork)
+                    check:
+                      res.isErr
+                      res.error == VerifierError.Duplicate
+                      forkyStore.best_valid_update.isSome
+                      forkyStore.best_valid_update.get.matches(forkyUpdate)
             else:
               withForkyStore(store[]):
                 when lcDataFork > LightClientDataFork.None:
@@ -170,20 +183,11 @@ suite "Light client processor" & preset():
                   template forkyUpdate: untyped = upgraded[].forky(lcDataFork)
                   check:
                     res.isErr
-                    res.error == VerifierError.Duplicate
+                    res.error == VerifierError.MissingParent
                     forkyStore.best_valid_update.isSome
-                    forkyStore.best_valid_update.get.matches(forkyUpdate)
-          else:
-            withForkyStore(store[]):
-              when lcDataFork > LightClientDataFork.None:
-                let upgraded = newClone(
-                  update[].migratingToDataFork(lcDataFork))
-                template forkyUpdate: untyped = upgraded[].forky(lcDataFork)
-                check:
-                  res.isErr
-                  res.error == VerifierError.MissingParent
-                  forkyStore.best_valid_update.isSome
-                  not forkyStore.best_valid_update.get.matches(forkyUpdate)
+                    not forkyStore.best_valid_update.get.matches(forkyUpdate)
+
+          applyInitial(update)
 
           # Reduce stack size by making this a `proc`
           proc applyDuplicate(update: ref ForkedLightClientUpdate) =
