@@ -254,7 +254,7 @@ func blobkey(root: Eth2Digest, index: BlobIndex) : array[40, byte] =
 
   ret
 
-func columnkey(root: Eth2Digest, index: ColumnIndex) : array[40, byte] =
+func columnkey(root: Eth2Digest, index: ColumnIndex): array[40, byte] =
   var ret: array[40, byte]
   ret[0..<8] = toBytes(index)
   ret[8..<40] = root.data

@@ -40,11 +40,11 @@ func shortLog*(x: seq[DataColumnFetchRecord]): string =
 func put*(quarantine: var DataColumnQuarantine, dataColumnSidecar: ref DataColumnSidecar) =
   if quarantine.data_columns.lenu64 >= MaxDataColumns:
     # FIFO if full. For example, sync manager and request manager can race to
-    # put blobs in at the same time, so one gets blob insert -> block resolve
-    # -> blob insert sequence, which leaves garbage blobs.
+    # put data columns in at the same time, so one gets blob insert -> block resolve
+    # -> data columns insert sequence, which leaves garbage data columns.
     #
     # This also therefore automatically garbage-collects otherwise valid garbage
-    # blobs which are correctly signed, point to either correct block roots or a
+    # data columns which are correctly signed, point to either correct block roots or a
     # block root which isn't ever seen, and then are for any reason simply never
     # used.
     var oldest_column_key: (Eth2Digest, ColumnIndex)

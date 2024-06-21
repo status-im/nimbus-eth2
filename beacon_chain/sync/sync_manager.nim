@@ -80,7 +80,8 @@ type
   BeaconBlocksRes =
     NetRes[List[ref ForkedSignedBeaconBlock, Limit MAX_REQUEST_BLOCKS]]
   BlobSidecarsRes = NetRes[List[ref BlobSidecar, Limit(MAX_REQUEST_BLOB_SIDECARS)]]
-  DataColumnSidecarsRes = NetRes[List[ref DataColumnSidecar, Limit(MAX_REQUEST_DATA_COLUMNS)]]
+  DataColumnSidecarsRes =
+    NetRes[List[ref DataColumnSidecar, Limit(MAX_REQUEST_DATA_COLUMNS)]]
 
 proc now*(sm: typedesc[SyncMoment], slots: uint64): SyncMoment {.inline.} =
   SyncMoment(stamp: now(chronos.Moment), slots: slots)

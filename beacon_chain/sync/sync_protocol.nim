@@ -38,8 +38,8 @@ type
     slot: Slot
 
   BlockRootsList* = List[Eth2Digest, Limit MAX_REQUEST_BLOCKS]
-  BlobIdentifierList* = List[BlobIdentifier, Limit (MAX_REQUEST_BLOB_SIDECARS)]
-  DataColumnIdentifierList* = List[DataColumnIdentifier, Limit (MAX_REQUEST_DATA_COLUMNS)]
+  BlobIdentifierList* = List[BlobIdentifier, Limit MAX_REQUEST_BLOB_SIDECARS]
+  DataColumnIdentifierList* = List[DataColumnIdentifier, Limit MAX_REQUEST_DATA_COLUMNS]
 
 proc readChunkPayload*(
     conn: Connection, peer: Peer, MsgType: type (ref ForkedSignedBeaconBlock)):
@@ -402,6 +402,9 @@ p2pProtocol BeaconSync(version = 1,
     trace "got data columns range request", peer, len = columnIds.len
     if columnIds.len == 0:
       raise newException(InvalidInputsError, "No data columns requested")
+
+    if columnIds.lenu64 > MAX_REQUEST_DATA_COLUMNS:
+      raise newException(InvalidInputsError, "Exceeding data column request limit")
 
     let
       dag = peer.networkState.dag

@@ -291,7 +291,7 @@ proc fetchDataColumnsFromNetwork(rman: RequestManager,
             discard await rman.blockVerifier(col, false)
 
     else:
-      debug "Data Columns by root request failed",
+      debug "Data columns by root request failed",
         peer = peer, columns = shortLog(colIdList), err = columns.error()
       peer.updateScore(PeerScoreNoValues)
 
@@ -472,7 +472,8 @@ proc getMissingDataColumns(rman: RequestManager): seq[DataColumnIdentifier] =
     wallTime = rman.getBeaconTime()
     wallSlot = wallTime.slotOrZero()
     delay = wallTime - wallSlot.start_beacon_time()
-    waitDur = TimeDiff(nanoseconds: DATA_COLUMN_GOSSIP_WAIT_TIME_NS)
+  
+  const waitDur = TimeDiff(nanoseconds: DATA_COLUMN_GOSSIP_WAIT_TIME_NS)
 
   var
     fetches: seq[DataColumnIdentifier]
@@ -496,7 +497,7 @@ proc getMissingDataColumns(rman: RequestManager): seq[DataColumnIdentifier] =
             if id notin fetches:
               fetches.add(id)
         else:
-          # this is a programming error and it should occur
+          # this is a programming error and it not should occur
           warn "missing data column handler found columnless block with all data columns",
              blk = columnless.root,
              commitments=len(forkyBlck.message.body.blob_kzg_commitments)
