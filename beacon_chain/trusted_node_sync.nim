@@ -21,7 +21,7 @@ import
 from presto import RestDecodingError
 
 const
-  largeRequestsTimeout = 60.seconds # Downloading large items such as states.
+  largeRequestsTimeout = 90.seconds # Downloading large items such as states.
   smallRequestsTimeout = 30.seconds # Downloading smaller items such as blocks and deposit snapshots.
 
 proc fetchDepositSnapshot(
