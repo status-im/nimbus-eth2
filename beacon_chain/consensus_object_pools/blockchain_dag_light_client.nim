@@ -723,9 +723,11 @@ proc createLightClientBootstrap(
       const lcDataFork = lcDataForkAtConsensusFork(consensusFork)
       dag.lcDataStore.db.putHeader(
         forkyBlck.toLightClientHeader(lcDataFork))
+      dag.lcDataStore.db.putCurrentSyncCommitteeBranch(
+        bid.slot, normalize_merkle_branch(
+          dag.getLightClientData(bid).current_sync_committee_branch,
+          lcDataFork.CURRENT_SYNC_COMMITTEE_GINDEX))
     else: raiseAssert "Unreachable"
-  dag.lcDataStore.db.putCurrentSyncCommitteeBranch(
-    bid.slot, dag.getLightClientData(bid).current_sync_committee_branch)
   ok()
 
 proc initLightClientDataCache*(dag: ChainDAGRef) =
