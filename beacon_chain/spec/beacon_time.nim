@@ -196,7 +196,7 @@ func since_epoch_start*(slot: Slot): uint64 = # aka compute_slots_since_epoch_st
 template is_epoch*(slot: Slot): bool =
   slot.since_epoch_start == 0
 
-# https://github.com/ethereum/consensus-specs/blob/v1.4.0/specs/phase0/beacon-chain.md#compute_start_slot_at_epoch
+# https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.3/specs/phase0/beacon-chain.md#compute_start_slot_at_epoch
 func start_slot*(epoch: Epoch): Slot = # aka compute_start_slot_at_epoch
   ## Return the start slot of ``epoch``.
   const maxEpoch = Epoch(FAR_FUTURE_SLOT div SLOTS_PER_EPOCH)
