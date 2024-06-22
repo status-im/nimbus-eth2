@@ -226,15 +226,19 @@ jobs:
 
       - name: Build files with isMainModule
         run: |
+          executables=(
+            "beacon_chain/el/deposit_contract"
+            "beacon_chain/fork_choice/fork_choice"
+            "beacon_chain/fork_choice/proto_array"
+            "beacon_chain/networking/network_metadata_downloads"
+            "beacon_chain/era_db"
+            "beacon_chain/trusted_node_sync"
+            "benchmarks/rest_api_benchmark"
+            "tests/mocking/mock_genesis"
+          )
           source env.sh
-          nim c beacon_chain/el/deposit_contract
-          nim c beacon_chain/fork_choice/fork_choice
-          nim c beacon_chain/fork_choice/proto_array
-          nim c beacon_chain/networking/network_metadata_downloads
-          nim c beacon_chain/era_db
-          nim c beacon_chain/trusted_node_sync
-          nim c benchmarks/rest_api_benchmark
-          nim c tests/mocking/mock_genesis
+          for executable in executables; do
+            nim c --passC:-fsyntax-only --noLinking:on -d:chronicles_log_level=TRACE "${executable}"
 
   lint:
     name: "Lint"
