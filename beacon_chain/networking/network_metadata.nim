@@ -303,7 +303,7 @@ elif const_preset == "mainnet":
       useBakedInGenesis = Opt.some "mainnet")
 
     holeskyMetadata = loadCompileTimeNetworkMetadata(
-      vendorDir & "/holesky/custom_config_data",
+      vendorDir & "/holesky/metadata",
       Opt.some holesky,
       downloadGenesisFrom = Opt.some DownloadInfo(
         url: "https://github.com/status-im/nimbus-eth2/releases/download/v23.9.1/holesky-genesis.ssz.sz",
