@@ -237,8 +237,9 @@ jobs:
             "tests/mocking/mock_genesis"
           )
           source env.sh
-          for executable in executables; do
+          for executable in "${executables[@]}"; do
             nim c --passC:-fsyntax-only --noLinking:on -d:chronicles_log_level=TRACE "${executable}"
+          done
 
   lint:
     name: "Lint"
