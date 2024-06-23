@@ -39,4 +39,4 @@ proc initGenesisState*(
 when isMainModule:
   # Smoke test
   let state = initGenesisState(num_validators = SLOTS_PER_EPOCH)
-  doAssert getStateField(state[], validators).len == SLOTS_PER_EPOCH
+  doAssert getStateField(state[], validators).lenu64 == SLOTS_PER_EPOCH
