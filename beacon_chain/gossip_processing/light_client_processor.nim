@@ -253,9 +253,9 @@ proc doProcessObject(
       when lcDataFork > LightClientDataFork.None:
         let
           wallSlot = wallTime.slotOrZero()
-          upgraded = update.migratingToDataFork(lcDataFork)
+          upgradedUpdate = update.migratingToDataFork(lcDataFork)
         process_light_client_update(
-          forkyStore, upgraded.forky(lcDataFork), wallSlot,
+          forkyStore, upgradedUpdate.forky(lcDataFork), wallSlot,
           self.cfg, self.genesis_validators_root)
       else:
         raiseAssert "Unreachable; self.store[].kind was checked"
