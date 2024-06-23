@@ -611,8 +611,14 @@ iterator makeTestBlocks*(
     let
       parent_root = withState(state[]): forkyState.latest_block_root
       attestations =
-        if attested:
+        if attested and state.kind < ConsensusFork.Electra:
           makeFullAttestations(
+            state[], parent_root, getStateField(state[], slot), cache)
+        else:
+          @[]
+      electraAttestations =
+        if attested and state.kind >= ConsensusFork.Electra:
+          makeFullElectraAttestations(
             state[], parent_root, getStateField(state[], slot), cache)
         else:
           @[]
@@ -633,6 +639,7 @@ iterator makeTestBlocks*(
       state[], cache,
       eth1_data = eth1_data,
       attestations = attestations,
+      electraAttestations = electraAttestations,
       deposits = deposits,
       sync_aggregate = sync_aggregate,
       graffiti = graffiti,
