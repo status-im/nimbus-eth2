@@ -270,9 +270,10 @@ proc processObject(
               of VerifierError.Duplicate:
                 if wallTime >= self.lastDuplicateTick + duplicateRateLimit:
                   if self.numDupsSinceProgress < minForceUpdateDuplicates:
-                    let upgradedObj = obj.migratingToDataFork(lcDataFork)
-                    if upgradedObj.forky(lcDataFork).matches(
-                        forkyStore.best_valid_update.get):
+                    let best = forkyStore.best_valid_update.get
+                    if (proc(): bool =  # Reduce stack size
+                        let upgradedObj = obj.migratingToDataFork(lcDataFork)
+                        upgradedObj.forky(lcDataFork).matches(best))():
                       self.lastDuplicateTick = wallTime
                       inc self.numDupsSinceProgress
                   if self.numDupsSinceProgress >= minForceUpdateDuplicates and
