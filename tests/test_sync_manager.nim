@@ -50,7 +50,7 @@ func collector(queue: AsyncQueue[BlockEntry]): BlockVerifier =
   # testing goes, this is risky because it might introduce differences between
   # the BlockProcessor and this test
   proc verify(signedBlock: ForkedSignedBeaconBlock, blobs: Opt[BlobSidecars],
-              maybeFinalized: bool):
+              data_columns: Opt[DataColumnSidecars], maybeFinalized: bool):
       Future[Result[void, VerifierError]] {.async: (raises: [CancelledError], raw: true).} =
     let fut = Future[Result[void, VerifierError]].Raising([CancelledError]).init()
     try: queue.addLastNoWait(BlockEntry(blck: signedBlock, resfut: fut))
