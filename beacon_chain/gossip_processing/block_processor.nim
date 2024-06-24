@@ -682,6 +682,11 @@ proc storeBlock(
   for b in blobs:
     self.consensusManager.dag.db.putBlobSidecar(b[])
 
+  # write data columns now that block has been written.
+  let data_columns = dataColumnsOpt.valueOr: DataColumnSidecars @[]
+  for c in data_columns:
+    self.consensusManager.dag.db.putDataColumnSidecar(c[])
+
   let addHeadBlockTick = Moment.now()
 
   # Eagerly update head: the incoming block "should" get selected.
