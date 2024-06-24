@@ -502,8 +502,8 @@ when isMainModule:
     for i in 0 ..< validator_count:
       indices.add fakeHash(i), i
       votes.add default(VoteTracker)
-      old_balances.add 0
-      new_balances.add 0
+      old_balances.add 0.Gwei
+      new_balances.add 0.Gwei
 
     let err = deltas.compute_deltas(
       indices, indices_offset = 0, votes, old_balances, new_balances
