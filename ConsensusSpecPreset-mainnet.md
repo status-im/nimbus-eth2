@@ -3156,6 +3156,14 @@ OK: 6/6 Fail: 0/6 Skip: 0/6
 + EF - Electra - Transition - transition_with_random_three_quarters_participation [Preset: m OK
 ```
 OK: 25/25 Fail: 0/25 Skip: 0/25
+## EF - Electra - Unittests - Light client - Sync protocol [Preset: mainnet]
+```diff
++ process_light_client_update_finality_updated                                               OK
++ process_light_client_update_timeout                                                        OK
++ test_process_light_client_update_at_period_boundary                                        OK
++ test_process_light_client_update_not_timeout                                               OK
+```
+OK: 4/4 Fail: 0/4 Skip: 0/4
 ## EF - Light client - Single merkle proof [Preset: mainnet]
 ```diff
 + Light client - Single merkle proof - mainnet/altair/light_client/single_merkle_proof/Beaco OK
@@ -3685,4 +3693,4 @@ OK: 69/88 Fail: 0/88 Skip: 19/88
 OK: 3/3 Fail: 0/3 Skip: 0/3
 
 ---TOTAL---
-OK: 2967/2987 Fail: 0/2987 Skip: 20/2987
+OK: 2971/2991 Fail: 0/2991 Skip: 20/2991
