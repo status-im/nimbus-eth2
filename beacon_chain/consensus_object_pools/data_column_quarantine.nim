@@ -78,7 +78,7 @@ func popDataColumns*(
     var c: ref DataColumnSidecar
     if quarantine.data_columns.pop((digest, ColumnIndex idx), c):
       r.add(c)
-  true
+  r
 
 func hasDataColumns*(quarantine: DataColumnQuarantine,
     blck: deneb.SignedBeaconBlock | electra.SignedBeaconBlock): bool =

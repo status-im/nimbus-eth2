@@ -132,12 +132,12 @@ proc recover_matrix*(partial_matrix: seq[MatrixEntry], blobCount: int): Result[s
         proofs.add(e.kzg_proof)
 
 # https://github.com/ethereum/consensus-specs/blob/5f48840f4d768bf0e0a8156a3ed06ec333589007/specs/_features/eip7594/das-core.md#get_data_column_sidecars
-proc get_data_column_sidecars*(signed_block: deneb.SignedBeaconBlock, blobs: seq[KzgBlob]): Result[seq[DataColumnSidecar], cstring] =
-  var sidecar: DataColumnSidecar
-  var signed_block_header: deneb.SignedBeaconBlockHeader
-  var blck = signed_block.message
-
-  var cellsAndProofs: seq[KzgCellsAndKzgProofs]
+proc get_data_column_sidecars*(signed_block: deneb.SignedBeaconBlock | electra.SignedBeaconBlock | ForkySignedBeaconBlock, blobs: seq[KzgBlob]): Result[seq[DataColumnSidecar], cstring] =
+  var 
+    sidecar: DataColumnSidecar
+    signed_block_header: SignedBeaconBlockHeader
+    blck = signed_block.message
+    cellsAndProofs: seq[KzgCellsAndKzgProofs]
 
   for blob in blobs:
     let

@@ -24,6 +24,7 @@ const
     ## Enough for finalization in an alternative fork
   MaxBlobless = SLOTS_PER_EPOCH
     ## Arbitrary
+  MaxColumnless = SLOTS_PER_EPOCH
   MaxUnviables = 16 * 1024
     ## About a day of blocks - most likely not needed but it's quite cheap..
 
@@ -238,6 +239,18 @@ func cleanupBlobless(quarantine: var Quarantine, finalizedSlot: Slot) =
     quarantine.addUnviable k
     quarantine.blobless.del k
 
+func cleanupColumnless(quarantine: var Quarantine, finalizedSlot: Slot) =
+  var toDel: seq[Eth2Digest]
+
+  for k,v in quarantine.columnless:
+    withBlck(v):
+      if not isViable(finalizedSlot, forkyBlck.message.slot):
+        toDel.add k
+  
+  for k in toDel:
+    quarantine.addUnviable k
+    quarantine.columnless.del k
+
 func clearAfterReorg*(quarantine: var Quarantine) =
   ## Clear missing and orphans to start with a fresh slate in case of a reorg
   ## Unviables remain unviable and are not cleared.
@@ -338,6 +351,29 @@ func popBlobless*(
 iterator peekBlobless*(quarantine: var Quarantine): ForkedSignedBeaconBlock =
   for k, v in quarantine.blobless.mpairs():
     yield v
+
+proc addColumnless*(
+    quarantine: var Quarantine, finalizedSlot: Slot,
+    signedBlock: deneb.SignedBeaconBlock | electra.SignedBeaconBlock): bool =
+  
+  if not isViable(finalizedSlot, signedBlock.message.slot):
+    quarantine.addUnviable(signedBlock.root)
+    return false
+
+  quarantine.cleanupColumnless(finalizedSlot)
+
+  if quarantine.columnless.lenu64 >= MaxColumnless:
+    var oldest_columnless_key: Eth2Digest
+    for k in quarantine.columnless.keys:
+      oldest_columnless_key = k
+      break
+    quarantine.columnless.del oldest_columnless_key
+
+  debug "block quarantine: Adding columnless", blck = shortLog(signedBlock)
+  quarantine.columnless[signedBlock.root] =
+    ForkedSignedBeaconBlock.init(signedBlock)
+  quarantine.missing.del(signedBlock.root)
+  true
 
 func popColumnless*(
     quarantine: var Quarantine,

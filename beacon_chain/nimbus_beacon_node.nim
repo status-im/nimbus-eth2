@@ -393,14 +393,15 @@ proc initFullNode(
       rng, taskpool, consensusManager, node.validatorMonitor,
       blobQuarantine, getBeaconTime)
     blockVerifier = proc(signedBlock: ForkedSignedBeaconBlock,
-                         blobs: Opt[BlobSidecars], maybeFinalized: bool):
+                         blobs: Opt[BlobSidecars], data_columns: Opt[DataColumnSidecars],
+                         maybeFinalized: bool):
         Future[Result[void, VerifierError]] {.async: (raises: [CancelledError], raw: true).} =
       # The design with a callback for block verification is unusual compared
       # to the rest of the application, but fits with the general approach
       # taken in the sync/request managers - this is an architectural compromise
       # that should probably be reimagined more holistically in the future.
       blockProcessor[].addBlock(
-        MsgSource.gossip, signedBlock, blobs, maybeFinalized = maybeFinalized)
+        MsgSource.gossip, signedBlock, blobs, data_columns, maybeFinalized = maybeFinalized)
     rmanBlockVerifier = proc(signedBlock: ForkedSignedBeaconBlock,
                              maybeFinalized: bool):
         Future[Result[void, VerifierError]] {.async: (raises: [CancelledError]).} =
@@ -416,12 +417,13 @@ proc initFullNode(
           else:
             let blobs = blobQuarantine[].popBlobs(forkyBlck.root, forkyBlck)
             await blockProcessor[].addBlock(MsgSource.gossip, signedBlock,
-                                      Opt.some(blobs),
+                                      Opt.some(blobs), Opt.none(DataColumnSidecars),
                                       maybeFinalized = maybeFinalized)
         else:
           await blockProcessor[].addBlock(MsgSource.gossip, signedBlock,
-                                    Opt.none(BlobSidecars),
+                                    Opt.none(BlobSidecars), Opt.none(DataColumnSidecars),
                                     maybeFinalized = maybeFinalized)
+
     rmanBlockLoader = proc(
         blockRoot: Eth2Digest): Opt[ForkedTrustedSignedBeaconBlock] =
       dag.getForkedBlock(blockRoot)
@@ -1896,6 +1898,9 @@ proc installMessageValidators(node: BeaconNode) =
         #         toValidationResult(
         #           node.processor[].processBlobSidecar(
         #             MsgSource.gossip, blobSidecar, subnet_id)))
+
+        # data_column_sidecar_{subnet_id}
+        # 
         for it in 0'u64..<DATA_COLUMN_SIDECAR_SUBNET_COUNT:
           closureScope:  # Needed for inner `proc`; don't lift it out of loop.
             let subnet_id = it

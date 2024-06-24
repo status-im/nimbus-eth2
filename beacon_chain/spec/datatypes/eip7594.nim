@@ -60,6 +60,8 @@ type
     kzg_commitments_inclusion_proof*:
       array[KZG_COMMITMENTS_INCLUSION_PROOF_DEPTH, Eth2Digest]
 
+  DataColumnSidecars* = seq[ref DataColumnSidecar]
+
   DataColumnIdentifier* = object 
     block_root*: Eth2Digest
     index*: ColumnIndex
@@ -78,6 +80,9 @@ func shortLog*(v: DataColumnSidecar): auto =
     kzg_proofs: v.kzg_proofs.len,
     block_header: shortLog(v.signed_block_header.message),
   )
+
+func shortLog*(v: seq[DataColumnSidecar]): auto =
+  "[" & v.mapIt(shortLog(it)).join(", ") & "]"
 
 func shortLog*(x: seq[DataColumnIdentifier]): string =
   "[" & x.mapIt(shortLog(it.block_root) & "/" & $it.index).join(", ") & "]"

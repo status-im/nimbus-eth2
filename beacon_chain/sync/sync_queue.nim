@@ -26,7 +26,8 @@ type
   GetSlotCallback* = proc(): Slot {.gcsafe, raises: [].}
   ProcessingCallback* = proc() {.gcsafe, raises: [].}
   BlockVerifier* =  proc(signedBlock: ForkedSignedBeaconBlock,
-                         blobs: Opt[BlobSidecars], maybeFinalized: bool):
+                         blobs: Opt[BlobSidecars], data_columns: Opt[DataColumnSidecars],
+                         maybeFinalized: bool):
       Future[Result[void, VerifierError]] {.async: (raises: [CancelledError]).}
 
   SyncQueueKind* {.pure.} = enum
@@ -43,6 +44,7 @@ type
     request*: SyncRequest[T]
     data*: seq[ref ForkedSignedBeaconBlock]
     blobs*: Opt[seq[BlobSidecars]]
+    data_columns*: Opt[seq[DataColumnSidecars]]
 
   GapItem*[T] = object
     start*: Slot
@@ -546,6 +548,13 @@ func getOpt(blobs: Opt[seq[BlobSidecars]], i: int): Opt[BlobSidecars] =
   else:
     Opt.none(BlobSidecars)
 
+func getOpt(data_columns: Opt[seq[DataColumnSidecars]], i: int):
+    Opt[DataColumnSidecars] =
+  if data_columns.isSome:
+    Opt.some(data_columns.get()[i])
+  else:
+    Opt.none(DataColumnSidecars)
+
 iterator blocks[T](sq: SyncQueue[T],
                    sr: SyncResult[T]): (ref ForkedSignedBeaconBlock, Opt[BlobSidecars]) =
   case sq.kind
@@ -555,6 +564,16 @@ iterator blocks[T](sq: SyncQueue[T],
   of SyncQueueKind.Backward:
     for i in countdown(len(sr.data) - 1, 0):
       yield (sr.data[i], sr.blobs.getOpt(i))
+
+iterator das_blocks[T](sq: SyncQueue[T],
+                   sr: SyncResult[T]): (ref ForkedSignedBeaconBlock, Opt[DataColumnSidecars]) =
+  case sq.kind
+  of SyncQueueKind.Forward:
+    for i in countup(0, len(sr.data) - 1):
+      yield (sr.data[i], sr.data_columns.getOpt(i))
+  of SyncQueueKind.Backward:
+    for i in countdown(len(sr.data) - 1, 0):
+      yield (sr.data[i], sr.data_columns.getOpt(i))
 
 proc advanceOutput*[T](sq: SyncQueue[T], number: uint64) =
   case sq.kind
@@ -687,7 +706,7 @@ proc push*[T](sq: SyncQueue[T], sr: SyncRequest[T],
 
     var i=0
     for blk, blb in sq.blocks(item):
-      res = await sq.blockVerifier(blk[], blb, maybeFinalized)
+      res = await sq.blockVerifier(blk[], blb, Opt.none(DataColumnSidecars), maybeFinalized)
       inc(i)
 
       if res.isOk():
@@ -703,6 +722,38 @@ proc push*[T](sq: SyncQueue[T], sr: SyncRequest[T],
         of VerifierError.UnviableFork:
           # Keep going so as to register other unviable blocks with the
           # quarantine
+          if unviableBlock.isNone:
+            # Remember the first unviable block, so we can log it
+            unviableBlock = some((blk[].root, blk[].slot))
+
+        of VerifierError.Invalid:
+          hasInvalidBlock = true
+
+          let req = item.request
+          notice "Received invalid sequence of blocks", request = req,
+                  blocks_count = len(item.data),
+                  blocks_map = getShortMap(req, item.data)
+          req.item.updateScore(PeerScoreBadValues)
+          break
+
+    var counter = 0
+    for blk, dc in sq.das_blocks(item):
+      res = await sq.blockVerifier(blk[], Opt.none(BlobSidecars), dc, maybeFinalized)
+      inc(counter)
+
+      if res.isOk():
+        goodBlock = some(blk[].slot)
+      else:
+        case res.error()
+        of VerifierError.MissingParent:
+          missingParentSlot = some(blk[].slot)
+          break
+        of VerifierError.Duplicate:
+          # Keep going, happens naturally
+          discard
+        of VerifierError.UnviableFork:
+          # Keep going so as to register other unviable blocks with the
+          # qurantine
           if unviableBlock.isNone:
             # Remember the first unviable block, so we can log it
             unviableBlock = some((blk[].root, blk[].slot))

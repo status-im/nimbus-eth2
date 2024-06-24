@@ -10,7 +10,7 @@
 import
   stew/results,
   chronicles, chronos, metrics,
-  ../spec/[forks, signatures, signatures_batch],
+  ../spec/[forks, signatures, signatures_batch, eip7594_helpers],
   ../sszdump
 
 from std/deques import Deque, addLast, contains, initDeque, items, len, shrink
@@ -27,13 +27,16 @@ from ../consensus_object_pools/block_dag import BlockRef, root, shortLog, slot
 from ../consensus_object_pools/block_pools_types import
   EpochRef, VerifierError
 from ../consensus_object_pools/block_quarantine import
-  addBlobless, addOrphan, addUnviable, pop, removeOrphan
+  addBlobless, addOrphan, addUnviable, pop, removeOrphan, addColumnless
 from ../consensus_object_pools/blob_quarantine import
   BlobQuarantine, hasBlobs, popBlobs, put
+from ../consensus_object_pools/data_column_quarantine import
+  DataColumnQuarantine, hasDataColumns, popDataColumns, put
 from ../validators/validator_monitor import
   MsgSource, ValidatorMonitor, registerAttestationInBlock, registerBeaconBlock,
   registerSyncAggregateInBlock
-from ../beacon_chain_db import getBlobSidecar, putBlobSidecar
+from ../beacon_chain_db import getBlobSidecar, putBlobSidecar,
+  getDataColumnSidecar, putDataColumnSidecar
 from ../spec/state_transition_block import validate_blobs
 
 export sszdump, signatures_batch
@@ -58,6 +61,7 @@ type
   BlockEntry = object
     blck*: ForkedSignedBeaconBlock
     blobs*: Opt[BlobSidecars]
+    data_columns*: Opt[DataColumnSidecars]
     maybeFinalized*: bool
       ## The block source claims the block has been finalized already
     resfut*: Future[Result[void, VerifierError]].Raising([CancelledError])
@@ -102,6 +106,7 @@ type
     getBeaconTime: GetBeaconTimeFn
 
     blobQuarantine: ref BlobQuarantine
+    dataColumnQuarantine: ref DataColumnQuarantine
     verifier: BatchVerifier
 
     lastPayload: Slot
@@ -174,7 +179,8 @@ from ../consensus_object_pools/block_clearance import
 proc storeBackfillBlock(
     self: var BlockProcessor,
     signedBlock: ForkySignedBeaconBlock,
-    blobsOpt: Opt[BlobSidecars]): Result[void, VerifierError] =
+    blobsOpt: Opt[BlobSidecars], 
+    dataColumnsOpt: Opt[DataColumnSidecars]): Result[void, VerifierError] =
 
   # The block is certainly not missing any more
   self.consensusManager.quarantine[].missing.del(signedBlock.root)
@@ -182,6 +188,7 @@ proc storeBackfillBlock(
   # Establish blob viability before calling addbackfillBlock to avoid
   # writing the block in case of blob error.
   var blobsOk = true
+  var columnsOk = true
   when typeof(signedBlock).kind >= ConsensusFork.Deneb:
     if blobsOpt.isSome:
       let blobs = blobsOpt.get()
@@ -200,6 +207,24 @@ proc storeBackfillBlock(
         blobsOk = r.isOk()
 
   if not blobsOk:
+    return err(VerifierError.Invalid)
+    
+  when typeof(signedBlock).kind >= ConsensusFork.Deneb:
+    if dataColumnsOpt.isSome:
+      let data_columns = dataColumnsOpt.get()
+      if data_columns.len > 0:
+        for i in 0..<data_columns.len:
+          let r = verify_data_column_sidecar_kzg_proofs(data_columns[i][])
+          if r.isErr():
+            debug "backfill datacolumn validation failed",
+              blockRoot = shortLog(signedBlock.root),
+              data_column = shortLog(data_columns[i][]),
+              blck = shortLog(signedBlock.message),
+              signature = shortLog(signedBlock.signature),
+              msg = r.error()
+          columnsOk = r.isOk()
+
+  if not columnsOk:
     return err(VerifierError.Invalid)
 
   let res = self.consensusManager.dag.addBackfillBlock(signedBlock)
@@ -224,6 +249,11 @@ proc storeBackfillBlock(
   let blobs = blobsOpt.valueOr: BlobSidecars @[]
   for b in blobs:
     self.consensusManager.dag.db.putBlobSidecar(b[])
+
+  # Only store data columns after successfully establishing block validity
+  let data_columns = dataColumnsOpt.valueOr: DataColumnSidecars @[]
+  for c in data_columns:
+    self.consensusManager.dag.db.putDataColumnSidecar(c[])
 
   res
 
@@ -385,6 +415,7 @@ proc checkBloblessSignature(
 proc enqueueBlock*(
     self: var BlockProcessor, src: MsgSource, blck: ForkedSignedBeaconBlock,
     blobs: Opt[BlobSidecars],
+    data_columns: Opt[DataColumnSidecars],
     resfut: Future[Result[void, VerifierError]].Raising([CancelledError]) = nil,
     maybeFinalized = false,
     validationDur = Duration()) =
@@ -392,7 +423,7 @@ proc enqueueBlock*(
     if forkyBlck.message.slot <= self.consensusManager.dag.finalizedHead.slot:
       # let backfill blocks skip the queue - these are always "fast" to process
       # because there are no state rewinds to deal with
-      let res = self.storeBackfillBlock(forkyBlck, blobs)
+      let res = self.storeBackfillBlock(forkyBlck, blobs, data_columns)
       resfut.complete(res)
       return
 
@@ -400,6 +431,7 @@ proc enqueueBlock*(
     self.blockQueue.addLastNoWait(BlockEntry(
       blck: blck,
       blobs: blobs,
+      data_columns: data_columns,
       maybeFinalized: maybeFinalized,
       resfut: resfut, queueTick: Moment.now(),
       validationDur: validationDur,
@@ -411,6 +443,7 @@ proc storeBlock(
     self: ref BlockProcessor, src: MsgSource, wallTime: BeaconTime,
     signedBlock: ForkySignedBeaconBlock,
     blobsOpt: Opt[BlobSidecars],
+    dataColumnsOpt: Opt[DataColumnSidecars],
     maybeFinalized = false,
     queueTick: Moment = Moment.now(), validationDur = Duration()):
     Future[Result[BlockRef, (VerifierError, ProcessingStatus)]] {.async: (raises: [CancelledError]).} =
@@ -508,10 +541,25 @@ proc storeBlock(
               Opt.some blob_sidecars
             else:
               Opt.none BlobSidecars
-        if blobsOk:
+
+        var columnsOk = true
+        let data_columns =
+          withBlck(parentBlck.get()):
+            when consensusFork >= ConsensusFork.Deneb:
+              var data_column_sidecars: DataColumnSidecars
+              for i in 0..<forkyBlck.message.body.blob_kzg_commitments.len:
+                let data_column = DataColumnSidecar.new()
+                if not dag.db.getDataColumnSidecar(parent_root, i.ColumnIndex, data_column[]):
+                  columnsOk = false
+                  break
+                data_column_sidecars.add data_column
+              Opt.some data_column_sidecars
+            else:
+              Opt.none DataColumnSidecars
+        if blobsOk and columnsOk:
           debug "Loaded parent block from storage", parent_root
           self[].enqueueBlock(
-            MsgSource.gossip, parentBlck.unsafeGet().asSigned(), blobs)
+            MsgSource.gossip, parentBlck.unsafeGet().asSigned(), blobs, data_columns)
 
     return handleVerifierError(parent.error())
 
@@ -771,21 +819,23 @@ proc storeBlock(
     withBlck(quarantined):
       when typeof(forkyBlck).kind < ConsensusFork.Deneb:
         self[].enqueueBlock(
-          MsgSource.gossip, quarantined, Opt.none(BlobSidecars))
+          MsgSource.gossip, quarantined, Opt.none(BlobSidecars), Opt.none(DataColumnSidecars))
       else:
         if len(forkyBlck.message.body.blob_kzg_commitments) == 0:
           self[].enqueueBlock(
-            MsgSource.gossip, quarantined, Opt.some(BlobSidecars @[]))
+            MsgSource.gossip, quarantined, Opt.some(BlobSidecars @[]), Opt.some(DataColumnSidecars @[]))
         else:
           if (let res = checkBloblessSignature(self[], forkyBlck); res.isErr):
             warn "Failed to verify signature of unorphaned blobless block",
              blck = shortLog(forkyBlck),
              error = res.error()
             continue
-          if self.blobQuarantine[].hasBlobs(forkyBlck):
+          if self.blobQuarantine[].hasBlobs(forkyBlck) and self.dataColumnQuarantine[].hasDataColumns(forkyBlck):
             let blobs = self.blobQuarantine[].popBlobs(
               forkyBlck.root, forkyBlck)
-            self[].enqueueBlock(MsgSource.gossip, quarantined, Opt.some(blobs))
+            let data_columns = self.dataColumnQuarantine[].popDataColumns(
+              forkyBlck.root, forkyBlck)
+            self[].enqueueBlock(MsgSource.gossip, quarantined, Opt.some(blobs), Opt.some(data_columns))
           else:
             discard self.consensusManager.quarantine[].addBlobless(
               dag.finalizedHead.slot, forkyBlck)
@@ -797,7 +847,7 @@ proc storeBlock(
 
 proc addBlock*(
     self: var BlockProcessor, src: MsgSource, blck: ForkedSignedBeaconBlock,
-    blobs: Opt[BlobSidecars], maybeFinalized = false,
+    blobs: Opt[BlobSidecars], data_columns: Opt[DataColumnSidecars], maybeFinalized = false,
     validationDur = Duration()): Future[Result[void, VerifierError]] {.async: (raises: [CancelledError], raw: true).} =
   ## Enqueue a Gossip-validated block for consensus verification
   # Backpressure:
@@ -809,7 +859,7 @@ proc addBlock*(
   # - RequestManager (missing ancestor blocks)
   # - API
   let resfut = newFuture[Result[void, VerifierError]]("BlockProcessor.addBlock")
-  enqueueBlock(self, src, blck, blobs, resfut, maybeFinalized, validationDur)
+  enqueueBlock(self, src, blck, blobs, data_columns, resfut, maybeFinalized, validationDur)
   resfut
 
 # Event Loop
@@ -830,7 +880,7 @@ proc processBlock(
 
   let res = withBlck(entry.blck):
     await self.storeBlock(
-      entry.src, wallTime, forkyBlck, entry.blobs, entry.maybeFinalized,
+      entry.src, wallTime, forkyBlck, entry.blobs, entry.data_columns, entry.maybeFinalized,
       entry.queueTick, entry.validationDur)
 
   if res.isErr and res.error[1] == ProcessingStatus.notCompleted:
@@ -842,7 +892,7 @@ proc processBlock(
     # https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.2/sync/optimistic.md#execution-engine-errors
     await sleepAsync(chronos.seconds(1))
     self[].enqueueBlock(
-      entry.src, entry.blck, entry.blobs, entry.resfut, entry.maybeFinalized,
+      entry.src, entry.blck, entry.blobs, entry.data_columns, entry.resfut, entry.maybeFinalized,
       entry.validationDur)
     # To ensure backpressure on the sync manager, do not complete these futures.
     return

@@ -261,9 +261,21 @@ proc processSignedBeaconBlock*(
       else:
         Opt.none(BlobSidecars)
 
+    let data_columns =
+      when typeof(signedBlock).kind >= ConsensusFork.Deneb:
+        if self.dataColumnQuarantine[].hasDataColumns(signedBlock):
+          Opt.some(self.dataColumnQuarantine[].popDataColumns(signedBlock.root, signedBlock))
+        else:
+          discard self.quarantine[].addColumnless(self.dag.finalizedHead.slot,
+                                                  signedBlock)
+          return v
+      else:
+        Opt.none(DataColumnSidecars)
+
     self.blockProcessor[].enqueueBlock(
       src, ForkedSignedBeaconBlock.init(signedBlock),
       blobs,
+      data_columns,
       maybeFinalized = maybeFinalized,
       validationDur = nanoseconds(
         (self.getCurrentBeaconTime() - wallTime).nanoseconds))
@@ -317,7 +329,8 @@ proc processBlobSidecar*(
         if self.blobQuarantine[].hasBlobs(forkyBlck):
           self.blockProcessor[].enqueueBlock(
             MsgSource.gossip, blobless,
-            Opt.some(self.blobQuarantine[].popBlobs(block_root, forkyBlck)))
+            Opt.some(self.blobQuarantine[].popBlobs(block_root, forkyBlck)),
+            Opt.none(DataColumnSidecars))
         else:
           discard self.quarantine[].addBlobless(
             self.dag.finalizedHead.slot, forkyBlck)
@@ -352,7 +365,7 @@ proc processDataColumnSidecar*(
 
   if v.isErr():
     debug "Dropping data column", error = v.error()
-    blob_sidecars_dropped.inc(1, [$v.error[0]])
+    data_column_sidecars_dropped.inc(1, [$v.error[0]])
     return v
 
   debug "Data column validated"

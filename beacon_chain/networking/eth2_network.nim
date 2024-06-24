@@ -2663,6 +2663,14 @@ proc broadcastBlobSidecar*(
     topic = getBlobSidecarTopic(forkPrefix, subnet_id)
   node.broadcast(topic, blob)
 
+proc broadcastDataColumnSidecar*(
+    node: Eth2Node, subnet_id: uint64, data_column: DataColumnSidecar):
+    Future[SendResult] {.async: (raises: [CancelledError], raw: true).} =
+  let
+    forkPrefix = node.forkDigestAtEpoch(node.getWallEpoch)
+    topic = getDataColumnSidecarTopic(forkPrefix, subnet_id)
+  node.broadcast(topic, data_column)
+
 proc broadcastSyncCommitteeMessage*(
     node: Eth2Node, msg: SyncCommitteeMessage,
     subcommitteeIdx: SyncSubcommitteeIndex):
