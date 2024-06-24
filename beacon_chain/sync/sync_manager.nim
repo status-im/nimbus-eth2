@@ -225,7 +225,22 @@ proc remainingSlots(man: SyncManager): uint64 =
     else:
       0'u64
 
-func groupBlobs*[T](req: SyncRequest[T],
+proc `$`*(commitments: KzgCommitments): string =
+  "[" & commitments.mapIt(it.bytes.toHex()).join(", ") & "]"
+
+proc `$`*(commitment: KzgCommitment): string =
+  commitment.bytes.toHex()
+
+chronicles.formatIt KzgCommitments:
+  $it
+
+chronicles.formatIt KzgCommitment:
+  $it
+
+proc onlyCommitments(blobs: openArray[ref BlobSidecar]): string =
+  "[" & blobs.mapIt(it.kzg_commitment.bytes.toHex()).join(", ") & "]"
+
+proc groupBlobs*[T](req: SyncRequest[T],
                     blocks: seq[ref ForkedSignedBeaconBlock],
                     blobs: seq[ref BlobSidecar]):
                       Result[seq[BlobSidecars], string] =
@@ -249,6 +264,12 @@ func groupBlobs*[T](req: SyncRequest[T],
           if blob_sidecar.index != BlobIndex blob_idx:
             return err("BlobSidecar: unexpected index")
           if blob_sidecar.kzg_commitment != kzg_commitment:
+            debug "BlobSidecar: debug gump",
+                  blob_idx = blob_idx,
+                  blob_cursor = blob_cursor,
+                  blobs_commitments = onlyCommitments(blobs),
+                  blob_sidecar_commitment = blob_sidecar.kzg_commitment,
+                  block_commitments = kzgs
             return err("BlobSidecar: unexpected kzg_commitment")
           if blob_sidecar.signed_block_header != header:
             return err("BlobSidecar: unexpected signed_block_header")
