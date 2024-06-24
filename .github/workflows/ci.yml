@@ -35,7 +35,7 @@ jobs:
             cpu: amd64
           - os: windows
             cpu: amd64
-        branch: [~, upstream/version-1-6, v2.0.6]
+        branch: [~, v2.0.6]
         exclude:
           - target:
               os: macos
