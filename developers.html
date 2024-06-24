@@ -56,7 +56,7 @@
     
     
     
-    <body dir="ltr" data-md-color-scheme="default" data-md-color-primary="orange" data-md-color-accent="amber">
+    <body dir="ltr" data-md-color-scheme="slate" data-md-color-primary="black" data-md-color-accent="light-blue">
   
     
     
@@ -112,19 +112,19 @@
         
           
           
-          <input class="md-option" data-md-color-media="" data-md-color-scheme="default" data-md-color-primary="orange" data-md-color-accent="amber"  aria-label="Switch to dark mode"  type="radio" name="__palette" id="__palette_1">
+          <input class="md-option" data-md-color-media="" data-md-color-scheme="slate" data-md-color-primary="black" data-md-color-accent="light-blue"  aria-label="Switch to light mode"  type="radio" name="__palette" id="__palette_1">
           
-            <label class="md-header__button md-icon" title="Switch to dark mode" for="__palette_2" hidden>
-              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a4 4 0 0 0-4 4 4 4 0 0 0 4 4 4 4 0 0 0 4-4 4 4 0 0 0-4-4m0 10a6 6 0 0 1-6-6 6 6 0 0 1 6-6 6 6 0 0 1 6 6 6 6 0 0 1-6 6m8-9.31V4h-4.69L12 .69 8.69 4H4v4.69L.69 12 4 15.31V20h4.69L12 23.31 15.31 20H20v-4.69L23.31 12 20 8.69Z"/></svg>
+            <label class="md-header__button md-icon" title="Switch to light mode" for="__palette_2" hidden>
+              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 18c-.89 0-1.74-.2-2.5-.55C11.56 16.5 13 14.42 13 12c0-2.42-1.44-4.5-3.5-5.45C10.26 6.2 11.11 6 12 6a6 6 0 0 1 6 6 6 6 0 0 1-6 6m8-9.31V4h-4.69L12 .69 8.69 4H4v4.69L.69 12 4 15.31V20h4.69L12 23.31 15.31 20H20v-4.69L23.31 12 20 8.69Z"/></svg>
             </label>
           
         
           
           
-          <input class="md-option" data-md-color-media="" data-md-color-scheme="slate" data-md-color-primary="black" data-md-color-accent="light-blue"  aria-label="Switch to light mode"  type="radio" name="__palette" id="__palette_2">
+          <input class="md-option" data-md-color-media="" data-md-color-scheme="default" data-md-color-primary="white" data-md-color-accent="light-blue"  aria-label="Switch to dark mode"  type="radio" name="__palette" id="__palette_2">
           
-            <label class="md-header__button md-icon" title="Switch to light mode" for="__palette_1" hidden>
-              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 18c-.89 0-1.74-.2-2.5-.55C11.56 16.5 13 14.42 13 12c0-2.42-1.44-4.5-3.5-5.45C10.26 6.2 11.11 6 12 6a6 6 0 0 1 6 6 6 6 0 0 1-6 6m8-9.31V4h-4.69L12 .69 8.69 4H4v4.69L.69 12 4 15.31V20h4.69L12 23.31 15.31 20H20v-4.69L23.31 12 20 8.69Z"/></svg>
+            <label class="md-header__button md-icon" title="Switch to dark mode" for="__palette_1" hidden>
+              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a4 4 0 0 0-4 4 4 4 0 0 0 4 4 4 4 0 0 0 4-4 4 4 0 0 0-4-4m0 10a6 6 0 0 1-6-6 6 6 0 0 1 6-6 6 6 0 0 1 6 6 6 6 0 0 1-6 6m8-9.31V4h-4.69L12 .69 8.69 4H4v4.69L.69 12 4 15.31V20h4.69L12 23.31 15.31 20H20v-4.69L23.31 12 20 8.69Z"/></svg>
             </label>
           
         
@@ -1932,110 +1932,110 @@ The compiler is automatically installed when building the project for the first 
 <p>The <code>stable</code> branch tracks the latest released version of Nimbus and is suitable for mainnet staking.</p>
 <h2 id="build-system">Build system</h2>
 <h3 id="windows">Windows</h3>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a>mingw32-make <span class="c1"># this first invocation will update the Git submodules</span>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a>mingw32-make<span class="w"> </span><span class="c1"># this first invocation will update the Git submodules</span>
 </code></pre></div>
 <p>You can now follow the instructions in this this book by replacing <code>make</code> with <code>mingw32-make</code> (you should run <code>mingw32</code> regardless of whether you're running 32-bit or 64-bit architecture):</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a>mingw32-make <span class="nb">test</span> <span class="c1"># run the test suite</span>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a>mingw32-make<span class="w"> </span><span class="nb">test</span><span class="w"> </span><span class="c1"># run the test suite</span>
 </code></pre></div>
 <h3 id="linux-macos">Linux, macOS</h3>
 <p>After cloning the repo:</p>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a><span class="c1"># Build nimbus_beacon_node and all the tools, using 4 parallel Make jobs</span>
-<a id="__codelineno-2-2" name="__codelineno-2-2" href="#__codelineno-2-2"></a>make -j4
+<a id="__codelineno-2-2" name="__codelineno-2-2" href="#__codelineno-2-2"></a>make<span class="w"> </span>-j4
 <a id="__codelineno-2-3" name="__codelineno-2-3" href="#__codelineno-2-3"></a>
 <a id="__codelineno-2-4" name="__codelineno-2-4" href="#__codelineno-2-4"></a><span class="c1"># Run tests</span>
-<a id="__codelineno-2-5" name="__codelineno-2-5" href="#__codelineno-2-5"></a>make <span class="nb">test</span>
+<a id="__codelineno-2-5" name="__codelineno-2-5" href="#__codelineno-2-5"></a>make<span class="w"> </span><span class="nb">test</span>
 <a id="__codelineno-2-6" name="__codelineno-2-6" href="#__codelineno-2-6"></a>
 <a id="__codelineno-2-7" name="__codelineno-2-7" href="#__codelineno-2-7"></a><span class="c1"># Update to latest version</span>
-<a id="__codelineno-2-8" name="__codelineno-2-8" href="#__codelineno-2-8"></a>git pull
-<a id="__codelineno-2-9" name="__codelineno-2-9" href="#__codelineno-2-9"></a>make update
+<a id="__codelineno-2-8" name="__codelineno-2-8" href="#__codelineno-2-8"></a>git<span class="w"> </span>pull
+<a id="__codelineno-2-9" name="__codelineno-2-9" href="#__codelineno-2-9"></a>make<span class="w"> </span>update
 </code></pre></div>
 <h2 id="environment">Environment</h2>
 <p>Nimbus comes with a build environment similar to Python venv.
 This helps ensure that the correct version of Nim is used and that all dependencies can be found.</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a>./env.sh bash <span class="c1"># start a new interactive shell with the right env vars set</span>
-<a id="__codelineno-3-2" name="__codelineno-3-2" href="#__codelineno-3-2"></a>which nim
-<a id="__codelineno-3-3" name="__codelineno-3-3" href="#__codelineno-3-3"></a>nim --version <span class="c1"># Nimbus is tested and supported on 1.2.12 at the moment</span>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a>./env.sh<span class="w"> </span>bash<span class="w"> </span><span class="c1"># start a new interactive shell with the right env vars set</span>
+<a id="__codelineno-3-2" name="__codelineno-3-2" href="#__codelineno-3-2"></a>which<span class="w"> </span>nim
+<a id="__codelineno-3-3" name="__codelineno-3-3" href="#__codelineno-3-3"></a>nim<span class="w"> </span>--version<span class="w"> </span><span class="c1"># Nimbus is tested and supported on 1.2.12 at the moment</span>
 <a id="__codelineno-3-4" name="__codelineno-3-4" href="#__codelineno-3-4"></a>
 <a id="__codelineno-3-5" name="__codelineno-3-5" href="#__codelineno-3-5"></a><span class="c1"># or without starting a new interactive shell:</span>
-<a id="__codelineno-3-6" name="__codelineno-3-6" href="#__codelineno-3-6"></a>./env.sh which nim
-<a id="__codelineno-3-7" name="__codelineno-3-7" href="#__codelineno-3-7"></a>./env.sh nim --version
+<a id="__codelineno-3-6" name="__codelineno-3-6" href="#__codelineno-3-6"></a>./env.sh<span class="w"> </span>which<span class="w"> </span>nim
+<a id="__codelineno-3-7" name="__codelineno-3-7" href="#__codelineno-3-7"></a>./env.sh<span class="w"> </span>nim<span class="w"> </span>--version
 <a id="__codelineno-3-8" name="__codelineno-3-8" href="#__codelineno-3-8"></a>
 <a id="__codelineno-3-9" name="__codelineno-3-9" href="#__codelineno-3-9"></a><span class="c1"># Start Visual Studio code with environment</span>
-<a id="__codelineno-3-10" name="__codelineno-3-10" href="#__codelineno-3-10"></a>./env.sh code
+<a id="__codelineno-3-10" name="__codelineno-3-10" href="#__codelineno-3-10"></a>./env.sh<span class="w"> </span>code
 </code></pre></div>
 <h2 id="makefile-tips-and-tricks-for-developers">Makefile tips and tricks for developers</h2>
 <ul>
 <li>
 <p>build all those tools known to the Makefile:
   <div class="highlight"><pre><span></span><code><a id="__codelineno-4-1" name="__codelineno-4-1" href="#__codelineno-4-1"></a><span class="c1"># $(nproc) corresponds to the number of cores you have</span>
-<a id="__codelineno-4-2" name="__codelineno-4-2" href="#__codelineno-4-2"></a>make -j <span class="k">$(</span>nproc<span class="k">)</span>
+<a id="__codelineno-4-2" name="__codelineno-4-2" href="#__codelineno-4-2"></a>make<span class="w"> </span>-j<span class="w"> </span><span class="k">$(</span>nproc<span class="k">)</span>
 </code></pre></div></p>
 </li>
 <li>
 <p>build a specific tool:
-  <div class="highlight"><pre><span></span><code><a id="__codelineno-5-1" name="__codelineno-5-1" href="#__codelineno-5-1"></a>make block_sim
+  <div class="highlight"><pre><span></span><code><a id="__codelineno-5-1" name="__codelineno-5-1" href="#__codelineno-5-1"></a>make<span class="w"> </span>block_sim
 </code></pre></div></p>
 </li>
 <li>
 <p>you can control the Makefile's verbosity with the V variable (defaults to 0):
-  <div class="highlight"><pre><span></span><code><a id="__codelineno-6-1" name="__codelineno-6-1" href="#__codelineno-6-1"></a>make <span class="nv">V</span><span class="o">=</span><span class="m">1</span> <span class="c1"># verbose</span>
-<a id="__codelineno-6-2" name="__codelineno-6-2" href="#__codelineno-6-2"></a>make <span class="nv">V</span><span class="o">=</span><span class="m">2</span> <span class="nb">test</span> <span class="c1"># even more verbose</span>
+  <div class="highlight"><pre><span></span><code><a id="__codelineno-6-1" name="__codelineno-6-1" href="#__codelineno-6-1"></a>make<span class="w"> </span><span class="nv">V</span><span class="o">=</span><span class="m">1</span><span class="w"> </span><span class="c1"># verbose</span>
+<a id="__codelineno-6-2" name="__codelineno-6-2" href="#__codelineno-6-2"></a>make<span class="w"> </span><span class="nv">V</span><span class="o">=</span><span class="m">2</span><span class="w"> </span><span class="nb">test</span><span class="w"> </span><span class="c1"># even more verbose</span>
 </code></pre></div></p>
 </li>
 <li>
 <p>same for the <a href="https://github.com/status-im/nim-chronicles#chronicles_log_level">Chronicles log level</a>:
-  <div class="highlight"><pre><span></span><code><a id="__codelineno-7-1" name="__codelineno-7-1" href="#__codelineno-7-1"></a>make <span class="nv">LOG_LEVEL</span><span class="o">=</span>DEBUG bench_bls_sig_aggregation <span class="c1"># this is the default</span>
-<a id="__codelineno-7-2" name="__codelineno-7-2" href="#__codelineno-7-2"></a>make <span class="nv">LOG_LEVEL</span><span class="o">=</span>TRACE nimbus_beacon_node <span class="c1"># log everything</span>
+  <div class="highlight"><pre><span></span><code><a id="__codelineno-7-1" name="__codelineno-7-1" href="#__codelineno-7-1"></a>make<span class="w"> </span><span class="nv">LOG_LEVEL</span><span class="o">=</span>DEBUG<span class="w"> </span>bench_bls_sig_aggregation<span class="w"> </span><span class="c1"># this is the default</span>
+<a id="__codelineno-7-2" name="__codelineno-7-2" href="#__codelineno-7-2"></a>make<span class="w"> </span><span class="nv">LOG_LEVEL</span><span class="o">=</span>TRACE<span class="w"> </span>nimbus_beacon_node<span class="w"> </span><span class="c1"># log everything</span>
 </code></pre></div></p>
 </li>
 <li>
 <p>pass arbitrary parameters to the Nim compiler:
-  <div class="highlight"><pre><span></span><code><a id="__codelineno-8-1" name="__codelineno-8-1" href="#__codelineno-8-1"></a>make <span class="nv">NIMFLAGS</span><span class="o">=</span><span class="s2">&quot;-d:release&quot;</span>
+  <div class="highlight"><pre><span></span><code><a id="__codelineno-8-1" name="__codelineno-8-1" href="#__codelineno-8-1"></a>make<span class="w"> </span><span class="nv">NIMFLAGS</span><span class="o">=</span><span class="s2">&quot;-d:release&quot;</span>
 </code></pre></div></p>
 </li>
 <li>
 <p>you can freely combine those variables on the <code>make</code> command line:
-  <div class="highlight"><pre><span></span><code><a id="__codelineno-9-1" name="__codelineno-9-1" href="#__codelineno-9-1"></a>make -j<span class="k">$(</span>nproc<span class="k">)</span> <span class="nv">NIMFLAGS</span><span class="o">=</span><span class="s2">&quot;-d:release&quot;</span> <span class="nv">USE_MULTITAIL</span><span class="o">=</span>yes local-testnet-minimal
+  <div class="highlight"><pre><span></span><code><a id="__codelineno-9-1" name="__codelineno-9-1" href="#__codelineno-9-1"></a>make<span class="w"> </span>-j<span class="k">$(</span>nproc<span class="k">)</span><span class="w"> </span><span class="nv">NIMFLAGS</span><span class="o">=</span><span class="s2">&quot;-d:release&quot;</span><span class="w"> </span><span class="nv">USE_MULTITAIL</span><span class="o">=</span>yes<span class="w"> </span>local-testnet-minimal
 </code></pre></div></p>
 </li>
 <li>
 <p>don't use the <a href="https://github.com/status-im/nimbus-eth2/pull/745">lightweight stack tracing implementation from nim-libbacktrace</a>:
-  <div class="highlight"><pre><span></span><code><a id="__codelineno-10-1" name="__codelineno-10-1" href="#__codelineno-10-1"></a>make <span class="nv">USE_LIBBACKTRACE</span><span class="o">=</span><span class="m">0</span> <span class="c1"># expect the resulting binaries to be 2-3 times slower</span>
+  <div class="highlight"><pre><span></span><code><a id="__codelineno-10-1" name="__codelineno-10-1" href="#__codelineno-10-1"></a>make<span class="w"> </span><span class="nv">USE_LIBBACKTRACE</span><span class="o">=</span><span class="m">0</span><span class="w"> </span><span class="c1"># expect the resulting binaries to be 2-3 times slower</span>
 </code></pre></div></p>
 </li>
 <li>
 <p>disable <code>-march=native</code> because you want to run the binary on a different machine than the one you're building it on:
-  <div class="highlight"><pre><span></span><code><a id="__codelineno-11-1" name="__codelineno-11-1" href="#__codelineno-11-1"></a>make <span class="nv">NIMFLAGS</span><span class="o">=</span><span class="s2">&quot;-d:disableMarchNative&quot;</span> nimbus_beacon_node
+  <div class="highlight"><pre><span></span><code><a id="__codelineno-11-1" name="__codelineno-11-1" href="#__codelineno-11-1"></a>make<span class="w"> </span><span class="nv">NIMFLAGS</span><span class="o">=</span><span class="s2">&quot;-d:disableMarchNative&quot;</span><span class="w"> </span>nimbus_beacon_node
 </code></pre></div></p>
 </li>
 <li>
 <p>disable link-time optimization (LTO):
-  <div class="highlight"><pre><span></span><code><a id="__codelineno-12-1" name="__codelineno-12-1" href="#__codelineno-12-1"></a>make <span class="nv">NIMFLAGS</span><span class="o">=</span><span class="s2">&quot;-d:disableLTO&quot;</span> nimbus_beacon_node
+  <div class="highlight"><pre><span></span><code><a id="__codelineno-12-1" name="__codelineno-12-1" href="#__codelineno-12-1"></a>make<span class="w"> </span><span class="nv">NIMFLAGS</span><span class="o">=</span><span class="s2">&quot;-d:disableLTO&quot;</span><span class="w"> </span>nimbus_beacon_node
 </code></pre></div></p>
 </li>
 <li>
 <p>show C compiler warnings:
-  <div class="highlight"><pre><span></span><code><a id="__codelineno-13-1" name="__codelineno-13-1" href="#__codelineno-13-1"></a>make <span class="nv">NIMFLAGS</span><span class="o">=</span><span class="s2">&quot;-d:cwarnings&quot;</span> nimbus_beacon_node
+  <div class="highlight"><pre><span></span><code><a id="__codelineno-13-1" name="__codelineno-13-1" href="#__codelineno-13-1"></a>make<span class="w"> </span><span class="nv">NIMFLAGS</span><span class="o">=</span><span class="s2">&quot;-d:cwarnings&quot;</span><span class="w"> </span>nimbus_beacon_node
 </code></pre></div></p>
 </li>
 <li>
 <p>limit stack usage to 1 MiB per C function (static analysis - see the <a href="https://gcc.gnu.org/onlinedocs/gnat_ugn/Static-Stack-Usage-Analysis.html">GCC docs</a>; if LTO is enabled, it works without <code>-d:cwarnings</code>):
-  <div class="highlight"><pre><span></span><code><a id="__codelineno-14-1" name="__codelineno-14-1" href="#__codelineno-14-1"></a>make <span class="nv">NIMFLAGS</span><span class="o">=</span><span class="s2">&quot;-d:limitStackUsage&quot;</span> nimbus_beacon_node
+  <div class="highlight"><pre><span></span><code><a id="__codelineno-14-1" name="__codelineno-14-1" href="#__codelineno-14-1"></a>make<span class="w"> </span><span class="nv">NIMFLAGS</span><span class="o">=</span><span class="s2">&quot;-d:limitStackUsage&quot;</span><span class="w"> </span>nimbus_beacon_node
 </code></pre></div></p>
 </li>
 <li>
 <p>build a static binary:
-  <div class="highlight"><pre><span></span><code><a id="__codelineno-15-1" name="__codelineno-15-1" href="#__codelineno-15-1"></a>make <span class="nv">NIMFLAGS</span><span class="o">=</span><span class="s2">&quot;--passL:-static&quot;</span> nimbus_beacon_node
+  <div class="highlight"><pre><span></span><code><a id="__codelineno-15-1" name="__codelineno-15-1" href="#__codelineno-15-1"></a>make<span class="w"> </span><span class="nv">NIMFLAGS</span><span class="o">=</span><span class="s2">&quot;--passL:-static&quot;</span><span class="w"> </span>nimbus_beacon_node
 </code></pre></div></p>
 </li>
 <li>
 <p>publish a book using <a href="https://github.com/rust-lang/mdBook">mdBook</a> from sources in "docs/" to GitHub pages:
-  <div class="highlight"><pre><span></span><code><a id="__codelineno-16-1" name="__codelineno-16-1" href="#__codelineno-16-1"></a>make publish-book
+  <div class="highlight"><pre><span></span><code><a id="__codelineno-16-1" name="__codelineno-16-1" href="#__codelineno-16-1"></a>make<span class="w"> </span>publish-book
 </code></pre></div></p>
 </li>
 <li>
 <p>create a binary distribution:
-  <div class="highlight"><pre><span></span><code><a id="__codelineno-17-1" name="__codelineno-17-1" href="#__codelineno-17-1"></a>make dist
+  <div class="highlight"><pre><span></span><code><a id="__codelineno-17-1" name="__codelineno-17-1" href="#__codelineno-17-1"></a>make<span class="w"> </span>dist
 </code></pre></div></p>
 </li>
 </ul>
@@ -2043,7 +2043,7 @@ This helps ensure that the correct version of Nim is used and that all dependenc
 <p><a href="https://github.com/eth2-clients/multinet">This repository</a> contains a set of scripts used by the client implementation teams to test interop between the clients (in certain simplified scenarios).
 It mostly helps us find and debug issues.</p>
 <h2 id="stress-testing-the-client-by-limiting-the-cpu-power">Stress-testing the client by limiting the CPU power</h2>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-18-1" name="__codelineno-18-1" href="#__codelineno-18-1"></a>make prater <span class="nv">CPU_LIMIT</span><span class="o">=</span><span class="m">20</span>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-18-1" name="__codelineno-18-1" href="#__codelineno-18-1"></a>make<span class="w"> </span>prater<span class="w"> </span><span class="nv">CPU_LIMIT</span><span class="o">=</span><span class="m">20</span>
 </code></pre></div>
 <p>The limiting is provided by the <code>cpulimit</code> utility, available on Linux and macOS.
 The specified value is a percentage of a single CPU core.
@@ -2051,15 +2051,15 @@ Usually 1 - 100, but can be higher on multi-core CPUs.</p>
 <h2 id="build-and-run-the-local-beacon-chain-simulation">Build and run the local beacon chain simulation</h2>
 <p>The beacon chain simulation runs several beacon nodes on the local machine, attaches several local validators to each, and builds a beacon chain between them.</p>
 <p>To run the simulation:</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-19-1" name="__codelineno-19-1" href="#__codelineno-19-1"></a>make update
-<a id="__codelineno-19-2" name="__codelineno-19-2" href="#__codelineno-19-2"></a>make local-testnet-minimal
+<div class="highlight"><pre><span></span><code><a id="__codelineno-19-1" name="__codelineno-19-1" href="#__codelineno-19-1"></a>make<span class="w"> </span>update
+<a id="__codelineno-19-2" name="__codelineno-19-2" href="#__codelineno-19-2"></a>make<span class="w"> </span>local-testnet-minimal
 </code></pre></div>
 <p>To clean the previous run's data:</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-20-1" name="__codelineno-20-1" href="#__codelineno-20-1"></a>make clean_eth2_network_simulation_all
+<div class="highlight"><pre><span></span><code><a id="__codelineno-20-1" name="__codelineno-20-1" href="#__codelineno-20-1"></a>make<span class="w"> </span>clean_eth2_network_simulation_all
 </code></pre></div>
 <p>To change the number of validators and nodes:</p>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-21-1" name="__codelineno-21-1" href="#__codelineno-21-1"></a><span class="c1"># Clear data files from your last run and start the simulation with a new genesis block:</span>
-<a id="__codelineno-21-2" name="__codelineno-21-2" href="#__codelineno-21-2"></a>make <span class="nv">VALIDATORS</span><span class="o">=</span><span class="m">192</span> <span class="nv">NODES</span><span class="o">=</span><span class="m">6</span> <span class="nv">USER_NODES</span><span class="o">=</span><span class="m">1</span> local-testnet-minimal
+<a id="__codelineno-21-2" name="__codelineno-21-2" href="#__codelineno-21-2"></a>make<span class="w"> </span><span class="nv">VALIDATORS</span><span class="o">=</span><span class="m">192</span><span class="w"> </span><span class="nv">NODES</span><span class="o">=</span><span class="m">6</span><span class="w"> </span><span class="nv">USER_NODES</span><span class="o">=</span><span class="m">1</span><span class="w"> </span>local-testnet-minimal
 </code></pre></div>
 <p>If you’d like to see the nodes running on separated sub-terminals inside one big window, install <a href="https://www.vanheusden.com/multitail/">Multitail</a> (if you're on a Mac, follow the instructions <a href="https://brewinstall.org/Install-multitail-on-Mac-with-Brew/">here</a>), then:</p>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-22-1" name="__codelineno-22-1" href="#__codelineno-22-1"></a>USE_MULTITAIL=&quot;yes&quot; make local-testnet-minimal
@@ -2073,8 +2073,8 @@ Usually 1 - 100, but can be higher on multi-core CPUs.</p>
 It runs without networking and blocks are processed without slot time delays.</p>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-23-1" name="__codelineno-23-1" href="#__codelineno-23-1"></a><span class="c1"># build the state simulator, then display its help (&quot;-d:release&quot; speeds it</span>
 <a id="__codelineno-23-2" name="__codelineno-23-2" href="#__codelineno-23-2"></a><span class="c1"># up substantially, allowing the simulation of longer runs in reasonable time)</span>
-<a id="__codelineno-23-3" name="__codelineno-23-3" href="#__codelineno-23-3"></a>make <span class="nv">NIMFLAGS</span><span class="o">=</span><span class="s2">&quot;-d:release&quot;</span> block_sim
-<a id="__codelineno-23-4" name="__codelineno-23-4" href="#__codelineno-23-4"></a>build/block_sim --help
+<a id="__codelineno-23-3" name="__codelineno-23-3" href="#__codelineno-23-3"></a>make<span class="w"> </span><span class="nv">NIMFLAGS</span><span class="o">=</span><span class="s2">&quot;-d:release&quot;</span><span class="w"> </span>block_sim
+<a id="__codelineno-23-4" name="__codelineno-23-4" href="#__codelineno-23-4"></a>build/block_sim<span class="w"> </span>--help
 </code></pre></div>
 <p>Use the output of the <code>help</code> command to pass desired values to the simulator.
 Experiment with changing the number of slots, validators, etc. to get different results.</p>
@@ -2088,7 +2088,7 @@ Experiment with changing the number of slots, validators, etc. to get different 
 <div class="highlight"><pre><span></span><code><a id="__codelineno-24-1" name="__codelineno-24-1" href="#__codelineno-24-1"></a>build/block_sim --slots=384 --validators=20000 --attesterRatio=0.66
 </code></pre></div>
 <h2 id="sync-from-a-specific-peer">Sync from a specific peer</h2>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-25-1" name="__codelineno-25-1" href="#__codelineno-25-1"></a>build/nimbus_beacon_node --no-el --discv5:off --tcp-port<span class="o">=</span><span class="m">9876</span> --direct-peer<span class="o">=</span><span class="s2">&quot;/ip4/127.0.0.1/tcp/9000/p2p/</span><span class="k">$(</span>curl -s -X <span class="s1">&#39;GET&#39;</span> <span class="s1">&#39;http://localhost:5052/eth/v1/node/identity&#39;</span> -H <span class="s1">&#39;accept: application/json&#39;</span> <span class="p">|</span> jq  -r .data.peer_id<span class="k">)</span><span class="s2">&quot;</span>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-25-1" name="__codelineno-25-1" href="#__codelineno-25-1"></a>build/nimbus_beacon_node<span class="w"> </span>--no-el<span class="w"> </span>--discv5:off<span class="w"> </span>--tcp-port<span class="o">=</span><span class="m">9876</span><span class="w"> </span>--direct-peer<span class="o">=</span><span class="s2">&quot;/ip4/127.0.0.1/tcp/9000/p2p/</span><span class="k">$(</span>curl<span class="w"> </span>-s<span class="w"> </span>-X<span class="w"> </span><span class="s1">&#39;GET&#39;</span><span class="w"> </span><span class="s1">&#39;http://localhost:5052/eth/v1/node/identity&#39;</span><span class="w"> </span>-H<span class="w"> </span><span class="s1">&#39;accept: application/json&#39;</span><span class="w"> </span><span class="p">|</span><span class="w"> </span>jq<span class="w">  </span>-r<span class="w"> </span>.data.peer_id<span class="k">)</span><span class="s2">&quot;</span>
 </code></pre></div>
 
               

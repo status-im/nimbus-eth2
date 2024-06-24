@@ -56,7 +56,7 @@
     
     
     
-    <body dir="ltr" data-md-color-scheme="default" data-md-color-primary="orange" data-md-color-accent="amber">
+    <body dir="ltr" data-md-color-scheme="slate" data-md-color-primary="black" data-md-color-accent="light-blue">
   
     
     
@@ -112,19 +112,19 @@
         
           
           
-          <input class="md-option" data-md-color-media="" data-md-color-scheme="default" data-md-color-primary="orange" data-md-color-accent="amber"  aria-label="Switch to dark mode"  type="radio" name="__palette" id="__palette_1">
+          <input class="md-option" data-md-color-media="" data-md-color-scheme="slate" data-md-color-primary="black" data-md-color-accent="light-blue"  aria-label="Switch to light mode"  type="radio" name="__palette" id="__palette_1">
           
-            <label class="md-header__button md-icon" title="Switch to dark mode" for="__palette_2" hidden>
-              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a4 4 0 0 0-4 4 4 4 0 0 0 4 4 4 4 0 0 0 4-4 4 4 0 0 0-4-4m0 10a6 6 0 0 1-6-6 6 6 0 0 1 6-6 6 6 0 0 1 6 6 6 6 0 0 1-6 6m8-9.31V4h-4.69L12 .69 8.69 4H4v4.69L.69 12 4 15.31V20h4.69L12 23.31 15.31 20H20v-4.69L23.31 12 20 8.69Z"/></svg>
+            <label class="md-header__button md-icon" title="Switch to light mode" for="__palette_2" hidden>
+              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 18c-.89 0-1.74-.2-2.5-.55C11.56 16.5 13 14.42 13 12c0-2.42-1.44-4.5-3.5-5.45C10.26 6.2 11.11 6 12 6a6 6 0 0 1 6 6 6 6 0 0 1-6 6m8-9.31V4h-4.69L12 .69 8.69 4H4v4.69L.69 12 4 15.31V20h4.69L12 23.31 15.31 20H20v-4.69L23.31 12 20 8.69Z"/></svg>
             </label>
           
         
           
           
-          <input class="md-option" data-md-color-media="" data-md-color-scheme="slate" data-md-color-primary="black" data-md-color-accent="light-blue"  aria-label="Switch to light mode"  type="radio" name="__palette" id="__palette_2">
+          <input class="md-option" data-md-color-media="" data-md-color-scheme="default" data-md-color-primary="white" data-md-color-accent="light-blue"  aria-label="Switch to dark mode"  type="radio" name="__palette" id="__palette_2">
           
-            <label class="md-header__button md-icon" title="Switch to light mode" for="__palette_1" hidden>
-              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 18c-.89 0-1.74-.2-2.5-.55C11.56 16.5 13 14.42 13 12c0-2.42-1.44-4.5-3.5-5.45C10.26 6.2 11.11 6 12 6a6 6 0 0 1 6 6 6 6 0 0 1-6 6m8-9.31V4h-4.69L12 .69 8.69 4H4v4.69L.69 12 4 15.31V20h4.69L12 23.31 15.31 20H20v-4.69L23.31 12 20 8.69Z"/></svg>
+            <label class="md-header__button md-icon" title="Switch to dark mode" for="__palette_1" hidden>
+              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a4 4 0 0 0-4 4 4 4 0 0 0 4 4 4 4 0 0 0 4-4 4 4 0 0 0-4-4m0 10a6 6 0 0 1-6-6 6 6 0 0 1 6-6 6 6 0 0 1 6 6 6 6 0 0 1-6 6m8-9.31V4h-4.69L12 .69 8.69 4H4v4.69L.69 12 4 15.31V20h4.69L12 23.31 15.31 20H20v-4.69L23.31 12 20 8.69Z"/></svg>
             </label>
           
         
@@ -2070,25 +2070,25 @@ See <a href="https://en.wikipedia.org/wiki/ISO_3166-1">Wikipedia</a> for a list 
 If it is found, SSH is enabled and the file is deleted.
 The content of the file does not matter; it can contain text, or nothing at all.</p>
 <p>To create an empty <code>ssh</code> file, from the home directory of the <code>boot</code> partition file, run:</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a>touch ssh
+<div class="highlight"><pre><span></span><code><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a>touch<span class="w"> </span>ssh
 </code></pre></div>
 <h3 id="7-find-your-pis-ip-address">7. Find your Pi's IP address</h3>
 <p>Since Raspberry Pi OS supports <a href="https://en.wikipedia.org/wiki/Multicast_DNS">Multicast_DNS</a> out of the box, you can reach your Raspberry Pi by using its hostname and the <code>.local</code> suffix.</p>
 <p>The default hostname on a fresh Raspberry Pi OS install is <code>raspberrypi</code>, so any Raspberry Pi running Raspberry Pi OS should respond to:</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a>ping raspberrypi.local
+<div class="highlight"><pre><span></span><code><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a>ping<span class="w"> </span>raspberrypi.local
 </code></pre></div>
 <p>The output should look more or less as follows:</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a>PING raspberrypi.local <span class="o">(</span><span class="m">195</span>.177.101.93<span class="o">)</span>: <span class="m">56</span> data bytes
-<a id="__codelineno-3-2" name="__codelineno-3-2" href="#__codelineno-3-2"></a><span class="m">64</span> bytes from <span class="m">195</span>.177.101.93: <span class="nv">icmp_seq</span><span class="o">=</span><span class="m">0</span> <span class="nv">ttl</span><span class="o">=</span><span class="m">64</span> <span class="nv">time</span><span class="o">=</span><span class="m">13</span>.272 ms
-<a id="__codelineno-3-3" name="__codelineno-3-3" href="#__codelineno-3-3"></a><span class="m">64</span> bytes from <span class="m">195</span>.177.101.93: <span class="nv">icmp_seq</span><span class="o">=</span><span class="m">1</span> <span class="nv">ttl</span><span class="o">=</span><span class="m">64</span> <span class="nv">time</span><span class="o">=</span><span class="m">16</span>.773 ms
-<a id="__codelineno-3-4" name="__codelineno-3-4" href="#__codelineno-3-4"></a><span class="m">64</span> bytes from <span class="m">195</span>.177.101.93: <span class="nv">icmp_seq</span><span class="o">=</span><span class="m">2</span> <span class="nv">ttl</span><span class="o">=</span><span class="m">64</span> <span class="nv">time</span><span class="o">=</span><span class="m">10</span>.828 ms
+<div class="highlight"><pre><span></span><code><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a>PING<span class="w"> </span>raspberrypi.local<span class="w"> </span><span class="o">(</span><span class="m">195</span>.177.101.93<span class="o">)</span>:<span class="w"> </span><span class="m">56</span><span class="w"> </span>data<span class="w"> </span>bytes
+<a id="__codelineno-3-2" name="__codelineno-3-2" href="#__codelineno-3-2"></a><span class="m">64</span><span class="w"> </span>bytes<span class="w"> </span>from<span class="w"> </span><span class="m">195</span>.177.101.93:<span class="w"> </span><span class="nv">icmp_seq</span><span class="o">=</span><span class="m">0</span><span class="w"> </span><span class="nv">ttl</span><span class="o">=</span><span class="m">64</span><span class="w"> </span><span class="nv">time</span><span class="o">=</span><span class="m">13</span>.272<span class="w"> </span>ms
+<a id="__codelineno-3-3" name="__codelineno-3-3" href="#__codelineno-3-3"></a><span class="m">64</span><span class="w"> </span>bytes<span class="w"> </span>from<span class="w"> </span><span class="m">195</span>.177.101.93:<span class="w"> </span><span class="nv">icmp_seq</span><span class="o">=</span><span class="m">1</span><span class="w"> </span><span class="nv">ttl</span><span class="o">=</span><span class="m">64</span><span class="w"> </span><span class="nv">time</span><span class="o">=</span><span class="m">16</span>.773<span class="w"> </span>ms
+<a id="__codelineno-3-4" name="__codelineno-3-4" href="#__codelineno-3-4"></a><span class="m">64</span><span class="w"> </span>bytes<span class="w"> </span>from<span class="w"> </span><span class="m">195</span>.177.101.93:<span class="w"> </span><span class="nv">icmp_seq</span><span class="o">=</span><span class="m">2</span><span class="w"> </span><span class="nv">ttl</span><span class="o">=</span><span class="m">64</span><span class="w"> </span><span class="nv">time</span><span class="o">=</span><span class="m">10</span>.828<span class="w"> </span>ms
 <a id="__codelineno-3-5" name="__codelineno-3-5" href="#__codelineno-3-5"></a>...
 </code></pre></div>
 <p>Keep note of your Pi's IP address.
 In the above case, that's <code>195.177.101.93</code></p>
 <h3 id="8-ssh-using-linux-or-macos">8. SSH (using Linux or macOS)</h3>
 <p>Connect to your Pi by running:</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-4-1" name="__codelineno-4-1" href="#__codelineno-4-1"></a>ssh pi@195.177.101.93
+<div class="highlight"><pre><span></span><code><a id="__codelineno-4-1" name="__codelineno-4-1" href="#__codelineno-4-1"></a>ssh<span class="w"> </span>pi@195.177.101.93
 </code></pre></div>
 <p>You'll be prompted to enter a password:
 <div class="highlight"><pre><span></span><code><a id="__codelineno-5-1" name="__codelineno-5-1" href="#__codelineno-5-1"></a>pi@195.177.101.93&#39;s password:
@@ -2109,7 +2109,7 @@ In the above case, that's <code>195.177.101.93</code></p>
 <a id="__codelineno-6-12" name="__codelineno-6-12" href="#__codelineno-6-12"></a>This is a security risk - please login as the &#39;pi&#39; user and type &#39;passwd&#39; to set a new password.
 </code></pre></div></p>
 <p>Followed by a command-line prompt indicating a successful connection:</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-7-1" name="__codelineno-7-1" href="#__codelineno-7-1"></a>pi@raspberrypi:~ $
+<div class="highlight"><pre><span></span><code><a id="__codelineno-7-1" name="__codelineno-7-1" href="#__codelineno-7-1"></a>pi@raspberrypi:~<span class="w"> </span>$
 </code></pre></div>
 <h3 id="9-increase-swap-size-to-2gb">9. Increase swap size to 2GB</h3>
 <p>The first step is to increase the <a href="https://itsfoss.com/swap-size/">swap size</a> to 2GB (2048MB).</p>
@@ -2119,7 +2119,7 @@ In the above case, that's <code>195.177.101.93</code></p>
 When the RAM is exhausted, your Linux system uses part of the hard disk memory and allocates it to the running application.</p>
 </div>
 <p>Use the Pi's built-in text editor <a href="https://www.nano-editor.org/dist/latest/cheatsheet.html">nano</a> to open up the swap file:</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-8-1" name="__codelineno-8-1" href="#__codelineno-8-1"></a>sudo nano /etc/dphys-swapfile
+<div class="highlight"><pre><span></span><code><a id="__codelineno-8-1" name="__codelineno-8-1" href="#__codelineno-8-1"></a>sudo<span class="w"> </span>nano<span class="w"> </span>/etc/dphys-swapfile
 </code></pre></div>
 <p>Change the value assigned to <code>CONF_SWAPSIZE</code> from <code>100</code> to <code>2048</code>:</p>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-9-1" name="__codelineno-9-1" href="#__codelineno-9-1"></a>...
@@ -2133,11 +2133,11 @@ When the RAM is exhausted, your Linux system uses part of the hard disk memory a
 <p>Save (<code>Ctrl+S</code>) and exit (<code>Ctrl+X</code>).</p>
 <h3 id="10-reboot">10. Reboot</h3>
 <p>Reboot your Pi to have the above changes take effect:</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-10-1" name="__codelineno-10-1" href="#__codelineno-10-1"></a>sudo reboot
+<div class="highlight"><pre><span></span><code><a id="__codelineno-10-1" name="__codelineno-10-1" href="#__codelineno-10-1"></a>sudo<span class="w"> </span>reboot
 </code></pre></div>
 <p>This will cause your connection to close.
 So you'll need to <code>ssh</code> into your Pi again:</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-11-1" name="__codelineno-11-1" href="#__codelineno-11-1"></a>ssh pi@195.177.101.93
+<div class="highlight"><pre><span></span><code><a id="__codelineno-11-1" name="__codelineno-11-1" href="#__codelineno-11-1"></a>ssh<span class="w"> </span>pi@195.177.101.93
 </code></pre></div>
 <div class="admonition note">
 <p class="admonition-title">Note</p>
@@ -2149,11 +2149,11 @@ So you'll need to <code>ssh</code> into your Pi again:</p>
 <p class="admonition-title">Tip</p>
 <p>Make sure you connect your SSD the Pi's USB 3 port (the blue port).</p>
 <p>If your Pi is headless (no monitor attached) you can use the <a href="https://github.com/billw2/rpi-clone"><code>rpi-clone</code></a> repository to copy the contents of the SD over to the SSD; in a nutshell, replace steps 14 and 15 of the above guide with the following commands (which you should run from the Pi's <code>home</code> directory):</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-12-1" name="__codelineno-12-1" href="#__codelineno-12-1"></a>git clone https://github.com/billw2/rpi-clone.git
-<a id="__codelineno-12-2" name="__codelineno-12-2" href="#__codelineno-12-2"></a><span class="nb">cd</span> rpi-clone
-<a id="__codelineno-12-3" name="__codelineno-12-3" href="#__codelineno-12-3"></a>sudo cp rpi-clone rpi-clone-setup /usr/local/sbin
-<a id="__codelineno-12-4" name="__codelineno-12-4" href="#__codelineno-12-4"></a>sudo rpi-clone-setup -t testhostname
-<a id="__codelineno-12-5" name="__codelineno-12-5" href="#__codelineno-12-5"></a>rpi-clone sda
+<div class="highlight"><pre><span></span><code><a id="__codelineno-12-1" name="__codelineno-12-1" href="#__codelineno-12-1"></a>git<span class="w"> </span>clone<span class="w"> </span>https://github.com/billw2/rpi-clone.git
+<a id="__codelineno-12-2" name="__codelineno-12-2" href="#__codelineno-12-2"></a><span class="nb">cd</span><span class="w"> </span>rpi-clone
+<a id="__codelineno-12-3" name="__codelineno-12-3" href="#__codelineno-12-3"></a>sudo<span class="w"> </span>cp<span class="w"> </span>rpi-clone<span class="w"> </span>rpi-clone-setup<span class="w"> </span>/usr/local/sbin
+<a id="__codelineno-12-4" name="__codelineno-12-4" href="#__codelineno-12-4"></a>sudo<span class="w"> </span>rpi-clone-setup<span class="w"> </span>-t<span class="w"> </span>testhostname
+<a id="__codelineno-12-5" name="__codelineno-12-5" href="#__codelineno-12-5"></a>rpi-clone<span class="w"> </span>sda
 </code></pre></div>
 </div>
 <p>For more on <code>raspi-config</code>, see <a href="https://www.raspberrypi.com/documentation/computers/configuration.html">here</a>.</p>
@@ -2165,7 +2165,7 @@ So you'll need to <code>ssh</code> into your Pi again:</p>
 <h3 id="11-overclocking">11. Overclocking</h3>
 <p>Nimbus requires the Raspberry Pi to be overclocked.</p>
 <p>To overclock your Raspberry Pi, you need to add two lines to the <code>/boot/firmware/usercfg.txt</code> file:</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-13-1" name="__codelineno-13-1" href="#__codelineno-13-1"></a>sudo nano /boot/firmware/usercfg.txt
+<div class="highlight"><pre><span></span><code><a id="__codelineno-13-1" name="__codelineno-13-1" href="#__codelineno-13-1"></a>sudo<span class="w"> </span>nano<span class="w"> </span>/boot/firmware/usercfg.txt
 </code></pre></div>
 <p>Add the following two lines to the end of the file:</p>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-14-1" name="__codelineno-14-1" href="#__codelineno-14-1"></a>arm_freq=1800
@@ -2181,16 +2181,16 @@ This increases the CPU clock from 1500 MHz to 1800 MHz and raises the CPU voltag
 <ol>
 <li>
 <p>Add Status APT repository to your system.</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-15-1" name="__codelineno-15-1" href="#__codelineno-15-1"></a><span class="nb">echo</span> <span class="s1">&#39;deb https://apt.status.im/nimbus all main&#39;</span> <span class="p">|</span> sudo tee /etc/apt/sources.list.d/nimbus.list
+<div class="highlight"><pre><span></span><code><a id="__codelineno-15-1" name="__codelineno-15-1" href="#__codelineno-15-1"></a><span class="nb">echo</span><span class="w"> </span><span class="s1">&#39;deb https://apt.status.im/nimbus all main&#39;</span><span class="w"> </span><span class="p">|</span><span class="w"> </span>sudo<span class="w"> </span>tee<span class="w"> </span>/etc/apt/sources.list.d/nimbus.list
 <a id="__codelineno-15-2" name="__codelineno-15-2" href="#__codelineno-15-2"></a>
 <a id="__codelineno-15-3" name="__codelineno-15-3" href="#__codelineno-15-3"></a><span class="c1"># Import the GPG key used to sign the releases:</span>
-<a id="__codelineno-15-4" name="__codelineno-15-4" href="#__codelineno-15-4"></a>sudo curl https://apt.status.im/pubkey.asc -o /etc/apt/trusted.gpg.d/apt-status-im.asc
+<a id="__codelineno-15-4" name="__codelineno-15-4" href="#__codelineno-15-4"></a>sudo<span class="w"> </span>curl<span class="w"> </span>https://apt.status.im/pubkey.asc<span class="w"> </span>-o<span class="w"> </span>/etc/apt/trusted.gpg.d/apt-status-im.asc
 </code></pre></div>
 </li>
 <li>
 <p>Install Nimbus using APT:</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-16-1" name="__codelineno-16-1" href="#__codelineno-16-1"></a>sudo apt-get update
-<a id="__codelineno-16-2" name="__codelineno-16-2" href="#__codelineno-16-2"></a>sudo apt-get install nimbus-beacon-node nimbus-validator-client
+<div class="highlight"><pre><span></span><code><a id="__codelineno-16-1" name="__codelineno-16-1" href="#__codelineno-16-1"></a>sudo<span class="w"> </span>apt-get<span class="w"> </span>update
+<a id="__codelineno-16-2" name="__codelineno-16-2" href="#__codelineno-16-2"></a>sudo<span class="w"> </span>apt-get<span class="w"> </span>install<span class="w"> </span>nimbus-beacon-node<span class="w"> </span>nimbus-validator-client
 </code></pre></div>
 </li>
 </ol>
@@ -2198,10 +2198,10 @@ This increases the CPU clock from 1500 MHz to 1800 MHz and raises the CPU voltag
 <div class="tabbed-block">
 <p>Open the <a href="https://github.com/status-im/nimbus-eth2/releases/latest">Nimbus eth2 releases page</a>, go to the Assets on the bottom of the page, and copy the link for the file that starts with <code>nimbus-eth2_Linux_arm64v8</code>.</p>
 <p>Run this in your home directory to download nimbus-eth2:</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-17-1" name="__codelineno-17-1" href="#__codelineno-17-1"></a>mkdir nimbus-eth2
-<a id="__codelineno-17-2" name="__codelineno-17-2" href="#__codelineno-17-2"></a>wget &lt;insert download link here&gt;
-<a id="__codelineno-17-3" name="__codelineno-17-3" href="#__codelineno-17-3"></a>tar -xzf nimbus-eth2_Linux_arm64v8*.tar.gz -C nimbus-eth2
-<a id="__codelineno-17-4" name="__codelineno-17-4" href="#__codelineno-17-4"></a>rm nimbus-eth2_Linux_arm64v8*.tar.gz
+<div class="highlight"><pre><span></span><code><a id="__codelineno-17-1" name="__codelineno-17-1" href="#__codelineno-17-1"></a>mkdir<span class="w"> </span>nimbus-eth2
+<a id="__codelineno-17-2" name="__codelineno-17-2" href="#__codelineno-17-2"></a>wget<span class="w"> </span>&lt;insert<span class="w"> </span>download<span class="w"> </span>link<span class="w"> </span>here&gt;
+<a id="__codelineno-17-3" name="__codelineno-17-3" href="#__codelineno-17-3"></a>tar<span class="w"> </span>-xzf<span class="w"> </span>nimbus-eth2_Linux_arm64v8*.tar.gz<span class="w"> </span>-C<span class="w"> </span>nimbus-eth2
+<a id="__codelineno-17-4" name="__codelineno-17-4" href="#__codelineno-17-4"></a>rm<span class="w"> </span>nimbus-eth2_Linux_arm64v8*.tar.gz
 </code></pre></div>
 <p>Now you can find the software in the nimbus-eth2 directory.</p>
 </div>
@@ -2215,7 +2215,7 @@ This increases the CPU clock from 1500 MHz to 1800 MHz and raises the CPU voltag
 <p>We'll use the <code>scp</code> command to send files over SSH.
 It allows you to copy files between computers, say from your Raspberry Pi to your desktop/laptop, or vice-versa.</p>
 <p>Copy the folder containing your validator key(s) from your computer to your <code>pi</code>'s home folder by opening up a new terminal window and running the following command:</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-18-1" name="__codelineno-18-1" href="#__codelineno-18-1"></a>scp -r &lt;VALIDATOR_KEYS_DIRECTORY&gt; pi@195.177.101.93:
+<div class="highlight"><pre><span></span><code><a id="__codelineno-18-1" name="__codelineno-18-1" href="#__codelineno-18-1"></a>scp<span class="w"> </span>-r<span class="w"> </span>&lt;VALIDATOR_KEYS_DIRECTORY&gt;<span class="w"> </span>pi@195.177.101.93:
 </code></pre></div>
 <div class="admonition note">
 <p class="admonition-title">Note</p>
@@ -2232,12 +2232,12 @@ It allows you to copy files between computers, say from your Raspberry Pi to you
 <div class="tabbed-content">
 <div class="tabbed-block">
 <div class="highlight"><pre><span></span><code><a id="__codelineno-19-1" name="__codelineno-19-1" href="#__codelineno-19-1"></a><span class="c1"># Run import command as the `nimbus` user</span>
-<a id="__codelineno-19-2" name="__codelineno-19-2" href="#__codelineno-19-2"></a>sudo -u nimbus /usr/bin/nimbus_beacon_node deposits import --data-dir<span class="o">=</span>/var/lib/nimbus/shared_holesky_0 /path/to/keys
+<a id="__codelineno-19-2" name="__codelineno-19-2" href="#__codelineno-19-2"></a>sudo<span class="w"> </span>-u<span class="w"> </span>nimbus<span class="w"> </span>/usr/bin/nimbus_beacon_node<span class="w"> </span>deposits<span class="w"> </span>import<span class="w"> </span>--data-dir<span class="o">=</span>/var/lib/nimbus/shared_holesky_0<span class="w"> </span>/path/to/keys
 </code></pre></div>
 </div>
 <div class="tabbed-block">
 <p>To import your signing key into Nimbus, from the <code>nimbus-eth2</code> directory run.</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-20-1" name="__codelineno-20-1" href="#__codelineno-20-1"></a>build/nimbus_beacon_node deposits import --data-dir<span class="o">=</span>build/data/shared_holesky_0 ../validator_keys
+<div class="highlight"><pre><span></span><code><a id="__codelineno-20-1" name="__codelineno-20-1" href="#__codelineno-20-1"></a>build/nimbus_beacon_node<span class="w"> </span>deposits<span class="w"> </span>import<span class="w"> </span>--data-dir<span class="o">=</span>build/data/shared_holesky_0<span class="w"> </span>../validator_keys
 </code></pre></div>
 </div>
 </div>
@@ -2256,7 +2256,7 @@ For instructions on how to do so, see the <a href="eth1.html">eth1 page</a>.</p>
 <div class="tabbed-set tabbed-alternate" data-tabs="3:2"><input checked="checked" id="__tabbed_3_1" name="__tabbed_3" type="radio" /><input id="__tabbed_3_2" name="__tabbed_3" type="radio" /><div class="tabbed-labels"><label for="__tabbed_3_1">Using package manager</label><label for="__tabbed_3_2">Manual installation</label></div>
 <div class="tabbed-content">
 <div class="tabbed-block">
-<div class="highlight"><pre><span></span><code><a id="__codelineno-21-1" name="__codelineno-21-1" href="#__codelineno-21-1"></a>sudo -u nimbus /usr/bin/nimbus_beacon_node --network<span class="o">=</span>holesky --data-dir<span class="o">=</span>/var/lib/nimbus/shared_holesky_0
+<div class="highlight"><pre><span></span><code><a id="__codelineno-21-1" name="__codelineno-21-1" href="#__codelineno-21-1"></a>sudo<span class="w"> </span>-u<span class="w"> </span>nimbus<span class="w"> </span>/usr/bin/nimbus_beacon_node<span class="w"> </span>--network<span class="o">=</span>holesky<span class="w"> </span>--data-dir<span class="o">=</span>/var/lib/nimbus/shared_holesky_0
 </code></pre></div>
 </div>
 <div class="tabbed-block">

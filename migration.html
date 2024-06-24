@@ -56,7 +56,7 @@
     
     
     
-    <body dir="ltr" data-md-color-scheme="default" data-md-color-primary="orange" data-md-color-accent="amber">
+    <body dir="ltr" data-md-color-scheme="slate" data-md-color-primary="black" data-md-color-accent="light-blue">
   
     
     
@@ -112,19 +112,19 @@
         
           
           
-          <input class="md-option" data-md-color-media="" data-md-color-scheme="default" data-md-color-primary="orange" data-md-color-accent="amber"  aria-label="Switch to dark mode"  type="radio" name="__palette" id="__palette_1">
+          <input class="md-option" data-md-color-media="" data-md-color-scheme="slate" data-md-color-primary="black" data-md-color-accent="light-blue"  aria-label="Switch to light mode"  type="radio" name="__palette" id="__palette_1">
           
-            <label class="md-header__button md-icon" title="Switch to dark mode" for="__palette_2" hidden>
-              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a4 4 0 0 0-4 4 4 4 0 0 0 4 4 4 4 0 0 0 4-4 4 4 0 0 0-4-4m0 10a6 6 0 0 1-6-6 6 6 0 0 1 6-6 6 6 0 0 1 6 6 6 6 0 0 1-6 6m8-9.31V4h-4.69L12 .69 8.69 4H4v4.69L.69 12 4 15.31V20h4.69L12 23.31 15.31 20H20v-4.69L23.31 12 20 8.69Z"/></svg>
+            <label class="md-header__button md-icon" title="Switch to light mode" for="__palette_2" hidden>
+              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 18c-.89 0-1.74-.2-2.5-.55C11.56 16.5 13 14.42 13 12c0-2.42-1.44-4.5-3.5-5.45C10.26 6.2 11.11 6 12 6a6 6 0 0 1 6 6 6 6 0 0 1-6 6m8-9.31V4h-4.69L12 .69 8.69 4H4v4.69L.69 12 4 15.31V20h4.69L12 23.31 15.31 20H20v-4.69L23.31 12 20 8.69Z"/></svg>
             </label>
           
         
           
           
-          <input class="md-option" data-md-color-media="" data-md-color-scheme="slate" data-md-color-primary="black" data-md-color-accent="light-blue"  aria-label="Switch to light mode"  type="radio" name="__palette" id="__palette_2">
+          <input class="md-option" data-md-color-media="" data-md-color-scheme="default" data-md-color-primary="white" data-md-color-accent="light-blue"  aria-label="Switch to dark mode"  type="radio" name="__palette" id="__palette_2">
           
-            <label class="md-header__button md-icon" title="Switch to light mode" for="__palette_1" hidden>
-              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 18c-.89 0-1.74-.2-2.5-.55C11.56 16.5 13 14.42 13 12c0-2.42-1.44-4.5-3.5-5.45C10.26 6.2 11.11 6 12 6a6 6 0 0 1 6 6 6 6 0 0 1-6 6m8-9.31V4h-4.69L12 .69 8.69 4H4v4.69L.69 12 4 15.31V20h4.69L12 23.31 15.31 20H20v-4.69L23.31 12 20 8.69Z"/></svg>
+            <label class="md-header__button md-icon" title="Switch to dark mode" for="__palette_1" hidden>
+              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a4 4 0 0 0-4 4 4 4 0 0 0 4 4 4 4 0 0 0 4-4 4 4 0 0 0-4-4m0 10a6 6 0 0 1-6-6 6 6 0 0 1 6-6 6 6 0 0 1 6 6 6 6 0 0 1-6 6m8-9.31V4h-4.69L12 .69 8.69 4H4v4.69L.69 12 4 15.31V20h4.69L12 23.31 15.31 20H20v-4.69L23.31 12 20 8.69Z"/></svg>
             </label>
           
         
@@ -1783,14 +1783,14 @@ Look for an <code>"is_syncing":false</code> in the response to confirm that your
 <h4 id="1-disable-the-prysm-validator-client">1. Disable the Prysm validator client</h4>
 <p>Stop and disable the Prysm validator client (you can also stop the Prysm beacon node if you wish).</p>
 <p>If you're using systemd and your service is called <code>prysmvalidator</code>, run the following commands to stop and disable the service:</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a>sudo systemctl stop prysmvalidator.service
-<a id="__codelineno-1-2" name="__codelineno-1-2" href="#__codelineno-1-2"></a>sudo systemctl disable prysmvalidator.service
+<div class="highlight"><pre><span></span><code><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a>sudo<span class="w"> </span>systemctl<span class="w"> </span>stop<span class="w"> </span>prysmvalidator.service
+<a id="__codelineno-1-2" name="__codelineno-1-2" href="#__codelineno-1-2"></a>sudo<span class="w"> </span>systemctl<span class="w"> </span>disable<span class="w"> </span>prysmvalidator.service
 </code></pre></div>
 <p>It is important that you disable the Prysm validator as well as stopping it, to prevent it from starting up again on reboot.</p>
 <h4 id="2-export-slashing-protection-history">2. Export slashing protection history</h4>
 <p>Run the following to export your Prysm validator's <a href="https://eips.ethereum.org/EIPS/eip-3076">slashing protection</a> history:</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a>prysm.sh validator slashing-protection-history <span class="nb">export</span> <span class="se">\</span>
-<a id="__codelineno-2-2" name="__codelineno-2-2" href="#__codelineno-2-2"></a>--datadir<span class="o">=</span>/your/prysm/wallet <span class="se">\</span>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a>prysm.sh<span class="w"> </span>validator<span class="w"> </span>slashing-protection-history<span class="w"> </span><span class="nb">export</span><span class="w"> </span><span class="se">\</span>
+<a id="__codelineno-2-2" name="__codelineno-2-2" href="#__codelineno-2-2"></a>--datadir<span class="o">=</span>/your/prysm/wallet<span class="w"> </span><span class="se">\</span>
 <a id="__codelineno-2-3" name="__codelineno-2-3" href="#__codelineno-2-3"></a>--slashing-protection-export-dir<span class="o">=</span>/path/to/export_dir
 </code></pre></div>
 <p>You will then find the <code>slashing-protection.json</code> file in your specified <code>/path/to/export_dir</code> folder.</p>
@@ -1799,30 +1799,30 @@ Look for an <code>"is_syncing":false</code> in the response to confirm that your
 <h4 id="1-disable-the-lighthouse-validator-client">1. Disable the Lighthouse validator client</h4>
 <p>The validator client needs to be stopped in order to export, to guarantee that the data exported is up to date.</p>
 <p>If you're using systemd and your service is called <code>lighthousevalidator</code>, run the following command to stop and disable the service:</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a>sudo systemctl stop lighthousevalidator
-<a id="__codelineno-3-2" name="__codelineno-3-2" href="#__codelineno-3-2"></a>sudo systemctl disable lighthousevalidator
+<div class="highlight"><pre><span></span><code><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a>sudo<span class="w"> </span>systemctl<span class="w"> </span>stop<span class="w"> </span>lighthousevalidator
+<a id="__codelineno-3-2" name="__codelineno-3-2" href="#__codelineno-3-2"></a>sudo<span class="w"> </span>systemctl<span class="w"> </span>disable<span class="w"> </span>lighthousevalidator
 </code></pre></div>
 <p>You may also wish to stop the beacon node:</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-4-1" name="__codelineno-4-1" href="#__codelineno-4-1"></a>sudo systemctl stop lighthousebeacon
-<a id="__codelineno-4-2" name="__codelineno-4-2" href="#__codelineno-4-2"></a>sudo systemctl disable lighthousebeacon
+<div class="highlight"><pre><span></span><code><a id="__codelineno-4-1" name="__codelineno-4-1" href="#__codelineno-4-1"></a>sudo<span class="w"> </span>systemctl<span class="w"> </span>stop<span class="w"> </span>lighthousebeacon
+<a id="__codelineno-4-2" name="__codelineno-4-2" href="#__codelineno-4-2"></a>sudo<span class="w"> </span>systemctl<span class="w"> </span>disable<span class="w"> </span>lighthousebeacon
 </code></pre></div>
 <p>It is important that you disable the service as well as stopping it, to prevent it from starting up again on reboot.</p>
 <h4 id="2-export-slashing-protection-history_1">2. Export slashing protection history</h4>
 <p>You can export Lighthouse's database with this command:</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-5-1" name="__codelineno-5-1" href="#__codelineno-5-1"></a>lighthouse account validator slashing-protection <span class="nb">export</span> slashing-protection.json
+<div class="highlight"><pre><span></span><code><a id="__codelineno-5-1" name="__codelineno-5-1" href="#__codelineno-5-1"></a>lighthouse<span class="w"> </span>account<span class="w"> </span>validator<span class="w"> </span>slashing-protection<span class="w"> </span><span class="nb">export</span><span class="w"> </span>slashing-protection.json
 </code></pre></div>
 <p>This will export your history in the correct format to <code>slashing-protection.json</code>.</p>
 </div>
 <div class="tabbed-block">
 <h4 id="1-disable-teku">1. Disable Teku</h4>
 <p>If you're using systemd and your service is called <code>teku</code>, run the following command to stop and disable the service:</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-6-1" name="__codelineno-6-1" href="#__codelineno-6-1"></a>sudo systemctl stop teku
-<a id="__codelineno-6-2" name="__codelineno-6-2" href="#__codelineno-6-2"></a>sudo systemctl disable teku
+<div class="highlight"><pre><span></span><code><a id="__codelineno-6-1" name="__codelineno-6-1" href="#__codelineno-6-1"></a>sudo<span class="w"> </span>systemctl<span class="w"> </span>stop<span class="w"> </span>teku
+<a id="__codelineno-6-2" name="__codelineno-6-2" href="#__codelineno-6-2"></a>sudo<span class="w"> </span>systemctl<span class="w"> </span>disable<span class="w"> </span>teku
 </code></pre></div>
 <p>It is important that you disable the service as well as stopping it, to prevent it from starting up again on reboot.</p>
 <h4 id="2-export-slashing-protection-history_2">2. Export slashing protection history</h4>
 <p>You can export Teku's database with this command:</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-7-1" name="__codelineno-7-1" href="#__codelineno-7-1"></a>teku slashing-protection <span class="nb">export</span> --data-path<span class="o">=</span>/home/me/me_node --to<span class="o">=</span>/home/slash/slashing-protection.json
+<div class="highlight"><pre><span></span><code><a id="__codelineno-7-1" name="__codelineno-7-1" href="#__codelineno-7-1"></a>teku<span class="w"> </span>slashing-protection<span class="w"> </span><span class="nb">export</span><span class="w"> </span>--data-path<span class="o">=</span>/home/me/me_node<span class="w"> </span>--to<span class="o">=</span>/home/slash/slashing-protection.json
 </code></pre></div>
 <p>Where:</p>
 <ul>
@@ -1861,7 +1861,7 @@ See <a href="faq.html#folder-permissions">here</a> for how to fix this.</p>
 </div>
 <h3 id="4-import-your-slashing-protection-history">4. Import your slashing protection history</h3>
 <p>To import the slashing protection history you exported in <strong>step 2</strong>, from the <code>nimbus-eth2</code> directory run:</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-10-1" name="__codelineno-10-1" href="#__codelineno-10-1"></a>build/nimbus_beacon_node slashingdb import path/to/export_dir/slashing-protection.json
+<div class="highlight"><pre><span></span><code><a id="__codelineno-10-1" name="__codelineno-10-1" href="#__codelineno-10-1"></a>build/nimbus_beacon_node<span class="w"> </span>slashingdb<span class="w"> </span>import<span class="w"> </span>path/to/export_dir/slashing-protection.json
 </code></pre></div>
 <p>Replacing <code>/path/to/export_dir</code> with the file/directory you specified when you exported your slashing protection history.</p>
 <div class="admonition tip">

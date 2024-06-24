@@ -56,7 +56,7 @@
     
     
     
-    <body dir="ltr" data-md-color-scheme="default" data-md-color-primary="orange" data-md-color-accent="amber">
+    <body dir="ltr" data-md-color-scheme="slate" data-md-color-primary="black" data-md-color-accent="light-blue">
   
     
     
@@ -112,19 +112,19 @@
         
           
           
-          <input class="md-option" data-md-color-media="" data-md-color-scheme="default" data-md-color-primary="orange" data-md-color-accent="amber"  aria-label="Switch to dark mode"  type="radio" name="__palette" id="__palette_1">
+          <input class="md-option" data-md-color-media="" data-md-color-scheme="slate" data-md-color-primary="black" data-md-color-accent="light-blue"  aria-label="Switch to light mode"  type="radio" name="__palette" id="__palette_1">
           
-            <label class="md-header__button md-icon" title="Switch to dark mode" for="__palette_2" hidden>
-              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a4 4 0 0 0-4 4 4 4 0 0 0 4 4 4 4 0 0 0 4-4 4 4 0 0 0-4-4m0 10a6 6 0 0 1-6-6 6 6 0 0 1 6-6 6 6 0 0 1 6 6 6 6 0 0 1-6 6m8-9.31V4h-4.69L12 .69 8.69 4H4v4.69L.69 12 4 15.31V20h4.69L12 23.31 15.31 20H20v-4.69L23.31 12 20 8.69Z"/></svg>
+            <label class="md-header__button md-icon" title="Switch to light mode" for="__palette_2" hidden>
+              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 18c-.89 0-1.74-.2-2.5-.55C11.56 16.5 13 14.42 13 12c0-2.42-1.44-4.5-3.5-5.45C10.26 6.2 11.11 6 12 6a6 6 0 0 1 6 6 6 6 0 0 1-6 6m8-9.31V4h-4.69L12 .69 8.69 4H4v4.69L.69 12 4 15.31V20h4.69L12 23.31 15.31 20H20v-4.69L23.31 12 20 8.69Z"/></svg>
             </label>
           
         
           
           
-          <input class="md-option" data-md-color-media="" data-md-color-scheme="slate" data-md-color-primary="black" data-md-color-accent="light-blue"  aria-label="Switch to light mode"  type="radio" name="__palette" id="__palette_2">
+          <input class="md-option" data-md-color-media="" data-md-color-scheme="default" data-md-color-primary="white" data-md-color-accent="light-blue"  aria-label="Switch to dark mode"  type="radio" name="__palette" id="__palette_2">
           
-            <label class="md-header__button md-icon" title="Switch to light mode" for="__palette_1" hidden>
-              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 18c-.89 0-1.74-.2-2.5-.55C11.56 16.5 13 14.42 13 12c0-2.42-1.44-4.5-3.5-5.45C10.26 6.2 11.11 6 12 6a6 6 0 0 1 6 6 6 6 0 0 1-6 6m8-9.31V4h-4.69L12 .69 8.69 4H4v4.69L.69 12 4 15.31V20h4.69L12 23.31 15.31 20H20v-4.69L23.31 12 20 8.69Z"/></svg>
+            <label class="md-header__button md-icon" title="Switch to dark mode" for="__palette_1" hidden>
+              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a4 4 0 0 0-4 4 4 4 0 0 0 4 4 4 4 0 0 0 4-4 4 4 0 0 0-4-4m0 10a6 6 0 0 1-6-6 6 6 0 0 1 6-6 6 6 0 0 1 6 6 6 6 0 0 1-6 6m8-9.31V4h-4.69L12 .69 8.69 4H4v4.69L.69 12 4 15.31V20h4.69L12 23.31 15.31 20H20v-4.69L23.31 12 20 8.69Z"/></svg>
             </label>
           
         
@@ -1683,11 +1683,11 @@
 <p>Command line options allow you to customize the way your beacon node operates.</p>
 <p>You pass options to the beacon node by adding them to the command line.
 For example, if you want to launch Nimbus on mainnet with different base ports than the default <code>9000/udp</code> and <code>9000/tcp</code>, say <code>9100/udp</code> and <code>9100/tcp</code>, run:</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a>./run-mainnet-beacon-node.sh --tcp-port<span class="o">=</span><span class="m">9100</span> --udp-port<span class="o">=</span><span class="m">9100</span>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a>./run-mainnet-beacon-node.sh<span class="w"> </span>--tcp-port<span class="o">=</span><span class="m">9100</span><span class="w"> </span>--udp-port<span class="o">=</span><span class="m">9100</span>
 </code></pre></div>
 <h2 id="available-options">Available options</h2>
 <p>To see the full list of command line options available to you, with descriptions, run:</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a>build/nimbus_beacon_node --help
+<div class="highlight"><pre><span></span><code><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a>build/nimbus_beacon_node<span class="w"> </span>--help
 </code></pre></div>
 <p>You should see the following output:</p>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a>Usage:
@@ -1725,7 +1725,7 @@ For example, if you want to launch Nimbus on mainnet with different base ports t
 <a id="__codelineno-2-33" name="__codelineno-2-33" href="#__codelineno-2-33"></a>                               verifying/generating JWT tokens.
 <a id="__codelineno-2-34" name="__codelineno-2-34" href="#__codelineno-2-34"></a> -b, --bootstrap-node          Specifies one or more bootstrap nodes to use when connecting to the network.
 <a id="__codelineno-2-35" name="__codelineno-2-35" href="#__codelineno-2-35"></a>     --bootstrap-file          Specifies a line-delimited file of bootstrap Ethereum network addresses.
-<a id="__codelineno-2-36" name="__codelineno-2-36" href="#__codelineno-2-36"></a>     --listen-address          Listening address for the Ethereum LibP2P and Discovery v5 traffic [=0.0.0.0].
+<a id="__codelineno-2-36" name="__codelineno-2-36" href="#__codelineno-2-36"></a>     --listen-address          Listening address for the Ethereum LibP2P and Discovery v5 traffic [=*].
 <a id="__codelineno-2-37" name="__codelineno-2-37" href="#__codelineno-2-37"></a>     --tcp-port                Listening TCP port for Ethereum LibP2P traffic [=9000].
 <a id="__codelineno-2-38" name="__codelineno-2-38" href="#__codelineno-2-38"></a>     --udp-port                Listening UDP port for node discovery [=9000].
 <a id="__codelineno-2-39" name="__codelineno-2-39" href="#__codelineno-2-39"></a>     --max-peers               The target number of peers to connect to [=160].
@@ -1782,35 +1782,36 @@ For example, if you want to launch Nimbus on mainnet with different base ports t
 <a id="__codelineno-2-90" name="__codelineno-2-90" href="#__codelineno-2-90"></a>     --light-client-data-import-mode  Which classes of light client data to import. Must be one of: none, only-new,
 <a id="__codelineno-2-91" name="__codelineno-2-91" href="#__codelineno-2-91"></a>                               full (slow startup), on-demand (may miss validator duties) [=only-new].
 <a id="__codelineno-2-92" name="__codelineno-2-92" href="#__codelineno-2-92"></a>     --light-client-data-max-periods  Maximum number of sync committee periods to retain light client data.
-<a id="__codelineno-2-93" name="__codelineno-2-93" href="#__codelineno-2-93"></a>     --in-process-validators   Disable the push model (the beacon node tells a signing process with the private
-<a id="__codelineno-2-94" name="__codelineno-2-94" href="#__codelineno-2-94"></a>                               keys of the validators what to sign and when) and load the validators in the
-<a id="__codelineno-2-95" name="__codelineno-2-95" href="#__codelineno-2-95"></a>                               beacon node itself [=true].
-<a id="__codelineno-2-96" name="__codelineno-2-96" href="#__codelineno-2-96"></a>     --discv5                  Enable Discovery v5 [=true].
-<a id="__codelineno-2-97" name="__codelineno-2-97" href="#__codelineno-2-97"></a>     --dump                    Write SSZ dumps of blocks, attestations and states to data dir [=false].
-<a id="__codelineno-2-98" name="__codelineno-2-98" href="#__codelineno-2-98"></a>     --direct-peer             The list of privileged, secure and known peers to connect and maintain the
-<a id="__codelineno-2-99" name="__codelineno-2-99" href="#__codelineno-2-99"></a>                               connection to. This requires a not random netkey-file. In the multiaddress
-<a id="__codelineno-2-100" name="__codelineno-2-100" href="#__codelineno-2-100"></a>                               format like: /ip4/&lt;address&gt;/tcp/&lt;port&gt;/p2p/&lt;peerId-public-key&gt;, or enr format
-<a id="__codelineno-2-101" name="__codelineno-2-101" href="#__codelineno-2-101"></a>                               (enr:-xx). Peering agreements are established out of band and must be
-<a id="__codelineno-2-102" name="__codelineno-2-102" href="#__codelineno-2-102"></a>                               reciprocal.
-<a id="__codelineno-2-103" name="__codelineno-2-103" href="#__codelineno-2-103"></a>     --doppelganger-detection  If enabled, the beacon node prudently listens for 2 epochs for attestations from
-<a id="__codelineno-2-104" name="__codelineno-2-104" href="#__codelineno-2-104"></a>                               a validator with the same index (a doppelganger), before sending an attestation
-<a id="__codelineno-2-105" name="__codelineno-2-105" href="#__codelineno-2-105"></a>                               itself. This protects against slashing (due to double-voting) but means you will
-<a id="__codelineno-2-106" name="__codelineno-2-106" href="#__codelineno-2-106"></a>                               miss two attestations when restarting. [=true].
-<a id="__codelineno-2-107" name="__codelineno-2-107" href="#__codelineno-2-107"></a>     --validator-monitor-auto  Monitor validator activity automatically for validators active on this beacon
-<a id="__codelineno-2-108" name="__codelineno-2-108" href="#__codelineno-2-108"></a>                               node [=true].
-<a id="__codelineno-2-109" name="__codelineno-2-109" href="#__codelineno-2-109"></a>     --validator-monitor-pubkey  One or more validators to monitor - works best when --subscribe-all-subnets is
-<a id="__codelineno-2-110" name="__codelineno-2-110" href="#__codelineno-2-110"></a>                               enabled.
-<a id="__codelineno-2-111" name="__codelineno-2-111" href="#__codelineno-2-111"></a>     --validator-monitor-details  Publish detailed metrics for each validator individually - may incur significant
-<a id="__codelineno-2-112" name="__codelineno-2-112" href="#__codelineno-2-112"></a>                               overhead with large numbers of validators [=false].
-<a id="__codelineno-2-113" name="__codelineno-2-113" href="#__codelineno-2-113"></a>     --suggested-fee-recipient  Suggested fee recipient.
-<a id="__codelineno-2-114" name="__codelineno-2-114" href="#__codelineno-2-114"></a>     --suggested-gas-limit     Suggested gas limit [=defaultGasLimit].
-<a id="__codelineno-2-115" name="__codelineno-2-115" href="#__codelineno-2-115"></a>     --payload-builder         Enable external payload builder [=false].
-<a id="__codelineno-2-116" name="__codelineno-2-116" href="#__codelineno-2-116"></a>     --payload-builder-url     Payload builder URL.
-<a id="__codelineno-2-117" name="__codelineno-2-117" href="#__codelineno-2-117"></a>     --local-block-value-boost  Increase execution layer block values for builder bid comparison by a percentage
-<a id="__codelineno-2-118" name="__codelineno-2-118" href="#__codelineno-2-118"></a>                               [=0].
-<a id="__codelineno-2-119" name="__codelineno-2-119" href="#__codelineno-2-119"></a>     --history                 Retention strategy for historical data (archive/prune) [=HistoryMode.Prune].
-<a id="__codelineno-2-120" name="__codelineno-2-120" href="#__codelineno-2-120"></a>
-<a id="__codelineno-2-121" name="__codelineno-2-121" href="#__codelineno-2-121"></a>...
+<a id="__codelineno-2-93" name="__codelineno-2-93" href="#__codelineno-2-93"></a>     --long-range-sync         Enable long-range syncing (genesis sync) [=LongRangeSyncMode.Light].
+<a id="__codelineno-2-94" name="__codelineno-2-94" href="#__codelineno-2-94"></a>     --in-process-validators   Disable the push model (the beacon node tells a signing process with the private
+<a id="__codelineno-2-95" name="__codelineno-2-95" href="#__codelineno-2-95"></a>                               keys of the validators what to sign and when) and load the validators in the
+<a id="__codelineno-2-96" name="__codelineno-2-96" href="#__codelineno-2-96"></a>                               beacon node itself [=true].
+<a id="__codelineno-2-97" name="__codelineno-2-97" href="#__codelineno-2-97"></a>     --discv5                  Enable Discovery v5 [=true].
+<a id="__codelineno-2-98" name="__codelineno-2-98" href="#__codelineno-2-98"></a>     --dump                    Write SSZ dumps of blocks, attestations and states to data dir [=false].
+<a id="__codelineno-2-99" name="__codelineno-2-99" href="#__codelineno-2-99"></a>     --direct-peer             The list of privileged, secure and known peers to connect and maintain the
+<a id="__codelineno-2-100" name="__codelineno-2-100" href="#__codelineno-2-100"></a>                               connection to. This requires a not random netkey-file. In the multiaddress
+<a id="__codelineno-2-101" name="__codelineno-2-101" href="#__codelineno-2-101"></a>                               format like: /ip4/&lt;address&gt;/tcp/&lt;port&gt;/p2p/&lt;peerId-public-key&gt;, or enr format
+<a id="__codelineno-2-102" name="__codelineno-2-102" href="#__codelineno-2-102"></a>                               (enr:-xx). Peering agreements are established out of band and must be
+<a id="__codelineno-2-103" name="__codelineno-2-103" href="#__codelineno-2-103"></a>                               reciprocal.
+<a id="__codelineno-2-104" name="__codelineno-2-104" href="#__codelineno-2-104"></a>     --doppelganger-detection  If enabled, the beacon node prudently listens for 2 epochs for attestations from
+<a id="__codelineno-2-105" name="__codelineno-2-105" href="#__codelineno-2-105"></a>                               a validator with the same index (a doppelganger), before sending an attestation
+<a id="__codelineno-2-106" name="__codelineno-2-106" href="#__codelineno-2-106"></a>                               itself. This protects against slashing (due to double-voting) but means you will
+<a id="__codelineno-2-107" name="__codelineno-2-107" href="#__codelineno-2-107"></a>                               miss two attestations when restarting. [=true].
+<a id="__codelineno-2-108" name="__codelineno-2-108" href="#__codelineno-2-108"></a>     --validator-monitor-auto  Monitor validator activity automatically for validators active on this beacon
+<a id="__codelineno-2-109" name="__codelineno-2-109" href="#__codelineno-2-109"></a>                               node [=true].
+<a id="__codelineno-2-110" name="__codelineno-2-110" href="#__codelineno-2-110"></a>     --validator-monitor-pubkey  One or more validators to monitor - works best when --subscribe-all-subnets is
+<a id="__codelineno-2-111" name="__codelineno-2-111" href="#__codelineno-2-111"></a>                               enabled.
+<a id="__codelineno-2-112" name="__codelineno-2-112" href="#__codelineno-2-112"></a>     --validator-monitor-details  Publish detailed metrics for each validator individually - may incur significant
+<a id="__codelineno-2-113" name="__codelineno-2-113" href="#__codelineno-2-113"></a>                               overhead with large numbers of validators [=false].
+<a id="__codelineno-2-114" name="__codelineno-2-114" href="#__codelineno-2-114"></a>     --suggested-fee-recipient  Suggested fee recipient.
+<a id="__codelineno-2-115" name="__codelineno-2-115" href="#__codelineno-2-115"></a>     --suggested-gas-limit     Suggested gas limit [=defaultGasLimit].
+<a id="__codelineno-2-116" name="__codelineno-2-116" href="#__codelineno-2-116"></a>     --payload-builder         Enable external payload builder [=false].
+<a id="__codelineno-2-117" name="__codelineno-2-117" href="#__codelineno-2-117"></a>     --payload-builder-url     Payload builder URL.
+<a id="__codelineno-2-118" name="__codelineno-2-118" href="#__codelineno-2-118"></a>     --local-block-value-boost  Increase execution layer block values for builder bid comparison by a percentage
+<a id="__codelineno-2-119" name="__codelineno-2-119" href="#__codelineno-2-119"></a>                               [=10].
+<a id="__codelineno-2-120" name="__codelineno-2-120" href="#__codelineno-2-120"></a>     --history                 Retention strategy for historical data (archive/prune) [=HistoryMode.Prune].
+<a id="__codelineno-2-121" name="__codelineno-2-121" href="#__codelineno-2-121"></a>
+<a id="__codelineno-2-122" name="__codelineno-2-122" href="#__codelineno-2-122"></a>...
 </code></pre></div>
 <p>Any <code>debug</code>-prefixed flags are considered ephemeral and subject to removal without notice.</p>
 <h2 id="configuration-files">Configuration files</h2>
@@ -1831,13 +1832,13 @@ sub-commands should appear in a section of the file matching the sub-command nam
 <p>Here is an example config file illustrating all of the above:</p>
 <div class="admonition example">
 <p class="admonition-title">nimbus-eth2.toml</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a><span class="c1"># Comments look like this</span><span class="w"></span>
-<a id="__codelineno-3-2" name="__codelineno-3-2" href="#__codelineno-3-2"></a><span class="n">doppelganger-detection</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="kc">true</span><span class="w"></span>
-<a id="__codelineno-3-3" name="__codelineno-3-3" href="#__codelineno-3-3"></a><span class="n">web3-url</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">[</span><span class="s">&quot;http://127.0.0.1:8551&quot;</span><span class="p">]</span><span class="w"></span>
-<a id="__codelineno-3-4" name="__codelineno-3-4" href="#__codelineno-3-4"></a><span class="n">num-threads</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mi">0</span><span class="w"></span>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a><span class="c1"># Comments look like this</span>
+<a id="__codelineno-3-2" name="__codelineno-3-2" href="#__codelineno-3-2"></a><span class="n">doppelganger-detection</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="kc">true</span>
+<a id="__codelineno-3-3" name="__codelineno-3-3" href="#__codelineno-3-3"></a><span class="n">web3-url</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">[</span><span class="s">&quot;http://127.0.0.1:8551&quot;</span><span class="p">]</span>
+<a id="__codelineno-3-4" name="__codelineno-3-4" href="#__codelineno-3-4"></a><span class="n">num-threads</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mi">0</span>
 <a id="__codelineno-3-5" name="__codelineno-3-5" href="#__codelineno-3-5"></a>
-<a id="__codelineno-3-6" name="__codelineno-3-6" href="#__codelineno-3-6"></a><span class="k">[trustedNodeSync]</span><span class="w"></span>
-<a id="__codelineno-3-7" name="__codelineno-3-7" href="#__codelineno-3-7"></a><span class="n">trusted-node-url</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s">&quot;http://192.168.1.20:5052&quot;</span><span class="w"></span>
+<a id="__codelineno-3-6" name="__codelineno-3-6" href="#__codelineno-3-6"></a><span class="k">[trustedNodeSync]</span>
+<a id="__codelineno-3-7" name="__codelineno-3-7" href="#__codelineno-3-7"></a><span class="n">trusted-node-url</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s">&quot;http://192.168.1.20:5052&quot;</span>
 </code></pre></div>
 </div>
 <h2 id="exit-codes">Exit Codes</h2>

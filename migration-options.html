@@ -56,7 +56,7 @@
     
     
     
-    <body dir="ltr" data-md-color-scheme="default" data-md-color-primary="orange" data-md-color-accent="amber">
+    <body dir="ltr" data-md-color-scheme="slate" data-md-color-primary="black" data-md-color-accent="light-blue">
   
     
     
@@ -112,19 +112,19 @@
         
           
           
-          <input class="md-option" data-md-color-media="" data-md-color-scheme="default" data-md-color-primary="orange" data-md-color-accent="amber"  aria-label="Switch to dark mode"  type="radio" name="__palette" id="__palette_1">
+          <input class="md-option" data-md-color-media="" data-md-color-scheme="slate" data-md-color-primary="black" data-md-color-accent="light-blue"  aria-label="Switch to light mode"  type="radio" name="__palette" id="__palette_1">
           
-            <label class="md-header__button md-icon" title="Switch to dark mode" for="__palette_2" hidden>
-              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a4 4 0 0 0-4 4 4 4 0 0 0 4 4 4 4 0 0 0 4-4 4 4 0 0 0-4-4m0 10a6 6 0 0 1-6-6 6 6 0 0 1 6-6 6 6 0 0 1 6 6 6 6 0 0 1-6 6m8-9.31V4h-4.69L12 .69 8.69 4H4v4.69L.69 12 4 15.31V20h4.69L12 23.31 15.31 20H20v-4.69L23.31 12 20 8.69Z"/></svg>
+            <label class="md-header__button md-icon" title="Switch to light mode" for="__palette_2" hidden>
+              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 18c-.89 0-1.74-.2-2.5-.55C11.56 16.5 13 14.42 13 12c0-2.42-1.44-4.5-3.5-5.45C10.26 6.2 11.11 6 12 6a6 6 0 0 1 6 6 6 6 0 0 1-6 6m8-9.31V4h-4.69L12 .69 8.69 4H4v4.69L.69 12 4 15.31V20h4.69L12 23.31 15.31 20H20v-4.69L23.31 12 20 8.69Z"/></svg>
             </label>
           
         
           
           
-          <input class="md-option" data-md-color-media="" data-md-color-scheme="slate" data-md-color-primary="black" data-md-color-accent="light-blue"  aria-label="Switch to light mode"  type="radio" name="__palette" id="__palette_2">
+          <input class="md-option" data-md-color-media="" data-md-color-scheme="default" data-md-color-primary="white" data-md-color-accent="light-blue"  aria-label="Switch to dark mode"  type="radio" name="__palette" id="__palette_2">
           
-            <label class="md-header__button md-icon" title="Switch to light mode" for="__palette_1" hidden>
-              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 18c-.89 0-1.74-.2-2.5-.55C11.56 16.5 13 14.42 13 12c0-2.42-1.44-4.5-3.5-5.45C10.26 6.2 11.11 6 12 6a6 6 0 0 1 6 6 6 6 0 0 1-6 6m8-9.31V4h-4.69L12 .69 8.69 4H4v4.69L.69 12 4 15.31V20h4.69L12 23.31 15.31 20H20v-4.69L23.31 12 20 8.69Z"/></svg>
+            <label class="md-header__button md-icon" title="Switch to dark mode" for="__palette_1" hidden>
+              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a4 4 0 0 0-4 4 4 4 0 0 0 4 4 4 4 0 0 0 4-4 4 4 0 0 0-4-4m0 10a6 6 0 0 1-6-6 6 6 0 0 1 6-6 6 6 0 0 1 6 6 6 6 0 0 1-6 6m8-9.31V4h-4.69L12 .69 8.69 4H4v4.69L.69 12 4 15.31V20h4.69L12 23.31 15.31 20H20v-4.69L23.31 12 20 8.69Z"/></svg>
             </label>
           
         
@@ -1762,7 +1762,7 @@
 Here we document a couple of advanced options you can use if you wish to have more fine-grained control.</p>
 <h2 id="export-validators">Export validators</h2>
 <p>The default command for exporting your slashing protection history is:</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a>build/nimbus_beacon_node slashingdb <span class="nb">export</span> database.json
+<div class="highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a>build/nimbus_beacon_node<span class="w"> </span>slashingdb<span class="w"> </span><span class="nb">export</span><span class="w"> </span>database.json
 </code></pre></div>
 <p>This will export your history in the correct format to <code>database.json</code>.</p>
 <p>On success you will have a message similar to:</p>
@@ -1771,28 +1771,28 @@ Here we document a couple of advanced options you can use if you wish to have mo
 </code></pre></div>
 <h3 id="export-from-a-specific-validators-directory">Export from a specific validators directory</h3>
 <p>The validator directory contains your validator's setup.</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a>build/nimbus_beacon_node slashingdb <span class="nb">export</span> database.json --validators-dir<span class="o">=</span>path/to/validatorsdir/
+<div class="highlight"><pre><span></span><code><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a>build/nimbus_beacon_node<span class="w"> </span>slashingdb<span class="w"> </span><span class="nb">export</span><span class="w"> </span>database.json<span class="w"> </span>--validators-dir<span class="o">=</span>path/to/validatorsdir/
 </code></pre></div>
 <h3 id="export-from-a-specific-data-directory">Export from a specific data directory</h3>
 <p>The data directory (<code>data-dir</code>) contains your beacon node setup.</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a>build/nimbus_beacon_node slashingdb <span class="nb">export</span> database.json --data-dir<span class="o">=</span>path/to/datadir/
+<div class="highlight"><pre><span></span><code><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a>build/nimbus_beacon_node<span class="w"> </span>slashingdb<span class="w"> </span><span class="nb">export</span><span class="w"> </span>database.json<span class="w"> </span>--data-dir<span class="o">=</span>path/to/datadir/
 </code></pre></div>
 <h3 id="partial-exports">Partial exports</h3>
 <p>You can perform a partial export by specifying the public key of the relevant validator you wish to export.</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-4-1" name="__codelineno-4-1" href="#__codelineno-4-1"></a>build/nimbus_beacon_node slashingdb <span class="nb">export</span> database.json --validator<span class="o">=</span>0xb5da853a51d935da6f3bd46934c719fcca1bbf0b493264d3d9e7c35a1023b73c703b56d598edf0239663820af36ec615
+<div class="highlight"><pre><span></span><code><a id="__codelineno-4-1" name="__codelineno-4-1" href="#__codelineno-4-1"></a>build/nimbus_beacon_node<span class="w"> </span>slashingdb<span class="w"> </span><span class="nb">export</span><span class="w"> </span>database.json<span class="w"> </span>--validator<span class="o">=</span>0xb5da853a51d935da6f3bd46934c719fcca1bbf0b493264d3d9e7c35a1023b73c703b56d598edf0239663820af36ec615
 </code></pre></div>
 <p>If you wish to export multiple validators, you must specify the <code>--validator</code> option multiple times.</p>
 <h2 id="import-validators">Import validators</h2>
 <p>The default command for importing your validator's slashing protection history into the database is:</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-5-1" name="__codelineno-5-1" href="#__codelineno-5-1"></a>build/nimbus_beacon_node slashingdb import database.json
+<div class="highlight"><pre><span></span><code><a id="__codelineno-5-1" name="__codelineno-5-1" href="#__codelineno-5-1"></a>build/nimbus_beacon_node<span class="w"> </span>slashingdb<span class="w"> </span>import<span class="w"> </span>database.json
 </code></pre></div>
 <h3 id="import-to-a-specific-validators-directory">Import to a specific validators directory</h3>
 <p>The validator directory contains your validator's setup.</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-6-1" name="__codelineno-6-1" href="#__codelineno-6-1"></a>build/nimbus_beacon_node slashingdb import database.json --validators-dir<span class="o">=</span>path/to/validatorsdir/
+<div class="highlight"><pre><span></span><code><a id="__codelineno-6-1" name="__codelineno-6-1" href="#__codelineno-6-1"></a>build/nimbus_beacon_node<span class="w"> </span>slashingdb<span class="w"> </span>import<span class="w"> </span>database.json<span class="w"> </span>--validators-dir<span class="o">=</span>path/to/validatorsdir/
 </code></pre></div>
 <h3 id="import-to-a-specific-data-directory">Import to a specific data directory</h3>
 <p>The data directory contains your beacon node's setup.</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-7-1" name="__codelineno-7-1" href="#__codelineno-7-1"></a>build/nimbus_beacon_node slashingdb import database.json --data-dir<span class="o">=</span>path/to/datadir/
+<div class="highlight"><pre><span></span><code><a id="__codelineno-7-1" name="__codelineno-7-1" href="#__codelineno-7-1"></a>build/nimbus_beacon_node<span class="w"> </span>slashingdb<span class="w"> </span>import<span class="w"> </span>database.json<span class="w"> </span>--data-dir<span class="o">=</span>path/to/datadir/
 </code></pre></div>
 
               

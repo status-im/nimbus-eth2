@@ -56,7 +56,7 @@
     
     
     
-    <body dir="ltr" data-md-color-scheme="default" data-md-color-primary="orange" data-md-color-accent="amber">
+    <body dir="ltr" data-md-color-scheme="slate" data-md-color-primary="black" data-md-color-accent="light-blue">
   
     
     
@@ -112,19 +112,19 @@
         
           
           
-          <input class="md-option" data-md-color-media="" data-md-color-scheme="default" data-md-color-primary="orange" data-md-color-accent="amber"  aria-label="Switch to dark mode"  type="radio" name="__palette" id="__palette_1">
+          <input class="md-option" data-md-color-media="" data-md-color-scheme="slate" data-md-color-primary="black" data-md-color-accent="light-blue"  aria-label="Switch to light mode"  type="radio" name="__palette" id="__palette_1">
           
-            <label class="md-header__button md-icon" title="Switch to dark mode" for="__palette_2" hidden>
-              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a4 4 0 0 0-4 4 4 4 0 0 0 4 4 4 4 0 0 0 4-4 4 4 0 0 0-4-4m0 10a6 6 0 0 1-6-6 6 6 0 0 1 6-6 6 6 0 0 1 6 6 6 6 0 0 1-6 6m8-9.31V4h-4.69L12 .69 8.69 4H4v4.69L.69 12 4 15.31V20h4.69L12 23.31 15.31 20H20v-4.69L23.31 12 20 8.69Z"/></svg>
+            <label class="md-header__button md-icon" title="Switch to light mode" for="__palette_2" hidden>
+              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 18c-.89 0-1.74-.2-2.5-.55C11.56 16.5 13 14.42 13 12c0-2.42-1.44-4.5-3.5-5.45C10.26 6.2 11.11 6 12 6a6 6 0 0 1 6 6 6 6 0 0 1-6 6m8-9.31V4h-4.69L12 .69 8.69 4H4v4.69L.69 12 4 15.31V20h4.69L12 23.31 15.31 20H20v-4.69L23.31 12 20 8.69Z"/></svg>
             </label>
           
         
           
           
-          <input class="md-option" data-md-color-media="" data-md-color-scheme="slate" data-md-color-primary="black" data-md-color-accent="light-blue"  aria-label="Switch to light mode"  type="radio" name="__palette" id="__palette_2">
+          <input class="md-option" data-md-color-media="" data-md-color-scheme="default" data-md-color-primary="white" data-md-color-accent="light-blue"  aria-label="Switch to dark mode"  type="radio" name="__palette" id="__palette_2">
           
-            <label class="md-header__button md-icon" title="Switch to light mode" for="__palette_1" hidden>
-              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 18c-.89 0-1.74-.2-2.5-.55C11.56 16.5 13 14.42 13 12c0-2.42-1.44-4.5-3.5-5.45C10.26 6.2 11.11 6 12 6a6 6 0 0 1 6 6 6 6 0 0 1-6 6m8-9.31V4h-4.69L12 .69 8.69 4H4v4.69L.69 12 4 15.31V20h4.69L12 23.31 15.31 20H20v-4.69L23.31 12 20 8.69Z"/></svg>
+            <label class="md-header__button md-icon" title="Switch to dark mode" for="__palette_1" hidden>
+              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a4 4 0 0 0-4 4 4 4 0 0 0 4 4 4 4 0 0 0 4-4 4 4 0 0 0-4-4m0 10a6 6 0 0 1-6-6 6 6 0 0 1 6-6 6 6 0 0 1 6 6 6 6 0 0 1-6 6m8-9.31V4h-4.69L12 .69 8.69 4H4v4.69L.69 12 4 15.31V20h4.69L12 23.31 15.31 20H20v-4.69L23.31 12 20 8.69Z"/></svg>
             </label>
           
         
@@ -1881,12 +1881,12 @@ To use Nimbus, follow the <a href="install.html">installation instructions</a>.<
 <h2 id="building-from-source">Building from source</h2>
 <p>The Nimbus light client is currently not bundled as part of the Docker images and needs to be built from source.</p>
 <h3 id="1-clone-the-nimbus-eth2-repository">1. Clone the <code>nimbus-eth2</code> repository</h3>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a>git clone https://github.com/status-im/nimbus-eth2
-<a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a><span class="nb">cd</span> nimbus-eth2
+<div class="highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a>git<span class="w"> </span>clone<span class="w"> </span>https://github.com/status-im/nimbus-eth2
+<a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a><span class="nb">cd</span><span class="w"> </span>nimbus-eth2
 </code></pre></div>
 <h3 id="2-run-the-build-process">2. Run the build process</h3>
 <p>To build the Nimbus light client and its dependencies, make sure you have <a href="install.html">all prerequisites</a> and then run:</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a>make -j4 nimbus_light_client
+<div class="highlight"><pre><span></span><code><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a>make<span class="w"> </span>-j4<span class="w"> </span>nimbus_light_client
 </code></pre></div>
 <div class="admonition tip">
 <p class="admonition-title">Tip</p>
@@ -1898,7 +1898,7 @@ When the process finishes, the <code>nimbus_light_client</code> executable can b
 <p>To ensure that only the light client can control the EL client, a file with random content (JWT secret) must be created.
 The format is 64 hexadecimal (0-9, a-f) characters.
 To create one, the following command may be used:</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a>openssl rand -hex <span class="m">32</span> <span class="p">|</span> tr -d <span class="s2">&quot;\n&quot;</span> &gt; <span class="s2">&quot;</span><span class="nv">$HOME</span><span class="s2">/jwtsecret&quot;</span>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a>openssl<span class="w"> </span>rand<span class="w"> </span>-hex<span class="w"> </span><span class="m">32</span><span class="w"> </span><span class="p">|</span><span class="w"> </span>tr<span class="w"> </span>-d<span class="w"> </span><span class="s2">&quot;\n&quot;</span><span class="w"> </span>&gt;<span class="w"> </span><span class="s2">&quot;</span><span class="nv">$HOME</span><span class="s2">/jwtsecret&quot;</span>
 </code></pre></div>
 <div class="admonition tip">
 <p class="admonition-title">Tip</p>
@@ -1915,11 +1915,11 @@ The following sections explain how to do this for certain EL clients.</p>
 <div class="tabbed-set tabbed-alternate" data-tabs="2:2"><input checked="checked" id="__tabbed_2_1" name="__tabbed_2" type="radio" /><input id="__tabbed_2_2" name="__tabbed_2" type="radio" /><div class="tabbed-labels"><label for="__tabbed_2_1">Mainnet</label><label for="__tabbed_2_2">Holesky</label></div>
 <div class="tabbed-content">
 <div class="tabbed-block">
-<div class="highlight"><pre><span></span><code><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a>geth --authrpc.jwtsecret<span class="o">=</span><span class="s2">&quot;</span><span class="nv">$HOME</span><span class="s2">/jwtsecret&quot;</span>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a>geth<span class="w"> </span>--authrpc.jwtsecret<span class="o">=</span><span class="s2">&quot;</span><span class="nv">$HOME</span><span class="s2">/jwtsecret&quot;</span>
 </code></pre></div>
 </div>
 <div class="tabbed-block">
-<div class="highlight"><pre><span></span><code><a id="__codelineno-4-1" name="__codelineno-4-1" href="#__codelineno-4-1"></a>geth --holesky --authrpc.jwtsecret<span class="o">=</span><span class="s2">&quot;</span><span class="nv">$HOME</span><span class="s2">/jwtsecret&quot;</span>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-4-1" name="__codelineno-4-1" href="#__codelineno-4-1"></a>geth<span class="w"> </span>--holesky<span class="w"> </span>--authrpc.jwtsecret<span class="o">=</span><span class="s2">&quot;</span><span class="nv">$HOME</span><span class="s2">/jwtsecret&quot;</span>
 </code></pre></div>
 </div>
 </div>
@@ -1929,11 +1929,11 @@ The following sections explain how to do this for certain EL clients.</p>
 <div class="tabbed-set tabbed-alternate" data-tabs="3:2"><input checked="checked" id="__tabbed_3_1" name="__tabbed_3" type="radio" /><input id="__tabbed_3_2" name="__tabbed_3" type="radio" /><div class="tabbed-labels"><label for="__tabbed_3_1">Mainnet</label><label for="__tabbed_3_2">Holesky</label></div>
 <div class="tabbed-content">
 <div class="tabbed-block">
-<div class="highlight"><pre><span></span><code><a id="__codelineno-5-1" name="__codelineno-5-1" href="#__codelineno-5-1"></a>nethermind --JsonRpc.JwtSecretFile<span class="o">=</span><span class="s2">&quot;</span><span class="nv">$HOME</span><span class="s2">/jwtsecret&quot;</span>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-5-1" name="__codelineno-5-1" href="#__codelineno-5-1"></a>nethermind<span class="w"> </span>--JsonRpc.JwtSecretFile<span class="o">=</span><span class="s2">&quot;</span><span class="nv">$HOME</span><span class="s2">/jwtsecret&quot;</span>
 </code></pre></div>
 </div>
 <div class="tabbed-block">
-<div class="highlight"><pre><span></span><code><a id="__codelineno-6-1" name="__codelineno-6-1" href="#__codelineno-6-1"></a>nethermind --config holesky --JsonRpc.JwtSecretFile<span class="o">=</span><span class="s2">&quot;</span><span class="nv">$HOME</span><span class="s2">/jwtsecret&quot;</span>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-6-1" name="__codelineno-6-1" href="#__codelineno-6-1"></a>nethermind<span class="w"> </span>--config<span class="w"> </span>holesky<span class="w"> </span>--JsonRpc.JwtSecretFile<span class="o">=</span><span class="s2">&quot;</span><span class="nv">$HOME</span><span class="s2">/jwtsecret&quot;</span>
 </code></pre></div>
 </div>
 </div>
@@ -1946,15 +1946,15 @@ The following sections explain how to do this for certain EL clients.</p>
 </div>
 <h2 id="running-the-light-client">Running the light client</h2>
 <p>The light client starts syncing from a trusted block.
-This trusted block should be somewhat recent (<a href="https://github.com/ethereum/consensus-specs/blob/v1.4.0/specs/phase0/weak-subjectivity.md">~1-2 weeks</a>) and needs to be configured each time when starting the light client.</p>
+This trusted block should be somewhat recent (<a href="https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.3/specs/phase0/weak-subjectivity.md">~1-2 weeks</a>) and needs to be configured each time when starting the light client.</p>
 <h3 id="1-obtaining-a-trusted-block-root">1. Obtaining a trusted block root</h3>
 <p>A block root may be obtained from another trusted beacon node, or from a trusted provider.</p>
 <div class="tabbed-set tabbed-alternate" data-tabs="4:2"><input checked="checked" id="__tabbed_4_1" name="__tabbed_4" type="radio" /><input id="__tabbed_4_2" name="__tabbed_4" type="radio" /><div class="tabbed-labels"><label for="__tabbed_4_1">Trusted beacon node</label><label for="__tabbed_4_2">Beaconcha.in</label></div>
 <div class="tabbed-content">
 <div class="tabbed-block">
 <p>The REST interface must be enabled on the trusted beacon node (<code>--rest --rest-port=5052</code> for Nimbus).</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-7-1" name="__codelineno-7-1" href="#__codelineno-7-1"></a>curl -s <span class="s2">&quot;http://localhost:5052/eth/v1/beacon/headers/finalized&quot;</span> <span class="p">|</span> <span class="se">\</span>
-<a id="__codelineno-7-2" name="__codelineno-7-2" href="#__codelineno-7-2"></a>    jq -r <span class="s1">&#39;.data.root&#39;</span>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-7-1" name="__codelineno-7-1" href="#__codelineno-7-1"></a>curl<span class="w"> </span>-s<span class="w"> </span><span class="s2">&quot;http://localhost:5052/eth/v1/beacon/headers/finalized&quot;</span><span class="w"> </span><span class="p">|</span><span class="w"> </span><span class="se">\</span>
+<a id="__codelineno-7-2" name="__codelineno-7-2" href="#__codelineno-7-2"></a><span class="w">    </span>jq<span class="w"> </span>-r<span class="w"> </span><span class="s1">&#39;.data.root&#39;</span>
 </code></pre></div>
 </div>
 <div class="tabbed-block">
@@ -1977,16 +1977,16 @@ Depending on the EL client, its database must be deleted and sync restarted from
 <div class="tabbed-content">
 <div class="tabbed-block">
 <div class="highlight"><pre><span></span><code><a id="__codelineno-8-1" name="__codelineno-8-1" href="#__codelineno-8-1"></a><span class="nv">TRUSTED_BLOCK_ROOT</span><span class="o">=</span>0x1234567890123456789012345678901234567890123456789012345678901234
-<a id="__codelineno-8-2" name="__codelineno-8-2" href="#__codelineno-8-2"></a>build/nimbus_light_client <span class="se">\</span>
-<a id="__codelineno-8-3" name="__codelineno-8-3" href="#__codelineno-8-3"></a>    --web3-url<span class="o">=</span>http://127.0.0.1:8551 --jwt-secret<span class="o">=</span><span class="s2">&quot;</span><span class="nv">$HOME</span><span class="s2">/jwtsecret&quot;</span> <span class="se">\</span>
-<a id="__codelineno-8-4" name="__codelineno-8-4" href="#__codelineno-8-4"></a>    --trusted-block-root<span class="o">=</span><span class="nv">$TRUSTED_BLOCK_ROOT</span>
+<a id="__codelineno-8-2" name="__codelineno-8-2" href="#__codelineno-8-2"></a>build/nimbus_light_client<span class="w"> </span><span class="se">\</span>
+<a id="__codelineno-8-3" name="__codelineno-8-3" href="#__codelineno-8-3"></a><span class="w">    </span>--web3-url<span class="o">=</span>http://127.0.0.1:8551<span class="w"> </span>--jwt-secret<span class="o">=</span><span class="s2">&quot;</span><span class="nv">$HOME</span><span class="s2">/jwtsecret&quot;</span><span class="w"> </span><span class="se">\</span>
+<a id="__codelineno-8-4" name="__codelineno-8-4" href="#__codelineno-8-4"></a><span class="w">    </span>--trusted-block-root<span class="o">=</span><span class="nv">$TRUSTED_BLOCK_ROOT</span>
 </code></pre></div>
 </div>
 <div class="tabbed-block">
 <div class="highlight"><pre><span></span><code><a id="__codelineno-9-1" name="__codelineno-9-1" href="#__codelineno-9-1"></a><span class="nv">TRUSTED_BLOCK_ROOT</span><span class="o">=</span>0x1234567890123456789012345678901234567890123456789012345678901234
-<a id="__codelineno-9-2" name="__codelineno-9-2" href="#__codelineno-9-2"></a>build/nimbus_light_client --network<span class="o">=</span>holesky <span class="se">\</span>
-<a id="__codelineno-9-3" name="__codelineno-9-3" href="#__codelineno-9-3"></a>    --web3-url<span class="o">=</span>http://127.0.0.1:8551 --jwt-secret<span class="o">=</span><span class="s2">&quot;</span><span class="nv">$HOME</span><span class="s2">/jwtsecret&quot;</span> <span class="se">\</span>
-<a id="__codelineno-9-4" name="__codelineno-9-4" href="#__codelineno-9-4"></a>    --trusted-block-root<span class="o">=</span><span class="nv">$TRUSTED_BLOCK_ROOT</span>
+<a id="__codelineno-9-2" name="__codelineno-9-2" href="#__codelineno-9-2"></a>build/nimbus_light_client<span class="w"> </span>--network<span class="o">=</span>holesky<span class="w"> </span><span class="se">\</span>
+<a id="__codelineno-9-3" name="__codelineno-9-3" href="#__codelineno-9-3"></a><span class="w">    </span>--web3-url<span class="o">=</span>http://127.0.0.1:8551<span class="w"> </span>--jwt-secret<span class="o">=</span><span class="s2">&quot;</span><span class="nv">$HOME</span><span class="s2">/jwtsecret&quot;</span><span class="w"> </span><span class="se">\</span>
+<a id="__codelineno-9-4" name="__codelineno-9-4" href="#__codelineno-9-4"></a><span class="w">    </span>--trusted-block-root<span class="o">=</span><span class="nv">$TRUSTED_BLOCK_ROOT</span>
 </code></pre></div>
 </div>
 </div>
@@ -2017,17 +2017,15 @@ You should see logs similar to the following:</p>
 <a id="__codelineno-10-15" name="__codelineno-10-15" href="#__codelineno-10-15"></a>WRN 2022-11-21 18:03:31.419+01:00 Peer count low, no new peers discovered    topics=&quot;networking&quot; discovered_nodes=0 new_peers=@[] current_peers=7 wanted_peers=160
 <a id="__codelineno-10-16" name="__codelineno-10-16" href="#__codelineno-10-16"></a>INF 2022-11-21 18:03:36.001+01:00 Slot start                                 slot=1109718 epoch=34678 sync=synced peers=7 head=c5464508:1109716 finalized=c092a1d1:1109216 delay=1ms98us
 <a id="__codelineno-10-17" name="__codelineno-10-17" href="#__codelineno-10-17"></a>INF 2022-11-21 18:03:40.012+01:00 New LC optimistic header                   optimistic_header=&quot;(beacon: (slot: 1109717, proposer_index: 835, parent_root: \&quot;c5464508\&quot;, state_root: \&quot;13f823f8\&quot;))&quot;
-<a id="__codelineno-10-18" name="__codelineno-10-18" href="#__codelineno-10-18"></a>NTC 2022-11-21 18:03:40.012+01:00 New LC optimistic block                    opt=99ab28aa:1109717 wallSlot=1109718
-<a id="__codelineno-10-19" name="__codelineno-10-19" href="#__codelineno-10-19"></a>WRN 2022-11-21 18:03:40.422+01:00 Peer count low, no new peers discovered    topics=&quot;networking&quot; discovered_nodes=1 new_peers=@[] current_peers=7 wanted_peers=160
-<a id="__codelineno-10-20" name="__codelineno-10-20" href="#__codelineno-10-20"></a>INF 2022-11-21 18:03:48.001+01:00 Slot start                                 slot=1109719 epoch=34678 sync=synced peers=7 head=99ab28aa:1109717 finalized=c092a1d1:1109216 delay=1ms53us
-<a id="__codelineno-10-21" name="__codelineno-10-21" href="#__codelineno-10-21"></a>WRN 2022-11-21 18:03:50.205+01:00 Peer count low, no new peers discovered    topics=&quot;networking&quot; discovered_nodes=0 new_peers=@[] current_peers=7 wanted_peers=160
-<a id="__codelineno-10-22" name="__codelineno-10-22" href="#__codelineno-10-22"></a>INF 2022-11-21 18:04:00.001+01:00 Slot start                                 slot=1109720 epoch=34678 sync=synced peers=7 head=99ab28aa:1109717 finalized=c092a1d1:1109216 delay=1ms145us
-<a id="__codelineno-10-23" name="__codelineno-10-23" href="#__codelineno-10-23"></a>INF 2022-11-21 18:04:03.982+01:00 New LC optimistic header                   optimistic_header=&quot;(beacon: (slot: 1109718, proposer_index: 1202, parent_root: \&quot;99ab28aa\&quot;, state_root: \&quot;7f7f88d2\&quot;))&quot;
-<a id="__codelineno-10-24" name="__codelineno-10-24" href="#__codelineno-10-24"></a>NTC 2022-11-21 18:04:03.982+01:00 New LC optimistic block                    opt=ab007266:1109718 wallSlot=1109720
+<a id="__codelineno-10-18" name="__codelineno-10-18" href="#__codelineno-10-18"></a>WRN 2022-11-21 18:03:40.422+01:00 Peer count low, no new peers discovered    topics=&quot;networking&quot; discovered_nodes=1 new_peers=@[] current_peers=7 wanted_peers=160
+<a id="__codelineno-10-19" name="__codelineno-10-19" href="#__codelineno-10-19"></a>INF 2022-11-21 18:03:48.001+01:00 Slot start                                 slot=1109719 epoch=34678 sync=synced peers=7 head=99ab28aa:1109717 finalized=c092a1d1:1109216 delay=1ms53us
+<a id="__codelineno-10-20" name="__codelineno-10-20" href="#__codelineno-10-20"></a>WRN 2022-11-21 18:03:50.205+01:00 Peer count low, no new peers discovered    topics=&quot;networking&quot; discovered_nodes=0 new_peers=@[] current_peers=7 wanted_peers=160
+<a id="__codelineno-10-21" name="__codelineno-10-21" href="#__codelineno-10-21"></a>INF 2022-11-21 18:04:00.001+01:00 Slot start                                 slot=1109720 epoch=34678 sync=synced peers=7 head=99ab28aa:1109717 finalized=c092a1d1:1109216 delay=1ms145us
+<a id="__codelineno-10-22" name="__codelineno-10-22" href="#__codelineno-10-22"></a>INF 2022-11-21 18:04:03.982+01:00 New LC optimistic header                   optimistic_header=&quot;(beacon: (slot: 1109718, proposer_index: 1202, parent_root: \&quot;99ab28aa\&quot;, state_root: \&quot;7f7f88d2\&quot;))&quot;
 </code></pre></div>
 <div class="admonition note">
 <p class="admonition-title">Note</p>
-<p>The <a href="https://github.com/ethereum/consensus-specs/blob/v1.4.0/specs/altair/light-client/sync-protocol.md">light client protocol</a> depends on consensus layer (CL) full nodes to serve additional data.
+<p>The <a href="https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.3/specs/altair/light-client/sync-protocol.md">light client protocol</a> depends on consensus layer (CL) full nodes to serve additional data.
 As this is a new protocol, not all implementations are supporting it yet.
 Therefore, it may take several minutes to discover supporting peers, during which no log messages may be produced.</p>
 </div>

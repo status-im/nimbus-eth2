@@ -56,7 +56,7 @@
     
     
     
-    <body dir="ltr" data-md-color-scheme="default" data-md-color-primary="orange" data-md-color-accent="amber">
+    <body dir="ltr" data-md-color-scheme="slate" data-md-color-primary="black" data-md-color-accent="light-blue">
   
     
     
@@ -112,19 +112,19 @@
         
           
           
-          <input class="md-option" data-md-color-media="" data-md-color-scheme="default" data-md-color-primary="orange" data-md-color-accent="amber"  aria-label="Switch to dark mode"  type="radio" name="__palette" id="__palette_1">
+          <input class="md-option" data-md-color-media="" data-md-color-scheme="slate" data-md-color-primary="black" data-md-color-accent="light-blue"  aria-label="Switch to light mode"  type="radio" name="__palette" id="__palette_1">
           
-            <label class="md-header__button md-icon" title="Switch to dark mode" for="__palette_2" hidden>
-              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a4 4 0 0 0-4 4 4 4 0 0 0 4 4 4 4 0 0 0 4-4 4 4 0 0 0-4-4m0 10a6 6 0 0 1-6-6 6 6 0 0 1 6-6 6 6 0 0 1 6 6 6 6 0 0 1-6 6m8-9.31V4h-4.69L12 .69 8.69 4H4v4.69L.69 12 4 15.31V20h4.69L12 23.31 15.31 20H20v-4.69L23.31 12 20 8.69Z"/></svg>
+            <label class="md-header__button md-icon" title="Switch to light mode" for="__palette_2" hidden>
+              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 18c-.89 0-1.74-.2-2.5-.55C11.56 16.5 13 14.42 13 12c0-2.42-1.44-4.5-3.5-5.45C10.26 6.2 11.11 6 12 6a6 6 0 0 1 6 6 6 6 0 0 1-6 6m8-9.31V4h-4.69L12 .69 8.69 4H4v4.69L.69 12 4 15.31V20h4.69L12 23.31 15.31 20H20v-4.69L23.31 12 20 8.69Z"/></svg>
             </label>
           
         
           
           
-          <input class="md-option" data-md-color-media="" data-md-color-scheme="slate" data-md-color-primary="black" data-md-color-accent="light-blue"  aria-label="Switch to light mode"  type="radio" name="__palette" id="__palette_2">
+          <input class="md-option" data-md-color-media="" data-md-color-scheme="default" data-md-color-primary="white" data-md-color-accent="light-blue"  aria-label="Switch to dark mode"  type="radio" name="__palette" id="__palette_2">
           
-            <label class="md-header__button md-icon" title="Switch to light mode" for="__palette_1" hidden>
-              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 18c-.89 0-1.74-.2-2.5-.55C11.56 16.5 13 14.42 13 12c0-2.42-1.44-4.5-3.5-5.45C10.26 6.2 11.11 6 12 6a6 6 0 0 1 6 6 6 6 0 0 1-6 6m8-9.31V4h-4.69L12 .69 8.69 4H4v4.69L.69 12 4 15.31V20h4.69L12 23.31 15.31 20H20v-4.69L23.31 12 20 8.69Z"/></svg>
+            <label class="md-header__button md-icon" title="Switch to dark mode" for="__palette_1" hidden>
+              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a4 4 0 0 0-4 4 4 4 0 0 0 4 4 4 4 0 0 0 4-4 4 4 0 0 0-4-4m0 10a6 6 0 0 1-6-6 6 6 0 0 1 6-6 6 6 0 0 1 6 6 6 6 0 0 1-6 6m8-9.31V4h-4.69L12 .69 8.69 4H4v4.69L.69 12 4 15.31V20h4.69L12 23.31 15.31 20H20v-4.69L23.31 12 20 8.69Z"/></svg>
             </label>
           
         
@@ -1753,7 +1753,7 @@ Whenever the log is about to be rotated, the application invokes a shell script 
 Our aim is to compress the log file to save space.
 The <a href="https://github.com/status-im/nimbus-eth2/tree/unstable/scripts/rotatelogs-compress.sh">Nimbus-eth2 repo</a> provides a helper script that does this:</p>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a><span class="c1"># Create a rotation script for rotatelogs</span>
-<a id="__codelineno-2-2" name="__codelineno-2-2" href="#__codelineno-2-2"></a>cat <span class="s">&lt;&lt; EOF &gt; rotatelogs-compress.sh</span>
+<a id="__codelineno-2-2" name="__codelineno-2-2" href="#__codelineno-2-2"></a>cat<span class="w"> </span><span class="s">&lt;&lt; EOF &gt; rotatelogs-compress.sh</span>
 <a id="__codelineno-2-3" name="__codelineno-2-3" href="#__codelineno-2-3"></a><span class="s">#!/bin/sh</span>
 <a id="__codelineno-2-4" name="__codelineno-2-4" href="#__codelineno-2-4"></a>
 <a id="__codelineno-2-5" name="__codelineno-2-5" href="#__codelineno-2-5"></a><span class="s"># Helper script for Apache rotatelogs to compress log files on rotation - `$2` contains the old log file name</span>
@@ -1764,14 +1764,14 @@ The <a href="https://github.com/status-im/nimbus-eth2/tree/unstable/scripts/rota
 <a id="__codelineno-2-10" name="__codelineno-2-10" href="#__codelineno-2-10"></a><span class="s">fi</span>
 <a id="__codelineno-2-11" name="__codelineno-2-11" href="#__codelineno-2-11"></a><span class="s">EOF</span>
 <a id="__codelineno-2-12" name="__codelineno-2-12" href="#__codelineno-2-12"></a>
-<a id="__codelineno-2-13" name="__codelineno-2-13" href="#__codelineno-2-13"></a>chmod +x rotatelogs-compress.sh
+<a id="__codelineno-2-13" name="__codelineno-2-13" href="#__codelineno-2-13"></a>chmod<span class="w"> </span>+x<span class="w"> </span>rotatelogs-compress.sh
 </code></pre></div>
 <h3 id="run">Run</h3>
 <p>The final step is to redirect logs to <code>rotatelogs</code> using a pipe when starting Nimbus:</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a>build/nimbus_beacon_node <span class="se">\</span>
-<a id="__codelineno-3-2" name="__codelineno-3-2" href="#__codelineno-3-2"></a>  --network:holesky <span class="se">\</span>
-<a id="__codelineno-3-3" name="__codelineno-3-3" href="#__codelineno-3-3"></a>  --web3-url<span class="o">=</span><span class="s2">&quot;</span><span class="nv">$WEB3URL</span><span class="s2">&quot;</span> <span class="se">\</span>
-<a id="__codelineno-3-4" name="__codelineno-3-4" href="#__codelineno-3-4"></a>  --data-dir:<span class="nv">$DATADIR</span> <span class="m">2</span>&gt;<span class="p">&amp;</span><span class="m">1</span> <span class="p">|</span> rotatelogs -L <span class="s2">&quot;</span><span class="nv">$DATADIR</span><span class="s2">/nbc_bn.log&quot;</span> -p <span class="s2">&quot;/path/to/rotatelogs-compress.sh&quot;</span> -D -f -c <span class="s2">&quot;</span><span class="nv">$DATADIR</span><span class="s2">/log/nbc_bn_%Y%m%d%H%M%S.log&quot;</span> <span class="m">3600</span>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a>build/nimbus_beacon_node<span class="w"> </span><span class="se">\</span>
+<a id="__codelineno-3-2" name="__codelineno-3-2" href="#__codelineno-3-2"></a><span class="w">  </span>--network:holesky<span class="w"> </span><span class="se">\</span>
+<a id="__codelineno-3-3" name="__codelineno-3-3" href="#__codelineno-3-3"></a><span class="w">  </span>--web3-url<span class="o">=</span><span class="s2">&quot;</span><span class="nv">$WEB3URL</span><span class="s2">&quot;</span><span class="w"> </span><span class="se">\</span>
+<a id="__codelineno-3-4" name="__codelineno-3-4" href="#__codelineno-3-4"></a><span class="w">  </span>--data-dir:<span class="nv">$DATADIR</span><span class="w"> </span><span class="m">2</span>&gt;<span class="p">&amp;</span><span class="m">1</span><span class="w"> </span><span class="p">|</span><span class="w"> </span>rotatelogs<span class="w"> </span>-L<span class="w"> </span><span class="s2">&quot;</span><span class="nv">$DATADIR</span><span class="s2">/nbc_bn.log&quot;</span><span class="w"> </span>-p<span class="w"> </span><span class="s2">&quot;/path/to/rotatelogs-compress.sh&quot;</span><span class="w"> </span>-D<span class="w"> </span>-f<span class="w"> </span>-c<span class="w"> </span><span class="s2">&quot;</span><span class="nv">$DATADIR</span><span class="s2">/log/nbc_bn_%Y%m%d%H%M%S.log&quot;</span><span class="w"> </span><span class="m">3600</span>
 </code></pre></div>
 <p>The options used in this example do the following:</p>
 <ul>
@@ -1785,7 +1785,7 @@ The <a href="https://github.com/status-im/nimbus-eth2/tree/unstable/scripts/rota
 <h3 id="deleting-old-logs">Deleting old logs</h3>
 <p><code>rotatelogs</code> will not do this for you, so you'll need a Cron script (or Systemd timer):</p>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-4-1" name="__codelineno-4-1" href="#__codelineno-4-1"></a><span class="c1"># delete log files older than 7 days</span>
-<a id="__codelineno-4-2" name="__codelineno-4-2" href="#__codelineno-4-2"></a>find <span class="s2">&quot;</span><span class="nv">$DATADIR</span><span class="s2">/log&quot;</span> -name <span class="s1">&#39;nbc_bn_*.log&#39;</span> -mtime +7 -exec rm <span class="s1">&#39;{}&#39;</span> <span class="se">\+</span>
+<a id="__codelineno-4-2" name="__codelineno-4-2" href="#__codelineno-4-2"></a>find<span class="w"> </span><span class="s2">&quot;</span><span class="nv">$DATADIR</span><span class="s2">/log&quot;</span><span class="w"> </span>-name<span class="w"> </span><span class="s1">&#39;nbc_bn_*.log&#39;</span><span class="w"> </span>-mtime<span class="w"> </span>+7<span class="w"> </span>-exec<span class="w"> </span>rm<span class="w"> </span><span class="s1">&#39;{}&#39;</span><span class="w"> </span><span class="se">\+</span>
 </code></pre></div>
 
               
