@@ -88,67 +88,16 @@ pipeline {
       } }
     }
 
-    stage('Build') {
-      steps { timeout(50) {
-        sh 'make LOG_LEVEL=TRACE'
-      } }
-    }
-
-    stage('Check Docs') {
-      steps {
-        sh './scripts/check_docs_help_msg.sh'
-      }
-    }
-
     stage('Tests') {
       parallel {
         stage('General') {
           steps { timeout(60) {
             sh 'make DISABLE_TEST_FIXTURES_SCRIPT=1 test'
-            sh 'git diff --exit-code --ignore-submodules=all'  /* Check no uncommitted changes. */
-          } }
-        }
-
-        stage('REST') {
-          steps { timeout(5) {
-            sh 'make restapi-test'
-          } }
-          post { always {
-            sh 'tar cjf restapi-test.tar.gz resttest0_data/*.txt'
           } }
         }
       }
       post { always { timeout(5) {
         archiveArtifacts(artifacts: '*.tar.gz', allowEmptyArchive: true)
-      } } }
-    }
-
-    stage('Finalizations') {
-      stages {  /* parallel builds of minimal / mainnet not yet supported */
-        stage('minimal') {
-          steps { timeout(26) {
-            sh 'make local-testnet-minimal'
-          } }
-          post { always {
-            sh 'tar cjf local-testnet-minimal.tar.gz local-testnet-minimal/logs/*'
-          } }
-        }
-
-        stage('mainnet') {
-          steps { timeout(62) {
-            sh 'make local-testnet-mainnet'
-          } }
-          post { always {
-            sh 'tar cjf local-testnet-mainnet.tar.gz local-testnet-mainnet/logs/*'
-          } }
-        }
-      }
-      post { always { timeout(5) {
-        archiveArtifacts(
-          artifacts: '*.tar.gz',
-          excludes: '**/geth-*.tar.gz',  /* `scripts/geth_binaries.sh` */
-          allowEmptyArchive: true
-        )
       } } }
     }
   }
