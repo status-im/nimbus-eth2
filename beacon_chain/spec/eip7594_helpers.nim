@@ -13,7 +13,6 @@ import
   stew/results,
   ssz_serialization/proofs,
   chronicles,
-  ../beacon_node,
   ./[beacon_time, crypto],
   kzg4844/kzg_ex,
   eth/p2p/discoveryv5/[node],
@@ -29,11 +28,6 @@ proc sortedColumnIndices*(columnsPerSubnet: ColumnIndex, subnetIds: HashSet[uint
       result.add(ColumnIndex(index))
   res.sort()
   res
-
-proc fetchCustodySubnetCount* (res: var uint64, conf: BeaconNode) =
-  res = CUSTODY_REQUIREMENT
-  if node.config.subscribeAllSubnets:
-    res = DATA_COLUMN_SIDECAR_SUBNET_COUNT
 
 proc get_custody_column_subnet*(node_id: NodeId, custody_subnet_count: uint64): Result[HashSet[uint64], cstring] =
   # fetches the subnets for custody column for the current node

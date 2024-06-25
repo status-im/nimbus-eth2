@@ -1107,6 +1107,11 @@ proc addCapellaMessageHandlers(
   node.addAltairMessageHandlers(forkDigest, slot)
   node.network.subscribe(getBlsToExecutionChangeTopic(forkDigest), basicParams)
 
+proc fetchCustodySubnetCount* (res: var uint64, node: BeaconNode) =
+  res = CUSTODY_REQUIREMENT
+  if node.config.subscribeAllSubnets:
+    res = DATA_COLUMN_SIDECAR_SUBNET_COUNT
+
 proc addDenebMessageHandlers(
     node: BeaconNode, forkDigest: ForkDigest, slot: Slot) =
   node.addCapellaMessageHandlers(forkDigest, slot)
