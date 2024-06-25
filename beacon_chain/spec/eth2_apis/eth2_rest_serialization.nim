@@ -1027,6 +1027,20 @@ proc readValue*(reader: var JsonReader[RestJson], value: var JustificationBits) 
     raiseUnexpectedValue(reader,
                         "The `justification_bits` value must be a hex string")
 
+## openArray[byte]
+proc writeValue*(
+    w: var JsonWriter[RestJson], value: openArray[byte]
+) {.raises: [IOError].} =
+  w.writeValue hexOriginal(value)
+
+proc readValue*(reader: var JsonReader[RestJson], value: var openArray[byte]) {.
+    raises: [IOError, SerializationError].} =
+  let hex = reader.readValue(string)
+  try:
+    hexToByteArrayStrict(hex, value)
+  except ValueError:
+    raiseUnexpectedValue(reader, "Byte array value must be a hex string")
+
 ## UInt256
 proc writeValue*(
     w: var JsonWriter[RestJson], value: UInt256) {.raises: [IOError].} =
