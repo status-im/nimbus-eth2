@@ -130,7 +130,7 @@ type
     current_sync_committee*: SyncCommittee     # [New in Altair]
     next_sync_committee*: SyncCommittee        # [New in Altair]
 
-  # https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.2/specs/bellatrix/beacon-chain.md#beaconstate
+  # https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.3/specs/bellatrix/beacon-chain.md#beaconstate
   # Memory-representation-equivalent to a Bellatrix BeaconState for in-place SSZ
   # reading and writing
   BellatrixBeaconStateNoImmutableValidators* = object
@@ -401,7 +401,7 @@ type
     historical_summaries*:
       HashList[HistoricalSummary, Limit HISTORICAL_ROOTS_LIMIT]
 
-    deposit_receipts_start_index*: uint64  # [New in Electra:EIP6110]
+    deposit_requests_start_index*: uint64  # [New in Electra:EIP6110]
     deposit_balance_to_consume*: Gwei  # [New in Electra:EIP7251]
     exit_balance_to_consume*: Gwei  # [New in Electra:EIP7251]
     earliest_exit_epoch*: Epoch  # [New in Electra:EIP7251]

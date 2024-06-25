@@ -40,12 +40,12 @@ const
   # `uint64(2**3)` (= 8)
   MAX_ATTESTATIONS_ELECTRA*: uint64 = 8
   # `uint64(2**0)` (= 1)
-  MAX_CONSOLIDATIONS*: uint64 = 1
+  MAX_CONSOLIDATION_REQUESTS_PER_PAYLOAD*: uint64 = 1
 
   # Execution
   # ---------------------------------------------------------------
   # [customized]
-  MAX_DEPOSIT_RECEIPTS_PER_PAYLOAD* = 4
+  MAX_DEPOSIT_REQUESTS_PER_PAYLOAD* = 4
   # [customized] 2**1 (= 2) withdrawal requests
   MAX_WITHDRAWAL_REQUESTS_PER_PAYLOAD* = 2
 

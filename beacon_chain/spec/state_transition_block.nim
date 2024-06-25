@@ -10,8 +10,8 @@
 # State transition - block processing, as described in
 # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.7/specs/phase0/beacon-chain.md#block-processing
 # https://github.com/ethereum/consensus-specs/blob/v1.4.0/specs/altair/beacon-chain.md#block-processing
-# https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.2/specs/bellatrix/beacon-chain.md#block-processing
-# https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.2/specs/capella/beacon-chain.md#block-processing
+# https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.3/specs/bellatrix/beacon-chain.md#block-processing
+# https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.3/specs/capella/beacon-chain.md#block-processing
 # https://github.com/ethereum/consensus-specs/blob/v1.4.0/specs/deneb/beacon-chain.md#block-processing
 # https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.1/specs/electra/beacon-chain.md#block-processing
 #
@@ -135,7 +135,7 @@ func is_slashable_validator(validator: Validator, epoch: Epoch): bool =
     (validator.activation_epoch <= epoch) and
     (epoch < validator.withdrawable_epoch)
 
-# https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.6/specs/phase0/beacon-chain.md#proposer-slashings
+# https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.3/specs/phase0/beacon-chain.md#proposer-slashings
 proc check_proposer_slashing*(
     state: ForkyBeaconState, proposer_slashing: SomeProposerSlashing,
     flags: UpdateFlags):
@@ -397,22 +397,22 @@ proc process_deposit*(
 
   apply_deposit(cfg, state, bloom_filter, deposit.data, flags)
 
-# https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.0/specs/electra/beacon-chain.md#new-process_deposit_receipt
-func process_deposit_receipt*(
+# https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.3/specs/electra/beacon-chain.md#new-process_deposit_request
+func process_deposit_request*(
     cfg: RuntimeConfig, state: var electra.BeaconState,
-    bloom_filter: var PubkeyBloomFilter, deposit_receipt: DepositReceipt,
+    bloom_filter: var PubkeyBloomFilter, deposit_request: DepositRequest,
     flags: UpdateFlags): Result[void, cstring] =
-  # Set deposit receipt start index
-  if state.deposit_receipts_start_index ==
-      UNSET_DEPOSIT_RECEIPTS_START_INDEX:
-    state.deposit_receipts_start_index = deposit_receipt.index
+  # Set deposit request start index
+  if state.deposit_requests_start_index ==
+      UNSET_DEPOSIT_REQUESTS_START_INDEX:
+    state.deposit_requests_start_index = deposit_request.index
 
   apply_deposit(
     cfg, state, bloom_filter, DepositData(
-      pubkey: deposit_receipt.pubkey,
-      withdrawal_credentials: deposit_receipt.withdrawal_credentials,
-      amount: deposit_receipt.amount,
-      signature: deposit_receipt.signature), flags)
+      pubkey: deposit_request.pubkey,
+      withdrawal_credentials: deposit_request.withdrawal_credentials,
+      amount: deposit_request.amount,
+      signature: deposit_request.signature), flags)
 
 # https://github.com/ethereum/consensus-specs/blob/v1.4.0/specs/phase0/beacon-chain.md#voluntary-exits
 # https://github.com/ethereum/consensus-specs/blob/v1.4.0/specs/deneb/beacon-chain.md#modified-process_voluntary_exit
@@ -507,13 +507,12 @@ proc process_bls_to_execution_change*(
 
   ok()
 
-# https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.2/specs/electra/beacon-chain.md#new-process_execution_layer_withdrawal_request
-func process_execution_layer_withdrawal_request*(
+# https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.3/specs/electra/beacon-chain.md#new-process_withdrawal_request
+func process_withdrawal_request*(
     cfg: RuntimeConfig, state: var electra.BeaconState,
-    execution_layer_withdrawal_request: ExecutionLayerWithdrawalRequest,
-    cache: var StateCache) =
+    withdrawal_request: WithdrawalRequest, cache: var StateCache) =
   let
-    amount = execution_layer_withdrawal_request.amount
+    amount = withdrawal_request.amount
     is_full_exit_request = amount == static(FULL_EXIT_REQUEST_AMOUNT.Gwei)
 
   # If partial withdrawal queue is full, only full exits are processed
@@ -522,7 +521,8 @@ func process_execution_layer_withdrawal_request*(
     return
 
   let
-    request_pubkey = execution_layer_withdrawal_request.validator_pubkey
+    request_pubkey = withdrawal_request.validator_pubkey
+    # Verify pubkey exists
     index = findValidatorIndex(state, request_pubkey).valueOr:
       return
     validator = state.validators.item(index)
@@ -532,7 +532,7 @@ func process_execution_layer_withdrawal_request*(
     has_correct_credential = has_execution_withdrawal_credential(validator)
     is_correct_source_address =
       validator.withdrawal_credentials.data.toOpenArray(12, 31) ==
-        execution_layer_withdrawal_request.source_address.data
+        withdrawal_request.source_address.data
 
   if not (has_correct_credential and is_correct_source_address):
     return
@@ -588,67 +588,66 @@ func process_execution_layer_withdrawal_request*(
       withdrawable_epoch: withdrawable_epoch,
     ))
 
-# https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.0/specs/electra/beacon-chain.md#consolidations
-proc process_consolidation*(
+# https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.3/specs/electra/beacon-chain.md#new-process_consolidation_request
+proc process_consolidation_request*(
     cfg: RuntimeConfig, state: var electra.BeaconState,
-    signed_consolidation: SignedConsolidation | TrustedSignedConsolidation,
-    cache: var StateCache): Result[void, cstring] =
-  # If the pending consolidations queue is full, no consolidations are allowed
-  # in the block
+    consolidation_request: ConsolidationRequest,
+    cache: var StateCache) =
+  # If the pending consolidations queue is full, consolidation requests are
+  # ignored
   if not(lenu64(state.pending_consolidations) < PENDING_CONSOLIDATIONS_LIMIT):
-    return err("Consolidation: too many pending consolidations already")
+    return
 
-  # If there is too little available consolidation churn limit, no
-  # consolidations are allowed in the block
+  # If there is too little available consolidation churn limit, consolidation
+  # requests are ignored
   if not (get_consolidation_churn_limit(cfg, state, cache) >
       static(MIN_ACTIVATION_BALANCE.Gwei)):
-    return err("Consolidation: insufficient available consolidation churn limit")
-
-  let consolidation = signed_consolidation.message
-
-  # Verify that source != target, so a consolidation cannot be used as an exit.
-  if not(consolidation.source_index != consolidation.target_index):
-    return err("Consolidation: a consolidation cannot be used as an exit")
+    return
 
   let
-    source_validator = addr state.validators.mitem(consolidation.source_index)
-    target_validator = state.validators.item(consolidation.target_index)
+    # Verify pubkeys exists
+    source_index =
+      findValidatorIndex(state, consolidation_request.source_pubkey).valueOr:
+        return
+    target_index =
+      findValidatorIndex(state, consolidation_request.target_pubkey).valueOr:
+        return
+
+  # Verify that source != target, so a consolidation cannot be used as an exit.
+  if source_index == target_index:
+    return
+
+  let
+    source_validator = addr state.validators.mitem(source_index)
+    target_validator = state.validators.item(target_index)
+
+  # Verify source withdrawal credentials
+  let
+    has_correct_credential =
+      has_execution_withdrawal_credential(source_validator[])
+    is_correct_source_address =
+      source_validator.withdrawal_credentials.data.toOpenArray(12, 31) ==
+        consolidation_request.source_address.data
+  if not (has_correct_credential and is_correct_source_address):
+    return
+
+  # Verify that target has execution withdrawal credentials
+  if not has_execution_withdrawal_credential(target_validator):
+    return
 
   # Verify the source and the target are active
   let current_epoch = get_current_epoch(state)
 
   if not is_active_validator(source_validator[], current_epoch):
-    return err("Consolidation: source validator not active")
+    return
   if not is_active_validator(target_validator, current_epoch):
-    return err("Consolidation: target validator not active")
+    return
 
   # Verify exits for source and target have not been initiated
-  if not (source_validator[].exit_epoch == FAR_FUTURE_EPOCH):
-    return err("Consolidation: exit for source validator already initiated")
-  if not (target_validator.exit_epoch == FAR_FUTURE_EPOCH):
-    return err("Consolidation: exit for target validator already initiated")
-
-  # Consolidations must specify an epoch when they become valid; they are not
-  # valid before then
-  if not (current_epoch >= consolidation.epoch):
-    return err("Consolidation: consolidation not valid before specified epoch")
-
-  # Verify the source and the target have Execution layer withdrawal credentials
-  if not has_execution_withdrawal_credential(source_validator[]):
-    return err("Consolidation: source doesn't have execution layer withdrawal credentials")
-  if not has_execution_withdrawal_credential(target_validator):
-    return err("Consolidation: target doesn't have execution layer withdrawal credentials")
-
-  # Verify the same withdrawal address
-  if not (source_validator[].withdrawal_credentials.data.toOpenArray(12, 31) ==
-      target_validator.withdrawal_credentials.data.toOpenArray(12, 31)):
-    return err("Consolidation: source and target don't have same withdrawal address")
-
-  # Verify consolidation is signed by the source and the target
-  if not verify_consolidation_signature(
-      cfg.genesisFork, state.genesis_validators_root, signed_consolidation,
-      [source_validator[].pubkey, target_validator.pubkey]):
-    return err("Consolidation: invalid signature")
+  if source_validator[].exit_epoch != FAR_FUTURE_EPOCH:
+    return
+  if target_validator.exit_epoch != FAR_FUTURE_EPOCH:
+    return
 
   # Initiate source validator exit and append pending consolidation
   source_validator[].exit_epoch = compute_consolidation_epoch_and_update_churn(
@@ -657,10 +656,7 @@ proc process_consolidation*(
     source_validator[].exit_epoch + cfg.MIN_VALIDATOR_WITHDRAWABILITY_DELAY
   debugComment "check HashList add return value"
   discard state.pending_consolidations.add(PendingConsolidation(
-    source_index: consolidation.source_index,
-    target_index: consolidation.target_index))
-
-  ok()
+    source_index: source_index.uint64, target_index: target_index.uint64))
 
 type
   # https://ethereum.github.io/beacon-APIs/?urls.primaryName=v2.5.0#/Rewards/getBlockRewards
@@ -672,7 +668,7 @@ type
 
 # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.6/specs/phase0/beacon-chain.md#operations
 # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.5/specs/capella/beacon-chain.md#modified-process_operations
-# https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.1/specs/electra/beacon-chain.md#modified-process_operations
+# https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.3/specs/electra/beacon-chain.md#operations
 proc process_operations(
     cfg: RuntimeConfig, state: var ForkyBeaconState,
     body: SomeForkyBeaconBlockBody, base_reward_per_increment: Gwei,
@@ -683,7 +679,7 @@ proc process_operations(
     # Disable former deposit mechanism once all prior deposits are processed
     let
       eth1_deposit_index_limit =
-        min(state.eth1_data.deposit_count, state.deposit_receipts_start_index)
+        min(state.eth1_data.deposit_count, state.deposit_requests_start_index)
       req_deposits =
         if state.eth1_deposit_index < eth1_deposit_index_limit:
           min(
@@ -733,17 +729,17 @@ proc process_operations(
     for op in body.bls_to_execution_changes:
       ? process_bls_to_execution_change(cfg, state, op)
 
-  # [New in Electra:EIP7002:EIP7251]
   when typeof(body).kind >= ConsensusFork.Electra:
-    for op in body.execution_payload.withdrawal_requests:
-      process_execution_layer_withdrawal_request(
-        cfg, state, op, cache)
-    for op in body.execution_payload.deposit_receipts:
-      debugComment "combine with previous bloom filter construction"
+    for op in body.execution_payload.deposit_requests:
+      debugComment "combine with previous Bloom filter construction"
       let bloom_filter = constructBloomFilter(state.validators.asSeq)
-      ? process_deposit_receipt(cfg, state, bloom_filter[], op, {})
-    for op in body.consolidations:
-      ? process_consolidation(cfg, state, op, cache)
+      ? process_deposit_request(cfg, state, bloom_filter[], op, {})
+    for op in body.execution_payload.withdrawal_requests:
+      # [New in Electra:EIP7002:7251]
+      process_withdrawal_request(cfg, state, op, cache)
+    for op in body.execution_payload.consolidation_requests:
+      # [New in Electra:EIP7251]
+      process_consolidation_request(cfg, state, op, cache)
 
   ok(operations_rewards)
 
@@ -971,7 +967,7 @@ type SomeElectraBeaconBlockBody =
   electra.BeaconBlockBody | electra.SigVerifiedBeaconBlockBody |
   electra.TrustedBeaconBlockBody
 
-# https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.0/specs/electra/beacon-chain.md#modified-process_execution_payload
+# https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.3/specs/electra/beacon-chain.md#modified-process_execution_payload
 proc process_execution_payload*(
     state: var electra.BeaconState, body: SomeElectraBeaconBlockBody,
     notify_new_payload: electra.ExecutePayload): Result[void, cstring] =
@@ -1018,20 +1014,33 @@ proc process_execution_payload*(
     withdrawals_root: hash_tree_root(payload.withdrawals),
     blob_gas_used: payload.blob_gas_used,
     excess_blob_gas: payload.excess_blob_gas,
-    deposit_receipts_root:
-      hash_tree_root(payload.deposit_receipts),  # [New in Electra:EIP6110]
+    deposit_requests_root:
+      hash_tree_root(payload.deposit_requests),  # [New in Electra:EIP6110]
     withdrawal_requests_root:
-      hash_tree_root(payload.withdrawal_requests))  # [New in Electra:EIP7002:EIP7251]
+      hash_tree_root(payload.withdrawal_requests),  # [New in Electra:EIP7002:EIP7251]
+    consolidation_requests_root:
+      hash_tree_root(payload.consolidation_requests))  # [New in Electra:EIP7251]
 
   ok()
 
-# https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.2/specs/capella/beacon-chain.md#new-process_withdrawals
+# https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.3/specs/capella/beacon-chain.md#new-process_withdrawals
+# https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.3/specs/electra/beacon-chain.md#updated-process_withdrawals
 func process_withdrawals*(
     state: var (capella.BeaconState | deneb.BeaconState | electra.BeaconState),
     payload: capella.ExecutionPayload | deneb.ExecutionPayload |
              electra.ExecutionPayload):
     Result[void, cstring] =
-  let expected_withdrawals = get_expected_withdrawals(state)
+  when typeof(state).kind >= ConsensusFork.Electra:
+    let (expected_withdrawals, partial_withdrawals_count) =
+      get_expected_withdrawals_with_partial_count(state)
+
+    # Update pending partial withdrawals [New in Electra:EIP7251]
+    # Moved slightly earlier to be in same when block
+    state.pending_partial_withdrawals =
+      HashList[PendingPartialWithdrawal, Limit PENDING_PARTIAL_WITHDRAWALS_LIMIT].init(
+        state.pending_partial_withdrawals.asSeq[partial_withdrawals_count .. ^1])
+  else:
+    let expected_withdrawals = get_expected_withdrawals(state)
 
   if not (len(payload.withdrawals) == len(expected_withdrawals)):
     return err("process_withdrawals: different numbers of payload and expected withdrawals")
@@ -1137,7 +1146,7 @@ proc process_block*(
 
   ok(operations_rewards)
 
-# https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.2/specs/bellatrix/beacon-chain.md#block-processing
+# https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.3/specs/bellatrix/beacon-chain.md#block-processing
 # TODO workaround for https://github.com/nim-lang/Nim/issues/18095
 type SomeBellatrixBlock =
   bellatrix.BeaconBlock | bellatrix.SigVerifiedBeaconBlock | bellatrix.TrustedBeaconBlock

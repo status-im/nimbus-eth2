@@ -22,7 +22,7 @@ from ./testbcutil import addHeadBlock
 
 suite "Light client" & preset():
   const  # Test config, should be long enough to cover interesting transitions
-    headPeriod = 3.SyncCommitteePeriod
+    headPeriod = 4.SyncCommitteePeriod
   let
     cfg = block:  # Fork schedule so that each `LightClientDataFork` is covered
       static: doAssert ConsensusFork.high == ConsensusFork.Electra
@@ -31,7 +31,7 @@ suite "Light client" & preset():
       res.BELLATRIX_FORK_EPOCH = 2.Epoch
       res.CAPELLA_FORK_EPOCH = (EPOCHS_PER_SYNC_COMMITTEE_PERIOD * 1).Epoch
       res.DENEB_FORK_EPOCH = (EPOCHS_PER_SYNC_COMMITTEE_PERIOD * 2).Epoch
-      res.ELECTRA_FORK_EPOCH = FAR_FUTURE_EPOCH
+      res.ELECTRA_FORK_EPOCH = (EPOCHS_PER_SYNC_COMMITTEE_PERIOD * 3).Epoch
       res
     altairStartSlot = cfg.ALTAIR_FORK_EPOCH.start_slot
 
