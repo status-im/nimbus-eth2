@@ -305,7 +305,7 @@ type
       electraData*: List[
         electra.Eip6493Transaction, MAX_TRANSACTIONS_PER_PAYLOAD]
 
-  # https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.2/specs/capella/beacon-chain.md#executionpayload
+  # https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.3/specs/capella/beacon-chain.md#executionpayload
   RestExecutionPayload* = object
     # Execution block header fields
     parent_hash*: Eth2Digest

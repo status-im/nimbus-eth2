@@ -37,7 +37,8 @@ macro copyFields*(
         # unblinded objects, and can't simply be copied.
         "transactions_root", "execution_payload",
         "execution_payload_header", "body", "withdrawals_root",
-        "deposit_receipts_root", "withdrawal_requests_root"]:
+        "deposit_requests_root", "withdrawal_requests_root",
+        "consolidation_requests_root"]:
       # TODO use stew/assign2
       result.add newAssignment(
         newDotExpr(dst, ident(name)), newDotExpr(src, ident(name)))

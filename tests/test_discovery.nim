@@ -17,7 +17,7 @@ import
 
 proc new(T: type Eth2DiscoveryProtocol,
     pk: keys.PrivateKey,
-    enrIp: Option[IpAddress], enrTcpPort, enrUdpPort: Option[Port],
+    enrIp: Opt[IpAddress], enrTcpPort, enrUdpPort: Opt[Port],
     bindPort: Port, bindIp: IpAddress,
     enrFields: openArray[(string, seq[byte])] = [],
     rng: ref HmacDrbgContext): T =
@@ -32,7 +32,7 @@ proc generateNode(rng: ref HmacDrbgContext, port: Port,
     except ValueError:
       raiseAssert "Argument is a valid IP address"
   Eth2DiscoveryProtocol.new(keys.PrivateKey.random(rng[]),
-        some(ip), some(port), some(port), port, ip, enrFields, rng = rng)
+        Opt.some(ip), Opt.some(port), Opt.some(port), port, ip, enrFields, rng = rng)
 
 # TODO: Add tests with a syncnets preference
 const noSyncnetsPreference = SyncnetBits()

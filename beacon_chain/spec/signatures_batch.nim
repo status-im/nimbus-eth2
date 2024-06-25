@@ -83,7 +83,7 @@ func aggregateAttesters(
     # Aggregation spec requires non-empty collection
     # - https://tools.ietf.org/html/draft-irtf-cfrg-bls-signature-04
     # Consensus specs require at least one attesting index in attestation
-    # - https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.6/specs/phase0/beacon-chain.md#is_valid_indexed_attestation
+    # - https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.3/specs/phase0/beacon-chain.md#is_valid_indexed_attestation
     return err("aggregateAttesters: no attesting indices")
 
   let
@@ -461,10 +461,6 @@ proc collectSignatureSets*(
             sigs.add bls_to_execution_change_signature_set(
               genesis_fork, genesis_validators_root, bls_change.message,
               validator_pubkey, sig)
-
-  block:
-    # 9. Consolidations
-    debugComment "check consolidations signatures"
 
   ok()
 

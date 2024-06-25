@@ -542,12 +542,22 @@ proc new*(T: type BeaconChainDB,
           "lc_deneb_headers"
         else:
           "",
+      electraHeaders:
+        if cfg.DENEB_FORK_EPOCH != FAR_FUTURE_EPOCH:
+          "lc_electra_headers"
+        else:
+          "",
       altairCurrentBranches: "lc_altair_current_branches",
+      electraCurrentBranches:
+        if cfg.ELECTRA_FORK_EPOCH != FAR_FUTURE_EPOCH:
+          "lc_electra_current_branches"
+        else:
+          "",
       altairSyncCommittees: "lc_altair_sync_committees",
       legacyAltairBestUpdates: "lc_altair_best_updates",
       bestUpdates: "lc_best_updates",
       sealedPeriods: "lc_sealed_periods")).expectDb()
-  static: doAssert LightClientDataFork.high == LightClientDataFork.Deneb
+  static: doAssert LightClientDataFork.high == LightClientDataFork.Electra
 
   var blobs : KvStoreRef
   if cfg.DENEB_FORK_EPOCH != FAR_FUTURE_EPOCH:

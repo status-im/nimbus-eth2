@@ -123,10 +123,13 @@ type
     withdrawals*: Opt[List[Withdrawal, MAX_WITHDRAWALS_PER_PAYLOAD]]
     blob_gas_used*: Opt[uint64]
     excess_blob_gas*: Opt[uint64]
-    deposit_receipts*: Opt[List[DepositReceipt,
-      MAX_DEPOSIT_RECEIPTS_PER_PAYLOAD]]
-    withdrawal_requests*: Opt[List[ExecutionLayerWithdrawalRequest,
-      MAX_WITHDRAWAL_REQUESTS_PER_PAYLOAD]]
+    deposit_requests*:
+      Opt[List[DepositRequest, MAX_DEPOSIT_REQUESTS_PER_PAYLOAD]]
+    withdrawal_requests*:
+      Opt[List[WithdrawalRequest, MAX_WITHDRAWAL_REQUESTS_PER_PAYLOAD]]
+    consolidation_requests*:
+      Opt[List[ConsolidationRequest,
+        Limit MAX_CONSOLIDATION_REQUESTS_PER_PAYLOAD]]
 
   StableExecutionPayloadHeader* {.
       sszStableContainer: MAX_EXECUTION_PAYLOAD_FIELDS.} = object
@@ -151,8 +154,9 @@ type
     withdrawals_root*: Opt[Eth2Digest]
     blob_gas_used*: Opt[uint64]
     excess_blob_gas*: Opt[uint64]
-    deposit_receipts_root*: Opt[Eth2Digest]
+    deposit_requests_root*: Opt[Eth2Digest]
     withdrawal_requests_root*: Opt[Eth2Digest]
+    consolidation_requests_root*: Opt[Eth2Digest]
 
   StableBeaconBlockBody* {.
       sszStableContainer: MAX_BEACON_BLOCK_BODY_FIELDS.} = object
@@ -178,7 +182,6 @@ type
     execution_payload*: Opt[StableExecutionPayload]
     bls_to_execution_changes*: Opt[SignedBLSToExecutionChangeList]
     blob_kzg_commitments*: Opt[KzgCommitments]
-    consolidations*: Opt[List[SignedConsolidation, Limit MAX_CONSOLIDATIONS]]
 
   StableBeaconState* {.sszStableContainer: MAX_BEACON_STATE_FIELDS.} = object
     # Versioning
@@ -246,7 +249,7 @@ type
     historical_summaries*:
       Opt[HashList[HistoricalSummary, Limit HISTORICAL_ROOTS_LIMIT]]
 
-    deposit_receipts_start_index*: Opt[uint64]
+    deposit_requests_start_index*: Opt[uint64]
     deposit_balance_to_consume*: Opt[Gwei]
     exit_balance_to_consume*: Opt[Gwei]
     earliest_exit_epoch*: Opt[Epoch]

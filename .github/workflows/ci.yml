@@ -35,7 +35,7 @@ jobs:
             cpu: amd64
           - os: windows
             cpu: amd64
-        branch: [~, upstream/version-1-6, upstream/version-2-0]
+        branch: [~, upstream/version-1-6, v2.0.6]
         exclude:
           - target:
               os: macos
@@ -49,7 +49,7 @@ jobs:
         include:
           - branch: upstream/version-1-6
             branch-short: version-1-6
-          - branch: upstream/version-2-0
+          - branch: v2.0.6
             branch-short: version-2-0
             nimflags-extra: --mm:refc
           - target:
@@ -226,9 +226,20 @@ jobs:
 
       - name: Build files with isMainModule
         run: |
+          executables=(
+            "beacon_chain/el/deposit_contract"
+            "beacon_chain/fork_choice/fork_choice"
+            "beacon_chain/fork_choice/proto_array"
+            "beacon_chain/networking/network_metadata_downloads"
+            "beacon_chain/era_db"
+            "beacon_chain/trusted_node_sync"
+            "benchmarks/rest_api_benchmark"
+            "tests/mocking/mock_genesis"
+          )
           source env.sh
-          nim c beacon_chain/era_db
-          nim c beacon_chain/trusted_node_sync
+          for executable in "${executables[@]}"; do
+            nim c --passC:-fsyntax-only --noLinking:on -d:chronicles_log_level=TRACE "${executable}"
+          done
 
   lint:
     name: "Lint"
