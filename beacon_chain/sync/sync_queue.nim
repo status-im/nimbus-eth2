@@ -736,38 +736,6 @@ proc push*[T](sq: SyncQueue[T], sr: SyncRequest[T],
           req.item.updateScore(PeerScoreBadValues)
           break
 
-    var counter = 0
-    for blk, dc in sq.das_blocks(item):
-      res = await sq.blockVerifier(blk[], Opt.none(BlobSidecars), dc, maybeFinalized)
-      inc(counter)
-
-      if res.isOk():
-        goodBlock = some(blk[].slot)
-      else:
-        case res.error()
-        of VerifierError.MissingParent:
-          missingParentSlot = some(blk[].slot)
-          break
-        of VerifierError.Duplicate:
-          # Keep going, happens naturally
-          discard
-        of VerifierError.UnviableFork:
-          # Keep going so as to register other unviable blocks with the
-          # qurantine
-          if unviableBlock.isNone:
-            # Remember the first unviable block, so we can log it
-            unviableBlock = some((blk[].root, blk[].slot))
-
-        of VerifierError.Invalid:
-          hasInvalidBlock = true
-
-          let req = item.request
-          notice "Received invalid sequence of blocks", request = req,
-                  blocks_count = len(item.data),
-                  blocks_map = getShortMap(req, item.data)
-          req.item.updateScore(PeerScoreBadValues)
-          break
-
     # When errors happen while processing blocks, we retry the same request
     # with, hopefully, a different peer
     let retryRequest =

@@ -261,6 +261,14 @@ proc processSignedBeaconBlock*(
       else:
         Opt.none(BlobSidecars)
 
+    self.blockProcessor[].enqueueBlock(
+      src, ForkedSignedBeaconBlock.init(signedBlock),
+      blobs,
+      Opt.none(DataColumnSidecars),
+      maybeFinalized = maybeFinalized,
+      validationDur = nanoseconds(
+        (self.getCurrentBeaconTime() - wallTime).nanoseconds))
+
     let data_columns =
       when typeof(signedBlock).kind >= ConsensusFork.Deneb:
         if self.dataColumnQuarantine[].hasDataColumns(signedBlock):
@@ -274,7 +282,7 @@ proc processSignedBeaconBlock*(
 
     self.blockProcessor[].enqueueBlock(
       src, ForkedSignedBeaconBlock.init(signedBlock),
-      blobs,
+      Opt.none(BlobSidecars),
       data_columns,
       maybeFinalized = maybeFinalized,
       validationDur = nanoseconds(

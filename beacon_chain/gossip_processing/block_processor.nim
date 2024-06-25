@@ -431,7 +431,7 @@ proc enqueueBlock*(
     self.blockQueue.addLastNoWait(BlockEntry(
       blck: blck,
       blobs: blobs,
-      data_columns: data_columns,
+      data_columns: Opt.none(DataColumnSidecars),
       maybeFinalized: maybeFinalized,
       resfut: resfut, queueTick: Moment.now(),
       validationDur: validationDur,
@@ -542,6 +542,11 @@ proc storeBlock(
             else:
               Opt.none BlobSidecars
 
+        if blobsOk:
+          debug "Loaded parent block from storage", parent_root
+          self[].enqueueBlock(
+            MsgSource.gossip, parentBlck.unsafeGet().asSigned(), blobs, Opt.none(DataColumnSidecars))          
+
         var columnsOk = true
         let data_columns =
           withBlck(parentBlck.get()):
@@ -556,10 +561,10 @@ proc storeBlock(
               Opt.some data_column_sidecars
             else:
               Opt.none DataColumnSidecars
-        if blobsOk and columnsOk:
+        if columnsOk:
           debug "Loaded parent block from storage", parent_root
           self[].enqueueBlock(
-            MsgSource.gossip, parentBlck.unsafeGet().asSigned(), blobs, data_columns)
+            MsgSource.gossip, parentBlck.unsafeGet().asSigned(), Opt.none(BlobSidecars), data_columns)
 
     return handleVerifierError(parent.error())
 
@@ -835,14 +840,21 @@ proc storeBlock(
              blck = shortLog(forkyBlck),
              error = res.error()
             continue
-          if self.blobQuarantine[].hasBlobs(forkyBlck) and self.dataColumnQuarantine[].hasDataColumns(forkyBlck):
+          if self.blobQuarantine[].hasBlobs(forkyBlck):
             let blobs = self.blobQuarantine[].popBlobs(
               forkyBlck.root, forkyBlck)
-            let data_columns = self.dataColumnQuarantine[].popDataColumns(
-              forkyBlck.root, forkyBlck)
-            self[].enqueueBlock(MsgSource.gossip, quarantined, Opt.some(blobs), Opt.some(data_columns))
+            self[].enqueueBlock(MsgSource.gossip, quarantined, Opt.some(blobs), Opt.none(DataColumnSidecars))
           else:
             discard self.consensusManager.quarantine[].addBlobless(
+              dag.finalizedHead.slot, forkyBlck)
+
+          if self.dataColumnQuarantine[].hasDataColumns(forkyBlck):
+            let data_columns = self.dataColumnQuarantine[].popDataColumns(
+              forkyBlck.root, forkyBlck)
+            self[].enqueueBlock(MsgSource.gossip, quarantined, Opt.none(BlobSidecars), Opt.some(data_columns))
+
+          else:
+            discard self.consensusManager.quarantine[].addColumnless(
               dag.finalizedHead.slot, forkyBlck)
 
   ok blck.value()
