@@ -17,6 +17,7 @@ import
   kzg4844/kzg_ex,
   eth/p2p/discoveryv5/[node],
   ./helpers,
+
   ./datatypes/[eip7594, deneb]
 
 proc sortedColumnIndices*(columnsPerSubnet: ColumnIndex, subnetIds: HashSet[uint64]): seq[ColumnIndex] =
@@ -28,9 +29,8 @@ proc sortedColumnIndices*(columnsPerSubnet: ColumnIndex, subnetIds: HashSet[uint
   res.sort()
   res
 
-# https://github.com/ethereum/consensus-specs/blob/5f48840f4d768bf0e0a8156a3ed06ec333589007/specs/_features/eip7594/das-core.md#get_custody_columns
-proc get_custody_columns*(node_id: NodeId, custody_subnet_count: uint64): Result[seq[ColumnIndex], cstring] =
-    
+proc get_custody_column_subnet*(node_id: NodeId, custody_subnet_count: uint64): Result[HashSet[uint64], cstring] =
+  # fetches the subnets for custody column for the current node
   # assert custody_subnet_count <= DATA_COLUMN_SIDECAR_SUBNET_COUNT
   if not (custody_subnet_count <= DATA_COLUMN_SIDECAR_SUBNET_COUNT):
     return err("Eip7594: Custody subnet count exceeds the DATA_COLUMN_SIDECAR_SUBNET_COUNT")
@@ -58,6 +58,13 @@ proc get_custody_columns*(node_id: NodeId, custody_subnet_count: uint64): Result
   # assert len(subnet_ids) == len(set(subnet_ids))
   if not (subnet_ids.len == subnet_ids.len):
     return err("Eip7594: Subnet ids are not unique")
+
+  ok(subnet_ids)
+
+# https://github.com/ethereum/consensus-specs/blob/5f48840f4d768bf0e0a8156a3ed06ec333589007/specs/_features/eip7594/das-core.md#get_custody_columns
+proc get_custody_columns*(node_id: NodeId, custody_subnet_count: uint64): Result[seq[ColumnIndex], cstring] =
+    
+  let subnet_ids = get_custody_column_subnet(node_id, custody_subnet_count).get
 
   # columns_per_subnet = NUMBER_OF_COLUMNS // DATA_COLUMN_SIDECAR_SUBNET_COUNT
   let columns_per_subnet = NUMBER_OF_COLUMNS div DATA_COLUMN_SIDECAR_SUBNET_COUNT
@@ -184,7 +191,10 @@ proc get_data_column_sidecars*(signed_block: deneb.SignedBeaconBlock | electra.S
 
 # Helper function to `verifyCellKzgProofBatch` at https://github.com/ethereum/c-kzg-4844/blob/das/bindings/nim/kzg_ex.nim#L170
 proc validate_data_column_sidecar*(
-    expected_commitments: seq[KzgCommitment], rowIndex: seq[RowIndex], columnIndex: seq[ColumnIndex], column: seq[Cell],
+    expected_commitments: seq[KzgCommitment], 
+    rowIndex: seq[RowIndex], 
+    columnIndex: seq[ColumnIndex], 
+    column: seq[Cell],
     proofs: seq[KzgProof]): Result[void, string] =
   let res = verifyCellKzgProofBatch(expected_commitments, rowIndex, columnIndex, column, proofs).valueOr:
     return err("DataColumnSidecar: Proof verification error: " & error())
