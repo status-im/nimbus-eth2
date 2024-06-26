@@ -190,10 +190,6 @@ proc get_data_column_sidecars*(signed_block: deneb.SignedBeaconBlock | electra.S
       signed_block_header: signed_block_header
 
     )
-    blck.body.build_proof(
-      kzg_commitment_inclusion_proof_gindex(BlobIndex(columnIndex)),
-      sidecar.kzg_commitments_inclusion_proof).expect("Valid gindex")
-    sidecars.add(sidecar)
 
   ok(sidecars)
 
