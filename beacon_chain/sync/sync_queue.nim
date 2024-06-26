@@ -8,7 +8,7 @@
 {.push raises: [].}
 
 import std/[heapqueue, tables, strutils, sequtils, math]
-import stew/[results, base10], chronos, chronicles
+import stew/base10, chronos, chronicles
 import
   ../spec/datatypes/[base, phase0, altair],
   ../spec/[helpers, forks],

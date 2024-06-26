@@ -12,7 +12,6 @@ import
   # Utilities
   chronicles,
   unittest2,
-  stew/results,
   # Beacon chain internals
   ../../../beacon_chain/spec/[beaconstate, state_transition_block],
   ../../../beacon_chain/spec/datatypes/phase0,
@@ -68,7 +67,7 @@ proc runTest[T, U](
 
 suite baseDescription & "Attestation " & preset():
   proc applyAttestation(
-      preState: var phase0.BeaconState, attestation: Attestation):
+      preState: var phase0.BeaconState, attestation: phase0.Attestation):
       Result[void, cstring] =
     var cache: StateCache
     doAssert (? process_attestation(
@@ -76,21 +75,22 @@ suite baseDescription & "Attestation " & preset():
     ok()
 
   for path in walkTests(OpAttestationsDir):
-    runTest[Attestation, typeof applyAttestation](
+    runTest[phase0.Attestation, typeof applyAttestation](
       OpAttestationsDir, suiteName, "Attestation", "attestation",
       applyAttestation, path)
 
 suite baseDescription & "Attester Slashing " & preset():
   proc applyAttesterSlashing(
-      preState: var phase0.BeaconState, attesterSlashing: AttesterSlashing):
-      Result[void, cstring] =
+      preState: var phase0.BeaconState,
+      attesterSlashing: phase0.AttesterSlashing): Result[void, cstring] =
     var cache: StateCache
     doAssert (? process_attester_slashing(
-      defaultRuntimeConfig, preState, attesterSlashing, {}, cache)) > 0.Gwei
+      defaultRuntimeConfig, preState, attesterSlashing, {strictVerification},
+      get_state_exit_queue_info(preState), cache))[0] > 0.Gwei
     ok()
 
   for path in walkTests(OpAttSlashingDir):
-    runTest[AttesterSlashing, typeof applyAttesterSlashing](
+    runTest[phase0.AttesterSlashing, typeof applyAttesterSlashing](
       OpAttSlashingDir, suiteName, "Attester Slashing", "attester_slashing",
       applyAttesterSlashing, path)
 
@@ -126,7 +126,8 @@ suite baseDescription & "Proposer Slashing " & preset():
       Result[void, cstring] =
     var cache: StateCache
     doAssert (? process_proposer_slashing(
-      defaultRuntimeConfig, preState, proposerSlashing, {}, cache)) > 0.Gwei
+      defaultRuntimeConfig, preState, proposerSlashing, {},
+      get_state_exit_queue_info(preState), cache))[0] > 0.Gwei
     ok()
 
   for path in walkTests(OpProposerSlashingDir):
@@ -139,8 +140,12 @@ suite baseDescription & "Voluntary Exit " & preset():
       preState: var phase0.BeaconState, voluntaryExit: SignedVoluntaryExit):
       Result[void, cstring] =
     var cache: StateCache
-    process_voluntary_exit(
-      defaultRuntimeConfig, preState, voluntaryExit, {}, cache)
+    if process_voluntary_exit(
+        defaultRuntimeConfig, preState, voluntaryExit, {},
+        get_state_exit_queue_info(preState), cache).isOk:
+      ok()
+    else:
+      err("")
 
   for path in walkTests(OpVoluntaryExitDir):
     runTest[SignedVoluntaryExit, typeof applyVoluntaryExit](

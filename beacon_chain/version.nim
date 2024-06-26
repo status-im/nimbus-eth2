@@ -18,8 +18,8 @@ const
     "Copyright (c) 2019-" & compileYear & " Status Research & Development GmbH"
 
   versionMajor* = 24
-  versionMinor* = 2
-  versionBuild* = 2
+  versionMinor* = 6
+  versionBuild* = 0
 
   versionBlob* = "stateofus" # Single word - ends up in the default graffiti
 

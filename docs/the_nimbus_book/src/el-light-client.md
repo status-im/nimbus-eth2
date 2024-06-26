@@ -104,7 +104,7 @@ The following sections explain how to do this for certain EL clients.
 ## Running the light client
 
 The light client starts syncing from a trusted block.
-This trusted block should be somewhat recent ([~1-2 weeks](https://github.com/ethereum/consensus-specs/blob/v1.4.0/specs/phase0/weak-subjectivity.md)) and needs to be configured each time when starting the light client.
+This trusted block should be somewhat recent ([~1-2 weeks](https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.2/specs/phase0/weak-subjectivity.md)) and needs to be configured each time when starting the light client.
 
 ### 1. Obtaining a trusted block root
 
@@ -178,17 +178,15 @@ INF 2022-11-21 18:03:27.984+01:00 New LC optimistic header                   opt
 WRN 2022-11-21 18:03:31.419+01:00 Peer count low, no new peers discovered    topics="networking" discovered_nodes=0 new_peers=@[] current_peers=7 wanted_peers=160
 INF 2022-11-21 18:03:36.001+01:00 Slot start                                 slot=1109718 epoch=34678 sync=synced peers=7 head=c5464508:1109716 finalized=c092a1d1:1109216 delay=1ms98us
 INF 2022-11-21 18:03:40.012+01:00 New LC optimistic header                   optimistic_header="(beacon: (slot: 1109717, proposer_index: 835, parent_root: \"c5464508\", state_root: \"13f823f8\"))"
-NTC 2022-11-21 18:03:40.012+01:00 New LC optimistic block                    opt=99ab28aa:1109717 wallSlot=1109718
 WRN 2022-11-21 18:03:40.422+01:00 Peer count low, no new peers discovered    topics="networking" discovered_nodes=1 new_peers=@[] current_peers=7 wanted_peers=160
 INF 2022-11-21 18:03:48.001+01:00 Slot start                                 slot=1109719 epoch=34678 sync=synced peers=7 head=99ab28aa:1109717 finalized=c092a1d1:1109216 delay=1ms53us
 WRN 2022-11-21 18:03:50.205+01:00 Peer count low, no new peers discovered    topics="networking" discovered_nodes=0 new_peers=@[] current_peers=7 wanted_peers=160
 INF 2022-11-21 18:04:00.001+01:00 Slot start                                 slot=1109720 epoch=34678 sync=synced peers=7 head=99ab28aa:1109717 finalized=c092a1d1:1109216 delay=1ms145us
 INF 2022-11-21 18:04:03.982+01:00 New LC optimistic header                   optimistic_header="(beacon: (slot: 1109718, proposer_index: 1202, parent_root: \"99ab28aa\", state_root: \"7f7f88d2\"))"
-NTC 2022-11-21 18:04:03.982+01:00 New LC optimistic block                    opt=ab007266:1109718 wallSlot=1109720
 ```
 
 !!! note
-    The [light client protocol](https://github.com/ethereum/consensus-specs/blob/v1.4.0/specs/altair/light-client/sync-protocol.md) depends on consensus layer (CL) full nodes to serve additional data.
+    The [light client protocol](https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.2/specs/altair/light-client/sync-protocol.md) depends on consensus layer (CL) full nodes to serve additional data.
     As this is a new protocol, not all implementations are supporting it yet.
     Therefore, it may take several minutes to discover supporting peers, during which no log messages may be produced.
 

@@ -21,6 +21,7 @@ import
   eth/common/eth_types as commonEthTypes, eth/net/nat,
   eth/p2p/discoveryv5/enr,
   json_serialization, web3/[primitives, confutils_defs],
+  chronos/transports/common,
   kzg4844/kzg_ex,
   ./spec/[engine_authentication, keystore, network, crypto],
   ./spec/datatypes/base,
@@ -49,14 +50,11 @@ declareGauge network_name, "network name", ["name"]
 const
   # TODO: How should we select between IPv4 and IPv6
   # Maybe there should be a config option for this.
-  defaultListenAddress* = (static parseIpAddress("0.0.0.0"))
   defaultAdminListenAddress* = (static parseIpAddress("127.0.0.1"))
   defaultSigningNodeRequestTimeout* = 60
   defaultBeaconNode* = "http://127.0.0.1:" & $defaultEth2RestPort
   defaultBeaconNodeUri* = parseUri(defaultBeaconNode)
   defaultGasLimit* = 30_000_000
-
-  defaultListenAddressDesc* = $defaultListenAddress
   defaultAdminListenAddressDesc* = $defaultAdminListenAddress
   defaultBeaconNodeDesc = $defaultBeaconNode
 
@@ -292,9 +290,8 @@ type
 
       listenAddress* {.
         desc: "Listening address for the Ethereum LibP2P and Discovery v5 traffic"
-        defaultValue: defaultListenAddress
-        defaultValueDesc: $defaultListenAddressDesc
-        name: "listen-address" .}: IpAddress
+        defaultValueDesc: "*"
+        name: "listen-address" .}: Option[IpAddress]
 
       tcpPort* {.
         desc: "Listening TCP port for Ethereum LibP2P traffic"
@@ -646,7 +643,8 @@ type
       # Flag name and semantics borrowed from Prysm
       # https://github.com/prysmaticlabs/prysm/pull/12227/files
       localBlockValueBoost* {.
-        desc: "Increase execution layer block values for builder bid comparison by a percentage"
+        desc: "Increase execution layer block values for builder bid " &
+              "comparison by a percentage"
         defaultValue: 10
         name: "local-block-value-boost" .}: uint8
 
@@ -1034,6 +1032,13 @@ type
       defaultValue: false
       name: "distributed".}: bool
 
+    builderBoostFactor* {.
+      desc: "Percentage multiplier to apply to the builder's payload value " &
+            "when choosing between a builder payload header and payload " &
+            "from the paired execution node."
+      defaultValue: 100,
+      name: "builder-boost-factor".}: uint64
+
     beaconNodes* {.
       desc: "URL addresses to one or more beacon node HTTP REST APIs",
       defaultValue: @[defaultBeaconNodeUri]
@@ -1042,7 +1047,7 @@ type
 
     monitoringType* {.
       desc: "Enable block monitoring which are seen by beacon node (BETA)"
-      defaultValue: BlockMonitoringType.Disabled
+      defaultValue: BlockMonitoringType.Event
       name: "block-monitor-type".}: BlockMonitoringType
 
   SigningNodeConf* = object
@@ -1497,3 +1502,9 @@ proc loadKzgTrustedSetup*(trustedSetupPath: string): Result[void, string] =
     Kzg.loadTrustedSetupFromString(readFile(trustedSetupPath))
   except IOError as err:
     err(err.msg)
+
+proc formatIt*(v: Option[IpAddress]): string =
+  if v.isSome():
+    $v.get()
+  else:
+    "*"

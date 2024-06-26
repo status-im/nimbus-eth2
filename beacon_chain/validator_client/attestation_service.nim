@@ -85,7 +85,7 @@ proc serveAttestation(
   return res
 
 proc serveAggregateAndProof*(service: AttestationServiceRef,
-                             proof: AggregateAndProof,
+                             proof: phase0.AggregateAndProof,
                              validator: AttachedValidator): Future[bool] {.
      async.} =
   let
@@ -117,8 +117,8 @@ proc serveAggregateAndProof*(service: AttestationServiceRef,
             err_name = exc.name, err_msg = exc.msg
       return false
 
-  let signedProof = SignedAggregateAndProof(message: proof,
-                                            signature: signature)
+  let signedProof = phase0.SignedAggregateAndProof(
+    message: proof, signature: signature)
   logScope:
     delay = vc.getDelay(slot.aggregate_deadline())
 
@@ -296,11 +296,17 @@ proc produceAndPublishAggregates(service: AttestationServiceRef,
               err_name = exc.name, err_msg = exc.msg
         return
 
+    if isLowestScoreAggregatedAttestation(aggAttestation):
+      warn "Aggregated attestation with the root was not seen by the " &
+           "beacon node",
+           attestation_root = shortLog(attestationRoot)
+      return
+
     let pendingAggregates =
       block:
         var res: seq[Future[bool]]
         for item in aggregateItems:
-          let proof = AggregateAndProof(
+          let proof = phase0.AggregateAndProof(
             aggregator_index: item.aggregator_index,
             aggregate: aggAttestation,
             selection_proof: item.selection_proof

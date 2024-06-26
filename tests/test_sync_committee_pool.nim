@@ -103,7 +103,7 @@ suite "Sync committee pool":
       privkey2 = MockPrivKeys[1.ValidatorIndex]
 
       bid1 = BlockId(
-        slot: Slot(cfg.BELLATRIX_FORK_EPOCH.start_slot - 1),
+        slot: cfg.BELLATRIX_FORK_EPOCH.start_slot - 1,
         root: eth2digest(@[1.byte]))
 
       sig1 = get_sync_committee_message_signature(

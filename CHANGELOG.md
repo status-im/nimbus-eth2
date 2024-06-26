@@ -1,3 +1,148 @@
+2024-06-24 v24.6.0
+==================
+
+Nimbus `v24.6.0` is a `low-urgency` release with performance and safety improvements.
+
+### Improvements
+
+* Improve SHA256 protocol object hashing speed by 30%:
+  https://github.com/status-im/nimbus-eth2/pull/6292
+
+* Ensure that when a paired Nimbus beacon node and validator client improperly share validator keys, they avoid slashing:
+  https://github.com/status-im/nimbus-eth2/pull/6329
+
+* Add block scoring to validator client to pick the best block from multiple beacon nodes:
+  https://github.com/status-im/nimbus-eth2/pull/6303
+
+* Enable block monitoring in validator client by default to attest earlier and more reliably:
+  https://github.com/status-im/nimbus-eth2/pull/6331
+
+### Fixes
+
+* Fix light client libp2p gossip topic subscriptions:
+  https://github.com/status-im/nimbus-eth2/pull/6351
+
+2024-05-23 v24.5.1
+==================
+
+Nimbus `v24.5.1` is a `low-urgency` release with stability, performance, and beacon and builder API improvements.
+
+### Improvements
+
+* Enable IPv6 for Discovery v5 protocol:
+  https://github.com/status-im/nimbus-eth2/pull/6242
+
+### Fixes
+
+* Fix potential crash on slow libp2p sending:
+  https://github.com/status-im/nimbus-eth2/pull/6280
+
+* Fix `publishBlockV2` to correctly verify block signature:
+  https://github.com/status-im/nimbus-eth2/pull/6261
+
+* Fix `submitBlindedBlock` to include `Eth-Consensus-Version` header:
+  https://github.com/status-im/nimbus-eth2/pull/6256
+
+* Fix `getAggregatedAttestation` 404 handling in Nimbus VC:
+  https://github.com/status-im/nimbus-eth2/pull/6254
+
+2024-05-23 v24.5.0
+==================
+
+Nimbus `v24.5.0` is a `low-urgency` release with stability, performance, and beacon and builder API improvements.
+
+### Improvements
+
+* Improve SHA256 protocol object hashing speed by 30%:
+  https://github.com/status-im/nimbus-eth2/pull/5188
+
+* Enable IPv6 for Discovery v5 protocol:
+  https://github.com/status-im/nimbus-eth2/pull/6242
+
+### Fixes
+
+* Fix potential crash on slow libp2p sending:
+  https://github.com/status-im/nimbus-eth2/pull/6280
+
+* Fix `publishBlockV2` to correctly verify block signature:
+  https://github.com/status-im/nimbus-eth2/pull/6261
+
+* Fix `submitBlindedBlock` to include `Eth-Consensus-Version` header:
+  https://github.com/status-im/nimbus-eth2/pull/6256
+
+* Fix `getAggregatedAttestation` 404 handling in Nimbus VC:
+  https://github.com/status-im/nimbus-eth2/pull/6254
+
+2024-04-29 v24.4.0
+==================
+
+Nimbus `v24.4.0` is a `low-urgency` release with stability and performance improvements. It also [removes built-in Prater/Goerli chain support](https://blog.ethereum.org/2023/11/30/goerli-lts-update); people are encouraged to migrate to Holesky or Sepolia.
+
+### Improvements
+
+* Large numbers of exits in a single block or epoch don't cause disproportionate slowdowns:
+  https://github.com/status-im/nimbus-eth2/pull/6161
+
+* Support for using era file for the initial checkpoint block:
+  https://github.com/status-im/nimbus-eth2/pull/6164
+
+* ncli_db supports importing blobs:
+  https://github.com/status-im/nimbus-eth2/pull/6166
+
+### Fixes
+
+* produceBlockV3 correctly encodes execution_payload_blinded response:
+  https://github.com/status-im/nimbus-eth2/pull/6204
+
+* Avoid a crash when handling blob backfill:
+  https://github.com/status-im/nimbus-eth2/pull/6168
+
+* Avoid spurious errors verifying era files with empty epochs:
+  https://github.com/status-im/nimbus-eth2/pull/6163
+
+* Address cases where REST blocks submitted have mismatched KZG commitments and blobs:
+  https://github.com/status-im/nimbus-eth2/pull/6150
+
+* Fix a rare block verification failure depending on initialization spanning sync committees:
+  https://github.com/status-im/nimbus-eth2/pull/6160
+
+2024-03-29 v24.3.0
+==================
+
+Nimbus `v24.3.0` is a `low-urgency` upgrade bringing additional beacon API support and resilience to suboptimal network conditions.
+
+### Improvements
+
+* Add keymanager API graffiti endpoints:
+  https://github.com/status-im/nimbus-eth2/pull/6054
+
+* Remember gossip messages longer to avoid potentially slow handling of irrelevant messages:
+  https://github.com/status-im/nimbus-eth2/pull/6098
+
+* Nimbus processes blocks with deposits in a more optimized way:
+  https://github.com/status-im/nimbus-eth2/pull/5982
+
+* Fork choice performance during periods of nonfinality has been improved:
+  https://github.com/status-im/nimbus-eth2/pull/6076
+
+* Nimbus will continue validating even without external chain progression:
+  https://github.com/status-im/nimbus-eth2/pull/6101
+
+* Locally built blocks via the engine API are preferentially selected by default over similarly valuable builder API blocks:
+  https://github.com/status-im/nimbus-eth2/pull/6103
+
+### Fixes
+
+* Add required header `eth-consensus-block-value` in produceBlockV3 REST beacon API call in beacon node:
+  https://github.com/status-im/nimbus-eth2/pull/5873
+
+* Restore usage of certain mainnet bootstrap nodes to enable faster and more reliable node connectivity at startup:
+  https://github.com/status-im/nimbus-eth2/pull/6052
+
+* The network configuration `INACTIVITY_SCORE_RECOVERY_RATE` can now be overridden:
+  https://github.com/status-im/nimbus-eth2/pull/6091
+
+
 2023-02-27 v24.2.2
 ==================
 

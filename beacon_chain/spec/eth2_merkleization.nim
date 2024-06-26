@@ -21,6 +21,7 @@ from ./datatypes/altair import HashedBeaconState, SignedBeaconBlock
 from ./datatypes/bellatrix import HashedBeaconState, SignedBeaconBlock
 from ./datatypes/capella import HashedBeaconState, SignedBeaconBlock
 from ./datatypes/deneb import HashedBeaconState, SignedBeaconBlock
+from ./datatypes/electra import HashedBeaconState, SignedBeaconBlock
 
 export ssz_codec, merkleization, proofs
 
@@ -32,13 +33,13 @@ type
 func hash_tree_root*(
     x: phase0.HashedBeaconState | altair.HashedBeaconState |
        bellatrix.HashedBeaconState | capella.HashedBeaconState |
-       deneb.HashedBeaconState) {.
+       deneb.HashedBeaconState | electra.SignedBeaconBlock) {.
   error: "HashedBeaconState should not be hashed".}
 
 func hash_tree_root*(
     x: phase0.SignedBeaconBlock | altair.SignedBeaconBlock |
        bellatrix.SignedBeaconBlock | capella.SignedBeaconBlock |
-       deneb.SignedBeaconBlock) {.
+       deneb.SignedBeaconBlock | electra.SignedBeaconBlock) {.
   error: "SignedBeaconBlock should not be hashed".}
 
 func depositCountBytes*(x: uint64): array[32, byte] =
@@ -98,10 +99,10 @@ func init*(T: type HashedValidatorPubKey, key: ValidatorPubKey): HashedValidator
             # The interface of HashSet is such that we must construct a full
             # instance to check if it's in the set - then we can return that
             # instace and discard the one we just created temporarily
-            keys[tmp]
+            addr keys[tmp][]
           except KeyError:
             raiseAssert "just checked"
         else:
-          tmp
+          addr tmp[]
 
-  HashedValidatorPubKey(value: addr cached[])
+  HashedValidatorPubKey(value: cached)  # https://github.com/nim-lang/Nim/issues/23505

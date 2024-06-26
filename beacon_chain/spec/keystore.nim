@@ -152,6 +152,7 @@ type
     description*: Option[string]
     capellaIndex*: Option[GeneralizedIndex]
     denebIndex*: Option[GeneralizedIndex]
+    electraIndex*: Option[GeneralizedIndex]
 
   KeystoreData* = object
     version*: uint64
@@ -290,7 +291,7 @@ template `$`*(x: WalletName): string =
 # TODO: `burnMem` in nimcrypto could use distinctBase
 #       to make its usage less error-prone.
 template burnMem*(m: var (Mnemonic|string)) =
-  ncrutils.burnMem(string m)
+  ncrutils.burnMem(distinctBase m)
 
 template burnMem*(m: var KeySeed) =
   ncrutils.burnMem(distinctBase m)
@@ -323,7 +324,7 @@ const
   englishWordsDigest =
     "AD90BF3BEB7B0EB7E5ACD74727DC0DA96E0A280A258354E7293FB7E211AC03DB".toDigest
 
-proc checkEnglishWords(): bool =
+func checkEnglishWords(): bool =
   if len(englishWords) != wordListLen:
     false
   else:
@@ -340,7 +341,7 @@ func validateKeyPath*(path: string): Result[KeyPath, cstring] =
   var digitCount: int
   var number: BiggestUInt
   try:
-    for elem in path.string.split("/"):
+    for elem in path.split("/"):
       # TODO: doesn't "m" have to be the first character and is it the only
       # place where it is valid?
       if elem == "m":
@@ -381,7 +382,7 @@ func isControlRune(r: Rune): bool =
   let r = int r
   (r >= 0 and r < 0x20) or (r >= 0x7F and r < 0xA0)
 
-proc init*(T: type KeystorePass, input: string): T =
+func init*(T: type KeystorePass, input: string): T =
   for rune in toNFKD(input):
     if not isControlRune(rune):
       result.str.add rune
@@ -394,7 +395,7 @@ func getSeed*(mnemonic: Mnemonic, password: KeystorePass): KeySeed =
 template add(m: var Mnemonic, s: cstring) =
   m.string.add s
 
-proc generateMnemonic*(
+func generateMnemonic*(
     rng: var HmacDrbgContext,
     words: openArray[cstring] = englishWords,
     entropyParam: openArray[byte] = @[]): Mnemonic =
@@ -428,12 +429,12 @@ proc generateMnemonic*(
     result.add " "
     result.add words[entropy.getBitsBE(firstBit..lastBit)]
 
-proc cmpIgnoreCase(lhs: cstring, rhs: string): int =
+func cmpIgnoreCase(lhs: cstring, rhs: string): int =
   # TODO: This is a bit silly.
   # Nim should have a `cmp` function for C strings.
   cmpIgnoreCase($lhs, rhs)
 
-proc validateMnemonic*(inputWords: string,
+func validateMnemonic*(inputWords: string,
                        outputMnemonic: var Mnemonic): bool =
   ## Accept a case-insensitive input string and returns `true`
   ## if it represents a valid mnenomic. The `outputMnemonic`
@@ -464,7 +465,7 @@ proc validateMnemonic*(inputWords: string,
 
   return true
 
-proc deriveChildKey*(parentKey: ValidatorPrivKey,
+func deriveChildKey*(parentKey: ValidatorPrivKey,
                      index: Natural): ValidatorPrivKey =
   let success = derive_child_secretKey(SecretKey result,
                                        SecretKey parentKey,
@@ -474,7 +475,7 @@ proc deriveChildKey*(parentKey: ValidatorPrivKey,
   #       into asserts inside the function.
   doAssert success
 
-proc deriveMasterKey*(seed: KeySeed): ValidatorPrivKey =
+func deriveMasterKey*(seed: KeySeed): ValidatorPrivKey =
   let success = derive_master_secretKey(SecretKey result,
                                         seq[byte] seed)
   # TODO `derive_master_secretKey` is reporting pre-condition
@@ -482,17 +483,17 @@ proc deriveMasterKey*(seed: KeySeed): ValidatorPrivKey =
   #       into asserts inside the function.
   doAssert success
 
-proc deriveMasterKey*(mnemonic: Mnemonic,
+func deriveMasterKey*(mnemonic: Mnemonic,
                       password: KeystorePass): ValidatorPrivKey =
   deriveMasterKey(getSeed(mnemonic, password))
 
-proc deriveChildKey*(masterKey: ValidatorPrivKey,
+func deriveChildKey*(masterKey: ValidatorPrivKey,
                      path: KeyPath): ValidatorPrivKey =
   result = masterKey
   for idx in pathNodes(path):
     result = deriveChildKey(result, idx)
 
-proc deriveChildKey*(masterKey: ValidatorPrivKey,
+func deriveChildKey*(masterKey: ValidatorPrivKey,
                      path: openArray[Natural]): ValidatorPrivKey =
   result = masterKey
   for idx in path:
@@ -502,12 +503,12 @@ proc deriveChildKey*(masterKey: ValidatorPrivKey,
     # if we fail we want to scrub secrets from memory
     result = deriveChildKey(result, idx)
 
-proc keyFromPath*(mnemonic: Mnemonic,
+func keyFromPath*(mnemonic: Mnemonic,
                   password: KeystorePass,
                   path: KeyPath): ValidatorPrivKey =
   deriveChildKey(deriveMasterKey(mnemonic, password), path)
 
-proc shaChecksum(key, cipher: openArray[byte]): Sha256Digest =
+func shaChecksum(key, cipher: openArray[byte]): Sha256Digest =
   var ctx: sha256
   ctx.init()
   ctx.update(key)
@@ -680,7 +681,7 @@ proc readValue*(r: var JsonReader[DefaultFlavor], value: var Kdf)
   readValueImpl(r, value)
 {.pop.}
 
-proc readValue*(r: var JsonReader, value: var (Checksum|Cipher|Kdf)) =
+func readValue*(r: var JsonReader, value: var (Checksum|Cipher|Kdf)) =
   static: raiseAssert "Unknown flavor `JsonReader[" & $typeof(r).Flavor &
     "]` for `readValue` of `" & $typeof(value) & "`"
 
@@ -728,14 +729,14 @@ func parseProvenBlockProperty*(propertyPath: string): Result[ProvenProperty, str
     ok ProvenProperty(
       path: propertyPath,
       capellaIndex: some GeneralizedIndex(401),
-      denebIndex: some GeneralizedIndex(801))
+      denebIndex: some GeneralizedIndex(801),
+      electraIndex: some GeneralizedIndex(801))
   elif propertyPath == ".graffiti":
     ok ProvenProperty(
       path: propertyPath,
-      # TODO: graffiti is present since genesis, so the correct index in the early
-      #       forks can be supplied here
       capellaIndex: some GeneralizedIndex(18),
-      denebIndex: some GeneralizedIndex(18))
+      denebIndex: some GeneralizedIndex(18),
+      electraIndex: some GeneralizedIndex(18))
   else:
     err("Keystores with proven properties different than " &
         "`.execution_payload.fee_recipient` and `.graffiti` " &
@@ -844,11 +845,11 @@ proc readValue*(reader: var JsonReader, value: var RemoteKeystore)
         if prop.path == ".execution_payload.fee_recipient":
           prop.capellaIndex = some GeneralizedIndex(401)
           prop.denebIndex = some GeneralizedIndex(801)
+          prop.electraIndex = some GeneralizedIndex(801)
         elif prop.path == ".graffiti":
-          # TODO: graffiti is present since genesis, so the correct index in the early
-          #       forks can be supplied here
           prop.capellaIndex = some GeneralizedIndex(18)
           prop.denebIndex = some GeneralizedIndex(18)
+          prop.electraIndex = some GeneralizedIndex(801)
         else:
           reader.raiseUnexpectedValue("Keystores with proven properties different than " &
                                       "`.execution_payload.fee_recipient` and `.graffiti` " &
@@ -950,7 +951,7 @@ func areValid(params: ScryptParams): bool =
   params.p == scryptParams.p and
   params.salt.bytes.len > 0
 
-proc decryptCryptoField*(crypto: Crypto, decKey: openArray[byte],
+func decryptCryptoField*(crypto: Crypto, decKey: openArray[byte],
                          outSecret: var seq[byte]): DecryptionStatus =
   if crypto.cipher.message.bytes.len == 0:
     return DecryptionStatus.InvalidKeystore
@@ -976,7 +977,7 @@ proc decryptCryptoField*(crypto: Crypto, decKey: openArray[byte],
     aesCipher.clear()
   DecryptionStatus.Success
 
-proc getDecryptionKey*(crypto: Crypto, password: KeystorePass,
+func getDecryptionKey*(crypto: Crypto, password: KeystorePass,
                        decKey: var seq[byte]): DecryptionStatus =
   let res =
     case crypto.kdf.function
@@ -995,7 +996,7 @@ proc getDecryptionKey*(crypto: Crypto, password: KeystorePass,
   decKey = res
   DecryptionStatus.Success
 
-proc decryptCryptoField*(crypto: Crypto,
+func decryptCryptoField*(crypto: Crypto,
                          password: KeystorePass,
                          outSecret: var seq[byte]): DecryptionStatus =
   # https://github.com/ethereum/wiki/wiki/Web3-Secret-Storage-Definition
@@ -1026,7 +1027,7 @@ template parseRemoteKeystore*(jsonContent: string): RemoteKeystore =
               requireAllFields = false,
               allowUnknownFields = true)
 
-proc getSaltKey(keystore: Keystore, password: KeystorePass): KdfSaltKey =
+func getSaltKey(keystore: Keystore, password: KeystorePass): KdfSaltKey =
   let digest =
     case keystore.crypto.kdf.function
     of kdfPbkdf2:
@@ -1049,8 +1050,8 @@ proc getSaltKey(keystore: Keystore, password: KeystorePass): KdfSaltKey =
         h.update(toBytesLE(uint64(params.r)))
   KdfSaltKey(digest.data)
 
-proc `==`*(a, b: KdfSaltKey): bool {.borrow.}
-proc hash*(salt: KdfSaltKey): Hash {.borrow.}
+func `==`*(a, b: KdfSaltKey): bool {.borrow.}
+func hash*(salt: KdfSaltKey): Hash {.borrow.}
 
 {.push warning[ProveField]:off.}
 func `==`*(a, b: Kdf): bool =
@@ -1088,7 +1089,7 @@ func init*(t: typedesc[KeystoreCacheRef],
     expireTime: expireTime
   )
 
-proc clear*(cache: KeystoreCacheRef) =
+func clear*(cache: KeystoreCacheRef) =
   cache.table.clear()
 
 proc pruneExpiredKeys*(cache: KeystoreCacheRef) =
@@ -1109,7 +1110,7 @@ proc init*(t: typedesc[KeystoreCacheItem], keystore: Keystore,
                     cipher: keystore.crypto.cipher, decryptionKey: @key,
                     timestamp: Moment.now())
 
-proc getCachedKey*(cache: KeystoreCacheRef,
+func getCachedKey*(cache: KeystoreCacheRef,
                    keystore: Keystore, password: KeystorePass): Opt[seq[byte]] =
   if isNil(cache): return Opt.none(seq[byte])
   let
@@ -1131,7 +1132,7 @@ proc setCachedKey*(cache: KeystoreCacheRef, keystore: Keystore,
   let saltKey = keystore.getSaltKey(password)
   cache.table[saltKey] = KeystoreCacheItem.init(keystore, key)
 
-proc destroyCacheKey*(cache: KeystoreCacheRef,
+func destroyCacheKey*(cache: KeystoreCacheRef,
                       keystore: Keystore, password: KeystorePass) =
   if isNil(cache): return
   let saltKey = keystore.getSaltKey(password)
@@ -1205,7 +1206,7 @@ proc readValue*(reader: var JsonReader, value: var lcrypto.PublicKey) {.
     # TODO: Can we provide better diagnostic?
     raiseUnexpectedValue(reader, "Valid hex-encoded public key expected")
 
-proc decryptNetKeystore*(nkeystore: NetKeystore,
+func decryptNetKeystore*(nkeystore: NetKeystore,
                          password: KeystorePass): KsResult[lcrypto.PrivateKey] =
   var secret: seq[byte]
   defer: burnMem(secret)
@@ -1220,7 +1221,7 @@ proc decryptNetKeystore*(nkeystore: NetKeystore,
   else:
     err $status
 
-proc decryptNetKeystore*(nkeystore: JsonString,
+func decryptNetKeystore*(nkeystore: JsonString,
                          password: KeystorePass): KsResult[lcrypto.PrivateKey] =
   try:
     let keystore = parseNetKeystore(string nkeystore)
@@ -1228,10 +1229,10 @@ proc decryptNetKeystore*(nkeystore: JsonString,
   except SerializationError as exc:
     return err(exc.formatMsg("<keystore>"))
 
-proc generateKeystoreSalt*(rng: var HmacDrbgContext): seq[byte] =
+func generateKeystoreSalt*(rng: var HmacDrbgContext): seq[byte] =
   rng.generateBytes(keyLen)
 
-proc createCryptoField(kdfKind: KdfKind,
+func createCryptoField(kdfKind: KdfKind,
                        rng: var HmacDrbgContext,
                        secret: openArray[byte],
                        password = KeystorePass.init "",
@@ -1338,7 +1339,7 @@ proc createKeystore*(kdfKind: KdfKind,
     uuid: $uuid,
     version: 4)
 
-proc createRemoteKeystore*(pubKey: ValidatorPubKey, remoteUri: HttpHostUri,
+func createRemoteKeystore*(pubKey: ValidatorPubKey, remoteUri: HttpHostUri,
                            version = 1'u64, description = "",
                            remoteType = RemoteSignerType.Web3Signer,
                           flags: set[RemoteKeystoreFlag] = {}): RemoteKeystore =
@@ -1385,11 +1386,11 @@ func makeWithdrawalCredentials*(k: ValidatorPubKey): Eth2Digest =
   bytes.data[0] = BLS_WITHDRAWAL_PREFIX.uint8
   bytes
 
-# https://github.com/ethereum/consensus-specs/blob/v1.4.0/specs/phase0/deposit-contract.md#withdrawal-credentials
-proc makeWithdrawalCredentials*(k: CookedPubKey): Eth2Digest =
+# https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.2/specs/phase0/deposit-contract.md#withdrawal-credentials
+func makeWithdrawalCredentials*(k: CookedPubKey): Eth2Digest =
   makeWithdrawalCredentials(k.toPubKey())
 
-proc prepareDeposit*(cfg: RuntimeConfig,
+func prepareDeposit*(cfg: RuntimeConfig,
                      withdrawalPubKey: CookedPubKey,
                      signingKey: ValidatorPrivKey, signingPubKey: CookedPubKey,
                      amount = MAX_EFFECTIVE_BALANCE.Gwei): DepositData =

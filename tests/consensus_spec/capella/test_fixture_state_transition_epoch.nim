@@ -5,13 +5,14 @@
 #   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
 # at your option. This file may not be copied, modified, or distributed except according to those terms.
 
+{.push raises: [].}
 {.used.}
 
 import
   # Status internals
   chronicles,
   # Beacon chain internals
-  ../../../beacon_chain/spec/[beaconstate, presets, state_transition_epoch],
+  ../../../beacon_chain/spec/[presets, state_transition_epoch],
   ../../../beacon_chain/spec/datatypes/[altair, capella],
   # Test utilities
   ../../testutil,

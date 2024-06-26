@@ -10,7 +10,6 @@
 
 import
   # Status lib
-  stew/results,
   chronicles,
   # Internal
   ../../beacon_chain/validators/[slashing_protection, slashing_protection_v2],

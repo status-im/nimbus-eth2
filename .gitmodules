@@ -5,6 +5,11 @@
 #   * Apache v2 license (license terms in the root directory or at http://www.apache.org/licenses/LICENSE-2.0).
 # at your option. This file may not be copied, modified, or distributed except according to those terms.
 
+[submodule "vendor/mainnet"]
+	path = vendor/mainnet
+	url = https://github.com/eth-clients/mainnet.git
+	ignore = untracked
+	branch = main
 [submodule "vendor/nim-eth2-scenarios"]
 	path = vendor/nim-eth2-scenarios
 	url = https://github.com/status-im/nim-eth2-scenarios
@@ -24,7 +29,7 @@
 	path = vendor/nim-libp2p
 	url = https://github.com/vacp2p/nim-libp2p.git
 	ignore = untracked
-	branch = unstable
+	branch = master
 [submodule "vendor/nimbus-build-system"]
 	path = vendor/nimbus-build-system
 	url = https://github.com/status-im/nimbus-build-system.git
@@ -170,11 +175,6 @@
 	url = https://github.com/status-im/nim-presto.git
 	ignore = untracked
 	branch = master
-[submodule "vendor/eth2-networks"]
-	path = vendor/eth2-networks
-	url = https://github.com/eth-clients/eth2-networks.git
-	ignore = untracked
-	branch = master
 [submodule "vendor/nim-taskpools"]
 	path = vendor/nim-taskpools
 	url = https://github.com/status-im/nim-taskpools
@@ -220,11 +220,6 @@
 	url = https://github.com/arnetheduck/nim-results.git
 	ignore = untracked
 	branch = master
-[submodule "vendor/goerli"]
-	path = vendor/goerli
-	url = https://github.com/eth-clients/goerli
-	ignore = untracked
-	branch = main
 [submodule "vendor/holesky"]
 	path = vendor/holesky
 	url = https://github.com/eth-clients/holesky

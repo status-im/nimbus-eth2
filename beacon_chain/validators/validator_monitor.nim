@@ -660,7 +660,7 @@ proc registerAttestation*(
     self: var ValidatorMonitor,
     src: MsgSource,
     seen_timestamp: BeaconTime,
-    attestation: Attestation,
+    attestation: phase0.Attestation | electra.Attestation,
     idx: ValidatorIndex) =
   let
     slot = attestation.data.slot
@@ -685,7 +685,7 @@ proc registerAggregate*(
     self: var ValidatorMonitor,
     src: MsgSource,
     seen_timestamp: BeaconTime,
-    aggregate_and_proof: AggregateAndProof,
+    aggregate_and_proof: phase0.AggregateAndProof | electra.AggregateAndProof,
     attesting_indices: openArray[ValidatorIndex]) =
   let
     slot = aggregate_and_proof.aggregate.data.slot
@@ -884,7 +884,8 @@ proc registerProposerSlashing*(
       epochSummary.proposer_slashings += 1
 
 proc registerAttesterSlashing*(
-    self: var ValidatorMonitor, src: MsgSource, slashing: AttesterSlashing) =
+    self: var ValidatorMonitor, src: MsgSource,
+    slashing: phase0.AttesterSlashing) =
   let data = slashing.attestation_1.data
 
   for idx in slashing.attestation_2.attesting_indices:

@@ -456,15 +456,15 @@ func netKbps*(peer: Peer): float {.inline.} =
   ## Returns current network throughput average value in Kbps for peer ``peer``.
   round(((peer.netThroughput.average / 1024) * 10_000) / 10_000)
 
-func `<`(a, b: Peer): bool =
-  ## Comparison function, which first checks peer's scores, and if the peers'
-  ## score is equal it compares peers' network throughput.
-  if a.score < b.score:
-    true
-  elif a.score == b.score:
-    (a.netThroughput.average < b.netThroughput.average)
+# /!\ Must be exported to be seen by `peerCmp`
+func `<`*(a, b: Peer): bool =
+  ## Comparison function indicating `true` if peer `a` ranks worse than peer `b`
+  if a.score != b.score:
+    a.score < b.score
+  elif a.netThroughput.average != b.netThroughput.average:
+    a.netThroughput.average < b.netThroughput.average
   else:
-    false
+    system.`<`(a, b)
 
 const
   maxRequestQuota = 1000000
@@ -837,8 +837,9 @@ template gossipMaxSize(T: untyped): uint32 =
     # Attestation, AttesterSlashing, and SignedAggregateAndProof, which all
     # have lists bounded at MAX_VALIDATORS_PER_COMMITTEE (2048) items, thus
     # having max sizes significantly smaller than GOSSIP_MAX_SIZE.
-    elif T is Attestation or T is AttesterSlashing or
-         T is SignedAggregateAndProof or T is phase0.SignedBeaconBlock or
+    elif T is phase0.Attestation or T is phase0.AttesterSlashing or
+         T is phase0.SignedAggregateAndProof or T is phase0.SignedBeaconBlock or
+         T is electra.SignedAggregateAndProof or T is electra.Attestation or
          T is altair.SignedBeaconBlock or T is SomeForkyLightClientObject:
       GOSSIP_MAX_SIZE
     else:
@@ -1549,7 +1550,7 @@ proc getLowSubnets(node: Eth2Node, epoch: Epoch): (AttnetBits, SyncnetBits) =
       default(SyncnetBits)
   )
 
-proc runDiscoveryLoop(node: Eth2Node) {.async.} =
+proc runDiscoveryLoop(node: Eth2Node) {.async: (raises: [CancelledError]).} =
   debug "Starting discovery loop"
 
   while true:
@@ -2204,7 +2205,7 @@ proc getPersistentNetKeys*(
 
 func gossipId(
     data: openArray[byte], phase0Prefix, topic: string): seq[byte] =
-  # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.5/specs/phase0/p2p-interface.md#topics-and-messages
+  # https://github.com/ethereum/consensus-specs/blob/v1.4.0/specs/phase0/p2p-interface.md#topics-and-messages
   # https://github.com/ethereum/consensus-specs/blob/v1.4.0/specs/altair/p2p-interface.md#topics-and-messages
   const MESSAGE_DOMAIN_VALID_SNAPPY = [0x01'u8, 0x00, 0x00, 0x00]
   let messageDigest = withEth2Hash:
@@ -2255,10 +2256,15 @@ proc createEth2Node*(rng: ref HmacDrbgContext,
     discoveryForkId = getDiscoveryForkID(
       cfg, getBeaconTime().slotOrZero.epoch, genesis_validators_root)
 
-    (extIp, extTcpPort, extUdpPort) = try: setupAddress(
-      config.nat, config.listenAddress, config.tcpPort, config.udpPort,
-      clientId)
-    except CatchableError as exc: raise exc
+    listenAddress =
+      if config.listenAddress.isSome():
+        config.listenAddress.get()
+      else:
+        getAutoAddress(Port(0)).toIpAddress()
+
+    (extIp, extTcpPort, extUdpPort) =
+      setupAddress(config.nat, listenAddress, config.tcpPort,
+                   config.udpPort, clientId)
 
     directPeers = block:
       var res: DirectPeers
@@ -2278,7 +2284,7 @@ proc createEth2Node*(rng: ref HmacDrbgContext,
         info "Adding privileged direct peer", peerId, address
       res
 
-    hostAddress = tcpEndPoint(config.listenAddress, config.tcpPort)
+    hostAddress = tcpEndPoint(listenAddress, config.tcpPort)
     announcedAddresses =
       if extIp.isNone() or extTcpPort.isNone(): @[]
       else: @[tcpEndPoint(extIp.get(), extTcpPort.get())]
@@ -2295,51 +2301,47 @@ proc createEth2Node*(rng: ref HmacDrbgContext,
   let phase0Prefix = "/eth2/" & $forkDigests.phase0
 
   func msgIdProvider(m: messages.Message): Result[seq[byte], ValidationResult] =
-    template topic: untyped =
-      if m.topicIds.len > 0: m.topicIds[0] else: ""
-
     try:
       # This doesn't have to be a tight bound, just enough to avoid denial of
       # service attacks.
       let decoded = snappy.decode(m.data, static(GOSSIP_MAX_SIZE.uint32))
-      ok(gossipId(decoded, phase0Prefix, topic))
+      ok(gossipId(decoded, phase0Prefix, m.topic))
     except CatchableError:
       err(ValidationResult.Reject)
 
   let
-    params = GossipSubParams(
-      explicit: true,
-      pruneBackoff: chronos.minutes(1),
-      unsubscribeBackoff: chronos.seconds(10),
-      floodPublish: true,
-      gossipFactor: 0.05,
-      d: 8,
-      dLow: 6,
-      dHigh: 12,
-      dScore: 6,
-      dOut: 6 div 2, # less than dlow and no more than dlow/2
-      dLazy: 6,
-      heartbeatInterval: chronos.milliseconds(700),
-      historyLength: 6,
-      historyGossip: 3,
-      fanoutTTL: chronos.seconds(60),
+    params = GossipSubParams.init(
+      pruneBackoff = chronos.minutes(1),
+      unsubscribeBackoff = chronos.seconds(10),
+      floodPublish = true,
+      gossipFactor = 0.05,
+      d = 8,
+      dLow = 6,
+      dHigh = 12,
+      dScore = 6,
+      dOut = 6 div 2, # less than dlow and no more than dlow/2
+      dLazy = 6,
+      heartbeatInterval = chronos.milliseconds(700),
+      historyLength = 6,
+      historyGossip = 3,
+      fanoutTTL = chronos.seconds(60),
       # 2 epochs matching maximum valid attestation lifetime
-      seenTTL: chronos.seconds(int(SECONDS_PER_SLOT * SLOTS_PER_EPOCH * 2)),
-      gossipThreshold: -4000,
-      publishThreshold: -8000,
-      graylistThreshold: -16000, # also disconnect threshold
-      opportunisticGraftThreshold: 0,
-      decayInterval: chronos.seconds(12),
-      decayToZero: 0.01,
-      retainScore: chronos.seconds(385),
-      appSpecificWeight: 0.0,
-      ipColocationFactorWeight: -53.75,
-      ipColocationFactorThreshold: 3.0,
-      behaviourPenaltyWeight: -15.9,
-      behaviourPenaltyDecay: 0.986,
-      disconnectBadPeers: true,
-      directPeers: directPeers,
-      bandwidthEstimatebps: config.bandwidthEstimate.get(100_000_000)
+      seenTTL = chronos.seconds(int(SECONDS_PER_SLOT * SLOTS_PER_EPOCH * 2)),
+      gossipThreshold = -4000,
+      publishThreshold = -8000,
+      graylistThreshold = -16000, # also disconnect threshold
+      opportunisticGraftThreshold = 0,
+      decayInterval = chronos.seconds(12),
+      decayToZero = 0.01,
+      retainScore = chronos.seconds(385),
+      appSpecificWeight = 0.0,
+      ipColocationFactorWeight = -53.75,
+      ipColocationFactorThreshold = 3.0,
+      behaviourPenaltyWeight = -15.9,
+      behaviourPenaltyDecay = 0.986,
+      disconnectBadPeers = true,
+      directPeers = directPeers,
+      bandwidthEstimatebps = config.bandwidthEstimate.get(100_000_000)
     )
     pubsub = GossipSub.init(
       switch = switch,
@@ -2531,7 +2533,7 @@ proc updateStabilitySubnetMetadata*(node: Eth2Node, attnets: AttnetBits) =
     debug "Stability subnets changed; updated ENR attnets", attnets
 
 proc updateSyncnetsMetadata*(node: Eth2Node, syncnets: SyncnetBits) =
-  # https://github.com/ethereum/consensus-specs/blob/v1.4.0/specs/altair/validator.md#sync-committee-subnet-stability
+  # https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.2/specs/altair/validator.md#sync-committee-subnet-stability
   if node.metadata.syncnets == syncnets:
     return
 
@@ -2569,7 +2571,8 @@ proc getWallEpoch(node: Eth2Node): Epoch =
   node.getBeaconTime().slotOrZero.epoch
 
 proc broadcastAttestation*(
-    node: Eth2Node, subnet_id: SubnetId, attestation: Attestation):
+    node: Eth2Node, subnet_id: SubnetId,
+    attestation: phase0.Attestation | electra.Attestation):
     Future[SendResult] {.async: (raises: [CancelledError], raw: true).} =
   # Regardless of the contents of the attestation,
   # https://github.com/ethereum/consensus-specs/blob/v1.3.0/specs/altair/p2p-interface.md#transitioning-the-gossip
@@ -2589,7 +2592,7 @@ proc broadcastVoluntaryExit*(
   node.broadcast(topic, exit)
 
 proc broadcastAttesterSlashing*(
-    node: Eth2Node, slashing: AttesterSlashing):
+    node: Eth2Node, slashing: phase0.AttesterSlashing):
     Future[SendResult] {.async: (raises: [CancelledError], raw: true).} =
   let topic = getAttesterSlashingsTopic(
     node.forkDigestAtEpoch(node.getWallEpoch))
@@ -2610,7 +2613,7 @@ proc broadcastBlsToExecutionChange*(
   node.broadcast(topic, bls_to_execution_change)
 
 proc broadcastAggregateAndProof*(
-    node: Eth2Node, proof: SignedAggregateAndProof):
+    node: Eth2Node, proof: phase0.SignedAggregateAndProof):
     Future[SendResult] {.async: (raises: [CancelledError], raw: true).} =
   let topic = getAggregateAndProofsTopic(
     node.forkDigestAtEpoch(node.getWallEpoch))

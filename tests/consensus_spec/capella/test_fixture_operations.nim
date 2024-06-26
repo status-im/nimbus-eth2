@@ -12,7 +12,6 @@ import
   # Utilities
   chronicles,
   unittest2,
-  stew/results,
   # Beacon chain internals
   ../../../beacon_chain/spec/state_transition_block,
   ../../../beacon_chain/spec/datatypes/capella,
@@ -24,7 +23,8 @@ import
 from std/sequtils import mapIt, toSeq
 from std/strutils import contains
 from ../../../beacon_chain/spec/beaconstate import
-  get_base_reward_per_increment, get_total_active_balance, process_attestation
+  get_base_reward_per_increment, get_state_exit_queue_info,
+  get_total_active_balance, process_attestation
 
 const
   OpDir                     = SszTestsDir/const_preset/"capella"/"operations"
@@ -104,7 +104,8 @@ suite baseDescription & "Attester Slashing " & preset():
       Result[void, cstring] =
     var cache: StateCache
     doAssert (? process_attester_slashing(
-      defaultRuntimeConfig, preState, attesterSlashing, {}, cache)) > 0.Gwei
+      defaultRuntimeConfig, preState, attesterSlashing, {strictVerification},
+      get_state_exit_queue_info(preState), cache))[0] > 0.Gwei
     ok()
 
   for path in walkTests(OpAttSlashingDir):
@@ -140,7 +141,7 @@ suite baseDescription & "BLS to execution change " & preset():
 from ".."/".."/".."/beacon_chain/bloomfilter import constructBloomFilter
 
 suite baseDescription & "Deposit " & preset():
-  proc applyDeposit(
+  func applyDeposit(
       preState: var capella.BeaconState, deposit: Deposit):
       Result[void, cstring] =
     process_deposit(
@@ -152,7 +153,7 @@ suite baseDescription & "Deposit " & preset():
       OpDepositsDir, suiteName, "Deposit", "deposit", applyDeposit, path)
 
 suite baseDescription & "Execution Payload " & preset():
-  proc makeApplyExecutionPayloadCb(path: string): auto =
+  func makeApplyExecutionPayloadCb(path: string): auto =
     return proc(
         preState: var capella.BeaconState, body: capella.BeaconBlockBody):
         Result[void, cstring] {.raises: [IOError].} =
@@ -175,7 +176,8 @@ suite baseDescription & "Proposer Slashing " & preset():
       Result[void, cstring] =
     var cache: StateCache
     doAssert (? process_proposer_slashing(
-      defaultRuntimeConfig, preState, proposerSlashing, {}, cache)) > 0.Gwei
+      defaultRuntimeConfig, preState, proposerSlashing, {},
+      get_state_exit_queue_info(preState), cache))[0] > 0.Gwei
     ok()
 
   for path in walkTests(OpProposerSlashingDir):
@@ -203,8 +205,12 @@ suite baseDescription & "Voluntary Exit " & preset():
       preState: var capella.BeaconState, voluntaryExit: SignedVoluntaryExit):
       Result[void, cstring] =
     var cache: StateCache
-    process_voluntary_exit(
-      defaultRuntimeConfig, preState, voluntaryExit, {}, cache)
+    if process_voluntary_exit(
+        defaultRuntimeConfig, preState, voluntaryExit, {},
+        get_state_exit_queue_info(preState), cache).isOk:
+      ok()
+    else:
+      err("")
 
   for path in walkTests(OpVoluntaryExitDir):
     runTest[SignedVoluntaryExit, typeof applyVoluntaryExit](
@@ -212,7 +218,7 @@ suite baseDescription & "Voluntary Exit " & preset():
       applyVoluntaryExit, path)
 
 suite baseDescription & "Withdrawals " & preset():
-  proc applyWithdrawals(
+  func applyWithdrawals(
       preState: var capella.BeaconState,
       executionPayload: capella.ExecutionPayload): Result[void, cstring] =
     process_withdrawals(preState, executionPayload)

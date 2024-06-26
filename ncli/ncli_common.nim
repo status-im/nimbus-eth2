@@ -126,14 +126,13 @@ static:
       "15227487_86601706.echop"]: # Wrong extension
     doAssert not filename.matchFilenameAggregatedFiles
 
-proc getUnaggregatedFilesEpochRange*(
-    dir: string
-): tuple[firstEpoch, lastEpoch: Epoch] {.raises: [OSError, ValueError].} =
+proc getUnaggregatedFilesEpochRange*(dir: string):
+    tuple[firstEpoch, lastEpoch: Epoch] {.raises: [OSError, ValueError].} =
   var smallestEpochFileName =
     '9'.repeat(epochInfoFileNameDigitsCount) & epochFileNameExtension
   var largestEpochFileName =
     '0'.repeat(epochInfoFileNameDigitsCount) & epochFileNameExtension
-  for (_, fn) in walkDir(dir.string, relative = true):
+  for (_, fn) in walkDir(dir, relative = true):
     if fn.matchFilenameUnaggregatedFiles:
       if fn < smallestEpochFileName:
         smallestEpochFileName = fn
@@ -151,7 +150,7 @@ proc getUnaggregatedFilesLastEpoch*(
 proc getAggregatedFilesLastEpoch*(
     dir: string): Epoch {.raises: [OSError, ValueError].}=
   var largestEpochInFileName = 0'u
-  for (_, fn) in walkDir(dir.string, relative = true):
+  for (_, fn) in walkDir(dir, relative = true):
     if fn.matchFilenameAggregatedFiles:
       let fileLastEpoch = parseUInt(
         fn[epochInfoFileNameDigitsCount + 1 .. 2 * epochInfoFileNameDigitsCount])
@@ -332,8 +331,11 @@ func collectFromSlashedValidator(
     rewardsAndPenalties: var seq[RewardsAndPenalties],
     state: ForkyBeaconState, slashedIndex, proposerIndex: ValidatorIndex) =
   template slashed_validator: untyped = state.validators[slashedIndex]
-  let slashingPenalty = get_slashing_penalty(state, slashed_validator.effective_balance)
-  let whistleblowerReward = get_whistleblower_reward(slashed_validator.effective_balance)
+  let
+    slashingPenalty =
+      get_slashing_penalty(state, slashed_validator.effective_balance)
+    whistleblowerReward =
+      get_whistleblower_reward(state, slashed_validator.effective_balance)
   rewardsAndPenalties[slashedIndex].slashing_outcome -= slashingPenalty.int64
   rewardsAndPenalties[proposerIndex].slashing_outcome += whistleblowerReward.int64
 
@@ -378,7 +380,7 @@ func collectFromAttestations(
       doAssert base_reward_per_increment > 0.Gwei
       for attestation in forkyBlck.message.body.attestations:
         doAssert check_attestation(
-          forkyState.data, attestation, {}, cache).isOk
+          forkyState.data, attestation, {}, cache, true).isOk
         let proposerReward =
           if attestation.data.target.epoch == get_current_epoch(forkyState.data):
             get_proposer_reward(
@@ -391,10 +393,18 @@ func collectFromAttestations(
         rewardsAndPenalties[forkyBlck.message.proposer_index]
           .proposer_outcome += proposerReward.int64
         let inclusionDelay = forkyState.data.slot - attestation.data.slot
-        for index in get_attesting_indices(
-            forkyState.data, attestation.data, attestation.aggregation_bits,
-            cache):
-          rewardsAndPenalties[index].inclusion_delay = some(inclusionDelay.uint64)
+        when consensusFork >= ConsensusFork.Electra:
+          for index in get_attesting_indices(
+              forkyState.data, attestation.data, attestation.aggregation_bits,
+              attestation.committee_bits, cache):
+            rewardsAndPenalties[index].inclusion_delay =
+              some(inclusionDelay.uint64)
+        else:
+          for index in get_attesting_indices(
+              forkyState.data, attestation.data, attestation.aggregation_bits,
+              cache):
+            rewardsAndPenalties[index].inclusion_delay =
+              some(inclusionDelay.uint64)
 
 proc collectFromDeposits(
     rewardsAndPenalties: var seq[RewardsAndPenalties],

@@ -46,7 +46,7 @@ proc listRemoteValidators*(
     if item.kind == ValidatorKind.Remote and item.data.remotes.len == 1:
       validators.add RemoteKeystoreInfo(
         pubkey: item.pubkey,
-        url: HttpHostUri(item.data.remotes[0].url)
+        url: item.data.remotes[0].url
       )
   validators
 

@@ -25,15 +25,24 @@ type
     # the slashing protection database and is therefore ready to be signed and
     # sent
     validator*: AttachedValidator
+    committee_index*: CommitteeIndex
     index_in_committee*: uint64
     committee_len*: int
     data*: AttestationData
 
 proc toAttestation*(
-    registered: RegisteredAttestation, signature: ValidatorSig): Attestation =
-  Attestation.init(
+    registered: RegisteredAttestation, signature: ValidatorSig):
+    phase0.Attestation =
+  phase0.Attestation.init(
     [registered.index_in_committee], registered.committee_len,
     registered.data, signature).expect("valid data")
+
+proc toElectraAttestation*(
+    registered: RegisteredAttestation, signature: ValidatorSig):
+    electra.Attestation =
+  electra.Attestation.init(
+    registered.committee_index, [registered.index_in_committee],
+    registered.committee_len, registered.data, signature).expect("valid data")
 
 proc waitAfterBlockCutoff*(clock: BeaconClock, slot: Slot,
                            head: Opt[BlockRef] = Opt.none(BlockRef))

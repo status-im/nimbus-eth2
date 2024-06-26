@@ -8,7 +8,6 @@
 {.push raises: [].}
 
 import
-  stew/results,
   chronicles, chronos, metrics,
   ../spec/[forks, signatures, signatures_batch],
   ../sszdump
@@ -243,7 +242,7 @@ proc expectValidForkchoiceUpdated(
       headBlockHash = headBlockHash,
       safeBlockHash = safeBlockHash,
       finalizedBlockHash = finalizedBlockHash,
-      payloadAttributes = none headBlockPayloadAttributesType)
+      payloadAttributes = Opt.none headBlockPayloadAttributesType)
     receivedExecutionBlockHash =
       when typeof(receivedBlock).kind >= ConsensusFork.Bellatrix:
         receivedBlock.message.body.execution_payload.block_hash
@@ -370,7 +369,7 @@ proc checkBloblessSignature(
   let proposer = getProposer(
         dag, parent, signed_beacon_block.message.slot).valueOr:
     return err("checkBloblessSignature: Cannot compute proposer")
-  if uint64(proposer) != signed_beacon_block.message.proposer_index:
+  if distinctBase(proposer) != signed_beacon_block.message.proposer_index:
     return err("checkBloblessSignature: Incorrect proposer")
   if not verify_block_signature(
       dag.forkAtEpoch(signed_beacon_block.message.slot.epoch),
@@ -525,7 +524,7 @@ proc storeBlock(
         # has been finalized - this speeds up forward sync - in the worst case
         # that the claim is false, we will correct every time we process a block
         # from an honest source (or when we're close to head).
-        # Occasionally we also send a payload to the the EL so that it can
+        # Occasionally we also send a payload to the EL so that it can
         # progress in its own sync.
         NewPayloadStatus.noResponse
       else:
@@ -537,6 +536,7 @@ proc storeBlock(
 
   if NewPayloadStatus.invalid == payloadStatus:
     self.consensusManager.quarantine[].addUnviable(signedBlock.root)
+    self[].dumpInvalidBlock(signedBlock)
     return err((VerifierError.UnviableFork, ProcessingStatus.completed))
 
   if NewPayloadStatus.noResponse == payloadStatus:
@@ -550,7 +550,8 @@ proc storeBlock(
     # Client software MUST validate `blockHash` value as being equivalent to
     # `Keccak256(RLP(ExecutionBlockHeader))`
     # https://github.com/ethereum/execution-apis/blob/v1.0.0-beta.3/src/engine/paris.md#specification
-    when typeof(signedBlock).kind >= ConsensusFork.Bellatrix:
+    when typeof(signedBlock).kind >= ConsensusFork.Bellatrix and typeof(signedBlock).kind <= ConsensusFork.Deneb:
+      debugComment "electra can do this in principle"
       template payload(): auto = signedBlock.message.body.execution_payload
       if  signedBlock.message.is_execution_block and
           payload.block_hash !=
@@ -601,7 +602,7 @@ proc storeBlock(
         src, wallTime, trustedBlock.message)
 
       for attestation in trustedBlock.message.body.attestations:
-        for validator_index in dag.get_attesting_indices(attestation):
+        for validator_index in dag.get_attesting_indices(attestation, true):
           vm[].registerAttestationInBlock(attestation.data, validator_index,
             trustedBlock.message.slot)
 
@@ -683,7 +684,7 @@ proc storeBlock(
               self.consensusManager[].optimisticExecutionBlockHash,
             safeBlockHash = newHead.get.safeExecutionBlockHash,
             finalizedBlockHash = newHead.get.finalizedExecutionBlockHash,
-            payloadAttributes = none attributes)
+            payloadAttributes = Opt.none attributes)
 
       let consensusFork = self.consensusManager.dag.cfg.consensusForkAtEpoch(
         newHead.get.blck.bid.slot.epoch)
@@ -715,7 +716,9 @@ proc storeBlock(
         template callForkChoiceUpdated: auto =
           case self.consensusManager.dag.cfg.consensusForkAtEpoch(
               newHead.get.blck.bid.slot.epoch)
-          of ConsensusFork.Deneb:
+          of ConsensusFork.Deneb, ConsensusFork.Electra:
+            # https://github.com/ethereum/execution-apis/blob/90a46e9137c89d58e818e62fa33a0347bba50085/src/engine/prague.md
+            # does not define any new forkchoiceUpdated, so reuse V3 from Dencun
             callExpectValidFCU(payloadAttributeType = PayloadAttributesV3)
           of ConsensusFork.Capella:
             callExpectValidFCU(payloadAttributeType = PayloadAttributesV2)
@@ -835,7 +838,7 @@ proc processBlock(
     # - MUST NOT optimistically import the block.
     # - MUST NOT apply the block to the fork choice store.
     # - MAY queue the block for later processing.
-    # https://github.com/ethereum/consensus-specs/blob/v1.4.0/sync/optimistic.md#execution-engine-errors
+    # https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.2/sync/optimistic.md#execution-engine-errors
     await sleepAsync(chronos.seconds(1))
     self[].enqueueBlock(
       entry.src, entry.blck, entry.blobs, entry.resfut, entry.maybeFinalized,

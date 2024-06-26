@@ -44,11 +44,11 @@ type
   EventBus* = object
     headQueue*: AsyncEventQueue[HeadChangeInfoObject]
     blocksQueue*: AsyncEventQueue[EventBeaconBlockObject]
-    attestQueue*: AsyncEventQueue[Attestation]
+    attestQueue*: AsyncEventQueue[phase0.Attestation]
     exitQueue*: AsyncEventQueue[SignedVoluntaryExit]
     blsToExecQueue*: AsyncEventQueue[SignedBLSToExecutionChange]
     propSlashQueue*: AsyncEventQueue[ProposerSlashing]
-    attSlashQueue*: AsyncEventQueue[AttesterSlashing]
+    attSlashQueue*: AsyncEventQueue[phase0.AttesterSlashing]
     blobSidecarQueue*: AsyncEventQueue[BlobSidecarInfoObject]
     finalQueue*: AsyncEventQueue[FinalizationInfoObject]
     reorgQueue*: AsyncEventQueue[ReorgInfoObject]
@@ -67,6 +67,8 @@ type
     config*: BeaconNodeConf
     attachedValidators*: ref ValidatorPool
     optimisticProcessor*: OptimisticProcessor
+    optimisticFcuFut*: Future[(PayloadExecutionStatus, Opt[BlockHash])]
+      .Raising([CancelledError])
     lightClient*: LightClient
     dag*: ChainDAGRef
     quarantine*: ref Quarantine
@@ -105,7 +107,6 @@ type
     processingDelay*: Opt[Duration]
     lastValidAttestedBlock*: Opt[BlockSlot]
 
-# TODO stew/sequtils2
 template findIt*(s: openArray, predicate: untyped): int =
   var res = -1
   for i, it {.inject.} in s:

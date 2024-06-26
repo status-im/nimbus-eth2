@@ -1,11 +1,5 @@
-# beacon_chain
-# Copyright (c) 2023-2024 Status Research & Development GmbH
-# Licensed and distributed under either of
-#   * MIT license (license terms in the root directory or at https://opensource.org/licenses/MIT).
-#   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
-# at your option. This file may not be copied, modified, or distributed except according to those terms.
-
 { pkgs ? import <nixpkgs> {}}:
+
 let
   mkdocs-packages = ps: with ps; [
     mkdocs
@@ -14,11 +8,9 @@ let
     pymdown-extensions
   ];
   mkdocs-python = pkgs.python3.withPackages mkdocs-packages;
-in
-with pkgs;
-mkShell {
+in pkgs.mkShell {
 
-  buildInputs = [
+  buildInputs = with pkgs; [
     figlet
     git
     git-lfs
@@ -43,6 +35,7 @@ mkShell {
     # For the purposes of compiling Nimbus, this behavior is not desired:
     export NIX_ENFORCE_NO_NATIVE=0
     export USE_SYSTEM_GETOPT=1
+    export MAKEFLAGS="-j$NIX_BUILD_CORES"
 
     figlet "Welcome to Nimbus-eth2"
   '';

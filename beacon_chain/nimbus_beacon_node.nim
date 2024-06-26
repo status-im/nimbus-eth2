@@ -147,14 +147,16 @@ func getVanityLogs(stdoutKind: StdoutLogKind): VanityLogs =
       onFinalizedMergeTransitionBlock: bellatrixBlink,
       onUpgradeToCapella:              capellaColor,
       onKnownBlsToExecutionChange:     capellaBlink,
-      onUpgradeToDeneb:                denebColor)
+      onUpgradeToDeneb:                denebColor,
+      onUpgradeToElectra:              electraColor)
   of StdoutLogKind.NoColors:
     VanityLogs(
       onMergeTransitionBlock:          bellatrixMono,
       onFinalizedMergeTransitionBlock: bellatrixMono,
       onUpgradeToCapella:              capellaMono,
       onKnownBlsToExecutionChange:     capellaMono,
-      onUpgradeToDeneb:                denebMono)
+      onUpgradeToDeneb:                denebMono,
+      onUpgradeToElectra:              electraMono)
   of StdoutLogKind.Json, StdoutLogKind.None:
     VanityLogs(
       onMergeTransitionBlock:
@@ -166,10 +168,14 @@ func getVanityLogs(stdoutKind: StdoutLogKind): VanityLogs =
       onKnownBlsToExecutionChange:
         (proc() = notice "🦉 BLS to execution changed 🦉"),
       onUpgradeToDeneb:
-        (proc() = notice "🐟 Proto-Danksharding is ON 🐟"))
+        (proc() = notice "🐟 Proto-Danksharding is ON 🐟"),
+      onUpgradeToElectra:
+        (proc() = notice "🦒 [PH] Electra 🦒"))
 
 func getVanityMascot(consensusFork: ConsensusFork): string =
   case consensusFork
+  of ConsensusFork.Electra:
+    "🦒"
   of ConsensusFork.Deneb:
     "🐟"
   of ConsensusFork.Capella:
@@ -275,7 +281,7 @@ proc initFullNode(
     getBeaconTime: GetBeaconTimeFn) {.async.} =
   template config(): auto = node.config
 
-  proc onAttestationReceived(data: Attestation) =
+  proc onAttestationReceived(data: phase0.Attestation) =
     node.eventBus.attestQueue.emit(data)
   proc onSyncContribution(data: SignedContributionAndProof) =
     node.eventBus.contribQueue.emit(data)
@@ -285,7 +291,7 @@ proc initFullNode(
     node.eventBus.blsToExecQueue.emit(data)
   proc onProposerSlashingAdded(data: ProposerSlashing) =
     node.eventBus.propSlashQueue.emit(data)
-  proc onAttesterSlashingAdded(data: AttesterSlashing) =
+  proc onAttesterSlashingAdded(data: phase0.AttesterSlashing) =
     node.eventBus.attSlashQueue.emit(data)
   proc onBlobSidecarAdded(data: BlobSidecar) =
     node.eventBus.blobSidecarQueue.emit(
@@ -573,7 +579,7 @@ proc init*(T: type BeaconNode,
     eventBus = EventBus(
       headQueue: newAsyncEventQueue[HeadChangeInfoObject](),
       blocksQueue: newAsyncEventQueue[EventBeaconBlockObject](),
-      attestQueue: newAsyncEventQueue[Attestation](),
+      attestQueue: newAsyncEventQueue[phase0.Attestation](),
       exitQueue: newAsyncEventQueue[SignedVoluntaryExit](),
       blsToExecQueue: newAsyncEventQueue[SignedBLSToExecutionChange](),
       propSlashQueue: newAsyncEventQueue[ProposerSlashing](),
@@ -809,6 +815,9 @@ proc init*(T: type BeaconNode,
   func getDenebForkEpoch(): Opt[Epoch] =
     Opt.some(cfg.DENEB_FORK_EPOCH)
 
+  func getElectraForkEpoch(): Opt[Epoch] =
+    Opt.some(cfg.ELECTRA_FORK_EPOCH)
+
   proc getForkForEpoch(epoch: Epoch): Opt[Fork] =
     Opt.some(dag.forkAtEpoch(epoch))
 
@@ -917,7 +926,8 @@ func forkDigests(node: BeaconNode): auto =
     node.dag.forkDigests.altair,
     node.dag.forkDigests.bellatrix,
     node.dag.forkDigests.capella,
-    node.dag.forkDigests.deneb]
+    node.dag.forkDigests.deneb,
+    node.dag.forkDigests.electra]
   forkDigestsArray
 
 # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.5/specs/phase0/p2p-interface.md#attestation-subnet-subscription
@@ -977,7 +987,8 @@ proc updateBlocksGossipStatus*(
 
     targetGossipState = getTargetGossipState(
       slot.epoch, cfg.ALTAIR_FORK_EPOCH, cfg.BELLATRIX_FORK_EPOCH,
-      cfg.CAPELLA_FORK_EPOCH, cfg.DENEB_FORK_EPOCH, isBehind)
+      cfg.CAPELLA_FORK_EPOCH, cfg.DENEB_FORK_EPOCH, cfg.ELECTRA_FORK_EPOCH,
+      isBehind)
 
   template currentGossipState(): auto = node.blocksGossipState
   if currentGossipState == targetGossipState:
@@ -1104,6 +1115,10 @@ proc addDenebMessageHandlers(
   for topic in blobSidecarTopics(forkDigest):
     node.network.subscribe(topic, basicParams)
 
+proc addElectraMessageHandlers(
+    node: BeaconNode, forkDigest: ForkDigest, slot: Slot) =
+  node.addDenebMessageHandlers(forkDigest, slot)
+
 proc removeAltairMessageHandlers(node: BeaconNode, forkDigest: ForkDigest) =
   node.removePhase0MessageHandlers(forkDigest)
 
@@ -1123,6 +1138,9 @@ proc removeDenebMessageHandlers(node: BeaconNode, forkDigest: ForkDigest) =
   node.removeCapellaMessageHandlers(forkDigest)
   for topic in blobSidecarTopics(forkDigest):
     node.network.unsubscribe(topic)
+
+proc removeElectraMessageHandlers(node: BeaconNode, forkDigest: ForkDigest) =
+  node.removeDenebMessageHandlers(forkDigest)
 
 proc updateSyncCommitteeTopics(node: BeaconNode, slot: Slot) =
   template lastSyncUpdate: untyped =
@@ -1276,6 +1294,8 @@ proc updateGossipStatus(node: BeaconNode, slot: Slot) {.async.} =
     TOPIC_SUBSCRIBE_THRESHOLD_SLOTS = 64
     HYSTERESIS_BUFFER = 16
 
+  static: doAssert high(ConsensusFork) == ConsensusFork.Electra
+
   let
     head = node.dag.head
     headDistance =
@@ -1290,6 +1310,7 @@ proc updateGossipStatus(node: BeaconNode, slot: Slot) {.async.} =
         node.dag.cfg.BELLATRIX_FORK_EPOCH,
         node.dag.cfg.CAPELLA_FORK_EPOCH,
         node.dag.cfg.DENEB_FORK_EPOCH,
+        node.dag.cfg.ELECTRA_FORK_EPOCH,
         isBehind)
 
   doAssert targetGossipState.card <= 2
@@ -1351,7 +1372,8 @@ proc updateGossipStatus(node: BeaconNode, slot: Slot) {.async.} =
     removeAltairMessageHandlers,
     removeAltairMessageHandlers,  # bellatrix (altair handlers, different forkDigest)
     removeCapellaMessageHandlers,
-    removeDenebMessageHandlers
+    removeDenebMessageHandlers,
+    removeElectraMessageHandlers
   ]
 
   for gossipFork in oldGossipForks:
@@ -1362,7 +1384,8 @@ proc updateGossipStatus(node: BeaconNode, slot: Slot) {.async.} =
     addAltairMessageHandlers,
     addAltairMessageHandlers,  # bellatrix (altair handlers, different forkDigest)
     addCapellaMessageHandlers,
-    addDenebMessageHandlers
+    addDenebMessageHandlers,
+    addElectraMessageHandlers
   ]
 
   for gossipFork in newGossipForks:
@@ -1597,7 +1620,7 @@ func syncStatus(node: BeaconNode, wallSlot: Slot): string =
     node.syncManager.syncStatus & optimisticSuffix & lightClientSuffix
   elif node.backfiller.inProgress:
     "backfill: " & node.backfiller.syncStatus
-  elif optimistic_head:
+  elif optimisticHead:
     "synced/opt"
   else:
     "synced"
@@ -1739,32 +1762,57 @@ proc installMessageValidators(node: BeaconNode) =
 
       # beacon_attestation_{subnet_id}
       # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.5/specs/phase0/p2p-interface.md#beacon_attestation_subnet_id
-      for it in SubnetId:
-        closureScope:  # Needed for inner `proc`; don't lift it out of loop.
-          let subnet_id = it
-          node.network.addAsyncValidator(
-            getAttestationTopic(digest, subnet_id), proc (
-              attestation: Attestation
-            ): Future[ValidationResult] {.async: (raises: [CancelledError]).} =
-              return toValidationResult(
-                await node.processor.processAttestation(
-                  MsgSource.gossip, attestation, subnet_id)))
+      when consensusFork >= ConsensusFork.Electra:
+        for it in SubnetId:
+          closureScope:  # Needed for inner `proc`; don't lift it out of loop.
+            let subnet_id = it
+            node.network.addAsyncValidator(
+              getAttestationTopic(digest, subnet_id), proc (
+                attestation: electra.Attestation
+              ): Future[ValidationResult] {.
+                  async: (raises: [CancelledError]).} =
+                return toValidationResult(
+                  await node.processor.processAttestation(
+                    MsgSource.gossip, attestation, subnet_id,
+                    checkSignature = true, checkValidator = false)))
+      else:
+        for it in SubnetId:
+          closureScope:  # Needed for inner `proc`; don't lift it out of loop.
+            let subnet_id = it
+            node.network.addAsyncValidator(
+              getAttestationTopic(digest, subnet_id), proc (
+                attestation: phase0.Attestation
+              ): Future[ValidationResult] {.
+                  async: (raises: [CancelledError]).} =
+                return toValidationResult(
+                  await node.processor.processAttestation(
+                    MsgSource.gossip, attestation, subnet_id,
+                    checkSignature = true, checkValidator = false)))
 
       # beacon_aggregate_and_proof
       # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.4/specs/phase0/p2p-interface.md#beacon_aggregate_and_proof
-      node.network.addAsyncValidator(
-        getAggregateAndProofsTopic(digest), proc (
-          signedAggregateAndProof: SignedAggregateAndProof
-        ): Future[ValidationResult] {.async: (raises: [CancelledError]).} =
-          return toValidationResult(
-            await node.processor.processSignedAggregateAndProof(
-              MsgSource.gossip, signedAggregateAndProof)))
+      when consensusFork >= ConsensusFork.Electra:
+        node.network.addAsyncValidator(
+          getAggregateAndProofsTopic(digest), proc (
+            signedAggregateAndProof: electra.SignedAggregateAndProof
+          ): Future[ValidationResult] {.async: (raises: [CancelledError]).} =
+            return toValidationResult(
+              await node.processor.processSignedAggregateAndProof(
+                MsgSource.gossip, signedAggregateAndProof)))
+      else:
+        node.network.addAsyncValidator(
+          getAggregateAndProofsTopic(digest), proc (
+            signedAggregateAndProof: phase0.SignedAggregateAndProof
+          ): Future[ValidationResult] {.async: (raises: [CancelledError]).} =
+            return toValidationResult(
+              await node.processor.processSignedAggregateAndProof(
+                MsgSource.gossip, signedAggregateAndProof)))
 
       # attester_slashing
       # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.5/specs/phase0/p2p-interface.md#attester_slashing
       node.network.addValidator(
         getAttesterSlashingsTopic(digest), proc (
-          attesterSlashing: AttesterSlashing
+          attesterSlashing: phase0.AttesterSlashing
         ): ValidationResult =
           toValidationResult(
             node.processor[].processAttesterSlashing(
@@ -1815,7 +1863,7 @@ proc installMessageValidators(node: BeaconNode) =
                 MsgSource.gossip, msg)))
 
       when consensusFork >= ConsensusFork.Capella:
-        # https://github.com/ethereum/consensus-specs/blob/v1.4.0/specs/capella/p2p-interface.md#bls_to_execution_change
+        # https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.2/specs/capella/p2p-interface.md#bls_to_execution_change
         node.network.addAsyncValidator(
           getBlsToExecutionChangeTopic(digest), proc (
             msg: SignedBLSToExecutionChange

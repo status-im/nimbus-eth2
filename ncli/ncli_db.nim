@@ -41,6 +41,7 @@ type
     putState = "Store a given BeaconState in the database"
     dumpBlock = "Extract a (trusted) SignedBeaconBlock from the database"
     putBlock = "Store a given SignedBeaconBlock in the database, potentially updating some of the pointers"
+    putBlob = "Store a given BlobSidecar in the database"
     rewindState = "Extract any state from the database based on a given block and slot, replaying if needed"
     verifyEra = "Verify a single era file"
     exportEra = "Export historical data to era store in current directory"
@@ -128,6 +129,12 @@ type
         defaultValue: false
         name: "set-genesis"
         desc: "Update genesis to this block"}: bool
+
+    of DbCmd.putBlob:
+      blobFile {.
+        argument
+        name: "file"
+        desc: "Files to import".}: seq[string]
 
     of DbCmd.rewindState:
       blockRoot* {.
@@ -240,7 +247,8 @@ proc cmdBench(conf: DbConf, cfg: RuntimeConfig) =
       seq[altair.TrustedSignedBeaconBlock],
       seq[bellatrix.TrustedSignedBeaconBlock],
       seq[capella.TrustedSignedBeaconBlock],
-      seq[deneb.TrustedSignedBeaconBlock])
+      seq[deneb.TrustedSignedBeaconBlock],
+      seq[electra.TrustedSignedBeaconBlock])
 
   echo "Loaded head slot ", dag.head.slot,
     " selected ", blockRefs.len, " blocks"
@@ -266,6 +274,9 @@ proc cmdBench(conf: DbConf, cfg: RuntimeConfig) =
       of ConsensusFork.Deneb:
         blocks[4].add dag.db.getBlock(
           blck.root, deneb.TrustedSignedBeaconBlock).get()
+      of ConsensusFork.Electra:
+        blocks[5].add dag.db.getBlock(
+          blck.root, electra.TrustedSignedBeaconBlock).get()
 
   let stateData = newClone(dag.headState)
 
@@ -277,7 +288,8 @@ proc cmdBench(conf: DbConf, cfg: RuntimeConfig) =
       (ref altair.HashedBeaconState)(),
       (ref bellatrix.HashedBeaconState)(),
       (ref capella.HashedBeaconState)(),
-      (ref deneb.HashedBeaconState)())
+      (ref deneb.HashedBeaconState)(),
+      (ref electra.HashedBeaconState)())
 
   withTimer(timers[tLoadState]):
     doAssert dag.updateState(
@@ -338,6 +350,9 @@ proc cmdBench(conf: DbConf, cfg: RuntimeConfig) =
               of ConsensusFork.Deneb:
                 doAssert dbBenchmark.getState(
                   forkyState.root, loadedState[4][].data, noRollback)
+              of ConsensusFork.Electra:
+                doAssert dbBenchmark.getState(
+                  forkyState.root, loadedState[5][].data, noRollback)
 
             if forkyState.data.slot.epoch mod 16 == 0:
               let loadedRoot = case consensusFork
@@ -346,6 +361,7 @@ proc cmdBench(conf: DbConf, cfg: RuntimeConfig) =
                 of ConsensusFork.Bellatrix: hash_tree_root(loadedState[2][].data)
                 of ConsensusFork.Capella:   hash_tree_root(loadedState[3][].data)
                 of ConsensusFork.Deneb:     hash_tree_root(loadedState[4][].data)
+                of ConsensusFork.Electra:   hash_tree_root(loadedState[5][].data)
               doAssert hash_tree_root(forkyState.data) == loadedRoot
 
   processBlocks(blocks[0])
@@ -353,6 +369,7 @@ proc cmdBench(conf: DbConf, cfg: RuntimeConfig) =
   processBlocks(blocks[2])
   processBlocks(blocks[3])
   processBlocks(blocks[4])
+  processBlocks(blocks[5])
 
   printTimers(false, timers)
 
@@ -459,6 +476,30 @@ proc cmdPutBlock(conf: DbConf, cfg: RuntimeConfig) =
         db.putTailBlock(forkyBlck.root)
       if conf.setGenesis:
         db.putGenesisBlock(forkyBlck.root)
+
+proc cmdPutBlob(conf: DbConf, cfg: RuntimeConfig) =
+  let db = BeaconChainDB.new(conf.databaseDir.string, cfg)
+  defer: db.close()
+
+  for file in conf.blobFile:
+    if shouldShutDown: quit QuitSuccess
+
+    let
+      blob =
+        try:
+          SSZ.decode(readAllBytes(file).tryGet(), BlobSidecar)
+        except ResultError[IoErrorCode] as e:
+          echo "Couldn't load ", file, ": ", e.msg
+          continue
+        except SerializationError as e:
+          echo "Malformed ", file, ": ", e.msg
+          continue
+      res = blob.verify_blob_sidecar_inclusion_proof()
+    if res.isErr:
+      echo "Invalid ", file, ": ", res.error
+      continue
+
+    db.putBlobSidecar(blob)
 
 proc cmdRewindState(conf: DbConf, cfg: RuntimeConfig) =
   echo "Opening database..."
@@ -1158,6 +1199,8 @@ when isMainModule:
     cmdDumpBlock(conf)
   of DbCmd.putBlock:
     cmdPutBlock(conf, cfg)
+  of DbCmd.putBlob:
+    cmdPutBlob(conf, cfg)
   of DbCmd.rewindState:
     cmdRewindState(conf, cfg)
   of DbCmd.verifyEra:

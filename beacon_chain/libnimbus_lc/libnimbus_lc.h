@@ -94,7 +94,7 @@ typedef struct ETHConsensusConfig ETHConsensusConfig;
  *         based on the given `config.yaml` file content - If successful.
  * @return `NULL` - If the given `config.yaml` is malformed or incompatible.
  *
- * @see https://github.com/ethereum/consensus-specs/blob/v1.4.0/configs/README.md
+ * @see https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.2/configs/README.md
  */
 ETH_RESULT_USE_CHECK
 ETHConsensusConfig *ETHConsensusConfigCreateFromYaml(const char *configFileContent);
@@ -149,11 +149,11 @@ typedef struct ETHBeaconState ETHBeaconState;
  *         representation - If successful.
  * @return `NULL` - If the given `sszBytes` is malformed.
  *
- * @see https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.6/specs/phase0/beacon-chain.md#beaconstate
+ * @see https://github.com/ethereum/consensus-specs/blob/v1.4.0/specs/phase0/beacon-chain.md#beaconstate
  * @see https://github.com/ethereum/consensus-specs/blob/v1.4.0/specs/altair/beacon-chain.md#beaconstate
- * @see https://github.com/ethereum/consensus-specs/blob/v1.4.0/specs/bellatrix/beacon-chain.md#beaconstate
- * @see https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.5/specs/capella/beacon-chain.md#beaconstate
- * @see https://github.com/ethereum/consensus-specs/blob/v1.4.0/configs/README.md
+ * @see https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.2/specs/bellatrix/beacon-chain.md#beaconstate
+ * @see https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.2/specs/capella/beacon-chain.md#beaconstate
+ * @see https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.2/configs/README.md
  */
 ETH_RESULT_USE_CHECK
 ETHBeaconState *ETHBeaconStateCreateFromSsz(
@@ -198,7 +198,7 @@ ETHRoot *ETHBeaconStateCopyGenesisValidatorsRoot(const ETHBeaconState *state);
  *
  * @param      root                 Merkle root.
  *
- * @see https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.6/specs/phase0/beacon-chain.md#custom-types
+ * @see https://github.com/ethereum/consensus-specs/blob/v1.4.0/specs/phase0/beacon-chain.md#custom-types
  */
 void ETHRootDestroy(ETHRoot *root);
 
@@ -271,7 +271,7 @@ void ETHBeaconClockDestroy(ETHBeaconClock *beaconClock);
  * @return Slot number for the current wall clock time - If genesis has occurred.
  * @return `0` - If genesis is still pending.
  *
- * @see https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.6/specs/phase0/beacon-chain.md#custom-types
+ * @see https://github.com/ethereum/consensus-specs/blob/v1.4.0/specs/phase0/beacon-chain.md#custom-types
  */
 ETH_RESULT_USE_CHECK
 int ETHBeaconClockGetSlot(const ETHBeaconClock *beaconClock);
@@ -325,8 +325,8 @@ typedef struct ETHLightClientStore ETHLightClientStore;
  *
  * @see https://ethereum.github.io/beacon-APIs/?urls.primaryName=v2.4.1#/Beacon/getLightClientBootstrap
  * @see https://ethereum.github.io/beacon-APIs/?urls.primaryName=v2.4.1#/Events/eventstream
- * @see https://github.com/ethereum/consensus-specs/blob/v1.4.0/specs/altair/light-client/light-client.md
- * @see https://github.com/ethereum/consensus-specs/blob/v1.4.0/specs/phase0/weak-subjectivity.md#weak-subjectivity-period
+ * @see https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.2/specs/altair/light-client/light-client.md
+ * @see https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.2/specs/phase0/weak-subjectivity.md#weak-subjectivity-period
  */
 ETH_RESULT_USE_CHECK
 ETHLightClientStore *ETHLightClientStoreCreateFromBootstrap(
@@ -597,8 +597,8 @@ const ETHLightClientHeader *ETHLightClientStoreGetFinalizedHeader(
  *
  * @return Whether or not the next sync committee is currently known.
  *
- * @see https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.5/specs/altair/light-client/sync-protocol.md#is_next_sync_committee_known
- * @see https://github.com/ethereum/consensus-specs/blob/v1.4.0/specs/altair/light-client/light-client.md
+ * @see https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.2/specs/altair/light-client/sync-protocol.md#is_next_sync_committee_known
+ * @see https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.2/specs/altair/light-client/light-client.md
  */
 ETH_RESULT_USE_CHECK
 bool ETHLightClientStoreIsNextSyncCommitteeKnown(const ETHLightClientStore *store);

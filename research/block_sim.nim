@@ -30,7 +30,7 @@ from std/random import Rand, gauss, initRand, rand
 from std/stats import RunningStat
 from ../beacon_chain/consensus_object_pools/attestation_pool import
   AttestationPool, addAttestation, addForkChoice, getAttestationsForBlock,
-  init, prune
+  getElectraAttestationsForBlock, init, prune
 from ../beacon_chain/consensus_object_pools/block_quarantine import
   Quarantine, init
 from ../beacon_chain/consensus_object_pools/sync_committee_msg_pool import
@@ -58,55 +58,12 @@ type Timers = enum
 # example of the non-forked version because it enables fork bootstrapping.
 proc makeSimulationBlock(
     cfg: RuntimeConfig,
-    state: var capella.HashedBeaconState,
-    proposer_index: ValidatorIndex,
-    randao_reveal: ValidatorSig,
-    eth1_data: Eth1Data,
-    graffiti: GraffitiBytes,
-    attestations: seq[Attestation],
-    deposits: seq[Deposit],
-    exits: BeaconBlockValidatorChanges,
-    sync_aggregate: SyncAggregate,
-    execution_payload: capella.ExecutionPayloadForSigning,
-    bls_to_execution_changes: SignedBLSToExecutionChangeList,
-    rollback: RollbackHashedProc[capella.HashedBeaconState],
-    cache: var StateCache,
-    # TODO:
-    # `verificationFlags` is needed only in tests and can be
-    # removed if we don't use invalid signatures there
-    verificationFlags: UpdateFlags = {}): Result[capella.BeaconBlock, cstring] =
-  ## Create a block for the given state. The latest block applied to it will
-  ## be used for the parent_root value, and the slot will be take from
-  ## state.slot meaning process_slots must be called up to the slot for which
-  ## the block is to be created.
-
-  # To create a block, we'll first apply a partial block to the state, skipping
-  # some validations.
-
-  var blck = partialBeaconBlock(
-    cfg, state, proposer_index, randao_reveal, eth1_data, graffiti,
-    attestations, deposits, exits, sync_aggregate, execution_payload)
-
-  let res = process_block(
-    cfg, state.data, blck.asSigVerified(), verificationFlags, cache)
-
-  if res.isErr:
-    rollback(state)
-    return err(res.error())
-
-  state.root = hash_tree_root(state.data)
-  blck.state_root = state.root
-
-  ok(blck)
-
-proc makeSimulationBlock(
-    cfg: RuntimeConfig,
     state: var deneb.HashedBeaconState,
     proposer_index: ValidatorIndex,
     randao_reveal: ValidatorSig,
     eth1_data: Eth1Data,
     graffiti: GraffitiBytes,
-    attestations: seq[Attestation],
+    attestations: seq[phase0.Attestation],
     deposits: seq[Deposit],
     exits: BeaconBlockValidatorChanges,
     sync_aggregate: SyncAggregate,
@@ -128,7 +85,50 @@ proc makeSimulationBlock(
 
   var blck = partialBeaconBlock(
     cfg, state, proposer_index, randao_reveal, eth1_data, graffiti,
-    attestations, deposits, exits, sync_aggregate, execution_payload)
+    attestations, deposits, exits, sync_aggregate, execution_payload, @[])
+
+  let res = process_block(
+    cfg, state.data, blck.asSigVerified(), verificationFlags, cache)
+
+  if res.isErr:
+    rollback(state)
+    return err(res.error())
+
+  state.root = hash_tree_root(state.data)
+  blck.state_root = state.root
+
+  ok(blck)
+
+proc makeSimulationBlock(
+    cfg: RuntimeConfig,
+    state: var electra.HashedBeaconState,
+    proposer_index: ValidatorIndex,
+    randao_reveal: ValidatorSig,
+    eth1_data: Eth1Data,
+    graffiti: GraffitiBytes,
+    attestations: seq[electra.Attestation],
+    deposits: seq[Deposit],
+    exits: BeaconBlockValidatorChanges,
+    sync_aggregate: SyncAggregate,
+    execution_payload: electra.ExecutionPayloadForSigning,
+    bls_to_execution_changes: SignedBLSToExecutionChangeList,
+    rollback: RollbackHashedProc[electra.HashedBeaconState],
+    cache: var StateCache,
+    # TODO:
+    # `verificationFlags` is needed only in tests and can be
+    # removed if we don't use invalid signatures there
+    verificationFlags: UpdateFlags = {}): Result[electra.BeaconBlock, cstring] =
+  ## Create a block for the given state. The latest block applied to it will
+  ## be used for the parent_root value, and the slot will be take from
+  ## state.slot meaning process_slots must be called up to the slot for which
+  ## the block is to be created.
+
+  # To create a block, we'll first apply a partial block to the state, skipping
+  # some validations.
+
+  var blck = partialBeaconBlock(
+    cfg, state, proposer_index, randao_reveal, eth1_data, graffiti,
+    attestations, deposits, exits, sync_aggregate, execution_payload, @[])
 
   let res = process_block(
     cfg, state.data, blck.asSigVerified(), verificationFlags, cache)
@@ -209,19 +209,44 @@ cli do(slots = SLOTS_PER_EPOCH * 7,
 
         for index_in_committee, validator_index in committee:
           if rand(r, 1.0) <= attesterRatio:
-            let
-              data = makeAttestationData(
-                updatedState, slot, committee_index, bid.root)
-              sig =
-                get_attestation_signature(
-                  fork, genesis_validators_root, data,
-                  MockPrivKeys[validator_index])
-              attestation = Attestation.init(
-                [uint64 index_in_committee], committee.len, data,
-                sig.toValidatorSig()).expect("valid data")
+            if tmpState.kind < ConsensusFork.Electra:
+              let
+                data = makeAttestationData(
+                  updatedState, slot, committee_index, bid.root)
+                sig =
+                  get_attestation_signature(
+                    fork, genesis_validators_root, data,
+                    MockPrivKeys[validator_index])
+                attestation = phase0.Attestation.init(
+                  [uint64 index_in_committee], committee.len, data,
+                  sig.toValidatorSig()).expect("valid data")
 
-            attPool.addAttestation(
-              attestation, [validator_index], sig, data.slot.start_beacon_time)
+              attPool.addAttestation(
+                attestation, [validator_index], sig, data.slot.start_beacon_time)
+            else:
+              var
+                data = makeAttestationData(
+                  updatedState, slot, committee_index, bid.root)
+                committee_bits: BitArray[static(MAX_COMMITTEES_PER_SLOT.int)]
+                aggregation_bits = ElectraCommitteeValidatorsBits.init(committee.len)
+              let committeeidx = data.index
+              aggregation_bits.setBit(index_in_committee)
+              committee_bits.setBit(committeeidx)
+              data.index = 0   # obviously, fix in makeAttestationData for Electra
+              let
+                sig =
+                  get_attestation_signature(
+                    fork, genesis_validators_root, data,
+                    MockPrivKeys[validator_index])
+                attestation = electra.Attestation(
+                  # https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.1/specs/electra/validator.md#construct-attestation
+                  aggregation_bits: aggregation_bits,
+                  data: data,
+                  committee_bits: committee_bits,
+                  signature: sig.toValidatorSig())
+
+              attPool.addAttestation(
+                attestation, [validator_index], sig, data.slot.start_beacon_time)
     do:
       raiseAssert "withUpdatedState failed"
 
@@ -301,8 +326,7 @@ cli do(slots = SLOTS_PER_EPOCH * 7,
             contribution: contribution,
             selection_proof: aggregator.selectionProof)
 
-          validatorPrivKey =
-            MockPrivKeys[aggregator.validatorIdx.ValidatorIndex]
+          validatorPrivKey = MockPrivKeys[aggregator.validatorIdx]
 
           signedContributionAndProof = SignedContributionAndProof(
             message: contributionAndProof,
@@ -339,10 +363,10 @@ cli do(slots = SLOTS_PER_EPOCH * 7,
       sync_aggregate =
         syncCommitteePool[].produceSyncAggregate(dag.head.bid, slot)
       hashedState =
-        when T is capella.SignedBeaconBlock:
-          addr state.capellaData
-        elif T is deneb.SignedBeaconBlock:
+        when T is deneb.SignedBeaconBlock:
           addr state.denebData
+        elif T is electra.SignedBeaconBlock:
+          addr state.electraData
         else:
           static: doAssert false
       message = makeSimulationBlock(
@@ -355,16 +379,19 @@ cli do(slots = SLOTS_PER_EPOCH * 7,
           slot.epoch, privKey).toValidatorSig(),
         eth1ProposalData.vote,
         default(GraffitiBytes),
-        attPool.getAttestationsForBlock(state, cache),
+        when T is electra.SignedBeaconBlock:
+          attPool.getElectraAttestationsForBlock(state, cache)
+        else:
+          attPool.getAttestationsForBlock(state, cache),
         eth1ProposalData.deposits,
         BeaconBlockValidatorChanges(),
         sync_aggregate,
-        when T is deneb.SignedBeaconBlock:
+        (when T is electra.SignedBeaconBlock:
+          default(electra.ExecutionPayloadForSigning)
+        elif T is deneb.SignedBeaconBlock:
           default(deneb.ExecutionPayloadForSigning)
-        elif T is capella.SignedBeaconBlock:
-          default(capella.ExecutionPayloadForSigning)
         else:
-          default(bellatrix.ExecutionPayloadForSigning),
+          static: doAssert false),
         static(default(SignedBLSToExecutionChangeList)),
         noRollback,
         cache)
@@ -388,15 +415,15 @@ cli do(slots = SLOTS_PER_EPOCH * 7,
   # HTTP server's state function, combine all proposeForkBlock functions into a
   # single generic function. Until https://github.com/nim-lang/Nim/issues/20811
   # is fixed, that generic function must take `blockRatio` as a parameter.
-  proc proposeCapellaBlock(slot: Slot) =
+  proc proposeDenebBlock(slot: Slot) =
     if rand(r, 1.0) > blockRatio:
       return
 
     dag.withUpdatedState(tmpState[], dag.getBlockIdAtSlot(slot).expect("block")) do:
       let
-        newBlock = getNewBlock[capella.SignedBeaconBlock](updatedState, slot, cache)
+        newBlock = getNewBlock[deneb.SignedBeaconBlock](updatedState, slot, cache)
         added = dag.addHeadBlock(verifier, newBlock) do (
-            blckRef: BlockRef, signedBlock: capella.TrustedSignedBeaconBlock,
+            blckRef: BlockRef, signedBlock: deneb.TrustedSignedBeaconBlock,
             epochRef: EpochRef, unrealized: FinalityCheckpoints):
           # Callback add to fork choice if valid
           attPool.addForkChoice(
@@ -410,15 +437,15 @@ cli do(slots = SLOTS_PER_EPOCH * 7,
     do:
       raiseAssert "withUpdatedState failed"
 
-  proc proposeDenebBlock(slot: Slot) =
+  proc proposeElectraBlock(slot: Slot) =
     if rand(r, 1.0) > blockRatio:
       return
 
     dag.withUpdatedState(tmpState[], dag.getBlockIdAtSlot(slot).expect("block")) do:
       let
-        newBlock = getNewBlock[deneb.SignedBeaconBlock](updatedState, slot, cache)
+        newBlock = getNewBlock[electra.SignedBeaconBlock](updatedState, slot, cache)
         added = dag.addHeadBlock(verifier, newBlock) do (
-            blckRef: BlockRef, signedBlock: deneb.TrustedSignedBeaconBlock,
+            blckRef: BlockRef, signedBlock: electra.TrustedSignedBeaconBlock,
             epochRef: EpochRef, unrealized: FinalityCheckpoints):
           # Callback add to fork choice if valid
           attPool.addForkChoice(
@@ -472,9 +499,9 @@ cli do(slots = SLOTS_PER_EPOCH * 7,
     if blockRatio > 0.0:
       withTimer(timers[t]):
         case dag.cfg.consensusForkAtEpoch(slot.epoch)
+        of ConsensusFork.Electra:   proposeElectraBlock(slot)
         of ConsensusFork.Deneb:     proposeDenebBlock(slot)
-        of ConsensusFork.Capella:   proposeCapellaBlock(slot)
-        of ConsensusFork.Bellatrix, ConsensusFork.Altair, ConsensusFork.Phase0:
+        of ConsensusFork.Phase0 .. ConsensusFork.Capella:
           doAssert false
     if attesterRatio > 0.0:
       withTimer(timers[tAttest]):

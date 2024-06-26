@@ -60,7 +60,8 @@ func getSimulationConfig*(): RuntimeConfig {.compileTime.} =
   cfg.ALTAIR_FORK_EPOCH = 0.Epoch
   cfg.BELLATRIX_FORK_EPOCH = 0.Epoch
   cfg.CAPELLA_FORK_EPOCH = 0.Epoch
-  cfg.DENEB_FORK_EPOCH = 2.Epoch
+  cfg.DENEB_FORK_EPOCH = 0.Epoch
+  cfg.ELECTRA_FORK_EPOCH = 3.Epoch
   cfg
 
 proc loadGenesis*(
@@ -138,15 +139,15 @@ proc loadGenesis*(
       depositContractState: merkleizer.toDepositContractState)
 
     let res = (ref ForkedHashedBeaconState)(
-      kind: ConsensusFork.Capella,
-      capellaData: capella.HashedBeaconState(
+      kind: ConsensusFork.Deneb,
+      denebData: deneb.HashedBeaconState(
         data: initialize_beacon_state_from_eth1(
           cfg, ZERO_HASH, 0, deposits,
-          default(capella.ExecutionPayloadHeader), {skipBlsValidation})))
+          default(deneb.ExecutionPayloadHeader), {skipBlsValidation})))
 
     info "Saving genesis file", fileName = genesisFn
     try:
-      SSZ.saveFile(genesisFn, res.capellaData.data)
+      SSZ.saveFile(genesisFn, res.denebData.data)
     except IOError as exc:
       fatal "Genesis file failed to save",
         fileName = genesisFn, exc = exc.msg

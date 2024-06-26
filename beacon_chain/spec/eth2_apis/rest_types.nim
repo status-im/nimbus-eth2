@@ -45,6 +45,9 @@ const
 
 const
   preferSSZ* = "application/octet-stream,application/json;q=0.9"
+  LowestScoreAggregatedAttestation* =
+    phase0.Attestation(
+      aggregation_bits: CommitteeValidatorsBits(BitSeq.init(1)))
 
 static:
   doAssert(ClientMaximumValidatorIds <= ServerMaximumValidatorIds)
@@ -289,7 +292,7 @@ type
 
   RestWithdrawalPrefix* = distinct array[1, byte]
 
-  # https://github.com/ethereum/consensus-specs/blob/v1.3.0/specs/capella/beacon-chain.md#executionpayload
+  # https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.2/specs/capella/beacon-chain.md#executionpayload
   RestExecutionPayload* = object
     # Execution block header fields
     parent_hash*: Eth2Digest
@@ -341,6 +344,7 @@ type
     of ConsensusFork.Bellatrix: bellatrixData*: bellatrix.SignedBeaconBlock
     of ConsensusFork.Capella:   capellaData*:   capella.SignedBeaconBlock
     of ConsensusFork.Deneb:     denebData*:     DenebSignedBlockContents
+    of ConsensusFork.Electra:   electraData*:   ElectraSignedBlockContents
 
   RestPublishedBeaconBlock* = distinct ForkedBeaconBlock
 
@@ -351,14 +355,7 @@ type
     of ConsensusFork.Bellatrix: bellatrixBody*: bellatrix.BeaconBlockBody
     of ConsensusFork.Capella:   capellaBody*:   capella.BeaconBlockBody
     of ConsensusFork.Deneb:     denebBody*:     deneb.BeaconBlockBody
-
-  ProduceBlockResponseV2* = object
-    case kind*: ConsensusFork
-    of ConsensusFork.Phase0:    phase0Data*:    phase0.BeaconBlock
-    of ConsensusFork.Altair:    altairData*:    altair.BeaconBlock
-    of ConsensusFork.Bellatrix: bellatrixData*: bellatrix.BeaconBlock
-    of ConsensusFork.Capella:   capellaData*:   capella.BeaconBlock
-    of ConsensusFork.Deneb:     denebData*:     deneb.BlockContents
+    of ConsensusFork.Electra:   electraBody*:   electra.BeaconBlockBody
 
   ProduceBlockResponseV3* = ForkedMaybeBlindedBeaconBlock
 
@@ -471,7 +468,7 @@ type
         serializedFieldName: "aggregation_slot".}: Web3SignerAggregationSlotData
     of Web3SignerRequestKind.AggregateAndProof:
       aggregateAndProof* {.
-        serializedFieldName: "aggregate_and_proof".}: AggregateAndProof
+        serializedFieldName: "aggregate_and_proof".}: phase0.AggregateAndProof
     of Web3SignerRequestKind.Attestation:
       attestation*: AttestationData
     of Web3SignerRequestKind.BlockV2:
@@ -532,9 +529,9 @@ type
 
   # Types based on the OAPI yaml file - used in responses to requests
   GetBeaconHeadResponse* = DataEnclosedObject[Slot]
-  GetAggregatedAttestationResponse* = DataEnclosedObject[Attestation]
+  GetAggregatedAttestationResponse* = DataEnclosedObject[phase0.Attestation]
   GetAttesterDutiesResponse* = DataRootEnclosedObject[seq[RestAttesterDuty]]
-  GetBlockAttestationsResponse* = DataEnclosedObject[seq[Attestation]]
+  GetBlockAttestationsResponse* = DataEnclosedObject[seq[phase0.Attestation]]
   GetBlockHeaderResponse* = DataOptimisticAndFinalizedObject[RestBlockHeaderInfo]
   GetBlockHeadersResponse* = DataEnclosedObject[seq[RestBlockHeaderInfo]]
   GetBlockRootResponse* = DataOptimisticObject[RestRoot]
@@ -545,12 +542,14 @@ type
   GetForkScheduleResponse* = DataEnclosedObject[seq[Fork]]
   GetGenesisResponse* = DataEnclosedObject[RestGenesis]
   GetHeaderResponseDeneb* = DataVersionEnclosedObject[deneb_mev.SignedBuilderBid]
+  GetHeaderResponseElectra* = DataVersionEnclosedObject[electra_mev.SignedBuilderBid]
   GetNetworkIdentityResponse* = DataEnclosedObject[RestNetworkIdentity]
   GetPeerCountResponse* = DataMetaEnclosedObject[RestPeerCount]
   GetPeerResponse* = DataMetaEnclosedObject[RestNodePeer]
   GetPeersResponse* = DataMetaEnclosedObject[seq[RestNodePeer]]
-  GetPoolAttestationsResponse* = DataEnclosedObject[seq[Attestation]]
-  GetPoolAttesterSlashingsResponse* = DataEnclosedObject[seq[AttesterSlashing]]
+  GetPoolAttestationsResponse* = DataEnclosedObject[seq[phase0.Attestation]]
+  GetPoolAttesterSlashingsResponse* =
+    DataEnclosedObject[seq[phase0.AttesterSlashing]]
   GetPoolProposerSlashingsResponse* = DataEnclosedObject[seq[ProposerSlashing]]
   GetPoolVoluntaryExitsResponse* = DataEnclosedObject[seq[SignedVoluntaryExit]]
   GetProposerDutiesResponse* = DataRootEnclosedObject[seq[RestProposerDuty]]
@@ -571,6 +570,7 @@ type
   ProduceBlindedBlockResponse* = ForkedBlindedBeaconBlock
   ProduceSyncCommitteeContributionResponse* = DataEnclosedObject[SyncCommitteeContribution]
   SubmitBlindedBlockResponseDeneb* = DataEnclosedObject[deneb_mev.ExecutionPayloadAndBlobsBundle]
+  SubmitBlindedBlockResponseElectra* = DataEnclosedObject[electra_mev.ExecutionPayloadAndBlobsBundle]
   GetValidatorsActivityResponse* = DataEnclosedObject[seq[RestActivityItem]]
   GetValidatorsLivenessResponse* = DataEnclosedObject[seq[RestLivenessItem]]
   SubmitBeaconCommitteeSelectionsResponse* = DataEnclosedObject[seq[RestBeaconCommitteeSelection]]
@@ -609,8 +609,44 @@ type
     fork_choice_nodes*: seq[RestNode]
     extra_data*: RestExtraData
 
+func isLowestScoreAggregatedAttestation*(a: phase0.Attestation): bool =
+  (a.data.slot == Slot(0)) and (a.data.index == 0'u64) and
+  (a.data.source.epoch == Epoch(0)) and (a.data.target.epoch == Epoch(0))
+
 func `==`*(a, b: RestValidatorIndex): bool =
   uint64(a) == uint64(b)
+
+template withForkyBlck*(
+    x: RestPublishedSignedBlockContents, body: untyped): untyped =
+  case x.kind
+  of ConsensusFork.Electra:
+    const consensusFork {.inject, used.} = ConsensusFork.Electra
+    template forkyBlck: untyped {.inject, used.} = x.electraData.signed_block
+    template kzg_proofs: untyped {.inject, used.} = x.electraData.kzg_proofs
+    template blobs: untyped {.inject, used.} = x.electraData.blobs
+    body
+  of ConsensusFork.Deneb:
+    const consensusFork {.inject, used.} = ConsensusFork.Deneb
+    template forkyBlck: untyped {.inject, used.} = x.denebData.signed_block
+    template kzg_proofs: untyped {.inject, used.} = x.denebData.kzg_proofs
+    template blobs: untyped {.inject, used.} = x.denebData.blobs
+    body
+  of ConsensusFork.Capella:
+    const consensusFork {.inject, used.} = ConsensusFork.Capella
+    template forkyBlck: untyped {.inject, used.} = x.capellaData
+    body
+  of ConsensusFork.Bellatrix:
+    const consensusFork {.inject, used.} = ConsensusFork.Bellatrix
+    template forkyBlck: untyped {.inject, used.} = x.bellatrixData
+    body
+  of ConsensusFork.Altair:
+    const consensusFork {.inject, used.} = ConsensusFork.Altair
+    template forkyBlck: untyped {.inject, used.} = x.altairData
+    body
+  of ConsensusFork.Phase0:
+    const consensusFork {.inject, used.} = ConsensusFork.Phase0
+    template forkyBlck: untyped {.inject, used.} = x.phase0Data
+    body
 
 func init*(T: type ForkedSignedBeaconBlock,
            contents: RestPublishedSignedBlockContents): T =
@@ -626,6 +662,8 @@ func init*(T: type ForkedSignedBeaconBlock,
       ForkedSignedBeaconBlock.init(contents.capellaData)
     of ConsensusFork.Deneb:
       ForkedSignedBeaconBlock.init(contents.denebData.signed_block)
+    of ConsensusFork.Electra:
+      ForkedSignedBeaconBlock.init(contents.electraData.signed_block)
 
 func init*(t: typedesc[RestPublishedSignedBlockContents],
            blck: phase0.BeaconBlock, root: Eth2Digest,
@@ -684,10 +722,20 @@ func init*(t: typedesc[RestPublishedSignedBlockContents],
   )
 
 func init*(t: typedesc[RestPublishedSignedBlockContents],
-           contents: electra.BeaconBlock, root: Eth2Digest,
+           contents: electra.BlockContents, root: Eth2Digest,
            signature: ValidatorSig): RestPublishedSignedBlockContents =
-  debugRaiseAssert "init*(t: typedesc[RestPublishedSignedBlockContents],"
-  default(RestPublishedSignedBlockContents)
+  RestPublishedSignedBlockContents(
+    kind: ConsensusFork.Electra,
+    electraData: ElectraSignedBlockContents(
+      signed_block: electra.SignedBeaconBlock(
+        message: contents.`block`,
+        root: root,
+        signature: signature
+      ),
+      kzg_proofs: contents.kzg_proofs,
+      blobs: contents.blobs
+    )
+  )
 
 func init*(t: typedesc[StateIdent], v: StateIdentType): StateIdent =
   StateIdent(kind: StateQueryKind.Named, value: v)
@@ -742,7 +790,7 @@ func init*(t: typedesc[Web3SignerRequest], fork: Fork,
   )
 
 func init*(t: typedesc[Web3SignerRequest], fork: Fork,
-           genesis_validators_root: Eth2Digest, data: AggregateAndProof,
+           genesis_validators_root: Eth2Digest, data: phase0.AggregateAndProof,
            signingRoot: Opt[Eth2Digest] = Opt.none(Eth2Digest)
           ): Web3SignerRequest =
   Web3SignerRequest(
@@ -1001,27 +1049,3 @@ func toValidatorIndex*(value: RestValidatorIndex): Result[ValidatorIndex,
       err(ValidatorIndexError.TooHighValue)
   else:
     doAssert(false, "ValidatorIndex type size is incorrect")
-
-template withBlck*(x: ProduceBlockResponseV2,
-                   body: untyped): untyped =
-  case x.kind
-  of ConsensusFork.Phase0:
-    const consensusFork {.inject, used.} = ConsensusFork.Phase0
-    template blck: untyped {.inject.} = x.phase0Data
-    body
-  of ConsensusFork.Altair:
-    const consensusFork {.inject, used.} = ConsensusFork.Altair
-    template blck: untyped {.inject.} = x.altairData
-    body
-  of ConsensusFork.Bellatrix:
-    const consensusFork {.inject, used.} = ConsensusFork.Bellatrix
-    template blck: untyped {.inject.} = x.bellatrixData
-    body
-  of ConsensusFork.Capella:
-    const consensusFork {.inject, used.} = ConsensusFork.Capella
-    template blck: untyped {.inject.} = x.capellaData
-    body
-  of ConsensusFork.Deneb:
-    const consensusFork {.inject, used.} = ConsensusFork.Deneb
-    template blck: untyped {.inject.} = x.denebData.blck
-    body

@@ -16,6 +16,8 @@ import
   ../spec/datatypes/base,
   ./block_pools_types, blockchain_dag
 
+from ../spec/datatypes/electra import shortLog
+
 export
   base, extras, block_pools_types, results
 
@@ -25,7 +27,7 @@ logScope: topics = "spec_cache"
 func count_active_validators*(shufflingRef: ShufflingRef): uint64 =
   shufflingRef.shuffled_active_validator_indices.lenu64
 
-# https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.6/specs/phase0/beacon-chain.md#get_committee_count_per_slot
+# https://github.com/ethereum/consensus-specs/blob/v1.4.0/specs/phase0/beacon-chain.md#get_committee_count_per_slot
 func get_committee_count_per_slot*(shufflingRef: ShufflingRef): uint64 =
   get_committee_count_per_slot(count_active_validators(shufflingRef))
 
@@ -51,7 +53,7 @@ iterator get_beacon_committee*(
     committees_per_slot * SLOTS_PER_EPOCH
   ): yield (index_in_committee, idx)
 
-# https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.6/specs/phase0/beacon-chain.md#get_beacon_committee
+# https://github.com/ethereum/consensus-specs/blob/v1.4.0/specs/phase0/beacon-chain.md#get_beacon_committee
 func get_beacon_committee*(
     shufflingRef: ShufflingRef, slot: Slot, committee_index: CommitteeIndex):
     seq[ValidatorIndex] =
@@ -78,7 +80,7 @@ func get_beacon_committee_len*(
 
 # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.6/specs/phase0/beacon-chain.md#get_attesting_indices
 func compatible_with_shuffling*(
-    bits: CommitteeValidatorsBits,
+    bits: CommitteeValidatorsBits | ElectraCommitteeValidatorsBits,
     shufflingRef: ShufflingRef,
     slot: Slot,
     committee_index: CommitteeIndex): bool =
@@ -87,7 +89,7 @@ func compatible_with_shuffling*(
 iterator get_attesting_indices*(shufflingRef: ShufflingRef,
                                 slot: Slot,
                                 committee_index: CommitteeIndex,
-                                bits: CommitteeValidatorsBits):
+                                bits: CommitteeValidatorsBits | ElectraCommitteeValidatorsBits):
                                   ValidatorIndex =
   if not bits.compatible_with_shuffling(shufflingRef, slot, committee_index):
     trace "get_attesting_indices: inconsistent aggregation and committee length"
@@ -97,8 +99,30 @@ iterator get_attesting_indices*(shufflingRef: ShufflingRef,
       if bits[index_in_committee]:
         yield validator_index
 
+# https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.0/specs/electra/beacon-chain.md#modified-get_attesting_indices
+iterator get_attesting_indices*(shufflingRef: ShufflingRef,
+                                slot: Slot,
+                                committee_bits: AttestationCommitteeBits,
+                                aggregation_bits: ElectraCommitteeValidatorsBits, on_chain: static bool):
+                                  ValidatorIndex =
+  when on_chain:
+    var pos = 0
+    for committee_index in get_committee_indices(committee_bits):
+      for _, validator_index in get_beacon_committee(
+          shufflingRef, slot, committee_index):
+
+        if aggregation_bits[pos]:
+          yield validator_index
+          pos += 1
+  else:
+    let committee_index = get_committee_index_one(committee_bits)
+    for validator_index in get_attesting_indices(
+        shufflingRef, slot, committee_index, aggregation_bits, on_chain):
+      yield validator_index
+
 iterator get_attesting_indices*(
-    dag: ChainDAGRef, attestation: TrustedAttestation): ValidatorIndex =
+    dag: ChainDAGRef, attestation: phase0.TrustedAttestation,
+    on_chain: static bool = true): ValidatorIndex =
   block: # `return` is not allowed in an inline iterator
     let
       slot =
@@ -148,10 +172,53 @@ iterator get_attesting_indices*(
         shufflingRef, slot, committeeIndex, attestation.aggregation_bits):
       yield validator
 
+iterator get_attesting_indices*(
+    dag: ChainDAGRef, attestation: electra.TrustedAttestation,
+    on_chain: static bool): ValidatorIndex =
+  block: # `return` is not allowed in an inline iterator
+    let
+      slot =
+        check_attestation_slot_target(attestation.data).valueOr:
+          warn "Invalid attestation slot in trusted attestation",
+            attestation = shortLog(attestation)
+          doAssert strictVerification notin dag.updateFlags
+          break
+      blck =
+        dag.getBlockRef(attestation.data.beacon_block_root).valueOr:
+          # Attestation block unknown - this is fairly common because we
+          # discard alternative histories on restart
+          debug "Pruned block in trusted attestation",
+            attestation = shortLog(attestation)
+          break
+      target =
+        blck.atCheckpoint(attestation.data.target).valueOr:
+          # This may happen when there's no block at the epoch boundary slot
+          # leading to the case where the attestation block root is the
+          # finalized head (exists as BlockRef) but its target vote has
+          # already been pruned
+          notice "Pruned target in trusted attestation",
+            blck = shortLog(blck),
+            attestation = shortLog(attestation)
+          doAssert strictVerification notin dag.updateFlags
+          break
+      shufflingRef =
+        dag.getShufflingRef(target.blck, target.slot.epoch, false).valueOr:
+          warn "Attestation shuffling not found",
+            blck = shortLog(blck),
+            attestation = shortLog(attestation)
+
+          doAssert strictVerification notin dag.updateFlags
+          break
+
+    for validator in get_attesting_indices(
+        shufflingRef, slot, attestation.committee_bits,
+        attestation.aggregation_bits, on_chain):
+      yield validator
+
 func get_attesting_indices_one*(shufflingRef: ShufflingRef,
                                 slot: Slot,
                                 committee_index: CommitteeIndex,
-                                bits: CommitteeValidatorsBits):
+                                bits: CommitteeValidatorsBits | ElectraCommitteeValidatorsBits):
                                   Option[ValidatorIndex] =
   # A variation on get_attesting_indices that returns the validator index only
   # if only one validator index is set
@@ -162,13 +229,41 @@ func get_attesting_indices_one*(shufflingRef: ShufflingRef,
     res = some(validator_index)
   res
 
+func get_attesting_indices_one*(shufflingRef: ShufflingRef,
+                                slot: Slot,
+                                committee_bits: AttestationCommitteeBits,
+                                aggregation_bits: ElectraCommitteeValidatorsBits,
+                                on_chain: static bool):
+                                  Opt[ValidatorIndex] =
+  # A variation on get_attesting_indices that returns the validator index only
+  # if only one validator index is set
+  static: doAssert not on_chain, "only on_chain supported"
+
+  var res = Opt.none(ValidatorIndex)
+  let committee_index = ? get_committee_index_one(committee_bits)
+  for validator_index in get_attesting_indices(
+      shufflingRef, slot, committee_index, aggregation_bits):
+    if res.isSome(): return Opt.none(ValidatorIndex)
+    res = Opt.some(validator_index)
+  res
+
 # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.6/specs/phase0/beacon-chain.md#get_attesting_indices
 func get_attesting_indices*(shufflingRef: ShufflingRef,
                             slot: Slot,
                             committee_index: CommitteeIndex,
                             bits: CommitteeValidatorsBits):
                               seq[ValidatorIndex] =
-  # TODO sequtils2 mapIt
+  for idx in get_attesting_indices(shufflingRef, slot, committee_index, bits):
+    result.add(idx)
+
+func get_attesting_indices*(shufflingRef: ShufflingRef,
+                            slot: Slot,
+                            committee_index: CommitteeIndex,
+                            bits: ElectraCommitteeValidatorsBits,
+                            on_chain: static bool):
+                              seq[ValidatorIndex] =
+  static: doAssert not on_chain, "only on_chain supported"
+
   for idx in get_attesting_indices(shufflingRef, slot, committee_index, bits):
     result.add(idx)
 

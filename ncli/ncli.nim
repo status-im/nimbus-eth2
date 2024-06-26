@@ -98,6 +98,7 @@ template saveSSZFile(filename: string, value: ForkedHashedBeaconState) =
     of ConsensusFork.Bellatrix: SSZ.saveFile(filename, value.bellatrixData.data)
     of ConsensusFork.Capella:   SSZ.saveFile(filename, value.capellaData.data)
     of ConsensusFork.Deneb:     SSZ.saveFile(filename, value.denebData.data)
+    of ConsensusFork.Electra:   SSZ.saveFile(filename, value.electraData.data)
   except IOError:
     raiseAssert "error saving SSZ file"
 
@@ -231,23 +232,26 @@ proc doSSZ(conf: NcliConf) =
       printTimers(false, timers)
 
   case kind
-  of "attester_slashing": printit(AttesterSlashing)
-  of "attestation": printit(Attestation)
+  of "attester_slashing": printit(phase0.AttesterSlashing)
+  of "attestation": printit(phase0.Attestation)
   of "phase0_signed_block": printit(phase0.SignedBeaconBlock)
   of "altair_signed_block": printit(altair.SignedBeaconBlock)
   of "bellatrix_signed_block": printit(bellatrix.SignedBeaconBlock)
   of "capella_signed_block": printit(capella.SignedBeaconBlock)
   of "deneb_signed_block": printit(deneb.SignedBeaconBlock)
+  of "electra_signed_block": printit(electra.SignedBeaconBlock)
   of "phase0_block": printit(phase0.BeaconBlock)
   of "altair_block": printit(altair.BeaconBlock)
   of "bellatrix_block": printit(bellatrix.BeaconBlock)
   of "capella_block": printit(capella.BeaconBlock)
   of "deneb_block": printit(deneb.BeaconBlock)
+  of "electra_block": printit(electra.BeaconBlock)
   of "phase0_block_body": printit(phase0.BeaconBlockBody)
   of "altair_block_body": printit(altair.BeaconBlockBody)
   of "bellatrix_block_body": printit(bellatrix.BeaconBlockBody)
   of "capella_block_body": printit(capella.BeaconBlockBody)
   of "deneb_block_body": printit(deneb.BeaconBlockBody)
+  of "electra_block_body": printit(electra.BeaconBlockBody)
   of "block_header": printit(BeaconBlockHeader)
   of "deposit": printit(Deposit)
   of "deposit_data": printit(DepositData)
@@ -257,6 +261,7 @@ proc doSSZ(conf: NcliConf) =
   of "bellatrix_state": printit(bellatrix.BeaconState)
   of "capella_state": printit(capella.BeaconState)
   of "deneb_state": printit(deneb.BeaconState)
+  of "electra_state": printit(electra.BeaconState)
   of "proposer_slashing": printit(ProposerSlashing)
   of "voluntary_exit": printit(VoluntaryExit)
 

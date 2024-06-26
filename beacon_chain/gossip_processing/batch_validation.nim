@@ -414,7 +414,7 @@ proc scheduleAttestationCheck*(
 
 proc scheduleAggregateChecks*(
       batchCrypto: ref BatchCrypto, fork: Fork,
-      signedAggregateAndProof: SignedAggregateAndProof, dag: ChainDAGRef,
+      signedAggregateAndProof: phase0.SignedAggregateAndProof, dag: ChainDAGRef,
       attesting_indices: openArray[ValidatorIndex]
      ): Result[tuple[
         aggregatorFut, slotFut, aggregateFut: FutureBatchResult,
