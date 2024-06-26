@@ -1255,37 +1255,37 @@ proc ETHExecutionBlockHeaderCreateFromJson(
     coinbase: distinctBase(data.miner),
     stateRoot: data.stateRoot.asEth2Digest,
     txRoot: data.transactionsRoot.asEth2Digest,
-    receiptRoot: data.receiptsRoot.asEth2Digest,
-    bloom: distinctBase(data.logsBloom),
+    receiptsRoot: data.receiptsRoot.asEth2Digest,
+    logsBloom: distinctBase(data.logsBloom),
     difficulty: data.difficulty,
-    blockNumber: distinctBase(data.number).u256,
-    gasLimit: cast[int64](data.gasLimit),
-    gasUsed: cast[int64](data.gasUsed),
-    timestamp: EthTime(int64.saturate distinctBase(data.timestamp)),
+    number: distinctBase(data.number),
+    gasLimit: GasInt.saturate distinctBase(data.gasLimit),
+    gasUsed: GasInt.saturate distinctBase(data.gasUsed),
+    timestamp: EthTime(distinctBase(data.timestamp)),
     extraData: distinctBase(data.extraData),
-    mixDigest: data.mixHash.asEth2Digest,
+    mixHash: data.mixHash.asEth2Digest,
     nonce: distinctBase(data.nonce.get),
-    fee: data.baseFeePerGas,
+    baseFeePerGas: data.baseFeePerGas,
     withdrawalsRoot:
       if data.withdrawalsRoot.isSome:
-        some(data.withdrawalsRoot.get.asEth2Digest)
+        Opt.some(data.withdrawalsRoot.get.asEth2Digest)
       else:
-        none(ExecutionHash256),
+        Opt.none(ExecutionHash256),
     blobGasUsed:
       if data.blobGasUsed.isSome:
-        some distinctBase(data.blobGasUsed.get)
+        Opt.some distinctBase(data.blobGasUsed.get)
       else:
-        none(uint64),
+        Opt.none(uint64),
     excessBlobGas:
       if data.excessBlobGas.isSome:
-        some distinctBase(data.excessBlobGas.get)
+        Opt.some distinctBase(data.excessBlobGas.get)
       else:
-        none(uint64),
+        Opt.none(uint64),
     parentBeaconBlockRoot:
       if data.parentBeaconBlockRoot.isSome:
-        some distinctBase(data.parentBeaconBlockRoot.get.asEth2Digest)
+        Opt.some distinctBase(data.parentBeaconBlockRoot.get.asEth2Digest)
       else:
-        none(ExecutionHash256))
+        Opt.none(ExecutionHash256))
   if rlpHash(blockHeader) != executionHash[]:
     return nil
 
@@ -1537,15 +1537,15 @@ proc ETHTransactionsCreateFromJson(
         chainId: data.chainId.get(0.Quantity).ChainId,
         nonce: distinctBase(data.nonce),
         gasPrice: data.gasPrice.GasInt,
-        maxPriorityFee:
+        maxPriorityFeePerGas:
           distinctBase(data.maxPriorityFeePerGas.get(data.gasPrice)).GasInt,
-        maxFee: distinctBase(data.maxFeePerGas.get(data.gasPrice)).GasInt,
+        maxFeePerGas: distinctBase(data.maxFeePerGas.get(data.gasPrice)).GasInt,
         gasLimit: distinctBase(data.gas).GasInt,
         to:
           if data.to.isSome:
-            some(distinctBase(data.to.get))
+            Opt.some(distinctBase(data.to.get))
           else:
-            none(EthAddress),
+            Opt.none(EthAddress),
         value: data.value,
         payload: data.input,
         accessList:
@@ -1563,7 +1563,7 @@ proc ETHTransactionsCreateFromJson(
               ExecutionHash256(data: distinctBase(it)))
           else:
             @[],
-        V: data.v.int64,
+        V: data.v.uint64,
         R: data.r,
         S: data.s)
       rlpBytes =
@@ -1575,7 +1575,7 @@ proc ETHTransactionsCreateFromJson(
     if data.hash.asEth2Digest != hash:
       return nil
 
-    template isEven(x: int64): bool =
+    template isEven(x: uint64): bool =
       (x and 1) == 0
 
     # Compute from execution address
@@ -1728,8 +1728,8 @@ proc ETHTransactionsCreateFromJson(
       chainId: distinctBase(tx.chainId).u256,
       `from`: ExecutionAddress(data: fromAddress),
       nonce: tx.nonce,
-      maxPriorityFeePerGas: tx.maxPriorityFee.uint64,
-      maxFeePerGas: tx.maxFee.uint64,
+      maxPriorityFeePerGas: tx.maxPriorityFeePerGas.uint64,
+      maxFeePerGas: tx.maxFeePerGas.uint64,
       gas: tx.gasLimit.uint64,
       destinationType: destinationType,
       to: ExecutionAddress(data: toAddress),
@@ -2355,7 +2355,7 @@ proc ETHReceiptsCreateFromJson(
           else:
             default(ExecutionHash256),
         cumulativeGasUsed: distinctBase(data.cumulativeGasUsed).GasInt,
-        bloom: distinctBase(data.logsBloom),
+        logsBloom: distinctBase(data.logsBloom),
         logs: data.logs.mapIt(Log(
           address: distinctBase(it.address),
           topics: it.topics.mapIt(distinctBase(it)),
@@ -2417,7 +2417,7 @@ proc ETHReceiptsCreateFromJson(
       root: rec.hash,
       status: rec.status,
       gasUsed: distinctBase(data.gasUsed),  # Validated during sanity checks.
-      logsBloom: BloomLogs(data: rec.bloom),
+      logsBloom: BloomLogs(data: rec.logsBloom),
       logs: rec.logs.mapIt(ETHLog(
         address: ExecutionAddress(data: it.address),
         topics: it.topics.mapIt(Eth2Digest(data: it)),

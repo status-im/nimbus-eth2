@@ -32,7 +32,7 @@ macro copyFields*(
     dst: untyped, src: untyped, fieldNames: static[seq[string]]): untyped =
   result = newStmtList()
   for name in fieldNames:
-    debugRaiseAssert "deposit_receipts_root and exits_root are not currently filled in anywhere properly, so blinded electra proposals will fail"
+    debugComment "deposit_receipts_root and exits_root are not currently filled in anywhere properly, so blinded electra proposals will fail"
     if name notin [
         # These fields are the ones which vary between the blinded and
         # unblinded objects, and can't simply be copied.
@@ -143,7 +143,8 @@ proc unblindAndRouteBlockMEV*(
     blck = shortLog(signedBlock)
 
   let newBlockRef =
-    (await node.router.routeSignedBeaconBlock(signedBlock, blobsOpt)).valueOr:
+    (await node.router.routeSignedBeaconBlock(
+      signedBlock, blobsOpt, checkValidator = false)).valueOr:
       # submitBlindedBlock has run, so don't allow fallback to run
       return err("routeSignedBeaconBlock error") # Errors logged in router
 

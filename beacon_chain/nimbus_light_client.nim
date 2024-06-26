@@ -5,6 +5,8 @@
 #   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
 # at your option. This file may not be copied, modified, or distributed except according to those terms.
 
+{.push raises: [].}
+
 import
   std/os,
   chronicles, chronos, stew/io2,
@@ -105,23 +107,15 @@ programMain:
       else:
         nil
 
-    optimisticHandler = proc(signedBlock: ForkedMsgTrustedSignedBeaconBlock):
-        Future[void] {.async: (raises: [CancelledError]).} =
-      notice "New LC optimistic block",
-        opt = signedBlock.toBlockId(),
-        wallSlot = getBeaconTime().slotOrZero
+    optimisticHandler = proc(
+        signedBlock: ForkedSignedBeaconBlock
+    ): Future[void] {.async: (raises: [CancelledError]).} =
       withBlck(signedBlock):
         when consensusFork >= ConsensusFork.Bellatrix:
           if forkyBlck.message.is_execution_block:
             template payload(): auto = forkyBlck.message.body.execution_payload
-
             if elManager != nil and not payload.block_hash.isZero:
               discard await elManager.newExecutionPayload(forkyBlck.message)
-              discard await elManager.forkchoiceUpdated(
-                headBlockHash = payload.block_hash,
-                safeBlockHash = payload.block_hash,  # stub value
-                finalizedBlockHash = ZERO_HASH,
-                payloadAttributes = none(consensusFork.PayloadAttributes))
         else: discard
     optimisticProcessor = initOptimisticProcessor(
       getBeaconTime, optimisticHandler)
@@ -151,26 +145,54 @@ programMain:
   waitFor network.startListening()
   waitFor network.start()
 
+  func isSynced(optimisticSlot: Slot, wallSlot: Slot): bool =
+    # Check whether light client has synced sufficiently close to wall slot
+    const maxAge = 2 * SLOTS_PER_EPOCH
+    optimisticSlot >= max(wallSlot, maxAge.Slot) - maxAge
+
   proc onFinalizedHeader(
       lightClient: LightClient, finalizedHeader: ForkedLightClientHeader) =
     withForkyHeader(finalizedHeader):
       when lcDataFork > LightClientDataFork.None:
         info "New LC finalized header",
           finalized_header = shortLog(forkyHeader)
-
         let
           period = forkyHeader.beacon.slot.sync_committee_period
           syncCommittee = lightClient.finalizedSyncCommittee.expect("Init OK")
         db.putSyncCommittee(period, syncCommittee)
         db.putLatestFinalizedHeader(finalizedHeader)
 
+  var optimisticFcuFut: Future[(PayloadExecutionStatus, Opt[BlockHash])]
+    .Raising([CancelledError])
   proc onOptimisticHeader(
       lightClient: LightClient, optimisticHeader: ForkedLightClientHeader) =
+    if optimisticFcuFut != nil:
+      return
     withForkyHeader(optimisticHeader):
       when lcDataFork > LightClientDataFork.None:
-        info "New LC optimistic header",
-          optimistic_header = shortLog(forkyHeader)
-        optimisticProcessor.setOptimisticHeader(forkyHeader.beacon)
+        logScope: optimistic_header = shortLog(forkyHeader)
+        when lcDataFork >= LightClientDataFork.Capella:
+          let
+            bid = forkyHeader.beacon.toBlockId()
+            consensusFork = cfg.consensusForkAtEpoch(bid.slot.epoch)
+            blockHash = forkyHeader.execution.block_hash
+
+          info "New LC optimistic header"
+          if elManager == nil or blockHash.isZero or
+              not isSynced(bid.slot, getBeaconTime().slotOrZero()):
+            return
+
+          withConsensusFork(consensusFork):
+            when lcDataForkAtConsensusFork(consensusFork) == lcDataFork:
+              optimisticFcuFut = elManager.forkchoiceUpdated(
+                headBlockHash = blockHash,
+                safeBlockHash = blockHash,  # stub value
+                finalizedBlockHash = ZERO_HASH,
+                payloadAttributes = Opt.none(consensusFork.PayloadAttributes))
+              optimisticFcuFut.addCallback do (future: pointer):
+                optimisticFcuFut = nil
+        else:
+          info "Ignoring new LC optimistic header until Capella"
 
   lightClient.onFinalizedHeader = onFinalizedHeader
   lightClient.onOptimisticHeader = onOptimisticHeader
@@ -202,9 +224,7 @@ programMain:
     let optimisticHeader = lightClient.optimisticHeader
     withForkyHeader(optimisticHeader):
       when lcDataFork > LightClientDataFork.None:
-        # Check whether light client has synced sufficiently close to wall slot
-        const maxAge = 2 * SLOTS_PER_EPOCH
-        forkyHeader.beacon.slot >= max(wallSlot, maxAge.Slot) - maxAge
+        isSynced(forkyHeader.beacon.slot, wallSlot)
       else:
         false
 
@@ -222,7 +242,8 @@ programMain:
 
       targetGossipState = getTargetGossipState(
         slot.epoch, cfg.ALTAIR_FORK_EPOCH, cfg.BELLATRIX_FORK_EPOCH,
-        cfg.CAPELLA_FORK_EPOCH, cfg.DENEB_FORK_EPOCH, isBehind)
+        cfg.CAPELLA_FORK_EPOCH, cfg.DENEB_FORK_EPOCH, FAR_FUTURE_EPOCH,
+        isBehind)
 
     template currentGossipState(): auto = blocksGossipState
     if currentGossipState == targetGossipState:

@@ -38,61 +38,17 @@ proc initLightClient*(
   # for broadcasting light client data as a server.
 
   let
-    optimisticHandler = proc(signedBlock: ForkedMsgTrustedSignedBeaconBlock):
-                             Future[void] {.async: (raises: [CancelledError]).} =
-      debug "New LC optimistic block",
-        opt = signedBlock.toBlockId(),
-        dag = node.dag.head.bid,
-        wallSlot = node.currentSlot
+    optimisticHandler = proc(
+        signedBlock: ForkedSignedBeaconBlock
+    ): Future[void] {.async: (raises: [CancelledError]).} =
       withBlck(signedBlock):
         when consensusFork >= ConsensusFork.Bellatrix:
           if forkyBlck.message.is_execution_block:
-            template blckPayload(): auto =
-              forkyBlck.message.body.execution_payload
-
-            if not blckPayload.block_hash.isZero:
-              # engine_newPayloadV1
+            template payload(): auto = forkyBlck.message.body.execution_payload
+            if not payload.block_hash.isZero:
               discard await node.elManager.newExecutionPayload(
                 forkyBlck.message)
-
-              # Retain optimistic head for other `forkchoiceUpdated` callers.
-              # May temporarily block `forkchoiceUpdatedV1` calls, e.g., Geth:
-              # - Refuses `newPayload`: "Ignoring payload while snap syncing"
-              # - Refuses `fcU`: "Forkchoice requested unknown head"
-              # Once DAG sync catches up or as new optimistic heads are fetched
-              # the situation recovers
-              node.consensusManager[].setOptimisticHead(
-                forkyBlck.toBlockId(), blckPayload.block_hash)
-
-              # engine_forkchoiceUpdatedV1 or engine_forkchoiceUpdatedV2,
-              # depending on pre or post-Shapella
-              let beaconHead = node.attestationPool[].getBeaconHead(nil)
-
-              template callForkchoiceUpdated(attributes: untyped) =
-                discard await node.elManager.forkchoiceUpdated(
-                  headBlockHash = blckPayload.block_hash,
-                  safeBlockHash = beaconHead.safeExecutionBlockHash,
-                  finalizedBlockHash = beaconHead.finalizedExecutionBlockHash,
-                  payloadAttributes = none attributes)
-
-              case node.dag.cfg.consensusForkAtEpoch(
-                  forkyBlck.message.slot.epoch)
-              of ConsensusFork.Deneb, ConsensusFork.Electra:
-                callForkchoiceUpdated(PayloadAttributesV3)
-              of ConsensusFork.Capella:
-                # https://github.com/ethereum/execution-apis/blob/v1.0.0-beta.3/src/engine/shanghai.md#specification-1
-                # Consensus layer client MUST call this method instead of
-                # `engine_forkchoiceUpdatedV1` under any of the following
-                # conditions:
-                # `headBlockHash` references a block which `timestamp` is
-                # greater or equal to the Shanghai timestamp
-                callForkchoiceUpdated(PayloadAttributesV2)
-              of ConsensusFork.Bellatrix:
-                callForkchoiceUpdated(PayloadAttributesV1)
-              of ConsensusFork.Phase0, ConsensusFork.Altair:
-                discard
           else: discard
-
     optimisticProcessor = initOptimisticProcessor(
       getBeaconTime, optimisticHandler)
 
@@ -104,9 +60,46 @@ proc initLightClient*(
     proc onOptimisticHeader(
         lightClient: LightClient,
         optimisticHeader: ForkedLightClientHeader) =
+      if node.optimisticFcuFut != nil:
+        return
       withForkyHeader(optimisticHeader):
         when lcDataFork > LightClientDataFork.None:
-          optimisticProcessor.setOptimisticHeader(forkyHeader.beacon)
+          let bid = forkyHeader.beacon.toBlockId()
+          logScope:
+            opt = bid
+            dag = node.dag.head.bid
+            wallSlot = node.currentSlot
+          when lcDataFork >= LightClientDataFork.Capella:
+            let
+              consensusFork = node.dag.cfg.consensusForkAtEpoch(bid.slot.epoch)
+              blockHash = forkyHeader.execution.block_hash
+
+            # Retain optimistic head for other `forkchoiceUpdated` callers.
+            # May temporarily block `forkchoiceUpdated` calls, e.g., Geth:
+            # - Refuses `newPayload`: "Ignoring payload while snap syncing"
+            # - Refuses `fcU`: "Forkchoice requested unknown head"
+            # Once DAG sync catches up or as new optimistic heads are fetched
+            # the situation recovers
+            debug "New LC optimistic header"
+            node.consensusManager[].setOptimisticHead(bid, blockHash)
+            if not node.consensusManager[]
+                .shouldSyncOptimistically(node.currentSlot):
+              return
+
+            # engine_forkchoiceUpdated
+            let beaconHead = node.attestationPool[].getBeaconHead(nil)
+            withConsensusFork(consensusFork):
+              when lcDataForkAtConsensusFork(consensusFork) == lcDataFork:
+                node.optimisticFcuFut = node.elManager.forkchoiceUpdated(
+                  headBlockHash = blockHash,
+                  safeBlockHash = beaconHead.safeExecutionBlockHash,
+                  finalizedBlockHash = beaconHead.finalizedExecutionBlockHash,
+                  payloadAttributes = Opt.none consensusFork.PayloadAttributes)
+                node.optimisticFcuFut.addCallback do (future: pointer):
+                  node.optimisticFcuFut = nil
+          else:
+            # The execution block hash is only available from Capella onward
+            info "Ignoring new LC optimistic header until Capella"
 
     lightClient.onOptimisticHeader = onOptimisticHeader
     lightClient.trustedBlockRoot = config.trustedBlockRoot

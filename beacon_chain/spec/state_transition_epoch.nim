@@ -1059,7 +1059,7 @@ func process_effective_balance_updates*(state: var electra.BeaconState) =
       balance = state.balances.item(vidx)
       effective_balance = state.validators.item(vidx).effective_balance
     if effective_balance_might_update(balance, effective_balance):
-      debugRaiseAssert "amortize validator read access"
+      debugComment "amortize validator read access"
       # Wrapping MAX_EFFECTIVE_BALANCE_ELECTRA.Gwei and
       # MIN_ACTIVATION_BALANCE.Gwei in static() results
       # in
@@ -1221,7 +1221,7 @@ func process_historical_summaries_update*(
 # https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.0/specs/electra/beacon-chain.md#new-process_pending_balance_deposits
 func process_pending_balance_deposits*(
     cfg: RuntimeConfig, state: var electra.BeaconState,
-    cache: var StateCache) =
+    cache: var StateCache): Result[void, cstring] =
   let
     available_for_processing = state.deposit_balance_to_consume +
       get_activation_exit_churn_limit(cfg, state, cache)
@@ -1232,8 +1232,9 @@ func process_pending_balance_deposits*(
   for deposit in state.pending_balance_deposits:
     if processed_amount + deposit.amount > available_for_processing:
       break
-    debugRaiseAssert "do this validatorindex check properly (it truncates)"
-    increase_balance(state, deposit.index.ValidatorIndex, deposit.amount)
+    let deposit_validator_index = ValidatorIndex.init(deposit.index).valueOr:
+      return err("process_pending_balance_deposits: deposit index out of range")
+    increase_balance(state, deposit_validator_index, deposit.amount)
     processed_amount += deposit.amount
     inc next_deposit_index
 
@@ -1247,8 +1248,12 @@ func process_pending_balance_deposits*(
     state.deposit_balance_to_consume =
       available_for_processing - processed_amount
 
+  ok()
+
 # https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.0/specs/electra/beacon-chain.md#new-process_pending_consolidations
-func process_pending_consolidations*(cfg: RuntimeConfig, state: var electra.BeaconState) =
+func process_pending_consolidations*(
+    cfg: RuntimeConfig, state: var electra.BeaconState):
+    Result[void, cstring] =
   var next_pending_consolidation = 0
   for pending_consolidation in state.pending_consolidations:
     let source_validator =
@@ -1259,24 +1264,28 @@ func process_pending_consolidations*(cfg: RuntimeConfig, state: var electra.Beac
     if source_validator.withdrawable_epoch > get_current_epoch(state):
       break
 
+    let
+      source_validator_index = ValidatorIndex.init(
+          pending_consolidation.source_index).valueOr:
+        return err("process_pending_consolidations: source index out of range")
+      target_validator_index = ValidatorIndex.init(
+          pending_consolidation.target_index).valueOr:
+        return err("process_pending_consolidations: target index out of range")
+
     # Churn any target excess active balance of target and raise its max
-    debugRaiseAssert "truncating integer conversion"
-    switch_to_compounding_validator(
-      state, pending_consolidation.target_index.ValidatorIndex)
+    switch_to_compounding_validator(state, target_validator_index)
 
     # Move active balance to target. Excess balance is withdrawable.
-    debugRaiseAssert "Truncating"
-    let active_balance = get_active_balance(
-      state, pending_consolidation.source_index.ValidatorIndex)
-    decrease_balance(
-      state, pending_consolidation.source_index.ValidatorIndex, active_balance)
-    increase_balance(
-      state, pending_consolidation.target_index.ValidatorIndex, active_balance)
+    let active_balance = get_active_balance(state, source_validator_index)
+    decrease_balance(state, source_validator_index, active_balance)
+    increase_balance(state, target_validator_index, active_balance)
     inc next_pending_consolidation
 
   state.pending_consolidations =
     HashList[PendingConsolidation, Limit PENDING_CONSOLIDATIONS_LIMIT].init(
       state.pending_consolidations.asSeq[next_pending_consolidation..^1])
+
+  ok()
 
 # https://github.com/ethereum/consensus-specs/blob/v1.4.0/specs/phase0/beacon-chain.md#epoch-processing
 proc process_epoch*(
@@ -1464,8 +1473,8 @@ proc process_epoch*(
   process_slashings(state, info.balances.current_epoch)
 
   process_eth1_data_reset(state)
-  process_pending_balance_deposits(cfg, state, cache)  # [New in Electra:EIP7251]
-  process_pending_consolidations(cfg, state)  # [New in Electra:EIP7251]
+  ? process_pending_balance_deposits(cfg, state, cache)  # [New in Electra:EIP7251]
+  ? process_pending_consolidations(cfg, state)  # [New in Electra:EIP7251]
   process_effective_balance_updates(state)  # [Modified in Electra:EIP7251]
   process_slashings_reset(state)
   process_randao_mixes_reset(state)

@@ -9,7 +9,7 @@
 {.used.}
 
 import
-  stew/results, presto/client,
+  presto/client,
   testutils/unittests, chronicles,
   ../beacon_chain/spec/eth2_apis/[eth2_rest_serialization, rest_types],
   ./testutil

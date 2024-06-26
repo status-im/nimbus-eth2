@@ -14,7 +14,8 @@ import
   ../beacon_chain/spec/[forks, network]
 
 template getTargetGossipState(a, b, c, d, e: int, isBehind: bool): auto =
-  getTargetGossipState(a.Epoch, b.Epoch, c.Epoch, d.Epoch, e.Epoch, isBehind)
+  getTargetGossipState(
+    a.Epoch, b.Epoch, c.Epoch, d.Epoch, e.Epoch, FAR_FUTURE_EPOCH, isBehind)
 
 suite "Gossip fork transition":
   test "Gossip fork transition":

@@ -289,7 +289,7 @@ func initiate_validator_exit*(
   # Set validator exit epoch and withdrawable epoch
   validator.exit_epoch = exit_queue_epoch
   validator.withdrawable_epoch =
-    Epoch(validator.exit_epoch + cfg.MIN_VALIDATOR_WITHDRAWABILITY_DELAY)
+    validator.exit_epoch + cfg.MIN_VALIDATOR_WITHDRAWABILITY_DELAY
   if validator.withdrawable_epoch < validator.exit_epoch:
     return err("Invalid large withdrawable epoch")
   state.validators.mitem(index) = validator
@@ -596,24 +596,16 @@ iterator get_attesting_indices_iter*(
     aggregation_bits: ElectraCommitteeValidatorsBits,
     committee_bits: auto,
     cache: var StateCache): ValidatorIndex =
-  debugRaiseAssert "replace this implementation with actual iterator, after checking on conditions re repeat vals, ordering, etc; this is almost direct transcription of spec link algorithm in one of the places it doesn't make sense"
   ## Return the set of attesting indices corresponding to ``aggregation_bits``
   ## and ``committee_bits``.
-  var output: HashSet[ValidatorIndex]
-  let committee_indices = toSeq(committee_bits.oneIndices)
-  var committee_offset = 0
-  for index in committee_indices:
-    let committee = get_beacon_committee(state, data.slot, index.CommitteeIndex, cache)
-    var committee_attesters: HashSet[ValidatorIndex]
-    for i, index in committee:
-      if aggregation_bits[committee_offset + i]:
-        committee_attesters.incl index
-    output.incl committee_attesters
+  var pos = 0
+  for committee_index in get_committee_indices(committee_bits):
+    for _, validator_index in get_beacon_committee(
+        state, data.slot, committee_index, cache):
 
-    committee_offset += len(committee)
-
-  for validatorIndex in output:
-    yield validatorIndex
+      if aggregation_bits[pos]:
+        yield validator_index
+      pos += 1
 
 # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.6/specs/phase0/beacon-chain.md#get_attesting_indices
 func get_attesting_indices*(
@@ -886,7 +878,7 @@ func get_base_reward(
 # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.6/specs/phase0/beacon-chain.md#attestations
 proc check_attestation*(
     state: ForkyBeaconState, attestation: SomeAttestation, flags: UpdateFlags,
-    cache: var StateCache): Result[void, cstring] =
+    cache: var StateCache, on_chain: static bool = true): Result[void, cstring] =
   ## Check that an attestation follows the rules of being included in the state
   ## at the current slot. When acting as a proposer, the same rules need to
   ## be followed!
@@ -921,7 +913,7 @@ proc check_attestation*(
 proc check_attestation*(
     state: electra.BeaconState,
     attestation: electra.Attestation | electra.TrustedAttestation,
-    flags: UpdateFlags, cache: var StateCache): Result[void, cstring] =
+    flags: UpdateFlags, cache: var StateCache, on_chain: static bool): Result[void, cstring] =
   ## Check that an attestation follows the rules of being included in the state
   ## at the current slot. When acting as a proposer, the same rules need to
   ## be followed!
@@ -937,17 +929,26 @@ proc check_attestation*(
   if not (data.index == 0):
     return err("Electra attestation data index not 0")
 
-  var participants_count = 0
-  debugRaiseAssert "cache doesn't know about forks"
-  for index in attestation.committee_bits.oneIndices:
-    if not (index.uint64 < get_committee_count_per_slot(
-        state, data.target.epoch, cache)):
-      return err("foo")
-    let committee = get_beacon_committee(state, data.slot, index.CommitteeIndex, cache)
-    participants_count += len(committee)
+  when on_chain:
+    var participants_count = 0'u64
+    debugComment "cache doesn't know about forks"
+    for index in attestation.committee_bits.oneIndices:
+      if not (index.uint64 < get_committee_count_per_slot(
+          state, data.target.epoch, cache)):
+        return err("attestation wrong committee index len")
+      participants_count +=
+        get_beacon_committee_len(state, data.slot, index.CommitteeIndex, cache)
 
-  if not (len(attestation.aggregation_bits) == participants_count):
-    return err("")
+    if not (lenu64(attestation.aggregation_bits) == participants_count):
+      return err("attestation wrong aggregation bit length")
+  else:
+    let
+      committee_index = get_committee_index_one(attestation.committee_bits).valueOr:
+        return err("Network attestation without single committee index")
+
+    if not (lenu64(attestation.aggregation_bits) ==
+        get_beacon_committee_len(state, data.slot, committee_index, cache)):
+      return err("attestation wrong aggregation bit length")
 
   if epoch == get_current_epoch(state):
     if not (data.source == state.current_justified_checkpoint):
@@ -1100,7 +1101,7 @@ proc process_attestation*(
     attestation: electra.Attestation | electra.TrustedAttestation,
     flags: UpdateFlags, base_reward_per_increment: Gwei,
     cache: var StateCache): Result[Gwei, cstring] =
-  ? check_attestation(state, attestation, flags, cache)
+  ? check_attestation(state, attestation, flags, cache, true)
 
   let proposer_index = get_beacon_proposer_index(state, cache).valueOr:
     return err("process_attestation: no beacon proposer index and probably no active validators")
@@ -1221,7 +1222,7 @@ func queue_excess_active_balance(
   if balance > MIN_ACTIVATION_BALANCE.Gwei:
     let excess_balance = balance - MIN_ACTIVATION_BALANCE.Gwei
     state.balances.mitem(index) = MIN_ACTIVATION_BALANCE.Gwei
-    debugRaiseAssert "maybe check return value"
+    debugComment "maybe check return value"
     discard state.pending_balance_deposits.add(
       PendingBalanceDeposit(index: index.uint64, amount: excess_balance)
     )
@@ -1548,7 +1549,7 @@ func queue_entire_balance_and_reset_validator(
   let validator = addr state.validators.mitem(index)
   validator[].effective_balance = 0.Gwei
   validator[].activation_eligibility_epoch = FAR_FUTURE_EPOCH
-  debugRaiseAssert "check hashlist add return"
+  debugComment "check hashlist add return"
   discard state.pending_balance_deposits.add PendingBalanceDeposit(
     index: index, amount: balance)
 
@@ -1975,7 +1976,7 @@ func upgrade_to_electra*(
   # churn
   for index, validator in post.validators:
     if has_compounding_withdrawal_credential(validator):
-      debugRaiseAssert "in theory truncating"
+      debugComment "in theory truncating"
       queue_excess_active_balance(post[], ValidatorIndex(index))
 
   post

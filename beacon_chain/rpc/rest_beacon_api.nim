@@ -9,8 +9,8 @@
 
 import
   std/[typetraits, sequtils, sets],
-  stew/[results, base10],
-  chronicles,
+  stew/base10,
+  chronicles, metrics,
   ./rest_utils,
   ./state_ttl_cache,
   ../beacon_node,
@@ -179,7 +179,9 @@ proc installBeaconApiHandlers*(router: var RestRouter, node: BeaconNode) =
     RestApiResponse.jsonError(Http404, StateNotFoundError)
 
   # https://ethereum.github.io/beacon-APIs/#/Beacon/getStateFork
-  router.api2(MethodGet, "/eth/v1/beacon/states/{state_id}/fork") do (
+  router.metricsApi2(
+    MethodGet, "/eth/v1/beacon/states/{state_id}/fork",
+    {RestServerMetricsType.Status, Response}) do (
     state_id: StateIdent) -> RestApiResponse:
     let
       sid = state_id.valueOr:
@@ -210,8 +212,9 @@ proc installBeaconApiHandlers*(router: var RestRouter, node: BeaconNode) =
     RestApiResponse.jsonError(Http404, StateNotFoundError)
 
   # https://ethereum.github.io/beacon-APIs/#/Beacon/getStateFinalityCheckpoints
-  router.api2(MethodGet,
-              "/eth/v1/beacon/states/{state_id}/finality_checkpoints") do (
+  router.metricsApi2(
+    MethodGet, "/eth/v1/beacon/states/{state_id}/finality_checkpoints",
+    {RestServerMetricsType.Status, Response}) do (
     state_id: StateIdent) -> RestApiResponse:
     let
       sid = state_id.valueOr:
@@ -370,7 +373,9 @@ proc installBeaconApiHandlers*(router: var RestRouter, node: BeaconNode) =
     RestApiResponse.jsonError(Http404, StateNotFoundError)
 
   # https://ethereum.github.io/beacon-APIs/#/Beacon/getStateValidators
-  router.api2(MethodGet, "/eth/v1/beacon/states/{state_id}/validators") do (
+  router.metricsApi2(
+    MethodGet, "/eth/v1/beacon/states/{state_id}/validators",
+    {RestServerMetricsType.Status, Response}) do (
     state_id: StateIdent, id: seq[ValidatorIdent],
     status: seq[ValidatorFilter]) -> RestApiResponse:
     let
@@ -405,7 +410,9 @@ proc installBeaconApiHandlers*(router: var RestRouter, node: BeaconNode) =
     getValidators(node, bslot, validatorsMask, validatorIds)
 
   # https://ethereum.github.io/beacon-APIs/#/Beacon/postStateValidators
-  router.api2(MethodPost, "/eth/v1/beacon/states/{state_id}/validators") do (
+  router.metricsApi2(
+    MethodPost, "/eth/v1/beacon/states/{state_id}/validators",
+    {RestServerMetricsType.Status, Response}) do (
     state_id: StateIdent, contentBody: Option[ContentBody]) -> RestApiResponse:
     let
       (validatorIds, validatorsMask) =
@@ -432,8 +439,9 @@ proc installBeaconApiHandlers*(router: var RestRouter, node: BeaconNode) =
     getValidators(node, bslot, validatorsMask, validatorIds)
 
   # https://ethereum.github.io/beacon-APIs/#/Beacon/getStateValidator
-  router.api2(MethodGet,
-              "/eth/v1/beacon/states/{state_id}/validators/{validator_id}") do (
+  router.metricsApi2(
+    MethodGet, "/eth/v1/beacon/states/{state_id}/validators/{validator_id}",
+    {RestServerMetricsType.Status, Response}) do (
     state_id: StateIdent, validator_id: ValidatorIdent) -> RestApiResponse:
     let
       sid = state_id.valueOr:
@@ -498,8 +506,9 @@ proc installBeaconApiHandlers*(router: var RestRouter, node: BeaconNode) =
     RestApiResponse.jsonError(Http404, StateNotFoundError)
 
   # https://ethereum.github.io/beacon-APIs/#/Beacon/getStateValidatorBalances
-  router.api2(MethodGet,
-              "/eth/v1/beacon/states/{state_id}/validator_balances") do (
+  router.metricsApi2(
+    MethodGet, "/eth/v1/beacon/states/{state_id}/validator_balances",
+    {RestServerMetricsType.Status, Response}) do (
     state_id: StateIdent, id: seq[ValidatorIdent]) -> RestApiResponse:
     let
       sid = state_id.valueOr:
@@ -524,8 +533,9 @@ proc installBeaconApiHandlers*(router: var RestRouter, node: BeaconNode) =
     getBalances(node, bslot, validatorIds)
 
   # https://ethereum.github.io/beacon-APIs/#/Beacon/postStateValidatorBalances
-  router.api2(MethodPost,
-              "/eth/v1/beacon/states/{state_id}/validator_balances") do (
+  router.metricsApi2(
+    MethodPost, "/eth/v1/beacon/states/{state_id}/validator_balances",
+    {RestServerMetricsType.Status, Response}) do (
     state_id: StateIdent, contentBody: Option[ContentBody]) -> RestApiResponse:
     let
       validatorIds =
@@ -548,8 +558,9 @@ proc installBeaconApiHandlers*(router: var RestRouter, node: BeaconNode) =
     getBalances(node, bslot, validatorIds)
 
   # https://ethereum.github.io/beacon-APIs/#/Beacon/getEpochCommittees
-  router.api2(MethodGet,
-              "/eth/v1/beacon/states/{state_id}/committees") do (
+  router.metricsApi2(
+    MethodGet, "/eth/v1/beacon/states/{state_id}/committees",
+    {RestServerMetricsType.Status, Response}) do (
     state_id: StateIdent, epoch: Option[Epoch], index: Option[CommitteeIndex],
     slot: Option[Slot]) -> RestApiResponse:
     let
@@ -667,8 +678,9 @@ proc installBeaconApiHandlers*(router: var RestRouter, node: BeaconNode) =
     RestApiResponse.jsonError(Http404, StateNotFoundError)
 
   # https://ethereum.github.io/beacon-APIs/#/Beacon/getEpochSyncCommittees
-  router.api2(MethodGet,
-              "/eth/v1/beacon/states/{state_id}/sync_committees") do (
+  router.metricsApi2(
+    MethodGet, "/eth/v1/beacon/states/{state_id}/sync_committees",
+    {RestServerMetricsType.Status, Response}) do (
     state_id: StateIdent, epoch: Option[Epoch]) -> RestApiResponse:
     let
       sid = state_id.valueOr:
@@ -750,8 +762,9 @@ proc installBeaconApiHandlers*(router: var RestRouter, node: BeaconNode) =
 
   # https://ethereum.github.io/beacon-APIs/?urls.primaryName=dev#/Beacon/getStateRandao
   # https://github.com/ethereum/beacon-APIs/blob/b3c4defa238aaa74bf22aa602aa1b24b68a4c78e/apis/beacon/states/randao.yaml
-  router.api2(MethodGet,
-              "/eth/v1/beacon/states/{state_id}/randao") do (
+  router.metricsApi2(
+    MethodGet, "/eth/v1/beacon/states/{state_id}/randao",
+    {RestServerMetricsType.Status, Response}) do (
     state_id: StateIdent, epoch: Option[Epoch]) -> RestApiResponse:
     let
       sid = state_id.valueOr:
@@ -898,10 +911,12 @@ proc installBeaconApiHandlers*(router: var RestRouter, node: BeaconNode) =
           when consensusFork >= ConsensusFork.Deneb:
             await node.router.routeSignedBeaconBlock(
               forkyBlck, Opt.some(
-                forkyBlck.create_blob_sidecars(kzg_proofs, blobs)))
+                forkyBlck.create_blob_sidecars(kzg_proofs, blobs)),
+              checkValidator = true)
           else:
             await node.router.routeSignedBeaconBlock(
-              forkyBlck, Opt.none(seq[BlobSidecar]))
+              forkyBlck, Opt.none(seq[BlobSidecar]),
+              checkValidator = true)
 
     if res.isErr():
       return RestApiResponse.jsonError(
@@ -953,10 +968,12 @@ proc installBeaconApiHandlers*(router: var RestRouter, node: BeaconNode) =
           when consensusFork >= ConsensusFork.Deneb:
             await node.router.routeSignedBeaconBlock(
               forkyBlck, Opt.some(
-                forkyBlck.create_blob_sidecars(kzg_proofs, blobs)))
+                forkyBlck.create_blob_sidecars(kzg_proofs, blobs)),
+              checkValidator = true)
           else:
             await node.router.routeSignedBeaconBlock(
-              forkyBlck, Opt.none(seq[BlobSidecar]))
+              forkyBlck, Opt.none(seq[BlobSidecar]),
+              checkValidator = true)
 
     if res.isErr():
       return RestApiResponse.jsonError(
@@ -1074,7 +1091,8 @@ proc installBeaconApiHandlers*(router: var RestRouter, node: BeaconNode) =
         let res = withBlck(forked):
           forkyBlck.root = hash_tree_root(forkyBlck.message)
           await node.router.routeSignedBeaconBlock(
-            forkyBlck, Opt.none(seq[BlobSidecar]))
+            forkyBlck, Opt.none(seq[BlobSidecar]),
+            checkValidator = true)
 
         if res.isErr():
           return RestApiResponse.jsonError(

@@ -134,7 +134,7 @@ cli do(validatorsDir: string, secretsDir: string,
               headBlockHash = payload.block_hash,
               safeBlockHash = payload.block_hash,
               finalizedBlockHash = ZERO_HASH,
-              payloadAttributes = none(consensusFork.PayloadAttributes))
+              payloadAttributes = Opt.none(consensusFork.PayloadAttributes))
             if status != PayloadExecutionStatus.valid:
               continue
 
@@ -287,7 +287,7 @@ cli do(validatorsDir: string, secretsDir: string,
             graffitiValue,
             when typeof(payload).kind == ConsensusFork.Electra:
               block:
-                debugRaiseAssert "wss_sim electra aggregates"
+                debugComment "wss_sim electra aggregates"
                 default(seq[electra.Attestation])
             else:
               blockAggregates,
@@ -295,6 +295,7 @@ cli do(validatorsDir: string, secretsDir: string,
             BeaconBlockValidatorChanges(),
             syncAggregate,
             payload,
+            @[],   # consolidations
             noRollback,
             cache).get()
 

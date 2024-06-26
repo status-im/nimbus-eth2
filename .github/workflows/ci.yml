@@ -213,7 +213,7 @@ jobs:
 
   devbuild:
     name: "Developer builds"
-    runs-on: ubuntu-latest
+    runs-on: ['self-hosted','ubuntu-22.04']
     steps:
       - name: Checkout
         uses: actions/checkout@v4

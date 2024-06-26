@@ -285,7 +285,7 @@ proc process_block*(self: var ForkChoice,
 
   for attestation in blck.body.attestations:
     if attestation.data.beacon_block_root in self.backend:
-      for validator_index in dag.get_attesting_indices(attestation):
+      for validator_index in dag.get_attesting_indices(attestation, true):
         self.backend.process_attestation(
           validator_index,
           attestation.data.beacon_block_root,
