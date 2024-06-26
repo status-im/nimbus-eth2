@@ -1,3 +1,27 @@
+2024-06-24 v24.6.0
+==================
+
+Nimbus `v24.6.0` is a `low-urgency` release with performance and safety improvements.
+
+### Improvements
+
+* Improve SHA256 protocol object hashing speed by 30%:
+  https://github.com/status-im/nimbus-eth2/pull/6292
+
+* Ensure that when a paired Nimbus beacon node and validator client improperly share validator keys, they avoid slashing:
+  https://github.com/status-im/nimbus-eth2/pull/6329
+
+* Add block scoring to validator client to pick the best block from multiple beacon nodes:
+  https://github.com/status-im/nimbus-eth2/pull/6303
+
+* Enable block monitoring in validator client by default to attest earlier and more reliably:
+  https://github.com/status-im/nimbus-eth2/pull/6331
+
+### Fixes
+
+* Fix light client libp2p gossip topic subscriptions:
+  https://github.com/status-im/nimbus-eth2/pull/6351
+
 2024-05-23 v24.5.1
 ==================
 
