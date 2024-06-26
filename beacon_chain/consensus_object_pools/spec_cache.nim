@@ -123,21 +123,21 @@ iterator get_attesting_indices*(shufflingRef: ShufflingRef,
 iterator get_attesting_indices*(
     dag: ChainDAGRef, attestation: phase0.TrustedAttestation,
     on_chain: static bool = true): ValidatorIndex =
-  block: # `return` is not allowed in an inline iterator
+  block gaiBlock: # `return` is not allowed in an inline iterator
     let
       slot =
         check_attestation_slot_target(attestation.data).valueOr:
           warn "Invalid attestation slot in trusted attestation",
             attestation = shortLog(attestation)
           doAssert strictVerification notin dag.updateFlags
-          break
+          break gaiBlock
       blck =
         dag.getBlockRef(attestation.data.beacon_block_root).valueOr:
           # Attestation block unknown - this is fairly common because we
           # discard alternative histories on restart
           debug "Pruned block in trusted attestation",
             attestation = shortLog(attestation)
-          break
+          break gaiBlock
       target =
         blck.atCheckpoint(attestation.data.target).valueOr:
           # This may happen when there's no block at the epoch boundary slot
@@ -148,7 +148,7 @@ iterator get_attesting_indices*(
             blck = shortLog(blck),
             attestation = shortLog(attestation)
           doAssert strictVerification notin dag.updateFlags
-          break
+          break gaiBlock
       shufflingRef =
         dag.getShufflingRef(target.blck, target.slot.epoch, false).valueOr:
           warn "Attestation shuffling not found",
@@ -156,7 +156,7 @@ iterator get_attesting_indices*(
             attestation = shortLog(attestation)
 
           doAssert strictVerification notin dag.updateFlags
-          break
+          break gaiBlock
 
       committeesPerSlot = get_committee_count_per_slot(shufflingRef)
       committeeIndex =
@@ -166,7 +166,7 @@ iterator get_attesting_indices*(
             attestation = shortLog(attestation)
 
           doAssert strictVerification notin dag.updateFlags
-          break
+          break gaiBlock
 
     for validator in get_attesting_indices(
         shufflingRef, slot, committeeIndex, attestation.aggregation_bits):
@@ -175,21 +175,21 @@ iterator get_attesting_indices*(
 iterator get_attesting_indices*(
     dag: ChainDAGRef, attestation: electra.TrustedAttestation,
     on_chain: static bool): ValidatorIndex =
-  block: # `return` is not allowed in an inline iterator
+  block gaiBlock: # `return` is not allowed in an inline iterator
     let
       slot =
         check_attestation_slot_target(attestation.data).valueOr:
           warn "Invalid attestation slot in trusted attestation",
             attestation = shortLog(attestation)
           doAssert strictVerification notin dag.updateFlags
-          break
+          break gaiBlock
       blck =
         dag.getBlockRef(attestation.data.beacon_block_root).valueOr:
           # Attestation block unknown - this is fairly common because we
           # discard alternative histories on restart
           debug "Pruned block in trusted attestation",
             attestation = shortLog(attestation)
-          break
+          break gaiBlock
       target =
         blck.atCheckpoint(attestation.data.target).valueOr:
           # This may happen when there's no block at the epoch boundary slot
@@ -200,7 +200,7 @@ iterator get_attesting_indices*(
             blck = shortLog(blck),
             attestation = shortLog(attestation)
           doAssert strictVerification notin dag.updateFlags
-          break
+          break gaiBlock
       shufflingRef =
         dag.getShufflingRef(target.blck, target.slot.epoch, false).valueOr:
           warn "Attestation shuffling not found",
@@ -208,7 +208,7 @@ iterator get_attesting_indices*(
             attestation = shortLog(attestation)
 
           doAssert strictVerification notin dag.updateFlags
-          break
+          break gaiBlock
 
     for validator in get_attesting_indices(
         shufflingRef, slot, attestation.committee_bits,
