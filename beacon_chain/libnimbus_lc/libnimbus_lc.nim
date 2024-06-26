@@ -1678,12 +1678,12 @@ proc ETHTransactionsCreateFromJson(
       eip6493Tx.payload.`type`.ok 0x02'u8
     of TxEip4844:
       eip6493Tx.payload.`type`.ok 0x03'u8
-    if tx.txType != TxLegacy or tx.V notin [27'i64, 28'i64]:
+    if tx.txType != TxLegacy or tx.V notin [27'u64, 28'u64]:
       # With replay protection
       eip6493Tx.payload.chain_id.ok tx.chainId
     eip6493Tx.payload.nonce.ok tx.nonce
     eip6493Tx.payload.max_fees_per_gas.ok FeesPerGas(
-      regular: Opt.some tx.maxFee.u256,
+      regular: Opt.some tx.maxFeePerGas.u256,
       blob:
         if tx.txType == TxEip4844:
           Opt.some tx.maxFeePerBlobGas
@@ -1711,7 +1711,7 @@ proc ETHTransactionsCreateFromJson(
               .init(it.storageKeys.mapIt(Eth2Digest(data: it))))))
     if tx.txType >= TxEip1559:
       eip6493Tx.payload.max_priority_fees_per_gas.ok FeesPerGas(
-        regular: Opt.some tx.maxPriorityFee.u256,
+        regular: Opt.some tx.maxPriorityFeePerGas.u256,
         blob:
           if tx.txType == TxEip4844:
             Opt.some FeePerGas(UInt256.zero)
@@ -2396,7 +2396,7 @@ proc ETHReceiptsCreateFromJson(
     eip6493Rec.gas_used.ok distinctBase(data.gasUsed)  # See validity checks
     if ETHTransactionIsCreatingContract(transaction):
       eip6493Rec.contract_address.ok ETHTransactionGetTo(transaction)[]
-    eip6493Rec.logs_bloom.ok BloomLogs(data: rec.bloom)
+    eip6493Rec.logs_bloom.ok BloomLogs(data: rec.logsBloom)
     eip6493Rec.logs.ok List[Eip6493Log, MAX_LOGS_PER_RECEIPT]
       .init(rec.logs.mapIt(Eip6493Log(
         address: ExecutionAddress(data: it.address),
