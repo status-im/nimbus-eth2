@@ -1220,7 +1220,7 @@ func toElectraLightClientHeader(
 
 func toElectraLightClientHeader(
     # `SomeSignedBeaconBlock`: https://github.com/nim-lang/Nim/issues/18095
-    blck:  
+    blck:
       electra.SignedBeaconBlock | electra.TrustedSignedBeaconBlock
 ): electra.LightClientHeader =
   template payload: untyped = blck.message.body.execution_payload
@@ -1293,7 +1293,7 @@ func shortLog*[
     of LightClientDataFork.Electra:
       electraData: typeof(x.electraData.shortLog())
 
-  let xKind = x.kind  # Nim 2.0.6: Using `kind: x.kind` inside case is broken
+  let xKind = x.kind  # https://github.com/nim-lang/Nim/issues/23762
   case xKind
   of LightClientDataFork.Electra:
     ResultType(kind: xKind, electraData: x.electraData.shortLog())
