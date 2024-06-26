@@ -3321,6 +3321,14 @@ OK: 6/6 Fail: 0/6 Skip: 0/6
 + EF - Electra - Transition - transition_with_voluntary_exit_right_before_fork [Preset: mini OK
 ```
 OK: 30/30 Fail: 0/30 Skip: 0/30
+## EF - Electra - Unittests - Light client - Sync protocol [Preset: minimal]
+```diff
++ process_light_client_update_finality_updated                                               OK
++ process_light_client_update_timeout                                                        OK
++ test_process_light_client_update_at_period_boundary                                        OK
++ test_process_light_client_update_not_timeout                                               OK
+```
+OK: 4/4 Fail: 0/4 Skip: 0/4
 ## EF - Light client - Single merkle proof [Preset: minimal]
 ```diff
 + Light client - Single merkle proof - minimal/altair/light_client/single_merkle_proof/Beaco OK
@@ -4011,4 +4019,4 @@ OK: 185/207 Fail: 0/207 Skip: 22/207
 OK: 3/3 Fail: 0/3 Skip: 0/3
 
 ---TOTAL---
-OK: 3262/3285 Fail: 0/3285 Skip: 23/3285
+OK: 3266/3289 Fail: 0/3289 Skip: 23/3289

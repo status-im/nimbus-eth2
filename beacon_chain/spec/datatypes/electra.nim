@@ -29,24 +29,25 @@ from stew/bitops2 import log2trunc
 from stew/byteutils import to0xHex
 from ./altair import
   EpochParticipationFlags, InactivityScores, SyncAggregate, SyncCommittee,
-  TrustedSyncAggregate
+  TrustedSyncAggregate, num_active_participants
 from ./bellatrix import BloomLogs, ExecutionAddress, Transaction
 from ./capella import
-  HistoricalSummary, SignedBLSToExecutionChangeList, Withdrawal
+  ExecutionBranch, HistoricalSummary, SignedBLSToExecutionChangeList,
+  Withdrawal, EXECUTION_PAYLOAD_GINDEX
 from ./deneb import Blobs, BlobsBundle, KzgCommitments, KzgProofs
 
 export json_serialization, base, kzg4844
 
 const
-  # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.5/specs/altair/light-client/sync-protocol.md#constants
+  # https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.3/specs/electra/light-client/sync-protocol.md#constants
   # All of these indices are rooted in `BeaconState`.
   # The first member (`genesis_time`) is 64, subsequent members +1 each.
   # If there are ever more than 64 members in `BeaconState`, indices change!
   # `FINALIZED_ROOT_GINDEX` is one layer deeper, i.e., `84 * 2 + 1`.
   # https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.3/ssz/merkle-proofs.md
-  FINALIZED_ROOT_GINDEX = 169.GeneralizedIndex  # finalized_checkpoint > root
-  CURRENT_SYNC_COMMITTEE_GINDEX = 86.GeneralizedIndex  # current_sync_committee
-  NEXT_SYNC_COMMITTEE_GINDEX = 87.GeneralizedIndex  # next_sync_committee
+  FINALIZED_ROOT_GINDEX* = 169.GeneralizedIndex  # finalized_checkpoint > root
+  CURRENT_SYNC_COMMITTEE_GINDEX* = 86.GeneralizedIndex  # current_sync_committee
+  NEXT_SYNC_COMMITTEE_GINDEX* = 87.GeneralizedIndex  # next_sync_committee
 
 type
   # https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.3/specs/electra/beacon-chain.md#depositrequest
@@ -182,15 +183,6 @@ type
     source_pubkey*: ValidatorPubKey
     target_pubkey*: ValidatorPubKey
 
-  FinalityBranch =
-    array[log2trunc(FINALIZED_ROOT_GINDEX), Eth2Digest]
-
-  CurrentSyncCommitteeBranch =
-    array[log2trunc(CURRENT_SYNC_COMMITTEE_GINDEX), Eth2Digest]
-
-  NextSyncCommitteeBranch =
-    array[log2trunc(NEXT_SYNC_COMMITTEE_GINDEX), Eth2Digest]
-
   # https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.3/specs/phase0/validator.md#aggregateandproof
   AggregateAndProof* = object
     aggregator_index*: uint64 # `ValidatorIndex` after validation
@@ -201,6 +193,15 @@ type
   SignedAggregateAndProof* = object
     message*: AggregateAndProof
     signature*: ValidatorSig
+
+  FinalityBranch* =
+    array[log2trunc(FINALIZED_ROOT_GINDEX), Eth2Digest]
+
+  CurrentSyncCommitteeBranch* =
+    array[log2trunc(CURRENT_SYNC_COMMITTEE_GINDEX), Eth2Digest]
+
+  NextSyncCommitteeBranch* =
+    array[log2trunc(NEXT_SYNC_COMMITTEE_GINDEX), Eth2Digest]
 
   # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.5/specs/capella/light-client/sync-protocol.md#modified-lightclientheader
   LightClientHeader* = object
@@ -674,6 +675,233 @@ func shortLog*(v: ExecutionPayload): auto =
     blob_gas_used: $(v.blob_gas_used),
     excess_blob_gas: $(v.excess_blob_gas)
   )
+
+# https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.3/specs/electra/light-client/sync-protocol.md#modified-get_lc_execution_root
+func get_lc_execution_root*(
+    header: LightClientHeader, cfg: RuntimeConfig): Eth2Digest =
+  let epoch = header.beacon.slot.epoch
+
+  # [New in Electra]
+  if epoch >= cfg.ELECTRA_FORK_EPOCH:
+    return hash_tree_root(header.execution)
+
+  # [Modified in Electra]
+  if epoch >= cfg.DENEB_FORK_EPOCH:
+    let execution_header = deneb.ExecutionPayloadHeader(
+      parent_hash: header.execution.parent_hash,
+      fee_recipient: header.execution.fee_recipient,
+      state_root: header.execution.state_root,
+      receipts_root: header.execution.receipts_root,
+      logs_bloom: header.execution.logs_bloom,
+      prev_randao: header.execution.prev_randao,
+      block_number: header.execution.block_number,
+      gas_limit: header.execution.gas_limit,
+      gas_used: header.execution.gas_used,
+      timestamp: header.execution.timestamp,
+      extra_data: header.execution.extra_data,
+      base_fee_per_gas: header.execution.base_fee_per_gas,
+      block_hash: header.execution.block_hash,
+      transactions_root: header.execution.transactions_root,
+      withdrawals_root: header.execution.withdrawals_root,
+      blob_gas_used: header.execution.blob_gas_used,
+      excess_blob_gas: header.execution.excess_blob_gas)
+    return hash_tree_root(execution_header)
+
+  if epoch >= cfg.CAPELLA_FORK_EPOCH:
+    let execution_header = capella.ExecutionPayloadHeader(
+      parent_hash: header.execution.parent_hash,
+      fee_recipient: header.execution.fee_recipient,
+      state_root: header.execution.state_root,
+      receipts_root: header.execution.receipts_root,
+      logs_bloom: header.execution.logs_bloom,
+      prev_randao: header.execution.prev_randao,
+      block_number: header.execution.block_number,
+      gas_limit: header.execution.gas_limit,
+      gas_used: header.execution.gas_used,
+      timestamp: header.execution.timestamp,
+      extra_data: header.execution.extra_data,
+      base_fee_per_gas: header.execution.base_fee_per_gas,
+      block_hash: header.execution.block_hash,
+      transactions_root: header.execution.transactions_root,
+      withdrawals_root: header.execution.withdrawals_root)
+    return hash_tree_root(execution_header)
+
+  ZERO_HASH
+
+# https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.3/specs/electra/light-client/sync-protocol.md#modified-is_valid_light_client_header
+func is_valid_light_client_header*(
+    header: LightClientHeader, cfg: RuntimeConfig): bool =
+  let epoch = header.beacon.slot.epoch
+
+  # [New in Electra:EIP6110:EIP7002:EIP7251]
+  if epoch < cfg.ELECTRA_FORK_EPOCH:
+    if not header.execution.deposit_requests_root.isZero or
+        not header.execution.withdrawal_requests_root.isZero or
+        not header.execution.consolidation_requests_root.isZero:
+      return false
+
+  if epoch < cfg.DENEB_FORK_EPOCH:
+    if header.execution.blob_gas_used != 0 or
+        header.execution.excess_blob_gas != 0:
+      return false
+
+  if epoch < cfg.CAPELLA_FORK_EPOCH:
+    return
+      header.execution == static(default(ExecutionPayloadHeader)) and
+      header.execution_branch == static(default(ExecutionBranch))
+
+  is_valid_merkle_branch(
+    get_lc_execution_root(header, cfg),
+    header.execution_branch,
+    log2trunc(EXECUTION_PAYLOAD_GINDEX),
+    get_subtree_index(EXECUTION_PAYLOAD_GINDEX),
+    header.beacon.body_root)
+
+# https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.3/specs/electra/light-client/fork.md#normalize_merkle_branch
+func normalize_merkle_branch*[N](
+    branch: array[N, Eth2Digest],
+    gindex: static GeneralizedIndex): auto =
+  const depth = log2trunc(gindex)
+  var res: array[depth, Eth2Digest]
+  when depth >= branch.len:
+    const num_extra = depth - branch.len
+    res[num_extra ..< depth] = branch
+  else:
+    const num_extra = branch.len - depth
+    for node in branch[0 ..< num_extra]:
+      doAssert node.isZero, "Truncation of Merkle branch cannot lose info"
+    res[0 ..< depth] = branch[num_extra ..< branch.len]
+  res
+
+# https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.3/specs/electra/light-client/fork.md#upgrading-light-client-data
+func upgrade_lc_header_to_electra*(
+    pre: deneb.LightClientHeader): LightClientHeader =
+  LightClientHeader(
+    beacon: pre.beacon,
+    execution: ExecutionPayloadHeader(
+        parent_hash: pre.execution.parent_hash,
+        fee_recipient: pre.execution.fee_recipient,
+        state_root: pre.execution.state_root,
+        receipts_root: pre.execution.receipts_root,
+        logs_bloom: pre.execution.logs_bloom,
+        prev_randao: pre.execution.prev_randao,
+        block_number: pre.execution.block_number,
+        gas_limit: pre.execution.gas_limit,
+        gas_used: pre.execution.gas_used,
+        timestamp: pre.execution.timestamp,
+        extra_data: pre.execution.extra_data,
+        base_fee_per_gas: pre.execution.base_fee_per_gas,
+        block_hash: pre.execution.block_hash,
+        transactions_root: pre.execution.transactions_root,
+        withdrawals_root: pre.execution.withdrawals_root,
+        blob_gas_used: pre.execution.blob_gas_used,
+        excess_blob_gas: pre.execution.blob_gas_used,
+        deposit_requests_root: ZERO_HASH,  # [New in Electra:EIP6110]
+        withdrawal_requests_root: ZERO_HASH,  # [New in Electra:EIP7002:EIP7251]
+        consolidation_requests_root: ZERO_HASH),  # [New in Electra:EIP7251]
+    execution_branch: pre.execution_branch)
+
+# https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.3/specs/electra/light-client/fork.md#upgrading-light-client-data
+func upgrade_lc_bootstrap_to_electra*(
+    pre: deneb.LightClientBootstrap): LightClientBootstrap =
+  LightClientBootstrap(
+    header: upgrade_lc_header_to_electra(pre.header),
+    current_sync_committee: pre.current_sync_committee,
+    current_sync_committee_branch: normalize_merkle_branch(
+      pre.current_sync_committee_branch, CURRENT_SYNC_COMMITTEE_GINDEX))
+
+# https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.3/specs/electra/light-client/fork.md#upgrading-light-client-data
+func upgrade_lc_update_to_electra*(
+    pre: deneb.LightClientUpdate): LightClientUpdate =
+  LightClientUpdate(
+    attested_header: upgrade_lc_header_to_electra(pre.attested_header),
+    next_sync_committee: pre.next_sync_committee,
+    next_sync_committee_branch: normalize_merkle_branch(
+      pre.next_sync_committee_branch, NEXT_SYNC_COMMITTEE_GINDEX),
+    finalized_header: upgrade_lc_header_to_electra(pre.finalized_header),
+    finality_branch: normalize_merkle_branch(
+      pre.finality_branch, FINALIZED_ROOT_GINDEX),
+    sync_aggregate: pre.sync_aggregate,
+    signature_slot: pre.signature_slot)
+
+# https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.3/specs/electra/light-client/fork.md#upgrading-light-client-data
+func upgrade_lc_finality_update_to_electra*(
+    pre: deneb.LightClientFinalityUpdate): LightClientFinalityUpdate =
+  LightClientFinalityUpdate(
+    attested_header: upgrade_lc_header_to_electra(pre.attested_header),
+    finalized_header: upgrade_lc_header_to_electra(pre.finalized_header),
+    finality_branch: normalize_merkle_branch(
+      pre.finality_branch, FINALIZED_ROOT_GINDEX),
+    sync_aggregate: pre.sync_aggregate,
+    signature_slot: pre.signature_slot)
+
+# https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.3/specs/electra/light-client/fork.md#upgrading-light-client-data
+func upgrade_lc_optimistic_update_to_electra*(
+    pre: deneb.LightClientOptimisticUpdate): LightClientOptimisticUpdate =
+  LightClientOptimisticUpdate(
+    attested_header: upgrade_lc_header_to_electra(pre.attested_header),
+    sync_aggregate: pre.sync_aggregate,
+    signature_slot: pre.signature_slot)
+
+func shortLog*(v: LightClientHeader): auto =
+  (
+    beacon: shortLog(v.beacon),
+    execution: (
+      block_hash: v.execution.block_hash,
+      block_number: v.execution.block_number)
+  )
+
+func shortLog*(v: LightClientBootstrap): auto =
+  (
+    header: shortLog(v.header)
+  )
+
+func shortLog*(v: LightClientUpdate): auto =
+  (
+    attested: shortLog(v.attested_header),
+    has_next_sync_committee:
+      v.next_sync_committee != static(default(typeof(v.next_sync_committee))),
+    finalized: shortLog(v.finalized_header),
+    num_active_participants: v.sync_aggregate.num_active_participants,
+    signature_slot: v.signature_slot
+  )
+
+func shortLog*(v: LightClientFinalityUpdate): auto =
+  (
+    attested: shortLog(v.attested_header),
+    finalized: shortLog(v.finalized_header),
+    num_active_participants: v.sync_aggregate.num_active_participants,
+    signature_slot: v.signature_slot
+  )
+
+func shortLog*(v: LightClientOptimisticUpdate): auto =
+  (
+    attested: shortLog(v.attested_header),
+    num_active_participants: v.sync_aggregate.num_active_participants,
+    signature_slot: v.signature_slot,
+  )
+
+chronicles.formatIt LightClientBootstrap: shortLog(it)
+chronicles.formatIt LightClientUpdate: shortLog(it)
+chronicles.formatIt LightClientFinalityUpdate: shortLog(it)
+chronicles.formatIt LightClientOptimisticUpdate: shortLog(it)
+
+# https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.3/specs/electra/light-client/fork.md#upgrading-the-store
+func upgrade_lc_store_to_electra*(
+    pre: deneb.LightClientStore): LightClientStore =
+  let best_valid_update =
+    if pre.best_valid_update.isNone:
+      Opt.none(LightClientUpdate)
+    else:
+      Opt.some upgrade_lc_update_to_electra(pre.best_valid_update.get)
+  LightClientStore(
+    finalized_header: upgrade_lc_header_to_electra(pre.finalized_header),
+    current_sync_committee: pre.current_sync_committee,
+    next_sync_committee: pre.next_sync_committee,
+    best_valid_update: best_valid_update,
+    optimistic_header: upgrade_lc_header_to_electra(pre.optimistic_header),
+    previous_max_active_participants: pre.previous_max_active_participants,
+    current_max_active_participants: pre.current_max_active_participants)
 
 template asSigned*(
     x: SigVerifiedSignedBeaconBlock |
