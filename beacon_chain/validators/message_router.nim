@@ -8,7 +8,6 @@
 {.push raises: [].}
 
 import
-  stew/results,
   std/sequtils,
   chronicles,
   metrics,
@@ -85,12 +84,21 @@ template getCurrentBeaconTime(router: MessageRouter): BeaconTime =
 type RouteBlockResult = Result[Opt[BlockRef], string]
 proc routeSignedBeaconBlock*(
     router: ref MessageRouter, blck: ForkySignedBeaconBlock,
-    blobsOpt: Opt[seq[BlobSidecar]]):
+    blobsOpt: Opt[seq[BlobSidecar]], checkValidator: bool):
     Future[RouteBlockResult] {.async: (raises: [CancelledError]).} =
   ## Validate and broadcast beacon block, then add it to the block database
   ## Returns the new Head when block is added successfully to dag, none when
   ## block passes validation but is not added, and error otherwise
   let wallTime = router[].getCurrentBeaconTime()
+
+  block:
+    let vindex = ValidatorIndex(blck.message.proposer_index)
+    if checkValidator and (vindex in router.processor.validatorPool[]):
+      warn "A validator client attempts to send a block from " &
+           "validator that is also manager by beacon node",
+           validator_index = vindex
+      return err("Block could not be sent from validator that is also " &
+                 "managed by the beacon node")
 
   # Start with a quick gossip validation check such that broadcasting the
   # block doesn't get the node into trouble
@@ -191,14 +199,16 @@ proc routeSignedBeaconBlock*(
   ok(blockRef)
 
 proc routeAttestation*(
-    router: ref MessageRouter, attestation: phase0.Attestation,
-    subnet_id: SubnetId, checkSignature: bool):
+    router: ref MessageRouter,
+    attestation: phase0.Attestation | electra.Attestation,
+    subnet_id: SubnetId, checkSignature, checkValidator: bool):
     Future[SendResult] {.async: (raises: [CancelledError]).} =
   ## Process and broadcast attestation - processing will register the it with
   ## the attestation pool
   block:
     let res = await router[].processor.processAttestation(
-      MsgSource.api, attestation, subnet_id, checkSignature)
+      MsgSource.api, attestation, subnet_id,
+      checkSignature = checkSignature, checkValidator = checkValidator)
 
     if not res.isGoodForSending:
       warn "Attestation failed validation",
@@ -223,7 +233,7 @@ proc routeAttestation*(
   return ok()
 
 proc routeAttestation*(
-    router: ref MessageRouter, attestation: phase0.Attestation):
+    router: ref MessageRouter, attestation: phase0.Attestation | electra.Attestation):
     Future[SendResult] {.async: (raises: [CancelledError]).} =
   # Compute subnet, then route attestation
   let
@@ -240,7 +250,7 @@ proc routeAttestation*(
         attestation = shortLog(attestation)
       return
     committee_index =
-      shufflingRef.get_committee_index(attestation.data.index).valueOr:
+      shufflingRef.get_committee_index(attestation.committee_index()).valueOr:
         notice "Invalid committee index in attestation",
           attestation = shortLog(attestation)
         return err("Invalid committee index in attestation")
@@ -249,10 +259,10 @@ proc routeAttestation*(
       committee_index)
 
   return await router.routeAttestation(
-    attestation, subnet_id, checkSignature = true)
+    attestation, subnet_id, checkSignature = true, checkValidator = true)
 
 proc routeSignedAggregateAndProof*(
-    router: ref MessageRouter, proof: SignedAggregateAndProof,
+    router: ref MessageRouter, proof: phase0.SignedAggregateAndProof,
     checkSignature = true):
     Future[SendResult] {.async: (raises: [CancelledError]).} =
   ## Validate and broadcast aggregate

@@ -85,7 +85,7 @@ proc makeSimulationBlock(
 
   var blck = partialBeaconBlock(
     cfg, state, proposer_index, randao_reveal, eth1_data, graffiti,
-    attestations, deposits, exits, sync_aggregate, execution_payload)
+    attestations, deposits, exits, sync_aggregate, execution_payload, @[])
 
   let res = process_block(
     cfg, state.data, blck.asSigVerified(), verificationFlags, cache)
@@ -128,7 +128,7 @@ proc makeSimulationBlock(
 
   var blck = partialBeaconBlock(
     cfg, state, proposer_index, randao_reveal, eth1_data, graffiti,
-    attestations, deposits, exits, sync_aggregate, execution_payload)
+    attestations, deposits, exits, sync_aggregate, execution_payload, @[])
 
   let res = process_block(
     cfg, state.data, blck.asSigVerified(), verificationFlags, cache)
@@ -326,8 +326,7 @@ cli do(slots = SLOTS_PER_EPOCH * 7,
             contribution: contribution,
             selection_proof: aggregator.selectionProof)
 
-          validatorPrivKey =
-            MockPrivKeys[aggregator.validatorIdx.ValidatorIndex]
+          validatorPrivKey = MockPrivKeys[aggregator.validatorIdx]
 
           signedContributionAndProof = SignedContributionAndProof(
             message: contributionAndProof,

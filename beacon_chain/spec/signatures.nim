@@ -108,7 +108,7 @@ proc verify_block_signature*(
 
 func compute_aggregate_and_proof_signing_root*(
     fork: Fork, genesis_validators_root: Eth2Digest,
-    aggregate_and_proof: AggregateAndProof): Eth2Digest =
+    aggregate_and_proof: phase0.AggregateAndProof): Eth2Digest =
   let
     epoch = epoch(aggregate_and_proof.aggregate.data.slot)
     domain = get_domain(
@@ -117,7 +117,7 @@ func compute_aggregate_and_proof_signing_root*(
 
 # https://github.com/ethereum/consensus-specs/blob/v1.4.0/specs/phase0/validator.md#broadcast-aggregate
 func get_aggregate_and_proof_signature*(fork: Fork, genesis_validators_root: Eth2Digest,
-                                        aggregate_and_proof: AggregateAndProof,
+                                        aggregate_and_proof: phase0.AggregateAndProof,
                                         privkey: ValidatorPrivKey): CookedSig =
   let signing_root = compute_aggregate_and_proof_signing_root(
     fork, genesis_validators_root, aggregate_and_proof)
@@ -126,7 +126,7 @@ func get_aggregate_and_proof_signature*(fork: Fork, genesis_validators_root: Eth
 
 proc verify_aggregate_and_proof_signature*(
     fork: Fork, genesis_validators_root: Eth2Digest,
-    aggregate_and_proof: AggregateAndProof,
+    aggregate_and_proof: phase0.AggregateAndProof,
     pubkey: ValidatorPubKey | CookedPubKey, signature: SomeSig): bool =
   withTrust(signature):
     let signing_root = compute_aggregate_and_proof_signing_root(
@@ -421,3 +421,23 @@ proc verify_bls_to_execution_change_signature*(
   let signing_root = compute_bls_to_execution_change_signing_root(
     genesisFork, genesis_validators_root, msg.message)
   blsVerify(pubkey, signing_root.data, signature)
+
+func compute_consolidation_signing_root(
+    genesisFork: Fork, genesis_validators_root: Eth2Digest,
+    msg: Consolidation): Eth2Digest =
+  # Uses genesis fork version regardless
+  doAssert genesisFork.current_version == genesisFork.previous_version
+
+  let domain = compute_domain(
+    DOMAIN_CONSOLIDATION, genesisFork.current_version,
+    genesis_validators_root=genesis_validators_root)
+  compute_signing_root(msg, domain)
+
+proc verify_consolidation_signature*(
+    genesisFork: Fork, genesis_validators_root: Eth2Digest,
+    msg: SignedConsolidation | TrustedSignedConsolidation,
+    pubkeys: openArray[ValidatorPubKey]): bool =
+  withTrust(msg.signature):
+    let signing_root = compute_consolidation_signing_root(
+      genesisFork, genesis_validators_root, msg.message)
+    blsFastAggregateVerify(pubkeys, signing_root.data, msg.signature)

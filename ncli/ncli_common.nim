@@ -126,14 +126,13 @@ static:
       "15227487_86601706.echop"]: # Wrong extension
     doAssert not filename.matchFilenameAggregatedFiles
 
-proc getUnaggregatedFilesEpochRange*(
-    dir: string
-): tuple[firstEpoch, lastEpoch: Epoch] {.raises: [OSError, ValueError].} =
+proc getUnaggregatedFilesEpochRange*(dir: string):
+    tuple[firstEpoch, lastEpoch: Epoch] {.raises: [OSError, ValueError].} =
   var smallestEpochFileName =
     '9'.repeat(epochInfoFileNameDigitsCount) & epochFileNameExtension
   var largestEpochFileName =
     '0'.repeat(epochInfoFileNameDigitsCount) & epochFileNameExtension
-  for (_, fn) in walkDir(dir.string, relative = true):
+  for (_, fn) in walkDir(dir, relative = true):
     if fn.matchFilenameUnaggregatedFiles:
       if fn < smallestEpochFileName:
         smallestEpochFileName = fn
@@ -151,7 +150,7 @@ proc getUnaggregatedFilesLastEpoch*(
 proc getAggregatedFilesLastEpoch*(
     dir: string): Epoch {.raises: [OSError, ValueError].}=
   var largestEpochInFileName = 0'u
-  for (_, fn) in walkDir(dir.string, relative = true):
+  for (_, fn) in walkDir(dir, relative = true):
     if fn.matchFilenameAggregatedFiles:
       let fileLastEpoch = parseUInt(
         fn[epochInfoFileNameDigitsCount + 1 .. 2 * epochInfoFileNameDigitsCount])
@@ -381,7 +380,7 @@ func collectFromAttestations(
       doAssert base_reward_per_increment > 0.Gwei
       for attestation in forkyBlck.message.body.attestations:
         doAssert check_attestation(
-          forkyState.data, attestation, {}, cache).isOk
+          forkyState.data, attestation, {}, cache, true).isOk
         let proposerReward =
           if attestation.data.target.epoch == get_current_epoch(forkyState.data):
             get_proposer_reward(

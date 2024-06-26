@@ -147,14 +147,16 @@ func getVanityLogs(stdoutKind: StdoutLogKind): VanityLogs =
       onFinalizedMergeTransitionBlock: bellatrixBlink,
       onUpgradeToCapella:              capellaColor,
       onKnownBlsToExecutionChange:     capellaBlink,
-      onUpgradeToDeneb:                denebColor)
+      onUpgradeToDeneb:                denebColor,
+      onUpgradeToElectra:              electraColor)
   of StdoutLogKind.NoColors:
     VanityLogs(
       onMergeTransitionBlock:          bellatrixMono,
       onFinalizedMergeTransitionBlock: bellatrixMono,
       onUpgradeToCapella:              capellaMono,
       onKnownBlsToExecutionChange:     capellaMono,
-      onUpgradeToDeneb:                denebMono)
+      onUpgradeToDeneb:                denebMono,
+      onUpgradeToElectra:              electraMono)
   of StdoutLogKind.Json, StdoutLogKind.None:
     VanityLogs(
       onMergeTransitionBlock:
@@ -166,12 +168,14 @@ func getVanityLogs(stdoutKind: StdoutLogKind): VanityLogs =
       onKnownBlsToExecutionChange:
         (proc() = notice "🦉 BLS to execution changed 🦉"),
       onUpgradeToDeneb:
-        (proc() = notice "🐟 Proto-Danksharding is ON 🐟"))
+        (proc() = notice "🐟 Proto-Danksharding is ON 🐟"),
+      onUpgradeToElectra:
+        (proc() = notice "🦒 [PH] Electra 🦒"))
 
 func getVanityMascot(consensusFork: ConsensusFork): string =
   case consensusFork
   of ConsensusFork.Electra:
-    "  "
+    "🦒"
   of ConsensusFork.Deneb:
     "🐟"
   of ConsensusFork.Capella:
@@ -414,12 +418,7 @@ proc initFullNode(
                              maybeFinalized: bool):
         Future[Result[void, VerifierError]] {.async: (raises: [CancelledError]).} =
       withBlck(signedBlock):
-        when consensusFork >= ConsensusFork.Electra:
-          debugRaiseAssert "foo"
-          await blockProcessor[].addBlock(MsgSource.gossip, signedBlock,
-                                    Opt.none(BlobSidecars),
-                                    maybeFinalized = maybeFinalized)
-        elif consensusFork >= ConsensusFork.Deneb:
+        when consensusFork >= ConsensusFork.Deneb:
           if not blobQuarantine[].hasBlobs(forkyBlck):
             # We don't have all the blobs for this block, so we have
             # to put it in blobless quarantine.
@@ -831,6 +830,9 @@ proc init*(T: type BeaconNode,
   func getDenebForkEpoch(): Opt[Epoch] =
     Opt.some(cfg.DENEB_FORK_EPOCH)
 
+  func getElectraForkEpoch(): Opt[Epoch] =
+    Opt.some(cfg.ELECTRA_FORK_EPOCH)
+
   proc getForkForEpoch(epoch: Epoch): Opt[Fork] =
     Opt.some(dag.forkAtEpoch(epoch))
 
@@ -1000,7 +1002,8 @@ proc updateBlocksGossipStatus*(
 
     targetGossipState = getTargetGossipState(
       slot.epoch, cfg.ALTAIR_FORK_EPOCH, cfg.BELLATRIX_FORK_EPOCH,
-      cfg.CAPELLA_FORK_EPOCH, cfg.DENEB_FORK_EPOCH, isBehind)
+      cfg.CAPELLA_FORK_EPOCH, cfg.DENEB_FORK_EPOCH, cfg.ELECTRA_FORK_EPOCH,
+      isBehind)
 
   template currentGossipState(): auto = node.blocksGossipState
   if currentGossipState == targetGossipState:
@@ -1127,6 +1130,10 @@ proc addDenebMessageHandlers(
   for topic in blobSidecarTopics(forkDigest):
     node.network.subscribe(topic, basicParams)
 
+proc addElectraMessageHandlers(
+    node: BeaconNode, forkDigest: ForkDigest, slot: Slot) =
+  node.addDenebMessageHandlers(forkDigest, slot)
+
 proc removeAltairMessageHandlers(node: BeaconNode, forkDigest: ForkDigest) =
   node.removePhase0MessageHandlers(forkDigest)
 
@@ -1146,6 +1153,9 @@ proc removeDenebMessageHandlers(node: BeaconNode, forkDigest: ForkDigest) =
   node.removeCapellaMessageHandlers(forkDigest)
   for topic in blobSidecarTopics(forkDigest):
     node.network.unsubscribe(topic)
+
+proc removeElectraMessageHandlers(node: BeaconNode, forkDigest: ForkDigest) =
+  node.removeDenebMessageHandlers(forkDigest)
 
 proc updateSyncCommitteeTopics(node: BeaconNode, slot: Slot) =
   template lastSyncUpdate: untyped =
@@ -1303,6 +1313,8 @@ proc updateGossipStatus(node: BeaconNode, slot: Slot) {.async.} =
     if wallSlot > headSlot: (wallSlot - headSlot).uint64
     else: 0'u64
 
+  static: doAssert high(ConsensusFork) == ConsensusFork.Electra
+
   let
     head = node.dag.head
     headDistance = head.slot.distanceTo(slot)
@@ -1321,6 +1333,7 @@ proc updateGossipStatus(node: BeaconNode, slot: Slot) {.async.} =
         node.dag.cfg.BELLATRIX_FORK_EPOCH,
         node.dag.cfg.CAPELLA_FORK_EPOCH,
         node.dag.cfg.DENEB_FORK_EPOCH,
+        node.dag.cfg.ELECTRA_FORK_EPOCH,
         isBehind)
 
   doAssert targetGossipState.card <= 2
@@ -1383,20 +1396,19 @@ proc updateGossipStatus(node: BeaconNode, slot: Slot) {.async.} =
     removeAltairMessageHandlers,  # bellatrix (altair handlers, different forkDigest)
     removeCapellaMessageHandlers,
     removeDenebMessageHandlers,
-    removeDenebMessageHandlers   # maybe duplicate is correct, don't know yet
+    removeElectraMessageHandlers
   ]
 
   for gossipFork in oldGossipForks:
     removeMessageHandlers[gossipFork](node, forkDigests[gossipFork])
 
-  debugRaiseAssert "electra does have different gossip, add add/RemoveElectraFoo"
   const addMessageHandlers: array[ConsensusFork, auto] = [
     addPhase0MessageHandlers,
     addAltairMessageHandlers,
     addAltairMessageHandlers,  # bellatrix (altair handlers, different forkDigest)
     addCapellaMessageHandlers,
     addDenebMessageHandlers,
-    addDenebMessageHandlers  # repeat is probably correct
+    addElectraMessageHandlers
   ]
 
   for gossipFork in newGossipForks:
@@ -1707,7 +1719,7 @@ func syncStatus(node: BeaconNode, wallSlot: Slot): string =
       lightClientSuffix & catchingUpSuffix
   elif node.backfiller.inProgress:
     "backfill: " & node.backfiller.syncStatus
-  elif optimistic_head:
+  elif optimisticHead:
     "synced/opt"
   else:
     "synced"
@@ -1849,26 +1861,51 @@ proc installMessageValidators(node: BeaconNode) =
 
       # beacon_attestation_{subnet_id}
       # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.5/specs/phase0/p2p-interface.md#beacon_attestation_subnet_id
-      for it in SubnetId:
-        closureScope:  # Needed for inner `proc`; don't lift it out of loop.
-          let subnet_id = it
-          node.network.addAsyncValidator(
-            getAttestationTopic(digest, subnet_id), proc (
-              attestation: phase0.Attestation
-            ): Future[ValidationResult] {.async: (raises: [CancelledError]).} =
-              return toValidationResult(
-                await node.processor.processAttestation(
-                  MsgSource.gossip, attestation, subnet_id)))
+      when consensusFork >= ConsensusFork.Electra:
+        for it in SubnetId:
+          closureScope:  # Needed for inner `proc`; don't lift it out of loop.
+            let subnet_id = it
+            node.network.addAsyncValidator(
+              getAttestationTopic(digest, subnet_id), proc (
+                attestation: electra.Attestation
+              ): Future[ValidationResult] {.
+                  async: (raises: [CancelledError]).} =
+                return toValidationResult(
+                  await node.processor.processAttestation(
+                    MsgSource.gossip, attestation, subnet_id,
+                    checkSignature = true, checkValidator = false)))
+      else:
+        for it in SubnetId:
+          closureScope:  # Needed for inner `proc`; don't lift it out of loop.
+            let subnet_id = it
+            node.network.addAsyncValidator(
+              getAttestationTopic(digest, subnet_id), proc (
+                attestation: phase0.Attestation
+              ): Future[ValidationResult] {.
+                  async: (raises: [CancelledError]).} =
+                return toValidationResult(
+                  await node.processor.processAttestation(
+                    MsgSource.gossip, attestation, subnet_id,
+                    checkSignature = true, checkValidator = false)))
 
       # beacon_aggregate_and_proof
       # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.4/specs/phase0/p2p-interface.md#beacon_aggregate_and_proof
-      node.network.addAsyncValidator(
-        getAggregateAndProofsTopic(digest), proc (
-          signedAggregateAndProof: SignedAggregateAndProof
-        ): Future[ValidationResult] {.async: (raises: [CancelledError]).} =
-          return toValidationResult(
-            await node.processor.processSignedAggregateAndProof(
-              MsgSource.gossip, signedAggregateAndProof)))
+      when consensusFork >= ConsensusFork.Electra:
+        node.network.addAsyncValidator(
+          getAggregateAndProofsTopic(digest), proc (
+            signedAggregateAndProof: electra.SignedAggregateAndProof
+          ): Future[ValidationResult] {.async: (raises: [CancelledError]).} =
+            return toValidationResult(
+              await node.processor.processSignedAggregateAndProof(
+                MsgSource.gossip, signedAggregateAndProof)))
+      else:
+        node.network.addAsyncValidator(
+          getAggregateAndProofsTopic(digest), proc (
+            signedAggregateAndProof: phase0.SignedAggregateAndProof
+          ): Future[ValidationResult] {.async: (raises: [CancelledError]).} =
+            return toValidationResult(
+              await node.processor.processSignedAggregateAndProof(
+                MsgSource.gossip, signedAggregateAndProof)))
 
       # attester_slashing
       # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.5/specs/phase0/p2p-interface.md#attester_slashing

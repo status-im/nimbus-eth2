@@ -27,8 +27,10 @@ proc makeTestDB*(
     cfg = defaultRuntimeConfig): BeaconChainDB =
   # Blob support requires DENEB_FORK_EPOCH != FAR_FUTURE_EPOCH
   var cfg = cfg
-  cfg.CAPELLA_FORK_EPOCH = 90000.Epoch
-  cfg.DENEB_FORK_EPOCH = 100000.Epoch
+  if cfg.CAPELLA_FORK_EPOCH == FAR_FUTURE_EPOCH:
+    cfg.CAPELLA_FORK_EPOCH = 90000.Epoch
+  if cfg.DENEB_FORK_EPOCH == FAR_FUTURE_EPOCH:
+    cfg.DENEB_FORK_EPOCH = 100000.Epoch
 
   var genState = (ref ForkedHashedBeaconState)(
     kind: ConsensusFork.Phase0,

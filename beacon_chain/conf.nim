@@ -655,7 +655,8 @@ type
       # Flag name and semantics borrowed from Prysm
       # https://github.com/prysmaticlabs/prysm/pull/12227/files
       localBlockValueBoost* {.
-        desc: "Increase execution layer block values for builder bid comparison by a percentage"
+        desc: "Increase execution layer block values for builder bid " &
+              "comparison by a percentage"
         defaultValue: 10
         name: "local-block-value-boost" .}: uint8
 
@@ -1043,6 +1044,13 @@ type
       defaultValue: false
       name: "distributed".}: bool
 
+    builderBoostFactor* {.
+      desc: "Percentage multiplier to apply to the builder's payload value " &
+            "when choosing between a builder payload header and payload " &
+            "from the paired execution node."
+      defaultValue: 100,
+      name: "builder-boost-factor".}: uint64
+
     beaconNodes* {.
       desc: "URL addresses to one or more beacon node HTTP REST APIs",
       defaultValue: @[defaultBeaconNodeUri]
@@ -1051,7 +1059,7 @@ type
 
     monitoringType* {.
       desc: "Enable block monitoring which are seen by beacon node (BETA)"
-      defaultValue: BlockMonitoringType.Disabled
+      defaultValue: BlockMonitoringType.Event
       name: "block-monitor-type".}: BlockMonitoringType
 
   SigningNodeConf* = object

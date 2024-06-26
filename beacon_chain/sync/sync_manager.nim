@@ -8,7 +8,7 @@
 {.push raises: [].}
 
 import std/[strutils, sequtils, algorithm]
-import stew/[results, base10], chronos, chronicles
+import stew/base10, chronos, chronicles
 import
   ../spec/datatypes/[phase0, altair],
   ../spec/eth2_apis/rest_types,
@@ -107,7 +107,7 @@ proc initQueue[A, B](man: SyncManager[A, B]) =
                     # there is present check `needsBackfill().
                     firstSlot
                   else:
-                    Slot(firstSlot - 1'u64)
+                    firstSlot - 1'u64
     man.queue = SyncQueue.init(A, man.direction, startSlot, lastSlot,
                                man.chunkSize, man.getSafeSlot,
                                man.blockVerifier, 1, man.ident)

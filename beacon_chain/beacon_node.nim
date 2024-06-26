@@ -67,6 +67,8 @@ type
     config*: BeaconNodeConf
     attachedValidators*: ref ValidatorPool
     optimisticProcessor*: OptimisticProcessor
+    optimisticFcuFut*: Future[(PayloadExecutionStatus, Opt[BlockHash])]
+      .Raising([CancelledError])
     lightClient*: LightClient
     dag*: ChainDAGRef
     quarantine*: ref Quarantine

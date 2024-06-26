@@ -9,7 +9,6 @@
 
 import
   std/sequtils,
-  stew/results,
   chronicles,
   chronos/apps/http/httpserver,
   ./rest_utils,

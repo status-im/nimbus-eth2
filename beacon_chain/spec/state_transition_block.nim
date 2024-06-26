@@ -323,7 +323,7 @@ proc apply_deposit(
     when typeof(state).kind < ConsensusFork.Electra:
       increase_balance(state, index.get(), amount)
     else:
-      debugRaiseAssert "check hashlist add return"
+      debugComment "check hashlist add return"
       discard state.pending_balance_deposits.add PendingBalanceDeposit(
         index: index.get.uint64, amount: amount)  # [Modified in Electra:EIP-7251]
 
@@ -359,7 +359,7 @@ proc apply_deposit(
         if not state.inactivity_scores.add(0'u64):
           return err("apply_deposit: too many validators (inactivity_scores)")
       when typeof(state).kind >= ConsensusFork.Electra:
-        debugRaiseAssert "check hashlist add return"
+        debugComment "check hashlist add return"
 
         # [New in Electra:EIP7251]
         discard state.pending_balance_deposits.add PendingBalanceDeposit(
@@ -450,7 +450,7 @@ proc check_voluntary_exit*(
 
   when typeof(state).kind >= ConsensusFork.Electra:
     # Only exit validator if it has no pending withdrawals in the queue
-    debugRaiseAssert "truncating"
+    debugComment "truncating"
     if not (get_pending_balance_to_withdraw(
         state, voluntary_exit.validator_index.ValidatorIndex) == 0.Gwei):
       return err("Exit: still has pending withdrawals")
@@ -507,43 +507,86 @@ proc process_bls_to_execution_change*(
 
   ok()
 
-# https://github.com/ethereum/consensus-specs/blob/94a0b6c581f2809aa8aca4ef7ee6fbb63f9d74e9/specs/electra/beacon-chain.md#new-process_execution_layer_exit
-func process_execution_layer_withdrawal_request(
+# https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.2/specs/electra/beacon-chain.md#new-process_execution_layer_withdrawal_request
+func process_execution_layer_withdrawal_request*(
     cfg: RuntimeConfig, state: var electra.BeaconState,
     execution_layer_withdrawal_request: ExecutionLayerWithdrawalRequest,
-    exit_queue_info: ExitQueueInfo, cache: var StateCache):
-    Result[ExitQueueInfo, cstring] =
-  # Verify pubkey exists
+    cache: var StateCache) =
   let
-    pubkey_to_exit = execution_layer_withdrawal_request.validator_pubkey
-    validator_index = findValidatorIndex(state, pubkey_to_exit).valueOr:
-      return err("process_execution_layer_withdrawal_request: unknown index for validator pubkey")
-    validator = state.validators.item(validator_index)
+    amount = execution_layer_withdrawal_request.amount
+    is_full_exit_request = amount == static(FULL_EXIT_REQUEST_AMOUNT.Gwei)
+
+  # If partial withdrawal queue is full, only full exits are processed
+  if lenu64(state.pending_partial_withdrawals) ==
+      PENDING_PARTIAL_WITHDRAWALS_LIMIT and not is_full_exit_request:
+    return
+
+  let
+    request_pubkey = execution_layer_withdrawal_request.validator_pubkey
+    index = findValidatorIndex(state, request_pubkey).valueOr:
+      return
+    validator = state.validators.item(index)
 
   # Verify withdrawal credentials
   let
-    is_execution_address = validator.has_eth1_withdrawal_credential
+    has_correct_credential = has_execution_withdrawal_credential(validator)
     is_correct_source_address =
       validator.withdrawal_credentials.data.toOpenArray(12, 31) ==
         execution_layer_withdrawal_request.source_address.data
-  if not (is_execution_address and is_correct_source_address):
-    return err("process_execution_layer_withdrawal_request: not both execution address and correct source address")
+
+  if not (has_correct_credential and is_correct_source_address):
+    return
 
   # Verify the validator is active
   if not is_active_validator(validator, get_current_epoch(state)):
-    return err("process_execution_layer_withdrawal_request: not active validator")
+    return
 
   # Verify exit has not been initiated
   if validator.exit_epoch != FAR_FUTURE_EPOCH:
-    return err("process_execution_layer_withdrawal_request: validator exit already initiated")
+    return
 
   # Verify the validator has been active long enough
-  if get_current_epoch(state) < validator.activation_epoch + cfg.SHARD_COMMITTEE_PERIOD:
-    return err("process_execution_layer_withdrawal_request: validator not active long enough")
+  if get_current_epoch(state) <
+      validator.activation_epoch + cfg.SHARD_COMMITTEE_PERIOD:
+    return
 
-  # Initiate exit
-  ok(? initiate_validator_exit(
-    cfg, state, validator_index, exit_queue_info, cache))
+  let pending_balance_to_withdraw =
+    get_pending_balance_to_withdraw(state, index)
+
+  if is_full_exit_request:
+    # Only exit validator if it has no pending withdrawals in the queue
+    if pending_balance_to_withdraw == 0.Gwei:
+      if initiate_validator_exit(cfg, state, index, default(ExitQueueInfo),
+          cache).isErr():
+        return
+    return
+
+  let
+    has_sufficient_effective_balance =
+      validator.effective_balance >= static(MIN_ACTIVATION_BALANCE.Gwei)
+    has_excess_balance = state.balances.item(index) >
+      static(MIN_ACTIVATION_BALANCE.Gwei) + pending_balance_to_withdraw
+
+  # Only allow partial withdrawals with compounding withdrawal credentials
+  if  has_compounding_withdrawal_credential(validator) and
+      has_sufficient_effective_balance and has_excess_balance:
+    let
+      to_withdraw = min(
+        state.balances.item(index) - static(MIN_ACTIVATION_BALANCE.Gwei) -
+          pending_balance_to_withdraw,
+        amount
+      )
+      exit_queue_epoch =
+        compute_exit_epoch_and_update_churn(cfg, state, to_withdraw, cache)
+      withdrawable_epoch =
+        exit_queue_epoch + cfg.MIN_VALIDATOR_WITHDRAWABILITY_DELAY
+
+    # In theory can fail, but failing/early returning here is indistinguishable
+    discard state.pending_partial_withdrawals.add(PendingPartialWithdrawal(
+      index: index.uint64,
+      amount: to_withdraw,
+      withdrawable_epoch: withdrawable_epoch,
+    ))
 
 # https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.0/specs/electra/beacon-chain.md#consolidations
 proc process_consolidation*(
@@ -601,31 +644,21 @@ proc process_consolidation*(
       target_validator.withdrawal_credentials.data.toOpenArray(12, 31)):
     return err("Consolidation: source and target don't have same withdrawal address")
 
-  debugRaiseAssert "this is per spec, near-verbatim, but Nimbus generally factors this out into spec/signatures.nim. so, create verify_consolidation_signature infra there, call here"
   # Verify consolidation is signed by the source and the target
-  let
-    domain = compute_domain(
-      DOMAIN_CONSOLIDATION, cfg.GENESIS_FORK_VERSION,
-      genesis_validators_root=state.genesis_validators_root)
-    signing_root = compute_signing_root(consolidation, domain)
-    pubkeys = [source_validator[].pubkey, target_validator.pubkey]
-
-  debugRaiseAssert "as a good example, this trustedsig hack typically/should live in spec/signatures.nim"
-  when not (signed_consolidation.signature is TrustedSig):
-    if not blsFastAggregateVerify(
-        pubkeys, signing_root.data, signed_consolidation.signature):
-      return err("Consolidation: invalid signature")
+  if not verify_consolidation_signature(
+      cfg.genesisFork, state.genesis_validators_root, signed_consolidation,
+      [source_validator[].pubkey, target_validator.pubkey]):
+    return err("Consolidation: invalid signature")
 
   # Initiate source validator exit and append pending consolidation
   source_validator[].exit_epoch = compute_consolidation_epoch_and_update_churn(
     cfg, state, source_validator[].effective_balance, cache)
   source_validator[].withdrawable_epoch =
     source_validator[].exit_epoch + cfg.MIN_VALIDATOR_WITHDRAWABILITY_DELAY
-  debugRaiseAssert "check HashList add return value"
+  debugComment "check HashList add return value"
   discard state.pending_consolidations.add(PendingConsolidation(
     source_index: consolidation.source_index,
-    target_index: consolidation.target_index
-  ))
+    target_index: consolidation.target_index))
 
   ok()
 
@@ -703,10 +736,10 @@ proc process_operations(
   # [New in Electra:EIP7002:EIP7251]
   when typeof(body).kind >= ConsensusFork.Electra:
     for op in body.execution_payload.withdrawal_requests:
-      discard ? process_execution_layer_withdrawal_request(
-        cfg, state, op, default(ExitQueueInfo), cache)
+      process_execution_layer_withdrawal_request(
+        cfg, state, op, cache)
     for op in body.execution_payload.deposit_receipts:
-      debugRaiseAssert "combine with previous bloom filter construction"
+      debugComment "combine with previous bloom filter construction"
       let bloom_filter = constructBloomFilter(state.validators.asSeq)
       ? process_deposit_receipt(cfg, state, bloom_filter[], op, {})
     for op in body.consolidations:
@@ -1034,87 +1067,6 @@ func process_withdrawals*(
     state.next_withdrawal_validator_index = next_validator_index
 
   ok()
-
-# https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.0/specs/electra/beacon-chain.md#new-process_execution_layer_withdrawal_request
-func process_execution_layer_withdrawal_request*(
-    cfg: RuntimeConfig, state: var electra.BeaconState,
-    execution_layer_withdrawal_request: ExecutionLayerWithdrawalRequest,
-    cache: var StateCache) =
-  let
-    amount = execution_layer_withdrawal_request.amount
-    is_full_exit_request = amount == static(FULL_EXIT_REQUEST_AMOUNT.Gwei)
-
-  # If partial withdrawal queue is full, only full exits are processed
-  if lenu64(state.pending_partial_withdrawals) ==
-      PENDING_PARTIAL_WITHDRAWALS_LIMIT and not is_full_exit_request:
-    return
-
-  let
-    request_pubkey = execution_layer_withdrawal_request.validator_pubkey
-    index = findValidatorIndex(state, request_pubkey).valueOr:
-      return
-    validator = state.validators.item(index)
-
-  # Verify withdrawal credentials
-  let
-    has_correct_credential = has_execution_withdrawal_credential(validator)
-    is_correct_source_address =
-      validator.withdrawal_credentials.data.toOpenArray(12, 31) ==
-        execution_layer_withdrawal_request.source_address.data
-
-  if not (has_correct_credential and is_correct_source_address):
-    return
-
-  # Verify the validator is active
-  if not is_active_validator(validator, get_current_epoch(state)):
-    return
-
-  # Verify exit has not been initiated
-  if validator.exit_epoch != FAR_FUTURE_EPOCH:
-    return
-
-  # Verify the validator has been active long enough
-  if get_current_epoch(state) <
-      validator.activation_epoch + cfg.SHARD_COMMITTEE_PERIOD:
-    return
-
-  let pending_balance_to_withdraw =
-    get_pending_balance_to_withdraw(state, index)
-
-  if is_full_exit_request:
-    # Only exit validator if it has no pending withdrawals in the queue
-    if pending_balance_to_withdraw == 0.Gwei:
-      if initiate_validator_exit(cfg, state, index, default(ExitQueueInfo),
-          cache).isErr():
-        return
-    return
-
-  let
-    has_sufficient_effective_balance =
-      validator.effective_balance >= static(MIN_ACTIVATION_BALANCE.Gwei)
-    has_excess_balance = state.balances.item(index) >
-      static(MIN_ACTIVATION_BALANCE.Gwei) + pending_balance_to_withdraw
-
-  # Only allow partial withdrawals with compounding withdrawal credentials
-  if  has_compounding_withdrawal_credential(validator) and
-      has_sufficient_effective_balance and has_excess_balance:
-    let
-      to_withdraw = min(
-        state.balances.item(index) - static(MIN_ACTIVATION_BALANCE.Gwei) -
-          pending_balance_to_withdraw,
-        amount
-      )
-      exit_queue_epoch =
-        compute_exit_epoch_and_update_churn(cfg, state, to_withdraw, cache)
-      withdrawable_epoch =
-       Epoch(exit_queue_epoch + cfg.MIN_VALIDATOR_WITHDRAWABILITY_DELAY)
-
-    # In theory can fail, but failing/early returning here is indistinguishable
-    discard state.pending_partial_withdrawals.add(PendingPartialWithdrawal(
-      index: index.uint64,
-      amount: to_withdraw,
-      withdrawable_epoch: withdrawable_epoch,
-    ))
 
 # https://github.com/ethereum/consensus-specs/blob/v1.4.0/specs/deneb/beacon-chain.md#kzg_commitment_to_versioned_hash
 func kzg_commitment_to_versioned_hash*(

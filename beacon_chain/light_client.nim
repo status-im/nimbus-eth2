@@ -350,25 +350,26 @@ proc installMessageValidators*(
   for consensusFork in ConsensusFork:
     withLcDataFork(lcDataForkAtConsensusFork(consensusFork)):
       when lcDataFork > LightClientDataFork.None:
-        let
-          contextFork = consensusFork  # Avoid capturing `Deneb` (Nim 1.6)
-          digest = forkDigests[].atConsensusFork(contextFork)
+        closureScope:
+          let
+            contextFork = consensusFork
+            digest = forkDigests[].atConsensusFork(contextFork)
 
-        # light_client_optimistic_update
-        # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.5/specs/altair/light-client/p2p-interface.md#light_client_finality_update
-        lightClient.network.addValidator(
-          getLightClientFinalityUpdateTopic(digest), proc (
-            msg: lcDataFork.LightClientFinalityUpdate
-          ): ValidationResult =
-            validate(msg, contextFork, processLightClientFinalityUpdate))
+          # light_client_optimistic_update
+          # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.5/specs/altair/light-client/p2p-interface.md#light_client_finality_update
+          lightClient.network.addValidator(
+            getLightClientFinalityUpdateTopic(digest), proc (
+              msg: lcDataFork.LightClientFinalityUpdate
+            ): ValidationResult =
+              validate(msg, contextFork, processLightClientFinalityUpdate))
 
-        # light_client_optimistic_update
-        # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.5/specs/altair/light-client/p2p-interface.md#light_client_optimistic_update
-        lightClient.network.addValidator(
-          getLightClientOptimisticUpdateTopic(digest), proc (
-            msg: lcDataFork.LightClientOptimisticUpdate
-          ): ValidationResult =
-            validate(msg, contextFork, processLightClientOptimisticUpdate))
+          # light_client_optimistic_update
+          # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.5/specs/altair/light-client/p2p-interface.md#light_client_optimistic_update
+          lightClient.network.addValidator(
+            getLightClientOptimisticUpdateTopic(digest), proc (
+              msg: lcDataFork.LightClientOptimisticUpdate
+            ): ValidationResult =
+              validate(msg, contextFork, processLightClientOptimisticUpdate))
 
 proc updateGossipStatus*(
     lightClient: LightClient, slot: Slot, dagIsBehind = default(Option[bool])) =
@@ -390,7 +391,8 @@ proc updateGossipStatus*(
 
     currentEpochTargetGossipState = getTargetGossipState(
       epoch, cfg.ALTAIR_FORK_EPOCH, cfg.BELLATRIX_FORK_EPOCH,
-      cfg.CAPELLA_FORK_EPOCH, cfg.DENEB_FORK_EPOCH, isBehind)
+      cfg.CAPELLA_FORK_EPOCH, cfg.DENEB_FORK_EPOCH, FAR_FUTURE_EPOCH,
+      isBehind)
     targetGossipState =
       if lcBehind or epoch < 1:
         currentEpochTargetGossipState
@@ -400,7 +402,8 @@ proc updateGossipStatus*(
         # Therefore, LC topic subscriptions are kept for 1 extra epoch.
         let previousEpochTargetGossipState = getTargetGossipState(
           epoch - 1, cfg.ALTAIR_FORK_EPOCH, cfg.BELLATRIX_FORK_EPOCH,
-          cfg.CAPELLA_FORK_EPOCH, cfg.DENEB_FORK_EPOCH, isBehind)
+          cfg.CAPELLA_FORK_EPOCH, cfg.DENEB_FORK_EPOCH, FAR_FUTURE_EPOCH,
+          isBehind)
         currentEpochTargetGossipState + previousEpochTargetGossipState
 
   template currentGossipState(): auto = lightClient.gossipState

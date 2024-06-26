@@ -8,7 +8,7 @@
 {.push raises: [].}
 
 import
-  std/[tables, json, streams, sequtils, uri],
+  std/[tables, json, streams, sequtils, uri, sets],
   chronos, chronicles, metrics,
   json_serialization/std/net,
   presto/client,
@@ -93,6 +93,7 @@ type
 
   ValidatorPool* = object
     validators*: Table[ValidatorPubKey, AttachedValidator]
+    indexSet*: HashSet[ValidatorIndex]
     slashingProtection*: SlashingProtectionDB
     doppelgangerDetectionEnabled*: bool
 
@@ -223,10 +224,24 @@ func contains*(pool: ValidatorPool, pubkey: ValidatorPubKey): bool =
   ## Returns ``true`` if validator with key ``pubkey`` present in ``pool``.
   pool.validators.contains(pubkey)
 
+proc contains*(pool: ValidatorPool, index: ValidatorIndex): bool =
+  ## Returns ``true`` if validator with index ``index`` present in ``pool``.
+  pool.indexSet.contains(index)
+
+proc setValidatorIndex*(pool: var ValidatorPool, validator: AttachedValidator,
+                        index: ValidatorIndex) =
+  pool.indexSet.incl(index)
+  validator.index = Opt.some(index)
+
+proc removeValidatorIndex(pool: var ValidatorPool, index: ValidatorIndex) =
+  pool.indexSet.excl(index)
+
 proc removeValidator*(pool: var ValidatorPool, pubkey: ValidatorPubKey) =
   ## Delete validator with public key ``pubkey`` from ``pool``.
   let validator = pool.validators.getOrDefault(pubkey)
   if not(isNil(validator)):
+    if validator.index.isSome():
+      pool.removeValidatorIndex(validator.index.get)
     pool.validators.del(pubkey)
     case validator.kind
     of ValidatorKind.Local:
@@ -243,8 +258,9 @@ proc removeValidator*(pool: var ValidatorPool, pubkey: ValidatorPubKey) =
 func needsUpdate*(validator: AttachedValidator): bool =
   validator.index.isNone() or validator.activationEpoch == FAR_FUTURE_EPOCH
 
-proc updateValidator*(
-    validator: AttachedValidator, validatorData: Opt[ValidatorAndIndex]) =
+proc updateValidator*(pool: var ValidatorPool,
+                      validator: AttachedValidator,
+                      validatorData: Opt[ValidatorAndIndex]) =
   defer: validator.updated = true
 
   let
@@ -259,6 +275,7 @@ proc updateValidator*(
 
   ## Update activation information for a validator
   if validator.index != Opt.some data.index:
+    pool.setValidatorIndex(validator, data.index)
     validator.index = Opt.some data.index
     validator.validator = Opt.some data.validator
 
@@ -735,7 +752,7 @@ proc getAttestationSignature*(v: AttachedValidator, fork: Fork,
 proc getAggregateAndProofSignature*(v: AttachedValidator,
                                     fork: Fork,
                                     genesis_validators_root: Eth2Digest,
-                                    aggregate_and_proof: AggregateAndProof
+                                    aggregate_and_proof: phase0.AggregateAndProof
                                    ): Future[SignatureResult]
                                    {.async: (raises: [CancelledError]).} =
   case v.kind

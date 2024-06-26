@@ -8,7 +8,6 @@
 {.push raises: [].}
 
 import
-  stew/results,
   chronicles, chronos, metrics,
   ../spec/[forks, signatures, signatures_batch],
   ../sszdump
@@ -243,7 +242,7 @@ proc expectValidForkchoiceUpdated(
       headBlockHash = headBlockHash,
       safeBlockHash = safeBlockHash,
       finalizedBlockHash = finalizedBlockHash,
-      payloadAttributes = none headBlockPayloadAttributesType)
+      payloadAttributes = Opt.none headBlockPayloadAttributesType)
     receivedExecutionBlockHash =
       when typeof(receivedBlock).kind >= ConsensusFork.Bellatrix:
         receivedBlock.message.body.execution_payload.block_hash
@@ -551,7 +550,8 @@ proc storeBlock(
     # Client software MUST validate `blockHash` value as being equivalent to
     # `Keccak256(RLP(ExecutionBlockHeader))`
     # https://github.com/ethereum/execution-apis/blob/v1.0.0-beta.3/src/engine/paris.md#specification
-    when typeof(signedBlock).kind >= ConsensusFork.Bellatrix:
+    when typeof(signedBlock).kind >= ConsensusFork.Bellatrix and typeof(signedBlock).kind <= ConsensusFork.Deneb:
+      debugComment "electra can do this in principle"
       template payload(): auto = signedBlock.message.body.execution_payload
       if  signedBlock.message.is_execution_block and
           payload.block_hash !=
@@ -602,7 +602,7 @@ proc storeBlock(
         src, wallTime, trustedBlock.message)
 
       for attestation in trustedBlock.message.body.attestations:
-        for validator_index in dag.get_attesting_indices(attestation):
+        for validator_index in dag.get_attesting_indices(attestation, true):
           vm[].registerAttestationInBlock(attestation.data, validator_index,
             trustedBlock.message.slot)
 
@@ -684,7 +684,7 @@ proc storeBlock(
               self.consensusManager[].optimisticExecutionBlockHash,
             safeBlockHash = newHead.get.safeExecutionBlockHash,
             finalizedBlockHash = newHead.get.finalizedExecutionBlockHash,
-            payloadAttributes = none attributes)
+            payloadAttributes = Opt.none attributes)
 
       let consensusFork = self.consensusManager.dag.cfg.consensusForkAtEpoch(
         newHead.get.blck.bid.slot.epoch)

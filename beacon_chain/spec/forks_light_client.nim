@@ -961,7 +961,7 @@ func toLightClientHeader*(
       electra.SignedBeaconBlock | electra.TrustedSignedBeaconBlock,
     kind: static LightClientDataFork): auto =
   when blck is electra.SignedBeaconBlock or blck is electra.TrustedSignedBeaconBlock:
-    debugRaiseAssert "toLightClientHeader electra missing"
+    debugComment "toLightClientHeader electra missing"
     default(deneb.LightClientHeader)
   elif kind == LightClientDataFork.Deneb:
     blck.toDenebLightClientHeader()
