@@ -11,7 +11,9 @@
 import
   std/[algorithm, macros, tables],
   stew/results,
-  ssz_serialization/proofs,
+  ssz_serialization/[
+    proofs,
+    types],
   chronicles,
   ./[beacon_time, crypto],
   kzg4844/kzg_ex,
@@ -145,7 +147,12 @@ proc get_data_column_sidecars*(signed_block: deneb.SignedBeaconBlock | electra.S
     signed_block_header: SignedBeaconBlockHeader
     blck = signed_block.message
     cellsAndProofs: seq[KzgCellsAndKzgProofs]
+    kzg_incl_proof: array[KZG_COMMITMENT_INCLUSION_PROOF_DEPTH, Eth2Digest]
 
+  blck.body.build_proof(
+    27.GeneralizedIndex,
+    kzg_incl_proof).expect("Valid gindex")
+  
   for blob in blobs:
     let
       computed_cell = computeCellsAndKzgProofs(blob)
@@ -181,6 +188,7 @@ proc get_data_column_sidecars*(signed_block: deneb.SignedBeaconBlock | electra.S
       kzgCommitments: blck.body.blob_kzg_commitments,
       kzgProofs: kzgProofOfColumn,
       signed_block_header: signed_block_header
+
     )
     blck.body.build_proof(
       kzg_commitment_inclusion_proof_gindex(BlobIndex(columnIndex)),
