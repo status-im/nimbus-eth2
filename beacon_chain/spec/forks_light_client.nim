@@ -159,7 +159,8 @@ func lcDataForkAtEpoch*(
     LightClientDataFork.None
 
 template kind*(
-    x: typedesc[ # `SomeLightClientObject` doesn't work here (Nim 1.6)
+    # `SomeLightClientObject`: https://github.com/nim-lang/Nim/issues/18095
+    x: typedesc[
       altair.LightClientHeader |
       altair.LightClientBootstrap |
       altair.LightClientUpdate |
@@ -169,7 +170,8 @@ template kind*(
   LightClientDataFork.Altair
 
 template kind*(
-    x: typedesc[ # `SomeLightClientObject` doesn't work here (Nim 1.6)
+    # `SomeLightClientObject`: https://github.com/nim-lang/Nim/issues/18095
+    x: typedesc[
       capella.LightClientHeader |
       capella.LightClientBootstrap |
       capella.LightClientUpdate |
@@ -179,7 +181,8 @@ template kind*(
   LightClientDataFork.Capella
 
 template kind*(
-    x: typedesc[ # `SomeLightClientObject` doesn't work here (Nim 1.6)
+    # `SomeLightClientObject`: https://github.com/nim-lang/Nim/issues/18095
+    x: typedesc[
       deneb.LightClientHeader |
       deneb.LightClientBootstrap |
       deneb.LightClientUpdate |
@@ -831,7 +834,8 @@ func migratingToDataFork*[
 
 # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.5/specs/altair/light-client/full-node.md#block_to_light_client_header
 func toAltairLightClientHeader(
-    blck:  # `SomeSignedBeaconBlock` doesn't work here (Nim 1.6)
+    # `SomeSignedBeaconBlock`: https://github.com/nim-lang/Nim/issues/18095
+    blck:
       phase0.SignedBeaconBlock | phase0.TrustedSignedBeaconBlock |
       altair.SignedBeaconBlock | altair.TrustedSignedBeaconBlock |
       bellatrix.SignedBeaconBlock | bellatrix.TrustedSignedBeaconBlock
@@ -841,7 +845,8 @@ func toAltairLightClientHeader(
 
 # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.5/specs/capella/light-client/full-node.md#modified-block_to_light_client_header
 func toCapellaLightClientHeader(
-    blck:  # `SomeSignedBeaconBlock` doesn't work here (Nim 1.6)
+    # `SomeSignedBeaconBlock`: https://github.com/nim-lang/Nim/issues/18095
+    blck:
       phase0.SignedBeaconBlock | phase0.TrustedSignedBeaconBlock |
       altair.SignedBeaconBlock | altair.TrustedSignedBeaconBlock |
       bellatrix.SignedBeaconBlock | bellatrix.TrustedSignedBeaconBlock
@@ -856,7 +861,8 @@ func toCapellaLightClientHeader(
     beacon: blck.message.toBeaconBlockHeader())
 
 func toCapellaLightClientHeader(
-    blck:  # `SomeSignedBeaconBlock` doesn't work here (Nim 1.6)
+    # `SomeSignedBeaconBlock`: https://github.com/nim-lang/Nim/issues/18095
+    blck:
       capella.SignedBeaconBlock | capella.TrustedSignedBeaconBlock
 ): capella.LightClientHeader =
   template payload: untyped = blck.message.body.execution_payload
@@ -883,7 +889,8 @@ func toCapellaLightClientHeader(
 
 # https://github.com/ethereum/consensus-specs/blob/v1.4.0-alpha.0/specs/deneb/light-client/full-node.md#modified-block_to_light_client_header
 func toDenebLightClientHeader(
-    blck:  # `SomeSignedBeaconBlock` doesn't work here (Nim 1.6)
+    # `SomeSignedBeaconBlock`: https://github.com/nim-lang/Nim/issues/18095
+    blck:
       phase0.SignedBeaconBlock | phase0.TrustedSignedBeaconBlock |
       altair.SignedBeaconBlock | altair.TrustedSignedBeaconBlock |
       bellatrix.SignedBeaconBlock | bellatrix.TrustedSignedBeaconBlock
@@ -898,7 +905,8 @@ func toDenebLightClientHeader(
     beacon: blck.message.toBeaconBlockHeader())
 
 func toDenebLightClientHeader(
-    blck:  # `SomeSignedBeaconBlock` doesn't work here (Nim 1.6)
+    # `SomeSignedBeaconBlock`: https://github.com/nim-lang/Nim/issues/18095
+    blck:
       capella.SignedBeaconBlock | capella.TrustedSignedBeaconBlock
 ): deneb.LightClientHeader =
   template payload: untyped = blck.message.body.execution_payload
@@ -924,7 +932,8 @@ func toDenebLightClientHeader(
       capella.EXECUTION_PAYLOAD_GINDEX).get)
 
 func toDenebLightClientHeader(
-    blck:  # `SomeSignedBeaconBlock` doesn't work here (Nim 1.6)
+    # `SomeSignedBeaconBlock`: https://github.com/nim-lang/Nim/issues/18095
+    blck:
       deneb.SignedBeaconBlock | deneb.TrustedSignedBeaconBlock
 ): deneb.LightClientHeader =
   template payload: untyped = blck.message.body.execution_payload
@@ -952,7 +961,8 @@ func toDenebLightClientHeader(
       capella.EXECUTION_PAYLOAD_GINDEX).get)
 
 func toLightClientHeader*(
-    blck:  # `SomeSignedBeaconBlock` doesn't work here (Nim 1.6)
+    # `SomeSignedBeaconBlock`: https://github.com/nim-lang/Nim/issues/18095
+    blck:
       phase0.SignedBeaconBlock | phase0.TrustedSignedBeaconBlock |
       altair.SignedBeaconBlock | altair.TrustedSignedBeaconBlock |
       bellatrix.SignedBeaconBlock | bellatrix.TrustedSignedBeaconBlock |
@@ -991,7 +1001,7 @@ func shortLog*[
     of LightClientDataFork.Deneb:
       denebData: typeof(x.denebData.shortLog())
 
-  let xKind = x.kind  # Nim 1.6.12: Using `kind: x.kind` inside case is broken
+  let xKind = x.kind  # Nim 2.0.6: Using `kind: x.kind` inside case is broken
   case xKind
   of LightClientDataFork.Deneb:
     ResultType(kind: xKind, denebData: x.denebData.shortLog())
