@@ -22,6 +22,7 @@ import
   
   ./datatypes/[eip7594, deneb]
 
+
 proc sortedColumnIndices*(columnsPerSubnet: ColumnIndex, subnetIds: HashSet[uint64]): seq[ColumnIndex] =
   var res: seq[ColumnIndex] = @[]
   for i in 0 ..< columnsPerSubnet:

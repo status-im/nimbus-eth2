@@ -7,7 +7,9 @@
 
 {.push raises: [].}
 
-import "."/[base, deneb], kzg4844
+import 
+  "."/[base, deneb], 
+  kzg4844
 
 from std/sequtils import mapIt
 from std/strutils import join
@@ -71,7 +73,8 @@ type
     kzg_proof*: KzgProof
     column_index*: ColumnIndex
     row_index*: RowIndex
-    
+
+
 func shortLog*(v: DataColumnSidecar): auto =
   (
     index: v.index,
