@@ -425,7 +425,11 @@ proc installBeaconApiHandlers*(router: var RestRouter, node: BeaconNode) =
                 Http400, InvalidRequestBodyError, $error)
           let
             ids = request.ids.valueOr: @[]
-            filter = request.status.valueOr: AllValidatorFilterKinds
+            filter =
+              if request.status.isNone() or len(request.status.get) == 0:
+                AllValidatorFilterKinds
+              else:
+                request.status.get
           (ids, filter)
       sid = state_id.valueOr:
         return RestApiResponse.jsonError(Http400, InvalidStateIdValueError,
