@@ -98,6 +98,5 @@ func dataColumnFetchRecord*(quarantine: DataColumnQuarantine,
   DataColumnFetchRecord(block_root: blck.root, indices: indices)
 
 func init*(
-    T: type DataColumnQuarantine, onDataColumnSidecarCallback: OnDataColumnSidecarCallback): T =
-  T(onDataColumnSidecarCallback: onDataColumnSidecarCallback)
+    T: type DataColumnQuarantine): T = T()
 

@@ -181,6 +181,7 @@ proc new*(T: type Eth2Processor,
           lightClientPool: ref LightClientPool,
           quarantine: ref Quarantine,
           blobQuarantine: ref BlobQuarantine,
+          dataColumnQuarantine: ref DataColumnQuarantine,
           rng: ref HmacDrbgContext,
           getBeaconTime: GetBeaconTimeFn,
           taskpool: TaskPoolPtr
@@ -199,6 +200,7 @@ proc new*(T: type Eth2Processor,
     lightClientPool: lightClientPool,
     quarantine: quarantine,
     blobQuarantine: blobQuarantine,
+    dataColumnQuarantine: dataColumnQuarantine,
     getCurrentBeaconTime: getBeaconTime,
     batchCrypto: BatchCrypto.new(
       rng = rng,
@@ -376,9 +378,24 @@ proc processDataColumnSidecar*(
     data_column_sidecars_dropped.inc(1, [$v.error[0]])
     return v
 
-  debug "Data column validated"
+  debug "Data column validated, putting data column in quarantine"
+  self.dataColumnQuarantine[].put(newClone(dataColumnSidecar))
 
-  # TODO do something with it!
+  let block_root = hash_tree_root(block_header)
+  if (let o = self.quarantine[].popColumnless(block_root); o.isSome):
+    let columnless = o.unsafeGet()
+    withBlck(columnless):
+      when consensusFork >= ConsensusFork.Deneb:
+        if self.dataColumnQuarantine[].hasDataColumns(forkyBlck):
+          self.blockProcessor[].enqueueBlock(
+            MsgSource.gossip, columnless,
+            Opt.none(BlobSidecars),
+            Opt.some(self.dataColumnQuarantine[].popDataColumns(block_root, forkyBlck)))
+        else:
+          discard self.quarantine[].addColumnless(
+            self.dag.finalizedHead.slot, forkyBlck)
+      else:
+        raiseAssert "Could not have been added as columnless"
 
   data_column_sidecars_received.inc()
   data_column_sidecar_delay.observe(delay.toFloatSeconds())

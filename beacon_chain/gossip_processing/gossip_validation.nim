@@ -518,20 +518,6 @@ proc validateDataColumnSidecar*(
   if not (block_header.slot > dag.finalizedHead.slot):
     return errIgnore("DataColumnSidecar: slot already finalized")
 
-  # [REJECT] The sidecar's `kzg_commitments` inclusion proof is valid as verified by
-  # `verify_data_column_sidecar_inclusion_proof(sidecar)`.
-  block:
-    let v = check_data_column_sidecar_inclusion_proof(data_column_sidecar)
-    if v.isErr:
-      return dag.checkedReject(v.error)
-
-  # # [REJECT] The sidecar's column data is valid as 
-  # # verified by `verify_data_column_kzg_proofs(sidecar)`
-  block:
-    let r = check_data_column_sidecar_kzg_proofs(data_column_sidecar)
-    if r.isErr:
-      return dag.checkedReject(r.error)
-
   # [IGNORE] The sidecar is the first sidecar for the tuple
   # (block_header.slot, block_header.proposer_index, blob_sidecar.index)
   # with valid header signature, sidecar inclusion proof, and kzg proof.
@@ -549,13 +535,13 @@ proc validateDataColumnSidecar*(
   #
   # [REJECT] The sidecar's block's parent (defined by
   # `block_header.parent_root`) passes validation.
-  # let parent = dag.getBlockRef(block_header.parent_root).valueOr:
-  #   if block_header.parent_root in quarantine[].unviable:
-  #     quarantine[].addUnviable(block_root)
-  #     return dag.checkedReject("DataColumnSidecar: parent not validated")
-  #   else:
-  #     quarantine[].addMissing(block_header.parent_root)
-  #     return errIgnore("DataColumnSidecar: parent not found")
+  let parent = dag.getBlockRef(block_header.parent_root).valueOr:
+    if block_header.parent_root in quarantine[].unviable:
+      quarantine[].addUnviable(block_root)
+      return dag.checkedReject("DataColumnSidecar: parent not validated")
+    else:
+      quarantine[].addMissing(block_header.parent_root)
+      return errIgnore("DataColumnSidecar: parent not found")
 
   # [REJECT] The sidecar is proposed by the expected `proposer_index`
   # for the block's slot in the context of the current shuffling
@@ -564,23 +550,37 @@ proc validateDataColumnSidecar*(
   # shuffling, the sidecar MAY be queued for later processing while proposers
   # for the block's branch are calculated -- in such a case do not
   # REJECT, instead IGNORE this message.
-  # let proposer = getProposer(dag, parent, block_header.slot).valueOr:
-  #   warn "cannot compute proposer for blob"
-  #   return errIgnore("DataColumnSidecar: Cannot compute proposer") # internal issue
+  let proposer = getProposer(dag, parent, block_header.slot).valueOr:
+    warn "cannot compute proposer for blob"
+    return errIgnore("DataColumnSidecar: Cannot compute proposer") # internal issue
 
-  # if uint64(proposer) != block_header.proposer_index:
-  #   return dag.checkedReject("DataColumnSidecar: Unexpected proposer")
+  if uint64(proposer) != block_header.proposer_index:
+    return dag.checkedReject("DataColumnSidecar: Unexpected proposer")
 
   # [REJECT] The proposer signature of `blob_sidecar.signed_block_header`,
   # is valid with respect to the `block_header.proposer_index` pubkey.
-  # if not verify_block_signature(
-  #     dag.forkAtEpoch(block_header.slot.epoch),
-  #     getStateField(dag.headState, genesis_validators_root),
-  #     block_header.slot,
-  #     block_root,
-  #     dag.validatorKey(proposer).get(),
-  #     data_column_sidecar.signed_block_header.signature):
-  #   return dag.checkedReject("DataColumnSidecar: Invalid proposer signature")
+  if not verify_block_signature(
+      dag.forkAtEpoch(block_header.slot.epoch),
+      getStateField(dag.headState, genesis_validators_root),
+      block_header.slot,
+      block_root,
+      dag.validatorKey(proposer).get(),
+      data_column_sidecar.signed_block_header.signature):
+    return dag.checkedReject("DataColumnSidecar: Invalid proposer signature")
+
+  # [REJECT] The sidecar's `kzg_commitments` inclusion proof is valid as verified by
+  # `verify_data_column_sidecar_inclusion_proof(sidecar)`.
+  block:
+    let v = check_data_column_sidecar_inclusion_proof(data_column_sidecar)
+    if v.isErr:
+      return dag.checkedReject(v.error)
+
+  # # [REJECT] The sidecar's column data is valid as 
+  # # verified by `verify_data_column_kzg_proofs(sidecar)`
+  block:
+    let r = check_data_column_sidecar_kzg_proofs(data_column_sidecar)
+    if r.isErr:
+      return dag.checkedReject(r.error)
 
   # # [REJECT] The sidecar is from a higher slot than the sidecar's
   # # block's parent (defined by `block_header.parent_root`).
@@ -590,21 +590,21 @@ proc validateDataColumnSidecar*(
   # [REJECT] The current finalized_checkpoint is an ancestor of the sidecar's
   # block -- i.e. `get_checkpoint_block(store, block_header.parent_root,
   # store.finalized_checkpoint.epoch) == store.finalized_checkpoint.root`.
-  # let
-  #   finalized_checkpoint = getStateField(dag.headState, finalized_checkpoint)
-  #   ancestor = get_ancestor(parent, finalized_checkpoint.epoch.start_slot)
+  let
+    finalized_checkpoint = getStateField(dag.headState, finalized_checkpoint)
+    ancestor = get_ancestor(parent, finalized_checkpoint.epoch.start_slot)
 
-  # if ancestor.isNil:
-  #   # This shouldn't happen: we should always be able to trace the parent back
-  #   # to the finalized checkpoint (else it wouldn't be in the DAG)
-  #   return errIgnore("DataColumnSidecar: Can't find ancestor")
+  if ancestor.isNil:
+    # This shouldn't happen: we should always be able to trace the parent back
+    # to the finalized checkpoint (else it wouldn't be in the DAG)
+    return errIgnore("DataColumnSidecar: Can't find ancestor")
 
-  # if not (
-  #     finalized_checkpoint.root == ancestor.root or
-  #     finalized_checkpoint.root.isZero):
-  #   quarantine[].addUnviable(block_root)
-  #   return dag.checkedReject(
-  #     "DataColumnSidecar: Finalized checkpoint not an ancestor")
+  if not (
+      finalized_checkpoint.root == ancestor.root or
+      finalized_checkpoint.root.isZero):
+    quarantine[].addUnviable(block_root)
+    return dag.checkedReject(
+      "DataColumnSidecar: Finalized checkpoint not an ancestor")
 
   ok()
 

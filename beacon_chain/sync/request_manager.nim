@@ -85,18 +85,22 @@ proc init*(T: type RequestManager, network: Eth2Node,
               inhibit: InhibitFn,
               quarantine: ref Quarantine,
               blobQuarantine: ref BlobQuarantine,
+              dataColumnQuarantine: ref DataColumnQuarantine,
               blockVerifier: BlockVerifierFn,
               blockLoader: BlockLoaderFn = nil,
-              blobLoader: BlobLoaderFn = nil): RequestManager =
+              blobLoader: BlobLoaderFn = nil,
+              dataColumnLoader: DataColumnLoaderFn = nil): RequestManager =
   RequestManager(
     network: network,
     getBeaconTime: getBeaconTime,
     inhibit: inhibit,
     quarantine: quarantine,
     blobQuarantine: blobQuarantine,
+    dataColumnQuarantine: dataColumnQuarantine,
     blockVerifier: blockVerifier,
     blockLoader: blockLoader,
-    blobLoader: blobLoader)
+    blobLoader: blobLoader,
+    dataColumnLoader: dataColumnLoader)
 
 proc checkResponse(roots: openArray[Eth2Digest],
                    blocks: openArray[ref ForkedSignedBeaconBlock]): bool =

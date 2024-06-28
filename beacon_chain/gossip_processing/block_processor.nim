@@ -134,6 +134,7 @@ proc new*(T: type BlockProcessor,
           consensusManager: ref ConsensusManager,
           validatorMonitor: ref ValidatorMonitor,
           blobQuarantine: ref BlobQuarantine,
+          dataColumnQuarantine: ref DataColumnQuarantine,
           getBeaconTime: GetBeaconTimeFn): ref BlockProcessor =
   (ref BlockProcessor)(
     dumpEnabled: dumpEnabled,
@@ -143,6 +144,7 @@ proc new*(T: type BlockProcessor,
     consensusManager: consensusManager,
     validatorMonitor: validatorMonitor,
     blobQuarantine: blobQuarantine,
+    dataColumnQuarantine: dataCOlumnQuarantine,
     getBeaconTime: getBeaconTime,
     verifier: BatchVerifier.init(rng, taskpool)
   )

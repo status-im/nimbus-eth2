@@ -383,6 +383,7 @@ proc initFullNode(
       dag, attestationPool, onVoluntaryExitAdded, onBLSToExecutionChangeAdded,
       onProposerSlashingAdded, onAttesterSlashingAdded))
     blobQuarantine = newClone(BlobQuarantine.init(onBlobSidecarAdded))
+    dataColumnQuarantine = newClone(DataColumnQuarantine.init())
     consensusManager = ConsensusManager.new(
       dag, attestationPool, quarantine, node.elManager,
       ActionTracker.init(node.network.nodeId, config.subscribeAllSubnets),
@@ -391,7 +392,7 @@ proc initFullNode(
     blockProcessor = BlockProcessor.new(
       config.dumpEnabled, config.dumpDirInvalid, config.dumpDirIncoming,
       rng, taskpool, consensusManager, node.validatorMonitor,
-      blobQuarantine, getBeaconTime)
+      blobQuarantine, dataColumnQuarantine, getBeaconTime)
     blockVerifier = proc(signedBlock: ForkedSignedBeaconBlock,
                          blobs: Opt[BlobSidecars], data_columns: Opt[DataColumnSidecars],
                          maybeFinalized: bool):
@@ -406,18 +407,36 @@ proc initFullNode(
                              maybeFinalized: bool):
         Future[Result[void, VerifierError]] {.async: (raises: [CancelledError]).} =
       withBlck(signedBlock):
+        # when consensusFork >= ConsensusFork.Deneb:
+        #   if not blobQuarantine[].hasBlobs(forkyBlck):
+        #     # We don't have all the blobs for this block, so we have
+        #     # to put it in blobless quarantine.
+        #     if not quarantine[].addBlobless(dag.finalizedHead.slot, forkyBlck):
+        #       err(VerifierError.UnviableFork)
+        #     else:
+        #       err(VerifierError.MissingParent)
+        #   else:
+        #     let blobs = blobQuarantine[].popBlobs(forkyBlck.root, forkyBlck)
+        #     await blockProcessor[].addBlock(MsgSource.gossip, signedBlock,
+        #                               Opt.some(blobs), Opt.none(DataColumnSidecars),
+        #                               maybeFinalized = maybeFinalized)
+        # else:
+        #   await blockProcessor[].addBlock(MsgSource.gossip, signedBlock,
+        #                             Opt.none(BlobSidecars), Opt.none(DataColumnSidecars),
+        #                             maybeFinalized = maybeFinalized)
+
         when consensusFork >= ConsensusFork.Deneb:
-          if not blobQuarantine[].hasBlobs(forkyBlck):
-            # We don't have all the blobs for this block, so we have
-            # to put it in blobless quarantine.
-            if not quarantine[].addBlobless(dag.finalizedHead.slot, forkyBlck):
+          if not dataColumnQuarantine[].hasDataColumns(forkyBlck):
+            # We don't have all the data columns for this block, so we have
+            # to put it in columnless quarantine.
+            if not quarantine[].addColumnless(dag.finalizedHead.slot, forkyBlck):
               err(VerifierError.UnviableFork)
             else:
               err(VerifierError.MissingParent)
           else:
-            let blobs = blobQuarantine[].popBlobs(forkyBlck.root, forkyBlck)
+            let data_columns = dataColumnQuarantine[].popDataColumns(forkyBlck.root, forkyBlck)
             await blockProcessor[].addBlock(MsgSource.gossip, signedBlock,
-                                      Opt.some(blobs), Opt.none(DataColumnSidecars),
+                                      Opt.none(BlobSidecars), Opt.some(data_columns),
                                       maybeFinalized = maybeFinalized)
         else:
           await blockProcessor[].addBlock(MsgSource.gossip, signedBlock,
@@ -435,11 +454,20 @@ proc initFullNode(
       else:
         Opt.none(ref BlobSidecar)
 
+    rmanDataColumnLoader = proc(
+        columnId: DataColumnIdentifier): Opt[ref DataColumnSidecar] =
+      var data_column_sidecar = DataColumnSidecar.new()
+      if dag.db.getDataColumnSidecar(columnId.block_root, columnId.index, data_column_sidecar[]):
+        Opt.some data_column_sidecar
+      else:
+        Opt.none(ref DataColumnSidecar)
+
     processor = Eth2Processor.new(
       config.doppelgangerDetection,
       blockProcessor, node.validatorMonitor, dag, attestationPool,
       validatorChangePool, node.attachedValidators, syncCommitteeMsgPool,
-      lightClientPool, quarantine, blobQuarantine, rng, getBeaconTime, taskpool)
+      lightClientPool, quarantine, blobQuarantine, dataColumnQuarantine, 
+      rng, getBeaconTime, taskpool)
     syncManager = newSyncManager[Peer, PeerId](
       node.network.peerPool,
       dag.cfg.DENEB_FORK_EPOCH, dag.cfg.MIN_EPOCHS_FOR_BLOB_SIDECARS_REQUESTS,
@@ -459,8 +487,8 @@ proc initFullNode(
     requestManager = RequestManager.init(
       node.network, dag.cfg.DENEB_FORK_EPOCH, getBeaconTime,
       (proc(): bool = syncManager.inProgress),
-      quarantine, blobQuarantine, rmanBlockVerifier,
-      rmanBlockLoader, rmanBlobLoader)
+      quarantine, blobQuarantine, dataColumnQuarantine, rmanBlockVerifier,
+      rmanBlockLoader, rmanBlobLoader, rmanDataColumnLoader)
 
   if node.config.lightClientDataServe:
     proc scheduleSendingLightClientUpdates(slot: Slot) =
