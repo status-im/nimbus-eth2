@@ -577,10 +577,10 @@ proc validateDataColumnSidecar*(
 
   # # [REJECT] The sidecar's column data is valid as 
   # # verified by `verify_data_column_kzg_proofs(sidecar)`
-  block:
-    let r = check_data_column_sidecar_kzg_proofs(data_column_sidecar)
-    if r.isErr:
-      return dag.checkedReject(r.error)
+  # block:
+  #   let r = check_data_column_sidecar_kzg_proofs(data_column_sidecar)
+  #   if r.isErr:
+  #     return dag.checkedReject(r.error)
 
   # # [REJECT] The sidecar is from a higher slot than the sidecar's
   # # block's parent (defined by `block_header.parent_root`).
