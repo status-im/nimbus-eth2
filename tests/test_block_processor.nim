@@ -20,7 +20,7 @@ import
   ../beacon_chain/gossip_processing/block_processor,
   ../beacon_chain/consensus_object_pools/[
     attestation_pool, blockchain_dag, blob_quarantine, block_quarantine,
-    block_clearance, consensus_manager],
+    data_column_quarantine, block_clearance, consensus_manager],
   ../beacon_chain/el/el_manager,
   ./testutil, ./testdbutil, ./testblockutil
 
@@ -44,6 +44,7 @@ suite "Block processor" & preset():
       taskpool = Taskpool.new()
       quarantine = newClone(Quarantine.init())
       blobQuarantine = newClone(BlobQuarantine())
+      dataColumnQuarantine = newClone(DataColumnQuarantine())
       attestationPool = newClone(AttestationPool.init(dag, quarantine))
       elManager = new ELManager # TODO: initialise this properly
       actionTracker: ActionTracker
@@ -58,7 +59,7 @@ suite "Block processor" & preset():
       getTimeFn = proc(): BeaconTime = b2.message.slot.start_beacon_time()
       processor = BlockProcessor.new(
         false, "", "", rng, taskpool, consensusManager,
-        validatorMonitor, blobQuarantine, getTimeFn)
+        validatorMonitor, blobQuarantine, dataColumnQuarantine, getTimeFn)
       processorFut = processor.runQueueProcessingLoop()
 
   asyncTest "Reverse order block add & get" & preset():
