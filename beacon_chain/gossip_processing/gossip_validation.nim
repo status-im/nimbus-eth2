@@ -500,24 +500,27 @@ proc validateDataColumnSidecar*(
   if not (data_column_sidecar.index < NUMBER_OF_COLUMNS):
     return dag.checkedReject("DataColumnSidecar: The sidecar's index should be consistent with NUMBER_OF_COLUMNS")
 
+  debugEcho "check 1"
+
   # [REJECT] The sidecar is for the correct subnet 
   # -- i.e. `compute_subnet_for_data_column_sidecar(blob_sidecar.index) == subnet_id`.
   if not (compute_subnet_for_data_column_sidecar(data_column_sidecar.index) == subnet_id):
     return dag.checkedReject("DataColumnSidecar: The sidecar is not for the correct subnet")
 
+  debugEcho "check 2"
   # [IGNORE] The sidecar is not from a future slot (with a `MAXIMUM_GOSSIP_CLOCK_DISPARITY` allowance)
   # -- i.e. validate that `block_header.slot <= current_slot` (a client MAY queue future sidecars for 
   # processing at the appropriate slot).
   if not (block_header.slot <=
       (wallTime + MAXIMUM_GOSSIP_CLOCK_DISPARITY).slotOrZero):
     return errIgnore("DataColumnSidecar: slot too high")
-
+  debugEcho "check 3"
   # [IGNORE] The sidecar is from a slot greater than the latest
   # finalized slot -- i.e. validate that `block_header.slot >
   # compute_start_slot_at_epoch(state.finalized_checkpoint.epoch)`
   if not (block_header.slot > dag.finalizedHead.slot):
     return errIgnore("DataColumnSidecar: slot already finalized")
-
+  debugEcho "check 4"
   # [IGNORE] The sidecar is the first sidecar for the tuple
   # (block_header.slot, block_header.proposer_index, blob_sidecar.index)
   # with valid header signature, sidecar inclusion proof, and kzg proof.
@@ -527,7 +530,7 @@ proc validateDataColumnSidecar*(
   if dataColumnQuarantine[].hasDataColumn(
       block_header.slot, block_header.proposer_index, data_column_sidecar.index):
     return errIgnore("DataColumnSidecar: already have valid data column from same proposer")
-
+  debugEcho "check 5"
   # [IGNORE] The sidecar's block's parent (defined by
   # `block_header.parent_root`) has been seen (via both gossip and
   # non-gossip sources) (a client MAY queue sidecars for processing
@@ -542,7 +545,7 @@ proc validateDataColumnSidecar*(
     else:
       quarantine[].addMissing(block_header.parent_root)
       return errIgnore("DataColumnSidecar: parent not found")
-
+  debugEcho "check 6"
   # [REJECT] The sidecar is proposed by the expected `proposer_index`
   # for the block's slot in the context of the current shuffling
   # (defined by `block_header.parent_root`/`block_header.slot`).
@@ -551,12 +554,12 @@ proc validateDataColumnSidecar*(
   # for the block's branch are calculated -- in such a case do not
   # REJECT, instead IGNORE this message.
   let proposer = getProposer(dag, parent, block_header.slot).valueOr:
-    warn "cannot compute proposer for blob"
+    warn "cannot compute proposer for data column"
     return errIgnore("DataColumnSidecar: Cannot compute proposer") # internal issue
 
   if uint64(proposer) != block_header.proposer_index:
     return dag.checkedReject("DataColumnSidecar: Unexpected proposer")
-
+  debugEcho "check 7"
   # [REJECT] The proposer signature of `blob_sidecar.signed_block_header`,
   # is valid with respect to the `block_header.proposer_index` pubkey.
   if not verify_block_signature(
@@ -567,7 +570,7 @@ proc validateDataColumnSidecar*(
       dag.validatorKey(proposer).get(),
       data_column_sidecar.signed_block_header.signature):
     return dag.checkedReject("DataColumnSidecar: Invalid proposer signature")
-
+  debugEcho "check 8"
   # [REJECT] The sidecar's `kzg_commitments` inclusion proof is valid as verified by
   # `verify_data_column_sidecar_inclusion_proof(sidecar)`.
   # block:
@@ -584,9 +587,9 @@ proc validateDataColumnSidecar*(
 
   # # [REJECT] The sidecar is from a higher slot than the sidecar's
   # # block's parent (defined by `block_header.parent_root`).
-  # if not (block_header.slot > parent.bid.slot):
-  #   return dag.checkedReject("DataColumnSidecar: slot lower than parents'")
-
+  if not (block_header.slot > parent.bid.slot):
+    return dag.checkedReject("DataColumnSidecar: slot lower than parents'")
+  debugEcho "check 9"
   # [REJECT] The current finalized_checkpoint is an ancestor of the sidecar's
   # block -- i.e. `get_checkpoint_block(store, block_header.parent_root,
   # store.finalized_checkpoint.epoch) == store.finalized_checkpoint.root`.
@@ -605,7 +608,7 @@ proc validateDataColumnSidecar*(
     quarantine[].addUnviable(block_root)
     return dag.checkedReject(
       "DataColumnSidecar: Finalized checkpoint not an ancestor")
-
+  debugEcho "check 10"
   ok()
 
 
