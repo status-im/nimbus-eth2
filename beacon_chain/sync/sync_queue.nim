@@ -133,6 +133,28 @@ proc getShortMap*[T](req: SyncRequest[T],
       res.add('|')
   res
 
+proc getShortMap*[T](req: SyncRequest[T],
+                     data: openArray[ref DataColumnSidecar]): string =
+  # Returns all slot numbers in ``data`` as a placement map
+  var
+    res = newStringOfCap(req.count * MAX_BLOBS_PER_BLOCK)
+    cur: uint64 = 0
+  for slot in req.slot..<req.slot+req.count:
+    if cur >= lenu64(data):
+      res.add('|')
+      continue
+    if slot == data[cur].signed_block_header.message.slot:
+      for k in cur..<cur+MAX_BLOBS_PER_BLOCK:
+        if k >= lenu64(data) or slot != data[k].signed_block_header.message.slot:
+          res.add('|')
+          break
+        else:
+          inc(cur)
+          res.add('|')
+    else:
+      res.add('|')
+  res
+
 proc contains*[T](req: SyncRequest[T], slot: Slot): bool {.inline.} =
   slot >= req.slot and slot < req.slot + req.count
 
