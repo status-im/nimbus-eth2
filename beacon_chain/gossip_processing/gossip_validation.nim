@@ -504,10 +504,10 @@ proc validateDataColumnSidecar*(
 
   # [REJECT] The sidecar is for the correct subnet 
   # -- i.e. `compute_subnet_for_data_column_sidecar(blob_sidecar.index) == subnet_id`.
-  if not (compute_subnet_for_data_column_sidecar(data_column_sidecar.index) == subnet_id):
-    return dag.checkedReject("DataColumnSidecar: The sidecar is not for the correct subnet")
+  # if not (compute_subnet_for_data_column_sidecar(data_column_sidecar.index) == subnet_id):
+  #   return dag.checkedReject("DataColumnSidecar: The sidecar is not for the correct subnet")
 
-  debugEcho "check 2"
+  # debugEcho "check 2"
   # [IGNORE] The sidecar is not from a future slot (with a `MAXIMUM_GOSSIP_CLOCK_DISPARITY` allowance)
   # -- i.e. validate that `block_header.slot <= current_slot` (a client MAY queue future sidecars for 
   # processing at the appropriate slot).
