@@ -12,6 +12,7 @@ import
   std/json,
   yaml,
   kzg4844/kzg_ex,
+  ../../../vendor/nimpeerdaskzg/nim_peerdas_kzg/nim_peerdas_kzg,
   stint,
   chronicles,
   stew/[byteutils, results],
@@ -39,7 +40,10 @@ func fromHex[N: static int](s: string): Opt[array[N, byte]] =
   except ValueError:
     Opt.none array[N, byte]
 
+var ctx: nim_peerdas_kzg.KZGCtx
+
 block:
+  ctx = newKZGCtx()
   template sourceDir: string = currentSourcePath.rsplit(DirSep, 1)[0]
   doAssert Kzg.loadTrustedSetup(
     sourceDir &
@@ -61,10 +65,13 @@ proc runBlobToKzgCommitmentTest(suiteName, suitePath, path: string) =
       check output.kind == JNull
     else:
       let commitment = blobToKzgCommitment(blob.get)
+      # var blobObject = Blob(bytes: blob.get)
+      # let commitment = ctx.blobToKzgCommitment(blobObject)
       check:
         if commitment.isErr:
           output.kind == JNull
         else:
+          # commitment.get.bytes == fromHex[48](output.getStr).get
           commitment.get == fromHex[48](output.getStr).get
 
 proc runVerifyKzgProofTest(suiteName, suitePath, path: string) =
