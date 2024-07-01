@@ -579,7 +579,7 @@ proc syncStep[A, B](man: SyncManager[A, B], index: int, peer: A)
                                  request = req
           return
       let groupedDataColumns = groupDataColumns(req, blockData, dataColumnData)
-      if groupedDataColumns.isErr:
+      if groupedDataColumns.isErr():
         peer.updateScore(PeerScoreNoValues)
         man.queue.push(req)
         # info "Received data columns is inconsistent",
