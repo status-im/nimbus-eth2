@@ -1366,7 +1366,8 @@ proc containsBlock*(
 
 proc containsBlock*[
     X: altair.TrustedSignedBeaconBlock | bellatrix.TrustedSignedBeaconBlock |
-       capella.TrustedSignedBeaconBlock | deneb.TrustedSignedBeaconBlock](
+       capella.TrustedSignedBeaconBlock | deneb.TrustedSignedBeaconBlock |
+       electra.TrustedSignedBeaconBlock](
     db: BeaconChainDB, key: Eth2Digest, T: type X): bool =
   db.blocks[X.kind].contains(key.data).expectDb()
 
