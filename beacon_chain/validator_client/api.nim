@@ -25,6 +25,10 @@ const
   ResponseECNotInSyncError* = "Execution client not in sync"
   ResponseNotImplementedError =
     "Received endpoint not implemented error response"
+  ResponseSSZNotSupportedError =
+    "Content type 'application/octet-stream' (SSZ encoding) not supported"
+  ResponseJSONNotSupportedError =
+    "Content type 'application/json' (JSON encoding) not supported"
 
 type
   ApiResponse*[T] = Result[T, string]
@@ -47,6 +51,9 @@ type
     node*: BeaconNodeServerRef
     data*: ApiResponse[T]
     score*: X
+
+  PublishBlockStrategy* {.pure.} = enum
+    JsonV1, SszV1, JsonV2, SszV2
 
 const
   ViableNodeStatus* = {
@@ -2213,6 +2220,102 @@ proc produceBlockV3*(
     raise (ref ValidatorApiError)(
       msg: "Failed to produce block", data: failures)
 
+proc selectStrategy(node: BeaconNodeServerRef): PublishBlockStrategy =
+  if RestBeaconNodeFeature.NoPublishBlockV2 in node.features:
+    if RestBeaconNodeFeature.NoSszPublishBlock in node.features:
+      PublishBlockStrategy.JsonV1
+    else:
+      PublishBlockStrategy.SszV1
+  else:
+    if RestBeaconNodeFeature.NoSszPublishBlockV2 in node.features:
+      PublishBlockStrategy.JsonV2
+    else:
+      PublishBlockStrategy.SszV2
+
+proc adjustStrategy(node: BeaconNodeServerRef,
+                    kind: PublishBlockStrategy): ApiResponse[bool] =
+  case kind
+  of PublishBlockStrategy.SszV2:
+    node.features.incl(NoSszPublishBlockV2)
+    ApiResponse[bool].err(ResponseSSZNotSupportedError)
+  of PublishBlockStrategy.JsonV2:
+    node.features.incl(NoPublishBlockV2)
+    ApiResponse[bool].err(ResponseJSONNotSupportedError)
+  of PublishBlockStrategy.SszV1:
+    node.features.incl(NoSszPublishBlock)
+    ApiResponse[bool].err(ResponseSSZNotSupportedError)
+  of PublishBlockStrategy.JsonV1:
+    ApiResponse[bool].err(ResponseJSONNotSupportedError)
+
+proc publishBlockWithStrategy*(
+    node: BeaconNodeServerRef,
+    blck: RestPublishedSignedBlockContents
+): Future[RestPlainResponse] =
+  let strategy = node.selectStrategy()
+  withForkyBlck(blck):
+    when consensusFork < ConsensusFork.Deneb:
+      case strategy
+      of PublishBlockStrategy.JsonV1:
+        publishBlock(node.client, forkyBlck)
+      of PublishBlockStrategy.SszV1:
+        publishBlock(
+          node.client, forkyBlck,
+          restContentType = $OctetStreamMediaType,
+          extraHeaders = @[("eth-consensus-version", $consensusFork)])
+      of PublishBlockStrategy.JsonV2:
+        publishBlockV2(
+          node.client, forkyBlck,
+          extraHeaders = @[("eth-consensus-version", $consensusFork),
+                           ("broadcast_validation", "gossip")])
+      of PublishBlockStrategy.SszV2:
+        publishBlockV2(
+          node.client, forkyBlck,
+          restContentType = $OctetStreamMediaType,
+          extraHeaders = @[("eth-consensus-version", $consensusFork),
+                           ("broadcast_validation", "gossip")])
+    elif consensusFork == ConsensusFork.Deneb:
+      case strategy
+      of PublishBlockStrategy.JsonV1:
+        publishBlock(node.client, blck.denebData)
+      of PublishBlockStrategy.SszV1:
+        publishBlock(
+          node.client, blck.denebData,
+          restContentType = $OctetStreamMediaType,
+          extraHeaders = @[("eth-consensus-version", $consensusFork)])
+      of PublishBlockStrategy.JsonV2:
+        publishBlockV2(
+          node.client, blck.denebData,
+          extraHeaders = @[("eth-consensus-version", $consensusFork),
+                           ("broadcast_validation", "gossip")])
+      of PublishBlockStrategy.SszV2:
+        publishBlockV2(
+          node.client, blck.denebData,
+          restContentType = $OctetStreamMediaType,
+          extraHeaders = @[("eth-consensus-version", $consensusFork),
+                           ("broadcast_validation", "gossip")])
+    elif consensusFork == ConsensusFork.Electra:
+      case strategy
+      of PublishBlockStrategy.JsonV1:
+        publishBlock(node.client, blck.electraData)
+      of PublishBlockStrategy.SszV1:
+        publishBlock(
+          node.client, blck.electraData,
+          restContentType = $OctetStreamMediaType,
+          extraHeaders = @[("eth-consensus-version", $consensusFork)])
+      of PublishBlockStrategy.JsonV2:
+        publishBlockV2(
+          node.client, blck.electraData,
+          extraHeaders = @[("eth-consensus-version", $consensusFork),
+                           ("broadcast_validation", "gossip")])
+      of PublishBlockStrategy.SszV2:
+        publishBlockV2(
+          node.client, blck.electraData,
+          restContentType = $OctetStreamMediaType,
+          extraHeaders = @[("eth-consensus-version", $consensusFork),
+                           ("broadcast_validation", "gossip")])
+    else:
+      raiseAssert "Consensus fork " & $consensusFork & " not supported"
+
 proc publishBlock*(
        vc: ValidatorClientRef,
        data: RestPublishedSignedBlockContents,
@@ -2231,21 +2334,8 @@ proc publishBlock*(
                               bool,
                               SlotDuration,
                               ViableNodeStatus,
-                              {BeaconNodeRole.BlockProposalPublish}):
-        case data.kind
-        of ConsensusFork.Phase0:
-          publishBlock(it, data.phase0Data)
-        of ConsensusFork.Altair:
-          publishBlock(it, data.altairData)
-        of ConsensusFork.Bellatrix:
-          publishBlock(it, data.bellatrixData)
-        of ConsensusFork.Capella:
-          publishBlock(it, data.capellaData)
-        of ConsensusFork.Deneb:
-          publishBlock(it, data.denebData)
-        of ConsensusFork.Electra:
-          publishBlock(it, data.electraData)
-      do:
+                              {BeaconNodeRole.BlockProposalPublish},
+                              publishBlockWithStrategy(node, data)):
         if apiResponse.isErr():
           handleCommunicationError()
           ApiResponse[bool].err(apiResponse.error)
@@ -2261,6 +2351,23 @@ proc publishBlock*(
           of 400:
             handle400()
             ApiResponse[bool].err(ResponseInvalidError)
+          of 404:
+            if node.selectStrategy() in {PublishBlockStrategy.JsonV2,
+                                         PublishBlockStrategy.SszV2}:
+              node.features.incl(NoPublishBlockV2)
+              ApiResponse[bool].err(
+                "publishBlockV2() not supported by beacon node")
+            else:
+              handle400()
+              ApiResponse[bool].err(
+                "publishBlockV1() not supported by beacon node")
+          of 415:
+            let
+              kind = node.selectStrategy()
+              aresp = node.adjustStrategy(kind)
+            if kind == PublishBlockStrategy.JsonV1:
+              handle400()
+            aresp
           of 500:
             handle500()
             ApiResponse[bool].err(ResponseInternalError)
@@ -2279,22 +2386,8 @@ proc publishBlock*(
     vc.firstSuccessSequential(RestPlainResponse,
                               SlotDuration,
                               ViableNodeStatus,
-                              {BeaconNodeRole.BlockProposalPublish}):
-      case data.kind
-      of ConsensusFork.Phase0:
-        publishBlock(it, data.phase0Data)
-      of ConsensusFork.Altair:
-        publishBlock(it, data.altairData)
-      of ConsensusFork.Bellatrix:
-        publishBlock(it, data.bellatrixData)
-      of ConsensusFork.Capella:
-        publishBlock(it, data.capellaData)
-      of ConsensusFork.Deneb:
-        publishBlock(it, data.denebData)
-      of ConsensusFork.Electra:
-        publishBlock(it, data.electraData)
-
-    do:
+                              {BeaconNodeRole.BlockProposalPublish},
+                              publishBlockWithStrategy(node, data)):
       if apiResponse.isErr():
         handleCommunicationError()
         false
@@ -2309,6 +2402,20 @@ proc publishBlock*(
           return true
         of 400:
           handle400()
+          false
+        of 404:
+          if node.selectStrategy() in {PublishBlockStrategy.JsonV2,
+                                       PublishBlockStrategy.SszV2}:
+            node.features.incl(NoPublishBlockV2)
+          else:
+            handle400()
+          false
+        of 415:
+          let
+            kind = node.selectStrategy()
+          discard node.adjustStrategy(kind)
+          if kind == PublishBlockStrategy.JsonV1:
+            handle400()
           false
         of 500:
           handle500()
