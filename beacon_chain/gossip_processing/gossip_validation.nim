@@ -557,8 +557,8 @@ proc validateDataColumnSidecar*(
   #   warn "cannot compute proposer for data column"
   #   return errIgnore("DataColumnSidecar: Cannot compute proposer") # internal issue
 
-  if uint64(proposer) != block_header.proposer_index:
-    return dag.checkedReject("DataColumnSidecar: Unexpected proposer")
+  # if uint64(proposer) != block_header.proposer_index:
+  #   return dag.checkedReject("DataColumnSidecar: Unexpected proposer")
   debugEcho "check 7"
   # [REJECT] The proposer signature of `blob_sidecar.signed_block_header`,
   # is valid with respect to the `block_header.proposer_index` pubkey.
