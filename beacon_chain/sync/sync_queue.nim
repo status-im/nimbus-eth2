@@ -651,6 +651,7 @@ func numAlreadyKnownSlots[T](sq: SyncQueue[T], sr: SyncRequest[T]): uint64 =
 proc push*[T](sq: SyncQueue[T], sr: SyncRequest[T],
               data: seq[ref ForkedSignedBeaconBlock],
               blobs: Opt[seq[BlobSidecars]],
+              data_columns: Opt[seq[DataColumnSidecars]],
               maybeFinalized: bool = false,
               processingCb: ProcessingCallback = nil) {.async: (raises: [CancelledError]).} =
   logScope:
@@ -678,7 +679,7 @@ proc push*[T](sq: SyncQueue[T], sr: SyncRequest[T],
         # SyncQueue reset happens. We are exiting to wake up sync-worker.
         return
     else:
-      let syncres = SyncResult[T](request: sr, data: data, blobs: blobs)
+      let syncres = SyncResult[T](request: sr, data: data, blobs: blobs, data_columns: data_columns)
       sq.readyQueue.push(syncres)
       break
 
@@ -758,6 +759,37 @@ proc push*[T](sq: SyncQueue[T], sr: SyncRequest[T],
                   blocks_map = getShortMap(req, item.data)
           req.item.updateScore(PeerScoreBadValues)
           break
+    
+    var counter = 0
+    for blk, col in sq.das_blocks(item):
+      res = await sq.blockVerifier(blk[], Opt.none(BlobSidecars), col, maybeFinalized)
+      inc i
+
+      if res.isOk:
+        goodBlock = some(blk[].slot)
+      else:
+        case res.error()
+        of VerifierError.MissingParent:
+          missingParentSlot = some(blk[].slot)
+          break
+        of VerifierError.Duplicate:
+          # Keep going, happens naturally
+          discard
+        of VerifierError.UnviableFork:
+          # Keep going so as to register other unviable blocks with the
+          # quarantine
+          if unviableBlock.isNone:
+            # Remember the first unviable block, so we can log it
+            unviableBlock = some((blk[].root, blk[].slot))
+        
+        of VerifierError.Invalid:
+          hasInvalidBlock = true
+
+          let req = item.request
+          notice "Received invalid sequence of blocks", request = req,
+                  blocks_count = len(item.data),
+                  blocks_map = getShortMap(req, item.data)
+          req.item.updateScore(PeerScoreBadValues)
 
     # When errors happen while processing blocks, we retry the same request
     # with, hopefully, a different peer
