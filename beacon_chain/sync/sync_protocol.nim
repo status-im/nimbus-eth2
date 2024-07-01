@@ -436,7 +436,7 @@ p2pProtocol BeaconSync(version = 1,
       peer, roots = columnIds.len, count, found
 
   # https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.2/specs/_features/eip7594/p2p-interface.md#datacolumnsidecarsbyrange-v1
-  proc dataColumnSidecarByRange(
+  proc dataColumnSidecarsByRange(
       peer: Peer,
       startSlot: Slot,
       reqCount: uint64,

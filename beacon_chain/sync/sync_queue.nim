@@ -38,6 +38,7 @@ type
     index*: uint64
     slot*: Slot
     count*: uint64
+    columns*: List[ColumnIndex, NUMBER_OF_COLUMNS]
     item*: T
 
   SyncResult*[T] = object
