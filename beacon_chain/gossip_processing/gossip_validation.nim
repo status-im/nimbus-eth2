@@ -1132,7 +1132,6 @@ proc validateAggregate*(
     Future[Result[
       tuple[attestingIndices: seq[ValidatorIndex], sig: CookedSig],
       ValidationError]] {.async: (raises: [CancelledError]).} =
-  debugComment "is not"
   template aggregate_and_proof: untyped = signedAggregateAndProof.message
   template aggregate: untyped = aggregate_and_proof.aggregate
 

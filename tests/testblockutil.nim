@@ -172,8 +172,6 @@ proc addTestBlock*(
       cfg, state, getStateField(state, slot) + 1, cache, info, flags).expect(
         "can advance 1")
 
-  debugComment "add consolidations support to addTestBlock"
-
   let
     proposer_index = get_beacon_proposer_index(
       state, cache, getStateField(state, slot)).expect("valid proposer index")
