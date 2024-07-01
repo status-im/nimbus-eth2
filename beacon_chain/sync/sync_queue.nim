@@ -137,9 +137,8 @@ proc getShortMap*[T](req: SyncRequest[T],
 proc getShortMap*[T](req: SyncRequest[T],
                      data: openArray[ref DataColumnSidecar]): string =
   # Returns all slot numbers in ``data`` as a placement map
-  var
-    res = newStringOfCap(req.count * MAX_BLOBS_PER_BLOCK)
-    cur: uint64 = 0
+  var res = newStringOfCap(req.count * MAX_BLOBS_PER_BLOCK)
+  var cur: uint64 = 0
   for slot in req.slot..<req.slot+req.count:
     if cur >= lenu64(data):
       res.add('|')

@@ -50,6 +50,7 @@ type
     pool: PeerPool[A, B]
     DENEB_FORK_EPOCH: Epoch
     MIN_EPOCHS_FOR_BLOB_SIDECARS_REQUESTS: uint64
+    MIN_EPOCHS_FOR_DATA_COLUMN_SIDECARS_REQUESTS: uint64
     responseTimeout: chronos.Duration
     maxHeadAge: uint64
     getLocalHeadSlot: GetSlotCallback
@@ -186,7 +187,7 @@ proc shouldGetBlobs[A, B](man: SyncManager[A, B], e: Epoch): bool =
 proc shouldGetDataColumns[A, B](man: SyncManager[A, B], e: Epoch): bool =
   let wallEpoch = man.getLocalWallSlot().epoch
   e >= man.DENEB_FORK_EPOCH and
-  (wallEpoch < man.MIN_EPOCHS_FOR_DATA_COLUMN_SIDECARS_REQUEST or
+  (wallEpoch < man.MIN_EPOCHS_FOR_DATA_COLUMN_SIDECARS_REQUESTS or
   e >= wallEpoch - man.MIN_EPOCHS_FOR_DATA_COLUMN_SIDECARS_REQUESTS)
 
 proc getBlobSidecars[A, B](man: SyncManager[A, B], peer: A,
@@ -541,7 +542,7 @@ proc syncStep[A, B](man: SyncManager[A, B], index: int, peer: A)
       Opt.none(seq[BlobSidecars])
 
   let shouldGetDataColumns =
-    if not man.shouldGetBlobs(req.slot.epoch):
+    if not man.shouldGetDataColumns(req.slot.epoch):
       false
     else:
       var hasColumns = false
@@ -556,7 +557,7 @@ proc syncStep[A, B](man: SyncManager[A, B], index: int, peer: A)
   let dataColumnData =
     if shouldGetDataColumns:
       let data_columns = await man.getDataColumnSidecars(peer, req)
-      if data_columns.isErr:
+      if data_columns.isErr():
         peer.updateScore(PeerScoreNoValues)
         man.queue.push(req)
         debug "Failed to receive data columns on request",
@@ -575,15 +576,14 @@ proc syncStep[A, B](man: SyncManager[A, B], index: int, peer: A)
           man.queue.push(req)
           warn "Received data columns sequence is not in requested range",
             data_columns_count = len(dataColumnData), data_columns_map = getShortMap(req, dataColumnData),
-            request = req
-
+                                 request = req
           return
       let groupedDataColumns = groupDataColumns(req, blockData, dataColumnData)
       if groupedDataColumns.isErr:
         peer.updateScore(PeerScoreNoValues)
         man.queue.push(req)
-        info "Received data columns is inconsistent",
-          data_columns_map = getShortMap(req, dataColumnData), request = req, msg=groupedDataColumns.error()
+        # info "Received data columns is inconsistent",
+        #   data_columns_map = getShortMap(req, dataColumnData), request = req, msg=groupedDataColumns.error()
         return
       if (let checkRes = groupedDataColumns.get.checkDataColumns(); checkRes.isErr):
         peer.updateScore(PeerScoreBadResponse)
