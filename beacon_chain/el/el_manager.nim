@@ -513,8 +513,7 @@ func asConsensusType*(rpcExecutionPayload: ExecutionPayloadV4):
   template getWithdrawalRequest(wr: WithdrawalRequestV1): WithdrawalRequest =
     WithdrawalRequest(
       source_address: ExecutionAddress(data: wr.sourceAddress.distinctBase),
-      validator_pubkey: ValidatorPubKey(
-        blob: wr.validatorPublicKey.distinctBase),
+      validator_pubkey: ValidatorPubKey(blob: wr.validatorPubkey.distinctBase),
       amount: wr.amount.Gwei)
 
   template getConsolidationRequest(cr: ConsolidationRequestV1):
@@ -667,7 +666,7 @@ func asEngineExecutionPayload*(executionPayload: electra.ExecutionPayload):
   template getWithdrawalRequest(wr: WithdrawalRequest): WithdrawalRequestV1 =
     WithdrawalRequestV1(
       sourceAddress: Address(wr.source_address.data),
-      validatorPublicKey: FixedBytes[RawPubKeySize](wr.validator_pubkey.blob),
+      validatorPubkey: FixedBytes[RawPubKeySize](wr.validator_pubkey.blob),
       amount: wr.amount.Quantity)
 
   template getConsolidationRequest(cr: ConsolidationRequest):
