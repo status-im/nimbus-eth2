@@ -64,15 +64,13 @@ proc runBlobToKzgCommitmentTest(suiteName, suitePath, path: string) =
     if blob.isNone:
       check output.kind == JNull
     else:
-      let commitment = blobToKzgCommitment(blob.get)
-      # var blobObject = Blob(bytes: blob.get)
-      # let commitment = ctx.blobToKzgCommitment(blobObject)
+      var blobObject = Blob(bytes: blob.get)
+      let commitment = ctx.blobToKzgCommitment(blobObject)
       check:
         if commitment.isErr:
           output.kind == JNull
         else:
-          # commitment.get.bytes == fromHex[48](output.getStr).get
-          commitment.get == fromHex[48](output.getStr).get
+          commitment.get.bytes == fromHex[48](output.getStr).get
 
 proc runVerifyKzgProofTest(suiteName, suitePath, path: string) =
   let relativePathComponent = path.relativeTestPathComponent(suitePath)
