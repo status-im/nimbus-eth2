@@ -1322,7 +1322,7 @@ proc ETHExecutionBlockHeaderCreateFromJson(
     var tr = initHexaryTrie(newMemoryDB())
     for i, wd in wds:
       try:
-        tr.put(rlp.encode(i), wd.bytes)
+        tr.put(rlp.encode(i.uint), wd.bytes)
       except RlpError:
         raiseAssert "Unreachable"
     if tr.rootHash() != data.withdrawalsRoot.get.asEth2Digest:
@@ -1632,7 +1632,7 @@ proc ETHTransactionsCreateFromJson(
   var tr = initHexaryTrie(newMemoryDB())
   for i, transaction in txs:
     try:
-      tr.put(rlp.encode(i), distinctBase(transaction.bytes))
+      tr.put(rlp.encode(i.uint), distinctBase(transaction.bytes))
     except RlpError:
       raiseAssert "Unreachable"
   if tr.rootHash() != transactionsRoot[]:
@@ -2208,7 +2208,7 @@ proc ETHReceiptsCreateFromJson(
   var tr = initHexaryTrie(newMemoryDB())
   for i, rec in recs:
     try:
-      tr.put(rlp.encode(i), rec.bytes)
+      tr.put(rlp.encode(i.uint), rec.bytes)
     except RlpError:
       raiseAssert "Unreachable"
   if tr.rootHash() != receiptsRoot[]:

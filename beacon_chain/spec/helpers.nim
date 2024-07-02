@@ -445,9 +445,10 @@ proc computeTransactionsTrieRoot*(
   var tr = initHexaryTrie(newMemoryDB())
   for i, transaction in payload.transactions:
     try:
-      tr.put(rlp.encode(i), distinctBase(transaction))  # Already RLP encoded
+      # Transactions are already RLP encoded
+      tr.put(rlp.encode(i.uint), distinctBase(transaction))
     except RlpError as exc:
-      doAssert false, "HexaryTrie.put failed: " & $exc.msg
+      raiseAssert "HexaryTrie.put failed: " & $exc.msg
   tr.rootHash()
 
 func toExecutionWithdrawal*(
@@ -468,9 +469,9 @@ proc computeWithdrawalsTrieRoot*(
   var tr = initHexaryTrie(newMemoryDB())
   for i, withdrawal in payload.withdrawals:
     try:
-      tr.put(rlp.encode(i), rlp.encode(toExecutionWithdrawal(withdrawal)))
+      tr.put(rlp.encode(i.uint), rlp.encode(toExecutionWithdrawal(withdrawal)))
     except RlpError as exc:
-      doAssert false, "HexaryTrie.put failed: " & $exc.msg
+      raiseAssert "HexaryTrie.put failed: " & $exc.msg
   tr.rootHash()
 
 proc blockToBlockHeader*(blck: ForkyBeaconBlock): ExecutionBlockHeader =
