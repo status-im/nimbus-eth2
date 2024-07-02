@@ -44,7 +44,7 @@ func fromHex[N: static int](s: string): Opt[array[N, byte]] =
     Opt.none array[N, byte]
 
 block:
-  doAssert init_kzg()
+  doAssert initKZG()
 
 proc runBlobToKzgCommitmentTest(suiteName, suitePath, path: string) =
   let relativePathComponent = path.relativeTestPathComponent(suitePath)
@@ -400,4 +400,4 @@ suite suiteName:
     for kind, path in walkDir(testsDir, relative = true, checkDir = true):
       runVerifyCellKzgProofBatchTest(suiteName, testsDir, testsDir/path)
 
-doAssert free_kzg().isOk
+doAssert freeKZG().isOk

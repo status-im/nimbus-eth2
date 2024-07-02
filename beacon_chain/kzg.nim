@@ -19,7 +19,7 @@ from std/strutils import rsplit
 
 var ctx: nim_peerdas_kzg.KZGCtx
 
-proc init_kzg*(): bool =
+proc initKZG*(): bool =
   # TODO: no compilation flag here because c-kzg does more than peerdas functionality.   
   ctx = newKZGCtx()
   template sourceDir: string = currentSourcePath.rsplit(DirSep, 1)[0]
@@ -27,7 +27,7 @@ proc init_kzg*(): bool =
     sourceDir &
       "/../vendor/nim-kzg4844/kzg4844/csources/src/trusted_setup.txt").isOk
 
-proc free_kzg*(): Result[void, string] =
+proc freeKZG*(): Result[void, string] =
   # TODO: add code to free nim_peerdas_kzg. Removed due to nim not allowing
   # TODO; the particular destory function being called.
   Kzg.freeTrustedSetup()
