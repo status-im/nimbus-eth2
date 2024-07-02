@@ -648,6 +648,21 @@ template withForkyBlck*(
     template forkyBlck: untyped {.inject, used.} = x.phase0Data
     body
 
+template shortLog*(
+  v: DenebSignedBlockContents|ElectraSignedBlockContents): auto =
+  (
+    signed_block: shortLog(v.signed_block),
+    kzg_proofs: "[" & v.kzg_proofs.mapIt(shortLog(it)).join(",") & "]",
+    blobs: "[" & v.blobs.mapIt(shortLog(it)).join(",") & "]"
+  )
+
+template shortLog*(v: RestPublishedSignedBlockContents): auto =
+  withForkyBlck(v):
+    (
+      fork: consensusFork,
+      blck: shortLog(forkyBlck)
+    )
+
 func init*(T: type ForkedSignedBeaconBlock,
            contents: RestPublishedSignedBlockContents): T =
   return
