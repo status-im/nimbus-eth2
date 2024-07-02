@@ -136,9 +136,10 @@ suite "EF - Electra - SSZ consensus objects " & preset():
           of "DepositRequest": checkSSZ(DepositRequest, path, hash)
           of "Eth1Block": checkSSZ(Eth1Block, path, hash)
           of "Eth1Data": checkSSZ(Eth1Data, path, hash)
-          of "ExecutionPayload": checkSSZ(ExecutionPayload, path, hash)
+          of "ExecutionPayload":
+            checkSSZ(electra.ExecutionPayload, path, hash)
           of "ExecutionPayloadHeader":
-            checkSSZ(ExecutionPayloadHeader, path, hash)
+            checkSSZ(electra.ExecutionPayloadHeader, path, hash)
           of "Fork": checkSSZ(Fork, path, hash)
           of "ForkData": checkSSZ(ForkData, path, hash)
           of "HistoricalBatch": checkSSZ(HistoricalBatch, path, hash)
@@ -146,8 +147,10 @@ suite "EF - Electra - SSZ consensus objects " & preset():
           of "IndexedAttestation": checkSSZ(electra.IndexedAttestation, path, hash)
           of "LightClientBootstrap":
             checkSSZ(electra.LightClientBootstrap, path, hash)
-          of "LightClientHeader": checkSSZ(electra.LightClientHeader, path, hash)
-          of "LightClientUpdate": checkSSZ(electra.LightClientUpdate, path, hash)
+          of "LightClientHeader":
+            checkSSZ(electra.LightClientHeader, path, hash)
+          of "LightClientUpdate":
+            checkSSZ(electra.LightClientUpdate, path, hash)
           of "LightClientFinalityUpdate":
             checkSSZ(electra.LightClientFinalityUpdate, path, hash)
           of "LightClientOptimisticUpdate":
