@@ -11,13 +11,16 @@
 import
   std/json,
   yaml,
-  kzg4844/kzg_ex,
-  ../../../vendor/nimpeerdaskzg/nim_peerdas_kzg/nim_peerdas_kzg,
+  ../../../beacon_chain/kzg,
   stint,
   chronicles,
   stew/[byteutils, results],
   ../testutil,
   ./fixtures_utils, ./os_ops
+
+# TODO: don't import blobToKzgCommitment since we 
+# TODO: are using the beacon_chain/kzg module for it
+import kzg4844/kzg_ex except blobToKzgCommitment
 
 from std/sequtils import anyIt, mapIt, toSeq
 from std/strutils import rsplit
@@ -40,14 +43,8 @@ func fromHex[N: static int](s: string): Opt[array[N, byte]] =
   except ValueError:
     Opt.none array[N, byte]
 
-var ctx: nim_peerdas_kzg.KZGCtx
-
 block:
-  ctx = newKZGCtx()
-  template sourceDir: string = currentSourcePath.rsplit(DirSep, 1)[0]
-  doAssert Kzg.loadTrustedSetup(
-    sourceDir &
-      "/../../vendor/nim-kzg4844/kzg4844/csources/src/trusted_setup.txt").isOk
+  doAssert init_kzg()
 
 proc runBlobToKzgCommitmentTest(suiteName, suitePath, path: string) =
   let relativePathComponent = path.relativeTestPathComponent(suitePath)
@@ -64,19 +61,12 @@ proc runBlobToKzgCommitmentTest(suiteName, suitePath, path: string) =
     if blob.isNone:
       check output.kind == JNull
     else:
-      when defined(USE_NIMPEERDAS_KZG):
-        var blobObject = Blob(bytes: blob.get)
-        let commitment = ctx.blobToKzgCommitment(blobObject)
-      else:
-        let commitment = blobToKzgCommitment(blob.get)
+      let commitment = blobToKzgCommitment(blob.get)
       check:
         if commitment.isErr:
           output.kind == JNull
         else:
-          when defined(USE_NIMPEERDAS_KZG):
-            commitment.get.bytes == fromHex[48](output.getStr).get
-          else:
-            commitment.get == fromHex[48](output.getStr).get
+          commitment.get == fromHex[48](output.getStr).get
 
 proc runVerifyKzgProofTest(suiteName, suitePath, path: string) =
   let relativePathComponent = path.relativeTestPathComponent(suitePath)
@@ -410,4 +400,4 @@ suite suiteName:
     for kind, path in walkDir(testsDir, relative = true, checkDir = true):
       runVerifyCellKzgProofBatchTest(suiteName, testsDir, testsDir/path)
 
-doAssert Kzg.freeTrustedSetup().isOk
+doAssert free_kzg().isOk
