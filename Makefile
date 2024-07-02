@@ -152,7 +152,7 @@ GIT_SUBMODULE_UPDATE := git $(GIT_SUBMODULE_CONFIG) submodule update --init --re
 else # "variables.mk" was included. Business as usual until the end of this file.
 
 # default target, because it's the first one that doesn't start with '.'
-all: | $(TOOLS) libnfuzz.so libnfuzz.a $(PLATFORM_SPECIFIC_TARGETS)
+all: | $(TOOLS) libnfuzz.so libnfuzz.a $(PLATFORM_SPECIFIC_TARGETS) build-rust-peerdas-kzg
 
 # must be included after the default target
 -include $(BUILD_SYSTEM_DIR)/makefiles/targets.mk
@@ -391,7 +391,7 @@ block_sim: | build deps
 
 DISABLE_TEST_FIXTURES_SCRIPT := 0
 # This parameter passing scheme is ugly, but short.
-test: | $(XML_TEST_BINARIES) $(TEST_BINARIES)
+test: | $(XML_TEST_BINARIES) $(TEST_BINARIES) test-rust-peerdas-kzg
 ifeq ($(DISABLE_TEST_FIXTURES_SCRIPT), 0)
 	V=$(V) scripts/setup_scenarios.sh
 endif
@@ -606,6 +606,13 @@ define CLEAN_NETWORK
 	rm -rf build/data/shared_$(1)*/*.log
 endef
 
+# Build the rust peerdas-kzg library
+build-rust-peerdas-kzg:
+	@./build_peerdas_lib.sh vendor/nimpeerdaskzg
+test-rust-peerdas-kzg: # | build deps
+	+ echo -e $(BUILD_MSG) "Running KZG fixture test" && \
+		$(ENV_SCRIPT) nim c -r -d:USE_NIMPEERDAS_KZG tests/consensus_spec/test_fixture_kzg.nim && \
+		echo -e $(BUILD_END_MSG) "KZG fixture test completed"
 ###
 ### Sepolia
 ###
