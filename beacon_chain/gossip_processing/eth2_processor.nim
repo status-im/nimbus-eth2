@@ -252,24 +252,24 @@ proc processSignedBeaconBlock*(
     # propagation of seemingly good blocks
     trace "Block validated"
 
-    let blobs =
-      when typeof(signedBlock).kind >= ConsensusFork.Deneb:
-        if self.blobQuarantine[].hasBlobs(signedBlock):
-          Opt.some(self.blobQuarantine[].popBlobs(signedBlock.root, signedBlock))
-        else:
-          discard self.quarantine[].addBlobless(self.dag.finalizedHead.slot,
-                                                signedBlock)
-          return v
-      else:
-        Opt.none(BlobSidecars)
+    # let blobs =
+    #   when typeof(signedBlock).kind >= ConsensusFork.Deneb:
+    #     if self.blobQuarantine[].hasBlobs(signedBlock):
+    #       Opt.some(self.blobQuarantine[].popBlobs(signedBlock.root, signedBlock))
+    #     else:
+    #       discard self.quarantine[].addBlobless(self.dag.finalizedHead.slot,
+    #                                             signedBlock)
+    #       return v
+    #   else:
+    #     Opt.none(BlobSidecars)
 
-    self.blockProcessor[].enqueueBlock(
-      src, ForkedSignedBeaconBlock.init(signedBlock),
-      blobs,
-      Opt.none(DataColumnSidecars),
-      maybeFinalized = maybeFinalized,
-      validationDur = nanoseconds(
-        (self.getCurrentBeaconTime() - wallTime).nanoseconds))
+    # self.blockProcessor[].enqueueBlock(
+    #   src, ForkedSignedBeaconBlock.init(signedBlock),
+    #   blobs,
+    #   Opt.none(DataColumnSidecars),
+    #   maybeFinalized = maybeFinalized,
+    #   validationDur = nanoseconds(
+    #     (self.getCurrentBeaconTime() - wallTime).nanoseconds))
 
     let data_columns =
       when typeof(signedBlock).kind >= ConsensusFork.Deneb:
