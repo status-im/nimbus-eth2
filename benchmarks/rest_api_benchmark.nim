@@ -1,3 +1,12 @@
+# beacon_chain
+# Copyright (c) 2022-2024 Status Research & Development GmbH
+# Licensed and distributed under either of
+#   * MIT license (license terms in the root directory or at https://opensource.org/licenses/MIT).
+#   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
+# at your option. This file may not be copied, modified, or distributed except according to those terms.
+
+{.push raises: [].}
+
 import
   chronicles, chronicles/[topics_registry, timings],
   confutils, confutils/std/net,
@@ -6,11 +15,11 @@ import
 type
   Config = object
     serverIpAddress {.
-      defaultValue: ValidIpAddress.init("127.0.0.1")
+      defaultValue: static(parseIpAddress("127.0.0.1"))
       defaultValueDesc: "127.0.0.1"
       desc: "IP address of the beacon node's REST server"
       abbr: "a"
-      name: "address" }: ValidIpAddress
+      name: "address" }: IpAddress
 
     serverPort {.
       defaultValue: 5052
@@ -29,7 +38,7 @@ type
       abbr: "n"
       name: "count" }: uint
 
-proc main =
+proc main() {.raises: [ConfigurationError, HttpError, OSError].} =
   let config = Config.load
   let serverAddress = initTAddress(config.serverIpAddress, config.serverPort)
   let client = RestClientRef.new(serverAddress)
@@ -43,10 +52,10 @@ proc main =
       info.logTime(apiName):
         for slot in config.startSlot ..< (config.startSlot + config.requestsCount):
           let ident = StateIdent(kind: StateQueryKind.Slot, slot: slot.Slot)
-          discard waitFor client.`apiNameIdent`(ident)
+          discard waitFor noCancel client.`apiNameIdent`(ident)
 
   benchmark(getStateRoot)
-  benchmark(getStateFork)
+  benchmark(getStateForkPlain)
   benchmark(getStateFinalityCheckpoints)
   benchmark(getStateValidatorBalances)
 

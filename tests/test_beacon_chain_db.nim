@@ -100,6 +100,13 @@ func withDigest(blck: deneb.TrustedBeaconBlock):
     root: hash_tree_root(blck)
   )
 
+func withDigest(blck: electra.TrustedBeaconBlock):
+    electra.TrustedSignedBeaconBlock =
+  electra.TrustedSignedBeaconBlock(
+    message: blck,
+    root: hash_tree_root(blck)
+  )
+
 proc getTestStates(consensusFork: ConsensusFork): auto =
   let
     db = makeTestDB(SLOTS_PER_EPOCH)
@@ -113,7 +120,7 @@ proc getTestStates(consensusFork: ConsensusFork): auto =
 
   testStates
 
-debugComment "add some electra states, and test electra state/block loading/etc"
+debugComment "add some electra states, and test electra state loading/etc"
 
 # Each set of states gets used twice, so scope them to module
 let
@@ -153,6 +160,7 @@ suite "Beacon chain DB" & preset():
       not db.containsBlock(root, bellatrix.TrustedSignedBeaconBlock)
       not db.containsBlock(root, capella.TrustedSignedBeaconBlock)
       not db.containsBlock(root, deneb.TrustedSignedBeaconBlock)
+      not db.containsBlock(root, electra.TrustedSignedBeaconBlock)
       db.getBlock(root, phase0.TrustedSignedBeaconBlock).get() == signedBlock
       db.getBlockSSZ(root, tmp, phase0.TrustedSignedBeaconBlock)
       db.getBlockSZ(root, tmp2, phase0.TrustedSignedBeaconBlock)
@@ -168,6 +176,7 @@ suite "Beacon chain DB" & preset():
       not db.containsBlock(root, bellatrix.TrustedSignedBeaconBlock)
       not db.containsBlock(root, capella.TrustedSignedBeaconBlock)
       not db.containsBlock(root, deneb.TrustedSignedBeaconBlock)
+      not db.containsBlock(root, electra.TrustedSignedBeaconBlock)
       db.getBlock(root, phase0.TrustedSignedBeaconBlock).isErr()
       not db.getBlockSSZ(root, tmp, phase0.TrustedSignedBeaconBlock)
       not db.getBlockSZ(root, tmp2, phase0.TrustedSignedBeaconBlock)
@@ -200,6 +209,7 @@ suite "Beacon chain DB" & preset():
       not db.containsBlock(root, bellatrix.TrustedSignedBeaconBlock)
       not db.containsBlock(root, capella.TrustedSignedBeaconBlock)
       not db.containsBlock(root, deneb.TrustedSignedBeaconBlock)
+      not db.containsBlock(root, electra.TrustedSignedBeaconBlock)
       db.getBlock(root, altair.TrustedSignedBeaconBlock).get() == signedBlock
       db.getBlockSSZ(root, tmp, altair.TrustedSignedBeaconBlock)
       db.getBlockSZ(root, tmp2, altair.TrustedSignedBeaconBlock)
@@ -215,6 +225,7 @@ suite "Beacon chain DB" & preset():
       not db.containsBlock(root, bellatrix.TrustedSignedBeaconBlock)
       not db.containsBlock(root, capella.TrustedSignedBeaconBlock)
       not db.containsBlock(root, deneb.TrustedSignedBeaconBlock)
+      not db.containsBlock(root, electra.TrustedSignedBeaconBlock)
       db.getBlock(root, altair.TrustedSignedBeaconBlock).isErr()
       not db.getBlockSSZ(root, tmp, altair.TrustedSignedBeaconBlock)
       not db.getBlockSZ(root, tmp2, altair.TrustedSignedBeaconBlock)
@@ -247,6 +258,7 @@ suite "Beacon chain DB" & preset():
       db.containsBlock(root, bellatrix.TrustedSignedBeaconBlock)
       not db.containsBlock(root, capella.TrustedSignedBeaconBlock)
       not db.containsBlock(root, deneb.TrustedSignedBeaconBlock)
+      not db.containsBlock(root, electra.TrustedSignedBeaconBlock)
       db.getBlock(root, bellatrix.TrustedSignedBeaconBlock).get() == signedBlock
       db.getBlockSSZ(root, tmp, bellatrix.TrustedSignedBeaconBlock)
       db.getBlockSZ(root, tmp2, bellatrix.TrustedSignedBeaconBlock)
@@ -262,6 +274,7 @@ suite "Beacon chain DB" & preset():
       not db.containsBlock(root, bellatrix.TrustedSignedBeaconBlock)
       not db.containsBlock(root, capella.TrustedSignedBeaconBlock)
       not db.containsBlock(root, deneb.TrustedSignedBeaconBlock)
+      not db.containsBlock(root, electra.TrustedSignedBeaconBlock)
       db.getBlock(root, bellatrix.TrustedSignedBeaconBlock).isErr()
       not db.getBlockSSZ(root, tmp, bellatrix.TrustedSignedBeaconBlock)
       not db.getBlockSZ(root, tmp2, bellatrix.TrustedSignedBeaconBlock)
@@ -293,6 +306,7 @@ suite "Beacon chain DB" & preset():
       not db.containsBlock(root, altair.TrustedSignedBeaconBlock)
       not db.containsBlock(root, bellatrix.TrustedSignedBeaconBlock)
       not db.containsBlock(root, deneb.TrustedSignedBeaconBlock)
+      not db.containsBlock(root, electra.TrustedSignedBeaconBlock)
       db.containsBlock(root, capella.TrustedSignedBeaconBlock)
       db.getBlock(root, capella.TrustedSignedBeaconBlock).get() == signedBlock
       db.getBlockSSZ(root, tmp, capella.TrustedSignedBeaconBlock)
@@ -309,6 +323,7 @@ suite "Beacon chain DB" & preset():
       not db.containsBlock(root, bellatrix.TrustedSignedBeaconBlock)
       not db.containsBlock(root, capella.TrustedSignedBeaconBlock)
       not db.containsBlock(root, deneb.TrustedSignedBeaconBlock)
+      not db.containsBlock(root, electra.TrustedSignedBeaconBlock)
       db.getBlock(root, capella.TrustedSignedBeaconBlock).isErr()
       not db.getBlockSSZ(root, tmp, capella.TrustedSignedBeaconBlock)
       not db.getBlockSZ(root, tmp2, capella.TrustedSignedBeaconBlock)
@@ -341,6 +356,7 @@ suite "Beacon chain DB" & preset():
       not db.containsBlock(root, bellatrix.TrustedSignedBeaconBlock)
       not db.containsBlock(root, capella.TrustedSignedBeaconBlock)
       db.containsBlock(root, deneb.TrustedSignedBeaconBlock)
+      not db.containsBlock(root, electra.TrustedSignedBeaconBlock)
       db.getBlock(root, deneb.TrustedSignedBeaconBlock).get() == signedBlock
       db.getBlockSSZ(root, tmp, deneb.TrustedSignedBeaconBlock)
       db.getBlockSZ(root, tmp2, deneb.TrustedSignedBeaconBlock)
@@ -356,9 +372,59 @@ suite "Beacon chain DB" & preset():
       not db.containsBlock(root, bellatrix.TrustedSignedBeaconBlock)
       not db.containsBlock(root, capella.TrustedSignedBeaconBlock)
       not db.containsBlock(root, deneb.TrustedSignedBeaconBlock)
+      not db.containsBlock(root, electra.TrustedSignedBeaconBlock)
       db.getBlock(root, deneb.TrustedSignedBeaconBlock).isErr()
       not db.getBlockSSZ(root, tmp, deneb.TrustedSignedBeaconBlock)
       not db.getBlockSZ(root, tmp2, deneb.TrustedSignedBeaconBlock)
+
+    db.putStateRoot(root, signedBlock.message.slot, root)
+    var root2 = root
+    root2.data[0] = root.data[0] + 1
+    db.putStateRoot(root, signedBlock.message.slot + 1, root2)
+
+    check:
+      db.getStateRoot(root, signedBlock.message.slot).get() == root
+      db.getStateRoot(root, signedBlock.message.slot + 1).get() == root2
+
+    db.close()
+
+  test "sanity check Electra blocks" & preset():
+    let db = BeaconChainDB.new("", inMemory = true)
+
+    let
+      signedBlock = withDigest((electra.TrustedBeaconBlock)())
+      root = hash_tree_root(signedBlock.message)
+
+    db.putBlock(signedBlock)
+
+    var tmp, tmp2: seq[byte]
+    check:
+      db.containsBlock(root)
+      not db.containsBlock(root, phase0.TrustedSignedBeaconBlock)
+      not db.containsBlock(root, altair.TrustedSignedBeaconBlock)
+      not db.containsBlock(root, bellatrix.TrustedSignedBeaconBlock)
+      not db.containsBlock(root, capella.TrustedSignedBeaconBlock)
+      not db.containsBlock(root, deneb.TrustedSignedBeaconBlock)
+      db.containsBlock(root, electra.TrustedSignedBeaconBlock)
+      db.getBlock(root, electra.TrustedSignedBeaconBlock).get() == signedBlock
+      db.getBlockSSZ(root, tmp, electra.TrustedSignedBeaconBlock)
+      db.getBlockSZ(root, tmp2, electra.TrustedSignedBeaconBlock)
+      tmp == SSZ.encode(signedBlock)
+      tmp2 == encodeFramed(tmp)
+      uncompressedLenFramed(tmp2).isSome
+
+    check:
+      db.delBlock(ConsensusFork.Electra, root)
+      not db.containsBlock(root)
+      not db.containsBlock(root, phase0.TrustedSignedBeaconBlock)
+      not db.containsBlock(root, altair.TrustedSignedBeaconBlock)
+      not db.containsBlock(root, bellatrix.TrustedSignedBeaconBlock)
+      not db.containsBlock(root, capella.TrustedSignedBeaconBlock)
+      not db.containsBlock(root, deneb.TrustedSignedBeaconBlock)
+      not db.containsBlock(root, electra.TrustedSignedBeaconBlock)
+      db.getBlock(root, electra.TrustedSignedBeaconBlock).isErr()
+      not db.getBlockSSZ(root, tmp, electra.TrustedSignedBeaconBlock)
+      not db.getBlockSZ(root, tmp2, electra.TrustedSignedBeaconBlock)
 
     db.putStateRoot(root, signedBlock.message.slot, root)
     var root2 = root

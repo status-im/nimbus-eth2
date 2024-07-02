@@ -172,8 +172,6 @@ proc addTestBlock*(
       cfg, state, getStateField(state, slot) + 1, cache, info, flags).expect(
         "can advance 1")
 
-  debugComment "add consolidations support to addTestBlock"
-
   let
     proposer_index = get_beacon_proposer_index(
       state, cache, getStateField(state, slot)).expect("valid proposer index")
@@ -611,8 +609,14 @@ iterator makeTestBlocks*(
     let
       parent_root = withState(state[]): forkyState.latest_block_root
       attestations =
-        if attested:
+        if attested and state.kind < ConsensusFork.Electra:
           makeFullAttestations(
+            state[], parent_root, getStateField(state[], slot), cache)
+        else:
+          @[]
+      electraAttestations =
+        if attested and state.kind >= ConsensusFork.Electra:
+          makeFullElectraAttestations(
             state[], parent_root, getStateField(state[], slot), cache)
         else:
           @[]
@@ -633,6 +637,7 @@ iterator makeTestBlocks*(
       state[], cache,
       eth1_data = eth1_data,
       attestations = attestations,
+      electraAttestations = electraAttestations,
       deposits = deposits,
       sync_aggregate = sync_aggregate,
       graffiti = graffiti,
