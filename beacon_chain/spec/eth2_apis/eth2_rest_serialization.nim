@@ -3550,7 +3550,7 @@ proc decodeBody*(
     of ConsensusFork.Altair:
       let blck =
         try:
-          let res = SSZ.decode(body.data, altair.SignedBeaconBlock)
+          var res = SSZ.decode(body.data, altair.SignedBeaconBlock)
           res.root = hash_tree_root(res.message)
           res
         except SerializationError as exc:
@@ -3564,7 +3564,7 @@ proc decodeBody*(
     of ConsensusFork.Bellatrix:
       let blck =
         try:
-          let res = SSZ.decode(body.data, bellatrix.SignedBeaconBlock)
+          var res = SSZ.decode(body.data, bellatrix.SignedBeaconBlock)
           res.root = hash_tree_root(res.message)
           res
         except SerializationError as exc:
@@ -3578,7 +3578,7 @@ proc decodeBody*(
     of ConsensusFork.Capella:
       let blck =
         try:
-          let res = SSZ.decode(body.data, capella.SignedBeaconBlock)
+          var res = SSZ.decode(body.data, capella.SignedBeaconBlock)
           res.root = hash_tree_root(res.message)
           res
         except SerializationError as exc:
@@ -3592,8 +3592,8 @@ proc decodeBody*(
     of ConsensusFork.Deneb:
       let blckContents =
         try:
-          let res = SSZ.decode(body.data, DenebSignedBlockContents)
-          res.signed_block.root = hash_tree_root(res.signed_block)
+          var res = SSZ.decode(body.data, DenebSignedBlockContents)
+          res.signed_block.root = hash_tree_root(res.signed_block.message)
           res
         except SerializationError as exc:
           return err(RestErrorMessage.init(Http400, UnableDecodeError,
@@ -3606,8 +3606,8 @@ proc decodeBody*(
     of ConsensusFork.Electra:
       let blckContents =
         try:
-          let res = SSZ.decode(body.data, ElectraSignedBlockContents)
-          res.signed_block.root = hash_tree_root(res.signed_block)
+          var res = SSZ.decode(body.data, ElectraSignedBlockContents)
+          res.signed_block.root = hash_tree_root(res.signed_block.message)
           res
         except SerializationError as exc:
           return err(RestErrorMessage.init(Http400, UnableDecodeError,
