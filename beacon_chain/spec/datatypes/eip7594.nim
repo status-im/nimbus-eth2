@@ -78,7 +78,6 @@ type
 func shortLog*(v: DataColumnSidecar): auto =
   (
     index: v.index,
-    column: v.column,
     kzg_commitments: v.kzg_commitments.len,
     kzg_proofs: v.kzg_proofs.len,
     block_header: shortLog(v.signed_block_header.message),
