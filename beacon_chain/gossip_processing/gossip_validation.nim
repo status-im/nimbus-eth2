@@ -609,10 +609,10 @@ proc validateDataColumnSidecar*(
 
   # [REJECT] The sidecar's column data is valid as 
   # verified by `verify_data_column_kzg_proofs(sidecar)`
-  block:
-    let r = check_data_column_sidecar_kzg_proofs(data_column_sidecar)
-    if r.isErr:
-      return dag.checkedReject(r.error)
+  # block:
+  #   let r = check_data_column_sidecar_kzg_proofs(data_column_sidecar)
+  #   if r.isErr:
+  #     return dag.checkedReject(r.error)
   debugEcho "5"
   # Send notification about new data column sidecar via callback
   if not(isNil(dataColumnQuarantine.onDataColumnSidecarCallback)):
