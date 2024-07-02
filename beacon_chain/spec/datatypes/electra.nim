@@ -115,7 +115,7 @@ type
       ## [New in Electra:EIP6110]
     withdrawal_requests*:
       List[WithdrawalRequest, MAX_WITHDRAWAL_REQUESTS_PER_PAYLOAD]
-      ## [New in Electra:EIP6110]
+      ## [New in Electra:EIP7002:EIP7251]
     consolidation_requests*:
       List[ConsolidationRequest, Limit MAX_CONSOLIDATION_REQUESTS_PER_PAYLOAD]
       ## [New in Electra:EIP7251]
