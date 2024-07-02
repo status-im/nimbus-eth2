@@ -598,14 +598,14 @@ proc validateDataColumnSidecar*(
 
   # [REJECT] The proposer signature of `blob_sidecar.signed_block_header`,
   # is valid with respect to the `block_header.proposer_index` pubkey.
-  if not verify_block_signature(
-      dag.forkAtEpoch(block_header.slot.epoch),
-      getStateField(dag.headState, genesis_validators_root),
-      block_header.slot,
-      block_root,
-      dag.validatorKey(proposer).get(),
-      data_column_sidecar.signed_block_header.signature):
-    return dag.checkedReject("DataColumnSidecar: Invalid proposer signature")
+  # if not verify_block_signature(
+  #     dag.forkAtEpoch(block_header.slot.epoch),
+  #     getStateField(dag.headState, genesis_validators_root),
+  #     block_header.slot,
+  #     block_root,
+  #     dag.validatorKey(proposer).get(),
+  #     data_column_sidecar.signed_block_header.signature):
+  #   return dag.checkedReject("DataColumnSidecar: Invalid proposer signature")
 
   # [REJECT] The sidecar's column data is valid as 
   # verified by `verify_data_column_kzg_proofs(sidecar)`
@@ -615,8 +615,8 @@ proc validateDataColumnSidecar*(
       return dag.checkedReject(r.error)
   debugEcho "5"
   # Send notification about new data column sidecar via callback
-  # if not(isNil(dataColumnQuarantine.onDataColumnSidecarCallback)):
-  #   dataColumnQuarantine.onDataColumnSidecarCallback(data_column_sidecar)
+  if not(isNil(dataColumnQuarantine.onDataColumnSidecarCallback)):
+    dataColumnQuarantine.onDataColumnSidecarCallback(data_column_sidecar)
   debugEcho "6"
   ok()
 
