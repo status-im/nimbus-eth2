@@ -500,10 +500,14 @@ proc validateDataColumnSidecar*(
   if not (data_column_sidecar.index < NUMBER_OF_COLUMNS):
     return dag.checkedReject("DataColumnSidecar: The sidecar's index should be consistent with NUMBER_OF_COLUMNS")
 
+  debugEcho "1"
+
   # [REJECT] The sidecar is for the correct subnet 
   # -- i.e. `compute_subnet_for_data_column_sidecar(blob_sidecar.index) == subnet_id`.
   if not (compute_subnet_for_data_column_sidecar(data_column_sidecar.index) == subnet_id):
     return dag.checkedReject("DataColumnSidecar: The sidecar is not for the correct subnet")
+
+  debugEcho "2"
 
   # [IGNORE] The sidecar is not from a future slot (with a `MAXIMUM_GOSSIP_CLOCK_DISPARITY` allowance)
   # -- i.e. validate that `block_header.slot <= current_slot` (a client MAY queue future sidecars for 
@@ -528,12 +532,16 @@ proc validateDataColumnSidecar*(
       block_header.slot, block_header.proposer_index, data_column_sidecar.index):
     return errIgnore("DataColumnSidecar: already have valid data column from same proposer")
 
+  debugEcho "3"
+
   # [REJECT] The sidecar's `kzg_commitments` inclusion proof is valid as verified by
   # `verify_data_column_sidecar_inclusion_proof(sidecar)`.
   block:
     let v = check_data_column_sidecar_inclusion_proof(data_column_sidecar)
     if v.isErr:
       return dag.checkedReject(v.error)
+
+  debugEcho "4"
 
   # [IGNORE] The sidecar's block's parent (defined by
   # `block_header.parent_root`) has been seen (via both gossip and
@@ -605,11 +613,11 @@ proc validateDataColumnSidecar*(
     let r = check_data_column_sidecar_kzg_proofs(data_column_sidecar)
     if r.isErr:
       return dag.checkedReject(r.error)
-
+  debugEcho "5"
   # Send notification about new data column sidecar via callback
   if not(isNil(dataColumnQuarantine.onDataColumnSidecarCallback)):
     dataColumnQuarantine.onDataColumnSidecarCallback(data_column_sidecar)
-
+  debugEcho "6"
   ok()
 
 
