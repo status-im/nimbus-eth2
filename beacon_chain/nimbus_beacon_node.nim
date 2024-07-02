@@ -506,6 +506,7 @@ proc initFullNode(
 
   node.dag = dag
   node.blobQuarantine = blobQuarantine
+  node.dataColumnQuarantine = dataColumnQuarantine
   node.quarantine = quarantine
   node.attestationPool = attestationPool
   node.syncCommitteeMsgPool = syncCommitteeMsgPool
