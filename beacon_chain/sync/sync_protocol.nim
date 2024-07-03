@@ -24,7 +24,7 @@ const
     ## Allow syncing ~64 blocks/sec (minus request costs)
   blobResponseCost = allowedOpsPerSecondCost(1000)
     ## Multiple can exist per block, they are much smaller than blocks
-  dataColumnResponseCost = allowedOpsPerSecondCost(4000)
+  dataColumnResponseCost = allowedOpsPerSecondCost(250)
     ## 1 blob has an equivalent memory of 8 data columns
 
 type

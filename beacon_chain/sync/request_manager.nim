@@ -29,7 +29,7 @@ const
   SYNC_MAX_REQUESTED_BLOCKS* = 32 # Spec allows up to MAX_REQUEST_BLOCKS.
     ## Maximum number of blocks which will be requested in each
     ## `beaconBlocksByRoot` invocation.
-  PARALLEL_REQUESTS* = 2
+  PARALLEL_REQUESTS* = 8
     ## Number of peers we using to resolve our request.
 
   BLOB_GOSSIP_WAIT_TIME_NS* = 2 * 1_000_000_000

@@ -11,7 +11,8 @@ import
   std/tables,
   stew/results,
   chronicles, chronos, metrics, taskpools,
-  ../spec/[helpers, forks],
+  ../networking/eth2_network,
+  ../spec/[helpers, forks, eip7594_helpers],
   ../spec/datatypes/[altair, phase0, deneb, eip7594],
   ../consensus_object_pools/[
     blob_quarantine, block_clearance, block_quarantine, blockchain_dag,
@@ -443,6 +444,63 @@ proc checkForPotentialDoppelganger(
         validator_index = validatorIndex,
         attestation = shortLog(attestation)
       quitDoppelganger()
+
+proc processDataColumnReconstruction*(
+    self: ref Eth2Processor,
+    node: Eth2Node,
+    signed_block: deneb.SignedBeaconBlock |
+    electra.SignedBeaconBlock):
+    Future[ValidationRes] {.async: (raises: [CancelledError]).} =
+  
+  let
+    dag = self.dag
+    root = signed_block.root
+    custodiedColumnIndices = get_custody_columns(
+        node.nodeId,
+        CUSTODY_REQUIREMENT)
+  
+  var
+    data_column_sidecars: seq[DataColumnSidecar]
+    columnsOk = true
+    storedColumns: seq[ColumnIndex]
+  
+  # Loading the data columns from the database
+  for custody_column in custodiedColumnIndices.get:
+    let data_column = DataColumnSidecar.new()
+    if not dag.db.getDataColumnSidecar(root, custody_column, data_column[]):
+      columnsOk = false
+      break
+    data_column_sidecars.add data_column[]
+    storedColumns.add data_column.index
+
+    if columnsOk:
+      debug "Loaded data column for reconstruction"
+
+  # storedColumn number is less than the NUMBER_OF_COLUMNS
+  # then reconstruction is not possible, and if all the data columns
+  # are already stored then we do not need to reconstruct at all
+  if storedColumns.len < NUMBER_OF_COLUMNS or storedColumns.len == NUMBER_OF_COLUMNS:
+    return ok()
+  else:
+    return errIgnore ("DataColumnSidecar: Reconstruction error!")
+
+  # Recover blobs from saved data column sidecars
+  let recovered_blobs = recover_blobs(data_column_sidecars, storedColumns.len, signed_block)
+  if not recovered_blobs.isOk:
+    return errIgnore ("Error recovering blobs from data columns")
+
+  # Reconstruct data column sidecars from recovered blobs
+  let reconstructedDataColumns = get_data_column_sidecars(signed_block, recovered_blobs.get)
+  if not reconstructedDataColumns.isOk:
+    return errIgnore ("Error reconstructing data columns from recovered blobs")
+
+  for data_column in data_column_sidecars:
+    if data_column.index notin custodiedColumnIndices.get:
+      continue
+    
+    dag.db.putDataColumnSidecar(data_column)
+
+  ok()
 
 proc processAttestation*(
     self: ref Eth2Processor, src: MsgSource,

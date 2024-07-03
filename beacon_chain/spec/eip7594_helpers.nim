@@ -153,7 +153,7 @@ proc recover_blobs*(
   if not (data_columns.len != 0):
     return err("DataColumnSidecar: Length should not be 0")
 
-  var blobCount = data_columns[0].len
+  var blobCount = data_columns[0].column.len
   for data_column in data_columns:
     if not (blobCount == data_column.column.len):
       return err ("DataColumns do not have the same length")
@@ -175,27 +175,27 @@ proc recover_blobs*(
       # Transform the cell as a ckzg cell
       var ckzgCell: Cell
       for i in 0 ..< int(FIELD_ELEMENTS_PER_CELL):
-        ckzgCell[i] = cell[32*i ..< 32*(i+1)].toArray()
+        var start = 32 * i
+        for j in 0 ..< 32:
+          ckzgCell[start + j] = cell[start+j]
 
       ckzgCells.add(ckzgCell)
 
     # Recovering the blob
     let recovered_cells = recoverAllCells(cell_ids, ckzgCells)
     if not recovered_cells.isOk:
-      return err (fmt"Recovering all cells for blob - {blobIdx} failed: {recovered_cells.error}")
+      return err ("Recovering all cells for blob failed")
 
     let recovered_blob_res = cellsToBlob(recovered_cells.get)
     if not recovered_blob_res.isOk:
-      return err (fmt"Cells to blob for blob - {blobIdx} failed: {recovered_blob_res.error}")
+      return err ("Cells to blob for blob failed")
 
     recovered_blobs.add(recovered_blob_res.get)
 
   ok(recovered_blobs)
 
-
-
 # https://github.com/ethereum/consensus-specs/blob/5f48840f4d768bf0e0a8156a3ed06ec333589007/specs/_features/eip7594/das-core.md#get_data_column_sidecars
-proc get_data_column_sidecars*(signed_block: deneb.SignedBeaconBlock | electra.SignedBeaconBlock | ForkySignedBeaconBlock, blobs: seq[KzgBlob]): Result[seq[DataColumnSidecar], cstring] =
+proc get_data_column_sidecars*(signed_block: deneb.SignedBeaconBlock | electra.SignedBeaconBlock, blobs: seq[KzgBlob]): Result[seq[DataColumnSidecar], cstring] =
   var 
     sidecar: DataColumnSidecar
     signed_block_header: SignedBeaconBlockHeader

@@ -336,6 +336,14 @@ proc handleLightClientUpdates*(node: BeaconNode, slot: Slot)
           warn "LC optimistic update failed to send",
             error = sendResult.error()
 
+proc sendReconstructedDataColumns(node: BeaconNode,
+                                  blck: ForkySignedBeaconBlock)
+                                  {.async: (raises: [CancelledError]).} =
+    let res = await node.router.routeReconstructedDataColumns(blck)
+    if not res.isOk:
+      warn "Unable to send reconstructed data columns"
+      return
+
 proc createAndSendAttestation(node: BeaconNode,
                               fork: Fork,
                               genesis_validators_root: Eth2Digest,
@@ -374,6 +382,8 @@ proc createAndSendAttestation(node: BeaconNode,
     dump(
       node.config.dumpDirOutgoing, registered.data,
       registered.validator.pubkey)
+
+
 
 proc getBlockProposalEth1Data*(node: BeaconNode,
                                state: ForkedHashedBeaconState):

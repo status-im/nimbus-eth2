@@ -190,27 +190,27 @@ proc storeBackfillBlock(
 
   # Establish blob viability before calling addbackfillBlock to avoid
   # writing the block in case of blob error.
-  var blobsOk = true
+  # var blobsOk = true
   var columnsOk = true
-  when typeof(signedBlock).kind >= ConsensusFork.Deneb:
-    if blobsOpt.isSome:
-      let blobs = blobsOpt.get()
-      let kzgCommits = signedBlock.message.body.blob_kzg_commitments.asSeq
-      if blobs.len > 0 or kzgCommits.len > 0:
-        let r = validate_blobs(kzgCommits, blobs.mapIt(it.blob),
-                               blobs.mapIt(it.kzg_proof))
-        if r.isErr():
-          debug "backfill blob validation failed",
-            blockRoot = shortLog(signedBlock.root),
-            blobs = shortLog(blobs),
-            blck = shortLog(signedBlock.message),
-            kzgCommits = mapIt(kzgCommits, shortLog(it)),
-            signature = shortLog(signedBlock.signature),
-            msg = r.error()
-        blobsOk = r.isOk()
+  # when typeof(signedBlock).kind >= ConsensusFork.Deneb:
+  #   if blobsOpt.isSome:
+  #     let blobs = blobsOpt.get()
+  #     let kzgCommits = signedBlock.message.body.blob_kzg_commitments.asSeq
+  #     if blobs.len > 0 or kzgCommits.len > 0:
+  #       let r = validate_blobs(kzgCommits, blobs.mapIt(it.blob),
+  #                              blobs.mapIt(it.kzg_proof))
+  #       if r.isErr():
+  #         debug "backfill blob validation failed",
+  #           blockRoot = shortLog(signedBlock.root),
+  #           blobs = shortLog(blobs),
+  #           blck = shortLog(signedBlock.message),
+  #           kzgCommits = mapIt(kzgCommits, shortLog(it)),
+  #           signature = shortLog(signedBlock.signature),
+  #           msg = r.error()
+  #       blobsOk = r.isOk()
 
-  if not blobsOk:
-    return err(VerifierError.Invalid)
+  # if not blobsOk:
+  #   return err(VerifierError.Invalid)
     
   when typeof(signedBlock).kind >= ConsensusFork.Deneb:
     if dataColumnsOpt.isSome:
@@ -433,72 +433,14 @@ proc enqueueBlock*(
   try:
     self.blockQueue.addLastNoWait(BlockEntry(
       blck: blck,
-      blobs: blobs,
-      data_columns: Opt.none(DataColumnSidecars),
+      blobs: Opt.none(BlobSidecars),
+      data_columns: data_columns,
       maybeFinalized: maybeFinalized,
       resfut: resfut, queueTick: Moment.now(),
       validationDur: validationDur,
       src: src))
   except AsyncQueueFullError:
     raiseAssert "unbounded queue"
-
-proc reconstructDataColumns(
-    self: ref BlockProcessor,
-    node: Eth2Node,
-    signed_block: deneb.SignedBeaconBlock |
-    electra.SignedBeaconBlock,
-    data_column: DataColumnSidecar):
-    Result[bool, cstring] =
-  
-  let
-    dag = self.consensusManager.dag
-    root = signed_block.root
-    custodiedColumnIndices = get_custody_columns(
-        node.nodeId,
-        CUSTODY_REQUIREMENT)
-  
-  var
-    data_column_sidecars: DataColumnSidecars
-    columnsOk = true
-    storedColumns = 0
-  
-  # Loading the data columns from the database
-  for i in 0 ..< custodiedColumnIndices.len:
-    let data_column = DataColumnSidecar.new()
-    if not dag.db.getDataColumnSidecar(root, custodiedColumnIndices[i], data_column[]):
-      columnsOk = false
-      break
-    data_column_sidecars.add data_column
-    storedColumns.add data_column.index
-
-    if columnsOk:
-      debug "Loaded data column for reconstruction"
-
-  # storedColumn number is less than the NUMBER_OF_COLUMNS
-  # then reconstruction is not possible, and if all the data columns
-  # are already stored then we do not need to reconstruct at all
-  if storedColumns.len < NUMBER_OF_COLUMNS or storedColumns.len == NUMBER_OF_COLUMNS:
-    return ok(false)
-  else:
-    return err ("DataColumnSidecar: Reconstruction error!")
-
-  # Recover blobs from saved data column sidecars
-  let recovered_blobs = recover_blobs(data_column_sidecars, storedColumns.len, signed_block)
-  if not recovered_blobs.isOk:
-    return err ("Error recovering blobs from data columns")
-
-  # Reconstruct data column sidecars from recovered blobs
-  let reconstructedDataColumns = get_data_column_sidecars(signed_block, recovered_blobs.get)
-  if not reconstructedDataColumns.isOk:
-    return err ("Error reconstructing data columns from recovered blobs")
-
-  for data_column in data_column_sidecars:
-    if data_column.index notin custodiedColumnIndices:
-      continue
-    
-    dag.db.putDataColumnSidecar(data_column[])
-
-  ok(true)
 
 proc storeBlock(
     self: ref BlockProcessor, src: MsgSource, wallTime: BeaconTime,
@@ -894,20 +836,20 @@ proc storeBlock(
       else:
         if len(forkyBlck.message.body.blob_kzg_commitments) == 0:
           self[].enqueueBlock(
-            MsgSource.gossip, quarantined, Opt.some(BlobSidecars @[]), Opt.some(DataColumnSidecars @[]))
+            MsgSource.gossip, quarantined, Opt.none(BlobSidecars), Opt.some(DataColumnSidecars @[]))
         else:
           if (let res = checkBloblessSignature(self[], forkyBlck); res.isErr):
-            warn "Failed to verify signature of unorphaned blobless block",
+            warn "Failed to verify signature of unorphaned blobless/columnless block",
              blck = shortLog(forkyBlck),
              error = res.error()
             continue
-          if self.blobQuarantine[].hasBlobs(forkyBlck):
-            let blobs = self.blobQuarantine[].popBlobs(
-              forkyBlck.root, forkyBlck)
-            self[].enqueueBlock(MsgSource.gossip, quarantined, Opt.some(blobs), Opt.none(DataColumnSidecars))
-          else:
-            discard self.consensusManager.quarantine[].addBlobless(
-              dag.finalizedHead.slot, forkyBlck)
+          # if self.blobQuarantine[].hasBlobs(forkyBlck):
+          #   let blobs = self.blobQuarantine[].popBlobs(
+          #     forkyBlck.root, forkyBlck)
+          #   self[].enqueueBlock(MsgSource.gossip, quarantined, Opt.some(blobs), Opt.none(DataColumnSidecars))
+          # else:
+          #   discard self.consensusManager.quarantine[].addBlobless(
+          #     dag.finalizedHead.slot, forkyBlck)
 
           if self.dataColumnQuarantine[].hasDataColumns(forkyBlck):
             let data_columns = self.dataColumnQuarantine[].popDataColumns(

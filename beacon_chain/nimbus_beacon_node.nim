@@ -408,19 +408,19 @@ proc initFullNode(
         Future[Result[void, VerifierError]] {.async: (raises: [CancelledError]).} =
       withBlck(signedBlock):
         when consensusFork >= ConsensusFork.Deneb:
-          if not blobQuarantine[].hasBlobs(forkyBlck):
-            # We don't have all the blobs for this block, so we have
-            # to put it in blobless quarantine.
-            if not quarantine[].addBlobless(dag.finalizedHead.slot, forkyBlck):
-              err(VerifierError.UnviableFork)
-            else:
-              err(VerifierError.MissingParent)
-          elif blobQuarantine[].hasBlobs(forkyBlck):
-            let blobs = blobQuarantine[].popBlobs(forkyBlck.root, forkyBlck)
-            await blockProcessor[].addBlock(MsgSource.gossip, signedBlock,
-                                      Opt.some(blobs), Opt.none(DataColumnSidecars),
-                                      maybeFinalized = maybeFinalized)
-          elif not dataColumnQuarantine[].hasDataColumns(forkyBlck):
+          # if not blobQuarantine[].hasBlobs(forkyBlck):
+          #   # We don't have all the blobs for this block, so we have
+          #   # to put it in blobless quarantine.
+          #   if not quarantine[].addBlobless(dag.finalizedHead.slot, forkyBlck):
+          #     err(VerifierError.UnviableFork)
+          #   else:
+          #     err(VerifierError.MissingParent)
+          # elif blobQuarantine[].hasBlobs(forkyBlck):
+          #   let blobs = blobQuarantine[].popBlobs(forkyBlck.root, forkyBlck)
+          #   await blockProcessor[].addBlock(MsgSource.gossip, signedBlock,
+          #                             Opt.some(blobs), Opt.none(DataColumnSidecars),
+          #                             maybeFinalized = maybeFinalized)
+          if not dataColumnQuarantine[].hasDataColumns(forkyBlck):
             # We don't have all the data columns for this block, so we have
             # to put it in columnless quarantine.
             if not quarantine[].addColumnless(dag.finalizedHead.slot, forkyBlck):
