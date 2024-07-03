@@ -12,7 +12,7 @@ import
   std/os,
   stew/results,
   kzg4844/kzg_ex,
-  ../../../vendor/nimpeerdaskzg/nim_peerdas_kzg/nim_peerdas_kzg
+  ../../../nimpeerdaskzg/nim_peerdas_kzg/nim_peerdas_kzg
 
 
 from std/strutils import rsplit

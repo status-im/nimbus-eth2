@@ -608,7 +608,7 @@ endef
 
 # Build the rust peerdas-kzg library
 build-rust-peerdas-kzg:
-	@./build_peerdas_lib.sh vendor/nimpeerdaskzg
+	@./build_peerdas_lib.sh nimpeerdaskzg
 test-rust-peerdas-kzg: # | build deps
 	+ echo -e $(BUILD_MSG) "Running KZG fixture test" && \
 		$(ENV_SCRIPT) nim c -r -d:USE_NIMPEERDAS_KZG tests/consensus_spec/test_fixture_kzg.nim && \
