@@ -19,7 +19,7 @@ fi
 
 DESTINATION_FOLDER=$1 # Destination folder to copy the built nim library with the static lib include to
 
-COMMIT_HASH="4205937b69945f23731d90ba2970f19fa4a5e06b" # commit to checkout rust lib at
+COMMIT_HASH="fc339dc9bb886432871b4fd706cf4fdaa8269cce" # commit to checkout rust lib at
 REPO_URL="https://github.com/crate-crypto/peerdas-kzg"
 
 echo "Building peerdas-kzg with commit hash: $COMMIT_HASH and destination: $DESTINATION_FOLDER"
