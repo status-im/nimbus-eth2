@@ -225,7 +225,7 @@ proc remainingSlots(man: SyncManager): uint64 =
     else:
       0'u64
 
-proc groupBlobs*[T](req: SyncRequest[T],
+func groupBlobs*[T](req: SyncRequest[T],
                     blocks: seq[ref ForkedSignedBeaconBlock],
                     blobs: seq[ref BlobSidecar]):
                       Result[seq[BlobSidecars], string] =
