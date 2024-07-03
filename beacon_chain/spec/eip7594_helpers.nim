@@ -209,7 +209,7 @@ proc get_data_column_sidecars*(signed_block: deneb.SignedBeaconBlock | electra.S
   
   for blob in blobs:
     let
-      computed_cell = computeCellsAndKzgProofs(blob)
+      computed_cell = computeCellsAndProofs(blob)
 
     if computed_cell.isErr():
       return err("EIP7549: Could not compute cells")
