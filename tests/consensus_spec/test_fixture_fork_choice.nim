@@ -124,10 +124,7 @@ proc loadOps(
       doAssert step.hasKey"blobs" == step.hasKey"proofs"
       withConsensusFork(fork):
         let
-          blck = parseTest(
-            path/filename & ".ssz_snappy",
-            SSZ, consensusFork.SignedBeaconBlock)
-
+          blck = loadBlock(path/filename & ".ssz_snappy", consensusFork)
           blobData =
             when consensusFork >= ConsensusFork.Deneb:
               if step.hasKey"blobs":

@@ -110,9 +110,12 @@ suite baseDescription & "Attester Slashing " & preset():
       applyAttesterSlashing, path)
 
 suite baseDescription & "Block Header " & preset():
-  func applyBlockHeader(
+  proc applyBlockHeader(
       preState: var bellatrix.BeaconState, blck: bellatrix.BeaconBlock):
       Result[void, cstring] =
+    if blck.is_execution_block:
+      check blck.body.execution_payload.block_hash ==
+        blck.compute_execution_block_hash()
     var cache: StateCache
     process_block_header(preState, blck, {}, cache)
 
@@ -143,6 +146,10 @@ suite baseDescription & "Execution Payload " & preset():
       let payloadValid = os_ops.readFile(
           OpExecutionPayloadDir/"pyspec_tests"/path/"execution.yaml"
         ).contains("execution_valid: true")
+      if payloadValid and body.is_execution_block:
+        check body.execution_payload.block_hash ==
+          body.execution_payload.compute_execution_block_hash(
+            preState.latest_block_header.hash_tree_root())
       func executePayload(_: bellatrix.ExecutionPayload): bool = payloadValid
       process_execution_payload(
         preState, body.execution_payload, executePayload)

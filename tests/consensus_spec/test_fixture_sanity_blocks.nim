@@ -10,7 +10,7 @@
 
 import
   chronicles,
-  ../../beacon_chain/spec/forks,
+  ../../beacon_chain/spec/forks, ../../beacon_chain/spec/helpers,
   ../../beacon_chain/spec/state_transition,
   ./os_ops,
   ../testutil
@@ -20,7 +20,8 @@ from std/strutils import toLowerAscii
 from ../../beacon_chain/spec/presets import
   const_preset, defaultRuntimeConfig
 from ./fixtures_utils import
-  SSZ, SszTestsDir, hash_tree_root, parseTest, readSszBytes, toSszType
+  SSZ, SszTestsDir, hash_tree_root, loadBlock, parseTest,
+  readSszBytes, toSszType
 
 proc runTest(
     consensusFork: static ConsensusFork,
@@ -43,8 +44,9 @@ proc runTest(
     # so purely lexicographic sorting wouldn't sort properly.
     let numBlocks = toSeq(walkPattern(testPath/"blocks_*.ssz_snappy")).len
     for i in 0 ..< numBlocks:
-      let blck = parseTest(testPath/"blocks_" & $i & ".ssz_snappy",
-        SSZ, consensusFork.SignedBeaconBlock)
+      let blck = loadBlock(
+        testPath/"blocks_" & $i & ".ssz_snappy", consensusFork,
+        validateBlockHash = hasPostState)
 
       if hasPostState:
         # The return value is the block rewards, which aren't tested here;
