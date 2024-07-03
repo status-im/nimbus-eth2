@@ -504,7 +504,7 @@ proc toExecutionBlockHeader*(
         Opt.none(uint64)
     parentBeaconBlockRoot =
       when typeof(payload).kind >= ConsensusFork.Deneb:
-        Opt.some ExecutionHash256(data: blck.parent_root.data)
+        Opt.some ExecutionHash256(data: parentRoot.data)
       else:
         Opt.none(ExecutionHash256)
 
