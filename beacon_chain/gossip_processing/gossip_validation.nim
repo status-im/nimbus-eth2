@@ -395,7 +395,7 @@ proc validateBlobSidecar*(
   # let block_root = hash_tree_root(block_header)
   # if dag.getBlockRef(block_root).isSome():
   #   return errIgnore("BlobSidecar: already have block")
-  # if blobQuarantine[].hasBlob(
+  if blobQuarantine[].hasBlob(
       block_header.slot, block_header.proposer_index, blob_sidecar.index):
     return errIgnore("BlobSidecar: already have valid blob from same proposer")
 
