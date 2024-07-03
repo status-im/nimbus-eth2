@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env bash
 
 # Copyright (c) 2020-2023 Status Research & Development GmbH. Licensed under
 # either of:
@@ -9,7 +9,7 @@
 
 # Current usage: ./build_peerdas_lib.sh nimpeerdaskzg
 
-set -e  # Exit immediately if a command exits with a non-zero status.
+set -eu  # Exit immediately if a command exits with a non-zero status.
 
 if [ "$#" -ne 1 ]; then
     echo "Usage: $0 <destination_folder>"

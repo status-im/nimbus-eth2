@@ -6,11 +6,10 @@
 # at your option. This file may not be copied, modified, or distributed except according to those terms.
 
 {.push raises: [].}
-{.used.}
 
 import
   std/os,
-  stew/results,
+  results,
   kzg4844/kzg_ex,
   ../../../nimpeerdaskzg/nim_peerdas_kzg/nim_peerdas_kzg
 
@@ -23,7 +22,7 @@ proc initKZG*(): bool =
   # TODO: no compilation flag here because c-kzg does more than peerdas functionality.   
   ctx = newKZGCtx()
   template sourceDir: string = currentSourcePath.rsplit(DirSep, 1)[0]
-  return Kzg.loadTrustedSetup(
+  Kzg.loadTrustedSetup(
     sourceDir &
       "/../vendor/nim-kzg4844/kzg4844/csources/src/trusted_setup.txt").isOk
 
