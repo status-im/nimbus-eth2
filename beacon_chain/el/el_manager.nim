@@ -504,23 +504,25 @@ func asConsensusType*(rpcExecutionPayload: ExecutionPayloadV4):
   template getTransaction(tt: TypedTransaction): bellatrix.Transaction =
     bellatrix.Transaction.init(tt.distinctBase)
 
-  template getDepositRequest(dr: DepositRequestV1): DepositRequest =
-    DepositRequest(
+  template getDepositRequest(
+      dr: DepositRequestV1): electra.DepositRequest =
+    electra.DepositRequest(
       pubkey: ValidatorPubKey(blob: dr.pubkey.distinctBase),
       withdrawal_credentials: dr.withdrawalCredentials.asEth2Digest,
       amount: dr.amount.Gwei,
       signature: ValidatorSig(blob: dr.signature.distinctBase),
       index: dr.index.uint64)
 
-  template getWithdrawalRequest(wr: WithdrawalRequestV1): WithdrawalRequest =
-    WithdrawalRequest(
+  template getWithdrawalRequest(
+      wr: WithdrawalRequestV1): electra.WithdrawalRequest =
+    electra.WithdrawalRequest(
       source_address: ExecutionAddress(data: wr.sourceAddress.distinctBase),
       validator_pubkey: ValidatorPubKey(blob: wr.validatorPubkey.distinctBase),
       amount: wr.amount.Gwei)
 
-  template getConsolidationRequest(cr: ConsolidationRequestV1):
-      ConsolidationRequest =
-    ConsolidationRequest(
+  template getConsolidationRequest(
+      cr: ConsolidationRequestV1): electra.ConsolidationRequest =
+    electra.ConsolidationRequest(
       source_address: ExecutionAddress(data: cr.sourceAddress.distinctBase),
       source_pubkey: ValidatorPubKey(blob: cr.sourcePubkey.distinctBase),
       target_pubkey: ValidatorPubKey(blob: cr.targetPubkey.distinctBase))
@@ -659,7 +661,8 @@ func asEngineExecutionPayload*(executionPayload: electra.ExecutionPayload):
   template getTypedTransaction(tt: bellatrix.Transaction): TypedTransaction =
     TypedTransaction(tt.distinctBase)
 
-  template getDepositRequest(dr: DepositRequest): DepositRequestV1 =
+  template getDepositRequest(
+      dr: electra.DepositRequest): DepositRequestV1 =
     DepositRequestV1(
       pubkey: FixedBytes[RawPubKeySize](dr.pubkey.blob),
       withdrawalCredentials: FixedBytes[32](dr.withdrawal_credentials.data),
@@ -667,14 +670,15 @@ func asEngineExecutionPayload*(executionPayload: electra.ExecutionPayload):
       signature: FixedBytes[RawSigSize](dr.signature.blob),
       index: dr.index.Quantity)
 
-  template getWithdrawalRequest(wr: WithdrawalRequest): WithdrawalRequestV1 =
+  template getWithdrawalRequest(
+      wr: electra.WithdrawalRequest): WithdrawalRequestV1 =
     WithdrawalRequestV1(
       sourceAddress: Address(wr.source_address.data),
       validatorPubkey: FixedBytes[RawPubKeySize](wr.validator_pubkey.blob),
       amount: wr.amount.Quantity)
 
-  template getConsolidationRequest(cr: ConsolidationRequest):
-      ConsolidationRequestV1 =
+  template getConsolidationRequest(
+      cr: electra.ConsolidationRequest): ConsolidationRequestV1 =
     ConsolidationRequestV1(
       sourceAddress: Address(cr.source_address.data),
       sourcePubkey: FixedBytes[RawPubKeySize](cr.source_pubkey.blob),
