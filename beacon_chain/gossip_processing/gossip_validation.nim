@@ -392,9 +392,9 @@ proc validateBlobSidecar*(
   # [IGNORE] The sidecar is the first sidecar for the tuple
   # (block_header.slot, block_header.proposer_index, blob_sidecar.index)
   # with valid header signature, sidecar inclusion proof, and kzg proof.
-  # let block_root = hash_tree_root(block_header)
-  # if dag.getBlockRef(block_root).isSome():
-  #   return errIgnore("BlobSidecar: already have block")
+  let block_root = hash_tree_root(block_header)
+  if dag.getBlockRef(block_root).isSome():
+    return errIgnore("BlobSidecar: already have block")
   if blobQuarantine[].hasBlob(
       block_header.slot, block_header.proposer_index, blob_sidecar.index):
     return errIgnore("BlobSidecar: already have valid blob from same proposer")
@@ -413,13 +413,13 @@ proc validateBlobSidecar*(
   #
   # [REJECT] The sidecar's block's parent (defined by
   # `block_header.parent_root`) passes validation.
-  # let parent = dag.getBlockRef(block_header.parent_root).valueOr:
-  #   if block_header.parent_root in quarantine[].unviable:
-  #     quarantine[].addUnviable(block_root)
-  #     return dag.checkedReject("BlobSidecar: parent not validated")
-  #   else:
-  #     quarantine[].addMissing(block_header.parent_root)
-  #     return errIgnore("BlobSidecar: parent not found")
+  let parent = dag.getBlockRef(block_header.parent_root).valueOr:
+    if block_header.parent_root in quarantine[].unviable:
+      quarantine[].addUnviable(block_root)
+      return dag.checkedReject("BlobSidecar: parent not validated")
+    else:
+      quarantine[].addMissing(block_header.parent_root)
+      return errIgnore("BlobSidecar: parent not found")
 
   # [REJECT] The sidecar is from a higher slot than the sidecar's
   # block's parent (defined by `block_header.parent_root`).
