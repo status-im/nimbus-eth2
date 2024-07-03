@@ -1,6 +1,13 @@
 #!/bin/bash
 
-# Current usage: ./build_peerdas_lib.sh vendor/nimpeerdaskzg
+# Copyright (c) 2020-2023 Status Research & Development GmbH. Licensed under
+# either of:
+# - Apache License, version 2.0
+# - MIT license
+# at your option. This file may not be copied, modified, or distributed except
+# according to those terms.
+
+# Current usage: ./build_peerdas_lib.sh nimpeerdaskzg
 
 set -e  # Exit immediately if a command exits with a non-zero status.
 
