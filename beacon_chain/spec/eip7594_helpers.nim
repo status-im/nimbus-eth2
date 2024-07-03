@@ -205,7 +205,7 @@ proc get_data_column_sidecars*(signed_block: deneb.SignedBeaconBlock | electra.S
 
   blck.body.build_proof(
     27.GeneralizedIndex,
-    kzg_incl_proof).expect("Valid gindex")
+    kzg_incl_proof)
   
   for blob in blobs:
     let
@@ -237,7 +237,7 @@ proc get_data_column_sidecars*(signed_block: deneb.SignedBeaconBlock | electra.S
       kzgProofOfColumn[rowIndex] = proofs[rowIndex][columnIndex]
 
     sidecar = DataColumnSidecar(
-      index: uint64(columnIndex),
+      index: ColumnIndex(columnIndex),
       column: column,
       kzgCommitments: blck.body.blob_kzg_commitments,
       kzgProofs: kzgProofOfColumn,
