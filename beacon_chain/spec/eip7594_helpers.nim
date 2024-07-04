@@ -201,7 +201,7 @@ proc get_data_column_sidecars*(signed_block: deneb.SignedBeaconBlock | electra.S
     signed_block_header: SignedBeaconBlockHeader
     blck = signed_block.message
     cellsAndProofs: seq[KzgCellsAndKzgProofs]
-    kzg_incl_proof: array[KZG_COMMITMENT_INCLUSION_PROOF_DEPTH, Eth2Digest]
+    kzg_incl_proof: array[4, Eth2Digest]
 
   blck.body.build_proof(
     27.GeneralizedIndex,
