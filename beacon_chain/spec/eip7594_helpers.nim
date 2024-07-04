@@ -222,8 +222,12 @@ proc get_data_column_sidecars*(signed_block: deneb.SignedBeaconBlock | electra.S
     proofs: seq[seq[KzgProof]]
 
   for i in 0..<blobCount:
-    cells[i].add(cellsAndProofs[i].cells)
-    proofs[i].add(cellsAndProofs[i].proofs)
+    for j in 0..<int(CELLS_PER_EXT_BLOB):
+      cells[i].add(cellsAndProofs[i].cells[j])
+
+  for i in 0..<blobCount:
+    for j in 0..<int(MAX_BLOB_COMMITMENTS_PER_BLOCK):
+      proofs[i].add(cellsAndProofs[i].proofs[j])
 
   var sidecars: seq[DataColumnSidecar]
 
@@ -232,7 +236,7 @@ proc get_data_column_sidecars*(signed_block: deneb.SignedBeaconBlock | electra.S
     for rowIndex in 0..<blobCount:
       column[rowIndex] = cells[rowIndex][columnIndex]
 
-    var kzgProofOfColumn: List[KzgProof, Limit(MAX_BLOB_COMMITMENTS_PER_BLOCK)]
+    var kzgProofOfColumn: KzgProofs
     for rowIndex in 0..<blobCount:
       kzgProofOfColumn[rowIndex] = proofs[rowIndex][columnIndex]
 
@@ -244,6 +248,7 @@ proc get_data_column_sidecars*(signed_block: deneb.SignedBeaconBlock | electra.S
       signed_block_header: signed_block_header,
       kzg_commitments_inclusion_proof: kzg_incl_proof
     )
+    sidecars.add(sidecar)
 
   ok(sidecars)
 
@@ -292,7 +297,7 @@ proc verify_data_column_sidecar_kzg_proofs*(sidecar: DataColumnSidecar): Result[
     sidecarCol = sidecar.column.asSeq
     kzgProofs = sidecar.kzg_proofs.asSeq
 
-  let res = verifyCellKzgProofBatch(kzgCommits, rowIndices, colIndices, sidecarCol, kzgProofs)
+  let res = validate_data_column_sidecar(kzgCommits, rowIndices, colIndices, sidecarCol, kzgProofs)
 
   if res.isErr():
     return err("DataColumnSidecar: validation failed")
