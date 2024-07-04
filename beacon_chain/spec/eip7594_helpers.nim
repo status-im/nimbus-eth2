@@ -194,12 +194,32 @@ proc recover_blobs*(
 
   ok(recovered_blobs)
 
+proc compute_signed_block_header(signed_block: deneb.SignedBeaconBlock |
+                                 electra.SignedBeaconBlock): 
+                                 SignedBeaconBlockHeader =
+  let blck = signed_block.message
+  let block_header = BeaconBlockHeader(
+    slot: blck.slot,
+    proposer_index: blck.proposer_index,
+    parent_root: blck.parent_root,
+    state_root: blck.state_root,
+    body_root: hash_tree_root(blck.body)
+  )
+  result = SignedBeaconBlockHeader(
+    message: block_header,
+    signature: signed_block.signature
+  )
+
 # https://github.com/ethereum/consensus-specs/blob/5f48840f4d768bf0e0a8156a3ed06ec333589007/specs/_features/eip7594/das-core.md#get_data_column_sidecars
-proc get_data_column_sidecars*(signed_block: deneb.SignedBeaconBlock | electra.SignedBeaconBlock, blobs: seq[KzgBlob]): Result[seq[DataColumnSidecar], cstring] =
+proc get_data_column_sidecars*(signed_block: deneb.SignedBeaconBlock |
+                               electra.SignedBeaconBlock, 
+                               blobs: seq[KzgBlob]): 
+                               Result[seq[DataColumnSidecar], cstring] =
+
   var 
     sidecar: DataColumnSidecar
-    signed_block_header: SignedBeaconBlockHeader
     blck = signed_block.message
+    signed_beacon_block_header = compute_signed_block_header(signed_block)
     cellsAndProofs: seq[KzgCellsAndKzgProofs]
     kzg_incl_proof: array[4, Eth2Digest]
 
@@ -245,7 +265,7 @@ proc get_data_column_sidecars*(signed_block: deneb.SignedBeaconBlock | electra.S
       column: column,
       kzgCommitments: blck.body.blob_kzg_commitments,
       kzgProofs: kzgProofOfColumn,
-      signed_block_header: signed_block_header,
+      signed_block_header: signed_beacon_block_header,
       kzg_commitments_inclusion_proof: kzg_incl_proof
     )
     sidecars.add(sidecar)
