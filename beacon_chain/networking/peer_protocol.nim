@@ -8,7 +8,7 @@
 {.push raises: [].}
 
 import
-  chronicles,
+  chronicles, stew/base10, metrics,
   ../spec/network,
   ".."/[beacon_clock],
   ../networking/eth2_network,
@@ -37,6 +37,9 @@ type
     statusLastTime: chronos.Moment
     statusMsg: StatusMsg
 
+declareCounter nbc_disconnects_count,
+  "Number disconnected peers", labels = ["agent", "reason"]
+
 func shortLog*(s: StatusMsg): auto =
   (
     forkDigest: s.forkDigest,
@@ -46,13 +49,6 @@ func shortLog*(s: StatusMsg): auto =
     headSlot: shortLog(s.headSlot)
   )
 chronicles.formatIt(StatusMsg): shortLog(it)
-
-func disconnectReasonName(reason: uint64): string =
-  # haha, nim doesn't support uint64 in `case`!
-  if reason == uint64(ClientShutDown): "Client shutdown"
-  elif reason == uint64(IrrelevantNetwork): "Irrelevant network"
-  elif reason == uint64(FaultOrError): "Fault or error"
-  else: "Disconnected (" & $reason & ")"
 
 func forkDigestAtEpoch(state: PeerSyncNetworkState,
                        epoch: Epoch): ForkDigest =
@@ -131,9 +127,12 @@ p2pProtocol PeerSync(version = 1,
                        networkState = PeerSyncNetworkState,
                        peerState = PeerSyncPeerState):
 
-  onPeerConnected do (peer: Peer, incoming: bool) {.async: (raises: [CancelledError]).}:
+  onPeerConnected do (peer: Peer, incoming: bool) {.
+    async: (raises: [CancelledError]).}:
+    peer.updateAgent()
     debug "Peer connected",
-      peer, peerId = shortLog(peer.peerId), incoming
+      peer, peerId = shortLog(peer.peerId), incoming,
+      remote_agent = $peer.remoteAgent
     # Per the eth2 protocol, whoever dials must send a status message when
     # connected for the first time, but because of how libp2p works, there may
     # be a race between incoming and outgoing connections and disconnects that
@@ -181,7 +180,9 @@ p2pProtocol PeerSync(version = 1,
 
   proc goodbye(peer: Peer, reason: uint64)
     {.async, libp2pProtocol("goodbye", 1).} =
-    debug "Received Goodbye message", reason = disconnectReasonName(reason), peer
+    nbc_disconnects_count.inc(1, [$peer.remoteAgent, Base10.toString(reason)])
+    debug "Received Goodbye message",
+          reason = disconnectReasonName(peer.remoteAgent, reason), peer
 
 proc setStatusMsg(peer: Peer, statusMsg: StatusMsg) =
   debug "Peer status", peer, statusMsg
