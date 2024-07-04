@@ -1481,6 +1481,7 @@ proc removeFeeRecipientFile*(host: KeymanagerHost,
   if fileExists(path):
     io2.removeFile(path).isOkOr:
       return err($uint(error) & " " & ioErrorMsg(error))
+    host.validatorPool[].invalidateValidatorRegistration(pubkey)
   ok()
 
 proc removeGasLimitFile*(host: KeymanagerHost,
@@ -1499,14 +1500,21 @@ proc removeGraffitiFile*(host: KeymanagerHost,
       return err($uint(error) & " " & ioErrorMsg(error))
   ok()
 
-proc setFeeRecipient*(host: KeymanagerHost, pubkey: ValidatorPubKey, feeRecipient: Eth1Address): Result[void, string] =
+proc setFeeRecipient*(
+    host: KeymanagerHost, pubkey: ValidatorPubKey, feeRecipient: Eth1Address):
+    Result[void, string] =
   let validatorKeystoreDir = host.validatorKeystoreDir(pubkey)
-
   ? secureCreatePath(validatorKeystoreDir).mapErr(proc(e: auto): string =
     "Could not create wallet directory [" & validatorKeystoreDir & "]: " & $e)
 
-  io2.writeFile(validatorKeystoreDir / FeeRecipientFilename, $feeRecipient)
+  let res = io2.writeFile(
+      validatorKeystoreDir / FeeRecipientFilename, $feeRecipient)
     .mapErr(proc(e: auto): string = "Failed to write fee recipient file: " & $e)
+
+  if res.isOk:
+    host.validatorPool[].invalidateValidatorRegistration(pubkey)
+
+  res
 
 proc setGasLimit*(host: KeymanagerHost,
                   pubkey: ValidatorPubKey,
