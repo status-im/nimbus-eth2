@@ -241,8 +241,8 @@ proc get_data_column_sidecars*(signed_block: deneb.SignedBeaconBlock | electra.S
       column: column,
       kzgCommitments: blck.body.blob_kzg_commitments,
       kzgProofs: kzgProofOfColumn,
-      signed_block_header: signed_block_header
-
+      signed_block_header: signed_block_header,
+      kzg_commitments_inclusion_proof: kzg_incl_proof
     )
 
   ok(sidecars)

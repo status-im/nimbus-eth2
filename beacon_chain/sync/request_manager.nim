@@ -31,11 +31,13 @@ const
     ## `beaconBlocksByRoot` invocation.
   PARALLEL_REQUESTS* = 8
     ## Number of peers we using to resolve our request.
+  
+  PARALLEL_REQUESTS_DATA_COLUMNS* = 50
 
   BLOB_GOSSIP_WAIT_TIME_NS* = 2 * 1_000_000_000
     ## How long to wait for blobs to arrive over gossip before fetching.
 
-  DATA_COLUMN_GOSSIP_WAIT_TIME_NS* = 8 * 1_000_000_000
+  DATA_COLUMN_GOSSIP_WAIT_TIME_NS* =  500_000_000
 
   POLL_INTERVAL = 1.seconds
 
@@ -563,8 +565,8 @@ proc requestManagerDataColumnLoop(
       debug "Requesting detected missing data columns", columns = shortLog(columnIds)
       let start = SyncMoment.now(0)
       var workers:
-        array[PARALLEL_REQUESTS, Future[void].Raising([CancelledError])]
-      for i in 0..<PARALLEL_REQUESTS:
+        array[PARALLEL_REQUESTS_DATA_COLUMNS, Future[void].Raising([CancelledError])]
+      for i in 0..<PARALLEL_REQUESTS_DATA_COLUMNS:
         workers[i] = rman.fetchDataColumnsFromNetwork(columnIds)
       
       await allFutures(workers)
