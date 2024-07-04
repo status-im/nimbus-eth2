@@ -163,29 +163,29 @@ proc routeSignedBeaconBlock*(
         notice "Blob sent", blob = shortLog(blobs[i])
     blobRefs = Opt.some(blobs.mapIt(newClone(it)))
   
-  var dataColumnRefs = Opt.none(DataColumnSidecars)
-  when typeof(blck).kind >= ConsensusFork.Deneb:   
-    if blobsOpt.isSome():
-      let blobs = blobsOpt.get()
-      let data_columns = get_data_column_sidecars(blck, blobs.mapIt(it.blob)).get()
-      var das_workers = newSeq[Future[SendResult]](len(data_columns))
-      for i in 0..<data_columns.lenu64:
-        let subnet_id = compute_subnet_for_data_column_sidecar(i)
-        das_workers[i] = 
-            router[].network.broadcastDataColumnSidecar(subnet_id, data_columns[i])
-      let allres = await allFinished(das_workers)
-      for i in 0..<allres.len:
-        let res = allres[i]
-        doAssert res.finished()
-        if res.failed():
-          notice "Data Columns not sent",
-            data_column = shortLog(data_columns[i]), error = res.error[]
-        else:
-          notice "Data columns sent", data_column = shortLog(data_columns[i])
-      dataColumnRefs = Opt.some(data_columns.mapIt(newClone(it)))
+  # var dataColumnRefs = Opt.none(DataColumnSidecars)
+  # when typeof(blck).kind >= ConsensusFork.Deneb:   
+  #   if blobsOpt.isSome():
+  #     let blobs = blobsOpt.get()
+  #     let data_columns = get_data_column_sidecars(blck, blobs.mapIt(it.blob)).get()
+  #     var das_workers = newSeq[Future[SendResult]](len(data_columns))
+  #     for i in 0..<data_columns.lenu64:
+  #       let subnet_id = compute_subnet_for_data_column_sidecar(i)
+  #       das_workers[i] = 
+  #           router[].network.broadcastDataColumnSidecar(subnet_id, data_columns[i])
+  #     let allres = await allFinished(das_workers)
+  #     for i in 0..<allres.len:
+  #       let res = allres[i]
+  #       doAssert res.finished()
+  #       if res.failed():
+  #         notice "Data Columns not sent",
+  #           data_column = shortLog(data_columns[i]), error = res.error[]
+  #       else:
+  #         notice "Data columns sent", data_column = shortLog(data_columns[i])
+  #     dataColumnRefs = Opt.some(data_columns.mapIt(newClone(it)))
     
-  let added = await router[].blockProcessor[].addBlock(
-    MsgSource.api, ForkedSignedBeaconBlock.init(blck), Opt.none(BlobSidecars), dataColumnRefs)
+  # let added = await router[].blockProcessor[].addBlock(
+  #   MsgSource.api, ForkedSignedBeaconBlock.init(blck), Opt.none(BlobSidecars), dataColumnRefs)
 
   # The boolean we return tells the caller whether the block was integrated
   # into the chain
