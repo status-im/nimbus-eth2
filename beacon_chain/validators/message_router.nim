@@ -163,7 +163,7 @@ proc routeSignedBeaconBlock*(
         notice "Blob sent", blob = shortLog(blobs[i])
     blobRefs = Opt.some(blobs.mapIt(newClone(it)))
   
-  # var dataColumnRefs = Opt.none(DataColumnSidecars)
+  var dataColumnRefs = Opt.none(DataColumnSidecars)
   # when typeof(blck).kind >= ConsensusFork.Deneb:   
   #   if blobsOpt.isSome():
   #     let blobs = blobsOpt.get()
@@ -184,8 +184,8 @@ proc routeSignedBeaconBlock*(
   #         notice "Data columns sent", data_column = shortLog(data_columns[i])
   #     dataColumnRefs = Opt.some(data_columns.mapIt(newClone(it)))
     
-  # let added = await router[].blockProcessor[].addBlock(
-  #   MsgSource.api, ForkedSignedBeaconBlock.init(blck), Opt.none(BlobSidecars), dataColumnRefs)
+  let added = await router[].blockProcessor[].addBlock(
+    MsgSource.api, ForkedSignedBeaconBlock.init(blck), blobRefs, dataColumnRefs)
 
   # The boolean we return tells the caller whether the block was integrated
   # into the chain
