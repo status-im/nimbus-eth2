@@ -214,7 +214,7 @@ proc compute_signed_block_header(signed_block: deneb.SignedBeaconBlock |
 proc get_data_column_sidecars*(signed_block: deneb.SignedBeaconBlock |
                                electra.SignedBeaconBlock, 
                                blobs: seq[KzgBlob]): 
-                               Result[seq[DataColumnSidecar], cstring] =
+                               seq[DataColumnSidecar] =
   var
     blck = signed_block.message
     signed_beacon_block_header = compute_signed_block_header(signed_block)
@@ -264,7 +264,7 @@ proc get_data_column_sidecars*(signed_block: deneb.SignedBeaconBlock |
       27.GeneralizedIndex,
       sidecar.kzg_commitments_inclusion_proof).expect("Valid gindex")
     sidecars.add(sidecar)
-  ok(sidecars)
+  sidecars
 
 # Helper function to `verifyCellKzgProofBatch` at https://github.com/ethereum/c-kzg-4844/blob/das/bindings/nim/kzg_ex.nim#L170
 proc validate_data_column_sidecar*(

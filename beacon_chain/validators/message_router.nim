@@ -167,7 +167,7 @@ proc routeSignedBeaconBlock*(
   when typeof(blck).kind >= ConsensusFork.Deneb:   
     if blobsOpt.isSome():
       let blobs = blobsOpt.get()
-      let data_columns = get_data_column_sidecars(blck, blobs.mapIt(it.blob)).get()
+      let data_columns = get_data_column_sidecars(blck, blobs.mapIt(it.blob))
       var das_workers = newSeq[Future[SendResult]](len(data_columns))
       for i in 0..<data_columns.lenu64:
         let subnet_id = compute_subnet_for_data_column_sidecar(i)
