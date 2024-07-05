@@ -243,7 +243,7 @@ proc get_data_column_sidecars*(signed_block: deneb.SignedBeaconBlock |
     for j in 0..<int(MAX_BLOB_COMMITMENTS_PER_BLOCK):
       proofs[i].add(cellsAndProofs[i].proofs[j])
 
-  var sidecars: newSeqOfCap[DataColumnSidecar](NUMBER_OF_COLUMNS)
+  var sidecars = newSeqOfCap[DataColumnSidecar](NUMBER_OF_COLUMNS)
 
   for columnIndex in 0..<NUMBER_OF_COLUMNS:
     var column: DataColumn
@@ -261,8 +261,8 @@ proc get_data_column_sidecars*(signed_block: deneb.SignedBeaconBlock |
       kzgProofs: kzgProofOfColumn,
       signed_block_header: signed_beacon_block_header)
     blck.body.build_proof(
-      kzg_commitment_inclusion_proof_gindex(columnIndex),
-      sidecar.kzg_commitment_inclusion_proof).expect("Valid gindex")
+      kzg_commitment_inclusion_proof_gindex(ColumnIndex(columnIndex)),
+      sidecar.kzg_commitments_inclusion_proof).expect("Valid gindex")
     sidecars.add(sidecar)
   ok(sidecars)
 
