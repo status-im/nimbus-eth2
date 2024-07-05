@@ -530,10 +530,10 @@ proc validateDataColumnSidecar*(
 
   # [REJECT] The sidecar's `kzg_commitments` inclusion proof is valid as verified by
   # `verify_data_column_sidecar_inclusion_proof(sidecar)`.
-  # block:
-  #   let v = check_data_column_sidecar_inclusion_proof(data_column_sidecar)
-  #   if v.isErr:
-  #     return dag.checkedReject(v.error)
+  block:
+    let v = check_data_column_sidecar_inclusion_proof(data_column_sidecar)
+    if v.isErr:
+      return dag.checkedReject(v.error)
 
   # [IGNORE] The sidecar's block's parent (defined by
   # `block_header.parent_root`) has been seen (via both gossip and
