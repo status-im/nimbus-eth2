@@ -215,17 +215,11 @@ proc get_data_column_sidecars*(signed_block: deneb.SignedBeaconBlock |
                                electra.SignedBeaconBlock, 
                                blobs: seq[KzgBlob]): 
                                Result[seq[DataColumnSidecar], cstring] =
-
-  var 
-    sidecar: DataColumnSidecar
+  var
     blck = signed_block.message
     signed_beacon_block_header = compute_signed_block_header(signed_block)
     cellsAndProofs: seq[KzgCellsAndKzgProofs]
     kzg_incl_proof: array[4, Eth2Digest]
-
-  blck.body.build_proof(
-    11.GeneralizedIndex,
-    kzg_incl_proof).expect("Valid gindex")
   
   for blob in blobs:
     let
@@ -249,7 +243,7 @@ proc get_data_column_sidecars*(signed_block: deneb.SignedBeaconBlock |
     for j in 0..<int(MAX_BLOB_COMMITMENTS_PER_BLOCK):
       proofs[i].add(cellsAndProofs[i].proofs[j])
 
-  var sidecars: seq[DataColumnSidecar]
+  var sidecars: newSeqOfCap[DataColumnSidecar](NUMBER_OF_COLUMNS)
 
   for columnIndex in 0..<NUMBER_OF_COLUMNS:
     var column: DataColumn
@@ -260,16 +254,16 @@ proc get_data_column_sidecars*(signed_block: deneb.SignedBeaconBlock |
     for rowIndex in 0..<blobCount:
       kzgProofOfColumn[rowIndex] = proofs[rowIndex][columnIndex]
 
-    sidecar = DataColumnSidecar(
+    var sidecar = DataColumnSidecar(
       index: ColumnIndex(columnIndex),
       column: column,
       kzgCommitments: blck.body.blob_kzg_commitments,
       kzgProofs: kzgProofOfColumn,
-      signed_block_header: signed_beacon_block_header,
-      kzg_commitments_inclusion_proof: kzg_incl_proof
-    )
+      signed_block_header: signed_beacon_block_header)
+    blck.body.build_proof(
+      kzg_commitment_inclusion_proof_gindex(columnIndex),
+      sidecar.kzg_commitment_inclusion_proof).expect("Valid gindex")
     sidecars.add(sidecar)
-
   ok(sidecars)
 
 # Helper function to `verifyCellKzgProofBatch` at https://github.com/ethereum/c-kzg-4844/blob/das/bindings/nim/kzg_ex.nim#L170
@@ -327,12 +321,12 @@ proc verify_data_column_sidecar_kzg_proofs*(sidecar: DataColumnSidecar): Result[
 # https://github.com/ethereum/consensus-specs/blob/5f48840f4d768bf0e0a8156a3ed06ec333589007/specs/_features/eip7594/p2p-interface.md#verify_data_column_sidecar_inclusion_proof
 func verify_data_column_sidecar_inclusion_proof*(sidecar: DataColumnSidecar): Result[void, string] =
   # Verify if the given KZG commitments are included in the beacon block
-  let gindex = 11.GeneralizedIndex
+  let gindex = kzg_commitment_inclusion_proof_gindex(sidecar.index)
   if not is_valid_merkle_branch(
     hash_tree_root(sidecar.kzg_commitments),
     sidecar.kzg_commitments_inclusion_proof,
     KZG_COMMITMENT_INCLUSION_PROOF_DEPTH,
-    gindex,
+    get_subtree_index(gindex),
     sidecar.signed_block_header.message.body_root):
     
     return err("DataColumnSidecar: inclusion proof not valid")
