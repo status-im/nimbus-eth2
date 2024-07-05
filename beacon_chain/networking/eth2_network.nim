@@ -360,6 +360,11 @@ proc updateAgent*(peer: Peer) =
   else:
     peer.remoteAgent = Eth2Agent.Unknown
 
+proc getRemoteAgent*(peer: Peer): Eth2Agent =
+  if peer.remoteAgent == Eth2Agent.Unknown:
+    peer.updateAgent()
+  peer.remoteAgent
+
 proc openStream(node: Eth2Node,
                 peer: Peer,
                 protocolId: string): Future[NetRes[Connection]]

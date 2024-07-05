@@ -24,7 +24,7 @@ type
 func `$`*(a: Eth2Agent): string =
   case a
   of Eth2Agent.Unknown:
-    "unrecognized"
+    "pending/unknown"
   of Eth2Agent.Nimbus:
     "nimbus"
   of Eth2Agent.Lighthouse:

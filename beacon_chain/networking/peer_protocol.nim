@@ -129,10 +129,7 @@ p2pProtocol PeerSync(version = 1,
 
   onPeerConnected do (peer: Peer, incoming: bool) {.
     async: (raises: [CancelledError]).}:
-    peer.updateAgent()
-    debug "Peer connected",
-      peer, peerId = shortLog(peer.peerId), incoming,
-      remote_agent = $peer.remoteAgent
+    debug "Peer connected", peer, peerId = shortLog(peer.peerId), incoming
     # Per the eth2 protocol, whoever dials must send a status message when
     # connected for the first time, but because of how libp2p works, there may
     # be a race between incoming and outgoing connections and disconnects that
@@ -151,6 +148,7 @@ p2pProtocol PeerSync(version = 1,
 
     if theirStatus.isOk:
       discard await peer.handleStatus(peer.networkState, theirStatus.get())
+      peer.updateAgent()
     else:
       debug "Status response not received in time",
             peer, errorKind = theirStatus.error.kind
@@ -178,11 +176,13 @@ p2pProtocol PeerSync(version = 1,
     {.libp2pProtocol("metadata", 2).} =
     peer.network.metadata
 
-  proc goodbye(peer: Peer, reason: uint64)
-    {.async, libp2pProtocol("goodbye", 1).} =
-    nbc_disconnects_count.inc(1, [$peer.remoteAgent, Base10.toString(reason)])
+  proc goodbye(peer: Peer, reason: uint64) {.
+       async, libp2pProtocol("goodbye", 1).} =
+    let remoteAgent = peer.getRemoteAgent()
+    nbc_disconnects_count.inc(1, [$remoteAgent, Base10.toString(reason)])
     debug "Received Goodbye message",
-          reason = disconnectReasonName(peer.remoteAgent, reason), peer
+          reason = disconnectReasonName(remoteAgent, reason),
+          remote_agent = $remoteAgent, peer
 
 proc setStatusMsg(peer: Peer, statusMsg: StatusMsg) =
   debug "Peer status", peer, statusMsg
