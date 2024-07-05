@@ -224,7 +224,7 @@ proc get_data_column_sidecars*(signed_block: deneb.SignedBeaconBlock |
     kzg_incl_proof: array[4, Eth2Digest]
 
   blck.body.build_proof(
-    27.GeneralizedIndex,
+    11.GeneralizedIndex,
     kzg_incl_proof).expect("Valid gindex")
   
   for blob in blobs:
