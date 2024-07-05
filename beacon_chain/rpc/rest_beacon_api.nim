@@ -1106,6 +1106,89 @@ proc installBeaconApiHandlers*(router: var RestRouter, node: BeaconNode) =
 
         RestApiResponse.jsonMsgResponse(BlockValidationSuccess)
 
+  # https://ethereum.github.io/beacon-APIs/#/Beacon/publishBlindedBlockV2
+  router.api(MethodPost, "/eth/v2/beacon/blinded_blocks") do (
+    broadcast_validation: Option[BroadcastValidationType],
+    contentBody: Option[ContentBody]) -> RestApiResponse:
+    if contentBody.isNone():
+      return RestApiResponse.jsonError(Http400, EmptyRequestBodyError)
+
+    let
+      currentEpochFork =
+        node.dag.cfg.consensusForkAtEpoch(node.currentSlot().epoch())
+      version = request.headers.getString("eth-consensus-version")
+      validation =
+        if broadcast_validation.isNone():
+          BroadcastValidationType.Gossip
+        else:
+          let res = broadcast_validation.get().valueOr:
+            return RestApiResponse.jsonError(Http400,
+                                             InvalidBroadcastValidationType)
+          # TODO (cheatfate): support 'consensus' and
+          # 'consensus_and_equivocation' broadcast_validation types.
+          if res != BroadcastValidationType.Gossip:
+            return RestApiResponse.jsonError(Http500,
+              "Only `gossip` broadcast_validation option supported")
+          res
+      body = contentBody.get()
+
+    if (body.contentType == OctetStreamMediaType) and
+       (currentEpochFork.toString != version):
+      return RestApiResponse.jsonError(Http400, BlockIncorrectFork)
+
+    withConsensusFork(currentEpochFork):
+      # TODO (cheatfate): handle broadcast_validation flag
+      when consensusFork >= ConsensusFork.Deneb:
+        let
+          restBlock = decodeBodyJsonOrSsz(
+              consensusFork.SignedBlindedBeaconBlock, body).valueOr:
+            return RestApiResponse.jsonError(error)
+          payloadBuilderClient = node.getPayloadBuilderClient(
+              restBlock.message.proposer_index).valueOr:
+            return RestApiResponse.jsonError(
+              Http400, "Unable to initialize payload builder client: " & $error)
+          res = await node.unblindAndRouteBlockMEV(
+            payloadBuilderClient, restBlock)
+
+        if res.isErr():
+          return RestApiResponse.jsonError(
+            Http500, InternalServerError, $res.error)
+        if res.get().isNone():
+          return RestApiResponse.jsonError(Http202, BlockValidationError)
+
+        return RestApiResponse.jsonMsgResponse(BlockValidationSuccess)
+      elif consensusFork >= ConsensusFork.Bellatrix:
+        return RestApiResponse.jsonError(
+          Http400, $consensusFork & " builder API unsupported")
+      else:
+        # Pre-Bellatrix, this endpoint will accept a `SignedBeaconBlock`.
+        #
+        # This is mostly the same as /eth/v1/beacon/blocks for phase 0 and
+        # altair.
+        var
+          restBlock = decodeBody(
+              RestPublishedSignedBeaconBlock, body, version).valueOr:
+            return RestApiResponse.jsonError(error)
+          forked = ForkedSignedBeaconBlock(restBlock)
+
+        if forked.kind != node.dag.cfg.consensusForkAtEpoch(
+            getForkedBlockField(forked, slot).epoch):
+          return RestApiResponse.jsonError(Http400, InvalidBlockObjectError)
+
+        let res = withBlck(forked):
+          forkyBlck.root = hash_tree_root(forkyBlck.message)
+          await node.router.routeSignedBeaconBlock(
+            forkyBlck, Opt.none(seq[BlobSidecar]),
+            checkValidator = true)
+
+        if res.isErr():
+          return RestApiResponse.jsonError(
+            Http503, BeaconNodeInSyncError, $res.error)
+        elif res.get().isNone():
+          return RestApiResponse.jsonError(Http202, BlockValidationError)
+
+        RestApiResponse.jsonMsgResponse(BlockValidationSuccess)
+
   # https://ethereum.github.io/beacon-APIs/#/Beacon/getBlock
   router.api2(MethodGet, "/eth/v1/beacon/blocks/{block_id}") do (
     block_id: BlockIdent) -> RestApiResponse:

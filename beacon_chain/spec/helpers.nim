@@ -39,6 +39,9 @@ type
   ExecutionTransaction* = eth_types.Transaction
   ExecutionReceipt* = eth_types.Receipt
   ExecutionWithdrawal* = eth_types.Withdrawal
+  ExecutionDepositRequest* = eth_types.DepositRequest
+  ExecutionWithdrawalRequest* = eth_types.WithdrawalRequest
+  ExecutionConsolidationRequest* = eth_types.ConsolidationRequest
   ExecutionBlockHeader* = eth_types.BlockHeader
 
   FinalityCheckpoints* = object
@@ -477,6 +480,73 @@ proc computeWithdrawalsTrieRoot*(
       raiseAssert "HexaryTrie.put failed: " & $exc.msg
   tr.rootHash()
 
+func toExecutionDepositRequest*(
+    request: electra.DepositRequest): ExecutionDepositRequest =
+  ExecutionDepositRequest(
+    pubkey: request.pubkey.blob,
+    withdrawalCredentials: request.withdrawal_credentials.data,
+    amount: distinctBase(request.amount),
+    signature: request.signature.blob,
+    index: request.index)
+
+func toExecutionWithdrawalRequest*(
+    request: electra.WithdrawalRequest): ExecutionWithdrawalRequest =
+  ExecutionWithdrawalRequest(
+    sourceAddress: request.source_address.data,
+    validatorPubkey: request.validator_pubkey.blob,
+    amount: distinctBase(request.amount))
+
+func toExecutionConsolidationRequest*(
+    request: electra.ConsolidationRequest): ExecutionConsolidationRequest =
+  ExecutionConsolidationRequest(
+    sourceAddress: request.source_address.data,
+    sourcePubkey: request.source_pubkey.blob,
+    targetPubkey: request.target_pubkey.blob)
+
+# https://eips.ethereum.org/EIPS/eip-7685
+proc computeRequestsTrieRoot*(
+    payload: electra.ExecutionPayload): ExecutionHash256 =
+  if payload.deposit_requests.len == 0 and
+      payload.withdrawal_requests.len == 0 and
+      payload.consolidation_requests.len == 0:
+    return EMPTY_ROOT_HASH
+
+  var
+    tr = initHexaryTrie(newMemoryDB())
+    i = 0'u64
+
+  static:
+    doAssert DEPOSIT_REQUEST_TYPE < WITHDRAWAL_REQUEST_TYPE
+    doAssert WITHDRAWAL_REQUEST_TYPE < CONSOLIDATION_REQUEST_TYPE
+
+  # EIP-6110
+  for request in payload.deposit_requests:
+    try:
+      tr.put(rlp.encode(i.uint), rlp.encode(
+        toExecutionDepositRequest(request)))
+    except RlpError as exc:
+      raiseAssert "HexaryTree.put failed: " & $exc.msg
+    inc i
+
+  # EIP-7002
+  for request in payload.withdrawal_requests:
+    try:
+      tr.put(rlp.encode(i.uint), rlp.encode(
+        toExecutionWithdrawalRequest(request)))
+    except RlpError as exc:
+      raiseAssert "HexaryTree.put failed: " & $exc.msg
+    inc i
+
+  # EIP-7251
+  for request in payload.consolidation_requests:
+    try:
+      tr.put(rlp.encode(i.uint), rlp.encode(
+        toExecutionConsolidationRequest(request)))
+    except RlpError as exc:
+      raiseAssert "HexaryTree.put failed: " & $exc.msg
+    inc i
+
+  tr.rootHash()
 
 proc toExecutionBlockHeader*(
     payload: ForkyExecutionPayload,
@@ -507,6 +577,11 @@ proc toExecutionBlockHeader*(
         Opt.some ExecutionHash256(data: parentRoot.data)
       else:
         Opt.none(ExecutionHash256)
+    requestsRoot =
+      when typeof(payload).kind >= ConsensusFork.Electra:
+        Opt.some payload.computeRequestsTrieRoot()
+      else:
+        Opt.none(ExecutionHash256)
 
   ExecutionBlockHeader(
     parentHash            : payload.parent_hash,
@@ -528,7 +603,8 @@ proc toExecutionBlockHeader*(
     withdrawalsRoot       : withdrawalsRoot,
     blobGasUsed           : blobGasUsed,           # EIP-4844
     excessBlobGas         : excessBlobGas,         # EIP-4844
-    parentBeaconBlockRoot : parentBeaconBlockRoot) # EIP-4788
+    parentBeaconBlockRoot : parentBeaconBlockRoot, # EIP-4788
+    requestsRoot          : requestsRoot)          # EIP-7685
 
 proc compute_execution_block_hash*(
     payload: ForkyExecutionPayload,
