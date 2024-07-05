@@ -261,7 +261,7 @@ proc get_data_column_sidecars*(signed_block: deneb.SignedBeaconBlock |
       kzgProofs: kzgProofOfColumn,
       signed_block_header: signed_beacon_block_header)
     blck.body.build_proof(
-      11.GeneralizedIndex,
+      27.GeneralizedIndex,
       sidecar.kzg_commitments_inclusion_proof).expect("Valid gindex")
     sidecars.add(sidecar)
   ok(sidecars)
@@ -321,7 +321,7 @@ proc verify_data_column_sidecar_kzg_proofs*(sidecar: DataColumnSidecar): Result[
 # https://github.com/ethereum/consensus-specs/blob/5f48840f4d768bf0e0a8156a3ed06ec333589007/specs/_features/eip7594/p2p-interface.md#verify_data_column_sidecar_inclusion_proof
 func verify_data_column_sidecar_inclusion_proof*(sidecar: DataColumnSidecar): Result[void, string] =
   # Verify if the given KZG commitments are included in the beacon block
-  let gindex = 11.GeneralizedIndex
+  let gindex = 27.GeneralizedIndex
   if not is_valid_merkle_branch(
     hash_tree_root(sidecar.kzg_commitments),
     sidecar.kzg_commitments_inclusion_proof,
