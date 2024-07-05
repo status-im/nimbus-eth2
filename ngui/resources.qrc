@@ -1,0 +1,12 @@
+<!DOCTYPE RCC><RCC version="1.0">
+<qresource prefix="/">
+    <file>ui/Blocks.qml</file>
+    <file>ui/main.qml</file>
+    <file>ui/Node.qml</file>
+    <file>ui/ObjectTableView.qml</file>
+    <file>ui/Peers.qml</file>
+    <file>ui/Pools.qml</file>
+    <file>ui/Slots.qml</file>
+    <file>ui/States.qml</file>
+</qresource>
+</RCC>

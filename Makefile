@@ -491,6 +491,10 @@ force_build_alone_tools: | $(FORCE_BUILD_ALONE_TOOLS_DEPS)
 # https://www.gnu.org/software/make/manual/html_node/Multiple-Rules.html#Multiple-Rules
 # Already defined as a reult
 nimbus_beacon_node: force_build_alone_tools
+ngui/ngui: | build deps
+	+ echo -e $(BUILD_MSG) "build/$@" && \
+		MAKE="$(MAKE)" V="$(V)" $(ENV_SCRIPT) scripts/compile_nim_program.sh $@ "ngui.ngui.nim" $(NIM_PARAMS) && \
+		echo -e $(BUILD_END_MSG) "ngui/ngui"
 
 GOERLI_TESTNETS_PARAMS := \
 	--tcp-port=$$(( $(BASE_PORT) + $(NODE_ID) )) \

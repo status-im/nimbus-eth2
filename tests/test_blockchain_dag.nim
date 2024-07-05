@@ -732,7 +732,9 @@ suite "Diverging hardforks":
       altairRuntimeConfig = defaultRuntimeConfig
 
     phase0RuntimeConfig.ALTAIR_FORK_EPOCH = FAR_FUTURE_EPOCH
+    phase0RuntimeConfig.BELLATRIX_FORK_EPOCH = FAR_FUTURE_EPOCH
     altairRuntimeConfig.ALTAIR_FORK_EPOCH = 2.Epoch
+    altairRuntimeConfig.BELLATRIX_FORK_EPOCH = FAR_FUTURE_EPOCH
 
     var
       db = makeTestDB(SLOTS_PER_EPOCH)
