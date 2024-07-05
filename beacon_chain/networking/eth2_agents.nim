@@ -91,9 +91,23 @@ const
     (252'u64, "The IP address the peer is using is banned"),
   ].toTable()
 
-func disconnectReasonName*(a: Eth2Agent, code: uint64): string =
+  # This is combination of all the errors, we need it when remote agent is not
+  # identified yet.
+  UnknownErrors = [
+    (128'u64, "Unable to verify network"),
+    (129'u64, "The node has too many connected peers"),
+    (130'u64, "Too many requests from the peer"),
+    (237'u64, "Peer score is too low"),
+    (250'u64, "Peer score is too low"),
+    (251'u64, "The peer is banned"),
+    (252'u64, "The IP address the peer is using is banned"),
+  ].toTable()
+
+func disconnectReasonName*(agent: Eth2Agent, code: uint64): string =
   if code < 128'u64:
     case code
+    of 0'u64:
+      "Unknown error (0)"
     of 1'u64:
       "Client shutdown (1)"
     of 2'u64:
@@ -111,9 +125,9 @@ func disconnectReasonName*(a: Eth2Agent, code: uint64): string =
       scode = " (" & Base10.toString(code) & ")"
       defaultMessage = "Disconnected"
 
-    case a
+    case agent
     of Eth2Agent.Unknown:
-      "Disconnected" & scode
+      UnknownErrors.getOrDefault(code, defaultMessage) & scode
     of Eth2Agent.Nimbus:
       NimbusErrors.getOrDefault(code, defaultMessage) & scode
     of Eth2Agent.Lighthouse:
