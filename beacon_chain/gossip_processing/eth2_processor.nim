@@ -491,8 +491,6 @@ proc processDataColumnReconstruction*(
 
   # Reconstruct data column sidecars from recovered blobs
   let reconstructedDataColumns = get_data_column_sidecars(signed_block, recovered_blobs.get)
-  if not reconstructedDataColumns.isOk:
-    return errIgnore ("Error reconstructing data columns from recovered blobs")
 
   for data_column in data_column_sidecars:
     if data_column.index notin custodiedColumnIndices.get:
