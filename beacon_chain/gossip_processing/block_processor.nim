@@ -555,8 +555,7 @@ proc storeBlock(
     # This should simulate an unsynced EL, which still must perform these
     # checks. This means it must be able to do so without context, beyond
     # whatever data the block itself contains.
-    when typeof(signedBlock).kind >= ConsensusFork.Bellatrix and typeof(signedBlock).kind <= ConsensusFork.Deneb:
-      debugComment "electra can do this in principle"
+    when typeof(signedBlock).kind >= ConsensusFork.Bellatrix:
       template payload(): auto = signedBlock.message.body.execution_payload
       if  signedBlock.message.is_execution_block and
           payload.block_hash !=
