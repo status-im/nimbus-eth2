@@ -707,13 +707,11 @@ template get_flag_and_inactivity_delta(
     state: altair.BeaconState | bellatrix.BeaconState | capella.BeaconState |
            deneb.BeaconState | electra.BeaconState,
     base_reward_per_increment: Gwei, finality_delay: uint64,
-    previous_epoch: Epoch,
-    active_increments: uint64,
+    previous_epoch: Epoch, active_increments: uint64,
     penalty_denominator: uint64,
     epoch_participation: ptr EpochParticipationFlags,
-    participating_increments: array[3, uint64],
-    info: var altair.EpochInfo,
-    vidx: ValidatorIndex
+    participating_increments: array[3, uint64], info: var altair.EpochInfo,
+    vidx: ValidatorIndex, inactivity_score: uint64
 ): (ValidatorIndex, Gwei, Gwei, Gwei, Gwei, Gwei, Gwei) =
   let
     base_reward = get_base_reward_increment(state, vidx, base_reward_per_increment)
@@ -751,7 +749,7 @@ template get_flag_and_inactivity_delta(
       0.Gwei
     else:
       let penalty_numerator =
-        state.validators[vidx].effective_balance * state.inactivity_scores[vidx]
+        state.validators[vidx].effective_balance * inactivity_score
       penalty_numerator div penalty_denominator
 
   (vidx, reward(TIMELY_SOURCE_FLAG_INDEX),
@@ -804,7 +802,46 @@ iterator get_flag_and_inactivity_deltas*(
     yield get_flag_and_inactivity_delta(
       state, base_reward_per_increment, finality_delay, previous_epoch,
       active_increments, penalty_denominator, epoch_participation,
-      participating_increments, info, vidx)
+      participating_increments, info, vidx, state.inactivity_scores[vidx])
+
+func get_flag_and_inactivity_delta_for_validator(
+    cfg: RuntimeConfig,
+    state: deneb.BeaconState | electra.BeaconState,
+    base_reward_per_increment: Gwei, info: var altair.EpochInfo,
+    finality_delay: uint64, vidx: ValidatorIndex, inactivity_score: Gwei):
+    Opt[(ValidatorIndex, Gwei, Gwei, Gwei, Gwei, Gwei, Gwei)] =
+  ## Return the deltas for a given ``flag_index`` by scanning through the
+  ## participation flags.
+  const INACTIVITY_PENALTY_QUOTIENT =
+    when state is altair.BeaconState:
+      INACTIVITY_PENALTY_QUOTIENT_ALTAIR
+    else:
+      INACTIVITY_PENALTY_QUOTIENT_BELLATRIX
+
+  static: doAssert ord(high(TimelyFlag)) == 2
+
+  let
+    previous_epoch = get_previous_epoch(state)
+    active_increments = get_active_increments(info)
+    penalty_denominator =
+      cfg.INACTIVITY_SCORE_BIAS * INACTIVITY_PENALTY_QUOTIENT
+    epoch_participation =
+      if previous_epoch == get_current_epoch(state):
+        unsafeAddr state.current_epoch_participation
+      else:
+        unsafeAddr state.previous_epoch_participation
+    participating_increments = [
+      get_unslashed_participating_increment(info, TIMELY_SOURCE_FLAG_INDEX),
+      get_unslashed_participating_increment(info, TIMELY_TARGET_FLAG_INDEX),
+      get_unslashed_participating_increment(info, TIMELY_HEAD_FLAG_INDEX)]
+
+  if not is_eligible_validator(info.validators[vidx]):
+    return Opt.none((ValidatorIndex, Gwei, Gwei, Gwei, Gwei, Gwei, Gwei))
+
+  Opt.some get_flag_and_inactivity_delta(
+    state, base_reward_per_increment, finality_delay, previous_epoch,
+    active_increments, penalty_denominator, epoch_participation,
+    participating_increments, info, vidx, inactivity_score.uint64)
 
 # https://github.com/ethereum/consensus-specs/blob/v1.4.0/specs/phase0/beacon-chain.md#rewards-and-penalties-1
 func process_rewards_and_penalties*(
@@ -1000,6 +1037,22 @@ func get_slashing_penalty*(validator: Validator,
 # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.7/specs/phase0/beacon-chain.md#slashings
 # https://github.com/ethereum/consensus-specs/blob/v1.4.0/specs/altair/beacon-chain.md#slashings
 # https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.3/specs/bellatrix/beacon-chain.md#slashings
+func get_slashing(
+    state: ForkyBeaconState, total_balance: Gwei, vidx: ValidatorIndex): Gwei =
+  # For efficiency reasons, it doesn't make sense to have process_slashings use
+  # this per-validator index version, but keep them parallel otherwise.
+  let
+    epoch = get_current_epoch(state)
+    adjusted_total_slashing_balance = get_adjusted_total_slashing_balance(
+      state, total_balance)
+
+  let validator = unsafeAddr state.validators.item(vidx)
+  if slashing_penalty_applies(validator[], epoch):
+    get_slashing_penalty(
+      validator[], adjusted_total_slashing_balance, total_balance)
+  else:
+    0.Gwei
+
 func process_slashings*(state: var ForkyBeaconState, total_balance: Gwei) =
   let
     epoch = get_current_epoch(state)
@@ -1164,7 +1217,7 @@ template compute_inactivity_update(
   # TODO activeness already checked; remove redundant checks between
   # is_active_validator and is_unslashed_participating_index
   if is_unslashed_participating_index(
-      state, TIMELY_TARGET_FLAG_INDEX, previous_epoch, index.ValidatorIndex):
+      state, TIMELY_TARGET_FLAG_INDEX, previous_epoch, index):
     inactivity_score -= min(1'u64, inactivity_score)
   else:
     inactivity_score += cfg.INACTIVITY_SCORE_BIAS
@@ -1195,6 +1248,7 @@ func process_inactivity_updates*(
 
     let
       pre_inactivity_score = state.inactivity_scores.asSeq()[index]
+      index = index.ValidatorIndex # intentional shadowing
       inactivity_score =
         compute_inactivity_update(cfg, state, info, pre_inactivity_score)
 
@@ -1507,3 +1561,108 @@ proc process_epoch*(
   process_sync_committee_updates(state)
 
   ok()
+
+proc get_validator_balance_after_epoch*(
+    cfg: RuntimeConfig,
+    state: deneb.BeaconState | electra.BeaconState,
+    flags: UpdateFlags, cache: var StateCache, info: var altair.EpochInfo,
+    index: ValidatorIndex): Gwei =
+  # Run a subset of process_epoch() which affects an individual validator,
+  # without modifying state itself
+  info.init(state)   # TODO avoid quadratic aspects here
+
+  # Can't use process_justification_and_finalization(), but use its helper
+  # function. Used to calculate inactivity_score.
+  let jf_info =
+    # process_justification_and_finalization() skips first two epochs
+    if get_current_epoch(state) <= GENESIS_EPOCH + 1:
+      JustificationAndFinalizationInfo(
+        previous_justified_checkpoint: state.previous_justified_checkpoint,
+        current_justified_checkpoint: state.current_justified_checkpoint,
+        finalized_checkpoint: state.finalized_checkpoint,
+        justification_bits: state.justification_bits)
+    else:
+      weigh_justification_and_finalization(
+        state, info.balances.current_epoch,
+        info.balances.previous_epoch[TIMELY_TARGET_FLAG_INDEX],
+        info.balances.current_epoch_TIMELY_TARGET, flags)
+
+  # Used as part of process_rewards_and_penalties
+  let inactivity_score =
+    # process_inactivity_updates skips GENESIS_EPOCH and ineligible validators
+    if  get_current_epoch(state) == GENESIS_EPOCH or
+        not is_eligible_validator(info.validators[index]):
+      0.Gwei
+    else:
+      let
+        finality_delay =
+          get_previous_epoch(state) - jf_info.finalized_checkpoint.epoch
+        not_in_inactivity_leak = not is_in_inactivity_leak(finality_delay)
+        pre_inactivity_score = state.inactivity_scores.asSeq()[index]
+
+      # This is a template which uses not_in_inactivity_leak and index
+      compute_inactivity_update(cfg, state, info, pre_inactivity_score).Gwei
+
+  # process_rewards_and_penalties for a single validator
+  let reward_and_penalties_balance = block:
+    # process_rewards_and_penalties doesn't run at GENESIS_EPOCH
+    if get_current_epoch(state) == GENESIS_EPOCH:
+      state.balances.item(index)
+    else:
+      let
+        total_active_balance = info.balances.current_epoch
+        base_reward_per_increment = get_base_reward_per_increment(
+          total_active_balance)
+        finality_delay = get_finality_delay(state)
+
+      var balance = state.balances.item(index)
+      let maybeDelta = get_flag_and_inactivity_delta_for_validator(
+        cfg, state, base_reward_per_increment, info, finality_delay, index,
+        inactivity_score)
+      if maybeDelta.isOk:
+        # Can't use isErrOr in generics
+        let (validator_index, reward0, reward1, reward2, penalty0, penalty1, penalty2) =
+          maybeDelta.get
+        info.validators[validator_index].delta.rewards += reward0 + reward1 + reward2
+        info.validators[validator_index].delta.penalties += penalty0 + penalty1 + penalty2
+        increase_balance(balance, info.validators[index].delta.rewards)
+        decrease_balance(balance, info.validators[index].delta.penalties)
+      balance
+
+  # The two directly balance-changing operations, from Altair through Deneb,
+  # are these. The rest is necessary to look past a single epoch transition,
+  # but that's not the use case here.
+  var post_epoch_balance = reward_and_penalties_balance
+  decrease_balance(
+    post_epoch_balance,
+    get_slashing(state, info.balances.current_epoch, index))
+
+  # Electra adds process_pending_balance_deposit to the list of potential
+  # balance-changing epoch operations. This should probably be cached, so
+  # the 16+ invocations of this function each time, e.g., withdrawals are
+  # calculated don't repeat it, if it's empirically too expensive. Limits
+  # exist on how large this structure can get though.
+  when type(state).kind >= ConsensusFork.Electra:
+    let available_for_processing = state.deposit_balance_to_consume +
+      get_activation_exit_churn_limit(cfg, state, cache)
+    var processed_amount = 0.Gwei
+
+    for deposit in state.pending_balance_deposits:
+      let
+        validator = state.validators.item(deposit.index)
+        deposit_validator_index = ValidatorIndex.init(deposit.index).valueOr:
+          break
+
+      # Validator is exiting, postpone the deposit until after withdrawable epoch
+      if validator.exit_epoch < FAR_FUTURE_EPOCH:
+        if  not(get_current_epoch(state) <= validator.withdrawable_epoch) and
+            deposit_validator_index == index:
+          increase_balance(post_epoch_balance, deposit.amount)
+      # Validator is not exiting, attempt to process deposit
+      else:
+        if not(processed_amount + deposit.amount > available_for_processing):
+          if deposit_validator_index == index:
+            increase_balance(post_epoch_balance, deposit.amount)
+          processed_amount += deposit.amount
+
+  post_epoch_balance

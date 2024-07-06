@@ -343,7 +343,7 @@ proc getMetadataForNetwork*(networkName: string): Eth2NetworkMetadata =
       quit 1
 
   if networkName in ["goerli", "prater"]:
-    warn "Goerli is deprecated and will stop being supported; https://blog.ethereum.org/2023/11/30/goerli-lts-update suggests migrating to Holesky or Sepolia"
+    warn "Goerli is deprecated and unsupported; https://blog.ethereum.org/2023/11/30/goerli-lts-update suggests migrating to Holesky or Sepolia"
 
   let metadata =
     when const_preset == "gnosis":
