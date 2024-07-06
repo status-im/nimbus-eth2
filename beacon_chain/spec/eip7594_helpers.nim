@@ -228,18 +228,19 @@ proc get_data_column_sidecars*(signed_block: deneb.SignedBeaconBlock |
   var sidecars = newSeqOfCap[DataColumnSidecar](CELLS_PER_EXT_BLOB)
 
   if blobs.len == 0:
+    debugEcho "Checkpoint 3"
     return ok(sidecars)
 
   for blob in blobs:
     let
       cell_and_proof = computeCellsAndProofs(blob)
-
+    debugEcho "Checkpoint 4"
     if cell_and_proof.isErr():
       return err("EIP7549: Could not compute cells")
 
-    if cell_and_proof.isOk:
-      cellsAndProofs.add(cell_and_proof.get())
-
+    
+    cellsAndProofs.add(cell_and_proof.get())
+    debugEcho "Checkpoint 5"
   let blobCount = blobs.len
   var
     cells = newSeqOfCap[CellBytes](blobs.len)
@@ -251,6 +252,8 @@ proc get_data_column_sidecars*(signed_block: deneb.SignedBeaconBlock |
         cells[i][j][k] = (cellsAndProofs[i].cells[j][k])
       for k in 0..<48:
         proofs[i][j][k] = (cellsAndProofs[i].proofs[j][k])
+
+  debugEcho "Checkpoint 7"
 
   for columnIndex in 0..<CELLS_PER_EXT_BLOB:
     var column: DataColumn

@@ -167,25 +167,32 @@ proc routeSignedBeaconBlock*(
   when typeof(blck).kind >= ConsensusFork.Deneb:   
     if blobsOpt.isSome():
       let blobs = blobsOpt.get()
-      let dataColumnsOpt = get_data_column_sidecars(blck, blobs.mapIt(it.blob))
-      if not dataColumnsOpt.isOk:
-        debug "Issue with computing data column from blob bundle"
-      let data_columns = dataColumnsOpt.get()
-      var das_workers = newSeq[Future[SendResult]](len(data_columns))
-      for i in 0..<data_columns.lenu64:
-        let subnet_id = compute_subnet_for_data_column_sidecar(i)
-        das_workers[i] = 
-            router[].network.broadcastDataColumnSidecar(subnet_id, data_columns[i])
-      let allres = await allFinished(das_workers)
-      for i in 0..<allres.len:
-        let res = allres[i]
-        doAssert res.finished()
-        if res.failed():
-          notice "Data Columns not sent",
-            data_column = shortLog(data_columns[i]), error = res.error[]
-        else:
-          notice "Data columns sent", data_column = shortLog(data_columns[i])
-      dataColumnRefs = Opt.some(data_columns.mapIt(newClone(it)))
+      debugEcho "Checkpoint 1"
+      if blobs.len != 0:
+        let dataColumnsOpt = get_data_column_sidecars(blck, blobs.mapIt(it.blob))
+        debugEcho "Checkpoint 2"
+        if not dataColumnsOpt.isOk:
+          debugEcho "Checkpoint 8"
+          debug "Issue with computing data column from blob bundle"
+        let data_columns = dataColumnsOpt.get()
+        var das_workers = newSeq[Future[SendResult]](len(data_columns))
+        debugEcho "Checkpoint 9"
+        for i in 0..<data_columns.len:
+          let subnet_id = compute_subnet_for_data_column_sidecar(uint64(i))
+          das_workers[i] = 
+              router[].network.broadcastDataColumnSidecar(subnet_id, data_columns[int(i)])
+        let allres = await allFinished(das_workers)
+        for i in 0..<allres.len:
+          let res = allres[i]
+          doAssert res.finished()
+          if res.failed():
+            debugEcho "Checkpoint 11"
+            notice "Data Columns not sent",
+              data_column = shortLog(data_columns[i]), error = res.error[]
+          else:
+            debugEcho "Checkpoint 10"
+            notice "Data columns sent", data_column = shortLog(data_columns[i])
+        dataColumnRefs = Opt.some(data_columns.mapIt(newClone(it)))
     
   let added = await router[].blockProcessor[].addBlock(
     MsgSource.api, ForkedSignedBeaconBlock.init(blck), blobRefs, dataColumnRefs)
