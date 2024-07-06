@@ -23,6 +23,10 @@ import
   ./datatypes/[eip7594, deneb]
 
 
+type
+  CellBytes = array[eip7594.CELLS_PER_EXT_BLOB, Cell]
+  ProofBytes = array[eip7594.CELLS_PER_EXT_BLOB, KzgProof]
+
 proc sortedColumnIndices*(columnsPerSubnet: ColumnIndex, subnetIds: HashSet[uint64]): seq[ColumnIndex] =
   var res: seq[ColumnIndex] = @[]
   for i in 0 ..< columnsPerSubnet:
@@ -238,16 +242,15 @@ proc get_data_column_sidecars*(signed_block: deneb.SignedBeaconBlock |
 
   let blobCount = blobs.len
   var
-    cells = newSeqOfCap[seq[Cell]](blobs.len)
-    proofs = newSeqOfCap[seq[KzgProof]](blobs.len)
+    cells = newSeqOfCap[CellBytes](blobs.len)
+    proofs = newSeqOfCap[ProofBytes](blobs.len)
 
   for i in 0..<blobCount:
     for j in 0..<int(CELLS_PER_EXT_BLOB):
-      cells[i][j] = (cellsAndProofs[i].cells[j])
-
-  for i in 0..<blobCount:
-    for j in 0..<int(CELLS_PER_EXT_BLOB):
-      proofs[i][j] = (cellsAndProofs[i].proofs[j])
+      for k in 0..<2048:
+        cells[i][j][k] = (cellsAndProofs[i].cells[j][k])
+      for k in 0..<48:
+        proofs[i][j][k] = (cellsAndProofs[i].proofs[j][k])
 
   for columnIndex in 0..<CELLS_PER_EXT_BLOB:
     var column: DataColumn
