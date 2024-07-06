@@ -879,7 +879,8 @@ proc addBlock*(
   # - RequestManager (missing ancestor blocks)
   # - API
   let resfut = newFuture[Result[void, VerifierError]]("BlockProcessor.addBlock")
-  enqueueBlock(self, src, blck, blobs, data_columns, resfut, maybeFinalized, validationDur)
+  enqueueBlock(self, src, blck, blobs, data_columns, 
+               resfut, maybeFinalized, validationDur)
   resfut
 
 # Event Loop
@@ -900,8 +901,9 @@ proc processBlock(
 
   let res = withBlck(entry.blck):
     await self.storeBlock(
-      entry.src, wallTime, forkyBlck, entry.blobs, entry.data_columns, entry.maybeFinalized,
-      entry.queueTick, entry.validationDur)
+      entry.src, wallTime, forkyBlck, 
+      entry.blobs, entry.data_columns, 
+      entry.maybeFinalized, entry.queueTick, entry.validationDur)
 
   if res.isErr and res.error[1] == ProcessingStatus.notCompleted:
     # When an execution engine returns an error or fails to respond to a
@@ -912,8 +914,9 @@ proc processBlock(
     # https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.2/sync/optimistic.md#execution-engine-errors
     await sleepAsync(chronos.seconds(1))
     self[].enqueueBlock(
-      entry.src, entry.blck, entry.blobs, entry.data_columns, entry.resfut, entry.maybeFinalized,
-      entry.validationDur)
+      entry.src, entry.blck, entry.blobs, 
+      entry.data_columns, entry.resfut, 
+      entry.maybeFinalized, entry.validationDur)
     # To ensure backpressure on the sync manager, do not complete these futures.
     return
 

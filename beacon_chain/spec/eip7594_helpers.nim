@@ -36,7 +36,9 @@ proc sortedColumnIndices*(columnsPerSubnet: ColumnIndex, subnetIds: HashSet[uint
   res.sort()
   res
 
-proc get_custody_column_subnet*(node_id: NodeId, custody_subnet_count: uint64): Result[HashSet[uint64], cstring] =
+proc get_custody_column_subnet*(node_id: NodeId, 
+                                custody_subnet_count: uint64): 
+                                Result[HashSet[uint64], cstring] =
   # fetches the subnets for custody column for the current node
   # assert custody_subnet_count <= DATA_COLUMN_SIDECAR_SUBNET_COUNT
   if not (custody_subnet_count <= DATA_COLUMN_SIDECAR_SUBNET_COUNT):
@@ -69,7 +71,9 @@ proc get_custody_column_subnet*(node_id: NodeId, custody_subnet_count: uint64): 
   ok(subnet_ids)
 
 # https://github.com/ethereum/consensus-specs/blob/5f48840f4d768bf0e0a8156a3ed06ec333589007/specs/_features/eip7594/das-core.md#get_custody_columns
-proc get_custody_columns*(node_id: NodeId, custody_subnet_count: uint64): Result[seq[ColumnIndex], cstring] =
+proc get_custody_columns*(node_id: NodeId, 
+                          custody_subnet_count: uint64): 
+                          Result[seq[ColumnIndex], cstring] =
     
   let subnet_ids = get_custody_column_subnet(node_id, custody_subnet_count).get
 
@@ -94,7 +98,9 @@ proc compute_extended_matrix* (blobs: seq[KzgBlob]): Result[ExtendedMatrix, cstr
   ok(extended_matrix)
 
 # https://github.com/ethereum/consensus-specs/blob/5f48840f4d768bf0e0a8156a3ed06ec333589007/specs/_features/eip7594/das-core.md#recover_matrix    
-proc recover_matrix*(cells_dict: Table[(BlobIndex, CellID), Cell], blobCount: uint64): Result[ExtendedMatrix, cstring] =
+proc recover_matrix*(cells_dict: Table[(BlobIndex, CellID), Cell], 
+                     blobCount: uint64): 
+                     Result[ExtendedMatrix, cstring] =
   # This helper demonstrates how to apply recover_all_cells
   # The data structure for storing cells is implementation-dependent
 
@@ -128,7 +134,9 @@ proc recover_matrix*(cells_dict: Table[(BlobIndex, CellID), Cell], blobCount: ui
 
   ok(extended_matrix)
 
-proc recover_matrix*(partial_matrix: seq[MatrixEntry], blobCount: int): Result[seq[MatrixEntry], cstring] =
+proc recover_matrix*(partial_matrix: seq[MatrixEntry],
+                     blobCount: int): 
+                     Result[seq[MatrixEntry], cstring] =
   # This helper demonstrates how to apply recover_cells_and_kzg_proofs
   # The data structure for storing cells is implementation-dependent
 
@@ -222,7 +230,6 @@ proc get_data_column_sidecars*(signed_block: deneb.SignedBeaconBlock |
   var
     blck = signed_block.message
     signed_beacon_block_header = compute_signed_block_header(signed_block)
-    cellsAndProofs: seq[KzgCellsAndKzgProofs]
     kzg_incl_proof: array[4, Eth2Digest]
   
   var sidecars = newSeqOfCap[DataColumnSidecar](CELLS_PER_EXT_BLOB)
@@ -231,27 +238,46 @@ proc get_data_column_sidecars*(signed_block: deneb.SignedBeaconBlock |
     debugEcho "Checkpoint 3"
     return ok(sidecars)
 
-  for blob in blobs:
-    let
-      cell_and_proof = computeCellsAndProofs(blob)
-    debugEcho "Checkpoint 4"
-    if cell_and_proof.isErr():
-      return err("EIP7549: Could not compute cells")
-
-    
-    cellsAndProofs.add(cell_and_proof.get())
-    debugEcho "Checkpoint 5"
-  let blobCount = blobs.len
   var
     cells = newSeqOfCap[CellBytes](blobs.len)
     proofs = newSeqOfCap[ProofBytes](blobs.len)
 
-  for i in 0..<blobCount:
-    for j in 0..<int(CELLS_PER_EXT_BLOB):
-      for k in 0..<2048:
-        cells[i][j][k] = (cellsAndProofs[i].cells[j][k])
-      for k in 0..<48:
-        proofs[i][j][k] = (cellsAndProofs[i].proofs[j][k])
+  debugEcho "Cells len"
+  debugEcho cells.len
+  debugEcho cells[0].len
+  debugEcho cells[0][0].len
+
+  debugEcho "Proofs len"
+  debugEcho proofs.len
+  debugEcho proofs[0].len
+  debugEcho proofs[0][0].len
+
+  for i in 0..<blobs.len:
+    let
+      cell_and_proof = computeCellsAndProofs(blobs[i])
+    debugEcho "Checkpoint 4"
+    if cell_and_proof.isErr():
+      return err("EIP7549: Could not compute cells")
+
+    cells[i] = cell_and_proof.get.cells
+    proofs[i] = cell_and_proof.get.proofs
+    
+    debugEcho "Checkpoint 5"
+
+  
+  let blobCount = blobs.len
+  debugEcho "BlobCount"
+  debugEcho blobCount
+
+  # for i in 0..<blobCount:
+  #   for j in 0..<int(CELLS_PER_EXT_BLOB):
+  #     for k in 0..<2048:
+  #       cells[i][j][k] = (cellsAndProofs[i].cells[j][k])
+
+  # for i in 0..<blobCount:
+  #   for j in 0..<int(CELLS_PER_EXT_BLOB):
+  #     for k in 0..<48:
+  #       proofs[i][j][k] = (cellsAndProofs[i].proofs[j][k])
 
   debugEcho "Checkpoint 7"
 
