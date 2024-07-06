@@ -11,7 +11,7 @@
 
 import
   # Status libraries
-  stew/[byteutils, endians2, objects, saturation_arith],
+  stew/[byteutils, endians2, objects],
   chronicles,
   eth/common/[eth_types, eth_types_rlp],
   eth/rlp, eth/trie/[db, hexary],
@@ -590,8 +590,8 @@ proc blockToBlockHeader*(blck: ForkyBeaconBlock): ExecutionBlockHeader =
     logsBloom             : payload.logs_bloom.data,
     difficulty            : default(DifficultyInt),
     number                : payload.block_number,
-    gasLimit              : GasInt.saturate(payload.gas_limit),
-    gasUsed               : GasInt.saturate(payload.gas_used),
+    gasLimit              : payload.gas_limit,
+    gasUsed               : payload.gas_used,
     timestamp             : EthTime(payload.timestamp),
     extraData             : payload.extra_data.asSeq,
     mixHash               : payload.prev_randao, # EIP-4399 `mixHash` -> `prevRandao`
