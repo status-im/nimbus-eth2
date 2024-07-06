@@ -214,43 +214,48 @@ proc compute_signed_block_header(signed_block: deneb.SignedBeaconBlock |
 proc get_data_column_sidecars*(signed_block: deneb.SignedBeaconBlock |
                                electra.SignedBeaconBlock, 
                                blobs: seq[KzgBlob]): 
-                               seq[DataColumnSidecar] =
+                               Result[seq[DataColumnSidecar], string] =
   var
     blck = signed_block.message
     signed_beacon_block_header = compute_signed_block_header(signed_block)
     cellsAndProofs: seq[KzgCellsAndKzgProofs]
     kzg_incl_proof: array[4, Eth2Digest]
   
+  if blobs.len == 0:
+    return err ("Blob sequence can't be empty")
+
   for blob in blobs:
     let
-      computed_cell = computeCellsAndProofs(blob)
+      cell_and_proof = computeCellsAndProofs(blob)
 
-    if computed_cell.isErr():
+    if cell_and_proof.isErr():
       return err("EIP7549: Could not compute cells")
 
-    cellsAndProofs.add(computed_cell.get())
+    if cell_and_proof.isOk:
+      cellsAndProofs.add(cell_and_proof.get())
 
   let blobCount = blobs.len
   var
-    cells: seq[seq[Cell]]
-    proofs: seq[seq[KzgProof]]
+    cells = newSeqOfCap[seq[Cell]](blobs.len)
+    proofs = newSeqOfCap[seq[KzgProof]](blobs.len)
 
   for i in 0..<blobCount:
     for j in 0..<int(CELLS_PER_EXT_BLOB):
-      cells[i].add(cellsAndProofs[i].cells[j])
+      cells[i][j] = (cellsAndProofs[i].cells[j])
 
   for i in 0..<blobCount:
-    for j in 0..<int(MAX_BLOB_COMMITMENTS_PER_BLOCK):
-      proofs[i].add(cellsAndProofs[i].proofs[j])
+    for j in 0..<int(CELLS_PER_EXT_BLOB):
+      proofs[i][j] = (cellsAndProofs[i].proofs[j])
 
-  var sidecars = newSeqOfCap[DataColumnSidecar](NUMBER_OF_COLUMNS)
+  var sidecars = newSeqOfCap[DataColumnSidecar](CELLS_PER_EXT_BLOB)
 
-  for columnIndex in 0..<NUMBER_OF_COLUMNS:
+  for columnIndex in 0..<CELLS_PER_EXT_BLOB:
     var column: DataColumn
+    var kzgProofOfColumn: KzgProofs
+    
     for rowIndex in 0..<blobCount:
       column[rowIndex] = cells[rowIndex][columnIndex]
-
-    var kzgProofOfColumn: KzgProofs
+    
     for rowIndex in 0..<blobCount:
       kzgProofOfColumn[rowIndex] = proofs[rowIndex][columnIndex]
 
@@ -264,7 +269,7 @@ proc get_data_column_sidecars*(signed_block: deneb.SignedBeaconBlock |
       27.GeneralizedIndex,
       sidecar.kzg_commitments_inclusion_proof).expect("Valid gindex")
     sidecars.add(sidecar)
-  sidecars
+  ok(sidecars)
 
 # Helper function to `verifyCellKzgProofBatch` at https://github.com/ethereum/c-kzg-4844/blob/das/bindings/nim/kzg_ex.nim#L170
 proc validate_data_column_sidecar*(
