@@ -222,14 +222,14 @@ proc get_data_column_sidecars*(signed_block: deneb.SignedBeaconBlock |
     kzg_incl_proof: array[4, Eth2Digest]
   
   if blobs.len == 0:
-    return err ("Blob sequence can't be empty")
+    return errIgnore ("Blob sequence can't be empty")
 
   for blob in blobs:
     let
       cell_and_proof = computeCellsAndProofs(blob)
 
     if cell_and_proof.isErr():
-      return err("EIP7549: Could not compute cells")
+      return errIgnore ("EIP7549: Could not compute cells")
 
     if cell_and_proof.isOk:
       cellsAndProofs.add(cell_and_proof.get())
