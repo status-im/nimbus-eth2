@@ -221,8 +221,10 @@ proc get_data_column_sidecars*(signed_block: deneb.SignedBeaconBlock |
     cellsAndProofs: seq[KzgCellsAndKzgProofs]
     kzg_incl_proof: array[4, Eth2Digest]
   
+  var sidecars = newSeqOfCap[DataColumnSidecar](CELLS_PER_EXT_BLOB)
+
   if blobs.len == 0:
-    return ok(@[])
+    return ok(sidecars)
 
   for blob in blobs:
     let
@@ -246,8 +248,6 @@ proc get_data_column_sidecars*(signed_block: deneb.SignedBeaconBlock |
   for i in 0..<blobCount:
     for j in 0..<int(CELLS_PER_EXT_BLOB):
       proofs[i][j] = (cellsAndProofs[i].proofs[j])
-
-  var sidecars = newSeqOfCap[DataColumnSidecar](CELLS_PER_EXT_BLOB)
 
   for columnIndex in 0..<CELLS_PER_EXT_BLOB:
     var column: DataColumn
