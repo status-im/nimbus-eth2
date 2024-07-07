@@ -167,7 +167,6 @@ proc routeSignedBeaconBlock*(
   when typeof(blck).kind >= ConsensusFork.Deneb:   
     if blobsOpt.isSome():
       let blobs = blobsOpt.get()
-      debugEcho "Checkpoint 1"
       if blobs.len != 0:
         let dataColumnsOpt = get_data_column_sidecars(blck, blobs.mapIt(it.blob))
         debugEcho "Checkpoint 2"
