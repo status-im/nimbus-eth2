@@ -284,23 +284,25 @@ proc get_data_column_sidecars*(signed_block: deneb.SignedBeaconBlock |
   for columnIndex in 0..<CELLS_PER_EXT_BLOB:
     var column: DataColumn
     var kzgProofOfColumn: KzgProofs
-    
+    debugEcho "Checkpoint 7.1"
     for rowIndex in 0..<blobCount:
-      column[rowIndex] = cells[rowIndex][columnIndex]
+      discard column.add(cells[rowIndex][columnIndex])
     
+    debugEcho "Checkpoint 7.2"
     for rowIndex in 0..<blobCount:
-      kzgProofOfColumn[rowIndex] = proofs[rowIndex][columnIndex]
+      discard kzgProofOfColumn.add(proofs[rowIndex][columnIndex])
 
     var sidecar = DataColumnSidecar(
       index: ColumnIndex(columnIndex),
-      column: column,
+      column: DataColumn(column),
       kzgCommitments: blck.body.blob_kzg_commitments,
-      kzgProofs: kzgProofOfColumn,
+      kzgProofs: KzgProofs(kzgProofOfColumn),
       signed_block_header: signed_beacon_block_header)
     blck.body.build_proof(
       27.GeneralizedIndex,
       sidecar.kzg_commitments_inclusion_proof).expect("Valid gindex")
     sidecars.add(sidecar)
+  debugEcho "Checkpoint 7.3"
   ok(sidecars)
 
 # Helper function to `verifyCellKzgProofBatch` at https://github.com/ethereum/c-kzg-4844/blob/das/bindings/nim/kzg_ex.nim#L170
