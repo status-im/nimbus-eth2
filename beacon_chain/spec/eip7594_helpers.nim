@@ -235,60 +235,29 @@ proc get_data_column_sidecars*(signed_block: deneb.SignedBeaconBlock |
   var sidecars = newSeq[DataColumnSidecar](CELLS_PER_EXT_BLOB)
 
   if blobs.len == 0:
-    debugEcho "Checkpoint 3"
     return ok(sidecars)
 
   var
     cells = newSeq[CellBytes](blobs.len)
     proofs = newSeq[ProofBytes](blobs.len)
 
-  debugEcho "Cells len"
-  debugEcho cells.len
-  debugEcho cells[0].len
-  debugEcho cells[0][0].len
-
-  debugEcho "Proofs len"
-  debugEcho proofs.len
-  debugEcho proofs[0].len
-  debugEcho proofs[0][0].len
-
   for i in 0..<blobs.len:
     let
       cell_and_proof = computeCellsAndProofs(blobs[i])
-    debugEcho "Checkpoint 4"
     if cell_and_proof.isErr():
       return err("EIP7549: Could not compute cells")
 
     cells[i] = cell_and_proof.get.cells
     proofs[i] = cell_and_proof.get.proofs
-    
-    debugEcho "Checkpoint 5"
-
   
   let blobCount = blobs.len
-  debugEcho "BlobCount"
-  debugEcho blobCount
-
-  # for i in 0..<blobCount:
-  #   for j in 0..<int(CELLS_PER_EXT_BLOB):
-  #     for k in 0..<2048:
-  #       cells[i][j][k] = (cellsAndProofs[i].cells[j][k])
-
-  # for i in 0..<blobCount:
-  #   for j in 0..<int(CELLS_PER_EXT_BLOB):
-  #     for k in 0..<48:
-  #       proofs[i][j][k] = (cellsAndProofs[i].proofs[j][k])
-
-  debugEcho "Checkpoint 7"
 
   for columnIndex in 0..<CELLS_PER_EXT_BLOB:
     var column: DataColumn
     var kzgProofOfColumn: KzgProofs
-    debugEcho "Checkpoint 7.1"
     for rowIndex in 0..<blobCount:
       discard column.add(cells[rowIndex][columnIndex])
-    
-    debugEcho "Checkpoint 7.2"
+
     for rowIndex in 0..<blobCount:
       discard kzgProofOfColumn.add(proofs[rowIndex][columnIndex])
 
@@ -302,7 +271,6 @@ proc get_data_column_sidecars*(signed_block: deneb.SignedBeaconBlock |
       27.GeneralizedIndex,
       sidecar.kzg_commitments_inclusion_proof).expect("Valid gindex")
     sidecars.add(sidecar)
-  debugEcho "Checkpoint 7.3"
   ok(sidecars)
 
 # Helper function to `verifyCellKzgProofBatch` at https://github.com/ethereum/c-kzg-4844/blob/das/bindings/nim/kzg_ex.nim#L170
