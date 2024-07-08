@@ -10,8 +10,7 @@
 
 import
   chronicles,
-  ../../beacon_chain/spec/forks, ../../beacon_chain/spec/helpers,
-  ../../beacon_chain/spec/state_transition,
+  ../../beacon_chain/spec/[helpers, state_transition, state_transition_epoch],
   ./os_ops,
   ../testutil
 
@@ -22,6 +21,7 @@ from ../../beacon_chain/spec/presets import
 from ./fixtures_utils import
   SSZ, SszTestsDir, hash_tree_root, loadBlock, parseTest,
   readSszBytes, toSszType
+from ../teststateutil import checkPerValidatorBalanceCalc
 
 proc runTest(
     consensusFork: static ConsensusFork,
@@ -54,6 +54,9 @@ proc runTest(
         discard state_transition(
           defaultRuntimeConfig, fhPreState[], blck, cache, info, flags = {},
           noRollback).expect("should apply block")
+        withState(fhPreState[]):
+          when consensusFork >= ConsensusFork.Deneb:
+            check checkPerValidatorBalanceCalc(forkyState.data)
       else:
         let res = state_transition(
           defaultRuntimeConfig, fhPreState[], blck, cache, info, flags = {},

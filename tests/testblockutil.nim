@@ -118,8 +118,6 @@ proc build_empty_merge_execution_payload(state: bellatrix.BeaconState):
   bellatrix.ExecutionPayloadForSigning(executionPayload: payload,
                                        blockValue: Wei.zero)
 
-from stew/saturating_arith import saturate
-
 proc build_empty_execution_payload(
     state: bellatrix.BeaconState,
     feeRecipient: Eth1Address): bellatrix.ExecutionPayloadForSigning =
@@ -129,8 +127,8 @@ proc build_empty_execution_payload(
     latest = state.latest_execution_payload_header
     timestamp = compute_timestamp_at_slot(state, state.slot)
     randao_mix = get_randao_mix(state, get_current_epoch(state))
-    base_fee = calcEip1599BaseFee(GasInt.saturate latest.gas_limit,
-                                  GasInt.saturate latest.gas_used,
+    base_fee = calcEip1599BaseFee(latest.gas_limit,
+                                  latest.gas_used,
                                   latest.base_fee_per_gas)
 
   var payload = bellatrix.ExecutionPayloadForSigning(
