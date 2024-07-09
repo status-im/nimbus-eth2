@@ -23,13 +23,15 @@ import
   libp2p/protocols/pubsub/[
       pubsub, gossipsub, rpc/message, rpc/messages, peertable, pubsubpeer],
   libp2p/stream/connection,
+  libp2p/services/wildcardresolverservice,
   eth/[keys, async_utils],
   eth/net/nat, eth/p2p/discoveryv5/[enr, node, random2],
   ".."/[version, conf, beacon_clock, conf_light_client],
   ../spec/datatypes/[phase0, altair, bellatrix],
   ../spec/[eth2_ssz_serialization, network, helpers, forks],
   ../validators/keystore_management,
-  "."/[eth2_discovery, eth2_protocol_dsl, libp2p_json_serialization, peer_pool, peer_scores]
+  "."/[eth2_discovery, eth2_protocol_dsl, libp2p_json_serialization, peer_pool,
+       peer_scores]
 
 export
   tables, chronos, ratelimit, version, multiaddress, peerinfo, p2pProtocol,
@@ -2223,6 +2225,8 @@ func gossipId(
 proc newBeaconSwitch(config: BeaconNodeConf | LightClientConf,
                      seckey: PrivateKey, address: MultiAddress,
                      rng: ref HmacDrbgContext): Switch {.raises: [CatchableError].} =
+  let service: Service = WildcardAddressResolverService.new()
+
   var sb =
     if config.enableYamux:
       SwitchBuilder.new().withYamux()
@@ -2239,6 +2243,7 @@ proc newBeaconSwitch(config: BeaconNodeConf | LightClientConf,
     .withMaxConnections(config.maxPeers)
     .withAgentVersion(config.agentString)
     .withTcpTransport({ServerFlags.ReuseAddr})
+    .withServices(@[service])
     .build()
 
 proc createEth2Node*(rng: ref HmacDrbgContext,
