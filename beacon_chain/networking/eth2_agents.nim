@@ -40,7 +40,7 @@ func `$`*(a: Eth2Agent): string =
 
 const
   # Lighthouse errors could be found here
-  # https://github.com/sigp/lighthouse/blob/stable/beacon_node/lighthouse_network/src/rpc/methods.rs
+  # https://github.com/sigp/lighthouse/blob/5fdd3b39bb8150d1ea8622e42e0166ed46af7693/beacon_node/lighthouse_network/src/rpc/methods.rs#L171
   LighthouseErrors = [
     (128'u64, "Unable to verify network"),
     (129'u64, "The node has too many connected peers"),
@@ -50,7 +50,7 @@ const
   ].toTable()
 
   # Prysm errors could be found here
-  # https://github.com/prysmaticlabs/prysm/blob/develop/beacon-chain/p2p/types/rpc_goodbye_codes.go
+  # https://github.com/prysmaticlabs/prysm/blob/7a394062e1054d73014e793819cb9cf0d20ff2e3/beacon-chain/p2p/types/rpc_goodbye_codes.go#L12
   PrysmErrors = [
     (128'u64, "Unable to verify network"),
     (129'u64, "The node has too many connected peers"),
@@ -59,7 +59,7 @@ const
   ].toTable()
 
   # Lodestar errors could be found here
-  # https://github.com/ChainSafe/lodestar/blob/unstable/packages/beacon-node/src/constants/network.ts
+  # https://github.com/ChainSafe/lodestar/blob/7280234bea66b49da3900b916a1b54c4666e4173/packages/beacon-node/src/constants/network.ts#L20
   LodestarErrors = [
     (128'u64, "Unable to verify network"),
     (129'u64, "The node has too many connected peers"),
@@ -68,7 +68,7 @@ const
   ].toTable()
 
   # Teku errors could be found here
-  # https://github.com/Consensys/teku/blob/master/ethereum/spec/src/main/java/tech/pegasys/teku/spec/datastructures/networking/libp2p/rpc/GoodbyeMessage.java
+  # https://github.com/Consensys/teku/blob/a3f7ebc75f24ec942286b0c1ae192e411f84aa7e/ethereum/spec/src/main/java/tech/pegasys/teku/spec/datastructures/networking/libp2p/rpc/GoodbyeMessage.java#L42
   TekuErrors = [
     (128'u64, "Unable to verify network"),
     (129'u64, "The node has too many connected peers"),
@@ -76,13 +76,13 @@ const
   ].toTable()
 
   # Nimbus errors could be found here
-  # https://github.com/status-im/nimbus-eth2/blob/unstable/beacon_chain/networking/eth2_network.nim
+  # https://github.com/status-im/nimbus-eth2/blob/9b6b42c8f9792e657397bb3669a80b57da470c04/beacon_chain/networking/eth2_network.nim#L176
   NimbusErrors = [
     (237'u64, "Peer score is too low")
   ].toTable()
 
   # Grandine errors could be found here
-  # https://github.com/grandinetech/eth2_libp2p/blob/main/src/rpc/methods.rs
+  # https://github.com/grandinetech/eth2_libp2p/blob/63a0c5e662847b86b1d5617478e39bccd39df0a9/src/rpc/methods.rs#L246
   GrandineErrors = [
     (128'u64, "Unable to verify network"),
     (129'u64, "The node has too many connected peers"),
