@@ -25,13 +25,13 @@ type
   Eth2DiscoveryId* = NodeId
 
 func parseBootstrapAddress*(address: string):
-    Result[enr.Record, cstring] =
+    Result[enr.Record, string] =
   let lowerCaseAddress = toLowerAscii(address)
   if lowerCaseAddress.startsWith("enr:"):
-    var enrRec: enr.Record
-    if enrRec.fromURI(address):
-      return ok enrRec
-    return err "Invalid ENR bootstrap record"
+    let res = enr.Record.fromURI(address)
+    if res.isOk():
+      return ok res.value
+    return err "Invalid bootstrap ENR: " & $res.error
   elif lowerCaseAddress.startsWith("enode:"):
     return err "ENode bootstrap addresses are not supported"
   else:

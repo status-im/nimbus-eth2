@@ -1391,7 +1391,7 @@ proc connectWorker(node: Eth2Node, index: int) {.async: (raises: [CancelledError
     node.connTable.excl(remotePeerAddr.peerId)
 
 proc toPeerAddr(node: Node): Result[PeerAddr, cstring] =
-  let nodeRecord = ? node.record.toTypedRecord()
+  let nodeRecord = TypedRecord.fromRecord(node.record)
   let peerAddr = ? nodeRecord.toPeerAddr(tcpProtocol)
   ok(peerAddr)
 
@@ -1883,11 +1883,9 @@ proc start*(node: Eth2Node) {.async: (raises: [CancelledError]).} =
     notice "Discovery disabled; trying bootstrap nodes",
       nodes = node.discovery.bootstrapRecords.len
     for enr in node.discovery.bootstrapRecords:
-      let tr = enr.toTypedRecord()
-      if tr.isOk():
-        let pa = tr.get().toPeerAddr(tcpProtocol)
-        if pa.isOk():
-          await node.connQueue.addLast(pa.get())
+      let pa = TypedRecord.fromRecord(enr).toPeerAddr(tcpProtocol)
+      if pa.isOk():
+        await node.connQueue.addLast(pa.get())
   node.peerPingerHeartbeatFut = node.peerPingerHeartbeat()
   node.peerTrimmerHeartbeatFut = node.peerTrimmerHeartbeat()
 
@@ -2279,7 +2277,10 @@ proc createEth2Node*(rng: ref HmacDrbgContext,
         let (peerId, address) =
           if s.startsWith("enr:"):
             let
-              typedEnr = parseBootstrapAddress(s).get().toTypedRecord().get()
+              enr = parseBootstrapAddress(s).valueOr:
+                fatal "Failed to parse bootstrap address", enr=s
+                quit 1
+              typedEnr = TypedRecord.fromRecord(enr)
               peerAddress = toPeerAddr(typedEnr, tcpProtocol).get()
             (peerAddress.peerId, peerAddress.addrs[0])
           elif s.startsWith("/"):

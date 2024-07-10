@@ -1269,8 +1269,11 @@ func completeCmdArg*(T: type WalletName, input: string): seq[string] =
   return @[]
 
 proc parseCmdArg*(T: type enr.Record, p: string): T {.raises: [ValueError].} =
-  if not fromURI(result, p):
-    raise newException(ValueError, "Invalid ENR")
+  let res = enr.Record.fromURI(p)
+  if res.isErr:
+    raise newException(ValueError, "Invalid ENR:" & $res.error)
+
+  res.value
 
 func completeCmdArg*(T: type enr.Record, val: string): seq[string] =
   return @[]
