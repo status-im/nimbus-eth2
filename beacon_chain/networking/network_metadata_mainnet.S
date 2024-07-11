@@ -36,7 +36,7 @@ cdecl(eth2_mainnet_genesis_size):
     .quad    eth2_mainnet_genesis_end - eth2_mainnet_genesis_data
 
 eth2_sepolia_genesis_data:
-    .incbin "sepolia/bepolia/genesis.ssz"
+    .incbin "sepolia/metadata/genesis.ssz"
 eth2_sepolia_genesis_end:
     .global cdecl(eth2_sepolia_genesis_size)
     .p2align 3
