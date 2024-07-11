@@ -83,6 +83,7 @@ type
     rng*: ref HmacDrbgContext
     peers*: Table[PeerId, Peer]
     directPeers*: DirectPeers
+    announcedAddresses*: seq[MultiAddress]
     validTopics: HashSet[string]
     peerPingerHeartbeatFut: Future[void].Raising([CancelledError])
     peerTrimmerHeartbeatFut: Future[void].Raising([CancelledError])
@@ -1769,7 +1770,7 @@ proc new(T: type Eth2Node,
          switch: Switch, pubsub: GossipSub,
          ip: Opt[IpAddress], tcpPort, udpPort: Opt[Port],
          privKey: keys.PrivateKey, discovery: bool,
-         directPeers: DirectPeers,
+         directPeers: DirectPeers, announcedAddresses: openArray[MultiAddress],
          rng: ref HmacDrbgContext): T {.raises: [CatchableError].} =
   when not defined(local_testnet):
     let
@@ -1813,6 +1814,7 @@ proc new(T: type Eth2Node,
     connectTimeout: connectTimeout,
     seenThreshold: seenThreshold,
     directPeers: directPeers,
+    announcedAddresses: @announcedAddresses,
     quota: TokenBucket.new(maxGlobalQuota, fullReplenishTime)
   )
 
@@ -2364,7 +2366,8 @@ proc createEth2Node*(rng: ref HmacDrbgContext,
   let node = Eth2Node.new(
     config, cfg, enrForkId, discoveryForkId, forkDigests, getBeaconTime, switch, pubsub, extIp,
     extTcpPort, extUdpPort, netKeys.seckey.asEthKey,
-    discovery = config.discv5Enabled, directPeers, rng = rng)
+    discovery = config.discv5Enabled, directPeers, announcedAddresses,
+    rng = rng)
 
   node.pubsub.subscriptionValidator =
     proc(topic: string): bool {.gcsafe, raises: [].} =
