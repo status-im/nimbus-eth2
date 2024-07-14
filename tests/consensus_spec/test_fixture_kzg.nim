@@ -11,7 +11,7 @@
 import
   std/json,
   yaml,
-  ../../../beacon_chain/kzg,
+  ../../beacon_chain/kzg,
   stint,
   chronicles,
   stew/[byteutils, results],

@@ -11,7 +11,7 @@ import
   std/os,
   results,
   kzg4844/kzg_ex,
-  ../../../nimpeerdaskzg/nim_peerdas_kzg/nim_peerdas_kzg
+  ../nimpeerdaskzg/nim_peerdas_kzg/nim_peerdas_kzg
 
 
 from std/strutils import rsplit
