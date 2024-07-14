@@ -19,7 +19,7 @@ fi
 
 DESTINATION_FOLDER=$1 # Destination folder to copy the built nim library with the static lib include to
 
-COMMIT_HASH="fc339dc9bb886432871b4fd706cf4fdaa8269cce" # commit to checkout rust lib at
+COMMIT_HASH="5bb15ec0ecba4f1265ab171d0b952f3f074f808f" # commit to checkout rust lib at
 REPO_URL="https://github.com/crate-crypto/peerdas-kzg"
 
 echo "Building peerdas-kzg with commit hash: $COMMIT_HASH and destination: $DESTINATION_FOLDER"
@@ -35,18 +35,18 @@ echo "Checking out commit: $COMMIT_HASH"
 git checkout "$COMMIT_HASH"
 
 # Check if the user is on Windows and install gnu target instead of msvc
-if [[ "$OSTYPE" == "msys" || "$OSTYPE" == "win32" ]]; then
-    echo "Detected Windows environment. Adding x86_64-pc-windows-gnu target..."
-    rustup target add x86_64-pc-windows-gnu
-fi
+# if [[ "$OSTYPE" == "msys" || "$OSTYPE" == "win32" ]]; then
+#     echo "Detected Windows environment. Adding x86_64-pc-windows-gnu target..."
+#     rustup target add x86_64-pc-windows-gnu
+# fi
 
-echo "Building Rust Library: Running ./scripts/compile.sh nim"
-if [ -f "./scripts/compile.sh" ]; then
-    ./scripts/compile.sh nim
-else
-    echo "Error: ./scripts/compile.sh not found"
-    exit 1
-fi
+# echo "Building Rust Library: Running ./scripts/compile.sh nim"
+# if [ -f "./scripts/compile.sh" ]; then
+#     ./scripts/compile.sh nim
+# else
+#     echo "Error: ./scripts/compile.sh not found"
+#     exit 1
+# fi
 
 if [ ! -d "bindings/nim" ]; then
     echo "Error: bindings/nim directory not found"
