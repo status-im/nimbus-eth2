@@ -22,7 +22,6 @@ import
   
   ./datatypes/[eip7594, deneb]
 
-
 type
   CellBytes = array[eip7594.CELLS_PER_EXT_BLOB, Cell]
   ProofBytes = array[eip7594.CELLS_PER_EXT_BLOB, KzgProof]

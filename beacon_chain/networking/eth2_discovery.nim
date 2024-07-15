@@ -11,7 +11,7 @@ import
   std/[algorithm, sequtils],
   chronos, chronicles, stew/results,
   eth/p2p/discoveryv5/[enr, protocol, node, random2],
-  ../spec/datatypes/altair,
+  ../spec/datatypes/[altair, eip7594],
   ../spec/eth2_ssz_serialization,
   ".."/[conf, conf_light_client]
 
@@ -127,6 +127,7 @@ proc queryRandom*(
     forkId: ENRForkID,
     wantedAttnets: AttnetBits,
     wantedSyncnets: SyncnetBits,
+    wantedCscnets: CscBits,
     minScore: int): Future[seq[Node]] {.async.} =
   ## Perform a discovery query for a random target
   ## (forkId) and matching at least one of the attestation subnets.
@@ -150,6 +151,20 @@ proc queryRandom*(
 
     if not forkId.isCompatibleForkId(peerForkId):
       continue
+
+    let cscnetsBytes = n.record.get(enrCustodySubnetCountField, seq[byte])
+    if cscnetsBytes.isOk():
+      let cscnetsNode =
+        try:
+          SSZ.decode(cscnetsBytes.get(), CscBits)
+        except SszError as e:
+          debug "Could not decode the csc count ENR bitfield of peer",
+            peer = n.record.toURI(), exception = e.name, msg = e.msg
+          continue
+
+      if wantedCscnets[0] and cscnetsNode[0]:
+        debug "Connected to a peer with csc ENR field",
+          peer = n.record.toURI()
 
     let attnetsBytes = n.record.get(enrAttestationSubnetsField, seq[byte])
     if attnetsBytes.isOk():

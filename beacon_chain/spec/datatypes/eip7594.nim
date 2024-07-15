@@ -46,7 +46,7 @@ const
 
   DATA_COLUMN_SIDECAR_SUBNET_COUNT* = 32
   SAMPLES_PER_SLOT* = 8
-  CUSTODY_REQUIREMENT* = 16
+  CUSTODY_REQUIREMENT* = 1
   TARGET_NUMBER_OF_PEERS* = 70
 
 type
@@ -73,6 +73,8 @@ type
     kzg_proof*: KzgProof
     column_index*: ColumnIndex
     row_index*: RowIndex
+
+  CscBits* = BitArray[DATA_COLUMN_SIDECAR_SUBNET_COUNT]
 
 
 func shortLog*(v: DataColumnSidecar): auto =

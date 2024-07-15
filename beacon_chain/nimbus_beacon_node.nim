@@ -16,7 +16,7 @@ import
   ./consensus_object_pools/blob_quarantine,
   ./consensus_object_pools/data_column_quarantine,
   ./consensus_object_pools/vanity_logs/vanity_logs,
-  ./networking/[topic_params, network_metadata_downloads],
+  ./networking/[topic_params, network_metadata_downloads, eth2_network],
   ./rpc/[rest_api, state_ttl_cache],
   ./spec/datatypes/[altair, bellatrix, phase0],
   ./spec/[deposit_snapshots, engine_authentication, weak_subjectivity],
@@ -1130,10 +1130,36 @@ proc addCapellaMessageHandlers(
   node.addAltairMessageHandlers(forkDigest, slot)
   node.network.subscribe(getBlsToExecutionChangeTopic(forkDigest), basicParams)
 
-proc fetchCustodySubnetCount* (res: var uint64, node: BeaconNode) =
+proc fetchCustodySubnetCount* (node: BeaconNode, res: var uint64)=
   res = CUSTODY_REQUIREMENT
   if node.config.subscribeAllSubnets:
     res = DATA_COLUMN_SIDECAR_SUBNET_COUNT
+
+proc fetchCustodyColumnCountFromRemotePeer*(node: BeaconNode, pid: PeerId): uint64 =
+  # Fetches the custody column count from a remote peer
+  # if the peer advertises their custody column count 
+  # via the `csc` ENR field. If the peer does NOT, then
+  # the default value is assume, i.e, CUSTODY_REQUIREMENT
+  let 
+    eth2node = node.network
+    peer = eth2node.getPeer(pid)
+
+  let enrOpt = peer.enr
+  if enrOpt.isNone:
+    debug "Could not get ENR from peer",
+      peer_id = pid
+    return 0
+
+  else:
+    let
+      enr = enrOpt.get
+      enrFieldOpt = enr.get(enrCustodySubnetCountField, uint64)
+
+    if not enrFieldOpt.isOk:
+      debug "Issue with fetching `csc` field from ENR",
+        enr = enr
+    else:
+      return(enrFieldOpt.get)
 
 proc addDenebMessageHandlers(
     node: BeaconNode, forkDigest: ForkDigest, slot: Slot) =

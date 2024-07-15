@@ -294,16 +294,14 @@ func groupDataColumns*[T](req: SyncRequest[T],
         template kzgs: untyped = forkyBlck.message.body.blob_kzg_commitments
         if kzgs.len == 0:
           continue
-        # Clients MUST include all blob sidecars of each block from which they include blob sidecars.
-        # The following blob sidecars, where they exist, MUST be sent in consecutive (slot, index) order.
+        # Clients MUST include all data column sidecars of each block from which they include data column sidecars.
+        # The following data column sidecars, where they exist, MUST be sent in consecutive (slot, index) order.
         # https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.3/specs/_features/eip7594/p2p-interface.md
         let header = forkyBlck.toSignedBeaconBlockHeader()
         for column_idx, kzg_commitment in kzgs:
           if column_cursor >= data_columns.len:
             return err("DataColumnSidecar: response too short")
           let data_column_sidecar = data_columns[column_cursor]
-          if data_column_sidecar.index != ColumnIndex column_idx:
-            return err("DataColumnSidecar: unexpected index")
           if kzg_commitment notin data_column_sidecar.kzg_commitments:
             return err("DataColumnSidecar: unexpected kzg_commitment")
           if data_column_sidecar.signed_block_header != header:
