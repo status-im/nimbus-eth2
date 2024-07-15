@@ -1402,7 +1402,7 @@ template unrecognizedFieldWarning =
   #       caller of a deserialization routine for unexpected fields.
   #       The chonicles import in this module should be removed.
   trace "JSON field not recognized by the current version of Nimbus. Consider upgrading",
-        fieldName, typeName = typetraits.name(typeof value)
+        fieldName
 
 template unrecognizedFieldIgnore =
   discard readValue(reader, JsonString)
