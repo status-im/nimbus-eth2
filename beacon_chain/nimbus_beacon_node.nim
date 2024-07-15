@@ -1130,10 +1130,11 @@ proc addCapellaMessageHandlers(
   node.addAltairMessageHandlers(forkDigest, slot)
   node.network.subscribe(getBlsToExecutionChangeTopic(forkDigest), basicParams)
 
-proc fetchCustodySubnetCount* (node: BeaconNode, res: var uint64)=
-  res = CUSTODY_REQUIREMENT
+proc fetchCustodySubnetCount* (node: BeaconNode): uint64=
+  var res = CUSTODY_REQUIREMENT.uint64
   if node.config.subscribeAllSubnets:
-    res = DATA_COLUMN_SIDECAR_SUBNET_COUNT
+    res = DATA_COLUMN_SIDECAR_SUBNET_COUNT.uint64
+  res
 
 proc fetchCustodyColumnCountFromRemotePeer*(node: BeaconNode, pid: PeerId): uint64 =
   # Fetches the custody column count from a remote peer
@@ -1164,7 +1165,8 @@ proc fetchCustodyColumnCountFromRemotePeer*(node: BeaconNode, pid: PeerId): uint
 proc addDenebMessageHandlers(
     node: BeaconNode, forkDigest: ForkDigest, slot: Slot) =
   node.addCapellaMessageHandlers(forkDigest, slot)
-  for topic in dataColumnSidecarTopics(forkDigest):
+  let targetSubnets = node.fetchCustodySubnetCount()
+  for topic in dataColumnSidecarTopics(forkDigest, targetSubnets):
     node.network.subscribe(topic, basicParams)
 
 proc addElectraMessageHandlers(
@@ -1188,7 +1190,8 @@ proc removeCapellaMessageHandlers(node: BeaconNode, forkDigest: ForkDigest) =
 
 proc removeDenebMessageHandlers(node: BeaconNode, forkDigest: ForkDigest) =
   node.removeCapellaMessageHandlers(forkDigest)
-  for topic in dataColumnSidecarTopics(forkDigest):
+  let targetSubnets = node.fetchCustodySubnetCount()
+  for topic in dataColumnSidecarTopics(forkDigest, targetSubnets):
     node.network.unsubscribe(topic)
 
 proc removeElectraMessageHandlers(node: BeaconNode, forkDigest: ForkDigest) =

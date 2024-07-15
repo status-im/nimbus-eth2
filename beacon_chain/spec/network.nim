@@ -244,6 +244,6 @@ func getDataColumnSidecarTopic*(forkDigest: ForkDigest,
 func compute_subnet_for_data_column_sidecar*(column_index: ColumnIndex): uint64 =
     uint64(column_index mod DATA_COLUMN_SIDECAR_SUBNET_COUNT)
 
-iterator dataColumnSidecarTopics*(forkDigest: ForkDigest): string =
-  for subnet_id in 0'u64..<DATA_COLUMN_SIDECAR_SUBNET_COUNT:
+iterator dataColumnSidecarTopics*(forkDigest: ForkDigest, targetSubnetCount: uint64): string =
+  for subnet_id in 0'u64..<targetSubnetCount:
     yield getDataColumnSidecarTopic(forkDigest, subnet_id)
