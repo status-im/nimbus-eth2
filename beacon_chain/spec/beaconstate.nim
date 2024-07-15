@@ -515,10 +515,17 @@ template get_total_balance(
   max(EFFECTIVE_BALANCE_INCREMENT.Gwei, res)
 
 # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.6/specs/phase0/beacon-chain.md#is_eligible_for_activation_queue
-func is_eligible_for_activation_queue*(validator: Validator): bool =
+# https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.3/specs/electra/beacon-chain.md#updated-is_eligible_for_activation_queue
+func is_eligible_for_activation_queue*(
+    fork: static ConsensusFork, validator: Validator): bool =
   ## Check if ``validator`` is eligible to be placed into the activation queue.
-  validator.activation_eligibility_epoch == FAR_FUTURE_EPOCH and
-    validator.effective_balance == MAX_EFFECTIVE_BALANCE.Gwei
+  when fork <= ConsensusFork.Deneb:
+    validator.activation_eligibility_epoch == FAR_FUTURE_EPOCH and
+      validator.effective_balance == MAX_EFFECTIVE_BALANCE.Gwei
+  else:
+    # [Modified in Electra:EIP7251]
+    validator.activation_eligibility_epoch == FAR_FUTURE_EPOCH and
+      validator.effective_balance >= MIN_ACTIVATION_BALANCE.Gwei
 
 # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.6/specs/phase0/beacon-chain.md#is_eligible_for_activation
 func is_eligible_for_activation*(
