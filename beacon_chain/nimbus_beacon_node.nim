@@ -826,6 +826,7 @@ proc init*(T: type BeaconNode,
     RestServerRef.init(config.restAddress, config.restPort,
                        config.restAllowedOrigin,
                        validateBeaconApiQueries,
+                       nimbusAgentStr,
                        config)
   else:
     nil

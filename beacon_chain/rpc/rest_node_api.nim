@@ -141,7 +141,7 @@ proc getP2PAddresses(node: BeaconNode): seq[string] =
 proc installNodeApiHandlers*(router: var RestRouter, node: BeaconNode) =
   let
     cachedVersion =
-      RestApiResponse.prepareJsonResponse((version: "Nimbus/" & fullVersionStr))
+      RestApiResponse.prepareJsonResponse((version: nimbusAgentStr))
 
   # https://ethereum.github.io/beacon-APIs/#/Node/getNetworkIdentity
   router.api2(MethodGet, "/eth/v1/node/identity") do () -> RestApiResponse:
@@ -283,4 +283,4 @@ proc installNodeApiHandlers*(router: var RestRouter, node: BeaconNode) =
         Http206
       else:
         Http200
-    RestApiResponse.response("", status, contentType = "")
+    RestApiResponse.response(status)
