@@ -932,7 +932,8 @@ func process_registry_updates*(
   var maybe_exit_queue_info: Opt[ExitQueueInfo]
 
   for vidx in state.validators.vindices:
-    if is_eligible_for_activation_queue(state.validators.item(vidx)):
+    if is_eligible_for_activation_queue(
+        typeof(state).kind, state.validators.item(vidx)):
       state.validators.mitem(vidx).activation_eligibility_epoch =
         get_current_epoch(state) + 1
 
@@ -977,7 +978,7 @@ func process_registry_updates*(
   # Process activation eligibility and ejections
   for index in 0 ..< state.validators.len:
     let validator = state.validators.item(index)
-    if is_eligible_for_activation_queue(validator):
+    if is_eligible_for_activation_queue(typeof(state).kind, validator):
       # Usually not too many at once, so do this individually
       state.validators.mitem(index).activation_eligibility_epoch =
         get_current_epoch(state) + 1
