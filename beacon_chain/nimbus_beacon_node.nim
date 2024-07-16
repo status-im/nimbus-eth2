@@ -674,7 +674,8 @@ proc init*(T: type BeaconNode,
       finUpdateQueue: newAsyncEventQueue[
         RestVersioned[ForkedLightClientFinalityUpdate]](),
       optUpdateQueue: newAsyncEventQueue[
-        RestVersioned[ForkedLightClientOptimisticUpdate]]())
+        RestVersioned[ForkedLightClientOptimisticUpdate]]()),
+      optHeaderUpdateQueue: newAsyncEventQueue[ForkedLightClientHeader]()
     db = BeaconChainDB.new(config.databaseDir, cfg, inMemory = false)
 
   if config.externalBeaconApiUrl.isSome and ChainDAGRef.isInitialized(db).isErr:
