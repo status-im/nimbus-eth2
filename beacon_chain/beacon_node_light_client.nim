@@ -92,6 +92,8 @@ proc initLightClient*(
                 .shouldSyncOptimistically(node.currentSlot):
               return
 
+            node.eventBus.optHeaderUpdateQueue.emit(optimisticHeader)
+
             # engine_forkchoiceUpdated
             let beaconHead = node.attestationPool[].getBeaconHead(nil)
             withConsensusFork(consensusFork):

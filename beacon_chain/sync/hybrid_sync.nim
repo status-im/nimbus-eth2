@@ -21,16 +21,16 @@ import
 proc startHybridSync*(node: BeaconNode): Future[void] {.
      async: (raises: [CancelledError]).} =
   let
-    eventKey = node.eventBus.optUpdateQueue.register()
+    eventKey = node.eventBus.optHeaderUpdateQueue.register()
     events =
       try:
-        await node.eventBus.optUpdateQueue.waitEvents(eventKey)
+        await node.eventBus.optHeaderUpdateQueue.waitEvents(eventKey)
       except AsyncEventQueueFullError:
         raiseAssert "AsyncEventQueueFullError should not be happened"
     beaconHeader =
-      withForkyOptimisticUpdate(events[^1].data):
+      withForkyHeader(events[^1]):
         when lcDataFork > LightClientDataFork.None:
-          forkyOptimisticUpdate.attested_header.beacon
+          forkyHeader.beacon
         else:
           raiseAssert "Should not be happened"
   debug "Received beacon block header", beacon_header = shortLog(beaconHeader),
