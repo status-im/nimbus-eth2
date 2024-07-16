@@ -19,7 +19,7 @@ import
   ./rpc/[rest_api, state_ttl_cache],
   ./spec/datatypes/[altair, bellatrix, phase0],
   ./spec/[deposit_snapshots, engine_authentication, weak_subjectivity],
-  ./sync/[sync_protocol, light_client_protocol],
+  ./sync/[sync_protocol, light_client_protocol, hybrid_sync],
   ./validators/[keystore_management, beacon_validators],
   "."/[
     beacon_node, beacon_node_light_client, deposits,
@@ -595,11 +595,16 @@ proc init*(T: type BeaconNode,
       checkpoint = Checkpoint(
         epoch: epoch(getStateField(genesisState[], slot)),
         root: getStateField(genesisState[], latest_block_header).state_root)
-    if config.longRangeSync == LongRangeSyncMode.Light:
-      if not is_within_weak_subjectivity_period(metadata.cfg, currentSlot,
-                                                genesisState[], checkpoint):
-        fatal WeakSubjectivityLogMessage, current_slot = currentSlot
-        quit 1
+
+    notice "Genesis state information",
+           genesis_fork = genesisState.kind,
+           is_post_altair = (cfg.ALTAIR_FORK_EPOCH == GENESIS_EPOCH)
+
+    # if config.longRangeSync == LongRangeSyncMode.Light:
+    #   if not is_within_weak_subjectivity_period(metadata.cfg, currentSlot,
+    #                                             genesisState[], checkpoint):
+    #     fatal WeakSubjectivityLogMessage, current_slot = currentSlot
+    #     quit 1
 
   try:
     if config.numThreads < 0:
@@ -1994,7 +1999,8 @@ proc run(node: BeaconNode) {.raises: [CatchableError].} =
 
   node.startLightClient()
   node.requestManager.start()
-  node.syncManager.start()
+  # node.syncManager.start()
+  asyncSpawn node.startHybridSync()
 
   if node.dag.needsBackfill(): asyncSpawn node.startBackfillTask()
 
