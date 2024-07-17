@@ -22,16 +22,22 @@ proc startHybridSync*(node: BeaconNode): Future[void] {.
      async: (raises: [CancelledError]).} =
   let
     eventKey = node.eventBus.optHeaderUpdateQueue.register()
-    events =
-      try:
-        await node.eventBus.optHeaderUpdateQueue.waitEvents(eventKey)
-      except AsyncEventQueueFullError:
-        raiseAssert "AsyncEventQueueFullError should not be happened"
-    beaconHeader =
-      withForkyHeader(events[^1]):
-        when lcDataFork > LightClientDataFork.None:
-          forkyHeader.beacon
-        else:
-          raiseAssert "Should not be happened"
-  debug "Received beacon block header", beacon_header = shortLog(beaconHeader),
-        events_count = len(events)
+
+  while true:
+    let
+      events =
+        try:
+          await node.eventBus.optHeaderUpdateQueue.waitEvents(eventKey)
+        except AsyncEventQueueFullError:
+          raiseAssert "AsyncEventQueueFullError should not be happened"
+      beaconHeader =
+        withForkyHeader(events[^1]):
+          when lcDataFork > LightClientDataFork.None:
+            forkyHeader.beacon
+          else:
+            raiseAssert "Should not be happened"
+
+    debug "Received beacon block header",
+          beacon_header = shortLog(beaconHeader),
+          events_count = len(events),
+          current_slot = node.beaconClock.now().slotOrZero()
