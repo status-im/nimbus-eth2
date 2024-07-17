@@ -11,12 +11,16 @@
 import
   std/json,
   yaml,
-  kzg4844/kzg_ex,
+  ../../beacon_chain/kzg,
   stint,
   chronicles,
   stew/[byteutils, results],
   ../testutil,
   ./fixtures_utils, ./os_ops
+
+# TODO: don't import blobToKzgCommitment since we 
+# TODO: are using the beacon_chain/kzg module for it
+import kzg4844/kzg_ex except blobToKzgCommitment
 
 from std/sequtils import anyIt, mapIt, toSeq
 from std/strutils import rsplit
@@ -40,10 +44,7 @@ func fromHex[N: static int](s: string): Opt[array[N, byte]] =
     Opt.none array[N, byte]
 
 block:
-  template sourceDir: string = currentSourcePath.rsplit(DirSep, 1)[0]
-  doAssert Kzg.loadTrustedSetup(
-    sourceDir &
-      "/../../vendor/nim-kzg4844/kzg4844/csources/src/trusted_setup.txt").isOk
+  doAssert initKZG()
 
 proc runBlobToKzgCommitmentTest(suiteName, suitePath, path: string) =
   let relativePathComponent = path.relativeTestPathComponent(suitePath)
@@ -399,4 +400,4 @@ suite suiteName:
     for kind, path in walkDir(testsDir, relative = true, checkDir = true):
       runVerifyCellKzgProofBatchTest(suiteName, testsDir, testsDir/path)
 
-doAssert Kzg.freeTrustedSetup().isOk
+doAssert freeKZG().isOk
