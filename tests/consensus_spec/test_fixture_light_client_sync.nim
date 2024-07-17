@@ -14,7 +14,7 @@ import
   # Status libraries
   stew/byteutils,
   # Third-party
-  yaml,
+  yaml, yaml/tojson,
   # Beacon chain internals
   ../../beacon_chain/spec/[forks, light_client_sync],
   # Test utilities
@@ -59,7 +59,7 @@ proc loadSteps(
 ): seq[TestStep] {.raises: [
     KeyError, ValueError, YamlConstructionError, YamlParserError].} =
   let stepsYAML = os_ops.readFile(path/"steps.yaml")
-  let steps = yaml.loadToJson(stepsYAML)
+  let steps = loadToJson(stepsYAML)
 
   result = @[]
   for step in steps[0]:
