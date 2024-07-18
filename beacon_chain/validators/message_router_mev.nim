@@ -129,7 +129,7 @@ proc unblindAndRouteBlockMEV*(
           bundle.data.blobs_bundle.commitments:
         return err("unblinded blobs bundle has unexpected commitments")
       let ok = verifyProofs(
-          blobs_bundle.blobs.mapIt(KzgBlob(bytes: it)),
+          asSeq blobs_bundle.blobs,
           asSeq blobs_bundle.commitments,
           asSeq blobs_bundle.proofs).valueOr:
         return err("unblinded blobs bundle fails verification")
