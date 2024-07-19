@@ -1136,32 +1136,6 @@ proc fetchCustodySubnetCount* (node: BeaconNode): uint64=
     res = DATA_COLUMN_SIDECAR_SUBNET_COUNT.uint64
   res
 
-proc fetchCustodyColumnCountFromRemotePeer*(node: BeaconNode, pid: PeerId): uint64 =
-  # Fetches the custody column count from a remote peer
-  # if the peer advertises their custody column count 
-  # via the `csc` ENR field. If the peer does NOT, then
-  # the default value is assume, i.e, CUSTODY_REQUIREMENT
-  let 
-    eth2node = node.network
-    peer = eth2node.getPeer(pid)
-
-  let enrOpt = peer.enr
-  if enrOpt.isNone:
-    debug "Could not get ENR from peer",
-      peer_id = pid
-    return 0
-
-  else:
-    let
-      enr = enrOpt.get
-      enrFieldOpt = enr.get(enrCustodySubnetCountField, uint64)
-
-    if not enrFieldOpt.isOk:
-      debug "Issue with fetching `csc` field from ENR",
-        enr = enr
-    else:
-      return(enrFieldOpt.get)
-
 proc addDenebMessageHandlers(
     node: BeaconNode, forkDigest: ForkDigest, slot: Slot) =
   node.addCapellaMessageHandlers(forkDigest, slot)

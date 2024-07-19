@@ -548,7 +548,7 @@ proc syncStep[A, B](man: SyncManager[A, B], index: int, peer: A)
         withBlck(blck[]):
           when consensusFork >= ConsensusFork.Deneb:
             if forkyBlck.message.body.blob_kzg_commitments.len > 0:
-              hasColumns = true
+              hasColumns = true  
               break
       hasColumns
   
