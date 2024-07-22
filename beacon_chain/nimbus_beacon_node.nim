@@ -462,22 +462,25 @@ proc initFullNode(
       validatorChangePool, node.attachedValidators, syncCommitteeMsgPool,
       lightClientPool, quarantine, blobQuarantine, dataColumnQuarantine, 
       rng, getBeaconTime, taskpool)
+    router = (ref MessageRouter)(
+      processor: processor,
+      network: node.network)
+
+  var supernode = node.config.subscribeAllSubnets
+  let
     syncManager = newSyncManager[Peer, PeerId](
       node.network.peerPool,
       dag.cfg.DENEB_FORK_EPOCH, dag.cfg.MIN_EPOCHS_FOR_BLOB_SIDECARS_REQUESTS,
-      SyncQueueKind.Forward, getLocalHeadSlot,
+      supernode, SyncQueueKind.Forward, getLocalHeadSlot,
       getLocalWallSlot, getFirstSlotAtFinalizedEpoch, getBackfillSlot,
       getFrontfillSlot, dag.tail.slot, blockVerifier)
     backfiller = newSyncManager[Peer, PeerId](
       node.network.peerPool,
       dag.cfg.DENEB_FORK_EPOCH, dag.cfg.MIN_EPOCHS_FOR_BLOB_SIDECARS_REQUESTS,
-      SyncQueueKind.Backward, getLocalHeadSlot,
+      supernode, SyncQueueKind.Backward, getLocalHeadSlot,
       getLocalWallSlot, getFirstSlotAtFinalizedEpoch, getBackfillSlot,
       getFrontfillSlot, dag.backfill.slot, blockVerifier,
-      maxHeadAge = 0)
-    router = (ref MessageRouter)(
-      processor: processor,
-      network: node.network)
+      maxHeadAge = 0)    
     requestManager = RequestManager.init(
       node.network, dag.cfg.DENEB_FORK_EPOCH, getBeaconTime,
       (proc(): bool = syncManager.inProgress),
