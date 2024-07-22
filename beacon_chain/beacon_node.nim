@@ -25,7 +25,7 @@ import
     data_column_quarantine, attestation_pool, sync_committee_msg_pool, validator_change_pool],
   ./spec/datatypes/[base, altair],
   ./spec/eth2_apis/dynamic_fee_recipients,
-  ./sync/[sync_manager, request_manager],
+  ./sync/[sync_manager, request_manager, sync_types],
   ./validators/[
     action_tracker, message_router, validator_monitor, validator_pool,
     keystore_management],
@@ -89,6 +89,7 @@ type
     requestManager*: RequestManager
     syncManager*: SyncManager[Peer, PeerId]
     backfiller*: SyncManager[Peer, PeerId]
+    syncOverseer*: SyncOverseerRef
     genesisSnapshotContent*: string
     processor*: ref Eth2Processor
     blockProcessor*: ref BlockProcessor
