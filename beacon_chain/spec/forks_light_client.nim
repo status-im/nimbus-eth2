@@ -223,12 +223,12 @@ template kind*(
       electra.LightClientStore]): LightClientDataFork =
   LightClientDataFork.Electra
 
-template FINALIZED_ROOT_GINDEX*(
+template finalized_root_gindex*(
     kind: static LightClientDataFork): GeneralizedIndex =
   when kind >= LightClientDataFork.Electra:
-    electra.FINALIZED_ROOT_GINDEX
+    FINALIZED_ROOT_GINDEX_ELECTRA
   elif kind >= LightClientDataFork.Altair:
-    altair.FINALIZED_ROOT_GINDEX
+    FINALIZED_ROOT_GINDEX
   else:
     static: raiseAssert "Unreachable"
 
@@ -240,12 +240,12 @@ template FinalityBranch*(kind: static LightClientDataFork): auto =
   else:
     static: raiseAssert "Unreachable"
 
-template CURRENT_SYNC_COMMITTEE_GINDEX*(
+template current_sync_committee_gindex*(
     kind: static LightClientDataFork): GeneralizedIndex =
   when kind >= LightClientDataFork.Electra:
-    electra.CURRENT_SYNC_COMMITTEE_GINDEX
+    CURRENT_SYNC_COMMITTEE_GINDEX_ELECTRA
   elif kind >= LightClientDataFork.Altair:
-    altair.CURRENT_SYNC_COMMITTEE_GINDEX
+    CURRENT_SYNC_COMMITTEE_GINDEX
   else:
     static: raiseAssert "Unreachable"
 
@@ -257,12 +257,12 @@ template CurrentSyncCommitteeBranch*(kind: static LightClientDataFork): auto =
   else:
     static: raiseAssert "Unreachable"
 
-template NEXT_SYNC_COMMITTEE_GINDEX*(
+template next_sync_committee_gindex*(
     kind: static LightClientDataFork): GeneralizedIndex =
   when kind >= LightClientDataFork.Electra:
-    electra.NEXT_SYNC_COMMITTEE_GINDEX
+    NEXT_SYNC_COMMITTEE_GINDEX_ELECTRA
   elif kind >= LightClientDataFork.Altair:
-    altair.NEXT_SYNC_COMMITTEE_GINDEX
+    NEXT_SYNC_COMMITTEE_GINDEX
   else:
     static: raiseAssert "Unreachable"
 
@@ -1062,8 +1062,8 @@ func toCapellaLightClientHeader(
       block_hash: payload.block_hash,
       transactions_root: hash_tree_root(payload.transactions),
       withdrawals_root: hash_tree_root(payload.withdrawals)),
-    execution_branch: blck.message.body.build_proof(
-      capella.EXECUTION_PAYLOAD_GINDEX).get)
+    execution_branch:
+      blck.message.body.build_proof(EXECUTION_PAYLOAD_GINDEX).get)
 
 # https://github.com/ethereum/consensus-specs/blob/v1.4.0-alpha.0/specs/deneb/light-client/full-node.md#modified-block_to_light_client_header
 func toDenebLightClientHeader(
@@ -1104,8 +1104,8 @@ func toDenebLightClientHeader(
       block_hash: payload.block_hash,
       transactions_root: hash_tree_root(payload.transactions),
       withdrawals_root: hash_tree_root(payload.withdrawals)),
-    execution_branch: blck.message.body.build_proof(
-      capella.EXECUTION_PAYLOAD_GINDEX).get)
+    execution_branch:
+      blck.message.body.build_proof(EXECUTION_PAYLOAD_GINDEX).get)
 
 func toDenebLightClientHeader(
     blck:  # `SomeSignedBeaconBlock` doesn't work here (Nim 1.6)
@@ -1132,8 +1132,8 @@ func toDenebLightClientHeader(
       withdrawals_root: hash_tree_root(payload.withdrawals),
       blob_gas_used: payload.blob_gas_used,
       excess_blob_gas: payload.excess_blob_gas),
-    execution_branch: blck.message.body.build_proof(
-      capella.EXECUTION_PAYLOAD_GINDEX).get)
+    execution_branch:
+      blck.message.body.build_proof(EXECUTION_PAYLOAD_GINDEX).get)
 
 # https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.3/specs/electra/light-client/full-node.md#modified-block_to_light_client_header
 func toElectraLightClientHeader(
@@ -1174,8 +1174,9 @@ func toElectraLightClientHeader(
       block_hash: payload.block_hash,
       transactions_root: hash_tree_root(payload.transactions),
       withdrawals_root: hash_tree_root(payload.withdrawals)),
-    execution_branch: blck.message.body.build_proof(
-      capella.EXECUTION_PAYLOAD_GINDEX).get)
+    execution_branch: normalize_merkle_branch(
+      blck.message.body.build_proof(EXECUTION_PAYLOAD_GINDEX).get,
+      EXECUTION_PAYLOAD_GINDEX_ELECTRA))
 
 func toElectraLightClientHeader(
     blck:  # `SomeSignedBeaconBlock` doesn't work here (Nim 1.6)
@@ -1202,8 +1203,9 @@ func toElectraLightClientHeader(
       withdrawals_root: hash_tree_root(payload.withdrawals),
       blob_gas_used: payload.blob_gas_used,
       excess_blob_gas: payload.excess_blob_gas),
-    execution_branch: blck.message.body.build_proof(
-      capella.EXECUTION_PAYLOAD_GINDEX).get)
+    execution_branch: normalize_merkle_branch(
+      blck.message.body.build_proof(EXECUTION_PAYLOAD_GINDEX).get,
+      EXECUTION_PAYLOAD_GINDEX_ELECTRA))
 
 func toElectraLightClientHeader(
     blck:  # `SomeSignedBeaconBlock` doesn't work here (Nim 1.6)
@@ -1234,8 +1236,8 @@ func toElectraLightClientHeader(
       withdrawal_requests_root: hash_tree_root(payload.withdrawal_requests),
       consolidation_requests_root:
         hash_tree_root(payload.consolidation_requests)),
-    execution_branch: blck.message.body.build_proof(
-      capella.EXECUTION_PAYLOAD_GINDEX).get)
+    execution_branch:
+      blck.message.body.build_proof(EXECUTION_PAYLOAD_GINDEX_ELECTRA).get)
 
 func toLightClientHeader*(
     blck:  # `SomeSignedBeaconBlock` doesn't work here (Nim 1.6)
