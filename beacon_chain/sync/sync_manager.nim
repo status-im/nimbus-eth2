@@ -54,7 +54,6 @@ type
     responseTimeout: chronos.Duration
     supernode: bool
     maxHeadAge: uint64
-    network: Eth2Node
     getLocalHeadSlot: GetSlotCallback
     getLocalWallSlot: GetSlotCallback
     getSafeSlot: GetSlotCallback
