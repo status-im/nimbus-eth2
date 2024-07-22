@@ -17,6 +17,10 @@ import
 const
   PREGENESIS_EPOCHS_COUNT = 1
 
+declareGauge validator_client_node_counts,
+  "Number of connected beacon nodes and their status",
+  labels = ["status"]
+
 proc initGenesis(vc: ValidatorClientRef): Future[RestGenesis] {.async.} =
   info "Initializing genesis", nodes_count = len(vc.beaconNodes)
   var nodes = vc.beaconNodes
@@ -214,19 +218,24 @@ proc runVCSlotLoop(vc: ValidatorClientRef) {.async.} =
 
     vc.processingDelay = Opt.some(nanoseconds(delay.nanoseconds))
 
+    let
+      counts = vc.getNodeCounts()
+      # Good nodes are nodes which can be used for ALL the requests.
+      goodNodes = counts.data[int(RestBeaconNodeStatus.Synced)]
+      # Viable nodes are nodes which can be used only SOME of the requests.
+      viableNodes = counts.data[int(RestBeaconNodeStatus.OptSynced)] +
+                    counts.data[int(RestBeaconNodeStatus.NotSynced)] +
+                    counts.data[int(RestBeaconNodeStatus.Compatible)]
+      # Bad nodes are nodes which can't be used at all.
+      badNodes = counts.data[int(RestBeaconNodeStatus.Offline)] +
+                 counts.data[int(RestBeaconNodeStatus.Online)] +
+                 counts.data[int(RestBeaconNodeStatus.Incompatible)]
+
+    validator_client_node_counts.set(int64(goodNodes), ["good"])
+    validator_client_node_counts.set(int64(viableNodes), ["viable"])
+    validator_client_node_counts.set(int64(badNodes), ["bad"])
+
     if len(vc.beaconNodes) > 1:
-      let
-        counts = vc.getNodeCounts()
-        # Good nodes are nodes which can be used for ALL the requests.
-        goodNodes = counts.data[int(RestBeaconNodeStatus.Synced)]
-        # Viable nodes are nodes which can be used only SOME of the requests.
-        viableNodes = counts.data[int(RestBeaconNodeStatus.OptSynced)] +
-                      counts.data[int(RestBeaconNodeStatus.NotSynced)] +
-                      counts.data[int(RestBeaconNodeStatus.Compatible)]
-        # Bad nodes are nodes which can't be used at all.
-        badNodes = counts.data[int(RestBeaconNodeStatus.Offline)] +
-                   counts.data[int(RestBeaconNodeStatus.Online)] +
-                   counts.data[int(RestBeaconNodeStatus.Incompatible)]
       info "Slot start",
         slot = shortLog(wallSlot),
         epoch = shortLog(wallSlot.epoch()),

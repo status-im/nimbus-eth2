@@ -12,7 +12,7 @@ import
   std/[json, os, random, sequtils, strutils, times],
   chronos,
   stew/base10, chronicles, unittest2,
-  yaml,
+  yaml/tojson,
   ../beacon_chain/beacon_chain_db,
   ../beacon_chain/spec/deposit_snapshots,
   ./consensus_spec/os_ops
@@ -208,7 +208,7 @@ suite "EIP-4881":
       path: string
   ): seq[DepositTestCase] {.raises: [
       IOError, KeyError, ValueError, YamlConstructionError, YamlParserError].} =
-    yaml.loadToJson(os_ops.readFile(path))[0].mapIt:
+    loadToJson(os_ops.readFile(path))[0].mapIt:
       DepositTestCase(
         deposit_data: DepositData(
           pubkey: ValidatorPubKey.fromHex(

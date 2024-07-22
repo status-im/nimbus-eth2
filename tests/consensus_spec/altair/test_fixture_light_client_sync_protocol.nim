@@ -23,7 +23,7 @@ import
   # Test utilities
   ../../testutil, ../../testblockutil
 
-# https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.2/tests/core/pyspec/eth2spec/test/helpers/sync_committee.py#L27-L44
+# https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.3/tests/core/pyspec/eth2spec/test/helpers/sync_committee.py#L27-L44
 proc compute_aggregate_sync_committee_signature(
     cfg: RuntimeConfig,
     forked: ForkedHashedBeaconState,
@@ -172,14 +172,15 @@ proc runTest(storeDataFork: static LightClientDataFork) =
       # Sync committee signing the attested_header
         (sync_aggregate, signature_slot) = get_sync_aggregate(cfg, forked[])
         next_sync_committee = SyncCommittee()
-        next_sync_committee_branch = default(altair.NextSyncCommitteeBranch)
+        next_sync_committee_branch =
+          default(storeDataFork.NextSyncCommitteeBranch)
 
       # Ensure that finality checkpoint is genesis
       check state.finalized_checkpoint.epoch == 0
       # Finality is unchanged
       let
         finality_header = default(storeDataFork.LightClientHeader)
-        finality_branch = default(altair.FinalityBranch)
+        finality_branch = default(storeDataFork.FinalityBranch)
 
         update = storeDataFork.LightClientUpdate(
           attested_header: attested_header,
@@ -228,11 +229,12 @@ proc runTest(storeDataFork: static LightClientDataFork) =
       # Sync committee signing the attested_header
         (sync_aggregate, signature_slot) = get_sync_aggregate(cfg, forked[])
         next_sync_committee = SyncCommittee()
-        next_sync_committee_branch = default(altair.NextSyncCommitteeBranch)
+        next_sync_committee_branch =
+          default(storeDataFork.NextSyncCommitteeBranch)
 
       # Finality is unchanged
         finality_header = default(storeDataFork.LightClientHeader)
-        finality_branch = default(altair.FinalityBranch)
+        finality_branch = default(storeDataFork.FinalityBranch)
 
         update = storeDataFork.LightClientUpdate(
           attested_header: attested_header,
@@ -283,12 +285,13 @@ proc runTest(storeDataFork: static LightClientDataFork) =
       # Sync committee is updated
       template next_sync_committee(): auto = state.next_sync_committee
       let
-        next_sync_committee_branch =
-          state.build_proof(altair.NEXT_SYNC_COMMITTEE_GINDEX).get
+        next_sync_committee_branch = normalize_merkle_branch(
+          state.build_proof(altair.NEXT_SYNC_COMMITTEE_GINDEX).get,
+          storeDataFork.NEXT_SYNC_COMMITTEE_GINDEX)
 
       # Finality is unchanged
         finality_header = default(storeDataFork.LightClientHeader)
-        finality_branch = default(altair.FinalityBranch)
+        finality_branch = default(storeDataFork.FinalityBranch)
 
         update = storeDataFork.LightClientUpdate(
           attested_header: attested_header,
@@ -345,7 +348,8 @@ proc runTest(storeDataFork: static LightClientDataFork) =
 
       # Updated sync_committee and finality
         next_sync_committee = SyncCommittee()
-        next_sync_committee_branch = default(altair.NextSyncCommitteeBranch)
+        next_sync_committee_branch =
+          default(storeDataFork.NextSyncCommitteeBranch)
         finalized_block = blocks[SLOTS_PER_EPOCH - 1].altairData
         finalized_header = finalized_block.toLightClientHeader(storeDataFork)
       check:
@@ -354,7 +358,9 @@ proc runTest(storeDataFork: static LightClientDataFork) =
         finalized_header.beacon.hash_tree_root() ==
           state.finalized_checkpoint.root
       let
-        finality_branch = state.build_proof(altair.FINALIZED_ROOT_GINDEX).get
+        finality_branch = normalize_merkle_branch(
+          state.build_proof(altair.FINALIZED_ROOT_GINDEX).get,
+          storeDataFork.FINALIZED_ROOT_GINDEX)
 
         update = storeDataFork.LightClientUpdate(
           attested_header: attested_header,

@@ -8,7 +8,7 @@
 {.push raises: [].}
 
 # Gnosis preset - Electra (Gnosis version not avilable yet; EF mainnet for now)
-# https://github.com/ethereum/consensus-specs/blob/82133085a1295e93394ebdf71df8f2f6e0962588/presets/mainnet/electra.yaml
+# https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.3/presets/mainnet/electra.yaml
 const
   # Gwei values
   # ---------------------------------------------------------------
@@ -40,12 +40,12 @@ const
   # `uint64(2**3)` (= 8)
   MAX_ATTESTATIONS_ELECTRA*: uint64 = 8
   # `uint64(2**0)` (= 1)
-  MAX_CONSOLIDATIONS*: uint64 = 1
+  MAX_CONSOLIDATION_REQUESTS_PER_PAYLOAD*: uint64 = 1
 
   # Execution
   # ---------------------------------------------------------------
-  # 2**13 (= 8192) receipts
-  MAX_DEPOSIT_RECEIPTS_PER_PAYLOAD* = 8192
+  # 2**13 (= 8192) deposit requests
+  MAX_DEPOSIT_REQUESTS_PER_PAYLOAD* = 8192
   # 2**4 (= 16) withdrawal requests
   MAX_WITHDRAWAL_REQUESTS_PER_PAYLOAD* = 16
 

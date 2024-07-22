@@ -47,7 +47,6 @@ type
 
   Eth1Network* = enum
     mainnet
-    goerli
     sepolia
     holesky
 
@@ -295,7 +294,7 @@ elif const_preset == "mainnet":
         vendorDir & "/mainnet/metadata/genesis.ssz")
 
       sepoliaGenesis* = slurp(
-        vendorDir & "/sepolia/bepolia/genesis.ssz")
+        vendorDir & "/sepolia/metadata/genesis.ssz")
 
   const
     mainnetMetadata = loadCompileTimeNetworkMetadata(
@@ -304,14 +303,14 @@ elif const_preset == "mainnet":
       useBakedInGenesis = Opt.some "mainnet")
 
     holeskyMetadata = loadCompileTimeNetworkMetadata(
-      vendorDir & "/holesky/custom_config_data",
+      vendorDir & "/holesky/metadata",
       Opt.some holesky,
       downloadGenesisFrom = Opt.some DownloadInfo(
         url: "https://github.com/status-im/nimbus-eth2/releases/download/v23.9.1/holesky-genesis.ssz.sz",
         digest: Eth2Digest.fromHex "0x0ea3f6f9515823b59c863454675fefcd1d8b4f2dbe454db166206a41fda060a0"))
 
     sepoliaMetadata = loadCompileTimeNetworkMetadata(
-      vendorDir & "/sepolia/bepolia",
+      vendorDir & "/sepolia/metadata",
       Opt.some sepolia,
       useBakedInGenesis = Opt.some "sepolia")
 
@@ -344,7 +343,7 @@ proc getMetadataForNetwork*(networkName: string): Eth2NetworkMetadata =
       quit 1
 
   if networkName in ["goerli", "prater"]:
-    warn "Goerli is deprecated and will stop being supported; https://blog.ethereum.org/2023/11/30/goerli-lts-update suggests migrating to Holesky or Sepolia"
+    warn "Goerli is deprecated and unsupported; https://blog.ethereum.org/2023/11/30/goerli-lts-update suggests migrating to Holesky or Sepolia"
 
   let metadata =
     when const_preset == "gnosis":

@@ -51,6 +51,8 @@ const
 
   fullVersionStr* = "v" & versionAsStr & "-" & gitRevision & "-" & versionBlob
 
+  nimbusAgentStr* = "Nimbus/" & fullVersionStr
+
 func getNimGitHash*(): string =
   const gitPrefix = "git hash: "
   let tmp = splitLines(nimFullBanner)
