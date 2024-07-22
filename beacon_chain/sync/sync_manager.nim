@@ -72,7 +72,7 @@ type
     rangeAge: uint64
     chunkSize: uint64
     queue: SyncQueue[A]
-    syncFut: Future[void]
+    syncFut: Future[void].Raising([CancelledError])
     blockVerifier: BlockVerifier
     inProgress*: bool
     insSyncSpeed*: float
@@ -88,7 +88,8 @@ type
 
   BeaconBlocksRes =
     NetRes[List[ref ForkedSignedBeaconBlock, Limit MAX_REQUEST_BLOCKS]]
-  BlobSidecarsRes = NetRes[List[ref BlobSidecar, Limit(MAX_REQUEST_BLOB_SIDECARS)]]
+  BlobSidecarsRes =
+    NetRes[List[ref BlobSidecar, Limit(MAX_REQUEST_BLOB_SIDECARS)]]
 
 proc now*(sm: typedesc[SyncMoment], slots: uint64): SyncMoment {.inline.} =
   SyncMoment(stamp: now(chronos.Moment), slots: slots)
@@ -269,8 +270,9 @@ func checkBlobs(blobs: seq[BlobSidecars]): Result[void, string] =
       ? blob_sidecar[].verify_blob_sidecar_inclusion_proof()
   ok()
 
-proc syncStep[A, B](man: SyncManager[A, B], index: int, peer: A)
-    {.async: (raises: [CancelledError]).} =
+proc syncStep[A, B](
+    man: SyncManager[A, B], index: int, peer: A
+) {.async: (raises: [CancelledError]).} =
   logScope:
     peer_score = peer.getScore()
     peer_speed = peer.netKbps()
@@ -512,7 +514,9 @@ proc syncStep[A, B](man: SyncManager[A, B], index: int, peer: A)
   await man.queue.push(req, blockData, blobData, maybeFinalized, proc() =
     man.workers[index].status = SyncWorkerStatus.Processing)
 
-proc syncWorker[A, B](man: SyncManager[A, B], index: int) {.async: (raises: [CancelledError]).} =
+proc syncWorker[A, B](
+    man: SyncManager[A, B], index: int
+) {.async: (raises: [CancelledError]).} =
   mixin getKey, getScore, getHeadSlot
 
   logScope:
@@ -610,8 +614,9 @@ proc toTimeLeftString*(d: Duration): string =
       res = res & "00m"
     res
 
-proc syncClose[A, B](man: SyncManager[A, B],
-                     speedTaskFut: Future[void]) {.async.} =
+proc syncClose[A, B](
+    man: SyncManager[A, B], speedTaskFut: Future[void]
+) {.async: (raises: []).} =
   var pending: seq[FutureBase]
   if not(speedTaskFut.finished()):
     pending.add(speedTaskFut.cancelAndWait())
@@ -620,7 +625,10 @@ proc syncClose[A, B](man: SyncManager[A, B],
     pending.add(worker.future.cancelAndWait())
   await noCancel allFutures(pending)
 
-proc syncLoop[A, B](man: SyncManager[A, B]) {.async.} =
+proc syncLoop[A, B](
+    man: SyncManager[A, B]
+) {.async: (raises: [CancelledError]).} =
+
   logScope:
     sync_ident = man.ident
     direction = man.direction
@@ -806,3 +814,8 @@ proc syncLoop[A, B](man: SyncManager[A, B]) {.async.} =
 proc start*[A, B](man: SyncManager[A, B]) =
   ## Starts SyncManager's main loop.
   man.syncFut = man.syncLoop()
+
+proc join*[A, B](
+    man: SyncManager[A, B]
+): Future[void] {.async: (raw: true, raises: [CancelledError]).} =
+  man.syncFut.join()
