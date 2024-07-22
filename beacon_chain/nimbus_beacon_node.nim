@@ -19,7 +19,7 @@ import
   ./rpc/[rest_api, state_ttl_cache],
   ./spec/datatypes/[altair, bellatrix, phase0],
   ./spec/[deposit_snapshots, engine_authentication, weak_subjectivity],
-  ./sync/[sync_protocol, light_client_protocol, hybrid_sync],
+  ./sync/[sync_protocol, light_client_protocol, sync_overseer],
   ./validators/[keystore_management, beacon_validators],
   "."/[
     beacon_node, beacon_node_light_client, deposits,
@@ -520,6 +520,8 @@ proc initFullNode(
   node.requestManager = requestManager
   node.syncManager = syncManager
   node.backfiller = backfiller
+  node.syncOverseer = SyncOverseerRef.new(node.dag, node.beaconClock,
+                                          node.eventBus.optHeaderUpdateQueue)
   node.router = router
 
   await node.addValidators()
@@ -1656,26 +1658,27 @@ func formatNextConsensusFork(
     $nextConsensusFork & ":" & $nextForkEpoch)
 
 func syncStatus(node: BeaconNode, wallSlot: Slot): string =
-  let optimisticHead = not node.dag.head.executionValid
-  if node.syncManager.inProgress:
-    let
-      optimisticSuffix =
-        if optimisticHead:
-          "/opt"
-        else:
-          ""
-      lightClientSuffix =
-        if node.consensusManager[].shouldSyncOptimistically(wallSlot):
-          " - lc: " & $shortLog(node.consensusManager[].optimisticHead)
-        else:
-          ""
-    node.syncManager.syncStatus & optimisticSuffix & lightClientSuffix
-  elif node.backfiller.inProgress:
-    "backfill: " & node.backfiller.syncStatus
-  elif optimisticHead:
-    "synced/opt"
-  else:
-    "synced"
+  node.syncOverseer.statusMsg.valueOr:
+    let optimisticHead = not node.dag.head.executionValid
+    if node.syncManager.inProgress:
+      let
+        optimisticSuffix =
+          if optimisticHead:
+            "/opt"
+          else:
+            ""
+        lightClientSuffix =
+          if node.consensusManager[].shouldSyncOptimistically(wallSlot):
+            " - lc: " & $shortLog(node.consensusManager[].optimisticHead)
+          else:
+            ""
+      node.syncManager.syncStatus & optimisticSuffix & lightClientSuffix
+    elif node.backfiller.inProgress:
+      "backfill: " & node.backfiller.syncStatus
+    elif optimisticHead:
+      "synced/opt"
+    else:
+      "synced"
 
 when defined(windows):
   from winservice import establishWindowsService, reportServiceStatusSuccess
@@ -2001,7 +2004,7 @@ proc run(node: BeaconNode) {.raises: [CatchableError].} =
   node.startLightClient()
   node.requestManager.start()
   # node.syncManager.start()
-  asyncSpawn node.startHybridSync()
+  node.syncOverseer.start()
 
   if node.dag.needsBackfill(): asyncSpawn node.startBackfillTask()
 
