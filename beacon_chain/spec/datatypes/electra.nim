@@ -52,6 +52,13 @@ const
   # next_sync_committee
   NEXT_SYNC_COMMITTEE_GINDEX_ELECTRA* = 87.GeneralizedIndex
 
+  # https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.3/specs/electra/p2p-interface.md#preset
+  # All of these indices are rooted in `BeaconBlockBody`.
+  # The first member (`randao_reveal`) is 128, subsequent members +1 each.
+  # If there are ever more than 128 members in `BeaconBlockBody`, indices change!
+  # https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.3/ssz/merkle-proofs.md
+  # execution_payload
+  EXECUTION_PAYLOAD_GINDEX_ELECTRA* = 137.GeneralizedIndex
 type
   # https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.3/specs/electra/beacon-chain.md#indexedattestation
   IndexedAttestation* {.
@@ -152,6 +159,9 @@ type
   ExecutePayload* = proc(
     execution_payload: ExecutionPayload): bool {.gcsafe, raises: [].}
 
+  ExecutionBranch* =
+    array[log2trunc(EXECUTION_PAYLOAD_GINDEX_ELECTRA), Eth2Digest]
+
   # https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.3/specs/phase0/validator.md#aggregateandproof
   AggregateAndProof* = object
     aggregator_index*: uint64 # `ValidatorIndex` after validation
@@ -179,7 +189,7 @@ type
 
     execution*: electra.ExecutionPayloadHeader
       ## Execution payload header corresponding to `beacon.body_root` (from Capella onward)
-    execution_branch*: capella.ExecutionBranch
+    execution_branch*: ExecutionBranch
 
   # https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.3/specs/altair/light-client/sync-protocol.md#lightclientbootstrap
   LightClientBootstrap* = object
@@ -721,8 +731,8 @@ func is_valid_light_client_header*(
   is_valid_merkle_branch(
     get_lc_execution_root(header, cfg),
     header.execution_branch,
-    log2trunc(EXECUTION_PAYLOAD_GINDEX),
-    get_subtree_index(EXECUTION_PAYLOAD_GINDEX),
+    log2trunc(EXECUTION_PAYLOAD_GINDEX_ELECTRA),
+    get_subtree_index(EXECUTION_PAYLOAD_GINDEX_ELECTRA),
     header.beacon.body_root)
 
 # https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.3/specs/electra/light-client/fork.md#normalize_merkle_branch
@@ -767,7 +777,8 @@ func upgrade_lc_header_to_electra*(
         deposit_requests_root: ZERO_HASH,  # [New in Electra:EIP6110]
         withdrawal_requests_root: ZERO_HASH,  # [New in Electra:EIP7002:EIP7251]
         consolidation_requests_root: ZERO_HASH),  # [New in Electra:EIP7251]
-    execution_branch: pre.execution_branch)
+    execution_branch: normalize_merkle_branch(
+      pre.execution_branch, EXECUTION_PAYLOAD_GINDEX_ELECTRA))
 
 # https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.3/specs/electra/light-client/fork.md#upgrading-light-client-data
 func upgrade_lc_bootstrap_to_electra*(
