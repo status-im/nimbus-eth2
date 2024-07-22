@@ -10,7 +10,10 @@
 import results, chronos,
        ".."/spec/forks_light_client,
        ".."/consensus_object_pools/blockchain_dag,
-       ".."/beacon_clock
+       ".."/beacon_clock,
+       ".."/networking/eth2_network,
+       "."/sync_manager
+
 
 export results, chronos
 
@@ -21,10 +24,18 @@ type
     beaconClock*: BeaconClock
     eventQueue*: AsyncEventQueue[ForkedLightClientHeader]
     loopFuture*: Future[void].Raising([])
+    forwardSync*: SyncManager[Peer, PeerId]
+    backwardSync*: SyncManager[Peer, PeerId]
 
   SyncOverseerRef* = ref SyncOverseer
 
-proc new*(t: typedesc[SyncOverseerRef], dag: ChainDAGRef,
-          clock: BeaconClock,
-          eq: AsyncEventQueue[ForkedLightClientHeader]): SyncOverseerRef =
-  SyncOverseerRef(dag: dag, beaconClock: clock, eventQueue: eq)
+proc new*(
+    t: typedesc[SyncOverseerRef],
+    dag: ChainDAGRef,
+    clock: BeaconClock,
+    eq: AsyncEventQueue[ForkedLightClientHeader],
+    forwardSync: SyncManager[Peer, PeerId],
+    backwardSync: SyncManager[Peer, PeerId]
+): SyncOverseerRef =
+  SyncOverseerRef(dag: dag, beaconClock: clock, eventQueue: eq,
+                  forwardSync: forwardSync, backwardSync: backwardSync)

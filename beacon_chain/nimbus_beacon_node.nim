@@ -553,7 +553,8 @@ proc initFullNode(
   node.syncManager = syncManager
   node.backfiller = backfiller
   node.syncOverseer = SyncOverseerRef.new(node.dag, node.beaconClock,
-                                          node.eventBus.optHeaderUpdateQueue)
+                                          node.eventBus.optHeaderUpdateQueue,
+                                          syncManager, backfiller)
   node.router = router
 
   await node.addValidators()
