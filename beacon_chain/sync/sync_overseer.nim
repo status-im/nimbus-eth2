@@ -50,24 +50,35 @@ proc mainLoop*(
 ): Future[void] {.async: (raises: []).} =
   if not(isBackfillEmpty(overseer.dag.backfill)):
     # Backfill is already running.
+    if overseer.dag.needsBackfill:
+      if not overseer.forwardSync.inProgress:
+        overseer.backwardSync.start()
+  else:
+    overseer.statusMsg = Opt.some("awaiting block header")
+    let blockHeader =
+      try:
+        await overseer.getLatestBeaconHeader()
+      except CancelledError:
+        return
+    overseer.statusMsg = Opt.none(string)
+
+    notice "Received beacon block header",
+           backfill = shortLog(overseer.dag.backfill),
+           beacon_header = shortLog(blockHeader),
+           current_slot = overseer.beaconClock.now().slotOrZero()
+
+    overseer.dag.backfill =
+      BeaconBlockSummary(slot: blockHeader.slot,
+                         parent_root: blockHeader.parent_root)
+
+    overseer.backwardSync.start()
+
+  try:
+    await overseer.backwardSync.join()
+  except CancelledError:
     return
 
-  overseer.statusMsg = Opt.some("awaiting block header")
-  let blockHeader =
-    try:
-      await overseer.getLatestBeaconHeader()
-    except CancelledError:
-      return
-  overseer.statusMsg = Opt.none(string)
-
-  notice "Received beacon block header",
-         backfill = shortLog(overseer.dag.backfill),
-         beacon_header = shortLog(blockHeader),
-         current_slot = overseer.beaconClock.now().slotOrZero()
-
-  overseer.dag.backfill =
-    BeaconBlockSummary(slot: blockHeader.slot,
-                       parent_root: blockHeader.parent_root)
+  notice "Start state rebuild mechanism"
 
 proc start*(overseer: SyncOverseerRef) =
   overseer.loopFuture = overseer.mainLoop()
