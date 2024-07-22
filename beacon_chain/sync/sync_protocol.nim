@@ -78,8 +78,7 @@ proc readChunkPayload*(
       else:
         return err(res.error)
     else:
-      else:
-        return neterr InvalidContextBytes
+      return neterr InvalidContextBytes
 
 {.pop.} # TODO fix p2p macro for raises
 
