@@ -11,6 +11,7 @@ import
   # Status
   chronicles, chronos, metrics,
   results,
+  stew/byteutils,
   # Internals
   ../spec/[
     beaconstate, state_transition_block, forks, helpers, network, signatures],
@@ -467,7 +468,13 @@ proc validateBlobSidecar*(
 
   # Send notification about new blob sidecar via callback
   if not(isNil(blobQuarantine.onBlobSidecarCallback)):
-    blobQuarantine.onBlobSidecarCallback(blob_sidecar)
+    blobQuarantine.onBlobSidecarCallback BlobSidecarInfoObject(
+      block_root: hash_tree_root(blob_sidecar.signed_block_header.message),
+      index: blob_sidecar.index,
+      slot: blob_sidecar.signed_block_header.message.slot,
+      kzg_commitment: blob_sidecar.kzg_commitment,
+      versioned_hash:
+        blob_sidecar.kzg_commitment.kzg_commitment_to_versioned_hash.to0xHex())
 
   ok()
 
