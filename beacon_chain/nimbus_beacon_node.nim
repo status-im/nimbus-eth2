@@ -293,15 +293,8 @@ proc initFullNode(
     node.eventBus.propSlashQueue.emit(data)
   proc onAttesterSlashingAdded(data: phase0.AttesterSlashing) =
     node.eventBus.attSlashQueue.emit(data)
-  proc onBlobSidecarAdded(data: BlobSidecar) =
-    node.eventBus.blobSidecarQueue.emit(
-      BlobSidecarInfoObject(
-        block_root: hash_tree_root(data.signed_block_header.message),
-        index: data.index,
-        slot: data.signed_block_header.message.slot,
-        kzg_commitment: data.kzg_commitment,
-        versioned_hash:
-          data.kzg_commitment.kzg_commitment_to_versioned_hash.to0xHex))
+  proc onBlobSidecarAdded(data: BlobSidecarInfoObject) =
+    node.eventBus.blobSidecarQueue.emit(data)
   proc onBlockAdded(data: ForkedTrustedSignedBeaconBlock) =
     let optimistic =
       if node.currentSlot().epoch() >= dag.cfg.BELLATRIX_FORK_EPOCH:
