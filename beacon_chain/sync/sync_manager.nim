@@ -402,7 +402,7 @@ proc checkValidPeerCustody*[A, B](man: SyncManager[A, B], peer: A): bool =
   # of valid peerIds
   # validPeerIds.add(peer.peerId)
   # validPeerIds
-  return true
+  true
 
 proc syncStep[A, B](man: SyncManager[A, B], index: int, peer: A)
     {.async: (raises: [CancelledError]).} =

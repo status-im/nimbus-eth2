@@ -326,7 +326,6 @@ proc fetchDataColumnsFromNetwork(rman: RequestManager,
 
     # Create a peer list, which shall be later trimmed off as to which
     # of the peers have the valid custody columns
-
     peers.add(peer)
     let validPeers = rman.constructValidCustodyPeers(peers)
     if peer in validPeers:
