@@ -372,7 +372,6 @@ proc checkValidPeerCustody*[A, B](man: SyncManager[A, B], peer: A): bool =
 
   var validPeerIds: seq[PeerId]
 
-
   # Get the custody subnet counts of the remote peer
   let remoteCustodySubnetCount = 
       peer.fetchCustodyColumnCountFromRemotePeer()
@@ -400,8 +399,6 @@ proc checkValidPeerCustody*[A, B](man: SyncManager[A, B], peer: A): bool =
   
   # Otherwise add the peer to the set
   # of valid peerIds
-  # validPeerIds.add(peer.peerId)
-  # validPeerIds
   true
 
 proc syncStep[A, B](man: SyncManager[A, B], index: int, peer: A)
