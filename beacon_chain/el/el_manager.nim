@@ -1359,6 +1359,14 @@ proc sendNewPayload*(
         if len(pendingRequests) == 0:
           # All requests failed, we will continue our attempts until deadline
           # is not finished.
+
+          # To avoid continous spam of requests when EL node is offline we
+          # going to sleep until next attempt for
+          # (NEWPAYLOAD_TIMEOUT / 4) time (2.seconds).
+          let timeout =
+            chronos.nanoseconds(NEWPAYLOAD_TIMEOUT.nanoseconds div 4)
+          await sleepAsync(timeout)
+
           break mainLoop
 
 proc forkchoiceUpdatedForSingleEL(
@@ -1532,6 +1540,14 @@ proc forkchoiceUpdated*(
         if len(pendingRequests) == 0:
           # All requests failed, we will continue our attempts until deadline
           # is not finished.
+
+          # To avoid continous spam of requests when EL node is offline we
+          # going to sleep until next attempt for
+          # (FORKCHOICEUPDATED_TIMEOUT / 4) time (2.seconds).
+          let timeout =
+            chronos.nanoseconds(FORKCHOICEUPDATED_TIMEOUT.nanoseconds div 4)
+          await sleepAsync(timeout)
+
           break mainLoop
 
 # TODO can't be defined within exchangeConfigWithSingleEL
