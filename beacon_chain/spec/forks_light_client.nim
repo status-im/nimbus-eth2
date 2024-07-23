@@ -227,12 +227,12 @@ template kind*(
       electra.LightClientStore]): LightClientDataFork =
   LightClientDataFork.Electra
 
-template FINALIZED_ROOT_GINDEX*(
+template finalized_root_gindex*(
     kind: static LightClientDataFork): GeneralizedIndex =
   when kind >= LightClientDataFork.Electra:
-    electra.FINALIZED_ROOT_GINDEX
+    FINALIZED_ROOT_GINDEX_ELECTRA
   elif kind >= LightClientDataFork.Altair:
-    altair.FINALIZED_ROOT_GINDEX
+    FINALIZED_ROOT_GINDEX
   else:
     static: raiseAssert "Unreachable"
 
@@ -244,12 +244,12 @@ template FinalityBranch*(kind: static LightClientDataFork): auto =
   else:
     static: raiseAssert "Unreachable"
 
-template CURRENT_SYNC_COMMITTEE_GINDEX*(
+template current_sync_committee_gindex*(
     kind: static LightClientDataFork): GeneralizedIndex =
   when kind >= LightClientDataFork.Electra:
-    electra.CURRENT_SYNC_COMMITTEE_GINDEX
+    CURRENT_SYNC_COMMITTEE_GINDEX_ELECTRA
   elif kind >= LightClientDataFork.Altair:
-    altair.CURRENT_SYNC_COMMITTEE_GINDEX
+    CURRENT_SYNC_COMMITTEE_GINDEX
   else:
     static: raiseAssert "Unreachable"
 
@@ -261,12 +261,12 @@ template CurrentSyncCommitteeBranch*(kind: static LightClientDataFork): auto =
   else:
     static: raiseAssert "Unreachable"
 
-template NEXT_SYNC_COMMITTEE_GINDEX*(
+template next_sync_committee_gindex*(
     kind: static LightClientDataFork): GeneralizedIndex =
   when kind >= LightClientDataFork.Electra:
-    electra.NEXT_SYNC_COMMITTEE_GINDEX
+    NEXT_SYNC_COMMITTEE_GINDEX_ELECTRA
   elif kind >= LightClientDataFork.Altair:
-    altair.NEXT_SYNC_COMMITTEE_GINDEX
+    NEXT_SYNC_COMMITTEE_GINDEX
   else:
     static: raiseAssert "Unreachable"
 

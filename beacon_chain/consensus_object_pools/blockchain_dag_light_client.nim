@@ -255,7 +255,7 @@ proc initLightClientBootstrapForPeriod(
             forkyBlck.toLightClientHeader(lcDataFork))
           dag.lcDataStore.db.putCurrentSyncCommitteeBranch(
             bid.slot, forkyState.data.build_proof(
-              lcDataFork.CURRENT_SYNC_COMMITTEE_GINDEX).get)
+              lcDataFork.current_sync_committee_gindex).get)
         else: raiseAssert "Unreachable"
   res
 
@@ -403,10 +403,10 @@ proc initLightClientUpdateForPeriod(
           attested_header: forkyBlck.toLightClientHeader(lcDataFork),
           next_sync_committee: forkyState.data.next_sync_committee,
           next_sync_committee_branch: forkyState.data.build_proof(
-            lcDataFork.NEXT_SYNC_COMMITTEE_GINDEX).get,
+            lcDataFork.next_sync_committee_gindex).get,
           finality_branch:
             if finalizedBid.slot != FAR_FUTURE_SLOT:
-              forkyState.data.build_proof(lcDataFork.FINALIZED_ROOT_GINDEX).get
+              forkyState.data.build_proof(lcDataFork.finalized_root_gindex).get
             else:
               default(lcDataFork.FinalityBranch)))
       else: raiseAssert "Unreachable"
@@ -478,16 +478,16 @@ proc cacheLightClientData(
     bid = blck.toBlockId()
     cachedData = CachedLightClientData(
       current_sync_committee_branch: normalize_merkle_branch(
-        state.data.build_proof(lcDataFork.CURRENT_SYNC_COMMITTEE_GINDEX).get,
-        LightClientDataFork.high.CURRENT_SYNC_COMMITTEE_GINDEX),
+        state.data.build_proof(lcDataFork.current_sync_committee_gindex).get,
+        LightClientDataFork.high.current_sync_committee_gindex),
       next_sync_committee_branch: normalize_merkle_branch(
-        state.data.build_proof(lcDataFork.NEXT_SYNC_COMMITTEE_GINDEX).get,
-        LightClientDataFork.high.NEXT_SYNC_COMMITTEE_GINDEX),
+        state.data.build_proof(lcDataFork.next_sync_committee_gindex).get,
+        LightClientDataFork.high.next_sync_committee_gindex),
       finalized_slot:
         state.data.finalized_checkpoint.epoch.start_slot,
       finality_branch: normalize_merkle_branch(
-        state.data.build_proof(lcDataFork.FINALIZED_ROOT_GINDEX).get,
-        LightClientDataFork.high.FINALIZED_ROOT_GINDEX),
+        state.data.build_proof(lcDataFork.finalized_root_gindex).get,
+        LightClientDataFork.high.finalized_root_gindex),
       current_period_best_update:
         current_period_best_update,
       latest_signature_slot:
@@ -553,7 +553,7 @@ proc assignLightClientData(
             next_sync_committee.get
           forkyObject.next_sync_committee_branch = normalize_merkle_branch(
             attested_data.next_sync_committee_branch,
-            lcDataFork.NEXT_SYNC_COMMITTEE_GINDEX)
+            lcDataFork.next_sync_committee_gindex)
     else:
       doAssert next_sync_committee.isNone
     var finalized_slot = attested_data.finalized_slot
@@ -562,7 +562,7 @@ proc assignLightClientData(
         if finalized_slot == forkyObject.finalized_header.beacon.slot:
           forkyObject.finality_branch = normalize_merkle_branch(
             attested_data.finality_branch,
-            lcDataFork.FINALIZED_ROOT_GINDEX)
+            lcDataFork.finalized_root_gindex)
         elif finalized_slot < max(dag.tail.slot, dag.backfill.slot):
           forkyObject.finalized_header.reset()
           forkyObject.finality_branch.reset()
@@ -582,12 +582,12 @@ proc assignLightClientData(
             if finalized_slot == forkyObject.finalized_header.beacon.slot:
               forkyObject.finality_branch = normalize_merkle_branch(
                 attested_data.finality_branch,
-                lcDataFork.FINALIZED_ROOT_GINDEX)
+                lcDataFork.finalized_root_gindex)
             elif finalized_slot == GENESIS_SLOT:
               forkyObject.finalized_header.reset()
               forkyObject.finality_branch = normalize_merkle_branch(
                 attested_data.finality_branch,
-                lcDataFork.FINALIZED_ROOT_GINDEX)
+                lcDataFork.finalized_root_gindex)
             else:
               var fin_header = dag.getExistingLightClientHeader(finalized_bid)
               if fin_header.kind == LightClientDataFork.None:
@@ -599,7 +599,7 @@ proc assignLightClientData(
                 forkyObject.finalized_header = fin_header.forky(lcDataFork)
                 forkyObject.finality_branch = normalize_merkle_branch(
                   attested_data.finality_branch,
-                  lcDataFork.FINALIZED_ROOT_GINDEX)
+                  lcDataFork.finalized_root_gindex)
   withForkyObject(obj):
     when lcDataFork > LightClientDataFork.None:
       forkyObject.sync_aggregate = sync_aggregate
@@ -726,7 +726,7 @@ proc createLightClientBootstrap(
       dag.lcDataStore.db.putCurrentSyncCommitteeBranch(
         bid.slot, normalize_merkle_branch(
           dag.getLightClientData(bid).current_sync_committee_branch,
-          lcDataFork.CURRENT_SYNC_COMMITTEE_GINDEX))
+          lcDataFork.current_sync_committee_gindex))
     else: raiseAssert "Unreachable"
   ok()
 
@@ -1053,7 +1053,7 @@ proc getLightClientBootstrap(
           dag.lcDataStore.db.putHeader(header)
           dag.lcDataStore.db.putCurrentSyncCommitteeBranch(
             slot, forkyState.data.build_proof(
-              lcDataFork.CURRENT_SYNC_COMMITTEE_GINDEX).get)
+              lcDataFork.current_sync_committee_gindex).get)
         else: raiseAssert "Unreachable"
     do: return default(ForkedLightClientBootstrap)
 

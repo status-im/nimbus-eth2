@@ -286,8 +286,8 @@ proc runTest(storeDataFork: static LightClientDataFork) =
       template next_sync_committee(): auto = state.next_sync_committee
       let
         next_sync_committee_branch = normalize_merkle_branch(
-          state.build_proof(altair.NEXT_SYNC_COMMITTEE_GINDEX).get,
-          storeDataFork.NEXT_SYNC_COMMITTEE_GINDEX)
+          state.build_proof(NEXT_SYNC_COMMITTEE_GINDEX).get,
+          storeDataFork.next_sync_committee_gindex)
 
       # Finality is unchanged
         finality_header = default(storeDataFork.LightClientHeader)
@@ -359,8 +359,8 @@ proc runTest(storeDataFork: static LightClientDataFork) =
           state.finalized_checkpoint.root
       let
         finality_branch = normalize_merkle_branch(
-          state.build_proof(altair.FINALIZED_ROOT_GINDEX).get,
-          storeDataFork.FINALIZED_ROOT_GINDEX)
+          state.build_proof(FINALIZED_ROOT_GINDEX).get,
+          storeDataFork.finalized_root_gindex)
 
         update = storeDataFork.LightClientUpdate(
           attested_header: attested_header,

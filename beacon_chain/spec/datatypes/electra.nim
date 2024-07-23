@@ -45,9 +45,12 @@ const
   # If there are ever more than 64 members in `BeaconState`, indices change!
   # `FINALIZED_ROOT_GINDEX` is one layer deeper, i.e., `84 * 2 + 1`.
   # https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.3/ssz/merkle-proofs.md
-  FINALIZED_ROOT_GINDEX* = 169.GeneralizedIndex  # finalized_checkpoint > root
-  CURRENT_SYNC_COMMITTEE_GINDEX* = 86.GeneralizedIndex  # current_sync_committee
-  NEXT_SYNC_COMMITTEE_GINDEX* = 87.GeneralizedIndex  # next_sync_committee
+  # finalized_checkpoint > root
+  FINALIZED_ROOT_GINDEX_ELECTRA* = 169.GeneralizedIndex
+  # current_sync_committee
+  CURRENT_SYNC_COMMITTEE_GINDEX_ELECTRA* = 86.GeneralizedIndex
+  # next_sync_committee
+  NEXT_SYNC_COMMITTEE_GINDEX_ELECTRA* = 87.GeneralizedIndex
 
 type
   # https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.3/specs/electra/beacon-chain.md#depositrequest
@@ -195,13 +198,13 @@ type
     signature*: ValidatorSig
 
   FinalityBranch* =
-    array[log2trunc(FINALIZED_ROOT_GINDEX), Eth2Digest]
+    array[log2trunc(FINALIZED_ROOT_GINDEX_ELECTRA), Eth2Digest]
 
   CurrentSyncCommitteeBranch* =
-    array[log2trunc(CURRENT_SYNC_COMMITTEE_GINDEX), Eth2Digest]
+    array[log2trunc(CURRENT_SYNC_COMMITTEE_GINDEX_ELECTRA), Eth2Digest]
 
   NextSyncCommitteeBranch* =
-    array[log2trunc(NEXT_SYNC_COMMITTEE_GINDEX), Eth2Digest]
+    array[log2trunc(NEXT_SYNC_COMMITTEE_GINDEX_ELECTRA), Eth2Digest]
 
   # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.5/specs/capella/light-client/sync-protocol.md#modified-lightclientheader
   LightClientHeader* = object
@@ -808,7 +811,7 @@ func upgrade_lc_bootstrap_to_electra*(
     header: upgrade_lc_header_to_electra(pre.header),
     current_sync_committee: pre.current_sync_committee,
     current_sync_committee_branch: normalize_merkle_branch(
-      pre.current_sync_committee_branch, CURRENT_SYNC_COMMITTEE_GINDEX))
+      pre.current_sync_committee_branch, CURRENT_SYNC_COMMITTEE_GINDEX_ELECTRA))
 
 # https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.3/specs/electra/light-client/fork.md#upgrading-light-client-data
 func upgrade_lc_update_to_electra*(
@@ -817,10 +820,10 @@ func upgrade_lc_update_to_electra*(
     attested_header: upgrade_lc_header_to_electra(pre.attested_header),
     next_sync_committee: pre.next_sync_committee,
     next_sync_committee_branch: normalize_merkle_branch(
-      pre.next_sync_committee_branch, NEXT_SYNC_COMMITTEE_GINDEX),
+      pre.next_sync_committee_branch, NEXT_SYNC_COMMITTEE_GINDEX_ELECTRA),
     finalized_header: upgrade_lc_header_to_electra(pre.finalized_header),
     finality_branch: normalize_merkle_branch(
-      pre.finality_branch, FINALIZED_ROOT_GINDEX),
+      pre.finality_branch, FINALIZED_ROOT_GINDEX_ELECTRA),
     sync_aggregate: pre.sync_aggregate,
     signature_slot: pre.signature_slot)
 
@@ -831,7 +834,7 @@ func upgrade_lc_finality_update_to_electra*(
     attested_header: upgrade_lc_header_to_electra(pre.attested_header),
     finalized_header: upgrade_lc_header_to_electra(pre.finalized_header),
     finality_branch: normalize_merkle_branch(
-      pre.finality_branch, FINALIZED_ROOT_GINDEX),
+      pre.finality_branch, FINALIZED_ROOT_GINDEX_ELECTRA),
     sync_aggregate: pre.sync_aggregate,
     signature_slot: pre.signature_slot)
 
