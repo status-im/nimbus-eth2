@@ -357,11 +357,12 @@ proc checkValidPeerCustody*[A, B](man: SyncManager[A, B], peer: A): bool =
   # of the remote peers
 
   # Get the local custody subnet count
-  var localCustodySubnetCount: uint64
-  if man.supernode:
-    localCustodySubnetCount = DATA_COLUMN_SIDECAR_SUBNET_COUNT.uint64
-  else:
-    localCustodySubnetCount = CUSTODY_REQUIREMENT
+
+  let localCustodySubnetCount =
+    if man.supernode:
+      DATA_COLUMN_SIDECAR_SUBNET_COUNT.uint64
+    else:
+      CUSTODY_REQUIREMENT
 
   # Get the local custody columns
   let 

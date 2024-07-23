@@ -482,7 +482,7 @@ proc initFullNode(
       getFrontfillSlot, dag.backfill.slot, blockVerifier,
       maxHeadAge = 0)    
     requestManager = RequestManager.init(
-      node.network, dag.cfg.DENEB_FORK_EPOCH, getBeaconTime,
+      node.network, supernode, dag.cfg.DENEB_FORK_EPOCH, getBeaconTime,
       (proc(): bool = syncManager.inProgress),
       quarantine, blobQuarantine, dataColumnQuarantine, rmanBlockVerifier,
       rmanBlockLoader, rmanBlobLoader, rmanDataColumnLoader)

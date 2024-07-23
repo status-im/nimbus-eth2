@@ -62,6 +62,7 @@ type
 
   RequestManager* = object
     network*: Eth2Node
+    supernode: bool
     getBeaconTime: GetBeaconTimeFn
     inhibit: InhibitFn
     quarantine: ref Quarantine
@@ -82,6 +83,7 @@ func shortLog*(x: seq[FetchRecord]): string =
   "[" & x.mapIt(shortLog(it.root)).join(", ") & "]"
 
 proc init*(T: type RequestManager, network: Eth2Node,
+              supernode: bool,
               denebEpoch: Epoch,
               getBeaconTime: GetBeaconTimeFn,
               inhibit: InhibitFn,
@@ -94,6 +96,7 @@ proc init*(T: type RequestManager, network: Eth2Node,
               dataColumnLoader: DataColumnLoaderFn = nil): RequestManager =
   RequestManager(
     network: network,
+    supernode: supernode,
     getBeaconTime: getBeaconTime,
     inhibit: inhibit,
     quarantine: quarantine,
@@ -265,41 +268,94 @@ proc fetchBlobsFromNetwork(self: RequestManager,
     if not(isNil(peer)):
       self.network.peerPool.release(peer)
 
+proc constructValidCustodyPeers(rman: RequestManager,
+                                peers: openArray[Peer]):
+                                seq[Peer] =
+  let localCustodySubnetCount =
+    if rman.supernode:
+      DATA_COLUMN_SIDECAR_SUBNET_COUNT.uint64
+    else:
+      CUSTODY_REQUIREMENT
+
+  # Fetching the local cusotrdy columns
+  let
+    localNodeId = rman.network.nodeId
+    localCustodyColumns =
+      localNodeId.get_custody_columns(localCustodySubnetCount).get
+  
+  var validPeers: seq[Peer]
+
+  for peer in peers:
+    # Get the custody subnet count of the remote peer
+    let remoteCustodySubnetCount =
+      peer.fetchCustodyColumnCountFromRemotePeer()
+    
+    # Extract remote peer's nodeID from peerID
+    # Fetch custody columns from remote peer
+    let
+      remoteNodeId = getNodeIdFromPeer(peer)
+      remoteCustodyColumns =
+        remoteNodeId.get_custody_columns(remoteCustodySubnetCount).get
+    
+    # If the remote peer custodies less columns than
+    # our local node
+    # We skip it
+    if remoteCustodyColumns.len < localCustodyColumns.len:
+      continue
+
+    # If the remote peer custodies all the possible columns
+    if remoteCustodyColumns.len == NUMBER_OF_COLUMNS:
+      validPeers.add(peer)
+    
+    # Filtering out the inval;id peers
+    for column in localCustodyColumns:
+      if column notin remoteCustodyColumns:
+        continue
+
+    # Otherwise add the peer to the set of valid peers
+    validPeers.add(peer)
+  validPeers
+
 proc fetchDataColumnsFromNetwork(rman: RequestManager,
                                  colIdList: seq[DataColumnIdentifier])
                                  {.async: (raises: [CancelledError]).} =
   var peer: Peer
-
+  var peers: seq[Peer]
   try:
     peer = await rman.network.peerPool.acquire()
-    debug "Requesting data columns by root", peer = peer, columns = shortLog(colIdList),
-                                                     peer_score = peer.getScore()
-    
-    let columns = await dataColumnSidecarsByRoot(peer, DataColumnIdentifierList colIdList)
 
-    if columns.isOk:
-      let ucolumns = columns.get()
-      if not checkResponse(colIdList, ucolumns.asSeq()):
-        debug "Mismatched response to data columns by root",
-          peer = peer, columns = shortLog(colIdList), ucolumns = len(ucolumns)
-        # peer.updateScore(PeerScoreBadResponse)
-        return
+    # Create a peer list, which shall be later trimmed off as to which
+    # of the peers have the valid custody columns
 
-      for col in ucolumns:
-        rman.dataColumnQuarantine[].put(col)
-      var curRoot: Eth2Digest
-      for col in ucolumns:
-        let block_root = hash_tree_root(col.signed_block_header.message)
-        if block_root != curRoot:
-          curRoot = block_root
-          if (let o = rman.quarantine[].popColumnless(curRoot); o.isSome):
-            let col = o.unsafeGet()
-            discard await rman.blockVerifier(col, false)
+    peers.add(peer)
+    let validPeers = rman.constructValidCustodyPeers(peers)
+    if peer in validPeers:
+      debug "Requesting data columns by root", peer = peer, columns = shortLog(colIdList),
+                                                      peer_score = peer.getScore()
+      let columns = await dataColumnSidecarsByRoot(peer, DataColumnIdentifierList colIdList)
 
-    else:
-      debug "Data columns by root request failed",
-        peer = peer, columns = shortLog(colIdList), err = columns.error()
-      # peer.updateScore(PeerScoreNoValues)
+      if columns.isOk:
+        let ucolumns = columns.get()
+        if not checkResponse(colIdList, ucolumns.asSeq()):
+          debug "Mismatched response to data columns by root",
+            peer = peer, columns = shortLog(colIdList), ucolumns = len(ucolumns)
+          # peer.updateScore(PeerScoreBadResponse)
+          return
+
+        for col in ucolumns:
+          rman.dataColumnQuarantine[].put(col)
+        var curRoot: Eth2Digest
+        for col in ucolumns:
+          let block_root = hash_tree_root(col.signed_block_header.message)
+          if block_root != curRoot:
+            curRoot = block_root
+            if (let o = rman.quarantine[].popColumnless(curRoot); o.isSome):
+              let col = o.unsafeGet()
+              discard await rman.blockVerifier(col, false)
+      else:
+        debug "Data columns by root request failed",
+          peer = peer, columns = shortLog(colIdList), err = columns.error()
+        # peer.updateScore(PeerScoreNoValues)
 
   finally:
     if not(isNil(peer)):
