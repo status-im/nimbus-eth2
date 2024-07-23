@@ -2694,23 +2694,28 @@ proc broadcastBlobSidecar*(
     node: Eth2Node, subnet_id: BlobId, blob: deneb.BlobSidecar):
     Future[SendResult] {.async: (raises: [CancelledError], raw: true).} =
   let
-    forkPrefix = node.forkDigestAtEpoch(node.getWallEpoch)
-    topic = getBlobSidecarTopic(forkPrefix, subnet_id)
+    contextEpoch = blob.signed_block_header.message.slot.epoch
+    topic = getBlobSidecarTopic(
+      node.forkDigestAtEpoch(contextEpoch), subnet_id)
   node.broadcast(topic, blob)
 
 proc broadcastSyncCommitteeMessage*(
     node: Eth2Node, msg: SyncCommitteeMessage,
     subcommitteeIdx: SyncSubcommitteeIndex):
     Future[SendResult] {.async: (raises: [CancelledError], raw: true).} =
-  let topic = getSyncCommitteeTopic(
-    node.forkDigestAtEpoch(node.getWallEpoch), subcommitteeIdx)
+  let
+    contextEpoch = msg.slot.epoch
+    topic = getSyncCommitteeTopic(
+      node.forkDigestAtEpoch(contextEpoch), subcommitteeIdx)
   node.broadcast(topic, msg)
 
 proc broadcastSignedContributionAndProof*(
     node: Eth2Node, msg: SignedContributionAndProof):
     Future[SendResult] {.async: (raises: [CancelledError], raw: true).} =
-  let topic = getSyncCommitteeContributionAndProofTopic(
-    node.forkDigestAtEpoch(node.getWallEpoch))
+  let
+    contextEpoch = msg.message.contribution.slot.epoch
+    topic = getSyncCommitteeContributionAndProofTopic(
+      node.forkDigestAtEpoch(contextEpoch))
   node.broadcast(topic, msg)
 
 proc broadcastLightClientFinalityUpdate*(
