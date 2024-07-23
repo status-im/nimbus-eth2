@@ -44,50 +44,19 @@ proc readChunkPayload*(
   var contextBytes: ForkDigest
   try:
     await conn.readExactly(addr contextBytes, sizeof contextBytes)
-  except CancelledError as exc:
-    raise exc
   except CatchableError:
     return neterr UnexpectedEOF
+  let contextFork =
+    peer.network.forkDigests[].consensusForkForDigest(contextBytes).valueOr:
+      return neterr InvalidContextBytes
 
-  static: doAssert ConsensusFork.high == ConsensusFork.Electra
-  if contextBytes == peer.network.forkDigests.phase0:
-    let res = await readChunkPayload(conn, peer, phase0.SignedBeaconBlock)
+  withConsensusFork(contextFork):
+    let res = await readChunkPayload(
+      conn, peer, consensusFork.SignedBeaconBlock)
     if res.isOk:
       return ok newClone(ForkedSignedBeaconBlock.init(res.get))
     else:
       return err(res.error)
-  elif contextBytes == peer.network.forkDigests.altair:
-    let res = await readChunkPayload(conn, peer, altair.SignedBeaconBlock)
-    if res.isOk:
-      return ok newClone(ForkedSignedBeaconBlock.init(res.get))
-    else:
-      return err(res.error)
-  elif contextBytes == peer.network.forkDigests.bellatrix:
-    let res = await readChunkPayload(conn, peer, bellatrix.SignedBeaconBlock)
-    if res.isOk:
-      return ok newClone(ForkedSignedBeaconBlock.init(res.get))
-    else:
-      return err(res.error)
-  elif contextBytes == peer.network.forkDigests.capella:
-    let res = await readChunkPayload(conn, peer, capella.SignedBeaconBlock)
-    if res.isOk:
-      return ok newClone(ForkedSignedBeaconBlock.init(res.get))
-    else:
-      return err(res.error)
-  elif contextBytes == peer.network.forkDigests.deneb:
-    let res = await readChunkPayload(conn, peer, deneb.SignedBeaconBlock)
-    if res.isOk:
-      return ok newClone(ForkedSignedBeaconBlock.init(res.get))
-    else:
-      return err(res.error)
-  elif contextBytes == peer.network.forkDigests.electra:
-    let res = await readChunkPayload(conn, peer, electra.SignedBeaconBlock)
-    if res.isOk:
-      return ok newClone(ForkedSignedBeaconBlock.init(res.get))
-    else:
-      return err(res.error)
-  else:
-    return neterr InvalidContextBytes
 
 proc readChunkPayload*(
     conn: Connection, peer: Peer, MsgType: type (ref BlobSidecar)):
@@ -95,19 +64,21 @@ proc readChunkPayload*(
   var contextBytes: ForkDigest
   try:
     await conn.readExactly(addr contextBytes, sizeof contextBytes)
-  except CancelledError as exc:
-    raise exc
   except CatchableError:
     return neterr UnexpectedEOF
+  let contextFork =
+    peer.network.forkDigests[].consensusForkForDigest(contextBytes).valueOr:
+      return neterr InvalidContextBytes
 
-  if contextBytes == peer.network.forkDigests.deneb:
-    let res = await readChunkPayload(conn, peer, BlobSidecar)
-    if res.isOk:
-      return ok newClone(res.get)
+  withConsensusFork(contextFork):
+    when consensusFork >= ConsensusFork.Deneb:
+      let res = await readChunkPayload(conn, peer, BlobSidecar)
+      if res.isOk:
+        return ok newClone(res.get)
+      else:
+        return err(res.error)
     else:
-      return err(res.error)
-  else:
-    return neterr InvalidContextBytes
+      return neterr InvalidContextBytes
 
 {.pop.} # TODO fix p2p macro for raises
 
