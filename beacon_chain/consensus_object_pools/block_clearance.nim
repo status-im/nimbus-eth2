@@ -449,3 +449,15 @@ proc addBackfillBlock*(
     putBlockDur = putBlockTick - sigVerifyTick
 
   ok()
+
+proc addBackfillBlock*(
+    dag: ChainDAGRef,
+    signedBlock: ForkySignedBeaconBlock | ForkySigVerifiedSignedBeaconBlock,
+    blobsOpt: Opt[BlobSidecars]
+): Result[void, VerifierError] =
+  ? addBackfillBlock(dag, signedBlock)
+  # Only store blobs after successfully establishing block viability.
+  let blobs = blobsOpt.valueOr: BlobSidecars @[]
+  for b in blobs:
+    dag.db.putBlobSidecar(b[])
+  ok()
