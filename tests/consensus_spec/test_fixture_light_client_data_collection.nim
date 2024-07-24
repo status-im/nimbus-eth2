@@ -16,7 +16,7 @@ import
   chronicles,
   taskpools,
   # Third-party
-  yaml,
+  yaml/tojson,
   # Beacon chain internals
   ../../beacon_chain/beacon_chain_db,
   ../../beacon_chain/consensus_object_pools/[block_clearance, block_quarantine],
@@ -88,7 +88,7 @@ proc loadSteps(
     loadForked(t, s, path, fork_digests)
 
   let stepsYAML = os_ops.readFile(path/"steps.yaml")
-  let steps = yaml.loadToJson(stepsYAML)
+  let steps = loadToJson(stepsYAML)
 
   result = @[]
   for step in steps[0]:

@@ -44,7 +44,6 @@ type
 createJsonFlavor RestJson
 
 RestJson.useDefaultSerializationFor(
-  AggregateAndProof,
   AttestationData,
   BLSToExecutionChange,
   BeaconBlockHeader,
@@ -52,7 +51,7 @@ RestJson.useDefaultSerializationFor(
   BlobSidecarInfoObject,
   BlobsBundle,
   Checkpoint,
-  Consolidation,
+  ConsolidationRequest,
   ContributionAndProof,
   DataEnclosedObject,
   DataMetaEnclosedObject,
@@ -66,14 +65,13 @@ RestJson.useDefaultSerializationFor(
   DenebSignedBlockContents,
   Deposit,
   DepositData,
-  DepositReceipt,
+  DepositRequest,
   DepositTreeSnapshot,
   DistributedKeystoreInfo,
   ElectraSignedBlockContents,
   EmptyBody,
   Eth1Data,
   EventBeaconBlockObject,
-  ExecutionLayerWithdrawalRequest,
   Fork,
   GetBlockAttestationsResponse,
   GetBlockHeaderResponse,
@@ -168,10 +166,8 @@ RestJson.useDefaultSerializationFor(
   SetFeeRecipientRequest,
   SetGasLimitRequest,
   SetGraffitiRequest,
-  SignedAggregateAndProof,
   SignedBLSToExecutionChange,
   SignedBeaconBlockHeader,
-  SignedConsolidation,
   SignedContributionAndProof,
   SignedValidatorRegistrationV1,
   SignedVoluntaryExit,
@@ -196,6 +192,7 @@ RestJson.useDefaultSerializationFor(
   Web3SignerSyncCommitteeMessageData,
   Web3SignerValidatorRegistration,
   Withdrawal,
+  WithdrawalRequest,
   altair.BeaconBlock,
   altair.BeaconBlockBody,
   altair.BeaconState,
@@ -255,6 +252,11 @@ RestJson.useDefaultSerializationFor(
   electra.ExecutionPayload,
   electra.ExecutionPayloadHeader,
   electra.IndexedAttestation,
+  electra.LightClientBootstrap,
+  electra.LightClientFinalityUpdate,
+  electra.LightClientHeader,
+  electra.LightClientOptimisticUpdate,
+  electra.LightClientUpdate,
   electra.SignedBeaconBlock,
   electra.TrustedAttestation,
   electra_mev.BlindedBeaconBlock,
@@ -263,12 +265,14 @@ RestJson.useDefaultSerializationFor(
   electra_mev.ExecutionPayloadAndBlobsBundle,
   electra_mev.SignedBlindedBeaconBlock,
   electra_mev.SignedBuilderBid,
+  phase0.AggregateAndProof,
   phase0.Attestation,
   phase0.AttesterSlashing,
   phase0.BeaconBlock,
   phase0.BeaconBlockBody,
   phase0.BeaconState,
   phase0.IndexedAttestation,
+  phase0.SignedAggregateAndProof,
   phase0.SignedBeaconBlock,
   phase0.TrustedAttestation
 )
@@ -365,7 +369,7 @@ type
     seq[RestSignedContributionAndProof] |
     seq[RestSyncCommitteeMessage] |
     seq[RestSyncCommitteeSubscription] |
-    seq[SignedAggregateAndProof] |
+    seq[phase0.SignedAggregateAndProof] |
     seq[SignedValidatorRegistrationV1] |
     seq[ValidatorIndex] |
     seq[RestBeaconCommitteeSelection] |
@@ -403,8 +407,7 @@ type
     RestNimbusTimestamp2 |
     GetGraffitiResponse
 
-  DecodeConsensysTypes* =
-    ProduceBlockResponseV2 | ProduceBlindedBlockResponse
+  DecodeConsensysTypes* = ProduceBlindedBlockResponse
 
   RestVersioned*[T] = object
     data*: T
@@ -1359,7 +1362,7 @@ proc readValue*(reader: var JsonReader[RestJson],
      value: var (KzgCommitment|KzgProof)) {.
      raises: [IOError, SerializationError].} =
   try:
-    hexToByteArray(reader.readValue(string), distinctBase(value))
+    hexToByteArray(reader.readValue(string), distinctBase(value.bytes))
   except ValueError:
     raiseUnexpectedValue(reader,
                          "KzgCommitment value should be a valid hex string")
@@ -1367,7 +1370,7 @@ proc readValue*(reader: var JsonReader[RestJson],
 proc writeValue*(
     writer: var JsonWriter[RestJson], value: KzgCommitment | KzgProof
 ) {.raises: [IOError].} =
-  writeValue(writer, hexOriginal(distinctBase(value)))
+  writeValue(writer, hexOriginal(distinctBase(value.bytes)))
 
 ## GraffitiBytes
 proc writeValue*(
@@ -1423,8 +1426,7 @@ template prepareForkedBlockReading(blockType: typedesc,
       if version.isNone():
         reader.raiseUnexpectedValue("Incorrect version field value")
     of "data":
-      when (blockType is ProduceBlockResponseV2) or
-           (blockType is ForkedBlindedBeaconBlock) or
+      when (blockType is ForkedBlindedBeaconBlock) or
            (blockType is ProduceBlockResponseV3):
         if data.isSome():
           reader.raiseUnexpectedField(
@@ -1471,92 +1473,6 @@ template prepareForkedBlockReading(blockType: typedesc,
     reader.raiseUnexpectedValue("Field `version` is missing")
   if data.isNone():
     reader.raiseUnexpectedValue("Field `data` is missing")
-
-proc readValue*[BlockType: ProduceBlockResponseV2](
-    reader: var JsonReader[RestJson],
-    value: var BlockType) {.raises: [IOError, SerializationError].} =
-  var
-    version: Opt[ConsensusFork]
-    data: Opt[JsonString]
-    blinded: Opt[bool]
-    payloadValue: Opt[Uint256]
-    blockValue: Opt[Uint256]
-
-  prepareForkedBlockReading(BlockType, reader, version, data, blinded,
-                            payloadValue, blockValue)
-
-  case version.get():
-  of ConsensusFork.Phase0:
-    let res =
-      try:
-        RestJson.decode(string(data.get()),
-                        phase0.BeaconBlock,
-                        requireAllFields = true,
-                        allowUnknownFields = true)
-      except SerializationError:
-        reader.raiseUnexpectedValue("Incorrect phase0 block format")
-    value = ProduceBlockResponseV2(kind: ConsensusFork.Phase0,
-                                   phase0Data: res)
-  of ConsensusFork.Altair:
-    let res =
-      try:
-        RestJson.decode(string(data.get()),
-                        altair.BeaconBlock,
-                        requireAllFields = true,
-                        allowUnknownFields = true)
-      except SerializationError:
-        reader.raiseUnexpectedValue("Incorrect altair block format")
-
-    value = ProduceBlockResponseV2(kind: ConsensusFork.Altair,
-                                   altairData: res)
-  of ConsensusFork.Bellatrix:
-    let res =
-      try:
-        RestJson.decode(string(data.get()),
-                        bellatrix.BeaconBlock,
-                        requireAllFields = true,
-                        allowUnknownFields = true)
-      except SerializationError:
-        reader.raiseUnexpectedValue("Incorrect bellatrix block format")
-
-    value = ProduceBlockResponseV2(kind: ConsensusFork.Bellatrix,
-                                   bellatrixData: res)
-  of ConsensusFork.Capella:
-    let res =
-      try:
-        RestJson.decode(string(data.get()),
-                        capella.BeaconBlock,
-                        requireAllFields = true,
-                        allowUnknownFields = true)
-      except SerializationError:
-        reader.raiseUnexpectedValue("Incorrect capella block format")
-
-    value = ProduceBlockResponseV2(kind: ConsensusFork.Capella,
-                                   capellaData: res)
-  of ConsensusFork.Deneb:
-    let res =
-      try:
-        RestJson.decode(string(data.get()),
-                        deneb.BlockContents,
-                        requireAllFields = true,
-                        allowUnknownFields = true)
-      except SerializationError:
-        reader.raiseUnexpectedValue("Incorrect deneb block format")
-
-    value = ProduceBlockResponseV2(kind: ConsensusFork.Deneb,
-                                   denebData: res)
-  of ConsensusFork.Electra:
-    let res =
-      try:
-        RestJson.decode(string(data.get()),
-                        electra.BlockContents,
-                        requireAllFields = true,
-                        allowUnknownFields = true)
-      except SerializationError:
-        reader.raiseUnexpectedValue("Incorrect electra block format")
-
-    value = ProduceBlockResponseV2(kind: ConsensusFork.Electra,
-                                   electraData: res)
 
 proc readValue*[BlockType: ForkedBlindedBeaconBlock](
        reader: var JsonReader[RestJson],
@@ -1967,7 +1883,7 @@ proc readValue*(reader: var JsonReader[RestJson],
       value.electraBody.execution_payload.excess_blob_gas,
       ep_src.excess_blob_gas.get())
 
-    debugRaiseAssert "electra support missing, including attslashing/atts"
+    debugComment "electra support missing, including attslashing/atts"
 
 ## RestPublishedBeaconBlock
 proc readValue*(reader: var JsonReader[RestJson],
@@ -2743,7 +2659,7 @@ proc readValue*(reader: var JsonReader[RestJson],
         reader.raiseUnexpectedValue("Field `fork_info` is missing")
       let data =
         block:
-          let res = decodeJsonString(AggregateAndProof, data.get())
+          let res = decodeJsonString(phase0.AggregateAndProof, data.get())
           if res.isErr():
             reader.raiseUnexpectedValue(
               "Incorrect field `aggregate_and_proof` format")
@@ -3620,7 +3536,9 @@ proc decodeBody*(
     of ConsensusFork.Phase0:
       let blck =
         try:
-          SSZ.decode(body.data, phase0.SignedBeaconBlock)
+          var res = SSZ.decode(body.data, phase0.SignedBeaconBlock)
+          res.root = hash_tree_root(res.message)
+          res
         except SerializationError as exc:
           return err(RestErrorMessage.init(Http400, UnableDecodeError,
                                            [version, exc.formatMsg("<data>")]))
@@ -3632,7 +3550,9 @@ proc decodeBody*(
     of ConsensusFork.Altair:
       let blck =
         try:
-          SSZ.decode(body.data, altair.SignedBeaconBlock)
+          var res = SSZ.decode(body.data, altair.SignedBeaconBlock)
+          res.root = hash_tree_root(res.message)
+          res
         except SerializationError as exc:
           return err(RestErrorMessage.init(Http400, UnableDecodeError,
                                            [version, exc.formatMsg("<data>")]))
@@ -3644,7 +3564,9 @@ proc decodeBody*(
     of ConsensusFork.Bellatrix:
       let blck =
         try:
-          SSZ.decode(body.data, bellatrix.SignedBeaconBlock)
+          var res = SSZ.decode(body.data, bellatrix.SignedBeaconBlock)
+          res.root = hash_tree_root(res.message)
+          res
         except SerializationError as exc:
           return err(RestErrorMessage.init(Http400, UnableDecodeError,
                                            [version, exc.formatMsg("<data>")]))
@@ -3656,7 +3578,9 @@ proc decodeBody*(
     of ConsensusFork.Capella:
       let blck =
         try:
-          SSZ.decode(body.data, capella.SignedBeaconBlock)
+          var res = SSZ.decode(body.data, capella.SignedBeaconBlock)
+          res.root = hash_tree_root(res.message)
+          res
         except SerializationError as exc:
           return err(RestErrorMessage.init(Http400, UnableDecodeError,
                                            [version, exc.formatMsg("<data>")]))
@@ -3668,7 +3592,9 @@ proc decodeBody*(
     of ConsensusFork.Deneb:
       let blckContents =
         try:
-          SSZ.decode(body.data, DenebSignedBlockContents)
+          var res = SSZ.decode(body.data, DenebSignedBlockContents)
+          res.signed_block.root = hash_tree_root(res.signed_block.message)
+          res
         except SerializationError as exc:
           return err(RestErrorMessage.init(Http400, UnableDecodeError,
                                            [version, exc.formatMsg("<data>")]))
@@ -3680,7 +3606,9 @@ proc decodeBody*(
     of ConsensusFork.Electra:
       let blckContents =
         try:
-          SSZ.decode(body.data, ElectraSignedBlockContents)
+          var res = SSZ.decode(body.data, ElectraSignedBlockContents)
+          res.signed_block.root = hash_tree_root(res.signed_block.message)
+          res
         except SerializationError as exc:
           return err(RestErrorMessage.init(Http400, UnableDecodeError,
                                            [version, exc.formatMsg("<data>")]))
@@ -3846,35 +3774,7 @@ proc decodeBytes*[T: DecodeConsensysTypes](
             data = string.fromBytes(value)
       return err("Serialization error")
   elif mediaType == OctetStreamMediaType:
-    when t is ProduceBlockResponseV2:
-      let fork = ConsensusFork.decodeString(consensusVersion).valueOr:
-        return err("Invalid or Unsupported consensus version")
-      case fork
-      of ConsensusFork.Electra:
-        let blckContents = ? readSszResBytes(electra.BlockContents, value)
-        ok(ProduceBlockResponseV2(kind: ConsensusFork.Electra,
-                                  electraData: blckContents))
-      of ConsensusFork.Deneb:
-        let blckContents = ? readSszResBytes(deneb.BlockContents, value)
-        ok(ProduceBlockResponseV2(kind: ConsensusFork.Deneb,
-                                  denebData: blckContents))
-      of ConsensusFork.Capella:
-        let blck = ? readSszResBytes(capella.BeaconBlock, value)
-        ok(ProduceBlockResponseV2(kind: ConsensusFork.Capella,
-                                  capellaData: blck))
-      of ConsensusFork.Bellatrix:
-        let blck = ? readSszResBytes(bellatrix.BeaconBlock, value)
-        ok(ProduceBlockResponseV2(kind: ConsensusFork.Bellatrix,
-                                  bellatrixData: blck))
-      of ConsensusFork.Altair:
-        let blck = ? readSszResBytes(altair.BeaconBlock, value)
-        ok(ProduceBlockResponseV2(kind: ConsensusFork.Altair,
-                                  altairData: blck))
-      of ConsensusFork.Phase0:
-        let blck = ? readSszResBytes(phase0.BeaconBlock, value)
-        ok(ProduceBlockResponseV2(kind: ConsensusFork.Phase0,
-                                  phase0Data: blck))
-    elif t is ProduceBlindedBlockResponse:
+    when t is ProduceBlindedBlockResponse:
       let fork = ConsensusFork.decodeString(consensusVersion).valueOr:
         return err("Invalid or Unsupported consensus version")
       case fork

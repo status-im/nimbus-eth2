@@ -10,8 +10,9 @@
 
 import
   std/[json, os, random, sequtils, strutils, times],
-  chronos, stew/[base10, results], chronicles, unittest2,
-  yaml,
+  chronos,
+  stew/base10, chronicles, unittest2,
+  yaml/tojson,
   ../beacon_chain/beacon_chain_db,
   ../beacon_chain/spec/deposit_snapshots,
   ./consensus_spec/os_ops
@@ -39,7 +40,7 @@ proc ifNecessaryMigrateDCS(db: BeaconChainDB,
       db.putDepositContractSnapshot upgradeProc(oldSnapshot.get)
 
 # Hexlified copy of
-# eth2-networks/shared/mainnet/genesis_deposit_contract_snapshot.ssz
+# mainnet/metadata/genesis_deposit_contract_snapshot.ssz
 let ds1: seq[byte] = hexToSeqByte(
   """
   eeea1373d4aa9e099d7c9deddb694db9aeb4577755ef83f9b6345ce4357d9abfca3bfce2c
@@ -207,7 +208,7 @@ suite "EIP-4881":
       path: string
   ): seq[DepositTestCase] {.raises: [
       IOError, KeyError, ValueError, YamlConstructionError, YamlParserError].} =
-    yaml.loadToJson(os_ops.readFile(path))[0].mapIt:
+    loadToJson(os_ops.readFile(path))[0].mapIt:
       DepositTestCase(
         deposit_data: DepositData(
           pubkey: ValidatorPubKey.fromHex(

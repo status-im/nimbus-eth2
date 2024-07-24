@@ -12,7 +12,6 @@ import
   # Utilities
   chronicles,
   unittest2,
-  stew/results,
   # Beacon chain internals
   ../../../beacon_chain/spec/state_transition_block,
   ../../../beacon_chain/spec/datatypes/bellatrix,
@@ -76,7 +75,7 @@ proc runTest[T, U](
 
 suite baseDescription & "Attestation " & preset():
   proc applyAttestation(
-      preState: var bellatrix.BeaconState, attestation: Attestation):
+      preState: var bellatrix.BeaconState, attestation: phase0.Attestation):
       Result[void, cstring] =
     var cache: StateCache
     let
@@ -91,7 +90,7 @@ suite baseDescription & "Attestation " & preset():
     ok()
 
   for path in walkTests(OpAttestationsDir):
-    runTest[Attestation, typeof applyAttestation](
+    runTest[phase0.Attestation, typeof applyAttestation](
       OpAttestationsDir, suiteName, "Attestation", "attestation",
       applyAttestation, path)
 

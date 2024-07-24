@@ -29,7 +29,8 @@ type
     block_root*: Eth2Digest
     indices*: seq[BlobIndex]
 
-  OnBlobSidecarCallback = proc(data: BlobSidecar) {.gcsafe, raises: [].}
+  OnBlobSidecarCallback = proc(
+      data: BlobSidecarInfoObject) {.gcsafe, raises: [].}
 
 func shortLog*(x: seq[BlobIndex]): string =
   "<" & x.mapIt($it).join(", ") & ">"

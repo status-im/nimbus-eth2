@@ -292,7 +292,7 @@ type
 
   RestWithdrawalPrefix* = distinct array[1, byte]
 
-  # https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.2/specs/capella/beacon-chain.md#executionpayload
+  # https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.3/specs/capella/beacon-chain.md#executionpayload
   RestExecutionPayload* = object
     # Execution block header fields
     parent_hash*: Eth2Digest
@@ -356,15 +356,6 @@ type
     of ConsensusFork.Capella:   capellaBody*:   capella.BeaconBlockBody
     of ConsensusFork.Deneb:     denebBody*:     deneb.BeaconBlockBody
     of ConsensusFork.Electra:   electraBody*:   electra.BeaconBlockBody
-
-  ProduceBlockResponseV2* = object
-    case kind*: ConsensusFork
-    of ConsensusFork.Phase0:    phase0Data*:    phase0.BeaconBlock
-    of ConsensusFork.Altair:    altairData*:    altair.BeaconBlock
-    of ConsensusFork.Bellatrix: bellatrixData*: bellatrix.BeaconBlock
-    of ConsensusFork.Capella:   capellaData*:   capella.BeaconBlock
-    of ConsensusFork.Deneb:     denebData*:     deneb.BlockContents
-    of ConsensusFork.Electra:   electraData*:   electra.BlockContents
 
   ProduceBlockResponseV3* = ForkedMaybeBlindedBeaconBlock
 
@@ -477,7 +468,7 @@ type
         serializedFieldName: "aggregation_slot".}: Web3SignerAggregationSlotData
     of Web3SignerRequestKind.AggregateAndProof:
       aggregateAndProof* {.
-        serializedFieldName: "aggregate_and_proof".}: AggregateAndProof
+        serializedFieldName: "aggregate_and_proof".}: phase0.AggregateAndProof
     of Web3SignerRequestKind.Attestation:
       attestation*: AttestationData
     of Web3SignerRequestKind.BlockV2:
@@ -799,7 +790,7 @@ func init*(t: typedesc[Web3SignerRequest], fork: Fork,
   )
 
 func init*(t: typedesc[Web3SignerRequest], fork: Fork,
-           genesis_validators_root: Eth2Digest, data: AggregateAndProof,
+           genesis_validators_root: Eth2Digest, data: phase0.AggregateAndProof,
            signingRoot: Opt[Eth2Digest] = Opt.none(Eth2Digest)
           ): Web3SignerRequest =
   Web3SignerRequest(
@@ -1058,27 +1049,3 @@ func toValidatorIndex*(value: RestValidatorIndex): Result[ValidatorIndex,
       err(ValidatorIndexError.TooHighValue)
   else:
     doAssert(false, "ValidatorIndex type size is incorrect")
-
-template withBlck*(x: ProduceBlockResponseV2,
-                   body: untyped): untyped =
-  case x.kind
-  of ConsensusFork.Phase0:
-    const consensusFork {.inject, used.} = ConsensusFork.Phase0
-    template blck: untyped {.inject.} = x.phase0Data
-    body
-  of ConsensusFork.Altair:
-    const consensusFork {.inject, used.} = ConsensusFork.Altair
-    template blck: untyped {.inject.} = x.altairData
-    body
-  of ConsensusFork.Bellatrix:
-    const consensusFork {.inject, used.} = ConsensusFork.Bellatrix
-    template blck: untyped {.inject.} = x.bellatrixData
-    body
-  of ConsensusFork.Capella:
-    const consensusFork {.inject, used.} = ConsensusFork.Capella
-    template blck: untyped {.inject.} = x.capellaData
-    body
-  of ConsensusFork.Deneb:
-    const consensusFork {.inject, used.} = ConsensusFork.Deneb
-    template blck: untyped {.inject.} = x.denebData.blck
-    body

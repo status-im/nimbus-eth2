@@ -8,7 +8,6 @@
 {.push raises: [].}
 
 import
-  stew/results,
   chronicles, chronos, metrics,
   ../spec/[forks, signatures, signatures_batch],
   ../sszdump
@@ -187,7 +186,7 @@ proc storeBackfillBlock(
       let blobs = blobsOpt.get()
       let kzgCommits = signedBlock.message.body.blob_kzg_commitments.asSeq
       if blobs.len > 0 or kzgCommits.len > 0:
-        let r = validate_blobs(kzgCommits, blobs.mapIt(it.blob),
+        let r = validate_blobs(kzgCommits, blobs.mapIt(KzgBlob(bytes: it.blob)),
                                blobs.mapIt(it.kzg_proof))
         if r.isErr():
           debug "backfill blob validation failed",
@@ -243,7 +242,7 @@ proc expectValidForkchoiceUpdated(
       headBlockHash = headBlockHash,
       safeBlockHash = safeBlockHash,
       finalizedBlockHash = finalizedBlockHash,
-      payloadAttributes = none headBlockPayloadAttributesType)
+      payloadAttributes = Opt.none headBlockPayloadAttributesType)
     receivedExecutionBlockHash =
       when typeof(receivedBlock).kind >= ConsensusFork.Bellatrix:
         receivedBlock.message.body.execution_payload.block_hash
@@ -546,11 +545,16 @@ proc storeBlock(
 
     # TODO run https://github.com/ethereum/consensus-specs/blob/v1.3.0/specs/deneb/beacon-chain.md#blob-kzg-commitments
     # https://github.com/ethereum/execution-apis/blob/main/src/engine/experimental/blob-extension.md#specification
-    # "This validation MUST be instantly run in all cases even during active sync process."
+    # "This validation MUST be instantly run in all cases even during active
+    # sync process."
     #
     # Client software MUST validate `blockHash` value as being equivalent to
     # `Keccak256(RLP(ExecutionBlockHeader))`
     # https://github.com/ethereum/execution-apis/blob/v1.0.0-beta.3/src/engine/paris.md#specification
+    #
+    # This should simulate an unsynced EL, which still must perform these
+    # checks. This means it must be able to do so without context, beyond
+    # whatever data the block itself contains.
     when typeof(signedBlock).kind >= ConsensusFork.Bellatrix:
       template payload(): auto = signedBlock.message.body.execution_payload
       if  signedBlock.message.is_execution_block and
@@ -562,8 +566,6 @@ proc storeBlock(
         doAssert strictVerification notin dag.updateFlags
         self.consensusManager.quarantine[].addUnviable(signedBlock.root)
         return err((VerifierError.Invalid, ProcessingStatus.completed))
-    else:
-      discard
 
   let newPayloadTick = Moment.now()
 
@@ -575,7 +577,7 @@ proc storeBlock(
       let blobs = blobsOpt.get()
       let kzgCommits = signedBlock.message.body.blob_kzg_commitments.asSeq
       if blobs.len > 0 or kzgCommits.len > 0:
-        let r = validate_blobs(kzgCommits, blobs.mapIt(it.blob),
+        let r = validate_blobs(kzgCommits, blobs.mapIt(KzgBlob(bytes: it.blob)),
                                blobs.mapIt(it.kzg_proof))
         if r.isErr():
           debug "blob validation failed",
@@ -602,7 +604,7 @@ proc storeBlock(
         src, wallTime, trustedBlock.message)
 
       for attestation in trustedBlock.message.body.attestations:
-        for validator_index in dag.get_attesting_indices(attestation):
+        for validator_index in dag.get_attesting_indices(attestation, true):
           vm[].registerAttestationInBlock(attestation.data, validator_index,
             trustedBlock.message.slot)
 
@@ -684,7 +686,7 @@ proc storeBlock(
               self.consensusManager[].optimisticExecutionBlockHash,
             safeBlockHash = newHead.get.safeExecutionBlockHash,
             finalizedBlockHash = newHead.get.finalizedExecutionBlockHash,
-            payloadAttributes = none attributes)
+            payloadAttributes = Opt.none attributes)
 
       let consensusFork = self.consensusManager.dag.cfg.consensusForkAtEpoch(
         newHead.get.blck.bid.slot.epoch)
@@ -838,7 +840,7 @@ proc processBlock(
     # - MUST NOT optimistically import the block.
     # - MUST NOT apply the block to the fork choice store.
     # - MAY queue the block for later processing.
-    # https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.2/sync/optimistic.md#execution-engine-errors
+    # https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.3/sync/optimistic.md#execution-engine-errors
     await sleepAsync(chronos.seconds(1))
     self[].enqueueBlock(
       entry.src, entry.blck, entry.blobs, entry.resfut, entry.maybeFinalized,

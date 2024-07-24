@@ -8,7 +8,7 @@
 {.push raises: [].}
 
 import std/[strutils, sequtils, algorithm]
-import stew/[results, base10], chronos, chronicles
+import stew/base10, chronos, chronicles, results
 import
   ../spec/datatypes/[phase0, altair],
   ../spec/eth2_apis/rest_types,
@@ -34,13 +34,20 @@ const
   StatusExpirationTime* = chronos.minutes(2)
     ## Time time it takes for the peer's status information to expire.
 
+  WeakSubjectivityLogMessage* =
+    "Database state missing or too old, cannot sync - resync the client " &
+    "using a trusted node or allow lenient long-range syncing with the " &
+    "`--long-range-sync=lenient` option. See " &
+    "https://nimbus.guide/faq.html#what-is-long-range-sync " &
+    "for more information"
+
 type
   SyncWorkerStatus* {.pure.} = enum
     Sleeping, WaitingPeer, UpdatingStatus, Requesting, Downloading, Queueing,
     Processing
 
   SyncManagerFlag* {.pure.} = enum
-    NoMonitor
+    NoMonitor, NoGenesisSync
 
   SyncWorker*[A, B] = object
     future: Future[void].Raising([CancelledError])
@@ -52,6 +59,7 @@ type
     MIN_EPOCHS_FOR_BLOB_SIDECARS_REQUESTS: uint64
     responseTimeout: chronos.Duration
     maxHeadAge: uint64
+    isWithinWeakSubjectivityPeriod: GetBoolCallback
     getLocalHeadSlot: GetSlotCallback
     getLocalWallSlot: GetSlotCallback
     getSafeSlot: GetSlotCallback
@@ -60,6 +68,7 @@ type
     progressPivot: Slot
     workers: array[SyncWorkersCount, SyncWorker[A, B]]
     notInSyncEvent: AsyncEvent
+    shutdownEvent: AsyncEvent
     rangeAge: uint64
     chunkSize: uint64
     queue: SyncQueue[A]
@@ -110,7 +119,7 @@ proc initQueue[A, B](man: SyncManager[A, B]) =
                     # there is present check `needsBackfill().
                     firstSlot
                   else:
-                    Slot(firstSlot - 1'u64)
+                    firstSlot - 1'u64
     man.queue = SyncQueue.init(A, man.direction, startSlot, lastSlot,
                                man.chunkSize, man.getSafeSlot,
                                man.blockVerifier, 1, man.ident)
@@ -124,8 +133,10 @@ proc newSyncManager*[A, B](pool: PeerPool[A, B],
                            getFinalizedSlotCb: GetSlotCallback,
                            getBackfillSlotCb: GetSlotCallback,
                            getFrontfillSlotCb: GetSlotCallback,
+                           weakSubjectivityPeriodCb: GetBoolCallback,
                            progressPivot: Slot,
                            blockVerifier: BlockVerifier,
+                           shutdownEvent: AsyncEvent,
                            maxHeadAge = uint64(SLOTS_PER_EPOCH * 1),
                            chunkSize = uint64(SLOTS_PER_EPOCH),
                            flags: set[SyncManagerFlag] = {},
@@ -143,6 +154,7 @@ proc newSyncManager*[A, B](pool: PeerPool[A, B],
     MIN_EPOCHS_FOR_BLOB_SIDECARS_REQUESTS: minEpochsForBlobSidecarsRequests,
     getLocalHeadSlot: getLocalHeadSlotCb,
     getLocalWallSlot: getLocalWallSlotCb,
+    isWithinWeakSubjectivityPeriod: weakSubjectivityPeriodCb,
     getSafeSlot: getSafeSlot,
     getFirstSlot: getFirstSlot,
     getLastSlot: getLastSlot,
@@ -152,6 +164,7 @@ proc newSyncManager*[A, B](pool: PeerPool[A, B],
     blockVerifier: blockVerifier,
     notInSyncEvent: newAsyncEvent(),
     direction: direction,
+    shutdownEvent: shutdownEvent,
     ident: ident,
     flags: flags
   )
@@ -566,6 +579,11 @@ proc startWorkers[A, B](man: SyncManager[A, B]) =
   for i in 0 ..< len(man.workers):
     man.workers[i].future = syncWorker[A, B](man, i)
 
+proc stopWorkers[A, B](man: SyncManager[A, B]) {.async: (raises: []).} =
+  # Cancelling all the synchronization workers.
+  let pending = man.workers.mapIt(it.future.cancelAndWait())
+  await noCancel allFutures(pending)
+
 proc toTimeLeftString*(d: Duration): string =
   if d == InfiniteDuration:
     "--h--m"
@@ -710,6 +728,14 @@ proc syncLoop[A, B](man: SyncManager[A, B]) {.async.} =
                     (done * 100).formatBiggestFloat(ffDecimal, 2) & "%) " &
                     man.avgSyncSpeed.formatBiggestFloat(ffDecimal, 4) &
                     "slots/s (" & map & ":" & currentSlot & ")"
+
+    if (man.queue.kind == SyncQueueKind.Forward) and
+       (SyncManagerFlag.NoGenesisSync in man.flags):
+      if not(man.isWithinWeakSubjectivityPeriod()):
+        fatal WeakSubjectivityLogMessage, current_slot = wallSlot
+        await man.stopWorkers()
+        man.shutdownEvent.fire()
+        return
 
     if man.remainingSlots() <= man.maxHeadAge:
       man.notInSyncEvent.clear()

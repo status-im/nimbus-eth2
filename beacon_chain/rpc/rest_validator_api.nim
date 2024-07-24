@@ -7,7 +7,7 @@
 {.push raises: [].}
 
 import std/[typetraits, sets, sequtils]
-import stew/[results, base10], chronicles
+import stew/base10, chronicles
 import ".."/[beacon_chain_db, beacon_node],
        ".."/networking/eth2_network,
        ".."/consensus_object_pools/[blockchain_dag, spec_cache,
@@ -571,7 +571,8 @@ proc installValidatorApiHandlers*(router: var RestRouter, node: BeaconNode) =
   router.api(MethodGet, "/eth/v3/validator/blocks/{slot}") do (
       slot: Slot, randao_reveal: Option[ValidatorSig],
       graffiti: Option[GraffitiBytes],
-      skip_randao_verification: Option[string]) -> RestApiResponse:
+      skip_randao_verification: Option[string],
+      builder_boost_factor: Option[uint64]) -> RestApiResponse:
     let
       contentType = preferredContentType(jsonMediaType, sszMediaType).valueOr:
         return RestApiResponse.jsonError(Http406, ContentNotAcceptableError)
@@ -630,6 +631,14 @@ proc installValidatorApiHandlers*(router: var RestRouter, node: BeaconNode) =
           if not tres.executionValid:
             return RestApiResponse.jsonError(Http503, BeaconNodeInSyncError)
           tres
+      qboostFactor {.used.} =
+        if builder_boost_factor.isNone():
+          100'u64
+        else:
+          let res = builder_boost_factor.get()
+          if res.isErr():
+            return RestApiResponse.jsonError(Http400, )
+          res.get()
       proposer = node.dag.getProposer(qhead, qslot).valueOr:
         return RestApiResponse.jsonError(Http400, ProposerNotFoundError)
 
@@ -641,7 +650,8 @@ proc installValidatorApiHandlers*(router: var RestRouter, node: BeaconNode) =
       when consensusFork >= ConsensusFork.Deneb:
         let
           message = (await node.makeMaybeBlindedBeaconBlockForHeadAndSlot(
-              consensusFork, qrandao, qgraffiti, qhead, qslot)).valueOr:
+              consensusFork, qrandao, qgraffiti, qhead, qslot,
+              qboostFactor)).valueOr:
             # HTTP 400 error is only for incorrect parameters.
             return RestApiResponse.jsonError(Http500, error)
           headers = consensusFork.getMaybeBlindedHeaders(
@@ -678,8 +688,8 @@ proc installValidatorApiHandlers*(router: var RestRouter, node: BeaconNode) =
           message = (await PayloadType.makeBeaconBlockForHeadAndSlot(
               node, qrandao, proposer, qgraffiti, qhead, qslot)).valueOr:
             return RestApiResponse.jsonError(Http500, error)
-          executionValue = Opt.some(UInt256(message.executionPayloadValue))
-          consensusValue = Opt.some(UInt256(message.consensusBlockValue))
+          executionValue = Opt.some(message.executionPayloadValue)
+          consensusValue = Opt.some(message.consensusBlockValue)
           headers = consensusFork.getMaybeBlindedHeaders(
             isBlinded = false, executionValue, consensusValue)
 
@@ -801,7 +811,7 @@ proc installValidatorApiHandlers*(router: var RestRouter, node: BeaconNode) =
       block:
         if contentBody.isNone():
           return RestApiResponse.jsonError(Http400, EmptyRequestBodyError)
-        let dres = decodeBody(seq[SignedAggregateAndProof], contentBody.get())
+        let dres = decodeBody(seq[phase0.SignedAggregateAndProof], contentBody.get())
         if dres.isErr():
           return RestApiResponse.jsonError(Http400,
                                            InvalidAggregateAndProofObjectError,
@@ -904,7 +914,7 @@ proc installValidatorApiHandlers*(router: var RestRouter, node: BeaconNode) =
           request.validator_index).pubkey
 
       node.validatorMonitor[].addAutoMonitor(
-        validator_pubkey, ValidatorIndex(request.validator_index))
+        validator_pubkey, request.validator_index)
 
     RestApiResponse.jsonMsgResponse(BeaconCommitteeSubscriptionSuccess)
 
@@ -945,7 +955,7 @@ proc installValidatorApiHandlers*(router: var RestRouter, node: BeaconNode) =
         validator_pubkey, item.until_epoch)
 
       node.validatorMonitor[].addAutoMonitor(
-        validator_pubkey, ValidatorIndex(item.validator_index))
+        validator_pubkey, item.validator_index)
 
     RestApiResponse.jsonMsgResponse(SyncCommitteeSubscriptionSuccess)
 
@@ -1092,7 +1102,7 @@ proc installValidatorApiHandlers*(router: var RestRouter, node: BeaconNode) =
       numUpdatedFeeRecipients = numUpdated,
       numRefreshedFeeRecipients = numRefreshed
 
-    RestApiResponse.response("", Http200, "text/plain")
+    RestApiResponse.response(Http200)
 
   # https://ethereum.github.io/beacon-APIs/#/Validator/registerValidator
   # https://github.com/ethereum/beacon-APIs/blob/v2.3.0/apis/validator/register_validator.yaml
@@ -1119,7 +1129,7 @@ proc installValidatorApiHandlers*(router: var RestRouter, node: BeaconNode) =
       node.externalBuilderRegistrations[signedValidatorRegistration.message.pubkey] =
         signedValidatorRegistration
 
-    RestApiResponse.response("", Http200, "text/plain")
+    RestApiResponse.response(Http200)
 
   # https://ethereum.github.io/beacon-APIs/#/Validator/getLiveness
   router.api2(MethodPost, "/eth/v1/validator/liveness/{epoch}") do (

@@ -12,7 +12,6 @@ import
   # Utilities
   chronicles,
   unittest2,
-  stew/results,
   # Beacon chain internals
   ../../../beacon_chain/spec/[beaconstate, state_transition_block],
   ../../../beacon_chain/spec/datatypes/altair,

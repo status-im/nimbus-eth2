@@ -23,18 +23,20 @@ import
   libp2p/protocols/pubsub/[
       pubsub, gossipsub, rpc/message, rpc/messages, peertable, pubsubpeer],
   libp2p/stream/connection,
+  libp2p/services/wildcardresolverservice,
   eth/[keys, async_utils],
   eth/net/nat, eth/p2p/discoveryv5/[enr, node, random2],
   ".."/[version, conf, beacon_clock, conf_light_client],
   ../spec/datatypes/[phase0, altair, bellatrix],
   ../spec/[eth2_ssz_serialization, network, helpers, forks],
   ../validators/keystore_management,
-  "."/[eth2_discovery, eth2_protocol_dsl, libp2p_json_serialization, peer_pool, peer_scores]
+  "."/[eth2_discovery, eth2_protocol_dsl, eth2_agents,
+       libp2p_json_serialization, peer_pool, peer_scores]
 
 export
   tables, chronos, ratelimit, version, multiaddress, peerinfo, p2pProtocol,
   connection, libp2p_json_serialization, eth2_ssz_serialization, results,
-  eth2_discovery, peer_pool, peer_scores
+  eth2_discovery, peer_pool, peer_scores, eth2_agents
 
 logScope:
   topics = "networking"
@@ -81,6 +83,7 @@ type
     rng*: ref HmacDrbgContext
     peers*: Table[PeerId, Peer]
     directPeers*: DirectPeers
+    announcedAddresses*: seq[MultiAddress]
     validTopics: HashSet[string]
     peerPingerHeartbeatFut: Future[void].Raising([CancelledError])
     peerTrimmerHeartbeatFut: Future[void].Raising([CancelledError])
@@ -96,6 +99,7 @@ type
   Peer* = ref object
     network*: Eth2Node
     peerId*: PeerId
+    remoteAgent*: Eth2Agent
     discoveryId*: Eth2DiscoveryId
     connectionState*: ConnectionState
     protocolStates*: seq[RootRef]
@@ -335,6 +339,31 @@ func shortProtocolId(protocolId: string): string =
     else:
       protocolId.high
   protocolId[start..ends]
+
+proc updateAgent*(peer: Peer) =
+  let
+    agent = toLowerAscii(peer.network.switch.peerStore[AgentBook][peer.peerId])
+    # proto = peer.network.switch.peerStore[ProtoVersionBook][peer.peerId]
+
+  if "nimbus" in agent:
+    peer.remoteAgent = Eth2Agent.Nimbus
+  elif "lighthouse" in agent:
+    peer.remoteAgent = Eth2Agent.Lighthouse
+  elif "teku" in agent:
+    peer.remoteAgent = Eth2Agent.Teku
+  elif "lodestar" in agent:
+    peer.remoteAgent = Eth2Agent.Lodestar
+  elif "prysm" in agent:
+    peer.remoteAgent = Eth2Agent.Prysm
+  elif "grandine" in agent:
+    peer.remoteAgent = Eth2Agent.Grandine
+  else:
+    peer.remoteAgent = Eth2Agent.Unknown
+
+proc getRemoteAgent*(peer: Peer): Eth2Agent =
+  if peer.remoteAgent == Eth2Agent.Unknown:
+    peer.updateAgent()
+  peer.remoteAgent
 
 proc openStream(node: Eth2Node,
                 peer: Peer,
@@ -838,7 +867,8 @@ template gossipMaxSize(T: untyped): uint32 =
     # have lists bounded at MAX_VALIDATORS_PER_COMMITTEE (2048) items, thus
     # having max sizes significantly smaller than GOSSIP_MAX_SIZE.
     elif T is phase0.Attestation or T is phase0.AttesterSlashing or
-         T is SignedAggregateAndProof or T is phase0.SignedBeaconBlock or
+         T is phase0.SignedAggregateAndProof or T is phase0.SignedBeaconBlock or
+         T is electra.SignedAggregateAndProof or T is electra.Attestation or
          T is altair.SignedBeaconBlock or T is SomeForkyLightClientObject:
       GOSSIP_MAX_SIZE
     else:
@@ -1387,7 +1417,7 @@ proc connectWorker(node: Eth2Node, index: int) {.async: (raises: [CancelledError
     node.connTable.excl(remotePeerAddr.peerId)
 
 proc toPeerAddr(node: Node): Result[PeerAddr, cstring] =
-  let nodeRecord = ? node.record.toTypedRecord()
+  let nodeRecord = TypedRecord.fromRecord(node.record)
   let peerAddr = ? nodeRecord.toPeerAddr(tcpProtocol)
   ok(peerAddr)
 
@@ -1549,7 +1579,7 @@ proc getLowSubnets(node: Eth2Node, epoch: Epoch): (AttnetBits, SyncnetBits) =
       default(SyncnetBits)
   )
 
-proc runDiscoveryLoop(node: Eth2Node) {.async.} =
+proc runDiscoveryLoop(node: Eth2Node) {.async: (raises: [CancelledError]).} =
   debug "Starting discovery loop"
 
   while true:
@@ -1764,9 +1794,9 @@ proc new(T: type Eth2Node,
          enrForkId: ENRForkID, discoveryForkId: ENRForkID,
          forkDigests: ref ForkDigests, getBeaconTime: GetBeaconTimeFn,
          switch: Switch, pubsub: GossipSub,
-         ip: Option[IpAddress], tcpPort, udpPort: Option[Port],
+         ip: Opt[IpAddress], tcpPort, udpPort: Opt[Port],
          privKey: keys.PrivateKey, discovery: bool,
-         directPeers: DirectPeers,
+         directPeers: DirectPeers, announcedAddresses: openArray[MultiAddress],
          rng: ref HmacDrbgContext): T {.raises: [CatchableError].} =
   when not defined(local_testnet):
     let
@@ -1810,6 +1840,7 @@ proc new(T: type Eth2Node,
     connectTimeout: connectTimeout,
     seenThreshold: seenThreshold,
     directPeers: directPeers,
+    announcedAddresses: @announcedAddresses,
     quota: TokenBucket.new(maxGlobalQuota, fullReplenishTime)
   )
 
@@ -1878,11 +1909,9 @@ proc start*(node: Eth2Node) {.async: (raises: [CancelledError]).} =
     notice "Discovery disabled; trying bootstrap nodes",
       nodes = node.discovery.bootstrapRecords.len
     for enr in node.discovery.bootstrapRecords:
-      let tr = enr.toTypedRecord()
-      if tr.isOk():
-        let pa = tr.get().toPeerAddr(tcpProtocol)
-        if pa.isOk():
-          await node.connQueue.addLast(pa.get())
+      let pa = TypedRecord.fromRecord(enr).toPeerAddr(tcpProtocol)
+      if pa.isOk():
+        await node.connQueue.addLast(pa.get())
   node.peerPingerHeartbeatFut = node.peerPingerHeartbeat()
   node.peerTrimmerHeartbeatFut = node.peerTrimmerHeartbeat()
 
@@ -2222,6 +2251,8 @@ func gossipId(
 proc newBeaconSwitch(config: BeaconNodeConf | LightClientConf,
                      seckey: PrivateKey, address: MultiAddress,
                      rng: ref HmacDrbgContext): Switch {.raises: [CatchableError].} =
+  let service: Service = WildcardAddressResolverService.new()
+
   var sb =
     if config.enableYamux:
       SwitchBuilder.new().withYamux()
@@ -2238,6 +2269,7 @@ proc newBeaconSwitch(config: BeaconNodeConf | LightClientConf,
     .withMaxConnections(config.maxPeers)
     .withAgentVersion(config.agentString)
     .withTcpTransport({ServerFlags.ReuseAddr})
+    .withServices(@[service])
     .build()
 
 proc createEth2Node*(rng: ref HmacDrbgContext,
@@ -2271,7 +2303,10 @@ proc createEth2Node*(rng: ref HmacDrbgContext,
         let (peerId, address) =
           if s.startsWith("enr:"):
             let
-              typedEnr = parseBootstrapAddress(s).get().toTypedRecord().get()
+              enr = parseBootstrapAddress(s).valueOr:
+                fatal "Failed to parse bootstrap address", enr=s
+                quit 1
+              typedEnr = TypedRecord.fromRecord(enr)
               peerAddress = toPeerAddr(typedEnr, tcpProtocol).get()
             (peerAddress.peerId, peerAddress.addrs[0])
           elif s.startsWith("/"):
@@ -2358,7 +2393,8 @@ proc createEth2Node*(rng: ref HmacDrbgContext,
   let node = Eth2Node.new(
     config, cfg, enrForkId, discoveryForkId, forkDigests, getBeaconTime, switch, pubsub, extIp,
     extTcpPort, extUdpPort, netKeys.seckey.asEthKey,
-    discovery = config.discv5Enabled, directPeers, rng = rng)
+    discovery = config.discv5Enabled, directPeers, announcedAddresses,
+    rng = rng)
 
   node.pubsub.subscriptionValidator =
     proc(topic: string): bool {.gcsafe, raises: [].} =
@@ -2519,7 +2555,7 @@ proc updateStabilitySubnetMetadata*(node: Eth2Node, attnets: AttnetBits) =
   node.metadata.seq_number += 1
   node.metadata.attnets = attnets
 
-  # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.5/specs/phase0/p2p-interface.md#attestation-subnet-subscription
+  # https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.3/specs/phase0/p2p-interface.md#attestation-subnet-subscription
   # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.4/specs/phase0/p2p-interface.md#attestation-subnet-bitfield
   let res = node.discovery.updateRecord({
     enrAttestationSubnetsField: SSZ.encode(node.metadata.attnets)
@@ -2532,7 +2568,7 @@ proc updateStabilitySubnetMetadata*(node: Eth2Node, attnets: AttnetBits) =
     debug "Stability subnets changed; updated ENR attnets", attnets
 
 proc updateSyncnetsMetadata*(node: Eth2Node, syncnets: SyncnetBits) =
-  # https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.2/specs/altair/validator.md#sync-committee-subnet-stability
+  # https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.3/specs/altair/validator.md#sync-committee-subnet-stability
   if node.metadata.syncnets == syncnets:
     return
 
@@ -2570,7 +2606,8 @@ proc getWallEpoch(node: Eth2Node): Epoch =
   node.getBeaconTime().slotOrZero.epoch
 
 proc broadcastAttestation*(
-    node: Eth2Node, subnet_id: SubnetId, attestation: phase0.Attestation):
+    node: Eth2Node, subnet_id: SubnetId,
+    attestation: phase0.Attestation | electra.Attestation):
     Future[SendResult] {.async: (raises: [CancelledError], raw: true).} =
   # Regardless of the contents of the attestation,
   # https://github.com/ethereum/consensus-specs/blob/v1.3.0/specs/altair/p2p-interface.md#transitioning-the-gossip
@@ -2611,7 +2648,7 @@ proc broadcastBlsToExecutionChange*(
   node.broadcast(topic, bls_to_execution_change)
 
 proc broadcastAggregateAndProof*(
-    node: Eth2Node, proof: SignedAggregateAndProof):
+    node: Eth2Node, proof: phase0.SignedAggregateAndProof):
     Future[SendResult] {.async: (raises: [CancelledError], raw: true).} =
   let topic = getAggregateAndProofsTopic(
     node.forkDigestAtEpoch(node.getWallEpoch))
@@ -2657,23 +2694,28 @@ proc broadcastBlobSidecar*(
     node: Eth2Node, subnet_id: BlobId, blob: deneb.BlobSidecar):
     Future[SendResult] {.async: (raises: [CancelledError], raw: true).} =
   let
-    forkPrefix = node.forkDigestAtEpoch(node.getWallEpoch)
-    topic = getBlobSidecarTopic(forkPrefix, subnet_id)
+    contextEpoch = blob.signed_block_header.message.slot.epoch
+    topic = getBlobSidecarTopic(
+      node.forkDigestAtEpoch(contextEpoch), subnet_id)
   node.broadcast(topic, blob)
 
 proc broadcastSyncCommitteeMessage*(
     node: Eth2Node, msg: SyncCommitteeMessage,
     subcommitteeIdx: SyncSubcommitteeIndex):
     Future[SendResult] {.async: (raises: [CancelledError], raw: true).} =
-  let topic = getSyncCommitteeTopic(
-    node.forkDigestAtEpoch(node.getWallEpoch), subcommitteeIdx)
+  let
+    contextEpoch = msg.slot.epoch
+    topic = getSyncCommitteeTopic(
+      node.forkDigestAtEpoch(contextEpoch), subcommitteeIdx)
   node.broadcast(topic, msg)
 
 proc broadcastSignedContributionAndProof*(
     node: Eth2Node, msg: SignedContributionAndProof):
     Future[SendResult] {.async: (raises: [CancelledError], raw: true).} =
-  let topic = getSyncCommitteeContributionAndProofTopic(
-    node.forkDigestAtEpoch(node.getWallEpoch))
+  let
+    contextEpoch = msg.message.contribution.slot.epoch
+    topic = getSyncCommitteeContributionAndProofTopic(
+      node.forkDigestAtEpoch(contextEpoch))
   node.broadcast(topic, msg)
 
 proc broadcastLightClientFinalityUpdate*(

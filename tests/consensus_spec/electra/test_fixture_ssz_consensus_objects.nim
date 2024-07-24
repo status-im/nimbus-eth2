@@ -99,8 +99,6 @@ proc loadExpectedHashTreeRoot(
 # Test runner
 # ----------------------------------------------------------------
 
-debugRaiseAssert "re-enable AggregateAndProof and SignedAggregateAndProof"
-
 suite "EF - Electra - SSZ consensus objects " & preset():
   doAssert dirExists(SSZDir), "You need to run the \"download_test_vectors.sh\" script to retrieve the consensus spec test vectors."
   for pathKind, sszType in walkDir(SSZDir, relative = true, checkDir = true):
@@ -118,7 +116,7 @@ suite "EF - Electra - SSZ consensus objects " & preset():
           let hash = loadExpectedHashTreeRoot(path)
 
           case sszType:
-          of "AggregateAndProof": discard # checkSSZ(AggregateAndProof, path, hash)
+          of "AggregateAndProof": checkSSZ(electra.AggregateAndProof, path, hash)
           of "Attestation": checkSSZ(electra.Attestation, path, hash)
           of "AttestationData": checkSSZ(AttestationData, path, hash)
           of "AttesterSlashing": checkSSZ(electra.AttesterSlashing, path, hash)
@@ -130,19 +128,18 @@ suite "EF - Electra - SSZ consensus objects " & preset():
           of "BlobSidecar": checkSSZ(BlobSidecar, path, hash)
           of "BLSToExecutionChange": checkSSZ(BLSToExecutionChange, path, hash)
           of "Checkpoint": checkSSZ(Checkpoint, path, hash)
-          of "Consolidation": checkSSZ(Consolidation, path, hash)
+          of "ConsolidationRequest": checkSSZ(ConsolidationRequest, path, hash)
           of "ContributionAndProof": checkSSZ(ContributionAndProof, path, hash)
           of "Deposit": checkSSZ(Deposit, path, hash)
           of "DepositData": checkSSZ(DepositData, path, hash)
           of "DepositMessage": checkSSZ(DepositMessage, path, hash)
-          of "DepositReceipt": checkSSZ(DepositReceipt, path, hash)
+          of "DepositRequest": checkSSZ(DepositRequest, path, hash)
           of "Eth1Block": checkSSZ(Eth1Block, path, hash)
           of "Eth1Data": checkSSZ(Eth1Data, path, hash)
-          of "ExecutionLayerWithdrawalRequest":
-            checkSSZ(ExecutionLayerWithdrawalRequest, path, hash)
-          of "ExecutionPayload": checkSSZ(ExecutionPayload, path, hash)
+          of "ExecutionPayload":
+            checkSSZ(electra.ExecutionPayload, path, hash)
           of "ExecutionPayloadHeader":
-            checkSSZ(ExecutionPayloadHeader, path, hash)
+            checkSSZ(electra.ExecutionPayloadHeader, path, hash)
           of "Fork": checkSSZ(Fork, path, hash)
           of "ForkData": checkSSZ(ForkData, path, hash)
           of "HistoricalBatch": checkSSZ(HistoricalBatch, path, hash)
@@ -150,8 +147,10 @@ suite "EF - Electra - SSZ consensus objects " & preset():
           of "IndexedAttestation": checkSSZ(electra.IndexedAttestation, path, hash)
           of "LightClientBootstrap":
             checkSSZ(electra.LightClientBootstrap, path, hash)
-          of "LightClientHeader": checkSSZ(electra.LightClientHeader, path, hash)
-          of "LightClientUpdate": checkSSZ(electra.LightClientUpdate, path, hash)
+          of "LightClientHeader":
+            checkSSZ(electra.LightClientHeader, path, hash)
+          of "LightClientUpdate":
+            checkSSZ(electra.LightClientUpdate, path, hash)
           of "LightClientFinalityUpdate":
             checkSSZ(electra.LightClientFinalityUpdate, path, hash)
           of "LightClientOptimisticUpdate":
@@ -165,7 +164,7 @@ suite "EF - Electra - SSZ consensus objects " & preset():
           of "PowBlock": checkSSZ(PowBlock, path, hash)
           of "ProposerSlashing": checkSSZ(ProposerSlashing, path, hash)
           of "SignedAggregateAndProof":
-            discard #checkSSZ(SignedAggregateAndProof, path, hash)
+            checkSSZ(electra.SignedAggregateAndProof, path, hash)
           of "SignedBeaconBlock":
             checkSSZ(electra.SignedBeaconBlock, path, hash)
           of "SignedBeaconBlockHeader":
@@ -174,7 +173,6 @@ suite "EF - Electra - SSZ consensus objects " & preset():
             checkSSZ(SignedBLSToExecutionChange, path, hash)
           of "SignedContributionAndProof":
             checkSSZ(SignedContributionAndProof, path, hash)
-          of "SignedConsolidation": checkSSZ(SignedConsolidation, path, hash)
           of "SignedVoluntaryExit": checkSSZ(SignedVoluntaryExit, path, hash)
           of "SigningData": checkSSZ(SigningData, path, hash)
           of "SyncAggregate": checkSSZ(SyncAggregate, path, hash)
@@ -187,5 +185,6 @@ suite "EF - Electra - SSZ consensus objects " & preset():
           of "Withdrawal": checkSSZ(Withdrawal, path, hash)
           of "Validator": checkSSZ(Validator, path, hash)
           of "VoluntaryExit": checkSSZ(VoluntaryExit, path, hash)
+          of "WithdrawalRequest": checkSSZ(WithdrawalRequest, path, hash)
           else:
             raise newException(ValueError, "Unsupported test: " & sszType)

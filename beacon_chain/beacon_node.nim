@@ -67,6 +67,8 @@ type
     config*: BeaconNodeConf
     attachedValidators*: ref ValidatorPool
     optimisticProcessor*: OptimisticProcessor
+    optimisticFcuFut*: Future[(PayloadExecutionStatus, Opt[BlockHash])]
+      .Raising([CancelledError])
     lightClient*: LightClient
     dag*: ChainDAGRef
     quarantine*: ref Quarantine
@@ -104,6 +106,7 @@ type
       ## Number of validators that we've checked for activation
     processingDelay*: Opt[Duration]
     lastValidAttestedBlock*: Opt[BlockSlot]
+    shutdownEvent*: AsyncEvent
 
 template findIt*(s: openArray, predicate: untyped): int =
   var res = -1

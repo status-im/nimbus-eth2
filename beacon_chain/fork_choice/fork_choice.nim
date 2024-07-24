@@ -113,7 +113,7 @@ proc update_justified(
   self.update_justified(dag, blck, justified.epoch)
   ok()
 
-# https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.2/specs/phase0/fork-choice.md#update_checkpoints
+# https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.3/specs/phase0/fork-choice.md#update_checkpoints
 proc update_checkpoints(
     self: var Checkpoints, dag: ChainDAGRef,
     checkpoints: FinalityCheckpoints): FcResult[void] =
@@ -285,7 +285,7 @@ proc process_block*(self: var ForkChoice,
 
   for attestation in blck.body.attestations:
     if attestation.data.beacon_block_root in self.backend:
-      for validator_index in dag.get_attesting_indices(attestation):
+      for validator_index in dag.get_attesting_indices(attestation, true):
         self.backend.process_attestation(
           validator_index,
           attestation.data.beacon_block_root,
@@ -377,7 +377,7 @@ proc get_head*(self: var ForkChoice,
     self.checkpoints.justified.balances,
     self.checkpoints.proposer_boost_root)
 
-# https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.2/fork_choice/safe-block.md#get_safe_beacon_block_root
+# https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.3/fork_choice/safe-block.md#get_safe_beacon_block_root
 func get_safe_beacon_block_root*(self: ForkChoice): Eth2Digest =
   # Use most recent justified block as a stopgap
   self.checkpoints.justified.checkpoint.root
@@ -502,8 +502,8 @@ when isMainModule:
     for i in 0 ..< validator_count:
       indices.add fakeHash(i), i
       votes.add default(VoteTracker)
-      old_balances.add 0
-      new_balances.add 0
+      old_balances.add 0.Gwei
+      new_balances.add 0.Gwei
 
     let err = deltas.compute_deltas(
       indices, indices_offset = 0, votes, old_balances, new_balances

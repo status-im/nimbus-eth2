@@ -383,6 +383,7 @@ proc cmdDumpState(conf: DbConf) =
     bellatrixState = (ref bellatrix.HashedBeaconState)()
     capellaState   = (ref capella.HashedBeaconState)()
     denebState     = (ref deneb.HashedBeaconState)()
+    electraState   = (ref electra.HashedBeaconState)()
 
   for stateRoot in conf.stateRoot:
     if shouldShutDown: quit QuitSuccess
@@ -401,6 +402,7 @@ proc cmdDumpState(conf: DbConf) =
     doit(bellatrixState[])
     doit(capellaState[])
     doit(denebState[])
+    doit(electraState[])
 
     echo "Couldn't load ", stateRoot
 

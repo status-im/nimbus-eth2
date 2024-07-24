@@ -9,7 +9,6 @@
 
 import
   std/[json, sequtils, times],
-  stew/saturation_arith,
   eth/common/[eth_types_rlp, transaction],
   eth/keys,
   eth/p2p/discoveryv5/random2,
@@ -78,7 +77,7 @@ proc ETHConsensusConfigCreateFromYaml(
   ## * `NULL` - If the given `config.yaml` is malformed or incompatible.
   ##
   ## See:
-  ## * https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.2/configs/README.md
+  ## * https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.3/configs/README.md
   let cfg = RuntimeConfig.new()
   try:
     cfg[] = readRuntimeConfig($configFileContent, "config.yaml")[0]
@@ -144,9 +143,9 @@ proc ETHBeaconStateCreateFromSsz(
   ## See:
   ## * https://github.com/ethereum/consensus-specs/blob/v1.4.0/specs/phase0/beacon-chain.md#beaconstate
   ## * https://github.com/ethereum/consensus-specs/blob/v1.4.0/specs/altair/beacon-chain.md#beaconstate
-  ## * https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.2/specs/bellatrix/beacon-chain.md#beaconstate
-  ## * https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.2/specs/capella/beacon-chain.md#beaconstate
-  ## * https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.2/configs/README.md
+  ## * https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.3/specs/bellatrix/beacon-chain.md#beaconstate
+  ## * https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.3/specs/capella/beacon-chain.md#beaconstate
+  ## * https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.3/configs/README.md
   let
     consensusFork = ConsensusFork.decodeString($consensusVersion).valueOr:
       return nil
@@ -329,8 +328,8 @@ proc ETHLightClientStoreCreateFromBootstrap(
   ## See:
   ## * https://ethereum.github.io/beacon-APIs/?urls.primaryName=v2.4.1#/Beacon/getLightClientBootstrap
   ## * https://ethereum.github.io/beacon-APIs/?urls.primaryName=v2.4.1#/Events/eventstream
-  ## * https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.2/specs/altair/light-client/light-client.md
-  ## * https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.2/specs/phase0/weak-subjectivity.md#weak-subjectivity-period
+  ## * https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.3/specs/altair/light-client/light-client.md
+  ## * https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.3/specs/phase0/weak-subjectivity.md#weak-subjectivity-period
   let
     mediaType = MediaType.init($mediaType)
     consensusFork = ConsensusFork.decodeString($consensusVersion).valueOr:
@@ -755,8 +754,8 @@ func ETHLightClientStoreIsNextSyncCommitteeKnown(
   ## * Whether or not the next sync committee is currently known.
   ##
   ## See:
-  ## * https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.2/specs/altair/light-client/sync-protocol.md#is_next_sync_committee_known
-  ## * https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.2/specs/altair/light-client/light-client.md
+  ## * https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.3/specs/altair/light-client/sync-protocol.md#is_next_sync_committee_known
+  ## * https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.3/specs/altair/light-client/light-client.md
   store[].is_next_sync_committee_known
 
 func ETHLightClientStoreGetOptimisticHeader(
@@ -796,7 +795,7 @@ func ETHLightClientStoreGetSafetyThreshold(
   ## * Light client store safety threshold.
   ##
   ## See:
-  ## * https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.2/specs/altair/light-client/sync-protocol.md#get_safety_threshold
+  ## * https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.3/specs/altair/light-client/sync-protocol.md#get_safety_threshold
   store[].get_safety_threshold.cint
 
 proc ETHLightClientHeaderCreateCopy(
@@ -1242,10 +1241,8 @@ proc ETHExecutionBlockHeaderCreateFromJson(
 
   # Construct block header
   static:  # `GasInt` is signed. We only use it for hashing.
-    doAssert sizeof(int64) == sizeof(data.gasLimit)
-    doAssert sizeof(int64) == sizeof(data.gasUsed)
-  if distinctBase(data.timestamp) > int64.high.uint64:
-    return nil
+    doAssert sizeof(uint64) == sizeof(data.gasLimit)
+    doAssert sizeof(uint64) == sizeof(data.gasUsed)
   if data.nonce.isNone:
     return nil
   let blockHeader = ExecutionBlockHeader(
@@ -1254,37 +1251,37 @@ proc ETHExecutionBlockHeaderCreateFromJson(
     coinbase: distinctBase(data.miner),
     stateRoot: data.stateRoot.asEth2Digest,
     txRoot: data.transactionsRoot.asEth2Digest,
-    receiptRoot: data.receiptsRoot.asEth2Digest,
-    bloom: distinctBase(data.logsBloom),
+    receiptsRoot: data.receiptsRoot.asEth2Digest,
+    logsBloom: distinctBase(data.logsBloom),
     difficulty: data.difficulty,
-    blockNumber: distinctBase(data.number).u256,
-    gasLimit: cast[int64](data.gasLimit),
-    gasUsed: cast[int64](data.gasUsed),
-    timestamp: EthTime(int64.saturate distinctBase(data.timestamp)),
+    number: distinctBase(data.number),
+    gasLimit: distinctBase(data.gasLimit),
+    gasUsed: distinctBase(data.gasUsed),
+    timestamp: EthTime(distinctBase(data.timestamp)),
     extraData: distinctBase(data.extraData),
-    mixDigest: data.mixHash.asEth2Digest,
+    mixHash: data.mixHash.asEth2Digest,
     nonce: distinctBase(data.nonce.get),
-    fee: data.baseFeePerGas,
+    baseFeePerGas: data.baseFeePerGas,
     withdrawalsRoot:
       if data.withdrawalsRoot.isSome:
-        some(data.withdrawalsRoot.get.asEth2Digest)
+        Opt.some(data.withdrawalsRoot.get.asEth2Digest)
       else:
-        none(ExecutionHash256),
+        Opt.none(ExecutionHash256),
     blobGasUsed:
       if data.blobGasUsed.isSome:
-        some distinctBase(data.blobGasUsed.get)
+        Opt.some distinctBase(data.blobGasUsed.get)
       else:
-        none(uint64),
+        Opt.none(uint64),
     excessBlobGas:
       if data.excessBlobGas.isSome:
-        some distinctBase(data.excessBlobGas.get)
+        Opt.some distinctBase(data.excessBlobGas.get)
       else:
-        none(uint64),
+        Opt.none(uint64),
     parentBeaconBlockRoot:
       if data.parentBeaconBlockRoot.isSome:
-        some distinctBase(data.parentBeaconBlockRoot.get.asEth2Digest)
+        Opt.some distinctBase(data.parentBeaconBlockRoot.get.asEth2Digest)
       else:
-        none(ExecutionHash256))
+        Opt.none(ExecutionHash256))
   if rlpHash(blockHeader) != executionHash[]:
     return nil
 
@@ -1322,7 +1319,7 @@ proc ETHExecutionBlockHeaderCreateFromJson(
     var tr = initHexaryTrie(newMemoryDB())
     for i, wd in wds:
       try:
-        tr.put(rlp.encode(i), wd.bytes)
+        tr.put(rlp.encode(i.uint), wd.bytes)
       except RlpError:
         raiseAssert "Unreachable"
     if tr.rootHash() != data.withdrawalsRoot.get.asEth2Digest:
@@ -1497,24 +1494,14 @@ proc ETHTransactionsCreateFromJson(
     # Construct transaction
     static:
       doAssert sizeof(uint64) == sizeof(ChainId)
-      doAssert sizeof(int64) == sizeof(data.gasPrice)
-      doAssert sizeof(int64) == sizeof(data.maxPriorityFeePerGas.get)
+      doAssert sizeof(uint64) == sizeof(data.gas)
+      doAssert sizeof(uint64) == sizeof(data.gasPrice)
+      doAssert sizeof(uint64) == sizeof(data.maxPriorityFeePerGas.get)
       doAssert sizeof(UInt256) == sizeof(data.maxFeePerBlobGas.get)
     if distinctBase(data.chainId.get(0.Quantity)) > distinctBase(ChainId.high):
       return nil
-    if distinctBase(data.gasPrice) > int64.high.uint64:
-      return nil
-    if distinctBase(data.maxFeePerGas.get(0.Quantity)) > int64.high.uint64:
-      return nil
-    if distinctBase(data.maxPriorityFeePerGas.get(0.Quantity)) >
-        int64.high.uint64:
-      return nil
     if data.maxFeePerBlobGas.get(0.u256) >
         uint64.high.u256:
-      return nil
-    if distinctBase(data.gas) > int64.high.uint64:
-      return nil
-    if distinctBase(data.v) > int64.high.uint64:
       return nil
     if data.yParity.isSome:
       # This is not always included, but if it is, make sure it's correct
@@ -1529,15 +1516,15 @@ proc ETHTransactionsCreateFromJson(
         chainId: data.chainId.get(0.Quantity).ChainId,
         nonce: distinctBase(data.nonce),
         gasPrice: data.gasPrice.GasInt,
-        maxPriorityFee:
+        maxPriorityFeePerGas:
           distinctBase(data.maxPriorityFeePerGas.get(data.gasPrice)).GasInt,
-        maxFee: distinctBase(data.maxFeePerGas.get(data.gasPrice)).GasInt,
+        maxFeePerGas: distinctBase(data.maxFeePerGas.get(data.gasPrice)).GasInt,
         gasLimit: distinctBase(data.gas).GasInt,
         to:
           if data.to.isSome:
-            some(distinctBase(data.to.get))
+            Opt.some(distinctBase(data.to.get))
           else:
-            none(EthAddress),
+            Opt.none(EthAddress),
         value: data.value,
         payload: data.input,
         accessList:
@@ -1555,7 +1542,7 @@ proc ETHTransactionsCreateFromJson(
               ExecutionHash256(data: distinctBase(it)))
           else:
             @[],
-        V: data.v.int64,
+        V: distinctBase(data.v),
         R: data.r,
         S: data.s)
       rlpBytes =
@@ -1567,7 +1554,7 @@ proc ETHTransactionsCreateFromJson(
     if data.hash.asEth2Digest != hash:
       return nil
 
-    template isEven(x: int64): bool =
+    template isEven(x: uint64): bool =
       (x and 1) == 0
 
     # Compute from execution address
@@ -1614,8 +1601,8 @@ proc ETHTransactionsCreateFromJson(
       chainId: distinctBase(tx.chainId).u256,
       `from`: ExecutionAddress(data: fromAddress),
       nonce: tx.nonce,
-      maxPriorityFeePerGas: tx.maxPriorityFee.uint64,
-      maxFeePerGas: tx.maxFee.uint64,
+      maxPriorityFeePerGas: tx.maxPriorityFeePerGas.uint64,
+      maxFeePerGas: tx.maxFeePerGas.uint64,
       gas: tx.gasLimit.uint64,
       destinationType: destinationType,
       to: ExecutionAddress(data: toAddress),
@@ -1632,7 +1619,7 @@ proc ETHTransactionsCreateFromJson(
   var tr = initHexaryTrie(newMemoryDB())
   for i, transaction in txs:
     try:
-      tr.put(rlp.encode(i), distinctBase(transaction.bytes))
+      tr.put(rlp.encode(i.uint), distinctBase(transaction.bytes))
     except RlpError:
       raiseAssert "Unreachable"
   if tr.rootHash() != transactionsRoot[]:
@@ -2178,7 +2165,7 @@ proc ETHReceiptsCreateFromJson(
           else:
             default(ExecutionHash256),
         cumulativeGasUsed: distinctBase(data.cumulativeGasUsed).GasInt,
-        bloom: distinctBase(data.logsBloom),
+        logsBloom: distinctBase(data.logsBloom),
         logs: data.logs.mapIt(Log(
           address: distinctBase(it.address),
           topics: it.topics.mapIt(distinctBase(it)),
@@ -2198,7 +2185,7 @@ proc ETHReceiptsCreateFromJson(
       root: rec.hash,
       status: rec.status,
       gasUsed: distinctBase(data.gasUsed),  # Validated during sanity checks.
-      logsBloom: BloomLogs(data: rec.bloom),
+      logsBloom: BloomLogs(data: rec.logsBloom),
       logs: rec.logs.mapIt(ETHLog(
         address: ExecutionAddress(data: it.address),
         topics: it.topics.mapIt(Eth2Digest(data: it)),
@@ -2208,7 +2195,7 @@ proc ETHReceiptsCreateFromJson(
   var tr = initHexaryTrie(newMemoryDB())
   for i, rec in recs:
     try:
-      tr.put(rlp.encode(i), rec.bytes)
+      tr.put(rlp.encode(i.uint), rec.bytes)
     except RlpError:
       raiseAssert "Unreachable"
   if tr.rootHash() != receiptsRoot[]:

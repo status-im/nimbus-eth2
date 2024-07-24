@@ -118,8 +118,6 @@ proc build_empty_merge_execution_payload(state: bellatrix.BeaconState):
   bellatrix.ExecutionPayloadForSigning(executionPayload: payload,
                                        blockValue: Wei.zero)
 
-from stew/saturating_arith import saturate
-
 proc build_empty_execution_payload(
     state: bellatrix.BeaconState,
     feeRecipient: Eth1Address): bellatrix.ExecutionPayloadForSigning =
@@ -129,8 +127,8 @@ proc build_empty_execution_payload(
     latest = state.latest_execution_payload_header
     timestamp = compute_timestamp_at_slot(state, state.slot)
     randao_mix = get_randao_mix(state, get_current_epoch(state))
-    base_fee = calcEip1599BaseFee(GasInt.saturate latest.gas_limit,
-                                  GasInt.saturate latest.gas_used,
+    base_fee = calcEip1599BaseFee(latest.gas_limit,
+                                  latest.gas_used,
                                   latest.base_fee_per_gas)
 
   var payload = bellatrix.ExecutionPayloadForSigning(
@@ -158,6 +156,7 @@ proc addTestBlock*(
     cache: var StateCache,
     eth1_data: Eth1Data = Eth1Data(),
     attestations: seq[phase0.Attestation] = newSeq[phase0.Attestation](),
+    electraAttestations: seq[electra.Attestation] = newSeq[electra.Attestation](),
     deposits: seq[Deposit] = newSeq[Deposit](),
     sync_aggregate: SyncAggregate = SyncAggregate.init(),
     graffiti: GraffitiBytes = default(GraffitiBytes),
@@ -207,8 +206,6 @@ proc addTestBlock*(
       else:
         default(bellatrix.ExecutionPayloadForSigning)
 
-    debugRaiseAssert "addTestBlock Electra attestation support"
-
     makeBeaconBlock(
       cfg,
       state,
@@ -221,7 +218,7 @@ proc addTestBlock*(
         block_hash: eth1_data.block_hash),
       graffiti,
       when consensusFork == ConsensusFork.Electra:
-        default(seq[electra.Attestation])
+        electraAttestations
       else:
         attestations,
       deposits,
@@ -248,6 +245,7 @@ proc makeTestBlock*(
     cache: var StateCache,
     eth1_data = Eth1Data(),
     attestations = newSeq[phase0.Attestation](),
+    electraAttestations = newSeq[electra.Attestation](),
     deposits = newSeq[Deposit](),
     sync_aggregate = SyncAggregate.init(),
     graffiti = default(GraffitiBytes),
@@ -259,7 +257,8 @@ proc makeTestBlock*(
   let tmpState = assignClone(state)
   addTestBlock(
     tmpState[], cache, eth1_data,
-    attestations, deposits, sync_aggregate, graffiti, cfg = cfg)
+    attestations, electraAttestations, deposits, sync_aggregate, graffiti,
+    cfg = cfg)
 
 func makeAttestationData*(
     state: ForkyBeaconState, slot: Slot, committee_index: CommitteeIndex,
@@ -290,7 +289,7 @@ func makeAttestationData*(
 func makeAttestationSig(
     fork: Fork, genesis_validators_root: Eth2Digest, data: AttestationData,
     committee: openArray[ValidatorIndex],
-    bits: CommitteeValidatorsBits): ValidatorSig =
+    bits: CommitteeValidatorsBits | ElectraCommitteeValidatorsBits): ValidatorSig =
   let signing_root = compute_attestation_signing_root(
     fork, genesis_validators_root, data)
 
@@ -391,6 +390,78 @@ func makeFullAttestations*(
     doAssert committee.len() >= 1
     var attestation = phase0.Attestation(
       aggregation_bits: CommitteeValidatorsBits.init(committee.len),
+      data: data)
+    for i in 0..<committee.len:
+      attestation.aggregation_bits.setBit(i)
+
+    attestation.signature = makeAttestationSig(
+        getStateField(state, fork),
+        getStateField(state, genesis_validators_root), data, committee,
+        attestation.aggregation_bits)
+
+    result.add attestation
+
+func makeElectraAttestation(
+    state: ForkedHashedBeaconState, beacon_block_root: Eth2Digest,
+    committee: seq[ValidatorIndex], slot: Slot, committee_index: CommitteeIndex,
+    validator_index: ValidatorIndex, cache: var StateCache,
+    flags: UpdateFlags = {}): electra.Attestation =
+  let
+    index_in_committee = committee.find(validator_index)
+    data = makeAttestationData(state, slot, CommitteeIndex(0), beacon_block_root)
+
+  doAssert index_in_committee != -1, "find_beacon_committee should guarantee this"
+
+  var aggregation_bits = ElectraCommitteeValidatorsBits.init(committee.len)
+  aggregation_bits.setBit index_in_committee
+
+  let sig = if skipBlsValidation in flags:
+    ValidatorSig()
+  else:
+    makeAttestationSig(
+      getStateField(state, fork),
+      getStateField(state, genesis_validators_root),
+      data, committee, aggregation_bits)
+
+  var committee_bits: AttestationCommitteeBits
+  committee_bits[int committee_index] = true
+
+  electra.Attestation(
+    data: data,
+    committee_bits: committee_bits,
+    aggregation_bits: aggregation_bits,
+    signature: sig
+  )
+
+func makeElectraAttestation*(
+    state: ForkedHashedBeaconState, beacon_block_root: Eth2Digest,
+    validator_index: ValidatorIndex, cache: var StateCache): electra.Attestation =
+  let (committee, slot, index) =
+    find_beacon_committee(state, validator_index, cache)
+  makeElectraAttestation(state, beacon_block_root, committee, slot, index,
+    validator_index, cache)
+
+func makeFullElectraAttestations*(
+    state: ForkedHashedBeaconState, beacon_block_root: Eth2Digest, slot: Slot,
+    cache: var StateCache,
+    flags: UpdateFlags = {}): seq[electra.Attestation] =
+  # Create attestations in which the full committee participates for each shard
+  # that should be attested to during a particular slot
+  let committees_per_slot = get_committee_count_per_slot(
+    state, slot.epoch, cache)
+  for committee_index in get_committee_indices(committees_per_slot):
+    let
+      committee = get_beacon_committee(state, slot, committee_index, cache)
+      data = makeAttestationData(state, slot, CommitteeIndex(0), beacon_block_root)
+    var
+      committee_bits: AttestationCommitteeBits
+
+    committee_bits[int committee_index] = true
+
+    doAssert committee.len() >= 1
+    var attestation = electra.Attestation(
+      aggregation_bits: ElectraCommitteeValidatorsBits.init(committee.len),
+      committee_bits: committee_bits,
       data: data)
     for i in 0..<committee.len:
       attestation.aggregation_bits.setBit(i)
@@ -536,8 +607,14 @@ iterator makeTestBlocks*(
     let
       parent_root = withState(state[]): forkyState.latest_block_root
       attestations =
-        if attested:
+        if attested and state.kind < ConsensusFork.Electra:
           makeFullAttestations(
+            state[], parent_root, getStateField(state[], slot), cache)
+        else:
+          @[]
+      electraAttestations =
+        if attested and state.kind >= ConsensusFork.Electra:
+          makeFullElectraAttestations(
             state[], parent_root, getStateField(state[], slot), cache)
         else:
           @[]
@@ -558,6 +635,7 @@ iterator makeTestBlocks*(
       state[], cache,
       eth1_data = eth1_data,
       attestations = attestations,
+      electraAttestations = electraAttestations,
       deposits = deposits,
       sync_aggregate = sync_aggregate,
       graffiti = graffiti,

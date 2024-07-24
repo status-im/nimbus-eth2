@@ -60,7 +60,7 @@ suite "Message signatures":
           fork0, genesis_validators_root1, slot, root, privkey0).toValidatorSig)
 
   test "Aggregate and proof signatures":
-    let aggregate_and_proof = AggregateAndProof(
+    let aggregate_and_proof = phase0.AggregateAndProof(
       aggregate: phase0.Attestation(
         aggregation_bits: CommitteeValidatorsBits.init(8)))
 

@@ -12,7 +12,6 @@ import
   # Utilities
   chronicles,
   unittest2,
-  stew/results,
   # Beacon chain internals
   ../../../beacon_chain/spec/state_transition_block,
   ../../../beacon_chain/spec/datatypes/electra,
@@ -33,10 +32,10 @@ const
   OpAttSlashingDir          = OpDir/"attester_slashing"
   OpBlockHeaderDir          = OpDir/"block_header"
   OpBlsToExecutionChangeDir = OpDir/"bls_to_execution_change"
-  OpConsolidationDir        = OpDir/"consolidation"
-  OpDepositReceiptDir       = OpDir/"deposit_receipt"
+  OpConsolidationRequestDir = OpDir/"consolidation_request"
+  OpDepositRequestDir       = OpDir/"deposit_request"
   OpDepositsDir             = OpDir/"deposit"
-  OpExecutionLayerWithdrawalRequestDir = OpDir/"execution_layer_withdrawal_request"
+  OpWithdrawalRequestDir    = OpDir/"withdrawal_request"
   OpExecutionPayloadDir     = OpDir/"execution_payload"
   OpProposerSlashingDir     = OpDir/"proposer_slashing"
   OpSyncAggregateDir        = OpDir/"sync_aggregate"
@@ -46,14 +45,13 @@ const
   baseDescription = "EF - Electra - Operations - "
 
 
-var testDirs = toHashSet([
+const testDirs = toHashSet([
   OpAttestationsDir, OpAttSlashingDir, OpBlockHeaderDir,
-  OpBlsToExecutionChangeDir, OpDepositReceiptDir, OpDepositsDir,
-  OpExecutionLayerWithdrawalRequestDir, OpExecutionPayloadDir,
+  OpBlsToExecutionChangeDir, OpConsolidationRequestDir, OpDepositRequestDir,
+  OpDepositsDir, OpWithdrawalRequestDir, OpExecutionPayloadDir,
   OpProposerSlashingDir, OpSyncAggregateDir, OpVoluntaryExitDir,
   OpWithdrawalsDir])
-when const_preset == "minimal":
-  testDirs.incl OpConsolidationDir
+
 doAssert toHashSet(
   mapIt(toSeq(walkDir(OpDir, relative = false)), it.path)) == testDirs
 
@@ -150,24 +148,19 @@ suite baseDescription & "BLS to execution change " & preset():
       OpBlsToExecutionChangeDir, suiteName, "BLS to execution change", "address_change",
       applyBlsToExecutionChange, path)
 
-when const_preset == "minimal":
-  suite baseDescription & "Consolidation " & preset():
-    proc applyConsolidation(
-        preState: var electra.BeaconState,
-        signed_consolidation: SignedConsolidation):
-        Result[void, cstring] =
-      var cache: StateCache
-      process_consolidation(
-        defaultRuntimeConfig, preState, signed_consolidation, cache)
+suite baseDescription & "Consolidation Request " & preset():
+  proc applyConsolidationRequest(
+      preState: var electra.BeaconState,
+      consolidation_request: ConsolidationRequest): Result[void, cstring] =
+    var cache: StateCache
+    process_consolidation_request(
+      defaultRuntimeConfig, preState, consolidation_request, cache)
+    ok()
 
-    for path in walkTests(OpConsolidationDir):
-      if path in [
-          "invalid_exceed_pending_consolidations_limit",    # apparently invalid prestate SSZ
-          ]:
-        continue
-      runTest[SignedConsolidation, typeof applyConsolidation](
-        OpConsolidationDir, suiteName, "Consolidation", "consolidation",
-        applyConsolidation, path)
+  for path in walkTests(OpConsolidationRequestDir):
+    runTest[ConsolidationRequest, typeof applyConsolidationRequest](
+      OpConsolidationRequestDir, suiteName, "Consolidation Request",
+      "consolidation_request", applyConsolidationRequest, path)
 
 from ".."/".."/".."/beacon_chain/bloomfilter import constructBloomFilter
 
@@ -183,18 +176,18 @@ suite baseDescription & "Deposit " & preset():
     runTest[Deposit, typeof applyDeposit](
       OpDepositsDir, suiteName, "Deposit", "deposit", applyDeposit, path)
 
-suite baseDescription & "Deposit Receipt " & preset():
-  func applyDepositReceipt(
-      preState: var electra.BeaconState, depositReceipt: DepositReceipt):
+suite baseDescription & "Deposit Request " & preset():
+  func applyDepositRequest(
+      preState: var electra.BeaconState, depositRequest: DepositRequest):
       Result[void, cstring] =
-    process_deposit_receipt(
+    process_deposit_request(
       defaultRuntimeConfig, preState,
-      constructBloomFilter(preState.validators.asSeq)[], depositReceipt, {})
+      constructBloomFilter(preState.validators.asSeq)[], depositRequest, {})
 
-  for path in walkTests(OpDepositReceiptDir):
-    runTest[DepositReceipt, typeof applyDepositReceipt](
-      OpDepositReceiptDir, suiteName, "Deposit Receipt", "deposit_receipt",
-      applyDepositReceipt, path)
+  for path in walkTests(OpDepositRequestDir):
+    runTest[DepositRequest, typeof applyDepositRequest](
+      OpDepositRequestDir, suiteName, "Deposit Request", "deposit_request",
+      applyDepositRequest, path)
 
 suite baseDescription & "Execution Payload " & preset():
   func makeApplyExecutionPayloadCb(path: string): auto =
@@ -213,23 +206,19 @@ suite baseDescription & "Execution Payload " & preset():
       OpExecutionPayloadDir, suiteName, "Execution Payload", "body",
       applyExecutionPayload, path)
 
-suite baseDescription & "Execution Layer Withdrawal Request " & preset():
-  func applyExecutionLayerWithdrawalRequest(
-      preState: var electra.BeaconState,
-      executionLayerWithdrawalRequest: ExecutionLayerWithdrawalRequest):
+suite baseDescription & "Withdrawal Request " & preset():
+  func applyWithdrawalRequest(
+      preState: var electra.BeaconState, withdrawalRequest: WithdrawalRequest):
       Result[void, cstring] =
     var cache: StateCache
-    process_execution_layer_withdrawal_request(
-      defaultRuntimeConfig, preState, executionLayerWithdrawalRequest, cache)
+    process_withdrawal_request(
+      defaultRuntimeConfig, preState, withdrawalRequest, cache)
     ok()
 
-  for path in walkTests(OpExecutionLayerWithdrawalRequestDir):
-    runTest[ExecutionLayerWithdrawalRequest,
-            typeof applyExecutionLayerWithdrawalRequest](
-      OpExecutionLayerWithdrawalRequestDir, suiteName,
-      "Execution Layer Withdrawal Request",
-      "execution_layer_withdrawal_request",
-      applyExecutionLayerWithdrawalRequest, path)
+  for path in walkTests(OpWithdrawalRequestDir):
+    runTest[WithdrawalRequest, typeof applyWithdrawalRequest](
+      OpWithdrawalRequestDir, suiteName, "Withdrawal Request",
+      "withdrawal_request", applyWithdrawalRequest, path)
 
 suite baseDescription & "Proposer Slashing " & preset():
   proc applyProposerSlashing(

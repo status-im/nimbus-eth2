@@ -9,7 +9,7 @@
 
 import
   std/[algorithm, sequtils],
-  chronos, chronicles, stew/results,
+  chronos, chronicles,
   eth/p2p/discoveryv5/[enr, protocol, node, random2],
   ../spec/datatypes/altair,
   ../spec/eth2_ssz_serialization,
@@ -25,13 +25,13 @@ type
   Eth2DiscoveryId* = NodeId
 
 func parseBootstrapAddress*(address: string):
-    Result[enr.Record, cstring] =
-  let lowerCaseAddress = toLowerAscii(string address)
+    Result[enr.Record, string] =
+  let lowerCaseAddress = toLowerAscii(address)
   if lowerCaseAddress.startsWith("enr:"):
-    var enrRec: enr.Record
-    if enrRec.fromURI(string address):
-      return ok enrRec
-    return err "Invalid ENR bootstrap record"
+    let res = enr.Record.fromURI(address)
+    if res.isOk():
+      return ok res.value
+    return err "Invalid bootstrap ENR: " & $res.error
   elif lowerCaseAddress.startsWith("enode:"):
     return err "ENode bootstrap addresses are not supported"
   else:
@@ -53,7 +53,7 @@ proc addBootstrapNode*(bootstrapAddr: string,
     return
 
   # Ignore comments in
-  # https://github.com/eth-clients/eth2-networks/blob/063f826a03676c33c95a66306916f18b690d35eb/shared/mainnet/bootstrap_nodes.txt
+  # https://github.com/eth-clients/mainnet/blob/main/metadata/bootstrap_nodes.txt
   let enrRes = parseBootstrapAddress(bootstrapAddr.split(" # ")[0])
   if enrRes.isOk:
     bootstrapEnrs.add enrRes.value
@@ -78,7 +78,7 @@ proc loadBootstrapFile*(bootstrapFile: string,
 
 proc new*(T: type Eth2DiscoveryProtocol,
           config: BeaconNodeConf | LightClientConf,
-          enrIp: Option[IpAddress], enrTcpPort, enrUdpPort: Option[Port],
+          enrIp: Opt[IpAddress], enrTcpPort, enrUdpPort: Opt[Port],
           pk: PrivateKey,
           enrFields: openArray[(string, seq[byte])], rng: ref HmacDrbgContext):
           T =
@@ -127,7 +127,7 @@ proc queryRandom*(
     forkId: ENRForkID,
     wantedAttnets: AttnetBits,
     wantedSyncnets: SyncnetBits,
-    minScore: int): Future[seq[Node]] {.async.} =
+    minScore: int): Future[seq[Node]] {.async: (raises: [CancelledError]).} =
   ## Perform a discovery query for a random target
   ## (forkId) and matching at least one of the attestation subnets.
 
@@ -143,7 +143,7 @@ proc queryRandom*(
       peerForkId =
         try:
           SSZ.decode(eth2FieldBytes, ENRForkID)
-        except SszError as e:
+        except SerializationError as e:
           debug "Could not decode the eth2 field of peer",
             peer = n.record.toURI(), exception = e.name, msg = e.msg
           continue
@@ -156,7 +156,7 @@ proc queryRandom*(
       let attnetsNode =
         try:
           SSZ.decode(attnetsBytes.get(), AttnetBits)
-        except SszError as e:
+        except SerializationError as e:
           debug "Could not decode the attnets ERN bitfield of peer",
             peer = n.record.toURI(), exception = e.name, msg = e.msg
           continue
@@ -170,7 +170,7 @@ proc queryRandom*(
       let syncnetsNode =
         try:
           SSZ.decode(syncnetsBytes.get(), SyncnetBits)
-        except SszError as e:
+        except SerializationError as e:
           debug "Could not decode the syncnets ENR bitfield of peer",
             peer = n.record.toURI(), exception = e.name, msg = e.msg
           continue

@@ -289,7 +289,7 @@ template `as`(address: Eth1Address, T: type bellatrix.ExecutionAddress): T =
 template `as`(address: BlockHash, T: type Eth2Digest): T =
   asEth2Digest(address)
 
-func getOrDefault[T](x: Option[T]): T =
+func getOrDefault[T](x: Opt[T]): T =
   if x.isSome:
     x.get
   else:
@@ -379,9 +379,9 @@ proc createEnr(rng: var HmacDrbgContext,
     bootstrapEnr = enr.Record.init(
       1, # sequence number
       networkKeys.seckey.asEthKey,
-      some(address),
-      some(port),
-      some(port),
+      Opt.some(address),
+      Opt.some(port),
+      Opt.some(port),
       [
         toFieldPair(enrForkIdField, forkId),
         toFieldPair(enrAttestationSubnetsField, SSZ.encode(netMetadata.attnets))
@@ -505,25 +505,25 @@ proc doCreateTestnet*(config: CliConfig,
 
 proc deployContract(web3: Web3, code: seq[byte]): Future[ReceiptObject] {.async.} =
   let tr = TransactionArgs(
-    `from`: web3.defaultAccount.some,
-    data: code.some,
-    gas: Quantity(3000000).some,
-    gasPrice: Quantity(1).some)
+    `from`: Opt.some web3.defaultAccount,
+    data: Opt.some code,
+    gas: Opt.some Quantity(3000000),
+    gasPrice: Opt.some Quantity(1))
 
   let r = await web3.send(tr)
   result = await web3.getMinedTransactionReceipt(r)
 
 proc sendEth(web3: Web3, to: Eth1Address, valueEth: int): Future[TxHash] =
   let tr = TransactionArgs(
-    `from`: web3.defaultAccount.some,
+    `from`: Opt.some web3.defaultAccount,
     # TODO: Force json-rpc to generate 'data' field
     # should not be needed anymore, new execution-api schema
     # is using `input` field
-    data: some(newSeq[byte]()),
-    gas: Quantity(3000000).some,
-    gasPrice: Quantity(1).some,
-    value: some(valueEth.u256 * 1000000000000000000.u256),
-    to: some(to))
+    data: Opt.some(newSeq[byte]()),
+    gas: Opt.some Quantity(3000000),
+    gasPrice: Opt.some Quantity(1),
+    value: Opt.some(valueEth.u256 * 1000000000000000000.u256),
+    to: Opt.some(to))
   web3.send(tr)
 
 type
@@ -535,7 +535,7 @@ func ethToWei(eth: UInt256): UInt256 =
 proc initWeb3(web3Url, privateKey: string): Future[Web3] {.async.} =
   result = await newWeb3(web3Url)
   if privateKey.len != 0:
-    result.privateKey = some(keys.PrivateKey.fromHex(privateKey)[])
+    result.privateKey = Opt.some(keys.PrivateKey.fromHex(privateKey)[])
   else:
     let accounts = await result.provider.eth_accounts()
     doAssert(accounts.len > 0)
@@ -553,8 +553,8 @@ proc sendDeposits(deposits: seq[LaunchPadDeposit],
 
   var web3 = await initWeb3(web3Url, privateKey)
   let gasPrice = int(await web3.provider.eth_gasPrice()) * 2
-  let depositContract = web3.contractSender(DepositContract,
-                                            Eth1Address depositContractAddress)
+  let depositContract = web3.contractSender(
+    DepositContract, depositContractAddress)
   for i in 4200 ..< deposits.len:
     let dp = deposits[i] as DepositData
 
@@ -656,7 +656,7 @@ when isMainModule:
         error "Failed to read an Eth1 private key from standard input"
 
       if privateKey.len > 0:
-        conf.privateKey = privateKey.string
+        conf.privateKey = privateKey
 
     case conf.cmd
     of StartUpCommand.createTestnet:

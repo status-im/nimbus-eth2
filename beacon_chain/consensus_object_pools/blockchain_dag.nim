@@ -1178,7 +1178,7 @@ proc init*(T: type ChainDAGRef, cfg: RuntimeConfig, db: BeaconChainDB,
   # should have `previous_version` set to `current_version` while
   # this doesn't happen to be the case in network that go through
   # regular hard-fork upgrades. See for example:
-  # https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.2/specs/bellatrix/beacon-chain.md#testing
+  # https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.3/specs/bellatrix/beacon-chain.md#testing
   if stateFork.current_version != configFork.current_version:
     error "State from database does not match network, check --network parameter",
       tail = dag.tail, headRef, stateFork, configFork
@@ -1972,7 +1972,7 @@ proc pruneBlocksDAG(dag: ChainDAGRef) =
     prunedHeads = hlen - dag.heads.len,
     dagPruneDur = Moment.now() - startTick
 
-# https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.2/sync/optimistic.md#helpers
+# https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.3/sync/optimistic.md#helpers
 func is_optimistic*(dag: ChainDAGRef, bid: BlockId): bool =
   let blck =
     if bid.slot <= dag.finalizedHead.slot:
@@ -2408,7 +2408,7 @@ proc updateHead*(
 
   if dag.headState.kind > lastHeadKind:
     case dag.headState.kind
-    of ConsensusFork.Phase0 .. ConsensusFork.Bellatrix, ConsensusFork.Electra:
+    of ConsensusFork.Phase0 .. ConsensusFork.Bellatrix:
       discard
     of ConsensusFork.Capella:
       if dag.vanityLogs.onUpgradeToCapella != nil:
@@ -2416,6 +2416,9 @@ proc updateHead*(
     of ConsensusFork.Deneb:
       if dag.vanityLogs.onUpgradeToDeneb != nil:
         dag.vanityLogs.onUpgradeToDeneb()
+    of ConsensusFork.Electra:
+      if dag.vanityLogs.onUpgradeToElectra != nil:
+        dag.vanityLogs.onUpgradeToElectra()
 
   if  dag.vanityLogs.onKnownBlsToExecutionChange != nil and
       checkBlsToExecutionChanges(

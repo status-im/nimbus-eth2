@@ -15,6 +15,21 @@ import
 from ../consensus_object_pools/block_pools_types import VerifierError
 export block_pools_types.VerifierError
 
+# https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.3/specs/electra/light-client/sync-protocol.md#is_valid_normalized_merkle_branch
+func is_valid_normalized_merkle_branch[N](
+    leaf: Eth2Digest,
+    branch: array[N, Eth2Digest],
+    gindex: static GeneralizedIndex,
+    root: Eth2Digest): bool =
+  const
+    depth = log2trunc(gindex)
+    index = get_subtree_index(gindex)
+    num_extra = branch.len - depth
+  for i in 0 ..< num_extra:
+    if not branch[i].isZero:
+      return false
+  is_valid_merkle_branch(leaf, branch[num_extra .. ^1], depth, index, root)
+
 # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.5/specs/altair/light-client/sync-protocol.md#initialize_light_client_store
 func initialize_light_client_store*(
     trusted_block_root: Eth2Digest,
@@ -29,13 +44,15 @@ func initialize_light_client_store*(
   if hash_tree_root(bootstrap.header.beacon) != trusted_block_root:
     return ResultType.err(VerifierError.Invalid)
 
-  if not is_valid_merkle_branch(
-      hash_tree_root(bootstrap.current_sync_committee),
-      bootstrap.current_sync_committee_branch,
-      log2trunc(altair.CURRENT_SYNC_COMMITTEE_GINDEX),
-      get_subtree_index(altair.CURRENT_SYNC_COMMITTEE_GINDEX),
-      bootstrap.header.beacon.state_root):
-    return ResultType.err(VerifierError.Invalid)
+  withLcDataFork(lcDataForkAtConsensusFork(
+      cfg.consensusForkAtEpoch(bootstrap.header.beacon.slot.epoch))):
+    when lcDataFork > LightClientDataFork.None:
+      if not is_valid_normalized_merkle_branch(
+          hash_tree_root(bootstrap.current_sync_committee),
+          bootstrap.current_sync_committee_branch,
+          lcDataFork.current_sync_committee_gindex,
+          bootstrap.header.beacon.state_root):
+        return ResultType.err(VerifierError.Invalid)
 
   return ResultType.ok(typeof(bootstrap).kind.LightClientStore(
     finalized_header: bootstrap.header,
@@ -109,13 +126,15 @@ proc validate_light_client_update*(
         finalized_root.reset()
       else:
         return err(VerifierError.Invalid)
-      if not is_valid_merkle_branch(
-          finalized_root,
-          update.finality_branch,
-          log2trunc(altair.FINALIZED_ROOT_GINDEX),
-          get_subtree_index(altair.FINALIZED_ROOT_GINDEX),
-          update.attested_header.beacon.state_root):
-        return err(VerifierError.Invalid)
+      withLcDataFork(lcDataForkAtConsensusFork(
+          cfg.consensusForkAtEpoch(update.attested_header.beacon.slot.epoch))):
+        when lcDataFork > LightClientDataFork.None:
+          if not is_valid_normalized_merkle_branch(
+              finalized_root,
+              update.finality_branch,
+              lcDataFork.finalized_root_gindex,
+              update.attested_header.beacon.state_root):
+            return err(VerifierError.Invalid)
 
   # Verify that the `next_sync_committee`, if present, actually is the
   # next sync committee saved in the state of the `attested_header`
@@ -128,13 +147,15 @@ proc validate_light_client_update*(
       if attested_period == store_period and is_next_sync_committee_known:
         if update.next_sync_committee != store.next_sync_committee:
           return err(VerifierError.UnviableFork)
-      if not is_valid_merkle_branch(
-          hash_tree_root(update.next_sync_committee),
-          update.next_sync_committee_branch,
-          log2trunc(altair.NEXT_SYNC_COMMITTEE_GINDEX),
-          get_subtree_index(altair.NEXT_SYNC_COMMITTEE_GINDEX),
-          update.attested_header.beacon.state_root):
-        return err(VerifierError.Invalid)
+      withLcDataFork(lcDataForkAtConsensusFork(
+          cfg.consensusForkAtEpoch(update.attested_header.beacon.slot.epoch))):
+        when lcDataFork > LightClientDataFork.None:
+          if not is_valid_normalized_merkle_branch(
+              hash_tree_root(update.next_sync_committee),
+              update.next_sync_committee_branch,
+              lcDataFork.next_sync_committee_gindex,
+              update.attested_header.beacon.state_root):
+            return err(VerifierError.Invalid)
 
   # Verify sync committee aggregate signature
   let sync_committee =

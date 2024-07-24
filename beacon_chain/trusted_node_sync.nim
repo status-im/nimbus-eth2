@@ -8,7 +8,7 @@
 {.push raises: [].}
 
 import
-  stew/[base10, results],
+  stew/base10,
   chronicles, chronos, eth/async_utils,
   ./sync/[light_client_sync_helpers, sync_manager],
   ./consensus_object_pools/[block_clearance, blockchain_dag],
@@ -21,7 +21,7 @@ import
 from presto import RestDecodingError
 
 const
-  largeRequestsTimeout = 60.seconds # Downloading large items such as states.
+  largeRequestsTimeout = 90.seconds # Downloading large items such as states.
   smallRequestsTimeout = 30.seconds # Downloading smaller items such as blocks and deposit snapshots.
 
 proc fetchDepositSnapshot(
@@ -171,7 +171,7 @@ proc doTrustedNodeSync*(
     let stateId =
       case syncTarget.kind
       of TrustedNodeSyncKind.TrustedBlockRoot:
-        # https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.2/specs/altair/light-client/light-client.md#light-client-sync-process
+        # https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.3/specs/altair/light-client/light-client.md#light-client-sync-process
         const lcDataFork = LightClientDataFork.high
         var bestViableCheckpoint: Opt[tuple[slot: Slot, state_root: Eth2Digest]]
         func trackBestViableCheckpoint(store: lcDataFork.LightClientStore) =

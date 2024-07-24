@@ -11,7 +11,7 @@
 import
   chronicles,
   ../../beacon_chain/spec/forks,
-  ../../beacon_chain/spec/state_transition,
+  ../../beacon_chain/spec/[state_transition, state_transition_epoch],
   ./os_ops,
   ../testutil
 
@@ -21,6 +21,7 @@ from ../../beacon_chain/spec/presets import
   const_preset, defaultRuntimeConfig
 from ./fixtures_utils import
   SSZ, SszTestsDir, hash_tree_root, parseTest, readSszBytes, toSszType
+from ../teststateutil import checkPerValidatorBalanceCalc
 
 proc runTest(
     consensusFork: static ConsensusFork,
@@ -52,6 +53,9 @@ proc runTest(
         discard state_transition(
           defaultRuntimeConfig, fhPreState[], blck, cache, info, flags = {},
           noRollback).expect("should apply block")
+        withState(fhPreState[]):
+          when consensusFork >= ConsensusFork.Deneb:
+            check checkPerValidatorBalanceCalc(forkyState.data)
       else:
         let res = state_transition(
           defaultRuntimeConfig, fhPreState[], blck, cache, info, flags = {},
@@ -79,14 +83,6 @@ template runForkBlockTests(consensusFork: static ConsensusFork) =
 
   suite "EF - " & forkHumanName & " - Sanity - Blocks " & preset():
     for kind, path in walkDir(SanityBlocksDir, relative = true, checkDir = true):
-      debugRaiseAssert "this should be fixed in alpha.2; remove workaround"
-      if consensusFork == ConsensusFork.Electra and path in [
-          "multiple_consolidations_above_churn",  # no pre.ssz
-          "multiple_consolidations_below_churn",  # assert block.parent_root == hash_tree_root(state.latest_block_header)
-          "multiple_consolidations_equal_churn",  # assert block.parent_root == hash_tree_root(state.latest_block_header)
-          "multiple_consolidations_equal_twice_churn",  # assert block.parent_root == hash_tree_root(state.latest_block_header)
-          ]:
-        continue
       consensusFork.runTest(
         "EF - " & forkHumanName & " - Sanity - Blocks",
         SanityBlocksDir, suiteName, path)

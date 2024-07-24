@@ -365,7 +365,7 @@ func partialBeaconBlock*(
 ): auto =
   const consensusFork = typeof(state).kind
 
-  # https://github.com/ethereum/consensus-specs/blob/v1.3.0/specs/phase0/validator.md#preparing-for-a-beaconblock
+  # https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.3/specs/phase0/validator.md#preparing-for-a-beaconblock
   var res = consensusFork.BeaconBlock(
     slot: state.data.slot,
     proposer_index: proposer_index.uint64,
@@ -385,7 +385,7 @@ func partialBeaconBlock*(
   when consensusFork >= ConsensusFork.Altair:
     res.body.sync_aggregate = sync_aggregate
 
-  # https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.2/specs/bellatrix/validator.md#block-proposal
+  # https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.3/specs/bellatrix/validator.md#block-proposal
   when consensusFork >= ConsensusFork.Bellatrix:
     res.body.execution_payload = execution_payload.executionPayload
 
@@ -415,8 +415,9 @@ func partialBeaconBlock*(
 ): auto =
   const consensusFork = typeof(state).kind
 
+  debugComment "re-enable attester slashing packing in electra"
   # https://github.com/ethereum/consensus-specs/blob/v1.3.0/specs/phase0/validator.md#preparing-for-a-beaconblock
-  var res = consensusFork.BeaconBlock(
+  consensusFork.BeaconBlock(
     slot: state.data.slot,
     proposer_index: proposer_index.uint64,
     parent_root: state.latest_block_root,
@@ -429,28 +430,11 @@ func partialBeaconBlock*(
       attestations:
         List[electra.Attestation, Limit MAX_ATTESTATIONS_ELECTRA](attestations),
       deposits: List[Deposit, Limit MAX_DEPOSITS](deposits),
-      voluntary_exits: validator_changes.voluntary_exits))
-
-  # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.1/specs/altair/validator.md#preparing-a-beaconblock
-  when consensusFork >= ConsensusFork.Altair:
-    res.body.sync_aggregate = sync_aggregate
-
-  # https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.2/specs/bellatrix/validator.md#block-proposal
-  when consensusFork >= ConsensusFork.Bellatrix:
-    res.body.execution_payload = execution_payload.executionPayload
-
-  # https://github.com/ethereum/consensus-specs/blob/v1.4.0/specs/capella/validator.md#block-proposal
-  when consensusFork >= ConsensusFork.Capella:
-    res.body.bls_to_execution_changes =
-      validator_changes.bls_to_execution_changes
-
-  # https://github.com/ethereum/consensus-specs/blob/v1.3.0/specs/deneb/validator.md#constructing-the-beaconblockbody
-  when consensusFork >= ConsensusFork.Deneb:
-    res.body.blob_kzg_commitments = execution_payload.blobsBundle.commitments
-
-  debugRaiseAssert "either consolidate this within separate function or recombine, re when consensusFork >= foo and atts/attslashings; here to allow noninterference with pre-pectra"
-
-  res
+      voluntary_exits: validator_changes.voluntary_exits,
+      sync_aggregate: sync_aggregate,
+      execution_payload: execution_payload.executionPayload,
+      bls_to_execution_changes: validator_changes.bls_to_execution_changes,
+      blob_kzg_commitments: execution_payload.blobsBundle.commitments))
 
 proc makeBeaconBlockWithRewards*(
     cfg: RuntimeConfig,
@@ -533,9 +517,8 @@ proc makeBeaconBlockWithRewards*(
           forkyState.data.latest_execution_payload_header.transactions_root =
             transactions_root.get
 
-          debugRaiseAssert "makeBeaconBlock doesn't support Electra (i.e. check for missing beaconblock body fields)"
           when executionPayload is electra.ExecutionPayloadForSigning:
-            # https://github.com/ethereum/consensus-specs/blob/v1.4.0/specs/deneb/beacon-chain.md#beaconblockbody
+            # https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.3/specs/electra/beacon-chain.md#beaconblockbody
             forkyState.data.latest_block_header.body_root = hash_tree_root(
               [hash_tree_root(randao_reveal),
                hash_tree_root(eth1_data),
@@ -603,8 +586,8 @@ proc makeBeaconBlock*(
     ? makeBeaconBlockWithRewards(
       cfg, state, proposer_index, randao_reveal, eth1_data, graffiti,
       attestations, deposits, validator_changes, sync_aggregate,
-      executionPayload, rollback, cache, verificationFlags, transactions_root,
-      execution_payload_root, kzg_commitments)
+      executionPayload, rollback, cache, verificationFlags,
+      transactions_root, execution_payload_root, kzg_commitments)
   ok(blockAndRewards.blck)
 
 proc makeBeaconBlock*(

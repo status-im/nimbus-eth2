@@ -10,7 +10,7 @@
 
 import
   # Status libraries
-  stew/[byteutils, results], chronicles,
+  stew/byteutils, chronicles,
   taskpools,
   # Internals
   ../../beacon_chain/spec/[helpers, forks, state_transition_block],
@@ -19,7 +19,7 @@ import
   ../../beacon_chain/consensus_object_pools/[
     blockchain_dag, block_clearance, block_quarantine, spec_cache],
   # Third-party
-  yaml,
+  yaml/tojson,
   # Test
   ../testutil, ../testdbutil,
   ./fixtures_utils, ./os_ops
@@ -102,7 +102,7 @@ proc loadOps(
     IOError, KeyError, UnconsumedInput, ValueError,
     YamlConstructionError, YamlParserError].} =
   let stepsYAML = os_ops.readFile(path/"steps.yaml")
-  let steps = yaml.loadToJson(stepsYAML)
+  let steps = loadToJson(stepsYAML)
 
   result = @[]
   for step in steps[0]:
@@ -136,7 +136,8 @@ proc loadOps(
                   blobs: distinctBase(parseTest(
                     path/(step["blobs"].getStr()) & ".ssz_snappy",
                     SSZ, List[KzgBlob, Limit MAX_BLOBS_PER_BLOCK])),
-                  proofs: step["proofs"].mapIt(KzgProof.fromHex(it.getStr())))
+                  proofs: step["proofs"].mapIt(
+                    KzgProof(bytes: fromHex(array[48, byte], it.getStr()))))
               else:
                 Opt.none(BlobData)
             else:
