@@ -554,6 +554,7 @@ proc initFullNode(
   node.backfiller = backfiller
   node.syncOverseer = SyncOverseerRef.new(node.dag, node.beaconClock,
                                           node.eventBus.optHeaderUpdateQueue,
+                                          node.network.peerPool,
                                           syncManager, backfiller)
   node.router = router
 

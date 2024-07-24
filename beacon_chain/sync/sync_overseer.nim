@@ -16,9 +16,20 @@ import
   ../networking/[peer_pool, peer_scores, eth2_network],
   ../gossip_processing/block_processor,
   ../[beacon_clock, beacon_node],
-  ./sync_types
+  ./[sync_types, sync_manager, sync_queue]
 
 export sync_types
+
+const
+  PARALLEL_REQUESTS* = 3
+  ## Number of peers we using to resolve our request.
+
+type
+  BlockAndBlob* = object
+    blck*: ForkedSignedBeaconBlock
+    blob*: Opt[BlobSidecars]
+
+  BlockAndBlobRes* = Result[BlockAndBlob, string]
 
 proc getLatestBeaconHeader*(
     overseer: SyncOverseerRef
@@ -42,6 +53,68 @@ proc getLatestBeaconHeader*(
     else:
       raiseAssert "Should not be happened"
 
+proc getPeerBlock*(
+    overseer: SyncOverseerRef,
+    slot: Slot,
+): Future[BlockAndBlobRes] {.async: (raises: [CancelledError]).} =
+  let peer = await overseer.pool.acquire()
+  try:
+    let
+      request = SyncRequest[Peer](kind: SyncQueueKind.Forward,
+                                  slot: slot, count: 1'u64, item: peer)
+      res = (await getSyncBlockData(peer, request, true)).valueOr:
+        return err(error)
+      blob =
+        if res.blobs.isSome():
+          Opt.some(res.blobs.get()[0])
+        else:
+          Opt.none(BlobSidecars)
+    ok(BlockAndBlob(blck: res.blocks[0][], blob: blob))
+  finally:
+    overseer.pool.release(peer)
+
+proc `==`(a, b: BeaconBlockHeader): bool =
+  (a.slot == b.slot) and (a.proposer_index == b.proposer_index) and
+  (a.parent_root.data == b.parent_root.data) and
+  (a.state_root.data == b.state_root.data) and
+  (a.body_root.data == b.body_root.data)
+
+proc getBlock*(
+    overseer: SyncOverseerRef,
+    slot: Slot,
+    blockHeader: Opt[BeaconBlockHeader]
+): Future[BlockAndBlob] {.async: (raises: [CancelledError]).} =
+  var workers:
+    array[PARALLEL_REQUESTS, Future[BlockAndBlobRes].Raising([CancelledError])]
+
+  while true:
+    for i in 0 ..< PARALLEL_REQUESTS:
+      workers[i] = overseer.getPeerBlock(slot)
+
+    try:
+      await allFutures(workers)
+    except CancelledError as exc:
+      let pending =
+        workers.filterIt(not(it.finished())).mapIt(cancelAndWait(it))
+      await noCancel allFutures(pending)
+      raise exc
+
+    var results: seq[BlockAndBlob]
+    for i in 0 ..< PARALLEL_REQUESTS:
+      if workers[i].value.isOk:
+        results.add(workers[i].value.get())
+
+    if blockHeader.isSome:
+      if len(results) > 0:
+        for item in results:
+          withBlck(item.blck):
+            if forkyBlck.message.toBeaconBlockHeader() == blockHeader.get():
+              return item
+    else:
+      # TODO (cheatfate): Compare received blocks
+      if len(results) > 0:
+        return results[0]
+
 proc isBackfillEmpty(backfill: BeaconBlockSummary): bool =
   (backfill.slot == GENESIS_SLOT) and isFullZero(backfill.parent_root.data)
 
@@ -60,12 +133,27 @@ proc mainLoop*(
         await overseer.getLatestBeaconHeader()
       except CancelledError:
         return
-    overseer.statusMsg = Opt.none(string)
 
     notice "Received beacon block header",
            backfill = shortLog(overseer.dag.backfill),
            beacon_header = shortLog(blockHeader),
            current_slot = overseer.beaconClock.now().slotOrZero()
+
+    overseer.statusMsg = Opt.some("retrieving block")
+
+    let
+      blck =
+        try:
+          await overseer.getBlock(blockHeader.slot, Opt.some(blockHeader))
+        except CancelledError:
+          return
+      blobsCount = if blck.blob.isNone(): 0 else: len(blck.blob.get())
+
+
+    notice "Received beacon block", blck = shortLog(blck.blck),
+                                    blobs_count = blobsCount
+
+    overseer.statusMsg = Opt.none(string)
 
     overseer.dag.backfill =
       BeaconBlockSummary(slot: blockHeader.slot,

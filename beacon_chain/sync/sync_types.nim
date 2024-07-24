@@ -14,7 +14,6 @@ import results, chronos,
        ".."/networking/eth2_network,
        "."/sync_manager
 
-
 export results, chronos
 
 type
@@ -26,6 +25,7 @@ type
     loopFuture*: Future[void].Raising([])
     forwardSync*: SyncManager[Peer, PeerId]
     backwardSync*: SyncManager[Peer, PeerId]
+    pool*: PeerPool[Peer, PeerId]
 
   SyncOverseerRef* = ref SyncOverseer
 
@@ -34,8 +34,10 @@ proc new*(
     dag: ChainDAGRef,
     clock: BeaconClock,
     eq: AsyncEventQueue[ForkedLightClientHeader],
+    pool: PeerPool[Peer, PeerId],
     forwardSync: SyncManager[Peer, PeerId],
     backwardSync: SyncManager[Peer, PeerId]
 ): SyncOverseerRef =
   SyncOverseerRef(dag: dag, beaconClock: clock, eventQueue: eq,
-                  forwardSync: forwardSync, backwardSync: backwardSync)
+                  forwardSync: forwardSync, backwardSync: backwardSync,
+                  pool: pool)

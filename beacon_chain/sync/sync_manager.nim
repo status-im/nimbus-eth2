@@ -91,6 +91,12 @@ type
   BlobSidecarsRes =
     NetRes[List[ref BlobSidecar, Limit(MAX_REQUEST_BLOB_SIDECARS)]]
 
+  SyncBlockData* = object
+    blocks*: seq[ref ForkedSignedBeaconBlock]
+    blobs*: Opt[seq[BlobSidecars]]
+
+  SyncBlockDataRes* = Result[SyncBlockData, string]
+
 proc now*(sm: typedesc[SyncMoment], slots: uint64): SyncMoment {.inline.} =
   SyncMoment(stamp: now(chronos.Moment), slots: slots)
 
@@ -171,6 +177,12 @@ proc newSyncManager*[A, B](pool: PeerPool[A, B],
   )
   res.initQueue()
   res
+
+func combine(acc: seq[Slot], cur: Slot): seq[Slot] =
+  var copy = acc
+  if copy[^1] != cur:
+    copy.add(cur)
+  copy
 
 proc getBlocks[A, B](man: SyncManager[A, B], peer: A,
                      req: SyncRequest): Future[BeaconBlocksRes] {.
@@ -269,6 +281,93 @@ func checkBlobs(blobs: seq[BlobSidecars]): Result[void, string] =
     for blob_sidecar in blob_sidecars:
       ? blob_sidecar[].verify_blob_sidecar_inclusion_proof()
   ok()
+
+proc getSyncBlockData*[T](
+    peer: T,
+    req: SyncRequest,
+    blobsPresent: bool
+): Future[SyncBlockDataRes] {.async: (raises: [CancelledError]).} =
+  mixin getScore
+
+  logScope:
+    peer_score = peer.getScore()
+    peer_speed = peer.netKbps()
+    topics = "syncman"
+
+  doAssert(not(req.isEmpty()), "Request must not be empty!")
+
+  debug "Requesting blocks from peer", request = req
+  let blocksRange =
+    block:
+      let res = await beaconBlocksByRange_v2(peer, req.slot, req.count, 1'u64)
+      if res.isErr():
+        peer.updateScore(PeerScoreNoValues)
+        debug "Failed to receive blocks on request",
+              request = req, err = res.error
+        return err("Failed to receive blocks on request [" & $res.error & "]")
+      res.get().asSeq
+
+  debug "Received blocks on request", blocks_count = len(blocksRange),
+        blocks_map = getShortMap(req, blocksRange), request = req
+
+  let slots = mapIt(blocksRange, it[].slot)
+
+  if not(checkResponse(req, slots)):
+    peer.updateScore(PeerScoreBadResponse)
+    return err("Received blocks sequence is not in requested range")
+
+  let shouldGetBlobs =
+    if not(blobsPresent):
+      false
+    else:
+      var hasBlobs = false
+      for blck in blocksRange:
+        withBlck(blck[]):
+          when consensusFork >= ConsensusFork.Deneb:
+            if forkyBlck.message.body.blob_kzg_commitments.len > 0:
+              hasBlobs = true
+              break
+      hasBlobs
+
+  let blobsRange =
+    if shouldGetBlobs:
+      let blobData =
+        block:
+          debug "Requesting blobs sidecars from peer", request = req
+          let res = await blobSidecarsByRange(peer, req.slot, req.count)
+          if res.isErr():
+            peer.updateScore(PeerScoreNoValues)
+            return err(
+              "Failed to receive blobs on request [" & $res.error & "]")
+          res.get().asSeq()
+
+      debug "Received blobs on request",
+            blobs_count = len(blobData),
+            blobs_map = getShortMap(req, blobData), request = req
+
+      if len(blobData) > 0:
+        let
+          slots = mapIt(blobData, it[].signed_block_header.message.slot)
+          uniqueSlots = foldl(slots, combine(a, b), @[slots[0]])
+
+        if not(checkResponse(req, uniqueSlots)):
+          peer.updateScore(PeerScoreBadResponse)
+          return err("Received blobs sequence is not in requested range")
+
+      let groupedBlobs = groupBlobs(req, blocksRange, blobData)
+      if groupedBlobs.isErr():
+        peer.updateScore(PeerScoreNoValues)
+        return err("Received blobs sequence is inconsistent")
+
+      if (let checkRes = groupedBlobs.get.checkBlobs(); checkRes.isErr):
+        peer.updateScore(PeerScoreBadResponse)
+        return err(
+          "Received blobs sequence is invalid [" & checkRes.error & "]")
+      Opt.some(groupedBlobs.get())
+    else:
+      Opt.none(seq[BlobSidecars])
+
+  ok SyncBlockData(blocks: blocksRange, blobs: blobsRange)
 
 proc syncStep[A, B](
     man: SyncManager[A, B], index: int, peer: A
@@ -411,17 +510,16 @@ proc syncStep[A, B](
           request = req, err = blocks.error
     return
   let blockData = blocks.get().asSeq()
-  let blockSmap = getShortMap(req, blockData)
   debug "Received blocks on request", blocks_count = len(blockData),
-        blocks_map = blockSmap, request = req
+        blocks_map = getShortMap(req, blockData), request = req
 
   let slots = mapIt(blockData, it[].slot)
   if not(checkResponse(req, slots)):
     peer.updateScore(PeerScoreBadResponse)
     man.queue.push(req)
     warn "Received blocks sequence is not in requested range",
-          blocks_count = len(blockData), blocks_map = blockSmap,
-          request = req
+          blocks_count = len(blockData),
+          blocks_map = getShortMap(req, blockData), request = req
     return
 
   let shouldGetBlobs =
@@ -437,12 +535,6 @@ proc syncStep[A, B](
               break
       hasBlobs
 
-  func combine(acc: seq[Slot], cur: Slot): seq[Slot] =
-    var copy = acc
-    if copy[copy.len-1] != cur:
-      copy.add(cur)
-    copy
-
   let blobData =
     if shouldGetBlobs:
       let blobs = await man.getBlobSidecars(peer, req)
@@ -453,9 +545,9 @@ proc syncStep[A, B](
               request = req, err = blobs.error
         return
       let blobData = blobs.get().asSeq()
-      let blobSmap = getShortMap(req, blobData)
-      debug "Received blobs on request", blobs_count = len(blobData),
-                      blobs_map = blobSmap, request = req
+      debug "Received blobs on request",
+            blobs_count = len(blobData),
+            blobs_map = getShortMap(req, blobData), request = req
 
       if len(blobData) > 0:
         let slots = mapIt(blobData, it[].signed_block_header.message.slot)
@@ -464,24 +556,26 @@ proc syncStep[A, B](
           peer.updateScore(PeerScoreBadResponse)
           man.queue.push(req)
           warn "Received blobs sequence is not in requested range",
-            blobs_count = len(blobData), blobs_map = getShortMap(req, blobData),
-                          request = req
+               blobs_count = len(blobData),
+               blobs_map = getShortMap(req, blobData),
+               request = req
           return
       let groupedBlobs = groupBlobs(req, blockData, blobData)
       if groupedBlobs.isErr():
         peer.updateScore(PeerScoreNoValues)
         man.queue.push(req)
         info "Received blobs sequence is inconsistent",
-          blobs_map = getShortMap(req, blobData), request = req, msg=groupedBlobs.error()
+             blobs_map = getShortMap(req, blobData),
+             request = req, msg = groupedBlobs.error()
         return
       if (let checkRes = groupedBlobs.get.checkBlobs(); checkRes.isErr):
         peer.updateScore(PeerScoreBadResponse)
         man.queue.push(req)
         warn "Received blobs sequence is invalid",
-          blobs_count = len(blobData),
-          blobs_map = getShortMap(req, blobData),
-          request = req,
-          msg = checkRes.error
+             blobs_count = len(blobData),
+             blobs_map = getShortMap(req, blobData),
+             request = req,
+             msg = checkRes.error
         return
       Opt.some(groupedBlobs.get())
     else:
