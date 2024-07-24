@@ -149,11 +149,20 @@ proc mainLoop*(
           return
       blobsCount = if blck.blob.isNone(): 0 else: len(blck.blob.get())
 
-
     notice "Received beacon block", blck = shortLog(blck.blck),
                                     blobs_count = blobsCount
 
+    overseer.statusMsg = Opt.some("storing block")
+    let res =
+      withBlck(blck.blck):
+        overseer.dag.addBackfillBlock(forkyBlck.asSigVerified(), blck.blob)
+    if res.isErr():
+      warn "Unable to store initial block", error = res.error
+      return
     overseer.statusMsg = Opt.none(string)
+
+    notice "Initial block being stored", blck = shortLog(blck.blck),
+                                         blobs_count = blobsCount
 
     overseer.dag.backfill =
       BeaconBlockSummary(slot: blockHeader.slot,
