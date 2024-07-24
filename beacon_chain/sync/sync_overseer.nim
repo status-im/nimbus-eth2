@@ -64,6 +64,11 @@ proc getPeerBlock*(
                                   slot: slot, count: 1'u64, item: peer)
       res = (await getSyncBlockData(peer, request, true)).valueOr:
         return err(error)
+
+    if len(res.blocks) == 0:
+      return err("Empty sequence received")
+
+    let
       blob =
         if res.blobs.isSome():
           Opt.some(res.blobs.get()[0])
@@ -152,21 +157,27 @@ proc mainLoop*(
     notice "Received beacon block", blck = shortLog(blck.blck),
                                     blobs_count = blobsCount
 
+    # Updating backfill information to satisfy addBackfillBlock() requirements.
+    # Right after first block being added addBackfillBlock() will update
+    # backfill information properly.
+    overseer.dag.backfill =
+      BeaconBlockSummary(slot: blockHeader.slot + 1,
+                         parent_root: blck.blck.root)
+
     overseer.statusMsg = Opt.some("storing block")
     let res =
       withBlck(blck.blck):
         overseer.dag.addBackfillBlock(forkyBlck.asSigVerified(), blck.blob)
     if res.isErr():
-      warn "Unable to store initial block", error = res.error
+      warn "Unable to store initial block",
+           backfill = shortLog(overseer.dag.backfill),
+           error = res.error
       return
     overseer.statusMsg = Opt.none(string)
 
-    notice "Initial block being stored", blck = shortLog(blck.blck),
-                                         blobs_count = blobsCount
-
-    overseer.dag.backfill =
-      BeaconBlockSummary(slot: blockHeader.slot,
-                         parent_root: blockHeader.parent_root)
+    notice "Initial block being stored",
+           backfill = shortLog(overseer.dag.backfill),
+           blck = shortLog(blck.blck), blobs_count = blobsCount
 
     overseer.backwardSync.start()
 
