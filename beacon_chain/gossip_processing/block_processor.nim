@@ -172,7 +172,7 @@ from ../consensus_object_pools/block_clearance import
 
 proc storeBackfillBlock*(
     self: var BlockProcessor,
-    signedBlock: ForkySignedBeaconBlock,
+    signedBlock: ForkySignedBeaconBlock | ForkySigVerifiedSignedBeaconBlock,
     blobsOpt: Opt[BlobSidecars]): Result[void, VerifierError] =
 
   # The block is certainly not missing any more
