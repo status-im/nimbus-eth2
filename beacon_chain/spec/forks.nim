@@ -280,6 +280,9 @@ type
   ForkyBlobSidecar* =
     deneb.BlobSidecar
 
+  OptSeqForkyBlobSidecar* =
+    Opt[seq[deneb.BlobSidecar]]
+
   ForkyBlobSidecars* =
     deneb.BlobSidecars
 

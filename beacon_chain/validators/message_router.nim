@@ -84,7 +84,7 @@ template getCurrentBeaconTime(router: MessageRouter): BeaconTime =
 type RouteBlockResult = Result[Opt[BlockRef], string]
 proc routeSignedBeaconBlock*(
     router: ref MessageRouter, blck: ForkySignedBeaconBlock,
-    blobsOpt: Opt[seq[ForkyBlobSidecar]], checkValidator: bool):
+    blobsOpt: OptSeqForkyBlobSidecar, checkValidator: bool):
     Future[RouteBlockResult] {.async: (raises: [CancelledError]).} =
   ## Validate and broadcast beacon block, then add it to the block database
   ## Returns the new Head when block is added successfully to dag, none when
