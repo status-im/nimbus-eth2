@@ -173,7 +173,7 @@ from ../consensus_object_pools/block_clearance import
 proc storeBackfillBlock(
     self: var BlockProcessor,
     signedBlock: ForkySignedBeaconBlock,
-    blobsOpt: OptForkyBlobSidecars
+    blobsOpt: Opt[ForkyBlobSidecars]
 ): Result[void, VerifierError] =
   const
     consensusFork = typeof(signedBlock).kind
@@ -441,7 +441,7 @@ proc enqueueBlock*(
 proc storeBlock(
     self: ref BlockProcessor, src: MsgSource, wallTime: BeaconTime,
     signedBlock: ForkySignedBeaconBlock,
-    blobsOpt: OptForkyBlobSidecars,
+    blobsOpt: Opt[ForkyBlobSidecars],
     maybeFinalized = false,
     queueTick: Moment = Moment.now(),
     validationDur = Duration()
