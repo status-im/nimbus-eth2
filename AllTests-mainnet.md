@@ -833,9 +833,10 @@ OK: 1/1 Fail: 0/1 Skip: 0/1
 ## Spec helpers
 ```diff
 + build_proof - BeaconState                                                                  OK
++ hypergeom_cdf                                                                              OK
 + integer_squareroot                                                                         OK
 ```
-OK: 2/2 Fail: 0/2 Skip: 0/2
+OK: 3/3 Fail: 0/3 Skip: 0/3
 ## Specific field types
 ```diff
 + root update                                                                                OK
@@ -1033,4 +1034,4 @@ OK: 2/2 Fail: 0/2 Skip: 0/2
 OK: 9/9 Fail: 0/9 Skip: 0/9
 
 ---TOTAL---
-OK: 690/695 Fail: 0/695 Skip: 5/695
+OK: 691/696 Fail: 0/696 Skip: 5/696

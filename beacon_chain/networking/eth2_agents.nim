@@ -9,7 +9,6 @@
 
 import stew/base10
 import std/tables
-import libp2p/[multiaddress, multicodec, peerstore]
 
 type
   Eth2Agent* {.pure.} = enum
