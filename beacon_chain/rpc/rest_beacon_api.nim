@@ -919,7 +919,7 @@ proc installBeaconApiHandlers*(router: var RestRouter, node: BeaconNode) =
               checkValidator = true)
           else:
             await node.router.routeSignedBeaconBlock(
-              forkyBlck, Opt.none(seq[BlobSidecar]),
+              forkyBlck, Opt.none(seq[deneb.BlobSidecar]),
               checkValidator = true)
 
     if res.isErr():
