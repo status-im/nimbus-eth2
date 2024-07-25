@@ -1497,6 +1497,35 @@ func readSszForkedSignedBeaconBlock*(
   withBlck(result):
     readSszBytes(data, forkyBlck)
 
+func readSszForkedBlobSidecar*(
+    cfg: RuntimeConfig, data: openArray[byte]
+): ForkedBlobSidecar {.raises: [SerializationError].} =
+  ## Helper to read `BlobSidecar` from bytes when it's not certain what
+  ## `BlobFork` it is
+  type ForkedBlobSidecarHeader = object
+    index: BlobIndex
+    blob: Blob
+    kzg_commitment: KzgCommitment
+    kzg_proof: KzgProof
+    signed_block_header*: SignedBeaconBlockHeader
+
+  const numHeaderBytes = fixedPortionSize(ForkedBlobSidecarHeader)
+  if data.len() < numHeaderBytes:
+    raise (ref MalformedSszError)(msg: "Incomplete BlobSidecar header")
+  let
+    header = SSZ.decode(
+      data.toOpenArray(0, numHeaderBytes - 1), ForkedBlobSidecarHeader)
+    consensusFork = cfg.consensusForkAtEpoch(
+      header.signed_block_header.message.slot.epoch)
+    blobFork = blobForkAtConsensusFork(consensusFork).valueOr:
+      raise (ref MalformedSszError)(msg: "BlobSidecar slot is pre-Deneb")
+
+  # TODO https://github.com/nim-lang/Nim/issues/19357
+  result = ForkedBlobSidecar(kind: blobFork)
+  withForkyBlob(result):
+    forkyBlob = new blobFork.BlobSidecar()
+    readSszBytes(data, forkyBlob[])
+
 # https://github.com/ethereum/consensus-specs/blob/v1.4.0/specs/phase0/beacon-chain.md#compute_fork_data_root
 func compute_fork_data_root*(current_version: Version,
     genesis_validators_root: Eth2Digest): Eth2Digest =
