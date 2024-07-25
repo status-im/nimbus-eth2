@@ -418,6 +418,7 @@ proc initFullNode(
       config.dumpEnabled, config.dumpDirInvalid, config.dumpDirIncoming,
       rng, taskpool, consensusManager, node.validatorMonitor,
       blobQuarantine, getBeaconTime)
+
     blockVerifier = proc(signedBlock: ForkedSignedBeaconBlock,
                          blobs: Opt[BlobSidecars], maybeFinalized: bool):
         Future[Result[void, VerifierError]] {.async: (raises: [CancelledError], raw: true).} =
@@ -427,6 +428,19 @@ proc initFullNode(
       # that should probably be reimagined more holistically in the future.
       blockProcessor[].addBlock(
         MsgSource.gossip, signedBlock, blobs, maybeFinalized = maybeFinalized)
+
+    backfillBlockVerifier =
+      proc(signedBlock: ForkedSignedBeaconBlock, blobs: Opt[BlobSidecars],
+           maybeFinalized: bool): Future[Result[void, VerifierError]] {.
+        async: (raises: [CancelledError], raw: true).} =
+        let retFuture =
+          Future[Result[void, VerifierError]].Raising([CancelledError]).
+            init("backfill.blockVerifier")
+        withBlck(signedBlock):
+          let res = blockProcessor[].storeBackfillBlock(forkyBlck, blobs)
+          retFuture.complete(res)
+        retFuture
+
     rmanBlockVerifier = proc(signedBlock: ForkedSignedBeaconBlock,
                              maybeFinalized: bool):
         Future[Result[void, VerifierError]] {.async: (raises: [CancelledError]).} =
@@ -484,7 +498,7 @@ proc initFullNode(
       SyncQueueKind.Backward, getLocalHeadSlot,
       getLocalWallSlot, getFirstSlotAtFinalizedEpoch, getBackfillSlot,
       getFrontfillSlot, isWithinWeakSubjectivityPeriod,
-      dag.backfill.slot, blockVerifier, maxHeadAge = 0,
+      dag.backfill.slot, backfillBlockVerifier, maxHeadAge = 0,
       shutdownEvent = node.shutdownEvent,
       flags = syncManagerFlags)
     router = (ref MessageRouter)(
