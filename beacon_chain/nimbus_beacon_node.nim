@@ -437,10 +437,22 @@ proc initFullNode(
           Future[Result[void, VerifierError]].Raising([CancelledError]).
             init("backfill.blockVerifier")
         withBlck(signedBlock):
+
+          notice "Block before verification",
+                 dag_tail = shortLog(dag.tail),
+                 dag_head = shortLog(dag.head.bid),
+                 backfill = shortLog(dag.backfill)
+
           let res =
             blockProcessor[].storeBackfillBlock(forkyBlck.asSigVerified(),
                                                 blobs)
           retFuture.complete(res)
+
+          notice "Block after verification", res = res,
+                 dag_tail = shortLog(dag.tail),
+                 dag_head = shortLog(dag.head.bid),
+                 backfill = shortLog(dag.backfill)
+
         retFuture
 
     rmanBlockVerifier = proc(signedBlock: ForkedSignedBeaconBlock,

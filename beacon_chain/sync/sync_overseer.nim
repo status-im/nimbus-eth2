@@ -132,14 +132,14 @@ proc mainLoop*(
       if not overseer.forwardSync.inProgress:
         overseer.backwardSync.start()
   else:
-    overseer.statusMsg = Opt.some("awaiting block header")
+    overseer.statusMsg = Opt.some("awaiting light client")
     let blockHeader =
       try:
         await overseer.getLatestBeaconHeader()
       except CancelledError:
         return
 
-    notice "Received beacon block header",
+    notice "Received light client block header",
            backfill = shortLog(overseer.dag.backfill),
            beacon_header = shortLog(blockHeader),
            current_slot = overseer.beaconClock.now().slotOrZero()
