@@ -49,9 +49,12 @@ func collector(queue: AsyncQueue[BlockEntry]): BlockVerifier =
   # in the async queue, similar to how BlockProcessor does it - as far as
   # testing goes, this is risky because it might introduce differences between
   # the BlockProcessor and this test
-  proc verify(signedBlock: ForkedSignedBeaconBlock, blobs: Opt[BlobSidecars],
-              maybeFinalized: bool):
-      Future[Result[void, VerifierError]] {.async: (raises: [CancelledError], raw: true).} =
+  proc verify(
+      signedBlock: ForkedSignedBeaconBlock,
+      blobs: Opt[ForkedBlobSidecars],
+      maybeFinalized: bool
+  ): Future[Result[void, VerifierError]] {.
+      async: (raises: [CancelledError], raw: true).} =
     let fut = Future[Result[void, VerifierError]].Raising([CancelledError]).init()
     try: queue.addLastNoWait(BlockEntry(blck: signedBlock, resfut: fut))
     except CatchableError as exc: raiseAssert exc.msg
@@ -73,8 +76,8 @@ suite "SyncManager test suite":
 
   func createBlobs(
       blocks: var seq[ref ForkedSignedBeaconBlock], slots: seq[Slot]
-  ): seq[ref BlobSidecar] =
-    var res = newSeq[ref BlobSidecar](len(slots))
+  ): seq[ForkedBlobSidecar] =
+    var res = newSeq[ForkedBlobSidecar](len(slots))
     for blck in blocks:
       withBlck(blck[]):
         when consensusFork >= ConsensusFork.Deneb:
@@ -94,7 +97,7 @@ suite "SyncManager test suite":
             var sidecarIdx = 0
             for i, slot in slots:
               if slot == forkyBlck.message.slot:
-                res[i] = newClone sidecars[sidecarIdx]
+                res[i] = ForkedBlobSidecar.init(newClone sidecars[sidecarIdx])
                 inc sidecarIdx
     res
 
@@ -354,7 +357,7 @@ suite "SyncManager test suite":
         if request.isEmpty():
           break
         await queue.push(request, getSlice(chain, start, request),
-                         Opt.none(seq[BlobSidecars]))
+                         Opt.none(seq[ForkedBlobSidecars]))
       await validatorFut.cancelAndWait()
 
     waitFor runSmokeTest()
@@ -429,7 +432,7 @@ suite "SyncManager test suite":
       var r13 = queue.pop(finishSlot, p3)
 
       var f13 = queue.push(r13, chain.getSlice(startSlot, r13),
-                           Opt.none(seq[BlobSidecars]))
+                           Opt.none(seq[ForkedBlobSidecars]))
       await sleepAsync(100.milliseconds)
       check:
         f13.finished == false
@@ -438,7 +441,7 @@ suite "SyncManager test suite":
         of SyncQueueKind.Backward: counter == int(finishSlot)
 
       var f11 = queue.push(r11, chain.getSlice(startSlot, r11),
-                           Opt.none(seq[BlobSidecars]))
+                           Opt.none(seq[ForkedBlobSidecars]))
       await sleepAsync(100.milliseconds)
       check:
         case kkind
@@ -448,7 +451,7 @@ suite "SyncManager test suite":
         f13.finished == false
 
       var f12 = queue.push(r12, chain.getSlice(startSlot, r12),
-                           Opt.none(seq[BlobSidecars]))
+                           Opt.none(seq[ForkedBlobSidecars]))
       await allFutures(f11, f12, f13)
       check:
         f12.finished == true and f12.failed == false
@@ -551,7 +554,7 @@ suite "SyncManager test suite":
             check response[0][].slot >= getFowardSafeSlotCb()
           else:
             check response[^1][].slot <= getBackwardSafeSlotCb()
-        await queue.push(request, response, Opt.none(seq[BlobSidecars]))
+        await queue.push(request, response, Opt.none(seq[ForkedBlobSidecars]))
       await validatorFut.cancelAndWait()
 
     waitFor runTest()
@@ -634,7 +637,7 @@ suite "SyncManager test suite":
 
         # Handle request 1. Should be re-enqueued as it simulates `Invalid`.
         let response1 = getSlice(chain, start, request1)
-        await queue.push(request1, response1, Opt.none(seq[BlobSidecars]))
+        await queue.push(request1, response1, Opt.none(seq[ForkedBlobSidecars]))
         check debtLen(queue) == request2.count + request1.count
 
         # Request 1 should be discarded as it is no longer relevant.
@@ -646,7 +649,7 @@ suite "SyncManager test suite":
 
         # Handle request 3. Should be re-enqueued as it simulates `Invalid`.
         let response3 = getSlice(chain, start, request3)
-        await queue.push(request3, response3, Opt.none(seq[BlobSidecars]))
+        await queue.push(request3, response3, Opt.none(seq[ForkedBlobSidecars]))
         check debtLen(queue) == request3.count
 
         # Request 2 should be re-issued.
@@ -660,7 +663,7 @@ suite "SyncManager test suite":
 
         # Handle request 4. Should be re-enqueued as it simulates `Invalid`.
         let response4 = getSlice(chain, start, request4)
-        await queue.push(request4, response4, Opt.none(seq[BlobSidecars]))
+        await queue.push(request4, response4, Opt.none(seq[ForkedBlobSidecars]))
         check debtLen(queue) == request4.count
 
         # Advance `safeSlot` out of band.
@@ -777,14 +780,14 @@ suite "SyncManager test suite":
       var r14 = queue.pop(finishSlot, p4)
 
       var f14 = queue.push(r14, chain.getSlice(startSlot, r14),
-                           Opt.none(seq[BlobSidecars]))
+                           Opt.none(seq[ForkedBlobSidecars]))
       await sleepAsync(100.milliseconds)
       check:
         f14.finished == false
         counter == int(startSlot)
 
       var f12 = queue.push(r12, chain.getSlice(startSlot, r12),
-                           Opt.none(seq[BlobSidecars]))
+                           Opt.none(seq[ForkedBlobSidecars]))
       await sleepAsync(100.milliseconds)
       check:
         counter == int(startSlot)
@@ -792,7 +795,7 @@ suite "SyncManager test suite":
         f14.finished == false
 
       var f11 = queue.push(r11, chain.getSlice(startSlot, r11),
-                           Opt.none(seq[BlobSidecars]))
+                           Opt.none(seq[ForkedBlobSidecars]))
       await allFutures(f11, f12)
       check:
         counter == int(startSlot + chunkSize + chunkSize)
@@ -804,7 +807,7 @@ suite "SyncManager test suite":
       withBlck(missingSlice[0][]):
         forkyBlck.message.proposer_index = 0xDEADBEAF'u64
       var f13 = queue.push(r13, missingSlice,
-                           Opt.none(seq[BlobSidecars]))
+                           Opt.none(seq[ForkedBlobSidecars]))
       await allFutures(f13, f14)
       check:
         f11.finished == true and f11.failed == false
@@ -826,17 +829,17 @@ suite "SyncManager test suite":
       check r18.isEmpty() == true
 
       var f17 = queue.push(r17, chain.getSlice(startSlot, r17),
-                           Opt.none(seq[BlobSidecars]))
+                           Opt.none(seq[ForkedBlobSidecars]))
       await sleepAsync(100.milliseconds)
       check f17.finished == false
 
       var f16 = queue.push(r16, chain.getSlice(startSlot, r16),
-                           Opt.none(seq[BlobSidecars]))
+                           Opt.none(seq[ForkedBlobSidecars]))
       await sleepAsync(100.milliseconds)
       check f16.finished == false
 
       var f15 = queue.push(r15, chain.getSlice(startSlot, r15),
-                           Opt.none(seq[BlobSidecars]))
+                           Opt.none(seq[ForkedBlobSidecars]))
       await allFutures(f15, f16, f17)
       check:
         f15.finished == true and f15.failed == false
@@ -883,7 +886,7 @@ suite "SyncManager test suite":
 
       # Push a single request that will fail with all blocks being unviable
       var f11 = queue.push(r11, chain.getSlice(startSlot, r11),
-                           Opt.none(seq[BlobSidecars]))
+                           Opt.none(seq[ForkedBlobSidecars]))
       discard await f11.withTimeout(1.seconds)
 
       check:
@@ -949,14 +952,14 @@ suite "SyncManager test suite":
       var r14 = queue.pop(finishSlot, p4)
 
       var f14 = queue.push(r14, chain.getSlice(startSlot, r14),
-                           Opt.none(seq[BlobSidecars]))
+                           Opt.none(seq[ForkedBlobSidecars]))
       await sleepAsync(100.milliseconds)
       check:
         f14.finished == false
         counter == int(finishSlot)
 
       var f12 = queue.push(r12, chain.getSlice(startSlot, r12),
-                           Opt.none(seq[BlobSidecars]))
+                           Opt.none(seq[ForkedBlobSidecars]))
       await sleepAsync(100.milliseconds)
       check:
         counter == int(finishSlot)
@@ -964,7 +967,7 @@ suite "SyncManager test suite":
         f14.finished == false
 
       var f11 = queue.push(r11, chain.getSlice(startSlot, r11),
-                           Opt.none(seq[BlobSidecars]))
+                           Opt.none(seq[ForkedBlobSidecars]))
       await allFutures(f11, f12)
       check:
         counter == int(finishSlot - chunkSize - chunkSize)
@@ -975,7 +978,7 @@ suite "SyncManager test suite":
       var missingSlice = chain.getSlice(startSlot, r13)
       withBlck(missingSlice[0][]):
         forkyBlck.message.proposer_index = 0xDEADBEAF'u64
-      var f13 = queue.push(r13, missingSlice, Opt.none(seq[BlobSidecars]))
+      var f13 = queue.push(r13, missingSlice, Opt.none(seq[ForkedBlobSidecars]))
       await allFutures(f13, f14)
       check:
         f11.finished == true and f11.failed == false
@@ -993,12 +996,12 @@ suite "SyncManager test suite":
       check r17.isEmpty() == true
 
       var f16 = queue.push(r16, chain.getSlice(startSlot, r16),
-                           Opt.none(seq[BlobSidecars]))
+                           Opt.none(seq[ForkedBlobSidecars]))
       await sleepAsync(100.milliseconds)
       check f16.finished == false
 
       var f15 = queue.push(r15, chain.getSlice(startSlot, r15),
-                           Opt.none(seq[BlobSidecars]))
+                           Opt.none(seq[ForkedBlobSidecars]))
       await allFutures(f15, f16)
       check:
         f15.finished == true and f15.failed == false
@@ -1101,16 +1104,20 @@ suite "SyncManager test suite":
       len(grouped[0]) == 0
       # slot 11
       len(grouped[1]) == 2
-      grouped[1][0].signed_block_header.message.slot == Slot(11)
-      grouped[1][1].signed_block_header.message.slot == Slot(11)
+      withForkyBlob(grouped[1][0]):
+        forkyBlob[].signed_block_header.message.slot == Slot(11)
+      withForkyBlob(grouped[1][1]):
+        forkyBlob[].signed_block_header.message.slot == Slot(11)
       # slot 12
       len(grouped[2]) == 1
-      grouped[2][0].signed_block_header.message.slot == Slot(12)
+      withForkyBlob(grouped[2][0]):
+        forkyBlob[].signed_block_header.message.slot == Slot(12)
       # slot 13
       len(grouped[3]) == 0
       # slot 14
       len(grouped[4]) == 1
-      grouped[4][0].signed_block_header.message.slot == Slot(14)
+      withForkyBlob(grouped[4][0]):
+        forkyBlob[].signed_block_header.message.slot == Slot(14)
       # slot 15
       len(grouped[5]) == 0
 
@@ -1127,15 +1134,14 @@ suite "SyncManager test suite":
       len(grouped2) == 7
       len(grouped2[6]) == 0 # slot 17
 
-    let blob18 = new (ref BlobSidecar)
-    blob18[].signed_block_header.message.slot = Slot(18)
+    let blob18 = ForkedBlobSidecar.init(new (ref deneb.BlobSidecar))
+    withForkyBlob(blob18):
+      forkyBlob[].signed_block_header.message.slot = Slot(18)
     blobs.add(blob18)
     let groupedRes3 = groupBlobs(req, blocks, blobs)
 
     check:
       groupedRes3.isErr()
-
-
 
   test "[SyncQueue#Forward] getRewindPoint() test":
     let aq = newAsyncQueue[BlockEntry]()

@@ -184,7 +184,8 @@ func lcDataForkAtEpoch*(
     LightClientDataFork.None
 
 template kind*(
-    x: typedesc[ # `SomeLightClientObject` doesn't work here (Nim 1.6)
+    # `SomeLightClientObject`: https://github.com/nim-lang/Nim/issues/18095
+    x: typedesc[
       altair.LightClientHeader |
       altair.LightClientBootstrap |
       altair.LightClientUpdate |
@@ -194,7 +195,8 @@ template kind*(
   LightClientDataFork.Altair
 
 template kind*(
-    x: typedesc[ # `SomeLightClientObject` doesn't work here (Nim 1.6)
+    # `SomeLightClientObject`: https://github.com/nim-lang/Nim/issues/18095
+    x: typedesc[
       capella.LightClientHeader |
       capella.LightClientBootstrap |
       capella.LightClientUpdate |
@@ -204,7 +206,8 @@ template kind*(
   LightClientDataFork.Capella
 
 template kind*(
-    x: typedesc[ # `SomeLightClientObject` doesn't work here (Nim 1.6)
+    # `SomeLightClientObject`: https://github.com/nim-lang/Nim/issues/18095
+    x: typedesc[
       deneb.LightClientHeader |
       deneb.LightClientBootstrap |
       deneb.LightClientUpdate |
@@ -214,7 +217,8 @@ template kind*(
   LightClientDataFork.Deneb
 
 template kind*(
-    x: typedesc[ # `SomeLightClientObject` doesn't work here (Nim 1.6)
+    # `SomeLightClientObject`: https://github.com/nim-lang/Nim/issues/18095
+    x: typedesc[
       electra.LightClientHeader |
       electra.LightClientBootstrap |
       electra.LightClientUpdate |
@@ -1015,7 +1019,8 @@ func migratingToDataFork*[
 
 # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.5/specs/altair/light-client/full-node.md#block_to_light_client_header
 func toAltairLightClientHeader(
-    blck:  # `SomeSignedBeaconBlock` doesn't work here (Nim 1.6)
+    # `SomeSignedBeaconBlock`: https://github.com/nim-lang/Nim/issues/18095
+    blck:
       phase0.SignedBeaconBlock | phase0.TrustedSignedBeaconBlock |
       altair.SignedBeaconBlock | altair.TrustedSignedBeaconBlock |
       bellatrix.SignedBeaconBlock | bellatrix.TrustedSignedBeaconBlock
@@ -1025,7 +1030,8 @@ func toAltairLightClientHeader(
 
 # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.5/specs/capella/light-client/full-node.md#modified-block_to_light_client_header
 func toCapellaLightClientHeader(
-    blck:  # `SomeSignedBeaconBlock` doesn't work here (Nim 1.6)
+    # `SomeSignedBeaconBlock`: https://github.com/nim-lang/Nim/issues/18095
+    blck:
       phase0.SignedBeaconBlock | phase0.TrustedSignedBeaconBlock |
       altair.SignedBeaconBlock | altair.TrustedSignedBeaconBlock |
       bellatrix.SignedBeaconBlock | bellatrix.TrustedSignedBeaconBlock
@@ -1040,7 +1046,8 @@ func toCapellaLightClientHeader(
     beacon: blck.message.toBeaconBlockHeader())
 
 func toCapellaLightClientHeader(
-    blck:  # `SomeSignedBeaconBlock` doesn't work here (Nim 1.6)
+    # `SomeSignedBeaconBlock`: https://github.com/nim-lang/Nim/issues/18095
+    blck:
       capella.SignedBeaconBlock | capella.TrustedSignedBeaconBlock
 ): capella.LightClientHeader =
   template payload: untyped = blck.message.body.execution_payload
@@ -1067,7 +1074,8 @@ func toCapellaLightClientHeader(
 
 # https://github.com/ethereum/consensus-specs/blob/v1.4.0-alpha.0/specs/deneb/light-client/full-node.md#modified-block_to_light_client_header
 func toDenebLightClientHeader(
-    blck:  # `SomeSignedBeaconBlock` doesn't work here (Nim 1.6)
+    # `SomeSignedBeaconBlock`: https://github.com/nim-lang/Nim/issues/18095
+    blck:
       phase0.SignedBeaconBlock | phase0.TrustedSignedBeaconBlock |
       altair.SignedBeaconBlock | altair.TrustedSignedBeaconBlock |
       bellatrix.SignedBeaconBlock | bellatrix.TrustedSignedBeaconBlock
@@ -1082,7 +1090,8 @@ func toDenebLightClientHeader(
     beacon: blck.message.toBeaconBlockHeader())
 
 func toDenebLightClientHeader(
-    blck:  # `SomeSignedBeaconBlock` doesn't work here (Nim 1.6)
+    # `SomeSignedBeaconBlock`: https://github.com/nim-lang/Nim/issues/18095
+    blck:
       capella.SignedBeaconBlock | capella.TrustedSignedBeaconBlock
 ): deneb.LightClientHeader =
   template payload: untyped = blck.message.body.execution_payload
@@ -1108,7 +1117,8 @@ func toDenebLightClientHeader(
       blck.message.body.build_proof(EXECUTION_PAYLOAD_GINDEX).get)
 
 func toDenebLightClientHeader(
-    blck:  # `SomeSignedBeaconBlock` doesn't work here (Nim 1.6)
+    # `SomeSignedBeaconBlock`: https://github.com/nim-lang/Nim/issues/18095
+    blck:
       deneb.SignedBeaconBlock | deneb.TrustedSignedBeaconBlock
 ): deneb.LightClientHeader =
   template payload: untyped = blck.message.body.execution_payload
@@ -1137,7 +1147,8 @@ func toDenebLightClientHeader(
 
 # https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.3/specs/electra/light-client/full-node.md#modified-block_to_light_client_header
 func toElectraLightClientHeader(
-    blck:  # `SomeSignedBeaconBlock` doesn't work here (Nim 1.6)
+    # `SomeSignedBeaconBlock`: https://github.com/nim-lang/Nim/issues/18095
+    blck:
       phase0.SignedBeaconBlock | phase0.TrustedSignedBeaconBlock |
       altair.SignedBeaconBlock | altair.TrustedSignedBeaconBlock |
       bellatrix.SignedBeaconBlock | bellatrix.TrustedSignedBeaconBlock
@@ -1152,7 +1163,8 @@ func toElectraLightClientHeader(
     beacon: blck.message.toBeaconBlockHeader())
 
 func toElectraLightClientHeader(
-    blck:  # `SomeSignedBeaconBlock` doesn't work here (Nim 1.6)
+    # `SomeSignedBeaconBlock`: https://github.com/nim-lang/Nim/issues/18095
+    blck:
       capella.SignedBeaconBlock | capella.TrustedSignedBeaconBlock
 ): electra.LightClientHeader =
   template payload: untyped = blck.message.body.execution_payload
@@ -1179,7 +1191,8 @@ func toElectraLightClientHeader(
       EXECUTION_PAYLOAD_GINDEX_ELECTRA))
 
 func toElectraLightClientHeader(
-    blck:  # `SomeSignedBeaconBlock` doesn't work here (Nim 1.6)
+    # `SomeSignedBeaconBlock`: https://github.com/nim-lang/Nim/issues/18095
+    blck:
       deneb.SignedBeaconBlock | deneb.TrustedSignedBeaconBlock
 ): electra.LightClientHeader =
   template payload: untyped = blck.message.body.execution_payload
@@ -1208,7 +1221,8 @@ func toElectraLightClientHeader(
       EXECUTION_PAYLOAD_GINDEX_ELECTRA))
 
 func toElectraLightClientHeader(
-    blck:  # `SomeSignedBeaconBlock` doesn't work here (Nim 1.6)
+    # `SomeSignedBeaconBlock`: https://github.com/nim-lang/Nim/issues/18095
+    blck:  
       electra.SignedBeaconBlock | electra.TrustedSignedBeaconBlock
 ): electra.LightClientHeader =
   template payload: untyped = blck.message.body.execution_payload
@@ -1239,8 +1253,115 @@ func toElectraLightClientHeader(
     execution_branch:
       blck.message.body.build_proof(EXECUTION_PAYLOAD_GINDEX_ELECTRA).get)
 
+# https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.3/specs/electra/light-client/full-node.md#modified-block_to_light_client_header
+func toElectraLightClientHeader(
+    # `SomeSignedBeaconBlock`: https://github.com/nim-lang/Nim/issues/18095
+    blck:
+      phase0.SignedBeaconBlock | phase0.TrustedSignedBeaconBlock |
+      altair.SignedBeaconBlock | altair.TrustedSignedBeaconBlock |
+      bellatrix.SignedBeaconBlock | bellatrix.TrustedSignedBeaconBlock
+): electra.LightClientHeader =
+  # Note that during fork transitions, `finalized_header` may still
+  # point to earlier forks. While Bellatrix blocks also contain an
+  # `ExecutionPayload` (minus `withdrawals_root`), it was not included
+  # in the corresponding light client data. To ensure compatibility
+  # with legacy data going through `upgrade_lc_header_to_capella`,
+  # leave out execution data.
+  electra.LightClientHeader(
+    beacon: blck.message.toBeaconBlockHeader())
+
+func toElectraLightClientHeader(
+    # `SomeSignedBeaconBlock`: https://github.com/nim-lang/Nim/issues/18095
+    blck:
+      capella.SignedBeaconBlock | capella.TrustedSignedBeaconBlock
+): electra.LightClientHeader =
+  template payload: untyped = blck.message.body.execution_payload
+  electra.LightClientHeader(
+    beacon: blck.message.toBeaconBlockHeader(),
+    execution: electra.ExecutionPayloadHeader(
+      parent_hash: payload.parent_hash,
+      fee_recipient: payload.fee_recipient,
+      state_root: payload.state_root,
+      receipts_root: payload.receipts_root,
+      logs_bloom: payload.logs_bloom,
+      prev_randao: payload.prev_randao,
+      block_number: payload.block_number,
+      gas_limit: payload.gas_limit,
+      gas_used: payload.gas_used,
+      timestamp: payload.timestamp,
+      extra_data: payload.extra_data,
+      base_fee_per_gas: payload.base_fee_per_gas,
+      block_hash: payload.block_hash,
+      transactions_root: hash_tree_root(payload.transactions),
+      withdrawals_root: hash_tree_root(payload.withdrawals)),
+    execution_branch: blck.message.body.build_proof(
+      capella.EXECUTION_PAYLOAD_GINDEX).get)
+
+func toElectraLightClientHeader(
+    # `SomeSignedBeaconBlock`: https://github.com/nim-lang/Nim/issues/18095
+    blck:
+      deneb.SignedBeaconBlock | deneb.TrustedSignedBeaconBlock
+): electra.LightClientHeader =
+  template payload: untyped = blck.message.body.execution_payload
+  electra.LightClientHeader(
+    beacon: blck.message.toBeaconBlockHeader(),
+    execution: electra.ExecutionPayloadHeader(
+      parent_hash: payload.parent_hash,
+      fee_recipient: payload.fee_recipient,
+      state_root: payload.state_root,
+      receipts_root: payload.receipts_root,
+      logs_bloom: payload.logs_bloom,
+      prev_randao: payload.prev_randao,
+      block_number: payload.block_number,
+      gas_limit: payload.gas_limit,
+      gas_used: payload.gas_used,
+      timestamp: payload.timestamp,
+      extra_data: payload.extra_data,
+      base_fee_per_gas: payload.base_fee_per_gas,
+      block_hash: payload.block_hash,
+      transactions_root: hash_tree_root(payload.transactions),
+      withdrawals_root: hash_tree_root(payload.withdrawals),
+      blob_gas_used: payload.blob_gas_used,
+      excess_blob_gas: payload.excess_blob_gas),
+    execution_branch: blck.message.body.build_proof(
+      capella.EXECUTION_PAYLOAD_GINDEX).get)
+
+func toElectraLightClientHeader(
+    # `SomeSignedBeaconBlock`: https://github.com/nim-lang/Nim/issues/18095
+    blck:
+      electra.SignedBeaconBlock | electra.TrustedSignedBeaconBlock
+): electra.LightClientHeader =
+  template payload: untyped = blck.message.body.execution_payload
+  electra.LightClientHeader(
+    beacon: blck.message.toBeaconBlockHeader(),
+    execution: electra.ExecutionPayloadHeader(
+      parent_hash: payload.parent_hash,
+      fee_recipient: payload.fee_recipient,
+      state_root: payload.state_root,
+      receipts_root: payload.receipts_root,
+      logs_bloom: payload.logs_bloom,
+      prev_randao: payload.prev_randao,
+      block_number: payload.block_number,
+      gas_limit: payload.gas_limit,
+      gas_used: payload.gas_used,
+      timestamp: payload.timestamp,
+      extra_data: payload.extra_data,
+      base_fee_per_gas: payload.base_fee_per_gas,
+      block_hash: payload.block_hash,
+      transactions_root: hash_tree_root(payload.transactions),
+      withdrawals_root: hash_tree_root(payload.withdrawals),
+      blob_gas_used: payload.blob_gas_used,
+      excess_blob_gas: payload.excess_blob_gas,
+      deposit_requests_root: hash_tree_root(payload.deposit_requests),
+      withdrawal_requests_root: hash_tree_root(payload.withdrawal_requests),
+      consolidation_requests_root:
+        hash_tree_root(payload.consolidation_requests)),
+    execution_branch: blck.message.body.build_proof(
+      capella.EXECUTION_PAYLOAD_GINDEX).get)
+
 func toLightClientHeader*(
-    blck:  # `SomeSignedBeaconBlock` doesn't work here (Nim 1.6)
+    # `SomeSignedBeaconBlock`: https://github.com/nim-lang/Nim/issues/18095
+    blck:
       phase0.SignedBeaconBlock | phase0.TrustedSignedBeaconBlock |
       altair.SignedBeaconBlock | altair.TrustedSignedBeaconBlock |
       bellatrix.SignedBeaconBlock | bellatrix.TrustedSignedBeaconBlock |
@@ -1280,7 +1401,7 @@ func shortLog*[
     of LightClientDataFork.Electra:
       electraData: typeof(x.electraData.shortLog())
 
-  let xKind = x.kind  # Nim 1.6.12: Using `kind: x.kind` inside case is broken
+  let xKind = x.kind  # https://github.com/nim-lang/Nim/issues/23762
   case xKind
   of LightClientDataFork.Electra:
     ResultType(kind: xKind, electraData: x.electraData.shortLog())

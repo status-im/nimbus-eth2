@@ -562,9 +562,10 @@ type
         name: "light-client-data-max-periods" .}: Option[uint64]
 
       longRangeSync* {.
+        hidden
         desc: "Enable long-range syncing (genesis sync)",
-        defaultValue: LongRangeSyncMode.Light,
-        name: "long-range-sync".}: LongRangeSyncMode
+        defaultValue: LongRangeSyncMode.Lenient,
+        name: "debug-long-range-sync".}: LongRangeSyncMode
 
       inProcessValidators* {.
         desc: "Disable the push model (the beacon node tells a signing process with the private keys of the validators what to sign and when) and load the validators in the beacon node itself"
@@ -1269,8 +1270,11 @@ func completeCmdArg*(T: type WalletName, input: string): seq[string] =
   return @[]
 
 proc parseCmdArg*(T: type enr.Record, p: string): T {.raises: [ValueError].} =
-  if not fromURI(result, p):
-    raise newException(ValueError, "Invalid ENR")
+  let res = enr.Record.fromURI(p)
+  if res.isErr:
+    raise newException(ValueError, "Invalid ENR:" & $res.error)
+
+  res.value
 
 func completeCmdArg*(T: type enr.Record, val: string): seq[string] =
   return @[]

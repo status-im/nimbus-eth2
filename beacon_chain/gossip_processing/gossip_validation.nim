@@ -11,6 +11,7 @@ import
   # Status
   chronicles, chronos, metrics,
   results,
+  stew/byteutils,
   # Internals
   ../spec/[
     beaconstate, state_transition_block, forks, helpers, network, signatures],
@@ -458,7 +459,7 @@ proc validateBlobSidecar*(
   # blob_sidecar.blob, blob_sidecar.kzg_commitment, blob_sidecar.kzg_proof)`.
   block:
     let ok = verifyProof(
-        blob_sidecar.blob,
+        KzgBlob(bytes: blob_sidecar.blob),
         blob_sidecar.kzg_commitment,
         blob_sidecar.kzg_proof).valueOr:
       return dag.checkedReject("BlobSidecar: blob verify failed")
@@ -467,7 +468,13 @@ proc validateBlobSidecar*(
 
   # Send notification about new blob sidecar via callback
   if not(isNil(blobQuarantine.onBlobSidecarCallback)):
-    blobQuarantine.onBlobSidecarCallback(blob_sidecar)
+    blobQuarantine.onBlobSidecarCallback BlobSidecarInfoObject(
+      block_root: hash_tree_root(blob_sidecar.signed_block_header.message),
+      index: blob_sidecar.index,
+      slot: blob_sidecar.signed_block_header.message.slot,
+      kzg_commitment: blob_sidecar.kzg_commitment,
+      versioned_hash:
+        blob_sidecar.kzg_commitment.kzg_commitment_to_versioned_hash.to0xHex())
 
   ok()
 
@@ -1132,7 +1139,6 @@ proc validateAggregate*(
     Future[Result[
       tuple[attestingIndices: seq[ValidatorIndex], sig: CookedSig],
       ValidationError]] {.async: (raises: [CancelledError]).} =
-  debugComment "is not"
   template aggregate_and_proof: untyped = signedAggregateAndProof.message
   template aggregate: untyped = aggregate_and_proof.aggregate
 

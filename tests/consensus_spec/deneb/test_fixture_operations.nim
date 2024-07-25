@@ -79,7 +79,7 @@ proc runTest[T, U](
 
 suite baseDescription & "Attestation " & preset():
   proc applyAttestation(
-      preState: var deneb.BeaconState, attestation: Attestation):
+      preState: var deneb.BeaconState, attestation: phase0.Attestation):
       Result[void, cstring] =
     var cache: StateCache
     let
@@ -94,14 +94,14 @@ suite baseDescription & "Attestation " & preset():
     ok()
 
   for path in walkTests(OpAttestationsDir):
-    runTest[Attestation, typeof applyAttestation](
+    runTest[phase0.Attestation, typeof applyAttestation](
       OpAttestationsDir, suiteName, "Attestation", "attestation",
       applyAttestation, path)
 
 suite baseDescription & "Attester Slashing " & preset():
   proc applyAttesterSlashing(
-      preState: var deneb.BeaconState, attesterSlashing: AttesterSlashing):
-      Result[void, cstring] =
+      preState: var deneb.BeaconState,
+      attesterSlashing: phase0.AttesterSlashing): Result[void, cstring] =
     var cache: StateCache
     doAssert (? process_attester_slashing(
       defaultRuntimeConfig, preState, attesterSlashing, {strictVerification},
@@ -109,7 +109,7 @@ suite baseDescription & "Attester Slashing " & preset():
     ok()
 
   for path in walkTests(OpAttSlashingDir):
-    runTest[AttesterSlashing, typeof applyAttesterSlashing](
+    runTest[phase0.AttesterSlashing, typeof applyAttesterSlashing](
       OpAttSlashingDir, suiteName, "Attester Slashing", "attester_slashing",
       applyAttesterSlashing, path)
 

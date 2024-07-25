@@ -120,6 +120,11 @@ elif defined(macosx) and defined(arm64):
   # Apple's Clang can't handle "-march=native" on M1: https://github.com/status-im/nimbus-eth2/issues/2758
   switch("passC", "-mcpu=apple-m1")
   switch("passL", "-mcpu=apple-m1")
+elif defined(riscv64):
+  # riscv64 needs specification of ISA with extensions. 'gc' is widely supported 
+  # and seems to be the minimum extensions needed to build. 
+  switch("passC", "-march=rv64gc")
+  switch("passL", "-march=rv64gc")
 else:
   switch("passC", "-march=native")
   switch("passL", "-march=native")
@@ -187,9 +192,6 @@ switch("warning", "CaseTransition:off")
 # do its (N)RVO pass: https://github.com/nim-lang/RFCs/issues/230
 switch("warning", "ObservableStores:off")
 
-# Too many false positives for "Warning: method has lock level <unknown>, but another method has 0 [LockLevel]"
-switch("warning", "LockLevel:off")
-
 # Too many right now to read compiler output. Warnings are legitimate, but
 # should be fixed out-of-band of `unstable` branch.
 switch("warning", "BareExcept:off")
@@ -218,7 +220,8 @@ put("server.always", "-fno-lto")
 put("assembly.always", "-fno-lto")
 
 # Secp256k1
-put("secp256k1.always", "-fno-lto")
+# -fomit-frame-pointer for https://github.com/status-im/nimbus-eth2/issues/6324
+put("secp256k1.always", "-fno-lto -fomit-frame-pointer")
 
 # BearSSL - only RNGs
 put("aesctr_drbg.always", "-fno-lto")

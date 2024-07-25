@@ -425,7 +425,11 @@ proc installBeaconApiHandlers*(router: var RestRouter, node: BeaconNode) =
                 Http400, InvalidRequestBodyError, $error)
           let
             ids = request.ids.valueOr: @[]
-            filter = request.status.valueOr: AllValidatorFilterKinds
+            filter =
+              if request.status.isNone() or len(request.status.get) == 0:
+                AllValidatorFilterKinds
+              else:
+                request.status.get
           (ids, filter)
       sid = state_id.valueOr:
         return RestApiResponse.jsonError(Http400, InvalidStateIdValueError,
@@ -1102,6 +1106,89 @@ proc installBeaconApiHandlers*(router: var RestRouter, node: BeaconNode) =
 
         RestApiResponse.jsonMsgResponse(BlockValidationSuccess)
 
+  # https://ethereum.github.io/beacon-APIs/#/Beacon/publishBlindedBlockV2
+  router.api(MethodPost, "/eth/v2/beacon/blinded_blocks") do (
+    broadcast_validation: Option[BroadcastValidationType],
+    contentBody: Option[ContentBody]) -> RestApiResponse:
+    if contentBody.isNone():
+      return RestApiResponse.jsonError(Http400, EmptyRequestBodyError)
+
+    let
+      currentEpochFork =
+        node.dag.cfg.consensusForkAtEpoch(node.currentSlot().epoch())
+      version = request.headers.getString("eth-consensus-version")
+      validation =
+        if broadcast_validation.isNone():
+          BroadcastValidationType.Gossip
+        else:
+          let res = broadcast_validation.get().valueOr:
+            return RestApiResponse.jsonError(Http400,
+                                             InvalidBroadcastValidationType)
+          # TODO (cheatfate): support 'consensus' and
+          # 'consensus_and_equivocation' broadcast_validation types.
+          if res != BroadcastValidationType.Gossip:
+            return RestApiResponse.jsonError(Http500,
+              "Only `gossip` broadcast_validation option supported")
+          res
+      body = contentBody.get()
+
+    if (body.contentType == OctetStreamMediaType) and
+       (currentEpochFork.toString != version):
+      return RestApiResponse.jsonError(Http400, BlockIncorrectFork)
+
+    withConsensusFork(currentEpochFork):
+      # TODO (cheatfate): handle broadcast_validation flag
+      when consensusFork >= ConsensusFork.Deneb:
+        let
+          restBlock = decodeBodyJsonOrSsz(
+              consensusFork.SignedBlindedBeaconBlock, body).valueOr:
+            return RestApiResponse.jsonError(error)
+          payloadBuilderClient = node.getPayloadBuilderClient(
+              restBlock.message.proposer_index).valueOr:
+            return RestApiResponse.jsonError(
+              Http400, "Unable to initialize payload builder client: " & $error)
+          res = await node.unblindAndRouteBlockMEV(
+            payloadBuilderClient, restBlock)
+
+        if res.isErr():
+          return RestApiResponse.jsonError(
+            Http500, InternalServerError, $res.error)
+        if res.get().isNone():
+          return RestApiResponse.jsonError(Http202, BlockValidationError)
+
+        return RestApiResponse.jsonMsgResponse(BlockValidationSuccess)
+      elif consensusFork >= ConsensusFork.Bellatrix:
+        return RestApiResponse.jsonError(
+          Http400, $consensusFork & " builder API unsupported")
+      else:
+        # Pre-Bellatrix, this endpoint will accept a `SignedBeaconBlock`.
+        #
+        # This is mostly the same as /eth/v1/beacon/blocks for phase 0 and
+        # altair.
+        var
+          restBlock = decodeBody(
+              RestPublishedSignedBeaconBlock, body, version).valueOr:
+            return RestApiResponse.jsonError(error)
+          forked = ForkedSignedBeaconBlock(restBlock)
+
+        if forked.kind != node.dag.cfg.consensusForkAtEpoch(
+            getForkedBlockField(forked, slot).epoch):
+          return RestApiResponse.jsonError(Http400, InvalidBlockObjectError)
+
+        let res = withBlck(forked):
+          forkyBlck.root = hash_tree_root(forkyBlck.message)
+          await node.router.routeSignedBeaconBlock(
+            forkyBlck, Opt.none(seq[BlobSidecar]),
+            checkValidator = true)
+
+        if res.isErr():
+          return RestApiResponse.jsonError(
+            Http503, BeaconNodeInSyncError, $res.error)
+        elif res.get().isNone():
+          return RestApiResponse.jsonError(Http202, BlockValidationError)
+
+        RestApiResponse.jsonMsgResponse(BlockValidationSuccess)
+
   # https://ethereum.github.io/beacon-APIs/#/Beacon/getBlock
   router.api2(MethodGet, "/eth/v1/beacon/blocks/{block_id}") do (
     block_id: BlockIdent) -> RestApiResponse:
@@ -1431,29 +1518,32 @@ proc installBeaconApiHandlers*(router: var RestRouter, node: BeaconNode) =
           return RestApiResponse.jsonError(Http406, ContentNotAcceptableError)
         res.get()
 
-    # https://github.com/ethereum/beacon-APIs/blob/v2.4.2/types/deneb/blob_sidecar.yaml#L2-L28
-    let data = newClone(default(List[BlobSidecar, Limit MAX_BLOBS_PER_BLOCK]))
+      consensusFork = node.dag.cfg.consensusForkAtEpoch(bid.slot.epoch)
 
-    if indices.isErr:
-      return RestApiResponse.jsonError(Http400,
-                                       InvalidSidecarIndexValueError)
+    withBlobFork(blobForkAtConsensusFork(consensusFork).get(BlobFork.Deneb)):
+      # https://github.com/ethereum/beacon-APIs/blob/v2.4.2/types/deneb/blob_sidecar.yaml#L2-L28
+      let data = newClone(
+        default(List[blobFork.BlobSidecar, Limit MAX_BLOBS_PER_BLOCK]))
 
-    let indexFilter = indices.get.toHashSet
+      if indices.isErr:
+        return RestApiResponse.jsonError(Http400,
+                                         InvalidSidecarIndexValueError)
 
-    for blobIndex in 0'u64 ..< MAX_BLOBS_PER_BLOCK:
-      if indexFilter.len > 0 and blobIndex notin indexFilter:
-        continue
+      let indexFilter = indices.get.toHashSet
 
-      var blobSidecar = new BlobSidecar
+      for blobIndex in 0'u64 ..< MAX_BLOBS_PER_BLOCK:
+        if indexFilter.len > 0 and blobIndex notin indexFilter:
+          continue
 
-      if node.dag.db.getBlobSidecar(bid.root, blobIndex, blobSidecar[]):
-        discard data[].add blobSidecar[]
+        var blobSidecar = new blobFork.BlobSidecar
 
-    if contentType == sszMediaType:
-      RestApiResponse.sszResponse(
-        data[], headers = [("eth-consensus-version",
-          node.dag.cfg.consensusForkAtEpoch(bid.slot.epoch).toString())])
-    elif contentType == jsonMediaType:
-      RestApiResponse.jsonResponse(data)
-    else:
-      RestApiResponse.jsonError(Http500, InvalidAcceptError)
+        if node.dag.db.getBlobSidecar(bid.root, blobIndex, blobSidecar[]):
+          discard data[].add blobSidecar[]
+
+      if contentType == sszMediaType:
+        RestApiResponse.sszResponse(data[], headers = [
+          ("eth-consensus-version", consensusFork.toString())])
+      elif contentType == jsonMediaType:
+        RestApiResponse.jsonResponse(data)
+      else:
+        RestApiResponse.jsonError(Http500, InvalidAcceptError)

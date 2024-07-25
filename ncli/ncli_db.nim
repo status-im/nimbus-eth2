@@ -383,6 +383,7 @@ proc cmdDumpState(conf: DbConf) =
     bellatrixState = (ref bellatrix.HashedBeaconState)()
     capellaState   = (ref capella.HashedBeaconState)()
     denebState     = (ref deneb.HashedBeaconState)()
+    electraState   = (ref electra.HashedBeaconState)()
 
   for stateRoot in conf.stateRoot:
     if shouldShutDown: quit QuitSuccess
@@ -401,6 +402,7 @@ proc cmdDumpState(conf: DbConf) =
     doit(bellatrixState[])
     doit(capellaState[])
     doit(denebState[])
+    doit(electraState[])
 
     echo "Couldn't load ", stateRoot
 
@@ -487,19 +489,22 @@ proc cmdPutBlob(conf: DbConf, cfg: RuntimeConfig) =
     let
       blob =
         try:
-          SSZ.decode(readAllBytes(file).tryGet(), BlobSidecar)
+          readSszForkedBlobSidecar(
+            cfg, readAllBytes(file).tryGet())
         except ResultError[IoErrorCode] as e:
           echo "Couldn't load ", file, ": ", e.msg
           continue
         except SerializationError as e:
           echo "Malformed ", file, ": ", e.msg
           continue
-      res = blob.verify_blob_sidecar_inclusion_proof()
+      res = withForkyBlob(blob):
+        forkyBlob[].verify_blob_sidecar_inclusion_proof()
     if res.isErr:
       echo "Invalid ", file, ": ", res.error
       continue
 
-    db.putBlobSidecar(blob)
+    withForkyBlob(blob):
+      db.putBlobSidecar(forkyBlob[])
 
 proc cmdRewindState(conf: DbConf, cfg: RuntimeConfig) =
   echo "Opening database..."

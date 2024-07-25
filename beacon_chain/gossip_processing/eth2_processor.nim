@@ -8,7 +8,7 @@
 {.push raises: [].}
 
 import
-  std/tables,
+  std/[sequtils, tables],
   chronicles, chronos, metrics,
   taskpools,
   ../spec/[helpers, forks],
@@ -244,13 +244,15 @@ proc processSignedBeaconBlock*(
     let blobs =
       when typeof(signedBlock).kind >= ConsensusFork.Deneb:
         if self.blobQuarantine[].hasBlobs(signedBlock):
-          Opt.some(self.blobQuarantine[].popBlobs(signedBlock.root, signedBlock))
+          Opt.some(self.blobQuarantine[]
+            .popBlobs(signedBlock.root, signedBlock)
+            .mapIt(ForkedBlobSidecar.init(it)))
         else:
           discard self.quarantine[].addBlobless(self.dag.finalizedHead.slot,
                                                 signedBlock)
           return v
       else:
-        Opt.none(BlobSidecars)
+        Opt.none(ForkedBlobSidecars)
 
     self.blockProcessor[].enqueueBlock(
       src, ForkedSignedBeaconBlock.init(signedBlock),
@@ -308,7 +310,9 @@ proc processBlobSidecar*(
         if self.blobQuarantine[].hasBlobs(forkyBlck):
           self.blockProcessor[].enqueueBlock(
             MsgSource.gossip, blobless,
-            Opt.some(self.blobQuarantine[].popBlobs(block_root, forkyBlck)))
+            Opt.some(self.blobQuarantine[]
+              .popBlobs(block_root, forkyBlck)
+              .mapIt(ForkedBlobSidecar.init(it))))
         else:
           discard self.quarantine[].addBlobless(
             self.dag.finalizedHead.slot, forkyBlck)

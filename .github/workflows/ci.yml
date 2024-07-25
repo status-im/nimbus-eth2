@@ -35,21 +35,16 @@ jobs:
             cpu: amd64
           - os: windows
             cpu: amd64
-        branch: [~, upstream/version-1-6, v2.0.6]
+        branch: [~, upstream/version-2-0]
         exclude:
           - target:
               os: macos
-            branch: upstream/version-1-6
+            branch: upstream/version-2-0
           - target:
               os: windows
-            branch: upstream/version-1-6
-          - target:
-              os: windows
-            branch: ~
+            branch: upstream/version-2-0
         include:
-          - branch: upstream/version-1-6
-            branch-short: version-1-6
-          - branch: v2.0.6
+          - branch: upstream/version-2-0
             branch-short: version-2-0
             nimflags-extra: --mm:refc
           - target:

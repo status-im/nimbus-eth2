@@ -56,7 +56,7 @@ const
 type
   BlockEntry = object
     blck*: ForkedSignedBeaconBlock
-    blobs*: Opt[BlobSidecars]
+    blobs*: Opt[ForkedBlobSidecars]
     maybeFinalized*: bool
       ## The block source claims the block has been finalized already
     resfut*: Future[Result[void, VerifierError]].Raising([CancelledError])
@@ -173,7 +173,12 @@ from ../consensus_object_pools/block_clearance import
 proc storeBackfillBlock(
     self: var BlockProcessor,
     signedBlock: ForkySignedBeaconBlock,
-    blobsOpt: Opt[BlobSidecars]): Result[void, VerifierError] =
+    blobsOpt: Opt[ForkyBlobSidecars]
+): Result[void, VerifierError] =
+  const
+    consensusFork = typeof(signedBlock).kind
+    blobFork = blobForkAtConsensusFork(consensusFork).get(BlobFork.Deneb)
+  static: doAssert typeof(blobsOpt).T is blobFork.BlobSidecars
 
   # The block is certainly not missing any more
   self.consensusManager.quarantine[].missing.del(signedBlock.root)
@@ -181,12 +186,12 @@ proc storeBackfillBlock(
   # Establish blob viability before calling addbackfillBlock to avoid
   # writing the block in case of blob error.
   var blobsOk = true
-  when typeof(signedBlock).kind >= ConsensusFork.Deneb:
+  when consensusFork >= ConsensusFork.Deneb:
     if blobsOpt.isSome:
       let blobs = blobsOpt.get()
       let kzgCommits = signedBlock.message.body.blob_kzg_commitments.asSeq
       if blobs.len > 0 or kzgCommits.len > 0:
-        let r = validate_blobs(kzgCommits, blobs.mapIt(it.blob),
+        let r = validate_blobs(kzgCommits, blobs.mapIt(KzgBlob(bytes: it.blob)),
                                blobs.mapIt(it.kzg_proof))
         if r.isErr():
           debug "backfill blob validation failed",
@@ -220,7 +225,7 @@ proc storeBackfillBlock(
     return res
 
   # Only store blobs after successfully establishing block viability.
-  let blobs = blobsOpt.valueOr: BlobSidecars @[]
+  let blobs = blobsOpt.valueOr: blobFork.BlobSidecars() @[]
   for b in blobs:
     self.consensusManager.dag.db.putBlobSidecar(b[])
 
@@ -381,17 +386,42 @@ proc checkBloblessSignature(
     return err("checkBloblessSignature: Invalid proposer signature")
   ok()
 
+template withForkyBlckAndBlobs(
+    blck: ForkedSignedBeaconBlock,
+    blobs: Opt[ForkedBlobSidecars],
+    body: untyped): untyped =
+  withBlck(blck):
+    when consensusFork >= ConsensusFork.Deneb:
+      const blobFork = blobForkAtConsensusFork(consensusFork).expect("Blobs OK")
+      let forkyBlobs {.inject, used.} =
+        if blobs.isSome:
+          # Nim 2.0.8: `forks.BlobSidecars(blobFork)` does not work here:
+          # > type mismatch: got 'BlobFork' for 'blobFork`gensym15'
+          #   but expected 'BlobSidecars'
+          var fBlobs: deneb.BlobSidecars
+          for blob in blobs.get:
+            doAssert blob.kind == blobFork,
+              "Must verify blob inclusion proof before `enqueueBlock`"
+            fBlobs.add blob.forky(blobFork)
+          Opt.some fBlobs
+        else:
+          Opt.none deneb.BlobSidecars
+    else:
+      doAssert blobs.isNone, "Blobs are not supported before Deneb"
+      let forkyBlobs {.inject, used.} = Opt.none deneb.BlobSidecars
+    body
+
 proc enqueueBlock*(
     self: var BlockProcessor, src: MsgSource, blck: ForkedSignedBeaconBlock,
-    blobs: Opt[BlobSidecars],
+    blobs: Opt[ForkedBlobSidecars],
     resfut: Future[Result[void, VerifierError]].Raising([CancelledError]) = nil,
     maybeFinalized = false,
     validationDur = Duration()) =
-  withBlck(blck):
+  withForkyBlckAndBlobs(blck, blobs):
     if forkyBlck.message.slot <= self.consensusManager.dag.finalizedHead.slot:
       # let backfill blocks skip the queue - these are always "fast" to process
       # because there are no state rewinds to deal with
-      let res = self.storeBackfillBlock(forkyBlck, blobs)
+      let res = self.storeBackfillBlock(forkyBlck, forkyBlobs)
       resfut.complete(res)
       return
 
@@ -409,14 +439,20 @@ proc enqueueBlock*(
 proc storeBlock(
     self: ref BlockProcessor, src: MsgSource, wallTime: BeaconTime,
     signedBlock: ForkySignedBeaconBlock,
-    blobsOpt: Opt[BlobSidecars],
+    blobsOpt: Opt[ForkyBlobSidecars],
     maybeFinalized = false,
-    queueTick: Moment = Moment.now(), validationDur = Duration()):
-    Future[Result[BlockRef, (VerifierError, ProcessingStatus)]] {.async: (raises: [CancelledError]).} =
+    queueTick: Moment = Moment.now(),
+    validationDur = Duration()
+): Future[Result[BlockRef, (VerifierError, ProcessingStatus)]] {.
+    async: (raises: [CancelledError]).} =
   ## storeBlock is the main entry point for unvalidated blocks - all untrusted
   ## blocks, regardless of origin, pass through here. When storing a block,
   ## we will add it to the dag and pass it to all block consumers that need
   ## to know about it, such as the fork choice and the monitoring
+  const
+    consensusFork = typeof(signedBlock).kind
+    blobFork = blobForkAtConsensusFork(consensusFork).get(BlobFork.Deneb)
+  static: doAssert typeof(blobsOpt).T is blobFork.BlobSidecars
 
   let
     attestationPool = self.consensusManager.attestationPool
@@ -497,16 +533,18 @@ proc storeBlock(
         let blobs =
           withBlck(parentBlck.get()):
             when consensusFork >= ConsensusFork.Deneb:
-              var blob_sidecars: BlobSidecars
+              const blobFork =
+                blobForkAtConsensusFork(consensusFork).expect("Blobs OK")
+              var blob_sidecars: ForkedBlobSidecars
               for i in 0 ..< forkyBlck.message.body.blob_kzg_commitments.len:
-                let blob = BlobSidecar.new()
+                let blob = blobFork.BlobSidecar.new()
                 if not dag.db.getBlobSidecar(parent_root, i.BlobIndex, blob[]):
                   blobsOk = false  # Pruned, or inconsistent DB
                   break
-                blob_sidecars.add blob
+                blob_sidecars.add ForkedBlobSidecar.init(blob)
               Opt.some blob_sidecars
             else:
-              Opt.none BlobSidecars
+              Opt.none ForkedBlobSidecars
         if blobsOk:
           debug "Loaded parent block from storage", parent_root
           self[].enqueueBlock(
@@ -555,8 +593,7 @@ proc storeBlock(
     # This should simulate an unsynced EL, which still must perform these
     # checks. This means it must be able to do so without context, beyond
     # whatever data the block itself contains.
-    when typeof(signedBlock).kind >= ConsensusFork.Bellatrix and typeof(signedBlock).kind <= ConsensusFork.Deneb:
-      debugComment "electra can do this in principle"
+    when typeof(signedBlock).kind >= ConsensusFork.Bellatrix:
       template payload(): auto = signedBlock.message.body.execution_payload
       if  signedBlock.message.is_execution_block and
           payload.block_hash !=
@@ -578,7 +615,7 @@ proc storeBlock(
       let blobs = blobsOpt.get()
       let kzgCommits = signedBlock.message.body.blob_kzg_commitments.asSeq
       if blobs.len > 0 or kzgCommits.len > 0:
-        let r = validate_blobs(kzgCommits, blobs.mapIt(it.blob),
+        let r = validate_blobs(kzgCommits, blobs.mapIt(KzgBlob(bytes: it.blob)),
                                blobs.mapIt(it.kzg_proof))
         if r.isErr():
           debug "blob validation failed",
@@ -773,11 +810,11 @@ proc storeBlock(
     withBlck(quarantined):
       when typeof(forkyBlck).kind < ConsensusFork.Deneb:
         self[].enqueueBlock(
-          MsgSource.gossip, quarantined, Opt.none(BlobSidecars))
+          MsgSource.gossip, quarantined, Opt.none(ForkedBlobSidecars))
       else:
         if len(forkyBlck.message.body.blob_kzg_commitments) == 0:
           self[].enqueueBlock(
-            MsgSource.gossip, quarantined, Opt.some(BlobSidecars @[]))
+            MsgSource.gossip, quarantined, Opt.some(ForkedBlobSidecars @[]))
         else:
           if (let res = checkBloblessSignature(self[], forkyBlck); res.isErr):
             warn "Failed to verify signature of unorphaned blobless block",
@@ -785,8 +822,9 @@ proc storeBlock(
              error = res.error()
             continue
           if self.blobQuarantine[].hasBlobs(forkyBlck):
-            let blobs = self.blobQuarantine[].popBlobs(
-              forkyBlck.root, forkyBlck)
+            let blobs = self.blobQuarantine[]
+              .popBlobs(forkyBlck.root, forkyBlck)
+              .mapIt(ForkedBlobSidecar.init(it))
             self[].enqueueBlock(MsgSource.gossip, quarantined, Opt.some(blobs))
           else:
             discard self.consensusManager.quarantine[].addBlobless(
@@ -799,8 +837,10 @@ proc storeBlock(
 
 proc addBlock*(
     self: var BlockProcessor, src: MsgSource, blck: ForkedSignedBeaconBlock,
-    blobs: Opt[BlobSidecars], maybeFinalized = false,
-    validationDur = Duration()): Future[Result[void, VerifierError]] {.async: (raises: [CancelledError], raw: true).} =
+    blobs: Opt[ForkedBlobSidecars], maybeFinalized = false,
+    validationDur = Duration()
+): Future[Result[void, VerifierError]] {.
+    async: (raises: [CancelledError], raw: true).} =
   ## Enqueue a Gossip-validated block for consensus verification
   # Backpressure:
   #   There is no backpressure here - producers must wait for `resfut` to
@@ -830,9 +870,9 @@ proc processBlock(
     error "Processing block before genesis, clock turned back?"
     quit 1
 
-  let res = withBlck(entry.blck):
+  let res = withForkyBlckAndBlobs(entry.blck, entry.blobs):
     await self.storeBlock(
-      entry.src, wallTime, forkyBlck, entry.blobs, entry.maybeFinalized,
+      entry.src, wallTime, forkyBlck, forkyBlobs, entry.maybeFinalized,
       entry.queueTick, entry.validationDur)
 
   if res.isErr and res.error[1] == ProcessingStatus.notCompleted:

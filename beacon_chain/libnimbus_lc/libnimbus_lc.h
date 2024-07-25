@@ -63,7 +63,7 @@ typedef struct ETHRandomNumber ETHRandomNumber;
  * @return `NULL` - If an error occurred.
  */
 ETH_RESULT_USE_CHECK
-ETHRandomNumber *ETHRandomNumberCreate(void);
+ETHRandomNumber *_Nullable ETHRandomNumberCreate(void);
 
 /**
  * Destroys a cryptographically secure random number generator.
@@ -97,7 +97,7 @@ typedef struct ETHConsensusConfig ETHConsensusConfig;
  * @see https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.3/configs/README.md
  */
 ETH_RESULT_USE_CHECK
-ETHConsensusConfig *ETHConsensusConfigCreateFromYaml(const char *configFileContent);
+ETHConsensusConfig *_Nullable ETHConsensusConfigCreateFromYaml(const char *configFileContent);
 
 /**
  * Destroys an Ethereum Consensus Layer network configuration.
@@ -156,7 +156,7 @@ typedef struct ETHBeaconState ETHBeaconState;
  * @see https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.3/configs/README.md
  */
 ETH_RESULT_USE_CHECK
-ETHBeaconState *ETHBeaconStateCreateFromSsz(
+ETHBeaconState *_Nullable ETHBeaconStateCreateFromSsz(
     const ETHConsensusConfig *cfg,
     const char *consensusVersion,
     const void *sszBytes,
@@ -251,7 +251,7 @@ typedef struct ETHBeaconClock ETHBeaconClock;
  *         NULL if the state contained an invalid time.
  */
 ETH_RESULT_USE_CHECK
-ETHBeaconClock *ETHBeaconClockCreateFromState(
+ETHBeaconClock *_Nullable ETHBeaconClockCreateFromState(
     const ETHConsensusConfig *cfg, const ETHBeaconState *state);
 
 /**
@@ -329,7 +329,7 @@ typedef struct ETHLightClientStore ETHLightClientStore;
  * @see https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.3/specs/phase0/weak-subjectivity.md#weak-subjectivity-period
  */
 ETH_RESULT_USE_CHECK
-ETHLightClientStore *ETHLightClientStoreCreateFromBootstrap(
+ETHLightClientStore *_Nullable ETHLightClientStoreCreateFromBootstrap(
     const ETHConsensusConfig *cfg,
     const ETHRoot *trustedBlockRoot,
     const char *mediaType,
@@ -1040,7 +1040,7 @@ typedef struct ETHExecutionBlockHeader ETHExecutionBlockHeader;
  * @see https://ethereum.org/en/developers/docs/apis/json-rpc/#eth_getblockbyhash
  */
 ETH_RESULT_USE_CHECK
-ETHExecutionBlockHeader *ETHExecutionBlockHeaderCreateFromJson(
+ETHExecutionBlockHeader *_Nullable ETHExecutionBlockHeaderCreateFromJson(
     const ETHRoot *executionHash,
     const char *blockHeaderJson);
 
@@ -1129,7 +1129,7 @@ typedef struct ETHTransactions ETHTransactions;
  * @see https://ethereum.org/en/developers/docs/apis/json-rpc/#eth_getblockbyhash
  */
 ETH_RESULT_USE_CHECK
-ETHTransactions *ETHTransactionsCreateFromJson(
+ETHTransactions *_Nullable ETHTransactionsCreateFromJson(
     const ETHRoot *transactionsRoot,
     const char *transactionsJson);
 
@@ -1539,7 +1539,7 @@ typedef struct ETHReceipts ETHReceipts;
  * @see https://ethereum.org/en/developers/docs/apis/json-rpc/#eth_gettransactionreceipt
  */
 ETH_RESULT_USE_CHECK
-ETHReceipts *ETHReceiptsCreateFromJson(
+ETHReceipts *_Nullable ETHReceiptsCreateFromJson(
     const ETHRoot *receiptsRoot,
     const char *receiptsJson,
     const ETHTransactions *transactions);

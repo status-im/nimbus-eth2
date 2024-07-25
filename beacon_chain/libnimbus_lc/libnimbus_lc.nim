@@ -9,7 +9,6 @@
 
 import
   std/[json, sequtils, times],
-  stew/saturation_arith,
   eth/common/[eth_types_rlp, transaction],
   eth/keys,
   eth/p2p/discoveryv5/random2,
@@ -1242,10 +1241,8 @@ proc ETHExecutionBlockHeaderCreateFromJson(
 
   # Construct block header
   static:  # `GasInt` is signed. We only use it for hashing.
-    doAssert sizeof(int64) == sizeof(data.gasLimit)
-    doAssert sizeof(int64) == sizeof(data.gasUsed)
-  if distinctBase(data.timestamp) > int64.high.uint64:
-    return nil
+    doAssert sizeof(uint64) == sizeof(data.gasLimit)
+    doAssert sizeof(uint64) == sizeof(data.gasUsed)
   if data.nonce.isNone:
     return nil
   let blockHeader = ExecutionBlockHeader(
@@ -1258,8 +1255,8 @@ proc ETHExecutionBlockHeaderCreateFromJson(
     logsBloom: distinctBase(data.logsBloom),
     difficulty: data.difficulty,
     number: distinctBase(data.number),
-    gasLimit: GasInt.saturate distinctBase(data.gasLimit),
-    gasUsed: GasInt.saturate distinctBase(data.gasUsed),
+    gasLimit: distinctBase(data.gasLimit),
+    gasUsed: distinctBase(data.gasUsed),
     timestamp: EthTime(distinctBase(data.timestamp)),
     extraData: distinctBase(data.extraData),
     mixHash: data.mixHash.asEth2Digest,
@@ -1322,7 +1319,7 @@ proc ETHExecutionBlockHeaderCreateFromJson(
     var tr = initHexaryTrie(newMemoryDB())
     for i, wd in wds:
       try:
-        tr.put(rlp.encode(i), wd.bytes)
+        tr.put(rlp.encode(i.uint), wd.bytes)
       except RlpError:
         raiseAssert "Unreachable"
     if tr.rootHash() != data.withdrawalsRoot.get.asEth2Digest:
@@ -1497,24 +1494,14 @@ proc ETHTransactionsCreateFromJson(
     # Construct transaction
     static:
       doAssert sizeof(uint64) == sizeof(ChainId)
-      doAssert sizeof(int64) == sizeof(data.gasPrice)
-      doAssert sizeof(int64) == sizeof(data.maxPriorityFeePerGas.get)
+      doAssert sizeof(uint64) == sizeof(data.gas)
+      doAssert sizeof(uint64) == sizeof(data.gasPrice)
+      doAssert sizeof(uint64) == sizeof(data.maxPriorityFeePerGas.get)
       doAssert sizeof(UInt256) == sizeof(data.maxFeePerBlobGas.get)
     if distinctBase(data.chainId.get(0.Quantity)) > distinctBase(ChainId.high):
       return nil
-    if distinctBase(data.gasPrice) > int64.high.uint64:
-      return nil
-    if distinctBase(data.maxFeePerGas.get(0.Quantity)) > int64.high.uint64:
-      return nil
-    if distinctBase(data.maxPriorityFeePerGas.get(0.Quantity)) >
-        int64.high.uint64:
-      return nil
     if data.maxFeePerBlobGas.get(0.u256) >
         uint64.high.u256:
-      return nil
-    if distinctBase(data.gas) > int64.high.uint64:
-      return nil
-    if distinctBase(data.v) > int64.high.uint64:
       return nil
     if data.yParity.isSome:
       # This is not always included, but if it is, make sure it's correct
@@ -1555,7 +1542,7 @@ proc ETHTransactionsCreateFromJson(
               ExecutionHash256(data: distinctBase(it)))
           else:
             @[],
-        V: data.v.uint64,
+        V: distinctBase(data.v),
         R: data.r,
         S: data.s)
       rlpBytes =
@@ -1632,7 +1619,7 @@ proc ETHTransactionsCreateFromJson(
   var tr = initHexaryTrie(newMemoryDB())
   for i, transaction in txs:
     try:
-      tr.put(rlp.encode(i), distinctBase(transaction.bytes))
+      tr.put(rlp.encode(i.uint), distinctBase(transaction.bytes))
     except RlpError:
       raiseAssert "Unreachable"
   if tr.rootHash() != transactionsRoot[]:
@@ -2208,7 +2195,7 @@ proc ETHReceiptsCreateFromJson(
   var tr = initHexaryTrie(newMemoryDB())
   for i, rec in recs:
     try:
-      tr.put(rlp.encode(i), rec.bytes)
+      tr.put(rlp.encode(i.uint), rec.bytes)
     except RlpError:
       raiseAssert "Unreachable"
   if tr.rootHash() != receiptsRoot[]:

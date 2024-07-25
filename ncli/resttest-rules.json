@@ -4748,8 +4748,7 @@
       "body": {"content-type": "application/json", "data": "[{\"message\":{\"fee_recipient\":\"0xb943c2c22b1b186a34f47c4dbe2fe367de9ec180\",\"gas_limit\":\"40000000\",\"timestamp\":\"1661879190\",\"pubkey\":\"0xa37b7bb9c412b8cc318fabf7b1fec33eb9634680687f07b977393180ce99889dbcfda81900f3afb9f2281930cf49f5d8\"},\"signature\":\"0xa493085fab365d13bea2376434abc3dbfba00a576276c853acabd7b9cb2f2b4b0a90738dd9baeaef75d0f42fa94119a70a09b0ed38fbebb6dde92c9ca062447018821f36c19d6fe34eb8c357d62e5d33e5c1d35035472ef7dd22a7425cdba0c5\"}]"}
     },
     "response": {
-      "status": {"operator": "equals", "value": "200"},
-      "headers": [{"key": "Content-Type", "value": "text/plain", "operator": "equals"}]
+      "status": {"operator": "equals", "value": "200"}
     }
   },
   {

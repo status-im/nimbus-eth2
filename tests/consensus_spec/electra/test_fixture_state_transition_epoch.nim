@@ -13,7 +13,7 @@ import
   chronicles,
   # Beacon chain internals
   ../../../beacon_chain/spec/[presets, state_transition_epoch],
-  ../../../beacon_chain/spec/datatypes/[altair, electra],
+  ../../../beacon_chain/spec/datatypes/altair,
   # Test utilities
   ../../testutil,
   ../fixtures_utils, ../os_ops,
@@ -22,6 +22,8 @@ import
 
 from std/sequtils import mapIt, toSeq
 from std/strutils import rsplit
+from ../../../beacon_chain/spec/datatypes/electra import BeaconState
+from ../../teststateutil import checkPerValidatorBalanceCalc
 
 const
   RootDir = SszTestsDir/const_preset/"electra"/"epoch_processing"
@@ -76,6 +78,7 @@ template runSuite(
 # ---------------------------------------------------------------
 runSuite(JustificationFinalizationDir, "Justification & Finalization"):
   let info = altair.EpochInfo.init(state)
+  check checkPerValidatorBalanceCalc(state)
   process_justification_and_finalization(state, info.balances)
   Result[void, cstring].ok()
 
@@ -83,6 +86,7 @@ runSuite(JustificationFinalizationDir, "Justification & Finalization"):
 # ---------------------------------------------------------------
 runSuite(InactivityDir, "Inactivity"):
   let info = altair.EpochInfo.init(state)
+  check checkPerValidatorBalanceCalc(state)
   process_inactivity_updates(cfg, state, info)
   Result[void, cstring].ok()
 

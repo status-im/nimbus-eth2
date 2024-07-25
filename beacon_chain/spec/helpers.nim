@@ -11,7 +11,7 @@
 
 import
   # Status libraries
-  stew/[byteutils, endians2, objects, saturation_arith],
+  stew/[bitops2, byteutils, endians2, objects],
   chronicles,
   eth/common/[eth_types, eth_types_rlp],
   eth/rlp, eth/trie/[db, hexary],
@@ -39,6 +39,9 @@ type
   ExecutionTransaction* = eth_types.Transaction
   ExecutionReceipt* = eth_types.Receipt
   ExecutionWithdrawal* = eth_types.Withdrawal
+  ExecutionDepositRequest* = eth_types.DepositRequest
+  ExecutionWithdrawalRequest* = eth_types.WithdrawalRequest
+  ExecutionConsolidationRequest* = eth_types.ConsolidationRequest
   ExecutionBlockHeader* = eth_types.BlockHeader
 
   FinalityCheckpoints* = object
@@ -220,12 +223,13 @@ func has_flag*(flags: ParticipationFlags, flag_index: TimelyFlag): bool =
 
 # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.4/specs/deneb/p2p-interface.md#check_blob_sidecar_inclusion_proof
 func verify_blob_sidecar_inclusion_proof*(
-    blob_sidecar: BlobSidecar): Result[void, string] =
-  let gindex = kzg_commitment_inclusion_proof_gindex(blob_sidecar.index)
+    blob_sidecar: ForkyBlobSidecar): Result[void, string] =
+  let gindex = withBlobFork(typeof(blob_sidecar).kind):
+    blobFork.kzg_commitment_inclusion_proof_gindex(blob_sidecar.index)
   if not is_valid_merkle_branch(
       hash_tree_root(blob_sidecar.kzg_commitment),
       blob_sidecar.kzg_commitment_inclusion_proof,
-      KZG_COMMITMENT_INCLUSION_PROOF_DEPTH,
+      log2trunc(gindex),
       get_subtree_index(gindex),
       blob_sidecar.signed_block_header.message.body_root):
     return err("BlobSidecar: inclusion proof not valid")
@@ -234,23 +238,28 @@ func verify_blob_sidecar_inclusion_proof*(
 func create_blob_sidecars*(
     forkyBlck: deneb.SignedBeaconBlock | electra.SignedBeaconBlock,
     kzg_proofs: KzgProofs,
-    blobs: Blobs): seq[BlobSidecar] =
+    blobs: Blobs): auto =
+  const
+    consensusFork = typeof(forkyBlck).kind
+    blobFork = blobForkAtConsensusFork(consensusFork).expect("Blobs OK")
+  type ResultType = seq[blobFork.BlobSidecar]
+
   template kzg_commitments: untyped =
     forkyBlck.message.body.blob_kzg_commitments
   doAssert kzg_proofs.len == blobs.len
   doAssert kzg_proofs.len == kzg_commitments.len
 
-  var res = newSeqOfCap[BlobSidecar](blobs.len)
+  var res: ResultType = newSeqOfCap[blobFork.BlobSidecar](blobs.len)
   let signedBlockHeader = forkyBlck.toSignedBeaconBlockHeader()
   for i in 0 ..< blobs.lenu64:
-    var sidecar = BlobSidecar(
+    var sidecar = blobFork.BlobSidecar(
       index: i,
       blob: blobs[i],
       kzg_commitment: kzg_commitments[i],
       kzg_proof: kzg_proofs[i],
       signed_block_header: signedBlockHeader)
     forkyBlck.message.body.build_proof(
-      kzg_commitment_inclusion_proof_gindex(i),
+      blobFork.kzg_commitment_inclusion_proof_gindex(i),
       sidecar.kzg_commitment_inclusion_proof).expect("Valid gindex")
     res.add(sidecar)
   res
@@ -445,9 +454,10 @@ proc computeTransactionsTrieRoot*(
   var tr = initHexaryTrie(newMemoryDB())
   for i, transaction in payload.transactions:
     try:
-      tr.put(rlp.encode(i), distinctBase(transaction))  # Already RLP encoded
+      # Transactions are already RLP encoded
+      tr.put(rlp.encode(i.uint), distinctBase(transaction))
     except RlpError as exc:
-      doAssert false, "HexaryTrie.put failed: " & $exc.msg
+      raiseAssert "HexaryTrie.put failed: " & $exc.msg
   tr.rootHash()
 
 func toExecutionWithdrawal*(
@@ -468,9 +478,77 @@ proc computeWithdrawalsTrieRoot*(
   var tr = initHexaryTrie(newMemoryDB())
   for i, withdrawal in payload.withdrawals:
     try:
-      tr.put(rlp.encode(i), rlp.encode(toExecutionWithdrawal(withdrawal)))
+      tr.put(rlp.encode(i.uint), rlp.encode(toExecutionWithdrawal(withdrawal)))
     except RlpError as exc:
-      doAssert false, "HexaryTrie.put failed: " & $exc.msg
+      raiseAssert "HexaryTrie.put failed: " & $exc.msg
+  tr.rootHash()
+
+func toExecutionDepositRequest*(
+    request: electra.DepositRequest): ExecutionDepositRequest =
+  ExecutionDepositRequest(
+    pubkey: request.pubkey.blob,
+    withdrawalCredentials: request.withdrawal_credentials.data,
+    amount: distinctBase(request.amount),
+    signature: request.signature.blob,
+    index: request.index)
+
+func toExecutionWithdrawalRequest*(
+    request: electra.WithdrawalRequest): ExecutionWithdrawalRequest =
+  ExecutionWithdrawalRequest(
+    sourceAddress: request.source_address.data,
+    validatorPubkey: request.validator_pubkey.blob,
+    amount: distinctBase(request.amount))
+
+func toExecutionConsolidationRequest*(
+    request: electra.ConsolidationRequest): ExecutionConsolidationRequest =
+  ExecutionConsolidationRequest(
+    sourceAddress: request.source_address.data,
+    sourcePubkey: request.source_pubkey.blob,
+    targetPubkey: request.target_pubkey.blob)
+
+# https://eips.ethereum.org/EIPS/eip-7685
+proc computeRequestsTrieRoot*(
+    payload: electra.ExecutionPayload): ExecutionHash256 =
+  if payload.deposit_requests.len == 0 and
+      payload.withdrawal_requests.len == 0 and
+      payload.consolidation_requests.len == 0:
+    return EMPTY_ROOT_HASH
+
+  var
+    tr = initHexaryTrie(newMemoryDB())
+    i = 0'u64
+
+  static:
+    doAssert DEPOSIT_REQUEST_TYPE < WITHDRAWAL_REQUEST_TYPE
+    doAssert WITHDRAWAL_REQUEST_TYPE < CONSOLIDATION_REQUEST_TYPE
+
+  # EIP-6110
+  for request in payload.deposit_requests:
+    try:
+      tr.put(rlp.encode(i.uint), rlp.encode(
+        toExecutionDepositRequest(request)))
+    except RlpError as exc:
+      raiseAssert "HexaryTree.put failed: " & $exc.msg
+    inc i
+
+  # EIP-7002
+  for request in payload.withdrawal_requests:
+    try:
+      tr.put(rlp.encode(i.uint), rlp.encode(
+        toExecutionWithdrawalRequest(request)))
+    except RlpError as exc:
+      raiseAssert "HexaryTree.put failed: " & $exc.msg
+    inc i
+
+  # EIP-7251
+  for request in payload.consolidation_requests:
+    try:
+      tr.put(rlp.encode(i.uint), rlp.encode(
+        toExecutionConsolidationRequest(request)))
+    except RlpError as exc:
+      raiseAssert "HexaryTree.put failed: " & $exc.msg
+    inc i
+
   tr.rootHash()
 
 proc blockToBlockHeader*(blck: ForkyBeaconBlock): ExecutionBlockHeader =
@@ -502,6 +580,11 @@ proc blockToBlockHeader*(blck: ForkyBeaconBlock): ExecutionBlockHeader =
         Opt.some ExecutionHash256(data: blck.parent_root.data)
       else:
         Opt.none(ExecutionHash256)
+    requestsRoot =
+      when typeof(payload).kind >= ConsensusFork.Electra:
+        Opt.some payload.computeRequestsTrieRoot()
+      else:
+        Opt.none(ExecutionHash256)
 
   ExecutionBlockHeader(
     parentHash            : payload.parent_hash,
@@ -513,8 +596,8 @@ proc blockToBlockHeader*(blck: ForkyBeaconBlock): ExecutionBlockHeader =
     logsBloom             : payload.logs_bloom.data,
     difficulty            : default(DifficultyInt),
     number                : payload.block_number,
-    gasLimit              : GasInt.saturate(payload.gas_limit),
-    gasUsed               : GasInt.saturate(payload.gas_used),
+    gasLimit              : payload.gas_limit,
+    gasUsed               : payload.gas_used,
     timestamp             : EthTime(payload.timestamp),
     extraData             : payload.extra_data.asSeq,
     mixHash               : payload.prev_randao, # EIP-4399 `mixHash` -> `prevRandao`
@@ -523,7 +606,31 @@ proc blockToBlockHeader*(blck: ForkyBeaconBlock): ExecutionBlockHeader =
     withdrawalsRoot       : withdrawalsRoot,
     blobGasUsed           : blobGasUsed,           # EIP-4844
     excessBlobGas         : excessBlobGas,         # EIP-4844
-    parentBeaconBlockRoot : parentBeaconBlockRoot) # EIP-4788
+    parentBeaconBlockRoot : parentBeaconBlockRoot, # EIP-4788
+    requestsRoot          : requestsRoot)          # EIP-7685
 
 proc compute_execution_block_hash*(blck: ForkyBeaconBlock): Eth2Digest =
   rlpHash blockToBlockHeader(blck)
+
+from std/math import exp, ln
+from std/sequtils import foldl
+
+func ln_binomial(n, k: int): float64 =
+  if k > n:
+    low(float64)
+  else:
+    template ln_factorial(n: int): float64 =
+      (2 .. n).foldl(a + ln(b.float64), 0.0)
+    ln_factorial(n) - ln_factorial(k) - ln_factorial(n - k)
+
+func hypergeom_cdf*(k: int, population: int, successes: int, draws: int):
+    float64 =
+  if k < draws + successes - population:
+    0.0
+  elif k >= min(successes, draws):
+    1.0
+  else:
+    let ln_denom = ln_binomial(population, draws)
+    (0 .. k).foldl(a + exp(
+      ln_binomial(successes, b) +
+      ln_binomial(population - successes, draws - b) - ln_denom), 0.0)

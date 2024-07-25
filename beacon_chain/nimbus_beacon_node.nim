@@ -8,7 +8,7 @@
 {.push raises: [].}
 
 import
-  std/[os, random, terminal, times],
+  std/[os, random, sequtils, terminal, times],
   chronos, chronicles,
   metrics, metrics/chronos_httpserver,
   stew/[byteutils, io2],
@@ -293,15 +293,8 @@ proc initFullNode(
     node.eventBus.propSlashQueue.emit(data)
   proc onAttesterSlashingAdded(data: phase0.AttesterSlashing) =
     node.eventBus.attSlashQueue.emit(data)
-  proc onBlobSidecarAdded(data: BlobSidecar) =
-    node.eventBus.blobSidecarQueue.emit(
-      BlobSidecarInfoObject(
-        block_root: hash_tree_root(data.signed_block_header.message),
-        index: data.index,
-        slot: data.signed_block_header.message.slot,
-        kzg_commitment: data.kzg_commitment,
-        versioned_hash:
-          data.kzg_commitment.kzg_commitment_to_versioned_hash.to0xHex))
+  proc onBlobSidecarAdded(data: BlobSidecarInfoObject) =
+    node.eventBus.blobSidecarQueue.emit(data)
   proc onBlockAdded(data: ForkedTrustedSignedBeaconBlock) =
     let optimistic =
       if node.currentSlot().epoch() >= dag.cfg.BELLATRIX_FORK_EPOCH:
@@ -410,18 +403,22 @@ proc initFullNode(
       config.dumpEnabled, config.dumpDirInvalid, config.dumpDirIncoming,
       rng, taskpool, consensusManager, node.validatorMonitor,
       blobQuarantine, getBeaconTime)
-    blockVerifier = proc(signedBlock: ForkedSignedBeaconBlock,
-                         blobs: Opt[BlobSidecars], maybeFinalized: bool):
-        Future[Result[void, VerifierError]] {.async: (raises: [CancelledError], raw: true).} =
+    blockVerifier = proc(
+        signedBlock: ForkedSignedBeaconBlock,
+        blobs: Opt[ForkedBlobSidecars],
+        maybeFinalized: bool
+    ): Future[Result[void, VerifierError]] {.
+        async: (raises: [CancelledError], raw: true).} =
       # The design with a callback for block verification is unusual compared
       # to the rest of the application, but fits with the general approach
       # taken in the sync/request managers - this is an architectural compromise
       # that should probably be reimagined more holistically in the future.
       blockProcessor[].addBlock(
         MsgSource.gossip, signedBlock, blobs, maybeFinalized = maybeFinalized)
-    rmanBlockVerifier = proc(signedBlock: ForkedSignedBeaconBlock,
-                             maybeFinalized: bool):
-        Future[Result[void, VerifierError]] {.async: (raises: [CancelledError]).} =
+    rmanBlockVerifier = proc(
+        signedBlock: ForkedSignedBeaconBlock, maybeFinalized: bool
+    ): Future[Result[void, VerifierError]] {.
+        async: (raises: [CancelledError]).} =
       withBlck(signedBlock):
         when consensusFork >= ConsensusFork.Deneb:
           if not blobQuarantine[].hasBlobs(forkyBlck):
@@ -432,24 +429,27 @@ proc initFullNode(
             else:
               err(VerifierError.MissingParent)
           else:
-            let blobs = blobQuarantine[].popBlobs(forkyBlck.root, forkyBlck)
-            await blockProcessor[].addBlock(MsgSource.gossip, signedBlock,
-                                      Opt.some(blobs),
-                                      maybeFinalized = maybeFinalized)
+            let blobs = blobQuarantine[]
+              .popBlobs(forkyBlck.root, forkyBlck)
+              .mapIt(ForkedBlobSidecar.init(newClone(it)))
+            await blockProcessor[].addBlock(
+              MsgSource.gossip, signedBlock, Opt.some(blobs),
+              maybeFinalized = maybeFinalized)
         else:
-          await blockProcessor[].addBlock(MsgSource.gossip, signedBlock,
-                                    Opt.none(BlobSidecars),
-                                    maybeFinalized = maybeFinalized)
+          await blockProcessor[].addBlock(
+            MsgSource.gossip, signedBlock, Opt.none(ForkedBlobSidecars),
+            maybeFinalized = maybeFinalized)
     rmanBlockLoader = proc(
         blockRoot: Eth2Digest): Opt[ForkedTrustedSignedBeaconBlock] =
       dag.getForkedBlock(blockRoot)
     rmanBlobLoader = proc(
-        blobId: BlobIdentifier): Opt[ref BlobSidecar] =
-      var blob_sidecar = BlobSidecar.new()
-      if dag.db.getBlobSidecar(blobId.block_root, blobId.index, blob_sidecar[]):
-        Opt.some blob_sidecar
-      else:
-        Opt.none(ref BlobSidecar)
+        blobId: BlobIdentifier): Opt[ForkedBlobSidecar] =
+      withAll(BlobFork):
+        var blob_sidecar = blobFork.BlobSidecar.new()
+        if dag.db.getBlobSidecar(
+            blobId.block_root, blobId.index, blob_sidecar[]):
+          return Opt.some ForkedBlobSidecar.init(blob_sidecar)
+      Opt.none(ForkedBlobSidecar)
 
     processor = Eth2Processor.new(
       config.doppelgangerDetection,
@@ -826,6 +826,7 @@ proc init*(T: type BeaconNode,
     RestServerRef.init(config.restAddress, config.restPort,
                        config.restAllowedOrigin,
                        validateBeaconApiQueries,
+                       nimbusAgentStr,
                        config)
   else:
     nil
@@ -1919,15 +1920,24 @@ proc installMessageValidators(node: BeaconNode) =
                 MsgSource.gossip, msg)))
 
       when consensusFork >= ConsensusFork.Deneb:
+        const blobFork =
+          blobForkAtConsensusFork(consensusFork).expect("Blobs OK")
+
         # blob_sidecar_{subnet_id}
         # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.5/specs/deneb/p2p-interface.md#blob_sidecar_subnet_id
         for it in BlobId:
           closureScope:  # Needed for inner `proc`; don't lift it out of loop.
-            let subnet_id = it
+            let
+              contextFork = consensusFork
+              subnet_id = it
             node.network.addValidator(
               getBlobSidecarTopic(digest, subnet_id), proc (
-                blobSidecar: deneb.BlobSidecar
+                blobSidecar: blobFork.BlobSidecar
               ): ValidationResult =
+                if contextFork != node.dag.cfg.consensusForkAtEpoch(
+                    blobSidecar.signed_block_header.message.slot.epoch):
+                  return ValidationResult.Reject
+                
                 toValidationResult(
                   node.processor[].processBlobSidecar(
                     MsgSource.gossip, blobSidecar, subnet_id)))

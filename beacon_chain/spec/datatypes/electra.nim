@@ -119,7 +119,7 @@ type
       ## [New in Electra:EIP6110]
     withdrawal_requests*:
       List[WithdrawalRequest, MAX_WITHDRAWAL_REQUESTS_PER_PAYLOAD]
-      ## [New in Electra:EIP6110]
+      ## [New in Electra:EIP7002:EIP7251]
     consolidation_requests*:
       List[ConsolidationRequest, Limit MAX_CONSOLIDATION_REQUESTS_PER_PAYLOAD]
       ## [New in Electra:EIP7251]
@@ -725,8 +725,8 @@ func is_valid_light_client_header*(
 
   if epoch < cfg.CAPELLA_FORK_EPOCH:
     return
-      header.execution == default(ExecutionPayloadHeader) and
-      header.execution_branch == default(ExecutionBranch)
+      header.execution == static(default(ExecutionPayloadHeader)) and
+      header.execution_branch == static(default(ExecutionBranch))
 
   is_valid_merkle_branch(
     get_lc_execution_root(header, cfg),
@@ -839,7 +839,7 @@ func shortLog*(v: LightClientUpdate): auto =
   (
     attested: shortLog(v.attested_header),
     has_next_sync_committee:
-      v.next_sync_committee != default(typeof(v.next_sync_committee)),
+      v.next_sync_committee != static(default(typeof(v.next_sync_committee))),
     finalized: shortLog(v.finalized_header),
     num_active_participants: v.sync_aggregate.num_active_participants,
     signature_slot: v.signature_slot

@@ -14,6 +14,9 @@ import
     forks, state_transition, state_transition_block]
 
 from ".."/beacon_chain/bloomfilter import constructBloomFilter
+from ".."/beacon_chain/spec/state_transition_epoch import
+  get_validator_balance_after_epoch, process_epoch
+
 
 func round_multiple_down(x: Gwei, n: Gwei): Gwei =
   ## Round the input to the previous multiple of "n"
@@ -98,3 +101,18 @@ proc getTestStates*(
 
     if tmpState[].kind == consensusFork:
       result.add assignClone(tmpState[])
+
+proc checkPerValidatorBalanceCalc*(
+    state: deneb.BeaconState | electra.BeaconState): bool =
+  var
+    info: altair.EpochInfo
+    cache: StateCache
+  let tmpState = newClone(state)  # slow, but tolerable for tests
+  discard process_epoch(defaultRuntimeConfig, tmpState[], {}, cache, info)
+  for i in 0 ..< tmpState.balances.len:
+    if tmpState.balances.item(i) != get_validator_balance_after_epoch(
+        defaultRuntimeConfig, state, default(UpdateFlags), cache, info,
+        i.ValidatorIndex):
+      return false
+
+  true
