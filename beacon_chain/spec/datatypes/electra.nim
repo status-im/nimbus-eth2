@@ -41,21 +41,21 @@ export json_serialization, stable, kzg4844
 const
   # https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.3/specs/electra/light-client/sync-protocol.md#constants
   # All of these indices are rooted in `BeaconState`.
-  # The first member (`genesis_time`) is 64, subsequent members +1 each.
-  # If there are ever more than 64 members in `BeaconState`, indices change!
-  # `FINALIZED_ROOT_GINDEX` is one layer deeper, i.e., `84 * 2 + 1`.
+  # The first member (`genesis_time`) is 256, subsequent members +1 each.
+  # If there are ever more than 128 members in `BeaconState`, indices change!
+  # `FINALIZED_ROOT_GINDEX` is one layer deeper, i.e., `276 * 2 + 1`.
   # https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.3/ssz/merkle-proofs.md
   # finalized_checkpoint > root
-  FINALIZED_ROOT_GINDEX_ELECTRA* = 169.GeneralizedIndex
+  FINALIZED_ROOT_GINDEX_ELECTRA* = 553.GeneralizedIndex
   # current_sync_committee
-  CURRENT_SYNC_COMMITTEE_GINDEX_ELECTRA* = 86.GeneralizedIndex
+  CURRENT_SYNC_COMMITTEE_GINDEX_ELECTRA* = 278.GeneralizedIndex
   # next_sync_committee
-  NEXT_SYNC_COMMITTEE_GINDEX_ELECTRA* = 87.GeneralizedIndex
+  NEXT_SYNC_COMMITTEE_GINDEX_ELECTRA* = 279.GeneralizedIndex
 
   # https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.3/specs/electra/p2p-interface.md#preset
   # All of these indices are rooted in `BeaconBlockBody`.
   # The first member (`randao_reveal`) is 128, subsequent members +1 each.
-  # If there are ever more than 128 members in `BeaconBlockBody`, indices change!
+  # If there are ever more than 64 members in `BeaconBlockBody`, indices change!
   # https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.3/ssz/merkle-proofs.md
   # execution_payload
   EXECUTION_PAYLOAD_GINDEX_ELECTRA* = 137.GeneralizedIndex
