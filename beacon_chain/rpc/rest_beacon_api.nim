@@ -1093,9 +1093,11 @@ proc installBeaconApiHandlers*(router: var RestRouter, node: BeaconNode) =
           return RestApiResponse.jsonError(Http400, InvalidBlockObjectError)
 
         let res = withBlck(forked):
+          const blobFork =
+            blobForkAtConsensusFork(consensusFork).get(BlobFork.Deneb)
           forkyBlck.root = hash_tree_root(forkyBlck.message)
           await node.router.routeSignedBeaconBlock(
-            forkyBlck, Opt.none(seq[deneb.BlobSidecar]),
+            forkyBlck, Opt.none(seq[blobFork.BlobSidecar]),
             checkValidator = true)
 
         if res.isErr():
@@ -1176,9 +1178,11 @@ proc installBeaconApiHandlers*(router: var RestRouter, node: BeaconNode) =
           return RestApiResponse.jsonError(Http400, InvalidBlockObjectError)
 
         let res = withBlck(forked):
+          const blobFork =
+            blobForkAtConsensusFork(consensusFork).get(BlobFork.Deneb)
           forkyBlck.root = hash_tree_root(forkyBlck.message)
           await node.router.routeSignedBeaconBlock(
-            forkyBlck, Opt.none(seq[deneb.BlobSidecar]),
+            forkyBlck, Opt.none(seq[blobFork.BlobSidecar]),
             checkValidator = true)
 
         if res.isErr():
