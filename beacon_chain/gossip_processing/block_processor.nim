@@ -671,7 +671,7 @@ proc storeBlock(
   self[].lastPayload = signedBlock.message.slot
 
   # write blobs now that block has been written.
-  let blobs = blobsOpt.valueOr: BlobSidecars @[]
+  let blobs = blobsOpt.valueOr: blobFork.BlobSidecars() @[]
   for b in blobs:
     self.consensusManager.dag.db.putBlobSidecar(b[])
 
