@@ -86,14 +86,10 @@ proc compute_extended_matrix* (blobs: seq[KzgBlob]): Result[ExtendedMatrix, cstr
   # This helper demonstrates the relationship between blobs and `ExtendedMatrix`
   var extended_matrix: ExtendedMatrix
   for i in 0..<blobs.len:
-    debugEcho "Checkpoint 1"
     let res = computeCells(blobs[i])
-    debugEcho "Checkpoint 2"
     if res.isErr:
         return err("Error computing kzg cells and kzg proofs")
-    debugEcho "Checkpoint 3"
     discard extended_matrix.add(res.get())
-    debugEcho "Checkpoint 4"
   ok(extended_matrix)
 
 # https://github.com/ethereum/consensus-specs/blob/5f48840f4d768bf0e0a8156a3ed06ec333589007/specs/_features/eip7594/das-core.md#recover_matrix    
@@ -338,3 +334,31 @@ func verify_data_column_sidecar_inclusion_proof*(sidecar: DataColumnSidecar): Re
     return err("DataColumnSidecar: inclusion proof not valid")
 
   ok()
+
+proc get_extended_sample_count*(samples_per_slot: int,
+                                allowed_failures: int):
+                                int =
+  # `get_extended_sample_count` computes the number of samples we
+  # should query from peers, given the SAMPLES_PER_SLOT and 
+  # the number of allowed failures
+
+  # Retrieving the column count
+  let columnsCount = NUMBER_OF_COLUMNS.int
+
+  # If 50% of the columns are missing, we are able to reconstruct the data
+  # If 50% + 1 columns are missing, we are NO MORE able to reconstruct the data
+  let worstCaseConditionCount = (columnsCount div 2) + 1
+
+  # Compute the false positive threshold
+  let falsePositiveThreshold = hypergeom_cdf(0, columnsCount, worstCaseConditionCount, samples_per_slot)
+
+  var sampleCount: int
+
+  # Finally, compute the extended sample count
+  for i in samples_per_slot .. columnsCount + 1:
+    if hypergeom_cdf(allowed_failures, columnsCount, worstCaseConditionCount, i) <= falsePositiveThreshold:
+      sampleCount = i
+      break
+    sampleCount = i
+  
+  return sampleCount
