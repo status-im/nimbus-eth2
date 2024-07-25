@@ -391,7 +391,7 @@ proc addBackfillBlock*(
 
       # Block is older than finalized, but different from the block in our
       # canonical history: it must be from an unviable branch
-      debug "Block from unviable fork",
+      notice "Block from unviable fork",
         existing = shortLog(existing.get()),
         finalizedHead = shortLog(dag.finalizedHead)
 
