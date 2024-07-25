@@ -1292,7 +1292,7 @@ proc proposeBlockAux(
           Opt.some(signedBlock.create_blob_sidecars(
             blobsBundle.proofs, blobsBundle.blobs))
         else:
-          Opt.none(seq[BlobSidecar])
+          Opt.none(seq[deneb.BlobSidecar])
       newBlockRef = (
         await node.router.routeSignedBeaconBlock(signedBlock, blobsOpt,
           checkValidator = false)
