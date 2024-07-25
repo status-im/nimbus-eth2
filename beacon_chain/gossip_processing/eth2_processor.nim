@@ -275,7 +275,7 @@ proc processSignedBeaconBlock*(
 
 proc processBlobSidecar*(
     self: var Eth2Processor, src: MsgSource,
-    blobSidecar: deneb.BlobSidecar, subnet_id: BlobId): ValidationRes =
+    blobSidecar: ForkyBlobSidecar, subnet_id: BlobId): ValidationRes =
   template block_header: untyped = blobSidecar.signed_block_header.message
 
   let
