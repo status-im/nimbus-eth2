@@ -976,7 +976,7 @@ proc installBeaconApiHandlers*(router: var RestRouter, node: BeaconNode) =
               checkValidator = true)
           else:
             await node.router.routeSignedBeaconBlock(
-              forkyBlck, Opt.none(seq[BlobSidecar]),
+              forkyBlck, Opt.none(seq[deneb.BlobSidecar]),
               checkValidator = true)
 
     if res.isErr():
@@ -1095,7 +1095,7 @@ proc installBeaconApiHandlers*(router: var RestRouter, node: BeaconNode) =
         let res = withBlck(forked):
           forkyBlck.root = hash_tree_root(forkyBlck.message)
           await node.router.routeSignedBeaconBlock(
-            forkyBlck, Opt.none(seq[BlobSidecar]),
+            forkyBlck, Opt.none(seq[deneb.BlobSidecar]),
             checkValidator = true)
 
         if res.isErr():
@@ -1178,7 +1178,7 @@ proc installBeaconApiHandlers*(router: var RestRouter, node: BeaconNode) =
         let res = withBlck(forked):
           forkyBlck.root = hash_tree_root(forkyBlck.message)
           await node.router.routeSignedBeaconBlock(
-            forkyBlck, Opt.none(seq[BlobSidecar]),
+            forkyBlck, Opt.none(seq[deneb.BlobSidecar]),
             checkValidator = true)
 
         if res.isErr():
