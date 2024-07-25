@@ -437,7 +437,9 @@ proc initFullNode(
           Future[Result[void, VerifierError]].Raising([CancelledError]).
             init("backfill.blockVerifier")
         withBlck(signedBlock):
-          let res = blockProcessor[].storeBackfillBlock(forkyBlck, blobs)
+          let res =
+            blockProcessor[].storeBackfillBlock(forkyBlck.asSigVerified(),
+                                                blobs)
           retFuture.complete(res)
         retFuture
 
