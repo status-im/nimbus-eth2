@@ -1222,7 +1222,7 @@ func toElectraLightClientHeader(
 
 func toElectraLightClientHeader(
     # `SomeSignedBeaconBlock`: https://github.com/nim-lang/Nim/issues/18095
-    blck:  
+    blck:
       electra.SignedBeaconBlock | electra.TrustedSignedBeaconBlock
 ): electra.LightClientHeader =
   template payload: untyped = blck.message.body.execution_payload
@@ -1252,112 +1252,6 @@ func toElectraLightClientHeader(
         hash_tree_root(payload.consolidation_requests)),
     execution_branch:
       blck.message.body.build_proof(EXECUTION_PAYLOAD_GINDEX_ELECTRA).get)
-
-# https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.3/specs/electra/light-client/full-node.md#modified-block_to_light_client_header
-func toElectraLightClientHeader(
-    # `SomeSignedBeaconBlock`: https://github.com/nim-lang/Nim/issues/18095
-    blck:
-      phase0.SignedBeaconBlock | phase0.TrustedSignedBeaconBlock |
-      altair.SignedBeaconBlock | altair.TrustedSignedBeaconBlock |
-      bellatrix.SignedBeaconBlock | bellatrix.TrustedSignedBeaconBlock
-): electra.LightClientHeader =
-  # Note that during fork transitions, `finalized_header` may still
-  # point to earlier forks. While Bellatrix blocks also contain an
-  # `ExecutionPayload` (minus `withdrawals_root`), it was not included
-  # in the corresponding light client data. To ensure compatibility
-  # with legacy data going through `upgrade_lc_header_to_capella`,
-  # leave out execution data.
-  electra.LightClientHeader(
-    beacon: blck.message.toBeaconBlockHeader())
-
-func toElectraLightClientHeader(
-    # `SomeSignedBeaconBlock`: https://github.com/nim-lang/Nim/issues/18095
-    blck:
-      capella.SignedBeaconBlock | capella.TrustedSignedBeaconBlock
-): electra.LightClientHeader =
-  template payload: untyped = blck.message.body.execution_payload
-  electra.LightClientHeader(
-    beacon: blck.message.toBeaconBlockHeader(),
-    execution: electra.ExecutionPayloadHeader(
-      parent_hash: payload.parent_hash,
-      fee_recipient: payload.fee_recipient,
-      state_root: payload.state_root,
-      receipts_root: payload.receipts_root,
-      logs_bloom: payload.logs_bloom,
-      prev_randao: payload.prev_randao,
-      block_number: payload.block_number,
-      gas_limit: payload.gas_limit,
-      gas_used: payload.gas_used,
-      timestamp: payload.timestamp,
-      extra_data: payload.extra_data,
-      base_fee_per_gas: payload.base_fee_per_gas,
-      block_hash: payload.block_hash,
-      transactions_root: hash_tree_root(payload.transactions),
-      withdrawals_root: hash_tree_root(payload.withdrawals)),
-    execution_branch: blck.message.body.build_proof(
-      capella.EXECUTION_PAYLOAD_GINDEX).get)
-
-func toElectraLightClientHeader(
-    # `SomeSignedBeaconBlock`: https://github.com/nim-lang/Nim/issues/18095
-    blck:
-      deneb.SignedBeaconBlock | deneb.TrustedSignedBeaconBlock
-): electra.LightClientHeader =
-  template payload: untyped = blck.message.body.execution_payload
-  electra.LightClientHeader(
-    beacon: blck.message.toBeaconBlockHeader(),
-    execution: electra.ExecutionPayloadHeader(
-      parent_hash: payload.parent_hash,
-      fee_recipient: payload.fee_recipient,
-      state_root: payload.state_root,
-      receipts_root: payload.receipts_root,
-      logs_bloom: payload.logs_bloom,
-      prev_randao: payload.prev_randao,
-      block_number: payload.block_number,
-      gas_limit: payload.gas_limit,
-      gas_used: payload.gas_used,
-      timestamp: payload.timestamp,
-      extra_data: payload.extra_data,
-      base_fee_per_gas: payload.base_fee_per_gas,
-      block_hash: payload.block_hash,
-      transactions_root: hash_tree_root(payload.transactions),
-      withdrawals_root: hash_tree_root(payload.withdrawals),
-      blob_gas_used: payload.blob_gas_used,
-      excess_blob_gas: payload.excess_blob_gas),
-    execution_branch: blck.message.body.build_proof(
-      capella.EXECUTION_PAYLOAD_GINDEX).get)
-
-func toElectraLightClientHeader(
-    # `SomeSignedBeaconBlock`: https://github.com/nim-lang/Nim/issues/18095
-    blck:
-      electra.SignedBeaconBlock | electra.TrustedSignedBeaconBlock
-): electra.LightClientHeader =
-  template payload: untyped = blck.message.body.execution_payload
-  electra.LightClientHeader(
-    beacon: blck.message.toBeaconBlockHeader(),
-    execution: electra.ExecutionPayloadHeader(
-      parent_hash: payload.parent_hash,
-      fee_recipient: payload.fee_recipient,
-      state_root: payload.state_root,
-      receipts_root: payload.receipts_root,
-      logs_bloom: payload.logs_bloom,
-      prev_randao: payload.prev_randao,
-      block_number: payload.block_number,
-      gas_limit: payload.gas_limit,
-      gas_used: payload.gas_used,
-      timestamp: payload.timestamp,
-      extra_data: payload.extra_data,
-      base_fee_per_gas: payload.base_fee_per_gas,
-      block_hash: payload.block_hash,
-      transactions_root: hash_tree_root(payload.transactions),
-      withdrawals_root: hash_tree_root(payload.withdrawals),
-      blob_gas_used: payload.blob_gas_used,
-      excess_blob_gas: payload.excess_blob_gas,
-      deposit_requests_root: hash_tree_root(payload.deposit_requests),
-      withdrawal_requests_root: hash_tree_root(payload.withdrawal_requests),
-      consolidation_requests_root:
-        hash_tree_root(payload.consolidation_requests)),
-    execution_branch: blck.message.body.build_proof(
-      capella.EXECUTION_PAYLOAD_GINDEX).get)
 
 func toLightClientHeader*(
     # `SomeSignedBeaconBlock`: https://github.com/nim-lang/Nim/issues/18095
