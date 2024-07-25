@@ -11,7 +11,7 @@
 
 import
   # Status libraries
-  stew/[byteutils, endians2, objects],
+  stew/[bitops2, byteutils, endians2, objects],
   chronicles,
   eth/common/[eth_types, eth_types_rlp],
   eth/rlp, eth/trie/[db, hexary],
@@ -223,12 +223,13 @@ func has_flag*(flags: ParticipationFlags, flag_index: TimelyFlag): bool =
 
 # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.4/specs/deneb/p2p-interface.md#check_blob_sidecar_inclusion_proof
 func verify_blob_sidecar_inclusion_proof*(
-    blob_sidecar: BlobSidecar): Result[void, string] =
-  let gindex = kzg_commitment_inclusion_proof_gindex(blob_sidecar.index)
+    blob_sidecar: ForkyBlobSidecar): Result[void, string] =
+  let gindex = withBlobFork(typeof(blob_sidecar).kind):
+    blobFork.kzg_commitment_inclusion_proof_gindex(blob_sidecar.index)
   if not is_valid_merkle_branch(
       hash_tree_root(blob_sidecar.kzg_commitment),
       blob_sidecar.kzg_commitment_inclusion_proof,
-      KZG_COMMITMENT_INCLUSION_PROOF_DEPTH,
+      log2trunc(gindex),
       get_subtree_index(gindex),
       blob_sidecar.signed_block_header.message.body_root):
     return err("BlobSidecar: inclusion proof not valid")
@@ -237,23 +238,28 @@ func verify_blob_sidecar_inclusion_proof*(
 func create_blob_sidecars*(
     forkyBlck: deneb.SignedBeaconBlock | electra.SignedBeaconBlock,
     kzg_proofs: KzgProofs,
-    blobs: Blobs): seq[BlobSidecar] =
+    blobs: Blobs): auto =
+  const
+    consensusFork = typeof(forkyBlck).kind
+    blobFork = blobForkAtConsensusFork(consensusFork).expect("Blobs OK")
+  type ResultType = seq[blobFork.BlobSidecar]
+
   template kzg_commitments: untyped =
     forkyBlck.message.body.blob_kzg_commitments
   doAssert kzg_proofs.len == blobs.len
   doAssert kzg_proofs.len == kzg_commitments.len
 
-  var res = newSeqOfCap[BlobSidecar](blobs.len)
+  var res: ResultType = newSeqOfCap[blobFork.BlobSidecar](blobs.len)
   let signedBlockHeader = forkyBlck.toSignedBeaconBlockHeader()
   for i in 0 ..< blobs.lenu64:
-    var sidecar = BlobSidecar(
+    var sidecar = blobFork.BlobSidecar(
       index: i,
       blob: blobs[i],
       kzg_commitment: kzg_commitments[i],
       kzg_proof: kzg_proofs[i],
       signed_block_header: signedBlockHeader)
     forkyBlck.message.body.build_proof(
-      kzg_commitment_inclusion_proof_gindex(i),
+      blobFork.kzg_commitment_inclusion_proof_gindex(i),
       sidecar.kzg_commitment_inclusion_proof).expect("Valid gindex")
     res.add(sidecar)
   res

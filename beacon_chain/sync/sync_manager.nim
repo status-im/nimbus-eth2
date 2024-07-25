@@ -88,7 +88,8 @@ type
 
   BeaconBlocksRes =
     NetRes[List[ref ForkedSignedBeaconBlock, Limit MAX_REQUEST_BLOCKS]]
-  BlobSidecarsRes = NetRes[List[ref BlobSidecar, Limit(MAX_REQUEST_BLOB_SIDECARS)]]
+  BlobSidecarsRes =
+    NetRes[List[ForkedBlobSidecar, Limit(MAX_REQUEST_BLOB_SIDECARS)]]
 
 proc now*(sm: typedesc[SyncMoment], slots: uint64): SyncMoment {.inline.} =
   SyncMoment(stamp: now(chronos.Moment), slots: slots)
@@ -225,12 +226,12 @@ proc remainingSlots(man: SyncManager): uint64 =
     else:
       0'u64
 
-func groupBlobs*[T](req: SyncRequest[T],
-                    blocks: seq[ref ForkedSignedBeaconBlock],
-                    blobs: seq[ref BlobSidecar]):
-                      Result[seq[BlobSidecars], string] =
+func groupBlobs*[T](
+    req: SyncRequest[T],
+    blocks: seq[ref ForkedSignedBeaconBlock],
+    blobs: seq[ForkedBlobSidecar]): Result[seq[ForkedBlobSidecars], string] =
   var
-    grouped = newSeq[BlobSidecars](len(blocks))
+    grouped = newSeq[ForkedBlobSidecars](len(blocks))
     blob_cursor = 0
   for block_idx, blck in blocks:
     withBlck(blck[]):
@@ -241,17 +242,23 @@ func groupBlobs*[T](req: SyncRequest[T],
         # Clients MUST include all blob sidecars of each block from which they include blob sidecars.
         # The following blob sidecars, where they exist, MUST be sent in consecutive (slot, index) order.
         # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.5/specs/deneb/p2p-interface.md#blobsidecarsbyrange-v1
+        const expectedBlobFork =
+          blobForkAtConsensusFork(consensusFork).expect("Blobs OK")
         let header = forkyBlck.toSignedBeaconBlockHeader()
         for blob_idx, kzg_commitment in kzgs:
           if blob_cursor >= blobs.len:
             return err("BlobSidecar: response too short")
           let blob_sidecar = blobs[blob_cursor]
-          if blob_sidecar.index != BlobIndex blob_idx:
-            return err("BlobSidecar: unexpected index")
-          if blob_sidecar.kzg_commitment != kzg_commitment:
-            return err("BlobSidecar: unexpected kzg_commitment")
-          if blob_sidecar.signed_block_header != header:
-            return err("BlobSidecar: unexpected signed_block_header")
+          withForkyBlob(blob_sidecar):
+            when blobFork != expectedBlobFork:
+              return err("BlobSidecar: unexpected data fork")
+            else:
+              if forkyBlob[].index != BlobIndex blob_idx:
+                return err("BlobSidecar: unexpected index")
+              if forkyBlob[].kzg_commitment != kzg_commitment:
+                return err("BlobSidecar: unexpected kzg_commitment")
+              if forkyBlob[].signed_block_header != header:
+                return err("BlobSidecar: unexpected signed_block_header")
           grouped[block_idx].add(blob_sidecar)
           inc blob_cursor
 
@@ -259,14 +266,15 @@ func groupBlobs*[T](req: SyncRequest[T],
     # we reached end of blocks without consuming all blobs so either
     # the peer we got too few blocks in the paired request, or the
     # peer is sending us spurious blobs.
-    Result[seq[BlobSidecars], string].err "invalid block or blob sequence"
+    Result[seq[ForkedBlobSidecars], string].err "invalid block or blob sequence"
   else:
-    Result[seq[BlobSidecars], string].ok grouped
+    Result[seq[ForkedBlobSidecars], string].ok grouped
 
-func checkBlobs(blobs: seq[BlobSidecars]): Result[void, string] =
+func checkBlobs(blobs: seq[ForkedBlobSidecars]): Result[void, string] =
   for blob_sidecars in blobs:
     for blob_sidecar in blob_sidecars:
-      ? blob_sidecar[].verify_blob_sidecar_inclusion_proof()
+      withForkyBlob(blob_sidecar):
+        ? forkyBlob[].verify_blob_sidecar_inclusion_proof()
   ok()
 
 proc syncStep[A, B](man: SyncManager[A, B], index: int, peer: A)
@@ -456,7 +464,8 @@ proc syncStep[A, B](man: SyncManager[A, B], index: int, peer: A)
                       blobs_map = blobSmap, request = req
 
       if len(blobData) > 0:
-        let slots = mapIt(blobData, it[].signed_block_header.message.slot)
+        let slots = mapIt(blobData, it.withForkyBlob(
+          forkyBlob[].signed_block_header.message.slot))
         let uniqueSlots = foldl(slots, combine(a, b), @[slots[0]])
         if not(checkResponse(req, uniqueSlots)):
           peer.updateScore(PeerScoreBadResponse)
@@ -483,7 +492,7 @@ proc syncStep[A, B](man: SyncManager[A, B], index: int, peer: A)
         return
       Opt.some(groupedBlobs.get())
     else:
-      Opt.none(seq[BlobSidecars])
+      Opt.none(seq[ForkedBlobSidecars])
 
   if len(blockData) == 0 and man.direction == SyncQueueKind.Backward and
       req.contains(man.getSafeSlot()):

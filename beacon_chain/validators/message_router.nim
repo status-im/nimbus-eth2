@@ -84,11 +84,16 @@ template getCurrentBeaconTime(router: MessageRouter): BeaconTime =
 type RouteBlockResult = Result[Opt[BlockRef], string]
 proc routeSignedBeaconBlock*(
     router: ref MessageRouter, blck: ForkySignedBeaconBlock,
-    blobsOpt: Opt[seq[BlobSidecar]], checkValidator: bool):
+    blobsOpt: Opt[seq[ForkyBlobSidecar]], checkValidator: bool):
     Future[RouteBlockResult] {.async: (raises: [CancelledError]).} =
   ## Validate and broadcast beacon block, then add it to the block database
   ## Returns the new Head when block is added successfully to dag, none when
   ## block passes validation but is not added, and error otherwise
+  const
+    consensusFork = typeof(blck).kind
+    blobFork = blobForkAtConsensusFork(consensusFork).get(BlobFork.Deneb)
+  static: doAssert typeof(blobsOpt).T is seq[blobFork.BlobSidecar]
+
   let wallTime = router[].getCurrentBeaconTime()
 
   block:
@@ -152,7 +157,7 @@ proc routeSignedBeaconBlock*(
       blockRoot = shortLog(blck.root), blck = shortLog(blck.message),
       signature = shortLog(blck.signature), error = res.error()
 
-  var blobRefs = Opt.none(BlobSidecars)
+  var blobRefs = Opt.none(ForkedBlobSidecars)
   if blobsOpt.isSome():
     let blobs = blobsOpt.get()
     var workers = newSeq[Future[SendResult]](blobs.len)
@@ -168,7 +173,7 @@ proc routeSignedBeaconBlock*(
           blob = shortLog(blobs[i]), error = res.error[]
       else:
         notice "Blob sent", blob = shortLog(blobs[i])
-    blobRefs = Opt.some(blobs.mapIt(newClone(it)))
+    blobRefs = Opt.some(blobs.mapIt(ForkedBlobSidecar.init(newClone(it))))
 
   let added = await router[].blockProcessor[].addBlock(
     MsgSource.api, ForkedSignedBeaconBlock.init(blck), blobRefs)
