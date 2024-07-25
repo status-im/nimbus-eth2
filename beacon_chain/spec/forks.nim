@@ -283,6 +283,9 @@ type
   ForkyBlobSidecars* =
     deneb.BlobSidecars
 
+  OptForkyBlobSidecars* =
+    Opt[deneb.BlobSidecars]
+
   ForkedBlobSidecar* = object
     case kind*: BlobFork
     of BlobFork.Deneb:

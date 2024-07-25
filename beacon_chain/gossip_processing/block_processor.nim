@@ -173,7 +173,7 @@ from ../consensus_object_pools/block_clearance import
 proc storeBackfillBlock(
     self: var BlockProcessor,
     signedBlock: ForkySignedBeaconBlock,
-    blobsOpt: Opt[ForkyBlobSidecars]
+    blobsOpt: OptForkyBlobSidecars
 ): Result[void, VerifierError] =
   const
     consensusFork = typeof(signedBlock).kind
@@ -398,14 +398,16 @@ template withForkyBlckAndBlobs(
           # Nim 2.0.8: `forks.BlobSidecars(blobFork)` does not work here:
           # > type mismatch: got 'BlobFork' for 'blobFork`gensym15'
           #   but expected 'BlobSidecars'
-          var fBlobs: deneb.BlobSidecars
+          when blobFork == BlobFork.Deneb:
+            var fBlobs: deneb.BlobSidecars
           for blob in blobs.get:
             doAssert blob.kind == blobFork,
               "Must verify blob inclusion proof before `enqueueBlock`"
             fBlobs.add blob.forky(blobFork)
           Opt.some fBlobs
         else:
-          Opt.none deneb.BlobSidecars
+          when blobFork == BlobFork.Deneb:
+            Opt.none deneb.BlobSidecars
     else:
       doAssert blobs.isNone, "Blobs are not supported before Deneb"
       let forkyBlobs {.inject, used.} = Opt.none deneb.BlobSidecars
@@ -439,7 +441,7 @@ proc enqueueBlock*(
 proc storeBlock(
     self: ref BlockProcessor, src: MsgSource, wallTime: BeaconTime,
     signedBlock: ForkySignedBeaconBlock,
-    blobsOpt: Opt[ForkyBlobSidecars],
+    blobsOpt: OptForkyBlobSidecars,
     maybeFinalized = false,
     queueTick: Moment = Moment.now(),
     validationDur = Duration()
