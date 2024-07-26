@@ -398,6 +398,7 @@ template withForkyBlckAndBlobs(
           # Nim 2.0.8: `forks.BlobSidecars(blobFork)` does not work here:
           # > type mismatch: got 'BlobFork' for 'blobFork`gensym15'
           #   but expected 'BlobSidecars'
+          # https://github.com/nim-lang/Nim/issues/23893
           when blobFork == BlobFork.Deneb:
             var fBlobs: deneb.BlobSidecars
           for blob in blobs.get:
