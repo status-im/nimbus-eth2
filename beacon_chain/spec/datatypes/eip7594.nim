@@ -7,9 +7,11 @@
 
 {.push raises: [].}
 
-import 
+import
+  std/[sequtils],
   "."/[base, deneb], 
-  kzg4844
+  kzg4844,
+  stew/[byteutils]
 
 from std/sequtils import mapIt
 from std/strutils import join
@@ -64,7 +66,7 @@ type
 
   DataColumnSidecars* = seq[ref DataColumnSidecar]
 
-  DataColumnIdentifier* = object 
+  DataColumnIdentifier* = object
     block_root*: Eth2Digest
     index*: ColumnIndex
 
@@ -76,6 +78,17 @@ type
 
   CscBits* = BitArray[DATA_COLUMN_SIDECAR_SUBNET_COUNT]
 
+func serializeDataColumn(data_column: DataColumn): auto =
+  var counter = 0
+  var serd : array[MAX_BLOB_COMMITMENTS_PER_BLOCK * KzgCellSize, byte]
+  for i in 0..<MAX_BLOB_COMMITMENTS_PER_BLOCK:
+    for j in 0..<KzgCellSize:
+      serd[counter] = data_column[i][j]
+      inc(counter)
+  serd
+
+func shortLog*(v: DataColumn): auto =
+  to0xHex(v.serializeDataColumn())
 
 func shortLog*(v: DataColumnSidecar): auto =
   (
