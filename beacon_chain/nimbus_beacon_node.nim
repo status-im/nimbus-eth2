@@ -567,7 +567,9 @@ proc init*(T: type BeaconNode,
            config: BeaconNodeConf,
            metadata: Eth2NetworkMetadata): Future[BeaconNode]
           {.async.} =
-  var taskpool: TaskPoolPtr
+  var
+    taskpool: TaskPoolPtr
+    genesisState: ref ForkedHashedBeaconState = nil
 
   template cfg: auto = metadata.cfg
   template eth1Network: auto = metadata.eth1Network
@@ -575,10 +577,10 @@ proc init*(T: type BeaconNode,
   if not(isDir(config.databaseDir)):
     # If database directory missing, we going to use genesis state to check
     # for weak_subjectivity_period.
+    genesisState =
+      await fetchGenesisState(
+        metadata, config.genesisState, config.genesisStateUrl)
     let
-      genesisState =
-        await fetchGenesisState(
-          metadata, config.genesisState, config.genesisStateUrl)
       genesisTime = getStateField(genesisState[], genesis_time)
       beaconClock = BeaconClock.init(genesisTime).valueOr:
         fatal "Invalid genesis time in genesis state", genesisTime
@@ -633,15 +635,15 @@ proc init*(T: type BeaconNode,
     db = BeaconChainDB.new(config.databaseDir, cfg, inMemory = false)
 
   if config.externalBeaconApiUrl.isSome and ChainDAGRef.isInitialized(db).isErr:
-    var genesisState: ref ForkedHashedBeaconState
     let trustedBlockRoot =
       if config.trustedStateRoot.isSome or config.trustedBlockRoot.isSome:
         config.trustedBlockRoot
       elif cfg.ALTAIR_FORK_EPOCH == GENESIS_EPOCH:
         # Sync can be bootstrapped from the genesis block root
-        genesisState = await fetchGenesisState(
-          metadata, config.genesisState, config.genesisStateUrl)
-        if genesisState != nil:
+        if genesisState.isNil:
+          genesisState = await fetchGenesisState(
+            metadata, config.genesisState, config.genesisStateUrl)
+        if not genesisState.isNil:
           let genesisBlockRoot = get_initial_beacon_block(genesisState[]).root
           notice "Neither `--trusted-block-root` nor `--trusted-state-root` " &
             "provided with `--external-beacon-api-url`, " &
@@ -662,7 +664,7 @@ proc init*(T: type BeaconNode,
         trustedBlockRoot = config.trustedBlockRoot,
         trustedStateRoot = config.trustedStateRoot
     else:
-      if genesisState == nil:
+      if genesisState.isNil:
         genesisState = await fetchGenesisState(
           metadata, config.genesisState, config.genesisStateUrl)
       await db.doRunTrustedNodeSync(
@@ -728,15 +730,18 @@ proc init*(T: type BeaconNode,
   var networkGenesisValidatorsRoot = metadata.bakedGenesisValidatorsRoot
 
   if not ChainDAGRef.isInitialized(db).isOk():
-    let genesisState =
-      if checkpointState != nil and
+    genesisState =
+      if not checkpointState.isNil and
           getStateField(checkpointState[], slot) == 0:
         checkpointState
       else:
-        await fetchGenesisState(
-          metadata, config.genesisState, config.genesisStateUrl)
+        if genesisState.isNil:
+          await fetchGenesisState(
+            metadata, config.genesisState, config.genesisStateUrl)
+        else:
+          genesisState
 
-    if genesisState == nil and checkpointState == nil:
+    if genesisState.isNil and checkpointState.isNil:
       fatal "No database and no genesis snapshot found. Please supply a genesis.ssz " &
             "with the network configuration"
       quit 1
