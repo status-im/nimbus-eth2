@@ -824,6 +824,7 @@ proc delBlobSidecar*(
     root: Eth2Digest, index: BlobIndex): bool =
   var res = false
   for blobFork in BlobFork:
+    if db.blobs[blobFork] == nil: continue
     if db.blobs[blobFork].del(blobkey(root, index)).expectDb():
       res = true
   res
@@ -1078,6 +1079,7 @@ proc getBlockSSZ*(
 proc getBlobSidecarSZ*[T: ForkyBlobSidecar](
     db: BeaconChainDB, root: Eth2Digest, index: BlobIndex,
     data: var seq[byte]): bool =
+  if db.blobs[T.kind] == nil: return false
   let dataPtr = addr data # Short-lived
   func decode(data: openArray[byte]) =
     assign(dataPtr[], data)
@@ -1086,6 +1088,7 @@ proc getBlobSidecarSZ*[T: ForkyBlobSidecar](
 proc getBlobSidecar*[T: ForkyBlobSidecar](
     db: BeaconChainDB, root: Eth2Digest, index: BlobIndex,
     value: var T): bool =
+  if db.blobs[T.kind] == nil: return false
   db.blobs[T.kind].getSZSSZ(blobkey(root, index), value) == GetResult.found
 
 proc getBlockSZ*(
