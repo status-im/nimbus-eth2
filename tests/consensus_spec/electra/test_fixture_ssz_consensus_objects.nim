@@ -175,6 +175,20 @@ suite "EF - Electra - SSZ consensus objects " & preset():
             checkSSZ(SignedContributionAndProof, path, hash)
           of "SignedVoluntaryExit": checkSSZ(SignedVoluntaryExit, path, hash)
           of "SigningData": checkSSZ(SigningData, path, hash)
+          of "StableAttestation":
+            checkSSZ(StableAttestation, path, hash)
+          of "StableAttesterSlashing":
+            checkSSZ(StableAttesterSlashing, path, hash)
+          of "StableBeaconBlockBody":
+            checkSSZ(StableBeaconBlockBody, path, hash)
+          of "StableBeaconState":
+            checkSSZ(StableBeaconState, path, hash)
+          of "StableExecutionPayload":
+            checkSSZ(StableExecutionPayload, path, hash)
+          of "StableExecutionPayloadHeader":
+            checkSSZ(StableExecutionPayloadHeader, path, hash)
+          of "StableIndexedAttestation":
+            checkSSZ(StableIndexedAttestation, path, hash)
           of "SyncAggregate": checkSSZ(SyncAggregate, path, hash)
           of "SyncAggregatorSelectionData":
             checkSSZ(SyncAggregatorSelectionData, path, hash)
