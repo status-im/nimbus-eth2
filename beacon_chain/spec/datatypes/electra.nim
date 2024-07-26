@@ -654,6 +654,37 @@ func shortLog*(v: ExecutionPayload): auto =
     excess_blob_gas: $(v.excess_blob_gas)
   )
 
+# https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.3/specs/electra/light-client/fork.md#normalize_merkle_branch
+func normalize_merkle_branch*[N](
+    branch: array[N, Eth2Digest],
+    gindex: static GeneralizedIndex): auto =
+  const depth = log2trunc(gindex)
+  var res: array[depth, Eth2Digest]
+  when depth >= branch.len:
+    const num_extra = depth - branch.len
+    res[num_extra ..< depth] = branch
+  else:
+    const num_extra = branch.len - depth
+    for node in branch[0 ..< num_extra]:
+      doAssert node.isZero, "Truncation of Merkle branch cannot lose info"
+    res[0 ..< depth] = branch[num_extra ..< branch.len]
+  res
+
+# https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.3/specs/altair/light-client/sync-protocol.md#is_valid_normalized_merkle_branch
+func is_valid_normalized_merkle_branch[N](
+    leaf: Eth2Digest,
+    branch: array[N, Eth2Digest],
+    gindex: static GeneralizedIndex,
+    root: Eth2Digest): bool =
+  const
+    depth = log2trunc(gindex)
+    index = get_subtree_index(gindex)
+    num_extra = branch.len - depth
+  for i in 0 ..< num_extra:
+    if not branch[i].isZero:
+      return false
+  is_valid_merkle_branch(leaf, branch[num_extra .. ^1], depth, index, root)
+
 # https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.3/specs/electra/light-client/sync-protocol.md#modified-get_lc_execution_root
 func get_lc_execution_root*(
     header: LightClientHeader, cfg: RuntimeConfig): Eth2Digest =
@@ -706,6 +737,16 @@ func get_lc_execution_root*(
 
   ZERO_HASH
 
+# https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.3/specs/electra/light-client/sync-protocol.md#modified-execution_payload_gindex_at_slot
+func execution_payload_gindex_at_epoch(
+    epoch: Epoch, cfg: RuntimeConfig): GeneralizedIndex =
+  doAssert epoch >= cfg.CAPELLA_FORK_EPOCH
+
+  # [Modified in Electra]
+  if epoch >= cfg.ELECTRA_FORK_EPOCH:
+    return EXECUTION_PAYLOAD_GINDEX_ELECTRA
+  EXECUTION_PAYLOAD_GINDEX
+
 # https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.3/specs/electra/light-client/sync-protocol.md#modified-is_valid_light_client_header
 func is_valid_light_client_header*(
     header: LightClientHeader, cfg: RuntimeConfig): bool =
@@ -728,28 +769,11 @@ func is_valid_light_client_header*(
       header.execution == static(default(ExecutionPayloadHeader)) and
       header.execution_branch == static(default(ExecutionBranch))
 
-  is_valid_merkle_branch(
+  is_valid_normalized_merkle_branch(
     get_lc_execution_root(header, cfg),
     header.execution_branch,
-    log2trunc(EXECUTION_PAYLOAD_GINDEX_ELECTRA),
-    get_subtree_index(EXECUTION_PAYLOAD_GINDEX_ELECTRA),
+    execution_payload_gindex_at_epoch(epoch, cfg),
     header.beacon.body_root)
-
-# https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.3/specs/electra/light-client/fork.md#normalize_merkle_branch
-func normalize_merkle_branch*[N](
-    branch: array[N, Eth2Digest],
-    gindex: static GeneralizedIndex): auto =
-  const depth = log2trunc(gindex)
-  var res: array[depth, Eth2Digest]
-  when depth >= branch.len:
-    const num_extra = depth - branch.len
-    res[num_extra ..< depth] = branch
-  else:
-    const num_extra = branch.len - depth
-    for node in branch[0 ..< num_extra]:
-      doAssert node.isZero, "Truncation of Merkle branch cannot lose info"
-    res[0 ..< depth] = branch[num_extra ..< branch.len]
-  res
 
 # https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.3/specs/electra/light-client/fork.md#upgrading-light-client-data
 func upgrade_lc_header_to_electra*(
