@@ -2561,13 +2561,15 @@ OK: 5/5 Fail: 0/5 Skip: 0/5
 + EF - Electra - Fork - electra_fork_random_low_balances [Preset: mainnet]                   OK
 + EF - Electra - Fork - electra_fork_random_misc_balances [Preset: mainnet]                  OK
 + EF - Electra - Fork - fork_base_state [Preset: mainnet]                                    OK
++ EF - Electra - Fork - fork_has_compounding_withdrawal_credential [Preset: mainnet]         OK
 + EF - Electra - Fork - fork_many_next_epoch [Preset: mainnet]                               OK
 + EF - Electra - Fork - fork_next_epoch [Preset: mainnet]                                    OK
 + EF - Electra - Fork - fork_next_epoch_with_block [Preset: mainnet]                         OK
++ EF - Electra - Fork - fork_pre_activation [Preset: mainnet]                                OK
 + EF - Electra - Fork - fork_random_low_balances [Preset: mainnet]                           OK
 + EF - Electra - Fork - fork_random_misc_balances [Preset: mainnet]                          OK
 ```
-OK: 12/12 Fail: 0/12 Skip: 0/12
+OK: 14/14 Fail: 0/14 Skip: 0/14
 ## EF - Electra - Operations - Attestation  [Preset: mainnet]
 ```diff
 + [Invalid] EF - Electra - Operations - Attestation - invalid_after_max_inclusion_slot       OK
@@ -3026,6 +3028,13 @@ OK: 34/34 Fail: 0/34 Skip: 0/34
 +   Testing    SignedContributionAndProof                                                    OK
 +   Testing    SignedVoluntaryExit                                                           OK
 +   Testing    SigningData                                                                   OK
++   Testing    StableAttestation                                                             OK
++   Testing    StableAttesterSlashing                                                        OK
++   Testing    StableBeaconBlockBody                                                         OK
++   Testing    StableBeaconState                                                             OK
++   Testing    StableExecutionPayload                                                        OK
++   Testing    StableExecutionPayloadHeader                                                  OK
++   Testing    StableIndexedAttestation                                                      OK
 +   Testing    SyncAggregate                                                                 OK
 +   Testing    SyncAggregatorSelectionData                                                   OK
 +   Testing    SyncCommittee                                                                 OK
@@ -3036,7 +3045,7 @@ OK: 34/34 Fail: 0/34 Skip: 0/34
 +   Testing    Withdrawal                                                                    OK
 +   Testing    WithdrawalRequest                                                             OK
 ```
-OK: 54/54 Fail: 0/54 Skip: 0/54
+OK: 61/61 Fail: 0/61 Skip: 0/61
 ## EF - Electra - Sanity - Blocks  [Preset: mainnet]
 ```diff
 + [Invalid] EF - Electra - Sanity - Blocks - deposit_transition__invalid_eth1_deposits_overl OK
@@ -3180,8 +3189,12 @@ OK: 4/4 Fail: 0/4 Skip: 0/4
 + Light client - Single merkle proof - mainnet/deneb/light_client/single_merkle_proof/Beacon OK
 + Light client - Single merkle proof - mainnet/deneb/light_client/single_merkle_proof/Beacon OK
 + Light client - Single merkle proof - mainnet/deneb/light_client/single_merkle_proof/Beacon OK
++ Light client - Single merkle proof - mainnet/electra/light_client/single_merkle_proof/Beac OK
++ Light client - Single merkle proof - mainnet/electra/light_client/single_merkle_proof/Beac OK
++ Light client - Single merkle proof - mainnet/electra/light_client/single_merkle_proof/Beac OK
++ Light client - Single merkle proof - mainnet/electra/light_client/single_merkle_proof/Beac OK
 ```
-OK: 14/14 Fail: 0/14 Skip: 0/14
+OK: 18/18 Fail: 0/18 Skip: 0/18
 ## EF - Merkle proof [Preset: mainnet]
 ```diff
   Merkle proof - Single merkle proof - eip7594                                               Skip
@@ -3189,8 +3202,12 @@ OK: 14/14 Fail: 0/14 Skip: 0/14
 + Merkle proof - Single merkle proof - mainnet/deneb/merkle_proof/single_merkle_proof/Beacon OK
 + Merkle proof - Single merkle proof - mainnet/deneb/merkle_proof/single_merkle_proof/Beacon OK
 + Merkle proof - Single merkle proof - mainnet/deneb/merkle_proof/single_merkle_proof/Beacon OK
++ Merkle proof - Single merkle proof - mainnet/electra/merkle_proof/single_merkle_proof/Beac OK
++ Merkle proof - Single merkle proof - mainnet/electra/merkle_proof/single_merkle_proof/Beac OK
++ Merkle proof - Single merkle proof - mainnet/electra/merkle_proof/single_merkle_proof/Beac OK
++ Merkle proof - Single merkle proof - mainnet/electra/merkle_proof/single_merkle_proof/Beac OK
 ```
-OK: 4/5 Fail: 0/5 Skip: 1/5
+OK: 8/9 Fail: 0/9 Skip: 1/9
 ## EF - Phase 0 - Epoch Processing - Effective balance updates [Preset: mainnet]
 ```diff
 + Effective balance updates - effective_balance_hysteresis [Preset: mainnet]                 OK
@@ -3693,4 +3710,4 @@ OK: 69/88 Fail: 0/88 Skip: 19/88
 OK: 3/3 Fail: 0/3 Skip: 0/3
 
 ---TOTAL---
-OK: 2971/2991 Fail: 0/2991 Skip: 20/2991
+OK: 2988/3008 Fail: 0/3008 Skip: 20/3008

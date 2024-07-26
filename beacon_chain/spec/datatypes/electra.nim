@@ -730,15 +730,16 @@ func normalize_merkle_branch*[N](
   res
 
 # https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.3/specs/altair/light-client/sync-protocol.md#is_valid_normalized_merkle_branch
-func is_valid_normalized_merkle_branch[N](
+func is_valid_normalized_merkle_branch*[N](
     leaf: Eth2Digest,
     branch: array[N, Eth2Digest],
-    gindex: static GeneralizedIndex,
+    gindex: GeneralizedIndex,
     root: Eth2Digest): bool =
-  const
+  let
     depth = log2trunc(gindex)
     index = get_subtree_index(gindex)
-    num_extra = branch.len - depth
+  doAssert branch.len >= depth, "Branch is set up in a way that always fails"
+  let num_extra = branch.len - depth
   for i in 0 ..< num_extra:
     if not branch[i].isZero:
       return false
