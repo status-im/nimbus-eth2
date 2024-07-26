@@ -16,7 +16,8 @@
 {.experimental: "notnil".}
 
 import
-  std/typetraits,
+  std/[sequtils, strutils, typetraits],
+  stew/bitops2,
   chronicles,
   json_serialization,
   ssz_serialization/[merkleization, proofs],
@@ -34,7 +35,8 @@ from ./bellatrix import BloomLogs, ExecutionAddress, Transaction
 from ./capella import
   ExecutionBranch, HistoricalSummary, SignedBLSToExecutionChangeList,
   Withdrawal, EXECUTION_PAYLOAD_GINDEX
-from ./deneb import Blobs, BlobsBundle, KzgCommitments, KzgProofs
+from ./deneb import
+  Blob, BlobIndex, Blobs, BlobsBundle, KzgCommitments, KzgProofs, shortLog
 
 export json_serialization, stable, kzg4844
 
@@ -89,6 +91,22 @@ type
     # Currently the code MUST verify the state transition as soon as the signature is verified
     attestation_1*: TrustedIndexedAttestation  # Modified in Electra:EIP7549]
     attestation_2*: TrustedIndexedAttestation  # Modified in Electra:EIP7549]
+
+  # https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.3/specs/electra/p2p-interface.md#custom-types
+  KzgCommitmentInclusionProof* =
+    array[KZG_COMMITMENT_INCLUSION_PROOF_DEPTH_ELECTRA, Eth2Digest]
+
+  # https://github.com/ethereum/consensus-specs/blob/v1.4.0/specs/deneb/p2p-interface.md#blobsidecar
+  BlobSidecar* = object
+    index*: BlobIndex
+      ## Index of blob in block
+    blob*: Blob
+    kzg_commitment*: KzgCommitment
+    kzg_proof*: KzgProof
+      ## Allows for quick verification of kzg_commitment
+    signed_block_header*: SignedBeaconBlockHeader
+    kzg_commitment_inclusion_proof*: KzgCommitmentInclusionProof
+  BlobSidecars* = seq[ref BlobSidecar]
 
   # https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.3/specs/electra/beacon-chain.md#executionpayload
   ExecutionPayload* {.sszProfile: StableExecutionPayload.} = object
@@ -628,6 +646,22 @@ func shortLog*(v: SomeBeaconBlock): auto =
     blob_kzg_commitments_len: v.body.blob_kzg_commitments.len(),
   )
 
+func shortLog*(v: BlobSidecar): auto =
+  (
+    index: v.index,
+    blob: shortLog(v.blob),
+    bloblen: v.blob.len(),
+    block_header: shortLog(v.signed_block_header.message),
+    kzg_commitment: shortLog(v.kzg_commitment),
+    kzg_proof: shortLog(v.kzg_proof),
+  )
+
+func shortLog*(v: seq[BlobSidecar]): auto =
+  "[" & v.mapIt(shortLog(it)).join(", ") & "]"
+
+func shortLog*(v: seq[ref BlobSidecar]): auto =
+  "[" & v.mapIt(shortLog(it[])).join(", ") & "]"
+
 func shortLog*(v: SomeSignedBeaconBlock): auto =
   (
     blck: shortLog(v.message),
@@ -653,6 +687,31 @@ func shortLog*(v: ExecutionPayload): auto =
     blob_gas_used: $(v.blob_gas_used),
     excess_blob_gas: $(v.excess_blob_gas)
   )
+
+func kzg_commitment_inclusion_proof_gindex*(
+    index: BlobIndex): GeneralizedIndex =
+  # This index is rooted in `BeaconBlockBody`.
+  # The first member (`randao_reveal`) is 128, subsequent members +1 each.
+  # If there are ever more than 64 members in `BeaconBlockBody`, indices change!
+  # https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.3/ssz/merkle-proofs.md
+  const
+    # blob_kzg_commitments
+    BLOB_KZG_COMMITMENTS_GINDEX =
+      139.GeneralizedIndex
+    # List + 0 = items, + 1 = len
+    BLOB_KZG_COMMITMENTS_BASE_GINDEX =
+      (BLOB_KZG_COMMITMENTS_GINDEX shl 1) + 0
+    # List depth
+    BLOB_KZG_COMMITMENTS_PROOF_DEPTH =
+      log2trunc(nextPow2(KzgCommitments.maxLen.uint64))
+    # First item
+    BLOB_KZG_COMMITMENTS_FIRST_GINDEX =
+      (BLOB_KZG_COMMITMENTS_BASE_GINDEX shl BLOB_KZG_COMMITMENTS_PROOF_DEPTH)
+  static: doAssert(
+    log2trunc(BLOB_KZG_COMMITMENTS_FIRST_GINDEX) ==
+    KZG_COMMITMENT_INCLUSION_PROOF_DEPTH_ELECTRA)
+
+  BLOB_KZG_COMMITMENTS_FIRST_GINDEX + index
 
 # https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.3/specs/electra/light-client/fork.md#normalize_merkle_branch
 func normalize_merkle_branch*[N](

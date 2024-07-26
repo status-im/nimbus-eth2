@@ -399,7 +399,9 @@ template withForkyBlckAndBlobs(
           # > type mismatch: got 'BlobFork' for 'blobFork`gensym15'
           #   but expected 'BlobSidecars'
           # https://github.com/nim-lang/Nim/issues/23893
-          when blobFork == BlobFork.Deneb:
+          when blobFork == BlobFork.Electra:
+            var fBlobs: electra.BlobSidecars
+          elif blobFork == BlobFork.Deneb:
             var fBlobs: deneb.BlobSidecars
           for blob in blobs.get:
             doAssert blob.kind == blobFork,
@@ -407,7 +409,9 @@ template withForkyBlckAndBlobs(
             fBlobs.add blob.forky(blobFork)
           Opt.some fBlobs
         else:
-          when blobFork == BlobFork.Deneb:
+          when blobFork == BlobFork.Electra:
+            Opt.none electra.BlobSidecars
+          elif blobFork == BlobFork.Deneb:
             Opt.none deneb.BlobSidecars
     else:
       doAssert blobs.isNone, "Blobs are not supported before Deneb"

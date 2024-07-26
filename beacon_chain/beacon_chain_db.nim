@@ -562,7 +562,9 @@ proc new*(T: type BeaconChainDB,
   var blobs: array[BlobFork, KvStoreRef]
   if cfg.DENEB_FORK_EPOCH != FAR_FUTURE_EPOCH:
     blobs[BlobFork.Deneb] = kvStore db.openKvStore("deneb_blobs").expectDb()
-  static: doAssert BlobFork.high == BlobFork.Deneb
+  if cfg.ELECTRA_FORK_EPOCH != FAR_FUTURE_EPOCH:
+    blobs[BlobFork.Electra] = kvStore db.openKvStore("electra_blobs").expectDb()
+  static: doAssert BlobFork.high == BlobFork.Electra
 
   # Versions prior to 1.4.0 (altair) stored validators in `immutable_validators`
   # which stores validator keys in compressed format - this is

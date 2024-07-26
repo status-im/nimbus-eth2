@@ -275,16 +275,21 @@ type
     ForkyTrustedSignedBeaconBlock
 
   BlobFork* {.pure.} = enum
-    Deneb
+    Deneb,
+    Electra
 
   ForkyBlobSidecar* =
-    deneb.BlobSidecar
+    deneb.BlobSidecar |
+    electra.BlobSidecar
 
   ForkyBlobSidecars* =
-    deneb.BlobSidecars
+    deneb.BlobSidecars |
+    electra.BlobSidecars
 
   ForkedBlobSidecar* = object
     case kind*: BlobFork
+    of BlobFork.Electra:
+      electraData*: ref electra.BlobSidecar
     of BlobFork.Deneb:
       denebData*: ref deneb.BlobSidecar
 
@@ -834,39 +839,58 @@ static:
 template kind*(x: typedesc[deneb.BlobSidecar]): BlobFork =
   BlobFork.Deneb
 
+template kind*(x: typedesc[electra.BlobSidecar]): BlobFork =
+  BlobFork.Electra
+
 template kzg_commitment_inclusion_proof_gindex*(
     kind: static BlobFork, index: BlobIndex): GeneralizedIndex =
-  when kind == BlobFork.Deneb:
+  when kind == BlobFork.Electra:
+    electra.kzg_commitment_inclusion_proof_gindex(index)
+  elif kind == BlobFork.Deneb:
     deneb.kzg_commitment_inclusion_proof_gindex(index)
   else:
     {.error: "kzg_commitment_inclusion_proof_gindex does not support " & $kind.}
 
 template BlobSidecar*(kind: static BlobFork): auto =
-  when kind == BlobFork.Deneb:
+  when kind == BlobFork.Electra:
+    typedesc[electra.BlobSidecar]
+  elif kind == BlobFork.Deneb:
     typedesc[deneb.BlobSidecar]
   else:
     {.error: "BlobSidecar does not support " & $kind.}
 
 template BlobSidecars*(kind: static BlobFork): auto =
-  when kind == BlobFork.Deneb:
+  when kind == BlobFork.Electra:
+    typedesc[electra.BlobSidecars]
+  elif kind == BlobFork.Deneb:
     typedesc[deneb.BlobSidecars]
   else:
     {.error: "BlobSidecars does not support " & $kind.}
 
 template withAll*(x: typedesc[BlobFork], body: untyped): untyped =
-  static: doAssert BlobFork.high == BlobFork.Deneb
+  static: doAssert BlobFork.high == BlobFork.Electra
+  block:
+    const blobFork {.inject, used.} = BlobFork.Electra
+    body
   block:
     const blobFork {.inject, used.} = BlobFork.Deneb
     body
 
 template withBlobFork*(x: BlobFork, body: untyped): untyped =
   case x
+  of BlobFork.Electra:
+    const blobFork {.inject, used.} = BlobFork.Electra
+    body
   of BlobFork.Deneb:
     const blobFork {.inject, used.} = BlobFork.Deneb
     body
 
 template withForkyBlob*(x: ForkedBlobSidecar, body: untyped): untyped =
   case x.kind
+  of BlobFork.Electra:
+    const blobFork {.inject, used.} = BlobFork.Electra
+    template forkyBlob: untyped {.inject, used.} = x.electraData
+    body
   of BlobFork.Deneb:
     const blobFork {.inject, used.} = BlobFork.Deneb
     template forkyBlob: untyped {.inject, used.} = x.denebData
@@ -876,13 +900,17 @@ func init*(
     x: typedesc[ForkedBlobSidecar],
     forkyData: ref ForkyBlobSidecar): ForkedBlobSidecar =
   const kind = typeof(forkyData[]).kind
-  when kind == BlobFork.Deneb:
+  when kind == BlobFork.Electra:
+    ForkedBlobSidecar(kind: kind, electraData: forkyData)
+  elif kind == BlobFork.Deneb:
     ForkedBlobSidecar(kind: kind, denebData: forkyData)
   else:
     {.error: "ForkedBlobSidecar.init does not support " & $kind.}
 
 template forky*(x: ForkedBlobSidecar, kind: static BlobFork): untyped =
-  when kind == BlobFork.Deneb:
+  when kind == BlobFork.Electra:
+    x.electraData
+  elif kind == BlobFork.Deneb:
     x.denebData
   else:
     {.error: "ForkedBlobSidecar.forky does not support " & $kind.}
@@ -890,11 +918,15 @@ template forky*(x: ForkedBlobSidecar, kind: static BlobFork): untyped =
 func shortLog*[T: ForkedBlobSidecar](x: T): auto =
   type ResultType = object
     case kind: BlobFork
+    of BlobFork.Electra:
+      electraData: typeof(x.electraData.shortLog())
     of BlobFork.Deneb:
       denebData: typeof(x.denebData.shortLog())
 
   let xKind = x.kind  # https://github.com/nim-lang/Nim/issues/23762
   case xKind
+  of BlobFork.Electra:
+    ResultType(kind: xKind, electraData: x.electraData.shortLog())
   of BlobFork.Deneb:
     ResultType(kind: xKind, denebData: x.denebData.shortLog())
 
@@ -1409,8 +1441,10 @@ func forkVersion*(cfg: RuntimeConfig, consensusFork: ConsensusFork): Version =
   of ConsensusFork.Electra:     cfg.ELECTRA_FORK_VERSION
 
 func blobForkAtConsensusFork*(consensusFork: ConsensusFork): Opt[BlobFork] =
-  static: doAssert BlobFork.high == BlobFork.Deneb
-  if consensusFork >= ConsensusFork.Deneb:
+  static: doAssert BlobFork.high == BlobFork.Electra
+  if consensusFork >= ConsensusFork.Electra:
+    Opt.some BlobFork.Electra
+  elif consensusFork >= ConsensusFork.Deneb:
     Opt.some BlobFork.Deneb
   else:
     Opt.none BlobFork

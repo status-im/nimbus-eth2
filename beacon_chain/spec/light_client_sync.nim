@@ -15,21 +15,6 @@ import
 from ../consensus_object_pools/block_pools_types import VerifierError
 export block_pools_types.VerifierError
 
-# https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.3/specs/electra/light-client/sync-protocol.md#is_valid_normalized_merkle_branch
-func is_valid_normalized_merkle_branch[N](
-    leaf: Eth2Digest,
-    branch: array[N, Eth2Digest],
-    gindex: static GeneralizedIndex,
-    root: Eth2Digest): bool =
-  const
-    depth = log2trunc(gindex)
-    index = get_subtree_index(gindex)
-    num_extra = branch.len - depth
-  for i in 0 ..< num_extra:
-    if not branch[i].isZero:
-      return false
-  is_valid_merkle_branch(leaf, branch[num_extra .. ^1], depth, index, root)
-
 # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.5/specs/altair/light-client/sync-protocol.md#initialize_light_client_store
 func initialize_light_client_store*(
     trusted_block_root: Eth2Digest,

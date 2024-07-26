@@ -248,6 +248,7 @@ RestJson.useDefaultSerializationFor(
   electra.BeaconBlock,
   electra.BeaconState,
   electra.BeaconBlockBody,
+  electra.BlobSidecar,
   electra.BlockContents,
   electra.ExecutionPayload,
   electra.ExecutionPayloadHeader,
