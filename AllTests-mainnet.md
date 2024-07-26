@@ -88,10 +88,10 @@ OK: 2/2 Fail: 0/2 Skip: 0/2
 OK: 1/1 Fail: 0/1 Skip: 0/1
 ## Blinded block conversions
 ```diff
-+ Bellatrix toSignedBlindedBlock                                                             OK
-+ Capella toSignedBlindedBlock                                                               OK
-+ Deneb toSignedBlindedBlock                                                                 OK
-+ Electra toSignedBlindedBlock                                                               OK
++ Bellatrix toSignedBlindedBeaconBlock                                                       OK
++ Capella toSignedBlindedBeaconBlock                                                         OK
++ Deneb toSignedBlindedBeaconBlock                                                           OK
++ Electra toSignedBlindedBeaconBlock                                                         OK
 ```
 OK: 4/4 Fail: 0/4 Skip: 0/4
 ## Block pool altair processing [Preset: mainnet]
