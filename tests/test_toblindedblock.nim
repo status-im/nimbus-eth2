@@ -116,28 +116,16 @@ template deneb_steps() =
   do_check
 
 suite "Blinded block conversions":
-  test "Bellatrix toSignedBlindedBlock":
-    var b = default(bellatrix.SignedBeaconBlock)
-    do_check
-    bellatrix_steps
-
-  test "Capella toSignedBlindedBlock":
-    var b = default(capella.SignedBeaconBlock)
-    do_check
-    bellatrix_steps
-    capella_steps
-
-  test "Deneb toSignedBlindedBlock":
-    var b = default(deneb.SignedBeaconBlock)
-    do_check
-    bellatrix_steps
-    capella_steps
-    deneb_steps
-
-  test "Electra toSignedBlindedBlock":
-    var b = default(electra.SignedBeaconBlock)
-    do_check
-    bellatrix_steps
-    capella_steps
-    deneb_steps
-    debugComment "add electra_steps"
+  withAll(ConsensusFork):
+    when consensusFork >= ConsensusFork.Bellatrix:
+      test $consensusFork & " toSignedBlindedBeaconBlock":
+        var b = default(consensusFork.SignedBeaconBlock)
+        do_check
+        bellatrix_steps
+        when consensusFork >= ConsensusFork.Capella:
+          capella_steps
+        when consensusFork >= ConsensusFork.Deneb:
+          deneb_steps
+        when consensusFork >= ConsensusFork.Electra:
+          debugComment "add electra_steps"
+        static: doAssert consensusFork.high == ConsensusFork.Electra
