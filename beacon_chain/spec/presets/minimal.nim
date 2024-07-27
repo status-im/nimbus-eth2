@@ -10,8 +10,8 @@
 import
   ./minimal/[
     phase0_preset, altair_preset, bellatrix_preset, capella_preset,
-    deneb_preset, electra_preset]
+    deneb_preset, electra_preset, epbs_preset]
 
 export
   phase0_preset, altair_preset, bellatrix_preset, capella_preset,
-  deneb_preset, electra_preset
+  deneb_preset, electra_preset, epbs_preset
