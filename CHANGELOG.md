@@ -13,7 +13,7 @@ Nimbus `v24.7.0` is a `low-urgency` release with beacon API improvements and fix
 
 ### Fixes
 
-* Fix SSZ decoding for beacon API publishBlock and publishBlockV2 endpoints
+* Fix SSZ decoding for beacon API publishBlock and publishBlockV2 endpoints:
   https://github.com/status-im/nimbus-eth2/pull/6408
 
 * Fix `statuses` parameter handling in postStateValidators beacon API endpoint:
