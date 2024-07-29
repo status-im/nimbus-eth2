@@ -1,3 +1,33 @@
+2024-07-29 v24.7.0
+==================
+
+Nimbus `v24.7.0` is a `low-urgency` release with beacon API improvements and fixes.
+
+### Improvements
+
+* Add support for publishBlindedBlockV2 beacon API endpoint:
+  https://github.com/status-im/nimbus-eth2/pull/6413
+
+* Improve block proposal rewards in the absence of pre-aggregated sync contributions:
+  https://github.com/status-im/nimbus-eth2/pull/6384
+
+### Fixes
+
+* Fix SSZ decoding for beacon API publishBlock and publishBlockV2 endpoints
+  https://github.com/status-im/nimbus-eth2/pull/6408
+
+* Fix `statuses` parameter handling in postStateValidators beacon API endpoint:
+  https://github.com/status-im/nimbus-eth2/pull/6391
+
+* Restore functioning Sepolia bootnodes, as previous bootnodes had gradually vanished:
+  https://github.com/status-im/nimbus-eth2/pull/6421
+
+* Fix IP addresses returned by getNetworkIdentity beacon API endpoint:
+  https://github.com/status-im/nimbus-eth2/pull/6422
+
+* Ensure Keymanager API fee recipient changes propagate to builder API relays:
+  https://github.com/status-im/nimbus-eth2/pull/6412
+
 2024-06-24 v24.6.0
 ==================
 
