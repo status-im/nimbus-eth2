@@ -53,6 +53,7 @@ RestJson.useDefaultSerializationFor(
   Checkpoint,
   Consolidation,
   ContributionAndProof,
+  DataColumnSidecar,
   DataEnclosedObject,
   DataMetaEnclosedObject,
   DataOptimisticAndFinalizedObject,

@@ -88,9 +88,37 @@ suite "EIP-7594 Unit Tests":
         rng.shuffle(blb_entry)
         discard partial_matrix.add(blob_entries[0..N_SAMPLES-1])
 
-      # Given the partial matrix, now recover the missing entries
-      let recovered_matrix = recover_matrix(partial_matrix, CellID(blob_count))
+      # TODO: refactor on spec change
 
+suite "EIP-7594 Sampling Tests":
+  test "EIP7594: Extended Sample Count":
+    proc testExtendedSampleCount() =
 
-      
+      let samplesPerSlot = 16
+      const tests = [
+        (0, 16),
+        (1, 20),
+        (2, 24),
+        (3, 27),
+        (4, 29),
+        (5, 32),
+        (6, 35),
+        (7, 37),
+        (8, 40),
+        (9, 42),
+        (10, 44),
+        (11, 47),
+        (12, 49),
+        (13, 51),
+        (14, 53),
+        (15, 55),
+        (16, 57),
+        (17, 59),
+        (18, 61),
+        (19, 63),
+        (20, 65)
+      ]
 
+      for (allowed_failures, extendedSampleCount) in tests:
+        check: get_extended_sample_count(samplesPerSlot, allowed_failures) == extendedSampleCount
+    testExtendedSampleCount()

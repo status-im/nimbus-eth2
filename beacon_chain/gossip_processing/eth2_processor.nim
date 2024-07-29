@@ -11,12 +11,13 @@ import
   std/tables,
   stew/results,
   chronicles, chronos, metrics, taskpools,
-  ../spec/[helpers, forks],
+  ../networking/eth2_network,
+  ../spec/[helpers, forks, eip7594_helpers],
   ../spec/datatypes/[altair, phase0, deneb, eip7594],
   ../consensus_object_pools/[
     blob_quarantine, block_clearance, block_quarantine, blockchain_dag,
-    attestation_pool, light_client_pool, sync_committee_msg_pool,
-    validator_change_pool],
+    data_column_quarantine, attestation_pool, light_client_pool, 
+    sync_committee_msg_pool, validator_change_pool],
   ../validators/validator_pool,
   ../beacon_clock,
   "."/[gossip_validation, block_processor, batch_validation],
@@ -156,6 +157,8 @@ type
 
     blobQuarantine*: ref BlobQuarantine
 
+    dataColumnQuarantine*: ref DataColumnQuarantine
+
     # Application-provided current time provider (to facilitate testing)
     getCurrentBeaconTime*: GetBeaconTimeFn
 
@@ -179,6 +182,7 @@ proc new*(T: type Eth2Processor,
           lightClientPool: ref LightClientPool,
           quarantine: ref Quarantine,
           blobQuarantine: ref BlobQuarantine,
+          dataColumnQuarantine: ref DataColumnQuarantine,
           rng: ref HmacDrbgContext,
           getBeaconTime: GetBeaconTimeFn,
           taskpool: TaskPoolPtr
@@ -197,6 +201,7 @@ proc new*(T: type Eth2Processor,
     lightClientPool: lightClientPool,
     quarantine: quarantine,
     blobQuarantine: blobQuarantine,
+    dataColumnQuarantine: dataColumnQuarantine,
     getCurrentBeaconTime: getBeaconTime,
     batchCrypto: BatchCrypto.new(
       rng = rng,
@@ -248,20 +253,40 @@ proc processSignedBeaconBlock*(
     # propagation of seemingly good blocks
     trace "Block validated"
 
-    let blobs =
+    # let blobs =
+    #   when typeof(signedBlock).kind >= ConsensusFork.Deneb:
+    #     if self.blobQuarantine[].hasBlobs(signedBlock):
+    #       Opt.some(self.blobQuarantine[].popBlobs(signedBlock.root, signedBlock))
+    #     else:
+    #       discard self.quarantine[].addBlobless(self.dag.finalizedHead.slot,
+    #                                             signedBlock)
+    #       return v
+    #   else:
+    #     Opt.none(BlobSidecars)
+
+    # self.blockProcessor[].enqueueBlock(
+    #   src, ForkedSignedBeaconBlock.init(signedBlock),
+    #   blobs,
+    #   Opt.none(DataColumnSidecars),
+    #   maybeFinalized = maybeFinalized,
+    #   validationDur = nanoseconds(
+    #     (self.getCurrentBeaconTime() - wallTime).nanoseconds))
+
+    let data_columns =
       when typeof(signedBlock).kind >= ConsensusFork.Deneb:
-        if self.blobQuarantine[].hasBlobs(signedBlock):
-          Opt.some(self.blobQuarantine[].popBlobs(signedBlock.root, signedBlock))
+        if self.dataColumnQuarantine[].hasDataColumns(signedBlock):
+          Opt.some(self.dataColumnQuarantine[].popDataColumns(signedBlock.root, signedBlock))
         else:
-          discard self.quarantine[].addBlobless(self.dag.finalizedHead.slot,
-                                                signedBlock)
+          discard self.quarantine[].addColumnless(self.dag.finalizedHead.slot,
+                                                  signedBlock)
           return v
       else:
-        Opt.none(BlobSidecars)
+        Opt.none(DataColumnSidecars)
 
     self.blockProcessor[].enqueueBlock(
       src, ForkedSignedBeaconBlock.init(signedBlock),
-      blobs,
+      Opt.none(BlobSidecars),
+      data_columns,
       maybeFinalized = maybeFinalized,
       validationDur = nanoseconds(
         (self.getCurrentBeaconTime() - wallTime).nanoseconds))
@@ -315,7 +340,8 @@ proc processBlobSidecar*(
         if self.blobQuarantine[].hasBlobs(forkyBlck):
           self.blockProcessor[].enqueueBlock(
             MsgSource.gossip, blobless,
-            Opt.some(self.blobQuarantine[].popBlobs(block_root, forkyBlck)))
+            Opt.some(self.blobQuarantine[].popBlobs(block_root, forkyBlck)),
+            Opt.none(DataColumnSidecars))
         else:
           discard self.quarantine[].addBlobless(
             self.dag.finalizedHead.slot, forkyBlck)
@@ -345,17 +371,32 @@ proc processDataColumnSidecar*(
   debug "Data column received", delay
 
   let v =
-    self.dag.validateDataColumnSidecar(self.quarantine, self.blobQuarantine,
+    self.dag.validateDataColumnSidecar(self.quarantine, self.dataColumnQuarantine,
                                  dataColumnSidecar, wallTime, subnet_id)
 
   if v.isErr():
     debug "Dropping data column", error = v.error()
-    blob_sidecars_dropped.inc(1, [$v.error[0]])
+    data_column_sidecars_dropped.inc(1, [$v.error[0]])
     return v
 
-  debug "Data column validated"
+  debug "Data column validated, putting data column in quarantine"
+  self.dataColumnQuarantine[].put(newClone(dataColumnSidecar))
 
-  # TODO do something with it!
+  let block_root = hash_tree_root(block_header)
+  if (let o = self.quarantine[].popColumnless(block_root); o.isSome):
+    let columnless = o.unsafeGet()
+    withBlck(columnless):
+      when consensusFork >= ConsensusFork.Deneb:
+        if self.dataColumnQuarantine[].hasDataColumns(forkyBlck):
+          self.blockProcessor[].enqueueBlock(
+            MsgSource.gossip, columnless,
+            Opt.none(BlobSidecars),
+            Opt.some(self.dataColumnQuarantine[].popDataColumns(block_root, forkyBlck)))
+        else:
+          discard self.quarantine[].addColumnless(
+            self.dag.finalizedHead.slot, forkyBlck)
+      else:
+        raiseAssert "Could not have been added as columnless"
 
   data_column_sidecars_received.inc()
   data_column_sidecar_delay.observe(delay.toFloatSeconds())
@@ -403,6 +444,61 @@ proc checkForPotentialDoppelganger(
         validator_index = validatorIndex,
         attestation = shortLog(attestation)
       quitDoppelganger()
+
+proc processDataColumnReconstruction*(
+    self: ref Eth2Processor,
+    node: Eth2Node,
+    signed_block: deneb.SignedBeaconBlock |
+    electra.SignedBeaconBlock):
+    Future[ValidationRes] {.async: (raises: [CancelledError]).} =
+  
+  let
+    dag = self.dag
+    root = signed_block.root
+    custodiedColumnIndices = get_custody_columns(
+        node.nodeId,
+        CUSTODY_REQUIREMENT)
+  
+  var
+    data_column_sidecars: seq[DataColumnSidecar]
+    columnsOk = true
+    storedColumns: seq[ColumnIndex]
+  
+  # Loading the data columns from the database
+  for custody_column in custodiedColumnIndices.get:
+    let data_column = DataColumnSidecar.new()
+    if not dag.db.getDataColumnSidecar(root, custody_column, data_column[]):
+      columnsOk = false
+      break
+    data_column_sidecars.add data_column[]
+    storedColumns.add data_column.index
+
+    if columnsOk:
+      debug "Loaded data column for reconstruction"
+
+  # storedColumn number is less than the NUMBER_OF_COLUMNS
+  # then reconstruction is not possible, and if all the data columns
+  # are already stored then we do not need to reconstruct at all
+  if storedColumns.len < NUMBER_OF_COLUMNS or storedColumns.len == NUMBER_OF_COLUMNS:
+    return ok()
+  else:
+    return errIgnore ("DataColumnSidecar: Reconstruction error!")
+
+  # Recover blobs from saved data column sidecars
+  let recovered_blobs = recover_blobs(data_column_sidecars, storedColumns.len, signed_block)
+  if not recovered_blobs.isOk:
+    return errIgnore ("Error recovering blobs from data columns")
+
+  # Reconstruct data column sidecars from recovered blobs
+  let reconstructedDataColumns = get_data_column_sidecars(signed_block, recovered_blobs.get)
+
+  for data_column in data_column_sidecars:
+    if data_column.index notin custodiedColumnIndices.get:
+      continue
+    
+    dag.db.putDataColumnSidecar(data_column)
+
+  ok()
 
 proc processAttestation*(
     self: ref Eth2Processor, src: MsgSource,

@@ -254,6 +254,13 @@ func blobkey(root: Eth2Digest, index: BlobIndex) : array[40, byte] =
 
   ret
 
+func columnkey(root: Eth2Digest, index: ColumnIndex): array[40, byte] =
+  var ret: array[40, byte]
+  ret[0..<8] = toBytes(index)
+  ret[8..<40] = root.data
+
+  ret
+
 template expectDb(x: auto): untyped =
   # There's no meaningful error handling implemented for a corrupt database or
   # full disk - this requires manual intervention, so we'll panic for now
@@ -808,10 +815,21 @@ proc putBlobSidecar*(
   let block_root = hash_tree_root(value.signed_block_header.message)
   db.blobs.putSZSSZ(blobkey(block_root, value.index), value)
 
+proc putDataColumnSidecar*(
+    db: BeaconChainDB,
+    value: DataColumnSidecar) =
+  let block_root = hash_tree_root(value.signed_block_header.message)
+  db.blobs.putSZSSZ(columnkey(block_root, value.index), value)
+
 proc delBlobSidecar*(
     db: BeaconChainDB,
     root: Eth2Digest, index: BlobIndex): bool =
   db.blobs.del(blobkey(root, index)).expectDb()
+
+proc delDataColumnSidecar*(
+    db: BeaconChainDB,
+    root: Eth2Digest, index: ColumnIndex): bool =
+  db.blobs.del(columnkey(root, index)).expectDb()
 
 proc updateImmutableValidators*(
     db: BeaconChainDB, validators: openArray[Validator]) =
@@ -1070,6 +1088,17 @@ proc getBlobSidecarSZ*(db: BeaconChainDB, root: Eth2Digest, index: BlobIndex,
 proc getBlobSidecar*(db: BeaconChainDB, root: Eth2Digest, index: BlobIndex,
                      value: var BlobSidecar): bool =
   db.blobs.getSZSSZ(blobkey(root, index), value) == GetResult.found
+
+proc getDataColumnSidecarSZ*(db: BeaconChainDB, root: Eth2Digest, 
+                             index: ColumnIndex, data: var seq[byte]): bool =
+  let dataPtr = addr data # Short-lived
+  func decode(data: openArray[byte]) =
+    assign(dataPtr[], data)
+  db.blobs.get(columnkey(root, index), decode).expectDb()
+
+proc getDataColumnSidecar*(db: BeaconChainDB, root: Eth2Digest, index: ColumnIndex,
+                           value: var DataColumnSidecar): bool =
+  db.blobs.getSZSSZ(columnkey(root, index), value) == GetResult.found
 
 proc getBlockSZ*(
     db: BeaconChainDB, key: Eth2Digest, data: var seq[byte],

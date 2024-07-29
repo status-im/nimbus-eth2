@@ -7,7 +7,14 @@
 
 {.push raises: [].}
 
-import "."/[base, deneb], kzg4844
+import
+  std/[sequtils],
+  "."/[base, deneb], 
+  kzg4844,
+  stew/[byteutils]
+
+from std/sequtils import mapIt
+from std/strutils import join
 
 export base
 
@@ -20,7 +27,7 @@ const
   CELLS_PER_EXT_BLOB* = FIELD_ELEMENTS_PER_EXT_BLOB div FIELD_ELEMENTS_PER_CELL
     # The number of cells in an extended blob |
   # RANDOM_CHALLENGE_KZG_CELL_BATCH_DOMAIN = 'RCKZGCBATCH__V1_'
-  KZG_COMMITMENTS_INCLUSION_PROOF_DEPTH = 4 # TODO dedupe vs network
+  KZG_COMMITMENTS_INCLUSION_PROOF_DEPTH* = 4 # TODO dedupe vs network
 
 type
   BLSFieldElement* = KzgBytes32
@@ -39,9 +46,9 @@ const
   NUMBER_OF_COLUMNS* = 128
   MAX_CELLS_IN_EXTENDED_MATRIX* = MAX_BLOBS_PER_BLOCK * NUMBER_OF_COLUMNS
 
-  DATA_COLUMN_SIDECAR_SUBNET_COUNT* = 64
-  SAMPLES_PER_SLOT* = 16
-  CUSTODY_REQUIREMENT* = 4
+  DATA_COLUMN_SIDECAR_SUBNET_COUNT* = 32
+  SAMPLES_PER_SLOT* = 8
+  CUSTODY_REQUIREMENT* = 1
   TARGET_NUMBER_OF_PEERS* = 70
 
 type
@@ -51,13 +58,15 @@ type
   DataColumnSidecar* = object
     index*: ColumnIndex # Index of column in extended matrix
     column*: DataColumn
-    kzg_commitments*: List[KzgCommitment, Limit(MAX_BLOB_COMMITMENTS_PER_BLOCK)]
-    kzg_proofs*: List[KzgProof, Limit(MAX_BLOB_COMMITMENTS_PER_BLOCK)]
+    kzg_commitments*: KzgCommitments
+    kzg_proofs*: KzgProofs
     signed_block_header*: SignedBeaconBlockHeader
     kzg_commitments_inclusion_proof*:
       array[KZG_COMMITMENTS_INCLUSION_PROOF_DEPTH, Eth2Digest]
 
-  DataColumnIdentifier* = object 
+  DataColumnSidecars* = seq[ref DataColumnSidecar]
+
+  DataColumnIdentifier* = object
     block_root*: Eth2Digest
     index*: ColumnIndex
 
@@ -66,12 +75,31 @@ type
     kzg_proof*: KzgProof
     column_index*: ColumnIndex
     row_index*: RowIndex
-    
+
+  CscBits* = BitArray[DATA_COLUMN_SIDECAR_SUBNET_COUNT]
+
+func serializeDataColumn(data_column: DataColumn): auto =
+  var counter = 0
+  var serd : array[MAX_BLOB_COMMITMENTS_PER_BLOCK * KzgCellSize, byte]
+  for i in 0..<MAX_BLOB_COMMITMENTS_PER_BLOCK:
+    for j in 0..<KzgCellSize:
+      serd[counter] = data_column[i][j]
+      inc(counter)
+  serd
+
+func shortLog*(v: DataColumn): auto =
+  to0xHex(v.serializeDataColumn())
+
 func shortLog*(v: DataColumnSidecar): auto =
   (
     index: v.index,
-    column: v.column,
     kzg_commitments: v.kzg_commitments.len,
     kzg_proofs: v.kzg_proofs.len,
     block_header: shortLog(v.signed_block_header.message),
   )
+
+func shortLog*(v: seq[DataColumnSidecar]): auto =
+  "[" & v.mapIt(shortLog(it)).join(", ") & "]"
+
+func shortLog*(x: seq[DataColumnIdentifier]): string =
+  "[" & x.mapIt(shortLog(it.block_root) & "/" & $it.index).join(", ") & "]"

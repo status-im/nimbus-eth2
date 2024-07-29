@@ -12,7 +12,7 @@ import stew/[results, base10], chronos, chronicles
 import
   ../spec/datatypes/[phase0, altair],
   ../spec/eth2_apis/rest_types,
-  ../spec/[helpers, forks, network],
+  ../spec/[helpers, forks, network, eip7594_helpers],
   ../networking/[peer_pool, peer_scores, eth2_network],
   ../gossip_processing/block_processor,
   ../beacon_clock,
@@ -25,7 +25,7 @@ logScope:
   topics = "syncman"
 
 const
-  SyncWorkersCount* = 10
+  SyncWorkersCount* = 20
     ## Number of sync workers to spawn
 
   StatusUpdateInterval* = chronos.minutes(1)
@@ -50,7 +50,9 @@ type
     pool: PeerPool[A, B]
     DENEB_FORK_EPOCH: Epoch
     MIN_EPOCHS_FOR_BLOB_SIDECARS_REQUESTS: uint64
+    MIN_EPOCHS_FOR_DATA_COLUMN_SIDECARS_REQUESTS: uint64
     responseTimeout: chronos.Duration
+    supernode: bool
     maxHeadAge: uint64
     getLocalHeadSlot: GetSlotCallback
     getLocalWallSlot: GetSlotCallback
@@ -80,6 +82,8 @@ type
   BeaconBlocksRes =
     NetRes[List[ref ForkedSignedBeaconBlock, Limit MAX_REQUEST_BLOCKS]]
   BlobSidecarsRes = NetRes[List[ref BlobSidecar, Limit(MAX_REQUEST_BLOB_SIDECARS)]]
+  DataColumnSidecarsRes =
+    NetRes[List[ref DataColumnSidecar, Limit(MAX_REQUEST_DATA_COLUMNS)]]
 
 proc now*(sm: typedesc[SyncMoment], slots: uint64): SyncMoment {.inline.} =
   SyncMoment(stamp: now(chronos.Moment), slots: slots)
@@ -118,6 +122,7 @@ proc initQueue[A, B](man: SyncManager[A, B]) =
 proc newSyncManager*[A, B](pool: PeerPool[A, B],
                            denebEpoch: Epoch,
                            minEpochsForBlobSidecarsRequests: uint64,
+                           supernode: bool,
                            direction: SyncQueueKind,
                            getLocalHeadSlotCb: GetSlotCallback,
                            getLocalWallSlotCb: GetSlotCallback,
@@ -141,6 +146,7 @@ proc newSyncManager*[A, B](pool: PeerPool[A, B],
     pool: pool,
     DENEB_FORK_EPOCH: denebEpoch,
     MIN_EPOCHS_FOR_BLOB_SIDECARS_REQUESTS: minEpochsForBlobSidecarsRequests,
+    supernode: supernode,
     getLocalHeadSlot: getLocalHeadSlotCb,
     getLocalWallSlot: getLocalWallSlotCb,
     getSafeSlot: getSafeSlot,
@@ -180,6 +186,12 @@ proc shouldGetBlobs[A, B](man: SyncManager[A, B], e: Epoch): bool =
   e >= man.DENEB_FORK_EPOCH and
   (wallEpoch < man.MIN_EPOCHS_FOR_BLOB_SIDECARS_REQUESTS or
    e >=  wallEpoch - man.MIN_EPOCHS_FOR_BLOB_SIDECARS_REQUESTS)
+
+proc shouldGetDataColumns[A, B](man: SyncManager[A, B], e: Epoch): bool =
+  let wallEpoch = man.getLocalWallSlot().epoch
+  e >= man.DENEB_FORK_EPOCH and
+  (wallEpoch < man.MIN_EPOCHS_FOR_DATA_COLUMN_SIDECARS_REQUESTS or
+  e >= wallEpoch - man.MIN_EPOCHS_FOR_DATA_COLUMN_SIDECARS_REQUESTS)
 
 proc getBlobSidecars[A, B](man: SyncManager[A, B], peer: A,
                            req: SyncRequest): Future[BlobSidecarsRes]
@@ -255,6 +267,139 @@ func checkBlobs(blobs: seq[BlobSidecars]): Result[void, string] =
     for blob_sidecar in blob_sidecars:
       ? blob_sidecar[].verify_blob_sidecar_inclusion_proof()
   ok()
+
+proc getDataColumnSidecars[A, B](man: SyncManager[A, B], peer: A,
+                                 req: SyncRequest): Future[DataColumnSidecarsRes]
+                                 {.async: (raises: [CancelledError], raw: true).} =
+  mixin getScore, `==`
+
+  logScope:
+    peer_score = peer.getScore()
+    peer_speed = peer.netKbps()
+    sync_ident = man.ident
+    direction = man.direction
+    topics = "syncman"
+  
+  doAssert(not(req.isEmpty()), "Request must not be empty!")
+  debug "Requesting data column sidecars from peer", request = req
+  dataColumnSidecarsByRange(peer, req.slot, req.count, req.columns)
+
+func groupDataColumns*[T](req: SyncRequest[T],
+                          blocks: seq[ref ForkedSignedBeaconBlock],
+                          data_columns: seq[ref DataColumnSidecar]):
+                            Result[seq[DataColumnSidecars], string] =
+  var
+    grouped = newSeq[DataColumnSidecars](len(blocks))
+    column_cursor = 0
+  for block_idx, blck in blocks:
+    withBlck(blck[]):
+      when consensusFork >= ConsensusFork.Deneb:
+        template kzgs: untyped = forkyBlck.message.body.blob_kzg_commitments
+        if kzgs.len == 0:
+          continue
+        # Clients MUST include all data column sidecars of each block from which they include data column sidecars.
+        # The following data column sidecars, where they exist, MUST be sent in consecutive (slot, index) order.
+        # https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.3/specs/_features/eip7594/p2p-interface.md
+        let header = forkyBlck.toSignedBeaconBlockHeader()
+        for column_idx, kzg_commitment in kzgs:
+          if column_cursor >= data_columns.len:
+            return err("DataColumnSidecar: response too short")
+          let data_column_sidecar = data_columns[column_cursor]
+          if kzg_commitment notin data_column_sidecar.kzg_commitments:
+            return err("DataColumnSidecar: unexpected kzg_commitment")
+          if data_column_sidecar.signed_block_header != header:
+            return err("DataColumnSidecar: unexpected signed_block_header")
+          grouped[block_idx].add(data_column_sidecar)
+          inc column_cursor
+
+  if column_cursor != len(data_columns):
+    # we reached end of blocks without consuming all data columns so either
+    # the peer we got too few blocks in the paired request, or the
+    # peer is sending us spurious data columns.
+    Result[seq[DataColumnSidecars], string].err "invalid block or data column sequence"
+  else:
+    Result[seq[DataColumnSidecars], string].ok grouped
+
+func checkDataColumns(data_columns: seq[DataColumnSidecars]): Result[void, string] =
+  for data_column_sidecars in data_columns:
+    for data_column_sidecar in data_column_sidecars:
+      ? data_column_sidecar[].verify_data_column_sidecar_inclusion_proof()
+  ok()
+
+proc fetchCustodyColumnCountFromRemotePeer*(peer: Peer):
+                                            uint64 =
+  # Fetches the custody column count from a remote peer
+  # if the peer advertises their custody column count 
+  # via the `csc` ENR field. If the peer does NOT, then
+  # the default value is assume, i.e, CUSTODY_REQUIREMENT
+
+  let enrOpt = peer.enr
+  if enrOpt.isNone:
+    debug "Could not get ENR from peer",
+      peer_id = peer.peerId
+    return 0
+
+  else:
+    let
+      enr = enrOpt.get
+      enrFieldOpt = 
+          enr.get(enrCustodySubnetCountField, uint64)
+
+    if not enrFieldOpt.isOk:
+      debug "Issue with fetching `csc` field from ENR",
+        enr = enr
+    else:
+      return(enrFieldOpt.get)
+
+proc checkValidPeerCustody*[A, B](man: SyncManager[A, B], peer: A): bool =
+  # `constructValidaCustodyPeers` returns a list of peers that are an overall
+  # superset of the given local node's custody columns and the custody columns
+  # of the remote peers
+
+  # Get the local custody subnet count
+
+  let localCustodySubnetCount =
+    if man.supernode:
+      DATA_COLUMN_SIDECAR_SUBNET_COUNT.uint64
+    else:
+      CUSTODY_REQUIREMENT
+
+  # Get the local custody columns
+  let 
+    localNodeId = peer.getNodeIdFromPeer()
+    localCustodyColumns = 
+        localNodeId.get_custody_columns(localCustodySubnetCount).get
+
+  var validPeerIds: seq[PeerId]
+
+  # Get the custody subnet counts of the remote peer
+  let remoteCustodySubnetCount = 
+      peer.fetchCustodyColumnCountFromRemotePeer()
+
+  # Extract remote peer's nodeID from peerID
+  # Fetch custody columns fromm remote peer
+  let 
+    remoteNodeId = peer.getNodeIdFromPeer()
+    remoteCustodyColumns = 
+        remoteNodeId.get_custody_columns(remoteCustodySubnetCount).get
+
+  # If the remote peer custodies less columns than our local node
+  # We skip it
+  if remoteCustodyColumns.len < localCustodyColumns.len:
+    return false
+
+  # If the remote peer custodies all the possible columns
+  if remoteCustodyColumns.len == NUMBER_OF_COLUMNS:
+    return true
+
+  # Filtering out the invalid peers
+  for column in localCustodyColumns:
+    if column notin remoteCustodyColumns:
+      return true
+  
+  # Otherwise add the peer to the set
+  # of valid peerIds
+  true
 
 proc syncStep[A, B](man: SyncManager[A, B], index: int, peer: A)
     {.async: (raises: [CancelledError]).} =
@@ -409,18 +554,18 @@ proc syncStep[A, B](man: SyncManager[A, B], index: int, peer: A)
           request = req
     return
 
-  let shouldGetBlobs =
-    if not man.shouldGetBlobs(req.slot.epoch):
-      false
-    else:
-      var hasBlobs = false
-      for blck in blockData:
-        withBlck(blck[]):
-          when consensusFork >= ConsensusFork.Deneb:
-            if forkyBlck.message.body.blob_kzg_commitments.len > 0:
-              hasBlobs = true
-              break
-      hasBlobs
+  # let shouldGetBlobs =
+  #   if not man.shouldGetBlobs(req.slot.epoch):
+  #     false
+  #   else:
+  #     var hasBlobs = false
+  #     for blck in blockData:
+  #       withBlck(blck[]):
+  #         when consensusFork >= ConsensusFork.Deneb:
+  #           if forkyBlck.message.body.blob_kzg_commitments.len > 0:
+  #             hasBlobs = true
+  #             break
+  #     hasBlobs
 
   func combine(acc: seq[Slot], cur: Slot): seq[Slot] =
     var copy = acc
@@ -428,49 +573,110 @@ proc syncStep[A, B](man: SyncManager[A, B], index: int, peer: A)
       copy.add(cur)
     copy
 
-  let blobData =
-    if shouldGetBlobs:
-      let blobs = await man.getBlobSidecars(peer, req)
-      if blobs.isErr():
-        peer.updateScore(PeerScoreNoValues)
-        man.queue.push(req)
-        debug "Failed to receive blobs on request",
-              request = req, err = blobs.error
-        return
-      let blobData = blobs.get().asSeq()
-      let blobSmap = getShortMap(req, blobData)
-      debug "Received blobs on request", blobs_count = len(blobData),
-                      blobs_map = blobSmap, request = req
+  # let blobData =
+  #   if shouldGetBlobs:
+  #     let blobs = await man.getBlobSidecars(peer, req)
+  #     if blobs.isErr():
+  #       peer.updateScore(PeerScoreNoValues)
+  #       man.queue.push(req)
+  #       debug "Failed to receive blobs on request",
+  #             request = req, err = blobs.error
+  #       return
+  #     let blobData = blobs.get().asSeq()
+  #     let blobSmap = getShortMap(req, blobData)
+  #     debug "Received blobs on request", blobs_count = len(blobData),
+  #                     blobs_map = blobSmap, request = req
 
-      if len(blobData) > 0:
-        let slots = mapIt(blobData, it[].signed_block_header.message.slot)
-        let uniqueSlots = foldl(slots, combine(a, b), @[slots[0]])
-        if not(checkResponse(req, uniqueSlots)):
-          peer.updateScore(PeerScoreBadResponse)
-          man.queue.push(req)
-          warn "Received blobs sequence is not in requested range",
-            blobs_count = len(blobData), blobs_map = getShortMap(req, blobData),
-                          request = req
-          return
-      let groupedBlobs = groupBlobs(req, blockData, blobData)
-      if groupedBlobs.isErr():
-        peer.updateScore(PeerScoreNoValues)
-        man.queue.push(req)
-        info "Received blobs sequence is inconsistent",
-          blobs_map = getShortMap(req, blobData), request = req, msg=groupedBlobs.error()
-        return
-      if (let checkRes = groupedBlobs.get.checkBlobs(); checkRes.isErr):
-        peer.updateScore(PeerScoreBadResponse)
-        man.queue.push(req)
-        warn "Received blobs sequence is invalid",
-          blobs_count = len(blobData),
-          blobs_map = getShortMap(req, blobData),
-          request = req,
-          msg = checkRes.error
-        return
-      Opt.some(groupedBlobs.get())
+  #     if len(blobData) > 0:
+  #       let slots = mapIt(blobData, it[].signed_block_header.message.slot)
+  #       let uniqueSlots = foldl(slots, combine(a, b), @[slots[0]])
+  #       if not(checkResponse(req, uniqueSlots)):
+  #         peer.updateScore(PeerScoreBadResponse)
+  #         man.queue.push(req)
+  #         warn "Received blobs sequence is not in requested range",
+  #           blobs_count = len(blobData), blobs_map = getShortMap(req, blobData),
+  #                         request = req
+  #         return
+  #     let groupedBlobs = groupBlobs(req, blockData, blobData)
+  #     if groupedBlobs.isErr():
+  #       peer.updateScore(PeerScoreNoValues)
+  #       man.queue.push(req)
+  #       info "Received blobs sequence is inconsistent",
+  #         blobs_map = getShortMap(req, blobData), request = req, msg=groupedBlobs.error()
+  #       return
+  #     if (let checkRes = groupedBlobs.get.checkBlobs(); checkRes.isErr):
+  #       peer.updateScore(PeerScoreBadResponse)
+  #       man.queue.push(req)
+  #       warn "Received blobs sequence is invalid",
+  #         blobs_count = len(blobData),
+  #         blobs_map = getShortMap(req, blobData),
+  #         request = req,
+  #         msg = checkRes.error
+  #       return
+  #     Opt.some(groupedBlobs.get())
+  #   else:
+  #     Opt.none(seq[BlobSidecars])
+
+  let shouldGetDataColumns =
+    if not man.shouldGetDataColumns(req.slot.epoch):
+      false
     else:
-      Opt.none(seq[BlobSidecars])
+      var hasColumns = false
+      for blck in blockData:
+        withBlck(blck[]):
+          when consensusFork >= ConsensusFork.Deneb:
+            if forkyBlck.message.body.blob_kzg_commitments.len > 0:
+              hasColumns = true
+              break
+      hasColumns
+  
+  let dataColumnData =
+    if shouldGetDataColumns:
+      if man.checkValidPeerCustody(peer):
+        let data_columns = await man.getDataColumnSidecars(peer, req)
+        if data_columns.isErr():
+          # peer.updateScore(PeerScoreNoValues)
+          man.queue.push(req)
+          debug "Failed to receive data columns on request",
+                request = req, err = data_columns.error
+          return
+        let dataColumnData = data_columns.get().asSeq()
+        let dataColumnSmap = getShortMap(req, dataColumnData)
+        debug "Received data columns on request", data_columns_count = len(dataColumnData),
+                            data_columns_map = dataColumnSmap, request = req
+
+        if len(dataColumnData) > 0:
+          let slots = mapIt(dataColumnData, it[].signed_block_header.message.slot)
+          let uniqueSlots = foldl(slots, combine(a, b), @[slots[0]])
+          if not(checkResponse(req, uniqueSlots)):
+            # peer.updateScore(PeerScoreBadResponse)
+            man.queue.push(req)
+            warn "Received data columns sequence is not in requested range",
+              data_columns_count = len(dataColumnData), data_columns_map = getShortMap(req, dataColumnData),
+                                  request = req
+            return
+        let groupedDataColumns = groupDataColumns(req, blockData, dataColumnData)
+        if groupedDataColumns.isErr():
+          # peer.updateScore(PeerScoreNoValues)
+          man.queue.push(req)
+          # warn "Received data columns is inconsistent",
+          #   data_columns_map = getShortMap(req, dataColumnData), request = req, msg=groupedDataColumns.error()
+          return
+        if (let checkRes = groupedDataColumns.get.checkDataColumns(); checkRes.isErr):
+          # peer.updateScore(PeerScoreBadResponse)
+          man.queue.push(req)
+          warn "Received data columns is invalid",
+            data_columns_count = len(dataColumnData),
+            data_columns_map = getShortMap(req, dataColumnData),
+            request = req,
+            msg = checkRes.error
+          return
+        Opt.some(groupedDataColumns.get())
+      else:
+        Opt.none(seq[DataColumnSidecars])
+    else:
+      Opt.none(seq[DataColumnSidecars])
+
 
   if len(blockData) == 0 and man.direction == SyncQueueKind.Backward and
       req.contains(man.getSafeSlot()):
@@ -496,7 +702,7 @@ proc syncStep[A, B](man: SyncManager[A, B], index: int, peer: A)
     # TODO descore peers that lie
     maybeFinalized = lastSlot < peerFinalized
 
-  await man.queue.push(req, blockData, blobData, maybeFinalized, proc() =
+  await man.queue.push(req, blockData, Opt.none(seq[BlobSidecars]), dataColumnData, maybeFinalized, proc() =
     man.workers[index].status = SyncWorkerStatus.Processing)
 
 proc syncWorker[A, B](man: SyncManager[A, B], index: int) {.async: (raises: [CancelledError]).} =

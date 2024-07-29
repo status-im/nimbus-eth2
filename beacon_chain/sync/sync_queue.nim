@@ -26,7 +26,8 @@ type
   GetSlotCallback* = proc(): Slot {.gcsafe, raises: [].}
   ProcessingCallback* = proc() {.gcsafe, raises: [].}
   BlockVerifier* =  proc(signedBlock: ForkedSignedBeaconBlock,
-                         blobs: Opt[BlobSidecars], maybeFinalized: bool):
+                         blobs: Opt[BlobSidecars], data_columns: Opt[DataColumnSidecars],
+                         maybeFinalized: bool):
       Future[Result[void, VerifierError]] {.async: (raises: [CancelledError]).}
 
   SyncQueueKind* {.pure.} = enum
@@ -37,12 +38,14 @@ type
     index*: uint64
     slot*: Slot
     count*: uint64
+    columns*: List[ColumnIndex, NUMBER_OF_COLUMNS]
     item*: T
 
   SyncResult*[T] = object
     request*: SyncRequest[T]
     data*: seq[ref ForkedSignedBeaconBlock]
     blobs*: Opt[seq[BlobSidecars]]
+    data_columns*: Opt[seq[DataColumnSidecars]]
 
   GapItem*[T] = object
     start*: Slot
@@ -127,6 +130,27 @@ proc getShortMap*[T](req: SyncRequest[T],
         else:
           inc(cur)
           res.add('x')
+    else:
+      res.add('|')
+  res
+
+proc getShortMap*[T](req: SyncRequest[T],
+                     data: openArray[ref DataColumnSidecar]): string =
+  # Returns all slot numbers in ``data`` as a placement map
+  var res = newStringOfCap(req.count * MAX_BLOBS_PER_BLOCK)
+  var cur: uint64 = 0
+  for slot in req.slot..<req.slot+req.count:
+    if cur >= lenu64(data):
+      res.add('|')
+      continue
+    if slot == data[cur].signed_block_header.message.slot:
+      for k in cur..<cur+MAX_BLOBS_PER_BLOCK:
+        if k >= lenu64(data) or slot != data[k].signed_block_header.message.slot:
+          res.add('|')
+          break
+        else:
+          inc(cur)
+          res.add('|')
     else:
       res.add('|')
   res
@@ -546,6 +570,13 @@ func getOpt(blobs: Opt[seq[BlobSidecars]], i: int): Opt[BlobSidecars] =
   else:
     Opt.none(BlobSidecars)
 
+func getOpt(data_columns: Opt[seq[DataColumnSidecars]], i: int):
+    Opt[DataColumnSidecars] =
+  if data_columns.isSome:
+    Opt.some(data_columns.get()[i])
+  else:
+    Opt.none(DataColumnSidecars)
+
 iterator blocks[T](sq: SyncQueue[T],
                    sr: SyncResult[T]): (ref ForkedSignedBeaconBlock, Opt[BlobSidecars]) =
   case sq.kind
@@ -555,6 +586,16 @@ iterator blocks[T](sq: SyncQueue[T],
   of SyncQueueKind.Backward:
     for i in countdown(len(sr.data) - 1, 0):
       yield (sr.data[i], sr.blobs.getOpt(i))
+
+iterator das_blocks[T](sq: SyncQueue[T],
+                   sr: SyncResult[T]): (ref ForkedSignedBeaconBlock, Opt[DataColumnSidecars]) =
+  case sq.kind
+  of SyncQueueKind.Forward:
+    for i in countup(0, len(sr.data) - 1):
+      yield (sr.data[i], sr.data_columns.getOpt(i))
+  of SyncQueueKind.Backward:
+    for i in countdown(len(sr.data) - 1, 0):
+      yield (sr.data[i], sr.data_columns.getOpt(i))
 
 proc advanceOutput*[T](sq: SyncQueue[T], number: uint64) =
   case sq.kind
@@ -609,6 +650,7 @@ func numAlreadyKnownSlots[T](sq: SyncQueue[T], sr: SyncRequest[T]): uint64 =
 proc push*[T](sq: SyncQueue[T], sr: SyncRequest[T],
               data: seq[ref ForkedSignedBeaconBlock],
               blobs: Opt[seq[BlobSidecars]],
+              data_columns: Opt[seq[DataColumnSidecars]],
               maybeFinalized: bool = false,
               processingCb: ProcessingCallback = nil) {.async: (raises: [CancelledError]).} =
   logScope:
@@ -636,7 +678,7 @@ proc push*[T](sq: SyncQueue[T], sr: SyncRequest[T],
         # SyncQueue reset happens. We are exiting to wake up sync-worker.
         return
     else:
-      let syncres = SyncResult[T](request: sr, data: data, blobs: blobs)
+      let syncres = SyncResult[T](request: sr, data: data, blobs: blobs, data_columns: data_columns)
       sq.readyQueue.push(syncres)
       break
 
@@ -685,12 +727,44 @@ proc push*[T](sq: SyncQueue[T], sr: SyncRequest[T],
       # Nim versions, remove workaround and move `res` into for loop
       res: Result[void, VerifierError]
 
-    var i=0
-    for blk, blb in sq.blocks(item):
-      res = await sq.blockVerifier(blk[], blb, maybeFinalized)
-      inc(i)
+    # var i=0
+    # for blk, blb in sq.blocks(item):
+    #   res = await sq.blockVerifier(blk[], blb, Opt.none(DataColumnSidecars), maybeFinalized)
+    #   inc(i)
 
-      if res.isOk():
+    #   if res.isOk():
+    #     goodBlock = some(blk[].slot)
+    #   else:
+    #     case res.error()
+    #     of VerifierError.MissingParent:
+    #       missingParentSlot = some(blk[].slot)
+    #       break
+    #     of VerifierError.Duplicate:
+    #       # Keep going, happens naturally
+    #       discard
+    #     of VerifierError.UnviableFork:
+    #       # Keep going so as to register other unviable blocks with the
+    #       # quarantine
+    #       if unviableBlock.isNone:
+    #         # Remember the first unviable block, so we can log it
+    #         unviableBlock = some((blk[].root, blk[].slot))
+
+    #     of VerifierError.Invalid:
+    #       hasInvalidBlock = true
+
+    #       let req = item.request
+    #       notice "Received invalid sequence of blocks", request = req,
+    #               blocks_count = len(item.data),
+    #               blocks_map = getShortMap(req, item.data)
+    #       req.item.updateScore(PeerScoreBadValues)
+    #       break
+    
+    var counter = 0
+    for blk, col in sq.das_blocks(item):
+      res = await sq.blockVerifier(blk[], Opt.none(BlobSidecars), col, maybeFinalized)
+      inc counter
+
+      if res.isOk:
         goodBlock = some(blk[].slot)
       else:
         case res.error()
@@ -706,7 +780,7 @@ proc push*[T](sq: SyncQueue[T], sr: SyncRequest[T],
           if unviableBlock.isNone:
             # Remember the first unviable block, so we can log it
             unviableBlock = some((blk[].root, blk[].slot))
-
+        
         of VerifierError.Invalid:
           hasInvalidBlock = true
 
@@ -714,8 +788,7 @@ proc push*[T](sq: SyncQueue[T], sr: SyncRequest[T],
           notice "Received invalid sequence of blocks", request = req,
                   blocks_count = len(item.data),
                   blocks_map = getShortMap(req, item.data)
-          req.item.updateScore(PeerScoreBadValues)
-          break
+          # req.item.updateScore(PeerScoreBadValues)
 
     # When errors happen while processing blocks, we retry the same request
     # with, hopefully, a different peer

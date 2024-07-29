@@ -14,8 +14,9 @@ import
   stew/[byteutils, io2],
   eth/p2p/discoveryv5/[enr, random2],
   ./consensus_object_pools/blob_quarantine,
+  ./consensus_object_pools/data_column_quarantine,
   ./consensus_object_pools/vanity_logs/vanity_logs,
-  ./networking/[topic_params, network_metadata_downloads],
+  ./networking/[topic_params, network_metadata_downloads, eth2_network],
   ./rpc/[rest_api, state_ttl_cache],
   ./spec/datatypes/[altair, bellatrix, phase0],
   ./spec/[deposit_snapshots, engine_authentication, weak_subjectivity],
@@ -382,6 +383,7 @@ proc initFullNode(
       dag, attestationPool, onVoluntaryExitAdded, onBLSToExecutionChangeAdded,
       onProposerSlashingAdded, onAttesterSlashingAdded))
     blobQuarantine = newClone(BlobQuarantine.init(onBlobSidecarAdded))
+    dataColumnQuarantine = newClone(DataColumnQuarantine.init())
     consensusManager = ConsensusManager.new(
       dag, attestationPool, quarantine, node.elManager,
       ActionTracker.init(node.network.nodeId, config.subscribeAllSubnets),
@@ -390,37 +392,51 @@ proc initFullNode(
     blockProcessor = BlockProcessor.new(
       config.dumpEnabled, config.dumpDirInvalid, config.dumpDirIncoming,
       rng, taskpool, consensusManager, node.validatorMonitor,
-      blobQuarantine, getBeaconTime)
+      blobQuarantine, dataColumnQuarantine, getBeaconTime)
     blockVerifier = proc(signedBlock: ForkedSignedBeaconBlock,
-                         blobs: Opt[BlobSidecars], maybeFinalized: bool):
+                         blobs: Opt[BlobSidecars], data_columns: Opt[DataColumnSidecars],
+                         maybeFinalized: bool):
         Future[Result[void, VerifierError]] {.async: (raises: [CancelledError], raw: true).} =
       # The design with a callback for block verification is unusual compared
       # to the rest of the application, but fits with the general approach
       # taken in the sync/request managers - this is an architectural compromise
       # that should probably be reimagined more holistically in the future.
       blockProcessor[].addBlock(
-        MsgSource.gossip, signedBlock, blobs, maybeFinalized = maybeFinalized)
+        MsgSource.gossip, signedBlock, blobs, data_columns, maybeFinalized = maybeFinalized)
     rmanBlockVerifier = proc(signedBlock: ForkedSignedBeaconBlock,
                              maybeFinalized: bool):
         Future[Result[void, VerifierError]] {.async: (raises: [CancelledError]).} =
       withBlck(signedBlock):
         when consensusFork >= ConsensusFork.Deneb:
-          if not blobQuarantine[].hasBlobs(forkyBlck):
-            # We don't have all the blobs for this block, so we have
-            # to put it in blobless quarantine.
-            if not quarantine[].addBlobless(dag.finalizedHead.slot, forkyBlck):
+          # if not blobQuarantine[].hasBlobs(forkyBlck):
+          #   # We don't have all the blobs for this block, so we have
+          #   # to put it in blobless quarantine.
+          #   if not quarantine[].addBlobless(dag.finalizedHead.slot, forkyBlck):
+          #     err(VerifierError.UnviableFork)
+          #   else:
+          #     err(VerifierError.MissingParent)
+          # elif blobQuarantine[].hasBlobs(forkyBlck):
+          #   let blobs = blobQuarantine[].popBlobs(forkyBlck.root, forkyBlck)
+          #   await blockProcessor[].addBlock(MsgSource.gossip, signedBlock,
+          #                             Opt.some(blobs), Opt.none(DataColumnSidecars),
+          #                             maybeFinalized = maybeFinalized)
+          if not dataColumnQuarantine[].hasDataColumns(forkyBlck):
+            # We don't have all the data columns for this block, so we have
+            # to put it in columnless quarantine.
+            if not quarantine[].addColumnless(dag.finalizedHead.slot, forkyBlck):
               err(VerifierError.UnviableFork)
             else:
               err(VerifierError.MissingParent)
           else:
-            let blobs = blobQuarantine[].popBlobs(forkyBlck.root, forkyBlck)
+            let data_columns = dataColumnQuarantine[].popDataColumns(forkyBlck.root, forkyBlck)
             await blockProcessor[].addBlock(MsgSource.gossip, signedBlock,
-                                      Opt.some(blobs),
+                                      Opt.none(BlobSidecars), Opt.some(data_columns),
                                       maybeFinalized = maybeFinalized)
         else:
           await blockProcessor[].addBlock(MsgSource.gossip, signedBlock,
-                                    Opt.none(BlobSidecars),
+                                    Opt.none(BlobSidecars), Opt.none(DataColumnSidecars),
                                     maybeFinalized = maybeFinalized)
+
     rmanBlockLoader = proc(
         blockRoot: Eth2Digest): Opt[ForkedTrustedSignedBeaconBlock] =
       dag.getForkedBlock(blockRoot)
@@ -432,32 +448,44 @@ proc initFullNode(
       else:
         Opt.none(ref BlobSidecar)
 
+    rmanDataColumnLoader = proc(
+        columnId: DataColumnIdentifier): Opt[ref DataColumnSidecar] =
+      var data_column_sidecar = DataColumnSidecar.new()
+      if dag.db.getDataColumnSidecar(columnId.block_root, columnId.index, data_column_sidecar[]):
+        Opt.some data_column_sidecar
+      else:
+        Opt.none(ref DataColumnSidecar)
+
     processor = Eth2Processor.new(
       config.doppelgangerDetection,
       blockProcessor, node.validatorMonitor, dag, attestationPool,
       validatorChangePool, node.attachedValidators, syncCommitteeMsgPool,
-      lightClientPool, quarantine, blobQuarantine, rng, getBeaconTime, taskpool)
+      lightClientPool, quarantine, blobQuarantine, dataColumnQuarantine, 
+      rng, getBeaconTime, taskpool)
+    router = (ref MessageRouter)(
+      processor: processor,
+      network: node.network)
+
+  var supernode = node.config.subscribeAllSubnets
+  let
     syncManager = newSyncManager[Peer, PeerId](
       node.network.peerPool,
       dag.cfg.DENEB_FORK_EPOCH, dag.cfg.MIN_EPOCHS_FOR_BLOB_SIDECARS_REQUESTS,
-      SyncQueueKind.Forward, getLocalHeadSlot,
+      supernode, SyncQueueKind.Forward, getLocalHeadSlot,
       getLocalWallSlot, getFirstSlotAtFinalizedEpoch, getBackfillSlot,
       getFrontfillSlot, dag.tail.slot, blockVerifier)
     backfiller = newSyncManager[Peer, PeerId](
       node.network.peerPool,
       dag.cfg.DENEB_FORK_EPOCH, dag.cfg.MIN_EPOCHS_FOR_BLOB_SIDECARS_REQUESTS,
-      SyncQueueKind.Backward, getLocalHeadSlot,
+      supernode, SyncQueueKind.Backward, getLocalHeadSlot,
       getLocalWallSlot, getFirstSlotAtFinalizedEpoch, getBackfillSlot,
       getFrontfillSlot, dag.backfill.slot, blockVerifier,
-      maxHeadAge = 0)
-    router = (ref MessageRouter)(
-      processor: processor,
-      network: node.network)
+      maxHeadAge = 0)    
     requestManager = RequestManager.init(
-      node.network, dag.cfg.DENEB_FORK_EPOCH, getBeaconTime,
+      node.network, supernode, dag.cfg.DENEB_FORK_EPOCH, getBeaconTime,
       (proc(): bool = syncManager.inProgress),
-      quarantine, blobQuarantine, rmanBlockVerifier,
-      rmanBlockLoader, rmanBlobLoader)
+      quarantine, blobQuarantine, dataColumnQuarantine, rmanBlockVerifier,
+      rmanBlockLoader, rmanBlobLoader, rmanDataColumnLoader)
 
   if node.config.lightClientDataServe:
     proc scheduleSendingLightClientUpdates(slot: Slot) =
@@ -481,6 +509,7 @@ proc initFullNode(
 
   node.dag = dag
   node.blobQuarantine = blobQuarantine
+  node.dataColumnQuarantine = dataColumnQuarantine
   node.quarantine = quarantine
   node.attestationPool = attestationPool
   node.syncCommitteeMsgPool = syncCommitteeMsgPool
@@ -1104,10 +1133,17 @@ proc addCapellaMessageHandlers(
   node.addAltairMessageHandlers(forkDigest, slot)
   node.network.subscribe(getBlsToExecutionChangeTopic(forkDigest), basicParams)
 
+proc fetchCustodySubnetCount* (node: BeaconNode): uint64=
+  var res = CUSTODY_REQUIREMENT.uint64
+  if node.config.subscribeAllSubnets:
+    res = DATA_COLUMN_SIDECAR_SUBNET_COUNT.uint64
+  res
+
 proc addDenebMessageHandlers(
     node: BeaconNode, forkDigest: ForkDigest, slot: Slot) =
   node.addCapellaMessageHandlers(forkDigest, slot)
-  for topic in dataColumnSidecarTopics(forkDigest):
+  let targetSubnets = node.fetchCustodySubnetCount()
+  for topic in dataColumnSidecarTopics(forkDigest, targetSubnets):
     node.network.subscribe(topic, basicParams)
 
 proc addElectraMessageHandlers(
@@ -1131,7 +1167,8 @@ proc removeCapellaMessageHandlers(node: BeaconNode, forkDigest: ForkDigest) =
 
 proc removeDenebMessageHandlers(node: BeaconNode, forkDigest: ForkDigest) =
   node.removeCapellaMessageHandlers(forkDigest)
-  for topic in dataColumnSidecarTopics(forkDigest):
+  let targetSubnets = node.fetchCustodySubnetCount()
+  for topic in dataColumnSidecarTopics(forkDigest, targetSubnets):
     node.network.unsubscribe(topic)
 
 proc removeElectraMessageHandlers(node: BeaconNode, forkDigest: ForkDigest) =
@@ -1410,6 +1447,24 @@ proc pruneBlobs(node: BeaconNode, slot: Slot) =
               count = count + 1
     debug "pruned blobs", count, blobPruneEpoch
 
+proc pruneDataColumns(node: BeaconNode, slot: Slot) =
+  let dataColumnPruneEpoch = (slot.epoch -
+                              node.dag.cfg.MIN_EPOCHS_FOR_DATA_COLUMN_SIDECARS_REQUESTS - 1)
+  if slot.is_epoch() and dataColumnPruneEpoch >= node.dag.cfg.DENEB_FORK_EPOCH:
+    var blocks: array[SLOTS_PER_EPOCH.int, BlockId]
+    var count = 0
+    let startIndex = node.dag.getBlockRange(
+      dataColumnPruneEpoch.start_slot, 1, blocks.toopenArray(0, SLOTS_PER_EPOCH - 1))
+    for i in startIndex..<SLOTS_PER_EPOCH:
+      let blck = node.dag.getForkedBlock(blocks[int(i)]).valueOr: continue
+      withBlck(blck):
+        when typeof(forkyBlck).kind < ConsensusFork.Deneb: continue
+        else:
+          for j in 0..len(forkyBlck.message.body.blob_kzg_commitments) - 1:
+            if node.db.delDataColumnSidecar(blocks[int(i)].root, ColumnIndex(j)):
+              count = count + 1
+    debug "pruned data columns", count, dataColumnPruneEpoch
+
 proc onSlotEnd(node: BeaconNode, slot: Slot) {.async.} =
   # Things we do when slot processing has ended and we're about to wait for the
   # next slot
@@ -1444,6 +1499,7 @@ proc onSlotEnd(node: BeaconNode, slot: Slot) {.async.} =
       # the pruning for later
       node.dag.pruneHistory()
       node.pruneBlobs(slot)
+      # node.pruneDataColumns(slot)
 
   when declared(GC_fullCollect):
     # The slots in the beacon node work as frames in a game: we want to make
@@ -1876,6 +1932,9 @@ proc installMessageValidators(node: BeaconNode) =
         #         toValidationResult(
         #           node.processor[].processBlobSidecar(
         #             MsgSource.gossip, blobSidecar, subnet_id)))
+
+        # data_column_sidecar_{subnet_id}
+        # 
         for it in 0'u64..<DATA_COLUMN_SIDECAR_SUBNET_COUNT:
           closureScope:  # Needed for inner `proc`; don't lift it out of loop.
             let subnet_id = it

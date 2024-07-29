@@ -11,13 +11,20 @@
 import
   std/[algorithm, macros, tables],
   stew/results,
-  ssz_serialization/proofs,
+  ssz_serialization/[
+    proofs,
+    types],
   chronicles,
   ./[beacon_time, crypto],
   kzg4844/kzg_ex,
   eth/p2p/discoveryv5/[node],
   ./helpers,
+  
   ./datatypes/[eip7594, deneb]
+
+type
+  CellBytes = array[eip7594.CELLS_PER_EXT_BLOB, Cell]
+  ProofBytes = array[eip7594.CELLS_PER_EXT_BLOB, KzgProof]
 
 proc sortedColumnIndices*(columnsPerSubnet: ColumnIndex, subnetIds: HashSet[uint64]): seq[ColumnIndex] =
   var res: seq[ColumnIndex] = @[]
@@ -28,9 +35,10 @@ proc sortedColumnIndices*(columnsPerSubnet: ColumnIndex, subnetIds: HashSet[uint
   res.sort()
   res
 
-# https://github.com/ethereum/consensus-specs/blob/5f48840f4d768bf0e0a8156a3ed06ec333589007/specs/_features/eip7594/das-core.md#get_custody_columns
-proc get_custody_columns*(node_id: NodeId, custody_subnet_count: uint64): Result[seq[ColumnIndex], cstring] =
-    
+proc get_custody_column_subnet*(node_id: NodeId, 
+                                custody_subnet_count: uint64): 
+                                Result[HashSet[uint64], cstring] =
+  # fetches the subnets for custody column for the current node
   # assert custody_subnet_count <= DATA_COLUMN_SIDECAR_SUBNET_COUNT
   if not (custody_subnet_count <= DATA_COLUMN_SIDECAR_SUBNET_COUNT):
     return err("Eip7594: Custody subnet count exceeds the DATA_COLUMN_SIDECAR_SUBNET_COUNT")
@@ -59,6 +67,15 @@ proc get_custody_columns*(node_id: NodeId, custody_subnet_count: uint64): Result
   if not (subnet_ids.len == subnet_ids.len):
     return err("Eip7594: Subnet ids are not unique")
 
+  ok(subnet_ids)
+
+# https://github.com/ethereum/consensus-specs/blob/5f48840f4d768bf0e0a8156a3ed06ec333589007/specs/_features/eip7594/das-core.md#get_custody_columns
+proc get_custody_columns*(node_id: NodeId, 
+                          custody_subnet_count: uint64): 
+                          Result[seq[ColumnIndex], cstring] =
+    
+  let subnet_ids = get_custody_column_subnet(node_id, custody_subnet_count).get
+
   # columns_per_subnet = NUMBER_OF_COLUMNS // DATA_COLUMN_SIDECAR_SUBNET_COUNT
   let columns_per_subnet = NUMBER_OF_COLUMNS div DATA_COLUMN_SIDECAR_SUBNET_COUNT
   
@@ -69,18 +86,16 @@ proc compute_extended_matrix* (blobs: seq[KzgBlob]): Result[ExtendedMatrix, cstr
   # This helper demonstrates the relationship between blobs and `ExtendedMatrix`
   var extended_matrix: ExtendedMatrix
   for i in 0..<blobs.len:
-    debugEcho "Checkpoint 1"
     let res = computeCells(blobs[i])
-    debugEcho "Checkpoint 2"
     if res.isErr:
         return err("Error computing kzg cells and kzg proofs")
-    debugEcho "Checkpoint 3"
     discard extended_matrix.add(res.get())
-    debugEcho "Checkpoint 4"
   ok(extended_matrix)
 
 # https://github.com/ethereum/consensus-specs/blob/5f48840f4d768bf0e0a8156a3ed06ec333589007/specs/_features/eip7594/das-core.md#recover_matrix    
-proc recover_matrix*(cells_dict: Table[(BlobIndex, CellID), Cell], blobCount: uint64): Result[ExtendedMatrix, cstring] =
+proc recover_matrix*(cells_dict: Table[(BlobIndex, CellID), Cell], 
+                     blobCount: uint64): 
+                     Result[ExtendedMatrix, cstring] =
   # This helper demonstrates how to apply recover_all_cells
   # The data structure for storing cells is implementation-dependent
 
@@ -114,7 +129,9 @@ proc recover_matrix*(cells_dict: Table[(BlobIndex, CellID), Cell], blobCount: ui
 
   ok(extended_matrix)
 
-proc recover_matrix*(partial_matrix: seq[MatrixEntry], blobCount: int): Result[seq[MatrixEntry], cstring] =
+proc recover_matrix*(partial_matrix: seq[MatrixEntry],
+                     blobCount: int): 
+                     Result[seq[MatrixEntry], cstring] =
   # This helper demonstrates how to apply recover_cells_and_kzg_proofs
   # The data structure for storing cells is implementation-dependent
 
@@ -131,60 +148,132 @@ proc recover_matrix*(partial_matrix: seq[MatrixEntry], blobCount: int): Result[s
         cells.add(e.cell)
         proofs.add(e.kzg_proof)
 
+proc recover_blobs*(
+    data_columns: seq[DataColumnSidecar],
+    columnCount: int,
+    blck: deneb.SignedBeaconBlock | 
+    electra.SignedBeaconBlock |
+    ForkySignedBeaconBlock):
+    Result[seq[KzgBlob], cstring] =
+
+  # This helper recovers blobs from the data column sidecars
+  if not (data_columns.len != 0):
+    return err("DataColumnSidecar: Length should not be 0")
+
+  var blobCount = data_columns[0].column.len
+  for data_column in data_columns:
+    if not (blobCount == data_column.column.len):
+      return err ("DataColumns do not have the same length")
+
+  var recovered_blobs = newSeqOfCap[KzgBlob](blobCount)
+
+  for blobIdx in 0 ..< blobCount:
+    var
+      cell_ids = newSeqOfCap[CellID](columnCount)
+      ckzgCells = newSeqOfCap[KzgCell](columnCount)
+
+    for data_column in data_columns:
+      cell_ids.add(data_column.index)
+
+      let 
+        column = data_column.column
+        cell = column[blobIdx]
+
+      # Transform the cell as a ckzg cell
+      var ckzgCell: Cell
+      for i in 0 ..< int(FIELD_ELEMENTS_PER_CELL):
+        var start = 32 * i
+        for j in 0 ..< 32:
+          ckzgCell[start + j] = cell[start+j]
+
+      ckzgCells.add(ckzgCell)
+
+    # Recovering the blob
+    let recovered_cells = recoverAllCells(cell_ids, ckzgCells)
+    if not recovered_cells.isOk:
+      return err ("Recovering all cells for blob failed")
+
+    let recovered_blob_res = cellsToBlob(recovered_cells.get)
+    if not recovered_blob_res.isOk:
+      return err ("Cells to blob for blob failed")
+
+    recovered_blobs.add(recovered_blob_res.get)
+
+  ok(recovered_blobs)
+
+proc compute_signed_block_header(signed_block: deneb.SignedBeaconBlock |
+                                 electra.SignedBeaconBlock): 
+                                 SignedBeaconBlockHeader =
+  let blck = signed_block.message
+  let block_header = BeaconBlockHeader(
+    slot: blck.slot,
+    proposer_index: blck.proposer_index,
+    parent_root: blck.parent_root,
+    state_root: blck.state_root,
+    body_root: hash_tree_root(blck.body)
+  )
+  result = SignedBeaconBlockHeader(
+    message: block_header,
+    signature: signed_block.signature
+  )
+
 # https://github.com/ethereum/consensus-specs/blob/5f48840f4d768bf0e0a8156a3ed06ec333589007/specs/_features/eip7594/das-core.md#get_data_column_sidecars
-proc get_data_column_sidecars*(signed_block: deneb.SignedBeaconBlock, blobs: seq[KzgBlob]): Result[seq[DataColumnSidecar], cstring] =
-  var sidecar: DataColumnSidecar
-  var signed_block_header: deneb.SignedBeaconBlockHeader
-  var blck = signed_block.message
+proc get_data_column_sidecars*(signed_block: deneb.SignedBeaconBlock |
+                               electra.SignedBeaconBlock, 
+                               blobs: seq[KzgBlob]): 
+                               Result[seq[DataColumnSidecar], string] =
+  var
+    blck = signed_block.message
+    signed_beacon_block_header = compute_signed_block_header(signed_block)
+    kzg_incl_proof: array[4, Eth2Digest]
+  
+  var sidecars = newSeq[DataColumnSidecar](CELLS_PER_EXT_BLOB)
 
-  var cellsAndProofs: seq[KzgCellsAndKzgProofs]
+  if blobs.len == 0:
+    return ok(sidecars)
 
-  for blob in blobs:
+  var
+    cells = newSeq[CellBytes](blobs.len)
+    proofs = newSeq[ProofBytes](blobs.len)
+
+  for i in 0..<blobs.len:
     let
-      computed_cell = computeCellsAndKzgProofs(blob)
-
-    if computed_cell.isErr():
+      cell_and_proof = computeCellsAndProofs(blobs[i])
+    if cell_and_proof.isErr():
       return err("EIP7549: Could not compute cells")
 
-    cellsAndProofs.add(computed_cell.get())
-
+    cells[i] = cell_and_proof.get.cells
+    proofs[i] = cell_and_proof.get.proofs
+  
   let blobCount = blobs.len
-  var
-    cells: seq[seq[Cell]]
-    proofs: seq[seq[KzgProof]]
 
-  for i in 0..<blobCount:
-    cells[i].add(cellsAndProofs[i].cells[0])
-    proofs[i].add(cellsAndProofs[i].proofs[1])
-
-  var sidecars: seq[DataColumnSidecar]
-
-  for columnIndex in 0..<NUMBER_OF_COLUMNS:
+  for columnIndex in 0..<CELLS_PER_EXT_BLOB:
     var column: DataColumn
+    var kzgProofOfColumn: KzgProofs
     for rowIndex in 0..<blobCount:
-      column[rowIndex] = cells[rowIndex][columnIndex]
+      discard column.add(cells[rowIndex][columnIndex])
 
-    var kzgProofOfColumn: List[KzgProof, Limit(MAX_BLOB_COMMITMENTS_PER_BLOCK)]
     for rowIndex in 0..<blobCount:
-      kzgProofOfColumn[rowIndex] = proofs[rowIndex][columnIndex]
+      discard kzgProofOfColumn.add(proofs[rowIndex][columnIndex])
 
-    sidecar = DataColumnSidecar(
-      index: uint64(columnIndex),
-      column: column,
+    var sidecar = DataColumnSidecar(
+      index: ColumnIndex(columnIndex),
+      column: DataColumn(column),
       kzgCommitments: blck.body.blob_kzg_commitments,
-      kzgProofs: kzgProofOfColumn,
-      signed_block_header: signed_block_header
-    )
+      kzgProofs: KzgProofs(kzgProofOfColumn),
+      signed_block_header: signed_beacon_block_header)
     blck.body.build_proof(
-      kzg_commitment_inclusion_proof_gindex(BlobIndex(columnIndex)),
+      27.GeneralizedIndex,
       sidecar.kzg_commitments_inclusion_proof).expect("Valid gindex")
     sidecars.add(sidecar)
-
   ok(sidecars)
 
 # Helper function to `verifyCellKzgProofBatch` at https://github.com/ethereum/c-kzg-4844/blob/das/bindings/nim/kzg_ex.nim#L170
 proc validate_data_column_sidecar*(
-    expected_commitments: seq[KzgCommitment], rowIndex: seq[RowIndex], columnIndex: seq[ColumnIndex], column: seq[Cell],
+    expected_commitments: seq[KzgCommitment], 
+    rowIndex: seq[RowIndex], 
+    columnIndex: seq[ColumnIndex], 
+    column: seq[Cell],
     proofs: seq[KzgProof]): Result[void, string] =
   let res = verifyCellKzgProofBatch(expected_commitments, rowIndex, columnIndex, column, proofs).valueOr:
     return err("DataColumnSidecar: Proof verification error: " & error())
@@ -224,7 +313,7 @@ proc verify_data_column_sidecar_kzg_proofs*(sidecar: DataColumnSidecar): Result[
     sidecarCol = sidecar.column.asSeq
     kzgProofs = sidecar.kzg_proofs.asSeq
 
-  let res = verifyCellKzgProofBatch(kzgCommits, rowIndices, colIndices, sidecarCol, kzgProofs)
+  let res = validate_data_column_sidecar(kzgCommits, rowIndices, colIndices, sidecarCol, kzgProofs)
 
   if res.isErr():
     return err("DataColumnSidecar: validation failed")
@@ -232,16 +321,54 @@ proc verify_data_column_sidecar_kzg_proofs*(sidecar: DataColumnSidecar): Result[
   ok()
 
 # https://github.com/ethereum/consensus-specs/blob/5f48840f4d768bf0e0a8156a3ed06ec333589007/specs/_features/eip7594/p2p-interface.md#verify_data_column_sidecar_inclusion_proof
-proc verify_data_column_sidecar_inclusion_proof*(sidecar: DataColumnSidecar): Result[void, string] =
+func verify_data_column_sidecar_inclusion_proof*(sidecar: DataColumnSidecar): Result[void, string] =
   # Verify if the given KZG commitments are included in the beacon block
-  let gindex = kzg_commitment_inclusion_proof_gindex(sidecar.index)
+  let gindex = 27.GeneralizedIndex
   if not is_valid_merkle_branch(
     hash_tree_root(sidecar.kzg_commitments),
     sidecar.kzg_commitments_inclusion_proof,
-    KZG_COMMITMENT_INCLUSION_PROOF_DEPTH,
+    4.int,
     get_subtree_index(gindex),
     sidecar.signed_block_header.message.body_root):
     
     return err("DataColumnSidecar: inclusion proof not valid")
 
   ok()
+
+proc selfReconstructDataColumns*(numCol: uint64):
+                                 bool =
+  # This function tells whether data columns can be 
+  # reconstructed or not
+  const totalColumns = NUMBER_OF_COLUMNS.uint64
+  let 
+    columnsNeeded = totalColumns div 2 + totalColumns mod 2
+  if numCol >= columnsNeeded:
+    return true
+  false
+proc get_extended_sample_count*(samples_per_slot: int,
+                                allowed_failures: int):
+                                int =
+  # `get_extended_sample_count` computes the number of samples we
+  # should query from peers, given the SAMPLES_PER_SLOT and 
+  # the number of allowed failures
+
+  # Retrieving the column count
+  let columnsCount = NUMBER_OF_COLUMNS.int
+
+  # If 50% of the columns are missing, we are able to reconstruct the data
+  # If 50% + 1 columns are missing, we are NO MORE able to reconstruct the data
+  let worstCaseConditionCount = (columnsCount div 2) + 1
+
+  # Compute the false positive threshold
+  let falsePositiveThreshold = hypergeom_cdf(0, columnsCount, worstCaseConditionCount, samples_per_slot)
+
+  var sampleCount: int
+
+  # Finally, compute the extended sample count
+  for i in samples_per_slot .. columnsCount + 1:
+    if hypergeom_cdf(allowed_failures, columnsCount, worstCaseConditionCount, i) <= falsePositiveThreshold:
+      sampleCount = i
+      break
+    sampleCount = i
+  
+  return sampleCount

@@ -26,8 +26,9 @@ import
   eth/[keys, async_utils],
   eth/net/nat, eth/p2p/discoveryv5/[enr, node, random2],
   ".."/[version, conf, beacon_clock, conf_light_client],
-  ../spec/datatypes/[phase0, altair, bellatrix],
-  ../spec/[eth2_ssz_serialization, network, helpers, forks],
+  ../spec/datatypes/[phase0, altair, bellatrix, eip7594],
+  ../spec/[eth2_ssz_serialization, network, 
+    helpers, forks],
   ../validators/keystore_management,
   "."/[eth2_discovery, eth2_protocol_dsl, libp2p_json_serialization, peer_pool, peer_scores]
 
@@ -398,7 +399,7 @@ func nodeId*(node: Eth2Node): NodeId =
 func enrRecord*(node: Eth2Node): Record =
   node.discovery.localNode.record
 
-proc getPeer(node: Eth2Node, peerId: PeerId): Peer =
+proc getPeer*(node: Eth2Node, peerId: PeerId): Peer =
   node.peers.withValue(peerId, peer) do:
     return peer[]
   do:
@@ -1482,7 +1483,8 @@ proc trimConnections(node: Eth2Node, count: int) =
     inc(nbc_cycling_kicked_peers)
     if toKick <= 0: return
 
-proc getLowSubnets(node: Eth2Node, epoch: Epoch): (AttnetBits, SyncnetBits) =
+proc getLowSubnets(node: Eth2Node, epoch: Epoch): 
+                  (AttnetBits, SyncnetBits, CscBits) =
   # Returns the subnets required to have a healthy mesh
   # The subnets are computed, to, in order:
   # - Have 0 subnet with < `dLow` peers from topic subscription
@@ -1547,7 +1549,8 @@ proc getLowSubnets(node: Eth2Node, epoch: Epoch): (AttnetBits, SyncnetBits) =
     if epoch + 1 >= node.cfg.ALTAIR_FORK_EPOCH:
       findLowSubnets(getSyncCommitteeTopic, SyncSubcommitteeIndex, SYNC_COMMITTEE_SUBNET_COUNT)
     else:
-      default(SyncnetBits)
+      default(SyncnetBits),
+    findLowSubnets(getDataColumnSidecarTopic, uint64, DATA_COLUMN_SIDECAR_SUBNET_COUNT.int)
   )
 
 proc runDiscoveryLoop(node: Eth2Node) {.async.} =
@@ -1556,23 +1559,29 @@ proc runDiscoveryLoop(node: Eth2Node) {.async.} =
   while true:
     let
       currentEpoch = node.getBeaconTime().slotOrZero.epoch
-      (wantedAttnets, wantedSyncnets) = node.getLowSubnets(currentEpoch)
+      (wantedAttnets, wantedSyncnets, wantedCscnets) = node.getLowSubnets(currentEpoch)
       wantedAttnetsCount = wantedAttnets.countOnes()
       wantedSyncnetsCount = wantedSyncnets.countOnes()
+      wantedCscnetsCount = wantedCscnets.countOnes()
       outgoingPeers = node.peerPool.lenCurrent({PeerType.Outgoing})
       targetOutgoingPeers = max(node.wantedPeers div 10, 3)
 
     if wantedAttnetsCount > 0 or wantedSyncnetsCount > 0 or
-        outgoingPeers < targetOutgoingPeers:
+        wantedCscnetsCount > 0 or outgoingPeers < targetOutgoingPeers:
 
       let
         minScore =
-          if wantedAttnetsCount > 0 or wantedSyncnetsCount > 0:
+          if wantedAttnetsCount > 0 or wantedSyncnetsCount > 0 or 
+              wantedCscnetsCount > 0:
             1
           else:
             0
         discoveredNodes = await node.discovery.queryRandom(
-          node.discoveryForkId, wantedAttnets, wantedSyncnets, minScore)
+          node.discoveryForkId,
+          wantedAttnets,
+          wantedSyncnets,
+          wantedCscnets,
+          minScore)
 
       let newPeers = block:
         var np = newSeq[PeerAddr]()
@@ -1620,6 +1629,15 @@ proc runDiscoveryLoop(node: Eth2Node) {.async.} =
     #
     # Also, give some time to dial the discovered nodes and update stats etc
     await sleepAsync(5.seconds)
+
+proc getNodeIdFromPeer*(peer: Peer): NodeId=
+  # Convert peer id to node id by extracting the peer's public key
+  let nodeId =
+    block:
+      var key: eth2_network.PublicKey
+      discard peer.peerId.extractPublicKey(key)
+      keys.PublicKey.fromRaw(key.skkey.getBytes()).get().toNodeId()
+  nodeId
 
 proc resolvePeer(peer: Peer) =
   # Resolve task which performs searching of peer's public key and recovery of
@@ -2662,6 +2680,14 @@ proc broadcastBlobSidecar*(
     forkPrefix = node.forkDigestAtEpoch(node.getWallEpoch)
     topic = getBlobSidecarTopic(forkPrefix, subnet_id)
   node.broadcast(topic, blob)
+
+proc broadcastDataColumnSidecar*(
+    node: Eth2Node, subnet_id: uint64, data_column: DataColumnSidecar):
+    Future[SendResult] {.async: (raises: [CancelledError], raw: true).} =
+  let
+    forkPrefix = node.forkDigestAtEpoch(node.getWallEpoch)
+    topic = getDataColumnSidecarTopic(forkPrefix, subnet_id)
+  node.broadcast(topic, data_column)
 
 proc broadcastSyncCommitteeMessage*(
     node: Eth2Node, msg: SyncCommitteeMessage,

@@ -375,6 +375,8 @@ proc createAndSendAttestation(node: BeaconNode,
       node.config.dumpDirOutgoing, registered.data,
       registered.validator.pubkey)
 
+
+
 proc getBlockProposalEth1Data*(node: BeaconNode,
                                state: ForkedHashedBeaconState):
                                BlockProposalEth1Data =
