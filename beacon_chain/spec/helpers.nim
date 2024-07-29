@@ -527,3 +527,26 @@ proc blockToBlockHeader*(blck: ForkyBeaconBlock): ExecutionBlockHeader =
 
 proc compute_execution_block_hash*(blck: ForkyBeaconBlock): Eth2Digest =
   rlpHash blockToBlockHeader(blck)
+
+from std/math import exp, ln
+from std/sequtils import foldl
+
+func ln_binomial(n, k: int): float64 =
+  if k > n:
+    low(float64)
+  else:
+    template ln_factorial(n: int): float64 =
+      (2 .. n).foldl(a + ln(b.float64), 0.0)
+    ln_factorial(n) - ln_factorial(k) - ln_factorial(n - k)
+
+func hypergeom_cdf*(k: int, population: int, successes: int, draws: int):
+    float64 =
+  if k < draws + successes - population:
+    0.0
+  elif k >= min(successes, draws):
+    1.0
+  else:
+    let ln_denom = ln_binomial(population, draws)
+    (0 .. k).foldl(a + exp(
+      ln_binomial(successes, b) +
+      ln_binomial(population - successes, draws - b) - ln_denom), 0.0)
