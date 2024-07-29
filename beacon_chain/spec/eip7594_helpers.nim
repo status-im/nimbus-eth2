@@ -338,3 +338,14 @@ func verify_data_column_sidecar_inclusion_proof*(sidecar: DataColumnSidecar): Re
     return err("DataColumnSidecar: inclusion proof not valid")
 
   ok()
+
+proc selfReconstructDataColumns*(numCol: uint64):
+                                 bool =
+  # This function tells whether data columns can be 
+  # reconstructed or not
+  const totalColumns = NUMBER_OF_COLUMNS.uint64
+  let 
+    columnsNeeded = totalColumns div 2 + totalColumns mod 2
+  if numCol >= columnsNeeded:
+    return true
+  false
