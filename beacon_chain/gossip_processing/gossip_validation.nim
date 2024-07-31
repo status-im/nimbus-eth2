@@ -474,7 +474,7 @@ proc validateBlobSidecar*(
   # blob_sidecar.blob, blob_sidecar.kzg_commitment, blob_sidecar.kzg_proof)`.
   block:
     let ok = verifyProof(
-        blob_sidecar.blob,
+        KzgBlob(bytes: blob_sidecar.blob),
         blob_sidecar.kzg_commitment,
         blob_sidecar.kzg_proof).valueOr:
       return dag.checkedReject("BlobSidecar: blob verify failed")

@@ -10,11 +10,9 @@
 
 import
   std/json,
-  yaml,
+  yaml/tojson,
   kzg4844/kzg_ex,
-  stint,
-  chronicles,
-  stew/[byteutils, results],
+  stew/byteutils,
   ../testutil,
   ./fixtures_utils, ./os_ops
 
@@ -43,13 +41,13 @@ block:
   template sourceDir: string = currentSourcePath.rsplit(DirSep, 1)[0]
   doAssert Kzg.loadTrustedSetup(
     sourceDir &
-      "/../../vendor/nim-kzg4844/kzg4844/csources/src/trusted_setup.txt").isOk
+      "/../../vendor/nim-kzg4844/kzg4844/csources/src/trusted_setup.txt", 0).isOk
 
 proc runBlobToKzgCommitmentTest(suiteName, suitePath, path: string) =
   let relativePathComponent = path.relativeTestPathComponent(suitePath)
   test "KZG - Blob to KZG commitment - " & relativePathComponent:
     let
-      data = yaml.loadToJson(os_ops.readFile(path/"data.yaml"))[0]
+      data = loadToJson(os_ops.readFile(path/"data.yaml"))[0]
       output = data["output"]
       blob = fromHex[131072](data["input"]["blob"].getStr)
 
@@ -60,18 +58,18 @@ proc runBlobToKzgCommitmentTest(suiteName, suitePath, path: string) =
     if blob.isNone:
       check output.kind == JNull
     else:
-      let commitment = blobToKzgCommitment(blob.get)
+      let commitment = blobToKzgCommitment(KzgBlob(bytes: blob.get))
       check:
         if commitment.isErr:
           output.kind == JNull
         else:
-          commitment.get == fromHex[48](output.getStr).get
+          commitment.get().bytes == fromHex[48](output.getStr).get
 
 proc runVerifyKzgProofTest(suiteName, suitePath, path: string) =
   let relativePathComponent = path.relativeTestPathComponent(suitePath)
   test "KZG - Verify KZG proof - " & relativePathComponent:
     let
-      data = yaml.loadToJson(os_ops.readFile(path/"data.yaml"))[0]
+      data = loadToJson(os_ops.readFile(path/"data.yaml"))[0]
       output = data["output"]
       commitment = fromHex[48](data["input"]["commitment"].getStr)
       z = fromHex[32](data["input"]["z"].getStr)
@@ -85,7 +83,10 @@ proc runVerifyKzgProofTest(suiteName, suitePath, path: string) =
     if commitment.isNone or z.isNone or y.isNone or proof.isNone:
       check output.kind == JNull
     else:
-      let v = verifyProof(commitment.get, z.get, y.get, proof.get)
+      let v = verifyProof(
+        KzgCommitment(bytes: commitment.get),
+        KzgBytes32(bytes: z.get), KzgBytes32(bytes: y.get),
+        KzgBytes48(bytes: proof.get))
       check:
         if v.isErr:
           output.kind == JNull
@@ -96,7 +97,7 @@ proc runVerifyBlobKzgProofTest(suiteName, suitePath, path: string) =
   let relativePathComponent = path.relativeTestPathComponent(suitePath)
   test "KZG - Verify blob KZG proof - " & relativePathComponent:
     let
-      data = yaml.loadToJson(os_ops.readFile(path/"data.yaml"))[0]
+      data = loadToJson(os_ops.readFile(path/"data.yaml"))[0]
       output = data["output"]
       blob = fromHex[131072](data["input"]["blob"].getStr)
       commitment = fromHex[48](data["input"]["commitment"].getStr)
@@ -110,7 +111,10 @@ proc runVerifyBlobKzgProofTest(suiteName, suitePath, path: string) =
     if blob.isNone or commitment.isNone or proof.isNone:
       check output.kind == JNull
     else:
-      let v = verifyBlobKzgProof(blob.get, commitment.get, proof.get)
+      let v = verifyBlobKzgProof(
+        KzgBlob(bytes: blob.get),
+        KzgBytes48(bytes: commitment.get),
+        KzgBytes48(bytes: proof.get))
       check:
         if v.isErr:
           output.kind == JNull
@@ -121,7 +125,7 @@ proc runVerifyBlobKzgProofBatchTest(suiteName, suitePath, path: string) =
   let relativePathComponent = path.relativeTestPathComponent(suitePath)
   test "KZG - Verify blob KZG proof batch - " & relativePathComponent:
     let
-      data = yaml.loadToJson(os_ops.readFile(path/"data.yaml"))[0]
+      data = loadToJson(os_ops.readFile(path/"data.yaml"))[0]
       output = data["output"]
       blobs = data["input"]["blobs"].mapIt(fromHex[131072](it.getStr))
       commitments = data["input"]["commitments"].mapIt(fromHex[48](it.getStr))
@@ -137,7 +141,9 @@ proc runVerifyBlobKzgProofBatchTest(suiteName, suitePath, path: string) =
       check output.kind == JNull
     else:
       let v = verifyBlobKzgProofBatch(
-        blobs.mapIt(it.get), commitments.mapIt(it.get), proofs.mapIt(it.get))
+        blobs.mapIt(KzgBlob(bytes: it.get)),
+        commitments.mapIt(KzgCommitment(bytes: it.get)),
+        proofs.mapIt(KzgProof(bytes: it.get)))
       check:
         if v.isErr:
           output.kind == JNull
@@ -148,7 +154,7 @@ proc runComputeKzgProofTest(suiteName, suitePath, path: string) =
   let relativePathComponent = path.relativeTestPathComponent(suitePath)
   test "KZG - Compute KZG proof - " & relativePathComponent:
     let
-      data = yaml.loadToJson(os_ops.readFile(path/"data.yaml"))[0]
+      data = loadToJson(os_ops.readFile(path/"data.yaml"))[0]
       output = data["output"]
       blob = fromHex[131072](data["input"]["blob"].getStr)
       z = fromHex[32](data["input"]["z"].getStr)
@@ -160,7 +166,8 @@ proc runComputeKzgProofTest(suiteName, suitePath, path: string) =
     if blob.isNone or z.isNone:
       check output.kind == JNull
     else:
-      let p = computeKzgProof(blob.get, z.get)
+      let p = computeKzgProof(
+        KzgBlob(bytes: blob.get), KzgBytes32(bytes: z.get))
       if p.isErr:
         check output.kind == JNull
       else:
@@ -168,14 +175,14 @@ proc runComputeKzgProofTest(suiteName, suitePath, path: string) =
           proof = fromHex[48](output[0].getStr)
           y = fromHex[32](output[1].getStr)
         check:
-          p.get.proof == proof.get
-          p.get.y == y.get
+          p.get.proof.bytes == proof.get
+          p.get.y.bytes == y.get
 
 proc runComputeBlobKzgProofTest(suiteName, suitePath, path: string) =
   let relativePathComponent = path.relativeTestPathComponent(suitePath)
   test "KZG - Compute blob KZG proof - " & relativePathComponent:
     let
-      data = yaml.loadToJson(os_ops.readFile(path/"data.yaml"))[0]
+      data = loadToJson(os_ops.readFile(path/"data.yaml"))[0]
       output = data["output"]
       blob = fromHex[131072](data["input"]["blob"].getStr)
       commitment = fromHex[48](data["input"]["commitment"].getStr)
@@ -187,39 +194,18 @@ proc runComputeBlobKzgProofTest(suiteName, suitePath, path: string) =
     if blob.isNone or commitment.isNone:
       check output.kind == JNull
     else:
-      let p = computeBlobKzgProof(blob.get, commitment.get)
+      let p = computeBlobKzgProof(
+        KzgBlob(bytes: blob.get), KzgBytes48(bytes: commitment.get))
       if p.isErr:
         check output.kind == JNull
       else:
-        check p.get == fromHex[48](output.getStr).get
+        check p.get.bytes == fromHex[48](output.getStr).get
 
-proc runComputeCellsTest(suiteName, suitePath, path: string) =
-  let relativePathComponent = path.relativeTestPathComponent(suitePath)
-  test "KZG - Compute Cells - " & relativePathComponent:
-    let
-      data = yaml.loadToJson(os_ops.readFile(path/"data.yaml"))[0]
-      output = data["output"]
-      blob = fromHex[131072](data["input"]["blob"].getStr)
-    
-    # https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.2/tests/formats/kzg_7594/verify_cell_kzg_proof.md#condition
-    # If the blob is invalid (e.g. incorrect length or one of the 32-byte
-    # blocks does not represent a BLS field element) it should error, i.e. the
-    # the output should be `null`.
-    if blob.isNone:
-      check output.kind == JNull
-    else:
-      let p = computeCells(blob.get)
-      if p.isErr:
-        check output.kind == JNull
-      else:
-        for i in 0..<len(p.get):
-          check p.get[i] == fromHex[2048](output[i].getStr).get
-
-proc runComputeCellsAndProofsTest(suiteName, suitePath, path: string) =
+proc runComputeCellsAndKzgProofsTest(suiteName, suitePath, path: string) =
   let relativePathComponent = path.relativeTestPathComponent(suitePath)
   test "KZG - Compute Cells And Proofs - " & relativePathComponent:
     let 
-      data = yaml.loadToJson(os_ops.readFile(path/"data.yaml"))[0]
+      data = loadToJson(os_ops.readFile(path/"data.yaml"))[0]
       output = data["output"]
       blob = fromHex[131072](data["input"]["blob"].getStr)
 
@@ -230,47 +216,23 @@ proc runComputeCellsAndProofsTest(suiteName, suitePath, path: string) =
     if blob.isNone:
       check output.kind == JNull
     else:
-      let p = computeCellsAndProofs(blob.get)
-      if p.isErr:
+      let p = newClone computeCellsAndKzgProofs(KzgBlob(bytes: blob.get))
+      if p[].isErr:
         check output.kind == JNull
       else:
+        let p_val = p[].get
         for i in 0..<CELLS_PER_EXT_BLOB:
-          check p.get.cells[i] == fromHex[2048](output[0][i].getStr).get
-          check p.get.proofs[i] == fromHex[48](output[1][i].getStr).get
-
-proc runVerifyCellKzgProofsTest(suiteName, suitePath, path: string) =
-  let relativePathComponent = path.relativeTestPathComponent(suitePath)
-  test "KZG - Verify Cell Kzg Proof - " & relativePathComponent:
-    let 
-      data = yaml.loadToJson(os_ops.readFile(path/"data.yaml"))[0]
-      output = data["output"]
-      commitment = fromHex[48](data["input"]["commitment"].getStr)
-      proof = fromHex[48](data["input"]["proof"].getStr)
-      cell = fromHex[2048](data["input"]["cell"].getStr)
-      cell_id = toUInt64(data["input"]["cell_id"].getInt)
-    
-    # https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.2/tests/formats/kzg_7594/verify_cell_kzg_proof.md#condition
-    # If the blob is invalid (e.g. incorrect length or one of the 32-byte
-    # blocks does not represent a BLS field element) it should error, i.e. the
-    # the output should be `null`.
-    if commitment.isNone or proof.isNone or cell.isNone or cell_id.isNone:
-      check output.kind == JNull
-    else:
-      let p = verifyCellKzgProof(commitment.get, cell_id.get, cell.get, proof.get)
-      if p.isErr:
-        check output.kind == JNull
-      else:
-        check p.get == output.getBool
+          check p_val.cells[i].bytes == fromHex[2048](output[0][i].getStr).get
+          check p_val.proofs[i].bytes == fromHex[48](output[1][i].getStr).get
 
 proc runVerifyCellKzgProofBatchTest(suiteName, suitePath, path: string) =
   let relativePathCompnent = path.relativeTestPathComponent(suitePath)
   test "KZG - Verify Cell Kzg Proof Batch - " & relativePathCompnent:
     let
-      data = yaml.loadToJson(os_ops.readFile(path/"data.yaml"))[0]
+      data = loadToJson(os_ops.readFile(path/"data.yaml"))[0]
       output = data["output"]
-      row_commitments = data["input"]["row_commitments"].mapIt(fromHex[48](it.getStr))
-      row_indices = data["input"]["row_indices"].mapIt(toUInt64(it.getInt))
-      column_indices = data["input"]["column_indices"].mapIt(toUInt64(it.getInt))
+      commitments = data["input"]["row_commitments"].mapIt(fromHex[48](it.getStr))
+      cell_indices = data["input"]["cell_indices"].mapIt(toUInt64(it.getInt))
       cells = data["input"]["cells"].mapIt(fromHex[2048](it.getStr))
       proofs = data["input"]["proofs"].mapIt(fromHex[48](it.getStr))
 
@@ -278,46 +240,53 @@ proc runVerifyCellKzgProofBatchTest(suiteName, suitePath, path: string) =
     # If the blob is invalid (e.g. incorrect length or one of the 32-byte
     # blocks does not represent a BLS field element) it should error, i.e. the
     # the output should be `null`.
-    if row_commitments.anyIt(it.isNone) or row_indices.anyIt(it.isNone) or
-        column_indices.anyIt(it.isNone) or proofs.anyIt(it.isNone) or
+    if commitments.anyIt(it.isNone) or 
+        cell_indices.anyIt(it.isNone) or 
+        proofs.anyIt(it.isNone) or
         cells.anyIt(it.isNone):
       check output.kind == JNull
     else:
-      let v = verifyCellKzgProofBatch(
-            row_commitments.mapIt(it.get),
-            row_indices.mapIt(it.get),
-            column_indices.mapIt(it.get),
-            cells.mapIt(it.get),
-            proofs.mapIt(it.get)
+      let v = newClone verifyCellKzgProofBatch(
+            commitments.mapIt(KzgCommitment(bytes: it.get)),
+            cell_indices.mapIt(it.get),
+            cells.mapIt(KzgCell(bytes: it.get)),
+            proofs.mapIt(KzgBytes48(bytes: it.get))
           )
       check:
-        if v.isErr:
+        if v[].isErr:
           output.kind == JNull
         else:
-          v.get == output.getBool
+          v[].get == output.getBool
 
-proc runRecoverAllCellsTest(suiteName, suitePath, path: string) =
+proc runRecoverCellsAndKzgProofsTest(suiteName, suitePath, path: string) =
   let relativePathComponent = path.relativeTestPathComponent(suitePath)
-  test "KZG - Recover All Cells - " & relativePathComponent:
+  test "KZG - Recover Cells And Kzg Proofs - " & relativePathComponent:
     let
-      data = yaml.loadToJson(os_ops.readFile(path/"data.yaml"))[0]
+      data = loadToJson(os_ops.readFile(path/"data.yaml"))[0]
       output = data["output"]
       cell_ids = data["input"]["cell_ids"].mapIt(toUInt64(it.getInt))
       cells = data["input"]["cells"].mapIt(fromHex[2048](it.getStr))
+      proofs = data["input"]["proofs"].mapIt(fromHex[48](it.getStr))
 
     # https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.2/tests/formats/kzg_7594/recover_all_cells.md#condition
     # If the blob is invalid (e.g. incorrect length or one of the 32-byte
     # blocks does not represent a BLS field element) it should error, i.e. the
     # the output should be `null`.
-    if cell_ids.anyIt(it.isNone) or cells.anyIt(it.isNone):
+    if cell_ids.anyIt(it.isNone) or 
+        cells.anyIt(it.isNone) or 
+        proofs.anyIt(it.isNone):
       check output.kind == JNull
     else:
-      let v = recoverAllCells(cell_ids.mapIt(it.get), cells.mapIt(it.get))
-      if v.isErr:
+      let v = newClone recoverCellsAndKzgProofs(
+            cell_ids.mapIt(it.get),
+            cells.mapIt(KzgCell(bytes: it.get)))
+      if v[].isErr:
         check output.kind == JNull
       else:
+        let val = v[].get
         for i in 0..<CELLS_PER_EXT_BLOB:
-          check v.get[i] == fromHex[2048](output[i].getStr).get
+          check val.cells[i].bytes == fromHex[2048](output[0][i].getStr).get
+          check val.proofs[i].bytes == fromHex[48](output[1][i].getStr).get
 
 from std/algorithm import sorted
 
@@ -371,28 +340,18 @@ suite suiteName:
   # TODO also check that the only direct subdirectory of each is kzg-mainnet
   doAssert sorted(mapIt(
       toSeq(walkDir(suitePath, relative = true, checkDir = true)), it.path)) ==
-    ["compute_cells", "compute_cells_and_kzg_proofs", "recover_all_cells",
+    ["compute_cells_and_kzg_proofs", "recover_cells_and_kzg_proofs",
      "verify_cell_kzg_proof", "verify_cell_kzg_proof_batch"]
-
-  block:
-    let testsDir = suitePath/"compute_cells"/"kzg-mainnet"
-    for kind, path in walkDir(testsDir, relative = true, checkDir = true):
-      runComputeCellsTest(suiteName, testsDir, testsDir/path)
 
   block:
     let testsDir = suitePath/"compute_cells_and_kzg_proofs"/"kzg-mainnet"
     for kind, path in walkDir(testsDir, relative = true, checkDir = true):
-      runComputeCellsAndProofsTest(suiteName, testsDir, testsDir/path)
+      runComputeCellsAndKzgProofsTest(suiteName, testsDir, testsDir/path)
 
   block:
     let testsDir = suitePath/"recover_all_cells"/"kzg-mainnet"
     for kind, path in walkDir(testsDir, relative = true, checkDir = true):
-      runRecoverAllCellsTest(suiteName, testsDir, testsDir/path)
-
-  block:
-    let testsDir = suitePath/"verify_cell_kzg_proof"/"kzg-mainnet"
-    for kind, path in walkDir(testsDir, relative = true, checkDir = true):
-      runVerifyCellKzgProofsTest(suiteName, testsDir, testsDir/path)
+      runRecoverCellsAndKzgProofsTest(suiteName, testsDir, testsDir/path)
 
   block:
     let testsDir = suitePath/"verify_cell_kzg_proof_batch"/"kzg-mainnet"

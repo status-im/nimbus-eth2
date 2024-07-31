@@ -1495,11 +1495,11 @@ proc loadKzgTrustedSetup*(): Result[void, string] =
       vendorDir & "/nim-kzg4844/kzg4844/csources/src/trusted_setup.txt")
 
   static: doAssert const_preset in ["mainnet", "gnosis", "minimal"]
-  Kzg.loadTrustedSetupFromString(trustedSetup)
+  Kzg.loadTrustedSetupFromString(trustedSetup, 0)
 
 proc loadKzgTrustedSetup*(trustedSetupPath: string): Result[void, string] =
   try:
-    Kzg.loadTrustedSetupFromString(readFile(trustedSetupPath))
+    Kzg.loadTrustedSetupFromString(readFile(trustedSetupPath), 0)
   except IOError as err:
     err(err.msg)
 

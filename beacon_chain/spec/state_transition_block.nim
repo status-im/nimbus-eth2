@@ -1086,7 +1086,7 @@ func kzg_commitment_to_versioned_hash*(
 
   var res: VersionedHash
   res[0] = VERSIONED_HASH_VERSION_KZG
-  res[1 .. 31] = eth2digest(kzg_commitment).data.toOpenArray(1, 31)
+  res[1 .. 31] = eth2digest(kzg_commitment.bytes).data.toOpenArray(1, 31)
   res
 
 proc validate_blobs*(

@@ -41,6 +41,7 @@ type
   CellID* = uint64
   RowIndex* = uint64
   ColumnIndex* = uint64
+  CellIndex* = uint64
 
 const
   NUMBER_OF_COLUMNS* = 128
@@ -76,14 +77,17 @@ type
     column_index*: ColumnIndex
     row_index*: RowIndex
 
+  MatrixEntries* = List[MatrixEntry, Limit(MAX_CELLS_IN_EXTENDED_MATRIX)]
+
   CscBits* = BitArray[DATA_COLUMN_SIDECAR_SUBNET_COUNT]
 
 func serializeDataColumn(data_column: DataColumn): auto =
   var counter = 0
-  var serd : array[MAX_BLOB_COMMITMENTS_PER_BLOCK * KzgCellSize, byte]
+  var serd : array[MAX_BLOB_COMMITMENTS_PER_BLOCK * BYTES_PER_CELL, byte]
   for i in 0..<MAX_BLOB_COMMITMENTS_PER_BLOCK:
-    for j in 0..<KzgCellSize:
-      serd[counter] = data_column[i][j]
+    var inter = data_column[i].bytes
+    for j in 0..<BYTES_PER_CELL:
+      serd[counter] = inter[j]
       inc(counter)
   serd
 

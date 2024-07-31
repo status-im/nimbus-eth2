@@ -112,8 +112,10 @@ proc routeSignedBeaconBlock*(
         let blobs = blobsOpt.get()
         let kzgCommits = blck.message.body.blob_kzg_commitments.asSeq
         if blobs.len > 0 or kzgCommits.len > 0:
-          let res = validate_blobs(kzgCommits, blobs.mapIt(it.blob),
-                                   blobs.mapIt(it.kzg_proof))
+          let res = validate_blobs(
+            kzgCommits,
+            blobs.mapIt(KzgBlob(bytes: it.blob)),
+            blobs.mapIt(it.kzg_proof))
           if res.isErr():
             warn "blobs failed validation",
               blockRoot = shortLog(blck.root),
@@ -122,7 +124,6 @@ proc routeSignedBeaconBlock*(
               signature = shortLog(blck.signature),
               msg = res.error()
             return err(res.error())
-
   let
     sendTime = router[].getCurrentBeaconTime()
     delay = sendTime - blck.message.slot.block_deadline()
@@ -168,7 +169,7 @@ proc routeSignedBeaconBlock*(
     if blobsOpt.isSome():
       let blobs = blobsOpt.get()
       if blobs.len != 0:
-        let dataColumnsOpt = get_data_column_sidecars(blck, blobs.mapIt(it.blob))
+        let dataColumnsOpt = get_data_column_sidecars(blck, blobs.mapIt(KzgBlob(bytes: it.blob)))
         if not dataColumnsOpt.isOk:
           debug "Issue with computing data column from blob bundle"
         let data_columns = dataColumnsOpt.get()
