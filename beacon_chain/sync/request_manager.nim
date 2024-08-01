@@ -636,14 +636,14 @@ proc start*(rman: var RequestManager) =
   ## Start Request Manager's loops.
   rman.blockLoopFuture = rman.requestManagerBlockLoop()
   rman.dataColumnLoopFuture = rman.requestManagerDataColumnLoop()
-  # rman.blobLoopFuture = rman.requestManagerBlobLoop()
+  rman.blobLoopFuture = rman.requestManagerBlobLoop()
   
 
 proc stop*(rman: RequestManager) =
   ## Stop Request Manager's loop.
   if not(isNil(rman.blockLoopFuture)):
     rman.blockLoopFuture.cancelSoon()
-  # if not(isNil(rman.blobLoopFuture)):
-  #   rman.blobLoopFuture.cancelSoon()
+  if not(isNil(rman.blobLoopFuture)):
+    rman.blobLoopFuture.cancelSoon()
   if not(isNil(rman.dataColumnLoopFuture)):
     rman.dataColumnLoopFuture.cancelSoon()

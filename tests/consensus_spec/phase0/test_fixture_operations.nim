@@ -12,10 +12,9 @@ import
   # Utilities
   chronicles,
   unittest2,
-  stew/results,
   # Beacon chain internals
   ../../../beacon_chain/spec/[beaconstate, state_transition_block],
-  ../../../beacon_chain/spec/datatypes/phase0,
+  ../../../beacon_chain/spec/datatypes/altair,
   # Test utilities
   ../../testutil,
   ../fixtures_utils, ../os_ops,
@@ -24,19 +23,21 @@ import
 from std/sequtils import mapIt, toSeq
 
 const
-  OpDir                 = SszTestsDir/const_preset/"phase0"/"operations"
+  OpDir                 = SszTestsDir/const_preset/"altair"/"operations"
   OpAttestationsDir     = OpDir/"attestation"
   OpAttSlashingDir      = OpDir/"attester_slashing"
   OpBlockHeaderDir      = OpDir/"block_header"
   OpDepositsDir         = OpDir/"deposit"
   OpProposerSlashingDir = OpDir/"proposer_slashing"
+  OpSyncAggregateDir    = OpDir/"sync_aggregate"
   OpVoluntaryExitDir    = OpDir/"voluntary_exit"
 
-  baseDescription = "EF - Phase 0 - Operations - "
+  baseDescription = "EF - Altair - Operations - "
 
 doAssert toHashSet(mapIt(toSeq(walkDir(OpDir, relative = false)), it.path)) ==
   toHashSet([OpAttestationsDir, OpAttSlashingDir, OpBlockHeaderDir,
-             OpDepositsDir, OpProposerSlashingDir, OpVoluntaryExitDir])
+             OpDepositsDir, OpProposerSlashingDir, OpSyncAggregateDir,
+             OpVoluntaryExitDir])
 
 proc runTest[T, U](
     testSuiteDir, suiteName, opName, applyFile: string,
@@ -49,15 +50,15 @@ proc runTest[T, U](
     else:
       "[Invalid] "
 
-  test prefix & baseDescription & suiteName & " - " & identifier:
+  test prefix & baseDescription & opName & " - " & identifier:
     let preState = newClone(
-      parseTest(testDir/"pre.ssz_snappy", SSZ, phase0.BeaconState))
+      parseTest(testDir/"pre.ssz_snappy", SSZ, altair.BeaconState))
     let done = applyProc(
       preState[], parseTest(testDir/(applyFile & ".ssz_snappy"), SSZ, T))
 
     if fileExists(testDir/"post.ssz_snappy"):
       let postState =
-        newClone(parseTest(testDir/"post.ssz_snappy", SSZ, phase0.BeaconState))
+        newClone(parseTest(testDir/"post.ssz_snappy", SSZ, altair.BeaconState))
 
       check:
         done.isOk()
@@ -68,11 +69,18 @@ proc runTest[T, U](
 
 suite baseDescription & "Attestation " & preset():
   proc applyAttestation(
-      preState: var phase0.BeaconState, attestation: phase0.Attestation):
+      preState: var altair.BeaconState, attestation: phase0.Attestation):
       Result[void, cstring] =
     var cache: StateCache
-    doAssert (? process_attestation(
-      preState, attestation, {}, 0.Gwei, cache)) == 0.Gwei
+    let
+      total_active_balance = get_total_active_balance(preState, cache)
+      base_reward_per_increment =
+        get_base_reward_per_increment(total_active_balance)
+
+    # This returns the proposer reward for including the attestation, which
+    # isn't tested here.
+    discard ? process_attestation(
+      preState, attestation, {}, base_reward_per_increment, cache)
     ok()
 
   for path in walkTests(OpAttestationsDir):
@@ -82,7 +90,7 @@ suite baseDescription & "Attestation " & preset():
 
 suite baseDescription & "Attester Slashing " & preset():
   proc applyAttesterSlashing(
-      preState: var phase0.BeaconState,
+      preState: var altair.BeaconState,
       attesterSlashing: phase0.AttesterSlashing): Result[void, cstring] =
     var cache: StateCache
     doAssert (? process_attester_slashing(
@@ -97,21 +105,20 @@ suite baseDescription & "Attester Slashing " & preset():
 
 suite baseDescription & "Block Header " & preset():
   func applyBlockHeader(
-      preState: var phase0.BeaconState, blck: phase0.BeaconBlock):
+      preState: var altair.BeaconState, blck: altair.BeaconBlock):
       Result[void, cstring] =
     var cache: StateCache
     process_block_header(preState, blck, {}, cache)
 
   for path in walkTests(OpBlockHeaderDir):
-    runTest[phase0.BeaconBlock, typeof applyBlockHeader](
-      OpBlockHeaderDir, suiteName, "Block Header", "block",
-      applyBlockHeader, path)
+    runTest[altair.BeaconBlock, typeof applyBlockHeader](
+      OpBlockHeaderDir, suiteName, "Block Header", "block", applyBlockHeader, path)
 
 from ".."/".."/".."/beacon_chain/bloomfilter import constructBloomFilter
 
 suite baseDescription & "Deposit " & preset():
   proc applyDeposit(
-      preState: var phase0.BeaconState, deposit: Deposit):
+      preState: var altair.BeaconState, deposit: Deposit):
       Result[void, cstring] =
     process_deposit(
       defaultRuntimeConfig, preState,
@@ -123,7 +130,7 @@ suite baseDescription & "Deposit " & preset():
 
 suite baseDescription & "Proposer Slashing " & preset():
   proc applyProposerSlashing(
-      preState: var phase0.BeaconState, proposerSlashing: ProposerSlashing):
+      preState: var altair.BeaconState, proposerSlashing: ProposerSlashing):
       Result[void, cstring] =
     var cache: StateCache
     doAssert (? process_proposer_slashing(
@@ -136,9 +143,24 @@ suite baseDescription & "Proposer Slashing " & preset():
       OpProposerSlashingDir, suiteName, "Proposer Slashing", "proposer_slashing",
       applyProposerSlashing, path)
 
+suite baseDescription & "Sync Aggregate " & preset():
+  proc applySyncAggregate(
+      preState: var altair.BeaconState, syncAggregate: SyncAggregate):
+      Result[void, cstring] =
+    var cache: StateCache
+    doAssert (? process_sync_aggregate(
+      preState, syncAggregate, get_total_active_balance(preState, cache),
+      {}, cache)) > 0.Gwei
+    ok()
+
+  for path in walkTests(OpSyncAggregateDir):
+    runTest[SyncAggregate, typeof applySyncAggregate](
+      OpSyncAggregateDir, suiteName, "Sync Aggregate", "sync_aggregate",
+      applySyncAggregate, path)
+
 suite baseDescription & "Voluntary Exit " & preset():
   proc applyVoluntaryExit(
-      preState: var phase0.BeaconState, voluntaryExit: SignedVoluntaryExit):
+      preState: var altair.BeaconState, voluntaryExit: SignedVoluntaryExit):
       Result[void, cstring] =
     var cache: StateCache
     if process_voluntary_exit(

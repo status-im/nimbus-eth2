@@ -144,7 +144,7 @@ proc new*(T: type BlockProcessor,
     consensusManager: consensusManager,
     validatorMonitor: validatorMonitor,
     blobQuarantine: blobQuarantine,
-    dataColumnQuarantine: dataCOlumnQuarantine,
+    dataColumnQuarantine: dataColumnQuarantine,
     getBeaconTime: getBeaconTime,
     verifier: BatchVerifier.init(rng, taskpool)
   )
@@ -192,25 +192,26 @@ proc storeBackfillBlock(
   # writing the block in case of blob error.
   # var blobsOk = true
   var columnsOk = true
-  # when typeof(signedBlock).kind >= ConsensusFork.Deneb:
-  #   if blobsOpt.isSome:
-  #     let blobs = blobsOpt.get()
-  #     let kzgCommits = signedBlock.message.body.blob_kzg_commitments.asSeq
-  #     if blobs.len > 0 or kzgCommits.len > 0:
-  #       let r = validate_blobs(kzgCommits, blobs.mapIt(it.blob),
-  #                              blobs.mapIt(it.kzg_proof))
-  #       if r.isErr():
-  #         debug "backfill blob validation failed",
-  #           blockRoot = shortLog(signedBlock.root),
-  #           blobs = shortLog(blobs),
-  #           blck = shortLog(signedBlock.message),
-  #           kzgCommits = mapIt(kzgCommits, shortLog(it)),
-  #           signature = shortLog(signedBlock.signature),
-  #           msg = r.error()
-  #       blobsOk = r.isOk()
+  var blobsOk = true
+  when typeof(signedBlock).kind >= ConsensusFork.Deneb:
+    if blobsOpt.isSome:
+      let blobs = blobsOpt.get()
+      let kzgCommits = signedBlock.message.body.blob_kzg_commitments.asSeq
+      if blobs.len > 0 or kzgCommits.len > 0:
+        let r = validate_blobs(kzgCommits, blobs.mapIt(KzgBlob(bytes: it.blob)),
+                               blobs.mapIt(it.kzg_proof))
+        if r.isErr():
+          debug "backfill blob validation failed",
+            blockRoot = shortLog(signedBlock.root),
+            blobs = shortLog(blobs),
+            blck = shortLog(signedBlock.message),
+            kzgCommits = mapIt(kzgCommits, shortLog(it)),
+            signature = shortLog(signedBlock.signature),
+            msg = r.error()
+        blobsOk = r.isOk()
 
-  # if not blobsOk:
-  #   return err(VerifierError.Invalid)
+  if not blobsOk:
+    return err(VerifierError.Invalid)
     
   when typeof(signedBlock).kind >= ConsensusFork.Deneb:
     if dataColumnsOpt.isSome:
@@ -854,20 +855,21 @@ proc storeBlock(
       else:
         if len(forkyBlck.message.body.blob_kzg_commitments) == 0:
           self[].enqueueBlock(
-            MsgSource.gossip, quarantined, Opt.none(BlobSidecars), Opt.some(DataColumnSidecars @[]))
+            MsgSource.gossip, quarantined, Opt.some(BlobSidecars @[]), Opt.some(DataColumnSidecars @[]))
         else:
           if (let res = checkBloblessSignature(self[], forkyBlck); res.isErr):
             warn "Failed to verify signature of unorphaned blobless/columnless block",
              blck = shortLog(forkyBlck),
              error = res.error()
             continue
-          # if self.blobQuarantine[].hasBlobs(forkyBlck):
-          #   let blobs = self.blobQuarantine[].popBlobs(
-          #     forkyBlck.root, forkyBlck)
-          #   self[].enqueueBlock(MsgSource.gossip, quarantined, Opt.some(blobs), Opt.none(DataColumnSidecars))
-          # else:
-          #   discard self.consensusManager.quarantine[].addBlobless(
-          #     dag.finalizedHead.slot, forkyBlck)
+
+          if self.blobQuarantine[].hasBlobs(forkyBlck):
+            let blobs = self.blobQuarantine[].popBlobs(
+              forkyBlck.root, forkyBlck)
+            self[].enqueueBlock(MsgSource.gossip, quarantined, Opt.some(blobs), Opt.none(DataColumnSidecars))
+          else:
+            discard self.consensusManager.quarantine[].addBlobless(
+              dag.finalizedHead.slot, forkyBlck)
 
           if self.dataColumnQuarantine[].hasDataColumns(forkyBlck):
             let data_columns = self.dataColumnQuarantine[].popDataColumns(

@@ -117,10 +117,10 @@ suite "EF - EIP7594 - SSZ consensus objects " & preset():
           let hash = loadExpectedHashTreeRoot(path)
 
           case sszType:
-          of "AggregateAndProof": checkSSZ(AggregateAndProof, path, hash)
-          of "Attestation": checkSSZ(Attestation, path, hash)
+          of "AggregateAndProof": checkSSZ(phase0.AggregateAndProof, path, hash)
+          of "Attestation": checkSSZ(phase0.Attestation, path, hash)
           of "AttestationData": checkSSZ(AttestationData, path, hash)
-          of "AttesterSlashing": checkSSZ(AttesterSlashing, path, hash)
+          of "AttesterSlashing": checkSSZ(phase0.AttesterSlashing, path, hash)
           of "BeaconBlock": checkSSZ(deneb.BeaconBlock, path, hash)
           of "BeaconBlockBody": checkSSZ(deneb.BeaconBlockBody, path, hash)
           of "BeaconBlockHeader": checkSSZ(BeaconBlockHeader, path, hash)
@@ -130,34 +130,40 @@ suite "EF - EIP7594 - SSZ consensus objects " & preset():
           of "BLSToExecutionChange": checkSSZ(BLSToExecutionChange, path, hash)
           of "Checkpoint": checkSSZ(Checkpoint, path, hash)
           of "ContributionAndProof": checkSSZ(ContributionAndProof, path, hash)
-          of "DataColumnIdentifier": checkSSZ(DataColumnIdentifier, path, hash)
           of "DataColumnSidecar": checkSSZ(DataColumnSidecar, path, hash)
+          of "DataColumnIdentifier": checkSSZ(DataColumnIdentifier, path, hash)
           of "Deposit": checkSSZ(Deposit, path, hash)
           of "DepositData": checkSSZ(DepositData, path, hash)
           of "DepositMessage": checkSSZ(DepositMessage, path, hash)
           of "Eth1Block": checkSSZ(Eth1Block, path, hash)
           of "Eth1Data": checkSSZ(Eth1Data, path, hash)
-          of "ExecutionPayload": checkSSZ(ExecutionPayload, path, hash)
+          of "ExecutionPayload":
+            checkSSZ(deneb.ExecutionPayload, path, hash)
           of "ExecutionPayloadHeader":
-            checkSSZ(ExecutionPayloadHeader, path, hash)
+            checkSSZ(deneb.ExecutionPayloadHeader, path, hash)
           of "Fork": checkSSZ(Fork, path, hash)
           of "ForkData": checkSSZ(ForkData, path, hash)
           of "HistoricalBatch": checkSSZ(HistoricalBatch, path, hash)
           of "HistoricalSummary": checkSSZ(HistoricalSummary, path, hash)
-          of "IndexedAttestation": checkSSZ(IndexedAttestation, path, hash)
+          of "IndexedAttestation":
+            checkSSZ(phase0.IndexedAttestation, path, hash)
           of "LightClientBootstrap":
             checkSSZ(deneb.LightClientBootstrap, path, hash)
-          of "LightClientHeader": checkSSZ(deneb.LightClientHeader, path, hash)
-          of "LightClientUpdate": checkSSZ(deneb.LightClientUpdate, path, hash)
+          of "LightClientHeader":
+            checkSSZ(deneb.LightClientHeader, path, hash)
+          of "LightClientUpdate":
+            checkSSZ(deneb.LightClientUpdate, path, hash)
           of "LightClientFinalityUpdate":
             checkSSZ(deneb.LightClientFinalityUpdate, path, hash)
           of "LightClientOptimisticUpdate":
             checkSSZ(deneb.LightClientOptimisticUpdate, path, hash)
+          of "MatrixEntry":
+            checkSSZ(MatrixEntry, path, hash)
           of "PendingAttestation": checkSSZ(PendingAttestation, path, hash)
           of "PowBlock": checkSSZ(PowBlock, path, hash)
           of "ProposerSlashing": checkSSZ(ProposerSlashing, path, hash)
           of "SignedAggregateAndProof":
-            checkSSZ(SignedAggregateAndProof, path, hash)
+            checkSSZ(phase0.SignedAggregateAndProof, path, hash)
           of "SignedBeaconBlock":
             checkSSZ(deneb.SignedBeaconBlock, path, hash)
           of "SignedBeaconBlockHeader":

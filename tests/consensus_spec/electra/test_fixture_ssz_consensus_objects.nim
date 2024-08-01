@@ -138,9 +138,9 @@ suite "EF - Electra - SSZ consensus objects " & preset():
           of "Eth1Data": checkSSZ(Eth1Data, path, hash)
           of "ExecutionLayerWithdrawalRequest":
             checkSSZ(ExecutionLayerWithdrawalRequest, path, hash)
-          of "ExecutionPayload": checkSSZ(ExecutionPayload, path, hash)
+          of "ExecutionPayload": checkSSZ(electra.ExecutionPayload, path, hash)
           of "ExecutionPayloadHeader":
-            checkSSZ(ExecutionPayloadHeader, path, hash)
+            checkSSZ(electra.ExecutionPayloadHeader, path, hash)
           of "Fork": checkSSZ(Fork, path, hash)
           of "ForkData": checkSSZ(ForkData, path, hash)
           of "HistoricalBatch": checkSSZ(HistoricalBatch, path, hash)

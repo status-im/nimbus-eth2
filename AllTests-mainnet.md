@@ -445,17 +445,6 @@ OK: 9/9 Fail: 0/9 Skip: 0/9
 OK: 253/253 Fail: 0/253 Skip: 0/253
 ## EF - KZG - EIP7594
 ```diff
-+ KZG - Compute Cells - compute_cells_case_invalid_blob_26555bdcbf18a267                     OK
-+ KZG - Compute Cells - compute_cells_case_invalid_blob_79fb3cb1ef585a86                     OK
-+ KZG - Compute Cells - compute_cells_case_invalid_blob_7e99dea8893c104a                     OK
-+ KZG - Compute Cells - compute_cells_case_invalid_blob_9d88c33852eb782d                     OK
-+ KZG - Compute Cells - compute_cells_case_valid_419245fbfe69f145                            OK
-+ KZG - Compute Cells - compute_cells_case_valid_4aedd1a2a3933c3e                            OK
-+ KZG - Compute Cells - compute_cells_case_valid_6e773f256383918c                            OK
-+ KZG - Compute Cells - compute_cells_case_valid_b0731ef77b166ca8                            OK
-+ KZG - Compute Cells - compute_cells_case_valid_b81d309b22788820                            OK
-+ KZG - Compute Cells - compute_cells_case_valid_ed8b5001151417d5                            OK
-+ KZG - Compute Cells - compute_cells_case_valid_edeb8500a6507818                            OK
 + KZG - Compute Cells And Proofs - compute_cells_and_kzg_proofs_case_invalid_blob_26555bdcbf OK
 + KZG - Compute Cells And Proofs - compute_cells_and_kzg_proofs_case_invalid_blob_79fb3cb1ef OK
 + KZG - Compute Cells And Proofs - compute_cells_and_kzg_proofs_case_invalid_blob_7e99dea889 OK
@@ -467,93 +456,8 @@ OK: 253/253 Fail: 0/253 Skip: 0/253
 + KZG - Compute Cells And Proofs - compute_cells_and_kzg_proofs_case_valid_b81d309b22788820  OK
 + KZG - Compute Cells And Proofs - compute_cells_and_kzg_proofs_case_valid_ed8b5001151417d5  OK
 + KZG - Compute Cells And Proofs - compute_cells_and_kzg_proofs_case_valid_edeb8500a6507818  OK
-+ KZG - Recover All Cells - recover_all_cells_case_invalid_all_cells_are_missing_f46bf2cbb03 OK
-+ KZG - Recover All Cells - recover_all_cells_case_invalid_cell_0f26a378535d3131             OK
-+ KZG - Recover All Cells - recover_all_cells_case_invalid_cell_7a3f7f2910fe230a             OK
-+ KZG - Recover All Cells - recover_all_cells_case_invalid_cell_8be2d351449aa7b6             OK
-+ KZG - Recover All Cells - recover_all_cells_case_invalid_cell_e1ac5e027103239d             OK
-+ KZG - Recover All Cells - recover_all_cells_case_invalid_cell_id_be00192b1a139275          OK
-+ KZG - Recover All Cells - recover_all_cells_case_invalid_duplicate_cell_id_988d8aa16e4ef84 OK
-+ KZG - Recover All Cells - recover_all_cells_case_invalid_more_cell_ids_than_cells_8eaea8a3 OK
-+ KZG - Recover All Cells - recover_all_cells_case_invalid_more_cells_than_cell_ids_a2b10ac8 OK
-+ KZG - Recover All Cells - recover_all_cells_case_invalid_more_than_half_missing_474f5c5c2a OK
-+ KZG - Recover All Cells - recover_all_cells_case_valid_half_missing_every_other_cell_ae1b7 OK
-+ KZG - Recover All Cells - recover_all_cells_case_valid_half_missing_first_half_bbb851083a6 OK
-+ KZG - Recover All Cells - recover_all_cells_case_valid_half_missing_second_half_696b33f5da OK
-+ KZG - Recover All Cells - recover_all_cells_case_valid_no_missing_9546b3ad9977aa40         OK
-+ KZG - Verify Cell Kzg Proof - verify_cell_kzg_proof_case_incorrect_cell_30dd1bdc76ff70fb   OK
-+ KZG - Verify Cell Kzg Proof - verify_cell_kzg_proof_case_incorrect_cell_5138cdd3534e8705   OK
-+ KZG - Verify Cell Kzg Proof - verify_cell_kzg_proof_case_incorrect_cell_76140fc51e7da7a5   OK
-+ KZG - Verify Cell Kzg Proof - verify_cell_kzg_proof_case_incorrect_commitment_307f4ebc067c OK
-+ KZG - Verify Cell Kzg Proof - verify_cell_kzg_proof_case_incorrect_commitment_351fd262b984 OK
-+ KZG - Verify Cell Kzg Proof - verify_cell_kzg_proof_case_incorrect_commitment_71fec3ac464b OK
-+ KZG - Verify Cell Kzg Proof - verify_cell_kzg_proof_case_incorrect_commitment_736703b3e23d OK
-+ KZG - Verify Cell Kzg Proof - verify_cell_kzg_proof_case_incorrect_commitment_7c1a1ac24c1f OK
-+ KZG - Verify Cell Kzg Proof - verify_cell_kzg_proof_case_incorrect_commitment_9624a42384c3 OK
-+ KZG - Verify Cell Kzg Proof - verify_cell_kzg_proof_case_incorrect_commitment_aef3e72488c4 OK
-+ KZG - Verify Cell Kzg Proof - verify_cell_kzg_proof_case_incorrect_proof_0223e6a42aeb7c72  OK
-+ KZG - Verify Cell Kzg Proof - verify_cell_kzg_proof_case_incorrect_proof_0ed7c15183b218d9  OK
-+ KZG - Verify Cell Kzg Proof - verify_cell_kzg_proof_case_incorrect_proof_29635b8440e1e10f  OK
-+ KZG - Verify Cell Kzg Proof - verify_cell_kzg_proof_case_incorrect_proof_504a37d7088fa4e7  OK
-+ KZG - Verify Cell Kzg Proof - verify_cell_kzg_proof_case_incorrect_proof_65e1ad97362a27d8  OK
-+ KZG - Verify Cell Kzg Proof - verify_cell_kzg_proof_case_incorrect_proof_ab041dcc87d0a4fc  OK
-+ KZG - Verify Cell Kzg Proof - verify_cell_kzg_proof_case_incorrect_proof_dcf5a8bd294aaa6f  OK
-+ KZG - Verify Cell Kzg Proof - verify_cell_kzg_proof_case_invalid_cell_1535daa3d170da94     OK
-+ KZG - Verify Cell Kzg Proof - verify_cell_kzg_proof_case_invalid_cell_1962af1b36fc07b2     OK
-+ KZG - Verify Cell Kzg Proof - verify_cell_kzg_proof_case_invalid_cell_b9598308bd764e64     OK
-+ KZG - Verify Cell Kzg Proof - verify_cell_kzg_proof_case_invalid_cell_e29abaaa0519a74f     OK
-+ KZG - Verify Cell Kzg Proof - verify_cell_kzg_proof_case_invalid_cell_id_683cc4551f0ad97e  OK
-+ KZG - Verify Cell Kzg Proof - verify_cell_kzg_proof_case_invalid_cell_id_f134fd5b36145b80  OK
-+ KZG - Verify Cell Kzg Proof - verify_cell_kzg_proof_case_invalid_commitment_ac0c6311a92593 OK
-+ KZG - Verify Cell Kzg Proof - verify_cell_kzg_proof_case_invalid_commitment_afe4829eb27b14 OK
-+ KZG - Verify Cell Kzg Proof - verify_cell_kzg_proof_case_invalid_commitment_ebd7c7f8c02f05 OK
-+ KZG - Verify Cell Kzg Proof - verify_cell_kzg_proof_case_invalid_commitment_fd08e705ede464 OK
-+ KZG - Verify Cell Kzg Proof - verify_cell_kzg_proof_case_invalid_proof_0c35bb98c57669db    OK
-+ KZG - Verify Cell Kzg Proof - verify_cell_kzg_proof_case_invalid_proof_25efe063234b38bb    OK
-+ KZG - Verify Cell Kzg Proof - verify_cell_kzg_proof_case_invalid_proof_50589f444e37d476    OK
-+ KZG - Verify Cell Kzg Proof - verify_cell_kzg_proof_case_invalid_proof_f900beacae9218db    OK
-+ KZG - Verify Cell Kzg Proof - verify_cell_kzg_proof_case_valid_0c0acf27962a7e82            OK
-+ KZG - Verify Cell Kzg Proof - verify_cell_kzg_proof_case_valid_402b30d8dc9e972d            OK
-+ KZG - Verify Cell Kzg Proof - verify_cell_kzg_proof_case_valid_7db1d069d57ec097            OK
-+ KZG - Verify Cell Kzg Proof - verify_cell_kzg_proof_case_valid_b4c7e9397878471c            OK
-+ KZG - Verify Cell Kzg Proof - verify_cell_kzg_proof_case_valid_cc46f83ded6d6191            OK
-+ KZG - Verify Cell Kzg Proof - verify_cell_kzg_proof_case_valid_dcf3e16a678fadc5            OK
-+ KZG - Verify Cell Kzg Proof - verify_cell_kzg_proof_case_valid_f6d5ccfa04edf349            OK
-+ KZG - Verify Cell Kzg Proof Batch - verify_cell_kzg_proof_batch_case_incorrect_cell_9ff2df OK
-+ KZG - Verify Cell Kzg Proof Batch - verify_cell_kzg_proof_batch_case_incorrect_proof_59c63 OK
-+ KZG - Verify Cell Kzg Proof Batch - verify_cell_kzg_proof_batch_case_incorrect_row_commitm OK
-+ KZG - Verify Cell Kzg Proof Batch - verify_cell_kzg_proof_batch_case_invalid_cell_2e1699f9 OK
-+ KZG - Verify Cell Kzg Proof Batch - verify_cell_kzg_proof_batch_case_invalid_cell_5f0a7e48 OK
-+ KZG - Verify Cell Kzg Proof Batch - verify_cell_kzg_proof_batch_case_invalid_cell_745046c5 OK
-+ KZG - Verify Cell Kzg Proof Batch - verify_cell_kzg_proof_batch_case_invalid_cell_83f39012 OK
-+ KZG - Verify Cell Kzg Proof Batch - verify_cell_kzg_proof_batch_case_invalid_column_index_ OK
-+ KZG - Verify Cell Kzg Proof Batch - verify_cell_kzg_proof_batch_case_invalid_missing_cell_ OK
-+ KZG - Verify Cell Kzg Proof Batch - verify_cell_kzg_proof_batch_case_invalid_missing_colum OK
-+ KZG - Verify Cell Kzg Proof Batch - verify_cell_kzg_proof_batch_case_invalid_missing_proof OK
-+ KZG - Verify Cell Kzg Proof Batch - verify_cell_kzg_proof_batch_case_invalid_missing_row_c OK
-+ KZG - Verify Cell Kzg Proof Batch - verify_cell_kzg_proof_batch_case_invalid_missing_row_i OK
-+ KZG - Verify Cell Kzg Proof Batch - verify_cell_kzg_proof_batch_case_invalid_proof_135836e OK
-+ KZG - Verify Cell Kzg Proof Batch - verify_cell_kzg_proof_batch_case_invalid_proof_d592b72 OK
-+ KZG - Verify Cell Kzg Proof Batch - verify_cell_kzg_proof_batch_case_invalid_proof_e65b54c OK
-+ KZG - Verify Cell Kzg Proof Batch - verify_cell_kzg_proof_batch_case_invalid_proof_eded2aa OK
-+ KZG - Verify Cell Kzg Proof Batch - verify_cell_kzg_proof_batch_case_invalid_row_commitmen OK
-+ KZG - Verify Cell Kzg Proof Batch - verify_cell_kzg_proof_batch_case_invalid_row_commitmen OK
-+ KZG - Verify Cell Kzg Proof Batch - verify_cell_kzg_proof_batch_case_invalid_row_commitmen OK
-+ KZG - Verify Cell Kzg Proof Batch - verify_cell_kzg_proof_batch_case_invalid_row_commitmen OK
-+ KZG - Verify Cell Kzg Proof Batch - verify_cell_kzg_proof_batch_case_invalid_row_index_55c OK
-+ KZG - Verify Cell Kzg Proof Batch - verify_cell_kzg_proof_batch_case_valid_21b209cb4f64d0e OK
-+ KZG - Verify Cell Kzg Proof Batch - verify_cell_kzg_proof_batch_case_valid_49f1f992af68d85 OK
-+ KZG - Verify Cell Kzg Proof Batch - verify_cell_kzg_proof_batch_case_valid_7dc4b00d04efff0 OK
-+ KZG - Verify Cell Kzg Proof Batch - verify_cell_kzg_proof_batch_case_valid_abe54dfc8ce6f34 OK
-+ KZG - Verify Cell Kzg Proof Batch - verify_cell_kzg_proof_batch_case_valid_ae0a9c4f3313b3d OK
-+ KZG - Verify Cell Kzg Proof Batch - verify_cell_kzg_proof_batch_case_valid_aedf5f25f4e3eea OK
-+ KZG - Verify Cell Kzg Proof Batch - verify_cell_kzg_proof_batch_case_valid_fad5448f3ceb097 OK
-+ KZG - Verify Cell Kzg Proof Batch - verify_cell_kzg_proof_batch_case_valid_multiple_blobs_ OK
-+ KZG - Verify Cell Kzg Proof Batch - verify_cell_kzg_proof_batch_case_valid_same_cell_multi OK
-+ KZG - Verify Cell Kzg Proof Batch - verify_cell_kzg_proof_batch_case_valid_unused_row_comm OK
-+ KZG - Verify Cell Kzg Proof Batch - verify_cell_kzg_proof_batch_case_valid_zero_cells_92ee OK
 ```
-OK: 107/107 Fail: 0/107 Skip: 0/107
+OK: 11/11 Fail: 0/11 Skip: 0/11
 ## EF - SSZ generic types
 ```diff
   Testing basic_vector inputs - invalid                                                      Skip
@@ -957,9 +861,10 @@ OK: 1/1 Fail: 0/1 Skip: 0/1
 ## Spec helpers
 ```diff
 + build_proof - BeaconState                                                                  OK
++ hypergeom_cdf                                                                              OK
 + integer_squareroot                                                                         OK
 ```
-OK: 2/2 Fail: 0/2 Skip: 0/2
+OK: 3/3 Fail: 0/3 Skip: 0/3
 ## Specific field types
 ```diff
 + root update                                                                                OK
@@ -987,34 +892,6 @@ OK: 1/1 Fail: 0/1 Skip: 0/1
 + isSeen                                                                                     OK
 ```
 OK: 7/7 Fail: 0/7 Skip: 0/7
-## SyncManager test suite
-```diff
-+ Process all unviable blocks                                                                OK
-+ [SyncManager] groupBlobs() test                                                            OK
-+ [SyncQueue#Backward] Async unordered push test                                             OK
-+ [SyncQueue#Backward] Async unordered push with rewind test                                 OK
-+ [SyncQueue#Backward] Good response with missing values towards end                         OK
-+ [SyncQueue#Backward] Handle out-of-band sync progress advancement                          OK
-+ [SyncQueue#Backward] Pass through established limits test                                  OK
-+ [SyncQueue#Backward] Smoke test                                                            OK
-+ [SyncQueue#Backward] Start and finish slots equal                                          OK
-+ [SyncQueue#Backward] Two full requests success/fail                                        OK
-+ [SyncQueue#Backward] getRewindPoint() test                                                 OK
-+ [SyncQueue#Forward] Async unordered push test                                              OK
-+ [SyncQueue#Forward] Async unordered push with rewind test                                  OK
-+ [SyncQueue#Forward] Good response with missing values towards end                          OK
-+ [SyncQueue#Forward] Handle out-of-band sync progress advancement                           OK
-+ [SyncQueue#Forward] Pass through established limits test                                   OK
-+ [SyncQueue#Forward] Smoke test                                                             OK
-+ [SyncQueue#Forward] Start and finish slots equal                                           OK
-+ [SyncQueue#Forward] Two full requests success/fail                                         OK
-+ [SyncQueue#Forward] getRewindPoint() test                                                  OK
-+ [SyncQueue] checkResponse() test                                                           OK
-+ [SyncQueue] contains() test                                                                OK
-+ [SyncQueue] getLastNonEmptySlot() test                                                     OK
-+ [SyncQueue] hasEndGap() test                                                               OK
-```
-OK: 24/24 Fail: 0/24 Skip: 0/24
 ## Type helpers
 ```diff
 + BeaconBlock                                                                                OK
@@ -1155,4 +1032,4 @@ OK: 2/2 Fail: 0/2 Skip: 0/2
 OK: 9/9 Fail: 0/9 Skip: 0/9
 
 ---TOTAL---
-OK: 804/809 Fail: 0/809 Skip: 5/809
+OK: 685/690 Fail: 0/690 Skip: 5/690

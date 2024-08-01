@@ -49,7 +49,6 @@ import # Unit test
   ./test_spec,
   ./test_statediff,
   ./test_sync_committee_pool,
-  ./test_sync_manager,
   ./test_toblindedblock,
   ./test_validator_change_pool,
   ./test_validator_pool,

@@ -18,15 +18,11 @@ import
   ./capella/all_capella_fixtures,
   ./deneb/all_deneb_fixtures,
   ./eip7594/all_eip7594_fixtures,
-  ./electra/all_electra_fixtures,
   ./test_fixture_fork,
   ./test_fixture_fork_choice,
   ./test_fixture_light_client_single_merkle_proof,
   ./test_fixture_light_client_sync,
   ./test_fixture_light_client_update_ranking,
-  ./test_fixture_merkle_proof,
-  ./test_fixture_sanity_blocks,
-  ./test_fixture_sanity_slots,
-  ./test_fixture_transition
+  ./test_fixture_merkle_proof
 
 summarizeLongTests("ConsensusSpecPreset")

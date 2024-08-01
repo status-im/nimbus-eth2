@@ -264,17 +264,14 @@ proc runRecoverCellsAndKzgProofsTest(suiteName, suitePath, path: string) =
     let
       data = loadToJson(os_ops.readFile(path/"data.yaml"))[0]
       output = data["output"]
-      cell_ids = data["input"]["cell_ids"].mapIt(toUInt64(it.getInt))
+      cell_ids = data["input"]["cell_indices"].mapIt(toUInt64(it.getInt))
       cells = data["input"]["cells"].mapIt(fromHex[2048](it.getStr))
-      proofs = data["input"]["proofs"].mapIt(fromHex[48](it.getStr))
-
     # https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.2/tests/formats/kzg_7594/recover_all_cells.md#condition
     # If the blob is invalid (e.g. incorrect length or one of the 32-byte
     # blocks does not represent a BLS field element) it should error, i.e. the
     # the output should be `null`.
     if cell_ids.anyIt(it.isNone) or 
-        cells.anyIt(it.isNone) or 
-        proofs.anyIt(it.isNone):
+        cells.anyIt(it.isNone):
       check output.kind == JNull
     else:
       let v = newClone recoverCellsAndKzgProofs(
@@ -348,14 +345,16 @@ suite suiteName:
     for kind, path in walkDir(testsDir, relative = true, checkDir = true):
       runComputeCellsAndKzgProofsTest(suiteName, testsDir, testsDir/path)
 
-  block:
-    let testsDir = suitePath/"recover_all_cells"/"kzg-mainnet"
-    for kind, path in walkDir(testsDir, relative = true, checkDir = true):
-      runRecoverCellsAndKzgProofsTest(suiteName, testsDir, testsDir/path)
 
-  block:
-    let testsDir = suitePath/"verify_cell_kzg_proof_batch"/"kzg-mainnet"
-    for kind, path in walkDir(testsDir, relative = true, checkDir = true):
-      runVerifyCellKzgProofBatchTest(suiteName, testsDir, testsDir/path)
+  # TODO: disabled until EF releases new test vectors
+  # block:
+  #   let testsDir = suitePath/"recover_cells_and_kzg_proofs"/"kzg-mainnet"
+  #   for kind, path in walkDir(testsDir, relative = true, checkDir = true):
+  #     runRecoverCellsAndKzgProofsTest(suiteName, testsDir, testsDir/path)
+
+  # block:
+  #   let testsDir = suitePath/"verify_cell_kzg_proof_batch"/"kzg-mainnet"
+  #   for kind, path in walkDir(testsDir, relative = true, checkDir = true):
+  #     runVerifyCellKzgProofBatchTest(suiteName, testsDir, testsDir/path)
 
 doAssert Kzg.freeTrustedSetup().isOk

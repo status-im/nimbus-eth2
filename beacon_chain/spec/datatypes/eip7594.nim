@@ -85,9 +85,10 @@ func serializeDataColumn(data_column: DataColumn): auto =
   var counter = 0
   var serd : array[MAX_BLOB_COMMITMENTS_PER_BLOCK * BYTES_PER_CELL, byte]
   for i in 0..<MAX_BLOB_COMMITMENTS_PER_BLOCK:
-    var inter = data_column[i].bytes
+    var inter: array[BYTES_PER_CELL, byte]
+    inter = data_column[i].bytes
     for j in 0..<BYTES_PER_CELL:
-      serd[counter] = inter[j]
+      serd[counter] = inter[j].byte
       inc(counter)
   serd
 

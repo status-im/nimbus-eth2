@@ -213,7 +213,7 @@ from stew/byteutils import hexToByteArray
 func fromHex(T: typedesc[KzgCommitment], s: string): T {.
      raises: [ValueError].} =
   var res: T
-  hexToByteArray(s, res)
+  hexToByteArray(s, res.bytes)
   res
 
 suite "REST JSON encoding and decoding":
