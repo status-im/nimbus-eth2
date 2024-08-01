@@ -141,14 +141,14 @@ func nfuzz_block_header(input: openArray[byte], xoutput: ptr byte,
   decodeAndProcess(BlockHeaderInput):
     process_block_header(data.state, data.beaconBlock.message, flags, cache).isOk
 
-from ".."/beacon_chain/bloomfilter import constructBloomFilter
+from ".."/beacon_chain/validator_bucket_sort import sortValidatorBuckets
 
 proc nfuzz_deposit(input: openArray[byte], xoutput: ptr byte,
     xoutput_size: ptr uint, disable_bls: bool): bool {.exportc, raises: [FuzzCrashError].} =
   decodeAndProcess(DepositInput):
     process_deposit(
       getRuntimeConfig(some "mainnet"), data.state,
-      constructBloomFilter(data.state.validators.asSeq)[], data.deposit,
+      sortValidatorBuckets(data.state.validators.asSeq)[], data.deposit,
       flags).isOk
 
 proc nfuzz_proposer_slashing(input: openArray[byte], xoutput: ptr byte,

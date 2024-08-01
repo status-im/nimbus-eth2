@@ -933,10 +933,10 @@ OK: 6/6 Fail: 0/6 Skip: 0/6
 + Dynamic validator set: updateDynamicValidators() test                                      OK
 ```
 OK: 4/4 Fail: 0/4 Skip: 0/4
-## ValidatorPubKey Bloom filter
+## ValidatorPubKey bucket sort
 ```diff
-+ incremental construction with no false positives/negatives                                 OK
-+ one-shot construction with no false positives/negatives                                    OK
++ incremental construction                                                                   OK
++ one-shot construction                                                                      OK
 ```
 OK: 2/2 Fail: 0/2 Skip: 0/2
 ## Zero signature sanity checks
