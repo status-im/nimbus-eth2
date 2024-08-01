@@ -222,7 +222,6 @@ proc storeBackfillBlock(
           if r.isErr():
             debug "backfill datacolumn validation failed",
               blockRoot = shortLog(signedBlock.root),
-              data_column = shortLog(data_columns[i][]),
               blck = shortLog(signedBlock.message),
               signature = shortLog(signedBlock.signature),
               msg = r.error()
@@ -654,7 +653,6 @@ proc storeBlock(
           if r.isErr():
             debug "data column sidecar verification failed",
               blockroot = shortLog(signedBlock.root),
-              column = shortLog(data_column_sidecars[i][].column),
               blck = shortLog(signedBlock.message),
               kzgCommits = 
                 mapIt(data_column_sidecars[i][].kzg_commitments,
