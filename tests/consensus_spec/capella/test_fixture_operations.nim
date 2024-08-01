@@ -14,7 +14,7 @@ import
   unittest2,
   # Beacon chain internals
   ../../../beacon_chain/spec/state_transition_block,
-  ../../../beacon_chain/spec/datatypes/deneb,
+  ../../../beacon_chain/spec/datatypes/capella,
   # Test utilities
   ../../testutil,
   ../fixtures_utils, ../os_ops,
@@ -27,7 +27,7 @@ from ../../../beacon_chain/spec/beaconstate import
   get_total_active_balance, process_attestation
 
 const
-  OpDir                     = SszTestsDir/const_preset/"deneb"/"operations"
+  OpDir                     = SszTestsDir/const_preset/"capella"/"operations"
   OpAttestationsDir         = OpDir/"attestation"
   OpAttSlashingDir          = OpDir/"attester_slashing"
   OpBlockHeaderDir          = OpDir/"block_header"
@@ -39,7 +39,7 @@ const
   OpVoluntaryExitDir        = OpDir/"voluntary_exit"
   OpWithdrawalsDir          = OpDir/"withdrawals"
 
-  baseDescription = "EF - Deneb - Operations - "
+  baseDescription = "EF - Capella - Operations - "
 
 doAssert toHashSet(mapIt(toSeq(walkDir(OpDir, relative = false)), it.path)) ==
   toHashSet([
@@ -61,14 +61,14 @@ proc runTest[T, U](
 
   test prefix & baseDescription & opName & " - " & identifier:
     let preState = newClone(
-      parseTest(testDir/"pre.ssz_snappy", SSZ, deneb.BeaconState))
+      parseTest(testDir/"pre.ssz_snappy", SSZ, capella.BeaconState))
     let done = applyProc(
       preState[], parseTest(testDir/(applyFile & ".ssz_snappy"), SSZ, T))
 
     if fileExists(testDir/"post.ssz_snappy"):
       let postState =
         newClone(parseTest(
-          testDir/"post.ssz_snappy", SSZ, deneb.BeaconState))
+          testDir/"post.ssz_snappy", SSZ, capella.BeaconState))
 
       reportDiff(preState, postState)
       check:
@@ -79,7 +79,7 @@ proc runTest[T, U](
 
 suite baseDescription & "Attestation " & preset():
   proc applyAttestation(
-      preState: var deneb.BeaconState, attestation: phase0.Attestation):
+      preState: var capella.BeaconState, attestation: phase0.Attestation):
       Result[void, cstring] =
     var cache: StateCache
     let
@@ -90,7 +90,7 @@ suite baseDescription & "Attestation " & preset():
     # This returns the proposer reward for including the attestation, which
     # isn't tested here.
     discard ? process_attestation(
-      preState, attestation, {strictVerification}, base_reward_per_increment, cache)
+      preState, attestation, {}, base_reward_per_increment, cache)
     ok()
 
   for path in walkTests(OpAttestationsDir):
@@ -100,7 +100,7 @@ suite baseDescription & "Attestation " & preset():
 
 suite baseDescription & "Attester Slashing " & preset():
   proc applyAttesterSlashing(
-      preState: var deneb.BeaconState,
+      preState: var capella.BeaconState,
       attesterSlashing: phase0.AttesterSlashing): Result[void, cstring] =
     var cache: StateCache
     doAssert (? process_attester_slashing(
@@ -115,22 +115,19 @@ suite baseDescription & "Attester Slashing " & preset():
 
 suite baseDescription & "Block Header " & preset():
   func applyBlockHeader(
-      preState: var deneb.BeaconState, blck: deneb.BeaconBlock):
+      preState: var capella.BeaconState, blck: capella.BeaconBlock):
       Result[void, cstring] =
     var cache: StateCache
     process_block_header(preState, blck, {}, cache)
 
   for path in walkTests(OpBlockHeaderDir):
-    runTest[deneb.BeaconBlock, typeof applyBlockHeader](
+    runTest[capella.BeaconBlock, typeof applyBlockHeader](
       OpBlockHeaderDir, suiteName, "Block Header", "block",
       applyBlockHeader, path)
 
-from ../../../beacon_chain/spec/datatypes/capella import
-  SignedBLSToExecutionChange
-
 suite baseDescription & "BLS to execution change " & preset():
   proc applyBlsToExecutionChange(
-      preState: var deneb.BeaconState,
+      preState: var capella.BeaconState,
       signed_address_change: SignedBLSToExecutionChange):
       Result[void, cstring] =
     process_bls_to_execution_change(
@@ -145,7 +142,7 @@ from ".."/".."/".."/beacon_chain/bloomfilter import constructBloomFilter
 
 suite baseDescription & "Deposit " & preset():
   func applyDeposit(
-      preState: var deneb.BeaconState, deposit: Deposit):
+      preState: var capella.BeaconState, deposit: Deposit):
       Result[void, cstring] =
     process_deposit(
       defaultRuntimeConfig, preState,
@@ -158,23 +155,24 @@ suite baseDescription & "Deposit " & preset():
 suite baseDescription & "Execution Payload " & preset():
   func makeApplyExecutionPayloadCb(path: string): auto =
     return proc(
-        preState: var deneb.BeaconState, body: deneb.BeaconBlockBody):
+        preState: var capella.BeaconState, body: capella.BeaconBlockBody):
         Result[void, cstring] {.raises: [IOError].} =
       let payloadValid = os_ops.readFile(
           OpExecutionPayloadDir/"pyspec_tests"/path/"execution.yaml"
         ).contains("execution_valid: true")
-      func executePayload(_: deneb.ExecutionPayload): bool = payloadValid
-      process_execution_payload(preState, body, executePayload)
+      func executePayload(_: capella.ExecutionPayload): bool = payloadValid
+      process_execution_payload(
+        preState, body.execution_payload, executePayload)
 
   for path in walkTests(OpExecutionPayloadDir):
     let applyExecutionPayload = makeApplyExecutionPayloadCb(path)
-    runTest[deneb.BeaconBlockBody, typeof applyExecutionPayload](
+    runTest[capella.BeaconBlockBody, typeof applyExecutionPayload](
       OpExecutionPayloadDir, suiteName, "Execution Payload", "body",
       applyExecutionPayload, path)
 
 suite baseDescription & "Proposer Slashing " & preset():
   proc applyProposerSlashing(
-      preState: var deneb.BeaconState, proposerSlashing: ProposerSlashing):
+      preState: var capella.BeaconState, proposerSlashing: ProposerSlashing):
       Result[void, cstring] =
     var cache: StateCache
     doAssert (? process_proposer_slashing(
@@ -189,7 +187,7 @@ suite baseDescription & "Proposer Slashing " & preset():
 
 suite baseDescription & "Sync Aggregate " & preset():
   proc applySyncAggregate(
-      preState: var deneb.BeaconState, syncAggregate: SyncAggregate):
+      preState: var capella.BeaconState, syncAggregate: SyncAggregate):
       Result[void, cstring] =
     var cache: StateCache
     doAssert (? process_sync_aggregate(
@@ -204,7 +202,7 @@ suite baseDescription & "Sync Aggregate " & preset():
 
 suite baseDescription & "Voluntary Exit " & preset():
   proc applyVoluntaryExit(
-      preState: var deneb.BeaconState, voluntaryExit: SignedVoluntaryExit):
+      preState: var capella.BeaconState, voluntaryExit: SignedVoluntaryExit):
       Result[void, cstring] =
     var cache: StateCache
     if process_voluntary_exit(
@@ -221,11 +219,11 @@ suite baseDescription & "Voluntary Exit " & preset():
 
 suite baseDescription & "Withdrawals " & preset():
   func applyWithdrawals(
-      preState: var deneb.BeaconState,
-      executionPayload: deneb.ExecutionPayload): Result[void, cstring] =
+      preState: var capella.BeaconState,
+      executionPayload: capella.ExecutionPayload): Result[void, cstring] =
     process_withdrawals(preState, executionPayload)
 
   for path in walkTests(OpWithdrawalsDir):
-    runTest[deneb.ExecutionPayload, typeof applyWithdrawals](
+    runTest[capella.ExecutionPayload, typeof applyWithdrawals](
       OpWithdrawalsDir, suiteName, "Withdrawals", "execution_payload",
       applyWithdrawals, path)
