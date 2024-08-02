@@ -113,7 +113,7 @@ RestJson.useDefaultSerializationFor(
   PendingAttestation,
   PendingBalanceDeposit,
   PendingConsolidation,
- PendingPartialWithdrawal ,
+  PendingPartialWithdrawal,
   PostKeystoresResponse,
   PrepareBeaconProposer,
   ProposerSlashing,
