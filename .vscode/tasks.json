@@ -1,31 +1,21 @@
+// .vscode/tasks.json
 {
-  // See https://go.microsoft.com/fwlink/?LinkId=733558
-  // for the documentation about the tasks.json format
   "version": "2.0.0",
   "tasks": [
-    {
-      "label": "nim-beacon-chain build",
-      "type": "shell",
-      "command": "make",
-      "group": {
-        "kind": "build",
-        "isDefault": true
-      },
-      "problemMatcher": [
-        "$gcc"
-      ]
-    },
-    {
-      "label": "nim-beacon-chain test",
-      "type": "shell",
-      "command": "make test",
-      "group": {
-        "kind": "build",
-        "isDefault": true
-      },
-      "problemMatcher": [
-        "$gcc"
-      ]
-    }
+      {
+          "label": "nim: build current file (for debugging)",
+          "command": "nim",
+          "args": [
+              "compile",
+              "-g",
+              "--debugger:native",
+              "-o:${workspaceRoot}/bin/${fileBasenameNoExtension}",
+              "${relativeFile}"
+          ],
+          "options": {
+              "cwd": "${workspaceRoot}"
+          },
+          "type": "shell",
+      }
   ]
 }

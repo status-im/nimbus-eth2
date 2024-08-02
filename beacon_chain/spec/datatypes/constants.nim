@@ -92,4 +92,4 @@ const
 
   # https://github.com/ethereum/consensus-specs/blob/1508f51b80df5488a515bfedf486f98435200e02/specs/_features/eipxxxx/beacon-chain.md#domain-types [New in epbs]
   DOMAIN_BEACON_BUILDER* = DomainType([byte 0x1B, 0x00, 0x00, 0x00])
-  DOMAIN_TYPE_ATTESTER* = DomainType([byte 0x0C, 0x00, 0x00, 0x00])
+  DOMAIN_PTC_ATTESTER* = DomainType([byte 0x0C, 0x00, 0x00, 0x00])
