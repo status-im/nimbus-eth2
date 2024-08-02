@@ -147,7 +147,7 @@ proc routeSignedBeaconBlock*(
       signature = shortLog(blck.signature), error = res.error()
 
   # PREVENT PROPOSING BLOB SIDECARS IN PEERDAS DEVNET
-  # var blobRefs = Opt.none(BlobSidecars)
+  var blobRefs = Opt.none(BlobSidecars)
   # if blobsOpt.isSome():
   #   let blobs = blobsOpt.get()
   #   var workers = newSeq[Future[SendResult]](blobs.len)
