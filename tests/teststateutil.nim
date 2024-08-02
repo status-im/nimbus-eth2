@@ -10,13 +10,11 @@
 import
   chronicles,
   ./mocking/mock_deposits,
-  ../beacon_chain/spec/[
-    forks, state_transition, state_transition_block]
+  ../beacon_chain/spec/[forks, state_transition]
 
-from ".."/beacon_chain/bloomfilter import constructBloomFilter
+from ".."/beacon_chain/validator_bucket_sort import sortValidatorBuckets
 from ".."/beacon_chain/spec/state_transition_epoch import
   get_validator_balance_after_epoch, process_epoch
-
 
 func round_multiple_down(x: Gwei, n: Gwei): Gwei =
   ## Round the input to the previous multiple of "n"
@@ -39,7 +37,7 @@ proc valid_deposit(state: var ForkyHashedBeaconState) =
                       0.Gwei
   doAssert process_deposit(
     defaultRuntimeConfig, state.data,
-    constructBloomFilter(state.data.validators.asSeq)[], deposit, {}).isOk
+    sortValidatorBuckets(state.data.validators.asSeq)[], deposit, {}).isOk
   doAssert state.data.validators.len == pre_val_count + 1
   doAssert state.data.balances.len == pre_val_count + 1
   doAssert state.data.balances.item(validator_index) == pre_balance + deposit.data.amount
