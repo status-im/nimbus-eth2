@@ -148,39 +148,46 @@ proc routeSignedBeaconBlock*(
 
   # PREVENT PROPOSING BLOB SIDECARS IN PEERDAS DEVNET
   var blobRefs = Opt.none(BlobSidecars)
-  # if blobsOpt.isSome():
-  #   let blobs = blobsOpt.get()
-  #   var workers = newSeq[Future[SendResult]](blobs.len)
-  #   for i in 0..<blobs.lenu64:
-  #     let subnet_id = compute_subnet_for_blob_sidecar(i)
-  #     workers[i] = router[].network.broadcastBlobSidecar(subnet_id, blobs[i])
-  #   let allres = await allFinished(workers)
-  #   for i in 0..<allres.len:
-  #     let res = allres[i]
-  #     doAssert res.finished()
-  #     if res.failed():
-  #       notice "Blob not sent",
-  #         blob = shortLog(blobs[i]), error = res.error[]
-  #     else:
-  #       notice "Blob sent", blob = shortLog(blobs[i])
-  #   blobRefs = Opt.some(blobs.mapIt(newClone(it)))
+  if blobsOpt.isSome():
+    let blobs = blobsOpt.get()
+    var workers = newSeq[Future[SendResult]](blobs.len)
+    for i in 0..<blobs.lenu64:
+      let subnet_id = compute_subnet_for_blob_sidecar(i)
+      workers[i] = router[].network.broadcastBlobSidecar(subnet_id, blobs[i])
+    let allres = await allFinished(workers)
+    for i in 0..<allres.len:
+      let res = allres[i]
+      doAssert res.finished()
+      if res.failed():
+        notice "Blob not sent",
+          blob = shortLog(blobs[i]), error = res.error[]
+      else:
+        notice "Blob sent", blob = shortLog(blobs[i])
+    blobRefs = Opt.some(blobs.mapIt(newClone(it)))
   
   var dataColumnRefs = Opt.none(DataColumnSidecars)
   when typeof(blck).kind >= ConsensusFork.Deneb:   
     if blobsOpt.isSome():
       let blobs = blobsOpt.get()
+      debugEcho "check 1"
       let dataColumnsOpt = newClone get_data_column_sidecars(blck, blobs.mapIt(KzgBlob(bytes: it.blob)))
+      debugEcho "check 2"
       if not dataColumnsOpt[].isOk:
+        debugEcho "check 3"
         debug "Issue with computing data column from blob bundle"
       var das_workers = newSeq[Future[SendResult]](len(dataColumnsOpt[].get()))
       for i in 0..<dataColumnsOpt[].get.len:
-        let subnet_id = newClone compute_subnet_for_data_column_sidecar(uint64(i))
+        debug "check 4"
+        let subnet_id = compute_subnet_for_data_column_sidecar(uint64(i))
+        debugEcho "check 5"
         das_workers[i] = 
-            router[].network.broadcastDataColumnSidecar(subnet_id[], dataColumnsOpt[].get()[int(i)])
+            router[].network.broadcastDataColumnSidecar(subnet_id, dataColumnsOpt[].get()[int(i)])
       let allres = await allFinished(das_workers)
+      debugEcho "check 6"
       for i in 0..<allres.len:
         let res = allres[i]
         doAssert res.finished()
+        debugEcho "check 7"
         if res.failed():
           notice "Data Columns not sent",
             data_column = shortLog(dataColumnsOpt[].get()[i]), error = res.error[]
