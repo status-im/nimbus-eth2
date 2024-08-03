@@ -81,20 +81,10 @@ proc get_custody_columns*(node_id: NodeId,
   
   ok(sortedColumnIndices(ColumnIndex(columns_per_subnet), subnet_ids))
 
-# # https://github.com/ethereum/consensus-specs/blob/5f48840f4d768bf0e0a8156a3ed06ec333589007/specs/_features/eip7594/das-core.md#compute_extended_matrix
-# proc compute_extended_matrix* (blobs: seq[KzgBlob]): Result[ExtendedMatrix, cstring] =
-#   # This helper demonstrates the relationship between blobs and `ExtendedMatrix`
-#   var extended_matrix: ExtendedMatrix
-#   for i in 0..<blobs.len:
-#     let res = computeCells(blobs[i])
-#     if res.isErr:
-#         return err("Error computing kzg cells and kzg proofs")
-#     discard extended_matrix.add(res.get())
-#   ok(extended_matrix)
-
-proc compute_extended_matrix* (blobs: seq[KzgBlob]): Result[MatrixEntries, cstring] =
+# https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.3/specs/_features/eip7594/das-core.md#compute_extended_matrix
+proc compute_extended_matrix* (blobs: seq[KzgBlob]): Result[seq[MatrixEntry], cstring] =
   # This helper demonstrates the relationship between blobs and the `MatrixEntries`
-  var extended_matrix: MatrixEntries
+  var extended_matrix: seq[MatrixEntry]
 
   for blbIdx, blob in blobs.pairs:
     let cellsAndProofs = computeCellsAndKzgProofs(blob)
@@ -102,72 +92,51 @@ proc compute_extended_matrix* (blobs: seq[KzgBlob]): Result[MatrixEntries, cstri
       return err("Computing Extended Matrix: Issue computing cells and proofs")
 
     for i in 0..<eip7594.CELLS_PER_EXT_BLOB:
-      let checker = extended_matrix.add(MatrixEntry(
+      extended_matrix.add(MatrixEntry(
         cell: cellsAndProofs.get.cells[i],
         kzg_proof: cellsAndProofs.get.proofs[i],
         row_index: blbIdx.uint64,
         column_index: i.uint64
       ))
-      doAssert checker == true, "Computing Extended Matrix: Could not append Matrix Entry"
 
   ok(extended_matrix)
 
-# # https://github.com/ethereum/consensus-specs/blob/5f48840f4d768bf0e0a8156a3ed06ec333589007/specs/_features/eip7594/das-core.md#recover_matrix    
-# proc recover_matrix*(cells_dict: Table[(BlobIndex, CellID), Cell], 
-#                      blobCount: uint64): 
-#                      Result[ExtendedMatrix, cstring] =
-#   # This helper demonstrates how to apply recover_all_cells
-#   # The data structure for storing cells is implementation-dependent
-
-#   var extended_matrix: ExtendedMatrix
-
-#   for blobIndex in 0'u64..<blobCount:
-#     var 
-#       cellIds: seq[CellID] = @[]
-#       blIdx: BlobIndex
-#       cellId: CellID
-#     let key = (blIdx, cellId)
-
-#     for key, cell in pairs(cells_dict):
-#       if blIdx == blobIndex:
-#         cellIds.add(cellId)
-
-#     var cells: seq[Cell]
-#     for cellId in cellIds:
-#       var interim_key = (BlobIndex(blobIndex), cellId)
-      
-#       if cells_dict.hasKey(interim_key):
-#         try:
-#           let cell = cells_dict[interim_key]
-#           cells.add(cell)
-#         except:
-#           debug "DataColumn: Key not found in Cell Dictionary", interim_key
-
-#     let allCellsForRow = recoverAllCells(cellIds, cells)
-#     let check = extended_matrix.add(allCellsForRow.get())
-#     doAssert check == true, "DataColumn: Could not add cells to the extended matrix"
-
-  # ok(extended_matrix)
-
-# proc recover_matrix*(partial_matrix: seq[MatrixEntry],
-#                      blobCount: int): 
-#                      Result[seq[MatrixEntry], cstring] =
-#   # This helper demonstrates how to apply recover_cells_and_kzg_proofs
-#   # The data structure for storing cells is implementation-dependent
-
-#   var extended_matrix: seq[MatrixEntry]
-#   for blob_index in 0..<blobCount:
-#     var
-#       cell_indices: seq[CellID]
-#       cells: seq[Cell]
-#       proofs: seq[KzgProof]
+# https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.3/specs/_features/eip7594/das-core.md#recover_matrix
+proc recover_matrix*(partial_matrix: seq[MatrixEntry],
+                     blobCount: int): 
+                     Result[seq[MatrixEntry], cstring] =
+  # This helper demonstrates how to apply recover_cells_and_kzg_proofs
+  # The data structure for storing cells is implementation-dependent
+  var extended_matrix: seq[MatrixEntry]
+  for blob_index in 0..<blobCount:
+    var
+      cell_indices: seq[CellID]
+      cells: seq[Cell]
   
-#     for e in partial_matrix:
-#       if e.row_index == uint64(blob_index):
-#         cell_indices.add(e.column_index)
-#         cells.add(e.cell)
-#         proofs.add(e.kzg_proof)
+    for e in partial_matrix:
+      if e.row_index == uint64(blob_index):
+        cell_indices.add(e.column_index)
+        cells.add(e.cell)
 
+    let recoveredCellsAndKzgProofs = 
+      recoverCellsAndKzgProofs(cell_indices, cells)
+    if not recoveredCellsAndKzgProofs.isOk:
+      return err("Issue in recovering cells and proofs")
+
+    for i in 0..<recoveredCellsAndKzgProofs.get.cells.len:
+      let 
+        cell = recoveredCellsAndKzgProofs.get.cells[i]
+        proof = recoveredCellsAndKzgProofs.get.proofs[i]
+      extended_matrix.add(MatrixEntry(
+        cell: cell,
+        kzg_proof: proof,
+        row_index: blob_index.uint64,
+        column_index: i.uint64
+      ))
+
+  ok(extended_matrix)
+
+## THIS METHOD IS DEPRECATED, WILL BE REMOVED ONCE ALPHA 4 IS RELEASED
 # proc recover_blobs*(
 #     data_columns: seq[DataColumnSidecar],
 #     columnCount: int,
@@ -237,6 +206,48 @@ proc compute_signed_block_header(signed_block: deneb.SignedBeaconBlock |
     signature: signed_block.signature
   )
 
+# https://github.com/ethereum/consensus-specs/blob/bb8f3caafc92590cdcf2d14974adb602db9b5ca3/specs/_features/eip7594/das-core.md#get_data_column_sidecars
+proc get_data_column_sidecars*(signed_block: deneb.SignedBeaconBlock |
+                               electra.SignedBeaconBlock,
+                               cellsAndProofs: CellsAndProofs):
+                               Result[seq[DataColumnSidecar], string] =
+  # Given a signed block and the cells/proofs associated with each blob
+  # in the block, assemble the sidecars which can be distributed to peers.
+  var
+    blck = signed_block.message
+    signed_beacon_block_header = 
+      compute_signed_block_header(signed_block)
+    kzg_incl_proof: array[4, Eth2Digest]
+
+  var sidecars = newSeq[DataColumnSidecar](CELLS_PER_EXT_BLOB)
+
+  if cellsAndProofs.cells.len == 0 or 
+      cellsAndProofs.proof.len == 0:
+    return ok(sidecars)
+
+  for column_index in 0..<NUMBER_OF_COLUMNS:
+    var
+      column_cells: DataColumn
+      column_proofs: KzgProofs
+    for i in 0..<cellsAndProofs.cells.len:
+      let check1 = column_cells.add(cellsAndProofs.cells[column_index])
+      doAssert check1 == true, "Issue fetching cell from CellsAndProofs"
+      let check2 = column_proofs.add(cellsAndProofs.proofs[column_index])
+      doAssert check2 == true, "Issue fetching proof from CellsAndProofs"
+
+    var sidecar = DataColumnSidecar(
+      index: ColumnIndex(column_index),
+      column: DataColumn(column_cells),
+      kzgCommitments: blck.body.blob_kzg_commitments,
+      kzgProofs: KzgProofs(column_proofs),
+      signed_block_header: signed_beacon_block_header)
+    blck.body.build_proof(
+      27.GeneralizedIndex,
+      sidecar.kzg_commitments_inclusion_proof).expect("Valid gindex")
+    sidecars.add(sidecar)
+
+  ok(sidecars)
+
 # https://github.com/ethereum/consensus-specs/blob/5f48840f4d768bf0e0a8156a3ed06ec333589007/specs/_features/eip7594/das-core.md#get_data_column_sidecars
 proc get_data_column_sidecars*(signed_block: deneb.SignedBeaconBlock |
                                electra.SignedBeaconBlock, 
@@ -268,8 +279,9 @@ proc get_data_column_sidecars*(signed_block: deneb.SignedBeaconBlock |
   let blobCount = blobs.len
 
   for columnIndex in 0..<CELLS_PER_EXT_BLOB:
-    var column: DataColumn
-    var kzgProofOfColumn: KzgProofs
+    var 
+      column: DataColumn
+      kzgProofOfColumn: KzgProofs
     for rowIndex in 0..<blobCount:
       discard column.add(cells[rowIndex][columnIndex])
 
@@ -359,6 +371,8 @@ proc selfReconstructDataColumns*(numCol: uint64):
   if numCol >= columnsNeeded:
     return true
   false
+
+# https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.3/specs/_features/eip7594/das-core.md#compute_extended_matrix
 proc get_extended_sample_count*(samples_per_slot: int,
                                 allowed_failures: int):
                                 int =

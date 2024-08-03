@@ -531,6 +531,7 @@ proc compute_execution_block_hash*(blck: ForkyBeaconBlock): Eth2Digest =
 from std/math import exp, ln
 from std/sequtils import foldl
 
+# https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.3/specs/_features/eip7594/das-core.md#compute_extended_matrix
 func ln_binomial(n, k: int): float64 =
   if k > n:
     low(float64)

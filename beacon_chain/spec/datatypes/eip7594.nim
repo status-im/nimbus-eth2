@@ -77,8 +77,6 @@ type
     column_index*: ColumnIndex
     row_index*: RowIndex
 
-  MatrixEntries* = List[MatrixEntry, Limit(MAX_CELLS_IN_EXTENDED_MATRIX)]
-
   CscBits* = BitArray[DATA_COLUMN_SIDECAR_SUBNET_COUNT]
 
 # func serializeDataColumn(data_column: DataColumn): auto =

@@ -36,14 +36,14 @@ block:
 const MAX_TOP_BYTE = 114
 
 proc createSampleKzgBlobs(n: int): Result[seq[KzgBlob], cstring] =
-  var blob: KzgBlob
+  var blob: array[BYTES_PER_BLOB, byte]
   var blobs: seq[KzgBlob]
   for i in 0..<n:
     discard urandom(blob)
-    for i in 0..<blob.len:
+    for i in 0..<BYTES_PER_BLOB.int:
       if blob[i] > MAX_TOP_BYTE and i %% kzg_abi.BYTES_PER_FIELD_ELEMENT == 0:
         blob[i] = MAX_TOP_BYTE
-    blobs.add(blob)
+    blobs.add(KzgBlob(bytes: blob))
 
   ok(blobs)
 
@@ -63,7 +63,7 @@ suite "EIP-7594 Unit Tests":
       doAssert extended_matrix.get.len == kzg_abi.CELLS_PER_EXT_BLOB * blob_count
       let
         chunkSize = kzg_abi.CELLS_PER_EXT_BLOB
-        rows = chunks(extended_matrix.get.asSeq, kzg_abi.CELLS_PER_EXT_BLOB)
+        rows = chunks(extended_matrix.get, kzg_abi.CELLS_PER_EXT_BLOB)
       for row in rows:
         doAssert len(row) == kzg_abi.CELLS_PER_EXT_BLOB
     testComputeExtendedMatrix()
@@ -82,13 +82,18 @@ suite "EIP-7594 Unit Tests":
         extended_matrix = compute_extended_matrix(blobs.get)
       
       # Construct a matrix with some entries missing
-      var partial_matrix: ExtendedMatrix
-      for blob_entries in chunks(extended_matrix.get.asSeq, kzg_abi.CELLS_PER_EXT_BLOB):
+      var partial_matrix: seq[MatrixEntry]
+      for blob_entries in chunks(extended_matrix.get, kzg_abi.CELLS_PER_EXT_BLOB):
         var blb_entry = blob_entries
         rng.shuffle(blb_entry)
-        discard partial_matrix.add(blob_entries[0..N_SAMPLES-1])
+        partial_matrix.add(blob_entries[0..N_SAMPLES-1])
 
-      # TODO: refactor on spec change
+      # Given the partial matrix, recover the missing entries
+      let recovered_matrix = recover_matrix(partial_matrix, blob_count)
+
+      # Ensure that the recovered matrix matches the original matrix
+      doAssert recovered_matrix == extended_matrix, "Both matrices don't match!"
+    testRecoverMatrix()
 
 suite "EIP-7594 Sampling Tests":
   test "EIP7594: Extended Sample Count":
