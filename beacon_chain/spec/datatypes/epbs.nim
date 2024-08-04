@@ -7,7 +7,7 @@
 
 {.push raises: [].}
 
-# Types specific to phase0 (i.e. known to have changed across hard forks) - see
+# Types specific to eip-7732 (i.e. known to have changed across hard forks) - see
 # `base` for types and guidelines common across forks
 
 # TODO Careful, not nil analysis is broken / incomplete and the semantics will
