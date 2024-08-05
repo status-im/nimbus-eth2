@@ -108,10 +108,10 @@ suite "EF - Phase 0 - SSZ consensus objects " & preset():
           let hash = loadExpectedHashTreeRoot(path)
 
           case sszType:
-          of "AggregateAndProof": checkSSZ(AggregateAndProof, path, hash)
-          of "Attestation": checkSSZ(Attestation, path, hash)
+          of "AggregateAndProof": checkSSZ(phase0.AggregateAndProof, path, hash)
+          of "Attestation": checkSSZ(phase0.Attestation, path, hash)
           of "AttestationData": checkSSZ(AttestationData, path, hash)
-          of "AttesterSlashing": checkSSZ(AttesterSlashing, path, hash)
+          of "AttesterSlashing": checkSSZ(phase0.AttesterSlashing, path, hash)
           of "BeaconBlock": checkSSZ(phase0.BeaconBlock, path, hash)
           of "BeaconBlockBody": checkSSZ(phase0.BeaconBlockBody, path, hash)
           of "BeaconBlockHeader": checkSSZ(BeaconBlockHeader, path, hash)
@@ -125,11 +125,12 @@ suite "EF - Phase 0 - SSZ consensus objects " & preset():
           of "Fork": checkSSZ(Fork, path, hash)
           of "ForkData": checkSSZ(ForkData, path, hash)
           of "HistoricalBatch": checkSSZ(HistoricalBatch, path, hash)
-          of "IndexedAttestation": checkSSZ(IndexedAttestation, path, hash)
+          of "IndexedAttestation":
+            checkSSZ(phase0.IndexedAttestation, path, hash)
           of "PendingAttestation": checkSSZ(PendingAttestation, path, hash)
           of "ProposerSlashing": checkSSZ(ProposerSlashing, path, hash)
           of "SignedAggregateAndProof":
-            checkSSZ(SignedAggregateAndProof, path, hash)
+            checkSSZ(phase0.SignedAggregateAndProof, path, hash)
           of "SignedBeaconBlock": checkSSZ(phase0.SignedBeaconBlock, path, hash)
           of "SignedBeaconBlockHeader":
             checkSSZ(SignedBeaconBlockHeader, path, hash)

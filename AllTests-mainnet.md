@@ -54,6 +54,7 @@ OK: 4/4 Fail: 0/4 Skip: 0/4
 + sanity check Deneb blocks [Preset: mainnet]                                                OK
 + sanity check Deneb states [Preset: mainnet]                                                OK
 + sanity check Deneb states, reusing buffers [Preset: mainnet]                               OK
++ sanity check Electra blocks [Preset: mainnet]                                              OK
 + sanity check blobs [Preset: mainnet]                                                       OK
 + sanity check genesis roundtrip [Preset: mainnet]                                           OK
 + sanity check phase 0 blocks [Preset: mainnet]                                              OK
@@ -62,7 +63,7 @@ OK: 4/4 Fail: 0/4 Skip: 0/4
 + sanity check phase 0 states, reusing buffers [Preset: mainnet]                             OK
 + sanity check state diff roundtrip [Preset: mainnet]                                        OK
 ```
-OK: 25/25 Fail: 0/25 Skip: 0/25
+OK: 26/26 Fail: 0/26 Skip: 0/26
 ## Beacon state [Preset: mainnet]
 ```diff
 + Smoke test initialize_beacon_state_from_eth1 [Preset: mainnet]                             OK
@@ -1034,4 +1035,4 @@ OK: 2/2 Fail: 0/2 Skip: 0/2
 OK: 9/9 Fail: 0/9 Skip: 0/9
 
 ---TOTAL---
-OK: 691/696 Fail: 0/696 Skip: 5/696
+OK: 692/697 Fail: 0/697 Skip: 5/697

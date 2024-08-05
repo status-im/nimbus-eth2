@@ -187,9 +187,6 @@ switch("warning", "CaseTransition:off")
 # do its (N)RVO pass: https://github.com/nim-lang/RFCs/issues/230
 switch("warning", "ObservableStores:off")
 
-# Too many false positives for "Warning: method has lock level <unknown>, but another method has 0 [LockLevel]"
-switch("warning", "LockLevel:off")
-
 # Too many right now to read compiler output. Warnings are legitimate, but
 # should be fixed out-of-band of `unstable` branch.
 switch("warning", "BareExcept:off")
@@ -218,7 +215,8 @@ put("server.always", "-fno-lto")
 put("assembly.always", "-fno-lto")
 
 # Secp256k1
-put("secp256k1.always", "-fno-lto")
+# -fomit-frame-pointer for https://github.com/status-im/nimbus-eth2/issues/6324
+put("secp256k1.always", "-fno-lto -fomit-frame-pointer")
 
 # BearSSL - only RNGs
 put("aesctr_drbg.always", "-fno-lto")

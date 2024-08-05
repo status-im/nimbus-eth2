@@ -106,65 +106,51 @@ proc getLastSeenAddress(node: BeaconNode, id: PeerId): string =
     $addrs[len(addrs) - 1]
   else:
     ""
-proc getDiscoveryAddresses(node: BeaconNode): Option[seq[string]] =
-  let restr = node.network.enrRecord().toTypedRecord()
-  if restr.isErr():
-    return none[seq[string]]()
-  let respa = restr.get().toPeerAddr(udpProtocol)
-  if respa.isErr():
-    return none[seq[string]]()
-  let pa = respa.get()
-  let mpa = MultiAddress.init(multiCodec("p2p"), pa.peerId)
-  if mpa.isErr():
-    return none[seq[string]]()
-  var addresses = newSeqOfCap[string](len(pa.addrs))
-  for item in pa.addrs:
-    let resa = concat(item, mpa.get())
-    if resa.isOk():
-      addresses.add($(resa.get()))
-  return some(addresses)
+proc getDiscoveryAddresses(node: BeaconNode): seq[string] =
+  let
+    typedRec = TypedRecord.fromRecord(node.network.enrRecord())
+    peerAddr = typedRec.toPeerAddr(udpProtocol).valueOr:
+      return default(seq[string])
+    maddress = MultiAddress.init(multiCodec("p2p"), peerAddr.peerId).valueOr:
+      return default(seq[string])
 
-proc getP2PAddresses(node: BeaconNode): Option[seq[string]] =
-  let pinfo = node.network.switch.peerInfo
-  let mpa = MultiAddress.init(multiCodec("p2p"), pinfo.peerId)
-  if mpa.isErr():
-    return none[seq[string]]()
-  var addresses = newSeqOfCap[string](len(pinfo.addrs))
+  var addresses: seq[string]
+  for item in peerAddr.addrs:
+    let res = concat(item, maddress)
+    if res.isOk():
+      addresses.add($(res.get()))
+  addresses
+
+proc getP2PAddresses(node: BeaconNode): seq[string] =
+  let
+    pinfo = node.network.switch.peerInfo
+    maddress = MultiAddress.init(multiCodec("p2p"), pinfo.peerId).valueOr:
+      return default(seq[string])
+
+  var addresses: seq[string]
+  for item in node.network.announcedAddresses:
+    let res = concat(item, maddress)
+    if res.isOk():
+      addresses.add($(res.get()))
   for item in pinfo.addrs:
-    let resa = concat(item, mpa.get())
-    if resa.isOk():
-      addresses.add($(resa.get()))
-  return some(addresses)
+    let res = concat(item, maddress)
+    if res.isOk():
+      addresses.add($(res.get()))
+  addresses
 
 proc installNodeApiHandlers*(router: var RestRouter, node: BeaconNode) =
   let
     cachedVersion =
-      RestApiResponse.prepareJsonResponse((version: "Nimbus/" & fullVersionStr))
+      RestApiResponse.prepareJsonResponse((version: nimbusAgentStr))
 
   # https://ethereum.github.io/beacon-APIs/#/Node/getNetworkIdentity
   router.api2(MethodGet, "/eth/v1/node/identity") do () -> RestApiResponse:
-    let discoveryAddresses =
-      block:
-        let res = node.getDiscoveryAddresses()
-        if res.isSome():
-          res.get()
-        else:
-          newSeq[string](0)
-
-    let p2pAddresses =
-      block:
-        let res = node.getP2PAddresses()
-        if res.isSome():
-          res.get()
-        else:
-          newSeq[string]()
-
     RestApiResponse.jsonResponse(
       (
         peer_id: $node.network.peerId(),
         enr: node.network.enrRecord().toURI(),
-        p2p_addresses: p2pAddresses,
-        discovery_addresses: discoveryAddresses,
+        p2p_addresses: node.getP2PAddresses(),
+        discovery_addresses: node.getDiscoveryAddresses(),
         metadata: (
           seq_number: node.network.metadata.seq_number,
           syncnets: to0xHex(node.network.metadata.syncnets.bytes),
@@ -297,4 +283,4 @@ proc installNodeApiHandlers*(router: var RestRouter, node: BeaconNode) =
         Http206
       else:
         Http200
-    RestApiResponse.response("", status, contentType = "")
+    RestApiResponse.response(status)
