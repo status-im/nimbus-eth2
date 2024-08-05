@@ -72,6 +72,7 @@ type
       .Raising([CancelledError])
     lightClient*: LightClient
     dag*: ChainDAGRef
+    list*: ChainListRef
     quarantine*: ref Quarantine
     blobQuarantine*: ref BlobQuarantine
     attestationPool*: ref AttestationPool
@@ -88,6 +89,7 @@ type
     requestManager*: RequestManager
     syncManager*: SyncManager[Peer, PeerId]
     backfiller*: SyncManager[Peer, PeerId]
+    untrustedManager*: SyncManager[Peer, PeerId]
     syncOverseer*: SyncOverseerRef
     genesisSnapshotContent*: string
     processor*: ref Eth2Processor
