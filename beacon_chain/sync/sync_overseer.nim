@@ -124,6 +124,12 @@ proc getBlock*(
 proc isBackfillEmpty(backfill: BeaconBlockSummary): bool =
   (backfill.slot == GENESIS_SLOT) and isFullZero(backfill.parent_root.data)
 
+proc isUntrustedBackfillEmpty(clist: ChainListRef): bool =
+  clist.tail.isNone()
+
+proc needsUntrustedBackfill(clist: ChainListRef, dag: ChainDagRef): bool =
+  clist.tail.get().slot > dag.horizon
+
 proc mainLoop*(
     overseer: SyncOverseerRef
 ): Future[void] {.async: (raises: []).} =
@@ -132,6 +138,15 @@ proc mainLoop*(
     if overseer.dag.needsBackfill:
       if not overseer.forwardSync.inProgress:
         overseer.backwardSync.start()
+        try:
+          await overseer.backwardSync.join()
+        except CancelledError:
+          return
+
+  if not(isUntrustedBackfillEmpty(overseer.clist)):
+    if needsUntrustedBackfill(overseer.clist, overseer.dag):
+      if not overseer.forwardSync.inProgress:
+        overseer.untrustedSync.start()
   else:
     overseer.statusMsg = Opt.some("awaiting light client")
     let blockHeader =
@@ -178,10 +193,10 @@ proc mainLoop*(
            backfill = shortLog(overseer.dag.backfill),
            blck = shortLog(blck.blck), blobs_count = blobsCount
 
-    overseer.backwardSync.start()
+    overseer.untrustedSync.start()
 
   try:
-    await overseer.backwardSync.join()
+    await overseer.untrustedSync.join()
   except CancelledError:
     return
 
