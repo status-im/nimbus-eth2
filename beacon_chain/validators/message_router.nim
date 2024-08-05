@@ -112,8 +112,10 @@ proc routeSignedBeaconBlock*(
         let blobs = blobsOpt.get()
         let kzgCommits = blck.message.body.blob_kzg_commitments.asSeq
         if blobs.len > 0 or kzgCommits.len > 0:
-          let res = validate_blobs(kzgCommits, blobs.mapIt(it.blob),
-                                   blobs.mapIt(it.kzg_proof))
+          let res = validate_blobs(
+            kzgCommits,
+            blobs.mapIt(KzgBlob(bytes: it.blob)),
+            blobs.mapIt(it.kzg_proof))
           if res.isErr():
             warn "blobs failed validation",
               blockRoot = shortLog(blck.root),
@@ -122,7 +124,6 @@ proc routeSignedBeaconBlock*(
               signature = shortLog(blck.signature),
               msg = res.error()
             return err(res.error())
-
   let
     sendTime = router[].getCurrentBeaconTime()
     delay = sendTime - blck.message.slot.block_deadline()
@@ -145,6 +146,7 @@ proc routeSignedBeaconBlock*(
       blockRoot = shortLog(blck.root), blck = shortLog(blck.message),
       signature = shortLog(blck.signature), error = res.error()
 
+  # PREVENT PROPOSING BLOB SIDECARS IN PEERDAS DEVNET
   var blobRefs = Opt.none(BlobSidecars)
   if blobsOpt.isSome():
     let blobs = blobsOpt.get()
@@ -168,25 +170,25 @@ proc routeSignedBeaconBlock*(
     if blobsOpt.isSome():
       let blobs = blobsOpt.get()
       if blobs.len != 0:
-        let dataColumnsOpt = get_data_column_sidecars(blck, blobs.mapIt(it.blob))
-        if not dataColumnsOpt.isOk:
+        let dataColumnsOpt = newClone get_data_column_sidecars(blck, blobs.mapIt(KzgBlob(bytes: it.blob)))
+        if not dataColumnsOpt[].isOk:
           debug "Issue with computing data column from blob bundle"
-        let data_columns = dataColumnsOpt.get()
-        var das_workers = newSeq[Future[SendResult]](len(data_columns))
+        let data_columns = dataColumnsOpt[].get()
+        var das_workers = newSeq[Future[SendResult]](len(dataColumnsOpt[].get()))
         for i in 0..<data_columns.len:
           let subnet_id = compute_subnet_for_data_column_sidecar(uint64(i))
           das_workers[i] = 
-              router[].network.broadcastDataColumnSidecar(subnet_id, data_columns[int(i)])
+              router[].network.broadcastDataColumnSidecar(subnet_id, dataColumnsOpt[].get()[int(i)])
         let allres = await allFinished(das_workers)
         for i in 0..<allres.len:
           let res = allres[i]
           doAssert res.finished()
           if res.failed():
             notice "Data Columns not sent",
-              data_column = shortLog(data_columns[i]), error = res.error[]
+              data_column = shortLog(dataColumnsOpt[].get()[i]), error = res.error[]
           else:
-            notice "Data columns sent", data_column = shortLog(data_columns[i])
-        dataColumnRefs = Opt.some(data_columns.mapIt(newClone(it)))
+            notice "Data columns sent", data_column = shortLog(dataColumnsOpt[].get()[i])
+        dataColumnRefs = Opt.some(dataColumnsOpt[].get().mapIt(newClone(it)))
     
   let added = await router[].blockProcessor[].addBlock(
     MsgSource.api, ForkedSignedBeaconBlock.init(blck), blobRefs, dataColumnRefs)

@@ -727,37 +727,37 @@ proc push*[T](sq: SyncQueue[T], sr: SyncRequest[T],
       # Nim versions, remove workaround and move `res` into for loop
       res: Result[void, VerifierError]
 
-    # var i=0
-    # for blk, blb in sq.blocks(item):
-    #   res = await sq.blockVerifier(blk[], blb, Opt.none(DataColumnSidecars), maybeFinalized)
-    #   inc(i)
+    var i=0
+    for blk, blb in sq.blocks(item):
+      res = await sq.blockVerifier(blk[], blb, Opt.none(DataColumnSidecars), maybeFinalized)
+      inc(i)
 
-    #   if res.isOk():
-    #     goodBlock = some(blk[].slot)
-    #   else:
-    #     case res.error()
-    #     of VerifierError.MissingParent:
-    #       missingParentSlot = some(blk[].slot)
-    #       break
-    #     of VerifierError.Duplicate:
-    #       # Keep going, happens naturally
-    #       discard
-    #     of VerifierError.UnviableFork:
-    #       # Keep going so as to register other unviable blocks with the
-    #       # quarantine
-    #       if unviableBlock.isNone:
-    #         # Remember the first unviable block, so we can log it
-    #         unviableBlock = some((blk[].root, blk[].slot))
+      if res.isOk():
+        goodBlock = some(blk[].slot)
+      else:
+        case res.error()
+        of VerifierError.MissingParent:
+          missingParentSlot = some(blk[].slot)
+          break
+        of VerifierError.Duplicate:
+          # Keep going, happens naturally
+          discard
+        of VerifierError.UnviableFork:
+          # Keep going so as to register other unviable blocks with the
+          # quarantine
+          if unviableBlock.isNone:
+            # Remember the first unviable block, so we can log it
+            unviableBlock = some((blk[].root, blk[].slot))
 
-    #     of VerifierError.Invalid:
-    #       hasInvalidBlock = true
+        of VerifierError.Invalid:
+          hasInvalidBlock = true
 
-    #       let req = item.request
-    #       notice "Received invalid sequence of blocks", request = req,
-    #               blocks_count = len(item.data),
-    #               blocks_map = getShortMap(req, item.data)
-    #       req.item.updateScore(PeerScoreBadValues)
-    #       break
+          let req = item.request
+          notice "Received invalid sequence of blocks", request = req,
+                  blocks_count = len(item.data),
+                  blocks_map = getShortMap(req, item.data)
+          req.item.updateScore(PeerScoreBadValues)
+          break
     
     var counter = 0
     for blk, col in sq.das_blocks(item):

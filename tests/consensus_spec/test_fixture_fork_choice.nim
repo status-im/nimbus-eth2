@@ -136,7 +136,8 @@ proc loadOps(
                   blobs: distinctBase(parseTest(
                     path/(step["blobs"].getStr()) & ".ssz_snappy",
                     SSZ, List[KzgBlob, Limit MAX_BLOBS_PER_BLOCK])),
-                  proofs: step["proofs"].mapIt(KzgProof.fromHex(it.getStr())))
+                  proofs: step["proofs"].mapIt(
+                    KzgProof(bytes: fromHex(array[48, byte], it.getStr()))))
               else:
                 Opt.none(BlobData)
             else:

@@ -41,6 +41,7 @@ type
   CellID* = uint64
   RowIndex* = uint64
   ColumnIndex* = uint64
+  CellIndex* = uint64
 
 const
   NUMBER_OF_COLUMNS* = 128
@@ -78,17 +79,19 @@ type
 
   CscBits* = BitArray[DATA_COLUMN_SIDECAR_SUBNET_COUNT]
 
-func serializeDataColumn(data_column: DataColumn): auto =
-  var counter = 0
-  var serd : array[MAX_BLOB_COMMITMENTS_PER_BLOCK * KzgCellSize, byte]
-  for i in 0..<MAX_BLOB_COMMITMENTS_PER_BLOCK:
-    for j in 0..<KzgCellSize:
-      serd[counter] = data_column[i][j]
-      inc(counter)
-  serd
+# func serializeDataColumn(data_column: DataColumn): auto =
+#   var counter = 0
+#   var serd : array[MAX_BLOB_COMMITMENTS_PER_BLOCK * BYTES_PER_CELL, byte]
+#   for i in 0..<MAX_BLOB_COMMITMENTS_PER_BLOCK:
+#     var inter: array[BYTES_PER_CELL, byte]
+#     inter = data_column[i].bytes
+#     for j in 0..<BYTES_PER_CELL:
+#       serd[counter] = inter[j].byte
+#       inc(counter)
+#   serd
 
-func shortLog*(v: DataColumn): auto =
-  to0xHex(v.serializeDataColumn())
+# func shortLog*(v: DataColumn): auto =
+#   to0xHex(v.serializeDataColumn())
 
 func shortLog*(v: DataColumnSidecar): auto =
   (
