@@ -361,12 +361,11 @@ func partialBeaconBlock*(
     deposits: seq[Deposit],
     validator_changes: BeaconBlockValidatorChanges,
     sync_aggregate: SyncAggregate,
-    execution_payload: ForkyExecutionPayloadForSigning,
-    consolidations: openArray[SignedConsolidation]
+    execution_payload: ForkyExecutionPayloadForSigning
 ): auto =
   const consensusFork = typeof(state).kind
 
-  # https://github.com/ethereum/consensus-specs/blob/v1.3.0/specs/phase0/validator.md#preparing-for-a-beaconblock
+  # https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.3/specs/phase0/validator.md#preparing-for-a-beaconblock
   var res = consensusFork.BeaconBlock(
     slot: state.data.slot,
     proposer_index: proposer_index.uint64,
@@ -386,7 +385,7 @@ func partialBeaconBlock*(
   when consensusFork >= ConsensusFork.Altair:
     res.body.sync_aggregate = sync_aggregate
 
-  # https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.2/specs/bellatrix/validator.md#block-proposal
+  # https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.3/specs/bellatrix/validator.md#block-proposal
   when consensusFork >= ConsensusFork.Bellatrix:
     res.body.execution_payload = execution_payload.executionPayload
 
@@ -412,8 +411,7 @@ func partialBeaconBlock*(
     deposits: seq[Deposit],
     validator_changes: BeaconBlockValidatorChanges,
     sync_aggregate: SyncAggregate,
-    execution_payload: ForkyExecutionPayloadForSigning,
-    consolidations: seq[SignedConsolidation],
+    execution_payload: ForkyExecutionPayloadForSigning
 ): auto =
   const consensusFork = typeof(state).kind
 
@@ -436,10 +434,7 @@ func partialBeaconBlock*(
       sync_aggregate: sync_aggregate,
       execution_payload: execution_payload.executionPayload,
       bls_to_execution_changes: validator_changes.bls_to_execution_changes,
-      blob_kzg_commitments: execution_payload.blobsBundle.commitments,
-      consolidations:
-        List[SignedConsolidation, Limit MAX_CONSOLIDATIONS].init(
-          consolidations)))
+      blob_kzg_commitments: execution_payload.blobsBundle.commitments))
 
 proc makeBeaconBlockWithRewards*(
     cfg: RuntimeConfig,
@@ -453,7 +448,6 @@ proc makeBeaconBlockWithRewards*(
     validator_changes: BeaconBlockValidatorChanges,
     sync_aggregate: SyncAggregate,
     executionPayload: ForkyExecutionPayloadForSigning,
-    consolidations: seq[SignedConsolidation],
     rollback: RollbackForkedHashedProc,
     cache: var StateCache,
     # TODO:
@@ -480,7 +474,7 @@ proc makeBeaconBlockWithRewards*(
         partialBeaconBlock(
           cfg, state.`kind Data`, proposer_index, randao_reveal, eth1_data,
           graffiti, attestations, deposits, validator_changes, sync_aggregate,
-          executionPayload, consolidations))
+          executionPayload))
 
     let res = process_block(
       cfg, state.`kind Data`.data, blck.`kind Data`.asSigVerified(),
@@ -524,7 +518,7 @@ proc makeBeaconBlockWithRewards*(
             transactions_root.get
 
           when executionPayload is electra.ExecutionPayloadForSigning:
-            # https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.2/specs/electra/beacon-chain.md#beaconblockbody
+            # https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.3/specs/electra/beacon-chain.md#beaconblockbody
             forkyState.data.latest_block_header.body_root = hash_tree_root(
               [hash_tree_root(randao_reveal),
                hash_tree_root(eth1_data),
@@ -539,9 +533,7 @@ proc makeBeaconBlockWithRewards*(
                hash_tree_root(sync_aggregate),
                execution_payload_root.get,
                hash_tree_root(validator_changes.bls_to_execution_changes),
-               hash_tree_root(kzg_commitments.get),
-               hash_tree_root(List[SignedConsolidation, Limit MAX_CONSOLIDATIONS].init(
-                 consolidations))
+               hash_tree_root(kzg_commitments.get)
             ])
           else:
             raiseAssert "Attempt to use non-Electra payload with post-Deneb state"
@@ -584,7 +576,6 @@ proc makeBeaconBlock*(
     validator_changes: BeaconBlockValidatorChanges,
     sync_aggregate: SyncAggregate,
     executionPayload: ForkyExecutionPayloadForSigning,
-    consolidations: seq[SignedConsolidation],
     rollback: RollbackForkedHashedProc, cache: var StateCache,
     verificationFlags: UpdateFlags,
     transactions_root: Opt[Eth2Digest],
@@ -595,7 +586,7 @@ proc makeBeaconBlock*(
     ? makeBeaconBlockWithRewards(
       cfg, state, proposer_index, randao_reveal, eth1_data, graffiti,
       attestations, deposits, validator_changes, sync_aggregate,
-      executionPayload, consolidations, rollback, cache, verificationFlags,
+      executionPayload, rollback, cache, verificationFlags,
       transactions_root, execution_payload_root, kzg_commitments)
   ok(blockAndRewards.blck)
 
@@ -608,13 +599,12 @@ proc makeBeaconBlock*(
     validator_changes: BeaconBlockValidatorChanges,
     sync_aggregate: SyncAggregate,
     executionPayload: ForkyExecutionPayloadForSigning,
-    consolidations: seq[SignedConsolidation],
     rollback: RollbackForkedHashedProc, cache: var StateCache):
     Result[ForkedBeaconBlock, cstring] =
   makeBeaconBlock(
     cfg, state, proposer_index, randao_reveal, eth1_data, graffiti,
     attestations, deposits, validator_changes, sync_aggregate,
-    executionPayload, consolidations, rollback, cache,
+    executionPayload, rollback, cache,
     verificationFlags = {}, transactions_root = Opt.none Eth2Digest,
     execution_payload_root = Opt.none Eth2Digest,
     kzg_commitments = Opt.none KzgCommitments)
@@ -628,14 +618,13 @@ proc makeBeaconBlock*(
     validator_changes: BeaconBlockValidatorChanges,
     sync_aggregate: SyncAggregate,
     executionPayload: ForkyExecutionPayloadForSigning,
-    consolidations: seq[SignedConsolidation],
     rollback: RollbackForkedHashedProc,
     cache: var StateCache, verificationFlags: UpdateFlags):
     Result[ForkedBeaconBlock, cstring] =
   makeBeaconBlock(
     cfg, state, proposer_index, randao_reveal, eth1_data, graffiti,
     attestations, deposits, validator_changes, sync_aggregate,
-    executionPayload, consolidations, rollback, cache,
+    executionPayload, rollback, cache,
     verificationFlags = verificationFlags,
     transactions_root = Opt.none Eth2Digest,
     execution_payload_root = Opt.none Eth2Digest,

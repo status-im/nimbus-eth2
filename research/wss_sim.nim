@@ -295,7 +295,6 @@ cli do(validatorsDir: string, secretsDir: string,
             BeaconBlockValidatorChanges(),
             syncAggregate,
             payload,
-            @[],   # consolidations
             noRollback,
             cache).get()
 

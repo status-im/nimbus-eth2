@@ -217,15 +217,16 @@ func produceContribution*(
   else:
     false
 
-func addAggregateAux(bestVotes: var BestSyncSubcommitteeContributions,
-                     contribution: SyncCommitteeContribution) =
+func addContribution(
+    contributions: var BestSyncSubcommitteeContributions,
+    contribution: SyncCommitteeContribution) =
   let
     currentBestTotalParticipants =
-      bestVotes.subnets[contribution.subcommittee_index].totalParticipants
+      contributions.subnets[contribution.subcommittee_index].totalParticipants
     newBestTotalParticipants = countOnes(contribution.aggregation_bits)
 
   if newBestTotalParticipants > currentBestTotalParticipants:
-    bestVotes.subnets[contribution.subcommittee_index] =
+    contributions.subnets[contribution.subcommittee_index] =
       BestSyncSubcommitteeContribution(
         totalParticipants: newBestTotalParticipants,
         participationBits: contribution.aggregation_bits,
@@ -241,10 +242,10 @@ func isSeen*(
   seenKey in pool.seenContributionByAuthor
 
 func covers(
-    bestVotes: BestSyncSubcommitteeContributions,
+    contributions: BestSyncSubcommitteeContributions,
     contribution: SyncCommitteeContribution): bool =
   contribution.aggregation_bits.isSubsetOf(
-          bestVotes.subnets[contribution.subcommittee_index].participationBits)
+    contributions.subnets[contribution.subcommittee_index].participationBits)
 
 func covers*(
     pool: var SyncCommitteeMsgPool,
@@ -271,22 +272,12 @@ proc addContribution(pool: var SyncCommitteeMsgPool,
   pool.seenContributionByAuthor.incl seenKey
 
   let target = pool.cfg.toSyncMsgTarget(bid, contribution.slot)
-  if target notin pool.bestContributions:
-    let totalParticipants = countOnes(contribution.aggregation_bits)
-    var initialBestContributions = BestSyncSubcommitteeContributions()
-
-    initialBestContributions.subnets[contribution.subcommittee_index] =
-      BestSyncSubcommitteeContribution(
-        totalParticipants: totalParticipants,
-        participationBits: contribution.aggregation_bits,
-        signature: signature)
-
-    pool.bestContributions[target] = initialBestContributions
-  else:
-    try:
-      addAggregateAux(pool.bestContributions[target], contribution)
-    except KeyError:
-      raiseAssert "We have checked for the key upfront"
+  pool.bestContributions.withValue(target, contributions):
+    contributions[].addContribution(contribution)
+  do:
+    var contributions: BestSyncSubcommitteeContributions
+    contributions.addContribution(contribution)
+    pool.bestContributions[target] = contributions
 
 proc addContribution*(pool: var SyncCommitteeMsgPool,
                       scproof: SignedContributionAndProof,
@@ -334,11 +325,35 @@ proc produceSyncAggregateAux(
   aggregate
 
 proc produceSyncAggregate*(
-    pool: SyncCommitteeMsgPool,
+    pool: var SyncCommitteeMsgPool,
     bid: BlockId,
     signatureSlot: Slot): SyncAggregate =
   # Sync committee signs previous slot, relative to when new block is produced
-  let target = pool.cfg.toSyncMsgTarget(bid, max(signatureSlot, 1.Slot) - 1)
+  let
+    slot = max(signatureSlot, 1.Slot) - 1
+    target = pool.cfg.toSyncMsgTarget(bid, slot)
+
+  var contribution {.noinit.}: SyncCommitteeContribution
+  pool.bestContributions.withValue(target, contributions):
+    for subcommitteeIdx in SyncSubcommitteeIndex:
+      if contributions.subnets[subcommitteeIdx].totalParticipants == 0 and
+          pool.produceContribution(slot, bid, subcommitteeIdx, contribution):
+        debug "Did not receive contribution, did aggregate locally",
+          target, subcommitteeIdx
+        contributions[].addContribution(contribution)
+  do:
+    var
+      contributions: BestSyncSubcommitteeContributions
+      didAggregate = false
+    for subcommitteeIdx in SyncSubcommitteeIndex:
+      if pool.produceContribution(slot, bid, subcommitteeIdx, contribution):
+        debug "Did not receive contribution, did aggregate locally",
+          target, subcommitteeIdx
+        contributions.addContribution(contribution)
+        didAggregate = true
+    if didAggregate:
+      pool.bestContributions[target] = contributions
+
   if target in pool.bestContributions:
     try:
       produceSyncAggregateAux(pool.bestContributions[target])
@@ -349,7 +364,7 @@ proc produceSyncAggregate*(
 
 proc isEpochLeadTime*(
     pool: SyncCommitteeMsgPool, epochsToSyncPeriod: uint64): bool =
-  # https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.2/specs/altair/validator.md#sync-committee-subnet-stability
+  # https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.3/specs/altair/validator.md#sync-committee-subnet-stability
   # This ensures a uniform distribution without requiring additional state:
   # (1/4)                         = 1/4, 4 slots out
   # (3/4) * (1/3)                 = 1/4, 3 slots out

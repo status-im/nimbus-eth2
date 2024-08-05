@@ -33,11 +33,13 @@ type
   CachedLightClientData* = object
     ## Cached data from historical non-finalized states to improve speed when
     ## creating future `LightClientUpdate` and `LightClientBootstrap` instances.
-    current_sync_committee_branch*: altair.CurrentSyncCommitteeBranch
-    next_sync_committee_branch*: altair.NextSyncCommitteeBranch
+    current_sync_committee_branch*:
+      LightClientDataFork.high.CurrentSyncCommitteeBranch
+    next_sync_committee_branch*:
+      LightClientDataFork.high.NextSyncCommitteeBranch
 
     finalized_slot*: Slot
-    finality_branch*: altair.FinalityBranch
+    finality_branch*: LightClientDataFork.high.FinalityBranch
 
     current_period_best_update*: ref ForkedLightClientUpdate
     latest_signature_slot*: Slot

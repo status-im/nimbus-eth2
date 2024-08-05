@@ -373,6 +373,21 @@ proc initFullNode(
   func getFrontfillSlot(): Slot =
     max(dag.frontfill.get(BlockId()).slot, dag.horizon)
 
+  proc isWithinWeakSubjectivityPeriod(): bool =
+    let
+      currentSlot = node.beaconClock.now().slotOrZero()
+      checkpoint = Checkpoint(
+        epoch: epoch(getStateField(node.dag.headState, slot)),
+        root: getStateField(node.dag.headState, latest_block_header).state_root)
+    is_within_weak_subjectivity_period(node.dag.cfg, currentSlot,
+                                       node.dag.headState, checkpoint)
+
+  proc eventWaiter(): Future[void] {.async: (raises: [CancelledError]).} =
+    await node.shutdownEvent.wait()
+    bnStatus = BeaconNodeStatus.Stopping
+
+  asyncSpawn eventWaiter()
+
   let
     quarantine = newClone(
       Quarantine.init())
@@ -441,19 +456,29 @@ proc initFullNode(
       blockProcessor, node.validatorMonitor, dag, attestationPool,
       validatorChangePool, node.attachedValidators, syncCommitteeMsgPool,
       lightClientPool, quarantine, blobQuarantine, rng, getBeaconTime, taskpool)
+    syncManagerFlags =
+      if node.config.longRangeSync != LongRangeSyncMode.Lenient:
+        {SyncManagerFlag.NoGenesisSync}
+      else:
+        {}
     syncManager = newSyncManager[Peer, PeerId](
       node.network.peerPool,
       dag.cfg.DENEB_FORK_EPOCH, dag.cfg.MIN_EPOCHS_FOR_BLOB_SIDECARS_REQUESTS,
       SyncQueueKind.Forward, getLocalHeadSlot,
       getLocalWallSlot, getFirstSlotAtFinalizedEpoch, getBackfillSlot,
-      getFrontfillSlot, dag.tail.slot, blockVerifier)
+      getFrontfillSlot, isWithinWeakSubjectivityPeriod,
+      dag.tail.slot, blockVerifier,
+      shutdownEvent = node.shutdownEvent,
+      flags = syncManagerFlags)
     backfiller = newSyncManager[Peer, PeerId](
       node.network.peerPool,
       dag.cfg.DENEB_FORK_EPOCH, dag.cfg.MIN_EPOCHS_FOR_BLOB_SIDECARS_REQUESTS,
       SyncQueueKind.Backward, getLocalHeadSlot,
       getLocalWallSlot, getFirstSlotAtFinalizedEpoch, getBackfillSlot,
-      getFrontfillSlot, dag.backfill.slot, blockVerifier,
-      maxHeadAge = 0)
+      getFrontfillSlot, isWithinWeakSubjectivityPeriod,
+      dag.backfill.slot, blockVerifier, maxHeadAge = 0,
+      shutdownEvent = node.shutdownEvent,
+      flags = syncManagerFlags)
     router = (ref MessageRouter)(
       processor: processor,
       network: node.network)
@@ -553,6 +578,27 @@ proc init*(T: type BeaconNode,
 
   template cfg: auto = metadata.cfg
   template eth1Network: auto = metadata.eth1Network
+
+  if not(isDir(config.databaseDir)):
+    # If database directory missing, we going to use genesis state to check
+    # for weak_subjectivity_period.
+    let
+      genesisState =
+        await fetchGenesisState(
+          metadata, config.genesisState, config.genesisStateUrl)
+      genesisTime = getStateField(genesisState[], genesis_time)
+      beaconClock = BeaconClock.init(genesisTime).valueOr:
+        fatal "Invalid genesis time in genesis state", genesisTime
+        quit 1
+      currentSlot = beaconClock.now().slotOrZero()
+      checkpoint = Checkpoint(
+        epoch: epoch(getStateField(genesisState[], slot)),
+        root: getStateField(genesisState[], latest_block_header).state_root)
+    if config.longRangeSync == LongRangeSyncMode.Light:
+      if not is_within_weak_subjectivity_period(metadata.cfg, currentSlot,
+                                                genesisState[], checkpoint):
+        fatal WeakSubjectivityLogMessage, current_slot = currentSlot
+        quit 1
 
   try:
     if config.numThreads < 0:
@@ -780,6 +826,7 @@ proc init*(T: type BeaconNode,
     RestServerRef.init(config.restAddress, config.restPort,
                        config.restAllowedOrigin,
                        validateBeaconApiQueries,
+                       nimbusAgentStr,
                        config)
   else:
     nil
@@ -885,6 +932,7 @@ proc init*(T: type BeaconNode,
     beaconClock: beaconClock,
     validatorMonitor: validatorMonitor,
     stateTtlCache: stateTtlCache,
+    shutdownEvent: newAsyncEvent(),
     dynamicFeeRecipientsStore: newClone(DynamicFeeRecipientsStore.init()))
 
   node.initLightClient(
@@ -1862,7 +1910,7 @@ proc installMessageValidators(node: BeaconNode) =
                 MsgSource.gossip, msg)))
 
       when consensusFork >= ConsensusFork.Capella:
-        # https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.2/specs/capella/p2p-interface.md#bls_to_execution_change
+        # https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.3/specs/capella/p2p-interface.md#bls_to_execution_change
         node.network.addAsyncValidator(
           getBlsToExecutionChangeTopic(digest), proc (
             msg: SignedBLSToExecutionChange
@@ -2271,9 +2319,9 @@ proc doRecord(config: BeaconNodeConf, rng: var HmacDrbgContext) {.
     let record = enr.Record.init(
       config.seqNumber,
       netKeys.seckey.asEthKey,
-      some(config.ipExt),
-      some(config.tcpPortExt),
-      some(config.udpPortExt),
+      Opt.some(config.ipExt),
+      Opt.some(config.tcpPortExt),
+      Opt.some(config.udpPortExt),
       fieldPairs).expect("Record within size limits")
 
     echo record.toURI()

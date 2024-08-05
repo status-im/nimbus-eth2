@@ -51,7 +51,7 @@ RestJson.useDefaultSerializationFor(
   BlobSidecarInfoObject,
   BlobsBundle,
   Checkpoint,
-  Consolidation,
+  ConsolidationRequest,
   ContributionAndProof,
   DataEnclosedObject,
   DataMetaEnclosedObject,
@@ -65,14 +65,13 @@ RestJson.useDefaultSerializationFor(
   DenebSignedBlockContents,
   Deposit,
   DepositData,
-  DepositReceipt,
+  DepositRequest,
   DepositTreeSnapshot,
   DistributedKeystoreInfo,
   ElectraSignedBlockContents,
   EmptyBody,
   Eth1Data,
   EventBeaconBlockObject,
-  ExecutionLayerWithdrawalRequest,
   Fork,
   GetBlockAttestationsResponse,
   GetBlockHeaderResponse,
@@ -169,7 +168,6 @@ RestJson.useDefaultSerializationFor(
   SetGraffitiRequest,
   SignedBLSToExecutionChange,
   SignedBeaconBlockHeader,
-  SignedConsolidation,
   SignedContributionAndProof,
   SignedValidatorRegistrationV1,
   SignedVoluntaryExit,
@@ -194,6 +192,7 @@ RestJson.useDefaultSerializationFor(
   Web3SignerSyncCommitteeMessageData,
   Web3SignerValidatorRegistration,
   Withdrawal,
+  WithdrawalRequest,
   altair.BeaconBlock,
   altair.BeaconBlockBody,
   altair.BeaconState,
@@ -253,6 +252,11 @@ RestJson.useDefaultSerializationFor(
   electra.ExecutionPayload,
   electra.ExecutionPayloadHeader,
   electra.IndexedAttestation,
+  electra.LightClientBootstrap,
+  electra.LightClientFinalityUpdate,
+  electra.LightClientHeader,
+  electra.LightClientOptimisticUpdate,
+  electra.LightClientUpdate,
   electra.SignedBeaconBlock,
   electra.TrustedAttestation,
   electra_mev.BlindedBeaconBlock,
@@ -1358,7 +1362,7 @@ proc readValue*(reader: var JsonReader[RestJson],
      value: var (KzgCommitment|KzgProof)) {.
      raises: [IOError, SerializationError].} =
   try:
-    hexToByteArray(reader.readValue(string), distinctBase(value))
+    hexToByteArray(reader.readValue(string), distinctBase(value.bytes))
   except ValueError:
     raiseUnexpectedValue(reader,
                          "KzgCommitment value should be a valid hex string")
@@ -1366,7 +1370,7 @@ proc readValue*(reader: var JsonReader[RestJson],
 proc writeValue*(
     writer: var JsonWriter[RestJson], value: KzgCommitment | KzgProof
 ) {.raises: [IOError].} =
-  writeValue(writer, hexOriginal(distinctBase(value)))
+  writeValue(writer, hexOriginal(distinctBase(value.bytes)))
 
 ## GraffitiBytes
 proc writeValue*(
@@ -3532,7 +3536,9 @@ proc decodeBody*(
     of ConsensusFork.Phase0:
       let blck =
         try:
-          SSZ.decode(body.data, phase0.SignedBeaconBlock)
+          var res = SSZ.decode(body.data, phase0.SignedBeaconBlock)
+          res.root = hash_tree_root(res.message)
+          res
         except SerializationError as exc:
           return err(RestErrorMessage.init(Http400, UnableDecodeError,
                                            [version, exc.formatMsg("<data>")]))
@@ -3544,7 +3550,9 @@ proc decodeBody*(
     of ConsensusFork.Altair:
       let blck =
         try:
-          SSZ.decode(body.data, altair.SignedBeaconBlock)
+          var res = SSZ.decode(body.data, altair.SignedBeaconBlock)
+          res.root = hash_tree_root(res.message)
+          res
         except SerializationError as exc:
           return err(RestErrorMessage.init(Http400, UnableDecodeError,
                                            [version, exc.formatMsg("<data>")]))
@@ -3556,7 +3564,9 @@ proc decodeBody*(
     of ConsensusFork.Bellatrix:
       let blck =
         try:
-          SSZ.decode(body.data, bellatrix.SignedBeaconBlock)
+          var res = SSZ.decode(body.data, bellatrix.SignedBeaconBlock)
+          res.root = hash_tree_root(res.message)
+          res
         except SerializationError as exc:
           return err(RestErrorMessage.init(Http400, UnableDecodeError,
                                            [version, exc.formatMsg("<data>")]))
@@ -3568,7 +3578,9 @@ proc decodeBody*(
     of ConsensusFork.Capella:
       let blck =
         try:
-          SSZ.decode(body.data, capella.SignedBeaconBlock)
+          var res = SSZ.decode(body.data, capella.SignedBeaconBlock)
+          res.root = hash_tree_root(res.message)
+          res
         except SerializationError as exc:
           return err(RestErrorMessage.init(Http400, UnableDecodeError,
                                            [version, exc.formatMsg("<data>")]))
@@ -3580,7 +3592,9 @@ proc decodeBody*(
     of ConsensusFork.Deneb:
       let blckContents =
         try:
-          SSZ.decode(body.data, DenebSignedBlockContents)
+          var res = SSZ.decode(body.data, DenebSignedBlockContents)
+          res.signed_block.root = hash_tree_root(res.signed_block.message)
+          res
         except SerializationError as exc:
           return err(RestErrorMessage.init(Http400, UnableDecodeError,
                                            [version, exc.formatMsg("<data>")]))
@@ -3592,7 +3606,9 @@ proc decodeBody*(
     of ConsensusFork.Electra:
       let blckContents =
         try:
-          SSZ.decode(body.data, ElectraSignedBlockContents)
+          var res = SSZ.decode(body.data, ElectraSignedBlockContents)
+          res.signed_block.root = hash_tree_root(res.signed_block.message)
+          res
         except SerializationError as exc:
           return err(RestErrorMessage.init(Http400, UnableDecodeError,
                                            [version, exc.formatMsg("<data>")]))

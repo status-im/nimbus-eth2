@@ -8,7 +8,7 @@
 {.push raises: [].}
 
 # Minimal preset - Altair
-# https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.2/presets/minimal/altair.yaml
+# https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.3/presets/minimal/altair.yaml
 const
   # Updated penalty values
   # ---------------------------------------------------------------
