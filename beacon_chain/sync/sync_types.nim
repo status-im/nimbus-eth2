@@ -26,6 +26,7 @@ type
     loopFuture*: Future[void].Raising([])
     forwardSync*: SyncManager[Peer, PeerId]
     backwardSync*: SyncManager[Peer, PeerId]
+    untrustedSync*: SyncManager[Peer, PeerId]
     pool*: PeerPool[Peer, PeerId]
 
   SyncOverseerRef* = ref SyncOverseer
@@ -38,8 +39,9 @@ proc new*(
     eq: AsyncEventQueue[ForkedLightClientHeader],
     pool: PeerPool[Peer, PeerId],
     forwardSync: SyncManager[Peer, PeerId],
-    backwardSync: SyncManager[Peer, PeerId]
+    backwardSync: SyncManager[Peer, PeerId],
+    untrustedSync: SyncManager[Peer, PeerId]
 ): SyncOverseerRef =
   SyncOverseerRef(dag: dag, clist: clist, beaconClock: clock, eventQueue: eq,
                   forwardSync: forwardSync, backwardSync: backwardSync,
-                  pool: pool)
+                  untrustedSync: untrustedSync, pool: pool)

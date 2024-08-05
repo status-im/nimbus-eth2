@@ -580,7 +580,8 @@ proc initFullNode(
                                           node.beaconClock,
                                           node.eventBus.optHeaderUpdateQueue,
                                           node.network.peerPool,
-                                          syncManager, untrustedManager)
+                                          syncManager, backfiller,
+                                          untrustedManager)
   node.router = router
 
   await node.addValidators()
