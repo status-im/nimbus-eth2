@@ -38,9 +38,11 @@ The [Quickstart](https://nimbus.guide/quick-start.html) in particular will help 
 
  The [Nimbus REST api](https://nimbus.guide/rest-api.html) is now available from:
 
-* http://testing.mainnet.beacon-api.nimbus.team/
 * http://unstable.mainnet.beacon-api.nimbus.team/
-* http://unstable.prater.beacon-api.nimbus.team/
+* http://testing.mainnet.beacon-api.nimbus.team/
+* http://unstable.sepolia.beacon-api.nimbus.team/
+* http://testing.holesky.beacon-api.nimbus.team/
+* http://unstable.holesky.beacon-api.nimbus.team/
 
 Note that right now these are very much unstable testing instances. They may be unresponsive at times - so **please do not rely on them for validating**. We may also disable them at any time.
 

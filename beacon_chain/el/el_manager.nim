@@ -491,9 +491,11 @@ func asConsensusType*(payload: engine_api.GetPayloadV3Response):
     # Both are defined as `array[N, byte]` under the hood.
     blobsBundle: deneb.BlobsBundle(
       commitments: KzgCommitments.init(
-        payload.blobsBundle.commitments.mapIt(it.bytes)),
+        payload.blobsBundle.commitments.mapIt(
+          kzg_abi.KzgCommitment(bytes: it.bytes))),
       proofs: KzgProofs.init(
-        payload.blobsBundle.proofs.mapIt(it.bytes)),
+        payload.blobsBundle.proofs.mapIt(
+          kzg_abi.KzgProof(bytes: it.bytes))),
       blobs: Blobs.init(
         payload.blobsBundle.blobs.mapIt(it.bytes))))
 
@@ -502,21 +504,28 @@ func asConsensusType*(rpcExecutionPayload: ExecutionPayloadV4):
   template getTransaction(tt: TypedTransaction): bellatrix.Transaction =
     bellatrix.Transaction.init(tt.distinctBase)
 
-  template getDepositReceipt(dr: DepositReceiptV1): DepositReceipt =
-    DepositReceipt(
+  template getDepositRequest(
+      dr: DepositRequestV1): electra.DepositRequest =
+    electra.DepositRequest(
       pubkey: ValidatorPubKey(blob: dr.pubkey.distinctBase),
       withdrawal_credentials: dr.withdrawalCredentials.asEth2Digest,
       amount: dr.amount.Gwei,
       signature: ValidatorSig(blob: dr.signature.distinctBase),
       index: dr.index.uint64)
 
-  template getExecutionLayerWithdrawalRequest(elwr: WithdrawalRequestV1):
-      ExecutionLayerWithdrawalRequest =
-    ExecutionLayerWithdrawalRequest(
-      source_address: ExecutionAddress(data: elwr.sourceAddress.distinctBase),
-      validator_pubkey: ValidatorPubKey(
-        blob: elwr.validatorPublicKey.distinctBase),
-      amount: elwr.amount.Gwei)
+  template getWithdrawalRequest(
+      wr: WithdrawalRequestV1): electra.WithdrawalRequest =
+    electra.WithdrawalRequest(
+      source_address: ExecutionAddress(data: wr.sourceAddress.distinctBase),
+      validator_pubkey: ValidatorPubKey(blob: wr.validatorPubkey.distinctBase),
+      amount: wr.amount.Gwei)
+
+  template getConsolidationRequest(
+      cr: ConsolidationRequestV1): electra.ConsolidationRequest =
+    electra.ConsolidationRequest(
+      source_address: ExecutionAddress(data: cr.sourceAddress.distinctBase),
+      source_pubkey: ValidatorPubKey(blob: cr.sourcePubkey.distinctBase),
+      target_pubkey: ValidatorPubKey(blob: cr.targetPubkey.distinctBase))
 
   electra.ExecutionPayload(
     parent_hash: rpcExecutionPayload.parentHash.asEth2Digest,
@@ -540,14 +549,17 @@ func asConsensusType*(rpcExecutionPayload: ExecutionPayloadV4):
       mapIt(rpcExecutionPayload.withdrawals, it.asConsensusWithdrawal)),
     blob_gas_used: rpcExecutionPayload.blobGasUsed.uint64,
     excess_blob_gas: rpcExecutionPayload.excessBlobGas.uint64,
-    deposit_receipts:
-      List[electra.DepositReceipt, MAX_DEPOSIT_RECEIPTS_PER_PAYLOAD].init(
-        mapIt(rpcExecutionPayload.depositRequests, it.getDepositReceipt)),
-    withdrawal_requests:
-      List[electra.ExecutionLayerWithdrawalRequest,
-        MAX_WITHDRAWAL_REQUESTS_PER_PAYLOAD].init(
-          mapIt(rpcExecutionPayload.withdrawalRequests,
-            it.getExecutionLayerWithdrawalRequest)))
+    deposit_requests:
+      List[electra.DepositRequest, MAX_DEPOSIT_REQUESTS_PER_PAYLOAD].init(
+        mapIt(rpcExecutionPayload.depositRequests, it.getDepositRequest)),
+    withdrawal_requests: List[electra.WithdrawalRequest,
+      MAX_WITHDRAWAL_REQUESTS_PER_PAYLOAD].init(
+        mapIt(rpcExecutionPayload.withdrawalRequests,
+          it.getWithdrawalRequest)),
+    consolidation_requests: List[electra.ConsolidationRequest,
+      Limit MAX_CONSOLIDATION_REQUESTS_PER_PAYLOAD].init(
+        mapIt(rpcExecutionPayload.consolidationRequests,
+          it.getConsolidationRequest)))
 
 func asConsensusType*(payload: engine_api.GetPayloadV4Response):
     electra.ExecutionPayloadForSigning =
@@ -560,9 +572,11 @@ func asConsensusType*(payload: engine_api.GetPayloadV4Response):
     # Both are defined as `array[N, byte]` under the hood.
     blobsBundle: deneb.BlobsBundle(
       commitments: KzgCommitments.init(
-        payload.blobsBundle.commitments.mapIt(it.bytes)),
+        payload.blobsBundle.commitments.mapIt(
+          kzg_abi.KzgCommitment(bytes: it.bytes))),
       proofs: KzgProofs.init(
-        payload.blobsBundle.proofs.mapIt(it.bytes)),
+        payload.blobsBundle.proofs.mapIt(
+          kzg_abi.KzgProof(bytes: it.bytes))),
       blobs: Blobs.init(
         payload.blobsBundle.blobs.mapIt(it.bytes))))
 
@@ -647,20 +661,28 @@ func asEngineExecutionPayload*(executionPayload: electra.ExecutionPayload):
   template getTypedTransaction(tt: bellatrix.Transaction): TypedTransaction =
     TypedTransaction(tt.distinctBase)
 
-  template getDepositReceipt(dr: DepositReceipt): DepositReceiptV1 =
-    DepositReceiptV1(
+  template getDepositRequest(
+      dr: electra.DepositRequest): DepositRequestV1 =
+    DepositRequestV1(
       pubkey: FixedBytes[RawPubKeySize](dr.pubkey.blob),
       withdrawalCredentials: FixedBytes[32](dr.withdrawal_credentials.data),
       amount: dr.amount.Quantity,
       signature: FixedBytes[RawSigSize](dr.signature.blob),
       index: dr.index.Quantity)
 
-  template getExecutionLayerWithdrawalRequest(
-      elwr: ExecutionLayerWithdrawalRequest): WithdrawalRequestV1 =
+  template getWithdrawalRequest(
+      wr: electra.WithdrawalRequest): WithdrawalRequestV1 =
     WithdrawalRequestV1(
-      sourceAddress: Address(elwr.source_address.data),
-      validatorPublicKey: FixedBytes[RawPubKeySize](elwr.validator_pubkey.blob),
-      amount: elwr.amount.Quantity)
+      sourceAddress: Address(wr.source_address.data),
+      validatorPubkey: FixedBytes[RawPubKeySize](wr.validator_pubkey.blob),
+      amount: wr.amount.Quantity)
+
+  template getConsolidationRequest(
+      cr: electra.ConsolidationRequest): ConsolidationRequestV1 =
+    ConsolidationRequestV1(
+      sourceAddress: Address(cr.source_address.data),
+      sourcePubkey: FixedBytes[RawPubKeySize](cr.source_pubkey.blob),
+      targetPubkey: FixedBytes[RawPubKeySize](cr.target_pubkey.blob))
 
   engine_api.ExecutionPayloadV4(
     parentHash: executionPayload.parent_hash.asBlockHash,
@@ -682,10 +704,11 @@ func asEngineExecutionPayload*(executionPayload: electra.ExecutionPayload):
     blobGasUsed: Quantity(executionPayload.blob_gas_used),
     excessBlobGas: Quantity(executionPayload.excess_blob_gas),
     depositRequests: mapIt(
-      executionPayload.deposit_receipts, it.getDepositReceipt),
-    withdrawalRequests:
-      mapIt(executionPayload.withdrawal_requests,
-        it.getExecutionLayerWithdrawalRequest))
+      executionPayload.deposit_requests, it.getDepositRequest),
+    withdrawalRequests: mapIt(
+      executionPayload.withdrawal_requests, it.getWithdrawalRequest),
+    consolidationRequests: mapIt(
+      executionPayload.consolidation_requests, it.getConsolidationRequest))
 
 func isConnected(connection: ELConnection): bool =
   connection.web3.isSome
@@ -1531,7 +1554,6 @@ proc exchangeConfigWithSingleEL(
         # https://chainid.network/
         expectedChain = case m.eth1Network.get
           of mainnet: 1.Quantity
-          of goerli:  5.Quantity
           of sepolia: 11155111.Quantity
           of holesky: 17000.Quantity
       if expectedChain != providerChain:

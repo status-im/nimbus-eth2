@@ -328,7 +328,7 @@ template query[E](
 ): Future[bool].Raising([CancelledError]) =
   self.query(e, Nothing())
 
-# https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.2/specs/altair/light-client/light-client.md#light-client-sync-process
+# https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.3/specs/altair/light-client/light-client.md#light-client-sync-process
 proc loop(self: LightClientManager) {.async: (raises: [CancelledError]).} =
   var nextSyncTaskTime = self.getBeaconTime()
   while true:

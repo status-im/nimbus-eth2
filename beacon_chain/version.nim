@@ -18,7 +18,7 @@ const
     "Copyright (c) 2019-" & compileYear & " Status Research & Development GmbH"
 
   versionMajor* = 24
-  versionMinor* = 6
+  versionMinor* = 7
   versionBuild* = 0
 
   versionBlob* = "stateofus" # Single word - ends up in the default graffiti
@@ -50,6 +50,8 @@ const
     $versionMajor & "." & $versionMinor & "." & $versionBuild
 
   fullVersionStr* = "v" & versionAsStr & "-" & gitRevision & "-" & versionBlob
+
+  nimbusAgentStr* = "Nimbus/" & fullVersionStr
 
 func getNimGitHash*(): string =
   const gitPrefix = "git hash: "

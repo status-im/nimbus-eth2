@@ -107,6 +107,7 @@ type
       ## Number of validators that we've checked for activation
     processingDelay*: Opt[Duration]
     lastValidAttestedBlock*: Opt[BlockSlot]
+    shutdownEvent*: AsyncEvent
 
 template findIt*(s: openArray, predicate: untyped): int =
   var res = -1

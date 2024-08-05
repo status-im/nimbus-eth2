@@ -209,47 +209,62 @@ proc tryForceUpdate(
           finalizedSlot = forkyStore.finalized_header.beacon.slot,
           optimisticSlot = forkyStore.optimistic_header.beacon.slot
 
+proc doProcessObject(
+    self: var LightClientProcessor,
+    bootstrap: ForkedLightClientBootstrap,
+    wallTime: BeaconTime): Result[void, VerifierError] =
+  if bootstrap.kind == LightClientDataFork.None:
+    err(VerifierError.Invalid)
+  elif self.store[].kind > LightClientDataFork.None:
+    err(VerifierError.Duplicate)
+  else:
+    let trustedBlockRoot = self.getTrustedBlockRoot()
+    if trustedBlockRoot.isNone:
+      err(VerifierError.MissingParent)
+    else:
+      withForkyBootstrap(bootstrap):
+        when lcDataFork > LightClientDataFork.None:
+          let initRes = initialize_light_client_store(
+            trustedBlockRoot.get, forkyBootstrap, self.cfg)
+          if initRes.isErr:
+            err(initRes.error)
+          else:
+            self.store[] = ForkedLightClientStore.init(initRes.get)
+            ok()
+        else:
+          raiseAssert "Unreachable; bootstrap.kind was checked"
+
+proc doProcessObject(
+    self: var LightClientProcessor,
+    update: SomeForkedLightClientUpdate,
+    wallTime: BeaconTime): Result[void, VerifierError] =
+  if update.kind == LightClientDataFork.None:
+    err(VerifierError.Invalid)
+  elif self.store[].kind == LightClientDataFork.None:
+    err(VerifierError.MissingParent)
+  else:
+    withForkyObject(update):
+      when lcDataFork > LightClientDataFork.None:
+        if lcDataFork > self.store[].kind:
+          info "Upgrading light client",
+            oldFork = self.store[].kind, newFork = lcDataFork
+          self.store[].migrateToDataFork(lcDataFork)
+    withForkyStore(self.store[]):
+      when lcDataFork > LightClientDataFork.None:
+        let
+          wallSlot = wallTime.slotOrZero()
+          upgradedUpdate = update.migratingToDataFork(lcDataFork)
+        process_light_client_update(
+          forkyStore, upgradedUpdate.forky(lcDataFork), wallSlot,
+          self.cfg, self.genesis_validators_root)
+      else:
+        raiseAssert "Unreachable; self.store[].kind was checked"
+
 proc processObject(
     self: var LightClientProcessor,
     obj: SomeForkedLightClientObject,
     wallTime: BeaconTime): Result[void, VerifierError] =
-  let
-    res = withForkyObject(obj):
-      when lcDataFork > LightClientDataFork.None:
-        when forkyObject is ForkyLightClientBootstrap:
-          if self.store[].kind > LightClientDataFork.None:
-            err(VerifierError.Duplicate)
-          else:
-            let trustedBlockRoot = self.getTrustedBlockRoot()
-            if trustedBlockRoot.isNone:
-              err(VerifierError.MissingParent)
-            else:
-              let initRes = initialize_light_client_store(
-                trustedBlockRoot.get, forkyObject, self.cfg)
-              if initRes.isErr:
-                err(initRes.error)
-              else:
-                self.store[] = ForkedLightClientStore.init(initRes.get)
-                ok()
-        elif forkyObject is SomeForkyLightClientUpdate:
-          if self.store[].kind == LightClientDataFork.None:
-            err(VerifierError.MissingParent)
-          else:
-            if lcDataFork > self.store[].kind:
-              info "Upgrading light client",
-                oldFork = self.store[].kind, newFork = lcDataFork
-              self.store[].migrateToDataFork(lcDataFork)
-            withForkyStore(self.store[]):
-              when lcDataFork > LightClientDataFork.None:
-                let
-                  wallSlot = wallTime.slotOrZero()
-                  upgradedObject = obj.migratingToDataFork(lcDataFork)
-                process_light_client_update(
-                  forkyStore, upgradedObject.forky(lcDataFork), wallSlot,
-                  self.cfg, self.genesis_validators_root)
-              else: raiseAssert "Unreachable"
-      else:
-        err(VerifierError.Invalid)
+  let res = self.doProcessObject(obj, wallTime)
 
   withForkyObject(obj):
     when lcDataFork > LightClientDataFork.None:
