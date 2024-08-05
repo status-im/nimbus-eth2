@@ -575,10 +575,11 @@ proc initFullNode(
   node.syncManager = syncManager
   node.backfiller = backfiller
   node.untrustedManager = untrustedManager
-  node.syncOverseer = SyncOverseerRef.new(node.dag, node.beaconClock,
+  node.syncOverseer = SyncOverseerRef.new(node.dag, node.list,
+                                          node.beaconClock,
                                           node.eventBus.optHeaderUpdateQueue,
                                           node.network.peerPool,
-                                          syncManager, backfiller)
+                                          syncManager, untrustedManager)
   node.router = router
 
   await node.addValidators()

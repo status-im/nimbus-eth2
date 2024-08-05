@@ -10,6 +10,7 @@
 import std/[strutils, sequtils, algorithm]
 import stew/base10, chronos, chronicles, results, nimcrypto/utils
 import
+  ../consensus_object_pools/blockchain_list,
   ../spec/datatypes/[phase0, altair],
   ../spec/eth2_apis/rest_types,
   ../spec/[helpers, forks, network, forks_light_client],
@@ -165,14 +166,12 @@ proc mainLoop*(
                          parent_root: blck.blck.root)
 
     overseer.statusMsg = Opt.some("storing block")
-    # let res =
-    #   withBlck(blck.blck):
-    #     overseer.dag.addBackfillBlock(forkyBlck.asSigVerified(), blck.blob)
-    # if res.isErr():
-    #   warn "Unable to store initial block",
-    #        backfill = shortLog(overseer.dag.backfill),
-    #        error = res.error
-    #   return
+    let res = overseer.clist.addBackfillBlockData(blck.blck, blck.blob)
+    if res.isErr():
+      warn "Unable to store initial block",
+           backfill = shortLog(overseer.dag.backfill),
+           error = res.error
+      return
     overseer.statusMsg = Opt.none(string)
 
     notice "Initial block being stored",
