@@ -428,36 +428,6 @@ proc initFullNode(
       # that should probably be reimagined more holistically in the future.
       blockProcessor[].addBlock(
         MsgSource.gossip, signedBlock, blobs, maybeFinalized = maybeFinalized)
-
-    backfillBlockVerifier =
-      proc(signedBlock: ForkedSignedBeaconBlock, blobs: Opt[BlobSidecars],
-           maybeFinalized: bool): Future[Result[void, VerifierError]] {.
-        async: (raises: [CancelledError], raw: true).} =
-        let retFuture =
-          Future[Result[void, VerifierError]].Raising([CancelledError]).
-            init("backfill.blockVerifier")
-        withBlck(signedBlock):
-          notice "Block before verification",
-                 dag_tail = shortLog(dag.tail),
-                 dag_head = shortLog(dag.head.bid),
-                 backfill = shortLog(dag.backfill),
-                 block_root = shortLog(forkyBlck.root),
-                 block_slot = forkyBlck.message.slot
-
-          let res =
-            blockProcessor[].storeBackfillBlock(forkyBlck.asSigVerified(),
-                                                blobs)
-          retFuture.complete(res)
-
-          notice "Block after verification", res = res,
-                 dag_tail = shortLog(dag.tail),
-                 dag_head = shortLog(dag.head.bid),
-                 backfill = shortLog(dag.backfill),
-                 block_root = shortLog(forkyBlck.root),
-                 block_slot = forkyBlck.message.slot
-
-        retFuture
-
     rmanBlockVerifier = proc(signedBlock: ForkedSignedBeaconBlock,
                              maybeFinalized: bool):
         Future[Result[void, VerifierError]] {.async: (raises: [CancelledError]).} =
@@ -515,7 +485,7 @@ proc initFullNode(
       SyncQueueKind.Backward, getLocalHeadSlot,
       getLocalWallSlot, getFirstSlotAtFinalizedEpoch, getBackfillSlot,
       getFrontfillSlot, isWithinWeakSubjectivityPeriod,
-      dag.backfill.slot, backfillBlockVerifier, maxHeadAge = 0,
+      dag.backfill.slot, blockVerifier, maxHeadAge = 0,
       shutdownEvent = node.shutdownEvent,
       flags = syncManagerFlags)
     router = (ref MessageRouter)(
