@@ -45,10 +45,26 @@ template slot*(data: BlockData): Slot =
 template parent_root*(data: BlockData): Eth2Digest =
   withBlck(data.blck): forkyBlck.message.parent_root
 
+template shortLog*(x: BlockData): string =
+  let count = if x.blob.isSome(): $len(x.blob.get()) else: "0"
+  $(x.slot()) & "@" & shortLog(x.parent_root()) & count
+
+template shortLog*(x: Opt[BlockData]): string =
+  if x.isNone():
+    "[none]"
+  else:
+    shortLog(x.get())
+
 proc addBackfillBlockData*(
     clist: ChainListRef, signedBlock: ForkedSignedBeaconBlock,
     blobs: Opt[BlobSidecars]): Result[void, VerifierError] =
   doAssert(not(isNil(clist)))
+
+  logScope:
+    backfill_tail = shortLog(clist.tail)
+    slot = signedBlock.slot
+    signed_block = shortLog(signedBlock)
+
   if clist.tail.isNone():
     let
       storeBlockTick = Moment.now()
@@ -59,23 +75,20 @@ proc addBackfillBlockData*(
       quit 1
     clist.tail = Opt.some(BlockData(blck: signedBlock, blob: blobs))
 
+    if clist.head.isNone():
+      clist.head = Opt.some(BlockData(blck: signedBlock, blob: blobs))
+
     debug "Initial block backfilled",
-          slot = signedBlock.slot,
-          blck = shortLog(signedBlock),
           store_block_duration = storeBlockTick - Moment.now()
 
     return ok()
 
   if signedBlock.slot >= clist.tail.get().slot:
-    debug "Block from unviable fork",
-          tail_parent_slot = clist.tail.get().slot,
-          signed_block = shortLog(signedBlock)
+    debug "Block from unviable fork"
     return err(VerifierError.UnviableFork)
 
   if clist.tail.get().parent_root != signedBlock.root:
-    debug "Block does not match expected backfill root",
-          tail_parent_root = shortLog(clist.tail.get().parent_root),
-          signed_block = shortLog(signedBlock)
+    debug "Block does not match expected backfill root"
     return err(VerifierError.MissingParent)
 
   let
@@ -86,9 +99,9 @@ proc addBackfillBlockData*(
            filename = clist.fileName, reason = res.error()
     quit 1
 
+  clist.tail = Opt.some(BlockData(blck: signedBlock, blob: blobs))
+
   debug "Block backfilled",
-        slot = signedBlock.slot,
-        blck = shortLog(signedBlock),
         store_block_duration = storeBlockTick - Moment.now()
   ok()
 
