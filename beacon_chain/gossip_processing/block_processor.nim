@@ -170,9 +170,9 @@ proc dumpBlock[T](
 from ../consensus_object_pools/block_clearance import
   addBackfillBlock, addHeadBlockWithParent, checkHeadBlock
 
-proc storeBackfillBlock*(
+proc storeBackfillBlock(
     self: var BlockProcessor,
-    signedBlock: ForkySignedBeaconBlock | ForkySigVerifiedSignedBeaconBlock,
+    signedBlock: ForkySignedBeaconBlock,
     blobsOpt: Opt[BlobSidecars]): Result[void, VerifierError] =
 
   # The block is certainly not missing any more
