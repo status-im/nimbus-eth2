@@ -38,4 +38,8 @@ type
     data: PayloadAttestationData
     signature: ValidatorSig
 
+proc isValidIndexedPayloadAttestation(state: BeaconState,
+    indexedPayloadAttestation: IndexedPayloadAttestation): bool =
+  # Placeholder function
+  false
 

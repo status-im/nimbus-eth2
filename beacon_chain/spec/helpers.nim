@@ -13,6 +13,7 @@ import
   # Status libraries
   stew/[byteutils, endians2, objects],
   chronicles,
+  bitops,
   eth/common/[eth_types, eth_types_rlp],
   eth/rlp, eth/trie/[db, hexary],
   # Internal
@@ -605,6 +606,23 @@ proc blockToBlockHeader*(blck: ForkyBeaconBlock): ExecutionBlockHeader =
 
 proc compute_execution_block_hash*(blck: ForkyBeaconBlock): Eth2Digest =
   rlpHash blockToBlockHeader(blck)
+
+func bit_length(n: SomeInteger): SomeInteger =
+  # Returns the number of bits required to represent ``n``, used in bit_floor method.
+  if n == 0:
+    return 1
+  else:
+    uint64(fastLog2(n) + 1)
+
+# https://github.com/ethereum/consensus-specs/blob/1508f51b80df5488a515bfedf486f98435200e02/specs/_features/eipxxxx/beacon-chain.md#bit_floor
+func bit_floor*(n: SomeInteger): SomeInteger =
+  # if ``n`` is not zero, returns the largest power of `2` that is not greater than `n`.
+  doAssert n >= 0'u64
+
+  if n == 0:
+    return 0'u64
+
+  1'u64 shl (n.bit_length() - 1)
 
 from std/math import exp, ln
 from std/sequtils import foldl
