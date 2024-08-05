@@ -13,7 +13,7 @@ import
   metrics, metrics/chronos_httpserver,
   stew/[byteutils, io2],
   eth/p2p/discoveryv5/[enr, random2],
-  ./consensus_object_pools/[blob_quarantine, data_column_quarantine],
+  ./consensus_object_pools/[blob_quarantine, data_column_quarantine, blockchain_list],
   ./consensus_object_pools/vanity_logs/vanity_logs,
   ./networking/[topic_params, network_metadata_downloads],
   ./rpc/[rest_api, state_ttl_cache],
@@ -279,6 +279,7 @@ proc initFullNode(
     node: BeaconNode,
     rng: ref HmacDrbgContext,
     dag: ChainDAGRef,
+    clist: ChainListRef,
     taskpool: TaskPoolPtr,
     getBeaconTime: GetBeaconTimeFn) {.async.} =
   template config(): auto = node.config
@@ -369,6 +370,12 @@ proc initFullNode(
     else:
       dag.tail.slot
 
+  func getUntrustedBackfillSlot(): Slot =
+    if clist.tail.isSome():
+      clist.tail.get().blck.slot
+    else:
+      dag.tail.slot
+
   func getFrontfillSlot(): Slot =
     max(dag.frontfill.get(BlockId()).slot, dag.horizon)
 
@@ -428,6 +435,11 @@ proc initFullNode(
       # that should probably be reimagined more holistically in the future.
       blockProcessor[].addBlock(
         MsgSource.gossip, signedBlock, blobs, maybeFinalized = maybeFinalized)
+    untrustedblockVerifier =
+      proc(signedBlock: ForkedSignedBeaconBlock, blobs: Opt[BlobSidecars],
+           maybeFinalized: bool): Future[Result[void, VerifierError]] {.
+        async: (raises: [CancelledError], raw: true).} =
+        clist.untrustedBackfillVerifier(signedBlock, blobs, maybeFinalized)
     rmanBlockVerifier = proc(signedBlock: ForkedSignedBeaconBlock,
                              maybeFinalized: bool):
         Future[Result[void, VerifierError]] {.async: (raises: [CancelledError]).} =
@@ -486,6 +498,15 @@ proc initFullNode(
       getLocalWallSlot, getFirstSlotAtFinalizedEpoch, getBackfillSlot,
       getFrontfillSlot, isWithinWeakSubjectivityPeriod,
       dag.backfill.slot, blockVerifier, maxHeadAge = 0,
+      shutdownEvent = node.shutdownEvent,
+      flags = syncManagerFlags)
+    untrustedManager = newSyncManager[Peer, PeerId](
+      node.network.peerPool,
+      dag.cfg.DENEB_FORK_EPOCH, dag.cfg.MIN_EPOCHS_FOR_BLOB_SIDECARS_REQUESTS,
+      SyncQueueKind.Backward, getLocalHeadSlot,
+      getLocalWallSlot, getFirstSlotAtFinalizedEpoch, getBackfillSlot,
+      getFrontfillSlot, isWithinWeakSubjectivityPeriod,
+      dag.backfill.slot, untrustedblockVerifier, maxHeadAge = 0,
       shutdownEvent = node.shutdownEvent,
       flags = syncManagerFlags)
     router = (ref MessageRouter)(
@@ -553,6 +574,7 @@ proc initFullNode(
   node.requestManager = requestManager
   node.syncManager = syncManager
   node.backfiller = backfiller
+  node.untrustedManager = untrustedManager
   node.syncOverseer = SyncOverseerRef.new(node.dag, node.beaconClock,
                                           node.eventBus.optHeaderUpdateQueue,
                                           node.network.peerPool,
@@ -854,6 +876,30 @@ proc init*(T: type BeaconNode,
 
     getBeaconTime = beaconClock.getBeaconTimeFn()
 
+  let clist =
+    block:
+      # TODO (cheatfate): We should reset (delete) blockchain file if tail is
+      # not in weak subjectivity period.
+      let
+        res = ChainListRef.init(config.databaseDir())
+        head_slot, head_parent_root =
+          if res.head.isSome():
+            let data = res.head.get()
+            ($(data.slot), shortLog(data.parent_root))
+          else:
+            ("[n/a]", "[n/a]")
+        tail_slot, tail_parent_root =
+          if res.tail.isSome():
+            let data = res.tail.get()
+            ($(data.slot), shortLog(data.parent_root))
+          else:
+            ("[n/a]", "[n/a]")
+
+      info "Backfill database has been loaded", path = config.databaseDir(),
+           head_slot = head_slot, head_parent_root = head_parent_root,
+           tail_slot = tail_slot, tail_parent_root = tail_parent_root
+      res
+
   if config.weakSubjectivityCheckpoint.isSome:
     dag.checkWeakSubjectivityCheckpoint(
       config.weakSubjectivityCheckpoint.get, beaconClock)
@@ -981,7 +1027,7 @@ proc init*(T: type BeaconNode,
 
   node.initLightClient(
     rng, cfg, dag.forkDigests, getBeaconTime, dag.genesis_validators_root)
-  await node.initFullNode(rng, dag, taskpool, getBeaconTime)
+  await node.initFullNode(rng, dag, clist, taskpool, getBeaconTime)
 
   node.updateLightClientFromDag()
 
