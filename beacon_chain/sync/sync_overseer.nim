@@ -165,14 +165,14 @@ proc mainLoop*(
                          parent_root: blck.blck.root)
 
     overseer.statusMsg = Opt.some("storing block")
-    let res =
-      withBlck(blck.blck):
-        overseer.dag.addBackfillBlock(forkyBlck.asSigVerified(), blck.blob)
-    if res.isErr():
-      warn "Unable to store initial block",
-           backfill = shortLog(overseer.dag.backfill),
-           error = res.error
-      return
+    # let res =
+    #   withBlck(blck.blck):
+    #     overseer.dag.addBackfillBlock(forkyBlck.asSigVerified(), blck.blob)
+    # if res.isErr():
+    #   warn "Unable to store initial block",
+    #        backfill = shortLog(overseer.dag.backfill),
+    #        error = res.error
+    #   return
     overseer.statusMsg = Opt.none(string)
 
     notice "Initial block being stored",

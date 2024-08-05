@@ -391,7 +391,7 @@ proc addBackfillBlock*(
 
       # Block is older than finalized, but different from the block in our
       # canonical history: it must be from an unviable branch
-      notice "Block from unviable fork",
+      debug "Block from unviable fork",
         existing = shortLog(existing.get()),
         finalizedHead = shortLog(dag.finalizedHead)
 
@@ -448,16 +448,4 @@ proc addBackfillBlock*(
     sigVerifyDur = sigVerifyTick - startTick,
     putBlockDur = putBlockTick - sigVerifyTick
 
-  ok()
-
-proc addBackfillBlock*(
-    dag: ChainDAGRef,
-    signedBlock: ForkySignedBeaconBlock | ForkySigVerifiedSignedBeaconBlock,
-    blobsOpt: Opt[BlobSidecars]
-): Result[void, VerifierError] =
-  ? addBackfillBlock(dag, signedBlock)
-  # Only store blobs after successfully establishing block viability.
-  let blobs = blobsOpt.valueOr: BlobSidecars @[]
-  for b in blobs:
-    dag.db.putBlobSidecar(b[])
   ok()
