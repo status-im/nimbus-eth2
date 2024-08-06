@@ -8,8 +8,6 @@
 {.push raises: [].}
 
 import
-  std/algorithm,
-  sets,
   sequtils,
   "."/[forks, ptc_status],
   ./datatypes/[phase0, altair, bellatrix], ./helpers
@@ -46,7 +44,8 @@ proc is_valid_indexed_payload_attestation(
     indexed_payload_attestation: IndexedPayloadAttestation): bool =
 
   # Verify that data is valid
-  if indexed_payload_attestation.data.payload_Status >= uint8(PAYLOAD_INVALID_STATUS):
+  if  indexed_payload_attestation.data.payload_Status >= 
+      uint8(PAYLOAD_INVALID_STATUS):
     return false
     ## Check if ``indexed_attestation`` is not empty, has sorted and unique
     ## indices and has a valid aggregate signature.
@@ -62,7 +61,7 @@ proc is_valid_indexed_payload_attestation(
   if len(indexed_payload_attestation.attesting_indices) == 0:
     return false
 
-  # Check if ``indexed_payload_attestation`` is not empty, has sorted and unique indices
+  # Check if ``indexed_payload_attestation`` is has sorted and unique
   if not is_sorted_and_unique(indexed_payload_attestation.attesting_indices):
     return false
 
@@ -74,7 +73,8 @@ proc is_valid_indexed_payload_attestation(
     state.fork, DOMAIN_PTC_ATTESTER, GENESIS_EPOCH,
     state.genesis_validators_root)
 
-  let signing_root = compute_signing_root(indexed_payload_attestation.data, domain)
+  let signing_root = compute_signing_root(
+    indexed_payload_attestation.data, domain)
 
   blsFastAggregateVerify(pubkeys, signing_root.data,
       indexed_payload_attestation.signature)

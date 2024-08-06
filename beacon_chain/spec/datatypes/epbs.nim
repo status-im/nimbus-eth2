@@ -32,7 +32,8 @@ from ./capella import
   ExecutionBranch, HistoricalSummary, SignedBLSToExecutionChangeList,
   Withdrawal, ExecutionPayload, EXECUTION_PAYLOAD_GINDEX
 from ./deneb import Blobs, BlobsBundle, KzgCommitments, KzgProofs
-from ./electra import PendingBalanceDeposit, PendingPartialWithdrawal, PendingConsolidation
+from ./electra import 
+  PendingBalanceDeposit, PendingPartialWithdrawal, PendingConsolidation
 from ../payload_attestations import PayloadAttestation
 
 export json_serialization, base, kzg4844
