@@ -1292,7 +1292,7 @@ proc proposeBlockAux(
           Opt.some(signedBlock.create_blob_sidecars(
             blobsBundle.proofs, blobsBundle.blobs))
         else:
-          Opt.none(seq[BlobSidecar])
+          Opt.none(seq[deneb.BlobSidecar])
       newBlockRef = (
         await node.router.routeSignedBeaconBlock(signedBlock, blobsOpt,
           checkValidator = false)
@@ -1733,8 +1733,10 @@ proc registerValidatorsPerBuilder(
       validatorRegistrations.add @[validatorRegistration]
 
   # First, check for VC-added keys; cheaper because provided pre-signed
-  # See issue #5599: currently VC have no way to provide BN with per-validator builders per the specs, so we have to
-  #   resort to use the BN fallback default (--payload-builder-url value, obtained by calling getPayloadBuilderAddress)
+  # See issue #5599: currently VC have no way to provide BN with per-validator
+  #   builders per the specs, so we have to resort to use the BN fallback
+  #   default (--payload-builder-url value, obtained by calling
+  #   getPayloadBuilderAddress)
   var nonExitedVcPubkeys: HashSet[ValidatorPubKey]
   if  node.externalBuilderRegistrations.len > 0 and
       payloadBuilderAddress == node.config.getPayloadBuilderAddress.value:

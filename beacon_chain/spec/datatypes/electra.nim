@@ -16,7 +16,8 @@
 {.experimental: "notnil".}
 
 import
-  std/typetraits,
+  std/[sequtils, strutils, typetraits],
+  stew/bitops2,
   chronicles,
   json_serialization,
   ssz_serialization/[merkleization, proofs],
@@ -34,21 +35,32 @@ from ./bellatrix import BloomLogs, ExecutionAddress
 from ./capella import
   ExecutionBranch, HistoricalSummary, SignedBLSToExecutionChangeList,
   Withdrawal, EXECUTION_PAYLOAD_GINDEX
-from ./deneb import Blobs, BlobsBundle, KzgCommitments, KzgProofs
+from ./deneb import
+  Blob, BlobIndex, Blobs, BlobsBundle, KzgCommitments, KzgProofs, shortLog
 
 export json_serialization, stable, kzg4844
 
 const
   # https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.3/specs/electra/light-client/sync-protocol.md#constants
   # All of these indices are rooted in `BeaconState`.
-  # The first member (`genesis_time`) is 64, subsequent members +1 each.
-  # If there are ever more than 64 members in `BeaconState`, indices change!
-  # `FINALIZED_ROOT_GINDEX` is one layer deeper, i.e., `84 * 2 + 1`.
+  # The first member (`genesis_time`) is 256, subsequent members +1 each.
+  # If there are ever more than 128 members in `BeaconState`, indices change!
+  # `FINALIZED_ROOT_GINDEX` is one layer deeper, i.e., `276 * 2 + 1`.
   # https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.3/ssz/merkle-proofs.md
-  FINALIZED_ROOT_GINDEX* = 169.GeneralizedIndex  # finalized_checkpoint > root
-  CURRENT_SYNC_COMMITTEE_GINDEX* = 86.GeneralizedIndex  # current_sync_committee
-  NEXT_SYNC_COMMITTEE_GINDEX* = 87.GeneralizedIndex  # next_sync_committee
+  # finalized_checkpoint > root
+  FINALIZED_ROOT_GINDEX_ELECTRA* = 553.GeneralizedIndex
+  # current_sync_committee
+  CURRENT_SYNC_COMMITTEE_GINDEX_ELECTRA* = 278.GeneralizedIndex
+  # next_sync_committee
+  NEXT_SYNC_COMMITTEE_GINDEX_ELECTRA* = 279.GeneralizedIndex
 
+  # https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.3/specs/electra/p2p-interface.md#preset
+  # All of these indices are rooted in `BeaconBlockBody`.
+  # The first member (`randao_reveal`) is 128, subsequent members +1 each.
+  # If there are ever more than 64 members in `BeaconBlockBody`, indices change!
+  # https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.3/ssz/merkle-proofs.md
+  # execution_payload
+  EXECUTION_PAYLOAD_GINDEX_ELECTRA* = 137.GeneralizedIndex
 type
   # https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.3/specs/electra/beacon-chain.md#indexedattestation
   IndexedAttestation* {.
@@ -80,6 +92,22 @@ type
     attestation_1*: TrustedIndexedAttestation  # Modified in Electra:EIP7549]
     attestation_2*: TrustedIndexedAttestation  # Modified in Electra:EIP7549]
 
+  # https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.3/specs/electra/p2p-interface.md#custom-types
+  KzgCommitmentInclusionProof* =
+    array[KZG_COMMITMENT_INCLUSION_PROOF_DEPTH_ELECTRA, Eth2Digest]
+
+  # https://github.com/ethereum/consensus-specs/blob/v1.4.0/specs/deneb/p2p-interface.md#blobsidecar
+  BlobSidecar* = object
+    index*: BlobIndex
+      ## Index of blob in block
+    blob*: Blob
+    kzg_commitment*: KzgCommitment
+    kzg_proof*: KzgProof
+      ## Allows for quick verification of kzg_commitment
+    signed_block_header*: SignedBeaconBlockHeader
+    kzg_commitment_inclusion_proof*: KzgCommitmentInclusionProof
+  BlobSidecars* = seq[ref BlobSidecar]
+
   # https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.3/specs/electra/beacon-chain.md#executionpayload
   ExecutionPayload* {.sszProfile: StableExecutionPayload.} = object
     # Execution block header fields
@@ -109,7 +137,7 @@ type
       ## [New in Electra:EIP6110]
     withdrawal_requests*:
       List[WithdrawalRequest, MAX_WITHDRAWAL_REQUESTS_PER_PAYLOAD]
-      ## [New in Electra:EIP6110]
+      ## [New in Electra:EIP7002:EIP7251]
     consolidation_requests*:
       List[ConsolidationRequest, Limit MAX_CONSOLIDATION_REQUESTS_PER_PAYLOAD]
       ## [New in Electra:EIP7251]
@@ -149,6 +177,9 @@ type
   ExecutePayload* = proc(
     execution_payload: ExecutionPayload): bool {.gcsafe, raises: [].}
 
+  ExecutionBranch* =
+    array[log2trunc(EXECUTION_PAYLOAD_GINDEX_ELECTRA), Eth2Digest]
+
   # https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.3/specs/phase0/validator.md#aggregateandproof
   AggregateAndProof* = object
     aggregator_index*: uint64 # `ValidatorIndex` after validation
@@ -161,13 +192,13 @@ type
     signature*: ValidatorSig
 
   FinalityBranch* =
-    array[log2trunc(FINALIZED_ROOT_GINDEX), Eth2Digest]
+    array[log2trunc(FINALIZED_ROOT_GINDEX_ELECTRA), Eth2Digest]
 
   CurrentSyncCommitteeBranch* =
-    array[log2trunc(CURRENT_SYNC_COMMITTEE_GINDEX), Eth2Digest]
+    array[log2trunc(CURRENT_SYNC_COMMITTEE_GINDEX_ELECTRA), Eth2Digest]
 
   NextSyncCommitteeBranch* =
-    array[log2trunc(NEXT_SYNC_COMMITTEE_GINDEX), Eth2Digest]
+    array[log2trunc(NEXT_SYNC_COMMITTEE_GINDEX_ELECTRA), Eth2Digest]
 
   # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.5/specs/capella/light-client/sync-protocol.md#modified-lightclientheader
   LightClientHeader* = object
@@ -176,7 +207,7 @@ type
 
     execution*: electra.ExecutionPayloadHeader
       ## Execution payload header corresponding to `beacon.body_root` (from Capella onward)
-    execution_branch*: capella.ExecutionBranch
+    execution_branch*: ExecutionBranch
 
   # https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.3/specs/altair/light-client/sync-protocol.md#lightclientbootstrap
   LightClientBootstrap* = object
@@ -615,6 +646,22 @@ func shortLog*(v: SomeBeaconBlock): auto =
     blob_kzg_commitments_len: v.body.blob_kzg_commitments.len(),
   )
 
+func shortLog*(v: BlobSidecar): auto =
+  (
+    index: v.index,
+    blob: shortLog(v.blob),
+    bloblen: v.blob.len(),
+    block_header: shortLog(v.signed_block_header.message),
+    kzg_commitment: shortLog(v.kzg_commitment),
+    kzg_proof: shortLog(v.kzg_proof),
+  )
+
+func shortLog*(v: seq[BlobSidecar]): auto =
+  "[" & v.mapIt(shortLog(it)).join(", ") & "]"
+
+func shortLog*(v: seq[ref BlobSidecar]): auto =
+  "[" & v.mapIt(shortLog(it[])).join(", ") & "]"
+
 func shortLog*(v: SomeSignedBeaconBlock): auto =
   (
     blck: shortLog(v.message),
@@ -640,6 +687,63 @@ func shortLog*(v: ExecutionPayload): auto =
     blob_gas_used: $(v.blob_gas_used),
     excess_blob_gas: $(v.excess_blob_gas)
   )
+
+func kzg_commitment_inclusion_proof_gindex*(
+    index: BlobIndex): GeneralizedIndex =
+  # This index is rooted in `BeaconBlockBody`.
+  # The first member (`randao_reveal`) is 128, subsequent members +1 each.
+  # If there are ever more than 64 members in `BeaconBlockBody`, indices change!
+  # https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.3/ssz/merkle-proofs.md
+  const
+    # blob_kzg_commitments
+    BLOB_KZG_COMMITMENTS_GINDEX =
+      139.GeneralizedIndex
+    # List + 0 = items, + 1 = len
+    BLOB_KZG_COMMITMENTS_BASE_GINDEX =
+      (BLOB_KZG_COMMITMENTS_GINDEX shl 1) + 0
+    # List depth
+    BLOB_KZG_COMMITMENTS_PROOF_DEPTH =
+      log2trunc(nextPow2(KzgCommitments.maxLen.uint64))
+    # First item
+    BLOB_KZG_COMMITMENTS_FIRST_GINDEX =
+      (BLOB_KZG_COMMITMENTS_BASE_GINDEX shl BLOB_KZG_COMMITMENTS_PROOF_DEPTH)
+  static: doAssert(
+    log2trunc(BLOB_KZG_COMMITMENTS_FIRST_GINDEX) ==
+    KZG_COMMITMENT_INCLUSION_PROOF_DEPTH_ELECTRA)
+
+  BLOB_KZG_COMMITMENTS_FIRST_GINDEX + index
+
+# https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.3/specs/electra/light-client/fork.md#normalize_merkle_branch
+func normalize_merkle_branch*[N](
+    branch: array[N, Eth2Digest],
+    gindex: static GeneralizedIndex): auto =
+  const depth = log2trunc(gindex)
+  var res: array[depth, Eth2Digest]
+  when depth >= branch.len:
+    const num_extra = depth - branch.len
+    res[num_extra ..< depth] = branch
+  else:
+    const num_extra = branch.len - depth
+    for node in branch[0 ..< num_extra]:
+      doAssert node.isZero, "Truncation of Merkle branch cannot lose info"
+    res[0 ..< depth] = branch[num_extra ..< branch.len]
+  res
+
+# https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.3/specs/altair/light-client/sync-protocol.md#is_valid_normalized_merkle_branch
+func is_valid_normalized_merkle_branch*[N](
+    leaf: Eth2Digest,
+    branch: array[N, Eth2Digest],
+    gindex: GeneralizedIndex,
+    root: Eth2Digest): bool =
+  let
+    depth = log2trunc(gindex)
+    index = get_subtree_index(gindex)
+  doAssert branch.len >= depth, "Branch is set up in a way that always fails"
+  let num_extra = branch.len - depth
+  for i in 0 ..< num_extra:
+    if not branch[i].isZero:
+      return false
+  is_valid_merkle_branch(leaf, branch[num_extra .. ^1], depth, index, root)
 
 # https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.3/specs/electra/light-client/sync-protocol.md#modified-get_lc_execution_root
 func get_lc_execution_root*(
@@ -693,6 +797,16 @@ func get_lc_execution_root*(
 
   ZERO_HASH
 
+# https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.3/specs/electra/light-client/sync-protocol.md#modified-execution_payload_gindex_at_slot
+func execution_payload_gindex_at_epoch(
+    epoch: Epoch, cfg: RuntimeConfig): GeneralizedIndex =
+  doAssert epoch >= cfg.CAPELLA_FORK_EPOCH
+
+  # [Modified in Electra]
+  if epoch >= cfg.ELECTRA_FORK_EPOCH:
+    return EXECUTION_PAYLOAD_GINDEX_ELECTRA
+  EXECUTION_PAYLOAD_GINDEX
+
 # https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.3/specs/electra/light-client/sync-protocol.md#modified-is_valid_light_client_header
 func is_valid_light_client_header*(
     header: LightClientHeader, cfg: RuntimeConfig): bool =
@@ -712,31 +826,14 @@ func is_valid_light_client_header*(
 
   if epoch < cfg.CAPELLA_FORK_EPOCH:
     return
-      header.execution == default(ExecutionPayloadHeader) and
-      header.execution_branch == default(ExecutionBranch)
+      header.execution == static(default(ExecutionPayloadHeader)) and
+      header.execution_branch == static(default(ExecutionBranch))
 
-  is_valid_merkle_branch(
+  is_valid_normalized_merkle_branch(
     get_lc_execution_root(header, cfg),
     header.execution_branch,
-    log2trunc(EXECUTION_PAYLOAD_GINDEX),
-    get_subtree_index(EXECUTION_PAYLOAD_GINDEX),
+    execution_payload_gindex_at_epoch(epoch, cfg),
     header.beacon.body_root)
-
-# https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.3/specs/electra/light-client/fork.md#normalize_merkle_branch
-func normalize_merkle_branch*[N](
-    branch: array[N, Eth2Digest],
-    gindex: static GeneralizedIndex): auto =
-  const depth = log2trunc(gindex)
-  var res: array[depth, Eth2Digest]
-  when depth >= branch.len:
-    const num_extra = depth - branch.len
-    res[num_extra ..< depth] = branch
-  else:
-    const num_extra = branch.len - depth
-    for node in branch[0 ..< num_extra]:
-      doAssert node.isZero, "Truncation of Merkle branch cannot lose info"
-    res[0 ..< depth] = branch[num_extra ..< branch.len]
-  res
 
 # https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.3/specs/electra/light-client/fork.md#upgrading-light-client-data
 func upgrade_lc_header_to_electra*(
@@ -764,7 +861,8 @@ func upgrade_lc_header_to_electra*(
         deposit_requests_root: ZERO_HASH,  # [New in Electra:EIP6110]
         withdrawal_requests_root: ZERO_HASH,  # [New in Electra:EIP7002:EIP7251]
         consolidation_requests_root: ZERO_HASH),  # [New in Electra:EIP7251]
-    execution_branch: pre.execution_branch)
+    execution_branch: normalize_merkle_branch(
+      pre.execution_branch, EXECUTION_PAYLOAD_GINDEX_ELECTRA))
 
 # https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.3/specs/electra/light-client/fork.md#upgrading-light-client-data
 func upgrade_lc_bootstrap_to_electra*(
@@ -773,7 +871,7 @@ func upgrade_lc_bootstrap_to_electra*(
     header: upgrade_lc_header_to_electra(pre.header),
     current_sync_committee: pre.current_sync_committee,
     current_sync_committee_branch: normalize_merkle_branch(
-      pre.current_sync_committee_branch, CURRENT_SYNC_COMMITTEE_GINDEX))
+      pre.current_sync_committee_branch, CURRENT_SYNC_COMMITTEE_GINDEX_ELECTRA))
 
 # https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.3/specs/electra/light-client/fork.md#upgrading-light-client-data
 func upgrade_lc_update_to_electra*(
@@ -782,10 +880,10 @@ func upgrade_lc_update_to_electra*(
     attested_header: upgrade_lc_header_to_electra(pre.attested_header),
     next_sync_committee: pre.next_sync_committee,
     next_sync_committee_branch: normalize_merkle_branch(
-      pre.next_sync_committee_branch, NEXT_SYNC_COMMITTEE_GINDEX),
+      pre.next_sync_committee_branch, NEXT_SYNC_COMMITTEE_GINDEX_ELECTRA),
     finalized_header: upgrade_lc_header_to_electra(pre.finalized_header),
     finality_branch: normalize_merkle_branch(
-      pre.finality_branch, FINALIZED_ROOT_GINDEX),
+      pre.finality_branch, FINALIZED_ROOT_GINDEX_ELECTRA),
     sync_aggregate: pre.sync_aggregate,
     signature_slot: pre.signature_slot)
 
@@ -796,7 +894,7 @@ func upgrade_lc_finality_update_to_electra*(
     attested_header: upgrade_lc_header_to_electra(pre.attested_header),
     finalized_header: upgrade_lc_header_to_electra(pre.finalized_header),
     finality_branch: normalize_merkle_branch(
-      pre.finality_branch, FINALIZED_ROOT_GINDEX),
+      pre.finality_branch, FINALIZED_ROOT_GINDEX_ELECTRA),
     sync_aggregate: pre.sync_aggregate,
     signature_slot: pre.signature_slot)
 
@@ -825,7 +923,7 @@ func shortLog*(v: LightClientUpdate): auto =
   (
     attested: shortLog(v.attested_header),
     has_next_sync_committee:
-      v.next_sync_committee != default(typeof(v.next_sync_committee)),
+      v.next_sync_committee != static(default(typeof(v.next_sync_committee))),
     finalized: shortLog(v.finalized_header),
     num_active_participants: v.sync_aggregate.num_active_participants,
     signature_slot: v.signature_slot

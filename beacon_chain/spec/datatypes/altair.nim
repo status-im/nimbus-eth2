@@ -61,9 +61,12 @@ const
   # If there are ever more than 32 members in `BeaconState`, indices change!
   # `FINALIZED_ROOT_GINDEX` is one layer deeper, i.e., `52 * 2 + 1`.
   # https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.3/ssz/merkle-proofs.md
-  FINALIZED_ROOT_GINDEX* = 105.GeneralizedIndex  # finalized_checkpoint > root
-  CURRENT_SYNC_COMMITTEE_GINDEX* = 54.GeneralizedIndex  # current_sync_committee
-  NEXT_SYNC_COMMITTEE_GINDEX* = 55.GeneralizedIndex  # next_sync_committee
+  # finalized_checkpoint > root
+  FINALIZED_ROOT_GINDEX* = 105.GeneralizedIndex
+  # current_sync_committee
+  CURRENT_SYNC_COMMITTEE_GINDEX* = 54.GeneralizedIndex
+  # next_sync_committee
+  NEXT_SYNC_COMMITTEE_GINDEX* = 55.GeneralizedIndex
 
   SYNC_SUBCOMMITTEE_SIZE* = SYNC_COMMITTEE_SIZE div SYNC_COMMITTEE_SUBNET_COUNT
 
@@ -601,7 +604,7 @@ func shortLog*(v: LightClientUpdate): auto =
   (
     attested: shortLog(v.attested_header),
     has_next_sync_committee:
-      v.next_sync_committee != default(typeof(v.next_sync_committee)),
+      v.next_sync_committee != static(default(typeof(v.next_sync_committee))),
     finalized: shortLog(v.finalized_header),
     num_active_participants: v.sync_aggregate.num_active_participants,
     signature_slot: v.signature_slot

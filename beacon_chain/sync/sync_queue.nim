@@ -26,9 +26,11 @@ type
   GetSlotCallback* = proc(): Slot {.gcsafe, raises: [].}
   GetBoolCallback* = proc(): bool {.gcsafe, raises: [].}
   ProcessingCallback* = proc() {.gcsafe, raises: [].}
-  BlockVerifier* =  proc(signedBlock: ForkedSignedBeaconBlock,
-                         blobs: Opt[BlobSidecars], maybeFinalized: bool):
-      Future[Result[void, VerifierError]] {.async: (raises: [CancelledError]).}
+  BlockVerifier* = proc(
+      signedBlock: ForkedSignedBeaconBlock,
+      blobs: Opt[ForkedBlobSidecars],
+      maybeFinalized: bool
+  ): Future[Result[void, VerifierError]] {.async: (raises: [CancelledError]).}
 
   SyncQueueKind* {.pure.} = enum
     Forward, Backward
@@ -43,7 +45,7 @@ type
   SyncResult*[T] = object
     request*: SyncRequest[T]
     data*: seq[ref ForkedSignedBeaconBlock]
-    blobs*: Opt[seq[BlobSidecars]]
+    blobs*: Opt[seq[ForkedBlobSidecars]]
 
   GapItem*[T] = object
     start*: Slot
@@ -90,8 +92,8 @@ chronicles.expandIt SyncRequest:
   peer = shortLog(it.item)
   direction = toLowerAscii($it.kind)
 
-proc getShortMap*[T](req: SyncRequest[T],
-                     data: openArray[ref ForkedSignedBeaconBlock]): string =
+proc getShortMap*[T](
+    req: SyncRequest[T], data: openArray[ref ForkedSignedBeaconBlock]): string =
   ## Returns all slot numbers in ``data`` as placement map.
   var res = newStringOfCap(req.count)
   var slider = req.slot
@@ -111,8 +113,8 @@ proc getShortMap*[T](req: SyncRequest[T],
     slider = slider + 1
   res
 
-proc getShortMap*[T](req: SyncRequest[T],
-                     data: openArray[ref BlobSidecar]): string =
+proc getShortMap*[T](
+    req: SyncRequest[T], data: openArray[ForkedBlobSidecar]): string =
   ## Returns all slot numbers in ``data`` as placement map.
   var res = newStringOfCap(req.count * MAX_BLOBS_PER_BLOCK)
   var cur : uint64 = 0
@@ -120,9 +122,11 @@ proc getShortMap*[T](req: SyncRequest[T],
     if cur >= lenu64(data):
       res.add('|')
       continue
-    if slot == data[cur].signed_block_header.message.slot:
+    let blobSlot = withForkyBlob(data[cur]):
+      forkyBlob[].signed_block_header.message.slot
+    if slot == blobSlot:
       for k in cur..<cur+MAX_BLOBS_PER_BLOCK:
-        if k >= lenu64(data) or slot != data[k].signed_block_header.message.slot:
+        if k >= lenu64(data) or slot != blobSlot:
           res.add('|')
           break
         else:
@@ -541,14 +545,16 @@ proc getRewindPoint*[T](sq: SyncQueue[T], failSlot: Slot,
 
 # This belongs inside the blocks iterator below, but can't be there due to
 # https://github.com/nim-lang/Nim/issues/21242
-func getOpt(blobs: Opt[seq[BlobSidecars]], i: int): Opt[BlobSidecars] =
+func getOpt(
+    blobs: Opt[seq[ForkedBlobSidecars]], i: int): Opt[ForkedBlobSidecars] =
   if blobs.isSome:
     Opt.some(blobs.get()[i])
   else:
-    Opt.none(BlobSidecars)
+    Opt.none(ForkedBlobSidecars)
 
-iterator blocks[T](sq: SyncQueue[T],
-                   sr: SyncResult[T]): (ref ForkedSignedBeaconBlock, Opt[BlobSidecars]) =
+iterator blocks[T](
+    sq: SyncQueue[T],
+    sr: SyncResult[T]): (ref ForkedSignedBeaconBlock, Opt[ForkedBlobSidecars]) =
   case sq.kind
   of SyncQueueKind.Forward:
     for i in countup(0, len(sr.data) - 1):
@@ -607,11 +613,13 @@ func numAlreadyKnownSlots[T](sq: SyncQueue[T], sr: SyncRequest[T]): uint64 =
       # Entire request is still relevant.
       0
 
-proc push*[T](sq: SyncQueue[T], sr: SyncRequest[T],
-              data: seq[ref ForkedSignedBeaconBlock],
-              blobs: Opt[seq[BlobSidecars]],
-              maybeFinalized: bool = false,
-              processingCb: ProcessingCallback = nil) {.async: (raises: [CancelledError]).} =
+proc push*[T](
+    sq: SyncQueue[T], sr: SyncRequest[T],
+    data: seq[ref ForkedSignedBeaconBlock],
+    blobs: Opt[seq[ForkedBlobSidecars]],
+    maybeFinalized: bool = false,
+    processingCb: ProcessingCallback = nil
+) {.async: (raises: [CancelledError]).} =
   logScope:
     sync_ident = sq.ident
     topics = "syncman"

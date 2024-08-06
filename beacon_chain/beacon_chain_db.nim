@@ -114,7 +114,7 @@ type
     keyValues: KvStoreRef # Random stuff using DbKeyKind - suitable for small values mainly!
     blocks: array[ConsensusFork, KvStoreRef] # BlockRoot -> TrustedSignedBeaconBlock
 
-    blobs: KvStoreRef # (BlockRoot -> BlobSidecar)
+    blobs: array[BlobFork, KvStoreRef] # (BlockRoot -> BlobSidecar)
 
     stateRoots: KvStoreRef # (Slot, BlockRoot) -> StateRoot
 
@@ -559,9 +559,12 @@ proc new*(T: type BeaconChainDB,
       sealedPeriods: "lc_sealed_periods")).expectDb()
   static: doAssert LightClientDataFork.high == LightClientDataFork.Electra
 
-  var blobs : KvStoreRef
+  var blobs: array[BlobFork, KvStoreRef]
   if cfg.DENEB_FORK_EPOCH != FAR_FUTURE_EPOCH:
-    blobs = kvStore db.openKvStore("deneb_blobs").expectDb()
+    blobs[BlobFork.Deneb] = kvStore db.openKvStore("deneb_blobs").expectDb()
+  if cfg.ELECTRA_FORK_EPOCH != FAR_FUTURE_EPOCH:
+    blobs[BlobFork.Electra] = kvStore db.openKvStore("electra_blobs").expectDb()
+  static: doAssert BlobFork.high == BlobFork.Electra
 
   # Versions prior to 1.4.0 (altair) stored validators in `immutable_validators`
   # which stores validator keys in compressed format - this is
@@ -765,8 +768,9 @@ proc close*(db: BeaconChainDB) =
   if db.db == nil: return
 
   # Close things roughly in reverse order
-  if not isNil(db.blobs):
-    discard db.blobs.close()
+  for blobFork in BlobFork:
+    if not isNil(db.blobs[blobFork]):
+      discard db.blobs[blobFork].close()
   db.lcData.close()
   db.finalizedBlocks.close()
   discard db.summaries.close()
@@ -812,16 +816,20 @@ proc putBlock*(
     db.blocks[type(value).kind].putSZSSZ(value.root.data, value)
     db.putBeaconBlockSummary(value.root, value.message.toBeaconBlockSummary())
 
-proc putBlobSidecar*(
-    db: BeaconChainDB,
-    value: BlobSidecar) =
+proc putBlobSidecar*[T: ForkyBlobSidecar](
+    db: BeaconChainDB, value: T) =
   let block_root = hash_tree_root(value.signed_block_header.message)
-  db.blobs.putSZSSZ(blobkey(block_root, value.index), value)
+  db.blobs[T.kind].putSZSSZ(blobkey(block_root, value.index), value)
 
 proc delBlobSidecar*(
     db: BeaconChainDB,
     root: Eth2Digest, index: BlobIndex): bool =
-  db.blobs.del(blobkey(root, index)).expectDb()
+  var res = false
+  for blobFork in BlobFork:
+    if db.blobs[blobFork] == nil: continue
+    if db.blobs[blobFork].del(blobkey(root, index)).expectDb():
+      res = true
+  res
 
 proc updateImmutableValidators*(
     db: BeaconChainDB, validators: openArray[Validator]) =
@@ -1070,16 +1078,20 @@ proc getBlockSSZ*(
   withConsensusFork(fork):
     getBlockSSZ(db, key, data, consensusFork.TrustedSignedBeaconBlock)
 
-proc getBlobSidecarSZ*(db: BeaconChainDB, root: Eth2Digest, index: BlobIndex,
-                       data: var seq[byte]): bool =
+proc getBlobSidecarSZ*[T: ForkyBlobSidecar](
+    db: BeaconChainDB, root: Eth2Digest, index: BlobIndex,
+    data: var seq[byte]): bool =
+  if db.blobs[T.kind] == nil: return false
   let dataPtr = addr data # Short-lived
   func decode(data: openArray[byte]) =
     assign(dataPtr[], data)
-  db.blobs.get(blobkey(root, index), decode).expectDb()
+  db.blobs[T.kind].get(blobkey(root, index), decode).expectDb()
 
-proc getBlobSidecar*(db: BeaconChainDB, root: Eth2Digest, index: BlobIndex,
-                     value: var BlobSidecar): bool =
-  db.blobs.getSZSSZ(blobkey(root, index), value) == GetResult.found
+proc getBlobSidecar*[T: ForkyBlobSidecar](
+    db: BeaconChainDB, root: Eth2Digest, index: BlobIndex,
+    value: var T): bool =
+  if db.blobs[T.kind] == nil: return false
+  db.blobs[T.kind].getSZSSZ(blobkey(root, index), value) == GetResult.found
 
 proc getBlockSZ*(
     db: BeaconChainDB, key: Eth2Digest, data: var seq[byte],
@@ -1366,7 +1378,8 @@ proc containsBlock*(
 
 proc containsBlock*[
     X: altair.TrustedSignedBeaconBlock | bellatrix.TrustedSignedBeaconBlock |
-       capella.TrustedSignedBeaconBlock | deneb.TrustedSignedBeaconBlock](
+       capella.TrustedSignedBeaconBlock | deneb.TrustedSignedBeaconBlock |
+       electra.TrustedSignedBeaconBlock](
     db: BeaconChainDB, key: Eth2Digest, T: type X): bool =
   db.blocks[X.kind].contains(key.data).expectDb()
 

@@ -140,6 +140,11 @@ proc installConfigApiHandlers*(router: var RestRouter, node: BeaconNode) =
           KZG_COMMITMENT_INCLUSION_PROOF_DEPTH:
             Base10.toString(uint64(KZG_COMMITMENT_INCLUSION_PROOF_DEPTH)),
 
+          # https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.3/specs/electra/p2p-interface.md#custom-types
+          KZG_COMMITMENT_INCLUSION_PROOF_DEPTH_ELECTRA:
+            Base10.toString(uint64(
+              KZG_COMMITMENT_INCLUSION_PROOF_DEPTH_ELECTRA)),
+
           # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.5/configs/mainnet.yaml
           PRESET_BASE:
             cfg.PRESET_BASE,

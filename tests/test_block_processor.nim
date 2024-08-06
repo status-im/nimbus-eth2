@@ -64,7 +64,7 @@ suite "Block processor" & preset():
     let
       missing = await processor[].addBlock(
         MsgSource.gossip, ForkedSignedBeaconBlock.init(b2),
-        Opt.none(BlobSidecars))
+        Opt.none(ForkedBlobSidecars))
 
     check: missing.error == VerifierError.MissingParent
 
@@ -76,7 +76,7 @@ suite "Block processor" & preset():
     let
       status = await processor[].addBlock(
         MsgSource.gossip, ForkedSignedBeaconBlock.init(b1),
-        Opt.none(BlobSidecars))
+        Opt.none(ForkedBlobSidecars))
       b1Get = dag.getBlockRef(b1.root)
 
     check:

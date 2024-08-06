@@ -7,7 +7,9 @@
 
 {.push raises: [].}
 
-import ".."/datatypes/[altair, electra]
+import
+  ".."/datatypes/[altair, electra],
+  ./stable_mev
 
 from stew/byteutils import to0xHex
 from ".."/datatypes/phase0 import AttesterSlashing
@@ -28,7 +30,7 @@ type
     message*: BuilderBid
     signature*: ValidatorSig
 
-  BlindedBeaconBlockBody* = object
+  BlindedBeaconBlockBody* {.sszProfile: StableBlindedBeaconBlockBody.} = object
     randao_reveal*: ValidatorSig
     eth1_data*: Eth1Data
     graffiti*: GraffitiBytes

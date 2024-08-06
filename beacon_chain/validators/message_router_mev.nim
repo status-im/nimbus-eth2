@@ -130,7 +130,7 @@ proc unblindAndRouteBlockMEV*(
           bundle.data.blobs_bundle.commitments:
         return err("unblinded blobs bundle has unexpected commitments")
       let ok = verifyProofs(
-          asSeq blobs_bundle.blobs,
+          blobs_bundle.blobs.mapIt(KzgBlob(bytes: it)),
           asSeq blobs_bundle.commitments,
           asSeq blobs_bundle.proofs).valueOr:
         return err("unblinded blobs bundle fails verification")
@@ -139,7 +139,7 @@ proc unblindAndRouteBlockMEV*(
       Opt.some(signedBlock.create_blob_sidecars(
         blobs_bundle.proofs, blobs_bundle.blobs))
     else:
-      Opt.none(seq[BlobSidecar])
+      Opt.none(seq[deneb.BlobSidecar])
 
   debug "unblindAndRouteBlockMEV: proposing unblinded block",
     blck = shortLog(signedBlock)

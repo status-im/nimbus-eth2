@@ -491,9 +491,11 @@ func asConsensusType*(payload: engine_api.GetPayloadV3Response):
     # Both are defined as `array[N, byte]` under the hood.
     blobsBundle: deneb.BlobsBundle(
       commitments: KzgCommitments.init(
-        payload.blobsBundle.commitments.mapIt(it.bytes)),
+        payload.blobsBundle.commitments.mapIt(
+          kzg_abi.KzgCommitment(bytes: it.bytes))),
       proofs: KzgProofs.init(
-        payload.blobsBundle.proofs.mapIt(it.bytes)),
+        payload.blobsBundle.proofs.mapIt(
+          kzg_abi.KzgProof(bytes: it.bytes))),
       blobs: Blobs.init(
         payload.blobsBundle.blobs.mapIt(it.bytes))))
 
@@ -604,24 +606,25 @@ func asConsensusType*(rpcExecutionPayload: ExecutionPayloadV4):
           else:
             Opt.none(array[65, byte])))
 
-  template getDepositRequest(dr: DepositRequestV1): DepositRequest =
-    DepositRequest(
+  template getDepositRequest(
+      dr: DepositRequestV1): electra.DepositRequest =
+    electra.DepositRequest(
       pubkey: ValidatorPubKey(blob: dr.pubkey.distinctBase),
       withdrawal_credentials: dr.withdrawalCredentials.asEth2Digest,
       amount: dr.amount.Gwei,
       signature: ValidatorSig(blob: dr.signature.distinctBase),
       index: dr.index.uint64)
 
-  template getWithdrawalRequest(wr: WithdrawalRequestV1): WithdrawalRequest =
-    WithdrawalRequest(
+  template getWithdrawalRequest(
+      wr: WithdrawalRequestV1): electra.WithdrawalRequest =
+    electra.WithdrawalRequest(
       source_address: ExecutionAddress(data: wr.sourceAddress.distinctBase),
-      validator_pubkey: ValidatorPubKey(
-        blob: wr.validatorPublicKey.distinctBase),
+      validator_pubkey: ValidatorPubKey(blob: wr.validatorPubkey.distinctBase),
       amount: wr.amount.Gwei)
 
-  template getConsolidationRequest(cr: ConsolidationRequestV1):
-      ConsolidationRequest =
-    ConsolidationRequest(
+  template getConsolidationRequest(
+      cr: ConsolidationRequestV1): electra.ConsolidationRequest =
+    electra.ConsolidationRequest(
       source_address: ExecutionAddress(data: cr.sourceAddress.distinctBase),
       source_pubkey: ValidatorPubKey(blob: cr.sourcePubkey.distinctBase),
       target_pubkey: ValidatorPubKey(blob: cr.targetPubkey.distinctBase))
@@ -671,9 +674,11 @@ func asConsensusType*(payload: engine_api.GetPayloadV4Response):
     # Both are defined as `array[N, byte]` under the hood.
     blobsBundle: deneb.BlobsBundle(
       commitments: KzgCommitments.init(
-        payload.blobsBundle.commitments.mapIt(it.bytes)),
+        payload.blobsBundle.commitments.mapIt(
+          kzg_abi.KzgCommitment(bytes: it.bytes))),
       proofs: KzgProofs.init(
-        payload.blobsBundle.proofs.mapIt(it.bytes)),
+        payload.blobsBundle.proofs.mapIt(
+          kzg_abi.KzgProof(bytes: it.bytes))),
       blobs: Blobs.init(
         payload.blobsBundle.blobs.mapIt(it.bytes))))
 
@@ -853,7 +858,8 @@ func asEngineExecutionPayload*(executionPayload: electra.ExecutionPayload):
           else:
             Opt.none(FixedBytes[65])))
 
-  template getDepositRequest(dr: DepositRequest): DepositRequestV1 =
+  template getDepositRequest(
+      dr: electra.DepositRequest): DepositRequestV1 =
     DepositRequestV1(
       pubkey: FixedBytes[RawPubKeySize](dr.pubkey.blob),
       withdrawalCredentials: FixedBytes[32](dr.withdrawal_credentials.data),
@@ -861,14 +867,15 @@ func asEngineExecutionPayload*(executionPayload: electra.ExecutionPayload):
       signature: FixedBytes[RawSigSize](dr.signature.blob),
       index: dr.index.Quantity)
 
-  template getWithdrawalRequest(wr: WithdrawalRequest): WithdrawalRequestV1 =
+  template getWithdrawalRequest(
+      wr: electra.WithdrawalRequest): WithdrawalRequestV1 =
     WithdrawalRequestV1(
       sourceAddress: Address(wr.source_address.data),
-      validatorPublicKey: FixedBytes[RawPubKeySize](wr.validator_pubkey.blob),
+      validatorPubkey: FixedBytes[RawPubKeySize](wr.validator_pubkey.blob),
       amount: wr.amount.Quantity)
 
-  template getConsolidationRequest(cr: ConsolidationRequest):
-      ConsolidationRequestV1 =
+  template getConsolidationRequest(
+      cr: electra.ConsolidationRequest): ConsolidationRequestV1 =
     ConsolidationRequestV1(
       sourceAddress: Address(cr.source_address.data),
       sourcePubkey: FixedBytes[RawPubKeySize](cr.source_pubkey.blob),
@@ -1549,6 +1556,14 @@ proc sendNewPayload*(
         if len(pendingRequests) == 0:
           # All requests failed, we will continue our attempts until deadline
           # is not finished.
+
+          # To avoid continous spam of requests when EL node is offline we
+          # going to sleep until next attempt for
+          # (NEWPAYLOAD_TIMEOUT / 4) time (2.seconds).
+          let timeout =
+            chronos.nanoseconds(NEWPAYLOAD_TIMEOUT.nanoseconds div 4)
+          await sleepAsync(timeout)
+
           break mainLoop
 
 proc forkchoiceUpdatedForSingleEL(
@@ -1722,6 +1737,14 @@ proc forkchoiceUpdated*(
         if len(pendingRequests) == 0:
           # All requests failed, we will continue our attempts until deadline
           # is not finished.
+
+          # To avoid continous spam of requests when EL node is offline we
+          # going to sleep until next attempt for
+          # (FORKCHOICEUPDATED_TIMEOUT / 4) time (2.seconds).
+          let timeout =
+            chronos.nanoseconds(FORKCHOICEUPDATED_TIMEOUT.nanoseconds div 4)
+          await sleepAsync(timeout)
+
           break mainLoop
 
 # TODO can't be defined within exchangeConfigWithSingleEL

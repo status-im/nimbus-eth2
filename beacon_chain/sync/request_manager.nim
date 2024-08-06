@@ -47,7 +47,7 @@ type
   ): Opt[ForkedTrustedSignedBeaconBlock] {.gcsafe, raises: [].}
 
   BlobLoaderFn* = proc(
-      blobId: BlobIdentifier): Opt[ref BlobSidecar] {.gcsafe, raises: [].}
+      blobId: BlobIdentifier): Opt[ForkedBlobSidecar] {.gcsafe, raises: [].}
 
   InhibitFn* = proc: bool {.gcsafe, raises: [].}
 
@@ -102,21 +102,23 @@ proc checkResponse(roots: openArray[Eth2Digest],
       checks.del(res)
   true
 
-proc checkResponse(idList: seq[BlobIdentifier],
-                   blobs: openArray[ref BlobSidecar]): bool =
+proc checkResponse(
+    idList: seq[BlobIdentifier],
+    blobs: openArray[ForkedBlobSidecar]): bool =
   if len(blobs) > len(idList):
     return false
   for blob in blobs:
-    let block_root = hash_tree_root(blob.signed_block_header.message)
-    var found = false
-    for id in idList:
-      if id.block_root == block_root and id.index == blob.index:
-        found = true
-        break
-    if not found:
-      return false
-    blob[].verify_blob_sidecar_inclusion_proof().isOkOr:
-      return false
+    withForkyBlob(blob):
+      let block_root = hash_tree_root(forkyBlob[].signed_block_header.message)
+      var found = false
+      for id in idList:
+        if id.block_root == block_root and id.index == forkyBlob[].index:
+          found = true
+          break
+      if not found:
+        return false
+      forkyBlob[].verify_blob_sidecar_inclusion_proof().isOkOr:
+        return false
   true
 
 proc requestBlocksByRoot(rman: RequestManager, items: seq[Eth2Digest]) {.async: (raises: [CancelledError]).} =
@@ -214,7 +216,8 @@ proc fetchBlobsFromNetwork(self: RequestManager,
         self.blobQuarantine[].put(b)
       var curRoot: Eth2Digest
       for b in ublobs:
-        let block_root = hash_tree_root(b.signed_block_header.message)
+        let block_root = withForkyBlob(b):
+          hash_tree_root(forkyBlob[].signed_block_header.message)
         if block_root != curRoot:
           curRoot = block_root
           if (let o = self.quarantine[].popBlobless(curRoot); o.isSome):

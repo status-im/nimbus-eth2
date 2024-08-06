@@ -288,6 +288,15 @@ proc updateValidator*(pool: var ValidatorPool,
 
     validator.activationEpoch = activationEpoch
 
+func invalidateValidatorRegistration*(
+    pool: var ValidatorPool, pubkey: ValidatorPubKey) =
+  # When the per-validator fee recipient changes via keymanager, the builder
+  # API validator registration needs to be recomputed. This will happen when
+  # next the registrations are sent, but ensure here that will happen rather
+  # than relying on a now-outdated, cached, validator registration.
+  pool.getValidator(pubkey).isErrOr:
+    value.externalBuilderRegistration.reset()
+
 proc close*(pool: var ValidatorPool) =
   ## Unlock and close all validator keystore's files managed by ``pool``.
   for validator in pool.validators.values():

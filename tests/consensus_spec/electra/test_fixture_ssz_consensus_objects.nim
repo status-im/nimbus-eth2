@@ -125,7 +125,7 @@ suite "EF - Electra - SSZ consensus objects " & preset():
           of "BeaconBlockHeader": checkSSZ(BeaconBlockHeader, path, hash)
           of "BeaconState": checkSSZ(electra.BeaconState, path, hash)
           of "BlobIdentifier": checkSSZ(BlobIdentifier, path, hash)
-          of "BlobSidecar": checkSSZ(BlobSidecar, path, hash)
+          of "BlobSidecar": checkSSZ(electra.BlobSidecar, path, hash)
           of "BLSToExecutionChange": checkSSZ(BLSToExecutionChange, path, hash)
           of "Checkpoint": checkSSZ(Checkpoint, path, hash)
           of "ConsolidationRequest": checkSSZ(ConsolidationRequest, path, hash)
@@ -136,9 +136,10 @@ suite "EF - Electra - SSZ consensus objects " & preset():
           of "DepositRequest": checkSSZ(DepositRequest, path, hash)
           of "Eth1Block": checkSSZ(Eth1Block, path, hash)
           of "Eth1Data": checkSSZ(Eth1Data, path, hash)
-          of "ExecutionPayload": checkSSZ(ExecutionPayload, path, hash)
+          of "ExecutionPayload":
+            checkSSZ(electra.ExecutionPayload, path, hash)
           of "ExecutionPayloadHeader":
-            checkSSZ(ExecutionPayloadHeader, path, hash)
+            checkSSZ(electra.ExecutionPayloadHeader, path, hash)
           of "Fork": checkSSZ(Fork, path, hash)
           of "ForkData": checkSSZ(ForkData, path, hash)
           of "HistoricalBatch": checkSSZ(HistoricalBatch, path, hash)
@@ -146,8 +147,10 @@ suite "EF - Electra - SSZ consensus objects " & preset():
           of "IndexedAttestation": checkSSZ(electra.IndexedAttestation, path, hash)
           of "LightClientBootstrap":
             checkSSZ(electra.LightClientBootstrap, path, hash)
-          of "LightClientHeader": checkSSZ(electra.LightClientHeader, path, hash)
-          of "LightClientUpdate": checkSSZ(electra.LightClientUpdate, path, hash)
+          of "LightClientHeader":
+            checkSSZ(electra.LightClientHeader, path, hash)
+          of "LightClientUpdate":
+            checkSSZ(electra.LightClientUpdate, path, hash)
           of "LightClientFinalityUpdate":
             checkSSZ(electra.LightClientFinalityUpdate, path, hash)
           of "LightClientOptimisticUpdate":
@@ -172,6 +175,20 @@ suite "EF - Electra - SSZ consensus objects " & preset():
             checkSSZ(SignedContributionAndProof, path, hash)
           of "SignedVoluntaryExit": checkSSZ(SignedVoluntaryExit, path, hash)
           of "SigningData": checkSSZ(SigningData, path, hash)
+          of "StableAttestation":
+            checkSSZ(StableAttestation, path, hash)
+          of "StableAttesterSlashing":
+            checkSSZ(StableAttesterSlashing, path, hash)
+          of "StableBeaconBlockBody":
+            checkSSZ(StableBeaconBlockBody, path, hash)
+          of "StableBeaconState":
+            checkSSZ(StableBeaconState, path, hash)
+          of "StableExecutionPayload":
+            checkSSZ(StableExecutionPayload, path, hash)
+          of "StableExecutionPayloadHeader":
+            checkSSZ(StableExecutionPayloadHeader, path, hash)
+          of "StableIndexedAttestation":
+            checkSSZ(StableIndexedAttestation, path, hash)
           of "SyncAggregate": checkSSZ(SyncAggregate, path, hash)
           of "SyncAggregatorSelectionData":
             checkSSZ(SyncAggregatorSelectionData, path, hash)

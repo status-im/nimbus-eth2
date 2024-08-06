@@ -43,6 +43,10 @@ type
   Blob* = array[
     BYTES_PER_FIELD_ELEMENT * deneb_preset.FIELD_ELEMENTS_PER_BLOB, byte]
 
+  # https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.3/specs/deneb/p2p-interface.md#custom-types
+  KzgCommitmentInclusionProof* =
+    array[KZG_COMMITMENT_INCLUSION_PROOF_DEPTH, Eth2Digest]
+
   # https://github.com/ethereum/consensus-specs/blob/v1.4.0/specs/deneb/p2p-interface.md#blobsidecar
   BlobSidecar* = object
     index*: BlobIndex
@@ -52,8 +56,7 @@ type
     kzg_proof*: KzgProof
       ## Allows for quick verification of kzg_commitment
     signed_block_header*: SignedBeaconBlockHeader
-    kzg_commitment_inclusion_proof*:
-      array[KZG_COMMITMENT_INCLUSION_PROOF_DEPTH, Eth2Digest]
+    kzg_commitment_inclusion_proof*: KzgCommitmentInclusionProof
   BlobSidecars* = seq[ref BlobSidecar]
 
   # https://github.com/ethereum/beacon-APIs/blob/4882aa0803b622b75bab286b285599d70b7a2429/apis/eventstream/index.yaml#L138-L142
@@ -518,7 +521,7 @@ func initHashedBeaconState*(s: BeaconState): HashedBeaconState =
   HashedBeaconState(data: s)
 
 func shortLog*(v: KzgCommitment | KzgProof): auto =
-  to0xHex(v)
+  to0xHex(v.bytes)
 
 func shortLog*(v: Blob): auto =
   to0xHex(v.toOpenArray(0, 31))
@@ -660,8 +663,8 @@ func is_valid_light_client_header*(
 
   if epoch < cfg.CAPELLA_FORK_EPOCH:
     return
-      header.execution == default(ExecutionPayloadHeader) and
-      header.execution_branch == default(ExecutionBranch)
+      header.execution == static(default(ExecutionPayloadHeader)) and
+      header.execution_branch == static(default(ExecutionBranch))
 
   is_valid_merkle_branch(
     get_lc_execution_root(header, cfg),
@@ -750,7 +753,7 @@ func shortLog*(v: LightClientUpdate): auto =
   (
     attested: shortLog(v.attested_header),
     has_next_sync_committee:
-      v.next_sync_committee != default(typeof(v.next_sync_committee)),
+      v.next_sync_committee != static(default(typeof(v.next_sync_committee))),
     finalized: shortLog(v.finalized_header),
     num_active_participants: v.sync_aggregate.num_active_participants,
     signature_slot: v.signature_slot
