@@ -14,9 +14,6 @@ import chronicles, chronos, metrics,
 from ./block_pools_types import VerifierError, BlockData, ChainListRef
 from std/os import `/`
 
-type
-  ChainListRes* = Result[void, VerifierError]
-
 const
   ChainFileName = "backfill.dat"
 
@@ -86,7 +83,7 @@ proc addBackfillBlockData*(
       clist.head = Opt.some(BlockData(blck: signedBlock, blob: blobs))
 
     debug "Initial block backfilled",
-          store_block_duration = storeBlockTick - Moment.now()
+          store_block_duration = shortLog(Moment.now() - storeBlockTick)
 
     return ok()
 
@@ -115,21 +112,12 @@ proc addBackfillBlockData*(
            filename = clist.fileName, reason = res.error()
     quit 1
 
+  debug "Block backfilled",
+        store_block_duration = shortLog(Moment.now() - storeBlockTick)
+
   clist.tail = Opt.some(BlockData(blck: signedBlock, blob: blobs))
 
-  debug "Block backfilled",
-        store_block_duration = shortLog(storeBlockTick - Moment.now())
   ok()
-
-# proc untrustedBackfillVerifier*(
-#     clist: ChainListRef,
-#     signedBlock: ForkedSignedBeaconBlock,
-#     blobs: Opt[BlobSidecars],
-#     maybeFinalized: bool
-# ): Future[ChainListRes] {.async: (raises: [CancelledError], raw: true).} =
-#   let retFuture = newFuture[ChainListRes]()
-#   retFuture.complete(clist.addBackfillBlockData(signedBlock, blobs))
-#   retFuture
 
 proc untrustedBackfillVerifier*(
     clist: ChainListRef,
