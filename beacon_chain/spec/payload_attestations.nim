@@ -10,37 +10,12 @@
 import
   sequtils,
   "."/[forks, ptc_status],
-  ./datatypes/[phase0, altair, bellatrix], ./helpers
-
-type
-
-  # https://github.com/ethereum/consensus-specs/blob/1508f51b80df5488a515bfedf486f98435200e02/specs/_features/eipxxxx/beacon-chain.md#payloadattestationdata
-  PayloadAttestationData* = object
-    beaconBlockRoot*: Eth2Digest
-    slot*: Slot
-    payload_Status*: uint8
-
-  # https://github.com/ethereum/consensus-specs/blob/1508f51b80df5488a515bfedf486f98435200e02/specs/_features/eipxxxx/beacon-chain.md#payloadattestation
-  PayloadAttestation* = object
-    aggregation_bits*: ElectraCommitteeValidatorsBits
-    data*: PayloadAttestationData
-    signature*: ValidatorSig
-
-  # https://github.com/ethereum/consensus-specs/blob/1508f51b80df5488a515bfedf486f98435200e02/specs/_features/eipxxxx/beacon-chain.md#payloadattestationmessage
-  PayloadAttestationMessage* = object
-    validatorIndex: ValidatorIndex
-    data: PayloadAttestationData
-    signature: ValidatorSig
-
-  # https://github.com/ethereum/consensus-specs/blob/1508f51b80df5488a515bfedf486f98435200e02/specs/_features/eipxxxx/beacon-chain.md#indexedpayloadattestation
-  IndexedPayloadAttestation* = object
-    attesting_indices: List[ValidatorIndex, Limit PTC_SIZE]
-    data: PayloadAttestationData
-    signature: ValidatorSig
+  ./helpers, 
+  ./datatypes/epbs
 
 # https://github.com/ethereum/consensus-specs/blob/1508f51b80df5488a515bfedf486f98435200e02/specs/_features/eipxxxx/beacon-chain.md#predicates
 proc is_valid_indexed_payload_attestation(
-    state: capella.BeaconState, # [TODO] to be replaced with epbs.BeaconState
+    state: epbs.BeaconState, 
     indexed_payload_attestation: IndexedPayloadAttestation): bool =
 
   # Verify that data is valid
@@ -78,3 +53,7 @@ proc is_valid_indexed_payload_attestation(
 
   blsFastAggregateVerify(pubkeys, signing_root.data,
       indexed_payload_attestation.signature)
+
+# # https://github.com/ethereum/consensus-specs/blob/1508f51b80df5488a515bfedf486f98435200e02/specs/_features/eipxxxx/beacon-chain.md#is_parent_block_full
+proc is_parent_block_full(state: epbs.BeaconState) : bool = 
+  state.latest_execution_payload_header.block_hash == state.latest_block_hash

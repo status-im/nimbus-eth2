@@ -608,7 +608,7 @@ proc compute_execution_block_hash*(blck: ForkyBeaconBlock): Eth2Digest =
   rlpHash blockToBlockHeader(blck)
 
 func bit_length(n: SomeInteger): SomeInteger =
-  # Returns the number of bits required to represent ``n``, used in bit_floor method.
+  # Returns the number of bits required to represent `n`.
   if n == 0:
     return 1
   else:
