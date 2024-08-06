@@ -269,7 +269,7 @@ proc verify_voluntary_exit_signature*(
 
     blsVerify(pubkey, signing_root.data, signature)
 
-# https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.2/specs/altair/validator.md#prepare-sync-committee-message
+# https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.3/specs/altair/validator.md#prepare-sync-committee-message
 func compute_sync_committee_message_signing_root*(
     fork: Fork, genesis_validators_root: Eth2Digest,
     slot: Slot, beacon_block_root: Eth2Digest): Eth2Digest =
@@ -304,7 +304,7 @@ proc verify_sync_committee_signature*(
 
   blsFastAggregateVerify(pubkeys, signing_root.data, signature)
 
-# https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.2/specs/altair/validator.md#aggregation-selection
+# https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.3/specs/altair/validator.md#aggregation-selection
 func compute_sync_committee_selection_proof_signing_root*(
     fork: Fork, genesis_validators_root: Eth2Digest,
     slot: Slot, subcommittee_index: SyncSubcommitteeIndex): Eth2Digest =
@@ -335,7 +335,7 @@ proc verify_sync_committee_selection_proof*(
 
     blsVerify(pubkey, signing_root.data, signature)
 
-# https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.2/specs/altair/validator.md#signature
+# https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.3/specs/altair/validator.md#signature
 func compute_contribution_and_proof_signing_root*(
     fork: Fork, genesis_validators_root: Eth2Digest,
     msg: ContributionAndProof): Eth2Digest =
@@ -353,7 +353,7 @@ proc get_contribution_and_proof_signature*(
 
   blsSign(privkey, signing_root.data)
 
-# https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.2/specs/altair/validator.md#aggregation-selection
+# https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.3/specs/altair/validator.md#aggregation-selection
 func is_sync_committee_aggregator*(signature: ValidatorSig): bool =
   let
     signatureDigest = eth2digest(signature.blob)
@@ -393,7 +393,7 @@ proc verify_builder_signature*(
   let signing_root = compute_builder_signing_root(fork, msg)
   blsVerify(pubkey, signing_root.data, signature)
 
-# https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.2/specs/capella/beacon-chain.md#new-process_bls_to_execution_change
+# https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.3/specs/capella/beacon-chain.md#new-process_bls_to_execution_change
 func compute_bls_to_execution_change_signing_root*(
     genesisFork: Fork, genesis_validators_root: Eth2Digest,
     msg: BLSToExecutionChange): Eth2Digest =
@@ -421,23 +421,3 @@ proc verify_bls_to_execution_change_signature*(
   let signing_root = compute_bls_to_execution_change_signing_root(
     genesisFork, genesis_validators_root, msg.message)
   blsVerify(pubkey, signing_root.data, signature)
-
-func compute_consolidation_signing_root(
-    genesisFork: Fork, genesis_validators_root: Eth2Digest,
-    msg: Consolidation): Eth2Digest =
-  # Uses genesis fork version regardless
-  doAssert genesisFork.current_version == genesisFork.previous_version
-
-  let domain = compute_domain(
-    DOMAIN_CONSOLIDATION, genesisFork.current_version,
-    genesis_validators_root=genesis_validators_root)
-  compute_signing_root(msg, domain)
-
-proc verify_consolidation_signature*(
-    genesisFork: Fork, genesis_validators_root: Eth2Digest,
-    msg: SignedConsolidation | TrustedSignedConsolidation,
-    pubkeys: openArray[ValidatorPubKey]): bool =
-  withTrust(msg.signature):
-    let signing_root = compute_consolidation_signing_root(
-      genesisFork, genesis_validators_root, msg.message)
-    blsFastAggregateVerify(pubkeys, signing_root.data, msg.signature)

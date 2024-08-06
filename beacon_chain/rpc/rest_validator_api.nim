@@ -1102,7 +1102,7 @@ proc installValidatorApiHandlers*(router: var RestRouter, node: BeaconNode) =
       numUpdatedFeeRecipients = numUpdated,
       numRefreshedFeeRecipients = numRefreshed
 
-    RestApiResponse.response("", Http200, "text/plain")
+    RestApiResponse.response(Http200)
 
   # https://ethereum.github.io/beacon-APIs/#/Validator/registerValidator
   # https://github.com/ethereum/beacon-APIs/blob/v2.3.0/apis/validator/register_validator.yaml
@@ -1129,7 +1129,7 @@ proc installValidatorApiHandlers*(router: var RestRouter, node: BeaconNode) =
       node.externalBuilderRegistrations[signedValidatorRegistration.message.pubkey] =
         signedValidatorRegistration
 
-    RestApiResponse.response("", Http200, "text/plain")
+    RestApiResponse.response(Http200)
 
   # https://ethereum.github.io/beacon-APIs/#/Validator/getLiveness
   router.api2(MethodPost, "/eth/v1/validator/liveness/{epoch}") do (

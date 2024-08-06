@@ -110,10 +110,10 @@ suite "EF - Capella - SSZ consensus objects " & preset():
           let hash = loadExpectedHashTreeRoot(path)
 
           case sszType:
-          of "AggregateAndProof": checkSSZ(AggregateAndProof, path, hash)
-          of "Attestation": checkSSZ(Attestation, path, hash)
+          of "AggregateAndProof": checkSSZ(phase0.AggregateAndProof, path, hash)
+          of "Attestation": checkSSZ(phase0.Attestation, path, hash)
           of "AttestationData": checkSSZ(AttestationData, path, hash)
-          of "AttesterSlashing": checkSSZ(AttesterSlashing, path, hash)
+          of "AttesterSlashing": checkSSZ(phase0.AttesterSlashing, path, hash)
           of "BeaconBlock": checkSSZ(capella.BeaconBlock, path, hash)
           of "BeaconBlockBody": checkSSZ(capella.BeaconBlockBody, path, hash)
           of "BeaconBlockHeader": checkSSZ(BeaconBlockHeader, path, hash)
@@ -126,14 +126,16 @@ suite "EF - Capella - SSZ consensus objects " & preset():
           of "DepositMessage": checkSSZ(DepositMessage, path, hash)
           of "Eth1Block": checkSSZ(Eth1Block, path, hash)
           of "Eth1Data": checkSSZ(Eth1Data, path, hash)
-          of "ExecutionPayload": checkSSZ(ExecutionPayload, path, hash)
+          of "ExecutionPayload":
+            checkSSZ(capella.ExecutionPayload, path, hash)
           of "ExecutionPayloadHeader":
-            checkSSZ(ExecutionPayloadHeader, path, hash)
+            checkSSZ(capella.ExecutionPayloadHeader, path, hash)
           of "Fork": checkSSZ(Fork, path, hash)
           of "ForkData": checkSSZ(ForkData, path, hash)
           of "HistoricalBatch": checkSSZ(HistoricalBatch, path, hash)
           of "HistoricalSummary": checkSSZ(HistoricalSummary, path, hash)
-          of "IndexedAttestation": checkSSZ(IndexedAttestation, path, hash)
+          of "IndexedAttestation":
+            checkSSZ(phase0.IndexedAttestation, path, hash)
           of "LightClientBootstrap":
             checkSSZ(capella.LightClientBootstrap, path, hash)
           of "LightClientHeader":
@@ -148,7 +150,7 @@ suite "EF - Capella - SSZ consensus objects " & preset():
           of "PowBlock": checkSSZ(PowBlock, path, hash)
           of "ProposerSlashing": checkSSZ(ProposerSlashing, path, hash)
           of "SignedAggregateAndProof":
-            checkSSZ(SignedAggregateAndProof, path, hash)
+            checkSSZ(phase0.SignedAggregateAndProof, path, hash)
           of "SignedBeaconBlock":
             checkSSZ(capella.SignedBeaconBlock, path, hash)
           of "SignedBeaconBlockHeader":

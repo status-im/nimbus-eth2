@@ -379,9 +379,9 @@ proc createEnr(rng: var HmacDrbgContext,
     bootstrapEnr = enr.Record.init(
       1, # sequence number
       networkKeys.seckey.asEthKey,
-      some(address),
-      some(port),
-      some(port),
+      Opt.some(address),
+      Opt.some(port),
+      Opt.some(port),
       [
         toFieldPair(enrForkIdField, forkId),
         toFieldPair(enrAttestationSubnetsField, SSZ.encode(netMetadata.attnets))
