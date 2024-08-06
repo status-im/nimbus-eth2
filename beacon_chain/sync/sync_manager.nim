@@ -773,13 +773,27 @@ proc syncLoop[A, B](
 
     let (map, sleeping, waiting, pending) = man.getWorkersStats()
 
-    debug "Current syncing state", workers_map = map,
-          sleeping_workers_count = sleeping,
-          waiting_workers_count = waiting,
-          pending_workers_count = pending,
-          wall_head_slot = wallSlot, local_head_slot = headSlot,
-          pause_time = $chronos.seconds(pauseTime),
-          avg_sync_speed = man.avgSyncSpeed, ins_sync_speed = man.insSyncSpeed
+    case man.queue.kind
+    of SyncQueueKind.Forward:
+      debug "Current syncing state", workers_map = map,
+            sleeping_workers_count = sleeping,
+            waiting_workers_count = waiting,
+            pending_workers_count = pending,
+            wall_head_slot = wallSlot,
+            local_head_slot = headSlot,
+            pause_time = $chronos.seconds(pauseTime),
+            avg_sync_speed = man.avgSyncSpeed,
+            ins_sync_speed = man.insSyncSpeed
+    of SyncQueueKind.Backward:
+      debug "Current syncing state", workers_map = map,
+            sleeping_workers_count = sleeping,
+            waiting_workers_count = waiting,
+            pending_workers_count = pending,
+            wall_head_slot = wallSlot,
+            backfill_slot = man.getSafeSlot(),
+            pause_time = $chronos.seconds(pauseTime),
+            avg_sync_speed = man.avgSyncSpeed,
+            ins_sync_speed = man.insSyncSpeed
 
     let
       pivot = man.progressPivot
