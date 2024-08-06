@@ -9,7 +9,7 @@
 
 import chronicles, chronos, metrics,
        ../spec/forks,
-       ../beacon_chain_file
+       ../[beacon_chain_file, beacon_clock]
 
 from ./block_pools_types import VerifierError, BlockData, ChainListRef
 from std/os import `/`
@@ -42,12 +42,18 @@ proc init*(T: type ChainListRef, directory: string): ChainListRef =
 template slot*(data: BlockData): Slot =
   data.blck.slot
 
+template parent_root*(data: ForkedSignedBeaconBlock): Eth2Digest =
+  withBlck(data): forkyBlck.message.parent_root
+
 template parent_root*(data: BlockData): Eth2Digest =
-  withBlck(data.blck): forkyBlck.message.parent_root
+  data.blck.parent_root()
+
+template root*(data: BlockData): Eth2Digest =
+  withBlck(data.blck): forkyBlck.root
 
 template shortLog*(x: BlockData): string =
   let count = if x.blob.isSome(): $len(x.blob.get()) else: "0"
-  $(x.slot()) & "@" & shortLog(x.parent_root()) & count
+  $(x.slot()) & "@" & shortLog(x.parent_root()) & "#" & count
 
 template shortLog*(x: Opt[BlockData]): string =
   if x.isNone():
@@ -62,8 +68,9 @@ proc addBackfillBlockData*(
 
   logScope:
     backfill_tail = shortLog(clist.tail)
-    slot = signedBlock.slot
-    signed_block = shortLog(signedBlock)
+    signed_block_slot = signedBlock.slot
+    signed_block_root = signedBlock.root
+    signed_block_parent_root = signedBlock.parent_root
 
   if clist.tail.isNone():
     let
@@ -83,11 +90,20 @@ proc addBackfillBlockData*(
 
     return ok()
 
-  if signedBlock.slot >= clist.tail.get().slot:
+  let tail = clist.tail.get()
+
+  if signedBlock.slot == tail.slot:
+    if signedBlock.root == tail.root:
+      debug "Duplicate block"
+      return err(VerifierError.Duplicate)
+    else:
+      debug "Block from unviable fork"
+      return err(VerifierError.UnviableFork)
+  elif signedBlock.slot > tail.slot:
     debug "Block from unviable fork"
     return err(VerifierError.UnviableFork)
 
-  if clist.tail.get().parent_root != signedBlock.root:
+  if tail.parent_root != signedBlock.root:
     debug "Block does not match expected backfill root"
     return err(VerifierError.MissingParent)
 
@@ -102,7 +118,7 @@ proc addBackfillBlockData*(
   clist.tail = Opt.some(BlockData(blck: signedBlock, blob: blobs))
 
   debug "Block backfilled",
-        store_block_duration = storeBlockTick - Moment.now()
+        store_block_duration = shortLog(storeBlockTick - Moment.now())
   ok()
 
 # proc untrustedBackfillVerifier*(
