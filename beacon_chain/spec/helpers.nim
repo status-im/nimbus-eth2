@@ -612,17 +612,13 @@ func bit_length(n: SomeInteger): SomeInteger =
   if n == 0:
     return 1
   else:
-    uint64(fastLog2(n) + 1)
+    return uint64(fastLog2(n) + 1)
 
 # https://github.com/ethereum/consensus-specs/blob/1508f51b80df5488a515bfedf486f98435200e02/specs/_features/eipxxxx/beacon-chain.md#bit_floor
-func bit_floor*(n: SomeInteger): SomeInteger =
-  # if ``n`` is not zero, returns the largest power of `2` that is not greater than `n`.
-  doAssert n >= 0'u64
-
+func bit_floor*(n: uint64): uint64 =
   if n == 0:
     return 0'u64
-
-  1'u64 shl (n.bit_length() - 1)
+  return 1'u64 shl (n.bit_length() - 1)
 
 from std/math import exp, ln
 from std/sequtils import foldl

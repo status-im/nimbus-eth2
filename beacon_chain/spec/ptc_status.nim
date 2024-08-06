@@ -19,5 +19,3 @@ const
   PAYLOAD_PRESENT* = PTCStatus(1)
   PAYLOAD_WITHHELD* = PTCStatus(2)
   PAYLOAD_INVALID_STATUS* = PTCStatus(3)
-
-

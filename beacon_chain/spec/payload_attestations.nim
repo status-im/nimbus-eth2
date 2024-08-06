@@ -36,7 +36,7 @@ type
 
   # https://github.com/ethereum/consensus-specs/blob/1508f51b80df5488a515bfedf486f98435200e02/specs/_features/eipxxxx/beacon-chain.md#indexedpayloadattestation
   IndexedPayloadAttestation* = object
-    attestingIndices: List[ValidatorIndex, Limit PTC_SIZE]
+    attesting_indices: List[ValidatorIndex, Limit PTC_SIZE]
     data: PayloadAttestationData
     signature: ValidatorSig
 
@@ -44,36 +44,37 @@ type
 proc is_valid_indexed_payload_attestation(
     state: capella.BeaconState, # [TODO] to be replaced with epbs.BeaconState
     indexed_payload_attestation: IndexedPayloadAttestation): bool =
-  # Check if ``indexed_payload_attestation`` is not empty, has sorted and unique indices, and has a valid aggregate signature.
 
   # Verify that data is valid
   if indexed_payload_attestation.data.payload_Status >= uint8(PAYLOAD_INVALID_STATUS):
     return false
+    ## Check if ``indexed_attestation`` is not empty, has sorted and unique
+    ## indices and has a valid aggregate signature.
 
-  # Verify indices are sorted and unique
-  let indices = indexed_payload_attestation.attestingIndices
+  template is_sorted_and_unique(s: untyped): bool =
+    var res = true
+    for i in 1 ..< s.len:
+      if s[i - 1].uint64 >= s[i].uint64:
+        res = false
+        break
+    res
 
-  if indices.len == 0:
+  if len(indexed_payload_attestation.attesting_indices) == 0:
     return false
 
-  let indicesSeq = indices.toSeq()
-  let indicesSet = toHashSet(indicesSeq)
-
-  # Check if all indices are sorted and unique
-  if indicesSet.len != indicesSeq.len or indicesSeq != indicesSeq.sorted:
-    return false
-
-  # Check if the indices are sorted
-  if indicesSeq != indicesSeq.sorted:
+  # Check if ``indexed_payload_attestation`` is not empty, has sorted and unique indices
+  if not is_sorted_and_unique(indexed_payload_attestation.attesting_indices):
     return false
 
   # Verify aggregate signature
   let pubkeys = mapIt(
-      indexed_payload_attestation.attestingIndices, state.validators[it].pubkey)
+      indexed_payload_attestation.attesting_indices, state.validators[it].pubkey)
 
   let domain = get_domain(
-    state.fork, DOMAIN_PTC_ATTESTER, GENESIS_EPOCH, state.genesis_validators_root)
+    state.fork, DOMAIN_PTC_ATTESTER, GENESIS_EPOCH,
+    state.genesis_validators_root)
 
   let signing_root = compute_signing_root(indexed_payload_attestation.data, domain)
 
-  return blsFastAggregateVerify(pubkeys, signing_root.data, indexed_payload_attestation.signature)
+  blsFastAggregateVerify(pubkeys, signing_root.data,
+      indexed_payload_attestation.signature)
