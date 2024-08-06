@@ -798,7 +798,7 @@ func upgrade_lc_header_to_electra*(
         transactions_root: pre.execution.transactions_root,
         withdrawals_root: pre.execution.withdrawals_root,
         blob_gas_used: pre.execution.blob_gas_used,
-        excess_blob_gas: pre.execution.blob_gas_used,
+        excess_blob_gas: pre.execution.excess_blob_gas,
         deposit_requests_root: ZERO_HASH,  # [New in Electra:EIP6110]
         withdrawal_requests_root: ZERO_HASH,  # [New in Electra:EIP7002:EIP7251]
         consolidation_requests_root: ZERO_HASH),  # [New in Electra:EIP7251]
