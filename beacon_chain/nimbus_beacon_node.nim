@@ -435,7 +435,7 @@ proc initFullNode(
       # that should probably be reimagined more holistically in the future.
       blockProcessor[].addBlock(
         MsgSource.gossip, signedBlock, blobs, maybeFinalized = maybeFinalized)
-    untrustedblockVerifier =
+    untrustedBlockVerifier =
       proc(signedBlock: ForkedSignedBeaconBlock, blobs: Opt[BlobSidecars],
            maybeFinalized: bool): Future[Result[void, VerifierError]] {.
         async: (raises: [CancelledError], raw: true).} =
@@ -504,9 +504,9 @@ proc initFullNode(
       node.network.peerPool,
       dag.cfg.DENEB_FORK_EPOCH, dag.cfg.MIN_EPOCHS_FOR_BLOB_SIDECARS_REQUESTS,
       SyncQueueKind.Backward, getLocalHeadSlot,
-      getLocalWallSlot, getFirstSlotAtFinalizedEpoch, getBackfillSlot,
+      getLocalWallSlot, getFirstSlotAtFinalizedEpoch, getUntrustedBackfillSlot,
       getFrontfillSlot, isWithinWeakSubjectivityPeriod,
-      dag.backfill.slot, untrustedblockVerifier, maxHeadAge = 0,
+      dag.backfill.slot, untrustedBlockVerifier, maxHeadAge = 0,
       shutdownEvent = node.shutdownEvent,
       flags = syncManagerFlags)
     router = (ref MessageRouter)(
@@ -885,22 +885,8 @@ proc init*(T: type BeaconNode,
       # not in weak subjectivity period.
       let
         res = ChainListRef.init(config.databaseDir())
-        head_slot, head_parent_root =
-          if res.head.isSome():
-            let data = res.head.get()
-            ($(data.slot), shortLog(data.parent_root))
-          else:
-            ("[n/a]", "[n/a]")
-        tail_slot, tail_parent_root =
-          if res.tail.isSome():
-            let data = res.tail.get()
-            ($(data.slot), shortLog(data.parent_root))
-          else:
-            ("[n/a]", "[n/a]")
-
       info "Backfill database has been loaded", path = config.databaseDir(),
-           head_slot = head_slot, head_parent_root = head_parent_root,
-           tail_slot = tail_slot, tail_parent_root = tail_parent_root
+           head = shortLog(res.head), tail = shortLog(res.tail)
       res
 
   if config.weakSubjectivityCheckpoint.isSome:
@@ -2090,7 +2076,7 @@ proc run(node: BeaconNode) {.raises: [CatchableError].} =
   # node.syncManager.start()
   node.syncOverseer.start()
 
-  if node.dag.needsBackfill(): asyncSpawn node.startBackfillTask()
+  # if node.dag.needsBackfill(): asyncSpawn node.startBackfillTask()
 
   waitFor node.updateGossipStatus(wallSlot)
 
