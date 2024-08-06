@@ -443,8 +443,8 @@ proc getExecutionPayload(
     feeRecipient = $feeRecipient
 
   node.elManager.getPayload(
-      PayloadType, beaconHead.blck.bid.root, executionHead, latestSafe,
-      latestFinalized, timestamp, random, feeRecipient, withdrawals)
+    PayloadType, beaconHead.blck.bid.root, executionHead, latestSafe,
+    latestFinalized, timestamp, random, feeRecipient, withdrawals)
 
 # BlockRewards has issues resolving somehow otherwise
 import ".."/spec/state_transition_block

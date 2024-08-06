@@ -128,4 +128,4 @@ suite "Blinded block conversions":
           deneb_steps
         when consensusFork >= ConsensusFork.Electra:
           debugComment "add electra_steps"
-        static: doAssert consensusFork.high == ConsensusFork.Electra
+        static: doAssert high(ConsensusFork) == ConsensusFork.Electra

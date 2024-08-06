@@ -1244,8 +1244,6 @@ proc doppelgangerChecked(node: BeaconNode, epoch: Epoch) =
     for validator in node.attachedValidators[]:
       validator.doppelgangerChecked(epoch - 1)
 
-from ./spec/state_transition_epoch import effective_balance_might_update
-
 proc maybeUpdateActionTrackerNextEpoch(
     node: BeaconNode, forkyState: ForkyHashedBeaconState, nextEpoch: Epoch) =
   if node.consensusManager[].actionTracker.needsUpdate(
