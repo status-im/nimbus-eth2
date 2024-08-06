@@ -1277,21 +1277,60 @@ func get_pending_balance_to_withdraw*(
 
   pending_balance
 
+# https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.7/specs/phase0/beacon-chain.md#effective-balances-updates
+template effective_balance_might_update*(
+    balance: Gwei, effective_balance: Gwei): bool =
+  const
+    HYSTERESIS_INCREMENT =
+      EFFECTIVE_BALANCE_INCREMENT.Gwei div HYSTERESIS_QUOTIENT
+    DOWNWARD_THRESHOLD = HYSTERESIS_INCREMENT * HYSTERESIS_DOWNWARD_MULTIPLIER
+    UPWARD_THRESHOLD = HYSTERESIS_INCREMENT * HYSTERESIS_UPWARD_MULTIPLIER
+  balance + DOWNWARD_THRESHOLD < effective_balance or
+    effective_balance + UPWARD_THRESHOLD < balance
+
+# https://github.com/ethereum/consensus-specs/blob/v1.4.0/specs/phase0/beacon-chain.md#effective-balances-updates
+# https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.1/specs/electra/beacon-chain.md#updated-process_effective_balance_updates
+template get_effective_balance_update*(
+    consensusFork: static ConsensusFork, balance: Gwei,
+    effective_balance: Gwei, vidx: uint64): Gwei =
+  when consensusFork <= ConsensusFork.Deneb:
+    min(
+      balance - balance mod EFFECTIVE_BALANCE_INCREMENT.Gwei,
+      MAX_EFFECTIVE_BALANCE.Gwei)
+  else:
+    debugComment "amortize validator read access"
+    let effective_balance_limit =
+      if has_compounding_withdrawal_credential(state.validators.item(vidx)):
+        MAX_EFFECTIVE_BALANCE_ELECTRA.Gwei
+      else:
+        MIN_ACTIVATION_BALANCE.Gwei
+    min(
+      balance - balance mod EFFECTIVE_BALANCE_INCREMENT.Gwei,
+      effective_balance_limit)
+
+template get_updated_effective_balance*(
+    consensusFork: static ConsensusFork, balance: Gwei,
+    effective_balance: Gwei, vidx: uint64): Gwei =
+  if effective_balance_might_update(balance, effective_balance):
+    get_effective_balance_update(consensusFork, balance, effective_balance, vidx)
+  else:
+    balance
+
 # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.5/specs/capella/beacon-chain.md#new-get_expected_withdrawals
-func get_expected_withdrawals*(
-    state: capella.BeaconState | deneb.BeaconState): seq[Withdrawal] =
+template get_expected_withdrawals_aux*(
+    state: capella.BeaconState | deneb.BeaconState, epoch: Epoch,
+    fetch_balance: untyped): seq[Withdrawal] =
   let
-    epoch = get_current_epoch(state)
     num_validators = lenu64(state.validators)
     bound = min(len(state.validators), MAX_VALIDATORS_PER_WITHDRAWALS_SWEEP)
   var
     withdrawal_index = state.next_withdrawal_index
-    validator_index = state.next_withdrawal_validator_index
+    validator_index {.inject.} = state.next_withdrawal_validator_index
     withdrawals: seq[Withdrawal] = @[]
   for _ in 0 ..< bound:
     let
       validator = state.validators[validator_index]
-      balance = state.balances[validator_index]
+      balance = fetch_balance
     if is_fully_withdrawable_validator(
         typeof(state).kind, validator, balance, epoch):
       var w = Withdrawal(
@@ -1315,13 +1354,20 @@ func get_expected_withdrawals*(
     validator_index = (validator_index + 1) mod num_validators
   withdrawals
 
+func get_expected_withdrawals*(
+    state: capella.BeaconState | deneb.BeaconState): seq[Withdrawal] =
+  get_expected_withdrawals_aux(state, get_current_epoch(state)) do:
+    state.balances[validator_index]
+
 # https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.3/specs/electra/beacon-chain.md#updated-get_expected_withdrawals
 # This partials count is used in exactly one place, while in general being able
 # to cleanly treat the results of get_expected_withdrawals as a seq[Withdrawal]
 # are valuable enough to make that the default version of this spec function.
-func get_expected_withdrawals_with_partial_count*(state: electra.BeaconState):
+template get_expected_withdrawals_with_partial_count_aux*(
+    state: electra.BeaconState, epoch: Epoch, fetch_balance: untyped):
     (seq[Withdrawal], uint64) =
-  let epoch = get_current_epoch(state)
+  doAssert epoch - get_current_epoch(state) in [0'u64, 1'u64]
+
   var
     withdrawal_index = state.next_withdrawal_index
     withdrawals: seq[Withdrawal] = @[]
@@ -1333,16 +1379,31 @@ func get_expected_withdrawals_with_partial_count*(state: electra.BeaconState):
       break
 
     let
-      validator = state.validators[withdrawal.index]
+      validator = state.validators.item(withdrawal.index)
+
+      # Keep a uniform variable name available for injected code
+      validator_index {.inject.} = withdrawal.index
+
+      # Here, can't use the pre-stored effective balance because this template
+      # might be called on the next slot and therefore next epoch, after which
+      # the effective balance might have updated.
+      effective_balance_at_slot =
+        if epoch == get_current_epoch(state):
+          validator.effective_balance
+        else:
+          get_updated_effective_balance(
+            typeof(state).kind, fetch_balance, validator.effective_balance,
+            validator_index)
+
       has_sufficient_effective_balance =
-        validator.effective_balance >= static(MIN_ACTIVATION_BALANCE.Gwei)
-      has_excess_balance =
-        state.balances[withdrawal.index] > static(MIN_ACTIVATION_BALANCE.Gwei)
+        effective_balance_at_slot >= static(MIN_ACTIVATION_BALANCE.Gwei)
+      has_excess_balance = fetch_balance > static(MIN_ACTIVATION_BALANCE.Gwei)
     if  validator.exit_epoch == FAR_FUTURE_EPOCH and
         has_sufficient_effective_balance and has_excess_balance:
-      let withdrawable_balance = min(
-        state.balances[withdrawal.index] - static(MIN_ACTIVATION_BALANCE.Gwei),
-        withdrawal.amount)
+      let
+        withdrawable_balance = min(
+          fetch_balance - static(MIN_ACTIVATION_BALANCE.Gwei),
+          withdrawal.amount)
       var w = Withdrawal(
         index: withdrawal_index,
         validator_index: withdrawal.index,
@@ -1356,13 +1417,13 @@ func get_expected_withdrawals_with_partial_count*(state: electra.BeaconState):
   let
     bound = min(len(state.validators), MAX_VALIDATORS_PER_WITHDRAWALS_SWEEP)
     num_validators = lenu64(state.validators)
-  var validator_index = state.next_withdrawal_validator_index
+  var validator_index {.inject.} = state.next_withdrawal_validator_index
 
   # Sweep for remaining.
   for _ in 0 ..< bound:
     let
-      validator = state.validators[validator_index]
-      balance = state.balances[validator_index]
+      validator = state.validators.item(validator_index)
+      balance = fetch_balance
     if is_fully_withdrawable_validator(
         typeof(state).kind, validator, balance, epoch):
       var w = Withdrawal(
@@ -1387,6 +1448,12 @@ func get_expected_withdrawals_with_partial_count*(state: electra.BeaconState):
     validator_index = (validator_index + 1) mod num_validators
 
   (withdrawals, partial_withdrawals_count)
+
+template get_expected_withdrawals_with_partial_count*(
+    state: electra.BeaconState): (seq[Withdrawal], uint64) =
+  get_expected_withdrawals_with_partial_count_aux(
+      state, get_current_epoch(state)) do:
+    state.balances.item(validator_index)
 
 func get_expected_withdrawals*(state: electra.BeaconState): seq[Withdrawal] =
   get_expected_withdrawals_with_partial_count(state)[0]

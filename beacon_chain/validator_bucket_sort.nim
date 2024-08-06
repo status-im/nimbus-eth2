@@ -75,7 +75,7 @@ func findValidatorIndex*(
     pubkey: ValidatorPubKey): Opt[ValidatorIndex] =
   for validatorIndex in bsv.extraItems:
     if validators[validatorIndex.distinctBase].pubkey == pubkey:
-      return Opt.some validatorIndex.ValidatorIndex
+      return Opt.some validatorIndex
   let
     bucketNumber = getBucketNumber(pubkey)
     lowerBounds =

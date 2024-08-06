@@ -14,7 +14,8 @@ import
 
 from ".."/beacon_chain/validator_bucket_sort import sortValidatorBuckets
 from ".."/beacon_chain/spec/state_transition_epoch import
-  get_validator_balance_after_epoch, process_epoch
+  get_validator_balance_after_epoch, get_next_slot_expected_withdrawals,
+  process_epoch
 
 func round_multiple_down(x: Gwei, n: Gwei): Gwei =
   ## Round the input to the previous multiple of "n"
@@ -100,6 +101,9 @@ proc getTestStates*(
     if tmpState[].kind == consensusFork:
       result.add assignClone(tmpState[])
 
+from std/sequtils import allIt
+from ".."/beacon_chain/spec/beaconstate import get_expected_withdrawals
+
 proc checkPerValidatorBalanceCalc*(
     state: deneb.BeaconState | electra.BeaconState): bool =
   var
@@ -107,10 +111,9 @@ proc checkPerValidatorBalanceCalc*(
     cache: StateCache
   let tmpState = newClone(state)  # slow, but tolerable for tests
   discard process_epoch(defaultRuntimeConfig, tmpState[], {}, cache, info)
-  for i in 0 ..< tmpState.balances.len:
-    if tmpState.balances.item(i) != get_validator_balance_after_epoch(
-        defaultRuntimeConfig, state, default(UpdateFlags), cache, info,
-        i.ValidatorIndex):
-      return false
 
-  true
+  allIt(0 ..< tmpState.balances.len,
+      tmpState.balances.item(it) == get_validator_balance_after_epoch(
+        defaultRuntimeConfig, state, cache, info, it.ValidatorIndex)) and
+    get_expected_withdrawals(tmpState[]) == get_next_slot_expected_withdrawals(
+      defaultRuntimeConfig, state, cache, info)

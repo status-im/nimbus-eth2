@@ -1075,61 +1075,18 @@ func process_eth1_data_reset*(state: var ForkyBeaconState) =
   if next_epoch mod EPOCHS_PER_ETH1_VOTING_PERIOD == 0:
     state.eth1_data_votes = default(type state.eth1_data_votes)
 
-# https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.7/specs/phase0/beacon-chain.md#effective-balances-updates
-template effective_balance_might_update*(
-    balance: Gwei, effective_balance: Gwei): bool =
-  const
-    HYSTERESIS_INCREMENT =
-      EFFECTIVE_BALANCE_INCREMENT.Gwei div HYSTERESIS_QUOTIENT
-    DOWNWARD_THRESHOLD = HYSTERESIS_INCREMENT * HYSTERESIS_DOWNWARD_MULTIPLIER
-    UPWARD_THRESHOLD = HYSTERESIS_INCREMENT * HYSTERESIS_UPWARD_MULTIPLIER
-  balance + DOWNWARD_THRESHOLD < effective_balance or
-    effective_balance + UPWARD_THRESHOLD < balance
-
 # https://github.com/ethereum/consensus-specs/blob/v1.4.0/specs/phase0/beacon-chain.md#effective-balances-updates
-func process_effective_balance_updates*(
-    state: var (phase0.BeaconState | altair.BeaconState |
-                bellatrix.BeaconState | capella.BeaconState |
-                deneb.BeaconState)) =
-  # Update effective balances with hysteresis
-  for vidx in state.validators.vindices:
-    let
-      balance = state.balances.item(vidx)
-      effective_balance = state.validators.item(vidx).effective_balance
-    if effective_balance_might_update(balance, effective_balance):
-      let new_effective_balance =
-        min(
-          balance - balance mod EFFECTIVE_BALANCE_INCREMENT.Gwei,
-          MAX_EFFECTIVE_BALANCE.Gwei)
-      # Protect against unnecessary cache invalidation
-      if new_effective_balance != effective_balance:
-        state.validators.mitem(vidx).effective_balance = new_effective_balance
-
 # https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.1/specs/electra/beacon-chain.md#updated-process_effective_balance_updates
-func process_effective_balance_updates*(state: var electra.BeaconState) =
+func process_effective_balance_updates*(state: var ForkyBeaconState) =
   # Update effective balances with hysteresis
   for vidx in state.validators.vindices:
     let
       balance = state.balances.item(vidx)
       effective_balance = state.validators.item(vidx).effective_balance
+
     if effective_balance_might_update(balance, effective_balance):
-      debugComment "amortize validator read access"
-      # Wrapping MAX_EFFECTIVE_BALANCE_ELECTRA.Gwei and
-      # MIN_ACTIVATION_BALANCE.Gwei in static() results
-      # in
-      # beacon_chain/spec/state_transition_epoch.nim(1067, 20) Error: expected: ':', but got: '('
-      # even though it'd be better to statically verify safety
-      let
-        effective_balance_limit =
-          if has_compounding_withdrawal_credential(
-              state.validators.item(vidx)):
-            MAX_EFFECTIVE_BALANCE_ELECTRA.Gwei
-          else:
-            MIN_ACTIVATION_BALANCE.Gwei
-        new_effective_balance =
-          min(
-            balance - balance mod EFFECTIVE_BALANCE_INCREMENT.Gwei,
-            effective_balance_limit)
+      let new_effective_balance = get_effective_balance_update(
+        typeof(state).kind, balance, effective_balance, vidx.distinctBase)
       # Protect against unnecessary cache invalidation
       if new_effective_balance != effective_balance:
         state.validators.mitem(vidx).effective_balance = new_effective_balance
@@ -1564,9 +1521,8 @@ proc process_epoch*(
   ok()
 
 proc get_validator_balance_after_epoch*(
-    cfg: RuntimeConfig,
-    state: deneb.BeaconState | electra.BeaconState,
-    flags: UpdateFlags, cache: var StateCache, info: var altair.EpochInfo,
+    cfg: RuntimeConfig, state: deneb.BeaconState | electra.BeaconState,
+    cache: var StateCache, info: var altair.EpochInfo,
     index: ValidatorIndex): Gwei =
   # Run a subset of process_epoch() which affects an individual validator,
   # without modifying state itself
@@ -1586,7 +1542,7 @@ proc get_validator_balance_after_epoch*(
       weigh_justification_and_finalization(
         state, info.balances.current_epoch,
         info.balances.previous_epoch[TIMELY_TARGET_FLAG_INDEX],
-        info.balances.current_epoch_TIMELY_TARGET, flags)
+        info.balances.current_epoch_TIMELY_TARGET, {})
 
   # Used as part of process_rewards_and_penalties
   let inactivity_score =
@@ -1667,3 +1623,21 @@ proc get_validator_balance_after_epoch*(
           processed_amount += deposit.amount
 
   post_epoch_balance
+
+proc get_next_slot_expected_withdrawals*(
+    cfg: RuntimeConfig, state: deneb.BeaconState, cache: var StateCache,
+    info: var altair.EpochInfo): seq[Withdrawal] =
+  get_expected_withdrawals_aux(state, (state.slot + 1).epoch) do:
+    # validator_index is defined by an injected symbol within the template
+    get_validator_balance_after_epoch(
+      cfg, state, cache, info, validator_index.ValidatorIndex)
+
+proc get_next_slot_expected_withdrawals*(
+    cfg: RuntimeConfig, state: electra.BeaconState, cache: var StateCache,
+    info: var altair.EpochInfo): seq[Withdrawal] =
+  let (res, _) = get_expected_withdrawals_with_partial_count_aux(
+      state, (state.slot + 1).epoch) do:
+    # validator_index is defined by an injected symbol within the template
+    get_validator_balance_after_epoch(
+      cfg, state, cache, info, validator_index.ValidatorIndex)
+  res
