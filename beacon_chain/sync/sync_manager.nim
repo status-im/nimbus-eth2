@@ -782,8 +782,8 @@ proc syncLoop[A, B](
             wall_head_slot = wallSlot,
             local_head_slot = headSlot,
             pause_time = $chronos.seconds(pauseTime),
-            avg_sync_speed = man.avgSyncSpeed,
-            ins_sync_speed = man.insSyncSpeed
+            avg_sync_speed = man.avgSyncSpeed.formatBiggestFloat(ffDecimal, 4),
+            ins_sync_speed = man.insSyncSpeed.formatBiggestFloat(ffDecimal, 4)
     of SyncQueueKind.Backward:
       debug "Current syncing state", workers_map = map,
             sleeping_workers_count = sleeping,
@@ -792,9 +792,8 @@ proc syncLoop[A, B](
             wall_head_slot = wallSlot,
             backfill_slot = man.getSafeSlot(),
             pause_time = $chronos.seconds(pauseTime),
-            avg_sync_speed = man.avgSyncSpeed,
-            ins_sync_speed = man.insSyncSpeed
-
+            avg_sync_speed = man.avgSyncSpeed.formatBiggestFloat(ffDecimal, 4),
+            ins_sync_speed = man.insSyncSpeed.formatBiggestFloat(ffDecimal, 4)
     let
       pivot = man.progressPivot
       progress =

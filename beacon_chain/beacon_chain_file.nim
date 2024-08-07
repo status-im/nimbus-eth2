@@ -7,7 +7,7 @@
 
 {.push raises: [].}
 
-import results, stew/[io2, endians2]
+import results, snappy, stew/[io2, endians2]
 import ./spec/[eth2_ssz_serialization, eth2_merkleization, forks]
 from ./consensus_object_pools/block_pools_types import BlockData
 export results
@@ -195,7 +195,7 @@ proc store*(chunkfile: string, signedBlock: ForkedSignedBeaconBlock,
   block:
     let
       kind = getBlockChunkKind(signedBlock.kind)
-      data = withBlck(signedBlock): SSZ.encode(forkyBlck)
+      data = withBlck(signedBlock): snappy.encode(SSZ.encode(forkyBlck))
       buffer = Chunk.init(kind, data)
       wrote = writeFile(handle, buffer).valueOr:
         discard truncate(handle, origOffset)
@@ -210,7 +210,7 @@ proc store*(chunkfile: string, signedBlock: ForkedSignedBeaconBlock,
     for blob in blobs.get():
       let
         kind = getBlobChunkKind(signedBlock.kind)
-        data = SSZ.encode(blob[])
+        data = snappy.encode(SSZ.encode(blob[]))
         buffer = Chunk.init(kind, data)
         wrote = writeFile(handle, buffer).valueOr:
           discard truncate(handle, origOffset)
@@ -334,27 +334,28 @@ proc decodeBlock(
 ): Result[ForkedSignedBeaconBlock, string] =
   let
     fork = header.getBlockConsensusFork()
+    decompressed = snappy.decode(data)
     blck =
       try:
         case fork
         of ConsensusFork.Phase0:
           ForkedSignedBeaconBlock.init(
-            SSZ.decode(data, phase0.SignedBeaconBlock))
+            SSZ.decode(decompressed, phase0.SignedBeaconBlock))
         of ConsensusFork.Altair:
           ForkedSignedBeaconBlock.init(
-            SSZ.decode(data, altair.SignedBeaconBlock))
+            SSZ.decode(decompressed, altair.SignedBeaconBlock))
         of ConsensusFork.Bellatrix:
           ForkedSignedBeaconBlock.init(
-            SSZ.decode(data, bellatrix.SignedBeaconBlock))
+            SSZ.decode(decompressed, bellatrix.SignedBeaconBlock))
         of ConsensusFork.Capella:
           ForkedSignedBeaconBlock.init(
-            SSZ.decode(data, capella.SignedBeaconBlock))
+            SSZ.decode(decompressed, capella.SignedBeaconBlock))
         of ConsensusFork.Deneb:
           ForkedSignedBeaconBlock.init(
-            SSZ.decode(data, deneb.SignedBeaconBlock))
+            SSZ.decode(decompressed, deneb.SignedBeaconBlock))
         of ConsensusFork.Electra:
           ForkedSignedBeaconBlock.init(
-            SSZ.decode(data, electra.SignedBeaconBlock))
+            SSZ.decode(decompressed, electra.SignedBeaconBlock))
       except SerializationError:
         return err("Incorrect block format")
   ok(blck)
@@ -364,9 +365,10 @@ proc decodeBlob(
     data: openArray[byte]
 ): Result[BlobSidecar, string] =
   let
+    decompressed = snappy.decode(data)
     blob =
       try:
-        SSZ.decode(data, BlobSidecar)
+        SSZ.decode(decompressed, BlobSidecar)
       except SerializationError:
         return err("Incorrect blob format")
   ok(blob)
