@@ -18,10 +18,12 @@ type
     version: uint32
     kind: uint64
     size: uint64
+    slot: uint64
 
   ChainFileFooter = object
     kind: uint64
     size: uint64
+    slot: uint64
 
   Chunk = object
     header: ChainFileHeader
@@ -39,25 +41,28 @@ const
   ChainFileHeaderValue = 0x424D494E'u32
   IncompleteWriteError = "Unable to write data to file, disk full?"
 
-template init(t: typedesc[ChainFileHeader], kind: uint64,
-              length: uint64): ChainFileHeader =
+template init(t: typedesc[ChainFileHeader],
+              kind, length, number: uint64): ChainFileHeader =
   ChainFileHeader(
     header: ChainFileHeaderValue,
     version: ChainFileVersion,
     kind: kind,
-    size: length)
+    size: length,
+    slot: number)
 
-template init(t: typedesc[ChainFileHeader], kind: uint64, length: uint64,
+template init(t: typedesc[ChainFileHeader],
+              kind, length, number: uint64,
               version: uint32): ChainFileHeader =
   ChainFileHeader(
     header: ChainFileHeaderValue,
     version: version,
     kind: kind,
-    size: length)
+    size: length,
+    slot: number)
 
-template init(t: typedesc[ChainFileFooter], kind: uint64,
-              length: uint64): ChainFileFooter =
-  ChainFileFooter(kind: kind, size: length)
+template init(t: typedesc[ChainFileFooter],
+              kind, length, number: uint64): ChainFileFooter =
+  ChainFileFooter(kind: kind, size: length, slot: number)
 
 proc check(a: ChainFileHeader): Result[void, string] =
   if a.header != ChainFileHeaderValue:
@@ -88,7 +93,8 @@ proc init(t: typedesc[ChainFileHeader],
       header: uint32.fromBytesLE(data.toOpenArray(0, 3)),
       version: uint32.fromBytesLE(data.toOpenArray(4, 7)),
       kind: uint64.fromBytesLE(data.toOpenArray(8, 15)),
-      size: uint64.fromBytesLE(data.toOpenArray(16, 23)))
+      size: uint64.fromBytesLE(data.toOpenArray(16, 23)),
+      slot: uint64.fromBytesLE(data.toOpenArray(24, 31)))
   ? check(header)
   ok(header)
 
@@ -98,7 +104,8 @@ proc init(t: typedesc[ChainFileFooter],
   let footer =
     ChainFileFooter(
       kind: uint64.fromBytesLE(data.toOpenArray(0, 7)),
-      size: uint64.fromBytesLE(data.toOpenArray(8, 15)))
+      size: uint64.fromBytesLE(data.toOpenArray(8, 15)),
+      slot: uint64.fromBytesLE(data.toOpenArray(16, 23)))
   ? check(footer)
   ok(footer)
 
@@ -122,19 +129,21 @@ proc store(a: ChainFileHeader, data: var openArray[byte]) =
   data[4 .. 7] = a.version.toBytesLE()
   data[8 .. 15] = a.kind.toBytesLE()
   data[16 .. 23] = a.size.toBytesLE()
+  data[24 .. 31] = a.slot.toBytesLE()
 
 proc store(a: ChainFileFooter, data: var openArray[byte]) =
   doAssert(len(data) >= ChainFileFooterSize)
   data[0 .. 7] = a.kind.toBytesLE()
   data[8 .. 15] = a.size.toBytesLE()
+  data[16 .. 23] = a.slot.toBytesLE()
 
-proc init(t: typedesc[Chunk], kind: uint64,
+proc init(t: typedesc[Chunk], kind, slot: uint64,
           data: openArray[byte]): seq[byte] =
   var
     dst = newSeq[byte](len(data) + ChainFileHeaderSize + ChainFileFooterSize)
   let
-    header = ChainFileHeader.init(kind, uint64(len(data)))
-    footer = ChainFileFooter.init(kind, uint64(len(data)))
+    header = ChainFileHeader.init(kind, uint64(len(data)), slot)
+    footer = ChainFileFooter.init(kind, uint64(len(data)), slot)
 
   var offset = 0
   header.store(dst.toOpenArray(offset, offset + ChainFileHeaderSize - 1))
@@ -196,7 +205,9 @@ proc store*(chunkfile: string, signedBlock: ForkedSignedBeaconBlock,
     let
       kind = getBlockChunkKind(signedBlock.kind)
       data = withBlck(signedBlock): snappy.encode(SSZ.encode(forkyBlck))
-      buffer = Chunk.init(kind, data)
+      slot = signedBlock.slot
+      buffer =
+        Chunk.init(kind, uint64(slot), data)
       wrote = writeFile(handle, buffer).valueOr:
         discard truncate(handle, origOffset)
         discard closeFile(handle)
@@ -211,7 +222,9 @@ proc store*(chunkfile: string, signedBlock: ForkedSignedBeaconBlock,
       let
         kind = getBlobChunkKind(signedBlock.kind)
         data = snappy.encode(SSZ.encode(blob[]))
-        buffer = Chunk.init(kind, data)
+        slot = blob[].signed_block_header.message.slot
+        buffer =
+          Chunk.init(kind, uint64(slot), data)
         wrote = writeFile(handle, buffer).valueOr:
           discard truncate(handle, origOffset)
           discard closeFile(handle)
