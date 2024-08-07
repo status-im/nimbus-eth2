@@ -446,60 +446,61 @@ proc checkForPotentialDoppelganger(
       quitDoppelganger()
 
 #TODO: need to revamp `recover_blobs` and rewrite this 
-# proc processDataColumnReconstruction*(
-#     self: ref Eth2Processor,
-#     node: Eth2Node,
-#     signed_block: deneb.SignedBeaconBlock |
-#     electra.SignedBeaconBlock):
-#     Future[ValidationRes] {.async: (raises: [CancelledError]).} =
+proc processDataColumnReconstruction*(
+    self: ref Eth2Processor,
+    node: Eth2Node,
+    signed_block: deneb.SignedBeaconBlock |
+    electra.SignedBeaconBlock):
+    Future[ValidationRes] {.async: (raises: [CancelledError]).} =
   
-#   let
-#     dag = self.dag
-#     root = signed_block.root
-#     custodiedColumnIndices = get_custody_columns(
-#         node.nodeId,
-#         CUSTODY_REQUIREMENT)
+  let
+    dag = self.dag
+    root = signed_block.root
+    custodiedColumnIndices = get_custody_columns(
+        node.nodeId,
+        CUSTODY_REQUIREMENT)
   
-#   var
-#     data_column_sidecars: seq[DataColumnSidecar]
-#     columnsOk = true
-#     storedColumns: seq[ColumnIndex]
+  var
+    data_column_sidecars: seq[DataColumnSidecar]
+    columnsOk = true
+    storedColumns: seq[ColumnIndex]
   
-#   # Loading the data columns from the database
-#   for custody_column in custodiedColumnIndices.get:
-#     let data_column = DataColumnSidecar.new()
-#     if not dag.db.getDataColumnSidecar(root, custody_column, data_column[]):
-#       columnsOk = false
-#       break
-#     data_column_sidecars.add data_column[]
-#     storedColumns.add data_column.index
+  # Loading the data columns from the database
+  for custody_column in custodiedColumnIndices.get:
+    let data_column = DataColumnSidecar.new()
+    if not dag.db.getDataColumnSidecar(root, custody_column, data_column[]):
+      columnsOk = false
+      break
+    data_column_sidecars.add data_column[]
+    storedColumns.add data_column.index
 
-#     if columnsOk:
-#       debug "Loaded data column for reconstruction"
+    if columnsOk:
+      debug "Loaded data column for reconstruction"
 
-#   # storedColumn number is less than the NUMBER_OF_COLUMNS
-#   # then reconstruction is not possible, and if all the data columns
-#   # are already stored then we do not need to reconstruct at all
-#   if storedColumns.len < NUMBER_OF_COLUMNS or storedColumns.len == NUMBER_OF_COLUMNS:
-#     return ok()
-#   else:
-#     return errIgnore ("DataColumnSidecar: Reconstruction error!")
+  # storedColumn number is less than the NUMBER_OF_COLUMNS
+  # then reconstruction is not possible, and if all the data columns
+  # are already stored then we do not need to reconstruct at all
+  if storedColumns.len < NUMBER_OF_COLUMNS or storedColumns.len == NUMBER_OF_COLUMNS:
+    return ok()
+  else:
+    return errIgnore ("DataColumnSidecar: Reconstruction error!")
 
-#   # Recover blobs from saved data column sidecars
-#   let recovered_blobs = recover_blobs(data_column_sidecars, storedColumns.len, signed_block)
-#   if not recovered_blobs.isOk:
-#     return errIgnore ("Error recovering blobs from data columns")
+  # Recover blobs from saved data column sidecars
+  let recovered_cps = recover_cells_and_proofs(data_column_sidecars, storedColumns.len, signed_block)
+  if not recovered_cps.isOk:
+    return errIgnore ("Error recovering cells and proofs from data columns")
 
-#   # Reconstruct data column sidecars from recovered blobs
-#   let reconstructedDataColumns = get_data_column_sidecars(signed_block, recovered_blobs.get)
+  # Reconstruct data column sidecars from recovered blobs
+  let reconstructedDataColumns = get_data_column_sidecars(signed_block, recovered_cps.get)
 
-#   for data_column in data_column_sidecars:
-#     if data_column.index notin custodiedColumnIndices.get:
-#       continue
+  for data_column in data_column_sidecars:
+    if data_column.index notin custodiedColumnIndices.get:
+      continue
     
-#     dag.db.putDataColumnSidecar(data_column)
+    dag.db.putDataColumnSidecar(data_column)
+    notice "Data Column Reconstructed and Saved Successfully"
 
-#   ok()
+  ok()
 
 proc processAttestation*(
     self: ref Eth2Processor, src: MsgSource,

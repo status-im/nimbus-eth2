@@ -442,7 +442,7 @@ p2pProtocol BeaconSync(version = 1,
       reqCount: uint64,
       reqColumns: List[ColumnIndex, NUMBER_OF_COLUMNS],
       response: MultipleChunksResponse[
-        ref DataColumnSidecar, Limit(MAX_REQUEST_DATA_COLUMN_SIDECARS)])
+        ref DataColumnSidecar, Limit(MAX_REQUEST_DATA_COLUMNS)])
       {.async, libp2pProtocol("data_column_sidecars_by_range", 1).} =
     
     trace "got data columns range request", peer, startSlot, 

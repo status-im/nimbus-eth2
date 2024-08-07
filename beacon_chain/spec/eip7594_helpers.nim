@@ -136,59 +136,53 @@ proc recover_matrix*(partial_matrix: seq[MatrixEntry],
 
   ok(extended_matrix)
 
-## THIS METHOD IS DEPRECATED, WILL BE REMOVED ONCE ALPHA 4 IS RELEASED
-# proc recover_blobs*(
-#     data_columns: seq[DataColumnSidecar],
-#     columnCount: int,
-#     blck: deneb.SignedBeaconBlock | 
-#     electra.SignedBeaconBlock |
-#     ForkySignedBeaconBlock):
-#     Result[seq[KzgBlob], cstring] =
+# THIS METHOD IS DEPRECATED, WILL BE REMOVED ONCE ALPHA 4 IS RELEASED
+proc recover_cells_and_proofs*(
+    data_columns: seq[DataColumnSidecar],
+    columnCount: int,
+    blck: deneb.SignedBeaconBlock | 
+    electra.SignedBeaconBlock |
+    ForkySignedBeaconBlock):
+    Result[seq[CellsAndProofs], cstring] =
 
-#   # This helper recovers blobs from the data column sidecars
-#   if not (data_columns.len != 0):
-#     return err("DataColumnSidecar: Length should not be 0")
+  # This helper recovers blobs from the data column sidecars
+  if not (data_columns.len != 0):
+    return err("DataColumnSidecar: Length should not be 0")
 
-#   var blobCount = data_columns[0].column.len
-#   for data_column in data_columns:
-#     if not (blobCount == data_column.column.len):
-#       return err ("DataColumns do not have the same length")
+  var blobCount = data_columns[0].column.len
+  for data_column in data_columns:
+    if not (blobCount == data_column.column.len):
+      return err ("DataColumns do not have the same length")
 
-#   var recovered_blobs = newSeqOfCap[KzgBlob](blobCount)
+  var recovered_cps = newSeqOfCap[CellsAndProofs](blobCount)
 
-#   for blobIdx in 0 ..< blobCount:
-#     var
-#       cell_ids = newSeqOfCap[CellID](columnCount)
-#       ckzgCells = newSeqOfCap[KzgCell](columnCount)
+  for blobIdx in 0 ..< blobCount:
+    var
+      cell_ids = newSeqOfCap[CellID](columnCount)
+      ckzgCells = newSeqOfCap[KzgCell](columnCount)
 
-#     for data_column in data_columns:
-#       cell_ids.add(data_column.index)
+    for data_column in data_columns:
+      cell_ids.add(data_column.index)
 
-#       let 
-#         column = data_column.column
-#         cell = column[blobIdx]
+      let 
+        column = data_column.column
+        cell = column[blobIdx]
 
-#       # Transform the cell as a ckzg cell
-#       var ckzgCell: Cell
-#       for i in 0 ..< int(FIELD_ELEMENTS_PER_CELL):
-#         var start = 32 * i
-#         for j in 0 ..< 32:
-#           ckzgCell[start + j] = cell[start+j]
+      # Transform the cell as a ckzg cell
+      var ckzgCell: Cell
+      for i in 0 ..< int(FIELD_ELEMENTS_PER_CELL):
+        var start = 32 * i
+        for j in 0 ..< 32:
+          ckzgCell[start + j] = cell[start+j]
 
-#       ckzgCells.add(ckzgCell)
+      ckzgCells.add(ckzgCell)
 
-#     # Recovering the blob
-#     let recovered_cells = recoverAllCells(cell_ids, ckzgCells)
-#     if not recovered_cells.isOk:
-#       return err ("Recovering all cells for blob failed")
+    # Recovering the cells and proofs
+    let recovered_cells_and_proofs = recoverCellsAndKzgProofs(cell_ids, ckzgCells)
 
-#     let recovered_blob_res = cellsToBlob(recovered_cells.get)
-#     if not recovered_blob_res.isOk:
-#       return err ("Cells to blob for blob failed")
+    recovered_cps.add(recovered_cells_and_proofs.get)
 
-#     recovered_blobs.add(recovered_blob_res.get)
-
-#   ok(recovered_blobs)
+  ok(recovered_cps)
 
 proc compute_signed_block_header(signed_block: deneb.SignedBeaconBlock |
                                  electra.SignedBeaconBlock): 
@@ -209,7 +203,7 @@ proc compute_signed_block_header(signed_block: deneb.SignedBeaconBlock |
 # https://github.com/ethereum/consensus-specs/blob/bb8f3caafc92590cdcf2d14974adb602db9b5ca3/specs/_features/eip7594/das-core.md#get_data_column_sidecars
 proc get_data_column_sidecars*(signed_block: deneb.SignedBeaconBlock |
                                electra.SignedBeaconBlock,
-                               cellsAndProofs: CellsAndProofs):
+                               cellsAndProofs: seq[CellsAndProofs]):
                                Result[seq[DataColumnSidecar], string] =
   # Given a signed block and the cells/proofs associated with each blob
   # in the block, assemble the sidecars which can be distributed to peers.
@@ -221,18 +215,17 @@ proc get_data_column_sidecars*(signed_block: deneb.SignedBeaconBlock |
 
   var sidecars = newSeq[DataColumnSidecar](CELLS_PER_EXT_BLOB)
 
-  if cellsAndProofs.cells.len == 0 or 
-      cellsAndProofs.proof.len == 0:
+  if cellsAndProofs.len == 0:
     return ok(sidecars)
 
   for column_index in 0..<NUMBER_OF_COLUMNS:
     var
       column_cells: DataColumn
       column_proofs: KzgProofs
-    for i in 0..<cellsAndProofs.cells.len:
-      let check1 = column_cells.add(cellsAndProofs.cells[column_index])
+    for i in 0..<cellsAndProofs.len:
+      let check1 = column_cells.add(cellsAndProofs[column_index].cells)
       doAssert check1 == true, "Issue fetching cell from CellsAndProofs"
-      let check2 = column_proofs.add(cellsAndProofs.proofs[column_index])
+      let check2 = column_proofs.add(cellsAndProofs[column_index].proofs)
       doAssert check2 == true, "Issue fetching proof from CellsAndProofs"
 
     var sidecar = DataColumnSidecar(
