@@ -35,8 +35,8 @@ type
     tail*: BlockData
 
 const
-  ChainFileHeaderSize* = 24
-  ChainFileFooterSize* = 16
+  ChainFileHeaderSize* = 32
+  ChainFileFooterSize* = 24
   ChainFileVersion = 1'u32
   ChainFileHeaderValue = 0x424D494E'u32
   IncompleteWriteError = "Unable to write data to file, disk full?"
