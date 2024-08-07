@@ -16,7 +16,7 @@ from ../spec/state_transition_block import validate_blobs
 from std/os import `/`
 
 const
-  ChainFileName = "backfill.dat"
+  ChainFileName = "nbc.bfdata"
 
 template chainFilePath(directory: string): string =
   directory / ChainFileName
