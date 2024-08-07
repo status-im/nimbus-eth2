@@ -43,6 +43,8 @@ proc installConfigApiHandlers*(router: var RestRouter, node: BeaconNode) =
             Base10.toString(MIN_DEPOSIT_AMOUNT),
           MAX_EFFECTIVE_BALANCE:
             Base10.toString(MAX_EFFECTIVE_BALANCE),
+          MAX_EFFECTIVE_BALANCE_ELECTRA:
+            Base10.toString(static(MAX_EFFECTIVE_BALANCE_ELECTRA.uint64)),
           EFFECTIVE_BALANCE_INCREMENT:
             Base10.toString(EFFECTIVE_BALANCE_INCREMENT),
           MIN_ATTESTATION_INCLUSION_DELAY:
@@ -175,6 +177,10 @@ proc installConfigApiHandlers*(router: var RestRouter, node: BeaconNode) =
             "0x" & $cfg.DENEB_FORK_VERSION,
           DENEB_FORK_EPOCH:
             Base10.toString(uint64(cfg.DENEB_FORK_EPOCH)),
+          ELECTRA_FORK_VERSION:
+            "0x" & $cfg.ELECTRA_FORK_VERSION,
+          ELECTRA_FORK_EPOCH:
+            Base10.toString(uint64(cfg.ELECTRA_FORK_EPOCH)),
           SECONDS_PER_SLOT:
             Base10.toString(SECONDS_PER_SLOT),
           SECONDS_PER_ETH1_BLOCK:
