@@ -140,9 +140,9 @@ proc recover_matrix*(partial_matrix: seq[MatrixEntry],
 proc recover_cells_and_proofs*(
     data_columns: seq[DataColumnSidecar],
     columnCount: int,
-    blck: deneb.SignedBeaconBlock | 
-    electra.SignedBeaconBlock |
-    ForkySignedBeaconBlock):
+    blck: deneb.TrustedSignedBeaconBlock | 
+    electra.TrustedSignedBeaconBlock |
+    ForkedTrustedSignedBeaconBlock):
     Result[seq[CellsAndProofs], cstring] =
 
   # This helper recovers blobs from the data column sidecars

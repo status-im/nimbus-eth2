@@ -1473,8 +1473,8 @@ proc pruneDataColumns(node: BeaconNode, slot: Slot) =
     debug "pruned data columns", count, dataColumnPruneEpoch
 
 proc tryReconstructingDataColumns* (self: BeaconNode,
-                                    signed_block: deneb.SignedBeaconBlock |
-                                    electra.SignedBeaconBlock): Result[void, string] =
+                                    signed_block: ForkedTrustedSignedBeaconBlock): 
+                                    Result[void, string] =
   # Checks whether the data columns can be reconstructed
   # or not from the recovery matrix
 
@@ -1490,6 +1490,10 @@ proc tryReconstructingDataColumns* (self: BeaconNode,
     custodiedColumnIndices = get_custody_columns(
         self.network.nodeId,
         localCustodySubnetCount)
+
+  if not selfReconstructDataColumns(custodiedColumnIndices.lenu64):
+    # No need to reconstruct and broadcast
+    ok()
 
   var
     data_column_sidecars: seq[DataColumnSidecar]
@@ -1533,34 +1537,40 @@ proc tryReconstructingDataColumns* (self: BeaconNode,
 
   ok()
 
-proc reconstructAndSendDataColumns*(node: BeaconNode, slot: Slot) {.async.} =
-  let db = node.db
-  var blckid: BlockId
-  let blck = node.dag.getForkedBlock(blckid).valueOr: return
-  when typeof(blck).kind < ConsensusFork.Deneb: return
-  else:
-    let res = node.tryReconstructingDataColumns(blck)
-    let custody_columns = get_custody_columns(
-          router.network.nodeId,
-          CUSTODY_REQUIREMENT)
-    var
-      data_column_sidecars: DataColumnSidecars
-      columnsOk = true
-    
-    for custody_column in custody_columns.get:
-      let data_column = DataColumnSidecar.new()
-      if not db.getDataColumnSidecar(
-              blck.root, custody_column, data_column[]):
-        columnsOk = false
-        debug "Issue with loading reconstructed data columns"
-        break
-      data_column_sidecars.add data_column
+proc reconstructAndSendDataColumns*(node: BeaconNode) {.async.} =
+  let
+     db = node.db
+     root = node.dag.head.root
+  
+  let blck = getForkedBlock(db, root).valueOr: return
+  withBlck(blck):
+    when typeof(forkyBlck).kind < ConsensusFork.Deneb: return
+    else:
+      let res = node.tryReconstructingDataColumns(blck)
+      if not res.isOk():
+        return
+
+  let custody_columns = get_custody_columns(
+        node.network.nodeId,
+        CUSTODY_REQUIREMENT)
+  var
+    data_column_sidecars: DataColumnSidecars
+    columnsOk = true
+  
+  for custody_column in custody_columns.get:
+    let data_column = DataColumnSidecar.new()
+    if not db.getDataColumnSidecar(
+            root, custody_column, data_column[]):
+      columnsOk = false
+      debug "Issue with loading reconstructed data columns"
+      break
+    data_column_sidecars.add data_column
 
     var das_workers = newSeq[Future[SendResult]](len(data_column_sidecars))
     for i in 0..<data_column_sidecars.lenu64:
       let subnet_id = compute_subnet_for_data_column_sidecar(i)
       das_workers[i] =
-          router[].network.broadcastDataColumnSidecar(subnet_id, data_column_sidecars[i][])
+          node.network.broadcastDataColumnSidecar(subnet_id, data_column_sidecars[i][])
     let allres = await allFinished(das_workers)
     for i in 0..<allres.len:
       let res = allres[i]
@@ -1576,7 +1586,7 @@ proc onSlotEnd(node: BeaconNode, slot: Slot) {.async.} =
   # Things we do when slot processing has ended and we're about to wait for the
   # next slot
 
-  await node.reconstructAndSendDataColumns(slot)
+  await node.reconstructAndSendDataColumns()
 
   # By waiting until close before slot end, ensure that preparation for next
   # slot does not interfere with propagation of messages and with VC duties.
