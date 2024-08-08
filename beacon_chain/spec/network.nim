@@ -232,11 +232,6 @@ iterator blobSidecarTopics*(forkDigest: ForkDigest): string =
     yield getBlobSidecarTopic(forkDigest, subnet_id)
 
 
-const
-  KZG_COMMITMENTS_INCLUSION_PROOF_DEPTH* = 32
-  MAX_REQUEST_DATA_COLUMN_SIDECARS* = MAX_REQUEST_BLOCKS_DENEB * NUMBER_OF_COLUMNS
-  MIN_EPOCHS_FOR_DATA_COLUMN_SIDECARS_REQUESTS* = 4096
-
 func getDataColumnSidecarTopic*(forkDigest: ForkDigest,
                              subnet_id: uint64): string =
   eth2Prefix(forkDigest) & "data_column_sidecar_" & $subnet_id & "/ssz_snappy"
