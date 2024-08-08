@@ -169,13 +169,14 @@ proc recover_cells_and_proofs*(
         cell = column[blobIdx]
 
       # Transform the cell as a ckzg cell
-      var ckzgCell: Cell
+      var ckzgCell: array[BYTES_PER_CELL, byte]
       for i in 0 ..< int(FIELD_ELEMENTS_PER_CELL):
         var start = 32 * i
         for j in 0 ..< 32:
-          ckzgCell[start + j] = cell[start+j]
+          var inter = cell.bytes
+          ckzgCell[start + j] = inter[start+j].byte
 
-      ckzgCells.add(ckzgCell)
+      ckzgCells.add(KzgCell(bytes: ckzgCell))
 
     # Recovering the cells and proofs
     let recovered_cells_and_proofs = recoverCellsAndKzgProofs(cell_ids, ckzgCells)
@@ -184,7 +185,23 @@ proc recover_cells_and_proofs*(
 
   ok(recovered_cps)
 
-proc compute_signed_block_header(signed_block: deneb.SignedBeaconBlock |
+proc compute_signed_block_header(signed_block: deneb.TrustedSignedBeaconBlock |
+                                 electra.TrustedSignedBeaconBlock): 
+                                 SignedBeaconBlockHeader =
+  let blck = signed_block.message
+  let block_header = BeaconBlockHeader(
+    slot: blck.slot,
+    proposer_index: blck.proposer_index,
+    parent_root: blck.parent_root,
+    state_root: blck.state_root,
+    body_root: hash_tree_root(blck.body)
+  )
+  result = SignedBeaconBlockHeader(
+    message: block_header,
+    signature: signed_block.signature.toValidatorSig
+  )
+
+proc compute_signed_block_header(signed_block: deneb.SignedBeaconBlock | 
                                  electra.SignedBeaconBlock): 
                                  SignedBeaconBlockHeader =
   let blck = signed_block.message
@@ -201,8 +218,8 @@ proc compute_signed_block_header(signed_block: deneb.SignedBeaconBlock |
   )
 
 # https://github.com/ethereum/consensus-specs/blob/bb8f3caafc92590cdcf2d14974adb602db9b5ca3/specs/_features/eip7594/das-core.md#get_data_column_sidecars
-proc get_data_column_sidecars*(signed_block: deneb.SignedBeaconBlock |
-                               electra.SignedBeaconBlock,
+proc get_data_column_sidecars*(signed_block: deneb.TrustedSignedBeaconBlock |
+                               electra.TrustedSignedBeaconBlock,
                                cellsAndProofs: seq[CellsAndProofs]):
                                Result[seq[DataColumnSidecar], string] =
   # Given a signed block and the cells/proofs associated with each blob

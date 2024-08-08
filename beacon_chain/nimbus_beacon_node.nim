@@ -1473,7 +1473,8 @@ proc pruneDataColumns(node: BeaconNode, slot: Slot) =
     debug "pruned data columns", count, dataColumnPruneEpoch
 
 proc tryReconstructingDataColumns* (self: BeaconNode,
-                                    signed_block: ForkedTrustedSignedBeaconBlock): 
+                                    signed_block: deneb.TrustedSignedBeaconBlock | 
+                                    electra.TrustedSignedBeaconBlock): 
                                     Result[void, string] =
   # Checks whether the data columns can be reconstructed
   # or not from the recovery matrix
@@ -1490,10 +1491,6 @@ proc tryReconstructingDataColumns* (self: BeaconNode,
     custodiedColumnIndices = get_custody_columns(
         self.network.nodeId,
         localCustodySubnetCount)
-
-  if not selfReconstructDataColumns(custodiedColumnIndices.lenu64):
-    # No need to reconstruct and broadcast
-    ok()
 
   var
     data_column_sidecars: seq[DataColumnSidecar]
@@ -1518,17 +1515,17 @@ proc tryReconstructingDataColumns* (self: BeaconNode,
   if storedColumns.len < NUMBER_OF_COLUMNS or storedColumns.len == NUMBER_OF_COLUMNS:
     return ok()
   else:
-    return errIgnore ("DataColumnSidecar: Reconstruction error!")
+    return err("DataColumnSidecar: Reconstruction error!")
 
   # Recover blobs from saved data column sidecars
   let recovered_cps = recover_cells_and_proofs(data_column_sidecars, storedColumns.len, signed_block)
   if not recovered_cps.isOk:
-    return errIgnore ("Error recovering cells and proofs from data columns")
+    return err("Error recovering cells and proofs from data columns")
 
   # Reconstruct data column sidecars from recovered blobs
   let reconstructedDataColumns = get_data_column_sidecars(signed_block, recovered_cps.get)
 
-  for data_column in data_column_sidecars:
+  for data_column in reconstructedDataColumns.get:
     if data_column.index notin custodiedColumnIndices.get:
       continue
     
@@ -1546,7 +1543,7 @@ proc reconstructAndSendDataColumns*(node: BeaconNode) {.async.} =
   withBlck(blck):
     when typeof(forkyBlck).kind < ConsensusFork.Deneb: return
     else:
-      let res = node.tryReconstructingDataColumns(blck)
+      let res = node.tryReconstructingDataColumns(forkyblck)
       if not res.isOk():
         return
 

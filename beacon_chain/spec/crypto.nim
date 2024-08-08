@@ -75,7 +75,7 @@ type
 
   BlsCurveType* = ValidatorPrivKey | ValidatorPubKey | ValidatorSig
 
-  BlsResult*[T] = Result[T, cstring]
+  BlsResult*[T] = Result[T, cstring] 
 
   TrustedSig* = object
     data* {.align: 16.}: array[RawSigSize, byte]
@@ -413,6 +413,9 @@ func toHex*(x: CookedPubKey): string =
 
 func `$`*(x: CookedPubKey): string =
   $(x.toPubKey())
+
+func toValidatorSig*(x: TrustedSig): ValidatorSig =
+  ValidatorSig(blob: x.data)
 
 func toValidatorSig*(x: CookedSig): ValidatorSig =
   ValidatorSig(blob: blscurve.Signature(x).exportRaw())

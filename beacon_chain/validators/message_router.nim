@@ -220,56 +220,6 @@ proc routeSignedBeaconBlock*(
       signature = shortLog(blck.signature)
   ok(blockRef)
 
-proc routeReconstructedDataColumns*(
-    router: ref MessageRouter,
-    blck: ForkySignedBeaconBlock):
-    Future[SendResult] {.async: (raises: [CancelledError]).} =
-
-  ## Process reconstructing the data columns and broadcast once done
-  block:
-    when typeof(blck).kind >= ConsensusFork.Deneb:
-      let res = await router[].processor.processDataColumnReconstruction(
-                                        router[].network, blck)
-
-      if not res.isGoodForSending:
-        warn "Issue sending reconstructed data columns"
-        return err(res.error()[1])
-
-  let custody_columns = get_custody_columns(
-        router.network.nodeId,
-        CUSTODY_REQUIREMENT)
-  
-  var
-    data_column_sidecars: DataColumnSidecars
-    columnsOk = true
-  
-  for custody_column in custody_columns.get:
-    let data_column = DataColumnSidecar.new()
-    if not router[].processor.dag.db.getDataColumnSidecar(
-                    blck.root, custody_column, data_column[]):
-      columnsOk = false
-      debug "Issue with loading reconstructed data columns"
-      break
-    data_column_sidecars.add data_column
-
-  var das_workers = newSeq[Future[SendResult]](len(data_column_sidecars))
-  for i in 0..<data_column_sidecars.lenu64:
-    let subnet_id = compute_subnet_for_data_column_sidecar(i)
-    das_workers[i] =
-        router[].network.broadcastDataColumnSidecar(subnet_id, data_column_sidecars[i][])
-  let allres = await allFinished(das_workers)
-  for i in 0..<allres.len:
-    let res = allres[i]
-    doAssert res.finished()
-    if res.failed():
-      notice "Reconstructed data columns not sent",
-        data_column = shortLog(data_column_sidecars[i][]), error = res.error[]
-    else:
-      notice "Reconstructed data columns sent",
-        data_column = shortLog(data_column_sidecars[i][])
-  
-  return ok()
-
 proc routeAttestation*(
     router: ref MessageRouter,
     attestation: phase0.Attestation | electra.Attestation,
