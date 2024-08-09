@@ -179,6 +179,10 @@ p2pProtocol PeerSync(version = 1,
     {.libp2pProtocol("metadata", 2).} =
     peer.network.metadata
 
+  proc getMetadata_v3(peer:  ): eip7594.MetaData
+    {.libp2pProtocol("metadata", 3).} =
+    peer.network.metadata
+
   proc goodbye(peer: Peer, reason: uint64)
     {.async, libp2pProtocol("goodbye", 1).} =
     debug "Received Goodbye message", reason = disconnectReasonName(reason), peer

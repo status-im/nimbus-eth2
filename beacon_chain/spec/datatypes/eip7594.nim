@@ -9,7 +9,7 @@
 
 import
   std/[sequtils],
-  "."/[base, deneb], 
+  "."/[base, deneb, altair], 
   kzg4844,
   stew/[byteutils]
 
@@ -78,6 +78,13 @@ type
     row_index*: RowIndex
 
   CscBits* = BitArray[DATA_COLUMN_SIDECAR_SUBNET_COUNT]
+
+  # https://github.com/ethereum/consensus-specs/blob/v1.4.0/specs/altair/p2p-interface.md#metadata
+  MetaData* = object
+    seq_number*: uint64
+    attnets*: AttnetBits
+    syncnets*: SyncnetBits
+    custody_subnet_count*: uint64 
 
 # func serializeDataColumn(data_column: DataColumn): auto =
 #   var counter = 0

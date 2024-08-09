@@ -69,7 +69,7 @@ type
     protocols: seq[ProtocolInfo]
       ## Protocols managed by the DSL and mounted on the switch
     protocolStates*: seq[RootRef]
-    metadata*: altair.MetaData
+    metadata*: eip7594.MetaData
     connectTimeout*: chronos.Duration
     seenThreshold*: chronos.Duration
     connQueue: AsyncQueue[PeerAddr]
@@ -106,7 +106,7 @@ type
     lastReqTime*: Moment
     connections*: int
     enr*: Opt[enr.Record]
-    metadata*: Opt[altair.MetaData]
+    metadata*: Opt[eip7594.MetaData]
     failedMetadataRequests: int
     lastMetadataTime*: Moment
     direction*: PeerType
@@ -1795,7 +1795,7 @@ proc new(T: type Eth2Node,
     let
       connectTimeout = chronos.seconds(10)
       seenThreshold = chronos.seconds(10)
-  type MetaData = altair.MetaData # Weird bug without this..
+  type MetaData = eip7594.MetaData # Weird bug without this..
 
   # Versions up to v22.3.0 would write an empty `MetaData` to
   #`data-dir/node-metadata.json` which would then be reloaded on startup - don't
@@ -2082,7 +2082,7 @@ proc updatePeerMetadata(node: Eth2Node, peerId: PeerId) {.async: (raises: [Cance
 
   let
     peer = node.getPeer(peerId)
-    newMetadataRes = await peer.getMetadata_v2()
+    newMetadataRes = await peer.getMetadata_v3()
     newMetadata = newMetadataRes.valueOr:
       debug "Failed to retrieve metadata from peer!", peerId, error = newMetadataRes.error
       peer.failedMetadataRequests.inc()
