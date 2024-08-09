@@ -395,29 +395,19 @@ func is_merge_transition_complete*(
     default(typeof(state.latest_execution_payload_header))
   state.latest_execution_payload_header != defaultExecutionPayloadHeader
 
-<<<<<<< HEAD
-# https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.3/sync/optimistic.md#helpers
+# https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.4/sync/optimistic.md#helpers
 func is_execution_block*(body: SomeForkyBeaconBlockBody): bool =
   when typeof(body).kind >= ConsensusFork.Bellatrix:
-=======
-# https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.4/sync/optimistic.md#helpers
-func is_execution_block*(blck: SomeForkyBeaconBlock): bool =
-  when typeof(blck).kind >= ConsensusFork.Bellatrix:
->>>>>>> unstable
     const defaultExecutionPayload =
       default(typeof(body.execution_payload))
     body.execution_payload != defaultExecutionPayload
   else:
     false
 
-<<<<<<< HEAD
 func is_execution_block*(blck: SomeForkyBeaconBlock): bool =
   blck.body.is_execution_block
 
-# https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.3/specs/bellatrix/beacon-chain.md#is_merge_transition_block
-=======
 # https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.4/specs/bellatrix/beacon-chain.md#is_merge_transition_block
->>>>>>> unstable
 func is_merge_transition_block(
     state: bellatrix.BeaconState | capella.BeaconState | deneb.BeaconState |
            electra.BeaconState,
