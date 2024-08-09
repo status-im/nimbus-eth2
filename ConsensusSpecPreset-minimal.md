@@ -2598,9 +2598,12 @@ OK: 12/12 Fail: 0/12 Skip: 0/12
 + Pending consolidations - all_consolidation_cases_together [Preset: minimal]                OK
 + Pending consolidations - basic_pending_consolidation [Preset: minimal]                     OK
 + Pending consolidations - consolidation_not_yet_withdrawable_validator [Preset: minimal]    OK
++ Pending consolidations - pending_consolidation_compounding_creds [Preset: minimal]         OK
++ Pending consolidations - pending_consolidation_future_epoch [Preset: minimal]              OK
++ Pending consolidations - pending_consolidation_with_pending_deposit [Preset: minimal]      OK
 + Pending consolidations - skip_consolidation_when_source_slashed [Preset: minimal]          OK
 ```
-OK: 4/4 Fail: 0/4 Skip: 0/4
+OK: 7/7 Fail: 0/7 Skip: 0/7
 ## EF - Electra - Epoch Processing - RANDAO mixes reset [Preset: minimal]
 ```diff
 + RANDAO mixes reset - updated_randao_mixes [Preset: minimal]                                OK
@@ -2689,14 +2692,16 @@ OK: 5/5 Fail: 0/5 Skip: 0/5
 + EF - Electra - Fork - electra_fork_random_low_balances [Preset: minimal]                   OK
 + EF - Electra - Fork - electra_fork_random_misc_balances [Preset: minimal]                  OK
 + EF - Electra - Fork - fork_base_state [Preset: minimal]                                    OK
++ EF - Electra - Fork - fork_has_compounding_withdrawal_credential [Preset: minimal]         OK
 + EF - Electra - Fork - fork_many_next_epoch [Preset: minimal]                               OK
 + EF - Electra - Fork - fork_next_epoch [Preset: minimal]                                    OK
 + EF - Electra - Fork - fork_next_epoch_with_block [Preset: minimal]                         OK
++ EF - Electra - Fork - fork_pre_activation [Preset: minimal]                                OK
 + EF - Electra - Fork - fork_random_large_validator_set [Preset: minimal]                    OK
 + EF - Electra - Fork - fork_random_low_balances [Preset: minimal]                           OK
 + EF - Electra - Fork - fork_random_misc_balances [Preset: minimal]                          OK
 ```
-OK: 14/14 Fail: 0/14 Skip: 0/14
+OK: 16/16 Fail: 0/16 Skip: 0/16
 ## EF - Electra - Operations - Attestation  [Preset: minimal]
 ```diff
 + [Invalid] EF - Electra - Operations - Attestation - invalid_after_max_inclusion_slot       OK
@@ -3345,40 +3350,55 @@ OK: 4/4 Fail: 0/4 Skip: 0/4
 + Light client - Single merkle proof - minimal/deneb/light_client/single_merkle_proof/Beacon OK
 + Light client - Single merkle proof - minimal/deneb/light_client/single_merkle_proof/Beacon OK
 + Light client - Single merkle proof - minimal/deneb/light_client/single_merkle_proof/Beacon OK
++ Light client - Single merkle proof - minimal/electra/light_client/single_merkle_proof/Beac OK
++ Light client - Single merkle proof - minimal/electra/light_client/single_merkle_proof/Beac OK
++ Light client - Single merkle proof - minimal/electra/light_client/single_merkle_proof/Beac OK
++ Light client - Single merkle proof - minimal/electra/light_client/single_merkle_proof/Beac OK
 ```
-OK: 14/14 Fail: 0/14 Skip: 0/14
+OK: 18/18 Fail: 0/18 Skip: 0/18
 ## EF - Light client - Sync [Preset: minimal]
 ```diff
 + Light client - Sync - minimal/altair/light_client/sync/pyspec_tests/advance_finality_witho OK
 + Light client - Sync - minimal/altair/light_client/sync/pyspec_tests/capella_store_with_leg OK
 + Light client - Sync - minimal/altair/light_client/sync/pyspec_tests/deneb_store_with_legac OK
++ Light client - Sync - minimal/altair/light_client/sync/pyspec_tests/electra_store_with_leg OK
 + Light client - Sync - minimal/altair/light_client/sync/pyspec_tests/light_client_sync      OK
 + Light client - Sync - minimal/altair/light_client/sync/pyspec_tests/supply_sync_committee_ OK
 + Light client - Sync - minimal/bellatrix/light_client/sync/pyspec_tests/advance_finality_wi OK
 + Light client - Sync - minimal/bellatrix/light_client/sync/pyspec_tests/capella_deneb_fork  OK
++ Light client - Sync - minimal/bellatrix/light_client/sync/pyspec_tests/capella_electra_for OK
 + Light client - Sync - minimal/bellatrix/light_client/sync/pyspec_tests/capella_fork        OK
 + Light client - Sync - minimal/bellatrix/light_client/sync/pyspec_tests/capella_store_with_ OK
 + Light client - Sync - minimal/bellatrix/light_client/sync/pyspec_tests/deneb_store_with_le OK
++ Light client - Sync - minimal/bellatrix/light_client/sync/pyspec_tests/electra_store_with_ OK
 + Light client - Sync - minimal/bellatrix/light_client/sync/pyspec_tests/light_client_sync   OK
 + Light client - Sync - minimal/bellatrix/light_client/sync/pyspec_tests/supply_sync_committ OK
 + Light client - Sync - minimal/capella/light_client/sync/pyspec_tests/advance_finality_with OK
++ Light client - Sync - minimal/capella/light_client/sync/pyspec_tests/deneb_electra_fork    OK
 + Light client - Sync - minimal/capella/light_client/sync/pyspec_tests/deneb_fork            OK
 + Light client - Sync - minimal/capella/light_client/sync/pyspec_tests/deneb_store_with_lega OK
++ Light client - Sync - minimal/capella/light_client/sync/pyspec_tests/electra_store_with_le OK
 + Light client - Sync - minimal/capella/light_client/sync/pyspec_tests/light_client_sync     OK
 + Light client - Sync - minimal/capella/light_client/sync/pyspec_tests/supply_sync_committee OK
 + Light client - Sync - minimal/deneb/light_client/sync/pyspec_tests/advance_finality_withou OK
++ Light client - Sync - minimal/deneb/light_client/sync/pyspec_tests/electra_fork            OK
++ Light client - Sync - minimal/deneb/light_client/sync/pyspec_tests/electra_store_with_lega OK
 + Light client - Sync - minimal/deneb/light_client/sync/pyspec_tests/light_client_sync       OK
 + Light client - Sync - minimal/deneb/light_client/sync/pyspec_tests/supply_sync_committee_f OK
++ Light client - Sync - minimal/electra/light_client/sync/pyspec_tests/advance_finality_with OK
++ Light client - Sync - minimal/electra/light_client/sync/pyspec_tests/light_client_sync     OK
++ Light client - Sync - minimal/electra/light_client/sync/pyspec_tests/supply_sync_committee OK
 ```
-OK: 20/20 Fail: 0/20 Skip: 0/20
+OK: 30/30 Fail: 0/30 Skip: 0/30
 ## EF - Light client - Update ranking [Preset: minimal]
 ```diff
 + Light client - Update ranking - minimal/altair/light_client/update_ranking/pyspec_tests/up OK
 + Light client - Update ranking - minimal/bellatrix/light_client/update_ranking/pyspec_tests OK
 + Light client - Update ranking - minimal/capella/light_client/update_ranking/pyspec_tests/u OK
 + Light client - Update ranking - minimal/deneb/light_client/update_ranking/pyspec_tests/upd OK
++ Light client - Update ranking - minimal/electra/light_client/update_ranking/pyspec_tests/u OK
 ```
-OK: 4/4 Fail: 0/4 Skip: 0/4
+OK: 5/5 Fail: 0/5 Skip: 0/5
 ## EF - Merkle proof [Preset: minimal]
 ```diff
   Merkle proof - Single merkle proof - eip7594                                               Skip
@@ -3386,8 +3406,12 @@ OK: 4/4 Fail: 0/4 Skip: 0/4
 + Merkle proof - Single merkle proof - minimal/deneb/merkle_proof/single_merkle_proof/Beacon OK
 + Merkle proof - Single merkle proof - minimal/deneb/merkle_proof/single_merkle_proof/Beacon OK
 + Merkle proof - Single merkle proof - minimal/deneb/merkle_proof/single_merkle_proof/Beacon OK
++ Merkle proof - Single merkle proof - minimal/electra/merkle_proof/single_merkle_proof/Beac OK
++ Merkle proof - Single merkle proof - minimal/electra/merkle_proof/single_merkle_proof/Beac OK
++ Merkle proof - Single merkle proof - minimal/electra/merkle_proof/single_merkle_proof/Beac OK
++ Merkle proof - Single merkle proof - minimal/electra/merkle_proof/single_merkle_proof/Beac OK
 ```
-OK: 4/5 Fail: 0/5 Skip: 1/5
+OK: 8/9 Fail: 0/9 Skip: 1/9
 ## EF - Phase 0 - Epoch Processing - Effective balance updates [Preset: minimal]
 ```diff
 + Effective balance updates - effective_balance_hysteresis [Preset: minimal]                 OK
@@ -4019,4 +4043,4 @@ OK: 185/207 Fail: 0/207 Skip: 22/207
 OK: 3/3 Fail: 0/3 Skip: 0/3
 
 ---TOTAL---
-OK: 3266/3289 Fail: 0/3289 Skip: 23/3289
+OK: 3290/3313 Fail: 0/3313 Skip: 23/3313
