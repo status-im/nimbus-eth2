@@ -25,7 +25,7 @@ import
 export
   eth2_merkleization, forks, rlp, ssz_codec
 
-# https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.3/specs/phase0/weak-subjectivity.md#constants
+# https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.4/specs/phase0/weak-subjectivity.md#constants
 const ETH_TO_GWEI = 1_000_000_000.Gwei
 
 func toEther*(gwei: Gwei): Ether =
@@ -162,7 +162,7 @@ func compute_domain*(
   result[0..3] = domain_type.data
   result[4..31] = fork_data_root.data.toOpenArray(0, 27)
 
-# https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.3/specs/phase0/beacon-chain.md#get_domain
+# https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.4/specs/phase0/beacon-chain.md#get_domain
 func get_domain*(
     fork: Fork,
     domain_type: DomainType,
@@ -387,7 +387,7 @@ func contextEpoch*(bootstrap: ForkyLightClientBootstrap): Epoch =
 func contextEpoch*(update: SomeForkyLightClientUpdate): Epoch =
   update.attested_header.beacon.slot.epoch
 
-# https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.3/specs/bellatrix/beacon-chain.md#is_merge_transition_complete
+# https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.4/specs/bellatrix/beacon-chain.md#is_merge_transition_complete
 func is_merge_transition_complete*(
     state: bellatrix.BeaconState | capella.BeaconState | deneb.BeaconState |
            electra.BeaconState): bool =
@@ -395,19 +395,29 @@ func is_merge_transition_complete*(
     default(typeof(state.latest_execution_payload_header))
   state.latest_execution_payload_header != defaultExecutionPayloadHeader
 
+<<<<<<< HEAD
 # https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.3/sync/optimistic.md#helpers
 func is_execution_block*(body: SomeForkyBeaconBlockBody): bool =
   when typeof(body).kind >= ConsensusFork.Bellatrix:
+=======
+# https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.4/sync/optimistic.md#helpers
+func is_execution_block*(blck: SomeForkyBeaconBlock): bool =
+  when typeof(blck).kind >= ConsensusFork.Bellatrix:
+>>>>>>> unstable
     const defaultExecutionPayload =
       default(typeof(body.execution_payload))
     body.execution_payload != defaultExecutionPayload
   else:
     false
 
+<<<<<<< HEAD
 func is_execution_block*(blck: SomeForkyBeaconBlock): bool =
   blck.body.is_execution_block
 
 # https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.3/specs/bellatrix/beacon-chain.md#is_merge_transition_block
+=======
+# https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.4/specs/bellatrix/beacon-chain.md#is_merge_transition_block
+>>>>>>> unstable
 func is_merge_transition_block(
     state: bellatrix.BeaconState | capella.BeaconState | deneb.BeaconState |
            electra.BeaconState,
@@ -423,7 +433,7 @@ func is_merge_transition_block(
   not is_merge_transition_complete(state) and
     body.execution_payload != defaultExecutionPayload
 
-# https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.3/specs/bellatrix/beacon-chain.md#is_execution_enabled
+# https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.4/specs/bellatrix/beacon-chain.md#is_execution_enabled
 func is_execution_enabled*(
     state: bellatrix.BeaconState | capella.BeaconState | deneb.BeaconState |
            electra.BeaconState,
@@ -437,7 +447,7 @@ func is_execution_enabled*(
           electra.SigVerifiedBeaconBlockBody): bool =
   is_merge_transition_block(state, body) or is_merge_transition_complete(state)
 
-# https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.3/specs/bellatrix/beacon-chain.md#compute_timestamp_at_slot
+# https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.4/specs/bellatrix/beacon-chain.md#compute_timestamp_at_slot
 func compute_timestamp_at_slot*(state: ForkyBeaconState, slot: Slot): uint64 =
   # Note: This function is unsafe with respect to overflows and underflows.
   let slots_since_genesis = slot - GENESIS_SLOT
@@ -613,3 +623,26 @@ proc compute_execution_block_hash*(
 
 proc compute_execution_block_hash*(blck: ForkyBeaconBlock): Eth2Digest =
   blck.body.execution_payload.compute_execution_block_hash(blck.parent_root)
+
+from std/math import exp, ln
+from std/sequtils import foldl
+
+func ln_binomial(n, k: int): float64 =
+  if k > n:
+    low(float64)
+  else:
+    template ln_factorial(n: int): float64 =
+      (2 .. n).foldl(a + ln(b.float64), 0.0)
+    ln_factorial(n) - ln_factorial(k) - ln_factorial(n - k)
+
+func hypergeom_cdf*(k: int, population: int, successes: int, draws: int):
+    float64 =
+  if k < draws + successes - population:
+    0.0
+  elif k >= min(successes, draws):
+    1.0
+  else:
+    let ln_denom = ln_binomial(population, draws)
+    (0 .. k).foldl(a + exp(
+      ln_binomial(successes, b) +
+      ln_binomial(population - successes, draws - b) - ln_denom), 0.0)

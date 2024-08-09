@@ -208,16 +208,6 @@ proc complete(batchCrypto: var BatchCrypto, batch: var Batch, ok: bool) =
 
     reset(batchCrypto.counts)
 
-func combine(a: var Signature, b: Signature) =
-  var tmp = AggregateSignature.init(CookedSig(a))
-  tmp.aggregate(b)
-  a = Signature(tmp.finish())
-
-func combine(a: var PublicKey, b: PublicKey) =
-  var tmp = AggregatePublicKey.init(CookedPubKey(a))
-  tmp.aggregate(b)
-  a = PublicKey(tmp.finish())
-
 proc batchVerifyTask(task: ptr BatchTask) {.nimcall.} =
   # Task suitable for running in taskpools - look, no GC!
   let
@@ -366,18 +356,11 @@ proc verifySoon(
     batch = batchCrypto[].getBatch()
     fut = newFuture[BatchResult](name)
 
-  var found = false
-  # Find existing signature sets with the same message - if we can verify an
-  # aggregate instead of several signatures, that is _much_ faster
-  for item in batch[].sigsets.mitems():
-    if item.message == sigset.message:
-      item.signature.combine(sigset.signature)
-      item.pubkey.combine(sigset.pubkey)
-      found = true
-      break
-
-  if not found:
-    batch[].sigsets.add sigset
+  # TODO If there is a signature set `item in batch[].sigsets.mitems()`
+  # with `item.message == sigset.message`, further performance could be gained
+  # by implementing Pippenger multi-scalar multiplication in `nim-blscurve`.
+  # https://gist.github.com/wemeetagain/d52fc4b077f80db6e423935244c2afb2
+  batch[].sigsets.add sigset
 
   # We need to keep the "original" sigset to allow verifying each signature
   # one by one in the case the combined operation fails

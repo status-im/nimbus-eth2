@@ -10,7 +10,7 @@
 # State transition - block processing, as described in
 # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.7/specs/phase0/beacon-chain.md#block-processing
 # https://github.com/ethereum/consensus-specs/blob/v1.4.0/specs/altair/beacon-chain.md#block-processing
-# https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.3/specs/bellatrix/beacon-chain.md#block-processing
+# https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.4/specs/bellatrix/beacon-chain.md#block-processing
 # https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.3/specs/capella/beacon-chain.md#block-processing
 # https://github.com/ethereum/consensus-specs/blob/v1.4.0/specs/deneb/beacon-chain.md#block-processing
 # https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.1/specs/electra/beacon-chain.md#block-processing
@@ -135,7 +135,7 @@ func is_slashable_validator(validator: Validator, epoch: Epoch): bool =
     (validator.activation_epoch <= epoch) and
     (epoch < validator.withdrawable_epoch)
 
-# https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.3/specs/phase0/beacon-chain.md#proposer-slashings
+# https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.4/specs/phase0/beacon-chain.md#proposer-slashings
 proc check_proposer_slashing*(
     state: ForkyBeaconState, proposer_slashing: SomeProposerSlashing,
     flags: UpdateFlags):
@@ -275,48 +275,20 @@ proc process_attester_slashing*(
 
   ok((proposer_reward, cur_exit_queue_info))
 
-func findValidatorIndex*(state: ForkyBeaconState, pubkey: ValidatorPubKey):
-    Opt[ValidatorIndex] =
-  # This linear scan is unfortunate, but should be fairly fast as we do a simple
-  # byte comparison of the key. The alternative would be to build a Table, but
-  # given that each block can hold no more than 16 deposits, it's slower to
-  # build the table and use it for lookups than to scan it like this.
-  # Once we have a reusable, long-lived cache, this should be revisited
-  #
-  # For deposit processing purposes, two broad cases exist, either
-  #
-  # (a) someone has deposited all 32 required ETH as a single transaction,
-  #     in which case the index doesn't yet exist so the search order does
-  #     not matter so long as it's generally in an order memory controller
-  #     prefetching can predict; or
-  #
-  # (b) the deposit has been split into multiple parts, typically not far
-  #     apart from each other, such that on average one would expect this
-  #     validator index to be nearer the maximal than minimal index.
-  #
-  # countdown() infinite-loops if the lower bound with uint32 is 0, so
-  # shift indices by 1, which avoids triggering unsigned wraparound.
-  for vidx in countdown(state.validators.len.uint32, 1):
-    if state.validators.asSeq[vidx - 1].pubkey == pubkey:
-      return Opt[ValidatorIndex].ok((vidx - 1).ValidatorIndex)
-
-from ".."/bloomfilter import
-  PubkeyBloomFilter, constructBloomFilter, incl, mightContain
+from ".."/validator_bucket_sort import
+  BucketSortedValidators, add, findValidatorIndex, sortValidatorBuckets
 
 # https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.0/specs/phase0/beacon-chain.md#deposits
 # https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.0/specs/electra/beacon-chain.md#updated--apply_deposit
 proc apply_deposit(
     cfg: RuntimeConfig, state: var ForkyBeaconState,
-    bloom_filter: var PubkeyBloomFilter, deposit_data: DepositData,
-    flags: UpdateFlags): Result[void, cstring] =
+    bucketSortedValidators: var BucketSortedValidators,
+    deposit_data: DepositData, flags: UpdateFlags): Result[void, cstring] =
   let
     pubkey = deposit_data.pubkey
     amount = deposit_data.amount
-    index =
-      if bloom_filter.mightContain(pubkey):
-        findValidatorIndex(state, pubkey)
-      else:
-        Opt.none(ValidatorIndex)
+    index = findValidatorIndex(
+      state.validators.asSeq, bucketSortedValidators, pubkey)
 
   if index.isSome():
     # Increase balance by deposit amount
@@ -358,14 +330,15 @@ proc apply_deposit(
           return err("apply_deposit: too many validators (current_epoch_participation)")
         if not state.inactivity_scores.add(0'u64):
           return err("apply_deposit: too many validators (inactivity_scores)")
+      let new_vidx = state.validators.lenu64 - 1
       when typeof(state).kind >= ConsensusFork.Electra:
         debugComment "check hashlist add return"
 
         # [New in Electra:EIP7251]
         discard state.pending_balance_deposits.add PendingBalanceDeposit(
-          index: state.validators.lenu64 - 1, amount: amount)
+          index: new_vidx, amount: amount)
       doAssert state.validators.len == state.balances.len
-      bloom_filter.incl pubkey
+      bucketSortedValidators.add new_vidx.ValidatorIndex
     else:
       # Deposits may come with invalid signatures - in that case, they are not
       # turned into a validator but still get processed to keep the deposit
@@ -378,7 +351,8 @@ proc apply_deposit(
 # https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.0/specs/phase0/beacon-chain.md#deposits
 proc process_deposit*(
     cfg: RuntimeConfig, state: var ForkyBeaconState,
-    bloom_filter: var PubkeyBloomFilter, deposit: Deposit, flags: UpdateFlags):
+    bucketSortedValidators: var BucketSortedValidators,
+    deposit: Deposit, flags: UpdateFlags):
     Result[void, cstring] =
   ## Process an Eth1 deposit, registering a validator or increasing its balance.
 
@@ -395,12 +369,13 @@ proc process_deposit*(
   # Deposits must be processed in order
   state.eth1_deposit_index += 1
 
-  apply_deposit(cfg, state, bloom_filter, deposit.data, flags)
+  apply_deposit(cfg, state, bucketSortedValidators, deposit.data, flags)
 
 # https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.3/specs/electra/beacon-chain.md#new-process_deposit_request
 func process_deposit_request*(
     cfg: RuntimeConfig, state: var electra.BeaconState,
-    bloom_filter: var PubkeyBloomFilter, deposit_request: DepositRequest,
+    bucketSortedValidators: var BucketSortedValidators,
+    deposit_request: DepositRequest,
     flags: UpdateFlags): Result[void, cstring] =
   # Set deposit request start index
   if state.deposit_requests_start_index ==
@@ -408,7 +383,7 @@ func process_deposit_request*(
     state.deposit_requests_start_index = deposit_request.index
 
   apply_deposit(
-    cfg, state, bloom_filter, DepositData(
+    cfg, state, bucketSortedValidators, DepositData(
       pubkey: deposit_request.pubkey,
       withdrawal_credentials: deposit_request.withdrawal_credentials,
       amount: deposit_request.amount,
@@ -510,6 +485,7 @@ proc process_bls_to_execution_change*(
 # https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.3/specs/electra/beacon-chain.md#new-process_withdrawal_request
 func process_withdrawal_request*(
     cfg: RuntimeConfig, state: var electra.BeaconState,
+    bucketSortedValidators: BucketSortedValidators,
     withdrawal_request: WithdrawalRequest, cache: var StateCache) =
   let
     amount = withdrawal_request.amount
@@ -523,7 +499,9 @@ func process_withdrawal_request*(
   let
     request_pubkey = withdrawal_request.validator_pubkey
     # Verify pubkey exists
-    index = findValidatorIndex(state, request_pubkey).valueOr:
+    index = findValidatorIndex(
+        state.validators.asSeq, bucketSortedValidators,
+        request_pubkey).valueOr:
       return
     validator = state.validators.item(index)
 
@@ -591,6 +569,7 @@ func process_withdrawal_request*(
 # https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.3/specs/electra/beacon-chain.md#new-process_consolidation_request
 proc process_consolidation_request*(
     cfg: RuntimeConfig, state: var electra.BeaconState,
+    bucketSortedValidators: BucketSortedValidators,
     consolidation_request: ConsolidationRequest,
     cache: var StateCache) =
   # If the pending consolidations queue is full, consolidation requests are
@@ -606,11 +585,14 @@ proc process_consolidation_request*(
 
   let
     # Verify pubkeys exists
-    source_index =
-      findValidatorIndex(state, consolidation_request.source_pubkey).valueOr:
+    source_index = findValidatorIndex(
+          state.validators.asSeq, bucketSortedValidators,
+          consolidation_request.source_pubkey).valueOr:
         return
     target_index =
-      findValidatorIndex(state, consolidation_request.target_pubkey).valueOr:
+      findValidatorIndex(
+          state.validators.asSeq, bucketSortedValidators,
+          consolidation_request.target_pubkey).valueOr:
         return
 
   # Verify that source != target, so a consolidation cannot be used as an exit.
@@ -698,12 +680,26 @@ proc process_operations(
 
   # It costs a full validator set scan to construct these values; only do so if
   # there will be some kind of exit.
-  var exit_queue_info =
-    if body.proposer_slashings.len + body.attester_slashings.len +
-        body.voluntary_exits.len > 0:
-      get_state_exit_queue_info(state)
-    else:
-      default(ExitQueueInfo)  # not used
+  # TODO Electra doesn't use exit_queue_info, don't calculate
+  var
+    exit_queue_info =
+      if body.proposer_slashings.len + body.attester_slashings.len +
+          body.voluntary_exits.len > 0:
+        get_state_exit_queue_info(state)
+      else:
+        default(ExitQueueInfo)  # not used
+    bsv_use =
+      when typeof(body).kind >= ConsensusFork.Electra:
+        body.deposits.len + body.execution_payload.deposit_requests.len +
+          body.execution_payload.withdrawal_requests.len +
+          body.execution_payload.consolidation_requests.len > 0
+      else:
+        body.deposits.len > 0
+    bsv =
+      if bsv_use:
+        sortValidatorBuckets(state.validators.asSeq)
+      else:
+        nil     # this is a logic error, effectively assert
 
   for op in body.proposer_slashings:
     let (proposer_slashing_reward, new_exit_queue_info) =
@@ -718,10 +714,8 @@ proc process_operations(
   for op in body.attestations:
     operations_rewards.attestations +=
       ? process_attestation(state, op, flags, base_reward_per_increment, cache)
-  if body.deposits.len > 0:
-    let bloom_filter = constructBloomFilter(state.validators.asSeq)
-    for op in body.deposits:
-      ? process_deposit(cfg, state, bloom_filter[], op, flags)
+  for op in body.deposits:
+    ? process_deposit(cfg, state, bsv[], op, flags)
   for op in body.voluntary_exits:
     exit_queue_info = ? process_voluntary_exit(
       cfg, state, op, flags, exit_queue_info, cache)
@@ -731,15 +725,13 @@ proc process_operations(
 
   when typeof(body).kind >= ConsensusFork.Electra:
     for op in body.execution_payload.deposit_requests:
-      debugComment "combine with previous Bloom filter construction"
-      let bloom_filter = constructBloomFilter(state.validators.asSeq)
-      ? process_deposit_request(cfg, state, bloom_filter[], op, {})
+      ? process_deposit_request(cfg, state, bsv[], op, {})
     for op in body.execution_payload.withdrawal_requests:
       # [New in Electra:EIP7002:7251]
-      process_withdrawal_request(cfg, state, op, cache)
+      process_withdrawal_request(cfg, state, bsv[], op, cache)
     for op in body.execution_payload.consolidation_requests:
       # [New in Electra:EIP7251]
-      process_consolidation_request(cfg, state, op, cache)
+      process_consolidation_request(cfg, state, bsv[], op, cache)
 
   ok(operations_rewards)
 
@@ -1146,7 +1138,7 @@ proc process_block*(
 
   ok(operations_rewards)
 
-# https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.3/specs/bellatrix/beacon-chain.md#block-processing
+# https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.4/specs/bellatrix/beacon-chain.md#block-processing
 # TODO workaround for https://github.com/nim-lang/Nim/issues/18095
 type SomeBellatrixBlock =
   bellatrix.BeaconBlock | bellatrix.SigVerifiedBeaconBlock | bellatrix.TrustedBeaconBlock

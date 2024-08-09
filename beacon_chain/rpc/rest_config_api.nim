@@ -43,6 +43,8 @@ proc installConfigApiHandlers*(router: var RestRouter, node: BeaconNode) =
             Base10.toString(MIN_DEPOSIT_AMOUNT),
           MAX_EFFECTIVE_BALANCE:
             Base10.toString(MAX_EFFECTIVE_BALANCE),
+          MAX_EFFECTIVE_BALANCE_ELECTRA:
+            Base10.toString(static(MAX_EFFECTIVE_BALANCE_ELECTRA.uint64)),
           EFFECTIVE_BALANCE_INCREMENT:
             Base10.toString(EFFECTIVE_BALANCE_INCREMENT),
           MIN_ATTESTATION_INCLUSION_DELAY:
@@ -90,7 +92,7 @@ proc installConfigApiHandlers*(router: var RestRouter, node: BeaconNode) =
           MAX_VOLUNTARY_EXITS:
             Base10.toString(MAX_VOLUNTARY_EXITS),
 
-          # https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.3/presets/mainnet/altair.yaml
+          # https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.4/presets/mainnet/altair.yaml
           INACTIVITY_PENALTY_QUOTIENT_ALTAIR:
             Base10.toString(INACTIVITY_PENALTY_QUOTIENT_ALTAIR),
           MIN_SLASHING_PENALTY_QUOTIENT_ALTAIR:
@@ -106,7 +108,7 @@ proc installConfigApiHandlers*(router: var RestRouter, node: BeaconNode) =
           UPDATE_TIMEOUT:
             Base10.toString(UPDATE_TIMEOUT),
 
-          # https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.3/presets/mainnet/bellatrix.yaml
+          # https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.4/presets/mainnet/bellatrix.yaml
           INACTIVITY_PENALTY_QUOTIENT_BELLATRIX:
             Base10.toString(INACTIVITY_PENALTY_QUOTIENT_BELLATRIX),
           MIN_SLASHING_PENALTY_QUOTIENT_BELLATRIX:
@@ -122,7 +124,7 @@ proc installConfigApiHandlers*(router: var RestRouter, node: BeaconNode) =
           MAX_EXTRA_DATA_BYTES:
             Base10.toString(uint64(MAX_EXTRA_DATA_BYTES)),
 
-          # https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.3/presets/mainnet/capella.yaml
+          # https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.4/presets/mainnet/capella.yaml
           MAX_BLS_TO_EXECUTION_CHANGES:
             Base10.toString(uint64(MAX_BLS_TO_EXECUTION_CHANGES)),
           MAX_WITHDRAWALS_PER_PAYLOAD:
@@ -175,6 +177,10 @@ proc installConfigApiHandlers*(router: var RestRouter, node: BeaconNode) =
             "0x" & $cfg.DENEB_FORK_VERSION,
           DENEB_FORK_EPOCH:
             Base10.toString(uint64(cfg.DENEB_FORK_EPOCH)),
+          ELECTRA_FORK_VERSION:
+            "0x" & $cfg.ELECTRA_FORK_VERSION,
+          ELECTRA_FORK_EPOCH:
+            Base10.toString(uint64(cfg.ELECTRA_FORK_EPOCH)),
           SECONDS_PER_SLOT:
             Base10.toString(SECONDS_PER_SLOT),
           SECONDS_PER_ETH1_BLOCK:

@@ -19,7 +19,7 @@ import
   ../../beacon_chain/consensus_object_pools/[
     blockchain_dag, block_clearance, block_quarantine, spec_cache],
   # Third-party
-  yaml,
+  yaml/tojson,
   # Test
   ../testutil, ../testdbutil,
   ./fixtures_utils, ./os_ops
@@ -90,8 +90,7 @@ proc initialLoad(
     dag = ChainDAGRef.init(
       forkedState[].kind.genesisTestRuntimeConfig, db, validatorMonitor, {})
     fkChoice = newClone(ForkChoice.init(
-      dag.getFinalizedEpochRef(), dag.finalizedHead.blck,
-      ForkChoiceVersion.Pr3431))
+      dag.getFinalizedEpochRef(), dag.finalizedHead.blck))
 
   (dag, fkChoice)
 
@@ -102,7 +101,7 @@ proc loadOps(
     IOError, KeyError, UnconsumedInput, ValueError,
     YamlConstructionError, YamlParserError].} =
   let stepsYAML = os_ops.readFile(path/"steps.yaml")
-  let steps = yaml.loadToJson(stepsYAML)
+  let steps = loadToJson(stepsYAML)
 
   result = @[]
   for step in steps[0]:

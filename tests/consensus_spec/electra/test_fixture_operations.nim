@@ -151,13 +151,18 @@ suite baseDescription & "BLS to execution change " & preset():
       OpBlsToExecutionChangeDir, suiteName, "BLS to execution change", "address_change",
       applyBlsToExecutionChange, path)
 
+from ".."/".."/".."/beacon_chain/validator_bucket_sort import
+  sortValidatorBuckets
+
 suite baseDescription & "Consolidation Request " & preset():
   proc applyConsolidationRequest(
       preState: var electra.BeaconState,
       consolidation_request: ConsolidationRequest): Result[void, cstring] =
     var cache: StateCache
     process_consolidation_request(
-      defaultRuntimeConfig, preState, consolidation_request, cache)
+      defaultRuntimeConfig, preState,
+      sortValidatorBuckets(preState.validators.asSeq)[],
+      consolidation_request, cache)
     ok()
 
   for path in walkTests(OpConsolidationRequestDir):
@@ -165,15 +170,13 @@ suite baseDescription & "Consolidation Request " & preset():
       OpConsolidationRequestDir, suiteName, "Consolidation Request",
       "consolidation_request", applyConsolidationRequest, path)
 
-from ".."/".."/".."/beacon_chain/bloomfilter import constructBloomFilter
-
 suite baseDescription & "Deposit " & preset():
   func applyDeposit(
       preState: var electra.BeaconState, deposit: Deposit):
       Result[void, cstring] =
     process_deposit(
       defaultRuntimeConfig, preState,
-      constructBloomFilter(preState.validators.asSeq)[], deposit, {})
+      sortValidatorBuckets(preState.validators.asSeq)[], deposit, {})
 
   for path in walkTests(OpDepositsDir):
     runTest[Deposit, typeof applyDeposit](
@@ -185,7 +188,7 @@ suite baseDescription & "Deposit Request " & preset():
       Result[void, cstring] =
     process_deposit_request(
       defaultRuntimeConfig, preState,
-      constructBloomFilter(preState.validators.asSeq)[], depositRequest, {})
+      sortValidatorBuckets(preState.validators.asSeq)[], depositRequest, {})
 
   for path in walkTests(OpDepositRequestDir):
     runTest[DepositRequest, typeof applyDepositRequest](
@@ -219,7 +222,9 @@ suite baseDescription & "Withdrawal Request " & preset():
       Result[void, cstring] =
     var cache: StateCache
     process_withdrawal_request(
-      defaultRuntimeConfig, preState, withdrawalRequest, cache)
+      defaultRuntimeConfig, preState,
+      sortValidatorBuckets(preState.validators.asSeq)[], withdrawalRequest,
+      cache)
     ok()
 
   for path in walkTests(OpWithdrawalRequestDir):

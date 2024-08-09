@@ -32,8 +32,6 @@ import
 
 from std/os import getHomeDir, parentDir, `/`
 from std/strutils import parseBiggestUInt, replace
-from fork_choice/fork_choice_types
-  import ForkChoiceVersion
 from consensus_object_pools/block_pools_types_light_client
   import LightClientDataImportMode
 
@@ -562,9 +560,10 @@ type
         name: "light-client-data-max-periods" .}: Option[uint64]
 
       longRangeSync* {.
+        hidden
         desc: "Enable long-range syncing (genesis sync)",
-        defaultValue: LongRangeSyncMode.Light,
-        name: "long-range-sync".}: LongRangeSyncMode
+        defaultValue: LongRangeSyncMode.Lenient,
+        name: "debug-long-range-sync".}: LongRangeSyncMode
 
       inProcessValidators* {.
         desc: "Disable the push model (the beacon node tells a signing process with the private keys of the validators what to sign and when) and load the validators in the beacon node itself"
@@ -674,12 +673,6 @@ type
         hidden
         desc: "Bandwidth estimate for the node (bits per second)"
         name: "debug-bandwidth-estimate" .}: Option[Natural]
-
-      forkChoiceVersion* {.
-        hidden
-        desc: "Forkchoice version to use. " &
-              "Must be one of: stable"
-        name: "debug-forkchoice-version" .}: Option[ForkChoiceVersion]
 
     of BNStartUpCmd.wallets:
       case walletsCmd* {.command.}: WalletsCmd
@@ -1269,8 +1262,11 @@ func completeCmdArg*(T: type WalletName, input: string): seq[string] =
   return @[]
 
 proc parseCmdArg*(T: type enr.Record, p: string): T {.raises: [ValueError].} =
-  if not fromURI(result, p):
-    raise newException(ValueError, "Invalid ENR")
+  let res = enr.Record.fromURI(p)
+  if res.isErr:
+    raise newException(ValueError, "Invalid ENR:" & $res.error)
+
+  res.value
 
 func completeCmdArg*(T: type enr.Record, val: string): seq[string] =
   return @[]

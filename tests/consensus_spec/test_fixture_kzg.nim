@@ -10,7 +10,7 @@
 
 import
   std/json,
-  yaml,
+  yaml/tojson,
   kzg4844/kzg_ex,
   stew/byteutils,
   ../testutil,
@@ -39,7 +39,7 @@ proc runBlobToKzgCommitmentTest(suiteName, suitePath, path: string) =
   let relativePathComponent = path.relativeTestPathComponent(suitePath)
   test "KZG - Blob to KZG commitment - " & relativePathComponent:
     let
-      data = yaml.loadToJson(os_ops.readFile(path/"data.yaml"))[0]
+      data = loadToJson(os_ops.readFile(path/"data.yaml"))[0]
       output = data["output"]
       blob = fromHex[131072](data["input"]["blob"].getStr)
 
@@ -61,7 +61,7 @@ proc runVerifyKzgProofTest(suiteName, suitePath, path: string) =
   let relativePathComponent = path.relativeTestPathComponent(suitePath)
   test "KZG - Verify KZG proof - " & relativePathComponent:
     let
-      data = yaml.loadToJson(os_ops.readFile(path/"data.yaml"))[0]
+      data = loadToJson(os_ops.readFile(path/"data.yaml"))[0]
       output = data["output"]
       commitment = fromHex[48](data["input"]["commitment"].getStr)
       z = fromHex[32](data["input"]["z"].getStr)
@@ -89,7 +89,7 @@ proc runVerifyBlobKzgProofTest(suiteName, suitePath, path: string) =
   let relativePathComponent = path.relativeTestPathComponent(suitePath)
   test "KZG - Verify blob KZG proof - " & relativePathComponent:
     let
-      data = yaml.loadToJson(os_ops.readFile(path/"data.yaml"))[0]
+      data = loadToJson(os_ops.readFile(path/"data.yaml"))[0]
       output = data["output"]
       blob = fromHex[131072](data["input"]["blob"].getStr)
       commitment = fromHex[48](data["input"]["commitment"].getStr)
@@ -117,7 +117,7 @@ proc runVerifyBlobKzgProofBatchTest(suiteName, suitePath, path: string) =
   let relativePathComponent = path.relativeTestPathComponent(suitePath)
   test "KZG - Verify blob KZG proof batch - " & relativePathComponent:
     let
-      data = yaml.loadToJson(os_ops.readFile(path/"data.yaml"))[0]
+      data = loadToJson(os_ops.readFile(path/"data.yaml"))[0]
       output = data["output"]
       blobs = data["input"]["blobs"].mapIt(fromHex[131072](it.getStr))
       commitments = data["input"]["commitments"].mapIt(fromHex[48](it.getStr))
@@ -146,7 +146,7 @@ proc runComputeKzgProofTest(suiteName, suitePath, path: string) =
   let relativePathComponent = path.relativeTestPathComponent(suitePath)
   test "KZG - Compute KZG proof - " & relativePathComponent:
     let
-      data = yaml.loadToJson(os_ops.readFile(path/"data.yaml"))[0]
+      data = loadToJson(os_ops.readFile(path/"data.yaml"))[0]
       output = data["output"]
       blob = fromHex[131072](data["input"]["blob"].getStr)
       z = fromHex[32](data["input"]["z"].getStr)
@@ -174,7 +174,7 @@ proc runComputeBlobKzgProofTest(suiteName, suitePath, path: string) =
   let relativePathComponent = path.relativeTestPathComponent(suitePath)
   test "KZG - Compute blob KZG proof - " & relativePathComponent:
     let
-      data = yaml.loadToJson(os_ops.readFile(path/"data.yaml"))[0]
+      data = loadToJson(os_ops.readFile(path/"data.yaml"))[0]
       output = data["output"]
       blob = fromHex[131072](data["input"]["blob"].getStr)
       commitment = fromHex[48](data["input"]["commitment"].getStr)
