@@ -34,12 +34,38 @@ type
     head*: BlockData
     tail*: BlockData
 
+  ChainFileErrorType* {.pure.} = enum
+    IoError,          # OS input/output error
+    IncorrectSize,    # Incorrect/unexpected size of chunk
+    IncompleteFooter, # Incomplete footer was read
+    IncompleteHeader, # Incomplete header was read
+    IncompleteData,   # Incomplete data was read
+    FooterError,      # Incorrect chunk's footer
+    HeaderError,      # Incorrect chunk's header
+    MismatchError     # Header and footer not from same chunk
+
+  ChainFileCheckResult* {.pure.} = enum
+    FileMissing,
+    FileEmpty,
+    FileOk,
+    FileRepaired,
+    FileCorrupted
+
+  ChainFileError* = object
+    kind*: ChainFileErrorType
+    message*: string
+
 const
   ChainFileHeaderSize* = 32
   ChainFileFooterSize* = 24
   ChainFileVersion = 1'u32
   ChainFileHeaderValue = 0x424D494E'u32
+  ChainFileHeaderArray = ChainFileHeaderValue.toBytesLE()
   IncompleteWriteError = "Unable to write data to file, disk full?"
+
+proc init(t: typedesc[ChainFileError], k: ChainFileErrorType,
+              m: string): ChainFileError =
+  ChainFileError(kind: k, message: m)
 
 template init(t: typedesc[ChainFileHeader],
               kind, length, number: uint64): ChainFileHeader =
@@ -64,13 +90,27 @@ template init(t: typedesc[ChainFileFooter],
               kind, length, number: uint64): ChainFileFooter =
   ChainFileFooter(kind: kind, size: length, slot: number)
 
+template unmaskKind(k: uint64): uint64 =
+  k and not(0x8000_0000_0000_0000'u64)
+
+template maskKind(k: uint64): uint64 =
+  k or 0x8000_0000_0000_0000'u64
+
+template isLast(k: uint64): bool =
+  (k and 0x8000_0000_0000_0000'u64) != 0'u64
+
+proc checkKind(kind: uint64): Result[void, string] =
+  let hkind = unmaskKind(kind)
+  if hkind notin [0'u64, 1, 2, 3, 4, 5, 64, 65]:
+    return err("Unsuppoted chunk kind value")
+  ok()
+
 proc check(a: ChainFileHeader): Result[void, string] =
   if a.header != ChainFileHeaderValue:
     return err("Invalid chunk header")
   if a.version != 1'u32:
     return err("Unsuppoted chunk version")
-  if a.kind notin [0'u64, 1, 2, 3, 4, 5, 64, 65]:
-    return err("Unsuppoted chunk kind value")
+  ? checkKind(a.kind)
   ok()
 
 proc check(a: ChainFileFooter): Result[void, string] =
@@ -83,6 +123,8 @@ proc check(a: ChainFileFooter, b: ChainFileHeader): Result[void, string] =
     return err("Footer and header reports different chunk kind")
   if a.size != b.size:
     return err("Footer and header reports different size")
+  if a.slot != b.slot:
+    return err("Footer and header reports different slots")
   ok()
 
 proc init(t: typedesc[ChainFileHeader],
@@ -156,24 +198,34 @@ proc init(t: typedesc[Chunk], kind, slot: uint64,
   footer.store(dst.toOpenArray(offset, offset + ChainFileFooterSize - 1))
   dst
 
-template getBlockChunkKind(kind: ConsensusFork): uint64 =
-  case kind
-  of ConsensusFork.Phase0: 0'u64
-  of ConsensusFork.Altair: 1'u64
-  of ConsensusFork.Bellatrix: 2'u64
-  of ConsensusFork.Capella: 3'u64
-  of ConsensusFork.Deneb: 4'u64
-  of ConsensusFork.Electra: 5'u64
+template getBlockChunkKind(kind: ConsensusFork, last: bool): uint64 =
+  let res =
+    case kind
+    of ConsensusFork.Phase0: 0'u64
+    of ConsensusFork.Altair: 1'u64
+    of ConsensusFork.Bellatrix: 2'u64
+    of ConsensusFork.Capella: 3'u64
+    of ConsensusFork.Deneb: 4'u64
+    of ConsensusFork.Electra: 5'u64
+  if last:
+    maskKind(res)
+  else:
+    res
 
-template getBlobChunkKind(kind: ConsensusFork): uint64 =
-  case kind
-  of ConsensusFork.Phase0, ConsensusFork.Altair, ConsensusFork.Bellatrix,
-     ConsensusFork.Capella:
-    raiseAssert("Blobs are not supported yet")
-  of ConsensusFork.Deneb:
-    64'u64 + 0'u64
-  of ConsensusFork.Electra:
-    64'u64 + 1'u64
+template getBlobChunkKind(kind: ConsensusFork, last: bool): uint64 =
+  let res =
+    case kind
+    of ConsensusFork.Phase0, ConsensusFork.Altair, ConsensusFork.Bellatrix,
+       ConsensusFork.Capella:
+      raiseAssert("Blobs are not supported yet")
+    of ConsensusFork.Deneb:
+      64'u64 + 0'u64
+    of ConsensusFork.Electra:
+      64'u64 + 1'u64
+  if last:
+    maskKind(res)
+  else:
+    res
 
 proc getBlockConsensusFork(header: ChainFileHeader): ConsensusFork =
   case header.kind
@@ -185,11 +237,16 @@ proc getBlockConsensusFork(header: ChainFileHeader): ConsensusFork =
   of 5'u64: ConsensusFork.Electra
   else: raiseAssert("Should not be happened")
 
-template isBlock(h: ChainFileHeader): bool =
-  (h.kind >= 0) and (h.kind < 64)
+template isBlock(h: ChainFileHeader | ChainFileFooter): bool =
+  let hkind = unmaskKind(h.kind)
+  (hkind >= 0) and (hkind < 64)
 
-template isBlob(h: ChainFileHeader): bool =
+template isBlob(h: ChainFileHeader | ChainFileFooter): bool =
+  let hkind = unmaskKind(h.kind)
   (h.kind >= 64) and (h.kind < 128)
+
+template isLast(h: ChainFileHeader | ChainFileFooter): bool =
+  h.kind.isLast()
 
 proc store*(chunkfile: string, signedBlock: ForkedSignedBeaconBlock,
             blobs: Opt[BlobSidecars]): Result[void, string] =
@@ -203,7 +260,7 @@ proc store*(chunkfile: string, signedBlock: ForkedSignedBeaconBlock,
 
   block:
     let
-      kind = getBlockChunkKind(signedBlock.kind)
+      kind = getBlockChunkKind(signedBlock.kind, blobs.isNone())
       data = withBlck(signedBlock): snappy.encode(SSZ.encode(forkyBlck))
       slot = signedBlock.slot
       buffer =
@@ -218,9 +275,11 @@ proc store*(chunkfile: string, signedBlock: ForkedSignedBeaconBlock,
       return err(IncompleteWriteError)
 
   if blobs.isSome():
-    for blob in blobs.get():
+    let blobSidecars = blobs.get()
+    for index, blob in blobSidecars.pairs():
       let
-        kind = getBlobChunkKind(signedBlock.kind)
+        kind =
+          getBlobChunkKind(signedBlock.kind, index + 1 == len(blobSidecars))
         data = snappy.encode(SSZ.encode(blob[]))
         slot = blob[].signed_block_header.message.slot
         buffer =
@@ -239,107 +298,167 @@ proc store*(chunkfile: string, signedBlock: ForkedSignedBeaconBlock,
 
   ok()
 
-proc readChunkForward(handle: IoHandle): Result[Opt[Chunk], string] =
+proc readChunkForward(handle: IoHandle,
+                      dataRead: bool): Result[Opt[Chunk], ChainFileError] =
+  # This function only reads chunk header and footer, but does not read actual
+  # chunk data.
   var
-    data = newSeq[byte](ChainFileHeaderSize + ChainFileFooterSize)
+    data = newSeq[byte](max(ChainFileHeaderSize, ChainFileFooterSize))
     bytesRead: uint
 
   bytesRead =
     readFile(handle, data.toOpenArray(0, ChainFileHeaderSize - 1)).valueOr:
-      return err(ioErrorMsg(error))
+      return err(
+        ChainFileError.init(ChainFileErrorType.IoError, ioErrorMsg(error)))
 
-  if bytesRead == 0:
+  if bytesRead == 0'u:
     # End of file.
     return ok(Opt.none(Chunk))
 
-  if bytesRead != ChainFileHeaderSize:
-    return err("Unable to read chunk header data, incorrect file?")
+  if bytesRead != uint(ChainFileHeaderSize):
+    return err(
+      ChainFileError.init(ChainFileErrorType.IncompleteHeader,
+                          "Unable to read chunk header data, incorrect file?"))
 
   let
     header = ChainFileHeader.init(
       data.toOpenArray(0, ChainFileHeaderSize - 1)).valueOr:
-        return err(error)
+        return err(
+          ChainFileError.init(ChainFileErrorType.HeaderError, error))
 
-  data.setLen(header.size + ChainFileFooterSize)
+  if not(dataRead):
+    setFilePos(handle, int64(header.size), SeekPosition.SeekCurrent).isOkOr:
+      return err(
+        ChainFileError.init(ChainFileErrorType.IoError, ioErrorMsg(error)))
+  else:
+    data.setLen(int64(header.size))
+    bytesRead =
+      readFile(handle, data.toOpenArray(0, len(data) - 1)).valueOr:
+        return err(
+          ChainFileError.init(ChainFileErrorType.IoError, ioErrorMsg(error)))
 
-  bytesRead = readFile(handle, data).valueOr:
-    return err(ioErrorMsg(error))
+    if bytesRead != uint(header.size):
+      return err(
+        ChainFileError.init(ChainFileErrorType.IncompleteData,
+                            "Unable to read chunk data, incorrect file?"))
 
-  if bytesRead != uint(len(data)):
-    return err("Unable to read chunk data, incorrect file?")
+  bytesRead =
+    readFile(handle, data.toOpenArray(0, ChainFileFooterSize - 1)).valueOr:
+      return err(
+        ChainFileError.init(ChainFileErrorType.IoError, ioErrorMsg(error)))
+
+  if bytesRead != uint(ChainFileFooterSize):
+    return err(
+      ChainFileError.init(ChainFileErrorType.IncompleteFooter,
+                          "Unable to read chunk footer data, incorrect file?"))
 
   let
-    position = int(header.size)
     footer = ChainFileFooter.init(
-      data.toOpenArray(position, position + ChainFileFooterSize - 1)).valueOr:
-        return err(error)
+      data.toOpenArray(0, ChainFileFooterSize - 1)).valueOr:
+        return err(
+          ChainFileError.init(ChainFileErrorType.FooterError, error))
 
   check(footer, header).isOkOr:
-    return err(error)
+    return err(
+      ChainFileError.init(ChainFileErrorType.MismatchError, error))
 
-  data.setLen(header.size)
-  ok(Opt.some(Chunk(header: header, footer: footer, data: data)))
+  if not(dataRead):
+    ok(Opt.some(Chunk(header: header, footer: footer)))
+  else:
+    ok(Opt.some(Chunk(header: header, footer: footer, data: data)))
 
-proc readChunkBackward(handle: IoHandle): Result[Opt[Chunk], string] =
+proc readChunkBackward(handle: IoHandle,
+                       dataRead: bool): Result[Opt[Chunk], ChainFileError] =
+  # This function only reads chunk header and footer, but does not read actual
+  # chunk data.
   var
-    data = newSeq[byte](ChainFileHeaderSize + ChainFileFooterSize)
+    data = newSeq[byte](max(ChainFileHeaderSize, ChainFileFooterSize))
     bytesRead: uint
 
   let offset = getFilePos(handle).valueOr:
-    return err(ioErrorMsg(error))
+    return err(
+      ChainFileError.init(ChainFileErrorType.IoError, ioErrorMsg(error)))
 
   if offset == 0:
     return ok(Opt.none(Chunk))
 
   if offset <= (ChainFileHeaderSize + ChainFileFooterSize):
-    return err("File position is incorrect")
+    return err(
+      ChainFileError.init(ChainFileErrorType.IncorrectSize,
+                          "File position is incorrect"))
 
   setFilePos(handle, -ChainFileFooterSize, SeekPosition.SeekCurrent).isOkOr:
-    return err(ioErrorMsg(error))
+    return err(
+      ChainFileError.init(ChainFileErrorType.IoError, ioErrorMsg(error)))
 
   bytesRead =
     readFile(handle, data.toOpenArray(0, ChainFileFooterSize - 1)).valueOr:
-      return err(ioErrorMsg(error))
+      return err(
+        ChainFileError.init(ChainFileErrorType.IoError, ioErrorMsg(error)))
 
   if bytesRead != ChainFileFooterSize:
-    return err("Unable to read chunk footer data, incorrect file?")
-
+    return err(
+      ChainFileError.init(ChainFileErrorType.IncompleteFooter,
+                          "Unable to read chunk footer data, incorrect file?"))
   let
     footer = ChainFileFooter.init(
       data.toOpenArray(0, ChainFileFooterSize - 1)).valueOr:
-        return err(error)
+        return err(
+          ChainFileError.init(ChainFileErrorType.FooterError, error))
 
   block:
     let position =
       -(ChainFileHeaderSize + ChainFileFooterSize + int64(footer.size))
     setFilePos(handle, position, SeekPosition.SeekCurrent).isOkOr:
-      return err(ioErrorMsg(error))
+      return err(
+        ChainFileError.init(ChainFileErrorType.IoError, ioErrorMsg(error)))
 
-  data.setLen(ChainFileHeaderSize + int64(footer.size))
+  bytesRead =
+    readFile(handle, data.toOpenArray(0, ChainFileHeaderSize - 1)).valueOr:
+      return err(
+        ChainFileError.init(ChainFileErrorType.IoError, ioErrorMsg(error)))
 
-  bytesRead = readFile(handle, data).valueOr:
-    return err(ioErrorMsg(error))
-
-  if bytesRead != uint(len(data)):
-    return err("Unable to read chunk data, incorrect file?")
+  if bytesRead != ChainFileHeaderSize:
+    return err(
+      ChainFileError.init(ChainFileErrorType.IncompleteHeader,
+                          "Unable to read chunk header data, incorrect file?"))
 
   let
     header = ChainFileHeader.init(
       data.toOpenArray(0, ChainFileHeaderSize - 1)).valueOr:
-        return err(error)
+        return err(
+          ChainFileError.init(ChainFileErrorType.HeaderError, error))
 
   check(footer, header).isOkOr:
-    return err(error)
+    return err(
+      ChainFileError.init(ChainFileErrorType.MismatchError, error))
 
-  block:
-    let position = -(ChainFileHeaderSize + int64(footer.size))
-    # Set file position again, because it was moved when data was read.
+  if not(dataRead):
+    let position = int64(-ChainFileHeaderSize)
     setFilePos(handle, position, SeekPosition.SeekCurrent).isOkOr:
-      return err(ioErrorMsg(error))
+      return err(
+        ChainFileError.init(ChainFileErrorType.IoError, ioErrorMsg(error)))
+  else:
+    data.setLen(int64(header.size))
+    bytesRead =
+      readFile(handle, data.toOpenArray(0, len(data) - 1)).valueOr:
+        return err(
+          ChainFileError.init(ChainFileErrorType.IoError, ioErrorMsg(error)))
 
-  moveMem(addr data[0], addr data[ChainFileHeaderSize], int(header.size))
-  data.setLen(int(header.size))
-  ok(Opt.some(Chunk(header: header, footer: footer, data: data)))
+    if bytesRead != uint(header.size):
+      return err(
+        ChainFileError.init(ChainFileErrorType.IncompleteData,
+                            "Unable to read chunk data, incorrect file?"))
+
+    let position = -(ChainFileHeaderSize + int64(header.size))
+    setFilePos(handle, position, SeekPosition.SeekCurrent).isOkOr:
+      return err(
+        ChainFileError.init(ChainFileErrorType.IoError, ioErrorMsg(error)))
+
+  if not(dataRead):
+    ok(Opt.some(Chunk(header: header, footer: footer)))
+  else:
+    ok(Opt.some(Chunk(header: header, footer: footer, data: data)))
 
 proc decodeBlock(
     header: ChainFileHeader,
@@ -391,7 +510,8 @@ proc getChainFileTail(handle: IoHandle): Result[Opt[BlockData], string] =
   while true:
     let chunk =
       block:
-        let res = ? readChunkBackward(handle)
+        let res = readChunkBackward(handle, true).valueOr:
+          return err(error.message)
         if res.isNone():
           if len(sidecars) == 0:
             return ok(Opt.none(BlockData))
@@ -419,7 +539,8 @@ proc getChainFileHead(handle: IoHandle): Result[Opt[BlockData], string] =
       block:
         let chunk =
           block:
-            let res = ? readChunkForward(handle)
+            let res = readChunkForward(handle, true).valueOr:
+              return err(error.message)
             if res.isNone():
               return ok(Opt.none(BlockData))
             res.get()
@@ -435,7 +556,8 @@ proc getChainFileHead(handle: IoHandle): Result[Opt[BlockData], string] =
               return err(ioErrorMsg(error))
             let chunk =
               block:
-                let res = ? readChunkForward(handle)
+                let res = readChunkForward(handle, true).valueOr:
+                  return err(error.message)
                 if res.isNone():
                   endOfFile = true
                   break mainLoop
@@ -457,61 +579,10 @@ proc getChainFileHead(handle: IoHandle): Result[Opt[BlockData], string] =
 
   ok(Opt.some(BlockData(blck: blck, blob: blob)))
 
-proc init*(t: typedesc[ChainFileData],
-           filename: string): Result[Opt[ChainFileData], string] =
-  if not(isFile(filename)):
-    # We return None if file is missing, because its not an error.
-    return ok(Opt.none(ChainFileData))
-
-  let
-    flags = {OpenFlags.Read}
-    handle =
-      block:
-        let res = openFile(filename, flags)
-        if res.isErr():
-          return err(ioErrorMsg(res.error))
-        res.get()
-    head =
-      block:
-        let res = getChainFileHead(handle)
-        if res.isErr():
-          discard closeFile(handle)
-          return err(res.error)
-        let hres = res.get()
-        if hres.isNone():
-          # Empty file is also ok.
-          return ok(Opt.none(ChainFileData))
-        hres.get()
-
-  block:
-    let res = setFilePos(handle, 0, SeekPosition.SeekEnd)
-    if res.isErr():
-      discard closeFile(handle)
-      return err(ioErrorMsg(res.error))
-
-  let
-    tail =
-      block:
-        let res = getChainFileTail(handle)
-        if res.isErr():
-          discard closeFile(handle)
-          return err(res.error)
-        let tres = res.get()
-        if tres.isNone():
-          return err("Unexpected end of file encountered")
-        tres.get()
-
-  block:
-    let res = closeFile(handle)
-    if res.isErr():
-      return err(ioErrorMsg(res.error))
-
-  ok(Opt.some(ChainFileData(head: head, tail: tail)))
-
 iterator forwardWalk*(filename: string): Result[BlockData, string] {.
          closure.} =
-  # Iterates over all the items in chain-file ``filename`` in forward order
-  # (from the first one to last one).
+  ## Iterates over all the items in chain-file ``filename`` in forward order
+  ## (from the first one to last one).
   let
     flags = {OpenFlags.Read}
     handle =
@@ -537,8 +608,8 @@ iterator forwardWalk*(filename: string): Result[BlockData, string] {.
 
 iterator backwardWalk*(filename: string): Result[BlockData, string] {.
          closure.} =
-  # Iterates over all the items in chain-file ``filename`` in backward order
-  # (from the last one to first one).
+  ## Iterates over all the items in chain-file ``filename`` in backward order
+  ## (from the last one to first one).
   let
     flags = {OpenFlags.Read}
     handle =
@@ -567,3 +638,325 @@ iterator backwardWalk*(filename: string): Result[BlockData, string] {.
         yield err(ioErrorMsg(cres.error))
       return
     yield ok(bres.get())
+
+iterator backwardWalk*(handle: IoHandle): Result[BlockData, string] {.
+         closure.} =
+  while true:
+    let res = getChainFileTail(handle)
+    if res.isErr():
+      yield err(res.error)
+    let bres = res.get()
+    if bres.isNone():
+      return
+    yield ok(bres.get())
+
+iterator forwardWalk*(handle: IoHandle): Result[BlockData, string] {.
+         closure.} =
+  while true:
+    let res = getChainFileHead(handle)
+    if res.isErr():
+      yield err(res.error)
+    let bres = res.get()
+    if bres.isNone():
+      return
+    yield ok(bres.get())
+
+proc seekForSlotBackward*(handle: IoHandle,
+                          slot: Slot): Result[Opt[int64], string] =
+  ## Search from the beginning of the file for the first chunk of data
+  ## identified by slot ``slot``.
+  ## This procedure updates current file position to the beginning of the found
+  ## chunk and returns this position as the result.
+  block:
+    let res = setFilePos(handle, 0, SeekPosition.SeekEnd)
+    if res.isErr():
+      return err(ioErrorMsg(res.error))
+
+  while true:
+    let chunk =
+      block:
+        let res = readChunkBackward(handle, false).valueOr:
+          return err(error.message)
+        if res.isNone():
+          return ok(Opt.none(int64))
+        res.get()
+
+    if chunk.header.slot == slot:
+      block:
+        let
+          position =
+            ChainFileHeaderSize + ChainFileFooterSize + int64(chunk.header.size)
+          res = setFilePos(handle, position, SeekPosition.SeekCurrent)
+        if res.isErr():
+          return err(ioErrorMsg(res.error))
+      block:
+        let res = getFilePos(handle)
+        if res.isErr():
+          return err(ioErrorMsg(res.error))
+        return ok(Opt.some(res.get()))
+
+proc seekForSlotForward*(handle: IoHandle,
+                         slot: Slot): Result[Opt[int64], string] =
+  ## Search from the end of the file for the last chunk of data identified by
+  ## slot ``slot``.
+  ## This procedure updates current file position to the beginning of the found
+  ## chunk and returns this position as the result.
+  block:
+    let res = setFilePos(handle, 0, SeekPosition.SeekBegin)
+    if res.isErr():
+      return err(ioErrorMsg(res.error))
+
+  while true:
+    let chunk =
+      block:
+        let res = readChunkForward(handle, false).valueOr:
+          return err(error.message)
+        if res.isNone():
+          return ok(Opt.none(int64))
+        res.get()
+
+    if chunk.header.slot == slot:
+      block:
+        let
+          position =
+            -(ChainFileHeaderSize + ChainFileFooterSize +
+              int64(chunk.header.size))
+          res = setFilePos(handle, position, SeekPosition.SeekCurrent)
+        if res.isErr():
+          return err(ioErrorMsg(res.error))
+      block:
+        let res = getFilePos(handle)
+        if res.isErr():
+          return err(ioErrorMsg(res.error))
+        return ok(Opt.some(res.get()))
+
+proc seekForLastChunkBackward(handle: IoHandle): Result[Opt[int64], string] =
+  while true:
+    let chunk =
+      block:
+        let res = readChunkBackward(handle, false).valueOr:
+          return err(error.message)
+        if res.isNone():
+          return ok(Opt.none(int64))
+        res.get()
+
+    if chunk.header.isLast():
+      let res = getFilePos(handle).valueOr:
+        return err(ioErrorMsg(error))
+      return ok(Opt.some(res))
+
+proc search(data: openArray[byte], srch: openArray[byte],
+            state: var int): Opt[int] =
+  doAssert(len(srch) > 0)
+  for index in (len(data) - 1) .. 0:
+    if data[index] == srch[len(srch) - 1 - state]:
+      inc(state)
+      if state == len(srch):
+        return Opt.some(index)
+    else:
+      state = 0
+  Opt.none(int)
+
+proc seekForChunkBackward(handle: IoHandle,
+                          bufferSize = 4096): Result[Opt[int64], string] =
+  var
+    state = 0
+    data = newSeq[byte](bufferSize)
+    bytesRead: uint = 0
+
+  while true:
+    let
+      position = getFilePos(handle).valueOr:
+        return err(ioErrorMsg(error))
+      offset = max(0'i64, position - int64(bufferSize))
+
+    setFilePos(handle, offset, SeekPosition.SeekBegin).isOkOr:
+      return err(ioErrorMsg(error))
+
+    bytesRead = readFile(handle, data).valueOr:
+      return err(ioErrorMsg(error))
+
+    let indexOpt = search(data, ChainFileHeaderArray, state)
+    if indexOpt.isNone():
+      continue
+
+    let chunkOffset = -(int64(bufferSize) - int64(indexOpt.get()))
+
+    setFilePos(handle, chunkOffset, SeekPosition.SeekCurrent).isOkOr:
+      return err(ioErrorMsg(error))
+
+    let chunk = readChunkForward(handle, false).valueOr:
+      continue
+
+    if chunk.isNone():
+      return err("File has been changed, while repairing")
+
+    if chunk.get().header.isLast():
+      let finishOffset = getFilePos(handle).valueOr:
+        return err(ioErrorMsg(error))
+      return ok(Opt.some(finishOffset))
+
+  ok(Opt.none(int64))
+
+proc checkRepair*(filename: string,
+                  repair: bool): Result[ChainFileCheckResult, string] =
+  if not(isFile(filename)):
+    return ok(ChainFileCheckResult.FileMissing)
+
+  let
+    handle = openFile(filename, {OpenFlags.Read, OpenFlags.Write}).valueOr:
+      return err(ioErrorMsg(error))
+    filesize = getFileSize(handle).valueOr:
+      discard closeFile(handle)
+      return err(ioErrorMsg(error))
+
+  if filesize == 0'i64:
+    closeFile(handle).isOkOr:
+      return err(ioErrorMsg(error))
+    return ok(ChainFileCheckResult.FileEmpty)
+
+  setFilePos(handle, 0'i64, SeekPosition.SeekEnd).isOkOr:
+    discard closeFile(handle)
+    return err(ioErrorMsg(error))
+
+  let res = readChunkBackward(handle, false)
+  if res.isOk():
+    let chunk = res.get()
+    if chunk.isNone():
+      discard closeFile(handle)
+      return err("File was changed while reading")
+
+    if chunk.get().header.isLast():
+      # Last chunk being marked as last, everything is fine.
+      closeFile(handle).isOkOr:
+        return err(ioErrorMsg(error))
+      return ok(ChainFileCheckResult.FileOk)
+
+    # Last chunk was not marked properly, searching for the proper last chunk.
+    while true:
+      let nres = readChunkBackward(handle, false)
+      if nres.isErr():
+        discard closeFile(handle)
+        return err(nres.error.message)
+
+      let cres = nres.get()
+      if cres.isNone():
+        # We reached start of file.
+        return
+          if repair:
+            truncate(handle, 0).isOkOr:
+              discard closeFile(handle)
+              return err(ioErrorMsg(error))
+            closeFile(handle).isOkOr:
+              return err(ioErrorMsg(error))
+            ok(ChainFileCheckResult.FileRepaired)
+          else:
+            closeFile(handle).isOkOr:
+              return err(ioErrorMsg(error))
+            ok(ChainFileCheckResult.FileCorrupted)
+
+      if cres.get().header.isLast():
+        return
+          if repair:
+            let
+              position = getFilePos(handle).valueOr:
+                discard closeFile(handle)
+                return err(ioErrorMsg(error))
+              offset = position + int64(cres.get().header.size) +
+                       ChainFileHeaderSize + ChainFileFooterSize
+            truncate(handle, offset).isOkOr:
+              discard closeFile(handle)
+              return err(ioErrorMsg(error))
+
+            closeFile(handle).isOkOr:
+              return err(ioErrorMsg(error))
+
+            ok(ChainFileCheckResult.FileRepaired)
+          else:
+            closeFile(handle).isOkOr:
+              return err(ioErrorMsg(error))
+            ok(ChainFileCheckResult.FileCorrupted)
+
+    ok(ChainFileCheckResult.FileCorrupted)
+  else:
+    setFilePos(handle, 0'i64, SeekPosition.SeekEnd).isOkOr:
+      discard closeFile(handle)
+      return err(ioErrorMsg(error))
+
+    let position = seekForChunkBackward(handle).valueOr:
+      discard closeFile(handle)
+      return err(error)
+
+    if position.isNone():
+      discard closeFile(handle)
+      return ok(ChainFileCheckResult.FileCorrupted)
+
+    if repair:
+      truncate(handle, position.get()).isOkOr:
+        discard closeFile(handle)
+        return err(ioErrorMsg(error))
+      closeFile(handle).isOkOr:
+        return err(ioErrorMsg(error))
+      ok(ChainFileCheckResult.FileRepaired)
+    else:
+      closeFile(handle).isOkOr:
+        return err(ioErrorMsg(error))
+      ok(ChainFileCheckResult.FileCorrupted)
+
+proc init*(t: typedesc[ChainFileData],
+           filename: string): Result[Opt[ChainFileData], string] =
+  if not(isFile(filename)):
+    # We return None if file is missing, because its not an error.
+    return ok(Opt.none(ChainFileData))
+
+  block:
+    let res = checkRepair(filename, true)
+    if res.isErr():
+      return err(res.error)
+    if res.get() notin {ChainFileCheckResult.FileMissing, FileEmpty, FileOk,
+                        FileRepaired}:
+      return err("Chain file data is corrupted")
+
+  let
+    handle =
+      block:
+        let res = openFile(filename, {OpenFlags.Read})
+        if res.isErr():
+          return err(ioErrorMsg(res.error))
+        res.get()
+    head =
+      block:
+        let res = getChainFileHead(handle)
+        if res.isErr():
+          discard closeFile(handle)
+          return err(res.error)
+        let cres = res.get()
+        if cres.isNone():
+          # Empty file is ok.
+          return ok(Opt.none(ChainFileData))
+        cres.get()
+
+  block:
+    let res = setFilePos(handle, 0'i64, SeekPosition.SeekEnd)
+    if res.isErr():
+      discard closeFile(handle)
+      return err(ioErrorMsg(res.error))
+
+  let
+    tail =
+      block:
+        let res = getChainFileTail(handle)
+        if res.isErr():
+          discard closeFile(handle)
+          return err(res.error)
+        let tres = res.get()
+        if tres.isNone():
+          return err("Unexpected end of file encountered")
+        tres.get()
+
+  block:
+    let res = closeFile(handle)
+    if res.isErr():
+      return err(ioErrorMsg(res.error))
+
+  ok(Opt.some(ChainFileData(head: head, tail: tail)))
