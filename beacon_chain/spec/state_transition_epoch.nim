@@ -1234,8 +1234,10 @@ func process_historical_summaries_update*(
 func process_pending_balance_deposits*(
     cfg: RuntimeConfig, state: var electra.BeaconState,
     cache: var StateCache): Result[void, cstring] =
-  let available_for_processing = state.deposit_balance_to_consume +
-    get_activation_exit_churn_limit(cfg, state, cache)
+  let
+    next_epoch = get_current_epoch(state) + 1
+    available_for_processing = state.deposit_balance_to_consume +
+      get_activation_exit_churn_limit(cfg, state, cache)
   var
     processed_amount = 0.Gwei
     next_deposit_index = 0
@@ -1250,7 +1252,7 @@ func process_pending_balance_deposits*(
 
     # Validator is exiting, postpone the deposit until after withdrawable epoch
     if validator.exit_epoch < FAR_FUTURE_EPOCH:
-      if get_current_epoch(state) <= validator.withdrawable_epoch:
+      if next_epoch <= validator.withdrawable_epoch:
         deposits_to_postpone.add(deposit)
       # Deposited balance will never become active. Increase balance but do not
       # consume churn
@@ -1290,6 +1292,7 @@ func process_pending_balance_deposits*(
 func process_pending_consolidations*(
     cfg: RuntimeConfig, state: var electra.BeaconState):
     Result[void, cstring] =
+  let next_epoch = get_current_epoch(state) + 1
   var next_pending_consolidation = 0
   for pending_consolidation in state.pending_consolidations:
     let source_validator =
@@ -1297,7 +1300,7 @@ func process_pending_consolidations*(
     if source_validator.slashed:
       next_pending_consolidation += 1
       continue
-    if source_validator.withdrawable_epoch > get_current_epoch(state):
+    if source_validator.withdrawable_epoch > next_epoch:
       break
 
     let

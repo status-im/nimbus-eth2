@@ -2487,9 +2487,12 @@ OK: 12/12 Fail: 0/12 Skip: 0/12
 + Pending consolidations - all_consolidation_cases_together [Preset: mainnet]                OK
 + Pending consolidations - basic_pending_consolidation [Preset: mainnet]                     OK
 + Pending consolidations - consolidation_not_yet_withdrawable_validator [Preset: mainnet]    OK
++ Pending consolidations - pending_consolidation_compounding_creds [Preset: mainnet]         OK
++ Pending consolidations - pending_consolidation_future_epoch [Preset: mainnet]              OK
++ Pending consolidations - pending_consolidation_with_pending_deposit [Preset: mainnet]      OK
 + Pending consolidations - skip_consolidation_when_source_slashed [Preset: mainnet]          OK
 ```
-OK: 4/4 Fail: 0/4 Skip: 0/4
+OK: 7/7 Fail: 0/7 Skip: 0/7
 ## EF - Electra - Epoch Processing - RANDAO mixes reset [Preset: mainnet]
 ```diff
 + RANDAO mixes reset - updated_randao_mixes [Preset: mainnet]                                OK
@@ -2561,13 +2564,15 @@ OK: 5/5 Fail: 0/5 Skip: 0/5
 + EF - Electra - Fork - electra_fork_random_low_balances [Preset: mainnet]                   OK
 + EF - Electra - Fork - electra_fork_random_misc_balances [Preset: mainnet]                  OK
 + EF - Electra - Fork - fork_base_state [Preset: mainnet]                                    OK
++ EF - Electra - Fork - fork_has_compounding_withdrawal_credential [Preset: mainnet]         OK
 + EF - Electra - Fork - fork_many_next_epoch [Preset: mainnet]                               OK
 + EF - Electra - Fork - fork_next_epoch [Preset: mainnet]                                    OK
 + EF - Electra - Fork - fork_next_epoch_with_block [Preset: mainnet]                         OK
++ EF - Electra - Fork - fork_pre_activation [Preset: mainnet]                                OK
 + EF - Electra - Fork - fork_random_low_balances [Preset: mainnet]                           OK
 + EF - Electra - Fork - fork_random_misc_balances [Preset: mainnet]                          OK
 ```
-OK: 12/12 Fail: 0/12 Skip: 0/12
+OK: 14/14 Fail: 0/14 Skip: 0/14
 ## EF - Electra - Operations - Attestation  [Preset: mainnet]
 ```diff
 + [Invalid] EF - Electra - Operations - Attestation - invalid_after_max_inclusion_slot       OK
@@ -3180,8 +3185,12 @@ OK: 4/4 Fail: 0/4 Skip: 0/4
 + Light client - Single merkle proof - mainnet/deneb/light_client/single_merkle_proof/Beacon OK
 + Light client - Single merkle proof - mainnet/deneb/light_client/single_merkle_proof/Beacon OK
 + Light client - Single merkle proof - mainnet/deneb/light_client/single_merkle_proof/Beacon OK
++ Light client - Single merkle proof - mainnet/electra/light_client/single_merkle_proof/Beac OK
++ Light client - Single merkle proof - mainnet/electra/light_client/single_merkle_proof/Beac OK
++ Light client - Single merkle proof - mainnet/electra/light_client/single_merkle_proof/Beac OK
++ Light client - Single merkle proof - mainnet/electra/light_client/single_merkle_proof/Beac OK
 ```
-OK: 14/14 Fail: 0/14 Skip: 0/14
+OK: 18/18 Fail: 0/18 Skip: 0/18
 ## EF - Merkle proof [Preset: mainnet]
 ```diff
   Merkle proof - Single merkle proof - eip7594                                               Skip
@@ -3189,8 +3198,12 @@ OK: 14/14 Fail: 0/14 Skip: 0/14
 + Merkle proof - Single merkle proof - mainnet/deneb/merkle_proof/single_merkle_proof/Beacon OK
 + Merkle proof - Single merkle proof - mainnet/deneb/merkle_proof/single_merkle_proof/Beacon OK
 + Merkle proof - Single merkle proof - mainnet/deneb/merkle_proof/single_merkle_proof/Beacon OK
++ Merkle proof - Single merkle proof - mainnet/electra/merkle_proof/single_merkle_proof/Beac OK
++ Merkle proof - Single merkle proof - mainnet/electra/merkle_proof/single_merkle_proof/Beac OK
++ Merkle proof - Single merkle proof - mainnet/electra/merkle_proof/single_merkle_proof/Beac OK
++ Merkle proof - Single merkle proof - mainnet/electra/merkle_proof/single_merkle_proof/Beac OK
 ```
-OK: 4/5 Fail: 0/5 Skip: 1/5
+OK: 8/9 Fail: 0/9 Skip: 1/9
 ## EF - Phase 0 - Epoch Processing - Effective balance updates [Preset: mainnet]
 ```diff
 + Effective balance updates - effective_balance_hysteresis [Preset: mainnet]                 OK
@@ -3693,4 +3706,4 @@ OK: 69/88 Fail: 0/88 Skip: 19/88
 OK: 3/3 Fail: 0/3 Skip: 0/3
 
 ---TOTAL---
-OK: 2971/2991 Fail: 0/2991 Skip: 20/2991
+OK: 2984/3004 Fail: 0/3004 Skip: 20/3004
