@@ -841,7 +841,7 @@ proc ETHLightClientHeaderCopyBeaconRoot(
   ## * Pointer to a copy of the given header's beacon block root.
   ##
   ## See:
-  ## * https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.6/specs/phase0/beacon-chain.md#hash_tree_root
+  ## * https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.4/specs/phase0/beacon-chain.md#hash_tree_root
   discard cfg  # Future-proof against new fields, see `get_lc_execution_root`.
   let root = Eth2Digest.new()
   root[] = header[].beacon.hash_tree_root()

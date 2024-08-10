@@ -695,7 +695,7 @@ typedef struct ETHBeaconBlockHeader ETHBeaconBlockHeader;
  *
  * @return Beacon block header.
  *
- * @see https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.6/specs/phase0/beacon-chain.md#beaconblockheader
+ * @see https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.4/specs/phase0/beacon-chain.md#beaconblockheader
  */
 ETH_RESULT_USE_CHECK
 const ETHBeaconBlockHeader *ETHLightClientHeaderGetBeacon(
