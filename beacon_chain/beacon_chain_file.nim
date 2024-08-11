@@ -114,9 +114,7 @@ proc check(a: ChainFileHeader): Result[void, string] =
   ok()
 
 proc check(a: ChainFileFooter): Result[void, string] =
-  if a.kind notin [0'u64, 1, 2, 3, 4, 5, 64, 65]:
-    return err("Unsuppoted chunk kind value")
-  ok()
+  a.kind.checkKind()
 
 proc check(a: ChainFileFooter, b: ChainFileHeader): Result[void, string] =
   if a.kind != b.kind:
@@ -748,7 +746,7 @@ proc seekForLastChunkBackward(handle: IoHandle): Result[Opt[int64], string] =
 proc search(data: openArray[byte], srch: openArray[byte],
             state: var int): Opt[int] =
   doAssert(len(srch) > 0)
-  for index in (len(data) - 1) .. 0:
+  for index in countdown(len(data) - 1, 0):
     if data[index] == srch[len(srch) - 1 - state]:
       inc(state)
       if state == len(srch):
@@ -758,7 +756,7 @@ proc search(data: openArray[byte], srch: openArray[byte],
   Opt.none(int)
 
 proc seekForChunkBackward(handle: IoHandle,
-                          bufferSize = 4096): Result[Opt[int64], string] =
+                          bufferSize = 168): Result[Opt[int64], string] =
   var
     state = 0
     data = newSeq[byte](bufferSize)
@@ -776,8 +774,12 @@ proc seekForChunkBackward(handle: IoHandle,
     bytesRead = readFile(handle, data).valueOr:
       return err(ioErrorMsg(error))
 
-    let indexOpt = search(data, ChainFileHeaderArray, state)
+    let indexOpt = search(data.toOpenArray(0, int(bytesRead) - 1),
+                          ChainFileHeaderArray, state)
+
     if indexOpt.isNone():
+      setFilePos(handle, offset, SeekPosition.SeekBegin).isOkOr:
+        return err(ioErrorMsg(error))
       continue
 
     let chunkOffset = -(int64(bufferSize) - int64(indexOpt.get()))
@@ -786,6 +788,10 @@ proc seekForChunkBackward(handle: IoHandle,
       return err(ioErrorMsg(error))
 
     let chunk = readChunkForward(handle, false).valueOr:
+      # Incorrect chunk detected, so we start our searching again
+      state = 0
+      setFilePos(handle, offset, SeekPosition.SeekBegin).isOkOr:
+        return err(ioErrorMsg(error))
       continue
 
     if chunk.isNone():
