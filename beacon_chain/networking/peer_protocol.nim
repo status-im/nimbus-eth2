@@ -175,11 +175,11 @@ p2pProtocol PeerSync(version = 1,
     {.libp2pProtocol("metadata", 1).} =
     raise newException(InvalidInputsError, "GetMetaData v1 unsupported")
 
-  proc getMetadata_v2(peer: Peer): altair.MetaData
+  proc getMetadata_v2(peer: Peer): eip7594.MetaData
     {.libp2pProtocol("metadata", 2).} =
     peer.network.metadata
 
-  proc getMetadata_v3(peer:  ): eip7594.MetaData
+  proc getMetadata_v3(peer: Peer): eip7594.MetaData
     {.libp2pProtocol("metadata", 3).} =
     peer.network.metadata
 
