@@ -181,7 +181,7 @@ p2pProtocol PeerSync(version = 1,
       seq_number: peer.network.metadata.seq_number,
       attnets: peer.network.metadata.attnets,
       syncnets: peer.network.metadata.syncnets)
-    return altair_metadata
+    altair_metadata
 
   proc getMetadata_v3(peer: Peer): eip7594.MetaData
     {.libp2pProtocol("metadata", 3).} =

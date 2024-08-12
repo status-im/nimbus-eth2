@@ -9,7 +9,7 @@
 
 import
   std/[sequtils],
-  "."/[base, deneb, altair], 
+  "."/[altair, base, deneb], 
   kzg4844,
   stew/[byteutils]
 

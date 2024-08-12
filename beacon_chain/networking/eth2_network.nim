@@ -2077,12 +2077,32 @@ proc p2pProtocolBackendImpl*(p: P2PProtocol): Backend =
 import ./peer_protocol
 export peer_protocol
 
+proc metadataV2ToV3(metadata: altair.MetaData): eip7594.MetaData =
+  eip7594.MetaData(
+    seq_number: metadata.seq_number,
+    attnets: metadata.attnets,
+    syncnets: metadata.syncnets)
+
+proc getMetadata_vx(node: Eth2Node, peer: Peer): 
+                    Future[NetRes[eip7594.MetaData]]
+                   {.async: (raises: [CancelledError]).} =
+  let
+    res = 
+      if node.cfg.EIP7594_FORK_EPOCH != FAR_FUTURE_EPOCH:
+        # Directly fetch eip7594 metadata if available
+        await getMetadata_v3(peer)
+      else:
+        let metadata_v2_result = await getMetadata_v2(peer)
+        metadata_v2_result.map(proc (altairData: altair.MetaData): eip7594.MetaData {.closure.} =
+          metadataV2ToV3(altairData)
+        )
+  return res
+
 proc updatePeerMetadata(node: Eth2Node, peerId: PeerId) {.async: (raises: [CancelledError]).} =
   trace "updating peer metadata", peerId
-
   let
     peer = node.getPeer(peerId)
-    newMetadataRes = await peer.getMetadata_v3()
+    newMetadataRes = await node.getMetadata_vx(peer)
     newMetadata = newMetadataRes.valueOr:
       debug "Failed to retrieve metadata from peer!", peerId, error = newMetadataRes.error
       peer.failedMetadataRequests.inc()

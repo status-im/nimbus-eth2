@@ -60,6 +60,8 @@ type
     CAPELLA_FORK_EPOCH*: Epoch
     DENEB_FORK_VERSION*: Version
     DENEB_FORK_EPOCH*: Epoch
+    EIP7594_FORK_VERSION*: Version
+    EIP7594_FORK_EPOCH*: Epoch
     ELECTRA_FORK_VERSION*: Version
     ELECTRA_FORK_EPOCH*: Epoch
 
