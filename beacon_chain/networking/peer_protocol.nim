@@ -177,6 +177,14 @@ p2pProtocol PeerSync(version = 1,
 
   proc getMetadata_v2(peer: Peer): altair.MetaData
     {.libp2pProtocol("metadata", 2).} =
+    let altair_metadata = altair.MetaData(
+      seq_number: peer.network.metadata.seq_number,
+      attnets: peer.network.metadata.attnets,
+      syncnets: peer.network.metadata.syncnets)
+    altair_metadata
+
+  proc getMetadata_v3(peer: Peer): eip7594.MetaData
+    {.libp2pProtocol("metadata", 3).} =
     peer.network.metadata
 
   proc goodbye(peer: Peer, reason: uint64)
