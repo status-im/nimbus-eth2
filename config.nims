@@ -202,6 +202,9 @@ switch("hint", "XCannotRaiseY:off")
 
 --define:kzgExternalBlst
 
+when defined(gcc):
+  switch("passc", "-Wno-error=incompatible-pointer-types")
+
 # ############################################################
 #
 #                    No LTO for crypto
