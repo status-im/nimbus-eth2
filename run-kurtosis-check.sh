@@ -20,10 +20,6 @@ echo
 printf "Build new changes (yes/no)? "
 read use_previous_image
 
-echo
-printf "Do you want to use custom kurtosis network parameters? (no/path_to_file) "
-read custom_kurtosis
-
 # ------------------------------------------------
 #             Installation Checks
 # ------------------------------------------------
