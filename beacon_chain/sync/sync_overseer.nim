@@ -137,7 +137,7 @@ proc rebuildState(overseer: SyncOverseerRef): Future[void] {.
     slot = overseer.dag.head.slot
     clist =
       block:
-        let res = ChainListRef.init(overseer.clist.fileName, slot)
+        let res = ChainListRef.init(overseer.clist.filePath(), slot)
         if res.isErr():
           fatal "Unable to read backfill data", reason = res.error
           return
