@@ -130,6 +130,44 @@ proc isUntrustedBackfillEmpty(clist: ChainListRef): bool =
 proc needsUntrustedBackfill(clist: ChainListRef, dag: ChainDagRef): bool =
   clist.tail.get().slot > dag.horizon
 
+proc rebuildState(overseer: SyncOverseerRef): Future[void] {.
+     async: (raises: [CancelledError]).} =
+  overseer.statusMsg = Opt.some("rebuilding state")
+  let
+    slot = overseer.dag.head.slot
+    clist =
+      block:
+        let res = ChainListRef.init(overseer.clist.fileName, slot)
+        if res.isErr():
+          fatal "Unable to read backfill data", reason = res.error
+          return
+        res.get()
+
+  var blocks: seq[BlockData]
+  var processEpoch: Epoch = FAR_FUTURE_EPOCH
+  let handle = clist.handle.get()
+  while true:
+    let res = getChainFileTail(handle.handle)
+    if res.isErr():
+      fatal "Unable to read backfill data", reason = res.error
+      return
+    let bres = res.get()
+    if bres.isNone():
+      return
+
+    let
+      data = bres.get()
+      blockEpoch = data.blck.slot.epoch()
+    if data.blck.slot != slot:
+      if blockEpoch != processEpoch:
+        if len(blocks) != 0:
+          let res = addBackfillBlockData(overseer.dag, overseer.batchVerifier[],
+                                         blocks)
+        else:
+          processEpoch = blockEpoch
+      else:
+        blocks.add(data)
+
 proc mainLoop*(
     overseer: SyncOverseerRef
 ): Future[void] {.async: (raises: []).} =
@@ -201,6 +239,11 @@ proc mainLoop*(
     return
 
   notice "Start state rebuild mechanism"
+
+  try:
+    await overseer.rebuildState()
+  except CancelledError:
+    return
 
 proc start*(overseer: SyncOverseerRef) =
   overseer.loopFuture = overseer.mainLoop()

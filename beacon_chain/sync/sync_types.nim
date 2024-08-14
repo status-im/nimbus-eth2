@@ -8,8 +8,8 @@
 {.push raises: [].}
 
 import results, chronos,
-       ".."/spec/forks_light_client,
-       ".."/consensus_object_pools/blockchain_dag,
+       ".."/spec/[forks_light_client, signatures_batch],
+       ".."/consensus_object_pools/[blockchain_dag, blockchain_list],
        ".."/beacon_clock,
        ".."/networking/eth2_network,
        "."/sync_manager
@@ -27,6 +27,7 @@ type
     forwardSync*: SyncManager[Peer, PeerId]
     backwardSync*: SyncManager[Peer, PeerId]
     untrustedSync*: SyncManager[Peer, PeerId]
+    batchVerifier*: ref BatchVerifier
     pool*: PeerPool[Peer, PeerId]
 
   SyncOverseerRef* = ref SyncOverseer
@@ -38,10 +39,18 @@ proc new*(
     clock: BeaconClock,
     eq: AsyncEventQueue[ForkedLightClientHeader],
     pool: PeerPool[Peer, PeerId],
+    batchVerifier: ref BatchVerifier,
     forwardSync: SyncManager[Peer, PeerId],
     backwardSync: SyncManager[Peer, PeerId],
     untrustedSync: SyncManager[Peer, PeerId]
 ): SyncOverseerRef =
-  SyncOverseerRef(dag: dag, clist: clist, beaconClock: clock, eventQueue: eq,
-                  forwardSync: forwardSync, backwardSync: backwardSync,
-                  untrustedSync: untrustedSync, pool: pool)
+  SyncOverseerRef(
+    dag: dag,
+    clist: clist,
+    beaconClock: clock,
+    eventQueue: eq,
+    pool: pool,
+    batchVerifier: batchVerifier,
+    forwardSync: forwardSync,
+    backwardSync: backwardSync,
+    untrustedSync: untrustedSync)

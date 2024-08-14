@@ -34,6 +34,10 @@ type
     head*: BlockData
     tail*: BlockData
 
+  ChainFileHandle* = object
+    data*: ChainFileData
+    handle*: IoHandle
+
   ChainFileErrorType* {.pure.} = enum
     IoError,          # OS input/output error
     IncorrectSize,    # Incorrect/unexpected size of chunk
@@ -60,6 +64,7 @@ const
   ChainFileFooterSize* = 24
   ChainFileVersion = 1'u32
   ChainFileHeaderValue = 0x424D494E'u32
+  ChainFileBufferSize* = 4096
   ChainFileHeaderArray = ChainFileHeaderValue.toBytesLE()
   IncompleteWriteError = "Unable to write data to file, disk full?"
 
@@ -503,7 +508,7 @@ proc decodeBlob(
         return err("Incorrect blob format")
   ok(blob)
 
-proc getChainFileTail(handle: IoHandle): Result[Opt[BlockData], string] =
+proc getChainFileTail*(handle: IoHandle): Result[Opt[BlockData], string] =
   var sidecars: BlobSidecars
   while true:
     let chunk =
@@ -576,88 +581,6 @@ proc getChainFileHead(handle: IoHandle): Result[Opt[BlockData], string] =
       return err(ioErrorMsg(error))
 
   ok(Opt.some(BlockData(blck: blck, blob: blob)))
-
-iterator forwardWalk*(filename: string): Result[BlockData, string] {.
-         closure.} =
-  ## Iterates over all the items in chain-file ``filename`` in forward order
-  ## (from the first one to last one).
-  let
-    flags = {OpenFlags.Read}
-    handle =
-      block:
-        let res = openFile(filename, flags)
-        if res.isErr():
-          yield err(ioErrorMsg(res.error))
-          return
-        res.get()
-
-  while true:
-    let chres = getChainFileHead(handle)
-    if chres.isErr():
-      discard closeFile(handle)
-      yield err(chres.error)
-    let bres = chres.get()
-    if bres.isNone():
-      let cres = closeFile(handle)
-      if cres.isErr():
-        yield err(ioErrorMsg(cres.error))
-      return
-    yield ok(bres.get())
-
-iterator backwardWalk*(filename: string): Result[BlockData, string] {.
-         closure.} =
-  ## Iterates over all the items in chain-file ``filename`` in backward order
-  ## (from the last one to first one).
-  let
-    flags = {OpenFlags.Read}
-    handle =
-      block:
-        let res = openFile(filename, flags)
-        if res.isErr():
-          yield err(ioErrorMsg(res.error))
-          return
-        res.get()
-
-  block:
-    let res = setFilePos(handle, 0, SeekPosition.SeekEnd)
-    if res.isErr():
-      yield err(ioErrorMsg(res.error))
-      return
-
-  while true:
-    let chres = getChainFileTail(handle)
-    if chres.isErr():
-      discard closeFile(handle)
-      yield err(chres.error)
-    let bres = chres.get()
-    if bres.isNone():
-      let cres = closeFile(handle)
-      if cres.isErr():
-        yield err(ioErrorMsg(cres.error))
-      return
-    yield ok(bres.get())
-
-iterator backwardWalk*(handle: IoHandle): Result[BlockData, string] {.
-         closure.} =
-  while true:
-    let res = getChainFileTail(handle)
-    if res.isErr():
-      yield err(res.error)
-    let bres = res.get()
-    if bres.isNone():
-      return
-    yield ok(bres.get())
-
-iterator forwardWalk*(handle: IoHandle): Result[BlockData, string] {.
-         closure.} =
-  while true:
-    let res = getChainFileHead(handle)
-    if res.isErr():
-      yield err(res.error)
-    let bres = res.get()
-    if bres.isNone():
-      return
-    yield ok(bres.get())
 
 proc seekForSlotBackward*(handle: IoHandle,
                           slot: Slot): Result[Opt[int64], string] =
@@ -755,8 +678,10 @@ proc search(data: openArray[byte], srch: openArray[byte],
       state = 0
   Opt.none(int)
 
-proc seekForChunkBackward(handle: IoHandle,
-                          bufferSize = 168): Result[Opt[int64], string] =
+proc seekForChunkBackward(
+    handle: IoHandle,
+    bufferSize = ChainFileBufferSize
+): Result[Opt[int64], string] =
   var
     state = 0
     data = newSeq[byte](bufferSize)
@@ -909,6 +834,69 @@ proc checkRepair*(filename: string,
         return err(ioErrorMsg(error))
       ok(ChainFileCheckResult.FileCorrupted)
 
+proc init*(t: typedesc[ChainFileHandle],
+           filename: string,
+           repair: bool = true): Result[ChainFileHandle, string] =
+  if not(isFile(filename)):
+    # We return None if file is missing, because its not an error.
+    return err("File not found")
+
+  block:
+    let res = checkRepair(filename, repair)
+    if res.isErr():
+      return err(res.error)
+    if res.get() notin {ChainFileCheckResult.FileMissing, FileEmpty, FileOk,
+                        FileRepaired}:
+      return err("Chain file data is corrupted")
+
+  let
+    handle =
+      block:
+        let res = openFile(filename, {OpenFlags.Read})
+        if res.isErr():
+          return err(ioErrorMsg(res.error))
+        res.get()
+    head =
+      block:
+        let res = getChainFileHead(handle)
+        if res.isErr():
+          discard closeFile(handle)
+          return err(res.error)
+        let cres = res.get()
+        if cres.isNone():
+          # Empty file is ok.
+          discard closeFile(handle)
+          return err("Unexpected end of file encountered")
+        cres.get()
+
+  block:
+    let res = setFilePos(handle, 0'i64, SeekPosition.SeekEnd)
+    if res.isErr():
+      discard closeFile(handle)
+      return err(ioErrorMsg(res.error))
+
+  let
+    tail =
+      block:
+        let res = getChainFileTail(handle)
+        if res.isErr():
+          discard closeFile(handle)
+          return err(res.error)
+        let tres = res.get()
+        if tres.isNone():
+          discard closeFile(handle)
+          return err("Unexpected end of file encountered")
+        tres.get()
+
+  ok(ChainFileHandle(
+      handle: handle,
+      data: ChainFileData(head: head, tail: tail)))
+
+proc close*(ch: ChainFileHandle): Result[void, string] =
+  closeFile(ch.handle).isOkOr:
+    return err(ioErrorMsg(error))
+  ok()
+
 proc init*(t: typedesc[ChainFileData],
            filename: string): Result[Opt[ChainFileData], string] =
   if not(isFile(filename)):
@@ -939,6 +927,7 @@ proc init*(t: typedesc[ChainFileData],
         let cres = res.get()
         if cres.isNone():
           # Empty file is ok.
+          discard closeFile(handle)
           return ok(Opt.none(ChainFileData))
         cres.get()
 
@@ -957,6 +946,7 @@ proc init*(t: typedesc[ChainFileData],
           return err(res.error)
         let tres = res.get()
         if tres.isNone():
+          discard closeFile(handle)
           return err("Unexpected end of file encountered")
         tres.get()
 
@@ -966,3 +956,23 @@ proc init*(t: typedesc[ChainFileData],
       return err(ioErrorMsg(res.error))
 
   ok(Opt.some(ChainFileData(head: head, tail: tail)))
+
+proc seekForSlot*(ch: ChainFileHandle,
+                  slot: Slot): Result[Opt[int64], string] =
+  let
+    headRange =
+      if ch.data.head.blck.slot() >= slot:
+        ch.data.head.blck.slot() - slot
+      else:
+        slot - ch.data.head.blck.slot()
+    tailRange =
+      if ch.data.tail.blck.slot() >= slot:
+        ch.data.tail.blck.slot() - slot
+      else:
+        slot - ch.data.tail.blck.slot()
+    offset =
+      if headRange <= tailRange:
+        ? seekForSlotForward(ch.handle, slot)
+      else:
+        ? seekForSlotBackward(ch.handle, slot)
+  ok(offset)
