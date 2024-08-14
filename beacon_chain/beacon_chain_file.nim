@@ -17,12 +17,14 @@ type
     header: uint32
     version: uint32
     kind: uint64
-    size: uint64
+    comprSize: uint32
+    plainSize: uint32
     slot: uint64
 
   ChainFileFooter = object
     kind: uint64
-    size: uint64
+    comprSize: uint32
+    plainSize: uint32
     slot: uint64
 
   Chunk = object
@@ -65,6 +67,8 @@ const
   ChainFileVersion = 1'u32
   ChainFileHeaderValue = 0x424D494E'u32
   ChainFileBufferSize* = 4096
+  MaxChunkSize* = uint64(
+    high(uint32) - ChainFileHeaderSize - ChainFileFooterSize)
   ChainFileHeaderArray = ChainFileHeaderValue.toBytesLE()
   IncompleteWriteError = "Unable to write data to file, disk full?"
 
@@ -73,27 +77,24 @@ proc init(t: typedesc[ChainFileError], k: ChainFileErrorType,
   ChainFileError(kind: k, message: m)
 
 template init(t: typedesc[ChainFileHeader],
-              kind, length, number: uint64): ChainFileHeader =
+              kind: uint64, clength, plength: uint32,
+              number: uint64): ChainFileHeader =
   ChainFileHeader(
     header: ChainFileHeaderValue,
     version: ChainFileVersion,
     kind: kind,
-    size: length,
-    slot: number)
-
-template init(t: typedesc[ChainFileHeader],
-              kind, length, number: uint64,
-              version: uint32): ChainFileHeader =
-  ChainFileHeader(
-    header: ChainFileHeaderValue,
-    version: version,
-    kind: kind,
-    size: length,
+    comprSize: clength,
+    plainSize: plength,
     slot: number)
 
 template init(t: typedesc[ChainFileFooter],
-              kind, length, number: uint64): ChainFileFooter =
-  ChainFileFooter(kind: kind, size: length, slot: number)
+              kind: uint64, clength, plength: uint32,
+              number: uint64): ChainFileFooter =
+  ChainFileFooter(
+    kind: kind,
+    comprSize: clength,
+    plainSize: plength,
+    slot: number)
 
 template unmaskKind(k: uint64): uint64 =
   k and not(0x8000_0000_0000_0000'u64)
@@ -112,20 +113,31 @@ proc checkKind(kind: uint64): Result[void, string] =
 
 proc check(a: ChainFileHeader): Result[void, string] =
   if a.header != ChainFileHeaderValue:
-    return err("Invalid chunk header")
+    return err("Incorrect chunk header [NIMB]")
   if a.version != 1'u32:
     return err("Unsuppoted chunk version")
+  if a.comprSize >= MaxChunkSize:
+    return err("Incorrect compressed size in chunk header")
+  if a.plainSize >= MaxChunkSize:
+    return err("Incorrect plain size in chunk header")
   ? checkKind(a.kind)
   ok()
 
 proc check(a: ChainFileFooter): Result[void, string] =
-  a.kind.checkKind()
+  if a.comprSize >= MaxChunkSize:
+    return err("Incorrect compressed size in chunk header")
+  if a.plainSize >= MaxChunkSize:
+    return err("Incorrect plain size in chunk header")
+  ? a.kind.checkKind()
+  ok()
 
 proc check(a: ChainFileFooter, b: ChainFileHeader): Result[void, string] =
   if a.kind != b.kind:
     return err("Footer and header reports different chunk kind")
-  if a.size != b.size:
-    return err("Footer and header reports different size")
+  if a.comprSize != b.comprSize:
+    return err("Footer and header reports different compressed size")
+  if a.plainSize != b.plainSize:
+    return err("Footer and header reports different plain size")
   if a.slot != b.slot:
     return err("Footer and header reports different slots")
   ok()
@@ -138,7 +150,8 @@ proc init(t: typedesc[ChainFileHeader],
       header: uint32.fromBytesLE(data.toOpenArray(0, 3)),
       version: uint32.fromBytesLE(data.toOpenArray(4, 7)),
       kind: uint64.fromBytesLE(data.toOpenArray(8, 15)),
-      size: uint64.fromBytesLE(data.toOpenArray(16, 23)),
+      comprSize: uint32.fromBytesLE(data.toOpenArray(16, 19)),
+      plainSize: uint32.fromBytesLE(data.toOpenArray(20, 23)),
       slot: uint64.fromBytesLE(data.toOpenArray(24, 31)))
   ? check(header)
   ok(header)
@@ -149,7 +162,8 @@ proc init(t: typedesc[ChainFileFooter],
   let footer =
     ChainFileFooter(
       kind: uint64.fromBytesLE(data.toOpenArray(0, 7)),
-      size: uint64.fromBytesLE(data.toOpenArray(8, 15)),
+      comprSize: uint32.fromBytesLE(data.toOpenArray(8, 11)),
+      plainSize: uint32.fromBytesLE(data.toOpenArray(12, 15)),
       slot: uint64.fromBytesLE(data.toOpenArray(16, 23)))
   ? check(footer)
   ok(footer)
@@ -173,22 +187,27 @@ proc store(a: ChainFileHeader, data: var openArray[byte]) =
   data[0 .. 3] = a.header.toBytesLE()
   data[4 .. 7] = a.version.toBytesLE()
   data[8 .. 15] = a.kind.toBytesLE()
-  data[16 .. 23] = a.size.toBytesLE()
+  data[16 .. 19] = a.comprSize.toBytesLE()
+  data[20 .. 23] = a.plainSize.toBytesLE()
   data[24 .. 31] = a.slot.toBytesLE()
 
 proc store(a: ChainFileFooter, data: var openArray[byte]) =
   doAssert(len(data) >= ChainFileFooterSize)
   data[0 .. 7] = a.kind.toBytesLE()
-  data[8 .. 15] = a.size.toBytesLE()
+  data[8 .. 11] = a.comprSize.toBytesLE()
+  data[12 .. 15] = a.plainSize.toBytesLE()
   data[16 .. 23] = a.slot.toBytesLE()
 
-proc init(t: typedesc[Chunk], kind, slot: uint64,
+proc init(t: typedesc[Chunk], kind, slot: uint64, plainSize: uint32,
           data: openArray[byte]): seq[byte] =
+  doAssert(uint64(len(data)) < MaxChunkSize)
+
   var
     dst = newSeq[byte](len(data) + ChainFileHeaderSize + ChainFileFooterSize)
+
   let
-    header = ChainFileHeader.init(kind, uint64(len(data)), slot)
-    footer = ChainFileFooter.init(kind, uint64(len(data)), slot)
+    header = ChainFileHeader.init(kind, uint32(len(data)), plainSize, slot)
+    footer = ChainFileFooter.init(kind, uint32(len(data)), plainSize, slot)
 
   var offset = 0
   header.store(dst.toOpenArray(offset, offset + ChainFileHeaderSize - 1))
@@ -264,10 +283,13 @@ proc store*(chunkfile: string, signedBlock: ForkedSignedBeaconBlock,
   block:
     let
       kind = getBlockChunkKind(signedBlock.kind, blobs.isNone())
-      data = withBlck(signedBlock): snappy.encode(SSZ.encode(forkyBlck))
+      (data, plainSize) =
+        withBlck(signedBlock):
+          let res = SSZ.encode(forkyBlck)
+          (snappy.encode(res), len(res))
       slot = signedBlock.slot
       buffer =
-        Chunk.init(kind, uint64(slot), data)
+        Chunk.init(kind, uint64(slot), uint32(plainSize), data)
       wrote = writeFile(handle, buffer).valueOr:
         discard truncate(handle, origOffset)
         discard closeFile(handle)
@@ -282,11 +304,14 @@ proc store*(chunkfile: string, signedBlock: ForkedSignedBeaconBlock,
     for index, blob in blobSidecars.pairs():
       let
         kind =
-          getBlobChunkKind(signedBlock.kind, index + 1 == len(blobSidecars))
-        data = snappy.encode(SSZ.encode(blob[]))
+          getBlobChunkKind(signedBlock.kind, (index + 1) == len(blobSidecars))
+        (data, plainSize) =
+          block:
+            let res = SSZ.encode(blob[])
+            (snappy.encode(res), len(res))
         slot = blob[].signed_block_header.message.slot
         buffer =
-          Chunk.init(kind, uint64(slot), data)
+          Chunk.init(kind, uint64(slot), uint32(plainSize), data)
         wrote = writeFile(handle, buffer).valueOr:
           discard truncate(handle, origOffset)
           discard closeFile(handle)
@@ -330,17 +355,18 @@ proc readChunkForward(handle: IoHandle,
           ChainFileError.init(ChainFileErrorType.HeaderError, error))
 
   if not(dataRead):
-    setFilePos(handle, int64(header.size), SeekPosition.SeekCurrent).isOkOr:
+    setFilePos(handle, int64(header.comprSize),
+               SeekPosition.SeekCurrent).isOkOr:
       return err(
         ChainFileError.init(ChainFileErrorType.IoError, ioErrorMsg(error)))
   else:
-    data.setLen(int64(header.size))
+    data.setLen(int64(header.comprSize))
     bytesRead =
       readFile(handle, data.toOpenArray(0, len(data) - 1)).valueOr:
         return err(
           ChainFileError.init(ChainFileErrorType.IoError, ioErrorMsg(error)))
 
-    if bytesRead != uint(header.size):
+    if bytesRead != uint(header.comprSize):
       return err(
         ChainFileError.init(ChainFileErrorType.IncompleteData,
                             "Unable to read chunk data, incorrect file?"))
@@ -411,7 +437,7 @@ proc readChunkBackward(handle: IoHandle,
 
   block:
     let position =
-      -(ChainFileHeaderSize + ChainFileFooterSize + int64(footer.size))
+      -(ChainFileHeaderSize + ChainFileFooterSize + int64(footer.comprSize))
     setFilePos(handle, position, SeekPosition.SeekCurrent).isOkOr:
       return err(
         ChainFileError.init(ChainFileErrorType.IoError, ioErrorMsg(error)))
@@ -442,18 +468,18 @@ proc readChunkBackward(handle: IoHandle,
       return err(
         ChainFileError.init(ChainFileErrorType.IoError, ioErrorMsg(error)))
   else:
-    data.setLen(int64(header.size))
+    data.setLen(int64(header.comprSize))
     bytesRead =
       readFile(handle, data.toOpenArray(0, len(data) - 1)).valueOr:
         return err(
           ChainFileError.init(ChainFileErrorType.IoError, ioErrorMsg(error)))
 
-    if bytesRead != uint(header.size):
+    if bytesRead != uint(header.comprSize):
       return err(
         ChainFileError.init(ChainFileErrorType.IncompleteData,
                             "Unable to read chunk data, incorrect file?"))
 
-    let position = -(ChainFileHeaderSize + int64(header.size))
+    let position = -(ChainFileHeaderSize + int64(header.comprSize))
     setFilePos(handle, position, SeekPosition.SeekCurrent).isOkOr:
       return err(
         ChainFileError.init(ChainFileErrorType.IoError, ioErrorMsg(error)))
@@ -467,9 +493,12 @@ proc decodeBlock(
     header: ChainFileHeader,
     data: openArray[byte]
 ): Result[ForkedSignedBeaconBlock, string] =
+  if header.plainSize > uint64(high(uint32)):
+    return err("Size of block is enormously big")
+
   let
     fork = header.getBlockConsensusFork()
-    decompressed = snappy.decode(data)
+    decompressed = snappy.decode(data, uint32(header.plainSize))
     blck =
       try:
         case fork
@@ -499,8 +528,11 @@ proc decodeBlob(
     header: ChainFileHeader,
     data: openArray[byte]
 ): Result[BlobSidecar, string] =
+  if header.plainSize > uint64(high(uint32)):
+    return err("Size of blob is enormously big")
+
   let
-    decompressed = snappy.decode(data)
+    decompressed = snappy.decode(data, uint32(header.plainSize))
     blob =
       try:
         SSZ.decode(decompressed, BlobSidecar)
@@ -606,7 +638,8 @@ proc seekForSlotBackward*(handle: IoHandle,
       block:
         let
           position =
-            ChainFileHeaderSize + ChainFileFooterSize + int64(chunk.header.size)
+            ChainFileHeaderSize + ChainFileFooterSize +
+            int64(chunk.header.comprSize)
           res = setFilePos(handle, position, SeekPosition.SeekCurrent)
         if res.isErr():
           return err(ioErrorMsg(res.error))
@@ -641,7 +674,7 @@ proc seekForSlotForward*(handle: IoHandle,
         let
           position =
             -(ChainFileHeaderSize + ChainFileFooterSize +
-              int64(chunk.header.size))
+              int64(chunk.header.comprSize))
           res = setFilePos(handle, position, SeekPosition.SeekCurrent)
         if res.isErr():
           return err(ioErrorMsg(res.error))
@@ -793,7 +826,7 @@ proc checkRepair*(filename: string,
               position = getFilePos(handle).valueOr:
                 discard closeFile(handle)
                 return err(ioErrorMsg(error))
-              offset = position + int64(cres.get().header.size) +
+              offset = position + int64(cres.get().header.comprSize) +
                        ChainFileHeaderSize + ChainFileFooterSize
             truncate(handle, offset).isOkOr:
               discard closeFile(handle)
