@@ -188,6 +188,8 @@ proc addBackfillBlockData*(
            filename = clist.fileName, reason = res.error()
     quit 1
 
+  discard store(clist.fileName & "-uncompressed", signedBlock, blobsOpt, false)
+
   debug "Block backfilled",
         verify_block_duration = shortLog(storeBlockTick - verifyBlockTick),
         store_block_duration = shortLog(Moment.now() - storeBlockTick)
