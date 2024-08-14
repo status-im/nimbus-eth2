@@ -24,7 +24,7 @@ from std/sequtils import mapIt, toSeq
 from std/strutils import contains
 from ../../../beacon_chain/spec/beaconstate import
   get_base_reward_per_increment, get_state_exit_queue_info,
-  get_total_active_balance, process_attestation
+  get_total_active_balance, latest_block_root, process_attestation
 
 const
   OpDir                     = SszTestsDir/const_preset/"deneb"/"operations"
