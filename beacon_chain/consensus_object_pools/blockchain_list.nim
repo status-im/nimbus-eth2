@@ -11,12 +11,21 @@ import std/sequtils, chronicles, chronos, metrics,
        ../spec/forks,
        ../[beacon_chain_file, beacon_clock]
 
-from ./block_pools_types import VerifierError, BlockData, ChainListRef
+from ./block_pools_types import VerifierError, BlockData
 from ../spec/state_transition_block import validate_blobs
 from std/os import `/`
 
+export beacon_chain_file
+
 const
   ChainFileName = "nbc.bfdata"
+
+type
+  ChainListRef* = ref object
+    fileName*: string
+    head*: Opt[BlockData]
+    tail*: Opt[BlockData]
+    handle*: Opt[ChainFileHandle]
 
 template chainFilePath(directory: string): string =
   directory / ChainFileName
@@ -36,6 +45,31 @@ proc init*(T: type ChainListRef, directory: string): ChainListRef =
       fileName: filename,
       head: Opt.some(datares.get().head),
       tail: Opt.some(datares.get().tail))
+
+proc init*(T: type ChainListRef, directory: string,
+           slot: Slot): Result[ChainListRef, string] =
+  let
+    filename = directory.chainFilePath()
+    handle =
+      block:
+        let res = ChainFileHandle.init(filename)
+        if res.isErr():
+          fatal "Unexpected failure while reading backfill data",
+                reason = res.error
+          quit 1
+        res.get()
+  let offset {.used.} = ? seekForSlot(handle, slot)
+  ok(ChainListRef(
+    fileName: filename,
+    head: Opt.some(handle.data.head),
+    tail: Opt.some(handle.data.tail),
+    handle: Opt.some(handle)))
+
+proc close*(clist: ChainListRef): Result[void, string] =
+  if clist.handle.isNone():
+    return ok()
+  ? clist.handle.get().close()
+  ok()
 
 template slot*(data: BlockData): Slot =
   data.blck.slot
