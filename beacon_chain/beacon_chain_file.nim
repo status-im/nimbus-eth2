@@ -250,7 +250,8 @@ template getBlobChunkKind(kind: ConsensusFork, last: bool): uint64 =
     res
 
 proc getBlockConsensusFork(header: ChainFileHeader): ConsensusFork =
-  case header.kind
+  let hkind = unmaskKind(header.kind)
+  case hkind
   of 0'u64: ConsensusFork.Phase0
   of 1'u64: ConsensusFork.Altair
   of 2'u64: ConsensusFork.Bellatrix
@@ -507,7 +508,10 @@ proc decodeBlock(
 
   let
     fork = header.getBlockConsensusFork()
-    decompressed = snappy.decode(data, uint32(header.plainSize))
+  echo "fork = ", fork
+  echo "len(data) = ", len(data)
+  let
+    decompressed = @data # snappy.decode(data, uint32(header.plainSize))
     blck =
       try:
         case fork
@@ -529,7 +533,8 @@ proc decodeBlock(
         of ConsensusFork.Electra:
           ForkedSignedBeaconBlock.init(
             SSZ.decode(decompressed, electra.SignedBeaconBlock))
-      except SerializationError:
+      except SerializationError as exc:
+        echo "exc.msg = ", exc.msg
         return err("Incorrect block format")
   ok(blck)
 
@@ -541,7 +546,7 @@ proc decodeBlob(
     return err("Size of blob is enormously big")
 
   let
-    decompressed = snappy.decode(data, uint32(header.plainSize))
+    decompressed = @data # snappy.decode(data, uint32(header.plainSize))
     blob =
       try:
         SSZ.decode(decompressed, BlobSidecar)
@@ -692,21 +697,6 @@ proc seekForSlotForward*(handle: IoHandle,
         if res.isErr():
           return err(ioErrorMsg(res.error))
         return ok(Opt.some(res.get()))
-
-proc seekForLastChunkBackward(handle: IoHandle): Result[Opt[int64], string] =
-  while true:
-    let chunk =
-      block:
-        let res = readChunkBackward(handle, false).valueOr:
-          return err(error.message)
-        if res.isNone():
-          return ok(Opt.none(int64))
-        res.get()
-
-    if chunk.header.isLast():
-      let res = getFilePos(handle).valueOr:
-        return err(ioErrorMsg(error))
-      return ok(Opt.some(res))
 
 proc search(data: openArray[byte], srch: openArray[byte],
             state: var int): Opt[int] =
