@@ -1,5 +1,5 @@
 #!/bin/bash
-
+set -euo pipefail
 # Copyright (c) 2024 Status Research & Development GmbH
 # Licensed under either of
 #  * Apache License, version 2.0, ([LICENSE-APACHE](LICENSE-APACHE) or
@@ -175,7 +175,7 @@ else
     status_lines+=("$(date +'%Y-%m-%d %H:%M:%S')  Test Status:")
 
     tests=$(curl -s "${assertoor_url}"/api/v1/test_runs | jq -c ".data[] | {run_id, test_id, name, status}")
-    while read test; do
+    while read -r test; do
       if [ -z "$test" ]; then
         continue
       fi
@@ -210,7 +210,7 @@ else
       echo -e "$status_line"
     done
 
-    if ! [ -z "$running_test" ]; then
+    if [ -n "$running_test" ]; then
       task_lines=$(get_tasks_status "$running_test")
       echo "Active Test Task Status:"
       echo "$task_lines"
@@ -237,7 +237,7 @@ else
   done
   echo
 
-  if ! [ -z "$failed_test_id" ]; then
+  if [ -n "$failed_test_id" ]; then
     echo "failed_test_status"
     get_tasks_status "$failed_test_id"
     echo ""

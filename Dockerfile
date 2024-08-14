@@ -35,11 +35,9 @@ RUN apt update && apt -y upgrade
 
 RUN ldd --version ldd
 
-RUN rm -rf /home/user/nimbus-eth2/build/beacon_node
 RUN rm -rf /home/user/nimbus-eth2/build/nimbus_beacon_node
 
 # "COPY" creates new image layers, so we cram all we can into one command
-COPY --from=build /root/nimbus-eth2/build/nimbus_beacon_node /home/user/nimbus-eth2/build/beacon_node
 COPY --from=build /root/nimbus-eth2/build/nimbus_beacon_node /home/user/nimbus-eth2/build/nimbus_beacon_node
 
 ENV PATH="/home/user/nimbus-eth2/build:${PATH}"
