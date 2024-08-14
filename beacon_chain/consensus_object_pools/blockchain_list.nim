@@ -9,7 +9,8 @@
 
 import std/sequtils, chronicles, chronos, metrics,
        ../spec/forks,
-       ../[beacon_chain_file, beacon_clock]
+       ../[beacon_chain_file, beacon_clock],
+       ../sszdump
 
 from ./block_pools_types import VerifierError, BlockData
 from ../spec/state_transition_block import validate_blobs
@@ -22,13 +23,16 @@ const
 
 type
   ChainListRef* = ref object
-    fileName*: string
+    path*: string
     head*: Opt[BlockData]
     tail*: Opt[BlockData]
     handle*: Opt[ChainFileHandle]
 
-template chainFilePath(directory: string): string =
+template chainFilePath*(directory: string): string =
   directory / ChainFileName
+
+template filePath*(clist: ChainListRef): string =
+  chainFilePath(clist.path)
 
 proc init*(T: type ChainListRef, directory: string): ChainListRef =
   let
@@ -39,10 +43,10 @@ proc init*(T: type ChainListRef, directory: string): ChainListRef =
     quit 1
   let datares = res.get()
   if datares.isNone():
-    ChainListRef(fileName: filename)
+    ChainListRef(path: directory)
   else:
     ChainListRef(
-      fileName: filename,
+      path: directory,
       head: Opt.some(datares.get().head),
       tail: Opt.some(datares.get().tail))
 
@@ -60,7 +64,7 @@ proc init*(T: type ChainListRef, directory: string,
         res.get()
   let offset {.used.} = ? seekForSlot(handle, slot)
   ok(ChainListRef(
-    fileName: filename,
+    path: directory,
     head: Opt.some(handle.data.head),
     tail: Opt.some(handle.data.tail),
     handle: Opt.some(handle)))
@@ -139,13 +143,13 @@ proc addBackfillBlockData*(
 
     let
       storeBlockTick = Moment.now()
-      res = store(clist.fileName, signedBlock, blobsOpt, true)
+      res = store(chainFilePath(clist.path), signedBlock, blobsOpt, true)
     if res.isErr():
       fatal "Unexpected failure while trying to store data",
-            filename = clist.fileName, reason = res.error()
+            filename = chainFilePath(clist.path), reason = res.error()
       quit 1
 
-    discard store(clist.fileName & "-uncompressed", signedBlock, blobsOpt, false)
+    discard store(chainFilePath(clist.path) & "-uncompressed", signedBlock, blobsOpt, false)
 
     clist.tail = Opt.some(BlockData(blck: signedBlock, blob: blobsOpt))
 
@@ -182,13 +186,16 @@ proc addBackfillBlockData*(
 
   let
     storeBlockTick = Moment.now()
-    res = store(clist.fileName, signedBlock, blobsOpt)
+    res = store(chainFilePath(clist.path), signedBlock, blobsOpt)
   if res.isErr():
     fatal "Unexpected failure while trying to store data",
-           filename = clist.fileName, reason = res.error()
+           filename = chainFilePath(clist.path), reason = res.error()
     quit 1
 
-  discard store(clist.fileName & "-uncompressed", signedBlock, blobsOpt, false)
+  withBlck(signedBlock):
+    dump(clist.path, forkyBlck)
+
+  discard store(chainFilePath(clist.path) & "-uncompressed", signedBlock, blobsOpt, false)
 
   debug "Block backfilled",
         verify_block_duration = shortLog(storeBlockTick - verifyBlockTick),
