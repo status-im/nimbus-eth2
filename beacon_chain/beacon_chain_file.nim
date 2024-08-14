@@ -266,7 +266,7 @@ template isBlock(h: ChainFileHeader | ChainFileFooter): bool =
 
 template isBlob(h: ChainFileHeader | ChainFileFooter): bool =
   let hkind = unmaskKind(h.kind)
-  (h.kind >= 64) and (h.kind < 128)
+  (hkind >= 64) and (hkind < 128)
 
 template isLast(h: ChainFileHeader | ChainFileFooter): bool =
   h.kind.isLast()
