@@ -230,6 +230,35 @@ func bls_to_execution_change_signature_set*(
   SignatureSet.init(pubkey, signing_root, signature)
 
 proc collectSignatureSets*(
+  sigs: var seq[SignatureSet],
+  blocks: openArray[ForkedSignedBeaconBlock],
+  validatorKeys: openArray[ImmutableValidatorData2],
+  state: ForkedHashedBeaconState
+): Result[void, cstring] =
+  mixin load
+
+  let
+    fork = getStateField(state, fork)
+    genesis_validators_root = getStateField(state, genesis_validators_root)
+
+  for forkedBlock in blocks:
+    let item =
+      withBlck(forkedBlock):
+        let
+          proposerKey =
+            validatorKeys.load(forkyBlck.message.proposer_index).valueOr:
+              return err("collectSignatureSets: invalid proposer index")
+          signature =
+            forkyBlck.signature.load().valueOr:
+              return err("collectSignatureSets: cannot load signature")
+        block_signature_set(
+          fork, genesis_validators_root,
+          forkyBlck.message.slot, forkyBlck.root,
+          proposerKey, signature)
+    sigs.add(item)
+  ok()
+
+proc collectSignatureSets*(
        sigs: var seq[SignatureSet],
        signed_block: ForkySignedBeaconBlock,
        validatorKeys: openArray[ImmutableValidatorData2],

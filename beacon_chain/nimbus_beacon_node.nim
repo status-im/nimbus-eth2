@@ -421,9 +421,10 @@ proc initFullNode(
       ActionTracker.init(node.network.nodeId, config.subscribeAllSubnets),
       node.dynamicFeeRecipientsStore, config.validatorsDir,
       config.defaultFeeRecipient, config.suggestedGasLimit)
+    batchVerifier = BatchVerifier.new(rng, taskpool)
     blockProcessor = BlockProcessor.new(
       config.dumpEnabled, config.dumpDirInvalid, config.dumpDirIncoming,
-      rng, taskpool, consensusManager, node.validatorMonitor,
+      batchVerifier, consensusManager, node.validatorMonitor,
       blobQuarantine, getBeaconTime)
 
     blockVerifier = proc(signedBlock: ForkedSignedBeaconBlock,
@@ -570,6 +571,7 @@ proc initFullNode(
   node.lightClientPool = lightClientPool
   node.validatorChangePool = validatorChangePool
   node.processor = processor
+  node.batchVerifier = batchVerifier
   node.blockProcessor = blockProcessor
   node.consensusManager = consensusManager
   node.requestManager = requestManager
@@ -580,6 +582,7 @@ proc initFullNode(
                                           node.beaconClock,
                                           node.eventBus.optHeaderUpdateQueue,
                                           node.network.peerPool,
+                                          node.batchVerifier,
                                           syncManager, backfiller,
                                           untrustedManager)
   node.router = router
@@ -1743,6 +1746,8 @@ func syncStatus(node: BeaconNode, wallSlot: Slot): string =
           else:
             ""
       node.syncManager.syncStatus & optimisticSuffix & lightClientSuffix
+    elif node.untrustedManager.inProgress:
+      "untrusted: " & node.untrustedManager.syncStatus
     elif node.backfiller.inProgress:
       "backfill: " & node.backfiller.syncStatus
     elif optimisticHead:

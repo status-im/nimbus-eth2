@@ -8,6 +8,7 @@
 {.push raises: [].}
 
 import
+  std/sequtils,
   chronicles,
   results,
   stew/assign2,
@@ -447,5 +448,82 @@ proc addBackfillBlock*(
   debug "Block backfilled",
     sigVerifyDur = sigVerifyTick - startTick,
     putBlockDur = putBlockTick - sigVerifyTick
+
+  ok()
+
+template BlockAdded(kind: static ConsensusFork): untyped =
+  when kind == ConsensusFork.Electra:
+    OnElectraBlockAdded
+  elif kind == ConsensusFork.Deneb:
+    OnDenebBlockAdded
+  elif kind == ConsensusFork.Capella:
+    OnCapellaBlockAdded
+  elif kind == ConsensusFork.Bellatrix:
+    OnBellatrixBlockAdded
+  elif kind == ConsensusFork.Altair:
+    OnAltairBlockAdded
+  elif kind == ConsensusFork.Phase0:
+    OnPhase0BlockAdded
+  else:
+    static: raiseAssert "Unreachable"
+
+proc addBackfillBlockData*(
+    dag: ChainDAGRef,
+    verifier: var BatchVerifier,
+    blocks: openArray[BlockData]
+): Result[void, VerifierError] =
+  var sigs: seq[SignatureSet]
+
+  let
+    sigVerifyTick = Moment.now()
+    blocksOnly = blocks.mapIt(it.blck)
+
+  if (let e = sigs.collectSignatureSets(
+        blocksOnly, dag.db.immutableValidators,
+        dag.clearanceState); e.isErr()):
+    # A PublicKey or Signature isn't on the BLS12-381 curve
+    info "Unable to load signature sets", reason = e.error()
+    return err(VerifierError.Invalid)
+
+  if not verifier.batchVerify(sigs):
+    info "Block batch signature verification failed"
+    return err(VerifierError.Invalid)
+
+  var cache = StateCache()
+
+  let sigVerifyEndTick = Moment.now()
+
+  for item in blocks:
+    withBlck(item.blck):
+      var onBlockAddedPlaceholder: BlockAdded(consensusFork) = nil
+      let
+        parent = ? checkHeadBlock(dag, forkyBlck)
+        startTick = Moment.now()
+        clearanceBlock = BlockSlotId.init(parent.bid, forkyBlck.message.slot)
+
+      if not updateState(dag, dag.clearanceState, clearanceBlock, true, cache):
+        error "Unable to load clearance state for parent block, " &
+              "database corrupt?", clearanceBlock = shortLog(clearanceBlock)
+        return err(VerifierError.MissingParent)
+
+      let stateDataTick = Moment.now()
+
+      ? checkStateTransition(dag, forkyBlck.asSigVerified(), cache)
+
+      let stateVerifyTick = Moment.now()
+
+      if item.blob.isSome():
+        for blob in item.blob.get():
+          dag.db.putBlobSidecar(blob[])
+
+      let res = addResolvedHeadBlock(
+        dag, dag.clearanceState,
+        forkyBlck.asTrusted(),
+        true,
+        parent, cache,
+        onBlockAddedPlaceholder,
+        stateDataTick - startTick,
+        sigVerifyEndTick - sigVerifyTick,
+        stateVerifyTick - stateDataTick)
 
   ok()

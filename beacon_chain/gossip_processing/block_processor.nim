@@ -123,7 +123,7 @@ type
 proc new*(T: type BlockProcessor,
           dumpEnabled: bool,
           dumpDirInvalid, dumpDirIncoming: string,
-          rng: ref HmacDrbgContext, taskpool: TaskPoolPtr,
+          batchVerifier: ref BatchVerifier,
           consensusManager: ref ConsensusManager,
           validatorMonitor: ref ValidatorMonitor,
           blobQuarantine: ref BlobQuarantine,
@@ -137,7 +137,7 @@ proc new*(T: type BlockProcessor,
     validatorMonitor: validatorMonitor,
     blobQuarantine: blobQuarantine,
     getBeaconTime: getBeaconTime,
-    verifier: BatchVerifier.init(rng, taskpool)
+    verifier: batchVerifier[]
   )
 
 # Sync callbacks

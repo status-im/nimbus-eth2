@@ -22,9 +22,11 @@ import
   ./el/el_manager,
   ./consensus_object_pools/[
     blockchain_dag, blob_quarantine, block_quarantine, consensus_manager,
-    data_column_quarantine, attestation_pool, sync_committee_msg_pool, validator_change_pool],
+    data_column_quarantine, attestation_pool, sync_committee_msg_pool, validator_change_pool,
+    blockchain_list],
   ./spec/datatypes/[base, altair],
   ./spec/eth2_apis/dynamic_fee_recipients,
+  ./spec/signatures_batch,
   ./sync/[sync_manager, request_manager, sync_types],
   ./validators/[
     action_tracker, message_router, validator_monitor, validator_pool,
@@ -94,6 +96,7 @@ type
     syncOverseer*: SyncOverseerRef
     genesisSnapshotContent*: string
     processor*: ref Eth2Processor
+    batchVerifier*: ref BatchVerifier
     blockProcessor*: ref BlockProcessor
     consensusManager*: ref ConsensusManager
     attachedValidatorBalanceTotal*: Gwei

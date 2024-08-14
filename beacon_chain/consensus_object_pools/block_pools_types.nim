@@ -289,11 +289,6 @@ type
     blck*: ForkedSignedBeaconBlock
     blob*: Opt[BlobSidecars]
 
-  ChainListRef* = ref object
-    fileName*: string
-    head*: Opt[BlockData]
-    tail*: Opt[BlockData]
-
   OnBlockAdded[T: ForkyTrustedSignedBeaconBlock] = proc(
     blckRef: BlockRef, blck: T, epochRef: EpochRef,
     unrealized: FinalityCheckpoints) {.gcsafe, raises: [].}
