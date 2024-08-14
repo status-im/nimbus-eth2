@@ -162,9 +162,9 @@ proc queryRandom*(
             peer = n.record.toURI(), exception = e.name, msg = e.msg
           continue
 
-      if wantedCscnets[0] and cscnetsNode[0]:
-        debug "Connected to a peer with csc ENR field",
-          peer = n.record.toURI()
+      for i in 0..<DATA_COLUMN_SIDECAR_SUBNET_COUNT:
+        if wantedCscnets[i] and cscnetsNode[i]:
+          score += 1
 
     let attnetsBytes = n.record.get(enrAttestationSubnetsField, seq[byte])
     if attnetsBytes.isOk():
