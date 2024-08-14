@@ -151,6 +151,9 @@ proc addBackfillBlockData*(
 
     discard store(chainFilePath(clist.path) & "-uncompressed", signedBlock, blobsOpt, false)
 
+    withBlck(signedBlock):
+      dump(clist.path, forkyBlck)
+
     clist.tail = Opt.some(BlockData(blck: signedBlock, blob: blobsOpt))
 
     if clist.head.isNone():
