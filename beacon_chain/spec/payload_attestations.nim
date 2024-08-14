@@ -11,7 +11,10 @@ import
   sequtils, sets,
   "."/[forks, ptc_status, validator],
   ./helpers,
-  ./datatypes/epbs
+  ./datatypes/epbs,
+  "."/[
+  beaconstate, eth2_merkleization, forks, helpers, signatures,
+  state_transition_block, state_transition_epoch, validator]
 
 # https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.4/specs/_features/eip7732/beacon-chain.md#is_valid_indexed_payload_attestation
 proc is_valid_indexed_payload_attestation(
@@ -80,8 +83,10 @@ when isMainModule:
 
   # https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.4/specs/_features/eip7732/beacon-chain.md#modified-get_attesting_indices
   proc get_attesting_indices(state: var ForkyBeaconState,
-      attestation: epbs.Attestation): HashSet[ValidatorIndex] =
+      attestation: epbs.Attestation): HashSet[
+          ValidatorIndex] =
     var
+      cfg: RuntimeConfig
       output = [ValidatorIndex]()
       committee_offset = 0
 
@@ -96,6 +101,10 @@ when isMainModule:
 
       output.incl(committee_attesters)
       committee_offset += len(committee)
+
+    if epoch(attestation.data.slot) < cfg.EIP7732_FORK_EPOCH:
+      return output
+
 
     let
       ptc = get_ptc(state, attestation.data.slot)
