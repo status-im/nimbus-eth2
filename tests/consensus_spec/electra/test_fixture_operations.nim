@@ -207,7 +207,8 @@ suite baseDescription & "Execution Payload " & preset():
         let expectedOk = (path != "incorrect_block_hash")
         check expectedOk == (body.execution_payload.block_hash ==
           body.execution_payload.compute_execution_block_hash(
-            preState.latest_block_root(preState.hash_tree_root())))
+            preState.latest_block_root(
+              assignClone(preState)[].hash_tree_root())))
       func executePayload(_: electra.ExecutionPayload): bool = payloadValid
       process_execution_payload(preState, body, executePayload)
 
