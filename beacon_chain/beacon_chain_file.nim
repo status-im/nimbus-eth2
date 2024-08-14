@@ -271,7 +271,7 @@ template isLast(h: ChainFileHeader | ChainFileFooter): bool =
   h.kind.isLast()
 
 proc store*(chunkfile: string, signedBlock: ForkedSignedBeaconBlock,
-            blobs: Opt[BlobSidecars]): Result[void, string] =
+            blobs: Opt[BlobSidecars], compressed = true): Result[void, string] =
   let
     flags = {OpenFlags.Append, OpenFlags.Create}
     handle = openFile(chunkfile, flags).valueOr:
@@ -284,12 +284,16 @@ proc store*(chunkfile: string, signedBlock: ForkedSignedBeaconBlock,
     let
       kind = getBlockChunkKind(signedBlock.kind, blobs.isNone())
       (data, plainSize) =
-        withBlck(signedBlock):
-          let res = SSZ.encode(forkyBlck)
-          (snappy.encode(res), len(res))
+        if compressed:
+          withBlck(signedBlock):
+            let res = SSZ.encode(forkyBlck)
+            (snappy.encode(res), len(res))
+        else:
+          withBlck(signedBlock):
+            let res = SSZ.encode(forkyBlck)
+            (res, len(res))
       slot = signedBlock.slot
-      buffer =
-        Chunk.init(kind, uint64(slot), uint32(plainSize), data)
+      buffer = Chunk.init(kind, uint64(slot), uint32(plainSize), data)
       wrote = writeFile(handle, buffer).valueOr:
         discard truncate(handle, origOffset)
         discard closeFile(handle)
@@ -306,9 +310,12 @@ proc store*(chunkfile: string, signedBlock: ForkedSignedBeaconBlock,
         kind =
           getBlobChunkKind(signedBlock.kind, (index + 1) == len(blobSidecars))
         (data, plainSize) =
-          block:
+          if compressed:
             let res = SSZ.encode(blob[])
             (snappy.encode(res), len(res))
+          else:
+            let res = SSZ.encode(blob[])
+            (res, len(res))
         slot = blob[].signed_block_header.message.slot
         buffer =
           Chunk.init(kind, uint64(slot), uint32(plainSize), data)
@@ -353,6 +360,8 @@ proc readChunkForward(handle: IoHandle,
       data.toOpenArray(0, ChainFileHeaderSize - 1)).valueOr:
         return err(
           ChainFileError.init(ChainFileErrorType.HeaderError, error))
+
+  echo header
 
   if not(dataRead):
     setFilePos(handle, int64(header.comprSize),

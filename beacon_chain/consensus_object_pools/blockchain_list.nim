@@ -139,11 +139,13 @@ proc addBackfillBlockData*(
 
     let
       storeBlockTick = Moment.now()
-      res = store(clist.fileName, signedBlock, blobsOpt)
+      res = store(clist.fileName, signedBlock, blobsOpt, true)
     if res.isErr():
       fatal "Unexpected failure while trying to store data",
             filename = clist.fileName, reason = res.error()
       quit 1
+
+    discard store(clist.fileName & "-uncompressed", signedBlock, blobsOpt, false)
 
     clist.tail = Opt.some(BlockData(blck: signedBlock, blob: blobsOpt))
 
