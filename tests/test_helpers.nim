@@ -264,3 +264,17 @@ suite "Spec helpers":
         bit_floor(4_000_000'u64) == 2_097_152'u64
         bit_floor(18_446_744_073_709_551_615'u64) == 9_223_372_036_854_775_808'u64
 
+  test "remove_flag":
+    const
+      flag1 = ParticipationFlags(1 shl 0)  # 0b0001
+      flag2 = ParticipationFlags(1 shl 1)  # 0b0010
+      flag3 = ParticipationFlags(1 shl 2)  # 0b0100
+
+    let
+      flag = flag1 or flag2 or flag3
+      flag_index = 1 
+      updatedFlags = remove_flag(flag, flag_index)
+
+    check:
+      not ((updatedFlags and flag2) > 0)
+      (updatedFlags and flag1) > 0 

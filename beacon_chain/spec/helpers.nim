@@ -614,7 +614,7 @@ func bit_length(n: SomeInteger): SomeInteger =
   else:
     return uint64(fastLog2(n) + 1)
 
-# https://github.com/ethereum/consensus-specs/blob/1508f51b80df5488a515bfedf486f98435200e02/specs/_features/eipxxxx/beacon-chain.md#bit_floor
+# https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.4/specs/_features/eip7732/beacon-chain.md#bit_floor
 func bit_floor*(n: uint64): uint64 =
   if n == 0:
     return 0'u64
@@ -642,3 +642,9 @@ func hypergeom_cdf*(k: int, population: int, successes: int, draws: int):
     (0 .. k).foldl(a + exp(
       ln_binomial(successes, b) +
       ln_binomial(population - successes, draws - b) - ln_denom), 0.0)
+      
+# https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.4/specs/_features/eip7732/beacon-chain.md#remove_flag
+func remove_flag*(flags: ParticipationFlags,
+      flag_index: int): ParticipationFlags =
+  let flag = ParticipationFlags(1'u8 shl ord(flag_index))
+  flags and not flag
