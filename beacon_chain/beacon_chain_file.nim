@@ -339,11 +339,12 @@ proc readChunkForward(handle: IoHandle,
   # This function only reads chunk header and footer, but does not read actual
   # chunk data.
   var
-    data = newSeq[byte](max(ChainFileHeaderSize, ChainFileFooterSize))
+    buffer = newSeq[byte](max(ChainFileHeaderSize, ChainFileFooterSize))
+    data: seq[byte]
     bytesRead: uint
 
   bytesRead =
-    readFile(handle, data.toOpenArray(0, ChainFileHeaderSize - 1)).valueOr:
+    readFile(handle, buffer.toOpenArray(0, ChainFileHeaderSize - 1)).valueOr:
       return err(
         ChainFileError.init(ChainFileErrorType.IoError, ioErrorMsg(error)))
 
@@ -358,11 +359,9 @@ proc readChunkForward(handle: IoHandle,
 
   let
     header = ChainFileHeader.init(
-      data.toOpenArray(0, ChainFileHeaderSize - 1)).valueOr:
+      buffer.toOpenArray(0, ChainFileHeaderSize - 1)).valueOr:
         return err(
           ChainFileError.init(ChainFileErrorType.HeaderError, error))
-
-  echo header
 
   if not(dataRead):
     setFilePos(handle, int64(header.comprSize),
@@ -382,7 +381,7 @@ proc readChunkForward(handle: IoHandle,
                             "Unable to read chunk data, incorrect file?"))
 
   bytesRead =
-    readFile(handle, data.toOpenArray(0, ChainFileFooterSize - 1)).valueOr:
+    readFile(handle, buffer.toOpenArray(0, ChainFileFooterSize - 1)).valueOr:
       return err(
         ChainFileError.init(ChainFileErrorType.IoError, ioErrorMsg(error)))
 
@@ -393,7 +392,7 @@ proc readChunkForward(handle: IoHandle,
 
   let
     footer = ChainFileFooter.init(
-      data.toOpenArray(0, ChainFileFooterSize - 1)).valueOr:
+      buffer.toOpenArray(0, ChainFileFooterSize - 1)).valueOr:
         return err(
           ChainFileError.init(ChainFileErrorType.FooterError, error))
 
@@ -411,7 +410,8 @@ proc readChunkBackward(handle: IoHandle,
   # This function only reads chunk header and footer, but does not read actual
   # chunk data.
   var
-    data = newSeq[byte](max(ChainFileHeaderSize, ChainFileFooterSize))
+    buffer = newSeq[byte](max(ChainFileHeaderSize, ChainFileFooterSize))
+    data: seq[byte]
     bytesRead: uint
 
   let offset = getFilePos(handle).valueOr:
@@ -431,7 +431,7 @@ proc readChunkBackward(handle: IoHandle,
       ChainFileError.init(ChainFileErrorType.IoError, ioErrorMsg(error)))
 
   bytesRead =
-    readFile(handle, data.toOpenArray(0, ChainFileFooterSize - 1)).valueOr:
+    readFile(handle, buffer.toOpenArray(0, ChainFileFooterSize - 1)).valueOr:
       return err(
         ChainFileError.init(ChainFileErrorType.IoError, ioErrorMsg(error)))
 
@@ -441,7 +441,7 @@ proc readChunkBackward(handle: IoHandle,
                           "Unable to read chunk footer data, incorrect file?"))
   let
     footer = ChainFileFooter.init(
-      data.toOpenArray(0, ChainFileFooterSize - 1)).valueOr:
+      buffer.toOpenArray(0, ChainFileFooterSize - 1)).valueOr:
         return err(
           ChainFileError.init(ChainFileErrorType.FooterError, error))
 
@@ -453,7 +453,7 @@ proc readChunkBackward(handle: IoHandle,
         ChainFileError.init(ChainFileErrorType.IoError, ioErrorMsg(error)))
 
   bytesRead =
-    readFile(handle, data.toOpenArray(0, ChainFileHeaderSize - 1)).valueOr:
+    readFile(handle, buffer.toOpenArray(0, ChainFileHeaderSize - 1)).valueOr:
       return err(
         ChainFileError.init(ChainFileErrorType.IoError, ioErrorMsg(error)))
 
@@ -464,7 +464,7 @@ proc readChunkBackward(handle: IoHandle,
 
   let
     header = ChainFileHeader.init(
-      data.toOpenArray(0, ChainFileHeaderSize - 1)).valueOr:
+      buffer.toOpenArray(0, ChainFileHeaderSize - 1)).valueOr:
         return err(
           ChainFileError.init(ChainFileErrorType.HeaderError, error))
 
@@ -508,10 +508,7 @@ proc decodeBlock(
 
   let
     fork = header.getBlockConsensusFork()
-  echo "fork = ", fork
-  echo "len(data) = ", len(data)
-  let
-    decompressed = @data # snappy.decode(data, uint32(header.plainSize))
+    decompressed = snappy.decode(data, uint32(header.plainSize))
     blck =
       try:
         case fork
@@ -534,7 +531,6 @@ proc decodeBlock(
           ForkedSignedBeaconBlock.init(
             SSZ.decode(decompressed, electra.SignedBeaconBlock))
       except SerializationError as exc:
-        echo "exc.msg = ", exc.msg
         return err("Incorrect block format")
   ok(blck)
 
@@ -546,7 +542,7 @@ proc decodeBlob(
     return err("Size of blob is enormously big")
 
   let
-    decompressed = @data # snappy.decode(data, uint32(header.plainSize))
+    decompressed = snappy.decode(data, uint32(header.plainSize))
     blob =
       try:
         SSZ.decode(decompressed, BlobSidecar)
