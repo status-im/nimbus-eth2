@@ -149,11 +149,6 @@ proc addBackfillBlockData*(
             filename = chainFilePath(clist.path), reason = res.error()
       quit 1
 
-    discard store(chainFilePath(clist.path) & "-uncompressed", signedBlock, blobsOpt, false)
-
-    withBlck(signedBlock):
-      dump(clist.path, forkyBlck)
-
     clist.tail = Opt.some(BlockData(blck: signedBlock, blob: blobsOpt))
 
     if clist.head.isNone():
@@ -194,11 +189,6 @@ proc addBackfillBlockData*(
     fatal "Unexpected failure while trying to store data",
            filename = chainFilePath(clist.path), reason = res.error()
     quit 1
-
-  withBlck(signedBlock):
-    dump(clist.path, forkyBlck)
-
-  discard store(chainFilePath(clist.path) & "-uncompressed", signedBlock, blobsOpt, false)
 
   debug "Block backfilled",
         verify_block_duration = shortLog(storeBlockTick - verifyBlockTick),
