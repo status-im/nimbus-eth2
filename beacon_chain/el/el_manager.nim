@@ -14,6 +14,7 @@ import
   json_rpc/[client, errors],
   web3, web3/[engine_api, primitives, conversions],
   eth/common/eth_types,
+  kzg4844/[kzg_abi, kzg],
   results,
   stew/[assign2, byteutils, objects],
   # Local modules:

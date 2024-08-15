@@ -11,6 +11,7 @@ import
   # Status
   chronicles, chronos, metrics,
   results,
+  kzg4844/[kzg, kzg_abi],
   stew/byteutils,
   # Internals
   ../spec/[
@@ -458,7 +459,7 @@ proc validateBlobSidecar*(
   # [REJECT] The sidecar's blob is valid as verified by `verify_blob_kzg_proof(
   # blob_sidecar.blob, blob_sidecar.kzg_commitment, blob_sidecar.kzg_proof)`.
   block:
-    let ok = verifyProof(
+    let ok = verifyBlobKzgProof(
         KzgBlob(bytes: blob_sidecar.blob),
         blob_sidecar.kzg_commitment,
         blob_sidecar.kzg_proof).valueOr:

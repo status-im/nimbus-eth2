@@ -214,7 +214,7 @@
 	path = vendor/nim-kzg4844
 	url = https://github.com/agnxsh/nim-kzg4844.git
 	ignore = untracked
-	branch = ckzg-7594/upstream 
+	branch = ckzg-jt-test
 [submodule "vendor/nim-results"]
 	path = vendor/nim-results
 	url = https://github.com/arnetheduck/nim-results.git
