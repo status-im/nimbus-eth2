@@ -83,10 +83,9 @@ when isMainModule:
 
   # https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.4/specs/_features/eip7732/beacon-chain.md#modified-get_attesting_indices
   proc get_attesting_indices(state: var ForkyBeaconState,
-      attestation: epbs.Attestation): HashSet[
+      attestation: epbs.Attestation, cfg: RuntimeConfig): HashSet[
           ValidatorIndex] =
-    var
-      cfg: RuntimeConfig
+    let
       output = [ValidatorIndex]()
       committee_offset = 0
 
@@ -104,7 +103,6 @@ when isMainModule:
 
     if epoch(attestation.data.slot) < cfg.EIP7732_FORK_EPOCH:
       return output
-
 
     let
       ptc = get_ptc(state, attestation.data.slot)

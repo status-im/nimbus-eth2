@@ -90,6 +90,6 @@ const
   # https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.4/specs/electra/beacon-chain.md#withdrawal-prefixes
   COMPOUNDING_WITHDRAWAL_PREFIX* = 0x02
 
-  # https://github.com/ethereum/consensus-specs/blob/1508f51b80df5488a515bfedf486f98435200e02/specs/_features/eipxxxx/beacon-chain.md#domain-types [New in epbs]
+  # https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.4/specs/_features/eip7732/beacon-chain.md#domain-types
   DOMAIN_BEACON_BUILDER* = DomainType([byte 0x1B, 0x00, 0x00, 0x00])
   DOMAIN_PTC_ATTESTER* = DomainType([byte 0x0C, 0x00, 0x00, 0x00])
