@@ -1512,25 +1512,24 @@ proc tryReconstructingDataColumns* (self: BeaconNode,
   # storedColumn number is less than the NUMBER_OF_COLUMNS
   # then reconstruction is not possible, and if all the data columns
   # are already stored then we do not need to reconstruct at all
-  if storedColumns.len < NUMBER_OF_COLUMNS or storedColumns.len == NUMBER_OF_COLUMNS:
+  if storedColumns.len < NUMBER_OF_COLUMNS div 2 or storedColumns.len == NUMBER_OF_COLUMNS:
     return ok()
   else:
-    return err("DataColumnSidecar: Reconstruction error!")
 
-  # Recover blobs from saved data column sidecars
-  let recovered_cps = recover_cells_and_proofs(data_column_sidecars, storedColumns.len, signed_block)
-  if not recovered_cps.isOk:
-    return err("Error recovering cells and proofs from data columns")
+    # Recover blobs from saved data column sidecars
+    let recovered_cps = recover_cells_and_proofs(data_column_sidecars, storedColumns.len, signed_block)
+    if not recovered_cps.isOk:
+      return err("Error recovering cells and proofs from data columns")
 
-  # Reconstruct data column sidecars from recovered blobs
-  let reconstructedDataColumns = get_data_column_sidecars(signed_block, recovered_cps.get)
+    # Reconstruct data column sidecars from recovered blobs
+    let reconstructedDataColumns = get_data_column_sidecars(signed_block, recovered_cps.get)
 
-  for data_column in reconstructedDataColumns.get:
-    if data_column.index notin custodiedColumnIndices.get:
-      continue
-    
-    db.putDataColumnSidecar(data_column)
-    notice "Data Column Reconstructed and Saved Successfully"
+    for data_column in reconstructedDataColumns.get:
+      if data_column.index notin custodiedColumnIndices.get:
+        continue
+      
+      db.putDataColumnSidecar(data_column)
+      notice "Data Column Reconstructed and Saved Successfully"
 
   ok()
 
@@ -1543,7 +1542,7 @@ proc reconstructAndSendDataColumns*(node: BeaconNode) {.async.} =
   withBlck(blck):
     when typeof(forkyBlck).kind < ConsensusFork.Deneb: return
     else:
-      let res = node.tryReconstructingDataColumns(forkyblck)
+      let res = node.tryReconstructingDataColumns(forkyBlck)
       if not res.isOk():
         return
 
@@ -1583,7 +1582,8 @@ proc onSlotEnd(node: BeaconNode, slot: Slot) {.async.} =
   # Things we do when slot processing has ended and we're about to wait for the
   # next slot
 
-  await node.reconstructAndSendDataColumns()
+  if node.config.subscribeAllSubnets:
+    await node.reconstructAndSendDataColumns()
 
   # By waiting until close before slot end, ensure that preparation for next
   # slot does not interfere with propagation of messages and with VC duties.
