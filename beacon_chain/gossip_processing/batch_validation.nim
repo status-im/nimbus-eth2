@@ -99,7 +99,7 @@ type
   Batch* = object
     ## A batch represents up to BatchedCryptoSize non-aggregated signatures
     created: Moment
-    sigsets: seq[SignatureSet]
+    multiSets: Table[array[32, byte], MultiSignatureSet]
     items: seq[BatchItem]
 
   VerifierItem = object
@@ -198,7 +198,7 @@ proc complete(batchCrypto: var BatchCrypto, batch: var Batch, ok: bool) =
 
   batchCrypto.counts.batches += 1
   batchCrypto.counts.signatures += batch.items.len()
-  batchCrypto.counts.aggregates += batch.sigsets.len()
+  batchCrypto.counts.aggregates += batch.multiSets.len()
 
   if batchCrypto.counts.batches >= 256:
     # Not too often, so as not to overwhelm our metrics
@@ -227,12 +227,29 @@ proc spawnBatchVerifyTask(tp: Taskpool, task: ptr BatchTask) =
   # Possibly related to: https://github.com/nim-lang/Nim/issues/22305
   tp.spawn batchVerifyTask(task)
 
-proc batchVerifyAsync*(
-    verifier: ref BatchVerifier, signal: ThreadSignalPtr,
+func combine(
+    multiSet: MultiSignatureSet,
+    verifier: ref BatchVerifier): SignatureSet =
+  var secureRandomBytes: array[32, byte]
+  verifier[].rng[].generate(secureRandomBytes)
+  multiSet.combine(secureRandomBytes)
+
+func combineAll(
+    multiSets: Table[array[32, byte], MultiSignatureSet],
+    verifier: ref BatchVerifier): seq[SignatureSet] =
+  var sigsets = newSeqOfCap[SignatureSet](multiSets.len)
+  for multiSet in multiSets.values():
+    sigsets.add multiSet.combine(verifier)
+  sigsets
+
+proc batchVerifyAsync(
+    verifier: ref BatchVerifier,
+    signal: ThreadSignalPtr,
     batch: ref Batch): Future[bool] {.async: (raises: [CancelledError]).} =
+  let sigsets = batch[].multiSets.combineAll(verifier)
   var task = BatchTask(
-    setsPtr: makeUncheckedArray(baseAddr batch[].sigsets),
-    numSets: batch[].sigsets.len,
+    setsPtr: makeUncheckedArray(baseAddr sigsets),
+    numSets: sigsets.len,
     taskpool: verifier[].taskpool,
     cache: addr verifier[].sigVerifCache,
     signal: signal,
@@ -254,18 +271,18 @@ proc batchVerifyAsync*(
   task.ok.load()
 
 proc processBatch(
-    batchCrypto: ref BatchCrypto, batch: ref Batch,
-    verifier: ref BatchVerifier, signal: ThreadSignalPtr) {.async: (raises: [CancelledError]).} =
-  let
-    numSets = batch[].sigsets.len()
+    batchCrypto: ref BatchCrypto,
+    batch: ref Batch,
+    verifier: ref BatchVerifier,
+    signal: ThreadSignalPtr) {.async: (raises: [CancelledError]).} =
+  let numSets = batch[].multiSets.len
 
   if numSets == 0:
     # Nothing to do in this batch, can happen when a batch is created without
     # there being any signatures successfully added to it
     return
 
-  let
-    startTick = Moment.now()
+  let startTick = Moment.now()
 
   # If the hardware is too slow to keep up or an event caused a temporary
   # buildup of signature verification tasks, the batch will be dropped so as to
@@ -290,13 +307,19 @@ proc processBatch(
     # may not be beneficial to use batch verification:
     # https://github.com/status-im/nim-blscurve/blob/3956f63dd0ed5d7939f6195ee09e4c5c1ace9001/blscurve/bls_batch_verifier.nim#L390
     if numSets == 1:
-      blsVerify(batch[].sigsets[0])
+      var r: bool
+      for multiSet in batch[].multiSets.values():
+        r = blsVerify(multiSet.combine(verifier))
+        break
+      r
     elif batchCrypto[].taskpool.numThreads > 1 and numSets > 3:
       await batchVerifyAsync(verifier, signal, batch)
     else:
       let secureRandomBytes = verifier[].rng[].generate(array[32, byte])
       batchVerifySerial(
-        verifier[].sigVerifCache, batch.sigsets, secureRandomBytes)
+        verifier[].sigVerifCache,
+        batch.multiSets.combineAll(verifier),
+        secureRandomBytes)
 
   trace "batch crypto - finished",
     numSets, items = batch[].items.len(), ok,
@@ -356,11 +379,10 @@ proc verifySoon(
     batch = batchCrypto[].getBatch()
     fut = newFuture[BatchResult](name)
 
-  # TODO If there is a signature set `item in batch[].sigsets.mitems()`
-  # with `item.message == sigset.message`, further performance could be gained
-  # by implementing Pippenger multi-scalar multiplication in `nim-blscurve`.
-  # https://gist.github.com/wemeetagain/d52fc4b077f80db6e423935244c2afb2
-  batch[].sigsets.add sigset
+  batch[].multiSets.withValue(sigset.message, multiSet):
+    multiSet[].add sigset
+  do:
+    batch[].multiSets[sigset.message] = MultiSignatureSet.init sigset
 
   # We need to keep the "original" sigset to allow verifying each signature
   # one by one in the case the combined operation fails
