@@ -176,7 +176,7 @@ type
   MounterProc* = proc(network: Eth2Node) {.gcsafe, raises: [].}
   MessageContentPrinter* = proc(msg: pointer): string {.gcsafe, raises: [].}
 
-  # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.5/specs/phase0/p2p-interface.md#goodbye
+  # https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.4/specs/phase0/p2p-interface.md#goodbye
   DisconnectionReason* = enum
     # might see other values on the wire!
     ClientShutDown = 1
@@ -2555,8 +2555,8 @@ proc updateStabilitySubnetMetadata*(node: Eth2Node, attnets: AttnetBits) =
   node.metadata.seq_number += 1
   node.metadata.attnets = attnets
 
-  # https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.3/specs/phase0/p2p-interface.md#attestation-subnet-subscription
-  # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.4/specs/phase0/p2p-interface.md#attestation-subnet-bitfield
+  # https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.4/specs/phase0/p2p-interface.md#attestation-subnet-subscription
+  # https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.4/specs/phase0/p2p-interface.md#attestation-subnet-bitfield
   let res = node.discovery.updateRecord({
     enrAttestationSubnetsField: SSZ.encode(node.metadata.attnets)
   })
@@ -2568,7 +2568,7 @@ proc updateStabilitySubnetMetadata*(node: Eth2Node, attnets: AttnetBits) =
     debug "Stability subnets changed; updated ENR attnets", attnets
 
 proc updateSyncnetsMetadata*(node: Eth2Node, syncnets: SyncnetBits) =
-  # https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.3/specs/altair/validator.md#sync-committee-subnet-stability
+  # https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.4/specs/altair/validator.md#sync-committee-subnet-stability
   if node.metadata.syncnets == syncnets:
     return
 

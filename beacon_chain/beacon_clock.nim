@@ -27,7 +27,7 @@ type
     ## which blocks are valid - in particular, blocks are not valid if they
     ## come from the future as seen from the local clock.
     ##
-    ## https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.3/specs/phase0/fork-choice.md#fork-choice
+    ## https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.4/specs/phase0/fork-choice.md#fork-choice
     ##
     # TODO consider NTP and network-adjusted timestamps as outlined here:
     #      https://ethresear.ch/t/network-adjusted-timestamps/4187
