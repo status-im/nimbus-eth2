@@ -27,7 +27,7 @@ const
   # The spec now includes this as a bare uint64 as `RESP_TIMEOUT`
   RESP_TIMEOUT_DUR* = RESP_TIMEOUT.int64.seconds
 
-  # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.5/specs/altair/light-client/p2p-interface.md#configuration
+  # https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.4/specs/altair/light-client/p2p-interface.md#configuration
   MAX_REQUEST_LIGHT_CLIENT_UPDATES* = 128
 
   # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.5/specs/deneb/p2p-interface.md#configuration

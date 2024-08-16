@@ -1789,7 +1789,7 @@ proc installMessageValidators(node: BeaconNode) =
       let digest = forkDigests[].atConsensusFork(consensusFork)
 
       # beacon_block
-      # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.1/specs/phase0/p2p-interface.md#beacon_block
+      # https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.4/specs/phase0/p2p-interface.md#beacon_block
       node.network.addValidator(
         getBeaconBlocksTopic(digest), proc (
           signedBlock: consensusFork.SignedBeaconBlock

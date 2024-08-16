@@ -143,7 +143,7 @@ func compute_attestation_signing_root*(
       fork, DOMAIN_BEACON_ATTESTER, epoch, genesis_validators_root)
   compute_signing_root(attestation_data, domain)
 
-# https://github.com/ethereum/consensus-specs/blob/v1.4.0/specs/phase0/validator.md#aggregate-signature
+# https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.4/specs/phase0/validator.md#aggregate-signature
 func get_attestation_signature*(
     fork: Fork, genesis_validators_root: Eth2Digest,
     attestation_data: AttestationData,

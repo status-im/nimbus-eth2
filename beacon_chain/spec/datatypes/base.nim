@@ -304,7 +304,7 @@ type
   HashedValidatorPubKey* = object
     value*: ptr HashedValidatorPubKeyItem
 
-  # https://github.com/ethereum/consensus-specs/blob/v1.4.0/specs/phase0/beacon-chain.md#validator
+  # https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.4/specs/phase0/beacon-chain.md#validator
   Validator* = object
     pubkeyData*{.serializedFieldName: "pubkey".}: HashedValidatorPubKey
 
@@ -363,7 +363,7 @@ type
     message*: VoluntaryExit
     signature*: TrustedSig
 
-  # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.6/specs/phase0/beacon-chain.md#beaconblockheader
+  # https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.4/specs/phase0/beacon-chain.md#beaconblockheader
   BeaconBlockHeader* = object
     slot*: Slot
     proposer_index*: uint64 # `ValidatorIndex` after validation

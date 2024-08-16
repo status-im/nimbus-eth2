@@ -96,7 +96,7 @@ func get_validator_churn_limit*(
     count_active_validators(
       state, state.get_current_epoch(), cache) div cfg.CHURN_LIMIT_QUOTIENT)
 
-# https://github.com/ethereum/consensus-specs/blob/v1.4.0/specs/deneb/beacon-chain.md#new-get_validator_activation_churn_limit
+# https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.4/specs/deneb/beacon-chain.md#new-get_validator_activation_churn_limit
 func get_validator_activation_churn_limit*(
       cfg: RuntimeConfig, state: deneb.BeaconState | electra.BeaconState,
       cache: var StateCache): uint64 =
@@ -270,7 +270,7 @@ func compute_consolidation_epoch_and_update_churn*(
 
   state.earliest_consolidation_epoch
 
-# https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.0/specs/electra/beacon-chain.md#updated--initiate_validator_exit
+# https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.4/specs/electra/beacon-chain.md#modified-initiate_validator_exit
 func initiate_validator_exit*(
     cfg: RuntimeConfig, state: var electra.BeaconState,
     index: ValidatorIndex, exit_queue_info: ExitQueueInfo,
@@ -326,7 +326,7 @@ func get_whistleblower_reward*(
     validator_effective_balance: Gwei): Gwei =
   validator_effective_balance div WHISTLEBLOWER_REWARD_QUOTIENT
 
-# https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.0/specs/electra/beacon-chain.md#updated-slash_validator
+# https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.4/specs/electra/beacon-chain.md#modified-slash_validator
 func get_whistleblower_reward*(
     state: electra.BeaconState, validator_effective_balance: Gwei): Gwei =
   validator_effective_balance div WHISTLEBLOWER_REWARD_QUOTIENT_ELECTRA
@@ -407,7 +407,7 @@ func get_initial_beacon_block*(state: phase0.HashedBeaconState):
   phase0.TrustedSignedBeaconBlock(
     message: message, root: hash_tree_root(message))
 
-# https://github.com/ethereum/consensus-specs/blob/v1.3.0/specs/altair/beacon-chain.md#initialize-state-for-pure-altair-testnets-and-test-vectors
+# https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.4/specs/altair/beacon-chain.md#initialize-state-for-pure-altair-testnets-and-test-vectors
 func get_initial_beacon_block*(state: altair.HashedBeaconState):
     altair.TrustedSignedBeaconBlock =
   # The genesis block is implicitly trusted
@@ -1128,7 +1128,7 @@ proc process_attestation*(
 
   ok(proposer_reward)
 
-# https://github.com/ethereum/consensus-specs/blob/v1.4.0/specs/altair/beacon-chain.md#get_next_sync_committee_indices
+# https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.4/specs/altair/beacon-chain.md#get_next_sync_committee_indices
 # https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.3/specs/electra/beacon-chain.md#modified-get_next_sync_committee_indices
 func get_next_sync_committee_keys(
     state: altair.BeaconState | bellatrix.BeaconState | capella.BeaconState |
@@ -1173,7 +1173,7 @@ func get_next_sync_committee_keys(
     i += 1'u64
   res
 
-# https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.3/specs/capella/beacon-chain.md#has_eth1_withdrawal_credential
+# https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.4/specs/capella/beacon-chain.md#has_eth1_withdrawal_credential
 func has_eth1_withdrawal_credential*(validator: Validator): bool =
   ## Check if ``validator`` has an 0x01 prefixed "eth1" withdrawal credential.
   validator.withdrawal_credentials.data[0] == ETH1_ADDRESS_WITHDRAWAL_PREFIX
@@ -1195,7 +1195,7 @@ func has_execution_withdrawal_credential*(validator: Validator): bool =
   has_compounding_withdrawal_credential(validator) or
     has_eth1_withdrawal_credential(validator)
 
-# https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.3/specs/capella/beacon-chain.md#is_fully_withdrawable_validator
+# https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.4/specs/capella/beacon-chain.md#is_fully_withdrawable_validator
 # https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.3/specs/electra/beacon-chain.md#updated-is_fully_withdrawable_validator
 func is_fully_withdrawable_validator(
     fork: static ConsensusFork, validator: Validator, balance: Gwei,

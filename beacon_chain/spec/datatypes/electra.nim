@@ -158,7 +158,7 @@ type
   ExecutePayload* = proc(
     execution_payload: ExecutionPayload): bool {.gcsafe, raises: [].}
 
-  # https://github.com/ethereum/consensus-specs/blob/82133085a1295e93394ebdf71df8f2f6e0962588/specs/electra/beacon-chain.md#depositreceipt
+  # https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.4/specs/electra/beacon-chain.md#pendingbalancedeposit
   PendingBalanceDeposit* = object
     index*: uint64
     amount*: Gwei
@@ -243,7 +243,7 @@ type
     signature_slot*: Slot
       ## Slot at which the aggregate signature was created (untrusted)
 
-  # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.5/specs/altair/light-client/sync-protocol.md#lightclientfinalityupdate
+  # https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.4/specs/altair/light-client/sync-protocol.md#lightclientfinalityupdate
   LightClientFinalityUpdate* = object
     # Header attested to by the sync committee
     attested_header*: LightClientHeader
