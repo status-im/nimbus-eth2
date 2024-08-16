@@ -925,4 +925,10 @@ proc start*[A, B](man: SyncManager[A, B]) =
 proc join*[A, B](
     man: SyncManager[A, B]
 ): Future[void] {.async: (raw: true, raises: [CancelledError]).} =
-  man.syncFut.join()
+  if man.syncFut.isNil():
+    let retFuture =
+      Future[void].Raising([CancelledError]).init("nimbus-eth2.join()")
+    retFuture.complete()
+    retFuture
+  else:
+    man.syncFut.join()

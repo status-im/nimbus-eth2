@@ -234,7 +234,7 @@ proc collectSignatureSets*(
   blocks: openArray[ForkedSignedBeaconBlock],
   validatorKeys: openArray[ImmutableValidatorData2],
   state: ForkedHashedBeaconState
-): Result[void, cstring] =
+): Result[void, string] =
   mixin load
 
   let
@@ -247,10 +247,14 @@ proc collectSignatureSets*(
         let
           proposerKey =
             validatorKeys.load(forkyBlck.message.proposer_index).valueOr:
-              return err("collectSignatureSets: invalid proposer index")
+              let msg = "collectSignatureSets: invalid proposer index (" &
+                        $forkyBlck.message.proposer_index & ")"
+              return err(msg)
           signature =
             forkyBlck.signature.load().valueOr:
-              return err("collectSignatureSets: cannot load signature")
+              let msg = "collectSignatureSets: cannot load signature (" &
+                        $ forkyBlck.signature & ")"
+              return err(msg)
         block_signature_set(
           fork, genesis_validators_root,
           forkyBlck.message.slot, forkyBlck.root,

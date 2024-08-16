@@ -137,9 +137,10 @@ proc rebuildState(overseer: SyncOverseerRef): Future[void] {.
     slot = overseer.dag.head.slot
     clist =
       block:
-        let res = ChainListRef.init(overseer.clist.filePath(), slot)
+        let res = ChainListRef.init(overseer.clist.path, slot)
         if res.isErr():
-          fatal "Unable to read backfill data", reason = res.error
+          fatal "Unable to read backfill data", reason = res.error,
+                path = overseer.clist.path
           return
         res.get()
 
@@ -158,15 +159,28 @@ proc rebuildState(overseer: SyncOverseerRef): Future[void] {.
     let
       data = bres.get()
       blockEpoch = data.blck.slot.epoch()
-    if data.blck.slot != slot:
-      if blockEpoch != processEpoch:
-        if len(blocks) != 0:
-          let res = addBackfillBlockData(overseer.dag, overseer.batchVerifier[],
-                                         blocks)
-        else:
-          processEpoch = blockEpoch
-      else:
-        blocks.add(data)
+
+    if blockEpoch != processEpoch:
+      if len(blocks) != 0:
+        let
+          tick = Moment.now()
+          res = addBackfillBlockData(overseer.dag, overseer.batchVerifier[],
+                                     blocks)
+        if res.isErr():
+          fatal "Unable to process block data", reason = res.error
+          quit 1
+        debug "Backfilling status", elapsed = Moment.now() - tick,
+              blocks_count = len(blocks)
+        blocks.setLen(0)
+      processEpoch = blockEpoch
+
+    if data.blck.slot != GENESIS_SLOT:
+      # Skip it
+      # debug "Block loaded",
+      #       block_root = shortLog(data.blck.root),
+      #       parent_root = shortLog(data.blck.parent_root),
+      #       blck = shortLog(data.blck)
+      blocks.add(data)
 
 proc mainLoop*(
     overseer: SyncOverseerRef
