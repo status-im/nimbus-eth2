@@ -494,10 +494,15 @@ proc addBackfillBlockData*(
   let sigVerifyEndTick = Moment.now()
 
   for item in blocks:
+    debug "Backfilling block", blck = shortLog(item.blck)
+
     withBlck(item.blck):
       var onBlockAddedPlaceholder: BlockAdded(consensusFork) = nil
       let
-        parent = ? checkHeadBlock(dag, forkyBlck)
+        parent = checkHeadBlock(dag, forkyBlck).valueOr:
+          if error == VerifierError.Duplicate:
+            continue
+          return err(error)
         startTick = Moment.now()
         clearanceBlock = BlockSlotId.init(parent.bid, forkyBlck.message.slot)
 
@@ -516,7 +521,7 @@ proc addBackfillBlockData*(
         for blob in item.blob.get():
           dag.db.putBlobSidecar(blob[])
 
-      let res = addResolvedHeadBlock(
+      discard addResolvedHeadBlock(
         dag, dag.clearanceState,
         forkyBlck.asTrusted(),
         true,

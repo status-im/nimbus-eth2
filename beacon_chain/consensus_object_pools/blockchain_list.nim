@@ -59,7 +59,7 @@ proc init*(T: type ChainListRef, directory: string,
         let res = ChainFileHandle.init(filename)
         if res.isErr():
           fatal "Unexpected failure while reading backfill data",
-                reason = res.error
+                filename = filename, reason = res.error
           quit 1
         res.get()
   let offset {.used.} = ? seekForSlot(handle, slot)
