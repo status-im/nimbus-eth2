@@ -543,7 +543,7 @@ proc storeBlock(
     # When the execution layer is not available to verify the payload, we do the
     # required checks on the CL instead and proceed as if the EL was syncing
     # https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.4/specs/bellatrix/beacon-chain.md#verify_and_notify_new_payload
-    # https://github.com/ethereum/consensus-specs/blob/1.5.0-alpha.4/specs/deneb/beacon-chain.md#modified-verify_and_notify_new_payload
+    # https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.4/specs/deneb/beacon-chain.md#modified-verify_and_notify_new_payload
     when typeof(signedBlock).kind >= ConsensusFork.Bellatrix:
       if signedBlock.message.is_execution_block:
         template payload(): auto = signedBlock.message.body.execution_payload
