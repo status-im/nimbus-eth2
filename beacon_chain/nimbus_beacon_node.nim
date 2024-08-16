@@ -501,13 +501,18 @@ proc initFullNode(
       dag.backfill.slot, blockVerifier, maxHeadAge = 0,
       shutdownEvent = node.shutdownEvent,
       flags = syncManagerFlags)
+    clistPivotSlot =
+      if clist.tail.isSome():
+        clist.tail.get().blck.slot()
+      else:
+        dag.tail.slot
     untrustedManager = newSyncManager[Peer, PeerId](
       node.network.peerPool,
       dag.cfg.DENEB_FORK_EPOCH, dag.cfg.MIN_EPOCHS_FOR_BLOB_SIDECARS_REQUESTS,
       SyncQueueKind.Backward, getLocalHeadSlot,
       getLocalWallSlot, getFirstSlotAtFinalizedEpoch, getUntrustedBackfillSlot,
       getFrontfillSlot, isWithinWeakSubjectivityPeriod,
-      dag.backfill.slot, untrustedBlockVerifier, maxHeadAge = 0,
+      clistPivotSlot, untrustedBlockVerifier, maxHeadAge = 0,
       shutdownEvent = node.shutdownEvent,
       flags = syncManagerFlags)
     router = (ref MessageRouter)(
