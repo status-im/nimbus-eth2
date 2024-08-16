@@ -307,9 +307,10 @@ proc processBatch(
     # may not be beneficial to use batch verification:
     # https://github.com/status-im/nim-blscurve/blob/3956f63dd0ed5d7939f6195ee09e4c5c1ace9001/blscurve/bls_batch_verifier.nim#L390
     if numSets == 1:
-      var r = true
+      var r: bool
       for multiSet in batch[].multiSets.values():
-        r = r and blsVerify(multiSet.combine(verifier))
+        r = blsVerify(multiSet.combine(verifier))
+        break
       r
     elif batchCrypto[].taskpool.numThreads > 1 and numSets > 3:
       await batchVerifyAsync(verifier, signal, batch)
