@@ -10,6 +10,7 @@
 import
   chronicles,
   ../spec/network,
+  ../spec/datatypes/[eip7594],
   ".."/[beacon_clock],
   ../networking/eth2_network,
   ../consensus_object_pools/blockchain_dag,
@@ -149,6 +150,16 @@ p2pProtocol PeerSync(version = 1,
     let
       ourStatus = peer.networkState.getCurrentStatus()
       theirStatus = await peer.status(ourStatus, timeout = RESP_TIMEOUT_DUR)
+    
+    if incoming == true:
+      let
+        metadataRes = await peer.getMetadata_v3()
+        metadata = metadataRes.get
+      if metadata.custody_subnet_count < CUSTODY_REQUIREMENT:
+        debug "Custody requirement is lesser than min, peer disconnected",
+              peer, errorKind = theirStatus.error.kind
+        await peer.disconnect(FaultOrError)
+      else: discard
 
     if theirStatus.isOk:
       discard await peer.handleStatus(peer.networkState, theirStatus.get())

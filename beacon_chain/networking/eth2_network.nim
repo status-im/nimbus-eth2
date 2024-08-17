@@ -1668,7 +1668,7 @@ proc resolvePeer(peer: Peer) =
 proc handlePeer*(peer: Peer) {.async: (raises: [CancelledError]).} =
   let res = peer.network.peerPool.addPeerNoWait(peer, peer.direction)
   case res:
-  of PeerStatus.LowScoreError, PeerStatus.NoSpaceError:
+  of PeerStatus.LowScoreError, PeerStatus.LowCscError, PeerStatus.NoSpaceError:
     # Peer has low score or we do not have enough space in PeerPool,
     # we are going to disconnect it gracefully.
     # Peer' state will be updated in connection event.
@@ -1821,7 +1821,8 @@ proc new(T: type Eth2Node,
       config, ip, tcpPort, udpPort, privKey,
       {
         enrForkIdField: SSZ.encode(enrForkId),
-        enrAttestationSubnetsField: SSZ.encode(metadata.attnets)
+        enrAttestationSubnetsField: SSZ.encode(metadata.attnets),
+        enrCustodySubnetCountField: SSZ.encode(metadata.custody_subnet_count)
       },
     rng),
     discoveryEnabled: discovery,
@@ -1840,6 +1841,31 @@ proc new(T: type Eth2Node,
 
   proc scoreCheck(peer: Peer): bool =
     peer.score >= PeerScoreLowLimit
+
+  proc fetchCustodyColumnCountFromRemotePeer(peer: Peer):
+                                              uint64 =
+    # Fetches the custody column count from a remote peer
+    # if the peer advertises their custody column count 
+    # via the `csc` ENR field. If the peer does NOT, then
+    # the default value is assume, i.e, CUSTODY_REQUIREMENT
+
+    let enrOpt = peer.enr
+    if enrOpt.isNone:
+      debug "Could not get ENR from peer",
+        peer_id = peer.peerId
+      return 0
+
+    else:
+      let
+        enr = enrOpt.get
+        enrFieldOpt = 
+            enr.get(enrCustodySubnetCountField, uint64)
+
+      if not enrFieldOpt.isOk:
+        debug "Issue with fetching `csc` field from ENR",
+          enr = enr
+      else:
+        return(enrFieldOpt.get)
 
   proc onDeletePeer(peer: Peer) =
     peer.releasePeer()

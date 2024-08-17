@@ -268,6 +268,31 @@ proc fetchBlobsFromNetwork(self: RequestManager,
     if not(isNil(peer)):
       self.network.peerPool.release(peer)
 
+proc lookupCscFromPeer(peer: Peer):
+                                            uint64 =
+  # Fetches the custody column count from a remote peer
+  # if the peer advertises their custody column count 
+  # via the `csc` ENR field. If the peer does NOT, then
+  # the default value is assume, i.e, CUSTODY_REQUIREMENT
+
+  let enrOpt = peer.enr
+  if enrOpt.isNone:
+    debug "Could not get ENR from peer",
+      peer_id = peer.peerId
+    return 0
+
+  else:
+    let
+      enr = enrOpt.get
+      enrFieldOpt = 
+          enr.get(enrCustodySubnetCountField, uint64)
+
+    if not enrFieldOpt.isOk:
+      debug "Issue with fetching `csc` field from ENR",
+        enr = enr
+    else:
+      return(enrFieldOpt.get)
+
 proc constructValidCustodyPeers(rman: RequestManager,
                                 peers: openArray[Peer]):
                                 seq[Peer] =
@@ -288,7 +313,7 @@ proc constructValidCustodyPeers(rman: RequestManager,
   for peer in peers:
     # Get the custody subnet count of the remote peer
     let remoteCustodySubnetCount =
-      peer.fetchCustodyColumnCountFromRemotePeer()
+      peer.lookupCscFromPeer()
     
     # Extract remote peer's nodeID from peerID
     # Fetch custody columns from remote peer

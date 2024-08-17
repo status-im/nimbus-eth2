@@ -9,6 +9,8 @@
 
 import std/[tables, heapqueue]
 import chronos
+import
+  ../spec/datatypes/[eip7594]
 
 export tables
 
@@ -27,7 +29,8 @@ type
     DuplicateError, ## Peer is already present in PeerPool.
     NoSpaceError,   ## There no space for the peer in PeerPool.
     LowScoreError,  ## Peer has too low score.
-    DeadPeerError   ## Peer is already dead.
+    DeadPeerError,  ## Peer is already dead.
+    LowCscError,    ## Peer's custody subnet count is lower than minimum requirment.
 
   PeerItem[T] = object
     data: T
@@ -283,6 +286,14 @@ proc checkPeerScore*[A, B](pool: PeerPool[A, B], peer: A): bool {.inline.} =
   else:
     true
 
+proc checkCscCount*[A, B](pool: PeerPool[A, B], peer: A): bool {.inline.} =
+  ## Returns ``true`` if peer had MINIMUM_CUSTODY_REQUIREMENT
+  let csc = pool.fetchCustodyColumnCountFromRemotePeer(peer)
+  if csc >= CUSTODY_REQUIREMENT:
+    true
+  else:
+    false 
+
 proc peerCountChanged[A, B](pool: PeerPool[A, B]) =
   ## Call callback when number of peers changed.
   if not(isNil(pool.peerCounter)):
@@ -380,6 +391,7 @@ proc checkPeer*[A, B](pool: PeerPool[A, B], peer: A): PeerStatus {.inline.} =
   ## * Positive value of peer's score - (PeerStatus.LowScoreError)
   ## * Peer's key is not present in PeerPool - (PeerStatus.DuplicateError)
   ## * Peer's lifetime future is not finished yet - (PeerStatus.DeadPeerError)
+  ## * Low value of peer's custody subnet count - (PeerStatus.LowCscError)
   ##
   ## If peer could be added to PeerPool procedure returns (PeerStatus.Success)
   mixin getKey, getFuture
