@@ -68,32 +68,32 @@ type
     parent_block_hash*: Eth2Digest 
     parent_block_root*: Eth2Digest
     gas_limit*: uint64
-    builder_index*: ValidatorSig
+    builder_index*: ValidatorIndex
     slot*: Slot
     value*: Gwei
-    blob_kzg_commitments_root: KzgCommitments
+    blob_kzg_commitments_root*: KzgCommitments
 
     # Extra payload fields
     block_hash*: Eth2Digest
 
   # https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.4/specs/_features/eip7732/beacon-chain.md#signedexecutionpayloadheader
-  SignedExecutionPayloadHeader = object
-    message: ExecutionPayloadHeader
-    signature: ValidatorSig
+  SignedExecutionPayloadHeader* = object
+    message*: ExecutionPayloadHeader
+    signature*: ValidatorSig
 
   # https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.4/specs/_features/eip7732/beacon-chain.md#signedexecutionpayloadenvelope
-  ExecutionPayloadEnvelope = object
-    payload: ExecutionPayload
-    builder_index: ValidatorIndex
-    beacon_block_root: Eth2Digest
-    blob_kzg_commitments: List[KzgCommitment, Limit MAX_BLOB_COMMITMENTS_PER_BLOCK]
-    payload_withheld: bool
-    state_root: Eth2Digest
+  ExecutionPayloadEnvelope* = object
+    payload*: ExecutionPayload
+    builder_index*: ValidatorIndex
+    beacon_block_root*: Eth2Digest
+    blob_kzg_commitments*: List[KzgCommitment, Limit MAX_BLOB_COMMITMENTS_PER_BLOCK]
+    payload_withheld*: bool
+    state_root*: Eth2Digest
 
   # https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.4/specs/_features/eip7732/beacon-chain.md#signedexecutionpayloadenvelope
-  SignedExecutionPayloadEnvelope = object
-    message: ExecutionPayloadEnvelope
-    signature: ValidatorSig
+  SignedExecutionPayloadEnvelope* = object
+    message*: ExecutionPayloadEnvelope
+    signature*: ValidatorSig
 
   # https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.4/specs/_features/eip7732/beacon-chain.md#beaconstate
   BeaconState* = object

@@ -10,11 +10,10 @@
 import
   sequtils, sets,
   "."/[forks, ptc_status, validator],
-  ./helpers,
   ./datatypes/epbs,
   "."/[
-  beaconstate, eth2_merkleization, forks, helpers, signatures,
-  state_transition_block, state_transition_epoch, validator]
+  beaconstate, eth2_merkleization, helpers, signatures,
+  state_transition_block, state_transition_epoch]
 
 # https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.4/specs/_features/eip7732/beacon-chain.md#is_valid_indexed_payload_attestation
 proc is_valid_indexed_payload_attestation(
@@ -58,7 +57,7 @@ proc is_valid_indexed_payload_attestation(
       indexed_payload_attestation.signature)
 
 # https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.4/specs/_features/eip7732/beacon-chain.md#is_parent_block_full
-func is_parent_block_full(state: epbs.BeaconState): bool =
+func is_parent_block_full*(state: epbs.BeaconState): bool =
   state.latest_execution_payload_header.block_hash == state.latest_block_hash
 
 when isMainModule:
