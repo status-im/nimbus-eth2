@@ -1668,7 +1668,7 @@ proc resolvePeer(peer: Peer) =
 proc handlePeer*(peer: Peer) {.async: (raises: [CancelledError]).} =
   let res = peer.network.peerPool.addPeerNoWait(peer, peer.direction)
   case res:
-  of PeerStatus.LowScoreError, PeerStatus.LowCscError, PeerStatus.NoSpaceError:
+  of PeerStatus.LowScoreError, PeerStatus.NoSpaceError:
     # Peer has low score or we do not have enough space in PeerPool,
     # we are going to disconnect it gracefully.
     # Peer' state will be updated in connection event.
