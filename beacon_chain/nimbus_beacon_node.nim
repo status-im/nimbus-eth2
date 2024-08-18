@@ -1581,9 +1581,7 @@ proc reconstructAndSendDataColumns*(node: BeaconNode) {.async.} =
 proc onSlotEnd(node: BeaconNode, slot: Slot) {.async.} =
   # Things we do when slot processing has ended and we're about to wait for the
   # next slot
-
-  if node.config.subscribeAllSubnets:
-    await node.reconstructAndSendDataColumns()
+  await node.reconstructAndSendDataColumns()
 
   # By waiting until close before slot end, ensure that preparation for next
   # slot does not interfere with propagation of messages and with VC duties.

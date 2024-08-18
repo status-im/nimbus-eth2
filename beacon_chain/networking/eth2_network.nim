@@ -1675,6 +1675,8 @@ proc handlePeer*(peer: Peer) {.async: (raises: [CancelledError]).} =
     debug "Peer has low score or there no space in PeerPool",
           peer = peer, reason = res
     await peer.disconnect(FaultOrError)
+  of PeerStatus.LowCscError:
+    discard
   of PeerStatus.DeadPeerError:
     # Peer's lifetime future is finished, so its already dead,
     # we do not need to perform gracefull disconect.
