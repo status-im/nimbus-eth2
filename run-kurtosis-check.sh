@@ -58,7 +58,7 @@ new_cl_image="localtestnet"
 #            Build the Docker Image
 # ------------------------------------------------
 if [[ "$use_previous_image" == "no" ]]; then
-  echo "Using the previously built docker image"
+  echo "Using the previously built Docker image"
   echo
   echo -n "Please enter the docker image name (default: localtestnet) "
   read -r cl_image
