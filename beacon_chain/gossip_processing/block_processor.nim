@@ -192,26 +192,26 @@ proc storeBackfillBlock(
   # writing the block in case of blob error.
   # var blobsOk = true
   var columnsOk = true
-  var blobsOk = true
-  when typeof(signedBlock).kind >= ConsensusFork.Deneb:
-    if blobsOpt.isSome:
-      let blobs = blobsOpt.get()
-      let kzgCommits = signedBlock.message.body.blob_kzg_commitments.asSeq
-      if blobs.len > 0 or kzgCommits.len > 0:
-        let r = validate_blobs(kzgCommits, blobs.mapIt(KzgBlob(bytes: it.blob)),
-                               blobs.mapIt(it.kzg_proof))
-        if r.isErr():
-          debug "backfill blob validation failed",
-            blockRoot = shortLog(signedBlock.root),
-            blobs = shortLog(blobs),
-            blck = shortLog(signedBlock.message),
-            kzgCommits = mapIt(kzgCommits, shortLog(it)),
-            signature = shortLog(signedBlock.signature),
-            msg = r.error()
-        blobsOk = r.isOk()
+  # var blobsOk = true
+  # when typeof(signedBlock).kind >= ConsensusFork.Deneb:
+  #   if blobsOpt.isSome:
+  #     let blobs = blobsOpt.get()
+  #     let kzgCommits = signedBlock.message.body.blob_kzg_commitments.asSeq
+  #     if blobs.len > 0 or kzgCommits.len > 0:
+  #       let r = validate_blobs(kzgCommits, blobs.mapIt(KzgBlob(bytes: it.blob)),
+  #                              blobs.mapIt(it.kzg_proof))
+  #       if r.isErr():
+  #         debug "backfill blob validation failed",
+  #           blockRoot = shortLog(signedBlock.root),
+  #           blobs = shortLog(blobs),
+  #           blck = shortLog(signedBlock.message),
+  #           kzgCommits = mapIt(kzgCommits, shortLog(it)),
+  #           signature = shortLog(signedBlock.signature),
+  #           msg = r.error()
+  #       blobsOk = r.isOk()
 
-  if not blobsOk:
-    return err(VerifierError.Invalid)
+  # if not blobsOk:
+  #   return err(VerifierError.Invalid)
     
   when typeof(signedBlock).kind >= ConsensusFork.Deneb:
     if dataColumnsOpt.isSome:
