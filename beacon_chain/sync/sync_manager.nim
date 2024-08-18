@@ -280,9 +280,21 @@ proc getDataColumnSidecars[A, B](man: SyncManager[A, B], peer: A,
     direction = man.direction
     topics = "syncman"
   
+  let
+    remoteCustodySubnetCount =
+      if man.supernode:
+        DATA_COLUMN_SIDECAR_SUBNET_COUNT.uint64
+      else:
+        CUSTODY_REQUIREMENT.uint64
+
+  let
+    remoteNodeId = getNodeIdFromPeer(peer)
+    remoteCustodyColumns =
+      remoteNodeId.get_custody_column_list(remoteCustodySubnetCount).get
+
   doAssert(not(req.isEmpty()), "Request must not be empty!")
   debug "Requesting data column sidecars from peer", request = req
-  dataColumnSidecarsByRange(peer, req.slot, req.count, req.columns)
+  dataColumnSidecarsByRange(peer, req.slot, req.count, remoteCustodyColumns)
 
 func groupDataColumns*[T](req: SyncRequest[T],
                           blocks: seq[ref ForkedSignedBeaconBlock],

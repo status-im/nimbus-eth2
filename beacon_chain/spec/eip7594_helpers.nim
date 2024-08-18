@@ -31,9 +31,24 @@ proc sortedColumnIndices*(columnsPerSubnet: ColumnIndex, subnetIds: HashSet[uint
   for i in 0 ..< columnsPerSubnet:
     for subnetId in subnetIds:
       let index = DATA_COLUMN_SIDECAR_SUBNET_COUNT * i + subnetId
-      result.add(ColumnIndex(index))
+      res.add(ColumnIndex(index))
   res.sort()
   res
+
+proc sortedColumnIndexList*(columnsPerSubnet: ColumnIndex, 
+                          subnetIds: HashSet[uint64]): 
+                          List[ColumnIndex, NUMBER_OF_COLUMNS] =
+  var
+    res: seq[ColumnIndex]
+    list: List[ColumnIndex, NUMBER_OF_COLUMNS]
+  for i in 0 ..< columnsPerSubnet:
+    for subnetId in subnetIds:
+      let index = DATA_COLUMN_SIDECAR_SUBNET_COUNT * i + subnetId
+      res.add(ColumnIndex(index))
+  res.sort()
+  for elem in res:
+    discard list.add(ColumnIndex(elem))
+  list
 
 proc get_custody_column_subnet*(node_id: NodeId, 
                                 custody_subnet_count: uint64): 
@@ -80,6 +95,17 @@ proc get_custody_columns*(node_id: NodeId,
   let columns_per_subnet = NUMBER_OF_COLUMNS div DATA_COLUMN_SIDECAR_SUBNET_COUNT
   
   ok(sortedColumnIndices(ColumnIndex(columns_per_subnet), subnet_ids))
+
+proc get_custody_column_list*(node_id: NodeId, 
+                          custody_subnet_count: uint64): 
+                          Result[List[ColumnIndex, NUMBER_OF_COLUMNS], cstring] =
+    
+  let subnet_ids = get_custody_column_subnet(node_id, custody_subnet_count).get
+
+  # columns_per_subnet = NUMBER_OF_COLUMNS // DATA_COLUMN_SIDECAR_SUBNET_COUNT
+  let columns_per_subnet = NUMBER_OF_COLUMNS div DATA_COLUMN_SIDECAR_SUBNET_COUNT
+  
+  ok(sortedColumnIndexList(ColumnIndex(columns_per_subnet), subnet_ids))
 
 # https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.3/specs/_features/eip7594/das-core.md#compute_extended_matrix
 proc compute_extended_matrix* (blobs: seq[KzgBlob]): Result[seq[MatrixEntry], cstring] =
