@@ -1539,7 +1539,7 @@ proc reconstructAndSendDataColumns*(node: BeaconNode) {.async.} =
      root = node.dag.head.root
 
   let localCustodySubnetCount =
-    if self.config.subscribeAllSubnets:
+    if node.config.subscribeAllSubnets:
       DATA_COLUMN_SIDECAR_SUBNET_COUNT.uint64
     else:
       CUSTODY_REQUIREMENT
