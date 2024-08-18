@@ -487,13 +487,21 @@ proc storeBlock(
           signature = shortLog(signedBlock.signature),
           err = r.error()
       else:
-        if blobsOpt.isSome:
-          for blobSidecar in blobsOpt.get:
-            self.blobQuarantine[].put(blobSidecar)
+        # if blobsOpt.isSome:
+        #   for blobSidecar in blobsOpt.get:
+        #     self.blobQuarantine[].put(blobSidecar)
+        # debug "Block quarantined",
+        #   blockRoot = shortLog(signedBlock.root),
+        #   blck = shortLog(signedBlock.message),
+        #   signature = shortLog(signedBlock.signature)
+
+        if dataColumnsOpt.isSome:
+          for dataColumnSidecar in dataColumnsOpt.get:
+            self.dataColumnQuarantine[].put(dataColumnSidecar)
         debug "Block quarantined",
           blockRoot = shortLog(signedBlock.root),
           blck = shortLog(signedBlock.message),
-          signature = shortLog(signedBlock.signature)
+          signature = shortLog(signedBlock.signature)  
 
     of VerifierError.UnviableFork:
       # Track unviables so that descendants can be discarded promptly

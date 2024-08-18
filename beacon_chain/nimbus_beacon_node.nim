@@ -1537,7 +1537,13 @@ proc reconstructAndSendDataColumns*(node: BeaconNode) {.async.} =
   let
      db = node.db
      root = node.dag.head.root
-  
+
+  let localCustodySubnetCount =
+    if self.config.subscribeAllSubnets:
+      DATA_COLUMN_SIDECAR_SUBNET_COUNT.uint64
+    else:
+      CUSTODY_REQUIREMENT
+
   let blck = getForkedBlock(db, root).valueOr: return
   withBlck(blck):
     when typeof(forkyBlck).kind < ConsensusFork.Deneb: return
@@ -1548,7 +1554,7 @@ proc reconstructAndSendDataColumns*(node: BeaconNode) {.async.} =
 
   let custody_columns = get_custody_columns(
         node.network.nodeId,
-        CUSTODY_REQUIREMENT)
+        localCustodySubnetCount)
   var
     data_column_sidecars: DataColumnSidecars
     columnsOk = true
@@ -1613,7 +1619,7 @@ proc onSlotEnd(node: BeaconNode, slot: Slot) {.async.} =
       # the pruning for later
       node.dag.pruneHistory()
       node.pruneBlobs(slot)
-      # node.pruneDataColumns(slot)
+      node.pruneDataColumns(slot)
 
   when declared(GC_fullCollect):
     # The slots in the beacon node work as frames in a game: we want to make
