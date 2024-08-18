@@ -661,7 +661,7 @@ proc start*(rman: var RequestManager) =
   ## Start Request Manager's loops.
   rman.blockLoopFuture = rman.requestManagerBlockLoop()
   rman.dataColumnLoopFuture = rman.requestManagerDataColumnLoop()
-  rman.blobLoopFuture = rman.requestManagerBlobLoop()
+  # rman.blobLoopFuture = rman.requestManagerBlobLoop()
   
 
 proc stop*(rman: RequestManager) =
