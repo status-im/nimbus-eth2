@@ -1475,7 +1475,7 @@ proc pruneDataColumns(node: BeaconNode, slot: Slot) =
 proc tryReconstructingDataColumns* (self: BeaconNode,
                                     signed_block: deneb.TrustedSignedBeaconBlock | 
                                     electra.TrustedSignedBeaconBlock): 
-                                    Result[void, string] =
+                                    Result[seq[DataColumnSidecar], string] =
   # Checks whether the data columns can be reconstructed
   # or not from the recovery matrix
 
@@ -1492,7 +1492,9 @@ proc tryReconstructingDataColumns* (self: BeaconNode,
         self.network.nodeId,
         localCustodySubnetCount)
 
+    
   var
+    finalisedDataColumns: seq[DataColumnSidecar]
     data_column_sidecars: seq[DataColumnSidecar]
     columnsOk = true
     storedColumns: seq[ColumnIndex]
@@ -1512,9 +1514,7 @@ proc tryReconstructingDataColumns* (self: BeaconNode,
   # storedColumn number is less than the NUMBER_OF_COLUMNS
   # then reconstruction is not possible, and if all the data columns
   # are already stored then we do not need to reconstruct at all
-  if storedColumns.len < NUMBER_OF_COLUMNS div 2 or storedColumns.len == NUMBER_OF_COLUMNS:
-    return ok()
-  else:
+  if not storedColumns.len < NUMBER_OF_COLUMNS div 2 or storedColumns.len != NUMBER_OF_COLUMNS:
 
     # Recover blobs from saved data column sidecars
     let recovered_cps = recover_cells_and_proofs(data_column_sidecars, storedColumns.len, signed_block)
@@ -1527,62 +1527,41 @@ proc tryReconstructingDataColumns* (self: BeaconNode,
     for data_column in reconstructedDataColumns.get:
       if data_column.index notin custodiedColumnIndices.get:
         continue
-      
+
+      finalisedDataColumns.add(data_column)
       db.putDataColumnSidecar(data_column)
       notice "Data Column Reconstructed and Saved Successfully"
 
-  ok()
+  ok(finalisedDataColumns)
 
 proc reconstructAndSendDataColumns*(node: BeaconNode) {.async.} =
   let
      db = node.db
      root = node.dag.head.root
 
-  let localCustodySubnetCount =
-    if node.config.subscribeAllSubnets:
-      DATA_COLUMN_SIDECAR_SUBNET_COUNT.uint64
-    else:
-      CUSTODY_REQUIREMENT
-
   let blck = getForkedBlock(db, root).valueOr: return
   withBlck(blck):
     when typeof(forkyBlck).kind < ConsensusFork.Deneb: return
     else:
-      let res = node.tryReconstructingDataColumns(forkyBlck)
-      if not res.isOk():
+      let data_column_sidecars = node.tryReconstructingDataColumns(forkyBlck)
+      if not data_column_sidecars.isOk():
         return
-
-  let custody_columns = get_custody_columns(
-        node.network.nodeId,
-        localCustodySubnetCount)
-  var
-    data_column_sidecars: DataColumnSidecars
-    columnsOk = true
-  
-  for custody_column in custody_columns.get:
-    let data_column = DataColumnSidecar.new()
-    if not db.getDataColumnSidecar(
-            root, custody_column, data_column[]):
-      columnsOk = false
-      debug "Issue with loading reconstructed data columns"
-      break
-    data_column_sidecars.add data_column
-
-    var das_workers = newSeq[Future[SendResult]](len(data_column_sidecars))
-    for i in 0..<data_column_sidecars.lenu64:
-      let subnet_id = compute_subnet_for_data_column_sidecar(i)
-      das_workers[i] =
-          node.network.broadcastDataColumnSidecar(subnet_id, data_column_sidecars[i][])
-    let allres = await allFinished(das_workers)
-    for i in 0..<allres.len:
-      let res = allres[i]
-      doAssert res.finished()
-      if res.failed():
-        notice "Reconstructed data columns not sent",
-          data_column = shortLog(data_column_sidecars[i][]), error = res.error[]
-      else:
-        notice "Reconstructed data columns sent",
-          data_column = shortLog(data_column_sidecars[i][])
+      let dc = data_column_sidecars.get
+      var das_workers = newSeq[Future[SendResult]](len(dc))
+      for i in 0..<dc.lenu64:
+        let subnet_id = compute_subnet_for_data_column_sidecar(i)
+        das_workers[i] =
+            node.network.broadcastDataColumnSidecar(subnet_id, dc[i])
+      let allres = await allFinished(das_workers)
+      for i in 0..<allres.len:
+        let res = allres[i]
+        doAssert res.finished()
+        if res.failed():
+          notice "Reconstructed data columns not sent",
+            data_column = shortLog(dc[i]), error = res.error[]
+        else:
+          notice "Reconstructed data columns sent",
+            data_column = shortLog(dc[i])
 
 proc onSlotEnd(node: BeaconNode, slot: Slot) {.async.} =
   # Things we do when slot processing has ended and we're about to wait for the
