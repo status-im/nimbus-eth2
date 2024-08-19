@@ -1520,6 +1520,8 @@ proc tryReconstructingDataColumns* (self: BeaconNode,
     let recovered_cps = recover_cells_and_proofs(data_column_sidecars, storedColumns.len, signed_block)
     if not recovered_cps.isOk:
       return err("Error recovering cells and proofs from data columns")
+    else:
+      debug "Computed Cells and Proofs successfully!"
 
     # Reconstruct data column sidecars from recovered blobs
     let reconstructedDataColumns = get_data_column_sidecars(signed_block, recovered_cps.get)
