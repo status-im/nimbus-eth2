@@ -180,34 +180,30 @@ proc recover_cells_and_proofs*(
     if not (blobCount == data_column.column.len):
       return err ("DataColumns do not have the same length")
 
-  var recovered_cps = newSeqOfCap[CellsAndProofs](blobCount)
+  var
+    recovered_cps = newSeq[CellsAndProofs](blobCount)
 
   for blobIdx in 0 ..< blobCount:
     var
-      cell_ids = newSeqOfCap[CellID](columnCount)
-      ckzgCells = newSeqOfCap[KzgCell](columnCount)
+      bIdx = blobIdx
+      cell_ids = newSeq[CellID](columnCount)
+      ckzgCells = newSeq[KzgCell](columnCount)
 
-    for data_column in data_columns:
-      cell_ids.add(data_column.index)
+    for i  in 0..<data_columns.len:
+      cell_ids[i] = data_columns[i].index
 
       let 
-        column = data_column.column
-        cell = column[blobIdx]
-
-      # Transform the cell as a ckzg cell
-      var ckzgCell: array[BYTES_PER_CELL, byte]
-      for i in 0 ..< int(FIELD_ELEMENTS_PER_CELL):
-        var start = 32 * i
-        for j in 0 ..< 32:
-          var inter = cell.bytes
-          ckzgCell[start + j] = inter[start+j].byte
-
-      ckzgCells.add(KzgCell(bytes: ckzgCell))
+        column = data_columns[i].column
+        cell = column[bIdx]
+      
+      ckzgCells[i] = cell
 
     # Recovering the cells and proofs
     let recovered_cells_and_proofs = recoverCellsAndKzgProofs(cell_ids, ckzgCells)
+    if not recovered_cells_and_proofs.isOk:
+      return err("Issue with computing cells and proofs!")
 
-    recovered_cps.add(recovered_cells_and_proofs.get)
+    recovered_cps[blobIdx] = recovered_cells_and_proofs.get
 
   ok(recovered_cps)
 
