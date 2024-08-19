@@ -9,7 +9,9 @@
 
 import results, chronos,
        ".."/spec/[forks_light_client, signatures_batch],
-       ".."/consensus_object_pools/[blockchain_dag, blockchain_list],
+       ".."/consensus_object_pools/[blockchain_dag, attestation_pool,
+                                    blockchain_list],
+       ".."/validators/validator_monitor,
        ".."/beacon_clock,
        ".."/networking/eth2_network,
        "."/sync_manager
@@ -20,6 +22,9 @@ type
   SyncOverseer* = object
     statusMsg*: Opt[string]
     dag*: ChainDagRef
+    attestationPool*: ref AttestationPool
+    validatorMonitor*: ref ValidatorMonitor
+    getBeaconTimeFn*: GetBeaconTimeFn
     clist*: ChainListRef
     beaconClock*: BeaconClock
     eventQueue*: AsyncEventQueue[ForkedLightClientHeader]
@@ -35,6 +40,9 @@ type
 proc new*(
     t: typedesc[SyncOverseerRef],
     dag: ChainDagRef,
+    ap: ref AttestationPool,
+    vm: ref ValidatorMonitor,
+    bt: GetBeaconTimeFn,
     clist: ChainListRef,
     clock: BeaconClock,
     eq: AsyncEventQueue[ForkedLightClientHeader],
@@ -46,6 +54,9 @@ proc new*(
 ): SyncOverseerRef =
   SyncOverseerRef(
     dag: dag,
+    attestationPool: ap,
+    validatorMonitor: vm,
+    getBeaconTimeFn: bt,
     clist: clist,
     beaconClock: clock,
     eventQueue: eq,

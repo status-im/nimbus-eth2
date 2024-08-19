@@ -289,7 +289,7 @@ type
     blck*: ForkedSignedBeaconBlock
     blob*: Opt[BlobSidecars]
 
-  OnBlockAdded[T: ForkyTrustedSignedBeaconBlock] = proc(
+  OnBlockAdded*[T: ForkyTrustedSignedBeaconBlock] = proc(
     blckRef: BlockRef, blck: T, epochRef: EpochRef,
     unrealized: FinalityCheckpoints) {.gcsafe, raises: [].}
   OnPhase0BlockAdded* = OnBlockAdded[phase0.TrustedSignedBeaconBlock]
@@ -302,6 +302,10 @@ type
   OnForkyBlockAdded* =
     OnPhase0BlockAdded | OnAltairBlockAdded | OnBellatrixBlockAdded |
     OnCapellaBlockAdded | OnDenebBlockAdded | OnElectraBlockAdded
+
+  OnForkedBlockAdded* = proc(
+    blckRef: BlockRef, blck: ForkedTrustedSignedBeaconBlock, epochRef: EpochRef,
+    unrealized: FinalityCheckpoints) {.gcsafe, raises: [].}
 
   HeadChangeInfoObject* = object
     slot*: Slot

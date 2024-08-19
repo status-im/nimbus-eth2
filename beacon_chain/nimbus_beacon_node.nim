@@ -583,7 +583,11 @@ proc initFullNode(
   node.syncManager = syncManager
   node.backfiller = backfiller
   node.untrustedManager = untrustedManager
-  node.syncOverseer = SyncOverseerRef.new(node.dag, node.list,
+  node.syncOverseer = SyncOverseerRef.new(node.dag,
+                                          node.attestationPool,
+                                          node.validatorMonitor,
+                                          getBeaconTime,
+                                          node.list,
                                           node.beaconClock,
                                           node.eventBus.optHeaderUpdateQueue,
                                           node.network.peerPool,
