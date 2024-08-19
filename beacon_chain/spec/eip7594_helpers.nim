@@ -262,9 +262,9 @@ proc get_data_column_sidecars*(signed_block: deneb.TrustedSignedBeaconBlock |
       column_cells: DataColumn
       column_proofs: KzgProofs
     for i in 0..<cellsAndProofs.len:
-      let check1 = column_cells.add(cellsAndProofs[column_index].cells)
+      let check1 = column_cells.add(cellsAndProofs[i].cells)
       doAssert check1 == true, "Issue fetching cell from CellsAndProofs"
-      let check2 = column_proofs.add(cellsAndProofs[column_index].proofs)
+      let check2 = column_proofs.add(cellsAndProofs[i].proofs)
       doAssert check2 == true, "Issue fetching proof from CellsAndProofs"
 
     var sidecar = DataColumnSidecar(
