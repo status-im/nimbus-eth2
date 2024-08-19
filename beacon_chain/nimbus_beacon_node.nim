@@ -1153,6 +1153,15 @@ proc addDenebMessageHandlers(
   for topic in dataColumnSidecarTopics(forkDigest, targetSubnets):
     node.network.subscribe(topic, basicParams)
 
+  if node.config.subscribeAllSubnets:
+    node.network.loadCscnetsMetadata(DATA_COLUMN_SIDECAR_SUBNET_COUNT.uint64)
+  elif not node.config.subscribeAllSubnets:
+    let csc = node.config.custodySubnetCount
+    if csc.isSome and csc.get < DATA_COLUMN_SIDECAR_SUBNET_COUNT:
+      node.network.loadCscnetsMetadata(csc.get.uint64)
+    else:
+      node.network.loadCscnetsMetadata(CUSTODY_REQUIREMENT.uint64)
+
 proc addElectraMessageHandlers(
     node: BeaconNode, forkDigest: ForkDigest, slot: Slot) =
   node.addDenebMessageHandlers(forkDigest, slot)
@@ -1544,7 +1553,9 @@ proc reconstructAndSendDataColumns*(node: BeaconNode) {.async.} =
         return
       notice "Data Column Reconstructed and Saved Successfully"
       let dc = data_column_sidecars.get
-      var das_workers = newSeq[Future[SendResult]](len(dc))
+      var
+        worker_count = len(dc)
+        das_workers = newSeq[Future[SendResult]](worker_count)
       for i in 0..<dc.lenu64:
         let subnet_id = compute_subnet_for_data_column_sidecar(i)
         das_workers[i] =
