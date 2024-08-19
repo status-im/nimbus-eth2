@@ -19,6 +19,8 @@ import
   ../[beacon_clock, beacon_node],
   ./[sync_types, sync_manager, sync_queue]
 
+from ../consensus_object_pools/spec_cache import get_attesting_indices
+
 export sync_types
 
 const
@@ -144,9 +146,12 @@ proc rebuildState(overseer: SyncOverseerRef): Future[void] {.
           return
         res.get()
 
-  var blocks: seq[BlockData]
-  var processEpoch: Epoch = FAR_FUTURE_EPOCH
+  var
+    blocks: seq[BlockData]
+    processEpoch: Epoch = FAR_FUTURE_EPOCH
+
   let handle = clist.handle.get()
+
   while true:
     let res = getChainFileTail(handle.handle)
     if res.isErr():
@@ -160,12 +165,39 @@ proc rebuildState(overseer: SyncOverseerRef): Future[void] {.
       data = bres.get()
       blockEpoch = data.blck.slot.epoch()
 
+    proc onBlockAdded(blckRef: BlockRef,
+      blck: ForkedTrustedSignedBeaconBlock, epochRef: EpochRef,
+      unrealized: FinalityCheckpoints) {.gcsafe, raises: [].} =
+
+      let wallTime = overseer.getBeaconTimeFn()
+      withBlck(blck):
+        overseer.attestationPool[].addForkChoice(
+          epochRef, blckRef, unrealized, forkyBlck.message, wallTime)
+
+        overseer.validatorMonitor[].registerBeaconBlock(
+          MsgSource.sync, wallTime, forkyBlck.message)
+
+        for attestation in forkyBlck.message.body.attestations:
+          for validator_index in
+            overseer.dag.get_attesting_indices(attestation, true):
+            overseer.validatorMonitor[].registerAttestationInBlock(
+              attestation.data, validator_index, forkyBlck.message.slot)
+
+        withState(overseer.dag[].clearanceState):
+          when (consensusFork >= ConsensusFork.Altair) and
+               (type(forkyBlck) isnot phase0.TrustedSignedBeaconBlock):
+            for i in forkyBlck.message.body.sync_aggregate.
+              sync_committee_bits.oneIndices():
+              overseer.validatorMonitor[].registerSyncAggregateInBlock(
+                forkyBlck.message.slot, forkyBlck.root,
+                forkyState.data.current_sync_committee.pubkeys.data[i])
+
     if blockEpoch != processEpoch:
       if len(blocks) != 0:
         let
           tick = Moment.now()
           res = addBackfillBlockData(overseer.dag, overseer.batchVerifier[],
-                                     blocks)
+                                     blocks, onBlockAdded)
         if res.isErr():
           fatal "Unable to process block data", reason = res.error
           quit 1

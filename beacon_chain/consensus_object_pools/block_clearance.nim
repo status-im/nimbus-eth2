@@ -15,10 +15,8 @@ import
   ../spec/[
     beaconstate, forks, signatures, signatures_batch,
     state_transition, state_transition_epoch],
-  "."/[block_dag, blockchain_dag, blockchain_dag_light_client]
-
-from ../spec/datatypes/capella import asSigVerified, asTrusted, shortLog
-from ../spec/datatypes/deneb import asSigVerified, asTrusted, shortLog
+  "."/[block_pools_types, block_dag, blockchain_dag,
+       blockchain_dag_light_client]
 
 export results, signatures_batch, block_dag, blockchain_dag
 
@@ -470,7 +468,8 @@ template BlockAdded(kind: static ConsensusFork): untyped =
 proc addBackfillBlockData*(
     dag: ChainDAGRef,
     verifier: var BatchVerifier,
-    blocks: openArray[BlockData]
+    blocks: openArray[BlockData],
+    onBlockAdded: OnForkedBlockAdded
 ): Result[void, VerifierError] =
   var sigs: seq[SignatureSet]
 
@@ -494,10 +493,9 @@ proc addBackfillBlockData*(
   let sigVerifyEndTick = Moment.now()
 
   for item in blocks:
-    debug "Backfilling block", blck = shortLog(item.blck)
+    debug "Filling block", blck = shortLog(item.blck)
 
     withBlck(item.blck):
-      var onBlockAddedPlaceholder: BlockAdded(consensusFork) = nil
       let
         parent = checkHeadBlock(dag, forkyBlck).valueOr:
           if error == VerifierError.Duplicate:
@@ -521,12 +519,28 @@ proc addBackfillBlockData*(
         for blob in item.blob.get():
           dag.db.putBlobSidecar(blob[])
 
+      type Trusted = typeof forkyBlck.asTrusted()
+
+      proc onBlockAddedHandler(
+          blckRef: BlockRef,
+          trustedBlock: Trusted,
+          epochRef: EpochRef,
+          unrealized: FinalityCheckpoints
+      ) {.gcsafe, raises: [].} =
+        onBlockAdded(
+          blckRef,
+          ForkedTrustedSignedBeaconBlock.init(trustedBlock),
+          epochRef,
+          unrealized)
+
+      let blockHandler: BlockAdded(consensusFork) = onBlockAddedHandler
+
       discard addResolvedHeadBlock(
         dag, dag.clearanceState,
         forkyBlck.asTrusted(),
         true,
         parent, cache,
-        onBlockAddedPlaceholder,
+        blockHandler,
         stateDataTick - startTick,
         sigVerifyEndTick - sigVerifyTick,
         stateVerifyTick - stateDataTick)
