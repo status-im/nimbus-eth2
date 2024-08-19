@@ -635,39 +635,39 @@ proc storeBlock(
   # TODO with v1.4.0, not sure this is still relevant
   # Establish blob viability before calling addHeadBlock to avoid
   # writing the block in case of blob error.
-  when typeof(signedBlock).kind >= ConsensusFork.Deneb:
-    if blobsOpt.isSome:
-      let blobs = blobsOpt.get()
-      let kzgCommits = signedBlock.message.body.blob_kzg_commitments.asSeq
-      if blobs.len > 0 or kzgCommits.len > 0:
-        let r = validate_blobs(kzgCommits, blobs.mapIt(KzgBlob(bytes: it.blob)),
-                               blobs.mapIt(it.kzg_proof))
-        if r.isErr():
-          debug "blob validation failed",
-            blockRoot = shortLog(signedBlock.root),
-            blobs = shortLog(blobs),
-            blck = shortLog(signedBlock.message),
-            kzgCommits = mapIt(kzgCommits, shortLog(it)),
-            signature = shortLog(signedBlock.signature),
-            msg = r.error()
-          return err((VerifierError.Invalid, ProcessingStatus.completed))
+  # when typeof(signedBlock).kind >= ConsensusFork.Deneb:
+  #   if blobsOpt.isSome:
+  #     let blobs = blobsOpt.get()
+  #     let kzgCommits = signedBlock.message.body.blob_kzg_commitments.asSeq
+  #     if blobs.len > 0 or kzgCommits.len > 0:
+  #       let r = validate_blobs(kzgCommits, blobs.mapIt(KzgBlob(bytes: it.blob)),
+  #                              blobs.mapIt(it.kzg_proof))
+  #       if r.isErr():
+  #         debug "blob validation failed",
+  #           blockRoot = shortLog(signedBlock.root),
+  #           blobs = shortLog(blobs),
+  #           blck = shortLog(signedBlock.message),
+  #           kzgCommits = mapIt(kzgCommits, shortLog(it)),
+  #           signature = shortLog(signedBlock.signature),
+  #           msg = r.error()
+  #         return err((VerifierError.Invalid, ProcessingStatus.completed))
 
-    if dataColumnsOpt.isSome:
-      let data_column_sidecars = dataColumnsOpt.get
-      if data_column_sidecars.len > 0:
-        for i in 0..<data_column_sidecars.len:
-          let r = verify_data_column_sidecar_kzg_proofs(data_column_sidecars[i][])
+  #   if dataColumnsOpt.isSome:
+  #     let data_column_sidecars = dataColumnsOpt.get
+  #     if data_column_sidecars.len > 0:
+  #       for i in 0..<data_column_sidecars.len:
+  #         let r = verify_data_column_sidecar_kzg_proofs(data_column_sidecars[i][])
 
-          if r.isErr():
-            debug "data column sidecar verification failed",
-              blockroot = shortLog(signedBlock.root),
-              blck = shortLog(signedBlock.message),
-              kzgCommits = 
-                mapIt(data_column_sidecars[i][].kzg_commitments,
-                      shortLog(it)),
-              signature = shortLog(signedBlock.signature),
-              msg = r.error
-            return err((VerifierError.Invalid, ProcessingStatus.completed))
+  #         if r.isErr():
+  #           debug "data column sidecar verification failed",
+  #             blockroot = shortLog(signedBlock.root),
+  #             blck = shortLog(signedBlock.message),
+  #             kzgCommits = 
+  #               mapIt(data_column_sidecars[i][].kzg_commitments,
+  #                     shortLog(it)),
+  #             signature = shortLog(signedBlock.signature),
+  #             msg = r.error
+  #           return err((VerifierError.Invalid, ProcessingStatus.completed))
 
   type Trusted = typeof signedBlock.asTrusted()
 
@@ -719,6 +719,7 @@ proc storeBlock(
   let data_columns = dataColumnsOpt.valueOr: DataColumnSidecars @[]
   for c in data_columns:
     self.consensusManager.dag.db.putDataColumnSidecar(c[])
+    debug "Data column written to database!"
 
   let addHeadBlockTick = Moment.now()
 
