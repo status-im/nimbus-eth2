@@ -1475,7 +1475,7 @@ proc pruneDataColumns(node: BeaconNode, slot: Slot) =
 proc tryReconstructingDataColumns* (self: BeaconNode,
                                     signed_block: deneb.TrustedSignedBeaconBlock | 
                                     electra.TrustedSignedBeaconBlock): 
-                                    Result[seq[DataColumnSidecar], string] =
+                                    Future[Result[seq[DataColumnSidecar], string]] {.async.} =
   # Checks whether the data columns can be reconstructed
   # or not from the recovery matrix
 
@@ -1508,9 +1508,6 @@ proc tryReconstructingDataColumns* (self: BeaconNode,
     data_column_sidecars.add data_column[]
     storedColumns.add data_column.index
 
-    if columnsOk:
-      debug "Loaded data column for reconstruction"
-
   # storedColumn number is less than the NUMBER_OF_COLUMNS
   # then reconstruction is not possible, and if all the data columns
   # are already stored then we do not need to reconstruct at all
@@ -1520,8 +1517,6 @@ proc tryReconstructingDataColumns* (self: BeaconNode,
     let recovered_cps = recover_cells_and_proofs(data_column_sidecars, storedColumns.len, signed_block)
     if not recovered_cps.isOk:
       return err("Error recovering cells and proofs from data columns")
-    else:
-      debug "Computed Cells and Proofs successfully!"
 
     # Reconstruct data column sidecars from recovered blobs
     let reconstructedDataColumns = get_data_column_sidecars(signed_block, recovered_cps.get)
@@ -1532,7 +1527,6 @@ proc tryReconstructingDataColumns* (self: BeaconNode,
 
       finalisedDataColumns.add(data_column)
       db.putDataColumnSidecar(data_column)
-      notice "Data Column Reconstructed and Saved Successfully"
 
   ok(finalisedDataColumns)
 
@@ -1545,9 +1539,10 @@ proc reconstructAndSendDataColumns*(node: BeaconNode) {.async.} =
   withBlck(blck):
     when typeof(forkyBlck).kind < ConsensusFork.Deneb: return
     else:
-      let data_column_sidecars = node.tryReconstructingDataColumns(forkyBlck)
+      let data_column_sidecars = await node.tryReconstructingDataColumns(forkyBlck)
       if not data_column_sidecars.isOk():
         return
+      notice "Data Column Reconstructed and Saved Successfully"
       let dc = data_column_sidecars.get
       var das_workers = newSeq[Future[SendResult]](len(dc))
       for i in 0..<dc.lenu64:
