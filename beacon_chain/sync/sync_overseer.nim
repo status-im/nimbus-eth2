@@ -136,9 +136,14 @@ proc rebuildState(overseer: SyncOverseerRef): Future[void] {.
      async: (raises: [CancelledError]).} =
   overseer.statusMsg = Opt.some("rebuilding state")
   let
+    consensusManager = overseer.consensusManager
+    dag = consensusManager.dag
+    attestationPool = consensusManager.attestationPool
+    validatorMonitor = overseer.validatorMonitor
+    batchVerifier = overseer.batchVerifier
     clist =
       block:
-        let res = ChainListRef.init(overseer.clist.path, overseer.dag.head.slot)
+        let res = ChainListRef.init(overseer.clist.path, dag.head.slot)
         if res.isErr():
           fatal "Unable to read backfill data", reason = res.error,
                 path = overseer.clist.path
@@ -170,24 +175,24 @@ proc rebuildState(overseer: SyncOverseerRef): Future[void] {.
 
       let wallTime = overseer.getBeaconTimeFn()
       withBlck(blck):
-        overseer.attestationPool[].addForkChoice(
+        attestationPool[].addForkChoice(
           epochRef, blckRef, unrealized, forkyBlck.message, wallTime)
 
-        overseer.validatorMonitor[].registerBeaconBlock(
+        validatorMonitor[].registerBeaconBlock(
           MsgSource.sync, wallTime, forkyBlck.message)
 
         for attestation in forkyBlck.message.body.attestations:
           for validator_index in
-            overseer.dag.get_attesting_indices(attestation, true):
-            overseer.validatorMonitor[].registerAttestationInBlock(
+            dag.get_attesting_indices(attestation, true):
+            validatorMonitor[].registerAttestationInBlock(
               attestation.data, validator_index, forkyBlck.message.slot)
 
-        withState(overseer.dag[].clearanceState):
+        withState(dag[].clearanceState):
           when (consensusFork >= ConsensusFork.Altair) and
                (type(forkyBlck) isnot phase0.TrustedSignedBeaconBlock):
             for i in forkyBlck.message.body.sync_aggregate.
               sync_committee_bits.oneIndices():
-              overseer.validatorMonitor[].registerSyncAggregateInBlock(
+              validatorMonitor[].registerSyncAggregateInBlock(
                 forkyBlck.message.slot, forkyBlck.root,
                 forkyState.data.current_sync_committee.pubkeys.data[i])
 
@@ -195,8 +200,7 @@ proc rebuildState(overseer: SyncOverseerRef): Future[void] {.
       if len(blocks) != 0:
         let
           tick = Moment.now()
-          res = addBackfillBlockData(overseer.dag, overseer.batchVerifier[],
-                                     blocks, onBlockAdded)
+          res = addBackfillBlockData(dag, batchVerifier[], blocks, onBlockAdded)
         if res.isErr():
           fatal "Unable to process block data", reason = res.error
           quit 1
@@ -209,7 +213,7 @@ proc rebuildState(overseer: SyncOverseerRef): Future[void] {.
           withBlck(bdata.blck):
             let ures =
               await updateHead(
-                overseer.consensusManager, overseer.validatorMonitor,
+                consensusManager, validatorMonitor,
                 overseer.getBeaconTimeFn, forkyBlck,
                 NewPayloadStatus.noResponse)
             if ures.isErr():
@@ -223,19 +227,16 @@ proc rebuildState(overseer: SyncOverseerRef): Future[void] {.
       processEpoch = blockEpoch
 
     if data.blck.slot != GENESIS_SLOT:
-      # Skip it
-      # debug "Block loaded",
-      #       block_root = shortLog(data.blck.root),
-      #       parent_root = shortLog(data.blck.parent_root),
-      #       blck = shortLog(data.blck)
       blocks.add(data)
 
 proc mainLoop*(
     overseer: SyncOverseerRef
 ): Future[void] {.async: (raises: []).} =
-  if not(isBackfillEmpty(overseer.dag.backfill)):
+  let dag = overseer.consensusManager.dag
+
+  if not(isBackfillEmpty(dag.backfill)):
     # Backfill is already running.
-    if overseer.dag.needsBackfill:
+    if dag.needsBackfill:
       if not overseer.forwardSync.inProgress:
         overseer.backwardSync.start()
         try:
@@ -244,7 +245,7 @@ proc mainLoop*(
           return
 
   if not(isUntrustedBackfillEmpty(overseer.clist)):
-    if needsUntrustedBackfill(overseer.clist, overseer.dag):
+    if needsUntrustedBackfill(overseer.clist, dag):
       if not overseer.forwardSync.inProgress:
         overseer.untrustedSync.start()
   else:
@@ -256,7 +257,6 @@ proc mainLoop*(
         return
 
     notice "Received light client block header",
-           backfill = shortLog(overseer.dag.backfill),
            beacon_header = shortLog(blockHeader),
            current_slot = overseer.beaconClock.now().slotOrZero()
 
@@ -273,24 +273,14 @@ proc mainLoop*(
     notice "Received beacon block", blck = shortLog(blck.blck),
                                     blobs_count = blobsCount
 
-    # Updating backfill information to satisfy addBackfillBlock() requirements.
-    # Right after first block being added addBackfillBlock() will update
-    # backfill information properly.
-    overseer.dag.backfill =
-      BeaconBlockSummary(slot: blockHeader.slot + 1,
-                         parent_root: blck.blck.root)
-
     overseer.statusMsg = Opt.some("storing block")
     let res = overseer.clist.addBackfillBlockData(blck.blck, blck.blob)
     if res.isErr():
-      warn "Unable to store initial block",
-           backfill = shortLog(overseer.dag.backfill),
-           error = res.error
+      warn "Unable to store initial block", reason = res.error
       return
     overseer.statusMsg = Opt.none(string)
 
     notice "Initial block being stored",
-           backfill = shortLog(overseer.dag.backfill),
            blck = shortLog(blck.blck), blobs_count = blobsCount
 
     overseer.untrustedSync.start()
