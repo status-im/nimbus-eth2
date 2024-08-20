@@ -8,8 +8,10 @@ OK: 1/1 Fail: 0/1 Skip: 0/1
 ## Attestation pool electra processing [Preset: mainnet]
 ```diff
 + Can add and retrieve simple electra attestations [Preset: mainnet]                         OK
++ Attestations with disjoint comittee bits and equal data into single on-chain aggregate [Pr OK
++ Aggregated attestations with disjoint comittee bits into a single on-chain aggregate  [Pre OK
 ```
-OK: 1/1 Fail: 0/1 Skip: 0/1
+OK: 3/3 Fail: 0/3 Skip: 0/3
 ## Attestation pool processing [Preset: mainnet]
 ```diff
 + Attestation from different branch [Preset: mainnet]                                        OK

@@ -861,7 +861,7 @@ suite "Attestation pool electra processing" & preset():
       att4, @[bc1[2]], att3.loadSig, att3.data.slot.start_beacon_time)
 
 
-  test "Attestations with disjoint comittee bits and equal data are consolidated into a single on-chain aggregate" & preset():
+  test "Attestations with disjoint comittee bits and equal data into single on-chain aggregate" & preset():
     let
       bc0 = get_beacon_committee(
         state[], getStateField(state[], slot), 0.CommitteeIndex, cache)
@@ -902,7 +902,7 @@ suite "Attestation pool electra processing" & preset():
       attestations[0].committee_bits.countOnes() == 2
 
 
-  test "Aggregated attestations from different committee's should be consolidated into a single on-chain aggregate" & preset():
+  test "Aggregated attestations with disjoint comittee bits into a single on-chain aggregate" & preset():
 
     let
       bc0 = get_beacon_committee(
