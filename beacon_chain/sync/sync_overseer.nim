@@ -136,10 +136,9 @@ proc rebuildState(overseer: SyncOverseerRef): Future[void] {.
      async: (raises: [CancelledError]).} =
   overseer.statusMsg = Opt.some("rebuilding state")
   let
-    slot = overseer.dag.head.slot
     clist =
       block:
-        let res = ChainListRef.init(overseer.clist.path, slot)
+        let res = ChainListRef.init(overseer.clist.path, overseer.dag.head.slot)
         if res.isErr():
           fatal "Unable to read backfill data", reason = res.error,
                 path = overseer.clist.path
@@ -201,8 +200,25 @@ proc rebuildState(overseer: SyncOverseerRef): Future[void] {.
         if res.isErr():
           fatal "Unable to process block data", reason = res.error
           quit 1
-        debug "Backfilling status", elapsed = Moment.now() - tick,
+
+        let updateTick = Moment.now()
+        debug "Fill status", elapsed = updateTick - tick,
               blocks_count = len(blocks)
+
+        for bdata in blocks:
+          withBlck(bdata.blck):
+            let ures =
+              await updateHead(
+                overseer.consensusManager, overseer.validatorMonitor,
+                overseer.getBeaconTimeFn, forkyBlck,
+                NewPayloadStatus.noResponse)
+            if ures.isErr():
+              fatal "Unable to follow head", reason = ures.error
+              quit 1
+
+        debug "Update head status", elapsed = Moment.now() - updateTick,
+              blocks_count = len(blocks)
+
         blocks.setLen(0)
       processEpoch = blockEpoch
 
