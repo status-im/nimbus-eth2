@@ -963,7 +963,7 @@ proc getElectraAttestationsForBlock*(
           it.entry[].aggregates[it.validation].aggregation_bits)
 
       candidates.keepItIf:
-          # Only keep candidates that might add coverage
+        # Only keep candidates that might add coverage
         it.score > 0
 
       # reorder candidates

@@ -758,7 +758,11 @@ suite "Attestation pool electra processing" & preset():
     # Slot 0 is a finalized slot - won't be making attestations for it..
     check:
       process_slots(
-        dag.cfg, state[], getStateField(state[], slot) + MIN_ATTESTATION_INCLUSION_DELAY, cache, info,
+        dag.cfg,
+        state[],
+        getStateField(state[], slot) + MIN_ATTESTATION_INCLUSION_DELAY,
+        cache,
+        info,
         {}).isOk()
 
 
@@ -946,4 +950,3 @@ suite "Attestation pool electra processing" & preset():
       attestations.len == 1
       attestations[0].aggregation_bits.countOnes() == 3
       attestations[0].committee_bits.countOnes() == 2
-
