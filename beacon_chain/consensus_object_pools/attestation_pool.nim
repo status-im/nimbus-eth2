@@ -8,6 +8,7 @@
 {.push raises: [].}
 
 import
+  algorithm,
   # Status libraries
   metrics,
   chronicles, stew/byteutils,
@@ -18,7 +19,6 @@ import
   ../fork_choice/fork_choice,
   ../beacon_clock
 
-from std/algorithm import sorted, SortOrder
 from std/sequtils import keepItIf, maxIndex
 
 export blockchain_dag, fork_choice
@@ -889,15 +889,8 @@ proc getElectraAttestationsForBlock*(
         # remain valid
         candidates.add((score, slot, addr entry, j))
 
-  # Sort candidates by score (descending) and by slot as a tie-breaker
-  var
-    scoreSlotCmp = proc (a, b: typeof(candidates[0])): int =
-      if a.score == b.score:
-        cmp(b.slot, a.slot)
-      else:
-        cmp(b.score, a.score)
-
-  candidates = candidates.sorted(scoreSlotCmp, SortOrder.Ascending)
+  # Sort candidates by score use slot as a tie-breaker
+  candidates.sort()
 
   # Using a greedy algorithm, select as many attestations as possible that will
   # fit in the block.
@@ -966,8 +959,8 @@ proc getElectraAttestationsForBlock*(
         # Only keep candidates that might add coverage
         it.score > 0
 
-      # reorder candidates
-      candidates = candidates.sorted(scoreSlotCmp, SortOrder.Descending)
+      # Sort candidates by score use slot as a tie-breaker
+      candidates.sort()
 
   # Consolidate attestation aggregates  with disjoint comittee bits into single
   # attestation
