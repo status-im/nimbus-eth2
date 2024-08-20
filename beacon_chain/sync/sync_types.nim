@@ -10,7 +10,7 @@
 import results, chronos,
        ".."/spec/[forks_light_client, signatures_batch],
        ".."/consensus_object_pools/[blockchain_dag, attestation_pool,
-                                    blockchain_list],
+                                    blockchain_list, consensus_manager],
        ".."/validators/validator_monitor,
        ".."/beacon_clock,
        ".."/networking/eth2_network,
@@ -21,8 +21,7 @@ export results, chronos
 type
   SyncOverseer* = object
     statusMsg*: Opt[string]
-    dag*: ChainDagRef
-    attestationPool*: ref AttestationPool
+    consensusManager*: ref ConsensusManager
     validatorMonitor*: ref ValidatorMonitor
     getBeaconTimeFn*: GetBeaconTimeFn
     clist*: ChainListRef
@@ -39,8 +38,7 @@ type
 
 proc new*(
     t: typedesc[SyncOverseerRef],
-    dag: ChainDagRef,
-    ap: ref AttestationPool,
+    cm: ref ConsensusManager,
     vm: ref ValidatorMonitor,
     bt: GetBeaconTimeFn,
     clist: ChainListRef,
@@ -53,8 +51,7 @@ proc new*(
     untrustedSync: SyncManager[Peer, PeerId]
 ): SyncOverseerRef =
   SyncOverseerRef(
-    dag: dag,
-    attestationPool: ap,
+    consensusManager: cm,
     validatorMonitor: vm,
     getBeaconTimeFn: bt,
     clist: clist,
