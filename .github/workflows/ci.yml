@@ -34,19 +34,32 @@ jobs:
             cpu: amd64
           - os: macos
             cpu: amd64
-          - os: windows
-            cpu: amd64
-        branch: [~]
+          # - os: windows
+          #   cpu: amd64
+        branch: [~, upstream/devel]
+        nimflags-extra: ['--mm:refc', '--mm:orc']
+        exclude:
+          - target:
+              os: windows
+            branch: ~
+          - branch: ~
+            nimflags-extra: --mm:orc
         include:
+          - branch: upstream/devel
+            branch-short: devel-refc
+            nimflags-extra: '--mm:refc'
+          - branch: upstream/devel
+            branch-short: devel-orc
+            nimflags-extra: --mm:orc
           - target:
               os: linux
             builder: ['self-hosted','ubuntu-22.04']
           - target:
               os: macos
             builder: macos-12
-          - target:
-              os: windows
-            builder: windows-2019
+          # - target:
+          #     os: windows
+          #   builder: windows-2019
 
     defaults:
       run:
