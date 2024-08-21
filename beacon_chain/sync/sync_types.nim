@@ -19,6 +19,10 @@ import results, chronos,
 export results, chronos
 
 type
+  BlockDataChunk* = ref object
+    resfut*: Future[Result[void, string]].Raising([CancelledError])
+    blocks*: seq[BlockData]
+
   SyncOverseer* = object
     statusMsg*: Opt[string]
     consensusManager*: ref ConsensusManager
@@ -33,6 +37,9 @@ type
     untrustedSync*: SyncManager[Peer, PeerId]
     batchVerifier*: ref BatchVerifier
     pool*: PeerPool[Peer, PeerId]
+    avgSpeedCounter*: int
+    avgSpeed*: float
+    blocksQueue*: AsyncQueue[BlockDataChunk]
 
   SyncOverseerRef* = ref SyncOverseer
 
@@ -61,4 +68,5 @@ proc new*(
     batchVerifier: batchVerifier,
     forwardSync: forwardSync,
     backwardSync: backwardSync,
-    untrustedSync: untrustedSync)
+    untrustedSync: untrustedSync,
+    blocksQueue: newAsyncQueue[BlockDataChunk]())

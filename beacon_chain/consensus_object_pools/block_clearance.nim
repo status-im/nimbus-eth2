@@ -465,84 +465,76 @@ template BlockAdded(kind: static ConsensusFork): untyped =
   else:
     static: raiseAssert "Unreachable"
 
-proc addBackfillBlockData*(
+proc verifyBlockProposer*(
     dag: ChainDAGRef,
     verifier: var BatchVerifier,
-    blocks: openArray[BlockData],
-    onBlockAdded: OnForkedBlockAdded
-): Result[void, VerifierError] =
+    blocks: openArray[ForkedSignedBeaconBlock]
+): Result[void, string] =
   var sigs: seq[SignatureSet]
 
-  let
-    sigVerifyTick = Moment.now()
-    blocksOnly = blocks.mapIt(it.blck)
-
-  if (let e = sigs.collectSignatureSets(
-        blocksOnly, dag.db.immutableValidators,
-        dag.clearanceState); e.isErr()):
-    # A PublicKey or Signature isn't on the BLS12-381 curve
-    info "Unable to load signature sets", reason = e.error()
-    return err(VerifierError.Invalid)
+  ? sigs.collectSignatureSets(
+    blocks, dag.db.immutableValidators, dag.clearanceState)
 
   if not verifier.batchVerify(sigs):
-    info "Block batch signature verification failed"
-    return err(VerifierError.Invalid)
+    err("Block batch signature verification failed")
+  else:
+    ok()
 
+proc addBackfillBlockData*(
+    dag: ChainDAGRef,
+    bdata: BlockData,
+    onBlockAdded: OnForkedBlockAdded
+): Result[void, VerifierError] =
   var cache = StateCache()
 
-  let sigVerifyEndTick = Moment.now()
+  withBlck(bdata.blck):
+    let
+      parent = checkHeadBlock(dag, forkyBlck).valueOr:
+        if error == VerifierError.Duplicate:
+          return ok()
+        return err(error)
+      startTick = Moment.now()
+      clearanceBlock = BlockSlotId.init(parent.bid, forkyBlck.message.slot)
 
-  for item in blocks:
-    debug "Filling block", blck = shortLog(item.blck)
+    if not updateState(dag, dag.clearanceState, clearanceBlock, true, cache):
+      error "Unable to load clearance state for parent block, " &
+            "database corrupt?", clearanceBlock = shortLog(clearanceBlock)
+      return err(VerifierError.MissingParent)
 
-    withBlck(item.blck):
-      let
-        parent = checkHeadBlock(dag, forkyBlck).valueOr:
-          if error == VerifierError.Duplicate:
-            continue
-          return err(error)
-        startTick = Moment.now()
-        clearanceBlock = BlockSlotId.init(parent.bid, forkyBlck.message.slot)
+    let stateDataTick = Moment.now()
 
-      if not updateState(dag, dag.clearanceState, clearanceBlock, true, cache):
-        error "Unable to load clearance state for parent block, " &
-              "database corrupt?", clearanceBlock = shortLog(clearanceBlock)
-        return err(VerifierError.MissingParent)
+    ? checkStateTransition(dag, forkyBlck.asSigVerified(), cache)
 
-      let stateDataTick = Moment.now()
+    let stateVerifyTick = Moment.now()
 
-      ? checkStateTransition(dag, forkyBlck.asSigVerified(), cache)
+    if bdata.blob.isSome():
+      for blob in bdata.blob.get():
+        dag.db.putBlobSidecar(blob[])
 
-      let stateVerifyTick = Moment.now()
+    type Trusted = typeof forkyBlck.asTrusted()
 
-      if item.blob.isSome():
-        for blob in item.blob.get():
-          dag.db.putBlobSidecar(blob[])
+    proc onBlockAddedHandler(
+        blckRef: BlockRef,
+        trustedBlock: Trusted,
+        epochRef: EpochRef,
+        unrealized: FinalityCheckpoints
+    ) {.gcsafe, raises: [].} =
+      onBlockAdded(
+        blckRef,
+        ForkedTrustedSignedBeaconBlock.init(trustedBlock),
+        epochRef,
+        unrealized)
 
-      type Trusted = typeof forkyBlck.asTrusted()
+    let blockHandler: BlockAdded(consensusFork) = onBlockAddedHandler
 
-      proc onBlockAddedHandler(
-          blckRef: BlockRef,
-          trustedBlock: Trusted,
-          epochRef: EpochRef,
-          unrealized: FinalityCheckpoints
-      ) {.gcsafe, raises: [].} =
-        onBlockAdded(
-          blckRef,
-          ForkedTrustedSignedBeaconBlock.init(trustedBlock),
-          epochRef,
-          unrealized)
-
-      let blockHandler: BlockAdded(consensusFork) = onBlockAddedHandler
-
-      discard addResolvedHeadBlock(
-        dag, dag.clearanceState,
-        forkyBlck.asTrusted(),
-        true,
-        parent, cache,
-        blockHandler,
-        stateDataTick - startTick,
-        sigVerifyEndTick - sigVerifyTick,
-        stateVerifyTick - stateDataTick)
+    discard addResolvedHeadBlock(
+      dag, dag.clearanceState,
+      forkyBlck.asTrusted(),
+      true,
+      parent, cache,
+      blockHandler,
+      stateDataTick - startTick,
+      ZeroDuration,
+      stateVerifyTick - stateDataTick)
 
   ok()
