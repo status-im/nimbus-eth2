@@ -8,7 +8,7 @@
 {.push raises: [].}
 
 # Gnosis preset - Electra (Gnosis version not avilable yet; EF mainnet for now)
-# https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.4/presets/mainnet/electra.yaml
+# https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.5/presets/mainnet/electra.yaml
 const
   # Gwei values
   # ---------------------------------------------------------------
