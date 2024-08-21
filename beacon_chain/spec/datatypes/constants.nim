@@ -87,5 +87,5 @@ const
   UNSET_DEPOSIT_REQUESTS_START_INDEX*: uint64 = not 0'u64
   FULL_EXIT_REQUEST_AMOUNT*: uint64 = 0
 
-  # https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.4/specs/electra/beacon-chain.md#withdrawal-prefixes
+  # https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.5/specs/electra/beacon-chain.md#withdrawal-prefixes
   COMPOUNDING_WITHDRAWAL_PREFIX* = 0x02
