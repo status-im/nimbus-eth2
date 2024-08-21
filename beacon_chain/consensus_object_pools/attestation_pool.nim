@@ -8,7 +8,7 @@
 {.push raises: [].}
 
 import
-  algorithm,
+  std/algorithm,
   # Status libraries
   metrics,
   chronicles, stew/byteutils,
@@ -931,7 +931,7 @@ proc getElectraAttestationsForBlock*(
       #TODO: Merge candidates per block structure with the candidates one
       # and score possible on-chain attestations while collecting candidates
       # (previous loop) and reavaluate cache key definition
-      var
+      let
         key = (entry.data.beacon_block_root, entry.data.slot)
         newAtt = entry[].toElectraAttestation(entry[].aggregates[j])
 
