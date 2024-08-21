@@ -52,7 +52,7 @@ func is_valid_versioned_hashes*(blck: ForkyBeaconBlock): Result[void, string] =
       if txBytes.len == 0 or txBytes[0] != TxEip4844.byte:
         continue  # Only blob transactions may have blobs
       let tx = ? txBytes.readExecutionTransaction()
-      for vHash in tx.versionedHashes:
+      if tx.versionedHashes.len > 0:
         return err("No blob transaction allowed before Deneb")
     ok()
   else:
