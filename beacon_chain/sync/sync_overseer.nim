@@ -7,7 +7,7 @@
 
 {.push raises: [].}
 
-import std/[strutils, sequtils, algorithm]
+import std/[strutils, sequtils]
 import stew/base10, chronos, chronicles, results, nimcrypto/utils
 import
   ../consensus_object_pools/blockchain_list,
@@ -23,16 +23,32 @@ from ../consensus_object_pools/spec_cache import get_attesting_indices
 
 export sync_types
 
+logScope:
+  topics = "overseer"
+
 const
   PARALLEL_REQUESTS* = 3
-  ## Number of peers we using to resolve our request.
+    ## Number of peers we using to resolve our request.
+  BLOCKS_PROCESS_CHUNK_SIZE* = 2
+    ## Number of blocks sent to processing (CPU heavy task).
 
 type
-  BlockAndBlob* = object
-    blck*: ForkedSignedBeaconBlock
-    blob*: Opt[BlobSidecars]
+  BlockDataRes* = Result[BlockData, string]
 
-  BlockAndBlobRes* = Result[BlockAndBlob, string]
+proc init*(t: typedesc[BlockDataChunk],
+           data: openArray[BlockData]): BlockDataChunk =
+  BlockDataChunk(
+    blocks: @data,
+    resfut:
+      Future[Result[void, string]].Raising([CancelledError]).init(
+        "blockdata.chunk")
+  )
+
+iterator chunks*(data: openArray[BlockData],
+                 maxCount: Positive): BlockDataChunk =
+  for i in countup(0, len(data) - 1, maxCount):
+    yield BlockDataChunk.init(
+      data.toOpenArray(i, min(i + maxCount, len(data)) - 1))
 
 proc getLatestBeaconHeader*(
     overseer: SyncOverseerRef
@@ -59,7 +75,7 @@ proc getLatestBeaconHeader*(
 proc getPeerBlock*(
     overseer: SyncOverseerRef,
     slot: Slot,
-): Future[BlockAndBlobRes] {.async: (raises: [CancelledError]).} =
+): Future[BlockDataRes] {.async: (raises: [CancelledError]).} =
   let peer = await overseer.pool.acquire()
   try:
     let
@@ -77,7 +93,7 @@ proc getPeerBlock*(
           Opt.some(res.blobs.get()[0])
         else:
           Opt.none(BlobSidecars)
-    ok(BlockAndBlob(blck: res.blocks[0][], blob: blob))
+    ok(BlockData(blck: res.blocks[0][], blob: blob))
   finally:
     overseer.pool.release(peer)
 
@@ -91,9 +107,9 @@ proc getBlock*(
     overseer: SyncOverseerRef,
     slot: Slot,
     blockHeader: Opt[BeaconBlockHeader]
-): Future[BlockAndBlob] {.async: (raises: [CancelledError]).} =
+): Future[BlockData] {.async: (raises: [CancelledError]).} =
   var workers:
-    array[PARALLEL_REQUESTS, Future[BlockAndBlobRes].Raising([CancelledError])]
+    array[PARALLEL_REQUESTS, Future[BlockDataRes].Raising([CancelledError])]
 
   while true:
     for i in 0 ..< PARALLEL_REQUESTS:
@@ -107,7 +123,7 @@ proc getBlock*(
       await noCancel allFutures(pending)
       raise exc
 
-    var results: seq[BlockAndBlob]
+    var results: seq[BlockData]
     for i in 0 ..< PARALLEL_REQUESTS:
       if workers[i].value.isOk:
         results.add(workers[i].value.get())
@@ -131,6 +147,107 @@ proc isUntrustedBackfillEmpty(clist: ChainListRef): bool =
 
 proc needsUntrustedBackfill(clist: ChainListRef, dag: ChainDagRef): bool =
   clist.tail.get().slot > dag.horizon
+
+func speed(start, finish: Moment, entities: int): float =
+  if entities <= 0:
+    0.0
+  else:
+    float(entities) / toFloatSeconds(finish - start)
+
+proc updatePerformance(overseer: SyncOverseerRef, startTick: Moment,
+                       entities: int) =
+  let dag = overseer.consensusManager.dag
+  doAssert(overseer.clist.head.isSome() and overseer.clist.tail.isSome())
+  let
+    clistHeadSlot = overseer.clist.head.get().slot
+    clistTailSlot = overseer.clist.tail.get().slot
+  doAssert(clistHeadSlot >= dag.head.slot)
+  let slotsPerSec = speed(startTick, Moment.now(), entities)
+
+  inc(overseer.avgSpeedCounter)
+  overseer.avgSpeed = overseer.avgSpeed +
+    (slotsPerSec - overseer.avgSpeed) / float(overseer.avgSpeedCounter)
+
+  let
+    total = clistHeadSlot - clistTailSlot
+    progress = clistHeadSlot - dag.head.slot
+    done = if total > 0: float(progress) / float(total) else: 1.0
+    remaining = total - progress
+    timeleft =
+      if overseer.avgSpeed >= 0.001:
+        Duration.fromFloatSeconds(remaining.float / overseer.avgSpeed)
+      else:
+        InfiniteDuration
+
+  # Update status string
+  overseer.statusMsg = Opt.some(
+    timeleft.toTimeLeftString() & " (" &
+    (done * 100).formatBiggestFloat(ffDecimal, 2) & "%) " &
+    overseer.avgSpeed.formatBiggestFloat(ffDecimal, 4) &
+    "slots/s (" & $dag.head.slot & ")")
+
+proc blockProcessingLoop(overseer: SyncOverseerRef): Future[void] {.
+     async: (raises: [CancelledError]).} =
+  let
+    consensusManager = overseer.consensusManager
+    dag = consensusManager.dag
+    attestationPool = consensusManager.attestationPool
+    validatorMonitor = overseer.validatorMonitor
+
+  proc onBlockAdded(
+    blckRef: BlockRef, blck: ForkedTrustedSignedBeaconBlock, epochRef: EpochRef,
+    unrealized: FinalityCheckpoints) {.gcsafe, raises: [].} =
+
+    let wallTime = overseer.getBeaconTimeFn()
+    withBlck(blck):
+      attestationPool[].addForkChoice(
+        epochRef, blckRef, unrealized, forkyBlck.message, wallTime)
+
+      validatorMonitor[].registerBeaconBlock(
+        MsgSource.sync, wallTime, forkyBlck.message)
+
+      for attestation in forkyBlck.message.body.attestations:
+        for validator_index in
+          dag.get_attesting_indices(attestation, true):
+          validatorMonitor[].registerAttestationInBlock(
+            attestation.data, validator_index, forkyBlck.message.slot)
+
+      withState(dag[].clearanceState):
+        when (consensusFork >= ConsensusFork.Altair) and
+             (type(forkyBlck) isnot phase0.TrustedSignedBeaconBlock):
+          for i in forkyBlck.message.body.sync_aggregate.
+            sync_committee_bits.oneIndices():
+            validatorMonitor[].registerSyncAggregateInBlock(
+              forkyBlck.message.slot, forkyBlck.root,
+              forkyState.data.current_sync_committee.pubkeys.data[i])
+
+  block mainLoop:
+    while true:
+      let bchunk = await overseer.blocksQueue.popFirst()
+
+      for bdata in bchunk.blocks:
+        block:
+          let res = addBackfillBlockData(dag, bdata, onBlockAdded)
+          if res.isErr():
+            let msg = "Unable to add block data to database [" &
+                      $res.error & "]"
+            bchunk.resfut.complete(Result[void, string].err(msg))
+            continue
+
+        withBlck(bdata.blck):
+          let res =
+            try:
+              await updateHead(consensusManager, validatorMonitor,
+                overseer.getBeaconTimeFn, forkyBlck,
+                NewPayloadStatus.noResponse)
+            except CancelledError as exc:
+              let msg = "Unable to update head [interrupted]"
+              bchunk.resfut.complete(Result[void, string].err(msg))
+              break mainLoop
+          if res.isErr():
+            let msg = "Unable to update head [" & res.error & "]"
+            bchunk.resfut.complete(Result[void, string].err(msg))
+            continue
 
 proc rebuildState(overseer: SyncOverseerRef): Future[void] {.
      async: (raises: [CancelledError]).} =
@@ -156,78 +273,60 @@ proc rebuildState(overseer: SyncOverseerRef): Future[void] {.
 
   let handle = clist.handle.get()
 
-  while true:
-    let res = getChainFileTail(handle.handle)
-    if res.isErr():
-      fatal "Unable to read backfill data", reason = res.error
-      return
-    let bres = res.get()
-    if bres.isNone():
-      return
+  overseer.avgSpeed = 0.0
+  overseer.avgSpeedCounter = 0
 
-    let
-      data = bres.get()
-      blockEpoch = data.blck.slot.epoch()
+  block mainLoop:
+    while true:
+      let res = getChainFileTail(handle.handle)
+      if res.isErr():
+        fatal "Unable to read backfill data", reason = res.error
+        quit 1
+      let bres = res.get()
+      if bres.isNone():
+        return
 
-    proc onBlockAdded(blckRef: BlockRef,
-      blck: ForkedTrustedSignedBeaconBlock, epochRef: EpochRef,
-      unrealized: FinalityCheckpoints) {.gcsafe, raises: [].} =
+      let
+        data = bres.get()
+        blockEpoch = data.blck.slot.epoch()
 
-      let wallTime = overseer.getBeaconTimeFn()
-      withBlck(blck):
-        attestationPool[].addForkChoice(
-          epochRef, blckRef, unrealized, forkyBlck.message, wallTime)
+      if blockEpoch != processEpoch:
+        if len(blocks) != 0:
+          let startTick = Moment.now()
 
-        validatorMonitor[].registerBeaconBlock(
-          MsgSource.sync, wallTime, forkyBlck.message)
+          verifyBlockProposer(dag, batchVerifier[],
+                              blocks.mapIt(it.blck)).isOkOr:
+            fatal "Incorrect signature has been found"
+            quit 1
 
-        for attestation in forkyBlck.message.body.attestations:
-          for validator_index in
-            dag.get_attesting_indices(attestation, true):
-            validatorMonitor[].registerAttestationInBlock(
-              attestation.data, validator_index, forkyBlck.message.slot)
+          let verifyTick = Moment.now()
 
-        withState(dag[].clearanceState):
-          when (consensusFork >= ConsensusFork.Altair) and
-               (type(forkyBlck) isnot phase0.TrustedSignedBeaconBlock):
-            for i in forkyBlck.message.body.sync_aggregate.
-              sync_committee_bits.oneIndices():
-              validatorMonitor[].registerSyncAggregateInBlock(
-                forkyBlck.message.slot, forkyBlck.root,
-                forkyState.data.current_sync_committee.pubkeys.data[i])
-
-    if blockEpoch != processEpoch:
-      if len(blocks) != 0:
-        let
-          tick = Moment.now()
-          res = addBackfillBlockData(dag, batchVerifier[], blocks, onBlockAdded)
-        if res.isErr():
-          fatal "Unable to process block data", reason = res.error
-          quit 1
-
-        let updateTick = Moment.now()
-        debug "Fill status", elapsed = updateTick - tick,
-              blocks_count = len(blocks)
-
-        for bdata in blocks:
-          withBlck(bdata.blck):
-            let ures =
-              await updateHead(
-                consensusManager, validatorMonitor,
-                overseer.getBeaconTimeFn, forkyBlck,
-                NewPayloadStatus.noResponse)
-            if ures.isErr():
-              fatal "Unable to follow head", reason = ures.error
+          for bchunk in blocks.chunks(BLOCKS_PROCESS_CHUNK_SIZE):
+            try:
+              overseer.blocksQueue.addLastNoWait(bchunk)
+            except AsyncQueueFullError:
+              raiseAssert "There should be unbound AsyncQueue"
+            let res = await bchunk.resfut
+            if res.isErr():
+              fatal "Unable to add block data to database", reason = res.error
               quit 1
 
-        debug "Update head status", elapsed = Moment.now() - updateTick,
-              blocks_count = len(blocks)
+          let updateTick = Moment.now()
+          debug "Number of blocks injected",
+                blocks_count = len(blocks),
+                head = shortLog(dag.head),
+                finalized = shortLog(getStateField(
+                  dag.headState, finalized_checkpoint)),
+                signature_time = verifyTick - startTick,
+                store_update_time = updateTick - verifyTick
 
-        blocks.setLen(0)
-      processEpoch = blockEpoch
+          overseer.updatePerformance(startTick, len(blocks))
+          blocks.setLen(0)
 
-    if data.blck.slot != GENESIS_SLOT:
-      blocks.add(data)
+        processEpoch = blockEpoch
+
+      if data.blck.slot != GENESIS_SLOT:
+        blocks.add(data)
 
 proc mainLoop*(
     overseer: SyncOverseerRef
@@ -292,9 +391,12 @@ proc mainLoop*(
 
   notice "Start state rebuild mechanism"
 
+  let blockProcessingFut = overseer.blockProcessingLoop()
+
   try:
     await overseer.rebuildState()
   except CancelledError:
+    await cancelAndWait(blockProcessingFut)
     return
 
 proc start*(overseer: SyncOverseerRef) =
