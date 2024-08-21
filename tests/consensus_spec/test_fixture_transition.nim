@@ -16,7 +16,7 @@ import
 from std/sequtils import toSeq
 from std/streams import close, openFileStream
 from ../testutil import preset, suite, test
-from ./fixtures_utils import SszTestsDir, parseTest
+from ./fixtures_utils import SszTestsDir, loadBlock, parseTest
 
 type
   TransitionInfo = object
@@ -54,8 +54,8 @@ proc runTest(
     for i in 0 ..< numBlocks:
       if i <= fork_block:
         let
-          blck = parseTest(
-            testPath/"blocks_" & $i & ".ssz_snappy", SSZ, AnteBeaconBlock)
+          blck = loadBlock(
+            testPath/"blocks_" & $i & ".ssz_snappy", AnteBeaconBlock.kind)
           res = state_transition(
             cfg, fhPreState[], blck, cache, info,
             flags = {skipStateRootValidation}, noRollback)
@@ -65,8 +65,8 @@ proc runTest(
         discard res.expect("no failure when applying block " & $i)
       else:
         let
-          blck = parseTest(
-            testPath/"blocks_" & $i & ".ssz_snappy", SSZ, PostBeaconBlock)
+          blck = loadBlock(
+            testPath/"blocks_" & $i & ".ssz_snappy", PostBeaconBlock.kind)
           res = state_transition(
             cfg, fhPreState[], blck, cache, info,
             flags = {skipStateRootValidation}, noRollback)

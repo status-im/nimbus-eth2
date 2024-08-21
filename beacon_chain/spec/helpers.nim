@@ -396,13 +396,16 @@ func is_merge_transition_complete*(
   state.latest_execution_payload_header != defaultExecutionPayloadHeader
 
 # https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.4/sync/optimistic.md#helpers
-func is_execution_block*(blck: SomeForkyBeaconBlock): bool =
-  when typeof(blck).kind >= ConsensusFork.Bellatrix:
+func is_execution_block*(body: SomeForkyBeaconBlockBody): bool =
+  when typeof(body).kind >= ConsensusFork.Bellatrix:
     const defaultExecutionPayload =
-      default(typeof(blck.body.execution_payload))
-    blck.body.execution_payload != defaultExecutionPayload
+      default(typeof(body.execution_payload))
+    body.execution_payload != defaultExecutionPayload
   else:
     false
+
+func is_execution_block*(blck: SomeForkyBeaconBlock): bool =
+  blck.body.is_execution_block
 
 # https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.4/specs/bellatrix/beacon-chain.md#is_merge_transition_block
 func is_merge_transition_block(
@@ -545,9 +548,9 @@ proc computeRequestsTrieRoot*(
 
   tr.rootHash()
 
-proc blockToBlockHeader*(blck: ForkyBeaconBlock): ExecutionBlockHeader =
-  template payload: auto = blck.body.execution_payload
-
+proc toExecutionBlockHeader*(
+    payload: ForkyExecutionPayload,
+    parentRoot: Eth2Digest): ExecutionBlockHeader =
   static:  # `GasInt` is signed. We only use it for hashing.
     doAssert sizeof(GasInt) == sizeof(payload.gas_limit)
     doAssert sizeof(GasInt) == sizeof(payload.gas_used)
@@ -571,7 +574,7 @@ proc blockToBlockHeader*(blck: ForkyBeaconBlock): ExecutionBlockHeader =
         Opt.none(uint64)
     parentBeaconBlockRoot =
       when typeof(payload).kind >= ConsensusFork.Deneb:
-        Opt.some ExecutionHash256(data: blck.parent_root.data)
+        Opt.some ExecutionHash256(data: parentRoot.data)
       else:
         Opt.none(ExecutionHash256)
     requestsRoot =
@@ -603,8 +606,13 @@ proc blockToBlockHeader*(blck: ForkyBeaconBlock): ExecutionBlockHeader =
     parentBeaconBlockRoot : parentBeaconBlockRoot, # EIP-4788
     requestsRoot          : requestsRoot)          # EIP-7685
 
+proc compute_execution_block_hash*(
+    payload: ForkyExecutionPayload,
+    parentRoot: Eth2Digest): Eth2Digest =
+  rlpHash payload.toExecutionBlockHeader(parentRoot)
+
 proc compute_execution_block_hash*(blck: ForkyBeaconBlock): Eth2Digest =
-  rlpHash blockToBlockHeader(blck)
+  blck.body.execution_payload.compute_execution_block_hash(blck.parent_root)
 
 from std/math import exp, ln
 from std/sequtils import foldl

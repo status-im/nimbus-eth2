@@ -2158,7 +2158,7 @@ func upgrade_to_electra*(
 
   post
 
-func latest_block_root(state: ForkyBeaconState, state_root: Eth2Digest):
+func latest_block_root*(state: ForkyBeaconState, state_root: Eth2Digest):
     Eth2Digest =
   # The root of the last block that was successfully applied to this state -
   # normally, when a block is applied, the data from the header is stored in

@@ -112,7 +112,7 @@ proc build_empty_merge_execution_payload(state: bellatrix.BeaconState):
     timestamp: timestamp,
     base_fee_per_gas: EIP1559_INITIAL_BASE_FEE)
 
-  payload.block_hash = rlpHash blockToBlockHeader(bellatrix.BeaconBlock(body:
+  payload.block_hash = compute_execution_block_hash(bellatrix.BeaconBlock(body:
     bellatrix.BeaconBlockBody(execution_payload: payload)))
 
   bellatrix.ExecutionPayloadForSigning(executionPayload: payload,
