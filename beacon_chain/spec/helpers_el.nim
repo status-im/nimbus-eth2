@@ -26,34 +26,21 @@ func readExecutionTransaction(
 
 # https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.4/specs/deneb/beacon-chain.md#is_valid_versioned_hashes
 func is_valid_versioned_hashes*(blck: ForkyBeaconBlock): Result[void, string] =
-  const consensusFork = typeof(blck).kind
-  when consensusFork >= ConsensusFork.Deneb:
-    template transactions: untyped = blck.body.execution_payload.transactions
-    template commitments: untyped = blck.body.blob_kzg_commitments
+  static: doAssert typeof(blck).kind >= ConsensusFork.Deneb
+  template transactions: untyped = blck.body.execution_payload.transactions
+  template commitments: untyped = blck.body.blob_kzg_commitments
 
-    var i = 0
-    for txBytes in transactions:
-      if txBytes.len == 0 or txBytes[0] != TxEip4844.byte:
-        continue  # Only blob transactions may have blobs
-      let tx = ? txBytes.readExecutionTransaction()
-      for vHash in tx.versionedHashes:
-        if commitments.len <= i:
-          return err("Extra blobs without matching `blob_kzg_commitments`")
-        if vHash.data != kzg_commitment_to_versioned_hash(commitments[i]):
-          return err("Invalid `blob_versioned_hash` at index " & $i)
-        inc i
-    if i != commitments.len:
-      return err("Extra `blob_kzg_commitments` without matching blobs")
-    ok()
-  elif consensusFork >= ConsensusFork.Bellatrix:
-    template transactions: untyped = blck.body.execution_payload.transactions
-
-    for txBytes in transactions:
-      if txBytes.len == 0 or txBytes[0] != TxEip4844.byte:
-        continue  # Only blob transactions may have blobs
-      let tx = ? txBytes.readExecutionTransaction()
-      if tx.versionedHashes.len > 0:
-        return err("No blob transaction allowed before Deneb")
-    ok()
-  else:
-    ok()
+  var i = 0
+  for txBytes in transactions:
+    if txBytes.len == 0 or txBytes[0] != TxEip4844.byte:
+      continue  # Only blob transactions may have blobs
+    let tx = ? txBytes.readExecutionTransaction()
+    for vHash in tx.versionedHashes:
+      if commitments.len <= i:
+        return err("Extra blobs without matching `blob_kzg_commitments`")
+      if vHash.data != kzg_commitment_to_versioned_hash(commitments[i]):
+        return err("Invalid `blob_versioned_hash` at index " & $i)
+      inc i
+  if i != commitments.len:
+    return err("Extra `blob_kzg_commitments` without matching blobs")
+  ok()

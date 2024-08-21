@@ -566,9 +566,16 @@ proc storeBlock(
           returnWithError "Execution block hash validation failed"
 
         # [New in Deneb:EIP4844]
-        let blobsRes = signedBlock.message.is_valid_versioned_hashes
-        if blobsRes.isErr:
-          returnWithError "Blob versioned hashes invalid", blobsRes.error
+        when typeof(signedBlock).kind >= ConsensusFork.Deneb:
+          let blobsRes = signedBlock.message.is_valid_versioned_hashes
+          if blobsRes.isErr:
+            returnWithError "Blob versioned hashes invalid", blobsRes.error
+        else:
+          # If there are EIP-4844 (type 3) transactions in the payload with
+          # versioned hashes, the transactions would be rejected by the EL
+          # based on payload timestamp (only allowed post Deneb);
+          # There are no `blob_kzg_commitments` before Deneb to compare against
+          discard
 
   let newPayloadTick = Moment.now()
 
