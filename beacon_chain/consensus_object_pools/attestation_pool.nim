@@ -751,15 +751,6 @@ proc getAttestationsForBlock*(pool: var AttestationPool,
   #
   # For each round, we'll look for the best attestation and add it to the result
   # then re-score the other candidates.
-  var
-    prevEpoch = state.data.get_previous_epoch()
-    prevEpochSpace =
-      when not (state is phase0.HashedBeaconState):
-        MAX_ATTESTATIONS
-      else:
-        state.data.previous_epoch_attestations.maxLen -
-          state.data.previous_epoch_attestations.len()
-
   var res: seq[phase0.Attestation]
   let totalCandidates = candidates.len()
   while candidates.len > 0 and res.lenu64() < MAX_ATTESTATIONS:
@@ -774,12 +765,6 @@ proc getAttestationsForBlock*(pool: var AttestationPool,
         (_, _, entry, j) = candidates[candidate]
 
       candidates.del(candidate) # careful, `del` reorders candidates
-
-      if entry[].data.target.epoch == prevEpoch:
-        if prevEpochSpace < 1:
-          continue # No need to rescore since we didn't add the attestation
-
-        prevEpochSpace -= 1
 
       res.add(entry[].toAttestation(entry[].aggregates[j]))
 
