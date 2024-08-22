@@ -1789,7 +1789,7 @@ proc installMessageValidators(node: BeaconNode) =
       let digest = forkDigests[].atConsensusFork(consensusFork)
 
       # beacon_block
-      # https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.4/specs/phase0/p2p-interface.md#beacon_block
+      # https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.5/specs/phase0/p2p-interface.md#beacon_block
       node.network.addValidator(
         getBeaconBlocksTopic(digest), proc (
           signedBlock: consensusFork.SignedBeaconBlock
@@ -1906,7 +1906,7 @@ proc installMessageValidators(node: BeaconNode) =
                 MsgSource.gossip, msg)))
 
       when consensusFork >= ConsensusFork.Capella:
-        # https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.4/specs/capella/p2p-interface.md#bls_to_execution_change
+        # https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.5/specs/capella/p2p-interface.md#bls_to_execution_change
         node.network.addAsyncValidator(
           getBlsToExecutionChangeTopic(digest), proc (
             msg: SignedBLSToExecutionChange

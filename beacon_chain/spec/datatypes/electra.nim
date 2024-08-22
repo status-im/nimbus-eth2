@@ -158,7 +158,7 @@ type
   ExecutePayload* = proc(
     execution_payload: ExecutionPayload): bool {.gcsafe, raises: [].}
 
-  # https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.4/specs/electra/beacon-chain.md#pendingbalancedeposit
+  # https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.5/specs/electra/beacon-chain.md#pendingbalancedeposit
   PendingBalanceDeposit* = object
     index*: uint64
     amount*: Gwei
@@ -186,7 +186,7 @@ type
     source_pubkey*: ValidatorPubKey
     target_pubkey*: ValidatorPubKey
 
-  # https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.4/specs/phase0/validator.md#aggregateandproof
+  # https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.5/specs/phase0/validator.md#aggregateandproof
   AggregateAndProof* = object
     aggregator_index*: uint64 # `ValidatorIndex` after validation
     aggregate*: Attestation
@@ -243,7 +243,7 @@ type
     signature_slot*: Slot
       ## Slot at which the aggregate signature was created (untrusted)
 
-  # https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.4/specs/altair/light-client/sync-protocol.md#lightclientfinalityupdate
+  # https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.5/specs/altair/light-client/sync-protocol.md#lightclientfinalityupdate
   LightClientFinalityUpdate* = object
     # Header attested to by the sync committee
     attested_header*: LightClientHeader
@@ -399,7 +399,7 @@ type
     data*: BeaconState
     root*: Eth2Digest # hash_tree_root(data)
 
-  # https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.4/specs/phase0/beacon-chain.md#beaconblock
+  # https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.5/specs/phase0/beacon-chain.md#beaconblock
   BeaconBlock* = object
     ## For each slot, a proposer is chosen from the validator pool to propose
     ## a new block. Once the block as been proposed, it is transmitted to
