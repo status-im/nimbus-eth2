@@ -277,9 +277,13 @@ proc lookupCscFromPeer(peer: Peer): uint64 =
 
   let enrOpt = peer.enr
   if enrOpt.isNone:
-    debug "Could not get ENR from peer",
+    debug "Could not get ENR from peer, trying to fetch csc from metadata",
       peer_id = peer.peerId
-    return(peer.metadata.get.custody_subnet_count)
+    let metadata = peer.metadata
+    if not metadata.isOk:
+      return(CUSTODY_REQUIREMENT.uint64)
+    else:
+      return(metadata.get.custody_subnet_count)
 
   else:
     let
