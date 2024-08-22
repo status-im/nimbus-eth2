@@ -935,7 +935,10 @@ proc getElectraAttestationsForBlock*(
         key = (entry.data.beacon_block_root, entry.data.slot)
         newAtt = entry[].toElectraAttestation(entry[].aggregates[j])
 
-      candidatesPerBlock.mGetOrPut(key, newSeq[electra.Attestation](0)).add(newAtt)
+      candidatesPerBlock.withValue(key, candidate):
+        candidate[].add newAtt
+      do:
+        candidatesPerBlock[key] = @[newAtt]
 
       # Update cache so that the new votes are taken into account when updating
       # the score below
