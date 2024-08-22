@@ -220,7 +220,7 @@ proc storeBackfillBlock(
         for i in 0..<data_columns.len:
           let r = verify_data_column_sidecar_kzg_proofs(data_columns[i][])
           if r.isErr():
-            debug "backfill datacolumn validation failed",
+            debug "backfill data column validation failed",
               blockRoot = shortLog(signedBlock.root),
               blck = shortLog(signedBlock.message),
               signature = shortLog(signedBlock.signature),
