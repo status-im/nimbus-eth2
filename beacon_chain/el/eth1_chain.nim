@@ -16,6 +16,8 @@ import
   web3/[conversions, eth_api_types],
   ./merkle_minimal
 
+from ./engine_api_conversions import asBlockHash, asEth2Digest
+
 export beacon_chain_db, deques, digest, base, forks
 
 logScope:
@@ -80,12 +82,6 @@ type
     deposits*: seq[Deposit]
     hasMissingDeposits*: bool
 
-func asEth2Digest*(x: BlockHash): Eth2Digest =
-  Eth2Digest(data: array[32, byte](x))
-
-template asBlockHash*(x: Eth2Digest): BlockHash =
-  BlockHash(x.data)
-
 # https://github.com/ethereum/consensus-specs/blob/v1.4.0/specs/phase0/validator.md#get_eth1_data
 func compute_time_at_slot(genesis_time: uint64, slot: Slot): uint64 =
   genesis_time + slot * SECONDS_PER_SLOT
@@ -115,7 +111,7 @@ template findBlock(chain: Eth1Chain, eth1Data: Eth1Data): Eth1Block =
 
 func makeSuccessorWithoutDeposits*(existingBlock: Eth1Block,
                                    successor: BlockObject): Eth1Block =
-  result = Eth1Block(
+  Eth1Block(
     hash: successor.hash.asEth2Digest,
     number: Eth1BlockNumber successor.number,
     timestamp: Eth1BlockTimestamp successor.timestamp)

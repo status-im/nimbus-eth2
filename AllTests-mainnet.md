@@ -464,16 +464,20 @@ OK: 5/5 Fail: 0/5 Skip: 0/5
 + URL parsing                                                                                OK
 ```
 OK: 5/5 Fail: 0/5 Skip: 0/5
-## Eth1 monitor
+## Engine API conversions
 ```diff
-+ Deposits chain                                                                             OK
-+ Rewrite URLs                                                                               OK
 + Roundtrip engine RPC V1 and bellatrix ExecutionPayload representations                     OK
 + Roundtrip engine RPC V2 and capella ExecutionPayload representations                       OK
 + Roundtrip engine RPC V3 and deneb ExecutionPayload representations                         OK
 + Roundtrip engine RPC V4 and electra ExecutionPayload representations                       OK
 ```
-OK: 6/6 Fail: 0/6 Skip: 0/6
+OK: 4/4 Fail: 0/4 Skip: 0/4
+## Eth1 monitor
+```diff
++ Deposits chain                                                                             OK
++ Rewrite URLs                                                                               OK
+```
+OK: 2/2 Fail: 0/2 Skip: 0/2
 ## Eth2 specific discovery tests
 ```diff
 + Invalid attnets field                                                                      OK
