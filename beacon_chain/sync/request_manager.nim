@@ -12,6 +12,7 @@ import chronos, chronicles
 import
   ../spec/datatypes/[phase0, deneb],
   ../spec/[forks, network, eip7594_helpers],
+  ../spec/[eth2_ssz_serialization],
   ../networking/eth2_network,
   ../consensus_object_pools/block_quarantine,
   ../consensus_object_pools/blob_quarantine,
@@ -268,8 +269,7 @@ proc fetchBlobsFromNetwork(self: RequestManager,
     if not(isNil(peer)):
       self.network.peerPool.release(peer)
 
-proc lookupCscFromPeer(peer: Peer):
-                                            uint64 =
+proc lookupCscFromPeer(peer: Peer): uint64 =
   # Fetches the custody column count from a remote peer
   # if the peer advertises their custody column count 
   # via the `csc` ENR field. If the peer does NOT, then
@@ -279,22 +279,24 @@ proc lookupCscFromPeer(peer: Peer):
   if enrOpt.isNone:
     debug "Could not get ENR from peer",
       peer_id = peer.peerId
-    return 0
+    return(peer.metadata.get.custody_subnet_count)
 
-  elif enrOpt.isOk:
+  else:
     let
       enr = enrOpt.get
       enrFieldOpt = 
-          enr.get(enrCustodySubnetCountField, uint64)
+          enr.get(enrCustodySubnetCountField, seq[byte])
 
-    if not enrFieldOpt.isOk:
-      debug "Issue with fetching `csc` field from ENR",
-        enr = enr
-    else:
-      return(enrFieldOpt.get)
-
-  else:
-    return(peer.metadata.get.custody_subnet_count)
+    if enrFieldOpt.isOk:
+        try:
+          let csc = SSZ.decode(enrFieldOpt.get(), CscBits)
+          return csc.countOnes.uint64
+        except SszError as e:
+          debug "Could not decide the csc field in the ENR"
+          return 0
+        except SerializationError:
+          debug "Error in serializing the value"
+          return 0
 
 proc constructValidCustodyPeers(rman: RequestManager,
                                 peers: openArray[Peer]):
