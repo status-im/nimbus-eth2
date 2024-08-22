@@ -9,7 +9,7 @@
 
 import
   chronicles, chronos, metrics,
-  ../spec/[forks, signatures, signatures_batch],
+  ../spec/[forks, helpers_el, signatures, signatures_batch],
   ../sszdump
 
 from std/deques import Deque, addLast, contains, initDeque, items, len, shrink
@@ -548,8 +548,11 @@ proc storeBlock(
       if signedBlock.message.is_execution_block:
         template payload(): auto = signedBlock.message.body.execution_payload
 
-        template returnWithError(msg: string): untyped =
-          debug msg, executionPayload = shortLog(payload)
+        template returnWithError(msg: string, extraMsg = ""): untyped =
+          if extraMsg != "":
+            debug msg, reason = extraMsg, executionPayload = shortLog(payload)
+          else:
+            debug msg, executionPayload = shortLog(payload)
           self[].dumpInvalidBlock(signedBlock)
           doAssert strictVerification notin dag.updateFlags
           self.consensusManager.quarantine[].addUnviable(signedBlock.root)
@@ -563,10 +566,16 @@ proc storeBlock(
           returnWithError "Execution block hash validation failed"
 
         # [New in Deneb:EIP4844]
-        # TODO run https://github.com/ethereum/consensus-specs/blob/v1.3.0/specs/deneb/beacon-chain.md#blob-kzg-commitments
-        # https://github.com/ethereum/execution-apis/blob/main/src/engine/experimental/blob-extension.md#specification
-        # "This validation MUST be instantly run in all cases even during active
-        # sync process."
+        when typeof(signedBlock).kind >= ConsensusFork.Deneb:
+          let blobsRes = signedBlock.message.is_valid_versioned_hashes
+          if blobsRes.isErr:
+            returnWithError "Blob versioned hashes invalid", blobsRes.error
+        else:
+          # If there are EIP-4844 (type 3) transactions in the payload with
+          # versioned hashes, the transactions would be rejected by the EL
+          # based on payload timestamp (only allowed post Deneb);
+          # There are no `blob_kzg_commitments` before Deneb to compare against
+          discard
 
   let newPayloadTick = Moment.now()
 
