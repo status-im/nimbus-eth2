@@ -33,7 +33,7 @@ const
   PARALLEL_REQUESTS* = 2
     ## Number of peers we using to resolve our request.
   
-  PARALLEL_REQUESTS_DATA_COLUMNS* = 8
+  PARALLEL_REQUESTS_DATA_COLUMNS* = 32
 
   BLOB_GOSSIP_WAIT_TIME_NS* = 2 * 1_000_000_000
     ## How long to wait for blobs to arrive over gossip before fetching.
@@ -289,8 +289,8 @@ proc lookupCscFromPeer(peer: Peer): uint64 =
 
     if enrFieldOpt.isOk:
         try:
-          let csc = SSZ.decode(enrFieldOpt.get(), CscBits)
-          return csc.countOnes.uint64
+          let csc = SSZ.decode(enrFieldOpt.get(), CscCount)
+          return csc
         except SszError as e:
           debug "Could not decide the csc field in the ENR"
           return 0

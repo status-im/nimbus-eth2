@@ -127,7 +127,7 @@ proc queryRandom*(
     forkId: ENRForkID,
     wantedAttnets: AttnetBits,
     wantedSyncnets: SyncnetBits,
-    wantedCscnets: CscBits,
+    wantedCscnets: CscCount,
     minScore: int): Future[seq[Node]] {.async.} =
   ## Perform a discovery query for a random target
   ## (forkId) and matching at least one of the attestation subnets.
@@ -156,15 +156,11 @@ proc queryRandom*(
     if cscnetsBytes.isOk():
       let cscnetsNode =
         try:
-          SSZ.decode(cscnetsBytes.get(), CscBits)
+          SSZ.decode(cscnetsBytes.get(), CscCount)
         except SszError as e:
           debug "Could not decode the csc count ENR bitfield of peer",
             peer = n.record.toURI(), exception = e.name, msg = e.msg
           continue
-
-      for i in 0..<DATA_COLUMN_SIDECAR_SUBNET_COUNT:
-        if wantedCscnets[i] and cscnetsNode[i]:
-          score += 1
 
     let attnetsBytes = n.record.get(enrAttestationSubnetsField, seq[byte])
     if attnetsBytes.isOk():

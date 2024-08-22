@@ -36,7 +36,7 @@ proc generateNode(rng: ref HmacDrbgContext, port: Port,
 
 # TODO: Add tests with a syncnets preference
 const noSyncnetsPreference = SyncnetBits()
-const noCscnetsPreference = CscBits()
+const noCscnetsPreference = CscCount()
 
 procSuite "Eth2 specific discovery tests":
   let
