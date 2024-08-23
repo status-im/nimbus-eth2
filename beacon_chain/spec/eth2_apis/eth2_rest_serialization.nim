@@ -1397,12 +1397,12 @@ proc readValue*(
     raiseUnexpectedValue(
       reader, "Expected a valid hex string with " & $value.len() & " bytes")
 
-template unrecognizedFieldWarning =
+template unrecognizedFieldWarning(fieldNameParam, typeNameParam: string) =
   # TODO: There should be a different notification mechanism for informing the
   #       caller of a deserialization routine for unexpected fields.
   #       The chonicles import in this module should be removed.
   trace "JSON field not recognized by the current version of Nimbus. Consider upgrading",
-        fieldName, typeName = typetraits.name(typeof value)
+        fieldName = fieldNameParam, typeName = typeNameParam
 
 template unrecognizedFieldIgnore =
   discard readValue(reader, JsonString)
@@ -1433,7 +1433,7 @@ template prepareForkedBlockReading(blockType: typedesc,
             "Multiple '" & fieldName & "' fields found", blockType.name)
         data = Opt.some(reader.readValue(JsonString))
       else:
-        unrecognizedFieldWarning()
+        unrecognizedFieldWarning(fieldName, blockType.name)
     of "block_header", "block":
       when (blockType is Web3SignerForkedBeaconBlock):
         if data.isSome():
@@ -1441,7 +1441,7 @@ template prepareForkedBlockReading(blockType: typedesc,
             "Multiple '" & fieldName & "' fields found", blockType.name)
         data = Opt.some(reader.readValue(JsonString))
       else:
-        unrecognizedFieldWarning()
+        unrecognizedFieldWarning(fieldName, blockType.name)
     of "execution_payload_blinded":
       when (blockType is ProduceBlockResponseV3):
         if blinded.isSome():
@@ -1449,7 +1449,7 @@ template prepareForkedBlockReading(blockType: typedesc,
             "Multiple `execution_payload_blinded` fields found", blockType.name)
         blinded = Opt.some(reader.readValue(bool))
       else:
-        unrecognizedFieldWarning()
+        unrecognizedFieldWarning(fieldName, blockType.name)
     of "execution_payload_value":
       when (blockType is ProduceBlockResponseV3):
         if payloadValue.isSome():
@@ -1457,7 +1457,7 @@ template prepareForkedBlockReading(blockType: typedesc,
             "Multiple `execution_payload_value` fields found", blockType.name)
         payloadValue = Opt.some(reader.readValue(Uint256))
       else:
-        unrecognizedFieldWarning()
+        unrecognizedFieldWarning(fieldName, blockType.name)
     of "consensus_block_value":
       when (blockType is ProduceBlockResponseV3):
         if blockValue.isSome():
@@ -1465,9 +1465,9 @@ template prepareForkedBlockReading(blockType: typedesc,
             "Multiple `consensus_block_value` fields found", blockType.name)
         blockValue = Opt.some(reader.readValue(Uint256))
       else:
-        unrecognizedFieldWarning()
+        unrecognizedFieldWarning(fieldName, blockType.name)
     else:
-      unrecognizedFieldWarning()
+      unrecognizedFieldWarning(fieldName, blockType.name)
 
   if version.isNone():
     reader.raiseUnexpectedValue("Field `version` is missing")
@@ -1709,7 +1709,7 @@ proc readValue*(reader: var JsonReader[RestJson],
                                     "RestPublishedBeaconBlockBody")
       blob_kzg_commitments = Opt.some(reader.readValue(KzgCommitments))
     else:
-      unrecognizedFieldWarning()
+      unrecognizedFieldWarning(fieldName, typeof(value).name)
 
   if randao_reveal.isNone():
     reader.raiseUnexpectedValue("Field `randao_reveal` is missing")
@@ -1924,7 +1924,7 @@ proc readValue*(reader: var JsonReader[RestJson],
                                     "RestPublishedBeaconBlock")
       blockBody = Opt.some(reader.readValue(RestPublishedBeaconBlockBody))
     else:
-      unrecognizedFieldWarning()
+      unrecognizedFieldWarning(fieldName, typeof(value).name)
 
   if slot.isNone():
     reader.raiseUnexpectedValue("Field `slot` is missing")
@@ -2021,7 +2021,7 @@ proc readValue*(reader: var JsonReader[RestJson],
                                     "RestPublishedSignedBeaconBlock")
       signature = Opt.some(reader.readValue(ValidatorSig))
     else:
-      unrecognizedFieldWarning()
+      unrecognizedFieldWarning(fieldName, typeof(value).name)
 
   if signature.isNone():
     reader.raiseUnexpectedValue("Field `signature` is missing")
@@ -2098,7 +2098,7 @@ proc readValue*(reader: var JsonReader[RestJson],
           "RestPublishedSignedBlockContents")
       blobs = Opt.some(reader.readValue(deneb.Blobs))
     else:
-      unrecognizedFieldWarning()
+      unrecognizedFieldWarning(fieldName, typeof(value).name)
 
   if signed_message.isSome():
     if message.isSome():
@@ -2178,7 +2178,7 @@ proc readValue*(reader: var JsonReader[RestJson],
                                     "ForkedSignedBeaconBlock")
       data = Opt.some(reader.readValue(JsonString))
     else:
-      unrecognizedFieldWarning()
+      unrecognizedFieldWarning(fieldName, typeof(value).name)
 
   if version.isNone():
     reader.raiseUnexpectedValue("Field version is missing")
@@ -2310,7 +2310,7 @@ proc readValue*(reader: var JsonReader[RestJson],
                                     "ForkedBeaconState")
       data = Opt.some(reader.readValue(JsonString))
     else:
-      unrecognizedFieldWarning()
+      unrecognizedFieldWarning(fieldName, typeof(value).name)
 
   if version.isNone():
     reader.raiseUnexpectedValue("Field version is missing")
@@ -2440,7 +2440,7 @@ proc readValue*[T: SomeForkedLightClientObject](
         reader.raiseUnexpectedField("Multiple data fields found", T.name)
       data.ok reader.readValue(JsonString)
     else:
-      unrecognizedFieldWarning()
+      unrecognizedFieldWarning(fieldName, typeof(value).name)
 
   if version.isNone:
     reader.raiseUnexpectedValue("Field version is missing")
@@ -2630,7 +2630,7 @@ proc readValue*(reader: var JsonReader[RestJson],
       data = Opt.some(reader.readValue(JsonString))
 
     else:
-      unrecognizedFieldWarning()
+      unrecognizedFieldWarning(fieldName, typeof(value).name)
 
   if requestKind.isNone():
     reader.raiseUnexpectedValue("Field `type` is missing")
@@ -2875,7 +2875,7 @@ proc readValue*(reader: var JsonReader[RestJson],
           reader.raiseUnexpectedValue("Invalid `status` value")
       )
     else:
-      unrecognizedFieldWarning()
+      unrecognizedFieldWarning(fieldName, typeof(value).name)
 
   if status.isNone():
     reader.raiseUnexpectedValue("Field `status` is missing")
@@ -2932,7 +2932,7 @@ proc readValue*(reader: var JsonReader[RestJson], value: var Pbkdf2Params) {.
                                     "Pbkdf2Params")
       salt = Opt.some(reader.readValue(Pbkdf2Salt))
     else:
-      unrecognizedFieldWarning()
+      unrecognizedFieldWarning(fieldName, typeof(value).name)
 
   if dklen.isNone():
     reader.raiseUnexpectedValue("Field `dklen` is missing")
@@ -3006,7 +3006,7 @@ proc readValue*(reader: var JsonReader[RestJson], value: var ScryptParams) {.
                                     "ScryptParams")
       salt = Opt.some(reader.readValue(ScryptSalt))
     else:
-      unrecognizedFieldWarning()
+      unrecognizedFieldWarning(fieldName, typeof(value).name)
 
   if dklen.isNone():
     reader.raiseUnexpectedValue("Field `dklen` is missing")
@@ -3075,7 +3075,7 @@ proc readValue*(reader: var JsonReader[RestJson],
           "KeystoresAndSlashingProtection")
       strSlashing = Opt.some(reader.readValue(string))
     else:
-      unrecognizedFieldWarning()
+      unrecognizedFieldWarning(fieldName, typeof(value).name)
 
   if len(strKeystores) == 0:
     reader.raiseUnexpectedValue("Missing or empty `keystores` value")
@@ -4385,7 +4385,7 @@ proc readValue*(reader: var JsonReader[RestJson],
                                     "RestValidatorRequest")
       statuses = Opt.some(reader.readValue(seq[string]))
     else:
-      unrecognizedFieldWarning()
+      unrecognizedFieldWarning(fieldName, typeof(value).name)
 
   let
     validatorIds =
