@@ -269,7 +269,7 @@ proc fetchBlobsFromNetwork(self: RequestManager,
     if not(isNil(peer)):
       self.network.peerPool.release(peer)
 
-proc lookupCscFromPeer(peer: Peer): uint64 =
+proc lookupCscFromPeer*(peer: Peer): uint64 =
   # Fetches the custody column count from a remote peer
   # if the peer advertises their custody column count 
   # via the `csc` ENR field. If the peer does NOT, then
