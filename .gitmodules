@@ -89,7 +89,7 @@
 	path = vendor/nim-eth
 	url = https://github.com/status-im/nim-eth.git
 	ignore = untracked
-	branch = master
+	branch = dev/etan/zz-rlpbug
 [submodule "vendor/nim-stint"]
 	path = vendor/nim-stint
 	url = https://github.com/status-im/nim-stint.git

@@ -12,18 +12,6 @@ import
   eth/common/eth_types_rlp,
   "."/[helpers, state_transition_block]
 
-func readExecutionTransaction(
-    txBytes: bellatrix.Transaction): Result[ExecutionTransaction, string] =
-  # Nim 2.0.8: `rlp.decode(distinctBase(txBytes), ExecutionTransaction)`
-  # uses the generic `read` from `rlp.nim` instead of the specific `read`
-  # from `eth_types_rlp.nim`, leading to compilation error.
-  # Doing this in two steps works around this resolution order issue.
-  var rlp = rlpFromBytes(distinctBase(txBytes))
-  try:
-    ok rlp.read(ExecutionTransaction)
-  except RlpError as exc:
-    err("Invalid transaction: " & exc.msg)
-
 # https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.4/specs/deneb/beacon-chain.md#is_valid_versioned_hashes
 func is_valid_versioned_hashes*(blck: ForkyBeaconBlock): Result[void, string] =
   static: doAssert typeof(blck).kind >= ConsensusFork.Deneb
@@ -34,7 +22,11 @@ func is_valid_versioned_hashes*(blck: ForkyBeaconBlock): Result[void, string] =
   for txBytes in transactions:
     if txBytes.len == 0 or txBytes[0] != TxEip4844.byte:
       continue  # Only blob transactions may have blobs
-    let tx = ? txBytes.readExecutionTransaction()
+    let tx =
+      try:
+        rlp.decode(distinctBase(txBytes), ExecutionTransaction)
+      except RlpError as exc:
+        return err("Invalid transaction: " & exc.msg)
     for vHash in tx.versionedHashes:
       if commitments.len <= i:
         return err("Extra blobs without matching `blob_kzg_commitments`")
