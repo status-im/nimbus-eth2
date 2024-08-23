@@ -133,7 +133,7 @@ template `+`*(a: TimeDiff, b: Duration): TimeDiff =
 const
   # Offsets from the start of the slot to when the corresponding message should
   # be sent
-  # https://github.com/ethereum/consensus-specs/blob/v1.4.0/specs/phase0/validator.md#attesting
+  # https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.5/specs/phase0/validator.md#attesting
   attestationSlotOffset* = TimeDiff(nanoseconds:
     NANOSECONDS_PER_SLOT.int64 div INTERVALS_PER_SLOT)
   # https://github.com/ethereum/consensus-specs/blob/v1.4.0/specs/phase0/validator.md#broadcast-aggregate
