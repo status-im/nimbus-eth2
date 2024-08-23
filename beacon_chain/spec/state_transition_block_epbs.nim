@@ -81,58 +81,87 @@ func process_withdrawals*(
     ok()
 
 # https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.4/specs/_features/eip7732/beacon-chain.md#new-verify_execution_payload_header_signature
-proc verify_execution_payload_header_signature*(state: epbs.BeaconState,
-                                            signed_header: SignedExecutionPayloadHeader): bool =
-    # Check the signature
-    let builder = state.validators[signed_header.message.builder_index]
-    let domain = get_domain(
-      state.fork, DOMAIN_BEACON_BUILDER, GENESIS_EPOCH,
-      state.genesis_validators_root)
+func compute_execution_payload_header_signing_root*(
+    genesisFork: Fork, genesis_validators_root: Eth2Digest,
+    msg: epbs.SignedExecutionPayloadHeader): Eth2Digest =
+  # So the epoch doesn't matter when calling get_domain
+  doAssert genesisFork.previous_version == genesisFork.current_version
 
-    # This isn't exactly according to spec
-    let signing_root = compute_signing_root(signed_header.message.slot, domain)
-    blsVerify(builder.pubkey, signing_root.data, signed_header.signature)
+  # Fork-agnostic domain since address changes are valid across forks
+  let domain = get_domain(
+    genesisFork, DOMAIN_BEACON_BUILDER, GENESIS_EPOCH,
+    genesis_validators_root)
+  compute_signing_root(msg.message, domain)
 
-# https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.4/specs/_features/eip7732/beacon-chain.md#new-process_execution_payload_header
-proc process_execution_payload_header*(state: var ForkyBeaconState,
-        blck: epbs.BeaconBlock) =
-    # Verify the header signature
-    let signed_header = blck.body.signedExecutionPayloadHeader
-    assert verify_execution_payload_header_signature(state, signed_header)
+proc get_verify_execution_payload_header_signature*(
+    genesisFork: Fork, genesis_validators_root: Eth2Digest,
+    msg: SignedExecutionPayloadHeader, privkey: ValidatorPrivKey):
+    CookedSig =
+  let signing_root = compute_execution_payload_header_signing_root(
+    genesisFork, genesis_validators_root, msg)
+  blsSign(privkey, signing_root.data)
 
-    # Check that the builder has funds to cover the bid
-    let header = signedHeader.message
-    let builder_index = header.builder_index
-    let amount = header.value
-    assert state.balances[builder_index] >= amount
+proc verify_execution_payload_header_signature*(
+    genesisFork: Fork, genesis_validators_root: Eth2Digest,
+    msg: epbs.ExecutionPayloadHeader,
+    pubkey: ValidatorPubKey | CookedPubKey, signature: SomeSig): bool =
+  let signing_root = compute_execution_payload_header_signing_root(
+    genesisFork, genesis_validators_root, msg.message)
+  blsVerify(pubkey, signing_root.data, signature)
 
-    # Verify that the bid is for the current slot
-    assert header.slot == blck.slot
+# # https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.4/specs/_features/eip7732/beacon-chain.md#new-process_execution_payload_header
+# proc process_execution_payload_header*(state: var epbs.BeaconState,
+#         blck: epbs.BeaconBlock): Result[void, cstring] =
+#     # Verify the header signature
+#     let signed_header = blck.body.signed_execution_payload_header
+#     if not verify_execution_payload_header_signature(state, blck.body.signed_execution_payload_header):
+#       return err("invalid execution payload header signature")
 
-    # Verify that the bid is for the right parent block
-    assert header.parent_block_hash == state.latest_block_hash
-    assert header.parent_block_root == blck.parent_root
+#     # Check that the builder has funds to cover the bid
+#     let header = signed_header.message
+#     let builder_index = header.builder_index
+#     let amount = header.value
 
-    # Transfer the funds from the builder to the proposer
-    decrease_balance(state, builder_index, amount)
-    increase_balance(state, blck.proposer_index, amount)
+#     if state.balances.item(builder_index) < amount:
+#       return err("insufficient balance")
 
-    # Cache the signed execution payload header
-    state.latest_execution_payload_header = header
+#     # Verify that the bid is for the current slot
+#     if header.slot != blck.slot:
+#       return err("slot mismatch")
 
-from ".."/validator_bucket_sort import
-    sortValidatorBuckets
+#     # Verify that the bid is for the right parent block
+#     if header.parent_block_hash != state.latest_block_hash:
+#       return err("parent block hash mismatch")
+
+#     if header.parent_block_root != blck.parent_root:
+#       return err("parent block root mismatch")
+
+#     # Convert proposer index to ValidatorIndex
+#     let proposer_index = ValidatorIndex.init(blck.proposer_index).valueOr:
+#       return err("process_execution_payload_header: proposer index out of range")
+
+#     # Transfer the funds from the builder to the proposer
+#     decrease_balance(state, builder_index, amount)
+#     increase_balance(state, proposer_index, amount)
+
+#     # Cache the signed execution payload header
+#     state.latest_execution_payload_header = header
+
+#     ok()
+
+from ".."/validator_bucket_sort import sortValidatorBuckets
 
 proc process_operations(
     cfg: RuntimeConfig, state: var ForkyBeaconState,
     body: SomeForkyBeaconBlockBody, base_reward_per_increment: Gwei,
     flags: UpdateFlags, cache: var StateCache): Result[BlockRewards, cstring] =
-    # Verify that outstanding deposits are processed up to the maximum number of
-    # deposits
+
+    # Verify that outstanding deposits are processed up to the maximum number of deposits
     when typeof(body).kind >= ConsensusFork.Epbs:
         let req_deposits = min(
-          MAX_DEPOSITS, state.eth1_data.deposit_count -
-          state.eth1_deposit_index)
+            MAX_DEPOSITS, state.eth1_data.deposit_count -
+            state.eth1_deposit_index
+        )
 
     if body.deposits.lenu64 != req_deposits:
         return err("incorrect number of deposits")
@@ -145,46 +174,53 @@ proc process_operations(
     var
         exit_queue_info =
             if body.proposer_slashings.len + body.attester_slashings.len +
-          body.voluntary_exits.len > 0:
-        get_state_exit_queue_info(state)
-      else:
-        default(ExitQueueInfo) # not used
-    bsv_use =
-            when typeof(body).kind >= ConsensusFork.Electra:
-        body.deposits.len + body.execution_payload.deposit_requests.len +
-          body.execution_payload.withdrawal_requests.len +
-          body.execution_payload.consolidation_requests.len > 0
-      else:
-        body.deposits.len > 0
-    bsv =
-            if bsv_use:
-        sortValidatorBuckets(state.validators.asSeq)
-      else:
-        nil                    # this is a logic error, effectively assert
+               body.voluntary_exits.len > 0:
+                get_state_exit_queue_info(state)
+            else:
+                default(ExitQueueInfo) # not used
 
-  for op in body.proposer_slashings:
+        bsv_use =
+            when typeof(body).kind >= ConsensusFork.Electra:
+                body.deposits.len + body.execution_payload.deposit_requests.len +
+                body.execution_payload.withdrawal_requests.len +
+                body.execution_payload.consolidation_requests.len > 0
+            else:
+                body.deposits.len > 0
+
+        bsv =
+            if bsv_use:
+                sortValidatorBuckets(state.validators.asSeq)
+            else:
+                nil  # this is a logic error, effectively assert
+
+    for op in body.proposer_slashings:
         let (proposer_slashing_reward, new_exit_queue_info) =
-            ? process_proposer_slashing(cfg, state, op, flags, exit_queue_info, cache)
+            ?process_proposer_slashing(cfg, state, op, flags, exit_queue_info, cache)
         operations_rewards.proposer_slashings += proposer_slashing_reward
         exit_queue_info = new_exit_queue_info
+
     for op in body.attester_slashings:
         let (attester_slashing_reward, new_exit_queue_info) =
-            ? process_attester_slashing(cfg, state, op, flags, exit_queue_info, cache)
+            ?process_attester_slashing(cfg, state, op, flags, exit_queue_info, cache)
         operations_rewards.attester_slashings += attester_slashing_reward
         exit_queue_info = new_exit_queue_info
+
     for op in body.attestations:
         operations_rewards.attestations +=
-          ? process_attestation(state, op, flags, base_reward_per_increment, cache)
+            ?process_attestation(state, op, flags, base_reward_per_increment, cache)
+
     for op in body.deposits:
-        ? process_deposit(cfg, state, bsv[], op, flags)
+        ?process_deposit(cfg, state, bsv[], op, flags)
+
     for op in body.voluntary_exits:
-        exit_queue_info = ? process_voluntary_exit(
-          cfg, state, op, flags, exit_queue_info, cache)
+        exit_queue_info = ?process_voluntary_exit(
+            cfg, state, op, flags, exit_queue_info, cache
+        )
+
     when typeof(body).kind >= ConsensusFork.Capella:
         for op in body.bls_to_execution_changes:
-            ? process_bls_to_execution_change(cfg, state, op)
+            ?process_bls_to
 
-    ok(operations_rewards)
 
 
 # # https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.4/specs/_features/eip7732/beacon-chain.md#process_payload_attestation

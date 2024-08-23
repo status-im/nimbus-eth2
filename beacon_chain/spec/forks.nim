@@ -16,7 +16,7 @@ import
   "."/[
     block_id, eth2_merkleization, eth2_ssz_serialization,
     forks_light_client, presets],
-  ./datatypes/[phase0, altair, bellatrix, capella, deneb, electra],
+  ./datatypes/[phase0, altair, bellatrix, capella, deneb, electra, epbs],
   ./mev/[bellatrix_mev, capella_mev, deneb_mev, electra_mev]
 
 export
@@ -55,7 +55,8 @@ type
     bellatrix.BeaconState |
     capella.BeaconState |
     deneb.BeaconState |
-    electra.BeaconState
+    electra.BeaconState |
+    epbs.BeaconState
 
   ForkyHashedBeaconState* =
     phase0.HashedBeaconState |

@@ -68,7 +68,7 @@ type
     parent_block_hash*: Eth2Digest 
     parent_block_root*: Eth2Digest
     gas_limit*: uint64
-    builder_index*: ValidatorIndex
+    #builder_index*: ValidatorIndex
     slot*: Slot
     value*: Gwei
     blob_kzg_commitments_root*: KzgCommitments

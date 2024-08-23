@@ -115,7 +115,7 @@ when isMainModule:
 
     var
       ptc = get_ptc(state, slot)
-      output = [ValidatorIndex]()
+      output: seq[ValidatorIndex]
 
     for i, index in ptc.pairs:
       if payload_attestation.aggregation_bits[i]:
