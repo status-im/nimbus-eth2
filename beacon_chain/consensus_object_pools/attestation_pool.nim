@@ -906,8 +906,6 @@ proc getElectraAttestationsForBlock*(
   # For each round, we'll look for the best attestation and add it to the result
   # then re-score the other candidates.
   var
-    prevEpoch = state.data.get_previous_epoch()
-    prevEpochSpace = MAX_ATTESTATIONS_ELECTRA
     candidatesPerBlock: Table[(Eth2Digest, Slot), seq[electra.Attestation]]
 
   let totalCandidates = candidates.len()
@@ -916,17 +914,11 @@ proc getElectraAttestationsForBlock*(
     let entryCacheKey = block:
       let (_, _, entry, j) =
         # Fast path for when all remaining candidates fit
-        if candidates.lenu64 < MAX_ATTESTATIONS_ELECTRA * MAX_COMMITTEES_PER_SLOT:
+        if candidates.lenu64 < MAX_ATTESTATIONS_ELECTRA:
           candidates[candidates.len - 1]
         else:
           # Get the candidate with the highest score
           candidates.pop()
-
-      if entry[].data.target.epoch == prevEpoch:
-        if prevEpochSpace < 1:
-          continue # No need to rescore since we didn't add the attestation
-
-      prevEpochSpace -= 1
 
       #TODO: Merge candidates per block structure with the candidates one
       # and score possible on-chain attestations while collecting candidates
