@@ -738,14 +738,15 @@ suite "Attestation pool electra processing" & preset():
   ## mock data.
 
   setup:
-    # Genesis state that results in 6 members per committee
+    # Genesis state that results in 6 members per committee (2 committees total)
+    const TOTAL_COMMITTEES = 2
     let rng = HmacDrbgContext.new()
     var
       validatorMonitor = newClone(ValidatorMonitor.init())
       cfg = genesisTestRuntimeConfig(ConsensusFork.Electra)
       dag = init(
         ChainDAGRef, cfg,
-        makeTestDB(SLOTS_PER_EPOCH * 6, cfg = cfg),
+        makeTestDB(TOTAL_COMMITTEES * TARGET_COMMITTEE_SIZE*SLOTS_PER_EPOCH * 6, cfg = cfg),
         validatorMonitor, {})
       taskpool = Taskpool.new()
       verifier = BatchVerifier.init(rng, taskpool)
@@ -757,7 +758,11 @@ suite "Attestation pool electra processing" & preset():
     # Slot 0 is a finalized slot - won't be making attestations for it..
     check:
       process_slots(
-        dag.cfg, state[], getStateField(state[], slot) + 1, cache, info,
+        dag.cfg,
+        state[],
+        getStateField(state[], slot) + MIN_ATTESTATION_INCLUSION_DELAY,
+        cache,
+        info,
         {}).isOk()
 
 
@@ -855,3 +860,93 @@ suite "Attestation pool electra processing" & preset():
     pool[].addAttestation(
       att4, @[bc1[2]], att3.loadSig, att3.data.slot.start_beacon_time)
 
+
+  test "Attestations with disjoint comittee bits and equal data into single on-chain aggregate" & preset():
+    let
+      bc0 = get_beacon_committee(
+        state[], getStateField(state[], slot), 0.CommitteeIndex, cache)
+
+      bc1 = get_beacon_committee(
+        state[], getStateField(state[], slot), 1.CommitteeIndex, cache)
+
+      # atestation from committee 1
+      attestation_1 = makeElectraAttestation(
+        state[], state[].latest_block_root, bc0[0], cache)
+
+      # atestation from different committee with same data as
+      # attestaton 1
+      attestation_2 = makeElectraAttestation(
+        state[], state[].latest_block_root, bc1[1], cache)
+
+    pool[].addAttestation(
+      attestation_1, @[bc0[0]], attestation_1.loadSig,
+      attestation_1.data.slot.start_beacon_time)
+
+    pool[].addAttestation(
+      attestation_2, @[bc0[1]], attestation_2.loadSig,
+      attestation_2.data.slot.start_beacon_time)
+
+    check:
+      process_slots(
+        defaultRuntimeConfig, state[],
+        getStateField(state[], slot) + MIN_ATTESTATION_INCLUSION_DELAY, cache,
+        info, {}).isOk()
+
+    let attestations = pool[].getElectraAttestationsForBlock(state[], cache)
+
+    check:
+      # A single inal chain aggregated attestation should be created
+      # with same data and joint committee,aggregation bits
+      attestations.len == 1
+      attestations[0].aggregation_bits.countOnes() == 2
+      attestations[0].committee_bits.countOnes() == 2
+
+
+  test "Aggregated attestations with disjoint comittee bits into a single on-chain aggregate" & preset():
+
+    let
+      bc0 = get_beacon_committee(
+        state[], getStateField(state[], slot), 0.CommitteeIndex, cache)
+
+      bc1 = get_beacon_committee(
+        state[], getStateField(state[], slot), 1.CommitteeIndex, cache)
+
+      # atestation from first committee
+      attestation_1 = makeElectraAttestation(
+        state[], state[].latest_block_root, bc0[0], cache)
+
+      # another attestation from first committee with same data
+      attestation_2 = makeElectraAttestation(
+        state[], state[].latest_block_root, bc0[1], cache)
+
+      # atestation from different committee with same data as
+      # attestaton 1
+      attestation_3 = makeElectraAttestation(
+        state[], state[].latest_block_root, bc1[1], cache)
+
+    pool[].addAttestation(
+      attestation_1, @[bc0[0]], attestation_1.loadSig,
+      attestation_1.data.slot.start_beacon_time)
+
+    pool[].addAttestation(
+      attestation_2, @[bc0[1]], attestation_2.loadSig,
+      attestation_2.data.slot.start_beacon_time)
+
+    pool[].addAttestation(
+      attestation_3, @[bc1[1]], attestation_3.loadSig,
+      attestation_3.data.slot.start_beacon_time)
+
+    check:
+      process_slots(
+        defaultRuntimeConfig, state[],
+        getStateField(state[], slot) + MIN_ATTESTATION_INCLUSION_DELAY, cache,
+        info, {}).isOk()
+
+    let attestations = pool[].getElectraAttestationsForBlock(state[], cache)
+
+    check:
+      # A single final chain aggregated attestation should be created
+      # with same data, 2 committee bits and 3 aggregation bits
+      attestations.len == 1
+      attestations[0].aggregation_bits.countOnes() == 3
+      attestations[0].committee_bits.countOnes() == 2
