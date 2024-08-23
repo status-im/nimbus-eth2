@@ -150,7 +150,7 @@ typedef struct ETHBeaconState ETHBeaconState;
  * @return `NULL` - If the given `sszBytes` is malformed.
  *
  * @see https://github.com/ethereum/consensus-specs/blob/v1.4.0/specs/phase0/beacon-chain.md#beaconstate
- * @see https://github.com/ethereum/consensus-specs/blob/v1.4.0/specs/altair/beacon-chain.md#beaconstate
+ * @see https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.5/specs/altair/beacon-chain.md#beaconstate
  * @see https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.5/specs/bellatrix/beacon-chain.md#beaconstate
  * @see https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.3/specs/capella/beacon-chain.md#beaconstate
  * @see https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.5/configs/README.md
@@ -672,7 +672,7 @@ void ETHLightClientHeaderDestroy(ETHLightClientHeader *header);
  *
  * @return Pointer to a copy of the given header's beacon block root.
  *
- * @see https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.6/specs/phase0/beacon-chain.md#hash_tree_root
+ * @see https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.5/specs/phase0/beacon-chain.md#hash_tree_root
  */
 ETH_RESULT_USE_CHECK
 ETHRoot *ETHLightClientHeaderCopyBeaconRoot(
