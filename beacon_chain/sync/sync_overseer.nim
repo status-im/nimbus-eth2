@@ -44,6 +44,14 @@ proc init*(t: typedesc[BlockDataChunk],
         "blockdata.chunk")
   )
 
+proc shortLog*(c: BlockDataChunk): string =
+  let
+    map =
+      (c.blocks.mapIt(shortLog(it.blck.root) & ":" & $it.blck.slot)).
+        join(", ")
+    futureState = if c.resfut.finished(): "pending" else: "completed"
+  "[" & map & "]:" & futureState
+
 iterator chunks*(data: openArray[BlockData],
                  maxCount: Positive): BlockDataChunk =
   for i in countup(0, len(data) - 1, maxCount):
@@ -170,8 +178,8 @@ proc updatePerformance(overseer: SyncOverseerRef, startTick: Moment,
 
   let
     total = clistHeadSlot - clistTailSlot
-    progress = clistHeadSlot - dag.head.slot
-    done = if total > 0: float(progress) / float(total) else: 1.0
+    progress = dag.head.slot - clistTailSlot
+    done = float(progress) / float(total)
     remaining = total - progress
     timeleft =
       if overseer.avgSpeed >= 0.001:
@@ -249,6 +257,29 @@ proc blockProcessingLoop(overseer: SyncOverseerRef): Future[void] {.
             bchunk.resfut.complete(Result[void, string].err(msg))
             continue
 
+      bchunk.resfut.complete(Result[void, string].ok())
+
+proc verifyBlockProposer(
+    dag: ChainDagRef,
+    signedBlock: ForkedSignedBeaconBlock
+): Result[void, cstring] =
+  let
+    fork = getStateField(dag.clearanceState, fork)
+    genesis_validators_root =
+      getStateField(dag.clearanceState, genesis_validators_root)
+
+  withBlck(signedBlock):
+    let proposerKey =
+      dag.db.immutableValidators.load(forkyBlck.message.proposer_index).valueOr:
+        return err("Unable to find proposer key")
+
+    if not(verify_block_signature(fork, genesis_validators_root,
+                                  forkyBlck.message.slot, forkyBlck.message,
+                                  proposerKey, forkyBlck.signature)):
+      return err("Signature verification failed")
+
+    ok()
+
 proc rebuildState(overseer: SyncOverseerRef): Future[void] {.
      async: (raises: [CancelledError]).} =
   overseer.statusMsg = Opt.some("rebuilding state")
@@ -292,12 +323,18 @@ proc rebuildState(overseer: SyncOverseerRef): Future[void] {.
 
       if blockEpoch != processEpoch:
         if len(blocks) != 0:
-          let startTick = Moment.now()
+          let
+            startTick = Moment.now()
+            blocksOnly = blocks.mapIt(it.blck)
 
-          verifyBlockProposer(dag, batchVerifier[],
-                              blocks.mapIt(it.blck)).isOkOr:
-            fatal "Incorrect signature has been found"
-            quit 1
+          verifyBlockProposer(dag, batchVerifier[], blocksOnly).isOkOr:
+            for signedBlock in blocksOnly:
+              let res = verifyBlockProposer(dag, signedBlock)
+              if res.isErr():
+                fatal "Unable to verify block proposer",
+                      blck = shortLog(signedBlock),
+                      reason = res.error
+                quit 1
 
           let verifyTick = Moment.now()
 
@@ -305,7 +342,7 @@ proc rebuildState(overseer: SyncOverseerRef): Future[void] {.
             try:
               overseer.blocksQueue.addLastNoWait(bchunk)
             except AsyncQueueFullError:
-              raiseAssert "There should be unbound AsyncQueue"
+              raiseAssert "Should not be happened with unbound AsyncQueue"
             let res = await bchunk.resfut
             if res.isErr():
               fatal "Unable to add block data to database", reason = res.error
