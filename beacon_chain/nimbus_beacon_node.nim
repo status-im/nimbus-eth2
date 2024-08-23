@@ -2041,7 +2041,13 @@ proc installMessageValidators(node: BeaconNode) =
 
         # data_column_sidecar_{subnet_id}
         #
-        for it in 0'u64 ..< DATA_COLUMN_SIDECAR_SUBNET_COUNT:
+        let subnetCount = 
+          if node.config.subscribeAllSubnets:
+            DATA_COLUMN_SIDECAR_SUBNET_COUNT.uint64
+          else:
+            CUSTODY_REQUIREMENT.uint64
+
+        for it in 0'u64 ..< subnetCount:
           closureScope:  # Needed for inner `proc`; don't lift it out of loop.
             let subnet_id = it
             node.network.addValidator(
