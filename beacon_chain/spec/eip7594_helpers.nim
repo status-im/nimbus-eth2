@@ -371,7 +371,7 @@ proc verify_data_column_sidecar_kzg_proofs*(sidecar: DataColumnSidecar): Result[
     sidecarCol = sidecar.column.asSeq
     kzgProofs = sidecar.kzg_proofs.asSeq
 
-  let res = validate_data_column_sidecar(kzgCommits, cellIndices, sidecarCol, kzgProofs)
+  let res = verifyCellKzgProofBatch(kzgCommits, cellIndices, sidecarCol, kzgProofs)
 
   if res.isErr():
     return err("DataColumnSidecar: validation failed")

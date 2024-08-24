@@ -1149,9 +1149,14 @@ proc fetchCustodySubnetCount* (node: BeaconNode): uint64=
 proc addDenebMessageHandlers(
     node: BeaconNode, forkDigest: ForkDigest, slot: Slot) =
   node.addCapellaMessageHandlers(forkDigest, slot)
-  let targetSubnets = node.fetchCustodySubnetCount()
-  for topic in dataColumnSidecarTopics(forkDigest, targetSubnets):
-    node.network.subscribe(topic, basicParams)
+  let 
+    targetSubnets = node.fetchCustodySubnetCount()
+    custody_subnets = node.network.nodeId.get_custody_column_subnet(targetSubnets)
+
+  for i in 0'u64 ..< targetSubnets:
+    if i in custody_subnets.get:
+      let topic = getDataColumnSidecarTopic(forkDigest, i)
+      node.network.subscribe(topic, basicParams)
 
   if node.config.subscribeAllSubnets:
     node.network.loadCscnetsMetadata(DATA_COLUMN_SIDECAR_SUBNET_COUNT.uint8)
@@ -1183,9 +1188,14 @@ proc removeCapellaMessageHandlers(node: BeaconNode, forkDigest: ForkDigest) =
 
 proc removeDenebMessageHandlers(node: BeaconNode, forkDigest: ForkDigest) =
   node.removeCapellaMessageHandlers(forkDigest)
-  let targetSubnets = node.fetchCustodySubnetCount()
-  for topic in dataColumnSidecarTopics(forkDigest, targetSubnets):
-    node.network.unsubscribe(topic)
+  let 
+    targetSubnets = node.fetchCustodySubnetCount()
+    custody_subnets = node.network.nodeId.get_custody_column_subnet(targetSubnets)
+
+  for i in 0'u64 ..< targetSubnets:
+    if i in custody_subnets.get:
+      let topic = getDataColumnSidecarTopic(forkDigest, i)
+      node.network.unsubscribe(topic, basicParams)
 
 proc removeElectraMessageHandlers(node: BeaconNode, forkDigest: ForkDigest) =
   node.removeDenebMessageHandlers(forkDigest)
