@@ -1188,14 +1188,9 @@ proc removeCapellaMessageHandlers(node: BeaconNode, forkDigest: ForkDigest) =
 
 proc removeDenebMessageHandlers(node: BeaconNode, forkDigest: ForkDigest) =
   node.removeCapellaMessageHandlers(forkDigest)
-  let 
-    targetSubnets = node.fetchCustodySubnetCount()
-    custody_subnets = node.network.nodeId.get_custody_column_subnet(targetSubnets)
-
-  for i in 0'u64 ..< targetSubnets:
-    if i in custody_subnets.get:
-      let topic = getDataColumnSidecarTopic(forkDigest, i)
-      node.network.unsubscribe(topic, basicParams)
+  let targetSubnets = node.fetchCustodySubnetCount()
+  for topic in dataColumnSidecarTopics(forkDigest, targetSubnets):
+    node.network.unsubscribe(topic)
 
 proc removeElectraMessageHandlers(node: BeaconNode, forkDigest: ForkDigest) =
   node.removeDenebMessageHandlers(forkDigest)
