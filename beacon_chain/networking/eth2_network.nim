@@ -1550,7 +1550,7 @@ proc getLowSubnets(node: Eth2Node, epoch: Epoch):
       findLowSubnets(getSyncCommitteeTopic, SyncSubcommitteeIndex, SYNC_COMMITTEE_SUBNET_COUNT)
     else:
       default(SyncnetBits),
-    findLowSubnets(getDataColumnSidecarTopic, uint64, DATA_COLUMN_SIDECAR_SUBNET_COUNT.int).countOnes.uint64
+    findLowSubnets(getDataColumnSidecarTopic, uint64, DATA_COLUMN_SIDECAR_SUBNET_COUNT.int).countOnes.uint8
   )
 
 proc runDiscoveryLoop(node: Eth2Node) {.async.} =
@@ -2598,7 +2598,7 @@ proc updateStabilitySubnetMetadata*(node: Eth2Node, attnets: AttnetBits) =
   else:
     debug "Stability subnets changed; updated ENR attnets", attnets
 
-proc loadCscnetsMetadata*(node: Eth2Node, cscnets: uint64) =
+proc loadCscnetsMetadata*(node: Eth2Node, cscnets: CscCount) =
   if node.metadata.custody_subnet_count == cscnets:
     return
 
