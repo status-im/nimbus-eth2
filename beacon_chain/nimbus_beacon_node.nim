@@ -2047,16 +2047,20 @@ proc installMessageValidators(node: BeaconNode) =
           else:
             CUSTODY_REQUIREMENT.uint64
 
-        for it in 0'u64 ..< subnetCount:
+        let dc_subnets = get_custody_column_subnet(node.network.nodeId, subnetCount)
+        for it in 0'u64 ..< DATA_COLUMN_SIDECAR_SUBNET_COUNT:
           closureScope:  # Needed for inner `proc`; don't lift it out of loop.
             let subnet_id = it
-            node.network.addValidator(
-              getDataColumnSidecarTopic(digest, subnet_id), proc (
-                dataColumnSidecar: DataColumnSidecar
-              ): ValidationResult =
-                toValidationResult(
-                  node.processor[].processDataColumnSidecar(
-                    MsgSource.gossip, dataColumnSidecar, subnet_id)))
+            if subnet_id notin dc_subnets.get:
+              discard
+            else:
+              node.network.addValidator(
+                getDataColumnSidecarTopic(digest, subnet_id), proc (
+                  dataColumnSidecar: DataColumnSidecar
+                ): ValidationResult =
+                  toValidationResult(
+                    node.processor[].processDataColumnSidecar(
+                      MsgSource.gossip, dataColumnSidecar, subnet_id)))
 
   node.installLightClientMessageValidators()
 
