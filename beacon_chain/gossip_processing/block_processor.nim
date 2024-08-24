@@ -652,22 +652,22 @@ proc storeBlock(
     #         msg = r.error()
     #       return err((VerifierError.Invalid, ProcessingStatus.completed))
 
-    # if dataColumnsOpt.isSome:
-    #   let data_column_sidecars = dataColumnsOpt.get
-    #   if data_column_sidecars.len > 0:
-    #     for i in 0..<data_column_sidecars.len:
-    #       let r = verify_data_column_sidecar_kzg_proofs(data_column_sidecars[i][])
+    if dataColumnsOpt.isSome:
+      let data_column_sidecars = dataColumnsOpt.get
+      if data_column_sidecars.len > 0:
+        for i in 0..<data_column_sidecars.len:
+          let r = verify_data_column_sidecar_kzg_proofs(data_column_sidecars[i][])
 
-    #       if r.isErr():
-    #         debug "data column sidecar verification failed",
-    #           blockroot = shortLog(signedBlock.root),
-    #           blck = shortLog(signedBlock.message),
-    #           kzgCommits = 
-    #             mapIt(data_column_sidecars[i][].kzg_commitments,
-    #                   shortLog(it)),
-    #           signature = shortLog(signedBlock.signature),
-    #           msg = r.error
-    #         return err((VerifierError.Invalid, ProcessingStatus.completed))
+          if r.isErr():
+            debug "data column sidecar verification failed",
+              blockroot = shortLog(signedBlock.root),
+              blck = shortLog(signedBlock.message),
+              kzgCommits = 
+                mapIt(data_column_sidecars[i][].kzg_commitments,
+                      shortLog(it)),
+              signature = shortLog(signedBlock.signature),
+              msg = r.error
+            return err((VerifierError.Invalid, ProcessingStatus.completed))
 
   type Trusted = typeof signedBlock.asTrusted()
 
