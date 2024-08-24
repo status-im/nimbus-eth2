@@ -731,7 +731,7 @@ func check_attestation_slot_target*(data: AttestationData): Result[Slot, cstring
 
   ok(data.slot)
 
-func check_attestation_target_epoch(
+func check_attestation_target_epoch*(
     data: AttestationData, current_epoch: Epoch): Result[Epoch, cstring] =
   if not (data.target.epoch == get_previous_epoch(current_epoch) or
       data.target.epoch == current_epoch):

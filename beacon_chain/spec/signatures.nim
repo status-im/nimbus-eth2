@@ -17,7 +17,7 @@
 ## functions.
 
 import
-  ./datatypes/[phase0, altair, bellatrix], ./helpers, ./eth2_merkleization
+  ./datatypes/[phase0, altair, bellatrix, epbs], ./helpers, ./eth2_merkleization
 
 from ./datatypes/capella import BLSToExecutionChange, SignedBLSToExecutionChange
 
@@ -420,4 +420,62 @@ proc verify_bls_to_execution_change_signature*(
     pubkey: ValidatorPubKey | CookedPubKey, signature: SomeSig): bool =
   let signing_root = compute_bls_to_execution_change_signing_root(
     genesisFork, genesis_validators_root, msg.message)
+  blsVerify(pubkey, signing_root.data, signature)
+
+# https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.4/specs/_features/eip7732/beacon-chain.md#new-verify_execution_payload_header_signature
+func compute_execution_payload_header_signing_root*(
+    genesisFork: Fork, genesis_validators_root: Eth2Digest,
+    msg: epbs.SignedExecutionPayloadHeader): Eth2Digest =
+  # So the epoch doesn't matter when calling get_domain
+  doAssert genesisFork.previous_version == genesisFork.current_version
+
+  # Fork-agnostic domain since address changes are valid across forks
+  let domain = get_domain(
+    genesisFork, DOMAIN_BEACON_BUILDER, GENESIS_EPOCH,
+    genesis_validators_root)
+  compute_signing_root(msg.message, domain)
+
+func get_execution_payload_header_signature*(
+    genesisFork: Fork, genesis_validators_root: Eth2Digest,
+    msg: SignedExecutionPayloadHeader, privkey: ValidatorPrivKey):
+    CookedSig =
+  let signing_root = compute_execution_payload_header_signing_root(
+    genesisFork, genesis_validators_root, msg)
+  blsSign(privkey, signing_root.data)
+
+proc verify_execution_payload_header_signature*(
+    genesisFork: Fork, genesis_validators_root: Eth2Digest,
+    msg: epbs.SignedExecutionPayloadHeader,
+    pubkey: ValidatorPubKey | CookedPubKey, signature: SomeSig): bool =
+  let signing_root = compute_execution_payload_header_signing_root(
+    genesisFork, genesis_validators_root, msg)
+  blsVerify(pubkey, signing_root.data, signature)
+
+# https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.4/specs/_features/eip7732/beacon-chain.md#new-verify_execution_payload_envelope_signature
+func compute_execution_payload_envelope_signing_root*(
+    genesisFork: Fork, genesis_validators_root: Eth2Digest,
+    msg: epbs.SignedExecutionPayloadEnvelope): Eth2Digest =
+  # So the epoch doesn't matter when calling get_domain
+  doAssert genesisFork.previous_version == genesisFork.current_version
+
+  # Fork-agnostic domain since address changes are valid across forks
+  let domain = get_domain(
+    genesisFork, DOMAIN_BEACON_BUILDER, GENESIS_EPOCH,
+    genesis_validators_root)
+  compute_signing_root(msg.message, domain)
+
+func get_execution_payload_envelope_signature*(
+    genesisFork: Fork, genesis_validators_root: Eth2Digest,
+    msg: SignedExecutionPayloadEnvelope, privkey: ValidatorPrivKey):
+    CookedSig =
+  let signing_root = compute_execution_payload_envelope_signing_root(
+    genesisFork, genesis_validators_root, msg)
+  blsSign(privkey, signing_root.data)
+
+proc verify_execution_payload_envelope_signature*(
+    genesisFork: Fork, genesis_validators_root: Eth2Digest,
+    msg: epbs.SignedExecutionPayloadEnvelope,
+    pubkey: ValidatorPubKey | CookedPubKey, signature: SomeSig): bool =
+  let signing_root = compute_execution_payload_envelope_signing_root(
+    genesisFork, genesis_validators_root, msg)
   blsVerify(pubkey, signing_root.data, signature)

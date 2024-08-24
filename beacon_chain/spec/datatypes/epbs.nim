@@ -40,7 +40,7 @@ type
 
   # https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.4/specs/_features/eip7732/beacon-chain.md#payloadattestationdata
   PayloadAttestationData* = object
-    beaconBlockRoot*: Eth2Digest
+    beacon_block_root*: Eth2Digest
     slot*: Slot
     payload_status*: uint8
 
@@ -68,7 +68,7 @@ type
     parent_block_hash*: Eth2Digest 
     parent_block_root*: Eth2Digest
     gas_limit*: uint64
-    #builder_index*: ValidatorIndex
+    builder_index*: uint64
     slot*: Slot
     value*: Gwei
     blob_kzg_commitments_root*: KzgCommitments
@@ -84,7 +84,7 @@ type
   # https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.4/specs/_features/eip7732/beacon-chain.md#signedexecutionpayloadenvelope
   ExecutionPayloadEnvelope* = object
     payload*: ExecutionPayload
-    builder_index*: ValidatorIndex
+    builder_index*: uint64
     beacon_block_root*: Eth2Digest
     blob_kzg_commitments*: List[KzgCommitment, Limit MAX_BLOB_COMMITMENTS_PER_BLOCK]
     payload_withheld*: bool
