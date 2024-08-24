@@ -96,9 +96,17 @@ proc initLightClient*(
     optimisticProcessor = initOptimisticProcessor(
       getBeaconTime, optimisticHandler)
 
+    shouldInhibitSync = func(): bool =
+      if node.syncManager != nil:
+        not node.syncManager.inProgress
+        # No LC sync if DAG is in sync
+      else:
+        false
+
     lightClient = createLightClient(
       node.network, rng, config, cfg, forkDigests, getBeaconTime,
-      genesis_validators_root, LightClientFinalizationMode.Strict)
+      genesis_validators_root, LightClientFinalizationMode.Strict,
+      shouldInhibitSync = shouldInhibitSync)
 
   if config.syncLightClient:
     proc onOptimisticHeader(

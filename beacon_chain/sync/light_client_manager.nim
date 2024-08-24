@@ -65,6 +65,7 @@ type
     getFinalizedPeriod: GetSyncCommitteePeriodCallback
     getOptimisticPeriod: GetSyncCommitteePeriodCallback
     getBeaconTime: GetBeaconTimeFn
+    shouldInhibitSync: GetBoolCallback
     loopFuture: Future[void].Raising([CancelledError])
 
 func init*(
@@ -80,7 +81,8 @@ func init*(
     isNextSyncCommitteeKnown: GetBoolCallback,
     getFinalizedPeriod: GetSyncCommitteePeriodCallback,
     getOptimisticPeriod: GetSyncCommitteePeriodCallback,
-    getBeaconTime: GetBeaconTimeFn
+    getBeaconTime: GetBeaconTimeFn,
+    shouldInhibitSync: GetBoolCallback = nil
 ): LightClientManager =
   ## Initialize light client manager.
   LightClientManager(
@@ -95,7 +97,8 @@ func init*(
     isNextSyncCommitteeKnown: isNextSyncCommitteeKnown,
     getFinalizedPeriod: getFinalizedPeriod,
     getOptimisticPeriod: getOptimisticPeriod,
-    getBeaconTime: getBeaconTime
+    getBeaconTime: getBeaconTime,
+    shouldInhibitSync: shouldInhibitSync
   )
 
 proc isGossipSupported*(
@@ -335,6 +338,7 @@ proc loop(self: LightClientManager) {.async: (raises: [CancelledError]).} =
     # Periodically wake and check for changes
     let wallTime = self.getBeaconTime()
     if wallTime < nextSyncTaskTime or
+        (self.shouldInhibitSync != nil and self.shouldInhibitSync()) or
         self.network.peerPool.lenAvailable < 1:
       await sleepAsync(chronos.seconds(2))
       continue
