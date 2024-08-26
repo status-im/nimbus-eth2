@@ -240,8 +240,10 @@ proc compute_signed_block_header(signed_block: deneb.SignedBeaconBlock |
   )
 
 # https://github.com/ethereum/consensus-specs/blob/bb8f3caafc92590cdcf2d14974adb602db9b5ca3/specs/_features/eip7594/das-core.md#get_data_column_sidecars
-proc get_data_column_sidecars*(signed_block: deneb.TrustedSignedBeaconBlock |
-                               electra.TrustedSignedBeaconBlock,
+proc get_data_column_sidecars*(signed_block: deneb.TrustedSignedBeaconBlock | 
+                               deneb.SignedBeaconBlock |
+                               electra.TrustedSignedBeaconBlock | 
+                               electra.SignedBeaconBlock,
                                cellsAndProofs: seq[CellsAndProofs]):
                                Result[seq[DataColumnSidecar], string] =
   # Given a signed block and the cells/proofs associated with each blob

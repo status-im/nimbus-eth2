@@ -10,6 +10,7 @@
 import
   stew/results,
   std/sequtils,
+  kzg4844/[kzg_ex],
   chronicles,
   metrics,
   ../spec/network,
@@ -20,7 +21,7 @@ import
     block_processor],
   ../networking/eth2_network,
   ./activity_metrics,
-  ../spec/datatypes/deneb
+  ../spec/datatypes/[deneb, eip7594]
 from  ../spec/state_transition_block import validate_blobs
 
 export eth2_processor, eth2_network
@@ -172,10 +173,13 @@ proc routeSignedBeaconBlock*(
       debugEcho blobs.len
       debugEcho blobs.len
       if blobs.len != 0:
-        let cells_and_proofs = computeCellsAndProofs(blobs.mapIt(KzgBlob(bytes: it.blob)))
-        if not cells_and_proofs.isOk:
-          debug "Issue computing cells and proofs from blob payload"
-        let dataColumnsOpt = newClone get_data_column_sidecars(blck, cells_and_proofs)
+        var cp: seq[CellsAndProofs]
+        for i in 0 ..< blobs.len:
+          let cells_and_proofs = computeCellsAndKzgProofs(KzgBlob(bytes: blobs[i].blob))
+          if not cells_and_proofs.isOk:
+            debug "Issue computing cells and proofs from blob payload"
+          cp.add(cells_and_proofs.get)
+        let dataColumnsOpt = newClone get_data_column_sidecars(blck, cp)
         if not dataColumnsOpt[].isOk:
           debug "Issue with computing data column from blob bundle"
         let data_columns = dataColumnsOpt[].get()
