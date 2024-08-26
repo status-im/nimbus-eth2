@@ -170,12 +170,17 @@ proc routeSignedBeaconBlock*(
     if blobsOpt.isSome():
       let blobs = blobsOpt.get()
       if blobs.len != 0:
+
         let dataColumnsOpt = newClone get_data_column_sidecars(blck, blobs.mapIt(KzgBlob(bytes: it.blob)))
         if not dataColumnsOpt[].isOk:
           debug "Issue with computing data column from blob bundle"
         let data_columns = dataColumnsOpt[].get()
+        debugEcho "DataColumns len"
+        debugEcho data_columns.len
         var das_workers = newSeq[Future[SendResult]](len(dataColumnsOpt[].get()))
-        for i in 0..<data_columns.len:
+        debugEcho "das workers len"
+        debugEcho das_workers.len
+        for i in 0..<data_columns.lenu64:
           debugEcho "index"
           debugEcho i
           debugEcho "data column index"
