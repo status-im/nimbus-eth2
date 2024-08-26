@@ -175,17 +175,19 @@ proc routeSignedBeaconBlock*(
           debug "Issue with computing data column from blob bundle"
         let data_columns = dataColumnsOpt[].get()
         var das_workers = newSeq[Future[SendResult]](len(dataColumnsOpt[].get()))
-        for i in 0..<data_columns.len:
-          let subnet_id = compute_subnet_for_data_column_sidecar(uint64(i))
+        for dc in data_columns:
+          let subnet_id = compute_subnet_for_data_column_sidecar(dc.index)
+          debugEcho "Subnet ID"
+          debugEcho subnet_id
           das_workers[i] = 
-              router[].network.broadcastDataColumnSidecar(subnet_id, dataColumnsOpt[].get()[int(i)])
+              router[].network.broadcastDataColumnSidecar(subnet_id, dc)
         let allres = await allFinished(das_workers)
         for i in 0..<allres.len:
           let res = allres[i]
           doAssert res.finished()
           if res.failed():
             notice "Data Columns not sent",
-              data_column = shortLog(dataColumnsOpt[].get()[i]), error = res.error[]
+              data_column = shortLog(dc), error = res.error[]
           else:
             notice "Data columns sent", data_column = shortLog(dataColumnsOpt[].get()[i])
         dataColumnRefs = Opt.some(dataColumnsOpt[].get().mapIt(newClone(it)))
