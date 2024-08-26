@@ -15,7 +15,7 @@ import
     ../extras,
     ./datatypes/[phase0, altair, bellatrix, deneb, epbs],
     "."/[beaconstate, eth2_merkleization, helpers, validator, signatures,
-            payload_attestations,],
+            payload_attestations, ],
     kzg4844/kzg_abi, kzg4844/kzg_ex
 import ./payload_attestations
 
@@ -31,7 +31,8 @@ export extras, phase0, altair
 
 func process_withdrawals*(
     # [TODO] Update to only accept epbs beaconstate state in beaconstate.nim
-    state: var (capella.BeaconState | deneb.BeaconState | electra.BeaconState | epbs.BeaconState)): 
+    state: var (capella.BeaconState | deneb.BeaconState | electra.BeaconState |
+            epbs.BeaconState)):
     Result[void, cstring] =
     # Return early if the parent block was empty
     if not is_parent_block_full(state):
@@ -42,12 +43,13 @@ func process_withdrawals*(
         get_expected_withdrawals_with_partial_count(state)
 
     # Update pending partial withdrawals [New in Electra:EIP7251]
-    state.pending_partial_withdrawals = 
-        HashList[PendingPartialWithdrawal, Limit PENDING_PARTIAL_WITHDRAWALS_LIMIT].init(
+    state.pending_partial_withdrawals =
+        HashList[PendingPartialWithdrawal,
+                Limit PENDING_PARTIAL_WITHDRAWALS_LIMIT].init(
             state.pending_partial_withdrawals.asSeq[partial_withdrawals_count .. ^1])
 
-    let withdrawals_list = 
-       withdrawals[0 ..< min(len(withdrawals), MAX_WITHDRAWALS_PER_PAYLOAD)]
+    let withdrawals_list =
+        withdrawals[0 ..< min(len(withdrawals), MAX_WITHDRAWALS_PER_PAYLOAD)]
 
     state.latest_withdrawals_root = hash_tree_root(withdrawals_list)
     for withdrawal in withdrawals:
@@ -61,8 +63,8 @@ func process_withdrawals*(
     # Update the next validator index to start the next withdrawal sweep
     if len(withdrawals) == MAX_WITHDRAWALS_PER_PAYLOAD:
         # Next sweep starts after the latest withdrawal's validator index
-        let next_validator_index = 
-          (withdrawals[^1].validator_index + 1) mod lenu64(state.validators)
+        let next_validator_index =
+            (withdrawals[^1].validator_index + 1) mod lenu64(state.validators)
         state.next_withdrawal_validator_index = next_validator_index
     else:
         # Advance sweep by the max length of the sweep if there was not a full set of withdrawals
@@ -80,13 +82,13 @@ proc process_execution_payload_header*(state: var epbs.BeaconState,
 
 
     for vidx in state.validators.vindices:
-      # Get the actual pubkey from the validator
-      let pubkey = state.validators.mitem(vidx).pubkey()
+        # Get the actual pubkey from the validator
+        let pubkey = state.validators.mitem(vidx).pubkey()
 
-      if not verify_execution_payload_header_signature(
-          state.fork, state.genesis_validators_root, signed_header,
-          pubkey, signed_header.signature):
-        return err("payload_header: signature verification failure")
+        if not verify_execution_payload_header_signature(
+            state.fork, state.genesis_validators_root, signed_header,
+            pubkey, signed_header.signature):
+            return err("payload_header: signature verification failure")
 
     # Check that the builder has funds to cover the bid
     let header = signed_header.message
@@ -94,25 +96,25 @@ proc process_execution_payload_header*(state: var epbs.BeaconState,
     let amount = header.value
 
     if state.balances.item(builder_index) < amount:
-      return err("insufficient balance")
+        return err("insufficient balance")
 
     # Verify that the bid is for the current slot
     if header.slot != blck.slot:
-      return err("slot mismatch")
+        return err("slot mismatch")
 
     # Verify that the bid is for the right parent block
     if header.parent_block_hash != state.latest_block_hash:
-      return err("parent block hash mismatch")
+        return err("parent block hash mismatch")
 
     if header.parent_block_root != blck.parent_root:
-      return err("parent block root mismatch")
+        return err("parent block root mismatch")
 
     # Convert proposer index to ValidatorIndex
     let proposer_index = ValidatorIndex.init(blck.proposer_index).valueOr:
-      return err("process_execution_payload_header: proposer index out of range")
+        return err("process_execution_payload_header: proposer index out of range")
 
     let builder_idx = ValidatorIndex.init(builder_index).valueOr:
-      return err("process_execution_payload_header: builder index out of range")
+        return err("process_execution_payload_header: builder index out of range")
 
     # Transfer the funds from the builder to the proposer
     decrease_balance(state, builder_idx, amount)
@@ -164,7 +166,7 @@ proc process_operations(
             if bsv_use:
                 sortValidatorBuckets(state.validators.asSeq)
             else:
-                nil  # this is a logic error, effectively assert
+                nil                    # this is a logic error, effectively assert
 
     for op in body.proposer_slashings:
         let (proposer_slashing_reward, new_exit_queue_info) =
@@ -195,26 +197,30 @@ proc process_operations(
             ?process_bls_to
 
 # https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.4/specs/_features/eip7732/beacon-chain.md#process_payload_attestation
-# proc process_payload_attestation*(state: var epbs.BeaconState, blck: epbs.BeaconBlock,  payload_attestation: PayloadAttestation, cache: var StateCache): Result[void, cstring] =
-#   # Check that the attestation is for the parent beacon block
-#   let data = payload_attestation.data
+proc process_payload_attestation*(state: var epbs.BeaconState,
+        blck: epbs.BeaconBlock, payload_attestation: PayloadAttestation,
+        cache: var StateCache): Result[void, cstring] =
+    # Check that the attestation is for the parent beacon block
+    let data = payload_attestation.data
 
-#   if not (data.beacon_block_root == state.latest_block_header.parent_root):
-#     return err("process_execution_payload: beacon block and latest block mismatch")
+    if not (data.beacon_block_root == state.latest_block_header.parent_root):
+        return err("process_execution_payload: beacon block and latest block mismatch")
 
-#   if data.slot + 1 != state.slot:
-#     return err("process_execution_payload: slot mismatch")
+    if data.slot + 1 != state.slot:
+        return err("process_execution_payload: slot mismatch")
 
-#   # Verify signature
-#   let indexed_payload_attestation = get_indexed_payload_attestation(state, data.slot, payload_attestation)
-#   if not (is_valid_indexed_payload_attestation(state, indexed_payload_attestation)):
-#     return err("process_payload_attestation: signature verification failed")
+    ok()
 
-#   var epochParticipation: EpochParticipationFlags
-#   if state.slot mod SLOTS_PER_EPOCH == 0:
-#     epochParticipation = state.previous_epoch_participation
-#   else:
-#     epochParticipation = state.current_epoch_participation
+    # # Verify signature
+    # let indexed_payload_attestation = get_indexed_payload_attestation(state, data.slot, payload_attestation, cache, attestation)
+    # if not (is_valid_indexed_payload_attestation(state, indexed_payload_attestation)):
+    #   return err("process_payload_attestation: signature verification failed")
+
+    # var epochParticipation: EpochParticipationFlags
+    # if state.slot mod SLOTS_PER_EPOCH == 0:
+    #   epochParticipation = state.previous_epoch_participation
+    # else:
+    #   epochParticipation = state.current_epoch_participation
 
 
 #   # Return early if the attestation is for the wrong payload status
@@ -256,8 +262,11 @@ proc process_operations(
 
 # https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.4/specs/_features/eip7732/beacon-chain.md#modified-process_execution_payload
 proc process_execution_payload*(
-    cfg: RuntimeConfig, body: SomeForkyBeaconBlockBody, state: var epbs.BeaconState, signed_envelope: SignedExecutionPayloadEnvelope,
-    notify_new_payload: electra.ExecutePayload, verify: bool = true): Result[void, cstring] =
+    cfg: RuntimeConfig, body: SomeForkyBeaconBlockBody,
+            state: var epbs.BeaconState,
+            signed_envelope: SignedExecutionPayloadEnvelope,
+    notify_new_payload: electra.ExecutePayload, verify: bool = true): Result[
+            void, cstring] =
   template payload: auto = body.execution_payload
 
   if verify:
@@ -334,16 +343,16 @@ proc process_execution_payload*(
     var
         bsv_use =
             when typeof(body).kind >= ConsensusFork.Electra:
-            body.deposits.len + body.execution_payload.deposit_requests.len +
-            body.execution_payload.withdrawal_requests.len +
-            body.execution_payload.consolidation_requests.len > 0
+              body.deposits.len + body.execution_payload.deposit_requests.len +
+              body.execution_payload.withdrawal_requests.len +
+              body.execution_payload.consolidation_requests.len > 0
             else:
-            body.deposits.len > 0
+              body.deposits.len > 0
         bsv =
             if bsv_use:
-            sortValidatorBuckets(state.validators.asSeq)
+              sortValidatorBuckets(state.validators.asSeq)
             else:
-            nil     # this is a logic error, effectively assert
+              nil     # this is a logic error, effectively assert
 
     when typeof(body).kind >= ConsensusFork.Electra:
         for op in body.execution_payload.deposit_requests:
@@ -371,4 +380,5 @@ func is_merge_transition_complete*(state: epbs.BeaconState): bool =
 # https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.4/specs/_features/eip7732/beacon-chain.md#modified-validate_merge_block
 func validate_merge_block*(blck: epbs.BeaconBlock): bool =
     true
+
 
