@@ -9,18 +9,20 @@
 
 import results, chronos,
        ".."/spec/[forks_light_client, signatures_batch],
-       ".."/consensus_object_pools/[blockchain_dag, attestation_pool,
-                                    blockchain_list, consensus_manager],
+       ".."/consensus_object_pools/[block_pools_types, blockchain_dag,
+                                    attestation_pool, blockchain_list,
+                                    consensus_manager],
        ".."/validators/validator_monitor,
        ".."/beacon_clock,
        ".."/networking/eth2_network,
        "."/sync_manager
 
-export results, chronos
+export results, chronos, block_pools_types
 
 type
   BlockDataChunk* = ref object
     resfut*: Future[Result[void, string]].Raising([CancelledError])
+    onStateUpdatedCb*: OnStateUpdated
     blocks*: seq[BlockData]
 
   SyncOverseer* = object
