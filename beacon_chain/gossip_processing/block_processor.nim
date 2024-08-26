@@ -661,6 +661,7 @@ proc storeBlock(
           if r.isErr():
             debug "data column sidecar verification failed",
               blockroot = shortLog(signedBlock.root),
+              column_sidecar = shortLog(data_column_sidecars[i][]),
               blck = shortLog(signedBlock.message),
               kzgCommits = 
                 mapIt(data_column_sidecars[i][].kzg_commitments,
