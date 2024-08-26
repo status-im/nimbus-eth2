@@ -483,6 +483,7 @@ proc verifyBlockProposer*(
 proc addBackfillBlockData*(
     dag: ChainDAGRef,
     bdata: BlockData,
+    onStateUpdated: OnStateUpdated,
     onBlockAdded: OnForkedBlockAdded
 ): Result[void, VerifierError] =
   var cache = StateCache()
@@ -500,6 +501,11 @@ proc addBackfillBlockData*(
       error "Unable to load clearance state for parent block, " &
             "database corrupt?", clearanceBlock = shortLog(clearanceBlock)
       return err(VerifierError.MissingParent)
+
+    let proposerVerifyTick = Moment.now()
+
+    if not(isNil(onStateUpdated)):
+      ? onStateUpdated(forkyBlck.message.slot)
 
     let stateDataTick = Moment.now()
 
@@ -533,8 +539,8 @@ proc addBackfillBlockData*(
       true,
       parent, cache,
       blockHandler,
-      stateDataTick - startTick,
-      ZeroDuration,
+      proposerVerifyTick - startTick,
+      stateDataTick - proposerVerifyTick,
       stateVerifyTick - stateDataTick)
 
   ok()
