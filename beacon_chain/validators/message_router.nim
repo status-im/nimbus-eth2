@@ -172,8 +172,10 @@ proc routeSignedBeaconBlock*(
       debugEcho blobs.len
       debugEcho blobs.len
       if blobs.len != 0:
-
-        let dataColumnsOpt = newClone get_data_column_sidecars(blck, blobs.mapIt(KzgBlob(bytes: it.blob)))
+        let cells_and_proofs = computeCellsAndProofs(blobs.mapIt(KzgBlob(bytes: it.blob)))
+        if not cells_and_proofs.isOk:
+          debug "Issue computing cells and proofs from blob payload"
+        let dataColumnsOpt = newClone get_data_column_sidecars(blck, cells_and_proofs)
         if not dataColumnsOpt[].isOk:
           debug "Issue with computing data column from blob bundle"
         let data_columns = dataColumnsOpt[].get()
