@@ -36,9 +36,11 @@ type
   BlockDataRes* = Result[BlockData, string]
 
 proc init*(t: typedesc[BlockDataChunk],
+           stateCallback: OnStateUpdated,
            data: openArray[BlockData]): BlockDataChunk =
   BlockDataChunk(
     blocks: @data,
+    onStateUpdatedCb: stateCallback,
     resfut:
       Future[Result[void, string]].Raising([CancelledError]).init(
         "blockdata.chunk")
@@ -53,9 +55,10 @@ proc shortLog*(c: BlockDataChunk): string =
   "[" & map & "]:" & futureState
 
 iterator chunks*(data: openArray[BlockData],
+                 stateCallback: OnStateUpdated,
                  maxCount: Positive): BlockDataChunk =
   for i in countup(0, len(data) - 1, maxCount):
-    yield BlockDataChunk.init(
+    yield BlockDataChunk.init(stateCallback,
       data.toOpenArray(i, min(i + maxCount, len(data)) - 1))
 
 proc getLatestBeaconHeader*(
@@ -235,7 +238,8 @@ proc blockProcessingLoop(overseer: SyncOverseerRef): Future[void] {.
 
       for bdata in bchunk.blocks:
         block:
-          let res = addBackfillBlockData(dag, bdata, onBlockAdded)
+          let res = addBackfillBlockData(dag, bdata, bchunk.onStateUpdatedCb,
+                                         onBlockAdded)
           if res.isErr():
             let msg = "Unable to add block data to database [" &
                       $res.error & "]"
@@ -327,18 +331,25 @@ proc rebuildState(overseer: SyncOverseerRef): Future[void] {.
             startTick = Moment.now()
             blocksOnly = blocks.mapIt(it.blck)
 
-          verifyBlockProposer(dag, batchVerifier[], blocksOnly).isOkOr:
-            for signedBlock in blocksOnly:
-              let res = verifyBlockProposer(dag, signedBlock)
-              if res.isErr():
-                fatal "Unable to verify block proposer",
-                      blck = shortLog(signedBlock),
-                      reason = res.error
-                quit 1
+          proc onStateUpdate(slot: Slot): Result[void, VerifierError] {.
+               gcsafe, raises: [].} =
 
-          let verifyTick = Moment.now()
+            if slot != blocksOnly[0].slot:
+              # We going to verify signatures only at the beginning of
+              # chunk/epoch.
+              return ok()
 
-          for bchunk in blocks.chunks(BLOCKS_PROCESS_CHUNK_SIZE):
+            verifyBlockProposer(dag, batchVerifier[], blocksOnly).isOkOr:
+              for signedBlock in blocksOnly:
+                let res = verifyBlockProposer(dag, signedBlock)
+                if res.isErr():
+                  fatal "Unable to verify block proposer",
+                        blck = shortLog(signedBlock),
+                        reason = res.error
+              return err(VerifierError.Invalid)
+            ok()
+
+          for bchunk in blocks.chunks(onStateUpdate, BLOCKS_PROCESS_CHUNK_SIZE):
             try:
               overseer.blocksQueue.addLastNoWait(bchunk)
             except AsyncQueueFullError:
@@ -354,8 +365,7 @@ proc rebuildState(overseer: SyncOverseerRef): Future[void] {.
                 head = shortLog(dag.head),
                 finalized = shortLog(getStateField(
                   dag.headState, finalized_checkpoint)),
-                signature_time = verifyTick - startTick,
-                store_update_time = updateTick - verifyTick
+                store_update_time = updateTick - startTick
 
           overseer.updatePerformance(startTick, len(blocks))
           blocks.setLen(0)

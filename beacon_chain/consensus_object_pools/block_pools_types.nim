@@ -307,6 +307,9 @@ type
     blckRef: BlockRef, blck: ForkedTrustedSignedBeaconBlock, epochRef: EpochRef,
     unrealized: FinalityCheckpoints) {.gcsafe, raises: [].}
 
+  OnStateUpdated* = proc(
+    slot: Slot): Result[void, VerifierError] {.gcsafe, raises: [].}
+
   HeadChangeInfoObject* = object
     slot*: Slot
     block_root* {.serializedFieldName: "block".}: Eth2Digest
