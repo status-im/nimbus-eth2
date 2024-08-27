@@ -671,6 +671,14 @@ proc storeBlock(
               msg = r.error
             return err((VerifierError.Invalid, ProcessingStatus.completed))
 
+          notice "Verified data columns successfully", 
+            blockroot = shortLog(signedBlock.root),
+            column_sidecar = shortLog(data_column_sidecars[i][]),
+            blck = shortLog(signedBlock.message),
+            kzgCommits = 
+              mapIt(data_column_sidecars[i][].kzg_commitments,
+                    shortLog(it))
+
   type Trusted = typeof signedBlock.asTrusted()
 
   let
@@ -721,7 +729,8 @@ proc storeBlock(
   let data_columns = dataColumnsOpt.valueOr: DataColumnSidecars @[]
   for c in data_columns:
     self.consensusManager.dag.db.putDataColumnSidecar(c[])
-    debug "Data column written to database!"
+    debug "Data column written to database!",
+      data_column = shortLog(c[])
 
   let addHeadBlockTick = Moment.now()
 
