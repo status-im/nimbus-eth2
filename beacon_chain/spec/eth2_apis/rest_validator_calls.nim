@@ -71,6 +71,15 @@ proc getAggregatedAttestationPlain*(
      meth: MethodGet.}
   ## https://ethereum.github.io/beacon-APIs/#/Validator/getAggregatedAttestation
 
+proc getAggregatedAttestationPlainV2*(
+       attestation_data_root: Eth2Digest,
+       slot: Slot,
+       committee_index: CommitteeIndex
+     ): RestPlainResponse {.
+     rest, endpoint: "/eth/v2/validator/aggregate_attestation"
+     meth: MethodGet.}
+  ## https://ethereum.github.io/beacon-APIs/#/Validator/getAggregatedAttestation
+
 proc publishAggregateAndProofs*(
        body: seq[phase0.SignedAggregateAndProof]
      ): RestPlainResponse {.
