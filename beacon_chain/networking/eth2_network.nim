@@ -1484,7 +1484,7 @@ proc trimConnections(node: Eth2Node, count: int) =
     if toKick <= 0: return
 
 proc getLowSubnets(node: Eth2Node, epoch: Epoch): 
-                  (AttnetBits, SyncnetBits, CscCount) =
+                  (AttnetBits, SyncnetBits, CscBits) =
   # Returns the subnets required to have a healthy mesh
   # The subnets are computed, to, in order:
   # - Have 0 subnet with < `dLow` peers from topic subscription
@@ -1550,7 +1550,7 @@ proc getLowSubnets(node: Eth2Node, epoch: Epoch):
       findLowSubnets(getSyncCommitteeTopic, SyncSubcommitteeIndex, SYNC_COMMITTEE_SUBNET_COUNT)
     else:
       default(SyncnetBits),
-    findLowSubnets(getDataColumnSidecarTopic, uint64, DATA_COLUMN_SIDECAR_SUBNET_COUNT.int).countOnes.uint8
+    findLowSubnets(getDataColumnSidecarTopic, uint64, DATA_COLUMN_SIDECAR_SUBNET_COUNT.int)
   )
 
 proc runDiscoveryLoop(node: Eth2Node) {.async.} =
@@ -1562,7 +1562,8 @@ proc runDiscoveryLoop(node: Eth2Node) {.async.} =
       (wantedAttnets, wantedSyncnets, wantedCscnets) = node.getLowSubnets(currentEpoch)
       wantedAttnetsCount = wantedAttnets.countOnes()
       wantedSyncnetsCount = wantedSyncnets.countOnes()
-      wantedCscnetsCount = wantedCscnets
+      wantedCscnetsCount = wantedCscnets.countOnes()
+      wantedCscnetsUint = wantedCscnetsCount.uint8
       outgoingPeers = node.peerPool.lenCurrent({PeerType.Outgoing})
       targetOutgoingPeers = max(node.wantedPeers div 10, 3)
 
@@ -1580,7 +1581,7 @@ proc runDiscoveryLoop(node: Eth2Node) {.async.} =
           node.discoveryForkId,
           wantedAttnets,
           wantedSyncnets,
-          wantedCscnets,
+          wantedCscnetsUint,
           minScore)
 
       let newPeers = block:
