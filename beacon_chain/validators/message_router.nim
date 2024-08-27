@@ -185,6 +185,12 @@ proc routeSignedBeaconBlock*(
         let data_columns = dataColumnsOpt[].get()
         debugEcho "DataColumns len"
         debugEcho data_columns.len
+        debugEcho "Column len"
+        debugEcho data_column.column.len
+        debugEcho "kzg comm len"
+        debugEcho data_column.kzg_commitments.len
+        debugEcho "kzg proof len"
+        debugEcho data_column.kzg_proofs.len
         var das_workers = newSeq[Future[SendResult]](len(dataColumnsOpt[].get()))
         debugEcho "das workers len"
         debugEcho das_workers.len

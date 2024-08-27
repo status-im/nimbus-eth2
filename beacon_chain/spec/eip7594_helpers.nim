@@ -254,7 +254,7 @@ proc get_data_column_sidecars*(signed_block: deneb.TrustedSignedBeaconBlock |
       compute_signed_block_header(signed_block)
     kzg_incl_proof: array[4, Eth2Digest]
 
-  var sidecars = newSeqOfCap[DataColumnSidecar](CELLS_PER_EXT_BLOB)
+  var sidecars = newSeq[DataColumnSidecar]
 
   if cellsAndProofs.len == 0:
     return ok(sidecars)
@@ -269,9 +269,9 @@ proc get_data_column_sidecars*(signed_block: deneb.TrustedSignedBeaconBlock |
 
     var sidecar = DataColumnSidecar(
       index: ColumnIndex(column_index),
-      column: DataColumn(column_cells),
+      column: column_cells,
       kzgCommitments: blck.body.blob_kzg_commitments,
-      kzgProofs: KzgProofs(column_proofs),
+      kzgProofs: column_proofs,
       signed_block_header: signed_beacon_block_header)
     blck.body.build_proof(
       27.GeneralizedIndex,
