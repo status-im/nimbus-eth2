@@ -854,7 +854,7 @@ proc installValidatorApiHandlers*(router: var RestRouter, node: BeaconNode) =
                              InvalidAttestationDataRootValueError, $res.error())
             res.get()
         let res =
-          node.attestationPool[].getElectraAggregatedAttestation(slot, root, comittee_index)
+          node.attestationPool[].getElectraAggregatedAttestation(slot, root, committee_index)
         if res.isNone():
           return RestApiResponse.jsonError(Http400,
                                           UnableToGetAggregatedAttestationError)
