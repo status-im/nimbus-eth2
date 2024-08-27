@@ -199,11 +199,16 @@ proc addForkChoiceVotes(
       # hopefully the fork choice will heal itself over time.
       error "Couldn't add attestation to fork choice, bug?", err = v.error()
 
-func candidateIdx(pool: AttestationPool, slot: Slot): Opt[int] =
+func candidateIdx(pool: AttestationPool, slot: Slot,
+  isElectra: bool = false): Opt[int] =
   static: doAssert pool.phase0Candidates.len == pool.electraCandidates.len
+
+  let poolLength = if isElectra:
+    pool.electraCandidates.lenu64 else: pool.phase0Candidates.lenu64
+
   if slot >= pool.startingSlot and
-      slot < (pool.startingSlot + pool.phase0Candidates.lenu64):
-    Opt.some(int(slot mod pool.phase0Candidates.lenu64))
+      slot < (pool.startingSlot + poolLength):
+    Opt.some(int(slot mod poolLength))
   else:
     Opt.none(int)
 
@@ -978,7 +983,8 @@ proc getElectraAttestationsForBlock*(
     else:
       default(seq[electra.Attestation])
 
-func bestValidation(aggregates: openArray[Phase0Validation]): (int, int) =
+func bestValidation(
+  aggregates: openArray[Phase0Validation | ElectraValidation]): (int, int) =
   # Look for best validation based on number of votes in the aggregate
   doAssert aggregates.len() > 0,
     "updateAggregates should have created at least one aggregate"
@@ -992,6 +998,29 @@ func bestValidation(aggregates: openArray[Phase0Validation]): (int, int) =
       best = count
       bestIndex = i
   (bestIndex, best)
+
+func getElectraAggregatedAttestation*(
+    pool: var AttestationPool, slot: Slot,
+    attestationDataRoot: Eth2Digest, committeeIndex: CommitteeIndex):
+    Opt[electra.Attestation] =
+
+  let candidateIdx = pool.candidateIdx(slot)
+  if candidateIdx.isNone:
+    return Opt.none(electra.Attestation)
+
+  var res: Opt[electra.Attestation]
+  for _, entry in pool.electraCandidates[candidateIdx.get].mpairs():
+    if entry.data.index != committeeIndex.uint64:
+      continue
+
+    entry.updateAggregates()
+
+    let (bestIndex, best) = bestValidation(entry.aggregates)
+
+    if res.isNone() or best > res.get().aggregation_bits.countOnes():
+      res = Opt.some(entry.toElectraAttestation(entry.aggregates[bestIndex]))
+
+  res
 
 func getAggregatedAttestation*(
     pool: var AttestationPool, slot: Slot, attestation_data_root: Eth2Digest):
