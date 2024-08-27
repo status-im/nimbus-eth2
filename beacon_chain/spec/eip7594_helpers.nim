@@ -254,7 +254,7 @@ proc get_data_column_sidecars*(signed_block: deneb.TrustedSignedBeaconBlock |
       compute_signed_block_header(signed_block)
     kzg_incl_proof: array[4, Eth2Digest]
 
-  var sidecars = newSeq[DataColumnSidecar](CELLS_PER_EXT_BLOB)
+  var sidecars = newSeqOfCap[DataColumnSidecar](CELLS_PER_EXT_BLOB)
 
   if cellsAndProofs.len == 0:
     return ok(sidecars)
@@ -293,7 +293,7 @@ proc get_data_column_sidecars*(signed_block: deneb.SignedBeaconBlock |
     signed_beacon_block_header = compute_signed_block_header(signed_block)
     kzg_incl_proof: array[4, Eth2Digest]
   
-  var sidecars = newSeq[DataColumnSidecar](CELLS_PER_EXT_BLOB)
+  var sidecars = newSeqOfCap[DataColumnSidecar](CELLS_PER_EXT_BLOB)
 
   if blobs.len == 0:
     return ok(sidecars)
