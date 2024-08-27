@@ -76,7 +76,7 @@ type
     kzg_commitment*: KzgCommitment
     versioned_hash*: string  # TODO should be string; VersionedHash not distinct
 
-  # https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.3/specs/deneb/p2p-interface.md#blobidentifier
+  # https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.5/specs/deneb/p2p-interface.md#blobidentifier
   BlobIdentifier* = object
     block_root*: Eth2Digest
     index*: BlobIndex
@@ -158,7 +158,7 @@ type
       ## Execution payload header corresponding to `beacon.body_root` (from Capella onward)
     execution_branch*: capella.ExecutionBranch
 
-  # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.5/specs/altair/light-client/sync-protocol.md#lightclientbootstrap
+  # https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.5/specs/altair/light-client/sync-protocol.md#lightclientbootstrap
   LightClientBootstrap* = object
     header*: LightClientHeader
       ## Header matching the requested beacon block root
@@ -167,7 +167,7 @@ type
       ## Current sync committee corresponding to `header.beacon.state_root`
     current_sync_committee_branch*: altair.CurrentSyncCommitteeBranch
 
-  # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.5/specs/altair/light-client/sync-protocol.md#lightclientupdate
+  # https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.5/specs/altair/light-client/sync-protocol.md#lightclientupdate
   LightClientUpdate* = object
     attested_header*: LightClientHeader
       ## Header attested to by the sync committee
@@ -325,7 +325,7 @@ type
     data*: BeaconState
     root*: Eth2Digest # hash_tree_root(data)
 
-  # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.6/specs/phase0/beacon-chain.md#beaconblock
+  # https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.5/specs/phase0/beacon-chain.md#beaconblock
   BeaconBlock* = object
     ## For each slot, a proposer is chosen from the validator pool to propose
     ## a new block. Once the block as been proposed, it is transmitted to
@@ -466,7 +466,7 @@ type
     bls_to_execution_changes*: SignedBLSToExecutionChangeList
     blob_kzg_commitments*: KzgCommitments  # [New in Deneb]
 
-  # https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.3/specs/phase0/beacon-chain.md#signedbeaconblock
+  # https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.5/specs/phase0/beacon-chain.md#signedbeaconblock
   SignedBeaconBlock* = object
     message*: BeaconBlock
     signature*: ValidatorSig
@@ -626,7 +626,7 @@ func kzg_commitment_inclusion_proof_gindex*(
 
   BLOB_KZG_COMMITMENTS_FIRST_GINDEX + index
 
-# https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.3/specs/deneb/light-client/sync-protocol.md#modified-get_lc_execution_root
+# https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.5/specs/deneb/light-client/sync-protocol.md#modified-get_lc_execution_root
 func get_lc_execution_root*(
     header: LightClientHeader, cfg: RuntimeConfig): Eth2Digest =
   let epoch = header.beacon.slot.epoch
@@ -657,7 +657,7 @@ func get_lc_execution_root*(
 
   ZERO_HASH
 
-# https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.3/specs/deneb/light-client/sync-protocol.md#modified-is_valid_light_client_header
+# https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.5/specs/deneb/light-client/sync-protocol.md#modified-is_valid_light_client_header
 func is_valid_light_client_header*(
     header: LightClientHeader, cfg: RuntimeConfig): bool =
   let epoch = header.beacon.slot.epoch

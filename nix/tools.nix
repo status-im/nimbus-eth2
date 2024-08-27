@@ -7,7 +7,7 @@ let
 in {
   findKeyValue = regex: sourceFile:
     let
-      linesFrom = sourceFile: splitString "\n" (fileContents sourceFile);
+      linesFrom = file: splitString "\n" (fileContents file);
       matching = regex: lines: map (line: match regex line) lines;
       extractMatch = matches: last (flatten (remove null matches));
     in
