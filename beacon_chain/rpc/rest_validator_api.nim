@@ -775,6 +775,12 @@ proc installValidatorApiHandlers*(router: var RestRouter, node: BeaconNode) =
   router.api2(MethodGet, "/eth/v1/validator/aggregate_attestation") do (
     attestation_data_root: Option[Eth2Digest],
     slot: Option[Slot]) -> RestApiResponse:
+
+    let contextFork = node.dag.cfg.consensusForkAtEpoch(node.currentSlot.epoch)
+    if contextFork >= ConsensusFork.Electra:
+      return RestApiResponse.jsonError(Http410,
+                                        DeprecatedGetAggregatedAttestation)
+
     let attestation =
       block:
         let qslot =
@@ -798,6 +804,57 @@ proc installValidatorApiHandlers*(router: var RestRouter, node: BeaconNode) =
             res.get()
         let res =
           node.attestationPool[].getAggregatedAttestation(qslot, qroot)
+        if res.isNone():
+          return RestApiResponse.jsonError(Http400,
+                                          UnableToGetAggregatedAttestationError)
+        res.get()
+    RestApiResponse.jsonResponse(attestation)
+
+  # https://ethereum.github.io/beacon-APIs/#/Validator/getAggregatedAttestationV2
+  router.api2(MethodGet, "/eth/v2/validator/aggregate_attestation") do (
+    attestation_data_root: Option[Eth2Digest],
+    committee_index: Option[CommitteeIndex],
+    slot: Option[Slot]) -> RestApiResponse:
+
+    let contextFork = node.dag.cfg.consensusForkAtEpoch(node.currentSlot.epoch)
+    if contextFork < ConsensusFork.Electra:
+      return RestApiResponse.jsonError(Http400,
+                                        UnableToGetAggregatedAttestationError)
+
+    let attestation =
+      block:
+        let slot =
+          block:
+            if slot.isNone():
+              return RestApiResponse.jsonError(Http400, MissingSlotValueError)
+            let res = slot.get()
+            if res.isErr():
+              return RestApiResponse.jsonError(Http400, InvalidSlotValueError,
+                                               $res.error())
+            res.get()
+        let committee_index =
+          block:
+            if committee_index.isNone():
+              return RestApiResponse.jsonError(Http400,
+                                               MissingCommitteeIndexValueError)
+            let res = committee_index.get()
+            if res.isErr():
+              return RestApiResponse.jsonError(Http400,
+                                               InvalidCommitteeIndexValueError,
+                                               $res.error())
+            res.get()
+        let root =
+          block:
+            if attestation_data_root.isNone():
+              return RestApiResponse.jsonError(Http400,
+                                           MissingAttestationDataRootValueError)
+            let res = attestation_data_root.get()
+            if res.isErr():
+              return RestApiResponse.jsonError(Http400,
+                             InvalidAttestationDataRootValueError, $res.error())
+            res.get()
+        let res =
+          node.attestationPool[].getElectraAggregatedAttestation(slot, root, comittee_index)
         if res.isNone():
           return RestApiResponse.jsonError(Http400,
                                           UnableToGetAggregatedAttestationError)
