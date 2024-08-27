@@ -12,7 +12,7 @@ OK: 1/1 Fail: 0/1 Skip: 0/1
 + Can add and retrieve simple electra attestations [Preset: mainnet]                         OK
 + Working with electra aggregates [Preset: mainnet]                                          OK
 ```
-OK: 3/3 Fail: 0/3 Skip: 0/3
+OK: 4/4 Fail: 0/4 Skip: 0/4
 ## Attestation pool processing [Preset: mainnet]
 ```diff
 + Attestation from different branch [Preset: mainnet]                                        OK
@@ -1041,4 +1041,4 @@ OK: 2/2 Fail: 0/2 Skip: 0/2
 OK: 9/9 Fail: 0/9 Skip: 0/9
 
 ---TOTAL---
-OK: 693/698 Fail: 0/698 Skip: 5/698
+OK: 694/699 Fail: 0/699 Skip: 5/699
