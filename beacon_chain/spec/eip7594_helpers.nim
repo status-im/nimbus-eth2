@@ -254,7 +254,7 @@ proc get_data_column_sidecars*(signed_block: deneb.TrustedSignedBeaconBlock |
       compute_signed_block_header(signed_block)
     kzg_incl_proof: array[4, Eth2Digest]
 
-  var sidecars: seq[DataColumnSidecar]
+  var sidecars = newSeq[DataColumnSidecar](CELLS_PER_EXT_BLOB)
 
   if cellsAndProofs.len == 0:
     return ok(sidecars)
@@ -264,9 +264,11 @@ proc get_data_column_sidecars*(signed_block: deneb.TrustedSignedBeaconBlock |
       column_cells: DataColumn
       column_proofs: KzgProofs
     for i in 0..<cellsAndProofs.len:
-      for j in 0 ..< CELLS_PER_EXT_BLOB:
-        column_cells[i] = cellsAndProofs[i].cells[j]
-        column_proofs[i] = cellsAndProofs[i].proofs[j]
+      discard column_cells.add(cellsAndProofs[i].cells)
+      discard column_proofs.add(cellsAndProofs[i].proofs)
+
+    debugEcho "column cells len"
+    debugEcho column_cells.len
 
     var sidecar = DataColumnSidecar(
       index: ColumnIndex(column_index),
@@ -291,7 +293,7 @@ proc get_data_column_sidecars*(signed_block: deneb.SignedBeaconBlock |
     signed_beacon_block_header = compute_signed_block_header(signed_block)
     kzg_incl_proof: array[4, Eth2Digest]
   
-  var sidecars: seq[DataColumnSidecar]
+  var sidecars = newSeq[DataColumnSidecar](CELLS_PER_EXT_BLOB)
 
   if blobs.len == 0:
     return ok(sidecars)
