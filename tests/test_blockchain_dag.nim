@@ -256,39 +256,41 @@ suite "Block pool processing" & preset():
     # move to specific block
     var cache = StateCache()
     check:
-      dag.updateState(tmpState[], bs1, false, cache)
+      dag.updateState(tmpState[], bs1, false, cache, dag.updateFlags)
       tmpState[].latest_block_root == b1Add[].root
       getStateField(tmpState[], slot) == bs1.slot
 
     # Skip slots
     check:
-      dag.updateState(tmpState[], bs1_3, false, cache) # skip slots
+      dag.updateState(tmpState[], bs1_3, false, cache, dag.updateFlags) # skip slots
       tmpState[].latest_block_root == b1Add[].root
       getStateField(tmpState[], slot) == bs1_3.slot
 
     # Move back slots, but not blocks
     check:
       dag.updateState(
-        tmpState[], dag.parent(bs1_3.bid).expect("block").atSlot(), false, cache)
+        tmpState[], dag.parent(bs1_3.bid).expect("block").atSlot(), false,
+        cache, dag.updateFlags)
       tmpState[].latest_block_root == b1Add[].parent.root
       getStateField(tmpState[], slot) == b1Add[].parent.slot
 
     # Move to different block and slot
     check:
-      dag.updateState(tmpState[], bs2_3, false, cache)
+      dag.updateState(tmpState[], bs2_3, false, cache, dag.updateFlags)
       tmpState[].latest_block_root == b2Add[].root
       getStateField(tmpState[], slot) == bs2_3.slot
 
     # Move back slot and block
     check:
-      dag.updateState(tmpState[], bs1, false, cache)
+      dag.updateState(tmpState[], bs1, false, cache, dag.updateFlags)
       tmpState[].latest_block_root == b1Add[].root
       getStateField(tmpState[], slot) == bs1.slot
 
     # Move back to genesis
     check:
       dag.updateState(
-        tmpState[], dag.parent(bs1.bid).expect("block").atSlot(), false, cache)
+        tmpState[], dag.parent(bs1.bid).expect("block").atSlot(), false, cache,
+        dag.updateFlags)
       tmpState[].latest_block_root == b1Add[].parent.root
       getStateField(tmpState[], slot) == b1Add[].parent.slot
 
@@ -500,7 +502,7 @@ suite "chain DAG finalization tests" & preset():
       check: updateState(
         dag, tmpStateData[],
         dag.head.atSlot(dag.head.slot).toBlockSlotId().expect("not nil"),
-        false, cache)
+        false, cache, dag.updateFlags)
 
       check:
         dag.head.slot.epoch in cache.shuffled_active_validator_indices
@@ -623,7 +625,8 @@ suite "chain DAG finalization tests" & preset():
       while cur != nil: # Go all the way to dag.finalizedHead
         assign(tmpStateData[], dag.headState)
         check:
-          dag.updateState(tmpStateData[], cur.bid.atSlot(), false, cache)
+          dag.updateState(tmpStateData[], cur.bid.atSlot(), false, cache,
+                          dag.updateFlags)
           dag.getForkedBlock(cur.bid).get().phase0Data.message.state_root ==
             getStateRoot(tmpStateData[])
           getStateRoot(tmpStateData[]) == hash_tree_root(
