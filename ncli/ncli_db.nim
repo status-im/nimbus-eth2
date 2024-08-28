@@ -295,7 +295,7 @@ proc cmdBench(conf: DbConf, cfg: RuntimeConfig) =
     doAssert dag.updateState(
       stateData[],
       dag.atSlot(blockRefs[^1], blockRefs[^1].slot - 1).expect("not nil"),
-      false, cache)
+      false, cache, dag.updateFlags)
 
   template processBlocks(blocks: auto) =
     for b in blocks.mitems():
@@ -612,7 +612,8 @@ proc cmdExportEra(conf: DbConf, cfg: RuntimeConfig) =
 
     withTimer(timers[tState]):
       var cache: StateCache
-      if not updateState(dag, tmpState[], eraBid, false, cache):
+      if not updateState(dag, tmpState[], eraBid, false, cache,
+                         dag.updateFlags):
         notice "Skipping era, state history not available", era, name
         missingHistory = true
         continue
@@ -753,7 +754,7 @@ proc cmdValidatorPerf(conf: DbConf, cfg: RuntimeConfig) =
   doAssert dag.updateState(
     state[],
     dag.atSlot(blockRefs[^1], blockRefs[^1].slot - 1).expect("block found"),
-    false, cache)
+    false, cache, dag.updateFlags)
 
   proc processEpoch() =
     let
@@ -1051,10 +1052,12 @@ proc cmdValidatorDb(conf: DbConf, cfg: RuntimeConfig) =
   let slot = if startEpochSlot > 0: startEpochSlot - 1 else: 0.Slot
   if blockRefs.len > 0:
     discard dag.updateState(
-      tmpState[], dag.atSlot(blockRefs[^1], slot).expect("block"), false, cache)
+      tmpState[], dag.atSlot(blockRefs[^1], slot).expect("block"), false, cache,
+                             dag.updateFlags)
   else:
     discard dag.updateState(
-      tmpState[], dag.getBlockIdAtSlot(slot).expect("block"), false, cache)
+      tmpState[], dag.getBlockIdAtSlot(slot).expect("block"), false, cache,
+      dag.updateFlags)
 
   let savedValidatorsCount = outDb.getDbValidatorsCount
   var validatorsCount = getStateField(tmpState[], validators).len
