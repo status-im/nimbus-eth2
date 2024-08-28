@@ -1160,10 +1160,11 @@ proc addDenebMessageHandlers(
     debugEcho cs
 
   for i in 0'u64 ..< targetSubnets:
-    let topic = getDataColumnSidecarTopic(forkDigest, i)
-    debugEcho "Topic"
-    debugEcho topic
-    node.network.subscribe(topic, basicParams)
+    if i in custody_subnets.get:
+      let topic = getDataColumnSidecarTopic(forkDigest, i)
+      debugEcho "Topic"
+      debugEcho topic
+      node.network.subscribe(topic, basicParams)
 
   if node.config.subscribeAllSubnets:
     node.network.loadCscnetsMetadata(DATA_COLUMN_SIDECAR_SUBNET_COUNT.uint8)
@@ -2053,24 +2054,23 @@ proc installMessageValidators(node: BeaconNode) =
 
         # data_column_sidecar_{subnet_id}
         #
-        let subnetCount = 
-          if node.config.subscribeAllSubnets:
-            DATA_COLUMN_SIDECAR_SUBNET_COUNT.uint64
-          else:
-            CUSTODY_REQUIREMENT.uint64
+        # let subnetCount = 
+        #   if node.config.subscribeAllSubnets:
+        #     DATA_COLUMN_SIDECAR_SUBNET_COUNT.uint64
+        #   else:
+        #     CUSTODY_REQUIREMENT.uint64
 
-        let dc_subnets = get_custody_column_subnet(node.network.nodeId, subnetCount)
+        # let dc_subnets = get_custody_column_subnet(node.network.nodeId, subnetCount)
         for it in 0'u64 ..< DATA_COLUMN_SIDECAR_SUBNET_COUNT:
           closureScope:  # Needed for inner `proc`; don't lift it out of loop.
             let subnet_id = it
-            if subnet_id in dc_subnets.get:
-              node.network.addValidator(
-                getDataColumnSidecarTopic(digest, subnet_id), proc (
-                  dataColumnSidecar: DataColumnSidecar
-                ): ValidationResult =
-                  toValidationResult(
-                    node.processor[].processDataColumnSidecar(
-                      MsgSource.gossip, dataColumnSidecar, subnet_id)))
+            node.network.addValidator(
+              getDataColumnSidecarTopic(digest, subnet_id), proc (
+                dataColumnSidecar: DataColumnSidecar
+              ): ValidationResult =
+                toValidationResult(
+                  node.processor[].processDataColumnSidecar(
+                    MsgSource.gossip, dataColumnSidecar, subnet_id)))
 
   node.installLightClientMessageValidators()
 
