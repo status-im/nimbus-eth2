@@ -1153,9 +1153,17 @@ proc addDenebMessageHandlers(
     targetSubnets = node.fetchCustodySubnetCount()
     custody_subnets = node.network.nodeId.get_custody_column_subnet(targetSubnets)
 
+  debugEcho "Target Subnets"
+  debugEcho targetSubnets
+  debugEcho "Custody Subnets"
+  for cs in custody_subnets.get:
+    debugEcho cs
+
   for i in 0'u64 ..< targetSubnets:
     if i in custody_subnets.get:
       let topic = getDataColumnSidecarTopic(forkDigest, i)
+      debugEcho "Topic"
+      debugEcho topic
       node.network.subscribe(topic, basicParams)
 
   if node.config.subscribeAllSubnets:
@@ -2056,9 +2064,7 @@ proc installMessageValidators(node: BeaconNode) =
         for it in 0'u64 ..< DATA_COLUMN_SIDECAR_SUBNET_COUNT:
           closureScope:  # Needed for inner `proc`; don't lift it out of loop.
             let subnet_id = it
-            if subnet_id notin dc_subnets.get:
-              discard
-            else:
+            if subnet_id in dc_subnets.get:
               node.network.addValidator(
                 getDataColumnSidecarTopic(digest, subnet_id), proc (
                   dataColumnSidecar: DataColumnSidecar
