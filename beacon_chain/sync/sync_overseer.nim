@@ -236,32 +236,33 @@ proc blockProcessingLoop(overseer: SyncOverseerRef): Future[void] {.
     while true:
       let bchunk = await overseer.blocksQueue.popFirst()
 
-      for bdata in bchunk.blocks:
-        block:
-          let res = addBackfillBlockData(dag, bdata, bchunk.onStateUpdatedCb,
-                                         onBlockAdded)
-          if res.isErr():
-            let msg = "Unable to add block data to database [" &
-                      $res.error & "]"
-            bchunk.resfut.complete(Result[void, string].err(msg))
-            continue
-
-        withBlck(bdata.blck):
-          let res =
-            try:
-              await updateHead(consensusManager, validatorMonitor,
-                overseer.getBeaconTimeFn, forkyBlck,
-                NewPayloadStatus.noResponse)
-            except CancelledError as exc:
-              let msg = "Unable to update head [interrupted]"
+      block innerLoop:
+        for bdata in bchunk.blocks:
+          block:
+            let res = addBackfillBlockData(dag, bdata, bchunk.onStateUpdatedCb,
+                                           onBlockAdded)
+            if res.isErr():
+              let msg = "Unable to add block data to database [" &
+                        $res.error & "]"
               bchunk.resfut.complete(Result[void, string].err(msg))
-              break mainLoop
-          if res.isErr():
-            let msg = "Unable to update head [" & res.error & "]"
-            bchunk.resfut.complete(Result[void, string].err(msg))
-            continue
+              break innerLoop
 
-      bchunk.resfut.complete(Result[void, string].ok())
+          withBlck(bdata.blck):
+            let res =
+              try:
+                await updateHead(consensusManager, validatorMonitor,
+                  overseer.getBeaconTimeFn, forkyBlck,
+                  NewPayloadStatus.noResponse)
+              except CancelledError as exc:
+                let msg = "Unable to update head [interrupted]"
+                bchunk.resfut.complete(Result[void, string].err(msg))
+                break mainLoop
+            if res.isErr():
+              let msg = "Unable to update head [" & res.error & "]"
+              bchunk.resfut.complete(Result[void, string].err(msg))
+              break innerLoop
+
+        bchunk.resfut.complete(Result[void, string].ok())
 
 proc verifyBlockProposer(
     dag: ChainDagRef,
