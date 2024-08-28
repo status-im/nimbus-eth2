@@ -192,7 +192,8 @@ template withStateForBlockSlotId*(nodeParam: BeaconNode,
       else:
         assignClone(node.dag.headState)
 
-      if node.dag.updateState(stateToAdvance[], blockSlotId, false, cache):
+      if node.dag.updateState(stateToAdvance[], blockSlotId, false, cache,
+                              node.dag.updateFlags):
         if cachedState == nil and node.stateTtlCache != nil:
           # This was not a cached state, we can cache it now
           node.stateTtlCache.add(stateToAdvance)

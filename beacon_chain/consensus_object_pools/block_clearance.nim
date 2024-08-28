@@ -113,15 +113,18 @@ proc addResolvedHeadBlock(
   blockRef
 
 proc checkStateTransition(
-       dag: ChainDAGRef, signedBlock: ForkySigVerifiedSignedBeaconBlock,
-       cache: var StateCache): Result[void, VerifierError] =
+    dag: ChainDAGRef,
+    signedBlock: ForkySigVerifiedSignedBeaconBlock,
+    cache: var StateCache,
+    updateFlags: UpdateFlags,
+): Result[void, VerifierError] =
   ## Ensure block can be applied on a state
   func restore(v: var ForkedHashedBeaconState) =
     assign(dag.clearanceState, dag.headState)
 
   let res = state_transition_block(
       dag.cfg, dag.clearanceState, signedBlock,
-      cache, dag.updateFlags, restore)
+      cache, updateFlags, restore)
 
   if res.isErr():
     info "Invalid block",
@@ -149,7 +152,8 @@ proc advanceClearanceState*(dag: ChainDAGRef) =
     var
       cache = StateCache()
       info = ForkedEpochInfo()
-    dag.advanceSlots(dag.clearanceState, next, true, cache, info)
+    dag.advanceSlots(dag.clearanceState, next, true, cache, info,
+                     dag.updateFlags)
     debug "Prepared clearance state for next block",
       next, updateStateDur = Moment.now() - startTick
 
@@ -266,7 +270,7 @@ proc addHeadBlockWithParent*(
   # onto which we can apply the new block
   let clearanceBlock = BlockSlotId.init(parent.bid, signedBlock.message.slot)
   if not updateState(
-      dag, dag.clearanceState, clearanceBlock, true, cache):
+      dag, dag.clearanceState, clearanceBlock, true, cache, dag.updateFlags):
     # We should never end up here - the parent must be a block no older than and
     # rooted in the finalized checkpoint, hence we should always be able to
     # load its corresponding state
@@ -296,7 +300,8 @@ proc addHeadBlockWithParent*(
 
   let sigVerifyTick = Moment.now()
 
-  ? checkStateTransition(dag, signedBlock.asSigVerified(), cache)
+  ? checkStateTransition(dag, signedBlock.asSigVerified(), cache,
+                         dag.updateFlags)
 
   let stateVerifyTick = Moment.now()
   # Careful, clearanceState.data has been updated but not blck - we need to
@@ -497,7 +502,8 @@ proc addBackfillBlockData*(
       startTick = Moment.now()
       clearanceBlock = BlockSlotId.init(parent.bid, forkyBlck.message.slot)
 
-    if not updateState(dag, dag.clearanceState, clearanceBlock, true, cache):
+    if not updateState(dag, dag.clearanceState, clearanceBlock, true, cache,
+                       dag.updateFlags):
       error "Unable to load clearance state for parent block, " &
             "database corrupt?", clearanceBlock = shortLog(clearanceBlock)
       return err(VerifierError.MissingParent)
@@ -507,9 +513,12 @@ proc addBackfillBlockData*(
     if not(isNil(onStateUpdated)):
       ? onStateUpdated(forkyBlck.message.slot)
 
-    let stateDataTick = Moment.now()
+    let
+      stateDataTick = Moment.now()
+      updateFlags =
+        dag.updateFlags - {skipBlsValidation, skipStateRootValidation}
 
-    ? checkStateTransition(dag, forkyBlck.asSigVerified(), cache)
+    ? checkStateTransition(dag, forkyBlck.asSigVerified(), cache, updateFlags)
 
     let stateVerifyTick = Moment.now()
 
