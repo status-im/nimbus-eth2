@@ -1160,11 +1160,10 @@ proc addDenebMessageHandlers(
     debugEcho cs
 
   for i in 0'u64 ..< targetSubnets:
-    if i in custody_subnets.get:
-      let topic = getDataColumnSidecarTopic(forkDigest, i)
-      debugEcho "Topic"
-      debugEcho topic
-      node.network.subscribe(topic, basicParams)
+    let topic = getDataColumnSidecarTopic(forkDigest, i)
+    debugEcho "Topic"
+    debugEcho topic
+    node.network.subscribe(topic, basicParams)
 
   if node.config.subscribeAllSubnets:
     node.network.loadCscnetsMetadata(DATA_COLUMN_SIDECAR_SUBNET_COUNT.uint8)
