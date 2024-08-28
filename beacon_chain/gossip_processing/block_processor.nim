@@ -700,12 +700,12 @@ proc storeBlock(
   for b in blobs:
     self.consensusManager.dag.db.putBlobSidecar(b[])
 
-  # # write data columns now that block has been written.
-  # let data_columns = dataColumnsOpt.valueOr: DataColumnSidecars @[]
-  # for c in data_columns:
-  #   self.consensusManager.dag.db.putDataColumnSidecar(c[])
-  #   debug "Data column written to database!",
-  #     data_column = shortLog(c[])
+  # write data columns now that block has been written.
+  let data_columns = dataColumnsOpt.valueOr: DataColumnSidecars @[]
+  for c in data_columns:
+    self.consensusManager.dag.db.putDataColumnSidecar(c[])
+    debug "Data column written to database!",
+      data_column = shortLog(c[])
 
   let addHeadBlockTick = Moment.now()
 

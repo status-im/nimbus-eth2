@@ -208,7 +208,13 @@ proc routeSignedBeaconBlock*(
               data_column = shortLog(data_columns[i]), error = res.error[]
           else:
             notice "Data columns sent", data_column = shortLog(dataColumnsOpt[].get()[i])
-        dataColumnRefs = Opt.some(dataColumnsOpt[].get().mapIt(newClone(it)))
+        let
+          metadata = router[].network.metadata.custody_subnet_count.uint64
+          custody_columns = router[].network.nodeId.get_custody_columns(metadata)
+
+        for dc in data_columns:
+          if dc.index in custody_columns.get:
+           let dataColumnRefs = Opt.some(dataColumnsOpt[].get().mapIt(newClone(it)))
     
   let added = await router[].blockProcessor[].addBlock(
     MsgSource.api, ForkedSignedBeaconBlock.init(blck), blobRefs, dataColumnRefs)
