@@ -984,7 +984,7 @@ proc getElectraAttestationsForBlock*(
       default(seq[electra.Attestation])
 
 func bestValidation(
-  aggregates: openArray[Phase0Validation | ElectraValidation]): (int, int) =
+    aggregates: openArray[Phase0Validation | ElectraValidation]): (int, int) =
   # Look for best validation based on number of votes in the aggregate
   doAssert aggregates.len() > 0,
     "updateAggregates should have created at least one aggregate"
@@ -1010,7 +1010,7 @@ func getElectraAggregatedAttestation*(
 
   var res: Opt[electra.Attestation]
   for _, entry in pool.electraCandidates[candidateIdx.get].mpairs():
-    if entry.data.index != committeeIndex.uint64:
+    if entry.data.index != committeeIndex.distinctBase:
       continue
 
     entry.updateAggregates()

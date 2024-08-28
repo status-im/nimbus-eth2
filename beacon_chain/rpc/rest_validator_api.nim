@@ -776,11 +776,6 @@ proc installValidatorApiHandlers*(router: var RestRouter, node: BeaconNode) =
     attestation_data_root: Option[Eth2Digest],
     slot: Option[Slot]) -> RestApiResponse:
 
-    let contextFork = node.dag.cfg.consensusForkAtEpoch(node.currentSlot.epoch)
-    if contextFork >= ConsensusFork.Electra:
-      return RestApiResponse.jsonError(Http410,
-                                        DeprecatedGetAggregatedAttestation)
-
     let attestation =
       block:
         let qslot =
@@ -803,7 +798,13 @@ proc installValidatorApiHandlers*(router: var RestRouter, node: BeaconNode) =
                              InvalidAttestationDataRootValueError, $res.error())
             res.get()
         let res =
-          node.attestationPool[].getAggregatedAttestation(qslot, qroot)
+          block:
+            let contextFork = node.dag.cfg.consensusForkAtEpoch(epoch(qslot))
+            if contextFork >= ConsensusFork.Electra:
+              return RestApiResponse.jsonError(Http410,
+                             DeprecatedGetAggregatedAttestation)
+
+            node.attestationPool[].getAggregatedAttestation(qslot, qroot)
         if res.isNone():
           return RestApiResponse.jsonError(Http400,
                                           UnableToGetAggregatedAttestationError)
@@ -816,14 +817,9 @@ proc installValidatorApiHandlers*(router: var RestRouter, node: BeaconNode) =
     committee_index: Option[CommitteeIndex],
     slot: Option[Slot]) -> RestApiResponse:
 
-    let contextFork = node.dag.cfg.consensusForkAtEpoch(node.currentSlot.epoch)
-    if contextFork < ConsensusFork.Electra:
-      return RestApiResponse.jsonError(Http400,
-                                        UnableToGetAggregatedAttestationError)
-
     let attestation =
       block:
-        let slot =
+        let qslot =
           block:
             if slot.isNone():
               return RestApiResponse.jsonError(Http400, MissingSlotValueError)
@@ -854,7 +850,13 @@ proc installValidatorApiHandlers*(router: var RestRouter, node: BeaconNode) =
                              InvalidAttestationDataRootValueError, $res.error())
             res.get()
         let res =
-          node.attestationPool[].getElectraAggregatedAttestation(slot, root, committee_index)
+          block:
+            let contextFork = node.dag.cfg.consensusForkAtEpoch(epoch(qslot))
+            if contextFork < ConsensusFork.Electra:
+              return RestApiResponse.jsonError(Http400,
+                             UnableToGetAggregatedAttestationError)
+
+            node.attestationPool[].getElectraAggregatedAttestation(qslot, root, committee_index)
         if res.isNone():
           return RestApiResponse.jsonError(Http400,
                                           UnableToGetAggregatedAttestationError)
