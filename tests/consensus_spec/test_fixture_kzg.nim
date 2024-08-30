@@ -11,7 +11,7 @@
 import
   std/json,
   yaml/tojson,
-  kzg4844/kzg_ex,
+  kzg4844/kzg,
   stew/byteutils,
   ../testutil,
   ./fixtures_utils, ./os_ops
@@ -31,9 +31,9 @@ func fromHex[N: static int](s: string): Opt[array[N, byte]] =
 
 block:
   template sourceDir: string = currentSourcePath.rsplit(DirSep, 1)[0]
-  doAssert Kzg.loadTrustedSetup(
+  doAssert loadTrustedSetup(
     sourceDir &
-      "/../../vendor/nim-kzg4844/kzg4844/csources/src/trusted_setup.txt").isOk
+      "/../../vendor/nim-kzg4844/kzg4844/csources/src/trusted_setup.txt", 0).isOk
 
 proc runBlobToKzgCommitmentTest(suiteName, suitePath, path: string) =
   let relativePathComponent = path.relativeTestPathComponent(suitePath)
@@ -75,7 +75,7 @@ proc runVerifyKzgProofTest(suiteName, suitePath, path: string) =
     if commitment.isNone or z.isNone or y.isNone or proof.isNone:
       check output.kind == JNull
     else:
-      let v = verifyProof(
+      let v = verifyKzgProof(
         KzgCommitment(bytes: commitment.get),
         KzgBytes32(bytes: z.get), KzgBytes32(bytes: y.get),
         KzgBytes48(bytes: proof.get))
@@ -237,4 +237,4 @@ suite suiteName:
     for kind, path in walkDir(testsDir, relative = true, checkDir = true):
       runComputeBlobKzgProofTest(suiteName, testsDir, testsDir / path)
 
-doAssert Kzg.freeTrustedSetup().isOk
+doAssert freeTrustedSetup().isOk
