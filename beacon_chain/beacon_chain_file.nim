@@ -1004,3 +1004,8 @@ proc seekForSlot*(ch: ChainFileHandle,
       else:
         ? seekForSlotBackward(ch.handle, slot)
   ok(offset)
+
+proc clearFile*(filename: string): Result[void, string] =
+  removeFile(filename).isOkOr:
+    return err(ioErrorMsg(error))
+  ok()

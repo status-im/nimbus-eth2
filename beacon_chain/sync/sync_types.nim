@@ -13,11 +13,11 @@ import results, chronos,
                                     attestation_pool, blockchain_list,
                                     consensus_manager],
        ".."/validators/validator_monitor,
-       ".."/beacon_clock,
+       ".."/[beacon_clock, conf],
        ".."/networking/eth2_network,
        "."/sync_manager
 
-export results, chronos, block_pools_types
+export results, chronos, block_pools_types, conf
 
 type
   BlockDataChunk* = ref object
@@ -29,6 +29,7 @@ type
     statusMsg*: Opt[string]
     consensusManager*: ref ConsensusManager
     validatorMonitor*: ref ValidatorMonitor
+    config*: BeaconNodeConf
     getBeaconTimeFn*: GetBeaconTimeFn
     clist*: ChainListRef
     beaconClock*: BeaconClock
@@ -49,6 +50,7 @@ proc new*(
     t: typedesc[SyncOverseerRef],
     cm: ref ConsensusManager,
     vm: ref ValidatorMonitor,
+    configuration: BeaconNodeConf,
     bt: GetBeaconTimeFn,
     clist: ChainListRef,
     clock: BeaconClock,
@@ -62,6 +64,7 @@ proc new*(
   SyncOverseerRef(
     consensusManager: cm,
     validatorMonitor: vm,
+    config: configuration,
     getBeaconTimeFn: bt,
     clist: clist,
     beaconClock: clock,
