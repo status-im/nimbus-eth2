@@ -516,7 +516,7 @@ proc addBackfillBlockData*(
     let
       stateDataTick = Moment.now()
       updateFlags =
-        dag.updateFlags - {skipBlsValidation, skipStateRootValidation}
+        dag.updateFlags + {skipBlsValidation, skipStateRootValidation}
 
     ? checkStateTransition(dag, forkyBlck.asSigVerified(), cache, updateFlags)
 
