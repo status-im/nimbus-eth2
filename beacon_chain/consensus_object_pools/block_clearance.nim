@@ -495,18 +495,27 @@ proc addBackfillBlockData*(
 
   withBlck(bdata.blck):
     let
+      m0 = Moment.now()
       parent = checkHeadBlock(dag, forkyBlck).valueOr:
         if error == VerifierError.Duplicate:
           return ok()
         return err(error)
       startTick = Moment.now()
+      parentBlock = dag.getForkedBlock(parent.bid.root).get()
+      trustedStateRoot =
+        withBlck(parentBlock):
+          forkyBlck.message.state_root
+      m1 = Moment.now()
       clearanceBlock = BlockSlotId.init(parent.bid, forkyBlck.message.slot)
+      updateFlags1 = dag.updateFlags + {skipLastStateRootCalculation}
 
     if not updateState(dag, dag.clearanceState, clearanceBlock, true, cache,
-                       dag.updateFlags):
+                       updateFlags1):
       error "Unable to load clearance state for parent block, " &
             "database corrupt?", clearanceBlock = shortLog(clearanceBlock)
       return err(VerifierError.MissingParent)
+
+    dag.clearanceState.setStateRoot(trustedStateRoot)
 
     let proposerVerifyTick = Moment.now()
 
@@ -515,16 +524,18 @@ proc addBackfillBlockData*(
 
     let
       stateDataTick = Moment.now()
-      updateFlags =
+      updateFlags2 =
         dag.updateFlags + {skipBlsValidation, skipStateRootValidation}
 
-    ? checkStateTransition(dag, forkyBlck.asSigVerified(), cache, updateFlags)
+    ? checkStateTransition(dag, forkyBlck.asSigVerified(), cache, updateFlags2)
 
     let stateVerifyTick = Moment.now()
 
     if bdata.blob.isSome():
       for blob in bdata.blob.get():
         dag.db.putBlobSidecar(blob[])
+
+    let m3 = Moment.now()
 
     type Trusted = typeof forkyBlck.asTrusted()
 
@@ -551,5 +562,16 @@ proc addBackfillBlockData*(
       proposerVerifyTick - startTick,
       stateDataTick - proposerVerifyTick,
       stateVerifyTick - stateDataTick)
+
+    let m4 = Moment.now()
+
+    debug "Number of blocks being injected",
+          check_head_time = startTick - m0,
+          get_parent_block_time = m1 - startTick,
+          update_state_time = proposerVerifyTick - m1,
+          on_state_update_time = stateDataTick - proposerVerifyTick,
+          check_state_transition_time = stateVerifyTick - stateDataTick,
+          blob_save_time = m3 - stateVerifyTick,
+          add_head_block_time = m4 - m3
 
   ok()
