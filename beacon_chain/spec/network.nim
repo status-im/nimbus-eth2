@@ -160,11 +160,6 @@ func getTargetGossipState*(
   if isBehind:
     return {}
 
-  doAssert BELLATRIX_FORK_EPOCH >= ALTAIR_FORK_EPOCH
-  doAssert CAPELLA_FORK_EPOCH >= BELLATRIX_FORK_EPOCH
-  doAssert DENEB_FORK_EPOCH >= CAPELLA_FORK_EPOCH
-  doAssert ELECTRA_FORK_EPOCH >= DENEB_FORK_EPOCH
-
   # https://github.com/ethereum/consensus-specs/issues/2902
   # Don't care whether ALTAIR_FORK_EPOCH == BELLATRIX_FORK_EPOCH or
   # BELLATRIX_FORK_EPOCH == CAPELLA_FORK_EPOCH works, because those

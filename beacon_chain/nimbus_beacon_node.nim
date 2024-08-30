@@ -1124,9 +1124,7 @@ func getSyncCommitteeSubnets(node: BeaconNode, epoch: Epoch): SyncnetBits =
   # The end-slot tracker might call this when it's theoretically applicable,
   # but more than SYNC_COMMITTEE_SUBNET_COUNT epochs from when the next sync
   # committee period begins, in which case `epochsToNextSyncPeriod` is none.
-  if  epochsToSyncPeriod.isNone or
-      node.dag.cfg.consensusForkAtEpoch(epoch + epochsToSyncPeriod.get) <
-        ConsensusFork.Altair:
+  if epochsToSyncPeriod.isNone:
     return subnets
 
   subnets + node.getNextSyncCommitteeSubnets(epoch)
