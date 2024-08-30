@@ -32,7 +32,7 @@ from ./capella import
   ExecutionBranch, HistoricalSummary, SignedBLSToExecutionChangeList,
   Withdrawal, ExecutionPayload, EXECUTION_PAYLOAD_GINDEX
 from ./deneb import Blobs, BlobsBundle, KzgCommitments, KzgProofs
-from ./electra import PendingBalanceDeposit, PendingPartialWithdrawal, PendingConsolidation
+from ./electra import PendingBalanceDeposit, PendingPartialWithdrawal, PendingConsolidation, ElectraCommitteeValidatorsBits
 
 export json_serialization, base, kzg4844
 
@@ -348,9 +348,6 @@ type
 
     root* {.dontSerialize.}: Eth2Digest # cached root of signed beacon block
 
-  ElectraCommitteeValidatorsBits* =
-    BitList[Limit MAX_VALIDATORS_PER_COMMITTEE * MAX_COMMITTEES_PER_SLOT]
-
   AttestationCommitteeBits* = BitArray[MAX_COMMITTEES_PER_SLOT.int]
 
   # https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.3/specs/electra/beacon-chain.md#attestation
@@ -464,5 +461,3 @@ template asTrusted*(
        SigVerifiedSignedBeaconBlock |
        MsgTrustedSignedBeaconBlock): TrustedSignedBeaconBlock =
   isomorphicCast[TrustedSignedBeaconBlock](x)
-
-  

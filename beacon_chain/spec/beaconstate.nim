@@ -11,7 +11,7 @@ import
   stew/assign2,
   json_serialization/std/sets,
   chronicles,
-  ./datatypes/[phase0, altair, bellatrix],
+  ./datatypes/[phase0, altair, bellatrix, epbs],
   "."/[eth2_merkleization, forks, signatures, validator]
 
 from std/algorithm import fill, sort
@@ -871,9 +871,9 @@ func get_base_reward_per_increment*(
     integer_squareroot(distinctBase(total_active_balance)))
 
 # https://github.com/ethereum/consensus-specs/blob/v1.4.0/specs/altair/beacon-chain.md#get_base_reward
-func get_base_reward(
+func get_base_reward*(
     state: altair.BeaconState | bellatrix.BeaconState | capella.BeaconState |
-           deneb.BeaconState | electra.BeaconState,
+           deneb.BeaconState | electra.BeaconState | epbs.BeaconState,
     index: ValidatorIndex, base_reward_per_increment: Gwei): Gwei =
   ## Return the base reward for the validator defined by ``index`` with respect
   ## to the current ``state``.

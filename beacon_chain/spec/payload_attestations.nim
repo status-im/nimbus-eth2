@@ -8,7 +8,7 @@
 {.push raises: [].}
 
 import
-  sequtils, sets, lists,
+  std/sequtils, std/sets, std/lists,
   "."/[forks, ptc_status, validator],
   ./datatypes/epbs,
   "."/[
@@ -44,7 +44,7 @@ proc is_valid_indexed_payload_attestation*(
 
   # Verify aggregate signature
   let pubkeys = mapIt(
-      indexed_payload_attestation.attesting_indices, state.validators[it].pubkey)
+    indexed_payload_attestation.attesting_indices, state.validators[it].pubkey)
 
   let domain = get_domain(
     state.fork, DOMAIN_PTC_ATTESTER, GENESIS_EPOCH,
@@ -75,9 +75,6 @@ proc get_ptc(state: epbs.BeaconState, slot: Slot, cache: var StateCache,
 
   validator_indices.setLen(PTC_SIZE)
 
-  # [TODO] might need to use get_beacon_committee function
-  # instead of iterator
-
   for committee_index in get_committee_indices(committee_bits):
     for _, beacon_committee in get_beacon_committee(
         state, data.slot, committee_index, cache):
@@ -86,40 +83,42 @@ proc get_ptc(state: epbs.BeaconState, slot: Slot, cache: var StateCache,
   return validator_indices
 
 # https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.4/specs/_features/eip7732/beacon-chain.md#modified-get_attesting_indices
-proc get_attesting_indices*(state: var ForkyBeaconState,
-    attestation: epbs.Attestation, cfg: RuntimeConfig): HashSet[
-        ValidatorIndex] =
+proc get_attesting_indices(state: epbs.BeaconState,
+    attestation: epbs.Attestation, cache: var StateCache, 
+    cfg: RuntimeConfig): HashSet[ValidatorIndex] =
+
   var
     output: HashSet[ValidatorIndex]
     committee_offset = 0
+    committee_attesters: HashSet[ValidatorIndex]
 
-  for index in get_committee_indices(attestation.committee_bits):
-    let
-      committee = get_beacon_committee(state, attestation.data.slot, index)
-      committee_attesters = [ValidatorIndex]()
-
-    for i, validator_index in committee.pairs:
+  for committee_index in get_committee_indices(attestation.committee_bits):
+    for i, validator_index in get_beacon_committee(state, attestation.data.slot,
+        committee_index, cache):
       if attestation.aggregation_bits[committee_offset + i]:
         committee_attesters.incl(validator_index)
 
-    output.incl(committee_attesters)
-    committee_offset += len(committee)
+    # Merge the current committee_attesters set with 
+    # the overall output set of attesting validators
+    output = output.union(committee_attesters)
+
+    committee_offset += len(get_beacon_committee(state, attestation.data.slot,
+      committee_index, cache))
 
   if epoch(attestation.data.slot) < cfg.EIP7732_FORK_EPOCH:
     return output
 
-  let
-    ptc = get_ptc(state, attestation.data.slot)
-
-  output.filterIt(it notin ptc)
+  let ptc = get_ptc(state, attestation.data.slot, cache,
+    attestation.committee_bits, attestation.data)
+  return output - ptc.toHashSet()
 
 # https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.4/specs/_features/eip7732/beacon-chain.md#get_payload_attesting_indices
 proc get_payload_attesting_indices(state: epbs.BeaconState, slot: Slot,
     payload_attestation: PayloadAttestation, cache: var StateCache,
-        attestation: epbs.Attestation): List[ValidatorIndex, Limit PTC_SIZE] =
+    attestation: epbs.Attestation): List[ValidatorIndex, Limit PTC_SIZE] =
 
   let ptc = get_ptc(state, slot, cache, attestation.committee_bits,
-      attestation.data)
+    attestation.data)
   var
     output: List[ValidatorIndex, Limit PTC_SIZE]
     pos = 0
@@ -134,7 +133,7 @@ proc get_payload_attesting_indices(state: epbs.BeaconState, slot: Slot,
 # https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.4/specs/_features/eip7732/beacon-chain.md#get_indexed_payload_attestation
 proc get_indexed_payload_attestation*(state: var epbs.BeaconState, slot: Slot,
     payload_attestation: PayloadAttestation, cache: var StateCache,
-        attestation: epbs.Attestation): IndexedPayloadAttestation =
+    attestation: epbs.Attestation): IndexedPayloadAttestation =
 
   let attesting_indices = get_payload_attesting_indices(
     state, slot, payload_attestation, cache, attestation)
