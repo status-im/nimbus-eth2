@@ -65,6 +65,7 @@ type
     getFinalizedPeriod: GetSyncCommitteePeriodCallback
     getOptimisticPeriod: GetSyncCommitteePeriodCallback
     getBeaconTime: GetBeaconTimeFn
+    shouldInhibitSync: GetBoolCallback
     loopFuture: Future[void].Raising([CancelledError])
 
 func new*(
@@ -80,7 +81,8 @@ func new*(
     isNextSyncCommitteeKnown: GetBoolCallback,
     getFinalizedPeriod: GetSyncCommitteePeriodCallback,
     getOptimisticPeriod: GetSyncCommitteePeriodCallback,
-    getBeaconTime: GetBeaconTimeFn
+    getBeaconTime: GetBeaconTimeFn,
+    shouldInhibitSync: GetBoolCallback = nil
 ): ref LightClientManager =
   ## Initialize light client manager.
   (ref LightClientManager)(
@@ -95,8 +97,8 @@ func new*(
     isNextSyncCommitteeKnown: isNextSyncCommitteeKnown,
     getFinalizedPeriod: getFinalizedPeriod,
     getOptimisticPeriod: getOptimisticPeriod,
-    getBeaconTime: getBeaconTime
-  )
+    getBeaconTime: getBeaconTime,
+    shouldInhibitSync: shouldInhibitSync)
 
 proc isGossipSupported*(
     self: ref LightClientManager,
@@ -328,13 +330,14 @@ template query[E](
 ): Future[bool].Raising([CancelledError]) =
   self.query(e, Nothing())
 
-# https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.3/specs/altair/light-client/light-client.md#light-client-sync-process
+# https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.5/specs/altair/light-client/light-client.md#light-client-sync-process
 proc loop(self: LightClientManager) {.async: (raises: [CancelledError]).} =
   var nextSyncTaskTime = self.getBeaconTime()
   while true:
     # Periodically wake and check for changes
     let wallTime = self.getBeaconTime()
     if wallTime < nextSyncTaskTime or
+        (self.shouldInhibitSync != nil and self.shouldInhibitSync()) or
         self.network.peerPool.lenAvailable < 1:
       await sleepAsync(chronos.seconds(2))
       continue

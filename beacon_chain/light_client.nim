@@ -86,7 +86,8 @@ proc createLightClient(
     getBeaconTime: GetBeaconTimeFn,
     genesis_validators_root: Eth2Digest,
     finalizationMode: LightClientFinalizationMode,
-    strictVerification = false
+    strictVerification = false,
+    shouldInhibitSync: light_client_manager.GetBoolCallback = nil
 ): LightClient =
   let lightClient = LightClient(
     network: network,
@@ -177,7 +178,8 @@ proc createLightClient(
     lightClient.network, rng, getTrustedBlockRoot,
     bootstrapVerifier, updateVerifier, finalityVerifier, optimisticVerifier,
     isLightClientStoreInitialized, isNextSyncCommitteeKnown,
-    getFinalizedPeriod, getOptimisticPeriod, getBeaconTime)
+    getFinalizedPeriod, getOptimisticPeriod, getBeaconTime,
+    shouldInhibitSync = shouldInhibitSync)
 
   lightClient.gossipState = {}
 
@@ -191,13 +193,15 @@ proc createLightClient*(
     forkDigests: ref ForkDigests,
     getBeaconTime: GetBeaconTimeFn,
     genesis_validators_root: Eth2Digest,
-    finalizationMode: LightClientFinalizationMode
+    finalizationMode: LightClientFinalizationMode,
+    shouldInhibitSync: light_client_manager.GetBoolCallback = nil
 ): LightClient =
   createLightClient(
     network, rng,
     config.dumpEnabled, config.dumpDirInvalid, config.dumpDirIncoming,
     cfg, forkDigests, getBeaconTime, genesis_validators_root, finalizationMode,
-    strictVerification = config.strictVerification)
+    strictVerification = config.strictVerification,
+    shouldInhibitSync = shouldInhibitSync)
 
 proc createLightClient*(
     network: Eth2Node,
@@ -207,12 +211,14 @@ proc createLightClient*(
     forkDigests: ref ForkDigests,
     getBeaconTime: GetBeaconTimeFn,
     genesis_validators_root: Eth2Digest,
-    finalizationMode: LightClientFinalizationMode
+    finalizationMode: LightClientFinalizationMode,
+    shouldInhibitSync: light_client_manager.GetBoolCallback = nil
 ): LightClient =
   createLightClient(
     network, rng,
     dumpEnabled = false, dumpDirInvalid = ".", dumpDirIncoming = ".",
-    cfg, forkDigests, getBeaconTime, genesis_validators_root, finalizationMode)
+    cfg, forkDigests, getBeaconTime, genesis_validators_root, finalizationMode,
+    shouldInhibitSync = shouldInhibitSync)
 
 proc start*(lightClient: LightClient) =
   if lightClient.manager.isRunning:

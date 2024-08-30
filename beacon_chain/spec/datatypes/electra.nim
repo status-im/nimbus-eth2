@@ -45,9 +45,12 @@ const
   # If there are ever more than 64 members in `BeaconState`, indices change!
   # `FINALIZED_ROOT_GINDEX` is one layer deeper, i.e., `84 * 2 + 1`.
   # https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.3/ssz/merkle-proofs.md
-  FINALIZED_ROOT_GINDEX* = 169.GeneralizedIndex  # finalized_checkpoint > root
-  CURRENT_SYNC_COMMITTEE_GINDEX* = 86.GeneralizedIndex  # current_sync_committee
-  NEXT_SYNC_COMMITTEE_GINDEX* = 87.GeneralizedIndex  # next_sync_committee
+  # finalized_checkpoint > root
+  FINALIZED_ROOT_GINDEX_ELECTRA* = 169.GeneralizedIndex
+  # current_sync_committee
+  CURRENT_SYNC_COMMITTEE_GINDEX_ELECTRA* = 86.GeneralizedIndex
+  # next_sync_committee
+  NEXT_SYNC_COMMITTEE_GINDEX_ELECTRA* = 87.GeneralizedIndex
 
 type
   # https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.3/specs/electra/beacon-chain.md#depositrequest
@@ -155,7 +158,7 @@ type
   ExecutePayload* = proc(
     execution_payload: ExecutionPayload): bool {.gcsafe, raises: [].}
 
-  # https://github.com/ethereum/consensus-specs/blob/82133085a1295e93394ebdf71df8f2f6e0962588/specs/electra/beacon-chain.md#depositreceipt
+  # https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.5/specs/electra/beacon-chain.md#pendingbalancedeposit
   PendingBalanceDeposit* = object
     index*: uint64
     amount*: Gwei
@@ -183,7 +186,7 @@ type
     source_pubkey*: ValidatorPubKey
     target_pubkey*: ValidatorPubKey
 
-  # https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.3/specs/phase0/validator.md#aggregateandproof
+  # https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.5/specs/phase0/validator.md#aggregateandproof
   AggregateAndProof* = object
     aggregator_index*: uint64 # `ValidatorIndex` after validation
     aggregate*: Attestation
@@ -195,13 +198,13 @@ type
     signature*: ValidatorSig
 
   FinalityBranch* =
-    array[log2trunc(FINALIZED_ROOT_GINDEX), Eth2Digest]
+    array[log2trunc(FINALIZED_ROOT_GINDEX_ELECTRA), Eth2Digest]
 
   CurrentSyncCommitteeBranch* =
-    array[log2trunc(CURRENT_SYNC_COMMITTEE_GINDEX), Eth2Digest]
+    array[log2trunc(CURRENT_SYNC_COMMITTEE_GINDEX_ELECTRA), Eth2Digest]
 
   NextSyncCommitteeBranch* =
-    array[log2trunc(NEXT_SYNC_COMMITTEE_GINDEX), Eth2Digest]
+    array[log2trunc(NEXT_SYNC_COMMITTEE_GINDEX_ELECTRA), Eth2Digest]
 
   # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.5/specs/capella/light-client/sync-protocol.md#modified-lightclientheader
   LightClientHeader* = object
@@ -240,7 +243,7 @@ type
     signature_slot*: Slot
       ## Slot at which the aggregate signature was created (untrusted)
 
-  # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.5/specs/altair/light-client/sync-protocol.md#lightclientfinalityupdate
+  # https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.5/specs/altair/light-client/sync-protocol.md#lightclientfinalityupdate
   LightClientFinalityUpdate* = object
     # Header attested to by the sync committee
     attested_header*: LightClientHeader
@@ -396,7 +399,7 @@ type
     data*: BeaconState
     root*: Eth2Digest # hash_tree_root(data)
 
-  # https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.3/specs/phase0/beacon-chain.md#beaconblock
+  # https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.5/specs/phase0/beacon-chain.md#beaconblock
   BeaconBlock* = object
     ## For each slot, a proposer is chosen from the validator pool to propose
     ## a new block. Once the block as been proposed, it is transmitted to
@@ -795,7 +798,7 @@ func upgrade_lc_header_to_electra*(
         transactions_root: pre.execution.transactions_root,
         withdrawals_root: pre.execution.withdrawals_root,
         blob_gas_used: pre.execution.blob_gas_used,
-        excess_blob_gas: pre.execution.blob_gas_used,
+        excess_blob_gas: pre.execution.excess_blob_gas,
         deposit_requests_root: ZERO_HASH,  # [New in Electra:EIP6110]
         withdrawal_requests_root: ZERO_HASH,  # [New in Electra:EIP7002:EIP7251]
         consolidation_requests_root: ZERO_HASH),  # [New in Electra:EIP7251]
@@ -808,7 +811,7 @@ func upgrade_lc_bootstrap_to_electra*(
     header: upgrade_lc_header_to_electra(pre.header),
     current_sync_committee: pre.current_sync_committee,
     current_sync_committee_branch: normalize_merkle_branch(
-      pre.current_sync_committee_branch, CURRENT_SYNC_COMMITTEE_GINDEX))
+      pre.current_sync_committee_branch, CURRENT_SYNC_COMMITTEE_GINDEX_ELECTRA))
 
 # https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.3/specs/electra/light-client/fork.md#upgrading-light-client-data
 func upgrade_lc_update_to_electra*(
@@ -817,10 +820,10 @@ func upgrade_lc_update_to_electra*(
     attested_header: upgrade_lc_header_to_electra(pre.attested_header),
     next_sync_committee: pre.next_sync_committee,
     next_sync_committee_branch: normalize_merkle_branch(
-      pre.next_sync_committee_branch, NEXT_SYNC_COMMITTEE_GINDEX),
+      pre.next_sync_committee_branch, NEXT_SYNC_COMMITTEE_GINDEX_ELECTRA),
     finalized_header: upgrade_lc_header_to_electra(pre.finalized_header),
     finality_branch: normalize_merkle_branch(
-      pre.finality_branch, FINALIZED_ROOT_GINDEX),
+      pre.finality_branch, FINALIZED_ROOT_GINDEX_ELECTRA),
     sync_aggregate: pre.sync_aggregate,
     signature_slot: pre.signature_slot)
 
@@ -831,7 +834,7 @@ func upgrade_lc_finality_update_to_electra*(
     attested_header: upgrade_lc_header_to_electra(pre.attested_header),
     finalized_header: upgrade_lc_header_to_electra(pre.finalized_header),
     finality_branch: normalize_merkle_branch(
-      pre.finality_branch, FINALIZED_ROOT_GINDEX),
+      pre.finality_branch, FINALIZED_ROOT_GINDEX_ELECTRA),
     sync_aggregate: pre.sync_aggregate,
     signature_slot: pre.signature_slot)
 

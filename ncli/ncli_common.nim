@@ -406,6 +406,9 @@ func collectFromAttestations(
             rewardsAndPenalties[index].inclusion_delay =
               some(inclusionDelay.uint64)
 
+from ".."/beacon_chain/validator_bucket_sort import
+  findValidatorIndex, sortValidatorBuckets
+
 proc collectFromDeposits(
     rewardsAndPenalties: var seq[RewardsAndPenalties],
     forkedState: ForkedHashedBeaconState,
@@ -414,9 +417,12 @@ proc collectFromDeposits(
     cfg: RuntimeConfig) =
   withStateAndBlck(forkedState, forkedBlock):
     for deposit in forkyBlck.message.body.deposits:
-      let pubkey = deposit.data.pubkey
-      let amount = deposit.data.amount
-      var index = findValidatorIndex(forkyState.data, pubkey)
+      let
+        pubkey = deposit.data.pubkey
+        amount = deposit.data.amount
+      var index = findValidatorIndex(
+        forkyState.data.validators.asSeq, sortValidatorBuckets(
+          forkyState.data.validators.asSeq)[], pubkey)
       if index.isNone:
         if pubkey in pubkeyToIndex:
           try:
