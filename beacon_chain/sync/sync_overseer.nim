@@ -13,7 +13,7 @@ import
   ../consensus_object_pools/blockchain_list,
   ../spec/datatypes/[phase0, altair],
   ../spec/eth2_apis/rest_types,
-  ../spec/[helpers, forks, network, forks_light_client],
+  ../spec/[helpers, forks, network, forks_light_client, weak_subjectivity],
   ../networking/[peer_pool, peer_scores, eth2_network],
   ../gossip_processing/block_processor,
   ../[beacon_clock, beacon_node],
@@ -149,6 +149,20 @@ proc getBlock*(
       # TODO (cheatfate): Compare received blocks
       if len(results) > 0:
         return results[0]
+
+proc isWithinWeakSubjectivityPeriod(
+    overseer: SyncOverseerRef, slot: Slot): bool =
+  let
+    dag = overseer.consensusManager.dag
+    currentSlot = overseer.beaconClock.now().slotOrZero()
+    checkpoint = Checkpoint(
+      epoch:
+        getStateField(dag.headState, slot).epoch(),
+      root:
+        getStateField(dag.headState, latest_block_header).state_root)
+
+  is_within_weak_subjectivity_period(
+    dag.cfg, currentSlot, dag.headState, checkpoint)
 
 proc isBackfillEmpty(backfill: BeaconBlockSummary): bool =
   (backfill.slot == GENESIS_SLOT) and isFullZero(backfill.parent_root.data)
@@ -376,76 +390,126 @@ proc rebuildState(overseer: SyncOverseerRef): Future[void] {.
       if data.blck.slot != GENESIS_SLOT:
         blocks.add(data)
 
+proc initUntrustedSync(overseer: SyncOverseerRef): Future[void] {.
+     async: (raises: [CancelledError]).} =
+
+  overseer.statusMsg = Opt.some("awaiting light client")
+
+  let blockHeader = await overseer.getLatestBeaconHeader()
+
+  notice "Received light client block header",
+         beacon_header = shortLog(blockHeader),
+         current_slot = overseer.beaconClock.now().slotOrZero()
+
+  overseer.statusMsg = Opt.some("retrieving block")
+
+  let
+    blck = await overseer.getBlock(blockHeader.slot, Opt.some(blockHeader))
+    blobsCount = if blck.blob.isNone(): 0 else: len(blck.blob.get())
+
+  notice "Received beacon block", blck = shortLog(blck.blck),
+                                  blobs_count = blobsCount
+
+  overseer.statusMsg = Opt.some("storing block")
+
+  let res = overseer.clist.addBackfillBlockData(blck.blck, blck.blob)
+  if res.isErr():
+    warn "Unable to store initial block", reason = res.error
+    return
+
+  overseer.statusMsg = Opt.none(string)
+
+  notice "Initial block being stored",
+         blck = shortLog(blck.blck), blobs_count = blobsCount
+
+proc startBackfillTask(overseer: SyncOverseerRef): Future[void] {.
+     async: (raises: []).} =
+  # This procedure performs delayed start of backfilling process.
+  while overseer.consensusManager.dag.needsBackfill:
+    if not(overseer.forwardSync.inProgress):
+      # Only start the backfiller if it's needed _and_ head sync has completed -
+      # if we lose sync after having synced head, we could stop the backfilller,
+      # but this should be a fringe case - might as well keep the logic simple
+      # for now.
+      overseer.backwardSync.start()
+      return
+    try:
+      await sleepAsync(chronos.seconds(2))
+    except CancelledError:
+      return
+
 proc mainLoop*(
     overseer: SyncOverseerRef
 ): Future[void] {.async: (raises: []).} =
-  let dag = overseer.consensusManager.dag
+  let
+    dag = overseer.consensusManager.dag
+    clist = overseer.clist
+    currentSlot = overseer.beaconClock.now().slotOrZero()
 
-  if not(isBackfillEmpty(dag.backfill)):
-    # Backfill is already running.
-    if dag.needsBackfill:
-      if not overseer.forwardSync.inProgress:
-        overseer.backwardSync.start()
+  if overseer.isWithinWeakSubjectivityPeriod(currentSlot):
+    # Starting forward sync manager/monitor.
+    overseer.forwardSync.start()
+    # Starting backfill/backward sync manager.
+    if dag.needsBackfill():
+      asyncSpawn overseer.startBackfillTask()
+    return
+  else:
+    if dag.needsBackfill():
+      # Checkpoint/Trusted state we have is too old.
+      error "Trusted node sync started too long time ago"
+      quit 1
+
+    if not(isUntrustedBackfillEmpty(clist)):
+      let headSlot = clist.head.get().slot
+      if not(overseer.isWithinWeakSubjectivityPeriod(headSlot)):
+        # Light forward sync file is too old.
+        warn "Light client sync was started too long time ago",
+             current_slot = currentSlot, backfill_data_slot = headSlot
+
+    if overseer.config.longRangeSync == LongRangeSyncMode.Lenient:
+      # Starting forward sync manager/monitor only.
+      overseer.forwardSync.start()
+      return
+
+    if overseer.config.longRangeSync == LongRangeSyncMode.Light:
+      let dagHead = dag.finalizedHead
+      if dagHead.slot < dag.cfg.ALTAIR_FORK_EPOCH.start_slot:
+        fatal "Light syncing could not work"
+        quit 1
+
+      if isUntrustedBackfillEmpty(clist):
         try:
-          await overseer.backwardSync.join()
+          await overseer.initUntrustedSync()
         except CancelledError:
           return
+      # Note: We should not start forward sync manager!
+      overseer.untrustedSync.start()
 
-  if not(isUntrustedBackfillEmpty(overseer.clist)):
-    if needsUntrustedBackfill(overseer.clist, dag):
-      if not overseer.forwardSync.inProgress:
-        overseer.untrustedSync.start()
-  else:
-    overseer.statusMsg = Opt.some("awaiting light client")
-    let blockHeader =
+      # Waiting until untrusted backfilling will not be complete
       try:
-        await overseer.getLatestBeaconHeader()
+        await overseer.untrustedSync.join()
       except CancelledError:
         return
 
-    notice "Received light client block header",
-           beacon_header = shortLog(blockHeader),
-           current_slot = overseer.beaconClock.now().slotOrZero()
+      notice "Start state rebuilding process"
+      # We spawn block processing loop to keep async world happy, otherwise
+      # it could be single cpu heavy procedure call.
+      let blockProcessingFut = overseer.blockProcessingLoop()
 
-    overseer.statusMsg = Opt.some("retrieving block")
+      try:
+        await overseer.rebuildState()
+      except CancelledError:
+        await cancelAndWait(blockProcessingFut)
+        return
 
-    let
-      blck =
-        try:
-          await overseer.getBlock(blockHeader.slot, Opt.some(blockHeader))
-        except CancelledError:
-          return
-      blobsCount = if blck.blob.isNone(): 0 else: len(blck.blob.get())
+      clist.clear().isOkOr:
+        warn "Unable to remove backfill data file",
+             path = clist.path.chainFilePath(), reason = error
+        quit 1
 
-    notice "Received beacon block", blck = shortLog(blck.blck),
-                                    blobs_count = blobsCount
-
-    overseer.statusMsg = Opt.some("storing block")
-    let res = overseer.clist.addBackfillBlockData(blck.blck, blck.blob)
-    if res.isErr():
-      warn "Unable to store initial block", reason = res.error
-      return
-    overseer.statusMsg = Opt.none(string)
-
-    notice "Initial block being stored",
-           blck = shortLog(blck.blck), blobs_count = blobsCount
-
-    overseer.untrustedSync.start()
-
-  try:
-    await overseer.untrustedSync.join()
-  except CancelledError:
-    return
-
-  notice "Start state rebuild mechanism"
-
-  let blockProcessingFut = overseer.blockProcessingLoop()
-
-  try:
-    await overseer.rebuildState()
-  except CancelledError:
-    await cancelAndWait(blockProcessingFut)
-    return
+      # When we finished state rebuilding process - we could start forward
+      # SyncManager which could perform finish sync.
+      overseer.forwardSync.start()
 
 proc start*(overseer: SyncOverseerRef) =
   overseer.loopFuture = overseer.mainLoop()
