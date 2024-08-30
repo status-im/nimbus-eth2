@@ -15,6 +15,7 @@ import
   ../beacon_clock,
   ./common_tools
 
+from ../el/engine_api_conversions import asBlockHash
 from ../spec/beaconstate import
   get_expected_withdrawals, has_eth1_withdrawal_credential
 from ../spec/datatypes/capella import Withdrawal

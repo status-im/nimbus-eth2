@@ -181,6 +181,28 @@ suite "Gossip validation " & preset():
         fut_1_0.waitFor().error()[0] == ValidationResult.Reject
         fut_1_1.waitFor().isOk()
 
+    block:
+      pool[].nextAttestationEpoch.setLen(0) # reset for test
+      check:
+        att_1_0.data == att_1_1.data
+        beacon_committee[0] != beacon_committee[1]  # Different validator
+      var
+        broken_1_0 = att_1_0
+        broken_1_1 = att_1_1
+      broken_1_0.signature = att_1_1.signature
+      broken_1_1.signature = att_1_0.signature
+      # The signatures were swapped and no longer match their pubkeys;
+      # the individual attestations are invalid but their aggregate validates!
+      let
+        fut_1_0 = validateAttestation(
+          pool, batchCrypto, broken_1_0, beaconTime, subnet, true)
+        fut_1_1 = validateAttestation(
+          pool, batchCrypto, broken_1_1, beaconTime, subnet, true)
+
+      check:
+        fut_1_0.waitFor().error()[0] == ValidationResult.Reject
+        fut_1_1.waitFor().error()[0] == ValidationResult.Reject
+
 suite "Gossip validation - Altair":
   let cfg = block:
     var res = defaultRuntimeConfig

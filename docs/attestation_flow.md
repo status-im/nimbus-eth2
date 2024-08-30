@@ -6,7 +6,7 @@ This is a WIP document to explain the attestation flows.
 
 It is important to distinguish attestation `validation` from attestation `verification`.
 - Attestation `validation` is defined in the P2P specs. Validated attestations can be forwarded on GossipSub.
-  - Aggregated: https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.3/specs/phase0/p2p-interface.md#beacon_aggregate_and_proof
+  - Aggregated: https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.5/specs/phase0/p2p-interface.md#beacon_aggregate_and_proof
   - Unaggregated: https://github.com/ethereum/consensus-specs/blob/v1.4.0/specs/phase0/p2p-interface.md#beacon_attestation_subnet_id
 - Attestation `verification` is defined in the consensus specs. Verified attestations can affect fork choice and may be included in a block.
   - https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.6/specs/phase0/beacon-chain.md#attestations
