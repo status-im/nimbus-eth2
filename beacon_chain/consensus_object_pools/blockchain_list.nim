@@ -75,6 +75,14 @@ proc close*(clist: ChainListRef): Result[void, string] =
   ? clist.handle.get().close()
   ok()
 
+proc clear*(clist: ChainListRef): Result[void, string] =
+  ? clist.close()
+  ? clearFile(clist.path.chainFilePath())
+  clist.head = Opt.none(BlockData)
+  clist.tail = Opt.none(BlockData)
+  clist.handle = Opt.none(ChainFileHandle)
+  ok()
+
 template slot*(data: BlockData): Slot =
   data.blck.slot
 

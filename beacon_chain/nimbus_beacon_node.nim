@@ -585,6 +585,7 @@ proc initFullNode(
   node.untrustedManager = untrustedManager
   node.syncOverseer = SyncOverseerRef.new(node.consensusManager,
                                           node.validatorMonitor,
+                                          config,
                                           getBeaconTime,
                                           node.list,
                                           node.beaconClock,
@@ -673,11 +674,15 @@ proc init*(T: type BeaconNode,
            genesis_fork = genesisState.kind,
            is_post_altair = (cfg.ALTAIR_FORK_EPOCH == GENESIS_EPOCH)
 
-    # if config.longRangeSync == LongRangeSyncMode.Light:
-    #   if not is_within_weak_subjectivity_period(metadata.cfg, currentSlot,
-    #                                             genesisState[], checkpoint):
-    #     fatal WeakSubjectivityLogMessage, current_slot = currentSlot
-    #     quit 1
+    if config.longRangeSync == LongRangeSyncMode.Light:
+      if not is_within_weak_subjectivity_period(metadata.cfg, currentSlot,
+                                                genesisState[], checkpoint):
+        # We do support any network which starts from Altair fork.
+        let metadata = config.loadEth2Network()
+        if metadata.cfg.ALTAIR_FORK_EPOCH != GENESIS_EPOCH:
+          fatal WeakSubjectivityLogMessage, current_slot = currentSlot,
+                altair_fork_epoch = metadata.cfg.ALTAIR_FORK_EPOCH
+          quit 1
 
   try:
     if config.numThreads < 0:
@@ -2055,18 +2060,6 @@ proc stop(node: BeaconNode) =
   node.db.close()
   notice "Databases closed"
 
-proc startBackfillTask(node: BeaconNode) {.async.} =
-  while node.dag.needsBackfill:
-    if not node.syncManager.inProgress:
-      # Only start the backfiller if it's needed _and_ head sync has completed -
-      # if we lose sync after having synced head, we could stop the backfilller,
-      # but this should be a fringe case - might as well keep the logic simple for
-      # now
-      node.backfiller.start()
-      return
-
-    await sleepAsync(chronos.seconds(2))
-
 proc run(node: BeaconNode) {.raises: [CatchableError].} =
   bnStatus = BeaconNodeStatus.Running
 
@@ -2086,10 +2079,7 @@ proc run(node: BeaconNode) {.raises: [CatchableError].} =
 
   node.startLightClient()
   node.requestManager.start()
-  # node.syncManager.start()
   node.syncOverseer.start()
-
-  # if node.dag.needsBackfill(): asyncSpawn node.startBackfillTask()
 
   waitFor node.updateGossipStatus(wallSlot)
 
