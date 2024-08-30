@@ -176,7 +176,7 @@ type
   MounterProc* = proc(network: Eth2Node) {.gcsafe, raises: [].}
   MessageContentPrinter* = proc(msg: pointer): string {.gcsafe, raises: [].}
 
-  # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.5/specs/phase0/p2p-interface.md#goodbye
+  # https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.5/specs/phase0/p2p-interface.md#goodbye
   DisconnectionReason* = enum
     # might see other values on the wire!
     ClientShutDown = 1
@@ -2555,8 +2555,8 @@ proc updateStabilitySubnetMetadata*(node: Eth2Node, attnets: AttnetBits) =
   node.metadata.seq_number += 1
   node.metadata.attnets = attnets
 
-  # https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.3/specs/phase0/p2p-interface.md#attestation-subnet-subscription
-  # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.4/specs/phase0/p2p-interface.md#attestation-subnet-bitfield
+  # https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.5/specs/phase0/p2p-interface.md#attestation-subnet-subscription
+  # https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.5/specs/phase0/p2p-interface.md#attestation-subnet-bitfield
   let res = node.discovery.updateRecord({
     enrAttestationSubnetsField: SSZ.encode(node.metadata.attnets)
   })
@@ -2568,7 +2568,7 @@ proc updateStabilitySubnetMetadata*(node: Eth2Node, attnets: AttnetBits) =
     debug "Stability subnets changed; updated ENR attnets", attnets
 
 proc updateSyncnetsMetadata*(node: Eth2Node, syncnets: SyncnetBits) =
-  # https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.3/specs/altair/validator.md#sync-committee-subnet-stability
+  # https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.5/specs/altair/validator.md#sync-committee-subnet-stability
   if node.metadata.syncnets == syncnets:
     return
 
@@ -2694,23 +2694,28 @@ proc broadcastBlobSidecar*(
     node: Eth2Node, subnet_id: BlobId, blob: deneb.BlobSidecar):
     Future[SendResult] {.async: (raises: [CancelledError], raw: true).} =
   let
-    forkPrefix = node.forkDigestAtEpoch(node.getWallEpoch)
-    topic = getBlobSidecarTopic(forkPrefix, subnet_id)
+    contextEpoch = blob.signed_block_header.message.slot.epoch
+    topic = getBlobSidecarTopic(
+      node.forkDigestAtEpoch(contextEpoch), subnet_id)
   node.broadcast(topic, blob)
 
 proc broadcastSyncCommitteeMessage*(
     node: Eth2Node, msg: SyncCommitteeMessage,
     subcommitteeIdx: SyncSubcommitteeIndex):
     Future[SendResult] {.async: (raises: [CancelledError], raw: true).} =
-  let topic = getSyncCommitteeTopic(
-    node.forkDigestAtEpoch(node.getWallEpoch), subcommitteeIdx)
+  let
+    contextEpoch = msg.slot.epoch
+    topic = getSyncCommitteeTopic(
+      node.forkDigestAtEpoch(contextEpoch), subcommitteeIdx)
   node.broadcast(topic, msg)
 
 proc broadcastSignedContributionAndProof*(
     node: Eth2Node, msg: SignedContributionAndProof):
     Future[SendResult] {.async: (raises: [CancelledError], raw: true).} =
-  let topic = getSyncCommitteeContributionAndProofTopic(
-    node.forkDigestAtEpoch(node.getWallEpoch))
+  let
+    contextEpoch = msg.message.contribution.slot.epoch
+    topic = getSyncCommitteeContributionAndProofTopic(
+      node.forkDigestAtEpoch(contextEpoch))
   node.broadcast(topic, msg)
 
 proc broadcastLightClientFinalityUpdate*(

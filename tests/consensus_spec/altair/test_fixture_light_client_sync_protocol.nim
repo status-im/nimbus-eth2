@@ -23,7 +23,7 @@ import
   # Test utilities
   ../../testutil, ../../testblockutil
 
-# https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.3/tests/core/pyspec/eth2spec/test/helpers/sync_committee.py#L27-L44
+# https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.5/tests/core/pyspec/eth2spec/test/helpers/sync_committee.py#L27-L44
 proc compute_aggregate_sync_committee_signature(
     cfg: RuntimeConfig,
     forked: ForkedHashedBeaconState,
@@ -133,7 +133,7 @@ proc block_for_next_slot(
   addTestBlock(
     forked, cache, attestations = attestations, cfg = cfg)
 
-# https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.5/specs/altair/light-client/sync-protocol.md#initialize_light_client_store
+# https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.5/specs/altair/light-client/sync-protocol.md#initialize_light_client_store
 func initialize_light_client_store(
     state: auto, storeDataFork: static LightClientDataFork): auto =
   storeDataFork.LightClientStore(
@@ -286,8 +286,8 @@ proc runTest(storeDataFork: static LightClientDataFork) =
       template next_sync_committee(): auto = state.next_sync_committee
       let
         next_sync_committee_branch = normalize_merkle_branch(
-          state.build_proof(altair.NEXT_SYNC_COMMITTEE_GINDEX).get,
-          storeDataFork.NEXT_SYNC_COMMITTEE_GINDEX)
+          state.build_proof(NEXT_SYNC_COMMITTEE_GINDEX).get,
+          storeDataFork.next_sync_committee_gindex)
 
       # Finality is unchanged
         finality_header = default(storeDataFork.LightClientHeader)
@@ -359,8 +359,8 @@ proc runTest(storeDataFork: static LightClientDataFork) =
           state.finalized_checkpoint.root
       let
         finality_branch = normalize_merkle_branch(
-          state.build_proof(altair.FINALIZED_ROOT_GINDEX).get,
-          storeDataFork.FINALIZED_ROOT_GINDEX)
+          state.build_proof(FINALIZED_ROOT_GINDEX).get,
+          storeDataFork.finalized_root_gindex)
 
         update = storeDataFork.LightClientUpdate(
           attested_header: attested_header,

@@ -11,6 +11,7 @@ import
   # Status
   chronicles, chronos, metrics,
   results,
+  stew/byteutils,
   # Internals
   ../spec/[
     beaconstate, state_transition_block, forks, helpers, network, signatures],
@@ -302,7 +303,7 @@ template validateBeaconBlockBellatrix(
   #
   # `is_merge_transition_complete(state)` tests for
   # `state.latest_execution_payload_header != ExecutionPayloadHeader()`, while
-  # https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.3/specs/bellatrix/beacon-chain.md#block-processing
+  # https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.5/specs/bellatrix/beacon-chain.md#block-processing
   # shows that `state.latest_execution_payload_header` being default or not is
   # exactly equivalent to whether that block's execution payload is default or
   # not, so test cached block information rather than reconstructing a state.
@@ -467,7 +468,13 @@ proc validateBlobSidecar*(
 
   # Send notification about new blob sidecar via callback
   if not(isNil(blobQuarantine.onBlobSidecarCallback)):
-    blobQuarantine.onBlobSidecarCallback(blob_sidecar)
+    blobQuarantine.onBlobSidecarCallback BlobSidecarInfoObject(
+      block_root: hash_tree_root(blob_sidecar.signed_block_header.message),
+      index: blob_sidecar.index,
+      slot: blob_sidecar.signed_block_header.message.slot,
+      kzg_commitment: blob_sidecar.kzg_commitment,
+      versioned_hash:
+        blob_sidecar.kzg_commitment.kzg_commitment_to_versioned_hash.to0xHex())
 
   ok()
 
@@ -1180,7 +1187,7 @@ proc validateAggregate*(
 
   ok((attesting_indices, sig))
 
-# https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.3/specs/capella/p2p-interface.md#bls_to_execution_change
+# https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.5/specs/capella/p2p-interface.md#bls_to_execution_change
 proc validateBlsToExecutionChange*(
     pool: ValidatorChangePool, batchCrypto: ref BatchCrypto,
     signed_address_change: SignedBLSToExecutionChange,

@@ -10,10 +10,10 @@
 import
   ./datatypes/base, ./beaconstate, ./forks, ./helpers
 
-# https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.3/specs/phase0/weak-subjectivity.md#configuration
+# https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.5/specs/phase0/weak-subjectivity.md#configuration
 const SAFETY_DECAY* = 10'u64
 
-# https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.3/specs/phase0/weak-subjectivity.md#compute_weak_subjectivity_period
+# https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.5/specs/phase0/weak-subjectivity.md#compute_weak_subjectivity_period
 func compute_weak_subjectivity_period(
     cfg: RuntimeConfig, state: ForkyBeaconState): uint64 =
   ## Returns the weak subjectivity period for the current ``state``.
@@ -49,7 +49,7 @@ func compute_weak_subjectivity_period(
 
   ws_period
 
-# https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.3/specs/phase0/weak-subjectivity.md#is_within_weak_subjectivity_period
+# https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.5/specs/phase0/weak-subjectivity.md#is_within_weak_subjectivity_period
 func is_within_weak_subjectivity_period*(cfg: RuntimeConfig, current_slot: Slot,
                                          ws_state: ForkedHashedBeaconState,
                                          ws_checkpoint: Checkpoint): bool =

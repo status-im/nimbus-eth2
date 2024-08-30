@@ -106,7 +106,8 @@ suite baseDescription & "Block Header " & preset():
       OpBlockHeaderDir, suiteName, "Block Header", "block",
       applyBlockHeader, path)
 
-from ".."/".."/".."/beacon_chain/bloomfilter import constructBloomFilter
+from ".."/".."/".."/beacon_chain/validator_bucket_sort import
+  sortValidatorBuckets
 
 suite baseDescription & "Deposit " & preset():
   proc applyDeposit(
@@ -114,7 +115,7 @@ suite baseDescription & "Deposit " & preset():
       Result[void, cstring] =
     process_deposit(
       defaultRuntimeConfig, preState,
-      constructBloomFilter(preState.validators.asSeq)[], deposit, {})
+      sortValidatorBuckets(preState.validators.asSeq)[], deposit, {})
 
   for path in walkTests(OpDepositsDir):
     runTest[Deposit, typeof applyDeposit](

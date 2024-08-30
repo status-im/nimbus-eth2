@@ -209,7 +209,7 @@ template withContext*(db: SlashingProtectionDB, body: untyped): untyped =
       index: ValidatorIndex,
         validator: ValidatorPubKey,
         source, target: Epoch,
-        attestation_signing_root: Eth2Digest): Result[void, BadVote] =
+        attestation_signing_root: Eth2Digest): Result[void, BadVote] {.redefine.} =
       registerAttestationInContextV2(Opt.some(index), validator, source, target, attestation_signing_root)
     block:
       body
