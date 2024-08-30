@@ -50,7 +50,7 @@ func initialize_light_client_store*(
       if not is_valid_normalized_merkle_branch(
           hash_tree_root(bootstrap.current_sync_committee),
           bootstrap.current_sync_committee_branch,
-          lcDataFork.CURRENT_SYNC_COMMITTEE_GINDEX,
+          lcDataFork.current_sync_committee_gindex,
           bootstrap.header.beacon.state_root):
         return ResultType.err(VerifierError.Invalid)
 
@@ -132,7 +132,7 @@ proc validate_light_client_update*(
           if not is_valid_normalized_merkle_branch(
               finalized_root,
               update.finality_branch,
-              lcDataFork.FINALIZED_ROOT_GINDEX,
+              lcDataFork.finalized_root_gindex,
               update.attested_header.beacon.state_root):
             return err(VerifierError.Invalid)
 
@@ -153,7 +153,7 @@ proc validate_light_client_update*(
           if not is_valid_normalized_merkle_branch(
               hash_tree_root(update.next_sync_committee),
               update.next_sync_committee_branch,
-              lcDataFork.NEXT_SYNC_COMMITTEE_GINDEX,
+              lcDataFork.next_sync_committee_gindex,
               update.attested_header.beacon.state_root):
             return err(VerifierError.Invalid)
 

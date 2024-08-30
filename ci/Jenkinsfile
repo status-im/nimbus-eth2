@@ -6,7 +6,7 @@
  *   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
  * at your option. This file may not be copied, modified, or distributed except according to those terms.
  */
-library 'status-jenkins-lib@v1.8.14'
+library 'status-jenkins-lib@v1.9.2'
 
 pipeline {
   /* This way we run the same Jenkinsfile on different platforms. */
