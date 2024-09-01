@@ -2598,9 +2598,12 @@ OK: 12/12 Fail: 0/12 Skip: 0/12
 + Pending consolidations - all_consolidation_cases_together [Preset: minimal]                OK
 + Pending consolidations - basic_pending_consolidation [Preset: minimal]                     OK
 + Pending consolidations - consolidation_not_yet_withdrawable_validator [Preset: minimal]    OK
++ Pending consolidations - pending_consolidation_compounding_creds [Preset: minimal]         OK
++ Pending consolidations - pending_consolidation_future_epoch [Preset: minimal]              OK
++ Pending consolidations - pending_consolidation_with_pending_deposit [Preset: minimal]      OK
 + Pending consolidations - skip_consolidation_when_source_slashed [Preset: minimal]          OK
 ```
-OK: 4/4 Fail: 0/4 Skip: 0/4
+OK: 7/7 Fail: 0/7 Skip: 0/7
 ## EF - Electra - Epoch Processing - RANDAO mixes reset [Preset: minimal]
 ```diff
 + RANDAO mixes reset - updated_randao_mixes [Preset: minimal]                                OK
@@ -4047,4 +4050,4 @@ OK: 185/207 Fail: 0/207 Skip: 22/207
 OK: 3/3 Fail: 0/3 Skip: 0/3
 
 ---TOTAL---
-OK: 3294/3317 Fail: 0/3317 Skip: 23/3317
+OK: 3297/3320 Fail: 0/3320 Skip: 23/3320

@@ -104,7 +104,6 @@ declareGauge attestation_pool_block_attestation_packing_time,
 
 proc init*(T: type AttestationPool, dag: ChainDAGRef,
            quarantine: ref Quarantine,
-           forkChoiceVersion = ForkChoiceVersion.Stable,
            onAttestation: OnPhase0AttestationCallback = nil,
            onElectraAttestation: OnElectraAttestationCallback = nil): T =
   ## Initialize an AttestationPool from the dag `headState`
@@ -113,7 +112,7 @@ proc init*(T: type AttestationPool, dag: ChainDAGRef,
   let finalizedEpochRef = dag.getFinalizedEpochRef()
 
   var forkChoice = ForkChoice.init(
-    finalizedEpochRef, dag.finalizedHead.blck, forkChoiceVersion)
+    finalizedEpochRef, dag.finalizedHead.blck)
 
   # Feed fork choice with unfinalized history - during startup, block pool only
   # keeps track of a single history so we just need to follow it
@@ -200,6 +199,7 @@ proc addForkChoiceVotes(
       error "Couldn't add attestation to fork choice, bug?", err = v.error()
 
 func candidateIdx(pool: AttestationPool, slot: Slot): Opt[int] =
+  static: doAssert pool.phase0Candidates.len == pool.electraCandidates.len
   if slot >= pool.startingSlot and
       slot < (pool.startingSlot + pool.phase0Candidates.lenu64):
     Opt.some(int(slot mod pool.phase0Candidates.lenu64))
@@ -210,8 +210,8 @@ proc updateCurrent(pool: var AttestationPool, wallSlot: Slot) =
   if wallSlot + 1 < pool.phase0Candidates.lenu64:
     return # Genesis
 
-  let
-    newStartingSlot = wallSlot + 1 - pool.phase0Candidates.lenu64
+  static: doAssert pool.phase0Candidates.len == pool.electraCandidates.len
+  let newStartingSlot = wallSlot + 1 - pool.phase0Candidates.lenu64
 
   if newStartingSlot < pool.startingSlot:
     error "Current slot older than attestation pool view, clock reset?",
@@ -224,10 +224,12 @@ proc updateCurrent(pool: var AttestationPool, wallSlot: Slot) =
   if newStartingSlot - pool.startingSlot >= pool.phase0Candidates.lenu64():
     # In case many slots passed since the last update, avoid iterating over
     # the same indices over and over
-    pool.phase0Candidates = default(type(pool.phase0Candidates))
+    pool.phase0Candidates.reset()
+    pool.electraCandidates.reset()
   else:
     for i in pool.startingSlot..newStartingSlot:
       pool.phase0Candidates[i.uint64 mod pool.phase0Candidates.lenu64].reset()
+      pool.electraCandidates[i.uint64 mod pool.electraCandidates.lenu64].reset()
 
   pool.startingSlot = newStartingSlot
 
@@ -507,6 +509,7 @@ func covers*(
   if candidateIdx.isNone:
     return false
 
+  debugComment "foo"
   # needs to know more than attestationdata now
   #let attestation_data_root = hash_tree_root(data)
   #pool.electraCandidates[candidateIdx.get()].withValue(attestation_data_root, entry):
@@ -651,7 +654,8 @@ func score(
 proc check_attestation_compatible*(
     dag: ChainDAGRef,
     state: ForkyHashedBeaconState,
-    attestation: SomeAttestation | electra.Attestation | electra.TrustedAttestation): Result[void, cstring] =
+    attestation: SomeAttestation | electra.Attestation |
+                 electra.TrustedAttestation): Result[void, cstring] =
   let
     targetEpoch = attestation.data.target.epoch
     compatibleRoot = state.dependent_root(targetEpoch.get_previous_epoch)

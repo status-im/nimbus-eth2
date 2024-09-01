@@ -169,20 +169,6 @@ type
     of LightClientDataFork.Electra:
       electraData*: electra.LightClientStore
 
-func lcDataForkAtEpoch*(
-    cfg: RuntimeConfig, epoch: Epoch): LightClientDataFork =
-  static: doAssert LightClientDataFork.high == LightClientDataFork.Electra
-  if epoch >= cfg.ELECTRA_FORK_EPOCH:
-    LightClientDataFork.Electra
-  elif epoch >= cfg.DENEB_FORK_EPOCH:
-    LightClientDataFork.Deneb
-  elif epoch >= cfg.CAPELLA_FORK_EPOCH:
-    LightClientDataFork.Capella
-  elif epoch >= cfg.ALTAIR_FORK_EPOCH:
-    LightClientDataFork.Altair
-  else:
-    LightClientDataFork.None
-
 template kind*(
     # `SomeLightClientObject`: https://github.com/nim-lang/Nim/issues/18095
     x: typedesc[

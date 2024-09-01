@@ -24,6 +24,7 @@ import
 from std/os import changeFileExt, fileExists
 from std/sequtils import mapIt, toSeq
 from std/times import toUnix
+from ../beacon_chain/el/engine_api_conversions import asEth2Digest
 from ../beacon_chain/spec/beaconstate import initialize_beacon_state_from_eth1
 from ../tests/mocking/mock_genesis import mockEth1BlockHash
 
