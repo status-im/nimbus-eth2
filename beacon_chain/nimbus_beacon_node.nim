@@ -385,7 +385,7 @@ proc initFullNode(
     quarantine = newClone(
       Quarantine.init())
     attestationPool = newClone(AttestationPool.init(
-      dag, quarantine, config.forkChoiceVersion.get, onAttestationReceived))
+      dag, quarantine, onAttestationReceived))
     syncCommitteeMsgPool = newClone(
       SyncCommitteeMsgPool.init(rng, dag.cfg, onSyncContribution))
     lightClientPool = newClone(
@@ -574,7 +574,9 @@ proc init*(T: type BeaconNode,
            config: BeaconNodeConf,
            metadata: Eth2NetworkMetadata): Future[BeaconNode]
           {.async.} =
-  var taskpool: TaskPoolPtr
+  var
+    taskpool: TaskPoolPtr
+    genesisState: ref ForkedHashedBeaconState = nil
 
   template cfg: auto = metadata.cfg
   template eth1Network: auto = metadata.eth1Network
@@ -582,10 +584,10 @@ proc init*(T: type BeaconNode,
   if not(isDir(config.databaseDir)):
     # If database directory missing, we going to use genesis state to check
     # for weak_subjectivity_period.
+    genesisState =
+      await fetchGenesisState(
+        metadata, config.genesisState, config.genesisStateUrl)
     let
-      genesisState =
-        await fetchGenesisState(
-          metadata, config.genesisState, config.genesisStateUrl)
       genesisTime = getStateField(genesisState[], genesis_time)
       beaconClock = BeaconClock.init(genesisTime).valueOr:
         fatal "Invalid genesis time in genesis state", genesisTime
@@ -640,15 +642,15 @@ proc init*(T: type BeaconNode,
     db = BeaconChainDB.new(config.databaseDir, cfg, inMemory = false)
 
   if config.externalBeaconApiUrl.isSome and ChainDAGRef.isInitialized(db).isErr:
-    var genesisState: ref ForkedHashedBeaconState
     let trustedBlockRoot =
       if config.trustedStateRoot.isSome or config.trustedBlockRoot.isSome:
         config.trustedBlockRoot
       elif cfg.ALTAIR_FORK_EPOCH == GENESIS_EPOCH:
         # Sync can be bootstrapped from the genesis block root
-        genesisState = await fetchGenesisState(
-          metadata, config.genesisState, config.genesisStateUrl)
-        if genesisState != nil:
+        if genesisState.isNil:
+          genesisState = await fetchGenesisState(
+            metadata, config.genesisState, config.genesisStateUrl)
+        if not genesisState.isNil:
           let genesisBlockRoot = get_initial_beacon_block(genesisState[]).root
           notice "Neither `--trusted-block-root` nor `--trusted-state-root` " &
             "provided with `--external-beacon-api-url`, " &
@@ -669,7 +671,7 @@ proc init*(T: type BeaconNode,
         trustedBlockRoot = config.trustedBlockRoot,
         trustedStateRoot = config.trustedStateRoot
     else:
-      if genesisState == nil:
+      if genesisState.isNil:
         genesisState = await fetchGenesisState(
           metadata, config.genesisState, config.genesisStateUrl)
       await db.doRunTrustedNodeSync(
@@ -735,15 +737,18 @@ proc init*(T: type BeaconNode,
   var networkGenesisValidatorsRoot = metadata.bakedGenesisValidatorsRoot
 
   if not ChainDAGRef.isInitialized(db).isOk():
-    let genesisState =
-      if checkpointState != nil and
+    genesisState =
+      if not checkpointState.isNil and
           getStateField(checkpointState[], slot) == 0:
         checkpointState
       else:
-        await fetchGenesisState(
-          metadata, config.genesisState, config.genesisStateUrl)
+        if genesisState.isNil:
+          await fetchGenesisState(
+            metadata, config.genesisState, config.genesisStateUrl)
+        else:
+          genesisState
 
-    if genesisState == nil and checkpointState == nil:
+    if genesisState.isNil and checkpointState.isNil:
       fatal "No database and no genesis snapshot found. Please supply a genesis.ssz " &
             "with the network configuration"
       quit 1
@@ -1245,8 +1250,6 @@ proc doppelgangerChecked(node: BeaconNode, epoch: Epoch) =
   if epoch > node.processor[].doppelgangerDetection.broadcastStartEpoch:
     for validator in node.attachedValidators[]:
       validator.doppelgangerChecked(epoch - 1)
-
-from ./spec/state_transition_epoch import effective_balance_might_update
 
 proc maybeUpdateActionTrackerNextEpoch(
     node: BeaconNode, forkyState: ForkyHashedBeaconState, nextEpoch: Epoch) =
@@ -1793,7 +1796,7 @@ proc installMessageValidators(node: BeaconNode) =
       let digest = forkDigests[].atConsensusFork(consensusFork)
 
       # beacon_block
-      # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.1/specs/phase0/p2p-interface.md#beacon_block
+      # https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.5/specs/phase0/p2p-interface.md#beacon_block
       node.network.addValidator(
         getBeaconBlocksTopic(digest), proc (
           signedBlock: consensusFork.SignedBeaconBlock
@@ -1910,7 +1913,7 @@ proc installMessageValidators(node: BeaconNode) =
                 MsgSource.gossip, msg)))
 
       when consensusFork >= ConsensusFork.Capella:
-        # https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.3/specs/capella/p2p-interface.md#bls_to_execution_change
+        # https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.5/specs/capella/p2p-interface.md#bls_to_execution_change
         node.network.addAsyncValidator(
           getBlsToExecutionChangeTopic(digest), proc (
             msg: SignedBLSToExecutionChange
@@ -2262,8 +2265,6 @@ proc doRunBeaconNode(config: var BeaconNodeConf, rng: ref HmacDrbgContext) {.rai
   # works
   for node in metadata.bootstrapNodes:
     config.bootstrapNodes.add node
-  if config.forkChoiceVersion.isNone:
-    config.forkChoiceVersion = some(ForkChoiceVersion.Pr3431)
 
   ## Ctrl+C handling
   proc controlCHandler() {.noconv.} =

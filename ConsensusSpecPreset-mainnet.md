@@ -2487,9 +2487,12 @@ OK: 12/12 Fail: 0/12 Skip: 0/12
 + Pending consolidations - all_consolidation_cases_together [Preset: mainnet]                OK
 + Pending consolidations - basic_pending_consolidation [Preset: mainnet]                     OK
 + Pending consolidations - consolidation_not_yet_withdrawable_validator [Preset: mainnet]    OK
++ Pending consolidations - pending_consolidation_compounding_creds [Preset: mainnet]         OK
++ Pending consolidations - pending_consolidation_future_epoch [Preset: mainnet]              OK
++ Pending consolidations - pending_consolidation_with_pending_deposit [Preset: mainnet]      OK
 + Pending consolidations - skip_consolidation_when_source_slashed [Preset: mainnet]          OK
 ```
-OK: 4/4 Fail: 0/4 Skip: 0/4
+OK: 7/7 Fail: 0/7 Skip: 0/7
 ## EF - Electra - Epoch Processing - RANDAO mixes reset [Preset: mainnet]
 ```diff
 + RANDAO mixes reset - updated_randao_mixes [Preset: mainnet]                                OK
@@ -3710,4 +3713,4 @@ OK: 69/88 Fail: 0/88 Skip: 19/88
 OK: 3/3 Fail: 0/3 Skip: 0/3
 
 ---TOTAL---
-OK: 2988/3008 Fail: 0/3008 Skip: 20/3008
+OK: 2991/3011 Fail: 0/3011 Skip: 20/3011

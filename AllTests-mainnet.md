@@ -89,10 +89,10 @@ OK: 2/2 Fail: 0/2 Skip: 0/2
 OK: 1/1 Fail: 0/1 Skip: 0/1
 ## Blinded block conversions
 ```diff
-+ Bellatrix toSignedBlindedBlock                                                             OK
-+ Capella toSignedBlindedBlock                                                               OK
-+ Deneb toSignedBlindedBlock                                                                 OK
-+ Electra toSignedBlindedBlock                                                               OK
++ Bellatrix toSignedBlindedBeaconBlock                                                       OK
++ Capella toSignedBlindedBeaconBlock                                                         OK
++ Deneb toSignedBlindedBeaconBlock                                                           OK
++ Electra toSignedBlindedBeaconBlock                                                         OK
 ```
 OK: 4/4 Fail: 0/4 Skip: 0/4
 ## Block pool altair processing [Preset: mainnet]
@@ -467,16 +467,20 @@ OK: 5/5 Fail: 0/5 Skip: 0/5
 + URL parsing                                                                                OK
 ```
 OK: 5/5 Fail: 0/5 Skip: 0/5
-## Eth1 monitor
+## Engine API conversions
 ```diff
-+ Deposits chain                                                                             OK
-+ Rewrite URLs                                                                               OK
 + Roundtrip engine RPC V1 and bellatrix ExecutionPayload representations                     OK
 + Roundtrip engine RPC V2 and capella ExecutionPayload representations                       OK
 + Roundtrip engine RPC V3 and deneb ExecutionPayload representations                         OK
 + Roundtrip engine RPC V4 and electra ExecutionPayload representations                       OK
 ```
-OK: 6/6 Fail: 0/6 Skip: 0/6
+OK: 4/4 Fail: 0/4 Skip: 0/4
+## Eth1 monitor
+```diff
++ Deposits chain                                                                             OK
++ Rewrite URLs                                                                               OK
+```
+OK: 2/2 Fail: 0/2 Skip: 0/2
 ## Eth2 specific discovery tests
 ```diff
 + Invalid attnets field                                                                      OK
@@ -936,10 +940,10 @@ OK: 6/6 Fail: 0/6 Skip: 0/6
 + Dynamic validator set: updateDynamicValidators() test                                      OK
 ```
 OK: 4/4 Fail: 0/4 Skip: 0/4
-## ValidatorPubKey Bloom filter
+## ValidatorPubKey bucket sort
 ```diff
-+ incremental construction with no false positives/negatives                                 OK
-+ one-shot construction with no false positives/negatives                                    OK
++ incremental construction                                                                   OK
++ one-shot construction                                                                      OK
 ```
 OK: 2/2 Fail: 0/2 Skip: 0/2
 ## Zero signature sanity checks

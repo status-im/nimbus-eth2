@@ -90,8 +90,7 @@ proc installDebugApiHandlers*(router: var RestRouter, node: BeaconNode) =
     var response = GetForkChoiceResponse(
       justified_checkpoint: forkChoice.checkpoints.justified.checkpoint,
       finalized_checkpoint: forkChoice.checkpoints.finalized,
-      extra_data: RestExtraData(
-        version: some($forkChoice.backend.proto_array.version)))
+      extra_data: RestExtraData())
 
     for item in forkChoice.backend.proto_array:
       let
