@@ -326,6 +326,9 @@ proc rebuildState(overseer: SyncOverseerRef): Future[void] {.
   overseer.avgSpeed = 0.0
   overseer.avgSpeedCounter = 0
 
+  # Set minimum slot number from which LC data is collected.
+  dag.lcDataStore.cache.tailSlot = clist.head.get().slot
+
   block mainLoop:
     while true:
       let res = getChainFileTail(handle.handle)
