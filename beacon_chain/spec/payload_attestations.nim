@@ -70,10 +70,7 @@ proc get_ptc(state: epbs.BeaconState, slot: Slot, cache: var StateCache,
         state, epoch, cache), PTC_SIZE))
     members_per_committee = (PTC_SIZE div committees_per_slot)
 
-  var
-    validator_indices: seq[ValidatorIndex]
-
-  validator_indices.setLen(PTC_SIZE)
+  var validator_indices = newSeq[ValidatorIndex](PTC_SIZE)
 
   for committee_index in get_committee_indices(committee_bits):
     for _, beacon_committee in get_beacon_committee(
