@@ -209,7 +209,7 @@ proc runComputeCellsAndKzgProofsTest(suiteName, suitePath, path: string) =
       output = data["output"]
       blob = fromHex[131072](data["input"]["blob"].getStr)
 
-    # https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.2/tests/formats/kzg_7594/verify_cell_kzg_proof.md#condition
+    # https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.5/tests/formats/kzg_7594/verify_cell_kzg_proof.md#condition
     # If the blob is invalid (e.g. incorrect length or one of the 32-byte
     # blocks does not represent a BLS field element) it should error, i.e. the
     # the output should be `null`.
@@ -236,7 +236,7 @@ proc runVerifyCellKzgProofBatchTest(suiteName, suitePath, path: string) =
       cells = data["input"]["cells"].mapIt(fromHex[2048](it.getStr))
       proofs = data["input"]["proofs"].mapIt(fromHex[48](it.getStr))
 
-    # https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.2/tests/formats/kzg_7594/verify_cell_kzg_proof_batch.md#condition
+    # https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.5/tests/formats/kzg_7594/verify_cell_kzg_proof_batch.md#condition
     # If the blob is invalid (e.g. incorrect length or one of the 32-byte
     # blocks does not represent a BLS field element) it should error, i.e. the
     # the output should be `null`.
@@ -266,7 +266,7 @@ proc runRecoverCellsAndKzgProofsTest(suiteName, suitePath, path: string) =
       output = data["output"]
       cell_ids = data["input"]["cell_indices"].mapIt(toUInt64(it.getInt))
       cells = data["input"]["cells"].mapIt(fromHex[2048](it.getStr))
-    # https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.2/tests/formats/kzg_7594/recover_all_cells.md#condition
+    # https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.5 /tests/formats/kzg_7594/recover_all_cells.md#condition
     # If the blob is invalid (e.g. incorrect length or one of the 32-byte
     # blocks does not represent a BLS field element) it should error, i.e. the
     # the output should be `null`.
