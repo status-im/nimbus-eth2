@@ -15,6 +15,7 @@ import
   web3, web3/[engine_api, primitives, conversions],
   eth/common/eth_types,
   results,
+  kzg4844/[kzg_abi, kzg],
   stew/[assign2, byteutils, objects],
   # Local modules:
   ../spec/[eth2_merkleization, forks],

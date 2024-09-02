@@ -29,7 +29,7 @@ import
   ../extras,
   ./datatypes/[phase0, altair, bellatrix, deneb],
   "."/[beaconstate, eth2_merkleization, helpers, validator, signatures],
-  kzg4844/kzg_abi, kzg4844/kzg_ex
+  kzg4844/kzg_abi, kzg4844/kzg
 
 from std/algorithm import fill, sorted
 from std/sequtils import count, filterIt, mapIt
@@ -1083,7 +1083,7 @@ func kzg_commitment_to_versioned_hash*(
 proc validate_blobs*(
     expected_kzg_commitments: seq[KzgCommitment], blobs: seq[KzgBlob],
     proofs: seq[KzgProof]): Result[void, string] =
-  let res = verifyProofs(blobs, expected_kzg_commitments, proofs).valueOr:
+  let res = verifyBlobKzgProofBatch(blobs, expected_kzg_commitments, proofs).valueOr:
     return err("validate_blobs proof verification error: " & error())
 
   if not res:
