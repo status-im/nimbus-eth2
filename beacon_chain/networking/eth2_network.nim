@@ -2438,6 +2438,39 @@ func announcedENR*(node: Eth2Node): enr.Record =
   doAssert node.discovery != nil, "The Eth2Node must be initialized"
   node.discovery.localNode.record
 
+proc lookupCscFromPeer*(peer: Peer): uint64 =
+  # Fetches the custody column count from a remote peer
+  # if the peer advertises their custody column count 
+  # via the `csc` ENR field. If the peer does NOT, then
+  # the default value is assume, i.e, CUSTODY_REQUIREMENT
+
+  let enrOpt = peer.enr
+  if enrOpt.isNone:
+    debug "Could not get ENR from peer, trying to fetch csc from metadata",
+      peer_id = peer.peerId
+    let metadata = peer.metadata
+    if not metadata.isOk:
+      return(CUSTODY_REQUIREMENT.uint64)
+    else:
+      return(metadata.get.custody_subnet_count)
+
+  else:
+    let
+      enr = enrOpt.get
+      enrFieldOpt = 
+          enr.get(enrCustodySubnetCountField, seq[byte])
+
+    if enrFieldOpt.isOk:
+        try:
+          let csc = SSZ.decode(enrFieldOpt.get(), CscCount)
+          return csc
+        except SszError as e:
+          debug "Could not decide the csc field in the ENR"
+          return 0
+        except SerializationError:
+          debug "Error in serializing the value"
+          return 0
+
 func shortForm*(id: NetKeyPair): string =
   $PeerId.init(id.pubkey)
 

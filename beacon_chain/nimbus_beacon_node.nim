@@ -1514,7 +1514,6 @@ proc tryReconstructingDataColumns* (self: BeaconNode,
         self.network.nodeId,
         localCustodySubnetCount)
 
-    
   var
     finalisedDataColumns: seq[DataColumnSidecar]
     data_column_sidecars: seq[DataColumnSidecar]

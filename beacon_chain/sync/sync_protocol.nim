@@ -478,26 +478,29 @@ p2pProtocol BeaconSync(version = 1,
     
     for i in startIndex..endIndex:
       for j in 0..<MAX_REQUEST_DATA_COLUMNS:
-        if dag.db.getDataColumnSidecarSZ(blockIds[i].root, ColumnIndex(j), bytes):
-          if blockIds[i].slot.epoch >= dag.cfg.BELLATRIX_FORK_EPOCH and
-              not dag.head.executionValid:
-            continue
+        if ColumnIndex(j) in reqColumns:
+          if dag.db.getDataColumnSidecarSZ(blockIds[i].root, ColumnIndex(j), bytes):
+            if blockIds[i].slot.epoch >= dag.cfg.BELLATRIX_FORK_EPOCH and
+                not dag.head.executionValid:
+              continue
 
-          let uncompressedLen = uncompressedLenFramed(bytes).valueOr:
-            warn "Cannot read data column sidecar size, database, corrupt",
-              bytes = bytes.len(), blck = shortLog(blockIds[i])
-            continue
+            let uncompressedLen = uncompressedLenFramed(bytes).valueOr:
+              warn "Cannot read data column sidecar size, database, corrupt",
+                bytes = bytes.len(), blck = shortLog(blockIds[i])
+              continue
 
-          peer.awaitQuota(dataColumnResponseCost, "data_column_sidecars_by_range/1")
-          peer.network.awaitQuota(dataColumnResponseCost, "data_column_sidecars_by_range/1")
+            peer.awaitQuota(dataColumnResponseCost, "data_column_sidecars_by_range/1")
+            peer.network.awaitQuota(dataColumnResponseCost, "data_column_sidecars_by_range/1")
 
-          await response.writeBytesSZ(
-            uncompressedLen, bytes,
-            peer.network.forkDigestAtEpoch(blockIds[i].slot.epoch).data)
-          inc found
+            await response.writeBytesSZ(
+              uncompressedLen, bytes,
+              peer.network.forkDigestAtEpoch(blockIds[i].slot.epoch).data)
+            inc found
 
-          debug "Responded to DataColumnSidecar range request",
-            peer, blck = shortLog(blockIds[i])
+            debug "Responded to DataColumnSidecar range request",
+              peer, blck = shortLog(blockIds[i])
+          else:
+            break
 
         else:
           break
