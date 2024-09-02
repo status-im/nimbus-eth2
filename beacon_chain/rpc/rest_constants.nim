@@ -87,9 +87,6 @@ const
     "Invalid attestation data root value"
   UnableToGetAggregatedAttestationError* =
     "Unable to retrieve an aggregated attestation"
-  DeprecatedGetAggregatedAttestation*: string =
-    "Deprecated endpoint /eth/v1/validator/aggregate_attestation. Replaced with" &
-    "https://ethereum.github.io/beacon-APIs/#/Validator/getAggregatedAttestationV2"
   MissingRandaoRevealValue* =
     "Missing `randao_reveal` value"
   InvalidRandaoRevealValue* =
