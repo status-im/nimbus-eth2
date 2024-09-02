@@ -539,25 +539,25 @@ proc storeBlock(
         parent_root = signedBlock.message.parent_root
         parentBlck = dag.getForkedBlock(parent_root)
       if parentBlck.isSome():
-        var blobsOk = true
-        let blobs =
-          withBlck(parentBlck.get()):
-            when consensusFork >= ConsensusFork.Deneb:
-              var blob_sidecars: BlobSidecars
-              for i in 0 ..< forkyBlck.message.body.blob_kzg_commitments.len:
-                let blob = BlobSidecar.new()
-                if not dag.db.getBlobSidecar(parent_root, i.BlobIndex, blob[]):
-                  blobsOk = false  # Pruned, or inconsistent DB
-                  break
-                blob_sidecars.add blob
-              Opt.some blob_sidecars
-            else:
-              Opt.none BlobSidecars
+        # var blobsOk = true
+        # let blobs =
+        #   withBlck(parentBlck.get()):
+        #     when consensusFork >= ConsensusFork.Deneb:
+        #       var blob_sidecars: BlobSidecars
+        #       for i in 0 ..< forkyBlck.message.body.blob_kzg_commitments.len:
+        #         let blob = BlobSidecar.new()
+        #         if not dag.db.getBlobSidecar(parent_root, i.BlobIndex, blob[]):
+        #           blobsOk = false  # Pruned, or inconsistent DB
+        #           break
+        #         blob_sidecars.add blob
+        #       Opt.some blob_sidecars
+        #     else:
+        #       Opt.none BlobSidecars
 
-        if blobsOk:
-          debug "Loaded parent block from storage", parent_root
-          self[].enqueueBlock(
-            MsgSource.gossip, parentBlck.unsafeGet().asSigned(), blobs, Opt.none(DataColumnSidecars))          
+        # if blobsOk:
+        #   debug "Loaded parent block from storage", parent_root
+        #   self[].enqueueBlock(
+        #     MsgSource.gossip, parentBlck.unsafeGet().asSigned(), blobs, Opt.none(DataColumnSidecars))          
 
         var columnsOk = true
         let data_columns =
@@ -856,13 +856,13 @@ proc storeBlock(
              error = res.error()
             continue
 
-          if self.blobQuarantine[].hasBlobs(forkyBlck):
-            let blobs = self.blobQuarantine[].popBlobs(
-              forkyBlck.root, forkyBlck)
-            self[].enqueueBlock(MsgSource.gossip, quarantined, Opt.some(blobs), Opt.none(DataColumnSidecars))
-          else:
-            discard self.consensusManager.quarantine[].addBlobless(
-              dag.finalizedHead.slot, forkyBlck)
+          # if self.blobQuarantine[].hasBlobs(forkyBlck):
+          #   let blobs = self.blobQuarantine[].popBlobs(
+          #     forkyBlck.root, forkyBlck)
+          #   self[].enqueueBlock(MsgSource.gossip, quarantined, Opt.some(blobs), Opt.none(DataColumnSidecars))
+          # else:
+          #   discard self.consensusManager.quarantine[].addBlobless(
+          #     dag.finalizedHead.slot, forkyBlck)
 
           if self.dataColumnQuarantine[].hasDataColumns(forkyBlck):
             let data_columns = self.dataColumnQuarantine[].popDataColumns(

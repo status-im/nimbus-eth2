@@ -10,8 +10,7 @@
 import
   std/[sequtils],
   "."/[altair, base, deneb], 
-  kzg4844,
-  stew/[byteutils]
+  kzg4844
 
 from std/sequtils import mapIt
 from std/strutils import join
@@ -27,7 +26,7 @@ const
   CELLS_PER_EXT_BLOB* = FIELD_ELEMENTS_PER_EXT_BLOB div FIELD_ELEMENTS_PER_CELL
     # The number of cells in an extended blob |
   # RANDOM_CHALLENGE_KZG_CELL_BATCH_DOMAIN = 'RCKZGCBATCH__V1_'
-  KZG_COMMITMENTS_INCLUSION_PROOF_DEPTH* = 4 # TODO dedupe vs network
+  KZG_COMMITMENTS_INCLUSION_PROOF_DEPTH* = 4
 
 type
   BLSFieldElement* = KzgBytes32

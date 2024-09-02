@@ -53,8 +53,11 @@ proc sortedColumnIndexList*(columnsPerSubnet: ColumnIndex,
 proc get_custody_column_subnet*(node_id: NodeId, 
                                 custody_subnet_count: uint64): 
                                 Result[HashSet[uint64], cstring] =
-  # fetches the subnets for custody column for the current node
-  # assert custody_subnet_count <= DATA_COLUMN_SIDECAR_SUBNET_COUNT
+
+  # Decouples the custody subnet computation part from
+  # `get_custody_columns`, in order to later use this subnet list
+  # in order to maintain subscription to specific column subnets.
+
   if not (custody_subnet_count <= DATA_COLUMN_SIDECAR_SUBNET_COUNT):
     return err("Eip7594: Custody subnet count exceeds the DATA_COLUMN_SIDECAR_SUBNET_COUNT")
 
@@ -64,11 +67,19 @@ proc get_custody_column_subnet*(node_id: NodeId,
 
   while subnet_ids.len < int(custody_subnet_count):
 
-    var subnet_id_bytes: array[8, byte]
-    subnet_id_bytes[0..7] = current_id.toBytesLE().toOpenArray(0,7)
+    var
+      current_id_bytes: array[32, byte]
+      hashed_bytes: array[8, byte]
+      
+    current_id_bytes = current_id.toBytesBE()
+    current_id_bytes.reverse()
 
-    var subnet_id = bytes_to_uint64(subnet_id_bytes) mod 
-        DATA_COLUMN_SIDECAR_SUBNET_COUNT
+    let
+      hashed_current_id = eth2digest(current_id_bytes)
+      
+    hashed_bytes[0..7] = hashed_current_id.data.toOpenArray(0,7)
+    var subnet_id = bytes_to_uint64(hashed_bytes) mod 
+      DATA_COLUMN_SIDECAR_SUBNET_COUNT
     
     if subnet_id notin subnet_ids:
         subnet_ids.incl(subnet_id)
@@ -78,11 +89,8 @@ proc get_custody_column_subnet*(node_id: NodeId,
         current_id = NodeId(StUint[256].zero)
     current_id += NodeId(StUint[256].one)
 
-  # assert len(subnet_ids) == len(set(subnet_ids))
-  if not (subnet_ids.len == subnet_ids.len):
-    return err("Eip7594: Subnet ids are not unique")
-
   ok(subnet_ids)
+
 
 # https://github.com/ethereum/consensus-specs/blob/5f48840f4d768bf0e0a8156a3ed06ec333589007/specs/_features/eip7594/das-core.md#get_custody_columns
 proc get_custody_columns*(node_id: NodeId, 
