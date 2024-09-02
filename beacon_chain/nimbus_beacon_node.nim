@@ -1852,8 +1852,8 @@ proc onSlotStart(node: BeaconNode, wallTime: BeaconTime,
 
   node.consensusManager[].updateHead(wallSlot)
 
-  await node.handleValidatorDuties(lastSlot, wallSlot)
   await node.reconstructAndSendDataColumns()
+  await node.handleValidatorDuties(lastSlot, wallSlot)
   await onSlotEnd(node, wallSlot)
 
   # https://github.com/ethereum/builder-specs/blob/v0.4.0/specs/bellatrix/validator.md#registration-dissemination
