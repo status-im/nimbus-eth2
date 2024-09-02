@@ -1532,8 +1532,7 @@ proc tryReconstructingDataColumns* (self: BeaconNode,
   # storedColumn number is less than the NUMBER_OF_COLUMNS
   # then reconstruction is not possible, and if all the data columns
   # are already stored then we do not need to reconstruct at all
-  if not storedColumns.len < NUMBER_OF_COLUMNS div 2 and storedColumns.len != NUMBER_OF_COLUMNS:
-
+  if not storedColumns.len < NUMBER_OF_COLUMNS div 2 or storedColumns.len != NUMBER_OF_COLUMNS:
     # Recover blobs from saved data column sidecars
     let recovered_cps = recover_cells_and_proofs(data_column_sidecars, storedColumns.len, signed_block)
     if not recovered_cps.isOk:
@@ -1558,8 +1557,7 @@ proc reconstructAndSendDataColumns*(node: BeaconNode) {.async.} =
 
   let blck = getForkedBlock(db, root).valueOr: return
   withBlck(blck):
-    when typeof(forkyBlck).kind < ConsensusFork.Deneb: return
-    else:
+    when typeof(forkyBlck).kind >= ConsensusFork.Deneb:
       let data_column_sidecars = await node.tryReconstructingDataColumns(forkyBlck)
       if not data_column_sidecars.isOk():
         return
@@ -1582,6 +1580,8 @@ proc reconstructAndSendDataColumns*(node: BeaconNode) {.async.} =
         else:
           notice "Reconstructed data columns sent",
             data_column = shortLog(dc[i])
+    else:
+      return
 
 proc onSlotEnd(node: BeaconNode, slot: Slot) {.async.} =
   # Things we do when slot processing has ended and we're about to wait for the
