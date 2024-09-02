@@ -8,6 +8,7 @@
 {.push raises: [].}
 
 import
+  kzg4844/[kzg_abi, kzg],
   ../spec/datatypes/[bellatrix, capella, deneb, electra],
   web3/[engine_api, engine_api_types]
 
