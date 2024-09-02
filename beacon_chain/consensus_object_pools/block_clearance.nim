@@ -495,7 +495,6 @@ proc addBackfillBlockData*(
 
   withBlck(bdata.blck):
     let
-      m0 = Moment.now()
       parent = checkHeadBlock(dag, forkyBlck).valueOr:
         if error == VerifierError.Duplicate:
           return ok()
@@ -505,7 +504,6 @@ proc addBackfillBlockData*(
       trustedStateRoot =
         withBlck(parentBlock):
           forkyBlck.message.state_root
-      m1 = Moment.now()
       clearanceBlock = BlockSlotId.init(parent.bid, forkyBlck.message.slot)
       updateFlags1 = dag.updateFlags + {skipLastStateRootCalculation}
 
@@ -535,8 +533,6 @@ proc addBackfillBlockData*(
       for blob in bdata.blob.get():
         dag.db.putBlobSidecar(blob[])
 
-    let m3 = Moment.now()
-
     type Trusted = typeof forkyBlck.asTrusted()
 
     proc onBlockAddedHandler(
@@ -562,16 +558,5 @@ proc addBackfillBlockData*(
       proposerVerifyTick - startTick,
       stateDataTick - proposerVerifyTick,
       stateVerifyTick - stateDataTick)
-
-    let m4 = Moment.now()
-
-    debug "Number of blocks being injected",
-          check_head_time = startTick - m0,
-          get_parent_block_time = m1 - startTick,
-          update_state_time = proposerVerifyTick - m1,
-          on_state_update_time = stateDataTick - proposerVerifyTick,
-          check_state_transition_time = stateVerifyTick - stateDataTick,
-          blob_save_time = m3 - stateVerifyTick,
-          add_head_block_time = m4 - m3
 
   ok()
