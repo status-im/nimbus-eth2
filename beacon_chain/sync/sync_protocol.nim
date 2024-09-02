@@ -24,7 +24,7 @@ const
     ## Allow syncing ~64 blocks/sec (minus request costs)
   blobResponseCost = allowedOpsPerSecondCost(1000)
     ## Multiple can exist per block, they are much smaller than blocks
-  dataColumnResponseCost = allowedOpsPerSecondCost(4000)
+  dataColumnResponseCost = allowedOpsPerSecondCost(1000)
     ## 1 blob has an equivalent memory of 8 data columns
 
 type
@@ -432,6 +432,9 @@ p2pProtocol BeaconSync(version = 1,
           peer.network.forkDigestAtEpoch(blockRef.slot.epoch).data)
         inc found
 
+        debug "Responded to Data Column Sidecar By Root",
+          peer, blck = shortLog(blockRef), columnIndex = index
+
     debug "Data column root request done",
       peer, roots = columnIds.len, count, found
 
@@ -492,6 +495,10 @@ p2pProtocol BeaconSync(version = 1,
             uncompressedLen, bytes,
             peer.network.forkDigestAtEpoch(blockIds[i].slot.epoch).data)
           inc found
+
+          debug "Responded to DataColumnSidecar range request",
+            peer, blck = shortLog(blockIds[i])
+
         else:
           break
 
