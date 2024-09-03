@@ -771,7 +771,40 @@ proc installValidatorApiHandlers*(router: var RestRouter, node: BeaconNode) =
         makeAttestationData(epochRef, qhead.atSlot(qslot), qindex)
     RestApiResponse.jsonResponse(adata)
 
-  # https://ethereum.github.io/beacon-APIs/#/Validator/getAggregatedAttestationV2
+  # https://ethereum.github.io/beacon-APIs/#/Validator/getAggregatedAttestation
+  router.api2(MethodGet, "/eth/v1/validator/aggregate_attestation") do (
+    attestation_data_root: Option[Eth2Digest],
+    slot: Option[Slot]) -> RestApiResponse:
+    let attestation =
+      block:
+        let qslot =
+          block:
+            if slot.isNone():
+              return RestApiResponse.jsonError(Http400, MissingSlotValueError)
+            let res = slot.get()
+            if res.isErr():
+              return RestApiResponse.jsonError(Http400, InvalidSlotValueError,
+                                               $res.error())
+            res.get()
+        let qroot =
+          block:
+            if attestation_data_root.isNone():
+              return RestApiResponse.jsonError(Http400,
+                                           MissingAttestationDataRootValueError)
+            let res = attestation_data_root.get()
+            if res.isErr():
+              return RestApiResponse.jsonError(Http400,
+                             InvalidAttestationDataRootValueError, $res.error())
+            res.get()
+        let res =
+          node.attestationPool[].getAggregatedAttestation(qslot, qroot)
+        if res.isNone():
+          return RestApiResponse.jsonError(Http400,
+                                          UnableToGetAggregatedAttestationError)
+        res.get()
+    RestApiResponse.jsonResponse(attestation)
+
+  # https://ethereum.github.io/beacon-APIs/?urls.primaryName=dev#/Beacon/getPoolAttestationsV2
   router.api2(MethodGet, "/eth/v2/validator/aggregate_attestation") do (
     attestation_data_root: Option[Eth2Digest],
     committee_index: Option[CommitteeIndex],
@@ -811,11 +844,7 @@ proc installValidatorApiHandlers*(router: var RestRouter, node: BeaconNode) =
             res.get()
         let res =
           block:
-            let contextFork = node.dag.cfg.consensusForkAtEpoch(epoch(qslot))
-            if contextFork >= ConsensusFork.Electra:
-              node.attestationPool[].getElectraAggregatedAttestation(qslot, root, committee_index)
-            else:
-              node.attestationPool[].getAggregatedAttestation(qslot, root)
+            node.attestationPool[].getElectraAggregatedAttestation(qslot, root, committee_index)
         if res.isNone():
           return RestApiResponse.jsonError(Http400,
                                           UnableToGetAggregatedAttestationError)

@@ -1662,7 +1662,6 @@ proc submitPoolSyncCommitteeSignature*(
 proc getAggregatedAttestation*(
        vc: ValidatorClientRef,
        slot: Slot,
-       committee_index: CommitteeIndex,
        root: Eth2Digest,
        strategy: ApiStrategyKind
      ): Future[phase0.Attestation] {.async.} =
@@ -1679,7 +1678,7 @@ proc getAggregatedAttestation*(
       OneThirdDuration,
       ViableNodeStatus,
       {BeaconNodeRole.AggregatedData},
-      getAggregatedAttestationPlainV2(it, root, slot, committee_index)):
+      getAggregatedAttestationPlain(it, root, slot)):
       if apiResponse.isErr():
         handleCommunicationError()
         ApiResponse[GetAggregatedAttestationResponse].err(apiResponse.error)
@@ -1719,7 +1718,7 @@ proc getAggregatedAttestation*(
       OneThirdDuration,
       ViableNodeStatus,
       {BeaconNodeRole.AggregatedData},
-      getAggregatedAttestationPlainV2(it, root, slot, committee_index),
+      getAggregatedAttestationPlain(it, root, slot),
       getAggregatedAttestationDataScore(itresponse)):
       if apiResponse.isErr():
         handleCommunicationError()
@@ -1765,7 +1764,7 @@ proc getAggregatedAttestation*(
       OneThirdDuration,
       ViableNodeStatus,
       {BeaconNodeRole.AggregatedData},
-      getAggregatedAttestationPlainV2(it, root, slot, committee_index)):
+      getAggregatedAttestationPlain(it, root, slot)):
       if apiResponse.isErr():
         handleCommunicationError()
         false

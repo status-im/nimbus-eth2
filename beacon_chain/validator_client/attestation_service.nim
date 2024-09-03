@@ -281,7 +281,6 @@ proc produceAndPublishAggregates(service: AttestationServiceRef,
     let aggAttestation =
       try:
         await vc.getAggregatedAttestation(slot, attestationRoot,
-                                          committeeIndex,
                                           ApiStrategyKind.Best)
       except ValidatorApiError as exc:
         warn "Unable to get aggregated attestation data", slot = slot,
