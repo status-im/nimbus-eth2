@@ -433,6 +433,66 @@ OK: 2/2 Fail: 0/2 Skip: 0/2
 + KZG - Verify blob KZG proof batch - verify_blob_kzg_proof_batch_case_proof_length_differen OK
 ```
 OK: 253/253 Fail: 0/253 Skip: 0/253
+## EF - KZG - EIP7594
+```diff
++ KZG - Compute Cells And Proofs - compute_cells_and_kzg_proofs_case_invalid_blob_26555bdcbf OK
++ KZG - Compute Cells And Proofs - compute_cells_and_kzg_proofs_case_invalid_blob_79fb3cb1ef OK
++ KZG - Compute Cells And Proofs - compute_cells_and_kzg_proofs_case_invalid_blob_7e99dea889 OK
++ KZG - Compute Cells And Proofs - compute_cells_and_kzg_proofs_case_invalid_blob_9d88c33852 OK
++ KZG - Compute Cells And Proofs - compute_cells_and_kzg_proofs_case_valid_419245fbfe69f145  OK
++ KZG - Compute Cells And Proofs - compute_cells_and_kzg_proofs_case_valid_4aedd1a2a3933c3e  OK
++ KZG - Compute Cells And Proofs - compute_cells_and_kzg_proofs_case_valid_6e773f256383918c  OK
++ KZG - Compute Cells And Proofs - compute_cells_and_kzg_proofs_case_valid_b0731ef77b166ca8  OK
++ KZG - Compute Cells And Proofs - compute_cells_and_kzg_proofs_case_valid_b81d309b22788820  OK
++ KZG - Compute Cells And Proofs - compute_cells_and_kzg_proofs_case_valid_ed8b5001151417d5  OK
++ KZG - Compute Cells And Proofs - compute_cells_and_kzg_proofs_case_valid_edeb8500a6507818  OK
++ KZG - Recover Cells And Kzg Proofs - recover_cells_and_kzg_proofs_case_invalid_all_cells_a OK
++ KZG - Recover Cells And Kzg Proofs - recover_cells_and_kzg_proofs_case_invalid_cell_047ee7 OK
++ KZG - Recover Cells And Kzg Proofs - recover_cells_and_kzg_proofs_case_invalid_cell_76ab46 OK
++ KZG - Recover Cells And Kzg Proofs - recover_cells_and_kzg_proofs_case_invalid_cell_77b669 OK
++ KZG - Recover Cells And Kzg Proofs - recover_cells_and_kzg_proofs_case_invalid_cell_c8e2ca OK
++ KZG - Recover Cells And Kzg Proofs - recover_cells_and_kzg_proofs_case_invalid_cell_index_ OK
++ KZG - Recover Cells And Kzg Proofs - recover_cells_and_kzg_proofs_case_invalid_duplicate_c OK
++ KZG - Recover Cells And Kzg Proofs - recover_cells_and_kzg_proofs_case_invalid_more_cell_i OK
++ KZG - Recover Cells And Kzg Proofs - recover_cells_and_kzg_proofs_case_invalid_more_cells_ OK
++ KZG - Recover Cells And Kzg Proofs - recover_cells_and_kzg_proofs_case_invalid_more_cells_ OK
++ KZG - Recover Cells And Kzg Proofs - recover_cells_and_kzg_proofs_case_invalid_more_than_h OK
++ KZG - Recover Cells And Kzg Proofs - recover_cells_and_kzg_proofs_case_valid_half_missing_ OK
++ KZG - Recover Cells And Kzg Proofs - recover_cells_and_kzg_proofs_case_valid_half_missing_ OK
++ KZG - Recover Cells And Kzg Proofs - recover_cells_and_kzg_proofs_case_valid_half_missing_ OK
++ KZG - Recover Cells And Kzg Proofs - recover_cells_and_kzg_proofs_case_valid_no_missing_a1 OK
++ KZG - Verify Cell Kzg Proof Batch - verify_cell_kzg_proof_batch_case_incorrect_cell_48bcbf OK
++ KZG - Verify Cell Kzg Proof Batch - verify_cell_kzg_proof_batch_case_incorrect_commitment_ OK
++ KZG - Verify Cell Kzg Proof Batch - verify_cell_kzg_proof_batch_case_incorrect_proof_ba29f OK
++ KZG - Verify Cell Kzg Proof Batch - verify_cell_kzg_proof_batch_case_invalid_cell_bcb1b35c OK
++ KZG - Verify Cell Kzg Proof Batch - verify_cell_kzg_proof_batch_case_invalid_cell_d89304ce OK
++ KZG - Verify Cell Kzg Proof Batch - verify_cell_kzg_proof_batch_case_invalid_cell_d939faf6 OK
++ KZG - Verify Cell Kzg Proof Batch - verify_cell_kzg_proof_batch_case_invalid_cell_ef6ac828 OK
++ KZG - Verify Cell Kzg Proof Batch - verify_cell_kzg_proof_batch_case_invalid_cell_index_5d OK
++ KZG - Verify Cell Kzg Proof Batch - verify_cell_kzg_proof_batch_case_invalid_commitment_4b OK
++ KZG - Verify Cell Kzg Proof Batch - verify_cell_kzg_proof_batch_case_invalid_commitment_53 OK
++ KZG - Verify Cell Kzg Proof Batch - verify_cell_kzg_proof_batch_case_invalid_commitment_68 OK
++ KZG - Verify Cell Kzg Proof Batch - verify_cell_kzg_proof_batch_case_invalid_commitment_d3 OK
++ KZG - Verify Cell Kzg Proof Batch - verify_cell_kzg_proof_batch_case_invalid_missing_cell_ OK
++ KZG - Verify Cell Kzg Proof Batch - verify_cell_kzg_proof_batch_case_invalid_missing_cell_ OK
++ KZG - Verify Cell Kzg Proof Batch - verify_cell_kzg_proof_batch_case_invalid_missing_commi OK
++ KZG - Verify Cell Kzg Proof Batch - verify_cell_kzg_proof_batch_case_invalid_missing_proof OK
++ KZG - Verify Cell Kzg Proof Batch - verify_cell_kzg_proof_batch_case_invalid_proof_0424858 OK
++ KZG - Verify Cell Kzg Proof Batch - verify_cell_kzg_proof_batch_case_invalid_proof_48fa9d1 OK
++ KZG - Verify Cell Kzg Proof Batch - verify_cell_kzg_proof_batch_case_invalid_proof_8feaf47 OK
++ KZG - Verify Cell Kzg Proof Batch - verify_cell_kzg_proof_batch_case_invalid_proof_a9d14f0 OK
++ KZG - Verify Cell Kzg Proof Batch - verify_cell_kzg_proof_batch_case_valid_0cfba0f22152206 OK
++ KZG - Verify Cell Kzg Proof Batch - verify_cell_kzg_proof_batch_case_valid_3073caf43016db4 OK
++ KZG - Verify Cell Kzg Proof Batch - verify_cell_kzg_proof_batch_case_valid_5211d9e9ff34c00 OK
++ KZG - Verify Cell Kzg Proof Batch - verify_cell_kzg_proof_batch_case_valid_92c0b5242fa34ae OK
++ KZG - Verify Cell Kzg Proof Batch - verify_cell_kzg_proof_batch_case_valid_9fb9bff6fe1fb6b OK
++ KZG - Verify Cell Kzg Proof Batch - verify_cell_kzg_proof_batch_case_valid_d3f60d6d484ddb6 OK
++ KZG - Verify Cell Kzg Proof Batch - verify_cell_kzg_proof_batch_case_valid_fd341ee5517e590 OK
++ KZG - Verify Cell Kzg Proof Batch - verify_cell_kzg_proof_batch_case_valid_multiple_blobs_ OK
++ KZG - Verify Cell Kzg Proof Batch - verify_cell_kzg_proof_batch_case_valid_same_cell_multi OK
++ KZG - Verify Cell Kzg Proof Batch - verify_cell_kzg_proof_batch_case_valid_zero_cells_fbbd OK
+```
+OK: 56/56 Fail: 0/56 Skip: 0/56
 ## EF - SSZ generic types
 ```diff
   Testing basic_vector inputs - invalid                                                      Skip
@@ -1041,4 +1101,4 @@ OK: 2/2 Fail: 0/2 Skip: 0/2
 OK: 9/9 Fail: 0/9 Skip: 0/9
 
 ---TOTAL---
-OK: 694/699 Fail: 0/699 Skip: 5/699
+OK: 750/755 Fail: 0/755 Skip: 5/755
