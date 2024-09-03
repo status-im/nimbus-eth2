@@ -11,14 +11,9 @@
 import
   std/[algorithm, hashes],
   results,
-  kzg4844/[kzg, kzg_abi],
   eth/p2p/discoveryv5/[node],
   ./[helpers, digest],
-  ./datatypes/[eip7594, deneb],
-  ssz_serialization/[
-    proofs,
-    types],
-  ./[beacon_time, crypto]
+  ./datatypes/[eip7594]
 
 proc sortedColumnIndices*(columnsPerSubnet: ColumnIndex,
                           subnetIds: HashSet[uint64]):
@@ -32,8 +27,8 @@ proc sortedColumnIndices*(columnsPerSubnet: ColumnIndex,
   res
 
 proc sortedColumnIndexList*(columnsPerSubnet: ColumnIndex, 
-                          subnetIds: HashSet[uint64]): 
-                          List[ColumnIndex, NUMBER_OF_COLUMNS] =
+                            subnetIds: HashSet[uint64]): 
+                            List[ColumnIndex, NUMBER_OF_COLUMNS] =
   var
     res: seq[ColumnIndex]
     list: List[ColumnIndex, NUMBER_OF_COLUMNS]
@@ -46,7 +41,7 @@ proc sortedColumnIndexList*(columnsPerSubnet: ColumnIndex,
     discard list.add(ColumnIndex(elem))
   list
 
-proc get_custody_column_subnet*(node_id: NodeId, 
+proc get_custody_column_subnets*(node_id: NodeId, 
                                 custody_subnet_count: uint64): 
                                 Result[HashSet[uint64], cstring] =
 
@@ -61,7 +56,7 @@ proc get_custody_column_subnet*(node_id: NodeId,
     subnet_ids: HashSet[uint64]
     current_id = node_id
 
-  while subnet_ids.len < int(custody_subnet_count):
+  while subnet_ids.lenu64 < custody_subnet_count:
     var
       current_id_bytes: array[32, byte]
       hashed_bytes: array[8, byte]
@@ -73,11 +68,10 @@ proc get_custody_column_subnet*(node_id: NodeId,
       hashed_current_id = eth2digest(current_id_bytes)
       
     hashed_bytes[0..7] = hashed_current_id.data.toOpenArray(0,7)
-    var subnet_id = bytes_to_uint64(hashed_bytes) mod 
+    let subnet_id = bytes_to_uint64(hashed_bytes) mod 
       DATA_COLUMN_SIDECAR_SUBNET_COUNT
     
-    if subnet_id notin subnet_ids:
-      subnet_ids.incl(subnet_id)
+    discard subnet_ids.containsOrIncl(subnet_id)
 
     if current_id == UInt256.high.NodeId:
       # Overflow prevention
@@ -92,7 +86,8 @@ proc get_custody_columns*(node_id: NodeId,
                           seq[ColumnIndex] =
   let
     subnet_ids = 
-      get_custody_column_subnet(node_id, custody_subnet_count).get
+      get_custody_column_subnets(node_id, custody_subnet_count).get
+  const
     columns_per_subnet = 
       NUMBER_OF_COLUMNS div DATA_COLUMN_SIDECAR_SUBNET_COUNT
 
@@ -107,7 +102,8 @@ proc get_custody_column_list*(node_id: NodeId,
   # before sending, data_column_sidecars_by_range requests
   let
     subnet_ids = 
-      get_custody_column_subnet(node_id, custody_subnet_count).get
+      get_custody_column_subnets(node_id, custody_subnet_count).get
+  const
     columns_per_subnet = 
       NUMBER_OF_COLUMNS div DATA_COLUMN_SIDECAR_SUBNET_COUNT
   

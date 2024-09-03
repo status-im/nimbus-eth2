@@ -17,13 +17,14 @@ from std/strutils import join
 export base
 
 const
+  # https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.5/specs/_features/eip7594/polynomial-commitments-sampling.md#cells
   FIELD_ELEMENTS_PER_EXT_BLOB* = 2 * kzg_abi.FIELD_ELEMENTS_PER_BLOB
-    # Number of field elements in a Reed-Solomon extended blob |
+  # Number of field elements in a Reed-Solomon extended blob |
   FIELD_ELEMENTS_PER_CELL* = 64 # Number of field elements in a cell |
   BYTES_PER_CELL* = FIELD_ELEMENTS_PER_CELL * kzg_abi.BYTES_PER_FIELD_ELEMENT
-    # The number of bytes in a cell |
+  # The number of bytes in a cell |
   CELLS_PER_EXT_BLOB* = FIELD_ELEMENTS_PER_EXT_BLOB div FIELD_ELEMENTS_PER_CELL
-    # The number of cells in an extended blob |
+  # The number of cells in an extended blob |
 
   # https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.5/specs/_features/eip7594/p2p-interface.md#preset
   KZG_COMMITMENTS_INCLUSION_PROOF_DEPTH* = 4

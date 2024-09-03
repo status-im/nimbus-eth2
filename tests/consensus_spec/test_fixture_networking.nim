@@ -13,25 +13,12 @@ import
   yaml,
   kzg4844/[kzg, kzg_abi],
   stint,
-  chronicles,
   eth/p2p/discoveryv5/[node],
-  results,
-  stew/[byteutils],
   ../../beacon_chain/spec/eip7594_helpers,
   ../testutil,
   ./fixtures_utils, ./os_ops
 
 from std/sequtils import mapIt
-
-func fromHex[N: static int](s: string): Opt[array[N, byte]] =
-  if s.len != 2*(N+1):
-    # 0x prefix
-    return Opt.none array[N, byte]
-
-  try:
-    Opt.some fromHex(array[N, byte], s)
-  except ValueError:
-    Opt.none array[N, byte]
 
 proc runGetCustodyColumns(suiteName, path: string) =
   let relativePathComponent = path.relativeTestPathComponent()
