@@ -9,21 +9,20 @@
 
 # Uncategorized helper functions from the spec
 import
-  std/[algorithm],
+  std/[algorithm, hashes],
   results,
-  sequtils,
-  hashes,
-  ssz_serialization/[
-    proofs,
-    types],
-  ./[beacon_time, crypto],
   kzg4844/[kzg, kzg_abi],
   eth/p2p/discoveryv5/[node],
   ./[helpers, digest],
-  
-  ./datatypes/[eip7594, deneb]
+  ./datatypes/[eip7594, deneb],
+  ssz_serialization/[
+    proofs,
+    types],
+  ./[beacon_time, crypto]
 
-proc sortedColumnIndices*(columnsPerSubnet: ColumnIndex, subnetIds: HashSet[uint64]): seq[ColumnIndex] =
+proc sortedColumnIndices*(columnsPerSubnet: ColumnIndex,
+                          subnetIds: HashSet[uint64]):
+                          seq[ColumnIndex] =
   var res: seq[ColumnIndex] = @[]
   for i in 0'u64 ..< columnsPerSubnet:
     for subnetId in subnetIds:
@@ -63,7 +62,6 @@ proc get_custody_column_subnet*(node_id: NodeId,
     current_id = node_id
 
   while subnet_ids.len < int(custody_subnet_count):
-
     var
       current_id_bytes: array[32, byte]
       hashed_bytes: array[8, byte]
@@ -79,11 +77,11 @@ proc get_custody_column_subnet*(node_id: NodeId,
       DATA_COLUMN_SIDECAR_SUBNET_COUNT
     
     if subnet_id notin subnet_ids:
-        subnet_ids.incl(subnet_id)
+      subnet_ids.incl(subnet_id)
 
     if current_id == UInt256.high.NodeId:
-        # Overflow prevention
-        current_id = NodeId(StUint[256].zero)
+      # Overflow prevention
+      current_id = NodeId(StUint[256].zero)
     current_id += NodeId(StUint[256].one)
 
   ok(subnet_ids)
@@ -91,26 +89,26 @@ proc get_custody_column_subnet*(node_id: NodeId,
 # https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.5/specs/_features/eip7594/das-core.md#get_custody_columns
 proc get_custody_columns*(node_id: NodeId, 
                           custody_subnet_count: uint64): 
-                          Result[seq[ColumnIndex], cstring] =
-    
-  let subnet_ids = get_custody_column_subnet(node_id, custody_subnet_count).get
+                          seq[ColumnIndex] =
+  let
+    subnet_ids = 
+      get_custody_column_subnet(node_id, custody_subnet_count).get
+    columns_per_subnet = 
+      NUMBER_OF_COLUMNS div DATA_COLUMN_SIDECAR_SUBNET_COUNT
 
-  # columns_per_subnet = NUMBER_OF_COLUMNS // DATA_COLUMN_SIDECAR_SUBNET_COUNT
-  let columns_per_subnet = NUMBER_OF_COLUMNS div DATA_COLUMN_SIDECAR_SUBNET_COUNT
-
-  ok(sortedColumnIndices(ColumnIndex(columns_per_subnet), subnet_ids))
+  sortedColumnIndices(ColumnIndex(columns_per_subnet), subnet_ids)
 
 
 proc get_custody_column_list*(node_id: NodeId, 
                           custody_subnet_count: uint64): 
-                          Result[List[ColumnIndex, NUMBER_OF_COLUMNS], cstring] =
+                          List[ColumnIndex, NUMBER_OF_COLUMNS] =
 
   # Not in spec in the exact format, but it is useful in sorting custody columns 
   # before sending, data_column_sidecars_by_range requests
-
-  let subnet_ids = get_custody_column_subnet(node_id, custody_subnet_count).get
-
-  # columns_per_subnet = NUMBER_OF_COLUMNS // DATA_COLUMN_SIDECAR_SUBNET_COUNT
-  let columns_per_subnet = NUMBER_OF_COLUMNS div DATA_COLUMN_SIDECAR_SUBNET_COUNT
+  let
+    subnet_ids = 
+      get_custody_column_subnet(node_id, custody_subnet_count).get
+    columns_per_subnet = 
+      NUMBER_OF_COLUMNS div DATA_COLUMN_SIDECAR_SUBNET_COUNT
   
-  ok(sortedColumnIndexList(ColumnIndex(columns_per_subnet), subnet_ids))
+  sortedColumnIndexList(ColumnIndex(columns_per_subnet), subnet_ids)

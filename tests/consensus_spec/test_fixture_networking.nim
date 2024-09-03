@@ -21,16 +21,7 @@ import
   ../testutil,
   ./fixtures_utils, ./os_ops
 
-from std/sequtils import anyIt, mapIt, toSeq
-from std/strutils import rsplit
-
-func toUInt64(s: SomeInteger): Opt[uint64] =
-  if s < 0:
-    return Opt.none uint64
-  try:
-    Opt.some uint64(s)
-  except ValueError:
-    Opt.none uint64
+from std/sequtils import mapIt
 
 func fromHex[N: static int](s: string): Opt[array[N, byte]] =
   if s.len != 2*(N+1):
@@ -48,7 +39,7 @@ proc runGetCustodyColumns(suiteName, path: string) =
     type TestMetaYaml = object
       node_id: string
       custody_subnet_count: uint64
-      result: Option[seq[uint64]]
+      result: seq[uint64]
     let
       meta = block:
         var s = openFileStream(path/"meta.yaml")
@@ -57,18 +48,13 @@ proc runGetCustodyColumns(suiteName, path: string) =
         yaml.load(s, res)
         res
       node_id = UInt256.fromDecimal(meta.node_id)
-      custody_subnet_count = toUInt64(meta.custody_subnet_count)
-      reslt = (meta.result.get).mapIt(uint64(it))
+      custody_subnet_count = meta.custody_subnet_count
+      reslt = (meta.result).mapIt(it)
 
-    if custody_subnet_count.isNone:
-      check meta.result.isNone
-    else:
-      let columns = get_custody_columns(node_id, custody_subnet_count.get)
-      if columns.isErr:
-        check meta.result.isNone
-      else:
-        for i in 0..<columns.get.lenu64:
-          check columns.get[i] == uint64(reslt[i])
+    let columns = get_custody_columns(node_id, custody_subnet_count)
+
+    for i in 0..<columns.lenu64:
+      check columns[i] == reslt[i]
 
 suite "EF - EIP7594 - Networking" & preset():
   const presetPath = SszTestsDir/const_preset

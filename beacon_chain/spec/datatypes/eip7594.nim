@@ -24,9 +24,12 @@ const
     # The number of bytes in a cell |
   CELLS_PER_EXT_BLOB* = FIELD_ELEMENTS_PER_EXT_BLOB div FIELD_ELEMENTS_PER_CELL
     # The number of cells in an extended blob |
+
+  # https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.5/specs/_features/eip7594/p2p-interface.md#preset
   KZG_COMMITMENTS_INCLUSION_PROOF_DEPTH* = 4
 
 type
+  # https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.5/specs/_features/eip7594/polynomial-commitments-sampling.md#custom-types 
   BLSFieldElement* = KzgBytes32
   G2Point* = array[96, byte]
   PolynomialCoeff* = List[BLSFieldElement, FIELD_ELEMENTS_PER_EXT_BLOB]
@@ -35,24 +38,27 @@ type
   Cell* = KzgCell
   Cells* = KzgCells
   CellsAndProofs* = KzgCellsAndKzgProofs
-  CellID* = uint64
+
+  # https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.5/specs/_features/eip7594/das-core.md#custom-types
   RowIndex* = uint64
   ColumnIndex* = uint64
   CellIndex* = uint64
 
 const
+  # https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.5/specs/_features/eip7594/das-core.md#data-size
   NUMBER_OF_COLUMNS* = 128
-  MAX_CELLS_IN_EXTENDED_MATRIX* = MAX_BLOBS_PER_BLOCK * NUMBER_OF_COLUMNS
 
+  # https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.5/specs/_features/eip7594/das-core.md#networking
   DATA_COLUMN_SIDECAR_SUBNET_COUNT* = 128
+
+  # https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.5/specs/_features/eip7594/das-core.md#custody-setting
   SAMPLES_PER_SLOT* = 8
   CUSTODY_REQUIREMENT* = 4
-  TARGET_NUMBER_OF_PEERS* = 70
 
 type
   DataColumn* = List[KzgCell, Limit(MAX_BLOB_COMMITMENTS_PER_BLOCK)]
-  ExtendedMatrix* = List[KzgCell, Limit(MAX_CELLS_IN_EXTENDED_MATRIX)]
 
+  # https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.5/specs/_features/eip7594/das-core.md#datacolumnsidecar
   DataColumnSidecar* = object
     index*: ColumnIndex # Index of column in extended matrix
     column*: DataColumn
@@ -64,10 +70,12 @@ type
 
   DataColumnSidecars* = seq[ref DataColumnSidecar]
 
+  # https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.5/specs/_features/eip7594/p2p-interface.md#datacolumnidentifier
   DataColumnIdentifier* = object
     block_root*: Eth2Digest
     index*: ColumnIndex
 
+  # https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.5/specs/_features/eip7594/das-core.md#matrixentry
   MatrixEntry* = object
     cell*: Cell
     kzg_proof*: KzgProof
@@ -79,7 +87,7 @@ type
 
   CscCount* = uint8
 
-  # https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.4/specs/_features/eip7594/p2p-interface.md#metadata
+  # https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.5/specs/_features/eip7594/p2p-interface.md#metadata
   MetaData* = object
     seq_number*: uint64
     attnets*: AttnetBits
