@@ -24,8 +24,6 @@ const
 type
   ChainListRef* = ref object
     path*: string
-    head*: Opt[BlockData]
-    tail*: Opt[BlockData]
     handle*: Opt[ChainFileHandle]
 
 template chainFilePath*(directory: string): string =
@@ -37,37 +35,38 @@ template filePath*(clist: ChainListRef): string =
 proc init*(T: type ChainListRef, directory: string): ChainListRef =
   let
     filename = directory.chainFilePath()
-    res = ChainFileData.init(filename)
-  if res.isErr():
-    fatal "Unexpected failure while reading backfill data", reason = res.error
-    quit 1
-  let datares = res.get()
-  if datares.isNone():
-    ChainListRef(path: directory)
-  else:
-    ChainListRef(
-      path: directory,
-      head: Opt.some(datares.get().head),
-      tail: Opt.some(datares.get().tail))
+    handle =
+      if not(isFilePresent(filename)):
+        Opt.none(ChainFileHandle)
+      else:
+        let
+          flags = {ChainFileFlag.Repair}
+          res = ChainFileHandle.init(filename, flags).valueOr:
+            fatal "Unexpected failure while loading backfill data",
+                  filename = filename, reason = error
+            quit 1
+        Opt.some(res)
+  ChainListRef(path: directory, handle: handle)
 
 proc init*(T: type ChainListRef, directory: string,
            slot: Slot): Result[ChainListRef, string] =
   let
+    flags = {ChainFileFlag.Repair, ChainFileFlag.OpenAlways}
     filename = directory.chainFilePath()
-    handle =
-      block:
-        let res = ChainFileHandle.init(filename)
-        if res.isErr():
-          fatal "Unexpected failure while reading backfill data",
-                filename = filename, reason = res.error
-          quit 1
-        res.get()
-  let offset {.used.} = ? seekForSlot(handle, slot)
-  ok(ChainListRef(
-    path: directory,
-    head: Opt.some(handle.data.head),
-    tail: Opt.some(handle.data.tail),
-    handle: Opt.some(handle)))
+    handle = ? ChainFileHandle.init(filename, flags)
+    offset {.used.} = ? seekForSlot(handle, slot)
+  ok(ChainListRef(path: directory, handle: Opt.some(handle)))
+
+proc seekForSlot*(clist: ChainListRef, slot: Slot): Result[void, string] =
+  if clist.handle.isNone():
+    let
+      flags = {ChainFileFlag.Repair, ChainFileFlag.OpenAlways}
+      filename = clist.path.chainFilePath()
+      handle = ? ChainFileHandle.init(filename, flags)
+    clist.handle = Opt.some(handle)
+
+  let offset {.used.} = ? seekForSlot(clist.handle.get(), slot)
+  ok()
 
 proc close*(clist: ChainListRef): Result[void, string] =
   if clist.handle.isNone():
@@ -78,8 +77,6 @@ proc close*(clist: ChainListRef): Result[void, string] =
 proc clear*(clist: ChainListRef): Result[void, string] =
   ? clist.close()
   ? clearFile(clist.path.chainFilePath())
-  clist.head = Opt.none(BlockData)
-  clist.tail = Opt.none(BlockData)
   clist.handle = Opt.none(ChainFileHandle)
   ok()
 
@@ -104,6 +101,42 @@ template shortLog*(x: Opt[BlockData]): string =
     "[none]"
   else:
     shortLog(x.get())
+
+func tail*(clist: ChainListRef): Opt[BlockData] =
+  if clist.handle.isSome():
+    clist.handle.get().data.tail
+  else:
+    Opt.none(BlockData)
+
+func head*(clist: ChainListRef): Opt[BlockData] =
+  if clist.handle.isSome():
+    clist.handle.get().data.head
+  else:
+    Opt.none(BlockData)
+
+proc setHead*(clist: ChainListRef, bdata: BlockData) =
+  doAssert(clist.handle.isSome())
+  var handle = clist.handle.get()
+  handle.setHead(bdata)
+  clist.handle = Opt.some(handle)
+
+proc setTail*(clist: ChainListRef, bdata: BlockData) =
+  doAssert(clist.handle.isSome())
+  var handle = clist.handle.get()
+  handle.setTail(bdata)
+  clist.handle = Opt.some(handle)
+
+proc store*(clist: ChainListRef, signedBlock: ForkedSignedBeaconBlock,
+            blobs: Opt[BlobSidecars]): Result[void, string] =
+  if clist.handle.isNone():
+    let
+      filename = clist.path.chainFilePath()
+      flags = {ChainFileFlag.Repair, ChainFileFlag.OpenAlways}
+      handle = ? ChainFileHandle.init(filename, flags)
+    clist.handle = Opt.some(handle)
+    store(handle, signedBlock, blobs, true)
+  else:
+    store(clist.handle.get(), signedBlock, blobs, true)
 
 proc checkBlobs(signedBlock: ForkedSignedBeaconBlock,
                 blobsOpt: Opt[BlobSidecars]): Result[void, VerifierError] =
@@ -140,27 +173,22 @@ proc addBackfillBlockData*(
     signed_block_root = signedBlock.root
     signed_block_parent_root = signedBlock.parent_root
 
-  let
-    verifyBlockTick = Moment.now()
+  let verifyBlockTick = Moment.now()
 
   if clist.tail.isNone():
-    block:
-      let res = checkBlobs(signedBlock, blobsOpt)
-      if res.isErr():
-        return err(res.error)
+    ? checkBlobs(signedBlock, blobsOpt)
 
-    let
-      storeBlockTick = Moment.now()
-      res = store(chainFilePath(clist.path), signedBlock, blobsOpt, true)
-    if res.isErr():
+    let storeBlockTick = Moment.now()
+
+    store(clist, signedBlock, blobsOpt).isOkOr:
       fatal "Unexpected failure while trying to store data",
-            filename = chainFilePath(clist.path), reason = res.error()
+            filename = chainFilePath(clist.path), reason = error
       quit 1
 
-    clist.tail = Opt.some(BlockData(blck: signedBlock, blob: blobsOpt))
-
+    let bdata = BlockData(blck: signedBlock, blob: blobsOpt)
+    clist.setTail(bdata)
     if clist.head.isNone():
-      clist.head = Opt.some(BlockData(blck: signedBlock, blob: blobsOpt))
+      clist.setHead(bdata)
 
     debug "Initial block backfilled",
           verify_block_duration = shortLog(storeBlockTick - verifyBlockTick),
@@ -185,24 +213,20 @@ proc addBackfillBlockData*(
     debug "Block does not match expected backfill root"
     return err(VerifierError.MissingParent)
 
-  block:
-    let res = checkBlobs(signedBlock, blobsOpt)
-    if res.isErr():
-      return err(res.error)
+  ? checkBlobs(signedBlock, blobsOpt)
 
-  let
-    storeBlockTick = Moment.now()
-    res = store(chainFilePath(clist.path), signedBlock, blobsOpt)
-  if res.isErr():
+  let storeBlockTick = Moment.now()
+
+  store(clist, signedBlock, blobsOpt).isOkOr:
     fatal "Unexpected failure while trying to store data",
-           filename = chainFilePath(clist.path), reason = res.error()
+           filename = chainFilePath(clist.path), reason = error
     quit 1
 
   debug "Block backfilled",
         verify_block_duration = shortLog(storeBlockTick - verifyBlockTick),
         store_block_duration = shortLog(Moment.now() - storeBlockTick)
 
-  clist.tail = Opt.some(BlockData(blck: signedBlock, blob: blobsOpt))
+  clist.setTail(BlockData(blck: signedBlock, blob: blobsOpt))
 
   ok()
 
