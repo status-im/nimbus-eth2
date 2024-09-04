@@ -31,19 +31,17 @@ proc sortedColumnIndexList*(columnsPerSubnet: ColumnIndex,
                             List[ColumnIndex, NUMBER_OF_COLUMNS] =
   var
     res: seq[ColumnIndex]
-    list: List[ColumnIndex, NUMBER_OF_COLUMNS]
   for i in 0'u64 ..< columnsPerSubnet:
     for subnetId in subnetIds:
       let index = DATA_COLUMN_SIDECAR_SUBNET_COUNT * i + subnetId
       res.add(ColumnIndex(index))
   res.sort()
-  for elem in res:
-    discard list.add(ColumnIndex(elem))
+  let list = List[ColumnIndex, NUMBER_OF_COLUMNS].init(res)
   list
 
 proc get_custody_column_subnets*(node_id: NodeId, 
-                                custody_subnet_count: uint64): 
-                                Result[HashSet[uint64], cstring] =
+                                 custody_subnet_count: uint64): 
+                                 Result[HashSet[uint64], cstring] =
 
   # Decouples the custody subnet computation part from
   # `get_custody_columns`, in order to later use this subnet list
@@ -58,20 +56,17 @@ proc get_custody_column_subnets*(node_id: NodeId,
 
   while subnet_ids.lenu64 < custody_subnet_count:
     var
-      current_id_bytes: array[32, byte]
       hashed_bytes: array[8, byte]
-      
-    current_id_bytes = current_id.toBytesBE()
-    current_id_bytes.reverse()
 
     let
+      current_id_bytes = current_id.toBytesLE()
       hashed_current_id = eth2digest(current_id_bytes)
       
     hashed_bytes[0..7] = hashed_current_id.data.toOpenArray(0,7)
     let subnet_id = bytes_to_uint64(hashed_bytes) mod 
       DATA_COLUMN_SIDECAR_SUBNET_COUNT
     
-    discard subnet_ids.containsOrIncl(subnet_id)
+    subnet_ids.incl(subnet_id)
 
     if current_id == UInt256.high.NodeId:
       # Overflow prevention
