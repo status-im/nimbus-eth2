@@ -310,12 +310,11 @@ proc rebuildState(overseer: SyncOverseerRef): Future[void] {.
     batchVerifier = overseer.batchVerifier
     clist =
       block:
-        let res = ChainListRef.init(overseer.clist.path, dag.head.slot)
-        if res.isErr():
-          fatal "Unable to read backfill data", reason = res.error,
+        overseer.clist.seekForSlot(dag.head.slot).isOkOr:
+          fatal "Unable to find slot in backfill data", reason = error,
                 path = overseer.clist.path
-          return
-        res.get()
+          quit 1
+        overseer.clist
 
   var
     blocks: seq[BlockData]
