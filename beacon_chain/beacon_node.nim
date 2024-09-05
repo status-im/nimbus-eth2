@@ -40,7 +40,7 @@ export
   eth2_network, el_manager, request_manager, sync_manager,
   eth2_processor, optimistic_processor, blockchain_dag, block_quarantine,
   base, message_router, validator_monitor, validator_pool,
-  consensus_manager, dynamic_fee_recipients
+  consensus_manager, dynamic_fee_recipients, sync_types
 
 type
   EventBus* = object

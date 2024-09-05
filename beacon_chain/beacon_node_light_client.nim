@@ -53,10 +53,7 @@ proc initLightClient*(
       getBeaconTime, optimisticHandler)
 
     shouldInhibitSync = func(): bool =
-      if node.syncManager != nil:
-        not node.syncManager.inProgress  # No LC sync needed if DAG is in sync
-      else:
-        false
+      not node.syncOverseer.syncInProgress # No LC sync needed if DAG is in sync
     lightClient = createLightClient(
       node.network, rng, config, cfg, forkDigests, getBeaconTime,
       genesis_validators_root, LightClientFinalizationMode.Strict,

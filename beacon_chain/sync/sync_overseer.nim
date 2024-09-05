@@ -480,6 +480,8 @@ proc mainLoop*(
         quit 1
 
       if isUntrustedBackfillEmpty(clist):
+        overseer.untrustedInProgress = true
+
         try:
           await overseer.initUntrustedSync()
         except CancelledError:
@@ -508,6 +510,8 @@ proc mainLoop*(
         warn "Unable to remove backfill data file",
              path = clist.path.chainFilePath(), reason = error
         quit 1
+
+      overseer.untrustedInProgress = false
 
       # When we finished state rebuilding process - we could start forward
       # SyncManager which could perform finish sync.

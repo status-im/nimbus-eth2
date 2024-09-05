@@ -43,6 +43,7 @@ type
     avgSpeedCounter*: int
     avgSpeed*: float
     blocksQueue*: AsyncQueue[BlockDataChunk]
+    untrustedInProgress*: bool
 
   SyncOverseerRef* = ref SyncOverseer
 
@@ -74,4 +75,11 @@ proc new*(
     forwardSync: forwardSync,
     backwardSync: backwardSync,
     untrustedSync: untrustedSync,
+    untrustedInProgress: false,
     blocksQueue: newAsyncQueue[BlockDataChunk]())
+
+proc syncInProgress*(overseer: SyncOverseerRef): bool =
+  overseer.forwardSync.inProgress or
+  overseer.backwardSync.inProgress or
+  overseer.untrustedSync.inProgress or
+  overseer.untrustedInProgress
