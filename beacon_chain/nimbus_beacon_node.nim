@@ -505,7 +505,7 @@ proc initFullNode(
       if clist.tail.isSome():
         clist.tail.get().blck.slot()
       else:
-        dag.tail.slot
+        getLocalWallSlot()
     untrustedManager = newSyncManager[Peer, PeerId](
       node.network.peerPool,
       dag.cfg.DENEB_FORK_EPOCH, dag.cfg.MIN_EPOCHS_FOR_BLOB_SIDECARS_REQUESTS,

@@ -922,6 +922,10 @@ proc start*[A, B](man: SyncManager[A, B]) =
   ## Starts SyncManager's main loop.
   man.syncFut = man.syncLoop()
 
+proc updatePivot*[A, B](man: SyncManager[A, B], pivot: Slot) =
+  ## Update progress pivot slot.
+  man.progressPivot = pivot
+
 proc join*[A, B](
     man: SyncManager[A, B]
 ): Future[void] {.async: (raw: true, raises: [CancelledError]).} =

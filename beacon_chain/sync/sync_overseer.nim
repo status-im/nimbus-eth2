@@ -486,6 +486,8 @@ proc mainLoop*(
           await overseer.initUntrustedSync()
         except CancelledError:
           return
+      # We need to update pivot slot to enable timeleft calculation.
+      overseer.untrustedSync.updatePivot(overseer.clist.tail.get().slot)
       # Note: We should not start forward sync manager!
       overseer.untrustedSync.start()
 
