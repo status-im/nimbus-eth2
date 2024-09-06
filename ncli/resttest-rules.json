@@ -4524,6 +4524,74 @@
     }
   },
   {
+    "topics": ["validator", "aggregate_attestation"],
+    "request": {
+      "url": "/eth/v2/validator/aggregate_attestation",
+      "headers": {"Accept": "application/json"}
+    },
+    "response": {
+      "status": {"operator": "equals", "value": "400"},
+      "headers": [{"key": "Content-Type", "value": "application/json", "operator": "equals"}],
+      "body": [{"operator": "jstructcmpns", "value": {"code": 400, "message": ""}}]
+    }
+  },
+    {
+    "topics": ["validator", "aggregate_attestation"],
+    "request": {
+      "url": "/eth/v2/validator/aggregate_attestation?slot=0",
+      "headers": {"Accept": "application/json"}
+    },
+    "response": {
+      "status": {"operator": "equals", "value": "400"},
+      "headers": [{"key": "Content-Type", "value": "application/json", "operator": "equals"}],
+      "body": [{"operator": "jstructcmpns", "value": {"code": 400, "message": ""}}]
+    }
+  },
+  {
+    "topics": ["validator", "aggregate_attestation"],
+    "request": {
+      "url": "/eth/v2/validator/aggregate_attestation?slot=&attestation_data_root=",
+      "headers": {"Accept": "application/json"}
+    },
+    "response": {
+      "status": {"operator": "equals", "value": "400"},
+      "headers": [{"key": "Content-Type", "value": "application/json", "operator": "equals"}],
+      "body": [{"operator": "jstructcmpns", "value": {"code": 400, "message": ""}}]
+    }
+  },
+  {
+    "topics": ["validator", "aggregate_attestation"],
+    "request": {
+      "url": "/eth/v2/validator/aggregate_attestation?slot=&attestation_data_root=&committee_index=",
+      "headers": {"Accept": "application/json"}
+    },
+    "response": {
+      "status": {"operator": "equals", "value": "400"},
+      "headers": [{"key": "Content-Type", "value": "application/json", "operator": "equals"}],
+      "body": [{"operator": "jstructcmpns", "value": {"code": 400, "message": ""}}]
+    }
+  },
+  {
+    "topics": ["validator", "aggregate_attestation"],
+    "request": {
+      "url": "/eth/v2/validator/aggregate_attestation?slot=0&attestation_data_root=0x0000000000000000000000000000000000000000000000000000000000000000",
+      "headers": {"Accept": "application/json"}
+    },
+    "response": {
+      "status": {"operator": "oneof", "value": ["400", "200"]}
+    }
+  },
+  {
+    "topics": ["validator", "aggregate_attestation"],
+    "request": {
+      "url": "/eth/v2/validator/aggregate_attestation?slot=0&attestation_data_root=0x0000000000000000000000000000000000000000000000000000000000000000&committee_index=0",
+      "headers": {"Accept": "application/json"}
+    },
+    "response": {
+      "status": {"operator": "oneof", "value": ["400", "200"]}
+    }
+  },
+  {
     "topics": ["validator", "attester_duties"],
     "request": {
       "url": "/eth/v1/validator/duties/attester/0",

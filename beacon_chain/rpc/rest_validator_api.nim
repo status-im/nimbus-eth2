@@ -804,6 +804,58 @@ proc installValidatorApiHandlers*(router: var RestRouter, node: BeaconNode) =
         res.get()
     RestApiResponse.jsonResponse(attestation)
 
+  # https://ethereum.github.io/beacon-APIs/?urls.primaryName=dev#/Beacon/getPoolAttestationsV2
+  router.api2(MethodGet, "/eth/v2/validator/aggregate_attestation") do (
+    attestation_data_root: Option[Eth2Digest],
+    committee_index: Option[CommitteeIndex],
+    slot: Option[Slot]) -> RestApiResponse:
+
+    let qslot =
+      block:
+        if slot.isNone():
+          return RestApiResponse.jsonError(Http400, MissingSlotValueError)
+        let res = slot.get()
+        if res.isErr():
+          return RestApiResponse.jsonError(Http400, InvalidSlotValueError,
+                                           $res.error())
+        res.get()
+    let committee_index =
+      block:
+        if committee_index.isNone():
+          return RestApiResponse.jsonError(Http400,
+                                           MissingCommitteeIndexValueError)
+        let res = committee_index.get()
+        if res.isErr():
+          return RestApiResponse.jsonError(Http400,
+                                           InvalidCommitteeIndexValueError,
+                                           $res.error())
+        res.get()
+    let root =
+      block:
+        if attestation_data_root.isNone():
+          return RestApiResponse.jsonError(Http400,
+                                           MissingAttestationDataRootValueError)
+        let res = attestation_data_root.get()
+        if res.isErr():
+          return RestApiResponse.jsonError(Http400,
+                            InvalidAttestationDataRootValueError, $res.error())
+        res.get()
+    let phase0_attestations =
+      node.attestationPool[].getAggregatedAttestation(qslot, root)
+
+    if phase0_attestations.isSome():
+      return RestApiResponse.jsonResponse(phase0_attestations.get())
+
+    let electra_attestations =
+      node.attestationPool[].getElectraAggregatedAttestation(qslot,
+                                                             root,
+                                                             committee_index)
+
+    if electra_attestations.isSome():
+      return RestApiResponse.jsonResponse(electra_attestations.get())
+
+    RestApiResponse.jsonError(Http400, UnableToGetAggregatedAttestationError)
+
   # https://ethereum.github.io/beacon-APIs/#/Validator/publishAggregateAndProofs
   router.api2(MethodPost, "/eth/v1/validator/aggregate_and_proofs") do (
     contentBody: Option[ContentBody]) -> RestApiResponse:

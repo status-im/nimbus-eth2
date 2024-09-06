@@ -10,8 +10,9 @@ OK: 1/1 Fail: 0/1 Skip: 0/1
 + Aggregated attestations with disjoint comittee bits into a single on-chain aggregate [Pres OK
 + Attestations with disjoint comittee bits and equal data into single on-chain aggregate [Pr OK
 + Can add and retrieve simple electra attestations [Preset: mainnet]                         OK
++ Working with electra aggregates [Preset: mainnet]                                          OK
 ```
-OK: 3/3 Fail: 0/3 Skip: 0/3
+OK: 4/4 Fail: 0/4 Skip: 0/4
 ## Attestation pool processing [Preset: mainnet]
 ```diff
 + Attestation from different branch [Preset: mainnet]                                        OK
@@ -1113,4 +1114,4 @@ OK: 2/2 Fail: 0/2 Skip: 0/2
 OK: 9/9 Fail: 0/9 Skip: 0/9
 
 ---TOTAL---
-OK: 758/763 Fail: 0/763 Skip: 5/763
+OK: 759/764 Fail: 0/764 Skip: 5/764
