@@ -470,6 +470,17 @@ func get_initial_beacon_block*(state: electra.HashedBeaconState):
   electra.TrustedSignedBeaconBlock(
     message: message, root: hash_tree_root(message))
 
+func get_initial_beacon_block*(state: epbs.HashedBeaconState):
+    epbs.TrustedSignedBeaconBlock =
+  # The genesis block is implicitly trusted
+  let message = epbs.TrustedBeaconBlock(
+    slot: state.data.slot,
+    state_root: state.root)
+    # parent_root, randao_reveal, eth1_data, signature, and body automatically
+    # initialized to default values.
+  epbs.TrustedSignedBeaconBlock(
+    message: message, root: hash_tree_root(message))
+
 func get_initial_beacon_block*(state: ForkedHashedBeaconState):
     ForkedTrustedSignedBeaconBlock =
   withState(state):
@@ -2033,7 +2044,6 @@ func upgrade_to_electra*(
       prev_randao: pre.latest_execution_payload_header.prev_randao,
       block_number: pre.latest_execution_payload_header.block_number,
       gas_limit: pre.latest_execution_payload_header.gas_limit,
-      gas_used: pre.latest_execution_payload_header.gas_used,
       timestamp: pre.latest_execution_payload_header.timestamp,
       extra_data: pre.latest_execution_payload_header.extra_data,
       base_fee_per_gas: pre.latest_execution_payload_header.base_fee_per_gas,
@@ -2157,6 +2167,87 @@ func upgrade_to_electra*(
       queue_excess_active_balance(post[], ValidatorIndex(index))
 
   post
+
+# https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.4/specs/_features/eip7732/fork.md#upgrading-the-state
+func upgrade_to_epbs*(cfg: RuntimeConfig, pre: electra.BeaconState):
+    ref epbs.BeaconState =
+  let epoch = get_current_epoch(pre)
+  (ref epbs.BeaconState)(
+    # Versioning
+    genesis_time: pre.genesis_time,
+    genesis_validators_root: pre.genesis_validators_root,
+    slot: pre.slot,
+    fork: Fork(
+      previous_version: pre.fork.current_version,
+      current_version: cfg.EIP7732_FORK_VERSION,
+      epoch: epoch
+    ),
+
+    # History
+    latest_block_header: pre.latest_block_header,
+    block_roots: pre.block_roots,
+    state_roots: pre.state_roots,
+    historical_roots: pre.historical_roots,
+
+    # Eth1
+    eth1_data: pre.eth1_data,
+    eth1_data_votes: pre.eth1_data_votes,
+    eth1_deposit_index: pre.eth1_deposit_index,
+
+    # Registry
+    validators: pre.validators,
+    balances: pre.balances,
+
+    # Randomness
+    randao_mixes: pre.randao_mixes,
+
+    # Slashings
+    slashings: pre.slashings,
+
+    # Participation
+    previous_epoch_participation: pre.previous_epoch_participation,
+    current_epoch_participation: pre.current_epoch_participation,
+
+    # Finality
+    justification_bits: pre.justification_bits,
+    previous_justified_checkpoint: pre.previous_justified_checkpoint,
+    current_justified_checkpoint: pre.current_justified_checkpoint,
+    finalized_checkpoint: pre.finalized_checkpoint,
+
+    # Inactivity
+    inactivity_scores: pre.inactivity_scores,
+
+    # Sync
+    current_sync_committee: pre.current_sync_committee,
+    next_sync_committee: pre.next_sync_committee,
+
+    # Execution-layer
+    latest_execution_payload_header: default(epbs.ExecutionPayloadHeader),
+
+    # Withdrawals
+    next_withdrawal_index: pre.next_withdrawal_index,
+    next_withdrawal_validator_index: pre.next_withdrawal_validator_index,
+
+    # Deep history valid from Capella onwards
+    historical_summaries: pre.historical_summaries,
+
+    deposit_requests_start_index: UNSET_DEPOSIT_REQUESTS_START_INDEX,
+    deposit_balance_to_consume: 0.Gwei,
+    exit_balance_to_consume: 0.Gwei,
+    earliest_exit_epoch: pre.earliest_exit_epoch,
+    consolidation_balance_to_consume: 0.Gwei,
+    earliest_consolidation_epoch:
+      compute_activation_exit_epoch(get_current_epoch(pre)),
+
+    pending_balance_deposits: pre.pending_balance_deposits,
+    pending_partial_withdrawals: pre.pending_partial_withdrawals,
+    pending_consolidations: pre.pending_consolidations,
+
+    # [New in epbs:EIP7732]
+    latest_block_hash: ZERO_HASH,
+    latest_full_slot: pre.slot,
+    latest_withdrawals_root: ZERO_HASH
+  )
 
 func latest_block_root(state: ForkyBeaconState, state_root: Eth2Digest):
     Eth2Digest =

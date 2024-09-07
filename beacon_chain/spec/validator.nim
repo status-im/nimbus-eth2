@@ -375,7 +375,7 @@ template compute_proposer_index(state: ForkyBeaconState,
         random_byte = (eth2digest(buffer).data)[i mod 32]
         effective_balance = state.validators[candidate_index].effective_balance
       const max_effective_balance =
-        when typeof(state).kind >= ConsensusFork.Electra:
+        when typeof(state).kind >= ConsensusFork.Epbs:
           MAX_EFFECTIVE_BALANCE_ELECTRA.Gwei  # [Modified in Electra:EIP7251]
         else:
           MAX_EFFECTIVE_BALANCE.Gwei

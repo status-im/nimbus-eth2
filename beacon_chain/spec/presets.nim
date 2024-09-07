@@ -63,6 +63,7 @@ type
     ELECTRA_FORK_VERSION*: Version
     ELECTRA_FORK_EPOCH*: Epoch
     EIP7732_FORK_EPOCH*: Epoch
+    EIP7732_FORK_VERSION*: Version
 
     # Time parameters
     # TODO SECONDS_PER_SLOT*: uint64
@@ -201,6 +202,7 @@ when const_preset == "mainnet":
     ELECTRA_FORK_VERSION: Version [byte 0x05, 0x00, 0x00, 0x00],
     ELECTRA_FORK_EPOCH: FAR_FUTURE_EPOCH,
     # Epbs
+    EIP7732_FORK_VERSION: Version [byte 0x09, 0x00, 0x00, 0x00],
     EIP7732_FORK_EPOCH: FAR_FUTURE_EPOCH,
 
     # Time parameters
