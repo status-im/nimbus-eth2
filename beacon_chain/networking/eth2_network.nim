@@ -1562,8 +1562,8 @@ proc runDiscoveryLoop(node: Eth2Node) {.async.} =
       (wantedAttnets, wantedSyncnets, wantedCscnets) = node.getLowSubnets(currentEpoch)
       wantedAttnetsCount = wantedAttnets.countOnes()
       wantedSyncnetsCount = wantedSyncnets.countOnes()
-      wantedCscnetsCount = wantedCscnets.countOnes()
-      wantedCscnetsUint = wantedCscnetsCount.uint8
+      wantedCscnetsCount = wantedCscnets.countOnes().uint64()
+      wantedCscnetsBEBytes = wantedCscnetsCount.toBytesBE()
       outgoingPeers = node.peerPool.lenCurrent({PeerType.Outgoing})
       targetOutgoingPeers = max(node.wantedPeers div 10, 3)
 
@@ -1581,7 +1581,7 @@ proc runDiscoveryLoop(node: Eth2Node) {.async.} =
           node.discoveryForkId,
           wantedAttnets,
           wantedSyncnets,
-          wantedCscnetsUint,
+          uint64.fromBytesBE(wantedCscnetsBEBytes),
           minScore)
 
       let newPeers = block:
