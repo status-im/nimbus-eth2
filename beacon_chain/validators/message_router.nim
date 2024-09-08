@@ -213,7 +213,7 @@ proc routeSignedBeaconBlock*(
           custody_columns = router[].network.nodeId.get_custody_columns(metadata)
 
         for dc in data_columns:
-          if dc.index in custody_columns.get:
+          if dc.index in custody_columns:
            let dataColumnRefs = Opt.some(dataColumnsOpt[].get().mapIt(newClone(it)))
     
   let added = await router[].blockProcessor[].addBlock(

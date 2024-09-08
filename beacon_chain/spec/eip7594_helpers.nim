@@ -26,33 +26,33 @@ type
   CellBytes = array[eip7594.CELLS_PER_EXT_BLOB, Cell]
   ProofBytes = array[eip7594.CELLS_PER_EXT_BLOB, KzgProof]
 
-proc sortedColumnIndices*(columnsPerSubnet: ColumnIndex, subnetIds: HashSet[uint64]): seq[ColumnIndex] =
+proc sortedColumnIndices*(columnsPerSubnet: ColumnIndex,
+                          subnetIds: HashSet[uint64]):
+                          seq[ColumnIndex] =
   var res: seq[ColumnIndex] = @[]
-  for i in 0 ..< columnsPerSubnet:
+  for i in 0'u64 ..< columnsPerSubnet:
     for subnetId in subnetIds:
       let index = DATA_COLUMN_SIDECAR_SUBNET_COUNT * i + subnetId
       res.add(ColumnIndex(index))
-  res.sort()
+  res.sort
   res
 
 proc sortedColumnIndexList*(columnsPerSubnet: ColumnIndex, 
-                          subnetIds: HashSet[uint64]): 
-                          List[ColumnIndex, NUMBER_OF_COLUMNS] =
+                            subnetIds: HashSet[uint64]): 
+                            List[ColumnIndex, NUMBER_OF_COLUMNS] =
   var
     res: seq[ColumnIndex]
-    list: List[ColumnIndex, NUMBER_OF_COLUMNS]
-  for i in 0 ..< columnsPerSubnet:
+  for i in 0'u64 ..< columnsPerSubnet:
     for subnetId in subnetIds:
       let index = DATA_COLUMN_SIDECAR_SUBNET_COUNT * i + subnetId
       res.add(ColumnIndex(index))
   res.sort()
-  for elem in res:
-    discard list.add(ColumnIndex(elem))
+  let list = List[ColumnIndex, NUMBER_OF_COLUMNS].init(res)
   list
 
-proc get_custody_column_subnet*(node_id: NodeId, 
-                                custody_subnet_count: uint64): 
-                                Result[HashSet[uint64], cstring] =
+proc get_custody_column_subnets*(node_id: NodeId, 
+                                 custody_subnet_count: uint64): 
+                                 Result[HashSet[uint64], cstring] =
 
   # Decouples the custody subnet computation part from
   # `get_custody_columns`, in order to later use this subnet list
@@ -65,55 +65,55 @@ proc get_custody_column_subnet*(node_id: NodeId,
     subnet_ids: HashSet[uint64]
     current_id = node_id
 
-  while subnet_ids.len < int(custody_subnet_count):
-
+  while subnet_ids.lenu64 < custody_subnet_count:
     var
-      current_id_bytes: array[32, byte]
       hashed_bytes: array[8, byte]
-      
-    current_id_bytes = current_id.toBytesBE()
-    current_id_bytes.reverse()
 
     let
+      current_id_bytes = current_id.toBytesLE()
       hashed_current_id = eth2digest(current_id_bytes)
       
     hashed_bytes[0..7] = hashed_current_id.data.toOpenArray(0,7)
-    var subnet_id = bytes_to_uint64(hashed_bytes) mod 
+    let subnet_id = bytes_to_uint64(hashed_bytes) mod 
       DATA_COLUMN_SIDECAR_SUBNET_COUNT
     
-    if subnet_id notin subnet_ids:
-        subnet_ids.incl(subnet_id)
+    subnet_ids.incl(subnet_id)
 
     if current_id == UInt256.high.NodeId:
-        # Overflow prevention
-        current_id = NodeId(StUint[256].zero)
+      # Overflow prevention
+      current_id = NodeId(StUint[256].zero)
     current_id += NodeId(StUint[256].one)
 
   ok(subnet_ids)
 
-
-# https://github.com/ethereum/consensus-specs/blob/5f48840f4d768bf0e0a8156a3ed06ec333589007/specs/_features/eip7594/das-core.md#get_custody_columns
+# https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.5/specs/_features/eip7594/das-core.md#get_custody_columns
 proc get_custody_columns*(node_id: NodeId, 
                           custody_subnet_count: uint64): 
-                          Result[seq[ColumnIndex], cstring] =
-    
-  let subnet_ids = get_custody_column_subnet(node_id, custody_subnet_count).get
+                          seq[ColumnIndex] =
+  let
+    subnet_ids = 
+      get_custody_column_subnets(node_id, custody_subnet_count).get
+  const
+    columns_per_subnet = 
+      NUMBER_OF_COLUMNS div DATA_COLUMN_SIDECAR_SUBNET_COUNT
 
-  # columns_per_subnet = NUMBER_OF_COLUMNS // DATA_COLUMN_SIDECAR_SUBNET_COUNT
-  let columns_per_subnet = NUMBER_OF_COLUMNS div DATA_COLUMN_SIDECAR_SUBNET_COUNT
-  
-  ok(sortedColumnIndices(ColumnIndex(columns_per_subnet), subnet_ids))
+  sortedColumnIndices(ColumnIndex(columns_per_subnet), subnet_ids)
+
 
 proc get_custody_column_list*(node_id: NodeId, 
                           custody_subnet_count: uint64): 
-                          Result[List[ColumnIndex, NUMBER_OF_COLUMNS], cstring] =
-    
-  let subnet_ids = get_custody_column_subnet(node_id, custody_subnet_count).get
+                          List[ColumnIndex, NUMBER_OF_COLUMNS] =
 
-  # columns_per_subnet = NUMBER_OF_COLUMNS // DATA_COLUMN_SIDECAR_SUBNET_COUNT
-  let columns_per_subnet = NUMBER_OF_COLUMNS div DATA_COLUMN_SIDECAR_SUBNET_COUNT
+  # Not in spec in the exact format, but it is useful in sorting custody columns 
+  # before sending, data_column_sidecars_by_range requests
+  let
+    subnet_ids = 
+      get_custody_column_subnets(node_id, custody_subnet_count).get
+  const
+    columns_per_subnet = 
+      NUMBER_OF_COLUMNS div DATA_COLUMN_SIDECAR_SUBNET_COUNT
   
-  ok(sortedColumnIndexList(ColumnIndex(columns_per_subnet), subnet_ids))
+  sortedColumnIndexList(ColumnIndex(columns_per_subnet), subnet_ids)
 
 # https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.3/specs/_features/eip7594/das-core.md#compute_extended_matrix
 proc compute_extended_matrix* (blobs: seq[KzgBlob]): Result[seq[MatrixEntry], cstring] =
