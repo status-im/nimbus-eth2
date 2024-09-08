@@ -12,7 +12,7 @@ import
   stew/results,
   chronicles, chronos, metrics, taskpools,
   ../networking/eth2_network,
-  ../spec/[helpers, forks, eip7594_helpers],
+  ../spec/[helpers, forks],
   ../spec/datatypes/[altair, phase0, deneb, eip7594],
   ../consensus_object_pools/[
     blob_quarantine, block_clearance, block_quarantine, blockchain_dag,

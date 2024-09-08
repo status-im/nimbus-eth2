@@ -1151,7 +1151,7 @@ proc addDenebMessageHandlers(
   node.addCapellaMessageHandlers(forkDigest, slot)
   let 
     targetSubnets = node.fetchCustodySubnetCount()
-    custody_subnets = node.network.nodeId.get_custody_column_subnet(targetSubnets)
+    custody_subnets = node.network.nodeId.get_custody_column_subnets(targetSubnets)
 
   debugEcho "Target Subnets"
   debugEcho targetSubnets
@@ -1167,13 +1167,13 @@ proc addDenebMessageHandlers(
       node.network.subscribe(topic, basicParams)
 
   if node.config.subscribeAllSubnets:
-    node.network.loadCscnetsMetadata(DATA_COLUMN_SIDECAR_SUBNET_COUNT.uint8)
+    node.network.loadCscnetsMetadata(DATA_COLUMN_SIDECAR_SUBNET_COUNT)
   elif not node.config.subscribeAllSubnets:
     let csc = node.config.custodySubnetCount
     if csc.isSome and csc.get < DATA_COLUMN_SIDECAR_SUBNET_COUNT:
-      node.network.loadCscnetsMetadata(csc.get.uint8)
+      node.network.loadCscnetsMetadata(csc.get)
     else:
-      node.network.loadCscnetsMetadata(CUSTODY_REQUIREMENT.uint8)
+      node.network.loadCscnetsMetadata(CUSTODY_REQUIREMENT)
 
 proc addElectraMessageHandlers(
     node: BeaconNode, forkDigest: ForkDigest, slot: Slot) =
@@ -1521,7 +1521,7 @@ proc tryReconstructingDataColumns* (self: BeaconNode,
     storedColumns: seq[ColumnIndex]
 
   # Loading the data columns from the database
-  for custody_column in custodiedColumnIndices.get:
+  for custody_column in custodiedColumnIndices:
     let data_column = DataColumnSidecar.new()
     if not db.getDataColumnSidecar(root, custody_column, data_column[]):
       columnsOk = false
@@ -1542,7 +1542,7 @@ proc tryReconstructingDataColumns* (self: BeaconNode,
     let reconstructedDataColumns = get_data_column_sidecars(signed_block, recovered_cps.get)
 
     for data_column in reconstructedDataColumns.get:
-      if data_column.index notin custodiedColumnIndices.get:
+      if data_column.index notin custodiedColumnIndices:
         continue
 
       finalisedDataColumns.add(data_column)
