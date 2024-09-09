@@ -1550,7 +1550,7 @@ proc getLowSubnets(node: Eth2Node, epoch: Epoch):
       findLowSubnets(getSyncCommitteeTopic, SyncSubcommitteeIndex, SYNC_COMMITTEE_SUBNET_COUNT)
     else:
       default(SyncnetBits),
-    findLowSubnets(getDataColumnSidecarTopic, uint64, DATA_COLUMN_SIDECAR_SUBNET_COUNT.int)
+    findLowSubnets(getDataColumnSidecarTopic, uint64, (DATA_COLUMN_SIDECAR_SUBNET_COUNT div 2).int)
   )
 
 proc runDiscoveryLoop(node: Eth2Node) {.async.} =
@@ -1581,7 +1581,7 @@ proc runDiscoveryLoop(node: Eth2Node) {.async.} =
           node.discoveryForkId,
           wantedAttnets,
           wantedSyncnets,
-          uint64.fromBytesBE(wantedCscnetsBEBytes),
+          wantedCscnetsCount,
           minScore)
 
       let newPeers = block:
@@ -2466,10 +2466,10 @@ proc lookupCscFromPeer*(peer: Peer): uint64 =
           return csc
         except SszError as e:
           debug "Could not decide the csc field in the ENR"
-          return 0
+          return CUSTODY_REQUIREMENT
         except SerializationError:
           debug "Error in serializing the value"
-          return 0
+          return CUSTODY_REQUIREMENT
 
 func shortForm*(id: NetKeyPair): string =
   $PeerId.init(id.pubkey)
