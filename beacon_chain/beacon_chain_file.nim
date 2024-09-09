@@ -552,7 +552,7 @@ proc decodeBlock(
         of ConsensusFork.Electra:
           ForkedSignedBeaconBlock.init(
             SSZ.decode(decompressed, electra.SignedBeaconBlock))
-      except SerializationError as exc:
+      except SerializationError:
         return err("Incorrect block format")
   ok(blck)
 
