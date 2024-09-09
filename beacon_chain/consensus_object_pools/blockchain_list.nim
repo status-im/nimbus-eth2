@@ -41,11 +41,12 @@ proc init*(T: type ChainListRef, directory: string): ChainListRef =
       else:
         let
           flags = {ChainFileFlag.Repair}
-          res = ChainFileHandle.init(filename, flags).valueOr:
-            fatal "Unexpected failure while loading backfill data",
-                  filename = filename, reason = error
-            quit 1
-        Opt.some(res)
+          res = ChainFileHandle.init(filename, flags)
+        if res.isErr():
+          fatal "Unexpected failure while loading backfill data",
+                filename = filename, reason = res.error
+          quit 1
+        Opt.some(res.get())
   ChainListRef(path: directory, handle: handle)
 
 proc init*(T: type ChainListRef, directory: string,
