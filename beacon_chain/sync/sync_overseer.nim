@@ -8,7 +8,7 @@
 {.push raises: [].}
 
 import std/[strutils, sequtils]
-import stew/base10, chronos, chronicles, results, nimcrypto/utils
+import stew/base10, chronos, chronicles, results
 import
   ../consensus_object_pools/blockchain_list,
   ../spec/datatypes/[phase0, altair],
@@ -164,14 +164,8 @@ proc isWithinWeakSubjectivityPeriod(
   is_within_weak_subjectivity_period(
     dag.cfg, currentSlot, dag.headState, checkpoint)
 
-proc isBackfillEmpty(backfill: BeaconBlockSummary): bool =
-  (backfill.slot == GENESIS_SLOT) and isFullZero(backfill.parent_root.data)
-
 proc isUntrustedBackfillEmpty(clist: ChainListRef): bool =
   clist.tail.isNone()
-
-proc needsUntrustedBackfill(clist: ChainListRef, dag: ChainDagRef): bool =
-  clist.tail.get().slot > dag.horizon
 
 func speed(start, finish: Moment, entities: int): float =
   if entities <= 0:
@@ -267,7 +261,7 @@ proc blockProcessingLoop(overseer: SyncOverseerRef): Future[void] {.
                 await updateHead(consensusManager, validatorMonitor,
                   overseer.getBeaconTimeFn, forkyBlck,
                   NewPayloadStatus.noResponse)
-              except CancelledError as exc:
+              except CancelledError:
                 let msg = "Unable to update head [interrupted]"
                 bchunk.resfut.complete(Result[void, string].err(msg))
                 break mainLoop
@@ -279,7 +273,7 @@ proc blockProcessingLoop(overseer: SyncOverseerRef): Future[void] {.
         bchunk.resfut.complete(Result[void, string].ok())
 
 proc verifyBlockProposer(
-    dag: ChainDagRef,
+    dag: ChainDAGRef,
     signedBlock: ForkedSignedBeaconBlock
 ): Result[void, cstring] =
   let
@@ -305,8 +299,6 @@ proc rebuildState(overseer: SyncOverseerRef): Future[void] {.
   let
     consensusManager = overseer.consensusManager
     dag = consensusManager.dag
-    attestationPool = consensusManager.attestationPool
-    validatorMonitor = overseer.validatorMonitor
     batchVerifier = overseer.batchVerifier
     clist =
       block:
