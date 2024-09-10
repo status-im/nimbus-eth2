@@ -135,9 +135,9 @@ proc store*(clist: ChainListRef, signedBlock: ForkedSignedBeaconBlock,
       flags = {ChainFileFlag.Repair, ChainFileFlag.OpenAlways}
       handle = ? ChainFileHandle.init(filename, flags)
     clist.handle = Opt.some(handle)
-    store(handle, signedBlock, blobs, true)
+    store(handle, signedBlock, blobs)
   else:
-    store(clist.handle.get(), signedBlock, blobs, true)
+    store(clist.handle.get(), signedBlock, blobs)
 
 proc checkBlobs(signedBlock: ForkedSignedBeaconBlock,
                 blobsOpt: Opt[BlobSidecars]): Result[void, VerifierError] =
