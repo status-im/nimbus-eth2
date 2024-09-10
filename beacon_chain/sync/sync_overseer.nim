@@ -75,7 +75,7 @@ proc getLatestBeaconHeader*(
     except CancelledError as exc:
       raise exc
     except AsyncEventQueueFullError:
-      raiseAssert "AsyncEventQueueFullError should not be happened!"
+      raiseAssert "AsyncEventQueueFullError should not happen!"
 
   withForkyHeader(events[^1]):
     when lcDataFork > LightClientDataFork.None:

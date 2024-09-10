@@ -677,7 +677,7 @@ proc init*(T: type BeaconNode,
     if config.longRangeSync == LongRangeSyncMode.Light:
       if not is_within_weak_subjectivity_period(metadata.cfg, currentSlot,
                                                 genesisState[], checkpoint):
-        # We do support any network which starts from Altair fork.
+        # We do support any network which starts from Altair or later fork.
         let metadata = config.loadEth2Network()
         if metadata.cfg.ALTAIR_FORK_EPOCH != GENESIS_EPOCH:
           fatal WeakSubjectivityLogMessage, current_slot = currentSlot,

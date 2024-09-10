@@ -71,10 +71,26 @@ const
   ChainFileVersion = 1'u32
   ChainFileHeaderValue = 0x424D494E'u32
   ChainFileBufferSize* = 4096
-  MaxChunkSize* = uint64(
-    high(uint32) - ChainFileHeaderSize - ChainFileFooterSize)
+  MaxChunkSize = int(GOSSIP_MAX_SIZE)
   ChainFileHeaderArray = ChainFileHeaderValue.toBytesLE()
   IncompleteWriteError = "Unable to write data to file, disk full?"
+  MaxForksCount* = 16384
+  BlockForkCodeRange =
+    int(ConsensusFork.Phase0) .. int(high(ConsensusFork))
+  BlobForkCodeRange =
+    MaxForksCount .. (MaxForksCount + int(high(ConsensusFork)) - int(ConsensusFork.Deneb))
+
+func getBlockForkCode(fork: ConsensusFork): uint64 =
+  uint64(fork)
+
+func getBlobForkCode(fork: ConsensusFork): uint64 =
+  case fork
+  of ConsensusFork.Deneb:
+    uint64(MaxForksCount)
+  of ConsensusFork.Electra:
+    uint64(MaxForksCount) + uint64(fork) - uint64(ConsensusFork.Deneb)
+  of ConsensusFork.Phase0 .. ConsensusFork.Capella:
+    raiseAssert "Blobs are not supported for the fork"
 
 proc init(t: typedesc[ChainFileError], k: ChainFileErrorType,
               m: string): ChainFileError =
@@ -110,27 +126,33 @@ template isLast(k: uint64): bool =
   (k and 0x8000_0000_0000_0000'u64) != 0'u64
 
 proc checkKind(kind: uint64): Result[void, string] =
-  let hkind = unmaskKind(kind)
-  if hkind notin [0'u64, 1, 2, 3, 4, 5, 64, 65]:
-    return err("Unsuppoted chunk kind value")
-  ok()
+  let hkind =
+    block:
+      let res = unmaskKind(kind)
+      if res > uint64(high(int)):
+        return err("Unsuppoted chunk kind value")
+      int(res)
+  if (hkind in BlockForkCodeRange) or (hkind in BlobForkCodeRange):
+    ok()
+  else:
+    err("Unsuppoted chunk kind value")
 
 proc check(a: ChainFileHeader): Result[void, string] =
   if a.header != ChainFileHeaderValue:
     return err("Incorrect chunk header [NIMB]")
   if a.version != 1'u32:
     return err("Unsuppoted chunk version")
-  if a.comprSize >= MaxChunkSize:
+  if a.comprSize > uint32(MaxChunkSize):
     return err("Incorrect compressed size in chunk header")
-  if a.plainSize >= MaxChunkSize:
+  if a.plainSize > uint32(MaxChunkSize):
     return err("Incorrect plain size in chunk header")
   ? checkKind(a.kind)
   ok()
 
 proc check(a: ChainFileFooter): Result[void, string] =
-  if a.comprSize >= MaxChunkSize:
+  if a.comprSize > uint32(MaxChunkSize):
     return err("Incorrect compressed size in chunk header")
-  if a.plainSize >= MaxChunkSize:
+  if a.plainSize > uint32(MaxChunkSize):
     return err("Incorrect plain size in chunk header")
   ? a.kind.checkKind()
   ok()
@@ -204,7 +226,7 @@ proc store(a: ChainFileFooter, data: var openArray[byte]) =
 
 proc init(t: typedesc[Chunk], kind, slot: uint64, plainSize: uint32,
           data: openArray[byte]): seq[byte] =
-  doAssert(uint64(len(data)) < MaxChunkSize)
+  doAssert((len(data) < MaxChunkSize) and (plainSize < uint32(MaxChunkSize)))
 
   var
     dst = newSeq[byte](len(data) + ChainFileHeaderSize + ChainFileFooterSize)
@@ -225,52 +247,31 @@ proc init(t: typedesc[Chunk], kind, slot: uint64, plainSize: uint32,
   dst
 
 template getBlockChunkKind(kind: ConsensusFork, last: bool): uint64 =
-  let res =
-    case kind
-    of ConsensusFork.Phase0: 0'u64
-    of ConsensusFork.Altair: 1'u64
-    of ConsensusFork.Bellatrix: 2'u64
-    of ConsensusFork.Capella: 3'u64
-    of ConsensusFork.Deneb: 4'u64
-    of ConsensusFork.Electra: 5'u64
   if last:
-    maskKind(res)
+    maskKind(getBlockForkCode(kind))
   else:
-    res
+    getBlockForkCode(kind)
 
 template getBlobChunkKind(kind: ConsensusFork, last: bool): uint64 =
-  let res =
-    case kind
-    of ConsensusFork.Phase0, ConsensusFork.Altair, ConsensusFork.Bellatrix,
-       ConsensusFork.Capella:
-      raiseAssert("Blobs are not supported yet")
-    of ConsensusFork.Deneb:
-      64'u64 + 0'u64
-    of ConsensusFork.Electra:
-      64'u64 + 1'u64
   if last:
-    maskKind(res)
+    maskKind(getBlobForkCode(kind))
   else:
-    res
+    getBlobForkCode(kind)
 
 proc getBlockConsensusFork(header: ChainFileHeader): ConsensusFork =
   let hkind = unmaskKind(header.kind)
-  case hkind
-  of 0'u64: ConsensusFork.Phase0
-  of 1'u64: ConsensusFork.Altair
-  of 2'u64: ConsensusFork.Bellatrix
-  of 3'u64: ConsensusFork.Capella
-  of 4'u64: ConsensusFork.Deneb
-  of 5'u64: ConsensusFork.Electra
-  else: raiseAssert("Should not be happened")
+  if int(hkind) in BlockForkCodeRange:
+    cast[ConsensusFork](hkind)
+  else:
+    raiseAssert("Should not be happened")
 
 template isBlock(h: ChainFileHeader | ChainFileFooter): bool =
   let hkind = unmaskKind(h.kind)
-  (hkind >= 0) and (hkind < 64)
+  int(hkind) in BlockForkCodeRange
 
 template isBlob(h: ChainFileHeader | ChainFileFooter): bool =
   let hkind = unmaskKind(h.kind)
-  (hkind >= 64) and (hkind < 128)
+  int(hkind) in BlobForkCodeRange
 
 template isLast(h: ChainFileHeader | ChainFileFooter): bool =
   h.kind.isLast()
@@ -291,7 +292,7 @@ proc setTail*(chandle: var ChainFileHandle, bdata: BlockData) =
   chandle.data.tail = Opt.some(bdata)
 
 proc store*(chandle: ChainFileHandle, signedBlock: ForkedSignedBeaconBlock,
-            blobs: Opt[BlobSidecars], compressed = true): Result[void, string] =
+            blobs: Opt[BlobSidecars]): Result[void, string] =
   let origOffset =
     updateFilePos(chandle.handle, 0'i64, SeekPosition.SeekEnd).valueOr:
       return err(ioErrorMsg(error))
@@ -300,14 +301,9 @@ proc store*(chandle: ChainFileHandle, signedBlock: ForkedSignedBeaconBlock,
     let
       kind = getBlockChunkKind(signedBlock.kind, blobs.isNone())
       (data, plainSize) =
-        if compressed:
-          withBlck(signedBlock):
-            let res = SSZ.encode(forkyBlck)
-            (snappy.encode(res), len(res))
-        else:
-          withBlck(signedBlock):
-            let res = SSZ.encode(forkyBlck)
-            (res, len(res))
+        withBlck(signedBlock):
+          let res = SSZ.encode(forkyBlck)
+          (snappy.encode(res), len(res))
       slot = signedBlock.slot
       buffer = Chunk.init(kind, uint64(slot), uint32(plainSize), data)
       wrote = writeFile(chandle.handle, buffer).valueOr:
@@ -326,12 +322,9 @@ proc store*(chandle: ChainFileHandle, signedBlock: ForkedSignedBeaconBlock,
         kind =
           getBlobChunkKind(signedBlock.kind, (index + 1) == len(blobSidecars))
         (data, plainSize) =
-          if compressed:
+          block:
             let res = SSZ.encode(blob[])
             (snappy.encode(res), len(res))
-          else:
-            let res = SSZ.encode(blob[])
-            (res, len(res))
         slot = blob[].signed_block_header.message.slot
         buffer = Chunk.init(kind, uint64(slot), uint32(plainSize), data)
 
@@ -391,7 +384,8 @@ proc readChunkForward(handle: IoHandle,
       return err(
         ChainFileError.init(ChainFileErrorType.IoError, ioErrorMsg(error)))
   else:
-    data.setLen(int64(header.comprSize))
+    # Safe conversion to `int`, because header.comprSize < MaxChunkSize
+    data.setLen(int(header.comprSize))
     bytesRead =
       readFile(handle, data.toOpenArray(0, len(data) - 1)).valueOr:
         return err(
@@ -500,7 +494,8 @@ proc readChunkBackward(handle: IoHandle,
       return err(
         ChainFileError.init(ChainFileErrorType.IoError, ioErrorMsg(error)))
   else:
-    data.setLen(int64(header.comprSize))
+    # Safe conversion to `int`, because header.comprSize < MaxChunkSize
+    data.setLen(int(header.comprSize))
     bytesRead =
       readFile(handle, data.toOpenArray(0, len(data) - 1)).valueOr:
         return err(
@@ -525,7 +520,7 @@ proc decodeBlock(
     header: ChainFileHeader,
     data: openArray[byte]
 ): Result[ForkedSignedBeaconBlock, string] =
-  if header.plainSize > uint64(high(uint32)):
+  if header.plainSize > uint32(MaxChunkSize):
     return err("Size of block is enormously big")
 
   let
@@ -560,7 +555,7 @@ proc decodeBlob(
     header: ChainFileHeader,
     data: openArray[byte]
 ): Result[BlobSidecar, string] =
-  if header.plainSize > uint64(high(uint32)):
+  if header.plainSize > uint32(MaxChunkSize):
     return err("Size of blob is enormously big")
 
   let
