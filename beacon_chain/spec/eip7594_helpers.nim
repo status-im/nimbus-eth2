@@ -108,20 +108,23 @@ proc get_extended_sample_count*(samples_per_slot: int,
   # the number of allowed failures
 
   # Retrieving the column count
-  let columnsCount = NUMBER_OF_COLUMNS.int
+  const columnsCount = NUMBER_OF_COLUMNS.int
 
   # If 50% of the columns are missing, we are able to reconstruct the data
   # If 50% + 1 columns are missing, we are NO MORE able to reconstruct the data
   let worstCaseConditionCount = (columnsCount div 2) + 1
 
   # Compute the false positive threshold
-  let falsePositiveThreshold = hypergeom_cdf(0, columnsCount, worstCaseConditionCount, samples_per_slot)
+  let falsePositiveThreshold = 
+    hypergeom_cdf(0, columnsCount, worstCaseConditionCount, samples_per_slot)
 
   var sampleCount: int
 
   # Finally, compute the extended sample count
   for i in samples_per_slot .. columnsCount + 1:
-    if hypergeom_cdf(allowed_failures, columnsCount, worstCaseConditionCount, i) <= falsePositiveThreshold:
+    if hypergeom_cdf(allowed_failures,
+                     columnsCount, 
+                     worstCaseConditionCount, i) <= falsePositiveThreshold:
       sampleCount = i
       break
     sampleCount = i
