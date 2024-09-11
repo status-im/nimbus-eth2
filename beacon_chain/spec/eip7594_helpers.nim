@@ -126,4 +126,4 @@ proc get_extended_sample_count*(samples_per_slot: int,
       break
     sampleCount = i
   
-  return sampleCount
+  sampleCount
