@@ -531,6 +531,11 @@ OK: 10/12 Fail: 0/12 Skip: 2/12
 + snapshot_cases                                                                             OK
 ```
 OK: 5/5 Fail: 0/5 Skip: 0/5
+## EIP-7594 Sampling Tests
+```diff
++ EIP7594: Extended Sample Count                                                             OK
+```
+OK: 1/1 Fail: 0/1 Skip: 0/1
 ## EL Configuration
 ```diff
 + Empty config file                                                                          OK
@@ -1114,4 +1119,4 @@ OK: 2/2 Fail: 0/2 Skip: 0/2
 OK: 9/9 Fail: 0/9 Skip: 0/9
 
 ---TOTAL---
-OK: 759/764 Fail: 0/764 Skip: 5/764
+OK: 760/765 Fail: 0/765 Skip: 5/765
