@@ -69,7 +69,7 @@ func get_custody_column_subnets*(node_id: NodeId,
       current_id = NodeId(StUint[256].zero)
     current_id += NodeId(StUint[256].one)
 
-  ok(subnet_ids)
+  subnet_ids
 
 # https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.5/specs/_features/eip7594/das-core.md#get_custody_columns
 func get_custody_columns*(node_id: NodeId,
