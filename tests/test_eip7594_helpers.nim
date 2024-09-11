@@ -41,5 +41,6 @@ suite "EIP-7594 Sampling Tests":
       ]
 
       for (allowed_failures, extendedSampleCount) in tests:
-        check: get_extended_sample_count(samplesPerSlot, allowed_failures) == extendedSampleCount
+        check: get_extended_sample_count(
+            samplesPerSlot, allowed_failures) == extendedSampleCount
     testExtendedSampleCount()
