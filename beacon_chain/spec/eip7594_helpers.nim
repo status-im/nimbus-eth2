@@ -100,12 +100,12 @@ func get_custody_column_list*(node_id: NodeId,
   sortedColumnIndexList(ColumnIndex(columns_per_subnet), subnet_ids)
 
 # https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.5/specs/_features/eip7594/peer-sampling.md#get_extended_sample_count
-proc get_extended_sample_count*(samples_per_slot: int,
+func get_extended_sample_count*(samples_per_slot: int,
                                 allowed_failures: int):
                                 int =
-  # `get_extended_sample_count` computes the number of samples we
-  # should query from peers, given the SAMPLES_PER_SLOT and 
-  # the number of allowed failures
+  ## `get_extended_sample_count` computes the number of samples we
+  ## should query from peers, given the SAMPLES_PER_SLOT and 
+  ## the number of allowed failures
 
   # Retrieving the column count
   const columnsCount = NUMBER_OF_COLUMNS.int
@@ -122,9 +122,10 @@ proc get_extended_sample_count*(samples_per_slot: int,
 
   # Finally, compute the extended sample count
   for i in samples_per_slot .. columnsCount + 1:
-    if hypergeom_cdf(allowed_failures,
-                     columnsCount, 
-                     worstCaseConditionCount, i) <= falsePositiveThreshold:
+    if hypergeom_cdf(
+        allowed_failures,
+        columnsCount, 
+        worstCaseConditionCount, i) <= falsePositiveThreshold:
       sampleCount = i
       break
     sampleCount = i
