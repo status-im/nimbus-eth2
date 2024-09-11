@@ -959,8 +959,7 @@ func checkForkConsistency*(cfg: RuntimeConfig) =
   let forkVersions =
     [cfg.GENESIS_FORK_VERSION, cfg.ALTAIR_FORK_VERSION,
      cfg.BELLATRIX_FORK_VERSION, cfg.CAPELLA_FORK_VERSION,
-     cfg.DENEB_FORK_VERSION, cfg.ELECTRA_FORK_VERSION,
-     cfg.EIP7732_FORK_VERSION]
+     cfg.DENEB_FORK_VERSION, cfg.ELECTRA_FORK_VERSION]
 
   for i in 0 ..< forkVersions.len:
     for j in i+1 ..< forkVersions.len:
