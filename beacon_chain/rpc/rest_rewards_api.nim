@@ -44,12 +44,14 @@ proc installRewardsApiHandlers*(router: var RestRouter, node: BeaconNode) =
             return RestApiResponse.jsonError(Http404, BlockOlderThanParentError)
           res
 
-      clearanceBlock = BlockSlotId.init(parent.bid, bdata.slot)
+      targetBlock = BlockSlotId.init(parent.bid, bdata.slot)
 
-    var cache = StateCache()
+    var
+      cache = StateCache()
+      tmpState = assignClone(node.dag.headState)
 
     if not updateState(
-      node.dag, node.dag.clearanceState, clearanceBlock, false, cache):
+      node.dag, tmpState[], targetBlock, false, cache):
         return RestApiResponse.jsonError(Http404, ParentBlockMissingStateError)
 
     func restore(v: var ForkedHashedBeaconState) =
@@ -59,7 +61,7 @@ proc installRewardsApiHandlers*(router: var RestRouter, node: BeaconNode) =
       rewards =
         withBlck(bdata):
           state_transition_block(
-            node.dag.cfg, node.dag.clearanceState, forkyBlck,
+            node.dag.cfg, tmpState[], forkyBlck,
             cache, node.dag.updateFlags, restore).valueOr:
               return RestApiResponse.jsonError(Http400, BlockInvalidError)
       total = rewards.attestations + rewards.sync_aggregate +
