@@ -111,7 +111,7 @@ func get_extended_sample_count*(samples_per_slot: int,
   const columnsCount = NUMBER_OF_COLUMNS.int
 
   # If 50% of the columns are missing, we are able to reconstruct the data
-  # If 50% + 1 columns are missing, we are NO MORE able to reconstruct the data
+  # If 50% + 1 columns are missing, we are become unable to reconstruct the data
   let worstCaseConditionCount = (columnsCount div 2) + 1
 
   # Compute the false positive threshold
