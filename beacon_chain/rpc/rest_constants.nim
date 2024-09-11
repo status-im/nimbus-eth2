@@ -24,6 +24,12 @@ const
     "Beacon node is currently syncing and not serving request on that endpoint"
   BlockNotFoundError* =
     "Block header/data has not been found"
+  BlockParentUnknownError* =
+    "Block parent unknown"
+  BlockOlderThanParentError* =
+    "Block older than parent block"
+  BlockInvalidError* =
+    "Invalid block"
   EmptyRequestBodyError* =
     "Empty request body"
   InvalidRequestBodyError* =
@@ -259,3 +265,5 @@ const
     "Path not found"
   FileReadError* =
     "Error reading file"
+  ParentBlockMissingStateError* =
+    "Unable to load state for parent block, database corrupt?"
