@@ -33,9 +33,16 @@ from ./capella import
   Withdrawal, ExecutionPayload, EXECUTION_PAYLOAD_GINDEX
 from ./deneb import Blobs, BlobsBundle, KzgCommitments, KzgProofs
 from ./electra import PendingBalanceDeposit, PendingPartialWithdrawal, 
-  PendingConsolidation, ElectraCommitteeValidatorsBits
+  PendingConsolidation, ElectraCommitteeValidatorsBits, AttestationCommitteeBits
 
 export json_serialization, base, kzg4844
+
+const
+  PAYLOAD_TIMELY_THRESHOLD*: uint64 = 256
+  INTERVALS_PER_SLOT* = 4
+  PROPOSER_SCORE_BOOST*: uint64 = 20
+  PAYLOAD_WITHHOLD_BOOST*: uint64 = 40
+  PROPOSER_REVEAL_BOOST*: uint64 = 20
 
 type
 
@@ -146,7 +153,7 @@ type
     # [New in PBS]
     latest_block_hash*: Eth2Digest
     latest_full_slot*: Slot
-    latest_withdrawals_root: Eth2Digest
+    latest_withdrawals_root*: Eth2Digest
 
   # TODO Careful, not nil analysis is broken / incomplete and the semantics will
   #      likely change in future versions of the language:
