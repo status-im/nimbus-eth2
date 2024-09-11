@@ -92,7 +92,7 @@ func get_custody_column_list*(node_id: NodeId,
   # before sending, data_column_sidecars_by_range requests
   let
     subnet_ids =
-      get_custody_column_subnets(node_id, custody_subnet_count).get
+      get_custody_column_subnets(node_id, custody_subnet_count)
   const
     columns_per_subnet =
       NUMBER_OF_COLUMNS div DATA_COLUMN_SIDECAR_SUBNET_COUNT
