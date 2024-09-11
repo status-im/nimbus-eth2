@@ -40,14 +40,11 @@ func sortedColumnIndexList*(columnsPerSubnet: ColumnIndex,
 
 func get_custody_column_subnets*(node_id: NodeId,
                                  custody_subnet_count: uint64):
-                                 Result[HashSet[uint64], cstring] =
+                                 HashSet[uint64] =
 
   # Decouples the custody subnet computation part from
   # `get_custody_columns`, in order to later use this subnet list
   # in order to maintain subscription to specific column subnets.
-
-  if not (custody_subnet_count <= DATA_COLUMN_SIDECAR_SUBNET_COUNT):
-    return err("Eip7594: Custody subnet count exceeds the DATA_COLUMN_SIDECAR_SUBNET_COUNT")
 
   var
     subnet_ids: HashSet[uint64]
@@ -80,7 +77,7 @@ func get_custody_columns*(node_id: NodeId,
                           seq[ColumnIndex] =
   let
     subnet_ids =
-      get_custody_column_subnets(node_id, custody_subnet_count).get
+      get_custody_column_subnets(node_id, custody_subnet_count)
   const
     columns_per_subnet =
       NUMBER_OF_COLUMNS div DATA_COLUMN_SIDECAR_SUBNET_COUNT
