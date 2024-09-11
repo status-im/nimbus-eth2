@@ -1550,7 +1550,7 @@ proc getLowSubnets(node: Eth2Node, epoch: Epoch):
       findLowSubnets(getSyncCommitteeTopic, SyncSubcommitteeIndex, SYNC_COMMITTEE_SUBNET_COUNT)
     else:
       default(SyncnetBits),
-    findLowSubnets(getDataColumnSidecarTopic, uint64, (DATA_COLUMN_SIDECAR_SUBNET_COUNT div 2).int)
+    findLowSubnets(getDataColumnSidecarTopic, uint64, (DATA_COLUMN_SIDECAR_SUBNET_COUNT).int)
   )
 
 proc runDiscoveryLoop(node: Eth2Node) {.async.} =
@@ -2462,7 +2462,7 @@ proc lookupCscFromPeer*(peer: Peer): uint64 =
 
     if enrFieldOpt.isOk:
         try:
-          let csc = SSZ.decode(enrFieldOpt.get(), CscCount)
+          let csc = SSZ.decode(enrFieldOpt.get(), uint8)
           return csc
         except SszError as e:
           debug "Could not decide the csc field in the ENR"

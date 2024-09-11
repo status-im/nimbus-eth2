@@ -76,7 +76,7 @@ type
     column_index*: ColumnIndex
     row_index*: RowIndex
   
-  CscBits* = BitArray[DATA_COLUMN_SIDECAR_SUBNET_COUNT div 2]
+  CscBits* = BitArray[DATA_COLUMN_SIDECAR_SUBNET_COUNT]
   CscCount* = uint64
 
   # https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.4/specs/_features/eip7594/p2p-interface.md#metadata

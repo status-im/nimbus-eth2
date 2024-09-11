@@ -156,7 +156,7 @@ proc queryRandom*(
     if cscnetsBytes.isOk():
       let cscnetsNode =
         try:
-          SSZ.decode(cscnetsBytes.get(), CscCount)
+          SSZ.decode(cscnetsBytes.get(), uint8)
         except SszError as e:
           debug "Could not decode the csc count ENR bitfield of peer",
             peer = n.record.toURI(), exception = e.name, msg = e.msg
