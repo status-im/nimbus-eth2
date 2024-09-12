@@ -87,6 +87,13 @@ proc publishAggregateAndProofs*(
      meth: MethodPost.}
   ## https://ethereum.github.io/beacon-APIs/#/Validator/publishAggregateAndProofs
 
+proc publishAggregateAndProofsV2*(
+       body: seq[phase0.SignedAggregateAndProof | electra.SignedAggregateAndProof]
+     ): RestPlainResponse {.
+     rest, endpoint: "/eth/v2/validator/aggregate_and_proofs",
+     meth: MethodPost.}
+  ## https://ethereum.github.io/beacon-APIs/?urls.primaryName=dev#/Validator/publishAggregateAndProofsV2
+
 proc prepareBeaconCommitteeSubnet*(
        body: seq[RestCommitteeSubscription]
      ): RestPlainResponse {.
