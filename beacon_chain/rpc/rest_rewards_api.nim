@@ -21,6 +21,13 @@ export rest_utils
 
 logScope: topics = "rest_rewardsapi"
 
+const
+  GenesisBlockRewardsResponse =
+    "{\"execution_optimistic\":false,\"finalized\":true,\"data\":" &
+    "{\"proposer_index\":\"0\",\"total\":\"0\",\"attestations\":\"0\"," &
+    "\"sync_aggregate\":\"0\",\"proposer_slashings\":\"0\"," &
+    "\"attester_slashings\":\"0\"}}"
+
 proc installRewardsApiHandlers*(router: var RestRouter, node: BeaconNode) =
   # https://ethereum.github.io/beacon-APIs/#/Rewards/getBlockRewards
   router.api2(MethodGet, "/eth/v1/beacon/rewards/blocks/{block_id}") do (
@@ -30,6 +37,12 @@ proc installRewardsApiHandlers*(router: var RestRouter, node: BeaconNode) =
         return RestApiResponse.jsonError(Http400, InvalidBlockIdValueError,
                                          $error)
 
+    if (bident.kind == BlockQueryKind.Named) and
+       (bident.value == BlockIdentType.Genesis):
+      return RestApiResponse.response(
+        GenesisBlockRewardsResponse, Http200, "application/json")
+
+    let
       bdata = node.getForkedBlock(bident).valueOr:
         return RestApiResponse.jsonError(Http404, BlockNotFoundError)
 
