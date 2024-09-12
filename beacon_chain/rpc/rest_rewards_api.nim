@@ -35,16 +35,14 @@ proc installRewardsApiHandlers*(router: var RestRouter, node: BeaconNode) =
 
       bid = BlockId(slot: bdata.slot, root: bdata.root)
 
-      parent =
+      targetBlock =
         withBlck(bdata):
-          let res =
-            node.dag.getBlockRef(forkyBlck.message.parent_root).valueOr:
+          let parentBid =
+            node.dag.getBlockId(forkyBlck.message.parent_root).valueOr:
               return RestApiResponse.jsonError(Http404, BlockParentUnknownError)
-          if res.slot >= forkyBlck.message.slot:
+          if parentBid.slot >= forkyBlck.message.slot:
             return RestApiResponse.jsonError(Http404, BlockOlderThanParentError)
-          res
-
-      targetBlock = BlockSlotId.init(parent.bid, bdata.slot)
+          BlockSlotId.init(parentBid, forkyBlck.message.slot)
 
     var
       cache = StateCache()
