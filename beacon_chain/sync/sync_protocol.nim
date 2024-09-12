@@ -414,6 +414,7 @@ p2pProtocol BeaconSync(version = 1,
       found = 0
       bytes: seq[byte]
 
+    
     for i in 0..<count:
       let blockRef = dag.getBlockRef(columnIds[i].block_root).valueOr:
         continue
