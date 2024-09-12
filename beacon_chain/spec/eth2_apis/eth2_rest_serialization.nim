@@ -675,24 +675,28 @@ proc jsonResponseWOpt*(t: typedesc[RestApiResponse], data: auto,
         default
   RestApiResponse.response(res, Http200, "application/json")
 
+proc prepareJsonResponseFinalized*(
+    t: typedesc[RestApiResponse], data: auto, exec: Opt[bool],
+    finalized: bool
+): seq[byte] =
+  try:
+    var
+      stream = memoryOutput()
+      writer = JsonWriter[RestJson].init(stream)
+    writer.beginRecord()
+    if exec.isSome():
+      writer.writeField("execution_optimistic", exec.get())
+    writer.writeField("finalized", finalized)
+    writer.writeField("data", data)
+    writer.endRecord()
+    stream.getOutput(seq[byte])
+  except IOError:
+    default(seq[byte])
+
 proc jsonResponseFinalized*(t: typedesc[RestApiResponse], data: auto,
                             exec: Opt[bool],
                             finalized: bool): RestApiResponse =
-  let res =
-    block:
-      var default: seq[byte]
-      try:
-        var stream = memoryOutput()
-        var writer = JsonWriter[RestJson].init(stream)
-        writer.beginRecord()
-        if exec.isSome():
-          writer.writeField("execution_optimistic", exec.get())
-        writer.writeField("finalized", finalized)
-        writer.writeField("data", data)
-        writer.endRecord()
-        stream.getOutput(seq[byte])
-      except IOError:
-        default
+  let res = RestApiResponse.prepareJsonResponseFinalized(data, exec, finalized)
   RestApiResponse.response(res, Http200, "application/json")
 
 proc jsonResponseWVersion*(t: typedesc[RestApiResponse], data: auto,
