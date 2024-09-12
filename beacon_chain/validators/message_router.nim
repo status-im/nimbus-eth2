@@ -178,25 +178,11 @@ proc routeSignedBeaconBlock*(
         if not dataColumnsOpt[].isOk:
           debug "Issue with computing data column from blob bundle"
         let data_columns = dataColumnsOpt[].get()
-        debugEcho "DataColumns len"
-        debugEcho data_columns.len
-        debugEcho "Column len"
-        debugEcho data_columns[0].column.len
-        debugEcho "kzg comm len"
-        debugEcho data_columns[0].kzg_commitments.len
-        debugEcho "kzg proof len"
-        debugEcho data_columns[0].kzg_proofs.len
         var das_workers = newSeq[Future[SendResult]](len(dataColumnsOpt[].get()))
         debugEcho "das workers len"
         debugEcho das_workers.len
         for i in 0..<data_columns.lenu64:
-          debugEcho "index"
-          debugEcho i
-          debugEcho "data column index"
-          debugEcho data_columns[i].index
           let subnet_id = compute_subnet_for_data_column_sidecar(data_columns[i].index)
-          debugEcho "Subnet ID"
-          debugEcho subnet_id
           das_workers[i] = 
               router[].network.broadcastDataColumnSidecar(subnet_id, data_columns[i])
         let allres = await allFinished(das_workers)
