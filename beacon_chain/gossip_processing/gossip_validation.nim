@@ -276,10 +276,6 @@ template checkedReject(
     pool: ValidatorChangePool, error: ValidationError): untyped =
   pool.dag.checkedReject(error)
 
-template checkedResult(
-    pool: ValidatorChangePool, error: ValidationError): untyped =
-  pool.dag.checkedResult(error)
-
 template validateBeaconBlockBellatrix(
     signed_beacon_block: phase0.SignedBeaconBlock | altair.SignedBeaconBlock,
     parent: BlockRef): untyped =
@@ -483,7 +479,7 @@ proc validateBlobSidecar*(
 # https://github.com/ethereum/consensus-specs/blob/v1.3.0/specs/bellatrix/p2p-interface.md#beacon_block
 proc validateBeaconBlock*(
     dag: ChainDAGRef, quarantine: ref Quarantine,
-    signed_beacon_block: phase0.SignedBeaconBlock | altair.SignedBeaconBlock | bellatrix.SignedBeaconBlock | capella.SignedBeaconBlock | deneb.SignedBeaconBlock,
+    signed_beacon_block: ForkySignedBeaconBlock,
     wallTime: BeaconTime, flags: UpdateFlags): Result[void, ValidationError] =
   # In general, checks are ordered from cheap to expensive. Especially, crypto
   # verification could be quite a bit more expensive than the rest. This is an
@@ -671,13 +667,6 @@ proc validateBeaconBlock*(
     quarantine[].addUnviable(signed_beacon_block.root)
     return dag.checkedReject("BeaconBlock: Invalid proposer signature")
 
-  ok()
-
-proc validateBeaconBlock*(
-    dag: ChainDAGRef, quarantine: ref Quarantine,
-    signed_beacon_block: electra.SignedBeaconBlock,
-    wallTime: BeaconTime, flags: UpdateFlags): Result[void, ValidationError] =
-  debugComment "it's sometimes not"
   ok()
 
 # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.1/specs/phase0/p2p-interface.md#beacon_attestation_subnet_id
@@ -897,11 +886,9 @@ proc validateAttestation*(
           attestation = shortLog(attestation), target = shortLog(target)
         return errIgnore("Attestation: no shuffling")
 
-  let
-    fork = pool.dag.forkAtEpoch(attestation.data.slot.epoch)
-    attesting_index = get_attesting_indices_one(
-      shufflingRef, slot, attestation.committee_bits,
-      attestation.aggregation_bits, false)
+  let attesting_index = get_attesting_indices_one(
+    shufflingRef, slot, attestation.committee_bits,
+    attestation.aggregation_bits, false)
 
   # The number of aggregation bits matches the committee size, which ensures
   # this condition holds.
@@ -1177,11 +1164,8 @@ proc validateAggregate*(
         "Attestation: committee index not within expected range")
     idx.get()
   let
-    fork = pool.dag.forkAtEpoch(aggregate.data.slot.epoch)
     attesting_indices = get_attesting_indices(
       shufflingRef, slot, committee_index, aggregate.aggregation_bits, false)
-
-  let
     sig =
       aggregate.signature.load().valueOr:
         return pool.checkedReject("Aggregate: unable to load signature")
