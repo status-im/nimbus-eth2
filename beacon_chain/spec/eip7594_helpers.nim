@@ -108,7 +108,7 @@ func get_extended_sample_count*(samples_per_slot: int,
   ## the number of allowed failures
 
   # Retrieving the column count
-  const columnsCount = NUMBER_OF_COLUMNS.int
+  const columnsCount = NUMBER_OF_COLUMNS
 
   # If 50% of the columns are missing, we are able to reconstruct the data
   # If 50% + 1 columns are missing, we cannot reconstruct the data
@@ -119,11 +119,11 @@ func get_extended_sample_count*(samples_per_slot: int,
     hypergeom_cdf(0, columnsCount, worstCaseConditionCount, samples_per_slot)
 
   # Finally, compute the extended sample count
-  for i in samples_per_slot .. columnsCount + 1:
+  for i in samples_per_slot .. columnsCount:
     if hypergeom_cdf(
         allowed_failures,
         columnsCount, 
         worstCaseConditionCount, i) <= falsePositiveThreshold:
       return i
 
-  return -999
+  columnsCount
