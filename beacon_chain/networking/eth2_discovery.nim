@@ -161,12 +161,6 @@ proc queryRandom*(
           debug "Could not decode the csc count ENR bitfield of peer",
             peer = n.record.toURI(), exception = e.name, msg = e.msg
           continue
-      if wantedCscnets == cscnetsNode:
-        score += 1
-
-      else:
-        debug "Wanted csc count and decode csc from enr does not match!",
-          wantedCsc = wantedCscnets, cscNets = cscnetsNode
 
     let attnetsBytes = n.record.get(enrAttestationSubnetsField, seq[byte])
     if attnetsBytes.isOk():

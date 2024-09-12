@@ -1533,7 +1533,7 @@ proc tryReconstructingDataColumns* (self: BeaconNode,
   # then reconstruction is not possible, and if all the data columns
   # are already stored then we do not need to reconstruct at all
   if storedColumns.len < NUMBER_OF_COLUMNS div 2 or storedColumns.len == NUMBER_OF_COLUMNS:
-    ok(data_column_sidecars)
+    ok(finalisedDataColumns)
   else:
     # Recover blobs from saved data column sidecars
     let recovered_cps = recover_cells_and_proofs(data_column_sidecars, storedColumns.len, signed_block)
@@ -1563,24 +1563,26 @@ proc reconstructAndSendDataColumns*(node: BeaconNode) {.async.} =
       if not data_column_sidecars.isOk():
         return
       notice "Data Column Reconstructed and Saved Successfully"
-      let dc = data_column_sidecars.get
-      var
-        worker_count = len(dc)
-        das_workers = newSeq[Future[SendResult]](worker_count)
-      for i in 0..<dc.lenu64:
-        let subnet_id = compute_subnet_for_data_column_sidecar(i)
-        das_workers[i] =
-            node.network.broadcastDataColumnSidecar(subnet_id, dc[i])
-      let allres = await allFinished(das_workers)
-      for i in 0..<allres.len:
-        let res = allres[i]
-        doAssert res.finished()
-        if res.failed():
-          notice "Reconstructed data columns not sent",
-            data_column = shortLog(dc[i]), error = res.error[]
-        else:
-          notice "Reconstructed data columns sent",
-            data_column = shortLog(dc[i])
+      if node.config.subscribeAllSubnets:
+        notice "Attempting to publish reconstructed columns"
+        let dc = data_column_sidecars.get
+        var
+          worker_count = len(dc)
+          das_workers = newSeq[Future[SendResult]](worker_count)
+        for i in 0..<dc.lenu64:
+          let subnet_id = compute_subnet_for_data_column_sidecar(i)
+          das_workers[i] =
+              node.network.broadcastDataColumnSidecar(subnet_id, dc[i])
+        let allres = await allFinished(das_workers)
+        for i in 0..<allres.len:
+          let res = allres[i]
+          doAssert res.finished()
+          if res.failed():
+            notice "Reconstructed data columns not sent",
+              data_column = shortLog(dc[i]), error = res.error[]
+          else:
+            notice "Reconstructed data columns sent",
+              data_column = shortLog(dc[i])
     else:
       return
 

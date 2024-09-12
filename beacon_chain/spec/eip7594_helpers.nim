@@ -275,9 +275,6 @@ proc get_data_column_sidecars*(signed_block: deneb.TrustedSignedBeaconBlock |
       discard column_cells.add(cellsAndProofs[i].cells)
       discard column_proofs.add(cellsAndProofs[i].proofs)
 
-    debugEcho "column cells len"
-    debugEcho column_cells.len
-
     var sidecar = DataColumnSidecar(
       index: ColumnIndex(column_index),
       column: column_cells,

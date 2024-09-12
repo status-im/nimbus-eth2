@@ -35,7 +35,7 @@ block:
 
 const MAX_TOP_BYTE = 114
 
-proc createSampleKzgBlobs(n: int): Result[seq[KzgBlob], cstring] =
+proc createSampleKzgBlobs(n: int): seq[KzgBlob] =
   var blob: array[BYTES_PER_BLOB, byte]
   var blobs: seq[KzgBlob]
   for i in 0..<n:
@@ -45,7 +45,7 @@ proc createSampleKzgBlobs(n: int): Result[seq[KzgBlob], cstring] =
         blob[i] = MAX_TOP_BYTE
     blobs.add(KzgBlob(bytes: blob))
 
-  ok(blobs)
+  blobs
 
 proc chunks[T](lst: seq[T], n: int): seq[seq[T]] =
     ## Helper that splits a list into N sized chunks.
@@ -59,7 +59,7 @@ suite "EIP-7594 Unit Tests":
       let 
         blob_count = 2
         input_blobs = createSampleKzgBlobs(blob_count)
-        extended_matrix = compute_extended_matrix(input_blobs.get)
+        extended_matrix = compute_extended_matrix(input_blobs)
       doAssert extended_matrix.get.len == kzg_abi.CELLS_PER_EXT_BLOB * blob_count
       let
         chunkSize = kzg_abi.CELLS_PER_EXT_BLOB
@@ -79,7 +79,7 @@ suite "EIP-7594 Unit Tests":
       let
         blob_count = 2
         blobs = createSampleKzgBlobs(blob_count)
-        extended_matrix = compute_extended_matrix(blobs.get)
+        extended_matrix = compute_extended_matrix(blobs)
       
       # Construct a matrix with some entries missing
       var partial_matrix: seq[MatrixEntry]
