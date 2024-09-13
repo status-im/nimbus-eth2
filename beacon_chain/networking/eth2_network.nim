@@ -2648,7 +2648,8 @@ proc broadcastBlsToExecutionChange*(
   node.broadcast(topic, bls_to_execution_change)
 
 proc broadcastAggregateAndProof*(
-    node: Eth2Node, proof: phase0.SignedAggregateAndProof):
+    node: Eth2Node,
+    proof: phase0.SignedAggregateAndProof | electra.SignedAggregateAndProof):
     Future[SendResult] {.async: (raises: [CancelledError], raw: true).} =
   let topic = getAggregateAndProofsTopic(
     node.forkDigestAtEpoch(node.getWallEpoch))

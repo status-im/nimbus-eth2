@@ -890,6 +890,48 @@ proc installValidatorApiHandlers*(router: var RestRouter, node: BeaconNode) =
                "Unexpected server failure, while sending aggregate and proof")
     RestApiResponse.jsonMsgResponse(AggregateAndProofValidationSuccess)
 
+  # https://ethereum.github.io/beacon-APIs/?urls.primaryName=dev#/Validator/publishAggregateAndProofsV2
+  router.api2(MethodPost, "/eth/v2/validator/aggregate_and_proofs") do (
+    contentBody: Option[ContentBody]) -> RestApiResponse:
+
+    if contentBody.isNone():
+      return RestApiResponse.jsonError(Http400, EmptyRequestBodyError)
+
+    let
+      headerVersion = request.headers.getString("Eth-Consensus-Version")
+      consensusVersion = ConsensusFork.init(headerVersion)
+    if consensusVersion.isNone():
+      return RestApiResponse.jsonError(Http400, FailedToObtainConsensusForkError)
+
+    var proofs: seq[Future[SendResult]]
+    template addDecodedProofs(ProofType: untyped) =
+        let dres = decodeBody(seq[ProofType], contentBody.get())
+        if dres.isErr():
+          return RestApiResponse.jsonError(Http400,
+                                          InvalidAggregateAndProofObjectError,
+                                          $dres.error())
+        for proof in dres.get():
+          proofs.add(node.router.routeSignedAggregateAndProof(proof))
+
+    case consensusVersion.get():
+      of ConsensusFork.Phase0 .. ConsensusFork.Deneb:
+        addDecodedProofs(phase0.SignedAggregateAndProof)
+      of ConsensusFork.Electra:
+        addDecodedProofs(electra.SignedAggregateAndProof)
+
+    await allFutures(proofs)
+    for future in proofs:
+      if future.completed():
+        let res = future.value()
+        if res.isErr():
+          return RestApiResponse.jsonError(Http400,
+                                           AggregateAndProofValidationError,
+                                           $res.error())
+      else:
+        return RestApiResponse.jsonError(Http500,
+               "Unexpected server failure, while sending aggregate and proof")
+    RestApiResponse.jsonMsgResponse(AggregateAndProofValidationSuccess)
+
   # https://ethereum.github.io/beacon-APIs/#/Validator/prepareBeaconCommitteeSubnet
   router.api2(MethodPost,
               "/eth/v1/validator/beacon_committee_subscriptions") do (
