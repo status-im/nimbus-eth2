@@ -894,31 +894,30 @@ proc installValidatorApiHandlers*(router: var RestRouter, node: BeaconNode) =
   router.api2(MethodPost, "/eth/v2/validator/aggregate_and_proofs") do (
     contentBody: Option[ContentBody]) -> RestApiResponse:
 
-    let
-      consensusVersion = request.headers.getString("Eth-Consensus-Version")
-      isElectra = consensusVersion == "electra"
-
     if contentBody.isNone():
       return RestApiResponse.jsonError(Http400, EmptyRequestBodyError)
 
-    var proofs: seq[Future[SendResult]]
-    if isElectra:
-      let dres = decodeBody(seq[electra.SignedAggregateAndProof], contentBody.get())
-      if dres.isErr():
-        return RestApiResponse.jsonError(Http400,
-                                        InvalidAggregateAndProofObjectError,
-                                        $dres.error())
-      for proof in dres.get():
-        proofs.add(node.router.routeSignedAggregateAndProof(proof))
+    let
+      headerVersion = request.headers.getString("Eth-Consensus-Version")
+      consensusVersion = ConsensusFork.init(headerVersion)
+    if consensusVersion.isNone():
+      return RestApiResponse.jsonError(Http400, FailedToObtainConsensusForkError)
 
-    else:
-      let dres = decodeBody(seq[phase0.SignedAggregateAndProof], contentBody.get())
-      if dres.isErr():
-        return RestApiResponse.jsonError(Http400,
-                                        InvalidAggregateAndProofObjectError,
-                                        $dres.error())
-      for proof in dres.get():
-        proofs.add(node.router.routeSignedAggregateAndProof(proof))
+    var proofs: seq[Future[SendResult]]
+    template addDecodedProofs(ProofType: untyped) =
+        let dres = decodeBody(seq[ProofType], contentBody.get())
+        if dres.isErr():
+          return RestApiResponse.jsonError(Http400,
+                                          InvalidAggregateAndProofObjectError,
+                                          $dres.error())
+        for proof in dres.get():
+          proofs.add(node.router.routeSignedAggregateAndProof(proof))
+
+    case consensusVersion.get():
+      of ConsensusFork.Phase0 .. ConsensusFork.Deneb:
+        addDecodedProofs(phase0.SignedAggregateAndProof)
+      of ConsensusFork.Electra:
+        addDecodedProofs(electra.SignedAggregateAndProof)
 
     await allFutures(proofs)
     for future in proofs:
