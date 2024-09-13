@@ -696,8 +696,6 @@ proc constructSignableBlindedBlock[T: electra_mev.SignedBlindedBeaconBlock](
     blindedBlock.message.body.blob_kzg_commitments,
     blindedBundle.blob_kzg_commitments)
 
-  debugComment "check for any additional electra mev requirements"
-
   blindedBlock
 
 func constructPlainBlindedBlock[T: deneb_mev.BlindedBeaconBlock](
@@ -745,8 +743,6 @@ func constructPlainBlindedBlock[T: electra_mev.BlindedBeaconBlock](
   assign(
     blindedBlock.body.blob_kzg_commitments,
     blindedBundle.blob_kzg_commitments)
-
-  debugComment "check for any additional electra mev requirements"
 
   blindedBlock
 

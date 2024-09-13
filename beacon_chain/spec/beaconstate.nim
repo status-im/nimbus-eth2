@@ -1249,14 +1249,13 @@ func get_active_balance*(
 
 # https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.1/specs/electra/beacon-chain.md#new-queue_excess_active_balance
 func queue_excess_active_balance(
-    state: var electra.BeaconState, index: ValidatorIndex) =
+    state: var electra.BeaconState, index: uint64) =
   let balance = state.balances.item(index)
   if balance > MIN_ACTIVATION_BALANCE.Gwei:
     let excess_balance = balance - MIN_ACTIVATION_BALANCE.Gwei
     state.balances.mitem(index) = MIN_ACTIVATION_BALANCE.Gwei
-    debugComment "maybe check return value"
     discard state.pending_balance_deposits.add(
-      PendingBalanceDeposit(index: index.uint64, amount: excess_balance)
+      PendingBalanceDeposit(index: index, amount: excess_balance)
     )
 
 # https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.0/specs/electra/beacon-chain.md#new-switch_to_compounding_validator
@@ -1265,7 +1264,7 @@ func switch_to_compounding_validator*(
   let validator = addr state.validators.mitem(index)
   if has_eth1_withdrawal_credential(validator[]):
     validator.withdrawal_credentials.data[0] = COMPOUNDING_WITHDRAWAL_PREFIX
-    queue_excess_active_balance(state, index)
+    queue_excess_active_balance(state, index.uint64)
 
 # https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.0/specs/electra/beacon-chain.md#new-get_pending_balance_to_withdraw
 func get_pending_balance_to_withdraw*(
@@ -1298,7 +1297,6 @@ template get_effective_balance_update*(
       balance - balance mod EFFECTIVE_BALANCE_INCREMENT.Gwei,
       MAX_EFFECTIVE_BALANCE.Gwei)
   else:
-    debugComment "amortize validator read access"
     let effective_balance_limit =
       if has_compounding_withdrawal_credential(state.validators.item(vidx)):
         MAX_EFFECTIVE_BALANCE_ELECTRA.Gwei
@@ -1725,7 +1723,6 @@ func queue_entire_balance_and_reset_validator(
   let validator = addr state.validators.mitem(index)
   validator[].effective_balance = 0.Gwei
   validator[].activation_eligibility_epoch = FAR_FUTURE_EPOCH
-  debugComment "check hashlist add return"
   discard state.pending_balance_deposits.add PendingBalanceDeposit(
     index: index, amount: balance)
 
@@ -2153,8 +2150,7 @@ func upgrade_to_electra*(
   # churn
   for index, validator in post.validators:
     if has_compounding_withdrawal_credential(validator):
-      debugComment "in theory truncating"
-      queue_excess_active_balance(post[], ValidatorIndex(index))
+      queue_excess_active_balance(post[], index.uint64)
 
   post
 

@@ -295,7 +295,6 @@ proc apply_deposit(
     when typeof(state).kind < ConsensusFork.Electra:
       increase_balance(state, index.get(), amount)
     else:
-      debugComment "check hashlist add return"
       discard state.pending_balance_deposits.add PendingBalanceDeposit(
         index: index.get.uint64, amount: amount)  # [Modified in Electra:EIP-7251]
 
@@ -332,8 +331,6 @@ proc apply_deposit(
           return err("apply_deposit: too many validators (inactivity_scores)")
       let new_vidx = state.validators.lenu64 - 1
       when typeof(state).kind >= ConsensusFork.Electra:
-        debugComment "check hashlist add return"
-
         # [New in Electra:EIP7251]
         discard state.pending_balance_deposits.add PendingBalanceDeposit(
           index: new_vidx, amount: amount)
@@ -636,7 +633,6 @@ proc process_consolidation_request*(
     cfg, state, source_validator[].effective_balance, cache)
   source_validator[].withdrawable_epoch =
     source_validator[].exit_epoch + cfg.MIN_VALIDATOR_WITHDRAWABILITY_DELAY
-  debugComment "check HashList add return value"
   discard state.pending_consolidations.add(PendingConsolidation(
     source_index: source_index.uint64, target_index: target_index.uint64))
 
