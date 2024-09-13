@@ -905,13 +905,13 @@ proc installValidatorApiHandlers*(router: var RestRouter, node: BeaconNode) =
 
     var proofs: seq[Future[SendResult]]
     template addDecodedProofs(ProofType: untyped) =
-        let dres = decodeBody(seq[ProofType], contentBody.get())
-        if dres.isErr():
-          return RestApiResponse.jsonError(Http400,
-                                          InvalidAggregateAndProofObjectError,
-                                          $dres.error())
-        for proof in dres.get():
-          proofs.add(node.router.routeSignedAggregateAndProof(proof))
+      let dres = decodeBody(seq[ProofType], contentBody.get())
+      if dres.isErr():
+        return RestApiResponse.jsonError(Http400,
+                                         InvalidAggregateAndProofObjectError,
+                                         $dres.error())
+      for proof in dres.get():
+        proofs.add(node.router.routeSignedAggregateAndProof(proof))
 
     case consensusVersion.get():
       of ConsensusFork.Phase0 .. ConsensusFork.Deneb:
