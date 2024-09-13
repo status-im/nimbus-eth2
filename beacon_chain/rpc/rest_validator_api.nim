@@ -894,14 +894,6 @@ proc installValidatorApiHandlers*(router: var RestRouter, node: BeaconNode) =
   router.api2(MethodPost, "/eth/v2/validator/aggregate_and_proofs") do (
     contentBody: Option[ContentBody]) -> RestApiResponse:
 
-    type
-      MultiForkProof = object
-        case isElectra: bool
-        of false:
-          phase0Proofs: seq[phase0.SignedAggregateAndProof]
-        of true:
-          electraProofs: seq[electra.SignedAggregateAndProof]
-
     let
       consensusVersion = request.headers.getString("Eth-Consensus-Version")
       isElectra = consensusVersion == "electra"
@@ -909,36 +901,27 @@ proc installValidatorApiHandlers*(router: var RestRouter, node: BeaconNode) =
     if contentBody.isNone():
       return RestApiResponse.jsonError(Http400, EmptyRequestBodyError)
 
-    let proofs =
-      block:
-        if isElectra:
-          let dres = decodeBody(seq[electra.SignedAggregateAndProof], contentBody.get())
-          if dres.isErr():
-            return RestApiResponse.jsonError(Http400,
-                                            InvalidAggregateAndProofObjectError,
-                                            $dres.error())
-          MultiForkProof(isElectra: true, electraProofs: dres.get())
-        else:
-          let dres = decodeBody(seq[phase0.SignedAggregateAndProof], contentBody.get())
-          if dres.isErr():
-            return RestApiResponse.jsonError(Http400,
-                                            InvalidAggregateAndProofObjectError,
-                                            $dres.error())
-          MultiForkProof(isElectra: false, phase0Proofs: dres.get())
+    var proofs: seq[Future[SendResult]]
+    if isElectra:
+      let dres = decodeBody(seq[electra.SignedAggregateAndProof], contentBody.get())
+      if dres.isErr():
+        return RestApiResponse.jsonError(Http400,
+                                        InvalidAggregateAndProofObjectError,
+                                        $dres.error())
+      for proof in dres.get():
+        proofs.add(node.router.routeSignedAggregateAndProof(proof))
 
-    let pending =
-      block:
-        var res: seq[Future[SendResult]]
-        if proofs.isElectra:
-          for proof in proofs.electraProofs:
-            res.add(node.router.routeSignedAggregateAndProof(proof))
-        else:
-          for proof in proofs.phase0Proofs:
-            res.add(node.router.routeSignedAggregateAndProof(proof))
+    else:
+      let dres = decodeBody(seq[phase0.SignedAggregateAndProof], contentBody.get())
+      if dres.isErr():
+        return RestApiResponse.jsonError(Http400,
+                                        InvalidAggregateAndProofObjectError,
+                                        $dres.error())
+      for proof in dres.get():
+        proofs.add(node.router.routeSignedAggregateAndProof(proof))
 
-        res
-    await allFutures(pending)
-    for future in pending:
+    await allFutures(proofs)
+    for future in proofs:
       if future.completed():
         let res = future.value()
         if res.isErr():
