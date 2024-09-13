@@ -1282,7 +1282,6 @@ func process_pending_balance_deposits*(
     state.deposit_balance_to_consume =
       available_for_processing - processed_amount
 
-  debugComment "yet another in-theory-might-overflow-maybe things, look at these more carefully"
   if len(deposits_to_postpone) > 0:
     discard state.pending_balance_deposits.add deposits_to_postpone
 
