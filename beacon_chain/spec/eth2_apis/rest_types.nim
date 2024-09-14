@@ -52,6 +52,8 @@ const
 static:
   doAssert(ClientMaximumValidatorIds <= ServerMaximumValidatorIds)
 
+debugComment "update RestExecutionPayload from https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.5/specs/electra/beacon-chain.md#executionpayload then make sure block body reading changes follows"
+
 type
   # https://github.com/ethereum/beacon-APIs/blob/v2.4.2/apis/eventstream/index.yaml
   EventTopic* {.pure.} = enum
@@ -320,6 +322,14 @@ type
     blob_gas_used*: Option[uint64]   ## [New in Deneb]
     excess_blob_gas*: Option[uint64] ## [New in Deneb]
 
+  # https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.5/specs/phase0/beacon-chain.md#attestation
+  # https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.5/specs/electra/beacon-chain.md#attestation
+  RestAttestation* = object
+    aggregation_bits*:
+      BitList[Limit MAX_VALIDATORS_PER_COMMITTEE * MAX_COMMITTEES_PER_SLOT]
+    data*: AttestationData
+    signature*: ValidatorSig
+    committee_bits*: Opt[AttestationCommitteeBits]
 
   PrepareBeaconProposer* = object
     validator_index*: ValidatorIndex

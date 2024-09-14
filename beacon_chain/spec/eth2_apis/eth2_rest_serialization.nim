@@ -116,6 +116,7 @@ RestJson.useDefaultSerializationFor(
   RemoteKeystoreInfo,
   RemoteSignerInfo,
   RequestItemStatus,
+  RestAttestation,
   RestAttesterDuty,
   RestBeaconCommitteeSelection,
   RestBeaconStatesCommittees,
@@ -1576,19 +1577,93 @@ proc writeValue*[BlockType: Web3SignerForkedBeaconBlock](
   writer.writeField("block_header", value.data)
   writer.endRecord()
 
+# Phase 0 attestations functionally form a subset of Electra attestations, so
+# can check for proper conditions, to match syntactically and return only the
+# relevant subset.
+func getPhase0Attestation(attestation: RestAttestation):
+    Opt[phase0.Attestation] =
+  if  attestation.aggregation_bits.len <=
+        static(MAX_VALIDATORS_PER_COMMITTEE.int) and
+      attestation.committee_bits.isNone:
+    Opt.some phase0.Attestation(
+      aggregation_bits: BitList[Limit MAX_VALIDATORS_PER_COMMITTEE](
+        attestation.aggregation_bits.bytes),
+      data: attestation.data,
+      signature: attestation.signature)
+  else:
+    Opt.none phase0.Attestation
+
+# Electra attestations are simpler: the committee bits need to be present, and
+# if so purely syntactically it's correct.
+func getElectraAttestation(attestation: RestAttestation):
+    Opt[electra.Attestation] =
+  if attestation.committee_bits.isSome:
+    Opt.some electra.Attestation(
+      aggregation_bits: attestation.aggregation_bits,
+      data: attestation.data,
+      signature: attestation.signature,
+      committee_bits: attestation.committee_bits.get)
+  else:
+    Opt.none electra.Attestation
+
+# Phase 0 attester slashings happen to be a more constrained subset of
+# Electra attester slashings in terms of possible encodings. But also,
+# one cannot just try parsing for electra first and use that if works,
+# because there are possible encodings valid in both forks.
+#
+# Instead, parse only the (more expansive) Electra format, then convert as
+# needed to phase 0, while using convertibility or not as indicator of the
+# block body as a whole being Electra or newer.
+func getPhase0AttesterSlashing(attSlashing: electra.AttesterSlashing):
+    Opt[phase0.AttesterSlashing] =
+  template getPhase0IndexedAttestation(ia: electra.IndexedAttestation):
+      Opt[phase0.IndexedAttestation] =
+    if ia.attesting_indices.len > static(MAX_VALIDATORS_PER_COMMITTEE.int):
+      # Electra attester slashings can contain up to
+      # MAX_VALIDATORS_PER_COMMITTEE * MAX_COMMITTEES_PER_SLOT indices, but
+      # these cannot be valid phase 0 attester slashings.
+      Opt.none phase0.IndexedAttestation
+    else:
+      Opt.some phase0.IndexedAttestation(
+        attesting_indices:
+          List[uint64, Limit MAX_VALIDATORS_PER_COMMITTEE].init(
+            ia.attesting_indices.asSeq),
+        data: ia.data,
+        signature: ia.signature)
+
+  let
+    att1 = getPhase0IndexedAttestation(attSlashing.attestation_1)
+    att2 = getPhase0IndexedAttestation(attSlashing.attestation_2)
+
+  if att1.isNone or att2.isNone:
+    return Opt.none phase0.AttesterSlashing
+
+  Opt.some phase0.AttesterSlashing(
+    attestation_1: att1.get,
+    attestation_2: att2.get)
+
+from std/sequtils import anyIt, mapIt
+
 ## RestPublishedBeaconBlockBody
 proc readValue*(reader: var JsonReader[RestJson],
                 value: var RestPublishedBeaconBlockBody) {.
      raises: [IOError, SerializationError].} =
+  type
+    RestAttestations = List[RestAttestation, Limit max(MAX_ATTESTATIONS, MAX_ATTESTATIONS_ELECTRA)]
+
+    # Superset type of phase 0 and Electra attester slashings
+    RestAttesterSlashings = List[electra.AttesterSlashing,
+      Limit max(MAX_ATTESTER_SLASHINGS_ELECTRA, MAX_ATTESTER_SLASHINGS)]
+
   var
     randao_reveal: Opt[ValidatorSig]
     eth1_data: Opt[Eth1Data]
     graffiti: Opt[GraffitiBytes]
     proposer_slashings:
       Opt[List[ProposerSlashing, Limit MAX_PROPOSER_SLASHINGS]]
-    attester_slashings:
-      Opt[List[phase0.AttesterSlashing, Limit MAX_ATTESTER_SLASHINGS]]
-    attestations: Opt[List[phase0.Attestation, Limit MAX_ATTESTATIONS]]
+    attester_slashings: Opt[RestAttesterSlashings]
+    attestations: Opt[List[RestAttestation, Limit max(
+      MAX_ATTESTATIONS, MAX_ATTESTATIONS_ELECTRA)]]
     deposits: Opt[List[Deposit, Limit MAX_DEPOSITS]]
     voluntary_exits: Opt[List[SignedVoluntaryExit, Limit MAX_VOLUNTARY_EXITS]]
     sync_aggregate: Opt[SyncAggregate]
@@ -1625,15 +1700,13 @@ proc readValue*(reader: var JsonReader[RestJson],
         reader.raiseUnexpectedField(
           "Multiple `attester_slashings` fields found",
           "RestPublishedBeaconBlockBody")
-      attester_slashings = Opt.some(
-        reader.readValue(
-          List[phase0.AttesterSlashing, Limit MAX_ATTESTER_SLASHINGS]))
+      attester_slashings = Opt.some(reader.readValue(RestAttesterSlashings))
     of "attestations":
       if attestations.isSome():
         reader.raiseUnexpectedField("Multiple `attestations` fields found",
                                     "RestPublishedBeaconBlockBody")
       attestations = Opt.some(
-        reader.readValue(List[phase0.Attestation, Limit MAX_ATTESTATIONS]))
+        reader.readValue(RestAttestations))
     of "deposits":
       if deposits.isSome():
         reader.raiseUnexpectedField("Multiple `deposits` fields found",
@@ -1686,8 +1759,60 @@ proc readValue*(reader: var JsonReader[RestJson],
   if voluntary_exits.isNone():
     reader.raiseUnexpectedValue("Field `voluntary_exits` is missing")
 
+  let phase0_attestations =
+    if attestations.get().len <= static(MAX_ATTESTATIONS.int):
+      let phase0_attestations = mapIt(
+        attestations.get(), it.getPhase0Attestation)
+      if anyIt(phase0_attestations, it.isNone):
+        Opt.none List[phase0.Attestation, Limit MAX_ATTESTATIONS]
+      else:
+        Opt.some List[phase0.Attestation, Limit MAX_ATTESTATIONS].init(
+          mapIt(phase0_attestations, it.get()))
+    else:
+      Opt.none List[phase0.Attestation, Limit MAX_ATTESTATIONS]
+
+  let electra_attestations =
+    if attestations.get().len <= static(MAX_ATTESTATIONS_ELECTRA.int):
+      let electra_attestations = mapIt(
+        attestations.get(), it.getElectraAttestation)
+      if anyIt(electra_attestations, it.isNone):
+        Opt.none List[electra.Attestation, Limit MAX_ATTESTATIONS_ELECTRA]
+      else:
+        Opt.some List[electra.Attestation, Limit MAX_ATTESTATIONS_ELECTRA].init(
+          mapIt(electra_attestations, it.get()))
+    else:
+      Opt.none List[electra.Attestation, Limit MAX_ATTESTATIONS_ELECTRA]
+
+  if phase0_attestations.isNone and electra_attestations.isNone:
+    reader.raiseUnexpectedValue(
+      "Field `attestations` is valid neither for phase 0 nor Electra")
+
+  let phase0_attester_slashings =
+    if attester_slashings.get().len <= static(MAX_ATTESTER_SLASHINGS.int):
+      let phase0_attester_slashings = mapIt(
+        attester_slashings.get(), it.getPhase0AttesterSlashing)
+      if anyIt(phase0_attester_slashings, it.isNone):
+        Opt.none List[phase0.AttesterSlashing, Limit MAX_ATTESTER_SLASHINGS]
+      else:
+        Opt.some List[phase0.AttesterSlashing, Limit MAX_ATTESTER_SLASHINGS].init(
+          mapIt(phase0_attester_slashings, it.get()))
+    else:
+      Opt.none List[phase0.AttesterSlashing, Limit MAX_ATTESTER_SLASHINGS]
+
+  # If it's not for phase 0, it should be consistent with Electra
+  if  phase0_attester_slashings.isNone() and
+      attester_slashings.get().len > static(MAX_ATTESTER_SLASHINGS_ELECTRA.int):
+    reader.raiseUnexpectedValue(
+      "Field `attester_slashings` inconsistent with both phase0 and electra")
+
   let bodyKind =
-    if  execution_payload.isSome() and
+    if  phase0_attester_slashings.isNone() and
+        electra_attestations.isSome() and
+        execution_payload.isSome() and
+        execution_payload.get().blob_gas_used.isSome() and
+        blob_kzg_commitments.isSome():
+      ConsensusFork.Electra
+    elif execution_payload.isSome() and
         execution_payload.get().blob_gas_used.isSome() and
         blob_kzg_commitments.isSome():
       ConsensusFork.Deneb
@@ -1729,8 +1854,8 @@ proc readValue*(reader: var JsonReader[RestJson],
         eth1_data: eth1_data.get(),
         graffiti: graffiti.get(),
         proposer_slashings: proposer_slashings.get(),
-        attester_slashings: attester_slashings.get(),
-        attestations: attestations.get(),
+        attester_slashings: phase0_attester_slashings.get(),
+        attestations: phase0_attestations.get(),
         deposits: deposits.get(),
         voluntary_exits: voluntary_exits.get()
       )
@@ -1743,8 +1868,8 @@ proc readValue*(reader: var JsonReader[RestJson],
         eth1_data: eth1_data.get(),
         graffiti: graffiti.get(),
         proposer_slashings: proposer_slashings.get(),
-        attester_slashings: attester_slashings.get(),
-        attestations: attestations.get(),
+        attester_slashings: phase0_attester_slashings.get(),
+        attestations: phase0_attestations.get(),
         deposits: deposits.get(),
         voluntary_exits: voluntary_exits.get(),
         sync_aggregate: sync_aggregate.get()
@@ -1758,8 +1883,8 @@ proc readValue*(reader: var JsonReader[RestJson],
         eth1_data: eth1_data.get(),
         graffiti: graffiti.get(),
         proposer_slashings: proposer_slashings.get(),
-        attester_slashings: attester_slashings.get(),
-        attestations: attestations.get(),
+        attester_slashings: phase0_attester_slashings.get(),
+        attestations: phase0_attestations.get(),
         deposits: deposits.get(),
         voluntary_exits: voluntary_exits.get(),
         sync_aggregate: sync_aggregate.get(),
@@ -1774,8 +1899,8 @@ proc readValue*(reader: var JsonReader[RestJson],
         eth1_data: eth1_data.get(),
         graffiti: graffiti.get(),
         proposer_slashings: proposer_slashings.get(),
-        attester_slashings: attester_slashings.get(),
-        attestations: attestations.get(),
+        attester_slashings: phase0_attester_slashings.get(),
+        attestations: phase0_attestations.get(),
         deposits: deposits.get(),
         voluntary_exits: voluntary_exits.get(),
         sync_aggregate: sync_aggregate.get(),
@@ -1794,8 +1919,8 @@ proc readValue*(reader: var JsonReader[RestJson],
         eth1_data: eth1_data.get(),
         graffiti: graffiti.get(),
         proposer_slashings: proposer_slashings.get(),
-        attester_slashings: attester_slashings.get(),
-        attestations: attestations.get(),
+        attester_slashings: phase0_attester_slashings.get(),
+        attestations: phase0_attestations.get(),
         deposits: deposits.get(),
         voluntary_exits: voluntary_exits.get(),
         sync_aggregate: sync_aggregate.get(),
@@ -1821,8 +1946,11 @@ proc readValue*(reader: var JsonReader[RestJson],
         eth1_data: eth1_data.get(),
         graffiti: graffiti.get(),
         proposer_slashings: proposer_slashings.get(),
-        #attester_slashings: attester_slashings.get(),
-        #attestations: attestations.get(),
+        attester_slashings:
+          List[
+            electra.AttesterSlashing,
+            Limit MAX_ATTESTER_SLASHINGS_ELECTRA].init(attester_slashings.get().asSeq),
+        attestations: electra_attestations.get(),
         deposits: deposits.get(),
         voluntary_exits: voluntary_exits.get(),
         sync_aggregate: sync_aggregate.get(),
@@ -1840,8 +1968,6 @@ proc readValue*(reader: var JsonReader[RestJson],
     assign(
       value.electraBody.execution_payload.excess_blob_gas,
       ep_src.excess_blob_gas.get())
-
-    debugComment "electra support missing, including attslashing/atts"
 
 ## RestPublishedBeaconBlock
 proc readValue*(reader: var JsonReader[RestJson],
