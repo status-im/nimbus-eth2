@@ -99,6 +99,27 @@ func get_custody_column_list*(node_id: NodeId,
 
   sortedColumnIndexList(ColumnIndex(columns_per_subnet), subnet_ids)
 
+# https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.5/specs/_features/eip7594/das-core.md#compute_matrix
+proc compute_matrix* (blobs: seq[KzgBlob]): Result[seq[MatrixEntry], cstring] =
+  # This helper demonstrates the relationship between blobs and the `MatrixEntries`
+  var extended_matrix: seq[MatrixEntry]
+
+  for blbIdx, blob in blobs.pairs:
+    let cellsAndProofs = computeCellsAndKzgProofs(blob)
+    if not cellsAndProofs.isOk:
+      return err("Computing Extended Matrix: Issue computing cells and proofs")
+
+    for i in 0..<eip7594.CELLS_PER_EXT_BLOB:
+      extended_matrix.add(MatrixEntry(
+        cell: cellsAndProofs.get.cells[i],
+        kzg_proof: cellsAndProofs.get.proofs[i],
+        row_index: blbIdx.uint64,
+        column_index: i.uint64
+      ))
+
+  ok(extended_matrix)
+
+
 # https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.5/specs/_features/eip7594/peer-sampling.md#get_extended_sample_count
 func get_extended_sample_count*(samples_per_slot: int,
                                 allowed_failures: int):
