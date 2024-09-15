@@ -40,11 +40,10 @@ proc createSampleKzgBlobs(n: int): seq[KzgBlob] =
 
   blobs
 
-proc chunks[T](lst: seq[T], n: int): seq[seq[T]] =
-    ## Helper that splits a list into N sized chunks.
-    result = @[]
-    for i in countup(0, len(lst) - 1, n):
-        result.add(lst[i..min(i + n - 1, len(lst) - 1)])
+iterator chunks[T](lst: seq[T], n: int): seq[T] =
+  ## Iterator that yields N-sized chunks from the list.
+  for i in countup(0, len(lst) - 1, n):
+    yield lst[i..min(i + n - 1, len(lst) - 1)]
 
 suite "EIP-7594 Unit Tests":
   test "EIP-7594: Compute Matrix":
@@ -55,8 +54,7 @@ suite "EIP-7594 Unit Tests":
         input_blobs = createSampleKzgBlobs(blob_count)
         extended_matrix = compute_matrix(input_blobs)
       doAssert extended_matrix.get.len == kzg_abi.CELLS_PER_EXT_BLOB * blob_count
-      let rows = chunks(extended_matrix.get, kzg_abi.CELLS_PER_EXT_BLOB)
-      for row in rows:
+      for row in chunks(extended_matrix.get, kzg_abi.CELLS_PER_EXT_BLOB):
         doAssert len(row) == kzg_abi.CELLS_PER_EXT_BLOB
     testComputeExtendedMatrix()
 
