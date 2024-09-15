@@ -14,10 +14,6 @@ import
   results,
   stint,
   kzg4844/[kzg_abi, kzg],
-  ssz_serialization/proofs,
-  chronicles,
-  ../beacon_chain/spec/beacon_time,
-  eth/p2p/discoveryv5/[node],
   ./consensus_spec/[os_ops, fixtures_utils],
   ../beacon_chain/spec/[helpers, eip7594_helpers],
   ../beacon_chain/spec/datatypes/[eip7594, deneb]
