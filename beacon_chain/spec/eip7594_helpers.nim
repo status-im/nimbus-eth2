@@ -101,7 +101,7 @@ func get_custody_column_list*(node_id: NodeId,
 
 # https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.5/specs/_features/eip7594/das-core.md#compute_matrix
 proc compute_matrix* (blobs: seq[KzgBlob]): Result[seq[MatrixEntry], cstring] =
-  # This helper demonstrates the relationship between blobs and the `MatrixEntries`
+  ## `compute_matrix` helper demonstrates the relationship between blobs and the `MatrixEntries`
   var extended_matrix: seq[MatrixEntry]
 
   for blbIdx, blob in blobs.pairs:
