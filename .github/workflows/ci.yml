@@ -35,18 +35,8 @@ jobs:
             cpu: amd64
           - os: windows
             cpu: amd64
-        branch: [~, upstream/version-2-0]
-        exclude:
-          - target:
-              os: macos
-            branch: upstream/version-2-0
-          - target:
-              os: windows
-            branch: upstream/version-2-0
+        branch: [~]
         include:
-          - branch: upstream/version-2-0
-            branch-short: version-2-0
-            nimflags-extra: --mm:refc
           - target:
               os: linux
             builder: ['self-hosted','ubuntu-22.04']
