@@ -120,6 +120,41 @@ proc compute_matrix*(blobs: seq[KzgBlob]): Result[seq[MatrixEntry], cstring] =
 
   ok(extended_matrix)
 
+# https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.5/specs/_features/eip7594/das-core.md#recover_matrix
+proc recover_matrix*(partial_matrix: seq[MatrixEntry],
+                     blobCount: int): 
+                     Result[seq[MatrixEntry], cstring] =
+  ## This helper demonstrates how to apply recover_cells_and_kzg_proofs
+  ## The data structure for storing cells is implementation-dependent
+  var extended_matrix: seq[MatrixEntry]
+  for blob_index in 0..<blobCount:
+    var
+      cell_indices: seq[CellIndex]
+      cells: seq[Cell]
+  
+    for e in partial_matrix:
+      if e.row_index == uint64(blob_index):
+        cell_indices.add(e.column_index)
+        cells.add(e.cell)
+
+    let recoveredCellsAndKzgProofs = 
+      recoverCellsAndKzgProofs(cell_indices, cells)
+    if not recoveredCellsAndKzgProofs.isOk:
+      return err("Issue in recovering cells and proofs")
+
+    for i in 0..<recoveredCellsAndKzgProofs.get.cells.len:
+      let 
+        cell = recoveredCellsAndKzgProofs.get.cells[i]
+        proof = recoveredCellsAndKzgProofs.get.proofs[i]
+      extended_matrix.add(MatrixEntry(
+        cell: cell,
+        kzg_proof: proof,
+        row_index: blob_index.uint64,
+        column_index: i.uint64
+      ))
+
+  ok(extended_matrix)
+
 # https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.5/specs/_features/eip7594/peer-sampling.md#get_extended_sample_count
 func get_extended_sample_count*(samples_per_slot: int,
                                 allowed_failures: int):
