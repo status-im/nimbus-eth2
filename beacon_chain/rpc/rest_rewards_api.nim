@@ -147,6 +147,8 @@ proc installRewardsApiHandlers*(router: var RestRouter, node: BeaconNode) =
 
     let response =
       withState(tmpState[]):
+        let total_active_balance =
+          get_total_active_balance(forkyState.data, cache)
         var resp: seq[RestSyncCommitteeReward]
         when consensusFork > ConsensusFork.Phase0:
           let
@@ -193,11 +195,9 @@ proc installRewardsApiHandlers*(router: var RestRouter, node: BeaconNode) =
             if (len(idents) == 0) or (pubkey in keys):
               resp.add(RestSyncCommitteeReward(
                 validator_index: RestValidatorIndex(vindex),
-                reward: uint64(get_participant_reward(
-                  forkyState.data.balances.item(vindex)))
+                reward: uint64(get_participant_reward(total_active_balance))
               ))
         resp
-
 
     RestApiResponse.jsonResponseFinalized(
       response,
