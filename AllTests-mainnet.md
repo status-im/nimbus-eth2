@@ -821,10 +821,9 @@ OK: 1/1 Fail: 0/1 Skip: 0/1
 + DenebSignedBlockContents decoding                                                          OK
 + KzgCommitment                                                                              OK
 + KzgProof                                                                                   OK
-+ RestPublishedSignedBlockContents decoding                                                  OK
 + Validator pubkey hack                                                                      OK
 ```
-OK: 6/6 Fail: 0/6 Skip: 0/6
+OK: 5/5 Fail: 0/5 Skip: 0/5
 ## Remove keystore testing suite
 ```diff
 + Many remotes                                                                               OK
@@ -1126,4 +1125,10 @@ OK: 2/2 Fail: 0/2 Skip: 0/2
 OK: 9/9 Fail: 0/9 Skip: 0/9
 
 ---TOTAL---
+<<<<<<< HEAD
 OK: 763/768 Fail: 0/768 Skip: 5/768
+||||||| parent of 9c3ceaec9 (remove block fork guessing/inference from REST JSON decoding)
+OK: 762/767 Fail: 0/767 Skip: 5/767
+=======
+OK: 761/766 Fail: 0/766 Skip: 5/766
+>>>>>>> 9c3ceaec9 (remove block fork guessing/inference from REST JSON decoding)
