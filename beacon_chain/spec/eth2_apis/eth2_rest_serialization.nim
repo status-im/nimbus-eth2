@@ -4398,3 +4398,11 @@ proc writeValue*(writer: var JsonWriter[RestJson],
     if len(res) > 0:
       writer.writeField("statuses", res)
   writer.endRecord()
+
+## RestSyncCommitteeReward
+proc writeValue*(writer: var JsonWriter[RestJson],
+                 value: RestSyncCommitteeReward) {.raises: [IOError].} =
+  writer.beginRecord()
+  writer.writeField("validator_index", value.validator_index)
+  writer.writeField("reward", value.reward)
+  writer.endRecord()
