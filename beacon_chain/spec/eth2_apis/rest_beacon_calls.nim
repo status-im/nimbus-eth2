@@ -313,6 +313,12 @@ proc getBlockAttestations*(block_id: BlockIdent
      meth: MethodGet.}
   ## https://ethereum.github.io/beacon-APIs/#/Beacon/getBlockAttestations
 
+proc getBlockAttestationsV2Plain*(block_id: BlockIdent
+                        ): RestPlainResponse {.
+     rest, endpoint: "/eth/v2/beacon/blocks/{block_id}/attestations",
+     meth: MethodGet.}
+  ## https://ethereum.github.io/beacon-APIs/?urls.primaryName=dev#/Beacon/getBlockAttestationsV2
+
 proc getPoolAttestations*(
     slot: Option[Slot],
     committee_index: Option[CommitteeIndex]

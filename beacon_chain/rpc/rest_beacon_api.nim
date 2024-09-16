@@ -1274,6 +1274,26 @@ proc installBeaconApiHandlers*(router: var RestRouter, node: BeaconNode) =
         node.dag.isFinalized(bid)
       )
 
+  # https://ethereum.github.io/beacon-APIs/?urls.primaryName=dev#/Beacon/getBlockAttestationsV2
+  router.api2(MethodGet,
+             "/eth/v2/beacon/blocks/{block_id}/attestations") do (
+    block_id: BlockIdent) -> RestApiResponse:
+    let
+      blockIdent = block_id.valueOr:
+        return RestApiResponse.jsonError(Http400, InvalidBlockIdValueError,
+                                         $error)
+      bdata = node.getForkedBlock(blockIdent).valueOr:
+        return RestApiResponse.jsonError(Http404, BlockNotFoundError)
+
+    withBlck(bdata):
+      let bid = BlockId(root: forkyBlck.root, slot: forkyBlck.message.slot)
+      RestApiResponse.jsonResponseFinalizedWVersion(
+        forkyBlck.message.body.attestations.asSeq(),
+        node.getBlockOptimistic(bdata),
+        node.dag.isFinalized(bid),
+        consensusFork
+      )
+
   # https://ethereum.github.io/beacon-APIs/#/Beacon/getPoolAttestations
   router.api2(MethodGet, "/eth/v1/beacon/pool/attestations") do (
     slot: Option[Slot],
@@ -1301,6 +1321,8 @@ proc installBeaconApiHandlers*(router: var RestRouter, node: BeaconNode) =
     for item in node.attestationPool[].attestations(vslot, vindex):
       res.add(item)
     RestApiResponse.jsonResponse(res)
+
+
 
   # https://ethereum.github.io/beacon-APIs/#/Beacon/submitPoolAttestations
   router.api2(MethodPost, "/eth/v1/beacon/pool/attestations") do (
