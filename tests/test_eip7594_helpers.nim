@@ -9,7 +9,7 @@
 {.used.}
 
 import
-  std/sysrand,
+  random,
   unittest2,
   results,
   kzg4844/[kzg_abi, kzg],
@@ -25,19 +25,26 @@ block:
     sourceDir &
       "/../vendor/nim-kzg4844/kzg4844/csources/src/trusted_setup.txt", 0).isOk
 
+# 114 is the MSB (most/max significant byte)
+# such that BLS modulus does not overflow
 const MAX_TOP_BYTE = 114
 
-proc createSampleKzgBlobs(n: int): seq[KzgBlob] =
+proc createSampleKzgBlobs(n: int, seed: int): seq[KzgBlob] =
   var
-    blob: array[BYTES_PER_BLOB, byte]
-    blobs: seq[KzgBlob]
-  for i in 0..<n:
-    discard urandom(blob)
-    for i in 0..<BYTES_PER_BLOB.int:
-      if blob[i] > MAX_TOP_BYTE and i %% kzg_abi.BYTES_PER_FIELD_ELEMENT == 0:
-        blob[i] = MAX_TOP_BYTE
+    blobs: seq[KzgBlob] = @[]
+    # Initialize the PRNG with the given seed
+    rng = initRand(seed)
+  for blobIndex in 0..<n:
+    var blob: array[int(BYTES_PER_BLOB), byte]
+    # Fill the blob with random bytes using the seeded PRNG
+    for byteIndex in 0..<int(BYTES_PER_BLOB):
+      blob[byteIndex] = rng.rand(byte)
+    # Adjust bytes according to the given condition
+    for byteIndex in 0..<int(BYTES_PER_BLOB):
+      if blob[byteIndex] > MAX_TOP_BYTE and
+         byteIndex mod kzg_abi.BYTES_PER_FIELD_ELEMENT == 0:
+        blob[byteIndex] = MAX_TOP_BYTE
     blobs.add(KzgBlob(bytes: blob))
-
   blobs
 
 iterator chunks[T](lst: seq[T], n: int): seq[T] =
@@ -51,7 +58,7 @@ suite "EIP-7594 Unit Tests":
       const 
         blob_count = 2
       let
-        input_blobs = createSampleKzgBlobs(blob_count)
+        input_blobs = createSampleKzgBlobs(blob_count, 123456)
         extended_matrix = compute_matrix(input_blobs)
       doAssert extended_matrix.get.len == kzg_abi.CELLS_PER_EXT_BLOB * blob_count
       for row in chunks(extended_matrix.get, kzg_abi.CELLS_PER_EXT_BLOB):
