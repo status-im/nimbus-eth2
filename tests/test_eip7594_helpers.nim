@@ -9,7 +9,7 @@
 {.used.}
 
 import
-  random,
+  std/random,
   unittest2,
   results,
   kzg4844/[kzg_abi, kzg],
