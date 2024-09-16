@@ -55,16 +55,16 @@ iterator chunks[T](lst: seq[T], n: int): seq[T] =
 suite "EIP-7594 Unit Tests":
   test "EIP-7594: Compute Matrix":
     proc testComputeExtendedMatrix() =
-      const 
-        blob_count = 2
+      var
+        rng = initRand(126)
+        blob_count = rng.rand(1..(deneb.MAX_BLOB_COMMITMENTS_PER_BLOCK.int))
       let
-        input_blobs = createSampleKzgBlobs(blob_count, 123456)
+        input_blobs = createSampleKzgBlobs(blob_count, rng.rand(int))
         extended_matrix = compute_matrix(input_blobs)
       doAssert extended_matrix.get.len == kzg_abi.CELLS_PER_EXT_BLOB * blob_count
       for row in chunks(extended_matrix.get, kzg_abi.CELLS_PER_EXT_BLOB):
         doAssert len(row) == kzg_abi.CELLS_PER_EXT_BLOB
     testComputeExtendedMatrix()
-
 
 suite "EIP-7594 Sampling Tests":
   test "EIP7594: Extended Sample Count":
