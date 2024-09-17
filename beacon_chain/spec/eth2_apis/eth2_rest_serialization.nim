@@ -979,6 +979,29 @@ proc readValue*(reader: var JsonReader[RestJson], value: var uint64) {.
   else:
     reader.raiseUnexpectedValue($res.error() & ": " & svalue)
 
+## RestReward
+proc writeValue*(
+    w: var JsonWriter[RestJson], value: RestReward) {.raises: [IOError].} =
+  writeValue(w, $int64(value))
+
+proc readValue*(reader: var JsonReader[RestJson], value: var RestReward) {.
+     raises: [IOError, SerializationError].} =
+  let svalue = reader.readValue(string)
+  if svalue.startsWith("-"):
+    let res =
+      Base10.decode(uint64, svalue.toOpenArray(1, len(svalue) - 1)).valueOr:
+        reader.raiseUnexpectedValue($error & ": " & svalue)
+    if res > uint64(high(int64)):
+      reader.raiseUnexpectedValue("Integer value overflow " & svalue)
+    value = RestReward(-int64(res))
+  else:
+    let res =
+      Base10.decode(uint64, svalue).valueOr:
+        reader.raiseUnexpectedValue($error & ": " & svalue)
+    if res > uint64(high(int64)):
+      reader.raiseUnexpectedValue("Integer value overflow " & svalue)
+    value = RestReward(int64(res))
+
 ## uint8
 proc writeValue*(
     w: var JsonWriter[RestJson], value: uint8) {.raises: [IOError].} =

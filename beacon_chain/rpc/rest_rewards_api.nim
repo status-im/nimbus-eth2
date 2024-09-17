@@ -201,12 +201,22 @@ proc installRewardsApiHandlers*(router: var RestRouter, node: BeaconNode) =
             let
               pubkey = forkyState.data.current_sync_committee.pubkeys.data[i]
               vindex = pubkeyIndices.getOrDefault(pubkey)
+              reward =
+                block:
+                  let res = uint64(get_participant_reward(total_active_balance))
+                  if res > uint64(high(int64)):
+                    return RestApiResponse.jsonError(
+                      Http500, RewardOverflowError)
+                  if sync_aggregate.sync_committee_bits[i]:
+                    cast[int64](res)
+                  else:
+                    -cast[int64](res)
 
             if (len(idents) == 0) or (pubkey in keys):
               resp.add(RestSyncCommitteeReward(
                 validator_index: RestValidatorIndex(vindex),
-                reward: uint64(get_participant_reward(total_active_balance))
-              ))
+                reward: RestReward(reward)))
+
         resp
 
     RestApiResponse.jsonResponseFinalized(

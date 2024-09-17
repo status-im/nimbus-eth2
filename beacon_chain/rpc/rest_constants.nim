@@ -267,3 +267,5 @@ const
     "Error reading file"
   ParentBlockMissingStateError* =
     "Unable to load state for parent block, database corrupt?"
+  RewardOverflowError* =
+    "Reward value overflow"
