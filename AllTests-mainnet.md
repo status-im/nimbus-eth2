@@ -539,8 +539,9 @@ OK: 1/1 Fail: 0/1 Skip: 0/1
 ## EIP-7594 Unit Tests
 ```diff
 + EIP-7594: Compute Matrix                                                                   OK
++ EIP:7594: Recover Matrix                                                                   OK
 ```
-OK: 1/1 Fail: 0/1 Skip: 0/1
+OK: 2/2 Fail: 0/2 Skip: 0/2
 ## EL Configuration
 ```diff
 + Empty config file                                                                          OK
@@ -1124,4 +1125,4 @@ OK: 2/2 Fail: 0/2 Skip: 0/2
 OK: 9/9 Fail: 0/9 Skip: 0/9
 
 ---TOTAL---
-OK: 761/766 Fail: 0/766 Skip: 5/766
+OK: 762/767 Fail: 0/767 Skip: 5/767
