@@ -107,7 +107,7 @@ proc compute_matrix*(blobs: seq[KzgBlob]): Result[seq[MatrixEntry], cstring] =
 
   for blbIdx, blob in blobs.pairs:
     let cellsAndProofs = computeCellsAndKzgProofs(blob)
-    if not cellsAndProofs.isOk:
+    if cellsAndProofs.isErr:
       return err("Computing Extended Matrix: Issue computing cells and proofs")
 
     for i in 0..<eip7594.CELLS_PER_EXT_BLOB:
@@ -139,7 +139,7 @@ proc recover_matrix*(partial_matrix: seq[MatrixEntry],
 
     let recoveredCellsAndKzgProofs = 
       recoverCellsAndKzgProofs(cell_indices, cells)
-    if not recoveredCellsAndKzgProofs.isOk:
+    if recoveredCellsAndKzgProofs.isErr:
       return err("Issue in recovering cells and proofs")
 
     for i in 0..<recoveredCellsAndKzgProofs.get.cells.len:
