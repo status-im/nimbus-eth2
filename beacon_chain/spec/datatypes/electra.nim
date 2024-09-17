@@ -129,7 +129,7 @@ type
 
     # Extra payload fields
     block_hash*: Eth2Digest # Hash of execution block
-    transactions*: List[Eip6493Transaction, MAX_TRANSACTIONS_PER_PAYLOAD]
+    transactions*: List[Eip6404Transaction, MAX_TRANSACTIONS_PER_PAYLOAD]
     withdrawals*: List[Withdrawal, MAX_WITHDRAWALS_PER_PAYLOAD]
     blob_gas_used*: uint64
     excess_blob_gas*: uint64

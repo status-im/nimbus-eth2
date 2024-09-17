@@ -44,7 +44,7 @@
 	path = vendor/nim-web3
 	url = https://github.com/status-im/nim-web3.git
 	ignore = untracked
-	branch = feat/eip-6493
+	branch = feat/fusaka-light
 [submodule "vendor/nim-nat-traversal"]
 	path = vendor/nim-nat-traversal
 	url = https://github.com/status-im/nim-nat-traversal.git

@@ -150,9 +150,9 @@ func asConsensusType*(payload: engine_api.GetPayloadV3Response):
 func asConsensusType*(rpcExecutionPayload: ExecutionPayloadV4):
     electra.ExecutionPayload =
   template getTransaction(
-      tt: engine_api_types.Transaction): electra.Eip6493Transaction =
-    electra.Eip6493Transaction(
-      payload: Eip6493TransactionPayload(
+      tt: engine_api_types.Transaction): electra.Eip6404Transaction =
+    electra.Eip6404Transaction(
+      payload: Eip6404TransactionPayload(
         `type`:
           if tt.payload.`type`.isSome:
             Opt.some(tt.payload.`type`.get.uint64.uint8)
@@ -170,7 +170,7 @@ func asConsensusType*(rpcExecutionPayload: ExecutionPayloadV4):
             Opt.none(uint64),
         max_fees_per_gas:
           if tt.payload.maxFeesPerGas.isSome:
-            Opt.some(Eip6493FeesPerGas(
+            Opt.some(Eip6404FeesPerGas(
               regular:
                 if tt.payload.maxFeesPerGas.get.regular.isSome:
                   Opt.some(tt.payload.maxFeesPerGas.get.regular.get)
@@ -182,7 +182,7 @@ func asConsensusType*(rpcExecutionPayload: ExecutionPayloadV4):
                 else:
                   Opt.none(Uint256)))
           else:
-            Opt.none(Eip6493FeesPerGas),
+            Opt.none(Eip6404FeesPerGas),
         gas:
           if tt.payload.gas.isSome:
             Opt.some(tt.payload.gas.get.uint64)
@@ -206,19 +206,19 @@ func asConsensusType*(rpcExecutionPayload: ExecutionPayloadV4):
             Opt.none(List[byte, Limit MAX_CALLDATA_SIZE]),
         access_list:
           if tt.payload.accessList.isSome:
-            Opt.some(List[Eip6493AccessTuple, Limit MAX_ACCESS_LIST_SIZE].init(
+            Opt.some(List[Eip6404AccessTuple, Limit MAX_ACCESS_LIST_SIZE].init(
               tt.payload.accessList.get.mapIt(
-                Eip6493AccessTuple(
+                Eip6404AccessTuple(
                   address: ExecutionAddress(data: distinctBase(it.address)),
                   storage_keys:
                     List[Eth2Digest, Limit MAX_ACCESS_LIST_STORAGE_KEYS]
                       .init(it.storage_keys.mapIt(
                         Eth2Digest(data: distinctBase(it))))))))
           else:
-            Opt.none(List[Eip6493AccessTuple, Limit MAX_ACCESS_LIST_SIZE]),
+            Opt.none(List[Eip6404AccessTuple, Limit MAX_ACCESS_LIST_SIZE]),
         max_priority_fees_per_gas:
           if tt.payload.maxPriorityFeesPerGas.isSome:
-            Opt.some(Eip6493FeesPerGas(
+            Opt.some(Eip6404FeesPerGas(
               regular:
                 if tt.payload.maxPriorityFeesPerGas.get.regular.isSome:
                   Opt.some(tt.payload.maxPriorityFeesPerGas.get.regular.get)
@@ -230,7 +230,7 @@ func asConsensusType*(rpcExecutionPayload: ExecutionPayloadV4):
                 else:
                   Opt.none(Uint256)))
           else:
-            Opt.none(Eip6493FeesPerGas),
+            Opt.none(Eip6404FeesPerGas),
         blob_versioned_hashes:
           if tt.payload.blobVersionedHashes.isSome:
             Opt.some(
@@ -241,16 +241,16 @@ func asConsensusType*(rpcExecutionPayload: ExecutionPayloadV4):
             Opt.none(
               List[stable.VersionedHash,
                 Limit MAX_BLOB_COMMITMENTS_PER_BLOCK])),
-      signature: Eip6493TransactionSignature(
-        `from`:
-          if tt.signature.`from`.isSome:
+      `from`: Eip6404ExecutionSignature(
+        address:
+          if tt.`from`.address.isSome:
             Opt.some(ExecutionAddress(
-              data: distinctBase(tt.signature.`from`.get)))
+              data: distinctBase(tt.`from`.address.get)))
           else:
             Opt.none(ExecutionAddress),
-        ecdsa_signature:
-          if tt.signature.ecdsaSignature.isSome:
-            Opt.some(array[65, byte](tt.signature.ecdsaSignature.get))
+        secp256k1_signature:
+          if tt.`from`.secp256k1Signature.isSome:
+            Opt.some(array[65, byte](tt.`from`.secp256k1Signature.get))
           else:
             Opt.none(array[65, byte])))
 
@@ -293,7 +293,7 @@ func asConsensusType*(rpcExecutionPayload: ExecutionPayloadV4):
       rpcExecutionPayload.extraData.bytes),
     base_fee_per_gas: rpcExecutionPayload.baseFeePerGas,
     block_hash: rpcExecutionPayload.blockHash.asEth2Digest,
-    transactions: List[Eip6493Transaction, MAX_TRANSACTIONS_PER_PAYLOAD].init(
+    transactions: List[Eip6404Transaction, MAX_TRANSACTIONS_PER_PAYLOAD].init(
       mapIt(rpcExecutionPayload.transactions, it.getTransaction)),
     withdrawals: List[capella.Withdrawal, MAX_WITHDRAWALS_PER_PAYLOAD].init(
       mapIt(rpcExecutionPayload.withdrawals, it.asConsensusWithdrawal)),
@@ -409,7 +409,7 @@ func asEngineExecutionPayload*(executionPayload: deneb.ExecutionPayload):
 func asEngineExecutionPayload*(executionPayload: electra.ExecutionPayload):
     ExecutionPayloadV4 =
   template getTypedTransaction(
-      tt: electra.Eip6493Transaction): engine_api_types.Transaction =
+      tt: electra.Eip6404Transaction): engine_api_types.Transaction =
     engine_api_types.Transaction(
       payload: engine_api_types.TransactionPayload(
         `type`:
@@ -429,7 +429,7 @@ func asEngineExecutionPayload*(executionPayload: electra.ExecutionPayload):
             Opt.none(Quantity),
         maxFeesPerGas:
           if tt.payload.max_fees_per_gas.isSome:
-            Opt.some(engine_api_types.TransactionFeesPerGas(
+            Opt.some(engine_api_types.FeesPerGas(
               regular:
                 if tt.payload.max_fees_per_gas.get.regular.isSome:
                   Opt.some(tt.payload.max_fees_per_gas.get.regular.get)
@@ -441,7 +441,7 @@ func asEngineExecutionPayload*(executionPayload: electra.ExecutionPayload):
                 else:
                   Opt.none(UInt256)))
           else:
-            Opt.none(engine_api_types.TransactionFeesPerGas),
+            Opt.none(engine_api_types.FeesPerGas),
         gas:
           if tt.payload.gas.isSome:
             Opt.some(tt.payload.gas.get.Quantity)
@@ -473,7 +473,7 @@ func asEngineExecutionPayload*(executionPayload: electra.ExecutionPayload):
             Opt.none(seq[AccessTuple]),
         maxPriorityFeesPerGas:
           if tt.payload.max_priority_fees_per_gas.isSome:
-            Opt.some(engine_api_types.TransactionFeesPerGas(
+            Opt.some(engine_api_types.FeesPerGas(
               regular:
                 if tt.payload.max_priority_fees_per_gas.get.regular.isSome:
                   Opt.some(
@@ -487,22 +487,22 @@ func asEngineExecutionPayload*(executionPayload: electra.ExecutionPayload):
                 else:
                   Opt.none(UInt256)))
           else:
-            Opt.none(engine_api_types.TransactionFeesPerGas),
+            Opt.none(engine_api_types.FeesPerGas),
         blobVersionedHashes:
           if tt.payload.blob_versioned_hashes.isSome:
             Opt.some(distinctBase(tt.payload.blob_versioned_hashes.get)
               .mapIt(FixedBytes[32](it)))
           else:
             Opt.none(seq[FixedBytes[32]])),
-      signature: engine_api_types.TransactionSignature(
-        `from`:
-          if tt.signature.`from`.isSome:
-            Opt.some(Address(tt.signature.`from`.get.data))
+      `from`: engine_api_types.ExecutionSignature(
+        address:
+          if tt.`from`.address.isSome:
+            Opt.some(Address(tt.`from`.address.get.data))
           else:
             Opt.none(Address),
-        ecdsaSignature:
-          if tt.signature.ecdsa_signature.isSome:
-            Opt.some(FixedBytes[65](tt.signature.ecdsa_signature.get))
+        secp256k1Signature:
+          if tt.`from`.secp256k1_signature.isSome:
+            Opt.some(FixedBytes[65](tt.`from`.secp256k1_signature.get))
           else:
             Opt.none(FixedBytes[65])))
 

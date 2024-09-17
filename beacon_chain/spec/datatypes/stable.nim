@@ -21,7 +21,7 @@ const
   MAX_BEACON_BLOCK_BODY_FIELDS* = 64
   MAX_BEACON_STATE_FIELDS* = 128
 
-  # https://eips.ethereum.org/EIPS/eip-6493
+  # https://eips.ethereum.org/EIPS/eip-6404
   MAX_CALLDATA_SIZE* = 16_777_216
   MAX_ACCESS_LIST_STORAGE_KEYS* = 524_288
   MAX_ACCESS_LIST_SIZE* = 524_288
@@ -37,17 +37,17 @@ type
 
   ChainId* = uint64
 
-  Eip6493FeesPerGas* {.sszStableContainer: 16.} = object
+  Eip6404FeesPerGas* {.sszStableContainer: 16.} = object
     regular*: Opt[UInt256]
 
     # EIP-4844
     blob*: Opt[UInt256]
 
-  Eip6493AccessTuple* = object
+  Eip6404AccessTuple* = object
     address*: ExecutionAddress
     storage_keys*: List[Eth2Digest, Limit MAX_ACCESS_LIST_STORAGE_KEYS]
 
-  Eip6493TransactionPayload* {.sszStableContainer: 32.} = object
+  Eip6404TransactionPayload* {.sszStableContainer: 32.} = object
     # EIP-2718
     `type`*: Opt[uint8]
 
@@ -55,29 +55,29 @@ type
     chain_id*: Opt[ChainId]
 
     nonce*: Opt[uint64]
-    max_fees_per_gas*: Opt[Eip6493FeesPerGas]
+    max_fees_per_gas*: Opt[Eip6404FeesPerGas]
     gas*: Opt[uint64]
     to*: Opt[ExecutionAddress]
     value*: Opt[UInt256]
     input*: Opt[List[byte, Limit MAX_CALLDATA_SIZE]]
 
     # EIP-2930
-    access_list*: Opt[List[Eip6493AccessTuple, Limit MAX_ACCESS_LIST_SIZE]]
+    access_list*: Opt[List[Eip6404AccessTuple, Limit MAX_ACCESS_LIST_SIZE]]
 
     # EIP-1559
-    max_priority_fees_per_gas*: Opt[Eip6493FeesPerGas]
+    max_priority_fees_per_gas*: Opt[Eip6404FeesPerGas]
 
     # EIP-4844
     blob_versioned_hashes*:
       Opt[List[VersionedHash, Limit MAX_BLOB_COMMITMENTS_PER_BLOCK]]
 
-  Eip6493TransactionSignature* {.sszStableContainer: 16.} = object
-    `from`*: Opt[ExecutionAddress]
-    ecdsa_signature*: Opt[array[65, byte]]
+  Eip6404ExecutionSignature* {.sszStableContainer: 16.} = object
+    address*: Opt[ExecutionAddress]
+    secp256k1_signature*: Opt[array[65, byte]]
 
-  Eip6493Transaction* = object
-    payload*: Eip6493TransactionPayload
-    signature*: Eip6493TransactionSignature
+  Eip6404Transaction* = object
+    payload*: Eip6404TransactionPayload
+    `from`*: Eip6404ExecutionSignature
 
   # https://eips.ethereum.org/EIPS/eip-7688
   StableAttestation* {.
@@ -119,7 +119,7 @@ type
 
     # Extra payload fields
     block_hash*: Opt[Eth2Digest] # Hash of execution block
-    transactions*: Opt[List[Eip6493Transaction, MAX_TRANSACTIONS_PER_PAYLOAD]]
+    transactions*: Opt[List[Eip6404Transaction, MAX_TRANSACTIONS_PER_PAYLOAD]]
     withdrawals*: Opt[List[Withdrawal, MAX_WITHDRAWALS_PER_PAYLOAD]]
     blob_gas_used*: Opt[uint64]
     excess_blob_gas*: Opt[uint64]
