@@ -327,7 +327,7 @@ proc getPoolAttestations*(
      meth: MethodGet.}
   ## https://ethereum.github.io/beacon-APIs/#/Beacon/getPoolAttestations
 
-proc getPoolAttestationsV2*(
+proc getPoolAttestationsV2Plain*(
     slot: Option[Slot],
     committee_index: Option[CommitteeIndex]
               ): RestPlainResponse {.
