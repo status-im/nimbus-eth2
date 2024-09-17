@@ -1322,7 +1322,42 @@ proc installBeaconApiHandlers*(router: var RestRouter, node: BeaconNode) =
       res.add(item)
     RestApiResponse.jsonResponse(res)
 
+  # https://ethereum.github.io/beacon-APIs/?urls.primaryName=dev#/Beacon/getPoolAttestationsV2
+  router.api2(MethodGet, "/eth/v2/beacon/pool/attestations") do (
+    slot: Option[Slot],
+    committee_index: Option[CommitteeIndex]) -> RestApiResponse:
+    let vindex =
+      if committee_index.isSome():
+        let rindex = committee_index.get()
+        if rindex.isErr():
+          return RestApiResponse.jsonError(Http400,
+                                           InvalidCommitteeIndexValueError,
+                                           $rindex.error)
+        Opt.some(rindex.get())
+      else:
+        Opt.none(CommitteeIndex)
+    let vslot =
+      if slot.isSome():
+        let rslot = slot.get()
+        if rslot.isErr():
+          return RestApiResponse.jsonError(Http400, InvalidSlotValueError,
+                                           $rslot.error)
+        Opt.some(rslot.get())
+      else:
+        Opt.none(Slot)
 
+    withConsensusFork(
+      node.dag.cfg.consensusForkAtEpoch(vslot.get().epoch)):
+        if consensusFork < ConsensusFork.Electra:
+          var res: seq[phase0.Attestation]
+          for item in node.attestationPool[].attestations(vslot, vindex):
+            res.add(item)
+          return RestApiResponse.jsonResponseWVersion(res, consensusFork)
+        else:
+          var res: seq[electra.Attestation]
+          for item in node.attestationPool[].electraAttestations(vslot, vindex):
+            res.add(item)
+          return RestApiResponse.jsonResponseWVersion(res, consensusFork)
 
   # https://ethereum.github.io/beacon-APIs/#/Beacon/submitPoolAttestations
   router.api2(MethodPost, "/eth/v1/beacon/pool/attestations") do (
