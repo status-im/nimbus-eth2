@@ -130,12 +130,21 @@ proc installRewardsApiHandlers*(router: var RestRouter, node: BeaconNode) =
 
       targetBlock =
         withBlck(bdata):
-          let parentBid =
-            node.dag.getBlockId(forkyBlck.message.parent_root).valueOr:
-              return RestApiResponse.jsonError(Http404, BlockParentUnknownError)
-          if parentBid.slot >= forkyBlck.message.slot:
-            return RestApiResponse.jsonError(Http404, BlockOlderThanParentError)
-          BlockSlotId.init(parentBid, forkyBlck.message.slot)
+          if (bident.kind == BlockQueryKind.Named) and
+             (bident.value == BlockIdentType.Genesis):
+            let genesisBlockId =
+              node.dag.getBlockId(forkyBlck.root).valueOr:
+                return RestApiResponse.jsonError(Http404, BlockNotFoundError)
+            BlockSlotId.init(genesisBlockId, GENESIS_SLOT)
+          else:
+            let parentBid =
+              node.dag.getBlockId(forkyBlck.message.parent_root).valueOr:
+                return RestApiResponse.jsonError(
+                  Http404, BlockParentUnknownError)
+            if parentBid.slot >= forkyBlck.message.slot:
+              return RestApiResponse.jsonError(
+                Http404, BlockOlderThanParentError)
+            BlockSlotId.init(parentBid, forkyBlck.message.slot)
 
     var
       cache = StateCache()
@@ -186,8 +195,9 @@ proc installRewardsApiHandlers*(router: var RestRouter, node: BeaconNode) =
                     res[pubkey] = vindex
                 res
 
-          for i in 0 ..< min(len(forkyState.data.current_sync_committee.pubkeys),
-                             len(sync_aggregate.sync_committee_bits)):
+          for i in 0 ..< min(
+            len(forkyState.data.current_sync_committee.pubkeys),
+            len(sync_aggregate.sync_committee_bits)):
             let
               pubkey = forkyState.data.current_sync_committee.pubkeys.data[i]
               vindex = pubkeyIndices.getOrDefault(pubkey)
