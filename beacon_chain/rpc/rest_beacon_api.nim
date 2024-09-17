@@ -1406,6 +1406,53 @@ proc installBeaconApiHandlers*(router: var RestRouter, node: BeaconNode) =
     else:
       RestApiResponse.jsonMsgResponse(AttestationValidationSuccess)
 
+  # https://ethereum.github.io/beacon-APIs/?urls.primaryName=dev#/Beacon/submitPoolAttestationsV2
+  router.api2(MethodPost, "/eth/v2/beacon/pool/attestations") do (
+    contentBody: Option[ContentBody]) -> RestApiResponse:
+    let attestations =
+      block:
+        if contentBody.isNone():
+          return RestApiResponse.jsonError(Http400, EmptyRequestBodyError)
+        let dres = decodeBody(seq[phase0.Attestation], contentBody.get())
+        if dres.isErr():
+          return RestApiResponse.jsonError(Http400,
+                                           InvalidAttestationObjectError,
+                                           $dres.error)
+        dres.get()
+
+    # Since our validation logic supports batch processing, we will submit all
+    # attestations for validation.
+    let pending =
+      block:
+        var res: seq[Future[SendResult]]
+        for attestation in attestations:
+          res.add(node.router.routeAttestation(attestation))
+        res
+    let failures =
+      block:
+        var res: seq[RestIndexedErrorMessageItem]
+        await allFutures(pending)
+        for index, future in pending:
+          if future.completed():
+            let fres = future.value()
+            if fres.isErr():
+              let failure = RestIndexedErrorMessageItem(index: index,
+                                                        message: $fres.error)
+              res.add(failure)
+          elif future.failed() or future.cancelled():
+            # This is unexpected failure, so we log the error message.
+            let exc = future.error()
+            let failure = RestIndexedErrorMessageItem(index: index,
+                                                      message: $exc.msg)
+            res.add(failure)
+        res
+
+    if len(failures) > 0:
+      RestApiResponse.jsonErrorList(Http400, AttestationValidationError,
+                                    failures)
+    else:
+      RestApiResponse.jsonMsgResponse(AttestationValidationSuccess)
+
   # https://ethereum.github.io/beacon-APIs/#/Beacon/getPoolAttesterSlashings
   router.api2(MethodGet, "/eth/v1/beacon/pool/attester_slashings") do (
     ) -> RestApiResponse:

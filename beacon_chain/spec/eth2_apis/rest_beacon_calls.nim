@@ -341,6 +341,13 @@ proc submitPoolAttestations*(body: seq[phase0.Attestation]):
      meth: MethodPost.}
   ## https://ethereum.github.io/beacon-APIs/#/Beacon/submitPoolAttestations
 
+proc submitPoolAttestationsV2*(
+       body: seq[phase0.Attestation] | seq[electra.Attestation]):
+     RestPlainResponse {.
+     rest, endpoint: "/eth/v2/beacon/pool/attestations",
+     meth: MethodPost.}
+  ## https://ethereum.github.io/beacon-APIs/?urls.primaryName=dev#/Beacon/submitPoolAttestationsV2
+
 proc getPoolAttesterSlashings*(): RestResponse[GetPoolAttesterSlashingsResponse] {.
      rest, endpoint: "/eth/v1/beacon/pool/attester_slashings",
      meth: MethodGet.}
