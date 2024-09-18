@@ -2885,10 +2885,10 @@ proc decodeBody*(
 
     template getBlck(blckType: untyped): untyped =
       try:
-        let blck = RestJson.decode(body.data, blckType,
-                                   requireAllFields = true,
-                                   allowUnknownFields = true)
-        RestPublishedSignedBeaconBlock(ForkedSignedBeaconBlock.init(blck))
+        RestPublishedSignedBeaconBlock(ForkedSignedBeaconBlock.init(
+          RestJson.decode(body.data, blckType,
+                          requireAllFields = true,
+                          allowUnknownFields = true)))
       except SerializationError as exc:
         debug "Failed to decode JSON data",
               err = exc.formatMsg("<data>"),
@@ -2899,16 +2899,9 @@ proc decodeBody*(
         return err(RestErrorMessage.init(Http400, UnexpectedDecodeError,
                                          [version, $exc.msg]))
 
-    let data =
-      case consensusFork
-      of ConsensusFork.Phase0:    getBlck(phase0.SignedBeaconBlock)
-      of ConsensusFork.Altair:    getBlck(altair.SignedBeaconBlock)
-      of ConsensusFork.Bellatrix: getBlck(bellatrix.SignedBeaconBlock)
-      of ConsensusFork.Capella:   getBlck(capella.SignedBeaconBlock)
-      of ConsensusFork.Deneb:     getBlck(deneb.SignedBeaconBlock)
-      of ConsensusFork.Electra:   getBlck(electra.SignedBeaconBlock)
+    withConsensusFork(consensusFork):
+      ok(getBlck(consensusFork.SignedBeaconBlock))
 
-    ok(data)
   elif body.contentType == OctetStreamMediaType:
     let consensusFork = ConsensusFork.decodeString(version).valueOr:
       return err(RestErrorMessage.init(Http400, UnableDecodeVersionError,
@@ -2993,76 +2986,33 @@ proc decodeBody*(
     let consensusFork = ConsensusFork.decodeString(version).valueOr:
       return err(RestErrorMessage.init(Http400, UnableDecodeVersionError,
                                        [version, $error]))
+
+    template getBlck(blckType: untyped): untyped =
+      try:
+        var res = RestJson.decode(body.data, blckType,
+                                  requireAllFields = true,
+                                  allowUnknownFields = true)
+        when compiles(res.signed_block.messsage):
+          {.error: "Deneb and later forks handled in case statement".}
+        else:
+          RestPublishedSignedBlockContents.init(
+            res.message, hash_tree_root(res.message), res.signature)
+      except SerializationError as exc:
+        debug "Failed to decode JSON data",
+              err = exc.formatMsg("<data>"),
+              data = string.fromBytes(body.data)
+        return err(RestErrorMessage.init(Http400, UnableDecodeError,
+                                         [version, exc.formatMsg("<data>")]))
+      except CatchableError as exc:
+        return err(RestErrorMessage.init(Http400, UnexpectedDecodeError,
+                                         [version, $exc.msg]))
+
     let data =
       case consensusFork
-      of ConsensusFork.Phase0:
-        try:
-          var res = RestJson.decode(body.data, phase0.SignedBeaconBlock,
-                                    requireAllFields = true,
-                                    allowUnknownFields = true)
-          res.root = hash_tree_root(res.message)
-          RestPublishedSignedBlockContents(
-            kind: ConsensusFork.Phase0, phase0Data: res)
-        except SerializationError as exc:
-          debug "Failed to decode JSON data",
-                err = exc.formatMsg("<data>"),
-                data = string.fromBytes(body.data)
-          return err(RestErrorMessage.init(Http400, UnableDecodeError,
-                                           [version, exc.formatMsg("<data>")]))
-        except CatchableError as exc:
-          return err(RestErrorMessage.init(Http400, UnexpectedDecodeError,
-                                           [version, $exc.msg]))
-      of ConsensusFork.Altair:
-        try:
-          var res = RestJson.decode(body.data, altair.SignedBeaconBlock,
-                                    requireAllFields = true,
-                                    allowUnknownFields = true)
-          res.root = hash_tree_root(res.message)
-          RestPublishedSignedBlockContents(
-            kind: ConsensusFork.Altair, altairData: res)
-        except SerializationError as exc:
-          debug "Failed to decode JSON data",
-                err = exc.formatMsg("<data>"),
-                data = string.fromBytes(body.data)
-          return err(RestErrorMessage.init(Http400, UnableDecodeError,
-                                           [version, exc.formatMsg("<data>")]))
-        except CatchableError as exc:
-          return err(RestErrorMessage.init(Http400, UnexpectedDecodeError,
-                                           [version, $exc.msg]))
-      of ConsensusFork.Bellatrix:
-        try:
-          var res = RestJson.decode(body.data, bellatrix.SignedBeaconBlock,
-                                    requireAllFields = true,
-                                    allowUnknownFields = true)
-          res.root = hash_tree_root(res.message)
-          RestPublishedSignedBlockContents(
-            kind: ConsensusFork.Bellatrix, bellatrixData: res)
-        except SerializationError as exc:
-          debug "Failed to decode JSON data",
-                err = exc.formatMsg("<data>"),
-                data = string.fromBytes(body.data)
-          return err(RestErrorMessage.init(Http400, UnableDecodeError,
-                                           [version, exc.formatMsg("<data>")]))
-        except CatchableError as exc:
-          return err(RestErrorMessage.init(Http400, UnexpectedDecodeError,
-                                           [version, $exc.msg]))
-      of ConsensusFork.Capella:
-        try:
-          var res = RestJson.decode(body.data, capella.SignedBeaconBlock,
-                                    requireAllFields = true,
-                                    allowUnknownFields = true)
-          res.root = hash_tree_root(res.message)
-          RestPublishedSignedBlockContents(
-            kind: ConsensusFork.Capella, capellaData: res)
-        except SerializationError as exc:
-          debug "Failed to decode JSON data",
-                err = exc.formatMsg("<data>"),
-                data = string.fromBytes(body.data)
-          return err(RestErrorMessage.init(Http400, UnableDecodeError,
-                                           [version, exc.formatMsg("<data>")]))
-        except CatchableError as exc:
-          return err(RestErrorMessage.init(Http400, UnexpectedDecodeError,
-                                           [version, $exc.msg]))
+      of ConsensusFork.Phase0:    getBlck(phase0.SignedBeaconBlock)
+      of ConsensusFork.Altair:    getBlck(altair.SignedBeaconBlock)
+      of ConsensusFork.Bellatrix: getBlck(bellatrix.SignedBeaconBlock)
+      of ConsensusFork.Capella:   getBlck(capella.SignedBeaconBlock)
       of ConsensusFork.Deneb:
         try:
           var res = RestJson.decode(body.data, DenebSignedBlockContents,
