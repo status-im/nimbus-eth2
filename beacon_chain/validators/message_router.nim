@@ -235,7 +235,9 @@ proc routeAttestation*(
   return ok()
 
 proc routeAttestation*(
-    router: ref MessageRouter, attestation: phase0.Attestation | electra.Attestation):
+    router: ref MessageRouter,
+    attestation: phase0.Attestation | electra.Attestation,
+    on_chain: static bool = false):
     Future[SendResult] {.async: (raises: [CancelledError]).} =
   # Compute subnet, then route attestation
   let
@@ -252,7 +254,7 @@ proc routeAttestation*(
         attestation = shortLog(attestation)
       return
     committee_index =
-      shufflingRef.get_committee_index(attestation.committee_index()).valueOr:
+      shufflingRef.get_committee_index(attestation.committee_index(on_chain)).valueOr:
         notice "Invalid committee index in attestation",
           attestation = shortLog(attestation)
         return err("Invalid committee index in attestation")

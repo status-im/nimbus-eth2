@@ -1347,17 +1347,17 @@ proc installBeaconApiHandlers*(router: var RestRouter, node: BeaconNode) =
         Opt.none(Slot)
 
     withConsensusFork(
-      node.dag.cfg.consensusForkAtEpoch(vslot.get().epoch)):
-        if consensusFork < ConsensusFork.Electra:
-          var res: seq[phase0.Attestation]
-          for item in node.attestationPool[].attestations(vslot, vindex):
-            res.add(item)
-          return RestApiResponse.jsonResponseWVersion(res, consensusFork)
-        else:
-          var res: seq[electra.Attestation]
-          for item in node.attestationPool[].electraAttestations(vslot, vindex):
-            res.add(item)
-          return RestApiResponse.jsonResponseWVersion(res, consensusFork)
+        node.dag.cfg.consensusForkAtEpoch(vslot.get().epoch)):
+      if consensusFork < ConsensusFork.Electra:
+        var res: seq[phase0.Attestation]
+        for item in node.attestationPool[].attestations(vslot, vindex):
+          res.add(item)
+        return RestApiResponse.jsonResponseWVersion(res, consensusFork)
+      else:
+        var res: seq[electra.Attestation]
+        for item in node.attestationPool[].electraAttestations(vslot, vindex):
+          res.add(item)
+        return RestApiResponse.jsonResponseWVersion(res, consensusFork)
 
   # https://ethereum.github.io/beacon-APIs/#/Beacon/submitPoolAttestations
   router.api2(MethodPost, "/eth/v1/beacon/pool/attestations") do (
@@ -1376,11 +1376,7 @@ proc installBeaconApiHandlers*(router: var RestRouter, node: BeaconNode) =
     # Since our validation logic supports batch processing, we will submit all
     # attestations for validation.
     let pending =
-      block:
-        var res: seq[Future[SendResult]]
-        for attestation in attestations:
-          res.add(node.router.routeAttestation(attestation))
-        res
+      mapIt(attestations, node.router.routeAttestation(it))
     let failures =
       block:
         var res: seq[RestIndexedErrorMessageItem]
@@ -1409,30 +1405,39 @@ proc installBeaconApiHandlers*(router: var RestRouter, node: BeaconNode) =
   # https://ethereum.github.io/beacon-APIs/?urls.primaryName=dev#/Beacon/submitPoolAttestationsV2
   router.api2(MethodPost, "/eth/v2/beacon/pool/attestations") do (
     contentBody: Option[ContentBody]) -> RestApiResponse:
-    let attestations =
-      block:
-        if contentBody.isNone():
-          return RestApiResponse.jsonError(Http400, EmptyRequestBodyError)
-        let dres = decodeBody(seq[phase0.Attestation], contentBody.get())
-        if dres.isErr():
-          return RestApiResponse.jsonError(Http400,
-                                           InvalidAttestationObjectError,
-                                           $dres.error)
-        dres.get()
 
-    # Since our validation logic supports batch processing, we will submit all
-    # attestations for validation.
-    let pending =
-      block:
-        var res: seq[Future[SendResult]]
-        for attestation in attestations:
-          res.add(node.router.routeAttestation(attestation))
-        res
+    let
+      headerVersion = request.headers.getString("Eth-Consensus-Version")
+      consensusVersion = ConsensusFork.init(headerVersion)
+    if consensusVersion.isNone():
+      return RestApiResponse.jsonError(Http400, FailedToObtainConsensusForkError)
+
+    if contentBody.isNone():
+          return RestApiResponse.jsonError(Http400, EmptyRequestBodyError)
+
+    var pendingAttestations: seq[Future[SendResult]]
+    template decodeAttestations(AttestationType: untyped) =
+      let dres = decodeBody(seq[AttestationType], contentBody.get())
+      if dres.isErr():
+        return RestApiResponse.jsonError(Http400,
+                                          InvalidAttestationObjectError,
+                                          $dres.error)
+      # Since our validation logic supports batch processing, we will submit all
+      # attestations for validation.
+      for attestation in dres.get():
+        pendingAttestations.add(node.router.routeAttestation(attestation))
+
+    case consensusVersion.get():
+      of ConsensusFork.Phase0 .. ConsensusFork.Deneb:
+        decodeAttestations(phase0.Attestation)
+      of ConsensusFork.Electra:
+        decodeAttestations(electra.Attestation)
+
     let failures =
       block:
         var res: seq[RestIndexedErrorMessageItem]
-        await allFutures(pending)
-        for index, future in pending:
+        await allFutures(pendingAttestations)
+        for index, future in pendingAttestations:
           if future.completed():
             let fres = future.value()
             if fres.isErr():
