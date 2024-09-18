@@ -21,6 +21,15 @@ export rest_utils
 
 logScope: topics = "rest_rewardsapi"
 
+func isGenesis(blockId: BlockIdent, genesisBsid: BlockSlotId): bool =
+  case blockId.kind
+  of BlockQueryKind.Named:
+    blockId.value == BlockIdentType.Genesis
+  of BlockQueryKind.Slot:
+    blockId.slot == GENESIS_SLOT
+  of BlockQueryKind.Root:
+    blockId.root == genesisBsid.bid.root
+
 proc installRewardsApiHandlers*(router: var RestRouter, node: BeaconNode) =
   let
     genesisBlockRewardsResponse =
@@ -32,6 +41,7 @@ proc installRewardsApiHandlers*(router: var RestRouter, node: BeaconNode) =
         Opt.some(false),
         true,
       )
+    genesisBsid = node.dag.getBlockIdAtSlot(GENESIS_SLOT).get()
 
   # https://ethereum.github.io/beacon-APIs/#/Rewards/getBlockRewards
   router.api2(MethodGet, "/eth/v1/beacon/rewards/blocks/{block_id}") do (
@@ -41,8 +51,7 @@ proc installRewardsApiHandlers*(router: var RestRouter, node: BeaconNode) =
         return RestApiResponse.jsonError(Http400, InvalidBlockIdValueError,
                                          $error)
 
-    if (bident.kind == BlockQueryKind.Named) and
-       (bident.value == BlockIdentType.Genesis):
+    if bident.isGenesis(genesisBsid):
       return RestApiResponse.response(
         genesisBlockRewardsResponse, Http200, "application/json")
 
@@ -69,15 +78,16 @@ proc installRewardsApiHandlers*(router: var RestRouter, node: BeaconNode) =
       node.dag, tmpState[], targetBlock, false, cache):
         return RestApiResponse.jsonError(Http404, ParentBlockMissingStateError)
 
-    func restore(v: var ForkedHashedBeaconState) =
-      assign(node.dag.clearanceState, node.dag.headState)
+    func rollbackProc(state: var ForkedHashedBeaconState) {.
+         gcsafe, noSideEffect, raises: [].} =
+      discard
 
     let
       rewards =
         withBlck(bdata):
           state_transition_block(
             node.dag.cfg, tmpState[], forkyBlck,
-            cache, node.dag.updateFlags, restore).valueOr:
+            cache, node.dag.updateFlags, rollbackProc).valueOr:
               return RestApiResponse.jsonError(Http400, BlockInvalidError)
       total = rewards.attestations + rewards.sync_aggregate +
               rewards.proposer_slashings + rewards.attester_slashings
@@ -130,12 +140,8 @@ proc installRewardsApiHandlers*(router: var RestRouter, node: BeaconNode) =
 
       targetBlock =
         withBlck(bdata):
-          if (bident.kind == BlockQueryKind.Named) and
-             (bident.value == BlockIdentType.Genesis):
-            let genesisBlockId =
-              node.dag.getBlockId(forkyBlck.root).valueOr:
-                return RestApiResponse.jsonError(Http404, BlockNotFoundError)
-            BlockSlotId.init(genesisBlockId, GENESIS_SLOT)
+          if bident.isGenesis(genesisBsid):
+            genesisBsid
           else:
             let parentBid =
               node.dag.getBlockId(forkyBlck.message.parent_root).valueOr:
@@ -163,7 +169,7 @@ proc installRewardsApiHandlers*(router: var RestRouter, node: BeaconNode) =
           let
             keys =
               block:
-                var res: seq[ValidatorPubKey]
+                var res: HashSet[ValidatorPubKey]
                 for item in idents:
                   case item.kind
                   of ValidatorQueryKind.Index:
@@ -178,10 +184,10 @@ proc installRewardsApiHandlers*(router: var RestRouter, node: BeaconNode) =
                     if uint64(vindex) >= lenu64(forkyState.data.validators):
                       return RestApiResponse.jsonError(
                         Http400, ValidatorNotFoundError)
-                    res.add(forkyState.data.validators.item(vindex).pubkey)
+                    res.incl(forkyState.data.validators.item(vindex).pubkey)
                   of ValidatorQueryKind.Key:
-                    res.add(item.key)
-                toHashSet(res)
+                    res.incl(item.key)
+                res
 
             committeeKeys =
               toHashSet(forkyState.data.current_sync_committee.pubkeys.data)
@@ -194,28 +200,34 @@ proc installRewardsApiHandlers*(router: var RestRouter, node: BeaconNode) =
                   if pubkey in committeeKeys:
                     res[pubkey] = vindex
                 res
+            reward =
+              block:
+                let res = uint64(get_participant_reward(total_active_balance))
+                if res > uint64(high(int64)):
+                  return RestApiResponse.jsonError(
+                    Http500, RewardOverflowError)
+                res
 
           for i in 0 ..< min(
             len(forkyState.data.current_sync_committee.pubkeys),
             len(sync_aggregate.sync_committee_bits)):
             let
               pubkey = forkyState.data.current_sync_committee.pubkeys.data[i]
-              vindex = pubkeyIndices.getOrDefault(pubkey)
-              reward =
-                block:
-                  let res = uint64(get_participant_reward(total_active_balance))
-                  if res > uint64(high(int64)):
-                    return RestApiResponse.jsonError(
-                      Http500, RewardOverflowError)
-                  if sync_aggregate.sync_committee_bits[i]:
-                    cast[int64](res)
-                  else:
-                    -cast[int64](res)
+              vindex =
+                try:
+                  pubkeyIndices[pubkey]
+                except KeyError:
+                  raiseAssert "Unknown sync committee pubkey encountered!"
+              vreward =
+                if sync_aggregate.sync_committee_bits[i]:
+                  cast[int64](reward)
+                else:
+                  -cast[int64](reward)
 
             if (len(idents) == 0) or (pubkey in keys):
               resp.add(RestSyncCommitteeReward(
                 validator_index: RestValidatorIndex(vindex),
-                reward: RestReward(reward)))
+                reward: RestReward(vreward)))
 
         resp
 
