@@ -527,6 +527,12 @@ type
     subcommittee_index*: uint64
     selection_proof*: ValidatorSig
 
+  RestReward* = distinct int64
+
+  RestSyncCommitteeReward* = object
+    validator_index*: RestValidatorIndex
+    reward*: RestReward
+
   # Types based on the OAPI yaml file - used in responses to requests
   GetBeaconHeadResponse* = DataEnclosedObject[Slot]
   GetAggregatedAttestationResponse* = DataEnclosedObject[phase0.Attestation]

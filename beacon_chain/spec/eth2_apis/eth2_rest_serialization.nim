@@ -675,24 +675,28 @@ proc jsonResponseWOpt*(t: typedesc[RestApiResponse], data: auto,
         default
   RestApiResponse.response(res, Http200, "application/json")
 
+proc prepareJsonResponseFinalized*(
+    t: typedesc[RestApiResponse], data: auto, exec: Opt[bool],
+    finalized: bool
+): seq[byte] =
+  try:
+    var
+      stream = memoryOutput()
+      writer = JsonWriter[RestJson].init(stream)
+    writer.beginRecord()
+    if exec.isSome():
+      writer.writeField("execution_optimistic", exec.get())
+    writer.writeField("finalized", finalized)
+    writer.writeField("data", data)
+    writer.endRecord()
+    stream.getOutput(seq[byte])
+  except IOError:
+    default(seq[byte])
+
 proc jsonResponseFinalized*(t: typedesc[RestApiResponse], data: auto,
                             exec: Opt[bool],
                             finalized: bool): RestApiResponse =
-  let res =
-    block:
-      var default: seq[byte]
-      try:
-        var stream = memoryOutput()
-        var writer = JsonWriter[RestJson].init(stream)
-        writer.beginRecord()
-        if exec.isSome():
-          writer.writeField("execution_optimistic", exec.get())
-        writer.writeField("finalized", finalized)
-        writer.writeField("data", data)
-        writer.endRecord()
-        stream.getOutput(seq[byte])
-      except IOError:
-        default
+  let res = RestApiResponse.prepareJsonResponseFinalized(data, exec, finalized)
   RestApiResponse.response(res, Http200, "application/json")
 
 proc jsonResponseWVersion*(t: typedesc[RestApiResponse], data: auto,
@@ -974,6 +978,29 @@ proc readValue*(reader: var JsonReader[RestJson], value: var uint64) {.
     value = res.get()
   else:
     reader.raiseUnexpectedValue($res.error() & ": " & svalue)
+
+## RestReward
+proc writeValue*(
+    w: var JsonWriter[RestJson], value: RestReward) {.raises: [IOError].} =
+  writeValue(w, $int64(value))
+
+proc readValue*(reader: var JsonReader[RestJson], value: var RestReward) {.
+     raises: [IOError, SerializationError].} =
+  let svalue = reader.readValue(string)
+  if svalue.startsWith("-"):
+    let res =
+      Base10.decode(uint64, svalue.toOpenArray(1, len(svalue) - 1)).valueOr:
+        reader.raiseUnexpectedValue($error & ": " & svalue)
+    if res > uint64(high(int64)):
+      reader.raiseUnexpectedValue("Integer value overflow " & svalue)
+    value = RestReward(-int64(res))
+  else:
+    let res =
+      Base10.decode(uint64, svalue).valueOr:
+        reader.raiseUnexpectedValue($error & ": " & svalue)
+    if res > uint64(high(int64)):
+      reader.raiseUnexpectedValue("Integer value overflow " & svalue)
+    value = RestReward(int64(res))
 
 ## uint8
 proc writeValue*(
@@ -4393,4 +4420,12 @@ proc writeValue*(writer: var JsonWriter[RestJson],
     let res = value.status.get().toList()
     if len(res) > 0:
       writer.writeField("statuses", res)
+  writer.endRecord()
+
+## RestSyncCommitteeReward
+proc writeValue*(writer: var JsonWriter[RestJson],
+                 value: RestSyncCommitteeReward) {.raises: [IOError].} =
+  writer.beginRecord()
+  writer.writeField("validator_index", value.validator_index)
+  writer.writeField("reward", value.reward)
   writer.endRecord()
