@@ -2463,6 +2463,8 @@ proc lookupCscFromPeer*(peer: Peer): uint64 =
     if enrFieldOpt.isOk:
         try:
           let csc = SSZ.decode(enrFieldOpt.get(), uint8)
+          debug "LookupCscFromPeer: csc value",
+            csc = csc
           return csc
         except SszError as e:
           debug "Could not decide the csc field in the ENR"
