@@ -21,10 +21,18 @@ export rest_utils
 
 logScope: topics = "rest_rewardsapi"
 
-func isGenesis(blockId: BlockIdent, genesisBsid: BlockSlotId): bool =
+func isGenesis(node: BeaconNode,
+               blockId: BlockIdent,
+               genesisBsid: BlockSlotId): bool =
   case blockId.kind
   of BlockQueryKind.Named:
-    blockId.value == BlockIdentType.Genesis
+    case blockId.value
+    of BlockIdentType.Genesis:
+      true
+    of BlockIdentType.Head:
+      node.dag.head.bid.slot == GENESIS_SLOT
+    of BlockIdentType.Finalized:
+      node.dag.finalizedHead.slot == GENESIS_SLOT
   of BlockQueryKind.Slot:
     blockId.slot == GENESIS_SLOT
   of BlockQueryKind.Root:
@@ -51,7 +59,7 @@ proc installRewardsApiHandlers*(router: var RestRouter, node: BeaconNode) =
         return RestApiResponse.jsonError(Http400, InvalidBlockIdValueError,
                                          $error)
 
-    if bident.isGenesis(genesisBsid):
+    if node.isGenesis(bident, genesisBsid):
       return RestApiResponse.response(
         genesisBlockRewardsResponse, Http200, "application/json")
 
@@ -140,7 +148,7 @@ proc installRewardsApiHandlers*(router: var RestRouter, node: BeaconNode) =
 
       targetBlock =
         withBlck(bdata):
-          if bident.isGenesis(genesisBsid):
+          if node.isGenesis(bident, genesisBsid):
             genesisBsid
           else:
             let parentBid =
