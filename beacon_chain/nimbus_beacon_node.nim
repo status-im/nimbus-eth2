@@ -1151,7 +1151,9 @@ proc addDenebMessageHandlers(
   node.addCapellaMessageHandlers(forkDigest, slot)
   let 
     targetSubnets = node.fetchCustodySubnetCount()
-    custody_subnets = node.network.nodeId.get_custody_column_subnets(targetSubnets)
+    custody_subnets = 
+      node.network.nodeId.get_custody_column_subnets(max(SAMPLES_PER_SLOT.uint64,
+                                                     targetSubnets))
 
   debugEcho "Target Subnets"
   debugEcho targetSubnets
