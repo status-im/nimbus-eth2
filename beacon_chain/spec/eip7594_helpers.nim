@@ -269,8 +269,6 @@ proc get_data_column_sidecars*(signed_beacon_block: electra.SignedBeaconBlock,
       kzgProofOfColumn: KzgProofs
     for rowIndex in 0..<blobs.len:
       discard column.add(cells[rowIndex][columnIndex])
-
-    for rowIndex in 0..<blobs.len:
       discard kzgProofOfColumn.add(proofs[rowIndex][columnIndex])
 
     var sidecar = DataColumnSidecar(
