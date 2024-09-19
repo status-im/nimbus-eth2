@@ -747,7 +747,8 @@ suite "Attestation pool electra processing" & preset():
       cfg = genesisTestRuntimeConfig(ConsensusFork.Electra)
       dag = init(
         ChainDAGRef, cfg,
-        makeTestDB(TOTAL_COMMITTEES * TARGET_COMMITTEE_SIZE*SLOTS_PER_EPOCH * 6, cfg = cfg),
+        makeTestDB(
+          TOTAL_COMMITTEES * TARGET_COMMITTEE_SIZE * SLOTS_PER_EPOCH, cfg = cfg),
         validatorMonitor, {})
       taskpool = Taskpool.new()
       verifier = BatchVerifier.init(rng, taskpool)
@@ -765,7 +766,6 @@ suite "Attestation pool electra processing" & preset():
         cache,
         info,
         {}).isOk()
-
 
   test "Can add and retrieve simple electra attestations" & preset():
     let
