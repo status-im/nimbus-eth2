@@ -400,6 +400,23 @@ template kind*(
       electra_mev.SignedBlindedBeaconBlock]): ConsensusFork =
   ConsensusFork.Electra
 
+template kind*(
+    x: typedesc[
+      epbs.BeaconState |
+      epbs.HashedBeaconState |
+      epbs.ExecutionPayloadHeader |
+      epbs.BeaconBlock |
+      epbs.SignedBeaconBlock |
+      epbs.TrustedBeaconBlock |
+      epbs.BeaconBlockBody |
+      epbs.SigVerifiedBeaconBlockBody |
+      epbs.TrustedBeaconBlockBody |
+      epbs.SigVerifiedSignedBeaconBlock |
+      epbs.MsgTrustedSignedBeaconBlock |
+      epbs.TrustedSignedBeaconBlock ]): ConsensusFork =
+  ConsensusFork.Electra
+
+
 template BeaconState*(kind: static ConsensusFork): auto =
   when kind == ConsensusFork.Electra:
     typedesc[electra.BeaconState]

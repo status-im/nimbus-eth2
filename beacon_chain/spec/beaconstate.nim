@@ -135,7 +135,8 @@ func get_state_exit_queue_info*(
   ExitQueueInfo(
     exit_queue_epoch: exit_queue_epoch, exit_queue_churn: exit_queue_churn)
 
-func get_state_exit_queue_info*(state: electra.BeaconState): ExitQueueInfo =
+func get_state_exit_queue_info*(
+  state: electra.BeaconState | epbs.BeaconState): ExitQueueInfo =
   # Electra initiate_validator_exit doesn't have same quadratic aspect given
   # StateCache balance caching
   default(ExitQueueInfo)
@@ -1233,7 +1234,7 @@ func is_partially_withdrawable_validator(
       has_max_effective_balance and has_excess_balance
 
 # https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.0/specs/electra/beacon-chain.md#get_validator_max_effective_balance
-func get_validator_max_effective_balance(validator: Validator): Gwei =
+func get_validator_max_effective_balance*(validator: Validator): Gwei =
   ## Get max effective balance for ``validator``.
   if has_compounding_withdrawal_credential(validator):
     MAX_EFFECTIVE_BALANCE_ELECTRA.Gwei
@@ -1364,7 +1365,7 @@ func get_expected_withdrawals*(
 # to cleanly treat the results of get_expected_withdrawals as a seq[Withdrawal]
 # are valuable enough to make that the default version of this spec function.
 template get_expected_withdrawals_with_partial_count_aux*(
-    state: electra.BeaconState, epoch: Epoch, fetch_balance: untyped):
+    state: electra.BeaconState | epbs.BeaconState, epoch: Epoch, fetch_balance: untyped):
     (seq[Withdrawal], uint64) =
   doAssert epoch - get_current_epoch(state) in [0'u64, 1'u64]
 
@@ -1450,12 +1451,12 @@ template get_expected_withdrawals_with_partial_count_aux*(
   (withdrawals, partial_withdrawals_count)
 
 template get_expected_withdrawals_with_partial_count*(
-    state: electra.BeaconState): (seq[Withdrawal], uint64) =
+    state: electra.BeaconState | epbs.BeaconState): (seq[Withdrawal], uint64) =
   get_expected_withdrawals_with_partial_count_aux(
       state, get_current_epoch(state)) do:
     state.balances.item(validator_index)
 
-func get_expected_withdrawals*(state: electra.BeaconState): seq[Withdrawal] =
+func get_expected_withdrawals*(state: electra.BeaconState | epbs.BeaconState): seq[Withdrawal] =
   get_expected_withdrawals_with_partial_count(state)[0]
 
 # https://github.com/ethereum/consensus-specs/blob/v1.4.0/specs/altair/beacon-chain.md#get_next_sync_committee

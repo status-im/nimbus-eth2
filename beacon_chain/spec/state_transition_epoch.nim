@@ -31,6 +31,7 @@ from std/math import sum, `^`
 from stew/bitops2 import setBit
 from ./datatypes/capella import
   BeaconState, HistoricalSummary, Withdrawal, WithdrawalIndex
+import ./datatypes/epbs
 
 export extras, phase0, altair
 
@@ -1636,7 +1637,7 @@ proc get_next_slot_expected_withdrawals*(
       cfg, state, cache, info, validator_index.ValidatorIndex)
 
 proc get_next_slot_expected_withdrawals*(
-    cfg: RuntimeConfig, state: electra.BeaconState, cache: var StateCache,
+    cfg: RuntimeConfig, state: electra.BeaconState | epbs.BeaconState, cache: var StateCache,
     info: var altair.EpochInfo): seq[Withdrawal] =
   let (res, _) = get_expected_withdrawals_with_partial_count_aux(
       state, (state.slot + 1).epoch) do:

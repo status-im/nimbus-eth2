@@ -8,7 +8,7 @@
 {.push raises: [].}
 
 # Gnosis preset - epbs
-# https://github.com/ethereum/consensus-specs/blob/1508f51b80df5488a515bfedf486f98435200e02/specs/_features/eipxxxx/beacon-chain.md#preset
+# https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.5/specs/_features/eip7732/beacon-chain.md#preset
 const
   # `2**2` (= 4)
   MAX_PAYLOAD_ATTESTATIONS*: uint8 = 4

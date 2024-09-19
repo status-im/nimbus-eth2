@@ -8,12 +8,12 @@
 {.push raises: [].}
 
 import
-  std/sequtils, std/sets, std/lists,
   "."/[forks, ptc_status, validator],
   ./datatypes/epbs,
   "."/[
   beaconstate, eth2_merkleization, helpers, signatures,
   state_transition_block, state_transition_epoch]
+import std/[lists, sequtils]
 
 # https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.4/specs/_features/eip7732/beacon-chain.md#is_valid_indexed_payload_attestation
 proc is_valid_indexed_payload_attestation*(
@@ -62,8 +62,7 @@ func is_parent_block_full*(state: epbs.BeaconState): bool =
       state.latest_block_hash
 
 # https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.4/specs/_features/eip7732/beacon-chain.md#get_ptc
-proc get_ptc(state: epbs.BeaconState, slot: Slot, cache: var StateCache,
-    committee_bits: auto, data: epbs.AttestationData): seq[ValidatorIndex] =
+proc get_ptc(state: epbs.BeaconState, slot: Slot, cache: var StateCache): seq[ValidatorIndex] =
   let
     epoch = epoch(slot)
     committees_per_slot = bit_floor(min(get_committee_count_per_slot(
@@ -72,9 +71,9 @@ proc get_ptc(state: epbs.BeaconState, slot: Slot, cache: var StateCache,
 
   var validator_indices = newSeq[ValidatorIndex](PTC_SIZE)
 
-  for committee_index in get_committee_indices(committee_bits):
+  for committee_index in get_committee_indices(committees_per_slot):
     for _, beacon_committee in get_beacon_committee(
-        state, data.slot, committee_index, cache):
+        state, state.slot, committee_index, cache):
       validator_indices.add(beacon_committee)
 
   return validator_indices
@@ -97,7 +96,7 @@ proc get_attesting_indices(state: epbs.BeaconState,
 
     # Merge the current committee_attesters set with 
     # the overall output set of attesting validators
-    output = output.union(committee_attesters)
+    output.incl(committee_attesters)
 
     committee_offset += len(get_beacon_committee(state, attestation.data.slot,
       committee_index, cache))
@@ -105,35 +104,30 @@ proc get_attesting_indices(state: epbs.BeaconState,
   if epoch(attestation.data.slot) < cfg.EIP7732_FORK_EPOCH:
     return output
 
-  let ptc = get_ptc(state, attestation.data.slot, cache,
-    attestation.committee_bits, attestation.data)
+  let ptc = get_ptc(state, attestation.data.slot, cache)
   return output - ptc.toHashSet()
 
 # https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.4/specs/_features/eip7732/beacon-chain.md#get_payload_attesting_indices
 proc get_payload_attesting_indices(state: epbs.BeaconState, slot: Slot,
-    payload_attestation: PayloadAttestation, cache: var StateCache,
-    attestation: epbs.Attestation): List[ValidatorIndex, Limit PTC_SIZE] =
+    payload_attestation: PayloadAttestation, 
+    cache: var StateCache): List[ValidatorIndex, Limit PTC_SIZE] =
 
-  let ptc = get_ptc(state, slot, cache, attestation.committee_bits,
-    attestation.data)
-  var
-    output: List[ValidatorIndex, Limit PTC_SIZE]
-    pos = 0
+  let ptc = get_ptc(state, slot, cache)
+  var output: List[ValidatorIndex, Limit PTC_SIZE]
 
   for i, index in ptc.pairs:
     if payload_attestation.aggregation_bits[i]:
-      output[pos] = index
-      pos += 1
+      discard output.add(index)
 
   output
 
 # https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.4/specs/_features/eip7732/beacon-chain.md#get_indexed_payload_attestation
 proc get_indexed_payload_attestation*(state: var epbs.BeaconState, slot: Slot,
-    payload_attestation: PayloadAttestation, cache: var StateCache,
-    attestation: epbs.Attestation): IndexedPayloadAttestation =
+    payload_attestation: PayloadAttestation, 
+    cache: var StateCache): IndexedPayloadAttestation =
 
   let attesting_indices = get_payload_attesting_indices(
-    state, slot, payload_attestation, cache, attestation)
+    state, slot, payload_attestation, cache)
 
   IndexedPayloadAttestation(
     attesting_indices: attesting_indices,

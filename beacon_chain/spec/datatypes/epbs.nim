@@ -84,6 +84,9 @@ type
     # Extra payload fields
     block_hash*: Eth2Digest
 
+  ExecutePayload* = proc(
+    execution_payload: ExecutionPayload): bool {.gcsafe, raises: [].}
+
   # https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.4/specs/_features/eip7732/beacon-chain.md#signedexecutionpayloadheader
   SignedExecutionPayloadHeader* = object
     message*: ExecutionPayloadHeader
@@ -287,7 +290,7 @@ type
     sync_aggregate*: TrustedSyncAggregate
 
     # Execution
-    execution_payload*: ExecutionPayload   # [Modified in Electra:EIP6110:EIP7002]
+    # execution_payload*: ExecutionPayload   # [Modified in Electra:EIP6110:EIP7002]
     bls_to_execution_changes*: SignedBLSToExecutionChangeList
     blob_kzg_commitments*: KzgCommitments
 
@@ -356,7 +359,6 @@ type
 
     root* {.dontSerialize.}: Eth2Digest # cached root of signed beacon block
 
-  AttestationCommitteeBits* = BitArray[MAX_COMMITTEES_PER_SLOT.int]
 
   # https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.3/specs/electra/beacon-chain.md#attestation
   Attestation* = object

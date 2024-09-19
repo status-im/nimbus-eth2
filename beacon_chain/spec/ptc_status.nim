@@ -13,7 +13,7 @@ type
 # PTCStatus represents a single payload status. These values represent the
 # possible votes that the Payload Timeliness Committee(PTC) can cast
 # in ePBS when attesting for an execution payload.
-# https://github.com/ethereum/consensus-specs/blob/1508f51b80df5488a515bfedf486f98435200e02/specs/_features/eipxxxx/beacon-chain.md#constants
+# https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.5/specs/_features/eip7732/beacon-chain.md#payload-status
 const
   PAYLOAD_ABSENT* = PTCStatus(0)
   PAYLOAD_PRESENT* = PTCStatus(1)
