@@ -286,7 +286,8 @@ proc getDataColumnSidecars[A, B](man: SyncManager[A, B], peer: A,
   let
     remoteNodeId = getNodeIdFromPeer(peer)
     remoteCustodyColumns =
-      remoteNodeId.get_custody_column_list(remoteCustodySubnetCount)
+      remoteNodeId.get_custody_column_list(max(SAMPLES_PER_SLOT.uint64,
+                                               remoteCustodySubnetCount))
 
   doAssert(not(req.isEmpty()), "Request must not be empty!")
   debug "Requesting data column sidecars from peer", request = req

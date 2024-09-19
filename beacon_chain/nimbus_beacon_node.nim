@@ -1514,7 +1514,7 @@ proc tryReconstructingDataColumns* (self: BeaconNode,
     root = signed_block.root
     custodiedColumnIndices = get_custody_columns(
         self.network.nodeId,
-        localCustodySubnetCount)
+        max(SAMPLES_PER_SLOT.uint64, localCustodySubnetCount))
 
   var
     finalisedDataColumns: seq[DataColumnSidecar]

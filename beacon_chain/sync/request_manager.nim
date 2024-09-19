@@ -282,7 +282,8 @@ proc constructValidCustodyPeers(rman: RequestManager,
   let
     localNodeId = rman.network.nodeId
     localCustodyColumns =
-      localNodeId.get_custody_columns(localCustodySubnetCount)
+      localNodeId.get_custody_columns(max(SAMPLES_PER_SLOT.uint64,
+                                          localCustodySubnetCount))
   
   var validPeers: seq[Peer]
 
@@ -296,8 +297,9 @@ proc constructValidCustodyPeers(rman: RequestManager,
     let
       remoteNodeId = getNodeIdFromPeer(peer)
       remoteCustodyColumns =
-        remoteNodeId.get_custody_columns(remoteCustodySubnetCount)
-    
+        remoteNodeId.get_custody_columns(max(SAMPLES_PER_SLOT.uint64,
+                                             localCustodySubnetCount))
+
     # If the remote peer custodies less columns than
     # our local node
     # We skip it

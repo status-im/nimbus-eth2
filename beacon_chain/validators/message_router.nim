@@ -196,7 +196,8 @@ proc routeSignedBeaconBlock*(
             notice "Data columns sent", data_column = shortLog(dataColumnsOpt[].get()[i])
         let
           metadata = router[].network.metadata.custody_subnet_count.uint64
-          custody_columns = router[].network.nodeId.get_custody_columns(metadata)
+          custody_columns = router[].network.nodeId.get_custody_columns(max(SAMPLES_PER_SLOT.uint64,
+                                                                            metadata))
 
         for dc in data_columns:
           if dc.index in custody_columns:
