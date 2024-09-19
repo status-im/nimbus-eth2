@@ -229,7 +229,7 @@ func bls_to_execution_change_signature_set*(
 
   SignatureSet.init(pubkey, signing_root, signature)
 
-proc collectSignatureSets*(
+proc collectProposerSignatureSet*(
   sigs: var seq[SignatureSet],
   blocks: openArray[ForkedSignedBeaconBlock],
   validatorKeys: openArray[ImmutableValidatorData2],
