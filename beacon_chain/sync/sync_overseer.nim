@@ -150,6 +150,9 @@ proc getBlock*(
       if len(results) > 0:
         return results[0]
 
+    # Wait for 2 seconds before trying one more time.
+    await sleepAsync(2.seconds)
+
 proc isWithinWeakSubjectivityPeriod(
     overseer: SyncOverseerRef, slot: Slot): bool =
   let
