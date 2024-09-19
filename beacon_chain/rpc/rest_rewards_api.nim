@@ -8,11 +8,10 @@
 {.push raises: [].}
 
 import
-  std/[typetraits, sequtils, sets],
+  std/[typetraits, sets],
   stew/base10,
   chronicles, metrics,
   ./rest_utils,
-  ./state_ttl_cache,
   ../beacon_node,
   ../consensus_object_pools/[blockchain_dag, spec_cache, validator_change_pool],
   ../spec/[forks, state_transition]
