@@ -298,7 +298,7 @@ proc constructValidCustodyPeers(rman: RequestManager,
       remoteNodeId = getNodeIdFromPeer(peer)
       remoteCustodyColumns =
         remoteNodeId.get_custody_columns(max(SAMPLES_PER_SLOT.uint64,
-                                             localCustodySubnetCount))
+                                             remoteCustodySubnetCount))
 
     # If the remote peer custodies less columns than
     # our local node
