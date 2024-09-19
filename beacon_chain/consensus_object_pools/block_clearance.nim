@@ -477,7 +477,7 @@ proc verifyBlockProposer*(
 ): Result[void, string] =
   var sigs: seq[SignatureSet]
 
-  ? sigs.collectSignatureSets(
+  ? sigs.collectProposerSignatureSet(
     blocks, dag.db.immutableValidators, dag.clearanceState)
 
   if not verifier.batchVerify(sigs):
