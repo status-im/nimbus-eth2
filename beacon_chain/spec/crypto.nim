@@ -403,6 +403,9 @@ func toHex*(x: CookedPubKey): string =
 func `$`*(x: CookedPubKey): string =
   $(x.toPubKey())
 
+func toValidatorSig*(x: TrustedSig): ValidatorSig =
+  ValidatorSig(blob: x.blob)
+
 func toValidatorSig*(x: CookedSig): ValidatorSig =
   ValidatorSig(blob: blscurve.Signature(x).exportRaw())
 
