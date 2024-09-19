@@ -59,7 +59,7 @@ type
       RestVersioned[ForkedLightClientFinalityUpdate]]
     optUpdateQueue*: AsyncEventQueue[
       RestVersioned[ForkedLightClientOptimisticUpdate]]
-    optHeaderUpdateQueue*: AsyncEventQueue[ForkedLightClientHeader]
+    optFinHeaderUpdateQueue*: AsyncEventQueue[ForkedLightClientHeader]
 
   BeaconNode* = ref object
     nickname*: string
