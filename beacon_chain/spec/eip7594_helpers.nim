@@ -275,9 +275,9 @@ proc get_data_column_sidecars*(signed_beacon_block: electra.SignedBeaconBlock,
 
     var sidecar = DataColumnSidecar(
       index: ColumnIndex(columnIndex),
-      column: DataColumn(column),
+      column: column,
       kzgCommitments: blck.body.blob_kzg_commitments,
-      kzgProofs: KzgProofs(kzgProofOfColumn),
+      kzgProofs: kzgProofOfColumn,
       signed_block_header: signed_beacon_block_header)
     blck.body.build_proof(
       KZG_COMMITMENTS_INCLUSION_PROOF_DEPTH_GINDEX.GeneralizedIndex,
