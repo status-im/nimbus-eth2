@@ -528,25 +528,9 @@ proc decodeBlock(
     decompressed = snappy.decode(data, uint32(header.plainSize))
     blck =
       try:
-        case fork
-        of ConsensusFork.Phase0:
+        withConsensusFork(fork):
           ForkedSignedBeaconBlock.init(
-            SSZ.decode(decompressed, phase0.SignedBeaconBlock))
-        of ConsensusFork.Altair:
-          ForkedSignedBeaconBlock.init(
-            SSZ.decode(decompressed, altair.SignedBeaconBlock))
-        of ConsensusFork.Bellatrix:
-          ForkedSignedBeaconBlock.init(
-            SSZ.decode(decompressed, bellatrix.SignedBeaconBlock))
-        of ConsensusFork.Capella:
-          ForkedSignedBeaconBlock.init(
-            SSZ.decode(decompressed, capella.SignedBeaconBlock))
-        of ConsensusFork.Deneb:
-          ForkedSignedBeaconBlock.init(
-            SSZ.decode(decompressed, deneb.SignedBeaconBlock))
-        of ConsensusFork.Electra:
-          ForkedSignedBeaconBlock.init(
-            SSZ.decode(decompressed, electra.SignedBeaconBlock))
+            SSZ.decode(decompressed, consensusFork.SignedBeaconBlock))
       except SerializationError:
         return err("Incorrect block format")
   ok(blck)

@@ -81,7 +81,7 @@ proc getLatestBeaconHeader*(
     when lcDataFork > LightClientDataFork.None:
       forkyHeader.beacon
     else:
-      raiseAssert "Should not be happened"
+      raiseAssert "Should not happen"
 
 proc getPeerBlock*(
     overseer: SyncOverseerRef,
@@ -108,11 +108,11 @@ proc getPeerBlock*(
   finally:
     overseer.pool.release(peer)
 
-proc `==`(a, b: BeaconBlockHeader): bool =
-  (a.slot == b.slot) and (a.proposer_index == b.proposer_index) and
-  (a.parent_root.data == b.parent_root.data) and
-  (a.state_root.data == b.state_root.data) and
-  (a.body_root.data == b.body_root.data)
+# proc `==`(a, b: BeaconBlockHeader): bool =
+#   (a.slot == b.slot) and (a.proposer_index == b.proposer_index) and
+#   (a.parent_root.data == b.parent_root.data) and
+#   (a.state_root.data == b.state_root.data) and
+#   (a.body_root.data == b.body_root.data)
 
 proc getBlock*(
     overseer: SyncOverseerRef,
@@ -362,7 +362,7 @@ proc rebuildState(overseer: SyncOverseerRef): Future[void] {.
             try:
               overseer.blocksQueue.addLastNoWait(bchunk)
             except AsyncQueueFullError:
-              raiseAssert "Should not be happened with unbound AsyncQueue"
+              raiseAssert "Should not happen with unbounded AsyncQueue"
             let res = await bchunk.resfut
             if res.isErr():
               fatal "Unable to add block data to database", reason = res.error
@@ -468,7 +468,9 @@ proc mainLoop*(
     if overseer.config.longRangeSync == LongRangeSyncMode.Light:
       let dagHead = dag.finalizedHead
       if dagHead.slot < dag.cfg.ALTAIR_FORK_EPOCH.start_slot:
-        fatal "Light syncing could not work"
+        fatal "Light forward syncing requires a post-Altair state",
+              head_slot = dagHead.slot,
+              altair_start_slot = dag.cfg.ALTAIR_FORK_EPOCH.start_slot
         quit 1
 
       if isUntrustedBackfillEmpty(clist):

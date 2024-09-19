@@ -463,26 +463,16 @@ proc updateHead*(
         # `forkchoiceUpdated` necessary for EL client only.
         consensusManager[].updateHead(newHead.get.blck)
 
-        template callExpectValidFCU(payloadAttributeType: untyped): auto =
-          await elManager.expectValidForkchoiceUpdated(
-            headBlockPayloadAttributesType = payloadAttributeType,
-            headBlockHash = headExecutionBlockHash,
-            safeBlockHash = newHead.get.safeExecutionBlockHash,
-            finalizedBlockHash = newHead.get.finalizedExecutionBlockHash,
-            receivedBlock = signedBlock)
-
-        template callForkChoiceUpdated: auto =
-          case consensusManager.dag.cfg.consensusForkAtEpoch(
-              newHead.get.blck.bid.slot.epoch)
-          of ConsensusFork.Deneb, ConsensusFork.Electra:
-            # https://github.com/ethereum/execution-apis/blob/90a46e9137c89d58e818e62fa33a0347bba50085/src/engine/prague.md
-            # does not define any new forkchoiceUpdated, so reuse V3 from Dencun
-            callExpectValidFCU(payloadAttributeType = PayloadAttributesV3)
-          of ConsensusFork.Capella:
-            callExpectValidFCU(payloadAttributeType = PayloadAttributesV2)
-          of  ConsensusFork.Phase0, ConsensusFork.Altair,
-              ConsensusFork.Bellatrix:
-            callExpectValidFCU(payloadAttributeType = PayloadAttributesV1)
+        template callForkChoiceUpdated: untyped =
+          withConsensusFork(consensusManager.dag.cfg.consensusForkAtEpoch(
+              newHead.get.blck.bid.slot.epoch)):
+            when consensusFork >= ConsensusFork.Bellatrix:
+              await elManager.expectValidForkchoiceUpdated(
+                headBlockPayloadAttributesType = consensusFork.PayloadAttributes,
+                headBlockHash = headExecutionBlockHash,
+                safeBlockHash = newHead.get.safeExecutionBlockHash,
+                finalizedBlockHash = newHead.get.finalizedExecutionBlockHash,
+                receivedBlock = signedBlock)
 
         if consensusManager.checkNextProposer(wallSlot).isNone:
           # No attached validator is next proposer, so use non-proposal fcU
