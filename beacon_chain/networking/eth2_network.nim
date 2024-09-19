@@ -2439,39 +2439,39 @@ func announcedENR*(node: Eth2Node): enr.Record =
   node.discovery.localNode.record
 
 proc lookupCscFromPeer*(peer: Peer): uint64 =
-  # Fetches the custody column count from a remote peer
-  # if the peer advertises their custody column count 
-  # via the `csc` ENR field. If the peer does NOT, then
-  # the default value is assume, i.e, CUSTODY_REQUIREMENT
-
-  let enrOpt = peer.enr
-  if enrOpt.isNone:
-    debug "Could not get ENR from peer, trying to fetch csc from metadata",
+  ## Fetches the custody column count from a remote peer
+  ## if the peer advertises their custody column count 
+  ## via the `csc` ENR field. If the peer does NOT, then
+  ## the default value is assume, i.e, CUSTODY_REQUIREMENT
+  let metadata = peer.metadata
+  if metadata.isErr:
+    debug "Could not get csc from metadata, trying from ENR",
       peer_id = peer.peerId
-    let metadata = peer.metadata
-    if not metadata.isOk:
-      return(CUSTODY_REQUIREMENT.uint64)
-    else:
-      return(metadata.get.custody_subnet_count)
-
-  else:
-    let
-      enr = enrOpt.get
-      enrFieldOpt = 
+    let enrOpt = peer.enr
+    if not enrOpt.isNone:
+      let
+        enr = enrOpt.get
+        enrFieldOpt =
           enr.get(enrCustodySubnetCountField, seq[byte])
-
-    if enrFieldOpt.isOk:
+      if enrFieldOpt.isOk:
         try:
-          let csc = SSZ.decode(enrFieldOpt.get(), uint8)
+          let csc =
+            SSZ.decode(enrFieldOpt.get, uint8)
           debug "LookupCscFromPeer: csc value",
             csc = csc
           return csc
         except SszError as e:
-          debug "Could not decide the csc field in the ENR"
-          return CUSTODY_REQUIREMENT
-        except SerializationError:
-          debug "Error in serializing the value"
-          return CUSTODY_REQUIREMENT
+          return CUSTODY_REQUIREMENT.uint64
+        except SerializationError as e:
+          return CUSTODY_REQUIREMENT.uint64
+    else:
+      return CUSTODY_REQUIREMENT.uint64
+  elif metadata.isOk:
+    debug "LookupCscFromPeer: csc value from metadata",
+      csc = metadata.get.custody_subnet_count
+    return metadata.get.custody_subnet_count
+  else:
+    return CUSTODY_REQUIREMENT.uint64
 
 func shortForm*(id: NetKeyPair): string =
   $PeerId.init(id.pubkey)
