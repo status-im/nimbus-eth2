@@ -112,6 +112,10 @@ template capella_steps() =
   do_check
 
 template deneb_steps() =
+  b.message.body.execution_payload.blob_gas_used = 8
+  do_check
+  b.message.body.execution_payload.excess_blob_gas = 9
+  do_check
   check: b.message.body.blob_kzg_commitments.add(default(KzgCommitment))
   do_check
 

@@ -141,6 +141,8 @@ func toSignedBlindedBeaconBlock*(blck: electra.SignedBeaconBlock):
             hash_tree_root(blck.message.body.execution_payload.transactions),
           withdrawals_root:
             hash_tree_root(blck.message.body.execution_payload.withdrawals),
+          blob_gas_used: blck.message.body.execution_payload.blob_gas_used,
+          excess_blob_gas: blck.message.body.execution_payload.excess_blob_gas,
           deposit_requests_root: hash_tree_root(
             blck.message.body.execution_payload.deposit_requests),
           withdrawal_requests_root: hash_tree_root(
