@@ -44,6 +44,7 @@ type
       List[SignedBLSToExecutionChange,
         Limit MAX_BLS_TO_EXECUTION_CHANGES]
     blob_kzg_commitments*: KzgCommitments # [New in Deneb]
+    execution_requests*: ExecutionRequests # [New in Electra]
 
   # https://github.com/ethereum/builder-specs/blob/v0.4.0/specs/bellatrix/builder.md#blindedbeaconblock
   BlindedBeaconBlock* = object
@@ -140,13 +141,7 @@ func toSignedBlindedBeaconBlock*(blck: electra.SignedBeaconBlock):
           transactions_root:
             hash_tree_root(blck.message.body.execution_payload.transactions),
           withdrawals_root:
-            hash_tree_root(blck.message.body.execution_payload.withdrawals),
-          deposit_requests_root: hash_tree_root(
-            blck.message.body.execution_payload.deposit_requests),
-          withdrawal_requests_root: hash_tree_root(
-            blck.message.body.execution_payload.withdrawal_requests),
-          consolidation_requests_root: hash_tree_root(
-            blck.message.body.execution_payload.consolidation_requests)),
+            hash_tree_root(blck.message.body.execution_payload.withdrawals)),
         bls_to_execution_changes: blck.message.body.bls_to_execution_changes,
         blob_kzg_commitments: blck.message.body.blob_kzg_commitments)),
     signature: blck.signature)

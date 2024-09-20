@@ -501,107 +501,108 @@ func toExecutionConsolidationRequest*(
     targetPubkey: request.target_pubkey.blob)
 
 # https://eips.ethereum.org/EIPS/eip-7685
-proc computeRequestsTrieRoot*(
+proc computeRequestsTrieRoot(
     payload: electra.ExecutionPayload): ExecutionHash256 =
-  if payload.deposit_requests.len == 0 and
-      payload.withdrawal_requests.len == 0 and
-      payload.consolidation_requests.len == 0:
-    return EMPTY_ROOT_HASH
+  when false:
+    if payload.deposit_requests.len == 0 and
+        payload.withdrawal_requests.len == 0 and
+        payload.consolidation_requests.len == 0:
+      return EMPTY_ROOT_HASH
 
-  var
-    tr = initHexaryTrie(newMemoryDB())
-    i = 0'u64
+    var
+      tr = initHexaryTrie(newMemoryDB())
+      i = 0'u64
 
-  static:
-    doAssert DEPOSIT_REQUEST_TYPE < WITHDRAWAL_REQUEST_TYPE
-    doAssert WITHDRAWAL_REQUEST_TYPE < CONSOLIDATION_REQUEST_TYPE
+    static:
+      doAssert DEPOSIT_REQUEST_TYPE < WITHDRAWAL_REQUEST_TYPE
+      doAssert WITHDRAWAL_REQUEST_TYPE < CONSOLIDATION_REQUEST_TYPE
 
-  # EIP-6110
-  for request in payload.deposit_requests:
-    try:
-      tr.put(rlp.encode(i.uint), rlp.encode(
-        toExecutionDepositRequest(request)))
-    except RlpError as exc:
-      raiseAssert "HexaryTree.put failed: " & $exc.msg
-    inc i
+    # EIP-6110
+    for request in payload.deposit_requests:
+      try:
+        tr.put(rlp.encode(i.uint), rlp.encode(
+          toExecutionDepositRequest(request)))
+      except RlpError as exc:
+        raiseAssert "HexaryTree.put failed: " & $exc.msg
+      inc i
 
-  # EIP-7002
-  for request in payload.withdrawal_requests:
-    try:
-      tr.put(rlp.encode(i.uint), rlp.encode(
-        toExecutionWithdrawalRequest(request)))
-    except RlpError as exc:
-      raiseAssert "HexaryTree.put failed: " & $exc.msg
-    inc i
+    # EIP-7002
+    for request in payload.withdrawal_requests:
+      try:
+        tr.put(rlp.encode(i.uint), rlp.encode(
+          toExecutionWithdrawalRequest(request)))
+      except RlpError as exc:
+        raiseAssert "HexaryTree.put failed: " & $exc.msg
+      inc i
 
-  # EIP-7251
-  for request in payload.consolidation_requests:
-    try:
-      tr.put(rlp.encode(i.uint), rlp.encode(
-        toExecutionConsolidationRequest(request)))
-    except RlpError as exc:
-      raiseAssert "HexaryTree.put failed: " & $exc.msg
-    inc i
+    # EIP-7251
+    for request in payload.consolidation_requests:
+      try:
+        tr.put(rlp.encode(i.uint), rlp.encode(
+          toExecutionConsolidationRequest(request)))
+      except RlpError as exc:
+        raiseAssert "HexaryTree.put failed: " & $exc.msg
+      inc i
 
-  tr.rootHash()
+    tr.rootHash()
 
 proc blockToBlockHeader*(blck: ForkyBeaconBlock): ExecutionBlockHeader =
-  template payload: auto = blck.body.execution_payload
+    template payload: auto = blck.body.execution_payload
 
-  static:  # `GasInt` is signed. We only use it for hashing.
-    doAssert sizeof(GasInt) == sizeof(payload.gas_limit)
-    doAssert sizeof(GasInt) == sizeof(payload.gas_used)
+    static:  # `GasInt` is signed. We only use it for hashing.
+      doAssert sizeof(GasInt) == sizeof(payload.gas_limit)
+      doAssert sizeof(GasInt) == sizeof(payload.gas_used)
 
-  let
-    txRoot = payload.computeTransactionsTrieRoot()
-    withdrawalsRoot =
-      when typeof(payload).kind >= ConsensusFork.Capella:
-        Opt.some payload.computeWithdrawalsTrieRoot()
-      else:
-        Opt.none(ExecutionHash256)
-    blobGasUsed =
-      when typeof(payload).kind >= ConsensusFork.Deneb:
-        Opt.some payload.blob_gas_used
-      else:
-        Opt.none(uint64)
-    excessBlobGas =
-      when typeof(payload).kind >= ConsensusFork.Deneb:
-        Opt.some payload.excess_blob_gas
-      else:
-        Opt.none(uint64)
-    parentBeaconBlockRoot =
-      when typeof(payload).kind >= ConsensusFork.Deneb:
-        Opt.some ExecutionHash256(data: blck.parent_root.data)
-      else:
-        Opt.none(ExecutionHash256)
-    requestsRoot =
-      when typeof(payload).kind >= ConsensusFork.Electra:
-        Opt.some payload.computeRequestsTrieRoot()
-      else:
-        Opt.none(ExecutionHash256)
+    let
+      txRoot = payload.computeTransactionsTrieRoot()
+      withdrawalsRoot =
+        when typeof(payload).kind >= ConsensusFork.Capella:
+          Opt.some payload.computeWithdrawalsTrieRoot()
+        else:
+          Opt.none(ExecutionHash256)
+      blobGasUsed =
+        when typeof(payload).kind >= ConsensusFork.Deneb:
+          Opt.some payload.blob_gas_used
+        else:
+          Opt.none(uint64)
+      excessBlobGas =
+        when typeof(payload).kind >= ConsensusFork.Deneb:
+          Opt.some payload.excess_blob_gas
+        else:
+          Opt.none(uint64)
+      parentBeaconBlockRoot =
+        when typeof(payload).kind >= ConsensusFork.Deneb:
+          Opt.some ExecutionHash256(data: blck.parent_root.data)
+        else:
+          Opt.none(ExecutionHash256)
+      requestsRoot =
+        when typeof(payload).kind >= ConsensusFork.Electra:
+          Opt.some payload.computeRequestsTrieRoot()
+        else:
+          Opt.none(ExecutionHash256)
 
-  ExecutionBlockHeader(
-    parentHash            : payload.parent_hash,
-    ommersHash            : EMPTY_UNCLE_HASH,
-    coinbase              : EthAddress payload.fee_recipient.data,
-    stateRoot             : payload.state_root,
-    txRoot                : txRoot,
-    receiptsRoot          : payload.receipts_root,
-    logsBloom             : payload.logs_bloom.data,
-    difficulty            : default(DifficultyInt),
-    number                : payload.block_number,
-    gasLimit              : payload.gas_limit,
-    gasUsed               : payload.gas_used,
-    timestamp             : EthTime(payload.timestamp),
-    extraData             : payload.extra_data.asSeq,
-    mixHash               : payload.prev_randao, # EIP-4399 `mixHash` -> `prevRandao`
-    nonce                 : default(BlockNonce),
-    baseFeePerGas         : Opt.some payload.base_fee_per_gas,
-    withdrawalsRoot       : withdrawalsRoot,
-    blobGasUsed           : blobGasUsed,           # EIP-4844
-    excessBlobGas         : excessBlobGas,         # EIP-4844
-    parentBeaconBlockRoot : parentBeaconBlockRoot, # EIP-4788
-    requestsRoot          : requestsRoot)          # EIP-7685
+    ExecutionBlockHeader(
+      parentHash            : payload.parent_hash,
+      ommersHash            : EMPTY_UNCLE_HASH,
+      coinbase              : EthAddress payload.fee_recipient.data,
+      stateRoot             : payload.state_root,
+      txRoot                : txRoot,
+      receiptsRoot          : payload.receipts_root,
+      logsBloom             : payload.logs_bloom.data,
+      difficulty            : default(DifficultyInt),
+      number                : payload.block_number,
+      gasLimit              : payload.gas_limit,
+      gasUsed               : payload.gas_used,
+      timestamp             : EthTime(payload.timestamp),
+      extraData             : payload.extra_data.asSeq,
+      mixHash               : payload.prev_randao, # EIP-4399 `mixHash` -> `prevRandao`
+      nonce                 : default(BlockNonce),
+      baseFeePerGas         : Opt.some payload.base_fee_per_gas,
+      withdrawalsRoot       : withdrawalsRoot,
+      blobGasUsed           : blobGasUsed,           # EIP-4844
+      excessBlobGas         : excessBlobGas,         # EIP-4844
+      parentBeaconBlockRoot : parentBeaconBlockRoot, # EIP-4788
+      requestsRoot          : requestsRoot)          # EIP-7685
 
 proc compute_execution_block_hash*(blck: ForkyBeaconBlock): Eth2Digest =
   rlpHash blockToBlockHeader(blck)

@@ -197,18 +197,7 @@ func asConsensusType*(rpcExecutionPayload: ExecutionPayloadV4):
     withdrawals: List[capella.Withdrawal, MAX_WITHDRAWALS_PER_PAYLOAD].init(
       mapIt(rpcExecutionPayload.withdrawals, it.asConsensusWithdrawal)),
     blob_gas_used: rpcExecutionPayload.blobGasUsed.uint64,
-    excess_blob_gas: rpcExecutionPayload.excessBlobGas.uint64,
-    deposit_requests:
-      List[electra.DepositRequest, MAX_DEPOSIT_REQUESTS_PER_PAYLOAD].init(
-        mapIt(rpcExecutionPayload.depositRequests, it.getDepositRequest)),
-    withdrawal_requests: List[electra.WithdrawalRequest,
-      MAX_WITHDRAWAL_REQUESTS_PER_PAYLOAD].init(
-        mapIt(rpcExecutionPayload.withdrawalRequests,
-          it.getWithdrawalRequest)),
-    consolidation_requests: List[electra.ConsolidationRequest,
-      Limit MAX_CONSOLIDATION_REQUESTS_PER_PAYLOAD].init(
-        mapIt(rpcExecutionPayload.consolidationRequests,
-          it.getConsolidationRequest)))
+    excess_blob_gas: rpcExecutionPayload.excessBlobGas.uint64)
 
 func asConsensusType*(payload: engine_api.GetPayloadV4Response):
     electra.ExecutionPayloadForSigning =
@@ -351,10 +340,10 @@ func asEngineExecutionPayload*(executionPayload: electra.ExecutionPayload):
     transactions: mapIt(executionPayload.transactions, it.getTypedTransaction),
     withdrawals: mapIt(executionPayload.withdrawals, it.asEngineWithdrawal),
     blobGasUsed: Quantity(executionPayload.blob_gas_used),
-    excessBlobGas: Quantity(executionPayload.excess_blob_gas),
-    depositRequests: mapIt(
-      executionPayload.deposit_requests, it.getDepositRequest),
-    withdrawalRequests: mapIt(
-      executionPayload.withdrawal_requests, it.getWithdrawalRequest),
-    consolidationRequests: mapIt(
-      executionPayload.consolidation_requests, it.getConsolidationRequest))
+    excessBlobGas: Quantity(executionPayload.excess_blob_gas))
+    #depositRequests: mapIt(
+    #  executionPayload.deposit_requests, it.getDepositRequest),
+    #withdrawalRequests: mapIt(
+    #  executionPayload.withdrawal_requests, it.getWithdrawalRequest),
+    #consolidationRequests: mapIt(
+    #  executionPayload.consolidation_requests, it.getConsolidationRequest))

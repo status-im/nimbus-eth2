@@ -2038,10 +2038,7 @@ func upgrade_to_electra*(
       transactions_root: pre.latest_execution_payload_header.transactions_root,
       withdrawals_root: pre.latest_execution_payload_header.withdrawals_root,
       blob_gas_used: 0,
-      excess_blob_gas: 0,
-      deposit_requests_root: ZERO_HASH,  # [New in Electra:EIP6110]
-      withdrawal_requests_root: ZERO_HASH,  # [New in Electra:EIP7002],
-      consolidation_requests_root: ZERO_HASH  # [New in Electra:EIP7251]
+      excess_blob_gas: 0
     )
 
   var max_exit_epoch = FAR_FUTURE_EPOCH

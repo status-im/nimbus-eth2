@@ -1019,6 +1019,7 @@ func get_adjusted_total_slashing_balance*(
 # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.7/specs/phase0/beacon-chain.md#slashings
 # https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.5/specs/altair/beacon-chain.md#slashings
 # https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.5/specs/bellatrix/beacon-chain.md#slashings
+# https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.6/specs/electra/beacon-chain.md#modified-process_slashings
 func slashing_penalty_applies*(validator: Validator, epoch: Epoch): bool =
   validator.slashed and
   epoch + EPOCHS_PER_SLASHINGS_VECTOR div 2 == validator.withdrawable_epoch
@@ -1026,18 +1027,32 @@ func slashing_penalty_applies*(validator: Validator, epoch: Epoch): bool =
 # https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.5/specs/phase0/beacon-chain.md#slashings
 # https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.5/specs/altair/beacon-chain.md#slashings
 # https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.5/specs/bellatrix/beacon-chain.md#slashings
-func get_slashing_penalty*(validator: Validator,
-                          adjusted_total_slashing_balance,
-                          total_balance: Gwei): Gwei =
+# https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.6/specs/electra/beacon-chain.md#modified-process_slashings
+func get_slashing_penalty*(
+    consensusFork: static ConsensusFork, validator: Validator,
+    adjusted_total_slashing_balance, total_balance: Gwei): Gwei =
   # Factored out from penalty numerator to avoid uint64 overflow
   const increment = EFFECTIVE_BALANCE_INCREMENT.Gwei
-  let penalty_numerator = validator.effective_balance div increment *
-                          adjusted_total_slashing_balance
-  penalty_numerator div total_balance * increment
+
+  when consensusFork <= ConsensusFork.Deneb:
+    let penalty_numerator = validator.effective_balance div increment *
+                            adjusted_total_slashing_balance
+    penalty_numerator div total_balance * increment
+  elif consensusFork == ConsensusFork.Electra:
+    let
+      effective_balance_increments = validator.effective_balance div increment
+      penalty_per_effective_balance_increment =
+        adjusted_total_slashing_balance div (total_balance div increment)
+
+    # [Modified in Electra:EIP7251]
+    penalty_per_effective_balance_increment * effective_balance_increments
+  else:
+    static: doAssert false
 
 # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.7/specs/phase0/beacon-chain.md#slashings
 # https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.5/specs/altair/beacon-chain.md#slashings
 # https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.5/specs/bellatrix/beacon-chain.md#slashings
+# https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.6/specs/electra/beacon-chain.md#modified-process_slashings
 func get_slashing(
     state: ForkyBeaconState, total_balance: Gwei, vidx: ValidatorIndex): Gwei =
   # For efficiency reasons, it doesn't make sense to have process_slashings use
@@ -1050,7 +1065,8 @@ func get_slashing(
   let validator = unsafeAddr state.validators.item(vidx)
   if slashing_penalty_applies(validator[], epoch):
     get_slashing_penalty(
-      validator[], adjusted_total_slashing_balance, total_balance)
+      typeof(state).kind, validator[], adjusted_total_slashing_balance,
+      total_balance)
   else:
     0.Gwei
 
@@ -1064,7 +1080,8 @@ func process_slashings*(state: var ForkyBeaconState, total_balance: Gwei) =
     let validator = unsafeAddr state.validators.item(vidx)
     if slashing_penalty_applies(validator[], epoch):
       let penalty = get_slashing_penalty(
-        validator[], adjusted_total_slashing_balance, total_balance)
+        typeof(state).kind, validator[], adjusted_total_slashing_balance,
+        total_balance)
       decrease_balance(state, vidx, penalty)
 
 # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.6/specs/phase0/beacon-chain.md#eth1-data-votes-updates
