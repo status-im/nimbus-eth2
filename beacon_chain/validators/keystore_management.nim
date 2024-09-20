@@ -659,7 +659,8 @@ proc queryValidatorsSource*(web3signerUrl: Web3SignerUrl):
 
   let
     httpFlags: HttpClientFlags = {}
-    prestoFlags = {RestClientFlag.CommaSeparatedArray}
+    prestoFlags = {RestClientFlag.CommaSeparatedArray,
+                   RestClientFlag.ResolveAlways}
     socketFlags = {SocketFlags.TcpNoDelay}
     client =
       block:
