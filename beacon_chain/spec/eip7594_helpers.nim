@@ -155,7 +155,7 @@ proc recover_matrix*(partial_matrix: seq[MatrixEntry],
 
   ok(extended_matrix)
 
-# https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.5/specs/_features/eip7594/peer-sampling.md#get_extended_sample_count
+# https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.6/specs/_features/eip7594/peer-sampling.md#get_extended_sample_count
 func get_extended_sample_count*(samples_per_slot: int,
                                 allowed_failures: int):
                                 int =

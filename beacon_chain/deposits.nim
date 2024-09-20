@@ -220,7 +220,7 @@ proc restValidatorExit(config: BeaconNodeConf) {.async.} =
            reason = exc.msg
     quit 1
 
-  # https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.5/specs/phase0/beacon-chain.md#voluntary-exits
+  # https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.6/specs/phase0/beacon-chain.md#voluntary-exits
   # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.0/specs/deneb/beacon-chain.md#modified-process_voluntary_exit
   let signingFork = try:
     let response = await client.getSpecVC()
