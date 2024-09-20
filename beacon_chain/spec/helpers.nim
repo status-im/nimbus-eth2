@@ -502,49 +502,48 @@ func toExecutionConsolidationRequest*(
 
 # https://eips.ethereum.org/EIPS/eip-7685
 proc computeRequestsTrieRoot(
-    payload: electra.ExecutionPayload): ExecutionHash256 =
-  when false:
-    if payload.deposit_requests.len == 0 and
-        payload.withdrawal_requests.len == 0 and
-        payload.consolidation_requests.len == 0:
-      return EMPTY_ROOT_HASH
+    requests: electra.ExecutionRequests): ExecutionHash256 =
+  if requests.deposits.len == 0 and
+      requests.withdrawals.len == 0 and
+      requests.consolidations.len == 0:
+    return EMPTY_ROOT_HASH
 
-    var
-      tr = initHexaryTrie(newMemoryDB())
-      i = 0'u64
+  var
+    tr = initHexaryTrie(newMemoryDB())
+    i = 0'u64
 
-    static:
-      doAssert DEPOSIT_REQUEST_TYPE < WITHDRAWAL_REQUEST_TYPE
-      doAssert WITHDRAWAL_REQUEST_TYPE < CONSOLIDATION_REQUEST_TYPE
+  static:
+    doAssert DEPOSIT_REQUEST_TYPE < WITHDRAWAL_REQUEST_TYPE
+    doAssert WITHDRAWAL_REQUEST_TYPE < CONSOLIDATION_REQUEST_TYPE
 
-    # EIP-6110
-    for request in payload.deposit_requests:
-      try:
-        tr.put(rlp.encode(i.uint), rlp.encode(
-          toExecutionDepositRequest(request)))
-      except RlpError as exc:
-        raiseAssert "HexaryTree.put failed: " & $exc.msg
-      inc i
+  # EIP-6110
+  for request in requests.deposits:
+    try:
+      tr.put(rlp.encode(i.uint), rlp.encode(
+        toExecutionDepositRequest(request)))
+    except RlpError as exc:
+      raiseAssert "HexaryTree.put failed: " & $exc.msg
+    inc i
 
-    # EIP-7002
-    for request in payload.withdrawal_requests:
-      try:
-        tr.put(rlp.encode(i.uint), rlp.encode(
-          toExecutionWithdrawalRequest(request)))
-      except RlpError as exc:
-        raiseAssert "HexaryTree.put failed: " & $exc.msg
-      inc i
+  # EIP-7002
+  for request in requests.withdrawals:
+    try:
+      tr.put(rlp.encode(i.uint), rlp.encode(
+        toExecutionWithdrawalRequest(request)))
+    except RlpError as exc:
+      raiseAssert "HexaryTree.put failed: " & $exc.msg
+    inc i
 
-    # EIP-7251
-    for request in payload.consolidation_requests:
-      try:
-        tr.put(rlp.encode(i.uint), rlp.encode(
-          toExecutionConsolidationRequest(request)))
-      except RlpError as exc:
-        raiseAssert "HexaryTree.put failed: " & $exc.msg
-      inc i
+  # EIP-7251
+  for request in requests.consolidations:
+    try:
+      tr.put(rlp.encode(i.uint), rlp.encode(
+        toExecutionConsolidationRequest(request)))
+    except RlpError as exc:
+      raiseAssert "HexaryTree.put failed: " & $exc.msg
+    inc i
 
-    tr.rootHash()
+  tr.rootHash()
 
 proc blockToBlockHeader*(blck: ForkyBeaconBlock): ExecutionBlockHeader =
   template payload: auto = blck.body.execution_payload
@@ -577,7 +576,7 @@ proc blockToBlockHeader*(blck: ForkyBeaconBlock): ExecutionBlockHeader =
         Opt.none(ExecutionHash256)
     requestsRoot =
       when typeof(payload).kind >= ConsensusFork.Electra:
-        Opt.some payload.computeRequestsTrieRoot()
+        Opt.some blck.body.execution_requests.computeRequestsTrieRoot()
       else:
         Opt.none(ExecutionHash256)
 
