@@ -145,5 +145,6 @@ func toSignedBlindedBeaconBlock*(blck: electra.SignedBeaconBlock):
           blob_gas_used: blck.message.body.execution_payload.blob_gas_used,
           excess_blob_gas: blck.message.body.execution_payload.excess_blob_gas),
         bls_to_execution_changes: blck.message.body.bls_to_execution_changes,
-        blob_kzg_commitments: blck.message.body.blob_kzg_commitments)),
+        blob_kzg_commitments: blck.message.body.blob_kzg_commitments,
+        execution_requests: blck.message.body.execution_requests)),
     signature: blck.signature)
