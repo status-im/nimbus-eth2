@@ -164,7 +164,7 @@ proc recover_matrix*(partial_matrix: seq[MatrixEntry],
 
   ok(extended_matrix)
 
-# https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.6/specs/_features/eip7594/peer-sampling.md#get_extended_sample_count
+# https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.6/specs/_features/eip7594/das-core.md#get_data_column_sidecars
 proc get_data_column_sidecars*(signed_beacon_block: electra.TrustedSignedBeaconBlock,
                                cellsAndProofs: seq[CellsAndProofs]):
                                seq[DataColumnSidecar] =
@@ -177,8 +177,8 @@ proc get_data_column_sidecars*(signed_beacon_block: electra.TrustedSignedBeaconB
   ## during practice we would be computing cells and proofs from 
   ## data columns only after retrieving them from the database, where
   ## they we were already verified and persisted.
+  template blck(): auto = signed_beacon_block.message
   let
-    blck = signed_beacon_block.message
     beacon_block_header =
       BeaconBlockHeader(
         slot: blck.slot,
@@ -207,8 +207,8 @@ proc get_data_column_sidecars*(signed_beacon_block: electra.TrustedSignedBeaconB
     var sidecar = DataColumnSidecar(
       index: ColumnIndex(column_index),
       column: DataColumn.init(column_cells),
-      kzgCommitments: blck.body.blob_kzg_commitments,
-      kzgProofs: KzgProofs.init(column_proofs),
+      kzg_commitments: blck.body.blob_kzg_commitments,
+      kzg_proofs: KzgProofs.init(column_proofs),
       signed_block_header: signed_beacon_block_header)
     blck.body.build_proof(
       KZG_COMMITMENTS_INCLUSION_PROOF_DEPTH_GINDEX.GeneralizedIndex,
@@ -231,8 +231,8 @@ proc get_data_column_sidecars*(signed_beacon_block: electra.SignedBeaconBlock,
   ## before publishing them, all of this happens during block 
   ## production, hence the blocks are yet untrusted and have not 
   ## yet been verified.
+  template blck(): auto = signed_beacon_block.message
   let
-    blck = signed_beacon_block.message
     beacon_block_header =
       BeaconBlockHeader(
         slot: blck.slot,
@@ -249,8 +249,6 @@ proc get_data_column_sidecars*(signed_beacon_block: electra.SignedBeaconBlock,
   var
     sidecars =
       newSeqOfCap[DataColumnSidecar](CELLS_PER_EXT_BLOB)
-
-  var
     cells = newSeq[CellBytes](blobs.len)
     proofs = newSeq[ProofBytes](blobs.len)
 
@@ -274,8 +272,8 @@ proc get_data_column_sidecars*(signed_beacon_block: electra.SignedBeaconBlock,
     var sidecar = DataColumnSidecar(
       index: ColumnIndex(columnIndex),
       column: DataColumn.init(column),
-      kzgCommitments: blck.body.blob_kzg_commitments,
-      kzgProofs: KzgProofs.init(kzgProofOfColumn),
+      kzg_commitments: blck.body.blob_kzg_commitments,
+      kzg_proofs: KzgProofs.init(kzgProofOfColumn),
       signed_block_header: signed_beacon_block_header)
     blck.body.build_proof(
       KZG_COMMITMENTS_INCLUSION_PROOF_DEPTH_GINDEX.GeneralizedIndex,
