@@ -501,11 +501,11 @@ func toExecutionConsolidationRequest*(
     targetPubkey: request.target_pubkey.blob)
 
 # https://eips.ethereum.org/EIPS/eip-7685
-proc computeRequestsTrieRoot*(
-    payload: electra.ExecutionPayload): ExecutionHash256 =
-  if payload.deposit_requests.len == 0 and
-      payload.withdrawal_requests.len == 0 and
-      payload.consolidation_requests.len == 0:
+proc computeRequestsTrieRoot(
+    requests: electra.ExecutionRequests): ExecutionHash256 =
+  if requests.deposits.len == 0 and
+      requests.withdrawals.len == 0 and
+      requests.consolidations.len == 0:
     return EMPTY_ROOT_HASH
 
   var
@@ -517,7 +517,7 @@ proc computeRequestsTrieRoot*(
     doAssert WITHDRAWAL_REQUEST_TYPE < CONSOLIDATION_REQUEST_TYPE
 
   # EIP-6110
-  for request in payload.deposit_requests:
+  for request in requests.deposits:
     try:
       tr.put(rlp.encode(i.uint), rlp.encode(
         toExecutionDepositRequest(request)))
@@ -526,7 +526,7 @@ proc computeRequestsTrieRoot*(
     inc i
 
   # EIP-7002
-  for request in payload.withdrawal_requests:
+  for request in requests.withdrawals:
     try:
       tr.put(rlp.encode(i.uint), rlp.encode(
         toExecutionWithdrawalRequest(request)))
@@ -535,7 +535,7 @@ proc computeRequestsTrieRoot*(
     inc i
 
   # EIP-7251
-  for request in payload.consolidation_requests:
+  for request in requests.consolidations:
     try:
       tr.put(rlp.encode(i.uint), rlp.encode(
         toExecutionConsolidationRequest(request)))
@@ -576,7 +576,7 @@ proc blockToBlockHeader*(blck: ForkyBeaconBlock): ExecutionBlockHeader =
         Opt.none(ExecutionHash256)
     requestsRoot =
       when typeof(payload).kind >= ConsensusFork.Electra:
-        Opt.some payload.computeRequestsTrieRoot()
+        Opt.some blck.body.execution_requests.computeRequestsTrieRoot()
       else:
         Opt.none(ExecutionHash256)
 

@@ -1229,11 +1229,7 @@ func toElectraLightClientHeader(
       transactions_root: hash_tree_root(payload.transactions),
       withdrawals_root: hash_tree_root(payload.withdrawals),
       blob_gas_used: payload.blob_gas_used,
-      excess_blob_gas: payload.excess_blob_gas,
-      deposit_requests_root: hash_tree_root(payload.deposit_requests),
-      withdrawal_requests_root: hash_tree_root(payload.withdrawal_requests),
-      consolidation_requests_root:
-        hash_tree_root(payload.consolidation_requests)),
+      excess_blob_gas: payload.excess_blob_gas),
     execution_branch: blck.message.body.build_proof(
       capella.EXECUTION_PAYLOAD_GINDEX).get)
 

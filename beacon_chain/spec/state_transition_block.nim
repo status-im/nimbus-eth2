@@ -686,9 +686,9 @@ proc process_operations(
         default(ExitQueueInfo)  # not used
     bsv_use =
       when typeof(body).kind >= ConsensusFork.Electra:
-        body.deposits.len + body.execution_payload.deposit_requests.len +
-          body.execution_payload.withdrawal_requests.len +
-          body.execution_payload.consolidation_requests.len > 0
+        body.deposits.len + body.execution_requests.deposits.len +
+          body.execution_requests.withdrawals.len +
+          body.execution_requests.consolidations.len > 0
       else:
         body.deposits.len > 0
     bsv =
@@ -720,12 +720,12 @@ proc process_operations(
       ? process_bls_to_execution_change(cfg, state, op)
 
   when typeof(body).kind >= ConsensusFork.Electra:
-    for op in body.execution_payload.deposit_requests:
+    for op in body.execution_requests.deposits:
       ? process_deposit_request(cfg, state, bsv[], op, {})
-    for op in body.execution_payload.withdrawal_requests:
+    for op in body.execution_requests.withdrawals:
       # [New in Electra:EIP7002:7251]
       process_withdrawal_request(cfg, state, bsv[], op, cache)
-    for op in body.execution_payload.consolidation_requests:
+    for op in body.execution_requests.consolidations:
       # [New in Electra:EIP7251]
       process_consolidation_request(cfg, state, bsv[], op, cache)
 
@@ -1001,13 +1001,7 @@ proc process_execution_payload*(
     transactions_root: hash_tree_root(payload.transactions),
     withdrawals_root: hash_tree_root(payload.withdrawals),
     blob_gas_used: payload.blob_gas_used,
-    excess_blob_gas: payload.excess_blob_gas,
-    deposit_requests_root:
-      hash_tree_root(payload.deposit_requests),  # [New in Electra:EIP6110]
-    withdrawal_requests_root:
-      hash_tree_root(payload.withdrawal_requests),  # [New in Electra:EIP7002:EIP7251]
-    consolidation_requests_root:
-      hash_tree_root(payload.consolidation_requests))  # [New in Electra:EIP7251]
+    excess_blob_gas: payload.excess_blob_gas)
 
   ok()
 

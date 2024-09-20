@@ -2914,6 +2914,7 @@ OK: 24/24 Fail: 0/24 Skip: 0/24
 + [Valid]   EF - Electra - Operations - Withdrawal Request - activation_epoch_less_than_shar OK
 + [Valid]   EF - Electra - Operations - Withdrawal Request - basic_withdrawal_request        OK
 + [Valid]   EF - Electra - Operations - Withdrawal Request - basic_withdrawal_request_with_c OK
++ [Valid]   EF - Electra - Operations - Withdrawal Request - basic_withdrawal_request_with_f OK
 + [Valid]   EF - Electra - Operations - Withdrawal Request - incorrect_source_address        OK
 + [Valid]   EF - Electra - Operations - Withdrawal Request - incorrect_withdrawal_credential OK
 + [Valid]   EF - Electra - Operations - Withdrawal Request - insufficient_effective_balance  OK
@@ -2926,7 +2927,7 @@ OK: 24/24 Fail: 0/24 Skip: 0/24
 + [Valid]   EF - Electra - Operations - Withdrawal Request - partial_withdrawal_on_exit_init OK
 + [Valid]   EF - Electra - Operations - Withdrawal Request - pending_withdrawals_consume_all OK
 ```
-OK: 14/14 Fail: 0/14 Skip: 0/14
+OK: 15/15 Fail: 0/15 Skip: 0/15
 ## EF - Electra - Operations - Withdrawals  [Preset: mainnet]
 ```diff
 + [Invalid] EF - Electra - Operations - Withdrawals - invalid_a_lot_fully_withdrawable_too_f OK
@@ -3063,6 +3064,7 @@ OK: 34/34 Fail: 0/34 Skip: 0/34
 +   Testing    Eth1Data                                                                      OK
 +   Testing    ExecutionPayload                                                              OK
 +   Testing    ExecutionPayloadHeader                                                        OK
++   Testing    ExecutionRequests                                                             OK
 +   Testing    Fork                                                                          OK
 +   Testing    ForkData                                                                      OK
 +   Testing    HistoricalBatch                                                               OK
@@ -3096,7 +3098,7 @@ OK: 34/34 Fail: 0/34 Skip: 0/34
 +   Testing    Withdrawal                                                                    OK
 +   Testing    WithdrawalRequest                                                             OK
 ```
-OK: 54/54 Fail: 0/54 Skip: 0/54
+OK: 55/55 Fail: 0/55 Skip: 0/55
 ## EF - Electra - Sanity - Blocks  [Preset: mainnet]
 ```diff
 + [Invalid] EF - Electra - Sanity - Blocks - deposit_transition__invalid_eth1_deposits_overl OK
@@ -3761,4 +3763,4 @@ OK: 69/88 Fail: 0/88 Skip: 19/88
 OK: 3/3 Fail: 0/3 Skip: 0/3
 
 ---TOTAL---
-OK: 3035/3055 Fail: 0/3055 Skip: 20/3055
+OK: 3037/3057 Fail: 0/3057 Skip: 20/3057

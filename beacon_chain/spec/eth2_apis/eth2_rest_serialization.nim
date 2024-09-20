@@ -68,6 +68,7 @@ RestJson.useDefaultSerializationFor(
   EmptyBody,
   Eth1Data,
   EventBeaconBlockObject,
+  ExecutionRequests,
   Fork,
   GetBlockAttestationsResponse,
   GetBlockHeaderResponse,
