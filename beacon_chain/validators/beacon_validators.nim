@@ -1718,11 +1718,16 @@ proc registerValidatorsPerBuilder(
     BUILDER_VALIDATOR_REGISTRATION_DELAY_TOLERANCE = 6.seconds
 
   let payloadBuilderClient =
-      RestClientRef.new(payloadBuilderAddress).valueOr:
-    debug "Unable to initialize payload builder client while registering validators",
-      payloadBuilderAddress, epoch,
-      err = error
-    return
+    block:
+      let
+        flags = {RestClientFlag.CommaSeparatedArray,
+                 RestClientFlag.ResolveAlways}
+        socketFlags = {SocketFlags.TcpNoDelay}
+      RestClientRef.new(payloadBuilderAddress, flags = flags,
+                        socketFlags = socketFlags).valueOr:
+        debug "Unable to initialize payload builder client while registering validators",
+          payloadBuilderAddress, epoch, reason = error
+        return
 
   if payloadBuilderClient.isNil:
     debug "registerValidatorsPerBuilder: got nil payload builder REST client reference",
