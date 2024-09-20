@@ -943,7 +943,7 @@ proc sendNewPayload*(
   let
     startTime = Moment.now()
     deadline = sleepAsync(NEWPAYLOAD_TIMEOUT)
-    payload = blck.body.execution_payload.asEngineExecutionPayload
+    payload = blck.body.asEngineExecutionPayload
   var
     responseProcessor = ELConsensusViolationDetector.init()
 
