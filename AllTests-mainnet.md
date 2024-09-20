@@ -551,6 +551,14 @@ OK: 2/2 Fail: 0/2 Skip: 0/2
 + URL parsing                                                                                OK
 ```
 OK: 5/5 Fail: 0/5 Skip: 0/5
+## Engine API conversions
+```diff
++ Roundtrip engine RPC V1 and bellatrix ExecutionPayload representations                     OK
++ Roundtrip engine RPC V2 and capella ExecutionPayload representations                       OK
++ Roundtrip engine RPC V3 and deneb ExecutionPayload representations                         OK
++ Roundtrip engine RPC V4 and electra ExecutionPayload representations                       OK
+```
+OK: 4/4 Fail: 0/4 Skip: 0/4
 ## Eth1 monitor
 ```diff
 + Deposits chain                                                                             OK
@@ -1117,4 +1125,4 @@ OK: 2/2 Fail: 0/2 Skip: 0/2
 OK: 9/9 Fail: 0/9 Skip: 0/9
 
 ---TOTAL---
-OK: 758/763 Fail: 0/763 Skip: 5/763
+OK: 762/767 Fail: 0/767 Skip: 5/767
