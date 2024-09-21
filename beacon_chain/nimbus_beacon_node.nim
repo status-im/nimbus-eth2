@@ -1559,15 +1559,14 @@ proc reconstructAndSendDataColumns*(node: BeaconNode) {.async.} =
   let blck = getForkedBlock(db, root).valueOr: return
   withBlck(blck):
     when typeof(forkyBlck).kind >= ConsensusFork.Deneb:
-      let data_column_sidecars = await node.tryReconstructingDataColumns(forkyBlck)
-      if not data_column_sidecars.isOk():
-        return
-      notice "Data Column Reconstructed and Saved Successfully"
       if node.config.subscribeAllSubnets:
+        let data_column_sidecars = await node.tryReconstructingDataColumns(forkyBlck)
+        if not data_column_sidecars.isOk():
+          return
+        notice "Data Column Reconstructed and Saved Successfully"
         notice "Attempting to publish reconstructed columns"
         let dc = data_column_sidecars.get
         var
-          worker_count = len(dc)
           das_workers = newSeq[Future[SendResult]](dc.len)
         for i in 0..<dc.lenu64:
           let subnet_id = compute_subnet_for_data_column_sidecar(dc[i].index)
