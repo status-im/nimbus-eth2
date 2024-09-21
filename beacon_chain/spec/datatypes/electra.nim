@@ -53,7 +53,7 @@ const
   NEXT_SYNC_COMMITTEE_GINDEX_ELECTRA* = 87.GeneralizedIndex
 
 type
-  # https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.5/specs/electra/beacon-chain.md#depositrequest
+  # https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.6/specs/electra/beacon-chain.md#depositrequest
   DepositRequest* = object
     pubkey*: ValidatorPubKey
     withdrawal_credentials*: Eth2Digest
@@ -152,7 +152,7 @@ type
     index*: uint64
     amount*: Gwei
 
-  # https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.2/specs/electra/beacon-chain.md#pendingpartialwithdrawal
+  # https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.6/specs/electra/beacon-chain.md#pendingpartialwithdrawal
   PendingPartialWithdrawal* = object
     index*: uint64
     amount*: Gwei
@@ -164,7 +164,7 @@ type
     validator_pubkey*: ValidatorPubKey
     amount*: Gwei
 
-  # https://github.com/ethereum/consensus-specs/blob/82133085a1295e93394ebdf71df8f2f6e0962588/specs/electra/beacon-chain.md#pendingconsolidation
+  # https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.6/specs/electra/beacon-chain.md#pendingconsolidation
   PendingConsolidation* = object
     source_index*: uint64
     target_index*: uint64
@@ -595,7 +595,7 @@ type
 
   AttestationCommitteeBits* = BitArray[MAX_COMMITTEES_PER_SLOT.int]
 
-  # https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.3/specs/electra/beacon-chain.md#attestation
+  # https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.6/specs/electra/beacon-chain.md#attestation
   Attestation* = object
     aggregation_bits*: ElectraCommitteeValidatorsBits
     data*: AttestationData

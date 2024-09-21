@@ -271,7 +271,7 @@ void ETHBeaconClockDestroy(ETHBeaconClock *beaconClock);
  * @return Slot number for the current wall clock time - If genesis has occurred.
  * @return `0` - If genesis is still pending.
  *
- * @see https://github.com/ethereum/consensus-specs/blob/v1.4.0/specs/phase0/beacon-chain.md#custom-types
+ * @see https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.6/specs/phase0/beacon-chain.md#custom-types
  */
 ETH_RESULT_USE_CHECK
 int ETHBeaconClockGetSlot(const ETHBeaconClock *beaconClock);

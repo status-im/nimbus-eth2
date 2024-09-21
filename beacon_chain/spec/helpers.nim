@@ -192,7 +192,7 @@ func compute_signing_root*(ssz_object: auto, domain: Eth2Domain): Eth2Digest =
   )
   hash_tree_root(domain_wrapped_object)
 
-# https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.7/specs/phase0/beacon-chain.md#get_seed
+# https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.6/specs/phase0/beacon-chain.md#get_seed
 func get_seed*(
     state: ForkyBeaconState, epoch: Epoch, domain_type: DomainType,
     mix: Eth2Digest): Eth2Digest =
@@ -221,7 +221,7 @@ func has_flag*(flags: ParticipationFlags, flag_index: TimelyFlag): bool =
   let flag = ParticipationFlags(1'u8 shl ord(flag_index))
   (flags and flag) == flag
 
-# https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.4/specs/deneb/p2p-interface.md#check_blob_sidecar_inclusion_proof
+# https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.6/specs/deneb/p2p-interface.md#verify_blob_sidecar_inclusion_proof
 func verify_blob_sidecar_inclusion_proof*(
     blob_sidecar: BlobSidecar): Result[void, string] =
   let gindex = kzg_commitment_inclusion_proof_gindex(blob_sidecar.index)
