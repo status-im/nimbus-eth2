@@ -122,7 +122,7 @@ proc publishBlockV3(vc: ValidatorClientRef, currentSlot, slot: Slot,
   let
     maybeBlock =
       try:
-        await vc.produceBlockV3(slot, randao_reveal, graffiti,
+        await vc.produceBlockV3(slot, randaoReveal, graffiti,
                                 vc.config.builderBoostFactor,
                                 ApiStrategyKind.Best)
       except ValidatorApiError as exc:

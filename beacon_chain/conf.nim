@@ -22,7 +22,7 @@ import
   eth/p2p/discoveryv5/enr,
   json_serialization, web3/[primitives, confutils_defs],
   chronos/transports/common,
-  kzg4844/kzg_ex,
+  kzg4844/kzg,
   ./spec/[engine_authentication, keystore, network, crypto],
   ./spec/datatypes/base,
   ./networking/network_metadata,
@@ -1500,11 +1500,11 @@ proc loadKzgTrustedSetup*(): Result[void, string] =
       vendorDir & "/nim-kzg4844/kzg4844/csources/src/trusted_setup.txt")
 
   static: doAssert const_preset in ["mainnet", "gnosis", "minimal"]
-  Kzg.loadTrustedSetupFromString(trustedSetup)
+  loadTrustedSetupFromString(trustedSetup, 0)
 
 proc loadKzgTrustedSetup*(trustedSetupPath: string): Result[void, string] =
   try:
-    Kzg.loadTrustedSetupFromString(readFile(trustedSetupPath))
+    loadTrustedSetupFromString(readFile(trustedSetupPath), 0)
   except IOError as err:
     err(err.msg)
 

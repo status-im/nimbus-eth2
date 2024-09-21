@@ -104,7 +104,7 @@ type LightClientConf* = object
     hidden
     desc: "Enable the Yamux multiplexer"
     defaultValue: false
-    name: "enable-yamux" .}: bool
+    name: "debug-enable-yamux" .}: bool
 
   agentString* {.
     defaultValue: "nimbus",

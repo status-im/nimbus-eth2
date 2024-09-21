@@ -560,8 +560,7 @@ proc new*(T: type BeaconChainDB,
   static: doAssert LightClientDataFork.high == LightClientDataFork.Electra
 
   var blobs: array[BlobFork, KvStoreRef]
-  if cfg.DENEB_FORK_EPOCH != FAR_FUTURE_EPOCH:
-    blobs[BlobFork.Deneb] = kvStore db.openKvStore("deneb_blobs").expectDb()
+  blobs[BlobFork.Deneb] = kvStore db.openKvStore("deneb_blobs").expectDb()
   if cfg.ELECTRA_FORK_EPOCH != FAR_FUTURE_EPOCH:
     blobs[BlobFork.Electra] = kvStore db.openKvStore("electra_blobs").expectDb()
   static: doAssert BlobFork.high == BlobFork.Electra

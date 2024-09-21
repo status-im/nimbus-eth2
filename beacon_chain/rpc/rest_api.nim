@@ -19,10 +19,10 @@ import
     rest_utils,
     rest_beacon_api, rest_builder_api, rest_config_api, rest_debug_api,
     rest_event_api, rest_key_management_api, rest_light_client_api,
-    rest_nimbus_api, rest_node_api, rest_validator_api]
+    rest_nimbus_api, rest_node_api, rest_validator_api, rest_rewards_api]
 
 export
   rest_utils,
   rest_beacon_api, rest_builder_api, rest_config_api, rest_debug_api,
   rest_event_api, rest_key_management_api, rest_light_client_api,
-  rest_nimbus_api, rest_node_api, rest_validator_api
+  rest_nimbus_api, rest_node_api, rest_validator_api, rest_rewards_api

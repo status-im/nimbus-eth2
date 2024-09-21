@@ -269,7 +269,8 @@ proc routeAttestation*(
     attestation, subnet_id, checkSignature = true, checkValidator = true)
 
 proc routeSignedAggregateAndProof*(
-    router: ref MessageRouter, proof: phase0.SignedAggregateAndProof,
+    router: ref MessageRouter,
+    proof: phase0.SignedAggregateAndProof | electra.SignedAggregateAndProof,
     checkSignature = true):
     Future[SendResult] {.async: (raises: [CancelledError]).} =
   ## Validate and broadcast aggregate
