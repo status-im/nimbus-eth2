@@ -1161,7 +1161,7 @@ proc addDenebMessageHandlers(
   for cs in custody_subnets.get:
     debugEcho cs
 
-  for i in 0'u64 ..< targetSubnets:
+  for i in 0'u64 ..< DATA_COLUMN_SIDECAR_SUBNET_COUNT:
     if i in custody_subnets.get:
       let topic = getDataColumnSidecarTopic(forkDigest, i)
       debugEcho "Topic"
