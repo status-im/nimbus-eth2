@@ -1534,9 +1534,7 @@ proc tryReconstructingDataColumns* (self: BeaconNode,
   # storedColumn number is less than the NUMBER_OF_COLUMNS
   # then reconstruction is not possible, and if all the data columns
   # are already stored then we do not need to reconstruct at all
-  if storedColumns.len < NUMBER_OF_COLUMNS div 2 or storedColumns.len == NUMBER_OF_COLUMNS:
-    ok(finalisedDataColumns)
-  else:
+  if not storedColumns.len < NUMBER_OF_COLUMNS div 2 or storedColumns.len != NUMBER_OF_COLUMNS:
     # Recover blobs from saved data column sidecars
     let recovered_cps = recover_cells_and_proofs(data_column_sidecars, storedColumns.len, signed_block)
     if not recovered_cps.isOk:
@@ -1551,7 +1549,7 @@ proc tryReconstructingDataColumns* (self: BeaconNode,
 
       finalisedDataColumns.add(data_column)
       db.putDataColumnSidecar(data_column)
-    ok(finalisedDataColumns)
+  ok(finalisedDataColumns)
 
 proc reconstructAndSendDataColumns*(node: BeaconNode) {.async.} =
   let
@@ -1570,9 +1568,9 @@ proc reconstructAndSendDataColumns*(node: BeaconNode) {.async.} =
         let dc = data_column_sidecars.get
         var
           worker_count = len(dc)
-          das_workers = newSeq[Future[SendResult]](worker_count)
+          das_workers = newSeq[Future[SendResult]](dc.len)
         for i in 0..<dc.lenu64:
-          let subnet_id = compute_subnet_for_data_column_sidecar(i)
+          let subnet_id = compute_subnet_for_data_column_sidecar(dc[i].index)
           das_workers[i] =
               node.network.broadcastDataColumnSidecar(subnet_id, dc[i])
         let allres = await allFinished(das_workers)
