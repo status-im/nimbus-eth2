@@ -9,7 +9,7 @@
 
 import
   std/[sequtils],
-  "."/[altair, base, deneb], 
+  "."/[altair, base, deneb],
   kzg4844/[kzg, kzg_abi]
 
 from std/strutils import join
@@ -30,7 +30,7 @@ const
   KZG_COMMITMENTS_INCLUSION_PROOF_DEPTH* = 4
 
 type
-  # https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.5/specs/_features/eip7594/polynomial-commitments-sampling.md#custom-types 
+  # https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.6/specs/_features/eip7594/polynomial-commitments-sampling.md#custom-types
   BLSFieldElement* = KzgBytes32
   G2Point* = array[96, byte]
   PolynomialCoeff* = List[BLSFieldElement, FIELD_ELEMENTS_PER_EXT_BLOB]
@@ -76,13 +76,13 @@ type
     block_root*: Eth2Digest
     index*: ColumnIndex
 
-  # https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.5/specs/_features/eip7594/das-core.md#matrixentry
+  # https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.6/specs/_features/eip7594/das-core.md#matrixentry
   MatrixEntry* = object
     cell*: Cell
     kzg_proof*: KzgProof
     column_index*: ColumnIndex
     row_index*: RowIndex
-  
+
   # Not in spec, defined in order to compute custody subnets
   CscBits* = BitArray[DATA_COLUMN_SIDECAR_SUBNET_COUNT]
 
@@ -93,7 +93,7 @@ type
     seq_number*: uint64
     attnets*: AttnetBits
     syncnets*: SyncnetBits
-    custody_subnet_count*: CscCount 
+    custody_subnet_count*: CscCount
 
 func shortLog*(v: DataColumnSidecar): auto =
   (
