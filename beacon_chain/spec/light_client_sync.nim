@@ -196,7 +196,7 @@ func apply_light_client_update(
     didProgress = true
   didProgress
 
-# https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.5/specs/altair/light-client/sync-protocol.md#process_light_client_store_force_update
+# https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.6/specs/altair/light-client/sync-protocol.md#process_light_client_store_force_update
 type
   ForceUpdateResult* = enum
     NoUpdate,

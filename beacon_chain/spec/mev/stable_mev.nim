@@ -35,3 +35,4 @@ type
     execution_payload_header*: Opt[StableExecutionPayloadHeader]
     bls_to_execution_changes*: Opt[SignedBLSToExecutionChangeList]
     blob_kzg_commitments*: Opt[KzgCommitments]
+    execution_requests*: Opt[StableExecutionRequests]

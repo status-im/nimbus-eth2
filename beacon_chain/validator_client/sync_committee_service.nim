@@ -150,7 +150,6 @@ proc serveContributionAndProof*(service: SyncCommitteeServiceRef,
     vc = service.client
     startTime = Moment.now()
     slot = proof.contribution.slot
-    validatorIdx = validator.index.get()
     genesisRoot = vc.beaconGenesis.genesis_validators_root
     fork = vc.forkAtEpoch(slot.epoch)
 

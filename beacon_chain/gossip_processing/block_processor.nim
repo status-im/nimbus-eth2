@@ -587,8 +587,8 @@ proc storeBlock(
   if NewPayloadStatus.noResponse == payloadStatus:
     # When the execution layer is not available to verify the payload, we do the
     # required checks on the CL instead and proceed as if the EL was syncing
-    # https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.5/specs/bellatrix/beacon-chain.md#verify_and_notify_new_payload
-    # https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.5/specs/deneb/beacon-chain.md#modified-verify_and_notify_new_payload
+    # https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.6/specs/bellatrix/beacon-chain.md#verify_and_notify_new_payload
+    # https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.6/specs/deneb/beacon-chain.md#modified-verify_and_notify_new_payload
     when typeof(signedBlock).kind >= ConsensusFork.Bellatrix:
       if signedBlock.message.is_execution_block:
         template payload(): auto = signedBlock.message.body.execution_payload
@@ -898,7 +898,7 @@ proc processBlock(
     # - MUST NOT optimistically import the block.
     # - MUST NOT apply the block to the fork choice store.
     # - MAY queue the block for later processing.
-    # https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.5/sync/optimistic.md#execution-engine-errors
+    # https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.6/sync/optimistic.md#execution-engine-errors
     await sleepAsync(chronos.seconds(1))
     self[].enqueueBlock(
       entry.src, entry.blck, entry.blobs, entry.resfut, entry.maybeFinalized,
