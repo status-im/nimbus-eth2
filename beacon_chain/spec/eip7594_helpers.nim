@@ -278,8 +278,8 @@ proc get_data_column_sidecars*(signed_block: deneb.TrustedSignedBeaconBlock |
     var sidecar = DataColumnSidecar(
       index: ColumnIndex(column_index),
       column: column_cells,
-      kzgCommitments: blck.body.blob_kzg_commitments,
-      kzgProofs: column_proofs,
+      kzg_commitments: blck.body.blob_kzg_commitments,
+      kzg_proofs: column_proofs,
       signed_block_header: signed_beacon_block_header)
     blck.body.build_proof(
       27.GeneralizedIndex,
@@ -331,8 +331,8 @@ proc get_data_column_sidecars*(signed_block: deneb.SignedBeaconBlock |
     var sidecar = DataColumnSidecar(
       index: ColumnIndex(columnIndex),
       column: DataColumn(column),
-      kzgCommitments: blck.body.blob_kzg_commitments,
-      kzgProofs: KzgProofs(kzgProofOfColumn),
+      kzg_commitments: blck.body.blob_kzg_commitments,
+      kzg_proofs: KzgProofs(kzgProofOfColumn),
       signed_block_header: signed_beacon_block_header)
     blck.body.build_proof(
       27.GeneralizedIndex,
