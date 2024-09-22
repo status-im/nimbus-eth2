@@ -269,55 +269,47 @@ proc fetchBlobsFromNetwork(self: RequestManager,
     if not(isNil(peer)):
       self.network.peerPool.release(peer)
 
-proc constructValidCustodyPeers(rman: RequestManager,
-                                peers: openArray[Peer]):
-                                seq[Peer] =
-  let localCustodySubnetCount =
-    if rman.supernode:
-      DATA_COLUMN_SIDECAR_SUBNET_COUNT.uint64
-    else:
-      CUSTODY_REQUIREMENT
-
-  # Fetching the local cusotrdy columns
-  let
-    localNodeId = rman.network.nodeId
-    localCustodyColumns =
-      localNodeId.get_custody_columns(max(SAMPLES_PER_SLOT.uint64,
-                                          localCustodySubnetCount))
+proc checkPeerCustody*(rman: RequestManager,
+                       peer: Peer):
+                       bool =
+  ## Returns true if the peer custodies atleast
+  ## ONE of the common custody columns, straight 
+  ## away returns true if the peer is a supernode.
+  if rman.supernode:
+    if peer.lookupCscFromPeer() == DATA_COLUMN_SIDECAR_SUBNET_COUNT.uint64:
+      return true
   
-  var validPeers: seq[Peer]
+  else:
+    if peer.lookupCscFromPeer() == DATA_COLUMN_SIDECAR_SUBNET_COUNT.uint64:
+      return true
 
-  for peer in peers:
-    # Get the custody subnet count of the remote peer
-    let remoteCustodySubnetCount =
-      peer.lookupCscFromPeer()
+    elif peer.lookupCscFromPeer() == CUSTODY_REQUIREMENT.uint64:
+      # Fetch local custody column
+      let localNodeId = rman.network.nodeId
+      let localCustodyColumns =
+        localNodeId.get_custody_columns(max(SAMPLES_PER_SLOT.uint64,
+                                            CUSTODY_REQUIREMENT.uint64))
+
+      # Fetch the remote custody count
+      let remoteCustodySubnetCount =
+        peer.lookupCscFromPeer()
+
+      # Extract remote peer's nodeID from peerID
+      # Fetch custody columns from remote peer
+      let
+        remoteNodeId = getNodeIdFromPeer(peer)
+        remoteCustodyColumns =
+          remoteNodeId.get_custody_columns(max(SAMPLES_PER_SLOT.uint64,
+                                              remoteCustodySubnetCount))
+
+      for local_column in localCustodyColumns:
+        if local_column in remoteCustodyColumns:
+          return true
+        else:
+          return false
     
-    # Extract remote peer's nodeID from peerID
-    # Fetch custody columns from remote peer
-    let
-      remoteNodeId = getNodeIdFromPeer(peer)
-      remoteCustodyColumns =
-        remoteNodeId.get_custody_columns(max(SAMPLES_PER_SLOT.uint64,
-                                             remoteCustodySubnetCount))
-
-    # If the remote peer custodies less columns than
-    # our local node
-    # We skip it
-    if remoteCustodyColumns.len < localCustodyColumns.len:
-      continue
-
-    # If the remote peer custodies all the possible columns
-    if remoteCustodyColumns.len == NUMBER_OF_COLUMNS:
-      validPeers.add(peer)
-    
-    # Filtering out the inval;id peers
-    for column in localCustodyColumns:
-      if column notin remoteCustodyColumns:
-        continue
-
-    # Otherwise add the peer to the set of valid peers
-    validPeers.add(peer)
-  validPeers
+    else:
+      return false
 
 proc fetchDataColumnsFromNetwork(rman: RequestManager,
                                  colIdList: seq[DataColumnIdentifier])
@@ -327,11 +319,7 @@ proc fetchDataColumnsFromNetwork(rman: RequestManager,
   try:
     peer = await rman.network.peerPool.acquire()
 
-    # Create a peer list, which shall be later trimmed off as to which
-    # of the peers have the valid custody columns
-    peers.add(peer)
-    let validPeers = rman.constructValidCustodyPeers(peers)
-    if peer in validPeers:
+    if rman.checkPeerCustody(peer):
       debug "Requesting data columns by root", peer = peer, columns = shortLog(colIdList),
                                                       peer_score = peer.getScore()
       let columns = await dataColumnSidecarsByRoot(peer, DataColumnIdentifierList colIdList)
@@ -355,7 +343,7 @@ proc fetchDataColumnsFromNetwork(rman: RequestManager,
               let col = o.unsafeGet()
               discard await rman.blockVerifier(col, false)
       else:
-        debug "Data columns by root request failed",
+        debug "Data columns by root request not done, peer doesn't have custody column",
           peer = peer, columns = shortLog(colIdList), err = columns.error()
         # peer.updateScore(PeerScoreNoValues)
 
