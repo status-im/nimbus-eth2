@@ -198,17 +198,17 @@ proc get_data_column_sidecars*(signed_beacon_block: electra.TrustedSignedBeaconB
 
   for column_index in 0..<NUMBER_OF_COLUMNS:
     var
-      column_cells: DataColumn
-      column_proofs: KzgProofs
+      column_cells: seq[KzgCell]
+      column_proofs: seq[KzgProof]
     for i in 0..<cellsAndProofs.len:
-      discard column_cells.add(cellsAndProofs[i].cells)
-      discard column_proofs.add(cellsAndProofs[i].proofs)
+      column_cells.add(cellsAndProofs[i].cells)
+      column_proofs.add(cellsAndProofs[i].proofs)
 
     var sidecar = DataColumnSidecar(
       index: ColumnIndex(column_index),
-      column: column_cells,
+      column: DataColumn.init(column_cells),
       kzgCommitments: blck.body.blob_kzg_commitments,
-      kzgProofs: column_proofs,
+      kzgProofs: KzgProofs.init(column_proofs),
       signed_block_header: signed_beacon_block_header)
     blck.body.build_proof(
       KZG_COMMITMENTS_INCLUSION_PROOF_DEPTH_GINDEX.GeneralizedIndex,
@@ -265,17 +265,17 @@ proc get_data_column_sidecars*(signed_beacon_block: electra.SignedBeaconBlock,
 
   for columnIndex in 0..<CELLS_PER_EXT_BLOB:
     var 
-      column: DataColumn
-      kzgProofOfColumn: KzgProofs
+      column: seq[KzgCell]
+      kzgProofOfColumn: seq[KzgProof]
     for rowIndex in 0..<blobs.len:
-      discard column.add(cells[rowIndex][columnIndex])
-      discard kzgProofOfColumn.add(proofs[rowIndex][columnIndex])
+      column.add(cells[rowIndex][columnIndex])
+      kzgProofOfColumn.add(proofs[rowIndex][columnIndex])
 
     var sidecar = DataColumnSidecar(
       index: ColumnIndex(columnIndex),
-      column: column,
+      column: DataColumn.init(column),
       kzgCommitments: blck.body.blob_kzg_commitments,
-      kzgProofs: kzgProofOfColumn,
+      kzgProofs: KzgProofs.init(kzgProofOfColumn),
       signed_block_header: signed_beacon_block_header)
     blck.body.build_proof(
       KZG_COMMITMENTS_INCLUSION_PROOF_DEPTH_GINDEX.GeneralizedIndex,
