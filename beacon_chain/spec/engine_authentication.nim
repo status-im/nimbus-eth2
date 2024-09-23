@@ -10,7 +10,7 @@
 import
   chronicles, confutils/defs,
   bearssl/rand,
-  nimcrypto/[hmac, utils],
+  nimcrypto/[hmac, utils, sha2],
   results,
   stew/byteutils
 
