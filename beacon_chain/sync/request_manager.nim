@@ -315,7 +315,6 @@ proc fetchDataColumnsFromNetwork(rman: RequestManager,
                                  colIdList: seq[DataColumnIdentifier])
                                  {.async: (raises: [CancelledError]).} =
   var peer: Peer
-  var peers: seq[Peer]
   try:
     peer = await rman.network.peerPool.acquire()
 

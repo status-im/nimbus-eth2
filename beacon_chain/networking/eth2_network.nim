@@ -1562,8 +1562,7 @@ proc runDiscoveryLoop(node: Eth2Node) {.async.} =
       (wantedAttnets, wantedSyncnets, wantedCscnets) = node.getLowSubnets(currentEpoch)
       wantedAttnetsCount = wantedAttnets.countOnes()
       wantedSyncnetsCount = wantedSyncnets.countOnes()
-      wantedCscnetsCount = wantedCscnets.countOnes().uint64()
-      wantedCscnetsBEBytes = wantedCscnetsCount.toBytesBE()
+      wantedCscnetsCount = wantedCscnets.countOnes().uint8()
       outgoingPeers = node.peerPool.lenCurrent({PeerType.Outgoing})
       targetOutgoingPeers = max(node.wantedPeers div 10, 3)
 
@@ -2635,10 +2634,10 @@ proc updateStabilitySubnetMetadata*(node: Eth2Node, attnets: AttnetBits) =
     debug "Stability subnets changed; updated ENR attnets", attnets
 
 proc loadCscnetsMetadata*(node: Eth2Node, cscnets: CscCount) =
-  if node.metadata.custody_subnet_count == cscnets:
+  if node.metadata.custody_subnet_count == cscnets.uint64:
     return
 
-  node.metadata.custody_subnet_count = cscnets
+  node.metadata.custody_subnet_count = cscnets.uint64
 
   let res = node.discovery.updateRecord({
     enrCustodySubnetCountField: SSZ.encode(node.metadata.custody_subnet_count)})
