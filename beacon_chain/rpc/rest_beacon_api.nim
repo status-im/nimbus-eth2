@@ -1346,18 +1346,21 @@ proc installBeaconApiHandlers*(router: var RestRouter, node: BeaconNode) =
       else:
         Opt.none(Slot)
 
-    withConsensusFork(
-        node.dag.cfg.consensusForkAtEpoch(vslot.get().epoch)):
-      if consensusFork < ConsensusFork.Electra:
-        var res: seq[phase0.Attestation]
-        for item in node.attestationPool[].attestations(vslot, vindex):
-          res.add(item)
-        return RestApiResponse.jsonResponseWVersion(res, consensusFork)
-      else:
-        var res: seq[electra.Attestation]
-        for item in node.attestationPool[].electraAttestations(vslot, vindex):
-          res.add(item)
-        return RestApiResponse.jsonResponseWVersion(res, consensusFork)
+    let consensusFork =
+      block:
+        if vslot.isNone():
+          node.dag.cfg.consensusForkAtEpoch(node.currentSlot().epoch())
+        else:
+          node.dag.cfg.consensusForkAtEpoch(vslot.get().epoch)
+
+    if consensusFork < ConsensusFork.Electra:
+      return RestApiResponse.jsonResponseWVersion(
+        toSeq(node.attestationPool[].attestations(vslot, vindex)),
+        consensusFork)
+    else:
+      return RestApiResponse.jsonResponseWVersion(
+        toSeq(node.attestationPool[].electraAttestations(vslot, vindex)),
+        consensusFork)
 
   # https://ethereum.github.io/beacon-APIs/#/Beacon/submitPoolAttestations
   router.api2(MethodPost, "/eth/v1/beacon/pool/attestations") do (
