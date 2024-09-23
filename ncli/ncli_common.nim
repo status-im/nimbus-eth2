@@ -39,7 +39,7 @@ type
     inactivity_penalty*: Gwei
     slashing_outcome*: int64
     deposits*: Gwei
-    inclusion_delay*: Option[uint64]
+    inclusion_delay*: Opt[uint64]
 
   ParticipationFlags* = object
     currentEpochParticipation: EpochParticipationFlags
@@ -399,13 +399,13 @@ func collectFromAttestations(
               forkyState.data, attestation.data, attestation.aggregation_bits,
               attestation.committee_bits, cache):
             rewardsAndPenalties[index].inclusion_delay =
-              some(inclusionDelay.uint64)
+              Opt.some(inclusionDelay.uint64)
         else:
           for index in get_attesting_indices(
               forkyState.data, attestation.data, attestation.aggregation_bits,
               cache):
             rewardsAndPenalties[index].inclusion_delay =
-              some(inclusionDelay.uint64)
+              Opt.some(inclusionDelay.uint64)
 
 from ".."/beacon_chain/validator_bucket_sort import
   findValidatorIndex, sortValidatorBuckets
@@ -433,7 +433,7 @@ proc collectFromDeposits(
       if index.isSome:
         try:
           rewardsAndPenalties[index.get()].deposits += amount
-        except KeyError as e:
+        except KeyError:
           raiseAssert "rewardsAndPenalties lacks expected index " & $index.get()
       elif verify_deposit_signature(cfg, deposit.data):
         pubkeyToIndex[pubkey] = ValidatorIndex(rewardsAndPenalties.len)
@@ -494,7 +494,7 @@ proc collectBlockRewardsAndPenalties*(
 func serializeToCsv*(rp: RewardsAndPenalties,
                      avgInclusionDelay = none(float)): string =
   for name, value in fieldPairs(rp):
-    if value isnot Option:
+    if value isnot Opt:
       result &= $value & ","
   if avgInclusionDelay.isSome:
     result.addFloat(avgInclusionDelay.get)

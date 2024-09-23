@@ -82,7 +82,7 @@ func `+=`(lhs: var RewardsAndPenalties, rhs: RewardsAndPenalties) =
       lhs.inclusion_delay.get += rhs.inclusion_delay.get
   else:
     if rhs.inclusion_delay.isSome:
-      lhs.inclusion_delay = some(rhs.inclusion_delay.get)
+      lhs.inclusion_delay = Opt.some(rhs.inclusion_delay.get)
 
 func average(rp: var RewardsAndPenalties,
              averageInclusionDelay: var Option[float],
@@ -206,7 +206,7 @@ when isMainModule:
       slashing_outcome: parseBiggestInt(csvRow[12]),
       deposits: parseBiggestUInt(csvRow[13]).Gwei)
     if csvRow[14].len > 0:
-      result.inclusion_delay = some(parseBiggestUInt(csvRow[14]))
+      result.inclusion_delay = Opt.some(parseBiggestUInt(csvRow[14]))
 
   proc aggregateEpochs(
       startEpoch, endEpoch: Epoch, resolution: uint,
