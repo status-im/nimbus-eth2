@@ -2640,7 +2640,7 @@ proc loadCscnetsMetadata*(node: Eth2Node, cscnets: CscCount) =
   node.metadata.custody_subnet_count = cscnets.uint64
 
   let res = node.discovery.updateRecord({
-    enrCustodySubnetCountField: SSZ.encode(node.metadata.custody_subnet_count)})
+    enrCustodySubnetCountField: SSZ.encode(cscnets)})
 
   if res.isErr:
     # This should not occur in this scenario as the private key would always
