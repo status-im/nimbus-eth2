@@ -291,8 +291,11 @@ proc initFullNode(
     node.eventBus.blsToExecQueue.emit(data)
   proc onProposerSlashingAdded(data: ProposerSlashing) =
     node.eventBus.propSlashQueue.emit(data)
-  proc onAttesterSlashingAdded(data: phase0.AttesterSlashing) =
+  proc onPhase0AttesterSlashingAdded(data: phase0.AttesterSlashing) =
     node.eventBus.attSlashQueue.emit(data)
+  proc onElectraAttesterSlashingAdded(data: electra.AttesterSlashing) =
+    debugComment "electra att slasher queue"
+    discard
   proc onBlobSidecarAdded(data: BlobSidecarInfoObject) =
     node.eventBus.blobSidecarQueue.emit(data)
   proc onBlockAdded(data: ForkedTrustedSignedBeaconBlock) =
@@ -392,7 +395,8 @@ proc initFullNode(
       LightClientPool())
     validatorChangePool = newClone(ValidatorChangePool.init(
       dag, attestationPool, onVoluntaryExitAdded, onBLSToExecutionChangeAdded,
-      onProposerSlashingAdded, onAttesterSlashingAdded))
+      onProposerSlashingAdded, onPhase0AttesterSlashingAdded,
+      onElectraAttesterSlashingAdded))
     blobQuarantine = newClone(BlobQuarantine.init(onBlobSidecarAdded))
     consensusManager = ConsensusManager.new(
       dag, attestationPool, quarantine, node.elManager,

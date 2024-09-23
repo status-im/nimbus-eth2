@@ -375,7 +375,7 @@ func partialBeaconBlock*(
       eth1_data: eth1_data,
       graffiti: graffiti,
       proposer_slashings: validator_changes.proposer_slashings,
-      attester_slashings: validator_changes.attester_slashings,
+      attester_slashings: validator_changes.phase0_attester_slashings,
       attestations:
         List[phase0.Attestation, Limit MAX_ATTESTATIONS](attestations),
       deposits: List[Deposit, Limit MAX_DEPOSITS](deposits),
@@ -500,7 +500,7 @@ proc makeBeaconBlockWithRewards*(
                hash_tree_root(eth1_data),
                hash_tree_root(graffiti),
                hash_tree_root(validator_changes.proposer_slashings),
-               hash_tree_root(validator_changes.attester_slashings),
+               hash_tree_root(validator_changes.phase0_attester_slashings),
                hash_tree_root(
                  List[phase0.Attestation, Limit MAX_ATTESTATIONS](
                    attestations)),
@@ -524,7 +524,7 @@ proc makeBeaconBlockWithRewards*(
                hash_tree_root(eth1_data),
                hash_tree_root(graffiti),
                hash_tree_root(validator_changes.proposer_slashings),
-               hash_tree_root(validator_changes.attester_slashings),
+               hash_tree_root(validator_changes.electra_attester_slashings),
                hash_tree_root(
                  List[electra.Attestation, Limit MAX_ATTESTATIONS](
                    attestations)),

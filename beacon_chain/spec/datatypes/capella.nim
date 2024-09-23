@@ -498,15 +498,6 @@ type
     SigVerifiedBeaconBlockBody |
     TrustedBeaconBlockBody
 
-  BeaconBlockValidatorChanges* = object
-    # Collection of exits that are suitable for block production
-    proposer_slashings*: List[ProposerSlashing, Limit MAX_PROPOSER_SLASHINGS]
-    attester_slashings*:
-      List[phase0.AttesterSlashing, Limit MAX_ATTESTER_SLASHINGS]
-    voluntary_exits*: List[SignedVoluntaryExit, Limit MAX_VOLUNTARY_EXITS]
-    bls_to_execution_changes*:
-      List[SignedBLSToExecutionChange, Limit MAX_BLS_TO_EXECUTION_CHANGES]
-
   BeaconStateDiffPreSnapshot* = object
     eth1_data_votes_recent*: seq[Eth1Data]
     eth1_data_votes_len*: int

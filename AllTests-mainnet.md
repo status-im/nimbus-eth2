@@ -1008,14 +1008,15 @@ OK: 1/1 Fail: 0/1 Skip: 0/1
 OK: 14/14 Fail: 0/14 Skip: 0/14
 ## Validator change pool testing suite
 ```diff
-+ addValidatorChangeMessage/getAttesterSlashingMessage                                       OK
++ addValidatorChangeMessage/getAttesterSlashingMessage (Electra)                             OK
++ addValidatorChangeMessage/getAttesterSlashingMessage (Phase 0)                             OK
 + addValidatorChangeMessage/getBlsToExecutionChange (post-capella)                           OK
 + addValidatorChangeMessage/getBlsToExecutionChange (pre-capella)                            OK
 + addValidatorChangeMessage/getProposerSlashingMessage                                       OK
 + addValidatorChangeMessage/getVoluntaryExitMessage                                          OK
 + pre-pre-fork voluntary exit                                                                OK
 ```
-OK: 6/6 Fail: 0/6 Skip: 0/6
+OK: 7/7 Fail: 0/7 Skip: 0/7
 ## Validator pool
 ```diff
 + Doppelganger for genesis validator                                                         OK
@@ -1125,4 +1126,4 @@ OK: 2/2 Fail: 0/2 Skip: 0/2
 OK: 9/9 Fail: 0/9 Skip: 0/9
 
 ---TOTAL---
-OK: 762/767 Fail: 0/767 Skip: 5/767
+OK: 763/768 Fail: 0/768 Skip: 5/768

@@ -1246,8 +1246,10 @@ proc validateAttesterSlashing*(
     return pool.checkedReject(attester_slashing_validity.error)
 
   # Send notification about new attester slashing via callback
-  if not(isNil(pool.onAttesterSlashingReceived)):
-    pool.onAttesterSlashingReceived(attester_slashing)
+  if not(isNil(pool.onPhase0AttesterSlashingReceived)):
+    pool.onPhase0AttesterSlashingReceived(attester_slashing)
+
+  debugComment "apparently there's no gopssip validation in place for electra attslashings"
 
   ok()
 
