@@ -1097,9 +1097,9 @@ proc cmdValidatorDb(conf: DbConf, cfg: RuntimeConfig) =
             rp.inclusion_delay = block:
               let notSlashed = (RewardFlags.isSlashed notin validator.flags)
               if notSlashed and validator.is_previous_epoch_attester.isSome():
-                some(validator.is_previous_epoch_attester.get().delay.uint64)
+                Opt.some(validator.is_previous_epoch_attester.get().delay.uint64)
               else:
-                none(uint64)
+                Opt.none(uint64)
 
           if conf.writeUnaggregatedFiles:
             csvLines.add rp.serializeToCsv
