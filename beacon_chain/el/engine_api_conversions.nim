@@ -161,9 +161,9 @@ func asConsensusType*(rpcExecutionPayload: ExecutionPayloadV4):
             Opt.none(uint8),
         chain_id:
           if tt.payload.chainId.isSome:
-            Opt.some(tt.payload.chainId.get.uint64)
+            Opt.some(tt.payload.chainId.get)
           else:
-            Opt.none(uint64),
+            Opt.none(UInt256),
         nonce:
           if tt.payload.nonce.isSome:
             Opt.some(tt.payload.nonce.get.uint64)
@@ -240,8 +240,51 @@ func asConsensusType*(rpcExecutionPayload: ExecutionPayloadV4):
                   stable.VersionedHash(it))))
           else:
             Opt.none(
-              List[stable.VersionedHash,
-                Limit MAX_BLOB_COMMITMENTS_PER_BLOCK])),
+              List[stable.VersionedHash, Limit MAX_BLOB_COMMITMENTS_PER_BLOCK]),
+        authorization_list:
+          if tt.payload.authorizationList.isSome:
+            Opt.some(
+              List[Eip6404Authorization, Limit MAX_AUTHORIZATION_LIST_SIZE]
+                .init(tt.payload.authorizationList.get.mapIt(
+                  Eip6404Authorization(
+                    payload: Eip6404AuthorizationPayload(
+                      magic:
+                        if it.payload.magic.isSome:
+                          Opt.some(distinctBase(it.payload.magic.get).uint8)
+                        else:
+                          Opt.none(TransactionType),
+                      chainId:
+                        if it.payload.chainId.isSome:
+                          Opt.some(it.payload.chainId.get)
+                        else:
+                          Opt.none(ChainId),
+                      address:
+                        if it.payload.address.isSome:
+                          Opt.some(ExecutionAddress(
+                            data: distinctBase(it.payload.address.get)))
+                        else:
+                          Opt.none(ExecutionAddress),
+                      nonce:
+                        if it.payload.nonce.isSome:
+                          Opt.some(distinctBase(it.payload.nonce.get))
+                        else:
+                          Opt.none(uint64)),
+                    authority: Eip6404ExecutionSignature(
+                      address:
+                        if it.authority.address.isSome:
+                          Opt.some(ExecutionAddress(
+                            data: distinctBase(it.authority.address.get)))
+                        else:
+                          Opt.none(ExecutionAddress),
+                      secp256k1_signature:
+                        if it.authority.secp256k1Signature.isSome:
+                          Opt.some(array[65, byte](
+                            it.authority.secp256k1Signature.get))
+                        else:
+                          Opt.none(array[65, byte]))))))
+          else:
+            Opt.none(
+              List[Eip6404Authorization, Limit MAX_AUTHORIZATION_LIST_SIZE])),
       `from`: Eip6404ExecutionSignature(
         address:
           if tt.`from`.address.isSome:
@@ -417,9 +460,9 @@ func asEngineExecutionPayload*(blockBody: electra.BeaconBlockBody):
             Opt.none(Quantity),
         chainId:
           if tt.payload.chain_id.isSome:
-            Opt.some(tt.payload.chain_id.get.Quantity)
+            Opt.some(tt.payload.chain_id.get)
           else:
-            Opt.none(Quantity),
+            Opt.none(UInt256),
         nonce:
           if tt.payload.nonce.isSome:
             Opt.some(tt.payload.nonce.get.Quantity)
@@ -491,7 +534,46 @@ func asEngineExecutionPayload*(blockBody: electra.BeaconBlockBody):
             Opt.some(distinctBase(tt.payload.blob_versioned_hashes.get)
               .mapIt(FixedBytes[32](it)))
           else:
-            Opt.none(seq[FixedBytes[32]])),
+            Opt.none(seq[FixedBytes[32]]),
+        authorizationList:
+          if tt.payload.authorization_list.isSome:
+            Opt.some(distinctBase(tt.payload.authorization_list.get).mapIt(
+              AuthorizationV1(
+                payload: AuthorizationPayloadV1(
+                  magic:
+                    if it.payload.magic.isSome:
+                      Opt.some(it.payload.magic.get.Quantity)
+                    else:
+                      Opt.none(Quantity),
+                  chainId:
+                    if it.payload.chain_id.isSome:
+                      Opt.some(it.payload.chain_id.get)
+                    else:
+                      Opt.none(UInt256),
+                  address:
+                    if it.payload.address.isSome:
+                      Opt.some(Address(it.payload.address.get.data))
+                    else:
+                      Opt.none(Address),
+                  nonce:
+                    if it.payload.nonce.isSome:
+                      Opt.some(it.payload.nonce.get.Quantity)
+                    else:
+                      Opt.none(Quantity)),
+                authority: engine_api_types.ExecutionSignature(
+                  address:
+                    if it.authority.address.isSome:
+                      Opt.some(Address(it.authority.address.get.data))
+                    else:
+                      Opt.none(Address),
+                  secp256k1Signature:
+                    if it.authority.secp256k1_signature.isSome:
+                      Opt.some(FixedBytes[65](
+                        it.authority.secp256k1_signature.get))
+                    else:
+                      Opt.none(FixedBytes[65])))))
+          else:
+            Opt.none(seq[AuthorizationV1])),
       `from`: engine_api_types.ExecutionSignature(
         address:
           if tt.`from`.address.isSome:

@@ -23,9 +23,15 @@ const
   MAX_BEACON_STATE_FIELDS* = 128
 
   # https://eips.ethereum.org/EIPS/eip-6404
+  SECP256K1_SIGNATURE_SIZE* = 65
+  MAX_EXECUTION_SIGNATURE_FIELDS* = 16
+  MAX_FEES_PER_GAS_FIELDS* = 16
   MAX_CALLDATA_SIZE* = 16_777_216
   MAX_ACCESS_LIST_STORAGE_KEYS* = 524_288
   MAX_ACCESS_LIST_SIZE* = 524_288
+  MAX_AUTHORIZATION_PAYLOAD_FIELDS* = 16
+  MAX_AUTHORIZATION_LIST_SIZE* = 65_536
+  MAX_TRANSACTION_PAYLOAD_FIELDS* = 32
 
 type
   # TODO this apparently is suppposed to be SSZ-equivalent to Bytes32, but
@@ -36,9 +42,15 @@ type
   # field manually
   VersionedHash* = array[32, byte]
 
-  ChainId* = uint64
+  Eip6404ExecutionSignature* {.
+      sszStableContainer: MAX_EXECUTION_SIGNATURE_FIELDS.} = object
+    address*: Opt[ExecutionAddress]
+    secp256k1_signature*: Opt[array[SECP256K1_SIGNATURE_SIZE, byte]]
 
-  Eip6404FeesPerGas* {.sszStableContainer: 16.} = object
+  TransactionType* = uint8
+  ChainId* = UInt256
+
+  Eip6404FeesPerGas* {.sszStableContainer: MAX_FEES_PER_GAS_FIELDS.} = object
     regular*: Opt[UInt256]
 
     # EIP-4844
@@ -48,7 +60,19 @@ type
     address*: ExecutionAddress
     storage_keys*: List[Eth2Digest, Limit MAX_ACCESS_LIST_STORAGE_KEYS]
 
-  Eip6404TransactionPayload* {.sszStableContainer: 32.} = object
+  Eip6404AuthorizationPayload* {.
+      sszStableContainer: MAX_AUTHORIZATION_PAYLOAD_FIELDS.} = object
+    magic*: Opt[TransactionType]
+    chain_id*: Opt[ChainId]
+    address*: Opt[ExecutionAddress]
+    nonce*: Opt[uint64]
+
+  Eip6404Authorization* = object
+    payload*: Eip6404AuthorizationPayload
+    authority*: Eip6404ExecutionSignature
+
+  Eip6404TransactionPayload* {.
+      sszStableContainer: MAX_TRANSACTION_PAYLOAD_FIELDS.} = object
     # EIP-2718
     `type`*: Opt[uint8]
 
@@ -72,9 +96,9 @@ type
     blob_versioned_hashes*:
       Opt[List[VersionedHash, Limit MAX_BLOB_COMMITMENTS_PER_BLOCK]]
 
-  Eip6404ExecutionSignature* {.sszStableContainer: 16.} = object
-    address*: Opt[ExecutionAddress]
-    secp256k1_signature*: Opt[array[65, byte]]
+    # EIP-7702
+    authorization_list*:
+      Opt[List[Eip6404Authorization, Limit MAX_AUTHORIZATION_LIST_SIZE]]
 
   Eip6404Transaction* = object
     payload*: Eip6404TransactionPayload
