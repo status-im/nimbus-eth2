@@ -1612,6 +1612,8 @@ proc ETHTransactionsCreateFromJson(
       MAX_BLOB_COMMITMENTS_PER_BLOCK = 4_096
 
     type
+      Eip6404ChainId = UInt256
+
       FeePerGas = UInt256
 
       FeesPerGas {.sszStableContainer: 16.} = object
@@ -1627,7 +1629,7 @@ proc ETHTransactionsCreateFromJson(
         `type`: Opt[uint8]
 
         # EIP-155
-        chain_id: Opt[ChainId]
+        chain_id: Opt[Eip6404ChainId]
 
         nonce: Opt[uint64]
         max_fees_per_gas: Opt[FeesPerGas]
@@ -1667,7 +1669,7 @@ proc ETHTransactionsCreateFromJson(
       eip6404Tx.payload.`type`.ok 0x03'u8
     if tx.txType != TxLegacy or tx.V notin [27'u64, 28'u64]:
       # With replay protection
-      eip6404Tx.payload.chain_id.ok tx.chainId
+      eip6404Tx.payload.chain_id.ok distinctBase(tx.chainId).u256
     eip6404Tx.payload.nonce.ok tx.nonce
     eip6404Tx.payload.max_fees_per_gas.ok FeesPerGas(
       regular: Opt.some tx.maxFeePerGas.u256,
