@@ -1347,11 +1347,10 @@ proc installBeaconApiHandlers*(router: var RestRouter, node: BeaconNode) =
         Opt.none(Slot)
 
     let consensusFork =
-      block:
-        if vslot.isNone():
-          node.dag.cfg.consensusForkAtEpoch(node.currentSlot().epoch())
-        else:
-          node.dag.cfg.consensusForkAtEpoch(vslot.get().epoch)
+      if vslot.isNone():
+        node.dag.cfg.consensusForkAtEpoch(node.currentSlot().epoch())
+      else:
+        node.dag.cfg.consensusForkAtEpoch(vslot.get().epoch)
 
     if consensusFork < ConsensusFork.Electra:
       return RestApiResponse.jsonResponseWVersion(

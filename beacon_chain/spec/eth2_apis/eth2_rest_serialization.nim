@@ -808,18 +808,16 @@ proc jsonResponseWMeta*(t: typedesc[RestApiResponse],
 proc jsonMsgResponse*(t: typedesc[RestApiResponse],
                       msg: string = ""): RestApiResponse =
   let data =
-    block:
-      var default: seq[byte]
-      try:
-        var stream = memoryOutput()
-        var writer = JsonWriter[RestJson].init(stream)
-        writer.beginRecord()
-        writer.writeField("code", 200)
-        writer.writeField("message", msg)
-        writer.endRecord()
-        stream.getOutput(seq[byte])
-      except IOError:
-        default
+    try:
+      var stream = memoryOutput()
+      var writer = JsonWriter[RestJson].init(stream)
+      writer.beginRecord()
+      writer.writeField("code", 200)
+      writer.writeField("message", msg)
+      writer.endRecord()
+      stream.getOutput(seq[byte])
+    except IOError:
+      default(seq[byte])
   RestApiResponse.response(data, Http200, "application/json")
 
 proc jsonError*(t: typedesc[RestApiResponse], status: HttpCode = Http200,
