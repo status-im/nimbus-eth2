@@ -183,7 +183,8 @@ proc addRemoteValidator(pool: var ValidatorPool,
         {HttpClientFlag.NoVerifyHost, HttpClientFlag.NoVerifyServerName}
       else:
         {}
-    prestoFlags = {RestClientFlag.CommaSeparatedArray}
+    prestoFlags = {RestClientFlag.CommaSeparatedArray,
+                   RestClientFlag.ResolveAlways}
     socketFlags = {SocketFlags.TcpNoDelay}
     clients =
       block:

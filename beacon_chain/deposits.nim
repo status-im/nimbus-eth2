@@ -149,8 +149,16 @@ func getIdent*(storage: ValidatorStorage): ValidatorIdent =
 
 proc restValidatorExit(config: BeaconNodeConf) {.async.} =
   let
-    client = RestClientRef.new(config.restUrlForExit).valueOr:
-      raise (ref RestError)(msg: $error)
+    client =
+      block:
+        let
+          flags = {RestClientFlag.CommaSeparatedArray,
+                   RestClientFlag.ResolveAlways}
+          socketFlags = {SocketFlags.TcpNoDelay}
+
+        RestClientRef.new(config.restUrlForExit, flags = flags,
+                          socketFlags = socketFlags).valueOr:
+          raise (ref RestError)(msg: $error)
 
     stateIdHead = StateIdent(kind: StateQueryKind.Named,
                              value: StateIdentType.Head)

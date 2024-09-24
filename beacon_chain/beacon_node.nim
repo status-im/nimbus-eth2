@@ -151,8 +151,11 @@ proc getPayloadBuilderClient*(
 
   if payloadBuilderAddress.isNone:
     return err "Payload builder disabled"
-  let res = RestClientRef.new(payloadBuilderAddress.get)
-  if res.isOk and res.get.isNil:
-    err "Got nil payload builder REST client reference"
-  else:
-    res
+
+  let
+    flags = {RestClientFlag.CommaSeparatedArray,
+             RestClientFlag.ResolveAlways}
+    socketFlags = {SocketFlags.TcpNoDelay}
+
+  RestClientRef.new(payloadBuilderAddress.get, flags = flags,
+                    socketFlags = socketFlags)
