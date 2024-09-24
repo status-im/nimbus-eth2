@@ -32,8 +32,8 @@ from ./altair import
   TrustedSyncAggregate, num_active_participants
 from ./bellatrix import BloomLogs, ExecutionAddress, Transaction
 from ./capella import
-  ExecutionBranch, HistoricalSummary, SignedBLSToExecutionChangeList,
-  Withdrawal, EXECUTION_PAYLOAD_GINDEX
+  ExecutionBranch, HistoricalSummary, SignedBLSToExecutionChange,
+  SignedBLSToExecutionChangeList, Withdrawal, EXECUTION_PAYLOAD_GINDEX
 from ./deneb import Blobs, BlobsBundle, KzgCommitments, KzgProofs
 
 export json_serialization, base, kzg4844
@@ -629,6 +629,17 @@ type
     `block`*: BeaconBlock
     kzg_proofs*: KzgProofs
     blobs*: Blobs
+
+  BeaconBlockValidatorChanges* = object
+    # Collection of exits that are suitable for block production
+    proposer_slashings*: List[ProposerSlashing, Limit MAX_PROPOSER_SLASHINGS]
+    phase0_attester_slashings*:
+      List[phase0.AttesterSlashing, Limit MAX_ATTESTER_SLASHINGS]
+    electra_attester_slashings*:
+      List[electra.AttesterSlashing, Limit MAX_ATTESTER_SLASHINGS_ELECTRA]
+    voluntary_exits*: List[SignedVoluntaryExit, Limit MAX_VOLUNTARY_EXITS]
+    bls_to_execution_changes*:
+      List[SignedBLSToExecutionChange, Limit MAX_BLS_TO_EXECUTION_CHANGES]
 
 # TODO: There should be only a single generic HashedBeaconState definition
 func initHashedBeaconState*(s: BeaconState): HashedBeaconState =

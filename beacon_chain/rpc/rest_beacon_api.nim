@@ -1353,7 +1353,7 @@ proc installBeaconApiHandlers*(router: var RestRouter, node: BeaconNode) =
   router.api2(MethodGet, "/eth/v1/beacon/pool/attester_slashings") do (
     ) -> RestApiResponse:
     RestApiResponse.jsonResponse(
-      toSeq(node.validatorChangePool.attester_slashings))
+      toSeq(node.validatorChangePool.phase0_attester_slashings))
 
   # https://ethereum.github.io/beacon-APIs/#/Beacon/submitPoolAttesterSlashings
   router.api(MethodPost, "/eth/v1/beacon/pool/attester_slashings") do (
