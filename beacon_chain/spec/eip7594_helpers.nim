@@ -310,24 +310,25 @@ func get_extended_sample_count*(samples_per_slot: int,
 
 # https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.6/specs/_features/eip7594/p2p-interface.md#verify_data_column_sidecar_inclusion_proof
 proc verify_data_column_sidecar_inclusion_proof*(sidecar: DataColumnSidecar):
-                                                 Result[void, string] =
+                                                 Result[void, cstring] =
   ## Verify if the given KZG Commitments are in included
   ## in the beacon block or not
   let gindex = 
     KZG_COMMITMENTS_INCLUSION_PROOF_DEPTH_GINDEX.GeneralizedIndex
   if not is_valid_merkle_branch(
-    hash_tree_root(sidecar.kzg_commitments),
-    sidecar.kzg_commitments_inclusion_proof,
-    KZG_COMMITMENTS_INCLUSION_PROOF_DEPTH.int,
-    get_subtree_index(gindex),
-    sidecar.signed_block_header.message.body_root):
+      hash_tree_root(sidecar.kzg_commitments),
+      sidecar.kzg_commitments_inclusion_proof,
+      KZG_COMMITMENTS_INCLUSION_PROOF_DEPTH.int,
+      get_subtree_index(gindex),
+      sidecar.signed_block_header.message.body_root):
     
     return err("DataColumnSidecar: Inclusion proof is invalid")
+
   ok()
 
 # https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.6/specs/_features/eip7594/p2p-interface.md#verify_data_column_sidecar_kzg_proofs
 proc verify_data_column_sidecar_kzg_proofs*(sidecar: DataColumnSidecar):
-                                            Result[void, string] =
+                                            Result[void, cstring] =
   ## Verify if the KZG Proofs consisting in the `DataColumnSidecar`
   ## is valid or not.
   
@@ -337,7 +338,6 @@ proc verify_data_column_sidecar_kzg_proofs*(sidecar: DataColumnSidecar):
 
   # Check is the sidecar column length = sidecar.kzg_commitments length
   # and sidecar.kzg_commitments length = sidecar.kzg_proofs length
-
   if not (sidecar.column.len == sidecar.kzg_commitments.len):
     return err("Data column sidecar length is not equal to the kzg_commitments length")
 
