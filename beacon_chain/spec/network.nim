@@ -109,6 +109,10 @@ func getBlobSidecarTopic*(forkDigest: ForkDigest,
 func compute_subnet_for_blob_sidecar*(blob_index: BlobIndex): BlobId =
   BlobId(blob_index mod BLOB_SIDECAR_SUBNET_COUNT)
 
+# https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.6/specs/_features/eip7594/p2p-interface.md#data_column_sidecar_subnet_id
+func compute_subnet_for_data_column_sidecar*(column_index: ColumnIndex): uint64 =
+    uint64(column_index mod DATA_COLUMN_SIDECAR_SUBNET_COUNT)
+
 # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.5/specs/altair/light-client/p2p-interface.md#light_client_finality_update
 func getLightClientFinalityUpdateTopic*(forkDigest: ForkDigest): string =
   ## For broadcasting or obtaining the latest `LightClientFinalityUpdate`.
