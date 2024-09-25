@@ -611,6 +611,8 @@ type
     signature*: TrustedSig
     committee_bits*: AttestationCommitteeBits  # [New in Electra:EIP7549]
 
+  SomeIndexedAttestation* = IndexedAttestation | TrustedIndexedAttestation
+  SomeAttesterSlashing* = AttesterSlashing | TrustedAttesterSlashing
   SomeSignedBeaconBlock* =
     SignedBeaconBlock |
     SigVerifiedSignedBeaconBlock |
@@ -644,6 +646,19 @@ type
 # TODO: There should be only a single generic HashedBeaconState definition
 func initHashedBeaconState*(s: BeaconState): HashedBeaconState =
   HashedBeaconState(data: s)
+
+func shortLog*(v: SomeIndexedAttestation): auto =
+  (
+    attestating_indices: v.attesting_indices,
+    data: shortLog(v.data),
+    signature: shortLog(v.signature)
+  )
+
+func shortLog*(v: SomeAttesterSlashing): auto =
+  (
+    attestation_1: shortLog(v.attestation_1),
+    attestation_2: shortLog(v.attestation_2),
+  )
 
 func shortLog*(v: SomeBeaconBlock): auto =
   (

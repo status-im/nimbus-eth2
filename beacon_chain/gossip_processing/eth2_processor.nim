@@ -12,7 +12,6 @@ import
   chronicles, chronos, metrics,
   taskpools,
   ../spec/[helpers, forks],
-  ../spec/datatypes/[altair, phase0, deneb],
   ../consensus_object_pools/[
     blob_quarantine, block_clearance, block_quarantine, blockchain_dag,
     attestation_pool, light_client_pool, sync_committee_msg_pool,
@@ -51,10 +50,6 @@ declareCounter beacon_attester_slashings_received,
   "Number of valid attester slashings processed by this node"
 declareCounter beacon_attester_slashings_dropped,
   "Number of invalid attester slashings dropped by this node", labels = ["reason"]
-declareCounter bls_to_execution_change_received,
-  "Number of valid BLS to execution changes processed by this node"
-declareCounter bls_to_execution_change_dropped,
-  "Number of invalid BLS to execution changes dropped by this node", labels = ["reason"]
 declareCounter beacon_proposer_slashings_received,
   "Number of valid proposer slashings processed by this node"
 declareCounter beacon_proposer_slashings_dropped,
@@ -338,7 +333,7 @@ proc setupDoppelgangerDetection*(self: var Eth2Processor, slot: Slot) =
       epoch = slot.epoch,
       broadcast_epoch = self.doppelgangerDetection.broadcastStartEpoch
 
-proc clearDoppelgangerProtection*(self: var Eth2Processor) =
+func clearDoppelgangerProtection*(self: var Eth2Processor) =
   self.doppelgangerDetection.broadcastStartEpoch = FAR_FUTURE_EPOCH
 
 proc checkForPotentialDoppelganger(
@@ -504,7 +499,8 @@ proc processBlsToExecutionChange*(
 
 proc processAttesterSlashing*(
     self: var Eth2Processor, src: MsgSource,
-    attesterSlashing: phase0.AttesterSlashing): ValidationRes =
+    attesterSlashing: phase0.AttesterSlashing | electra.AttesterSlashing):
+    ValidationRes =
   logScope:
     attesterSlashing = shortLog(attesterSlashing)
 
@@ -621,7 +617,8 @@ proc processSyncCommitteeMessage*(
 proc processSignedContributionAndProof*(
     self: ref Eth2Processor, src: MsgSource,
     contributionAndProof: SignedContributionAndProof,
-    checkSignature: bool = true): Future[Result[void, ValidationError]] {.async: (raises: [CancelledError]).} =
+    checkSignature: bool = true):
+    Future[Result[void, ValidationError]] {.async: (raises: [CancelledError]).} =
   let
     wallTime = self.getCurrentBeaconTime()
     wallSlot = wallTime.slotOrZero()

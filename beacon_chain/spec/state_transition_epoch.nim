@@ -335,10 +335,6 @@ proc weigh_justification_and_finalization(
     res.current_justified_checkpoint = Checkpoint(
       epoch: previous_epoch, root: get_block_root(state, previous_epoch))
     uint8(res.justification_bits).setBit 1
-
-    trace "Justified with previous epoch",
-      current_epoch = current_epoch,
-      checkpoint = shortLog(res.current_justified_checkpoint)
   elif strictVerification in flags:
     fatal "Low attestation participation in previous epoch",
       total_active_balance,
@@ -352,10 +348,6 @@ proc weigh_justification_and_finalization(
       epoch: current_epoch, root: get_block_root(state, current_epoch))
     uint8(res.justification_bits).setBit 0
 
-    trace "Justified with current epoch",
-      current_epoch = current_epoch,
-      checkpoint = shortLog(res.current_justified_checkpoint)
-
   # Process finalizations
   let bitfield = uint8(res.justification_bits)
 
@@ -365,19 +357,11 @@ proc weigh_justification_and_finalization(
      old_previous_justified_checkpoint.epoch + 3 == current_epoch:
     res.finalized_checkpoint = old_previous_justified_checkpoint
 
-    trace "Finalized with rule 234",
-      current_epoch = current_epoch,
-      checkpoint = shortLog(res.finalized_checkpoint)
-
   ## The 2nd/3rd most recent epochs are justified, the 2nd using the 3rd as
   ## source
   if (bitfield and 0b110) == 0b110 and
      old_previous_justified_checkpoint.epoch + 2 == current_epoch:
     res.finalized_checkpoint = old_previous_justified_checkpoint
-
-    trace "Finalized with rule 23",
-      current_epoch = current_epoch,
-      checkpoint = shortLog(res.finalized_checkpoint)
 
   ## The 1st/2nd/3rd most recent epochs are justified, the 1st using the 3rd as
   ## source
@@ -385,19 +369,11 @@ proc weigh_justification_and_finalization(
      old_current_justified_checkpoint.epoch + 2 == current_epoch:
     res.finalized_checkpoint = old_current_justified_checkpoint
 
-    trace "Finalized with rule 123",
-      current_epoch = current_epoch,
-      checkpoint = shortLog(res.finalized_checkpoint)
-
   ## The 1st/2nd most recent epochs are justified, the 1st using the 2nd as
   ## source
   if (bitfield and 0b11) == 0b11 and
      old_current_justified_checkpoint.epoch + 1 == current_epoch:
     res.finalized_checkpoint = old_current_justified_checkpoint
-
-    trace "Finalized with rule 12",
-      current_epoch = current_epoch,
-      checkpoint = shortLog(res.finalized_checkpoint)
 
   res
 
@@ -1347,8 +1323,6 @@ proc process_epoch*(
     cfg: RuntimeConfig, state: var phase0.BeaconState, flags: UpdateFlags,
     cache: var StateCache, info: var phase0.EpochInfo): Result[void, cstring] =
   let epoch = get_current_epoch(state)
-  trace "process_epoch", epoch
-
   info.init(state)
   info.process_attestations(state, cache)
 
@@ -1407,8 +1381,6 @@ proc process_epoch*(
     flags: UpdateFlags, cache: var StateCache, info: var altair.EpochInfo):
     Result[void, cstring] =
   let epoch = get_current_epoch(state)
-  trace "process_epoch", epoch
-
   info.init(state)
 
   # https://github.com/ethereum/consensus-specs/blob/v1.4.0/specs/altair/beacon-chain.md#justification-and-finalization
@@ -1453,8 +1425,6 @@ proc process_epoch*(
     flags: UpdateFlags, cache: var StateCache, info: var altair.EpochInfo):
     Result[void, cstring] =
   let epoch = get_current_epoch(state)
-  trace "process_epoch", epoch
-
   info.init(state)
 
   # https://github.com/ethereum/consensus-specs/blob/v1.4.0/specs/altair/beacon-chain.md#justification-and-finalization
@@ -1498,8 +1468,6 @@ proc process_epoch*(
     flags: UpdateFlags, cache: var StateCache, info: var altair.EpochInfo):
     Result[void, cstring] =
   let epoch = get_current_epoch(state)
-  trace "process_epoch", epoch
-
   info.init(state)
 
   # https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.6/specs/altair/beacon-chain.md#justification-and-finalization

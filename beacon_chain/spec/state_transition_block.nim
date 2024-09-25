@@ -208,8 +208,11 @@ func is_slashable_attestation_data(
 # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.6/specs/phase0/beacon-chain.md#attester-slashings
 proc check_attester_slashing*(
     state: ForkyBeaconState,
-    attester_slashing: SomeAttesterSlashing | electra.AttesterSlashing |
-                       electra.TrustedAttesterSlashing,
+    # phase0.SomeAttesterSlashing | electra.SomeAttesterSlashing:
+    # https://github.com/nim-lang/Nim/issues/18095
+    attester_slashing:
+      phase0.AttesterSlashing | phase0.TrustedAttesterSlashing |
+      electra.AttesterSlashing | electra.TrustedAttesterSlashing,
     flags: UpdateFlags): Result[seq[ValidatorIndex], cstring] =
   let
     attestation_1 = attester_slashing.attestation_1
@@ -243,8 +246,11 @@ proc check_attester_slashing*(
 
 proc check_attester_slashing*(
     state: var ForkedHashedBeaconState,
-    attester_slashing: SomeAttesterSlashing | electra.AttesterSlashing |
-                       electra.TrustedAttesterSlashing,
+    # phase0.SomeAttesterSlashing | electra.SomeAttesterSlashing:
+    # https://github.com/nim-lang/Nim/issues/18095
+    attester_slashing:
+      phase0.AttesterSlashing | phase0.TrustedAttesterSlashing |
+      electra.AttesterSlashing | electra.TrustedAttesterSlashing,
     flags: UpdateFlags): Result[seq[ValidatorIndex], cstring] =
   withState(state):
     check_attester_slashing(forkyState.data, attester_slashing, flags)
@@ -253,8 +259,11 @@ proc check_attester_slashing*(
 proc process_attester_slashing*(
     cfg: RuntimeConfig,
     state: var ForkyBeaconState,
-    attester_slashing: SomeAttesterSlashing | electra.AttesterSlashing |
-                       electra.TrustedAttesterSlashing,
+    # phase0.SomeAttesterSlashing | electra.SomeAttesterSlashing:
+    # https://github.com/nim-lang/Nim/issues/18095
+    attester_slashing:
+      phase0.AttesterSlashing | phase0.TrustedAttesterSlashing |
+      electra.AttesterSlashing | electra.TrustedAttesterSlashing,
     flags: UpdateFlags,
     exit_queue_info: ExitQueueInfo, cache: var StateCache
     ): Result[(Gwei, ExitQueueInfo), cstring] =

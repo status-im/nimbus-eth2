@@ -415,7 +415,6 @@ func partialBeaconBlock*(
 ): auto =
   const consensusFork = typeof(state).kind
 
-  debugComment "re-enable attester slashing packing in electra"
   # https://github.com/ethereum/consensus-specs/blob/v1.3.0/specs/phase0/validator.md#preparing-for-a-beaconblock
   consensusFork.BeaconBlock(
     slot: state.data.slot,
@@ -426,7 +425,7 @@ func partialBeaconBlock*(
       eth1_data: eth1_data,
       graffiti: graffiti,
       proposer_slashings: validator_changes.proposer_slashings,
-      #attester_slashings: validator_changes.attester_slashings,
+      attester_slashings: validator_changes.electra_attester_slashings,
       attestations:
         List[electra.Attestation, Limit MAX_ATTESTATIONS_ELECTRA](attestations),
       deposits: List[Deposit, Limit MAX_DEPOSITS](deposits),

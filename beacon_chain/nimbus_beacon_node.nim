@@ -1858,13 +1858,23 @@ proc installMessageValidators(node: BeaconNode) =
 
       # attester_slashing
       # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.5/specs/phase0/p2p-interface.md#attester_slashing
-      node.network.addValidator(
-        getAttesterSlashingsTopic(digest), proc (
-          attesterSlashing: phase0.AttesterSlashing
-        ): ValidationResult =
-          toValidationResult(
-            node.processor[].processAttesterSlashing(
-              MsgSource.gossip, attesterSlashing)))
+      # https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.6/specs/electra/p2p-interface.md#modifications-in-electra
+      when consensusFork >= ConsensusFork.Electra:
+        node.network.addValidator(
+          getAttesterSlashingsTopic(digest), proc (
+            attesterSlashing: electra.AttesterSlashing
+          ): ValidationResult =
+            toValidationResult(
+              node.processor[].processAttesterSlashing(
+                MsgSource.gossip, attesterSlashing)))
+      else:
+        node.network.addValidator(
+          getAttesterSlashingsTopic(digest), proc (
+            attesterSlashing: phase0.AttesterSlashing
+          ): ValidationResult =
+            toValidationResult(
+              node.processor[].processAttesterSlashing(
+                MsgSource.gossip, attesterSlashing)))
 
       # proposer_slashing
       # https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.6/specs/phase0/p2p-interface.md#proposer_slashing
