@@ -229,18 +229,6 @@ suite "REST JSON encoding and decoding":
       blck.kzg_proofs.len == 0
       blck.blobs.len == 0
 
-  test "RestPublishedSignedBlockContents decoding":
-    let blck = RestJson.decode(
-      denebSignedContents, RestPublishedSignedBlockContents,
-      requireAllFields = true, allowUnknownFields = true).denebData
-    check:
-      hash_tree_root(blck.signed_block.message) == Eth2Digest.fromHex(
-        "0xc67166e600d76d9d129244d10e4f35279d75d800fb39a5ce35e98328d53939da")
-      blck.signed_block.signature == ValidatorSig.fromHex(
-        "0x8e2cd6cf4457825818eb380f1ea74f2fc99665041194ab5bcbdbf96f2e22bad4376d2a94f69d762c999ffd500e2525ab0561b01a79158456c83cf5bf0f2104e26f7b0d22f41dcc8f49a0e1cc29bb09aee1c548903fa04bdfcd20603c400d948d")[]
-      blck.kzg_proofs.len == 0
-      blck.blobs.len == 0
-
   test "KzgCommitment":
     let
       zeroString =

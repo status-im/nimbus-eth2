@@ -82,40 +82,28 @@ func getNodePort(basePort: int, rt: RemoteSignerType): int =
   of RemoteSignerType.VerifyingWeb3Signer:
     basePort + 1
 
-func init(
-    T: type ForkedBeaconBlock, contents: RestPublishedSignedBlockContents): T =
-  case contents.kind
-  of ConsensusFork.Phase0 .. ConsensusFork.Bellatrix:
-    raiseAssert "Unsupported fork"
-  of ConsensusFork.Capella:
-    return ForkedBeaconBlock.init(contents.capellaData.message)
-  of ConsensusFork.Deneb:
-    return ForkedBeaconBlock.init(contents.denebData.signed_block.message)
-  of ConsensusFork.Electra:
-    return ForkedBeaconBlock.init(contents.electraData.signed_block.message)
-
 proc getBlock(
     fork: ConsensusFork,
     feeRecipient = SigningExpectedFeeRecipient
 ): ForkedBeaconBlock {.raises: [ResultError[cstring]].} =
-  let blckData =
-    try:
-      case fork
-      of ConsensusFork.Phase0 .. ConsensusFork.Bellatrix:
-        raiseAssert "Unsupported fork"
-      of ConsensusFork.Capella:   CapellaBlock % [feeRecipient, SomeSignature]
-      of ConsensusFork.Deneb:
-        DenebBlockContents % [feeRecipient, SomeSignature]
-      of ConsensusFork.Electra:
-        debugComment "electra test signing node getblock"
-        raiseAssert "electra unsupported"
-    except ValueError:
-      # https://github.com/nim-lang/Nim/pull/23356
-      raiseAssert "Arguments match the format string"
-
   try:
-    ForkedBeaconBlock.init(RestJson.decode(
-      blckData, RestPublishedSignedBlockContents))
+    case fork
+    of ConsensusFork.Phase0 .. ConsensusFork.Bellatrix:
+      raiseAssert "Unsupported fork"
+    of ConsensusFork.Capella:
+      ForkedBeaconBlock.init(RestJson.decode(
+        CapellaBlock % [feeRecipient, SomeSignature],
+          capella.SignedBeaconBlock).message)
+    of ConsensusFork.Deneb:
+      ForkedBeaconBlock.init(RestJson.decode(
+        DenebBlockContents % [feeRecipient, SomeSignature],
+          DenebSignedBlockContents).signed_block.message)
+    of ConsensusFork.Electra:
+      debugComment "electra test signing node getblock"
+      raiseAssert "electra unsupported"
+  except ValueError:
+    # https://github.com/nim-lang/Nim/pull/23356
+    raiseAssert "Arguments match the format string"
   except SerializationError:
     raiseAssert "malformed block contents"
 

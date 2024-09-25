@@ -901,10 +901,23 @@ proc installBeaconApiHandlers*(router: var RestRouter, node: BeaconNode) =
           return RestApiResponse.jsonError(Http400, EmptyRequestBodyError)
         let
           body = contentBody.get()
-          version = request.headers.getString("eth-consensus-version")
-          restBlock = decodeBody(
-            RestPublishedSignedBlockContents, body, version).valueOr:
-              return RestApiResponse.jsonError(error)
+          currentEpochFork =
+            node.dag.cfg.consensusForkAtEpoch(node.currentSlot().epoch())
+          rawVersion = request.headers.getString("eth-consensus-version")
+
+          # The V1 endpoint doesn't require the version to be specified but the
+          # only fork which works is the current gossip fork. Either it can use
+          # and broadcast a block in that fork or that broadcast will not prove
+          # useful anyway, so allow it to fail at the decoding stage.
+          version =
+            if rawVersion == "":
+              currentEpochFork.toString
+            else:
+              rawVersion
+
+        let restBlock = decodeBody(
+          RestPublishedSignedBlockContents, body, version).valueOr:
+            return RestApiResponse.jsonError(error)
 
         withForkyBlck(restBlock):
           if restBlock.kind != node.dag.cfg.consensusForkAtEpoch(
@@ -1047,8 +1060,18 @@ proc installBeaconApiHandlers*(router: var RestRouter, node: BeaconNode) =
     let
       currentEpochFork =
         node.dag.cfg.consensusForkAtEpoch(node.currentSlot().epoch())
-      version = request.headers.getString("eth-consensus-version")
+      rawVersion = request.headers.getString("eth-consensus-version")
       body = contentBody.get()
+
+      # The V1 endpoint doesn't require the version to be specified but the
+      # only fork which works is the current gossip fork. Either it can use
+      # and broadcast a block in that fork or that broadcast will not prove
+      # useful anyway, so allow it to fail at the decoding stage.
+      version =
+        if rawVersion == "":
+          currentEpochFork.toString
+        else:
+          rawVersion
 
     if (body.contentType == OctetStreamMediaType) and
        (currentEpochFork.toString != version):
