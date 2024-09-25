@@ -586,7 +586,7 @@ iterator electraAttestations*(
   for candidateIndex in candidateIndices:
     for _, entry in pool.electraCandidates[candidateIndex]:
       ## data.index field from phase0 is still being used while we have
-      ## 2 attestations pools (pre and pos electra). Refer to template addAttToPool
+      ## 2 attestation pools (pre and post electra). Refer to template addAttToPool
       ## at addAttestation proc.
       if committee_index.isNone() or entry.data.index == committee_index.get():
         var committee_bits: AttestationCommitteeBits
