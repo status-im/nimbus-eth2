@@ -13,7 +13,7 @@ from ./consensus_object_pools/block_pools_types import BlockData
 export results
 
 type
-  ChainFileHeader = object
+  ChainFileHeader* = object
     header: uint32
     version: uint32
     kind: uint64
@@ -21,7 +21,7 @@ type
     plainSize: uint32
     slot: uint64
 
-  ChainFileFooter = object
+  ChainFileFooter* = object
     kind: uint64
     comprSize: uint32
     plainSize: uint32
@@ -575,7 +575,7 @@ proc getChainFileTail*(handle: IoHandle): Result[Opt[BlockData], string] =
         else:
           ok(Opt.some(BlockData(blck: blck, blob: Opt.some(sidecars))))
 
-proc getChainFileHead(handle: IoHandle): Result[Opt[BlockData], string] =
+proc getChainFileHead*(handle: IoHandle): Result[Opt[BlockData], string] =
   var
     offset: int64 = 0
     endOfFile = false
@@ -736,17 +736,22 @@ proc seekForChunkBackward(
         return err(ioErrorMsg(error))
       continue
 
-    let chunkOffset = -(int64(bufferSize) - int64(indexOpt.get()))
+    state = 0
 
-    setFilePos(handle, chunkOffset, SeekPosition.SeekCurrent).isOkOr:
-      return err(ioErrorMsg(error))
+    let
+      chunkOffset = -(int64(bytesRead) - int64(indexOpt.get()))
+      chunkPos =
+        updateFilePos(handle, chunkOffset, SeekPosition.SeekCurrent).valueOr:
+          return err(ioErrorMsg(error))
+      chunk = readChunkForward(handle, false).valueOr:
+        # Incorrect chunk detected, so we start our searching again
+        setFilePos(handle, offset, SeekPosition.SeekBegin).isOkOr:
+          return err(ioErrorMsg(error))
 
-    let chunk = readChunkForward(handle, false).valueOr:
-      # Incorrect chunk detected, so we start our searching again
-      state = 0
-      setFilePos(handle, offset, SeekPosition.SeekBegin).isOkOr:
-        return err(ioErrorMsg(error))
-      continue
+        if offset == 0'i64:
+          return ok(Opt.none(int64))
+
+        continue
 
     if chunk.isNone():
       return err("File has been changed, while repairing")
@@ -755,6 +760,12 @@ proc seekForChunkBackward(
       let finishOffset = getFilePos(handle).valueOr:
         return err(ioErrorMsg(error))
       return ok(Opt.some(finishOffset))
+    else:
+      if chunkPos == 0'i64:
+        return ok(Opt.none(int64))
+
+      setFilePos(handle, chunkPos, SeekPosition.SeekBegin).isOkOr:
+        return err(ioErrorMsg(error))
 
   ok(Opt.none(int64))
 
@@ -847,12 +858,13 @@ proc checkRepair*(filename: string,
       discard closeFile(handle)
       return err(error)
 
-    if position.isNone():
-      discard closeFile(handle)
-      return ok(ChainFileCheckResult.FileCorrupted)
-
     if repair:
-      truncate(handle, position.get()).isOkOr:
+      let newsize =
+        if position.isNone():
+          0'i64
+        else:
+          position.get()
+      truncate(handle, newsize).isOkOr:
         discard closeFile(handle)
         return err(ioErrorMsg(error))
       closeFile(handle).isOkOr:
