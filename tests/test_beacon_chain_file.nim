@@ -19,7 +19,7 @@ template onDiskChunkSize(data: int): int =
 const
   FixtureFile =
     currentSourcePath().dirname() & DirSep & "fixtures" & DirSep &
-    "bfdata-test.ssz"
+    "bfdata-test.bin"
 
   Block0Root =
     "4bbd1c7468626d6520e27a534ce9f3ee305160860367431528404697c60ce222".toDigest
