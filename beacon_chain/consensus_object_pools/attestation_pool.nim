@@ -570,6 +570,48 @@ iterator attestations*(
         for v in entry.aggregates:
           yield entry.toAttestation(v)
 
+iterator electraAttestations*(
+    pool: AttestationPool, slot: Opt[Slot],
+    committee_index: Opt[CommitteeIndex]): electra.Attestation =
+  let candidateIndices =
+    if slot.isSome():
+      let candidateIdx = pool.candidateIdx(slot.get(), true)
+      if candidateIdx.isSome():
+        candidateIdx.get() .. candidateIdx.get()
+      else:
+        1 .. 0
+    else:
+      0 ..< pool.electraCandidates.len()
+
+  for candidateIndex in candidateIndices:
+    for _, entry in pool.electraCandidates[candidateIndex]:
+      ## data.index field from phase0 is still being used while we have
+      ## 2 attestation pools (pre and post electra). Refer to template addAttToPool
+      ## at addAttestation proc.
+      if committee_index.isNone() or entry.data.index == committee_index.get():
+        var committee_bits: AttestationCommitteeBits
+        committee_bits[int(entry.data.index)] = true
+
+        var singleAttestation = electra.Attestation(
+          aggregation_bits: ElectraCommitteeValidatorsBits.init(entry.committee_len),
+          committee_bits: committee_bits,
+          data: AttestationData(
+            slot: entry.data.slot,
+            index: 0,
+            beacon_block_root: entry.data.beacon_block_root,
+            source: entry.data.source,
+            target: entry.data.target)
+        )
+
+        for index, signature in entry.singles:
+          singleAttestation.aggregation_bits.setBit(index)
+          singleAttestation.signature = signature.toValidatorSig()
+          yield singleAttestation
+          singleAttestation.aggregation_bits.clearBit(index)
+
+        for v in entry.aggregates:
+          yield entry.toElectraAttestation(v)
+
 type
   AttestationCacheKey = (Slot, uint64)
   AttestationCache[CVBType] = Table[AttestationCacheKey, CVBType] ##\

@@ -1297,6 +1297,26 @@ proc installBeaconApiHandlers*(router: var RestRouter, node: BeaconNode) =
         node.dag.isFinalized(bid)
       )
 
+  # https://ethereum.github.io/beacon-APIs/?urls.primaryName=dev#/Beacon/getBlockAttestationsV2
+  router.api2(MethodGet,
+             "/eth/v2/beacon/blocks/{block_id}/attestations") do (
+    block_id: BlockIdent) -> RestApiResponse:
+    let
+      blockIdent = block_id.valueOr:
+        return RestApiResponse.jsonError(Http400, InvalidBlockIdValueError,
+                                         $error)
+      bdata = node.getForkedBlock(blockIdent).valueOr:
+        return RestApiResponse.jsonError(Http404, BlockNotFoundError)
+
+    withBlck(bdata):
+      let bid = BlockId(root: forkyBlck.root, slot: forkyBlck.message.slot)
+      RestApiResponse.jsonResponseFinalizedWVersion(
+        forkyBlck.message.body.attestations.asSeq(),
+        node.getBlockOptimistic(bdata),
+        node.dag.isFinalized(bid),
+        consensusFork
+      )
+
   # https://ethereum.github.io/beacon-APIs/#/Beacon/getPoolAttestations
   router.api2(MethodGet, "/eth/v1/beacon/pool/attestations") do (
     slot: Option[Slot],
@@ -1325,6 +1345,45 @@ proc installBeaconApiHandlers*(router: var RestRouter, node: BeaconNode) =
       res.add(item)
     RestApiResponse.jsonResponse(res)
 
+  # https://ethereum.github.io/beacon-APIs/?urls.primaryName=dev#/Beacon/getPoolAttestationsV2
+  router.api2(MethodGet, "/eth/v2/beacon/pool/attestations") do (
+    slot: Option[Slot],
+    committee_index: Option[CommitteeIndex]) -> RestApiResponse:
+    let vindex =
+      if committee_index.isSome():
+        let rindex = committee_index.get()
+        if rindex.isErr():
+          return RestApiResponse.jsonError(Http400,
+                                           InvalidCommitteeIndexValueError,
+                                           $rindex.error)
+        Opt.some(rindex.get())
+      else:
+        Opt.none(CommitteeIndex)
+    let vslot =
+      if slot.isSome():
+        let rslot = slot.get()
+        if rslot.isErr():
+          return RestApiResponse.jsonError(Http400, InvalidSlotValueError,
+                                           $rslot.error)
+        Opt.some(rslot.get())
+      else:
+        Opt.none(Slot)
+
+    let consensusFork =
+      if vslot.isNone():
+        node.dag.cfg.consensusForkAtEpoch(node.currentSlot().epoch())
+      else:
+        node.dag.cfg.consensusForkAtEpoch(vslot.get().epoch)
+
+    if consensusFork < ConsensusFork.Electra:
+      return RestApiResponse.jsonResponseWVersion(
+        toSeq(node.attestationPool[].attestations(vslot, vindex)),
+        consensusFork)
+    else:
+      return RestApiResponse.jsonResponseWVersion(
+        toSeq(node.attestationPool[].electraAttestations(vslot, vindex)),
+        consensusFork)
+
   # https://ethereum.github.io/beacon-APIs/#/Beacon/submitPoolAttestations
   router.api2(MethodPost, "/eth/v1/beacon/pool/attestations") do (
     contentBody: Option[ContentBody]) -> RestApiResponse:
@@ -1342,16 +1401,68 @@ proc installBeaconApiHandlers*(router: var RestRouter, node: BeaconNode) =
     # Since our validation logic supports batch processing, we will submit all
     # attestations for validation.
     let pending =
-      block:
-        var res: seq[Future[SendResult]]
-        for attestation in attestations:
-          res.add(node.router.routeAttestation(attestation))
-        res
+      mapIt(attestations, node.router.routeAttestation(it))
     let failures =
       block:
         var res: seq[RestIndexedErrorMessageItem]
         await allFutures(pending)
         for index, future in pending:
+          if future.completed():
+            let fres = future.value()
+            if fres.isErr():
+              let failure = RestIndexedErrorMessageItem(index: index,
+                                                        message: $fres.error)
+              res.add(failure)
+          elif future.failed() or future.cancelled():
+            # This is unexpected failure, so we log the error message.
+            let exc = future.error()
+            let failure = RestIndexedErrorMessageItem(index: index,
+                                                      message: $exc.msg)
+            res.add(failure)
+        res
+
+    if len(failures) > 0:
+      RestApiResponse.jsonErrorList(Http400, AttestationValidationError,
+                                    failures)
+    else:
+      RestApiResponse.jsonMsgResponse(AttestationValidationSuccess)
+
+  # https://ethereum.github.io/beacon-APIs/?urls.primaryName=dev#/Beacon/submitPoolAttestationsV2
+  router.api2(MethodPost, "/eth/v2/beacon/pool/attestations") do (
+    contentBody: Option[ContentBody]) -> RestApiResponse:
+
+    let
+      headerVersion = request.headers.getString("Eth-Consensus-Version")
+      consensusVersion = ConsensusFork.init(headerVersion)
+    if consensusVersion.isNone():
+      return RestApiResponse.jsonError(Http400, FailedToObtainConsensusForkError)
+
+    if contentBody.isNone():
+          return RestApiResponse.jsonError(Http400, EmptyRequestBodyError)
+
+    var pendingAttestations: seq[Future[SendResult]]
+    template decodeAttestations(AttestationType: untyped) =
+      let dres = decodeBody(seq[AttestationType], contentBody.get())
+      if dres.isErr():
+        return RestApiResponse.jsonError(Http400,
+                                          InvalidAttestationObjectError,
+                                          $dres.error)
+      # Since our validation logic supports batch processing, we will submit all
+      # attestations for validation.
+      for attestation in dres.get():
+        pendingAttestations.add(node.router.routeAttestation(attestation))
+
+    case consensusVersion.get():
+      of ConsensusFork.Phase0 .. ConsensusFork.Deneb:
+        decodeAttestations(phase0.Attestation)
+      of ConsensusFork.Electra:
+        decodeAttestations(electra.Attestation)
+
+    let failures =
+      block:
+        var res: seq[RestIndexedErrorMessageItem]
+        await allFutures(pendingAttestations)
+        for index, future in pendingAttestations:
           if future.completed():
             let fres = future.value()
             if fres.isErr():

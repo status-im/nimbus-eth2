@@ -313,6 +313,12 @@ proc getBlockAttestations*(block_id: BlockIdent
      meth: MethodGet.}
   ## https://ethereum.github.io/beacon-APIs/#/Beacon/getBlockAttestations
 
+proc getBlockAttestationsV2Plain*(block_id: BlockIdent
+                        ): RestPlainResponse {.
+     rest, endpoint: "/eth/v2/beacon/blocks/{block_id}/attestations",
+     meth: MethodGet.}
+  ## https://ethereum.github.io/beacon-APIs/?urls.primaryName=dev#/Beacon/getBlockAttestationsV2
+
 proc getPoolAttestations*(
     slot: Option[Slot],
     committee_index: Option[CommitteeIndex]
@@ -321,11 +327,26 @@ proc getPoolAttestations*(
      meth: MethodGet.}
   ## https://ethereum.github.io/beacon-APIs/#/Beacon/getPoolAttestations
 
+proc getPoolAttestationsV2Plain*(
+    slot: Option[Slot],
+    committee_index: Option[CommitteeIndex]
+              ): RestPlainResponse {.
+     rest, endpoint: "/eth/v2/beacon/pool/attestations",
+     meth: MethodGet.}
+  ## https://ethereum.github.io/beacon-APIs/?urls.primaryName=dev#/Beacon/getPoolAttestationsV2
+
 proc submitPoolAttestations*(body: seq[phase0.Attestation]):
      RestPlainResponse {.
      rest, endpoint: "/eth/v1/beacon/pool/attestations",
      meth: MethodPost.}
   ## https://ethereum.github.io/beacon-APIs/#/Beacon/submitPoolAttestations
+
+proc submitPoolAttestationsV2*(
+       body: seq[phase0.Attestation] | seq[electra.Attestation]):
+     RestPlainResponse {.
+     rest, endpoint: "/eth/v2/beacon/pool/attestations",
+     meth: MethodPost.}
+  ## https://ethereum.github.io/beacon-APIs/?urls.primaryName=dev#/Beacon/submitPoolAttestationsV2
 
 proc getPoolAttesterSlashings*(): RestResponse[GetPoolAttesterSlashingsResponse] {.
      rest, endpoint: "/eth/v1/beacon/pool/attester_slashings",
