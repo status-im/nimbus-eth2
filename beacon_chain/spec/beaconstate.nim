@@ -11,12 +11,10 @@ import
   stew/assign2,
   json_serialization/std/sets,
   chronicles,
-  ./datatypes/[phase0, altair, bellatrix],
   "."/[eth2_merkleization, forks, signatures, validator]
 
 from std/algorithm import fill, sort
 from std/sequtils import anyIt, mapIt, toSeq
-from ./datatypes/capella import BeaconState, ExecutionPayloadHeader, Withdrawal
 
 export extras, forks, validator, chronicles
 
@@ -540,8 +538,11 @@ func is_eligible_for_activation*(
 # https://github.com/ethereum/consensus-specs/blob/v1.4.0/specs/phase0/beacon-chain.md#is_valid_indexed_attestation
 proc is_valid_indexed_attestation*(
     state: ForkyBeaconState,
-    indexed_attestation: SomeIndexedAttestation | electra.IndexedAttestation |
-                         electra.TrustedIndexedAttestation,
+    # phase0.SomeIndexedAttestation | electra.SomeIndexedAttestation:
+    # https://github.com/nim-lang/Nim/issues/18095
+    indexed_attestation:
+      phase0.IndexedAttestation | phase0.TrustedIndexedAttestation |
+      electra.IndexedAttestation | electra.TrustedIndexedAttestation,
     flags: UpdateFlags): Result[void, cstring] =
   ## Check if ``indexed_attestation`` is not empty, has sorted and unique
   ## indices and has a valid aggregate signature.

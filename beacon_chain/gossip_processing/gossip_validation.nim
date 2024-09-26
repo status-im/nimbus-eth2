@@ -1228,7 +1228,8 @@ proc validateBlsToExecutionChange*(
 
 # https://github.com/ethereum/consensus-specs/blob/v1.3.0/specs/phase0/p2p-interface.md#attester_slashing
 proc validateAttesterSlashing*(
-    pool: ValidatorChangePool, attester_slashing: phase0.AttesterSlashing):
+    pool: ValidatorChangePool,
+    attester_slashing: phase0.AttesterSlashing | electra.AttesterSlashing):
     Result[void, ValidationError] =
   # [IGNORE] At least one index in the intersection of the attesting indices of
   # each attestation has not yet been seen in any prior attester_slashing (i.e.
@@ -1246,10 +1247,14 @@ proc validateAttesterSlashing*(
     return pool.checkedReject(attester_slashing_validity.error)
 
   # Send notification about new attester slashing via callback
-  if not(isNil(pool.onPhase0AttesterSlashingReceived)):
-    pool.onPhase0AttesterSlashingReceived(attester_slashing)
-
-  debugComment "apparently there's no gopssip validation in place for electra attslashings"
+  when attester_slashing is phase0.AttesterSlashing:
+    if not(isNil(pool.onPhase0AttesterSlashingReceived)):
+      pool.onPhase0AttesterSlashingReceived(attester_slashing)
+  elif attester_slashing is electra.AttesterSlashing:
+    if not(isNil(pool.onElectraAttesterSlashingReceived)):
+      pool.onElectraAttesterSlashingReceived(attester_slashing)
+  else:
+    static: doAssert false
 
   ok()
 
