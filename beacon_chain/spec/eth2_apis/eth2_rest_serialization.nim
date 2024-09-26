@@ -504,84 +504,74 @@ func strictParse*[bits: static[int]](input: string,
 
 proc prepareJsonResponse*(t: typedesc[RestApiResponse], d: auto): seq[byte] =
   let res =
-    block:
-      var default: seq[byte]
-      try:
-        var stream = memoryOutput()
-        var writer = JsonWriter[RestJson].init(stream)
-        writer.beginRecord()
-        writer.writeField("data", d)
-        writer.endRecord()
-        stream.getOutput(seq[byte])
-      except IOError:
-        default
+    try:
+      var stream = memoryOutput()
+      var writer = JsonWriter[RestJson].init(stream)
+      writer.beginRecord()
+      writer.writeField("data", d)
+      writer.endRecord()
+      stream.getOutput(seq[byte])
+    except IOError:
+      default(seq[byte])
   res
 
 proc prepareJsonStringResponse*[T: SomeForkedLightClientObject](
     t: typedesc[RestApiResponse], d: RestVersioned[T]): string =
   let res =
-    block:
-      var default: string
-      try:
-        var stream = memoryOutput()
-        var writer = JsonWriter[RestJson].init(stream)
-        withForkyObject(d.data):
-          when lcDataFork > LightClientDataFork.None:
-            writer.beginRecord()
-            writer.writeField("version", d.jsonVersion.toString())
-            writer.writeField("data", forkyObject)
-            writer.endRecord()
-        stream.getOutput(string)
-      except IOError:
-        default
+    try:
+      var stream = memoryOutput()
+      var writer = JsonWriter[RestJson].init(stream)
+      withForkyObject(d.data):
+        when lcDataFork > LightClientDataFork.None:
+          writer.beginRecord()
+          writer.writeField("version", d.jsonVersion.toString())
+          writer.writeField("data", forkyObject)
+          writer.endRecord()
+      stream.getOutput(string)
+    except IOError:
+      default(string)
   res
 
 proc prepareJsonStringResponse*(t: typedesc[RestApiResponse], d: auto): string =
   let res =
-    block:
-      var default: string
-      try:
-        var stream = memoryOutput()
-        var writer = JsonWriter[RestJson].init(stream)
-        writer.writeValue(d)
-        stream.getOutput(string)
-      except IOError:
-        default
+    try:
+      var stream = memoryOutput()
+      var writer = JsonWriter[RestJson].init(stream)
+      writer.writeValue(d)
+      stream.getOutput(string)
+    except IOError:
+      default(string)
   res
 
 proc jsonResponseWRoot*(t: typedesc[RestApiResponse], data: auto,
                         dependent_root: Eth2Digest,
                         execOpt: Opt[bool]): RestApiResponse =
   let res =
-    block:
-      var default: seq[byte]
-      try:
-        var stream = memoryOutput()
-        var writer = JsonWriter[RestJson].init(stream)
-        writer.beginRecord()
-        writer.writeField("dependent_root", dependent_root)
-        if execOpt.isSome():
-          writer.writeField("execution_optimistic", execOpt.get())
-        writer.writeField("data", data)
-        writer.endRecord()
-        stream.getOutput(seq[byte])
-      except IOError:
-        default
+    try:
+      var stream = memoryOutput()
+      var writer = JsonWriter[RestJson].init(stream)
+      writer.beginRecord()
+      writer.writeField("dependent_root", dependent_root)
+      if execOpt.isSome():
+        writer.writeField("execution_optimistic", execOpt.get())
+      writer.writeField("data", data)
+      writer.endRecord()
+      stream.getOutput(seq[byte])
+    except IOError:
+      default(seq[byte])
   RestApiResponse.response(res, Http200, "application/json")
 
 proc jsonResponse*(t: typedesc[RestApiResponse], data: auto): RestApiResponse =
   let res =
-    block:
-      var default: seq[byte]
-      try:
-        var stream = memoryOutput()
-        var writer = JsonWriter[RestJson].init(stream)
-        writer.beginRecord()
-        writer.writeField("data", data)
-        writer.endRecord()
-        stream.getOutput(seq[byte])
-      except IOError:
-        default
+    try:
+      var stream = memoryOutput()
+      var writer = JsonWriter[RestJson].init(stream)
+      writer.beginRecord()
+      writer.writeField("data", data)
+      writer.endRecord()
+      stream.getOutput(seq[byte])
+    except IOError:
+      default(seq[byte])
   RestApiResponse.response(res, Http200, "application/json")
 
 proc jsonResponseBlock*(t: typedesc[RestApiResponse],
@@ -592,21 +582,19 @@ proc jsonResponseBlock*(t: typedesc[RestApiResponse],
   let
     headers = [("eth-consensus-version", consensusFork.toString())]
     res =
-      block:
-        var default: seq[byte]
-        try:
-          var stream = memoryOutput()
-          var writer = JsonWriter[RestJson].init(stream)
-          writer.beginRecord()
-          writer.writeField("version", consensusFork.toString())
-          if execOpt.isSome():
-            writer.writeField("execution_optimistic", execOpt.get())
-          writer.writeField("finalized", finalized)
-          writer.writeField("data", data)
-          writer.endRecord()
-          stream.getOutput(seq[byte])
-        except IOError:
-          default
+      try:
+        var stream = memoryOutput()
+        var writer = JsonWriter[RestJson].init(stream)
+        writer.beginRecord()
+        writer.writeField("version", consensusFork.toString())
+        if execOpt.isSome():
+          writer.writeField("execution_optimistic", execOpt.get())
+        writer.writeField("finalized", finalized)
+        writer.writeField("data", data)
+        writer.endRecord()
+        stream.getOutput(seq[byte])
+      except IOError:
+        default(seq[byte])
   RestApiResponse.response(res, Http200, "application/json", headers = headers)
 
 proc jsonResponseBlock*(t: typedesc[RestApiResponse],
@@ -616,22 +604,20 @@ proc jsonResponseBlock*(t: typedesc[RestApiResponse],
   let
     headers = [("eth-consensus-version", data.kind.toString())]
     res =
-      block:
-        var default: seq[byte]
-        try:
-          var stream = memoryOutput()
-          var writer = JsonWriter[RestJson].init(stream)
-          writer.beginRecord()
-          writer.writeField("version", data.kind.toString())
-          if execOpt.isSome():
-            writer.writeField("execution_optimistic", execOpt.get())
-          writer.writeField("finalized", finalized)
-          withBlck(data):
-            writer.writeField("data", forkyBlck)
-          writer.endRecord()
-          stream.getOutput(seq[byte])
-        except IOError:
-          default
+      try:
+        var stream = memoryOutput()
+        var writer = JsonWriter[RestJson].init(stream)
+        writer.beginRecord()
+        writer.writeField("version", data.kind.toString())
+        if execOpt.isSome():
+          writer.writeField("execution_optimistic", execOpt.get())
+        writer.writeField("finalized", finalized)
+        withBlck(data):
+          writer.writeField("data", forkyBlck)
+        writer.endRecord()
+        stream.getOutput(seq[byte])
+      except IOError:
+        default(seq[byte])
   RestApiResponse.response(res, Http200, "application/json", headers = headers)
 
 proc jsonResponseState*(t: typedesc[RestApiResponse],
@@ -640,39 +626,35 @@ proc jsonResponseState*(t: typedesc[RestApiResponse],
   let
     headers = [("eth-consensus-version", data.kind.toString())]
     res =
-      block:
-        var default: seq[byte]
-        try:
-          var stream = memoryOutput()
-          var writer = JsonWriter[RestJson].init(stream)
-          writer.beginRecord()
-          writer.writeField("version", data.kind.toString())
-          if execOpt.isSome():
-            writer.writeField("execution_optimistic", execOpt.get())
-          withState(data):
-            writer.writeField("data", forkyState.data)
-          writer.endRecord()
-          stream.getOutput(seq[byte])
-        except IOError:
-          default
+      try:
+        var stream = memoryOutput()
+        var writer = JsonWriter[RestJson].init(stream)
+        writer.beginRecord()
+        writer.writeField("version", data.kind.toString())
+        if execOpt.isSome():
+          writer.writeField("execution_optimistic", execOpt.get())
+        withState(data):
+          writer.writeField("data", forkyState.data)
+        writer.endRecord()
+        stream.getOutput(seq[byte])
+      except IOError:
+        default(seq[byte])
   RestApiResponse.response(res, Http200, "application/json", headers = headers)
 
 proc jsonResponseWOpt*(t: typedesc[RestApiResponse], data: auto,
                        execOpt: Opt[bool]): RestApiResponse =
   let res =
-    block:
-      var default: seq[byte]
-      try:
-        var stream = memoryOutput()
-        var writer = JsonWriter[RestJson].init(stream)
-        writer.beginRecord()
-        if execOpt.isSome():
-          writer.writeField("execution_optimistic", execOpt.get())
-        writer.writeField("data", data)
-        writer.endRecord()
-        stream.getOutput(seq[byte])
-      except IOError:
-        default
+    try:
+      var stream = memoryOutput()
+      var writer = JsonWriter[RestJson].init(stream)
+      writer.beginRecord()
+      if execOpt.isSome():
+        writer.writeField("execution_optimistic", execOpt.get())
+      writer.writeField("data", data)
+      writer.endRecord()
+      stream.getOutput(seq[byte])
+    except IOError:
+      default(seq[byte])
   RestApiResponse.response(res, Http200, "application/json")
 
 proc prepareJsonResponseFinalized*(
@@ -729,84 +711,74 @@ proc jsonResponseWVersion*(t: typedesc[RestApiResponse], data: auto,
   let
     headers = [("eth-consensus-version", version.toString())]
     res =
-      block:
-        var default: seq[byte]
-        try:
-          var stream = memoryOutput()
-          var writer = JsonWriter[RestJson].init(stream)
-          writer.beginRecord()
-          writer.writeField("version", version.toString())
-          writer.writeField("data", data)
-          writer.endRecord()
-          stream.getOutput(seq[byte])
-        except IOError:
-          default
+      try:
+        var stream = memoryOutput()
+        var writer = JsonWriter[RestJson].init(stream)
+        writer.beginRecord()
+        writer.writeField("version", version.toString())
+        writer.writeField("data", data)
+        writer.endRecord()
+        stream.getOutput(seq[byte])
+      except IOError:
+        default(seq[byte])
   RestApiResponse.response(res, Http200, "application/json", headers = headers)
 
 proc jsonResponseVersioned*[T: SomeForkedLightClientObject](
     t: typedesc[RestApiResponse],
     entries: openArray[RestVersioned[T]]): RestApiResponse =
   let res =
-    block:
-      var default: seq[byte]
-      try:
-        var stream = memoryOutput()
-        var writer = JsonWriter[RestJson].init(stream)
-        for e in writer.stepwiseArrayCreation(entries):
-          withForkyObject(e.data):
-            when lcDataFork > LightClientDataFork.None:
-              writer.beginRecord()
-              writer.writeField("version", e.jsonVersion.toString())
-              writer.writeField("data", forkyObject)
-              writer.endRecord()
-        stream.getOutput(seq[byte])
-      except IOError:
-        default
+    try:
+      var stream = memoryOutput()
+      var writer = JsonWriter[RestJson].init(stream)
+      for e in writer.stepwiseArrayCreation(entries):
+        withForkyObject(e.data):
+          when lcDataFork > LightClientDataFork.None:
+            writer.beginRecord()
+            writer.writeField("version", e.jsonVersion.toString())
+            writer.writeField("data", forkyObject)
+            writer.endRecord()
+      stream.getOutput(seq[byte])
+    except IOError:
+      default(seq[byte])
   RestApiResponse.response(res, Http200, "application/json")
 
 proc jsonResponsePlain*(t: typedesc[RestApiResponse],
                         data: auto): RestApiResponse =
   let res =
-    block:
-      var default: seq[byte]
-      try:
-        var stream = memoryOutput()
-        var writer = JsonWriter[RestJson].init(stream)
-        writer.writeValue(data)
-        stream.getOutput(seq[byte])
-      except IOError:
-        default
+    try:
+      var stream = memoryOutput()
+      var writer = JsonWriter[RestJson].init(stream)
+      writer.writeValue(data)
+      stream.getOutput(seq[byte])
+    except IOError:
+      default(seq[byte])
   RestApiResponse.response(res, Http200, "application/json")
 
 proc jsonResponsePlain*(t: typedesc[RestApiResponse],
                         data: auto, headers: HttpTable): RestApiResponse =
   let res =
-    block:
-      var default: seq[byte]
-      try:
-        var stream = memoryOutput()
-        var writer = JsonWriter[RestJson].init(stream)
-        writer.writeValue(data)
-        stream.getOutput(seq[byte])
-      except IOError:
-        default
+    try:
+      var stream = memoryOutput()
+      var writer = JsonWriter[RestJson].init(stream)
+      writer.writeValue(data)
+      stream.getOutput(seq[byte])
+    except IOError:
+      default(seq[byte])
   RestApiResponse.response(res, Http200, "application/json", headers = headers)
 
 proc jsonResponseWMeta*(t: typedesc[RestApiResponse],
                         data: auto, meta: auto): RestApiResponse =
   let res =
-    block:
-      var default: seq[byte]
-      try:
-        var stream = memoryOutput()
-        var writer = JsonWriter[RestJson].init(stream)
-        writer.beginRecord()
-        writer.writeField("data", data)
-        writer.writeField("meta", meta)
-        writer.endRecord()
-        stream.getOutput(seq[byte])
-      except IOError:
-        default
+    try:
+      var stream = memoryOutput()
+      var writer = JsonWriter[RestJson].init(stream)
+      writer.beginRecord()
+      writer.writeField("data", data)
+      writer.writeField("meta", meta)
+      writer.endRecord()
+      stream.getOutput(seq[byte])
+    except IOError:
+      default(seq[byte])
   RestApiResponse.response(res, Http200, "application/json")
 
 proc jsonMsgResponse*(t: typedesc[RestApiResponse],
@@ -827,116 +799,104 @@ proc jsonMsgResponse*(t: typedesc[RestApiResponse],
 proc jsonError*(t: typedesc[RestApiResponse], status: HttpCode = Http200,
                 msg: string = ""): RestApiResponse =
   let data =
-    block:
-      var default: string
-      try:
-        var stream = memoryOutput()
-        var writer = JsonWriter[RestJson].init(stream)
-        writer.beginRecord()
-        writer.writeField("code", int(status.toInt()))
-        writer.writeField("message", msg)
-        writer.endRecord()
-        stream.getOutput(string)
-      except IOError:
-        default
+    try:
+      var stream = memoryOutput()
+      var writer = JsonWriter[RestJson].init(stream)
+      writer.beginRecord()
+      writer.writeField("code", int(status.toInt()))
+      writer.writeField("message", msg)
+      writer.endRecord()
+      stream.getOutput(string)
+    except IOError:
+      default(string)
   RestApiResponse.error(status, data, "application/json")
 
 proc jsonError*(t: typedesc[RestApiResponse], status: HttpCode = Http200,
                 msg: string = "", stacktrace: string): RestApiResponse =
   let data =
-    block:
-      var default: string
-      try:
-        var stream = memoryOutput()
-        var writer = JsonWriter[RestJson].init(stream)
-        writer.beginRecord()
-        writer.writeField("code", int(status.toInt()))
-        writer.writeField("message", msg)
-        if len(stacktrace) > 0:
-          writer.writeField("stacktraces", [stacktrace])
-        writer.endRecord()
-        stream.getOutput(string)
-      except IOError:
-        default
+    try:
+      var stream = memoryOutput()
+      var writer = JsonWriter[RestJson].init(stream)
+      writer.beginRecord()
+      writer.writeField("code", int(status.toInt()))
+      writer.writeField("message", msg)
+      if len(stacktrace) > 0:
+        writer.writeField("stacktraces", [stacktrace])
+      writer.endRecord()
+      stream.getOutput(string)
+    except IOError:
+      default(string)
   RestApiResponse.error(status, data, "application/json")
 
 proc jsonError*(t: typedesc[RestApiResponse], status: HttpCode = Http200,
                 msg: string = "",
                 stacktraces: openArray[string]): RestApiResponse =
   let data =
-    block:
-      var default: string
-      try:
-        var stream = memoryOutput()
-        var writer = JsonWriter[RestJson].init(stream)
-        writer.beginRecord()
-        writer.writeField("code", int(status.toInt()))
-        writer.writeField("message", msg)
-        writer.writeField("stacktraces", stacktraces)
-        writer.endRecord()
-        stream.getOutput(string)
-      except IOError:
-        default
+    try:
+      var stream = memoryOutput()
+      var writer = JsonWriter[RestJson].init(stream)
+      writer.beginRecord()
+      writer.writeField("code", int(status.toInt()))
+      writer.writeField("message", msg)
+      writer.writeField("stacktraces", stacktraces)
+      writer.endRecord()
+      stream.getOutput(string)
+    except IOError:
+      default(string)
   RestApiResponse.error(status, data, "application/json")
 
 proc jsonError*(t: typedesc[RestApiResponse],
                 rmsg: RestErrorMessage): RestApiResponse =
   let data =
-    block:
-      var default: string
-      try:
-        var stream = memoryOutput()
-        var writer = JsonWriter[RestJson].init(stream)
-        writer.beginRecord()
-        writer.writeField("code", rmsg.code)
-        writer.writeField("message", rmsg.message)
-        if rmsg.stacktraces.isSome():
-          writer.writeField("stacktraces", rmsg.stacktraces)
-        writer.endRecord()
-        stream.getOutput(string)
-      except IOError:
-        default
+    try:
+      var stream = memoryOutput()
+      var writer = JsonWriter[RestJson].init(stream)
+      writer.beginRecord()
+      writer.writeField("code", rmsg.code)
+      writer.writeField("message", rmsg.message)
+      if rmsg.stacktraces.isSome():
+        writer.writeField("stacktraces", rmsg.stacktraces)
+      writer.endRecord()
+      stream.getOutput(string)
+    except IOError:
+      default(string)
   RestApiResponse.error(rmsg.code.toHttpCode().get(), data, "application/json")
 
 proc jsonErrorList*(t: typedesc[RestApiResponse],
                     status: HttpCode = Http200,
                     msg: string = "", failures: auto): RestApiResponse =
   let data =
-    block:
-      var default: string
-      try:
-        var stream = memoryOutput()
-        var writer = JsonWriter[RestJson].init(stream)
-        writer.beginRecord()
-        writer.writeField("code", int(status.toInt()))
-        writer.writeField("message", msg)
-        writer.writeField("failures", failures)
-        writer.endRecord()
-        stream.getOutput(string)
-      except IOError:
-        default
+    try:
+      var stream = memoryOutput()
+      var writer = JsonWriter[RestJson].init(stream)
+      writer.beginRecord()
+      writer.writeField("code", int(status.toInt()))
+      writer.writeField("message", msg)
+      writer.writeField("failures", failures)
+      writer.endRecord()
+      stream.getOutput(string)
+    except IOError:
+      default(string)
   RestApiResponse.error(status, data, "application/json")
 
 proc sszResponseVersioned*[T: SomeForkedLightClientObject](
     t: typedesc[RestApiResponse],
     entries: openArray[RestVersioned[T]]): RestApiResponse =
   let res =
-    block:
-      var default: seq[byte]
-      try:
-        var stream = memoryOutput()
-        for e in entries:
-          withForkyUpdate(e.data):
-            when lcDataFork > LightClientDataFork.None:
-              var cursor = stream.delayFixedSizeWrite(sizeof(uint64))
-              let initPos = stream.pos
-              stream.write e.sszContext.data
-              var writer = SszWriter.init(stream)
-              writer.writeValue forkyUpdate
-              cursor.finalWrite (stream.pos - initPos).uint64.toBytesLE()
-        stream.getOutput(seq[byte])
-      except IOError:
-        default
+    try:
+      var stream = memoryOutput()
+      for e in entries:
+        withForkyUpdate(e.data):
+          when lcDataFork > LightClientDataFork.None:
+            var cursor = stream.delayFixedSizeWrite(sizeof(uint64))
+            let initPos = stream.pos
+            stream.write e.sszContext.data
+            var writer = SszWriter.init(stream)
+            writer.writeValue forkyUpdate
+            cursor.finalWrite (stream.pos - initPos).uint64.toBytesLE()
+      stream.getOutput(seq[byte])
+    except IOError:
+      default(seq[byte])
   RestApiResponse.response(res, Http200, "application/octet-stream")
 
 proc sszResponsePlain*(t: typedesc[RestApiResponse], res: seq[byte],
@@ -949,30 +909,26 @@ proc sszResponse*(t: typedesc[RestApiResponse], data: auto,
                   headers: openArray[RestKeyValueTuple] = []
                  ): RestApiResponse =
   let res =
-    block:
-      var default: seq[byte]
-      try:
-        var stream = memoryOutput()
-        var writer = SszWriter.init(stream)
-        writer.writeValue(data)
-        stream.getOutput(seq[byte])
-      except IOError:
-        default
+    try:
+      var stream = memoryOutput()
+      var writer = SszWriter.init(stream)
+      writer.writeValue(data)
+      stream.getOutput(seq[byte])
+    except IOError:
+      default(seq[byte])
   RestApiResponse.response(res, Http200, "application/octet-stream",
                            headers = headers)
 
 proc sszResponse*(t: typedesc[RestApiResponse], data: auto,
                   headers: HttpTable): RestApiResponse =
   let res =
-    block:
-      var default: seq[byte]
-      try:
-        var stream = memoryOutput()
-        var writer = SszWriter.init(stream)
-        writer.writeValue(data)
-        stream.getOutput(seq[byte])
-      except IOError:
-        default
+    try:
+      var stream = memoryOutput()
+      var writer = SszWriter.init(stream)
+      writer.writeValue(data)
+      stream.getOutput(seq[byte])
+    except IOError:
+      default(seq[byte])
   RestApiResponse.response(res, Http200, "application/octet-stream",
                            headers = headers)
 
