@@ -454,7 +454,7 @@ proc computeTransactionsTrieRoot*(
       raiseAssert "HexaryTrie.put failed: " & $exc.msg
   tr.rootHash()
 
-func toExecutionWithdrawal*(
+func toExecutionWithdrawal(
     withdrawal: capella.Withdrawal): ExecutionWithdrawal =
   ExecutionWithdrawal(
     index: withdrawal.index,
@@ -462,11 +462,8 @@ func toExecutionWithdrawal*(
     address: EthAddress withdrawal.address.data,
     amount: distinctBase(withdrawal.amount))
 
-proc append(w: var RlpWriter, val: EthAddress) =
-  # TODO for some reason, the same implementation from addresses_rlp isn't
-  #      picked up, so we need to repeat it here - odd.
-  mixin append
-  w.append(val.data())
+proc rlpEncode(withdrawal: capella.Withdrawal): seq[byte] =
+  rlp.encode(toExecutionWithdrawal(withdrawal))
 
 # https://eips.ethereum.org/EIPS/eip-4895
 proc computeWithdrawalsTrieRoot*(
@@ -478,7 +475,7 @@ proc computeWithdrawalsTrieRoot*(
   var tr = initHexaryTrie(newMemoryDB())
   for i, withdrawal in payload.withdrawals:
     try:
-      tr.put(rlp.encode(i.uint), rlp.encode(toExecutionWithdrawal(withdrawal)))
+      tr.put(rlp.encode(i.uint), rlpEncode(withdrawal))
     except RlpError as exc:
       raiseAssert "HexaryTrie.put failed: " & $exc.msg
   tr.rootHash()
