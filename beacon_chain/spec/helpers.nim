@@ -463,6 +463,8 @@ func toExecutionWithdrawal(
     amount: distinctBase(withdrawal.amount))
 
 proc rlpEncode(withdrawal: capella.Withdrawal): seq[byte] =
+  # TODO if this encode call is in a generic function, nim doesn't find the
+  #      right `append` to use with `Address` (!)
   rlp.encode(toExecutionWithdrawal(withdrawal))
 
 # https://eips.ethereum.org/EIPS/eip-4895
