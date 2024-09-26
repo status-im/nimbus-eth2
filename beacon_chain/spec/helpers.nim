@@ -462,6 +462,12 @@ func toExecutionWithdrawal*(
     address: EthAddress withdrawal.address.data,
     amount: distinctBase(withdrawal.amount))
 
+proc append(w: var RlpWriter, val: EthAddress) =
+  # TODO for some reason, the same implementation from addresses_rlp isn't
+  #      picked up, so we need to repeat it here - odd.
+  mixin append
+  w.append(val.data())
+
 # https://eips.ethereum.org/EIPS/eip-4895
 proc computeWithdrawalsTrieRoot*(
     payload: capella.ExecutionPayload | deneb.ExecutionPayload |
@@ -480,25 +486,25 @@ proc computeWithdrawalsTrieRoot*(
 func toExecutionDepositRequest*(
     request: electra.DepositRequest): ExecutionDepositRequest =
   ExecutionDepositRequest(
-    pubkey: request.pubkey.blob,
-    withdrawalCredentials: request.withdrawal_credentials.data,
+    pubkey: Bytes48 request.pubkey.blob,
+    withdrawalCredentials: Bytes32 request.withdrawal_credentials.data,
     amount: distinctBase(request.amount),
-    signature: request.signature.blob,
+    signature: Bytes96 request.signature.blob,
     index: request.index)
 
 func toExecutionWithdrawalRequest*(
     request: electra.WithdrawalRequest): ExecutionWithdrawalRequest =
   ExecutionWithdrawalRequest(
-    sourceAddress: request.source_address.data,
-    validatorPubkey: request.validator_pubkey.blob,
+    sourceAddress: Address request.source_address.data,
+    validatorPubkey: Bytes48 request.validator_pubkey.blob,
     amount: distinctBase(request.amount))
 
 func toExecutionConsolidationRequest*(
     request: electra.ConsolidationRequest): ExecutionConsolidationRequest =
   ExecutionConsolidationRequest(
-    sourceAddress: request.source_address.data,
-    sourcePubkey: request.source_pubkey.blob,
-    targetPubkey: request.target_pubkey.blob)
+    sourceAddress: Address request.source_address.data,
+    sourcePubkey: Bytes48 request.source_pubkey.blob,
+    targetPubkey: Bytes48 request.target_pubkey.blob)
 
 # https://eips.ethereum.org/EIPS/eip-7685
 proc computeRequestsTrieRoot(
@@ -571,7 +577,7 @@ proc blockToBlockHeader*(blck: ForkyBeaconBlock): ExecutionBlockHeader =
         Opt.none(uint64)
     parentBeaconBlockRoot =
       when typeof(payload).kind >= ConsensusFork.Deneb:
-        Opt.some ExecutionHash256(data: blck.parent_root.data)
+        Opt.some ExecutionHash256(blck.parent_root.data)
       else:
         Opt.none(ExecutionHash256)
     requestsRoot =
@@ -581,20 +587,20 @@ proc blockToBlockHeader*(blck: ForkyBeaconBlock): ExecutionBlockHeader =
         Opt.none(ExecutionHash256)
 
   ExecutionBlockHeader(
-    parentHash            : payload.parent_hash,
+    parentHash            : payload.parent_hash.to(Hash32),
     ommersHash            : EMPTY_UNCLE_HASH,
     coinbase              : EthAddress payload.fee_recipient.data,
-    stateRoot             : payload.state_root,
-    txRoot                : txRoot,
-    receiptsRoot          : payload.receipts_root,
-    logsBloom             : payload.logs_bloom.data,
+    stateRoot             : payload.state_root.to(Root),
+    transactionsRoot      : txRoot,
+    receiptsRoot          : payload.receipts_root.to(Root),
+    logsBloom             : BloomFilter payload.logs_bloom.data.to(Bloom),
     difficulty            : default(DifficultyInt),
     number                : payload.block_number,
     gasLimit              : payload.gas_limit,
     gasUsed               : payload.gas_used,
     timestamp             : EthTime(payload.timestamp),
     extraData             : payload.extra_data.asSeq,
-    mixHash               : payload.prev_randao, # EIP-4399 `mixHash` -> `prevRandao`
+    mixHash               : payload.prev_randao.to(Hash32), # EIP-4399 `mixHash` -> `prevRandao`
     nonce                 : default(BlockNonce),
     baseFeePerGas         : Opt.some payload.base_fee_per_gas,
     withdrawalsRoot       : withdrawalsRoot,
@@ -604,7 +610,7 @@ proc blockToBlockHeader*(blck: ForkyBeaconBlock): ExecutionBlockHeader =
     requestsRoot          : requestsRoot)          # EIP-7685
 
 proc compute_execution_block_hash*(blck: ForkyBeaconBlock): Eth2Digest =
-  rlpHash blockToBlockHeader(blck)
+  rlpHash(blockToBlockHeader(blck)).to(Eth2Digest)
 
 from std/math import exp, ln
 from std/sequtils import foldl
