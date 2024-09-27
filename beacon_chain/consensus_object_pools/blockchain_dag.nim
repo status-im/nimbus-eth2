@@ -14,11 +14,8 @@ import
   ../spec/[beaconstate, eth2_merkleization, eth2_ssz_serialization, helpers,
     state_transition, validator],
   ../spec/forks,
-  ../spec/datatypes/[phase0, altair, bellatrix, capella],
   ".."/[beacon_chain_db, beacon_clock, era_db],
   "."/[block_pools_types, block_quarantine]
-
-from ../spec/datatypes/deneb import shortLog
 
 export
   eth2_merkleization, eth2_ssz_serialization,
