@@ -1509,6 +1509,56 @@ proc installBeaconApiHandlers*(router: var RestRouter, node: BeaconNode) =
                                        $res.error)
     RestApiResponse.jsonMsgResponse(AttesterSlashingValidationSuccess)
 
+  # https://ethereum.github.io/beacon-APIs/?urls.primaryName=dev#/Beacon/getPoolAttesterSlashingsV2
+  router.api2(MethodGet, "/eth/v2/beacon/pool/attester_slashings") do (
+    ) -> RestApiResponse:
+
+    let contextFork =
+      node.dag.cfg.consensusForkAtEpoch(node.currentSlot.epoch)
+  
+    withConsensusFork(contextFork):
+      when consensusFork < ConsensusFork.Electra:
+        RestApiResponse.jsonResponseWVersion(
+          toSeq(node.validatorChangePool.phase0_attester_slashings),
+          contextFork)
+      else:
+        RestApiResponse.jsonResponseWVersion(
+          toSeq(node.validatorChangePool.electra_attester_slashings),
+          contextFork)
+
+  # https://ethereum.github.io/beacon-APIs/?urls.primaryName=dev#/Beacon/submitPoolAttesterSlashingsV2
+  router.api(MethodPost, "/eth/v2/beacon/pool/attester_slashings") do (
+    contentBody: Option[ContentBody]) -> RestApiResponse:
+
+    let
+      headerVersion = request.headers.getString("Eth-Consensus-Version")
+      consensusVersion = ConsensusFork.init(headerVersion)
+    if consensusVersion.isNone():
+      return RestApiResponse.jsonError(Http400, FailedToObtainConsensusForkError)
+
+    if contentBody.isNone():
+      return RestApiResponse.jsonError(Http400, EmptyRequestBodyError)
+
+    template decodeAttesterSlashing(AttesterSlashingType: untyped) =
+      let dres = decodeBody(AttesterSlashingType, contentBody.get())
+      if dres.isErr():
+        return RestApiResponse.jsonError(Http400,
+                                          InvalidAttesterSlashingObjectError,
+                                          $dres.error)
+      let res = await node.router.routeAttesterSlashing(dres.get())
+      if res.isErr():
+        return RestApiResponse.jsonError(Http400,
+                                       AttesterSlashingValidationError,
+                                       $res.error)
+      return RestApiResponse.jsonMsgResponse(AttesterSlashingValidationSuccess)
+
+
+    case consensusVersion.get():
+      of ConsensusFork.Phase0 .. ConsensusFork.Deneb:
+        decodeAttesterSlashing(phase0.AttesterSlashing)
+      of ConsensusFork.Electra:
+        decodeAttesterSlashing(electra.AttesterSlashing)
+
   # https://ethereum.github.io/beacon-APIs/#/Beacon/getPoolProposerSlashings
   router.api2(MethodGet, "/eth/v1/beacon/pool/proposer_slashings") do (
     ) -> RestApiResponse:
