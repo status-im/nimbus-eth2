@@ -1552,7 +1552,6 @@ proc installBeaconApiHandlers*(router: var RestRouter, node: BeaconNode) =
                                        $res.error)
       return RestApiResponse.jsonMsgResponse(AttesterSlashingValidationSuccess)
 
-
     case consensusVersion.get():
       of ConsensusFork.Phase0 .. ConsensusFork.Deneb:
         decodeAttesterSlashing(phase0.AttesterSlashing)

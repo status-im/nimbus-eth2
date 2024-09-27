@@ -364,8 +364,9 @@ proc getPoolAttesterSlashingsV2Plain*(): RestPlainResponse {.
      meth: MethodGet.}
   ## https://ethereum.github.io/beacon-APIs/?urls.primaryName=dev#/Beacon/getPoolAttesterSlashingsV2
 
-proc submitPoolAttesterSlashings*(body: phase0.AttesterSlashing | electra.AttesterSlashing):
-     RestPlainResponse {.
+proc submitPoolAttesterSlashings*(
+       body: phase0.AttesterSlashing | electra.AttesterSlashing
+     ): RestPlainResponse {.
      rest, endpoint: "/eth/v1/beacon/pool/attester_slashings",
      meth: MethodPost.}
   ## https://ethereum.github.io/beacon-APIs/#/Beacon/submitPoolAttesterSlashings
@@ -380,7 +381,9 @@ proc submitPoolProposerSlashings*(body: ProposerSlashing): RestPlainResponse {.
      meth: MethodPost.}
   ## https://ethereum.github.io/beacon-APIs/#/Beacon/submitPoolProposerSlashings
 
-proc submitPoolSyncCommitteeSignatures*(body: seq[RestSyncCommitteeMessage]): RestPlainResponse {.
+proc submitPoolSyncCommitteeSignatures*(
+       body: seq[RestSyncCommitteeMessage]
+     ): RestPlainResponse {.
      rest, endpoint: "/eth/v1/beacon/pool/sync_committees",
      meth: MethodPost.}
   ## https://ethereum.github.io/beacon-APIs/#/Beacon/submitPoolSyncCommitteeSignatures
