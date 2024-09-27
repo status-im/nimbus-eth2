@@ -105,7 +105,7 @@ declareGauge attestation_pool_block_attestation_packing_time,
 
 proc init*(T: type AttestationPool, dag: ChainDAGRef,
            quarantine: ref Quarantine,
-           onAttestation: OnPhase0AttestationCallback = nil,
+           onPhase0Attestation: OnPhase0AttestationCallback = nil,
            onElectraAttestation: OnElectraAttestationCallback = nil): T =
   ## Initialize an AttestationPool from the dag `headState`
   ## The `finalized_root` works around the finalized_checkpoint of the genesis block
@@ -173,7 +173,6 @@ proc init*(T: type AttestationPool, dag: ChainDAGRef,
 
     doAssert status.isOk(), "Error in preloading the fork choice: " & $status.error
 
-  debugComment "nothing initializes electra callback externally"
   info "Fork choice initialized",
     justified = shortLog(getStateField(
       dag.headState, current_justified_checkpoint)),
@@ -182,7 +181,7 @@ proc init*(T: type AttestationPool, dag: ChainDAGRef,
     dag: dag,
     quarantine: quarantine,
     forkChoice: forkChoice,
-    onPhase0AttestationAdded: onAttestation,
+    onPhase0AttestationAdded: onPhase0Attestation,
     onElectraAttestationAdded: onElectraAttestation
   )
 

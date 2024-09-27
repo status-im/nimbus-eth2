@@ -281,8 +281,10 @@ proc initFullNode(
     getBeaconTime: GetBeaconTimeFn) {.async.} =
   template config(): auto = node.config
 
-  proc onAttestationReceived(data: phase0.Attestation) =
+  proc onPhase0AttestationReceived(data: phase0.Attestation) =
     node.eventBus.attestQueue.emit(data)
+  proc onElectraAttestationReceived(data: electra.Attestation) =
+    debugComment "electra attestation queue"
   proc onSyncContribution(data: SignedContributionAndProof) =
     node.eventBus.contribQueue.emit(data)
   proc onVoluntaryExitAdded(data: SignedVoluntaryExit) =
@@ -295,7 +297,6 @@ proc initFullNode(
     node.eventBus.attSlashQueue.emit(data)
   proc onElectraAttesterSlashingAdded(data: electra.AttesterSlashing) =
     debugComment "electra att slasher queue"
-    discard
   proc onBlobSidecarAdded(data: BlobSidecarInfoObject) =
     node.eventBus.blobSidecarQueue.emit(data)
   proc onBlockAdded(data: ForkedTrustedSignedBeaconBlock) =
@@ -388,7 +389,8 @@ proc initFullNode(
     quarantine = newClone(
       Quarantine.init())
     attestationPool = newClone(AttestationPool.init(
-      dag, quarantine, onAttestationReceived))
+      dag, quarantine, onPhase0AttestationReceived,
+      onElectraAttestationReceived))
     syncCommitteeMsgPool = newClone(
       SyncCommitteeMsgPool.init(rng, dag.cfg, onSyncContribution))
     lightClientPool = newClone(
