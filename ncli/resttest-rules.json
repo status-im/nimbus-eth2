@@ -3976,6 +3976,18 @@
     }
   },
   {
+    "topics": ["beacon", "pool_attester_slashings_electra"],
+    "request": {
+      "url": "/eth/v2/beacon/pool/attester_slashings",
+      "headers": {"Accept": "application/json"}
+    },
+    "response": {
+      "status": {"operator": "equals", "value": "200"},
+      "headers": [{"key": "Content-Type", "value": "application/json", "operator": "equals"}, {"key": "eth-consensus-version", "value": ["phase0", "altair", "bellatrix"], "operator": "oneof"}],
+      "body": [{"operator": "jstructcmps", "start": ["data"],"value": [{"attestation_1": {"attesting_indices": [""], "signature": "", "data": {"slot": "", "index": "", "beacon_block_root": "", "source": {"epoch": "", "root": ""}, "target": {"epoch": "", "root": ""}}}, "attestation_2": {"attesting_indices": [""], "signature": "", "data": {"slot": "", "index": "", "beacon_block_root": "", "source": {"epoch": "", "root": ""}, "target": {"epoch": "", "root": ""}}}}]}]
+    }
+  },
+  {
     "topics": ["beacon", "pool_proposer_slashings"],
     "request": {
       "url": "/eth/v1/beacon/pool/proposer_slashings",
