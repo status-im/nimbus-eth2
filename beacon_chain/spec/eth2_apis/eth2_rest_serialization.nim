@@ -1101,7 +1101,7 @@ proc readValue*(reader: var JsonReader[RestJson],
 
     if parsed > uint8.high:
       reader.raiseUnexpectedValue(
-        "The usigned integer value should fit in 8 bits")
+        "The unsigned integer value should fit in 8 bits")
 
     if not epochFlags.asList.add(uint8(parsed)):
       reader.raiseUnexpectedValue(
@@ -1560,7 +1560,7 @@ proc readValue*[BlockType: Web3SignerForkedBeaconBlock](
 
   if version.get() <= ConsensusFork.Altair:
     reader.raiseUnexpectedValue(
-      "Web3Signer implementation supports Bellatrix and newer")
+      "Web3Signer implementation supports Capella and newer")
 
   let res =
     try:
@@ -1596,22 +1596,8 @@ proc readValue*(reader: var JsonReader[RestJson],
       if version.isSome():
         reader.raiseUnexpectedField("Multiple version fields found",
                                     "ForkedSignedBeaconBlock")
-      let vres = reader.readValue(string)
-      static: doAssert ConsensusFork.high == ConsensusFork.Electra
-      case vres
-      of "phase0":
-        version = Opt.some(ConsensusFork.Phase0)
-      of "altair":
-        version = Opt.some(ConsensusFork.Altair)
-      of "bellatrix":
-        version = Opt.some(ConsensusFork.Bellatrix)
-      of "capella":
-        version = Opt.some(ConsensusFork.Capella)
-      of "deneb":
-        version = Opt.some(ConsensusFork.Deneb)
-      of "electra":
-        version = Opt.some(ConsensusFork.Electra)
-      else:
+      version = ConsensusFork.init(reader.readValue(string))
+      if version.isNone:
         reader.raiseUnexpectedValue("Incorrect version field value")
     of "data":
       if data.isSome():
@@ -1700,24 +1686,19 @@ proc writeValue*(
     writer: var JsonWriter[RestJson], value: ForkedSignedBeaconBlock
 ) {.raises: [IOError].} =
   writer.beginRecord()
+  writer.writeField("version", value.kind.toString)
   case value.kind
   of ConsensusFork.Phase0:
-    writer.writeField("version", "phase0")
     writer.writeField("data", value.phase0Data)
   of ConsensusFork.Altair:
-    writer.writeField("version", "altair")
     writer.writeField("data", value.altairData)
   of ConsensusFork.Bellatrix:
-    writer.writeField("version", "bellatrix")
     writer.writeField("data", value.bellatrixData)
   of ConsensusFork.Capella:
-    writer.writeField("version", "capella")
     writer.writeField("data", value.capellaData)
   of ConsensusFork.Deneb:
-    writer.writeField("version", "deneb")
     writer.writeField("data", value.denebData)
   of ConsensusFork.Electra:
-    writer.writeField("version", "electra")
     writer.writeField("data", value.electraData)
   writer.endRecord()
 
@@ -1736,15 +1717,9 @@ proc readValue*(reader: var JsonReader[RestJson],
       if version.isSome():
         reader.raiseUnexpectedField("Multiple version fields found",
                                     "ForkedBeaconState")
-      let vres = reader.readValue(string)
-      version = case vres
-      of "phase0": Opt.some(ConsensusFork.Phase0)
-      of "altair": Opt.some(ConsensusFork.Altair)
-      of "bellatrix": Opt.some(ConsensusFork.Bellatrix)
-      of "capella": Opt.some(ConsensusFork.Capella)
-      of "deneb": Opt.some(ConsensusFork.Deneb)
-      of "electra": Opt.some(ConsensusFork.Electra)
-      else: reader.raiseUnexpectedValue("Incorrect version field value")
+      version = ConsensusFork.init(reader.readValue(string))
+      if version.isNone:
+        reader.raiseUnexpectedValue("Incorrect version field value")
     of "data":
       if data.isSome():
         reader.raiseUnexpectedField("Multiple data fields found",
@@ -1838,24 +1813,19 @@ proc writeValue*(
     writer: var JsonWriter[RestJson], value: ForkedHashedBeaconState
 ) {.raises: [IOError].} =
   writer.beginRecord()
+  writer.writeField("version", value.kind.toString)
   case value.kind
   of ConsensusFork.Phase0:
-    writer.writeField("version", "phase0")
     writer.writeField("data", value.phase0Data.data)
   of ConsensusFork.Altair:
-    writer.writeField("version", "altair")
     writer.writeField("data", value.altairData.data)
   of ConsensusFork.Bellatrix:
-    writer.writeField("version", "bellatrix")
     writer.writeField("data", value.bellatrixData.data)
   of ConsensusFork.Capella:
-    writer.writeField("version", "capella")
     writer.writeField("data", value.capellaData.data)
   of ConsensusFork.Deneb:
-    writer.writeField("version", "deneb")
     writer.writeField("data", value.denebData.data)
   of ConsensusFork.Electra:
-    writer.writeField("version", "electra")
     writer.writeField("data", value.electraData.data)
   writer.endRecord()
 
@@ -1905,6 +1875,8 @@ proc readValue*[T: SomeForkedLightClientObject](
 proc writeValue*(
     writer: var JsonWriter[RestJson], value: Web3SignerRequest
 ) {.raises: [IOError].} =
+  debugComment "electra web3signer needs some EIP-7549 changes"
+
   writer.beginRecord()
   case value.kind
   of Web3SignerRequestKind.AggregationSlot:
@@ -3836,15 +3808,11 @@ func decodeString*(t: typedesc[ValidatorFilter],
 
 func decodeString*(t: typedesc[ConsensusFork],
                    value: string): Result[ConsensusFork, cstring] =
-  static: doAssert ConsensusFork.high == ConsensusFork.Electra
-  case toLowerAscii(value)
-  of "phase0": ok(ConsensusFork.Phase0)
-  of "altair": ok(ConsensusFork.Altair)
-  of "bellatrix": ok(ConsensusFork.Bellatrix)
-  of "capella": ok(ConsensusFork.Capella)
-  of "deneb": ok(ConsensusFork.Deneb)
-  of "electra": ok(ConsensusFork.Electra)
-  else: err("Unsupported or invalid beacon block fork version")
+  let vres = ConsensusFork.init(toLowerAscii(value))
+  if vres.isSome:
+    ok(vres.get)
+  else:
+    err("Unsupported or invalid beacon block fork version")
 
 proc decodeString*(t: typedesc[EventBeaconBlockObject],
                    value: string): Result[EventBeaconBlockObject, string] =
