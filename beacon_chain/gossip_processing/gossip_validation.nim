@@ -495,8 +495,10 @@ proc validateBlobSidecar*(
 # https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.6/specs/_features/eip7594/p2p-interface.md#data_column_sidecar_subnet_id
 proc validateDataColumnSidecar*(
     dag: ChainDAGRef, quarantine: ref Quarantine,
-    dataColumnQuarantine: ref DataColumnQuarantine, data_column_sidecar: DataColumnSidecar,
-    wallTime: BeaconTime, subnet_id: uint64): Result[void, ValidationError] =
+    dataColumnQuarantine: ref DataColumnQuarantine, 
+    data_column_sidecar: DataColumnSidecar,
+    wallTime: BeaconTime, subnet_id: uint64):
+    Result[void, ValidationError] =
 
   template block_header: untyped = data_column_sidecar.signed_block_header.message
 
@@ -510,8 +512,9 @@ proc validateDataColumnSidecar*(
   if not (compute_subnet_for_data_column_sidecar(data_column_sidecar.index) == subnet_id):
     return dag.checkedReject("DataColumnSidecar: The sidecar is not for the correct subnet")
 
-  # [IGNORE] The sidecar is not from a future slot (with a `MAXIMUM_GOSSIP_CLOCK_DISPARITY` allowance)
-  # -- i.e. validate that `block_header.slot <= current_slot` (a client MAY queue future sidecars for 
+  # [IGNORE] The sidecar is not from a future slot 
+  # (with a `MAXIMUM_GOSSIP_CLOCK_DISPARITY` allowance) -- i.e. validate that 
+  # `block_header.slot <= current_slot`(a client MAY queue future sidecars for 
   # processing at the appropriate slot).
   if not (block_header.slot <=
       (wallTime + MAXIMUM_GOSSIP_CLOCK_DISPARITY).slotOrZero):
