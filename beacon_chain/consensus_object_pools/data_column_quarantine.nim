@@ -111,8 +111,3 @@ func dataColumnFetchRecord*(quarantine: DataColumnQuarantine,
         dc_id):
       indices.add(idx)
   DataColumnFetchRecord(block_root: blck.root, indices: indices)
-
-func init*(T: type DataColumnQuarantine,
-           onDataColumnSidecarCallback: OnDataColumnSidecarCallback):
-           T =
-  T(onDataColumnSidecarCallback: onDataColumnSidecarCallback)
