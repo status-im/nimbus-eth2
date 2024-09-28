@@ -19,8 +19,6 @@ import
   ".."/[deposit_snapshots, forks],
   ".."/mev/deneb_mev
 
-from ".."/datatypes/capella import BeaconBlockBody
-
 export forks, phase0, altair, bellatrix, capella, deneb_mev, tables, httputils
 
 const
@@ -580,8 +578,7 @@ func isLowestScoreAggregatedAttestation*(a: phase0.Attestation): bool =
   (a.data.slot == Slot(0)) and (a.data.index == 0'u64) and
   (a.data.source.epoch == Epoch(0)) and (a.data.target.epoch == Epoch(0))
 
-func `==`*(a, b: RestValidatorIndex): bool =
-  uint64(a) == uint64(b)
+func `==`*(a, b: RestValidatorIndex): bool {.borrow.}
 
 template withForkyBlck*(
     x: RestPublishedSignedBlockContents, body: untyped): untyped =
