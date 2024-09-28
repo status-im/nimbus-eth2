@@ -77,7 +77,7 @@ func popDataColumns*(
     quarantine: var DataColumnQuarantine, digest: Eth2Digest,
     blck: electra.SignedBeaconBlock):
     seq[ref DataColumnSidecar] =
-  var r: seq[ref DataColumnSidecar]
+  var r: DataColumnSidecars
   for idx in 0..<len(blck.message.body.blob_kzg_commitments):
     var c: ref DataColumnSidecar
     if quarantine.data_columns.pop(
