@@ -35,11 +35,13 @@ logScope:
   topics = "elman"
 
 type
+  FixedBytes[N: static int] =  web3.FixedBytes[N]
   PubKeyBytes = DynamicBytes[48, 48]
   WithdrawalCredentialsBytes = DynamicBytes[32, 32]
   SignatureBytes = DynamicBytes[96, 96]
   Int64LeBytes = DynamicBytes[8, 8]
   WithoutTimeout* = distinct int
+  Address = web3.Address
 
   SomeEnginePayloadWithValue =
     BellatrixExecutionPayloadWithValue |
