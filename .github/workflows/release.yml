@@ -30,23 +30,26 @@ jobs:
           tar -xzf ${ARCHIVE} ${ARCHIVE%.tar.gz}/build/nimbus_beacon_node.sha512sum
           tar -xzf ${ARCHIVE} ${ARCHIVE%.tar.gz}/build/nimbus_validator_client.sha512sum
       - name: Upload archive artefact
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         with:
           name: Linux_amd64_archive
           path: ./dist/${{ steps.make_dist.outputs.archive }}
           retention-days: 2
+          overwrite: true    # TODO remove after initial working upload
       - name: Upload BN checksum artefact
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         with:
-          name: Linux_amd64_checksum
+          name: Linux_amd64_checksum_bn
           path: ./dist/${{ steps.make_dist.outputs.archive_dir }}/build/nimbus_beacon_node.sha512sum
           retention-days: 2
+          overwrite: true    # TODO remove after initial working upload
       - name: Upload VC checksum artefact
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         with:
-          name: Linux_amd64_checksum
+          name: Linux_amd64_checksum_vc
           path: ./dist/${{ steps.make_dist.outputs.archive_dir }}/build/nimbus_validator_client.sha512sum
           retention-days: 2
+          overwrite: true    # TODO remove after initial working upload
       - name: Login to Docker Hub
         uses: docker/login-action@v1
         with:
@@ -76,13 +79,14 @@ jobs:
           scripts/make_packages.sh -b nimbus_beacon_node -t dist/*.tar.gz --install-fpm
           scripts/make_packages.sh -b nimbus_validator_client -t dist/*.tar.gz --install-fpm
       - name: Upload DEB
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         with:
           name: Linux_amd64_packages
           path: |
             ./dist/*.deb
             ./dist/*.rpm
           retention-days: 2
+          overwrite: true    # TODO remove after initial working upload
   build-arm64:
     name: Linux ARM64 release asset
     runs-on: ubuntu-latest
@@ -107,23 +111,26 @@ jobs:
           tar -xzf ${ARCHIVE} ${ARCHIVE%.tar.gz}/build/nimbus_beacon_node.sha512sum
           tar -xzf ${ARCHIVE} ${ARCHIVE%.tar.gz}/build/nimbus_validator_client.sha512sum
       - name: Upload archive artefact
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         with:
           name: Linux_arm64_archive
           path: ./dist/${{ steps.make_dist.outputs.archive }}
           retention-days: 2
+          overwrite: true    # TODO remove after initial working upload
       - name: Upload BN checksum artefact
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         with:
-          name: Linux_arm64_checksum
+          name: Linux_arm64_checksum_bn
           path: ./dist/${{ steps.make_dist.outputs.archive_dir }}/build/nimbus_beacon_node.sha512sum
           retention-days: 2
+          overwrite: true    # TODO remove after initial working upload
       - name: Upload VC checksum artefact
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         with:
-          name: Linux_arm64_checksum
+          name: Linux_arm64_checksum_vc
           path: ./dist/${{ steps.make_dist.outputs.archive_dir }}/build/nimbus_validator_client.sha512sum
           retention-days: 2
+          overwrite: true    # TODO remove after initial working upload
       - name: Login to Docker Hub
         uses: docker/login-action@v1
         with:
@@ -155,13 +162,14 @@ jobs:
           scripts/make_packages.sh -b nimbus_beacon_node -t dist/*.tar.gz --install-fpm
           scripts/make_packages.sh -b nimbus_validator_client -t dist/*.tar.gz --install-fpm
       - name: Upload DEB
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         with:
           name: Linux_arm64_packages
           path: |
             ./dist/*.deb
             ./dist/*.rpm
           retention-days: 2
+          overwrite: true    # TODO remove after initial working upload
   build-arm:
     name: Linux ARM release asset
     runs-on: ubuntu-latest
@@ -186,28 +194,31 @@ jobs:
           tar -xzf ${ARCHIVE} ${ARCHIVE%.tar.gz}/build/nimbus_beacon_node.sha512sum
           tar -xzf ${ARCHIVE} ${ARCHIVE%.tar.gz}/build/nimbus_validator_client.sha512sum
       - name: Upload archive artefact
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         with:
           name: Linux_arm_archive
           path: ./dist/${{ steps.make_dist.outputs.archive }}
           retention-days: 2
+          overwrite: true    # TODO remove after initial working upload
       - name: Upload BN checksum artefact
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         with:
-          name: Linux_arm_checksum
+          name: Linux_arm_checksum_bn
           path: ./dist/${{ steps.make_dist.outputs.archive_dir }}/build/nimbus_beacon_node.sha512sum
           retention-days: 2
       - name: Upload VC checksum artefact
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         with:
-          name: Linux_arm_checksum
+          name: Linux_arm_checksum_vc
           path: ./dist/${{ steps.make_dist.outputs.archive_dir }}/build/nimbus_validator_client.sha512sum
           retention-days: 2
+          overwrite: true    # TODO remove after initial working upload
       - name: Login to Docker Hub
         uses: docker/login-action@v1
         with:
           username: ${{ secrets.DOCKERHUB_USERNAME }}
           password: ${{ secrets.DOCKERHUB_TOKEN }}
+          overwrite: true    # TODO remove after initial working upload
       - name: Build and push a Docker images for end users
         run: |
           cd dist
@@ -234,13 +245,14 @@ jobs:
           scripts/make_packages.sh -b nimbus_beacon_node -t dist/*.tar.gz --install-fpm
           scripts/make_packages.sh -b nimbus_validator_client -t dist/*.tar.gz --install-fpm
       - name: Upload DEB
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         with:
           name: Linux_arm_packages
           path: |
             ./dist/*.deb
             ./dist/*.rpm
           retention-days: 2
+          overwrite: true    # TODO remove after initial working upload
   build-win64:
     name: Windows AMD64 release asset
     runs-on: ubuntu-latest
@@ -258,23 +270,26 @@ jobs:
           tar -xzf ${ARCHIVE} ${ARCHIVE%.tar.gz}/build/nimbus_beacon_node.sha512sum
           tar -xzf ${ARCHIVE} ${ARCHIVE%.tar.gz}/build/nimbus_validator_client.sha512sum
       - name: Upload archive artefact
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         with:
           name: Windows_amd64_archive
           path: ./dist/${{ steps.make_dist.outputs.archive }}
           retention-days: 2
+          overwrite: true    # TODO remove after initial working upload
       - name: Upload BN checksum artefact
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         with:
-          name: Windows_amd64_checksum
+          name: Windows_amd64_checksum_bn
           path: ./dist/${{ steps.make_dist.outputs.archive_dir }}/build/nimbus_beacon_node.sha512sum
           retention-days: 2
+          overwrite: true    # TODO remove after initial working upload
       - name: Upload VC checksum artefact
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         with:
-          name: Windows_amd64_checksum
+          name: Windows_amd64_checksum_vc
           path: ./dist/${{ steps.make_dist.outputs.archive_dir }}/build/nimbus_validator_client.sha512sum
           retention-days: 2
+          overwrite: true    # TODO remove after initial working upload
   build-macos-amd64:
     name: macOS AMD64 release asset
     runs-on: ubuntu-latest
@@ -292,23 +307,26 @@ jobs:
           tar -xzf ${ARCHIVE} ${ARCHIVE%.tar.gz}/build/nimbus_beacon_node.sha512sum
           tar -xzf ${ARCHIVE} ${ARCHIVE%.tar.gz}/build/nimbus_validator_client.sha512sum
       - name: Upload archive artefact
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         with:
           name: macOS_amd64_archive
           path: ./dist/${{ steps.make_dist.outputs.archive }}
           retention-days: 2
+          overwrite: true    # TODO remove after initial working upload
       - name: Upload BN checksum artefact
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         with:
-          name: macOS_amd64_checksum
+          name: macOS_amd64_checksum_bn
           path: ./dist/${{ steps.make_dist.outputs.archive_dir }}/build/nimbus_beacon_node.sha512sum
           retention-days: 2
+          overwrite: true    # TODO remove after initial working upload
       - name: Upload VC checksum artefact
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         with:
-          name: macOS_amd64_checksum
+          name: macOS_amd64_checksum_vc
           path: ./dist/${{ steps.make_dist.outputs.archive_dir }}/build/nimbus_validator_client.sha512sum
           retention-days: 2
+          overwrite: true    # TODO remove after initial working upload
   build-macos-arm64:
     name: macOS ARM64 release asset
     runs-on: ubuntu-latest
@@ -326,23 +344,26 @@ jobs:
           tar -xzf ${ARCHIVE} ${ARCHIVE%.tar.gz}/build/nimbus_beacon_node.sha512sum
           tar -xzf ${ARCHIVE} ${ARCHIVE%.tar.gz}/build/nimbus_validator_client.sha512sum
       - name: Upload archive artefact
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         with:
           name: macOS_arm64_archive
           path: ./dist/${{ steps.make_dist.outputs.archive }}
           retention-days: 2
+          overwrite: true    # TODO remove after initial working upload
       - name: Upload BN checksum artefact
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         with:
-          name: macOS_arm64_checksum
+          name: macOS_arm64_checksum_bn
           path: ./dist/${{ steps.make_dist.outputs.archive_dir }}/build/nimbus_beacon_node.sha512sum
           retention-days: 2
+          overwrite: true    # TODO remove after initial working upload
       - name: Upload VC checksum artefact
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         with:
-          name: macOS_arm64_checksum
+          name: macOS_arm64_checksum_vc
           path: ./dist/${{ steps.make_dist.outputs.archive_dir }}/build/nimbus_validator_client.sha512sum
           retention-days: 2
+          overwrite: true    # TODO remove after initial working upload
   prepare-release:
     name: Prepare release draft
     needs: [build-amd64, build-arm64, build-arm, build-win64, build-macos-amd64, build-macos-arm64]
@@ -368,17 +389,23 @@ jobs:
           \`\`\`text
           EOF
           echo '# Linux AMD64' >> release_notes.md
-          cat Linux_amd64_checksum/* >> release_notes.md
+          cat Linux_amd64_checksum_bn/* >> release_notes.md
+          cat Linux_amd64_checksum_vc/* >> release_notes.md
           echo '# Linux ARM64' >> release_notes.md
-          cat Linux_arm64_checksum/* >> release_notes.md
+          cat Linux_arm64_checksum_bn/* >> release_notes.md
+          cat Linux_arm64_checksum_vc/* >> release_notes.md
           echo '# Linux ARM' >> release_notes.md
-          cat Linux_arm_checksum/* >> release_notes.md
+          cat Linux_arm_checksum_bn/* >> release_notes.md
+          cat Linux_arm_checksum_vc/* >> release_notes.md
           echo '# Windows AMD64' >> release_notes.md
-          cat Windows_amd64_checksum/* >> release_notes.md
+          cat Windows_amd64_checksum_bn/* >> release_notes.md
+          cat Windows_amd64_checksum_vc/* >> release_notes.md
           echo '# macOS AMD64' >> release_notes.md
-          cat macOS_amd64_checksum/* >> release_notes.md
+          cat macOS_amd64_checksum_bn/* >> release_notes.md
+          cat macOS_amd64_checksum_vc/* >> release_notes.md
           echo '# macOS ARM64' >> release_notes.md
-          cat macOS_arm64_checksum/* >> release_notes.md
+          cat macOS_arm64_checksum_bn/* >> release_notes.md
+          cat macOS_arm64_checksum_vc/* >> release_notes.md
           echo '```' >> release_notes.md
       - name: Create release
         id: create_release
