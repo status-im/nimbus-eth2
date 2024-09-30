@@ -30,19 +30,19 @@ jobs:
           tar -xzf ${ARCHIVE} ${ARCHIVE%.tar.gz}/build/nimbus_beacon_node.sha512sum
           tar -xzf ${ARCHIVE} ${ARCHIVE%.tar.gz}/build/nimbus_validator_client.sha512sum
       - name: Upload archive artefact
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         with:
           name: Linux_amd64_archive
           path: ./dist/${{ steps.make_dist.outputs.archive }}
           retention-days: 2
       - name: Upload BN checksum artefact
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         with:
           name: Linux_amd64_checksum
           path: ./dist/${{ steps.make_dist.outputs.archive_dir }}/build/nimbus_beacon_node.sha512sum
           retention-days: 2
       - name: Upload VC checksum artefact
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         with:
           name: Linux_amd64_checksum
           path: ./dist/${{ steps.make_dist.outputs.archive_dir }}/build/nimbus_validator_client.sha512sum
@@ -76,7 +76,7 @@ jobs:
           scripts/make_packages.sh -b nimbus_beacon_node -t dist/*.tar.gz --install-fpm
           scripts/make_packages.sh -b nimbus_validator_client -t dist/*.tar.gz --install-fpm
       - name: Upload DEB
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         with:
           name: Linux_amd64_packages
           path: |
@@ -107,19 +107,19 @@ jobs:
           tar -xzf ${ARCHIVE} ${ARCHIVE%.tar.gz}/build/nimbus_beacon_node.sha512sum
           tar -xzf ${ARCHIVE} ${ARCHIVE%.tar.gz}/build/nimbus_validator_client.sha512sum
       - name: Upload archive artefact
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         with:
           name: Linux_arm64_archive
           path: ./dist/${{ steps.make_dist.outputs.archive }}
           retention-days: 2
       - name: Upload BN checksum artefact
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         with:
           name: Linux_arm64_checksum
           path: ./dist/${{ steps.make_dist.outputs.archive_dir }}/build/nimbus_beacon_node.sha512sum
           retention-days: 2
       - name: Upload VC checksum artefact
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         with:
           name: Linux_arm64_checksum
           path: ./dist/${{ steps.make_dist.outputs.archive_dir }}/build/nimbus_validator_client.sha512sum
@@ -155,7 +155,7 @@ jobs:
           scripts/make_packages.sh -b nimbus_beacon_node -t dist/*.tar.gz --install-fpm
           scripts/make_packages.sh -b nimbus_validator_client -t dist/*.tar.gz --install-fpm
       - name: Upload DEB
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         with:
           name: Linux_arm64_packages
           path: |
@@ -186,19 +186,19 @@ jobs:
           tar -xzf ${ARCHIVE} ${ARCHIVE%.tar.gz}/build/nimbus_beacon_node.sha512sum
           tar -xzf ${ARCHIVE} ${ARCHIVE%.tar.gz}/build/nimbus_validator_client.sha512sum
       - name: Upload archive artefact
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         with:
           name: Linux_arm_archive
           path: ./dist/${{ steps.make_dist.outputs.archive }}
           retention-days: 2
       - name: Upload BN checksum artefact
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         with:
           name: Linux_arm_checksum
           path: ./dist/${{ steps.make_dist.outputs.archive_dir }}/build/nimbus_beacon_node.sha512sum
           retention-days: 2
       - name: Upload VC checksum artefact
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         with:
           name: Linux_arm_checksum
           path: ./dist/${{ steps.make_dist.outputs.archive_dir }}/build/nimbus_validator_client.sha512sum
@@ -234,7 +234,7 @@ jobs:
           scripts/make_packages.sh -b nimbus_beacon_node -t dist/*.tar.gz --install-fpm
           scripts/make_packages.sh -b nimbus_validator_client -t dist/*.tar.gz --install-fpm
       - name: Upload DEB
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         with:
           name: Linux_arm_packages
           path: |
@@ -258,19 +258,19 @@ jobs:
           tar -xzf ${ARCHIVE} ${ARCHIVE%.tar.gz}/build/nimbus_beacon_node.sha512sum
           tar -xzf ${ARCHIVE} ${ARCHIVE%.tar.gz}/build/nimbus_validator_client.sha512sum
       - name: Upload archive artefact
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         with:
           name: Windows_amd64_archive
           path: ./dist/${{ steps.make_dist.outputs.archive }}
           retention-days: 2
       - name: Upload BN checksum artefact
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         with:
           name: Windows_amd64_checksum
           path: ./dist/${{ steps.make_dist.outputs.archive_dir }}/build/nimbus_beacon_node.sha512sum
           retention-days: 2
       - name: Upload VC checksum artefact
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         with:
           name: Windows_amd64_checksum
           path: ./dist/${{ steps.make_dist.outputs.archive_dir }}/build/nimbus_validator_client.sha512sum
@@ -292,19 +292,19 @@ jobs:
           tar -xzf ${ARCHIVE} ${ARCHIVE%.tar.gz}/build/nimbus_beacon_node.sha512sum
           tar -xzf ${ARCHIVE} ${ARCHIVE%.tar.gz}/build/nimbus_validator_client.sha512sum
       - name: Upload archive artefact
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         with:
           name: macOS_amd64_archive
           path: ./dist/${{ steps.make_dist.outputs.archive }}
           retention-days: 2
       - name: Upload BN checksum artefact
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         with:
           name: macOS_amd64_checksum
           path: ./dist/${{ steps.make_dist.outputs.archive_dir }}/build/nimbus_beacon_node.sha512sum
           retention-days: 2
       - name: Upload VC checksum artefact
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         with:
           name: macOS_amd64_checksum
           path: ./dist/${{ steps.make_dist.outputs.archive_dir }}/build/nimbus_validator_client.sha512sum
@@ -326,19 +326,19 @@ jobs:
           tar -xzf ${ARCHIVE} ${ARCHIVE%.tar.gz}/build/nimbus_beacon_node.sha512sum
           tar -xzf ${ARCHIVE} ${ARCHIVE%.tar.gz}/build/nimbus_validator_client.sha512sum
       - name: Upload archive artefact
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         with:
           name: macOS_arm64_archive
           path: ./dist/${{ steps.make_dist.outputs.archive }}
           retention-days: 2
       - name: Upload BN checksum artefact
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         with:
           name: macOS_arm64_checksum
           path: ./dist/${{ steps.make_dist.outputs.archive_dir }}/build/nimbus_beacon_node.sha512sum
           retention-days: 2
       - name: Upload VC checksum artefact
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         with:
           name: macOS_arm64_checksum
           path: ./dist/${{ steps.make_dist.outputs.archive_dir }}/build/nimbus_validator_client.sha512sum
