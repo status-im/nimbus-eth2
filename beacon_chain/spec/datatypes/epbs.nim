@@ -17,6 +17,7 @@
 
 import
   std/typetraits,
+  stew/bitops2,
   chronicles,
   json_serialization,
   ../digest,
@@ -31,7 +32,8 @@ from ./altair import
 from ./capella import
   ExecutionBranch, HistoricalSummary, SignedBLSToExecutionChangeList,
   Withdrawal, ExecutionPayload, EXECUTION_PAYLOAD_GINDEX
-from ./deneb import Blobs, BlobsBundle, KzgCommitments, KzgProofs
+from ./deneb import 
+  Blobs, BlobsBundle, KzgCommitments, KzgProofs, BlobIndex, Blob
 from ./electra import PendingBalanceDeposit, PendingPartialWithdrawal, 
   PendingConsolidation, ElectraCommitteeValidatorsBits, AttestationCommitteeBits
 
@@ -45,6 +47,19 @@ const
   PROPOSER_REVEAL_BOOST*: uint64 = 20
 
 type
+      # https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.4/specs/_features/eip7732/p2p-interface.md#blobsidecar
+  BlobSidecar* = object
+    index*: BlobIndex
+      ## Index of blob in block
+    blob*: Blob
+    kzg_commitment*: KzgCommitment
+    kzg_proof*: KzgProof
+      ## Allows for quick verification of kzg_commitment
+    signed_block_header*: SignedBeaconBlockHeader
+    kzg_commitment_inclusion_proof*:
+      array[KZG_COMMITMENT_INCLUSION_PROOF_DEPTH_EIP7732, Eth2Digest]
+
+  BlobSidecars* = seq[ref BlobSidecar]
 
   # https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.4/specs/_features/eip7732/beacon-chain.md#payloadattestationdata
   PayloadAttestationData* = object
@@ -70,6 +85,11 @@ type
     data*: PayloadAttestationData
     signature*: ValidatorSig
 
+  # https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.4/specs/_features/eip7732/beacon-chain.md#signedexecutionpayloadheader
+  SignedExecutionPayloadHeader* = object
+    message*: ExecutionPayloadHeader
+    signature*: ValidatorSig
+
   # https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.4/specs/_features/eip7732/beacon-chain.md#executionpayloadheader
   ExecutionPayloadHeader* = object
     # Execution block header fields
@@ -86,11 +106,6 @@ type
 
   ExecutePayload* = proc(
     execution_payload: ExecutionPayload): bool {.gcsafe, raises: [].}
-
-  # https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.4/specs/_features/eip7732/beacon-chain.md#signedexecutionpayloadheader
-  SignedExecutionPayloadHeader* = object
-    message*: ExecutionPayloadHeader
-    signature*: ValidatorSig
 
   # https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.4/specs/_features/eip7732/beacon-chain.md#signedexecutionpayloadenvelope
   ExecutionPayloadEnvelope* = object
@@ -290,9 +305,9 @@ type
     sync_aggregate*: TrustedSyncAggregate
 
     # Execution
-    # execution_payload*: ExecutionPayload   # [Modified in Electra:EIP6110:EIP7002]
-    bls_to_execution_changes*: SignedBLSToExecutionChangeList
-    blob_kzg_commitments*: KzgCommitments
+    # execution_payload*: ExecutionPayload   # [Removed in Epbs:EIP7732]
+    # bls_to_execution_changes*: SignedBLSToExecutionChangeList
+    # blob_kzg_commitments*: KzgCommitments
 
   TrustedBeaconBlockBody* = object
     ## A full verified block
@@ -317,9 +332,9 @@ type
     sync_aggregate*: TrustedSyncAggregate
 
     # Execution
-    execution_payload*: ExecutionPayload   # [Modified in Electra:EIP6110:EIP7002]
-    bls_to_execution_changes*: SignedBLSToExecutionChangeList
-    blob_kzg_commitments*: KzgCommitments
+    # execution_payload*: ExecutionPayload   # [Removed in Epbs:EIP7732]
+    # bls_to_execution_changes*: SignedBLSToExecutionChangeList
+    # blob_kzg_commitments*: KzgCommitments
 
   # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.6/specs/phase0/beacon-chain.md#signedbeaconblock
   SignedBeaconBlock* = object
@@ -471,3 +486,77 @@ template asTrusted*(
        SigVerifiedSignedBeaconBlock |
        MsgTrustedSignedBeaconBlock): TrustedSignedBeaconBlock =
   isomorphicCast[TrustedSignedBeaconBlock](x)
+
+
+func kzg_commitment_inclusion_proof_inner_gindex*(
+    index: BlobIndex): GeneralizedIndex =
+  # corresponds to the position of the specific KZGCommitment within the list of 
+  # commitments inside the ExecutionPayloadEnvelope.
+  # The first member (`randao_reveal`) is 16, subsequent members +1 each.
+  # If there are ever more than 16 members in `BeaconBlockBody`, indices change!
+  # https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.3/ssz/merkle-proofs.md
+  const
+    # blob_kzg_commitments: not sure if this actually references the 
+    # commitments in the ExecutionPayloadEnvelope
+    BLOB_KZG_COMMITMENTS_GINDEX =
+      19.GeneralizedIndex
+    # List + 0 = items, + 1 = len
+    BLOB_KZG_COMMITMENTS_BASE_GINDEX =
+      (BLOB_KZG_COMMITMENTS_GINDEX shl 1) + 0
+    # List depth
+    BLOB_KZG_COMMITMENTS_PROOF_DEPTH =
+      log2trunc(nextPow2(deneb.KzgCommitments.maxLen.uint64))
+    # First item
+    BLOB_KZG_COMMITMENTS_FIRST_GINDEX =
+      (BLOB_KZG_COMMITMENTS_BASE_GINDEX shl BLOB_KZG_COMMITMENTS_PROOF_DEPTH)
+
+  # [Debug]
+  # static: 
+  #   echo "BLOB_KZG_COMMITMENTS_FIRST_GINDEX_outer: ", 
+  #     log2trunc(BLOB_KZG_COMMITMENTS_FIRST_GINDEX)  # 17
+  #   echo "KZG_COMMITMENT_INCLUSION_PROOF_DEPTH_outer: ", 
+  #     KZG_COMMITMENT_INCLUSION_PROOF_DEPTH_EIP7732  # 13
+
+  # No error check because the actual depth is yet to be computed
+  # static: doAssert(
+  #   log2trunc(BLOB_KZG_COMMITMENTS_FIRST_GINDEX) ==
+  #   KZG_COMMITMENT_INCLUSION_PROOF_DEPTH_EIP7732)
+
+  BLOB_KZG_COMMITMENTS_FIRST_GINDEX + index
+
+func kzg_commitment_inclusion_proof_outer_gindex*(
+    index: BlobIndex): GeneralizedIndex =
+  # This index is rooted in `ExecutionPayloadHeader`.
+  # The first member (`randao_reveal`) is 16, subsequent members +1 each.
+  # If there are ever more than 16 members in `BeaconBlockBody`, indices change!
+  # https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.3/ssz/merkle-proofs.md
+  const
+    # signed_execution_payload_header is at index 26
+    SIGNED_EXECUTION_PAYLOAD_HEADER_GINDEX = 26.GeneralizedIndex
+    # message is the first field of signed_execution_payload_header
+    EXECUTION_PAYLOAD_HEADER_GINDEX = SIGNED_EXECUTION_PAYLOAD_HEADER_GINDEX shl 1
+    # blob_kzg_commitments_root is the 7th field in ExecutionPayloadHeader, index 58
+    BLOB_KZG_COMMITMENTS_GINDEX = 58.GeneralizedIndex
+    # List + 0 = items, + 1 = len
+    BLOB_KZG_COMMITMENTS_BASE_GINDEX =
+      (BLOB_KZG_COMMITMENTS_GINDEX shl 1) + 0
+    # List depth
+    BLOB_KZG_COMMITMENTS_PROOF_DEPTH =
+      log2trunc(nextPow2(deneb.KzgCommitments.maxLen.uint64))
+    # First item
+    BLOB_KZG_COMMITMENTS_FIRST_GINDEX =
+      (BLOB_KZG_COMMITMENTS_BASE_GINDEX shl BLOB_KZG_COMMITMENTS_PROOF_DEPTH)
+
+  # [Debug]    
+  # static: 
+  #   echo "BLOB_KZG_COMMITMENTS_FIRST_GINDEX_outer: ", 
+  #     log2trunc(BLOB_KZG_COMMITMENTS_FIRST_GINDEX)  # 18
+  #   echo "KZG_COMMITMENT_INCLUSION_PROOF_DEPTH_outer: ", 
+  #     KZG_COMMITMENT_INCLUSION_PROOF_DEPTH_EIP7732  # 13
+
+  # No error check because the actual depth is yet to be computed
+  # static: doAssert(
+  #   log2trunc(BLOB_KZG_COMMITMENTS_FIRST_GINDEX) ==
+  #   KZG_COMMITMENT_INCLUSION_PROOF_DEPTH)
+
+  BLOB_KZG_COMMITMENTS_FIRST_GINDEX + index

@@ -14,4 +14,7 @@ const
   MAX_PAYLOAD_ATTESTATIONS*: uint8 = 4
   # `uint64(2**9)` (= 512)
   PTC_SIZE*: uint64 = 512
- 
+
+  # [TODO: Subject to change]
+  # https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.4/specs/_features/eip7732/p2p-interface.md#preset
+  KZG_COMMITMENT_INCLUSION_PROOF_DEPTH_EIP7732* = 13
