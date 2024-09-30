@@ -9,6 +9,7 @@
 
 import std/[strutils, sequtils, algorithm]
 import stew/[results, base10], chronos, chronicles
+import eth/p2p/discoveryv5/[node]
 import
   ../spec/datatypes/[phase0, altair],
   ../spec/eth2_apis/rest_types,
@@ -53,6 +54,7 @@ type
     MIN_EPOCHS_FOR_DATA_COLUMN_SIDECARS_REQUESTS: uint64
     responseTimeout: chronos.Duration
     supernode: bool
+    nodeId: NodeId
     maxHeadAge: uint64
     getLocalHeadSlot: GetSlotCallback
     getLocalWallSlot: GetSlotCallback
@@ -123,6 +125,7 @@ proc newSyncManager*[A, B](pool: PeerPool[A, B],
                            denebEpoch: Epoch,
                            minEpochsForBlobSidecarsRequests: uint64,
                            supernode: bool,
+                           nodeId: NodeId,
                            direction: SyncQueueKind,
                            getLocalHeadSlotCb: GetSlotCallback,
                            getLocalWallSlotCb: GetSlotCallback,
@@ -147,6 +150,7 @@ proc newSyncManager*[A, B](pool: PeerPool[A, B],
     DENEB_FORK_EPOCH: denebEpoch,
     MIN_EPOCHS_FOR_BLOB_SIDECARS_REQUESTS: minEpochsForBlobSidecarsRequests,
     supernode: supernode,
+    nodeId: nodeId,
     getLocalHeadSlot: getLocalHeadSlotCb,
     getLocalWallSlot: getLocalWallSlotCb,
     getSafeSlot: getSafeSlot,
@@ -268,6 +272,45 @@ func checkBlobs(blobs: seq[BlobSidecars]): Result[void, string] =
       ? blob_sidecar[].verify_blob_sidecar_inclusion_proof()
   ok()
 
+proc filterCustodyPeersBeforeColumnSync*(man: SyncManager,
+                                         peer: Peer):
+                                         bool =
+  if man.supernode:
+    if peer.lookupCscFromPeer() == DATA_COLUMN_SIDECAR_SUBNET_COUNT.uint64:
+      return true
+  
+  else:
+    if peer.lookupCscFromPeer() == DATA_COLUMN_SIDECAR_SUBNET_COUNT.uint64:
+      return true
+
+    elif peer.lookupCscFromPeer() == CUSTODY_REQUIREMENT.uint64:
+      # Fetch local custody column
+      let localNodeId = man.nodeId
+      let localCustodyColumns =
+        localNodeId.get_custody_columns(max(SAMPLES_PER_SLOT.uint64,
+                                            CUSTODY_REQUIREMENT.uint64))
+
+      # Fetch the remote custody count
+      let remoteCustodySubnetCount =
+        peer.lookupCscFromPeer()
+
+      # Extract remote peer's nodeID from peerID
+      # Fetch custody columns from remote peer
+      let
+        remoteNodeId = getNodeIdFromPeer(peer)
+        remoteCustodyColumns =
+          remoteNodeId.get_custody_columns(max(SAMPLES_PER_SLOT.uint64,
+                                              remoteCustodySubnetCount))
+
+      for local_column in localCustodyColumns:
+        if local_column in remoteCustodyColumns:
+          return true
+        else:
+          return false
+    
+    else:
+      return false
+
 proc getDataColumnSidecars[A, B](man: SyncManager[A, B], peer: A,
                                  req: SyncRequest): Future[DataColumnSidecarsRes]
                                  {.async: (raises: [CancelledError], raw: true).} =
@@ -281,17 +324,25 @@ proc getDataColumnSidecars[A, B](man: SyncManager[A, B], peer: A,
     topics = "syncman"
   
   let
-    remoteCustodySubnetCount = peer.lookupCscFromPeer()
+    localCustodySubnetCount = 
+      if man.supernode:
+        DATA_COLUMN_SIDECAR_SUBNET_COUNT.uint64
+      else:
+        CUSTODY_REQUIREMENT.uint64
 
   let
-    remoteNodeId = getNodeIdFromPeer(peer)
-    remoteCustodyColumns =
-      remoteNodeId.get_custody_column_list(max(SAMPLES_PER_SLOT.uint64,
-                                               remoteCustodySubnetCount))
+    localNodeId = man.nodeId
+    localCustodyColumns = 
+      localNodeId.get_custody_column_list(max(SAMPLES_PER_SLOT.uint64,
+                                               localCustodySubnetCount))
 
+  debug "Checking valid custody peers before range request", request = req
   doAssert(not(req.isEmpty()), "Request must not be empty!")
+
   debug "Requesting data column sidecars from peer", request = req
-  dataColumnSidecarsByRange(peer, req.slot, req.count, remoteCustodyColumns)
+  dataColumnSidecarsByRange(peer, req.slot, req.count, localCustodyColumns)
+
+  
 
 func groupDataColumns*[T](req: SyncRequest[T],
                           blocks: seq[ref ForkedSignedBeaconBlock],
@@ -565,7 +616,7 @@ proc syncStep[A, B](man: SyncManager[A, B], index: int, peer: A)
       hasColumns
   
   let dataColumnData =
-    if shouldGetDataColumns:
+    if shouldGetDataColumns and man.filterCustodyPeersBeforeColumnSync(peer):
       let data_columns = await man.getDataColumnSidecars(peer, req)
       if data_columns.isErr():
         # peer.updateScore(PeerScoreNoValues)

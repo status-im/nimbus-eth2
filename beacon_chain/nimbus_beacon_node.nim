@@ -478,13 +478,13 @@ proc initFullNode(
     syncManager = newSyncManager[Peer, PeerId](
       node.network.peerPool,
       dag.cfg.DENEB_FORK_EPOCH, dag.cfg.MIN_EPOCHS_FOR_BLOB_SIDECARS_REQUESTS,
-      supernode, SyncQueueKind.Forward, getLocalHeadSlot,
+      supernode, node.network.nodeId, SyncQueueKind.Forward, getLocalHeadSlot,
       getLocalWallSlot, getFirstSlotAtFinalizedEpoch, getBackfillSlot,
       getFrontfillSlot, dag.tail.slot, blockVerifier)
     backfiller = newSyncManager[Peer, PeerId](
       node.network.peerPool,
       dag.cfg.DENEB_FORK_EPOCH, dag.cfg.MIN_EPOCHS_FOR_BLOB_SIDECARS_REQUESTS,
-      supernode, SyncQueueKind.Backward, getLocalHeadSlot,
+      supernode, node.network.nodeId, SyncQueueKind.Backward, getLocalHeadSlot,
       getLocalWallSlot, getFirstSlotAtFinalizedEpoch, getBackfillSlot,
       getFrontfillSlot, dag.backfill.slot, blockVerifier,
       maxHeadAge = 0)    
