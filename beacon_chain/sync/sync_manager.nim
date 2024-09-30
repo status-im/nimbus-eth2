@@ -303,10 +303,10 @@ proc filterCustodyPeersBeforeColumnSync*(man: SyncManager,
                                               remoteCustodySubnetCount))
 
       for local_column in localCustodyColumns:
-        if local_column in remoteCustodyColumns:
-          return true
-        else:
+        if local_column notin remoteCustodyColumns:
           return false
+        else:
+          return true
     
     else:
       return false
