@@ -220,7 +220,7 @@ func blsVerify*(
   ## to enforce correct usage.
   PublicKey(pubkey).verify(message, blscurve.Signature(signature))
 
-# https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.6/specs/phase0/beacon-chain.md#bls-signatures
+# https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.6/specs/phase0/beacon-chain.md#bls-signatures
 proc blsVerify*(
     pubkey: ValidatorPubKey, message: openArray[byte],
     signature: CookedSig): bool =
@@ -245,14 +245,14 @@ proc blsVerify*(
   # Guard against invalid signature blobs that fail to parse
   parsedSig.isSome() and blsVerify(pubkey, message, parsedSig.get())
 
-func blsVerify*(sigSet: SignatureSet): bool =
+func blsVerify*(sigset: SignatureSet): bool =
   ## Unbatched verification
   ## of 1 SignatureSet
   ## tuple[pubkey: blscurve.PublicKey, message: array[32, byte], blscurve.signature: Signature]
   verify(
-    sigSet.pubkey,
-    sigSet.message,
-    sigSet.signature
+    sigset.pubkey,
+    sigset.message,
+    sigset.signature
   )
 
 func blsSign*(privkey: ValidatorPrivKey, message: openArray[byte]): CookedSig =

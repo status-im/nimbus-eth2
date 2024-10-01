@@ -71,9 +71,6 @@ func len*(nodes: ProtoNodes): int =
 func add(nodes: var ProtoNodes, node: ProtoNode) =
   nodes.buf.add node
 
-func isPreviousEpochJustified(self: ProtoArray): bool =
-  self.checkpoints.justified.epoch + 1 == self.currentEpoch
-
 # Forward declarations
 # ----------------------------------------------------------------------
 

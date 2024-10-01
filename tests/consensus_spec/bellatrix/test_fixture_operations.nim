@@ -150,7 +150,7 @@ suite baseDescription & "Execution Payload " & preset():
       if payloadValid and body.is_execution_block:
         let expectedOk = (path != "incorrect_block_hash")
         check expectedOk == (body.execution_payload.block_hash ==
-          body.execution_payload.compute_execution_block_hash(
+          body.compute_execution_block_hash(
             preState.latest_block_root(
               assignClone(preState)[].hash_tree_root())))
       func executePayload(_: bellatrix.ExecutionPayload): bool = payloadValid

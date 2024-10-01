@@ -140,6 +140,7 @@ suite "EF - Electra - SSZ consensus objects " & preset():
             checkSSZ(electra.ExecutionPayload, path, hash)
           of "ExecutionPayloadHeader":
             checkSSZ(electra.ExecutionPayloadHeader, path, hash)
+          of "ExecutionRequests": checkSSZ(ExecutionRequests, path, hash)
           of "Fork": checkSSZ(Fork, path, hash)
           of "ForkData": checkSSZ(ForkData, path, hash)
           of "HistoricalBatch": checkSSZ(HistoricalBatch, path, hash)

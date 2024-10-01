@@ -134,11 +134,6 @@ proc runTest(suiteName, path: string) =
         Exception, IOError, PresetFileError, PresetIncompatibleError].} =
       let (cfg, _) = readRuntimeConfig(path/"config.yaml")
 
-      when false:
-        # TODO evaluate whether this is useful and if so, fix it
-        # Unhandled defect: nimbus-eth2/tests/consensus_spec/test_fixture_light_client_sync.nim(131, 16) `unknowns.len == 0` Unknown config constants: @["MAXIMUM_GOSSIP_CLOCK_DISPARITY", "ATTESTATION_PROPAGATION_SLOT_RANGE", "MAX_REQUEST_BLOCKS", "SUBNETS_PER_NODE", "TTFB_TIMEOUT", "MIN_EPOCHS_FOR_BLOCK_REQUESTS", "MESSAGE_DOMAIN_VALID_SNAPPY", "ATTESTATION_SUBNET_EXTRA_BITS", "MAX_CHUNK_SIZE", "EPOCHS_PER_SUBNET_SUBSCRIPTION", "GOSSIP_MAX_SIZE", "ATTESTATION_SUBNET_PREFIX_BITS", "MESSAGE_DOMAIN_INVALID_SNAPPY", "RESP_TIMEOUT"] [AssertionDefect]
-        doAssert unknowns.len == 0, "Unknown config constants: " & $unknowns
-
       type TestMetaYaml {.sparse.} = object
         genesis_validators_root: string
         trusted_block_root: string
