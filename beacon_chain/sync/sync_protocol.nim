@@ -500,8 +500,6 @@ p2pProtocol BeaconSync(version = 1,
           cols.add(k)
           debug "Responded to DataColumnSidecar range request",
             peer, blck = shortLog(blockIds[i]), columns = cols
-        else:
-          break
 
     debug "DataColumnSidecar range request done",
       peer, startSlot, count = reqCount, columns = reqColumns, found
