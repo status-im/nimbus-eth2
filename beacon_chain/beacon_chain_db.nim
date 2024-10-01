@@ -557,8 +557,10 @@ proc new*(T: type BeaconChainDB,
   static: doAssert LightClientDataFork.high == LightClientDataFork.Deneb
 
   var blobs : KvStoreRef
+  var columns : KvStoreRef
   if cfg.DENEB_FORK_EPOCH != FAR_FUTURE_EPOCH:
-    blobs = kvStore db.openKvStore("deneb_blobs").expectDb()
+    # blobs = kvStore db.openKvStore("deneb_blobs").expectDb()
+    columns = kvStore db.openKvStore("deneb_columns").expectDb()
 
   # Versions prior to 1.4.0 (altair) stored validators in `immutable_validators`
   # which stores validator keys in compressed format - this is
@@ -595,6 +597,7 @@ proc new*(T: type BeaconChainDB,
     keyValues: keyValues,
     blocks: blocks,
     blobs: blobs,
+    columns: columns,
     stateRoots: stateRoots,
     statesNoVal: statesNoVal,
     stateDiffs: stateDiffs,
@@ -764,6 +767,8 @@ proc close*(db: BeaconChainDB) =
   # Close things roughly in reverse order
   if not isNil(db.blobs):
     discard db.blobs.close()
+  if not isNil(db.columns):
+    discard db.columns.close()
   db.lcData.close()
   db.finalizedBlocks.close()
   discard db.summaries.close()
