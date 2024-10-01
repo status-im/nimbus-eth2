@@ -644,9 +644,9 @@ proc syncStep[A, B](man: SyncManager[A, B], index: int, peer: A)
       let groupedDataColumns = groupDataColumns(req, blockData, dataColumnData)
       if groupedDataColumns.isErr():
         # peer.updateScore(PeerScoreNoValues)
-        # man.queue.push(req)
-        # warn "Received data columns is inconsistent",
-        #   data_columns_map = getShortMap(req, dataColumnData), request = req, msg=groupedDataColumns.error()
+        man.queue.push(req)
+        warn "Received data columns is inconsistent",
+          data_columns_map = getShortMap(req, dataColumnData), request = req, msg=groupedDataColumns.error()
         return
       if (let checkRes = groupedDataColumns.get.checkDataColumns(); checkRes.isErr):
         # peer.updateScore(PeerScoreBadResponse)
