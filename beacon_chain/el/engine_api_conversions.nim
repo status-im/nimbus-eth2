@@ -8,6 +8,7 @@
 {.push raises: [].}
 
 import
+  kzg4844/[kzg_abi, kzg],
   ../spec/datatypes/[bellatrix, capella, deneb, electra],
   web3/[engine_api, engine_api_types]
 
@@ -196,18 +197,7 @@ func asConsensusType*(rpcExecutionPayload: ExecutionPayloadV4):
     withdrawals: List[capella.Withdrawal, MAX_WITHDRAWALS_PER_PAYLOAD].init(
       mapIt(rpcExecutionPayload.withdrawals, it.asConsensusWithdrawal)),
     blob_gas_used: rpcExecutionPayload.blobGasUsed.uint64,
-    excess_blob_gas: rpcExecutionPayload.excessBlobGas.uint64,
-    deposit_requests:
-      List[electra.DepositRequest, MAX_DEPOSIT_REQUESTS_PER_PAYLOAD].init(
-        mapIt(rpcExecutionPayload.depositRequests, it.getDepositRequest)),
-    withdrawal_requests: List[electra.WithdrawalRequest,
-      MAX_WITHDRAWAL_REQUESTS_PER_PAYLOAD].init(
-        mapIt(rpcExecutionPayload.withdrawalRequests,
-          it.getWithdrawalRequest)),
-    consolidation_requests: List[electra.ConsolidationRequest,
-      Limit MAX_CONSOLIDATION_REQUESTS_PER_PAYLOAD].init(
-        mapIt(rpcExecutionPayload.consolidationRequests,
-          it.getConsolidationRequest)))
+    excess_blob_gas: rpcExecutionPayload.excessBlobGas.uint64)
 
 func asConsensusType*(payload: engine_api.GetPayloadV4Response):
     electra.ExecutionPayloadForSigning =
@@ -228,8 +218,12 @@ func asConsensusType*(payload: engine_api.GetPayloadV4Response):
       blobs: Blobs.init(
         payload.blobsBundle.blobs.mapIt(it.bytes))))
 
-func asEngineExecutionPayload*(executionPayload: bellatrix.ExecutionPayload):
-    ExecutionPayloadV1 =
+func asEngineExecutionPayload*(
+    # `SomeBeaconBlockBody`: https://github.com/nim-lang/Nim/issues/18095
+    blockBody: bellatrix.BeaconBlockBody | bellatrix.TrustedBeaconBlockBody
+): ExecutionPayloadV1 =
+  template executionPayload(): untyped = blockBody.execution_payload
+
   template getTypedTransaction(tt: bellatrix.Transaction): TypedTransaction =
     TypedTransaction(tt.distinctBase)
 
@@ -257,8 +251,12 @@ template toEngineWithdrawal*(w: capella.Withdrawal): WithdrawalV1 =
     address: Address(w.address.data),
     amount: Quantity(w.amount))
 
-func asEngineExecutionPayload*(executionPayload: capella.ExecutionPayload):
-    ExecutionPayloadV2 =
+func asEngineExecutionPayload*(
+    # `SomeBeaconBlockBody`: https://github.com/nim-lang/Nim/issues/18095
+    blockBody: capella.BeaconBlockBody | capella.TrustedBeaconBlockBody
+): ExecutionPayloadV2 =
+  template executionPayload(): untyped = blockBody.execution_payload
+
   template getTypedTransaction(tt: bellatrix.Transaction): TypedTransaction =
     TypedTransaction(tt.distinctBase)
   engine_api.ExecutionPayloadV2(
@@ -279,8 +277,12 @@ func asEngineExecutionPayload*(executionPayload: capella.ExecutionPayload):
     transactions: mapIt(executionPayload.transactions, it.getTypedTransaction),
     withdrawals: mapIt(executionPayload.withdrawals, it.toEngineWithdrawal))
 
-func asEngineExecutionPayload*(executionPayload: deneb.ExecutionPayload):
-    ExecutionPayloadV3 =
+func asEngineExecutionPayload*(
+    # `SomeBeaconBlockBody`: https://github.com/nim-lang/Nim/issues/18095
+    blockBody: deneb.BeaconBlockBody | deneb.TrustedBeaconBlockBody
+): ExecutionPayloadV3 =
+  template executionPayload(): untyped = blockBody.execution_payload
+
   template getTypedTransaction(tt: bellatrix.Transaction): TypedTransaction =
     TypedTransaction(tt.distinctBase)
 
@@ -304,8 +306,12 @@ func asEngineExecutionPayload*(executionPayload: deneb.ExecutionPayload):
     blobGasUsed: Quantity(executionPayload.blob_gas_used),
     excessBlobGas: Quantity(executionPayload.excess_blob_gas))
 
-func asEngineExecutionPayload*(executionPayload: electra.ExecutionPayload):
-    ExecutionPayloadV4 =
+func asEngineExecutionPayload*(
+    # `SomeBeaconBlockBody`: https://github.com/nim-lang/Nim/issues/18095
+    blockBody: electra.BeaconBlockBody | electra.TrustedBeaconBlockBody
+): ExecutionPayloadV4 =
+  template executionPayload(): untyped = blockBody.execution_payload
+
   template getTypedTransaction(tt: bellatrix.Transaction): TypedTransaction =
     TypedTransaction(tt.distinctBase)
 
@@ -351,9 +357,9 @@ func asEngineExecutionPayload*(executionPayload: electra.ExecutionPayload):
     withdrawals: mapIt(executionPayload.withdrawals, it.asEngineWithdrawal),
     blobGasUsed: Quantity(executionPayload.blob_gas_used),
     excessBlobGas: Quantity(executionPayload.excess_blob_gas),
-    depositRequests: mapIt(
-      executionPayload.deposit_requests, it.getDepositRequest),
+    depositRequests:
+      mapIt(blockBody.execution_requests.deposits, it.getDepositRequest),
     withdrawalRequests: mapIt(
-      executionPayload.withdrawal_requests, it.getWithdrawalRequest),
+      blockBody.execution_requests.withdrawals, it.getWithdrawalRequest),
     consolidationRequests: mapIt(
-      executionPayload.consolidation_requests, it.getConsolidationRequest))
+      blockBody.execution_requests.consolidations, it.getConsolidationRequest))

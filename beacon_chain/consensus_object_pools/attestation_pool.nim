@@ -8,6 +8,7 @@
 {.push raises: [].}
 
 import
+  std/algorithm,
   # Status libraries
   metrics,
   chronicles, stew/byteutils,
@@ -198,11 +199,16 @@ proc addForkChoiceVotes(
       # hopefully the fork choice will heal itself over time.
       error "Couldn't add attestation to fork choice, bug?", err = v.error()
 
-func candidateIdx(pool: AttestationPool, slot: Slot): Opt[int] =
+func candidateIdx(pool: AttestationPool, slot: Slot,
+  isElectra: bool = false): Opt[int] =
   static: doAssert pool.phase0Candidates.len == pool.electraCandidates.len
+
+  let poolLength = if isElectra:
+    pool.electraCandidates.lenu64 else: pool.phase0Candidates.lenu64
+
   if slot >= pool.startingSlot and
-      slot < (pool.startingSlot + pool.phase0Candidates.lenu64):
-    Opt.some(int(slot mod pool.phase0Candidates.lenu64))
+      slot < (pool.startingSlot + poolLength):
+    Opt.some(int(slot mod poolLength))
   else:
     Opt.none(int)
 
@@ -751,15 +757,6 @@ proc getAttestationsForBlock*(pool: var AttestationPool,
   #
   # For each round, we'll look for the best attestation and add it to the result
   # then re-score the other candidates.
-  var
-    prevEpoch = state.data.get_previous_epoch()
-    prevEpochSpace =
-      when not (state is phase0.HashedBeaconState):
-        MAX_ATTESTATIONS
-      else:
-        state.data.previous_epoch_attestations.maxLen -
-          state.data.previous_epoch_attestations.len()
-
   var res: seq[phase0.Attestation]
   let totalCandidates = candidates.len()
   while candidates.len > 0 and res.lenu64() < MAX_ATTESTATIONS:
@@ -774,12 +771,6 @@ proc getAttestationsForBlock*(pool: var AttestationPool,
         (_, _, entry, j) = candidates[candidate]
 
       candidates.del(candidate) # careful, `del` reorders candidates
-
-      if entry[].data.target.epoch == prevEpoch:
-        if prevEpochSpace < 1:
-          continue # No need to rescore since we didn't add the attestation
-
-        prevEpochSpace -= 1
 
       res.add(entry[].toAttestation(entry[].aggregates[j]))
 
@@ -888,6 +879,9 @@ proc getElectraAttestationsForBlock*(
         # remain valid
         candidates.add((score, slot, addr entry, j))
 
+  # Sort candidates by score use slot as a tie-breaker
+  candidates.sort()
+
   # Using a greedy algorithm, select as many attestations as possible that will
   # fit in the block.
   #
@@ -902,34 +896,31 @@ proc getElectraAttestationsForBlock*(
   # For each round, we'll look for the best attestation and add it to the result
   # then re-score the other candidates.
   var
-    prevEpoch = state.data.get_previous_epoch()
-    prevEpochSpace = MAX_ATTESTATIONS_ELECTRA
+    candidatesPerBlock: Table[(Eth2Digest, Slot), seq[electra.Attestation]]
 
-  var res: seq[electra.Attestation]
   let totalCandidates = candidates.len()
-  while candidates.len > 0 and res.lenu64() <
+  while candidates.len > 0 and candidatesPerBlock.lenu64() <
       MAX_ATTESTATIONS_ELECTRA * MAX_COMMITTEES_PER_SLOT:
     let entryCacheKey = block:
-      # Find the candidate with the highest score - slot is used as a
-      # tie-breaker so that more recent attestations are added first
+      let (_, _, entry, j) =
+        # Fast path for when all remaining candidates fit
+        if candidates.lenu64 < MAX_ATTESTATIONS_ELECTRA:
+          candidates[candidates.len - 1]
+        else:
+          # Get the candidate with the highest score
+          candidates.pop()
+
+      #TODO: Merge candidates per block structure with the candidates one
+      # and score possible on-chain attestations while collecting candidates
+      # (previous loop) and reavaluate cache key definition
       let
-        candidate =
-          # Fast path for when all remaining candidates fit
-          if candidates.lenu64 < MAX_ATTESTATIONS_ELECTRA * MAX_COMMITTEES_PER_SLOT:
-            candidates.len - 1
-          else:
-            maxIndex(candidates)
-        (_, _, entry, j) = candidates[candidate]
+        key = (entry.data.beacon_block_root, entry.data.slot)
+        newAtt = entry[].toElectraAttestation(entry[].aggregates[j])
 
-      candidates.del(candidate) # careful, `del` reorders candidates
-
-      if entry[].data.target.epoch == prevEpoch:
-        if prevEpochSpace < 1:
-          continue # No need to rescore since we didn't add the attestation
-
-        prevEpochSpace -= 1
-
-      res.add(entry[].toElectraAttestation(entry[].aggregates[j]))
+      candidatesPerBlock.withValue(key, candidate):
+        candidate[].add newAtt
+      do:
+        candidatesPerBlock[key] = @[newAtt]
 
       # Update cache so that the new votes are taken into account when updating
       # the score below
@@ -953,35 +944,35 @@ proc getElectraAttestationsForBlock*(
         # Only keep candidates that might add coverage
         it.score > 0
 
-  # TODO sort candidates by score - or really, rewrite the whole loop above ;)
-  var res2: seq[electra.Attestation]
-  var perBlock: Table[(Eth2Digest, Slot), seq[electra.Attestation]]
+      # Sort candidates by score use slot as a tie-breaker
+      candidates.sort()
 
-  for a in res:
-    let key = (a.data.beacon_block_root, a.data.slot)
-    perBlock.mGetOrPut(key, newSeq[electra.Attestation](0)).add(a)
+  # Consolidate attestation aggregates  with disjoint comittee bits into single
+  # attestation
+  var res: seq[electra.Attestation]
+  for a in candidatesPerBlock.values():
 
-  for a in perBlock.values():
-    # TODO this will create on-chain aggregates that contain only one
-    #      committee index - this is obviously wrong but fixing requires
-    #      a more significant rewrite - we should combine the best aggregates
-    #      for each beacon block root
-    let x = compute_on_chain_aggregate(a).valueOr:
-      continue
+    if a.len > 1:
+      let
+        att = compute_on_chain_aggregate(a).valueOr:
+          continue
+      res.add(att)
+    #no on chain candidates
+    else:
+      res.add(a)
 
-    res2.add(x)
-    if res2.lenu64 == MAX_ATTESTATIONS_ELECTRA:
+    if res.lenu64 == MAX_ATTESTATIONS_ELECTRA:
       break
 
   let
     packingDur = Moment.now() - startPackingTick
 
   debug "Packed attestations for block",
-    newBlockSlot, packingDur, totalCandidates, attestations = res2.len()
+    newBlockSlot, packingDur, totalCandidates, attestations = res.len()
   attestation_pool_block_attestation_packing_time.set(
     packingDur.toFloatSeconds())
 
-  res2
+  res
 
 proc getElectraAttestationsForBlock*(
     pool: var AttestationPool, state: ForkedHashedBeaconState,
@@ -992,7 +983,8 @@ proc getElectraAttestationsForBlock*(
     else:
       default(seq[electra.Attestation])
 
-func bestValidation(aggregates: openArray[Phase0Validation]): (int, int) =
+func bestValidation(
+    aggregates: openArray[Phase0Validation | ElectraValidation]): (int, int) =
   # Look for best validation based on number of votes in the aggregate
   doAssert aggregates.len() > 0,
     "updateAggregates should have created at least one aggregate"
@@ -1006,6 +998,29 @@ func bestValidation(aggregates: openArray[Phase0Validation]): (int, int) =
       best = count
       bestIndex = i
   (bestIndex, best)
+
+func getElectraAggregatedAttestation*(
+    pool: var AttestationPool, slot: Slot,
+    attestationDataRoot: Eth2Digest, committeeIndex: CommitteeIndex):
+    Opt[electra.Attestation] =
+
+  let candidateIdx = pool.candidateIdx(slot)
+  if candidateIdx.isNone:
+    return Opt.none(electra.Attestation)
+
+  var res: Opt[electra.Attestation]
+  for _, entry in pool.electraCandidates[candidateIdx.get].mpairs():
+    if entry.data.index != committeeIndex.distinctBase:
+      continue
+
+    entry.updateAggregates()
+
+    let (bestIndex, best) = bestValidation(entry.aggregates)
+
+    if res.isNone() or best > res.get().aggregation_bits.countOnes():
+      res = Opt.some(entry.toElectraAttestation(entry.aggregates[bestIndex]))
+
+  res
 
 func getAggregatedAttestation*(
     pool: var AttestationPool, slot: Slot, attestation_data_root: Eth2Digest):

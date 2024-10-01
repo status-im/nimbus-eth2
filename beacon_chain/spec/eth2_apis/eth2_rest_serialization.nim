@@ -15,14 +15,10 @@ import results, stew/[assign2, base10, byteutils, endians2], presto/common,
        stint, chronicles
 import ".."/[eth2_ssz_serialization, forks, keystore],
        ".."/../consensus_object_pools/block_pools_types,
-       ".."/datatypes/[phase0, altair, bellatrix],
        ".."/mev/[bellatrix_mev, capella_mev],
        ".."/../validators/slashing_protection_common,
        "."/[rest_types, rest_keymanager_types]
 import nimcrypto/utils as ncrutils
-
-from ".."/datatypes/capella import SignedBeaconBlock
-from ".."/datatypes/deneb import BeaconState
 
 export
   eth2_ssz_serialization, results, peerid, common, serialization, chronicles,
@@ -72,6 +68,7 @@ RestJson.useDefaultSerializationFor(
   EmptyBody,
   Eth1Data,
   EventBeaconBlockObject,
+  ExecutionRequests,
   Fork,
   GetBlockAttestationsResponse,
   GetBlockHeaderResponse,
@@ -243,6 +240,7 @@ RestJson.useDefaultSerializationFor(
   deneb_mev.ExecutionPayloadAndBlobsBundle,
   deneb_mev.SignedBlindedBeaconBlock,
   deneb_mev.SignedBuilderBid,
+  electra.AggregateAndProof,
   electra.Attestation,
   electra.AttesterSlashing,
   electra.BeaconBlock,
@@ -257,6 +255,7 @@ RestJson.useDefaultSerializationFor(
   electra.LightClientHeader,
   electra.LightClientOptimisticUpdate,
   electra.LightClientUpdate,
+  electra.SignedAggregateAndProof,
   electra.SignedBeaconBlock,
   electra.TrustedAttestation,
   electra_mev.BlindedBeaconBlock,
@@ -309,7 +308,7 @@ template writeValue*(w: JsonWriter[RestJson], value: tuple) =
 ## TODO nim-json-serializations should allow setting up this policy per format
 ##
 ## This also means that when new fields are introduced to the object definitions
-## below, one must use the `Option[T]` type.
+## below, one must use the `Opt[T]` type.
 
 const
   DecimalSet = {'0' .. '9'}
@@ -677,24 +676,28 @@ proc jsonResponseWOpt*(t: typedesc[RestApiResponse], data: auto,
         default
   RestApiResponse.response(res, Http200, "application/json")
 
+proc prepareJsonResponseFinalized*(
+    t: typedesc[RestApiResponse], data: auto, exec: Opt[bool],
+    finalized: bool
+): seq[byte] =
+  try:
+    var
+      stream = memoryOutput()
+      writer = JsonWriter[RestJson].init(stream)
+    writer.beginRecord()
+    if exec.isSome():
+      writer.writeField("execution_optimistic", exec.get())
+    writer.writeField("finalized", finalized)
+    writer.writeField("data", data)
+    writer.endRecord()
+    stream.getOutput(seq[byte])
+  except IOError:
+    default(seq[byte])
+
 proc jsonResponseFinalized*(t: typedesc[RestApiResponse], data: auto,
                             exec: Opt[bool],
                             finalized: bool): RestApiResponse =
-  let res =
-    block:
-      var default: seq[byte]
-      try:
-        var stream = memoryOutput()
-        var writer = JsonWriter[RestJson].init(stream)
-        writer.beginRecord()
-        if exec.isSome():
-          writer.writeField("execution_optimistic", exec.get())
-        writer.writeField("finalized", finalized)
-        writer.writeField("data", data)
-        writer.endRecord()
-        stream.getOutput(seq[byte])
-      except IOError:
-        default
+  let res = RestApiResponse.prepareJsonResponseFinalized(data, exec, finalized)
   RestApiResponse.response(res, Http200, "application/json")
 
 proc jsonResponseWVersion*(t: typedesc[RestApiResponse], data: auto,
@@ -976,6 +979,29 @@ proc readValue*(reader: var JsonReader[RestJson], value: var uint64) {.
     value = res.get()
   else:
     reader.raiseUnexpectedValue($res.error() & ": " & svalue)
+
+## RestReward
+proc writeValue*(
+    w: var JsonWriter[RestJson], value: RestReward) {.raises: [IOError].} =
+  writeValue(w, $int64(value))
+
+proc readValue*(reader: var JsonReader[RestJson], value: var RestReward) {.
+     raises: [IOError, SerializationError].} =
+  let svalue = reader.readValue(string)
+  if svalue.startsWith("-"):
+    let res =
+      Base10.decode(uint64, svalue.toOpenArray(1, len(svalue) - 1)).valueOr:
+        reader.raiseUnexpectedValue($error & ": " & svalue)
+    if res > uint64(high(int64)):
+      reader.raiseUnexpectedValue("Integer value overflow " & svalue)
+    value = RestReward(-int64(res))
+  else:
+    let res =
+      Base10.decode(uint64, svalue).valueOr:
+        reader.raiseUnexpectedValue($error & ": " & svalue)
+    if res > uint64(high(int64)):
+      reader.raiseUnexpectedValue("Integer value overflow " & svalue)
+    value = RestReward(int64(res))
 
 ## uint8
 proc writeValue*(
@@ -1397,12 +1423,12 @@ proc readValue*(
     raiseUnexpectedValue(
       reader, "Expected a valid hex string with " & $value.len() & " bytes")
 
-template unrecognizedFieldWarning =
+template unrecognizedFieldWarning(fieldNameParam, typeNameParam: string) =
   # TODO: There should be a different notification mechanism for informing the
   #       caller of a deserialization routine for unexpected fields.
   #       The chonicles import in this module should be removed.
   trace "JSON field not recognized by the current version of Nimbus. Consider upgrading",
-        fieldName, typeName = typetraits.name(typeof value)
+        fieldName = fieldNameParam, typeName = typeNameParam
 
 template unrecognizedFieldIgnore =
   discard readValue(reader, JsonString)
@@ -1433,7 +1459,7 @@ template prepareForkedBlockReading(blockType: typedesc,
             "Multiple '" & fieldName & "' fields found", blockType.name)
         data = Opt.some(reader.readValue(JsonString))
       else:
-        unrecognizedFieldWarning()
+        unrecognizedFieldWarning(fieldName, blockType.name)
     of "block_header", "block":
       when (blockType is Web3SignerForkedBeaconBlock):
         if data.isSome():
@@ -1441,7 +1467,7 @@ template prepareForkedBlockReading(blockType: typedesc,
             "Multiple '" & fieldName & "' fields found", blockType.name)
         data = Opt.some(reader.readValue(JsonString))
       else:
-        unrecognizedFieldWarning()
+        unrecognizedFieldWarning(fieldName, blockType.name)
     of "execution_payload_blinded":
       when (blockType is ProduceBlockResponseV3):
         if blinded.isSome():
@@ -1449,7 +1475,7 @@ template prepareForkedBlockReading(blockType: typedesc,
             "Multiple `execution_payload_blinded` fields found", blockType.name)
         blinded = Opt.some(reader.readValue(bool))
       else:
-        unrecognizedFieldWarning()
+        unrecognizedFieldWarning(fieldName, blockType.name)
     of "execution_payload_value":
       when (blockType is ProduceBlockResponseV3):
         if payloadValue.isSome():
@@ -1457,7 +1483,7 @@ template prepareForkedBlockReading(blockType: typedesc,
             "Multiple `execution_payload_value` fields found", blockType.name)
         payloadValue = Opt.some(reader.readValue(Uint256))
       else:
-        unrecognizedFieldWarning()
+        unrecognizedFieldWarning(fieldName, blockType.name)
     of "consensus_block_value":
       when (blockType is ProduceBlockResponseV3):
         if blockValue.isSome():
@@ -1465,9 +1491,9 @@ template prepareForkedBlockReading(blockType: typedesc,
             "Multiple `consensus_block_value` fields found", blockType.name)
         blockValue = Opt.some(reader.readValue(Uint256))
       else:
-        unrecognizedFieldWarning()
+        unrecognizedFieldWarning(fieldName, blockType.name)
     else:
-      unrecognizedFieldWarning()
+      unrecognizedFieldWarning(fieldName, blockType.name)
 
   if version.isNone():
     reader.raiseUnexpectedValue("Field `version` is missing")
@@ -1514,20 +1540,8 @@ proc readValue*[BlockType: ForkedBlindedBeaconBlock](
                                     exc.formatMsg("BlindedBlock") & "]")
     value = ForkedBlindedBeaconBlock(kind: ConsensusFork.Altair,
                                      altairData: res)
-  of ConsensusFork.Bellatrix:
-    reader.raiseUnexpectedValue("Bellatrix blinded block format unsupported")
-  of ConsensusFork.Capella:
-    let res =
-      try:
-        RestJson.decode(string(data.get()),
-                        capella_mev.BlindedBeaconBlock,
-                        requireAllFields = true,
-                        allowUnknownFields = true)
-      except SerializationError as exc:
-        reader.raiseUnexpectedValue("Incorrect capella block format, [" &
-                                    exc.formatMsg("BlindedBlock") & "]")
-    value = ForkedBlindedBeaconBlock(kind: ConsensusFork.Capella,
-                                     capellaData: res)
+  of ConsensusFork.Bellatrix .. ConsensusFork.Capella:
+    reader.raiseUnexpectedValue("pre-Deneb blinded block formats unsupported")
   of ConsensusFork.Deneb:
     let res =
       try:
@@ -1588,34 +1602,6 @@ proc writeValue*[BlockType: Web3SignerForkedBeaconBlock](
   writer.beginRecord()
   writer.writeField("version", value.kind.toString.toUpperAscii)
   writer.writeField("block_header", value.data)
-  writer.endRecord()
-
-proc writeValue*[BlockType: ForkedBeaconBlock](
-    writer: var JsonWriter[RestJson], value: BlockType) {.raises: [IOError].} =
-
-  template forkIdentifier(id: string): auto =
-    when BlockType is ForkedBeaconBlock:
-      id
-    else:
-      (static toUpperAscii id)
-
-  writer.beginRecord()
-  case value.kind
-  of ConsensusFork.Phase0:
-    writer.writeField("version", forkIdentifier "phase0")
-    writer.writeField("data", value.phase0Data)
-  of ConsensusFork.Altair:
-    writer.writeField("version", forkIdentifier "altair")
-    writer.writeField("data", value.altairData)
-  of ConsensusFork.Bellatrix:
-    writer.writeField("version", forkIdentifier "bellatrix")
-    writer.writeField("data", value.bellatrixData)
-  of ConsensusFork.Capella:
-    writer.writeField("version", forkIdentifier "capella")
-    writer.writeField("data", value.capellaData)
-  of ConsensusFork.Deneb:
-    writer.writeField("version", forkIdentifier "deneb")
-    writer.writeField("data", value.denebData)
   writer.endRecord()
 
 ## RestPublishedBeaconBlockBody
@@ -1709,7 +1695,7 @@ proc readValue*(reader: var JsonReader[RestJson],
                                     "RestPublishedBeaconBlockBody")
       blob_kzg_commitments = Opt.some(reader.readValue(KzgCommitments))
     else:
-      unrecognizedFieldWarning()
+      unrecognizedFieldWarning(fieldName, typeof(value).name)
 
   if randao_reveal.isNone():
     reader.raiseUnexpectedValue("Field `randao_reveal` is missing")
@@ -1924,7 +1910,7 @@ proc readValue*(reader: var JsonReader[RestJson],
                                     "RestPublishedBeaconBlock")
       blockBody = Opt.some(reader.readValue(RestPublishedBeaconBlockBody))
     else:
-      unrecognizedFieldWarning()
+      unrecognizedFieldWarning(fieldName, typeof(value).name)
 
   if slot.isNone():
     reader.raiseUnexpectedValue("Field `slot` is missing")
@@ -2021,7 +2007,7 @@ proc readValue*(reader: var JsonReader[RestJson],
                                     "RestPublishedSignedBeaconBlock")
       signature = Opt.some(reader.readValue(ValidatorSig))
     else:
-      unrecognizedFieldWarning()
+      unrecognizedFieldWarning(fieldName, typeof(value).name)
 
   if signature.isNone():
     reader.raiseUnexpectedValue("Field `signature` is missing")
@@ -2098,7 +2084,7 @@ proc readValue*(reader: var JsonReader[RestJson],
           "RestPublishedSignedBlockContents")
       blobs = Opt.some(reader.readValue(deneb.Blobs))
     else:
-      unrecognizedFieldWarning()
+      unrecognizedFieldWarning(fieldName, typeof(value).name)
 
   if signed_message.isSome():
     if message.isSome():
@@ -2159,6 +2145,7 @@ proc readValue*(reader: var JsonReader[RestJson],
         reader.raiseUnexpectedField("Multiple version fields found",
                                     "ForkedSignedBeaconBlock")
       let vres = reader.readValue(string)
+      static: doAssert ConsensusFork.high == ConsensusFork.Electra
       case vres
       of "phase0":
         version = Opt.some(ConsensusFork.Phase0)
@@ -2170,6 +2157,8 @@ proc readValue*(reader: var JsonReader[RestJson],
         version = Opt.some(ConsensusFork.Capella)
       of "deneb":
         version = Opt.some(ConsensusFork.Deneb)
+      of "electra":
+        version = Opt.some(ConsensusFork.Electra)
       else:
         reader.raiseUnexpectedValue("Incorrect version field value")
     of "data":
@@ -2178,7 +2167,7 @@ proc readValue*(reader: var JsonReader[RestJson],
                                     "ForkedSignedBeaconBlock")
       data = Opt.some(reader.readValue(JsonString))
     else:
-      unrecognizedFieldWarning()
+      unrecognizedFieldWarning(fieldName, typeof(value).name)
 
   if version.isNone():
     reader.raiseUnexpectedValue("Field version is missing")
@@ -2310,7 +2299,7 @@ proc readValue*(reader: var JsonReader[RestJson],
                                     "ForkedBeaconState")
       data = Opt.some(reader.readValue(JsonString))
     else:
-      unrecognizedFieldWarning()
+      unrecognizedFieldWarning(fieldName, typeof(value).name)
 
   if version.isNone():
     reader.raiseUnexpectedValue("Field version is missing")
@@ -2440,7 +2429,7 @@ proc readValue*[T: SomeForkedLightClientObject](
         reader.raiseUnexpectedField("Multiple data fields found", T.name)
       data.ok reader.readValue(JsonString)
     else:
-      unrecognizedFieldWarning()
+      unrecognizedFieldWarning(fieldName, typeof(value).name)
 
   if version.isNone:
     reader.raiseUnexpectedValue("Field version is missing")
@@ -2630,7 +2619,7 @@ proc readValue*(reader: var JsonReader[RestJson],
       data = Opt.some(reader.readValue(JsonString))
 
     else:
-      unrecognizedFieldWarning()
+      unrecognizedFieldWarning(fieldName, typeof(value).name)
 
   if requestKind.isNone():
     reader.raiseUnexpectedValue("Field `type` is missing")
@@ -2875,7 +2864,7 @@ proc readValue*(reader: var JsonReader[RestJson],
           reader.raiseUnexpectedValue("Invalid `status` value")
       )
     else:
-      unrecognizedFieldWarning()
+      unrecognizedFieldWarning(fieldName, typeof(value).name)
 
   if status.isNone():
     reader.raiseUnexpectedValue("Field `status` is missing")
@@ -2932,7 +2921,7 @@ proc readValue*(reader: var JsonReader[RestJson], value: var Pbkdf2Params) {.
                                     "Pbkdf2Params")
       salt = Opt.some(reader.readValue(Pbkdf2Salt))
     else:
-      unrecognizedFieldWarning()
+      unrecognizedFieldWarning(fieldName, typeof(value).name)
 
   if dklen.isNone():
     reader.raiseUnexpectedValue("Field `dklen` is missing")
@@ -3006,7 +2995,7 @@ proc readValue*(reader: var JsonReader[RestJson], value: var ScryptParams) {.
                                     "ScryptParams")
       salt = Opt.some(reader.readValue(ScryptSalt))
     else:
-      unrecognizedFieldWarning()
+      unrecognizedFieldWarning(fieldName, typeof(value).name)
 
   if dklen.isNone():
     reader.raiseUnexpectedValue("Field `dklen` is missing")
@@ -3075,7 +3064,7 @@ proc readValue*(reader: var JsonReader[RestJson],
           "KeystoresAndSlashingProtection")
       strSlashing = Opt.some(reader.readValue(string))
     else:
-      unrecognizedFieldWarning()
+      unrecognizedFieldWarning(fieldName, typeof(value).name)
 
   if len(strKeystores) == 0:
     reader.raiseUnexpectedValue("Missing or empty `keystores` value")
@@ -3906,10 +3895,10 @@ proc decodeBytes*[T: DecodeTypes](
   else:
     err("Content-Type not supported")
 
-proc encodeString*(value: string): RestResult[string] =
+func encodeString*(value: string): RestResult[string] =
   ok(value)
 
-proc encodeString*(
+func encodeString*(
     value:
       uint64 |
       SyncCommitteePeriod |
@@ -3919,26 +3908,26 @@ proc encodeString*(
       SyncSubcommitteeIndex): RestResult[string] =
   ok(Base10.toString(uint64(value)))
 
-proc encodeString*(value: ValidatorSig): RestResult[string] =
+func encodeString*(value: ValidatorSig): RestResult[string] =
   ok(hexOriginal(toRaw(value)))
 
-proc encodeString*(value: GraffitiBytes): RestResult[string] =
+func encodeString*(value: GraffitiBytes): RestResult[string] =
   ok(hexOriginal(distinctBase(value)))
 
-proc encodeString*(value: Eth2Digest): RestResult[string] =
+func encodeString*(value: Eth2Digest): RestResult[string] =
   ok(hexOriginal(value.data))
 
-proc encodeString*(value: ValidatorIdent): RestResult[string] =
+func encodeString*(value: ValidatorIdent): RestResult[string] =
   case value.kind
   of ValidatorQueryKind.Index:
     ok(Base10.toString(uint64(value.index)))
   of ValidatorQueryKind.Key:
     ok(hexOriginal(toRaw(value.key)))
 
-proc encodeString*(value: ValidatorPubKey): RestResult[string] =
+func encodeString*(value: ValidatorPubKey): RestResult[string] =
   ok(hexOriginal(toRaw(value)))
 
-proc encodeString*(value: StateIdent): RestResult[string] =
+func encodeString*(value: StateIdent): RestResult[string] =
   case value.kind
   of StateQueryKind.Slot:
     ok(Base10.toString(uint64(value.slot)))
@@ -3955,7 +3944,7 @@ proc encodeString*(value: StateIdent): RestResult[string] =
     of StateIdentType.Justified:
       ok("justified")
 
-proc encodeString*(value: BroadcastValidationType): RestResult[string] =
+func encodeString*(value: BroadcastValidationType): RestResult[string] =
   case value
   of BroadcastValidationType.Gossip:
     ok("gossip")
@@ -3964,7 +3953,7 @@ proc encodeString*(value: BroadcastValidationType): RestResult[string] =
   of BroadcastValidationType.ConsensusAndEquivocation:
     ok("consensus_and_equivocation")
 
-proc encodeString*(value: BlockIdent): RestResult[string] =
+func encodeString*(value: BlockIdent): RestResult[string] =
   case value.kind
   of BlockQueryKind.Slot:
     ok(Base10.toString(uint64(value.slot)))
@@ -3979,7 +3968,7 @@ proc encodeString*(value: BlockIdent): RestResult[string] =
     of BlockIdentType.Finalized:
       ok("finalized")
 
-proc decodeString*(t: typedesc[PeerStateKind],
+func decodeString*(t: typedesc[PeerStateKind],
                    value: string): Result[PeerStateKind, cstring] =
   case value
   of "disconnected":
@@ -3991,9 +3980,9 @@ proc decodeString*(t: typedesc[PeerStateKind],
   of "disconnecting":
     ok(PeerStateKind.Disconnecting)
   else:
-    err("Incorrect peer's state value")
+    err("Incorrect peer state value")
 
-proc encodeString*(value: PeerStateKind): Result[string, cstring] =
+func encodeString*(value: PeerStateKind): Result[string, cstring] =
   case value
   of PeerStateKind.Disconnected:
     ok("disconnected")
@@ -4004,7 +3993,7 @@ proc encodeString*(value: PeerStateKind): Result[string, cstring] =
   of PeerStateKind.Disconnecting:
     ok("disconnecting")
 
-proc decodeString*(t: typedesc[PeerDirectKind],
+func decodeString*(t: typedesc[PeerDirectKind],
                    value: string): Result[PeerDirectKind, cstring] =
   case value
   of "inbound":
@@ -4012,19 +4001,19 @@ proc decodeString*(t: typedesc[PeerDirectKind],
   of "outbound":
     ok(PeerDirectKind.Outbound)
   else:
-    err("Incorrect peer's direction value")
+    err("Incorrect peer direction value")
 
-proc encodeString*(value: PeerDirectKind): Result[string, cstring] =
+func encodeString*(value: PeerDirectKind): Result[string, cstring] =
   case value
   of PeerDirectKind.Inbound:
     ok("inbound")
   of PeerDirectKind.Outbound:
     ok("outbound")
 
-proc encodeString*(peerid: PeerId): Result[string, cstring] =
+func encodeString*(peerid: PeerId): Result[string, cstring] =
   ok($peerid)
 
-proc decodeString*(t: typedesc[EventTopic],
+func decodeString*(t: typedesc[EventTopic],
                    value: string): Result[EventTopic, cstring] =
   case value
   of "head":
@@ -4056,7 +4045,7 @@ proc decodeString*(t: typedesc[EventTopic],
   else:
     err("Incorrect event's topic value")
 
-proc encodeString*(value: set[EventTopic]): Result[string, cstring] =
+func encodeString*(value: set[EventTopic]): Result[string, cstring] =
   var res: string
   if EventTopic.Head in value:
     res.add("head,")
@@ -4089,7 +4078,7 @@ proc encodeString*(value: set[EventTopic]): Result[string, cstring] =
   res.setLen(len(res) - 1)
   ok(res)
 
-proc toList*(value: set[ValidatorFilterKind]): seq[string] =
+func toList*(value: set[ValidatorFilterKind]): seq[string] =
   const
     pendingSet = {ValidatorFilterKind.PendingInitialized,
                   ValidatorFilterKind.PendingQueued}
@@ -4128,7 +4117,7 @@ proc toList*(value: set[ValidatorFilterKind]): seq[string] =
   processSingle(ValidatorFilterKind.WithdrawalDone, "withdrawal_done")
   res
 
-proc decodeString*(t: typedesc[ValidatorSig],
+func decodeString*(t: typedesc[ValidatorSig],
                    value: string): Result[ValidatorSig, cstring] =
   if len(value) != ValidatorSigSize + 2:
     return err("Incorrect validator signature value length")
@@ -4136,7 +4125,7 @@ proc decodeString*(t: typedesc[ValidatorSig],
     return err("Incorrect validator signature encoding")
   ValidatorSig.fromHex(value)
 
-proc decodeString*(t: typedesc[ValidatorPubKey],
+func decodeString*(t: typedesc[ValidatorPubKey],
                    value: string): Result[ValidatorPubKey, cstring] =
   if len(value) != ValidatorKeySize + 2:
     return err("Incorrect validator's key value length")
@@ -4145,35 +4134,35 @@ proc decodeString*(t: typedesc[ValidatorPubKey],
   else:
     ValidatorPubKey.fromHex(value)
 
-proc decodeString*(t: typedesc[GraffitiBytes],
+func decodeString*(t: typedesc[GraffitiBytes],
                    value: string): Result[GraffitiBytes, cstring] =
   try:
     ok(GraffitiBytes.init(value))
   except ValueError:
     err("Unable to decode graffiti value")
 
-proc decodeString*(t: typedesc[string],
+func decodeString*(t: typedesc[string],
                    value: string): Result[string, cstring] =
   ok(value)
 
-proc decodeString*(t: typedesc[Slot], value: string): Result[Slot, cstring] =
+func decodeString*(t: typedesc[Slot], value: string): Result[Slot, cstring] =
   let res = ? Base10.decode(uint64, value)
   ok(Slot(res))
 
-proc decodeString*(t: typedesc[Epoch], value: string): Result[Epoch, cstring] =
+func decodeString*(t: typedesc[Epoch], value: string): Result[Epoch, cstring] =
   let res = ? Base10.decode(uint64, value)
   ok(Epoch(res))
 
-proc decodeString*(t: typedesc[SyncCommitteePeriod],
+func decodeString*(t: typedesc[SyncCommitteePeriod],
                    value: string): Result[SyncCommitteePeriod, cstring] =
   let res = ? Base10.decode(uint64, value)
   ok(SyncCommitteePeriod(res))
 
-proc decodeString*(t: typedesc[uint64],
+func decodeString*(t: typedesc[uint64],
                    value: string): Result[uint64, cstring] =
   Base10.decode(uint64, value)
 
-proc decodeString*(t: typedesc[StateIdent],
+func decodeString*(t: typedesc[StateIdent],
                    value: string): Result[StateIdent, cstring] =
   if len(value) > 2:
     if (value[0] == '0') and (value[1] == 'x'):
@@ -4205,7 +4194,7 @@ proc decodeString*(t: typedesc[StateIdent],
     let res = ? Base10.decode(uint64, value)
     ok(StateIdent(kind: StateQueryKind.Slot, slot: Slot(res)))
 
-proc decodeString*(t: typedesc[BlockIdent],
+func decodeString*(t: typedesc[BlockIdent],
                    value: string): Result[BlockIdent, cstring] =
   if len(value) > 2:
     if (value[0] == '0') and (value[1] == 'x'):
@@ -4234,7 +4223,7 @@ proc decodeString*(t: typedesc[BlockIdent],
     let res = ? Base10.decode(uint64, value)
     ok(BlockIdent(kind: BlockQueryKind.Slot, slot: Slot(res)))
 
-proc decodeString*(t: typedesc[BroadcastValidationType],
+func decodeString*(t: typedesc[BroadcastValidationType],
                    value: string): Result[BroadcastValidationType, cstring] =
   case value
   of "gossip":
@@ -4246,7 +4235,7 @@ proc decodeString*(t: typedesc[BroadcastValidationType],
   else:
     err("Incorrect broadcast validation type value")
 
-proc decodeString*(t: typedesc[ValidatorIdent],
+func decodeString*(t: typedesc[ValidatorIdent],
                    value: string): Result[ValidatorIdent, cstring] =
   if len(value) > 2:
     if (value[0] == '0') and (value[1] == 'x'):
@@ -4267,21 +4256,21 @@ proc decodeString*(t: typedesc[ValidatorIdent],
     ok(ValidatorIdent(kind: ValidatorQueryKind.Index,
                       index: RestValidatorIndex(res)))
 
-proc decodeString*(t: typedesc[PeerId],
+func decodeString*(t: typedesc[PeerId],
                    value: string): Result[PeerId, cstring] =
   PeerId.init(value)
 
-proc decodeString*(t: typedesc[CommitteeIndex],
+func decodeString*(t: typedesc[CommitteeIndex],
                    value: string): Result[CommitteeIndex, cstring] =
   let res = ? Base10.decode(uint64, value)
   CommitteeIndex.init(res)
 
-proc decodeString*(t: typedesc[SyncSubcommitteeIndex],
+func decodeString*(t: typedesc[SyncSubcommitteeIndex],
                    value: string): Result[SyncSubcommitteeIndex, cstring] =
   let res = ? Base10.decode(uint64, value)
   SyncSubcommitteeIndex.init(res)
 
-proc decodeString*(t: typedesc[Eth2Digest],
+func decodeString*(t: typedesc[Eth2Digest],
                    value: string): Result[Eth2Digest, cstring] =
   if len(value) != RootHashSize + 2:
     return err("Incorrect root value length")
@@ -4289,7 +4278,7 @@ proc decodeString*(t: typedesc[Eth2Digest],
     return err("Incorrect root value encoding")
   parseRoot(value)
 
-proc decodeString*(t: typedesc[ValidatorFilter],
+func decodeString*(t: typedesc[ValidatorFilter],
                    value: string): Result[ValidatorFilter, cstring] =
   case value
   of "pending_initialized":
@@ -4334,14 +4323,16 @@ proc decodeString*(t: typedesc[ValidatorFilter],
   else:
     err("Incorrect validator state identifier value")
 
-proc decodeString*(t: typedesc[ConsensusFork],
+func decodeString*(t: typedesc[ConsensusFork],
                    value: string): Result[ConsensusFork, cstring] =
+  static: doAssert ConsensusFork.high == ConsensusFork.Electra
   case toLowerAscii(value)
   of "phase0": ok(ConsensusFork.Phase0)
   of "altair": ok(ConsensusFork.Altair)
   of "bellatrix": ok(ConsensusFork.Bellatrix)
   of "capella": ok(ConsensusFork.Capella)
   of "deneb": ok(ConsensusFork.Deneb)
+  of "electra": ok(ConsensusFork.Electra)
   else: err("Unsupported or invalid beacon block fork version")
 
 proc decodeString*(t: typedesc[EventBeaconBlockObject],
@@ -4385,7 +4376,7 @@ proc readValue*(reader: var JsonReader[RestJson],
                                     "RestValidatorRequest")
       statuses = Opt.some(reader.readValue(seq[string]))
     else:
-      unrecognizedFieldWarning()
+      unrecognizedFieldWarning(fieldName, typeof(value).name)
 
   let
     validatorIds =
@@ -4430,4 +4421,12 @@ proc writeValue*(writer: var JsonWriter[RestJson],
     let res = value.status.get().toList()
     if len(res) > 0:
       writer.writeField("statuses", res)
+  writer.endRecord()
+
+## RestSyncCommitteeReward
+proc writeValue*(writer: var JsonWriter[RestJson],
+                 value: RestSyncCommitteeReward) {.raises: [IOError].} =
+  writer.beginRecord()
+  writer.writeField("validator_index", value.validator_index)
+  writer.writeField("reward", value.reward)
   writer.endRecord()

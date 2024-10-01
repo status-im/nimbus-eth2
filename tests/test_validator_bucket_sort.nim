@@ -226,7 +226,7 @@ func findValidatorIndexBruteforce(
     h2: ValidatorPubKey): Opt[ValidatorIndex] =
   for validatorIndex in bsv.extraItems:
     if validators[validatorIndex.distinctBase].pubkey == h2:
-      return Opt.some validatorIndex.ValidatorIndex
+      return Opt.some validatorIndex
   for validatorIndex in bsv.bucketSorted:
     if validators[validatorIndex].pubkey == h2:
       return Opt.some validatorIndex.ValidatorIndex
