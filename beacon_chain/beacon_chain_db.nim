@@ -115,7 +115,7 @@ type
     blocks: array[ConsensusFork, KvStoreRef] # BlockRoot -> TrustedSignedBeaconBlock
 
     blobs: KvStoreRef # (BlockRoot -> BlobSidecar)
-
+    columns: KvStoreRef # (BlockRoot -> DataColumnSidecar)
     stateRoots: KvStoreRef # (Slot, BlockRoot) -> StateRoot
 
     statesNoVal: array[ConsensusFork, KvStoreRef] # StateRoot -> ForkBeaconStateNoImmutableValidators
@@ -1094,11 +1094,11 @@ proc getDataColumnSidecarSZ*(db: BeaconChainDB, root: Eth2Digest,
   let dataPtr = addr data # Short-lived
   func decode(data: openArray[byte]) =
     assign(dataPtr[], data)
-  db.blobs.get(columnkey(root, index), decode).expectDb()
+  db.columns.get(columnkey(root, index), decode).expectDb()
 
 proc getDataColumnSidecar*(db: BeaconChainDB, root: Eth2Digest, index: ColumnIndex,
                            value: var DataColumnSidecar): bool =
-  db.blobs.getSZSSZ(columnkey(root, index), value) == GetResult.found
+  db.columns.getSZSSZ(columnkey(root, index), value) == GetResult.found
 
 proc getBlockSZ*(
     db: BeaconChainDB, key: Eth2Digest, data: var seq[byte],
