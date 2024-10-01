@@ -66,6 +66,8 @@ type
 
   DataColumnSidecars* = seq[ref DataColumnSidecar]
 
+  DataColumnSidecarList* = List[ColumnIndex, NUMBER_OF_COLUMNS]
+
   DataColumnIdentifier* = object
     block_root*: Eth2Digest
     index*: ColumnIndex

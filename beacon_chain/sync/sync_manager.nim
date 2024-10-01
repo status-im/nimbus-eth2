@@ -336,7 +336,6 @@ proc getDataColumnSidecars[A, B](man: SyncManager[A, B], peer: A,
       localNodeId.get_custody_column_list(max(SAMPLES_PER_SLOT.uint64,
                                                localCustodySubnetCount))
 
-  debug "Checking valid custody peers before range request", request = req
   doAssert(not(req.isEmpty()), "Request must not be empty!")
 
   debug "Requesting data column sidecars from peer", request = req
@@ -371,6 +370,9 @@ func groupDataColumns*[T](req: SyncRequest[T],
             return err("DataColumnSidecar: unexpected signed_block_header")
           grouped[block_idx].add(data_column_sidecar)
           inc column_cursor
+
+          debugEcho "Column Cursor"
+          debugEcho column_cursor
 
   if column_cursor != len(data_columns):
     # we reached end of blocks without consuming all data columns so either
@@ -642,7 +644,7 @@ proc syncStep[A, B](man: SyncManager[A, B], index: int, peer: A)
       let groupedDataColumns = groupDataColumns(req, blockData, dataColumnData)
       if groupedDataColumns.isErr():
         # peer.updateScore(PeerScoreNoValues)
-        man.queue.push(req)
+        # man.queue.push(req)
         # warn "Received data columns is inconsistent",
         #   data_columns_map = getShortMap(req, dataColumnData), request = req, msg=groupedDataColumns.error()
         return

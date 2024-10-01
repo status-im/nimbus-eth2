@@ -24,7 +24,7 @@ const
     ## Allow syncing ~64 blocks/sec (minus request costs)
   blobResponseCost = allowedOpsPerSecondCost(1000)
     ## Multiple can exist per block, they are much smaller than blocks
-  dataColumnResponseCost = allowedOpsPerSecondCost(1000)
+  dataColumnResponseCost = allowedOpsPerSecondCost(8000)
     ## 1 blob has an equivalent memory of 8 data columns
 
 type
@@ -484,12 +484,15 @@ p2pProtocol BeaconSync(version = 1,
             if blockIds[i].slot.epoch >= dag.cfg.DENEB_FORK_EPOCH and
                 not dag.head.executionValid:
               continue
+
             let uncompressedLen = uncompressedLenFramed(bytes).valueOr:
               warn "Cannot read data column sidecar size, database, corrupt",
                 bytes = bytes.len(), blck = shortLog(blockIds[i])
               continue
-            peer.awaitQuota(dataColumnResponseCost, "data_column_sidecars_by_range/1")
-            peer.network.awaitQuota(dataColumnResponseCost, "data_column_sidecars_by_range/1")
+
+            # peer.awaitQuota(dataColumnResponseCost, "data_column_sidecars_by_range/1")
+            # peer.network.awaitQuota(dataColumnResponseCost, "data_column_sidecars_by_range/1")
+
             await response.writeBytesSZ(
               uncompressedLen, bytes,
               peer.network.forkDigestAtEpoch(blockIds[i].slot.epoch).data)
