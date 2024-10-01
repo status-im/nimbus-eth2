@@ -767,6 +767,13 @@ func init*(t: typedesc[Web3SignerRequest], fork: Fork,
   )
 
 func init*(t: typedesc[Web3SignerRequest], fork: Fork,
+           genesis_validators_root: Eth2Digest, data: electra.AggregateAndProof,
+           signingRoot: Opt[Eth2Digest] = Opt.none(Eth2Digest)
+          ): Web3SignerRequest =
+  debugComment "doesn't seem specified yet"
+  Web3SignerRequest()
+
+func init*(t: typedesc[Web3SignerRequest], fork: Fork,
            genesis_validators_root: Eth2Digest, data: AttestationData,
            signingRoot: Opt[Eth2Digest] = Opt.none(Eth2Digest)
           ): Web3SignerRequest =

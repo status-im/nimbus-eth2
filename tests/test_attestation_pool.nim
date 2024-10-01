@@ -19,7 +19,6 @@ import
   ../beacon_chain/fork_choice/[fork_choice_types, fork_choice],
   ../beacon_chain/consensus_object_pools/[
     block_quarantine, blockchain_dag, block_clearance, attestation_pool],
-  ../beacon_chain/spec/datatypes/phase0,
   ../beacon_chain/spec/[beaconstate, helpers, state_transition, validator],
   ../beacon_chain/beacon_clock,
   # Test utilities
@@ -216,7 +215,7 @@ suite "Attestation pool processing" & preset():
 
     check:
       attestations.len == 1
-      pool[].getAggregatedAttestation(1.Slot, 0.CommitteeIndex).isSome()
+      pool[].getPhase0AggregatedAttestation(1.Slot, 0.CommitteeIndex).isSome()
 
     let
       root1 = addTestBlock(
@@ -278,9 +277,9 @@ suite "Attestation pool processing" & preset():
       # We should now get both attestations for the block, but the aggregate
       # should be the one with the most votes
       pool[].getAttestationsForBlock(state[], cache).len() == 2
-      pool[].getAggregatedAttestation(2.Slot, 0.CommitteeIndex).
+      pool[].getPhase0AggregatedAttestation(2.Slot, 0.CommitteeIndex).
         get().aggregation_bits.countOnes() == 2
-      pool[].getAggregatedAttestation(2.Slot, hash_tree_root(att2.data)).
+      pool[].getPhase0AggregatedAttestation(2.Slot, hash_tree_root(att2.data)).
         get().aggregation_bits.countOnes() == 2
 
     let
@@ -328,7 +327,7 @@ suite "Attestation pool processing" & preset():
       pool[].covers(att0.data, att0.aggregation_bits)
       pool[].getAttestationsForBlock(state[], cache).len() == 2
       # Can get either aggregate here, random!
-      pool[].getAggregatedAttestation(1.Slot, 0.CommitteeIndex).isSome()
+      pool[].getPhase0AggregatedAttestation(1.Slot, 0.CommitteeIndex).isSome()
 
     # Add in attestation 3 - both aggregates should now have it added
     pool[].addAttestation(
@@ -340,7 +339,7 @@ suite "Attestation pool processing" & preset():
         attestations.len() == 2
         attestations[0].aggregation_bits.countOnes() == 3
         # Can get either aggregate here, random!
-        pool[].getAggregatedAttestation(1.Slot, 0.CommitteeIndex).isSome()
+        pool[].getPhase0AggregatedAttestation(1.Slot, 0.CommitteeIndex).isSome()
 
     # Add in attestation 0 as single - attestation 1 is now a superset of the
     # aggregates in the pool, so everything else should be removed
@@ -352,7 +351,7 @@ suite "Attestation pool processing" & preset():
       check:
         attestations.len() == 1
         attestations[0].aggregation_bits.countOnes() == 4
-        pool[].getAggregatedAttestation(1.Slot, 0.CommitteeIndex).isSome()
+        pool[].getPhase0AggregatedAttestation(1.Slot, 0.CommitteeIndex).isSome()
 
   test "Everyone voting for something different" & preset():
     var attestations: int
@@ -381,7 +380,7 @@ suite "Attestation pool processing" & preset():
       # Fill block with attestations
       pool[].getAttestationsForBlock(state[], cache).lenu64() ==
         MAX_ATTESTATIONS
-      pool[].getAggregatedAttestation(
+      pool[].getPhase0AggregatedAttestation(
         getStateField(state[], slot) - 1, 0.CommitteeIndex).isSome()
 
   test "Attestations may arrive in any order" & preset():
