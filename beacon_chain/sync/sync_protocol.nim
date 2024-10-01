@@ -490,8 +490,8 @@ p2pProtocol BeaconSync(version = 1,
                 bytes = bytes.len(), blck = shortLog(blockIds[i])
               continue
 
-            # peer.awaitQuota(dataColumnResponseCost, "data_column_sidecars_by_range/1")
-            # peer.network.awaitQuota(dataColumnResponseCost, "data_column_sidecars_by_range/1")
+            peer.awaitQuota(dataColumnResponseCost, "data_column_sidecars_by_range/1")
+            peer.network.awaitQuota(dataColumnResponseCost, "data_column_sidecars_by_range/1")
 
             await response.writeBytesSZ(
               uncompressedLen, bytes,
