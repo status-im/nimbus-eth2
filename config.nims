@@ -100,14 +100,11 @@ if defined(windows):
 if defined(disableMarchNative):
   if defined(i386) or defined(amd64):
     if defined(macosx):
-      # macOS Big Sur is EOL as of 2023-11
-      # https://support.apple.com/en-us/HT212551
-      # "macOS Monterey is compatible with these computers" of which the
-      # oldest is "Mac Pro (Late 2013)". All have Haswell or newer CPUs.
-      #
-      # This ensures AVX2, AES-NI, PCLMUL, BMI1, and BMI2 instruction set support.
-      switch("passC", "-march=haswell -mtune=generic")
-      switch("passL", "-march=haswell -mtune=generic")
+      # https://support.apple.com/en-us/102861
+      # "macOS Ventura is compatible with these computers" lists current oldest
+      # supported x86 models, all of which have Kaby Lake or newer CPUs.
+      switch("passC", "-march=skylake -mtune=generic")
+      switch("passL", "-march=skylake -mtune=generic")
     else:
       if defined(marchOptimized):
         # https://github.com/status-im/nimbus-eth2/blob/stable/docs/cpu_features.md#bmi2--adx

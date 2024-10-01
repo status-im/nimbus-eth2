@@ -1,3 +1,30 @@
+2024-09-30 v24.9.0
+==================
+
+Nimbus `v24.9.0` is a `low-urgency` release with beacon API improvements and stability fixes.
+
+### Improvements
+
+* Add support for getBlockRewards and getSyncCommitteeRewards beacon API endpoints:
+  https://github.com/status-im/nimbus-eth2/pull/6556
+
+* Add support for publishAggregateAndProofsV2 beacon API endpoint:
+  https://github.com/status-im/nimbus-eth2/pull/6546
+
+* Add support for getPoolAttestationsV2 beacon API endpoint:
+  https://github.com/status-im/nimbus-eth2/pull/6511
+
+### Fixes
+
+* Web3signer always resolves DNS hostnames:
+  https://github.com/status-im/nimbus-eth2/pull/6567
+
+* Avoid potential crash while initializing UPnP:
+  https://github.com/status-im/nimbus-eth2/pull/6538
+
+* Fix missing field values in Deneb and Electra getBlindedBlock beacon API endpoint responses:
+  https://github.com/status-im/nimbus-eth2/pull/6569
+
 2024-08-29 v24.8.0
 ==================
 
