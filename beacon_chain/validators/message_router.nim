@@ -170,7 +170,6 @@ proc routeSignedBeaconBlock*(
   when typeof(blck).kind >= ConsensusFork.Deneb:
     let blobs = blobsOpt.get()
     debugEcho blobs.len
-    debugEcho blobs.len
     if blobs.len != 0:
       let dataColumnsOpt = 
         newClone get_data_column_sidecars(blck, blobs.mapIt(KzgBlob(bytes: it.blob)))

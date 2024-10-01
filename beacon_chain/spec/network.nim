@@ -114,6 +114,9 @@ func getBlobSidecarTopic*(forkDigest: ForkDigest,
 func compute_subnet_for_blob_sidecar*(blob_index: BlobIndex): BlobId =
   BlobId(blob_index mod BLOB_SIDECAR_SUBNET_COUNT)
 
+func compute_subnet_for_data_column_sidecar*(column_index: ColumnIndex): uint64 =
+    uint64(column_index mod DATA_COLUMN_SIDECAR_SUBNET_COUNT)
+
 # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.5/specs/altair/light-client/p2p-interface.md#light_client_finality_update
 func getLightClientFinalityUpdateTopic*(forkDigest: ForkDigest): string =
   ## For broadcasting or obtaining the latest `LightClientFinalityUpdate`.
@@ -235,9 +238,6 @@ iterator blobSidecarTopics*(forkDigest: ForkDigest): string =
 func getDataColumnSidecarTopic*(forkDigest: ForkDigest,
                              subnet_id: uint64): string =
   eth2Prefix(forkDigest) & "data_column_sidecar_" & $subnet_id & "/ssz_snappy"
-
-func compute_subnet_for_data_column_sidecar*(column_index: ColumnIndex): uint64 =
-    uint64(column_index mod DATA_COLUMN_SIDECAR_SUBNET_COUNT)
 
 iterator dataColumnSidecarTopics*(forkDigest: ForkDigest, targetSubnetCount: uint64): string =
   for subnet_id in 0'u64..<targetSubnetCount:

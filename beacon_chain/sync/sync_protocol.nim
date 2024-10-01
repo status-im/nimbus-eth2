@@ -481,7 +481,7 @@ p2pProtocol BeaconSync(version = 1,
       for j in 0..<MAX_REQUEST_DATA_COLUMNS:
         if ColumnIndex(j) in reqColumns:
           if dag.db.getDataColumnSidecarSZ(blockIds[i].root, ColumnIndex(j), bytes):
-            if blockIds[i].slot.epoch >= dag.cfg.BELLATRIX_FORK_EPOCH and
+            if blockIds[i].slot.epoch >= dag.cfg.DENEB_FORK_EPOCH and
                 not dag.head.executionValid:
               continue
             let uncompressedLen = uncompressedLenFramed(bytes).valueOr:
