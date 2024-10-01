@@ -819,17 +819,17 @@ proc putDataColumnSidecar*(
     db: BeaconChainDB,
     value: DataColumnSidecar) =
   let block_root = hash_tree_root(value.signed_block_header.message)
-  db.blobs.putSZSSZ(columnkey(block_root, value.index), value)
+  db.columns.putSZSSZ(columnkey(block_root, value.index), value)
 
 proc delBlobSidecar*(
     db: BeaconChainDB,
     root: Eth2Digest, index: BlobIndex): bool =
-  db.blobs.del(blobkey(root, index)).expectDb()
+  db.columns.del(blobkey(root, index)).expectDb()
 
 proc delDataColumnSidecar*(
     db: BeaconChainDB,
     root: Eth2Digest, index: ColumnIndex): bool =
-  db.blobs.del(columnkey(root, index)).expectDb()
+  db.columns.del(columnkey(root, index)).expectDb()
 
 proc updateImmutableValidators*(
     db: BeaconChainDB, validators: openArray[Validator]) =
