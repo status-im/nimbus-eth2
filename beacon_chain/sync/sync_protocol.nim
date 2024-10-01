@@ -24,7 +24,7 @@ const
     ## Allow syncing ~64 blocks/sec (minus request costs)
   blobResponseCost = allowedOpsPerSecondCost(1000)
     ## Multiple can exist per block, they are much smaller than blocks
-  dataColumnResponseCost = allowedOpsPerSecondCost(8000)
+  dataColumnResponseCost = allowedOpsPerSecondCost(128000)
     ## 1 blob has an equivalent memory of 8 data columns
 
 type
@@ -479,8 +479,8 @@ p2pProtocol BeaconSync(version = 1,
     
     for i in startIndex..endIndex:
       for j in 0..<MAX_REQUEST_DATA_COLUMNS:
-        if ColumnIndex(j) in reqColumns:
-          if dag.db.getDataColumnSidecarSZ(blockIds[i].root, ColumnIndex(j), bytes):
+        for k in reqColumns:
+          if dag.db.getDataColumnSidecarSZ(blockIds[i].root, ColumnIndex(k), bytes):
             if blockIds[i].slot.epoch >= dag.cfg.DENEB_FORK_EPOCH and
                 not dag.head.executionValid:
               continue
@@ -498,15 +498,11 @@ p2pProtocol BeaconSync(version = 1,
               peer.network.forkDigestAtEpoch(blockIds[i].slot.epoch).data)
             inc found
             var cols: seq[ColumnIndex]
-            cols.add(j)
+            cols.add(k)
             debug "Responded to DataColumnSidecar range request",
               peer, blck = shortLog(blockIds[i]), columns = cols
           else:
             break
-
-        else:
-          break
-
 
     debug "DataColumnSidecar range request done",
       peer, startSlot, count = reqCount, columns = reqColumns, found
