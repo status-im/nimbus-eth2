@@ -400,10 +400,9 @@ proc verify_data_column_sidecar_kzg_proofs*(sidecar: DataColumnSidecar):
     return err("Sidecar kzg_commitments length is not equal to the kzg_proofs length")
 
   # Iterate through the cell indices
-  var cellIndices = 
-    newSeq[CellIndex](MAX_BLOB_COMMITMENTS_PER_BLOCK)
+  var cellIndices = newSeqOfCap[CellIndex](sidecar.column.len)
   for _ in 0..<sidecar.column.len:
-    cellIndices.add(sidecar.index * sidecar.column.lenu64)
+    cellIndices.add(CellIndex(sidecar.index))
 
   let res = 
     verifyCellKzgProofBatch(sidecar.kzg_commitments.asSeq,
