@@ -644,6 +644,7 @@ proc storeBlock(
     if dataColumnsOpt.isSome:
       let data_columns = dataColumnsOpt.get()
       let kzgCommits = signedBlock.message.body.blob_kzg_commitments.asSeq
+      debugEcho "Hitting verification"
       if data_columns.len > 0 and kzgCommits.len > 0:
         for i in 0..<data_columns.len:
           let r = verify_data_column_sidecar_kzg_proofs(data_columns[i][])

@@ -209,6 +209,7 @@ proc routeSignedBeaconBlock*(
           final_columns.add(dc)
       dataColumnRefs = Opt.some(final_columns.mapIt(newClone(it)))
 
+  
   let added = await router[].blockProcessor[].addBlock(
     MsgSource.api, ForkedSignedBeaconBlock.init(blck), blobRefs, dataColumnRefs)
 
