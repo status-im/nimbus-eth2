@@ -260,7 +260,7 @@ proc storeBackfillBlock(
   let data_columns = dataColumnsOpt.valueOr: DataColumnSidecars @[]
   for c in data_columns:
     self.consensusManager.dag.db.putDataColumnSidecar(c[])
-    debug "Data column written to database!",
+    debug "StoreBackFillBlock: Data column written to database!",
       data_column = shortLog(c[])
 
   res
@@ -646,6 +646,7 @@ proc storeBlock(
       let kzgCommits = signedBlock.message.body.blob_kzg_commitments.asSeq
       debugEcho "Hitting verification"
       if data_columns.len > 0 and kzgCommits.len > 0:
+        debugEcho "Hitting verification 2"
         for i in 0..<data_columns.len:
           let r = verify_data_column_sidecar_kzg_proofs(data_columns[i][])
           if r.isErr():
@@ -655,7 +656,7 @@ proc storeBlock(
               blck = shortLog(signedBlock.message),
               signature = shortLog(signedBlock.signature),
               msg = r.error()
-          return err((VerifierError.Invalid, ProcessingStatus.completed))
+            return err((VerifierError.Invalid, ProcessingStatus.completed))
 
   type Trusted = typeof signedBlock.asTrusted()
 
@@ -707,7 +708,7 @@ proc storeBlock(
   let data_columns = dataColumnsOpt.valueOr: DataColumnSidecars @[]
   for c in data_columns:
     self.consensusManager.dag.db.putDataColumnSidecar(c[])
-    debug "Data column written to database!",
+    debug "StoreBlock: Data column written to database!",
       data_column = shortLog(c[])
 
   let addHeadBlockTick = Moment.now()

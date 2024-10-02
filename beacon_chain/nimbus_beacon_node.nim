@@ -1545,15 +1545,17 @@ proc tryReconstructingDataColumns* (self: BeaconNode,
 
     # Reconstruct data column sidecars from recovered blobs
     let reconstructedDataColumns = get_data_column_sidecars(signed_block, recovered_cps.get)
-
+    debugEcho "Reconstructed Data Columns len"
+    debugEcho reconstructedDataColumns.get.len
     for data_column in reconstructedDataColumns.get:
       if data_column.index notin custodiedColumnIndices:
         continue
 
       finalisedDataColumns.add(data_column)
-      db.putDataColumnSidecar(data_column)
+    for fc in finalisedDataColumns:
+      db.putDataColumnSidecar(fc)
       debug "Reconstructed data column written to database",
-        data_column = shortLog(data_column)
+        data_column = shortLog(fc)
   ok(finalisedDataColumns)
 
 proc reconstructAndSendDataColumns*(node: BeaconNode) {.async.} =
