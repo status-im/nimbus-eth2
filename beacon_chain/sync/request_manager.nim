@@ -33,12 +33,12 @@ const
   PARALLEL_REQUESTS* = 2
     ## Number of peers we using to resolve our request.
   
-  PARALLEL_REQUESTS_DATA_COLUMNS* = 32
+  PARALLEL_REQUESTS_DATA_COLUMNS* = 2
 
   BLOB_GOSSIP_WAIT_TIME_NS* = 2 * 1_000_000_000
     ## How long to wait for blobs to arrive over gossip before fetching.
 
-  DATA_COLUMN_GOSSIP_WAIT_TIME_NS* =  2.5 * 1_000_000_000
+  DATA_COLUMN_GOSSIP_WAIT_TIME_NS* =  2_500_000_000
 
   POLL_INTERVAL = 1.seconds
 
