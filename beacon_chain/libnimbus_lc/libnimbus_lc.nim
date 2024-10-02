@@ -1295,7 +1295,7 @@ proc ETHExecutionBlockHeaderCreateFromJson(
     gasUsed: distinctBase(data.gasUsed),
     timestamp: EthTime(distinctBase(data.timestamp)),
     extraData: distinctBase(data.extraData),
-    mixHash: data.mixHash.asEth2Digest.to(Hash32),
+    mixHash: Bytes32 data.mixHash,
     nonce: distinctBase(data.nonce.get).to(Bytes8),
     baseFeePerGas: data.baseFeePerGas,
     withdrawalsRoot:
