@@ -640,14 +640,14 @@ proc storeBlock(
   # TODO with v1.4.0, not sure this is still relevant
   # Establish blob viability before calling addHeadBlock to avoid
   # writing the block in case of blob error.
-  when typeof(signedBlock).kind >= ConsensusFork.Deneb:
-    if dataColumnsOpt.isSome:
-      let data_columns = dataColumnsOpt.get()
-      let kzgCommits = signedBlock.message.body.blob_kzg_commitments.asSeq
-      debugEcho "Hitting verification"
-      if data_columns.len == 0 or kzgCommits.len == 0:
-        debugEcho "Hitting verification 2"
-        return err((VerifierError.Invalid, ProcessingStatus.completed))
+  # when typeof(signedBlock).kind >= ConsensusFork.Deneb:
+  #   if dataColumnsOpt.isSome:
+  #     let data_columns = dataColumnsOpt.get()
+  #     let kzgCommits = signedBlock.message.body.blob_kzg_commitments.asSeq
+  #     debugEcho "Hitting verification"
+  #     if data_columns.len == 0 or kzgCommits.len == 0:
+  #       debugEcho "Hitting verification 2"
+  #       return err((VerifierError.Invalid, ProcessingStatus.completed))
 
   type Trusted = typeof signedBlock.asTrusted()
 
