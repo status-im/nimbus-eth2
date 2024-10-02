@@ -1546,8 +1546,8 @@ proc tryReconstructingDataColumns* (self: BeaconNode,
     # Reconstruct data column sidecars from recovered blobs
     let reconstructedDataColumns = get_data_column_sidecars(signed_block, recovered_cps.get)
     debugEcho "Reconstructed Data Columns len"
-    debugEcho reconstructedDataColumns.get.len
-    for data_column in reconstructedDataColumns.get:
+    debugEcho reconstructedDataColumns.len
+    for data_column in reconstructedDataColumns:
       if data_column.index notin custodiedColumnIndices:
         continue
 

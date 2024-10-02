@@ -27,6 +27,8 @@ const
     # The number of cells in an extended blob |
   # RANDOM_CHALLENGE_KZG_CELL_BATCH_DOMAIN = 'RCKZGCBATCH__V1_'
   KZG_COMMITMENTS_INCLUSION_PROOF_DEPTH* = 4
+  KZG_COMMITMENTS_INCLUSION_PROOF_DEPTH_GINDEX* = 27
+
 
 type
   BLSFieldElement* = KzgBytes32

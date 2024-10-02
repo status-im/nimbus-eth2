@@ -247,97 +247,124 @@ proc compute_signed_block_header(signed_block: deneb.SignedBeaconBlock |
     signature: signed_block.signature
   )
 
-# https://github.com/ethereum/consensus-specs/blob/bb8f3caafc92590cdcf2d14974adb602db9b5ca3/specs/_features/eip7594/das-core.md#get_data_column_sidecars
-proc get_data_column_sidecars*(signed_block: deneb.TrustedSignedBeaconBlock | 
-                               deneb.SignedBeaconBlock |
-                               electra.TrustedSignedBeaconBlock | 
-                               electra.SignedBeaconBlock,
+# https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.6/specs/_features/eip7594/das-core.md#get_data_column_sidecars
+proc get_data_column_sidecars*(signed_beacon_block: deneb.TrustedSignedBeaconBlock |
+                               electra.TrustedSignedBeaconBlock,
                                cellsAndProofs: seq[CellsAndProofs]):
-                               Result[seq[DataColumnSidecar], string] =
-  # Given a signed block and the cells/proofs associated with each blob
-  # in the block, assemble the sidecars which can be distributed to peers.
+                               seq[DataColumnSidecar] =
+  ## Given a trusted signed beacon block and the cells/proofs associated
+  ## with each data column (thereby blob as well) corresponding to the block,
+  ## this function assembles the sidecars which can be distributed to 
+  ## the peers post data column reconstruction at every slot start.
+  ## 
+  ## Note: this function only accepts `TrustedSignedBeaconBlock` as
+  ## during practice we would be computing cells and proofs from 
+  ## data columns only after retrieving them from the database, where
+  ## they we were already verified and persisted.
+  template blck(): auto = signed_beacon_block.message
+  let
+    beacon_block_header =
+      BeaconBlockHeader(
+        slot: blck.slot,
+        proposer_index: blck.proposer_index,
+        parent_root: blck.parent_root,
+        state_root: blck.state_root,
+        body_root: hash_tree_root(blck.body))
+    
+    signed_beacon_block_header =
+      SignedBeaconBlockHeader(
+        message: beacon_block_header,
+        signature: signed_beacon_block.signature.toValidatorSig)
+  
   var
-    blck = signed_block.message
-    signed_beacon_block_header = 
-      compute_signed_block_header(signed_block)
-    kzg_incl_proof: array[4, Eth2Digest]
-
-  var sidecars = newSeqOfCap[DataColumnSidecar](CELLS_PER_EXT_BLOB)
-
-  if cellsAndProofs.len == 0:
-    return ok(sidecars)
+    sidecars =
+      newSeqOfCap[DataColumnSidecar](kzg_abi.CELLS_PER_EXT_BLOB)
 
   for column_index in 0..<NUMBER_OF_COLUMNS:
     var
-      column_cells: DataColumn
-      column_proofs: KzgProofs
+      column_cells: seq[KzgCell]
+      column_proofs: seq[KzgProof]
     for i in 0..<cellsAndProofs.len:
-      discard column_cells.add(cellsAndProofs[i].cells)
-      discard column_proofs.add(cellsAndProofs[i].proofs)
+      column_cells.add(cellsAndProofs[i].cells)
+      column_proofs.add(cellsAndProofs[i].proofs)
 
     var sidecar = DataColumnSidecar(
       index: ColumnIndex(column_index),
-      column: column_cells,
+      column: DataColumn.init(column_cells),
       kzg_commitments: blck.body.blob_kzg_commitments,
-      kzg_proofs: column_proofs,
+      kzg_proofs: KzgProofs.init(column_proofs),
       signed_block_header: signed_beacon_block_header)
     blck.body.build_proof(
-      27.GeneralizedIndex,
+      KZG_COMMITMENTS_INCLUSION_PROOF_DEPTH_GINDEX.GeneralizedIndex,
       sidecar.kzg_commitments_inclusion_proof).expect("Valid gindex")
     sidecars.add(sidecar)
 
-  ok(sidecars)
-
-# https://github.com/ethereum/consensus-specs/blob/5f48840f4d768bf0e0a8156a3ed06ec333589007/specs/_features/eip7594/das-core.md#get_data_column_sidecars
-proc get_data_column_sidecars*(signed_block: deneb.SignedBeaconBlock |
-                               electra.SignedBeaconBlock, 
+  sidecars  
+    
+# Alternative approach to `get_data_column_sidecars` by directly computing
+# blobs from blob bundles
+proc get_data_column_sidecars*(signed_beacon_block: deneb.SignedBeaconBlock |
+                               electra.SignedBeaconBlock,
                                blobs: seq[KzgBlob]): 
                                Result[seq[DataColumnSidecar], string] =
-  var
-    blck = signed_block.message
-    signed_beacon_block_header = compute_signed_block_header(signed_block)
-    kzg_incl_proof: array[4, Eth2Digest]
+  ## Given a signed beacon block and the blobs corresponding to the block,
+  ## this function assembles the sidecars which can be distributed to 
+  ## the peers post data column reconstruction at every slot start.
+  ## 
+  ## Note: this function only accepts `SignedBeaconBlock` as
+  ## during practice we would be extracting data columns
+  ## before publishing them, all of this happens during block 
+  ## production, hence the blocks are yet untrusted and have not 
+  ## yet been verified.
+  template blck(): auto = signed_beacon_block.message
+  let
+    beacon_block_header =
+      BeaconBlockHeader(
+        slot: blck.slot,
+        proposer_index: blck.proposer_index,
+        parent_root: blck.parent_root,
+        state_root: blck.state_root,
+        body_root: hash_tree_root(blck.body))
+    
+    signed_beacon_block_header =
+      SignedBeaconBlockHeader(
+        message: beacon_block_header,
+        signature: signed_beacon_block.signature)
   
-  var sidecars = newSeqOfCap[DataColumnSidecar](CELLS_PER_EXT_BLOB)
-
-  if blobs.len == 0:
-    return ok(sidecars)
-
   var
+    sidecars =
+      newSeqOfCap[DataColumnSidecar](eip7594.CELLS_PER_EXT_BLOB)
     cells = newSeq[CellBytes](blobs.len)
     proofs = newSeq[ProofBytes](blobs.len)
 
   for i in 0..<blobs.len:
     let
-      cell_and_proof = computeCellsAndProofs(blobs[i])
+      cell_and_proof = computeCellsAndKzgProofs(blobs[i])
     if cell_and_proof.isErr():
       return err("EIP7549: Could not compute cells")
 
     cells[i] = cell_and_proof.get.cells
     proofs[i] = cell_and_proof.get.proofs
-  
-  let blobCount = blobs.len
 
-  for columnIndex in 0..<CELLS_PER_EXT_BLOB:
+  for columnIndex in 0..<eip7594.CELLS_PER_EXT_BLOB:
     var 
-      column: DataColumn
-      kzgProofOfColumn: KzgProofs
-    for rowIndex in 0..<blobCount:
-      discard column.add(cells[rowIndex][columnIndex])
-
-    for rowIndex in 0..<blobCount:
-      discard kzgProofOfColumn.add(proofs[rowIndex][columnIndex])
+      column: seq[KzgCell]
+      kzgProofOfColumn: seq[KzgProof]
+    for rowIndex in 0..<blobs.len:
+      column.add(cells[rowIndex][columnIndex])
+      kzgProofOfColumn.add(proofs[rowIndex][columnIndex])
 
     var sidecar = DataColumnSidecar(
       index: ColumnIndex(columnIndex),
-      column: DataColumn(column),
+      column: DataColumn.init(column),
       kzg_commitments: blck.body.blob_kzg_commitments,
-      kzg_proofs: KzgProofs(kzgProofOfColumn),
+      kzg_proofs: KzgProofs.init(kzgProofOfColumn),
       signed_block_header: signed_beacon_block_header)
     blck.body.build_proof(
-      27.GeneralizedIndex,
+      KZG_COMMITMENTS_INCLUSION_PROOF_DEPTH_GINDEX.GeneralizedIndex,
       sidecar.kzg_commitments_inclusion_proof).expect("Valid gindex")
     sidecars.add(sidecar)
+
   ok(sidecars)
 
 # Helper function to `verifyCellKzgProofBatch` at https://github.com/ethereum/c-kzg-4844/blob/das/bindings/nim/kzg_ex.nim#L170
