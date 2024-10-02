@@ -201,37 +201,37 @@ proc routeSignedBeaconBlock*(
         if dc.index in custody_columns:
           dataColumnRefs = Opt.some(dataColumnsOpt[].get().mapIt(newClone(it)))
 
-    debugEcho "Data column refs"
-    debugEcho dataColumnRefs.get.len
-    let added = await router[].blockProcessor[].addBlock(
-      MsgSource.api, ForkedSignedBeaconBlock.init(blck), blobRefs, dataColumnRefs)
+  debugEcho "Data column refs"
+  debugEcho dataColumnRefs.get.len
+  let added = await router[].blockProcessor[].addBlock(
+    MsgSource.api, ForkedSignedBeaconBlock.init(blck), blobRefs, dataColumnRefs)
 
-    # The boolean we return tells the caller whether the block was integrated
-    # into the chain
-    if added.isErr():
-      return if added.error() != VerifierError.Duplicate:
-        warn "Unable to add routed block to block pool",
+  # The boolean we return tells the caller whether the block was integrated
+  # into the chain
+  if added.isErr():
+    return if added.error() != VerifierError.Duplicate:
+      warn "Unable to add routed block to block pool",
+        blockRoot = shortLog(blck.root), blck = shortLog(blck.message),
+        signature = shortLog(blck.signature), err = added.error()
+      ok(Opt.none(BlockRef))
+    else:
+      # If it's duplicate, there's an existing BlockRef to return. The block
+      # shouldn't be finalized already because that requires a couple epochs
+      # before occurring, so only check non-finalized resolved blockrefs.
+      let blockRef = router[].dag.getBlockRef(blck.root)
+      if blockRef.isErr:
+        warn "Unable to add routed duplicate block to block pool",
           blockRoot = shortLog(blck.root), blck = shortLog(blck.message),
           signature = shortLog(blck.signature), err = added.error()
-        ok(Opt.none(BlockRef))
-      else:
-        # If it's duplicate, there's an existing BlockRef to return. The block
-        # shouldn't be finalized already because that requires a couple epochs
-        # before occurring, so only check non-finalized resolved blockrefs.
-        let blockRef = router[].dag.getBlockRef(blck.root)
-        if blockRef.isErr:
-          warn "Unable to add routed duplicate block to block pool",
-            blockRoot = shortLog(blck.root), blck = shortLog(blck.message),
-            signature = shortLog(blck.signature), err = added.error()
-        ok(blockRef)
+      ok(blockRef)
 
 
-    let blockRef = router[].dag.getBlockRef(blck.root)
-    if blockRef.isErr:
-      warn "Block finalised while waiting for block processor",
-        blockRoot = shortLog(blck.root), blck = shortLog(blck.message),
-        signature = shortLog(blck.signature)
-    ok(blockRef)
+  let blockRef = router[].dag.getBlockRef(blck.root)
+  if blockRef.isErr:
+    warn "Block finalised while waiting for block processor",
+      blockRoot = shortLog(blck.root), blck = shortLog(blck.message),
+      signature = shortLog(blck.signature)
+  ok(blockRef)
 
 proc routeAttestation*(
     router: ref MessageRouter,
