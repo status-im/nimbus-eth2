@@ -534,7 +534,7 @@ proc getPayloadFromSingleEL(
             prevRandao: FixedBytes[32] randomData.data,
             suggestedFeeRecipient: suggestedFeeRecipient,
             withdrawals: withdrawals,
-            parentBeaconBlockRoot: Bytes32 consensusHead.data))
+            parentBeaconBlockRoot: consensusHead.to(Hash32)))
       else:
         static: doAssert false
 
@@ -817,7 +817,7 @@ proc sendNewPayloadToSingleEL(
 ): Future[PayloadStatusV1] {.async: (raises: [CatchableError]).} =
   let rpcClient = await connection.connectedRpcClient()
   await rpcClient.engine_newPayloadV3(
-    payload, versioned_hashes, parent_beacon_block_root)
+    payload, versioned_hashes, Hash32 parent_beacon_block_root)
 
 proc sendNewPayloadToSingleEL(
     connection: ELConnection,
@@ -827,7 +827,7 @@ proc sendNewPayloadToSingleEL(
 ): Future[PayloadStatusV1] {.async: (raises: [CatchableError]).} =
   let rpcClient = await connection.connectedRpcClient()
   await rpcClient.engine_newPayloadV4(
-    payload, versioned_hashes, parent_beacon_block_root)
+    payload, versioned_hashes, Hash32 parent_beacon_block_root)
 
 type
   StatusRelation = enum
@@ -1096,7 +1096,7 @@ proc forkchoiceUpdated*(
           prevRandao: payloadAttributes.get.prevRandao,
           suggestedFeeRecipient: payloadAttributes.get.suggestedFeeRecipient,
           withdrawals: payloadAttributes.get.withdrawals,
-          parentBeaconBlockRoot: static(default(FixedBytes[32])))
+          parentBeaconBlockRoot: default(Hash32))
       else:
         # As timestamp and prevRandao are both 0, won't false-positive match
         (static(default(PayloadAttributesV3)))
@@ -1108,7 +1108,7 @@ proc forkchoiceUpdated*(
           prevRandao: payloadAttributes.get.prevRandao,
           suggestedFeeRecipient: payloadAttributes.get.suggestedFeeRecipient,
           withdrawals: @[],
-          parentBeaconBlockRoot: static(default(FixedBytes[32])))
+          parentBeaconBlockRoot: default(Hash32))
       else:
         # As timestamp and prevRandao are both 0, won't false-positive match
         (static(default(PayloadAttributesV3)))
