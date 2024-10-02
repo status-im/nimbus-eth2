@@ -33,16 +33,16 @@ const
   PARALLEL_REQUESTS* = 2
     ## Number of peers we using to resolve our request.
   
-  PARALLEL_REQUESTS_DATA_COLUMNS* = 2
+  PARALLEL_REQUESTS_DATA_COLUMNS* = 32
 
   BLOB_GOSSIP_WAIT_TIME_NS* = 2 * 1_000_000_000
     ## How long to wait for blobs to arrive over gossip before fetching.
 
-  DATA_COLUMN_GOSSIP_WAIT_TIME_NS* =  4_000_000_000
+  DATA_COLUMN_GOSSIP_WAIT_TIME_NS* =  2 * 1_000_000_000
 
   POLL_INTERVAL = 1.seconds
 
-  POLL_INTERVAL_DATA_COLUMNS = 4.seconds
+  POLL_INTERVAL_DATA_COLUMNS = 1.seconds
 
 type
   BlockVerifierFn* = proc(
@@ -635,7 +635,7 @@ proc requestManagerDataColumnLoop(
 proc start*(rman: var RequestManager) =
   ## Start Request Manager's loops.
   rman.blockLoopFuture = rman.requestManagerBlockLoop()
-  # rman.dataColumnLoopFuture = rman.requestManagerDataColumnLoop()
+  rman.dataColumnLoopFuture = rman.requestManagerDataColumnLoop()
   # rman.blobLoopFuture = rman.requestManagerBlobLoop()
   
 
