@@ -480,7 +480,7 @@ p2pProtocol BeaconSync(version = 1,
     for i in startIndex..endIndex:
       for k in reqColumns:
         if dag.db.getDataColumnSidecarSZ(blockIds[i].root, ColumnIndex(k), bytes):
-          if blockIds[i].slot.epoch >= dag.cfg.DENEB_FORK_EPOCH and
+          if blockIds[i].slot.epoch >= dag.cfg.BELLATRIX_FORK_EPOCH and
               not dag.head.executionValid:
             continue
 
