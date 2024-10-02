@@ -74,7 +74,7 @@ func popDataColumns*(
     blck: deneb.SignedBeaconBlock | electra.SignedBeaconBlock):
     seq[ref DataColumnSidecar] =
   var r: seq[ref DataColumnSidecar]
-  for idx in 0..<len(blck.message.body.blob_kzg_commitments):
+  for idx in 0..<NUMBER_OF_COLUMNS:
     var c: ref DataColumnSidecar
     if quarantine.data_columns.pop((digest, ColumnIndex idx), c):
       r.add(c)
@@ -82,7 +82,7 @@ func popDataColumns*(
 
 func hasDataColumns*(quarantine: DataColumnQuarantine,
     blck: deneb.SignedBeaconBlock | electra.SignedBeaconBlock): bool =
-  for idx in 0..<len(blck.message.body.blob_kzg_commitments):
+  for idx in 0..<NUMBER_OF_COLUMNS:
     if (blck.root, ColumnIndex idx) notin quarantine.data_columns:
       return false
   true
@@ -90,7 +90,7 @@ func hasDataColumns*(quarantine: DataColumnQuarantine,
 func dataColumnFetchRecord*(quarantine: DataColumnQuarantine,
     blck: deneb.SignedBeaconBlock | electra.SignedBeaconBlock): DataColumnFetchRecord =
   var indices: seq[ColumnIndex]
-  for i in 0..<len(blck.message.body.blob_kzg_commitments):
+  for i in 0..<NUMBER_OF_COLUMNS:
     let idx = ColumnIndex(i)
     if not quarantine.data_columns.hasKey(
         (blck.root, idx)):

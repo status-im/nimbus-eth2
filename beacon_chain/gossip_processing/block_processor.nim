@@ -568,7 +568,7 @@ proc storeBlock(
           withBlck(parentBlck.get()):
             when consensusFork >= ConsensusFork.Deneb:
               var data_column_sidecars: DataColumnSidecars
-              for i in 0..<forkyBlck.message.body.blob_kzg_commitments.len:
+              for i in 0..<NUMBER_OF_COLUMNS:
                 let data_column = DataColumnSidecar.new()
                 if not dag.db.getDataColumnSidecar(parent_root, i.ColumnIndex, data_column[]):
                   columnsOk = false
