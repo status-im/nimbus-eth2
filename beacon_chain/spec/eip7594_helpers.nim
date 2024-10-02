@@ -382,31 +382,34 @@ proc validate_data_column_sidecar*(
   ok()
 
 # https://github.com/ethereum/consensus-specs/blob/5f48840f4d768bf0e0a8156a3ed06ec333589007/specs/_features/eip7594/p2p-interface.md#verify_data_column_sidecar_kzg_proofs
-proc verify_data_column_sidecar_kzg_proofs*(sidecar: DataColumnSidecar): Result[void, string] =
-  # Verifying if the KZG proofs are correct
-
+proc verify_data_column_sidecar_kzg_proofs*(sidecar: DataColumnSidecar):
+                                            Result[void, cstring] =
+  ## Verify if the KZG Proofs consisting in the `DataColumnSidecar`
+  ## is valid or not.
+  
   # Check if the data column sidecar index < NUMBER_OF_COLUMNS
   if not (sidecar.index < NUMBER_OF_COLUMNS):
-    return err("EIP7594: Data column sidecar index exceeds the NUMBER_OF_COLUMNS")
+    return err("Data column sidecar index exceeds the NUMBER_OF_COLUMNS")
 
-  # Check is the sidecar column length == sidecar.kzg_commitments length == sidecar.kzg_proofs mixInLength
+  # Check is the sidecar column length = sidecar.kzg_commitments length
+  # and sidecar.kzg_commitments length = sidecar.kzg_proofs length
   if not (sidecar.column.len == sidecar.kzg_commitments.len):
-    return err("EIP7594: Data column sidecar length is not equal to the kzg_commitments length")
+    return err("Data column sidecar length is not equal to the kzg_commitments length")
 
   if not (sidecar.kzg_commitments.len == sidecar.kzg_proofs.len):
-    return err("EIP7594: Data column sidecar kzg_commitments length is not equal to the kzg_proofs length")
+    return err("Sidecar kzg_commitments length is not equal to the kzg_proofs length")
 
   # Iterate through the cell indices
-  var cellIndices: seq[CellIndex]
+  var cellIndices = 
+    newSeq[CellIndex](MAX_BLOB_COMMITMENTS_PER_BLOCK)
   for _ in 0..<sidecar.column.len:
     cellIndices.add(sidecar.index * sidecar.column.lenu64)
 
-  let 
-    kzgCommits = sidecar.kzg_commitments.asSeq
-    sidecarCol = sidecar.column.asSeq
-    kzgProofs = sidecar.kzg_proofs.asSeq
-
-  let res = verifyCellKzgProofBatch(kzgCommits, cellIndices, sidecarCol, kzgProofs)
+  let res = 
+    verifyCellKzgProofBatch(sidecar.kzg_commitments.asSeq,
+                            cellIndices,
+                            sidecar.column.asSeq,
+                            sidecar.kzg_proofs.asSeq)
 
   if res.isErr():
     return err("DataColumnSidecar: validation failed")
