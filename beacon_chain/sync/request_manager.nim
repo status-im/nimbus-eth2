@@ -38,7 +38,7 @@ const
   BLOB_GOSSIP_WAIT_TIME_NS* = 2 * 1_000_000_000
     ## How long to wait for blobs to arrive over gossip before fetching.
 
-  DATA_COLUMN_GOSSIP_WAIT_TIME_NS* =  2_500_000_000
+  DATA_COLUMN_GOSSIP_WAIT_TIME_NS* =  4_000_000_000
 
   POLL_INTERVAL = 1.seconds
 
@@ -547,7 +547,15 @@ proc getMissingDataColumns(rman: RequestManager): seq[DataColumnIdentifier] =
              commitments = len(forkyBlck.message.body.blob_kzg_commitments)
           for idx in missing.indices:
             let id = DataColumnIdentifier(block_root: columnless.root, index: idx)
-            if id notin fetches:
+            let local_csc = 
+              if rman.supernode:
+                DATA_COLUMN_SIDECAR_SUBNET_COUNT.uint64
+              else:
+                CUSTODY_REQUIREMENT.uint64
+            let local_custody =
+              rman.network.nodeId.get_custody_columns(max(SAMPLES_PER_SLOT.uint64,
+                                                          local_csc))
+            if id.index in local_custody and id notin fetches:
               fetches.add(id)
         else:
           # this is a programming error and it not should occur
