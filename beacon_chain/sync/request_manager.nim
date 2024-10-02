@@ -42,7 +42,7 @@ const
 
   POLL_INTERVAL = 1.seconds
 
-  POLL_INTERVAL_DATA_COLUMNS = 1.seconds
+  POLL_INTERVAL_DATA_COLUMNS = 10.seconds
 
 type
   BlockVerifierFn* = proc(
