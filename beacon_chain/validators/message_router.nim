@@ -203,9 +203,11 @@ proc routeSignedBeaconBlock*(
       debugEcho "custodycols"
       debugEcho custody_columns.len
       
+      var final_columns: seq[DataColumnSidecar]
       for dc in data_columns:
         if dc.index in custody_columns:
-          dataColumnRefs = Opt.some(dataColumnsOpt[].get().mapIt(newClone(it)))
+          final_columns.add(dc)
+      dataColumnRefs = Opt.some(final_columns.mapIt(newClone(it)))
 
   let added = await router[].blockProcessor[].addBlock(
     MsgSource.api, ForkedSignedBeaconBlock.init(blck), blobRefs, dataColumnRefs)
