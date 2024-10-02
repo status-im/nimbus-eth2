@@ -534,7 +534,7 @@ proc getPayloadFromSingleEL(
             prevRandao: FixedBytes[32] randomData.data,
             suggestedFeeRecipient: suggestedFeeRecipient,
             withdrawals: withdrawals,
-            parentBeaconBlockRoot: consensusHead.asBlockHash))
+            parentBeaconBlockRoot: Bytes32 consensusHead.data))
       else:
         static: doAssert false
 

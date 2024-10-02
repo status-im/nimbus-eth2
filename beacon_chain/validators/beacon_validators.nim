@@ -81,7 +81,7 @@ type
     blck*: ForkedBeaconBlock
     executionPayloadValue*: Wei
     consensusBlockValue*: UInt256
-    blobsBundleOpt*: Opt[BlobsBundle]
+    blobsBundleOpt*: Opt[deneb.BlobsBundle]
 
   BuilderBid[SBBB] = object
     blindedBlckPart*: SBBB

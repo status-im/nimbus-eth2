@@ -388,7 +388,7 @@ proc runProposalForkchoiceUpdated*(
         suggestedFeeRecipient: feeRecipient,
         withdrawals:
           toEngineWithdrawals get_expected_withdrawals(forkyState.data),
-        parentBeaconBlockRoot: beaconHead.blck.bid.root.asBlockHash))
+        parentBeaconBlockRoot: beaconHead.blck.bid.root.data.to(Bytes32)))
     elif consensusFork >= ConsensusFork.Capella:
       callForkchoiceUpdated(PayloadAttributesV2(
         timestamp: Quantity timestamp,

@@ -1793,7 +1793,7 @@ proc ETHTransactionsCreateFromJson(
         versionedHashes:
           if data.blobVersionedHashes.isSome:
             data.blobVersionedHashes.get.mapIt(
-              Bytes32(distinctBase(it)))
+              Hash32(distinctBase(it)))
           else:
             @[],
         authorizationList:

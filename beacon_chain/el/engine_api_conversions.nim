@@ -19,7 +19,7 @@ type
     executionPayload*: ExecutionPayloadV1
     blockValue*: UInt256
 
-func asEth2Digest*(x: BlockHash): Eth2Digest =
+func asEth2Digest*(x: BlockHash|Bytes32): Eth2Digest =
   Eth2Digest(data: array[32, byte](x))
 
 template asBlockHash*(x: Eth2Digest): BlockHash =
@@ -232,7 +232,7 @@ func asEngineExecutionPayload*(blockBody: bellatrix.BeaconBlockBody):
     receiptsRoot: executionPayload.receipts_root.asBlockHash,
     logsBloom:
       FixedBytes[BYTES_PER_LOGS_BLOOM](executionPayload.logs_bloom.data),
-    prevRandao: executionPayload.prev_randao.asBlockHash,
+    prevRandao: executionPayload.prev_randao.data.to(Bytes32),
     blockNumber: Quantity(executionPayload.block_number),
     gasLimit: Quantity(executionPayload.gas_limit),
     gasUsed: Quantity(executionPayload.gas_used),
@@ -262,7 +262,7 @@ func asEngineExecutionPayload*(blockBody: capella.BeaconBlockBody):
     receiptsRoot: executionPayload.receipts_root.asBlockHash,
     logsBloom:
       FixedBytes[BYTES_PER_LOGS_BLOOM](executionPayload.logs_bloom.data),
-    prevRandao: executionPayload.prev_randao.asBlockHash,
+    prevRandao: executionPayload.prev_randao.data.to(Bytes32),
     blockNumber: Quantity(executionPayload.block_number),
     gasLimit: Quantity(executionPayload.gas_limit),
     gasUsed: Quantity(executionPayload.gas_used),
@@ -287,7 +287,7 @@ func asEngineExecutionPayload*(blockBody: deneb.BeaconBlockBody):
     receiptsRoot: executionPayload.receipts_root.asBlockHash,
     logsBloom:
       FixedBytes[BYTES_PER_LOGS_BLOOM](executionPayload.logs_bloom.data),
-    prevRandao: executionPayload.prev_randao.asBlockHash,
+    prevRandao: executionPayload.prev_randao.data.to(Bytes32),
     blockNumber: Quantity(executionPayload.block_number),
     gasLimit: Quantity(executionPayload.gas_limit),
     gasUsed: Quantity(executionPayload.gas_used),
@@ -337,7 +337,7 @@ func asEngineExecutionPayload*(blockBody: electra.BeaconBlockBody):
     receiptsRoot: executionPayload.receipts_root.asBlockHash,
     logsBloom:
       FixedBytes[BYTES_PER_LOGS_BLOOM](executionPayload.logs_bloom.data),
-    prevRandao: executionPayload.prev_randao.asBlockHash,
+    prevRandao: executionPayload.prev_randao.data.to(Bytes32),
     blockNumber: Quantity(executionPayload.block_number),
     gasLimit: Quantity(executionPayload.gas_limit),
     gasUsed: Quantity(executionPayload.gas_used),
