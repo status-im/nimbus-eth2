@@ -697,10 +697,10 @@ proc storeBlock(
   # one
   self[].lastPayload = signedBlock.message.slot
 
-  # write blobs now that block has been written.
-  let blobs = blobsOpt.valueOr: BlobSidecars @[]
-  for b in blobs:
-    self.consensusManager.dag.db.putBlobSidecar(b[])
+  # # write blobs now that block has been written.
+  # let blobs = blobsOpt.valueOr: BlobSidecars @[]
+  # for b in blobs:
+  #   self.consensusManager.dag.db.putBlobSidecar(b[])
 
   # write data columns now that block has been written.
   let data_columns = dataColumnsOpt.valueOr: DataColumnSidecars @[]

@@ -197,12 +197,16 @@ proc routeSignedBeaconBlock*(
         custody_columns = router[].network.nodeId.get_custody_columns(max(SAMPLES_PER_SLOT.uint64,
                                                                           metadata))
 
+      debugEcho "dcs"
+      debugEcho data_columns.len
+
+      debugEcho "custodycols"
+      debugEcho custody_columns.len
+      
       for dc in data_columns:
         if dc.index in custody_columns:
           dataColumnRefs = Opt.some(dataColumnsOpt[].get().mapIt(newClone(it)))
 
-  debugEcho "Data column refs"
-  debugEcho dataColumnRefs.get.len
   let added = await router[].blockProcessor[].addBlock(
     MsgSource.api, ForkedSignedBeaconBlock.init(blck), blobRefs, dataColumnRefs)
 
