@@ -216,7 +216,8 @@ proc storeBackfillBlock(
   when typeof(signedBlock).kind >= ConsensusFork.Deneb:
     if dataColumnsOpt.isSome:
       let data_columns = dataColumnsOpt.get()
-      if data_columns.len > 0:
+      let kzgCommits = signedBlock.message.body.blob_kzg_commitments.asSeq
+      if data_columns.len > 0 and kzgCommits.len > 0:
         for i in 0..<data_columns.len:
           let r = verify_data_column_sidecar_kzg_proofs(data_columns[i][])
           if r.isErr():
@@ -638,23 +639,21 @@ proc storeBlock(
   # TODO with v1.4.0, not sure this is still relevant
   # Establish blob viability before calling addHeadBlock to avoid
   # writing the block in case of blob error.
-  # when typeof(signedBlock).kind >= ConsensusFork.Deneb:
-  #   # if blobsOpt.isSome:
-  #   #   let blobs = blobsOpt.get()
-  #   #   let kzgCommits = signedBlock.message.body.blob_kzg_commitments.asSeq
-  #   #   if blobs.len > 0 or kzgCommits.len > 0:
-  #   #     let r = validate_blobs(kzgCommits, blobs.mapIt(KzgBlob(bytes: it.blob)),
-  #   #                            blobs.mapIt(it.kzg_proof))
-  #   #     if r.isErr():
-  #   #       debug "blob validation failed",
-  #   #         blockRoot = shortLog(signedBlock.root),
-  #   #         blobs = shortLog(blobs),
-  #   #         blck = shortLog(signedBlock.message),
-  #   #         kzgCommits = mapIt(kzgCommits, shortLog(it)),
-  #   #         signature = shortLog(signedBlock.signature),
-  #   #         msg = r.error()
-  #   #       return err((VerifierError.Invalid, ProcessingStatus.completed))
-
+  when typeof(signedBlock).kind >= ConsensusFork.Deneb:
+    if dataColumnsOpt.isSome:
+      let data_columns = dataColumnsOpt.get()
+      let kzgCommits = signedBlock.message.body.blob_kzg_commitments.asSeq
+      if data_columns.len > 0 and kzgCommits.len > 0:
+        for i in 0..<data_columns.len:
+          let r = verify_data_column_sidecar_kzg_proofs(data_columns[i][])
+          if r.isErr():
+            debug "backfill data column validation failed",
+              blockRoot = shortLog(signedBlock.root),
+              column_sidecar = shortLog(data_columns[i][]),
+              blck = shortLog(signedBlock.message),
+              signature = shortLog(signedBlock.signature),
+              msg = r.error()
+          return err((VerifierError.Invalid, ProcessingStatus.completed))
 
   type Trusted = typeof signedBlock.asTrusted()
 
