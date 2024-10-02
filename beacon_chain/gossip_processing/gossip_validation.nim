@@ -528,6 +528,14 @@ proc validateDataColumnSidecar*(
       block_header.slot, block_header.proposer_index, data_column_sidecar.index):
     return errIgnore("DataColumnSidecar: already have valid data column from same proposer")
 
+
+  # [REJECT] The sidecar's column data is valid as 
+  # verified by `verify_data_column_kzg_proofs(sidecar)`
+  block:
+    let r = check_data_column_sidecar_kzg_proofs(data_column_sidecar)
+    if r.isErr:
+      return dag.checkedReject(r.error)
+
   # [REJECT] The sidecar's `kzg_commitments` inclusion proof is valid as verified by
   # `verify_data_column_sidecar_inclusion_proof(sidecar)`.
   block:
@@ -598,13 +606,6 @@ proc validateDataColumnSidecar*(
       dag.validatorKey(proposer).get(),
       data_column_sidecar.signed_block_header.signature):
     return dag.checkedReject("DataColumnSidecar: Invalid proposer signature")
-
-  # [REJECT] The sidecar's column data is valid as 
-  # verified by `verify_data_column_kzg_proofs(sidecar)`
-  block:
-    let r = check_data_column_sidecar_kzg_proofs(data_column_sidecar)
-    if r.isErr:
-      return dag.checkedReject(r.error)
 
   # Send notification about new data column sidecar via callback
   if not(isNil(dataColumnQuarantine.onDataColumnSidecarCallback)):
