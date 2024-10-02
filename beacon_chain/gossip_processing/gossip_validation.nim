@@ -528,7 +528,6 @@ proc validateDataColumnSidecar*(
       block_header.slot, block_header.proposer_index, data_column_sidecar.index):
     return errIgnore("DataColumnSidecar: already have valid data column from same proposer")
 
-
   # [REJECT] The sidecar's column data is valid as 
   # verified by `verify_data_column_kzg_proofs(sidecar)`
   block:

@@ -1531,6 +1531,9 @@ proc tryReconstructingDataColumns* (self: BeaconNode,
     data_column_sidecars.add data_column[]
     storedColumns.add data_column.index
 
+    debugEcho "Pre stored columns"
+    debugEcho storedColumns
+
   # storedColumn number is less than the NUMBER_OF_COLUMNS
   # then reconstruction is not possible, and if all the data columns
   # are already stored then we do not need to reconstruct at all
@@ -1549,6 +1552,8 @@ proc tryReconstructingDataColumns* (self: BeaconNode,
 
       finalisedDataColumns.add(data_column)
       db.putDataColumnSidecar(data_column)
+      debug "Reconstructed data column written to database",
+        data_column = shortLog(data_column)
   ok(finalisedDataColumns)
 
 proc reconstructAndSendDataColumns*(node: BeaconNode) {.async.} =
@@ -1569,6 +1574,7 @@ proc reconstructAndSendDataColumns*(node: BeaconNode) {.async.} =
         var
           das_workers = newSeq[Future[SendResult]](dc.len)
         for i in 0..<dc.lenu64:
+          debugEcho "Computing subnet before broadcasting reconstructed data columns"
           let subnet_id = compute_subnet_for_data_column_sidecar(dc[i].index)
           das_workers[i] =
               node.network.broadcastDataColumnSidecar(subnet_id, dc[i])

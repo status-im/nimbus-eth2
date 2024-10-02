@@ -258,6 +258,8 @@ proc storeBackfillBlock(
   let data_columns = dataColumnsOpt.valueOr: DataColumnSidecars @[]
   for c in data_columns:
     self.consensusManager.dag.db.putDataColumnSidecar(c[])
+    debug "Data column written to database!",
+      data_column = shortLog(c[])
 
   res
 
