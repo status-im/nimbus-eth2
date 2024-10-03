@@ -60,9 +60,9 @@ in stdenv.mkDerivation rec {
     mkdir dist
     cp -r ${callPackage ./nimble.nix {}}    dist/nimble
     cp -r ${callPackage ./checksums.nix {}} dist/checksums
+    cp -r ${callPackage ./sat.nix {}}       dist/sat
     cp -r ${callPackage ./csources.nix {}}  csources_v2
     chmod 777 -R dist/nimble csources_v2
-    sed -i 's/isGitRepo(destDir)/false/' tools/deps.nim
     popd
   '';
 
