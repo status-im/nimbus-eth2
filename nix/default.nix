@@ -5,7 +5,7 @@
   # Options: nimbus_light_client, nimbus_validator_client, nimbus_signing_node, all
   targets ? ["nimbus_beacon_node"],
   # Options: 0,1,2
-  verbosity ? 2,
+  verbosity ? 0,
   # Perform 2-stage bootstrap instead of 3-stage to save time.
   quickAndDirty ? true,
   # These are the only platforms tested in CI and considered stable.
@@ -62,6 +62,7 @@ in stdenv.mkDerivation rec {
     chmod 777 -R dist/nimble
     mkdir -p dist/nimble/dist
     cp -r ${callPackage ./sat.nix {}}       dist/nimble/dist/sat
+    cp -r ${callPackage ./checksums.nix {}} dist/checksums  # need both
     cp -r ${callPackage ./checksums.nix {}} dist/nimble/dist/checksums
     cp -r ${callPackage ./csources.nix {}}  csources_v2
     chmod 777 -R dist/nimble csources_v2
