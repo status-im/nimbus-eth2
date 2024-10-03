@@ -58,8 +58,8 @@ in stdenv.mkDerivation rec {
   preBuild = ''
     pushd vendor/nimbus-build-system/vendor/Nim
     mkdir dist
-    cp -r ${callPackage ./sat.nix {}}       dist/nimble
     cp -r ${callPackage ./nimble.nix {}}    dist/nimble
+    cp -r ${callPackage ./sat.nix {}}       dist/nimble/dist
     cp -r ${callPackage ./checksums.nix {}} dist/checksums
     cp -r ${callPackage ./csources.nix {}}  csources_v2
     chmod 777 -R dist/nimble csources_v2
