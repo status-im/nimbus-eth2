@@ -80,6 +80,12 @@ func popDataColumns*(
       r.add(c)
   r
 
+func checkForInitialDcSidecars*(quarantine: DataColumnQuarantine,
+    blck: deneb.SignedBeaconBlock | electra.SignedBeaconBlock): bool =
+  for idx in 0..<len(blck.message.body.blob_kzg_commitments):
+    if (blck.root, ColumnIndex idx) notin quarantine.data_columns:
+      return false
+  true
 
 func hasDataColumns*(quarantine: DataColumnQuarantine,
     blck: deneb.SignedBeaconBlock | electra.SignedBeaconBlock): bool =
