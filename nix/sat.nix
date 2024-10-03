@@ -8,5 +8,5 @@ in pkgs.fetchFromGitHub {
   repo = "sat";
   rev = tools.findKeyValue "^ +SatStableCommit = \"([a-f0-9]+)\"$" sourceFile;
   # WARNING: Requires manual updates when Nim compiler version changes.
-  hash = "sha256-Bm5iJoT2kAvcTexiLMFBa9oU5gf7c4rWjo3OiN7obWQ=";
+  hash = "sha256-JFrrSV+mehG0gP7NiQ8hYthL0cjh44HNbXfuxQNhq7c=";
 }
