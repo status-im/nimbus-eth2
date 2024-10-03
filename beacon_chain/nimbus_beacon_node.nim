@@ -427,7 +427,7 @@ proc initFullNode(
         #                             maybeFinalized = maybeFinalized)
 
         when consensusFork >= ConsensusFork.Deneb:
-          if not dataColumnQuarantine[].hasDataColumns(forkyBlck):
+          if not dataColumnQuarantine[].hasBlobs(forkyBlck):
             # We don't have all the data columns for this block, so we have
             # to put it in columnless quarantine.
             if not quarantine[].addColumnless(dag.finalizedHead.slot, forkyBlck):
@@ -1531,13 +1531,13 @@ proc tryReconstructingDataColumns* (self: BeaconNode,
     data_column_sidecars.add data_column[]
     storedColumns.add data_column.index
 
-    debugEcho "Pre stored columns"
-    debugEcho storedColumns
+  debugEcho "Pre stored columns"
+  debugEcho storedColumns
 
   # storedColumn number is less than the NUMBER_OF_COLUMNS
   # then reconstruction is not possible, and if all the data columns
   # are already stored then we do not need to reconstruct at all
-  if storedColumns.len < NUMBER_OF_COLUMNS div 2 and storedColumns.len != NUMBER_OF_COLUMNS:
+  if not storedColumns.len < NUMBER_OF_COLUMNS div 2 or storedColumns.len != NUMBER_OF_COLUMNS:
     # Recover blobs from saved data column sidecars
     let recovered_cps = recover_cells_and_proofs(data_column_sidecars, storedColumns.len, signed_block)
     if not recovered_cps.isOk:

@@ -371,9 +371,6 @@ func groupDataColumns*[T](req: SyncRequest[T],
           grouped[block_idx].add(data_column_sidecar)
           inc column_cursor
 
-          debugEcho "Column Cursor"
-          debugEcho column_cursor
-
   if column_cursor != len(data_columns):
     # we reached end of blocks without consuming all data columns so either
     # the peer we got too few blocks in the paired request, or the

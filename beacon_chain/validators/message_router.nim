@@ -177,8 +177,6 @@ proc routeSignedBeaconBlock*(
         debug "Issue with computing data column from blob bundle"
       let data_columns = dataColumnsOpt[].get()
       var das_workers = newSeq[Future[SendResult]](len(dataColumnsOpt[].get()))
-      debugEcho "das workers len"
-      debugEcho das_workers.len
       for i in 0..<data_columns.lenu64:
         let subnet_id = compute_subnet_for_data_column_sidecar(data_columns[i].index)
         das_workers[i] = 
@@ -196,13 +194,6 @@ proc routeSignedBeaconBlock*(
         metadata = router[].network.metadata.custody_subnet_count.uint64
         custody_columns = router[].network.nodeId.get_custody_columns(max(SAMPLES_PER_SLOT.uint64,
                                                                           metadata))
-
-      debugEcho "dcs"
-      debugEcho data_columns.len
-
-      debugEcho "custodycols"
-      debugEcho custody_columns.len
-      
       var final_columns: seq[DataColumnSidecar]
       for dc in data_columns:
         if dc.index in custody_columns:

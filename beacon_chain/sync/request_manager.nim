@@ -42,7 +42,6 @@ const
 
   POLL_INTERVAL = 1.seconds
 
-  POLL_INTERVAL_DATA_COLUMNS = 1.seconds
 
 type
   BlockVerifierFn* = proc(
@@ -531,7 +530,7 @@ proc getMissingDataColumns(rman: RequestManager): seq[DataColumnIdentifier] =
   var
     fetches: seq[DataColumnIdentifier]
     ready: seq[Eth2Digest]
-  return fetches
+
   for columnless in rman.quarantine[].peekColumnless():
     withBlck(columnless):
       when consensusFork >= ConsensusFork.Deneb:
@@ -575,7 +574,7 @@ proc requestManagerDataColumnLoop(
     rman: RequestManager) {.async: (raises: [CancelledError]).} =
   while true:
     
-    await sleepAsync(POLL_INTERVAL_DATA_COLUMNS)
+    await sleepAsync(POLL_INTERVAL)
     if rman.inhibit():
       continue
 

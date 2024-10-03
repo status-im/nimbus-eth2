@@ -80,6 +80,7 @@ func popDataColumns*(
       r.add(c)
   r
 
+
 func hasDataColumns*(quarantine: DataColumnQuarantine,
     blck: deneb.SignedBeaconBlock | electra.SignedBeaconBlock): bool =
   for idx in 0..<NUMBER_OF_COLUMNS:
