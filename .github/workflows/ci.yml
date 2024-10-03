@@ -13,6 +13,7 @@ on:
       - stable
       - testing
       - unstable
+      - test-nim-v22
   pull_request:
     paths-ignore: ['media/**', 'docs/**', '**/*.md']
     branches-ignore:
@@ -31,31 +32,35 @@ jobs:
         target:
           - os: linux
             cpu: amd64
-          - os: macos
-            cpu: amd64
-          - os: windows
-            cpu: amd64
-        branch: [~, upstream/version-2-0]
-        exclude:
-          - target:
-              os: macos
-            branch: upstream/version-2-0
-          - target:
-              os: windows
-            branch: upstream/version-2-0
+          # - os: macos
+          #   cpu: amd64
+          # - os: windows
+          #   cpu: amd64
+        branch: [~, upstream/version-2-2]
+        nimflags-extra: ['--mm:refc', '--mm:orc']
+        # exclude:
+        #   - target:
+        #       os: macos
+        #     branch: upstream/version-2-0
+        #   - target:
+        #       os: windows
+        #     branch: upstream/version-2-0
         include:
-          - branch: upstream/version-2-0
-            branch-short: version-2-0
-            nimflags-extra: --mm:refc
+          - branch: upstream/version-2-2
+            branch-short: version-2-2-refc
+            nimflags-extra: '--mm:refc'
+          - branch: upstream/version-2-2
+            branch-short: version-2-2-orc
+            nimflags-extra: '--mm:orc'
           - target:
               os: linux
             builder: ['self-hosted','ubuntu-22.04']
-          - target:
-              os: macos
-            builder: macos-13
-          - target:
-              os: windows
-            builder: windows-2019
+          # - target:
+          #     os: macos
+          #   builder: macos-13
+          # - target:
+          #     os: windows
+          #   builder: windows-2019
 
     defaults:
       run:
