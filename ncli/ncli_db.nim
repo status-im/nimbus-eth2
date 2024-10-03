@@ -777,8 +777,7 @@ proc cmdValidatorPerf(conf: DbConf, cfg: RuntimeConfig) =
       indices
     case info.kind
     of EpochInfoFork.Phase0:
-      template info: untyped = info.phase0Data
-      for i, s in info.validators:
+      for i, s in info.phase0Data.validators:
         let perf = addr perfs[i]
         if RewardFlags.isActiveInPreviousEpoch in s.flags:
           if s.is_previous_epoch_attester.isSome():
