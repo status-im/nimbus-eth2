@@ -41,6 +41,7 @@ const
   DATA_COLUMN_GOSSIP_WAIT_TIME_NS* =  5 * 1_000_000_000
 
   POLL_INTERVAL = 1.seconds
+  POLL_INTERVAL_FOR_DATA_COLUMNS = 60.seconds
 
 
 type
@@ -574,7 +575,7 @@ proc requestManagerDataColumnLoop(
     rman: RequestManager) {.async: (raises: [CancelledError]).} =
   while true:
     
-    await sleepAsync(POLL_INTERVAL)
+    await sleepAsync(POLL_INTERVAL_FOR_DATA_COLUMNS)
     if rman.inhibit():
       continue
 
