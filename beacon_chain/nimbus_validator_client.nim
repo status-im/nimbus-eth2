@@ -21,7 +21,8 @@ declareGauge validator_client_node_counts,
   "Number of connected beacon nodes and their status",
   labels = ["status"]
 
-proc initGenesis(vc: ValidatorClientRef): Future[RestGenesis] {.async.} =
+proc initGenesis(vc: ValidatorClientRef): Future[RestGenesis] {.
+     async: (raises: [CancelledError]).} =
   info "Initializing genesis", nodes_count = len(vc.beaconNodes)
   var nodes = vc.beaconNodes
   while true:
@@ -61,7 +62,7 @@ proc initGenesis(vc: ValidatorClientRef): Future[RestGenesis] {.async.} =
         for i in 0 ..< len(pendingRequests):
           let fut = pendingRequests[i]
           if fut.completed():
-            let resp = fut.read()
+            let resp = fut.value
             if resp.status == 200:
               debug "Received genesis information", endpoint = nodes[i],
                     genesis_time = resp.data.data.genesis_time,
@@ -73,10 +74,10 @@ proc initGenesis(vc: ValidatorClientRef): Future[RestGenesis] {.async.} =
                     response_code = resp.status
               bres.add(nodes[i])
           elif fut.failed():
-            let error = fut.readError()
+            let error = fut.error
             debug "Could not obtain genesis information from beacon node",
                   endpoint = nodes[i], error_name = error.name,
-                  error_msg = error.msg
+                  reason = error.msg
             bres.add(nodes[i])
           else:
             debug "Interrupted while requesting information from beacon node",
@@ -105,14 +106,19 @@ proc initGenesis(vc: ValidatorClientRef): Future[RestGenesis] {.async.} =
             dec(counter)
       return melem
 
-proc addValidatorsFromWeb3Signer(vc: ValidatorClientRef, web3signerUrl: Web3SignerUrl) {.async.} =
+proc addValidatorsFromWeb3Signer(
+    vc: ValidatorClientRef,
+    web3signerUrl: Web3SignerUrl
+) {.async: (raises: [CancelledError]).} =
   let res = await queryValidatorsSource(web3signerUrl)
   if res.isOk():
     let dynamicKeystores = res.get()
     for keystore in dynamicKeystores:
       vc.addValidator(keystore)
 
-proc initValidators(vc: ValidatorClientRef): Future[bool] {.async.} =
+proc initValidators(
+    vc: ValidatorClientRef
+): Future[bool] {.async: (raises: [CancelledError]).} =
   info "Loading validators", validatorsDir = vc.config.validatorsDir()
   for keystore in listLoadableKeystores(vc.config, vc.keystoreCache):
     vc.addValidator(keystore)
@@ -129,7 +135,10 @@ proc initValidators(vc: ValidatorClientRef): Future[bool] {.async.} =
 
   true
 
-proc initClock(vc: ValidatorClientRef): Future[BeaconClock] {.async.} =
+proc initClock(
+    vc: ValidatorClientRef
+): Future[BeaconClock] {.
+   async: (raises: [CancelledError, ValidatorClientError]).} =
   # This procedure performs initialization of BeaconClock using current genesis
   # information. It also performs waiting for genesis.
   let
@@ -150,9 +159,11 @@ proc initClock(vc: ValidatorClientRef): Future[BeaconClock] {.async.} =
     info "Initializing beacon clock",
          genesis_time = vc.beaconGenesis.genesis_time,
          current_slot = currentSlot, current_epoch = currentEpoch
-  return res
+  res
 
-proc initMetrics(vc: ValidatorClientRef): Future[bool] {.async.} =
+proc initMetrics(
+    vc: ValidatorClientRef
+): Future[bool] {.async: (raises: [CancelledError]).} =
   if vc.config.metricsEnabled:
     let
       metricsAddress = vc.config.metricsAddress
@@ -174,9 +185,9 @@ proc initMetrics(vc: ValidatorClientRef): Future[bool] {.async.} =
       error "Could not start metrics HTTP server", url = url,
             error_msg = exc.msg, error_name = exc.name
       return false
-  return true
+  true
 
-proc shutdownMetrics(vc: ValidatorClientRef) {.async.} =
+proc shutdownMetrics(vc: ValidatorClientRef) {.async: (raises: []).} =
   if vc.config.metricsEnabled:
     if vc.metricsServer.isSome():
       info "Shutting down metrics HTTP server"
@@ -186,7 +197,8 @@ proc shutdownSlashingProtection(vc: ValidatorClientRef) =
   info "Closing slashing protection", path = vc.config.validatorsDir()
   vc.attachedValidators[].slashingProtection.close()
 
-proc runVCSlotLoop(vc: ValidatorClientRef) {.async.} =
+proc runVCSlotLoop(
+    vc: ValidatorClientRef) {.async: (raises: [CancelledError]).} =
   var
     startTime = vc.beaconClock.now()
     curSlot = startTime.slotOrZero()
@@ -255,9 +267,11 @@ proc runVCSlotLoop(vc: ValidatorClientRef) {.async.} =
         node_status = $vc.beaconNodes[0].status,
         delay = shortLog(delay)
 
-proc new*(T: type ValidatorClientRef,
-          config: ValidatorClientConf,
-          rng: ref HmacDrbgContext): ValidatorClientRef =
+proc new*(
+    T: type ValidatorClientRef,
+    config: ValidatorClientConf,
+    rng: ref HmacDrbgContext
+): ValidatorClientRef =
   let beaconNodes =
     block:
       var servers: seq[BeaconNodeServerRef]
@@ -317,7 +331,8 @@ proc new*(T: type ValidatorClientRef,
       keystoreCache: KeystoreCacheRef.init()
     )
 
-proc asyncInit(vc: ValidatorClientRef): Future[ValidatorClientRef] {.async.} =
+proc asyncInit(vc: ValidatorClientRef): Future[ValidatorClientRef] {.
+     async: (raises: [CancelledError, ValidatorClientError]).} =
   notice "Launching validator client", version = fullVersionStr,
                                        cmdParams = commandLineParams(),
                                        config = vc.config,
@@ -409,12 +424,6 @@ proc asyncInit(vc: ValidatorClientRef): Future[ValidatorClientRef] {.async.} =
         getForkForEpoch,
         getGenesisRoot
         )
-
-  except CatchableError as exc:
-    warn "Unexpected error encountered while initializing",
-          error_name = exc.name, error_msg = exc.msg
-    await vc.shutdownMetrics()
-    vc.shutdownSlashingProtection()
   except CancelledError:
     debug "Initialization process interrupted"
     await vc.shutdownMetrics()
@@ -423,7 +432,9 @@ proc asyncInit(vc: ValidatorClientRef): Future[ValidatorClientRef] {.async.} =
 
   return vc
 
-proc runPreGenesisWaitingLoop(vc: ValidatorClientRef) {.async.} =
+proc runPreGenesisWaitingLoop(
+    vc: ValidatorClientRef
+) {.async: (raises: [CancelledError]).} =
   var breakLoop = false
   while not(breakLoop):
     let
@@ -444,15 +455,13 @@ proc runPreGenesisWaitingLoop(vc: ValidatorClientRef) {.async.} =
       except CancelledError as exc:
         debug "Pre-genesis waiting loop was interrupted"
         raise exc
-      except CatchableError as exc:
-        error "Pre-genesis waiting loop failed with unexpected error",
-              err_name = $exc.name, err_msg = $exc.msg
-        true
 
   if not(breakLoop):
     vc.preGenesisEvent.fire()
 
-proc runGenesisWaitingLoop(vc: ValidatorClientRef) {.async.} =
+proc runGenesisWaitingLoop(
+    vc: ValidatorClientRef
+) {.async: (raises: [CancelledError]).} =
   var breakLoop = false
   while not(breakLoop):
     let genesisTime = vc.beaconClock.fromNow(Slot(0))
@@ -471,15 +480,13 @@ proc runGenesisWaitingLoop(vc: ValidatorClientRef) {.async.} =
       except CancelledError as exc:
         debug "Genesis waiting loop was interrupted"
         raise exc
-      except CatchableError as exc:
-        error "Genesis waiting loop failed with unexpected error",
-              err_name = $exc.name, err_msg = $exc.msg
-        true
 
   if not(breakLoop):
     vc.genesisEvent.fire()
 
-proc asyncRun*(vc: ValidatorClientRef) {.async.} =
+proc asyncRun*(
+    vc: ValidatorClientRef
+) {.async: (raises: [ValidatorClientError]).} =
   vc.fallbackService.start()
   vc.forkService.start()
   vc.dutiesService.start()
@@ -508,9 +515,6 @@ proc asyncRun*(vc: ValidatorClientRef) {.async.} =
       notice "Received shutdown event, exiting"
   except CancelledError:
     debug "Main loop interrupted"
-  except CatchableError as exc:
-    debug "Main loop failed with an error", err_name = $exc.name,
-          err_msg = $exc.msg
 
   await vc.shutdownMetrics()
   vc.shutdownSlashingProtection()
@@ -539,14 +543,19 @@ proc asyncRun*(vc: ValidatorClientRef) {.async.} =
   pending.add(vc.syncCommitteeService.stop())
   if not isNil(vc.keymanagerServer):
     pending.add(vc.keymanagerServer.stop())
-  await allFutures(pending)
+  await noCancel allFutures(pending)
 
 template runWithSignals(vc: ValidatorClientRef, body: untyped): bool =
   let future = body
-  discard await race(future, vc.sigintHandleFut, vc.sigtermHandleFut)
+
+  try:
+    discard await race(future, vc.sigintHandleFut, vc.sigtermHandleFut)
+  except CancelledError:
+    discard
+
   if future.finished():
     if future.failed() or future.cancelled():
-      let exc = future.readError()
+      let exc = future.error
       error "Validator client initialization failed", err_name = $exc.name,
             err_msg = $exc.msg
       var pending: seq[Future[void]]
@@ -554,7 +563,7 @@ template runWithSignals(vc: ValidatorClientRef, body: untyped): bool =
         pending.add(cancelAndWait(vc.sigintHandleFut))
       if not(vc.sigtermHandleFut.finished()):
         pending.add(cancelAndWait(vc.sigtermHandleFut))
-      await allFutures(pending)
+      await noCancel allFutures(pending)
       false
     else:
       true
@@ -566,11 +575,13 @@ template runWithSignals(vc: ValidatorClientRef, body: untyped): bool =
       pending.add(cancelAndWait(vc.sigintHandleFut))
     if not(vc.sigtermHandleFut.finished()):
       pending.add(cancelAndWait(vc.sigtermHandleFut))
-    await allFutures(pending)
+    await noCancel allFutures(pending)
     false
 
-proc runValidatorClient*(config: ValidatorClientConf,
-                         rng: ref HmacDrbgContext) {.async.} =
+proc runValidatorClient*(
+    config: ValidatorClientConf,
+    rng: ref HmacDrbgContext
+) {.async: (raises: []).} =
   let vc = ValidatorClientRef.new(config, rng)
   if not vc.runWithSignals(asyncInit vc):
     return

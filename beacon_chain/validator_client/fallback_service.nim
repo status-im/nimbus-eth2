@@ -65,7 +65,8 @@ proc preGenesisNodes*(vc: ValidatorClientRef): seq[BeaconNodeServerRef] =
 
 proc waitNodes*(vc: ValidatorClientRef, timeoutFut: Future[void],
                 statuses: set[RestBeaconNodeStatus],
-                roles: set[BeaconNodeRole], waitChanges: bool) {.async.} =
+                roles: set[BeaconNodeRole], waitChanges: bool) {.
+     async: (raises: [CancelledError]).} =
   doAssert(not(isNil(vc.fallbackService)))
   var iterations = 0
   while true:
@@ -121,7 +122,7 @@ proc checkName*(
 proc checkCompatible(
        vc: ValidatorClientRef,
        node: BeaconNodeServerRef
-     ): Future[RestBeaconNodeStatus] {.async.} =
+     ): Future[RestBeaconNodeStatus] {.async: (raises: [CancelledError]).} =
   ## Could return only {Offline, Incompatible, Compatible}
   logScope: endpoint = node
   let info =
@@ -137,11 +138,6 @@ proc checkCompatible(
         debug "Unable to obtain beacon node's configuration",
               error_name = exc.name, error_message = exc.msg
       return RestBeaconNodeStatus.Offline
-    except CatchableError as exc:
-      if node.status != RestBeaconNodeStatus.Offline:
-        error "Unexpected exception", error_name = exc.name,
-              error_message = exc.msg
-      return RestBeaconNodeStatus.Offline
 
   let genesis =
     try:
@@ -156,11 +152,6 @@ proc checkCompatible(
         debug "Unable to obtain beacon node's genesis",
               error_name = exc.name, error_message = exc.msg
       return RestBeaconNodeStatus.Offline
-    except CatchableError as exc:
-      if node.status != RestBeaconNodeStatus.Offline:
-        error "Unexpected exception", error_name = exc.name,
-              error_message = exc.msg
-      return RestBeaconNodeStatus.Offline
 
   let
     genesisFlag = (genesis != vc.beaconGenesis)
@@ -169,25 +160,18 @@ proc checkCompatible(
   node.config = info
   node.genesis = Opt.some(genesis)
 
-  return
-    if configFlag or genesisFlag:
-      if node.status != RestBeaconNodeStatus.Incompatible:
-        warn "Beacon node has incompatible configuration",
-              genesis_flag = genesisFlag, config_flag = configFlag
-      RestBeaconNodeStatus.Incompatible
-    else:
-      let res = vc.updateRuntimeConfig(node, node.config)
-      if res.isErr():
-        warn "Beacon nodes report different configuration values",
-             reason = res.error
-        RestBeaconNodeStatus.Incompatible
-      else:
-        RestBeaconNodeStatus.Compatible
+  if configFlag or genesisFlag:
+    if node.status != RestBeaconNodeStatus.Incompatible:
+      warn "Beacon node has incompatible configuration",
+            genesis_flag = genesisFlag, config_flag = configFlag
+    RestBeaconNodeStatus.Incompatible
+  else:
+    RestBeaconNodeStatus.Compatible
 
 proc checkSync(
        vc: ValidatorClientRef,
        node: BeaconNodeServerRef
-     ): Future[RestBeaconNodeStatus] {.async.} =
+     ): Future[RestBeaconNodeStatus] {.async: (raises: [CancelledError]).} =
   ## Could return only {Offline, NotSynced, Synced, OptSynced}
   logScope: endpoint = node
   let syncInfo =
@@ -203,26 +187,19 @@ proc checkSync(
         debug "Unable to obtain beacon node's sync status",
               error_name = exc.name, error_message = exc.msg
       return RestBeaconNodeStatus.Offline
-    except CatchableError as exc:
-      if node.status != RestBeaconNodeStatus.Offline:
-        error "Unexpected exception", error_name = exc.name,
-              error_message = exc.msg
-      return RestBeaconNodeStatus.Offline
+
   node.syncInfo = Opt.some(syncInfo)
-  let res =
-    block:
-      if not(syncInfo.is_syncing) or (syncInfo.sync_distance < SYNC_TOLERANCE):
-        if not(syncInfo.is_optimistic.get(false)):
-          RestBeaconNodeStatus.Synced
-        else:
-          RestBeaconNodeStatus.OptSynced
-      else:
-        RestBeaconNodeStatus.NotSynced
-  return res
+  if not(syncInfo.is_syncing) or (syncInfo.sync_distance < SYNC_TOLERANCE):
+    if not(syncInfo.is_optimistic.get(false)):
+      RestBeaconNodeStatus.Synced
+    else:
+      RestBeaconNodeStatus.OptSynced
+  else:
+    RestBeaconNodeStatus.NotSynced
 
 proc checkOnline(
        node: BeaconNodeServerRef
-     ): Future[RestBeaconNodeStatus] {.async.} =
+     ): Future[RestBeaconNodeStatus] {.async: (raises: [CancelledError]).} =
   ## Could return only {Offline, Online}.
   logScope: endpoint = node
   debug "Checking beacon node status"
@@ -237,12 +214,9 @@ proc checkOnline(
       debug "Unable to check beacon node's status",
             error_name = exc.name, error_message = exc.msg
       return RestBeaconNodeStatus.Offline
-    except CatchableError as exc:
-      error "Unexpected exception", error_name = exc.name,
-            error_message = exc.msg
-      return RestBeaconNodeStatus.Offline
+
   node.ident = Opt.some(agent.version)
-  return RestBeaconNodeStatus.Online
+  RestBeaconNodeStatus.Online
 
 func getReason(status: RestBeaconNodeStatus): string =
   case status
@@ -258,7 +232,8 @@ func getReason(status: RestBeaconNodeStatus): string =
     "Beacon node reports"
 
 proc checkNode(vc: ValidatorClientRef,
-               node: BeaconNodeServerRef): Future[bool] {.async.} =
+               node: BeaconNodeServerRef): Future[bool] {.
+     async: (raises: [CancelledError]).} =
   let nstatus = node.status
   debug "Checking beacon node", endpoint = node, status = node.status
 
@@ -313,7 +288,8 @@ proc checkNode(vc: ValidatorClientRef,
     node.updateStatus(status, failure)
     return nstatus != status
 
-proc checkNodes*(service: FallbackServiceRef): Future[bool] {.async.} =
+proc checkNodes*(service: FallbackServiceRef): Future[bool] {.
+     async: (raises: [CancelledError]).} =
   let
     vc = service.client
     nodesToCheck =
@@ -326,14 +302,14 @@ proc checkNodes*(service: FallbackServiceRef): Future[bool] {.async.} =
   try:
     await allFutures(pendingChecks)
     for fut in pendingChecks:
-      if fut.completed() and fut.read():
+      if fut.completed() and fut.value():
         res = true
   except CancelledError as exc:
     let pending = pendingChecks
       .filterIt(not(it.finished())).mapIt(it.cancelAndWait())
     await noCancel allFutures(pending)
     raise exc
-  return res
+  res
 
 proc checkOffsetStatus(node: BeaconNodeServerRef, offset: TimeOffset) =
   logScope:
@@ -384,8 +360,10 @@ proc disableNimbusExtensions(node: BeaconNodeServerRef) =
         "Nimbus extensions no longer available")
     node.updateStatus(RestBeaconNodeStatus.Offline, failure)
 
-proc runTimeMonitor(service: FallbackServiceRef,
-                    node: BeaconNodeServerRef) {.async.} =
+proc runTimeMonitor(
+    service: FallbackServiceRef,
+    node: BeaconNodeServerRef
+) {.async: (raises: [CancelledError]).} =
   const NimbusExtensionsLog = "Beacon node does not support Nimbus extensions"
   let
     vc = service.client
@@ -428,18 +406,14 @@ proc runTimeMonitor(service: FallbackServiceRef,
         return
       except CancelledError as exc:
         raise exc
-      except CatchableError as exc:
-        warn "An unexpected error occurred while asking for time offset",
-             reason = $exc.msg, error = $exc.name
-        notice NimbusExtensionsLog
-        node.disableNimbusExtensions()
-        return
 
     checkOffsetStatus(node, TimeOffset.init(tres))
 
     await service.waitForNextSlot()
 
-proc processTimeMonitoring(service: FallbackServiceRef) {.async.} =
+proc processTimeMonitoring(
+    service: FallbackServiceRef
+) {.async: (raises: [CancelledError]).} =
   let
     vc = service.client
     blockNodes = vc.filterNodes(
@@ -456,12 +430,8 @@ proc processTimeMonitoring(service: FallbackServiceRef) {.async.} =
       .filterIt(not(it.finished())).mapIt(it.cancelAndWait())
     await noCancel allFutures(pending)
     raise exc
-  except CatchableError as exc:
-    warn "An unexpected error occurred while running time monitoring",
-         reason = $exc.msg, error = $exc.name
-    return
 
-proc mainLoop(service: FallbackServiceRef) {.async.} =
+proc mainLoop(service: FallbackServiceRef) {.async: (raises: []).} =
   let vc = service.client
   service.state = ServiceState.Running
   debug "Service started"
@@ -473,10 +443,6 @@ proc mainLoop(service: FallbackServiceRef) {.async.} =
   except CancelledError:
     debug "Service interrupted"
     if not(timeMonitorFut.finished()): await timeMonitorFut.cancelAndWait()
-    return
-  except CatchableError as exc:
-    warn "Service crashed with unexpected error", err_name = exc.name,
-         err_msg = exc.msg
     return
 
   while true:
@@ -492,22 +458,20 @@ proc mainLoop(service: FallbackServiceRef) {.async.} =
         debug "Service interrupted"
         if not(timeMonitorFut.finished()): await timeMonitorFut.cancelAndWait()
         true
-      except CatchableError as exc:
-        error "Service crashed with unexpected error", err_name = exc.name,
-              err_msg = exc.msg
-        true
 
     if breakLoop:
       break
 
-proc init*(t: typedesc[FallbackServiceRef],
-           vc: ValidatorClientRef): Future[FallbackServiceRef] {.async.} =
+proc init*(
+    t: typedesc[FallbackServiceRef],
+    vc: ValidatorClientRef
+): Future[FallbackServiceRef] {.async: (raises: []).} =
   logScope: service = ServiceName
-  var res = FallbackServiceRef(name: ServiceName, client: vc,
+  let res = FallbackServiceRef(name: ServiceName, client: vc,
                                state: ServiceState.Initialized,
                                changesEvent: newAsyncEvent())
   debug "Initializing service"
-  return res
+  res
 
 proc start*(service: FallbackServiceRef) =
   service.lifeFut = mainLoop(service)

@@ -46,6 +46,9 @@ const
   LowestScoreAggregatedAttestation* =
     phase0.Attestation(
       aggregation_bits: CommitteeValidatorsBits(BitSeq.init(1)))
+  LowestScoreAggregatedElectraAttestation* =
+    electra.Attestation(
+      aggregation_bits: ElectraCommitteeValidatorsBits(BitSeq.init(1)))
 
 static:
   doAssert(ClientMaximumValidatorIds <= ServerMaximumValidatorIds)
@@ -464,6 +467,7 @@ type
 
   GetBlockV2Response* = ForkedSignedBeaconBlock
   GetStateV2Response* = ref ForkedHashedBeaconState
+  GetAggregatedAttestationV2Response* = ForkedAttestation
 
   RestRoot* = object
     root*: Eth2Digest
@@ -497,7 +501,6 @@ type
   # Types based on the OAPI yaml file - used in responses to requests
   GetBeaconHeadResponse* = DataEnclosedObject[Slot]
   GetAggregatedAttestationResponse* = DataEnclosedObject[phase0.Attestation]
-  GetElectraAggregatedAttestationResponse* = DataEnclosedObject[electra.Attestation]
   GetAttesterDutiesResponse* = DataRootEnclosedObject[seq[RestAttesterDuty]]
   GetBlockAttestationsResponse* = DataEnclosedObject[seq[phase0.Attestation]]
   GetBlockHeaderResponse* = DataOptimisticAndFinalizedObject[RestBlockHeaderInfo]

@@ -48,7 +48,9 @@ proc checkDuty(duty: RestAttesterDuty): bool =
 proc checkSyncDuty(duty: RestSyncCommitteeDuty): bool =
   uint64(duty.validator_index) <= VALIDATOR_REGISTRY_LIMIT
 
-proc pollForValidatorIndices*(service: DutiesServiceRef) {.async.} =
+proc pollForValidatorIndices*(
+    service: DutiesServiceRef
+) {.async: (raises: [CancelledError]).} =
   let vc = service.client
 
   let validatorIdents =
@@ -74,10 +76,7 @@ proc pollForValidatorIndices*(service: DutiesServiceRef) {.async.} =
       except CancelledError as exc:
         debug "Validator's indices processing was interrupted"
         raise exc
-      except CatchableError as exc:
-        error "Unexpected error occurred while getting validator information",
-              err_name = exc.name, err_msg = exc.msg
-        return
+
     for item in res:
       validators.add(item)
 
@@ -107,8 +106,10 @@ proc pollForValidatorIndices*(service: DutiesServiceRef) {.async.} =
           updated_validators = updated
     vc.indicesAvailable.fire()
 
-proc pollForAttesterDuties*(service: DutiesServiceRef,
-                            epoch: Epoch): Future[int] {.async.} =
+proc pollForAttesterDuties*(
+    service: DutiesServiceRef,
+    epoch: Epoch
+): Future[int] {.async: (raises: [CancelledError]).} =
   var currentRoot: Opt[Eth2Digest]
   let
     vc = service.client
@@ -131,10 +132,7 @@ proc pollForAttesterDuties*(service: DutiesServiceRef,
                   except CancelledError as exc:
                     debug "Attester duties processing was interrupted"
                     raise exc
-                  except CatchableError as exc:
-                    error "Unexpected error while getting attester duties",
-                          epoch = epoch, err_name = exc.name, err_msg = exc.msg
-                    return 0
+
                 if currentRoot.isNone():
                   # First request
                   currentRoot = Opt.some(res.dependent_root)
@@ -212,9 +210,9 @@ proc pruneSyncCommitteeSelectionProofs*(service: DutiesServiceRef, slot: Slot) =
     vc.syncCommitteeProofs.del(epoch)
 
 proc pollForSyncCommitteeDuties*(
-       service: DutiesServiceRef,
-       period: SyncCommitteePeriod
-     ): Future[int] {.async.} =
+    service: DutiesServiceRef,
+    period: SyncCommitteePeriod
+): Future[int] {.async: (raises: [CancelledError]).} =
   let
     vc = service.client
     indices = toSeq(vc.attachedValidators[].indices())
@@ -239,11 +237,6 @@ proc pollForSyncCommitteeDuties*(
               debug "Sync committee duties processing was interrupted",
                     period = period, epoch = epoch
               raise exc
-            except CatchableError as exc:
-              error "Unexpected error while getting sync committee duties",
-                    period = period, epoch = epoch,
-                    err_name = exc.name, err_msg = exc.msg
-              return 0
 
           for duty in res.data:
             if checkSyncDuty(duty) and (duty.pubkey in vc.attachedValidators[]):
@@ -296,7 +289,9 @@ proc pruneAttesterDuties(service: DutiesServiceRef, epoch: Epoch) =
     attesters[key] = v
   vc.attesters = attesters
 
-proc pollForAttesterDuties*(service: DutiesServiceRef) {.async.} =
+proc pollForAttesterDuties*(
+    service: DutiesServiceRef
+) {.async: (raises: [CancelledError]).} =
   ## Query the beacon node for attestation duties for all known validators.
   ##
   ## This function will perform (in the following order):
@@ -365,7 +360,15 @@ proc pollForAttesterDuties*(service: DutiesServiceRef) {.async.} =
         res
 
     if len(subscriptions) > 0:
-      let res = await vc.prepareBeaconCommitteeSubnet(subscriptions)
+      let res =
+        try:
+          await vc.prepareBeaconCommitteeSubnet(subscriptions)
+        except ValidatorApiError as exc:
+          warn "Failed to subscribe validators to beacon committee subnets",
+               slot = currentSlot, epoch = currentEpoch,
+               subscriptions_count = len(subscriptions),
+               reason = exc.msg
+          0
       if res == 0:
         warn "Failed to subscribe validators to beacon committee subnets",
              slot = currentSlot, epoch = currentEpoch,
@@ -373,7 +376,9 @@ proc pollForAttesterDuties*(service: DutiesServiceRef) {.async.} =
 
   service.pruneAttesterDuties(currentEpoch)
 
-proc pollForSyncCommitteeDuties*(service: DutiesServiceRef) {.async.} =
+proc pollForSyncCommitteeDuties*(
+    service: DutiesServiceRef
+) {.async: (raises: [CancelledError]).} =
   let vc = service.client
   let
     currentSlot = vc.getCurrentSlot().get(Slot(0))
@@ -466,11 +471,17 @@ proc pollForSyncCommitteeDuties*(service: DutiesServiceRef) {.async.} =
               res.add(sub)
           res
     if len(subscriptions) > 0:
-      let res = await vc.prepareSyncCommitteeSubnets(subscriptions)
+      let (res, reason) =
+        try:
+          (await vc.prepareSyncCommitteeSubnets(subscriptions), "")
+        except ValidatorApiError as exc:
+          (0, $exc.msg)
+
       if res == 0:
         warn "Failed to subscribe validators to sync committee subnets",
              slot = currentSlot, epoch = currentPeriod, period = currentPeriod,
-             periods = periods, subscriptions_count = len(subscriptions)
+             periods = periods, subscriptions_count = len(subscriptions),
+             reason = reason
       else:
         service.syncSubscriptionEpoch = Opt.some(currentEpoch)
 
@@ -489,7 +500,9 @@ proc pruneBeaconProposers(service: DutiesServiceRef, epoch: Epoch) =
             loop = ProposerLoop
   vc.proposers = proposers
 
-proc pollForBeaconProposers*(service: DutiesServiceRef) {.async.} =
+proc pollForBeaconProposers*(
+    service: DutiesServiceRef
+) {.async: (raises: [CancelledError]).} =
   let vc = service.client
   let
     currentSlot = vc.getCurrentSlot().get(Slot(0))
@@ -515,15 +528,13 @@ proc pollForBeaconProposers*(service: DutiesServiceRef) {.async.} =
     except CancelledError as exc:
       debug "Proposer duties processing was interrupted"
       raise exc
-    except CatchableError as exc:
-      debug "Unexpected error occured while getting proposer duties",
-            slot = currentSlot, epoch = currentEpoch, err_name = exc.name,
-            err_msg = exc.msg
 
   service.pruneBeaconProposers(currentEpoch)
   vc.pruneBlocksSeen(currentEpoch)
 
-proc prepareBeaconProposers*(service: DutiesServiceRef) {.async.} =
+proc prepareBeaconProposers*(
+    service: DutiesServiceRef
+) {.async: (raises: [CancelledError]).} =
   let vc = service.client
   let
     currentSlot = vc.getCurrentSlot().get(Slot(0))
@@ -542,17 +553,15 @@ proc prepareBeaconProposers*(service: DutiesServiceRef) {.async.} =
       except CancelledError as exc:
         debug "Beacon proposer preparation processing was interrupted"
         raise exc
-      except CatchableError as exc:
-        error "Unexpected error occured while preparing beacon proposers",
-              slot = currentSlot, epoch = currentEpoch, err_name = exc.name,
-              err_msg = exc.msg
-        0
+
     debug "Beacon proposers prepared",
           validators_count = vc.attachedValidators[].count(),
           proposers_count = len(proposers),
           prepared_count = count
 
-proc registerValidators*(service: DutiesServiceRef) {.async.} =
+proc registerValidators*(
+    service: DutiesServiceRef
+) {.async: (raises: [CancelledError]).} =
   let vc = service.client
   let
     currentSlot = vc.getCurrentSlot().get(Slot(0))
@@ -564,12 +573,6 @@ proc registerValidators*(service: DutiesServiceRef) {.async.} =
         debug "Validator registration preparation was interrupted",
               slot = currentSlot, fork = genesisFork
         raise exc
-      except CatchableError as exc:
-        var default: seq[SignedValidatorRegistrationV1]
-        error "Unexpected error occured while preparing validators " &
-              "registration data", slot = currentSlot, fork = genesisFork,
-              err_name = exc.name, err_msg = exc.msg
-        default
 
     count =
       if len(registrations) > 0:
@@ -584,11 +587,6 @@ proc registerValidators*(service: DutiesServiceRef) {.async.} =
           debug "Validator registration was interrupted", slot = currentSlot,
                 fork = genesisFork
           raise exc
-        except CatchableError as exc:
-          error "Unexpected error occured while registering validators",
-                slot = currentSlot, fork = genesisFork, err_name = exc.name,
-                err_msg = exc.msg
-          0
       else:
         0
 
@@ -597,7 +595,9 @@ proc registerValidators*(service: DutiesServiceRef) {.async.} =
           beacon_nodes_count = count, registrations = len(registrations),
           validators_count = vc.attachedValidators[].count()
 
-proc attesterDutiesLoop(service: DutiesServiceRef) {.async.} =
+proc attesterDutiesLoop(
+    service: DutiesServiceRef
+) {.async: (raises: [CancelledError]).} =
   let vc = service.client
   debug "Attester duties loop is waiting for initialization"
   await allFutures(
@@ -615,7 +615,9 @@ proc attesterDutiesLoop(service: DutiesServiceRef) {.async.} =
     # Spawning new attestation duties task.
     service.pollingAttesterDutiesTask = service.pollForAttesterDuties()
 
-proc proposerDutiesLoop(service: DutiesServiceRef) {.async.} =
+proc proposerDutiesLoop(
+    service: DutiesServiceRef
+) {.async: (raises: [CancelledError]).} =
   let vc = service.client
   debug "Proposer duties loop is waiting for initialization"
   await allFutures(
@@ -628,7 +630,9 @@ proc proposerDutiesLoop(service: DutiesServiceRef) {.async.} =
     await service.pollForBeaconProposers()
     await service.waitForNextSlot()
 
-proc validatorIndexLoop(service: DutiesServiceRef) {.async.} =
+proc validatorIndexLoop(
+    service: DutiesServiceRef
+) {.async: (raises: [CancelledError]).} =
   let vc = service.client
   debug "Validator indices loop is waiting for initialization"
   await vc.preGenesisEvent.wait()
@@ -636,9 +640,11 @@ proc validatorIndexLoop(service: DutiesServiceRef) {.async.} =
     await service.pollForValidatorIndices()
     await service.waitForNextSlot()
 
-proc dynamicValidatorsLoop*(service: DutiesServiceRef,
-                            web3signerUrl: Web3SignerUrl,
-                            intervalInSeconds: int) {.async.} =
+proc dynamicValidatorsLoop*(
+    service: DutiesServiceRef,
+    web3signerUrl: Web3SignerUrl,
+    intervalInSeconds: int
+) {.async: (raises: [CancelledError]).} =
   let vc = service.client
   doAssert(intervalInSeconds > 0)
 
@@ -671,7 +677,9 @@ proc dynamicValidatorsLoop*(service: DutiesServiceRef,
       except CancelledError:
         true
 
-proc proposerPreparationsLoop(service: DutiesServiceRef) {.async.} =
+proc proposerPreparationsLoop(
+    service: DutiesServiceRef
+) {.async: (raises: [CancelledError]).} =
   let vc = service.client
   debug "Beacon proposer preparation loop is waiting for initialization"
   await allFutures(
@@ -682,7 +690,9 @@ proc proposerPreparationsLoop(service: DutiesServiceRef) {.async.} =
     await service.prepareBeaconProposers()
     await service.waitForNextSlot()
 
-proc validatorRegisterLoop(service: DutiesServiceRef) {.async.} =
+proc validatorRegisterLoop(
+    service: DutiesServiceRef
+) {.async: (raises: [CancelledError]).} =
   let vc = service.client
   doAssert(vc.config.payloadBuilderEnable)
   debug "Validator registration loop is waiting for initialization"
@@ -696,7 +706,9 @@ proc validatorRegisterLoop(service: DutiesServiceRef) {.async.} =
     await service.registerValidators()
     await service.waitForNextSlot()
 
-proc syncCommitteeDutiesLoop(service: DutiesServiceRef) {.async.} =
+proc syncCommitteeDutiesLoop(
+    service: DutiesServiceRef
+) {.async: (raises: [CancelledError]).} =
   let vc = service.client
   debug "Sync committee duties loop is waiting for initialization"
   await allFutures(
@@ -724,7 +736,9 @@ proc getNextEpochMiddleSlot(vc: ValidatorClientRef): Slot =
   else:
     currentSlot + (uint64(middleSlot) - uint64(slotInEpoch))
 
-proc pruneSlashingDatabase(service: DutiesServiceRef) {.async.} =
+proc pruneSlashingDatabase(
+    service: DutiesServiceRef
+) {.async: (raises: [CancelledError]).} =
   let
     vc = service.client
     currentSlot = vc.beaconClock.now().slotOrZero()
@@ -736,11 +750,6 @@ proc pruneSlashingDatabase(service: DutiesServiceRef) {.async.} =
         debug "Finalized block header request was interrupted",
               slot = currentSlot
         raise exc
-      except CatchableError as exc:
-        error "Unexpected error occured while requesting " &
-              "finalized block header", slot = currentSlot,
-              err_name = exc.name, err_msg = exc.msg
-        Opt.none(GetBlockHeaderResponse)
     checkpointTime = Moment.now()
   if blockHeader.isSome():
     let epoch = blockHeader.get().data.header.message.slot.epoch
@@ -757,7 +766,9 @@ proc pruneSlashingDatabase(service: DutiesServiceRef) {.async.} =
         elapsed_time = (finishTime - startTime),
         pruning_time = (finishTime - checkpointTime)
 
-proc slashingDatabasePruningLoop(service: DutiesServiceRef) {.async.} =
+proc slashingDatabasePruningLoop(
+    service: DutiesServiceRef
+) {.async: (raises: [CancelledError]).} =
   let vc = service.client
   debug "Slashing database pruning loop is waiting for initialization"
   await allFutures(
@@ -781,7 +792,7 @@ template checkAndRestart(serviceLoop: DutiesServiceLoop,
                          future: Future[void], body: untyped): untyped =
   if future.finished():
     if future.failed():
-      let error = future.readError()
+      let error = future.error
       debug "The loop ended unexpectedly with an error",
             error_name = error.name, error_msg = error.msg, loop = serviceLoop
     elif future.cancelled():
@@ -791,7 +802,7 @@ template checkAndRestart(serviceLoop: DutiesServiceLoop,
             loop = serviceLoop
     future = body
 
-proc mainLoop(service: DutiesServiceRef) {.async.} =
+proc mainLoop(service: DutiesServiceRef) {.async: (raises: []).} =
   let vc = service.client
 
   service.state = ServiceState.Running
@@ -835,7 +846,10 @@ proc mainLoop(service: DutiesServiceRef) {.async.} =
         for fut in dynamicFuts:
           futures.add fut
         if not(isNil(registerFut)): futures.add(FutureBase(registerFut))
-        discard await race(futures)
+        try:
+          discard await race(futures)
+        except ValueError:
+          raiseAssert "Futures sequence will never be empty"
         checkAndRestart(AttesterLoop, attestFut, service.attesterDutiesLoop())
         checkAndRestart(ProposerLoop, proposeFut, service.proposerDutiesLoop())
         checkAndRestart(IndicesLoop, indicesFut, service.validatorIndexLoop())
@@ -881,23 +895,21 @@ proc mainLoop(service: DutiesServiceRef) {.async.} =
         if not(isNil(service.pruneSlashingDatabaseTask)) and
            not(service.pruneSlashingDatabaseTask.finished()):
           pending.add(service.pruneSlashingDatabaseTask.cancelAndWait())
-        await allFutures(pending)
-        true
-      except CatchableError as exc:
-        warn "Service crashed with unexpected error", err_name = exc.name,
-             err_msg = exc.msg
+        await noCancel allFutures(pending)
         true
 
     if breakLoop:
       break
 
-proc init*(t: typedesc[DutiesServiceRef],
-           vc: ValidatorClientRef): Future[DutiesServiceRef] {.async.} =
+proc init*(
+    t: typedesc[DutiesServiceRef],
+    vc: ValidatorClientRef
+): Future[DutiesServiceRef] {.async: (raises: []).} =
   logScope: service = ServiceName
   let res = DutiesServiceRef(name: ServiceName,
                              client: vc, state: ServiceState.Initialized)
   debug "Initializing service"
-  return res
+  res
 
 proc start*(service: DutiesServiceRef) =
   service.lifeFut = mainLoop(service)
