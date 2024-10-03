@@ -279,6 +279,11 @@ proc sleepAsync*(t: TimeDiff): Future[void] =
   sleepAsync(nanoseconds(
     if t.nanoseconds < 0: 0'i64 else: t.nanoseconds))
 
+proc sleepAsync2*(t: TimeDiff): Future[void] {.
+     async: (raises: [CancelledError], raw: true).} =
+  sleepAsync(nanoseconds(
+    if t.nanoseconds < 0: 0'i64 else: t.nanoseconds))
+
 proc runSlotLoop*[T](node: T, startTime: BeaconTime,
                      slotProc: SlotStartProc[T]) {.async.} =
   var

@@ -16,11 +16,16 @@ from ./rest_types import VCRuntimeConfig
 
 export forks, rest_types
 
-type VCForkConfig* = object
-  altairEpoch*: Epoch
-  capellaVersion*: Opt[Version]
-  capellaEpoch*: Epoch
-  denebEpoch*: Epoch
+type
+  VCForkConfig* = object
+    altairVersion*: Opt[Version]
+    altairEpoch*: Epoch
+    capellaVersion*: Opt[Version]
+    capellaEpoch*: Epoch
+    denebVersion*: Opt[Version]
+    denebEpoch*: Epoch
+    electraVersion*: Opt[Version]
+    electraEpoch*: Epoch
 
 func forkVersionConfigKey*(consensusFork: ConsensusFork): string =
   if consensusFork > ConsensusFork.Phase0:
@@ -62,6 +67,9 @@ func getForkEpoch(info: VCRuntimeConfig, consensusFork: ConsensusFork): Epoch =
   else:
     GENESIS_EPOCH
 
+template toString(epoch: Epoch): string =
+  Base10.toString(uint64(epoch))
+
 func getConsensusForkConfig*(
     info: VCRuntimeConfig): Result[VCForkConfig, string] =
   ## This extracts all `_FORK_VERSION` and `_FORK_EPOCH` constants
@@ -72,26 +80,48 @@ func getConsensusForkConfig*(
   ## to a different fork sequence from an incompatible network (e.g., devnet)
   let
     res = VCForkConfig(
+      altairVersion: ? info.getForkVersion(ConsensusFork.Altair),
       altairEpoch: info.getForkEpoch(ConsensusFork.Altair),
       capellaVersion: ? info.getForkVersion(ConsensusFork.Capella),
       capellaEpoch: info.getForkEpoch(ConsensusFork.Capella),
-      denebEpoch: info.getForkEpoch(ConsensusFork.Deneb))
+      denebVersion: ? info.getForkVersion(ConsensusFork.Deneb),
+      denebEpoch: info.getForkEpoch(ConsensusFork.Deneb),
+      electraVersion: ? info.getForkVersion(ConsensusFork.Electra),
+      electraEpoch: info.getForkEpoch(ConsensusFork.Electra))
 
   if res.capellaEpoch < res.altairEpoch:
     return err(
       "Fork epochs are inconsistent, " & $ConsensusFork.Capella &
-      " is scheduled at epoch " & $res.capellaEpoch &
-      " which is before prior fork epoch " & $res.altairEpoch)
+      " is scheduled at epoch " & res.capellaEpoch.toString() &
+      " which is before prior fork epoch " & res.altairEpoch.toString())
   if res.denebEpoch < res.capellaEpoch:
     return err(
       "Fork epochs are inconsistent, " & $ConsensusFork.Deneb &
-      " is scheduled at epoch " & $res.denebEpoch &
-      " which is before prior fork epoch " & $res.capellaEpoch)
+      " is scheduled at epoch " & res.denebEpoch.toString() &
+      " which is before prior fork epoch " & res.capellaEpoch.toString())
+  if res.electraEpoch < res.denebEpoch:
+    return err(
+      "Fork epochs are inconsistent, " & $ConsensusFork.Electra &
+      " is scheduled at epoch " & res.electraEpoch.toString() &
+      " which is before prior fork epoch " & res.denebEpoch.toString())
 
-  if res.capellaEpoch != FAR_FUTURE_EPOCH and res.capellaVersion.isNone:
+  if (res.capellaEpoch != FAR_FUTURE_EPOCH) and res.capellaVersion.isNone():
     return err(
       "Beacon node has scheduled " &
       ConsensusFork.Capella.forkEpochConfigKey() &
       " but does not report " &
       ConsensusFork.Capella.forkVersionConfigKey())
-  ok res
+  if (res.denebEpoch != FAR_FUTURE_EPOCH) and res.denebVersion.isNone():
+    return err(
+      "Beacon node has scheduled " &
+      ConsensusFork.Deneb.forkEpochConfigKey() &
+      " but does not report " &
+      ConsensusFork.Deneb.forkVersionConfigKey())
+  if (res.electraEpoch != FAR_FUTURE_EPOCH) and res.electraVersion.isNone():
+    return err(
+      "Beacon node has scheduled " &
+      ConsensusFork.Electra.forkEpochConfigKey() &
+      " but does not report " &
+      ConsensusFork.Electra.forkVersionConfigKey())
+
+  ok(res)

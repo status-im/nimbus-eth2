@@ -44,7 +44,7 @@ proc processActivities(service: DoppelgangerServiceRef, epoch: Epoch,
 
           break
 
-proc mainLoop(service: DoppelgangerServiceRef) {.async.} =
+proc mainLoop(service: DoppelgangerServiceRef) {.async: (raises: []).} =
   let vc = service.client
   service.state = ServiceState.Running
 
@@ -64,10 +64,6 @@ proc mainLoop(service: DoppelgangerServiceRef) {.async.} =
   except CancelledError:
     debug "Service interrupted"
     return
-  except CatchableError as exc:
-    warn "Service crashed with unexpected error", err_name = exc.name,
-         err_msg = exc.msg
-    return
 
   # On (re)start, we skip the remainder of the epoch before we start monitoring
   # for doppelgangers so we don't trigger on the attestations we produced before
@@ -75,7 +71,11 @@ proc mainLoop(service: DoppelgangerServiceRef) {.async.} =
   # before that, we can safely perform the check for epoch 0 and thus keep
   # validating in epoch 1
   if vc.beaconClock.now().slotOrZero() > GENESIS_SLOT:
-    await service.waitForNextEpoch(TIME_DELAY_FROM_SLOT)
+    try:
+      await service.waitForNextEpoch(TIME_DELAY_FROM_SLOT)
+    except CancelledError:
+      debug "Service interrupted"
+      return
 
   while try:
     # Wait for the epoch to end - at the end (or really, the beginning of the
@@ -100,20 +100,18 @@ proc mainLoop(service: DoppelgangerServiceRef) {.async.} =
   except CancelledError:
     debug "Service interrupted"
     false
-  except CatchableError as exc:
-    warn "Service crashed with unexpected error", err_name = exc.name,
-          err_msg = exc.msg
-    false
   : discard
 
-proc init*(t: type DoppelgangerServiceRef,
-           vc: ValidatorClientRef): Future[DoppelgangerServiceRef] {.async.} =
+proc init*(
+    t: type DoppelgangerServiceRef,
+    vc: ValidatorClientRef
+): Future[DoppelgangerServiceRef] {.async: (raises: []).} =
   logScope: service = ServiceName
   let res = DoppelgangerServiceRef(name: ServiceName,
                                    client: vc, state: ServiceState.Initialized,
                                    enabled: vc.config.doppelgangerDetection)
   debug "Initializing service"
-  return res
+  res
 
 proc start*(service: DoppelgangerServiceRef) =
   service.lifeFut = mainLoop(service)
