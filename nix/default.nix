@@ -62,8 +62,7 @@ in stdenv.mkDerivation rec {
     chmod 777 -R dist/nimble
     mkdir -p dist/nimble/dist
     cp -r ${callPackage ./sat.nix {}}       dist/nimble/dist/sat
-    cp -r ${callPackage ./checksums.nix {}} dist/checksums
-    cp -r ${callPackage ./checksums.nix {}} dist/nimble/dist/checksums   # todo, dup?
+    cp -r ${callPackage ./checksums.nix {}} dist/nimble/dist/checksums
     cp -r ${callPackage ./csources.nix {}}  csources_v2
     chmod 777 -R dist/nimble csources_v2
     popd
