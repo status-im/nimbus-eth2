@@ -59,6 +59,7 @@ in stdenv.mkDerivation rec {
     pushd vendor/nimbus-build-system/vendor/Nim
     mkdir dist
     cp -r ${callPackage ./nimble.nix {}}    dist/nimble
+    chmod 777 -R dist/nimble
     mkdir -p dist/nimble/dist
     cp -r ${callPackage ./sat.nix {}}       dist/nimble/dist
     cp -r ${callPackage ./checksums.nix {}} dist/checksums
