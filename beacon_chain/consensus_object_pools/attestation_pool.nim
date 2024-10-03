@@ -1045,23 +1045,23 @@ func getElectraAggregatedAttestation*(
     attestationDataRoot: Eth2Digest, committeeIndex: CommitteeIndex):
     Opt[electra.Attestation] =
 
-  let candidateIdx = pool.candidateIdx(slot)
+  let
+    candidateIdx = pool.candidateIdx(slot)
   if candidateIdx.isNone:
     return Opt.none(electra.Attestation)
 
-  var res: Opt[electra.Attestation]
-  for _, entry in pool.electraCandidates[candidateIdx.get].mpairs():
-    if entry.data.index != committeeIndex.distinctBase:
-      continue
+  pool.electraCandidates[candidateIdx.get].withValue(
+      attestationDataRoot, entry):
 
-    entry.updateAggregates()
+    if entry.data.index == committeeIndex.distinctBase:
+      entry[].updateAggregates()
 
-    let (bestIndex, best) = bestValidation(entry.aggregates)
+      let (bestIndex, _) = bestValidation(entry[].aggregates)
 
-    if res.isNone() or best > res.get().aggregation_bits.countOnes():
-      res = Opt.some(entry.toElectraAttestation(entry.aggregates[bestIndex]))
+      # Found the right hash, no need to look further
+      return Opt.some(entry[].toElectraAttestation(entry[].aggregates[bestIndex]))
 
-  res
+  Opt.none(electra.Attestation)
 
 func getAggregatedAttestation*(
     pool: var AttestationPool, slot: Slot, attestation_data_root: Eth2Digest):
