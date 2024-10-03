@@ -38,7 +38,7 @@ const
   BLOB_GOSSIP_WAIT_TIME_NS* = 2 * 1_000_000_000
     ## How long to wait for blobs to arrive over gossip before fetching.
 
-  DATA_COLUMN_GOSSIP_WAIT_TIME_NS* =  10 * 1_000_000_000
+  DATA_COLUMN_GOSSIP_WAIT_TIME_NS* =  2 * 1_000_000_000
 
   POLL_INTERVAL = 1.seconds
 
@@ -531,6 +531,7 @@ proc getMissingDataColumns(rman: RequestManager): seq[DataColumnIdentifier] =
   var
     fetches: seq[DataColumnIdentifier]
     ready: seq[Eth2Digest]
+  return fetches
   for columnless in rman.quarantine[].peekColumnless():
     withBlck(columnless):
       when consensusFork >= ConsensusFork.Deneb:
