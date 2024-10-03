@@ -8,5 +8,5 @@ in pkgs.fetchFromGitHub {
   repo = "csources_v2";
   rev = tools.findKeyValue "^nim_csourcesHash=([a-f0-9]+)$" sourceFile;
   # WARNING: Requires manual updates when Nim compiler version changes.
-  hash = "sha256-UCLtoxOcFYjBdvHx7A47x6FjLMi6VZqpSs65MN7fpBs=";
+  hash = "sha256-UCLtoxOcGYjBdvHx7A47x6FjLMi6VZqpSs65MN7fpBs=";
 }
