@@ -143,13 +143,17 @@ pipeline {
           } }
         }
       }
-      post { always { timeout(5) {
-        archiveArtifacts(
-          artifacts: '*.tar.gz',
-          excludes: '**/geth-*.tar.gz',  /* `scripts/geth_binaries.sh` */
-          allowEmptyArchive: true
-        )
-      } } }
+      post {
+        always { timeout(10) {
+          /* DEBUG: Show file sizes to catch too big ones. */
+          sh 'ls -hl *.tar.gz'
+          archiveArtifacts(
+            artifacts: '*.tar.gz',
+            excludes: '**/geth-*.tar.gz',  /* `scripts/geth_binaries.sh` */
+            allowEmptyArchive: true
+          )
+        } }
+      }
     }
   }
 

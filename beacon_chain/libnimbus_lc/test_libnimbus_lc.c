@@ -417,6 +417,111 @@ int main(void)
         printf("\n");
     }
 
+    const ETHRoot *executionRequestsRoot =
+        ETHExecutionBlockHeaderGetRequestsRoot(executionBlockHeader);
+    printf("    - requests_root: ");
+    printHexString(executionRequestsRoot, sizeof *executionRequestsRoot);
+    printf("\n");
+
+    const ETHDepositRequests *depositRequests =
+        ETHExecutionBlockHeaderGetDepositRequests(executionBlockHeader);
+    int numRequests = ETHDepositRequestsGetCount(depositRequests);
+    printf("    - deposit_requests:\n");
+    for (int requestIndex = 0; requestIndex < numRequests; requestIndex++) {
+        const ETHDepositRequest *request =
+            ETHDepositRequestsGet(depositRequests, requestIndex);
+
+        const uint64_t *index = ETHDepositRequestGetIndex(request);
+        printf("        - index: %" PRIu64 "\n", *index);
+
+        const ETHValidatorPubkey *pubkey = ETHDepositRequestGetPubkey(request);
+        printf("            - pubkey: ");
+        printHexString(pubkey, sizeof *pubkey);
+        printf("\n");
+
+        const ETHWithdrawalCredentials *withdrawalCredentials =
+            ETHDepositRequestGetWithdrawalCredentials(request);
+        printf("            - pubkey: ");
+        printHexString(withdrawalCredentials, sizeof *withdrawalCredentials);
+        printf("\n");
+
+        const uint64_t *amount = ETHDepositRequestGetAmount(request);
+        printf("            - amount: %" PRIu64 "\n", *amount);
+
+        const ETHValidatorSignature *signature = ETHDepositRequestGetSignature(request);
+        printf("            - signature: ");
+        printHexString(signature, sizeof *signature);
+        printf("\n");
+
+        int numBytes;
+        const void *bytes = ETHDepositRequestGetBytes(request, &numBytes);
+        printf("            - bytes: ");
+        printHexString(bytes, numBytes);
+        printf("\n");
+    }
+
+    const ETHWithdrawalRequests *withdrawalRequests =
+        ETHExecutionBlockHeaderGetWithdrawalRequests(executionBlockHeader);
+    numRequests = ETHWithdrawalRequestsGetCount(withdrawalRequests);
+    printf("    - withdrawal_requests:\n");
+    for (int requestIndex = 0; requestIndex < numRequests; requestIndex++) {
+        const ETHWithdrawalRequest *request =
+            ETHWithdrawalRequestsGet(withdrawalRequests, requestIndex);
+
+        printf("        - index: %d\n", requestIndex);
+
+        const ETHExecutionAddress *sourceAddress = ETHWithdrawalRequestGetSourceAddress(request);
+        printf("            - source_address: ");
+        printHexString(sourceAddress, sizeof *sourceAddress);
+        printf("\n");
+
+        const ETHValidatorPubkey *validatorPubkey = ETHWithdrawalRequestGetValidatorPubkey(request);
+        printf("            - validator_pubkey: ");
+        printHexString(validatorPubkey, sizeof *validatorPubkey);
+        printf("\n");
+
+        const uint64_t *amount = ETHWithdrawalRequestGetAmount(request);
+        printf("            - amount: %" PRIu64 "\n", *amount);
+
+        int numBytes;
+        const void *bytes = ETHWithdrawalRequestGetBytes(request, &numBytes);
+        printf("            - bytes: ");
+        printHexString(bytes, numBytes);
+        printf("\n");
+    }
+
+    const ETHConsolidationRequests *consolidationRequests =
+        ETHExecutionBlockHeaderGetConsolidationRequests(executionBlockHeader);
+    numRequests = ETHConsolidationRequestsGetCount(consolidationRequests);
+    printf("    - consolidation_requests:\n");
+    for (int requestIndex = 0; requestIndex < numRequests; requestIndex++) {
+        const ETHConsolidationRequest *request =
+            ETHConsolidationRequestsGet(consolidationRequests, requestIndex);
+
+        printf("        - index: %d\n", requestIndex);
+
+        const ETHExecutionAddress *sourceAddress = ETHConsolidationRequestGetSourceAddress(request);
+        printf("            - source_address: ");
+        printHexString(sourceAddress, sizeof *sourceAddress);
+        printf("\n");
+
+        const ETHValidatorPubkey *sourcePubkey = ETHConsolidationRequestGetSourcePubkey(request);
+        printf("            - source_pubkey: ");
+        printHexString(sourcePubkey, sizeof *sourcePubkey);
+        printf("\n");
+
+        const ETHValidatorPubkey *targetPubkey = ETHConsolidationRequestGetTargetPubkey(request);
+        printf("            - target_pubkey: ");
+        printHexString(targetPubkey, sizeof *targetPubkey);
+        printf("\n");
+
+        int numBytes;
+        const void *bytes = ETHConsolidationRequestGetBytes(request, &numBytes);
+        printf("            - bytes: ");
+        printHexString(bytes, numBytes);
+        printf("\n");
+    }
+
     ETHExecutionBlockHeaderDestroy(executionBlockHeader);
 
     ETHRoot sampleTransactionsRoot = {{
@@ -536,6 +641,42 @@ int main(void)
                 ETHTransactionGetBlobVersionedHash(transaction, hashIndex);
             printf("        - ");
             printHexString(blobVersionedHash, sizeof *blobVersionedHash);
+            printf("\n");
+        }
+
+        const ETHAuthorizationList *transactionAuthorizationList =
+            ETHTransactionGetAuthorizationList(transaction);
+        printf("    - authorization_list:\n");
+        int numAuthorizationTuples = ETHAuthorizationListGetCount(transactionAuthorizationList);
+        for (int tupleIndex = 0; tupleIndex < numAuthorizationTuples; tupleIndex++) {
+            const ETHAuthorizationTuple *authorizationTuple =
+                ETHAuthorizationListGet(transactionAuthorizationList, tupleIndex);
+
+            const ETHExecutionAddress *address =
+                ETHAuthorizationTupleGetAddress(authorizationTuple);
+            printf("        - ");
+            printHexString(address, sizeof *address);
+            printf("\n");
+
+            const ETHUInt256 *chainId = ETHAuthorizationTupleGetChainId(authorizationTuple);
+            printf("            - chain_id: ");
+            printHexStringReversed(chainId, sizeof *chainId);
+            printf("\n");
+
+            const uint64_t *nonce = ETHAuthorizationTupleGetNonce(authorizationTuple);
+            printf("            - nonce: %" PRIu64 "\n", *nonce);
+
+            const ETHExecutionAddress *authority =
+                ETHAuthorizationTupleGetAuthority(authorizationTuple);
+            printf("            - authority: ");
+            printHexString(authority, sizeof *authority);
+            printf("\n");
+
+            int numSignatureBytes;
+            const void *signatureBytes =
+                ETHAuthorizationTupleGetSignatureBytes(authorizationTuple, &numSignatureBytes);
+            printf("            - signature: ");
+            printHexString(signatureBytes, numSignatureBytes);
             printf("\n");
         }
 

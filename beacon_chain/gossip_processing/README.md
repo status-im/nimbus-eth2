@@ -14,7 +14,7 @@ Gossip validation is different from consensus verification in particular for blo
 - Attestations (unaggregated): https://github.com/ethereum/consensus-specs/blob/v1.4.0/specs/phase0/p2p-interface.md#attestation-subnets
 - Voluntary exits: https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.4/specs/phase0/p2p-interface.md#voluntary_exit
 - Proposer slashings: https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.5/specs/phase0/p2p-interface.md#proposer_slashing
-- Attester slashing: https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.5/specs/phase0/p2p-interface.md#attester_slashing
+- Attester slashing: https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.6/specs/phase0/p2p-interface.md#attester_slashing
 
 There are multiple consumers of validated consensus objects:
 - a `ValidationResult.Accept` output triggers rebroadcasting in libp2p

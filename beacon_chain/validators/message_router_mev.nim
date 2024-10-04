@@ -128,7 +128,7 @@ proc unblindAndRouteBlockMEV*(
       if blindedBlock.message.body.blob_kzg_commitments !=
           bundle.data.blobs_bundle.commitments:
         return err("unblinded blobs bundle has unexpected commitments")
-      let ok = verifyProofs(
+      let ok = verifyBlobKzgProofBatch(
           blobs_bundle.blobs.mapIt(KzgBlob(bytes: it)),
           asSeq blobs_bundle.commitments,
           asSeq blobs_bundle.proofs).valueOr:

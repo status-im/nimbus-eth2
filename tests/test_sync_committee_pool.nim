@@ -67,7 +67,7 @@ suite "Sync committee pool":
       nextPeriod = cfg.BELLATRIX_FORK_EPOCH.sync_committee_period + 1
 
       bid1 = BlockId(
-        slot: Slot(nextPeriod.start_slot - 2),  # Committee based on `slot + 1`
+        slot: nextPeriod.start_slot - 2,  # Committee based on `slot + 1`
         root: eth2digest(@[1.byte]))
 
       sig1 = get_sync_committee_message_signature(

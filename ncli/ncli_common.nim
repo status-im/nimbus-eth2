@@ -201,8 +201,9 @@ func collectSlashings(
     let validator = unsafeAddr state.validators[index]
     if slashing_penalty_applies(validator[], epoch):
       rewardsAndPenalties[index].slashing_outcome +=
-        validator[].get_slashing_penalty(
-          adjusted_total_slashing_balance, total_balance).int64
+        get_slashing_penalty(
+          typeof(state).kind, validator[], adjusted_total_slashing_balance,
+          total_balance).int64
 
 proc collectEpochRewardsAndPenalties*(
     rewardsAndPenalties: var seq[RewardsAndPenalties],
