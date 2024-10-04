@@ -91,7 +91,7 @@ func hasDataColumns*(quarantine: DataColumnQuarantine,
     blck: deneb.SignedBeaconBlock | electra.SignedBeaconBlock): bool =
   var counter = 0
   for idx in 0..<NUMBER_OF_COLUMNS:
-    if (blck.root, ColumnIndex idx) notin quarantine.data_columns:
+    if (blck.root, ColumnIndex idx) in quarantine.data_columns:
       inc counter 
   if counter == max(SAMPLES_PER_SLOT, CUSTODY_REQUIREMENT) or
       counter == NUMBER_OF_COLUMNS:
