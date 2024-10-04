@@ -32,7 +32,7 @@ When building from source, you will need additional build dependencies to be ins
     dnf install @development-tools cmake
 
     # Arch Linux, using an AUR manager
-    yourAURmanager -S base-devel cmake
+    yourAURmanager -S base-devel git-lfs cmake
     ```
 
 === "macOS"

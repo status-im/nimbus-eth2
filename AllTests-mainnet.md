@@ -7,9 +7,12 @@ AllTests-mainnet
 OK: 1/1 Fail: 0/1 Skip: 0/1
 ## Attestation pool electra processing [Preset: mainnet]
 ```diff
++ Aggregated attestations with disjoint comittee bits into a single on-chain aggregate [Pres OK
++ Attestations with disjoint comittee bits and equal data into single on-chain aggregate [Pr OK
 + Can add and retrieve simple electra attestations [Preset: mainnet]                         OK
++ Working with electra aggregates [Preset: mainnet]                                          OK
 ```
-OK: 1/1 Fail: 0/1 Skip: 0/1
+OK: 4/4 Fail: 0/4 Skip: 0/4
 ## Attestation pool processing [Preset: mainnet]
 ```diff
 + Attestation from different branch [Preset: mainnet]                                        OK
@@ -173,6 +176,19 @@ OK: 1/1 Fail: 0/1 Skip: 0/1
 + Tail block only in common                                                                  OK
 ```
 OK: 2/2 Fail: 0/2 Skip: 0/2
+## EF - EIP7594 - Networking [Preset: mainnet]
+```diff
++ Networking - Get Custody Columns - mainnet/eip7594/networking/get_custody_columns/pyspec_t OK
++ Networking - Get Custody Columns - mainnet/eip7594/networking/get_custody_columns/pyspec_t OK
++ Networking - Get Custody Columns - mainnet/eip7594/networking/get_custody_columns/pyspec_t OK
++ Networking - Get Custody Columns - mainnet/eip7594/networking/get_custody_columns/pyspec_t OK
++ Networking - Get Custody Columns - mainnet/eip7594/networking/get_custody_columns/pyspec_t OK
++ Networking - Get Custody Columns - mainnet/eip7594/networking/get_custody_columns/pyspec_t OK
++ Networking - Get Custody Columns - mainnet/eip7594/networking/get_custody_columns/pyspec_t OK
++ Networking - Get Custody Columns - mainnet/eip7594/networking/get_custody_columns/pyspec_t OK
++ Networking - Get Custody Columns - mainnet/eip7594/networking/get_custody_columns/pyspec_t OK
+```
+OK: 9/9 Fail: 0/9 Skip: 0/9
 ## EF - KZG
 ```diff
 + KZG - Blob to KZG commitment - blob_to_kzg_commitment_case_invalid_blob_59d64ff6b4648fad   OK
@@ -430,6 +446,66 @@ OK: 2/2 Fail: 0/2 Skip: 0/2
 + KZG - Verify blob KZG proof batch - verify_blob_kzg_proof_batch_case_proof_length_differen OK
 ```
 OK: 253/253 Fail: 0/253 Skip: 0/253
+## EF - KZG - EIP7594
+```diff
++ KZG - Compute Cells And Proofs - compute_cells_and_kzg_proofs_case_invalid_blob_26555bdcbf OK
++ KZG - Compute Cells And Proofs - compute_cells_and_kzg_proofs_case_invalid_blob_79fb3cb1ef OK
++ KZG - Compute Cells And Proofs - compute_cells_and_kzg_proofs_case_invalid_blob_7e99dea889 OK
++ KZG - Compute Cells And Proofs - compute_cells_and_kzg_proofs_case_invalid_blob_9d88c33852 OK
++ KZG - Compute Cells And Proofs - compute_cells_and_kzg_proofs_case_valid_419245fbfe69f145  OK
++ KZG - Compute Cells And Proofs - compute_cells_and_kzg_proofs_case_valid_4aedd1a2a3933c3e  OK
++ KZG - Compute Cells And Proofs - compute_cells_and_kzg_proofs_case_valid_6e773f256383918c  OK
++ KZG - Compute Cells And Proofs - compute_cells_and_kzg_proofs_case_valid_b0731ef77b166ca8  OK
++ KZG - Compute Cells And Proofs - compute_cells_and_kzg_proofs_case_valid_b81d309b22788820  OK
++ KZG - Compute Cells And Proofs - compute_cells_and_kzg_proofs_case_valid_ed8b5001151417d5  OK
++ KZG - Compute Cells And Proofs - compute_cells_and_kzg_proofs_case_valid_edeb8500a6507818  OK
++ KZG - Recover Cells And Kzg Proofs - recover_cells_and_kzg_proofs_case_invalid_all_cells_a OK
++ KZG - Recover Cells And Kzg Proofs - recover_cells_and_kzg_proofs_case_invalid_cell_047ee7 OK
++ KZG - Recover Cells And Kzg Proofs - recover_cells_and_kzg_proofs_case_invalid_cell_76ab46 OK
++ KZG - Recover Cells And Kzg Proofs - recover_cells_and_kzg_proofs_case_invalid_cell_77b669 OK
++ KZG - Recover Cells And Kzg Proofs - recover_cells_and_kzg_proofs_case_invalid_cell_c8e2ca OK
++ KZG - Recover Cells And Kzg Proofs - recover_cells_and_kzg_proofs_case_invalid_cell_index_ OK
++ KZG - Recover Cells And Kzg Proofs - recover_cells_and_kzg_proofs_case_invalid_duplicate_c OK
++ KZG - Recover Cells And Kzg Proofs - recover_cells_and_kzg_proofs_case_invalid_more_cell_i OK
++ KZG - Recover Cells And Kzg Proofs - recover_cells_and_kzg_proofs_case_invalid_more_cells_ OK
++ KZG - Recover Cells And Kzg Proofs - recover_cells_and_kzg_proofs_case_invalid_more_cells_ OK
++ KZG - Recover Cells And Kzg Proofs - recover_cells_and_kzg_proofs_case_invalid_more_than_h OK
++ KZG - Recover Cells And Kzg Proofs - recover_cells_and_kzg_proofs_case_valid_half_missing_ OK
++ KZG - Recover Cells And Kzg Proofs - recover_cells_and_kzg_proofs_case_valid_half_missing_ OK
++ KZG - Recover Cells And Kzg Proofs - recover_cells_and_kzg_proofs_case_valid_half_missing_ OK
++ KZG - Recover Cells And Kzg Proofs - recover_cells_and_kzg_proofs_case_valid_no_missing_a1 OK
++ KZG - Verify Cell Kzg Proof Batch - verify_cell_kzg_proof_batch_case_incorrect_cell_48bcbf OK
++ KZG - Verify Cell Kzg Proof Batch - verify_cell_kzg_proof_batch_case_incorrect_commitment_ OK
++ KZG - Verify Cell Kzg Proof Batch - verify_cell_kzg_proof_batch_case_incorrect_proof_ba29f OK
++ KZG - Verify Cell Kzg Proof Batch - verify_cell_kzg_proof_batch_case_invalid_cell_bcb1b35c OK
++ KZG - Verify Cell Kzg Proof Batch - verify_cell_kzg_proof_batch_case_invalid_cell_d89304ce OK
++ KZG - Verify Cell Kzg Proof Batch - verify_cell_kzg_proof_batch_case_invalid_cell_d939faf6 OK
++ KZG - Verify Cell Kzg Proof Batch - verify_cell_kzg_proof_batch_case_invalid_cell_ef6ac828 OK
++ KZG - Verify Cell Kzg Proof Batch - verify_cell_kzg_proof_batch_case_invalid_cell_index_5d OK
++ KZG - Verify Cell Kzg Proof Batch - verify_cell_kzg_proof_batch_case_invalid_commitment_4b OK
++ KZG - Verify Cell Kzg Proof Batch - verify_cell_kzg_proof_batch_case_invalid_commitment_53 OK
++ KZG - Verify Cell Kzg Proof Batch - verify_cell_kzg_proof_batch_case_invalid_commitment_68 OK
++ KZG - Verify Cell Kzg Proof Batch - verify_cell_kzg_proof_batch_case_invalid_commitment_d3 OK
++ KZG - Verify Cell Kzg Proof Batch - verify_cell_kzg_proof_batch_case_invalid_missing_cell_ OK
++ KZG - Verify Cell Kzg Proof Batch - verify_cell_kzg_proof_batch_case_invalid_missing_cell_ OK
++ KZG - Verify Cell Kzg Proof Batch - verify_cell_kzg_proof_batch_case_invalid_missing_commi OK
++ KZG - Verify Cell Kzg Proof Batch - verify_cell_kzg_proof_batch_case_invalid_missing_proof OK
++ KZG - Verify Cell Kzg Proof Batch - verify_cell_kzg_proof_batch_case_invalid_proof_0424858 OK
++ KZG - Verify Cell Kzg Proof Batch - verify_cell_kzg_proof_batch_case_invalid_proof_48fa9d1 OK
++ KZG - Verify Cell Kzg Proof Batch - verify_cell_kzg_proof_batch_case_invalid_proof_8feaf47 OK
++ KZG - Verify Cell Kzg Proof Batch - verify_cell_kzg_proof_batch_case_invalid_proof_a9d14f0 OK
++ KZG - Verify Cell Kzg Proof Batch - verify_cell_kzg_proof_batch_case_valid_0cfba0f22152206 OK
++ KZG - Verify Cell Kzg Proof Batch - verify_cell_kzg_proof_batch_case_valid_3073caf43016db4 OK
++ KZG - Verify Cell Kzg Proof Batch - verify_cell_kzg_proof_batch_case_valid_5211d9e9ff34c00 OK
++ KZG - Verify Cell Kzg Proof Batch - verify_cell_kzg_proof_batch_case_valid_92c0b5242fa34ae OK
++ KZG - Verify Cell Kzg Proof Batch - verify_cell_kzg_proof_batch_case_valid_9fb9bff6fe1fb6b OK
++ KZG - Verify Cell Kzg Proof Batch - verify_cell_kzg_proof_batch_case_valid_d3f60d6d484ddb6 OK
++ KZG - Verify Cell Kzg Proof Batch - verify_cell_kzg_proof_batch_case_valid_fd341ee5517e590 OK
++ KZG - Verify Cell Kzg Proof Batch - verify_cell_kzg_proof_batch_case_valid_multiple_blobs_ OK
++ KZG - Verify Cell Kzg Proof Batch - verify_cell_kzg_proof_batch_case_valid_same_cell_multi OK
++ KZG - Verify Cell Kzg Proof Batch - verify_cell_kzg_proof_batch_case_valid_zero_cells_fbbd OK
+```
+OK: 56/56 Fail: 0/56 Skip: 0/56
 ## EF - SSZ generic types
 ```diff
   Testing basic_vector inputs - invalid                                                      Skip
@@ -455,6 +531,17 @@ OK: 10/12 Fail: 0/12 Skip: 2/12
 + snapshot_cases                                                                             OK
 ```
 OK: 5/5 Fail: 0/5 Skip: 0/5
+## EIP-7594 Sampling Tests
+```diff
++ EIP7594: Extended Sample Count                                                             OK
+```
+OK: 1/1 Fail: 0/1 Skip: 0/1
+## EIP-7594 Unit Tests
+```diff
++ EIP-7594: Compute Matrix                                                                   OK
++ EIP:7594: Recover Matrix                                                                   OK
+```
+OK: 2/2 Fail: 0/2 Skip: 0/2
 ## EL Configuration
 ```diff
 + Empty config file                                                                          OK
@@ -1038,4 +1125,4 @@ OK: 2/2 Fail: 0/2 Skip: 0/2
 OK: 9/9 Fail: 0/9 Skip: 0/9
 
 ---TOTAL---
-OK: 691/696 Fail: 0/696 Skip: 5/696
+OK: 762/767 Fail: 0/767 Skip: 5/767

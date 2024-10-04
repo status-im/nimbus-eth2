@@ -112,7 +112,22 @@ template capella_steps() =
   do_check
 
 template deneb_steps() =
+  b.message.body.execution_payload.blob_gas_used = 8
+  do_check
+  b.message.body.execution_payload.excess_blob_gas = 9
+  do_check
   check: b.message.body.blob_kzg_commitments.add(default(KzgCommitment))
+  do_check
+
+template electra_steps() =
+  check: b.message.body.execution_requests.deposits.add(
+    default(DepositRequest))
+  do_check
+  check: b.message.body.execution_requests.withdrawals.add(
+    default(WithdrawalRequest))
+  do_check
+  check: b.message.body.execution_requests.consolidations.add(
+    default(ConsolidationRequest))
   do_check
 
 suite "Blinded block conversions":
@@ -127,5 +142,5 @@ suite "Blinded block conversions":
         when consensusFork >= ConsensusFork.Deneb:
           deneb_steps
         when consensusFork >= ConsensusFork.Electra:
-          debugComment "add electra_steps"
+          electra_steps
         static: doAssert high(ConsensusFork) == ConsensusFork.Electra

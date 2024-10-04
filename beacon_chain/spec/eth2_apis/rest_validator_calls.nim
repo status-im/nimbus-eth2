@@ -71,12 +71,28 @@ proc getAggregatedAttestationPlain*(
      meth: MethodGet.}
   ## https://ethereum.github.io/beacon-APIs/#/Validator/getAggregatedAttestation
 
+proc getAggregatedAttestationPlainV2*(
+       attestation_data_root: Eth2Digest,
+       slot: Slot,
+       committee_index: CommitteeIndex
+     ): RestPlainResponse {.
+     rest, endpoint: "/eth/v2/validator/aggregate_attestation"
+     meth: MethodGet.}
+  ## https://ethereum.github.io/beacon-APIs/?urls.primaryName=dev#/Beacon/getPoolAttestationsV2
+
 proc publishAggregateAndProofs*(
        body: seq[phase0.SignedAggregateAndProof]
      ): RestPlainResponse {.
      rest, endpoint: "/eth/v1/validator/aggregate_and_proofs",
      meth: MethodPost.}
   ## https://ethereum.github.io/beacon-APIs/#/Validator/publishAggregateAndProofs
+
+proc publishAggregateAndProofsV2*(
+       body: seq[phase0.SignedAggregateAndProof | electra.SignedAggregateAndProof]
+     ): RestPlainResponse {.
+     rest, endpoint: "/eth/v2/validator/aggregate_and_proofs",
+     meth: MethodPost.}
+  ## https://ethereum.github.io/beacon-APIs/?urls.primaryName=dev#/Validator/publishAggregateAndProofsV2
 
 proc prepareBeaconCommitteeSubnet*(
        body: seq[RestCommitteeSubscription]

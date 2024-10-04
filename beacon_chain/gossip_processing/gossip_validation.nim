@@ -11,6 +11,7 @@ import
   # Status
   chronicles, chronos, metrics,
   results,
+  kzg4844/[kzg, kzg_abi],
   stew/byteutils,
   # Internals
   ../spec/[
@@ -93,7 +94,7 @@ func check_propagation_slot_range(
     return ok(msgSlot)
 
   if consensusFork < ConsensusFork.Deneb:
-    # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.1/specs/phase0/p2p-interface.md#configuration
+    # https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.6/specs/phase0/p2p-interface.md#configuration
     # The spec value of ATTESTATION_PROPAGATION_SLOT_RANGE is 32, but it can
     # retransmit attestations on the cusp of being out of spec, and which by
     # the time they reach their destination might be out of spec.
@@ -275,10 +276,6 @@ template checkedReject(
     pool: ValidatorChangePool, error: ValidationError): untyped =
   pool.dag.checkedReject(error)
 
-template checkedResult(
-    pool: ValidatorChangePool, error: ValidationError): untyped =
-  pool.dag.checkedResult(error)
-
 template validateBeaconBlockBellatrix(
     signed_beacon_block: phase0.SignedBeaconBlock | altair.SignedBeaconBlock,
     parent: BlockRef): untyped =
@@ -303,7 +300,7 @@ template validateBeaconBlockBellatrix(
   #
   # `is_merge_transition_complete(state)` tests for
   # `state.latest_execution_payload_header != ExecutionPayloadHeader()`, while
-  # https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.5/specs/bellatrix/beacon-chain.md#block-processing
+  # https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.6/specs/bellatrix/beacon-chain.md#block-processing
   # shows that `state.latest_execution_payload_header` being default or not is
   # exactly equivalent to whether that block's execution payload is default or
   # not, so test cached block information rather than reconstructing a state.
@@ -458,7 +455,7 @@ proc validateBlobSidecar*(
   # [REJECT] The sidecar's blob is valid as verified by `verify_blob_kzg_proof(
   # blob_sidecar.blob, blob_sidecar.kzg_commitment, blob_sidecar.kzg_proof)`.
   block:
-    let ok = verifyProof(
+    let ok = verifyBlobKzgProof(
         KzgBlob(bytes: blob_sidecar.blob),
         blob_sidecar.kzg_commitment,
         blob_sidecar.kzg_proof).valueOr:
@@ -482,7 +479,7 @@ proc validateBlobSidecar*(
 # https://github.com/ethereum/consensus-specs/blob/v1.3.0/specs/bellatrix/p2p-interface.md#beacon_block
 proc validateBeaconBlock*(
     dag: ChainDAGRef, quarantine: ref Quarantine,
-    signed_beacon_block: phase0.SignedBeaconBlock | altair.SignedBeaconBlock | bellatrix.SignedBeaconBlock | capella.SignedBeaconBlock | deneb.SignedBeaconBlock,
+    signed_beacon_block: ForkySignedBeaconBlock,
     wallTime: BeaconTime, flags: UpdateFlags): Result[void, ValidationError] =
   # In general, checks are ordered from cheap to expensive. Especially, crypto
   # verification could be quite a bit more expensive than the rest. This is an
@@ -670,13 +667,6 @@ proc validateBeaconBlock*(
     quarantine[].addUnviable(signed_beacon_block.root)
     return dag.checkedReject("BeaconBlock: Invalid proposer signature")
 
-  ok()
-
-proc validateBeaconBlock*(
-    dag: ChainDAGRef, quarantine: ref Quarantine,
-    signed_beacon_block: electra.SignedBeaconBlock,
-    wallTime: BeaconTime, flags: UpdateFlags): Result[void, ValidationError] =
-  debugComment "it's sometimes not"
   ok()
 
 # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.1/specs/phase0/p2p-interface.md#beacon_attestation_subnet_id
@@ -896,11 +886,9 @@ proc validateAttestation*(
           attestation = shortLog(attestation), target = shortLog(target)
         return errIgnore("Attestation: no shuffling")
 
-  let
-    fork = pool.dag.forkAtEpoch(attestation.data.slot.epoch)
-    attesting_index = get_attesting_indices_one(
-      shufflingRef, slot, attestation.committee_bits,
-      attestation.aggregation_bits, false)
+  let attesting_index = get_attesting_indices_one(
+    shufflingRef, slot, attestation.committee_bits,
+    attestation.aggregation_bits, false)
 
   # The number of aggregation bits matches the committee size, which ensures
   # this condition holds.
@@ -1176,18 +1164,15 @@ proc validateAggregate*(
         "Attestation: committee index not within expected range")
     idx.get()
   let
-    fork = pool.dag.forkAtEpoch(aggregate.data.slot.epoch)
     attesting_indices = get_attesting_indices(
       shufflingRef, slot, committee_index, aggregate.aggregation_bits, false)
-
-  let
     sig =
       aggregate.signature.load().valueOr:
         return pool.checkedReject("Aggregate: unable to load signature")
 
   ok((attesting_indices, sig))
 
-# https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.5/specs/capella/p2p-interface.md#bls_to_execution_change
+# https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.6/specs/capella/p2p-interface.md#bls_to_execution_change
 proc validateBlsToExecutionChange*(
     pool: ValidatorChangePool, batchCrypto: ref BatchCrypto,
     signed_address_change: SignedBLSToExecutionChange,

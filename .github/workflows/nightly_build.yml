@@ -320,7 +320,7 @@ jobs:
           ref: unstable
 
       - name: Download artefacts
-        uses: actions/download-artifact@v3
+        uses: actions/download-artifact@v4.1.7
 
       - name: Create release notes
         run: |

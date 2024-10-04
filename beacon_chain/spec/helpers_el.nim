@@ -14,13 +14,8 @@ import
 
 func readExecutionTransaction(
     txBytes: bellatrix.Transaction): Result[ExecutionTransaction, string] =
-  # Nim 2.0.8: `rlp.decode(distinctBase(txBytes), ExecutionTransaction)`
-  # uses the generic `read` from `rlp.nim` instead of the specific `read`
-  # from `eth_types_rlp.nim`, leading to compilation error.
-  # Doing this in two steps works around this resolution order issue.
-  var rlp = rlpFromBytes(distinctBase(txBytes))
   try:
-    ok rlp.read(ExecutionTransaction)
+    ok rlp.decode(distinctBase(txBytes), ExecutionTransaction)
   except RlpError as exc:
     err("Invalid transaction: " & exc.msg)
 
