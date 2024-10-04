@@ -556,7 +556,8 @@ proc getMissingDataColumns(rman: RequestManager): seq[DataColumnIdentifier] =
             let local_custody =
               rman.network.nodeId.get_custody_columns(max(SAMPLES_PER_SLOT.uint64,
                                                           local_csc))
-            if id.index in local_custody and id notin fetches:
+            if id.index in local_custody and id notin fetches and 
+                len(forkyBlck.message.body.blob_kzg_commitments) != 0:
               fetches.add(id)
         else:
           # this is a programming error and it not should occur
