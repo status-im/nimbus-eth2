@@ -140,7 +140,7 @@ proc getLastSeenAddress(node: BeaconNode, id: PeerId): string =
         if isUDP or isTCP:
           # TODO (cheatfate): We match TCP here because `nim-libp2p` do not have
           # QUIC support yet. So we give TCP addresses priority.
-          let boost = if isUDP: 100 else 0
+          let boost = if isUDP: 100 else: 0
           if IP4.matchPartial(address):
             let address4 =
               address.getProtocolArgument(multiCodec("ip4")).valueOr:
@@ -161,7 +161,7 @@ proc getLastSeenAddress(node: BeaconNode, id: PeerId): string =
             let address6 =
               address.getProtocolArgument(multiCodec("ip6")).valueOr:
                 continue
-            var ta6 = TransportAddress(family: AddressFamily.IPv4)
+            var ta6 = TransportAddress(family: AddressFamily.IPv6)
             ta6.address_v6[0 .. 15] = address6[0 .. 15]
             if ta6.isLoopback():
               (address, boost + 8)
