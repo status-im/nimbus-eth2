@@ -132,45 +132,51 @@ proc getLastSeenAddress(node: BeaconNode, id: PeerId): string =
   var temp: seq[tuple[address: MultiAddress, position: int]]
   for address in addresses:
     let res =
-      if TCP.matchPartial(address):
-        # TODO (cheatfate): We match TCP here because `nim-libp2p` do not have
-        # QUIC support yet. So we give TCP addresses priority.
-        if IP4.matchPartial(address):
-          let address4 = address.getProtocolArgument(multiCodec("ip4")).valueOr:
-            continue
-          var ta4 = TransportAddress(family: AddressFamily.IPv4)
-          ta4.address_v4[0 .. 3] = address4[0 .. 3]
-          if ta4.isLoopback():
-            (address, 9)
-          elif ta4.isLinkLocal():
-            (address, 7)
-          elif ta4.isSiteLocal():
-            (address, 5)
-          elif ta4.isGlobal():
-            (address, 2)
+      block:
+        let
+          isUDP = UDP.matchPartial(address)
+          isTCP = TCP.matchPartial(address)
+
+        if isUDP or isTCP:
+          # TODO (cheatfate): We match TCP here because `nim-libp2p` do not have
+          # QUIC support yet. So we give TCP addresses priority.
+          let boost = if isUDP: 100 else 0
+          if IP4.matchPartial(address):
+            let address4 =
+              address.getProtocolArgument(multiCodec("ip4")).valueOr:
+                continue
+            var ta4 = TransportAddress(family: AddressFamily.IPv4)
+            ta4.address_v4[0 .. 3] = address4[0 .. 3]
+            if ta4.isLoopback():
+              (address, boost + 9)
+            elif ta4.isLinkLocal():
+              (address, boost + 7)
+            elif ta4.isSiteLocal():
+              (address, boost + 5)
+            elif ta4.isGlobal():
+              (address, boost + 2)
+            else:
+              (address, boost + 11)
+          elif IP6.matchPartial(address):
+            let address6 =
+              address.getProtocolArgument(multiCodec("ip6")).valueOr:
+                continue
+            var ta6 = TransportAddress(family: AddressFamily.IPv4)
+            ta6.address_v6[0 .. 15] = address6[0 .. 15]
+            if ta6.isLoopback():
+              (address, boost + 8)
+            elif ta6.isLinkLocal():
+              (address, boost + 6)
+            elif ta6.isSiteLocal():
+              (address, boost + 4)
+            elif ta6.isGlobal():
+              (address, boost + 1)
+            else:
+              (address, boost + 10)
           else:
-            (address, 11)
-        elif IP6.matchPartial(address):
-          let address6 = address.getProtocolArgument(multiCodec("ip6")).valueOr:
-            continue
-          var ta6 = TransportAddress(family: AddressFamily.IPv4)
-          ta6.address_v6[0 .. 15] = address6[0 .. 15]
-          if ta6.isLoopback():
-            (address, 8)
-          elif ta6.isLinkLocal():
-            (address, 6)
-          elif ta6.isSiteLocal():
-            (address, 4)
-          elif ta6.isGlobal():
-            (address, 1)
-          else:
-            (address, 10)
+            (address, boost + 3)
         else:
           (address, 3)
-      else:
-        # TODO (chatfate): As soon as QUIC protocol will be implemented in
-        # `nim-libp2p` - TCP prioritization should be dropped
-        (address, 3)
     temp.add(res)
 
   if len(temp) > 0:
