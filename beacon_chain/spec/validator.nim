@@ -604,5 +604,3 @@ proc compute_on_chain_aggregate*(
       committee_bits: committee_bits,
       signature: signature.toValidatorSig(),
   )
-
-# https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.4/specs/_features/eip7732/validator.md#validator-assignment

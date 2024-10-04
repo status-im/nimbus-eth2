@@ -62,7 +62,7 @@ func is_parent_block_full*(state: epbs.BeaconState): bool =
       state.latest_block_hash
 
 # https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.4/specs/_features/eip7732/beacon-chain.md#get_ptc
-proc get_ptc(state: epbs.BeaconState, slot: Slot, cache: var StateCache): seq[ValidatorIndex] =
+proc get_ptc*(state: epbs.BeaconState, slot: Slot, cache: var StateCache): seq[ValidatorIndex] =
   let
     epoch = epoch(slot)
     committees_per_slot = bit_floor(min(get_committee_count_per_slot(
@@ -134,3 +134,17 @@ proc get_indexed_payload_attestation*(state: var epbs.BeaconState, slot: Slot,
     data: payload_attestation.data,
     signature: payload_attestation.signature
   )
+
+# https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.4/specs/_features/eip7732/validator.md#validator-assignment
+proc get_ptc_assignment(state: epbs.BeaconState, epoch: Epoch, cache: var StateCache,
+    validator_index: ValidatorIndex): Opt[Slot] =
+  
+  let 
+    start_slot = start_slot(epoch)
+    next_epoch = get_current_epoch(state) + 1
+  doAssert epoch <= next_epoch
+  
+  for slot in start_slot .. start_slot + SLOTS_PER_EPOCH - 1:
+    if validator_index in get_ptc(state, slot, cache):
+        return Opt.some slot 
+  return Opt.none(Slot) 

@@ -547,7 +547,7 @@ func kzg_commitment_inclusion_proof_outer_gindex*(
     BLOB_KZG_COMMITMENTS_FIRST_GINDEX =
       (BLOB_KZG_COMMITMENTS_BASE_GINDEX shl BLOB_KZG_COMMITMENTS_PROOF_DEPTH)
 
-  # [Debug]    
+  # # [Debug]    
   # static: 
   #   echo "BLOB_KZG_COMMITMENTS_FIRST_GINDEX_outer: ", 
   #     log2trunc(BLOB_KZG_COMMITMENTS_FIRST_GINDEX)  # 18
