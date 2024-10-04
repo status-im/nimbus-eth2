@@ -532,6 +532,7 @@ proc getMissingDataColumns(rman: RequestManager): seq[DataColumnIdentifier] =
     fetches: seq[DataColumnIdentifier]
     ready: seq[Eth2Digest]
 
+  return fetches
   for columnless in rman.quarantine[].peekColumnless():
     withBlck(columnless):
       when consensusFork >= ConsensusFork.Deneb:
