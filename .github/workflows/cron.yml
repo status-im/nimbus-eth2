@@ -35,11 +35,11 @@ jobs:
             nimflags-extra: --mm:refc
           - target:
               os: linux
-            builder: ubuntu-20.04
+            builder: ['self-hosted','ubuntu-22.04']
             shell: bash
           - target:
               os: macos
-            builder: macos-11
+            builder: macos-12
             shell: bash
           - target:
               os: windows
