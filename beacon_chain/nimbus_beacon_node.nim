@@ -640,55 +640,6 @@ proc init*(T: type BeaconNode,
         RestVersioned[ForkedLightClientOptimisticUpdate]]())
     db = BeaconChainDB.new(config.databaseDir, cfg, inMemory = false)
 
-  if config.externalBeaconApiUrl.isSome and ChainDAGRef.isInitialized(db).isErr:
-    let trustedBlockRoot =
-      if config.trustedStateRoot.isSome or config.trustedBlockRoot.isSome:
-        config.trustedBlockRoot
-      elif cfg.ALTAIR_FORK_EPOCH == GENESIS_EPOCH:
-        # Sync can be bootstrapped from the genesis block root
-        if genesisState.isNil:
-          genesisState = await fetchGenesisState(
-            metadata, config.genesisState, config.genesisStateUrl)
-        if not genesisState.isNil:
-          let genesisBlockRoot = get_initial_beacon_block(genesisState[]).root
-          notice "Neither `--trusted-block-root` nor `--trusted-state-root` " &
-            "provided with `--external-beacon-api-url`, " &
-            "falling back to genesis block root",
-            externalBeaconApiUrl = config.externalBeaconApiUrl.get,
-            trustedBlockRoot = config.trustedBlockRoot,
-            trustedStateRoot = config.trustedStateRoot,
-            genesisBlockRoot = $genesisBlockRoot
-          some genesisBlockRoot
-        else:
-          none[Eth2Digest]()
-      else:
-        none[Eth2Digest]()
-    if config.trustedStateRoot.isNone and trustedBlockRoot.isNone:
-      warn "Ignoring `--external-beacon-api-url`, neither " &
-        "`--trusted-block-root` nor `--trusted-state-root` provided",
-        externalBeaconApiUrl = config.externalBeaconApiUrl.get,
-        trustedBlockRoot = config.trustedBlockRoot,
-        trustedStateRoot = config.trustedStateRoot
-    else:
-      if genesisState.isNil:
-        genesisState = await fetchGenesisState(
-          metadata, config.genesisState, config.genesisStateUrl)
-      await db.doRunTrustedNodeSync(
-        metadata,
-        config.databaseDir,
-        config.eraDir,
-        config.externalBeaconApiUrl.get,
-        config.trustedStateRoot.map do (x: Eth2Digest) -> string:
-          "0x" & x.data.toHex,
-        trustedBlockRoot,
-        backfill = false,
-        reindex = false,
-        downloadDepositSnapshot = false,
-        genesisState)
-
-  if config.finalizedCheckpointBlock.isSome:
-    warn "--finalized-checkpoint-block has been deprecated, ignoring"
-
   let checkpointState = if config.finalizedCheckpointState.isSome:
     let checkpointStatePath = config.finalizedCheckpointState.get.string
     let tmp = try:
@@ -822,9 +773,6 @@ proc init*(T: type BeaconNode,
     db,
     engineApiUrls,
     eth1Network)
-
-  if config.rpcEnabled.isSome:
-    warn "Nimbus's JSON-RPC server has been removed. This includes the --rpc, --rpc-port, and --rpc-address configuration options. https://nimbus.guide/rest-api.html shows how to enable and configure the REST Beacon API server which replaces it."
 
   let restServer = if config.restEnabled:
     RestServerRef.init(config.restAddress, config.restPort,
@@ -2231,12 +2179,20 @@ proc doRunBeaconNode(config: var BeaconNodeConf, rng: ref HmacDrbgContext) {.rai
     if config.option.isSome:
       warn "Config option is deprecated",
         option = config.option.get
+
   ignoreDeprecatedOption requireEngineAPI
   ignoreDeprecatedOption safeSlotsToImportOptimistically
   ignoreDeprecatedOption terminalTotalDifficultyOverride
   ignoreDeprecatedOption optimistic
   ignoreDeprecatedOption validatorMonitorTotals
   ignoreDeprecatedOption web3ForcePolling
+  ignoreDeprecatedOption externalBeaconApiUrl
+  ignoreDeprecatedOption trustedStateRoot
+  ignoreDeprecatedOption trustedBlockRoot
+  ignoreDeprecatedOption finalizedCheckpointBlock
+  ignoreDeprecatedOption rpcEnabled
+  ignoreDeprecatedOption rpcPort
+  ignoreDeprecatedOption rpcAddress
 
   createPidFile(config.dataDir.string / "beacon_node.pid")
 

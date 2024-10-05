@@ -225,7 +225,7 @@ type
 
     requireEngineAPI* {.
       hidden  # Deprecated > 22.9
-      desc: "Require Nimbus to be configured with an Engine API end-point after the Bellatrix fork epoch"
+      desc: "Require Nimbus to be configured with an Engine API end-point after the Bellatrix fork epoch (deprecated)"
       name: "require-engine-api-in-bellatrix" .}: Option[bool]
 
     nonInteractive* {.
@@ -341,7 +341,8 @@ type
         name: "weak-subjectivity-checkpoint" .}: Option[Checkpoint]
 
       externalBeaconApiUrl* {.
-        desc: "External beacon API to use for syncing (on empty database)"
+        hidden
+        desc: "deprecated for removal. Use `build/nimbus_beacon_node trustedNodeSync` instead"
         name: "external-beacon-api-url" .}: Option[string]
 
       syncLightClient* {.
@@ -350,15 +351,13 @@ type
         name: "sync-light-client" .}: bool
 
       trustedBlockRoot* {.
-        desc: "Recent trusted finalized block root to sync from external " &
-              "beacon API (with `--external-beacon-api-url`). " &
-              "Uses the light client sync protocol to obtain the latest " &
-              "finalized checkpoint (LC is initialized from trusted block root)"
+        hidden
+        desc: "deprecated for removal. Use `build/nimbus_beacon_node trustedNodeSync` instead"
         name: "trusted-block-root" .}: Option[Eth2Digest]
 
       trustedStateRoot* {.
-        desc: "Recent trusted finalized state root to sync from external " &
-              "beacon API (with `--external-beacon-api-url`)"
+        hidden
+        desc: "deprecated for removal. Use `build/nimbus_beacon_node trustedNodeSync` instead"
         name: "trusted-state-root" .}: Option[Eth2Digest]
 
       finalizedCheckpointState* {.
@@ -379,7 +378,7 @@ type
 
       finalizedCheckpointBlock* {.
         hidden
-        desc: "SSZ file specifying a recent finalized block"
+        desc: "deprecated for removal"
         name: "finalized-checkpoint-block" .}: Option[InputFile]
 
       nodeName* {.
@@ -448,19 +447,28 @@ type
       rpcEnabled* {.
         # Deprecated > 1.7.0
         hidden
-        desc: "Deprecated for removal"
+        desc: "Deprecated for removal. Nimbus's JSON-RPC server has been removed." &
+              " This includes the --rpc, --rpc-port, and --rpc-address configuration options." &
+              " https://nimbus.guide/rest-api.html shows how to enable and configure" &
+              " the REST Beacon API server which replaces it."
         name: "rpc" .}: Option[bool]
 
       rpcPort* {.
         # Deprecated > 1.7.0
         hidden
-        desc: "Deprecated for removal"
+        desc: "Deprecated for removal. Nimbus's JSON-RPC server has been removed." &
+              " This includes the --rpc, --rpc-port, and --rpc-address configuration options." &
+              " https://nimbus.guide/rest-api.html shows how to enable and configure" &
+              " the REST Beacon API server which replaces it."
         name: "rpc-port" .}: Option[Port]
 
       rpcAddress* {.
         # Deprecated > 1.7.0
         hidden
-        desc: "Deprecated for removal"
+        desc: "Deprecated for removal. Nimbus's JSON-RPC server has been removed." &
+              " This includes the --rpc, --rpc-port, and --rpc-address configuration options." &
+              " https://nimbus.guide/rest-api.html shows how to enable and configure" &
+              " the REST Beacon API server which replaces it."
         name: "rpc-address" .}: Option[IpAddress]
 
       restEnabled* {.
