@@ -15,7 +15,7 @@ from ./spec/datatypes/capella import
   ExecutionPayloadHeader, HistoricalSummary, Withdrawal
 from ./spec/datatypes/deneb import ExecutionPayloadHeader
 from ./spec/datatypes/electra import
-  ExecutionPayloadHeader, PendingConsolidation, PendingBalanceDeposit,
+  ExecutionPayloadHeader, PendingConsolidation, PendingDeposit,
   PendingPartialWithdrawal
 
 type
@@ -407,8 +407,7 @@ type
     earliest_exit_epoch*: Epoch  # [New in Electra:EIP7251]
     consolidation_balance_to_consume*: Gwei  # [New in Electra:EIP7251]
     earliest_consolidation_epoch*: Epoch  # [New in Electra:EIP7251]
-    pending_balance_deposits*:
-      HashList[PendingBalanceDeposit, Limit PENDING_BALANCE_DEPOSITS_LIMIT]
+    pending_deposits*: HashList[PendingDeposit, Limit PENDING_DEPOSITS_LIMIT]
       ## [New in Electra:EIP7251]
 
     # [New in Electra:EIP7251]

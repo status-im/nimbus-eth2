@@ -41,9 +41,6 @@ proc valid_deposit(state: var ForkyHashedBeaconState) =
     sortValidatorBuckets(state.data.validators.asSeq)[], deposit, {}).isOk
   doAssert state.data.validators.len == pre_val_count + 1
   when typeof(state).kind >= ConsensusFork.Electra:
-    doAssert state.data.pending_balance_deposits.asSeq[^1] ==
-      PendingBalanceDeposit(index: pre_val_count.uint64,
-      amount: deposit.data.amount)
     doAssert state.data.balances.item(validator_index) == pre_balance
   else:
     doAssert state.data.balances.item(validator_index) ==

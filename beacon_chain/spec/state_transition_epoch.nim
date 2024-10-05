@@ -1223,8 +1223,32 @@ func process_historical_summaries_update*(
 
   ok()
 
-# https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.3/specs/electra/beacon-chain.md#new-process_pending_balance_deposits
-func process_pending_balance_deposits*(
+from "."/signatures import verify_deposit_signature
+from ".."/validator_bucket_sort import
+  BucketSortedValidators, add, findValidatorIndex, sortValidatorBuckets
+
+# https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.7/specs/electra/beacon-chain.md#new-apply_pending_deposit
+func apply_pending_deposit(
+    cfg: RuntimeConfig, state: var electra.BeaconState, deposit: PendingDeposit,
+    validator_index: Opt[ValidatorIndex]): Result[void, cstring] =
+  ## Applies ``deposit`` to the ``state``.
+  if validator_index.isNone:
+    # Verify the deposit signature (proof of possession) which is not checked by
+    # the deposit contract
+    let deposit_data = DepositData(
+      pubkey: deposit.pubkey,
+      withdrawal_credentials: deposit.withdrawal_credentials,
+      amount: deposit.amount, signature: deposit.signature)
+    if verify_deposit_signature(cfg, deposit_data):
+      ? add_validator_to_registry(state, deposit_data, deposit_data.amount)
+  else:
+    # Increase balance
+    increase_balance(state, validator_index.get, deposit.amount)
+
+  ok()
+
+# https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.7/specs/electra/beacon-chain.md#new-process_pending_deposits
+func process_pending_deposits*(
     cfg: RuntimeConfig, state: var electra.BeaconState,
     cache: var StateCache): Result[void, cstring] =
   let
@@ -1234,53 +1258,89 @@ func process_pending_balance_deposits*(
   var
     processed_amount = 0.Gwei
     next_deposit_index = 0
-    deposits_to_postpone: seq[PendingBalanceDeposit]
+    deposits_to_postpone: seq[PendingDeposit]
+    is_churn_limit_reached = false
+    bsv: ref BucketSortedValidators   # initialized when required
+  let finalized_slot = start_slot(state.finalized_checkpoint.epoch)
 
-  for deposit in state.pending_balance_deposits:
-    let validator = state.validators.item(deposit.index)
+  for deposit in state.pending_deposits:
+    # Do not process deposit requests if Eth1 bridge deposits are not yet applied.
+    if  deposit.slot > GENESIS_SLOT and  # Is deposit request
+        # There are pending Eth1 bridge deposits
+        state.eth1_deposit_index < state.deposit_requests_start_index:
+      break
 
-    let deposit_validator_index = ValidatorIndex.init(deposit.index).valueOr:
-      # TODO this function in spec doesn't really have error returns as such
-      return err("process_pending_balance_deposits: deposit index out of range")
+    # Check if deposit has been finalized, otherwise, stop processing.
+    if deposit.slot > finalized_slot:
+      break
 
-    # Validator is exiting, postpone the deposit until after withdrawable epoch
-    if validator.exit_epoch < FAR_FUTURE_EPOCH:
-      if next_epoch <= validator.withdrawable_epoch:
-        deposits_to_postpone.add(deposit)
-      # Deposited balance will never become active. Increase balance but do not
-      # consume churn
-      else:
-        increase_balance(state, deposit_validator_index, deposit.amount)
-    # Validator is not exiting, attempt to process deposit
+    # Check if number of processed deposits has not reached the limit,
+    # otherwise, stop processing.
+    if next_deposit_index >= MAX_PENDING_DEPOSITS_PER_EPOCH:
+      break
+
+    # Don't initialize this unless it's going to be used
+    if bsv.isNil:
+      bsv = sortValidatorBuckets(state.validators.asSeq)
+
+    # Read validator state
+    var
+      is_validator_exited = false
+      is_validator_withdrawn = false
+    let index =
+      findValidatorIndex(state.validators.asSeq, bsv[], deposit.pubkey)
+    if index.isOk:
+      let validator = state.validators.item(index.get)
+      is_validator_exited = validator.exit_epoch < FAR_FUTURE_EPOCH
+      is_validator_withdrawn = validator.withdrawable_epoch < next_epoch
+
+    if is_validator_withdrawn:
+      # Deposited balance will never become active. Increase balance but do
+      # not consume churn
+
+      # can't fail because it's not adding a validator, so only increase_balance
+      discard apply_pending_deposit(cfg, state, deposit, index)
+    elif is_validator_exited:
+      # Validator is exiting, postpone the deposit until after withdrawable
+      # epoch
+      deposits_to_postpone.add(deposit)
     else:
-      # Deposit does not fit in the churn, no more deposit processing in this
-      # epoch.
-      if processed_amount + deposit.amount > available_for_processing:
+      # Check if deposit fits in the churn, otherwise, do no more deposit
+      # processing in this epoch.
+      is_churn_limit_reached =
+        processed_amount + deposit.amount > available_for_processing
+      if is_churn_limit_reached:
         break
-      # Deposit fits in the churn, process it. Increase balance and consume churn.
-      else:
-        increase_balance(state, deposit_validator_index, deposit.amount)
-        processed_amount += deposit.amount
+
+      # Consume churn and apply deposit.
+      processed_amount += deposit.amount
+
+      # Can only fail due to add_validator_to_registry
+      if apply_pending_deposit(cfg, state, deposit, index).isOk:
+        if index.isNone:   # this will have added a new validator
+          let last_validator_index = state.validators.len - 1
+          if  last_validator_index >= 0 and
+              last_validator_index.int64 <= static(high(ValidatorIndex).int64):
+            bsv[].add(last_validator_index.ValidatorIndex)
 
     # Regardless of how the deposit was handled, we move on in the queue.
     next_deposit_index += 1
 
-  state.pending_balance_deposits =
-    HashList[PendingBalanceDeposit, Limit PENDING_BALANCE_DEPOSITS_LIMIT].init(
-      state.pending_balance_deposits.asSeq[next_deposit_index..^1])
+  state.pending_deposits =
+    HashList[PendingDeposit, Limit PENDING_DEPOSITS_LIMIT].init(
+      state.pending_deposits.asSeq[next_deposit_index..^1] &
+      deposits_to_postpone)
 
-  if len(state.pending_balance_deposits) == 0:
-    state.deposit_balance_to_consume = Gwei(0)
-  else:
+  # Accumulate churn only if the churn limit has been hit.
+  if is_churn_limit_reached:
     state.deposit_balance_to_consume =
       available_for_processing - processed_amount
-
-  if len(deposits_to_postpone) > 0:
-    discard state.pending_balance_deposits.add deposits_to_postpone
+  else:
+    state.deposit_balance_to_consume = Gwei(0)
 
   ok()
 
-# https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.0/specs/electra/beacon-chain.md#new-process_pending_consolidations
+# https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.7/specs/electra/beacon-chain.md#new-process_pending_consolidations
 func process_pending_consolidations*(
     cfg: RuntimeConfig, state: var electra.BeaconState):
     Result[void, cstring] =
@@ -1303,14 +1363,17 @@ func process_pending_consolidations*(
           pending_consolidation.target_index).valueOr:
         return err("process_pending_consolidations: target index out of range")
 
-    # Churn any target excess active balance of target and raise its max
-    switch_to_compounding_validator(state, target_validator_index)
+    # Calculate the consolidated balance
+    let
+      max_effective_balance = get_max_effective_balance(source_validator)
+      source_effective_balance = min(
+        state.balances.item(pending_consolidation.source_index),
+        max_effective_balance)
 
     # Move active balance to target. Excess balance is withdrawable.
-    let active_balance = get_active_balance(state, source_validator_index)
-    decrease_balance(state, source_validator_index, active_balance)
-    increase_balance(state, target_validator_index, active_balance)
-    inc next_pending_consolidation
+    decrease_balance(state, source_validator_index, source_effective_balance)
+    increase_balance(state, target_validator_index, source_effective_balance)
+    next_pending_consolidation += 1
 
   state.pending_consolidations =
     HashList[PendingConsolidation, Limit PENDING_CONSOLIDATIONS_LIMIT].init(
@@ -1496,8 +1559,8 @@ proc process_epoch*(
   process_slashings(state, info.balances.current_epoch)
 
   process_eth1_data_reset(state)
-  ? process_pending_balance_deposits(cfg, state, cache)  # [New in Electra:EIP7251]
-  ? process_pending_consolidations(cfg, state)  # [New in Electra:EIP7251]
+  ? process_pending_deposits(cfg, state, cache)  # [New in Electra:EIP7251]
+  ? process_pending_consolidations(cfg, state)   # [New in Electra:EIP7251]
   process_effective_balance_updates(state)  # [Modified in Electra:EIP7251]
   process_slashings_reset(state)
   process_randao_mixes_reset(state)
@@ -1581,33 +1644,15 @@ proc get_validator_balance_after_epoch*(
     post_epoch_balance,
     get_slashing(state, info.balances.current_epoch, index))
 
-  # Electra adds process_pending_balance_deposit to the list of potential
-  # balance-changing epoch operations. This should probably be cached, so
-  # the 16+ invocations of this function each time, e.g., withdrawals are
-  # calculated don't repeat it, if it's empirically too expensive. Limits
-  # exist on how large this structure can get though.
+  # Electra adds apply_pending_deposit as a potential balance-changing epoch
+  # operations. This should probably be cached, so its 16+ invocations, each
+  # time, e.g., withdrawals are calculated don't repeat, if it's empirically
+  # too expensive. Limits exist on how large this structure can get though.
+  #
+  # TODO withdrawals and consolidation request processing can also affect this
   when type(state).kind >= ConsensusFork.Electra:
-    let available_for_processing = state.deposit_balance_to_consume +
-      get_activation_exit_churn_limit(cfg, state, cache)
-    var processed_amount = 0.Gwei
-
-    for deposit in state.pending_balance_deposits:
-      let
-        validator = state.validators.item(deposit.index)
-        deposit_validator_index = ValidatorIndex.init(deposit.index).valueOr:
-          break
-
-      # Validator is exiting, postpone the deposit until after withdrawable epoch
-      if validator.exit_epoch < FAR_FUTURE_EPOCH:
-        if  not(get_current_epoch(state) <= validator.withdrawable_epoch) and
-            deposit_validator_index == index:
-          increase_balance(post_epoch_balance, deposit.amount)
-      # Validator is not exiting, attempt to process deposit
-      else:
-        if not(processed_amount + deposit.amount > available_for_processing):
-          if deposit_validator_index == index:
-            increase_balance(post_epoch_balance, deposit.amount)
-          processed_amount += deposit.amount
+    for deposit in state.pending_deposits:
+      discard
 
   post_epoch_balance
 
