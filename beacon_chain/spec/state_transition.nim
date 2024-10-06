@@ -365,7 +365,7 @@ func partialBeaconBlock*(
 ): auto =
   const consensusFork = typeof(state).kind
 
-  # https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.6/specs/phase0/validator.md#preparing-for-a-beaconblock
+  # https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.7/specs/phase0/validator.md#preparing-for-a-beaconblock
   var res = consensusFork.BeaconBlock(
     slot: state.data.slot,
     proposer_index: proposer_index.uint64,
