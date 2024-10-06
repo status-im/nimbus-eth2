@@ -646,7 +646,7 @@ func hypergeom_cdf*(k: int, population: int, successes: int, draws: int):
       
 # https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.4/specs/_features/eip7732/beacon-chain.md#remove_flag
 func remove_flag*(flags: ParticipationFlags,
-    flag_index: int): ParticipationFlags =
+    flag_index: TimelyFlag): ParticipationFlags =
   let flag = ParticipationFlags(1'u8 shl ord(flag_index))
   flags and not flag
 

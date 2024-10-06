@@ -35,7 +35,8 @@ from ./capella import
 from ./deneb import 
   Blobs, BlobsBundle, KzgCommitments, KzgProofs, BlobIndex, Blob
 from ./electra import PendingBalanceDeposit, PendingPartialWithdrawal, 
-  PendingConsolidation, ElectraCommitteeValidatorsBits, AttestationCommitteeBits
+  PendingConsolidation, ElectraCommitteeValidatorsBits, 
+  AttestationCommitteeBits, ExecutionRequests
 
 export json_serialization, base, kzg4844
 
@@ -47,7 +48,8 @@ const
   PROPOSER_REVEAL_BOOST*: uint64 = 20
 
 type
-      # https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.4/specs/_features/eip7732/p2p-interface.md#blobsidecar
+
+  # https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.4/specs/_features/eip7732/p2p-interface.md#blobsidecar
   BlobSidecar* = object
     index*: BlobIndex
       ## Index of blob in block
@@ -107,9 +109,10 @@ type
   ExecutePayload* = proc(
     execution_payload: ExecutionPayload): bool {.gcsafe, raises: [].}
 
-  # https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.4/specs/_features/eip7732/beacon-chain.md#signedexecutionpayloadenvelope
+  # https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.4/specs/_features/eip7732/beacon-chain.md#executionpayloadenvelope
   ExecutionPayloadEnvelope* = object
     payload*: ExecutionPayload
+    execution_requests: ExecutionRequests
     builder_index*: uint64
     beacon_block_root*: Eth2Digest
     blob_kzg_commitments*: List[KzgCommitment, Limit MAX_BLOB_COMMITMENTS_PER_BLOCK]
@@ -128,30 +131,54 @@ type
     genesis_validators_root*: Eth2Digest
     slot*: Slot
     fork*: Fork
+
+    # History
     latest_block_header*: BeaconBlockHeader
     block_roots*: HashArray[Limit SLOTS_PER_HISTORICAL_ROOT, Eth2Digest]
     state_roots*: HashArray[Limit SLOTS_PER_HISTORICAL_ROOT, Eth2Digest]
     historical_roots*: HashList[Eth2Digest, Limit HISTORICAL_ROOTS_LIMIT]
+
+    # Eth1
     eth1_data*: Eth1Data
     eth1_data_votes*:
       HashList[Eth1Data, Limit(EPOCHS_PER_ETH1_VOTING_PERIOD * SLOTS_PER_EPOCH)]
     eth1_deposit_index*: uint64
+
+    # Registry
     validators*: HashList[Validator, Limit VALIDATOR_REGISTRY_LIMIT]
     balances*: HashList[Gwei, Limit VALIDATOR_REGISTRY_LIMIT]
+
+    # Randomness
     randao_mixes*: HashArray[Limit EPOCHS_PER_HISTORICAL_VECTOR, Eth2Digest]
+
+    # Slashings
     slashings*: HashArray[Limit EPOCHS_PER_SLASHINGS_VECTOR, Gwei]
+
+    # Participation
     previous_epoch_participation*: EpochParticipationFlags
     current_epoch_participation*: EpochParticipationFlags
+
+    # Finality
     justification_bits*: JustificationBits
     previous_justified_checkpoint*: Checkpoint
     current_justified_checkpoint*: Checkpoint
     finalized_checkpoint*: Checkpoint
+
+    # Inactivity
     inactivity_scores*: InactivityScores
+
+    # Sync
     current_sync_committee*: SyncCommittee
     next_sync_committee*: SyncCommittee
+
+    # Execution
     latest_execution_payload_header*: ExecutionPayloadHeader
+
+    # Withdrawals
     next_withdrawal_index*: WithdrawalIndex
     next_withdrawal_validator_index*: uint64
+
+    # Deep history valid from Capella onwards
     historical_summaries*:
       HashList[HistoricalSummary, Limit HISTORICAL_ROOTS_LIMIT]
 
@@ -259,7 +286,6 @@ type
       ## [Modified in Electra:EIP7549]
     deposits*: List[Deposit, Limit MAX_DEPOSITS]
     voluntary_exits*: List[SignedVoluntaryExit, Limit MAX_VOLUNTARY_EXITS]
-
     sync_aggregate*: SyncAggregate
     bls_to_execution_changes*: SignedBLSToExecutionChangeList
 
@@ -267,8 +293,8 @@ type
     payload_attestations*: List[PayloadAttestation, Limit MAX_PAYLOAD_ATTESTATIONS]
 
     # Execution
-    # execution_payload*: electra.ExecutionPayload   # [Removed in epbs]
-    # blob_kzg_commitments*: KzgCommitments # [Removed in epbs]
+    # execution_payload*: electra.ExecutionPayload   # [Removed in eip7732]
+    # blob_kzg_commitments*: KzgCommitments # [Removed in eip7732]
 
   SigVerifiedBeaconBlockBody* = object
     ## An BeaconBlock body with signatures verified

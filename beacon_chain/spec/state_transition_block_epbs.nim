@@ -70,10 +70,11 @@ func process_withdrawals*(state: var epbs.BeaconState):
   else:
     # Advance sweep by the max length of the sweep if there was not a full set
     # of withdrawals
-    let next_index =
-      state.next_withdrawal_validator_index +
-        MAX_VALIDATORS_PER_WITHDRAWALS_SWEEP
-    let next_validator_index = next_index mod lenu64(state.validators)
+    let 
+      next_index =
+        state.next_withdrawal_validator_index +
+          MAX_VALIDATORS_PER_WITHDRAWALS_SWEEP
+      next_validator_index = next_index mod lenu64(state.validators)
     state.next_withdrawal_validator_index = next_validator_index
 
   ok()
@@ -146,11 +147,11 @@ proc process_payload_attestation*(state: var epbs.BeaconState,
       state, indexed_payload_attestation):
       return err("process_payload_attestation: signature verification failed")
 
-    var epochParticipation =
+    let epoch_participation =
       if state.slot mod SLOTS_PER_EPOCH == 0:
-        state.previous_epoch_participation
+        unsafeAddr state.previous_epoch_participation
       else:
-        state.current_epoch_participation
+        unsafeAddr state.current_epoch_participation
 
     let 
       payload_present = data.slot == state.latest_full_slot
@@ -168,9 +169,9 @@ proc process_payload_attestation*(state: var epbs.BeaconState,
       var proposer_penalty_numerator: Gwei = Gwei(0)
       for index in indexed_payload_attestation.attesting_indices:
         for flag_index, weight in PARTICIPATION_FLAG_WEIGHTS:
-          if has_flag(epochParticipation[index], flag_index):
-            epochParticipation[index] = 
-              remove_flag(epochParticipation[index], int(flag_index))
+          if has_flag(epoch_participation[].item(index), flag_index):
+            epoch_participation[].item(index) = 
+             remove_flag(epoch_participation[].item(index), flag_index)
             proposer_penalty_numerator += 
               get_base_reward(state, index, base_reward_per_increment) * weight
 
@@ -182,9 +183,9 @@ proc process_payload_attestation*(state: var epbs.BeaconState,
     var proposer_reward_numerator: Gwei = Gwei(0)
     for index in indexed_payload_attestation.attesting_indices:
       for flag_index, weight in PARTICIPATION_FLAG_WEIGHTS:
-        if not has_flag(epochParticipation[index], flag_index):
-          epochParticipation[index] = 
-            add_flag(epochParticipation[index], flag_index)
+        if not has_flag(epoch_participation[].item(validator_index), flag_index):
+          epoch_participation[index] = 
+            add_flag(epoch_participation[].item(validator_index), flag_index)
           proposer_reward_numerator += 
             get_base_reward(state, index, base_reward_per_increment) * weight
 
