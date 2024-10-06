@@ -94,7 +94,7 @@ const
   FixturesDir* =
     currentSourcePath.rsplit(DirSep, 1)[0] / ".." / ".." / "vendor" / "nim-eth2-scenarios"
   SszTestsDir* = FixturesDir / "tests-v" & SPEC_VERSION
-  MaxObjectSize* = 3_000_000
+  MaxObjectSize* = 10_000_000
 
 proc relativeTestPathComponent*(path: string, suitePath = SszTestsDir): string =
   try:
