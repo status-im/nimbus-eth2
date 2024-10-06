@@ -94,7 +94,7 @@ func check_propagation_slot_range(
     return ok(msgSlot)
 
   if consensusFork < ConsensusFork.Deneb:
-    # https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.6/specs/phase0/p2p-interface.md#configuration
+    # https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.7/specs/phase0/p2p-interface.md#configuration
     # The spec value of ATTESTATION_PROPAGATION_SLOT_RANGE is 32, but it can
     # retransmit attestations on the cusp of being out of spec, and which by
     # the time they reach their destination might be out of spec.
@@ -300,7 +300,7 @@ template validateBeaconBlockBellatrix(
   #
   # `is_merge_transition_complete(state)` tests for
   # `state.latest_execution_payload_header != ExecutionPayloadHeader()`, while
-  # https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.6/specs/bellatrix/beacon-chain.md#block-processing
+  # https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.7/specs/bellatrix/beacon-chain.md#block-processing
   # shows that `state.latest_execution_payload_header` being default or not is
   # exactly equivalent to whether that block's execution payload is default or
   # not, so test cached block information rather than reconstructing a state.
@@ -1172,7 +1172,7 @@ proc validateAggregate*(
 
   ok((attesting_indices, sig))
 
-# https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.6/specs/capella/p2p-interface.md#bls_to_execution_change
+# https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.7/specs/capella/p2p-interface.md#bls_to_execution_change
 proc validateBlsToExecutionChange*(
     pool: ValidatorChangePool, batchCrypto: ref BatchCrypto,
     signed_address_change: SignedBLSToExecutionChange,

@@ -1596,7 +1596,7 @@ proc signAndSendAggregate(
       shufflingRef, slot, committee_index, selectionProof):
     return
 
-  # https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.6/specs/phase0/validator.md#construct-aggregate
+  # https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.7/specs/phase0/validator.md#construct-aggregate
   # https://github.com/ethereum/consensus-specs/blob/v1.4.0/specs/phase0/validator.md#aggregateandproof
   var
     msg = phase0.SignedAggregateAndProof(
@@ -1967,8 +1967,8 @@ proc handleValidatorDuties*(node: BeaconNode, lastSlot, slot: Slot) {.async: (ra
 
   updateValidatorMetrics(node) # the important stuff is done, update the vanity numbers
 
-  # https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.6/specs/phase0/validator.md#broadcast-aggregate
-  # https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.6/specs/altair/validator.md#broadcast-sync-committee-contribution
+  # https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.7/specs/phase0/validator.md#broadcast-aggregate
+  # https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.7/specs/altair/validator.md#broadcast-sync-committee-contribution
   # Wait 2 / 3 of the slot time to allow messages to propagate, then collect
   # the result in aggregates
   static:

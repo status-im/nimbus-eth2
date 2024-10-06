@@ -1175,7 +1175,7 @@ proc init*(T: type ChainDAGRef, cfg: RuntimeConfig, db: BeaconChainDB,
   # should have `previous_version` set to `current_version` while
   # this doesn't happen to be the case in network that go through
   # regular hard-fork upgrades. See for example:
-  # https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.6/specs/bellatrix/beacon-chain.md#testing
+  # https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.7/specs/bellatrix/beacon-chain.md#testing
   if stateFork.current_version != configFork.current_version:
     error "State from database does not match network, check --network parameter",
       tail = dag.tail, headRef, stateFork, configFork
@@ -1969,7 +1969,7 @@ proc pruneBlocksDAG(dag: ChainDAGRef) =
     prunedHeads = hlen - dag.heads.len,
     dagPruneDur = Moment.now() - startTick
 
-# https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.6/sync/optimistic.md#helpers
+# https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.7/sync/optimistic.md#helpers
 func is_optimistic*(dag: ChainDAGRef, bid: BlockId): bool =
   let blck =
     if bid.slot <= dag.finalizedHead.slot:
@@ -2673,7 +2673,7 @@ func aggregateAll*(
     # Aggregation spec requires non-empty collection
     # - https://tools.ietf.org/html/draft-irtf-cfrg-bls-signature-04
     # Consensus specs require at least one attesting index in attestation
-    # - https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.6/specs/phase0/beacon-chain.md#is_valid_indexed_attestation
+    # - https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.7/specs/phase0/beacon-chain.md#is_valid_indexed_attestation
     return err("aggregate: no attesting keys")
 
   let
