@@ -387,7 +387,7 @@ proc verify_data_column_sidecar_kzg_proofs*(sidecar: DataColumnSidecar):
   ## Verify if the KZG Proofs consisting in the `DataColumnSidecar`
   ## is valid or not.
   
-  if not (sidecar.kzg_commitments.len == 0):
+  if (sidecar.kzg_commitments.len == 0):
     return err("Kzg commitments length cannot be 0")
 
   # Check if the data column sidecar index < NUMBER_OF_COLUMNS
