@@ -12,7 +12,7 @@ import
   chronos, chronicles, confutils, stint, json_serialization,
   ../filepath,
   ../networking/network_metadata,
-  web3, web3/confutils_defs, eth/keys, eth/p2p/discoveryv5/random2,
+  web3, web3/confutils_defs, eth/common/keys, eth/p2p/discoveryv5/random2,
   stew/[io2, byteutils],
   ../spec/eth2_merkleization,
   ../spec/datatypes/base,

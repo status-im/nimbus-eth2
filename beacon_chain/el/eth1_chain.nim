@@ -36,7 +36,7 @@ template toGaugeValue*(x: Quantity | BlockNumber): int64 =
   toGaugeValue(distinctBase x)
 
 type
-  Eth1BlockNumber* = BlockNumber
+  Eth1BlockNumber* = Quantity
   Eth1BlockTimestamp* = uint64
 
   Eth1BlockObj* = object
