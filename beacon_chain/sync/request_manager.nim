@@ -153,6 +153,8 @@ proc checkResponse(colIdList: seq[DataColumnIdentifier],
         break
     if not found:
       return false
+    column[].verify_data_column_sidecar_kzg_proofs()isOkOr:
+      return false
     column[].verify_data_column_sidecar_inclusion_proof().isOkOr:
       return false
   true
