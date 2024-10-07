@@ -412,8 +412,8 @@ type
     proof*: seq[Eth2Digest]
 
   Web3SignerRequestKind* {.pure.} = enum
-    AggregationSlot, AggregateAndProof, Attestation, BlockV2,
-    Deposit, RandaoReveal, VoluntaryExit, SyncCommitteeMessage,
+    AggregationSlot, AggregateAndProof, AggregateAndProofV2, Attestation,
+    BlockV2, Deposit, RandaoReveal, VoluntaryExit, SyncCommitteeMessage,
     SyncCommitteeSelectionProof, SyncCommitteeContributionAndProof,
     ValidatorRegistration
 
@@ -427,6 +427,9 @@ type
     of Web3SignerRequestKind.AggregateAndProof:
       aggregateAndProof* {.
         serializedFieldName: "aggregate_and_proof".}: phase0.AggregateAndProof
+    of Web3SignerRequestKind.AggregateAndProofV2:
+      forkedAggregateAndProof* {.
+        serializedFieldName: "aggregate_and_proof".}: ForkedAggregateAndProof
     of Web3SignerRequestKind.Attestation:
       attestation*: AttestationData
     of Web3SignerRequestKind.BlockV2:
@@ -766,12 +769,22 @@ func init*(t: typedesc[Web3SignerRequest], fork: Fork,
     aggregateAndProof: data
   )
 
-func init*(t: typedesc[Web3SignerRequest], fork: Fork,
-           genesis_validators_root: Eth2Digest, data: electra.AggregateAndProof,
-           signingRoot: Opt[Eth2Digest] = Opt.none(Eth2Digest)
-          ): Web3SignerRequest =
-  debugComment "doesn't seem specified yet"
-  Web3SignerRequest()
+func init*(
+    t: typedesc[Web3SignerRequest],
+    fork: Fork,
+    genesis_validators_root: Eth2Digest,
+    data: electra.AggregateAndProof,
+    signingRoot: Opt[Eth2Digest] = Opt.none(Eth2Digest)
+): Web3SignerRequest =
+  Web3SignerRequest(
+    kind: Web3SignerRequestKind.AggregateAndProofV2,
+    forkInfo: Opt.some(Web3SignerForkInfo(
+      fork: fork, genesis_validators_root: genesis_validators_root
+    )),
+    signingRoot: signingRoot,
+    forkedAggregateAndProof:
+      ForkedAggregateAndProof.init(data, typeof(data).kind)
+  )
 
 func init*(t: typedesc[Web3SignerRequest], fork: Fork,
            genesis_validators_root: Eth2Digest, data: AttestationData,

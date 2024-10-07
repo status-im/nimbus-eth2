@@ -71,14 +71,14 @@ proc start(sn: SigningNodeRef) =
   of SigningNodeKind.NonSecure:
     sn.signingServer.nserver.start()
 
-proc stop(sn: SigningNodeRef) {.async.} =
+proc stop(sn: SigningNodeRef) {.async: (raises: []).} =
   case sn.signingServer.kind
   of SigningNodeKind.Secure:
     await sn.signingServer.sserver.stop()
   of SigningNodeKind.NonSecure:
     await sn.signingServer.nserver.stop()
 
-proc close(sn: SigningNodeRef) {.async.} =
+proc close(sn: SigningNodeRef) {.async: (raises: []).} =
   case sn.signingServer.kind
   of SigningNodeKind.Secure:
     await sn.signingServer.sserver.closeWait()
@@ -209,6 +209,15 @@ proc installApiHandlers*(node: SigningNodeRef) =
             forkInfo.genesis_validators_root, request.aggregateAndProof,
             validator.data.privateKey).toValidatorSig().toHex()
         signatureResponse(Http200, signature)
+      of Web3SignerRequestKind.AggregateAndProofV2:
+        let
+          forkInfo = request.forkInfo.get()
+          signature =
+            withAggregateAndProof(request.forkedAggregateAndProof):
+              get_aggregate_and_proof_signature(forkInfo.fork,
+                forkInfo.genesis_validators_root, forkyProof,
+                validator.data.privateKey).toValidatorSig().toHex()
+        signatureResponse(Http200, signature)
       of Web3SignerRequestKind.Attestation:
         let
           forkInfo = request.forkInfo.get()
@@ -330,7 +339,7 @@ proc installApiHandlers*(node: SigningNodeRef) =
             validator.data.privateKey).toValidatorSig().toHex()
         signatureResponse(Http200, signature)
 
-proc asyncInit(sn: SigningNodeRef) {.async.} =
+proc asyncInit(sn: SigningNodeRef) {.async: (raises: [SigningNodeError]).} =
   notice "Launching signing node", version = fullVersionStr,
          cmdParams = commandLineParams(), config = sn.config
 
@@ -403,7 +412,7 @@ proc asyncInit(sn: SigningNodeRef) {.async.} =
         raise newException(SigningNodeError, "")
       SigningNodeServer(kind: SigningNodeKind.NonSecure, nserver: res.get())
 
-proc asyncRun*(sn: SigningNodeRef) {.async.} =
+proc asyncRun*(sn: SigningNodeRef) {.async: (raises: []).} =
   sn.runKeystoreCachePruningLoopFut =
     runKeystoreCachePruningLoop(sn.keystoreCache)
   sn.installApiHandlers()
@@ -428,11 +437,18 @@ proc asyncRun*(sn: SigningNodeRef) {.async.} =
 
 template runWithSignals(sn: SigningNodeRef, body: untyped): bool =
   let future = body
-  discard await race(future, sn.sigintHandleFut, sn.sigtermHandleFut)
+  try:
+    discard await race(future, sn.sigintHandleFut, sn.sigtermHandleFut)
+  except CancelledError:
+    discard
   if future.finished():
     if future.failed() or future.cancelled():
-      discard future.readError()
-      debug "Signing node initialization failed"
+      let exc = future.error
+      if not(isNil(exc)):
+        debug "Signing node initialization failed",
+              error_name = $exc.name, reason = $exc.msg
+      else:
+        debug "Signing node initialization failed"
       var pending: seq[Future[void]]
       if not(sn.sigintHandleFut.finished()):
         pending.add(cancelAndWait(sn.sigintHandleFut))
@@ -453,7 +469,7 @@ template runWithSignals(sn: SigningNodeRef, body: untyped): bool =
     await noCancel allFutures(pending)
     false
 
-proc runSigningNode(config: SigningNodeConf) {.async.} =
+proc runSigningNode(config: SigningNodeConf) {.async: (raises: []).} =
   let sn = SigningNodeRef.new(config)
   if not sn.runWithSignals(asyncInit sn):
     return
