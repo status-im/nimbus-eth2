@@ -23,7 +23,7 @@ import
   # Test utilities
   ../../testutil, ../../testblockutil
 
-# https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.4/tests/core/pyspec/eth2spec/test/helpers/sync_committee.py#L27-L44
+# https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.7/tests/core/pyspec/eth2spec/test/helpers/sync_committee.py#L27-L44
 proc compute_aggregate_sync_committee_signature(
     cfg: RuntimeConfig,
     forked: ForkedHashedBeaconState,
@@ -133,7 +133,7 @@ proc block_for_next_slot(
   addTestBlock(
     forked, cache, attestations = attestations, cfg = cfg)
 
-# https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.4/specs/altair/light-client/sync-protocol.md#initialize_light_client_store
+# https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.5/specs/altair/light-client/sync-protocol.md#initialize_light_client_store
 func initialize_light_client_store(
     state: auto, storeDataFork: static LightClientDataFork): auto =
   storeDataFork.LightClientStore(

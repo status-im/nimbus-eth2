@@ -281,8 +281,10 @@ proc initFullNode(
     getBeaconTime: GetBeaconTimeFn) {.async.} =
   template config(): auto = node.config
 
-  proc onAttestationReceived(data: phase0.Attestation) =
+  proc onPhase0AttestationReceived(data: phase0.Attestation) =
     node.eventBus.attestQueue.emit(data)
+  proc onElectraAttestationReceived(data: electra.Attestation) =
+    debugComment "electra attestation queue"
   proc onSyncContribution(data: SignedContributionAndProof) =
     node.eventBus.contribQueue.emit(data)
   proc onVoluntaryExitAdded(data: SignedVoluntaryExit) =
@@ -291,8 +293,10 @@ proc initFullNode(
     node.eventBus.blsToExecQueue.emit(data)
   proc onProposerSlashingAdded(data: ProposerSlashing) =
     node.eventBus.propSlashQueue.emit(data)
-  proc onAttesterSlashingAdded(data: phase0.AttesterSlashing) =
+  proc onPhase0AttesterSlashingAdded(data: phase0.AttesterSlashing) =
     node.eventBus.attSlashQueue.emit(data)
+  proc onElectraAttesterSlashingAdded(data: electra.AttesterSlashing) =
+    debugComment "electra att slasher queue"
   proc onBlobSidecarAdded(data: BlobSidecarInfoObject) =
     node.eventBus.blobSidecarQueue.emit(data)
   proc onBlockAdded(data: ForkedTrustedSignedBeaconBlock) =
@@ -385,14 +389,16 @@ proc initFullNode(
     quarantine = newClone(
       Quarantine.init())
     attestationPool = newClone(AttestationPool.init(
-      dag, quarantine, onAttestationReceived))
+      dag, quarantine, onPhase0AttestationReceived,
+      onElectraAttestationReceived))
     syncCommitteeMsgPool = newClone(
       SyncCommitteeMsgPool.init(rng, dag.cfg, onSyncContribution))
     lightClientPool = newClone(
       LightClientPool())
     validatorChangePool = newClone(ValidatorChangePool.init(
       dag, attestationPool, onVoluntaryExitAdded, onBLSToExecutionChangeAdded,
-      onProposerSlashingAdded, onAttesterSlashingAdded))
+      onProposerSlashingAdded, onPhase0AttesterSlashingAdded,
+      onElectraAttesterSlashingAdded))
     blobQuarantine = newClone(BlobQuarantine.init(onBlobSidecarAdded))
     consensusManager = ConsensusManager.new(
       dag, attestationPool, quarantine, node.elManager,
@@ -1774,6 +1780,7 @@ proc installRestHandlers(restServer: RestServerRef, node: BeaconNode) =
   restServer.router.installNimbusApiHandlers(node)
   restServer.router.installNodeApiHandlers(node)
   restServer.router.installValidatorApiHandlers(node)
+  restServer.router.installRewardsApiHandlers(node)
   if node.dag.lcDataStore.serve:
     restServer.router.installLightClientApiHandlers(node)
 
@@ -1789,7 +1796,7 @@ proc installMessageValidators(node: BeaconNode) =
       let digest = forkDigests[].atConsensusFork(consensusFork)
 
       # beacon_block
-      # https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.4/specs/phase0/p2p-interface.md#beacon_block
+      # https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.7/specs/phase0/p2p-interface.md#beacon_block
       node.network.addValidator(
         getBeaconBlocksTopic(digest), proc (
           signedBlock: consensusFork.SignedBeaconBlock
@@ -1853,16 +1860,26 @@ proc installMessageValidators(node: BeaconNode) =
 
       # attester_slashing
       # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.5/specs/phase0/p2p-interface.md#attester_slashing
-      node.network.addValidator(
-        getAttesterSlashingsTopic(digest), proc (
-          attesterSlashing: phase0.AttesterSlashing
-        ): ValidationResult =
-          toValidationResult(
-            node.processor[].processAttesterSlashing(
-              MsgSource.gossip, attesterSlashing)))
+      # https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.6/specs/electra/p2p-interface.md#modifications-in-electra
+      when consensusFork >= ConsensusFork.Electra:
+        node.network.addValidator(
+          getAttesterSlashingsTopic(digest), proc (
+            attesterSlashing: electra.AttesterSlashing
+          ): ValidationResult =
+            toValidationResult(
+              node.processor[].processAttesterSlashing(
+                MsgSource.gossip, attesterSlashing)))
+      else:
+        node.network.addValidator(
+          getAttesterSlashingsTopic(digest), proc (
+            attesterSlashing: phase0.AttesterSlashing
+          ): ValidationResult =
+            toValidationResult(
+              node.processor[].processAttesterSlashing(
+                MsgSource.gossip, attesterSlashing)))
 
       # proposer_slashing
-      # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.5/specs/phase0/p2p-interface.md#proposer_slashing
+      # https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.7/specs/phase0/p2p-interface.md#proposer_slashing
       node.network.addValidator(
         getProposerSlashingsTopic(digest), proc (
           proposerSlashing: ProposerSlashing
@@ -1906,7 +1923,7 @@ proc installMessageValidators(node: BeaconNode) =
                 MsgSource.gossip, msg)))
 
       when consensusFork >= ConsensusFork.Capella:
-        # https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.4/specs/capella/p2p-interface.md#bls_to_execution_change
+        # https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.7/specs/capella/p2p-interface.md#bls_to_execution_change
         node.network.addAsyncValidator(
           getBlsToExecutionChangeTopic(digest), proc (
             msg: SignedBLSToExecutionChange
@@ -2271,7 +2288,7 @@ proc doRunBeaconNode(config: var BeaconNodeConf, rng: ref HmacDrbgContext) {.rai
       bnStatus = BeaconNodeStatus.Stopping
     c_signal(ansi_c.SIGTERM, SIGTERMHandler)
 
-  if metadata.cfg.DENEB_FORK_EPOCH != FAR_FUTURE_EPOCH:
+  block:
     let res =
       if config.trustedSetupFile.isNone:
         conf.loadKzgTrustedSetup()

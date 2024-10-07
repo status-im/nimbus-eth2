@@ -22,15 +22,10 @@ import
   ./logtrace
 
 from std/os import changeFileExt, fileExists
-from std/sequtils import mapIt, toSeq
 from std/times import toUnix
+from ../beacon_chain/el/engine_api_conversions import asEth2Digest
 from ../beacon_chain/spec/beaconstate import initialize_beacon_state_from_eth1
 from ../tests/mocking/mock_genesis import mockEth1BlockHash
-
-# Compiled version of /scripts/depositContract.v.py in this repo
-# The contract was compiled in Remix (https://remix.ethereum.org/) with vyper (remote) compiler.
-const depositContractCode =
-  hexToSeqByte staticRead "../beacon_chain/el/deposit_contract_code.txt"
 
 # For nim-confutils, which uses this kind of init(Type, value) pattern
 func init(T: type IpAddress, ip: IpAddress): T = ip
@@ -281,7 +276,7 @@ contract(DepositContract):
   proc deposit(pubkey: PubKeyBytes,
                withdrawalCredentials: WithdrawalCredentialsBytes,
                signature: SignatureBytes,
-               deposit_data_root: FixedBytes[32])
+               deposit_data_root: web3.FixedBytes[32])
 
 template `as`(address: Eth1Address, T: type bellatrix.ExecutionAddress): T =
   T(data: distinctBase(address))
@@ -388,19 +383,6 @@ proc createEnr(rng: var HmacDrbgContext,
       ])
   bootstrapEnr.tryGet()
 
-proc doCreateTestnetEnr(config: CliConfig,
-                        rng: var HmacDrbgContext)
-                       {.raises: [CatchableError].} =
-  let
-    cfg = getRuntimeConfig(config.eth2Network)
-    bootstrapEnr = parseBootstrapAddress(toSeq(lines(string config.inputBootstrapEnr))[0]).get()
-    forkIdField = bootstrapEnr.tryGet(enrForkIdField, seq[byte]).get()
-    enr =
-      createEnr(rng, string config.enrDataDir, string config.enrNetKeyFile,
-        config.enrNetKeyInsecurePassword, cfg, forkIdField,
-        config.enrAddress, config.enrPort)
-  stderr.writeLine(enr.toURI)
-
 proc doCreateTestnet*(config: CliConfig,
                       rng: var HmacDrbgContext)
                      {.raises: [CatchableError].} =
@@ -503,29 +485,6 @@ proc doCreateTestnet*(config: CliConfig,
     writeFile(bootstrapFile, enr.toURI)
     echo "Wrote ", bootstrapFile
 
-proc deployContract(web3: Web3, code: seq[byte]): Future[ReceiptObject] {.async.} =
-  let tr = TransactionArgs(
-    `from`: Opt.some web3.defaultAccount,
-    data: Opt.some code,
-    gas: Opt.some Quantity(3000000),
-    gasPrice: Opt.some Quantity(1))
-
-  let r = await web3.send(tr)
-  result = await web3.getMinedTransactionReceipt(r)
-
-proc sendEth(web3: Web3, to: Eth1Address, valueEth: int): Future[TxHash] =
-  let tr = TransactionArgs(
-    `from`: Opt.some web3.defaultAccount,
-    # TODO: Force json-rpc to generate 'data' field
-    # should not be needed anymore, new execution-api schema
-    # is using `input` field
-    data: Opt.some(newSeq[byte]()),
-    gas: Opt.some Quantity(3000000),
-    gasPrice: Opt.some Quantity(1),
-    value: Opt.some(valueEth.u256 * 1000000000000000000.u256),
-    to: Opt.some(to))
-  web3.send(tr)
-
 type
   DelayGenerator = proc(): chronos.Duration {.gcsafe, raises: [].}
 
@@ -541,43 +500,6 @@ proc initWeb3(web3Url, privateKey: string): Future[Web3] {.async.} =
     doAssert(accounts.len > 0)
     result.defaultAccount = accounts[0]
 
-# TODO: async functions should note take `seq` inputs because
-#       this leads to full copies.
-proc sendDeposits(deposits: seq[LaunchPadDeposit],
-                  web3Url, privateKey: string,
-                  depositContractAddress: Eth1Address,
-                  delayGenerator: DelayGenerator = nil) {.async.} =
-  notice "Sending deposits",
-    web3 = web3Url,
-    depositContract = depositContractAddress
-
-  var web3 = await initWeb3(web3Url, privateKey)
-  let gasPrice = int(await web3.provider.eth_gasPrice()) * 2
-  let depositContract = web3.contractSender(
-    DepositContract, depositContractAddress)
-  for i in 4200 ..< deposits.len:
-    let dp = deposits[i] as DepositData
-
-    while true:
-      try:
-        let tx = depositContract.deposit(
-          PubKeyBytes(@(dp.pubkey.toRaw())),
-          WithdrawalCredentialsBytes(@(dp.withdrawal_credentials.data)),
-          SignatureBytes(@(dp.signature.toRaw())),
-          FixedBytes[32](hash_tree_root(dp).data))
-
-        let status = await tx.send(value = 32.u256.ethToWei, gasPrice = gasPrice)
-
-        info "Deposit sent", tx = $status
-
-        if delayGenerator != nil:
-          await sleepAsync(delayGenerator())
-
-        break
-      except CatchableError:
-        await sleepAsync(chronos.seconds 60)
-        web3 = await initWeb3(web3Url, privateKey)
-
 {.pop.} # TODO confutils.nim(775, 17) Error: can raise an unlisted exception: ref IOError
 
 when isMainModule:
@@ -585,7 +507,87 @@ when isMainModule:
     web3/confutils_defs,
     ../beacon_chain/filepath
 
+  from std/sequtils import mapIt, toSeq
   from std/terminal import readPasswordFromStdin
+
+  # Compiled version of /scripts/depositContract.v.py in this repo
+  # The contract was compiled in Remix (https://remix.ethereum.org/) with vyper (remote) compiler.
+  const depositContractCode =
+    hexToSeqByte staticRead "../beacon_chain/el/deposit_contract_code.txt"
+
+  proc doCreateTestnetEnr(config: CliConfig,
+                          rng: var HmacDrbgContext)
+                         {.raises: [CatchableError].} =
+    let
+      cfg = getRuntimeConfig(config.eth2Network)
+      bootstrapEnr = parseBootstrapAddress(toSeq(lines(string config.inputBootstrapEnr))[0]).get()
+      forkIdField = bootstrapEnr.tryGet(enrForkIdField, seq[byte]).get()
+      enr =
+        createEnr(rng, string config.enrDataDir, string config.enrNetKeyFile,
+          config.enrNetKeyInsecurePassword, cfg, forkIdField,
+          config.enrAddress, config.enrPort)
+    stderr.writeLine(enr.toURI)
+
+  proc deployContract(web3: Web3, code: seq[byte]): Future[ReceiptObject] {.async.} =
+    let tr = TransactionArgs(
+      `from`: Opt.some web3.defaultAccount,
+      data: Opt.some code,
+      gas: Opt.some Quantity(3000000),
+      gasPrice: Opt.some Quantity(1))
+
+    let r = await web3.send(tr)
+    result = await web3.getMinedTransactionReceipt(r)
+
+  proc sendEth(web3: Web3, to: Eth1Address, valueEth: int): Future[TxHash] =
+    let tr = TransactionArgs(
+      `from`: Opt.some web3.defaultAccount,
+      # TODO: Force json-rpc to generate 'data' field
+      # should not be needed anymore, new execution-api schema
+      # is using `input` field
+      data: Opt.some(newSeq[byte]()),
+      gas: Opt.some Quantity(3000000),
+      gasPrice: Opt.some Quantity(1),
+      value: Opt.some(valueEth.u256 * 1000000000000000000.u256),
+      to: Opt.some(to))
+    web3.send(tr)
+
+  # TODO: async functions should note take `seq` inputs because
+  #       this leads to full copies.
+  proc sendDeposits(deposits: seq[LaunchPadDeposit],
+                    web3Url, privateKey: string,
+                    depositContractAddress: Eth1Address,
+                    delayGenerator: DelayGenerator = nil) {.async.} =
+    notice "Sending deposits",
+      web3 = web3Url,
+      depositContract = depositContractAddress
+
+    var web3 = await initWeb3(web3Url, privateKey)
+    let gasPrice = int(await web3.provider.eth_gasPrice()) * 2
+    let depositContract = web3.contractSender(
+      DepositContract, depositContractAddress)
+    for i in 4200 ..< deposits.len:
+      let dp = deposits[i] as DepositData
+
+      while true:
+        try:
+          let tx = depositContract.deposit(
+            PubKeyBytes(@(dp.pubkey.toRaw())),
+            WithdrawalCredentialsBytes(@(dp.withdrawal_credentials.data)),
+            SignatureBytes(@(dp.signature.toRaw())),
+            FixedBytes[32](hash_tree_root(dp).data))
+
+          let status = await tx.send(
+            value = 32.u256.ethToWei, gasPrice = gasPrice)
+
+          info "Deposit sent", tx = $status
+
+          if delayGenerator != nil:
+            await sleepAsync(delayGenerator())
+
+          break
+        except CatchableError:
+          await sleepAsync(chronos.seconds 60)
+          web3 = await initWeb3(web3Url, privateKey)
 
   proc main() {.async.} =
     var conf = try: CliConfig.load()

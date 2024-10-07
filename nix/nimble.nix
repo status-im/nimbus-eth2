@@ -8,5 +8,5 @@ in pkgs.fetchFromGitHub {
   repo = "nimble";
   rev = tools.findKeyValue "^ +NimbleStableCommit = \"([a-f0-9]+)\".+" sourceFile;
   # WARNING: Requires manual updates when Nim compiler version changes.
-  hash = "sha256-qJcDKnc+9iUvYrZCMUbBbws+Qqa9vmWyCRsvOUEmq8U=";
+  hash = "sha256-sa0irAZjQRZLduEMBPf7sHlY1FigBJTR/vIH4ihii/w=";
 }

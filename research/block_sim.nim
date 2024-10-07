@@ -239,7 +239,7 @@ cli do(slots = SLOTS_PER_EPOCH * 7,
                     fork, genesis_validators_root, data,
                     MockPrivKeys[validator_index])
                 attestation = electra.Attestation(
-                  # https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.1/specs/electra/validator.md#construct-attestation
+                  # https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.7/specs/electra/validator.md#construct-attestation
                   aggregation_bits: aggregation_bits,
                   data: data,
                   committee_bits: committee_bits,

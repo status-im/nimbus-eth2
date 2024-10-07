@@ -3808,6 +3808,162 @@
     }
   },
   {
+    "topics": ["beacon", "pool_attestations_electra"],
+    "request": {
+      "url": "/eth/v2/beacon/pool/attestations",
+      "headers": {"Accept": "application/json"}
+    },
+    "response": {
+      "status": {"operator": "equals", "value": "200"},
+      "headers": [{"key": "Content-Type", "value": "application/json", "operator": "equals", "eth-consensus-version": "electra"}],
+      "body": [{"operator": "jstructcmps", "start": ["data"],"value": [{"aggregation_bits": "", "signature": "", "data": {"slot": "", "index": "", "beacon_block_root": "", "source": {"epoch": "", "root": ""}, "target": {"epoch": "", "root": ""}}}]}]
+    }
+  },
+  {
+    "topics": ["beacon", "pool_attestations_electra"],
+    "request": {
+      "url": "/eth/v2/beacon/pool/attestations?slot=0",
+      "headers": {"Eth-Consensus-Version": "electra", "Accept": "application/json"}
+    },
+    "response": {
+      "status": {"operator": "equals", "value": "200"},
+      "headers": [{"key": "Content-Type", "value": "application/json", "operator": "equals", "eth-consensus-version": "electra"}],
+      "body": [{"operator": "jstructcmps", "start": ["data"],"value": [{"aggregation_bits": "", "signature": "", "data": {"slot": "", "index": "", "beacon_block_root": "", "source": {"epoch": "", "root": ""}, "target": {"epoch": "", "root": ""}}}]}]
+    }
+  },
+  {
+    "topics": ["beacon", "pool_attestations_electra"],
+    "request": {
+      "url": "/eth/v2/beacon/pool/attestations?slot=18446744073709551615",
+      "headers": {"Eth-Consensus-Version": "electra", "Accept": "application/json"}
+    },
+    "response": {
+      "status": {"operator": "equals", "value": "200"},
+      "headers": [{"key": "Content-Type", "value": "application/json", "operator": "equals", "eth-consensus-version": "electra"}],
+      "body": [{"operator": "jstructcmps", "start": ["data"],"value": [{"aggregation_bits": "", "signature": "", "data": {"slot": "", "index": "", "beacon_block_root": "", "source": {"epoch": "", "root": ""}, "target": {"epoch": "", "root": ""}}}]}]
+    }
+  },
+  {
+    "topics": ["beacon", "pool_attestations_electra"],
+    "request": {
+      "url": "/eth/v2/beacon/pool/attestations?slot=18446744073709551616",
+      "headers": {"Eth-Consensus-Version": "electra", "Accept": "application/json"}
+    },
+    "response": {
+      "status": {"operator": "equals", "value": "400"},
+      "headers": [{"key": "Content-Type", "value": "application/json", "operator": "equals", "eth-consensus-version": "electra"}],
+      "body": [{"operator": "jstructcmpns", "value": {"code": 400, "message": ""}}]
+    }
+  },
+  {
+    "topics": ["beacon", "pool_attestations_electra"],
+    "request": {
+      "url": "/eth/v2/beacon/pool/attestations?slot=word",
+      "headers": {"Eth-Consensus-Version": "electra", "Accept": "application/json"}
+    },
+    "response": {
+      "status": {"operator": "equals", "value": "400"},
+      "headers": [{"key": "Content-Type", "value": "application/json", "operator": "equals", "eth-consensus-version": "electra"}],
+      "body": [{"operator": "jstructcmpns", "value": {"code": 400, "message": ""}}]
+    }
+  },
+  {
+    "topics": ["beacon", "pool_attestations_electra"],
+    "request": {
+      "url": "/eth/v2/beacon/pool/attestations?committee_index=0",
+      "headers": {"Eth-Consensus-Version": "electra", "Accept": "application/json"}
+    },
+    "response": {
+      "status": {"operator": "equals", "value": "200"},
+      "headers": [{"key": "Content-Type", "value": "application/json", "operator": "equals", "eth-consensus-version": "electra"}],
+      "body": [{"operator": "jstructcmps", "start": ["data"],"value": [{"aggregation_bits": "", "signature": "", "data": {"slot": "", "index": "", "beacon_block_root": "", "source": {"epoch": "", "root": ""}, "target": {"epoch": "", "root": ""}}}]}]
+    }
+  },
+  {
+    "topics": ["beacon", "pool_attestations_electra"],
+    "request": {
+      "url": "/eth/v2/beacon/pool/attestations?committee_index=18446744073709551615",
+      "headers": {"Eth-Consensus-Version": "electra", "Accept": "application/json"}
+    },
+    "response": {
+      "status": {"operator": "equals", "value": "400"},
+      "headers": [{"key": "Content-Type", "value": "application/json", "operator": "equals", "eth-consensus-version": "electra"}],
+      "body": [{"operator": "jstructcmpns", "value": {"code": 400, "message": ""}}]
+    }
+  },
+  {
+    "topics": ["beacon", "pool_attestations_electra"],
+    "request": {
+      "url": "/eth/v2/beacon/pool/attestations?committee_index=18446744073709551616",
+      "headers": {"Eth-Consensus-Version": "electra", "Accept": "application/json"}
+    },
+    "response": {
+      "status": {"operator": "equals", "value": "400"},
+      "headers": [{"key": "Content-Type", "value": "application/json", "operator": "equals", "eth-consensus-version": "electra"}],
+      "body": [{"operator": "jstructcmpns", "value": {"code": 400, "message": ""}}]
+    }
+  },
+  {
+    "topics": ["beacon", "pool_attestations_electra"],
+    "request": {
+      "url": "/eth/v2/beacon/pool/attestations?committee_index=word",
+      "headers": {"Eth-Consensus-Version": "electra", "Accept": "application/json"}
+    },
+    "response": {
+      "status": {"operator": "equals", "value": "400"},
+      "headers": [{"key": "Content-Type", "value": "application/json", "operator": "equals", "eth-consensus-version": "electra"}],
+      "body": [{"operator": "jstructcmpns", "value": {"code": 400, "message": ""}}]
+    }
+  },
+  {
+    "topics": ["beacon", "pool_attestations_electra"],
+    "request": {
+      "url": "/eth/v2/beacon/pool/attestations?slot=0&committee_index=0",
+      "headers": {"Eth-Consensus-Version": "electra", "Accept": "application/json"}
+    },
+    "response": {
+      "status": {"operator": "equals", "value": "200"},
+      "headers": [{"key": "Content-Type", "value": "application/json", "operator": "equals", "eth-consensus-version": "electra"}],
+      "body": [{"operator": "jstructcmps", "start": ["data"],"value": [{"aggregation_bits": "", "signature": "", "data": {"slot": "", "index": "", "beacon_block_root": "", "source": {"epoch": "", "root": ""}, "target": {"epoch": "", "root": ""}}}]}]
+    }
+  },
+  {
+    "topics": ["beacon", "pool_attestations_electra"],
+    "request": {
+      "url": "/eth/v2/beacon/pool/attestations?slot=word&committee_index=word",
+      "headers": {"Eth-Consensus-Version": "electra", "Accept": "application/json"}
+    },
+    "response": {
+      "status": {"operator": "equals", "value": "400"},
+      "headers": [{"key": "Content-Type", "value": "application/json", "operator": "equals", "eth-consensus-version": "electra"}],
+      "body": [{"operator": "jstructcmpns", "value": {"code": 400, "message": ""}}]
+    }
+  },
+  {
+    "topics": ["beacon", "pool_attestations_electra"],
+    "request": {
+      "url": "/eth/v2/beacon/pool/attestations?slot=18446744073709551615&committee_index=18446744073709551615",
+      "headers": {"Eth-Consensus-Version": "electra", "Accept": "application/json"}
+    },
+    "response": {
+      "status": {"operator": "equals", "value": "400"},
+      "headers": [{"key": "Content-Type", "value": "application/json", "operator": "equals", "eth-consensus-version": "electra"}],
+      "body": [{"operator": "jstructcmpns", "value": {"code": 400, "message": ""}}]
+    }
+  },
+  {
+    "topics": ["beacon", "pool_attestations_electra"],
+    "request": {
+      "url": "/eth/v2/beacon/pool/attestations?slot=18446744073709551616&committee_index=18446744073709551616",
+      "headers": {"Eth-Consensus-Version": "electra", "Accept": "application/json"}
+    },
+    "response": {
+      "status": {"operator": "equals", "value": "400"},
+      "headers": [{"key": "Content-Type", "value": "application/json", "operator": "equals", "eth-consensus-version": "electra"}],
+      "body": [{"operator": "jstructcmpns", "value": {"code": 400, "message": ""}}]
+    }
+  },
+  {
     "topics": ["beacon", "pool_attester_slashings"],
     "request": {
       "url": "/eth/v1/beacon/pool/attester_slashings",
@@ -3816,6 +3972,18 @@
     "response": {
       "status": {"operator": "equals", "value": "200"},
       "headers": [{"key": "Content-Type", "value": "application/json", "operator": "equals"}],
+      "body": [{"operator": "jstructcmps", "start": ["data"],"value": [{"attestation_1": {"attesting_indices": [""], "signature": "", "data": {"slot": "", "index": "", "beacon_block_root": "", "source": {"epoch": "", "root": ""}, "target": {"epoch": "", "root": ""}}}, "attestation_2": {"attesting_indices": [""], "signature": "", "data": {"slot": "", "index": "", "beacon_block_root": "", "source": {"epoch": "", "root": ""}, "target": {"epoch": "", "root": ""}}}}]}]
+    }
+  },
+  {
+    "topics": ["beacon", "pool_attester_slashings_electra"],
+    "request": {
+      "url": "/eth/v2/beacon/pool/attester_slashings",
+      "headers": {"Accept": "application/json"}
+    },
+    "response": {
+      "status": {"operator": "equals", "value": "200"},
+      "headers": [{"key": "Content-Type", "value": "application/json", "operator": "equals"}, {"key": "eth-consensus-version", "value": ["phase0", "altair", "bellatrix"], "operator": "oneof"}],
       "body": [{"operator": "jstructcmps", "start": ["data"],"value": [{"attestation_1": {"attesting_indices": [""], "signature": "", "data": {"slot": "", "index": "", "beacon_block_root": "", "source": {"epoch": "", "root": ""}, "target": {"epoch": "", "root": ""}}}, "attestation_2": {"attesting_indices": [""], "signature": "", "data": {"slot": "", "index": "", "beacon_block_root": "", "source": {"epoch": "", "root": ""}, "target": {"epoch": "", "root": ""}}}}]}]
     }
   },
@@ -4524,6 +4692,74 @@
     }
   },
   {
+    "topics": ["validator", "aggregate_attestation"],
+    "request": {
+      "url": "/eth/v2/validator/aggregate_attestation",
+      "headers": {"Accept": "application/json"}
+    },
+    "response": {
+      "status": {"operator": "equals", "value": "400"},
+      "headers": [{"key": "Content-Type", "value": "application/json", "operator": "equals"}],
+      "body": [{"operator": "jstructcmpns", "value": {"code": 400, "message": ""}}]
+    }
+  },
+    {
+    "topics": ["validator", "aggregate_attestation"],
+    "request": {
+      "url": "/eth/v2/validator/aggregate_attestation?slot=0",
+      "headers": {"Accept": "application/json"}
+    },
+    "response": {
+      "status": {"operator": "equals", "value": "400"},
+      "headers": [{"key": "Content-Type", "value": "application/json", "operator": "equals"}],
+      "body": [{"operator": "jstructcmpns", "value": {"code": 400, "message": ""}}]
+    }
+  },
+  {
+    "topics": ["validator", "aggregate_attestation"],
+    "request": {
+      "url": "/eth/v2/validator/aggregate_attestation?slot=&attestation_data_root=",
+      "headers": {"Accept": "application/json"}
+    },
+    "response": {
+      "status": {"operator": "equals", "value": "400"},
+      "headers": [{"key": "Content-Type", "value": "application/json", "operator": "equals"}],
+      "body": [{"operator": "jstructcmpns", "value": {"code": 400, "message": ""}}]
+    }
+  },
+  {
+    "topics": ["validator", "aggregate_attestation"],
+    "request": {
+      "url": "/eth/v2/validator/aggregate_attestation?slot=&attestation_data_root=&committee_index=",
+      "headers": {"Accept": "application/json"}
+    },
+    "response": {
+      "status": {"operator": "equals", "value": "400"},
+      "headers": [{"key": "Content-Type", "value": "application/json", "operator": "equals"}],
+      "body": [{"operator": "jstructcmpns", "value": {"code": 400, "message": ""}}]
+    }
+  },
+  {
+    "topics": ["validator", "aggregate_attestation"],
+    "request": {
+      "url": "/eth/v2/validator/aggregate_attestation?slot=0&attestation_data_root=0x0000000000000000000000000000000000000000000000000000000000000000",
+      "headers": {"Accept": "application/json"}
+    },
+    "response": {
+      "status": {"operator": "oneof", "value": ["400", "200"]}
+    }
+  },
+  {
+    "topics": ["validator", "aggregate_attestation"],
+    "request": {
+      "url": "/eth/v2/validator/aggregate_attestation?slot=0&attestation_data_root=0x0000000000000000000000000000000000000000000000000000000000000000&committee_index=0",
+      "headers": {"Accept": "application/json"}
+    },
+    "response": {
+      "status": {"operator": "oneof", "value": ["400", "200"]}
+    }
+  },
+  {
     "topics": ["validator", "attester_duties"],
     "request": {
       "url": "/eth/v1/validator/duties/attester/0",
@@ -4900,5 +5136,376 @@
       "headers": [{"key": "Content-Type", "value": "application/json", "operator": "equals"}],
       "body": [{"operator": "jstructcmpnsav", "value": {"code": 500, "message": "Only `gossip` broadcast_validation option supported"}}]
     }
+  },
+  {
+    "topics": ["beacon", "rewards", "block_rewards_blockid"],
+    "request": {
+      "url": "/eth/v1/beacon/rewards/blocks/head",
+      "headers": {"Accept": "application/json"}
+    },
+    "response": {
+      "status": {"operator": "equals", "value": "200"},
+      "headers": [{"key": "Content-Type", "value": "application/json", "operator": "equals"}],
+      "body": [{"operator": "jstructcmps", "start": ["data"], "value": {"proposer_index": "", "total": "", "attestations": "", "sync_aggregate": "", "proposer_slashings": "", "attester_slashings": ""}}]
+    }
+  },
+  {
+    "topics": ["beacon", "rewards", "block_rewards_blockid"],
+    "request": {
+      "url": "/eth/v1/beacon/rewards/blocks/genesis",
+      "headers": {"Accept": "application/json"}
+    },
+    "response": {
+      "status": {"operator": "equals", "value": "200"},
+      "headers": [{"key": "Content-Type", "value": "application/json", "operator": "equals"}],
+      "body": [{"operator": "jstructcmps", "start": ["data"], "value": {"proposer_index": "", "total": "", "attestations": "", "sync_aggregate": "", "proposer_slashings": "", "attester_slashings": ""}}]
+    }
+  },
+  {
+    "topics": ["beacon", "rewards", "block_rewards_blockid"],
+    "request": {
+      "url": "/eth/v1/beacon/rewards/blocks/finalized",
+      "headers": {"Accept": "application/json"}
+    },
+    "response": {
+      "status": {"operator": "equals", "value": "200"},
+      "headers": [{"key": "Content-Type", "value": "application/json", "operator": "equals"}],
+      "body": [{"operator": "jstructcmps", "start": ["data"], "value": {"proposer_index": "", "total": "", "attestations": "", "sync_aggregate": "", "proposer_slashings": "", "attester_slashings": ""}}]
+    }
+  },
+  {
+    "topics": ["beacon", "rewards", "block_rewards_blockid"],
+    "request": {
+      "url": "/eth/v1/beacon/rewards/blocks/heat",
+      "headers": {"Accept": "application/json"}
+    },
+    "response": {"status": {"operator": "equals", "value": "400"}}
+  },
+  {
+    "topics": ["beacon", "rewards", "block_rewards_blockid"],
+    "request": {
+      "url": "/eth/v1/beacon/rewards/blocks/geneziz",
+      "headers": {"Accept": "application/json"}
+    },
+    "response": {"status": {"operator": "equals", "value": "400"}}
+  },
+  {
+    "topics": ["beacon", "rewards", "block_rewards_blockid"],
+    "request": {
+      "url": "/eth/v1/beacon/rewards/blocks/finalised",
+      "headers": {"Accept": "application/json"}
+    },
+    "response": {"status": {"operator": "equals", "value": "400"}}
+  },
+  {
+    "topics": ["beacon", "rewards", "block_rewards_blockid"],
+    "request": {
+      "url": "/eth/v1/beacon/rewards/blocks/0",
+      "headers": {"Accept": "application/json"}
+    },
+    "response": {
+      "status": {"operator": "equals", "value": "200"},
+      "headers": [{"key": "Content-Type", "value": "application/json", "operator": "equals"}],
+      "body": [{"operator": "jstructcmps", "start": ["data"], "value": {"proposer_index": "", "total": "", "attestations": "", "sync_aggregate": "", "proposer_slashings": "", "attester_slashings": ""}}]
+    }
+  },
+  {
+    "topics": ["beacon", "rewards", "block_rewards_blockid"],
+    "request": {
+      "url": "/eth/v1/beacon/rewards/blocks/0x0000000000000000000000000000000000000000000000000000000000000000",
+      "headers": {"Accept": "application/json"}
+    },
+    "response": {
+      "status": {"operator": "equals", "value": "404"},
+      "headers": [{"key": "Content-Type", "value": "application/json", "operator": "equals"}],
+      "body": [{"operator": "jstructcmpns", "value": {"code": 404, "message": ""}}]
+    }
+  },
+  {
+    "topics": ["beacon", "rewards", "block_rewards_blockid"],
+    "request": {
+      "url": "/eth/v1/beacon/rewards/blocks/18446744073709551615",
+      "headers": {"Accept": "application/json"}
+    },
+    "response": {
+      "status": {"operator": "equals", "value": "404"},
+      "headers": [{"key": "Content-Type", "value": "application/json", "operator": "equals"}],
+      "body": [{"operator": "jstructcmpns", "value": {"code": 404, "message": ""}}]
+    }
+  },
+  {
+    "topics": ["beacon", "rewards", "block_rewards_blockid"],
+    "request": {
+      "url": "/eth/v1/beacon/rewards/blocks/18446744073709551616",
+      "headers": {"Accept": "application/json"}
+    },
+    "response": {
+      "status": {"operator": "equals", "value": "400"},
+      "headers": [{"key": "Content-Type", "value": "application/json", "operator": "equals"}],
+      "body": [{"operator": "jstructcmpns", "value": {"code": 400, "message": ""}}]
+    }
+  },
+  {
+    "topics": ["beacon", "rewards", "block_rewards_blockid"],
+    "request": {
+      "url": "/eth/v1/beacon/rewards/blocks/0x",
+      "headers": {"Accept": "application/json"}
+    },
+    "response": {"status": {"operator": "equals", "value": "400"}}
+  },
+  {
+    "topics": ["beacon", "rewards", "block_rewards_blockid"],
+    "request": {
+      "url": "/eth/v1/beacon/rewards/blocks/0x0",
+      "headers": {"Accept": "application/json"}
+    },
+    "response": {"status": {"operator": "equals", "value": "400"}}
+  },
+  {
+    "topics": ["beacon", "rewards", "block_rewards_blockid"],
+    "request": {
+      "url": "/eth/v1/beacon/rewards/blocks/0x00",
+      "headers": {"Accept": "application/json"}
+    },
+    "response": {"status": {"operator": "equals", "value": "400"}}
+  },
+  {
+    "topics": ["beacon", "rewards", "block_rewards_blockid"],
+    "request": {
+      "url": "/eth/v1/beacon/rewards/blocks/0xII",
+      "headers": {"Accept": "application/json"}
+    },
+    "response": {"status": {"operator": "equals", "value": "400"}}
+  },
+  {
+    "topics": ["beacon", "rewards", "block_rewards_blockid"],
+    "request": {
+      "url": "/eth/v1/beacon/rewards/blocks/foobar",
+      "headers": {"Accept": "application/json"}
+    },
+    "response": {"status": {"operator": "equals", "value": "400"}}
+  },
+  {
+    "topics": ["beacon", "rewards", "sync_committee_rewards_blockid"],
+    "request": {
+      "method": "POST",
+      "body": {
+        "content-type": "application/json",
+        "data": "[]"
+      },
+      "url": "/eth/v1/beacon/rewards/sync_committee/head",
+      "headers": {"Accept": "application/json"}
+    },
+    "response": {
+      "status": {"operator": "equals", "value": "200"},
+      "headers": [{"key": "Content-Type", "value": "application/json", "operator": "equals"}],
+      "body": [{"operator": "jstructcmps", "start": ["data"], "value": [{"validator_index": "", "reward": ""}]}]
+    }
+  },
+  {
+    "topics": ["beacon", "rewards", "sync_committee_rewards_blockid"],
+    "request": {
+      "method": "POST",
+      "body": {
+        "content-type": "application/json",
+        "data": "[]"
+      },
+      "url": "/eth/v1/beacon/rewards/sync_committee/genesis",
+      "headers": {"Accept": "application/json"}
+    },
+    "response": {
+      "status": {"operator": "equals", "value": "200"},
+      "headers": [{"key": "Content-Type", "value": "application/json", "operator": "equals"}],
+      "body": [{"operator": "jstructcmps", "start": ["data"], "value": [{"validator_index": "", "reward": ""}]}]
+    }
+  },
+  {
+    "topics": ["beacon", "rewards", "sync_committee_rewards_blockid"],
+    "request": {
+      "method": "POST",
+      "body": {
+        "content-type": "application/json",
+        "data": "[]"
+      },
+      "url": "/eth/v1/beacon/rewards/sync_committee/finalized",
+      "headers": {"Accept": "application/json"}
+    },
+    "response": {
+      "status": {"operator": "equals", "value": "200"},
+      "headers": [{"key": "Content-Type", "value": "application/json", "operator": "equals"}],
+      "body": [{"operator": "jstructcmps", "start": ["data"], "value": [{"validator_index": "", "reward": ""}]}]
+    }
+  },
+  {
+    "topics": ["beacon", "rewards", "sync_committee_rewards_blockid"],
+    "request": {
+      "method": "POST",
+      "body": {
+        "content-type": "application/json",
+        "data": "[]"
+      },
+      "url": "/eth/v1/beacon/rewards/sync_committee/heat",
+      "headers": {"Accept": "application/json"}
+    },
+    "response": {"status": {"operator": "equals", "value": "400"}}
+  },
+  {
+    "topics": ["beacon", "rewards", "sync_committee_rewards_blockid"],
+    "request": {
+      "method": "POST",
+      "body": {
+        "content-type": "application/json",
+        "data": "[]"
+      },
+      "url": "/eth/v1/beacon/rewards/sync_committee/geneziz",
+      "headers": {"Accept": "application/json"}
+    },
+    "response": {"status": {"operator": "equals", "value": "400"}}
+  },
+  {
+    "topics": ["beacon", "rewards", "sync_committee_rewards_blockid"],
+    "request": {
+      "method": "POST",
+      "body": {
+        "content-type": "application/json",
+        "data": "[]"
+      },
+      "url": "/eth/v1/beacon/rewards/sync_committee/finalised",
+      "headers": {"Accept": "application/json"}
+    },
+    "response": {"status": {"operator": "equals", "value": "400"}}
+  },
+  {
+    "topics": ["beacon", "rewards", "sync_committee_rewards_blockid"],
+    "request": {
+      "method": "POST",
+      "body": {
+        "content-type": "application/json",
+        "data": "[]"
+      },
+      "url": "/eth/v1/beacon/rewards/sync_committee/0",
+      "headers": {"Accept": "application/json"}
+    },
+    "response": {
+      "status": {"operator": "equals", "value": "200"},
+      "headers": [{"key": "Content-Type", "value": "application/json", "operator": "equals"}],
+      "body": [{"operator": "jstructcmps", "start": ["data"], "value": [{"validator_index": "", "reward": ""}]}]
+    }
+  },
+  {
+    "topics": ["beacon", "rewards", "sync_committee_rewards_blockid"],
+    "request": {
+      "method": "POST",
+      "body": {
+        "content-type": "application/json",
+        "data": "[]"
+      },
+      "url": "/eth/v1/beacon/rewards/sync_committee/0x0000000000000000000000000000000000000000000000000000000000000000",
+      "headers": {"Accept": "application/json"}
+    },
+    "response": {
+      "status": {"operator": "equals", "value": "404"},
+      "headers": [{"key": "Content-Type", "value": "application/json", "operator": "equals"}],
+      "body": [{"operator": "jstructcmpns", "value": {"code": 404, "message": ""}}]
+    }
+  },
+  {
+    "topics": ["beacon", "rewards", "sync_committee_rewards_blockid"],
+    "request": {
+      "method": "POST",
+      "body": {
+        "content-type": "application/json",
+        "data": "[]"
+      },
+      "url": "/eth/v1/beacon/rewards/sync_committee/18446744073709551615",
+      "headers": {"Accept": "application/json"}
+    },
+    "response": {
+      "status": {"operator": "equals", "value": "404"},
+      "headers": [{"key": "Content-Type", "value": "application/json", "operator": "equals"}],
+      "body": [{"operator": "jstructcmpns", "value": {"code": 404, "message": ""}}]
+    }
+  },
+  {
+    "topics": ["beacon", "rewards", "sync_committee_rewards_blockid"],
+    "request": {
+      "method": "POST",
+      "body": {
+        "content-type": "application/json",
+        "data": "[]"
+      },
+      "url": "/eth/v1/beacon/rewards/sync_committee/18446744073709551616",
+      "headers": {"Accept": "application/json"}
+    },
+    "response": {
+      "status": {"operator": "equals", "value": "400"},
+      "headers": [{"key": "Content-Type", "value": "application/json", "operator": "equals"}],
+      "body": [{"operator": "jstructcmpns", "value": {"code": 400, "message": ""}}]
+    }
+  },
+  {
+    "topics": ["beacon", "rewards", "sync_committee_rewards_blockid"],
+    "request": {
+      "method": "POST",
+      "body": {
+        "content-type": "application/json",
+        "data": "[]"
+      },
+      "url": "/eth/v1/beacon/rewards/sync_committee/0x",
+      "headers": {"Accept": "application/json"}
+    },
+    "response": {"status": {"operator": "equals", "value": "400"}}
+  },
+  {
+    "topics": ["beacon", "rewards", "sync_committee_rewards_blockid"],
+    "request": {
+      "method": "POST",
+      "body": {
+        "content-type": "application/json",
+        "data": "[]"
+      },
+      "url": "/eth/v1/beacon/rewards/sync_committee/0x0",
+      "headers": {"Accept": "application/json"}
+    },
+    "response": {"status": {"operator": "equals", "value": "400"}}
+  },
+  {
+    "topics": ["beacon", "rewards", "sync_committee_rewards_blockid"],
+    "request": {
+      "method": "POST",
+      "body": {
+        "content-type": "application/json",
+        "data": "[]"
+      },
+      "url": "/eth/v1/beacon/rewards/sync_committee/0x00",
+      "headers": {"Accept": "application/json"}
+    },
+    "response": {"status": {"operator": "equals", "value": "400"}}
+  },
+  {
+    "topics": ["beacon", "rewards", "sync_committee_rewards_blockid"],
+    "request": {
+      "method": "POST",
+      "body": {
+        "content-type": "application/json",
+        "data": "[]"
+      },
+      "url": "/eth/v1/beacon/rewards/sync_committee/0xII",
+      "headers": {"Accept": "application/json"}
+    },
+    "response": {"status": {"operator": "equals", "value": "400"}}
+  },
+  {
+    "topics": ["beacon", "rewards", "sync_committee_rewards_blockid"],
+    "request": {
+      "method": "POST",
+      "body": {
+        "content-type": "application/json",
+        "data": "[]"
+      },
+      "url": "/eth/v1/beacon/rewards/sync_committee/foobar",
+      "headers": {"Accept": "application/json"}
+    },
+    "response": {"status": {"operator": "equals", "value": "400"}}
   }
 ]

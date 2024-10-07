@@ -1,3 +1,63 @@
+2024-09-30 v24.9.0
+==================
+
+Nimbus `v24.9.0` is a `low-urgency` release with beacon API improvements and stability fixes.
+
+### Improvements
+
+* Add support for getBlockRewards and getSyncCommitteeRewards beacon API endpoints:
+  https://github.com/status-im/nimbus-eth2/pull/6556
+
+* Add support for publishAggregateAndProofsV2 beacon API endpoint:
+  https://github.com/status-im/nimbus-eth2/pull/6546
+
+* Add support for getPoolAttestationsV2 beacon API endpoint:
+  https://github.com/status-im/nimbus-eth2/pull/6511
+
+### Fixes
+
+* Web3signer always resolves DNS hostnames:
+  https://github.com/status-im/nimbus-eth2/pull/6567
+
+* Avoid potential crash while initializing UPnP:
+  https://github.com/status-im/nimbus-eth2/pull/6538
+
+* Fix missing field values in Deneb and Electra getBlindedBlock beacon API endpoint responses:
+  https://github.com/status-im/nimbus-eth2/pull/6569
+
+2024-08-29 v24.8.0
+==================
+
+Nimbus `v24.8.0` is a `low-urgency` release with beacon API improvements and fixes.
+
+### Improvements
+
+* Increase speed of processing blocks with deposits by 25%:
+  https://github.com/status-im/nimbus-eth2/pull/6469
+
+* Avoid running light client sync in background when node is synced:
+  https://github.com/status-im/nimbus-eth2/pull/6505
+
+* Add additional Sepolia bootnode:
+  https://github.com/status-im/nimbus-eth2/pull/6490
+
+### Fixes
+
+* Add timeouts to failed execution layer requests:
+  https://github.com/status-im/nimbus-eth2/pull/6441
+
+* Use correct fork digest when broadcasting blob sidecars, sync committee, and sync contribution messages:
+  https://github.com/status-im/nimbus-eth2/pull/6440
+
+* Fix Holesky genesis state being downloaded multiple times:
+  https://github.com/status-im/nimbus-eth2/pull/6452
+
+* Check blob versioned hashes when optimistic syncing:
+  https://github.com/status-im/nimbus-eth2/pull/6501
+
+* Increase trusted node sync state downloading timeout to 120 seconds:
+  https://github.com/status-im/nimbus-eth2/pull/6487
+
 2024-07-29 v24.7.0
 ==================
 

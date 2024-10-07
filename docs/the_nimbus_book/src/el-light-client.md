@@ -104,7 +104,7 @@ The following sections explain how to do this for certain EL clients.
 ## Running the light client
 
 The light client starts syncing from a trusted block.
-This trusted block should be somewhat recent ([~1-2 weeks](https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.4/specs/phase0/weak-subjectivity.md)) and needs to be configured each time when starting the light client.
+This trusted block should be somewhat recent ([~1-2 weeks](https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.7/specs/phase0/weak-subjectivity.md)) and needs to be configured each time when starting the light client.
 
 ### 1. Obtaining a trusted block root
 

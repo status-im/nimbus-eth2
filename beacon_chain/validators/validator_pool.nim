@@ -183,7 +183,8 @@ proc addRemoteValidator(pool: var ValidatorPool,
         {HttpClientFlag.NoVerifyHost, HttpClientFlag.NoVerifyServerName}
       else:
         {}
-    prestoFlags = {RestClientFlag.CommaSeparatedArray}
+    prestoFlags = {RestClientFlag.CommaSeparatedArray,
+                   RestClientFlag.ResolveAlways}
     socketFlags = {SocketFlags.TcpNoDelay}
     clients =
       block:
@@ -522,7 +523,7 @@ proc signData(v: AttachedValidator,
   else:
     v.signWithDistributedKey(request)
 
-# https://github.com/ethereum/consensus-specs/blob/v1.4.0/specs/phase0/validator.md#signature
+# https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.7/specs/phase0/validator.md#signature
 proc getBlockSignature*(v: AttachedValidator, fork: Fork,
                         genesis_validators_root: Eth2Digest, slot: Slot,
                         block_root: Eth2Digest,
@@ -761,7 +762,8 @@ proc getAttestationSignature*(v: AttachedValidator, fork: Fork,
 proc getAggregateAndProofSignature*(v: AttachedValidator,
                                     fork: Fork,
                                     genesis_validators_root: Eth2Digest,
-                                    aggregate_and_proof: phase0.AggregateAndProof
+                                    aggregate_and_proof: phase0.AggregateAndProof |
+                                                         electra.AggregateAndProof,
                                    ): Future[SignatureResult]
                                    {.async: (raises: [CancelledError]).} =
   case v.kind
@@ -776,7 +778,7 @@ proc getAggregateAndProofSignature*(v: AttachedValidator,
       fork, genesis_validators_root, aggregate_and_proof)
     await v.signData(request)
 
-# https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.4/specs/altair/validator.md#prepare-sync-committee-message
+# https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.7/specs/altair/validator.md#prepare-sync-committee-message
 proc getSyncCommitteeMessage*(v: AttachedValidator,
                               fork: Fork,
                               genesis_validators_root: Eth2Digest,
@@ -807,7 +809,7 @@ proc getSyncCommitteeMessage*(v: AttachedValidator,
     )
   )
 
-# https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.4/specs/altair/validator.md#aggregation-selection
+# https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.7/specs/altair/validator.md#aggregation-selection
 proc getSyncCommitteeSelectionProof*(v: AttachedValidator, fork: Fork,
                                      genesis_validators_root: Eth2Digest,
                                      slot: Slot,
@@ -827,7 +829,7 @@ proc getSyncCommitteeSelectionProof*(v: AttachedValidator, fork: Fork,
     )
     await v.signData(request)
 
-# https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.4/specs/altair/validator.md#broadcast-sync-committee-contribution
+# https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.7/specs/altair/validator.md#broadcast-sync-committee-contribution
 proc getContributionAndProofSignature*(v: AttachedValidator, fork: Fork,
                                        genesis_validators_root: Eth2Digest,
                                        contribution_and_proof: ContributionAndProof
@@ -843,7 +845,7 @@ proc getContributionAndProofSignature*(v: AttachedValidator, fork: Fork,
       fork, genesis_validators_root, contribution_and_proof)
     await v.signData(request)
 
-# https://github.com/ethereum/consensus-specs/blob/v1.4.0/specs/phase0/validator.md#randao-reveal
+# https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.7/specs/phase0/validator.md#randao-reveal
 proc getEpochSignature*(v: AttachedValidator, fork: Fork,
                         genesis_validators_root: Eth2Digest, epoch: Epoch
                        ): Future[SignatureResult]

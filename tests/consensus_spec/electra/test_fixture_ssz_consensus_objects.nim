@@ -140,6 +140,7 @@ suite "EF - Electra - SSZ consensus objects " & preset():
             checkSSZ(electra.ExecutionPayload, path, hash)
           of "ExecutionPayloadHeader":
             checkSSZ(electra.ExecutionPayloadHeader, path, hash)
+          of "ExecutionRequests": checkSSZ(ExecutionRequests, path, hash)
           of "Fork": checkSSZ(Fork, path, hash)
           of "ForkData": checkSSZ(ForkData, path, hash)
           of "HistoricalBatch": checkSSZ(HistoricalBatch, path, hash)
@@ -156,9 +157,8 @@ suite "EF - Electra - SSZ consensus objects " & preset():
           of "LightClientOptimisticUpdate":
             checkSSZ(electra.LightClientOptimisticUpdate, path, hash)
           of "PendingAttestation": checkSSZ(PendingAttestation, path, hash)
-          of "PendingBalanceDeposit":
-            checkSSZ(PendingBalanceDeposit, path, hash)
           of "PendingConsolidation": checkSSZ(PendingConsolidation, path, hash)
+          of "PendingDeposit": checkSSZ(PendingDeposit, path, hash)
           of "PendingPartialWithdrawal":
             checkSSZ(PendingPartialWithdrawal, path, hash)
           of "PowBlock": checkSSZ(PowBlock, path, hash)

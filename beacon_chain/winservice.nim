@@ -47,6 +47,7 @@ when defined(windows):
     SERVICE_CONTROL_INTERROGATE = 4
     SERVICE_ACCEPT_STOP = 1
     ERROR_INVALID_PARAMETER = 87
+    ERROR_INVALID_ACCESS = 12
     ERROR_BAD_CONFIGURATION = 1610
     NO_ERROR = 0
 
@@ -155,11 +156,15 @@ when defined(windows):
         reportServiceStatus(SERVICE_STOPPED, ERROR_BAD_CONFIGURATION, 0)
         quit QuitFailure
 
-      argEntryPoint(config)
-
-      info "Service thread stopped"
-      reportServiceStatus(SERVICE_STOPPED, NO_ERROR, 0)
+      try:
+        argEntryPoint(config)
+        info "Service thread stopped"
         # we have to report back when we stopped!
+        reportServiceStatus(SERVICE_STOPPED, NO_ERROR, 0)
+      except CatchableError:
+        info "Service thread crashed"
+        # we have to report back when we stopped!
+        reportServiceStatus(SERVICE_STOPPED, ERROR_INVALID_ACCESS, 0)
 
     let serviceName = newWideCString(argServiceName)
 

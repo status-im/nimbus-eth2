@@ -184,8 +184,7 @@ suite baseDescription & "Deposit Request " & preset():
       preState: var electra.BeaconState, depositRequest: DepositRequest):
       Result[void, cstring] =
     process_deposit_request(
-      defaultRuntimeConfig, preState,
-      sortValidatorBuckets(preState.validators.asSeq)[], depositRequest, {})
+      defaultRuntimeConfig, preState, depositRequest, {})
 
   for path in walkTests(OpDepositRequestDir):
     runTest[DepositRequest, typeof applyDepositRequest](
