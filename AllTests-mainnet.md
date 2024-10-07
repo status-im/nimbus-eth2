@@ -782,7 +782,8 @@ OK: 3/3 Fail: 0/3 Skip: 0/3
 + Signing SC contribution and proof (getContributionAndProofSignature())                     OK
 + Signing SC message (getSyncCommitteeMessage())                                             OK
 + Signing SC selection proof (getSyncCommitteeSelectionProof())                              OK
-+ Signing aggregate and proof (getAggregateAndProofSignature())                              OK
++ Signing aggregate and proof (getAggregateAndProofSignature(electra))                       OK
++ Signing aggregate and proof (getAggregateAndProofSignature(phase0))                        OK
 + Signing aggregation slot (getSlotSignature())                                              OK
 + Signing attestation (getAttestationSignature())                                            OK
 + Signing deposit message (getDepositMessageSignature())                                     OK
@@ -791,7 +792,7 @@ OK: 3/3 Fail: 0/3 Skip: 0/3
 + Signing voluntary exit (getValidatorExitSignature())                                       OK
 + Waiting for signing node (/upcheck) test                                                   OK
 ```
-OK: 16/16 Fail: 0/16 Skip: 0/16
+OK: 17/17 Fail: 0/17 Skip: 0/17
 ## Old database versions [Preset: mainnet]
 ```diff
 + pre-1.1.0                                                                                  OK
@@ -1128,4 +1129,4 @@ OK: 2/2 Fail: 0/2 Skip: 0/2
 OK: 9/9 Fail: 0/9 Skip: 0/9
 
 ---TOTAL---
-OK: 765/770 Fail: 0/770 Skip: 5/770
+OK: 766/771 Fail: 0/771 Skip: 5/771
