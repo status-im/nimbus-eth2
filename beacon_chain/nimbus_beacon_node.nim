@@ -427,16 +427,15 @@ proc initFullNode(
         #                             maybeFinalized = maybeFinalized)
 
         when consensusFork >= ConsensusFork.Deneb:
-          if not dataColumnQuarantine[].hasDataColumns(forkyBlck) and 
-              len(forkyBlck.message.body.blob_kzg_commitments) == 0:
-            if not quarantine[].addColumnless(dag.finalizedHead.slot, forkyBlck):
-              err(VerifierError.UnviableFork)
-            else:
-              err(VerifierError.MissingParent)
-          else:
+          if dataColumnQuarantine[].hasDataColumns(forkyBlck) and 
+              len(forkyBlck.message.body.blob_kzg_commitments) != 0:
             let data_columns = dataColumnQuarantine[].popDataColumns(forkyBlck.root, forkyBlck)
             await blockProcessor[].addBlock(MsgSource.gossip, signedBlock,
                                       Opt.none(BlobSidecars), Opt.some(data_columns),
+                                      maybeFinalized = maybeFinalized)
+          else:
+            await blockProcessor[].addBlock(MsgSource.gossip, signedBlock,
+                                      Opt.none(BlobSidecars), Opt.none(DataColumnSidecars),
                                       maybeFinalized = maybeFinalized)
         else:
           await blockProcessor[].addBlock(MsgSource.gossip, signedBlock,
