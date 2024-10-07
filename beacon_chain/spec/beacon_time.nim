@@ -136,7 +136,7 @@ const
   # https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.7/specs/phase0/validator.md#attesting
   attestationSlotOffset* = TimeDiff(nanoseconds:
     NANOSECONDS_PER_SLOT.int64 div INTERVALS_PER_SLOT)
-  # https://github.com/ethereum/consensus-specs/blob/v1.4.0/specs/phase0/validator.md#broadcast-aggregate
+  # https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.7/specs/phase0/validator.md#broadcast-aggregate
   aggregateSlotOffset* = TimeDiff(nanoseconds:
     NANOSECONDS_PER_SLOT.int64  * 2 div INTERVALS_PER_SLOT)
   # https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.7/specs/altair/validator.md#prepare-sync-committee-message

@@ -235,7 +235,7 @@ func compute_committee_len*(
 
   (slice.b - slice.a + 1).uint64
 
-# https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.6/specs/phase0/beacon-chain.md#get_beacon_committee
+# https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.7/specs/phase0/beacon-chain.md#get_beacon_committee
 iterator get_beacon_committee*(
     state: ForkyBeaconState, slot: Slot, index: CommitteeIndex,
     cache: var StateCache): (int, ValidatorIndex) =

@@ -36,7 +36,7 @@ const
   BLS_MODULUS* = "52435875175126190479447740508185965837690552500527637822603658699938581184513".u256
 
 type
-  # https://github.com/ethereum/consensus-specs/blob/v1.4.0/specs/deneb/beacon-chain.md#beaconblockbody
+  # https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.7/specs/deneb/beacon-chain.md#beaconblockbody
   KzgCommitments* = List[KzgCommitment, Limit MAX_BLOB_COMMITMENTS_PER_BLOCK]
 
   # TODO this apparently is suppposed to be SSZ-equivalent to Bytes32, but
@@ -50,7 +50,7 @@ type
   # https://github.com/ethereum/consensus-specs/blob/v1.4.0/specs/deneb/beacon-chain.md#custom-types
   BlobIndex* = uint64
 
-  # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.5/specs/deneb/polynomial-commitments.md#custom-types
+  # https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.7/specs/deneb/polynomial-commitments.md#custom-types
   Blob* = array[BYTES_PER_FIELD_ELEMENT * FIELD_ELEMENTS_PER_BLOB, byte]
 
   # https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.7/specs/deneb/p2p-interface.md#blobsidecar

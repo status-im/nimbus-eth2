@@ -14,13 +14,13 @@ type
   Epoch* = distinct uint64
   SyncCommitteePeriod* = distinct uint64
 
-  # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.5/specs/capella/beacon-chain.md#custom-types
+  # https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.7/specs/capella/beacon-chain.md#custom-types
   WithdrawalIndex* = uint64
 
   DomainType* = distinct array[4, byte]
 
 const
-  # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.5/specs/phase0/p2p-interface.md#constants
+  # https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.7/specs/phase0/p2p-interface.md#constants
   NODE_ID_BITS* = 256
 
   # https://github.com/ethereum/consensus-specs/blob/v1.4.0/specs/phase0/p2p-interface.md#configuration
@@ -77,7 +77,7 @@ const
   GOSSIP_MAX_SIZE* = 10'u64 * 1024 * 1024 # bytes
   MAX_CHUNK_SIZE* = 10'u64 * 1024 * 1024 # bytes
 
-  # https://github.com/ethereum/consensus-specs/blob/v1.4.0/specs/deneb/p2p-interface.md#configuration
+  # https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.7/specs/deneb/p2p-interface.md#configuration
   MAX_REQUEST_BLOCKS_DENEB*: uint64 = 128 # TODO Make use of in request code
 
   # https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.3/specs/electra/beacon-chain.md#misc

@@ -34,7 +34,7 @@ type
 
 static:
   # Verify that ordinals follow spec values (the spec uses these as shifts for bit flags)
-  # https://github.com/ethereum/consensus-specs/blob/v1.4.0/specs/altair/beacon-chain.md#participation-flag-indices
+  # https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.7/specs/altair/beacon-chain.md#participation-flag-indices
   doAssert ord(TIMELY_SOURCE_FLAG_INDEX) == 0
   doAssert ord(TIMELY_TARGET_FLAG_INDEX) == 1
   doAssert ord(TIMELY_HEAD_FLAG_INDEX) == 2
@@ -78,7 +78,7 @@ static: doAssert TIMELY_SOURCE_WEIGHT + TIMELY_TARGET_WEIGHT +
 type
   ### New types
 
-  # https://github.com/ethereum/consensus-specs/blob/v1.4.0/specs/altair/beacon-chain.md#custom-types
+  # https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.7/specs/altair/beacon-chain.md#custom-types
   ParticipationFlags* = uint8
 
   EpochParticipationFlags* =
