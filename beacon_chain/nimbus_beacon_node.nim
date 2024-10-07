@@ -427,7 +427,7 @@ proc initFullNode(
         #                             maybeFinalized = maybeFinalized)
 
         when consensusFork >= ConsensusFork.Deneb:
-          if not dataColumnQuarantine[].checkForInitialDcSidecars(forkyBlck):
+          if not dataColumnQuarantine[].hasDataColumns(forkyBlck):
             # We don't have all the data columns for this block, so we have
             # to put it in columnless quarantine.
             if not quarantine[].addColumnless(dag.finalizedHead.slot, forkyBlck):
@@ -1539,7 +1539,7 @@ proc tryReconstructingDataColumns* (self: BeaconNode,
   # are already stored then we do not need to reconstruct at all
   if not storedColumns.len < NUMBER_OF_COLUMNS div 2 and storedColumns.len != NUMBER_OF_COLUMNS:
     # Recover blobs from saved data column sidecars
-    let recovered_cps = recover_cells_and_proofs(data_column_sidecars, storedColumns.len, signed_block)
+    let recovered_cps = recover_cells_and_proofs(data_column_sidecars, signed_block)
     if not recovered_cps.isOk:
       return err("Error recovering cells and proofs from data columns")
 

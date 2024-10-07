@@ -90,14 +90,16 @@ func checkForInitialDcSidecars*(quarantine: DataColumnQuarantine,
 func hasDataColumns*(quarantine: DataColumnQuarantine,
     blck: deneb.SignedBeaconBlock | electra.SignedBeaconBlock): bool =
   var counter = 0
-  for idx in 0..<NUMBER_OF_COLUMNS:
-    if (blck.root, ColumnIndex idx) in quarantine.data_columns:
-      inc counter 
-  if counter == max(SAMPLES_PER_SLOT, CUSTODY_REQUIREMENT) or
-      counter == NUMBER_OF_COLUMNS:
+  for i in 0..<NUMBER_OF_COLUMNS:
+    let idx = ColumnIndex(i)
+    if len(blck.message.body.blob_kzg_commitments) != 0 and 
+        quarantine.data_columns.hasKey(
+        (blck.root, idx)):
+      inc counter
+  if counter > 1:
     return true
-  false
-  
+  else:
+    return false
 
 func dataColumnFetchRecord*(quarantine: DataColumnQuarantine,
     blck: deneb.SignedBeaconBlock | electra.SignedBeaconBlock): DataColumnFetchRecord =

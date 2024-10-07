@@ -173,7 +173,6 @@ proc recover_matrix*(partial_matrix: seq[MatrixEntry],
 # THIS METHOD IS DEPRECATED, WILL BE REMOVED ONCE ALPHA 4 IS RELEASED
 proc recover_cells_and_proofs*(
     data_columns: seq[DataColumnSidecar],
-    columnCount: int,
     blck: deneb.TrustedSignedBeaconBlock | 
     electra.TrustedSignedBeaconBlock |
     ForkedTrustedSignedBeaconBlock):
@@ -183,6 +182,7 @@ proc recover_cells_and_proofs*(
   if not (data_columns.len != 0):
     return err("DataColumnSidecar: Length should not be 0")
 
+  var columnCount = data_columns.len
   var blobCount = data_columns[0].column.len
   for data_column in data_columns:
     if not (blobCount == data_column.column.len):
