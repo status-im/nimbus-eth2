@@ -698,7 +698,7 @@ func score(
   # Not found in cache - fresh vote meaning all attestations count
   bitsScore
 
-proc check_attestation_compatible*(
+func check_attestation_compatible*(
     dag: ChainDAGRef,
     state: ForkyHashedBeaconState,
     attestation: SomeAttestation | electra.Attestation |
@@ -1063,7 +1063,38 @@ func getElectraAggregatedAttestation*(
 
   Opt.none(electra.Attestation)
 
-func getAggregatedAttestation*(
+func getElectraAggregatedAttestation*(
+    pool: var AttestationPool, slot: Slot, index: CommitteeIndex):
+    Opt[electra.Attestation] =
+  ## Select the attestation that has the most votes going for it in the given
+  ## slot/index
+  # https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.7/specs/electra/validator.md#construct-aggregate
+  # even though Electra attestations support cross-committee aggregation,
+  # "Set `attestation.committee_bits = committee_bits`, where `committee_bits`
+  # has the same value as in each individual attestation." implies that cannot
+  # be used here, because otherwise they wouldn't have the same value. It thus
+  # leaves the cross-committee aggregation for getElectraAttestationsForBlock,
+  # which does do this.
+  let candidateIdx = pool.candidateIdx(slot)
+  if candidateIdx.isNone:
+    return Opt.none(electra.Attestation)
+
+  var res: Opt[electra.Attestation]
+  for _, entry in pool.electraCandidates[candidateIdx.get].mpairs():
+    doAssert entry.data.slot == slot
+    if index != entry.data.index:
+      continue
+
+    entry.updateAggregates()
+
+    let (bestIndex, best) = bestValidation(entry.aggregates)
+
+    if res.isNone() or best > res.get().aggregation_bits.countOnes():
+      res = Opt.some(entry.toElectraAttestation(entry.aggregates[bestIndex]))
+
+  res
+
+func getPhase0AggregatedAttestation*(
     pool: var AttestationPool, slot: Slot, attestation_data_root: Eth2Digest):
     Opt[phase0.Attestation] =
   let
@@ -1082,7 +1113,7 @@ func getAggregatedAttestation*(
 
   Opt.none(phase0.Attestation)
 
-func getAggregatedAttestation*(
+func getPhase0AggregatedAttestation*(
     pool: var AttestationPool, slot: Slot, index: CommitteeIndex):
     Opt[phase0.Attestation] =
   ## Select the attestation that has the most votes going for it in the given
@@ -1164,7 +1195,7 @@ proc prune*(pool: var AttestationPool) =
     # but we'll keep running hoping that the fork chocie will recover eventually
     error "Couldn't prune fork choice, bug?", err = v.error()
 
-proc validatorSeenAtEpoch*(pool: AttestationPool, epoch: Epoch,
+func validatorSeenAtEpoch*(pool: AttestationPool, epoch: Epoch,
                            vindex: ValidatorIndex): bool =
   if uint64(vindex) < lenu64(pool.nextAttestationEpoch):
     let mark = pool.nextAttestationEpoch[vindex]

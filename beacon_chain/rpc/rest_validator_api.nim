@@ -797,7 +797,7 @@ proc installValidatorApiHandlers*(router: var RestRouter, node: BeaconNode) =
                              InvalidAttestationDataRootValueError, $res.error())
             res.get()
         let res =
-          node.attestationPool[].getAggregatedAttestation(qslot, qroot)
+          node.attestationPool[].getPhase0AggregatedAttestation(qslot, qroot)
         if res.isNone():
           return RestApiResponse.jsonError(Http400,
                                           UnableToGetAggregatedAttestationError)
@@ -841,7 +841,7 @@ proc installValidatorApiHandlers*(router: var RestRouter, node: BeaconNode) =
                             InvalidAttestationDataRootValueError, $res.error())
         res.get()
     let phase0_attestations =
-      node.attestationPool[].getAggregatedAttestation(qslot, root)
+      node.attestationPool[].getPhase0AggregatedAttestation(qslot, root)
 
     if phase0_attestations.isSome():
       return RestApiResponse.jsonResponse(phase0_attestations.get())
