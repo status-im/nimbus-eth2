@@ -432,7 +432,7 @@ proc initFullNode(
               err(VerifierError.UnviableFork)
             else:
               err(VerifierError.MissingParent)
-          else:
+          elif dataColumnQuarantine[].hasDataColumns(forkyBlck):
             let data_columns = dataColumnQuarantine[].popDataColumns(forkyBlck.root, forkyBlck)
             await blockProcessor[].addBlock(MsgSource.gossip, signedBlock,
                                       Opt.none(BlobSidecars), Opt.some(data_columns),
