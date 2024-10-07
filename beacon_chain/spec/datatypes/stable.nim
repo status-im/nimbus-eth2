@@ -44,11 +44,10 @@ type
 
   Eip6404ExecutionSignature* {.
       sszStableContainer: MAX_EXECUTION_SIGNATURE_FIELDS.} = object
-    address*: Opt[ExecutionAddress]
-    secp256k1_signature*: Opt[array[SECP256K1_SIGNATURE_SIZE, byte]]
+    secp256k1*: Opt[array[SECP256K1_SIGNATURE_SIZE, byte]]
 
   TransactionType* = uint8
-  ChainId* = UInt256
+  ChainId* = uint64
 
   Eip6404FeesPerGas* {.sszStableContainer: MAX_FEES_PER_GAS_FIELDS.} = object
     regular*: Opt[UInt256]
@@ -69,7 +68,7 @@ type
 
   Eip6404Authorization* = object
     payload*: Eip6404AuthorizationPayload
-    authority*: Eip6404ExecutionSignature
+    signature*: Eip6404ExecutionSignature
 
   Eip6404TransactionPayload* {.
       sszStableContainer: MAX_TRANSACTION_PAYLOAD_FIELDS.} = object
@@ -102,7 +101,7 @@ type
 
   Eip6404Transaction* = object
     payload*: Eip6404TransactionPayload
-    `from`*: Eip6404ExecutionSignature
+    signature*: Eip6404ExecutionSignature
 
   # https://eips.ethereum.org/EIPS/eip-7688
   StableAttestation* {.

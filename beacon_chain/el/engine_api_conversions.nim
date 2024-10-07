@@ -151,7 +151,7 @@ func asConsensusType*(payload: engine_api.GetPayloadV3Response):
 func asConsensusType*(rpcExecutionPayload: ExecutionPayloadV4):
     electra.ExecutionPayload =
   template getTransaction(
-      tt: engine_api_types.Transaction): electra.Eip6404Transaction =
+      tt: engine_api_types.TransactionV1): electra.Eip6404Transaction =
     electra.Eip6404Transaction(
       payload: Eip6404TransactionPayload(
         `type`:
@@ -161,9 +161,9 @@ func asConsensusType*(rpcExecutionPayload: ExecutionPayloadV4):
             Opt.none(uint8),
         chain_id:
           if tt.payload.chainId.isSome:
-            Opt.some(tt.payload.chainId.get)
+            Opt.some(distinctBase(tt.payload.chainId.get))
           else:
-            Opt.none(UInt256),
+            Opt.none(ChainId),
         nonce:
           if tt.payload.nonce.isSome:
             Opt.some(tt.payload.nonce.get.uint64)
@@ -255,7 +255,7 @@ func asConsensusType*(rpcExecutionPayload: ExecutionPayloadV4):
                           Opt.none(TransactionType),
                       chainId:
                         if it.payload.chainId.isSome:
-                          Opt.some(it.payload.chainId.get)
+                          Opt.some(distinctBase(it.payload.chainId.get))
                         else:
                           Opt.none(ChainId),
                       address:
@@ -269,32 +269,19 @@ func asConsensusType*(rpcExecutionPayload: ExecutionPayloadV4):
                           Opt.some(distinctBase(it.payload.nonce.get))
                         else:
                           Opt.none(uint64)),
-                    authority: Eip6404ExecutionSignature(
-                      address:
-                        if it.authority.address.isSome:
-                          Opt.some(ExecutionAddress(
-                            data: distinctBase(it.authority.address.get)))
-                        else:
-                          Opt.none(ExecutionAddress),
-                      secp256k1_signature:
-                        if it.authority.secp256k1Signature.isSome:
-                          Opt.some(array[65, byte](
-                            it.authority.secp256k1Signature.get))
+                    signature: Eip6404ExecutionSignature(
+                      secp256k1:
+                        if it.signature.secp256k1.isSome:
+                          Opt.some(array[65, byte](it.signature.secp256k1.get))
                         else:
                           Opt.none(array[65, byte]))))))
           else:
             Opt.none(
               List[Eip6404Authorization, Limit MAX_AUTHORIZATION_LIST_SIZE])),
-      `from`: Eip6404ExecutionSignature(
-        address:
-          if tt.`from`.address.isSome:
-            Opt.some(ExecutionAddress(
-              data: distinctBase(tt.`from`.address.get)))
-          else:
-            Opt.none(ExecutionAddress),
-        secp256k1_signature:
-          if tt.`from`.secp256k1Signature.isSome:
-            Opt.some(array[65, byte](tt.`from`.secp256k1Signature.get))
+      signature: Eip6404ExecutionSignature(
+        secp256k1:
+          if tt.signature.secp256k1.isSome:
+            Opt.some(array[65, byte](tt.signature.secp256k1.get))
           else:
             Opt.none(array[65, byte])))
 
@@ -450,9 +437,9 @@ func asEngineExecutionPayload*(blockBody: electra.BeaconBlockBody):
   template executionPayload(): untyped = blockBody.execution_payload
 
   template getTypedTransaction(
-      tt: electra.Eip6404Transaction): engine_api_types.Transaction =
-    engine_api_types.Transaction(
-      payload: engine_api_types.TransactionPayload(
+      tt: electra.Eip6404Transaction): engine_api_types.TransactionV1 =
+    engine_api_types.TransactionV1(
+      payload: engine_api_types.TransactionPayloadV1(
         `type`:
           if tt.payload.`type`.isSome:
             Opt.some(tt.payload.`type`.get.Quantity)
@@ -460,9 +447,9 @@ func asEngineExecutionPayload*(blockBody: electra.BeaconBlockBody):
             Opt.none(Quantity),
         chainId:
           if tt.payload.chain_id.isSome:
-            Opt.some(tt.payload.chain_id.get)
+            Opt.some(tt.payload.chain_id.get.Quantity)
           else:
-            Opt.none(UInt256),
+            Opt.none(Quantity),
         nonce:
           if tt.payload.nonce.isSome:
             Opt.some(tt.payload.nonce.get.Quantity)
@@ -470,7 +457,7 @@ func asEngineExecutionPayload*(blockBody: electra.BeaconBlockBody):
             Opt.none(Quantity),
         maxFeesPerGas:
           if tt.payload.max_fees_per_gas.isSome:
-            Opt.some(engine_api_types.FeesPerGas(
+            Opt.some(engine_api_types.FeesPerGasV1(
               regular:
                 if tt.payload.max_fees_per_gas.get.regular.isSome:
                   Opt.some(tt.payload.max_fees_per_gas.get.regular.get)
@@ -482,7 +469,7 @@ func asEngineExecutionPayload*(blockBody: electra.BeaconBlockBody):
                 else:
                   Opt.none(UInt256)))
           else:
-            Opt.none(engine_api_types.FeesPerGas),
+            Opt.none(engine_api_types.FeesPerGasV1),
         gas:
           if tt.payload.gas.isSome:
             Opt.some(tt.payload.gas.get.Quantity)
@@ -506,15 +493,15 @@ func asEngineExecutionPayload*(blockBody: electra.BeaconBlockBody):
         accessList:
           if tt.payload.access_list.isSome:
             Opt.some(distinctBase(tt.payload.access_list.get).mapIt(
-              AccessTuple(
+              AccessTupleV1(
                 address: Address(it.address.data),
                 storage_keys: distinctBase(it.storage_keys)
                   .mapIt(FixedBytes[32](it.data)))))
           else:
-            Opt.none(seq[AccessTuple]),
+            Opt.none(seq[AccessTupleV1]),
         maxPriorityFeesPerGas:
           if tt.payload.max_priority_fees_per_gas.isSome:
-            Opt.some(engine_api_types.FeesPerGas(
+            Opt.some(engine_api_types.FeesPerGasV1(
               regular:
                 if tt.payload.max_priority_fees_per_gas.get.regular.isSome:
                   Opt.some(
@@ -528,7 +515,7 @@ func asEngineExecutionPayload*(blockBody: electra.BeaconBlockBody):
                 else:
                   Opt.none(UInt256)))
           else:
-            Opt.none(engine_api_types.FeesPerGas),
+            Opt.none(engine_api_types.FeesPerGasV1),
         blobVersionedHashes:
           if tt.payload.blob_versioned_hashes.isSome:
             Opt.some(distinctBase(tt.payload.blob_versioned_hashes.get)
@@ -547,9 +534,9 @@ func asEngineExecutionPayload*(blockBody: electra.BeaconBlockBody):
                       Opt.none(Quantity),
                   chainId:
                     if it.payload.chain_id.isSome:
-                      Opt.some(it.payload.chain_id.get)
+                      Opt.some(it.payload.chain_id.get.Quantity)
                     else:
-                      Opt.none(UInt256),
+                      Opt.none(Quantity),
                   address:
                     if it.payload.address.isSome:
                       Opt.some(Address(it.payload.address.get.data))
@@ -560,29 +547,18 @@ func asEngineExecutionPayload*(blockBody: electra.BeaconBlockBody):
                       Opt.some(it.payload.nonce.get.Quantity)
                     else:
                       Opt.none(Quantity)),
-                authority: engine_api_types.ExecutionSignature(
-                  address:
-                    if it.authority.address.isSome:
-                      Opt.some(Address(it.authority.address.get.data))
-                    else:
-                      Opt.none(Address),
-                  secp256k1Signature:
-                    if it.authority.secp256k1_signature.isSome:
-                      Opt.some(FixedBytes[65](
-                        it.authority.secp256k1_signature.get))
+                signature: engine_api_types.ExecutionSignatureV1(
+                  secp256k1:
+                    if it.signature.secp256k1.isSome:
+                      Opt.some(FixedBytes[65](it.signature.secp256k1.get))
                     else:
                       Opt.none(FixedBytes[65])))))
           else:
             Opt.none(seq[AuthorizationV1])),
-      `from`: engine_api_types.ExecutionSignature(
-        address:
-          if tt.`from`.address.isSome:
-            Opt.some(Address(tt.`from`.address.get.data))
-          else:
-            Opt.none(Address),
-        secp256k1Signature:
-          if tt.`from`.secp256k1_signature.isSome:
-            Opt.some(FixedBytes[65](tt.`from`.secp256k1_signature.get))
+      signature: engine_api_types.ExecutionSignatureV1(
+        secp256k1:
+          if tt.signature.secp256k1.isSome:
+            Opt.some(FixedBytes[65](tt.signature.secp256k1.get))
           else:
             Opt.none(FixedBytes[65])))
 
