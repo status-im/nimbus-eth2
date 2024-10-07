@@ -1871,6 +1871,72 @@ proc readValue*[T: SomeForkedLightClientObject](
     else:
       reader.raiseUnexpectedValue("Unsupported fork " & $version.get)
 
+## ForkedAggregateAndProof
+proc readValue*(reader: var JsonReader[RestJson],
+                value: var ForkedAggregateAndProof) {.
+     raises: [IOError, SerializationError].} =
+  var
+    version: Opt[ConsensusFork]
+    data: Opt[JsonString]
+
+  for fieldName {.inject.} in readObjectFields(reader):
+    case fieldName
+    of "version":
+      if version.isSome():
+        reader.raiseUnexpectedField("Multiple version fields found",
+                                    "ForkedAggregateAndProof")
+      let vres = reader.readValue(string).toLowerAscii()
+      version = ConsensusFork.init(vres)
+      if version.isNone():
+        reader.raiseUnexpectedValue("Incorrect version field value")
+    of "data":
+      if data.isSome():
+        reader.raiseUnexpectedField(
+          "Multiple '" & fieldName & "' fields found",
+          "ForkedAggregateAndProof")
+      data = Opt.some(reader.readValue(JsonString))
+    else:
+      unrecognizedFieldWarning(fieldName, "ForkedAggregateAndProof")
+
+  if version.isNone():
+    reader.raiseUnexpectedValue("Field `version` is missing")
+  if data.isNone():
+    reader.raiseUnexpectedValue("Field `data` is missing")
+
+  withConsensusFork(version.get()):
+    when consensusFork < ConsensusFork.Electra:
+      let res =
+        try:
+          RestJson.decode(string(data.get()),
+                          phase0.AggregateAndProof,
+                          requireAllFields = true,
+                          allowUnknownFields = true)
+        except SerializationError as exc:
+          reader.raiseUnexpectedValue(
+            "Incorrect phase0 aggregated attestation format, [" &
+            exc.formatMsg("ForkedAggregateAndProof") & "]")
+      value = ForkedAggregateAndProof.init(res, consensusFork)
+    else:
+      let res =
+        try:
+          RestJson.decode(string(data.get()),
+                          electra.AggregateAndProof,
+                          requireAllFields = true,
+                          allowUnknownFields = true)
+        except SerializationError as exc:
+          reader.raiseUnexpectedValue(
+            "Incorrect electra aggregated attestation format, [" &
+            exc.formatMsg("ForkedAggregateAndProof") & "]")
+      value = ForkedAggregateAndProof.init(res, consensusFork)
+
+proc writeValue*(writer: var JsonWriter[RestJson],
+                 proof: ForkedAggregateAndProof) {.raises: [IOError].} =
+  writer.beginRecord()
+  writer.writeField("version", proof.kind)
+  withAggregateAndProof(proof):
+    writer.writeField("data", forkyProof)
+  writer.endRecord()
+
 ## Web3SignerRequest
 proc writeValue*(
     writer: var JsonWriter[RestJson], value: Web3SignerRequest
@@ -1895,6 +1961,14 @@ proc writeValue*(
     if isSome(value.signingRoot):
       writer.writeField("signingRoot", value.signingRoot)
     writer.writeField("aggregate_and_proof", value.aggregateAndProof)
+  of Web3SignerRequestKind.AggregateAndProofV2:
+    doAssert(value.forkInfo.isSome(),
+             "forkInfo should be set for this type of request")
+    writer.writeField("type", "AGGREGATE_AND_PROOF_V2")
+    writer.writeField("fork_info", value.forkInfo.get())
+    if isSome(value.signingRoot):
+      writer.writeField("signingRoot", value.signingRoot)
+    writer.writeField("aggregate_and_proof", value.forkedAggregateAndProof)
   of Web3SignerRequestKind.Attestation:
     doAssert(value.forkInfo.isSome(),
              "forkInfo should be set for this type of request")
@@ -1998,6 +2072,8 @@ proc readValue*(reader: var JsonReader[RestJson],
           Web3SignerRequestKind.AggregationSlot
         of "AGGREGATE_AND_PROOF":
           Web3SignerRequestKind.AggregateAndProof
+        of "AGGREGATE_AND_PROOF_V2":
+          Web3SignerRequestKind.AggregateAndProofV2
         of "ATTESTATION":
           Web3SignerRequestKind.Attestation
         of "BLOCK_V2":
@@ -2055,13 +2131,10 @@ proc readValue*(reader: var JsonReader[RestJson],
         reader.raiseUnexpectedValue("Field `aggregation_slot` is missing")
       if forkInfo.isNone():
         reader.raiseUnexpectedValue("Field `fork_info` is missing")
-      let data =
-        block:
-          let res = decodeJsonString(Web3SignerAggregationSlotData, data.get())
-          if res.isErr():
-            reader.raiseUnexpectedValue(
-              "Incorrect field `aggregation_slot` format")
-          res.get()
+      let data = decodeJsonString(Web3SignerAggregationSlotData,
+                                  data.get()).valueOr:
+        reader.raiseUnexpectedValue(
+          "Incorrect field `aggregation_slot` format")
       Web3SignerRequest(kind: Web3SignerRequestKind.AggregationSlot,
         forkInfo: forkInfo, signingRoot: signingRoot, aggregationSlot: data
       )
@@ -2070,29 +2143,33 @@ proc readValue*(reader: var JsonReader[RestJson],
         reader.raiseUnexpectedValue("Field `aggregate_and_proof` is missing")
       if forkInfo.isNone():
         reader.raiseUnexpectedValue("Field `fork_info` is missing")
-      let data =
-        block:
-          let res = decodeJsonString(phase0.AggregateAndProof, data.get())
-          if res.isErr():
-            reader.raiseUnexpectedValue(
-              "Incorrect field `aggregate_and_proof` format")
-          res.get()
+      let data = decodeJsonString(phase0.AggregateAndProof, data.get()).valueOr:
+        reader.raiseUnexpectedValue(
+          "Incorrect field `aggregate_and_proof` format")
       Web3SignerRequest(
         kind: Web3SignerRequestKind.AggregateAndProof,
         forkInfo: forkInfo, signingRoot: signingRoot, aggregateAndProof: data
+      )
+    of Web3SignerRequestKind.AggregateAndProofV2:
+      if dataName != "aggregate_and_proof":
+        reader.raiseUnexpectedValue("Field `aggregate_and_proof` is missing")
+      if forkInfo.isNone():
+        reader.raiseUnexpectedValue("Field `fork_info` is missing")
+      let data = decodeJsonString(ForkedAggregateAndProof, data.get()).valueOr:
+        reader.raiseUnexpectedValue(
+          "Incorrect field `aggregate_and_proof` format")
+      Web3SignerRequest(
+        kind: Web3SignerRequestKind.AggregateAndProofV2,
+        forkInfo: forkInfo, signingRoot: signingRoot,
+        forkedAggregateAndProof: data
       )
     of Web3SignerRequestKind.Attestation:
       if dataName != "attestation":
         reader.raiseUnexpectedValue("Field `attestation` is missing")
       if forkInfo.isNone():
         reader.raiseUnexpectedValue("Field `fork_info` is missing")
-      let data =
-        block:
-          let res = decodeJsonString(AttestationData, data.get())
-          if res.isErr():
-            reader.raiseUnexpectedValue(
-              "Incorrect field `attestation` format")
-          res.get()
+      let data = decodeJsonString(AttestationData, data.get()).valueOr:
+        reader.raiseUnexpectedValue("Incorrect field `attestation` format")
       Web3SignerRequest(
         kind: Web3SignerRequestKind.Attestation,
         forkInfo: forkInfo, signingRoot: signingRoot, attestation: data
@@ -2104,13 +2181,9 @@ proc readValue*(reader: var JsonReader[RestJson],
         reader.raiseUnexpectedValue("Field `beacon_block` is missing")
       if forkInfo.isNone():
         reader.raiseUnexpectedValue("Field `fork_info` is missing")
-      let data =
-        block:
-          let res = decodeJsonString(Web3SignerForkedBeaconBlock, data.get())
-          if res.isErr():
-            reader.raiseUnexpectedValue(
-              "Incorrect field `beacon_block` format")
-          res.get()
+      let data = decodeJsonString(Web3SignerForkedBeaconBlock,
+                                  data.get()).valueOr:
+        reader.raiseUnexpectedValue("Incorrect field `beacon_block` format")
       if len(proofs) > 0:
         Web3SignerRequest(
           kind: Web3SignerRequestKind.BlockV2,
@@ -2125,13 +2198,8 @@ proc readValue*(reader: var JsonReader[RestJson],
     of Web3SignerRequestKind.Deposit:
       if dataName != "deposit":
         reader.raiseUnexpectedValue("Field `deposit` is missing")
-      let data =
-        block:
-          let res = decodeJsonString(Web3SignerDepositData, data.get())
-          if res.isErr():
-            reader.raiseUnexpectedValue(
-              "Incorrect field `deposit` format")
-          res.get()
+      let data = decodeJsonString(Web3SignerDepositData, data.get()).valueOr:
+        reader.raiseUnexpectedValue("Incorrect field `deposit` format")
       Web3SignerRequest(
         kind: Web3SignerRequestKind.Deposit,
         signingRoot: signingRoot, deposit: data
@@ -2141,13 +2209,9 @@ proc readValue*(reader: var JsonReader[RestJson],
         reader.raiseUnexpectedValue("Field `randao_reveal` is missing")
       if forkInfo.isNone():
         reader.raiseUnexpectedValue("Field `fork_info` is missing")
-      let data =
-        block:
-          let res = decodeJsonString(Web3SignerRandaoRevealData, data.get())
-          if res.isErr():
-            reader.raiseUnexpectedValue(
-              "Incorrect field `randao_reveal` format")
-          res.get()
+      let data = decodeJsonString(Web3SignerRandaoRevealData,
+                                  data.get()).valueOr:
+        reader.raiseUnexpectedValue("Incorrect field `randao_reveal` format")
       Web3SignerRequest(
         kind: Web3SignerRequestKind.RandaoReveal,
         forkInfo: forkInfo, signingRoot: signingRoot, randaoReveal: data
@@ -2157,13 +2221,8 @@ proc readValue*(reader: var JsonReader[RestJson],
         reader.raiseUnexpectedValue("Field `voluntary_exit` is missing")
       if forkInfo.isNone():
         reader.raiseUnexpectedValue("Field `fork_info` is missing")
-      let data =
-        block:
-          let res = decodeJsonString(VoluntaryExit, data.get())
-          if res.isErr():
-            reader.raiseUnexpectedValue(
-              "Incorrect field `voluntary_exit` format")
-          res.get()
+      let data = decodeJsonString(VoluntaryExit, data.get()).valueOr:
+        reader.raiseUnexpectedValue("Incorrect field `voluntary_exit` format")
       Web3SignerRequest(
         kind: Web3SignerRequestKind.VoluntaryExit,
         forkInfo: forkInfo, signingRoot: signingRoot, voluntaryExit: data
@@ -2174,13 +2233,10 @@ proc readValue*(reader: var JsonReader[RestJson],
           "Field `sync_committee_message` is missing")
       if forkInfo.isNone():
         reader.raiseUnexpectedValue("Field `fork_info` is missing")
-      let data =
-        block:
-          let res = decodeJsonString(Web3SignerSyncCommitteeMessageData, data.get())
-          if res.isErr():
-            reader.raiseUnexpectedValue(
-              "Incorrect field `sync_committee_message` format")
-          res.get()
+      let data = decodeJsonString(Web3SignerSyncCommitteeMessageData,
+                                  data.get()).valueOr:
+        reader.raiseUnexpectedValue(
+          "Incorrect field `sync_committee_message` format")
       Web3SignerRequest(
         kind: Web3SignerRequestKind.SyncCommitteeMessage,
         forkInfo: forkInfo, signingRoot: signingRoot,
@@ -2192,13 +2248,10 @@ proc readValue*(reader: var JsonReader[RestJson],
           "Field `sync_aggregator_selection_data` is missing")
       if forkInfo.isNone():
         reader.raiseUnexpectedValue("Field `fork_info` is missing")
-      let data =
-        block:
-          let res = decodeJsonString(SyncAggregatorSelectionData, data.get())
-          if res.isErr():
-            reader.raiseUnexpectedValue(
-              "Incorrect field `sync_aggregator_selection_data` format")
-          res.get()
+      let data = decodeJsonString(SyncAggregatorSelectionData,
+                                  data.get()).valueOr:
+        reader.raiseUnexpectedValue(
+          "Incorrect field `sync_aggregator_selection_data` format")
       Web3SignerRequest(
         kind: Web3SignerRequestKind.SyncCommitteeSelectionProof,
         forkInfo: forkInfo, signingRoot: signingRoot,
@@ -2210,13 +2263,9 @@ proc readValue*(reader: var JsonReader[RestJson],
           "Field `contribution_and_proof` is missing")
       if forkInfo.isNone():
         reader.raiseUnexpectedValue("Field `fork_info` is missing")
-      let data =
-        block:
-          let res = decodeJsonString(ContributionAndProof, data.get())
-          if res.isErr():
-            reader.raiseUnexpectedValue(
-              "Incorrect field `contribution_and_proof` format")
-          res.get()
+      let data = decodeJsonString(ContributionAndProof, data.get()).valueOr:
+        reader.raiseUnexpectedValue(
+          "Incorrect field `contribution_and_proof` format")
       Web3SignerRequest(
         kind: Web3SignerRequestKind.SyncCommitteeContributionAndProof,
         forkInfo: forkInfo, signingRoot: signingRoot,
@@ -2228,14 +2277,10 @@ proc readValue*(reader: var JsonReader[RestJson],
           "Field `validator_registration` is missing")
       if forkInfo.isNone():
         reader.raiseUnexpectedValue("Field `fork_info` is missing")
-      let data =
-        block:
-          let res =
-            decodeJsonString(Web3SignerValidatorRegistration, data.get())
-          if res.isErr():
-            reader.raiseUnexpectedValue(
-              "Incorrect field `validator_registration` format")
-          res.get()
+      let data = decodeJsonString(Web3SignerValidatorRegistration,
+                                  data.get()).valueOr:
+        reader.raiseUnexpectedValue(
+          "Incorrect field `validator_registration` format")
       Web3SignerRequest(
         kind: Web3SignerRequestKind.ValidatorRegistration,
         forkInfo: forkInfo, signingRoot: signingRoot,
