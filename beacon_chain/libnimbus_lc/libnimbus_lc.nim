@@ -863,7 +863,7 @@ func ETHLightClientHeaderGetBeacon(
   ## * Beacon block header.
   ##
   ## See:
-  ## * https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.6/specs/phase0/beacon-chain.md#beaconblockheader
+  ## * https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.7/specs/phase0/beacon-chain.md#beaconblockheader
   addr header[].beacon
 
 func ETHBeaconBlockHeaderGetSlot(

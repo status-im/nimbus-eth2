@@ -614,7 +614,7 @@ bool ETHLightClientStoreIsNextSyncCommitteeKnown(const ETHLightClientStore *stor
  *
  * @return Latest optimistic header.
  *
- * @see https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.5/specs/capella/light-client/sync-protocol.md#modified-lightclientheader
+ * @see https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.7/specs/capella/light-client/sync-protocol.md#modified-lightclientheader
  */
 ETH_RESULT_USE_CHECK
 const ETHLightClientHeader *ETHLightClientStoreGetOptimisticHeader(

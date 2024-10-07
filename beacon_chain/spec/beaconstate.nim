@@ -232,7 +232,7 @@ func initiate_validator_exit*(
 
 func get_total_active_balance*(state: ForkyBeaconState, cache: var StateCache): Gwei
 
-# https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.0/specs/electra/beacon-chain.md#new-get_balance_churn_limit
+# https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.7/specs/electra/beacon-chain.md#new-get_balance_churn_limit
 func get_balance_churn_limit(
     cfg: RuntimeConfig, state: electra.BeaconState,
     cache: var StateCache): Gwei =
@@ -347,7 +347,7 @@ func initiate_validator_exit*(
   ok(static(default(ExitQueueInfo)))
 
 # https://github.com/ethereum/consensus-specs/blob/v1.4.0/specs/phase0/beacon-chain.md#slash_validator
-# https://github.com/ethereum/consensus-specs/blob/v1.4.0/specs/altair/beacon-chain.md#modified-slash_validator
+# https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.7/specs/phase0/beacon-chain.md#slash_validator
 # https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.7/specs/bellatrix/beacon-chain.md#modified-slash_validator
 # https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.0/specs/electra/beacon-chain.md#updated-slash_validator
 func get_slashing_penalty*(
@@ -547,7 +547,7 @@ func get_block_root(state: ForkedHashedBeaconState, epoch: Epoch): Eth2Digest =
   withState(state):
     get_block_root(forkyState.data, epoch)
 
-# https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.6/specs/phase0/beacon-chain.md#get_total_balance
+# https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.7/specs/phase0/beacon-chain.md#get_total_balance
 template get_total_balance(
     state: ForkyBeaconState, validator_indices: untyped): Gwei =
   ## Return the combined effective balance of the ``indices``.
@@ -558,7 +558,7 @@ template get_total_balance(
     res += state.validators[validator_index].effective_balance
   max(EFFECTIVE_BALANCE_INCREMENT.Gwei, res)
 
-# https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.6/specs/phase0/beacon-chain.md#is_eligible_for_activation_queue
+# https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.7/specs/phase0/beacon-chain.md#is_eligible_for_activation_queue
 # https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.3/specs/electra/beacon-chain.md#updated-is_eligible_for_activation_queue
 func is_eligible_for_activation_queue*(
     fork: static ConsensusFork, validator: Validator): bool =
@@ -571,7 +571,7 @@ func is_eligible_for_activation_queue*(
     validator.activation_eligibility_epoch == FAR_FUTURE_EPOCH and
       validator.effective_balance >= MIN_ACTIVATION_BALANCE.Gwei
 
-# https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.6/specs/phase0/beacon-chain.md#is_eligible_for_activation
+# https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.7/specs/phase0/beacon-chain.md#is_eligible_for_activation
 func is_eligible_for_activation*(
     state: ForkyBeaconState, validator: Validator): bool =
   ## Check if ``validator`` is eligible for activation.
@@ -1015,7 +1015,7 @@ proc check_attestation*(
 
   ok()
 
-# https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.5/specs/capella/beacon-chain.md#new-process_bls_to_execution_change
+# https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.7/specs/capella/beacon-chain.md#new-process_bls_to_execution_change
 proc check_bls_to_execution_change*(
     genesisFork: Fork,
     state: capella.BeaconState | deneb.BeaconState | electra.BeaconState,
@@ -1246,7 +1246,7 @@ func is_fully_withdrawable_validator(
       validator.withdrawable_epoch <= epoch and balance > 0.Gwei
 
 # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.5/specs/capella/beacon-chain.md#is_partially_withdrawable_validator
-# https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.3/specs/electra/beacon-chain.md#updated-is_partially_withdrawable_validator
+# https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.7/specs/electra/beacon-chain.md#modified-is_partially_withdrawable_validator
 func is_partially_withdrawable_validator(
     fork: static ConsensusFork, validator: Validator, balance: Gwei): bool =
   ## Check if ``validator`` is partially withdrawable.
@@ -1292,7 +1292,7 @@ func switch_to_compounding_validator*(
   validator.withdrawal_credentials.data[0] = COMPOUNDING_WITHDRAWAL_PREFIX
   queue_excess_active_balance(state, index.uint64)
 
-# https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.0/specs/electra/beacon-chain.md#new-get_pending_balance_to_withdraw
+# https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.7/specs/electra/beacon-chain.md#new-get_pending_balance_to_withdraw
 func get_pending_balance_to_withdraw*(
     state: electra.BeaconState, validator_index: ValidatorIndex): Gwei =
   var pending_balance: Gwei

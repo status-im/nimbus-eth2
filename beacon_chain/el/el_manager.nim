@@ -1074,7 +1074,7 @@ proc forkchoiceUpdated*(
   # block hash provided by this event is stubbed with
   # `0x0000000000000000000000000000000000000000000000000000000000000000`."
   # and
-  # https://github.com/ethereum/consensus-specs/blob/v1.4.0/specs/bellatrix/validator.md#executionpayload
+  # https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.7/specs/bellatrix/validator.md#executionpayload
   # notes "`finalized_block_hash` is the hash of the latest finalized execution
   # payload (`Hash32()` if none yet finalized)"
 

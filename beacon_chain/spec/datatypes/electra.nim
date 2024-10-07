@@ -155,7 +155,7 @@ type
     signature*: ValidatorSig
     slot*: Slot
 
-  # https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.6/specs/electra/beacon-chain.md#pendingpartialwithdrawal
+  # https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.7/specs/electra/beacon-chain.md#pendingpartialwithdrawal
   PendingPartialWithdrawal* = object
     index*: uint64
     amount*: Gwei
@@ -184,7 +184,7 @@ type
     aggregate*: Attestation
     selection_proof*: ValidatorSig
 
-  # https://github.com/ethereum/consensus-specs/blob/v1.4.0/specs/phase0/validator.md#signedaggregateandproof
+  # https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.7/specs/phase0/validator.md#signedaggregateandproof
   SignedAggregateAndProof* = object
     message*: AggregateAndProof
     signature*: ValidatorSig
@@ -597,7 +597,7 @@ type
 
   AttestationCommitteeBits* = BitArray[MAX_COMMITTEES_PER_SLOT.int]
 
-  # https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.6/specs/electra/beacon-chain.md#attestation
+  # https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.7/specs/electra/beacon-chain.md#attestation
   Attestation* = object
     aggregation_bits*: ElectraCommitteeValidatorsBits
     data*: AttestationData

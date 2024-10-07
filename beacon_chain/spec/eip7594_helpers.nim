@@ -131,7 +131,7 @@ proc compute_matrix*(blobs: seq[KzgBlob]): Result[seq[MatrixEntry], cstring] =
 
 # https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.5/specs/_features/eip7594/das-core.md#recover_matrix
 proc recover_matrix*(partial_matrix: seq[MatrixEntry],
-                     blobCount: int): 
+                     blobCount: int):
                      Result[seq[MatrixEntry], cstring] =
   ## This helper demonstrates how to apply recover_cells_and_kzg_proofs
   ## The data structure for storing cells is implementation-dependent
@@ -140,19 +140,19 @@ proc recover_matrix*(partial_matrix: seq[MatrixEntry],
     var
       cell_indices: seq[CellIndex]
       cells: seq[Cell]
-  
+
     for e in partial_matrix:
       if e.row_index == uint64(blob_index):
         cell_indices.add(e.column_index)
         cells.add(e.cell)
 
-    let recoveredCellsAndKzgProofs = 
+    let recoveredCellsAndKzgProofs =
       recoverCellsAndKzgProofs(cell_indices, cells)
     if recoveredCellsAndKzgProofs.isErr:
       return err("Issue in recovering cells and proofs")
 
     for i in 0..<recoveredCellsAndKzgProofs.get.cells.len:
-      let 
+      let
         cell = recoveredCellsAndKzgProofs.get.cells[i]
         proof = recoveredCellsAndKzgProofs.get.proofs[i]
       extended_matrix.add(MatrixEntry(
@@ -164,17 +164,17 @@ proc recover_matrix*(partial_matrix: seq[MatrixEntry],
 
   ok(extended_matrix)
 
-# https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.6/specs/_features/eip7594/das-core.md#get_data_column_sidecars
+# https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.7/specs/_features/eip7594/das-core.md#get_data_column_sidecars
 proc get_data_column_sidecars*(signed_beacon_block: electra.TrustedSignedBeaconBlock,
                                cellsAndProofs: seq[CellsAndProofs]):
                                seq[DataColumnSidecar] =
   ## Given a trusted signed beacon block and the cells/proofs associated
   ## with each data column (thereby blob as well) corresponding to the block,
-  ## this function assembles the sidecars which can be distributed to 
+  ## this function assembles the sidecars which can be distributed to
   ## the peers post data column reconstruction at every slot start.
-  ## 
+  ##
   ## Note: this function only accepts `TrustedSignedBeaconBlock` as
-  ## during practice we would be computing cells and proofs from 
+  ## during practice we would be computing cells and proofs from
   ## data columns only after retrieving them from the database, where
   ## they we were already verified and persisted.
   template blck(): auto = signed_beacon_block.message
@@ -186,12 +186,12 @@ proc get_data_column_sidecars*(signed_beacon_block: electra.TrustedSignedBeaconB
         parent_root: blck.parent_root,
         state_root: blck.state_root,
         body_root: hash_tree_root(blck.body))
-    
+
     signed_beacon_block_header =
       SignedBeaconBlockHeader(
         message: beacon_block_header,
         signature: signed_beacon_block.signature.toValidatorSig)
-  
+
   var
     sidecars =
       newSeqOfCap[DataColumnSidecar](CELLS_PER_EXT_BLOB)
@@ -215,21 +215,21 @@ proc get_data_column_sidecars*(signed_beacon_block: electra.TrustedSignedBeaconB
       sidecar.kzg_commitments_inclusion_proof).expect("Valid gindex")
     sidecars.add(sidecar)
 
-  sidecars  
-    
+  sidecars
+
 # Alternative approach to `get_data_column_sidecars` by directly computing
 # blobs from blob bundles
-proc get_data_column_sidecars*(signed_beacon_block: electra.SignedBeaconBlock, 
-                               blobs: seq[KzgBlob]): 
+proc get_data_column_sidecars*(signed_beacon_block: electra.SignedBeaconBlock,
+                               blobs: seq[KzgBlob]):
                                Result[seq[DataColumnSidecar], string] =
   ## Given a signed beacon block and the blobs corresponding to the block,
-  ## this function assembles the sidecars which can be distributed to 
+  ## this function assembles the sidecars which can be distributed to
   ## the peers post data column reconstruction at every slot start.
-  ## 
+  ##
   ## Note: this function only accepts `SignedBeaconBlock` as
   ## during practice we would be extracting data columns
-  ## before publishing them, all of this happens during block 
-  ## production, hence the blocks are yet untrusted and have not 
+  ## before publishing them, all of this happens during block
+  ## production, hence the blocks are yet untrusted and have not
   ## yet been verified.
   template blck(): auto = signed_beacon_block.message
   let
@@ -240,12 +240,12 @@ proc get_data_column_sidecars*(signed_beacon_block: electra.SignedBeaconBlock,
         parent_root: blck.parent_root,
         state_root: blck.state_root,
         body_root: hash_tree_root(blck.body))
-    
+
     signed_beacon_block_header =
       SignedBeaconBlockHeader(
         message: beacon_block_header,
         signature: signed_beacon_block.signature)
-  
+
   var
     sidecars =
       newSeqOfCap[DataColumnSidecar](CELLS_PER_EXT_BLOB)
@@ -262,7 +262,7 @@ proc get_data_column_sidecars*(signed_beacon_block: electra.SignedBeaconBlock,
     proofs[i] = cell_and_proof.get.proofs
 
   for columnIndex in 0..<CELLS_PER_EXT_BLOB:
-    var 
+    var
       column: seq[KzgCell]
       kzgProofOfColumn: seq[KzgProof]
     for rowIndex in 0..<blobs.len:
@@ -287,7 +287,7 @@ func get_extended_sample_count*(samples_per_slot: int,
                                 allowed_failures: int):
                                 int =
   ## `get_extended_sample_count` computes the number of samples we
-  ## should query from peers, given the SAMPLES_PER_SLOT and 
+  ## should query from peers, given the SAMPLES_PER_SLOT and
   ## the number of allowed failures
 
   # If 50% of the columns are missing, we are able to reconstruct the data
@@ -295,14 +295,14 @@ func get_extended_sample_count*(samples_per_slot: int,
   const worstCaseConditionCount = (NUMBER_OF_COLUMNS div 2) + 1
 
   # Compute the false positive threshold
-  let falsePositiveThreshold = 
+  let falsePositiveThreshold =
     hypergeom_cdf(0, NUMBER_OF_COLUMNS, worstCaseConditionCount, samples_per_slot)
 
   # Finally, compute the extended sample count
   for i in samples_per_slot .. NUMBER_OF_COLUMNS:
     if hypergeom_cdf(
         allowed_failures,
-        NUMBER_OF_COLUMNS, 
+        NUMBER_OF_COLUMNS,
         worstCaseConditionCount, i) <= falsePositiveThreshold:
       return i
 
@@ -313,7 +313,7 @@ proc verify_data_column_sidecar_inclusion_proof*(sidecar: DataColumnSidecar):
                                                  Result[void, cstring] =
   ## Verify if the given KZG Commitments are in included
   ## in the beacon block or not
-  let gindex = 
+  let gindex =
     KZG_COMMITMENTS_INCLUSION_PROOF_DEPTH_GINDEX.GeneralizedIndex
   if not is_valid_merkle_branch(
       hash_tree_root(sidecar.kzg_commitments),
@@ -321,7 +321,7 @@ proc verify_data_column_sidecar_inclusion_proof*(sidecar: DataColumnSidecar):
       KZG_COMMITMENTS_INCLUSION_PROOF_DEPTH.int,
       get_subtree_index(gindex),
       sidecar.signed_block_header.message.body_root):
-    
+
     return err("DataColumnSidecar: Inclusion proof is invalid")
 
   ok()
@@ -331,7 +331,7 @@ proc verify_data_column_sidecar_kzg_proofs*(sidecar: DataColumnSidecar):
                                             Result[void, cstring] =
   ## Verify if the KZG Proofs consisting in the `DataColumnSidecar`
   ## is valid or not.
-  
+
   # Check if the data column sidecar index < NUMBER_OF_COLUMNS
   if not (sidecar.index < NUMBER_OF_COLUMNS):
     return err("Data column sidecar index exceeds the NUMBER_OF_COLUMNS")
@@ -345,12 +345,12 @@ proc verify_data_column_sidecar_kzg_proofs*(sidecar: DataColumnSidecar):
     return err("Sidecar kzg_commitments length is not equal to the kzg_proofs length")
 
   # Iterate through the cell indices
-  var cellIndices = 
+  var cellIndices =
     newSeq[CellIndex](MAX_BLOB_COMMITMENTS_PER_BLOCK)
   for _ in 0..<sidecar.column.len:
     cellIndices.add(sidecar.index * sidecar.column.lenu64)
 
-  let res = 
+  let res =
     verifyCellKzgProofBatch(sidecar.kzg_commitments.asSeq,
                             cellIndices,
                             sidecar.column.asSeq,

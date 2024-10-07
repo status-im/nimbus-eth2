@@ -95,7 +95,7 @@ type
     executionPayload*: ExecutionPayload
     blockValue*: Wei
 
-  # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.5/specs/capella/beacon-chain.md#executionpayloadheader
+  # https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.7/specs/capella/beacon-chain.md#executionpayloadheader
   ExecutionPayloadHeader* = object
     # Execution block header fields
     parent_hash*: Eth2Digest
@@ -659,7 +659,7 @@ func get_lc_execution_root*(
 
   ZERO_HASH
 
-# https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.5/specs/capella/light-client/sync-protocol.md#modified-is_valid_light_client_header
+# https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.7/specs/capella/light-client/sync-protocol.md#modified-is_valid_light_client_header
 func is_valid_light_client_header*(
     header: LightClientHeader, cfg: RuntimeConfig): bool =
   let epoch = header.beacon.slot.epoch
