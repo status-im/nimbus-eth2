@@ -427,9 +427,7 @@ proc initFullNode(
         #                             maybeFinalized = maybeFinalized)
 
         when consensusFork >= ConsensusFork.Deneb:
-          if not dataColumnQuarantine[].hasDataColumns(forkyBlck):
-            # We don't have all the data columns for this block, so we have
-            # to put it in columnless quarantine.
+          if len(forkyBlck.message.body.blob_kzg_commitments) != 0:
             if not quarantine[].addColumnless(dag.finalizedHead.slot, forkyBlck):
               err(VerifierError.UnviableFork)
             else:

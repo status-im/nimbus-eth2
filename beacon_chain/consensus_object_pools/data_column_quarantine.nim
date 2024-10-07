@@ -96,10 +96,9 @@ func hasDataColumns*(quarantine: DataColumnQuarantine,
         quarantine.data_columns.hasKey(
         (blck.root, idx)):
       inc counter
-  if counter > 1:
-    return true
-  else:
+  if counter == 0:
     return false
+  true
 
 func dataColumnFetchRecord*(quarantine: DataColumnQuarantine,
     blck: deneb.SignedBeaconBlock | electra.SignedBeaconBlock): DataColumnFetchRecord =
