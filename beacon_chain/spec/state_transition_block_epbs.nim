@@ -279,8 +279,8 @@ proc process_execution_payload*(
       let pubkey = state.validators.item(vidx).pubkey()
 
       if not verify_execution_payload_envelope_signature(
-        state.fork, state.genesis_validators_root, signed_envelope,
-        pubkey, signed_envelope.signature, state):
+        state.fork, state.genesis_validators_root, 
+        signed_envelope, state,pubkey, signed_envelope.signature):
         return err("payload_envelope: signature verification failure")
 
   let

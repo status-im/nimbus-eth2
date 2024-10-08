@@ -467,17 +467,17 @@ func compute_execution_payload_envelope_signing_root*(
 
 func get_execution_payload_envelope_signature*(
     fork: Fork, genesis_validators_root: Eth2Digest,
-    msg: SignedExecutionPayloadEnvelope, privkey: ValidatorPrivKey,
-    state: epbs.BeaconState): CookedSig =
+    msg: SignedExecutionPayloadEnvelope, state: epbs.BeaconState,
+    privkey: ValidatorPrivKey): CookedSig =
   let signing_root = compute_execution_payload_envelope_signing_root(
     fork, genesis_validators_root, msg, state)
   blsSign(privkey, signing_root.data)
 
 proc verify_execution_payload_envelope_signature*(
     fork: Fork, genesis_validators_root: Eth2Digest,
-    msg: epbs.SignedExecutionPayloadEnvelope,
-    pubkey: ValidatorPubKey | CookedPubKey, signature: SomeSig, 
-    state: epbs.BeaconState): bool =
+    msg: epbs.SignedExecutionPayloadEnvelope, 
+    state: epbs.BeaconState, pubkey: ValidatorPubKey | CookedPubKey, 
+    signature: SomeSig): bool =
   let signing_root = compute_execution_payload_envelope_signing_root(
     fork, genesis_validators_root, msg, state)
   blsVerify(pubkey, signing_root.data, signature)
@@ -496,17 +496,20 @@ func compute_payload_attestation_message_signing_root*(
 
 func get_payload_attestation_message_signature*(
     fork: Fork, genesis_validators_root: Eth2Digest,
-    attestation: PayloadAttestationMessage, privkey: ValidatorPrivKey,
-    state: epbs.BeaconState): CookedSig =
+    attestation: PayloadAttestationMessage, 
+    state: epbs.BeaconState, 
+    privkey: ValidatorPrivKey): CookedSig =
   let signing_root = compute_payload_attestation_message_signing_root(
     fork, genesis_validators_root, attestation, state)
   blsSign(privkey, signing_root.data)
 
 proc verify_payload_attestation_message_signature*(
     fork: Fork, genesis_validators_root: Eth2Digest,
-    attestation: PayloadAttestationMessage,
-    pubkey: ValidatorPubKey | CookedPubKey, signature: SomeSig, 
-    state: epbs.BeaconState): bool =
+    attestation: PayloadAttestationMessage, 
+    state: epbs.BeaconState, 
+    pubkey: ValidatorPubKey | CookedPubKey, 
+    signature: SomeSig, 
+    ): bool =
   let signing_root = compute_payload_attestation_message_signing_root(
     fork, genesis_validators_root, attestation, state)
   blsVerify(pubkey, signing_root.data, signature)
