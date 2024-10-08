@@ -483,12 +483,10 @@ func append*(w: var RlpWriter, request: electra.ConsolidationRequest) =
 # https://eips.ethereum.org/EIPS/eip-7685
 proc computeRequestsTrieRoot(
     requests: electra.ExecutionRequests): ExecutionHash256 =
-  let n = requests.deposits.len +
-      requests.withdrawals.len +
-      requests.consolidations.len
-
-  if n == 0:
-    return EMPTY_ROOT_HASH
+  let n =
+    requests.deposits.len +
+    requests.withdrawals.len +
+    requests.consolidations.len
 
   var b = OrderedTrieRootBuilder.init(n)
 
