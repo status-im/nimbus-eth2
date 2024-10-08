@@ -35,14 +35,14 @@ func toGwei*(eth: Ether): Gwei =
   distinctBase(eth) * ETH_TO_GWEI
 
 type
-  ExecutionHash256* = eth_types.Hash256
+  ExecutionHash256* = eth_types.Hash32
   ExecutionTransaction* = eth_types.Transaction
   ExecutionReceipt* = eth_types.Receipt
   ExecutionWithdrawal* = eth_types.Withdrawal
   ExecutionDepositRequest* = eth_types.DepositRequest
   ExecutionWithdrawalRequest* = eth_types.WithdrawalRequest
   ExecutionConsolidationRequest* = eth_types.ConsolidationRequest
-  ExecutionBlockHeader* = eth_types.BlockHeader
+  ExecutionBlockHeader* = eth_types.Header
 
   FinalityCheckpoints* = object
     justified*: Checkpoint
@@ -592,7 +592,7 @@ proc blockToBlockHeader*(blck: ForkyBeaconBlock): ExecutionBlockHeader =
     stateRoot             : payload.state_root.to(Root),
     transactionsRoot      : txRoot,
     receiptsRoot          : payload.receipts_root.to(Root),
-    logsBloom             : BloomFilter payload.logs_bloom.data.to(Bloom),
+    logsBloom             : Bloom payload.logs_bloom.data.to(Bloom),
     difficulty            : default(DifficultyInt),
     number                : payload.block_number,
     gasLimit              : payload.gas_limit,
@@ -600,7 +600,7 @@ proc blockToBlockHeader*(blck: ForkyBeaconBlock): ExecutionBlockHeader =
     timestamp             : EthTime(payload.timestamp),
     extraData             : payload.extra_data.asSeq,
     mixHash               : Bytes32 payload.prev_randao.data, # EIP-4399 `mixHash` -> `prevRandao`
-    nonce                 : default(BlockNonce),
+    nonce                 : default(Bytes8),
     baseFeePerGas         : Opt.some payload.base_fee_per_gas,
     withdrawalsRoot       : withdrawalsRoot,
     blobGasUsed           : blobGasUsed,           # EIP-4844

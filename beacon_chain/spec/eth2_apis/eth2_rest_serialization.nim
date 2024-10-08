@@ -25,8 +25,8 @@ export
   json_serialization, net, sets, rest_types, slashing_protection_common,
   jsonSerializationResults, rest_keymanager_types
 
-from web3/primitives import BlockHash, BlockNumber
-export primitives.BlockHash, primitives.BlockNumber
+from web3/primitives import Hash32, Quantity
+export primitives.Hash32, primitives.Quantity
 
 func decodeMediaType*(
     contentType: Opt[ContentTypeData]): Result[MediaType, string] =
@@ -995,14 +995,14 @@ proc readValue*(reader: var JsonReader[RestJson], value: var uint8) {.
   else:
     reader.raiseUnexpectedValue($res.error() & ": " & svalue)
 
-## BlockNumber
+## BlockNumber/Quantity
 proc writeValue*(
-    w: var JsonWriter[RestJson], value: BlockNumber) {.raises: [IOError].} =
+    w: var JsonWriter[RestJson], value: Quantity) {.raises: [IOError].} =
   w.writeValue(distinctBase(value))
 
 proc readValue*(
     reader: var JsonReader[RestJson],
-    value: var BlockNumber) {.raises: [IOError, SerializationError].} =
+    value: var Quantity) {.raises: [IOError, SerializationError].} =
   reader.readValue(distinctBase(value))
 
 ## RestNumeric
@@ -1272,17 +1272,17 @@ proc writeValue*(
     writer: var JsonWriter[RestJson], value: BitArray) {.raises: [IOError].} =
   writeValue(writer, hexOriginal(value.bytes))
 
-## BlockHash
-proc readValue*(reader: var JsonReader[RestJson], value: var BlockHash) {.
+## BlockHash/Hash32
+proc readValue*(reader: var JsonReader[RestJson], value: var Hash32) {.
      raises: [IOError, SerializationError].} =
   try:
     hexToByteArray(reader.readValue(string), distinctBase(value))
   except ValueError:
     raiseUnexpectedValue(reader,
-                         "BlockHash value should be a valid hex string")
+                         "Hash32 value should be a valid hex string")
 
 proc writeValue*(
-    writer: var JsonWriter[RestJson], value: BlockHash) {.raises: [IOError].} =
+    writer: var JsonWriter[RestJson], value: Hash32) {.raises: [IOError].} =
   writeValue(writer, hexOriginal(distinctBase(value)))
 
 ## Eth2Digest
