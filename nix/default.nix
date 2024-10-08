@@ -5,7 +5,7 @@
   # Options: nimbus_light_client, nimbus_validator_client, nimbus_signing_node, all
   targets ? ["nimbus_beacon_node"],
   # Options: 0,1,2
-  verbosity ? 0,
+  verbosity ? 2,
   # Perform 2-stage bootstrap instead of 3-stage to save time.
   quickAndDirty ? true,
   # These are the only platforms tested in CI and considered stable.
