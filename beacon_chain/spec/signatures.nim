@@ -438,17 +438,17 @@ func compute_execution_payload_header_signing_root*(
 
 func get_execution_payload_header_signature*(
     fork: Fork, genesis_validators_root: Eth2Digest,
-    msg: SignedExecutionPayloadHeader, privkey: ValidatorPrivKey, 
-    state: epbs.BeaconState): CookedSig =
+    msg: SignedExecutionPayloadHeader, state: epbs.BeaconState, 
+    privkey: ValidatorPrivKey): CookedSig =
   let signing_root = compute_execution_payload_header_signing_root(
     fork, genesis_validators_root, msg, state)
   blsSign(privkey, signing_root.data)
 
 proc verify_execution_payload_header_signature*(
     fork: Fork, genesis_validators_root: Eth2Digest,
-    msg: epbs.SignedExecutionPayloadHeader,
-    pubkey: ValidatorPubKey | CookedPubKey, signature: SomeSig, 
-    state: epbs.BeaconState): bool =
+    msg: epbs.SignedExecutionPayloadHeader, state: epbs.BeaconState,
+    pubkey: ValidatorPubKey | CookedPubKey, 
+    signature: SomeSig): bool =
   let signing_root = compute_execution_payload_header_signing_root(
     fork, genesis_validators_root, msg, state)
   blsVerify(pubkey, signing_root.data, signature)

@@ -90,7 +90,7 @@ proc process_execution_payload_header*(state: var epbs.BeaconState,
 
     if not verify_execution_payload_header_signature(
       state.fork, state.genesis_validators_root, signed_header,
-      pubkey, signed_header.signature, state):
+      state, pubkey, signed_header.signature):
       return err("payload_header: signature verification failure")
 
   let 
@@ -183,9 +183,9 @@ proc process_payload_attestation*(state: var epbs.BeaconState,
     var proposer_reward_numerator: Gwei = Gwei(0)
     for index in indexed_payload_attestation.attesting_indices:
       for flag_index, weight in PARTICIPATION_FLAG_WEIGHTS:
-        if not has_flag(epoch_participation[].item(validator_index), flag_index):
-          epoch_participation[index] = 
-            add_flag(epoch_participation[].item(validator_index), flag_index)
+        if not has_flag(epoch_participation[].item(index), flag_index):
+          epoch_participation[].item(index) = 
+            add_flag(epoch_participation[].item(index), flag_index)
           proposer_reward_numerator += 
             get_base_reward(state, index, base_reward_per_increment) * weight
 
