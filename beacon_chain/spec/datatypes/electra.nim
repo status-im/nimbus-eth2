@@ -189,12 +189,6 @@ type
     message*: AggregateAndProof
     signature*: ValidatorSig
 
-  # https://github.com/ethereum/consensus-specs/blob/7df1ce30384b13d01617f8ddf930f4035da0f689/specs/electra/beacon-chain.md#executionrequests
-  ExecutionRequests* = object
-    deposits*: List[DepositRequest, Limit MAX_DEPOSIT_REQUESTS_PER_PAYLOAD]
-    withdrawals*: List[WithdrawalRequest, Limit MAX_WITHDRAWAL_REQUESTS_PER_PAYLOAD]
-    consolidations*: List[ConsolidationRequest, Limit MAX_CONSOLIDATION_REQUESTS_PER_PAYLOAD]
-
   FinalityBranch* =
     array[log2trunc(FINALIZED_ROOT_GINDEX_ELECTRA), Eth2Digest]
 
