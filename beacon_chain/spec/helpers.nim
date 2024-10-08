@@ -14,7 +14,7 @@ import
   stew/[byteutils, endians2, objects],
   chronicles,
   eth/common/[eth_types, eth_types_rlp],
-  eth/rlp, eth/trie/[db, hexary],
+  eth/rlp, eth/trie/ordered_trie,
   # Internal
   "."/[eth2_merkleization, forks, ssz_codec]
 
@@ -23,7 +23,7 @@ import
 # generics sandwich where rlp/writer.append() is not seen, by a caller outside
 # this module via compute_execution_block_hash() called from block_processor.
 export
-  eth2_merkleization, forks, rlp, ssz_codec
+  eth2_merkleization, forks, ssz_codec, rlp, eth_types_rlp.append
 
 # https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.7/specs/phase0/weak-subjectivity.md#constants
 const ETH_TO_GWEI = 1_000_000_000.Gwei
@@ -440,67 +440,42 @@ func compute_timestamp_at_slot*(state: ForkyBeaconState, slot: Slot): uint64 =
   let slots_since_genesis = slot - GENESIS_SLOT
   state.genesis_time + slots_since_genesis * SECONDS_PER_SLOT
 
-proc computeTransactionsTrieRoot*(
-    payload: ForkyExecutionPayload): ExecutionHash256 =
-  if payload.transactions.len == 0:
-    return EMPTY_ROOT_HASH
+template append*(w: var RlpWriter, v: bellatrix.Transaction) =
+  w.appendRawBytes(distinctBase v)
 
-  var tr = initHexaryTrie(newMemoryDB())
-  for i, transaction in payload.transactions:
-    try:
-      # Transactions are already RLP encoded
-      tr.put(rlp.encode(i.uint), distinctBase(transaction))
-    except RlpError as exc:
-      raiseAssert "HexaryTrie.put failed: " & $exc.msg
-  tr.rootHash()
-
-func toExecutionWithdrawal(
-    withdrawal: capella.Withdrawal): ExecutionWithdrawal =
-  ExecutionWithdrawal(
+template append*(w: var RlpWriter, withdrawal: capella.Withdrawal) =
+  w.appendRecordType(ExecutionWithdrawal(
     index: withdrawal.index,
     validatorIndex: withdrawal.validator_index,
     address: EthAddress withdrawal.address.data,
-    amount: distinctBase(withdrawal.amount))
+    amount: distinctBase(withdrawal.amount)))
 
-proc rlpEncode(withdrawal: capella.Withdrawal): seq[byte] =
-  # TODO if this encode call is in a generic function, nim doesn't find the
-  #      right `append` to use with `Address` (!)
-  rlp.encode(toExecutionWithdrawal(withdrawal))
+proc computeTransactionsTrieRoot(
+    payload: ForkyExecutionPayload): ExecutionHash256 =
+  orderedTrieRoot(payload.transactions.asSeq)
 
 # https://eips.ethereum.org/EIPS/eip-4895
-proc computeWithdrawalsTrieRoot*(
+proc computeWithdrawalsTrieRoot(
     payload: capella.ExecutionPayload | deneb.ExecutionPayload |
     electra.ExecutionPayload): ExecutionHash256 =
-  if payload.withdrawals.len == 0:
-    return EMPTY_ROOT_HASH
+  orderedTrieRoot(payload.withdrawals.asSeq)
 
-  var tr = initHexaryTrie(newMemoryDB())
-  for i, withdrawal in payload.withdrawals:
-    try:
-      tr.put(rlp.encode(i.uint), rlpEncode(withdrawal))
-    except RlpError as exc:
-      raiseAssert "HexaryTrie.put failed: " & $exc.msg
-  tr.rootHash()
-
-func toExecutionDepositRequest*(
-    request: electra.DepositRequest): ExecutionDepositRequest =
-  ExecutionDepositRequest(
+func append*(w: var RlpWriter, request: electra.DepositRequest) =
+  w.append ExecutionDepositRequest(
     pubkey: Bytes48 request.pubkey.blob,
     withdrawalCredentials: Bytes32 request.withdrawal_credentials.data,
     amount: distinctBase(request.amount),
     signature: Bytes96 request.signature.blob,
     index: request.index)
 
-func toExecutionWithdrawalRequest*(
-    request: electra.WithdrawalRequest): ExecutionWithdrawalRequest =
-  ExecutionWithdrawalRequest(
+func append*(w: var RlpWriter, request: electra.WithdrawalRequest) =
+  w.append ExecutionWithdrawalRequest(
     sourceAddress: Address request.source_address.data,
     validatorPubkey: Bytes48 request.validator_pubkey.blob,
     amount: distinctBase(request.amount))
 
-func toExecutionConsolidationRequest*(
-    request: electra.ConsolidationRequest): ExecutionConsolidationRequest =
-  ExecutionConsolidationRequest(
+func append*(w: var RlpWriter, request: electra.ConsolidationRequest) =
+  w.append ExecutionConsolidationRequest(
     sourceAddress: Address request.source_address.data,
     sourcePubkey: Bytes48 request.source_pubkey.blob,
     targetPubkey: Bytes48 request.target_pubkey.blob)
@@ -508,47 +483,24 @@ func toExecutionConsolidationRequest*(
 # https://eips.ethereum.org/EIPS/eip-7685
 proc computeRequestsTrieRoot(
     requests: electra.ExecutionRequests): ExecutionHash256 =
-  if requests.deposits.len == 0 and
-      requests.withdrawals.len == 0 and
-      requests.consolidations.len == 0:
+  let n = requests.deposits.len +
+      requests.withdrawals.len +
+      requests.consolidations.len
+
+  if n == 0:
     return EMPTY_ROOT_HASH
 
-  var
-    tr = initHexaryTrie(newMemoryDB())
-    i = 0'u64
+  var b = OrderedTrieRootBuilder.init(n)
 
   static:
     doAssert DEPOSIT_REQUEST_TYPE < WITHDRAWAL_REQUEST_TYPE
     doAssert WITHDRAWAL_REQUEST_TYPE < CONSOLIDATION_REQUEST_TYPE
 
-  # EIP-6110
-  for request in requests.deposits:
-    try:
-      tr.put(rlp.encode(i.uint), rlp.encode(
-        toExecutionDepositRequest(request)))
-    except RlpError as exc:
-      raiseAssert "HexaryTree.put failed: " & $exc.msg
-    inc i
+  b.add(requests.deposits.asSeq) # EIP-6110
+  b.add(requests.withdrawals.asSeq) # EIP-7002
+  b.add(requests.consolidations.asSeq) # EIP-7251
 
-  # EIP-7002
-  for request in requests.withdrawals:
-    try:
-      tr.put(rlp.encode(i.uint), rlp.encode(
-        toExecutionWithdrawalRequest(request)))
-    except RlpError as exc:
-      raiseAssert "HexaryTree.put failed: " & $exc.msg
-    inc i
-
-  # EIP-7251
-  for request in requests.consolidations:
-    try:
-      tr.put(rlp.encode(i.uint), rlp.encode(
-        toExecutionConsolidationRequest(request)))
-    except RlpError as exc:
-      raiseAssert "HexaryTree.put failed: " & $exc.msg
-    inc i
-
-  tr.rootHash()
+  b.rootHash()
 
 proc blockToBlockHeader*(blck: ForkyBeaconBlock): ExecutionBlockHeader =
   template payload: auto = blck.body.execution_payload
@@ -561,7 +513,7 @@ proc blockToBlockHeader*(blck: ForkyBeaconBlock): ExecutionBlockHeader =
     txRoot = payload.computeTransactionsTrieRoot()
     withdrawalsRoot =
       when typeof(payload).kind >= ConsensusFork.Capella:
-        Opt.some payload.computeWithdrawalsTrieRoot()
+        Opt.some orderedTrieRoot(payload.withdrawals.asSeq)
       else:
         Opt.none(ExecutionHash256)
     blobGasUsed =

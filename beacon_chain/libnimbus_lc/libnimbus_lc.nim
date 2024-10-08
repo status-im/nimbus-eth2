@@ -9,11 +9,11 @@
 
 import
   std/[json, sequtils, times],
-  eth/common/[eth_types_rlp, transaction],
+  eth/common/eth_types_rlp,
   eth/keys,
   eth/p2p/discoveryv5/random2,
   eth/rlp,
-  eth/trie/[db, hexary],
+  eth/trie/ordered_trie,
   json_rpc/jsonmarshal,
   secp256k1,
   web3/[engine_api_types, eth_api_types, conversions],
@@ -1210,6 +1210,12 @@ type
     withdrawalRequests: seq[ETHWithdrawalRequest]
     consolidationRequests: seq[ETHConsolidationRequest]
 
+template append*(
+    w: var RlpWriter, v:
+      ETHWithdrawal | ETHDepositRequest | ETHWithdrawalRequest |
+      ETHConsolidationRequest) =
+  w.appendRawBytes(v.bytes)
+
 proc ETHExecutionBlockHeaderCreateFromJson(
     executionHash: ptr Eth2Digest,
     blockHeaderJson: cstring): ptr ETHExecutionBlockHeader {.exported.} =
@@ -1357,13 +1363,8 @@ proc ETHExecutionBlockHeaderCreateFromJson(
         amount: wd.amount,
         bytes: rlpBytes)
 
-    var tr = initHexaryTrie(newMemoryDB())
-    for i, wd in wds:
-      try:
-        tr.put(rlp.encode(i.uint), wd.bytes)
-      except RlpError:
-        raiseAssert "Unreachable"
-    if tr.rootHash() != data.withdrawalsRoot.get.asEth2Digest:
+    var tr = orderedTrieRoot(wds)
+    if tr != data.withdrawalsRoot.get.asEth2Digest:
       return nil
 
   # Construct deposit requests
@@ -1460,28 +1461,14 @@ proc ETHExecutionBlockHeaderCreateFromJson(
       data.consolidationRequests.isSome:
     doAssert data.requestsRoot.isSome  # Checked above
 
-    var
-      tr = initHexaryTrie(newMemoryDB())
-      i = 0'u64
-    for req in depositRequests:
-      try:
-        tr.put(rlp.encode(i.uint), req.bytes)
-      except RlpError:
-        raiseAssert "Unreachable"
-      inc i
-    for req in withdrawalRequests:
-      try:
-        tr.put(rlp.encode(i.uint), req.bytes)
-      except RlpError:
-        raiseAssert "Unreachable"
-      inc i
-    for req in consolidationRequests:
-      try:
-        tr.put(rlp.encode(i.uint), req.bytes)
-      except RlpError:
-        raiseAssert "Unreachable"
-      inc i
-    if tr.rootHash() != data.requestsRoot.get.asEth2Digest:
+    var b = OrderedTrieRootBuilder.init(
+      depositRequests.len + withdrawalRequests.len + consolidationRequests.len)
+
+    b.add(depositRequests)
+    b.add(withdrawalRequests)
+    b.add(consolidationRequests)
+
+    if b.rootHash() != data.requestsRoot.get.asEth2Digest:
       return nil
 
   let executionBlockHeader = ETHExecutionBlockHeader.new()
@@ -1652,6 +1639,9 @@ type
     authorizationList: seq[ETHAuthorizationTuple]
     signature: seq[byte]
     bytes: TypedTransaction
+
+template append*(w: var RlpWriter, v: ETHTransaction) =
+  w.appendRawBytes(distinctBase v.bytes)
 
 proc ETHTransactionsCreateFromJson(
     transactionsRoot: ptr Eth2Digest,
@@ -1900,13 +1890,7 @@ proc ETHTransactionsCreateFromJson(
       signature: @rawSig,
       bytes: rlpBytes.TypedTransaction)
 
-  var tr = initHexaryTrie(newMemoryDB())
-  for i, transaction in txs:
-    try:
-      tr.put(rlp.encode(i.uint), distinctBase(transaction.bytes))
-    except RlpError:
-      raiseAssert "Unreachable"
-  if tr.rootHash() != transactionsRoot[]:
+  if orderedTrieRoot(txs) != transactionsRoot[]:
     return nil
 
   let transactions = seq[ETHTransaction].new()
@@ -2466,6 +2450,9 @@ type
     logs: seq[ETHLog]
     bytes: seq[byte]
 
+template append*(w: var RlpWriter, v: ETHReceipt) =
+  w.appendRawBytes(v.bytes)
+
 proc ETHReceiptsCreateFromJson(
     receiptsRoot: ptr Eth2Digest,
     receiptsJson: cstring,
@@ -2610,13 +2597,7 @@ proc ETHReceiptsCreateFromJson(
         data: it.data)),
       bytes: rlpBytes)
 
-  var tr = initHexaryTrie(newMemoryDB())
-  for i, rec in recs:
-    try:
-      tr.put(rlp.encode(i.uint), rec.bytes)
-    except RlpError:
-      raiseAssert "Unreachable"
-  if tr.rootHash() != receiptsRoot[]:
+  if orderedTrieRoot(recs) != receiptsRoot[]:
     return nil
 
   let receipts = seq[ETHReceipt].new()
