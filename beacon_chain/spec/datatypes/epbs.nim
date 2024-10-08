@@ -195,7 +195,7 @@ type
     pending_consolidations*:
       HashList[PendingConsolidation, Limit PENDING_CONSOLIDATIONS_LIMIT]
     
-    # [New in PBS]
+    # [New in EIP-7732]
     latest_block_hash*: Eth2Digest
     latest_full_slot*: Slot
     latest_withdrawals_root*: Eth2Digest
