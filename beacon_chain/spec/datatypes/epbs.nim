@@ -34,7 +34,7 @@ from ./capella import
   Withdrawal, ExecutionPayload, EXECUTION_PAYLOAD_GINDEX
 from ./deneb import 
   Blobs, BlobsBundle, KzgCommitments, KzgProofs, BlobIndex, Blob
-from ./electra import PendingBalanceDeposit, PendingPartialWithdrawal, 
+from ./electra import PendingDeposit, PendingPartialWithdrawal, 
   PendingConsolidation, ElectraCommitteeValidatorsBits, 
   AttestationCommitteeBits, ExecutionRequests
 
@@ -189,7 +189,7 @@ type
     consolidation_balance_to_consume*: Gwei
     earliest_consolidation_epoch*: Epoch 
     pending_balance_deposits*:
-      HashList[PendingBalanceDeposit, Limit PENDING_BALANCE_DEPOSITS_LIMIT]
+      HashList[PendingDeposit, Limit PENDING_DEPOSITS_LIMIT]
     pending_partial_withdrawals*:
       HashList[PendingPartialWithdrawal, Limit PENDING_PARTIAL_WITHDRAWALS_LIMIT]
     pending_consolidations*:
