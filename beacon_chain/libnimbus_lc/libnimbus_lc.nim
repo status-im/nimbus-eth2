@@ -1363,7 +1363,7 @@ proc ETHExecutionBlockHeaderCreateFromJson(
         amount: wd.amount,
         bytes: rlpBytes)
 
-    var tr = orderedTrieRoot(wds)
+    let tr = orderedTrieRoot(wds)
     if tr != data.withdrawalsRoot.get.asEth2Digest:
       return nil
 
