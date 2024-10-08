@@ -522,8 +522,6 @@ proc validateDataColumnSidecar*(
   # (block_header.slot, block_header.proposer_index, blob_sidecar.index)
   # with valid header signature, sidecar inclusion proof, and kzg proof.
   let block_root = hash_tree_root(block_header)
-  if dag.getBlockRef(block_root).isSome():
-    return errIgnore("DataColumnSidecar: already have block")
   if dataColumnQuarantine[].hasDataColumn(
       block_header.slot, block_header.proposer_index, data_column_sidecar.index):
     return errIgnore("DataColumnSidecar: already have valid data column from same proposer")
