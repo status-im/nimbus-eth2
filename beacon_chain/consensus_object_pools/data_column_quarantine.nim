@@ -105,9 +105,14 @@ func hasDataColumns*(quarantine: DataColumnQuarantine,
   var counter = 0
   for i in 0..<NUMBER_OF_COLUMNS:
     if len(blck.message.body.blob_kzg_commitments) != 0:
-      if (blck.root, ColumnIndex i) notin quarantine.data_columns:
-        return false
-  true
+      if (blck.root, ColumnIndex i) in quarantine.data_columns:
+        inc counter
+      if counter == max(SAMPLES_PER_SLOT, CUSTODY_REQUIREMENT) or
+          counter == DATA_COLUMN_SIDECAR_SUBNET_COUNT:
+        return true
+    else:
+      return false
+  false
 
 func dataColumnFetchRecord*(quarantine: DataColumnQuarantine,
     blck: deneb.SignedBeaconBlock | electra.SignedBeaconBlock): DataColumnFetchRecord =
