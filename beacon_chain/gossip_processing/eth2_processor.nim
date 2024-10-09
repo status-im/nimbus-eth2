@@ -403,6 +403,7 @@ proc processDataColumnSidecar*(
         let
           columns = self.dataColumnQuarantine[].gatherDataColumns
         if columns.len >= (NUMBER_OF_COLUMNS div 2):
+          let
             reconstructed_columns = 
               self.processReconstructionFromGossip(forkyBlck, columns)
           for rc in reconstructed_columns.get:
