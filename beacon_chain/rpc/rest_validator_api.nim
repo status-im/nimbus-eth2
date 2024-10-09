@@ -797,14 +797,14 @@ proc installValidatorApiHandlers*(router: var RestRouter, node: BeaconNode) =
                              InvalidAttestationDataRootValueError, $res.error())
             res.get()
         let res =
-          node.attestationPool[].getAggregatedAttestation(qslot, qroot)
+          node.attestationPool[].getPhase0AggregatedAttestation(qslot, qroot)
         if res.isNone():
           return RestApiResponse.jsonError(Http400,
                                           UnableToGetAggregatedAttestationError)
         res.get()
     RestApiResponse.jsonResponse(attestation)
 
-  # https://ethereum.github.io/beacon-APIs/?urls.primaryName=dev#/Beacon/getPoolAttestationsV2
+  # https://ethereum.github.io/beacon-APIs/?urls.primaryName=dev#/Validator/getAggregatedAttestationV2
   router.api2(MethodGet, "/eth/v2/validator/aggregate_attestation") do (
     attestation_data_root: Option[Eth2Digest],
     committee_index: Option[CommitteeIndex],
@@ -841,7 +841,7 @@ proc installValidatorApiHandlers*(router: var RestRouter, node: BeaconNode) =
                             InvalidAttestationDataRootValueError, $res.error())
         res.get()
     let phase0_attestations =
-      node.attestationPool[].getAggregatedAttestation(qslot, root)
+      node.attestationPool[].getPhase0AggregatedAttestation(qslot, root)
 
     if phase0_attestations.isSome():
       return RestApiResponse.jsonResponse(phase0_attestations.get())

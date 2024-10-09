@@ -1133,6 +1133,8 @@ type
 
   AnyConf* = BeaconNodeConf | ValidatorClientConf | SigningNodeConf
 
+  Address = primitives.Address
+
 proc defaultDataDir*[Conf](config: Conf): string =
   let dataDir = when defined(windows):
     "AppData" / "Roaming" / "Nimbus"

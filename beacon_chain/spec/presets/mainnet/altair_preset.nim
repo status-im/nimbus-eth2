@@ -8,7 +8,7 @@
 {.push raises: [].}
 
 # Mainnet preset - Altair
-# https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.6/presets/mainnet/altair.yaml
+# https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.8/presets/mainnet/altair.yaml
 const
   # Updated penalty values
   # ---------------------------------------------------------------

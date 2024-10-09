@@ -2632,22 +2632,6 @@ OK: 10/10 Fail: 0/10 Skip: 0/10
 + Participation flag updates - slightly_larger_random [Preset: minimal]                      OK
 ```
 OK: 12/12 Fail: 0/12 Skip: 0/12
-## EF - Electra - Epoch Processing - Pending balance deposits [Preset: minimal]
-```diff
-+ Pending balance deposits - mixture_of_skipped_and_above_churn [Preset: minimal]            OK
-+ Pending balance deposits - multiple_pending_deposits_above_churn [Preset: minimal]         OK
-+ Pending balance deposits - multiple_pending_deposits_below_churn [Preset: minimal]         OK
-+ Pending balance deposits - multiple_pending_one_skipped [Preset: minimal]                  OK
-+ Pending balance deposits - multiple_skipped_deposits_exiting_validators [Preset: minimal]  OK
-+ Pending balance deposits - pending_deposit_balance_above_churn [Preset: minimal]           OK
-+ Pending balance deposits - pending_deposit_balance_equal_churn [Preset: minimal]           OK
-+ Pending balance deposits - pending_deposit_min_activation_balance [Preset: minimal]        OK
-+ Pending balance deposits - pending_deposit_preexisting_churn [Preset: minimal]             OK
-+ Pending balance deposits - processing_deposit_of_withdrawable_validator [Preset: minimal]  OK
-+ Pending balance deposits - processing_deposit_of_withdrawable_validator_does_not_get_churn OK
-+ Pending balance deposits - skipped_deposit_exiting_validator [Preset: minimal]             OK
-```
-OK: 12/12 Fail: 0/12 Skip: 0/12
 ## EF - Electra - Epoch Processing - Pending consolidations [Preset: minimal]
 ```diff
 + Pending consolidations - all_consolidation_cases_together [Preset: minimal]                OK
@@ -2659,6 +2643,51 @@ OK: 12/12 Fail: 0/12 Skip: 0/12
 + Pending consolidations - skip_consolidation_when_source_slashed [Preset: minimal]          OK
 ```
 OK: 7/7 Fail: 0/7 Skip: 0/7
+## EF - Electra - Epoch Processing - Pending deposits [Preset: minimal]
+```diff
++ Pending deposits - apply_pending_deposit_compounding_withdrawal_credentials_max [Preset: m OK
++ Pending deposits - apply_pending_deposit_compounding_withdrawal_credentials_over_max [Pres OK
++ Pending deposits - apply_pending_deposit_compounding_withdrawal_credentials_under_max [Pre OK
++ Pending deposits - apply_pending_deposit_correct_sig_but_forked_state [Preset: minimal]    OK
++ Pending deposits - apply_pending_deposit_effective_deposit_with_genesis_fork_version [Pres OK
++ Pending deposits - apply_pending_deposit_eth1_withdrawal_credentials [Preset: minimal]     OK
++ Pending deposits - apply_pending_deposit_incorrect_sig_new_deposit [Preset: minimal]       OK
++ Pending deposits - apply_pending_deposit_incorrect_sig_top_up [Preset: minimal]            OK
++ Pending deposits - apply_pending_deposit_incorrect_withdrawal_credentials_top_up [Preset:  OK
++ Pending deposits - apply_pending_deposit_ineffective_deposit_with_bad_fork_version [Preset OK
++ Pending deposits - apply_pending_deposit_key_validate_invalid_decompression [Preset: minim OK
++ Pending deposits - apply_pending_deposit_key_validate_invalid_subgroup [Preset: minimal]   OK
++ Pending deposits - apply_pending_deposit_min_activation [Preset: minimal]                  OK
++ Pending deposits - apply_pending_deposit_non_versioned_withdrawal_credentials [Preset: min OK
++ Pending deposits - apply_pending_deposit_non_versioned_withdrawal_credentials_over_min_act OK
++ Pending deposits - apply_pending_deposit_over_min_activation [Preset: minimal]             OK
++ Pending deposits - apply_pending_deposit_success_top_up_to_withdrawn_validator [Preset: mi OK
++ Pending deposits - apply_pending_deposit_top_up__less_effective_balance [Preset: minimal]  OK
++ Pending deposits - apply_pending_deposit_top_up__max_effective_balance_compounding [Preset OK
++ Pending deposits - apply_pending_deposit_top_up__min_activation_balance [Preset: minimal]  OK
++ Pending deposits - apply_pending_deposit_top_up__min_activation_balance_compounding [Prese OK
++ Pending deposits - apply_pending_deposit_top_up__zero_balance [Preset: minimal]            OK
++ Pending deposits - apply_pending_deposit_under_min_activation [Preset: minimal]            OK
++ Pending deposits - apply_pending_deposit_with_previous_fork_version [Preset: minimal]      OK
++ Pending deposits - ineffective_deposit_with_current_fork_version [Preset: minimal]         OK
++ Pending deposits - process_pending_deposits_balance_above_churn [Preset: minimal]          OK
++ Pending deposits - process_pending_deposits_balance_equal_churn [Preset: minimal]          OK
++ Pending deposits - process_pending_deposits_eth1_bridge_transition_complete [Preset: minim OK
++ Pending deposits - process_pending_deposits_eth1_bridge_transition_not_applied [Preset: mi OK
++ Pending deposits - process_pending_deposits_eth1_bridge_transition_pending [Preset: minima OK
++ Pending deposits - process_pending_deposits_limit_is_reached [Preset: minimal]             OK
++ Pending deposits - process_pending_deposits_mixture_of_skipped_and_above_churn [Preset: mi OK
++ Pending deposits - process_pending_deposits_multiple_pending_deposits_above_churn [Preset: OK
++ Pending deposits - process_pending_deposits_multiple_pending_deposits_below_churn [Preset: OK
++ Pending deposits - process_pending_deposits_multiple_pending_one_skipped [Preset: minimal] OK
++ Pending deposits - process_pending_deposits_multiple_skipped_deposits_exiting_validators [ OK
++ Pending deposits - process_pending_deposits_not_finalized [Preset: minimal]                OK
++ Pending deposits - process_pending_deposits_preexisting_churn [Preset: minimal]            OK
++ Pending deposits - process_pending_deposits_skipped_deposit_exiting_validator [Preset: min OK
++ Pending deposits - process_pending_deposits_withdrawable_validator [Preset: minimal]       OK
++ Pending deposits - process_pending_deposits_withdrawable_validator_not_churned [Preset: mi OK
+```
+OK: 41/41 Fail: 0/41 Skip: 0/41
 ## EF - Electra - Epoch Processing - RANDAO mixes reset [Preset: minimal]
 ```diff
 + RANDAO mixes reset - updated_randao_mixes [Preset: minimal]                                OK
@@ -2873,8 +2902,11 @@ OK: 6/6 Fail: 0/6 Skip: 0/6
 + [Valid]   EF - Electra - Operations - Consolidation Request - basic_consolidation_in_curre OK
 + [Valid]   EF - Electra - Operations - Consolidation Request - basic_consolidation_in_new_c OK
 + [Valid]   EF - Electra - Operations - Consolidation Request - basic_consolidation_with_com OK
++ [Valid]   EF - Electra - Operations - Consolidation Request - basic_consolidation_with_exc OK
++ [Valid]   EF - Electra - Operations - Consolidation Request - basic_consolidation_with_exc OK
 + [Valid]   EF - Electra - Operations - Consolidation Request - basic_consolidation_with_ins OK
 + [Valid]   EF - Electra - Operations - Consolidation Request - basic_consolidation_with_pre OK
++ [Valid]   EF - Electra - Operations - Consolidation Request - basic_switch_to_compounding  OK
 + [Valid]   EF - Electra - Operations - Consolidation Request - consolidation_balance_larger OK
 + [Valid]   EF - Electra - Operations - Consolidation Request - consolidation_balance_throug OK
 + [Valid]   EF - Electra - Operations - Consolidation Request - consolidation_churn_limit_ba OK
@@ -2887,11 +2919,18 @@ OK: 6/6 Fail: 0/6 Skip: 0/6
 + [Valid]   EF - Electra - Operations - Consolidation Request - incorrect_no_source_executio OK
 + [Valid]   EF - Electra - Operations - Consolidation Request - incorrect_no_target_executio OK
 + [Valid]   EF - Electra - Operations - Consolidation Request - incorrect_not_enough_consoli OK
-+ [Valid]   EF - Electra - Operations - Consolidation Request - incorrect_source_equals_targ OK
 + [Valid]   EF - Electra - Operations - Consolidation Request - incorrect_unknown_source_pub OK
 + [Valid]   EF - Electra - Operations - Consolidation Request - incorrect_unknown_target_pub OK
++ [Valid]   EF - Electra - Operations - Consolidation Request - switch_to_compounding_exited OK
++ [Valid]   EF - Electra - Operations - Consolidation Request - switch_to_compounding_inacti OK
++ [Valid]   EF - Electra - Operations - Consolidation Request - switch_to_compounding_not_au OK
++ [Valid]   EF - Electra - Operations - Consolidation Request - switch_to_compounding_source OK
++ [Valid]   EF - Electra - Operations - Consolidation Request - switch_to_compounding_source OK
++ [Valid]   EF - Electra - Operations - Consolidation Request - switch_to_compounding_unknow OK
++ [Valid]   EF - Electra - Operations - Consolidation Request - switch_to_compounding_with_e OK
++ [Valid]   EF - Electra - Operations - Consolidation Request - switch_to_compounding_with_p OK
 ```
-OK: 20/20 Fail: 0/20 Skip: 0/20
+OK: 30/30 Fail: 0/30 Skip: 0/30
 ## EF - Electra - Operations - Deposit  [Preset: minimal]
 ```diff
 + [Invalid] EF - Electra - Operations - Deposit - invalid_bad_merkle_proof                   OK
@@ -2919,25 +2958,16 @@ OK: 20/20 Fail: 0/20 Skip: 0/20
 OK: 21/21 Fail: 0/21 Skip: 0/21
 ## EF - Electra - Operations - Deposit Request  [Preset: minimal]
 ```diff
-+ [Valid]   EF - Electra - Operations - Deposit Request - correct_sig_but_forked_state       OK
-+ [Valid]   EF - Electra - Operations - Deposit Request - effective_deposit_with_genesis_for OK
-+ [Valid]   EF - Electra - Operations - Deposit Request - incorrect_sig_new_deposit          OK
-+ [Valid]   EF - Electra - Operations - Deposit Request - incorrect_sig_top_up               OK
-+ [Valid]   EF - Electra - Operations - Deposit Request - incorrect_withdrawal_credentials_t OK
-+ [Valid]   EF - Electra - Operations - Deposit Request - ineffective_deposit_with_previous_ OK
-+ [Valid]   EF - Electra - Operations - Deposit Request - key_validate_invalid_decompression OK
-+ [Valid]   EF - Electra - Operations - Deposit Request - key_validate_invalid_subgroup      OK
-+ [Valid]   EF - Electra - Operations - Deposit Request - new_deposit_eth1_withdrawal_creden OK
-+ [Valid]   EF - Electra - Operations - Deposit Request - new_deposit_max                    OK
-+ [Valid]   EF - Electra - Operations - Deposit Request - new_deposit_non_versioned_withdraw OK
-+ [Valid]   EF - Electra - Operations - Deposit Request - new_deposit_over_max               OK
-+ [Valid]   EF - Electra - Operations - Deposit Request - new_deposit_under_max              OK
-+ [Valid]   EF - Electra - Operations - Deposit Request - success_top_up_to_withdrawn_valida OK
-+ [Valid]   EF - Electra - Operations - Deposit Request - top_up__less_effective_balance     OK
-+ [Valid]   EF - Electra - Operations - Deposit Request - top_up__max_effective_balance      OK
-+ [Valid]   EF - Electra - Operations - Deposit Request - top_up__zero_balance               OK
++ [Valid]   EF - Electra - Operations - Deposit Request - process_deposit_request_invalid_si OK
++ [Valid]   EF - Electra - Operations - Deposit Request - process_deposit_request_max_effect OK
++ [Valid]   EF - Electra - Operations - Deposit Request - process_deposit_request_min_activa OK
++ [Valid]   EF - Electra - Operations - Deposit Request - process_deposit_request_set_start_ OK
++ [Valid]   EF - Electra - Operations - Deposit Request - process_deposit_request_set_start_ OK
++ [Valid]   EF - Electra - Operations - Deposit Request - process_deposit_request_top_up_inv OK
++ [Valid]   EF - Electra - Operations - Deposit Request - process_deposit_request_top_up_max OK
++ [Valid]   EF - Electra - Operations - Deposit Request - process_deposit_request_top_up_min OK
 ```
-OK: 17/17 Fail: 0/17 Skip: 0/17
+OK: 8/8 Fail: 0/8 Skip: 0/8
 ## EF - Electra - Operations - Execution Payload  [Preset: minimal]
 ```diff
 + [Invalid] EF - Electra - Operations - Execution Payload - invalid_bad_everything_first_pay OK
@@ -3061,8 +3091,11 @@ OK: 20/20 Fail: 0/20 Skip: 0/20
 + [Valid]   EF - Electra - Operations - Withdrawal Request - basic_withdrawal_request_with_c OK
 + [Valid]   EF - Electra - Operations - Withdrawal Request - basic_withdrawal_request_with_f OK
 + [Valid]   EF - Electra - Operations - Withdrawal Request - basic_withdrawal_request_with_f OK
++ [Valid]   EF - Electra - Operations - Withdrawal Request - full_exit_request_has_partial_w OK
++ [Valid]   EF - Electra - Operations - Withdrawal Request - incorrect_inactive_validator    OK
 + [Valid]   EF - Electra - Operations - Withdrawal Request - incorrect_source_address        OK
 + [Valid]   EF - Electra - Operations - Withdrawal Request - incorrect_withdrawal_credential OK
++ [Valid]   EF - Electra - Operations - Withdrawal Request - insufficient_balance            OK
 + [Valid]   EF - Electra - Operations - Withdrawal Request - insufficient_effective_balance  OK
 + [Valid]   EF - Electra - Operations - Withdrawal Request - no_compounding_credentials      OK
 + [Valid]   EF - Electra - Operations - Withdrawal Request - no_excess_balance               OK
@@ -3079,7 +3112,7 @@ OK: 20/20 Fail: 0/20 Skip: 0/20
 + [Valid]   EF - Electra - Operations - Withdrawal Request - partial_withdrawal_request_with OK
 + [Valid]   EF - Electra - Operations - Withdrawal Request - pending_withdrawals_consume_all OK
 ```
-OK: 25/25 Fail: 0/25 Skip: 0/25
+OK: 28/28 Fail: 0/28 Skip: 0/28
 ## EF - Electra - Operations - Withdrawals  [Preset: minimal]
 ```diff
 + [Invalid] EF - Electra - Operations - Withdrawals - invalid_a_lot_fully_withdrawable_too_f OK
@@ -3103,6 +3136,7 @@ OK: 25/25 Fail: 0/25 Skip: 0/25
 + [Invalid] EF - Electra - Operations - Withdrawals - invalid_two_expected_partial_withdrawa OK
 + [Valid]   EF - Electra - Operations - Withdrawals - all_withdrawal                         OK
 + [Valid]   EF - Electra - Operations - Withdrawals - no_withdrawals_but_some_next_epoch     OK
++ [Valid]   EF - Electra - Operations - Withdrawals - pending_withdrawals_one_skipped_one_ef OK
 + [Valid]   EF - Electra - Operations - Withdrawals - random_0                               OK
 + [Valid]   EF - Electra - Operations - Withdrawals - random_full_withdrawals_0              OK
 + [Valid]   EF - Electra - Operations - Withdrawals - random_full_withdrawals_1              OK
@@ -3116,11 +3150,15 @@ OK: 25/25 Fail: 0/25 Skip: 0/25
 + [Valid]   EF - Electra - Operations - Withdrawals - success_all_fully_withdrawable         OK
 + [Valid]   EF - Electra - Operations - Withdrawals - success_all_partially_withdrawable     OK
 + [Valid]   EF - Electra - Operations - Withdrawals - success_excess_balance_but_no_max_effe OK
++ [Valid]   EF - Electra - Operations - Withdrawals - success_excess_balance_but_no_max_effe OK
 + [Valid]   EF - Electra - Operations - Withdrawals - success_max_partial_withdrawable       OK
 + [Valid]   EF - Electra - Operations - Withdrawals - success_max_plus_one_withdrawable      OK
 + [Valid]   EF - Electra - Operations - Withdrawals - success_mixed_fully_and_partial_withdr OK
++ [Valid]   EF - Electra - Operations - Withdrawals - success_mixed_fully_and_partial_withdr OK
 + [Valid]   EF - Electra - Operations - Withdrawals - success_no_excess_balance              OK
++ [Valid]   EF - Electra - Operations - Withdrawals - success_no_excess_balance_compounding  OK
 + [Valid]   EF - Electra - Operations - Withdrawals - success_no_max_effective_balance       OK
++ [Valid]   EF - Electra - Operations - Withdrawals - success_no_max_effective_balance_compo OK
 + [Valid]   EF - Electra - Operations - Withdrawals - success_one_full_withdrawal            OK
 + [Valid]   EF - Electra - Operations - Withdrawals - success_one_partial_withdrawable_activ OK
 + [Valid]   EF - Electra - Operations - Withdrawals - success_one_partial_withdrawable_exite OK
@@ -3134,7 +3172,7 @@ OK: 25/25 Fail: 0/25 Skip: 0/25
 + [Valid]   EF - Electra - Operations - Withdrawals - withdrawable_epoch_but_0_effective_bal OK
 + [Valid]   EF - Electra - Operations - Withdrawals - withdrawable_epoch_but_0_effective_bal OK
 ```
-OK: 51/51 Fail: 0/51 Skip: 0/51
+OK: 56/56 Fail: 0/56 Skip: 0/56
 ## EF - Electra - Random  [Preset: minimal]
 ```diff
 + [Valid]   EF - Electra - Random - randomized_0 [Preset: minimal]                           OK
@@ -3229,8 +3267,8 @@ OK: 34/34 Fail: 0/34 Skip: 0/34
 +   Testing    LightClientOptimisticUpdate                                                   OK
 +   Testing    LightClientUpdate                                                             OK
 +   Testing    PendingAttestation                                                            OK
-+   Testing    PendingBalanceDeposit                                                         OK
 +   Testing    PendingConsolidation                                                          OK
++   Testing    PendingDeposit                                                                OK
 +   Testing    PendingPartialWithdrawal                                                      OK
 +   Testing    PowBlock                                                                      OK
 +   Testing    ProposerSlashing                                                              OK
@@ -3283,8 +3321,12 @@ OK: 55/55 Fail: 0/55 Skip: 0/55
 + [Valid]   EF - Electra - Sanity - Blocks - attestation [Preset: minimal]                   OK
 + [Valid]   EF - Electra - Sanity - Blocks - attester_slashing [Preset: minimal]             OK
 + [Valid]   EF - Electra - Sanity - Blocks - balance_driven_status_transitions [Preset: mini OK
++ [Valid]   EF - Electra - Sanity - Blocks - basic_btec_and_el_withdrawal_request_in_same_bl OK
++ [Valid]   EF - Electra - Sanity - Blocks - basic_btec_before_el_withdrawal_request [Preset OK
++ [Valid]   EF - Electra - Sanity - Blocks - basic_el_withdrawal_request [Preset: minimal]   OK
 + [Valid]   EF - Electra - Sanity - Blocks - block_transition_randomized_payload [Preset: mi OK
 + [Valid]   EF - Electra - Sanity - Blocks - bls_change [Preset: minimal]                    OK
++ [Valid]   EF - Electra - Sanity - Blocks - cl_exit_and_el_withdrawal_request_in_same_block OK
 + [Valid]   EF - Electra - Sanity - Blocks - deposit_and_bls_change [Preset: minimal]        OK
 + [Valid]   EF - Electra - Sanity - Blocks - deposit_in_block [Preset: minimal]              OK
 + [Valid]   EF - Electra - Sanity - Blocks - deposit_top_up [Preset: minimal]                OK
@@ -3338,7 +3380,7 @@ OK: 55/55 Fail: 0/55 Skip: 0/55
 + [Valid]   EF - Electra - Sanity - Blocks - withdrawal_success_two_blocks [Preset: minimal] OK
 + [Valid]   EF - Electra - Sanity - Blocks - zero_blob [Preset: minimal]                     OK
 ```
-OK: 83/83 Fail: 0/83 Skip: 0/83
+OK: 87/87 Fail: 0/87 Skip: 0/87
 ## EF - Electra - Sanity - Slots  [Preset: minimal]
 ```diff
 + EF - Electra - Slots - double_empty_epoch [Preset: minimal]                                OK
@@ -4100,4 +4142,4 @@ OK: 185/207 Fail: 0/207 Skip: 22/207
 OK: 3/3 Fail: 0/3 Skip: 0/3
 
 ---TOTAL---
-OK: 3343/3366 Fail: 0/3366 Skip: 23/3366
+OK: 3385/3408 Fail: 0/3408 Skip: 23/3408

@@ -81,7 +81,7 @@ proc setupEngineAPI*(server: RpcServer) =
     info "eth_getBlockByNumber", quantityTag, fullTransactions
 
     return if quantityTag == "latest":
-      JrpcConv.encode(BlockObject(number: 1000.BlockNumber)).JsonString
+      JrpcConv.encode(BlockObject(number: 1000.Quantity)).JsonString
     else:
       "{}".JsonString
 
@@ -89,7 +89,7 @@ proc setupEngineAPI*(server: RpcServer) =
       data: string, fullTransactions: bool) -> BlockObject:
     info "eth_getBlockByHash", data = toHex(data), fullTransactions
 
-    return BlockObject(number: 1000.BlockNumber)
+    return BlockObject(number: 1000.Quantity)
 
   server.rpc("eth_chainId") do() -> Quantity:
     info "eth_chainId"

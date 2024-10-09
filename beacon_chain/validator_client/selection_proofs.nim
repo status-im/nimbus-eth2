@@ -129,7 +129,8 @@ proc fillAttestationSelectionProofs*(
                   if sres.isErr():
                     warn "Unable to create slot signature using remote signer",
                          reason = sres.error(), epoch = mreq.slot.epoch(),
-                         slot = mreq.slot
+                         slot = mreq.slot,
+                         validator = validatorLog(mreq.validator)
                     Opt.none(ValidatorSig)
                   else:
                     inc(sigres.signaturesReceived)
@@ -396,9 +397,10 @@ proc fillSyncCommitteeSelectionProofs*(
                 if mreq.future.completed():
                   let sres = Future[SignatureResult](mreq.future).read()
                   if sres.isErr():
-                    warn "Unable to create slot signature using remote signer",
+                    warn "Unable to create selection proof using remote signer",
                          reason = sres.error(), epoch = mreq.slot.epoch(),
-                         slot = mreq.slot
+                         slot = mreq.slot,
+                         validator = validatorLog(mreq.validator)
                     Opt.none(ValidatorSig)
                   else:
                     inc(sigres.signaturesReceived)

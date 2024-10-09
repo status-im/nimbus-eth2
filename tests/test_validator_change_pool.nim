@@ -27,7 +27,7 @@ func makeSignedBeaconBlockHeader(
       fork, genesis_validators_root, slot, hash_tree_root(tmp),
       MockPrivKeys[proposer_index]).toValidatorSig())
 
-func makeIndexedAttestation(
+func makePhase0IndexedAttestation(
     fork: Fork, genesis_validators_root: Eth2Digest, slot: Slot,
     validator_index: uint64, beacon_block_root: Eth2Digest):
     phase0.IndexedAttestation =
@@ -37,6 +37,21 @@ func makeIndexedAttestation(
     data: tmp,
     attesting_indices:
       List[uint64, Limit MAX_VALIDATORS_PER_COMMITTEE](@[validator_index]),
+    signature: get_attestation_signature(
+      fork, genesis_validators_root, tmp,
+      MockPrivKeys[validator_index]).toValidatorSig)
+
+func makeElectraIndexedAttestation(
+    fork: Fork, genesis_validators_root: Eth2Digest, slot: Slot,
+    validator_index: uint64, beacon_block_root: Eth2Digest):
+    electra.IndexedAttestation =
+  let tmp = AttestationData(slot: slot, beacon_block_root: beacon_block_root)
+
+  electra.IndexedAttestation(
+    data: tmp,
+    attesting_indices:
+      List[uint64, Limit MAX_VALIDATORS_PER_COMMITTEE * MAX_COMMITTEES_PER_SLOT](
+        @[validator_index]),
     signature: get_attestation_signature(
       fork, genesis_validators_root, tmp,
       MockPrivKeys[validator_index]).toValidatorSig)
@@ -62,6 +77,8 @@ suite "Validator change pool testing suite":
         tmp.ALTAIR_FORK_EPOCH = Epoch(tmp.SHARD_COMMITTEE_PERIOD)
         tmp.BELLATRIX_FORK_EPOCH = Epoch(tmp.SHARD_COMMITTEE_PERIOD) + 1
         tmp.CAPELLA_FORK_EPOCH = Epoch(tmp.SHARD_COMMITTEE_PERIOD) + 2
+        tmp.DENEB_FORK_EPOCH = Epoch(tmp.SHARD_COMMITTEE_PERIOD) + 3
+        tmp.ELECTRA_FORK_EPOCH = Epoch(tmp.SHARD_COMMITTEE_PERIOD) + 4
         tmp
 
       validatorMonitor = newClone(ValidatorMonitor.init())
@@ -95,14 +112,14 @@ suite "Validator change pool testing suite":
               cfg, forkyState.data).proposer_slashings.lenu64 ==
             min(i + 1, MAX_PROPOSER_SLASHINGS)
 
-  test "addValidatorChangeMessage/getAttesterSlashingMessage":
+  test "addValidatorChangeMessage/getAttesterSlashingMessage (Phase 0)":
     for i in 0'u64 .. MAX_ATTESTER_SLASHINGS + 5:
       for j in 0'u64 .. i:
         let
           msg = phase0.AttesterSlashing(
-            attestation_1: makeIndexedAttestation(
+            attestation_1: makePhase0IndexedAttestation(
               fork, genesis_validators_root, Slot(1), j, makeFakeHash(0)),
-            attestation_2: makeIndexedAttestation(
+            attestation_2: makePhase0IndexedAttestation(
               fork, genesis_validators_root, Slot(1), j, makeFakeHash(1)))
 
         if i == 0:
@@ -113,8 +130,38 @@ suite "Validator change pool testing suite":
       withState(dag.headState):
         check:
           pool[].getBeaconBlockValidatorChanges(
-              cfg, forkyState.data).attester_slashings.lenu64 ==
+              cfg, forkyState.data).phase0_attester_slashings.lenu64 ==
             min(i + 1, MAX_ATTESTER_SLASHINGS)
+
+  test "addValidatorChangeMessage/getAttesterSlashingMessage (Electra)":
+    var
+      cache: StateCache
+      info: ForkedEpochInfo
+    process_slots(
+      dag.cfg, dag.headState,
+      Epoch(dag.cfg.SHARD_COMMITTEE_PERIOD).start_slot + 1 + SLOTS_PER_EPOCH * 5,
+      cache, info, {}).expect("ok")
+    let fork = dag.forkAtEpoch(dag.headState.get_current_epoch())
+
+    for i in 0'u64 .. MAX_ATTESTER_SLASHINGS_ELECTRA + 5:
+      for j in 0'u64 .. i:
+        let
+          msg = electra.AttesterSlashing(
+            attestation_1: makeElectraIndexedAttestation(
+              fork, genesis_validators_root, Slot(1), j, makeFakeHash(0)),
+            attestation_2: makeElectraIndexedAttestation(
+              fork, genesis_validators_root, Slot(1), j, makeFakeHash(1)))
+
+        if i == 0:
+          check not pool[].isSeen(msg)
+
+        pool[].addMessage(msg)
+        check: pool[].isSeen(msg)
+      withState(dag.headState):
+        check:
+          pool[].getBeaconBlockValidatorChanges(
+              cfg, forkyState.data).electra_attester_slashings.lenu64 ==
+            min(i + 1, MAX_ATTESTER_SLASHINGS_ELECTRA)
 
   test "addValidatorChangeMessage/getVoluntaryExitMessage":
     # Need to advance state or it will not accept voluntary exits
@@ -125,8 +172,7 @@ suite "Validator change pool testing suite":
       dag.cfg, dag.headState,
       Epoch(dag.cfg.SHARD_COMMITTEE_PERIOD).start_slot + 1, cache, info,
       {}).expect("ok")
-    let
-      fork = dag.forkAtEpoch(dag.headState.get_current_epoch())
+    let fork = dag.forkAtEpoch(dag.headState.get_current_epoch())
 
     for i in 0'u64 .. MAX_VOLUNTARY_EXITS + 5:
       for j in 0'u64 .. i:
@@ -145,7 +191,7 @@ suite "Validator change pool testing suite":
             min(i + 1, MAX_VOLUNTARY_EXITS)
 
   test "addValidatorChangeMessage/getBlsToExecutionChange (pre-capella)":
-    # Need to advance state or it will not accept voluntary exits
+    # Need to advance state or it will not accept execution changes
     var
       cache: StateCache
       info: ForkedEpochInfo
@@ -176,7 +222,7 @@ suite "Validator change pool testing suite":
           cfg, forkyState.data).bls_to_execution_changes.len == 0
 
   test "addValidatorChangeMessage/getBlsToExecutionChange (post-capella)":
-    # Need to advance state or it will not accept voluntary exits
+    # Need to advance state or it will not accept execution changes
     var
       cache: StateCache
       info: ForkedEpochInfo

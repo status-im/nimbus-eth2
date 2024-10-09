@@ -276,7 +276,7 @@ contract(DepositContract):
   proc deposit(pubkey: PubKeyBytes,
                withdrawalCredentials: WithdrawalCredentialsBytes,
                signature: SignatureBytes,
-               deposit_data_root: FixedBytes[32])
+               deposit_data_root: web3.FixedBytes[32])
 
 template `as`(address: Eth1Address, T: type bellatrix.ExecutionAddress): T =
   T(data: distinctBase(address))

@@ -57,7 +57,10 @@ OK: 4/4 Fail: 0/4 Skip: 0/4
 + sanity check Deneb blocks [Preset: mainnet]                                                OK
 + sanity check Deneb states [Preset: mainnet]                                                OK
 + sanity check Deneb states, reusing buffers [Preset: mainnet]                               OK
++ sanity check Electra and cross-fork getState rollback [Preset: mainnet]                    OK
 + sanity check Electra blocks [Preset: mainnet]                                              OK
++ sanity check Electra states [Preset: mainnet]                                              OK
++ sanity check Electra states, reusing buffers [Preset: mainnet]                             OK
 + sanity check blobs (Deneb) [Preset: mainnet]                                               OK
 + sanity check genesis roundtrip [Preset: mainnet]                                           OK
 + sanity check phase 0 blocks [Preset: mainnet]                                              OK
@@ -66,7 +69,7 @@ OK: 4/4 Fail: 0/4 Skip: 0/4
 + sanity check phase 0 states, reusing buffers [Preset: mainnet]                             OK
 + sanity check state diff roundtrip [Preset: mainnet]                                        OK
 ```
-OK: 26/26 Fail: 0/26 Skip: 0/26
+OK: 29/29 Fail: 0/29 Skip: 0/29
 ## Beacon state [Preset: mainnet]
 ```diff
 + Smoke test initialize_beacon_state_from_eth1 [Preset: mainnet]                             OK
@@ -779,7 +782,8 @@ OK: 3/3 Fail: 0/3 Skip: 0/3
 + Signing SC contribution and proof (getContributionAndProofSignature())                     OK
 + Signing SC message (getSyncCommitteeMessage())                                             OK
 + Signing SC selection proof (getSyncCommitteeSelectionProof())                              OK
-+ Signing aggregate and proof (getAggregateAndProofSignature())                              OK
++ Signing aggregate and proof (getAggregateAndProofSignature(electra))                       OK
++ Signing aggregate and proof (getAggregateAndProofSignature(phase0))                        OK
 + Signing aggregation slot (getSlotSignature())                                              OK
 + Signing attestation (getAttestationSignature())                                            OK
 + Signing deposit message (getDepositMessageSignature())                                     OK
@@ -788,7 +792,7 @@ OK: 3/3 Fail: 0/3 Skip: 0/3
 + Signing voluntary exit (getValidatorExitSignature())                                       OK
 + Waiting for signing node (/upcheck) test                                                   OK
 ```
-OK: 16/16 Fail: 0/16 Skip: 0/16
+OK: 17/17 Fail: 0/17 Skip: 0/17
 ## Old database versions [Preset: mainnet]
 ```diff
 + pre-1.1.0                                                                                  OK
@@ -821,10 +825,9 @@ OK: 1/1 Fail: 0/1 Skip: 0/1
 + DenebSignedBlockContents decoding                                                          OK
 + KzgCommitment                                                                              OK
 + KzgProof                                                                                   OK
-+ RestPublishedSignedBlockContents decoding                                                  OK
 + Validator pubkey hack                                                                      OK
 ```
-OK: 6/6 Fail: 0/6 Skip: 0/6
+OK: 5/5 Fail: 0/5 Skip: 0/5
 ## Remove keystore testing suite
 ```diff
 + Many remotes                                                                               OK
@@ -1008,14 +1011,15 @@ OK: 1/1 Fail: 0/1 Skip: 0/1
 OK: 14/14 Fail: 0/14 Skip: 0/14
 ## Validator change pool testing suite
 ```diff
-+ addValidatorChangeMessage/getAttesterSlashingMessage                                       OK
++ addValidatorChangeMessage/getAttesterSlashingMessage (Electra)                             OK
++ addValidatorChangeMessage/getAttesterSlashingMessage (Phase 0)                             OK
 + addValidatorChangeMessage/getBlsToExecutionChange (post-capella)                           OK
 + addValidatorChangeMessage/getBlsToExecutionChange (pre-capella)                            OK
 + addValidatorChangeMessage/getProposerSlashingMessage                                       OK
 + addValidatorChangeMessage/getVoluntaryExitMessage                                          OK
 + pre-pre-fork voluntary exit                                                                OK
 ```
-OK: 6/6 Fail: 0/6 Skip: 0/6
+OK: 7/7 Fail: 0/7 Skip: 0/7
 ## Validator pool
 ```diff
 + Doppelganger for genesis validator                                                         OK
@@ -1125,4 +1129,4 @@ OK: 2/2 Fail: 0/2 Skip: 0/2
 OK: 9/9 Fail: 0/9 Skip: 0/9
 
 ---TOTAL---
-OK: 762/767 Fail: 0/767 Skip: 5/767
+OK: 766/771 Fail: 0/771 Skip: 5/771

@@ -32,7 +32,6 @@ macro copyFields*(
     dst: untyped, src: untyped, fieldNames: static[seq[string]]): untyped =
   result = newStmtList()
   for name in fieldNames:
-    debugComment "deposit_receipts_root and exits_root are not currently filled in anywhere properly, so blinded electra proposals will fail"
     if name notin [
         # These fields are the ones which vary between the blinded and
         # unblinded objects, and can't simply be copied.
