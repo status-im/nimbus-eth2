@@ -173,7 +173,9 @@ proc recover_matrix*(partial_matrix: seq[MatrixEntry],
 # THIS METHOD IS DEPRECATED, WILL BE REMOVED ONCE ALPHA 4 IS RELEASED
 proc recover_cells_and_proofs*(
     data_columns: seq[DataColumnSidecar],
-    blck: deneb.TrustedSignedBeaconBlock | 
+    blck: deneb.SignedBeaconBlock |
+    electra.SignedBeaconBlock |
+    deneb.TrustedSignedBeaconBlock | 
     electra.TrustedSignedBeaconBlock |
     ForkedTrustedSignedBeaconBlock):
     Result[seq[CellsAndProofs], cstring] =
@@ -300,7 +302,60 @@ proc get_data_column_sidecars*(signed_beacon_block: deneb.TrustedSignedBeaconBlo
     sidecars.add(sidecar)
 
   sidecars  
+
+proc get_data_column_sidecars*(signed_beacon_block: deneb.SignedBeaconBlock |
+                               electra.SignedBeaconBlock,
+                               cellsAndProofs: seq[CellsAndProofs]):
+                               seq[DataColumnSidecar] =
+  ## Given a trusted signed beacon block and the cells/proofs associated
+  ## with each data column (thereby blob as well) corresponding to the block,
+  ## this function assembles the sidecars which can be distributed to 
+  ## the peers post data column reconstruction at every slot start.
+  ## 
+  ## Note: this function only accepts `TrustedSignedBeaconBlock` as
+  ## during practice we would be computing cells and proofs from 
+  ## data columns only after retrieving them from the database, where
+  ## they we were already verified and persisted.
+  template blck(): auto = signed_beacon_block.message
+  let
+    beacon_block_header =
+      BeaconBlockHeader(
+        slot: blck.slot,
+        proposer_index: blck.proposer_index,
+        parent_root: blck.parent_root,
+        state_root: blck.state_root,
+        body_root: hash_tree_root(blck.body))
     
+    signed_beacon_block_header =
+      SignedBeaconBlockHeader(
+        message: beacon_block_header,
+        signature: signed_beacon_block.signature)
+  
+  var
+    sidecars =
+      newSeqOfCap[DataColumnSidecar](kzg_abi.CELLS_PER_EXT_BLOB)
+
+  for column_index in 0..<NUMBER_OF_COLUMNS:
+    var
+      column_cells: seq[KzgCell]
+      column_proofs: seq[KzgProof]
+    for i in 0..<cellsAndProofs.len:
+      column_cells.add(cellsAndProofs[i].cells)
+      column_proofs.add(cellsAndProofs[i].proofs)
+
+    var sidecar = DataColumnSidecar(
+      index: ColumnIndex(column_index),
+      column: DataColumn.init(column_cells),
+      kzg_commitments: blck.body.blob_kzg_commitments,
+      kzg_proofs: KzgProofs.init(column_proofs),
+      signed_block_header: signed_beacon_block_header)
+    blck.body.build_proof(
+      KZG_COMMITMENTS_INCLUSION_PROOF_DEPTH_GINDEX.GeneralizedIndex,
+      sidecar.kzg_commitments_inclusion_proof).expect("Valid gindex")
+    sidecars.add(sidecar)
+
+  sidecars  
+
 # Alternative approach to `get_data_column_sidecars` by directly computing
 # blobs from blob bundles
 proc get_data_column_sidecars*(signed_beacon_block: deneb.SignedBeaconBlock |

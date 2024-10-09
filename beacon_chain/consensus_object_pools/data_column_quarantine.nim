@@ -82,6 +82,13 @@ func accumulateDataColumns*(quarantine: DataColumnQuarantine,
       indices.add(idx)
   indices
 
+func gatherDataColumns*(quarantine: DataColumnQuarantine): 
+                       seq[DataColumnSidecar] =
+  var columns: seq[DataColumnSidecar]
+  for dcs in quarantine.data_columns.values:
+    columns.add(dcs[])
+  columns
+
 func popDataColumns*(
     quarantine: var DataColumnQuarantine, digest: Eth2Digest,
     blck: deneb.SignedBeaconBlock | electra.SignedBeaconBlock):
@@ -109,7 +116,8 @@ func hasDataColumns*(quarantine: DataColumnQuarantine,
         inc counter
     else:
       return false
-  if counter == max(SAMPLES_PER_SLOT, CUSTODY_REQUIREMENT) or
+  if (counter == max(SAMPLES_PER_SLOT, CUSTODY_REQUIREMENT) and 
+      counter < max(SAMPLES_PER_SLOT, CUSTODY_REQUIREMENT)) or
       counter == DATA_COLUMN_SIDECAR_SUBNET_COUNT:
     return true
   else:

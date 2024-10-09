@@ -12,7 +12,7 @@ import
   stew/results,
   chronicles, chronos, metrics, taskpools,
   ../networking/eth2_network,
-  ../spec/[helpers, forks],
+  ../spec/[helpers, forks, eip7594_helpers],
   ../spec/datatypes/[altair, phase0, deneb, eip7594],
   ../consensus_object_pools/[
     blob_quarantine, block_clearance, block_quarantine, blockchain_dag,
@@ -353,6 +353,17 @@ proc processBlobSidecar*(
 
   v
 
+proc processReconstructionFromGossip*(self: var Eth2Processor,
+                                      signed_block: deneb.SignedBeaconBlock |
+                                      electra.SignedBeaconBlock,
+                                      columns: seq[DataColumnSidecar]):
+                                      Result[seq[DataColumnSidecar], cstring] =
+  let
+    recovered_cps = recover_cells_and_proofs(columns, signed_block)
+    recovered_columns = get_data_column_sidecars(signed_block, recovered_cps.get)
+  
+  ok(recovered_columns)
+
 proc processDataColumnSidecar*(
     self: var Eth2Processor, src: MsgSource,
     dataColumnSidecar: DataColumnSidecar, subnet_id: uint64): ValidationRes =
@@ -365,6 +376,8 @@ proc processDataColumnSidecar*(
   logScope:
     dcs = shortLog(dataColumnSidecar)
     wallSlot
+
+  var validatedCounter = 0
 
   # Potential under/overflows are fine; would just create odd metrics and logs
   let delay = wallTime - block_header.slot.start_beacon_time
@@ -379,6 +392,9 @@ proc processDataColumnSidecar*(
     data_column_sidecars_dropped.inc(1, [$v.error[0]])
     return v
 
+  else:
+    inc validatedCounter
+
   debug "Data column validated, putting data column in quarantine"
   self.dataColumnQuarantine[].put(newClone(dataColumnSidecar))
 
@@ -387,6 +403,13 @@ proc processDataColumnSidecar*(
     let columnless = o.unsafeGet()
     withBlck(columnless):
       when consensusFork >= ConsensusFork.Deneb:
+        if validatedCounter >= (NUMBER_OF_COLUMNS div 2):
+          let
+            columns = self.dataColumnQuarantine[].gatherDataColumns
+            reconstructed_columns = 
+              self.processReconstructionFromGossip(forkyBlck, columns)
+          for rc in reconstructed_columns.get:
+            self.dataColumnQuarantine[].put(newClone(rc))
         if self.dataColumnQuarantine[].hasDataColumns(forkyBlck):
           self.blockProcessor[].enqueueBlock(
             MsgSource.gossip, columnless,
