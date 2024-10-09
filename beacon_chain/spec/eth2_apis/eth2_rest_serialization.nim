@@ -369,6 +369,7 @@ type
     seq[RestSyncCommitteeMessage] |
     seq[RestSyncCommitteeSubscription] |
     seq[phase0.SignedAggregateAndProof] |
+    seq[electra.SignedAggregateAndProof] |
     seq[SignedValidatorRegistrationV1] |
     seq[ValidatorIndex] |
     seq[RestBeaconCommitteeSelection] |
