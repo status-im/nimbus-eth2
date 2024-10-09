@@ -426,8 +426,8 @@ proc initFullNode(
               # to put it in columnless quarantine.
               if not quarantine[].addColumnless(dag.finalizedHead.slot, forkyBlck):
                 return err(VerifierError.UnviableFork)
-              
-              return err(VerifierError.MissingParent)
+              else:
+                return err(VerifierError.MissingParent)
             else:
               let data_columns = dataColumnQuarantine[].popDataColumns(forkyBlck.root, forkyBlck)
               return await blockProcessor[].addBlock(MsgSource.gossip, signedBlock,
