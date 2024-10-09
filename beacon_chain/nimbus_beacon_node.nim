@@ -370,7 +370,7 @@ proc initFullNode(
 
   func getFrontfillSlot(): Slot =
     max(dag.frontfill.get(BlockId()).slot, dag.horizon)
-
+  var supernode = node.config.subscribeAllSubnets
   let
     quarantine = newClone(
       Quarantine.init())
@@ -408,39 +408,33 @@ proc initFullNode(
                              maybeFinalized: bool):
         Future[Result[void, VerifierError]] {.async: (raises: [CancelledError]).} =
       withBlck(signedBlock):
-        # when consensusFork >= ConsensusFork.Deneb:
-        #   if not blobQuarantine[].hasBlobs(forkyBlck):
-        #     # We don't have all the blobs for this block, so we have
-        #     # to put it in blobless quarantine.
-        #     if not quarantine[].addBlobless(dag.finalizedHead.slot, forkyBlck):
-        #       err(VerifierError.UnviableFork)
-        #     else:
-        #       err(VerifierError.MissingParent)
-        #   else:
-        #     let blobs = blobQuarantine[].popBlobs(forkyBlck.root, forkyBlck)
-        #     await blockProcessor[].addBlock(MsgSource.gossip, signedBlock,
-        #                               Opt.some(blobs), Opt.none(DataColumnSidecars),
-        #                               maybeFinalized = maybeFinalized)
-        # else:
-        #   await blockProcessor[].addBlock(MsgSource.gossip, signedBlock,
-        #                             Opt.none(BlobSidecars), Opt.none(DataColumnSidecars),
-        #                             maybeFinalized = maybeFinalized)
-
         when consensusFork >= ConsensusFork.Deneb:
-          if not dataColumnQuarantine[].checkForInitialDcSidecars(forkyBlck):
-            # We don't have all the data columns for this block, so we have
-            # to put it in columnless quarantine.
-            if not quarantine[].addColumnless(dag.finalizedHead.slot, forkyBlck):
-              err(VerifierError.UnviableFork)
+          let
+            localSubnetCount = 
+                if supernode:
+                  DATA_COLUMN_SIDECAR_SUBNET_COUNT.uint64
+                else:
+                  CUSTODY_REQUIREMENT.uint64
+            localCustodyColumns = get_custody_columns(node.network.nodeId,
+                                                      max(SAMPLES_PER_SLOT.uint64,
+                                                      localSubnetCount))
+            accumulatedColumns = dataColumnQuarantine[].accumulateDataColumns(forkyBlck)
+
+          for ac in accumulatedColumns:
+            if ac notin localCustodyColumns:
+              # We don't have all the data columns for this block, so we have
+              # to put it in columnless quarantine.
+              if not quarantine[].addColumnless(dag.finalizedHead.slot, forkyBlck):
+                return err(VerifierError.UnviableFork)
+              
+              return err(VerifierError.MissingParent)
             else:
-              err(VerifierError.MissingParent)
-          else:
-            let data_columns = dataColumnQuarantine[].popDataColumns(forkyBlck.root, forkyBlck)
-            await blockProcessor[].addBlock(MsgSource.gossip, signedBlock,
-                                      Opt.none(BlobSidecars), Opt.some(data_columns),
-                                      maybeFinalized = maybeFinalized)
+              let data_columns = dataColumnQuarantine[].popDataColumns(forkyBlck.root, forkyBlck)
+              return await blockProcessor[].addBlock(MsgSource.gossip, signedBlock,
+                                        Opt.none(BlobSidecars), Opt.some(data_columns),
+                                        maybeFinalized = maybeFinalized)
         else:
-          await blockProcessor[].addBlock(MsgSource.gossip, signedBlock,
+          return await blockProcessor[].addBlock(MsgSource.gossip, signedBlock,
                                     Opt.none(BlobSidecars), Opt.none(DataColumnSidecars),
                                     maybeFinalized = maybeFinalized)
 
@@ -473,7 +467,6 @@ proc initFullNode(
       processor: processor,
       network: node.network)
 
-  var supernode = node.config.subscribeAllSubnets
   let
     syncManager = newSyncManager[Peer, PeerId](
       node.network.peerPool,

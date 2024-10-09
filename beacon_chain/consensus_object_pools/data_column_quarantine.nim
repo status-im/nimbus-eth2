@@ -69,6 +69,19 @@ func hasDataColumn*(
       return true
   false
 
+func accumulateDataColumns*(quarantine: DataColumnQuarantine,
+                            blck: deneb.SignedBeaconBlock | 
+                            electra.SignedBeaconBlock): seq[ColumnIndex] =
+  # This method copies the DataColumns that were received via
+  # gossip and are accumulated to an array
+  var indices: seq[ColumnIndex]
+  for i in 0..<NUMBER_OF_COLUMNS:
+    let idx = ColumnIndex(i)
+    if quarantine.data_columns.hasKey(
+        (blck.root, idx)):
+      indices.add(idx)
+  indices
+
 func popDataColumns*(
     quarantine: var DataColumnQuarantine, digest: Eth2Digest,
     blck: deneb.SignedBeaconBlock | electra.SignedBeaconBlock):
@@ -96,10 +109,10 @@ func hasDataColumns*(quarantine: DataColumnQuarantine,
         quarantine.data_columns.hasKey(
         (blck.root, idx)):
       inc counter
-  if counter == max(SAMPLES_PER_SLOT, CUSTODY_REQUIREMENT) and
-      counter == NUMBER_OF_COLUMNS:
-    return true
-  false
+  if counter != max(SAMPLES_PER_SLOT, CUSTODY_REQUIREMENT) or
+      counter != NUMBER_OF_COLUMNS:
+    return false
+  true
 
 func dataColumnFetchRecord*(quarantine: DataColumnQuarantine,
     blck: deneb.SignedBeaconBlock | electra.SignedBeaconBlock): DataColumnFetchRecord =
