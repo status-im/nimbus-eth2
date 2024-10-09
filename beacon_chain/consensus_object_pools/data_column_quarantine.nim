@@ -119,10 +119,8 @@ func dataColumnFetchRecord*(quarantine: DataColumnQuarantine,
   var indices: seq[ColumnIndex]
   for i in 0..<NUMBER_OF_COLUMNS:
     let idx = ColumnIndex(i)
-    if quarantine.data_columns.hasKey(
+    if not quarantine.data_columns.hasKey(
         (blck.root, idx)):
-      continue
-    else:
       indices.add(idx)
   DataColumnFetchRecord(block_root: blck.root, indices: indices)
 
