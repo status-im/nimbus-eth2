@@ -114,7 +114,7 @@ proc pollForAttesterDuties*(service: DutiesServiceRef,
     vc = service.client
     indices = toSeq(vc.attachedValidators[].indices())
     relevantDuties =
-      block:
+      if len(indices) > 0:
         var duties: seq[RestAttesterDuty]
         block mainLoop:
           while true:
@@ -153,6 +153,8 @@ proc pollForAttesterDuties*(service: DutiesServiceRef,
                     duties.add(duty)
                 break mainLoop
         duties
+      else:
+        default(seq[RestAttesterDuty])
 
   template checkReorg(a, b: untyped): bool =
     not(a.dependentRoot == b.get())
@@ -518,8 +520,8 @@ proc pollForBeaconProposers*(service: DutiesServiceRef) {.async.} =
             slot = currentSlot, epoch = currentEpoch, err_name = exc.name,
             err_msg = exc.msg
 
-    service.pruneBeaconProposers(currentEpoch)
-    vc.pruneBlocksSeen(currentEpoch)
+  service.pruneBeaconProposers(currentEpoch)
+  vc.pruneBlocksSeen(currentEpoch)
 
 proc prepareBeaconProposers*(service: DutiesServiceRef) {.async.} =
   let vc = service.client
