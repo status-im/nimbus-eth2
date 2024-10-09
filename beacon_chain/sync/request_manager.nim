@@ -541,7 +541,8 @@ proc getMissingDataColumns(rman: RequestManager): seq[DataColumnIdentifier] =
           debug "Not handling missing data columns early in slot"
           continue
 
-        if not rman.dataColumnQuarantine[].hasDataColumns(forkyBlck):
+        if not rman.dataColumnQuarantine[].hasDataColumns(forkyBlck) and
+            len(forkyBlck.message.body.blob_kzg_commitments) != 0:
           let missing = rman.dataColumnQuarantine[].dataColumnFetchRecord(forkyBlck)
           if len(missing.indices) == 0:
             warn "quarantine is missing data columns, but missing indices are empty",

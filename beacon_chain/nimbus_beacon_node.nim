@@ -427,10 +427,6 @@ proc initFullNode(
               return err(VerifierError.UnviableFork)
             else:
               return err(VerifierError.MissingParent)
-          elif accumulatedColumns.len == 0:
-            return await blockProcessor[].addBlock(MsgSource.gossip, signedBlock,
-                                      Opt.none(BlobSidecars), Opt.none(DataColumnSidecars),
-                                      maybeFinalized = maybeFinalized)
           elif supernode == true and accumulatedColumns.len >= localCustodyColumns.len div 2:
             let data_columns = dataColumnQuarantine[].popDataColumns(forkyBlck.root, forkyBlck)
             return await blockProcessor[].addBlock(MsgSource.gossip, signedBlock,
