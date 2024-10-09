@@ -16,7 +16,7 @@ import
   ../testutil
 
 from std/sequtils import toSeq
-from std/strutils import contains, toLowerAscii
+from std/strutils import toLowerAscii
 from ../../beacon_chain/spec/presets import
   const_preset, defaultRuntimeConfig
 from ./fixtures_utils import
@@ -31,15 +31,6 @@ proc runTest(
   let
     hasPostState = fileExists(testPath/"post.ssz_snappy")
     prefix = if hasPostState: "[Valid]   " else: "[Invalid] "
-
-  # TODO these tests might be buggy, or at least they're strange
-  # they're failing before any state transition calculations, in
-  # the block parent == latest_block_header check within 1-block
-  # tests, i.e. those latest_block_headers are just baked in.
-  if consensusFork == ConsensusFork.Electra and (
-      unitTestName.contains("cl_exit_and_el_withdrawal_request_in_same_block") or
-      unitTestName.contains("basic_el_withdrawal_request")):
-    return
 
   test prefix & testName & " - " & unitTestName & preset():
     let preState = newClone(parseTest(testPath/"pre.ssz_snappy",
