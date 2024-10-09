@@ -93,7 +93,7 @@ proc serveAttestation(
 proc serveAggregateAndProof*(service: AttestationServiceRef,
                              proof: phase0.AggregateAndProof,
                              validator: AttachedValidator): Future[bool] {.
-     async.} =
+     async: (raises: [CancelledError]).} =
   let
     vc = service.client
     genesisRoot = vc.beaconGenesis.genesis_validators_root
@@ -130,10 +130,7 @@ proc serveAggregateAndProof*(service: AttestationServiceRef,
 
   let res =
     try:
-      when false:
-        await vc.publishAggregateAndProofs(@[signedProof], ApiStrategyKind.First)
-      else:
-        await vc.publishAggregateAndProofsV2(@[signedProof], ApiStrategyKind.First)
+      await vc.publishAggregateAndProofs(@[signedProof], ApiStrategyKind.First)
     except ValidatorApiError as exc:
       warn "Unable to publish aggregated attestation",
             reason = exc.getFailureReason()
@@ -148,6 +145,72 @@ proc serveAggregateAndProof*(service: AttestationServiceRef,
   else:
     warn "Aggregated attestation was not accepted by beacon node"
   return res
+
+proc serveAggregateAndProofV2*(service: AttestationServiceRef,
+                               proof: ForkyAggregateAndProof,
+                               validator: AttachedValidator): Future[bool] {.
+     async: (raises: [CancelledError]).} =
+  let
+    vc = service.client
+    genesisRoot = vc.beaconGenesis.genesis_validators_root
+    slot = proof.aggregate.data.slot
+    fork = vc.forkAtEpoch(slot.epoch)
+
+  logScope:
+    validator = validatorLog(validator)
+    attestation = shortLog(proof.aggregate)
+
+  debug "Signing aggregate", fork = fork
+
+  let signature =
+    try:
+      let res =
+        await validator.getAggregateAndProofSignature(fork, genesisRoot, proof)
+      if res.isErr():
+        warn "Unable to sign aggregate and proof using remote signer",
+              reason = res.error()
+        return false
+      res.get()
+    except CancelledError as exc:
+      debug "Aggregated attestation signing process was interrupted"
+      raise exc
+
+  let signedProof =
+    when proof is phase0.AggregateAndProof:
+      phase0.SignedAggregateAndProof(
+        message: proof, signature: signature)
+    elif proof is electra.AggregateAndProof:
+      electra.SignedAggregateAndProof(
+        message: proof, signature: signature)
+    else:
+      static:
+        raiseAssert "Unsupported SignedAggregateAndProof"
+
+  logScope:
+    delay = vc.getDelay(slot.aggregate_deadline())
+
+  debug "Sending aggregated attestation", fork = fork
+
+  validator.doppelgangerActivity(proof.aggregate.data.slot.epoch)
+
+  let res =
+    try:
+      await vc.publishAggregateAndProofsV2(@[signedProof],
+                                           ApiStrategyKind.First)
+    except ValidatorApiError as exc:
+      warn "Unable to publish aggregated attestation",
+            reason = exc.getFailureReason()
+      return false
+    except CancelledError as exc:
+      debug "Publish aggregate and proofs request was interrupted"
+      raise exc
+
+  if res:
+    beacon_aggregates_sent.inc()
+    notice "Aggregated attestation published"
+  else:
+    warn "Aggregated attestation was not accepted by beacon node"
+  res
 
 proc produceAndPublishAttestations*(service: AttestationServiceRef,
                                     slot: Slot, committee_index: CommitteeIndex,
@@ -252,6 +315,7 @@ proc produceAndPublishAggregates(
     slot = adata.slot
     committeeIndex = adata.index
     attestationRoot = adata.hash_tree_root()
+    afterElectra = vc.isPastElectraFork(slot.epoch())
 
   let aggregateItems =
     block:
@@ -280,27 +344,68 @@ proc produceAndPublishAggregates(
       res
 
   if len(aggregateItems) > 0:
-    let aggAttestation =
-      try:
-        await vc.getAggregatedAttestation(slot, attestationRoot,
-                                          ApiStrategyKind.Best)
-      except ValidatorApiError as exc:
-        warn "Unable to get aggregated attestation data", slot = slot,
-             attestation_root = shortLog(attestationRoot),
-             reason = exc.getFailureReason()
-        return
-      except CancelledError as exc:
-        debug "Aggregated attestation request was interrupted"
-        raise exc
+    let aggregates =
+      if afterElectra:
+        let aggAttestation =
+          try:
+            await vc.getAggregatedAttestationV2(slot, attestationRoot,
+                                                CommitteeIndex(committeeIndex),
+                                                ApiStrategyKind.Best)
+          except ValidatorApiError as exc:
+            warn "Unable to get aggregated attestation data", slot = slot,
+                 attestation_root = shortLog(attestationRoot),
+                 reason = exc.getFailureReason()
+            return
+          except CancelledError as exc:
+            debug "Aggregated attestation request was interrupted"
+            raise exc
 
-    if isLowestScoreAggregatedAttestation(aggAttestation):
-      warn "Aggregated attestation with the root was not seen by the " &
-           "beacon node",
-           attestation_root = shortLog(attestationRoot)
-      return
+        if isLowestScoreAggregatedAttestation(aggAttestation):
+          warn "Aggregated attestation with the root was not seen by the " &
+               "beacon node",
+               attestation_root = shortLog(attestationRoot)
+          return
 
-    let pendingAggregates =
-      block:
+        var res: seq[Future[bool]]
+        for item in aggregateItems:
+          withAttestation(aggAttestation):
+            when consensusFork > ConsensusFork.Deneb:
+              let proof =
+                electra.AggregateAndProof(
+                  aggregator_index: item.aggregator_index,
+                  aggregate: forkyAttestation,
+                  selection_proof: item.selection_proof
+                )
+              res.add(service.serveAggregateAndProofV2(proof, item.validator))
+            else:
+              let proof =
+                phase0.AggregateAndProof(
+                  aggregator_index: item.aggregator_index,
+                  aggregate: forkyAttestation,
+                  selection_proof: item.selection_proof
+                )
+              res.add(service.serveAggregateAndProofV2(proof, item.validator))
+        res
+      else:
+        let aggAttestation =
+          try:
+            await vc.getAggregatedAttestation(slot, attestationRoot,
+                                              ApiStrategyKind.Best)
+          except ValidatorApiError as exc:
+            warn "Unable to get aggregated attestation data", slot = slot,
+                 attestation_root = shortLog(attestationRoot),
+                 reason = exc.getFailureReason()
+            return
+          except CancelledError as exc:
+            debug "Aggregated attestation request was interrupted"
+            raise exc
+
+        if isLowestScoreAggregatedAttestation(aggAttestation):
+          warn "Aggregated attestation with the root was not seen by the " &
+               "beacon node",
+               attestation_root = shortLog(attestationRoot)
+          return
+
         var res: seq[Future[bool]]
         for item in aggregateItems:
           let proof = phase0.AggregateAndProof(
@@ -315,14 +420,14 @@ proc produceAndPublishAggregates(
       block:
         var errored, succeed, failed = 0
         try:
-          await allFutures(pendingAggregates)
+          await allFutures(aggregates)
         except CancelledError as exc:
-          let pending = pendingAggregates
+          let pending = aggregates
             .filterIt(not(it.finished())).mapIt(it.cancelAndWait())
           await noCancel allFutures(pending)
           raise exc
 
-        for future in pendingAggregates:
+        for future in aggregates:
           if future.completed():
             if future.value:
               inc(succeed)
@@ -333,7 +438,7 @@ proc produceAndPublishAggregates(
         (succeed, errored, failed)
 
     let delay = vc.getDelay(slot.aggregate_deadline())
-    debug "Aggregated attestation statistics", total = len(pendingAggregates),
+    debug "Aggregated attestation statistics", total = len(aggregates),
           succeed = statistics[0], failed_to_deliver = statistics[1],
           not_accepted = statistics[2], delay = delay, slot = slot,
           committee_index = committeeIndex

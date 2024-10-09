@@ -584,6 +584,13 @@ func isLowestScoreAggregatedAttestation*(a: phase0.Attestation): bool =
   (a.data.slot == Slot(0)) and (a.data.index == 0'u64) and
   (a.data.source.epoch == Epoch(0)) and (a.data.target.epoch == Epoch(0))
 
+func isLowestScoreAggregatedAttestation*(a: ForkedAttestation): bool =
+  withAttestation(a):
+    (forkyAttestation.data.slot == Slot(0)) and
+    (forkyAttestation.data.index == 0'u64) and
+    (forkyAttestation.data.source.epoch == Epoch(0)) and
+    (forkyAttestation.data.target.epoch == Epoch(0))
+
 func `==`*(a, b: RestValidatorIndex): bool {.borrow.}
 
 template withForkyBlck*(
