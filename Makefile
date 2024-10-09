@@ -52,7 +52,6 @@ else
 endif
 
 # unconditionally built by the default Make target
-# TODO re-enable ncli_query if/when it works again
 TOOLS_CORE_CUSTOMCOMPILE := \
 	libnimbus_lc.a
 
