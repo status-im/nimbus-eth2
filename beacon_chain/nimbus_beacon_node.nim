@@ -419,7 +419,11 @@ proc initFullNode(
                                                       max(SAMPLES_PER_SLOT.uint64,
                                                       localSubnetCount))
             accumulatedColumns = dataColumnQuarantine[].accumulateDataColumns(forkyBlck)
-          if supernode == true and accumulatedColumns.len <= localCustodyColumns.len div 2 :
+          if accumulatedColumns.len == 0:
+            return await blockProcessor[].addBlock(MsgSource.gossip, signedBlock,
+                                      Opt.none(BlobSidecars), Opt.none(DataColumnSidecars),
+                                      maybeFinalized = maybeFinalized)
+          elif supernode == true and accumulatedColumns.len <= localCustodyColumns.len div 2 :
             # We don't have all the data columns for this block, so we have
             # to put it in columnless quarantine.
             if not quarantine[].addColumnless(dag.finalizedHead.slot, forkyBlck):
