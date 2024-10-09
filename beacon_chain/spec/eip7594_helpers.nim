@@ -164,7 +164,7 @@ proc recover_matrix*(partial_matrix: seq[MatrixEntry],
 
   ok(extended_matrix)
 
-# https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.7/specs/_features/eip7594/das-core.md#get_data_column_sidecars
+# https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.8/specs/_features/eip7594/das-core.md#get_data_column_sidecars
 proc get_data_column_sidecars*(signed_beacon_block: electra.TrustedSignedBeaconBlock,
                                cellsAndProofs: seq[CellsAndProofs]):
                                seq[DataColumnSidecar] =
@@ -282,7 +282,7 @@ proc get_data_column_sidecars*(signed_beacon_block: electra.SignedBeaconBlock,
 
   ok(sidecars)
 
-# https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.7/specs/_features/eip7594/peer-sampling.md#get_extended_sample_count
+# https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.8/specs/_features/eip7594/peer-sampling.md#get_extended_sample_count
 func get_extended_sample_count*(samples_per_slot: int,
                                 allowed_failures: int):
                                 int =

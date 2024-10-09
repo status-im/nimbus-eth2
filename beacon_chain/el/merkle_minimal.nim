@@ -7,7 +7,7 @@
 
 {.push raises: [].}
 
-# https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.7/tests/core/pyspec/eth2spec/utils/merkle_minimal.py
+# https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.8/tests/core/pyspec/eth2spec/utils/merkle_minimal.py
 
 # Merkle tree helpers
 # ---------------------------------------------------------------

@@ -1610,8 +1610,8 @@ proc signAndSendAggregate(
       msg, checkSignature = false)
 
   if node.dag.cfg.consensusForkAtEpoch(slot.epoch) >= ConsensusFork.Electra:
-    # https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.7/specs/electra/validator.md#construct-aggregate
-    # https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.7/specs/electra/validator.md#aggregateandproof
+    # https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.8/specs/electra/validator.md#construct-aggregate
+    # https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.8/specs/electra/validator.md#aggregateandproof
     var
       msg = electra.SignedAggregateAndProof(
         message: electra.AggregateAndProof(
@@ -1624,7 +1624,7 @@ proc signAndSendAggregate(
 
     signAndSendAggregate()
   else:
-    # https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.7/specs/phase0/validator.md#construct-aggregate
+    # https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.8/specs/phase0/validator.md#construct-aggregate
     # https://github.com/ethereum/consensus-specs/blob/v1.4.0/specs/phase0/validator.md#aggregateandproof
     var
       msg = phase0.SignedAggregateAndProof(
@@ -1981,8 +1981,8 @@ proc handleValidatorDuties*(node: BeaconNode, lastSlot, slot: Slot) {.async: (ra
 
   updateValidatorMetrics(node) # the important stuff is done, update the vanity numbers
 
-  # https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.7/specs/phase0/validator.md#broadcast-aggregate
-  # https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.7/specs/altair/validator.md#broadcast-sync-committee-contribution
+  # https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.8/specs/phase0/validator.md#broadcast-aggregate
+  # https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.8/specs/altair/validator.md#broadcast-sync-committee-contribution
   # Wait 2 / 3 of the slot time to allow messages to propagate, then collect
   # the result in aggregates
   static:
