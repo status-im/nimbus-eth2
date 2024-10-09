@@ -8,7 +8,7 @@
 {.push raises: [].}
 
 # Electra preset - Electra
-# https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.7/presets/mainnet/electra.yaml
+# https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.8/presets/mainnet/electra.yaml
 const
   # Gwei values
   # ---------------------------------------------------------------
