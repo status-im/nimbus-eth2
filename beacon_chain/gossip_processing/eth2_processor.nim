@@ -392,9 +392,6 @@ proc processDataColumnSidecar*(
     data_column_sidecars_dropped.inc(1, [$v.error[0]])
     return v
 
-  else:
-    inc validatedCounter
-
   debug "Data column validated, putting data column in quarantine"
   self.dataColumnQuarantine[].put(newClone(dataColumnSidecar))
 
@@ -402,10 +399,10 @@ proc processDataColumnSidecar*(
   if (let o = self.quarantine[].popColumnless(block_root); o.isSome):
     let columnless = o.unsafeGet()
     withBlck(columnless):
-      when consensusFork >= ConsensusFork.Deneb:
-        if validatedCounter >= (NUMBER_OF_COLUMNS div 2):
-          let
-            columns = self.dataColumnQuarantine[].gatherDataColumns
+      when consensusFork >= ConsensusFork.Deneb:   
+        let
+          columns = self.dataColumnQuarantine[].gatherDataColumns
+        if columns.len >= (NUMBER_OF_COLUMNS div 2):
             reconstructed_columns = 
               self.processReconstructionFromGossip(forkyBlck, columns)
           for rc in reconstructed_columns.get:
