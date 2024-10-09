@@ -454,12 +454,6 @@ proc computeTransactionsTrieRoot(
     payload: ForkyExecutionPayload): ExecutionHash256 =
   orderedTrieRoot(payload.transactions.asSeq)
 
-# https://eips.ethereum.org/EIPS/eip-4895
-proc computeWithdrawalsTrieRoot(
-    payload: capella.ExecutionPayload | deneb.ExecutionPayload |
-    electra.ExecutionPayload): ExecutionHash256 =
-  orderedTrieRoot(payload.withdrawals.asSeq)
-
 func append*(w: var RlpWriter, request: electra.DepositRequest) =
   w.append ExecutionDepositRequest(
     pubkey: Bytes48 request.pubkey.blob,

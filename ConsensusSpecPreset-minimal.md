@@ -3136,6 +3136,7 @@ OK: 28/28 Fail: 0/28 Skip: 0/28
 + [Invalid] EF - Electra - Operations - Withdrawals - invalid_two_expected_partial_withdrawa OK
 + [Valid]   EF - Electra - Operations - Withdrawals - all_withdrawal                         OK
 + [Valid]   EF - Electra - Operations - Withdrawals - no_withdrawals_but_some_next_epoch     OK
++ [Valid]   EF - Electra - Operations - Withdrawals - pending_withdrawals_one_skipped_one_ef OK
 + [Valid]   EF - Electra - Operations - Withdrawals - random_0                               OK
 + [Valid]   EF - Electra - Operations - Withdrawals - random_full_withdrawals_0              OK
 + [Valid]   EF - Electra - Operations - Withdrawals - random_full_withdrawals_1              OK
@@ -3149,11 +3150,15 @@ OK: 28/28 Fail: 0/28 Skip: 0/28
 + [Valid]   EF - Electra - Operations - Withdrawals - success_all_fully_withdrawable         OK
 + [Valid]   EF - Electra - Operations - Withdrawals - success_all_partially_withdrawable     OK
 + [Valid]   EF - Electra - Operations - Withdrawals - success_excess_balance_but_no_max_effe OK
++ [Valid]   EF - Electra - Operations - Withdrawals - success_excess_balance_but_no_max_effe OK
 + [Valid]   EF - Electra - Operations - Withdrawals - success_max_partial_withdrawable       OK
 + [Valid]   EF - Electra - Operations - Withdrawals - success_max_plus_one_withdrawable      OK
 + [Valid]   EF - Electra - Operations - Withdrawals - success_mixed_fully_and_partial_withdr OK
++ [Valid]   EF - Electra - Operations - Withdrawals - success_mixed_fully_and_partial_withdr OK
 + [Valid]   EF - Electra - Operations - Withdrawals - success_no_excess_balance              OK
++ [Valid]   EF - Electra - Operations - Withdrawals - success_no_excess_balance_compounding  OK
 + [Valid]   EF - Electra - Operations - Withdrawals - success_no_max_effective_balance       OK
++ [Valid]   EF - Electra - Operations - Withdrawals - success_no_max_effective_balance_compo OK
 + [Valid]   EF - Electra - Operations - Withdrawals - success_one_full_withdrawal            OK
 + [Valid]   EF - Electra - Operations - Withdrawals - success_one_partial_withdrawable_activ OK
 + [Valid]   EF - Electra - Operations - Withdrawals - success_one_partial_withdrawable_exite OK
@@ -3167,7 +3172,7 @@ OK: 28/28 Fail: 0/28 Skip: 0/28
 + [Valid]   EF - Electra - Operations - Withdrawals - withdrawable_epoch_but_0_effective_bal OK
 + [Valid]   EF - Electra - Operations - Withdrawals - withdrawable_epoch_but_0_effective_bal OK
 ```
-OK: 51/51 Fail: 0/51 Skip: 0/51
+OK: 56/56 Fail: 0/56 Skip: 0/56
 ## EF - Electra - Random  [Preset: minimal]
 ```diff
 + [Valid]   EF - Electra - Random - randomized_0 [Preset: minimal]                           OK
@@ -3318,8 +3323,10 @@ OK: 55/55 Fail: 0/55 Skip: 0/55
 + [Valid]   EF - Electra - Sanity - Blocks - balance_driven_status_transitions [Preset: mini OK
 + [Valid]   EF - Electra - Sanity - Blocks - basic_btec_and_el_withdrawal_request_in_same_bl OK
 + [Valid]   EF - Electra - Sanity - Blocks - basic_btec_before_el_withdrawal_request [Preset OK
++ [Valid]   EF - Electra - Sanity - Blocks - basic_el_withdrawal_request [Preset: minimal]   OK
 + [Valid]   EF - Electra - Sanity - Blocks - block_transition_randomized_payload [Preset: mi OK
 + [Valid]   EF - Electra - Sanity - Blocks - bls_change [Preset: minimal]                    OK
++ [Valid]   EF - Electra - Sanity - Blocks - cl_exit_and_el_withdrawal_request_in_same_block OK
 + [Valid]   EF - Electra - Sanity - Blocks - deposit_and_bls_change [Preset: minimal]        OK
 + [Valid]   EF - Electra - Sanity - Blocks - deposit_in_block [Preset: minimal]              OK
 + [Valid]   EF - Electra - Sanity - Blocks - deposit_top_up [Preset: minimal]                OK
@@ -3373,7 +3380,7 @@ OK: 55/55 Fail: 0/55 Skip: 0/55
 + [Valid]   EF - Electra - Sanity - Blocks - withdrawal_success_two_blocks [Preset: minimal] OK
 + [Valid]   EF - Electra - Sanity - Blocks - zero_blob [Preset: minimal]                     OK
 ```
-OK: 85/85 Fail: 0/85 Skip: 0/85
+OK: 87/87 Fail: 0/87 Skip: 0/87
 ## EF - Electra - Sanity - Slots  [Preset: minimal]
 ```diff
 + EF - Electra - Slots - double_empty_epoch [Preset: minimal]                                OK
@@ -4135,4 +4142,4 @@ OK: 185/207 Fail: 0/207 Skip: 22/207
 OK: 3/3 Fail: 0/3 Skip: 0/3
 
 ---TOTAL---
-OK: 3378/3401 Fail: 0/3401 Skip: 23/3401
+OK: 3385/3408 Fail: 0/3408 Skip: 23/3408

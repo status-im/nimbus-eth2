@@ -74,7 +74,7 @@ export
   tables, results, endians2, json_serialization, sszTypes, beacon_time, crypto,
   digest, presets
 
-const SPEC_VERSION* = "1.5.0-alpha.7"
+const SPEC_VERSION* = "1.5.0-alpha.8"
 ## Spec version we're aiming to be compatible with, right now
 
 const

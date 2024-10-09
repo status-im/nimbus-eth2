@@ -1292,7 +1292,7 @@ func switch_to_compounding_validator*(
   validator.withdrawal_credentials.data[0] = COMPOUNDING_WITHDRAWAL_PREFIX
   queue_excess_active_balance(state, index.uint64)
 
-# https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.7/specs/electra/beacon-chain.md#new-get_pending_balance_to_withdraw
+# https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.8/specs/electra/beacon-chain.md#new-get_pending_balance_to_withdraw
 func get_pending_balance_to_withdraw*(
     state: electra.BeaconState, validator_index: ValidatorIndex): Gwei =
   var pending_balance: Gwei
@@ -1383,7 +1383,7 @@ func get_expected_withdrawals*(
   get_expected_withdrawals_aux(state, get_current_epoch(state)) do:
     state.balances[validator_index]
 
-# https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.7/specs/electra/beacon-chain.md#modified-get_expected_withdrawals
+# https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.8/specs/electra/beacon-chain.md#modified-get_expected_withdrawals
 # This partials count is used in exactly one place, while in general being able
 # to cleanly treat the results of get_expected_withdrawals as a seq[Withdrawal]
 # are valuable enough to make that the default version of this spec function.
@@ -1437,7 +1437,7 @@ template get_expected_withdrawals_with_partial_count_aux*(
       withdrawals.add w
       withdrawal_index += 1
 
-      inc partial_withdrawals_count
+    partial_withdrawals_count += 1
 
   let
     bound = min(len(state.validators), MAX_VALIDATORS_PER_WITHDRAWALS_SWEEP)

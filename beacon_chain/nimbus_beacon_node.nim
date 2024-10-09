@@ -865,9 +865,6 @@ proc init*(T: type BeaconNode,
   func getDenebForkEpoch(): Opt[Epoch] =
     Opt.some(cfg.DENEB_FORK_EPOCH)
 
-  func getElectraForkEpoch(): Opt[Epoch] =
-    Opt.some(cfg.ELECTRA_FORK_EPOCH)
-
   proc getForkForEpoch(epoch: Epoch): Opt[Fork] =
     Opt.some(dag.forkAtEpoch(epoch))
 
