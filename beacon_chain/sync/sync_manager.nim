@@ -360,11 +360,10 @@ func groupDataColumns*[T](req: SyncRequest[T],
         # The following data column sidecars, where they exist, MUST be sent in consecutive (slot, index) order.
         # https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.3/specs/_features/eip7594/p2p-interface.md
         let header = forkyBlck.toSignedBeaconBlockHeader()
-        for column_idx in data_columns
-          if column_cursor >= data_columns.len:
-            return err("DataColumnSidecar: response too short")
+        for column_idx in 0..<data_columns.len:
           let data_column_sidecar = data_columns[column_cursor]
-          if data_column_sidecar.index != ColumnIndex column_idx
+          if data_column_sidecar.index != ColumnIndex column_idx:
+            return err("DataColumnSidecar: invalid index")
           if data_column_sidecar.signed_block_header != header:
             return err("DataColumnSidecar: unexpected signed_block_header")
           grouped[block_idx].add(data_column_sidecar)

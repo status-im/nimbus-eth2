@@ -420,19 +420,28 @@ proc initFullNode(
                                                       localSubnetCount))
             accumulatedColumns = dataColumnQuarantine[].accumulateDataColumns(forkyBlck)
 
-          for ac in accumulatedColumns:
-            if ac notin localCustodyColumns:
-              # We don't have all the data columns for this block, so we have
-              # to put it in columnless quarantine.
-              if not quarantine[].addColumnless(dag.finalizedHead.slot, forkyBlck):
-                return err(VerifierError.UnviableFork)
-              else:
-                return err(VerifierError.MissingParent)
+          if accumulatedColumns.len == 0:
+            # We don't have all the data columns for this block, so we have
+            # to put it in columnless quarantine.
+            if not quarantine[].addColumnless(dag.finalizedHead.slot, forkyBlck):
+              return err(VerifierError.UnviableFork)
             else:
-              let data_columns = dataColumnQuarantine[].popDataColumns(forkyBlck.root, forkyBlck)
-              return await blockProcessor[].addBlock(MsgSource.gossip, signedBlock,
-                                        Opt.none(BlobSidecars), Opt.some(data_columns),
-                                        maybeFinalized = maybeFinalized)
+              return err(VerifierError.MissingParent)
+          elif supernode == true and accumulatedColumns.len >= localCustodyColumns.len div 2:
+            let data_columns = dataColumnQuarantine[].popDataColumns(forkyBlck.root, forkyBlck)
+            return await blockProcessor[].addBlock(MsgSource.gossip, signedBlock,
+                                      Opt.none(BlobSidecars), Opt.some(data_columns),
+                                      maybeFinalized = maybeFinalized)
+
+          elif supernode == false and accumulatedColumns.len <= localCustodyColumns.len div 2:
+            let data_columns = dataColumnQuarantine[].popDataColumns(forkyBlck.root, forkyBlck)
+            return await blockProcessor[].addBlock(MsgSource.gossip, signedBlock,
+                                      Opt.none(BlobSidecars), Opt.some(data_columns),
+                                      maybeFinalized = maybeFinalized)
+          else:
+            return await blockProcessor[].addBlock(MsgSource.gossip, signedBlock,
+                                      Opt.none(BlobSidecars), Opt.none(DataColumnSidecars),
+                                      maybeFinalized = maybeFinalized) 
         else:
           return await blockProcessor[].addBlock(MsgSource.gossip, signedBlock,
                                     Opt.none(BlobSidecars), Opt.none(DataColumnSidecars),
