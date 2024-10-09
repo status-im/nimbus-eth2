@@ -7,7 +7,7 @@
 
 {.push raises: [].}
 
-import ".."/spec/presets
+import ".."/spec/[forks, presets]
 
 const
   PHASE0_FORK_VERSION* = Version [byte 0x00, 0x00, 0x00, 0x00]
