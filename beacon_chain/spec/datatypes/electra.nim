@@ -92,11 +92,11 @@ type
     attestation_1*: TrustedIndexedAttestation  # Modified in Electra:EIP7549]
     attestation_2*: TrustedIndexedAttestation  # Modified in Electra:EIP7549]
 
-  # https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.6/specs/electra/p2p-interface.md#custom-types
+  # https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.8/specs/electra/p2p-interface.md#custom-types
   KzgCommitmentInclusionProof* =
     array[KZG_COMMITMENT_INCLUSION_PROOF_DEPTH_ELECTRA, Eth2Digest]
 
-  # https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.6/specs/deneb/p2p-interface.md#blobsidecar
+  # https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.8/specs/deneb/p2p-interface.md#blobsidecar
   BlobSidecar* = object
     index*: BlobIndex
       ## Index of blob in block
@@ -108,7 +108,7 @@ type
     kzg_commitment_inclusion_proof*: KzgCommitmentInclusionProof
   BlobSidecars* = seq[ref BlobSidecar]
 
-# https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.6/specs/deneb/beacon-chain.md#executionpayload
+  # https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.8/specs/deneb/beacon-chain.md#executionpayload
   ExecutionPayload* {.sszProfile: StableExecutionPayload.} = object
     # Execution block header fields
     parent_hash*: Eth2Digest
@@ -139,7 +139,7 @@ type
     blockValue*: Wei
     blobsBundle*: BlobsBundle
 
-  # https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.6/specs/deneb/beacon-chain.md#executionpayloadheader
+  # https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.8/specs/deneb/beacon-chain.md#executionpayloadheader
   ExecutionPayloadHeader* {.sszProfile: StableExecutionPayloadHeader.} = object
     # Execution block header fields
     parent_hash*: Eth2Digest
@@ -169,13 +169,13 @@ type
   ExecutionBranch* =
     array[log2trunc(EXECUTION_PAYLOAD_GINDEX_ELECTRA), Eth2Digest]
 
-  # https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.6/specs/phase0/validator.md#aggregateandproof
+  # https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.8/specs/phase0/validator.md#aggregateandproof
   AggregateAndProof* = object
     aggregator_index*: uint64 # `ValidatorIndex` after validation
     aggregate*: Attestation
     selection_proof*: ValidatorSig
 
-  # https://github.com/ethereum/consensus-specs/blob/v1.4.0/specs/phase0/validator.md#signedaggregateandproof
+  # https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.8/specs/phase0/validator.md#signedaggregateandproof
   SignedAggregateAndProof* = object
     message*: AggregateAndProof
     signature*: ValidatorSig
@@ -372,8 +372,7 @@ type
     earliest_exit_epoch*: Epoch  # [New in Electra:EIP7251]
     consolidation_balance_to_consume*: Gwei  # [New in Electra:EIP7251]
     earliest_consolidation_epoch*: Epoch  # [New in Electra:EIP7251]
-    pending_balance_deposits*:
-      HashList[PendingBalanceDeposit, Limit PENDING_BALANCE_DEPOSITS_LIMIT]
+    pending_deposits*: HashList[PendingDeposit, Limit PENDING_DEPOSITS_LIMIT]
       ## [New in Electra:EIP7251]
 
     # [New in Electra:EIP7251]
@@ -394,7 +393,7 @@ type
     data*: BeaconState
     root*: Eth2Digest # hash_tree_root(data)
 
-  # https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.6/specs/phase0/beacon-chain.md#beaconblock
+  # https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.8/specs/phase0/beacon-chain.md#beaconblock
   BeaconBlock* = object
     ## For each slot, a proposer is chosen from the validator pool to propose
     ## a new block. Once the block as been proposed, it is transmitted to
@@ -586,15 +585,14 @@ type
 
     root* {.dontSerialize.}: Eth2Digest # cached root of signed beacon block
 
-  # https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.6/specs/electra/beacon-chain.md#attestation
+  # https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.7/specs/electra/beacon-chain.md#attestation
   Attestation* {.sszProfile: StableAttestation.} = object
     aggregation_bits*: ElectraCommitteeValidatorsBits
     data*: AttestationData
     signature*: ValidatorSig
     committee_bits*: AttestationCommitteeBits  # [New in Electra:EIP7549]
 
-  TrustedAttestation* {.
-      sszProfile: StableAttestation.} = object
+  TrustedAttestation* {.sszProfile: StableAttestation.} = object
     # The Trusted version, at the moment, implies that the cryptographic signature was checked.
     # It DOES NOT imply that the state transition was verified.
     # Currently the code MUST verify the state transition as soon as the signature is verified
@@ -603,6 +601,8 @@ type
     signature*: TrustedSig
     committee_bits*: AttestationCommitteeBits  # [New in Electra:EIP7549]
 
+  SomeIndexedAttestation* = IndexedAttestation | TrustedIndexedAttestation
+  SomeAttesterSlashing* = AttesterSlashing | TrustedAttesterSlashing
   SomeSignedBeaconBlock* =
     SignedBeaconBlock |
     SigVerifiedSignedBeaconBlock |
@@ -622,9 +622,33 @@ type
     kzg_proofs*: KzgProofs
     blobs*: Blobs
 
+  BeaconBlockValidatorChanges* = object
+    # Collection of exits that are suitable for block production
+    proposer_slashings*: List[ProposerSlashing, Limit MAX_PROPOSER_SLASHINGS]
+    phase0_attester_slashings*:
+      List[phase0.AttesterSlashing, Limit MAX_ATTESTER_SLASHINGS]
+    electra_attester_slashings*:
+      List[electra.AttesterSlashing, Limit MAX_ATTESTER_SLASHINGS_ELECTRA]
+    voluntary_exits*: List[SignedVoluntaryExit, Limit MAX_VOLUNTARY_EXITS]
+    bls_to_execution_changes*:
+      List[SignedBLSToExecutionChange, Limit MAX_BLS_TO_EXECUTION_CHANGES]
+
 # TODO: There should be only a single generic HashedBeaconState definition
 func initHashedBeaconState*(s: BeaconState): HashedBeaconState =
   HashedBeaconState(data: s)
+
+func shortLog*(v: SomeIndexedAttestation): auto =
+  (
+    attestating_indices: v.attesting_indices,
+    data: shortLog(v.data),
+    signature: shortLog(v.signature)
+  )
+
+func shortLog*(v: SomeAttesterSlashing): auto =
+  (
+    attestation_1: shortLog(v.attestation_1),
+    attestation_2: shortLog(v.attestation_2),
+  )
 
 func shortLog*(v: SomeBeaconBlock): auto =
   (
@@ -716,7 +740,7 @@ func kzg_commitment_inclusion_proof_gindex*(
 
   BLOB_KZG_COMMITMENTS_FIRST_GINDEX + index
 
-# https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.6/specs/electra/light-client/fork.md#normalize_merkle_branch
+# https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.8/specs/electra/light-client/fork.md#normalize_merkle_branch
 func normalize_merkle_branch*[N](
     branch: array[N, Eth2Digest],
     gindex: static GeneralizedIndex): auto =
@@ -800,7 +824,7 @@ func get_lc_execution_root*(
 
   ZERO_HASH
 
-# https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.6/specs/electra/light-client/sync-protocol.md#modified-execution_payload_gindex_at_slot
+# https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.8/specs/electra/light-client/sync-protocol.md#modified-execution_payload_gindex_at_slot
 func execution_payload_gindex_at_epoch(
     epoch: Epoch, cfg: RuntimeConfig): GeneralizedIndex =
   doAssert epoch >= cfg.CAPELLA_FORK_EPOCH
@@ -810,7 +834,7 @@ func execution_payload_gindex_at_epoch(
     return EXECUTION_PAYLOAD_GINDEX_ELECTRA
   EXECUTION_PAYLOAD_GINDEX
 
-# https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.6/specs/electra/light-client/sync-protocol.md#modified-is_valid_light_client_header
+# https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.8/specs/electra/light-client/sync-protocol.md#modified-is_valid_light_client_header
 func is_valid_light_client_header*(
     header: LightClientHeader, cfg: RuntimeConfig): bool =
   let epoch = header.beacon.slot.epoch
@@ -831,7 +855,7 @@ func is_valid_light_client_header*(
     execution_payload_gindex_at_epoch(epoch, cfg),
     header.beacon.body_root)
 
-# https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.6/specs/electra/light-client/fork.md#upgrading-light-client-data
+# https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.8/specs/electra/light-client/fork.md#upgrading-light-client-data
 func upgrade_lc_header_to_electra*(
     pre: deneb.LightClientHeader): LightClientHeader =
   LightClientHeader(

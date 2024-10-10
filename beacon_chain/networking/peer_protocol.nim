@@ -167,11 +167,6 @@ p2pProtocol PeerSync(version = 1,
     {.libp2pProtocol("ping", 1).} =
     peer.network.metadata.seq_number
 
-  # https://github.com/ethereum/consensus-specs/blob/v1.4.0/specs/altair/p2p-interface.md#transitioning-from-v1-to-v2
-  proc getMetaData(peer: Peer): uint64
-    {.libp2pProtocol("metadata", 1).} =
-    raise newException(InvalidInputsError, "GetMetaData v1 unsupported")
-
   proc getMetadata_v2(peer: Peer): altair.MetaData
     {.libp2pProtocol("metadata", 2).} =
     peer.network.metadata

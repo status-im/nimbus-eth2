@@ -35,11 +35,13 @@ logScope:
   topics = "elman"
 
 type
+  FixedBytes[N: static int] =  web3.FixedBytes[N]
   PubKeyBytes = DynamicBytes[48, 48]
   WithdrawalCredentialsBytes = DynamicBytes[32, 32]
   SignatureBytes = DynamicBytes[96, 96]
   Int64LeBytes = DynamicBytes[8, 8]
   WithoutTimeout* = distinct int
+  Address = web3.Address
 
   SomeEnginePayloadWithValue =
     BellatrixExecutionPayloadWithValue |
@@ -532,7 +534,7 @@ proc getPayloadFromSingleEL(
             prevRandao: FixedBytes[32] randomData.data,
             suggestedFeeRecipient: suggestedFeeRecipient,
             withdrawals: withdrawals,
-            parentBeaconBlockRoot: consensusHead.asBlockHash))
+            parentBeaconBlockRoot: consensusHead.to(Hash32)))
       else:
         static: doAssert false
 
@@ -815,7 +817,7 @@ proc sendNewPayloadToSingleEL(
 ): Future[PayloadStatusV1] {.async: (raises: [CatchableError]).} =
   let rpcClient = await connection.connectedRpcClient()
   await rpcClient.engine_newPayloadV3(
-    payload, versioned_hashes, parent_beacon_block_root)
+    payload, versioned_hashes, Hash32 parent_beacon_block_root)
 
 proc sendNewPayloadToSingleEL(
     connection: ELConnection,
@@ -825,7 +827,7 @@ proc sendNewPayloadToSingleEL(
 ): Future[PayloadStatusV1] {.async: (raises: [CatchableError]).} =
   let rpcClient = await connection.connectedRpcClient()
   await rpcClient.engine_newPayloadV4(
-    payload, versioned_hashes, parent_beacon_block_root)
+    payload, versioned_hashes, Hash32 parent_beacon_block_root)
 
 type
   StatusRelation = enum
@@ -1072,7 +1074,7 @@ proc forkchoiceUpdated*(
   # block hash provided by this event is stubbed with
   # `0x0000000000000000000000000000000000000000000000000000000000000000`."
   # and
-  # https://github.com/ethereum/consensus-specs/blob/v1.4.0/specs/bellatrix/validator.md#executionpayload
+  # https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.8/specs/bellatrix/validator.md#executionpayload
   # notes "`finalized_block_hash` is the hash of the latest finalized execution
   # payload (`Hash32()` if none yet finalized)"
 
@@ -1094,7 +1096,7 @@ proc forkchoiceUpdated*(
           prevRandao: payloadAttributes.get.prevRandao,
           suggestedFeeRecipient: payloadAttributes.get.suggestedFeeRecipient,
           withdrawals: payloadAttributes.get.withdrawals,
-          parentBeaconBlockRoot: static(default(FixedBytes[32])))
+          parentBeaconBlockRoot: default(Hash32))
       else:
         # As timestamp and prevRandao are both 0, won't false-positive match
         (static(default(PayloadAttributesV3)))
@@ -1106,7 +1108,7 @@ proc forkchoiceUpdated*(
           prevRandao: payloadAttributes.get.prevRandao,
           suggestedFeeRecipient: payloadAttributes.get.suggestedFeeRecipient,
           withdrawals: @[],
-          parentBeaconBlockRoot: static(default(FixedBytes[32])))
+          parentBeaconBlockRoot: default(Hash32))
       else:
         # As timestamp and prevRandao are both 0, won't false-positive match
         (static(default(PayloadAttributesV3)))

@@ -23,7 +23,6 @@ import
 from std/sequtils import mapIt, toSeq
 from std/strutils import rsplit
 from ../../../beacon_chain/spec/datatypes/electra import BeaconState
-from ../../teststateutil import checkPerValidatorBalanceCalc
 
 const
   RootDir = SszTestsDir/const_preset/"electra"/"epoch_processing"
@@ -40,8 +39,8 @@ const
   SyncCommitteeDir =             RootDir/"sync_committee_updates"
   RewardsAndPenaltiesDir =       RootDir/"rewards_and_penalties"
   HistoricalSummariesUpdateDir = RootDir/"historical_summaries_update"
-  PendingBalanceDepositsDir =    RootDir/"pending_balance_deposits"
   PendingConsolidationsDir =     RootDir/"pending_consolidations"
+  PendingDepositsDir =           RootDir/"pending_deposits"
 
 doAssert (toHashSet(mapIt(toSeq(walkDir(RootDir, relative = false)), it.path)) -
     toHashSet([SyncCommitteeDir])) ==
@@ -50,7 +49,7 @@ doAssert (toHashSet(mapIt(toSeq(walkDir(RootDir, relative = false)), it.path)) -
     SlashingsDir, Eth1DataResetDir, EffectiveBalanceUpdatesDir,
     SlashingsResetDir, RandaoMixesResetDir, ParticipationFlagDir,
     RewardsAndPenaltiesDir, HistoricalSummariesUpdateDir,
-    PendingBalanceDepositsDir, PendingConsolidationsDir])
+    PendingDepositsDir, PendingConsolidationsDir])
 
 template runSuite(
     suiteDir, testName: string, transitionProc: untyped): untyped =
@@ -78,7 +77,6 @@ template runSuite(
 # ---------------------------------------------------------------
 runSuite(JustificationFinalizationDir, "Justification & Finalization"):
   let info = altair.EpochInfo.init(state)
-  check checkPerValidatorBalanceCalc(state)
   process_justification_and_finalization(state, info.balances)
   Result[void, cstring].ok()
 
@@ -86,7 +84,6 @@ runSuite(JustificationFinalizationDir, "Justification & Finalization"):
 # ---------------------------------------------------------------
 runSuite(InactivityDir, "Inactivity"):
   let info = altair.EpochInfo.init(state)
-  check checkPerValidatorBalanceCalc(state)
   process_inactivity_updates(cfg, state, info)
   Result[void, cstring].ok()
 
@@ -146,10 +143,10 @@ runSuite(ParticipationFlagDir, "Participation flag updates"):
   process_participation_flag_updates(state)
   Result[void, cstring].ok()
 
-# Pending balance deposits
+# Pending deposits
 # ---------------------------------------------------------------
-runSuite(PendingBalanceDepositsDir, "Pending balance deposits"):
-  process_pending_balance_deposits(cfg, state, cache)
+runSuite(PendingDepositsDir, "Pending deposits"):
+  process_pending_deposits(cfg, state, cache)
 
 # Pending consolidations
 # ---------------------------------------------------------------

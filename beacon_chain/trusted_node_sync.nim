@@ -61,6 +61,13 @@ func shortLog*(v: TrustedNodeSyncTarget): auto =
 
 chronicles.formatIt(TrustedNodeSyncTarget): shortLog(it)
 
+proc createNewRestClient(url: string): Result[RestClientRef, cstring] =
+  let
+    flags = {RestClientFlag.CommaSeparatedArray,
+             RestClientFlag.ResolveAlways}
+    socketFlags = {SocketFlags.TcpNoDelay}
+  RestClientRef.new(url, flags = flags, socketFlags = socketFlags)
+
 proc doTrustedNodeSync*(
     db: BeaconChainDB,
     cfg: RuntimeConfig,
@@ -80,8 +87,8 @@ proc doTrustedNodeSync*(
     databaseDir, backfill, reindex
 
   var
-    client = RestClientRef.new(restUrl).valueOr:
-      error "Cannot connect to server", error = error
+    client = createNewRestClient(restUrl).valueOr:
+      error "Cannot connect to server", reason = error
       quit 1
 
   # If possible, we'll store the genesis state in the database - this is not
@@ -171,7 +178,7 @@ proc doTrustedNodeSync*(
     let stateId =
       case syncTarget.kind
       of TrustedNodeSyncKind.TrustedBlockRoot:
-        # https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.6/specs/altair/light-client/light-client.md#light-client-sync-process
+        # https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.8/specs/altair/light-client/light-client.md#light-client-sync-process
         const lcDataFork = LightClientDataFork.high
         var bestViableCheckpoint: Opt[tuple[slot: Slot, state_root: Eth2Digest]]
         func trackBestViableCheckpoint(store: lcDataFork.LightClientStore) =
@@ -440,8 +447,8 @@ proc doTrustedNodeSync*(
           lastError = exc
 
           warn "Retrying download of block", slot, err = exc.msg
-          client = RestClientRef.new(restUrl).valueOr:
-            error "Cannot connect to server", url = restUrl, error = error
+          client = createNewRestClient(restUrl).valueOr:
+            error "Cannot connect to server", url = restUrl, reason = error
             quit 1
 
       raise lastError
