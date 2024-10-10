@@ -12,7 +12,7 @@ import
   ./rpc/rest_key_management_api,
   ./validator_client/[
     common, fallback_service, duties_service, fork_service, block_service,
-    doppelganger_service, attestation_service, sync_committee_service]
+    doppelganger_service, attestation_service, sync_committee_service, presets]
 
 const
   PREGENESIS_EPOCHS_COUNT = 1
@@ -376,16 +376,10 @@ proc asyncInit(vc: ValidatorClientRef): Future[ValidatorClientRef] {.
     keymanagerInitResult = initKeymanagerServer(vc.config, nil)
 
   func getCapellaForkVersion(): Opt[Version] =
-    if vc.runtimeConfig.forkConfig.isSome():
-      vc.runtimeConfig.forkConfig.get().capellaVersion
-    else:
-      Opt.none(Version)
+    Opt.some(version(ConsensusFork.Capella))
 
   func getDenebForkEpoch(): Opt[Epoch] =
-    if vc.runtimeConfig.forkConfig.isSome():
-      Opt.some(vc.runtimeConfig.forkConfig.get().denebEpoch)
-    else:
-      Opt.none(Epoch)
+    vc.getForkEpoch(ConsensusFork.Deneb)
 
   proc getForkForEpoch(epoch: Epoch): Opt[Fork] =
     if len(vc.forks) > 0:

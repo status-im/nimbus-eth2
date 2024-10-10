@@ -18,4 +18,13 @@ const
   DENEB_FORK_VERSION* = Version [byte 0x04, 0x00, 0x00, 0x00]
   ELECTRA_FORK_VERSION* = Version [byte 0x05, 0x00, 0x00, 0x00]
 
+func version*(kind: ConsensusFork): Version =
+  case kind
+  of ConsensusFork.Phase0: PHASE0_FORK_VERSION
+  of ConsensusFork.Altair: ALTAIR_FORK_VERSION
+  of ConsensusFork.Bellatrix: BELLATRIX_FORK_VERSION
+  of ConsensusFork.Capella: CAPELLA_FORK_VERSION
+  of ConsensusFork.Deneb: DENEB_FORK_VERSION
+  of ConsensusFork.Electra: ELECTRA_FORK_VERSION
+
 static: doAssert high(ConsensusFork) == ConsensusFork.Electra
