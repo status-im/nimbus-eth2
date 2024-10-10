@@ -237,8 +237,7 @@ local-testnet-minimal:
 		--signer-nodes 1 \
 		--remote-validators-count 512 \
 		--signer-type $(SIGNER_TYPE) \
-		--capella-fork-epoch 0 \
-		--deneb-fork-epoch 2 \
+		--deneb-fork-epoch 0 \
 		--stop-at-epoch 6 \
 		--disable-htop \
 		--enable-payload-builder \
@@ -267,8 +266,7 @@ local-testnet-mainnet:
 	./scripts/launch_local_testnet.sh \
 		--data-dir $@ \
 		--nodes 2 \
-		--capella-fork-epoch 0 \
-		--deneb-fork-epoch 2 \
+		--deneb-fork-epoch 0 \
 		--stop-at-epoch 6 \
 		--disable-htop \
 		--enable-logtrace \
