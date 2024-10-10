@@ -82,11 +82,17 @@ func accumulateDataColumns*(quarantine: DataColumnQuarantine,
       indices.add(idx)
   indices
 
-func gatherDataColumns*(quarantine: DataColumnQuarantine): 
+func gatherDataColumns*(quarantine: DataColumnQuarantine,
+                       blck: deneb.SignedBeaconBlock | 
+                       electra.SignedBeaconBlock): 
                        seq[DataColumnSidecar] =
   var columns: seq[DataColumnSidecar]
-  for dcs in quarantine.data_columns.values:
-    columns.add(dcs[])
+  for i in 0..<NUMBER_OF_COLUMNS:
+    let idx = ColumnIndex(i)
+    if quarantine.data_columns.hasKey(
+        (blck.root, idx)):
+      let value = quarantine.data_columns.getOrDefault((blck.root, idx), default(ref DataColumnSidecar))
+      columns.add(value[])
   columns
 
 func popDataColumns*(

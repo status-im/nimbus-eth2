@@ -377,8 +377,6 @@ proc processDataColumnSidecar*(
     dcs = shortLog(dataColumnSidecar)
     wallSlot
 
-  var validatedCounter = 0
-
   # Potential under/overflows are fine; would just create odd metrics and logs
   let delay = wallTime - block_header.slot.start_beacon_time
   debug "Data column received", delay
@@ -401,7 +399,7 @@ proc processDataColumnSidecar*(
     withBlck(columnless):
       when consensusFork >= ConsensusFork.Deneb:   
         let
-          columns = self.dataColumnQuarantine[].gatherDataColumns
+          columns = self.dataColumnQuarantine[].gatherDataColumns(forkyBlck)
         if columns.len >= (NUMBER_OF_COLUMNS div 2):
           let
             reconstructed_columns = 

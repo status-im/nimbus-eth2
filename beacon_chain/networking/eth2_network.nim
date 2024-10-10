@@ -2645,9 +2645,9 @@ proc loadCscnetsMetadata*(node: Eth2Node, cscnets: CscCount) =
   if res.isErr:
     # This should not occur in this scenario as the private key would always
     # be the correct one and the ENR will not increase in size.
-    warn "Failed to update the ENR syncnets field", error = res.error
+    warn "Failed to update the ENR cscnets field", error = res.error
   else:
-    debug "Sync committees changed; updated ENR syncnets", cscnets
+    debug "Updated ENR cscnets", cscnets
 
 proc updateSyncnetsMetadata*(node: Eth2Node, syncnets: SyncnetBits) =
   # https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.2/specs/altair/validator.md#sync-committee-subnet-stability
