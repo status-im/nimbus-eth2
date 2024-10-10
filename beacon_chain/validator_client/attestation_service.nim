@@ -488,15 +488,16 @@ proc spawnAttestationTasks(
     service: AttestationServiceRef,
     slot: Slot
 ) {.async: (raises: [CancelledError]).} =
-  let vc = service.client
-  let dutiesByCommittee =
-    block:
-      var res: Table[CommitteeIndex, seq[DutyAndProof]]
-      let attesters = vc.getAttesterDutiesForSlot(slot)
-      var default: seq[DutyAndProof]
-      for item in attesters:
-        res.mgetOrPut(item.data.committee_index, default).add(item)
-      res
+  let
+    vc = service.client
+    dutiesByCommittee =
+      block:
+        var res: Table[CommitteeIndex, seq[DutyAndProof]]
+        let attesters = vc.getAttesterDutiesForSlot(slot)
+        var default: seq[DutyAndProof]
+        for item in attesters:
+          res.mgetOrPut(item.data.committee_index, default).add(item)
+        res
 
   # Waiting for blocks to be published before attesting.
   await vc.waitForBlock(slot, attestationSlotOffset)

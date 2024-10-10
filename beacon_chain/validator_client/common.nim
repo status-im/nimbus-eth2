@@ -191,12 +191,8 @@ type
     blocks: seq[Eth2Digest]
     waiters*: seq[BlockWaiter]
 
-  ValidatorRuntimeConfig* = object
-    forkConfig*: Opt[VCForkConfig]
-
   ValidatorClient* = object
     config*: ValidatorClientConf
-    runtimeConfig*: ValidatorRuntimeConfig
     metricsServer*: Opt[MetricsHttpServerRef]
     graffitiBytes*: GraffitiBytes
     beaconNodes*: seq[BeaconNodeServerRef]
@@ -913,6 +909,27 @@ proc isPastElectraFork*(vc: ValidatorClientRef, epoch: Epoch): bool =
       break
   res
 
+proc isPastAltairFork*(vc: ValidatorClientRef, epoch: Epoch): bool =
+  doAssert(len(vc.forks) > 0)
+  var res = false
+  for item in vc.forks:
+    if item.epoch <= epoch:
+      if item.current_version == ALTAIR_FORK_VERSION:
+        res = true
+    else:
+      break
+  res
+
+proc getForkEpoch*(vc: ValidatorClientRef, fork: ConsensusFork): Opt[Epoch] =
+  doAssert(len(vc.forks) > 0)
+  for item in vc.forks:
+    if item.current_version == fork.version():
+      return Opt.some(item.epoch)
+  Opt.none(Epoch)
+
+proc getAltairEpoch*(vc: ValidatorClientRef): Epoch =
+  getForkEpoch(vc, ConsensusFork.Altair).get()
+
 proc getSubcommitteeIndex*(index: IndexInSyncCommittee): SyncSubcommitteeIndex =
   SyncSubcommitteeIndex(uint16(index) div SYNC_SUBCOMMITTEE_SIZE)
 
@@ -1439,90 +1456,6 @@ func `==`*(a, b: SyncCommitteeDuty): bool =
   (a.validator_index == b.validator_index) and
   compareUnsorted(a.validator_sync_committee_indices,
                   b.validator_sync_committee_indices)
-
-proc updateRuntimeConfig*(vc: ValidatorClientRef,
-                          node: BeaconNodeServerRef,
-                          info: VCRuntimeConfig): Result[void, string] =
-  var forkConfig = ? info.getConsensusForkConfig()
-
-  if vc.runtimeConfig.forkConfig.isNone():
-    vc.runtimeConfig.forkConfig = Opt.some(forkConfig)
-  else:
-    template localForkConfig: untyped = vc.runtimeConfig.forkConfig.get()
-    let wallEpoch = vc.beaconClock.now().slotOrZero().epoch()
-
-    proc validateForkVersionCompatibility(
-        consensusFork: ConsensusFork,
-        localForkVersion: Opt[Version],
-        localForkEpoch: Epoch,
-        forkVersion: Opt[Version]): Result[void, string] =
-      if localForkVersion.isNone():
-        ok()  # Potentially discovered new fork, save it at end of function
-      else:
-        if forkVersion.isSome():
-          if forkVersion.get() == localForkVersion.get():
-            ok()  # Already known
-          else:
-            err("Beacon node has conflicting " &
-                consensusFork.forkVersionConfigKey() & " value")
-        else:
-          if wallEpoch < localForkEpoch:
-            debug "Beacon node must be updated before fork activates",
-                  node = node,
-                  consensusFork,
-                  forkEpoch = localForkEpoch
-            ok()
-          else:
-            err("Beacon node must be updated and report correct " &
-                $consensusFork & " config value")
-
-    ? ConsensusFork.Capella.validateForkVersionCompatibility(
-      localForkConfig.capellaVersion,
-      localForkConfig.capellaEpoch,
-      forkConfig.capellaVersion)
-
-    proc validateForkEpochCompatibility(
-        consensusFork: ConsensusFork,
-        localForkEpoch: Epoch,
-        forkEpoch: Epoch): Result[void, string] =
-      if localForkEpoch == FAR_FUTURE_EPOCH:
-        ok()  # Potentially discovered new fork, save it at end of function
-      else:
-        if forkEpoch != FAR_FUTURE_EPOCH:
-          if forkEpoch == localForkEpoch:
-            ok()  # Already known
-          else:
-            err("Beacon node has conflicting " &
-                consensusFork.forkEpochConfigKey() & " value")
-        else:
-          if wallEpoch < localForkEpoch:
-            debug "Beacon node must be updated before fork activates",
-                  node = node,
-                  consensusFork,
-                  forkEpoch = localForkEpoch
-            ok()
-          else:
-            err("Beacon node must be updated and report correct " &
-                $consensusFork & " config value")
-
-    ? ConsensusFork.Altair.validateForkEpochCompatibility(
-      localForkConfig.altairEpoch, forkConfig.altairEpoch)
-    ? ConsensusFork.Capella.validateForkEpochCompatibility(
-      localForkConfig.capellaEpoch, forkConfig.capellaEpoch)
-    ? ConsensusFork.Deneb.validateForkEpochCompatibility(
-      localForkConfig.denebEpoch, forkConfig.denebEpoch)
-
-    # Save newly discovered forks.
-    if localForkConfig.altairEpoch == FAR_FUTURE_EPOCH:
-      localForkConfig.altairEpoch = forkConfig.altairEpoch
-    if localForkConfig.capellaVersion.isNone():
-      localForkConfig.capellaVersion = forkConfig.capellaVersion
-    if localForkConfig.capellaEpoch == FAR_FUTURE_EPOCH:
-      localForkConfig.capellaEpoch = forkConfig.capellaEpoch
-    if localForkConfig.denebEpoch == FAR_FUTURE_EPOCH:
-      localForkConfig.denebEpoch = forkConfig.denebEpoch
-
-  ok()
 
 proc `+`*(slot: Slot, epochs: Epoch): Slot =
   slot + uint64(epochs) * SLOTS_PER_EPOCH
