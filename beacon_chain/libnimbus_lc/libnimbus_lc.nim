@@ -112,7 +112,7 @@ func ETHConsensusConfigGetConsensusVersionAtEpoch(
   ## See:
   ## * https://github.com/ethereum/beacon-APIs/blob/v2.4.1/beacon-node-oapi.yaml#L419
   withConsensusFork(cfg[].consensusForkAtEpoch(epoch.Epoch)):
-    const consensusVersion: cstring = consensusFork.toString()
+    const consensusVersion = cstring consensusFork.toString()
     consensusVersion
 
 proc ETHBeaconStateCreateFromSsz(
