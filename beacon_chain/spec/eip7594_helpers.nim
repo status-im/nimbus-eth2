@@ -191,10 +191,10 @@ proc recover_cells_and_proofs*(
       return err ("DataColumns do not have the same length")
 
   var
-    recovered_cps = newSeq[CellsAndProofs]
+    recovered_cps: seq[CellsAndProofs]
   recovered_cps.setLen(blobCount)
 
-  for blobIdx in 0 ..< blobCount:
+  for blobIdx in 0..<blobCount:
     var
       bIdx = blobIdx
       cell_ids = newSeqOfCap[CellID](columnCount)
@@ -294,6 +294,8 @@ proc get_data_column_sidecars*(signed_beacon_block: deneb.TrustedSignedBeaconBlo
       column_cells.add(cellsAndProofs[i].cells)
       column_proofs.add(cellsAndProofs[i].proofs)
 
+    column_proofs.setLen(blck.body.blob_kzg_commitments.len)
+
     var sidecar = DataColumnSidecar(
       index: ColumnIndex(column_index),
       column: DataColumn.init(column_cells),
@@ -346,6 +348,8 @@ proc get_data_column_sidecars*(signed_beacon_block: deneb.SignedBeaconBlock |
     for i in 0..<cellsAndProofs.len:
       column_cells.add(cellsAndProofs[i].cells)
       column_proofs.add(cellsAndProofs[i].proofs)
+
+    column_proofs.setLen(blck.body.blob_kzg_commitments.len)
 
     var sidecar = DataColumnSidecar(
       index: ColumnIndex(column_index),
