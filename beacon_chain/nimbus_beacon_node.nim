@@ -385,6 +385,9 @@ proc initFullNode(
       onProposerSlashingAdded, onAttesterSlashingAdded))
     blobQuarantine = newClone(BlobQuarantine.init(onBlobSidecarAdded))
     dataColumnQuarantine = newClone(DataColumnQuarantine.init())
+  dataColumnQuarantine[].supernode = supernode
+  dataColumnQuarantine[].nodeid = node.network.nodeId
+  let
     consensusManager = ConsensusManager.new(
       dag, attestationPool, quarantine, node.elManager,
       ActionTracker.init(node.network.nodeId, config.subscribeAllSubnets),

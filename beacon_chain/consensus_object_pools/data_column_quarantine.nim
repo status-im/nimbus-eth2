@@ -9,6 +9,7 @@
 
 import
   std/tables,
+  eth/p2p/discoveryv5/[node],
   ../spec/[helpers, eip7594_helpers]
 
 from std/sequtils import mapIt
@@ -23,6 +24,8 @@ type
   DataColumnQuarantine* = object
     data_columns*:
       OrderedTable[(Eth2Digest, ColumnIndex), ref DataColumnSidecar]
+    supernode*: bool
+    nodeid*: NodeId
     onDataColumnSidecarCallback*: OnDataColumnSidecarCallback
 
   DataColumnFetchRecord* = object
@@ -115,24 +118,35 @@ func checkForInitialDcSidecars*(quarantine: DataColumnQuarantine,
 
 func hasDataColumns*(quarantine: DataColumnQuarantine,
     blck: deneb.SignedBeaconBlock | electra.SignedBeaconBlock): bool =
-  var counter = 0
-  for i in 0..<NUMBER_OF_COLUMNS:
-    if len(blck.message.body.blob_kzg_commitments) != 0:
-      if (blck.root, ColumnIndex i) in quarantine.data_columns:
-        inc counter
-    else:
+  let
+    localSubnetCount = 
+      if quarantine.supernode:
+        DATA_COLUMN_SIDECAR_SUBNET_COUNT.uint64
+      else:
+        CUSTODY_REQUIREMENT.uint64
+    localCustodyColumns =
+      get_custody_columns(quarantine.nodeid,
+                          max(SAMPLES_PER_SLOT.uint64,
+                              localSubnetCount))
+  for i in localCustodyColumns:
+    if (blck.root, ColumnIndex i) notin quarantine.data_columns:
       return false
-  if counter == DATA_COLUMN_SIDECAR_SUBNET_COUNT or 
-      (counter == max(SAMPLES_PER_SLOT, CUSTODY_REQUIREMENT) and 
-      counter < max(SAMPLES_PER_SLOT, CUSTODY_REQUIREMENT) + 1):
-    return true
-  else:
-    false
+  true
 
 func dataColumnFetchRecord*(quarantine: DataColumnQuarantine,
     blck: deneb.SignedBeaconBlock | electra.SignedBeaconBlock): DataColumnFetchRecord =
+  let
+    localSubnetCount = 
+      if quarantine.supernode:
+        DATA_COLUMN_SIDECAR_SUBNET_COUNT.uint64
+      else:
+        CUSTODY_REQUIREMENT.uint64
+    localCustodyColumns =
+      get_custody_columns(quarantine.nodeid,
+                          max(SAMPLES_PER_SLOT.uint64,
+                              localSubnetCount))
   var indices: seq[ColumnIndex]
-  for i in 0..<NUMBER_OF_COLUMNS:
+  for i in localCustodyColumns:
     let idx = ColumnIndex(i)
     if not quarantine.data_columns.hasKey(
         (blck.root, idx)):
