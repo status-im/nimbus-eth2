@@ -52,7 +52,7 @@ CURL_BINARY="$(command -v curl)" || { echo "Curl not installed. Aborting."; exit
 JQ_BINARY="$(command -v jq)" || { echo "jq not installed. Aborting."; exit 1; }
 
 OPTS="ht:n:d:g"
-LONGOPTS="help,preset:,nodes:,data-dir:,remote-validators-count:,threshold:,signer-nodes:,signer-type:,with-ganache,stop-at-epoch:,disable-htop,use-vc:,disable-vc,enable-payload-builder,enable-logtrace,log-level:,base-port:,base-rest-port:,base-metrics-port:,base-vc-metrics-port:,base-vc-keymanager-port:,base-remote-signer-port:,base-remote-signer-metrics-port:,base-el-net-port:,base-el-rpc-port:,base-el-ws-port:,base-el-auth-rpc-port:,el-port-offset:,reuse-existing-data-dir,reuse-binaries,timeout:,kill-old-processes,eth2-docker-image:,lighthouse-vc-nodes:,run-geth,dl-geth,dl-nimbus-eth1,dl-nimbus-eth2,light-clients:,run-nimbus-eth1,verbose,altair-fork-epoch:,bellatrix-fork-epoch:,capella-fork-epoch:,deneb-fork-epoch:"
+LONGOPTS="help,preset:,nodes:,data-dir:,remote-validators-count:,threshold:,signer-nodes:,signer-type:,with-ganache,stop-at-epoch:,disable-htop,use-vc:,disable-vc,enable-payload-builder,enable-logtrace,log-level:,base-port:,base-rest-port:,base-metrics-port:,base-vc-metrics-port:,base-vc-keymanager-port:,base-remote-signer-port:,base-remote-signer-metrics-port:,base-el-net-port:,base-el-rpc-port:,base-el-ws-port:,base-el-auth-rpc-port:,el-port-offset:,reuse-existing-data-dir,reuse-binaries,timeout:,kill-old-processes,eth2-docker-image:,lighthouse-vc-nodes:,run-geth,dl-geth,dl-nimbus-eth1,dl-nimbus-eth2,light-clients:,run-nimbus-eth1,verbose,deneb-fork-epoch:,electra-fork-epoch:"
 
 # default values
 BINARIES=""
@@ -103,8 +103,8 @@ DL_GETH="0"
 : ${NIMBUS_ETH2_REVISION:=6c0d756d}
 
 : ${BEACON_NODE_COMMAND:="./build/nimbus_beacon_node$EXE_EXTENSION"}
-: ${CAPELLA_FORK_EPOCH:=0}
-: ${DENEB_FORK_EPOCH:=50}
+: ${DENEB_FORK_EPOCH:=0}
+: ${ELECTRA_FORK_EPOCH:=5000}
 
 #NIMBUS EL VARS
 RUN_NIMBUS_ETH1="0"
@@ -210,10 +210,6 @@ while true; do
       ;;
     --preset)
       CONST_PRESET="$2"
-      shift 2
-      ;;
-    --capella-fork-epoch)
-      CAPELLA_FORK_EPOCH="$2"
       shift 2
       ;;
     --deneb-fork-epoch)
@@ -826,8 +822,9 @@ fi
 GENESIS_OFFSET=60  # See `Scheduling first slot action` > `startTime`
 NOW_UNIX_TIMESTAMP=$(date +%s)
 GENESIS_TIME=$((NOW_UNIX_TIMESTAMP + GENESIS_OFFSET))
-SHANGHAI_FORK_TIME=$((GENESIS_TIME + SECONDS_PER_SLOT * SLOTS_PER_EPOCH * CAPELLA_FORK_EPOCH))
+SHANGHAI_FORK_TIME=${GENESIS_TIME}
 CANCUN_FORK_TIME=$((GENESIS_TIME + SECONDS_PER_SLOT * SLOTS_PER_EPOCH * DENEB_FORK_EPOCH))
+PRAGUE_FORK_TIME=$((GENESIS_TIME + SECONDS_PER_SLOT * SLOTS_PER_EPOCH * ELECTRA_FORK_EPOCH))
 
 EXECUTION_GENESIS_JSON="${DATA_DIR}/execution_genesis.json"
 EXECUTION_GENESIS_BLOCK_JSON="${DATA_DIR}/execution_genesis_block.json"
@@ -836,7 +833,7 @@ EXECUTION_GENESIS_BLOCK_JSON="${DATA_DIR}/execution_genesis_block.json"
 #      currently hard-codes some merkle branches that won't match the random deposits generated
 #      by this simulation. This doesn't happen to produce problems only by accident. If we enable
 #      the `deposit_root` safety-checks in the deposit downloader, it will detect the discrepancy.
-sed "s/SHANGHAI_FORK_TIME/${SHANGHAI_FORK_TIME}/g; s/CANCUN_FORK_TIME/${CANCUN_FORK_TIME}/g" \
+sed "s/SHANGHAI_FORK_TIME/${SHANGHAI_FORK_TIME}/g; s/CANCUN_FORK_TIME/${CANCUN_FORK_TIME}/g; s/PRAGUE_FORK_TIME/${PRAGUE_FORK_TIME}/g" \
   "${SCRIPTS_DIR}/execution_genesis.json.template" > "$EXECUTION_GENESIS_JSON"
 
 DEPOSIT_CONTRACT_ADDRESS="0x4242424242424242424242424242424242424242"
@@ -904,8 +901,9 @@ done
   --netkey-file=$CONTAINER_BOOTSTRAP_NETWORK_KEYFILE \
   --insecure-netkey-password=true \
   --genesis-time=$GENESIS_TIME \
-  --capella-fork-epoch=$CAPELLA_FORK_EPOCH \
+  --capella-fork-epoch=0 \
   --deneb-fork-epoch=$DENEB_FORK_EPOCH \
+  --electra-fork-epoch=$ELECTRA_FORK_EPOCH \
   --execution-genesis-block="$EXECUTION_GENESIS_BLOCK_JSON"
 
 DIRECTPEER_ENR=$(
@@ -919,8 +917,8 @@ DIRECTPEER_ENR=$(
 )
 
 ./scripts/make_prometheus_config.sh \
-    --nodes ${NUM_NODES} \
-    --base-metrics-port ${BASE_METRICS_PORT} \
+    --nodes "${NUM_NODES}" \
+    --base-metrics-port "${BASE_METRICS_PORT}" \
     --config-file "${DATA_DIR}/prometheus.yml" || true # TODO: this currently fails on macOS,
                                                        # but it can be considered non-critical
 
@@ -936,8 +934,9 @@ DEPOSIT_CONTRACT_ADDRESS: ${DEPOSIT_CONTRACT_ADDRESS}
 ETH1_FOLLOW_DISTANCE: 1
 ALTAIR_FORK_EPOCH: 0
 BELLATRIX_FORK_EPOCH: 0
-CAPELLA_FORK_EPOCH: ${CAPELLA_FORK_EPOCH}
+CAPELLA_FORK_EPOCH: 0
 DENEB_FORK_EPOCH: ${DENEB_FORK_EPOCH}
+ELECTRA_FORK_EPOCH: ${ELECTRA_FORK_EPOCH}
 TERMINAL_TOTAL_DIFFICULTY: 0
 EOF
 
@@ -1046,7 +1045,7 @@ for NUM_NODE in $(seq 1 $NUM_NODES); do
   fi
 done
 
-for NUM_LC in $(seq 1 $LC_NODES); do
+for NUM_LC in $(seq 1 "${LC_NODES}"); do
   LC_DATA_DIR="${DATA_DIR}/lc${NUM_LC}"
   rm -rf "${LC_DATA_DIR}"
   scripts/makedir.sh "${LC_DATA_DIR}" 2>&1
@@ -1085,7 +1084,7 @@ fi
 # give each node time to load keys
 sleep 10
 
-for NUM_NODE in $(seq 1 $NUM_NODES); do
+for NUM_NODE in $(seq 1 "${NUM_NODES}"); do
   NODE_DATA_DIR="${DATA_DIR}/node${NUM_NODE}"
   CONTAINER_NODE_DATA_DIR="${CONTAINER_DATA_DIR}/node${NUM_NODE}"
   VALIDATOR_DATA_DIR="${DATA_DIR}/validator${NUM_NODE}"
@@ -1137,7 +1136,7 @@ for NUM_NODE in $(seq 1 $NUM_NODES); do
     --max-peers=$(( NUM_NODES + LC_NODES - 1 )) \
     --data-dir="${CONTAINER_NODE_DATA_DIR}" \
     ${BOOTSTRAP_ARG} \
-    --jwt-secret=${JWT_FILE} \
+    --jwt-secret="${JWT_FILE}" \
     "${WEB3_ARG[@]}" \
     --payload-builder=${USE_PAYLOAD_BUILDER} \
     --payload-builder-url="http://${PAYLOAD_BUILDER_HOST}:${PAYLOAD_BUILDER_PORT}" \
@@ -1241,7 +1240,7 @@ if [ "$LC_NODES" -ge "1" ]; then
   LC_TRUSTED_BLOCK_ROOT="$(
     "${CURL_BINARY}" -s "http://localhost:${BASE_REST_PORT}/eth/v1/beacon/headers/finalized" | \
       "${JQ_BINARY}" -r '.data.root')"
-  for NUM_LC in $(seq 1 $LC_NODES); do
+  for NUM_LC in $(seq 1 "${LC_NODES}"); do
     LC_DATA_DIR="${DATA_DIR}/lc${NUM_LC}"
 
     WEB3_ARG=()
@@ -1297,8 +1296,8 @@ if [[ "$USE_HTOP" == "1" ]]; then
 else
   FAILED=0
   for PID in $(echo "$PIDS_TO_WAIT" | tr ',' ' '); do
-    wait "$PID" || FAILED="$(( FAILED += 1 ))"
-    echo $PID has completed
+    wait "${PID}" || FAILED="$(( FAILED += 1 ))"
+    echo "${PID}" has completed
   done
   if [[ "$FAILED" != "0" ]]; then
     echo "${FAILED} child processes had non-zero exit codes (or exited early)."
@@ -1306,9 +1305,9 @@ else
     dump_logtrace
     if [[ "${TIMEOUT_DURATION}" != "0" ]]; then
       if uname | grep -qiE "mingw|msys"; then
-        taskkill //F //PID ${WATCHER_PID}
+        taskkill //F //PID "${WATCHER_PID}"
       else
-        pkill -HUP -P ${WATCHER_PID}
+        pkill -HUP -P "${WATCHER_PID}"
       fi
     fi
     exit 1
@@ -1319,9 +1318,9 @@ dump_logtrace
 
 if [[ "${TIMEOUT_DURATION}" != "0" ]]; then
   if uname | grep -qiE "mingw|msys"; then
-    taskkill //F //PID ${WATCHER_PID}
+    taskkill //F //PID "${WATCHER_PID}"
   else
-    pkill -HUP -P ${WATCHER_PID}
+    pkill -HUP -P "${WATCHER_PID}"
   fi
 fi
 

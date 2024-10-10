@@ -83,7 +83,8 @@ type
   ForkyExecutionPayloadHeader* =
     bellatrix.ExecutionPayloadHeader |
     capella.ExecutionPayloadHeader |
-    deneb.ExecutionPayloadHeader
+    deneb.ExecutionPayloadHeader |
+    electra.ExecutionPayloadHeader
 
   ForkyBeaconBlockBody* =
     phase0.BeaconBlockBody |

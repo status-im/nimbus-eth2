@@ -158,6 +158,11 @@ type
         desc: "The epoch of the Deneb hard-fork"
         name: "deneb-fork-epoch" .}: Epoch
 
+      electraForkEpoch* {.
+        defaultValue: FAR_FUTURE_EPOCH
+        desc: "The epoch of the Deneb hard-fork"
+        name: "electra-fork-epoch" .}: Epoch
+
       outputGenesis* {.
         desc: "Output file where to write the initial state snapshot"
         name: "output-genesis" .}: OutFile
@@ -342,6 +347,25 @@ func `as`(blk: BlockObject, T: type deneb.ExecutionPayloadHeader): T =
     blob_gas_used: uint64 blk.blobGasUsed.getOrDefault(),
     excess_blob_gas: uint64 blk.excessBlobGas.getOrDefault())
 
+func `as`(blk: BlockObject, T: type electra.ExecutionPayloadHeader): T =
+  T(parent_hash: blk.parentHash as Eth2Digest,
+    fee_recipient: blk.miner as ExecutionAddress,
+    state_root: blk.stateRoot as Eth2Digest,
+    receipts_root: blk.receiptsRoot as Eth2Digest,
+    logs_bloom: BloomLogs(data: distinctBase(blk.logsBloom)),
+    prev_randao: Eth2Digest(data: blk.difficulty.toByteArrayBE),
+    block_number: uint64 blk.number,
+    gas_limit: uint64 blk.gasLimit,
+    gas_used: uint64 blk.gasUsed,
+    timestamp: uint64 blk.timestamp,
+    extra_data: List[byte, MAX_EXTRA_DATA_BYTES].init(blk.extraData.bytes),
+    base_fee_per_gas: blk.baseFeePerGas.getOrDefault(),
+    block_hash: blk.hash as Eth2Digest,
+    transactions_root: blk.transactionsRoot as Eth2Digest,
+    withdrawals_root: blk.withdrawalsRoot.getOrDefault() as Eth2Digest,
+    blob_gas_used: uint64 blk.blobGasUsed.getOrDefault(),
+    excess_blob_gas: uint64 blk.excessBlobGas.getOrDefault())
+
 func createDepositContractSnapshot(
     deposits: seq[DepositData],
     blockHash: Eth2Digest,
@@ -464,7 +488,9 @@ proc doCreateTestnet*(config: CliConfig,
     initialState[].genesis_validators_root
 
   let genesisValidatorsRoot =
-    if config.denebForkEpoch == 0:
+    if config.electraForkEpoch == 0:
+      createAndSaveState(genesisBlock as electra.ExecutionPayloadHeader)
+    elif config.denebForkEpoch == 0:
       createAndSaveState(genesisBlock as deneb.ExecutionPayloadHeader)
     elif config.capellaForkEpoch == 0:
       createAndSaveState(genesisBlock as capella.ExecutionPayloadHeader)
