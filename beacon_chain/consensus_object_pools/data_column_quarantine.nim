@@ -118,6 +118,7 @@ func checkForInitialDcSidecars*(quarantine: DataColumnQuarantine,
 
 func hasDataColumns*(quarantine: DataColumnQuarantine,
     blck: deneb.SignedBeaconBlock | electra.SignedBeaconBlock): bool =
+  var counter = 0
   let
     localSubnetCount = 
       if quarantine.supernode:
@@ -128,9 +129,16 @@ func hasDataColumns*(quarantine: DataColumnQuarantine,
       get_custody_columns(quarantine.nodeid,
                           max(SAMPLES_PER_SLOT.uint64,
                               localSubnetCount))
-  for i in localCustodyColumns:
-    if (blck.root, ColumnIndex i) notin quarantine.data_columns:
-      return false
+  if quarantine.supernode:
+    for i in localCustodyColumns:
+      if (blck.root, ColumnIndex i) in quarantine.data_columns:
+        inc counter
+    if counter >= (NUMBER_OF_COLUMNS div 2):
+      return true
+  else:
+    for i in localCustodyColumns:
+      if (blck.root, ColumnIndex i) notin quarantine.data_columns:
+        return false
   true
 
 func dataColumnFetchRecord*(quarantine: DataColumnQuarantine,
