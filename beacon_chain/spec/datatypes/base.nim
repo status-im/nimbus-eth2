@@ -891,8 +891,9 @@ func getSizeofSig(x: auto, n: int = 0): seq[(string, int, int)] =
 ##
 ## These SHOULD be used in function calls to avoid expensive temporary.
 ## see https://github.com/status-im/nimbus-eth2/pull/2250#discussion_r562010679
-template isomorphicCast*[T, U](x: U): T =
+template isomorphicCast*[T](x: auto): T =
   # Each of these pairs of types has ABI-compatible memory representations.
+  type U = typeof(x)
   static: doAssert (T is ref) == (U is ref)
   when T is ref:
     type
