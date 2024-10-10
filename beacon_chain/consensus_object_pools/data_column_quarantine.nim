@@ -122,9 +122,9 @@ func hasDataColumns*(quarantine: DataColumnQuarantine,
         inc counter
     else:
       return false
-  if (counter == max(SAMPLES_PER_SLOT, CUSTODY_REQUIREMENT) and 
-      counter < max(SAMPLES_PER_SLOT, CUSTODY_REQUIREMENT)) or
-      counter == DATA_COLUMN_SIDECAR_SUBNET_COUNT:
+  if counter == DATA_COLUMN_SIDECAR_SUBNET_COUNT or 
+      (counter == max(SAMPLES_PER_SLOT, CUSTODY_REQUIREMENT) and 
+      counter < max(SAMPLES_PER_SLOT, CUSTODY_REQUIREMENT) + 1):
     return true
   else:
     false
