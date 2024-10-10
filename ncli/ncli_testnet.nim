@@ -160,7 +160,7 @@ type
 
       electraForkEpoch* {.
         defaultValue: FAR_FUTURE_EPOCH
-        desc: "The epoch of the Deneb hard-fork"
+        desc: "The epoch of the Electra hard-fork"
         name: "electra-fork-epoch" .}: Epoch
 
       outputGenesis* {.
