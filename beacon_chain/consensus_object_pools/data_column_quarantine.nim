@@ -130,16 +130,16 @@ func hasDataColumns*(quarantine: DataColumnQuarantine,
                           max(SAMPLES_PER_SLOT.uint64,
                               localSubnetCount))
   if quarantine.supernode:
-    for i in localCustodyColumns:
-      if (blck.root, ColumnIndex i) in quarantine.data_columns:
-        inc counter
-    if counter >= (NUMBER_OF_COLUMNS div 2):
+    let
+      collectedColumns = quarantine.gatherDataColumns(blck)
+    if collectedColumns.len >= (localCustodyColumns.len div 2):
       return true
   else:
     for i in localCustodyColumns:
       if (blck.root, ColumnIndex i) notin quarantine.data_columns:
         return false
-  true
+      else:
+        return true
 
 func dataColumnFetchRecord*(quarantine: DataColumnQuarantine,
     blck: deneb.SignedBeaconBlock | electra.SignedBeaconBlock): DataColumnFetchRecord =

@@ -191,7 +191,8 @@ proc recover_cells_and_proofs*(
       return err ("DataColumns do not have the same length")
 
   var
-    recovered_cps = newSeqOfCap[CellsAndProofs](blobCount)
+    recovered_cps = newSeq[CellsAndProofs]
+  recovered_cps.setLen(blobCount)
 
   for blobIdx in 0 ..< blobCount:
     var
@@ -199,11 +200,14 @@ proc recover_cells_and_proofs*(
       cell_ids = newSeqOfCap[CellID](columnCount)
       ckzgCells = newSeqOfCap[KzgCell](columnCount)
 
-    for i  in 0..<data_columns.len:
-      cell_ids.add data_columns[i].index
+    cell_ids.setLen(0)
+    ckzgCells.setLen(0)
+
+    for col in data_columns:
+      cell_ids.add col.index
 
       let 
-        column = data_columns[i].column
+        column = col.column
         cell = column[bIdx]
       
       ckzgCells.add cell
