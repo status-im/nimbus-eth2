@@ -191,29 +191,29 @@ proc recover_cells_and_proofs*(
       return err ("DataColumns do not have the same length")
 
   var
-    recovered_cps = newSeq[CellsAndProofs](blobCount)
+    recovered_cps = newSeqOfCap[CellsAndProofs](blobCount)
 
   for blobIdx in 0 ..< blobCount:
     var
       bIdx = blobIdx
-      cell_ids = newSeq[CellID](columnCount)
-      ckzgCells = newSeq[KzgCell](columnCount)
+      cell_ids = newSeqOfCap[CellID](columnCount)
+      ckzgCells = newSeqOfCap[KzgCell](columnCount)
 
     for i  in 0..<data_columns.len:
-      cell_ids[i] = data_columns[i].index
+      cell_ids.add data_columns[i].index
 
       let 
         column = data_columns[i].column
         cell = column[bIdx]
       
-      ckzgCells[i] = cell
+      ckzgCells.add cell
 
     # Recovering the cells and proofs
     let recovered_cells_and_proofs = recoverCellsAndKzgProofs(cell_ids, ckzgCells)
     if not recovered_cells_and_proofs.isOk:
       return err("Issue with computing cells and proofs!")
 
-    recovered_cps[blobIdx] = recovered_cells_and_proofs.get
+    recovered_cps.add recovered_cells_and_proofs.get
 
   ok(recovered_cps)
 
