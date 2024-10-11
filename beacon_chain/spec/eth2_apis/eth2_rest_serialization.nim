@@ -1417,8 +1417,8 @@ template prepareForkedBlockReading(blockType: typedesc,
                                    version: var Opt[ConsensusFork],
                                    data: var Opt[JsonString],
                                    blinded: var Opt[bool],
-                                   payloadValue: var Opt[Uint256],
-                                   blockValue: var Opt[Uint256]) =
+                                   payloadValue: var Opt[UInt256],
+                                   blockValue: var Opt[UInt256]) =
   for fieldName {.inject.} in readObjectFields(reader):
     case fieldName
     of "version":
@@ -1459,7 +1459,7 @@ template prepareForkedBlockReading(blockType: typedesc,
         if payloadValue.isSome():
           reader.raiseUnexpectedField(
             "Multiple `execution_payload_value` fields found", blockType.name)
-        payloadValue = Opt.some(reader.readValue(Uint256))
+        payloadValue = Opt.some(reader.readValue(UInt256))
       else:
         unrecognizedFieldWarning(fieldName, blockType.name)
     of "consensus_block_value":
@@ -1467,7 +1467,7 @@ template prepareForkedBlockReading(blockType: typedesc,
         if blockValue.isSome():
           reader.raiseUnexpectedField(
             "Multiple `consensus_block_value` fields found", blockType.name)
-        blockValue = Opt.some(reader.readValue(Uint256))
+        blockValue = Opt.some(reader.readValue(UInt256))
       else:
         unrecognizedFieldWarning(fieldName, blockType.name)
     else:
@@ -1486,8 +1486,8 @@ proc readValue*[BlockType: ForkedBlindedBeaconBlock](
     version: Opt[ConsensusFork]
     data: Opt[JsonString]
     blinded: Opt[bool]
-    payloadValue: Opt[Uint256]
-    blockValue: Opt[Uint256]
+    payloadValue: Opt[UInt256]
+    blockValue: Opt[UInt256]
 
   prepareForkedBlockReading(BlockType, reader, version, data, blinded,
                             payloadValue, blockValue)
@@ -1552,8 +1552,8 @@ proc readValue*[BlockType: Web3SignerForkedBeaconBlock](
     version: Opt[ConsensusFork]
     data: Opt[JsonString]
     blinded: Opt[bool]
-    payloadValue: Opt[Uint256]
-    blockValue: Opt[Uint256]
+    payloadValue: Opt[UInt256]
+    blockValue: Opt[UInt256]
 
   prepareForkedBlockReading(BlockType, reader, version, data, blinded,
                             payloadValue, blockValue)
@@ -3360,7 +3360,7 @@ proc decodeBytes*[T: ProduceBlockResponseV3](
       consensusValue =
         if len(headerConsensusValue) == 0:
           # TODO (cheatfate): We should not allow empty `consensus-value`.
-          Opt.none(Uint256)
+          Opt.none(UInt256)
         else:
           try:
             Opt.some parse(headerConsensusValue, UInt256, 10)
