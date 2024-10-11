@@ -849,7 +849,6 @@ proc validateAttestation*(
     Future[Result[
       tuple[attesting_index: ValidatorIndex, sig: CookedSig],
       ValidationError]] {.async: (raises: [CancelledError]).} =
-  debugComment "should reject a bunch"
   # [REJECT] The attestation's epoch matches its target -- i.e.
   # attestation.data.target.epoch ==
   # compute_epoch_at_slot(attestation.data.slot)
