@@ -21,8 +21,7 @@ import
   ".."/consensus_object_pools/[block_pools_types, common_tools],
   ".."/validators/[keystore_management, validator_pool, slashing_protection,
                    validator_duties],
-  ".."/[conf, beacon_clock, version, nimbus_binary_common],
-  "."/presets
+  ".."/[conf, beacon_clock, version, nimbus_binary_common]
 
 from std/times import Time, toUnix, fromUnix, getTime
 
@@ -213,6 +212,7 @@ type
     beaconClock*: BeaconClock
     attachedValidators*: ref ValidatorPool
     forks*: seq[Fork]
+    forkConfig*: Opt[VCForkConfig]
     preGenesisEvent*: AsyncEvent
     genesisEvent*: AsyncEvent
     forksAvailable*: AsyncEvent
@@ -900,10 +900,16 @@ proc forkAtEpoch*(vc: ValidatorClientRef, epoch: Epoch): Fork =
 
 proc isPastElectraFork*(vc: ValidatorClientRef, epoch: Epoch): bool =
   doAssert(len(vc.forks) > 0)
+  doAssert(vc.forkConfig.isSome())
+  let electraVersion =
+    try:
+      vc.forkConfig.get()[ConsensusFork.Electra].version
+    except KeyError:
+      raiseAssert "Electra fork should be in forks configuration"
   var res = false
   for item in vc.forks:
     if item.epoch <= epoch:
-      if item.current_version == ELECTRA_FORK_VERSION:
+      if item.current_version == electraVersion:
         res = true
     else:
       break
@@ -911,10 +917,18 @@ proc isPastElectraFork*(vc: ValidatorClientRef, epoch: Epoch): bool =
 
 proc isPastAltairFork*(vc: ValidatorClientRef, epoch: Epoch): bool =
   doAssert(len(vc.forks) > 0)
+  doAssert(vc.forkConfig.isSome())
+
+  let altairVersion =
+    try:
+      vc.forkConfig.get()[ConsensusFork.Altair].version
+    except KeyError:
+      raiseAssert "Altair fork should be in forks configuration"
+
   var res = false
   for item in vc.forks:
     if item.epoch <= epoch:
-      if item.current_version == ALTAIR_FORK_VERSION:
+      if item.current_version == altairVersion:
         res = true
     else:
       break
@@ -922,8 +936,16 @@ proc isPastAltairFork*(vc: ValidatorClientRef, epoch: Epoch): bool =
 
 proc getForkEpoch*(vc: ValidatorClientRef, fork: ConsensusFork): Opt[Epoch] =
   doAssert(len(vc.forks) > 0)
+  doAssert(vc.forkConfig.isSome())
+
+  let forkVersion =
+    try:
+      vc.forkConfig.get()[fork].version
+    except KeyError:
+      raiseAssert $fork & " fork should be in forks configuration"
+
   for item in vc.forks:
-    if item.current_version == fork.version():
+    if item.current_version == forkVersion:
       return Opt.some(item.epoch)
   Opt.none(Epoch)
 
@@ -1456,6 +1478,58 @@ func `==`*(a, b: SyncCommitteeDuty): bool =
   (a.validator_index == b.validator_index) and
   compareUnsorted(a.validator_sync_committee_indices,
                   b.validator_sync_committee_indices)
+
+proc validateForkCompatibility(
+    vc: ValidatorClientRef,
+    consensusFork: ConsensusFork,
+    forkVersion: Version,
+    forkEpoch: Epoch,
+    forkConfig: VCForkConfig
+): Result[void, string] =
+  let
+    item =
+      try:
+        vc.forkConfig.get()[consensusFork]
+      except KeyError:
+        raiseAssert "Fork should be present in configuration"
+
+  if forkVersion != item.version:
+    return err("Beacon node has conflicting " &
+               consensusFork.forkVersionConfigKey() & " value")
+
+  if forkEpoch != item.epoch:
+    if forkEpoch == FAR_FUTURE_EPOCH:
+      return err("Beacon node do not know about " &
+                 $consensusFork & " starting epoch")
+    else:
+      if item.epoch != FAR_FUTURE_EPOCH:
+        return err("Beacon node has conflicting " &
+                   consensusFork.forkEpochConfigKey() & " value")
+  ok()
+
+proc updateRuntimeConfig*(
+    vc: ValidatorClientRef,
+    node: BeaconNodeServerRef,
+    info: VCRuntimeConfig
+): Result[void, string] =
+  let forkConfig = ? info.getConsensusForkConfig()
+
+  if vc.forkConfig.isNone():
+    vc.forkConfig = Opt.some(forkConfig)
+  else:
+    var localForkConfig = vc.forkConfig.get()
+    for fork in ConsensusFork:
+      try:
+        let item = forkConfig[fork]
+        ? vc.validateForkCompatibility(fork, item.version, item.epoch,
+                                       localForkConfig)
+        # Save newly discovered forks.
+        if localForkConfig[fork].epoch == FAR_FUTURE_EPOCH:
+          localForkConfig[fork].epoch = item.epoch
+      except KeyError:
+        raiseAssert "All the forks should be present inside forks configuration"
+    vc.forkConfig = Opt.some(localForkConfig)
+  ok()
 
 proc `+`*(slot: Slot, epochs: Epoch): Slot =
   slot + uint64(epochs) * SLOTS_PER_EPOCH
