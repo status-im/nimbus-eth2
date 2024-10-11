@@ -360,6 +360,8 @@ proc get_data_column_sidecars*(signed_beacon_block: deneb.SignedBeaconBlock |
       column_cells.add(flattened_cells[row_index][column_index])
       column_proofs.add(flattened_proofs[row_index][column_index])
 
+    column_proofs.setLen(blck.body.blob_kzg_commitments.len)
+
     var sidecar = DataColumnSidecar(
       index: ColumnIndex(column_index),
       column: DataColumn.init(column_cells),

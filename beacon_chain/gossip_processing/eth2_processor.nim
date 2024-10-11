@@ -407,7 +407,8 @@ proc processDataColumnSidecar*(
               reconstructed_columns = 
                 self.processReconstructionFromGossip(forkyBlck, columns)
             for rc in reconstructed_columns.get:
-              self.dataColumnQuarantine[].put(newClone(rc))
+              if rc notin self.dataColumnQuarantine[].gatherDataColumns(forkyBlck):
+                self.dataColumnQuarantine[].put(newClone(rc))
           self.blockProcessor[].enqueueBlock(
             MsgSource.gossip, columnless,
             Opt.none(BlobSidecars),

@@ -212,7 +212,8 @@ proc storeBackfillBlock(
 
   # if not blobsOk:
   #   return err(VerifierError.Invalid)
-    
+
+  var malformed_cols: seq[int]
   when typeof(signedBlock).kind >= ConsensusFork.Deneb:
     if dataColumnsOpt.isSome:
       let data_columns = dataColumnsOpt.get()
@@ -221,6 +222,7 @@ proc storeBackfillBlock(
         for i in 0..<data_columns.len:
           let r = verify_data_column_sidecar_kzg_proofs(data_columns[i][])
           if r.isErr():
+            malformed_cols.add(i)
             debug "backfill data column validation failed",
               blockRoot = shortLog(signedBlock.root),
               column_sidecar = shortLog(data_columns[i][]),
@@ -229,8 +231,20 @@ proc storeBackfillBlock(
               msg = r.error()
           columnsOk = r.isOk()
 
+    if not columnsOk:
+      if dataColumnsOpt.isSome:
+        let
+          data_columns = dataColumnsOpt.get
+          recovered_cps = 
+            recover_cells_and_proofs(data_columns.mapIt(it[]), signedBlock)
+          recovered_cols = signedBlock.get_data_column_sidecars(recovered_cps.get)
+
+        for mc in malformed_cols:
+          data_columns[mc][] = recovered_cols[mc]
+        columnsOk = true
+
   if not columnsOk:
-    return err(VerifierError.Invalid)
+     return err(VerifierError.Invalid)
 
   let res = self.consensusManager.dag.addBackfillBlock(signedBlock)
 
