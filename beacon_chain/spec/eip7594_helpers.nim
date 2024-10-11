@@ -340,16 +340,25 @@ proc get_data_column_sidecars*(signed_beacon_block: deneb.SignedBeaconBlock |
   var
     sidecars =
       newSeqOfCap[DataColumnSidecar](kzg_abi.CELLS_PER_EXT_BLOB)
+    # Flattened the cells and proofs from the `CellsAndProofs` type to 
+    # make it simpler to handle overall
+    flattened_cells = 
+      newSeq[CellBytes](cellsAndProofs.len)
+    flattened_proofs =
+      newSeq[ProofBytes](cellsAndProofs.len)
+
+
+  for i in 0..<cellsAndProofs.len:
+    flattened_cells[i] = cellsAndProofs[i].cells
+    flattened_proofs[i] = cellsAndProofs[i].proofs
 
   for column_index in 0..<NUMBER_OF_COLUMNS:
     var
       column_cells: seq[KzgCell]
       column_proofs: seq[KzgProof]
-    for i in 0..<cellsAndProofs.len:
-      column_cells.add(cellsAndProofs[i].cells)
-      column_proofs.add(cellsAndProofs[i].proofs)
-
-    column_proofs.setLen(blck.body.blob_kzg_commitments.len)
+    for row_index in 0..<cellsAndProofs.len:
+      column_cells.add(flattened_cells[row_index][column_index])
+      column_proofs.add(flattened_proofs[row_index][column_index])
 
     var sidecar = DataColumnSidecar(
       index: ColumnIndex(column_index),
