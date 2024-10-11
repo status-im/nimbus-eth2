@@ -398,15 +398,16 @@ proc processDataColumnSidecar*(
     let columnless = o.unsafeGet()
     withBlck(columnless):
       when consensusFork >= ConsensusFork.Deneb:   
-        let
-          columns = self.dataColumnQuarantine[].gatherDataColumns(forkyBlck)
-        if columns.len >= (NUMBER_OF_COLUMNS div 2):
-          let
-            reconstructed_columns = 
-              self.processReconstructionFromGossip(forkyBlck, columns)
-          for rc in reconstructed_columns.get:
-            self.dataColumnQuarantine[].put(newClone(rc))
         if self.dataColumnQuarantine[].hasEnoughDataColumns(forkyBlck):
+          let
+            columns = self.dataColumnQuarantine[].gatherDataColumns(forkyBlck)
+          if columns.len >= (NUMBER_OF_COLUMNS div 2) or
+              self.dataColumnQuarantine[].supernode:
+            let
+              reconstructed_columns = 
+                self.processReconstructionFromGossip(forkyBlck, columns)
+            for rc in reconstructed_columns.get:
+              self.dataColumnQuarantine[].put(newClone(rc))
           self.blockProcessor[].enqueueBlock(
             MsgSource.gossip, columnless,
             Opt.none(BlobSidecars),
