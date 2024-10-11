@@ -1941,8 +1941,6 @@ proc writeValue*(writer: var JsonWriter[RestJson],
 proc writeValue*(
     writer: var JsonWriter[RestJson], value: Web3SignerRequest
 ) {.raises: [IOError].} =
-  debugComment "electra web3signer needs some EIP-7549 changes"
-
   writer.beginRecord()
   case value.kind
   of Web3SignerRequestKind.AggregationSlot:

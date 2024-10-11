@@ -985,7 +985,6 @@ proc check_attestation*(
 
   when on_chain:
     var participants_count = 0'u64
-    debugComment "cache doesn't know about forks"
     for index in attestation.committee_bits.oneIndices:
       if not (index.uint64 < get_committee_count_per_slot(
           state, data.target.epoch, cache)):
