@@ -33,6 +33,8 @@ jobs:
             cpu: amd64
           - os: macos
             cpu: amd64
+          - os: macos
+            cpu: arm64
           - os: windows
             cpu: amd64
         branch: [~, upstream/version-2-0]
@@ -117,6 +119,8 @@ jobs:
         run: |
           if [[ '${{ matrix.target.cpu }}' == 'amd64' ]]; then
             PLATFORM=x64
+          elif [[ '${{ matrix.target.cpu }}' == 'arm64' ]]; then
+            PLATFORM=arm64
           else
             PLATFORM=x86
           fi
