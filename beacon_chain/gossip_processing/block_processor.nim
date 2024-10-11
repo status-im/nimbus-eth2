@@ -31,7 +31,7 @@ from ../consensus_object_pools/block_quarantine import
 from ../consensus_object_pools/blob_quarantine import
   BlobQuarantine, hasBlobs, popBlobs, put
 from ../consensus_object_pools/data_column_quarantine import
-  DataColumnQuarantine, hasDataColumns, popDataColumns, put
+  DataColumnQuarantine, hasEnoughDataColumns, popDataColumns, put
 from ../validators/validator_monitor import
   MsgSource, ValidatorMonitor, registerAttestationInBlock, registerBeaconBlock,
   registerSyncAggregateInBlock
@@ -868,7 +868,7 @@ proc storeBlock(
           #   discard self.consensusManager.quarantine[].addBlobless(
           #     dag.finalizedHead.slot, forkyBlck)
 
-          if self.dataColumnQuarantine[].hasDataColumns(forkyBlck):
+          if self.dataColumnQuarantine[].hasEnoughDataColumns(forkyBlck):
             let data_columns = self.dataColumnQuarantine[].popDataColumns(
               forkyBlck.root, forkyBlck)
             self[].enqueueBlock(MsgSource.gossip, quarantined, Opt.none(BlobSidecars), Opt.some(data_columns))

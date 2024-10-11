@@ -274,7 +274,7 @@ proc processSignedBeaconBlock*(
 
     let data_columns =
       when typeof(signedBlock).kind >= ConsensusFork.Deneb:
-        if self.dataColumnQuarantine[].hasDataColumns(signedBlock):
+        if self.dataColumnQuarantine[].hasEnoughDataColumns(signedBlock):
           Opt.some(self.dataColumnQuarantine[].popDataColumns(signedBlock.root, signedBlock))
         else:
           discard self.quarantine[].addColumnless(self.dag.finalizedHead.slot,
@@ -406,7 +406,7 @@ proc processDataColumnSidecar*(
               self.processReconstructionFromGossip(forkyBlck, columns)
           for rc in reconstructed_columns.get:
             self.dataColumnQuarantine[].put(newClone(rc))
-        if self.dataColumnQuarantine[].hasDataColumns(forkyBlck):
+        if self.dataColumnQuarantine[].hasEnoughDataColumns(forkyBlck):
           self.blockProcessor[].enqueueBlock(
             MsgSource.gossip, columnless,
             Opt.none(BlobSidecars),
