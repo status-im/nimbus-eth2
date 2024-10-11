@@ -236,11 +236,21 @@ proc restValidatorExit(config: BeaconNodeConf) {.async.} =
       let forkConfig = response.data.data.getConsensusForkConfig()
       if forkConfig.isErr:
         raise newException(RestError, "Invalid config: " & forkConfig.error)
-      let capellaForkVersion = forkConfig.get.capellaVersion.valueOr:
-        raise newException(RestError,
-          ConsensusFork.Capella.forkVersionConfigKey() & " missing")
+      let
+        capellaForkVersion =
+          try:
+            forkConfig.get()[ConsensusFork.Capella].version
+          except KeyError:
+            raise newException(RestError,
+              ConsensusFork.Capella.forkVersionConfigKey() & " missing")
+        denebEpoch =
+          try:
+            forkConfig.get()[ConsensusFork.Deneb].epoch
+          except KeyError:
+            raise newException(RestError,
+              ConsensusFork.Deneb.forkEpochConfigKey() & " missing")
       voluntary_exit_signature_fork(
-        fork, capellaForkVersion, currentEpoch, forkConfig.get.denebEpoch)
+        fork, capellaForkVersion, currentEpoch, denebEpoch)
     else:
       raise newException(RestError, "Error response (" & $response.status & ")")
   except CatchableError as exc:
