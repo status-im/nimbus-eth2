@@ -191,8 +191,7 @@ proc recover_cells_and_proofs*(
       return err ("DataColumns do not have the same length")
 
   var
-    recovered_cps: seq[CellsAndProofs]
-  recovered_cps.setLen(blobCount)
+    recovered_cps = newSeq[CellsAndProofs](blobCount)
 
   for blobIdx in 0..<blobCount:
     var
@@ -217,7 +216,7 @@ proc recover_cells_and_proofs*(
     if not recovered_cells_and_proofs.isOk:
       return err("Issue with computing cells and proofs!")
 
-    recovered_cps.add recovered_cells_and_proofs.get
+    recovered_cps[bIdx] = recovered_cells_and_proofs.get
 
   ok(recovered_cps)
 
@@ -285,16 +284,28 @@ proc get_data_column_sidecars*(signed_beacon_block: deneb.TrustedSignedBeaconBlo
   var
     sidecars =
       newSeqOfCap[DataColumnSidecar](kzg_abi.CELLS_PER_EXT_BLOB)
+    # Flattened the cells and proofs from the `CellsAndProofs` type to 
+    # make it simpler to handle overall
+    flattened_cells = 
+      newSeq[CellBytes](cellsAndProofs.len)
+    flattened_proofs =
+      newSeq[ProofBytes](cellsAndProofs.len)
+
+
+  for i in 0..<cellsAndProofs.len:
+    flattened_cells[i] = cellsAndProofs[i].cells
+    flattened_proofs[i] = cellsAndProofs[i].proofs
 
   for column_index in 0..<NUMBER_OF_COLUMNS:
     var
       column_cells: seq[KzgCell]
       column_proofs: seq[KzgProof]
-    for i in 0..<cellsAndProofs.len:
-      column_cells.add(cellsAndProofs[i].cells)
-      column_proofs.add(cellsAndProofs[i].proofs)
+    for row_index in 0..<cellsAndProofs.len:
+      column_cells.add(flattened_cells[row_index][column_index])
+      column_proofs.add(flattened_proofs[row_index][column_index])
 
     column_proofs.setLen(blck.body.blob_kzg_commitments.len)
+    column_cells.setLen(blck.body.blob_kzg_commitments.len)
 
     var sidecar = DataColumnSidecar(
       index: ColumnIndex(column_index),
@@ -361,6 +372,7 @@ proc get_data_column_sidecars*(signed_beacon_block: deneb.SignedBeaconBlock |
       column_proofs.add(flattened_proofs[row_index][column_index])
 
     column_proofs.setLen(blck.body.blob_kzg_commitments.len)
+    column_cells.setLen(blck.body.blob_kzg_commitments.len)
 
     var sidecar = DataColumnSidecar(
       index: ColumnIndex(column_index),

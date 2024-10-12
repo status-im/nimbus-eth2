@@ -232,7 +232,7 @@ proc storeBackfillBlock(
           columnsOk = r.isOk()
 
     if not columnsOk:
-      if dataColumnsOpt.isSome:
+      if dataColumnsOpt.isSome and dataColumnsOpt.get.len >= (NUMBER_OF_COLUMNS div 2):
         let
           data_columns = dataColumnsOpt.get
           recovered_cps = 
