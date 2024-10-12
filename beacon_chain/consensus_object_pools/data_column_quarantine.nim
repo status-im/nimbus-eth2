@@ -103,7 +103,17 @@ func popDataColumns*(
     blck: deneb.SignedBeaconBlock | electra.SignedBeaconBlock):
     seq[ref DataColumnSidecar] =
   var r: seq[ref DataColumnSidecar]
-  for idx in 0..<NUMBER_OF_COLUMNS:
+  let
+    localSubnetCount = 
+      if quarantine.supernode:
+        DATA_COLUMN_SIDECAR_SUBNET_COUNT.uint64
+      else:
+        CUSTODY_REQUIREMENT.uint64
+    localCustodyColumns =
+      get_custody_columns(quarantine.nodeid,
+                          max(SAMPLES_PER_SLOT.uint64,
+                              localSubnetCount))
+  for idx in localCustodyColumns:
     var c: ref DataColumnSidecar
     if quarantine.data_columns.pop((digest, ColumnIndex idx), c):
       r.add(c)
