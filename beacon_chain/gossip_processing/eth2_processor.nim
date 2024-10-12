@@ -406,7 +406,7 @@ proc processDataColumnSidecar*(
         elif self.dataColumnQuarantine[].hasEnoughDataColumns(forkyBlck):
           let
             columns = self.dataColumnQuarantine[].gatherDataColumns(forkyBlck)
-          if columns.len >= (NUMBER_OF_COLUMNS div 2):
+          if columns.len >= (NUMBER_OF_COLUMNS div 2) and quarantine.supernode:
             let
               reconstructed_columns = 
                 self.processReconstructionFromGossip(forkyBlck, columns)
