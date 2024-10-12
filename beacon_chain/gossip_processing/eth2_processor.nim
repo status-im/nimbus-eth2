@@ -398,7 +398,9 @@ proc processDataColumnSidecar*(
     let columnless = o.unsafeGet()
     withBlck(columnless):
       when consensusFork >= ConsensusFork.Deneb:   
-        if self.dataColumnQuarantine[].hasMissingDataColumns(forkyBlck):
+        if self.dataColumnQuarantine[].hasMissingDataColumns(forkyBlck) and
+            self.dataColumnQuarantine[].gatherDataColumns(forkyBlck).len ==
+            max(SAMPLES_PER_SLOT, CUSTODY_REQUIREMENT):
           self.blockProcessor[].enqueueBlock(
             MsgSource.gossip, columnless,
             Opt.none(BlobSidecars),
