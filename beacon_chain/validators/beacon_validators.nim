@@ -1592,7 +1592,7 @@ proc signAndSendAggregate(
   if not is_aggregator(shufflingRef, slot, committee_index, selectionProof):
     return
 
-  template signAndSendAggregate() =
+  template signAndSendAggregatedAttestations() =
     msg.signature = block:
       let res = await validator.getAggregateAndProofSignature(
         fork, genesis_validators_root, msg.message)
@@ -1622,7 +1622,7 @@ proc signAndSendAggregate(
       slot, default(Eth2Digest), committee_index).valueOr:
         return
 
-    signAndSendAggregate()
+    signAndSendAggregatedAttestations()
   else:
     # https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.8/specs/phase0/validator.md#construct-aggregate
     # https://github.com/ethereum/consensus-specs/blob/v1.4.0/specs/phase0/validator.md#aggregateandproof
@@ -1636,7 +1636,7 @@ proc signAndSendAggregate(
       slot, committee_index).valueOr:
         return
 
-    signAndSendAggregate()
+    signAndSendAggregatedAttestations()
 
 proc sendAggregatedAttestations(
     node: BeaconNode, head: BlockRef, slot: Slot) =

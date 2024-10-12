@@ -216,6 +216,10 @@ while true; do
       DENEB_FORK_EPOCH="$2"
       shift 2
       ;;
+    --electra-fork-epoch)
+      ELECTRA_FORK_EPOCH="$2"
+      shift 2
+      ;;
     --stop-at-epoch)
       STOP_AT_EPOCH=$2
       STOP_AT_EPOCH_FLAG="--debug-stop-at-epoch=$2"

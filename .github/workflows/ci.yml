@@ -205,7 +205,7 @@ jobs:
       # The upload creates a combined report that gets posted as a comment on the PR
       # https://github.com/EnricoMi/publish-unit-test-result-action
       - name: Upload combined results
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         with:
           name: Unit Test Results ${{ matrix.target.os }}-${{ matrix.target.cpu }}
           path: build/*.xml
@@ -327,7 +327,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Upload
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         with:
           name: Event File
           path: ${{ github.event_path }}
