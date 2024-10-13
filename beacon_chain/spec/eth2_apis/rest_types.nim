@@ -581,15 +581,17 @@ type
     extra_data*: RestExtraData
 
 func isLowestScoreAggregatedAttestation*(a: phase0.Attestation): bool =
-  (a.data.slot == Slot(0)) and (a.data.index == 0'u64) and
-  (a.data.source.epoch == Epoch(0)) and (a.data.target.epoch == Epoch(0))
+  (a.data.slot == GENESIS_SLOT) and
+  (a.data.index == 0'u64) and
+  (a.data.source.epoch == GENESIS_EPOCH) and
+  (a.data.target.epoch == GENESIS_EPOCH)
 
 func isLowestScoreAggregatedAttestation*(a: ForkedAttestation): bool =
   withAttestation(a):
-    (forkyAttestation.data.slot == Slot(0)) and
+    (forkyAttestation.data.slot == GENESIS_SLOT) and
     (forkyAttestation.data.index == 0'u64) and
-    (forkyAttestation.data.source.epoch == Epoch(0)) and
-    (forkyAttestation.data.target.epoch == Epoch(0))
+    (forkyAttestation.data.source.epoch == GENESIS_EPOCH) and
+    (forkyAttestation.data.target.epoch == GENESIS_EPOCH)
 
 func `==`*(a, b: RestValidatorIndex): bool {.borrow.}
 
