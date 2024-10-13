@@ -90,7 +90,17 @@ func gatherDataColumns*(quarantine: DataColumnQuarantine,
                        electra.SignedBeaconBlock): 
                        seq[ref DataColumnSidecar] =
   var columns: seq[ref DataColumnSidecar]
-  for i in 0..<NUMBER_OF_COLUMNS:
+  let
+    localSubnetCount = 
+      if quarantine.supernode:
+        DATA_COLUMN_SIDECAR_SUBNET_COUNT.uint64
+      else:
+        CUSTODY_REQUIREMENT.uint64
+    localCustodyColumns =
+      get_custody_columns(quarantine.nodeid,
+                          max(SAMPLES_PER_SLOT.uint64,
+                              localSubnetCount))
+  for i in localCustodyColumns:
     let idx = ColumnIndex(i)
     if quarantine.data_columns.hasKey(
         (blck.root, idx)):
@@ -129,6 +139,7 @@ func checkForInitialDcSidecars*(quarantine: DataColumnQuarantine,
 
 func hasMissingDataColumns*(quarantine: DataColumnQuarantine,
     blck: deneb.SignedBeaconBlock | electra.SignedBeaconBlock): bool =
+  var counter = 0
   let
     localSubnetCount = 
       if quarantine.supernode:
@@ -142,8 +153,14 @@ func hasMissingDataColumns*(quarantine: DataColumnQuarantine,
   for i in localCustodyColumns:
     if (blck.root, ColumnIndex i) notin quarantine.data_columns and 
         len(blck.message.body.blob_kzg_commitments) != 0:
-      return false
-  true
+      inc counter
+  if quarantine.supernode and counter == NUMBER_OF_COLUMNS:
+    return true
+  elif quarantine.supernode == false and
+      counter == max(SAMPLES_PER_SLOT, CUSTODY_REQUIREMENT):
+    return true
+  else:
+    return false
 
 func hasEnoughDataColumns*(quarantine: DataColumnQuarantine,
     blck: deneb.SignedBeaconBlock | electra.SignedBeaconBlock): bool =
