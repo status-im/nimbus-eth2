@@ -398,12 +398,12 @@ proc processDataColumnSidecar*(
     let columnless = o.unsafeGet()
     withBlck(columnless):
       when consensusFork >= ConsensusFork.Deneb:   
-        if self.dataColumnQuarantine[].gatherDataColumns(forkyBlck).len == 
+        if self.dataColumnQuarantine[].gatherDataColumns(block_root).len == 
             max(SAMPLES_PER_SLOT, CUSTODY_REQUIREMENT) and
             self.dataColumnQuarantine[].hasMissingDataColumns(forkyBlck):
           if self.dataColumnQuarantine[].supernode == false:
             let columns = 
-              self.dataColumnQuarantine[].gatherDataColumns(forkyBlck).mapIt(it[])
+              self.dataColumnQuarantine[].gatherDataColumns(block_root).mapIt(it[])
             for gdc in columns:
               self.dataColumnQuarantine[].put(newClone(gdc))
             self.blockProcessor[].enqueueBlock(
@@ -412,14 +412,14 @@ proc processDataColumnSidecar*(
               Opt.some(self.dataColumnQuarantine[].popDataColumns(block_root, forkyBlck)))
         elif self.dataColumnQuarantine[].hasEnoughDataColumns(forkyBlck):
           let
-            columns = self.dataColumnQuarantine[].gatherDataColumns(forkyBlck)
+            columns = self.dataColumnQuarantine[].gatherDataColumns(block_root)
           if columns.len >= (NUMBER_OF_COLUMNS div 2) and 
               self.dataColumnQuarantine[].supernode:
             let
               reconstructed_columns = 
                 self.processReconstructionFromGossip(forkyBlck, columns.mapIt(it[]))
             for rc in reconstructed_columns.get:
-              if rc notin self.dataColumnQuarantine[].gatherDataColumns(forkyBlck).mapIt(it[]):
+              if rc notin self.dataColumnQuarantine[].gatherDataColumns(block_root).mapIt(it[]):
                 self.dataColumnQuarantine[].put(newClone(rc))
           self.blockProcessor[].enqueueBlock(
             MsgSource.gossip, columnless,
