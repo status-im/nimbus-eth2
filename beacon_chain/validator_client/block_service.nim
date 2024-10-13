@@ -60,6 +60,12 @@ proc prepareRandao(
   if slot == GENESIS_SLOT:
     return
 
+  let wallSlot = vc.beaconClock.now().slotOrZero()
+  if wallSlot == slot:
+    # Its impossibel to prepare RANDAO in the beginning of the epoch. Epoch
+    # signature will be requested by block proposer.
+    return
+
   let
     destSlot = slot - 1'u64
     destOffset = TimeDiff(nanoseconds: NANOSECONDS_PER_SLOT.int64 div 2)
