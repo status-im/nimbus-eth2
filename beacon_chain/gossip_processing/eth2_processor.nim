@@ -401,10 +401,15 @@ proc processDataColumnSidecar*(
         if self.dataColumnQuarantine[].gatherDataColumns(forkyBlck).len == 
             max(SAMPLES_PER_SLOT, CUSTODY_REQUIREMENT) and
             self.dataColumnQuarantine[].hasMissingDataColumns(forkyBlck):
-          self.blockProcessor[].enqueueBlock(
-            MsgSource.gossip, columnless,
-            Opt.none(BlobSidecars),
-            Opt.some(self.dataColumnQuarantine[].gatherDataColumns(forkyBlck)))
+          if self.dataColumnQuarantine[].supernode == false:
+            let columns = 
+              self.dataColumnQuarantine[].gatherDataColumns(forkyBlck).mapIt(it[])
+            for gdc in columns:
+              self.dataColumnQuarantine[].put(newClone(gdc))
+            self.blockProcessor[].enqueueBlock(
+              MsgSource.gossip, columnless,
+              Opt.none(BlobSidecars),
+              Opt.some(self.dataColumnQuarantine[].popDataColumns(block_root, forkyBlck)))
         elif self.dataColumnQuarantine[].hasEnoughDataColumns(forkyBlck):
           let
             columns = self.dataColumnQuarantine[].gatherDataColumns(forkyBlck)
