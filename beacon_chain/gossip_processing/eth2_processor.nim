@@ -8,7 +8,7 @@
 {.push raises: [].}
 
 import
-  std/tables,
+  std/[tables, sequtils],
   stew/results,
   chronicles, chronos, metrics, taskpools,
   ../networking/eth2_network,
@@ -404,7 +404,7 @@ proc processDataColumnSidecar*(
           self.blockProcessor[].enqueueBlock(
             MsgSource.gossip, columnless,
             Opt.none(BlobSidecars),
-            Opt.some(self.dataColumnQuarantine[].popDataColumns(block_root, forkyBlck)))
+            Opt.some(self.dataColumnQuarantine[].gatherDataColumns(forkyBlck)))
         elif self.dataColumnQuarantine[].hasEnoughDataColumns(forkyBlck):
           let
             columns = self.dataColumnQuarantine[].gatherDataColumns(forkyBlck)
@@ -412,9 +412,9 @@ proc processDataColumnSidecar*(
               self.dataColumnQuarantine[].supernode:
             let
               reconstructed_columns = 
-                self.processReconstructionFromGossip(forkyBlck, columns)
+                self.processReconstructionFromGossip(forkyBlck, columns.mapIt(it[]))
             for rc in reconstructed_columns.get:
-              if rc notin self.dataColumnQuarantine[].gatherDataColumns(forkyBlck):
+              if rc notin self.dataColumnQuarantine[].gatherDataColumns(forkyBlck).mapIt(it[]):
                 self.dataColumnQuarantine[].put(newClone(rc))
           self.blockProcessor[].enqueueBlock(
             MsgSource.gossip, columnless,
