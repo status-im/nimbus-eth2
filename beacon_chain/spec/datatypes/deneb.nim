@@ -39,15 +39,15 @@ type
   # https://github.com/ethereum/consensus-specs/blob/v1.4.0/specs/deneb/beacon-chain.md#custom-types
   BlobIndex* = uint64
 
-  # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.5/specs/deneb/polynomial-commitments.md#custom-types
+  # https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.8/specs/deneb/polynomial-commitments.md#custom-types
   Blob* = array[
     BYTES_PER_FIELD_ELEMENT * deneb_preset.FIELD_ELEMENTS_PER_BLOB, byte]
 
-  # https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.3/specs/deneb/p2p-interface.md#custom-types
+  # https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.8/specs/deneb/p2p-interface.md#custom-types
   KzgCommitmentInclusionProof* =
     array[KZG_COMMITMENT_INCLUSION_PROOF_DEPTH, Eth2Digest]
 
-  # https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.6/specs/deneb/p2p-interface.md#blobsidecar
+  # https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.8/specs/deneb/p2p-interface.md#blobsidecar
   BlobSidecar* = object
     index*: BlobIndex
       ## Index of blob in block
@@ -69,12 +69,12 @@ type
     kzg_commitment*: KzgCommitment
     versioned_hash*: string  # TODO should be string; VersionedHash not distinct
 
-  # https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.6/specs/deneb/p2p-interface.md#blobidentifier
+  # https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.8/specs/deneb/p2p-interface.md#blobidentifier
   BlobIdentifier* = object
     block_root*: Eth2Digest
     index*: BlobIndex
 
-  # https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.6/specs/deneb/beacon-chain.md#executionpayload
+  # https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.8/specs/deneb/beacon-chain.md#executionpayload
   ExecutionPayload* = object
     # Execution block header fields
     parent_hash*: Eth2Digest
@@ -318,7 +318,7 @@ type
     data*: BeaconState
     root*: Eth2Digest # hash_tree_root(data)
 
-  # https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.6/specs/phase0/beacon-chain.md#beaconblock
+  # https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.8/specs/phase0/beacon-chain.md#beaconblock
   BeaconBlock* = object
     ## For each slot, a proposer is chosen from the validator pool to propose
     ## a new block. Once the block as been proposed, it is transmitted to
@@ -459,7 +459,7 @@ type
     bls_to_execution_changes*: SignedBLSToExecutionChangeList
     blob_kzg_commitments*: KzgCommitments  # [New in Deneb]
 
-  # https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.6/specs/phase0/beacon-chain.md#signedbeaconblock
+  # https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.8/specs/phase0/beacon-chain.md#signedbeaconblock
   SignedBeaconBlock* = object
     message*: BeaconBlock
     signature*: ValidatorSig
@@ -619,7 +619,7 @@ func kzg_commitment_inclusion_proof_gindex*(
 
   BLOB_KZG_COMMITMENTS_FIRST_GINDEX + index
 
-# https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.6/specs/deneb/light-client/sync-protocol.md#modified-get_lc_execution_root
+# https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.8/specs/deneb/light-client/sync-protocol.md#modified-get_lc_execution_root
 func get_lc_execution_root*(
     header: LightClientHeader, cfg: RuntimeConfig): Eth2Digest =
   let epoch = header.beacon.slot.epoch
@@ -650,7 +650,7 @@ func get_lc_execution_root*(
 
   ZERO_HASH
 
-# https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.6/specs/deneb/light-client/sync-protocol.md#modified-is_valid_light_client_header
+# https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.8/specs/deneb/light-client/sync-protocol.md#modified-is_valid_light_client_header
 func is_valid_light_client_header*(
     header: LightClientHeader, cfg: RuntimeConfig): bool =
   let epoch = header.beacon.slot.epoch

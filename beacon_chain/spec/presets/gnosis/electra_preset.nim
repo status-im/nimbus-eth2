@@ -8,7 +8,7 @@
 {.push raises: [].}
 
 # Gnosis preset - Electra (Gnosis version not avilable yet; EF mainnet for now)
-# https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.6/presets/mainnet/electra.yaml
+# https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.8/presets/mainnet/electra.yaml
 const
   # Gwei values
   # ---------------------------------------------------------------
@@ -20,7 +20,7 @@ const
   # State list lengths
   # ---------------------------------------------------------------
   # `uint64(2**27)` (= 134,217,728)
-  PENDING_BALANCE_DEPOSITS_LIMIT*: uint64 = 134217728
+  PENDING_DEPOSITS_LIMIT*: uint64 = 134217728
   # `uint64(2**27)` (= 134,217,728)
   PENDING_PARTIAL_WITHDRAWALS_LIMIT*: uint64 = 134217728
   # `uint64(2**18)` (= 262,144)
@@ -53,6 +53,11 @@ const
   # ---------------------------------------------------------------
   # 2**3 ( = 8) pending withdrawals
   MAX_PENDING_PARTIALS_PER_WITHDRAWALS_SWEEP* = 8
+
+  # Pending deposits processing
+  # ---------------------------------------------------------------
+  # 2**4 ( = 4) pending deposits
+  MAX_PENDING_DEPOSITS_PER_EPOCH* = 16
 
   # Misc
   # ---------------------------------------------------------------

@@ -282,9 +282,8 @@ type
     earliest_exit_epoch*: Opt[Epoch]
     consolidation_balance_to_consume*: Opt[Gwei]
     earliest_consolidation_epoch*: Opt[Epoch]
-    pending_balance_deposits*: Opt[HashList[PendingBalanceDeposit,
-      Limit PENDING_BALANCE_DEPOSITS_LIMIT]]
-
+    pending_deposits*: Opt[HashList[PendingDeposit,
+      Limit PENDING_DEPOSITS_LIMIT]]
     pending_partial_withdrawals*: Opt[HashList[PendingPartialWithdrawal,
       Limit PENDING_PARTIAL_WITHDRAWALS_LIMIT]]
     pending_consolidations*: Opt[HashList[PendingConsolidation,

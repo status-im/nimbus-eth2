@@ -28,6 +28,7 @@ const
 
   # https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.5/specs/_features/eip7594/p2p-interface.md#preset
   KZG_COMMITMENTS_INCLUSION_PROOF_DEPTH* = 4
+  KZG_COMMITMENTS_INCLUSION_PROOF_DEPTH_GINDEX* = 27
 
 type
   # https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.6/specs/_features/eip7594/polynomial-commitments-sampling.md#custom-types
@@ -59,7 +60,7 @@ const
 type
   DataColumn* = List[KzgCell, Limit(MAX_BLOB_COMMITMENTS_PER_BLOCK)]
 
-  # https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.5/specs/_features/eip7594/das-core.md#datacolumnsidecar
+  # https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.8/specs/_features/eip7594/das-core.md#datacolumnsidecar
   DataColumnSidecar* = object
     index*: ColumnIndex # Index of column in extended matrix
     column*: DataColumn

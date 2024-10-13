@@ -76,7 +76,7 @@ export
   tables, results, endians2, json_serialization, sszTypes, beacon_time, crypto,
   digest, presets, kzg4844
 
-const SPEC_VERSION* = "1.5.0-alpha.6"
+const SPEC_VERSION* = "1.5.0-alpha.8"
 ## Spec version we're aiming to be compatible with, right now
 
 const
@@ -233,7 +233,7 @@ type
 
   ForkDigest* = distinct array[4, byte]
 
-  # https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.6/specs/phase0/beacon-chain.md#forkdata
+  # https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.8/specs/phase0/beacon-chain.md#forkdata
   ForkData* = object
     current_version*: Version
     genesis_validators_root*: Eth2Digest
@@ -256,7 +256,7 @@ type
     source*: Checkpoint
     target*: Checkpoint
 
-  # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.6/specs/phase0/beacon-chain.md#deposit
+  # https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.8/specs/phase0/beacon-chain.md#deposit
   Deposit* = object
     proof*: array[DEPOSIT_CONTRACT_TREE_DEPTH + 1, Eth2Digest]
       ## Merkle path to deposit root
@@ -312,7 +312,7 @@ type
   HashedValidatorPubKey* = object
     value*: ptr HashedValidatorPubKeyItem
 
-  # https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.6/specs/phase0/beacon-chain.md#validator
+  # https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.8/specs/phase0/beacon-chain.md#validator
   Validator* = object
     pubkeyData*{.serializedFieldName: "pubkey".}: HashedValidatorPubKey
 
@@ -334,7 +334,7 @@ type
     withdrawable_epoch*: Epoch
       ## When validator can withdraw funds
 
-  # https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.6/specs/phase0/beacon-chain.md#pendingattestation
+  # https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.8/specs/phase0/beacon-chain.md#pendingattestation
   PendingAttestation* = object
     aggregation_bits*: CommitteeValidatorsBits
     data*: AttestationData
@@ -343,12 +343,12 @@ type
 
     proposer_index*: uint64 # `ValidatorIndex` after validation
 
-  # https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.6/specs/phase0/beacon-chain.md#historicalbatch
+  # https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.8/specs/phase0/beacon-chain.md#historicalbatch
   HistoricalBatch* = object
     block_roots* : array[SLOTS_PER_HISTORICAL_ROOT, Eth2Digest]
     state_roots* : array[SLOTS_PER_HISTORICAL_ROOT, Eth2Digest]
 
-  # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.6/specs/phase0/beacon-chain.md#fork
+  # https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.8/specs/phase0/beacon-chain.md#fork
   Fork* = object
     previous_version*: Version
     current_version*: Version
@@ -380,7 +380,7 @@ type
     sync_committee_bits*: BitArray[SYNC_COMMITTEE_SIZE]
     sync_committee_signature*: TrustedSig
 
-  # https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.6/specs/bellatrix/beacon-chain.md#custom-types
+  # https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.8/specs/bellatrix/beacon-chain.md#custom-types
   Transaction* = List[byte, Limit MAX_BYTES_PER_TRANSACTION]
 
   ExecutionAddress* = object
@@ -389,7 +389,7 @@ type
   BloomLogs* = object
     data*: array[BYTES_PER_LOGS_BLOOM, byte]
 
-  # https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.6/specs/capella/beacon-chain.md#withdrawal
+  # https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.8/specs/capella/beacon-chain.md#withdrawal
   Withdrawal* = object
     index*: WithdrawalIndex
     validator_index*: uint64
@@ -422,7 +422,7 @@ type
     from_bls_pubkey*: ValidatorPubKey
     to_execution_address*: ExecutionAddress
 
-  # https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.6/specs/capella/beacon-chain.md#signedblstoexecutionchange
+  # https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.8/specs/capella/beacon-chain.md#signedblstoexecutionchange
   SignedBLSToExecutionChange* = object
     message*: BLSToExecutionChange
     signature*: ValidatorSig
@@ -430,22 +430,25 @@ type
   SignedBLSToExecutionChangeList* =
     List[SignedBLSToExecutionChange, Limit MAX_BLS_TO_EXECUTION_CHANGES]
 
-  # https://github.com/ethereum/consensus-specs/blob/v1.4.0/specs/deneb/beacon-chain.md#beaconblockbody
+  # https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.8/specs/deneb/beacon-chain.md#beaconblockbody
   KzgCommitments* = List[KzgCommitment, Limit MAX_BLOB_COMMITMENTS_PER_BLOCK]
 
-  # https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.6/specs/capella/beacon-chain.md#historicalsummary
+  # https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.8/specs/capella/beacon-chain.md#historicalsummary
   HistoricalSummary* = object
     # `HistoricalSummary` matches the components of the phase0
     # `HistoricalBatch` making the two hash_tree_root-compatible.
     block_summary_root*: Eth2Digest
     state_summary_root*: Eth2Digest
 
-  # https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.5/specs/electra/beacon-chain.md#pendingbalancedeposit
-  PendingBalanceDeposit* = object
-    index*: uint64
+  # https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.7/specs/electra/beacon-chain.md#pendingdeposit
+  PendingDeposit* = object
+    pubkey*: ValidatorPubKey
+    withdrawal_credentials*: Eth2Digest
     amount*: Gwei
+    signature*: ValidatorSig
+    slot*: Slot
 
-  # https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.6/specs/electra/beacon-chain.md#pendingpartialwithdrawal
+  # https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.7/specs/electra/beacon-chain.md#pendingpartialwithdrawal
   PendingPartialWithdrawal* = object
     index*: uint64
     amount*: Gwei
@@ -456,7 +459,7 @@ type
     source_index*: uint64
     target_index*: uint64
 
-  # https://github.com/ethereum/consensus-specs/blob/v1.4.0/specs/altair/beacon-chain.md#custom-types
+  # https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.8/specs/altair/beacon-chain.md#custom-types
   ParticipationFlags* = uint8
 
   EpochParticipationFlags* =
@@ -472,7 +475,7 @@ type
     pubkeys*: HashArray[Limit SYNC_COMMITTEE_SIZE, ValidatorPubKey]
     aggregate_pubkey*: ValidatorPubKey
 
-  # https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.6/specs/phase0/beacon-chain.md#beaconblockheader
+  # https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.8/specs/phase0/beacon-chain.md#beaconblockheader
   BeaconBlockHeader* = object
     slot*: Slot
     proposer_index*: uint64 # `ValidatorIndex` after validation
@@ -480,7 +483,7 @@ type
     state_root*: Eth2Digest
     body_root*: Eth2Digest
 
-  # https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.6/specs/phase0/beacon-chain.md#signingdata
+  # https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.8/specs/phase0/beacon-chain.md#signingdata
   SigningData* = object
     object_root*: Eth2Digest
     domain*: Eth2Domain
@@ -509,7 +512,7 @@ type
     sync_committees*: Table[SyncCommitteePeriod, SyncCommitteeCache]
 
   # This matches the mutable state of the Solidity deposit contract
-  # https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.6/solidity_deposit_contract/deposit_contract.sol
+  # https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.8/solidity_deposit_contract/deposit_contract.sol
   DepositContractState* = object
     branch*: array[DEPOSIT_CONTRACT_TREE_DEPTH, Eth2Digest]
     deposit_count*: array[32, byte] # Uint256
@@ -551,7 +554,7 @@ type
     withdrawable_epoch*: Epoch
       ## When validator can withdraw funds
 
-  # https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.6/specs/phase0/beacon-chain.md#validator
+  # https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.8/specs/phase0/beacon-chain.md#validator
   ValidatorStatusCapella* = object
     # This is a validator without the expensive, immutable, append-only parts
     # serialized. They're represented in memory to allow in-place SSZ reading

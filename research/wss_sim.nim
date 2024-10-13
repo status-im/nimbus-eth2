@@ -256,7 +256,7 @@ cli do(validatorsDir: string, secretsDir: string,
                   when consensusFork >= ConsensusFork.Capella:
                     get_expected_withdrawals(forkyState.data)
                   else:
-                    newSeq[Withdrawal]()
+                    newSeq[capella.Withdrawal]()
 
               var pl: consensusFork.ExecutionPayloadForSigning
               while true:

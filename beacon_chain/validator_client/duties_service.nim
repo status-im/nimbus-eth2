@@ -14,7 +14,11 @@ import "."/[common, api, block_service, selection_proofs]
 const
   ServiceName = "duties_service"
   SUBSCRIPTION_LOOKAHEAD_EPOCHS* = 4'u64
-  AGGREGATION_PRE_COMPUTE_EPOCHS* = 1'u64
+  AGGREGATION_PRE_COMPUTE_SLOTS* = 1'u64
+    # We do pre-computation for current and next slot only. Pre-computation
+    # is good for low number of validators, but with big count of validators
+    # number of remote signature requests could overload remote signature
+    # service.
 
 logScope: service = ServiceName
 
@@ -110,7 +114,7 @@ proc pollForAttesterDuties*(service: DutiesServiceRef,
     vc = service.client
     indices = toSeq(vc.attachedValidators[].indices())
     relevantDuties =
-      block:
+      if len(indices) > 0:
         var duties: seq[RestAttesterDuty]
         block mainLoop:
           while true:
@@ -149,6 +153,8 @@ proc pollForAttesterDuties*(service: DutiesServiceRef,
                     duties.add(duty)
                 break mainLoop
         duties
+      else:
+        default(seq[RestAttesterDuty])
 
   template checkReorg(a, b: untyped): bool =
     not(a.dependentRoot == b.get())
@@ -319,7 +325,7 @@ proc pollForAttesterDuties*(service: DutiesServiceRef) {.async.} =
         moment = Moment.now()
         sigres =
           await vc.fillAttestationSelectionProofs(currentSlot,
-            currentSlot + Epoch(AGGREGATION_PRE_COMPUTE_EPOCHS))
+            currentSlot + AGGREGATION_PRE_COMPUTE_SLOTS)
 
       if vc.config.distributedEnabled:
         debug "Attestation selection proofs have been received",
@@ -412,7 +418,7 @@ proc pollForSyncCommitteeDuties*(service: DutiesServiceRef) {.async.} =
         moment = Moment.now()
         sigres =
           await vc.fillSyncCommitteeSelectionProofs(currentSlot,
-            currentSlot + Epoch(AGGREGATION_PRE_COMPUTE_EPOCHS))
+            currentSlot + AGGREGATION_PRE_COMPUTE_SLOTS)
 
       if vc.config.distributedEnabled:
         debug "Sync committee selection proofs have been received",
@@ -514,8 +520,8 @@ proc pollForBeaconProposers*(service: DutiesServiceRef) {.async.} =
             slot = currentSlot, epoch = currentEpoch, err_name = exc.name,
             err_msg = exc.msg
 
-    service.pruneBeaconProposers(currentEpoch)
-    vc.pruneBlocksSeen(currentEpoch)
+  service.pruneBeaconProposers(currentEpoch)
+  vc.pruneBlocksSeen(currentEpoch)
 
 proc prepareBeaconProposers*(service: DutiesServiceRef) {.async.} =
   let vc = service.client
