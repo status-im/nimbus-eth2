@@ -154,13 +154,13 @@ func hasMissingDataColumns*(quarantine: DataColumnQuarantine,
     if (blck.root, ColumnIndex i) notin quarantine.data_columns and 
         len(blck.message.body.blob_kzg_commitments) != 0:
       inc counter
-  if quarantine.supernode and counter == NUMBER_OF_COLUMNS:
-    return true
-  elif quarantine.supernode == false and
-      counter == max(SAMPLES_PER_SLOT, CUSTODY_REQUIREMENT):
-    return true
-  else:
+  if quarantine.supernode and counter != NUMBER_OF_COLUMNS:
     return false
+  elif quarantine.supernode == false and
+      counter != max(SAMPLES_PER_SLOT, CUSTODY_REQUIREMENT):
+    return false
+  else:
+    return true
 
 func hasEnoughDataColumns*(quarantine: DataColumnQuarantine,
     blck: deneb.SignedBeaconBlock | electra.SignedBeaconBlock): bool =
