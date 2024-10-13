@@ -393,6 +393,11 @@ proc processDataColumnSidecar*(
   debug "Data column validated, putting data column in quarantine"
   self.dataColumnQuarantine[].put(newClone(dataColumnSidecar))
 
+  if self.dataColumnQuarantine[].supernode == false:
+    self.dag.db.putDataColumnSidecar(dataColumnSidecar)
+    debug "Validated column belongs to custody, attempting to persist",
+      data_column = shortLog(dataColumnSidecar)
+
   let block_root = hash_tree_root(block_header)
   if (let o = self.quarantine[].popColumnless(block_root); o.isSome):
     let columnless = o.unsafeGet()
