@@ -581,7 +581,17 @@ proc storeBlock(
           withBlck(parentBlck.get()):
             when consensusFork >= ConsensusFork.Deneb:
               var data_column_sidecars: DataColumnSidecars
-              for i in 0..<NUMBER_OF_COLUMNS:
+              let
+                localSubnetCount = 
+                  if self.dataColumnQuarantine[].supernode:
+                    DATA_COLUMN_SIDECAR_SUBNET_COUNT.uint64
+                  else:
+                    CUSTODY_REQUIREMENT.uint64
+                localCustodyColumns =
+                  get_custody_columns(self.dataColumnQuarantine[].nodeid,
+                                      max(SAMPLES_PER_SLOT.uint64,
+                                          localSubnetCount))
+              for i in localCustodyColumns:
                 let data_column = DataColumnSidecar.new()
                 if not dag.db.getDataColumnSidecar(parent_root, i.ColumnIndex, data_column[]):
                   columnsOk = false
