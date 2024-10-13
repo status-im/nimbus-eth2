@@ -57,11 +57,7 @@ proc prepareRandao(
     slot: Slot,
     proposerKey: ValidatorPubKey
 ) {.async: (raises: [CancelledError]).} =
-  if slot == GENESIS_SLOT:
-    return
-
-  let wallSlot = vc.beaconClock.now().slotOrZero()
-  if wallSlot == slot:
+  if slot == vc.beaconClock.now().slotOrZero():
     # Its impossibel to prepare RANDAO in the beginning of the epoch. Epoch
     # signature will be requested by block proposer.
     return
