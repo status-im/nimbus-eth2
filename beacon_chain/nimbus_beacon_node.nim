@@ -636,7 +636,7 @@ proc init*(T: type BeaconNode,
       exitQueue: newAsyncEventQueue[SignedVoluntaryExit](),
       blsToExecQueue: newAsyncEventQueue[SignedBLSToExecutionChange](),
       propSlashQueue: newAsyncEventQueue[ProposerSlashing](),
-      attSlashQueue: newAsyncEventQueue[AttesterSlashing](),
+      attSlashQueue: newAsyncEventQueue[phase0.AttesterSlashing](),
       blobSidecarQueue: newAsyncEventQueue[BlobSidecarInfoObject](),
       finalQueue: newAsyncEventQueue[FinalizationInfoObject](),
       reorgQueue: newAsyncEventQueue[ReorgInfoObject](),
@@ -1954,7 +1954,7 @@ proc installMessageValidators(node: BeaconNode) =
                 if contextFork != node.dag.cfg.consensusForkAtEpoch(
                     blobSidecar.signed_block_header.message.slot.epoch):
                   return ValidationResult.Reject
-                
+
                 toValidationResult(
                   node.processor[].processBlobSidecar(
                     MsgSource.gossip, blobSidecar, subnet_id)))
