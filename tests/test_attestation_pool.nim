@@ -986,18 +986,20 @@ suite "Attestation pool electra processing" & preset():
       att3 = makeElectraAttestation(
         state[], state[].latest_block_root, bc0[3], cache)
 
-    proc verifyAttestationSignature(aa: electra.Attestation): bool =
+    proc verifyAttestationSignature(attestation: electra.Attestation): bool =
       withState(state[]):
         when consensusFork == ConsensusFork.Electra:
-          let fork = pool.dag.cfg.forkAtEpoch(forkyState.data.slot.epoch)
-          let gvr = pool.dag.genesis_validators_root
-          var cache2: StateCache
-          let aai = get_attesting_indices(forkyState.data, aa.data, aa.aggregation_bits, aa.committee_bits, cache2)
-          let aas = aa.signature
-          verify_attestation_signature(fork, gvr, aa.data, aai.mapIt(forkyState.data.validators.item(it).pubkey), aas)
+          let
+            fork = pool.dag.cfg.forkAtEpoch(forkyState.data.slot.epoch)
+            attesting_indices = get_attesting_indices(
+              forkyState.data, attestation.data, attestation.aggregation_bits,
+              attestation.committee_bits, cache)
+          verify_attestation_signature(
+            fork, pool.dag.genesis_validators_root, attestation.data,
+            attesting_indices.mapIt(forkyState.data.validators.item(it).pubkey),
+            attestation.signature)
         else:
-          doAssert false
-          false
+          raiseAssert "must be electra"
 
     check:
       verifyAttestationSignature(att0)
