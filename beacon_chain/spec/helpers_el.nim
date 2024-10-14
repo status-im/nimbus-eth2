@@ -13,9 +13,9 @@ import
   "."/[helpers, state_transition_block]
 
 func readExecutionTransaction(
-    txBytes: bellatrix.Transaction): Result[ExecutionTransaction, string] =
+    txBytes: bellatrix.Transaction): Result[EthTransaction, string] =
   try:
-    ok rlp.decode(distinctBase(txBytes), ExecutionTransaction)
+    ok rlp.decode(distinctBase(txBytes), EthTransaction)
   except RlpError as exc:
     err("Invalid transaction: " & exc.msg)
 

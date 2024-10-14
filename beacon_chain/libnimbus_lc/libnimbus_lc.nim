@@ -1287,7 +1287,7 @@ proc ETHExecutionBlockHeaderCreateFromJson(
     doAssert sizeof(uint64) == sizeof(data.gasUsed)
   if data.nonce.isNone:
     return nil
-  let blockHeader = ExecutionBlockHeader(
+  let blockHeader = eth_types.Header(
     parentHash: data.parentHash.asEth2Digest.to(Hash32),
     ommersHash: data.sha3Uncles.asEth2Digest.to(Hash32),
     coinbase: distinctBase(data.miner).to(EthAddress),
@@ -1308,7 +1308,7 @@ proc ETHExecutionBlockHeaderCreateFromJson(
       if data.withdrawalsRoot.isSome:
         Opt.some(data.withdrawalsRoot.get.asEth2Digest.to(Hash32))
       else:
-        Opt.none(ExecutionHash256),
+        Opt.none(Hash32),
     blobGasUsed:
       if data.blobGasUsed.isSome:
         Opt.some distinctBase(data.blobGasUsed.get)
@@ -1323,12 +1323,12 @@ proc ETHExecutionBlockHeaderCreateFromJson(
       if data.parentBeaconBlockRoot.isSome:
         Opt.some data.parentBeaconBlockRoot.get.asEth2Digest.to(Hash32)
       else:
-        Opt.none(ExecutionHash256),
+        Opt.none(Hash32),
     requestsRoot:
       if data.requestsRoot.isSome:
         Opt.some(data.requestsRoot.get.asEth2Digest.to(Hash32))
       else:
-        Opt.none(ExecutionHash256))
+        Opt.none(Hash32))
   if rlpHash(blockHeader) != executionHash[]:
     return nil
 
@@ -1345,7 +1345,7 @@ proc ETHExecutionBlockHeaderCreateFromJson(
 
       # Construct withdrawal
       let
-        wd = ExecutionWithdrawal(
+        wd = eth_types.EthWithdrawal(
           index: distinctBase(data.index),
           validatorIndex: distinctBase(data.validatorIndex),
           address: distinctBase(data.address).to(EthAddress),
@@ -1379,7 +1379,7 @@ proc ETHExecutionBlockHeaderCreateFromJson(
 
       # Construct deposit request
       let
-        req = ExecutionDepositRequest(
+        req = eth_types.EthDepositRequest(
           pubkey: distinctBase(data.pubkey).to(Bytes48),
           withdrawalCredentials: distinctBase(data.withdrawalCredentials).to(Bytes32),
           amount: distinctBase(data.amount),
@@ -1411,7 +1411,7 @@ proc ETHExecutionBlockHeaderCreateFromJson(
 
       # Construct withdrawal request
       let
-        req = ExecutionWithdrawalRequest(
+        req = eth_types.EthWithdrawalRequest(
           sourceAddress: distinctBase(data.sourceAddress).to(EthAddress),
           validatorPubkey: distinctBase(data.validatorPubkey).to(Bytes48),
           amount: distinctBase(data.amount))
@@ -1439,7 +1439,7 @@ proc ETHExecutionBlockHeaderCreateFromJson(
 
       # Construct consolidation request
       let
-        req = ExecutionConsolidationRequest(
+        req = eth_types.EthConsolidationRequest(
           sourceAddress: distinctBase(data.sourceAddress).to(EthAddress),
           sourcePubkey: distinctBase(data.sourcePubkey).to(Bytes48),
           targetPubkey: distinctBase(data.targetPubkey).to(Bytes48))
@@ -1755,7 +1755,7 @@ proc ETHTransactionsCreateFromJson(
         if distinctBase(authorization.yParity) > 1:
           return nil
     let
-      tx = ExecutionTransaction(
+      tx = eth_types.EthTransaction(
         txType: txType,
         chainId: data.chainId.get(0.Quantity).ChainId,
         nonce: distinctBase(data.nonce),
@@ -2560,15 +2560,15 @@ proc ETHReceiptsCreateFromJson(
     if distinctBase(data.cumulativeGasUsed) > int64.high.uint64:
       return nil
     let
-      rec = ExecutionReceipt(
+      rec = eth_types.EthReceipt(
         receiptType: txType,
         isHash: data.root.isSome,
         status: distinctBase(data.status.get(1.Quantity)) != 0'u64,
         hash:
           if data.root.isSome:
-            ExecutionHash256(distinctBase(data.root.get))
+            Hash32(distinctBase(data.root.get))
           else:
-            default(ExecutionHash256),
+            default(Hash32),
         cumulativeGasUsed: distinctBase(data.cumulativeGasUsed).GasInt,
         logsBloom: distinctBase(data.logsBloom).to(Bloom),
         logs: data.logs.mapIt(Log(

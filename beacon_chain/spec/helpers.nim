@@ -35,15 +35,6 @@ func toGwei*(eth: Ether): Gwei =
   distinctBase(eth) * ETH_TO_GWEI
 
 type
-  ExecutionHash256* = eth_types.Hash32
-  ExecutionTransaction* = eth_types.Transaction
-  ExecutionReceipt* = eth_types.Receipt
-  ExecutionWithdrawal* = eth_types.Withdrawal
-  ExecutionDepositRequest* = eth_types.DepositRequest
-  ExecutionWithdrawalRequest* = eth_types.WithdrawalRequest
-  ExecutionConsolidationRequest* = eth_types.ConsolidationRequest
-  ExecutionBlockHeader* = eth_types.Header
-
   FinalityCheckpoints* = object
     justified*: Checkpoint
     finalized*: Checkpoint
@@ -444,18 +435,18 @@ template append*(w: var RlpWriter, v: bellatrix.Transaction) =
   w.appendRawBytes(distinctBase v)
 
 template append*(w: var RlpWriter, withdrawal: capella.Withdrawal) =
-  w.appendRecordType(ExecutionWithdrawal(
+  w.appendRecordType(EthWithdrawal(
     index: withdrawal.index,
     validatorIndex: withdrawal.validator_index,
     address: EthAddress withdrawal.address.data,
     amount: distinctBase(withdrawal.amount)))
 
 proc computeTransactionsTrieRoot(
-    payload: ForkyExecutionPayload): ExecutionHash256 =
+    payload: ForkyExecutionPayload): EthHash32 =
   orderedTrieRoot(payload.transactions.asSeq)
 
 func append*(w: var RlpWriter, request: electra.DepositRequest) =
-  w.append ExecutionDepositRequest(
+  w.append EthDepositRequest(
     pubkey: Bytes48 request.pubkey.blob,
     withdrawalCredentials: Bytes32 request.withdrawal_credentials.data,
     amount: distinctBase(request.amount),
@@ -463,20 +454,20 @@ func append*(w: var RlpWriter, request: electra.DepositRequest) =
     index: request.index)
 
 func append*(w: var RlpWriter, request: electra.WithdrawalRequest) =
-  w.append ExecutionWithdrawalRequest(
+  w.append EthWithdrawalRequest(
     sourceAddress: Address request.source_address.data,
     validatorPubkey: Bytes48 request.validator_pubkey.blob,
     amount: distinctBase(request.amount))
 
 func append*(w: var RlpWriter, request: electra.ConsolidationRequest) =
-  w.append ExecutionConsolidationRequest(
+  w.append EthConsolidationRequest(
     sourceAddress: Address request.source_address.data,
     sourcePubkey: Bytes48 request.source_pubkey.blob,
     targetPubkey: Bytes48 request.target_pubkey.blob)
 
 # https://eips.ethereum.org/EIPS/eip-7685
 proc computeRequestsTrieRoot(
-    requests: electra.ExecutionRequests): ExecutionHash256 =
+    requests: electra.ExecutionRequests): EthHash32 =
   let n =
     requests.deposits.len +
     requests.withdrawals.len +
@@ -494,7 +485,7 @@ proc computeRequestsTrieRoot(
 
   b.rootHash()
 
-proc blockToBlockHeader*(blck: ForkyBeaconBlock): ExecutionBlockHeader =
+proc blockToBlockHeader*(blck: ForkyBeaconBlock): EthHeader =
   template payload: auto = blck.body.execution_payload
 
   static:  # `GasInt` is signed. We only use it for hashing.
@@ -507,7 +498,7 @@ proc blockToBlockHeader*(blck: ForkyBeaconBlock): ExecutionBlockHeader =
       when typeof(payload).kind >= ConsensusFork.Capella:
         Opt.some orderedTrieRoot(payload.withdrawals.asSeq)
       else:
-        Opt.none(ExecutionHash256)
+        Opt.none(EthHash32)
     blobGasUsed =
       when typeof(payload).kind >= ConsensusFork.Deneb:
         Opt.some payload.blob_gas_used
@@ -520,16 +511,16 @@ proc blockToBlockHeader*(blck: ForkyBeaconBlock): ExecutionBlockHeader =
         Opt.none(uint64)
     parentBeaconBlockRoot =
       when typeof(payload).kind >= ConsensusFork.Deneb:
-        Opt.some ExecutionHash256(blck.parent_root.data)
+        Opt.some EthHash32(blck.parent_root.data)
       else:
-        Opt.none(ExecutionHash256)
+        Opt.none(EthHash32)
     requestsRoot =
       when typeof(payload).kind >= ConsensusFork.Electra:
         Opt.some blck.body.execution_requests.computeRequestsTrieRoot()
       else:
-        Opt.none(ExecutionHash256)
+        Opt.none(EthHash32)
 
-  ExecutionBlockHeader(
+  EthHeader(
     parentHash            : payload.parent_hash.to(Hash32),
     ommersHash            : EMPTY_UNCLE_HASH,
     coinbase              : EthAddress payload.fee_recipient.data,
