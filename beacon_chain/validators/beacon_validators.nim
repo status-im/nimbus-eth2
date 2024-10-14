@@ -1592,7 +1592,7 @@ proc signAndSendAggregate(
   if not is_aggregator(shufflingRef, slot, committee_index, selectionProof):
     return
 
-  template signAndSendAggregate() =
+  template signAndSendAggregatedAttestations() =
     msg.signature = block:
       let res = await validator.getAggregateAndProofSignature(
         fork, genesis_validators_root, msg.message)
@@ -1612,31 +1612,29 @@ proc signAndSendAggregate(
   if node.dag.cfg.consensusForkAtEpoch(slot.epoch) >= ConsensusFork.Electra:
     # https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.8/specs/electra/validator.md#construct-aggregate
     # https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.8/specs/electra/validator.md#aggregateandproof
-    var
-      msg = electra.SignedAggregateAndProof(
-        message: electra.AggregateAndProof(
-          aggregator_index: distinctBase validator_index,
-          selection_proof: selectionProof))
+    var msg = electra.SignedAggregateAndProof(
+      message: electra.AggregateAndProof(
+        aggregator_index: distinctBase validator_index,
+        selection_proof: selectionProof))
 
     msg.message.aggregate = node.attestationPool[].getElectraAggregatedAttestation(
-      slot, default(Eth2Digest), committee_index).valueOr:
+      slot, committee_index).valueOr:
         return
 
-    signAndSendAggregate()
+    signAndSendAggregatedAttestations()
   else:
     # https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.8/specs/phase0/validator.md#construct-aggregate
     # https://github.com/ethereum/consensus-specs/blob/v1.4.0/specs/phase0/validator.md#aggregateandproof
-    var
-      msg = phase0.SignedAggregateAndProof(
-        message: phase0.AggregateAndProof(
-          aggregator_index: distinctBase validator_index,
-          selection_proof: selectionProof))
+    var msg = phase0.SignedAggregateAndProof(
+      message: phase0.AggregateAndProof(
+        aggregator_index: distinctBase validator_index,
+        selection_proof: selectionProof))
 
     msg.message.aggregate = node.attestationPool[].getPhase0AggregatedAttestation(
       slot, committee_index).valueOr:
         return
 
-    signAndSendAggregate()
+    signAndSendAggregatedAttestations()
 
 proc sendAggregatedAttestations(
     node: BeaconNode, head: BlockRef, slot: Slot) =
