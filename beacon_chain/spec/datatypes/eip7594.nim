@@ -60,7 +60,7 @@ const
 type
   DataColumn* = List[KzgCell, Limit(MAX_BLOB_COMMITMENTS_PER_BLOCK)]
 
-  # https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.7/specs/_features/eip7594/das-core.md#datacolumnsidecar
+  # https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.8/specs/_features/eip7594/das-core.md#datacolumnsidecar
   DataColumnSidecar* = object
     index*: ColumnIndex # Index of column in extended matrix
     column*: DataColumn

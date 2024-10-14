@@ -2983,6 +2983,7 @@ OK: 18/18 Fail: 0/18 Skip: 0/18
 + [Invalid] EF - Electra - Operations - Withdrawals - invalid_two_expected_partial_withdrawa OK
 + [Valid]   EF - Electra - Operations - Withdrawals - all_withdrawal                         OK
 + [Valid]   EF - Electra - Operations - Withdrawals - no_withdrawals_but_some_next_epoch     OK
++ [Valid]   EF - Electra - Operations - Withdrawals - pending_withdrawals_one_skipped_one_ef OK
 + [Valid]   EF - Electra - Operations - Withdrawals - random_0                               OK
 + [Valid]   EF - Electra - Operations - Withdrawals - random_full_withdrawals_0              OK
 + [Valid]   EF - Electra - Operations - Withdrawals - random_full_withdrawals_1              OK
@@ -2996,10 +2997,14 @@ OK: 18/18 Fail: 0/18 Skip: 0/18
 + [Valid]   EF - Electra - Operations - Withdrawals - success_all_fully_withdrawable_in_one_ OK
 + [Valid]   EF - Electra - Operations - Withdrawals - success_all_partially_withdrawable_in_ OK
 + [Valid]   EF - Electra - Operations - Withdrawals - success_excess_balance_but_no_max_effe OK
++ [Valid]   EF - Electra - Operations - Withdrawals - success_excess_balance_but_no_max_effe OK
 + [Valid]   EF - Electra - Operations - Withdrawals - success_max_partial_withdrawable       OK
 + [Valid]   EF - Electra - Operations - Withdrawals - success_mixed_fully_and_partial_withdr OK
++ [Valid]   EF - Electra - Operations - Withdrawals - success_mixed_fully_and_partial_withdr OK
 + [Valid]   EF - Electra - Operations - Withdrawals - success_no_excess_balance              OK
++ [Valid]   EF - Electra - Operations - Withdrawals - success_no_excess_balance_compounding  OK
 + [Valid]   EF - Electra - Operations - Withdrawals - success_no_max_effective_balance       OK
++ [Valid]   EF - Electra - Operations - Withdrawals - success_no_max_effective_balance_compo OK
 + [Valid]   EF - Electra - Operations - Withdrawals - success_one_full_withdrawal            OK
 + [Valid]   EF - Electra - Operations - Withdrawals - success_one_partial_withdrawable_activ OK
 + [Valid]   EF - Electra - Operations - Withdrawals - success_one_partial_withdrawable_exite OK
@@ -3013,7 +3018,7 @@ OK: 18/18 Fail: 0/18 Skip: 0/18
 + [Valid]   EF - Electra - Operations - Withdrawals - withdrawable_epoch_but_0_effective_bal OK
 + [Valid]   EF - Electra - Operations - Withdrawals - withdrawable_epoch_but_0_effective_bal OK
 ```
-OK: 50/50 Fail: 0/50 Skip: 0/50
+OK: 55/55 Fail: 0/55 Skip: 0/55
 ## EF - Electra - Random  [Preset: mainnet]
 ```diff
 + [Valid]   EF - Electra - Random - randomized_0 [Preset: mainnet]                           OK
@@ -3162,8 +3167,10 @@ OK: 55/55 Fail: 0/55 Skip: 0/55
 + [Valid]   EF - Electra - Sanity - Blocks - balance_driven_status_transitions [Preset: main OK
 + [Valid]   EF - Electra - Sanity - Blocks - basic_btec_and_el_withdrawal_request_in_same_bl OK
 + [Valid]   EF - Electra - Sanity - Blocks - basic_btec_before_el_withdrawal_request [Preset OK
++ [Valid]   EF - Electra - Sanity - Blocks - basic_el_withdrawal_request [Preset: mainnet]   OK
 + [Valid]   EF - Electra - Sanity - Blocks - block_transition_randomized_payload [Preset: ma OK
 + [Valid]   EF - Electra - Sanity - Blocks - bls_change [Preset: mainnet]                    OK
++ [Valid]   EF - Electra - Sanity - Blocks - cl_exit_and_el_withdrawal_request_in_same_block OK
 + [Valid]   EF - Electra - Sanity - Blocks - deposit_and_bls_change [Preset: mainnet]        OK
 + [Valid]   EF - Electra - Sanity - Blocks - deposit_in_block [Preset: mainnet]              OK
 + [Valid]   EF - Electra - Sanity - Blocks - deposit_top_up [Preset: mainnet]                OK
@@ -3212,7 +3219,7 @@ OK: 55/55 Fail: 0/55 Skip: 0/55
 + [Valid]   EF - Electra - Sanity - Blocks - withdrawal_success_two_blocks [Preset: mainnet] OK
 + [Valid]   EF - Electra - Sanity - Blocks - zero_blob [Preset: mainnet]                     OK
 ```
-OK: 78/78 Fail: 0/78 Skip: 0/78
+OK: 80/80 Fail: 0/80 Skip: 0/80
 ## EF - Electra - Sanity - Slots  [Preset: mainnet]
 ```diff
 + EF - Electra - Slots - double_empty_epoch [Preset: mainnet]                                OK
@@ -3797,4 +3804,4 @@ OK: 69/88 Fail: 0/88 Skip: 19/88
 OK: 3/3 Fail: 0/3 Skip: 0/3
 
 ---TOTAL---
-OK: 3071/3091 Fail: 0/3091 Skip: 20/3091
+OK: 3078/3098 Fail: 0/3098 Skip: 20/3098

@@ -42,7 +42,7 @@ type
 
     # Transition
     TERMINAL_TOTAL_DIFFICULTY*: UInt256
-    TERMINAL_BLOCK_HASH*: BlockHash
+    TERMINAL_BLOCK_HASH*: Hash32
     TERMINAL_BLOCK_HASH_ACTIVATION_EPOCH*: Epoch  # Not actively used, but part of the spec
 
     # Genesis
@@ -166,7 +166,7 @@ when const_preset == "mainnet":
     TERMINAL_TOTAL_DIFFICULTY:
       u256"115792089237316195423570985008687907853269984665640564039457584007913129638912",
     # By default, don't use these params
-    TERMINAL_BLOCK_HASH: BlockHash.fromHex(
+    TERMINAL_BLOCK_HASH: Hash32.fromHex(
       "0x0000000000000000000000000000000000000000000000000000000000000000"),
 
     # Genesis
@@ -649,8 +649,8 @@ template parse(T: type string, input: string): T =
 template parse(T: type Eth1Address, input: string): T =
   Eth1Address.fromHex(input)
 
-template parse(T: type BlockHash, input: string): T =
-  BlockHash.fromHex(input)
+template parse(T: type Hash32, input: string): T =
+  Hash32.fromHex(input)
 
 template parse(T: type UInt256, input: string): T =
   parse(input, UInt256, 10)
@@ -793,7 +793,7 @@ proc readRuntimeConfig*(
                      "MAX_REQUEST_BLOB_SIDECARS"
   checkCompatibility BLOB_SIDECAR_SUBNET_COUNT
 
-  # https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.7/specs/phase0/fork-choice.md#configuration
+  # https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.8/specs/phase0/fork-choice.md#configuration
   # Isn't being used as a preset in the usual way: at any time, there's one correct value
   checkCompatibility PROPOSER_SCORE_BOOST
   checkCompatibility REORG_HEAD_WEIGHT_THRESHOLD

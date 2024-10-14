@@ -43,7 +43,7 @@ const
   incbinEnabled* = sizeof(pointer) == 8
 
 type
-  Eth1BlockHash* = web3types.BlockHash
+  Eth1BlockHash* = web3types.Hash32
 
   Eth1Network* = enum
     mainnet

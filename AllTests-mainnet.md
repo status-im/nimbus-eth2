@@ -559,9 +559,8 @@ OK: 5/5 Fail: 0/5 Skip: 0/5
 + Roundtrip engine RPC V1 and bellatrix ExecutionPayload representations                     OK
 + Roundtrip engine RPC V2 and capella ExecutionPayload representations                       OK
 + Roundtrip engine RPC V3 and deneb ExecutionPayload representations                         OK
-+ Roundtrip engine RPC V4 and electra ExecutionPayload representations                       OK
 ```
-OK: 4/4 Fail: 0/4 Skip: 0/4
+OK: 3/3 Fail: 0/3 Skip: 0/3
 ## Eth1 monitor
 ```diff
 + Deposits chain                                                                             OK
@@ -782,7 +781,8 @@ OK: 3/3 Fail: 0/3 Skip: 0/3
 + Signing SC contribution and proof (getContributionAndProofSignature())                     OK
 + Signing SC message (getSyncCommitteeMessage())                                             OK
 + Signing SC selection proof (getSyncCommitteeSelectionProof())                              OK
-+ Signing aggregate and proof (getAggregateAndProofSignature())                              OK
++ Signing aggregate and proof (getAggregateAndProofSignature(electra))                       OK
++ Signing aggregate and proof (getAggregateAndProofSignature(phase0))                        OK
 + Signing aggregation slot (getSlotSignature())                                              OK
 + Signing attestation (getAttestationSignature())                                            OK
 + Signing deposit message (getDepositMessageSignature())                                     OK
@@ -791,7 +791,7 @@ OK: 3/3 Fail: 0/3 Skip: 0/3
 + Signing voluntary exit (getValidatorExitSignature())                                       OK
 + Waiting for signing node (/upcheck) test                                                   OK
 ```
-OK: 16/16 Fail: 0/16 Skip: 0/16
+OK: 17/17 Fail: 0/17 Skip: 0/17
 ## Old database versions [Preset: mainnet]
 ```diff
 + pre-1.1.0                                                                                  OK

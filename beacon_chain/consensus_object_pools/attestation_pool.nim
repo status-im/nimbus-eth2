@@ -1068,7 +1068,7 @@ func getElectraAggregatedAttestation*(
     Opt[electra.Attestation] =
   ## Select the attestation that has the most votes going for it in the given
   ## slot/index
-  # https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.7/specs/electra/validator.md#construct-aggregate
+  # https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.8/specs/electra/validator.md#construct-aggregate
   # even though Electra attestations support cross-committee aggregation,
   # "Set `attestation.committee_bits = committee_bits`, where `committee_bits`
   # has the same value as in each individual attestation." implies that cannot

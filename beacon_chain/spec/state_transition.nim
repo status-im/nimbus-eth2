@@ -8,7 +8,7 @@
 {.push raises: [].}
 
 # State transition, as described in
-# https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.7/specs/phase0/beacon-chain.md#beacon-chain-state-transition-function
+# https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.8/specs/phase0/beacon-chain.md#beacon-chain-state-transition-function
 #
 # The entry point is `state_transition` which is at the bottom of the file!
 #
@@ -53,7 +53,7 @@ export results, extras, state_transition_block
 logScope:
   topics = "state_transition"
 
-# https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.7/specs/phase0/beacon-chain.md#beacon-chain-state-transition-function
+# https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.8/specs/phase0/beacon-chain.md#beacon-chain-state-transition-function
 proc verify_block_signature(
     state: ForkyBeaconState, signed_block: SomeForkySignedBeaconBlock):
     Result[void, cstring] =
@@ -365,7 +365,7 @@ func partialBeaconBlock*(
 ): auto =
   const consensusFork = typeof(state).kind
 
-  # https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.7/specs/phase0/validator.md#preparing-for-a-beaconblock
+  # https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.8/specs/phase0/validator.md#preparing-for-a-beaconblock
   var res = consensusFork.BeaconBlock(
     slot: state.data.slot,
     proposer_index: proposer_index.uint64,
