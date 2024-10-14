@@ -84,7 +84,7 @@
 	path = vendor/nim-json-serialization
 	url = https://github.com/status-im/nim-json-serialization.git
 	ignore = untracked
-	branch = master
+	branch = feat/fusaka-light
 [submodule "vendor/nim-eth"]
 	path = vendor/nim-eth
 	url = https://github.com/status-im/nim-eth.git
