@@ -4746,7 +4746,7 @@
       "headers": {"Accept": "application/json"}
     },
     "response": {
-      "status": {"operator": "oneof", "value": ["400", "200"]}
+      "status": {"operator": "equals", "value": "400"}
     }
   },
   {
@@ -4756,7 +4756,7 @@
       "headers": {"Accept": "application/json"}
     },
     "response": {
-      "status": {"operator": "oneof", "value": ["400", "200"]}
+      "status": {"operator": "oneof", "value": ["404", "200"]}
     }
   },
   {
