@@ -92,8 +92,6 @@ TOOLS_CSV := $(subst $(SPACE),$(COMMA),$(TOOLS))
 	deps \
 	update \
 	test \
-	clean_eth2_network_simulation_all \
-	eth2_network_simulation \
 	clean \
 	libbacktrace \
 	book \

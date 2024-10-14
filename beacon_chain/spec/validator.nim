@@ -577,12 +577,21 @@ proc compute_on_chain_aggregate*(
   for i, a in aggregates:
     totalLen += a.aggregation_bits.len
 
+  # TODO doesn't work if a committee is skipped
   var aggregation_bits = ElectraCommitteeValidatorsBits.init(totalLen)
   var pos = 0
+  var prev_committee_index: Opt[CommitteeIndex]
   for i, a in aggregates:
     let
       committee_index = ? get_committee_index_one(a.committee_bits)
       first = pos == 0
+
+    when false:
+      if prev_committee_index.isNone:
+        prev_committee_index = Opt.some committee_index
+      elif committee_index.distinctBase <= prev_committee_index.get.distinctBase:
+        continue
+      prev_committee_index = Opt.some committee_index
 
     for b in a.aggregation_bits:
       aggregation_bits[pos] = b

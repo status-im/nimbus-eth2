@@ -104,7 +104,7 @@ DL_GETH="0"
 
 : ${BEACON_NODE_COMMAND:="./build/nimbus_beacon_node$EXE_EXTENSION"}
 : ${DENEB_FORK_EPOCH:=0}
-: ${ELECTRA_FORK_EPOCH:=5000}
+: ${ELECTRA_FORK_EPOCH:=500}
 
 #NIMBUS EL VARS
 RUN_NIMBUS_ETH1="0"
@@ -214,6 +214,10 @@ while true; do
       ;;
     --deneb-fork-epoch)
       DENEB_FORK_EPOCH="$2"
+      shift 2
+      ;;
+    --electra-fork-epoch)
+      ELECTRA_FORK_EPOCH="$2"
       shift 2
       ;;
     --stop-at-epoch)
