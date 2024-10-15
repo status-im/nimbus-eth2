@@ -1205,7 +1205,7 @@ type
     transactionsRoot: Eth2Digest
     withdrawalsRoot: Eth2Digest
     withdrawals: seq[ETHWithdrawal]
-    requestsRoot: Eth2Digest
+    requestsHash: Eth2Digest
     depositRequests: seq[ETHDepositRequest]
     withdrawalRequests: seq[ETHWithdrawalRequest]
     consolidationRequests: seq[ETHConsolidationRequest]
@@ -1324,7 +1324,7 @@ proc ETHExecutionBlockHeaderCreateFromJson(
         Opt.some data.parentBeaconBlockRoot.get.asEth2Digest.to(Hash32)
       else:
         Opt.none(Hash32),
-    requestsRoot:
+    requestsHash:
       if data.requestsRoot.isSome:
         Opt.some(data.requestsRoot.get.asEth2Digest.to(Hash32))
       else:
@@ -1455,7 +1455,7 @@ proc ETHExecutionBlockHeaderCreateFromJson(
         targetPubkey: ValidatorPubKey(blob: req.targetPubkey.data),
         bytes: rlpBytes)
 
-  # Verify requests root
+  # Verify requests hash
   if data.depositRequests.isSome or
       data.withdrawalRequests.isSome or
       data.consolidationRequests.isSome:
@@ -1476,7 +1476,7 @@ proc ETHExecutionBlockHeaderCreateFromJson(
     transactionsRoot: blockHeader.txRoot,
     withdrawalsRoot: blockHeader.withdrawalsRoot.get(zeroHash32),
     withdrawals: wds,
-    requestsRoot: blockHeader.requestsRoot.get(zeroHash32),
+    requestsHash: blockHeader.requestsHash.get(zeroHash32),
     depositRequests: depositRequests,
     withdrawalRequests: withdrawalRequests,
     consolidationRequests: consolidationRequests)
@@ -1540,10 +1540,10 @@ func ETHExecutionBlockHeaderGetWithdrawals(
   ## * Withdrawal sequence.
   addr executionBlockHeader[].withdrawals
 
-func ETHExecutionBlockHeaderGetRequestsRoot(
+func ETHExecutionBlockHeaderGetRequestsHash(
     executionBlockHeader: ptr ETHExecutionBlockHeader
 ): ptr Eth2Digest {.exported.} =
-  ## Obtains the requests MPT root of a given execution block header.
+  ## Obtains the requests hash of a given execution block header.
   ##
   ## * The returned value is allocated in the given execution block header.
   ##   It must neither be released nor written to, and the execution block
@@ -1553,8 +1553,8 @@ func ETHExecutionBlockHeaderGetRequestsRoot(
   ## * `executionBlockHeader` - Execution block header.
   ##
   ## Returns:
-  ## * Execution requests root.
-  addr executionBlockHeader[].requestsRoot
+  ## * Execution requests hash.
+  addr executionBlockHeader[].requestsHash
 
 func ETHExecutionBlockHeaderGetDepositRequests(
     executionBlockHeader: ptr ETHExecutionBlockHeader
@@ -1614,8 +1614,8 @@ type
     address: ExecutionAddress
     storageKeys: seq[Eth2Digest]
 
-  ETHAuthorizationTuple = object
-    chainId: UInt256
+  ETHAuthorization = object
+    chainId: uint64
     address: ExecutionAddress
     nonce: uint64
     authority: ExecutionAddress
@@ -1623,7 +1623,7 @@ type
 
   ETHTransaction = object
     hash: Eth2Digest
-    chainId: UInt256
+    chainId: uint64
     `from`: ExecutionAddress
     nonce: uint64
     maxPriorityFeePerGas: uint64
@@ -1636,7 +1636,8 @@ type
     accessList: seq[ETHAccessTuple]
     maxFeePerBlobGas: UInt256
     blobVersionedHashes: seq[Eth2Digest]
-    authorizationList: seq[ETHAuthorizationTuple]
+    hasAuthorizationList: bool
+    authorizationList: seq[ETHAuthorization]
     signature: seq[byte]
     bytes: TypedTransaction
 
@@ -1733,12 +1734,11 @@ proc ETHTransactionsCreateFromJson(
     # Construct transaction
     static:
       doAssert sizeof(uint64) == sizeof(ChainId)
+      doAssert sizeof(uint64) == sizeof(data.chainId.get)
       doAssert sizeof(uint64) == sizeof(data.gas)
       doAssert sizeof(uint64) == sizeof(data.gasPrice)
       doAssert sizeof(uint64) == sizeof(data.maxPriorityFeePerGas.get)
       doAssert sizeof(UInt256) == sizeof(data.maxFeePerBlobGas.get)
-    if distinctBase(data.chainId.get(0.Quantity)) > distinctBase(ChainId.high):
-      return nil
     if data.maxFeePerBlobGas.get(0.u256) > uint64.high.u256:
       return nil
     if data.yParity.isSome:
@@ -1750,9 +1750,8 @@ proc ETHTransactionsCreateFromJson(
         return nil
     if data.authorizationList.isSome:
       for authorization in data.authorizationList.get:
-        if distinctBase(authorization.chainId) > distinctBase(ChainId.high):
-          return nil
-        if distinctBase(authorization.yParity) > 1:
+        static: doAssert sizeof(uint64) == sizeof(authorization.chainId)
+        if distinctBase(authorization.yParity) > uint8.high:
           return nil
     let
       tx = eth_types.EthTransaction(
@@ -1792,9 +1791,9 @@ proc ETHTransactionsCreateFromJson(
               chainId: it.chainId.ChainId,
               address: distinctBase(it.address).to(EthAddress),
               nonce: distinctBase(it.nonce),
-              yParity: distinctBase(it.yParity),
-              R: it.R,
-              S: it.S))
+              v: distinctBase(it.yParity),
+              r: it.R,
+              s: it.S))
           else:
             @[],
         V: distinctBase(data.v),
@@ -1809,18 +1808,20 @@ proc ETHTransactionsCreateFromJson(
     if data.hash.asEth2Digest != hash:
       return nil
 
-    func packSignature(r, s: UInt256, yParity: bool): array[65, byte] =
+    func packSignature(r, s: UInt256, yParity: uint8): array[65, byte] =
       var rawSig {.noinit.}: array[65, byte]
       rawSig[0 ..< 32] = tx.R.toBytesBE()
       rawSig[32 ..< 64] = tx.S.toBytesBE()
-      rawSig[64] = if yParity: 1 else: 0
+      rawSig[64] = yParity
       rawSig
 
-    func recoverSignerAddress(rawSig: array[65, byte]): Opt[array[20, byte]] =
+    func recoverSignerAddress(
+        rawSig: array[65, byte],
+        hashForSigning: Hash32): Opt[array[20, byte]] =
       let
         sig = SkRecoverableSignature.fromRaw(rawSig).valueOr:
           return Opt.none(array[20, byte])
-        sigHash = SkMessage.fromBytes(tx.txHashNoSignature().data).valueOr:
+        sigHash = SkMessage.fromBytes(hashForSigning.data).valueOr:
           return Opt.none(array[20, byte])
         pubkey = sig.recover(sigHash).valueOr:
           return Opt.none(array[20, byte])
@@ -1830,11 +1831,12 @@ proc ETHTransactionsCreateFromJson(
     let
       yParity =
         if txType != TxLegacy:
-          tx.V != 0
+          tx.V.uint8
         else:
-          (tx.V and 1) == 0
+          ((tx.V and 1) == 0).uint8
       rawSig = packSignature(tx.R, tx.S, yParity)
-      fromAddress = recoverSignerAddress(rawSig).valueOr:
+      sigHash = tx.rlpHashForSigning(tx.isEip155())
+      fromAddress = recoverSignerAddress(rawSig, sigHash).valueOr:
         return nil
     if distinctBase(data.`from`) != fromAddress:
       return nil
@@ -1855,23 +1857,23 @@ proc ETHTransactionsCreateFromJson(
           hash.to(EthAddress)
 
     # Compute authorizations
-    var authorizationList = newSeqOfCap[ETHAuthorizationTuple](
+    var authorizationList = newSeqOfCap[ETHAuthorization](
       tx.authorizationList.len)
     for auth in tx.authorizationList:
       let
-        signature = packSignature(auth.R, auth.S, auth.yParity != 0)
-        authority = recoverSignerAddress(signature).valueOr:
+        sig = packSignature(auth.r, auth.s, auth.v.uint8)
+        authority = recoverSignerAddress(sig, auth.rlpHashForSigning).valueOr:
           return nil
-      authorizationList.add ETHAuthorizationTuple(
-        chainId: distinctBase(auth.chainId).u256,
+      authorizationList.add ETHAuthorization(
+        chainId: distinctBase(auth.chainId),
         address: ExecutionAddress(data: auth.address.data),
         nonce: auth.nonce,
         authority: ExecutionAddress(data: authority),
-        signature: @signature)
+        signature: @sig)
 
     txs.add ETHTransaction(
       hash: keccakHash(rlpBytes),
-      chainId: distinctBase(tx.chainId).u256,
+      chainId: distinctBase(tx.chainId),
       `from`: ExecutionAddress(data: fromAddress),
       nonce: tx.nonce,
       maxPriorityFeePerGas: tx.maxPriorityFeePerGas.uint64,
@@ -1886,6 +1888,7 @@ proc ETHTransactionsCreateFromJson(
         storageKeys: it.storageKeys.mapIt(Eth2Digest(data: it.data)))),
       maxFeePerBlobGas: tx.maxFeePerBlobGas,
       blobVersionedHashes: tx.versionedHashes.mapIt(Eth2Digest(data: it.data)),
+      hasAuthorizationList: tx.txType == TxEip7702,
       authorizationList: authorizationList,
       signature: @rawSig,
       bytes: rlpBytes.TypedTransaction)
@@ -1954,7 +1957,7 @@ func ETHTransactionGetHash(
   addr transaction[].hash
 
 func ETHTransactionGetChainId(
-    transaction: ptr ETHTransaction): ptr UInt256 {.exported.} =
+    transaction: ptr ETHTransaction): ptr uint64 {.exported.} =
   ## Obtains the chain ID of a transaction.
   ##
   ## * The returned value is allocated in the given transaction.
@@ -2253,9 +2256,20 @@ func ETHTransactionGetBlobVersionedHash(
   ## * Blob versioned hash.
   addr transaction[].blobVersionedHashes[versionedHashIndex.int]
 
+func ETHTransactionHasAuthorizationList(
+    transaction: ptr ETHTransaction): bool {.exported.} =
+  ## Indicates whether or not a transaction has an authorization list.
+  ##
+  ## Parameters:
+  ## * `transaction` - Transaction.
+  ##
+  ## Returns:
+  ## * Whether or not the transaction has an authorization list.
+  transaction[].hasAuthorizationList
+
 func ETHTransactionGetAuthorizationList(
     transaction: ptr ETHTransaction
-): ptr seq[ETHAuthorizationTuple] {.exported.} =
+): ptr seq[ETHAuthorization] {.exported.} =
   ## Obtains the authorization list of a transaction.
   ##
   ## * The returned value is allocated in the given transaction.
@@ -2270,7 +2284,7 @@ func ETHTransactionGetAuthorizationList(
   addr transaction[].authorizationList
 
 func ETHAuthorizationListGetCount(
-    authorizationList: ptr seq[ETHAuthorizationTuple]): cint {.exported.} =
+    authorizationList: ptr seq[ETHAuthorization]): cint {.exported.} =
   ## Indicates the total number of authorization tuples
   ## in a transaction authorization list.
   ##
@@ -2285,8 +2299,8 @@ func ETHAuthorizationListGetCount(
   authorizationList[].len.cint
 
 func ETHAuthorizationListGet(
-    authorizationList: ptr seq[ETHAuthorizationTuple],
-    authorizationIndex: cint): ptr ETHAuthorizationTuple {.exported.} =
+    authorizationList: ptr seq[ETHAuthorization],
+    authorizationIndex: cint): ptr ETHAuthorization {.exported.} =
   ## Obtains an individual authorization tuple by sequential index
   ## in a transaction authorization list.
   ##
@@ -2302,8 +2316,8 @@ func ETHAuthorizationListGet(
   ## * Authorization tuple.
   addr authorizationList[][authorizationIndex.int]
 
-func ETHAuthorizationTupleGetChainId(
-    authorizationTuple: ptr ETHAuthorizationTuple): ptr UInt256 {.exported.} =
+func ETHAuthorizationGetChainId(
+    authorization: ptr ETHAuthorization): ptr uint64 {.exported.} =
   ## Obtains the chain ID of an authorization tuple.
   ##
   ## * The returned value is allocated in the given authorization tuple.
@@ -2311,14 +2325,14 @@ func ETHAuthorizationTupleGetChainId(
   ##   must not be released while the returned value is in use.
   ##
   ## Parameters:
-  ## * `authorizationTuple` - Authorization tuple.
+  ## * `authorization` - Authorization tuple.
   ##
   ## Returns:
   ## * Chain ID.
-  addr authorizationTuple[].chainId
+  addr authorization[].chainId
 
-func ETHAuthorizationTupleGetAddress(
-    authorizationTuple: ptr ETHAuthorizationTuple
+func ETHAuthorizationGetAddress(
+    authorization: ptr ETHAuthorization
 ): ptr ExecutionAddress {.exported.} =
   ## Obtains the address of an authorization tuple.
   ##
@@ -2327,14 +2341,14 @@ func ETHAuthorizationTupleGetAddress(
   ##   must not be released while the returned value is in use.
   ##
   ## Parameters:
-  ## * `authorizationTuple` - Authorization tuple.
+  ## * `authorization` - Authorization tuple.
   ##
   ## Returns:
   ## * Address.
-  addr authorizationTuple[].address
+  addr authorization[].address
 
-func ETHAuthorizationTupleGetNonce(
-    authorizationTuple: ptr ETHAuthorizationTuple): ptr uint64 {.exported.} =
+func ETHAuthorizationGetNonce(
+    authorization: ptr ETHAuthorization): ptr uint64 {.exported.} =
   ## Obtains the nonce of an authorization tuple.
   ##
   ## * The returned value is allocated in the given authorization tuple.
@@ -2342,14 +2356,14 @@ func ETHAuthorizationTupleGetNonce(
   ##   must not be released while the returned value is in use.
   ##
   ## Parameters:
-  ## * `authorizationTuple` - Authorization tuple.
+  ## * `authorization` - Authorization tuple.
   ##
   ## Returns:
   ## * Nonce.
-  addr authorizationTuple[].nonce
+  addr authorization[].nonce
 
-func ETHAuthorizationTupleGetAuthority(
-    authorizationTuple: ptr ETHAuthorizationTuple
+func ETHAuthorizationGetAuthority(
+    authorization: ptr ETHAuthorization
 ): ptr ExecutionAddress {.exported.} =
   ## Obtains the authority execution address of an authorization tuple.
   ##
@@ -2358,14 +2372,14 @@ func ETHAuthorizationTupleGetAuthority(
   ##   must not be released while the returned value is in use.
   ##
   ## Parameters:
-  ## * `authorizationTuple` - Authorization tuple.
+  ## * `authorization` - Authorization tuple.
   ##
   ## Returns:
   ## * Authority execution address.
-  addr authorizationTuple[].authority
+  addr authorization[].authority
 
-func ETHAuthorizationTupleGetSignatureBytes(
-    authorizationTuple: ptr ETHAuthorizationTuple,
+func ETHAuthorizationGetSignatureBytes(
+    authorization: ptr ETHAuthorization,
     numBytes #[out]#: ptr cint): ptr UncheckedArray[byte] {.exported.} =
   ## Obtains the signature of an authorization tuple.
   ##
@@ -2374,18 +2388,18 @@ func ETHAuthorizationTupleGetSignatureBytes(
   ##   must not be released while the returned value is in use.
   ##
   ## Parameters:
-  ## * `authorizationTuple` - Authorization tuple.
+  ## * `authorization` - Authorization tuple.
   ## * `numBytes` [out] - Length of buffer.
   ##
   ## Returns:
   ## * Buffer with signature.
-  numBytes[] = distinctBase(authorizationTuple[].signature).len.cint
-  if distinctBase(authorizationTuple[].signature).len == 0:
+  numBytes[] = distinctBase(authorization[].signature).len.cint
+  if distinctBase(authorization[].signature).len == 0:
     # https://github.com/nim-lang/Nim/issues/22389
     const defaultBytes: cstring = ""
     return cast[ptr UncheckedArray[byte]](defaultBytes)
   cast[ptr UncheckedArray[byte]](
-    addr distinctBase(authorizationTuple[].signature)[0])
+    addr distinctBase(authorization[].signature)[0])
 
 func ETHTransactionGetSignatureBytes(
     transaction: ptr ETHTransaction,
@@ -2514,6 +2528,8 @@ proc ETHReceiptsCreateFromJson(
         TxEip1559
       of 3.Quantity:
         TxEip4844
+      of 4.Quantity:
+        TxEip7702
       else:
         return nil
     if data.root.isNone and data.status.isNone or

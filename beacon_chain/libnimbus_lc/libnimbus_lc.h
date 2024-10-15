@@ -1104,7 +1104,7 @@ const ETHWithdrawals *ETHExecutionBlockHeaderGetWithdrawals(
     const ETHExecutionBlockHeader *executionBlockHeader);
 
 /**
- * Obtains the requests MPT root of a given execution block header.
+ * Obtains the requests hash of a given execution block header.
  *
  * - The returned value is allocated in the given execution block header.
  *   It must neither be released nor written to, and the execution block
@@ -1112,10 +1112,10 @@ const ETHWithdrawals *ETHExecutionBlockHeaderGetWithdrawals(
  *
  * @param      executionBlockHeader Execution block header.
  *
- * @return Execution requests root.
+ * @return Execution requests hash.
  */
 ETH_RESULT_USE_CHECK
-const ETHRoot *ETHExecutionBlockHeaderGetRequestsRoot(
+const ETHRoot *ETHExecutionBlockHeaderGetRequestsHash(
     const ETHExecutionBlockHeader *executionBlockHeader);
 
 /**
@@ -1278,7 +1278,7 @@ const ETHRoot *ETHTransactionGetHash(const ETHTransaction *transaction);
  * @return Chain ID.
  */
 ETH_RESULT_USE_CHECK
-const ETHUInt256 *ETHTransactionGetChainId(const ETHTransaction *transaction);
+const uint64_t *ETHTransactionGetChainId(const ETHTransaction *transaction);
 
 /**
  * Obtains the from address of a transaction.
@@ -1553,6 +1553,16 @@ const ETHRoot *ETHTransactionGetBlobVersionedHash(
     int versionedHashIndex);
 
 /**
+ * Indicates whether or not a transaction has an authorization list.
+ *
+ * @param      transaction          Transaction.
+ *
+ * @return Whether or not the transaction has an authorization list.
+ */
+ETH_RESULT_USE_CHECK
+bool ETHTransactionHasAuthorizationList(const ETHTransaction *transaction);
+
+/**
  * Transaction authorization list.
  */
 typedef struct ETHAuthorizationList ETHAuthorizationList;
@@ -1588,7 +1598,7 @@ int ETHAuthorizationListGetCount(const ETHAuthorizationList *authorizationList);
 /**
  * Authorization tuple.
  */
-typedef struct ETHAuthorizationTuple ETHAuthorizationTuple;
+typedef struct ETHAuthorization ETHAuthorization;
 
 /**
  * Obtains an individual authorization tuple by sequential index
@@ -1604,7 +1614,7 @@ typedef struct ETHAuthorizationTuple ETHAuthorizationTuple;
  * @return Authorization tuple.
  */
 ETH_RESULT_USE_CHECK
-const ETHAuthorizationTuple *ETHAuthorizationListGet(
+const ETHAuthorization *ETHAuthorizationListGet(
     const ETHAuthorizationList *authorizationList,
     int authorizationIndex);
 
@@ -1615,13 +1625,13 @@ const ETHAuthorizationTuple *ETHAuthorizationListGet(
  *   It must neither be released nor written to, and the authorization tuple
  *   must not be released while the returned value is in use.
  *
- * @param      authorizationTuple   Authorization tuple.
+ * @param      authorization        Authorization tuple.
  *
  * @return Chain ID.
  */
 ETH_RESULT_USE_CHECK
-const ETHUInt256 *ETHAuthorizationTupleGetChainId(
-    const ETHAuthorizationTuple *authorizationTuple);
+const uint64_t *ETHAuthorizationGetChainId(
+    const ETHAuthorization *authorization);
 
 /**
  * Obtains the address of an authorization tuple.
@@ -1630,13 +1640,13 @@ const ETHUInt256 *ETHAuthorizationTupleGetChainId(
  *   It must neither be released nor written to, and the authorization tuple
  *   must not be released while the returned value is in use.
  *
- * @param      authorizationTuple   Authorization tuple.
+ * @param      authorization        Authorization tuple.
  *
  * @return Address.
  */
 ETH_RESULT_USE_CHECK
-const ETHExecutionAddress *ETHAuthorizationTupleGetAddress(
-    const ETHAuthorizationTuple *authorizationTuple);
+const ETHExecutionAddress *ETHAuthorizationGetAddress(
+    const ETHAuthorization *authorization);
 
 /**
  * Obtains the nonce of an authorization tuple.
@@ -1645,13 +1655,13 @@ const ETHExecutionAddress *ETHAuthorizationTupleGetAddress(
  *   It must neither be released nor written to, and the authorization tuple
  *   must not be released while the returned value is in use.
  *
- * @param      authorizationTuple   Authorization tuple.
+ * @param      authorization        Authorization tuple.
  *
  * @return Nonce.
  */
 ETH_RESULT_USE_CHECK
-const uint64_t *ETHAuthorizationTupleGetNonce(
-    const ETHAuthorizationTuple *authorizationTuple);
+const uint64_t *ETHAuthorizationGetNonce(
+    const ETHAuthorization *authorization);
 
 /**
  * Obtains the authority execution address of an authorization tuple.
@@ -1660,13 +1670,13 @@ const uint64_t *ETHAuthorizationTupleGetNonce(
  *   It must neither be released nor written to, and the authorization tuple
  *   must not be released while the returned value is in use.
  *
- * @param      authorizationTuple   Authorization tuple.
+ * @param      authorization        Authorization tuple.
  *
  * @return Authority execution address.
  */
 ETH_RESULT_USE_CHECK
-const ETHExecutionAddress *ETHAuthorizationTupleGetAuthority(
-    const ETHAuthorizationTuple *authorizationTuple);
+const ETHExecutionAddress *ETHAuthorizationGetAuthority(
+    const ETHAuthorization *authorization);
 
 /**
  * Obtains the signature of a authorization tuple.
@@ -1675,14 +1685,14 @@ const ETHExecutionAddress *ETHAuthorizationTupleGetAuthority(
  *   It must neither be released nor written to, and the authorization tuple
  *   must not be released while the returned value is in use.
  *
- * @param      authorizationTuple   Authorization tuple.
+ * @param      authorization        Authorization tuple.
  * @param[out] numBytes             Length of buffer.
  *
  * @return Buffer with signature.
  */
 ETH_RESULT_USE_CHECK
-const void *ETHAuthorizationTupleGetSignatureBytes(
-    const ETHAuthorizationTuple *authorizationTuple,
+const void *ETHAuthorizationGetSignatureBytes(
+    const ETHAuthorization *authorization,
     int *numBytes);
 
 /**
