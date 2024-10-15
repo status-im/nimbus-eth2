@@ -1255,30 +1255,22 @@ proc ETHExecutionBlockHeaderCreateFromJson(
     return nil
 
   # Check fork consistency
-  static: doAssert totalSerializedFields(BlockObject) == 30,
+  static: doAssert totalSerializedFields(BlockObject) == 27,
     "Only update this number once code is adjusted to check new fields!"
   if data.baseFeePerGas.isNone and (
       data.withdrawals.isSome or data.withdrawalsRoot.isSome or
       data.blobGasUsed.isSome or data.excessBlobGas.isSome or
-      data.depositRequests.isSome or data.withdrawalRequests.isSome or
-      data.consolidationRequests.isSome or data.requestsRoot.isSome):
+      data.requestsHash.isSome):
     return nil
   if data.withdrawalsRoot.isNone and (
       data.blobGasUsed.isSome or data.excessBlobGas.isSome or
-      data.depositRequests.isSome or data.withdrawalRequests.isSome or
-      data.consolidationRequests.isSome or data.requestsRoot.isSome):
+      data.requestsHash.isSome):
     return nil
-  if data.blobGasUsed.isNone and (
-      data.depositRequests.isSome or data.withdrawalRequests.isSome or
-      data.consolidationRequests.isSome or data.requestsRoot.isSome):
+  if data.blobGasUsed.isNone and data.requestsHash.isSome:
     return nil
   if data.withdrawals.isSome != data.withdrawalsRoot.isSome:
     return nil
   if data.blobGasUsed.isSome != data.excessBlobGas.isSome:
-    return nil
-  if data.depositRequests.isSome != data.requestsRoot.isSome or
-      data.withdrawalRequests.isSome != data.requestsRoot.isSome or
-      data.consolidationRequests.isSome != data.requestsRoot.isSome:
     return nil
 
   # Construct block header
@@ -1325,8 +1317,8 @@ proc ETHExecutionBlockHeaderCreateFromJson(
       else:
         Opt.none(Hash32),
     requestsHash:
-      if data.requestsRoot.isSome:
-        Opt.some(data.requestsRoot.get.asEth2Digest.to(Hash32))
+      if data.requestsHash.isSome:
+        Opt.some data.requestsHash.get.asEth2Digest.to(Hash32)
       else:
         Opt.none(Hash32))
   if rlpHash(blockHeader) != executionHash[]:
@@ -1367,119 +1359,12 @@ proc ETHExecutionBlockHeaderCreateFromJson(
     if tr != data.withdrawalsRoot.get.asEth2Digest:
       return nil
 
-  # Construct deposit requests
-  var depositRequests: seq[ETHDepositRequest]
-  if data.depositRequests.isSome:
-    depositRequests = newSeqOfCap[ETHDepositRequest](
-      data.depositRequests.get.len)
-    for data in data.depositRequests.get:
-      # Check fork consistency
-      static: doAssert totalSerializedFields(DepositRequestObject) == 5,
-        "Only update this number once code is adjusted to check new fields!"
-
-      # Construct deposit request
-      let
-        req = eth_types.EthDepositRequest(
-          pubkey: distinctBase(data.pubkey).to(Bytes48),
-          withdrawalCredentials: distinctBase(data.withdrawalCredentials).to(Bytes32),
-          amount: distinctBase(data.amount),
-          signature: distinctBase(data.signature).to(Bytes96),
-          index: distinctBase(data.index))
-        rlpBytes =
-          try:
-            rlp.encode(req)
-          except RlpError:
-            raiseAssert "Unreachable"
-
-      depositRequests.add ETHDepositRequest(
-        pubkey: ValidatorPubKey(blob: req.pubkey.data),
-        withdrawalCredentials: req.withdrawalCredentials.data,
-        amount: req.amount,
-        signature: ValidatorSig(blob: req.signature.data),
-        index: req.index,
-        bytes: rlpBytes)
-
-  # Construct withdrawal requests
-  var withdrawalRequests: seq[ETHWithdrawalRequest]
-  if data.withdrawalRequests.isSome:
-    withdrawalRequests = newSeqOfCap[ETHWithdrawalRequest](
-      data.withdrawalRequests.get.len)
-    for data in data.withdrawalRequests.get:
-      # Check fork consistency
-      static: doAssert totalSerializedFields(WithdrawalRequestObject) == 3,
-        "Only update this number once code is adjusted to check new fields!"
-
-      # Construct withdrawal request
-      let
-        req = eth_types.EthWithdrawalRequest(
-          sourceAddress: distinctBase(data.sourceAddress).to(EthAddress),
-          validatorPubkey: distinctBase(data.validatorPubkey).to(Bytes48),
-          amount: distinctBase(data.amount))
-        rlpBytes =
-          try:
-            rlp.encode(req)
-          except RlpError:
-            raiseAssert "Unreachable"
-
-      withdrawalRequests.add ETHWithdrawalRequest(
-        sourceAddress: ExecutionAddress(data: req.sourceAddress.data),
-        validatorPubkey: ValidatorPubKey(blob: req.validatorPubkey.data),
-        amount: req.amount,
-        bytes: rlpBytes)
-
-  # Construct consolidation requests
-  var consolidationRequests: seq[ETHConsolidationRequest]
-  if data.consolidationRequests.isSome:
-    consolidationRequests = newSeqOfCap[ETHConsolidationRequest](
-      data.consolidationRequests.get.len)
-    for data in data.consolidationRequests.get:
-      # Check fork consistency
-      static: doAssert totalSerializedFields(ConsolidationRequestObject) == 3,
-        "Only update this number once code is adjusted to check new fields!"
-
-      # Construct consolidation request
-      let
-        req = eth_types.EthConsolidationRequest(
-          sourceAddress: distinctBase(data.sourceAddress).to(EthAddress),
-          sourcePubkey: distinctBase(data.sourcePubkey).to(Bytes48),
-          targetPubkey: distinctBase(data.targetPubkey).to(Bytes48))
-        rlpBytes =
-          try:
-            rlp.encode(req)
-          except RlpError:
-            raiseAssert "Unreachable"
-
-      consolidationRequests.add ETHConsolidationRequest(
-        sourceAddress: ExecutionAddress(data: req.sourceAddress.data),
-        sourcePubkey: ValidatorPubKey(blob: req.sourcePubkey.data),
-        targetPubkey: ValidatorPubKey(blob: req.targetPubkey.data),
-        bytes: rlpBytes)
-
-  # Verify requests hash
-  if data.depositRequests.isSome or
-      data.withdrawalRequests.isSome or
-      data.consolidationRequests.isSome:
-    doAssert data.requestsRoot.isSome  # Checked above
-
-    var b = OrderedTrieRootBuilder.init(
-      depositRequests.len + withdrawalRequests.len + consolidationRequests.len)
-
-    b.add(depositRequests)
-    b.add(withdrawalRequests)
-    b.add(consolidationRequests)
-
-    if b.rootHash() != data.requestsRoot.get.asEth2Digest:
-      return nil
-
   let executionBlockHeader = ETHExecutionBlockHeader.new()
   executionBlockHeader[] = ETHExecutionBlockHeader(
     transactionsRoot: blockHeader.txRoot,
     withdrawalsRoot: blockHeader.withdrawalsRoot.get(zeroHash32),
     withdrawals: wds,
-    requestsHash: blockHeader.requestsHash.get(zeroHash32),
-    depositRequests: depositRequests,
-    withdrawalRequests: withdrawalRequests,
-    consolidationRequests: consolidationRequests)
+    requestsHash: blockHeader.requestsHash.get(zeroHash32))
   executionBlockHeader.toUnmanagedPtr()
 
 proc ETHExecutionBlockHeaderDestroy(

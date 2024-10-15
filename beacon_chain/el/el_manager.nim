@@ -821,13 +821,15 @@ proc sendNewPayloadToSingleEL(
 
 proc sendNewPayloadToSingleEL(
     connection: ELConnection,
-    payload: engine_api.ExecutionPayloadV4,
+    payload: engine_api.ExecutionPayloadV3,
     versioned_hashes: seq[engine_api.VersionedHash],
-    parent_beacon_block_root: FixedBytes[32]
+    parent_beacon_block_root: FixedBytes[32],
+    executionRequests: array[3, seq[byte]]
 ): Future[PayloadStatusV1] {.async: (raises: [CatchableError]).} =
   let rpcClient = await connection.connectedRpcClient()
   await rpcClient.engine_newPayloadV4(
-    payload, versioned_hashes, Hash32 parent_beacon_block_root)
+    payload, versioned_hashes, Hash32 parent_beacon_block_root,
+    executionRequests)
 
 type
   StatusRelation = enum
@@ -954,8 +956,18 @@ proc sendNewPayload*(
       let
         requests = m.elConnections.mapIt:
           let req =
-            when payload is engine_api.ExecutionPayloadV3 or
-                 payload is engine_api.ExecutionPayloadV4:
+            when typeof(blck).kind == ConsensusFork.Electra:
+              # https://github.com/ethereum/execution-apis/blob/4140e528360fea53c34a766d86a000c6c039100e/src/engine/prague.md#engine_newpayloadv4
+              let versioned_hashes = mapIt(
+                blck.body.blob_kzg_commitments,
+                engine_api.VersionedHash(kzg_commitment_to_versioned_hash(it)))
+              sendNewPayloadToSingleEL(
+                it, payload, versioned_hashes,
+                FixedBytes[32] blck.parent_root.data,
+                [SSZ.encode(blck.body.execution_requests.deposits),
+                 SSZ.encode(blck.body.execution_requests.withdrawals),
+                 SSZ.encode(blck.body.execution_requests.consolidations)])
+            elif typeof(blck).kind == ConsensusFork.Deneb:
               # https://github.com/ethereum/consensus-specs/blob/v1.4.0-alpha.1/specs/deneb/beacon-chain.md#process_execution_payload
               # Verify the execution payload is valid
               # [Modified in Deneb] Pass `versioned_hashes` to Execution Engine
@@ -965,8 +977,7 @@ proc sendNewPayload*(
               sendNewPayloadToSingleEL(
                 it, payload, versioned_hashes,
                 FixedBytes[32] blck.parent_root.data)
-            elif payload is engine_api.ExecutionPayloadV1 or
-                 payload is engine_api.ExecutionPayloadV2:
+            elif typeof(blck).kind in [ConsensusFork.Bellatrix, ConsensusFork.Capella]:
               sendNewPayloadToSingleEL(it, payload)
             else:
               static: doAssert false
