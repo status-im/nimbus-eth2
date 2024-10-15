@@ -68,8 +68,8 @@ jobs:
         if: runner.os == 'Linux' && matrix.target.cpu == 'i386'
         run: |
           sudo dpkg --add-architecture i386
-          sudo apt-fast update -qq
-          sudo DEBIAN_FRONTEND='noninteractive' apt-fast install \
+          sudo apt-get update -qq
+          sudo DEBIAN_FRONTEND='noninteractive' apt-get install \
             --no-install-recommends -yq gcc-multilib g++-multilib
           mkdir -p external/bin
           cat << EOF > external/bin/gcc
