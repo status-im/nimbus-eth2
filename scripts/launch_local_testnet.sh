@@ -961,12 +961,6 @@ dump_logs() {
   done
 }
 
-dump_logtrace() {
-  if [[ "$ENABLE_LOGTRACE" == "1" ]]; then
-    find "${DATA_DIR}/logs" -maxdepth 1 -type f -regex 'nimbus_beacon_node[0-9]+.jsonl' | sed -e"s/${DATA_DIR}\//--nodes=/" | sort | xargs ./build/ncli_testnet analyzeLogs --log-dir="${DATA_DIR}" --const-preset=${CONST_PRESET} || true
-  fi
-}
-
 NODES_WITH_VALIDATORS=${NODES_WITH_VALIDATORS:-$NUM_NODES}
 SYSTEM_VALIDATORS=$(( TOTAL_VALIDATORS - USER_VALIDATORS ))
 VALIDATORS_PER_NODE=$(( SYSTEM_VALIDATORS / NODES_WITH_VALIDATORS ))
@@ -1287,7 +1281,6 @@ fi
 if [[ "$BG_JOBS" != "$NUM_JOBS" ]]; then
   echo "$(( NUM_JOBS - BG_JOBS )) nimbus_beacon_node/nimbus_validator_client/nimbus_light_client instance(s) exited early. Aborting."
   dump_logs
-  dump_logtrace
   exit 1
 fi
 
@@ -1306,7 +1299,6 @@ else
   if [[ "$FAILED" != "0" ]]; then
     echo "${FAILED} child processes had non-zero exit codes (or exited early)."
     dump_logs
-    dump_logtrace
     if [[ "${TIMEOUT_DURATION}" != "0" ]]; then
       if uname | grep -qiE "mingw|msys"; then
         taskkill //F //PID "${WATCHER_PID}"
@@ -1317,8 +1309,6 @@ else
     exit 1
   fi
 fi
-
-dump_logtrace
 
 if [[ "${TIMEOUT_DURATION}" != "0" ]]; then
   if uname | grep -qiE "mingw|msys"; then
