@@ -375,10 +375,14 @@ func groupDataColumns*[T](req: SyncRequest[T],
   else:
     Result[seq[DataColumnSidecars], string].ok grouped
 
-func checkDataColumns(data_columns: seq[DataColumnSidecars]): Result[void, string] =
+proc checkDataColumns(data_columns: seq[DataColumnSidecars]): Result[void, string] =
   for data_column_sidecars in data_columns:
     for data_column_sidecar in data_column_sidecars:
       ? data_column_sidecar[].verify_data_column_sidecar_inclusion_proof()
+      let sync_check_dc = 
+        data_column_sidecar[].verify_data_column_sidecar_kzg_proofs()
+      if sync_check_dc.isErr:
+        return err("Invalid data column received while syncing")
   ok()
 
 proc syncStep[A, B](man: SyncManager[A, B], index: int, peer: A)
