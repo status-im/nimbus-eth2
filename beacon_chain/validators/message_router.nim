@@ -336,7 +336,7 @@ proc routeSyncCommitteeMessage*(
     beacon_sync_committee_messages_sent.inc()
     beacon_sync_committee_message_sent_delay.observe(delay.toFloatSeconds())
 
-    info "Sync committee message sent", message = shortLog(msg), delay
+    debug "Sync committee message sent", message = shortLog(msg), delay
   else: # "no broadcast" is not a fatal error
     notice "Sync committee message not sent",
       message = shortLog(msg), error = res.error()
@@ -453,7 +453,7 @@ proc routeSignedContributionAndProof*(
   let res = await router[].network.broadcastSignedContributionAndProof(msg)
   if res.isOk():
     beacon_sync_committee_contributions_sent.inc()
-    info "Contribution sent",
+    debug "Contribution sent",
       contribution = shortLog(msg.message.contribution),
       aggregator_index = msg.message.aggregator_index,
       selection_proof = shortLog(msg.message.selection_proof),
