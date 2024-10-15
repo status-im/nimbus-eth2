@@ -8,7 +8,7 @@
 {.push raises: [].}
 
 import
-  std/[json, options],
+  std/[json, options, times],
   chronos, bearssl/rand, chronicles, confutils, stint, json_serialization,
   web3, eth/keys, eth/p2p/discoveryv5/random2,
   stew/[io2, byteutils], json_rpc/jsonmarshal,
@@ -332,6 +332,22 @@ func createDepositContractSnapshot(
     eth1Block: blockHash,
     depositContractState: merkleizer.toDepositContractState,
     blockHeight: blockHeight)
+
+proc writeValue*(writer: var JsonWriter, value: DateTime) =
+  writer.writeValue($value)
+
+proc readValue*(reader: var JsonReader, value: var DateTime) =
+  let s = reader.readValue(string)
+  try:
+    value = parse(s, "YYYY-MM-dd HH:mm:ss'.'fffzzz", utc())
+  except CatchableError:
+    raiseUnexpectedValue(reader, "Invalid date time")
+
+proc writeValue*(writer: var JsonWriter, value: IoErrorCode) =
+  writer.writeValue(distinctBase value)
+
+proc readValue*(reader: var JsonReader, value: var IoErrorCode) =
+  IoErrorCode reader.readValue(distinctBase IoErrorCode)
 
 proc createEnr(rng: var HmacDrbgContext,
                dataDir: string,
