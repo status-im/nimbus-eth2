@@ -22,17 +22,6 @@ const
 
 logScope: service = ServiceName
 
-type
-  PreparedBeaconBlock = object
-    blockRoot*: Eth2Digest
-    data*: ForkedBeaconBlock
-    kzgProofsOpt*: Opt[deneb.KzgProofs]
-    blobsOpt*: Opt[deneb.Blobs]
-
-  PreparedBlindedBeaconBlock = object
-    blockRoot*: Eth2Digest
-    data*: ForkedBlindedBeaconBlock
-
 func shortLog(v: Opt[UInt256]): auto =
   if v.isNone(): "<not available>" else: toString(v.get, 10)
 
@@ -599,11 +588,9 @@ proc runBlockPollMonitor(service: BlockServiceRef,
     node = node
 
   while true:
-    let currentSlot =
-      block:
-        let res = await vc.checkedWaitForNextSlot(ZeroTimeDiff, false)
-        if res.isNone(): continue
-        res.geT()
+    let currentSlot {.used.} =
+      (await vc.checkedWaitForNextSlot(ZeroTimeDiff, false)).valueOr:
+        continue
 
     while node.status notin statuses:
       await vc.waitNodes(nil, statuses, roles, true)
