@@ -52,7 +52,7 @@ CURL_BINARY="$(command -v curl)" || { echo "Curl not installed. Aborting."; exit
 JQ_BINARY="$(command -v jq)" || { echo "jq not installed. Aborting."; exit 1; }
 
 OPTS="ht:n:d:g"
-LONGOPTS="help,preset:,nodes:,data-dir:,remote-validators-count:,threshold:,signer-nodes:,signer-type:,with-ganache,stop-at-epoch:,disable-htop,use-vc:,disable-vc,enable-payload-builder,enable-logtrace,log-level:,base-port:,base-rest-port:,base-metrics-port:,base-vc-metrics-port:,base-vc-keymanager-port:,base-remote-signer-port:,base-remote-signer-metrics-port:,base-el-net-port:,base-el-rpc-port:,base-el-ws-port:,base-el-auth-rpc-port:,el-port-offset:,reuse-existing-data-dir,reuse-binaries,timeout:,kill-old-processes,eth2-docker-image:,lighthouse-vc-nodes:,run-geth,dl-geth,dl-nimbus-eth1,dl-nimbus-eth2,light-clients:,run-nimbus-eth1,verbose,deneb-fork-epoch:,electra-fork-epoch:"
+LONGOPTS="help,preset:,nodes:,data-dir:,remote-validators-count:,threshold:,signer-nodes:,signer-type:,with-ganache,stop-at-epoch:,disable-htop,use-vc:,disable-vc,enable-payload-builder,log-level:,base-port:,base-rest-port:,base-metrics-port:,base-vc-metrics-port:,base-vc-keymanager-port:,base-remote-signer-port:,base-remote-signer-metrics-port:,base-el-net-port:,base-el-rpc-port:,base-el-ws-port:,base-el-auth-rpc-port:,el-port-offset:,reuse-existing-data-dir,reuse-binaries,timeout:,kill-old-processes,eth2-docker-image:,lighthouse-vc-nodes:,run-geth,dl-geth,dl-nimbus-eth1,dl-nimbus-eth2,light-clients:,run-nimbus-eth1,verbose,deneb-fork-epoch:,electra-fork-epoch:"
 
 # default values
 BINARIES=""
@@ -82,7 +82,6 @@ EL_PORT_OFFSET="10"
 : ${NIMFLAGS:=""}
 : ${MIN_DEPOSIT_SENDING_DELAY:=1}
 : ${MAX_DEPOSIT_SENDING_DELAY:=25}
-ENABLE_LOGTRACE="0"
 STOP_AT_EPOCH=9999999
 STOP_AT_EPOCH_FLAG=""
 TIMEOUT_DURATION="0"
@@ -149,7 +148,6 @@ CI run: $(basename "$0") --disable-htop -- --verify-finalization
                               and validator clients, with all beacon nodes being paired up
                               with a corresponding validator client)
   --lighthouse-vc-nodes       number of Lighthouse VC nodes (assigned before Nimbus VC nodes, default: ${LIGHTHOUSE_VC_NODES})
-  --enable-logtrace           display logtrace analysis
   --log-level                 set the log level (default: "${LOG_LEVEL}")
   --reuse-existing-data-dir   instead of deleting and recreating the data dir, keep it and reuse everything we can from it
   --reuse-binaries            don't (re)build the binaries we need and don't delete them at the end (speeds up testing)
@@ -239,10 +237,6 @@ while true; do
       ;;
     --enable-payload-builder)
       USE_PAYLOAD_BUILDER="true"
-      shift
-      ;;
-    --enable-logtrace)
-      ENABLE_LOGTRACE="1"
       shift
       ;;
     --log-level)
