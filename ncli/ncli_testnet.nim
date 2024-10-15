@@ -333,20 +333,24 @@ func createDepositContractSnapshot(
     depositContractState: merkleizer.toDepositContractState,
     blockHeight: blockHeight)
 
-proc writeValue*(writer: var JsonWriter, value: DateTime) =
+proc writeValue*(writer: var JsonWriter, value: DateTime) {.
+     raises: [IOError].} =
   writer.writeValue($value)
 
-proc readValue*(reader: var JsonReader, value: var DateTime) =
+proc readValue*(reader: var JsonReader, value: var DateTime) {.
+     raises: [IOError, SerializationError].} =
   let s = reader.readValue(string)
   try:
     value = parse(s, "YYYY-MM-dd HH:mm:ss'.'fffzzz", utc())
   except CatchableError:
     raiseUnexpectedValue(reader, "Invalid date time")
 
-proc writeValue*(writer: var JsonWriter, value: IoErrorCode) =
+proc writeValue*(writer: var JsonWriter, value: IoErrorCode) {.
+     raises: [IOError].} =
   writer.writeValue(distinctBase value)
 
-proc readValue*(reader: var JsonReader, value: var IoErrorCode) =
+proc readValue*(reader: var JsonReader, value: var IoErrorCode) {.
+     raises: [IOError, SerializationError].} =
   IoErrorCode reader.readValue(distinctBase IoErrorCode)
 
 proc createEnr(rng: var HmacDrbgContext,
