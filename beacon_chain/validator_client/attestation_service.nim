@@ -331,7 +331,6 @@ proc produceAndPublishAggregates(
     slot = adata.slot
     committeeIndex = adata.index
     attestationRoot = adata.hash_tree_root()
-    afterElectra = vc.isPastElectraFork(slot.epoch())
 
   let aggregateItems =
     block:
@@ -584,7 +583,7 @@ proc produceAndPublishAggregatesV2(
           if is_aggregator(duty.data.committee_length, slotSignature):
             res.add(AggregateItem(
               aggregator_index: uint64(duty.data.validator_index),
-              committee_index: CommitteeIndex(duty.data.committee_index),
+              committee_index: duty.data.committee_index,
               selection_proof: slotSignature,
               validator: validator
             ))
