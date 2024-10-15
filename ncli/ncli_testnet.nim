@@ -8,7 +8,7 @@
 {.push raises: [].}
 
 import
-  std/[json, options],
+  std/[json, options, times],
   chronos, bearssl/rand, chronicles, confutils, stint, json_serialization,
   web3, eth/keys, eth/p2p/discoveryv5/random2,
   stew/[io2, byteutils], json_rpc/jsonmarshal,
@@ -18,8 +18,7 @@ import
   ../beacon_chain/spec/eth2_merkleization,
   ../beacon_chain/spec/datatypes/base,
   ../beacon_chain/spec/eth2_apis/eth2_rest_serialization,
-  ../beacon_chain/validators/keystore_management,
-  ./logtrace
+  ../beacon_chain/validators/keystore_management
 
 from std/os import changeFileExt, fileExists
 from std/times import toUnix
@@ -39,7 +38,6 @@ type
     createTestnetEnr
     run
     sendDeposits
-    analyzeLogs
     deployDepositContract
     sendEth
 
@@ -227,51 +225,6 @@ type
     of StartUpCommand.run:
       discard
 
-    of StartUpCommand.analyzeLogs:
-      logFiles* {.
-        desc: "Specifies one or more log files",
-        abbr: "f",
-        name: "log-file" .}: seq[string]
-
-      simDir* {.
-        desc: "Specifies path to eth2_network_simulation directory",
-        defaultValue: "",
-        name: "sim-dir" .}: string
-
-      netDir* {.
-        desc: "Specifies path to network build directory",
-        defaultValue: "",
-        name: "net-dir" .}: string
-
-      logDir* {.
-        desc: "Specifies path with bunch of logs",
-        defaultValue: "",
-        name: "log-dir" .}: string
-
-      ignoreSerializationErrors* {.
-        desc: "Ignore serialization errors while parsing log files",
-        defaultValue: true,
-        name: "ignore-errors" .}: bool
-
-      dumpSerializationErrors* {.
-        desc: "Dump full serialization errors while parsing log files",
-        defaultValue: false ,
-        name: "dump-errors" .}: bool
-
-      nodes* {.
-        desc: "Specifies node names which logs will be used",
-        name: "nodes" .}: seq[string]
-
-      allowedLag* {.
-        desc: "Allowed latency lag multiplier",
-        defaultValue: 2.0,
-        name: "lag" .}: float
-
-      constPreset* {.
-        desc: "The const preset being used"
-        defaultValue: "mainnet"
-        name: "const-preset" .}: string
-
 type
   PubKeyBytes = DynamicBytes[48, 48]
   WithdrawalCredentialsBytes = DynamicBytes[32, 32]
@@ -379,6 +332,26 @@ func createDepositContractSnapshot(
     eth1Block: blockHash,
     depositContractState: merkleizer.toDepositContractState,
     blockHeight: blockHeight)
+
+proc writeValue*(writer: var JsonWriter, value: DateTime) {.
+     raises: [IOError].} =
+  writer.writeValue($value)
+
+proc readValue*(reader: var JsonReader, value: var DateTime) {.
+     raises: [IOError, SerializationError].} =
+  let s = reader.readValue(string)
+  try:
+    value = parse(s, "YYYY-MM-dd HH:mm:ss'.'fffzzz", utc())
+  except CatchableError:
+    raiseUnexpectedValue(reader, "Invalid date time")
+
+proc writeValue*(writer: var JsonWriter, value: IoErrorCode) {.
+     raises: [IOError].} =
+  writer.writeValue(distinctBase value)
+
+proc readValue*(reader: var JsonReader, value: var IoErrorCode) {.
+     raises: [IOError, SerializationError].} =
+  IoErrorCode reader.readValue(distinctBase IoErrorCode)
 
 proc createEnr(rng: var HmacDrbgContext,
                dataDir: string,
@@ -724,26 +697,6 @@ when isMainModule:
 
     of StartUpCommand.run:
       discard
-
-    of StartUpCommand.analyzeLogs:
-      try:
-        logtrace.run(LogTraceConf(
-          cmd: logtrace.StartUpCommand.localSimChecks,
-          logFiles: conf.logFiles,
-          simDir: conf.simDir,
-          netDir: conf.netDir,
-          logDir: conf.logDir,
-          ignoreSerializationErrors: conf.ignoreSerializationErrors,
-          dumpSerializationErrors: conf.dumpSerializationErrors,
-          nodes: conf.nodes,
-          allowedLag: conf.allowedLag,
-          constPreset: conf.constPreset
-        ))
-      except CatchableError as err:
-        fatal "Unexpected error in logtrace", err = err.msg
-      except Exception as exc:
-        # TODO: Investigate where is this coming from?
-        fatal "Unexpected exception in logtrace", err = exc.msg
 
     of StartUpCommand.generateDeposits:
       # This is handled above before the case statement

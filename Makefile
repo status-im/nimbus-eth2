@@ -58,7 +58,6 @@ TOOLS_CORE_CUSTOMCOMPILE := \
 TOOLS_CORE := \
 	deposit_contract \
 	resttest \
-	logtrace \
 	mev_mock \
 	ncli \
 	ncli_db \
@@ -239,7 +238,6 @@ local-testnet-minimal:
 		--stop-at-epoch 6 \
 		--disable-htop \
 		--enable-payload-builder \
-		--enable-logtrace \
 		--base-port $$(( $(MINIMAL_TESTNET_BASE_PORT) + EXECUTOR_NUMBER * 400 + 0 )) \
 		--base-rest-port $$(( $(MINIMAL_TESTNET_BASE_PORT) + EXECUTOR_NUMBER * 400 + 30 )) \
 		--base-metrics-port $$(( $(MINIMAL_TESTNET_BASE_PORT) + EXECUTOR_NUMBER * 400 + 60 )) \
@@ -267,7 +265,6 @@ local-testnet-mainnet:
 		--deneb-fork-epoch 0 \
 		--stop-at-epoch 6 \
 		--disable-htop \
-		--enable-logtrace \
 		--base-port $$(( $(MAINNET_TESTNET_BASE_PORT) + EXECUTOR_NUMBER * 400 + 0 )) \
 		--base-rest-port $$(( $(MAINNET_TESTNET_BASE_PORT) + EXECUTOR_NUMBER * 400 + 30 )) \
 		--base-metrics-port $$(( $(MAINNET_TESTNET_BASE_PORT) + EXECUTOR_NUMBER * 400 + 60 )) \

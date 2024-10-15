@@ -52,7 +52,7 @@ CURL_BINARY="$(command -v curl)" || { echo "Curl not installed. Aborting."; exit
 JQ_BINARY="$(command -v jq)" || { echo "jq not installed. Aborting."; exit 1; }
 
 OPTS="ht:n:d:g"
-LONGOPTS="help,preset:,nodes:,data-dir:,remote-validators-count:,threshold:,signer-nodes:,signer-type:,with-ganache,stop-at-epoch:,disable-htop,use-vc:,disable-vc,enable-payload-builder,enable-logtrace,log-level:,base-port:,base-rest-port:,base-metrics-port:,base-vc-metrics-port:,base-vc-keymanager-port:,base-remote-signer-port:,base-remote-signer-metrics-port:,base-el-net-port:,base-el-rpc-port:,base-el-ws-port:,base-el-auth-rpc-port:,el-port-offset:,reuse-existing-data-dir,reuse-binaries,timeout:,kill-old-processes,eth2-docker-image:,lighthouse-vc-nodes:,run-geth,dl-geth,dl-nimbus-eth1,dl-nimbus-eth2,light-clients:,run-nimbus-eth1,verbose,deneb-fork-epoch:,electra-fork-epoch:"
+LONGOPTS="help,preset:,nodes:,data-dir:,remote-validators-count:,threshold:,signer-nodes:,signer-type:,with-ganache,stop-at-epoch:,disable-htop,use-vc:,disable-vc,enable-payload-builder,log-level:,base-port:,base-rest-port:,base-metrics-port:,base-vc-metrics-port:,base-vc-keymanager-port:,base-remote-signer-port:,base-remote-signer-metrics-port:,base-el-net-port:,base-el-rpc-port:,base-el-ws-port:,base-el-auth-rpc-port:,el-port-offset:,reuse-existing-data-dir,reuse-binaries,timeout:,kill-old-processes,eth2-docker-image:,lighthouse-vc-nodes:,run-geth,dl-geth,dl-nimbus-eth1,dl-nimbus-eth2,light-clients:,run-nimbus-eth1,verbose,deneb-fork-epoch:,electra-fork-epoch:"
 
 # default values
 BINARIES=""
@@ -82,7 +82,6 @@ EL_PORT_OFFSET="10"
 : ${NIMFLAGS:=""}
 : ${MIN_DEPOSIT_SENDING_DELAY:=1}
 : ${MAX_DEPOSIT_SENDING_DELAY:=25}
-ENABLE_LOGTRACE="0"
 STOP_AT_EPOCH=9999999
 STOP_AT_EPOCH_FLAG=""
 TIMEOUT_DURATION="0"
@@ -149,7 +148,6 @@ CI run: $(basename "$0") --disable-htop -- --verify-finalization
                               and validator clients, with all beacon nodes being paired up
                               with a corresponding validator client)
   --lighthouse-vc-nodes       number of Lighthouse VC nodes (assigned before Nimbus VC nodes, default: ${LIGHTHOUSE_VC_NODES})
-  --enable-logtrace           display logtrace analysis
   --log-level                 set the log level (default: "${LOG_LEVEL}")
   --reuse-existing-data-dir   instead of deleting and recreating the data dir, keep it and reuse everything we can from it
   --reuse-binaries            don't (re)build the binaries we need and don't delete them at the end (speeds up testing)
@@ -239,10 +237,6 @@ while true; do
       ;;
     --enable-payload-builder)
       USE_PAYLOAD_BUILDER="true"
-      shift
-      ;;
-    --enable-logtrace)
-      ENABLE_LOGTRACE="1"
       shift
       ;;
     --log-level)
@@ -961,12 +955,6 @@ dump_logs() {
   done
 }
 
-dump_logtrace() {
-  if [[ "$ENABLE_LOGTRACE" == "1" ]]; then
-    find "${DATA_DIR}/logs" -maxdepth 1 -type f -regex 'nimbus_beacon_node[0-9]+.jsonl' | sed -e"s/${DATA_DIR}\//--nodes=/" | sort | xargs ./build/ncli_testnet analyzeLogs --log-dir="${DATA_DIR}" --const-preset=${CONST_PRESET} || true
-  fi
-}
-
 NODES_WITH_VALIDATORS=${NODES_WITH_VALIDATORS:-$NUM_NODES}
 SYSTEM_VALIDATORS=$(( TOTAL_VALIDATORS - USER_VALIDATORS ))
 VALIDATORS_PER_NODE=$(( SYSTEM_VALIDATORS / NODES_WITH_VALIDATORS ))
@@ -1287,7 +1275,6 @@ fi
 if [[ "$BG_JOBS" != "$NUM_JOBS" ]]; then
   echo "$(( NUM_JOBS - BG_JOBS )) nimbus_beacon_node/nimbus_validator_client/nimbus_light_client instance(s) exited early. Aborting."
   dump_logs
-  dump_logtrace
   exit 1
 fi
 
@@ -1306,7 +1293,6 @@ else
   if [[ "$FAILED" != "0" ]]; then
     echo "${FAILED} child processes had non-zero exit codes (or exited early)."
     dump_logs
-    dump_logtrace
     if [[ "${TIMEOUT_DURATION}" != "0" ]]; then
       if uname | grep -qiE "mingw|msys"; then
         taskkill //F //PID "${WATCHER_PID}"
@@ -1317,8 +1303,6 @@ else
     exit 1
   fi
 fi
-
-dump_logtrace
 
 if [[ "${TIMEOUT_DURATION}" != "0" ]]; then
   if uname | grep -qiE "mingw|msys"; then
