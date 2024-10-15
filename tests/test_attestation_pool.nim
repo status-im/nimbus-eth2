@@ -968,7 +968,6 @@ suite "Attestation pool electra processing" & preset():
       attestations[0].aggregation_bits.countOnes() == 3
       attestations[0].committee_bits.countOnes() == 2
 
-
   test "Working with electra aggregates" & preset():
     let
       # Create an attestation for slot 1!
@@ -1048,11 +1047,11 @@ suite "Attestation pool electra processing" & preset():
       let attestations = pool[].getElectraAttestationsForBlock(state[], cache)
       check:
         attestations.len() == 1
-        attestations[0].aggregation_bits.countOnes() == 6
-        #TODO: verifyAttestationSignature(attestations[0]) fails
+        attestations[0].aggregation_bits.countOnes() == 3
+        verifyAttestationSignature(attestations[0])
         # Can get either aggregate here, random!
-        pool[].getElectraAggregatedAttestation(
-          1.Slot, hash_tree_root(attestations[0].data), 0.CommitteeIndex).isSome()
+        verifyAttestationSignature(pool[].getElectraAggregatedAttestation(
+          1.Slot, hash_tree_root(attestations[0].data), 0.CommitteeIndex).get)
 
     # Add in attestation 0 as single - attestation 1 is now a superset of the
     # aggregates in the pool, so everything else should be removed
@@ -1065,12 +1064,12 @@ suite "Attestation pool electra processing" & preset():
         attestations.len() == 1
         attestations[0].aggregation_bits.countOnes() == 4
         verifyAttestationSignature(attestations[0])
-        pool[].getElectraAggregatedAttestation(
-          1.Slot, hash_tree_root(attestations[0].data), 0.CommitteeIndex).isSome()
+        verifyAttestationSignature(pool[].getElectraAggregatedAttestation(
+          1.Slot, hash_tree_root(attestations[0].data), 0.CommitteeIndex).get)
 
     # Someone votes for a different root
-    let
-      att4 = makeElectraAttestation(state[], ZERO_HASH, bc0[4], cache)
+    let att4 = makeElectraAttestation(state[], ZERO_HASH, bc0[4], cache)
+    check: verifyAttestationSignature(att4)
     pool[].addAttestation(
       att4, @[bc0[4]], att4.loadSig, att4.data.slot.start_beacon_time)
 
