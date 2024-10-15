@@ -514,7 +514,7 @@ proc blockToBlockHeader*(blck: ForkyBeaconBlock): EthHeader =
         Opt.some EthHash32(blck.parent_root.data)
       else:
         Opt.none(EthHash32)
-    requestsRoot =
+    requestsHash =
       when typeof(payload).kind >= ConsensusFork.Electra:
         Opt.some blck.body.execution_requests.computeRequestsTrieRoot()
       else:
@@ -541,7 +541,7 @@ proc blockToBlockHeader*(blck: ForkyBeaconBlock): EthHeader =
     blobGasUsed           : blobGasUsed,           # EIP-4844
     excessBlobGas         : excessBlobGas,         # EIP-4844
     parentBeaconBlockRoot : parentBeaconBlockRoot, # EIP-4788
-    requestsRoot          : requestsRoot)          # EIP-7685
+    requestsHash          : requestsHash)          # EIP-7685
 
 proc compute_execution_block_hash*(blck: ForkyBeaconBlock): Eth2Digest =
   rlpHash(blockToBlockHeader(blck)).to(Eth2Digest)
