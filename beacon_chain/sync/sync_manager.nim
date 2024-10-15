@@ -618,7 +618,7 @@ proc syncStep[A, B](man: SyncManager[A, B], index: int, peer: A)
     if shouldGetDataColumns and man.filterCustodyPeersBeforeColumnSync(peer):
       let data_columns = await man.getDataColumnSidecars(peer, req)
       if data_columns.isErr():
-        # peer.updateScore(PeerScoreNoValues)
+        peer.updateScore(PeerScoreNoValues)
         man.queue.push(req)
         debug "Failed to receive data columns on request",
               request = req, err = data_columns.error
@@ -632,7 +632,7 @@ proc syncStep[A, B](man: SyncManager[A, B], index: int, peer: A)
         let slots = mapIt(dataColumnData, it[].signed_block_header.message.slot)
         let uniqueSlots = foldl(slots, combine(a, b), @[slots[0]])
         if not(checkResponse(req, uniqueSlots)):
-          # peer.updateScore(PeerScoreBadResponse)
+          peer.updateScore(PeerScoreBadResponse)
           man.queue.push(req)
           warn "Received data columns sequence is not in requested range",
             data_columns_count = len(dataColumnData), data_columns_map = getShortMap(req, dataColumnData),
@@ -640,13 +640,13 @@ proc syncStep[A, B](man: SyncManager[A, B], index: int, peer: A)
           return
       let groupedDataColumns = groupDataColumns(req, blockData, dataColumnData)
       if groupedDataColumns.isErr():
-        # peer.updateScore(PeerScoreNoValues)
+        peer.updateScore(PeerScoreNoValues)
         man.queue.push(req)
         warn "Received data columns is inconsistent",
           data_columns_map = getShortMap(req, dataColumnData), request = req, msg=groupedDataColumns.error()
         return
       if (let checkRes = groupedDataColumns.get.checkDataColumns(); checkRes.isErr):
-        # peer.updateScore(PeerScoreBadResponse)
+        peer.updateScore(PeerScoreBadResponse)
         man.queue.push(req)
         warn "Received data columns is invalid",
           data_columns_count = len(dataColumnData),

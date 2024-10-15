@@ -331,7 +331,7 @@ proc fetchDataColumnsFromNetwork(rman: RequestManager,
         if not checkResponse(colIdList, ucolumns.asSeq()):
           debug "Mismatched response to data columns by root",
             peer = peer, columns = shortLog(colIdList), ucolumns = len(ucolumns)
-          # peer.updateScore(PeerScoreBadResponse)
+          peer.updateScore(PeerScoreBadResponse)
           return
 
         for col in ucolumns:
@@ -347,7 +347,7 @@ proc fetchDataColumnsFromNetwork(rman: RequestManager,
       else:
         debug "Data columns by root request not done, peer doesn't have custody column",
           peer = peer, columns = shortLog(colIdList), err = columns.error()
-        # peer.updateScore(PeerScoreNoValues)
+        peer.updateScore(PeerScoreNoValues)
 
   finally:
     if not(isNil(peer)):
