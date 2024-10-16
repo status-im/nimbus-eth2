@@ -24,6 +24,8 @@ type
   DataColumnQuarantine* = object
     data_columns*:
       OrderedTable[DataColumnIdentifier, ref DataColumnSidecar]
+    supernode*: bool
+    custody_columns*: seq[ColumnIndex]
     onDataColumnSidecarCallback*: OnDataColumnSidecarCallback
   
   DataColumnFetchRecord* = object
@@ -32,6 +34,8 @@ type
 
   OnDataColumnSidecarCallback = proc(data: DataColumnSidecar) {.gcsafe, raises: [].}
 
+func init*(T: type DataColumnQuarantine): T =
+  T()
 
 func shortLog*(x: seq[DataColumnFetchRecord]): string =
   "[" & x.mapIt(shortLog(it.block_root) & shortLog(it.indices)).join(", ") & "]"
@@ -73,35 +77,108 @@ func hasDataColumn*(
       return true
   false
 
+func peekColumnIndices*(quarantine: DataColumnQuarantine,
+                        blck: electra.SignedBeaconBlock):
+                        seq[ColumnIndex] =
+  # Peeks into the currently received column indices
+  # from quarantine, necessary data availability checks
+  var indices: seq[ColumnIndex]
+  for col_idx in quarantine.custody_columns:
+    if quarantine.data_columns.hasKey(
+        DataColumnIdentifier(block_root: blck.root,
+                             index: ColumnIndex col_idx)):
+      indices.add(col_idx)
+  indices
+
+func gatherDataColumns*(quarantine: DataColumnQuarantine,
+                       digest: Eth2Digest): 
+                       seq[ref DataColumnSidecar] =
+  # Returns the current data columns quried by a 
+  # block header
+  var columns: seq[ref DataColumnSidecar]
+  for i in quarantine.custody_columns:
+    let dc_identifier = 
+      DataColumnIdentifier(
+        block_root: digest,
+        index: i)
+    if quarantine.data_columns.hasKey(dc_identifier):
+      let value = 
+        quarantine.data_columns.getOrDefault(dc_identifier,
+                                             default(ref DataColumnSidecar))
+      columns.add(value)
+  columns
+
 func popDataColumns*(
     quarantine: var DataColumnQuarantine, digest: Eth2Digest,
     blck: electra.SignedBeaconBlock):
     seq[ref DataColumnSidecar] =
   var r: DataColumnSidecars
-  for idx in 0..<len(blck.message.body.blob_kzg_commitments):
+  for idx in quarantine.custody_columns:
     var c: ref DataColumnSidecar
     if quarantine.data_columns.pop(
         DataColumnIdentifier(block_root: digest,
-                             index: ColumnIndex idx),
+                             index: idx),
                              c):
       r.add(c)
   r
 
-func hasDataColumns*(quarantine: DataColumnQuarantine,
+func hasMissingDataColumns*(quarantine: DataColumnQuarantine,
     blck: electra.SignedBeaconBlock): bool =
-  for idx in 0..<len(blck.message.body.blob_kzg_commitments):
-    let dc_id = DataColumnIdentifier(
-      block_root: blck.root,
-      index: ColumnIndex idx)
-    if dc_id notin quarantine.data_columns:
-      return false
-  true
+  # `hasMissingDataColumns` consists of the data columns that,
+  # have been missed over gossip, also in case of a supernode,
+  # the method would return missing columns when the supernode
+  # has not received data columns upto the requisite limit (i.e 50%
+  # of NUMBER_OF_COLUMNS).
+
+  # This method shall be actively used by the `RequestManager` to
+  # root request columns over RPC.
+  var col_counter = 0
+  for idx in quarantine.custody_columns:
+    let dc_identifier = 
+      DataColumnIdentifier(
+        block_root: blck.root,
+        index: idx)
+    if dc_identifier notin quarantine.data_columns:
+      inc col_counter
+  if quarantine.supernode and col_counter != NUMBER_OF_COLUMNS:
+    return false
+  elif quarantine.supernode == false and
+      col_counter != max(SAMPLES_PER_SLOT, CUSTODY_REQUIREMENT):
+    return false
+  else:
+    return true
+
+func hasEnoughDataColumns*(quarantine: DataColumnQuarantine,
+    blck: electra.SignedBeaconBlock): bool =
+  # `hasEnoughDataColumns` dictates whether there is `enough`
+  # data columns for a block to be enqueued, ideally for a supernode
+  # if it receives atleast 50%+ gossip and RPC
+
+  # Once 50%+ columns are available we can use this function to
+  # check it, and thereby check column reconstructability, right from 
+  # gossip validation, consequently populating the quarantine with
+  # rest of the data columns.
+  if quarantine.supernode:
+    let
+      collectedColumns = quarantine.gatherDataColumns(blck.root)
+    if collectedColumns.len >= (quarantine.custody_columns.len div 2):
+      return true
+  else:
+    for i in quarantine.custody_columns:
+      let dc_identifier = 
+        DataColumnIdentifier(
+          block_root: blck.root,
+          index: i)
+      if dc_identifier notin quarantine.data_columns:
+        return false
+      else:
+        return true
 
 func dataColumnFetchRecord*(quarantine: DataColumnQuarantine,
                             blck: electra.SignedBeaconBlock):
                             DataColumnFetchRecord =
   var indices: seq[ColumnIndex]
-  for i in 0..<len(blck.message.body.blob_kzg_commitments):
+  for i in quarantine.custody_columns:
     let
       idx = ColumnIndex(i)
       dc_id = DataColumnIdentifier(
