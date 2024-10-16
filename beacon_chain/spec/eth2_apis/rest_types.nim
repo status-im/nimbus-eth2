@@ -19,8 +19,6 @@ import
   ".."/[deposit_snapshots, forks],
   ".."/mev/deneb_mev
 
-from ".."/datatypes/capella import BeaconBlockBody
-
 export forks, phase0, altair, bellatrix, capella, deneb_mev, tables, httputils
 
 const
@@ -292,35 +290,6 @@ type
 
   RestWithdrawalPrefix* = distinct array[1, byte]
 
-  # https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.3/specs/capella/beacon-chain.md#executionpayload
-  RestExecutionPayload* = object
-    # Execution block header fields
-    parent_hash*: Eth2Digest
-    fee_recipient*: ExecutionAddress
-      ## 'beneficiary' in the yellow paper
-    state_root*: Eth2Digest
-    receipts_root*: Eth2Digest
-    logs_bloom*: BloomLogs
-    prev_randao*: Eth2Digest
-      ## 'difficulty' in the yellow paper
-    block_number*: uint64
-      ## 'number' in the yellow paper
-    gas_limit*: uint64
-    gas_used*: uint64
-    timestamp*: uint64
-    extra_data*: List[byte, MAX_EXTRA_DATA_BYTES]
-    base_fee_per_gas*: UInt256
-
-    # Extra payload fields
-    block_hash*: Eth2Digest
-      ## Hash of execution block
-    transactions*: List[Transaction, MAX_TRANSACTIONS_PER_PAYLOAD]
-    withdrawals*: Option[List[Withdrawal, MAX_WITHDRAWALS_PER_PAYLOAD]]
-      ## [New in Capella]
-    blob_gas_used*: Option[uint64]   ## [New in Deneb]
-    excess_blob_gas*: Option[uint64] ## [New in Deneb]
-
-
   PrepareBeaconProposer* = object
     validator_index*: ValidatorIndex
     fee_recipient*: Eth1Address
@@ -345,17 +314,6 @@ type
     of ConsensusFork.Capella:   capellaData*:   capella.SignedBeaconBlock
     of ConsensusFork.Deneb:     denebData*:     DenebSignedBlockContents
     of ConsensusFork.Electra:   electraData*:   ElectraSignedBlockContents
-
-  RestPublishedBeaconBlock* = distinct ForkedBeaconBlock
-
-  RestPublishedBeaconBlockBody* = object
-    case kind*: ConsensusFork
-    of ConsensusFork.Phase0:    phase0Body*:    phase0.BeaconBlockBody
-    of ConsensusFork.Altair:    altairBody*:    altair.BeaconBlockBody
-    of ConsensusFork.Bellatrix: bellatrixBody*: bellatrix.BeaconBlockBody
-    of ConsensusFork.Capella:   capellaBody*:   capella.BeaconBlockBody
-    of ConsensusFork.Deneb:     denebBody*:     deneb.BeaconBlockBody
-    of ConsensusFork.Electra:   electraBody*:   electra.BeaconBlockBody
 
   ProduceBlockResponseV3* = ForkedMaybeBlindedBeaconBlock
 
@@ -454,8 +412,8 @@ type
     proof*: seq[Eth2Digest]
 
   Web3SignerRequestKind* {.pure.} = enum
-    AggregationSlot, AggregateAndProof, Attestation, BlockV2,
-    Deposit, RandaoReveal, VoluntaryExit, SyncCommitteeMessage,
+    AggregationSlot, AggregateAndProof, AggregateAndProofV2, Attestation,
+    BlockV2, Deposit, RandaoReveal, VoluntaryExit, SyncCommitteeMessage,
     SyncCommitteeSelectionProof, SyncCommitteeContributionAndProof,
     ValidatorRegistration
 
@@ -469,6 +427,9 @@ type
     of Web3SignerRequestKind.AggregateAndProof:
       aggregateAndProof* {.
         serializedFieldName: "aggregate_and_proof".}: phase0.AggregateAndProof
+    of Web3SignerRequestKind.AggregateAndProofV2:
+      forkedAggregateAndProof* {.
+        serializedFieldName: "aggregate_and_proof".}: ForkedAggregateAndProof
     of Web3SignerRequestKind.Attestation:
       attestation*: AttestationData
     of Web3SignerRequestKind.BlockV2:
@@ -620,8 +581,7 @@ func isLowestScoreAggregatedAttestation*(a: phase0.Attestation): bool =
   (a.data.slot == Slot(0)) and (a.data.index == 0'u64) and
   (a.data.source.epoch == Epoch(0)) and (a.data.target.epoch == Epoch(0))
 
-func `==`*(a, b: RestValidatorIndex): bool =
-  uint64(a) == uint64(b)
+func `==`*(a, b: RestValidatorIndex): bool {.borrow.}
 
 template withForkyBlck*(
     x: RestPublishedSignedBlockContents, body: untyped): untyped =
@@ -807,6 +767,23 @@ func init*(t: typedesc[Web3SignerRequest], fork: Fork,
     )),
     signingRoot: signingRoot,
     aggregateAndProof: data
+  )
+
+func init*(
+    t: typedesc[Web3SignerRequest],
+    fork: Fork,
+    genesis_validators_root: Eth2Digest,
+    data: electra.AggregateAndProof,
+    signingRoot: Opt[Eth2Digest] = Opt.none(Eth2Digest)
+): Web3SignerRequest =
+  Web3SignerRequest(
+    kind: Web3SignerRequestKind.AggregateAndProofV2,
+    forkInfo: Opt.some(Web3SignerForkInfo(
+      fork: fork, genesis_validators_root: genesis_validators_root
+    )),
+    signingRoot: signingRoot,
+    forkedAggregateAndProof:
+      ForkedAggregateAndProof.init(data, typeof(data).kind)
   )
 
 func init*(t: typedesc[Web3SignerRequest], fork: Fork,

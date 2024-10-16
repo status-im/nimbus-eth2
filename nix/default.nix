@@ -59,10 +59,13 @@ in stdenv.mkDerivation rec {
     pushd vendor/nimbus-build-system/vendor/Nim
     mkdir dist
     cp -r ${callPackage ./nimble.nix {}}    dist/nimble
-    cp -r ${callPackage ./checksums.nix {}} dist/checksums
+    chmod 777 -R dist/nimble
+    mkdir -p dist/nimble/dist
+    cp -r ${callPackage ./sat.nix {}}       dist/nimble/dist/sat
+    cp -r ${callPackage ./checksums.nix {}} dist/checksums  # need both
+    cp -r ${callPackage ./checksums.nix {}} dist/nimble/dist/checksums
     cp -r ${callPackage ./csources.nix {}}  csources_v2
     chmod 777 -R dist/nimble csources_v2
-    sed -i 's/isGitRepo(destDir)/false/' tools/deps.nim
     popd
   '';
 

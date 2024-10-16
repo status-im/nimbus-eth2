@@ -155,6 +155,6 @@ Since the generalized index of a particular field may change in a hard-fork, in 
 ```
 
 Nimbus automatically computes the generalized index depending on the currently active fork.
-The remote signer is expected to verify the incoming Merkle proof through the standardized [is_valid_merkle_branch](https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.6/specs/phase0/beacon-chain.md#is_valid_merkle_branch) function by utilizing a similar automatic mapping mechanism for the generalized index.
+The remote signer is expected to verify the incoming Merkle proof through the standardized [is_valid_merkle_branch](https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.8/specs/phase0/beacon-chain.md#is_valid_merkle_branch) function by utilizing a similar automatic mapping mechanism for the generalized index.
 
 You can instruct Nimbus to use the verifying Web3Signer protocol by either supplying the `--verifying-web3-signer` command-line option or by creating a remote keystore file in the format described above. You can use the command-line option `--proven-block-property` once or multiple times to enumerate the properties of the block for which Merkle proofs will be supplied.

@@ -10,12 +10,8 @@
 import
   std/tables,
   metrics, chronicles,
-  ../spec/datatypes/phase0,
   ../spec/[beaconstate, forks, helpers],
   ../beacon_clock
-
-# TODO when forks re-exports capella, drop this
-from ../spec/datatypes/capella import shortLog
 
 logScope: topics = "val_mon"
 
@@ -170,22 +166,22 @@ type
     ## nature of gossip processing: in particular, old messages may reappear
     ## on the network and therefore be double-counted.
     attestations: int64
-    attestation_min_delay: Option[TimeDiff]
+    attestation_min_delay: Opt[TimeDiff]
     attestation_aggregate_inclusions: int64
     attestation_block_inclusions: int64
-    attestation_min_block_inclusion_distance: Option[uint64]
+    attestation_min_block_inclusion_distance: Opt[uint64]
 
     aggregates: int64
-    aggregate_min_delay: Option[TimeDiff]
+    aggregate_min_delay: Opt[TimeDiff]
 
     sync_committee_messages: int64
-    sync_committee_message_min_delay: Option[TimeDiff]
+    sync_committee_message_min_delay: Opt[TimeDiff]
 
     sync_signature_block_inclusions: int64
     sync_signature_contribution_inclusions: int64
 
     sync_contributions: int64
-    sync_contribution_min_delay: Option[TimeDiff]
+    sync_contribution_min_delay: Opt[TimeDiff]
 
     exits: int64
     proposer_slashings: int64
@@ -222,11 +218,11 @@ template toGaugeValue(v: bool): int64 =
 template toGaugeValue(v: TimeDiff): float =
   toFloatSeconds(v)
 
-proc update_if_lt[T](current: var Option[T], val: T) =
+func update_if_lt[T](current: var Opt[T], val: T) =
   if current.isNone() or val < current.get():
-    current = some(val)
+    current = Opt.some(val)
 
-proc addMonitor*(
+func addMonitor*(
     self: var ValidatorMonitor, pubkey: ValidatorPubKey,
     index: Opt[ValidatorIndex]) =
   if pubkey in self.monitors:
@@ -259,7 +255,7 @@ proc addAutoMonitor*(
   info "Started monitoring validator",
     validator = shortLog(pubkey), pubkey, index
 
-proc init*(T: type ValidatorMonitor, autoRegister = false, totals = false): T =
+func init*(T: type ValidatorMonitor, autoRegister = false, totals = false): T =
   T(autoRegister: autoRegister, totals: totals)
 
 template summaryIdx(epoch: Epoch): int = (epoch.uint64 mod 2).int
@@ -751,8 +747,6 @@ proc registerAttestationInBlock*(
       update_if_lt(
         epochSummary.attestation_min_block_inclusion_distance, inclusion_lag)
 
-from ../spec/datatypes/deneb import shortLog
-
 proc registerBeaconBlock*(
     self: var ValidatorMonitor,
     src: MsgSource,
@@ -885,7 +879,7 @@ proc registerProposerSlashing*(
 
 proc registerAttesterSlashing*(
     self: var ValidatorMonitor, src: MsgSource,
-    slashing: phase0.AttesterSlashing) =
+    slashing: phase0.AttesterSlashing | electra.AttesterSlashing) =
   let data = slashing.attestation_1.data
 
   for idx in slashing.attestation_2.attesting_indices:

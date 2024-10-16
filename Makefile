@@ -52,14 +52,12 @@ else
 endif
 
 # unconditionally built by the default Make target
-# TODO re-enable ncli_query if/when it works again
 TOOLS_CORE_CUSTOMCOMPILE := \
 	libnimbus_lc.a
 
 TOOLS_CORE := \
 	deposit_contract \
 	resttest \
-	logtrace \
 	mev_mock \
 	ncli \
 	ncli_db \
@@ -93,8 +91,6 @@ TOOLS_CSV := $(subst $(SPACE),$(COMMA),$(TOOLS))
 	deps \
 	update \
 	test \
-	clean_eth2_network_simulation_all \
-	eth2_network_simulation \
 	clean \
 	libbacktrace \
 	book \
@@ -238,12 +234,10 @@ local-testnet-minimal:
 		--signer-nodes 1 \
 		--remote-validators-count 512 \
 		--signer-type $(SIGNER_TYPE) \
-		--capella-fork-epoch 0 \
-		--deneb-fork-epoch 2 \
+		--deneb-fork-epoch 0 \
 		--stop-at-epoch 6 \
 		--disable-htop \
 		--enable-payload-builder \
-		--enable-logtrace \
 		--base-port $$(( $(MINIMAL_TESTNET_BASE_PORT) + EXECUTOR_NUMBER * 400 + 0 )) \
 		--base-rest-port $$(( $(MINIMAL_TESTNET_BASE_PORT) + EXECUTOR_NUMBER * 400 + 30 )) \
 		--base-metrics-port $$(( $(MINIMAL_TESTNET_BASE_PORT) + EXECUTOR_NUMBER * 400 + 60 )) \
@@ -268,11 +262,9 @@ local-testnet-mainnet:
 	./scripts/launch_local_testnet.sh \
 		--data-dir $@ \
 		--nodes 2 \
-		--capella-fork-epoch 0 \
-		--deneb-fork-epoch 2 \
+		--deneb-fork-epoch 0 \
 		--stop-at-epoch 6 \
 		--disable-htop \
-		--enable-logtrace \
 		--base-port $$(( $(MAINNET_TESTNET_BASE_PORT) + EXECUTOR_NUMBER * 400 + 0 )) \
 		--base-rest-port $$(( $(MAINNET_TESTNET_BASE_PORT) + EXECUTOR_NUMBER * 400 + 30 )) \
 		--base-metrics-port $$(( $(MAINNET_TESTNET_BASE_PORT) + EXECUTOR_NUMBER * 400 + 60 )) \

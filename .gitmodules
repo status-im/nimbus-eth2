@@ -230,3 +230,7 @@
 	url = https://github.com/ethereum/EIPs
 	ignore = untracked
 	branch = master
+[submodule "vendor/nim-minilru"]
+	path = vendor/nim-minilru
+	url = https://github.com/status-im/nim-minilru.git
+	branch = master

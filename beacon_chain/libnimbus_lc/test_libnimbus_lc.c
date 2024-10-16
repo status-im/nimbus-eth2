@@ -417,10 +417,10 @@ int main(void)
         printf("\n");
     }
 
-    const ETHRoot *executionRequestsRoot =
-        ETHExecutionBlockHeaderGetRequestsRoot(executionBlockHeader);
-    printf("    - requests_root: ");
-    printHexString(executionRequestsRoot, sizeof *executionRequestsRoot);
+    const ETHRoot *executionRequestsHash =
+        ETHExecutionBlockHeaderGetRequestsHash(executionBlockHeader);
+    printf("    - requests_hash: ");
+    printHexString(executionRequestsHash, sizeof *executionRequestsHash);
     printf("\n");
 
     const ETHDepositRequests *depositRequests =
@@ -525,10 +525,10 @@ int main(void)
     ETHExecutionBlockHeaderDestroy(executionBlockHeader);
 
     ETHRoot sampleTransactionsRoot = {{
-        0x73, 0x36, 0x36, 0xe8, 0x0e, 0x47, 0x60, 0x09,
-        0xd1, 0xc8, 0x9f, 0x81, 0xaa, 0x64, 0xe1, 0xfd,
-        0xf7, 0xff, 0x36, 0xd6, 0x04, 0x6e, 0x95, 0x6c,
-        0x39, 0xed, 0xcd, 0x6c, 0x95, 0x2d, 0xce, 0xc2,
+        0x7d, 0x42, 0x30, 0x71, 0x99, 0x8f, 0xab, 0x13,
+        0xf5, 0x3f, 0xc2, 0x13, 0xa3, 0xea, 0xed, 0x4f,
+        0x46, 0x68, 0x43, 0xed, 0x07, 0x4d, 0x86, 0x8e,
+        0xca, 0x02, 0x78, 0x85, 0x0c, 0xb9, 0x20, 0xe4,
     }};
     void *sampleTransactionsJson = readEntireFile(
         __DIR__ "/test_files/transactions.json", /* numBytes: */ NULL);
@@ -538,10 +538,10 @@ int main(void)
     free(sampleTransactionsJson);
 
     ETHRoot sampleReceiptsRoot = {{
-        0x51, 0x4d, 0xdf, 0xd7, 0xf8, 0x33, 0xfb, 0x2a,
-        0x4f, 0x60, 0xed, 0x49, 0xdf, 0xc7, 0x9c, 0x07,
-        0xb6, 0x9c, 0x37, 0xef, 0xd1, 0xa5, 0x97, 0xca,
-        0x42, 0x76, 0x23, 0xff, 0xa1, 0x79, 0x49, 0xae,
+        0xef, 0x6b, 0x38, 0x00, 0x44, 0x1d, 0xad, 0xba,
+        0x3c, 0xe8, 0xba, 0xed, 0xcd, 0xf8, 0x49, 0x5c,
+        0x91, 0x8d, 0x03, 0xd6, 0xf9, 0xb0, 0xb3, 0x39,
+        0xda, 0x0f, 0x6d, 0xf5, 0xfc, 0xbb, 0x1a, 0x68,
     }};
     void *sampleReceiptsJson = readEntireFile(
         __DIR__ "/test_files/receipts.json", /* numBytes: */ NULL);
@@ -563,7 +563,7 @@ int main(void)
         printHexString(transactionHash, sizeof *transactionHash);
         printf("\n");
 
-        const ETHUInt256 *transactionChainId = ETHTransactionGetChainId(transaction);
+        const uint64_t *transactionChainId = ETHTransactionGetChainId(transaction);
         printf("    - chain_id: ");
         printHexStringReversed(transactionChainId, sizeof *transactionChainId);
         printf("\n");
@@ -647,34 +647,32 @@ int main(void)
         const ETHAuthorizationList *transactionAuthorizationList =
             ETHTransactionGetAuthorizationList(transaction);
         printf("    - authorization_list:\n");
-        int numAuthorizationTuples = ETHAuthorizationListGetCount(transactionAuthorizationList);
-        for (int tupleIndex = 0; tupleIndex < numAuthorizationTuples; tupleIndex++) {
-            const ETHAuthorizationTuple *authorizationTuple =
+        int numAuthorizations = ETHAuthorizationListGetCount(transactionAuthorizationList);
+        for (int tupleIndex = 0; tupleIndex < numAuthorizations; tupleIndex++) {
+            const ETHAuthorization *authorization =
                 ETHAuthorizationListGet(transactionAuthorizationList, tupleIndex);
 
-            const ETHExecutionAddress *address =
-                ETHAuthorizationTupleGetAddress(authorizationTuple);
+            const ETHExecutionAddress *authority = ETHAuthorizationGetAuthority(authorization);
             printf("        - ");
-            printHexString(address, sizeof *address);
+            printHexString(authority, sizeof *authority);
             printf("\n");
 
-            const ETHUInt256 *chainId = ETHAuthorizationTupleGetChainId(authorizationTuple);
+            const uint64_t *chainId = ETHAuthorizationGetChainId(authorization);
             printf("            - chain_id: ");
             printHexStringReversed(chainId, sizeof *chainId);
             printf("\n");
 
-            const uint64_t *nonce = ETHAuthorizationTupleGetNonce(authorizationTuple);
-            printf("            - nonce: %" PRIu64 "\n", *nonce);
-
-            const ETHExecutionAddress *authority =
-                ETHAuthorizationTupleGetAuthority(authorizationTuple);
-            printf("            - authority: ");
-            printHexString(authority, sizeof *authority);
+            const ETHExecutionAddress *address = ETHAuthorizationGetAddress(authorization);
+            printf("            - address: ");
+            printHexString(address, sizeof *address);
             printf("\n");
+
+            const uint64_t *nonce = ETHAuthorizationGetNonce(authorization);
+            printf("            - nonce: %" PRIu64 "\n", *nonce);
 
             int numSignatureBytes;
             const void *signatureBytes =
-                ETHAuthorizationTupleGetSignatureBytes(authorizationTuple, &numSignatureBytes);
+                ETHAuthorizationGetSignatureBytes(authorization, &numSignatureBytes);
             printf("            - signature: ");
             printHexString(signatureBytes, numSignatureBytes);
             printf("\n");

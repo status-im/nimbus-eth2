@@ -19,7 +19,7 @@ type
     executionPayload*: ExecutionPayloadV1
     blockValue*: UInt256
 
-func asEth2Digest*(x: BlockHash): Eth2Digest =
+func asEth2Digest*(x: BlockHash|Bytes32): Eth2Digest =
   Eth2Digest(data: array[32, byte](x))
 
 template asBlockHash*(x: Eth2Digest): BlockHash =
@@ -56,7 +56,7 @@ func asConsensusType*(rpcExecutionPayload: ExecutionPayloadV1):
     gas_limit: rpcExecutionPayload.gasLimit.uint64,
     gas_used: rpcExecutionPayload.gasUsed.uint64,
     timestamp: rpcExecutionPayload.timestamp.uint64,
-    extra_data: List[byte, MAX_EXTRA_DATA_BYTES].init(rpcExecutionPayload.extraData.bytes),
+    extra_data: List[byte, MAX_EXTRA_DATA_BYTES].init(rpcExecutionPayload.extraData.data),
     base_fee_per_gas: rpcExecutionPayload.baseFeePerGas,
     block_hash: rpcExecutionPayload.blockHash.asEth2Digest,
     transactions: List[bellatrix.Transaction, MAX_TRANSACTIONS_PER_PAYLOAD].init(
@@ -88,7 +88,7 @@ func asConsensusType*(rpcExecutionPayload: ExecutionPayloadV1OrV2|ExecutionPaylo
     gas_limit: rpcExecutionPayload.gasLimit.uint64,
     gas_used: rpcExecutionPayload.gasUsed.uint64,
     timestamp: rpcExecutionPayload.timestamp.uint64,
-    extra_data: List[byte, MAX_EXTRA_DATA_BYTES].init(rpcExecutionPayload.extraData.bytes),
+    extra_data: List[byte, MAX_EXTRA_DATA_BYTES].init(rpcExecutionPayload.extraData.data),
     base_fee_per_gas: rpcExecutionPayload.baseFeePerGas,
     block_hash: rpcExecutionPayload.blockHash.asEth2Digest,
     transactions: List[bellatrix.Transaction, MAX_TRANSACTIONS_PER_PAYLOAD].init(
@@ -119,7 +119,7 @@ func asConsensusType*(rpcExecutionPayload: ExecutionPayloadV3):
     gas_limit: rpcExecutionPayload.gasLimit.uint64,
     gas_used: rpcExecutionPayload.gasUsed.uint64,
     timestamp: rpcExecutionPayload.timestamp.uint64,
-    extra_data: List[byte, MAX_EXTRA_DATA_BYTES].init(rpcExecutionPayload.extraData.bytes),
+    extra_data: List[byte, MAX_EXTRA_DATA_BYTES].init(rpcExecutionPayload.extraData.data),
     base_fee_per_gas: rpcExecutionPayload.baseFeePerGas,
     block_hash: rpcExecutionPayload.blockHash.asEth2Digest,
     transactions: List[bellatrix.Transaction, MAX_TRANSACTIONS_PER_PAYLOAD].init(
@@ -141,12 +141,12 @@ func asConsensusType*(payload: engine_api.GetPayloadV3Response):
     blobsBundle: deneb.BlobsBundle(
       commitments: KzgCommitments.init(
         payload.blobsBundle.commitments.mapIt(
-          kzg_abi.KzgCommitment(bytes: it.bytes))),
+          kzg_abi.KzgCommitment(bytes: it.data))),
       proofs: KzgProofs.init(
         payload.blobsBundle.proofs.mapIt(
-          kzg_abi.KzgProof(bytes: it.bytes))),
+          kzg_abi.KzgProof(bytes: it.data))),
       blobs: Blobs.init(
-        payload.blobsBundle.blobs.mapIt(it.bytes))))
+        payload.blobsBundle.blobs.mapIt(it.data))))
 
 func asConsensusType*(rpcExecutionPayload: ExecutionPayloadV4):
     electra.ExecutionPayload =
@@ -189,7 +189,7 @@ func asConsensusType*(rpcExecutionPayload: ExecutionPayloadV4):
     gas_used: rpcExecutionPayload.gasUsed.uint64,
     timestamp: rpcExecutionPayload.timestamp.uint64,
     extra_data: List[byte, MAX_EXTRA_DATA_BYTES].init(
-      rpcExecutionPayload.extraData.bytes),
+      rpcExecutionPayload.extraData.data),
     base_fee_per_gas: rpcExecutionPayload.baseFeePerGas,
     block_hash: rpcExecutionPayload.blockHash.asEth2Digest,
     transactions: List[bellatrix.Transaction, MAX_TRANSACTIONS_PER_PAYLOAD].init(
@@ -211,12 +211,12 @@ func asConsensusType*(payload: engine_api.GetPayloadV4Response):
     blobsBundle: deneb.BlobsBundle(
       commitments: KzgCommitments.init(
         payload.blobsBundle.commitments.mapIt(
-          kzg_abi.KzgCommitment(bytes: it.bytes))),
+          kzg_abi.KzgCommitment(bytes: it.data))),
       proofs: KzgProofs.init(
         payload.blobsBundle.proofs.mapIt(
-          kzg_abi.KzgProof(bytes: it.bytes))),
+          kzg_abi.KzgProof(bytes: it.data))),
       blobs: Blobs.init(
-        payload.blobsBundle.blobs.mapIt(it.bytes))))
+        payload.blobsBundle.blobs.mapIt(it.data))))
 
 func asEngineExecutionPayload*(blockBody: bellatrix.BeaconBlockBody):
     ExecutionPayloadV1 =
@@ -232,7 +232,7 @@ func asEngineExecutionPayload*(blockBody: bellatrix.BeaconBlockBody):
     receiptsRoot: executionPayload.receipts_root.asBlockHash,
     logsBloom:
       FixedBytes[BYTES_PER_LOGS_BLOOM](executionPayload.logs_bloom.data),
-    prevRandao: executionPayload.prev_randao.asBlockHash,
+    prevRandao: executionPayload.prev_randao.data.to(Bytes32),
     blockNumber: Quantity(executionPayload.block_number),
     gasLimit: Quantity(executionPayload.gas_limit),
     gasUsed: Quantity(executionPayload.gas_used),
@@ -262,7 +262,7 @@ func asEngineExecutionPayload*(blockBody: capella.BeaconBlockBody):
     receiptsRoot: executionPayload.receipts_root.asBlockHash,
     logsBloom:
       FixedBytes[BYTES_PER_LOGS_BLOOM](executionPayload.logs_bloom.data),
-    prevRandao: executionPayload.prev_randao.asBlockHash,
+    prevRandao: executionPayload.prev_randao.data.to(Bytes32),
     blockNumber: Quantity(executionPayload.block_number),
     gasLimit: Quantity(executionPayload.gas_limit),
     gasUsed: Quantity(executionPayload.gas_used),
@@ -287,7 +287,7 @@ func asEngineExecutionPayload*(blockBody: deneb.BeaconBlockBody):
     receiptsRoot: executionPayload.receipts_root.asBlockHash,
     logsBloom:
       FixedBytes[BYTES_PER_LOGS_BLOOM](executionPayload.logs_bloom.data),
-    prevRandao: executionPayload.prev_randao.asBlockHash,
+    prevRandao: executionPayload.prev_randao.data.to(Bytes32),
     blockNumber: Quantity(executionPayload.block_number),
     gasLimit: Quantity(executionPayload.gas_limit),
     gasUsed: Quantity(executionPayload.gas_used),
@@ -337,7 +337,7 @@ func asEngineExecutionPayload*(blockBody: electra.BeaconBlockBody):
     receiptsRoot: executionPayload.receipts_root.asBlockHash,
     logsBloom:
       FixedBytes[BYTES_PER_LOGS_BLOOM](executionPayload.logs_bloom.data),
-    prevRandao: executionPayload.prev_randao.asBlockHash,
+    prevRandao: executionPayload.prev_randao.data.to(Bytes32),
     blockNumber: Quantity(executionPayload.block_number),
     gasLimit: Quantity(executionPayload.gas_limit),
     gasUsed: Quantity(executionPayload.gas_used),

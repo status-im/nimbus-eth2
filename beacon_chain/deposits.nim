@@ -149,8 +149,16 @@ func getIdent*(storage: ValidatorStorage): ValidatorIdent =
 
 proc restValidatorExit(config: BeaconNodeConf) {.async.} =
   let
-    client = RestClientRef.new(config.restUrlForExit).valueOr:
-      raise (ref RestError)(msg: $error)
+    client =
+      block:
+        let
+          flags = {RestClientFlag.CommaSeparatedArray,
+                   RestClientFlag.ResolveAlways}
+          socketFlags = {SocketFlags.TcpNoDelay}
+
+        RestClientRef.new(config.restUrlForExit, flags = flags,
+                          socketFlags = socketFlags).valueOr:
+          raise (ref RestError)(msg: $error)
 
     stateIdHead = StateIdent(kind: StateQueryKind.Named,
                              value: StateIdentType.Head)
@@ -220,7 +228,7 @@ proc restValidatorExit(config: BeaconNodeConf) {.async.} =
            reason = exc.msg
     quit 1
 
-  # https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.6/specs/phase0/beacon-chain.md#voluntary-exits
+  # https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.8/specs/phase0/beacon-chain.md#voluntary-exits
   # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.0/specs/deneb/beacon-chain.md#modified-process_voluntary_exit
   let signingFork = try:
     let response = await client.getSpecVC()

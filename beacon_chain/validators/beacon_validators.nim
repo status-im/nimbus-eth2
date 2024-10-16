@@ -27,7 +27,6 @@ import
   kzg4844,
 
   # Local modules
-  ../spec/datatypes/[phase0, altair, bellatrix],
   ../spec/[
     eth2_merkleization, forks, helpers, network, signatures, state_transition,
     validator],
@@ -81,7 +80,7 @@ type
     blck*: ForkedBeaconBlock
     executionPayloadValue*: Wei
     consensusBlockValue*: UInt256
-    blobsBundleOpt*: Opt[BlobsBundle]
+    blobsBundleOpt*: Opt[deneb.BlobsBundle]
 
   BuilderBid[SBBB] = object
     blindedBlckPart*: SBBB
@@ -113,7 +112,7 @@ func init(t: typedesc[BoostFactor], value: uint8): BoostFactor =
 func init(t: typedesc[BoostFactor], value: uint64): BoostFactor =
   BoostFactor(kind: BoostFactorKind.Builder, value64: value)
 
-proc getValidator*(validators: auto,
+func getValidator*(validators: auto,
                    pubkey: ValidatorPubKey): Opt[ValidatorAndIndex] =
   let idx = validators.findIt(it.pubkey == pubkey)
   if idx == -1:
@@ -226,7 +225,7 @@ proc pollForDynamicValidators*(node: BeaconNode,
           # interval.
           seconds(5)
 
-proc getValidator*(node: BeaconNode, idx: ValidatorIndex): Opt[AttachedValidator] =
+func getValidator*(node: BeaconNode, idx: ValidatorIndex): Opt[AttachedValidator] =
   let key = ? node.dag.validatorKey(idx)
   node.attachedValidators[].getValidator(key.toPubKey())
 
@@ -396,8 +395,6 @@ proc getGasLimit(node: BeaconNode,
   node.consensusManager[].getGasLimit(pubkey)
 
 from web3/engine_api_types import PayloadExecutionStatus
-from ../spec/datatypes/capella import BeaconBlock, ExecutionPayload
-from ../spec/datatypes/deneb import BeaconBlock, ExecutionPayload, shortLog
 from ../spec/beaconstate import get_expected_withdrawals
 
 proc getExecutionPayload(
@@ -490,7 +487,7 @@ proc makeBeaconBlockForHeadAndSlot*(
         withState(state[]):
           when  consensusFork >= ConsensusFork.Capella and
                 PayloadType.kind >= ConsensusFork.Capella:
-            let withdrawals = List[Withdrawal, MAX_WITHDRAWALS_PER_PAYLOAD](
+            let withdrawals = List[capella.Withdrawal, MAX_WITHDRAWALS_PER_PAYLOAD](
               get_expected_withdrawals(forkyState.data))
             if  withdrawals_root.isNone or
                 hash_tree_root(withdrawals) != withdrawals_root.get:
@@ -654,7 +651,7 @@ proc getBlindedExecutionPayload[
 from ./message_router_mev import
   copyFields, getFieldNames, unblindAndRouteBlockMEV
 
-proc constructSignableBlindedBlock[T: deneb_mev.SignedBlindedBeaconBlock](
+func constructSignableBlindedBlock[T: deneb_mev.SignedBlindedBeaconBlock](
     blck: deneb.BeaconBlock,
     blindedBundle: deneb_mev.BlindedExecutionPayloadAndBlobsBundle): T =
   # Leaves signature field default, to be filled in by caller
@@ -676,7 +673,7 @@ proc constructSignableBlindedBlock[T: deneb_mev.SignedBlindedBeaconBlock](
 
   blindedBlock
 
-proc constructSignableBlindedBlock[T: electra_mev.SignedBlindedBeaconBlock](
+func constructSignableBlindedBlock[T: electra_mev.SignedBlindedBeaconBlock](
     blck: electra.BeaconBlock,
     blindedBundle: electra_mev.BlindedExecutionPayloadAndBlobsBundle): T =
   # Leaves signature field default, to be filled in by caller
@@ -780,7 +777,7 @@ proc blindedBlockCheckSlashingAndSign[
 
   return ok blindedBlock
 
-proc getUnsignedBlindedBeaconBlock[
+func getUnsignedBlindedBeaconBlock[
     T: deneb_mev.SignedBlindedBeaconBlock |
        electra_mev.SignedBlindedBeaconBlock](
     node: BeaconNode, slot: Slot,
@@ -1592,37 +1589,52 @@ proc signAndSendAggregate(
       res.get()
 
   # https://github.com/ethereum/consensus-specs/blob/v1.4.0/specs/phase0/validator.md#aggregation-selection
-  if not is_aggregator(
-      shufflingRef, slot, committee_index, selectionProof):
+  if not is_aggregator(shufflingRef, slot, committee_index, selectionProof):
     return
 
-  # https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.6/specs/phase0/validator.md#construct-aggregate
-  # https://github.com/ethereum/consensus-specs/blob/v1.4.0/specs/phase0/validator.md#aggregateandproof
-  var
-    msg = phase0.SignedAggregateAndProof(
-      message: phase0.AggregateAndProof(
-        aggregator_index: uint64 validator_index,
+  template signAndSendAggregatedAttestations() =
+    msg.signature = block:
+      let res = await validator.getAggregateAndProofSignature(
+        fork, genesis_validators_root, msg.message)
+
+      if res.isErr():
+        warn "Unable to sign aggregate",
+              validator = shortLog(validator), error_msg = res.error()
+        return
+      res.get()
+
+    validator.doppelgangerActivity(msg.message.aggregate.data.slot.epoch)
+
+    # Logged in the router
+    discard await node.router.routeSignedAggregateAndProof(
+      msg, checkSignature = false)
+
+  if node.dag.cfg.consensusForkAtEpoch(slot.epoch) >= ConsensusFork.Electra:
+    # https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.8/specs/electra/validator.md#construct-aggregate
+    # https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.8/specs/electra/validator.md#aggregateandproof
+    var msg = electra.SignedAggregateAndProof(
+      message: electra.AggregateAndProof(
+        aggregator_index: distinctBase validator_index,
         selection_proof: selectionProof))
 
-  msg.message.aggregate = node.attestationPool[].getAggregatedAttestation(
-    slot, committee_index).valueOr:
-      return
+    msg.message.aggregate = node.attestationPool[].getElectraAggregatedAttestation(
+      slot, committee_index).valueOr:
+        return
 
-  msg.signature = block:
-    let res = await validator.getAggregateAndProofSignature(
-      fork, genesis_validators_root, msg.message)
+    signAndSendAggregatedAttestations()
+  else:
+    # https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.8/specs/phase0/validator.md#construct-aggregate
+    # https://github.com/ethereum/consensus-specs/blob/v1.4.0/specs/phase0/validator.md#aggregateandproof
+    var msg = phase0.SignedAggregateAndProof(
+      message: phase0.AggregateAndProof(
+        aggregator_index: distinctBase validator_index,
+        selection_proof: selectionProof))
 
-    if res.isErr():
-      warn "Unable to sign aggregate",
-            validator = shortLog(validator), error_msg = res.error()
-      return
-    res.get()
+    msg.message.aggregate = node.attestationPool[].getPhase0AggregatedAttestation(
+      slot, committee_index).valueOr:
+        return
 
-  validator.doppelgangerActivity(msg.message.aggregate.data.slot.epoch)
-
-  # Logged in the router
-  discard await node.router.routeSignedAggregateAndProof(
-    msg, checkSignature = false)
+    signAndSendAggregatedAttestations()
 
 proc sendAggregatedAttestations(
     node: BeaconNode, head: BlockRef, slot: Slot) =
@@ -1718,11 +1730,16 @@ proc registerValidatorsPerBuilder(
     BUILDER_VALIDATOR_REGISTRATION_DELAY_TOLERANCE = 6.seconds
 
   let payloadBuilderClient =
-      RestClientRef.new(payloadBuilderAddress).valueOr:
-    debug "Unable to initialize payload builder client while registering validators",
-      payloadBuilderAddress, epoch,
-      err = error
-    return
+    block:
+      let
+        flags = {RestClientFlag.CommaSeparatedArray,
+                 RestClientFlag.ResolveAlways}
+        socketFlags = {SocketFlags.TcpNoDelay}
+      RestClientRef.new(payloadBuilderAddress, flags = flags,
+                        socketFlags = socketFlags).valueOr:
+        debug "Unable to initialize payload builder client while registering validators",
+          payloadBuilderAddress, epoch, reason = error
+        return
 
   if payloadBuilderClient.isNil:
     debug "registerValidatorsPerBuilder: got nil payload builder REST client reference",
@@ -1962,8 +1979,8 @@ proc handleValidatorDuties*(node: BeaconNode, lastSlot, slot: Slot) {.async: (ra
 
   updateValidatorMetrics(node) # the important stuff is done, update the vanity numbers
 
-  # https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.6/specs/phase0/validator.md#broadcast-aggregate
-  # https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.6/specs/altair/validator.md#broadcast-sync-committee-contribution
+  # https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.8/specs/phase0/validator.md#broadcast-aggregate
+  # https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.8/specs/altair/validator.md#broadcast-sync-committee-contribution
   # Wait 2 / 3 of the slot time to allow messages to propagate, then collect
   # the result in aggregates
   static:

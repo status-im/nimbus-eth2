@@ -8,7 +8,7 @@
 {.push raises: [].}
 
 import
-  std/[json, options],
+  std/[json, options, times],
   chronos, bearssl/rand, chronicles, confutils, stint, json_serialization,
   web3, eth/keys, eth/p2p/discoveryv5/random2,
   stew/[io2, byteutils], json_rpc/jsonmarshal,
@@ -18,8 +18,7 @@ import
   ../beacon_chain/spec/eth2_merkleization,
   ../beacon_chain/spec/datatypes/base,
   ../beacon_chain/spec/eth2_apis/eth2_rest_serialization,
-  ../beacon_chain/validators/keystore_management,
-  ./logtrace
+  ../beacon_chain/validators/keystore_management
 
 from std/os import changeFileExt, fileExists
 from std/times import toUnix
@@ -39,7 +38,6 @@ type
     createTestnetEnr
     run
     sendDeposits
-    analyzeLogs
     deployDepositContract
     sendEth
 
@@ -158,6 +156,11 @@ type
         desc: "The epoch of the Deneb hard-fork"
         name: "deneb-fork-epoch" .}: Epoch
 
+      electraForkEpoch* {.
+        defaultValue: FAR_FUTURE_EPOCH
+        desc: "The epoch of the Electra hard-fork"
+        name: "electra-fork-epoch" .}: Epoch
+
       outputGenesis* {.
         desc: "Output file where to write the initial state snapshot"
         name: "output-genesis" .}: OutFile
@@ -222,51 +225,6 @@ type
     of StartUpCommand.run:
       discard
 
-    of StartUpCommand.analyzeLogs:
-      logFiles* {.
-        desc: "Specifies one or more log files",
-        abbr: "f",
-        name: "log-file" .}: seq[string]
-
-      simDir* {.
-        desc: "Specifies path to eth2_network_simulation directory",
-        defaultValue: "",
-        name: "sim-dir" .}: string
-
-      netDir* {.
-        desc: "Specifies path to network build directory",
-        defaultValue: "",
-        name: "net-dir" .}: string
-
-      logDir* {.
-        desc: "Specifies path with bunch of logs",
-        defaultValue: "",
-        name: "log-dir" .}: string
-
-      ignoreSerializationErrors* {.
-        desc: "Ignore serialization errors while parsing log files",
-        defaultValue: true,
-        name: "ignore-errors" .}: bool
-
-      dumpSerializationErrors* {.
-        desc: "Dump full serialization errors while parsing log files",
-        defaultValue: false ,
-        name: "dump-errors" .}: bool
-
-      nodes* {.
-        desc: "Specifies node names which logs will be used",
-        name: "nodes" .}: seq[string]
-
-      allowedLag* {.
-        desc: "Allowed latency lag multiplier",
-        defaultValue: 2.0,
-        name: "lag" .}: float
-
-      constPreset* {.
-        desc: "The const preset being used"
-        defaultValue: "mainnet"
-        name: "const-preset" .}: string
-
 type
   PubKeyBytes = DynamicBytes[48, 48]
   WithdrawalCredentialsBytes = DynamicBytes[32, 32]
@@ -276,7 +234,7 @@ contract(DepositContract):
   proc deposit(pubkey: PubKeyBytes,
                withdrawalCredentials: WithdrawalCredentialsBytes,
                signature: SignatureBytes,
-               deposit_data_root: FixedBytes[32])
+               deposit_data_root: web3.FixedBytes[32])
 
 template `as`(address: Eth1Address, T: type bellatrix.ExecutionAddress): T =
   T(data: distinctBase(address))
@@ -342,6 +300,25 @@ func `as`(blk: BlockObject, T: type deneb.ExecutionPayloadHeader): T =
     blob_gas_used: uint64 blk.blobGasUsed.getOrDefault(),
     excess_blob_gas: uint64 blk.excessBlobGas.getOrDefault())
 
+func `as`(blk: BlockObject, T: type electra.ExecutionPayloadHeader): T =
+  T(parent_hash: blk.parentHash as Eth2Digest,
+    fee_recipient: blk.miner as ExecutionAddress,
+    state_root: blk.stateRoot as Eth2Digest,
+    receipts_root: blk.receiptsRoot as Eth2Digest,
+    logs_bloom: BloomLogs(data: distinctBase(blk.logsBloom)),
+    prev_randao: Eth2Digest(data: blk.difficulty.toByteArrayBE),
+    block_number: uint64 blk.number,
+    gas_limit: uint64 blk.gasLimit,
+    gas_used: uint64 blk.gasUsed,
+    timestamp: uint64 blk.timestamp,
+    extra_data: List[byte, MAX_EXTRA_DATA_BYTES].init(blk.extraData.bytes),
+    base_fee_per_gas: blk.baseFeePerGas.getOrDefault(),
+    block_hash: blk.hash as Eth2Digest,
+    transactions_root: blk.transactionsRoot as Eth2Digest,
+    withdrawals_root: blk.withdrawalsRoot.getOrDefault() as Eth2Digest,
+    blob_gas_used: uint64 blk.blobGasUsed.getOrDefault(),
+    excess_blob_gas: uint64 blk.excessBlobGas.getOrDefault())
+
 func createDepositContractSnapshot(
     deposits: seq[DepositData],
     blockHash: Eth2Digest,
@@ -355,6 +332,26 @@ func createDepositContractSnapshot(
     eth1Block: blockHash,
     depositContractState: merkleizer.toDepositContractState,
     blockHeight: blockHeight)
+
+proc writeValue*(writer: var JsonWriter, value: DateTime) {.
+     raises: [IOError].} =
+  writer.writeValue($value)
+
+proc readValue*(reader: var JsonReader, value: var DateTime) {.
+     raises: [IOError, SerializationError].} =
+  let s = reader.readValue(string)
+  try:
+    value = parse(s, "YYYY-MM-dd HH:mm:ss'.'fffzzz", utc())
+  except CatchableError:
+    raiseUnexpectedValue(reader, "Invalid date time")
+
+proc writeValue*(writer: var JsonWriter, value: IoErrorCode) {.
+     raises: [IOError].} =
+  writer.writeValue(distinctBase value)
+
+proc readValue*(reader: var JsonReader, value: var IoErrorCode) {.
+     raises: [IOError, SerializationError].} =
+  IoErrorCode reader.readValue(distinctBase IoErrorCode)
 
 proc createEnr(rng: var HmacDrbgContext,
                dataDir: string,
@@ -464,7 +461,9 @@ proc doCreateTestnet*(config: CliConfig,
     initialState[].genesis_validators_root
 
   let genesisValidatorsRoot =
-    if config.denebForkEpoch == 0:
+    if config.electraForkEpoch == 0:
+      createAndSaveState(genesisBlock as electra.ExecutionPayloadHeader)
+    elif config.denebForkEpoch == 0:
       createAndSaveState(genesisBlock as deneb.ExecutionPayloadHeader)
     elif config.capellaForkEpoch == 0:
       createAndSaveState(genesisBlock as capella.ExecutionPayloadHeader)
@@ -698,26 +697,6 @@ when isMainModule:
 
     of StartUpCommand.run:
       discard
-
-    of StartUpCommand.analyzeLogs:
-      try:
-        logtrace.run(LogTraceConf(
-          cmd: logtrace.StartUpCommand.localSimChecks,
-          logFiles: conf.logFiles,
-          simDir: conf.simDir,
-          netDir: conf.netDir,
-          logDir: conf.logDir,
-          ignoreSerializationErrors: conf.ignoreSerializationErrors,
-          dumpSerializationErrors: conf.dumpSerializationErrors,
-          nodes: conf.nodes,
-          allowedLag: conf.allowedLag,
-          constPreset: conf.constPreset
-        ))
-      except CatchableError as err:
-        fatal "Unexpected error in logtrace", err = err.msg
-      except Exception as exc:
-        # TODO: Investigate where is this coming from?
-        fatal "Unexpected exception in logtrace", err = exc.msg
 
     of StartUpCommand.generateDeposits:
       # This is handled above before the case statement

@@ -9,11 +9,11 @@
 
 import
   std/[json, sequtils, times],
-  eth/common/[eth_types_rlp, transaction],
+  eth/common/eth_types_rlp,
   eth/keys,
   eth/p2p/discoveryv5/random2,
   eth/rlp,
-  eth/trie/[db, hexary],
+  eth/trie/ordered_trie,
   json_rpc/jsonmarshal,
   secp256k1,
   snappy,
@@ -78,7 +78,7 @@ proc ETHConsensusConfigCreateFromYaml(
   ## * `NULL` - If the given `config.yaml` is malformed or incompatible.
   ##
   ## See:
-  ## * https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.6/configs/README.md
+  ## * https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.8/configs/README.md
   let cfg = RuntimeConfig.new()
   try:
     cfg[] = readRuntimeConfig($configFileContent, "config.yaml")[0]
@@ -144,9 +144,9 @@ proc ETHBeaconStateCreateFromSsz(
   ## See:
   ## * https://github.com/ethereum/consensus-specs/blob/v1.4.0/specs/phase0/beacon-chain.md#beaconstate
   ## * https://github.com/ethereum/consensus-specs/blob/v1.4.0/specs/altair/beacon-chain.md#beaconstate
-  ## * https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.6/specs/bellatrix/beacon-chain.md#beaconstate
+  ## * https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.8/specs/bellatrix/beacon-chain.md#beaconstate
   ## * https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.3/specs/capella/beacon-chain.md#beaconstate
-  ## * https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.6/configs/README.md
+  ## * https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.8/configs/README.md
   let
     consensusFork = ConsensusFork.decodeString($consensusVersion).valueOr:
       return nil
@@ -329,8 +329,8 @@ proc ETHLightClientStoreCreateFromBootstrap(
   ## See:
   ## * https://ethereum.github.io/beacon-APIs/?urls.primaryName=v2.4.1#/Beacon/getLightClientBootstrap
   ## * https://ethereum.github.io/beacon-APIs/?urls.primaryName=v2.4.1#/Events/eventstream
-  ## * https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.6/specs/altair/light-client/light-client.md
-  ## * https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.6/specs/phase0/weak-subjectivity.md#weak-subjectivity-period
+  ## * https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.8/specs/altair/light-client/light-client.md
+  ## * https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.8/specs/phase0/weak-subjectivity.md#weak-subjectivity-period
   let
     mediaType = MediaType.init($mediaType)
     consensusFork = ConsensusFork.decodeString($consensusVersion).valueOr:
@@ -736,7 +736,7 @@ func ETHLightClientStoreGetFinalizedHeader(
   ## * Latest finalized header.
   ##
   ## See:
-  ## * https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.6/specs/capella/light-client/sync-protocol.md#modified-lightclientheader
+  ## * https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.8/specs/capella/light-client/sync-protocol.md#modified-lightclientheader
   addr store[].finalized_header
 
 func ETHLightClientStoreIsNextSyncCommitteeKnown(
@@ -756,7 +756,7 @@ func ETHLightClientStoreIsNextSyncCommitteeKnown(
   ##
   ## See:
   ## * https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.3/specs/altair/light-client/sync-protocol.md#is_next_sync_committee_known
-  ## * https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.6/specs/altair/light-client/light-client.md
+  ## * https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.8/specs/altair/light-client/light-client.md
   store[].is_next_sync_committee_known
 
 func ETHLightClientStoreGetOptimisticHeader(
@@ -842,7 +842,7 @@ proc ETHLightClientHeaderCopyBeaconRoot(
   ## * Pointer to a copy of the given header's beacon block root.
   ##
   ## See:
-  ## * https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.6/specs/phase0/beacon-chain.md#hash_tree_root
+  ## * https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.8/specs/phase0/beacon-chain.md#hash_tree_root
   discard cfg  # Future-proof against new fields, see `get_lc_execution_root`.
   let root = Eth2Digest.new()
   root[] = header[].beacon.hash_tree_root()
@@ -864,7 +864,7 @@ func ETHLightClientHeaderGetBeacon(
   ## * Beacon block header.
   ##
   ## See:
-  ## * https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.6/specs/phase0/beacon-chain.md#beaconblockheader
+  ## * https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.8/specs/phase0/beacon-chain.md#beaconblockheader
   addr header[].beacon
 
 func ETHBeaconBlockHeaderGetSlot(
@@ -1206,10 +1206,16 @@ type
     transactionsRoot: Eth2Digest
     withdrawalsRoot: Eth2Digest
     withdrawals: seq[ETHWithdrawal]
-    requestsRoot: Eth2Digest
+    requestsHash: Eth2Digest
     depositRequests: seq[ETHDepositRequest]
     withdrawalRequests: seq[ETHWithdrawalRequest]
     consolidationRequests: seq[ETHConsolidationRequest]
+
+template append*(
+    w: var RlpWriter, v:
+      ETHWithdrawal | ETHDepositRequest | ETHWithdrawalRequest |
+      ETHConsolidationRequest) =
+  w.appendRawBytes(v.bytes)
 
 proc ETHExecutionBlockHeaderCreateFromJson(
     executionHash: ptr Eth2Digest,
@@ -1282,28 +1288,28 @@ proc ETHExecutionBlockHeaderCreateFromJson(
     doAssert sizeof(uint64) == sizeof(data.gasUsed)
   if data.nonce.isNone:
     return nil
-  let blockHeader = ExecutionBlockHeader(
-    parentHash: data.parentHash.asEth2Digest,
-    ommersHash: data.sha3Uncles.asEth2Digest,
-    coinbase: distinctBase(data.miner),
-    stateRoot: data.stateRoot.asEth2Digest,
-    txRoot: data.transactionsRoot.asEth2Digest,
-    receiptsRoot: data.receiptsRoot.asEth2Digest,
-    logsBloom: distinctBase(data.logsBloom),
+  let blockHeader = eth_types.Header(
+    parentHash: data.parentHash.asEth2Digest.to(Hash32),
+    ommersHash: data.sha3Uncles.asEth2Digest.to(Hash32),
+    coinbase: distinctBase(data.miner).to(EthAddress),
+    stateRoot: data.stateRoot.asEth2Digest.to(Hash32),
+    transactionsRoot: data.transactionsRoot.asEth2Digest.to(Hash32),
+    receiptsRoot: data.receiptsRoot.asEth2Digest.to(Hash32),
+    logsBloom: distinctBase(data.logsBloom).to(Bloom),
     difficulty: data.difficulty,
     number: distinctBase(data.number),
     gasLimit: distinctBase(data.gasLimit),
     gasUsed: distinctBase(data.gasUsed),
     timestamp: EthTime(distinctBase(data.timestamp)),
     extraData: distinctBase(data.extraData),
-    mixHash: data.mixHash.asEth2Digest,
-    nonce: distinctBase(data.nonce.get),
+    mixHash: Bytes32 data.mixHash,
+    nonce: distinctBase(data.nonce.get).to(Bytes8),
     baseFeePerGas: data.baseFeePerGas,
     withdrawalsRoot:
       if data.withdrawalsRoot.isSome:
-        Opt.some(data.withdrawalsRoot.get.asEth2Digest)
+        Opt.some(data.withdrawalsRoot.get.asEth2Digest.to(Hash32))
       else:
-        Opt.none(ExecutionHash256),
+        Opt.none(Hash32),
     blobGasUsed:
       if data.blobGasUsed.isSome:
         Opt.some distinctBase(data.blobGasUsed.get)
@@ -1316,14 +1322,14 @@ proc ETHExecutionBlockHeaderCreateFromJson(
         Opt.none(uint64),
     parentBeaconBlockRoot:
       if data.parentBeaconBlockRoot.isSome:
-        Opt.some distinctBase(data.parentBeaconBlockRoot.get.asEth2Digest)
+        Opt.some data.parentBeaconBlockRoot.get.asEth2Digest.to(Hash32)
       else:
-        Opt.none(ExecutionHash256),
-    requestsRoot:
+        Opt.none(Hash32),
+    requestsHash:
       if data.requestsRoot.isSome:
-        Opt.some(data.requestsRoot.get.asEth2Digest)
+        Opt.some(data.requestsRoot.get.asEth2Digest.to(Hash32))
       else:
-        Opt.none(ExecutionHash256))
+        Opt.none(Hash32))
   if rlpHash(blockHeader) != executionHash[]:
     return nil
 
@@ -1340,10 +1346,10 @@ proc ETHExecutionBlockHeaderCreateFromJson(
 
       # Construct withdrawal
       let
-        wd = ExecutionWithdrawal(
+        wd = eth_types.EthWithdrawal(
           index: distinctBase(data.index),
           validatorIndex: distinctBase(data.validatorIndex),
-          address: distinctBase(data.address),
+          address: distinctBase(data.address).to(EthAddress),
           amount: distinctBase(data.amount))
         rlpBytes =
           try:
@@ -1354,17 +1360,12 @@ proc ETHExecutionBlockHeaderCreateFromJson(
       wds.add ETHWithdrawal(
         index: wd.index,
         validatorIndex: wd.validatorIndex,
-        address: ExecutionAddress(data: wd.address),
+        address: ExecutionAddress(data: wd.address.data),
         amount: wd.amount,
         bytes: rlpBytes)
 
-    var tr = initHexaryTrie(newMemoryDB())
-    for i, wd in wds:
-      try:
-        tr.put(rlp.encode(i.uint), wd.bytes)
-      except RlpError:
-        raiseAssert "Unreachable"
-    if tr.rootHash() != data.withdrawalsRoot.get.asEth2Digest:
+    let tr = orderedTrieRoot(wds)
+    if tr != data.withdrawalsRoot.get.asEth2Digest:
       return nil
 
   # Construct deposit requests
@@ -1379,11 +1380,11 @@ proc ETHExecutionBlockHeaderCreateFromJson(
 
       # Construct deposit request
       let
-        req = ExecutionDepositRequest(
-          pubkey: distinctBase(data.pubkey),
-          withdrawalCredentials: distinctBase(data.withdrawalCredentials),
+        req = eth_types.EthDepositRequest(
+          pubkey: distinctBase(data.pubkey).to(Bytes48),
+          withdrawalCredentials: distinctBase(data.withdrawalCredentials).to(Bytes32),
           amount: distinctBase(data.amount),
-          signature: distinctBase(data.signature),
+          signature: distinctBase(data.signature).to(Bytes96),
           index: distinctBase(data.index))
         rlpBytes =
           try:
@@ -1392,10 +1393,10 @@ proc ETHExecutionBlockHeaderCreateFromJson(
             raiseAssert "Unreachable"
 
       depositRequests.add ETHDepositRequest(
-        pubkey: ValidatorPubKey(blob: req.pubkey),
-        withdrawalCredentials: req.withdrawalCredentials,
+        pubkey: ValidatorPubKey(blob: req.pubkey.data),
+        withdrawalCredentials: req.withdrawalCredentials.data,
         amount: req.amount,
-        signature: ValidatorSig(blob: req.signature),
+        signature: ValidatorSig(blob: req.signature.data),
         index: req.index,
         bytes: rlpBytes)
 
@@ -1411,9 +1412,9 @@ proc ETHExecutionBlockHeaderCreateFromJson(
 
       # Construct withdrawal request
       let
-        req = ExecutionWithdrawalRequest(
-          sourceAddress: distinctBase(data.sourceAddress),
-          validatorPubkey: distinctBase(data.validatorPubkey),
+        req = eth_types.EthWithdrawalRequest(
+          sourceAddress: distinctBase(data.sourceAddress).to(EthAddress),
+          validatorPubkey: distinctBase(data.validatorPubkey).to(Bytes48),
           amount: distinctBase(data.amount))
         rlpBytes =
           try:
@@ -1422,8 +1423,8 @@ proc ETHExecutionBlockHeaderCreateFromJson(
             raiseAssert "Unreachable"
 
       withdrawalRequests.add ETHWithdrawalRequest(
-        sourceAddress: ExecutionAddress(data: req.sourceAddress),
-        validatorPubkey: ValidatorPubKey(blob: req.validatorPubkey),
+        sourceAddress: ExecutionAddress(data: req.sourceAddress.data),
+        validatorPubkey: ValidatorPubKey(blob: req.validatorPubkey.data),
         amount: req.amount,
         bytes: rlpBytes)
 
@@ -1439,10 +1440,10 @@ proc ETHExecutionBlockHeaderCreateFromJson(
 
       # Construct consolidation request
       let
-        req = ExecutionConsolidationRequest(
-          sourceAddress: distinctBase(data.sourceAddress),
-          sourcePubkey: distinctBase(data.sourcePubkey),
-          targetPubkey: distinctBase(data.targetPubkey))
+        req = eth_types.EthConsolidationRequest(
+          sourceAddress: distinctBase(data.sourceAddress).to(EthAddress),
+          sourcePubkey: distinctBase(data.sourcePubkey).to(Bytes48),
+          targetPubkey: distinctBase(data.targetPubkey).to(Bytes48))
         rlpBytes =
           try:
             rlp.encode(req)
@@ -1450,47 +1451,33 @@ proc ETHExecutionBlockHeaderCreateFromJson(
             raiseAssert "Unreachable"
 
       consolidationRequests.add ETHConsolidationRequest(
-        sourceAddress: ExecutionAddress(data: req.sourceAddress),
-        sourcePubkey: ValidatorPubKey(blob: req.sourcePubkey),
-        targetPubkey: ValidatorPubKey(blob: req.targetPubkey),
+        sourceAddress: ExecutionAddress(data: req.sourceAddress.data),
+        sourcePubkey: ValidatorPubKey(blob: req.sourcePubkey.data),
+        targetPubkey: ValidatorPubKey(blob: req.targetPubkey.data),
         bytes: rlpBytes)
 
-  # Verify requests root
+  # Verify requests hash
   if data.depositRequests.isSome or
       data.withdrawalRequests.isSome or
       data.consolidationRequests.isSome:
     doAssert data.requestsRoot.isSome  # Checked above
 
-    var
-      tr = initHexaryTrie(newMemoryDB())
-      i = 0'u64
-    for req in depositRequests:
-      try:
-        tr.put(rlp.encode(i.uint), req.bytes)
-      except RlpError:
-        raiseAssert "Unreachable"
-      inc i
-    for req in withdrawalRequests:
-      try:
-        tr.put(rlp.encode(i.uint), req.bytes)
-      except RlpError:
-        raiseAssert "Unreachable"
-      inc i
-    for req in consolidationRequests:
-      try:
-        tr.put(rlp.encode(i.uint), req.bytes)
-      except RlpError:
-        raiseAssert "Unreachable"
-      inc i
-    if tr.rootHash() != data.requestsRoot.get.asEth2Digest:
+    var b = OrderedTrieRootBuilder.init(
+      depositRequests.len + withdrawalRequests.len + consolidationRequests.len)
+
+    b.add(depositRequests)
+    b.add(withdrawalRequests)
+    b.add(consolidationRequests)
+
+    if b.rootHash() != data.requestsRoot.get.asEth2Digest:
       return nil
 
   let executionBlockHeader = ETHExecutionBlockHeader.new()
   executionBlockHeader[] = ETHExecutionBlockHeader(
     transactionsRoot: blockHeader.txRoot,
-    withdrawalsRoot: blockHeader.withdrawalsRoot.get(ZERO_HASH),
+    withdrawalsRoot: blockHeader.withdrawalsRoot.get(zeroHash32),
     withdrawals: wds,
-    requestsRoot: blockHeader.requestsRoot.get(ZERO_HASH),
+    requestsHash: blockHeader.requestsHash.get(zeroHash32),
     depositRequests: depositRequests,
     withdrawalRequests: withdrawalRequests,
     consolidationRequests: consolidationRequests)
@@ -1554,10 +1541,10 @@ func ETHExecutionBlockHeaderGetWithdrawals(
   ## * Withdrawal sequence.
   addr executionBlockHeader[].withdrawals
 
-func ETHExecutionBlockHeaderGetRequestsRoot(
+func ETHExecutionBlockHeaderGetRequestsHash(
     executionBlockHeader: ptr ETHExecutionBlockHeader
 ): ptr Eth2Digest {.exported.} =
-  ## Obtains the requests MPT root of a given execution block header.
+  ## Obtains the requests hash of a given execution block header.
   ##
   ## * The returned value is allocated in the given execution block header.
   ##   It must neither be released nor written to, and the execution block
@@ -1567,8 +1554,8 @@ func ETHExecutionBlockHeaderGetRequestsRoot(
   ## * `executionBlockHeader` - Execution block header.
   ##
   ## Returns:
-  ## * Execution requests root.
-  addr executionBlockHeader[].requestsRoot
+  ## * Execution requests hash.
+  addr executionBlockHeader[].requestsHash
 
 func ETHExecutionBlockHeaderGetDepositRequests(
     executionBlockHeader: ptr ETHExecutionBlockHeader
@@ -1628,8 +1615,8 @@ type
     address: ExecutionAddress
     storageKeys: seq[Eth2Digest]
 
-  ETHAuthorizationTuple = object
-    chainId: UInt256
+  ETHAuthorization = object
+    chainId: uint64
     address: ExecutionAddress
     nonce: uint64
     authority: ExecutionAddress
@@ -1637,7 +1624,7 @@ type
 
   ETHTransaction = object
     hash: Eth2Digest
-    chainId: UInt256
+    chainId: uint64
     `from`: ExecutionAddress
     nonce: uint64
     maxPriorityFeePerGas: uint64
@@ -1651,7 +1638,7 @@ type
     maxFeePerBlobGas: UInt256
     blobVersionedHashes: seq[Eth2Digest]
     hasAuthorizationList: bool
-    authorizationList: seq[ETHAuthorizationTuple]
+    authorizationList: seq[ETHAuthorization]
     signature: seq[byte]
     bytes: TypedTransaction
     eip6404Root: Eth2Digest
@@ -1661,6 +1648,9 @@ template toSszType*(v: ChainId): auto = uint64(v)
 
 template fromSszBytes*(T: type ChainId, bytes: openArray[byte]): T =
   T fromSszBytes(uint64, bytes)
+
+template append*(w: var RlpWriter, v: ETHTransaction) =
+  w.appendRawBytes(distinctBase v.bytes)
 
 proc ETHTransactionsCreateFromJson(
     transactionsRoot #[optional]#: ptr Eth2Digest,
@@ -1752,12 +1742,11 @@ proc ETHTransactionsCreateFromJson(
     # Construct transaction
     static:
       doAssert sizeof(uint64) == sizeof(ChainId)
+      doAssert sizeof(uint64) == sizeof(data.chainId.get)
       doAssert sizeof(uint64) == sizeof(data.gas)
       doAssert sizeof(uint64) == sizeof(data.gasPrice)
       doAssert sizeof(uint64) == sizeof(data.maxPriorityFeePerGas.get)
       doAssert sizeof(UInt256) == sizeof(data.maxFeePerBlobGas.get)
-    if distinctBase(data.chainId.get(0.Quantity)) > distinctBase(ChainId.high):
-      return nil
     if data.maxFeePerBlobGas.get(0.u256) > uint64.high.u256:
       return nil
     if data.yParity.isSome:
@@ -1769,12 +1758,11 @@ proc ETHTransactionsCreateFromJson(
         return nil
     if data.authorizationList.isSome:
       for authorization in data.authorizationList.get:
-        if distinctBase(authorization.chainId) > distinctBase(ChainId.high):
-          return nil
-        if distinctBase(authorization.yParity) > 1:
+        static: doAssert sizeof(uint64) == sizeof(authorization.chainId)
+        if distinctBase(authorization.yParity) > uint8.high:
           return nil
     let
-      tx = ExecutionTransaction(
+      tx = eth_types.EthTransaction(
         txType: txType,
         chainId: data.chainId.get(0.Quantity).ChainId,
         nonce: distinctBase(data.nonce),
@@ -1785,7 +1773,7 @@ proc ETHTransactionsCreateFromJson(
         gasLimit: distinctBase(data.gas).GasInt,
         to:
           if data.to.isSome:
-            Opt.some(distinctBase(data.to.get))
+            Opt.some(distinctBase(data.to.get).to(EthAddress))
           else:
             Opt.none(EthAddress),
         value: data.value,
@@ -1793,8 +1781,8 @@ proc ETHTransactionsCreateFromJson(
         accessList:
           if data.accessList.isSome:
             data.accessList.get.mapIt(AccessPair(
-              address: distinctBase(it.address),
-              storageKeys: it.storageKeys.mapIt(distinctBase(it))))
+              address: distinctBase(it.address).to(EthAddress),
+              storageKeys: it.storageKeys.mapIt(distinctBase(it).to(Bytes32))))
           else:
             @[],
         maxFeePerBlobGas:
@@ -1802,18 +1790,18 @@ proc ETHTransactionsCreateFromJson(
         versionedHashes:
           if data.blobVersionedHashes.isSome:
             data.blobVersionedHashes.get.mapIt(
-              ExecutionHash256(data: distinctBase(it)))
+              Hash32(distinctBase(it)))
           else:
             @[],
         authorizationList:
           if data.authorizationList.isSome:
             data.authorizationList.get.mapIt(Authorization(
               chainId: it.chainId.ChainId,
-              address: distinctBase(it.address),
+              address: distinctBase(it.address).to(EthAddress),
               nonce: distinctBase(it.nonce),
-              yParity: distinctBase(it.yParity),
-              R: it.R,
-              S: it.S))
+              v: distinctBase(it.yParity),
+              r: it.R,
+              s: it.S))
           else:
             @[],
         V: distinctBase(data.v),
@@ -1835,25 +1823,28 @@ proc ETHTransactionsCreateFromJson(
       rawSig[64] = yParity
       rawSig
 
-    func recoverSignerAddress(rawSig: array[65, byte]): Opt[array[20, byte]] =
+    func recoverSignerAddress(
+        rawSig: array[65, byte],
+        hashForSigning: Hash32): Opt[array[20, byte]] =
       let
         sig = SkRecoverableSignature.fromRaw(rawSig).valueOr:
           return Opt.none(array[20, byte])
-        sigHash = SkMessage.fromBytes(tx.txHashNoSignature().data).valueOr:
+        sigHash = SkMessage.fromBytes(hashForSigning.data).valueOr:
           return Opt.none(array[20, byte])
         pubkey = sig.recover(sigHash).valueOr:
           return Opt.none(array[20, byte])
-      Opt.some keys.PublicKey(pubkey).toCanonicalAddress()
+      Opt.some keys.PublicKey(pubkey).toCanonicalAddress().data
 
     # Compute from execution address
     let
       yParity =
         if txType != TxLegacy:
-          if tx.V != 0: 1'u8 else: 0'u8
+          tx.V.uint8
         else:
-          if (tx.V and 1) == 0: 1'u8 else: 0'u8
+          ((tx.V and 1) == 0).uint8
       rawSig = packSignature(tx.R, tx.S, yParity)
-      fromAddress = recoverSignerAddress(rawSig).valueOr:
+      sigHash = tx.rlpHashForSigning(tx.isEip155())
+      fromAddress = recoverSignerAddress(rawSig, sigHash).valueOr:
         return nil
     if distinctBase(data.`from`) != fromAddress:
       return nil
@@ -1870,25 +1861,23 @@ proc ETHTransactionsCreateFromJson(
         of DestinationType.Regular:
           tx.to.get
         of DestinationType.Create:
-          var res {.noinit.}: array[20, byte]
-          res[0 ..< 20] = keccakHash(rlp.encodeList(fromAddress, tx.nonce))
-            .data.toOpenArray(12, 31)
-          res
+          let hash = keccakHash(rlp.encodeList(fromAddress, tx.nonce))
+          hash.to(EthAddress)
 
     # Compute authorizations
-    var authorizationList = newSeqOfCap[ETHAuthorizationTuple](
+    var authorizationList = newSeqOfCap[ETHAuthorization](
       tx.authorizationList.len)
     for auth in tx.authorizationList:
       let
-        signature = packSignature(auth.R, auth.S, auth.yParity.uint8)
-        authority = recoverSignerAddress(signature).valueOr:
+        sig = packSignature(auth.r, auth.s, auth.v.uint8)
+        authority = recoverSignerAddress(sig, auth.rlpHashForSigning).valueOr:
           return nil
-      authorizationList.add ETHAuthorizationTuple(
-        chainId: distinctBase(auth.chainId).u256,
-        address: ExecutionAddress(data: auth.address),
+      authorizationList.add ETHAuthorization(
+        chainId: distinctBase(auth.chainId),
+        address: ExecutionAddress(data: auth.address.data),
         nonce: auth.nonce,
         authority: ExecutionAddress(data: authority),
-        signature: @signature)
+        signature: @sig)
 
     # Compute EIP-6404 tranasaction
     const
@@ -1994,7 +1983,7 @@ proc ETHTransactionsCreateFromJson(
           Opt.none FeePerGas)
     eip6404Tx.payload.gas.ok tx.gasLimit.uint64
     if tx.to.isSome:
-      eip6404Tx.payload.to.ok(ExecutionAddress(data: tx.to.get))
+      eip6404Tx.payload.to.ok(ExecutionAddress(data: tx.to.get.data))
     eip6404Tx.payload.value.ok tx.value
     if tx.payload.len > MAX_CALLDATA_SIZE:
       return nil
@@ -2009,9 +1998,9 @@ proc ETHTransactionsCreateFromJson(
       eip6404Tx.payload.access_list
         .ok List[Eip6404AccessTuple, Limit MAX_ACCESS_LIST_SIZE]
           .init(tx.accessList.mapIt(Eip6404AccessTuple(
-            address: ExecutionAddress(data: it.address),
+            address: ExecutionAddress(data: it.address.data),
             storage_keys: List[Eth2Digest, Limit MAX_ACCESS_LIST_STORAGE_KEYS]
-              .init(it.storageKeys.mapIt(Eth2Digest(data: it))))))
+              .init(it.storageKeys.mapIt(it.asEth2Digest)))))
     if tx.txType >= TxEip1559:
       eip6404Tx.payload.max_priority_fees_per_gas.ok FeesPerGas(
         regular: Opt.some tx.maxPriorityFeePerGas.u256,
@@ -2020,6 +2009,10 @@ proc ETHTransactionsCreateFromJson(
             Opt.some FeePerGas(UInt256.zero)
           else:
             Opt.none FeePerGas)
+    if tx.txType == TxEip4844:
+      eip6404Tx.payload.blob_versioned_hashes
+        .ok List[deneb.VersionedHash, Limit MAX_BLOB_COMMITMENTS_PER_BLOCK]
+          .init(tx.versionedHashes.mapIt(it.data))
     if tx.txType == TxEip7702:
       eip6404Tx.payload.authorization_list
         .ok List[Eip6404Authorization, MAX_AUTHORIZATION_LIST_SIZE]
@@ -2031,32 +2024,31 @@ proc ETHTransactionsCreateFromJson(
                   Opt.some distinctBase(it.chainId)
                 else:
                   Opt.none(Eip6404ChainId),
-              address: Opt.some ExecutionAddress(data: it.address),
+              address: Opt.some ExecutionAddress(data: it.address.data),
               nonce: Opt.some it.nonce),
             signature: Eip6404ExecutionSignature(
-              secp256k1:
-                Opt.some packSignature(it.R, it.S, it.yParity.uint8)))))
+              secp256k1: Opt.some packSignature(it.r, it.s, it.v.uint8)))))
     eip6404Tx.signature.secp256k1.ok rawSig
 
     # Nim 1.6.14: Inlining `SSZ.encode` into constructor may corrupt memory.
     let eip6404Bytes = SSZ.encode(eip6404Tx)
     txs.add ETHTransaction(
       hash: keccakHash(rlpBytes),
-      chainId: distinctBase(tx.chainId).u256,
+      chainId: distinctBase(tx.chainId),
       `from`: ExecutionAddress(data: fromAddress),
       nonce: tx.nonce,
       maxPriorityFeePerGas: tx.maxPriorityFeePerGas.uint64,
       maxFeePerGas: tx.maxFeePerGas.uint64,
       gas: tx.gasLimit.uint64,
       destinationType: destinationType,
-      to: ExecutionAddress(data: toAddress),
+      to: ExecutionAddress(data: toAddress.data),
       value: tx.value,
       input: tx.payload,
       accessList: tx.accessList.mapIt(ETHAccessTuple(
-        address: ExecutionAddress(data: it.address),
-        storageKeys: it.storageKeys.mapIt(Eth2Digest(data: it)))),
+        address: ExecutionAddress(data: it.address.data),
+        storageKeys: it.storageKeys.mapIt(Eth2Digest(data: it.data)))),
       maxFeePerBlobGas: tx.maxFeePerBlobGas,
-      blobVersionedHashes: tx.versionedHashes,
+      blobVersionedHashes: tx.versionedHashes.mapIt(Eth2Digest(data: it.data)),
       hasAuthorizationList: tx.txType == TxEip7702,
       authorizationList: authorizationList,
       signature: @rawSig,
@@ -2065,13 +2057,7 @@ proc ETHTransactionsCreateFromJson(
       eip6404Bytes: eip6404Bytes)
 
   if transactionsRoot != nil:
-    var tr = initHexaryTrie(newMemoryDB())
-    for i, transaction in txs:
-      try:
-        tr.put(rlp.encode(i.uint), distinctBase(transaction.bytes))
-      except RlpError:
-        raiseAssert "Unreachable"
-    if tr.rootHash() != transactionsRoot[]:
+    if orderedTrieRoot(txs) != transactionsRoot[]:
       return nil
 
   let transactions = seq[ETHTransaction].new()
@@ -2135,7 +2121,7 @@ func ETHTransactionGetHash(
   addr transaction[].hash
 
 func ETHTransactionGetChainId(
-    transaction: ptr ETHTransaction): ptr UInt256 {.exported.} =
+    transaction: ptr ETHTransaction): ptr uint64 {.exported.} =
   ## Obtains the chain ID of a transaction.
   ##
   ## * The returned value is allocated in the given transaction.
@@ -2447,7 +2433,7 @@ func ETHTransactionHasAuthorizationList(
 
 func ETHTransactionGetAuthorizationList(
     transaction: ptr ETHTransaction
-): ptr seq[ETHAuthorizationTuple] {.exported.} =
+): ptr seq[ETHAuthorization] {.exported.} =
   ## Obtains the authorization list of a transaction.
   ##
   ## * The returned value is allocated in the given transaction.
@@ -2462,7 +2448,7 @@ func ETHTransactionGetAuthorizationList(
   addr transaction[].authorizationList
 
 func ETHAuthorizationListGetCount(
-    authorizationList: ptr seq[ETHAuthorizationTuple]): cint {.exported.} =
+    authorizationList: ptr seq[ETHAuthorization]): cint {.exported.} =
   ## Indicates the total number of authorization tuples
   ## in a transaction authorization list.
   ##
@@ -2477,8 +2463,8 @@ func ETHAuthorizationListGetCount(
   authorizationList[].len.cint
 
 func ETHAuthorizationListGet(
-    authorizationList: ptr seq[ETHAuthorizationTuple],
-    authorizationIndex: cint): ptr ETHAuthorizationTuple {.exported.} =
+    authorizationList: ptr seq[ETHAuthorization],
+    authorizationIndex: cint): ptr ETHAuthorization {.exported.} =
   ## Obtains an individual authorization tuple by sequential index
   ## in a transaction authorization list.
   ##
@@ -2494,8 +2480,8 @@ func ETHAuthorizationListGet(
   ## * Authorization tuple.
   addr authorizationList[][authorizationIndex.int]
 
-func ETHAuthorizationTupleGetChainId(
-    authorizationTuple: ptr ETHAuthorizationTuple): ptr UInt256 {.exported.} =
+func ETHAuthorizationGetChainId(
+    authorization: ptr ETHAuthorization): ptr uint64 {.exported.} =
   ## Obtains the chain ID of an authorization tuple.
   ##
   ## * The returned value is allocated in the given authorization tuple.
@@ -2503,14 +2489,14 @@ func ETHAuthorizationTupleGetChainId(
   ##   must not be released while the returned value is in use.
   ##
   ## Parameters:
-  ## * `authorizationTuple` - Authorization tuple.
+  ## * `authorization` - Authorization tuple.
   ##
   ## Returns:
   ## * Chain ID.
-  addr authorizationTuple[].chainId
+  addr authorization[].chainId
 
-func ETHAuthorizationTupleGetAddress(
-    authorizationTuple: ptr ETHAuthorizationTuple
+func ETHAuthorizationGetAddress(
+    authorization: ptr ETHAuthorization
 ): ptr ExecutionAddress {.exported.} =
   ## Obtains the address of an authorization tuple.
   ##
@@ -2519,14 +2505,14 @@ func ETHAuthorizationTupleGetAddress(
   ##   must not be released while the returned value is in use.
   ##
   ## Parameters:
-  ## * `authorizationTuple` - Authorization tuple.
+  ## * `authorization` - Authorization tuple.
   ##
   ## Returns:
   ## * Address.
-  addr authorizationTuple[].address
+  addr authorization[].address
 
-func ETHAuthorizationTupleGetNonce(
-    authorizationTuple: ptr ETHAuthorizationTuple): ptr uint64 {.exported.} =
+func ETHAuthorizationGetNonce(
+    authorization: ptr ETHAuthorization): ptr uint64 {.exported.} =
   ## Obtains the nonce of an authorization tuple.
   ##
   ## * The returned value is allocated in the given authorization tuple.
@@ -2534,14 +2520,14 @@ func ETHAuthorizationTupleGetNonce(
   ##   must not be released while the returned value is in use.
   ##
   ## Parameters:
-  ## * `authorizationTuple` - Authorization tuple.
+  ## * `authorization` - Authorization tuple.
   ##
   ## Returns:
   ## * Nonce.
-  addr authorizationTuple[].nonce
+  addr authorization[].nonce
 
-func ETHAuthorizationTupleGetAuthority(
-    authorizationTuple: ptr ETHAuthorizationTuple
+func ETHAuthorizationGetAuthority(
+    authorization: ptr ETHAuthorization
 ): ptr ExecutionAddress {.exported.} =
   ## Obtains the authority execution address of an authorization tuple.
   ##
@@ -2550,14 +2536,14 @@ func ETHAuthorizationTupleGetAuthority(
   ##   must not be released while the returned value is in use.
   ##
   ## Parameters:
-  ## * `authorizationTuple` - Authorization tuple.
+  ## * `authorization` - Authorization tuple.
   ##
   ## Returns:
   ## * Authority execution address.
-  addr authorizationTuple[].authority
+  addr authorization[].authority
 
-func ETHAuthorizationTupleGetSignatureBytes(
-    authorizationTuple: ptr ETHAuthorizationTuple,
+func ETHAuthorizationGetSignatureBytes(
+    authorization: ptr ETHAuthorization,
     numBytes #[out]#: ptr cint): ptr UncheckedArray[byte] {.exported.} =
   ## Obtains the signature of an authorization tuple.
   ##
@@ -2566,18 +2552,18 @@ func ETHAuthorizationTupleGetSignatureBytes(
   ##   must not be released while the returned value is in use.
   ##
   ## Parameters:
-  ## * `authorizationTuple` - Authorization tuple.
+  ## * `authorization` - Authorization tuple.
   ## * `numBytes` [out] - Length of buffer.
   ##
   ## Returns:
   ## * Buffer with signature.
-  numBytes[] = distinctBase(authorizationTuple[].signature).len.cint
-  if distinctBase(authorizationTuple[].signature).len == 0:
+  numBytes[] = distinctBase(authorization[].signature).len.cint
+  if distinctBase(authorization[].signature).len == 0:
     # https://github.com/nim-lang/Nim/issues/22389
     const defaultBytes: cstring = ""
     return cast[ptr UncheckedArray[byte]](defaultBytes)
   cast[ptr UncheckedArray[byte]](
-    addr distinctBase(authorizationTuple[].signature)[0])
+    addr distinctBase(authorization[].signature)[0])
 
 func ETHTransactionGetSignatureBytes(
     transaction: ptr ETHTransaction,
@@ -2702,6 +2688,9 @@ type
     bytes: seq[byte]
     eip6466Bytes: seq[byte]
 
+template append*(w: var RlpWriter, v: ETHReceipt) =
+  w.appendRawBytes(v.bytes)
+
 proc ETHReceiptsCreateFromJson(
     receiptsRoot #[optional]#: ptr Eth2Digest,
     receiptsJson: cstring,
@@ -2763,6 +2752,8 @@ proc ETHReceiptsCreateFromJson(
         TxEip1559
       of 3.Quantity:
         TxEip4844
+      of 4.Quantity:
+        TxEip7702
       else:
         return nil
     if data.root.isNone and data.status.isNone or
@@ -2809,20 +2800,20 @@ proc ETHReceiptsCreateFromJson(
     if distinctBase(data.cumulativeGasUsed) > int64.high.uint64:
       return nil
     let
-      rec = ExecutionReceipt(
+      rec = eth_types.EthReceipt(
         receiptType: txType,
         isHash: data.root.isSome,
         status: distinctBase(data.status.get(1.Quantity)) != 0'u64,
         hash:
           if data.root.isSome:
-            ExecutionHash256(data: distinctBase(data.root.get))
+            Hash32(distinctBase(data.root.get))
           else:
-            default(ExecutionHash256),
+            default(Hash32),
         cumulativeGasUsed: distinctBase(data.cumulativeGasUsed).GasInt,
-        logsBloom: distinctBase(data.logsBloom),
+        logsBloom: distinctBase(data.logsBloom).to(Bloom),
         logs: data.logs.mapIt(Log(
-          address: distinctBase(it.address),
-          topics: it.topics.mapIt(distinctBase(it)),
+          address: distinctBase(it.address).to(EthAddress),
+          topics: it.topics.mapIt(distinctBase(it).to(Bytes32)),
           data: it.data)))
       rlpBytes =
         try:
@@ -2868,9 +2859,9 @@ proc ETHReceiptsCreateFromJson(
       eip6466Rec.contract_address.ok ETHTransactionGetTo(transaction)[]
     eip6466Rec.logs.ok List[Eip6466Log, MAX_LOGS_PER_RECEIPT]
       .init(rec.logs.mapIt(Eip6466Log(
-        address: ExecutionAddress(data: it.address),
+        address: ExecutionAddress(data: it.address.data),
         topics: List[Eth2Digest, Limit MAX_TOPICS_PER_LOG]
-          .init(it.topics.mapIt(Eth2Digest(data: it))),
+          .init(it.topics.mapIt(it.asEth2Digest)),
         data: List[byte, Limit MAX_LOG_DATA_SIZE].init(it.data))))
     if not rec.isHash:
       eip6466Rec.status.ok rec.status
@@ -2881,7 +2872,7 @@ proc ETHReceiptsCreateFromJson(
       eip6466Rec.authorities.ok List[
         ExecutionAddress, Limit MAX_AUTHORIZATION_LIST_SIZE].init(
           (0.cint ..< numAuthorizations)
-            .mapIt ETHAuthorizationTupleGetAuthority(
+            .mapIt ETHAuthorizationGetAuthority(
               ETHAuthorizationListGet(authorizations, it))[])
 
     # Nim 1.6.14: Inlining `SSZ.encode` into constructor may corrupt memory.
@@ -2895,22 +2886,16 @@ proc ETHReceiptsCreateFromJson(
       root: rec.hash,
       status: rec.status,
       gasUsed: distinctBase(data.gasUsed),  # Validated during sanity checks.
-      logsBloom: BloomLogs(data: rec.logsBloom),
+      logsBloom: BloomLogs(data: rec.logsBloom.data),
       logs: rec.logs.mapIt(ETHLog(
-        address: ExecutionAddress(data: it.address),
-        topics: it.topics.mapIt(Eth2Digest(data: it)),
+        address: ExecutionAddress(data: it.address.data),
+        topics: it.topics.mapIt(Eth2Digest(data: it.data)),
         data: it.data)),
       bytes: rlpBytes,
       eip6466Bytes: eip6466Bytes)
 
   if receiptsRoot != nil:
-    var tr = initHexaryTrie(newMemoryDB())
-    for i, rec in recs:
-      try:
-        tr.put(rlp.encode(i.uint), rec.bytes)
-      except RlpError:
-        raiseAssert "Unreachable"
-    if tr.rootHash() != receiptsRoot[]:
+    if orderedTrieRoot(recs) != receiptsRoot[]:
       return nil
 
   let receipts = seq[ETHReceipt].new()

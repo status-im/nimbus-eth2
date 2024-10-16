@@ -26,10 +26,10 @@ jobs:
             cpu: amd64
           - os: windows
             cpu: amd64
-        branch: [upstream/version-1-6, upstream/devel]
+        branch: [upstream/version-2-0, upstream/devel]
         include:
-          - branch: upstream/version-1-6
-            branch-short: version-1-6
+          - branch: upstream/version-2-0
+            branch-short: version-2-0
           - branch: upstream/devel
             branch-short: devel
             nimflags-extra: --mm:refc
@@ -39,7 +39,7 @@ jobs:
             shell: bash
           - target:
               os: macos
-            builder: macos-11
+            builder: macos-13
             shell: bash
           - target:
               os: windows
@@ -68,8 +68,8 @@ jobs:
         if: runner.os == 'Linux' && matrix.target.cpu == 'i386'
         run: |
           sudo dpkg --add-architecture i386
-          sudo apt-fast update -qq
-          sudo DEBIAN_FRONTEND='noninteractive' apt-fast install \
+          sudo apt-get update -qq
+          sudo DEBIAN_FRONTEND='noninteractive' apt-get install \
             --no-install-recommends -yq gcc-multilib g++-multilib
           mkdir -p external/bin
           cat << EOF > external/bin/gcc

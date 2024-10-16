@@ -8,7 +8,7 @@
 {.push raises: [].}
 
 # State transition, as described in
-# https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.7/specs/phase0/beacon-chain.md#beacon-chain-state-transition-function
+# https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.8/specs/phase0/beacon-chain.md#beacon-chain-state-transition-function
 #
 # The entry point is `state_transition` which is at the bottom of the file!
 #
@@ -53,7 +53,7 @@ export results, extras, state_transition_block
 logScope:
   topics = "state_transition"
 
-# https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.6/specs/phase0/beacon-chain.md#beacon-chain-state-transition-function
+# https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.8/specs/phase0/beacon-chain.md#beacon-chain-state-transition-function
 proc verify_block_signature(
     state: ForkyBeaconState, signed_block: SomeForkySignedBeaconBlock):
     Result[void, cstring] =
@@ -365,7 +365,7 @@ func partialBeaconBlock*(
 ): auto =
   const consensusFork = typeof(state).kind
 
-  # https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.6/specs/phase0/validator.md#preparing-for-a-beaconblock
+  # https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.8/specs/phase0/validator.md#preparing-for-a-beaconblock
   var res = consensusFork.BeaconBlock(
     slot: state.data.slot,
     proposer_index: proposer_index.uint64,
@@ -375,7 +375,7 @@ func partialBeaconBlock*(
       eth1_data: eth1_data,
       graffiti: graffiti,
       proposer_slashings: validator_changes.proposer_slashings,
-      attester_slashings: validator_changes.attester_slashings,
+      attester_slashings: validator_changes.phase0_attester_slashings,
       attestations:
         List[phase0.Attestation, Limit MAX_ATTESTATIONS](attestations),
       deposits: List[Deposit, Limit MAX_DEPOSITS](deposits),
@@ -415,7 +415,6 @@ func partialBeaconBlock*(
 ): auto =
   const consensusFork = typeof(state).kind
 
-  debugComment "re-enable attester slashing packing in electra"
   # https://github.com/ethereum/consensus-specs/blob/v1.3.0/specs/phase0/validator.md#preparing-for-a-beaconblock
   consensusFork.BeaconBlock(
     slot: state.data.slot,
@@ -426,7 +425,7 @@ func partialBeaconBlock*(
       eth1_data: eth1_data,
       graffiti: graffiti,
       proposer_slashings: validator_changes.proposer_slashings,
-      #attester_slashings: validator_changes.attester_slashings,
+      attester_slashings: validator_changes.electra_attester_slashings,
       attestations:
         List[electra.Attestation, Limit MAX_ATTESTATIONS_ELECTRA](attestations),
       deposits: List[Deposit, Limit MAX_DEPOSITS](deposits),
@@ -500,7 +499,7 @@ proc makeBeaconBlockWithRewards*(
                hash_tree_root(eth1_data),
                hash_tree_root(graffiti),
                hash_tree_root(validator_changes.proposer_slashings),
-               hash_tree_root(validator_changes.attester_slashings),
+               hash_tree_root(validator_changes.phase0_attester_slashings),
                hash_tree_root(
                  List[phase0.Attestation, Limit MAX_ATTESTATIONS](
                    attestations)),
@@ -524,7 +523,7 @@ proc makeBeaconBlockWithRewards*(
                hash_tree_root(eth1_data),
                hash_tree_root(graffiti),
                hash_tree_root(validator_changes.proposer_slashings),
-               hash_tree_root(validator_changes.attester_slashings),
+               hash_tree_root(validator_changes.electra_attester_slashings),
                hash_tree_root(
                  List[electra.Attestation, Limit MAX_ATTESTATIONS](
                    attestations)),

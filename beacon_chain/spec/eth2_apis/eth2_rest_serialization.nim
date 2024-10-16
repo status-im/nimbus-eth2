@@ -25,8 +25,8 @@ export
   json_serialization, net, sets, rest_types, slashing_protection_common,
   jsonSerializationResults, rest_keymanager_types
 
-from web3/primitives import BlockHash, BlockNumber
-export primitives.BlockHash, primitives.BlockNumber
+from web3/primitives import Hash32, Quantity
+export primitives.Hash32, primitives.Quantity
 
 func decodeMediaType*(
     contentType: Opt[ContentTypeData]): Result[MediaType, string] =
@@ -108,8 +108,8 @@ RestJson.useDefaultSerializationFor(
   GetGraffitiResponse,
   GraffitiResponse,
   PendingAttestation,
-  PendingBalanceDeposit,
   PendingConsolidation,
+  PendingDeposit,
   PendingPartialWithdrawal,
   PostKeystoresResponse,
   PrepareBeaconProposer,
@@ -129,7 +129,6 @@ RestJson.useDefaultSerializationFor(
   RestDepositContract,
   RestEpochRandao,
   RestEpochSyncCommittee,
-  RestExecutionPayload,
   RestExtraData,
   RestGenesis,
   RestIndexedErrorMessage,
@@ -505,84 +504,74 @@ func strictParse*[bits: static[int]](input: string,
 
 proc prepareJsonResponse*(t: typedesc[RestApiResponse], d: auto): seq[byte] =
   let res =
-    block:
-      var default: seq[byte]
-      try:
-        var stream = memoryOutput()
-        var writer = JsonWriter[RestJson].init(stream)
-        writer.beginRecord()
-        writer.writeField("data", d)
-        writer.endRecord()
-        stream.getOutput(seq[byte])
-      except IOError:
-        default
+    try:
+      var stream = memoryOutput()
+      var writer = JsonWriter[RestJson].init(stream)
+      writer.beginRecord()
+      writer.writeField("data", d)
+      writer.endRecord()
+      stream.getOutput(seq[byte])
+    except IOError:
+      default(seq[byte])
   res
 
 proc prepareJsonStringResponse*[T: SomeForkedLightClientObject](
     t: typedesc[RestApiResponse], d: RestVersioned[T]): string =
   let res =
-    block:
-      var default: string
-      try:
-        var stream = memoryOutput()
-        var writer = JsonWriter[RestJson].init(stream)
-        withForkyObject(d.data):
-          when lcDataFork > LightClientDataFork.None:
-            writer.beginRecord()
-            writer.writeField("version", d.jsonVersion.toString())
-            writer.writeField("data", forkyObject)
-            writer.endRecord()
-        stream.getOutput(string)
-      except IOError:
-        default
+    try:
+      var stream = memoryOutput()
+      var writer = JsonWriter[RestJson].init(stream)
+      withForkyObject(d.data):
+        when lcDataFork > LightClientDataFork.None:
+          writer.beginRecord()
+          writer.writeField("version", d.jsonVersion.toString())
+          writer.writeField("data", forkyObject)
+          writer.endRecord()
+      stream.getOutput(string)
+    except IOError:
+      default(string)
   res
 
 proc prepareJsonStringResponse*(t: typedesc[RestApiResponse], d: auto): string =
   let res =
-    block:
-      var default: string
-      try:
-        var stream = memoryOutput()
-        var writer = JsonWriter[RestJson].init(stream)
-        writer.writeValue(d)
-        stream.getOutput(string)
-      except IOError:
-        default
+    try:
+      var stream = memoryOutput()
+      var writer = JsonWriter[RestJson].init(stream)
+      writer.writeValue(d)
+      stream.getOutput(string)
+    except IOError:
+      default(string)
   res
 
 proc jsonResponseWRoot*(t: typedesc[RestApiResponse], data: auto,
                         dependent_root: Eth2Digest,
                         execOpt: Opt[bool]): RestApiResponse =
   let res =
-    block:
-      var default: seq[byte]
-      try:
-        var stream = memoryOutput()
-        var writer = JsonWriter[RestJson].init(stream)
-        writer.beginRecord()
-        writer.writeField("dependent_root", dependent_root)
-        if execOpt.isSome():
-          writer.writeField("execution_optimistic", execOpt.get())
-        writer.writeField("data", data)
-        writer.endRecord()
-        stream.getOutput(seq[byte])
-      except IOError:
-        default
+    try:
+      var stream = memoryOutput()
+      var writer = JsonWriter[RestJson].init(stream)
+      writer.beginRecord()
+      writer.writeField("dependent_root", dependent_root)
+      if execOpt.isSome():
+        writer.writeField("execution_optimistic", execOpt.get())
+      writer.writeField("data", data)
+      writer.endRecord()
+      stream.getOutput(seq[byte])
+    except IOError:
+      default(seq[byte])
   RestApiResponse.response(res, Http200, "application/json")
 
 proc jsonResponse*(t: typedesc[RestApiResponse], data: auto): RestApiResponse =
   let res =
-    block:
-      var default: seq[byte]
-      try:
-        var stream = memoryOutput()
-        var writer = JsonWriter[RestJson].init(stream)
-        writer.beginRecord()
-        writer.writeField("data", data)
-        writer.endRecord()
-        stream.getOutput(seq[byte])
-      except IOError:
-        default
+    try:
+      var stream = memoryOutput()
+      var writer = JsonWriter[RestJson].init(stream)
+      writer.beginRecord()
+      writer.writeField("data", data)
+      writer.endRecord()
+      stream.getOutput(seq[byte])
+    except IOError:
+      default(seq[byte])
   RestApiResponse.response(res, Http200, "application/json")
 
 proc jsonResponseBlock*(t: typedesc[RestApiResponse],
@@ -593,21 +582,19 @@ proc jsonResponseBlock*(t: typedesc[RestApiResponse],
   let
     headers = [("eth-consensus-version", consensusFork.toString())]
     res =
-      block:
-        var default: seq[byte]
-        try:
-          var stream = memoryOutput()
-          var writer = JsonWriter[RestJson].init(stream)
-          writer.beginRecord()
-          writer.writeField("version", consensusFork.toString())
-          if execOpt.isSome():
-            writer.writeField("execution_optimistic", execOpt.get())
-          writer.writeField("finalized", finalized)
-          writer.writeField("data", data)
-          writer.endRecord()
-          stream.getOutput(seq[byte])
-        except IOError:
-          default
+      try:
+        var stream = memoryOutput()
+        var writer = JsonWriter[RestJson].init(stream)
+        writer.beginRecord()
+        writer.writeField("version", consensusFork.toString())
+        if execOpt.isSome():
+          writer.writeField("execution_optimistic", execOpt.get())
+        writer.writeField("finalized", finalized)
+        writer.writeField("data", data)
+        writer.endRecord()
+        stream.getOutput(seq[byte])
+      except IOError:
+        default(seq[byte])
   RestApiResponse.response(res, Http200, "application/json", headers = headers)
 
 proc jsonResponseBlock*(t: typedesc[RestApiResponse],
@@ -617,22 +604,20 @@ proc jsonResponseBlock*(t: typedesc[RestApiResponse],
   let
     headers = [("eth-consensus-version", data.kind.toString())]
     res =
-      block:
-        var default: seq[byte]
-        try:
-          var stream = memoryOutput()
-          var writer = JsonWriter[RestJson].init(stream)
-          writer.beginRecord()
-          writer.writeField("version", data.kind.toString())
-          if execOpt.isSome():
-            writer.writeField("execution_optimistic", execOpt.get())
-          writer.writeField("finalized", finalized)
-          withBlck(data):
-            writer.writeField("data", forkyBlck)
-          writer.endRecord()
-          stream.getOutput(seq[byte])
-        except IOError:
-          default
+      try:
+        var stream = memoryOutput()
+        var writer = JsonWriter[RestJson].init(stream)
+        writer.beginRecord()
+        writer.writeField("version", data.kind.toString())
+        if execOpt.isSome():
+          writer.writeField("execution_optimistic", execOpt.get())
+        writer.writeField("finalized", finalized)
+        withBlck(data):
+          writer.writeField("data", forkyBlck)
+        writer.endRecord()
+        stream.getOutput(seq[byte])
+      except IOError:
+        default(seq[byte])
   RestApiResponse.response(res, Http200, "application/json", headers = headers)
 
 proc jsonResponseState*(t: typedesc[RestApiResponse],
@@ -641,39 +626,35 @@ proc jsonResponseState*(t: typedesc[RestApiResponse],
   let
     headers = [("eth-consensus-version", data.kind.toString())]
     res =
-      block:
-        var default: seq[byte]
-        try:
-          var stream = memoryOutput()
-          var writer = JsonWriter[RestJson].init(stream)
-          writer.beginRecord()
-          writer.writeField("version", data.kind.toString())
-          if execOpt.isSome():
-            writer.writeField("execution_optimistic", execOpt.get())
-          withState(data):
-            writer.writeField("data", forkyState.data)
-          writer.endRecord()
-          stream.getOutput(seq[byte])
-        except IOError:
-          default
+      try:
+        var stream = memoryOutput()
+        var writer = JsonWriter[RestJson].init(stream)
+        writer.beginRecord()
+        writer.writeField("version", data.kind.toString())
+        if execOpt.isSome():
+          writer.writeField("execution_optimistic", execOpt.get())
+        withState(data):
+          writer.writeField("data", forkyState.data)
+        writer.endRecord()
+        stream.getOutput(seq[byte])
+      except IOError:
+        default(seq[byte])
   RestApiResponse.response(res, Http200, "application/json", headers = headers)
 
 proc jsonResponseWOpt*(t: typedesc[RestApiResponse], data: auto,
                        execOpt: Opt[bool]): RestApiResponse =
   let res =
-    block:
-      var default: seq[byte]
-      try:
-        var stream = memoryOutput()
-        var writer = JsonWriter[RestJson].init(stream)
-        writer.beginRecord()
-        if execOpt.isSome():
-          writer.writeField("execution_optimistic", execOpt.get())
-        writer.writeField("data", data)
-        writer.endRecord()
-        stream.getOutput(seq[byte])
-      except IOError:
-        default
+    try:
+      var stream = memoryOutput()
+      var writer = JsonWriter[RestJson].init(stream)
+      writer.beginRecord()
+      if execOpt.isSome():
+        writer.writeField("execution_optimistic", execOpt.get())
+      writer.writeField("data", data)
+      writer.endRecord()
+      stream.getOutput(seq[byte])
+    except IOError:
+      default(seq[byte])
   RestApiResponse.response(res, Http200, "application/json")
 
 proc prepareJsonResponseFinalized*(
@@ -700,8 +681,11 @@ proc jsonResponseFinalized*(t: typedesc[RestApiResponse], data: auto,
   let res = RestApiResponse.prepareJsonResponseFinalized(data, exec, finalized)
   RestApiResponse.response(res, Http200, "application/json")
 
-proc jsonResponseWVersion*(t: typedesc[RestApiResponse], data: auto,
-                           version: ConsensusFork): RestApiResponse =
+proc jsonResponseFinalizedWVersion*(t: typedesc[RestApiResponse],
+                            data: auto,
+                            exec: Opt[bool],
+                            finalized: bool,
+                            version: ConsensusFork): RestApiResponse =
   let
     headers = [("eth-consensus-version", version.toString())]
     res =
@@ -712,6 +696,9 @@ proc jsonResponseWVersion*(t: typedesc[RestApiResponse], data: auto,
           var writer = JsonWriter[RestJson].init(stream)
           writer.beginRecord()
           writer.writeField("version", version.toString())
+          if exec.isSome():
+            writer.writeField("execution_optimistic", exec.get())
+          writer.writeField("finalized", finalized)
           writer.writeField("data", data)
           writer.endRecord()
           stream.getOutput(seq[byte])
@@ -719,202 +706,197 @@ proc jsonResponseWVersion*(t: typedesc[RestApiResponse], data: auto,
           default
   RestApiResponse.response(res, Http200, "application/json", headers = headers)
 
+proc jsonResponseWVersion*(t: typedesc[RestApiResponse], data: auto,
+                           version: ConsensusFork): RestApiResponse =
+  let
+    headers = [("eth-consensus-version", version.toString())]
+    res =
+      try:
+        var stream = memoryOutput()
+        var writer = JsonWriter[RestJson].init(stream)
+        writer.beginRecord()
+        writer.writeField("version", version.toString())
+        writer.writeField("data", data)
+        writer.endRecord()
+        stream.getOutput(seq[byte])
+      except IOError:
+        default(seq[byte])
+  RestApiResponse.response(res, Http200, "application/json", headers = headers)
+
 proc jsonResponseVersioned*[T: SomeForkedLightClientObject](
     t: typedesc[RestApiResponse],
     entries: openArray[RestVersioned[T]]): RestApiResponse =
   let res =
-    block:
-      var default: seq[byte]
-      try:
-        var stream = memoryOutput()
-        var writer = JsonWriter[RestJson].init(stream)
-        for e in writer.stepwiseArrayCreation(entries):
-          withForkyObject(e.data):
-            when lcDataFork > LightClientDataFork.None:
-              writer.beginRecord()
-              writer.writeField("version", e.jsonVersion.toString())
-              writer.writeField("data", forkyObject)
-              writer.endRecord()
-        stream.getOutput(seq[byte])
-      except IOError:
-        default
+    try:
+      var stream = memoryOutput()
+      var writer = JsonWriter[RestJson].init(stream)
+      for e in writer.stepwiseArrayCreation(entries):
+        withForkyObject(e.data):
+          when lcDataFork > LightClientDataFork.None:
+            writer.beginRecord()
+            writer.writeField("version", e.jsonVersion.toString())
+            writer.writeField("data", forkyObject)
+            writer.endRecord()
+      stream.getOutput(seq[byte])
+    except IOError:
+      default(seq[byte])
   RestApiResponse.response(res, Http200, "application/json")
 
 proc jsonResponsePlain*(t: typedesc[RestApiResponse],
                         data: auto): RestApiResponse =
   let res =
-    block:
-      var default: seq[byte]
-      try:
-        var stream = memoryOutput()
-        var writer = JsonWriter[RestJson].init(stream)
-        writer.writeValue(data)
-        stream.getOutput(seq[byte])
-      except IOError:
-        default
+    try:
+      var stream = memoryOutput()
+      var writer = JsonWriter[RestJson].init(stream)
+      writer.writeValue(data)
+      stream.getOutput(seq[byte])
+    except IOError:
+      default(seq[byte])
   RestApiResponse.response(res, Http200, "application/json")
 
 proc jsonResponsePlain*(t: typedesc[RestApiResponse],
                         data: auto, headers: HttpTable): RestApiResponse =
   let res =
-    block:
-      var default: seq[byte]
-      try:
-        var stream = memoryOutput()
-        var writer = JsonWriter[RestJson].init(stream)
-        writer.writeValue(data)
-        stream.getOutput(seq[byte])
-      except IOError:
-        default
+    try:
+      var stream = memoryOutput()
+      var writer = JsonWriter[RestJson].init(stream)
+      writer.writeValue(data)
+      stream.getOutput(seq[byte])
+    except IOError:
+      default(seq[byte])
   RestApiResponse.response(res, Http200, "application/json", headers = headers)
 
 proc jsonResponseWMeta*(t: typedesc[RestApiResponse],
                         data: auto, meta: auto): RestApiResponse =
   let res =
-    block:
-      var default: seq[byte]
-      try:
-        var stream = memoryOutput()
-        var writer = JsonWriter[RestJson].init(stream)
-        writer.beginRecord()
-        writer.writeField("data", data)
-        writer.writeField("meta", meta)
-        writer.endRecord()
-        stream.getOutput(seq[byte])
-      except IOError:
-        default
+    try:
+      var stream = memoryOutput()
+      var writer = JsonWriter[RestJson].init(stream)
+      writer.beginRecord()
+      writer.writeField("data", data)
+      writer.writeField("meta", meta)
+      writer.endRecord()
+      stream.getOutput(seq[byte])
+    except IOError:
+      default(seq[byte])
   RestApiResponse.response(res, Http200, "application/json")
 
 proc jsonMsgResponse*(t: typedesc[RestApiResponse],
                       msg: string = ""): RestApiResponse =
   let data =
-    block:
-      var default: seq[byte]
-      try:
-        var stream = memoryOutput()
-        var writer = JsonWriter[RestJson].init(stream)
-        writer.beginRecord()
-        writer.writeField("code", 200)
-        writer.writeField("message", msg)
-        writer.endRecord()
-        stream.getOutput(seq[byte])
-      except IOError:
-        default
+    try:
+      var stream = memoryOutput()
+      var writer = JsonWriter[RestJson].init(stream)
+      writer.beginRecord()
+      writer.writeField("code", 200)
+      writer.writeField("message", msg)
+      writer.endRecord()
+      stream.getOutput(seq[byte])
+    except IOError:
+      default(seq[byte])
   RestApiResponse.response(data, Http200, "application/json")
 
 proc jsonError*(t: typedesc[RestApiResponse], status: HttpCode = Http200,
                 msg: string = ""): RestApiResponse =
   let data =
-    block:
-      var default: string
-      try:
-        var stream = memoryOutput()
-        var writer = JsonWriter[RestJson].init(stream)
-        writer.beginRecord()
-        writer.writeField("code", int(status.toInt()))
-        writer.writeField("message", msg)
-        writer.endRecord()
-        stream.getOutput(string)
-      except IOError:
-        default
+    try:
+      var stream = memoryOutput()
+      var writer = JsonWriter[RestJson].init(stream)
+      writer.beginRecord()
+      writer.writeField("code", int(status.toInt()))
+      writer.writeField("message", msg)
+      writer.endRecord()
+      stream.getOutput(string)
+    except IOError:
+      default(string)
   RestApiResponse.error(status, data, "application/json")
 
 proc jsonError*(t: typedesc[RestApiResponse], status: HttpCode = Http200,
                 msg: string = "", stacktrace: string): RestApiResponse =
   let data =
-    block:
-      var default: string
-      try:
-        var stream = memoryOutput()
-        var writer = JsonWriter[RestJson].init(stream)
-        writer.beginRecord()
-        writer.writeField("code", int(status.toInt()))
-        writer.writeField("message", msg)
-        if len(stacktrace) > 0:
-          writer.writeField("stacktraces", [stacktrace])
-        writer.endRecord()
-        stream.getOutput(string)
-      except IOError:
-        default
+    try:
+      var stream = memoryOutput()
+      var writer = JsonWriter[RestJson].init(stream)
+      writer.beginRecord()
+      writer.writeField("code", int(status.toInt()))
+      writer.writeField("message", msg)
+      if len(stacktrace) > 0:
+        writer.writeField("stacktraces", [stacktrace])
+      writer.endRecord()
+      stream.getOutput(string)
+    except IOError:
+      default(string)
   RestApiResponse.error(status, data, "application/json")
 
 proc jsonError*(t: typedesc[RestApiResponse], status: HttpCode = Http200,
                 msg: string = "",
                 stacktraces: openArray[string]): RestApiResponse =
   let data =
-    block:
-      var default: string
-      try:
-        var stream = memoryOutput()
-        var writer = JsonWriter[RestJson].init(stream)
-        writer.beginRecord()
-        writer.writeField("code", int(status.toInt()))
-        writer.writeField("message", msg)
-        writer.writeField("stacktraces", stacktraces)
-        writer.endRecord()
-        stream.getOutput(string)
-      except IOError:
-        default
+    try:
+      var stream = memoryOutput()
+      var writer = JsonWriter[RestJson].init(stream)
+      writer.beginRecord()
+      writer.writeField("code", int(status.toInt()))
+      writer.writeField("message", msg)
+      writer.writeField("stacktraces", stacktraces)
+      writer.endRecord()
+      stream.getOutput(string)
+    except IOError:
+      default(string)
   RestApiResponse.error(status, data, "application/json")
 
 proc jsonError*(t: typedesc[RestApiResponse],
                 rmsg: RestErrorMessage): RestApiResponse =
   let data =
-    block:
-      var default: string
-      try:
-        var stream = memoryOutput()
-        var writer = JsonWriter[RestJson].init(stream)
-        writer.beginRecord()
-        writer.writeField("code", rmsg.code)
-        writer.writeField("message", rmsg.message)
-        if rmsg.stacktraces.isSome():
-          writer.writeField("stacktraces", rmsg.stacktraces)
-        writer.endRecord()
-        stream.getOutput(string)
-      except IOError:
-        default
+    try:
+      var stream = memoryOutput()
+      var writer = JsonWriter[RestJson].init(stream)
+      writer.beginRecord()
+      writer.writeField("code", rmsg.code)
+      writer.writeField("message", rmsg.message)
+      if rmsg.stacktraces.isSome():
+        writer.writeField("stacktraces", rmsg.stacktraces)
+      writer.endRecord()
+      stream.getOutput(string)
+    except IOError:
+      default(string)
   RestApiResponse.error(rmsg.code.toHttpCode().get(), data, "application/json")
 
 proc jsonErrorList*(t: typedesc[RestApiResponse],
                     status: HttpCode = Http200,
                     msg: string = "", failures: auto): RestApiResponse =
   let data =
-    block:
-      var default: string
-      try:
-        var stream = memoryOutput()
-        var writer = JsonWriter[RestJson].init(stream)
-        writer.beginRecord()
-        writer.writeField("code", int(status.toInt()))
-        writer.writeField("message", msg)
-        writer.writeField("failures", failures)
-        writer.endRecord()
-        stream.getOutput(string)
-      except IOError:
-        default
+    try:
+      var stream = memoryOutput()
+      var writer = JsonWriter[RestJson].init(stream)
+      writer.beginRecord()
+      writer.writeField("code", int(status.toInt()))
+      writer.writeField("message", msg)
+      writer.writeField("failures", failures)
+      writer.endRecord()
+      stream.getOutput(string)
+    except IOError:
+      default(string)
   RestApiResponse.error(status, data, "application/json")
 
 proc sszResponseVersioned*[T: SomeForkedLightClientObject](
     t: typedesc[RestApiResponse],
     entries: openArray[RestVersioned[T]]): RestApiResponse =
   let res =
-    block:
-      var default: seq[byte]
-      try:
-        var stream = memoryOutput()
-        for e in entries:
-          withForkyUpdate(e.data):
-            when lcDataFork > LightClientDataFork.None:
-              var cursor = stream.delayFixedSizeWrite(sizeof(uint64))
-              let initPos = stream.pos
-              stream.write e.sszContext.data
-              var writer = SszWriter.init(stream)
-              writer.writeValue forkyUpdate
-              cursor.finalWrite (stream.pos - initPos).uint64.toBytesLE()
-        stream.getOutput(seq[byte])
-      except IOError:
-        default
+    try:
+      var stream = memoryOutput()
+      for e in entries:
+        withForkyUpdate(e.data):
+          when lcDataFork > LightClientDataFork.None:
+            var cursor = stream.delayFixedSizeWrite(sizeof(uint64))
+            let initPos = stream.pos
+            stream.write e.sszContext.data
+            var writer = SszWriter.init(stream)
+            writer.writeValue forkyUpdate
+            cursor.finalWrite (stream.pos - initPos).uint64.toBytesLE()
+      stream.getOutput(seq[byte])
+    except IOError:
+      default(seq[byte])
   RestApiResponse.response(res, Http200, "application/octet-stream")
 
 proc sszResponsePlain*(t: typedesc[RestApiResponse], res: seq[byte],
@@ -927,30 +909,26 @@ proc sszResponse*(t: typedesc[RestApiResponse], data: auto,
                   headers: openArray[RestKeyValueTuple] = []
                  ): RestApiResponse =
   let res =
-    block:
-      var default: seq[byte]
-      try:
-        var stream = memoryOutput()
-        var writer = SszWriter.init(stream)
-        writer.writeValue(data)
-        stream.getOutput(seq[byte])
-      except IOError:
-        default
+    try:
+      var stream = memoryOutput()
+      var writer = SszWriter.init(stream)
+      writer.writeValue(data)
+      stream.getOutput(seq[byte])
+    except IOError:
+      default(seq[byte])
   RestApiResponse.response(res, Http200, "application/octet-stream",
                            headers = headers)
 
 proc sszResponse*(t: typedesc[RestApiResponse], data: auto,
                   headers: HttpTable): RestApiResponse =
   let res =
-    block:
-      var default: seq[byte]
-      try:
-        var stream = memoryOutput()
-        var writer = SszWriter.init(stream)
-        writer.writeValue(data)
-        stream.getOutput(seq[byte])
-      except IOError:
-        default
+    try:
+      var stream = memoryOutput()
+      var writer = SszWriter.init(stream)
+      writer.writeValue(data)
+      stream.getOutput(seq[byte])
+    except IOError:
+      default(seq[byte])
   RestApiResponse.response(res, Http200, "application/octet-stream",
                            headers = headers)
 
@@ -1017,14 +995,14 @@ proc readValue*(reader: var JsonReader[RestJson], value: var uint8) {.
   else:
     reader.raiseUnexpectedValue($res.error() & ": " & svalue)
 
-## BlockNumber
+## BlockNumber/Quantity
 proc writeValue*(
-    w: var JsonWriter[RestJson], value: BlockNumber) {.raises: [IOError].} =
+    w: var JsonWriter[RestJson], value: Quantity) {.raises: [IOError].} =
   w.writeValue(distinctBase(value))
 
 proc readValue*(
     reader: var JsonReader[RestJson],
-    value: var BlockNumber) {.raises: [IOError, SerializationError].} =
+    value: var Quantity) {.raises: [IOError, SerializationError].} =
   reader.readValue(distinctBase(value))
 
 ## RestNumeric
@@ -1123,7 +1101,7 @@ proc readValue*(reader: var JsonReader[RestJson],
 
     if parsed > uint8.high:
       reader.raiseUnexpectedValue(
-        "The usigned integer value should fit in 8 bits")
+        "The unsigned integer value should fit in 8 bits")
 
     if not epochFlags.asList.add(uint8(parsed)):
       reader.raiseUnexpectedValue(
@@ -1294,17 +1272,17 @@ proc writeValue*(
     writer: var JsonWriter[RestJson], value: BitArray) {.raises: [IOError].} =
   writeValue(writer, hexOriginal(value.bytes))
 
-## BlockHash
-proc readValue*(reader: var JsonReader[RestJson], value: var BlockHash) {.
+## BlockHash/Hash32
+proc readValue*(reader: var JsonReader[RestJson], value: var Hash32) {.
      raises: [IOError, SerializationError].} =
   try:
     hexToByteArray(reader.readValue(string), distinctBase(value))
   except ValueError:
     raiseUnexpectedValue(reader,
-                         "BlockHash value should be a valid hex string")
+                         "Hash32 value should be a valid hex string")
 
 proc writeValue*(
-    writer: var JsonWriter[RestJson], value: BlockHash) {.raises: [IOError].} =
+    writer: var JsonWriter[RestJson], value: Hash32) {.raises: [IOError].} =
   writeValue(writer, hexOriginal(distinctBase(value)))
 
 ## Eth2Digest
@@ -1439,8 +1417,8 @@ template prepareForkedBlockReading(blockType: typedesc,
                                    version: var Opt[ConsensusFork],
                                    data: var Opt[JsonString],
                                    blinded: var Opt[bool],
-                                   payloadValue: var Opt[Uint256],
-                                   blockValue: var Opt[Uint256]) =
+                                   payloadValue: var Opt[UInt256],
+                                   blockValue: var Opt[UInt256]) =
   for fieldName {.inject.} in readObjectFields(reader):
     case fieldName
     of "version":
@@ -1481,7 +1459,7 @@ template prepareForkedBlockReading(blockType: typedesc,
         if payloadValue.isSome():
           reader.raiseUnexpectedField(
             "Multiple `execution_payload_value` fields found", blockType.name)
-        payloadValue = Opt.some(reader.readValue(Uint256))
+        payloadValue = Opt.some(reader.readValue(UInt256))
       else:
         unrecognizedFieldWarning(fieldName, blockType.name)
     of "consensus_block_value":
@@ -1489,7 +1467,7 @@ template prepareForkedBlockReading(blockType: typedesc,
         if blockValue.isSome():
           reader.raiseUnexpectedField(
             "Multiple `consensus_block_value` fields found", blockType.name)
-        blockValue = Opt.some(reader.readValue(Uint256))
+        blockValue = Opt.some(reader.readValue(UInt256))
       else:
         unrecognizedFieldWarning(fieldName, blockType.name)
     else:
@@ -1508,8 +1486,8 @@ proc readValue*[BlockType: ForkedBlindedBeaconBlock](
     version: Opt[ConsensusFork]
     data: Opt[JsonString]
     blinded: Opt[bool]
-    payloadValue: Opt[Uint256]
-    blockValue: Opt[Uint256]
+    payloadValue: Opt[UInt256]
+    blockValue: Opt[UInt256]
 
   prepareForkedBlockReading(BlockType, reader, version, data, blinded,
                             payloadValue, blockValue)
@@ -1574,15 +1552,15 @@ proc readValue*[BlockType: Web3SignerForkedBeaconBlock](
     version: Opt[ConsensusFork]
     data: Opt[JsonString]
     blinded: Opt[bool]
-    payloadValue: Opt[Uint256]
-    blockValue: Opt[Uint256]
+    payloadValue: Opt[UInt256]
+    blockValue: Opt[UInt256]
 
   prepareForkedBlockReading(BlockType, reader, version, data, blinded,
                             payloadValue, blockValue)
 
   if version.get() <= ConsensusFork.Altair:
     reader.raiseUnexpectedValue(
-      "Web3Signer implementation supports Bellatrix and newer")
+      "Web3Signer implementation supports Capella and newer")
 
   let res =
     try:
@@ -1604,532 +1582,6 @@ proc writeValue*[BlockType: Web3SignerForkedBeaconBlock](
   writer.writeField("block_header", value.data)
   writer.endRecord()
 
-## RestPublishedBeaconBlockBody
-proc readValue*(reader: var JsonReader[RestJson],
-                value: var RestPublishedBeaconBlockBody) {.
-     raises: [IOError, SerializationError].} =
-  var
-    randao_reveal: Opt[ValidatorSig]
-    eth1_data: Opt[Eth1Data]
-    graffiti: Opt[GraffitiBytes]
-    proposer_slashings:
-      Opt[List[ProposerSlashing, Limit MAX_PROPOSER_SLASHINGS]]
-    attester_slashings:
-      Opt[List[phase0.AttesterSlashing, Limit MAX_ATTESTER_SLASHINGS]]
-    attestations: Opt[List[phase0.Attestation, Limit MAX_ATTESTATIONS]]
-    deposits: Opt[List[Deposit, Limit MAX_DEPOSITS]]
-    voluntary_exits: Opt[List[SignedVoluntaryExit, Limit MAX_VOLUNTARY_EXITS]]
-    sync_aggregate: Opt[SyncAggregate]
-    execution_payload: Opt[RestExecutionPayload]
-    bls_to_execution_changes: Opt[SignedBLSToExecutionChangeList]
-    blob_kzg_commitments: Opt[KzgCommitments]
-
-  for fieldName in readObjectFields(reader):
-    case fieldName
-    of "randao_reveal":
-      if randao_reveal.isSome():
-        reader.raiseUnexpectedField("Multiple `randao_reveal` fields found",
-                                    "RestPublishedBeaconBlockBody")
-      randao_reveal = Opt.some(reader.readValue(ValidatorSig))
-    of "eth1_data":
-      if eth1_data.isSome():
-        reader.raiseUnexpectedField("Multiple `eth1_data` fields found",
-                                    "RestPublishedBeaconBlockBody")
-      eth1_data = Opt.some(reader.readValue(Eth1Data))
-    of "graffiti":
-      if graffiti.isSome():
-        reader.raiseUnexpectedField("Multiple `graffiti` fields found",
-                                    "RestPublishedBeaconBlockBody")
-      graffiti = Opt.some(reader.readValue(GraffitiBytes))
-    of "proposer_slashings":
-      if proposer_slashings.isSome():
-        reader.raiseUnexpectedField(
-          "Multiple `proposer_slashings` fields found",
-          "RestPublishedBeaconBlockBody")
-      proposer_slashings = Opt.some(
-        reader.readValue(List[ProposerSlashing, Limit MAX_PROPOSER_SLASHINGS]))
-    of "attester_slashings":
-      if attester_slashings.isSome():
-        reader.raiseUnexpectedField(
-          "Multiple `attester_slashings` fields found",
-          "RestPublishedBeaconBlockBody")
-      attester_slashings = Opt.some(
-        reader.readValue(
-          List[phase0.AttesterSlashing, Limit MAX_ATTESTER_SLASHINGS]))
-    of "attestations":
-      if attestations.isSome():
-        reader.raiseUnexpectedField("Multiple `attestations` fields found",
-                                    "RestPublishedBeaconBlockBody")
-      attestations = Opt.some(
-        reader.readValue(List[phase0.Attestation, Limit MAX_ATTESTATIONS]))
-    of "deposits":
-      if deposits.isSome():
-        reader.raiseUnexpectedField("Multiple `deposits` fields found",
-                                    "RestPublishedBeaconBlockBody")
-      deposits = Opt.some(reader.readValue(List[Deposit, Limit MAX_DEPOSITS]))
-    of "voluntary_exits":
-      if voluntary_exits.isSome():
-        reader.raiseUnexpectedField("Multiple `voluntary_exits` fields found",
-                                    "RestPublishedBeaconBlockBody")
-      voluntary_exits = Opt.some(
-        reader.readValue(List[SignedVoluntaryExit, Limit MAX_VOLUNTARY_EXITS]))
-    of "sync_aggregate":
-      if sync_aggregate.isSome():
-        reader.raiseUnexpectedField("Multiple `sync_aggregate` fields found",
-                                    "RestPublishedBeaconBlockBody")
-      sync_aggregate = Opt.some(reader.readValue(SyncAggregate))
-    of "execution_payload":
-      if execution_payload.isSome():
-        reader.raiseUnexpectedField("Multiple `execution_payload` fields found",
-                                    "RestPublishedBeaconBlockBody")
-      execution_payload = Opt.some(reader.readValue(RestExecutionPayload))
-    of "bls_to_execution_changes":
-      if bls_to_execution_changes.isSome():
-        reader.raiseUnexpectedField("Multiple `bls_to_execution_changes` fields found",
-                                    "RestPublishedBeaconBlockBody")
-      bls_to_execution_changes = Opt.some(
-        reader.readValue(SignedBLSToExecutionChangeList))
-    of "blob_kzg_commitments":
-      if blob_kzg_commitments.isSome():
-        reader.raiseUnexpectedField("Multiple `blob_kzg_commitments` fields found",
-                                    "RestPublishedBeaconBlockBody")
-      blob_kzg_commitments = Opt.some(reader.readValue(KzgCommitments))
-    else:
-      unrecognizedFieldWarning(fieldName, typeof(value).name)
-
-  if randao_reveal.isNone():
-    reader.raiseUnexpectedValue("Field `randao_reveal` is missing")
-  if eth1_data.isNone():
-    reader.raiseUnexpectedValue("Field `eth1_data` is missing")
-  if graffiti.isNone():
-    reader.raiseUnexpectedValue("Field `graffiti` is missing")
-  if proposer_slashings.isNone():
-    reader.raiseUnexpectedValue("Field `proposer_slashings` is missing")
-  if attester_slashings.isNone():
-    reader.raiseUnexpectedValue("Field `attester_slashings` is missing")
-  if attestations.isNone():
-    reader.raiseUnexpectedValue("Field `attestations` is missing")
-  if deposits.isNone():
-    reader.raiseUnexpectedValue("Field `deposits` is missing")
-  if voluntary_exits.isNone():
-    reader.raiseUnexpectedValue("Field `voluntary_exits` is missing")
-
-  let bodyKind =
-    if  execution_payload.isSome() and
-        execution_payload.get().blob_gas_used.isSome() and
-        blob_kzg_commitments.isSome():
-      ConsensusFork.Deneb
-    elif execution_payload.isSome() and
-        execution_payload.get().withdrawals.isSome() and
-        bls_to_execution_changes.isSome() and
-        sync_aggregate.isSome():
-      ConsensusFork.Capella
-    elif execution_payload.isSome() and sync_aggregate.isSome():
-      ConsensusFork.Bellatrix
-    elif execution_payload.isNone() and sync_aggregate.isSome():
-      ConsensusFork.Altair
-    else:
-      ConsensusFork.Phase0
-
-  template ep_src: auto = execution_payload.get()
-  template copy_ep_bellatrix(ep_dst: auto) =
-    assign(ep_dst.parent_hash, ep_src.parent_hash)
-    assign(ep_dst.fee_recipient, ep_src.fee_recipient)
-    assign(ep_dst.state_root, ep_src.state_root)
-    assign(ep_dst.receipts_root, ep_src.receipts_root)
-    assign(ep_dst.logs_bloom, ep_src.logs_bloom)
-    assign(ep_dst.prev_randao, ep_src.prev_randao)
-    assign(ep_dst.block_number, ep_src.block_number)
-    assign(ep_dst.gas_limit, ep_src.gas_limit)
-    assign(ep_dst.gas_used, ep_src.gas_used)
-    assign(ep_dst.timestamp, ep_src.timestamp)
-    assign(ep_dst.extra_data, ep_src.extra_data)
-    assign(ep_dst.base_fee_per_gas, ep_src.base_fee_per_gas)
-    assign(ep_dst.block_hash, ep_src.block_hash)
-    assign(ep_dst.transactions, ep_src.transactions)
-
-  case bodyKind
-  of ConsensusFork.Phase0:
-    value = RestPublishedBeaconBlockBody(
-      kind: ConsensusFork.Phase0,
-      phase0Body: phase0.BeaconBlockBody(
-        randao_reveal: randao_reveal.get(),
-        eth1_data: eth1_data.get(),
-        graffiti: graffiti.get(),
-        proposer_slashings: proposer_slashings.get(),
-        attester_slashings: attester_slashings.get(),
-        attestations: attestations.get(),
-        deposits: deposits.get(),
-        voluntary_exits: voluntary_exits.get()
-      )
-    )
-  of ConsensusFork.Altair:
-    value = RestPublishedBeaconBlockBody(
-      kind: ConsensusFork.Altair,
-      altairBody: altair.BeaconBlockBody(
-        randao_reveal: randao_reveal.get(),
-        eth1_data: eth1_data.get(),
-        graffiti: graffiti.get(),
-        proposer_slashings: proposer_slashings.get(),
-        attester_slashings: attester_slashings.get(),
-        attestations: attestations.get(),
-        deposits: deposits.get(),
-        voluntary_exits: voluntary_exits.get(),
-        sync_aggregate: sync_aggregate.get()
-      )
-    )
-  of ConsensusFork.Bellatrix:
-    value = RestPublishedBeaconBlockBody(
-      kind: ConsensusFork.Bellatrix,
-      bellatrixBody: bellatrix.BeaconBlockBody(
-        randao_reveal: randao_reveal.get(),
-        eth1_data: eth1_data.get(),
-        graffiti: graffiti.get(),
-        proposer_slashings: proposer_slashings.get(),
-        attester_slashings: attester_slashings.get(),
-        attestations: attestations.get(),
-        deposits: deposits.get(),
-        voluntary_exits: voluntary_exits.get(),
-        sync_aggregate: sync_aggregate.get(),
-      )
-    )
-    copy_ep_bellatrix(value.bellatrixBody.execution_payload)
-  of ConsensusFork.Capella:
-    value = RestPublishedBeaconBlockBody(
-      kind: ConsensusFork.Capella,
-      capellaBody: capella.BeaconBlockBody(
-        randao_reveal: randao_reveal.get(),
-        eth1_data: eth1_data.get(),
-        graffiti: graffiti.get(),
-        proposer_slashings: proposer_slashings.get(),
-        attester_slashings: attester_slashings.get(),
-        attestations: attestations.get(),
-        deposits: deposits.get(),
-        voluntary_exits: voluntary_exits.get(),
-        sync_aggregate: sync_aggregate.get(),
-        bls_to_execution_changes: bls_to_execution_changes.get()
-      )
-    )
-    copy_ep_bellatrix(value.capellaBody.execution_payload)
-    assign(
-      value.capellaBody.execution_payload.withdrawals,
-      ep_src.withdrawals.get())
-  of ConsensusFork.Deneb:
-    value = RestPublishedBeaconBlockBody(
-      kind: ConsensusFork.Deneb,
-      denebBody: deneb.BeaconBlockBody(
-        randao_reveal: randao_reveal.get(),
-        eth1_data: eth1_data.get(),
-        graffiti: graffiti.get(),
-        proposer_slashings: proposer_slashings.get(),
-        attester_slashings: attester_slashings.get(),
-        attestations: attestations.get(),
-        deposits: deposits.get(),
-        voluntary_exits: voluntary_exits.get(),
-        sync_aggregate: sync_aggregate.get(),
-        bls_to_execution_changes: bls_to_execution_changes.get(),
-        blob_kzg_commitments: blob_kzg_commitments.get()
-      )
-    )
-    copy_ep_bellatrix(value.denebBody.execution_payload)
-    assign(
-      value.denebBody.execution_payload.withdrawals,
-      ep_src.withdrawals.get())
-    assign(
-      value.denebBody.execution_payload.blob_gas_used,
-      ep_src.blob_gas_used.get())
-    assign(
-      value.denebBody.execution_payload.excess_blob_gas,
-      ep_src.excess_blob_gas.get())
-  of ConsensusFork.Electra:
-    value = RestPublishedBeaconBlockBody(
-      kind: ConsensusFork.Electra,
-      electraBody: electra.BeaconBlockBody(
-        randao_reveal: randao_reveal.get(),
-        eth1_data: eth1_data.get(),
-        graffiti: graffiti.get(),
-        proposer_slashings: proposer_slashings.get(),
-        #attester_slashings: attester_slashings.get(),
-        #attestations: attestations.get(),
-        deposits: deposits.get(),
-        voluntary_exits: voluntary_exits.get(),
-        sync_aggregate: sync_aggregate.get(),
-        bls_to_execution_changes: bls_to_execution_changes.get(),
-        blob_kzg_commitments: blob_kzg_commitments.get()
-      )
-    )
-    copy_ep_bellatrix(value.electraBody.execution_payload)
-    assign(
-      value.electraBody.execution_payload.withdrawals,
-      ep_src.withdrawals.get())
-    assign(
-      value.electraBody.execution_payload.blob_gas_used,
-      ep_src.blob_gas_used.get())
-    assign(
-      value.electraBody.execution_payload.excess_blob_gas,
-      ep_src.excess_blob_gas.get())
-
-    debugComment "electra support missing, including attslashing/atts"
-
-## RestPublishedBeaconBlock
-proc readValue*(reader: var JsonReader[RestJson],
-                value: var RestPublishedBeaconBlock) {.
-     raises: [IOError, SerializationError].} =
-  var
-    slot: Opt[Slot]
-    proposer_index: Opt[uint64]
-    parent_root: Opt[Eth2Digest]
-    state_root: Opt[Eth2Digest]
-    blockBody: Opt[RestPublishedBeaconBlockBody]
-
-  for fieldName in readObjectFields(reader):
-    case fieldName
-    of "slot":
-      if slot.isSome():
-        reader.raiseUnexpectedField("Multiple `slot` fields found",
-                                    "RestPublishedBeaconBlock")
-      slot = Opt.some(reader.readValue(Slot))
-    of "proposer_index":
-      if proposer_index.isSome():
-        reader.raiseUnexpectedField("Multiple `proposer_index` fields found",
-                                    "RestPublishedBeaconBlock")
-      proposer_index = Opt.some(reader.readValue(uint64))
-    of "parent_root":
-      if parent_root.isSome():
-        reader.raiseUnexpectedField("Multiple `parent_root` fields found",
-                                    "RestPublishedBeaconBlock")
-      parent_root = Opt.some(reader.readValue(Eth2Digest))
-    of "state_root":
-      if state_root.isSome():
-        reader.raiseUnexpectedField("Multiple `state_root` fields found",
-                                    "RestPublishedBeaconBlock")
-      state_root = Opt.some(reader.readValue(Eth2Digest))
-    of "body":
-      if blockBody.isSome():
-        reader.raiseUnexpectedField("Multiple `body` fields found",
-                                    "RestPublishedBeaconBlock")
-      blockBody = Opt.some(reader.readValue(RestPublishedBeaconBlockBody))
-    else:
-      unrecognizedFieldWarning(fieldName, typeof(value).name)
-
-  if slot.isNone():
-    reader.raiseUnexpectedValue("Field `slot` is missing")
-  if proposer_index.isNone():
-    reader.raiseUnexpectedValue("Field `proposer_index` is missing")
-  if parent_root.isNone():
-    reader.raiseUnexpectedValue("Field `parent_root` is missing")
-  if state_root.isNone():
-    reader.raiseUnexpectedValue("Field `state_root` is missing")
-  if blockBody.isNone():
-    reader.raiseUnexpectedValue("Field `body` is missing")
-
-  let body = blockBody.get()
-  value = RestPublishedBeaconBlock(
-    case body.kind
-    of ConsensusFork.Phase0:
-      ForkedBeaconBlock.init(
-        phase0.BeaconBlock(
-          slot: slot.get(),
-          proposer_index: proposer_index.get(),
-          parent_root: parent_root.get(),
-          state_root: state_root.get(),
-          body: body.phase0Body
-        )
-      )
-    of ConsensusFork.Altair:
-      ForkedBeaconBlock.init(
-        altair.BeaconBlock(
-          slot: slot.get(),
-          proposer_index: proposer_index.get(),
-          parent_root: parent_root.get(),
-          state_root: state_root.get(),
-          body: body.altairBody
-        )
-      )
-    of ConsensusFork.Bellatrix:
-      ForkedBeaconBlock.init(
-        bellatrix.BeaconBlock(
-          slot: slot.get(),
-          proposer_index: proposer_index.get(),
-          parent_root: parent_root.get(),
-          state_root: state_root.get(),
-          body: body.bellatrixBody
-        )
-      )
-    of ConsensusFork.Capella:
-      ForkedBeaconBlock.init(
-        capella.BeaconBlock(
-          slot: slot.get(),
-          proposer_index: proposer_index.get(),
-          parent_root: parent_root.get(),
-          state_root: state_root.get(),
-          body: body.capellaBody
-        )
-      )
-    of ConsensusFork.Deneb:
-      ForkedBeaconBlock.init(
-        deneb.BeaconBlock(
-          slot: slot.get(),
-          proposer_index: proposer_index.get(),
-          parent_root: parent_root.get(),
-          state_root: state_root.get(),
-          body: body.denebBody
-        )
-      )
-    of ConsensusFork.Electra:
-      ForkedBeaconBlock.init(
-        electra.BeaconBlock(
-          slot: slot.get(),
-          proposer_index: proposer_index.get(),
-          parent_root: parent_root.get(),
-          state_root: state_root.get(),
-          body: body.electraBody
-        )
-      )
-  )
-
-## RestPublishedSignedBeaconBlock
-proc readValue*(reader: var JsonReader[RestJson],
-                value: var RestPublishedSignedBeaconBlock) {.
-    raises: [IOError, SerializationError].} =
-  var signature: Opt[ValidatorSig]
-  var message: Opt[RestPublishedBeaconBlock]
-  for fieldName in readObjectFields(reader):
-    case fieldName
-    of "message":
-      if message.isSome():
-        reader.raiseUnexpectedField("Multiple `message` fields found",
-                                    "RestPublishedSignedBeaconBlock")
-      message = Opt.some(reader.readValue(RestPublishedBeaconBlock))
-    of "signature":
-      if signature.isSome():
-        reader.raiseUnexpectedField("Multiple `signature` fields found",
-                                    "RestPublishedSignedBeaconBlock")
-      signature = Opt.some(reader.readValue(ValidatorSig))
-    else:
-      unrecognizedFieldWarning(fieldName, typeof(value).name)
-
-  if signature.isNone():
-    reader.raiseUnexpectedValue("Field `signature` is missing")
-  if message.isNone():
-    reader.raiseUnexpectedValue("Field `message` is missing")
-
-  let blck = ForkedBeaconBlock(message.get())
-  value = RestPublishedSignedBeaconBlock ForkedSignedBeaconBlock.init(
-    blck, blck.hash_tree_root(), signature.get())
-
-proc readValue*(reader: var JsonReader[RestJson],
-                value: var RestPublishedSignedBlockContents) {.
-    raises: [IOError, SerializationError].} =
-  var signature: Opt[ValidatorSig]
-  var message: Opt[RestPublishedBeaconBlock]
-  var signed_message: Opt[RestPublishedSignedBeaconBlock]
-  var signed_block_data: Opt[JsonString]
-  var kzg_proofs: Opt[deneb.KzgProofs]
-  var blobs: Opt[deneb.Blobs]
-
-  # Pre-Deneb, there were always the same two top-level fields
-  # ('signature' and 'message'). For Deneb, there's a different set of
-  # a top-level fields: 'signed_block' 'kzg_proofs', `blobs`. The
-  # former is the same as the pre-Deneb object.
-  for fieldName in readObjectFields(reader):
-    case fieldName
-    of "message":
-      if message.isSome():
-        reader.raiseUnexpectedField("Multiple `message` fields found",
-                                    "RestPublishedSignedBlockContents")
-      message = Opt.some(reader.readValue(RestPublishedBeaconBlock))
-    of "signature":
-      if signature.isSome():
-        reader.raiseUnexpectedField("Multiple `signature` fields found",
-                                    "RestPublishedSignedBlockContents")
-      signature = Opt.some(reader.readValue(ValidatorSig))
-    of "signed_block":
-      if signed_block_data.isSome():
-        reader.raiseUnexpectedField("Multiple `signed_block` fields found",
-                                    "RestPublishedSignedBlockContents")
-      signed_block_data = Opt.some(reader.readValue(JsonString))
-      if message.isSome() or signature.isSome():
-        reader.raiseUnexpectedField(
-          "Found `signed_block` field alongside message or signature fields",
-          "RestPublishedSignedBlockContents")
-      signed_message =
-        try:
-          Opt.some(RestJson.decode(string(signed_block_data.get()),
-                                   RestPublishedSignedBeaconBlock,
-                                   requireAllFields = true,
-                                   allowUnknownFields = true))
-        except SerializationError:
-          Opt.none(RestPublishedSignedBeaconBlock)
-      if signed_message.isNone():
-        reader.raiseUnexpectedValue("Incorrect signed_block format")
-    of "kzg_proofs":
-      if kzg_proofs.isSome():
-        reader.raiseUnexpectedField(
-          "Multiple `kzg_proofs` fields found",
-          "RestPublishedSignedBlockContents")
-      if signature.isSome():
-        reader.raiseUnexpectedField(
-          "Found `kzg_proofs` field alongside signature field",
-          "RestPublishedSignedBlockContents")
-      kzg_proofs = Opt.some(reader.readValue(deneb.KzgProofs))
-    of "blobs":
-      if blobs.isSome():
-        reader.raiseUnexpectedField(
-          "Multiple `blobs` fields found",
-          "RestPublishedSignedBlockContents")
-      if signature.isSome():
-        reader.raiseUnexpectedField(
-          "Found `blobs` field alongside signature field",
-          "RestPublishedSignedBlockContents")
-      blobs = Opt.some(reader.readValue(deneb.Blobs))
-    else:
-      unrecognizedFieldWarning(fieldName, typeof(value).name)
-
-  if signed_message.isSome():
-    if message.isSome():
-      reader.raiseUnexpectedValue("Field `message` found but unsupported")
-    if signature.isSome():
-      reader.raiseUnexpectedValue("Field `signature` found but unsupported")
-    if kzg_proofs.isNone():
-      reader.raiseUnexpectedValue("Field `kzg_proofs` is missing")
-    if blobs.isNone():
-      reader.raiseUnexpectedValue("Field `blobs` is missing")
-    if kzg_proofs.get.len != blobs.get.len:
-      reader.raiseUnexpectedValue("Length mismatch of `kzg_proofs` and `blobs`")
-
-    withBlck(distinctBase(signed_message.get)):
-      when consensusFork >= ConsensusFork.Deneb:
-        template kzg_commitments: untyped =
-          forkyBlck.message.body.blob_kzg_commitments
-        if kzg_proofs.get().len != kzg_commitments.len:
-          reader.raiseUnexpectedValue(
-            "Length mismatch of `kzg_proofs` and `blob_kzg_commitments`")
-        value = RestPublishedSignedBlockContents.init(
-          consensusFork.BlockContents(
-            `block`: forkyBlck.message,
-            kzg_proofs: kzg_proofs.get(),
-            blobs: blobs.get()),
-          forkyBlck.root, forkyBlck.signature)
-      else:
-        reader.raiseUnexpectedValue("`signed_message` supported post-Deneb")
-  else:
-    if signature.isNone():
-      reader.raiseUnexpectedValue("Field `signature` is missing")
-    if message.isNone():
-      reader.raiseUnexpectedValue("Field `message` is missing")
-    if kzg_proofs.isSome():
-      reader.raiseUnexpectedValue("Field `kzg_proofs` found but unsupported")
-    if blobs.isSome():
-      reader.raiseUnexpectedValue("Field `blobs` found but unsupported")
-
-    withBlck(distinctBase(message.get)):
-      when consensusFork < ConsensusFork.Deneb:
-        value = RestPublishedSignedBlockContents.init(
-          forkyBlck, forkyBlck.hash_tree_root(), signature.get)
-      else:
-        reader.raiseUnexpectedValue("`message` support stopped at Deneb")
-
 ## ForkedSignedBeaconBlock
 proc readValue*(reader: var JsonReader[RestJson],
                 value: var ForkedSignedBeaconBlock) {.
@@ -2144,22 +1596,8 @@ proc readValue*(reader: var JsonReader[RestJson],
       if version.isSome():
         reader.raiseUnexpectedField("Multiple version fields found",
                                     "ForkedSignedBeaconBlock")
-      let vres = reader.readValue(string)
-      static: doAssert ConsensusFork.high == ConsensusFork.Electra
-      case vres
-      of "phase0":
-        version = Opt.some(ConsensusFork.Phase0)
-      of "altair":
-        version = Opt.some(ConsensusFork.Altair)
-      of "bellatrix":
-        version = Opt.some(ConsensusFork.Bellatrix)
-      of "capella":
-        version = Opt.some(ConsensusFork.Capella)
-      of "deneb":
-        version = Opt.some(ConsensusFork.Deneb)
-      of "electra":
-        version = Opt.some(ConsensusFork.Electra)
-      else:
+      version = ConsensusFork.init(reader.readValue(string))
+      if version.isNone:
         reader.raiseUnexpectedValue("Incorrect version field value")
     of "data":
       if data.isSome():
@@ -2248,24 +1686,19 @@ proc writeValue*(
     writer: var JsonWriter[RestJson], value: ForkedSignedBeaconBlock
 ) {.raises: [IOError].} =
   writer.beginRecord()
+  writer.writeField("version", value.kind.toString)
   case value.kind
   of ConsensusFork.Phase0:
-    writer.writeField("version", "phase0")
     writer.writeField("data", value.phase0Data)
   of ConsensusFork.Altair:
-    writer.writeField("version", "altair")
     writer.writeField("data", value.altairData)
   of ConsensusFork.Bellatrix:
-    writer.writeField("version", "bellatrix")
     writer.writeField("data", value.bellatrixData)
   of ConsensusFork.Capella:
-    writer.writeField("version", "capella")
     writer.writeField("data", value.capellaData)
   of ConsensusFork.Deneb:
-    writer.writeField("version", "deneb")
     writer.writeField("data", value.denebData)
   of ConsensusFork.Electra:
-    writer.writeField("version", "electra")
     writer.writeField("data", value.electraData)
   writer.endRecord()
 
@@ -2284,15 +1717,9 @@ proc readValue*(reader: var JsonReader[RestJson],
       if version.isSome():
         reader.raiseUnexpectedField("Multiple version fields found",
                                     "ForkedBeaconState")
-      let vres = reader.readValue(string)
-      version = case vres
-      of "phase0": Opt.some(ConsensusFork.Phase0)
-      of "altair": Opt.some(ConsensusFork.Altair)
-      of "bellatrix": Opt.some(ConsensusFork.Bellatrix)
-      of "capella": Opt.some(ConsensusFork.Capella)
-      of "deneb": Opt.some(ConsensusFork.Deneb)
-      of "electra": Opt.some(ConsensusFork.Electra)
-      else: reader.raiseUnexpectedValue("Incorrect version field value")
+      version = ConsensusFork.init(reader.readValue(string))
+      if version.isNone:
+        reader.raiseUnexpectedValue("Incorrect version field value")
     of "data":
       if data.isSome():
         reader.raiseUnexpectedField("Multiple data fields found",
@@ -2386,24 +1813,19 @@ proc writeValue*(
     writer: var JsonWriter[RestJson], value: ForkedHashedBeaconState
 ) {.raises: [IOError].} =
   writer.beginRecord()
+  writer.writeField("version", value.kind.toString)
   case value.kind
   of ConsensusFork.Phase0:
-    writer.writeField("version", "phase0")
     writer.writeField("data", value.phase0Data.data)
   of ConsensusFork.Altair:
-    writer.writeField("version", "altair")
     writer.writeField("data", value.altairData.data)
   of ConsensusFork.Bellatrix:
-    writer.writeField("version", "bellatrix")
     writer.writeField("data", value.bellatrixData.data)
   of ConsensusFork.Capella:
-    writer.writeField("version", "capella")
     writer.writeField("data", value.capellaData.data)
   of ConsensusFork.Deneb:
-    writer.writeField("version", "deneb")
     writer.writeField("data", value.denebData.data)
   of ConsensusFork.Electra:
-    writer.writeField("version", "electra")
     writer.writeField("data", value.electraData.data)
   writer.endRecord()
 
@@ -2449,6 +1871,72 @@ proc readValue*[T: SomeForkedLightClientObject](
     else:
       reader.raiseUnexpectedValue("Unsupported fork " & $version.get)
 
+## ForkedAggregateAndProof
+proc readValue*(reader: var JsonReader[RestJson],
+                value: var ForkedAggregateAndProof) {.
+     raises: [IOError, SerializationError].} =
+  var
+    version: Opt[ConsensusFork]
+    data: Opt[JsonString]
+
+  for fieldName {.inject.} in readObjectFields(reader):
+    case fieldName
+    of "version":
+      if version.isSome():
+        reader.raiseUnexpectedField("Multiple version fields found",
+                                    "ForkedAggregateAndProof")
+      let vres = reader.readValue(string).toLowerAscii()
+      version = ConsensusFork.init(vres)
+      if version.isNone():
+        reader.raiseUnexpectedValue("Incorrect version field value")
+    of "data":
+      if data.isSome():
+        reader.raiseUnexpectedField(
+          "Multiple '" & fieldName & "' fields found",
+          "ForkedAggregateAndProof")
+      data = Opt.some(reader.readValue(JsonString))
+    else:
+      unrecognizedFieldWarning(fieldName, "ForkedAggregateAndProof")
+
+  if version.isNone():
+    reader.raiseUnexpectedValue("Field `version` is missing")
+  if data.isNone():
+    reader.raiseUnexpectedValue("Field `data` is missing")
+
+  withConsensusFork(version.get()):
+    when consensusFork < ConsensusFork.Electra:
+      let res =
+        try:
+          RestJson.decode(string(data.get()),
+                          phase0.AggregateAndProof,
+                          requireAllFields = true,
+                          allowUnknownFields = true)
+        except SerializationError as exc:
+          reader.raiseUnexpectedValue(
+            "Incorrect phase0 aggregated attestation format, [" &
+            exc.formatMsg("ForkedAggregateAndProof") & "]")
+      value = ForkedAggregateAndProof.init(res, consensusFork)
+    else:
+      let res =
+        try:
+          RestJson.decode(string(data.get()),
+                          electra.AggregateAndProof,
+                          requireAllFields = true,
+                          allowUnknownFields = true)
+        except SerializationError as exc:
+          reader.raiseUnexpectedValue(
+            "Incorrect electra aggregated attestation format, [" &
+            exc.formatMsg("ForkedAggregateAndProof") & "]")
+      value = ForkedAggregateAndProof.init(res, consensusFork)
+
+proc writeValue*(writer: var JsonWriter[RestJson],
+                 proof: ForkedAggregateAndProof) {.raises: [IOError].} =
+  writer.beginRecord()
+  writer.writeField("version", proof.kind)
+  withAggregateAndProof(proof):
+    writer.writeField("data", forkyProof)
+  writer.endRecord()
+
 ## Web3SignerRequest
 proc writeValue*(
     writer: var JsonWriter[RestJson], value: Web3SignerRequest
@@ -2471,6 +1959,14 @@ proc writeValue*(
     if isSome(value.signingRoot):
       writer.writeField("signingRoot", value.signingRoot)
     writer.writeField("aggregate_and_proof", value.aggregateAndProof)
+  of Web3SignerRequestKind.AggregateAndProofV2:
+    doAssert(value.forkInfo.isSome(),
+             "forkInfo should be set for this type of request")
+    writer.writeField("type", "AGGREGATE_AND_PROOF_V2")
+    writer.writeField("fork_info", value.forkInfo.get())
+    if isSome(value.signingRoot):
+      writer.writeField("signingRoot", value.signingRoot)
+    writer.writeField("aggregate_and_proof", value.forkedAggregateAndProof)
   of Web3SignerRequestKind.Attestation:
     doAssert(value.forkInfo.isSome(),
              "forkInfo should be set for this type of request")
@@ -2574,6 +2070,8 @@ proc readValue*(reader: var JsonReader[RestJson],
           Web3SignerRequestKind.AggregationSlot
         of "AGGREGATE_AND_PROOF":
           Web3SignerRequestKind.AggregateAndProof
+        of "AGGREGATE_AND_PROOF_V2":
+          Web3SignerRequestKind.AggregateAndProofV2
         of "ATTESTATION":
           Web3SignerRequestKind.Attestation
         of "BLOCK_V2":
@@ -2631,13 +2129,10 @@ proc readValue*(reader: var JsonReader[RestJson],
         reader.raiseUnexpectedValue("Field `aggregation_slot` is missing")
       if forkInfo.isNone():
         reader.raiseUnexpectedValue("Field `fork_info` is missing")
-      let data =
-        block:
-          let res = decodeJsonString(Web3SignerAggregationSlotData, data.get())
-          if res.isErr():
-            reader.raiseUnexpectedValue(
-              "Incorrect field `aggregation_slot` format")
-          res.get()
+      let data = decodeJsonString(Web3SignerAggregationSlotData,
+                                  data.get()).valueOr:
+        reader.raiseUnexpectedValue(
+          "Incorrect field `aggregation_slot` format")
       Web3SignerRequest(kind: Web3SignerRequestKind.AggregationSlot,
         forkInfo: forkInfo, signingRoot: signingRoot, aggregationSlot: data
       )
@@ -2646,29 +2141,33 @@ proc readValue*(reader: var JsonReader[RestJson],
         reader.raiseUnexpectedValue("Field `aggregate_and_proof` is missing")
       if forkInfo.isNone():
         reader.raiseUnexpectedValue("Field `fork_info` is missing")
-      let data =
-        block:
-          let res = decodeJsonString(phase0.AggregateAndProof, data.get())
-          if res.isErr():
-            reader.raiseUnexpectedValue(
-              "Incorrect field `aggregate_and_proof` format")
-          res.get()
+      let data = decodeJsonString(phase0.AggregateAndProof, data.get()).valueOr:
+        reader.raiseUnexpectedValue(
+          "Incorrect field `aggregate_and_proof` format")
       Web3SignerRequest(
         kind: Web3SignerRequestKind.AggregateAndProof,
         forkInfo: forkInfo, signingRoot: signingRoot, aggregateAndProof: data
+      )
+    of Web3SignerRequestKind.AggregateAndProofV2:
+      if dataName != "aggregate_and_proof":
+        reader.raiseUnexpectedValue("Field `aggregate_and_proof` is missing")
+      if forkInfo.isNone():
+        reader.raiseUnexpectedValue("Field `fork_info` is missing")
+      let data = decodeJsonString(ForkedAggregateAndProof, data.get()).valueOr:
+        reader.raiseUnexpectedValue(
+          "Incorrect field `aggregate_and_proof` format")
+      Web3SignerRequest(
+        kind: Web3SignerRequestKind.AggregateAndProofV2,
+        forkInfo: forkInfo, signingRoot: signingRoot,
+        forkedAggregateAndProof: data
       )
     of Web3SignerRequestKind.Attestation:
       if dataName != "attestation":
         reader.raiseUnexpectedValue("Field `attestation` is missing")
       if forkInfo.isNone():
         reader.raiseUnexpectedValue("Field `fork_info` is missing")
-      let data =
-        block:
-          let res = decodeJsonString(AttestationData, data.get())
-          if res.isErr():
-            reader.raiseUnexpectedValue(
-              "Incorrect field `attestation` format")
-          res.get()
+      let data = decodeJsonString(AttestationData, data.get()).valueOr:
+        reader.raiseUnexpectedValue("Incorrect field `attestation` format")
       Web3SignerRequest(
         kind: Web3SignerRequestKind.Attestation,
         forkInfo: forkInfo, signingRoot: signingRoot, attestation: data
@@ -2680,13 +2179,9 @@ proc readValue*(reader: var JsonReader[RestJson],
         reader.raiseUnexpectedValue("Field `beacon_block` is missing")
       if forkInfo.isNone():
         reader.raiseUnexpectedValue("Field `fork_info` is missing")
-      let data =
-        block:
-          let res = decodeJsonString(Web3SignerForkedBeaconBlock, data.get())
-          if res.isErr():
-            reader.raiseUnexpectedValue(
-              "Incorrect field `beacon_block` format")
-          res.get()
+      let data = decodeJsonString(Web3SignerForkedBeaconBlock,
+                                  data.get()).valueOr:
+        reader.raiseUnexpectedValue("Incorrect field `beacon_block` format")
       if len(proofs) > 0:
         Web3SignerRequest(
           kind: Web3SignerRequestKind.BlockV2,
@@ -2701,13 +2196,8 @@ proc readValue*(reader: var JsonReader[RestJson],
     of Web3SignerRequestKind.Deposit:
       if dataName != "deposit":
         reader.raiseUnexpectedValue("Field `deposit` is missing")
-      let data =
-        block:
-          let res = decodeJsonString(Web3SignerDepositData, data.get())
-          if res.isErr():
-            reader.raiseUnexpectedValue(
-              "Incorrect field `deposit` format")
-          res.get()
+      let data = decodeJsonString(Web3SignerDepositData, data.get()).valueOr:
+        reader.raiseUnexpectedValue("Incorrect field `deposit` format")
       Web3SignerRequest(
         kind: Web3SignerRequestKind.Deposit,
         signingRoot: signingRoot, deposit: data
@@ -2717,13 +2207,9 @@ proc readValue*(reader: var JsonReader[RestJson],
         reader.raiseUnexpectedValue("Field `randao_reveal` is missing")
       if forkInfo.isNone():
         reader.raiseUnexpectedValue("Field `fork_info` is missing")
-      let data =
-        block:
-          let res = decodeJsonString(Web3SignerRandaoRevealData, data.get())
-          if res.isErr():
-            reader.raiseUnexpectedValue(
-              "Incorrect field `randao_reveal` format")
-          res.get()
+      let data = decodeJsonString(Web3SignerRandaoRevealData,
+                                  data.get()).valueOr:
+        reader.raiseUnexpectedValue("Incorrect field `randao_reveal` format")
       Web3SignerRequest(
         kind: Web3SignerRequestKind.RandaoReveal,
         forkInfo: forkInfo, signingRoot: signingRoot, randaoReveal: data
@@ -2733,13 +2219,8 @@ proc readValue*(reader: var JsonReader[RestJson],
         reader.raiseUnexpectedValue("Field `voluntary_exit` is missing")
       if forkInfo.isNone():
         reader.raiseUnexpectedValue("Field `fork_info` is missing")
-      let data =
-        block:
-          let res = decodeJsonString(VoluntaryExit, data.get())
-          if res.isErr():
-            reader.raiseUnexpectedValue(
-              "Incorrect field `voluntary_exit` format")
-          res.get()
+      let data = decodeJsonString(VoluntaryExit, data.get()).valueOr:
+        reader.raiseUnexpectedValue("Incorrect field `voluntary_exit` format")
       Web3SignerRequest(
         kind: Web3SignerRequestKind.VoluntaryExit,
         forkInfo: forkInfo, signingRoot: signingRoot, voluntaryExit: data
@@ -2750,13 +2231,10 @@ proc readValue*(reader: var JsonReader[RestJson],
           "Field `sync_committee_message` is missing")
       if forkInfo.isNone():
         reader.raiseUnexpectedValue("Field `fork_info` is missing")
-      let data =
-        block:
-          let res = decodeJsonString(Web3SignerSyncCommitteeMessageData, data.get())
-          if res.isErr():
-            reader.raiseUnexpectedValue(
-              "Incorrect field `sync_committee_message` format")
-          res.get()
+      let data = decodeJsonString(Web3SignerSyncCommitteeMessageData,
+                                  data.get()).valueOr:
+        reader.raiseUnexpectedValue(
+          "Incorrect field `sync_committee_message` format")
       Web3SignerRequest(
         kind: Web3SignerRequestKind.SyncCommitteeMessage,
         forkInfo: forkInfo, signingRoot: signingRoot,
@@ -2768,13 +2246,10 @@ proc readValue*(reader: var JsonReader[RestJson],
           "Field `sync_aggregator_selection_data` is missing")
       if forkInfo.isNone():
         reader.raiseUnexpectedValue("Field `fork_info` is missing")
-      let data =
-        block:
-          let res = decodeJsonString(SyncAggregatorSelectionData, data.get())
-          if res.isErr():
-            reader.raiseUnexpectedValue(
-              "Incorrect field `sync_aggregator_selection_data` format")
-          res.get()
+      let data = decodeJsonString(SyncAggregatorSelectionData,
+                                  data.get()).valueOr:
+        reader.raiseUnexpectedValue(
+          "Incorrect field `sync_aggregator_selection_data` format")
       Web3SignerRequest(
         kind: Web3SignerRequestKind.SyncCommitteeSelectionProof,
         forkInfo: forkInfo, signingRoot: signingRoot,
@@ -2786,13 +2261,9 @@ proc readValue*(reader: var JsonReader[RestJson],
           "Field `contribution_and_proof` is missing")
       if forkInfo.isNone():
         reader.raiseUnexpectedValue("Field `fork_info` is missing")
-      let data =
-        block:
-          let res = decodeJsonString(ContributionAndProof, data.get())
-          if res.isErr():
-            reader.raiseUnexpectedValue(
-              "Incorrect field `contribution_and_proof` format")
-          res.get()
+      let data = decodeJsonString(ContributionAndProof, data.get()).valueOr:
+        reader.raiseUnexpectedValue(
+          "Incorrect field `contribution_and_proof` format")
       Web3SignerRequest(
         kind: Web3SignerRequestKind.SyncCommitteeContributionAndProof,
         forkInfo: forkInfo, signingRoot: signingRoot,
@@ -2804,14 +2275,10 @@ proc readValue*(reader: var JsonReader[RestJson],
           "Field `validator_registration` is missing")
       if forkInfo.isNone():
         reader.raiseUnexpectedValue("Field `fork_info` is missing")
-      let data =
-        block:
-          let res =
-            decodeJsonString(Web3SignerValidatorRegistration, data.get())
-          if res.isErr():
-            reader.raiseUnexpectedValue(
-              "Incorrect field `validator_registration` format")
-          res.get()
+      let data = decodeJsonString(Web3SignerValidatorRegistration,
+                                  data.get()).valueOr:
+        reader.raiseUnexpectedValue(
+          "Incorrect field `validator_registration` format")
       Web3SignerRequest(
         kind: Web3SignerRequestKind.ValidatorRegistration,
         forkInfo: forkInfo, signingRoot: signingRoot,
@@ -3406,11 +2873,16 @@ proc decodeBody*(
        version: string
      ): Result[RestPublishedSignedBeaconBlock, RestErrorMessage] =
   if body.contentType == ApplicationJsonMediaType:
-    let data =
+    let consensusFork = ConsensusFork.decodeString(version).valueOr:
+      return err(RestErrorMessage.init(Http400, UnableDecodeVersionError,
+                                       [version, $error]))
+
+    template getBlck(blckType: untyped): untyped =
       try:
-        RestJson.decode(body.data, RestPublishedSignedBeaconBlock,
-                        requireAllFields = true,
-                        allowUnknownFields = true)
+        RestPublishedSignedBeaconBlock(ForkedSignedBeaconBlock.init(
+          RestJson.decode(body.data, blckType,
+                          requireAllFields = true,
+                          allowUnknownFields = true)))
       except SerializationError as exc:
         debug "Failed to decode JSON data",
               err = exc.formatMsg("<data>"),
@@ -3420,7 +2892,10 @@ proc decodeBody*(
       except CatchableError as exc:
         return err(RestErrorMessage.init(Http400, UnexpectedDecodeError,
                                          [version, $exc.msg]))
-    ok(data)
+
+    withConsensusFork(consensusFork):
+      ok(getBlck(consensusFork.SignedBeaconBlock))
+
   elif body.contentType == OctetStreamMediaType:
     let consensusFork = ConsensusFork.decodeString(version).valueOr:
       return err(RestErrorMessage.init(Http400, UnableDecodeVersionError,
@@ -3502,11 +2977,20 @@ proc decodeBody*(
        version: string
      ): Result[RestPublishedSignedBlockContents, RestErrorMessage] =
   if body.contentType == ApplicationJsonMediaType:
-    let data =
+    let consensusFork = ConsensusFork.decodeString(version).valueOr:
+      return err(RestErrorMessage.init(Http400, UnableDecodeVersionError,
+                                       [version, $error]))
+
+    template getBlck(blckType: untyped): untyped =
       try:
-        RestJson.decode(body.data, RestPublishedSignedBlockContents,
-                        requireAllFields = true,
-                        allowUnknownFields = true)
+        var res = RestJson.decode(body.data, blckType,
+                                  requireAllFields = true,
+                                  allowUnknownFields = true)
+        when compiles(res.signed_block.messsage):
+          {.error: "Deneb and later forks handled in case statement".}
+        else:
+          RestPublishedSignedBlockContents.init(
+            res.message, hash_tree_root(res.message), res.signature)
       except SerializationError as exc:
         debug "Failed to decode JSON data",
               err = exc.formatMsg("<data>"),
@@ -3516,6 +3000,48 @@ proc decodeBody*(
       except CatchableError as exc:
         return err(RestErrorMessage.init(Http400, UnexpectedDecodeError,
                                          [version, $exc.msg]))
+
+    let data =
+      case consensusFork
+      of ConsensusFork.Phase0:    getBlck(phase0.SignedBeaconBlock)
+      of ConsensusFork.Altair:    getBlck(altair.SignedBeaconBlock)
+      of ConsensusFork.Bellatrix: getBlck(bellatrix.SignedBeaconBlock)
+      of ConsensusFork.Capella:   getBlck(capella.SignedBeaconBlock)
+      of ConsensusFork.Deneb:
+        try:
+          var res = RestJson.decode(body.data, DenebSignedBlockContents,
+                                    requireAllFields = true,
+                                    allowUnknownFields = true)
+          res.signed_block.root = hash_tree_root(res.signed_block.message)
+          RestPublishedSignedBlockContents(
+            kind: ConsensusFork.Deneb, denebData: res)
+        except SerializationError as exc:
+          debug "Failed to decode JSON data",
+                err = exc.formatMsg("<data>"),
+                data = string.fromBytes(body.data)
+          return err(RestErrorMessage.init(Http400, UnableDecodeError,
+                                           [version, exc.formatMsg("<data>")]))
+        except CatchableError as exc:
+          return err(RestErrorMessage.init(Http400, UnexpectedDecodeError,
+                                           [version, $exc.msg]))
+      of ConsensusFork.Electra:
+        try:
+          var res = RestJson.decode(body.data, ElectraSignedBlockContents,
+                                    requireAllFields = true,
+                                    allowUnknownFields = true)
+          res.signed_block.root = hash_tree_root(res.signed_block.message)
+          RestPublishedSignedBlockContents(
+            kind: ConsensusFork.Electra, electraData: res)
+        except SerializationError as exc:
+          debug "Failed to decode JSON data",
+                err = exc.formatMsg("<data>"),
+                data = string.fromBytes(body.data)
+          return err(RestErrorMessage.init(Http400, UnableDecodeError,
+                                           [version, exc.formatMsg("<data>")]))
+        except CatchableError as exc:
+          return err(RestErrorMessage.init(Http400, UnexpectedDecodeError,
+                                           [version, $exc.msg]))
+
     ok(data)
   elif body.contentType == OctetStreamMediaType:
     let consensusFork = ConsensusFork.decodeString(version).valueOr:
@@ -3832,7 +3358,7 @@ proc decodeBytes*[T: ProduceBlockResponseV3](
       consensusValue =
         if len(headerConsensusValue) == 0:
           # TODO (cheatfate): We should not allow empty `consensus-value`.
-          Opt.none(Uint256)
+          Opt.none(UInt256)
         else:
           try:
             Opt.some parse(headerConsensusValue, UInt256, 10)
@@ -4325,15 +3851,11 @@ func decodeString*(t: typedesc[ValidatorFilter],
 
 func decodeString*(t: typedesc[ConsensusFork],
                    value: string): Result[ConsensusFork, cstring] =
-  static: doAssert ConsensusFork.high == ConsensusFork.Electra
-  case toLowerAscii(value)
-  of "phase0": ok(ConsensusFork.Phase0)
-  of "altair": ok(ConsensusFork.Altair)
-  of "bellatrix": ok(ConsensusFork.Bellatrix)
-  of "capella": ok(ConsensusFork.Capella)
-  of "deneb": ok(ConsensusFork.Deneb)
-  of "electra": ok(ConsensusFork.Electra)
-  else: err("Unsupported or invalid beacon block fork version")
+  let vres = ConsensusFork.init(toLowerAscii(value))
+  if vres.isSome:
+    ok(vres.get)
+  else:
+    err("Unsupported or invalid beacon block fork version")
 
 proc decodeString*(t: typedesc[EventBeaconBlockObject],
                    value: string): Result[EventBeaconBlockObject, string] =

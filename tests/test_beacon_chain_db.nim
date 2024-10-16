@@ -11,16 +11,24 @@
 import
   unittest2,
   ../beacon_chain/beacon_chain_db,
-  ../beacon_chain/spec/[beaconstate, forks, state_transition],
-  ../beacon_chain/consensus_object_pools/blockchain_dag,
-  eth/db/kvstore,
-  # test utilies
-  ./mocking/mock_genesis,
-  ./testutil, ./testdbutil, ./testblockutil, ./teststateutil
+  ../beacon_chain/consensus_object_pools/block_dag,
+  ../beacon_chain/spec/forks,
+  ./testutil
 
 from std/algorithm import sort
 from std/sequtils import toSeq
 from snappy import encodeFramed, uncompressedLenFramed
+from ../beacon_chain/consensus_object_pools/block_pools_types import
+  ChainDAGRef
+from ../beacon_chain/consensus_object_pools/blockchain_dag import init
+from ../beacon_chain/spec/beaconstate import
+  initialize_hashed_beacon_state_from_eth1
+from ../beacon_chain/spec/state_transition import noRollback
+from ../beacon_chain/validators/validator_monitor import ValidatorMonitor
+from ./mocking/mock_genesis import mockEth1BlockHash
+from ./testblockutil import makeInitialDeposits
+from ./testdbutil import makeTestDB
+from ./teststateutil import getTestStates
 
 when isMainModule:
   import chronicles # or some random compile error happens...
@@ -46,9 +54,6 @@ proc getBellatrixStateRef(db: BeaconChainDB, root: Eth2Digest):
   if db.getState(root, res[], noRollback):
     return res
 
-from ../beacon_chain/spec/datatypes/capella import
-  BeaconStateRef, NilableBeaconStateRef
-
 proc getCapellaStateRef(db: BeaconChainDB, root: Eth2Digest):
     capella.NilableBeaconStateRef =
   # load beaconstate the way the block pool does it - into an existing instance
@@ -56,12 +61,17 @@ proc getCapellaStateRef(db: BeaconChainDB, root: Eth2Digest):
   if db.getState(root, res[], noRollback):
     return res
 
-from ../beacon_chain/spec/datatypes/deneb import TrustedSignedBeaconBlock
-
 proc getDenebStateRef(db: BeaconChainDB, root: Eth2Digest):
     deneb.NilableBeaconStateRef =
   # load beaconstate the way the block pool does it - into an existing instance
   let res = (deneb.BeaconStateRef)()
+  if db.getState(root, res[], noRollback):
+    return res
+
+proc getElectraStateRef(db: BeaconChainDB, root: Eth2Digest):
+    electra.NilableBeaconStateRef =
+  # load beaconstate the way the block pool does it - into an existing instance
+  let res = (electra.BeaconStateRef)()
   if db.getState(root, res[], noRollback):
     return res
 
@@ -120,8 +130,6 @@ proc getTestStates(consensusFork: ConsensusFork): auto =
 
   testStates
 
-debugComment "add some electra states, and test electra state loading/etc"
-
 # Each set of states gets used twice, so scope them to module
 let
   testStatesPhase0    = getTestStates(ConsensusFork.Phase0)
@@ -129,11 +137,13 @@ let
   testStatesBellatrix = getTestStates(ConsensusFork.Bellatrix)
   testStatesCapella   = getTestStates(ConsensusFork.Capella)
   testStatesDeneb     = getTestStates(ConsensusFork.Deneb)
+  testStatesElectra   = getTestStates(ConsensusFork.Electra)
 doAssert len(testStatesPhase0) > 8
 doAssert len(testStatesAltair) > 8
 doAssert len(testStatesBellatrix) > 8
 doAssert len(testStatesCapella) > 8
 doAssert len(testStatesDeneb) > 8
+doAssert len(testStatesElectra) > 8
 
 suite "Beacon chain DB" & preset():
   test "empty database" & preset():
@@ -527,6 +537,24 @@ suite "Beacon chain DB" & preset():
 
     db.close()
 
+  test "sanity check Electra states" & preset():
+    let db = makeTestDB(SLOTS_PER_EPOCH)
+
+    for state in testStatesElectra:
+      let root = state[].electraData.root
+      db.putState(root, state[].electraData.data)
+
+      check:
+        db.containsState(root)
+        hash_tree_root(db.getElectraStateRef(root)[]) == root
+
+      db.delState(ConsensusFork.Electra, root)
+      check:
+        not db.containsState(root)
+        db.getElectraStateRef(root).isNil
+
+    db.close()
+
   test "sanity check phase 0 states, reusing buffers" & preset():
     let db = makeTestDB(SLOTS_PER_EPOCH)
     let stateBuffer = (phase0.BeaconStateRef)()
@@ -621,6 +649,26 @@ suite "Beacon chain DB" & preset():
         hash_tree_root(stateBuffer[]) == root
 
       db.delState(ConsensusFork.Deneb, root)
+      check:
+        not db.containsState(root)
+        not db.getState(root, stateBuffer[], noRollback)
+
+    db.close()
+
+  test "sanity check Electra states, reusing buffers" & preset():
+    let db = makeTestDB(SLOTS_PER_EPOCH)
+    let stateBuffer = (electra.BeaconStateRef)()
+
+    for state in testStatesElectra:
+      let root = state[].electraData.root
+      db.putState(root, state[].electraData.data)
+
+      check:
+        db.getState(root, stateBuffer[], noRollback)
+        db.containsState(root)
+        hash_tree_root(stateBuffer[]) == root
+
+      db.delState(ConsensusFork.Electra, root)
       check:
         not db.containsState(root)
         not db.getState(root, stateBuffer[], noRollback)
@@ -754,9 +802,34 @@ suite "Beacon chain DB" & preset():
       state[].kind == ConsensusFork.Phase0
       state[].phase0Data.data.slot != 10.Slot
 
-  test "find ancestors" & preset():
+  test "sanity check Electra and cross-fork getState rollback" & preset():
     var
-      db = BeaconChainDB.new("", inMemory = true)
+      db = makeTestDB(SLOTS_PER_EPOCH)
+      validatorMonitor = newClone(ValidatorMonitor.init())
+      dag = init(ChainDAGRef, defaultRuntimeConfig, db, validatorMonitor, {})
+      state = (ref ForkedHashedBeaconState)(
+        kind: ConsensusFork.Electra,
+        electraData: electra.HashedBeaconState(data: electra.BeaconState(
+          slot: 10.Slot)))
+      root = Eth2Digest()
+
+    db.putCorruptState(ConsensusFork.Electra, root)
+
+    let restoreAddr = addr dag.headState
+
+    func restore() =
+      assign(state[], restoreAddr[])
+
+    check:
+      state[].electraData.data.slot == 10.Slot
+      not db.getState(root, state[].electraData.data, restore)
+
+      # assign() has switched the case object fork
+      state[].kind == ConsensusFork.Phase0
+      state[].phase0Data.data.slot != 10.Slot
+
+  test "find ancestors" & preset():
+    var db = BeaconChainDB.new("", inMemory = true)
 
     let
       a0 = withDigest(
@@ -791,8 +864,7 @@ suite "Beacon chain DB" & preset():
     # state. We've been bit by this because we've had a bug in the BLS
     # serialization where an all-zero default-initialized bls signature could
     # not be deserialized because the deserialization was too strict.
-    var
-      db = BeaconChainDB.new("", inMemory = true)
+    var db = BeaconChainDB.new("", inMemory = true)
 
     let
       state = newClone(initialize_hashed_beacon_state_from_eth1(
@@ -811,8 +883,7 @@ suite "Beacon chain DB" & preset():
       hash_tree_root(state2[]) == state[].root
 
   test "sanity check state diff roundtrip" & preset():
-    var
-      db = BeaconChainDB.new("", inMemory = true)
+    var db = BeaconChainDB.new("", inMemory = true)
 
     # TODO htr(diff) probably not interesting/useful, but stand-in
     let
