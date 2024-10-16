@@ -243,14 +243,14 @@ proc restValidatorExit(config: BeaconNodeConf) {.async.} =
           except KeyError:
             raise newException(RestError,
               ConsensusFork.Capella.forkVersionConfigKey() & " missing")
-        capellaForkEpoch =
+        denebEpoch =
           try:
-            forkConfig.get()[ConsensusFork.Capella].epoch
+            forkConfig.get()[ConsensusFork.Deneb].epoch
           except KeyError:
             raise newException(RestError,
-              ConsensusFork.Capella.forkEpochConfigKey() & " missing")
+              ConsensusFork.Deneb.forkEpochConfigKey() & " missing")
       voluntary_exit_signature_fork(
-        fork, capellaForkVersion, currentEpoch, capellaForkEpoch)
+        fork, capellaForkVersion, currentEpoch, denebEpoch)
     else:
       raise newException(RestError, "Error response (" & $response.status & ")")
   except CatchableError as exc:
