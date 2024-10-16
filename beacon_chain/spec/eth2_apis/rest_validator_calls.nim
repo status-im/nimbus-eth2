@@ -72,13 +72,13 @@ proc getAggregatedAttestationPlain*(
   ## https://ethereum.github.io/beacon-APIs/#/Validator/getAggregatedAttestation
 
 proc getAggregatedAttestationPlainV2*(
-       attestation_data_root: Eth2Digest,
-       slot: Slot,
-       committee_index: CommitteeIndex
-     ): RestPlainResponse {.
-     rest, endpoint: "/eth/v2/validator/aggregate_attestation"
-     meth: MethodGet.}
-  ## https://ethereum.github.io/beacon-APIs/?urls.primaryName=dev#/Beacon/getPoolAttestationsV2
+    attestation_data_root: Eth2Digest,
+    slot: Slot,
+    committee_index: CommitteeIndex
+): RestPlainResponse {.
+    rest, endpoint: "/eth/v2/validator/aggregate_attestation"
+    meth: MethodGet.}
+  ## https://ethereum.github.io/beacon-APIs/?urls.primaryName=dev#/Validator/getAggregatedAttestationV2
 
 proc publishAggregateAndProofs*(
        body: seq[phase0.SignedAggregateAndProof]
@@ -87,12 +87,24 @@ proc publishAggregateAndProofs*(
      meth: MethodPost.}
   ## https://ethereum.github.io/beacon-APIs/#/Validator/publishAggregateAndProofs
 
-proc publishAggregateAndProofsV2*(
-       body: seq[phase0.SignedAggregateAndProof | electra.SignedAggregateAndProof]
-     ): RestPlainResponse {.
-     rest, endpoint: "/eth/v2/validator/aggregate_and_proofs",
-     meth: MethodPost.}
+proc publishAggregateAndProofsV2Plain*(
+    body: seq[ForkySignedAggregateAndProof]
+): RestPlainResponse {.
+    rest, endpoint: "/eth/v2/validator/aggregate_and_proofs",
+    meth: MethodPost.}
   ## https://ethereum.github.io/beacon-APIs/?urls.primaryName=dev#/Validator/publishAggregateAndProofsV2
+
+proc publishAggregateAndProofsV2*[T: ForkySignedAggregateAndProof](
+    client: RestClientRef,
+    body: seq[T]
+): Future[RestPlainResponse] {.
+   async: (raises: [CancelledError, RestEncodingError, RestDnsResolveError,
+                    RestCommunicationError], raw: true).} =
+  ## https://ethereum.github.io/beacon-APIs/?urls.primaryName=dev#/Validator/publishAggregateAndProofsV2
+  let
+    consensus = T.kind.toString()
+  client.publishAggregateAndProofsV2Plain(
+    body, extraHeaders = @[("eth-consensus-version", consensus)])
 
 proc prepareBeaconCommitteeSubnet*(
        body: seq[RestCommitteeSubscription]

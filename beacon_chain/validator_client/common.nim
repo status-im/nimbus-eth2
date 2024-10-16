@@ -61,7 +61,7 @@ type
   ClientServiceRef* = ref object of RootObj
     name*: string
     state*: ServiceState
-    lifeFut*: Future[void]
+    lifeFut*: Future[void].Raising([])
     client*: ValidatorClientRef
 
   DutiesServiceRef* = ref object of ClientServiceRef
@@ -190,12 +190,8 @@ type
     blocks: seq[Eth2Digest]
     waiters*: seq[BlockWaiter]
 
-  ValidatorRuntimeConfig* = object
-    forkConfig*: Opt[VCForkConfig]
-
   ValidatorClient* = object
     config*: ValidatorClientConf
-    runtimeConfig*: ValidatorRuntimeConfig
     metricsServer*: Opt[MetricsHttpServerRef]
     graffitiBytes*: GraffitiBytes
     beaconNodes*: seq[BeaconNodeServerRef]
@@ -206,7 +202,7 @@ type
     blockService*: BlockServiceRef
     syncCommitteeService*: SyncCommitteeServiceRef
     doppelgangerService*: DoppelgangerServiceRef
-    runSlotLoopFut*: Future[void]
+    runSlotLoopFut*: Future[void].Raising([CancelledError])
     runKeystoreCachePruningLoopFut*: Future[void]
     sigintHandleFut*: Future[void]
     sigtermHandleFut*: Future[void]
@@ -216,6 +212,7 @@ type
     beaconClock*: BeaconClock
     attachedValidators*: ref ValidatorPool
     forks*: seq[Fork]
+    forkConfig*: Opt[VCForkConfig]
     preGenesisEvent*: AsyncEvent
     genesisEvent*: AsyncEvent
     forksAvailable*: AsyncEvent
@@ -241,7 +238,8 @@ type
 
   ApiFailure* {.pure.} = enum
     Communication, Invalid, NotFound, OptSynced, NotSynced, Internal,
-    NotImplemented, UnexpectedCode, UnexpectedResponse, NoError
+    NotImplemented, UnexpectedCode, UnexpectedResponse, UnsupportedContentType,
+    NoError
 
   ApiNodeFailure* = object
     node*: BeaconNodeServerRef
@@ -375,6 +373,7 @@ proc `$`*(failure: ApiFailure): string =
   of ApiFailure.NotImplemented: "not-implemented"
   of ApiFailure.UnexpectedCode: "unexpected-code"
   of ApiFailure.UnexpectedResponse: "unexpected-data"
+  of ApiFailure.UnsupportedContentType: "unsupported-content-type"
   of ApiFailure.NoError: "status-update"
 
 proc getNodeCounts*(vc: ValidatorClientRef): BeaconNodesCounters =
@@ -629,7 +628,7 @@ proc updateStatus*(node: BeaconNodeServerRef,
       warn "Beacon node's clock is out of order, (beacon node is unusable)"
       node.status = status
 
-proc stop*(csr: ClientServiceRef) {.async.} =
+proc stop*(csr: ClientServiceRef) {.async: (raises: []).} =
   debug "Stopping service", service = csr.name
   if csr.state == ServiceState.Running:
     csr.state = ServiceState.Closing
@@ -899,6 +898,60 @@ proc forkAtEpoch*(vc: ValidatorClientRef, epoch: Epoch): Fork =
       break
   res
 
+proc isPastElectraFork*(vc: ValidatorClientRef, epoch: Epoch): bool =
+  doAssert(len(vc.forks) > 0)
+  doAssert(vc.forkConfig.isSome())
+  let electraVersion =
+    try:
+      vc.forkConfig.get()[ConsensusFork.Electra].version
+    except KeyError:
+      raiseAssert "Electra fork should be in forks configuration"
+  var res = false
+  for item in vc.forks:
+    if item.epoch <= epoch:
+      if item.current_version == electraVersion:
+        res = true
+    else:
+      break
+  res
+
+proc isPastAltairFork*(vc: ValidatorClientRef, epoch: Epoch): bool =
+  doAssert(len(vc.forks) > 0)
+  doAssert(vc.forkConfig.isSome())
+
+  let altairVersion =
+    try:
+      vc.forkConfig.get()[ConsensusFork.Altair].version
+    except KeyError:
+      raiseAssert "Altair fork should be in forks configuration"
+
+  var res = false
+  for item in vc.forks:
+    if item.epoch <= epoch:
+      if item.current_version == altairVersion:
+        res = true
+    else:
+      break
+  res
+
+proc getForkEpoch*(vc: ValidatorClientRef, fork: ConsensusFork): Opt[Epoch] =
+  doAssert(len(vc.forks) > 0)
+  doAssert(vc.forkConfig.isSome())
+
+  let forkVersion =
+    try:
+      vc.forkConfig.get()[fork].version
+    except KeyError:
+      raiseAssert $fork & " fork should be in forks configuration"
+
+  for item in vc.forks:
+    if item.current_version == forkVersion:
+      return Opt.some(item.epoch)
+  Opt.none(Epoch)
+
+proc getAltairEpoch*(vc: ValidatorClientRef): Epoch =
+  getForkEpoch(vc, ConsensusFork.Altair).get()
+
 proc getSubcommitteeIndex*(index: IndexInSyncCommittee): SyncSubcommitteeIndex =
   SyncSubcommitteeIndex(uint16(index) div SYNC_SUBCOMMITTEE_SIZE)
 
@@ -924,7 +977,8 @@ proc addValidator*(vc: ValidatorClientRef, keystore: KeystoreData) =
   discard vc.attachedValidators[].addValidator(keystore, feeRecipient, gasLimit)
 
 proc removeValidator*(vc: ValidatorClientRef,
-                      pubkey: ValidatorPubKey) {.async.} =
+                      pubkey: ValidatorPubKey) {.
+     async: (raises: [CancelledError]).} =
   let validator = vc.attachedValidators[].getValidator(pubkey).valueOr:
     return
   # Remove validator from ValidatorPool.
@@ -1059,10 +1113,11 @@ proc getValidatorRegistration(
     err(RegistrationKind.Cached)
 
 proc prepareRegistrationList*(
-       vc: ValidatorClientRef,
-       timestamp: Time,
-       fork: Fork
-     ): Future[seq[SignedValidatorRegistrationV1]] {.async.} =
+    vc: ValidatorClientRef,
+    timestamp: Time,
+    fork: Fork
+): Future[seq[SignedValidatorRegistrationV1]] {.
+  async: (raises: [CancelledError]).} =
 
   var
     messages: seq[SignedValidatorRegistrationV1]
@@ -1104,7 +1159,7 @@ proc prepareRegistrationList*(
 
   for index, future in futures.pairs():
     if future.completed():
-      let sres = future.read()
+      let sres = future.value
       if sres.isOk():
         var reg = messages[index]
         reg.signature = sres.get()
@@ -1122,7 +1177,7 @@ proc prepareRegistrationList*(
         index_missing = indexMissing, fee_missing = feeMissing,
         incorrect_time = timed
 
-  return registrations
+  registrations
 
 func init*(t: typedesc[ApiNodeFailure], failure: ApiFailure,
            request: string, strategy: ApiStrategyKind,
@@ -1156,7 +1211,8 @@ func init*(t: typedesc[ApiNodeFailure], failure: ApiFailure,
 
 proc checkedWaitForSlot*(vc: ValidatorClientRef, destinationSlot: Slot,
                          offset: TimeDiff,
-                         showLogs: bool): Future[Opt[Slot]] {.async.} =
+                         showLogs: bool): Future[Opt[Slot]] {.
+     async: (raises: [CancelledError]).} =
   let
     currentTime = vc.beaconClock.now()
     currentSlot = currentTime.slotOrZero()
@@ -1173,7 +1229,7 @@ proc checkedWaitForSlot*(vc: ValidatorClientRef, destinationSlot: Slot,
     time_to_slot = shortLog(timeToSlot)
 
   while true:
-    await sleepAsync(timeToSlot)
+    await sleepAsync2(timeToSlot)
 
     let
       wallTime = vc.beaconClock.now()
@@ -1218,7 +1274,8 @@ proc checkedWaitForSlot*(vc: ValidatorClientRef, destinationSlot: Slot,
 
 proc checkedWaitForNextSlot*(vc: ValidatorClientRef, curSlot: Opt[Slot],
                              offset: TimeDiff,
-                             showLogs: bool): Future[Opt[Slot]] =
+                             showLogs: bool): Future[Opt[Slot]] {.
+     async: (raises: [CancelledError], raw: true).} =
   let
     currentTime = vc.beaconClock.now()
     currentSlot = curSlot.valueOr: currentTime.slotOrZero()
@@ -1227,7 +1284,8 @@ proc checkedWaitForNextSlot*(vc: ValidatorClientRef, curSlot: Opt[Slot],
   vc.checkedWaitForSlot(nextSlot, offset, showLogs)
 
 proc checkedWaitForNextSlot*(vc: ValidatorClientRef, offset: TimeDiff,
-                             showLogs: bool): Future[Opt[Slot]] =
+                             showLogs: bool): Future[Opt[Slot]] {.
+     async: (raises: [CancelledError], raw: true).} =
   let
     currentTime = vc.beaconClock.now()
     currentSlot = currentTime.slotOrZero()
@@ -1236,7 +1294,8 @@ proc checkedWaitForNextSlot*(vc: ValidatorClientRef, offset: TimeDiff,
   vc.checkedWaitForSlot(nextSlot, offset, showLogs)
 
 proc expectBlock*(vc: ValidatorClientRef, slot: Slot,
-                  confirmations: int = 1): Future[seq[Eth2Digest]] =
+                  confirmations: int = 1): Future[seq[Eth2Digest]] {.
+     async: (raises: [CancelledError], raw: true).}=
   var
     retFuture = newFuture[seq[Eth2Digest]]("expectBlock")
     waiter = BlockWaiter(future: retFuture, count: confirmations)
@@ -1298,7 +1357,7 @@ proc waitForBlock*(
        slot: Slot,
        timediff: TimeDiff,
        confirmations: int = 1
-     ) {.async.} =
+     ): Future[void] {.async: (raises: [CancelledError]).} =
   ## This procedure will wait for a block proposal for a ``slot`` received
   ## by the beacon node.
   let
@@ -1328,11 +1387,6 @@ proc waitForBlock*(
       let dur = Moment.now() - startTime
       debug "Block awaiting was interrupted", duration = dur
       raise exc
-    except CatchableError as exc:
-      let dur = Moment.now() - startTime
-      error "Unexpected error occured while waiting for block publication",
-            err_name = exc.name, err_msg = exc.msg, duration = dur
-      return
 
   let
     dur = Moment.now() - startTime
@@ -1380,41 +1434,44 @@ func `==`*(a, b: TimeOffset): bool = a.value == b.value
 func nanoseconds*(to: TimeOffset): int64 = to.value
 
 proc waitForNextEpoch*(service: ClientServiceRef,
-                       delay: Duration) {.async.} =
+                       delay: Duration): Future[void] {.
+     async: (raises: [CancelledError], raw: true) .}=
   let
     vc = service.client
     sleepTime = vc.beaconClock.durationToNextEpoch() + delay
   debug "Sleeping until next epoch", service = service.name,
                                      sleep_time = sleepTime, delay = delay
-  await sleepAsync(sleepTime)
+  sleepAsync(sleepTime)
 
-proc waitForNextEpoch*(service: ClientServiceRef): Future[void] =
+proc waitForNextEpoch*(service: ClientServiceRef): Future[void] {.
+     async: (raises: [CancelledError], raw: true).}=
   waitForNextEpoch(service, ZeroDuration)
 
-proc waitForNextSlot*(service: ClientServiceRef) {.async.} =
-  let vc = service.client
-  let sleepTime = vc.beaconClock.durationToNextSlot()
-  await sleepAsync(sleepTime)
+proc waitForNextSlot*(service: ClientServiceRef): Future[void] {.
+     async: (raises: [CancelledError], raw: true).} =
+  let
+    vc = service.client
+    sleepTime = vc.beaconClock.durationToNextSlot()
+  sleepAsync(sleepTime)
 
 func compareUnsorted*[T](a, b: openArray[T]): bool =
   if len(a) != len(b):
     return false
 
-  return
-    case len(a)
-    of 0:
-      true
-    of 1:
-      a[0] == b[0]
-    of 2:
-      ((a[0] == b[0]) and (a[1] == b[1])) or ((a[0] == b[1]) and (a[1] == b[0]))
-    else:
-      let asorted = sorted(a)
-      let bsorted = sorted(b)
-      for index, item in asorted.pairs():
-        if item != bsorted[index]:
-          return false
-      true
+  case len(a)
+  of 0:
+    true
+  of 1:
+    a[0] == b[0]
+  of 2:
+    ((a[0] == b[0]) and (a[1] == b[1])) or ((a[0] == b[1]) and (a[1] == b[0]))
+  else:
+    let asorted = sorted(a)
+    let bsorted = sorted(b)
+    for index, item in asorted.pairs():
+      if item != bsorted[index]:
+        return false
+    true
 
 func `==`*(a, b: SyncCommitteeDuty): bool =
   (a.pubkey == b.pubkey) and
@@ -1422,88 +1479,56 @@ func `==`*(a, b: SyncCommitteeDuty): bool =
   compareUnsorted(a.validator_sync_committee_indices,
                   b.validator_sync_committee_indices)
 
-proc updateRuntimeConfig*(vc: ValidatorClientRef,
-                          node: BeaconNodeServerRef,
-                          info: VCRuntimeConfig): Result[void, string] =
-  var forkConfig = ? info.getConsensusForkConfig()
+proc validateForkCompatibility(
+    vc: ValidatorClientRef,
+    consensusFork: ConsensusFork,
+    forkVersion: Version,
+    forkEpoch: Epoch,
+    forkConfig: VCForkConfig
+): Result[void, string] =
+  let
+    item =
+      try:
+        vc.forkConfig.get()[consensusFork]
+      except KeyError:
+        raiseAssert "Fork should be present in configuration"
 
-  if vc.runtimeConfig.forkConfig.isNone():
-    vc.runtimeConfig.forkConfig = Opt.some(forkConfig)
+  if forkVersion != item.version:
+    return err("Beacon node has conflicting " &
+               consensusFork.forkVersionConfigKey() & " value")
+
+  if forkEpoch != item.epoch:
+    if forkEpoch == FAR_FUTURE_EPOCH:
+      return err("Beacon node do not know about " &
+                 $consensusFork & " starting epoch")
+    else:
+      if item.epoch != FAR_FUTURE_EPOCH:
+        return err("Beacon node has conflicting " &
+                   consensusFork.forkEpochConfigKey() & " value")
+  ok()
+
+proc updateRuntimeConfig*(
+    vc: ValidatorClientRef,
+    node: BeaconNodeServerRef,
+    info: VCRuntimeConfig
+): Result[void, string] =
+  let forkConfig = ? info.getConsensusForkConfig()
+
+  if vc.forkConfig.isNone():
+    vc.forkConfig = Opt.some(forkConfig)
   else:
-    template localForkConfig: untyped = vc.runtimeConfig.forkConfig.get()
-    let wallEpoch = vc.beaconClock.now().slotOrZero().epoch()
-
-    proc validateForkVersionCompatibility(
-        consensusFork: ConsensusFork,
-        localForkVersion: Opt[Version],
-        localForkEpoch: Epoch,
-        forkVersion: Opt[Version]): Result[void, string] =
-      if localForkVersion.isNone():
-        ok()  # Potentially discovered new fork, save it at end of function
-      else:
-        if forkVersion.isSome():
-          if forkVersion.get() == localForkVersion.get():
-            ok()  # Already known
-          else:
-            err("Beacon node has conflicting " &
-                consensusFork.forkVersionConfigKey() & " value")
-        else:
-          if wallEpoch < localForkEpoch:
-            debug "Beacon node must be updated before fork activates",
-                  node = node,
-                  consensusFork,
-                  forkEpoch = localForkEpoch
-            ok()
-          else:
-            err("Beacon node must be updated and report correct " &
-                $consensusFork & " config value")
-
-    ? ConsensusFork.Capella.validateForkVersionCompatibility(
-      localForkConfig.capellaVersion,
-      localForkConfig.capellaEpoch,
-      forkConfig.capellaVersion)
-
-    proc validateForkEpochCompatibility(
-        consensusFork: ConsensusFork,
-        localForkEpoch: Epoch,
-        forkEpoch: Epoch): Result[void, string] =
-      if localForkEpoch == FAR_FUTURE_EPOCH:
-        ok()  # Potentially discovered new fork, save it at end of function
-      else:
-        if forkEpoch != FAR_FUTURE_EPOCH:
-          if forkEpoch == localForkEpoch:
-            ok()  # Already known
-          else:
-            err("Beacon node has conflicting " &
-                consensusFork.forkEpochConfigKey() & " value")
-        else:
-          if wallEpoch < localForkEpoch:
-            debug "Beacon node must be updated before fork activates",
-                  node = node,
-                  consensusFork,
-                  forkEpoch = localForkEpoch
-            ok()
-          else:
-            err("Beacon node must be updated and report correct " &
-                $consensusFork & " config value")
-
-    ? ConsensusFork.Altair.validateForkEpochCompatibility(
-      localForkConfig.altairEpoch, forkConfig.altairEpoch)
-    ? ConsensusFork.Capella.validateForkEpochCompatibility(
-      localForkConfig.capellaEpoch, forkConfig.capellaEpoch)
-    ? ConsensusFork.Deneb.validateForkEpochCompatibility(
-      localForkConfig.denebEpoch, forkConfig.denebEpoch)
-
-    # Save newly discovered forks.
-    if localForkConfig.altairEpoch == FAR_FUTURE_EPOCH:
-      localForkConfig.altairEpoch = forkConfig.altairEpoch
-    if localForkConfig.capellaVersion.isNone():
-      localForkConfig.capellaVersion = forkConfig.capellaVersion
-    if localForkConfig.capellaEpoch == FAR_FUTURE_EPOCH:
-      localForkConfig.capellaEpoch = forkConfig.capellaEpoch
-    if localForkConfig.denebEpoch == FAR_FUTURE_EPOCH:
-      localForkConfig.denebEpoch = forkConfig.denebEpoch
-
+    var localForkConfig = vc.forkConfig.get()
+    for fork in ConsensusFork:
+      try:
+        let item = forkConfig[fork]
+        ? vc.validateForkCompatibility(fork, item.version, item.epoch,
+                                       localForkConfig)
+        # Save newly discovered forks.
+        if localForkConfig[fork].epoch == FAR_FUTURE_EPOCH:
+          localForkConfig[fork].epoch = item.epoch
+      except KeyError:
+        raiseAssert "All the forks should be present inside forks configuration"
+    vc.forkConfig = Opt.some(localForkConfig)
   ok()
 
 proc `+`*(slot: Slot, epochs: Epoch): Slot =
@@ -1517,3 +1542,17 @@ proc getGraffitiBytes*(vc: ValidatorClientRef,
                        validator: AttachedValidator): GraffitiBytes =
   getGraffiti(vc.config.validatorsDir, vc.config.defaultGraffitiBytes(),
               validator.pubkey)
+
+proc contains*(a, b: openArray[Fork]): bool =
+  if len(a) < len(b):
+    return false
+  for bfork in b:
+    var found = false
+    block subLoop:
+      for afork in a:
+        if afork == bfork:
+          found = true
+          break subLoop
+    if not(found):
+      return false
+  true

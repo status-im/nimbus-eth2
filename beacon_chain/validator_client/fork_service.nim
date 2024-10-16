@@ -5,6 +5,8 @@
 #   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
 # at your option. This file may not be copied, modified, or distributed except according to those terms.
 
+{.push raises: [].}
+
 import std/algorithm
 import chronicles
 import "."/[common, api]
@@ -42,10 +44,10 @@ proc sortForks(forks: openArray[Fork]): Result[seq[Fork], cstring] {.
     return err("Invalid fork schedule")
   ok(sortedForks)
 
-proc pollForFork(vc: ValidatorClientRef) {.async.} =
+proc pollForFork(vc: ValidatorClientRef) {.async: (raises: [CancelledError]).} =
   let forks =
     try:
-      await vc.getForkSchedule(ApiStrategyKind.Best)
+      await vc.getForkSchedule()
     except ValidatorApiError as exc:
       warn "Unable to retrieve fork schedule",
            reason = exc.getFailureReason(), err_msg = exc.msg
@@ -53,10 +55,9 @@ proc pollForFork(vc: ValidatorClientRef) {.async.} =
     except CancelledError as exc:
       debug "Fork retrieval process was interrupted"
       raise exc
-    except CatchableError as exc:
-      error "Unexpected error occured while getting fork information",
-            err_name = exc.name, err_msg = exc.msg
-      return
+
+  if len(forks) == 0:
+    return
 
   let sortedForks =
     block:
@@ -71,7 +72,7 @@ proc pollForFork(vc: ValidatorClientRef) {.async.} =
     notice "Fork schedule updated", fork_schedule = sortedForks
     vc.forksAvailable.fire()
 
-proc mainLoop(service: ForkServiceRef) {.async.} =
+proc mainLoop(service: ForkServiceRef) {.async: (raises: []).} =
   let vc = service.client
   service.state = ServiceState.Running
   debug "Service started"
@@ -80,10 +81,6 @@ proc mainLoop(service: ForkServiceRef) {.async.} =
     await vc.preGenesisEvent.wait()
   except CancelledError:
     debug "Service interrupted"
-    return
-  except CatchableError as exc:
-    warn "Service crashed with unexpected error", err_name = exc.name,
-         err_msg = exc.msg
     return
 
   while true:
@@ -98,21 +95,19 @@ proc mainLoop(service: ForkServiceRef) {.async.} =
       except CancelledError:
         debug "Service interrupted"
         true
-      except CatchableError as exc:
-        warn "Service crashed with unexpected error", err_name = exc.name,
-             err_msg = exc.msg
-        true
 
     if breakLoop:
       break
 
-proc init*(t: typedesc[ForkServiceRef],
-            vc: ValidatorClientRef): Future[ForkServiceRef] {.async.} =
+proc init*(
+    t: typedesc[ForkServiceRef],
+    vc: ValidatorClientRef
+): Future[ForkServiceRef] {.async: (raises: []).} =
   logScope: service = ServiceName
   let res = ForkServiceRef(name: ServiceName,
                            client: vc, state: ServiceState.Initialized)
   debug "Initializing service"
-  return res
+  res
 
 proc start*(service: ForkServiceRef) =
   service.lifeFut = mainLoop(service)

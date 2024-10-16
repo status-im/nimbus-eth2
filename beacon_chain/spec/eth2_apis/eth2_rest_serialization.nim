@@ -361,6 +361,7 @@ type
 
   EncodeArrays* =
     seq[phase0.Attestation] |
+    seq[electra.Attestation] |
     seq[PrepareBeaconProposer] |
     seq[RemoteKeystoreInfo] |
     seq[RestCommitteeSubscription] |
@@ -368,6 +369,7 @@ type
     seq[RestSyncCommitteeMessage] |
     seq[RestSyncCommitteeSubscription] |
     seq[phase0.SignedAggregateAndProof] |
+    seq[electra.SignedAggregateAndProof] |
     seq[SignedValidatorRegistrationV1] |
     seq[ValidatorIndex] |
     seq[RestBeaconCommitteeSelection] |
@@ -403,7 +405,8 @@ type
     seq[SomeForkedLightClientObject] |
     RestNimbusTimestamp1 |
     RestNimbusTimestamp2 |
-    GetGraffitiResponse
+    GetGraffitiResponse |
+    GetAggregatedAttestationV2Response
 
   DecodeConsensysTypes* = ProduceBlindedBlockResponse
 
@@ -3951,4 +3954,70 @@ proc writeValue*(writer: var JsonWriter[RestJson],
   writer.beginRecord()
   writer.writeField("validator_index", value.validator_index)
   writer.writeField("reward", value.reward)
+  writer.endRecord()
+
+## ForkedAttestation
+proc readValue*(reader: var JsonReader[RestJson],
+                value: var ForkedAttestation) {.
+     raises: [IOError, SerializationError].} =
+  var
+    version: Opt[ConsensusFork]
+    data: Opt[JsonString]
+
+  for fieldName {.inject.} in readObjectFields(reader):
+    case fieldName
+    of "version":
+      if version.isSome():
+        reader.raiseUnexpectedField("Multiple version fields found",
+                                    "ForkedAttestation")
+      let vres = reader.readValue(string).toLowerAscii()
+      version = ConsensusFork.init(vres)
+      if version.isNone():
+        reader.raiseUnexpectedValue("Incorrect version field value")
+    of "data":
+      if data.isSome():
+        reader.raiseUnexpectedField(
+          "Multiple '" & fieldName & "' fields found", "ForkedAttestation")
+      data = Opt.some(reader.readValue(JsonString))
+    else:
+      unrecognizedFieldWarning(fieldName, "ForkedAttestation")
+
+  if version.isNone():
+    reader.raiseUnexpectedValue("Field `version` is missing")
+  if data.isNone():
+    reader.raiseUnexpectedValue("Field `data` is missing")
+
+  withConsensusFork(version.get()):
+    when consensusFork < ConsensusFork.Electra:
+      let res =
+        try:
+          RestJson.decode(string(data.get()),
+                          phase0.Attestation,
+                          requireAllFields = true,
+                          allowUnknownFields = true)
+        except SerializationError as exc:
+          reader.raiseUnexpectedValue(
+            "Incorrect phase0 attestation format, [" &
+            exc.formatMsg("ForkedAttestation") & "]")
+      value = ForkedAttestation.init(res, consensusFork)
+    else:
+      let res =
+        try:
+          RestJson.decode(string(data.get()),
+                          electra.Attestation,
+                          requireAllFields = true,
+                          allowUnknownFields = true)
+        except SerializationError as exc:
+          reader.raiseUnexpectedValue(
+            "Incorrect electra attestation format, [" &
+            exc.formatMsg("ForkedAttestation") & "]")
+      value = ForkedAttestation.init(res, consensusFork)
+
+## ForkedAttestation
+proc writeValue*(writer: var JsonWriter[RestJson],
+                 attestation: ForkedAttestation) {.raises: [IOError].} =
+  writer.beginRecord()
+  writer.writeField("version", attestation.kind)
+  withAttestation(attestation):
+    writer.writeField("data", forkyAttestation)
   writer.endRecord()

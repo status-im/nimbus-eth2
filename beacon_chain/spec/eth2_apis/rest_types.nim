@@ -46,6 +46,9 @@ const
   LowestScoreAggregatedAttestation* =
     phase0.Attestation(
       aggregation_bits: CommitteeValidatorsBits(BitSeq.init(1)))
+  LowestScoreAggregatedElectraAttestation* =
+    electra.Attestation(
+      aggregation_bits: ElectraCommitteeValidatorsBits(BitSeq.init(1)))
 
 static:
   doAssert(ClientMaximumValidatorIds <= ServerMaximumValidatorIds)
@@ -464,6 +467,7 @@ type
 
   GetBlockV2Response* = ForkedSignedBeaconBlock
   GetStateV2Response* = ref ForkedHashedBeaconState
+  GetAggregatedAttestationV2Response* = ForkedAttestation
 
   RestRoot* = object
     root*: Eth2Digest
@@ -497,7 +501,6 @@ type
   # Types based on the OAPI yaml file - used in responses to requests
   GetBeaconHeadResponse* = DataEnclosedObject[Slot]
   GetAggregatedAttestationResponse* = DataEnclosedObject[phase0.Attestation]
-  GetElectraAggregatedAttestationResponse* = DataEnclosedObject[electra.Attestation]
   GetAttesterDutiesResponse* = DataRootEnclosedObject[seq[RestAttesterDuty]]
   GetBlockAttestationsResponse* = DataEnclosedObject[seq[phase0.Attestation]]
   GetBlockHeaderResponse* = DataOptimisticAndFinalizedObject[RestBlockHeaderInfo]
@@ -578,8 +581,17 @@ type
     extra_data*: RestExtraData
 
 func isLowestScoreAggregatedAttestation*(a: phase0.Attestation): bool =
-  (a.data.slot == Slot(0)) and (a.data.index == 0'u64) and
-  (a.data.source.epoch == Epoch(0)) and (a.data.target.epoch == Epoch(0))
+  (a.data.slot == GENESIS_SLOT) and
+  (a.data.index == 0'u64) and
+  (a.data.source.epoch == GENESIS_EPOCH) and
+  (a.data.target.epoch == GENESIS_EPOCH)
+
+func isLowestScoreAggregatedAttestation*(a: ForkedAttestation): bool =
+  withAttestation(a):
+    (forkyAttestation.data.slot == GENESIS_SLOT) and
+    (forkyAttestation.data.index == 0'u64) and
+    (forkyAttestation.data.source.epoch == GENESIS_EPOCH) and
+    (forkyAttestation.data.target.epoch == GENESIS_EPOCH)
 
 func `==`*(a, b: RestValidatorIndex): bool {.borrow.}
 

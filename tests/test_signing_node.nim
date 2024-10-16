@@ -75,6 +75,9 @@ type
     process: AsyncProcessRef
     reader: Future[seq[byte]]
 
+  GetElectraAggregatedAttestationResponse =
+    DataEnclosedObject[electra.Attestation]
+
 func getNodePort(basePort: int, rt: RemoteSignerType): int =
   # Individual port numbers derived by adding to configurable base port
   case rt
