@@ -2056,9 +2056,8 @@ func upgrade_to_electra*(
       block_hash: pre.latest_execution_payload_header.block_hash,
       transactions_root: pre.latest_execution_payload_header.transactions_root,
       withdrawals_root: pre.latest_execution_payload_header.withdrawals_root,
-      blob_gas_used: 0,
-      excess_blob_gas: 0
-    )
+      blob_gas_used: pre.latest_execution_payload_header.blob_gas_used,
+      excess_blob_gas: pre.latest_execution_payload_header.excess_blob_gas)
 
   var max_exit_epoch = FAR_FUTURE_EPOCH
   for v in pre.validators:
