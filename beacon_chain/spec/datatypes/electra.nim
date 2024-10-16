@@ -133,6 +133,7 @@ type
     withdrawals*: List[Withdrawal, MAX_WITHDRAWALS_PER_PAYLOAD]
     blob_gas_used*: uint64
     excess_blob_gas*: uint64
+    system_logs_root*: Eth2Digest
 
   ExecutionPayloadForSigning* = object
     executionPayload*: ExecutionPayload
@@ -162,6 +163,7 @@ type
     withdrawals_root*: Eth2Digest
     blob_gas_used*: uint64
     excess_blob_gas*: uint64
+    system_logs_root*: Eth2Digest
 
   ExecutePayload* = proc(
     execution_payload: ExecutionPayload): bool {.gcsafe, raises: [].}
@@ -712,7 +714,8 @@ func shortLog*(v: ExecutionPayload): auto =
     num_transactions: len(v.transactions),
     num_withdrawals: len(v.withdrawals),
     blob_gas_used: $(v.blob_gas_used),
-    excess_blob_gas: $(v.excess_blob_gas)
+    excess_blob_gas: $(v.excess_blob_gas),
+    system_logs_root: $(v.system_logs_root)
   )
 
 func kzg_commitment_inclusion_proof_gindex*(
@@ -838,6 +841,10 @@ func execution_payload_gindex_at_epoch(
 func is_valid_light_client_header*(
     header: LightClientHeader, cfg: RuntimeConfig): bool =
   let epoch = header.beacon.slot.epoch
+
+  if epoch < cfg.ELECTRA_FORK_EPOCH:
+    if not header.execution.system_logs_root.isZero:
+      return false
 
   if epoch < cfg.DENEB_FORK_EPOCH:
     if header.execution.blob_gas_used != 0 or

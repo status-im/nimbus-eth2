@@ -147,6 +147,7 @@ type
     withdrawals*: Opt[List[Withdrawal, MAX_WITHDRAWALS_PER_PAYLOAD]]
     blob_gas_used*: Opt[uint64]
     excess_blob_gas*: Opt[uint64]
+    system_logs_root*: Opt[Eth2Digest]
 
   StableExecutionPayloadHeader* {.
       sszStableContainer: MAX_EXECUTION_PAYLOAD_FIELDS.} = object
@@ -171,6 +172,7 @@ type
     withdrawals_root*: Opt[Eth2Digest]
     blob_gas_used*: Opt[uint64]
     excess_blob_gas*: Opt[uint64]
+    system_logs_root*: Opt[Eth2Digest]
 
   StableExecutionRequests* {.
       sszStableContainer: MAX_EXECUTION_REQUESTS_FIELDS.} = object

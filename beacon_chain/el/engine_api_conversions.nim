@@ -329,7 +329,8 @@ func asConsensusType*(rpcExecutionPayload: ExecutionPayloadV4):
     withdrawals: List[capella.Withdrawal, MAX_WITHDRAWALS_PER_PAYLOAD].init(
       mapIt(rpcExecutionPayload.withdrawals, it.asConsensusWithdrawal)),
     blob_gas_used: rpcExecutionPayload.blobGasUsed.uint64,
-    excess_blob_gas: rpcExecutionPayload.excessBlobGas.uint64)
+    excess_blob_gas: rpcExecutionPayload.excessBlobGas.uint64,
+    system_logs_root: rpcExecutionPayload.systemLogsRoot.asEth2Digest)
 
 func asConsensusType*(payload: engine_api.GetPayloadV4Response):
     electra.ExecutionPayloadForSigning =
@@ -609,4 +610,5 @@ func asEngineExecutionPayload*(blockBody: electra.BeaconBlockBody):
     withdrawalRequests: mapIt(
       blockBody.execution_requests.withdrawals, it.getWithdrawalRequest),
     consolidationRequests: mapIt(
-      blockBody.execution_requests.consolidations, it.getConsolidationRequest))
+      blockBody.execution_requests.consolidations, it.getConsolidationRequest),
+    systemLogsRoot: executionPayload.system_logs_root.asBlockHash)

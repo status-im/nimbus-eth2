@@ -1173,6 +1173,21 @@ func ETHExecutionPayloadHeaderGetExcessBlobGas(
   ## * Excess blob gas.
   execution[].excess_blob_gas.cint
 
+func ETHExecutionPayloadHeaderGetSystemLogsRoot(
+    execution: ptr ExecutionPayloadHeader): ptr Eth2Digest {.exported.} =
+  ## Obtains the system logs root of a given execution payload header.
+  ##
+  ## * The returned value is allocated in the given execution payload header.
+  ##   It must neither be released nor written to, and the execution payload
+  ##   header must not be released while the returned value is in use.
+  ##
+  ## Parameters:
+  ## * `execution` - Execution payload header.
+  ##
+  ## Returns:
+  ## * Execution system logs root.
+  addr execution[].system_logs_root
+
 type
   ETHWithdrawal = object
     index: uint64
@@ -1261,16 +1276,21 @@ proc ETHExecutionBlockHeaderCreateFromJson(
       data.withdrawals.isSome or data.withdrawalsRoot.isSome or
       data.blobGasUsed.isSome or data.excessBlobGas.isSome or
       data.depositRequests.isSome or data.withdrawalRequests.isSome or
-      data.consolidationRequests.isSome or data.requestsRoot.isSome):
+      data.consolidationRequests.isSome or data.requestsRoot.isSome or
+      data.systemLogsRoot.isSome):
     return nil
   if data.withdrawalsRoot.isNone and (
       data.blobGasUsed.isSome or data.excessBlobGas.isSome or
       data.depositRequests.isSome or data.withdrawalRequests.isSome or
-      data.consolidationRequests.isSome or data.requestsRoot.isSome):
+      data.consolidationRequests.isSome or data.requestsRoot.isSome or
+      data.systemLogsRoot.isSome):
     return nil
   if data.blobGasUsed.isNone and (
       data.depositRequests.isSome or data.withdrawalRequests.isSome or
-      data.consolidationRequests.isSome or data.requestsRoot.isSome):
+      data.consolidationRequests.isSome or data.requestsRoot.isSome or
+      data.systemLogsRoot.isSome):
+    return nil
+  if data.depositRequests.isNone and data.systemLogsRoot.isSome:
     return nil
   if data.withdrawals.isSome != data.withdrawalsRoot.isSome:
     return nil
@@ -1327,6 +1347,11 @@ proc ETHExecutionBlockHeaderCreateFromJson(
     requestsRoot:
       if data.requestsRoot.isSome:
         Opt.some(data.requestsRoot.get.asEth2Digest.to(Hash32))
+      else:
+        Opt.none(ExecutionHash256),
+    systemLogsRoot:
+      if data.systemLogsRoot.isSome:
+        Opt.some(data.systemLogsRoot.get.asEth2Digest.to(Hash32))
       else:
         Opt.none(ExecutionHash256))
   if rlpHash(blockHeader) != executionHash[]:

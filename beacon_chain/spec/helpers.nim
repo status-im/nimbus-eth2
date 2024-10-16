@@ -538,6 +538,11 @@ proc blockToBlockHeader*(blck: ForkyBeaconBlock): ExecutionBlockHeader =
         Opt.some blck.body.execution_requests.computeRequestsTrieRoot()
       else:
         Opt.none(ExecutionHash256)
+    systemLogsRoot =
+      when typeof(payload).kind >= ConsensusFork.Electra:
+        Opt.some payload.system_logs_root.to(Root)
+      else:
+        Opt.none(Root)
 
   ExecutionBlockHeader(
     parentHash            : payload.parent_hash.to(Hash32),
@@ -560,7 +565,8 @@ proc blockToBlockHeader*(blck: ForkyBeaconBlock): ExecutionBlockHeader =
     blobGasUsed           : blobGasUsed,           # EIP-4844
     excessBlobGas         : excessBlobGas,         # EIP-4844
     parentBeaconBlockRoot : parentBeaconBlockRoot, # EIP-4788
-    requestsRoot          : requestsRoot)          # EIP-7685
+    requestsRoot          : requestsRoot,          # EIP-7685
+    systemLogsRoot        : systemLogsRoot)        # Fusaka-Light
 
 proc compute_execution_block_hash*(blck: ForkyBeaconBlock): Eth2Digest =
   rlpHash(blockToBlockHeader(blck)).to(Eth2Digest)

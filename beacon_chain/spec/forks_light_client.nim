@@ -1231,7 +1231,8 @@ func toElectraLightClientHeader(
       transactions_root: hash_tree_root(payload.transactions),
       withdrawals_root: hash_tree_root(payload.withdrawals),
       blob_gas_used: payload.blob_gas_used,
-      excess_blob_gas: payload.excess_blob_gas),
+      excess_blob_gas: payload.excess_blob_gas,
+      system_logs_root: payload.system_logs_root),
     execution_branch:
       blck.message.body.build_proof(EXECUTION_PAYLOAD_GINDEX_ELECTRA).get)
 

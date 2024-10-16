@@ -255,6 +255,11 @@ static void visualizeHeader(const ETHLightClientHeader *header, const ETHConsens
 
     int executionExcessBlobGas = ETHExecutionPayloadHeaderGetExcessBlobGas(execution);
     printf("    - excess_blob_gas: %d\n", executionExcessBlobGas);
+
+    const ETHRoot *executionSystemLogsRoot = ETHExecutionPayloadHeaderGetSystemLogsRoot(execution);
+    printf("    - system_logs_root: ");
+    printHexString(executionSystemLogsRoot, sizeof *executionSystemLogsRoot);
+    printf("\n");
 }
 
 ETH_RESULT_USE_CHECK
