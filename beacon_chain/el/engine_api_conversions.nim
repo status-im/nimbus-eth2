@@ -129,6 +129,33 @@ func asConsensusType*(rpcExecutionPayload: ExecutionPayloadV3):
     blob_gas_used: rpcExecutionPayload.blobGasUsed.uint64,
     excess_blob_gas: rpcExecutionPayload.excessBlobGas.uint64)
 
+func asElectraConsensusPayload(rpcExecutionPayload: ExecutionPayloadV3):
+    electra.ExecutionPayload =
+  template getTransaction(tt: TypedTransaction): bellatrix.Transaction =
+    bellatrix.Transaction.init(tt.distinctBase)
+
+  electra.ExecutionPayload(
+    parent_hash: rpcExecutionPayload.parentHash.asEth2Digest,
+    feeRecipient:
+      ExecutionAddress(data: rpcExecutionPayload.feeRecipient.distinctBase),
+    state_root: rpcExecutionPayload.stateRoot.asEth2Digest,
+    receipts_root: rpcExecutionPayload.receiptsRoot.asEth2Digest,
+    logs_bloom: BloomLogs(data: rpcExecutionPayload.logsBloom.distinctBase),
+    prev_randao: rpcExecutionPayload.prevRandao.asEth2Digest,
+    block_number: rpcExecutionPayload.blockNumber.uint64,
+    gas_limit: rpcExecutionPayload.gasLimit.uint64,
+    gas_used: rpcExecutionPayload.gasUsed.uint64,
+    timestamp: rpcExecutionPayload.timestamp.uint64,
+    extra_data: List[byte, MAX_EXTRA_DATA_BYTES].init(rpcExecutionPayload.extraData.data),
+    base_fee_per_gas: rpcExecutionPayload.baseFeePerGas,
+    block_hash: rpcExecutionPayload.blockHash.asEth2Digest,
+    transactions: List[bellatrix.Transaction, MAX_TRANSACTIONS_PER_PAYLOAD].init(
+      mapIt(rpcExecutionPayload.transactions, it.getTransaction)),
+    withdrawals: List[capella.Withdrawal, MAX_WITHDRAWALS_PER_PAYLOAD].init(
+      mapIt(rpcExecutionPayload.withdrawals, it.asConsensusWithdrawal)),
+    blob_gas_used: rpcExecutionPayload.blobGasUsed.uint64,
+    excess_blob_gas: rpcExecutionPayload.excessBlobGas.uint64)
+
 func asConsensusType*(payload: engine_api.GetPayloadV3Response):
     deneb.ExecutionPayloadForSigning =
   deneb.ExecutionPayloadForSigning(
@@ -148,61 +175,11 @@ func asConsensusType*(payload: engine_api.GetPayloadV3Response):
       blobs: Blobs.init(
         payload.blobsBundle.blobs.mapIt(it.data))))
 
-func asConsensusType*(rpcExecutionPayload: ExecutionPayloadV4):
-    electra.ExecutionPayload =
-  template getTransaction(tt: TypedTransaction): bellatrix.Transaction =
-    bellatrix.Transaction.init(tt.distinctBase)
-
-  template getDepositRequest(
-      dr: DepositRequestV1): electra.DepositRequest =
-    electra.DepositRequest(
-      pubkey: ValidatorPubKey(blob: dr.pubkey.distinctBase),
-      withdrawal_credentials: dr.withdrawalCredentials.asEth2Digest,
-      amount: dr.amount.Gwei,
-      signature: ValidatorSig(blob: dr.signature.distinctBase),
-      index: dr.index.uint64)
-
-  template getWithdrawalRequest(
-      wr: WithdrawalRequestV1): electra.WithdrawalRequest =
-    electra.WithdrawalRequest(
-      source_address: ExecutionAddress(data: wr.sourceAddress.distinctBase),
-      validator_pubkey: ValidatorPubKey(blob: wr.validatorPubkey.distinctBase),
-      amount: wr.amount.Gwei)
-
-  template getConsolidationRequest(
-      cr: ConsolidationRequestV1): electra.ConsolidationRequest =
-    electra.ConsolidationRequest(
-      source_address: ExecutionAddress(data: cr.sourceAddress.distinctBase),
-      source_pubkey: ValidatorPubKey(blob: cr.sourcePubkey.distinctBase),
-      target_pubkey: ValidatorPubKey(blob: cr.targetPubkey.distinctBase))
-
-  electra.ExecutionPayload(
-    parent_hash: rpcExecutionPayload.parentHash.asEth2Digest,
-    feeRecipient:
-      ExecutionAddress(data: rpcExecutionPayload.feeRecipient.distinctBase),
-    state_root: rpcExecutionPayload.stateRoot.asEth2Digest,
-    receipts_root: rpcExecutionPayload.receiptsRoot.asEth2Digest,
-    logs_bloom: BloomLogs(data: rpcExecutionPayload.logsBloom.distinctBase),
-    prev_randao: rpcExecutionPayload.prevRandao.asEth2Digest,
-    block_number: rpcExecutionPayload.blockNumber.uint64,
-    gas_limit: rpcExecutionPayload.gasLimit.uint64,
-    gas_used: rpcExecutionPayload.gasUsed.uint64,
-    timestamp: rpcExecutionPayload.timestamp.uint64,
-    extra_data: List[byte, MAX_EXTRA_DATA_BYTES].init(
-      rpcExecutionPayload.extraData.data),
-    base_fee_per_gas: rpcExecutionPayload.baseFeePerGas,
-    block_hash: rpcExecutionPayload.blockHash.asEth2Digest,
-    transactions: List[bellatrix.Transaction, MAX_TRANSACTIONS_PER_PAYLOAD].init(
-      mapIt(rpcExecutionPayload.transactions, it.getTransaction)),
-    withdrawals: List[capella.Withdrawal, MAX_WITHDRAWALS_PER_PAYLOAD].init(
-      mapIt(rpcExecutionPayload.withdrawals, it.asConsensusWithdrawal)),
-    blob_gas_used: rpcExecutionPayload.blobGasUsed.uint64,
-    excess_blob_gas: rpcExecutionPayload.excessBlobGas.uint64)
-
-func asConsensusType*(payload: engine_api.GetPayloadV4Response):
+func asConsensusType*(
+    payload: engine_api.GetPayloadV4Response):
     electra.ExecutionPayloadForSigning =
   electra.ExecutionPayloadForSigning(
-    executionPayload: payload.executionPayload.asConsensusType,
+    executionPayload: payload.executionPayload.asElectraConsensusPayload,
     blockValue: payload.blockValue,
     # TODO
     # The `mapIt` calls below are necessary only because we use different distinct
@@ -216,7 +193,8 @@ func asConsensusType*(payload: engine_api.GetPayloadV4Response):
         payload.blobsBundle.proofs.mapIt(
           kzg_abi.KzgProof(bytes: it.data))),
       blobs: Blobs.init(
-        payload.blobsBundle.blobs.mapIt(it.data))))
+        payload.blobsBundle.blobs.mapIt(it.data))),
+    executionRequests: payload.executionRequests)
 
 func asEngineExecutionPayload*(blockBody: bellatrix.BeaconBlockBody):
     ExecutionPayloadV1 =
@@ -273,7 +251,8 @@ func asEngineExecutionPayload*(blockBody: capella.BeaconBlockBody):
     transactions: mapIt(executionPayload.transactions, it.getTypedTransaction),
     withdrawals: mapIt(executionPayload.withdrawals, it.toEngineWithdrawal))
 
-func asEngineExecutionPayload*(blockBody: deneb.BeaconBlockBody):
+func asEngineExecutionPayload*(
+    blockBody: deneb.BeaconBlockBody | electra.BeaconBlockBody):
     ExecutionPayloadV3 =
   template executionPayload(): untyped = blockBody.execution_payload
 
@@ -299,59 +278,3 @@ func asEngineExecutionPayload*(blockBody: deneb.BeaconBlockBody):
     withdrawals: mapIt(executionPayload.withdrawals, it.asEngineWithdrawal),
     blobGasUsed: Quantity(executionPayload.blob_gas_used),
     excessBlobGas: Quantity(executionPayload.excess_blob_gas))
-
-func asEngineExecutionPayload*(blockBody: electra.BeaconBlockBody):
-    ExecutionPayloadV4 =
-  template executionPayload(): untyped = blockBody.execution_payload
-
-  template getTypedTransaction(tt: bellatrix.Transaction): TypedTransaction =
-    TypedTransaction(tt.distinctBase)
-
-  template getDepositRequest(
-      dr: electra.DepositRequest): DepositRequestV1 =
-    DepositRequestV1(
-      pubkey: FixedBytes[RawPubKeySize](dr.pubkey.blob),
-      withdrawalCredentials: FixedBytes[32](dr.withdrawal_credentials.data),
-      amount: dr.amount.Quantity,
-      signature: FixedBytes[RawSigSize](dr.signature.blob),
-      index: dr.index.Quantity)
-
-  template getWithdrawalRequest(
-      wr: electra.WithdrawalRequest): WithdrawalRequestV1 =
-    WithdrawalRequestV1(
-      sourceAddress: Address(wr.source_address.data),
-      validatorPubkey: FixedBytes[RawPubKeySize](wr.validator_pubkey.blob),
-      amount: wr.amount.Quantity)
-
-  template getConsolidationRequest(
-      cr: electra.ConsolidationRequest): ConsolidationRequestV1 =
-    ConsolidationRequestV1(
-      sourceAddress: Address(cr.source_address.data),
-      sourcePubkey: FixedBytes[RawPubKeySize](cr.source_pubkey.blob),
-      targetPubkey: FixedBytes[RawPubKeySize](cr.target_pubkey.blob))
-
-  engine_api.ExecutionPayloadV4(
-    parentHash: executionPayload.parent_hash.asBlockHash,
-    feeRecipient: Address(executionPayload.fee_recipient.data),
-    stateRoot: executionPayload.state_root.asBlockHash,
-    receiptsRoot: executionPayload.receipts_root.asBlockHash,
-    logsBloom:
-      FixedBytes[BYTES_PER_LOGS_BLOOM](executionPayload.logs_bloom.data),
-    prevRandao: executionPayload.prev_randao.data.to(Bytes32),
-    blockNumber: Quantity(executionPayload.block_number),
-    gasLimit: Quantity(executionPayload.gas_limit),
-    gasUsed: Quantity(executionPayload.gas_used),
-    timestamp: Quantity(executionPayload.timestamp),
-    extraData: DynamicBytes[0, MAX_EXTRA_DATA_BYTES](executionPayload.extra_data),
-    baseFeePerGas: executionPayload.base_fee_per_gas,
-    blockHash: executionPayload.block_hash.asBlockHash,
-    transactions: mapIt(executionPayload.transactions, it.getTypedTransaction),
-    withdrawals: mapIt(executionPayload.withdrawals, it.asEngineWithdrawal),
-    blobGasUsed: Quantity(executionPayload.blob_gas_used),
-    excessBlobGas: Quantity(executionPayload.excess_blob_gas),
-    depositRequests:
-      mapIt(blockBody.execution_requests.deposits, it.getDepositRequest),
-    withdrawalRequests: mapIt(
-      blockBody.execution_requests.withdrawals, it.getWithdrawalRequest),
-    consolidationRequests: mapIt(
-      blockBody.execution_requests.consolidations, it.getConsolidationRequest))

@@ -76,7 +76,7 @@ declarePublicGauge(attached_validator_balance_total,
 logScope: topics = "beacval"
 
 type
-  EngineBid* = object
+  EngineBid = object
     blck*: ForkedBeaconBlock
     executionPayloadValue*: Wei
     consensusBlockValue*: UInt256
@@ -457,7 +457,8 @@ proc makeBeaconBlockForHeadAndSlot*(
     transactions_root: Opt[Eth2Digest],
     execution_payload_root: Opt[Eth2Digest],
     withdrawals_root: Opt[Eth2Digest],
-    kzg_commitments: Opt[KzgCommitments]):
+    kzg_commitments: Opt[KzgCommitments],
+    execution_requests: ExecutionRequests):  # TODO probably need this for builder API, otherwise remove, maybe needs to be Opt
     Future[ForkedBlockResult] {.async: (raises: [CancelledError]).} =
   # Advance state to the slot that we're proposing for
   var cache = StateCache()
@@ -536,6 +537,26 @@ proc makeBeaconBlockForHeadAndSlot*(
         slot, validator_index
       return err("Unable to get execution payload")
 
+  # Don't use the requests passed in, TODO remove that
+  let execution_requests_actual =
+    when PayloadType.kind >= ConsensusFork.Electra:
+      # Don't want un-decoded SSZ going any further/deeper
+      try:
+        ExecutionRequests(
+          deposits: SSZ.decode(
+            payload.executionRequests[0],
+            List[DepositRequest, Limit MAX_DEPOSIT_REQUESTS_PER_PAYLOAD]),
+          withdrawals: SSZ.decode(
+            payload.executionRequests[1],
+            List[WithdrawalRequest, Limit MAX_WITHDRAWAL_REQUESTS_PER_PAYLOAD]),
+          consolidations: SSZ.decode(
+            payload.executionRequests[2],
+            List[ConsolidationRequest, Limit MAX_CONSOLIDATION_REQUESTS_PER_PAYLOAD]))
+      except CatchableError:
+        return err("Unable to deserialize execution layer requests")
+    else:
+      default(ExecutionRequests)  # won't be used by block builder
+
   let res = makeBeaconBlockWithRewards(
       node.dag.cfg,
       state[],
@@ -553,7 +574,8 @@ proc makeBeaconBlockForHeadAndSlot*(
       verificationFlags = {},
       transactions_root = transactions_root,
       execution_payload_root = execution_payload_root,
-      kzg_commitments = kzg_commitments).mapErr do (error: cstring) -> string:
+      kzg_commitments = kzg_commitments,
+      execution_requests = execution_requests_actual).mapErr do (error: cstring) -> string:
     # This is almost certainly a bug, but it's complex enough that there's a
     # small risk it might happen even when most proposals succeed - thus we
     # log instead of asserting
@@ -571,11 +593,12 @@ proc makeBeaconBlockForHeadAndSlot*(
       blck: res.get().blck,
       executionPayloadValue: payload.blockValue,
       consensusBlockValue: res.get().rewards.blockConsensusValue(),
-      blobsBundleOpt: blobsBundleOpt
+      blobsBundleOpt: blobsBundleOpt,
     ))
   else:
     err(res.error)
 
+# TODO what is this for
 proc makeBeaconBlockForHeadAndSlot*(
     PayloadType: type ForkyExecutionPayloadForSigning, node: BeaconNode, randao_reveal: ValidatorSig,
     validator_index: ValidatorIndex, graffiti: GraffitiBytes, head: BlockRef,
@@ -587,7 +610,8 @@ proc makeBeaconBlockForHeadAndSlot*(
     transactions_root = Opt.none(Eth2Digest),
     execution_payload_root = Opt.none(Eth2Digest),
     withdrawals_root = Opt.none(Eth2Digest),
-    kzg_commitments = Opt.none(KzgCommitments))
+    kzg_commitments = Opt.none(KzgCommitments),
+    execution_requests = static(default(ExecutionRequests)))
 
 proc getBlindedExecutionPayload[
     EPH: deneb_mev.BlindedExecutionPayloadAndBlobsBundle |
@@ -861,6 +885,7 @@ proc getBlindedBlockParts[
     copyFields(
       shimExecutionPayload.executionPayload, actualEPH, getFieldNames(DenebEPH))
   elif EPH is electra_mev.BlindedExecutionPayloadAndBlobsBundle:
+    debugComment "verify (again, after change) this is what builder API needs"
     type PayloadType = electra.ExecutionPayloadForSigning
     template actualEPH: untyped =
       executionPayloadHeader.get.blindedBlckPart.execution_payload_header
@@ -877,13 +902,15 @@ proc getBlindedBlockParts[
   else:
     static: doAssert false
 
+  debugComment "the electra builder API bids have these requests"
   let newBlock = await makeBeaconBlockForHeadAndSlot(
     PayloadType, node, randao, validator_index, graffiti, head, slot,
     execution_payload = Opt.some shimExecutionPayload,
     transactions_root = Opt.some actualEPH.transactions_root,
     execution_payload_root = Opt.some hash_tree_root(actualEPH),
     withdrawals_root = withdrawals_root,
-    kzg_commitments = kzg_commitments)
+    kzg_commitments = kzg_commitments,
+    execution_requests = default(ExecutionRequests))
 
   if newBlock.isErr():
     # Haven't committed to the MEV block, so allow EL fallback.
@@ -1058,6 +1085,7 @@ proc collectBids(
   let
     payloadBuilderBidFut =
       if usePayloadBuilder:
+        # TODO apparently some capella support still here?
         when not (EPS is bellatrix.ExecutionPayloadForSigning):
           getBuilderBid[SBBB](node, payloadBuilderClient, head,
                               validator_pubkey, slot, randao, graffitiBytes,
@@ -2057,11 +2085,11 @@ proc makeMaybeBlindedBeaconBlockForHeadAndSlotImpl[ResultType](
 
     collectedBids =
       await collectBids(consensusFork.SignedBlindedBeaconBlock,
-                              consensusFork.ExecutionPayloadForSigning,
-                              node,
-                              payloadBuilderClient, proposerKey,
-                              proposer, graffiti, head, slot,
-                              randao_reveal)
+                        consensusFork.ExecutionPayloadForSigning,
+                        node,
+                        payloadBuilderClient, proposerKey,
+                        proposer, graffiti, head, slot,
+                        randao_reveal)
     useBuilderBlock =
       if collectedBids.builderBid.isSome():
         collectedBids.engineBid.isNone() or builderBetterBid(
