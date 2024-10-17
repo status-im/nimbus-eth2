@@ -13,13 +13,13 @@ import
   metrics, metrics/chronos_httpserver,
   stew/[byteutils, io2],
   eth/p2p/discoveryv5/[enr, random2],
-  ./consensus_object_pools/blob_quarantine,
+  ./consensus_object_pools/[blob_quarantine, blockchain_list],
   ./consensus_object_pools/vanity_logs/vanity_logs,
   ./networking/[topic_params, network_metadata_downloads],
   ./rpc/[rest_api, state_ttl_cache],
   ./spec/datatypes/[altair, bellatrix, phase0],
   ./spec/[deposit_snapshots, engine_authentication, weak_subjectivity],
-  ./sync/[sync_protocol, light_client_protocol],
+  ./sync/[sync_protocol, light_client_protocol, sync_overseer],
   ./validators/[keystore_management, beacon_validators],
   "."/[
     beacon_node, beacon_node_light_client, deposits,
@@ -277,6 +277,7 @@ proc initFullNode(
     node: BeaconNode,
     rng: ref HmacDrbgContext,
     dag: ChainDAGRef,
+    clist: ChainListRef,
     taskpool: TaskPoolPtr,
     getBeaconTime: GetBeaconTimeFn) {.async.} =
   template config(): auto = node.config
@@ -367,6 +368,12 @@ proc initFullNode(
     else:
       dag.tail.slot
 
+  func getUntrustedBackfillSlot(): Slot =
+    if clist.tail.isSome():
+      clist.tail.get().blck.slot
+    else:
+      dag.tail.slot
+
   func getFrontfillSlot(): Slot =
     max(dag.frontfill.get(BlockId()).slot, dag.horizon)
 
@@ -405,10 +412,12 @@ proc initFullNode(
       ActionTracker.init(node.network.nodeId, config.subscribeAllSubnets),
       node.dynamicFeeRecipientsStore, config.validatorsDir,
       config.defaultFeeRecipient, config.suggestedGasLimit)
+    batchVerifier = BatchVerifier.new(rng, taskpool)
     blockProcessor = BlockProcessor.new(
       config.dumpEnabled, config.dumpDirInvalid, config.dumpDirIncoming,
-      rng, taskpool, consensusManager, node.validatorMonitor,
+      batchVerifier, consensusManager, node.validatorMonitor,
       blobQuarantine, getBeaconTime)
+
     blockVerifier = proc(signedBlock: ForkedSignedBeaconBlock,
                          blobs: Opt[BlobSidecars], maybeFinalized: bool):
         Future[Result[void, VerifierError]] {.async: (raises: [CancelledError], raw: true).} =
@@ -418,6 +427,11 @@ proc initFullNode(
       # that should probably be reimagined more holistically in the future.
       blockProcessor[].addBlock(
         MsgSource.gossip, signedBlock, blobs, maybeFinalized = maybeFinalized)
+    untrustedBlockVerifier =
+      proc(signedBlock: ForkedSignedBeaconBlock, blobs: Opt[BlobSidecars],
+           maybeFinalized: bool): Future[Result[void, VerifierError]] {.
+        async: (raises: [CancelledError], raw: true).} =
+        clist.untrustedBackfillVerifier(signedBlock, blobs, maybeFinalized)
     rmanBlockVerifier = proc(signedBlock: ForkedSignedBeaconBlock,
                              maybeFinalized: bool):
         Future[Result[void, VerifierError]] {.async: (raises: [CancelledError]).} =
@@ -478,6 +492,20 @@ proc initFullNode(
       dag.backfill.slot, blockVerifier, maxHeadAge = 0,
       shutdownEvent = node.shutdownEvent,
       flags = syncManagerFlags)
+    clistPivotSlot =
+      if clist.tail.isSome():
+        clist.tail.get().blck.slot()
+      else:
+        getLocalWallSlot()
+    untrustedManager = newSyncManager[Peer, PeerId](
+      node.network.peerPool,
+      dag.cfg.DENEB_FORK_EPOCH, dag.cfg.MIN_EPOCHS_FOR_BLOB_SIDECARS_REQUESTS,
+      SyncQueueKind.Backward, getLocalHeadSlot,
+      getLocalWallSlot, getFirstSlotAtFinalizedEpoch, getUntrustedBackfillSlot,
+      getFrontfillSlot, isWithinWeakSubjectivityPeriod,
+      clistPivotSlot, untrustedBlockVerifier, maxHeadAge = 0,
+      shutdownEvent = node.shutdownEvent,
+      flags = syncManagerFlags)
     router = (ref MessageRouter)(
       processor: processor,
       network: node.network)
@@ -508,6 +536,7 @@ proc initFullNode(
   dag.setReorgCb(onChainReorg)
 
   node.dag = dag
+  node.list = clist
   node.blobQuarantine = blobQuarantine
   node.quarantine = quarantine
   node.attestationPool = attestationPool
@@ -515,11 +544,24 @@ proc initFullNode(
   node.lightClientPool = lightClientPool
   node.validatorChangePool = validatorChangePool
   node.processor = processor
+  node.batchVerifier = batchVerifier
   node.blockProcessor = blockProcessor
   node.consensusManager = consensusManager
   node.requestManager = requestManager
   node.syncManager = syncManager
   node.backfiller = backfiller
+  node.untrustedManager = untrustedManager
+  node.syncOverseer = SyncOverseerRef.new(node.consensusManager,
+                                          node.validatorMonitor,
+                                          config,
+                                          getBeaconTime,
+                                          node.list,
+                                          node.beaconClock,
+                                          node.eventBus.optFinHeaderUpdateQueue,
+                                          node.network.peerPool,
+                                          node.batchVerifier,
+                                          syncManager, backfiller,
+                                          untrustedManager)
   node.router = router
 
   await node.addValidators()
@@ -595,11 +637,20 @@ proc init*(T: type BeaconNode,
       checkpoint = Checkpoint(
         epoch: epoch(getStateField(genesisState[], slot)),
         root: getStateField(genesisState[], latest_block_header).state_root)
+
+    notice "Genesis state information",
+           genesis_fork = genesisState.kind,
+           is_post_altair = (cfg.ALTAIR_FORK_EPOCH == GENESIS_EPOCH)
+
     if config.longRangeSync == LongRangeSyncMode.Light:
       if not is_within_weak_subjectivity_period(metadata.cfg, currentSlot,
                                                 genesisState[], checkpoint):
-        fatal WeakSubjectivityLogMessage, current_slot = currentSlot
-        quit 1
+        # We do support any network which starts from Altair or later fork.
+        let metadata = config.loadEth2Network()
+        if metadata.cfg.ALTAIR_FORK_EPOCH != GENESIS_EPOCH:
+          fatal WeakSubjectivityLogMessage, current_slot = currentSlot,
+                altair_fork_epoch = metadata.cfg.ALTAIR_FORK_EPOCH
+          quit 1
 
   try:
     if config.numThreads < 0:
@@ -637,7 +688,8 @@ proc init*(T: type BeaconNode,
       finUpdateQueue: newAsyncEventQueue[
         RestVersioned[ForkedLightClientFinalityUpdate]](),
       optUpdateQueue: newAsyncEventQueue[
-        RestVersioned[ForkedLightClientOptimisticUpdate]]())
+        RestVersioned[ForkedLightClientOptimisticUpdate]](),
+      optFinHeaderUpdateQueue: newAsyncEventQueue[ForkedLightClientHeader]())
     db = BeaconChainDB.new(config.databaseDir, cfg, inMemory = false)
 
   if config.externalBeaconApiUrl.isSome and ChainDAGRef.isInitialized(db).isErr:
@@ -811,6 +863,16 @@ proc init*(T: type BeaconNode,
 
     getBeaconTime = beaconClock.getBeaconTimeFn()
 
+  let clist =
+    block:
+      # TODO (cheatfate): We should reset (delete) blockchain file if tail is
+      # not in weak subjectivity period.
+      let
+        res = ChainListRef.init(config.databaseDir())
+      info "Backfill database has been loaded", path = config.databaseDir(),
+           head = shortLog(res.head), tail = shortLog(res.tail)
+      res
+
   if config.weakSubjectivityCheckpoint.isSome:
     dag.checkWeakSubjectivityCheckpoint(
       config.weakSubjectivityCheckpoint.get, beaconClock)
@@ -938,7 +1000,7 @@ proc init*(T: type BeaconNode,
 
   node.initLightClient(
     rng, cfg, dag.forkDigests, getBeaconTime, dag.genesis_validators_root)
-  await node.initFullNode(rng, dag, taskpool, getBeaconTime)
+  await node.initFullNode(rng, dag, clist, taskpool, getBeaconTime)
 
   node.updateLightClientFromDag()
 
@@ -1650,26 +1712,29 @@ func formatNextConsensusFork(
     $nextConsensusFork & ":" & $nextForkEpoch)
 
 func syncStatus(node: BeaconNode, wallSlot: Slot): string =
-  let optimisticHead = not node.dag.head.executionValid
-  if node.syncManager.inProgress:
-    let
-      optimisticSuffix =
-        if optimisticHead:
-          "/opt"
-        else:
-          ""
-      lightClientSuffix =
-        if node.consensusManager[].shouldSyncOptimistically(wallSlot):
-          " - lc: " & $shortLog(node.consensusManager[].optimisticHead)
-        else:
-          ""
-    node.syncManager.syncStatus & optimisticSuffix & lightClientSuffix
-  elif node.backfiller.inProgress:
-    "backfill: " & node.backfiller.syncStatus
-  elif optimisticHead:
-    "synced/opt"
-  else:
-    "synced"
+  node.syncOverseer.statusMsg.valueOr:
+    let optimisticHead = not node.dag.head.executionValid
+    if node.syncManager.inProgress:
+      let
+        optimisticSuffix =
+          if optimisticHead:
+            "/opt"
+          else:
+            ""
+        lightClientSuffix =
+          if node.consensusManager[].shouldSyncOptimistically(wallSlot):
+            " - lc: " & $shortLog(node.consensusManager[].optimisticHead)
+          else:
+            ""
+      node.syncManager.syncStatus & optimisticSuffix & lightClientSuffix
+    elif node.untrustedManager.inProgress:
+      "untrusted: " & node.untrustedManager.syncStatus
+    elif node.backfiller.inProgress:
+      "backfill: " & node.backfiller.syncStatus
+    elif optimisticHead:
+      "synced/opt"
+    else:
+      "synced"
 
 when defined(windows):
   from winservice import establishWindowsService, reportServiceStatusSuccess
@@ -1963,18 +2028,6 @@ proc stop(node: BeaconNode) =
   node.db.close()
   notice "Databases closed"
 
-proc startBackfillTask(node: BeaconNode) {.async.} =
-  while node.dag.needsBackfill:
-    if not node.syncManager.inProgress:
-      # Only start the backfiller if it's needed _and_ head sync has completed -
-      # if we lose sync after having synced head, we could stop the backfilller,
-      # but this should be a fringe case - might as well keep the logic simple for
-      # now
-      node.backfiller.start()
-      return
-
-    await sleepAsync(chronos.seconds(2))
-
 proc run(node: BeaconNode) {.raises: [CatchableError].} =
   bnStatus = BeaconNodeStatus.Running
 
@@ -1994,9 +2047,7 @@ proc run(node: BeaconNode) {.raises: [CatchableError].} =
 
   node.startLightClient()
   node.requestManager.start()
-  node.syncManager.start()
-
-  if node.dag.needsBackfill(): asyncSpawn node.startBackfillTask()
+  node.syncOverseer.start()
 
   waitFor node.updateGossipStatus(wallSlot)
 

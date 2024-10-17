@@ -285,7 +285,11 @@ type
     # balances, as used in fork choice
     effective_balances_bytes*: seq[byte]
 
-  OnBlockAdded[T: ForkyTrustedSignedBeaconBlock] = proc(
+  BlockData* = object
+    blck*: ForkedSignedBeaconBlock
+    blob*: Opt[BlobSidecars]
+
+  OnBlockAdded*[T: ForkyTrustedSignedBeaconBlock] = proc(
     blckRef: BlockRef, blck: T, epochRef: EpochRef,
     unrealized: FinalityCheckpoints) {.gcsafe, raises: [].}
   OnPhase0BlockAdded* = OnBlockAdded[phase0.TrustedSignedBeaconBlock]
@@ -298,6 +302,13 @@ type
   OnForkyBlockAdded* =
     OnPhase0BlockAdded | OnAltairBlockAdded | OnBellatrixBlockAdded |
     OnCapellaBlockAdded | OnDenebBlockAdded | OnElectraBlockAdded
+
+  OnForkedBlockAdded* = proc(
+    blckRef: BlockRef, blck: ForkedTrustedSignedBeaconBlock, epochRef: EpochRef,
+    unrealized: FinalityCheckpoints) {.gcsafe, raises: [].}
+
+  OnStateUpdated* = proc(
+    slot: Slot): Result[void, VerifierError] {.gcsafe, raises: [].}
 
   HeadChangeInfoObject* = object
     slot*: Slot

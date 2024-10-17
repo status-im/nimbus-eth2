@@ -72,7 +72,7 @@ type
     rangeAge: uint64
     chunkSize: uint64
     queue: SyncQueue[A]
-    syncFut: Future[void]
+    syncFut: Future[void].Raising([CancelledError])
     blockVerifier: BlockVerifier
     inProgress*: bool
     insSyncSpeed*: float
@@ -88,7 +88,14 @@ type
 
   BeaconBlocksRes =
     NetRes[List[ref ForkedSignedBeaconBlock, Limit MAX_REQUEST_BLOCKS]]
-  BlobSidecarsRes = NetRes[List[ref BlobSidecar, Limit(MAX_REQUEST_BLOB_SIDECARS)]]
+  BlobSidecarsRes =
+    NetRes[List[ref BlobSidecar, Limit(MAX_REQUEST_BLOB_SIDECARS)]]
+
+  SyncBlockData* = object
+    blocks*: seq[ref ForkedSignedBeaconBlock]
+    blobs*: Opt[seq[BlobSidecars]]
+
+  SyncBlockDataRes* = Result[SyncBlockData, string]
 
 proc now*(sm: typedesc[SyncMoment], slots: uint64): SyncMoment {.inline.} =
   SyncMoment(stamp: now(chronos.Moment), slots: slots)
@@ -170,6 +177,12 @@ proc newSyncManager*[A, B](pool: PeerPool[A, B],
   )
   res.initQueue()
   res
+
+func combine(acc: seq[Slot], cur: Slot): seq[Slot] =
+  var copy = acc
+  if copy[^1] != cur:
+    copy.add(cur)
+  copy
 
 proc getBlocks[A, B](man: SyncManager[A, B], peer: A,
                      req: SyncRequest): Future[BeaconBlocksRes] {.
@@ -269,8 +282,96 @@ func checkBlobs(blobs: seq[BlobSidecars]): Result[void, string] =
       ? blob_sidecar[].verify_blob_sidecar_inclusion_proof()
   ok()
 
-proc syncStep[A, B](man: SyncManager[A, B], index: int, peer: A)
-    {.async: (raises: [CancelledError]).} =
+proc getSyncBlockData*[T](
+    peer: T,
+    req: SyncRequest,
+    blobsPresent: bool
+): Future[SyncBlockDataRes] {.async: (raises: [CancelledError]).} =
+  mixin getScore
+
+  logScope:
+    peer_score = peer.getScore()
+    peer_speed = peer.netKbps()
+    topics = "syncman"
+
+  doAssert(not(req.isEmpty()), "Request must not be empty!")
+
+  debug "Requesting blocks from peer", request = req
+  let blocksRange =
+    block:
+      let res = await beaconBlocksByRange_v2(peer, req.slot, req.count, 1'u64)
+      if res.isErr():
+        peer.updateScore(PeerScoreNoValues)
+        debug "Failed to receive blocks on request",
+              request = req, err = res.error
+        return err("Failed to receive blocks on request [" & $res.error & "]")
+      res.get().asSeq
+
+  debug "Received blocks on request", blocks_count = len(blocksRange),
+        blocks_map = getShortMap(req, blocksRange), request = req
+
+  let slots = mapIt(blocksRange, it[].slot)
+
+  if not(checkResponse(req, slots)):
+    peer.updateScore(PeerScoreBadResponse)
+    return err("Received blocks sequence is not in requested range")
+
+  let shouldGetBlobs =
+    if not(blobsPresent):
+      false
+    else:
+      var hasBlobs = false
+      for blck in blocksRange:
+        withBlck(blck[]):
+          when consensusFork >= ConsensusFork.Deneb:
+            if forkyBlck.message.body.blob_kzg_commitments.len > 0:
+              hasBlobs = true
+              break
+      hasBlobs
+
+  let blobsRange =
+    if shouldGetBlobs:
+      let blobData =
+        block:
+          debug "Requesting blobs sidecars from peer", request = req
+          let res = await blobSidecarsByRange(peer, req.slot, req.count)
+          if res.isErr():
+            peer.updateScore(PeerScoreNoValues)
+            return err(
+              "Failed to receive blobs on request [" & $res.error & "]")
+          res.get().asSeq()
+
+      debug "Received blobs on request",
+            blobs_count = len(blobData),
+            blobs_map = getShortMap(req, blobData), request = req
+
+      if len(blobData) > 0:
+        let
+          slots = mapIt(blobData, it[].signed_block_header.message.slot)
+          uniqueSlots = foldl(slots, combine(a, b), @[slots[0]])
+
+        if not(checkResponse(req, uniqueSlots)):
+          peer.updateScore(PeerScoreBadResponse)
+          return err("Received blobs sequence is not in requested range")
+
+      let groupedBlobs = groupBlobs(req, blocksRange, blobData)
+      if groupedBlobs.isErr():
+        peer.updateScore(PeerScoreNoValues)
+        return err("Received blobs sequence is inconsistent")
+
+      if (let checkRes = groupedBlobs.get.checkBlobs(); checkRes.isErr):
+        peer.updateScore(PeerScoreBadResponse)
+        return err(
+          "Received blobs sequence is invalid [" & checkRes.error & "]")
+      Opt.some(groupedBlobs.get())
+    else:
+      Opt.none(seq[BlobSidecars])
+
+  ok SyncBlockData(blocks: blocksRange, blobs: blobsRange)
+
+proc syncStep[A, B](
+    man: SyncManager[A, B], index: int, peer: A
+) {.async: (raises: [CancelledError]).} =
   logScope:
     peer_score = peer.getScore()
     peer_speed = peer.netKbps()
@@ -409,17 +510,16 @@ proc syncStep[A, B](man: SyncManager[A, B], index: int, peer: A)
           request = req, err = blocks.error
     return
   let blockData = blocks.get().asSeq()
-  let blockSmap = getShortMap(req, blockData)
   debug "Received blocks on request", blocks_count = len(blockData),
-        blocks_map = blockSmap, request = req
+        blocks_map = getShortMap(req, blockData), request = req
 
   let slots = mapIt(blockData, it[].slot)
   if not(checkResponse(req, slots)):
     peer.updateScore(PeerScoreBadResponse)
     man.queue.push(req)
     warn "Received blocks sequence is not in requested range",
-          blocks_count = len(blockData), blocks_map = blockSmap,
-          request = req
+          blocks_count = len(blockData),
+          blocks_map = getShortMap(req, blockData), request = req
     return
 
   let shouldGetBlobs =
@@ -435,12 +535,6 @@ proc syncStep[A, B](man: SyncManager[A, B], index: int, peer: A)
               break
       hasBlobs
 
-  func combine(acc: seq[Slot], cur: Slot): seq[Slot] =
-    var copy = acc
-    if copy[copy.len-1] != cur:
-      copy.add(cur)
-    copy
-
   let blobData =
     if shouldGetBlobs:
       let blobs = await man.getBlobSidecars(peer, req)
@@ -451,9 +545,9 @@ proc syncStep[A, B](man: SyncManager[A, B], index: int, peer: A)
               request = req, err = blobs.error
         return
       let blobData = blobs.get().asSeq()
-      let blobSmap = getShortMap(req, blobData)
-      debug "Received blobs on request", blobs_count = len(blobData),
-                      blobs_map = blobSmap, request = req
+      debug "Received blobs on request",
+            blobs_count = len(blobData),
+            blobs_map = getShortMap(req, blobData), request = req
 
       if len(blobData) > 0:
         let slots = mapIt(blobData, it[].signed_block_header.message.slot)
@@ -462,24 +556,26 @@ proc syncStep[A, B](man: SyncManager[A, B], index: int, peer: A)
           peer.updateScore(PeerScoreBadResponse)
           man.queue.push(req)
           warn "Received blobs sequence is not in requested range",
-            blobs_count = len(blobData), blobs_map = getShortMap(req, blobData),
-                          request = req
+               blobs_count = len(blobData),
+               blobs_map = getShortMap(req, blobData),
+               request = req
           return
       let groupedBlobs = groupBlobs(req, blockData, blobData)
       if groupedBlobs.isErr():
         peer.updateScore(PeerScoreNoValues)
         man.queue.push(req)
         info "Received blobs sequence is inconsistent",
-          blobs_map = getShortMap(req, blobData), request = req, msg=groupedBlobs.error()
+             blobs_map = getShortMap(req, blobData),
+             request = req, msg = groupedBlobs.error()
         return
       if (let checkRes = groupedBlobs.get.checkBlobs(); checkRes.isErr):
         peer.updateScore(PeerScoreBadResponse)
         man.queue.push(req)
         warn "Received blobs sequence is invalid",
-          blobs_count = len(blobData),
-          blobs_map = getShortMap(req, blobData),
-          request = req,
-          msg = checkRes.error
+             blobs_count = len(blobData),
+             blobs_map = getShortMap(req, blobData),
+             request = req,
+             msg = checkRes.error
         return
       Opt.some(groupedBlobs.get())
     else:
@@ -512,7 +608,9 @@ proc syncStep[A, B](man: SyncManager[A, B], index: int, peer: A)
   await man.queue.push(req, blockData, blobData, maybeFinalized, proc() =
     man.workers[index].status = SyncWorkerStatus.Processing)
 
-proc syncWorker[A, B](man: SyncManager[A, B], index: int) {.async: (raises: [CancelledError]).} =
+proc syncWorker[A, B](
+    man: SyncManager[A, B], index: int
+) {.async: (raises: [CancelledError]).} =
   mixin getKey, getScore, getHeadSlot
 
   logScope:
@@ -610,8 +708,9 @@ proc toTimeLeftString*(d: Duration): string =
       res = res & "00m"
     res
 
-proc syncClose[A, B](man: SyncManager[A, B],
-                     speedTaskFut: Future[void]) {.async.} =
+proc syncClose[A, B](
+    man: SyncManager[A, B], speedTaskFut: Future[void]
+) {.async: (raises: []).} =
   var pending: seq[FutureBase]
   if not(speedTaskFut.finished()):
     pending.add(speedTaskFut.cancelAndWait())
@@ -620,7 +719,10 @@ proc syncClose[A, B](man: SyncManager[A, B],
     pending.add(worker.future.cancelAndWait())
   await noCancel allFutures(pending)
 
-proc syncLoop[A, B](man: SyncManager[A, B]) {.async.} =
+proc syncLoop[A, B](
+    man: SyncManager[A, B]
+) {.async: (raises: [CancelledError]).} =
+
   logScope:
     sync_ident = man.ident
     direction = man.direction
@@ -671,14 +773,27 @@ proc syncLoop[A, B](man: SyncManager[A, B]) {.async.} =
 
     let (map, sleeping, waiting, pending) = man.getWorkersStats()
 
-    debug "Current syncing state", workers_map = map,
-          sleeping_workers_count = sleeping,
-          waiting_workers_count = waiting,
-          pending_workers_count = pending,
-          wall_head_slot = wallSlot, local_head_slot = headSlot,
-          pause_time = $chronos.seconds(pauseTime),
-          avg_sync_speed = man.avgSyncSpeed, ins_sync_speed = man.insSyncSpeed
-
+    case man.queue.kind
+    of SyncQueueKind.Forward:
+      debug "Current syncing state", workers_map = map,
+            sleeping_workers_count = sleeping,
+            waiting_workers_count = waiting,
+            pending_workers_count = pending,
+            wall_head_slot = wallSlot,
+            local_head_slot = headSlot,
+            pause_time = $chronos.seconds(pauseTime),
+            avg_sync_speed = man.avgSyncSpeed.formatBiggestFloat(ffDecimal, 4),
+            ins_sync_speed = man.insSyncSpeed.formatBiggestFloat(ffDecimal, 4)
+    of SyncQueueKind.Backward:
+      debug "Current syncing state", workers_map = map,
+            sleeping_workers_count = sleeping,
+            waiting_workers_count = waiting,
+            pending_workers_count = pending,
+            wall_head_slot = wallSlot,
+            backfill_slot = man.getSafeSlot(),
+            pause_time = $chronos.seconds(pauseTime),
+            avg_sync_speed = man.avgSyncSpeed.formatBiggestFloat(ffDecimal, 4),
+            ins_sync_speed = man.insSyncSpeed.formatBiggestFloat(ffDecimal, 4)
     let
       pivot = man.progressPivot
       progress =
@@ -806,3 +921,18 @@ proc syncLoop[A, B](man: SyncManager[A, B]) {.async.} =
 proc start*[A, B](man: SyncManager[A, B]) =
   ## Starts SyncManager's main loop.
   man.syncFut = man.syncLoop()
+
+proc updatePivot*[A, B](man: SyncManager[A, B], pivot: Slot) =
+  ## Update progress pivot slot.
+  man.progressPivot = pivot
+
+proc join*[A, B](
+    man: SyncManager[A, B]
+): Future[void] {.async: (raw: true, raises: [CancelledError]).} =
+  if man.syncFut.isNil():
+    let retFuture =
+      Future[void].Raising([CancelledError]).init("nimbus-eth2.join()")
+    retFuture.complete()
+    retFuture
+  else:
+    man.syncFut.join()
