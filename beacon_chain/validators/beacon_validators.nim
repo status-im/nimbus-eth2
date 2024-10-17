@@ -458,7 +458,7 @@ proc makeBeaconBlockForHeadAndSlot*(
     execution_payload_root: Opt[Eth2Digest],
     withdrawals_root: Opt[Eth2Digest],
     kzg_commitments: Opt[KzgCommitments],
-    execution_requests: ExecutionRequests):
+    execution_requests: ExecutionRequests):  # TODO probably need this for builder API, otherwise remove, maybe needs to be Opt
     Future[ForkedBlockResult] {.async: (raises: [CancelledError]).} =
   # Advance state to the slot that we're proposing for
   var cache = StateCache()
@@ -537,6 +537,26 @@ proc makeBeaconBlockForHeadAndSlot*(
         slot, validator_index
       return err("Unable to get execution payload")
 
+  # Don't use the requests passed in, TODO remove that
+  let execution_requests_actual =
+    when PayloadType.kind >= ConsensusFork.Electra:
+      # Don't want un-decoded SSZ going any further/deeper
+      try:
+        ExecutionRequests(
+          deposits: SSZ.decode(
+            payload.executionRequests[0],
+            List[DepositRequest, Limit MAX_DEPOSIT_REQUESTS_PER_PAYLOAD]),
+          withdrawals: SSZ.decode(
+            payload.executionRequests[1],
+            List[WithdrawalRequest, Limit MAX_WITHDRAWAL_REQUESTS_PER_PAYLOAD]),
+          consolidations: SSZ.decode(
+            payload.executionRequests[2],
+            List[ConsolidationRequest, Limit MAX_CONSOLIDATION_REQUESTS_PER_PAYLOAD]))
+      except CatchableError:
+        return err("Unable to deserialize execution layer requests")
+    else:
+      default(ExecutionRequests)  # won't be used by block builder
+
   let res = makeBeaconBlockWithRewards(
       node.dag.cfg,
       state[],
@@ -555,7 +575,7 @@ proc makeBeaconBlockForHeadAndSlot*(
       transactions_root = transactions_root,
       execution_payload_root = execution_payload_root,
       kzg_commitments = kzg_commitments,
-      execution_requests = execution_requests).mapErr do (error: cstring) -> string:
+      execution_requests = execution_requests_actual).mapErr do (error: cstring) -> string:
     # This is almost certainly a bug, but it's complex enough that there's a
     # small risk it might happen even when most proposals succeed - thus we
     # log instead of asserting
