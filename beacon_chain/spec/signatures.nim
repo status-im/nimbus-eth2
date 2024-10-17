@@ -17,7 +17,7 @@
 ## functions.
 
 import
-  ./datatypes/[phase0, altair, bellatrix], ./helpers, ./eth2_merkleization
+  ./datatypes/[phase0, altair, bellatrix, epbs], ./helpers, ./eth2_merkleization
 
 from ./datatypes/capella import BLSToExecutionChange, SignedBLSToExecutionChange
 
@@ -422,4 +422,94 @@ proc verify_bls_to_execution_change_signature*(
     pubkey: ValidatorPubKey | CookedPubKey, signature: SomeSig): bool =
   let signing_root = compute_bls_to_execution_change_signing_root(
     genesisFork, genesis_validators_root, msg.message)
+  blsVerify(pubkey, signing_root.data, signature)
+
+# https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.4/specs/_features/eip7732/beacon-chain.md#new-verify_execution_payload_header_signature
+func compute_execution_payload_header_signing_root*(
+    fork: Fork, genesis_validators_root: Eth2Digest,
+    msg: epbs.SignedExecutionPayloadHeader, 
+    state: epbs.BeaconState): Eth2Digest =
+
+  let
+    epoch = get_current_epoch(state)
+    domain = get_domain(
+      fork, DOMAIN_BEACON_BUILDER, epoch, genesis_validators_root)
+  compute_signing_root(msg.message, domain)
+
+func get_execution_payload_header_signature*(
+    fork: Fork, genesis_validators_root: Eth2Digest,
+    msg: SignedExecutionPayloadHeader, state: epbs.BeaconState, 
+    privkey: ValidatorPrivKey): CookedSig =
+  let signing_root = compute_execution_payload_header_signing_root(
+    fork, genesis_validators_root, msg, state)
+  blsSign(privkey, signing_root.data)
+
+proc verify_execution_payload_header_signature*(
+    fork: Fork, genesis_validators_root: Eth2Digest,
+    msg: epbs.SignedExecutionPayloadHeader, state: epbs.BeaconState,
+    pubkey: ValidatorPubKey | CookedPubKey, 
+    signature: SomeSig): bool =
+  let signing_root = compute_execution_payload_header_signing_root(
+    fork, genesis_validators_root, msg, state)
+  blsVerify(pubkey, signing_root.data, signature)
+
+# https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.4/specs/_features/eip7732/beacon-chain.md#new-verify_execution_payload_envelope_signature
+func compute_execution_payload_envelope_signing_root*(
+    fork: Fork, genesis_validators_root: Eth2Digest,
+    msg: epbs.SignedExecutionPayloadEnvelope, 
+    state: epbs.BeaconState): Eth2Digest =
+
+  let
+    epoch = get_current_epoch(state)
+    domain = get_domain(
+      fork, DOMAIN_BEACON_BUILDER, epoch, genesis_validators_root)
+  compute_signing_root(msg.message, domain)
+
+func get_execution_payload_envelope_signature*(
+    fork: Fork, genesis_validators_root: Eth2Digest,
+    msg: SignedExecutionPayloadEnvelope, state: epbs.BeaconState,
+    privkey: ValidatorPrivKey): CookedSig =
+  let signing_root = compute_execution_payload_envelope_signing_root(
+    fork, genesis_validators_root, msg, state)
+  blsSign(privkey, signing_root.data)
+
+proc verify_execution_payload_envelope_signature*(
+    fork: Fork, genesis_validators_root: Eth2Digest,
+    msg: epbs.SignedExecutionPayloadEnvelope, 
+    state: epbs.BeaconState, pubkey: ValidatorPubKey | CookedPubKey, 
+    signature: SomeSig): bool =
+  let signing_root = compute_execution_payload_envelope_signing_root(
+    fork, genesis_validators_root, msg, state)
+  blsVerify(pubkey, signing_root.data, signature)
+
+# https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.4/specs/_features/eip7732/validator.md#payload-timeliness-attestation
+func compute_payload_attestation_message_signing_root*(
+    fork: Fork, genesis_validators_root: Eth2Digest,
+    attestation: PayloadAttestationMessage, 
+    state: epbs.BeaconState): Eth2Digest =
+
+  let
+    epoch = get_current_epoch(state)
+    domain = get_domain(
+      fork, DOMAIN_BEACON_BUILDER, epoch, genesis_validators_root)
+  compute_signing_root(attestation.data, domain)
+
+func get_payload_attestation_message_signature*(
+    fork: Fork, genesis_validators_root: Eth2Digest,
+    attestation: PayloadAttestationMessage, 
+    state: epbs.BeaconState, 
+    privkey: ValidatorPrivKey): CookedSig =
+  let signing_root = compute_payload_attestation_message_signing_root(
+    fork, genesis_validators_root, attestation, state)
+  blsSign(privkey, signing_root.data)
+
+proc verify_payload_attestation_message_signature*(
+    fork: Fork, genesis_validators_root: Eth2Digest,
+    attestation: PayloadAttestationMessage, 
+    state: epbs.BeaconState, 
+    pubkey: ValidatorPubKey | CookedPubKey, 
+    signature: SomeSig, 
+    ): bool =
+  let signing_root = compute_payload_attestation_message_signing_root(
+    fork, genesis_validators_root, attestation, state)
   blsVerify(pubkey, signing_root.data, signature)

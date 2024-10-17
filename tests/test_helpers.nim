@@ -254,3 +254,12 @@ suite "Spec helpers":
     ]
     for (k, population, successes, draws, val) in tests:
       check: abs(hypergeom_cdf(k, population, successes, draws) - val) < 1e-11
+  
+    test "bit_floor":
+      check:
+        bit_floor(0'u64) == 0'u64
+        bit_floor(1'u64) == 1'u64
+        bit_floor(18'u64) == 16'u64
+        bit_floor(32'u64) == 32'u64
+        bit_floor(4_000_000'u64) == 2_097_152'u64
+        bit_floor(18_446_744_073_709_551_615'u64) == 9_223_372_036_854_775_808'u64
