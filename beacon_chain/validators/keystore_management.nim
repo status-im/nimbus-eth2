@@ -1820,9 +1820,18 @@ proc importKeystoresFromDir*(rng: var HmacDrbgContext, meth: ImportMethod,
     burnMem(singleSaltSalt)
 
   try:
-    for file in walkDirRec(importedDir):
+    let importedFiles = walkDirRec(importedDir).toSeq
+    if importedFiles.len == 0:
+      fatal "No keystore file found at keystore path"
+      quit 1
+
+    var 
+      invalidFlag = false
+      hasValid = false
+    for file in importedFiles:
       let filenameParts = splitFile(file)
       if toLowerAscii(filenameParts.ext) != ".json":
+        invalidFlag = true
         continue
 
       # In case we are importing from eth2.0-deposits-cli, the imported
@@ -1830,7 +1839,10 @@ proc importKeystoresFromDir*(rng: var HmacDrbgContext, meth: ImportMethod,
       # intended for uploading to the launchpad. We'll skip it to avoid
       # the "Invalid keystore" warning that it will trigger.
       if filenameParts.name.startsWith("deposit_data"):
+        invalidFlag = true
         continue
+
+      hasValid = true
 
       let keystore =
         try:
@@ -1901,6 +1913,10 @@ proc importKeystoresFromDir*(rng: var HmacDrbgContext, meth: ImportMethod,
 
           if password.len == 0:
             break
+    if not hasValid and invalidFlag:
+      fatal "No valid keystore file found; the keystore file must have a .json extension and not start with deposit_data"
+      quit 1
+
   except OSError:
     fatal "Failed to access the imported deposits directory"
     quit 1
