@@ -710,6 +710,8 @@ proc syncWorker[A, B](man: SyncManager[A, B], index: int) {.async: (raises: [Can
       peer = await man.pool.acquire()
       if peer.remoteAgent == Eth2Agent.Prysm:
         await man.syncStep(index, peer)
+        man.pool.release(peer)
+        peer = nil
       man.pool.release(peer)
       peer = nil
   finally:
