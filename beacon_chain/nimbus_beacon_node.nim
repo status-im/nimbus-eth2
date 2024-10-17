@@ -508,6 +508,15 @@ proc initFullNode(
       quarantine, blobQuarantine, dataColumnQuarantine, rmanBlockVerifier,
       rmanBlockLoader, rmanBlobLoader, rmanDataColumnLoader)
 
+  if node.config.subscribeAllSubnets:
+    node.network.loadCscnetsMetadata(DATA_COLUMN_SIDECAR_SUBNET_COUNT.uint8)
+  elif not node.config.subscribeAllSubnets:
+    let csc = node.config.custodySubnetCount
+    if csc.isSome and csc.get < DATA_COLUMN_SIDECAR_SUBNET_COUNT:
+      node.network.loadCscnetsMetadata(csc.get.uint8)
+    else:
+      node.network.loadCscnetsMetadata(CUSTODY_REQUIREMENT.uint8)
+
   if node.config.lightClientDataServe:
     proc scheduleSendingLightClientUpdates(slot: Slot) =
       if node.lightClientPool[].broadcastGossipFut != nil:
@@ -1181,15 +1190,6 @@ proc addDenebMessageHandlers(
       debugEcho "Topic"
       debugEcho topic
       node.network.subscribe(topic, basicParams)
-
-  if node.config.subscribeAllSubnets:
-    node.network.loadCscnetsMetadata(DATA_COLUMN_SIDECAR_SUBNET_COUNT.uint8)
-  elif not node.config.subscribeAllSubnets:
-    let csc = node.config.custodySubnetCount
-    if csc.isSome and csc.get < DATA_COLUMN_SIDECAR_SUBNET_COUNT:
-      node.network.loadCscnetsMetadata(csc.get.uint8)
-    else:
-      node.network.loadCscnetsMetadata(CUSTODY_REQUIREMENT.uint8)
 
 proc addElectraMessageHandlers(
     node: BeaconNode, forkDigest: ForkDigest, slot: Slot) =

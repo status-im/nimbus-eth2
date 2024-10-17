@@ -2634,8 +2634,6 @@ proc updateStabilitySubnetMetadata*(node: Eth2Node, attnets: AttnetBits) =
     debug "Stability subnets changed; updated ENR attnets", attnets
 
 proc loadCscnetsMetadata*(node: Eth2Node, cscnets: CscCount) =
-  if node.metadata.custody_subnet_count == cscnets.uint64:
-    return
 
   node.metadata.custody_subnet_count = cscnets.uint64
 
