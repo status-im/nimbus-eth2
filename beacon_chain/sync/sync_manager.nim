@@ -14,7 +14,8 @@ import
   ../spec/datatypes/[phase0, altair],
   ../spec/eth2_apis/rest_types,
   ../spec/[helpers, forks, network, eip7594_helpers],
-  ../networking/[peer_pool, peer_scores, eth2_network],
+  ../networking/[
+    peer_pool, peer_scores, eth2_network, eth2_agents],
   ../gossip_processing/block_processor,
   ../beacon_clock,
   "."/[sync_protocol, sync_queue]
@@ -707,7 +708,8 @@ proc syncWorker[A, B](man: SyncManager[A, B], index: int) {.async: (raises: [Can
       await man.notInSyncEvent.wait()
       man.workers[index].status = SyncWorkerStatus.WaitingPeer
       peer = await man.pool.acquire()
-      await man.syncStep(index, peer)
+      if peer.remoteAgent == Eth2Agent.Prysm:
+        await man.syncStep(index, peer)
       man.pool.release(peer)
       peer = nil
   finally:

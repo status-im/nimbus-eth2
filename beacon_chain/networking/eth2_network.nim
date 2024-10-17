@@ -30,12 +30,13 @@ import
   ../spec/[eth2_ssz_serialization, network, 
     helpers, forks],
   ../validators/keystore_management,
-  "."/[eth2_discovery, eth2_protocol_dsl, libp2p_json_serialization, peer_pool, peer_scores]
+  "."/[eth2_discovery, eth2_protocol_dsl, eth2_agents,
+       libp2p_json_serialization, peer_pool, peer_scores]
 
 export
   tables, chronos, ratelimit, version, multiaddress, peerinfo, p2pProtocol,
   connection, libp2p_json_serialization, eth2_ssz_serialization, results,
-  eth2_discovery, peer_pool, peer_scores
+  eth2_discovery, peer_pool, peer_scores, eth2_agents
 
 logScope:
   topics = "networking"
@@ -97,6 +98,7 @@ type
   Peer* = ref object
     network*: Eth2Node
     peerId*: PeerId
+    remoteAgent*: Eth2Agent
     discoveryId*: Eth2DiscoveryId
     connectionState*: ConnectionState
     protocolStates*: seq[RootRef]
@@ -336,6 +338,31 @@ func shortProtocolId(protocolId: string): string =
     else:
       protocolId.high
   protocolId[start..ends]
+
+proc updateAgent*(peer: Peer) =
+  let
+    agent = toLowerAscii(peer.network.switch.peerStore[AgentBook][peer.peerId])
+    # proto = peer.network.switch.peerStore[ProtoVersionBook][peer.peerId]
+
+  if "nimbus" in agent:
+    peer.remoteAgent = Eth2Agent.Nimbus
+  elif "lighthouse" in agent:
+    peer.remoteAgent = Eth2Agent.Lighthouse
+  elif "teku" in agent:
+    peer.remoteAgent = Eth2Agent.Teku
+  elif "lodestar" in agent:
+    peer.remoteAgent = Eth2Agent.Lodestar
+  elif "prysm" in agent:
+    peer.remoteAgent = Eth2Agent.Prysm
+  elif "grandine" in agent:
+    peer.remoteAgent = Eth2Agent.Grandine
+  else:
+    peer.remoteAgent = Eth2Agent.Unknown
+
+proc getRemoteAgent*(peer: Peer): Eth2Agent =
+  if peer.remoteAgent == Eth2Agent.Unknown:
+    peer.updateAgent()
+  peer.remoteAgent
 
 proc openStream(node: Eth2Node,
                 peer: Peer,
