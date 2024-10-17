@@ -412,50 +412,20 @@ proc initFullNode(
         Future[Result[void, VerifierError]] {.async: (raises: [CancelledError]).} =
       withBlck(signedBlock):
         when consensusFork >= ConsensusFork.Deneb:
-          let
-            localSubnetCount = 
-                if supernode:
-                  DATA_COLUMN_SIDECAR_SUBNET_COUNT.uint64
-                else:
-                  CUSTODY_REQUIREMENT.uint64
-            localCustodyColumns = get_custody_columns(node.network.nodeId,
-                                                      max(SAMPLES_PER_SLOT.uint64,
-                                                      localSubnetCount))
-            accumulatedColumns = dataColumnQuarantine[].accumulateDataColumns(forkyBlck)
-          if accumulatedColumns.len == 0:
-            return await blockProcessor[].addBlock(MsgSource.gossip, signedBlock,
-                                      Opt.none(BlobSidecars), Opt.none(DataColumnSidecars),
-                                      maybeFinalized = maybeFinalized)
-          elif supernode == true and accumulatedColumns.len <= localCustodyColumns.len div 2 :
+          if not dataColumnQuarantine[].hasEnoughDataColumns(forkyBlck):
             # We don't have all the data columns for this block, so we have
             # to put it in columnless quarantine.
             if not quarantine[].addColumnless(dag.finalizedHead.slot, forkyBlck):
-              return err(VerifierError.UnviableFork)
+              err(VerifierError.UnviableFork)
             else:
-              return err(VerifierError.MissingParent)
-          elif supernode == true and accumulatedColumns.len == localCustodyColumns.len:
-            let data_columns = dataColumnQuarantine[].popDataColumns(forkyBlck.root, forkyBlck)
-            return await blockProcessor[].addBlock(MsgSource.gossip, signedBlock,
-                                      Opt.none(BlobSidecars), Opt.some(data_columns),
-                                      maybeFinalized = maybeFinalized)
-          elif supernode == true and accumulatedColumns.len >= localCustodyColumns.len div 2:
-            let data_columns = dataColumnQuarantine[].popDataColumns(forkyBlck.root, forkyBlck)
-            return await blockProcessor[].addBlock(MsgSource.gossip, signedBlock,
-                                      Opt.none(BlobSidecars), Opt.some(data_columns),
-                                      maybeFinalized = maybeFinalized)
-          elif supernode == false and accumulatedColumns.len <= localCustodyColumns.len:
-            # We don't have all the data columns for this block, so we have
-            # to put it in columnless quarantine.
-            if not quarantine[].addColumnless(dag.finalizedHead.slot, forkyBlck):
-              return err(VerifierError.UnviableFork)
-            else:
-              return err(VerifierError.MissingParent)
+              err(VerifierError.MissingParent)
           else:
-            return await blockProcessor[].addBlock(MsgSource.gossip, signedBlock,
-                                      Opt.none(BlobSidecars), Opt.none(DataColumnSidecars),
-                                      maybeFinalized = maybeFinalized) 
+            let data_columns = dataColumnQuarantine[].popDataColumns(forkyBlck.root, forkyBlck)
+            await blockProcessor[].addBlock(MsgSource.gossip, signedBlock,
+                                      Opt.none(BlobSidecars), Opt.some(data_columns),
+                                      maybeFinalized = maybeFinalized)
         else:
-          return await blockProcessor[].addBlock(MsgSource.gossip, signedBlock,
+          await blockProcessor[].addBlock(MsgSource.gossip, signedBlock,
                                     Opt.none(BlobSidecars), Opt.none(DataColumnSidecars),
                                     maybeFinalized = maybeFinalized)
 
