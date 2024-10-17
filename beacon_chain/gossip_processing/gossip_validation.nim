@@ -503,7 +503,7 @@ proc validateDataColumnSidecar*(
   template block_header: untyped = data_column_sidecar.signed_block_header.message
 
   # [REJECT] The sidecar's index is consistent with `NUMBER_OF_COLUMNS`
-  # -- i.e. `blob_sidecar.index < NUMBER_OF_COLUMNS`
+  # -- i.e. `data_column_sidecar.index < NUMBER_OF_COLUMNS`
   if not (data_column_sidecar.index < NUMBER_OF_COLUMNS):
     return dag.checkedReject("DataColumnSidecar: The sidecar's index should be consistent with NUMBER_OF_COLUMNS")
 
@@ -527,7 +527,7 @@ proc validateDataColumnSidecar*(
     return errIgnore("DataColumnSidecar: slot already finalized")
 
   # [IGNORE] The sidecar is the first sidecar for the tuple
-  # (block_header.slot, block_header.proposer_index, blob_sidecar.index)
+  # (block_header.slot, block_header.proposer_index, data_column_sidecar.index)
   # with valid header signature, sidecar inclusion proof, and kzg proof.
   let block_root = hash_tree_root(block_header)
   if dag.getBlockRef(block_root).isSome():
@@ -596,7 +596,7 @@ proc validateDataColumnSidecar*(
   if uint64(proposer) != block_header.proposer_index:
     return dag.checkedReject("DataColumnSidecar: Unexpected proposer")
 
-  # [REJECT] The proposer signature of `blob_sidecar.signed_block_header`,
+  # [REJECT] The proposer signature of `data_column_sidecar.signed_block_header`,
   # is valid with respect to the `block_header.proposer_index` pubkey.
   if not verify_block_signature(
       dag.forkAtEpoch(block_header.slot.epoch),
