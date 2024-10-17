@@ -1,0 +1,36 @@
+# beacon_chain
+# Copyright (c) 2024 Status Research & Development GmbH
+# Licensed and distributed under either of
+#   * MIT license (license terms in the root directory or at https://opensource.org/licenses/MIT).
+#   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
+# at your option. This file may not be copied, modified, or distributed except according to those terms.
+
+name: Update libp2p branch
+on:
+  push:
+    branches:
+      - unstable
+  workflow_dispatch:
+
+jobs:
+  bumpProjects:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          submodules: true
+
+      - name: Update libp2p branch
+        run: |
+          cd vendor/nim-libp2p
+          git checkout master
+
+      - name: Commit this update
+        run: |
+          git config --global user.email "${{ github.actor }}@users.noreply.github.com"
+          git config --global user.name = "${{ github.actor }}"
+          git commit --allow-empty -a -m "update nimbus unstable and auto-bump nim-libp2p"
+          git branch -D nim-libp2p-auto-bump-${GITHUB_REF##*/} || true
+          git switch -c nim-libp2p-auto-bump-${GITHUB_REF##*/}
+          git push -f origin nim-libp2p-auto-bump-${GITHUB_REF##*/}
