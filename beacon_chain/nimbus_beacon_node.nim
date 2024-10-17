@@ -412,7 +412,7 @@ proc initFullNode(
         Future[Result[void, VerifierError]] {.async: (raises: [CancelledError]).} =
       withBlck(signedBlock):
         when consensusFork >= ConsensusFork.Deneb:
-          if not dataColumnQuarantine[].hasEnoughDataColumns(forkyBlck):
+          if not dataColumnQuarantine[].checkForInitialDcSidecars(forkyBlck):
             # We don't have all the data columns for this block, so we have
             # to put it in columnless quarantine.
             if not quarantine[].addColumnless(dag.finalizedHead.slot, forkyBlck):
