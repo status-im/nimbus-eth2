@@ -36,7 +36,7 @@ proc dump*(dir: string, v: ForkySignedBeaconBlock) =
   logErrors:
     SSZ.saveFile(dir / &"block-{v.message.slot}-{shortLog(v.root)}.ssz", v)
 
-proc dump*(dir: string, v: BlobSidecar) =
+proc dump*(dir: string, v: ForkyBlobSidecar) =
   logErrors:
     let
       slot = v.signed_block_header.message.slot

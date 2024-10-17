@@ -305,6 +305,22 @@ type
     ForkyMsgTrustedSignedBeaconBlock |
     ForkyTrustedSignedBeaconBlock
 
+  BlobFork* {.pure.} = enum
+    Deneb
+
+  ForkyBlobSidecar* =
+    deneb.BlobSidecar
+
+  ForkyBlobSidecars* =
+    deneb.BlobSidecars
+
+  ForkedBlobSidecar* = object
+    case kind*: BlobFork
+    of BlobFork.Deneb:
+      denebData*: ref deneb.BlobSidecar
+
+  ForkedBlobSidecars* = seq[ForkedBlobSidecar]
+
   EpochInfoFork* {.pure.} = enum
     Phase0
     Altair
@@ -851,6 +867,75 @@ template init*(T: typedesc[ConsensusFork], value: string): Opt[ConsensusFork] =
 static:
   for fork in ConsensusFork:
     doAssert ConsensusFork.init(fork.toString()).expect("init defined") == fork
+
+template kind*(x: typedesc[deneb.BlobSidecar]): BlobFork =
+  BlobFork.Deneb
+
+template kzg_commitment_inclusion_proof_gindex*(
+    kind: static BlobFork, index: BlobIndex): GeneralizedIndex =
+  when kind == BlobFork.Deneb:
+    deneb.kzg_commitment_inclusion_proof_gindex(index)
+  else:
+    {.error: "kzg_commitment_inclusion_proof_gindex does not support " & $kind.}
+
+template BlobSidecar*(kind: static BlobFork): auto =
+  when kind == BlobFork.Deneb:
+    typedesc[deneb.BlobSidecar]
+  else:
+    {.error: "BlobSidecar does not support " & $kind.}
+
+template BlobSidecars*(kind: static BlobFork): auto =
+  when kind == BlobFork.Deneb:
+    typedesc[deneb.BlobSidecars]
+  else:
+    {.error: "BlobSidecars does not support " & $kind.}
+
+template withAll*(x: typedesc[BlobFork], body: untyped): untyped =
+  static: doAssert BlobFork.high == BlobFork.Deneb
+  block:
+    const blobFork {.inject, used.} = BlobFork.Deneb
+    body
+
+template withBlobFork*(x: BlobFork, body: untyped): untyped =
+  case x
+  of BlobFork.Deneb:
+    const blobFork {.inject, used.} = BlobFork.Deneb
+    body
+
+template withForkyBlob*(x: ForkedBlobSidecar, body: untyped): untyped =
+  case x.kind
+  of BlobFork.Deneb:
+    const blobFork {.inject, used.} = BlobFork.Deneb
+    template forkyBlob: untyped {.inject, used.} = x.denebData
+    body
+
+func init*(
+    x: typedesc[ForkedBlobSidecar],
+    forkyData: ref ForkyBlobSidecar): ForkedBlobSidecar =
+  const kind = typeof(forkyData[]).kind
+  when kind == BlobFork.Deneb:
+    ForkedBlobSidecar(kind: kind, denebData: forkyData)
+  else:
+    {.error: "ForkedBlobSidecar.init does not support " & $kind.}
+
+template forky*(x: ForkedBlobSidecar, kind: static BlobFork): untyped =
+  when kind == BlobFork.Deneb:
+    x.denebData
+  else:
+    {.error: "ForkedBlobSidecar.forky does not support " & $kind.}
+
+func shortLog*[T: ForkedBlobSidecar](x: T): auto =
+  type ResultType = object
+    case kind: BlobFork
+    of BlobFork.Deneb:
+      denebData: typeof(x.denebData.shortLog())
+
+  let xKind = x.kind  # https://github.com/nim-lang/Nim/issues/23762
+  case xKind
+  of BlobFork.Deneb:
+    ResultType(kind: xKind, denebData: x.denebData.shortLog())
+
+chronicles.formatIt ForkedBlobSidecar: it.shortLog
 
 template init*(T: type ForkedEpochInfo, info: phase0.EpochInfo): T =
   T(kind: EpochInfoFork.Phase0, phase0Data: info)
@@ -1415,6 +1500,13 @@ func forkVersion*(cfg: RuntimeConfig, consensusFork: ConsensusFork): Version =
   of ConsensusFork.Deneb:       cfg.DENEB_FORK_VERSION
   of ConsensusFork.Electra:     cfg.ELECTRA_FORK_VERSION
 
+func blobForkAtConsensusFork*(consensusFork: ConsensusFork): Opt[BlobFork] =
+  static: doAssert BlobFork.high == BlobFork.Deneb
+  if consensusFork >= ConsensusFork.Deneb:
+    Opt.some BlobFork.Deneb
+  else:
+    Opt.none BlobFork
+
 func lcDataForkAtConsensusFork*(
     consensusFork: ConsensusFork): LightClientDataFork =
   static: doAssert LightClientDataFork.high == LightClientDataFork.Electra
@@ -1497,6 +1589,35 @@ func readSszForkedSignedBeaconBlock*(
 
   withBlck(result):
     readSszBytes(data, forkyBlck)
+
+func readSszForkedBlobSidecar*(
+    cfg: RuntimeConfig, data: openArray[byte]
+): ForkedBlobSidecar {.raises: [SerializationError].} =
+  ## Helper to read `BlobSidecar` from bytes when it's not certain what
+  ## `BlobFork` it is
+  type ForkedBlobSidecarHeader = object
+    index: BlobIndex
+    blob: Blob
+    kzg_commitment: KzgCommitment
+    kzg_proof: KzgProof
+    signed_block_header*: SignedBeaconBlockHeader
+
+  const numHeaderBytes = fixedPortionSize(ForkedBlobSidecarHeader)
+  if data.len() < numHeaderBytes:
+    raise (ref MalformedSszError)(msg: "Incomplete BlobSidecar header")
+  let
+    header = SSZ.decode(
+      data.toOpenArray(0, numHeaderBytes - 1), ForkedBlobSidecarHeader)
+    consensusFork = cfg.consensusForkAtEpoch(
+      header.signed_block_header.message.slot.epoch)
+    blobFork = blobForkAtConsensusFork(consensusFork).valueOr:
+      raise (ref MalformedSszError)(msg: "BlobSidecar slot is pre-Deneb")
+
+  # TODO https://github.com/nim-lang/Nim/issues/19357
+  result = ForkedBlobSidecar(kind: blobFork)
+  withForkyBlob(result):
+    forkyBlob = new blobFork.BlobSidecar()
+    readSszBytes(data, forkyBlob[])
 
 # https://github.com/ethereum/consensus-specs/blob/v1.4.0/specs/phase0/beacon-chain.md#compute_fork_data_root
 func compute_fork_data_root*(current_version: Version,

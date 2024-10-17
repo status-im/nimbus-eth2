@@ -2685,7 +2685,7 @@ proc broadcastBeaconBlock*(
   node.broadcast(topic, blck)
 
 proc broadcastBlobSidecar*(
-    node: Eth2Node, subnet_id: BlobId, blob: deneb.BlobSidecar):
+    node: Eth2Node, subnet_id: BlobId, blob: ForkyBlobSidecar):
     Future[SendResult] {.async: (raises: [CancelledError], raw: true).} =
   let
     contextEpoch = blob.signed_block_header.message.slot.epoch

@@ -61,7 +61,7 @@ OK: 4/4 Fail: 0/4 Skip: 0/4
 + sanity check Electra blocks [Preset: mainnet]                                              OK
 + sanity check Electra states [Preset: mainnet]                                              OK
 + sanity check Electra states, reusing buffers [Preset: mainnet]                             OK
-+ sanity check blobs [Preset: mainnet]                                                       OK
++ sanity check blobs (Deneb) [Preset: mainnet]                                               OK
 + sanity check genesis roundtrip [Preset: mainnet]                                           OK
 + sanity check phase 0 blocks [Preset: mainnet]                                              OK
 + sanity check phase 0 getState rollback [Preset: mainnet]                                   OK

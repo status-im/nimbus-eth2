@@ -932,7 +932,7 @@ proc installBeaconApiHandlers*(router: var RestRouter, node: BeaconNode) =
               checkValidator = true)
           else:
             await node.router.routeSignedBeaconBlock(
-              forkyBlck, Opt.none(seq[BlobSidecar]),
+              forkyBlck, Opt.none(seq[deneb.BlobSidecar]),
               checkValidator = true)
 
     if res.isErr():
@@ -989,7 +989,7 @@ proc installBeaconApiHandlers*(router: var RestRouter, node: BeaconNode) =
               checkValidator = true)
           else:
             await node.router.routeSignedBeaconBlock(
-              forkyBlck, Opt.none(seq[BlobSidecar]),
+              forkyBlck, Opt.none(seq[deneb.BlobSidecar]),
               checkValidator = true)
 
     if res.isErr():
@@ -1116,9 +1116,11 @@ proc installBeaconApiHandlers*(router: var RestRouter, node: BeaconNode) =
           return RestApiResponse.jsonError(Http400, InvalidBlockObjectError)
 
         let res = withBlck(forked):
+          const blobFork =
+            blobForkAtConsensusFork(consensusFork).get(BlobFork.Deneb)
           forkyBlck.root = hash_tree_root(forkyBlck.message)
           await node.router.routeSignedBeaconBlock(
-            forkyBlck, Opt.none(seq[BlobSidecar]),
+            forkyBlck, Opt.none(seq[blobFork.BlobSidecar]),
             checkValidator = true)
 
         if res.isErr():
@@ -1199,9 +1201,11 @@ proc installBeaconApiHandlers*(router: var RestRouter, node: BeaconNode) =
           return RestApiResponse.jsonError(Http400, InvalidBlockObjectError)
 
         let res = withBlck(forked):
+          const blobFork =
+            blobForkAtConsensusFork(consensusFork).get(BlobFork.Deneb)
           forkyBlck.root = hash_tree_root(forkyBlck.message)
           await node.router.routeSignedBeaconBlock(
-            forkyBlck, Opt.none(seq[BlobSidecar]),
+            forkyBlck, Opt.none(seq[blobFork.BlobSidecar]),
             checkValidator = true)
 
         if res.isErr():
@@ -1701,29 +1705,32 @@ proc installBeaconApiHandlers*(router: var RestRouter, node: BeaconNode) =
           return RestApiResponse.jsonError(Http406, ContentNotAcceptableError)
         res.get()
 
-    # https://github.com/ethereum/beacon-APIs/blob/v2.4.2/types/deneb/blob_sidecar.yaml#L2-L28
-    let data = newClone(default(List[BlobSidecar, Limit MAX_BLOBS_PER_BLOCK]))
+      consensusFork = node.dag.cfg.consensusForkAtEpoch(bid.slot.epoch)
 
-    if indices.isErr:
-      return RestApiResponse.jsonError(Http400,
-                                       InvalidSidecarIndexValueError)
+    withBlobFork(blobForkAtConsensusFork(consensusFork).get(BlobFork.Deneb)):
+      # https://github.com/ethereum/beacon-APIs/blob/v2.4.2/types/deneb/blob_sidecar.yaml#L2-L28
+      let data = newClone(
+        default(List[blobFork.BlobSidecar, Limit MAX_BLOBS_PER_BLOCK]))
 
-    let indexFilter = indices.get.toHashSet
+      if indices.isErr:
+        return RestApiResponse.jsonError(Http400,
+                                         InvalidSidecarIndexValueError)
 
-    for blobIndex in 0'u64 ..< MAX_BLOBS_PER_BLOCK:
-      if indexFilter.len > 0 and blobIndex notin indexFilter:
-        continue
+      let indexFilter = indices.get.toHashSet
 
-      var blobSidecar = new BlobSidecar
+      for blobIndex in 0'u64 ..< MAX_BLOBS_PER_BLOCK:
+        if indexFilter.len > 0 and blobIndex notin indexFilter:
+          continue
 
-      if node.dag.db.getBlobSidecar(bid.root, blobIndex, blobSidecar[]):
-        discard data[].add blobSidecar[]
+        var blobSidecar = new blobFork.BlobSidecar
 
-    if contentType == sszMediaType:
-      RestApiResponse.sszResponse(
-        data[], headers = [("eth-consensus-version",
-          node.dag.cfg.consensusForkAtEpoch(bid.slot.epoch).toString())])
-    elif contentType == jsonMediaType:
-      RestApiResponse.jsonResponse(data)
-    else:
-      RestApiResponse.jsonError(Http500, InvalidAcceptError)
+        if node.dag.db.getBlobSidecar(bid.root, blobIndex, blobSidecar[]):
+          discard data[].add blobSidecar[]
+
+      if contentType == sszMediaType:
+        RestApiResponse.sszResponse(data[], headers = [
+          ("eth-consensus-version", consensusFork.toString())])
+      elif contentType == jsonMediaType:
+        RestApiResponse.jsonResponse(data)
+      else:
+        RestApiResponse.jsonError(Http500, InvalidAcceptError)

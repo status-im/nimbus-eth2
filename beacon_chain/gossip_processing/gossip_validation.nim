@@ -202,7 +202,7 @@ func check_attestation_subnet(
   ok()
 
 func check_blob_sidecar_inclusion_proof(
-    blob_sidecar: deneb.BlobSidecar): Result[void, ValidationError] =
+    blob_sidecar: ForkyBlobSidecar): Result[void, ValidationError] =
   let res = blob_sidecar.verify_blob_sidecar_inclusion_proof()
   if res.isErr:
     return errReject(res.error)
@@ -339,7 +339,7 @@ template validateBeaconBlockBellatrix(
 # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.4/specs/deneb/p2p-interface.md#blob_sidecar_subnet_id
 proc validateBlobSidecar*(
     dag: ChainDAGRef, quarantine: ref Quarantine,
-    blobQuarantine: ref BlobQuarantine, blob_sidecar: BlobSidecar,
+    blobQuarantine: ref BlobQuarantine, blob_sidecar: ForkyBlobSidecar,
     wallTime: BeaconTime, subnet_id: BlobId): Result[void, ValidationError] =
   # Some of the checks below have been reordered compared to the spec, to
   # perform the cheap checks first - in particular, we want to avoid loading

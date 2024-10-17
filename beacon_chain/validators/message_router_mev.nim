@@ -137,7 +137,7 @@ proc unblindAndRouteBlockMEV*(
       Opt.some(signedBlock.create_blob_sidecars(
         blobs_bundle.proofs, blobs_bundle.blobs))
     else:
-      Opt.none(seq[BlobSidecar])
+      Opt.none(seq[deneb.BlobSidecar])
 
   debug "unblindAndRouteBlockMEV: proposing unblinded block",
     blck = shortLog(signedBlock)

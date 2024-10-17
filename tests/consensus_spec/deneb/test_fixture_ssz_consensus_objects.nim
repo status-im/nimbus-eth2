@@ -122,7 +122,7 @@ suite "EF - Deneb - SSZ consensus objects " & preset():
           of "BeaconBlockHeader": checkSSZ(BeaconBlockHeader, path, hash)
           of "BeaconState": checkSSZ(deneb.BeaconState, path, hash)
           of "BlobIdentifier": checkSSZ(BlobIdentifier, path, hash)
-          of "BlobSidecar": checkSSZ(BlobSidecar, path, hash)
+          of "BlobSidecar": checkSSZ(deneb.BlobSidecar, path, hash)
           of "BLSToExecutionChange": checkSSZ(BLSToExecutionChange, path, hash)
           of "Checkpoint": checkSSZ(Checkpoint, path, hash)
           of "ContributionAndProof": checkSSZ(ContributionAndProof, path, hash)
