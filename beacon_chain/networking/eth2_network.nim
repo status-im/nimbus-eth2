@@ -2249,11 +2249,7 @@ proc newBeaconSwitch(config: BeaconNodeConf | LightClientConf,
                      rng: ref HmacDrbgContext): Switch {.raises: [CatchableError].} =
   let service: Service = WildcardAddressResolverService.new()
 
-  var sb =
-    if config.enableYamux:
-      SwitchBuilder.new().withYamux()
-    else:
-      SwitchBuilder.new()
+  var sb = SwitchBuilder.new()
   # Order of multiplexers matters, the first will be default
 
   sb
