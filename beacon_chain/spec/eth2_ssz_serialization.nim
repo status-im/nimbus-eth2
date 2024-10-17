@@ -11,62 +11,12 @@
 # ssz_serialization directly! To bypass root updates, use `readSszBytes`
 # without involving SSZ!
 import
-  ssz_serialization,
-  ./ssz_codec,
-  ./datatypes/[phase0, altair, bellatrix, capella],
-  ./eth2_merkleization
+  ssz_serialization
 
-from ./datatypes/deneb import SignedBeaconBlock, TrustedSignedBeaconBlock
-from ./datatypes/electra import SignedBeaconBlock, TrustedSignedBeaconBlock
-
-export phase0, altair, ssz_codec, ssz_serialization, eth2_merkleization
-
-proc readAndUpdateRoot(
-    data: openArray[byte], val: var auto, updateRoot = true
-) {.raises: [SszError].} =
-  readSszValue(data, val)
-  if updateRoot:
-    val.root = hash_tree_root(val.message)
+export ssz_serialization
 
 # TODO this is an ugly way to get a stronger match than the generic readSszBytes
 # and avoid ambiguities - `var` + typeclasses are problematic
-
-template readSszBytes*(
-    data: openArray[byte], val: var phase0.SignedBeaconBlock, updateRoot = true) =
-  readAndUpdateRoot(data, val, updateRoot)
-template readSszBytes*(
-    data: openArray[byte], val: var phase0.TrustedSignedBeaconBlock, updateRoot = true) =
-  readAndUpdateRoot(data, val, updateRoot)
-template readSszBytes*(
-    data: openArray[byte], val: var altair.SignedBeaconBlock, updateRoot = true) =
-  readAndUpdateRoot(data, val, updateRoot)
-template readSszBytes*(
-    data: openArray[byte], val: var altair.TrustedSignedBeaconBlock, updateRoot = true) =
-  readAndUpdateRoot(data, val, updateRoot)
-template readSszBytes*(
-    data: openArray[byte], val: var bellatrix.SignedBeaconBlock, updateRoot = true) =
-  readAndUpdateRoot(data, val, updateRoot)
-template readSszBytes*(
-    data: openArray[byte], val: var bellatrix.TrustedSignedBeaconBlock, updateRoot = true) =
-  readAndUpdateRoot(data, val, updateRoot)
-template readSszBytes*(
-    data: openArray[byte], val: var capella.SignedBeaconBlock, updateRoot = true) =
-  readAndUpdateRoot(data, val, updateRoot)
-template readSszBytes*(
-    data: openArray[byte], val: var capella.TrustedSignedBeaconBlock, updateRoot = true) =
-  readAndUpdateRoot(data, val, updateRoot)
-template readSszBytes*(
-    data: openArray[byte], val: var deneb.SignedBeaconBlock, updateRoot = true) =
-  readAndUpdateRoot(data, val, updateRoot)
-template readSszBytes*(
-    data: openArray[byte], val: var deneb.TrustedSignedBeaconBlock, updateRoot = true) =
-  readAndUpdateRoot(data, val, updateRoot)
-template readSszBytes*(
-    data: openArray[byte], val: var electra.SignedBeaconBlock, updateRoot = true) =
-  readAndUpdateRoot(data, val, updateRoot)
-template readSszBytes*(
-    data: openArray[byte], val: var electra.TrustedSignedBeaconBlock, updateRoot = true) =
-  readAndUpdateRoot(data, val, updateRoot)
 
 template readSszBytes*(
     data: openArray[byte], val: var auto, updateRoot: bool) =
@@ -78,11 +28,3 @@ func readSszBytes(
   var res: T
   readSszBytes(data, res, updateRoot)
   res
-
-proc fromSszBytes*(
-    T: type HashedValidatorPubKey, bytes: openArray[byte]
-): T {.raises: [SszError].} =
-  let
-    key = ValidatorPubKey.fromSszBytes(bytes)
-
-  HashedValidatorPubKey.init(key)
