@@ -388,7 +388,7 @@ proc initLightClientUpdateForPeriod(
       finalizedBid = finalizedBsi.bid # For fallback `break` at start of loop
 
   # Save best light client data for given period
-  var update {.noinit.}: ForkedLightClientUpdate
+  var update: ForkedLightClientUpdate
   let attestedBid = dag.existingParent(signatureBid).valueOr:
     dag.handleUnexpectedLightClientError(signatureBid.slot)
     return err()
@@ -456,7 +456,7 @@ proc initLightClientDataForPeriod(
     dag.lcDataStore.db.sealPeriod(period)
   ok()
 
-proc getLightClientData(
+func getLightClientData(
     dag: ChainDAGRef,
     bid: BlockId): CachedLightClientData =
   ## Fetch cached light client data about a given block.
@@ -464,7 +464,7 @@ proc getLightClientData(
   try: dag.lcDataStore.cache.data[bid]
   except KeyError: raiseAssert "Unreachable"
 
-proc cacheLightClientData(
+func cacheLightClientData(
     dag: ChainDAGRef,
     state: ForkyHashedBeaconState,
     blck: ForkyTrustedSignedBeaconBlock,
@@ -501,7 +501,7 @@ func shouldImportLcData(dag: ChainDAGRef): bool =
   dag.lcDataStore.importMode != LightClientDataImportMode.None and
   dag.cfg.ALTAIR_FORK_EPOCH != FAR_FUTURE_EPOCH
 
-proc deleteLightClientData*(dag: ChainDAGRef, bid: BlockId) =
+func deleteLightClientData*(dag: ChainDAGRef, bid: BlockId) =
   ## Delete cached light client data for a given block. This needs to be called
   ## when a block becomes unreachable due to finalization of a different fork.
   if not dag.shouldImportLcData:
@@ -1132,7 +1132,7 @@ proc getLightClientUpdateForPeriod*(
     return default(ForkedLightClientUpdate)
   update
 
-proc getLightClientFinalityUpdate*(
+func getLightClientFinalityUpdate*(
     dag: ChainDAGRef): ForkedLightClientFinalityUpdate =
   if not dag.lcDataStore.serve:
     return default(ForkedLightClientFinalityUpdate)
@@ -1148,7 +1148,7 @@ proc getLightClientFinalityUpdate*(
     return default(ForkedLightClientFinalityUpdate)
   finalityUpdate
 
-proc getLightClientOptimisticUpdate*(
+func getLightClientOptimisticUpdate*(
     dag: ChainDAGRef): ForkedLightClientOptimisticUpdate =
   if not dag.lcDataStore.serve:
     return default(ForkedLightClientOptimisticUpdate)
