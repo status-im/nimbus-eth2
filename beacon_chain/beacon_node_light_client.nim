@@ -170,7 +170,7 @@ proc updateLightClientFromDag*(node: BeaconNode) =
 
   let bdata = node.dag.getForkedBlock(dagHead.blck.bid).valueOr:
     return
-  var header {.noinit.}: ForkedLightClientHeader
+  var header: ForkedLightClientHeader
   withBlck(bdata):
     const lcDataFork = lcDataForkAtConsensusFork(consensusFork)
     when lcDataFork > LightClientDataFork.None:

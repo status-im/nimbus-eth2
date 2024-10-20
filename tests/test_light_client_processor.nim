@@ -289,7 +289,7 @@ suite "Light client processor" & preset():
               template forkyUpdate: untyped = upgraded[].forky(lcDataFork)
               check forkyStore.finalized_header != forkyUpdate.attested_header
 
-      var oldFinalized {.noinit.}: ForkedLightClientHeader
+      var oldFinalized: ForkedLightClientHeader
       withForkyStore(store[]):
         when lcDataFork > LightClientDataFork.None:
           oldFinalized = ForkedLightClientHeader.init(
