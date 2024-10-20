@@ -62,6 +62,7 @@ OK: 4/4 Fail: 0/4 Skip: 0/4
 + sanity check Electra states [Preset: mainnet]                                              OK
 + sanity check Electra states, reusing buffers [Preset: mainnet]                             OK
 + sanity check blobs [Preset: mainnet]                                                       OK
++ sanity check data columns [Preset: mainnet]                                                OK
 + sanity check genesis roundtrip [Preset: mainnet]                                           OK
 + sanity check phase 0 blocks [Preset: mainnet]                                              OK
 + sanity check phase 0 getState rollback [Preset: mainnet]                                   OK
@@ -69,7 +70,7 @@ OK: 4/4 Fail: 0/4 Skip: 0/4
 + sanity check phase 0 states, reusing buffers [Preset: mainnet]                             OK
 + sanity check state diff roundtrip [Preset: mainnet]                                        OK
 ```
-OK: 29/29 Fail: 0/29 Skip: 0/29
+OK: 30/30 Fail: 0/30 Skip: 0/30
 ## Beacon state [Preset: mainnet]
 ```diff
 + Smoke test initialize_beacon_state_from_eth1 [Preset: mainnet]                             OK
@@ -1128,4 +1129,4 @@ OK: 2/2 Fail: 0/2 Skip: 0/2
 OK: 9/9 Fail: 0/9 Skip: 0/9
 
 ---TOTAL---
-OK: 765/770 Fail: 0/770 Skip: 5/770
+OK: 766/771 Fail: 0/771 Skip: 5/771

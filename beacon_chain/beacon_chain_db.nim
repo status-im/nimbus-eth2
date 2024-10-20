@@ -17,10 +17,11 @@ import
   ./spec/[deposit_snapshots,
           eth2_ssz_serialization,
           eth2_merkleization,
+          eip7594_helpers,
           forks,
           presets,
           state_transition],
-  ./spec/datatypes/[phase0, altair, bellatrix],
+  ./spec/datatypes/[phase0, altair, bellatrix, eip7594],
   "."/[beacon_chain_db_light_client, filepath]
 
 from ./spec/datatypes/capella import BeaconState
@@ -115,6 +116,8 @@ type
     blocks: array[ConsensusFork, KvStoreRef] # BlockRoot -> TrustedSignedBeaconBlock
 
     blobs: KvStoreRef # (BlockRoot -> BlobSidecar)
+
+    columns: KvStoreRef # (BlockRoot -> DataColumnSidecar)
 
     stateRoots: KvStoreRef # (Slot, BlockRoot) -> StateRoot
 
@@ -248,6 +251,13 @@ func subkey(root: Eth2Digest, slot: Slot): array[40, byte] =
   ret
 
 func blobkey(root: Eth2Digest, index: BlobIndex) : array[40, byte] =
+  var ret: array[40, byte]
+  ret[0..<8] = toBytes(index)
+  ret[8..<40] = root.data
+
+  ret
+
+func columnkey(root: Eth2Digest, index: ColumnIndex) : array[40, byte] =
   var ret: array[40, byte]
   ret[0..<8] = toBytes(index)
   ret[8..<40] = root.data
@@ -561,6 +571,8 @@ proc new*(T: type BeaconChainDB,
 
   var blobs = kvStore db.openKvStore("deneb_blobs").expectDb()
 
+  var columns = kvStore db.openKvStore("electra_columns").expectDb()
+
   # Versions prior to 1.4.0 (altair) stored validators in `immutable_validators`
   # which stores validator keys in compressed format - this is
   # slow to load and has been superceded by `immutable_validators2` which uses
@@ -596,6 +608,7 @@ proc new*(T: type BeaconChainDB,
     keyValues: keyValues,
     blocks: blocks,
     blobs: blobs,
+    columns: columns,
     stateRoots: stateRoots,
     statesNoVal: statesNoVal,
     stateDiffs: stateDiffs,
@@ -763,6 +776,8 @@ proc close*(db: BeaconChainDB) =
   if db.db == nil: return
 
   # Close things roughly in reverse order
+  if not isNil(db.columns):
+    discard db.columns.close()
   if not isNil(db.blobs):
     discard db.blobs.close()
   db.lcData.close()
@@ -820,6 +835,17 @@ proc delBlobSidecar*(
     db: BeaconChainDB,
     root: Eth2Digest, index: BlobIndex): bool =
   db.blobs.del(blobkey(root, index)).expectDb()
+
+proc putDataColumnSidecar*(
+    db: BeaconChainDB,
+    value: DataColumnSidecar) =
+  let block_root = hash_tree_root(value.signed_block_header.message)
+  db.columns.putSZSSZ(columnkey(block_root, value.index), value)
+
+proc delDataColumnSidecar*(
+    db: BeaconChainDB,
+    root: Eth2Digest, index: ColumnIndex): bool =
+  db.columns.del(columnkey(root, index)).expectDb()
 
 proc updateImmutableValidators*(
     db: BeaconChainDB, validators: openArray[Validator]) =
@@ -1078,6 +1104,17 @@ proc getBlobSidecarSZ*(db: BeaconChainDB, root: Eth2Digest, index: BlobIndex,
 proc getBlobSidecar*(db: BeaconChainDB, root: Eth2Digest, index: BlobIndex,
                      value: var BlobSidecar): bool =
   db.blobs.getSZSSZ(blobkey(root, index), value) == GetResult.found
+
+proc getDataColumnSidecarSZ*(db: BeaconChainDB, root: Eth2Digest, 
+                             index: ColumnIndex, data: var seq[byte]): bool =
+  let dataPtr = addr data # Short-lived
+  func decode(data: openArray[byte]) =
+    assign(dataPtr[], data)
+  db.columns.get(columnkey(root, index), decode).expectDb()
+
+proc getDataColumnSidecar*(db: BeaconChainDB, root: Eth2Digest, index: ColumnIndex,
+                           value: var DataColumnSidecar): bool =
+  db.columns.getSZSSZ(columnkey(root, index), value) == GetResult.found
 
 proc getBlockSZ*(
     db: BeaconChainDB, key: Eth2Digest, data: var seq[byte],
