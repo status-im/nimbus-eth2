@@ -53,10 +53,10 @@ proc initLightClient*(
       getBeaconTime, optimisticHandler)
 
     shouldInhibitSync = func(): bool =
-      if node.syncManager != nil:
-        not node.syncManager.inProgress  # No LC sync needed if DAG is in sync
-      else:
+      if isNil(node.syncOverseer):
         false
+      else:
+        not node.syncOverseer.syncInProgress # No LC sync needed if DAG is in sync
     lightClient = createLightClient(
       node.network, rng, config, cfg, forkDigests, getBeaconTime,
       genesis_validators_root, LightClientFinalizationMode.Strict,
@@ -107,7 +107,16 @@ proc initLightClient*(
             # The execution block hash is only available from Capella onward
             info "Ignoring new LC optimistic header until Capella"
 
+    proc onFinalizedHeader(
+        lightClient: LightClient,
+        finalizedHeader: ForkedLightClientHeader) =
+      if not node.consensusManager[].shouldSyncOptimistically(node.currentSlot):
+        return
+
+      node.eventBus.optFinHeaderUpdateQueue.emit(finalizedHeader)
+
     lightClient.onOptimisticHeader = onOptimisticHeader
+    lightClient.onFinalizedHeader = onFinalizedHeader
     lightClient.trustedBlockRoot = config.trustedBlockRoot
 
   elif config.trustedBlockRoot.isSome:
