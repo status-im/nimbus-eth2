@@ -144,20 +144,24 @@ proc checkBlobs(signedBlock: ForkedSignedBeaconBlock,
   withBlck(signedBlock):
     when consensusFork >= ConsensusFork.Deneb:
       if blobsOpt.isSome():
-        let
-          blobs = blobsOpt.get()
-          commits = forkyBlck.message.body.blob_kzg_commitments.asSeq
+        let blobs = blobsOpt.get()
 
-        if len(blobs) > 0 or len(commits) > 0:
+        template blob_kzg_commitments(): untyped =
+          forkyBlck.message.body.blob_kzg_commitments.asSeq
+
+        if len(blobs) > 0:
+          if len(blobs) != len(blob_kzg_commitments):
+            return err(VerifierError.Invalid)
           let res =
-            validate_blobs(commits, blobs.mapIt(KzgBlob(bytes: it.blob)),
+            validate_blobs(blob_kzg_commitments,
+                           blobs.mapIt(KzgBlob(bytes: it.blob)),
                            blobs.mapIt(it.kzg_proof))
           if res.isErr():
             debug "Blob validation failed",
                   block_root = shortLog(forkyBlck.root),
                   blobs = shortLog(blobs),
                   blck = shortLog(forkyBlck.message),
-                  kzg_commits = mapIt(commits, shortLog(it)),
+                  kzg_commits = mapIt(blob_kzg_commitments, shortLog(it)),
                   signature = shortLog(forkyBlck.signature),
                   msg = res.error()
             return err(VerifierError.Invalid)
