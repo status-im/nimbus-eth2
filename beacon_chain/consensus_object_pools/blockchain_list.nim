@@ -7,7 +7,7 @@
 
 {.push raises: [].}
 
-import std/sequtils, chronicles, chronos, metrics,
+import std/sequtils, stew/io2, chronicles, chronos, metrics,
        ../spec/forks,
        ../[beacon_chain_file, beacon_clock],
        ../sszdump
@@ -36,7 +36,7 @@ proc init*(T: type ChainListRef, directory: string): ChainListRef =
   let
     filename = directory.chainFilePath()
     handle =
-      if not(isFilePresent(filename)):
+      if not(isFile(filename)):
         Opt.none(ChainFileHandle)
       else:
         let

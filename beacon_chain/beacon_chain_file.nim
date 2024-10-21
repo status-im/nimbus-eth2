@@ -276,9 +276,6 @@ template isBlob(h: ChainFileHeader | ChainFileFooter): bool =
 template isLast(h: ChainFileHeader | ChainFileFooter): bool =
   h.kind.isLast()
 
-proc isFilePresent*(filename: string): bool =
-  isFile(filename)
-
 template head*(chandle: ChainFileHandle): Opt[BlockData] =
   chandle.data.head
 
