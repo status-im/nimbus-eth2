@@ -230,19 +230,22 @@ from web3/engine_api_types import
   PayloadAttributesV1, PayloadAttributesV2, PayloadAttributesV3,
   PayloadExecutionStatus, PayloadStatusV1
 from ../el/el_manager import
-  ELManager, forkchoiceUpdated, hasConnection, hasProperlyConfiguredConnection,
-  sendNewPayload
+  ELManager, DeadlineObject, forkchoiceUpdated, hasConnection,
+  hasProperlyConfiguredConnection, sendNewPayload, init
 
 proc expectValidForkchoiceUpdated(
     elManager: ELManager, headBlockPayloadAttributesType: typedesc,
     headBlockHash, safeBlockHash, finalizedBlockHash: Eth2Digest,
-    receivedBlock: ForkySignedBeaconBlock): Future[void] {.async: (raises: [CancelledError]).} =
+    receivedBlock: ForkySignedBeaconBlock,
+    deadlineObj: DeadlineObject
+): Future[void] {.async: (raises: [CancelledError]).} =
   let
     (payloadExecutionStatus, _) = await elManager.forkchoiceUpdated(
       headBlockHash = headBlockHash,
       safeBlockHash = safeBlockHash,
       finalizedBlockHash = finalizedBlockHash,
-      payloadAttributes = Opt.none headBlockPayloadAttributesType)
+      payloadAttributes = Opt.none headBlockPayloadAttributesType,
+      deadlineObj = deadlineObj)
     receivedExecutionBlockHash =
       when typeof(receivedBlock).kind >= ConsensusFork.Bellatrix:
         receivedBlock.message.body.execution_payload.block_hash
@@ -288,8 +291,10 @@ from ../spec/datatypes/capella import
 from ../spec/datatypes/deneb import SignedBeaconBlock, asTrusted, shortLog
 
 proc newExecutionPayload*(
-    elManager: ELManager, blck: SomeForkyBeaconBlock):
-    Future[Opt[PayloadExecutionStatus]] {.async: (raises: [CancelledError]).} =
+    elManager: ELManager,
+    blck: SomeForkyBeaconBlock,
+    deadlineObj: DeadlineObject
+): Future[Opt[PayloadExecutionStatus]] {.async: (raises: [CancelledError]).} =
 
   template executionPayload: untyped = blck.body.execution_payload
 
@@ -306,7 +311,7 @@ proc newExecutionPayload*(
     executionPayload = shortLog(executionPayload)
 
   try:
-    let payloadStatus = await elManager.sendNewPayload(blck)
+    let payloadStatus = await elManager.sendNewPayload(blck, deadlineObj)
 
     debug "newPayload: succeeded",
       parentHash = executionPayload.parent_hash,
@@ -323,22 +328,32 @@ proc newExecutionPayload*(
       blockNumber = executionPayload.block_number
     return Opt.none PayloadExecutionStatus
 
+proc newExecutionPayload*(
+    elManager: ELManager,
+    blck: SomeForkyBeaconBlock
+): Future[Opt[PayloadExecutionStatus]] {.
+  async: (raises: [CancelledError], raw: true).} =
+  newExecutionPayload(
+    elManager, blck, DeadlineObject.init(FORKCHOICEUPDATED_TIMEOUT))
+
 proc getExecutionValidity(
     elManager: ELManager,
     blck: bellatrix.SignedBeaconBlock | capella.SignedBeaconBlock |
-          deneb.SignedBeaconBlock | electra.SignedBeaconBlock):
-    Future[NewPayloadStatus] {.async: (raises: [CancelledError]).} =
+          deneb.SignedBeaconBlock | electra.SignedBeaconBlock,
+    deadlineObj: DeadlineObject
+): Future[NewPayloadStatus] {.async: (raises: [CancelledError]).} =
   if not blck.message.is_execution_block:
     return NewPayloadStatus.valid  # vacuously
 
   try:
     let executionPayloadStatus = await elManager.newExecutionPayload(
-      blck.message)
+      blck.message, deadlineObj)
     if executionPayloadStatus.isNone:
       return NewPayloadStatus.noResponse
 
     case executionPayloadStatus.get
-      of PayloadExecutionStatus.invalid, PayloadExecutionStatus.invalid_block_hash:
+      of PayloadExecutionStatus.invalid,
+         PayloadExecutionStatus.invalid_block_hash:
         # Blocks come either from gossip or request manager requests. In the
         # former case, they've passed libp2p gosisp validation which implies
         # correct signature for correct proposer,which makes spam expensive,
@@ -424,6 +439,10 @@ proc storeBlock(
     vm = self.validatorMonitor
     dag = self.consensusManager.dag
     wallSlot = wallTime.slotOrZero
+    deadlineObj =
+      DeadlineObject.init(
+        chronos.nanoseconds(attestationSlotOffset.nanoseconds))
+      # This should be `4.seconds` for `mainnet` preset.
 
   # If the block is missing its parent, it will be re-orphaned below
   self.consensusManager.quarantine[].removeOrphan(signedBlock)
@@ -529,7 +548,8 @@ proc storeBlock(
         NewPayloadStatus.noResponse
       else:
         when typeof(signedBlock).kind >= ConsensusFork.Bellatrix:
-          await self.consensusManager.elManager.getExecutionValidity(signedBlock)
+          await self.consensusManager.elManager.getExecutionValidity(
+            signedBlock, deadlineObj)
         else:
           NewPayloadStatus.valid # vacuously
     payloadValid = payloadStatus == NewPayloadStatus.valid
@@ -696,7 +716,8 @@ proc storeBlock(
               self.consensusManager[].optimisticExecutionBlockHash,
             safeBlockHash = newHead.get.safeExecutionBlockHash,
             finalizedBlockHash = newHead.get.finalizedExecutionBlockHash,
-            payloadAttributes = Opt.none attributes)
+            payloadAttributes = Opt.none attributes,
+            deadlineObj = deadlineObj)
 
       let consensusFork = self.consensusManager.dag.cfg.consensusForkAtEpoch(
         newHead.get.blck.bid.slot.epoch)
@@ -723,7 +744,8 @@ proc storeBlock(
             headBlockHash = headExecutionBlockHash,
             safeBlockHash = newHead.get.safeExecutionBlockHash,
             finalizedBlockHash = newHead.get.finalizedExecutionBlockHash,
-            receivedBlock = signedBlock)
+            receivedBlock = signedBlock,
+            deadlineObj = deadlineObj)
 
         template callForkChoiceUpdated: auto =
           case self.consensusManager.dag.cfg.consensusForkAtEpoch(
