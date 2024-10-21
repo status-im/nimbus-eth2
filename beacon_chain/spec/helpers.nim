@@ -467,7 +467,7 @@ func append*(w: var RlpWriter, request: electra.ConsolidationRequest) =
     targetPubkey: Bytes48 request.target_pubkey.blob)
 
 # https://eips.ethereum.org/EIPS/eip-7685
-func computeRequestsTrieRoot(
+func computeRequestsHash(
     requests: electra.ExecutionRequests): EthHash32 =
   let requestsHash = computeDigest:
     template mixInRequests(requestType, requestList): untyped =
@@ -519,7 +519,7 @@ proc blockToBlockHeader*(blck: ForkyBeaconBlock): EthHeader =
         Opt.none(EthHash32)
     requestsHash =
       when typeof(payload).kind >= ConsensusFork.Electra:
-        Opt.some blck.body.execution_requests.computeRequestsTrieRoot()
+        Opt.some blck.body.execution_requests.computeRequestsHash()
       else:
         Opt.none(EthHash32)
 
