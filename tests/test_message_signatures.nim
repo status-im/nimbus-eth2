@@ -12,7 +12,8 @@ import
   std/random,
   unittest2,
   ../beacon_chain/spec/[crypto, helpers, signatures],
-  ./testblockutil
+  ./testblockutil,
+  ../beacon_chain/spec/datatypes/epbs
 
 suite "Message signatures":
   var rnd = initRand(123)
@@ -273,3 +274,106 @@ suite "Message signatures":
         load(pubkey0).get, get_sync_committee_selection_proof(
           fork0, genesis_validators_root1, slot,
           subcommittee_index, privkey0).toValidatorSig)
+  
+  test "execution payload header signatures":
+    let
+      msg = default(epbs.SignedExecutionPayloadHeader)
+      state = default(epbs.BeaconState)
+
+    check:
+      # Matching public/private keys and genesis validator roots
+      verify_execution_payload_header_signature(
+        fork0, genesis_validators_root0, msg, state,
+        load(pubkey0).get, get_execution_payload_header_signature(
+          fork0, genesis_validators_root0, msg,
+          state, privkey0).toValidatorSig)
+
+      # Mismatched public/private keys
+      not verify_execution_payload_header_signature(
+        fork0, genesis_validators_root0, msg, state,
+        load(pubkey0).get, get_execution_payload_header_signature(
+          fork0, genesis_validators_root0, msg,
+          state, privkey1).toValidatorSig)
+
+      # Mismatched forks
+      not verify_execution_payload_header_signature(
+        fork0, genesis_validators_root0, msg, state,
+        load(pubkey0).get, get_execution_payload_header_signature(
+          fork1, genesis_validators_root0, msg,
+          state, privkey0).toValidatorSig)
+
+      # Mismatched genesis validator roots
+      not verify_execution_payload_header_signature(
+        fork0, genesis_validators_root0, msg, state,
+        load(pubkey0).get, get_execution_payload_header_signature(
+          fork0, genesis_validators_root1, msg,
+          state, privkey0).toValidatorSig)
+
+  test "execution payload envelope signatures":
+    let
+      msg = default(epbs.SignedExecutionPayloadEnvelope)
+      state = default(epbs.BeaconState)
+
+    check:
+      # Matching public/private keys and genesis validator roots
+      verify_execution_payload_envelope_signature(
+        fork0, genesis_validators_root0, msg, state,
+        load(pubkey0).get, get_execution_payload_envelope_signature(
+          fork0, genesis_validators_root0, msg,
+          state, privkey0).toValidatorSig)
+
+      # Mismatched public/private keys
+      not verify_execution_payload_envelope_signature(
+        fork0, genesis_validators_root0, msg, state,
+        load(pubkey0).get, get_execution_payload_envelope_signature(
+          fork0, genesis_validators_root0, msg,
+          state, privkey1).toValidatorSig)
+
+      # Mismatched forks
+      not verify_execution_payload_envelope_signature(
+        fork0, genesis_validators_root0, msg, state,
+        load(pubkey0).get, get_execution_payload_envelope_signature(
+          fork1, genesis_validators_root0, msg,
+          state, privkey0).toValidatorSig)
+
+      # Mismatched genesis validator roots
+      not verify_execution_payload_envelope_signature(
+        fork0, genesis_validators_root0, msg, state,
+        load(pubkey0).get, get_execution_payload_envelope_signature(
+          fork0, genesis_validators_root1, msg,
+          state, privkey0).toValidatorSig)
+
+  test "execution payload attestation signatures":
+    let
+      slot = default(Slot)
+      attestation = default(epbs.PayloadAttestationMessage)
+      state = default(epbs.BeaconState)
+
+    check:
+      # Matching public/private keys and genesis validator roots
+      verify_payload_attestation_message_signature(
+        fork0, genesis_validators_root0, attestation, state,
+        load(pubkey0).get, get_payload_attestation_message_signature(
+          fork0, genesis_validators_root0, attestation,
+          state, privkey0).toValidatorSig)
+
+      # Mismatched public/private keys
+      not verify_payload_attestation_message_signature(
+        fork0, genesis_validators_root0, attestation, state,
+        load(pubkey0).get, get_payload_attestation_message_signature(
+          fork0, genesis_validators_root0, attestation,
+          state, privkey1).toValidatorSig)
+
+      # Mismatched forks
+      not verify_payload_attestation_message_signature(
+        fork0, genesis_validators_root0, attestation, state,
+        load(pubkey0).get, get_payload_attestation_message_signature(
+          fork1, genesis_validators_root0, attestation,
+          state, privkey0).toValidatorSig)
+
+      # Mismatched genesis validator roots
+      not verify_payload_attestation_message_signature(
+        fork0, genesis_validators_root0, attestation, state,
+        load(pubkey0).get, get_payload_attestation_message_signature(
+          fork0, genesis_validators_root1, attestation,
+          state, privkey0).toValidatorSig)

@@ -13,10 +13,12 @@ import
   # Status libraries
   stew/[byteutils, endians2, objects],
   chronicles,
+  bitops,
   eth/common/[eth_types, eth_types_rlp],
   eth/rlp, eth/trie/ordered_trie,
   # Internal
-  "."/[eth2_merkleization, forks, ssz_codec]
+  "."/[eth2_merkleization, forks, ssz_codec],
+  datatypes/epbs
 
 # TODO although eth2_merkleization already exports ssz_codec, *sometimes* code
 # fails to compile if the export is not done here also. Exporting rlp avoids a
@@ -214,7 +216,7 @@ func has_flag*(flags: ParticipationFlags, flag_index: TimelyFlag): bool =
 
 # https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.8/specs/deneb/p2p-interface.md#verify_blob_sidecar_inclusion_proof
 func verify_blob_sidecar_inclusion_proof*(
-    blob_sidecar: BlobSidecar): Result[void, string] =
+    blob_sidecar: deneb.BlobSidecar): Result[void, string] =
   let gindex = kzg_commitment_inclusion_proof_gindex(blob_sidecar.index)
   if not is_valid_merkle_branch(
       hash_tree_root(blob_sidecar.kzg_commitment),
@@ -228,7 +230,7 @@ func verify_blob_sidecar_inclusion_proof*(
 func create_blob_sidecars*(
     forkyBlck: deneb.SignedBeaconBlock | electra.SignedBeaconBlock,
     kzg_proofs: KzgProofs,
-    blobs: Blobs): seq[BlobSidecar] =
+    blobs: Blobs): seq[deneb.BlobSidecar] =
   template kzg_commitments: untyped =
     forkyBlck.message.body.blob_kzg_commitments
   doAssert kzg_proofs.len == blobs.len
@@ -546,6 +548,19 @@ proc blockToBlockHeader*(blck: ForkyBeaconBlock): EthHeader =
 proc compute_execution_block_hash*(blck: ForkyBeaconBlock): Eth2Digest =
   rlpHash(blockToBlockHeader(blck)).to(Eth2Digest)
 
+func bit_length(n: SomeInteger): SomeInteger =
+  # Returns the number of bits required to represent `n`.
+  if n == 0:
+    return 1
+  else:
+    return uint64(fastLog2(n) + 1)
+
+# https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.4/specs/_features/eip7732/beacon-chain.md#bit_floor
+func bit_floor*(n: uint64): uint64 =
+  if n == 0:
+    return 0'u64
+  return 1'u64 shl (n.bit_length() - 1)
+
 from std/math import exp, ln
 from std/sequtils import foldl
 
@@ -568,3 +583,36 @@ func hypergeom_cdf*(k: int, population: int, successes: int, draws: int):
     (0 .. k).foldl(a + exp(
       ln_binomial(successes, b) +
       ln_binomial(population - successes, draws - b) - ln_denom), 0.0)
+      
+# https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.4/specs/_features/eip7732/beacon-chain.md#remove_flag
+func remove_flag*(flags: ParticipationFlags,
+    flag_index: TimelyFlag): ParticipationFlags =
+  let flag = ParticipationFlags(1'u8 shl ord(flag_index))
+  flags and not flag
+
+func concat_generalized_indices(
+    indices: varargs[GeneralizedIndex]): GeneralizedIndex =
+  var o = GeneralizedIndex(1)
+  for i in indices:
+    o = GeneralizedIndex(o * bit_floor(i) + (i - bit_floor(i)))
+
+# https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.4/specs/_features/eip7732/p2p-interface.md#modified-verify_blob_sidecar_inclusion_proof
+func verify_blob_sidecar_inclusion_proof_eip7732*(
+    blob_sidecar: epbs.BlobSidecar): Result[void, string] =
+  let 
+    # Refers to the location of the specific blob_sidecar 
+    # within the blob_kzg_commitments list
+    inner_gindex = kzg_commitment_inclusion_proof_inner_gindex(blob_sidecar.index)
+
+    # Refers to the location of the blob_kzg_commitments_root 
+    # within the BeaconBlockBody
+    outer_gindex = kzg_commitment_inclusion_proof_outer_gindex(blob_sidecar.index)
+     
+  if not is_valid_merkle_branch(
+      hash_tree_root(blob_sidecar.kzg_commitment),
+      blob_sidecar.kzg_commitment_inclusion_proof,
+      KZG_COMMITMENT_INCLUSION_PROOF_DEPTH,
+      get_subtree_index(concat_generalized_indices(outer_gindex, inner_gindex)),
+      blob_sidecar.signed_block_header.message.body_root):
+    return err("BlobSidecar: inclusion proof not valid")
+  ok()
