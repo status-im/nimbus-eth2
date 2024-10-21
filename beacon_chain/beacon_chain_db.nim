@@ -571,7 +571,9 @@ proc new*(T: type BeaconChainDB,
 
   var blobs = kvStore db.openKvStore("deneb_blobs").expectDb()
 
-  var columns = kvStore db.openKvStore("electra_columns").expectDb()
+  var columns: KvStoreRef
+  if cfg.ELECTRA_FORK_EPOCH != FAR_FUTURE_EPOCH:
+    columns = kvStore db.openKvStore("electra_columns").expectDb()
 
   # Versions prior to 1.4.0 (altair) stored validators in `immutable_validators`
   # which stores validator keys in compressed format - this is
