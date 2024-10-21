@@ -13,12 +13,14 @@ import
   metrics, metrics/chronos_httpserver,
   stew/[byteutils, io2],
   eth/p2p/discoveryv5/[enr, random2],
-  ./consensus_object_pools/blob_quarantine,
+  ./consensus_object_pools/[blob_quarantine, data_column_quarantine],
   ./consensus_object_pools/vanity_logs/vanity_logs,
   ./networking/[topic_params, network_metadata_downloads],
   ./rpc/[rest_api, state_ttl_cache],
   ./spec/datatypes/[altair, bellatrix, phase0],
-  ./spec/[deposit_snapshots, engine_authentication, weak_subjectivity],
+  ./spec/[
+    deposit_snapshots, engine_authentication, weak_subjectivity,
+    eip7594_helpers],
   ./sync/[sync_protocol, light_client_protocol],
   ./validators/[keystore_management, beacon_validators],
   "."/[
@@ -400,6 +402,13 @@ proc initFullNode(
       onProposerSlashingAdded, onPhase0AttesterSlashingAdded,
       onElectraAttesterSlashingAdded))
     blobQuarantine = newClone(BlobQuarantine.init(onBlobSidecarAdded))
+    dataColumnQuarantine = newClone(DataColumnQuarantine.init())
+    supernode = node.config.subscribeAllSubnets
+    localCustodySubnets = 
+      if supernode:
+        DATA_COLUMN_SIDECAR_SUBNET_COUNT.uint64
+      else:
+        CUSTODY_REQUIREMENT.uint64
     consensusManager = ConsensusManager.new(
       dag, attestationPool, quarantine, node.elManager,
       ActionTracker.init(node.network.nodeId, config.subscribeAllSubnets),
@@ -486,7 +495,30 @@ proc initFullNode(
       (proc(): bool = syncManager.inProgress),
       quarantine, blobQuarantine, rmanBlockVerifier,
       rmanBlockLoader, rmanBlobLoader)
+  
+  # As per EIP 7594, the BN is now categorised into a 
+  # `Fullnode` and a `Supernode`, the fullnodes custodies a
+  # given set of data columns, and hence ONLY subcribes to those
+  # data column subnet topics, however, the supernodes subscribe
+  # to all of the topics. This in turn keeps our `data column quarantine`
+  # really variable. Whenever the BN is a supernode, column quarantine
+  # essentially means all the NUMBER_OF_COLUMNS, as per mentioned in the 
+  # spec. However, in terms of fullnode, quarantine is really dependent
+  # on the randomly assigned columns, by `get_custody_columns`.
 
+  # Hence, in order to keep column quarantine accurate and error proof
+  # the custody columns are computed once as the BN boots. Then the values
+  # are used globally around the codebase. 
+
+  # `get_custody_columns` is not a very expensive function, but there
+  # are multiple instances of computing custody columns, especially 
+  # during peer selection, sync with columns, and so on. That is why,
+  # the rationale of populating it at boot and using it gloabally.
+
+  dataColumnQuarantine[].supernode = supernode
+  dataColumnQuarantine[].custody_columns = 
+    node.network.nodeId.get_custody_columns(max(SAMPLES_PER_SLOT.uint64,
+                                            localCustodySubnets))
   if node.config.lightClientDataServe:
     proc scheduleSendingLightClientUpdates(slot: Slot) =
       if node.lightClientPool[].broadcastGossipFut != nil:
