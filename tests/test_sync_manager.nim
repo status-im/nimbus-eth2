@@ -1088,7 +1088,7 @@ suite "SyncManager test suite":
     var blobs = createBlobs(blocks, @[Slot(11), Slot(11), Slot(12), Slot(14)])
 
     let req = SyncRequest[SomeTPeer](slot: Slot(10))
-    let groupedRes = groupBlobs(req, blocks, blobs)
+    let groupedRes = groupBlobs(blocks, blobs)
 
     check:
       groupedRes.isOk()
@@ -1118,7 +1118,7 @@ suite "SyncManager test suite":
     let block17 = newClone ForkedSignedBeaconBlock(kind: ConsensusFork.Deneb)
     block17[].denebData.message.slot = Slot(17)
     blocks.add(block17)
-    let groupedRes2 = groupBlobs(req, blocks, blobs)
+    let groupedRes2 = groupBlobs(blocks, blobs)
 
     check:
       groupedRes2.isOk()
@@ -1130,7 +1130,7 @@ suite "SyncManager test suite":
     let blob18 = new (ref BlobSidecar)
     blob18[].signed_block_header.message.slot = Slot(18)
     blobs.add(blob18)
-    let groupedRes3 = groupBlobs(req, blocks, blobs)
+    let groupedRes3 = groupBlobs(blocks, blobs)
 
     check:
       groupedRes3.isErr()
