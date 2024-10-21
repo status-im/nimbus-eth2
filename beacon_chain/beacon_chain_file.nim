@@ -140,7 +140,7 @@ proc checkKind(kind: uint64): Result[void, string] =
 proc check(a: ChainFileHeader): Result[void, string] =
   if a.header != ChainFileHeaderValue:
     return err("Incorrect chunk header [NIMB]")
-  if a.version != 1'u32:
+  if a.version != ChainFileVersion:
     return err("Unsuppoted chunk version")
   if a.comprSize > uint32(MaxChunkSize):
     return err("Incorrect compressed size in chunk header")
@@ -263,7 +263,7 @@ proc getBlockConsensusFork(header: ChainFileHeader): ConsensusFork =
   if int(hkind) in BlockForkCodeRange:
     cast[ConsensusFork](hkind)
   else:
-    raiseAssert("Should not be happened")
+    raiseAssert("Should not happen")
 
 template isBlock(h: ChainFileHeader | ChainFileFooter): bool =
   let hkind = unmaskKind(h.kind)

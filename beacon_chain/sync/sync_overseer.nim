@@ -11,7 +11,6 @@ import std/[strutils, sequtils]
 import stew/base10, chronos, chronicles, results
 import
   ../consensus_object_pools/blockchain_list,
-  ../spec/datatypes/[phase0, altair],
   ../spec/eth2_apis/rest_types,
   ../spec/[helpers, forks, network, forks_light_client, weak_subjectivity],
   ../networking/[peer_pool, peer_scores, eth2_network],
@@ -27,13 +26,13 @@ logScope:
   topics = "overseer"
 
 const
-  PARALLEL_REQUESTS* = 3
-    ## Number of peers we using to resolve our request.
-  BLOCKS_PROCESS_CHUNK_SIZE* = 2
+  PARALLEL_REQUESTS = 3
+    ## Number of peers used to obtain the initial block.
+  BLOCKS_PROCESS_CHUNK_SIZE = 2
     ## Number of blocks sent to processing (CPU heavy task).
 
 type
-  BlockDataRes* = Result[BlockData, string]
+  BlockDataRes = Result[BlockData, string]
 
 proc init*(t: typedesc[BlockDataChunk],
            stateCallback: OnStateUpdated,
@@ -61,7 +60,7 @@ iterator chunks*(data: openArray[BlockData],
     yield BlockDataChunk.init(stateCallback,
       data.toOpenArray(i, min(i + maxCount, len(data)) - 1))
 
-proc getLatestBeaconHeader*(
+proc getLatestBeaconHeader(
     overseer: SyncOverseerRef
 ): Future[BeaconBlockHeader] {.async: (raises: [CancelledError]).} =
   let eventKey = overseer.eventQueue.register()
@@ -83,22 +82,15 @@ proc getLatestBeaconHeader*(
     else:
       raiseAssert "Should not happen"
 
-proc getPeerBlock*(
+proc getPeerBlock(
     overseer: SyncOverseerRef,
     slot: Slot,
 ): Future[BlockDataRes] {.async: (raises: [CancelledError]).} =
   let peer = await overseer.pool.acquire()
   try:
     let
-      request = SyncRequest[Peer](kind: SyncQueueKind.Forward,
-                                  slot: slot, count: 1'u64, item: peer)
-      res = (await getSyncBlockData(peer, request, true)).valueOr:
+      res = (await getSyncBlockData(peer, slot, true)).valueOr:
         return err(error)
-
-    if len(res.blocks) == 0:
-      return err("Empty sequence received")
-
-    let
       blob =
         if res.blobs.isSome():
           Opt.some(res.blobs.get()[0])
@@ -108,16 +100,10 @@ proc getPeerBlock*(
   finally:
     overseer.pool.release(peer)
 
-# proc `==`(a, b: BeaconBlockHeader): bool =
-#   (a.slot == b.slot) and (a.proposer_index == b.proposer_index) and
-#   (a.parent_root.data == b.parent_root.data) and
-#   (a.state_root.data == b.state_root.data) and
-#   (a.body_root.data == b.body_root.data)
-
-proc getBlock*(
+proc getBlock(
     overseer: SyncOverseerRef,
     slot: Slot,
-    blockHeader: Opt[BeaconBlockHeader]
+    blockHeader: BeaconBlockHeader
 ): Future[BlockData] {.async: (raises: [CancelledError]).} =
   var workers:
     array[PARALLEL_REQUESTS, Future[BlockDataRes].Raising([CancelledError])]
@@ -139,16 +125,11 @@ proc getBlock*(
       if workers[i].value.isOk:
         results.add(workers[i].value.get())
 
-    if blockHeader.isSome:
-      if len(results) > 0:
-        for item in results:
-          withBlck(item.blck):
-            if forkyBlck.message.toBeaconBlockHeader() == blockHeader.get():
-              return item
-    else:
-      # TODO (cheatfate): Compare received blocks
-      if len(results) > 0:
-        return results[0]
+    if len(results) > 0:
+      for item in results:
+        withBlck(item.blck):
+          if forkyBlck.message.toBeaconBlockHeader() == blockHeader:
+            return item
 
     # Wait for 2 seconds before trying one more time.
     await sleepAsync(2.seconds)
@@ -313,7 +294,7 @@ proc rebuildState(overseer: SyncOverseerRef): Future[void] {.
 
   var
     blocks: seq[BlockData]
-    processEpoch: Epoch = FAR_FUTURE_EPOCH
+    currentEpoch: Epoch = FAR_FUTURE_EPOCH
 
   let handle = clist.handle.get()
 
@@ -337,7 +318,7 @@ proc rebuildState(overseer: SyncOverseerRef): Future[void] {.
         data = bres.get()
         blockEpoch = data.blck.slot.epoch()
 
-      if blockEpoch != processEpoch:
+      if blockEpoch != currentEpoch:
         if len(blocks) != 0:
           let
             startTick = Moment.now()
@@ -347,8 +328,9 @@ proc rebuildState(overseer: SyncOverseerRef): Future[void] {.
                gcsafe, raises: [].} =
 
             if slot != blocksOnly[0].slot:
-              # We going to verify signatures only at the beginning of
-              # chunk/epoch.
+              # We verify signatures only at the beginning of chunk/epoch, in
+              # such way we could verify whole epoch's proposer signatures in
+              # one batch.
               return ok()
 
             verifyBlockProposer(dag, batchVerifier[], blocksOnly).isOkOr:
@@ -382,7 +364,7 @@ proc rebuildState(overseer: SyncOverseerRef): Future[void] {.
           overseer.updatePerformance(startTick, len(blocks))
           blocks.setLen(0)
 
-        processEpoch = blockEpoch
+        currentEpoch = blockEpoch
 
       if data.blck.slot != GENESIS_SLOT:
         blocks.add(data)
@@ -401,7 +383,7 @@ proc initUntrustedSync(overseer: SyncOverseerRef): Future[void] {.
   overseer.statusMsg = Opt.some("retrieving block")
 
   let
-    blck = await overseer.getBlock(blockHeader.slot, Opt.some(blockHeader))
+    blck = await overseer.getBlock(blockHeader.slot, blockHeader)
     blobsCount = if blck.blob.isNone(): 0 else: len(blck.blob.get())
 
   notice "Received beacon block", blck = shortLog(blck.blck),

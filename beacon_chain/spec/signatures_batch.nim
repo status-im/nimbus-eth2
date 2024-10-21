@@ -247,12 +247,14 @@ proc collectProposerSignatureSet*(
         let
           proposerKey =
             validatorKeys.load(forkyBlck.message.proposer_index).valueOr:
-              let msg = "collectSignatureSets: invalid proposer index (" &
+              let msg = "collectProposerSignatureSet: " &
+                        "invalid proposer index (" &
                         $forkyBlck.message.proposer_index & ")"
               return err(msg)
           signature =
             forkyBlck.signature.load().valueOr:
-              let msg = "collectSignatureSets: cannot load signature (" &
+              let msg = "collectProposerSignatureSet: " &
+                        "cannot load signature (" &
                         $ forkyBlck.signature & ")"
               return err(msg)
         block_signature_set(

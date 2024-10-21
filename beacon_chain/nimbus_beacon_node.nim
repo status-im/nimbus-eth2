@@ -275,6 +275,14 @@ proc checkWeakSubjectivityCheckpoint(
 
 from ./spec/state_transition_block import kzg_commitment_to_versioned_hash
 
+proc isSlotWithinWeakSubjectivityPeriod(dag: ChainDagRef, slot: Slot): bool =
+  let
+    checkpoint = Checkpoint(
+      epoch: epoch(getStateField(dag.headState, slot)),
+      root: getStateField(dag.headState, latest_block_header).state_root)
+  is_within_weak_subjectivity_period(dag.cfg, slot,
+                                     dag.headState, checkpoint)
+
 proc initFullNode(
     node: BeaconNode,
     rng: ref HmacDrbgContext,
@@ -380,13 +388,8 @@ proc initFullNode(
     max(dag.frontfill.get(BlockId()).slot, dag.horizon)
 
   proc isWithinWeakSubjectivityPeriod(): bool =
-    let
-      currentSlot = node.beaconClock.now().slotOrZero()
-      checkpoint = Checkpoint(
-        epoch: epoch(getStateField(node.dag.headState, slot)),
-        root: getStateField(node.dag.headState, latest_block_header).state_root)
-    is_within_weak_subjectivity_period(node.dag.cfg, currentSlot,
-                                       node.dag.headState, checkpoint)
+    isSlotWithinWeakSubjectivityPeriod(node.dag,
+      node.beaconClock.now().slotOrZero())
 
   proc eventWaiter(): Future[void] {.async: (raises: [CancelledError]).} =
     await node.shutdownEvent.wait()
@@ -897,13 +900,25 @@ proc init*(T: type BeaconNode,
 
   let clist =
     block:
-      # TODO (cheatfate): We should reset (delete) blockchain file if tail is
-      # not in weak subjectivity period.
-      let
-        res = ChainListRef.init(config.databaseDir())
-      info "Backfill database has been loaded", path = config.databaseDir(),
-           head = shortLog(res.head), tail = shortLog(res.tail)
+      let res = ChainListRef.init(config.databaseDir())
+
+      debug "Backfill database has been loaded", path = config.databaseDir(),
+            head = shortLog(res.head), tail = shortLog(res.tail)
+
+      if res.handle.isSome() and res.tail().isSome():
+        if not(isSlotWithinWeakSubjectivityPeriod(dag, res.tail.get().slot())):
+          notice "Backfill database is outdated " &
+                 "(outside of weak subjectivity period), reseting database",
+                 path = config.databaseDir(),
+                 tail = shortLog(res.tail)
+          res.clear().isOkOr:
+            fatal "Unable to reset backfill database",
+                  path = config.databaseDir(), reason = error
+            quit 1
       res
+
+  info "Backfill database initialized", path = config.databaseDir(),
+       head = shortLog(clist.head), tail = shortLog(clist.tail)
 
   if config.weakSubjectivityCheckpoint.isSome:
     dag.checkWeakSubjectivityCheckpoint(
