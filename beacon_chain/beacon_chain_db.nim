@@ -17,7 +17,6 @@ import
   ./spec/[deposit_snapshots,
           eth2_ssz_serialization,
           eth2_merkleization,
-          eip7594_helpers,
           forks,
           presets,
           state_transition],
