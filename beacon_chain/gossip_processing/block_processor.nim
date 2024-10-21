@@ -275,17 +275,6 @@ proc expectValidForkchoiceUpdated(
 from ../consensus_object_pools/attestation_pool import
   addForkChoice, selectOptimisticHead, BeaconHead
 from ../consensus_object_pools/spec_cache import get_attesting_indices
-from ../spec/datatypes/phase0 import TrustedSignedBeaconBlock
-from ../spec/datatypes/altair import SignedBeaconBlock
-
-from ../spec/datatypes/bellatrix import ExecutionPayload, SignedBeaconBlock
-from ../spec/datatypes/capella import
-  ExecutionPayload, SignedBeaconBlock, asTrusted, shortLog
-
-# TODO investigate why this seems to allow compilation even though it doesn't
-# directly address deneb.ExecutionPayload when complaint was that it didn't
-# know about "deneb"
-from ../spec/datatypes/deneb import SignedBeaconBlock, asTrusted, shortLog
 
 proc newExecutionPayload*(
     elManager: ELManager, blck: SomeForkyBeaconBlock):
@@ -544,7 +533,9 @@ proc storeBlock(
     # required checks on the CL instead and proceed as if the EL was syncing
     # https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.8/specs/bellatrix/beacon-chain.md#verify_and_notify_new_payload
     # https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.8/specs/deneb/beacon-chain.md#modified-verify_and_notify_new_payload
-    when typeof(signedBlock).kind >= ConsensusFork.Bellatrix:
+    debugComment "electra block hash has new/changed format"
+    when typeof(signedBlock).kind >= ConsensusFork.Bellatrix and
+         typeof(signedBlock).kind != ConsensusFork.Electra:
       if signedBlock.message.is_execution_block:
         template payload(): auto = signedBlock.message.body.execution_payload
 
