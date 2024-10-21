@@ -213,8 +213,8 @@ proc storeBackfillBlock(
   # if not blobsOk:
   #   return err(VerifierError.Invalid)
 
-  var malformed_cols: seq[int]
   when typeof(signedBlock).kind >= ConsensusFork.Deneb:
+    var malformed_cols: seq[int]
     if dataColumnsOpt.isSome:
       let data_columns = dataColumnsOpt.get()
       let kzgCommits = signedBlock.message.body.blob_kzg_commitments.asSeq
@@ -892,7 +892,7 @@ proc storeBlock(
           #   discard self.consensusManager.quarantine[].addBlobless(
           #     dag.finalizedHead.slot, forkyBlck)
 
-          if self.dataColumnQuarantine[].hasEnoughDataColumns(forkyBlck):
+          if self.dataColumnQuarantine[].hasMissingDataColumns(forkyBlck):
             let data_columns = self.dataColumnQuarantine[].popDataColumns(
               forkyBlck.root, forkyBlck)
             self[].enqueueBlock(MsgSource.gossip, quarantined, Opt.none(BlobSidecars), Opt.some(data_columns))
