@@ -342,14 +342,25 @@ proc getDataColumnSidecars[A, B](man: SyncManager[A, B], peer: A,
   debug "Requesting data column sidecars from peer", request = req
   dataColumnSidecarsByRange(peer, req.slot, req.count, localCustodyColumns)
 
-  
+proc reconstructWhileColumnSync*(blck: deneb.SignedBeaconBlock |
+                                 electra.SignedBeaconBlock,
+                                 columns: seq[ref DataColumnSidecar]):
+                                 seq[ref DataColumnSidecar] = 
+  let
+    recovered_cps = recover_cells_and_proofs(columns.mapIt(it[]), blck)
+    recovered_cols = get_data_column_sidecars(blck, recovered_cps.get)
+    refSeq = recovered_cols.mapIt(newClone it)
 
-func groupDataColumns*[T](req: SyncRequest[T],
+  refSeq
+
+proc groupDataColumns*[T](req: SyncRequest[T],
                           blocks: seq[ref ForkedSignedBeaconBlock],
                           data_columns: seq[ref DataColumnSidecar]):
-                            Result[seq[DataColumnSidecars], string] =
+                          Result[seq[DataColumnSidecars], string] =
   var
     grouped = newSeq[DataColumnSidecars](len(blocks))
+    groupedAndReconstructed = 
+      newSeq[DataColumnSidecars](len(blocks))
     column_cursor = 0
   for block_idx, blck in blocks:
     withBlck(blck[]):
@@ -367,6 +378,21 @@ func groupDataColumns*[T](req: SyncRequest[T],
             return err("DataColumnSidecar: unexpected signed_block_header")
           grouped[block_idx].add(data_column_sidecar)
           inc column_cursor
+  
+  for block_idx, blck in blocks:
+    withBlck(blck[]):
+      when consensusFork >= ConsensusFork.Deneb:
+        template kzgs: untyped = forkyBlck.message.body.blob_kzg_commitments
+        if kzgs.len == 0:
+          continue
+        if grouped[block_idx].len >= (NUMBER_OF_COLUMNS div 2):
+          let
+            recovered_cps = recover_cells_and_proofs(grouped[block_idx].mapIt(it[]), forkyBlck)
+            recovered_cols = get_data_column_sidecars(forkyBlck, recovered_cps.get)
+            refSeq = recovered_cols.mapIt(newClone it)
+          groupedAndReconstructed[block_idx].add(refSeq)
+        else:
+          groupedAndReconstructed[block_idx].add(grouped[block_idx])
 
   if column_cursor != len(data_columns):
     # we reached end of blocks without consuming all data columns so either
@@ -374,7 +400,7 @@ func groupDataColumns*[T](req: SyncRequest[T],
     # peer is sending us spurious data columns.
     Result[seq[DataColumnSidecars], string].err "invalid block or data column sequence"
   else:
-    Result[seq[DataColumnSidecars], string].ok grouped
+    Result[seq[DataColumnSidecars], string].ok groupedAndReconstructed
 
 proc checkDataColumns(data_columns: seq[DataColumnSidecars]): Result[void, string] =
   for data_column_sidecars in data_columns:
