@@ -533,9 +533,7 @@ proc storeBlock(
     # required checks on the CL instead and proceed as if the EL was syncing
     # https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.8/specs/bellatrix/beacon-chain.md#verify_and_notify_new_payload
     # https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.8/specs/deneb/beacon-chain.md#modified-verify_and_notify_new_payload
-    debugComment "electra block hash has new/changed format"
-    when typeof(signedBlock).kind >= ConsensusFork.Bellatrix and
-         typeof(signedBlock).kind != ConsensusFork.Electra:
+    when typeof(signedBlock).kind >= ConsensusFork.Bellatrix:
       if signedBlock.message.is_execution_block:
         template payload(): auto = signedBlock.message.body.execution_payload
 

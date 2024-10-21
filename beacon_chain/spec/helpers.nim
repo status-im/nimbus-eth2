@@ -12,6 +12,7 @@
 import
   # Status libraries
   stew/[byteutils, endians2, objects],
+  nimcrypto/sha2,
   chronicles,
   eth/common/[eth_types, eth_types_rlp],
   eth/rlp, eth/trie/ordered_trie,
@@ -466,24 +467,26 @@ func append*(w: var RlpWriter, request: electra.ConsolidationRequest) =
     targetPubkey: Bytes48 request.target_pubkey.blob)
 
 # https://eips.ethereum.org/EIPS/eip-7685
-proc computeRequestsTrieRoot(
+func computeRequestsTrieRoot(
     requests: electra.ExecutionRequests): EthHash32 =
-  let n =
-    requests.deposits.len +
-    requests.withdrawals.len +
-    requests.consolidations.len
+  let requestsHash = computeDigest:
+    template mixInRequests(requestType, requestList): untyped =
+      block:
+        let hash = computeDigest:
+          bind h
+          h.update([requestType.byte])
+          for request in requestList:
+            h.update SSZ.encode(request)
+        h.update(hash.data)
 
-  var b = OrderedTrieRootBuilder.init(n)
+    static:
+      doAssert DEPOSIT_REQUEST_TYPE < WITHDRAWAL_REQUEST_TYPE
+      doAssert WITHDRAWAL_REQUEST_TYPE < CONSOLIDATION_REQUEST_TYPE
+    mixInRequests(DEPOSIT_REQUEST_TYPE, requests.deposits)
+    mixInRequests(WITHDRAWAL_REQUEST_TYPE, requests.withdrawals)
+    mixInRequests(CONSOLIDATION_REQUEST_TYPE, requests.consolidations)
 
-  static:
-    doAssert DEPOSIT_REQUEST_TYPE < WITHDRAWAL_REQUEST_TYPE
-    doAssert WITHDRAWAL_REQUEST_TYPE < CONSOLIDATION_REQUEST_TYPE
-
-  b.add(requests.deposits.asSeq) # EIP-6110
-  b.add(requests.withdrawals.asSeq) # EIP-7002
-  b.add(requests.consolidations.asSeq) # EIP-7251
-
-  b.rootHash()
+  requestsHash.to(EthHash32)
 
 proc blockToBlockHeader*(blck: ForkyBeaconBlock): EthHeader =
   template payload: auto = blck.body.execution_payload
