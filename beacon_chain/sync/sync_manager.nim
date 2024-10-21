@@ -289,8 +289,7 @@ func checkBlobs(blobs: seq[BlobSidecars]): Result[void, string] =
 
 proc getSyncBlockData*[T](
     peer: T,
-    slot: Slot,
-    blobsPresent: bool
+    slot: Slot
 ): Future[SyncBlockDataRes] {.async: (raises: [CancelledError]).} =
   mixin getScore
 
@@ -326,18 +325,15 @@ proc getSyncBlockData*[T](
     return err("The received block is not in the requested range")
 
   let (shouldGetBlob, blobsCount) =
-    if not(blobsPresent):
-      (false, 0)
-    else:
-      withBlck(blocksRange[0][]):
-        when consensusFork >= ConsensusFork.Deneb:
-          let res = len(forkyBlck.message.body.blob_kzg_commitments)
-          if res > 0:
-            (true, res)
-          else:
-            (false, 0)
+    withBlck(blocksRange[0][]):
+      when consensusFork >= ConsensusFork.Deneb:
+        let res = len(forkyBlck.message.body.blob_kzg_commitments)
+        if res > 0:
+          (true, res)
         else:
           (false, 0)
+      else:
+        (false, 0)
 
   let blobsRange =
     if shouldGetBlob:

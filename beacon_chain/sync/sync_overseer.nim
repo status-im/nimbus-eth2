@@ -89,7 +89,7 @@ proc getPeerBlock(
   let peer = await overseer.pool.acquire()
   try:
     let
-      res = (await getSyncBlockData(peer, slot, true)).valueOr:
+      res = (await getSyncBlockData(peer, slot)).valueOr:
         return err(error)
       blob =
         if res.blobs.isSome():
