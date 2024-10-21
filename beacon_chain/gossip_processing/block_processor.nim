@@ -31,7 +31,8 @@ from ../consensus_object_pools/block_quarantine import
 from ../consensus_object_pools/blob_quarantine import
   BlobQuarantine, hasBlobs, popBlobs, put
 from ../consensus_object_pools/data_column_quarantine import
-  DataColumnQuarantine, hasEnoughDataColumns, popDataColumns, put
+  DataColumnQuarantine, hasMissingDataColumns, hasEnoughDataColumns,
+  popDataColumns, put
 from ../validators/validator_monitor import
   MsgSource, ValidatorMonitor, registerAttestationInBlock, registerBeaconBlock,
   registerSyncAggregateInBlock
