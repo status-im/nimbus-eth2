@@ -439,10 +439,14 @@ proc storeBlock(
     vm = self.validatorMonitor
     dag = self.consensusManager.dag
     wallSlot = wallTime.slotOrZero
-    deadlineObj =
-      DeadlineObject.init(
-        chronos.nanoseconds(attestationSlotOffset.nanoseconds))
-      # This should be `4.seconds` for `mainnet` preset.
+    deadlineTime =
+      block:
+        let slotTime = (wallSlot + 1).start_beacon_time() - 1.seconds
+        if slotTime <= wallTime:
+          0.seconds
+        else:
+          chronos.nanoseconds((slotTime - wallTime).nanoseconds)
+    deadlineObj = DeadlineObject.init(deadlineTime)
 
   # If the block is missing its parent, it will be re-orphaned below
   self.consensusManager.quarantine[].removeOrphan(signedBlock)
