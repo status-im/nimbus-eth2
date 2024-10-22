@@ -678,7 +678,7 @@ proc syncStep[A, B](man: SyncManager[A, B], index: int, peer: A)
           data_columns_map = getShortMap(req, dataColumnData), request = req, msg=groupedDataColumns.error()
         return
       if (let checkRes = groupedDataColumns.get.checkDataColumns(); checkRes.isErr):
-        peer.updateScore(PeerScoreBadResponse)
+        peer.updateScore(PeerScoreBadColumns)
         man.queue.push(req)
         warn "Received data columns is invalid",
           data_columns_count = len(dataColumnData),

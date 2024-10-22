@@ -457,11 +457,13 @@ p2pProtocol BeaconSync(version = 1,
 
     let
       dag = peer.networkState.dag
+      # Using MIN_EPOCHS_FOR_BLOB_SIDECARS_REQUESTS for now, as cfg yaml
+      # isn't properly configured in this branch yet.
       epochBoundary =
-        if dag.cfg.MIN_EPOCHS_FOR_DATA_COLUMN_SIDECARS_REQUESTS >= dag.head.slot.epoch:
+        if dag.cfg.MIN_EPOCHS_FOR_BLOB_SIDECARS_REQUESTS >= dag.head.slot.epoch:
           GENESIS_EPOCH
         else:
-          dag.head.slot.epoch - dag.cfg.MIN_EPOCHS_FOR_DATA_COLUMN_SIDECARS_REQUESTS
+          dag.head.slot.epoch - dag.cfg.MIN_EPOCHS_FOR_BLOB_SIDECARS_REQUESTS
     
     if startSlot.epoch < epochBoundary:
       raise newException(ResourceUnavailableError, DataColumnsOutOfRange)
