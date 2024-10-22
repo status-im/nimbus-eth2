@@ -651,6 +651,8 @@ proc syncStep[A, B](man: SyncManager[A, B], index: int, peer: A)
               request = req, err = data_columns.error
         return
       let dataColumnData = data_columns.get().asSeq()
+      debugEcho "Data column while syncing"
+      debugEcho dataColumnData.mapIt(it[])
       let dataColumnSmap = getShortMap(req, dataColumnData)
       debug "Received data columns on request", data_columns_count = len(dataColumnData),
                           data_columns_map = dataColumnSmap, request = req
