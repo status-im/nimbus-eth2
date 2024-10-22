@@ -446,29 +446,15 @@ proc computeTransactionsTrieRoot(
     payload: ForkyExecutionPayload): EthHash32 =
   orderedTrieRoot(payload.transactions.asSeq)
 
-func append*(w: var RlpWriter, request: electra.DepositRequest) =
-  w.append EthDepositRequest(
-    pubkey: Bytes48 request.pubkey.blob,
-    withdrawalCredentials: Bytes32 request.withdrawal_credentials.data,
-    amount: distinctBase(request.amount),
-    signature: Bytes96 request.signature.blob,
-    index: request.index)
-
-func append*(w: var RlpWriter, request: electra.WithdrawalRequest) =
-  w.append EthWithdrawalRequest(
-    sourceAddress: Address request.source_address.data,
-    validatorPubkey: Bytes48 request.validator_pubkey.blob,
-    amount: distinctBase(request.amount))
-
-func append*(w: var RlpWriter, request: electra.ConsolidationRequest) =
-  w.append EthConsolidationRequest(
-    sourceAddress: Address request.source_address.data,
-    sourcePubkey: Bytes48 request.source_pubkey.blob,
-    targetPubkey: Bytes48 request.target_pubkey.blob)
-
 # https://eips.ethereum.org/EIPS/eip-7685
 func computeRequestsHash(
     requests: electra.ExecutionRequests): EthHash32 =
+
+  const
+    DEPOSIT_REQUEST_TYPE = 0x00'u8  # EIP-6110
+    WITHDRAWAL_REQUEST_TYPE = 0x01'u8  # EIP-7002
+    CONSOLIDATION_REQUEST_TYPE = 0x02'u8  # EIP-7251
+
   let requestsHash = computeDigest:
     template mixInRequests(requestType, requestList): untyped =
       block:

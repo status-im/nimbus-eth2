@@ -10,7 +10,7 @@
 import
   std/[json, sequtils, times],
   eth/common/eth_types_rlp,
-  eth/keys,
+  eth/common/keys,
   eth/p2p/discoveryv5/random2,
   eth/rlp,
   eth/trie/ordered_trie,
@@ -1188,9 +1188,7 @@ type
     requestsHash: Eth2Digest
 
 template append*(
-    w: var RlpWriter, v:
-      ETHWithdrawal | ETHDepositRequest | ETHWithdrawalRequest |
-      ETHConsolidationRequest) =
+    w: var RlpWriter, v: ETHWithdrawal) =
   w.appendRawBytes(v.bytes)
 
 proc ETHExecutionBlockHeaderCreateFromJson(
