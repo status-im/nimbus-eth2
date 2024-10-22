@@ -688,9 +688,10 @@ proc syncStep[A, B](man: SyncManager[A, B], index: int, peer: A)
 
     else:
       Opt.none(seq[DataColumnSidecars])
-
-  debugEcho "Data column while syncing"
-  debugEcho dataColumnData.get[4].mapIt(it[])
+      
+  if dataColumnData.isSome:
+    debugEcho "Data column while syncing"
+    debugEcho dataColumnData.get[4].mapIt(it[])
 
   if len(blockData) == 0 and man.direction == SyncQueueKind.Backward and
       req.contains(man.getSafeSlot()):
