@@ -251,8 +251,8 @@ proc variedSleep*(
 ): Future[void] {.async: (raises: [CancelledError], raw: true).} =
   doAssert(len(durations) > 0, "Empty durations array!")
   let index =
-    if (counter < 0) or (counter > len(durations)):
-      len(durations) - 1
+    if (counter < 0) or (counter > high(durations)):
+      high(durations)
     else:
       counter
   inc(counter)
@@ -1073,7 +1073,7 @@ proc sendNewPayload*(
     blck: SomeForkyBeaconBlock
 ): Future[PayloadExecutionStatus] {.
     async: (raises: [CancelledError], raw: true).} =
-  sendNewPayload(m, blck, DeadlineObject.init(FORKCHOICEUPDATED_TIMEOUT))
+  sendNewPayload(m, blck, DeadlineObject.init(NEWPAYLOAD_TIMEOUT))
 
 proc forkchoiceUpdatedForSingleEL(
     connection: ELConnection,
@@ -1262,7 +1262,7 @@ proc forkchoiceUpdated*(
                        Opt[PayloadAttributesV2] |
                        Opt[PayloadAttributesV3]
 ): Future[(PayloadExecutionStatus, Opt[BlockHash])] {.
-   async: (raises: [CancelledError], raw: true).} =
+    async: (raises: [CancelledError], raw: true).} =
   forkchoiceUpdated(
     m, headBlockHash, safeBlockHash, finalizedBlockHash,
     payloadAttributes, DeadlineObject.init(FORKCHOICEUPDATED_TIMEOUT))
