@@ -1086,6 +1086,9 @@ suite "SyncManager test suite":
       checkResponse(r21, @[slots[2], slots[3]]) == false
       checkResponse(r21, @[slots[3]]) == false
 
+      checkResponse(r21, @[slots[1], slots[1]]) == false
+      checkResponse(r21, @[slots[2], slots[2]]) == false
+
       checkResponse(r3, @[slots[1]]) == true
       checkResponse(r3, @[slots[2]]) == true
       checkResponse(r3, @[slots[3]]) == true
@@ -1098,6 +1101,17 @@ suite "SyncManager test suite":
       checkResponse(r3, @[slots[3], slots[1]]) == false
       checkResponse(r3, @[slots[3], slots[2]]) == false
       checkResponse(r3, @[slots[2], slots[1]]) == false
+
+      checkResponse(r3, @[slots[1], slots[1], slots[1]]) == false
+      checkResponse(r3, @[slots[1], slots[2], slots[2]]) == false
+      checkResponse(r3, @[slots[1], slots[3], slots[3]]) == false
+      checkResponse(r3, @[slots[2], slots[3], slots[3]]) == false
+      checkResponse(r3, @[slots[1], slots[1], slots[1]]) == false
+      checkResponse(r3, @[slots[2], slots[2], slots[2]]) == false
+      checkResponse(r3, @[slots[3], slots[3], slots[3]]) == false
+      checkResponse(r3, @[slots[1], slots[1]]) == false
+      checkResponse(r3, @[slots[2], slots[2]]) == false
+      checkResponse(r3, @[slots[3], slots[3]]) == false
 
   test "[SyncManager] groupBlobs() test":
     var
