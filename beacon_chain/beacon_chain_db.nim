@@ -20,7 +20,6 @@ import
           forks,
           presets,
           state_transition],
-  ./spec/datatypes/[phase0, altair, bellatrix, eip7594],
   "."/[beacon_chain_db_light_client, filepath]
 
 from ./spec/datatypes/capella import BeaconState

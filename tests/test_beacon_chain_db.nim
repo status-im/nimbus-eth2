@@ -13,7 +13,6 @@ import
   ../beacon_chain/beacon_chain_db,
   ../beacon_chain/consensus_object_pools/block_dag,
   ../beacon_chain/spec/forks,
-  ../beacon_chain/spec/datatypes/eip7594,
   ./testutil
 
 from std/algorithm import sort
