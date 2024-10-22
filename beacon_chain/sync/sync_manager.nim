@@ -394,13 +394,13 @@ proc groupDataColumns*[T](req: SyncRequest[T],
         else:
           groupedAndReconstructed[block_idx].add(grouped[block_idx])
 
-  if column_cursor != len(data_columns):
-    # we reached end of blocks without consuming all data columns so either
-    # the peer we got too few blocks in the paired request, or the
-    # peer is sending us spurious data columns.
-    Result[seq[DataColumnSidecars], string].err "invalid block or data column sequence"
-  else:
-    Result[seq[DataColumnSidecars], string].ok groupedAndReconstructed
+  # if column_cursor != len(data_columns):
+  #   # we reached end of blocks without consuming all data columns so either
+  #   # the peer we got too few blocks in the paired request, or the
+  #   # peer is sending us spurious data columns.
+  #   Result[seq[DataColumnSidecars], string].err "invalid block or data column sequence"
+  # else:
+  Result[seq[DataColumnSidecars], string].ok groupedAndReconstructed
 
 proc checkDataColumns(data_columns: seq[DataColumnSidecars]): Result[void, string] =
   for data_column_sidecars in data_columns:
@@ -661,8 +661,7 @@ proc syncStep[A, B](man: SyncManager[A, B], index: int, peer: A)
 
       if len(dataColumnData) > 0:
         let slots = mapIt(dataColumnData, it[].signed_block_header.message.slot)
-        let uniqueSlots = foldl(slots, combine(a, b), @[slots[0]])
-        if not(checkResponse(req, uniqueSlots)):
+        if not(checkResponse(req, slots)):
           peer.updateScore(PeerScoreBadResponse)
           man.queue.push(req)
           warn "Received data columns sequence is not in requested range",
@@ -691,7 +690,7 @@ proc syncStep[A, B](man: SyncManager[A, B], index: int, peer: A)
       Opt.none(seq[DataColumnSidecars])
 
   debugEcho "Data column while syncing"
-  debugEcho dataColumnData.get[0].mapIt(it[])
+  debugEcho dataColumnData.get[4].mapIt(it[])
 
   if len(blockData) == 0 and man.direction == SyncQueueKind.Backward and
       req.contains(man.getSafeSlot()):
