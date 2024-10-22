@@ -195,8 +195,8 @@ proc shouldGetBlobs[A, B](man: SyncManager[A, B], e: Epoch): bool =
 proc shouldGetDataColumns[A, B](man: SyncManager[A, B], e: Epoch): bool =
   let wallEpoch = man.getLocalWallSlot().epoch
   e >= man.DENEB_FORK_EPOCH and
-  (wallEpoch < man.MIN_EPOCHS_FOR_DATA_COLUMN_SIDECARS_REQUESTS or
-  e >= wallEpoch - man.MIN_EPOCHS_FOR_DATA_COLUMN_SIDECARS_REQUESTS)
+  (wallEpoch < man.MIN_EPOCHS_FOR_BLOB_SIDECARS_REQUESTS or
+  e >= wallEpoch - man.MIN_EPOCHS_FOR_BLOB_SIDECARS_REQUESTS)
 
 proc getBlobSidecars[A, B](man: SyncManager[A, B], peer: A,
                            req: SyncRequest): Future[BlobSidecarsRes]
@@ -641,6 +641,9 @@ proc syncStep[A, B](man: SyncManager[A, B], index: int, peer: A)
               break
       hasColumns
   
+  debugEcho "Has Columns"
+  debugEcho hasColumns
+
   let dataColumnData =
     if shouldGetDataColumns and man.filterCustodyPeersBeforeColumnSync(peer):
       let data_columns = await man.getDataColumnSidecars(peer, req)
@@ -688,6 +691,8 @@ proc syncStep[A, B](man: SyncManager[A, B], index: int, peer: A)
     else:
       Opt.none(seq[DataColumnSidecars])
 
+  debugEcho "Data column while syncing"
+  debugEcho dataColumnData.get.mapIt(it[])
 
   if len(blockData) == 0 and man.direction == SyncQueueKind.Backward and
       req.contains(man.getSafeSlot()):

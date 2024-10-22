@@ -444,6 +444,13 @@ elif const_preset == "gnosis":
     MIN_EPOCHS_FOR_BLOB_SIDECARS_REQUESTS: 16384,
     # `6`
     # TODO BLOB_SIDECAR_SUBNET_COUNT: 6,
+    # EIP-7594
+    # `2**7` (=128)
+    # TODO MAX_REQUEST_BLOCKS_DENEB: 128,
+    # MAX_REQUEST_BLOCKS_DENEB * NUMBER_OF_COLUMNS
+    # TODO MAX_REQUEST_BLOB_SIDECARS: 768,
+    # `2**12` (= 4096 epochs, ~18 days)
+    MIN_EPOCHS_FOR_DATA_COLUMN_SIDECARS_REQUESTS: 16384
   )
 
 elif const_preset == "minimal":
