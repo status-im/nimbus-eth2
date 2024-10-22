@@ -178,12 +178,6 @@ proc newSyncManager*[A, B](pool: PeerPool[A, B],
   res.initQueue()
   res
 
-func combine(acc: seq[Slot], cur: Slot): seq[Slot] =
-  var copy = acc
-  if copy[^1] != cur:
-    copy.add(cur)
-  copy
-
 proc getBlocks[A, B](man: SyncManager[A, B], peer: A,
                      req: SyncRequest[A]): Future[BeaconBlocksRes] {.
                      async: (raises: [CancelledError], raw: true).} =
@@ -553,8 +547,7 @@ proc syncStep[A, B](
 
       if len(blobData) > 0:
         let slots = mapIt(blobData, it[].signed_block_header.message.slot)
-        let uniqueSlots = foldl(slots, combine(a, b), @[slots[0]])
-        if not(checkResponse(req, uniqueSlots)):
+        if not(checkResponse(req, slots)):
           peer.updateScore(PeerScoreBadResponse)
           man.queue.push(req)
           warn "Received blobs sequence is not in requested range",
@@ -562,13 +555,12 @@ proc syncStep[A, B](
                blobs_map = getShortMap(req, blobData),
                request = req
           return
-      let groupedBlobs = groupBlobs(blockData, blobData)
-      if groupedBlobs.isErr():
+      let groupedBlobs = groupBlobs(blockData, blobData).valueOr:
         peer.updateScore(PeerScoreNoValues)
         man.queue.push(req)
         info "Received blobs sequence is inconsistent",
              blobs_map = getShortMap(req, blobData),
-             request = req, msg = groupedBlobs.error()
+             request = req, msg = error
         return
       if (let checkRes = groupedBlobs.get.checkBlobs(); checkRes.isErr):
         peer.updateScore(PeerScoreBadResponse)
