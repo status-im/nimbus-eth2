@@ -109,3 +109,6 @@ func shortLog*(v: seq[DataColumnSidecar]): auto =
 
 func shortLog*(x: seq[DataColumnIdentifier]): string =
   "[" & x.mapIt(shortLog(it.block_root) & "/" & $it.index).join(", ") & "]"
+
+func shortLog*(x: seq[ColumnIndex]): string =
+  "<" & x.mapIt($it).join(", ") & ">"
