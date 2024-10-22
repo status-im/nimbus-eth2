@@ -639,10 +639,9 @@ proc syncStep[A, B](man: SyncManager[A, B], index: int, peer: A)
             if forkyBlck.message.body.blob_kzg_commitments.len > 0:
               hasColumns = true
               break
+      debugEcho "Has Columns"
+      debugEcho hasColumns
       hasColumns
-  
-  debugEcho "Has Columns"
-  debugEcho hasColumns
 
   let dataColumnData =
     if shouldGetDataColumns and man.filterCustodyPeersBeforeColumnSync(peer):
@@ -692,7 +691,7 @@ proc syncStep[A, B](man: SyncManager[A, B], index: int, peer: A)
       Opt.none(seq[DataColumnSidecars])
 
   debugEcho "Data column while syncing"
-  debugEcho dataColumnData.get.mapIt(it[])
+  debugEcho dataColumnData.get[0].mapIt(it[])
 
   if len(blockData) == 0 and man.direction == SyncQueueKind.Backward and
       req.contains(man.getSafeSlot()):
