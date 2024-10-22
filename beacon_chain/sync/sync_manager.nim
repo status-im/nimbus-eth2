@@ -562,7 +562,7 @@ proc syncStep[A, B](
              blobs_map = getShortMap(req, blobData),
              request = req, msg = error
         return
-      if (let checkRes = groupedBlobs.get.checkBlobs(); checkRes.isErr):
+      if (let checkRes = groupedBlobs.checkBlobs(); checkRes.isErr):
         peer.updateScore(PeerScoreBadResponse)
         man.queue.push(req)
         warn "Received blobs sequence is invalid",
@@ -571,7 +571,7 @@ proc syncStep[A, B](
              request = req,
              msg = checkRes.error
         return
-      Opt.some(groupedBlobs.get())
+      Opt.some(groupedBlobs)
     else:
       Opt.none(seq[BlobSidecars])
 
