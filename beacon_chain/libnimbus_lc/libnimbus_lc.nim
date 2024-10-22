@@ -1562,7 +1562,7 @@ proc ETHTransactionsCreateFromJson(
     if data.authorizationList.isSome:
       for authorization in data.authorizationList.get:
         static: doAssert sizeof(uint64) == sizeof(authorization.chainId)
-        if distinctBase(authorization.yParity) > uint8.high:
+        if distinctBase(authorization.v) > uint8.high:
           return nil
     let
       tx = eth_types.EthTransaction(
@@ -1602,9 +1602,9 @@ proc ETHTransactionsCreateFromJson(
               chainId: it.chainId.ChainId,
               address: distinctBase(it.address).to(EthAddress),
               nonce: distinctBase(it.nonce),
-              v: distinctBase(it.yParity),
-              r: it.R,
-              s: it.S))
+              v: distinctBase(it.v),
+              r: it.r,
+              s: it.s))
           else:
             @[],
         V: distinctBase(data.v),
