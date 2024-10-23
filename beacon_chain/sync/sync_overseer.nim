@@ -239,20 +239,9 @@ proc blockProcessingLoop(overseer: SyncOverseerRef): Future[void] {.
               bchunk.resfut.complete(Result[void, string].err(msg))
               break innerLoop
 
-          withBlck(bdata.blck):
-            let res =
-              try:
-                await updateHead(consensusManager, validatorMonitor,
-                  overseer.getBeaconTimeFn, forkyBlck,
-                  NewPayloadStatus.noResponse)
-              except CancelledError:
-                let msg = "Unable to update head [interrupted]"
-                bchunk.resfut.complete(Result[void, string].err(msg))
-                break mainLoop
-            if res.isErr():
-              let msg = "Unable to update head [" & res.error & "]"
-              bchunk.resfut.complete(Result[void, string].err(msg))
-              break innerLoop
+          consensusManager.updateHead(overseer.getBeaconTimeFn).isOkOr:
+            bchunk.resfut.complete(Result[void, string].err(error))
+            break innerLoop
 
         bchunk.resfut.complete(Result[void, string].ok())
 
