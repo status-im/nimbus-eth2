@@ -397,96 +397,16 @@ proc enqueueBlock*(
 
 proc updateHead*(
     consensusManager: ref ConsensusManager,
-    validatorMonitor: ref ValidatorMonitor,
     getBeaconTimeFn: GetBeaconTimeFn,
-    signedBlock: ForkySignedBeaconBlock,
-    payloadStatus: NewPayloadStatus
-): Future[Result[void, string]] {.async: (raises: [CancelledError]).} =
+): Result[void, string] =
   let
     attestationPool = consensusManager.attestationPool
     wallTime = getBeaconTimeFn()
     wallSlot = wallTime.slotOrZero()
     newHead =
       attestationPool[].selectOptimisticHead(wallSlot.start_beacon_time)
-
   if newHead.isOk():
-    template elManager(): auto = consensusManager.elManager
-    if consensusManager[].shouldSyncOptimistically(wallSlot):
-      # Optimistic head is far in the future; report it as head block to EL.
-
-      # Note that the specification allows an EL client to skip fcU processing
-      # if an update to an ancestor is requested.
-      # > Client software MAY skip an update of the forkchoice state and MUST
-      #   NOT begin a payload build process if `forkchoiceState.headBlockHash`
-      #   references an ancestor of the head of canonical chain.
-      # https://github.com/ethereum/execution-apis/blob/v1.0.0-beta.3/src/engine/paris.md#specification-1
-      #
-      # However, in practice, an EL client may not have completed importing all
-      # block headers, so may be unaware of a block's ancestor status.
-      # Therefore, hopping back and forth between the optimistic head and the
-      # chain DAG head does not work well in practice, e.g., Geth:
-      # - "Beacon chain gapped" from DAG head to optimistic head,
-      # - followed by "Beacon chain reorged" from optimistic head back to DAG.
-      consensusManager[].updateHead(newHead.get.blck)
-
-      template callForkchoiceUpdated(attributes: untyped) =
-        if NewPayloadStatus.noResponse != payloadStatus and
-            not consensusManager[].optimisticExecutionBlockHash.isZero:
-          discard await elManager.forkchoiceUpdated(
-            headBlockHash =
-              consensusManager[].optimisticExecutionBlockHash,
-            safeBlockHash =
-              newHead.get.safeExecutionBlockHash,
-            finalizedBlockHash =
-              newHead.get.finalizedExecutionBlockHash,
-            payloadAttributes =
-              Opt.none attributes)
-
-      let consensusFork =
-        consensusManager.dag.cfg.consensusForkAtEpoch(
-          newHead.get.blck.bid.slot.epoch)
-
-      withConsensusFork(consensusFork):
-        when consensusFork >= ConsensusFork.Bellatrix:
-          callForkchoiceUpdated(consensusFork.PayloadAttributes)
-    else:
-      let headExecutionBlockHash =
-        consensusManager.dag.loadExecutionBlockHash(
-          newHead.get.blck).get(ZERO_HASH)
-
-      if headExecutionBlockHash.isZero or
-         NewPayloadStatus.noResponse == payloadStatus:
-        # Blocks without execution payloads can't be optimistic, and don't try
-        # to fcU to a block the EL hasn't seen
-        consensusManager[].updateHead(newHead.get.blck)
-      elif newHead.get.blck.executionValid:
-        # `forkchoiceUpdated` necessary for EL client only.
-        consensusManager[].updateHead(newHead.get.blck)
-
-        template callForkChoiceUpdated: untyped =
-          withConsensusFork(consensusManager.dag.cfg.consensusForkAtEpoch(
-              newHead.get.blck.bid.slot.epoch)):
-            when consensusFork >= ConsensusFork.Bellatrix:
-              await elManager.expectValidForkchoiceUpdated(
-                headBlockPayloadAttributesType = consensusFork.PayloadAttributes,
-                headBlockHash = headExecutionBlockHash,
-                safeBlockHash = newHead.get.safeExecutionBlockHash,
-                finalizedBlockHash = newHead.get.finalizedExecutionBlockHash,
-                receivedBlock = signedBlock)
-
-        if consensusManager.checkNextProposer(wallSlot).isNone:
-          # No attached validator is next proposer, so use non-proposal fcU
-          callForkChoiceUpdated()
-        else:
-          # Some attached validator is next proposer, so prepare payload. As
-          # updateHead() updated the DAG head, runProposalForkchoiceUpdated,
-          # which needs the state corresponding to that head block, can run.
-          if (await consensusManager.runProposalForkchoiceUpdated(
-              wallSlot)).isNone:
-            callForkChoiceUpdated()
-      else:
-        await consensusManager.updateHeadWithExecution(
-          newHead.get, getBeaconTimeFn)
+    consensusManager[].updateHead(newHead.get.blck)
     ok()
   else:
     err("Head selection failed, using previous head")
