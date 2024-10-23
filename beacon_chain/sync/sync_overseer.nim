@@ -246,17 +246,14 @@ proc blockProcessingLoop(overseer: SyncOverseerRef): Future[void] {.
         bchunk.resfut.complete(Result[void, string].ok())
 
 proc verifyBlockProposer(
-    dag: ChainDAGRef,
+    fork: Fork,
+    genesis_validators_root: Eth2Digest,
+    immutableValidators: openArray[ImmutableValidatorData2],
     signedBlock: ForkedSignedBeaconBlock
 ): Result[void, cstring] =
-  let
-    fork = getStateField(dag.clearanceState, fork)
-    genesis_validators_root =
-      getStateField(dag.clearanceState, genesis_validators_root)
-
   withBlck(signedBlock):
     let proposerKey =
-      dag.db.immutableValidators.load(forkyBlck.message.proposer_index).valueOr:
+      immutableValidators.load(forkyBlck.message.proposer_index).valueOr:
         return err("Unable to find proposer key")
 
     if not(verify_block_signature(fork, genesis_validators_root,
@@ -322,13 +319,20 @@ proc rebuildState(overseer: SyncOverseerRef): Future[void] {.
               # one batch.
               return ok()
 
-            verifyBlockProposer(dag, batchVerifier[], blocksOnly).isOkOr:
+            let
+              fork =
+                getStateField(dag.headState, fork)
+              genesis_validators_root =
+                getStateField(dag.headState, genesis_validators_root)
+
+            verifyBlockProposer(batchVerifier[], fork, genesis_validators_root,
+                                dag.db.immutableValidators, blocksOnly).isOkOr:
               for signedBlock in blocksOnly:
-                let res = verifyBlockProposer(dag, signedBlock)
-                if res.isErr():
+                verifyBlockProposer(fork, genesis_validators_root,
+                                    dag.db.immutableValidators,
+                                    signedBlock).isOkOr:
                   fatal "Unable to verify block proposer",
-                        blck = shortLog(signedBlock),
-                        reason = res.error
+                        blck = shortLog(signedBlock), reason = error
               return err(VerifierError.Invalid)
             ok()
 

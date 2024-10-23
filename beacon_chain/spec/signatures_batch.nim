@@ -233,13 +233,10 @@ proc collectProposerSignatureSet*(
   sigs: var seq[SignatureSet],
   blocks: openArray[ForkedSignedBeaconBlock],
   validatorKeys: openArray[ImmutableValidatorData2],
-  state: ForkedHashedBeaconState
+  fork: Fork,
+  genesis_validators_root: Eth2Digest
 ): Result[void, string] =
   mixin load
-
-  let
-    fork = getStateField(state, fork)
-    genesis_validators_root = getStateField(state, genesis_validators_root)
 
   for forkedBlock in blocks:
     let item =

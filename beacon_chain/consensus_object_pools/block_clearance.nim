@@ -471,14 +471,16 @@ template BlockAdded(kind: static ConsensusFork): untyped =
     static: raiseAssert "Unreachable"
 
 proc verifyBlockProposer*(
-    dag: ChainDAGRef,
     verifier: var BatchVerifier,
+    fork: Fork,
+    genesis_validators_root: Eth2Digest,
+    immutableValidators: openArray[ImmutableValidatorData2],
     blocks: openArray[ForkedSignedBeaconBlock]
 ): Result[void, string] =
   var sigs: seq[SignatureSet]
 
   ? sigs.collectProposerSignatureSet(
-    blocks, dag.db.immutableValidators, dag.clearanceState)
+    blocks, immutableValidators, fork, genesis_validators_root)
 
   if not verifier.batchVerify(sigs):
     err("Block batch signature verification failed")
