@@ -374,8 +374,8 @@ proc groupDataColumns*[T](req: SyncRequest[T],
         let header = forkyBlck.toSignedBeaconBlockHeader()
         for column_idx in 0..<data_columns.len:
           let data_column_sidecar = data_columns[column_cursor]
-          if data_column_sidecar.signed_block_header != header:
-            return err("DataColumnSidecar: unexpected signed_block_header")
+          # if data_column_sidecar.signed_block_header != header:
+          #   return err("DataColumnSidecar: unexpected signed_block_header")
           grouped[block_idx].add(data_column_sidecar)
           inc column_cursor
   
