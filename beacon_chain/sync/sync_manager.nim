@@ -661,12 +661,13 @@ proc syncStep[A, B](man: SyncManager[A, B], index: int, peer: A)
 
       if len(dataColumnData) > 0:
         let slots = mapIt(dataColumnData, it[].signed_block_header.message.slot)
-        if not(checkResponse(req, slots)):
+        let uniqueSlots = foldl(slots, combine(a, b), @[slots[0]])
+        if not(checkResponse(req, uniqueSlots)):
           peer.updateScore(PeerScoreBadResponse)
           man.queue.push(req)
           warn "Received data columns sequence is not in requested range",
             data_columns_count = len(dataColumnData), data_columns_map = getShortMap(req, dataColumnData),
-                                request = req
+                                request = req, slots = uniqueSlots
           return
       let groupedDataColumns = groupDataColumns(req, blockData, dataColumnData)
       if groupedDataColumns.isErr():
@@ -688,7 +689,7 @@ proc syncStep[A, B](man: SyncManager[A, B], index: int, peer: A)
 
     else:
       Opt.none(seq[DataColumnSidecars])
-      
+
   if dataColumnData.isSome:
     debugEcho "Data column while syncing"
     debugEcho dataColumnData.get[4].mapIt(it[])
