@@ -447,7 +447,7 @@ proc publishAttestationsAndAggregates(
       raise exc
 
   let aggregateTime =
-    # chronos.Duration substraction could not return negative value, in such
+    # chronos.Duration subtraction could not return negative value, in such
     # case it will return `ZeroDuration`.
     vc.beaconClock.durationToNextSlot() - OneThirdDuration
   if aggregateTime != ZeroDuration:
