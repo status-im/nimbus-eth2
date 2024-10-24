@@ -17,7 +17,7 @@ import
   std/[json, tables],
   stew/base10, web3/primitives, httputils,
   ".."/[deposit_snapshots, forks],
-  ".."/mev/deneb_mev
+  ".."/mev/[deneb_mev]
 
 export forks, phase0, altair, bellatrix, capella, deneb_mev, tables, httputils
 
@@ -309,6 +309,11 @@ type
     kzg_proofs*: deneb.KzgProofs
     blobs*: deneb.Blobs
 
+  FuluSignedBlockContents* = object
+    signed_block*: fulu.SignedBeaconBlock
+    kzg_proofs*: deneb.KzgProofs
+    blobs*: deneb.Blobs
+
   RestPublishedSignedBlockContents* = object
     case kind*: ConsensusFork
     of ConsensusFork.Phase0:    phase0Data*:    phase0.SignedBeaconBlock
@@ -317,6 +322,7 @@ type
     of ConsensusFork.Capella:   capellaData*:   capella.SignedBeaconBlock
     of ConsensusFork.Deneb:     denebData*:     DenebSignedBlockContents
     of ConsensusFork.Electra:   electraData*:   ElectraSignedBlockContents
+    of ConsensusFork.Fulu:      fuluData*:      FuluSignedBlockContents
 
   ProduceBlockResponseV3* = ForkedMaybeBlindedBeaconBlock
 
@@ -598,6 +604,12 @@ func `==`*(a, b: RestValidatorIndex): bool {.borrow.}
 template withForkyBlck*(
     x: RestPublishedSignedBlockContents, body: untyped): untyped =
   case x.kind
+  of ConsensusFork.Fulu:
+    const consensusFork {.inject, used.} = ConsensusFork.Fulu
+    template forkyBlck: untyped {.inject, used.} = x.fuluData.signed_block
+    template kzg_proofs: untyped {.inject, used.} = x.fuluData.kzg_proofs
+    template blobs: untyped {.inject, used.} = x.fuluData.blobs
+    body
   of ConsensusFork.Electra:
     const consensusFork {.inject, used.} = ConsensusFork.Electra
     template forkyBlck: untyped {.inject, used.} = x.electraData.signed_block
@@ -643,6 +655,8 @@ func init*(T: type ForkedSignedBeaconBlock,
       ForkedSignedBeaconBlock.init(contents.denebData.signed_block)
     of ConsensusFork.Electra:
       ForkedSignedBeaconBlock.init(contents.electraData.signed_block)
+    of ConsensusFork.Fulu:
+      ForkedSignedBeaconBlock.init(contents.fuluData.signed_block)
 
 func init*(t: typedesc[RestPublishedSignedBlockContents],
            blck: phase0.BeaconBlock, root: Eth2Digest,
@@ -707,6 +721,22 @@ func init*(t: typedesc[RestPublishedSignedBlockContents],
     kind: ConsensusFork.Electra,
     electraData: ElectraSignedBlockContents(
       signed_block: electra.SignedBeaconBlock(
+        message: contents.`block`,
+        root: root,
+        signature: signature
+      ),
+      kzg_proofs: contents.kzg_proofs,
+      blobs: contents.blobs
+    )
+  )
+
+func init*(t: typedesc[RestPublishedSignedBlockContents],
+           contents: fulu.BlockContents, root: Eth2Digest,
+           signature: ValidatorSig): RestPublishedSignedBlockContents =
+  RestPublishedSignedBlockContents(
+    kind: ConsensusFork.Fulu,
+    fuluData: FuluSignedBlockContents(
+      signed_block: fulu.SignedBeaconBlock(
         message: contents.`block`,
         root: root,
         signature: signature

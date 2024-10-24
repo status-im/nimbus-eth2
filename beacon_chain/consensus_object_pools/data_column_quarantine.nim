@@ -9,7 +9,7 @@
 
 import
   std/tables,
-  ../spec/datatypes/eip7594,
+  ../spec/datatypes/fulu,
   ../spec/helpers
 
 from std/sequtils import mapIt

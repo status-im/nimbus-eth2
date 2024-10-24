@@ -363,10 +363,11 @@ proc process_deposit*(
   apply_deposit(cfg, state, bucketSortedValidators, deposit.data, flags)
 
 # https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.7/specs/electra/beacon-chain.md#new-process_deposit_request
-func process_deposit_request*(
-    cfg: RuntimeConfig, state: var electra.BeaconState,
+func process_deposit_request*[T](
+    cfg: RuntimeConfig, state: var T,
     deposit_request: DepositRequest,
     flags: UpdateFlags): Result[void, cstring] =
+  static: assert(T is electra.BeaconState or T is fulu.BeaconState)
   # Set deposit request start index
   if state.deposit_requests_start_index ==
       UNSET_DEPOSIT_REQUESTS_START_INDEX:
@@ -477,10 +478,11 @@ proc process_bls_to_execution_change*(
   ok()
 
 # https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.3/specs/electra/beacon-chain.md#new-process_withdrawal_request
-func process_withdrawal_request*(
-    cfg: RuntimeConfig, state: var electra.BeaconState,
+func process_withdrawal_request*[T](
+    cfg: RuntimeConfig, state: var T,
     bucketSortedValidators: BucketSortedValidators,
     withdrawal_request: WithdrawalRequest, cache: var StateCache) =
+  static: assert(T is electra.BeaconState or T is fulu.BeaconState)
   let
     amount = withdrawal_request.amount
     is_full_exit_request = amount == static(FULL_EXIT_REQUEST_AMOUNT.Gwei)
@@ -591,11 +593,12 @@ func is_valid_switch_to_compounding_request(
   true
 
 # https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.7/specs/electra/beacon-chain.md#new-process_consolidation_request
-func process_consolidation_request*(
-    cfg: RuntimeConfig, state: var electra.BeaconState,
+func process_consolidation_request*[T](
+    cfg: RuntimeConfig, state: var T,
     bucketSortedValidators: BucketSortedValidators,
     consolidation_request: ConsolidationRequest,
     cache: var StateCache) =
+  static: assert(T is electra.BeaconState or T is fulu.BeaconState)
   let
     request_source_pubkey = consolidation_request.source_pubkey
     source_index = findValidatorIndex(
@@ -1044,12 +1047,67 @@ proc process_execution_payload*(
 
   ok()
 
+# copy of datatypes/electra.nim
+type SomeFuluBeaconBlockBody =
+  fulu.BeaconBlockBody | fulu.SigVerifiedBeaconBlockBody |
+  fulu.TrustedBeaconBlockBody
+
+# https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.3/specs/electra/beacon-chain.md#modified-process_execution_payload
+proc process_execution_payload*(
+    state: var fulu.BeaconState, body: SomeFuluBeaconBlockBody,
+    notify_new_payload: fulu.ExecutePayload): Result[void, cstring] =
+  template payload: auto = body.execution_payload
+
+  # Verify consistency of the parent hash with respect to the previous
+  # execution payload header
+  if not (payload.parent_hash ==
+      state.latest_execution_payload_header.block_hash):
+    return err("process_execution_payload: payload and state parent hash mismatch")
+
+  # Verify prev_randao
+  if not (payload.prev_randao == get_randao_mix(state, get_current_epoch(state))):
+    return err("process_execution_payload: payload and state randomness mismatch")
+
+  # Verify timestamp
+  if not (payload.timestamp == compute_timestamp_at_slot(state, state.slot)):
+    return err("process_execution_payload: invalid timestamp")
+
+  # [New in Deneb] Verify commitments are under limit
+  if not (lenu64(body.blob_kzg_commitments) <= MAX_BLOBS_PER_BLOCK):
+    return err("process_execution_payload: too many KZG commitments")
+
+  # Verify the execution payload is valid
+  if not notify_new_payload(payload):
+    return err("process_execution_payload: execution payload invalid")
+
+  # Cache execution payload header
+  state.latest_execution_payload_header = fulu.ExecutionPayloadHeader(
+    parent_hash: payload.parent_hash,
+    fee_recipient: payload.fee_recipient,
+    state_root: payload.state_root,
+    receipts_root: payload.receipts_root,
+    logs_bloom: payload.logs_bloom,
+    prev_randao: payload.prev_randao,
+    block_number: payload.block_number,
+    gas_limit: payload.gas_limit,
+    gas_used: payload.gas_used,
+    timestamp: payload.timestamp,
+    base_fee_per_gas: payload.base_fee_per_gas,
+    block_hash: payload.block_hash,
+    extra_data: payload.extra_data,
+    transactions_root: hash_tree_root(payload.transactions),
+    withdrawals_root: hash_tree_root(payload.withdrawals),
+    blob_gas_used: payload.blob_gas_used,
+    excess_blob_gas: payload.excess_blob_gas)
+
+  ok()
+
 # https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.3/specs/capella/beacon-chain.md#new-process_withdrawals
 # https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.3/specs/electra/beacon-chain.md#updated-process_withdrawals
 func process_withdrawals*(
     state: var (capella.BeaconState | deneb.BeaconState | electra.BeaconState),
     payload: capella.ExecutionPayload | deneb.ExecutionPayload |
-             electra.ExecutionPayload):
+             electra.ExecutionPayload | fulu.ExecutionPayload):
     Result[void, cstring] =
   when typeof(state).kind >= ConsensusFork.Electra:
     let (expected_withdrawals, partial_withdrawals_count) =
@@ -1277,6 +1335,39 @@ type SomeElectraBlock =
 proc process_block*(
     cfg: RuntimeConfig,
     state: var electra.BeaconState, blck: SomeElectraBlock,
+    flags: UpdateFlags, cache: var StateCache): Result[BlockRewards, cstring] =
+  ## When there's a new block, we need to verify that the block is sane and
+  ## update the state accordingly - the state is left in an unknown state when
+  ## block application fails (!)
+
+  ? process_block_header(state, blck, flags, cache)
+
+  # Consensus specs v1.4.0 unconditionally assume is_execution_enabled is
+  # true, but intentionally keep such a check.
+  if is_execution_enabled(state, blck.body):
+    ? process_withdrawals(state, blck.body.execution_payload)
+    ? process_execution_payload(
+        state, blck.body,
+        func(_: electra.ExecutionPayload): bool = true)
+  ? process_randao(state, blck.body, flags, cache)
+  ? process_eth1_data(state, blck.body)
+
+  let
+    total_active_balance = get_total_active_balance(state, cache)
+    base_reward_per_increment =
+      get_base_reward_per_increment(total_active_balance)
+  var operations_rewards = ? process_operations(
+    cfg, state, blck.body, base_reward_per_increment, flags, cache)
+  operations_rewards.sync_aggregate = ? process_sync_aggregate(
+    state, blck.body.sync_aggregate, total_active_balance, flags, cache)
+
+  ok(operations_rewards)
+
+type SomeFuluBlock =
+  fulu.BeaconBlock | fulu.SigVerifiedBeaconBlock | fulu.TrustedBeaconBlock
+proc process_block*(
+    cfg: RuntimeConfig,
+    state: var fulu.BeaconState, blck: SomeFuluBlock,
     flags: UpdateFlags, cache: var StateCache): Result[BlockRewards, cstring] =
   ## When there's a new block, we need to verify that the block is sane and
   ## update the state accordingly - the state is left in an unknown state when

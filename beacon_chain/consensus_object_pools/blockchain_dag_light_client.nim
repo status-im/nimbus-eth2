@@ -117,7 +117,7 @@ func cacheRecentSyncAggregate(
 func lightClientHeader(
     blck: ForkyTrustedSignedBeaconBlock): ForkedLightClientHeader =
   const lcDataFork = max(
-    lcDataForkAtConsensusFork(typeof(blck).kind), LightClientDataFork.Altair)
+    LightClientDataFork.Electra, LightClientDataFork.Altair)
   ForkedLightClientHeader.init(blck.toLightClientHeader(lcDataFork))
 
 func sync_aggregate(
@@ -721,6 +721,14 @@ proc createLightClientBootstrap(
   withBlck(bdata):
     when consensusFork >= ConsensusFork.Altair:
       const lcDataFork = lcDataForkAtConsensusFork(consensusFork)
+      dag.lcDataStore.db.putHeader(
+        forkyBlck.toLightClientHeader(lcDataFork))
+      dag.lcDataStore.db.putCurrentSyncCommitteeBranch(
+        bid.slot, normalize_merkle_branch(
+          dag.getLightClientData(bid).current_sync_committee_branch,
+          lcDataFork.current_sync_committee_gindex))
+    elif consensusFork >= ConsensusFork.Electra:
+      const lcDataFork = lcDataForkAtConsensusFork(ConsensusFork.Electra)
       dag.lcDataStore.db.putHeader(
         forkyBlck.toLightClientHeader(lcDataFork))
       dag.lcDataStore.db.putCurrentSyncCommitteeBranch(
