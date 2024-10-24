@@ -532,7 +532,7 @@ cli do(slots = SLOTS_PER_EPOCH * 7,
       var cache = StateCache()
       doAssert dag.updateState(
         replayState[], dag.getBlockIdAtSlot(Slot(slots)).expect("block"),
-        false, cache)
+        false, cache, dag.updateFlags)
 
   echo "Done!"
 

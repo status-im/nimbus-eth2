@@ -107,7 +107,7 @@ type
       ## The slot at which we sent a payload to the execution client the last
       ## time
 
-  NewPayloadStatus {.pure.} = enum
+  NewPayloadStatus* {.pure.} = enum
     valid
     notValid
     invalid
@@ -123,7 +123,7 @@ type
 proc new*(T: type BlockProcessor,
           dumpEnabled: bool,
           dumpDirInvalid, dumpDirIncoming: string,
-          rng: ref HmacDrbgContext, taskpool: TaskPoolPtr,
+          batchVerifier: ref BatchVerifier,
           consensusManager: ref ConsensusManager,
           validatorMonitor: ref ValidatorMonitor,
           blobQuarantine: ref BlobQuarantine,
@@ -137,7 +137,7 @@ proc new*(T: type BlockProcessor,
     validatorMonitor: validatorMonitor,
     blobQuarantine: blobQuarantine,
     getBeaconTime: getBeaconTime,
-    verifier: BatchVerifier.init(rng, taskpool)
+    verifier: batchVerifier[]
   )
 
 # Sync callbacks
@@ -415,6 +415,22 @@ proc enqueueBlock*(
       src: src))
   except AsyncQueueFullError:
     raiseAssert "unbounded queue"
+
+proc updateHead*(
+    consensusManager: ref ConsensusManager,
+    getBeaconTimeFn: GetBeaconTimeFn,
+): Result[void, string] =
+  let
+    attestationPool = consensusManager.attestationPool
+    wallTime = getBeaconTimeFn()
+    wallSlot = wallTime.slotOrZero()
+    newHead =
+      attestationPool[].selectOptimisticHead(wallSlot.start_beacon_time)
+  if newHead.isOk():
+    consensusManager[].updateHead(newHead.get.blck)
+    ok()
+  else:
+    err("Head selection failed, using previous head")
 
 proc storeBlock(
     self: ref BlockProcessor, src: MsgSource, wallTime: BeaconTime,

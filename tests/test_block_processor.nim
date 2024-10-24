@@ -55,8 +55,9 @@ suite "Block processor" & preset():
       b1 = addTestBlock(state[], cache).phase0Data
       b2 = addTestBlock(state[], cache).phase0Data
       getTimeFn = proc(): BeaconTime = b2.message.slot.start_beacon_time()
+      batchVerifier = BatchVerifier.new(rng, taskpool)
       processor = BlockProcessor.new(
-        false, "", "", rng, taskpool, consensusManager,
+        false, "", "", batchVerifier, consensusManager,
         validatorMonitor, blobQuarantine, getTimeFn)
       processorFut = processor.runQueueProcessingLoop()
 

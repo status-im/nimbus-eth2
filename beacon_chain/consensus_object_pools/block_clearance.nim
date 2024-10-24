@@ -8,16 +8,15 @@
 {.push raises: [].}
 
 import
+  std/sequtils,
   chronicles,
   results,
   stew/assign2,
   ../spec/[
     beaconstate, forks, signatures, signatures_batch,
     state_transition, state_transition_epoch],
-  "."/[block_dag, blockchain_dag, blockchain_dag_light_client]
-
-from ../spec/datatypes/capella import asSigVerified, asTrusted, shortLog
-from ../spec/datatypes/deneb import asSigVerified, asTrusted, shortLog
+  "."/[block_pools_types, block_dag, blockchain_dag,
+       blockchain_dag_light_client]
 
 export results, signatures_batch, block_dag, blockchain_dag
 
@@ -114,15 +113,18 @@ proc addResolvedHeadBlock(
   blockRef
 
 proc checkStateTransition(
-       dag: ChainDAGRef, signedBlock: ForkySigVerifiedSignedBeaconBlock,
-       cache: var StateCache): Result[void, VerifierError] =
+    dag: ChainDAGRef,
+    signedBlock: ForkySigVerifiedSignedBeaconBlock,
+    cache: var StateCache,
+    updateFlags: UpdateFlags,
+): Result[void, VerifierError] =
   ## Ensure block can be applied on a state
   func restore(v: var ForkedHashedBeaconState) =
     assign(dag.clearanceState, dag.headState)
 
   let res = state_transition_block(
       dag.cfg, dag.clearanceState, signedBlock,
-      cache, dag.updateFlags, restore)
+      cache, updateFlags, restore)
 
   if res.isErr():
     info "Invalid block",
@@ -150,7 +152,8 @@ proc advanceClearanceState*(dag: ChainDAGRef) =
     var
       cache = StateCache()
       info = ForkedEpochInfo()
-    dag.advanceSlots(dag.clearanceState, next, true, cache, info)
+    dag.advanceSlots(dag.clearanceState, next, true, cache, info,
+                     dag.updateFlags)
     debug "Prepared clearance state for next block",
       next, updateStateDur = Moment.now() - startTick
 
@@ -267,7 +270,7 @@ proc addHeadBlockWithParent*(
   # onto which we can apply the new block
   let clearanceBlock = BlockSlotId.init(parent.bid, signedBlock.message.slot)
   if not updateState(
-      dag, dag.clearanceState, clearanceBlock, true, cache):
+      dag, dag.clearanceState, clearanceBlock, true, cache, dag.updateFlags):
     # We should never end up here - the parent must be a block no older than and
     # rooted in the finalized checkpoint, hence we should always be able to
     # load its corresponding state
@@ -297,7 +300,8 @@ proc addHeadBlockWithParent*(
 
   let sigVerifyTick = Moment.now()
 
-  ? checkStateTransition(dag, signedBlock.asSigVerified(), cache)
+  ? checkStateTransition(dag, signedBlock.asSigVerified(), cache,
+                         dag.updateFlags)
 
   let stateVerifyTick = Moment.now()
   # Careful, clearanceState.data has been updated but not blck - we need to
@@ -447,5 +451,114 @@ proc addBackfillBlock*(
   debug "Block backfilled",
     sigVerifyDur = sigVerifyTick - startTick,
     putBlockDur = putBlockTick - sigVerifyTick
+
+  ok()
+
+template BlockAdded(kind: static ConsensusFork): untyped =
+  when kind == ConsensusFork.Electra:
+    OnElectraBlockAdded
+  elif kind == ConsensusFork.Deneb:
+    OnDenebBlockAdded
+  elif kind == ConsensusFork.Capella:
+    OnCapellaBlockAdded
+  elif kind == ConsensusFork.Bellatrix:
+    OnBellatrixBlockAdded
+  elif kind == ConsensusFork.Altair:
+    OnAltairBlockAdded
+  elif kind == ConsensusFork.Phase0:
+    OnPhase0BlockAdded
+  else:
+    static: raiseAssert "Unreachable"
+
+proc verifyBlockProposer*(
+    verifier: var BatchVerifier,
+    fork: Fork,
+    genesis_validators_root: Eth2Digest,
+    immutableValidators: openArray[ImmutableValidatorData2],
+    blocks: openArray[ForkedSignedBeaconBlock]
+): Result[void, string] =
+  var sigs: seq[SignatureSet]
+
+  ? sigs.collectProposerSignatureSet(
+    blocks, immutableValidators, fork, genesis_validators_root)
+
+  if not verifier.batchVerify(sigs):
+    err("Block batch signature verification failed")
+  else:
+    ok()
+
+proc addBackfillBlockData*(
+    dag: ChainDAGRef,
+    bdata: BlockData,
+    onStateUpdated: OnStateUpdated,
+    onBlockAdded: OnForkedBlockAdded
+): Result[void, VerifierError] =
+  var cache = StateCache()
+
+  withBlck(bdata.blck):
+    let
+      parent = checkHeadBlock(dag, forkyBlck).valueOr:
+        if error == VerifierError.Duplicate:
+          return ok()
+        return err(error)
+      startTick = Moment.now()
+      parentBlock = dag.getForkedBlock(parent.bid.root).get()
+      trustedStateRoot =
+        withBlck(parentBlock):
+          forkyBlck.message.state_root
+      clearanceBlock = BlockSlotId.init(parent.bid, forkyBlck.message.slot)
+      updateFlags1 = dag.updateFlags + {skipLastStateRootCalculation}
+
+    if not updateState(dag, dag.clearanceState, clearanceBlock, true, cache,
+                       updateFlags1):
+      error "Unable to load clearance state for parent block, " &
+            "database corrupt?", clearanceBlock = shortLog(clearanceBlock)
+      return err(VerifierError.MissingParent)
+
+    dag.clearanceState.setStateRoot(trustedStateRoot)
+
+    let proposerVerifyTick = Moment.now()
+
+    if not(isNil(onStateUpdated)):
+      ? onStateUpdated(forkyBlck.message.slot)
+
+    let
+      stateDataTick = Moment.now()
+      updateFlags2 =
+        dag.updateFlags + {skipBlsValidation, skipStateRootValidation}
+
+    ? checkStateTransition(dag, forkyBlck.asSigVerified(), cache, updateFlags2)
+
+    let stateVerifyTick = Moment.now()
+
+    if bdata.blob.isSome():
+      for blob in bdata.blob.get():
+        dag.db.putBlobSidecar(blob[])
+
+    type Trusted = typeof forkyBlck.asTrusted()
+
+    proc onBlockAddedHandler(
+        blckRef: BlockRef,
+        trustedBlock: Trusted,
+        epochRef: EpochRef,
+        unrealized: FinalityCheckpoints
+    ) {.gcsafe, raises: [].} =
+      onBlockAdded(
+        blckRef,
+        ForkedTrustedSignedBeaconBlock.init(trustedBlock),
+        epochRef,
+        unrealized)
+
+    let blockHandler: BlockAdded(consensusFork) = onBlockAddedHandler
+
+    discard addResolvedHeadBlock(
+      dag, dag.clearanceState,
+      forkyBlck.asTrusted(),
+      true,
+      parent, cache,
+      blockHandler,
+      proposerVerifyTick - startTick,
+      stateDataTick - proposerVerifyTick,
+      stateVerifyTick - stateDataTick)
 
   ok()

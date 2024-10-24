@@ -229,6 +229,38 @@ func bls_to_execution_change_signature_set*(
 
   SignatureSet.init(pubkey, signing_root, signature)
 
+proc collectProposerSignatureSet*(
+  sigs: var seq[SignatureSet],
+  blocks: openArray[ForkedSignedBeaconBlock],
+  validatorKeys: openArray[ImmutableValidatorData2],
+  fork: Fork,
+  genesis_validators_root: Eth2Digest
+): Result[void, string] =
+  mixin load
+
+  for forkedBlock in blocks:
+    let item =
+      withBlck(forkedBlock):
+        let
+          proposerKey =
+            validatorKeys.load(forkyBlck.message.proposer_index).valueOr:
+              let msg = "collectProposerSignatureSet: " &
+                        "invalid proposer index (" &
+                        $forkyBlck.message.proposer_index & ")"
+              return err(msg)
+          signature =
+            forkyBlck.signature.load().valueOr:
+              let msg = "collectProposerSignatureSet: " &
+                        "cannot load signature (" &
+                        $ forkyBlck.signature & ")"
+              return err(msg)
+        block_signature_set(
+          fork, genesis_validators_root,
+          forkyBlck.message.slot, forkyBlck.root,
+          proposerKey, signature)
+    sigs.add(item)
+  ok()
+
 proc collectSignatureSets*(
        sigs: var seq[SignatureSet],
        signed_block: ForkySignedBeaconBlock,
