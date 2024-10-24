@@ -85,7 +85,14 @@ proc getHistoricalSummariesV1Plain*(
 
 proc getHistoricalSummariesV1*(
     client: RestClientRef, state_id: StateIdent, cfg: RuntimeConfig, restAccept = ""
-): Future[Option[GetHistoricalSummariesV1Response]] {.async.} =
+): Future[Option[GetHistoricalSummariesV1Response]] {.
+    async: (
+      raises: [
+        CancelledError, RestEncodingError, RestDnsResolveError, RestCommunicationError,
+        RestDecodingError, RestResponseError,
+      ]
+    )
+.} =
   let resp =
     if len(restAccept) > 0:
       await client.getHistoricalSummariesV1Plain(state_id, restAcceptType = restAccept)
@@ -96,24 +103,24 @@ proc getHistoricalSummariesV1*(
     case resp.status
     of 200:
       if resp.contentType.isNone() or isWildCard(resp.contentType.get().mediaType):
-        raise newException(RestError, "Missing or incorrect Content-Type")
+        raise newException(RestDecodingError, "Missing or incorrect Content-Type")
       else:
         let mediaType = resp.contentType.get().mediaType
         if mediaType == ApplicationJsonMediaType:
           let summaries = decodeBytes(
             GetHistoricalSummariesV1Response, resp.data, resp.contentType
           ).valueOr:
-            raise newException(RestError, $error)
+            raise newException(RestDecodingError, $error)
           some(summaries)
         elif mediaType == OctetStreamMediaType:
           let summaries =
             try:
               SSZ.decode(resp.data, GetHistoricalSummariesV1Response)
             except SerializationError as exc:
-              raise newException(RestError, exc.msg)
+              raise newException(RestDecodingError, exc.msg)
           some(summaries)
         else:
-          raise newException(RestError, "Unsupported Content-Type")
+          raise newException(RestDecodingError, "Unsupported Content-Type")
     of 404:
       none(GetHistoricalSummariesV1Response)
     of 400, 500:
