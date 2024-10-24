@@ -8,7 +8,7 @@
 {.push raises: [].}
 
 import
-  ./datatypes/[phase0, altair, bellatrix, capella, deneb, electra],
+  ./datatypes/[phase0, altair, bellatrix, capella, deneb, electra, fulu],
   ./eth2_merkleization
 
 type
@@ -1207,7 +1207,8 @@ func toElectraLightClientHeader(
 func toElectraLightClientHeader(
     # `SomeSignedBeaconBlock`: https://github.com/nim-lang/Nim/issues/18095
     blck:
-      electra.SignedBeaconBlock | electra.TrustedSignedBeaconBlock
+      electra.SignedBeaconBlock | electra.TrustedSignedBeaconBlock |
+      fulu.SignedBeaconBlock | fulu.TrustedSignedBeaconBlock
 ): electra.LightClientHeader =
   template payload: untyped = blck.message.body.execution_payload
   electra.LightClientHeader(
@@ -1241,7 +1242,8 @@ func toLightClientHeader*(
       bellatrix.SignedBeaconBlock | bellatrix.TrustedSignedBeaconBlock |
       capella.SignedBeaconBlock | capella.TrustedSignedBeaconBlock |
       deneb.SignedBeaconBlock | deneb.TrustedSignedBeaconBlock |
-      electra.SignedBeaconBlock | electra.TrustedSignedBeaconBlock,
+      electra.SignedBeaconBlock | electra.TrustedSignedBeaconBlock |
+      fulu.SignedBeaconBlock | fulu.TrustedSignedBeaconBlock,
     kind: static LightClientDataFork): auto =
   when kind == LightClientDataFork.Electra:
     blck.toElectraLightClientHeader()

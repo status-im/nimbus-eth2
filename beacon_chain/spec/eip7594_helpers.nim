@@ -18,7 +18,7 @@ import
     types],
   ./crypto,
   ./[helpers, digest],
-  ./datatypes/[eip7594]
+  ./datatypes/[fulu]
 
 type
   CellBytes = array[eip7594.CELLS_PER_EXT_BLOB, Cell]

@@ -514,7 +514,8 @@ proc new*(T: type BeaconChainDB,
       kvStore db.openKvStore("bellatrix_blocks").expectDb(),
       kvStore db.openKvStore("capella_blocks").expectDb(),
       kvStore db.openKvStore("deneb_blocks").expectDb(),
-      kvStore db.openKvStore("electra_blocks").expectDb()]
+      kvStore db.openKvStore("electra_blocks").expectDb(),
+      kvStore db.openKvStore("fulu_blocks").expectDb()]
 
     stateRoots = kvStore db.openKvStore("state_roots", true).expectDb()
 
@@ -524,7 +525,8 @@ proc new*(T: type BeaconChainDB,
       kvStore db.openKvStore("bellatrix_state_no_validators").expectDb(),
       kvStore db.openKvStore("capella_state_no_validator_pubkeys").expectDb(),
       kvStore db.openKvStore("deneb_state_no_validator_pubkeys").expectDb(),
-      kvStore db.openKvStore("electra_state_no_validator_pubkeys").expectDb()]
+      kvStore db.openKvStore("electra_state_no_validator_pubkeys").expectDb(),
+      kvStore db.openKvStore("fulu_state_no_validator_pubkeys").expectDb()]
 
     stateDiffs = kvStore db.openKvStore("state_diffs").expectDb()
     summaries = kvStore db.openKvStore("beacon_block_summaries", true).expectDb()
@@ -805,7 +807,7 @@ proc putBlock*(
     db: BeaconChainDB,
     value: bellatrix.TrustedSignedBeaconBlock |
            capella.TrustedSignedBeaconBlock | deneb.TrustedSignedBeaconBlock |
-           electra.TrustedSignedBeaconBlock) =
+           electra.TrustedSignedBeaconBlock | fulu.TrustedSignedBeaconBlock) =
   db.withManyWrites:
     db.blocks[type(value).kind].putSZSSZ(value.root.data, value)
     db.putBeaconBlockSummary(value.root, value.message.toBeaconBlockSummary())
@@ -859,6 +861,10 @@ template toBeaconStateNoImmutableValidators(state: electra.BeaconState):
     ElectraBeaconStateNoImmutableValidators =
   isomorphicCast[ElectraBeaconStateNoImmutableValidators](state)
 
+template toBeaconStateNoImmutableValidators(state: fulu.BeaconState):
+    FuluBeaconStateNoImmutableValidators =
+  isomorphicCast[FuluBeaconStateNoImmutableValidators](state)
+
 proc putState*(
     db: BeaconChainDB, key: Eth2Digest,
     value: phase0.BeaconState | altair.BeaconState) =
@@ -869,7 +875,7 @@ proc putState*(
 proc putState*(
     db: BeaconChainDB, key: Eth2Digest,
     value: bellatrix.BeaconState | capella.BeaconState | deneb.BeaconState |
-           electra.BeaconState) =
+           electra.BeaconState | fulu.BeaconState) =
   db.updateImmutableValidators(value.validators.asSeq())
   db.statesNoVal[type(value).kind].putSZSSZ(
     key.data, toBeaconStateNoImmutableValidators(value))
@@ -998,7 +1004,8 @@ proc getBlock*(
 
 proc getBlock*[
     X: bellatrix.TrustedSignedBeaconBlock | capella.TrustedSignedBeaconBlock |
-       deneb.TrustedSignedBeaconBlock | electra.TrustedSignedBeaconBlock](
+       deneb.TrustedSignedBeaconBlock | electra.TrustedSignedBeaconBlock |
+       fulu.TrustedSignedBeaconBlock](
     db: BeaconChainDB, key: Eth2Digest,
     T: type X): Opt[T] =
   # We only store blocks that we trust in the database
@@ -1053,7 +1060,8 @@ proc getBlockSSZ*(
 
 proc getBlockSSZ*[
     X: bellatrix.TrustedSignedBeaconBlock | capella.TrustedSignedBeaconBlock |
-       deneb.TrustedSignedBeaconBlock | electra.TrustedSignedBeaconBlock](
+       deneb.TrustedSignedBeaconBlock | electra.TrustedSignedBeaconBlock |
+       fulu.TrustedSignedBeaconBlock](
     db: BeaconChainDB, key: Eth2Digest, data: var seq[byte], T: type X): bool =
   let dataPtr = addr data # Short-lived
   var success = true
@@ -1102,7 +1110,8 @@ proc getBlockSZ*(
 
 proc getBlockSZ*[
     X: bellatrix.TrustedSignedBeaconBlock | capella.TrustedSignedBeaconBlock |
-       deneb.TrustedSignedBeaconBlock | electra.TrustedSignedBeaconBlock](
+       deneb.TrustedSignedBeaconBlock | electra.TrustedSignedBeaconBlock |
+       fulu.TrustedSignedBeaconBlock](
     db: BeaconChainDB, key: Eth2Digest, data: var seq[byte], T: type X): bool =
   let dataPtr = addr data # Short-lived
   func decode(data: openArray[byte]) =
@@ -1200,7 +1209,8 @@ proc getStateOnlyMutableValidators(
 proc getStateOnlyMutableValidators(
     immutableValidators: openArray[ImmutableValidatorData2],
     store: KvStoreRef, key: openArray[byte],
-    output: var (capella.BeaconState | deneb.BeaconState | electra.BeaconState),
+    output: var (capella.BeaconState | deneb.BeaconState | electra.BeaconState |
+    fulu.BeaconState),
     rollback: RollbackProc): bool =
   ## Load state into `output` - BeaconState is large so we want to avoid
   ## re-allocating it if possible
@@ -1285,7 +1295,8 @@ proc getState*(
 proc getState*(
     db: BeaconChainDB, key: Eth2Digest,
     output: var (altair.BeaconState | bellatrix.BeaconState |
-                 capella.BeaconState | deneb.BeaconState | electra.BeaconState),
+                 capella.BeaconState | deneb.BeaconState | electra.BeaconState |
+                 fulu.BeaconState),
     rollback: RollbackProc): bool =
   ## Load state into `output` - BeaconState is large so we want to avoid
   ## re-allocating it if possible
@@ -1365,7 +1376,7 @@ proc containsBlock*(
 proc containsBlock*[
     X: altair.TrustedSignedBeaconBlock | bellatrix.TrustedSignedBeaconBlock |
        capella.TrustedSignedBeaconBlock | deneb.TrustedSignedBeaconBlock |
-       electra.TrustedSignedBeaconBlock](
+       electra.TrustedSignedBeaconBlock | fulu.TrustedSignedBeaconBlock](
     db: BeaconChainDB, key: Eth2Digest, T: type X): bool =
   db.blocks[X.kind].contains(key.data).expectDb()
 
@@ -1506,7 +1517,7 @@ iterator getAncestorSummaries*(db: BeaconChainDB, root: Eth2Digest):
 
   # Backwards compat for reading old databases, or those that for whatever
   # reason lost a summary along the way..
-  static: doAssert ConsensusFork.high == ConsensusFork.Electra
+  static: doAssert ConsensusFork.high == ConsensusFork.Fulu
   while true:
     if db.v0.backend.getSnappySSZ(
         subkey(BeaconBlockSummary, res.root), res.summary) == GetResult.found:
@@ -1522,6 +1533,8 @@ iterator getAncestorSummaries*(db: BeaconChainDB, root: Eth2Digest):
     elif (let blck = db.getBlock(res.root, deneb.TrustedSignedBeaconBlock); blck.isSome()):
       res.summary = blck.get().message.toBeaconBlockSummary()
     elif (let blck = db.getBlock(res.root, electra.TrustedSignedBeaconBlock); blck.isSome()):
+      res.summary = blck.get().message.toBeaconBlockSummary()
+    elif (let blck = db.getBlock(res.root, fulu.TrustedSignedBeaconBlock); blck.isSome()):
       res.summary = blck.get().message.toBeaconBlockSummary()
     else:
       break

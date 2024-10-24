@@ -265,8 +265,11 @@ proc getForkedBlock*(db: BeaconChainDB, root: Eth2Digest):
     Opt[ForkedTrustedSignedBeaconBlock] =
   # When we only have a digest, we don't know which fork it's from so we try
   # them one by one - this should be used sparingly
-  static: doAssert high(ConsensusFork) == ConsensusFork.Electra
-  if (let blck = db.getBlock(root, electra.TrustedSignedBeaconBlock);
+  static: doAssert high(ConsensusFork) == ConsensusFork.Fulu
+  if (let blck = db.getBlock(root, fulu.TrustedSignedBeaconBlock);
+      blck.isSome()):
+    ok(ForkedTrustedSignedBeaconBlock.init(blck.get()))
+  elif (let blck = db.getBlock(root, electra.TrustedSignedBeaconBlock);
       blck.isSome()):
     ok(ForkedTrustedSignedBeaconBlock.init(blck.get()))
   elif (let blck = db.getBlock(root, deneb.TrustedSignedBeaconBlock);
@@ -1007,6 +1010,12 @@ proc applyBlock(
     ? state_transition(
       dag.cfg, state, data, cache, info,
       dag.updateFlags + {slotProcessed}, noRollback)
+  of ConsensusFork.Fulu:
+    let data = getBlock(dag, bid, fulu.TrustedSignedBeaconBlock).valueOr:
+      return err("Block load failed")
+    ? state_transition(
+      dag.cfg, state, data, cache, info,
+      dag.updateFlags + {slotProcessed}, noRollback)
 
   ok()
 
@@ -1168,6 +1177,7 @@ proc init*(T: type ChainDAGRef, cfg: RuntimeConfig, db: BeaconChainDB,
       of ConsensusFork.Capella:   capellaFork(cfg)
       of ConsensusFork.Deneb:     denebFork(cfg)
       of ConsensusFork.Electra:   electraFork(cfg)
+      of ConsensusFork.Fulu:      fuluFork(cfg)
     stateFork = getStateField(dag.headState, fork)
 
   # Here, we check only the `current_version` field because the spec
@@ -2416,6 +2426,9 @@ proc updateHead*(
     of ConsensusFork.Electra:
       if dag.vanityLogs.onUpgradeToElectra != nil:
         dag.vanityLogs.onUpgradeToElectra()
+    of ConsensusFork.Fulu:
+      if dag.vanityLogs.onUpgradeToFulu != nil:
+        dag.vanityLogs.onUpgradeToFulu()
 
   if  dag.vanityLogs.onKnownBlsToExecutionChange != nil and
       checkBlsToExecutionChanges(
