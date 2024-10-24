@@ -337,6 +337,11 @@ type
   RestEpochRandao* = object
     randao*: Eth2Digest
 
+  RestHistoricalSummaries* = object
+    historical_summaries*: seq[HistoricalSummary]
+    proof*: array[5, Eth2Digest]
+    slot*: Slot
+
   DataEnclosedObject*[T] = object
     data*: T
 
@@ -468,6 +473,11 @@ type
   GetBlockV2Response* = ForkedSignedBeaconBlock
   GetStateV2Response* = ref ForkedHashedBeaconState
   GetAggregatedAttestationV2Response* = ForkedAttestation
+
+  GetHistoricalSummariesV1Response* = object
+    historical_summaries*: HashList[HistoricalSummary, Limit HISTORICAL_ROOTS_LIMIT]
+    proof*: array[5, Eth2Digest]
+    slot*: Slot
 
   RestRoot* = object
     root*: Eth2Digest
