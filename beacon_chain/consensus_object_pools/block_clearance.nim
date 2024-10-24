@@ -81,7 +81,7 @@ proc addResolvedHeadBlock(
     epochRef = dag.getEpochRef(state, cache)
     epochRefTick = Moment.now()
 
-  debug "Block resolved",
+  info "Block resolved",
     blockRoot = shortLog(blockRoot),
     blck = shortLog(trustedBlock.message),
     executionValid, heads = dag.heads.len(),
