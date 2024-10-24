@@ -185,13 +185,13 @@ if canEnableDebuggingSymbols:
 # `switch("warning[CaseTransition]", "off")` fails with "Error: invalid command line option: '--warning[CaseTransition]'"
 switch("warning", "CaseTransition:off")
 
-# The compiler doth protest too much, methinks, about all these cases where it can't
-# do its (N)RVO pass: https://github.com/nim-lang/RFCs/issues/230
-switch("warning", "ObservableStores:off")
-
 # Too many right now to read compiler output. Warnings are legitimate, but
 # should be fixed out-of-band of `unstable` branch.
 switch("warning", "BareExcept:off")
+
+# Chronicles triggers these
+# vendor/nim-chronicles/chronicles.nim(74, 14) Warning: template 'activeChroniclesScope' is implicitly redefined; this is deprecated, add an explicit .redefine pragma [ImplicitTemplateRedefinition]
+switch("warning", "ImplicitTemplateRedefinition:off")
 
 # Too many of these because of Defect compat in 1.2
 switch("hint", "XCannotRaiseY:off")
