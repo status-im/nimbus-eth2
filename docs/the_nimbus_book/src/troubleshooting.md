@@ -14,7 +14,7 @@ If you can't find a solution to your problem here, get in touch with us on our [
     When installing Nimbus, you will typically be using the latest `stable` release.
 
     However, the latest changes happen in the `unstable` branch.
-    If you're looking to test the changes coming to the _next_ Nimbus release, consider building Nimbus from [source](./keep-updated.md#build-from-source) using the `unstable` branch.
+    If you're looking to test the changes coming to the _next_ Nimbus release, consider building Nimbus from [source](./keep-updated.md#install-a-specific-version) using the `unstable` branch.
 
 ## Networking
 

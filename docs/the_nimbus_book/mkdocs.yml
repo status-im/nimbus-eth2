@@ -61,6 +61,7 @@ nav:
     - 'quick-start.md'
     - 'run-a-validator.md'
     - 'el-light-client.md'
+    - 'execution-client.md'
     - 'pi-guide.md'
 
   - How-to:
@@ -80,6 +81,7 @@ nav:
       - 'additional-validator.md'
       - 'validator-client.md'
       - 'withdrawals.md'
+      - 'voluntary-exit.md'
 
     - General:
       - 'keep-updated.md'

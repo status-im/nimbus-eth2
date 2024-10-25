@@ -33,7 +33,7 @@ It means that Nimbus is unable to find a sufficient number of peers to guarantee
 
 Most commonly, this happens when your computer is not reachable from the outside and therefore won't be able to accept any incoming peer connections.
 
-If you're on a home network, the fix here is to [set up port forwarding](./networking.md#set-up-port-forwarding) (this may require you to [pass the extip option](./networking.md#pass-the-extip-option) and [set enr-auto-update](./networking.md#set-enr-auto-update)).
+If you're on a home network, the fix here is to [set up port forwarding](./networking.md#set-up-port-forwarding) (this may require you to [pass the extip option](./networking.md#set-an-explicit-external-ip) and [set enr-auto-update](./networking.md#set-enr-auto-update)).
 
 The first step however, is to check for incoming connections.
 
