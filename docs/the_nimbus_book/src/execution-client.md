@@ -84,7 +84,7 @@ See the [era file guide](./era-store.md) for more information.
 
 In order for the execution client to operate, you need to connect a consensus node. This can be the [Nimbus beacon node](./quick-start.md), a [supported consensus client](https://ethereum.org/en/developers/docs/nodes-and-clients/#consensus-clients) or a [light client](./el-light-client.md).
 
-The consensus node connects to the execution client via the Engine API which is enabled using `--engine-api` and by default runs on port `8550`.
+The consensus node connects to the execution client via the Engine API which is enabled using `--engine-api` and by default runs on port `8551`.
 
 During startup, a `jwt.hex` file will be placed in the data directory containing authentication information that the consensus node uses to connect - make sure to use the same `jwt.hex` file on both consensus and execution node.
 
