@@ -143,7 +143,16 @@ func `==`*(a, b: Eth2Digest): bool =
     equalMem(unsafeAddr a.data[0], unsafeAddr b.data[0], sizeof(a.data))
 
 func isZero*(x: Eth2Digest): bool =
-  x.isZeroMemory
+  # `MDigest` always 4-byte or more aligns `data` so checking in `uint32`-sized
+  # chunks keeps alignment-compatibility.
+  static:
+    doAssert sizeof(x.data) == 32
+    doAssert sizeof(uint) == sizeof(pointer)
+  let base = cast[uint](addr x.data[0])
+  template chunkZero(offset: uint): bool =
+    cast[ptr uint32](base + offset)[] == 0'u32
+  chunkZero(0) and chunkZero(4) and chunkZero(8) and chunkZero(12) and
+    chunkZero(16) and chunkZero(20) and chunkZero(24) and chunkZero(28)
 
 proc writeValue*(w: var JsonWriter, a: Eth2Digest) {.raises: [IOError].} =
   w.writeValue $a
