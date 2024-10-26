@@ -145,12 +145,12 @@ func `==`*(a, b: Eth2Digest): bool =
 
 func isZero*(x: Eth2Digest): bool =
   var tmp {.noinit.}: uint64
+  var tmp2 = 0'u64
   static: doAssert sizeof(x.data) mod sizeof(tmp) == 0
   staticFor i, 0 ..< sizeof(x.data) div sizeof(tmp):
     copyMem(addr tmp, addr x.data[i*sizeof(tmp)], sizeof(tmp))
-    if tmp != 0:
-      return false
-  true
+    tmp2 = tmp2 or tmp
+  tmp2 == 0
 
 proc writeValue*(w: var JsonWriter, a: Eth2Digest) {.raises: [IOError].} =
   w.writeValue $a
