@@ -698,7 +698,11 @@ proc process_operations(
       eth1_deposit_index_limit =
         min(state.eth1_data.deposit_count, state.deposit_requests_start_index)
       req_deposits =
+        # Otherwise wraps because unsigned; Python spec semantics would result in
+        # negative difference, which would be impossible for len(...) to match.
         if state.eth1_deposit_index < eth1_deposit_index_limit:
+          if eth1_deposit_index_limit < state.eth1_deposit_index:
+            return err("eth1_deposit_index_limit < state.eth1_deposit_index")
           min(
             MAX_DEPOSITS, eth1_deposit_index_limit - state.eth1_deposit_index)
         else:
