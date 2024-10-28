@@ -330,7 +330,19 @@ proc getBlockProposalData*(chain: var Eth1Chain,
   if pendingDepositsCount > 0:
     if hasLatestDeposits:
       let
-        totalDepositsInNewBlock = min(MAX_DEPOSITS, pendingDepositsCount)
+        totalDepositsInNewBlock =
+          withState(state):
+            when consensusFork >= ConsensusFork.Electra:
+              # https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.8/specs/electra/validator.md#deposits
+              let eth1_deposit_index_limit = min(
+                forkyState.data.eth1_data.deposit_count,
+                forkyState.data.deposit_requests_start_index)
+              if forkyState.data.eth1_deposit_index < eth1_deposit_index_limit:
+                min(MAX_DEPOSITS, pendingDepositsCount)
+              else:
+                0
+            else:
+              min(MAX_DEPOSITS, pendingDepositsCount)
         postStateDepositIdx = stateDepositIdx + pendingDepositsCount
       var
         deposits = newSeqOfCap[DepositData](totalDepositsInNewBlock)
