@@ -1,13 +1,13 @@
 #!/usr/bin/env bash
 
-# Copyright (c) 2020-2023 Status Research & Development GmbH. Licensed under
+# Copyright (c) 2020-2024 Status Research & Development GmbH. Licensed under
 # either of:
 # - Apache License, version 2.0
 # - MIT license
 # at your option. This file may not be copied, modified, or distributed except
 # according to those terms.
 
-set -e
+set -eo pipefail
 
 cd /home/user/nimbus-eth2
 git config --global core.abbrev 8
@@ -24,7 +24,7 @@ echo "Build Tools = ${BUILD_TOOLS}"
 
 if [[ "${BUILD_TOOLS}" == "1" ]]; then
   echo "Including tools in distribution"
-  BINARIES="${BINARIES} deposit_contract nimbus_signing_node nimbus_light_client logtrace"
+  BINARIES="${BINARIES} deposit_contract nimbus_signing_node nimbus_light_client"
 fi
 
 echo -e "\nPLATFORM=${PLATFORM}"
@@ -258,4 +258,3 @@ tar czf "${DIR}.tar.gz" "${DIR}"
 # don't leave the directory hanging around
 rm -rf "${DIR}"
 cd - >/dev/null
-
