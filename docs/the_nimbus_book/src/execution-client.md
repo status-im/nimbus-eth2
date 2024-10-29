@@ -118,7 +118,7 @@ This method of syncing loads blocks from the consensus node and passes them to t
 === "Holesky"
     ```sh
     # Start `nrpc` every 2 seconds in case there is a fork or the execution client goes out of sync
-    while true; do build/nrpc --network=holesky --beacon-api=http://localhost:5052 --el-engine-api=http://localhost:8550 --jwt-secret=build/holesky/jwt.hex; sleep 2; done
+    while true; do build/nrpc sync --network=holesky --beacon-api=http://localhost:5052 --el-engine-api=http://localhost:8550 --jwt-secret=build/holesky/jwt.hex; sleep 2; done
     ```
 
 === "Sepolia"
