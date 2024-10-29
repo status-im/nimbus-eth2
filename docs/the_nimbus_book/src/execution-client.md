@@ -22,7 +22,7 @@ cd nimbus-eth1
 
 ### Run the build process
 
-To build the Nimbus light client and its dependencies, make sure you have [all prerequisites](./install.md) and then run:
+To build the Nimbus execution client and its dependencies, make sure you have [all prerequisites](./install.md) and then run:
 
 ```sh
 make -j4 nimbus nrpc
