@@ -46,15 +46,6 @@ proc produceBlockV3Plain*(
      accept: preferSSZ, meth: MethodGet.}
   ## https://ethereum.github.io/beacon-APIs/#/Validator/produceBlockV3
 
-proc produceBlindedBlockPlain*(
-       slot: Slot,
-       randao_reveal: ValidatorSig,
-       graffiti: GraffitiBytes
-     ): RestPlainResponse {.
-     rest, endpoint: "/eth/v1/validator/blinded_blocks/{slot}",
-     accept: preferSSZ, meth: MethodGet.}
-  ## https://ethereum.github.io/beacon-APIs/#/Validator/produceBlindedBlock
-
 proc produceAttestationDataPlain*(
        slot: Slot,
        committee_index: CommitteeIndex

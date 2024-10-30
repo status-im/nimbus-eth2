@@ -538,7 +538,6 @@ type
   GetVersionResponse* = DataEnclosedObject[RestNodeVersion]
   GetEpochSyncCommitteesResponse* = DataEnclosedObject[RestEpochSyncCommittee]
   ProduceAttestationDataResponse* = DataEnclosedObject[AttestationData]
-  ProduceBlindedBlockResponse* = ForkedBlindedBeaconBlock
   ProduceSyncCommitteeContributionResponse* = DataEnclosedObject[SyncCommitteeContribution]
   SubmitBlindedBlockResponseDeneb* = DataEnclosedObject[deneb_mev.ExecutionPayloadAndBlobsBundle]
   SubmitBlindedBlockResponseElectra* = DataEnclosedObject[electra_mev.ExecutionPayloadAndBlobsBundle]
