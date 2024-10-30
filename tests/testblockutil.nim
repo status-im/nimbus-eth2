@@ -217,8 +217,9 @@ proc addTestBlock*(
         deposit_count: forkyState.data.eth1_deposit_index + deposits.lenu64,
         block_hash: eth1_data.block_hash),
       graffiti,
-      when consensusFork == ConsensusFork.Electra or
-           consensusFork == ConsensusFork.Fulu:
+      when consensusFork == ConsensusFork.Electra:
+        electraAttestations
+      elif consensusFork == ConsensusFork.Fulu:
         electraAttestations
       elif consensusFork == ConsensusFork.Fulu:
         electraAttestations
