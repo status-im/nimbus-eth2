@@ -37,7 +37,7 @@ rotate 7
 
 [rotatelogs](https://httpd.apache.org/docs/2.4/programs/rotatelogs.html) captures `stdout` logging and redirects it to a file, rotating and compressing on the fly.
 
-It is available on most servers and can be used with `Docker`, `Systemd` and manual setups to write rotated logs files.
+It is available on most servers and can be used with `docker`, `systemd` and manual setups to write rotated logs files.
 
 In particular, when `systemd` and its accompanying `journald` log daemon are used, this setup avoids clogging the system log by keeping the Nimbus logs in a separate location.
 

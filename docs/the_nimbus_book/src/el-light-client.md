@@ -52,54 +52,9 @@ make -j4 nimbus_light_client
 This may take a few minutes.
 When the process finishes, the `nimbus_light_client` executable can be found in the `build` subdirectory.
 
-## Pairing with the EL client
-
-To ensure that only the light client can control the EL client, a file with random content (JWT secret) must be created.
-The format is 64 hexadecimal (0-9, a-f) characters.
-To create one, the following command may be used:
-
-```sh
-openssl rand -hex 32 | tr -d "\n" > "$HOME/jwtsecret"
-```
-
-!!! tip
-    To adjust where the file is created, adjust the `$HOME/jwtsecret` portion in the command above.
-    Also adjust other commands in this guide accordingly.
-
-The JWT secret must be passed to both the EL client and the light client to complete the pairing.
-
 ## Running the EL client
 
-In addition to the [regular instructions](./eth1.md) to run an EL client, the JWT secret must be configured.
-The following sections explain how to do this for certain EL clients.
-
-=== "Geth"
-
-    === "Mainnet"
-        ```sh
-        geth --authrpc.jwtsecret="$HOME/jwtsecret"
-        ```
-
-    === "Holesky"
-        ```sh
-        geth --holesky --authrpc.jwtsecret="$HOME/jwtsecret"
-        ```
-
-=== "Nethermind"
-
-    === "Mainnet"
-        ```sh
-        nethermind --JsonRpc.JwtSecretFile="$HOME/jwtsecret"
-        ```
-
-    === "Holesky"
-        ```sh
-        nethermind --config holesky --JsonRpc.JwtSecretFile="$HOME/jwtsecret"
-        ```
-
-=== "Others"
-
-    Please consult your EL client's documentation for instructions on how to configure the JWT secret and running the EL client.
+Follow the [regular instructions](./eth1.md) for running the execution client, taking note of its JWT secret configuration that you will need in the next step.
 
 ## Running the light client
 
@@ -136,16 +91,18 @@ To start the light client, run the following commands (inserting your own truste
 === "Mainnet"
     ```sh
     TRUSTED_BLOCK_ROOT=0x1234567890123456789012345678901234567890123456789012345678901234
+    JWTSECRET=path/to/execution/client/jwt.hex
     build/nimbus_light_client \
-        --web3-url=http://127.0.0.1:8551 --jwt-secret="$HOME/jwtsecret" \
+        --web3-url=http://127.0.0.1:8551 --jwt-secret="$JWTSECRET" \
         --trusted-block-root=$TRUSTED_BLOCK_ROOT
     ```
 
 === "Holesky"
     ```sh
     TRUSTED_BLOCK_ROOT=0x1234567890123456789012345678901234567890123456789012345678901234
+    JWTSECRET=path/to/execution/client/jwt.hex
     build/nimbus_light_client --network=holesky \
-        --web3-url=http://127.0.0.1:8551 --jwt-secret="$HOME/jwtsecret" \
+        --web3-url=http://127.0.0.1:8551 --jwt-secret="$JWTSECRET" \
         --trusted-block-root=$TRUSTED_BLOCK_ROOT
     ```
 

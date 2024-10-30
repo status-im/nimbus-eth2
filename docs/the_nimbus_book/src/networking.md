@@ -138,7 +138,7 @@ Use the [open ports tool](https://www.yougetsignal.com/tools/open-ports/) to che
 
 - `Peer count low, no new peers discovered...`
 
-    This is a sign that you may be missing attestations.
+    This is a sign that you may be missing attestations. It often happens when the hardware you're running the edge of being too slow - it can also happen during network outages or when bandwidth is insufficient to keep up.
 
 - `No external IP provided for the ENR...`
 

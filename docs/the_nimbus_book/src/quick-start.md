@@ -25,7 +25,7 @@ Prepare your machine by installing [Nimbus' dependencies](./install.md).
 
 ### 2. Set up an execution client
 
-To run a beacon node, you need to have access to an execution client exposing the web3 API.
+To run a beacon node, you need to have access to an execution client exposing the [engine API](https://hackmd.io/@danielrachi/engine_api).
 Throughout, we'll assume an execution client is running on the same machine as the beacon node, but this is not required.
 
 See the [execution client guide](./eth1.md) for instructions on how to pick and install an execution client.

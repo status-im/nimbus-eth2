@@ -1,6 +1,7 @@
 # Optimistic sync
 
 Optimistic sync is the process of syncing an execution and consensus client concurrently, without having the consensus client wait for the execution client.
+
 During optimistic sync, the consensus client quickly syncs up to the latest consensus but delays verifying block execution payloads: it continuously informs the execution client of the latest consensus head, allowing the execution client to perform a snapshot sync directly to the latest state.
 
 Once the execution client has caught up, the consensus and execution clients work in lock-step each validating the block.
