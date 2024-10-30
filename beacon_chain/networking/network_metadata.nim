@@ -290,7 +290,6 @@ when const_preset == "gnosis":
       doAssert network.cfg.FULU_FORK_EPOCH == FAR_FUTURE_EPOCH
       doAssert ConsensusFork.high == ConsensusFork.Fulu
 
-
 elif const_preset == "mainnet":
   when incbinEnabled:
     # Nim is very inefficent at loading large constants from binary files so we
