@@ -95,7 +95,7 @@ template toString(epoch: Epoch): string =
 
 func getConsensusForkConfig*(
     info: VCRuntimeConfig,
-    optionalForks: set[ConsensusFork]
+    optionalForks: set[ConsensusFork] = {}
 ): Result[VCForkConfig, string] =
   ## This extracts all `_FORK_VERSION` and `_FORK_EPOCH` constants
   var
