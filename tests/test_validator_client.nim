@@ -484,12 +484,12 @@ proc init(t: typedesc[phase0.Attestation], bits: string,
         RestJson.decode(jdata, AttestationBitsObject)
       except SerializationError as exc:
         raiseAssert "Serialization error from [" & $exc.name & "]: " & $exc.msg
-  Attestation(aggregation_bits: bits.data,
-              data: AttestationData(slot: slot, index: index))
+  phase0.Attestation(aggregation_bits: bits.data,
+                     data: AttestationData(slot: slot, index: index))
 
 proc init(t: typedesc[GetAggregatedAttestationResponse],
           bits: string): GetAggregatedAttestationResponse =
-  GetAggregatedAttestationResponse(data: Attestation.init(bits))
+  GetAggregatedAttestationResponse(data: phase0.Attestation.init(bits))
 
 proc init(t: typedesc[ProduceSyncCommitteeContributionResponse],
           bits: string): ProduceSyncCommitteeContributionResponse =
