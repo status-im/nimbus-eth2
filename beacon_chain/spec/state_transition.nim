@@ -528,7 +528,7 @@ proc makeBeaconBlockWithRewards*(
                hash_tree_root(validator_changes.proposer_slashings),
                hash_tree_root(validator_changes.electra_attester_slashings),
                hash_tree_root(
-                 List[electra.Attestation, Limit MAX_ATTESTATIONS](
+                 List[electra.Attestation, Limit MAX_ATTESTATIONS_ELECTRA](
                    attestations)),
                hash_tree_root(List[Deposit, Limit MAX_DEPOSITS](deposits)),
                hash_tree_root(validator_changes.voluntary_exits),
