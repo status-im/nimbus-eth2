@@ -50,6 +50,11 @@ static: doAssert(high(ConsensusFork) == ConsensusFork.Electra,
           "Update OptionalForks constant!")
 const
   OptionalForks* = {ConsensusFork.Electra}
+    ## When a new ConsensusFork is added and before this fork is activated on
+    ## `mainnet`, it should be part of `OptionalForks`.
+    ## In this case, the client will ignore missing <FORKNAME>_VERSION
+    ## and <FORKNAME>_EPOCH constants from the data reported by BN via
+    ## `/eth/v1/config/spec` API call.
 
 type
   ServiceState* {.pure.} = enum
