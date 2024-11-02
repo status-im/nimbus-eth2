@@ -637,6 +637,31 @@ template Forky*(
     kind: static ConsensusFork): auto =
   kind.SignedBeaconBlock
 
+# Workaround method used for tests that involve walking through 
+# `nim-eth2-scnarios`fork dirs, to be removed once Fulu is 
+# included in new release. 
+template withAllButFulu*(
+    x: typedesc[ConsensusFork], body: untyped): untyped =
+  static: doAssert ConsensusFork.high == ConsensusFork.Fulu
+  block:
+    const consensusFork {.inject, used.} = ConsensusFork.Electra
+    body
+  block:
+    const consensusFork {.inject, used.} = ConsensusFork.Deneb
+    body
+  block:
+    const consensusFork {.inject, used.} = ConsensusFork.Capella
+    body
+  block:
+    const consensusFork {.inject, used.} = ConsensusFork.Bellatrix
+    body
+  block:
+    const consensusFork {.inject, used.} = ConsensusFork.Altair
+    body
+  block:
+    const consensusFork {.inject, used.} = ConsensusFork.Phase0
+    body
+
 template withAll*(
     x: typedesc[ConsensusFork], body: untyped): untyped =
   static: doAssert ConsensusFork.high == ConsensusFork.Fulu
