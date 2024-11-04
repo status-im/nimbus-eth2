@@ -24,7 +24,7 @@ import
       pubsub, gossipsub, rpc/message, rpc/messages, peertable, pubsubpeer],
   libp2p/stream/connection,
   libp2p/services/wildcardresolverservice,
-  eth/[keys, async_utils],
+  eth/[common/keys, async_utils],
   eth/net/nat, eth/p2p/discoveryv5/[enr, node, random2],
   ".."/[version, conf, beacon_clock, conf_light_client],
   ../spec/[eth2_ssz_serialization, network, helpers, forks],

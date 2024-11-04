@@ -19,11 +19,11 @@ type
     executionPayload*: ExecutionPayloadV1
     blockValue*: UInt256
 
-func asEth2Digest*(x: BlockHash|Bytes32): Eth2Digest =
+func asEth2Digest*(x: Hash32|Bytes32): Eth2Digest =
   Eth2Digest(data: array[32, byte](x))
 
-template asBlockHash*(x: Eth2Digest): BlockHash =
-  BlockHash(x.data)
+template asBlockHash*(x: Eth2Digest): Hash32 =
+  Hash32(x.data)
 
 func asConsensusWithdrawal*(w: WithdrawalV1): capella.Withdrawal =
   capella.Withdrawal(

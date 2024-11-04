@@ -10,7 +10,7 @@
 import
   std/[json, options, times],
   chronos, bearssl/rand, chronicles, confutils, stint, json_serialization,
-  web3, eth/keys, eth/p2p/discoveryv5/random2,
+  web3, eth/common/keys, eth/p2p/discoveryv5/random2,
   stew/[io2, byteutils], json_rpc/jsonmarshal,
   ../beacon_chain/conf,
   ../beacon_chain/el/el_manager,
@@ -21,7 +21,6 @@ import
   ../beacon_chain/validators/keystore_management
 
 from std/os import changeFileExt, fileExists
-from std/times import toUnix
 from ../beacon_chain/el/engine_api_conversions import asEth2Digest
 from ../beacon_chain/spec/beaconstate import initialize_beacon_state_from_eth1
 from ../tests/mocking/mock_genesis import mockEth1BlockHash
@@ -239,7 +238,7 @@ contract(DepositContract):
 template `as`(address: Eth1Address, T: type bellatrix.ExecutionAddress): T =
   T(data: distinctBase(address))
 
-template `as`(address: BlockHash, T: type Eth2Digest): T =
+template `as`(address: Hash32, T: type Eth2Digest): T =
   asEth2Digest(address)
 
 func getOrDefault[T](x: Opt[T]): T =

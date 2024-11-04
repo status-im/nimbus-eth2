@@ -32,7 +32,7 @@ declarePublicGauge eth1_finalized_deposits,
 declareGauge eth1_chain_len,
   "The length of the in-memory chain of Eth1 blocks"
 
-template toGaugeValue*(x: Quantity | BlockNumber): int64 =
+template toGaugeValue*(x: Quantity): int64 =
   toGaugeValue(distinctBase x)
 
 type
@@ -69,7 +69,7 @@ type
       ## A non-forkable chain of blocks ending at the block with
       ## ETH1_FOLLOW_DISTANCE offset from the head.
 
-    blocksByHash: Table[BlockHash, Eth1Block]
+    blocksByHash: Table[Hash32, Eth1Block]
 
     headMerkleizer: DepositsMerkleizer
       ## Merkleizer state after applying all `blocks`
