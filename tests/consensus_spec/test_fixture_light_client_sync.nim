@@ -96,7 +96,7 @@ proc loadSteps(
             .expect("Unknown update fork " & $update_fork_digest)
         update_filename = s["update"].getStr()
 
-      var update {.noinit.}: ForkedLightClientUpdate
+      var update: ForkedLightClientUpdate
       withLcDataFork(lcDataForkAtConsensusFork(update_consensus_fork)):
         when lcDataFork > LightClientDataFork.None:
           update = ForkedLightClientUpdate.init(parseTest(
@@ -175,7 +175,7 @@ proc runTest(suiteName, path: string) =
       let bootstrap_consensus_fork =
         meta.fork_digests.consensusForkForDigest(meta.bootstrap_fork_digest)
           .expect("Unknown bootstrap fork " & $meta.bootstrap_fork_digest)
-      var bootstrap {.noinit.}: ForkedLightClientBootstrap
+      var bootstrap: ForkedLightClientBootstrap
       withLcDataFork(lcDataForkAtConsensusFork(bootstrap_consensus_fork)):
         when lcDataFork > LightClientDataFork.None:
           bootstrap = ForkedLightClientBootstrap.init(parseTest(
@@ -191,7 +191,7 @@ proc runTest(suiteName, path: string) =
       let store_consensus_fork =
         meta.fork_digests.consensusForkForDigest(meta.store_fork_digest)
           .expect("Unknown store fork " & $meta.store_fork_digest)
-      var store {.noinit.}: ForkedLightClientStore
+      var store: ForkedLightClientStore
       withLcDataFork(lcDataForkAtConsensusFork(store_consensus_fork)):
         when lcDataFork > LightClientDataFork.None:
           bootstrap[].migrateToDataFork(lcDataFork)

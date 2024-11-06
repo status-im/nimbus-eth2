@@ -16,7 +16,6 @@ export chronos, results
 
 type
   MessageKind* = enum
-    msgHandshake
     msgNotification
     msgRequest
     msgResponse
@@ -89,7 +88,6 @@ type
     messages*: seq[Message]
 
     # Messages by type:
-    handshake*: Message
     notifications*: seq[Message]
     requests*: seq[Request]
 
@@ -529,7 +527,7 @@ proc createSendProc*(msg: Message,
       result.msgParams.add param
 
   case msg.kind
-  of msgHandshake, msgRequest:
+  of msgRequest:
     # Add a timeout parameter for all request procs
     def.addTimeoutParam(msg.protocol.timeouts)
 
@@ -558,8 +556,6 @@ proc createSendProc*(msg: Message,
                 ident "untyped"
               elif msg.kind == msgRequest and not isRawSender:
                 ident "auto"
-              elif msg.kind == msgHandshake and not isRawSender:
-                Fut(msg.recName)
               else:
                 Fut(Void)
 
@@ -665,27 +661,6 @@ proc useStandardBody*(sendProc: SendProc,
 
     `sendCall`
 
-proc correctSerializerProcParams(params: NimNode) =
-  # A serializer proc is just like a send proc, but:
-  # 1. it has a void return type
-  params[0] = ident "void"
-  # 2. The peer params is replaced with OutputStream
-  params[1] = newIdentDefs(streamVar, bindSym "OutputStream")
-  # 3. The timeout param is removed
-  params.del(params.len - 1)
-
-proc createSerializer*(msg: Message, procType = nnkProcDef): NimNode =
-  var serializer = msg.createSendProc(procType, nameSuffix = "Serializer")
-  correctSerializerProcParams serializer.def.params
-
-  serializer.setBody writeParamsAsRecord(
-    serializer.msgParams,
-    streamVar,
-    msg.protocol.backend.SerializationFormat,
-    msg.recName)
-
-  return serializer.def
-
 proc defineThunk*(msg: Message, thunk: NimNode) =
   let protocol = msg.protocol
 
@@ -739,29 +714,6 @@ proc netInit*(p: P2PProtocol): NimNode =
   #                           p.backend.NetworkType,
   #                           p.NetworkStateType)
 
-proc createHandshakeTemplate*(msg: Message,
-                              rawSendProc, handshakeImpl,
-                              nextMsg: NimNode): SendProc =
-  let
-    handshakeExchanger = msg.createSendProc(procType = nnkTemplateDef)
-    forwardCall = newCall(rawSendProc).appendAllInputParams(handshakeExchanger.def)
-    peerValue = forwardCall[1]
-    msgRecName = msg.recName
-
-  forwardCall[1] = peerVar
-  forwardCall.del(forwardCall.len - 1)
-
-  let peerVar = genSym(nskLet ,"peer")
-  handshakeExchanger.setBody quote do:
-    let `peerVar` = `peerValue`
-    let sendingFuture = `forwardCall`
-    `handshakeImpl`(`peerVar`,
-                    sendingFuture,
-                    `nextMsg`(`peerVar`, `msgRecName`),
-                    `timeoutVar`)
-
-  return handshakeExchanger
-
 proc peerInit*(p: P2PProtocol): NimNode =
   if p.PeerStateType == nil:
     newNilLit()
@@ -774,7 +726,6 @@ proc processProtocolBody*(p: P2PProtocol, protocolBody: NimNode) =
   ## This procs handles all DSL statements valid inside a p2pProtocol.
   ##
   ## It will populate the protocol's fields such as:
-  ##   * handshake
   ##   * requests
   ##   * notifications
   ##   * onPeerConnected
@@ -802,16 +753,6 @@ proc processProtocolBody*(p: P2PProtocol, protocolBody: NimNode) =
           queries.add p.newMsg(msgRequest, procs[i], response = responseMsg)
 
         p.requests.add Request(queries: queries, response: responseMsg)
-
-      elif eqIdent(n[0], "handshake"):
-        let procs = expectBlockWithProcs(n)
-        if procs.len != 1:
-          error "handshake expects a block with a single proc definition", n
-
-        if p.handshake != nil:
-          error "The handshake for the protocol is already defined", n
-
-        p.handshake = p.newMsg(msgHandshake, procs[0])
 
       elif eqIdent(n[0], "onPeerConnected"):
         p.onPeerConnected = p.eventHandlerToProc(n[1], "PeerConnected")

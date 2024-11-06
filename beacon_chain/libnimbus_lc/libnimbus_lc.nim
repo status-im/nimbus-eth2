@@ -10,7 +10,7 @@
 import
   std/[json, sequtils, times],
   eth/common/eth_types_rlp,
-  eth/keys,
+  eth/common/keys,
   eth/p2p/discoveryv5/random2,
   eth/rlp,
   eth/trie/ordered_trie,
@@ -1181,39 +1181,14 @@ type
     amount: uint64
     bytes: seq[byte]
 
-  ETHDepositRequest = object
-    pubkey: ValidatorPubKey
-    withdrawalCredentials: array[32, byte]
-    amount: uint64
-    signature: ValidatorSig
-    index: uint64
-    bytes: seq[byte]
-
-  ETHWithdrawalRequest = object
-    sourceAddress: ExecutionAddress
-    validatorPubkey: ValidatorPubKey
-    amount: uint64
-    bytes: seq[byte]
-
-  ETHConsolidationRequest = object
-    sourceAddress: ExecutionAddress
-    sourcePubkey: ValidatorPubKey
-    targetPubkey: ValidatorPubKey
-    bytes: seq[byte]
-
   ETHExecutionBlockHeader = object
     transactionsRoot: Eth2Digest
     withdrawalsRoot: Eth2Digest
     withdrawals: seq[ETHWithdrawal]
-    requestsRoot: Eth2Digest
-    depositRequests: seq[ETHDepositRequest]
-    withdrawalRequests: seq[ETHWithdrawalRequest]
-    consolidationRequests: seq[ETHConsolidationRequest]
+    requestsHash: Eth2Digest
 
 template append*(
-    w: var RlpWriter, v:
-      ETHWithdrawal | ETHDepositRequest | ETHWithdrawalRequest |
-      ETHConsolidationRequest) =
+    w: var RlpWriter, v: ETHWithdrawal) =
   w.appendRawBytes(v.bytes)
 
 proc ETHExecutionBlockHeaderCreateFromJson(
@@ -1255,30 +1230,22 @@ proc ETHExecutionBlockHeaderCreateFromJson(
     return nil
 
   # Check fork consistency
-  static: doAssert totalSerializedFields(BlockObject) == 30,
+  static: doAssert totalSerializedFields(BlockObject) == 27,
     "Only update this number once code is adjusted to check new fields!"
   if data.baseFeePerGas.isNone and (
       data.withdrawals.isSome or data.withdrawalsRoot.isSome or
       data.blobGasUsed.isSome or data.excessBlobGas.isSome or
-      data.depositRequests.isSome or data.withdrawalRequests.isSome or
-      data.consolidationRequests.isSome or data.requestsRoot.isSome):
+      data.requestsHash.isSome):
     return nil
   if data.withdrawalsRoot.isNone and (
       data.blobGasUsed.isSome or data.excessBlobGas.isSome or
-      data.depositRequests.isSome or data.withdrawalRequests.isSome or
-      data.consolidationRequests.isSome or data.requestsRoot.isSome):
+      data.requestsHash.isSome):
     return nil
-  if data.blobGasUsed.isNone and (
-      data.depositRequests.isSome or data.withdrawalRequests.isSome or
-      data.consolidationRequests.isSome or data.requestsRoot.isSome):
+  if data.blobGasUsed.isNone and data.requestsHash.isSome:
     return nil
   if data.withdrawals.isSome != data.withdrawalsRoot.isSome:
     return nil
   if data.blobGasUsed.isSome != data.excessBlobGas.isSome:
-    return nil
-  if data.depositRequests.isSome != data.requestsRoot.isSome or
-      data.withdrawalRequests.isSome != data.requestsRoot.isSome or
-      data.consolidationRequests.isSome != data.requestsRoot.isSome:
     return nil
 
   # Construct block header
@@ -1287,7 +1254,7 @@ proc ETHExecutionBlockHeaderCreateFromJson(
     doAssert sizeof(uint64) == sizeof(data.gasUsed)
   if data.nonce.isNone:
     return nil
-  let blockHeader = ExecutionBlockHeader(
+  let blockHeader = eth_types.Header(
     parentHash: data.parentHash.asEth2Digest.to(Hash32),
     ommersHash: data.sha3Uncles.asEth2Digest.to(Hash32),
     coinbase: distinctBase(data.miner).to(EthAddress),
@@ -1308,7 +1275,7 @@ proc ETHExecutionBlockHeaderCreateFromJson(
       if data.withdrawalsRoot.isSome:
         Opt.some(data.withdrawalsRoot.get.asEth2Digest.to(Hash32))
       else:
-        Opt.none(ExecutionHash256),
+        Opt.none(Hash32),
     blobGasUsed:
       if data.blobGasUsed.isSome:
         Opt.some distinctBase(data.blobGasUsed.get)
@@ -1323,12 +1290,12 @@ proc ETHExecutionBlockHeaderCreateFromJson(
       if data.parentBeaconBlockRoot.isSome:
         Opt.some data.parentBeaconBlockRoot.get.asEth2Digest.to(Hash32)
       else:
-        Opt.none(ExecutionHash256),
-    requestsRoot:
-      if data.requestsRoot.isSome:
-        Opt.some(data.requestsRoot.get.asEth2Digest.to(Hash32))
+        Opt.none(Hash32),
+    requestsHash:
+      if data.requestsHash.isSome:
+        Opt.some data.requestsHash.get.asEth2Digest.to(Hash32)
       else:
-        Opt.none(ExecutionHash256))
+        Opt.none(Hash32))
   if rlpHash(blockHeader) != executionHash[]:
     return nil
 
@@ -1345,7 +1312,7 @@ proc ETHExecutionBlockHeaderCreateFromJson(
 
       # Construct withdrawal
       let
-        wd = ExecutionWithdrawal(
+        wd = eth_types.EthWithdrawal(
           index: distinctBase(data.index),
           validatorIndex: distinctBase(data.validatorIndex),
           address: distinctBase(data.address).to(EthAddress),
@@ -1367,119 +1334,12 @@ proc ETHExecutionBlockHeaderCreateFromJson(
     if tr != data.withdrawalsRoot.get.asEth2Digest:
       return nil
 
-  # Construct deposit requests
-  var depositRequests: seq[ETHDepositRequest]
-  if data.depositRequests.isSome:
-    depositRequests = newSeqOfCap[ETHDepositRequest](
-      data.depositRequests.get.len)
-    for data in data.depositRequests.get:
-      # Check fork consistency
-      static: doAssert totalSerializedFields(DepositRequestObject) == 5,
-        "Only update this number once code is adjusted to check new fields!"
-
-      # Construct deposit request
-      let
-        req = ExecutionDepositRequest(
-          pubkey: distinctBase(data.pubkey).to(Bytes48),
-          withdrawalCredentials: distinctBase(data.withdrawalCredentials).to(Bytes32),
-          amount: distinctBase(data.amount),
-          signature: distinctBase(data.signature).to(Bytes96),
-          index: distinctBase(data.index))
-        rlpBytes =
-          try:
-            rlp.encode(req)
-          except RlpError:
-            raiseAssert "Unreachable"
-
-      depositRequests.add ETHDepositRequest(
-        pubkey: ValidatorPubKey(blob: req.pubkey.data),
-        withdrawalCredentials: req.withdrawalCredentials.data,
-        amount: req.amount,
-        signature: ValidatorSig(blob: req.signature.data),
-        index: req.index,
-        bytes: rlpBytes)
-
-  # Construct withdrawal requests
-  var withdrawalRequests: seq[ETHWithdrawalRequest]
-  if data.withdrawalRequests.isSome:
-    withdrawalRequests = newSeqOfCap[ETHWithdrawalRequest](
-      data.withdrawalRequests.get.len)
-    for data in data.withdrawalRequests.get:
-      # Check fork consistency
-      static: doAssert totalSerializedFields(WithdrawalRequestObject) == 3,
-        "Only update this number once code is adjusted to check new fields!"
-
-      # Construct withdrawal request
-      let
-        req = ExecutionWithdrawalRequest(
-          sourceAddress: distinctBase(data.sourceAddress).to(EthAddress),
-          validatorPubkey: distinctBase(data.validatorPubkey).to(Bytes48),
-          amount: distinctBase(data.amount))
-        rlpBytes =
-          try:
-            rlp.encode(req)
-          except RlpError:
-            raiseAssert "Unreachable"
-
-      withdrawalRequests.add ETHWithdrawalRequest(
-        sourceAddress: ExecutionAddress(data: req.sourceAddress.data),
-        validatorPubkey: ValidatorPubKey(blob: req.validatorPubkey.data),
-        amount: req.amount,
-        bytes: rlpBytes)
-
-  # Construct consolidation requests
-  var consolidationRequests: seq[ETHConsolidationRequest]
-  if data.consolidationRequests.isSome:
-    consolidationRequests = newSeqOfCap[ETHConsolidationRequest](
-      data.consolidationRequests.get.len)
-    for data in data.consolidationRequests.get:
-      # Check fork consistency
-      static: doAssert totalSerializedFields(ConsolidationRequestObject) == 3,
-        "Only update this number once code is adjusted to check new fields!"
-
-      # Construct consolidation request
-      let
-        req = ExecutionConsolidationRequest(
-          sourceAddress: distinctBase(data.sourceAddress).to(EthAddress),
-          sourcePubkey: distinctBase(data.sourcePubkey).to(Bytes48),
-          targetPubkey: distinctBase(data.targetPubkey).to(Bytes48))
-        rlpBytes =
-          try:
-            rlp.encode(req)
-          except RlpError:
-            raiseAssert "Unreachable"
-
-      consolidationRequests.add ETHConsolidationRequest(
-        sourceAddress: ExecutionAddress(data: req.sourceAddress.data),
-        sourcePubkey: ValidatorPubKey(blob: req.sourcePubkey.data),
-        targetPubkey: ValidatorPubKey(blob: req.targetPubkey.data),
-        bytes: rlpBytes)
-
-  # Verify requests root
-  if data.depositRequests.isSome or
-      data.withdrawalRequests.isSome or
-      data.consolidationRequests.isSome:
-    doAssert data.requestsRoot.isSome  # Checked above
-
-    var b = OrderedTrieRootBuilder.init(
-      depositRequests.len + withdrawalRequests.len + consolidationRequests.len)
-
-    b.add(depositRequests)
-    b.add(withdrawalRequests)
-    b.add(consolidationRequests)
-
-    if b.rootHash() != data.requestsRoot.get.asEth2Digest:
-      return nil
-
   let executionBlockHeader = ETHExecutionBlockHeader.new()
   executionBlockHeader[] = ETHExecutionBlockHeader(
     transactionsRoot: blockHeader.txRoot,
     withdrawalsRoot: blockHeader.withdrawalsRoot.get(zeroHash32),
     withdrawals: wds,
-    requestsRoot: blockHeader.requestsRoot.get(zeroHash32),
-    depositRequests: depositRequests,
-    withdrawalRequests: withdrawalRequests,
-    consolidationRequests: consolidationRequests)
+    requestsHash: blockHeader.requestsHash.get(zeroHash32))
   executionBlockHeader.toUnmanagedPtr()
 
 proc ETHExecutionBlockHeaderDestroy(
@@ -1540,10 +1400,10 @@ func ETHExecutionBlockHeaderGetWithdrawals(
   ## * Withdrawal sequence.
   addr executionBlockHeader[].withdrawals
 
-func ETHExecutionBlockHeaderGetRequestsRoot(
+func ETHExecutionBlockHeaderGetRequestsHash(
     executionBlockHeader: ptr ETHExecutionBlockHeader
 ): ptr Eth2Digest {.exported.} =
-  ## Obtains the requests MPT root of a given execution block header.
+  ## Obtains the requests hash of a given execution block header.
   ##
   ## * The returned value is allocated in the given execution block header.
   ##   It must neither be released nor written to, and the execution block
@@ -1553,57 +1413,8 @@ func ETHExecutionBlockHeaderGetRequestsRoot(
   ## * `executionBlockHeader` - Execution block header.
   ##
   ## Returns:
-  ## * Execution requests root.
-  addr executionBlockHeader[].requestsRoot
-
-func ETHExecutionBlockHeaderGetDepositRequests(
-    executionBlockHeader: ptr ETHExecutionBlockHeader
-): ptr seq[ETHDepositRequest] {.exported.} =
-  ## Obtains the deposit request sequence of a given execution block header.
-  ##
-  ## * The returned value is allocated in the given execution block header.
-  ##   It must neither be released nor written to, and the execution block
-  ##   header must not be released while the returned value is in use.
-  ##
-  ## Parameters:
-  ## * `executionBlockHeader` - Execution block header.
-  ##
-  ## Returns:
-  ## * Deposit request sequence.
-  addr executionBlockHeader[].depositRequests
-
-func ETHExecutionBlockHeaderGetWithdrawalRequests(
-    executionBlockHeader: ptr ETHExecutionBlockHeader
-): ptr seq[ETHWithdrawalRequest] {.exported.} =
-  ## Obtains the withdrawal request sequence of a given execution block header.
-  ##
-  ## * The returned value is allocated in the given execution block header.
-  ##   It must neither be released nor written to, and the execution block
-  ##   header must not be released while the returned value is in use.
-  ##
-  ## Parameters:
-  ## * `executionBlockHeader` - Execution block header.
-  ##
-  ## Returns:
-  ## * Withdrawal request sequence.
-  addr executionBlockHeader[].withdrawalRequests
-
-func ETHExecutionBlockHeaderGetConsolidationRequests(
-    executionBlockHeader: ptr ETHExecutionBlockHeader
-): ptr seq[ETHConsolidationRequest] {.exported.} =
-  ## Obtains the consolidation request sequence
-  ## of a given execution block header.
-  ##
-  ## * The returned value is allocated in the given execution block header.
-  ##   It must neither be released nor written to, and the execution block
-  ##   header must not be released while the returned value is in use.
-  ##
-  ## Parameters:
-  ## * `executionBlockHeader` - Execution block header.
-  ##
-  ## Returns:
-  ## * Consolidation request sequence.
-  addr executionBlockHeader[].consolidationRequests
+  ## * Execution requests hash.
+  addr executionBlockHeader[].requestsHash
 
 type
   DestinationType {.pure.} = enum
@@ -1614,8 +1425,8 @@ type
     address: ExecutionAddress
     storageKeys: seq[Eth2Digest]
 
-  ETHAuthorizationTuple = object
-    chainId: UInt256
+  ETHAuthorization = object
+    chainId: uint64
     address: ExecutionAddress
     nonce: uint64
     authority: ExecutionAddress
@@ -1623,7 +1434,7 @@ type
 
   ETHTransaction = object
     hash: Eth2Digest
-    chainId: UInt256
+    chainId: uint64
     `from`: ExecutionAddress
     nonce: uint64
     maxPriorityFeePerGas: uint64
@@ -1636,7 +1447,8 @@ type
     accessList: seq[ETHAccessTuple]
     maxFeePerBlobGas: UInt256
     blobVersionedHashes: seq[Eth2Digest]
-    authorizationList: seq[ETHAuthorizationTuple]
+    hasAuthorizationList: bool
+    authorizationList: seq[ETHAuthorization]
     signature: seq[byte]
     bytes: TypedTransaction
 
@@ -1733,12 +1545,11 @@ proc ETHTransactionsCreateFromJson(
     # Construct transaction
     static:
       doAssert sizeof(uint64) == sizeof(ChainId)
+      doAssert sizeof(uint64) == sizeof(data.chainId.get)
       doAssert sizeof(uint64) == sizeof(data.gas)
       doAssert sizeof(uint64) == sizeof(data.gasPrice)
       doAssert sizeof(uint64) == sizeof(data.maxPriorityFeePerGas.get)
       doAssert sizeof(UInt256) == sizeof(data.maxFeePerBlobGas.get)
-    if distinctBase(data.chainId.get(0.Quantity)) > distinctBase(ChainId.high):
-      return nil
     if data.maxFeePerBlobGas.get(0.u256) > uint64.high.u256:
       return nil
     if data.yParity.isSome:
@@ -1750,12 +1561,11 @@ proc ETHTransactionsCreateFromJson(
         return nil
     if data.authorizationList.isSome:
       for authorization in data.authorizationList.get:
-        if distinctBase(authorization.chainId) > distinctBase(ChainId.high):
-          return nil
-        if distinctBase(authorization.yParity) > 1:
+        static: doAssert sizeof(uint64) == sizeof(authorization.chainId)
+        if distinctBase(authorization.v) > uint8.high:
           return nil
     let
-      tx = ExecutionTransaction(
+      tx = eth_types.EthTransaction(
         txType: txType,
         chainId: data.chainId.get(0.Quantity).ChainId,
         nonce: distinctBase(data.nonce),
@@ -1792,9 +1602,9 @@ proc ETHTransactionsCreateFromJson(
               chainId: it.chainId.ChainId,
               address: distinctBase(it.address).to(EthAddress),
               nonce: distinctBase(it.nonce),
-              yParity: distinctBase(it.yParity),
-              R: it.R,
-              S: it.S))
+              v: distinctBase(it.v),
+              r: it.r,
+              s: it.s))
           else:
             @[],
         V: distinctBase(data.v),
@@ -1809,18 +1619,20 @@ proc ETHTransactionsCreateFromJson(
     if data.hash.asEth2Digest != hash:
       return nil
 
-    func packSignature(r, s: UInt256, yParity: bool): array[65, byte] =
+    func packSignature(r, s: UInt256, yParity: uint8): array[65, byte] =
       var rawSig {.noinit.}: array[65, byte]
       rawSig[0 ..< 32] = tx.R.toBytesBE()
       rawSig[32 ..< 64] = tx.S.toBytesBE()
-      rawSig[64] = if yParity: 1 else: 0
+      rawSig[64] = yParity
       rawSig
 
-    func recoverSignerAddress(rawSig: array[65, byte]): Opt[array[20, byte]] =
+    func recoverSignerAddress(
+        rawSig: array[65, byte],
+        hashForSigning: Hash32): Opt[array[20, byte]] =
       let
         sig = SkRecoverableSignature.fromRaw(rawSig).valueOr:
           return Opt.none(array[20, byte])
-        sigHash = SkMessage.fromBytes(tx.txHashNoSignature().data).valueOr:
+        sigHash = SkMessage.fromBytes(hashForSigning.data).valueOr:
           return Opt.none(array[20, byte])
         pubkey = sig.recover(sigHash).valueOr:
           return Opt.none(array[20, byte])
@@ -1830,11 +1642,12 @@ proc ETHTransactionsCreateFromJson(
     let
       yParity =
         if txType != TxLegacy:
-          tx.V != 0
+          tx.V.uint8
         else:
-          (tx.V and 1) == 0
+          ((tx.V and 1) == 0).uint8
       rawSig = packSignature(tx.R, tx.S, yParity)
-      fromAddress = recoverSignerAddress(rawSig).valueOr:
+      sigHash = tx.rlpHashForSigning(tx.isEip155())
+      fromAddress = recoverSignerAddress(rawSig, sigHash).valueOr:
         return nil
     if distinctBase(data.`from`) != fromAddress:
       return nil
@@ -1855,23 +1668,23 @@ proc ETHTransactionsCreateFromJson(
           hash.to(EthAddress)
 
     # Compute authorizations
-    var authorizationList = newSeqOfCap[ETHAuthorizationTuple](
+    var authorizationList = newSeqOfCap[ETHAuthorization](
       tx.authorizationList.len)
     for auth in tx.authorizationList:
       let
-        signature = packSignature(auth.R, auth.S, auth.yParity != 0)
-        authority = recoverSignerAddress(signature).valueOr:
+        sig = packSignature(auth.r, auth.s, auth.v.uint8)
+        authority = recoverSignerAddress(sig, auth.rlpHashForSigning).valueOr:
           return nil
-      authorizationList.add ETHAuthorizationTuple(
-        chainId: distinctBase(auth.chainId).u256,
+      authorizationList.add ETHAuthorization(
+        chainId: distinctBase(auth.chainId),
         address: ExecutionAddress(data: auth.address.data),
         nonce: auth.nonce,
         authority: ExecutionAddress(data: authority),
-        signature: @signature)
+        signature: @sig)
 
     txs.add ETHTransaction(
       hash: keccakHash(rlpBytes),
-      chainId: distinctBase(tx.chainId).u256,
+      chainId: distinctBase(tx.chainId),
       `from`: ExecutionAddress(data: fromAddress),
       nonce: tx.nonce,
       maxPriorityFeePerGas: tx.maxPriorityFeePerGas.uint64,
@@ -1886,6 +1699,7 @@ proc ETHTransactionsCreateFromJson(
         storageKeys: it.storageKeys.mapIt(Eth2Digest(data: it.data)))),
       maxFeePerBlobGas: tx.maxFeePerBlobGas,
       blobVersionedHashes: tx.versionedHashes.mapIt(Eth2Digest(data: it.data)),
+      hasAuthorizationList: tx.txType == TxEip7702,
       authorizationList: authorizationList,
       signature: @rawSig,
       bytes: rlpBytes.TypedTransaction)
@@ -1954,7 +1768,7 @@ func ETHTransactionGetHash(
   addr transaction[].hash
 
 func ETHTransactionGetChainId(
-    transaction: ptr ETHTransaction): ptr UInt256 {.exported.} =
+    transaction: ptr ETHTransaction): ptr uint64 {.exported.} =
   ## Obtains the chain ID of a transaction.
   ##
   ## * The returned value is allocated in the given transaction.
@@ -2253,9 +2067,20 @@ func ETHTransactionGetBlobVersionedHash(
   ## * Blob versioned hash.
   addr transaction[].blobVersionedHashes[versionedHashIndex.int]
 
+func ETHTransactionHasAuthorizationList(
+    transaction: ptr ETHTransaction): bool {.exported.} =
+  ## Indicates whether or not a transaction has an authorization list.
+  ##
+  ## Parameters:
+  ## * `transaction` - Transaction.
+  ##
+  ## Returns:
+  ## * Whether or not the transaction has an authorization list.
+  transaction[].hasAuthorizationList
+
 func ETHTransactionGetAuthorizationList(
     transaction: ptr ETHTransaction
-): ptr seq[ETHAuthorizationTuple] {.exported.} =
+): ptr seq[ETHAuthorization] {.exported.} =
   ## Obtains the authorization list of a transaction.
   ##
   ## * The returned value is allocated in the given transaction.
@@ -2270,7 +2095,7 @@ func ETHTransactionGetAuthorizationList(
   addr transaction[].authorizationList
 
 func ETHAuthorizationListGetCount(
-    authorizationList: ptr seq[ETHAuthorizationTuple]): cint {.exported.} =
+    authorizationList: ptr seq[ETHAuthorization]): cint {.exported.} =
   ## Indicates the total number of authorization tuples
   ## in a transaction authorization list.
   ##
@@ -2285,8 +2110,8 @@ func ETHAuthorizationListGetCount(
   authorizationList[].len.cint
 
 func ETHAuthorizationListGet(
-    authorizationList: ptr seq[ETHAuthorizationTuple],
-    authorizationIndex: cint): ptr ETHAuthorizationTuple {.exported.} =
+    authorizationList: ptr seq[ETHAuthorization],
+    authorizationIndex: cint): ptr ETHAuthorization {.exported.} =
   ## Obtains an individual authorization tuple by sequential index
   ## in a transaction authorization list.
   ##
@@ -2302,8 +2127,8 @@ func ETHAuthorizationListGet(
   ## * Authorization tuple.
   addr authorizationList[][authorizationIndex.int]
 
-func ETHAuthorizationTupleGetChainId(
-    authorizationTuple: ptr ETHAuthorizationTuple): ptr UInt256 {.exported.} =
+func ETHAuthorizationGetChainId(
+    authorization: ptr ETHAuthorization): ptr uint64 {.exported.} =
   ## Obtains the chain ID of an authorization tuple.
   ##
   ## * The returned value is allocated in the given authorization tuple.
@@ -2311,14 +2136,14 @@ func ETHAuthorizationTupleGetChainId(
   ##   must not be released while the returned value is in use.
   ##
   ## Parameters:
-  ## * `authorizationTuple` - Authorization tuple.
+  ## * `authorization` - Authorization tuple.
   ##
   ## Returns:
   ## * Chain ID.
-  addr authorizationTuple[].chainId
+  addr authorization[].chainId
 
-func ETHAuthorizationTupleGetAddress(
-    authorizationTuple: ptr ETHAuthorizationTuple
+func ETHAuthorizationGetAddress(
+    authorization: ptr ETHAuthorization
 ): ptr ExecutionAddress {.exported.} =
   ## Obtains the address of an authorization tuple.
   ##
@@ -2327,14 +2152,14 @@ func ETHAuthorizationTupleGetAddress(
   ##   must not be released while the returned value is in use.
   ##
   ## Parameters:
-  ## * `authorizationTuple` - Authorization tuple.
+  ## * `authorization` - Authorization tuple.
   ##
   ## Returns:
   ## * Address.
-  addr authorizationTuple[].address
+  addr authorization[].address
 
-func ETHAuthorizationTupleGetNonce(
-    authorizationTuple: ptr ETHAuthorizationTuple): ptr uint64 {.exported.} =
+func ETHAuthorizationGetNonce(
+    authorization: ptr ETHAuthorization): ptr uint64 {.exported.} =
   ## Obtains the nonce of an authorization tuple.
   ##
   ## * The returned value is allocated in the given authorization tuple.
@@ -2342,14 +2167,14 @@ func ETHAuthorizationTupleGetNonce(
   ##   must not be released while the returned value is in use.
   ##
   ## Parameters:
-  ## * `authorizationTuple` - Authorization tuple.
+  ## * `authorization` - Authorization tuple.
   ##
   ## Returns:
   ## * Nonce.
-  addr authorizationTuple[].nonce
+  addr authorization[].nonce
 
-func ETHAuthorizationTupleGetAuthority(
-    authorizationTuple: ptr ETHAuthorizationTuple
+func ETHAuthorizationGetAuthority(
+    authorization: ptr ETHAuthorization
 ): ptr ExecutionAddress {.exported.} =
   ## Obtains the authority execution address of an authorization tuple.
   ##
@@ -2358,14 +2183,14 @@ func ETHAuthorizationTupleGetAuthority(
   ##   must not be released while the returned value is in use.
   ##
   ## Parameters:
-  ## * `authorizationTuple` - Authorization tuple.
+  ## * `authorization` - Authorization tuple.
   ##
   ## Returns:
   ## * Authority execution address.
-  addr authorizationTuple[].authority
+  addr authorization[].authority
 
-func ETHAuthorizationTupleGetSignatureBytes(
-    authorizationTuple: ptr ETHAuthorizationTuple,
+func ETHAuthorizationGetSignatureBytes(
+    authorization: ptr ETHAuthorization,
     numBytes #[out]#: ptr cint): ptr UncheckedArray[byte] {.exported.} =
   ## Obtains the signature of an authorization tuple.
   ##
@@ -2374,18 +2199,18 @@ func ETHAuthorizationTupleGetSignatureBytes(
   ##   must not be released while the returned value is in use.
   ##
   ## Parameters:
-  ## * `authorizationTuple` - Authorization tuple.
+  ## * `authorization` - Authorization tuple.
   ## * `numBytes` [out] - Length of buffer.
   ##
   ## Returns:
   ## * Buffer with signature.
-  numBytes[] = distinctBase(authorizationTuple[].signature).len.cint
-  if distinctBase(authorizationTuple[].signature).len == 0:
+  numBytes[] = distinctBase(authorization[].signature).len.cint
+  if distinctBase(authorization[].signature).len == 0:
     # https://github.com/nim-lang/Nim/issues/22389
     const defaultBytes: cstring = ""
     return cast[ptr UncheckedArray[byte]](defaultBytes)
   cast[ptr UncheckedArray[byte]](
-    addr distinctBase(authorizationTuple[].signature)[0])
+    addr distinctBase(authorization[].signature)[0])
 
 func ETHTransactionGetSignatureBytes(
     transaction: ptr ETHTransaction,
@@ -2514,6 +2339,8 @@ proc ETHReceiptsCreateFromJson(
         TxEip1559
       of 3.Quantity:
         TxEip4844
+      of 4.Quantity:
+        TxEip7702
       else:
         return nil
     if data.root.isNone and data.status.isNone or
@@ -2560,15 +2387,15 @@ proc ETHReceiptsCreateFromJson(
     if distinctBase(data.cumulativeGasUsed) > int64.high.uint64:
       return nil
     let
-      rec = ExecutionReceipt(
+      rec = eth_types.EthReceipt(
         receiptType: txType,
         isHash: data.root.isSome,
         status: distinctBase(data.status.get(1.Quantity)) != 0'u64,
         hash:
           if data.root.isSome:
-            ExecutionHash256(distinctBase(data.root.get))
+            Hash32(distinctBase(data.root.get))
           else:
-            default(ExecutionHash256),
+            default(Hash32),
         cumulativeGasUsed: distinctBase(data.cumulativeGasUsed).GasInt,
         logsBloom: distinctBase(data.logsBloom).to(Bloom),
         logs: data.logs.mapIt(Log(
@@ -2972,337 +2799,3 @@ func ETHWithdrawalGetBytes(
     const defaultBytes: cstring = ""
     return cast[ptr UncheckedArray[byte]](defaultBytes)
   cast[ptr UncheckedArray[byte]](addr distinctBase(withdrawal[].bytes)[0])
-
-func ETHDepositRequestsGetCount(
-    requests: ptr seq[ETHDepositRequest]): cint {.exported.} =
-  ## Indicates the total number of deposit requests
-  ## in a deposit request sequence.
-  ##
-  ## * Individual deposit requests may be inspected using
-  ##   `ETHDepositRequestsGet`.
-  ##
-  ## Parameters:
-  ## * `requests` - Deposit request sequence.
-  ##
-  ## Returns:
-  ## * Number of available deposit requests.
-  requests[].len.cint
-
-func ETHDepositRequestsGet(
-    requests: ptr seq[ETHDepositRequest],
-    requestIndex: cint): ptr ETHDepositRequest {.exported.} =
-  ## Obtains an individual deposit request by sequential index
-  ## in a deposit request sequence.
-  ##
-  ## * The returned value is allocated in the given request sequence.
-  ##   It must neither be released nor written to, and the request
-  ##   sequence must not be released while the returned value is in use.
-  ##
-  ## Parameters:
-  ## * `requests` - Deposit request sequence.
-  ## * `requestIndex` - Sequential deposit request index.
-  ##
-  ## Returns:
-  ## * Deposit request.
-  addr requests[][requestIndex.int]
-
-func ETHDepositRequestGetPubkey(
-    request: ptr ETHDepositRequest): ptr ValidatorPubKey {.exported.} =
-  ## Obtains the pubkey of a deposit request.
-  ##
-  ## * The returned value is allocated in the given request.
-  ##   It must neither be released nor written to, and the request
-  ##   must not be released while the returned value is in use.
-  ##
-  ## Parameters:
-  ## * `request` - Deposit request.
-  ##
-  ## Returns:
-  ## * Pubkey.
-  addr request[].pubkey
-
-func ETHDepositRequestGetWithdrawalCredentials(
-    request: ptr ETHDepositRequest): ptr array[32, byte] {.exported.} =
-  ## Obtains the withdrawal credentials of a deposit request.
-  ##
-  ## * The returned value is allocated in the given request.
-  ##   It must neither be released nor written to, and the request
-  ##   must not be released while the returned value is in use.
-  ##
-  ## Parameters:
-  ## * `request` - Deposit request.
-  ##
-  ## Returns:
-  ## * Withdrawal credentials.
-  addr request[].withdrawalCredentials
-
-func ETHDepositRequestGetAmount(
-    request: ptr ETHDepositRequest): ptr uint64 {.exported.} =
-  ## Obtains the amount of a deposit request.
-  ##
-  ## * The returned value is allocated in the given request.
-  ##   It must neither be released nor written to, and the request
-  ##   must not be released while the returned value is in use.
-  ##
-  ## Parameters:
-  ## * `request` - Deposit request.
-  ##
-  ## Returns:
-  ## * Amount.
-  addr request[].amount
-
-func ETHDepositRequestGetSignature(
-    request: ptr ETHDepositRequest): ptr ValidatorSig {.exported.} =
-  ## Obtains the signature of a deposit request.
-  ##
-  ## * The returned value is allocated in the given request.
-  ##   It must neither be released nor written to, and the request
-  ##   must not be released while the returned value is in use.
-  ##
-  ## Parameters:
-  ## * `request` - Deposit request.
-  ##
-  ## Returns:
-  ## * Signature.
-  addr request[].signature
-
-func ETHDepositRequestGetIndex(
-    request: ptr ETHDepositRequest): ptr uint64 {.exported.} =
-  ## Obtains the index of a deposit request.
-  ##
-  ## * The returned value is allocated in the given request.
-  ##   It must neither be released nor written to, and the request
-  ##   must not be released while the returned value is in use.
-  ##
-  ## Parameters:
-  ## * `request` - Deposit request.
-  ##
-  ## Returns:
-  ## * Index.
-  addr request[].index
-
-func ETHDepositRequestGetBytes(
-    request: ptr ETHDepositRequest,
-    numBytes #[out]#: ptr cint): ptr UncheckedArray[byte] {.exported.} =
-  ## Obtains the raw byte representation of a deposit request.
-  ##
-  ## * The returned value is allocated in the given request.
-  ##   It must neither be released nor written to, and the request
-  ##   must not be released while the returned value is in use.
-  ##
-  ## Parameters:
-  ## * `request` - Deposit request.
-  ## * `numBytes` [out] - Length of buffer.
-  ##
-  ## Returns:
-  ## * Buffer with raw deposit request data.
-  numBytes[] = distinctBase(request[].bytes).len.cint
-  if distinctBase(request[].bytes).len == 0:
-    # https://github.com/nim-lang/Nim/issues/22389
-    const defaultBytes: cstring = ""
-    return cast[ptr UncheckedArray[byte]](defaultBytes)
-  cast[ptr UncheckedArray[byte]](
-    addr distinctBase(request[].bytes)[0])
-
-func ETHWithdrawalRequestsGetCount(
-    requests: ptr seq[ETHWithdrawalRequest]): cint {.exported.} =
-  ## Indicates the total number of withdrawal requests
-  ## in a withdrawal request sequence.
-  ##
-  ## * Individual withdrawal requests may be inspected using
-  ##   `ETHWithdrawalRequestsGet`.
-  ##
-  ## Parameters:
-  ## * `requests` - Withdrawal request sequence.
-  ##
-  ## Returns:
-  ## * Number of available withdrawal requests.
-  requests[].len.cint
-
-func ETHWithdrawalRequestsGet(
-    requests: ptr seq[ETHWithdrawalRequest],
-    requestIndex: cint): ptr ETHWithdrawalRequest {.exported.} =
-  ## Obtains an individual withdrawal request by sequential index
-  ## in a withdrawal request sequence.
-  ##
-  ## * The returned value is allocated in the given request sequence.
-  ##   It must neither be released nor written to, and the request
-  ##   sequence must not be released while the returned value is in use.
-  ##
-  ## Parameters:
-  ## * `requests` - Withdrawal request sequence.
-  ## * `requestIndex` - Sequential withdrawal request index.
-  ##
-  ## Returns:
-  ## * Withdrawal request.
-  addr requests[][requestIndex.int]
-
-func ETHWithdrawalRequestGetSourceAddress(
-    request: ptr ETHWithdrawalRequest): ptr ExecutionAddress {.exported.} =
-  ## Obtains the source address of a withdrawal request.
-  ##
-  ## * The returned value is allocated in the given request.
-  ##   It must neither be released nor written to, and the request
-  ##   must not be released while the returned value is in use.
-  ##
-  ## Parameters:
-  ## * `request` - Withdrawal request.
-  ##
-  ## Returns:
-  ## * Source address.
-  addr request[].sourceAddress
-
-func ETHWithdrawalRequestGetValidatorPubkey(
-    request: ptr ETHWithdrawalRequest): ptr ValidatorPubKey {.exported.} =
-  ## Obtains the validator pubkey of a withdrawal request.
-  ##
-  ## * The returned value is allocated in the given request.
-  ##   It must neither be released nor written to, and the request
-  ##   must not be released while the returned value is in use.
-  ##
-  ## Parameters:
-  ## * `request` - Withdrawal request.
-  ##
-  ## Returns:
-  ## * Validator pubkey.
-  addr request[].validatorPubkey
-
-func ETHWithdrawalRequestGetAmount(
-    request: ptr ETHWithdrawalRequest): ptr uint64 {.exported.} =
-  ## Obtains the amount of a withdrawal request.
-  ##
-  ## * The returned value is allocated in the given request.
-  ##   It must neither be released nor written to, and the request
-  ##   must not be released while the returned value is in use.
-  ##
-  ## Parameters:
-  ## * `request` - Withdrawal request.
-  ##
-  ## Returns:
-  ## * Amount.
-  addr request[].amount
-
-func ETHWithdrawalRequestGetBytes(
-    request: ptr ETHWithdrawalRequest,
-    numBytes #[out]#: ptr cint): ptr UncheckedArray[byte] {.exported.} =
-  ## Obtains the raw byte representation of a withdrawal request.
-  ##
-  ## * The returned value is allocated in the given request.
-  ##   It must neither be released nor written to, and the request
-  ##   must not be released while the returned value is in use.
-  ##
-  ## Parameters:
-  ## * `request` - Withdrawal request.
-  ## * `numBytes` [out] - Length of buffer.
-  ##
-  ## Returns:
-  ## * Buffer with raw withdrawal request data.
-  numBytes[] = distinctBase(request[].bytes).len.cint
-  if distinctBase(request[].bytes).len == 0:
-    # https://github.com/nim-lang/Nim/issues/22389
-    const defaultBytes: cstring = ""
-    return cast[ptr UncheckedArray[byte]](defaultBytes)
-  cast[ptr UncheckedArray[byte]](
-    addr distinctBase(request[].bytes)[0])
-
-func ETHConsolidationRequestsGetCount(
-    requests: ptr seq[ETHConsolidationRequest]
-): cint {.exported.} =
-  ## Indicates the total number of consolidation requests
-  ## in a consolidation request sequence.
-  ##
-  ## * Individual consolidation requests may be inspected using
-  ##   `ETHConsolidationRequestsGet`.
-  ##
-  ## Parameters:
-  ## * `requests` - Consolidation request sequence.
-  ##
-  ## Returns:
-  ## * Number of available consolidation requests.
-  requests[].len.cint
-
-func ETHConsolidationRequestsGet(
-    requests: ptr seq[ETHConsolidationRequest],
-    requestIndex: cint): ptr ETHConsolidationRequest {.exported.} =
-  ## Obtains an individual consolidation request by sequential index
-  ## in a consolidation request sequence.
-  ##
-  ## * The returned value is allocated in the given request sequence.
-  ##   It must neither be released nor written to, and the request
-  ##   sequence must not be released while the returned value is in use.
-  ##
-  ## Parameters:
-  ## * `requests` - Consolidation request sequence.
-  ## * `requestIndex` - Sequential consolidation request index.
-  ##
-  ## Returns:
-  ## * Consolidation request.
-  addr requests[][requestIndex.int]
-
-func ETHConsolidationRequestGetSourceAddress(
-    request: ptr ETHConsolidationRequest): ptr ExecutionAddress {.exported.} =
-  ## Obtains the source address of a consolidation request.
-  ##
-  ## * The returned value is allocated in the given request.
-  ##   It must neither be released nor written to, and the request
-  ##   must not be released while the returned value is in use.
-  ##
-  ## Parameters:
-  ## * `request` - Consolidation request.
-  ##
-  ## Returns:
-  ## * Source address.
-  addr request[].sourceAddress
-
-func ETHConsolidationRequestGetSourcePubkey(
-    request: ptr ETHConsolidationRequest): ptr ValidatorPubKey {.exported.} =
-  ## Obtains the source pubkey of a consolidation request.
-  ##
-  ## * The returned value is allocated in the given request.
-  ##   It must neither be released nor written to, and the request
-  ##   must not be released while the returned value is in use.
-  ##
-  ## Parameters:
-  ## * `request` - Consolidation request.
-  ##
-  ## Returns:
-  ## * Source pubkey.
-  addr request[].sourcePubkey
-
-func ETHConsolidationRequestGetTargetPubkey(
-    request: ptr ETHConsolidationRequest): ptr ValidatorPubKey {.exported.} =
-  ## Obtains the target pubkey of a consolidation request.
-  ##
-  ## * The returned value is allocated in the given request.
-  ##   It must neither be released nor written to, and the request
-  ##   must not be released while the returned value is in use.
-  ##
-  ## Parameters:
-  ## * `request` - Consolidation request.
-  ##
-  ## Returns:
-  ## * Target pubkey.
-  addr request[].targetPubkey
-
-func ETHConsolidationRequestGetBytes(
-    request: ptr ETHConsolidationRequest,
-    numBytes #[out]#: ptr cint): ptr UncheckedArray[byte] {.exported.} =
-  ## Obtains the raw byte representation of a consolidation request.
-  ##
-  ## * The returned value is allocated in the given request.
-  ##   It must neither be released nor written to, and the request
-  ##   must not be released while the returned value is in use.
-  ##
-  ## Parameters:
-  ## * `request` - Consolidation request.
-  ## * `numBytes` [out] - Length of buffer.
-  ##
-  ## Returns:
-  ## * Buffer with raw consolidation request data.
-  numBytes[] = distinctBase(request[].bytes).len.cint
-  if distinctBase(request[].bytes).len == 0:
-    # https://github.com/nim-lang/Nim/issues/22389
-    const defaultBytes: cstring = ""
-    return cast[ptr UncheckedArray[byte]](defaultBytes)
-  cast[ptr UncheckedArray[byte]](
-    addr distinctBase(request[].bytes)[0])

@@ -32,6 +32,7 @@ import
   json_serialization
 
 from nimcrypto/utils import burnMem
+from stew/staticfor import staticFor
 
 export
   # Exports from sha2 / hash are explicit to avoid exporting upper-case `$` and
@@ -143,7 +144,13 @@ func `==`*(a, b: Eth2Digest): bool =
     equalMem(unsafeAddr a.data[0], unsafeAddr b.data[0], sizeof(a.data))
 
 func isZero*(x: Eth2Digest): bool =
-  x.isZeroMemory
+  var tmp {.noinit.}: uint64
+  var tmp2 = 0'u64
+  static: doAssert sizeof(x.data) mod sizeof(tmp) == 0
+  staticFor i, 0 ..< sizeof(x.data) div sizeof(tmp):
+    copyMem(addr tmp, addr x.data[i*sizeof(tmp)], sizeof(tmp))
+    tmp2 = tmp2 or tmp
+  tmp2 == 0
 
 proc writeValue*(w: var JsonWriter, a: Eth2Digest) {.raises: [IOError].} =
   w.writeValue $a

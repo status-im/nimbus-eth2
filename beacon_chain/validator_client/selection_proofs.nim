@@ -60,10 +60,10 @@ proc cmp(x, y: AttestationSlotRequest|SyncCommitteeSlotRequest): int =
   cmp(x.slot, y.slot)
 
 proc getAttesterDutiesRequests(
-       vc: ValidatorClientRef,
-       start, finish: Slot,
-       genesisRoot: Eth2Digest
-     ): seq[AttestationSlotRequest] =
+    vc: ValidatorClientRef,
+    start, finish: Slot,
+    genesisRoot: Eth2Digest
+): seq[AttestationSlotRequest] =
   var res: seq[AttestationSlotRequest]
   for epoch in start.epoch() .. finish.epoch():
     for duty in vc.attesterDutiesForEpoch(epoch):
@@ -92,9 +92,9 @@ proc getAttesterDutiesRequests(
   sorted(res, cmp, order = SortOrder.Ascending)
 
 proc fillAttestationSelectionProofs*(
-       vc: ValidatorClientRef,
-       start, finish: Slot
-     ): Future[FillSignaturesResult] {.async.} =
+    vc: ValidatorClientRef,
+    start, finish: Slot
+): Future[FillSignaturesResult] {.async: (raises: [CancelledError]).} =
   let genesisRoot = vc.beaconGenesis.genesis_validators_root
   var
     requests: seq[AttestationSlotRequest]
@@ -108,6 +108,8 @@ proc fillAttestationSelectionProofs*(
     while len(pendingRequests) > 0:
       try:
         discard await race(pendingRequests)
+      except ValueError:
+        raiseAssert "Number of pendingRequests should not be zero"
       except CancelledError as exc:
         var pending: seq[Future[void]]
         for future in pendingRequests:
@@ -125,7 +127,7 @@ proc fillAttestationSelectionProofs*(
             else:
               let signature =
                 if mreq.future.completed():
-                  let sres = Future[SignatureResult](mreq.future).read()
+                  let sres = Future[SignatureResult](mreq.future).value
                   if sres.isErr():
                     warn "Unable to create slot signature using remote signer",
                          reason = sres.error(), epoch = mreq.slot.epoch(),
@@ -180,10 +182,6 @@ proc fillAttestationSelectionProofs*(
         except CancelledError as exc:
           debug "Beacon committee selections processing was interrupted"
           raise exc
-        except CatchableError as exc:
-          error "Unexpected error occured while trying to submit beacon " &
-                "committee selections", reason = exc.msg, error = exc.name
-          return sigres
 
       sigres.selectionsReceived = len(sresponse.data)
 
@@ -229,8 +227,10 @@ proc fillAttestationSelectionProofs*(
 
   sigres
 
-func getIndex*(proof: SyncCommitteeSelectionProof,
-               inindex: IndexInSyncCommittee): Opt[int] =
+func getIndex*(
+    proof: SyncCommitteeSelectionProof,
+    inindex: IndexInSyncCommittee
+): Opt[int] =
   if len(proof) == 0:
     return Opt.none(int)
   for index, value in proof.pairs():
@@ -238,30 +238,41 @@ func getIndex*(proof: SyncCommitteeSelectionProof,
       return Opt.some(index)
   Opt.none(int)
 
-func hasSignature*(proof: SyncCommitteeSelectionProof,
-                   inindex: IndexInSyncCommittee,
-                   slot: Slot): bool =
+func hasSignature*(
+    proof: SyncCommitteeSelectionProof,
+    inindex: IndexInSyncCommittee,
+    slot: Slot
+): bool =
   let index = proof.getIndex(inindex).valueOr: return false
   proof[index].signatures[int(slot.since_epoch_start())].isSome()
 
-func getSignature*(proof: SyncCommitteeSelectionProof,
-                   inindex: IndexInSyncCommittee,
-                   slot: Slot): Opt[ValidatorSig] =
+func getSignature*(
+    proof: SyncCommitteeSelectionProof,
+    inindex: IndexInSyncCommittee,
+    slot: Slot
+): Opt[ValidatorSig] =
   let index = proof.getIndex(inindex).valueOr:
     return Opt.none(ValidatorSig)
   proof[index].signatures[int(slot.since_epoch_start())]
 
-proc setSignature*(proof: var SyncCommitteeSelectionProof,
-                   inindex: IndexInSyncCommittee, slot: Slot,
-                   signature: Opt[ValidatorSig]) =
+proc setSignature*(
+    proof: var SyncCommitteeSelectionProof,
+    inindex: IndexInSyncCommittee,
+    slot: Slot,
+    signature: Opt[ValidatorSig]
+) =
   let index = proof.getIndex(inindex).expect(
     "EpochSelectionProof should be present at this moment")
   proof[index].signatures[int(slot.since_epoch_start())] = signature
 
-proc setSyncSelectionProof*(vc: ValidatorClientRef, pubkey: ValidatorPubKey,
-                            inindex: IndexInSyncCommittee, slot: Slot,
-                            duty: SyncCommitteeDuty,
-                            signature: Opt[ValidatorSig]) =
+proc setSyncSelectionProof*(
+    vc: ValidatorClientRef,
+    pubkey: ValidatorPubKey,
+    inindex: IndexInSyncCommittee,
+    slot: Slot,
+    duty: SyncCommitteeDuty,
+    signature: Opt[ValidatorSig]
+) =
   let
     proof =
       block:
@@ -279,7 +290,7 @@ proc getSyncCommitteeSelectionProof*(
     vc: ValidatorClientRef,
     pubkey: ValidatorPubKey,
     epoch: Epoch
-  ): Opt[SyncCommitteeSelectionProof] =
+): Opt[SyncCommitteeSelectionProof] =
   vc.syncCommitteeProofs.withValue(epoch, epochProofs):
     epochProofs[].proofs.withValue(pubkey, validatorProofs):
       return Opt.some(validatorProofs[])
@@ -289,11 +300,11 @@ proc getSyncCommitteeSelectionProof*(
     return Opt.none(SyncCommitteeSelectionProof)
 
 proc getSyncCommitteeSelectionProof*(
-       vc: ValidatorClientRef,
-       pubkey: ValidatorPubKey,
-       slot: Slot,
-       inindex: IndexInSyncCommittee
-     ): Opt[ValidatorSig] =
+    vc: ValidatorClientRef,
+    pubkey: ValidatorPubKey,
+    slot: Slot,
+    inindex: IndexInSyncCommittee
+): Opt[ValidatorSig] =
   vc.syncCommitteeProofs.withValue(slot.epoch(), epochProofs):
     epochProofs[].proofs.withValue(pubkey, validatorProofs):
       let index = getIndex(validatorProofs[], inindex).valueOr:
@@ -305,10 +316,10 @@ proc getSyncCommitteeSelectionProof*(
     return Opt.none(ValidatorSig)
 
 proc getSyncCommitteeDutiesRequests*(
-       vc: ValidatorClientRef,
-       start, finish: Slot,
-       genesisRoot: Eth2Digest
-     ): seq[SyncCommitteeSlotRequest] =
+    vc: ValidatorClientRef,
+    start, finish: Slot,
+    genesisRoot: Eth2Digest
+): seq[SyncCommitteeSlotRequest] =
   var res: seq[SyncCommitteeSlotRequest]
   for epoch in start.epoch() .. finish.epoch():
     let
@@ -349,11 +360,11 @@ proc getSyncCommitteeDutiesRequests*(
   sorted(res, cmp, order = SortOrder.Ascending)
 
 proc getSyncRequest*(
-       requests: var openArray[SyncCommitteeSlotRequest],
-       validator: AttachedValidator,
-       slot: Slot,
-       subcommittee_index: uint64
-     ): Opt[SyncCommitteeSlotRequest] =
+    requests: var openArray[SyncCommitteeSlotRequest],
+    validator: AttachedValidator,
+    slot: Slot,
+    subcommittee_index: uint64
+): Opt[SyncCommitteeSlotRequest] =
   for mreq in requests.mitems():
     if mreq.validator.pubkey == validator.pubkey and
        mreq.slot == slot and
@@ -362,9 +373,9 @@ proc getSyncRequest*(
   Opt.none(SyncCommitteeSlotRequest)
 
 proc fillSyncCommitteeSelectionProofs*(
-       vc: ValidatorClientRef,
-       start, finish: Slot
-     ): Future[FillSignaturesResult] {.async.} =
+    vc: ValidatorClientRef,
+    start, finish: Slot
+): Future[FillSignaturesResult] {.async: (raises: [CancelledError]).} =
   let genesisRoot = vc.beaconGenesis.genesis_validators_root
   var
     requests: seq[SyncCommitteeSlotRequest]
@@ -378,6 +389,8 @@ proc fillSyncCommitteeSelectionProofs*(
     while len(pendingRequests) > 0:
       try:
         discard await race(pendingRequests)
+      except ValueError:
+        raiseAssert "Number of pendingRequests should not be zero"
       except CancelledError as exc:
         var pending: seq[Future[void]]
         for future in pendingRequests:
@@ -395,7 +408,7 @@ proc fillSyncCommitteeSelectionProofs*(
             else:
               let signature =
                 if mreq.future.completed():
-                  let sres = Future[SignatureResult](mreq.future).read()
+                  let sres = Future[SignatureResult](mreq.future).value
                   if sres.isErr():
                     warn "Unable to create selection proof using remote signer",
                          reason = sres.error(), epoch = mreq.slot.epoch(),
@@ -451,10 +464,6 @@ proc fillSyncCommitteeSelectionProofs*(
         except CancelledError as exc:
           debug "Sync committee selections processing was interrupted"
           raise exc
-        except CatchableError as exc:
-          error "Unexpected error occured while trying to submit sync " &
-                "committee selections", reason = exc.msg, error = exc.name
-          return sigres
 
       sigres.selectionsReceived = len(sresponse.data)
 

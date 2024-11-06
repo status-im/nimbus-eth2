@@ -8,7 +8,7 @@
 {.push raises: [].}
 
 import
-  "."/[forks, ptc_status, validator],
+  "."/[forks, validator],
   ./datatypes/epbs,
   "."/[
   beaconstate, eth2_merkleization, helpers, signatures,

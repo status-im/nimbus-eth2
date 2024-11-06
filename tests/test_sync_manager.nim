@@ -1059,9 +1059,12 @@ suite "SyncManager test suite":
       req1.contains(Slot(15)) == false
 
   test "[SyncQueue] checkResponse() test":
-    let chain = createChain(Slot(10), Slot(20))
-    let r1 = SyncRequest[SomeTPeer](slot: Slot(11), count: 1'u64)
-    let r21 = SyncRequest[SomeTPeer](slot: Slot(11), count: 2'u64)
+    let
+      chain = createChain(Slot(10), Slot(20))
+      r1 = SyncRequest[SomeTPeer](slot: Slot(11), count: 1'u64)
+      r21 = SyncRequest[SomeTPeer](slot: Slot(11), count: 2'u64)
+      r3 = SyncRequest[SomeTPeer](slot: Slot(11), count: 3'u64)
+
     let slots = mapIt(chain, it[].slot)
 
     check:
@@ -1083,12 +1086,39 @@ suite "SyncManager test suite":
       checkResponse(r21, @[slots[2], slots[3]]) == false
       checkResponse(r21, @[slots[3]]) == false
 
-  test "[SyncManager] groupBlobs() test":
-    var blocks = createChain(Slot(10), Slot(15))
-    var blobs = createBlobs(blocks, @[Slot(11), Slot(11), Slot(12), Slot(14)])
+      checkResponse(r21, @[slots[1], slots[1]]) == false
+      checkResponse(r21, @[slots[2], slots[2]]) == false
 
-    let req = SyncRequest[SomeTPeer](slot: Slot(10))
-    let groupedRes = groupBlobs(req, blocks, blobs)
+      checkResponse(r3, @[slots[1]]) == true
+      checkResponse(r3, @[slots[2]]) == true
+      checkResponse(r3, @[slots[3]]) == true
+      checkResponse(r3, @[slots[1], slots[2]]) == true
+      checkResponse(r3, @[slots[1], slots[3]]) == true
+      checkResponse(r3, @[slots[2], slots[3]]) == true
+      checkResponse(r3, @[slots[1], slots[3], slots[2]]) == false
+      checkResponse(r3, @[slots[2], slots[3], slots[1]]) == false
+      checkResponse(r3, @[slots[3], slots[2], slots[1]]) == false
+      checkResponse(r3, @[slots[3], slots[1]]) == false
+      checkResponse(r3, @[slots[3], slots[2]]) == false
+      checkResponse(r3, @[slots[2], slots[1]]) == false
+
+      checkResponse(r3, @[slots[1], slots[1], slots[1]]) == false
+      checkResponse(r3, @[slots[1], slots[2], slots[2]]) == false
+      checkResponse(r3, @[slots[1], slots[3], slots[3]]) == false
+      checkResponse(r3, @[slots[2], slots[3], slots[3]]) == false
+      checkResponse(r3, @[slots[1], slots[1], slots[1]]) == false
+      checkResponse(r3, @[slots[2], slots[2], slots[2]]) == false
+      checkResponse(r3, @[slots[3], slots[3], slots[3]]) == false
+      checkResponse(r3, @[slots[1], slots[1]]) == false
+      checkResponse(r3, @[slots[2], slots[2]]) == false
+      checkResponse(r3, @[slots[3], slots[3]]) == false
+
+  test "[SyncManager] groupBlobs() test":
+    var
+      blocks = createChain(Slot(10), Slot(15))
+      blobs = createBlobs(blocks, @[Slot(11), Slot(11), Slot(12), Slot(14)])
+
+    let groupedRes = groupBlobs(blocks, blobs)
 
     check:
       groupedRes.isOk()
@@ -1118,7 +1148,7 @@ suite "SyncManager test suite":
     let block17 = newClone ForkedSignedBeaconBlock(kind: ConsensusFork.Deneb)
     block17[].denebData.message.slot = Slot(17)
     blocks.add(block17)
-    let groupedRes2 = groupBlobs(req, blocks, blobs)
+    let groupedRes2 = groupBlobs(blocks, blobs)
 
     check:
       groupedRes2.isOk()
@@ -1130,7 +1160,7 @@ suite "SyncManager test suite":
     let blob18 = new (ref BlobSidecar)
     blob18[].signed_block_header.message.slot = Slot(18)
     blobs.add(blob18)
-    let groupedRes3 = groupBlobs(req, blocks, blobs)
+    let groupedRes3 = groupBlobs(blocks, blobs)
 
     check:
       groupedRes3.isErr()

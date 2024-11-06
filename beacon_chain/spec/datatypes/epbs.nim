@@ -40,6 +40,18 @@ from ./electra import PendingDeposit, PendingPartialWithdrawal,
 
 export json_serialization, base, kzg4844
 
+type
+  PTCStatus* = distinct uint64
+
+# PTCStatus represents a single payload status. These values represent the
+# possible votes that the Payload Timeliness Committee(PTC) can cast
+# https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.5/specs/_features/eip7732/beacon-chain.md#payload-status
+const
+  PAYLOAD_ABSENT* = PTCStatus(0)
+  PAYLOAD_PRESENT* = PTCStatus(1)
+  PAYLOAD_WITHHELD* = PTCStatus(2)
+  PAYLOAD_INVALID_STATUS* = PTCStatus(3)
+  
 const
   PAYLOAD_TIMELY_THRESHOLD*: uint64 = 256
   INTERVALS_PER_SLOT* = 4

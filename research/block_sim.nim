@@ -85,7 +85,8 @@ proc makeSimulationBlock(
 
   var blck = partialBeaconBlock(
     cfg, state, proposer_index, randao_reveal, eth1_data, graffiti,
-    attestations, deposits, exits, sync_aggregate, execution_payload)
+    attestations, deposits, exits, sync_aggregate, execution_payload,
+    default(ExecutionRequests))
 
   let res = process_block(
     cfg, state.data, blck.asSigVerified(), verificationFlags, cache)
@@ -128,7 +129,8 @@ proc makeSimulationBlock(
 
   var blck = partialBeaconBlock(
     cfg, state, proposer_index, randao_reveal, eth1_data, graffiti,
-    attestations, deposits, exits, sync_aggregate, execution_payload)
+    attestations, deposits, exits, sync_aggregate, execution_payload,
+    default(ExecutionRequests))
 
   let res = process_block(
     cfg, state.data, blck.asSigVerified(), verificationFlags, cache)
@@ -530,7 +532,7 @@ cli do(slots = SLOTS_PER_EPOCH * 7,
       var cache = StateCache()
       doAssert dag.updateState(
         replayState[], dag.getBlockIdAtSlot(Slot(slots)).expect("block"),
-        false, cache)
+        false, cache, dag.updateFlags)
 
   echo "Done!"
 

@@ -6,6 +6,7 @@ The quickstart setup involves running two nodes: an [execution client](./eth1.md
 Both are needed to run a full Ethereum setup.
 
 To become a validator, you first need to set up a beacon node.
+
 The beacon node connects to the beacon chain network, syncs historical data, and provides [API's](./rest-api.md) to monitor and interact with the beacon chain.
 Running a beacon node is a [worthwhile endeavor](https://vitalik.eth.limo/general/2021/05/23/scaling.html#its-crucial-for-blockchain-decentralization-for-regular-users-to-be-able-to-run-a-node) even if you are not planning on validating yourself!
 
@@ -24,7 +25,7 @@ Prepare your machine by installing [Nimbus' dependencies](./install.md).
 
 ### 2. Set up an execution client
 
-To run a beacon node, you need to have access to an execution client exposing the web3 API.
+To run a beacon node, you need to have access to an execution client exposing the [engine API](https://hackmd.io/@danielrachi/engine_api).
 Throughout, we'll assume an execution client is running on the same machine as the beacon node, but this is not required.
 
 See the [execution client guide](./eth1.md) for instructions on how to pick and install an execution client.

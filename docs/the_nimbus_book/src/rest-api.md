@@ -16,6 +16,7 @@ If you wish to expose the beacon node to the public internet, it is recommended 
 * `http://testing.mainnet.beacon-api.nimbus.team/`
 * `http://unstable.mainnet.beacon-api.nimbus.team/`
 * `http://unstable.holesky.beacon-api.nimbus.team/`
+* `http://unstable.sepolia.beacon-api.nimbus.team/`
 
 You can make requests as follows (here we are requesting the version the Nimbus software version of the node in question):
 
@@ -34,12 +35,17 @@ You can make requests as follows (here we are requesting the version the Nimbus 
     curl -X GET  http://unstable.holesky.beacon-api.nimbus.team/eth/v1/node/version
     ```
 
-The test endpoints are part of pre-release testing and run an unstable version of Nimbus.
-We welcome reports about any problems you might have with them.
+=== "Sepolia unstable branch"
+    ```
+    curl -X GET  http://unstable.sepolia.beacon-api.nimbus.team/eth/v1/node/version
+    ```
 
-They may also be unresponsive at times: **please do not rely on them for validation**.
-We may also disable them at any time without warning.
+!!! warning ""
+    The test endpoints are part of pre-release testing and run a development version of Nimbus.
+    We welcome reports about any problems you might have with them.
 
+    They may also be unresponsive at times: **please do not rely on them for validation**.
+    We may also disable them at any time without warning.
 
 ## Configure your node to run a local REST server
 

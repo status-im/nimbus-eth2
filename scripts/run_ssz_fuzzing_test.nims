@@ -6,7 +6,8 @@
 # at your option. This file may not be copied, modified, or distributed except according to those terms.
 
 import std/os except dirExists
-import std/[strformat, confutils]
+import std/strformat
+import confutils
 import testutils/fuzzing_engines
 
 const

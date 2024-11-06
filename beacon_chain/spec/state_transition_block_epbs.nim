@@ -14,7 +14,7 @@ import
     ../extras,
     ./datatypes/[phase0, altair, bellatrix, deneb, epbs],
     "."/[beaconstate, eth2_merkleization, helpers, validator, signatures,
-            payload_attestations, ptc_status, state_transition_block],
+            payload_attestations, state_transition_block],
     kzg4844/kzg_ex
 from ./datatypes/capella import
     BeaconState, MAX_WITHDRAWALS_PER_PAYLOAD, SignedBLSToExecutionChange,

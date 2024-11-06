@@ -12,6 +12,7 @@
 import
   # Status libraries
   stew/[byteutils, endians2, objects],
+  nimcrypto/sha2,
   chronicles,
   bitops,
   eth/common/[eth_types, eth_types_rlp],
@@ -37,15 +38,6 @@ func toGwei*(eth: Ether): Gwei =
   distinctBase(eth) * ETH_TO_GWEI
 
 type
-  ExecutionHash256* = eth_types.Hash32
-  ExecutionTransaction* = eth_types.Transaction
-  ExecutionReceipt* = eth_types.Receipt
-  ExecutionWithdrawal* = eth_types.Withdrawal
-  ExecutionDepositRequest* = eth_types.DepositRequest
-  ExecutionWithdrawalRequest* = eth_types.WithdrawalRequest
-  ExecutionConsolidationRequest* = eth_types.ConsolidationRequest
-  ExecutionBlockHeader* = eth_types.Header
-
   FinalityCheckpoints* = object
     justified*: Checkpoint
     finalized*: Checkpoint
@@ -446,57 +438,45 @@ template append*(w: var RlpWriter, v: bellatrix.Transaction) =
   w.appendRawBytes(distinctBase v)
 
 template append*(w: var RlpWriter, withdrawal: capella.Withdrawal) =
-  w.appendRecordType(ExecutionWithdrawal(
+  w.appendRecordType(EthWithdrawal(
     index: withdrawal.index,
     validatorIndex: withdrawal.validator_index,
     address: EthAddress withdrawal.address.data,
     amount: distinctBase(withdrawal.amount)))
 
 proc computeTransactionsTrieRoot(
-    payload: ForkyExecutionPayload): ExecutionHash256 =
+    payload: ForkyExecutionPayload): EthHash32 =
   orderedTrieRoot(payload.transactions.asSeq)
 
-func append*(w: var RlpWriter, request: electra.DepositRequest) =
-  w.append ExecutionDepositRequest(
-    pubkey: Bytes48 request.pubkey.blob,
-    withdrawalCredentials: Bytes32 request.withdrawal_credentials.data,
-    amount: distinctBase(request.amount),
-    signature: Bytes96 request.signature.blob,
-    index: request.index)
-
-func append*(w: var RlpWriter, request: electra.WithdrawalRequest) =
-  w.append ExecutionWithdrawalRequest(
-    sourceAddress: Address request.source_address.data,
-    validatorPubkey: Bytes48 request.validator_pubkey.blob,
-    amount: distinctBase(request.amount))
-
-func append*(w: var RlpWriter, request: electra.ConsolidationRequest) =
-  w.append ExecutionConsolidationRequest(
-    sourceAddress: Address request.source_address.data,
-    sourcePubkey: Bytes48 request.source_pubkey.blob,
-    targetPubkey: Bytes48 request.target_pubkey.blob)
-
 # https://eips.ethereum.org/EIPS/eip-7685
-proc computeRequestsTrieRoot(
-    requests: electra.ExecutionRequests): ExecutionHash256 =
-  let n =
-    requests.deposits.len +
-    requests.withdrawals.len +
-    requests.consolidations.len
+func computeRequestsHash(
+    requests: electra.ExecutionRequests): EthHash32 =
 
-  var b = OrderedTrieRootBuilder.init(n)
+  const
+    DEPOSIT_REQUEST_TYPE = 0x00'u8  # EIP-6110
+    WITHDRAWAL_REQUEST_TYPE = 0x01'u8  # EIP-7002
+    CONSOLIDATION_REQUEST_TYPE = 0x02'u8  # EIP-7251
 
-  static:
-    doAssert DEPOSIT_REQUEST_TYPE < WITHDRAWAL_REQUEST_TYPE
-    doAssert WITHDRAWAL_REQUEST_TYPE < CONSOLIDATION_REQUEST_TYPE
+  let requestsHash = computeDigest:
+    template mixInRequests(requestType, requestList): untyped =
+      block:
+        let hash = computeDigest:
+          bind h
+          h.update([requestType.byte])
+          for request in requestList:
+            h.update SSZ.encode(request)
+        h.update(hash.data)
 
-  b.add(requests.deposits.asSeq) # EIP-6110
-  b.add(requests.withdrawals.asSeq) # EIP-7002
-  b.add(requests.consolidations.asSeq) # EIP-7251
+    static:
+      doAssert DEPOSIT_REQUEST_TYPE < WITHDRAWAL_REQUEST_TYPE
+      doAssert WITHDRAWAL_REQUEST_TYPE < CONSOLIDATION_REQUEST_TYPE
+    mixInRequests(DEPOSIT_REQUEST_TYPE, requests.deposits)
+    mixInRequests(WITHDRAWAL_REQUEST_TYPE, requests.withdrawals)
+    mixInRequests(CONSOLIDATION_REQUEST_TYPE, requests.consolidations)
 
-  b.rootHash()
+  requestsHash.to(EthHash32)
 
-proc blockToBlockHeader*(blck: ForkyBeaconBlock): ExecutionBlockHeader =
+proc blockToBlockHeader*(blck: ForkyBeaconBlock): EthHeader =
   template payload: auto = blck.body.execution_payload
 
   static:  # `GasInt` is signed. We only use it for hashing.
@@ -509,7 +489,7 @@ proc blockToBlockHeader*(blck: ForkyBeaconBlock): ExecutionBlockHeader =
       when typeof(payload).kind >= ConsensusFork.Capella:
         Opt.some orderedTrieRoot(payload.withdrawals.asSeq)
       else:
-        Opt.none(ExecutionHash256)
+        Opt.none(EthHash32)
     blobGasUsed =
       when typeof(payload).kind >= ConsensusFork.Deneb:
         Opt.some payload.blob_gas_used
@@ -522,16 +502,16 @@ proc blockToBlockHeader*(blck: ForkyBeaconBlock): ExecutionBlockHeader =
         Opt.none(uint64)
     parentBeaconBlockRoot =
       when typeof(payload).kind >= ConsensusFork.Deneb:
-        Opt.some ExecutionHash256(blck.parent_root.data)
+        Opt.some EthHash32(blck.parent_root.data)
       else:
-        Opt.none(ExecutionHash256)
-    requestsRoot =
+        Opt.none(EthHash32)
+    requestsHash =
       when typeof(payload).kind >= ConsensusFork.Electra:
-        Opt.some blck.body.execution_requests.computeRequestsTrieRoot()
+        Opt.some blck.body.execution_requests.computeRequestsHash()
       else:
-        Opt.none(ExecutionHash256)
+        Opt.none(EthHash32)
 
-  ExecutionBlockHeader(
+  EthHeader(
     parentHash            : payload.parent_hash.to(Hash32),
     ommersHash            : EMPTY_UNCLE_HASH,
     coinbase              : EthAddress payload.fee_recipient.data,
@@ -552,7 +532,7 @@ proc blockToBlockHeader*(blck: ForkyBeaconBlock): ExecutionBlockHeader =
     blobGasUsed           : blobGasUsed,           # EIP-4844
     excessBlobGas         : excessBlobGas,         # EIP-4844
     parentBeaconBlockRoot : parentBeaconBlockRoot, # EIP-4788
-    requestsRoot          : requestsRoot)          # EIP-7685
+    requestsHash          : requestsHash)          # EIP-7685
 
 proc compute_execution_block_hash*(blck: ForkyBeaconBlock): Eth2Digest =
   rlpHash(blockToBlockHeader(blck)).to(Eth2Digest)

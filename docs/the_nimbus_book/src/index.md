@@ -2,16 +2,18 @@
 
 Nimbus is a client for the Ethereum network that is [lightweight](https://our.status.im/ethereum-is-green/), [secure](./audit.md) and [easy to use](./run-a-validator.md).
 
-Its efficiency and low resource consumption allows it to perform well on all kinds of systems: ranging from Raspberry Pi and mobile devices — where it contributes to low power consumption and security — to powerful servers where it leaves resources free to perform other tasks, such as running an [execution node](./eth1.md).
+Its efficiency and low resource consumption allows it to perform well on all kinds of systems: ranging from Raspberry Pi and mobile devices — where it contributes to low power consumption and security — to powerful servers where it leaves resources free to perform other tasks.
 
-This book describes the consensus layer client, [`nimbus-eth2`](https://github.com/status-im/nimbus-eth2).
-An execution client, [nimbus-eth1](https://github.com/status-im/nimbus-eth1), is also under development.
+This book describes the consensus protocol implementation which includes a [beacon node](./quick-start.md), [validator client](./validator-client.md) and [light client](./el-light-client.md).
 
+An [execution client](https://github.com/status-im/nimbus-eth1) is also under development - see its [quickstart guide](./execution-client.md).
+
+Our companion project [fluffy](https://github.com/status-im/nimbus-eth1/tree/master/fluffy) connects to the [Ethereum portal network](https://ethportal.net/) and has its [own guide](https://fluffy.guide/).
 
 ## Feature highlights
 
 * [Beacon node](./quick-start.md) with integrated validator client, slashing protection and doppelganger detection
-* Stand-alone [validator client](./validator-client.md) with [sentry node](./validator-client.md#sentry-node-setup) support
+* Stand-alone [validator client](./validator-client.md) with [sentry node](./validator-client-options.md#sentry-node-setup) support
 * Fast [Beacon](./rest-api.md) and [KeyManager](./keymanager-api.md) APIs with extensions
 * [Web3Signer](https://docs.web3signer.consensys.net/en/latest/) remote signing
 * [Validator monitoring](./validator-monitor.md) and [performance analysis](./attestation-performance.md) tooling
@@ -35,7 +37,6 @@ As part of our first design goal, our primary objective here is for Nimbus to be
 
 Our dream is for you to be able to run and monitor your validator straight from Status desktop.
 
-
 ## Book contents
 
 You can read this book from start to finish, or you might want to read just specific topics you're interested in:
@@ -45,8 +46,6 @@ You can read this book from start to finish, or you might want to read just spec
 * Visualize the important metrics with [Grafana and Prometheus](./metrics-pretty-pictures.md).
 * Interested in becoming a validator? Follow the [validator guide](./run-a-validator.md).
 * If you're not planning on becoming a validator, you can run the [light client](./el-light-client.md).
-
-
 
 ## Get in touch
 

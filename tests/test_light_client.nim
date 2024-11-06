@@ -146,7 +146,7 @@ suite "Light client" & preset():
     # Initialize light client store
     var bootstrap = dag.getLightClientBootstrap(trusted_block_root)
     check bootstrap.kind > LightClientDataFork.None
-    var store {.noinit.}: ForkedLightClientStore
+    var store: ForkedLightClientStore
     withForkyBootstrap(bootstrap):
       when lcDataFork > LightClientDataFork.None:
         var storeRes = newClone(initialize_light_client_store(

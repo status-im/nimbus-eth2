@@ -685,7 +685,7 @@ type
 
 # https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.8/specs/phase0/beacon-chain.md#operations
 # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.5/specs/capella/beacon-chain.md#modified-process_operations
-# https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.3/specs/electra/beacon-chain.md#operations
+# https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.8/specs/electra/beacon-chain.md#modified-process_operations
 proc process_operations(
     cfg: RuntimeConfig, state: var ForkyBeaconState,
     body: SomeForkyBeaconBlockBody, base_reward_per_increment: Gwei,
@@ -698,17 +698,24 @@ proc process_operations(
       eth1_deposit_index_limit =
         min(state.eth1_data.deposit_count, state.deposit_requests_start_index)
       req_deposits =
+        # Otherwise wraps because unsigned; Python spec semantics would result in
+        # negative difference, which would be impossible for len(...) to match.
         if state.eth1_deposit_index < eth1_deposit_index_limit:
+          if eth1_deposit_index_limit < state.eth1_deposit_index:
+            return err("eth1_deposit_index_limit < state.eth1_deposit_index")
           min(
             MAX_DEPOSITS, eth1_deposit_index_limit - state.eth1_deposit_index)
         else:
           0
   else:
+    # Otherwise wraps because unsigned; Python spec semantics would result in
+    # negative difference, which would be impossible for len(...) to match.
+    if state.eth1_data.deposit_count < state.eth1_deposit_index:
+      return err("state.eth1_data.deposit_count < state.eth1_deposit_index")
     let req_deposits = min(
       MAX_DEPOSITS, state.eth1_data.deposit_count - state.eth1_deposit_index)
 
-  if state.eth1_data.deposit_count < state.eth1_deposit_index or
-      body.deposits.lenu64 != req_deposits:
+  if body.deposits.lenu64 != req_deposits:
     return err("incorrect number of deposits")
 
   var operations_rewards: BlockRewards

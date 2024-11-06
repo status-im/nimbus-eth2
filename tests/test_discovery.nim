@@ -10,7 +10,7 @@
 
 import
   testutils/unittests,
-  chronos, eth/keys, eth/p2p/discoveryv5/enr,
+  chronos, eth/p2p/discoveryv5/enr,
   ../beacon_chain/spec/[forks, network],
   ../beacon_chain/networking/[eth2_network, eth2_discovery],
   ./testutil

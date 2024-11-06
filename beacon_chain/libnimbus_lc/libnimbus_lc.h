@@ -1104,7 +1104,7 @@ const ETHWithdrawals *ETHExecutionBlockHeaderGetWithdrawals(
     const ETHExecutionBlockHeader *executionBlockHeader);
 
 /**
- * Obtains the requests MPT root of a given execution block header.
+ * Obtains the requests hash of a given execution block header.
  *
  * - The returned value is allocated in the given execution block header.
  *   It must neither be released nor written to, and the execution block
@@ -1112,70 +1112,10 @@ const ETHWithdrawals *ETHExecutionBlockHeaderGetWithdrawals(
  *
  * @param      executionBlockHeader Execution block header.
  *
- * @return Execution requests root.
+ * @return Execution requests hash.
  */
 ETH_RESULT_USE_CHECK
-const ETHRoot *ETHExecutionBlockHeaderGetRequestsRoot(
-    const ETHExecutionBlockHeader *executionBlockHeader);
-
-/**
- * Deposit request sequence.
- */
-typedef struct ETHDepositRequests ETHDepositRequests;
-
-/**
- * Obtains the deposit request sequence of a given execution block header.
- *
- * - The returned value is allocated in the given execution block header.
- *   It must neither be released nor written to, and the execution block
- *   header must not be released while the returned value is in use.
- *
- * @param      executionBlockHeader Execution block header.
- *
- * @return Deposit request sequence.
- */
-ETH_RESULT_USE_CHECK
-const ETHDepositRequests *ETHExecutionBlockHeaderGetDepositRequests(
-    const ETHExecutionBlockHeader *executionBlockHeader);
-
-/**
- * Withdrawal request sequence.
- */
-typedef struct ETHWithdrawalRequests ETHWithdrawalRequests;
-
-/**
- * Obtains the withdrawal request sequence of a given execution block header.
- *
- * - The returned value is allocated in the given execution block header.
- *   It must neither be released nor written to, and the execution block
- *   header must not be released while the returned value is in use.
- *
- * @param      executionBlockHeader Execution block header.
- *
- * @return Withdrawal request sequence.
- */
-ETH_RESULT_USE_CHECK
-const ETHWithdrawalRequests *ETHExecutionBlockHeaderGetWithdrawalRequests(
-    const ETHExecutionBlockHeader *executionBlockHeader);
-
-/**
- * Consolidation request sequence.
- */
-typedef struct ETHConsolidationRequests ETHConsolidationRequests;
-
-/**
- * Obtains the consolidation request sequence of a given execution block header.
- *
- * - The returned value is allocated in the given execution block header.
- *   It must neither be released nor written to, and the execution block
- *   header must not be released while the returned value is in use.
- *
- * @param      executionBlockHeader Execution block header.
- *
- * @return Consolidation request sequence.
- */
-ETH_RESULT_USE_CHECK
-const ETHConsolidationRequests *ETHExecutionBlockHeaderGetConsolidationRequests(
+const ETHRoot *ETHExecutionBlockHeaderGetRequestsHash(
     const ETHExecutionBlockHeader *executionBlockHeader);
 
 /**
@@ -1278,7 +1218,7 @@ const ETHRoot *ETHTransactionGetHash(const ETHTransaction *transaction);
  * @return Chain ID.
  */
 ETH_RESULT_USE_CHECK
-const ETHUInt256 *ETHTransactionGetChainId(const ETHTransaction *transaction);
+const uint64_t *ETHTransactionGetChainId(const ETHTransaction *transaction);
 
 /**
  * Obtains the from address of a transaction.
@@ -1553,6 +1493,16 @@ const ETHRoot *ETHTransactionGetBlobVersionedHash(
     int versionedHashIndex);
 
 /**
+ * Indicates whether or not a transaction has an authorization list.
+ *
+ * @param      transaction          Transaction.
+ *
+ * @return Whether or not the transaction has an authorization list.
+ */
+ETH_RESULT_USE_CHECK
+bool ETHTransactionHasAuthorizationList(const ETHTransaction *transaction);
+
+/**
  * Transaction authorization list.
  */
 typedef struct ETHAuthorizationList ETHAuthorizationList;
@@ -1588,7 +1538,7 @@ int ETHAuthorizationListGetCount(const ETHAuthorizationList *authorizationList);
 /**
  * Authorization tuple.
  */
-typedef struct ETHAuthorizationTuple ETHAuthorizationTuple;
+typedef struct ETHAuthorization ETHAuthorization;
 
 /**
  * Obtains an individual authorization tuple by sequential index
@@ -1604,7 +1554,7 @@ typedef struct ETHAuthorizationTuple ETHAuthorizationTuple;
  * @return Authorization tuple.
  */
 ETH_RESULT_USE_CHECK
-const ETHAuthorizationTuple *ETHAuthorizationListGet(
+const ETHAuthorization *ETHAuthorizationListGet(
     const ETHAuthorizationList *authorizationList,
     int authorizationIndex);
 
@@ -1615,13 +1565,13 @@ const ETHAuthorizationTuple *ETHAuthorizationListGet(
  *   It must neither be released nor written to, and the authorization tuple
  *   must not be released while the returned value is in use.
  *
- * @param      authorizationTuple   Authorization tuple.
+ * @param      authorization        Authorization tuple.
  *
  * @return Chain ID.
  */
 ETH_RESULT_USE_CHECK
-const ETHUInt256 *ETHAuthorizationTupleGetChainId(
-    const ETHAuthorizationTuple *authorizationTuple);
+const uint64_t *ETHAuthorizationGetChainId(
+    const ETHAuthorization *authorization);
 
 /**
  * Obtains the address of an authorization tuple.
@@ -1630,13 +1580,13 @@ const ETHUInt256 *ETHAuthorizationTupleGetChainId(
  *   It must neither be released nor written to, and the authorization tuple
  *   must not be released while the returned value is in use.
  *
- * @param      authorizationTuple   Authorization tuple.
+ * @param      authorization        Authorization tuple.
  *
  * @return Address.
  */
 ETH_RESULT_USE_CHECK
-const ETHExecutionAddress *ETHAuthorizationTupleGetAddress(
-    const ETHAuthorizationTuple *authorizationTuple);
+const ETHExecutionAddress *ETHAuthorizationGetAddress(
+    const ETHAuthorization *authorization);
 
 /**
  * Obtains the nonce of an authorization tuple.
@@ -1645,13 +1595,13 @@ const ETHExecutionAddress *ETHAuthorizationTupleGetAddress(
  *   It must neither be released nor written to, and the authorization tuple
  *   must not be released while the returned value is in use.
  *
- * @param      authorizationTuple   Authorization tuple.
+ * @param      authorization        Authorization tuple.
  *
  * @return Nonce.
  */
 ETH_RESULT_USE_CHECK
-const uint64_t *ETHAuthorizationTupleGetNonce(
-    const ETHAuthorizationTuple *authorizationTuple);
+const uint64_t *ETHAuthorizationGetNonce(
+    const ETHAuthorization *authorization);
 
 /**
  * Obtains the authority execution address of an authorization tuple.
@@ -1660,13 +1610,13 @@ const uint64_t *ETHAuthorizationTupleGetNonce(
  *   It must neither be released nor written to, and the authorization tuple
  *   must not be released while the returned value is in use.
  *
- * @param      authorizationTuple   Authorization tuple.
+ * @param      authorization        Authorization tuple.
  *
  * @return Authority execution address.
  */
 ETH_RESULT_USE_CHECK
-const ETHExecutionAddress *ETHAuthorizationTupleGetAuthority(
-    const ETHAuthorizationTuple *authorizationTuple);
+const ETHExecutionAddress *ETHAuthorizationGetAuthority(
+    const ETHAuthorization *authorization);
 
 /**
  * Obtains the signature of a authorization tuple.
@@ -1675,14 +1625,14 @@ const ETHExecutionAddress *ETHAuthorizationTupleGetAuthority(
  *   It must neither be released nor written to, and the authorization tuple
  *   must not be released while the returned value is in use.
  *
- * @param      authorizationTuple   Authorization tuple.
+ * @param      authorization        Authorization tuple.
  * @param[out] numBytes             Length of buffer.
  *
  * @return Buffer with signature.
  */
 ETH_RESULT_USE_CHECK
-const void *ETHAuthorizationTupleGetSignatureBytes(
-    const ETHAuthorizationTuple *authorizationTuple,
+const void *ETHAuthorizationGetSignatureBytes(
+    const ETHAuthorization *authorization,
     int *numBytes);
 
 /**
@@ -2102,354 +2052,6 @@ const uint64_t *ETHWithdrawalGetAmount(const ETHWithdrawal *withdrawal);
 ETH_RESULT_USE_CHECK
 const void *ETHWithdrawalGetBytes(
     const ETHWithdrawal *withdrawal,
-    int *numBytes);
-
-/**
- * Indicates the total number of deposit requests
- * in a deposit request sequence.
- *
- * - Individual deposit requests may be inspected using
- *   `ETHDepositRequestsGet`.
- *
- * @param      requests             Deposit request sequence.
- *
- * @return Number of available deposit requestss.
- */
-ETH_RESULT_USE_CHECK
-int ETHDepositRequestsGetCount(const ETHDepositRequests *requests);
-
-/**
- * Deposit request.
- */
-typedef struct ETHDepositRequest ETHDepositRequest;
-
-/**
- * Obtains an individual deposit request by sequential index
- * in a deposit request sequence.
- *
- * - The returned value is allocated in the given request sequence.
- *   It must neither be released nor written to, and the request
- *   sequence must not be released while the returned value is in use.
- *
- * @param      requests             Deposit request sequence.
- * @param      requestIndex         Sequential deposit request index.
- *
- * @return Deposit request.
- */
-ETH_RESULT_USE_CHECK
-const ETHDepositRequest *ETHDepositRequestsGet(
-    const ETHDepositRequests *requests,
-    int requestIndex);
-
-/**
- * Validator pubkey.
- */
-typedef struct {
-    uint8_t bytes[48];
-} ETHValidatorPubkey;
-
-/**
- * Obtains the pubkey of a deposit request.
- *
- * - The returned value is allocated in the given request.
- *   It must neither be released nor written to, and the request
- *   must not be released while the returned value is in use.
- *
- * @param      request              Deposit request.
- *
- * @return Pubkey.
- */
-ETH_RESULT_USE_CHECK
-const ETHValidatorPubkey *ETHDepositRequestGetPubkey(
-    const ETHDepositRequest *request);
-
-/**
- * Withdrawal credentials.
- */
-typedef struct {
-    uint8_t bytes[32];
-} ETHWithdrawalCredentials;
-
-/**
- * Obtains the withdrawal credentials of a deposit request.
- *
- * - The returned value is allocated in the given request.
- *   It must neither be released nor written to, and the request
- *   must not be released while the returned value is in use.
- *
- * @param      request              Deposit request.
- *
- * @return Withdrawal credentials.
- */
-ETH_RESULT_USE_CHECK
-const ETHWithdrawalCredentials *ETHDepositRequestGetWithdrawalCredentials(
-    const ETHDepositRequest *request);
-
-/**
- * Obtains the amount of a deposit request.
- *
- * - The returned value is allocated in the given request.
- *   It must neither be released nor written to, and the request
- *   must not be released while the returned value is in use.
- *
- * @param      request              Deposit request.
- *
- * @return Amount.
- */
-ETH_RESULT_USE_CHECK
-const uint64_t *ETHDepositRequestGetAmount(
-    const ETHDepositRequest *request);
-
-/**
- * Validator signature.
- */
-typedef struct {
-    uint8_t bytes[96];
-} ETHValidatorSignature;
-
-/**
- * Obtains the signature of a deposit request.
- *
- * - The returned value is allocated in the given request.
- *   It must neither be released nor written to, and the request
- *   must not be released while the returned value is in use.
- *
- * @param      request              Deposit request.
- *
- * @return Signature.
- */
-ETH_RESULT_USE_CHECK
-const ETHValidatorSignature *ETHDepositRequestGetSignature(
-    const ETHDepositRequest *request);
-
-/**
- * Obtains the index of a deposit request.
- *
- * - The returned value is allocated in the given request.
- *   It must neither be released nor written to, and the request
- *   must not be released while the returned value is in use.
- *
- * @param      request              Deposit request.
- *
- * @return Index.
- */
-ETH_RESULT_USE_CHECK
-const uint64_t *ETHDepositRequestGetIndex(
-    const ETHDepositRequest *request);
-
-/**
- * Obtains the raw byte representation of a deposit request.
- *
- * - The returned value is allocated in the given request.
- *   It must neither be released nor written to, and the request
- *   must not be released while the returned value is in use.
- *
- * @param      request              Deposit request.
- * @param[out] numBytes             Length of buffer.
- *
- * @return Buffer with raw deposit request data.
- */
-ETH_RESULT_USE_CHECK
-const void *ETHDepositRequestGetBytes(
-    const ETHDepositRequest *request,
-    int *numBytes);
-
-/**
- * Indicates the total number of withdrawal requests
- * in a withdrawal request sequence.
- *
- * - Individual withdrawal requests may be inspected using
- *   `ETHWithdrawalRequestsGet`.
- *
- * @param      requests             Withdrawal request sequence.
- *
- * @return Number of available withdrawal requestss.
- */
-ETH_RESULT_USE_CHECK
-int ETHWithdrawalRequestsGetCount(const ETHWithdrawalRequests *requests);
-
-/**
- * Withdrawal request.
- */
-typedef struct ETHWithdrawalRequest ETHWithdrawalRequest;
-
-/**
- * Obtains an individual withdrawal request by sequential index
- * in a withdrawal request sequence.
- *
- * - The returned value is allocated in the given request sequence.
- *   It must neither be released nor written to, and the request
- *   sequence must not be released while the returned value is in use.
- *
- * @param      requests             Withdrawal request sequence.
- * @param      requestIndex         Sequential withdrawal request index.
- *
- * @return Withdrawal request.
- */
-ETH_RESULT_USE_CHECK
-const ETHWithdrawalRequest *ETHWithdrawalRequestsGet(
-    const ETHWithdrawalRequests *requests,
-    int requestIndex);
-
-/**
- * Obtains the source address of a withdrawal request.
- *
- * - The returned value is allocated in the given request.
- *   It must neither be released nor written to, and the request
- *   must not be released while the returned value is in use.
- *
- * @param      request              Withdrawal request.
- *
- * @return Source address.
- */
-ETH_RESULT_USE_CHECK
-const ETHExecutionAddress *ETHWithdrawalRequestGetSourceAddress(
-    const ETHWithdrawalRequest *request);
-
-/**
- * Obtains the validator pubkey of a withdrawal request.
- *
- * - The returned value is allocated in the given request.
- *   It must neither be released nor written to, and the request
- *   must not be released while the returned value is in use.
- *
- * @param      request              Withdrawal request.
- *
- * @return Validator pubkey.
- */
-ETH_RESULT_USE_CHECK
-const ETHValidatorPubkey *ETHWithdrawalRequestGetValidatorPubkey(
-    const ETHWithdrawalRequest *request);
-
-/**
- * Obtains the amount of a withdrawal request.
- *
- * - The returned value is allocated in the given request.
- *   It must neither be released nor written to, and the request
- *   must not be released while the returned value is in use.
- *
- * @param      request              Withdrawal request.
- *
- * @return Amount.
- */
-ETH_RESULT_USE_CHECK
-const uint64_t *ETHWithdrawalRequestGetAmount(
-    const ETHWithdrawalRequest *request);
-
-/**
- * Obtains the raw byte representation of a withdrawal request.
- *
- * - The returned value is allocated in the given request.
- *   It must neither be released nor written to, and the request
- *   must not be released while the returned value is in use.
- *
- * @param      request              Withdrawal request.
- * @param[out] numBytes             Length of buffer.
- *
- * @return Buffer with raw withdrawal request data.
- */
-ETH_RESULT_USE_CHECK
-const void *ETHWithdrawalRequestGetBytes(
-    const ETHWithdrawalRequest *request,
-    int *numBytes);
-
-/**
- * Indicates the total number of consolidation requests
- * in a consolidation request sequence.
- *
- * - Individual consolidation requests may be inspected using
- *   `ETHConsolidationRequestsGet`.
- *
- * @param      requests             Consolidation request sequence.
- *
- * @return Number of available consolidation requestss.
- */
-ETH_RESULT_USE_CHECK
-int ETHConsolidationRequestsGetCount(const ETHConsolidationRequests *requests);
-
-/**
- * Consolidation request.
- */
-typedef struct ETHConsolidationRequest ETHConsolidationRequest;
-
-/**
- * Obtains an individual consolidation request by sequential index
- * in a consolidation request sequence.
- *
- * - The returned value is allocated in the given request sequence.
- *   It must neither be released nor written to, and the request
- *   sequence must not be released while the returned value is in use.
- *
- * @param      requests             Consolidation request sequence.
- * @param      requestIndex         Sequential consolidation request index.
- *
- * @return Consolidation request.
- */
-ETH_RESULT_USE_CHECK
-const ETHConsolidationRequest *ETHConsolidationRequestsGet(
-    const ETHConsolidationRequests *requests,
-    int requestIndex);
-
-/**
- * Obtains the source address of a consolidation request.
- *
- * - The returned value is allocated in the given request.
- *   It must neither be released nor written to, and the request
- *   must not be released while the returned value is in use.
- *
- * @param      request              Consolidation request.
- *
- * @return Source address.
- */
-ETH_RESULT_USE_CHECK
-const ETHExecutionAddress *ETHConsolidationRequestGetSourceAddress(
-    const ETHConsolidationRequest *request);
-
-/**
- * Obtains the source pubkey of a consolidation request.
- *
- * - The returned value is allocated in the given request.
- *   It must neither be released nor written to, and the request
- *   must not be released while the returned value is in use.
- *
- * @param      request              Consolidation request.
- *
- * @return Source pubkey.
- */
-ETH_RESULT_USE_CHECK
-const ETHValidatorPubkey *ETHConsolidationRequestGetSourcePubkey(
-    const ETHConsolidationRequest *request);
-
-/**
- * Obtains the target pubkey of a consolidation request.
- *
- * - The returned value is allocated in the given request.
- *   It must neither be released nor written to, and the request
- *   must not be released while the returned value is in use.
- *
- * @param      request              Consolidation request.
- *
- * @return Target pubkey.
- */
-ETH_RESULT_USE_CHECK
-const ETHValidatorPubkey *ETHConsolidationRequestGetTargetPubkey(
-    const ETHConsolidationRequest *request);
-
-/**
- * Obtains the raw byte representation of a consolidation request.
- *
- * - The returned value is allocated in the given request.
- *   It must neither be released nor written to, and the request
- *   must not be released while the returned value is in use.
- *
- * @param      request              Consolidation request.
- * @param[out] numBytes             Length of buffer.
- *
- * @return Buffer with raw consolidation request data.
- */
-ETH_RESULT_USE_CHECK
-const void *ETHConsolidationRequestGetBytes(
-    const ETHConsolidationRequest *request,
     int *numBytes);
 
 #if __has_feature(nullability)

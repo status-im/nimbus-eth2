@@ -769,7 +769,7 @@ when isMainModule:
     indices.add fakeHash(1), 0
     indices.add fakeHash(2), 1
 
-    # 1 validator at the start, 2 at the end
+    # 2 validator at the start, 1 at the end
     var deltas = newSeqUninitialized[Delta](2)
     let old_balances = @[Balance, Balance]
     let new_balances = @[Balance]

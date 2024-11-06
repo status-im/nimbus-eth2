@@ -32,7 +32,7 @@ declarePublicGauge eth1_finalized_deposits,
 declareGauge eth1_chain_len,
   "The length of the in-memory chain of Eth1 blocks"
 
-template toGaugeValue*(x: Quantity | BlockNumber): int64 =
+template toGaugeValue*(x: Quantity): int64 =
   toGaugeValue(distinctBase x)
 
 type
@@ -69,7 +69,7 @@ type
       ## A non-forkable chain of blocks ending at the block with
       ## ETH1_FOLLOW_DISTANCE offset from the head.
 
-    blocksByHash: Table[BlockHash, Eth1Block]
+    blocksByHash: Table[Hash32, Eth1Block]
 
     headMerkleizer: DepositsMerkleizer
       ## Merkleizer state after applying all `blocks`
@@ -330,7 +330,19 @@ proc getBlockProposalData*(chain: var Eth1Chain,
   if pendingDepositsCount > 0:
     if hasLatestDeposits:
       let
-        totalDepositsInNewBlock = min(MAX_DEPOSITS, pendingDepositsCount)
+        totalDepositsInNewBlock =
+          withState(state):
+            when consensusFork >= ConsensusFork.Electra:
+              # https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.8/specs/electra/validator.md#deposits
+              let eth1_deposit_index_limit = min(
+                forkyState.data.eth1_data.deposit_count,
+                forkyState.data.deposit_requests_start_index)
+              if forkyState.data.eth1_deposit_index < eth1_deposit_index_limit:
+                min(MAX_DEPOSITS, pendingDepositsCount)
+              else:
+                0
+            else:
+              min(MAX_DEPOSITS, pendingDepositsCount)
         postStateDepositIdx = stateDepositIdx + pendingDepositsCount
       var
         deposits = newSeqOfCap[DepositData](totalDepositsInNewBlock)

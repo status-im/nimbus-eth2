@@ -24,7 +24,7 @@ import
       pubsub, gossipsub, rpc/message, rpc/messages, peertable, pubsubpeer],
   libp2p/stream/connection,
   libp2p/services/wildcardresolverservice,
-  eth/[keys, async_utils],
+  eth/[common/keys, async_utils],
   eth/net/nat, eth/p2p/discoveryv5/[enr, node, random2],
   ".."/[version, conf, beacon_clock, conf_light_client],
   ../spec/[eth2_ssz_serialization, network, helpers, forks],
@@ -2054,11 +2054,9 @@ proc p2pProtocolBackendImpl*(p: P2PProtocol): Backend =
     ##
     ## Implement Senders and Handshake
     ##
-    if msg.kind == msgHandshake:
-      macros.error "Handshake messages are not supported in LibP2P protocols"
-    else:
-      var sendProc = msg.createSendProc()
-      implementSendProcBody sendProc
+
+    var sendProc = msg.createSendProc()
+    implementSendProcBody sendProc
 
     protocol.outProcRegistrations.add(
       newCall(registerMsg,
@@ -2249,11 +2247,7 @@ proc newBeaconSwitch(config: BeaconNodeConf | LightClientConf,
                      rng: ref HmacDrbgContext): Switch {.raises: [CatchableError].} =
   let service: Service = WildcardAddressResolverService.new()
 
-  var sb =
-    if config.enableYamux:
-      SwitchBuilder.new().withYamux()
-    else:
-      SwitchBuilder.new()
+  var sb = SwitchBuilder.new()
   # Order of multiplexers matters, the first will be default
 
   sb
