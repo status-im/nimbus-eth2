@@ -1455,7 +1455,7 @@ proc installBeaconApiHandlers*(router: var RestRouter, node: BeaconNode) =
     case consensusVersion.get():
       of ConsensusFork.Phase0 .. ConsensusFork.Deneb:
         decodeAttestations(phase0.Attestation)
-      of ConsensusFork.Electra:
+      of ConsensusFork.Electra .. ConsensusFork.Fulu:
         decodeAttestations(electra.Attestation)
 
     let failures =
@@ -1555,7 +1555,7 @@ proc installBeaconApiHandlers*(router: var RestRouter, node: BeaconNode) =
     case consensusVersion.get():
       of ConsensusFork.Phase0 .. ConsensusFork.Deneb:
         decodeAttesterSlashing(phase0.AttesterSlashing)
-      of ConsensusFork.Electra:
+      of ConsensusFork.Electra .. ConsensusFork.Fulu:
         decodeAttesterSlashing(electra.AttesterSlashing)
 
   # https://ethereum.github.io/beacon-APIs/#/Beacon/getPoolProposerSlashings

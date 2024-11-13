@@ -961,6 +961,8 @@ suite "Attestation pool electra processing" & preset():
 
     check:
       verifyAttestationSignature(attestations[0])
+      check_attestation(
+        state[].electraData.data, attestations[0], {}, cache, true).isOk
 
       # A single final chain aggregated attestation should be created
       # with same data, 2 committee bits and 3 aggregation bits
@@ -1048,6 +1050,8 @@ suite "Attestation pool electra processing" & preset():
       check:
         attestations.len() == 1
         attestations[0].aggregation_bits.countOnes() == 3
+        check_attestation(
+          state[].electraData.data, attestations[0], {}, cache, true).isOk
         verifyAttestationSignature(attestations[0])
         # Can get either aggregate here, random!
         verifyAttestationSignature(pool[].getElectraAggregatedAttestation(
@@ -1063,6 +1067,8 @@ suite "Attestation pool electra processing" & preset():
       check:
         attestations.len() == 1
         attestations[0].aggregation_bits.countOnes() == 4
+        check_attestation(
+          state[].electraData.data, attestations[0], {}, cache, true).isOk
         verifyAttestationSignature(attestations[0])
         verifyAttestationSignature(pool[].getElectraAggregatedAttestation(
           1.Slot, hash_tree_root(attestations[0].data), 0.CommitteeIndex).get)

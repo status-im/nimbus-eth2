@@ -318,17 +318,17 @@
         "chainId": "0x0",
         "address": "0x3031323334353637383940414243444546474849",
         "nonce": "0x0",
-        "yParity": "0x1",
-        "R": "0xa4be86c16c6d3a2b907660b24187d0b30b69f6db3e6e8e7a7bb1183a4706d454",
-        "S": "0x28aba84cdee6059dde41620422959d01da4f6cfff21a9b97036db018f1d815f6"
+        "v": "0x1",
+        "r": "0xa4be86c16c6d3a2b907660b24187d0b30b69f6db3e6e8e7a7bb1183a4706d454",
+        "s": "0x28aba84cdee6059dde41620422959d01da4f6cfff21a9b97036db018f1d815f6"
       },
       {
         "chainId": "0x1",
         "address": "0x5051525354555657585960616263646566676869",
         "nonce": "0x309",
-        "yParity": "0x1",
-        "R": "0xa4be86c16c6d3a2b907660b24187d0b30b69f6db3e6e8e7a7bb1183a4706d454",
-        "S": "0x28aba84cdee6059dde41620422959d01da4f6cfff21a9b97036db018f1d815f6"
+        "v": "0x1",
+        "r": "0xa4be86c16c6d3a2b907660b24187d0b30b69f6db3e6e8e7a7bb1183a4706d454",
+        "s": "0x28aba84cdee6059dde41620422959d01da4f6cfff21a9b97036db018f1d815f6"
       }
     ],
     "v": "0x1",

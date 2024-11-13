@@ -13,7 +13,7 @@ on:
   #pull_request:
 
 env:
-  # Build and include deposit_contract nimbus_signing_node nimbus_light_client logtrace in archive
+  # Build and include deposit_contract nimbus_signing_node nimbus_light_client in archive
   BUILD_TOOLS: 1
 
 jobs:

@@ -15,8 +15,6 @@ Before building Nimbus for the first time, make sure to install the [prerequisit
 Nimbus is built in the [Nim language](https://nim-lang.org).
 The compiler is automatically installed when building the project for the first time.
 
-More information — in particular security-related information about the language — can be found in the [Auditor Handbook](https://nimbus.guide/auditors-book/).
-
 ## Code style
 
 The code follows the [Status Nim Style Guide](https://status-im.github.io/nim-style-guide/).
@@ -168,11 +166,6 @@ nim --version # Nimbus is tested and supported on 1.2.12 at the moment
   ```bash
   make dist
   ```
-
-## Multi-client interop scripts
-
-[This repository](https://github.com/eth2-clients/multinet) contains a set of scripts used by the client implementation teams to test interop between the clients (in certain simplified scenarios).
-It mostly helps us find and debug issues.
 
 ## Stress-testing the client by limiting the CPU power
 

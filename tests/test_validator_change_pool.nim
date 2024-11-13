@@ -79,6 +79,7 @@ suite "Validator change pool testing suite":
         tmp.CAPELLA_FORK_EPOCH = Epoch(tmp.SHARD_COMMITTEE_PERIOD) + 2
         tmp.DENEB_FORK_EPOCH = Epoch(tmp.SHARD_COMMITTEE_PERIOD) + 3
         tmp.ELECTRA_FORK_EPOCH = Epoch(tmp.SHARD_COMMITTEE_PERIOD) + 4
+        tmp.FULU_FORK_EPOCH = Epoch(tmp.SHARD_COMMITTEE_PERIOD) + 5
         tmp
 
       validatorMonitor = newClone(ValidatorMonitor.init())

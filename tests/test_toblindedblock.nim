@@ -12,7 +12,8 @@ import
   # Beacon chain internals
   ../beacon_chain/spec/helpers,
   ../beacon_chain/spec/datatypes/[bellatrix, capella],
-  ../beacon_chain/spec/mev/[bellatrix_mev, capella_mev, deneb_mev, electra_mev],
+  ../beacon_chain/spec/mev/[bellatrix_mev, capella_mev, deneb_mev, electra_mev,
+    fulu_mev],
   # Test utilities
   unittest2
 
@@ -130,6 +131,17 @@ template electra_steps() =
     default(ConsolidationRequest))
   do_check
 
+template fulu_steps() =
+  check: b.message.body.execution_requests.deposits.add(
+    default(DepositRequest))
+  do_check
+  check: b.message.body.execution_requests.withdrawals.add(
+    default(WithdrawalRequest))
+  do_check
+  check: b.message.body.execution_requests.consolidations.add(
+    default(ConsolidationRequest))
+  do_check
+
 suite "Blinded block conversions":
   withAll(ConsensusFork):
     when consensusFork >= ConsensusFork.Bellatrix:
@@ -143,4 +155,4 @@ suite "Blinded block conversions":
           deneb_steps
         when consensusFork >= ConsensusFork.Electra:
           electra_steps
-        static: doAssert high(ConsensusFork) == ConsensusFork.Electra
+        static: doAssert high(ConsensusFork) == ConsensusFork.Fulu

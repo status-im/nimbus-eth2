@@ -565,21 +565,32 @@ func get_committee_index_one*(bits: AttestationCommitteeBits): Opt[CommitteeInde
 
 proc compute_on_chain_aggregate*(
     network_aggregates: openArray[electra.Attestation]): Opt[electra.Attestation] =
-  # aggregates = sorted(network_aggregates, key=lambda a: get_committee_indices(a.committee_bits)[0])
-  let aggregates = network_aggregates.sortedByIt(it.committee_bits.get_committee_index_one().expect("just one"))
+  let
+    aggregates = network_aggregates.sortedByIt(
+      it.committee_bits.get_committee_index_one().expect("just one"))
+    data = aggregates[0].data
 
-  let data = aggregates[0].data
-
-  var agg: AggregateSignature
-  var committee_bits: AttestationCommitteeBits
-
-  var totalLen = 0
+  var
+    agg: AggregateSignature
+    committee_bits: AttestationCommitteeBits
+    prev_committee_index: Opt[CommitteeIndex]
+    totalLen = 0
   for i, a in aggregates:
+    let committee_index = ? get_committee_index_one(a.committee_bits)
+    if prev_committee_index.isNone:
+      prev_committee_index = Opt.some committee_index
+    elif committee_index.distinctBase <= prev_committee_index.get.distinctBase:
+      continue
+    prev_committee_index = Opt.some committee_index
+
     totalLen += a.aggregation_bits.len
 
-  var aggregation_bits = ElectraCommitteeValidatorsBits.init(totalLen)
-  var pos = 0
-  var prev_committee_index: Opt[CommitteeIndex]
+  prev_committee_index.reset()
+
+  var
+    aggregation_bits = ElectraCommitteeValidatorsBits.init(totalLen)
+    pos = 0
+    filledLen = 0
   for i, a in aggregates:
     let
       committee_index = ? get_committee_index_one(a.committee_bits)
@@ -594,6 +605,7 @@ proc compute_on_chain_aggregate*(
     for b in a.aggregation_bits:
       aggregation_bits[pos] = b
       pos += 1
+    filledLen += a.aggregation_bits.len
 
     let sig = ? a.signature.load() # Expensive
     if first:
@@ -602,6 +614,8 @@ proc compute_on_chain_aggregate*(
       agg.aggregate(sig)
 
     committee_bits[int(committee_index)] = true
+
+  doAssert totalLen == filledLen
 
   let signature = agg.finish()
 

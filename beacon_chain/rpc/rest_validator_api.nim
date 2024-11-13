@@ -408,7 +408,13 @@ proc installValidatorApiHandlers*(router: var RestRouter, node: BeaconNode) =
     return
       withBlck(message.blck):
         let data =
-          when consensusFork >= ConsensusFork.Electra:
+          when consensusFork >= ConsensusFork.Fulu:
+            let blobsBundle = message.blobsBundleOpt.get()
+            fulu.BlockContents(
+              `block`: forkyBlck,
+              kzg_proofs: blobsBundle.proofs,
+              blobs: blobsBundle.blobs)
+          elif consensusFork >= ConsensusFork.Electra:
             let blobsBundle = message.blobsBundleOpt.get()
             electra.BlockContents(
               `block`: forkyBlck,
@@ -922,7 +928,7 @@ proc installValidatorApiHandlers*(router: var RestRouter, node: BeaconNode) =
     case consensusVersion.get():
       of ConsensusFork.Phase0 .. ConsensusFork.Deneb:
         addDecodedProofs(phase0.SignedAggregateAndProof)
-      of ConsensusFork.Electra:
+      of ConsensusFork.Electra .. ConsensusFork.Fulu:
         addDecodedProofs(electra.SignedAggregateAndProof)
 
     await allFutures(proofs)

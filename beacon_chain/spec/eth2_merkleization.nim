@@ -22,6 +22,7 @@ from ./datatypes/bellatrix import HashedBeaconState, SignedBeaconBlock
 from ./datatypes/capella import HashedBeaconState, SignedBeaconBlock
 from ./datatypes/deneb import HashedBeaconState, SignedBeaconBlock
 from ./datatypes/electra import HashedBeaconState, SignedBeaconBlock
+from ./datatypes/fulu import HashedBeaconState, SignedBeaconBlock
 
 export ssz_codec, merkleization, proofs
 
@@ -33,13 +34,15 @@ type
 func hash_tree_root*(
     x: phase0.HashedBeaconState | altair.HashedBeaconState |
        bellatrix.HashedBeaconState | capella.HashedBeaconState |
-       deneb.HashedBeaconState | electra.SignedBeaconBlock) {.
+       deneb.HashedBeaconState | electra.SignedBeaconBlock |
+       fulu.SignedBeaconBlock) {.
   error: "HashedBeaconState should not be hashed".}
 
 func hash_tree_root*(
     x: phase0.SignedBeaconBlock | altair.SignedBeaconBlock |
        bellatrix.SignedBeaconBlock | capella.SignedBeaconBlock |
-       deneb.SignedBeaconBlock | electra.SignedBeaconBlock) {.
+       deneb.SignedBeaconBlock | electra.SignedBeaconBlock |
+       fulu.SignedBeaconBlock) {.
   error: "SignedBeaconBlock should not be hashed".}
 
 func depositCountBytes*(x: uint64): array[32, byte] =

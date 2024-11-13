@@ -24,7 +24,7 @@ import
       pubsub, gossipsub, rpc/message, rpc/messages, peertable, pubsubpeer],
   libp2p/stream/connection,
   libp2p/services/wildcardresolverservice,
-  eth/[keys, async_utils],
+  eth/[common/keys, async_utils],
   eth/net/nat, eth/p2p/discoveryv5/[enr, node, random2],
   ".."/[version, conf, beacon_clock, conf_light_client],
   ../spec/[eth2_ssz_serialization, network, helpers, forks],
@@ -855,7 +855,8 @@ template gossipMaxSize(T: untyped): uint32 =
     when isFixedSize(T):
       fixedPortionSize(T).uint32
     elif T is bellatrix.SignedBeaconBlock or T is capella.SignedBeaconBlock or
-         T is deneb.SignedBeaconBlock or T is electra.SignedBeaconBlock:
+         T is deneb.SignedBeaconBlock or T is electra.SignedBeaconBlock or
+         T is fulu.SignedBeaconBlock:
       GOSSIP_MAX_SIZE
     # TODO https://github.com/status-im/nim-ssz-serialization/issues/20 for
     # Attestation, AttesterSlashing, and SignedAggregateAndProof, which all
@@ -2054,11 +2055,9 @@ proc p2pProtocolBackendImpl*(p: P2PProtocol): Backend =
     ##
     ## Implement Senders and Handshake
     ##
-    if msg.kind == msgHandshake:
-      macros.error "Handshake messages are not supported in LibP2P protocols"
-    else:
-      var sendProc = msg.createSendProc()
-      implementSendProcBody sendProc
+
+    var sendProc = msg.createSendProc()
+    implementSendProcBody sendProc
 
     protocol.outProcRegistrations.add(
       newCall(registerMsg,
@@ -2682,6 +2681,12 @@ proc broadcastBeaconBlock*(
     node: Eth2Node, blck: electra.SignedBeaconBlock):
     Future[SendResult] {.async: (raises: [CancelledError], raw: true).} =
   let topic = getBeaconBlocksTopic(node.forkDigests.electra)
+  node.broadcast(topic, blck)
+
+proc broadcastBeaconBlock*(
+    node: Eth2Node, blck: fulu.SignedBeaconBlock):
+    Future[SendResult] {.async: (raises: [CancelledError], raw: true).} =
+  let topic = getBeaconBlocksTopic(node.forkDigests.fulu)
   node.broadcast(topic, blck)
 
 proc broadcastBlobSidecar*(

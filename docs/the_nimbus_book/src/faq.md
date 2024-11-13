@@ -65,9 +65,6 @@ While we strongly recommend against it, you can disable doppelganger detection w
 We recommend running [a Nimbus beacon node](./quick-start.md) on [Holesky](./holesky.md) and a mainnet [execution client](./eth1.md) on the same machine.
 This will simulate the load of running a mainnet validator.
 
-To stress test it, add `--subscribe-all-subnets` to the [beacon node options](./options.md).
-This simulates the maximum load that the consensus layer will put on the machine should you run 64 validators or more on it.
-
 ### How do I add an additional validator?
 
 See the information [here](./additional-validator.md).

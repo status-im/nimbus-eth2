@@ -19,8 +19,7 @@ Select an execution client and install it, configuring it such that that the aut
 
 === "Nimbus"
 
-    In parallel to `nimbus-eth2`, we are working hard on the [Nimbus execution client](https://github.com/status-im/nimbus-eth1).
-    While this is very much a project in development (i.e. not yet ready for public consumption), we welcome you to experiment with it.
+    See the [Nimbus execution client](./execution-client.md) for installation instructions.
 
 === "Geth"
 
@@ -112,9 +111,9 @@ You will need to pass the path to the token file to Nimbus together with the web
 === "Geth"
 
     Following [Geth update instructions](https://geth.ethereum.org/docs/faq#how-to-update-geth), to update Geth you need to:
-    
 
-    1. stop the node, 
+
+    1. stop the node,
     2. download the latest release (follow [installation instructions](https://geth.ethereum.org/docs/getting-started/installing-geth)),
     3. restart the node.
 

@@ -48,7 +48,8 @@ func getOrDefault*(info: VCRuntimeConfig, name: string, default: Epoch): Epoch =
 
 func getForkVersion(
     info: VCRuntimeConfig,
-    consensusFork: ConsensusFork
+    consensusFork: ConsensusFork,
+    optionalForks: set[ConsensusFork] = {}
 ): Result[Version, string] =
   let
     key = consensusFork.forkVersionConfigKey()
@@ -56,7 +57,10 @@ func getForkVersion(
       try:
         info[key]
       except KeyError:
-        return err("Forks configuration missing value " & $consensusFork)
+        if consensusFork in optionalForks:
+          "0xFFFFFFFF"
+        else:
+          return err("Forks configuration missing value " & $consensusFork)
   var value: Version
   try:
     hexToByteArrayStrict(stringValue, distinctBase(value))
@@ -64,8 +68,11 @@ func getForkVersion(
     return err(key & " is invalid, reason " & exc.msg)
   ok(value)
 
-func getForkEpoch(info: VCRuntimeConfig,
-                  consensusFork: ConsensusFork): Result[Epoch, string] =
+func getForkEpoch(
+    info: VCRuntimeConfig,
+    consensusFork: ConsensusFork,
+    optionalForks: set[ConsensusFork] = {}
+): Result[Epoch, string] =
   if consensusFork > ConsensusFork.Phase0:
     let
       key = consensusFork.forkEpochConfigKey()
@@ -73,7 +80,10 @@ func getForkEpoch(info: VCRuntimeConfig,
         try:
           info[key]
         except KeyError:
-          return err("Forks configuration missing value " & $consensusFork)
+          if consensusFork in optionalForks:
+            "18446744073709551615"
+          else:
+            return err("Forks configuration missing value " & $consensusFork)
       numValue = Base10.decode(uint64, stringValue).valueOr:
         return err(key & " is invalid, reason " & $error)
     ok(Epoch(numValue))
@@ -84,7 +94,8 @@ template toString(epoch: Epoch): string =
   Base10.toString(uint64(epoch))
 
 func getConsensusForkConfig*(
-    info: VCRuntimeConfig
+    info: VCRuntimeConfig,
+    optionalForks: set[ConsensusFork] = {}
 ): Result[VCForkConfig, string] =
   ## This extracts all `_FORK_VERSION` and `_FORK_EPOCH` constants
   var
@@ -92,8 +103,8 @@ func getConsensusForkConfig*(
     presence: set[ConsensusFork]
   for fork in ConsensusFork:
     let
-      forkVersion = ? info.getForkVersion(fork)
-      forkEpoch = ? info.getForkEpoch(fork)
+      forkVersion = ? info.getForkVersion(fork, optionalForks)
+      forkEpoch = ? info.getForkEpoch(fork, optionalForks)
     config[fork] = ForkConfigItem(version: forkVersion, epoch: forkEpoch)
     presence.incl(fork)
 

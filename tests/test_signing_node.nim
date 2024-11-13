@@ -105,6 +105,9 @@ proc getBlock(
     of ConsensusFork.Electra:
       debugComment "electra test signing node getblock"
       raiseAssert "electra unsupported"
+    of ConsensusFork.Fulu:
+      debugFuluComment "electra test signing node getblock"
+      raiseAssert "fulu unsupported"
   except ValueError:
     # https://github.com/nim-lang/Nim/pull/23356
     raiseAssert "Arguments match the format string"
@@ -128,6 +131,10 @@ func init(t: typedesc[Web3SignerForkedBeaconBlock],
     Web3SignerForkedBeaconBlock(
       kind: ConsensusFork.Electra,
       data: forked.electraData.toBeaconBlockHeader)
+  of ConsensusFork.Fulu:
+    Web3SignerForkedBeaconBlock(
+      kind: ConsensusFork.Fulu,
+      data: forked.fuluData.toBeaconBlockHeader)
 
 proc createKeystore(dataDir, pubkey,
                     store, password: string): Result[void, string] =
@@ -260,6 +267,7 @@ func getRemoteKeystoreData(data: string, basePort: int,
         provenBlockProperties: @[
           ProvenProperty(
             path: ".execution_payload.fee_recipient",
+            fuluIndex: some GeneralizedIndex(801),
             electraIndex: some GeneralizedIndex(801),
             denebIndex: some GeneralizedIndex(801),
             capellaIndex: some GeneralizedIndex(401)

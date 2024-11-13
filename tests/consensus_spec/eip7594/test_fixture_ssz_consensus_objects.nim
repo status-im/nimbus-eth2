@@ -19,7 +19,7 @@ import
   ../../../beacon_chain/spec/datatypes/[
     altair, 
     deneb, 
-    eip7594],
+    fulu],
   # Status libraries
   snappy,
   # Test utilities

@@ -285,7 +285,7 @@ cli do(validatorsDir: string, secretsDir: string,
             randao_reveal,
             forkyState.data.eth1_data,
             graffitiValue,
-            when typeof(payload).kind == ConsensusFork.Electra:
+            when typeof(payload).kind >= ConsensusFork.Electra:
               default(seq[electra.Attestation])
             else:
               blockAggregates,

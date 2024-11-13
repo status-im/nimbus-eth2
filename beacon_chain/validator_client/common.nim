@@ -46,6 +46,16 @@ const
 
   ZeroTimeDiff* = TimeDiff(nanoseconds: 0'i64)
 
+static: doAssert(high(ConsensusFork) == ConsensusFork.Fulu,
+          "Update OptionalForks constant!")
+const
+  OptionalForks* = {ConsensusFork.Electra, ConsensusFork.Fulu}
+    ## When a new ConsensusFork is added and before this fork is activated on
+    ## `mainnet`, it should be part of `OptionalForks`.
+    ## In this case, the client will ignore missing <FORKNAME>_VERSION
+    ## and <FORKNAME>_EPOCH constants from the data reported by BN via
+    ## `/eth/v1/config/spec` API call.
+
 type
   ServiceState* {.pure.} = enum
     Initialized, Running, Error, Closing, Closed
@@ -1487,24 +1497,25 @@ proc validateForkCompatibility(
     forkConfig: VCForkConfig
 ): Result[void, string] =
   let
-    item =
+    storedConfig =
       try:
         vc.forkConfig.get()[consensusFork]
       except KeyError:
         raiseAssert "Fork should be present in configuration"
 
-  if forkVersion != item.version:
-    return err("Beacon node has conflicting " &
-               consensusFork.forkVersionConfigKey() & " value")
-
-  if forkEpoch != item.epoch:
+  if forkEpoch != storedConfig.epoch:
     if forkEpoch == FAR_FUTURE_EPOCH:
       return err("Beacon node do not know about " &
                  $consensusFork & " starting epoch")
     else:
-      if item.epoch != FAR_FUTURE_EPOCH:
+      if storedConfig.epoch != FAR_FUTURE_EPOCH:
         return err("Beacon node has conflicting " &
                    consensusFork.forkEpochConfigKey() & " value")
+  else:
+    if forkEpoch != FAR_FUTURE_EPOCH:
+      if forkVersion != storedConfig.version:
+        return err("Beacon node has conflicting " &
+                   consensusFork.forkVersionConfigKey() & " value")
   ok()
 
 proc updateRuntimeConfig*(
@@ -1512,7 +1523,7 @@ proc updateRuntimeConfig*(
     node: BeaconNodeServerRef,
     info: VCRuntimeConfig
 ): Result[void, string] =
-  let forkConfig = ? info.getConsensusForkConfig()
+  let forkConfig = ? info.getConsensusForkConfig(OptionalForks)
 
   if vc.forkConfig.isNone():
     vc.forkConfig = Opt.some(forkConfig)
@@ -1526,10 +1537,31 @@ proc updateRuntimeConfig*(
         # Save newly discovered forks.
         if localForkConfig[fork].epoch == FAR_FUTURE_EPOCH:
           localForkConfig[fork].epoch = item.epoch
+          localForkConfig[fork].version = item.version
       except KeyError:
         raiseAssert "All the forks should be present inside forks configuration"
     vc.forkConfig = Opt.some(localForkConfig)
   ok()
+
+proc updateForkConfig*(vc: ValidatorClientRef) =
+  if vc.forkConfig.isNone():
+    return
+
+  var config = vc.forkConfig.get()
+  for fork in ConsensusFork:
+    let configItem =
+      try:
+        config[fork]
+      except KeyError:
+        raiseAssert "All the forks should be present inside forks configuration"
+    for scheduleItem in vc.forks:
+      if scheduleItem.current_version == configItem.version:
+        if configItem.epoch == FAR_FUTURE_EPOCH:
+          # Fork schedule knows about Fork's epoch.
+          config[fork] = ForkConfigItem(version: scheduleItem.current_version,
+                                        epoch: scheduleItem.epoch)
+        break
+  vc.forkConfig = Opt.some(config)
 
 proc `+`*(slot: Slot, epochs: Epoch): Slot =
   slot + uint64(epochs) * SLOTS_PER_EPOCH

@@ -62,6 +62,8 @@ type
     DENEB_FORK_EPOCH*: Epoch
     ELECTRA_FORK_VERSION*: Version
     ELECTRA_FORK_EPOCH*: Epoch
+    FULU_FORK_VERSION*: Version
+    FULU_FORK_EPOCH*: Epoch
 
     # Time parameters
     # TODO SECONDS_PER_SLOT*: uint64
@@ -199,6 +201,9 @@ when const_preset == "mainnet":
     # Electra
     ELECTRA_FORK_VERSION: Version [byte 0x05, 0x00, 0x00, 0x00],
     ELECTRA_FORK_EPOCH: FAR_FUTURE_EPOCH,
+    # Fulu
+    FULU_FORK_VERSION: Version [byte 0x06, 0x00, 0x00, 0x00],
+    FULU_FORK_EPOCH: FAR_FUTURE_EPOCH,
 
     # Time parameters
     # ---------------------------------------------------------------
@@ -348,7 +353,9 @@ elif const_preset == "gnosis":
     # Electra
     ELECTRA_FORK_VERSION: Version [byte 0x05, 0x00, 0x00, 0x64],
     ELECTRA_FORK_EPOCH: FAR_FUTURE_EPOCH,
-
+    # Fulu
+    FULU_FORK_VERSION: Version [byte 0x06, 0x00, 0x00, 0x00],
+    FULU_FORK_EPOCH: FAR_FUTURE_EPOCH,
 
     # Time parameters
     # ---------------------------------------------------------------
@@ -457,7 +464,7 @@ elif const_preset == "minimal":
     TERMINAL_TOTAL_DIFFICULTY:
       u256"115792089237316195423570985008687907853269984665640564039457584007913129638912",
     # By default, don't use these params
-    TERMINAL_BLOCK_HASH: BlockHash.fromHex(
+    TERMINAL_BLOCK_HASH: Hash32.fromHex(
       "0x0000000000000000000000000000000000000000000000000000000000000000"),
 
 
@@ -493,7 +500,9 @@ elif const_preset == "minimal":
     # Electra
     ELECTRA_FORK_VERSION: Version [byte 0x05, 0x00, 0x00, 0x01],
     ELECTRA_FORK_EPOCH: Epoch(uint64.high),
-
+    # Fulu
+    FULU_FORK_VERSION: Version [byte 0x06, 0x00, 0x00, 0x01],
+    FULU_FORK_EPOCH: Epoch(uint64.high),
 
     # Time parameters
     # ---------------------------------------------------------------

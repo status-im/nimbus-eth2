@@ -99,5 +99,5 @@ template runForkBlockTests(consensusFork: static ConsensusFork) =
         "EF - " & forkHumanName & " - Random",
         RandomDir, suiteName, path)
 
-withAll(ConsensusFork):
+withAllButFulu(ConsensusFork):
   runForkBlockTests(consensusFork)

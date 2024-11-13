@@ -652,7 +652,7 @@ func init(
     T: type AttestationCache,
     state: altair.HashedBeaconState | bellatrix.HashedBeaconState |
            capella.HashedBeaconState | deneb.HashedBeaconState |
-           electra.HashedBeaconState,
+           electra.HashedBeaconState | fulu.HashedBeaconState,
     cache: var StateCache): T =
   # Load attestations that are scheduled for being given rewards for
   let
@@ -861,7 +861,8 @@ proc getAttestationsForBlock*(pool: var AttestationPool,
       default(seq[phase0.Attestation])
 
 proc getElectraAttestationsForBlock*(
-    pool: var AttestationPool, state: electra.HashedBeaconState,
+    pool: var AttestationPool,
+    state: electra.HashedBeaconState | fulu.HashedBeaconState,
     cache: var StateCache): seq[electra.Attestation] =
   let newBlockSlot = state.data.slot.uint64
 

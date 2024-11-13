@@ -34,6 +34,8 @@ proc makeTestDB*(
     cfg.DENEB_FORK_EPOCH = 100000.Epoch
   if cfg.ELECTRA_FORK_EPOCH == FAR_FUTURE_EPOCH:
     cfg.ELECTRA_FORK_EPOCH = 110000.Epoch
+  if cfg.FULU_FORK_EPOCH == FAR_FUTURE_EPOCH:
+    cfg.FULU_FORK_EPOCH = 120000.Epoch
 
   var genState = (ref ForkedHashedBeaconState)(
     kind: ConsensusFork.Phase0,

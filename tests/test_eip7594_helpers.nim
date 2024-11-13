@@ -15,7 +15,7 @@ import
   kzg4844/[kzg_abi, kzg],
   ./consensus_spec/[os_ops, fixtures_utils],
   ../beacon_chain/spec/[helpers, eip7594_helpers],
-  ../beacon_chain/spec/datatypes/[eip7594, deneb]
+  ../beacon_chain/spec/datatypes/[fulu, deneb]
 
 from std/strutils import rsplit
 

@@ -268,8 +268,10 @@ when const_preset == "gnosis":
 
     for network in [gnosisMetadata, chiadoMetadata]:
       doAssert network.cfg.DENEB_FORK_EPOCH < FAR_FUTURE_EPOCH
-      doAssert network.cfg.ELECTRA_FORK_EPOCH == FAR_FUTURE_EPOCH
-      doAssert ConsensusFork.high == ConsensusFork.Electra
+      doAssert network.cfg.ELECTRA_FORK_EPOCH == FAR_FUTURE_EPOCH 
+      doAssert network.cfg.FULU_FORK_EPOCH == FAR_FUTURE_EPOCH
+      doAssert ConsensusFork.high == ConsensusFork.Fulu
+
 
 elif const_preset == "mainnet":
   when incbinEnabled:
@@ -321,7 +323,8 @@ elif const_preset == "mainnet":
     for network in [mainnetMetadata, sepoliaMetadata, holeskyMetadata]:
       doAssert network.cfg.DENEB_FORK_EPOCH < FAR_FUTURE_EPOCH
       doAssert network.cfg.ELECTRA_FORK_EPOCH == FAR_FUTURE_EPOCH
-      doAssert ConsensusFork.high == ConsensusFork.Electra
+      doAssert network.cfg.FULU_FORK_EPOCH == FAR_FUTURE_EPOCH
+      doAssert ConsensusFork.high == ConsensusFork.Fulu
 
 proc getMetadataForNetwork*(networkName: string): Eth2NetworkMetadata =
   template loadRuntimeMetadata(): auto =

@@ -18,11 +18,11 @@ import
     types],
   ./crypto,
   ./[helpers, digest],
-  ./datatypes/[eip7594]
+  ./datatypes/[fulu]
 
 type
-  CellBytes = array[eip7594.CELLS_PER_EXT_BLOB, Cell]
-  ProofBytes = array[eip7594.CELLS_PER_EXT_BLOB, KzgProof]
+  CellBytes = array[fulu.CELLS_PER_EXT_BLOB, Cell]
+  ProofBytes = array[fulu.CELLS_PER_EXT_BLOB, KzgProof]
 
 func sortedColumnIndices*(columnsPerSubnet: ColumnIndex,
                           subnetIds: HashSet[uint64]):
@@ -119,7 +119,7 @@ proc compute_matrix*(blobs: seq[KzgBlob]): Result[seq[MatrixEntry], cstring] =
     if cellsAndProofs.isErr:
       return err("Computing Extended Matrix: Issue computing cells and proofs")
 
-    for i in 0..<eip7594.CELLS_PER_EXT_BLOB:
+    for i in 0..<fulu.CELLS_PER_EXT_BLOB:
       extended_matrix.add(MatrixEntry(
         cell: cellsAndProofs.get.cells[i],
         kzg_proof: cellsAndProofs.get.proofs[i],

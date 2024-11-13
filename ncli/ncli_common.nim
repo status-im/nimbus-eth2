@@ -275,7 +275,8 @@ proc collectEpochRewardsAndPenalties*(
 proc collectEpochRewardsAndPenalties*(
     rewardsAndPenalties: var seq[RewardsAndPenalties],
     state: var (altair.BeaconState | bellatrix.BeaconState |
-                capella.BeaconState | deneb.BeaconState | electra.BeaconState),
+                capella.BeaconState | deneb.BeaconState | electra.BeaconState |
+                fulu.BeaconState),
     cache: var StateCache, cfg: RuntimeConfig, flags: UpdateFlags) =
   if get_current_epoch(state) == GENESIS_EPOCH:
     return

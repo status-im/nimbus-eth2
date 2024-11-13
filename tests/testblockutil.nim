@@ -219,6 +219,8 @@ proc addTestBlock*(
       graffiti,
       when consensusFork == ConsensusFork.Electra:
         electraAttestations
+      elif consensusFork == ConsensusFork.Fulu:
+        electraAttestations
       else:
         attestations,
       deposits,

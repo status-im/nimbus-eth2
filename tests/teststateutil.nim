@@ -79,7 +79,7 @@ proc getTestStates*(
     info = ForkedEpochInfo()
     cfg = defaultRuntimeConfig
 
-  static: doAssert high(ConsensusFork) == ConsensusFork.Electra
+  static: doAssert high(ConsensusFork) == ConsensusFork.Fulu
   if consensusFork >= ConsensusFork.Altair:
     cfg.ALTAIR_FORK_EPOCH = 1.Epoch
   if consensusFork >= ConsensusFork.Bellatrix:
@@ -90,6 +90,8 @@ proc getTestStates*(
     cfg.DENEB_FORK_EPOCH = 4.Epoch
   if consensusFork >= ConsensusFork.Electra:
     cfg.ELECTRA_FORK_EPOCH = 5.Epoch
+  if consensusFork >= ConsensusFork.Fulu:
+    cfg.FULU_FORK_EPOCH = 6.Epoch
 
   for i, epoch in stateEpochs:
     let slot = epoch.Epoch.start_slot
@@ -109,7 +111,8 @@ from std/sequtils import allIt
 from ".."/beacon_chain/spec/beaconstate import get_expected_withdrawals
 
 proc checkPerValidatorBalanceCalc*(
-    state: deneb.BeaconState | electra.BeaconState): bool =
+    state: deneb.BeaconState | electra.BeaconState |
+           fulu.BeaconState): bool =
   var
     info: altair.EpochInfo
     cache: StateCache

@@ -1,6 +1,10 @@
-# Running on a Raspberry Pi
+# Raspberry Pi
 
 <blockquote class="twitter-tweet"><p lang="en" dir="ltr">I expect the new Raspberry Pi 4 (4GB RAM option, external SSD) to handle an Eth2 validator node without breaking a sweat. That&#39;s $100 of hardware running at 10 Watts to support a 32 ETH node (currently ~$10K stake).</p>&mdash; Justin Ðrake (@drakefjustin) <a href="https://twitter.com/drakefjustin/status/1143091047058366465?ref_src=twsrc%5Etfw">June 24, 2019</a></blockquote> <script async src="https://platform.twitter.com/widgets.js" charset="utf-8"></script>
+
+
+!!! note
+While this guide is based on Raspberry Pi 4 which was the newest version at the time of writing, growth of the validator set and chain complexity has led to increased hardware requirements for running a node. A Pi 4 might still be able to keep up, but your experience will be much better with the 8GB version of Pi 5 (or similar single-board computer such as [Rock 5B](https://radxa.com/products/rock5/5b/)).
 
 In addition to this guide, we highly recommend this [wonderful and complementary resource](https://docs.rocketpool.net/guides/node/local/prepare-pi.html#preliminary-setup) by community member Joe Clapis.
 
@@ -419,7 +423,7 @@ You should see something like:
 peers: 15 ❯ finalized: ada7228a:8765 ❯ head: b2fe11cd:8767:2 ❯ time: 9900:7 (316807) ❯ sync: wPwwwwwDwwDPwPPPwwww:7:1.2313:1.0627:12h01m(280512)
 ```
 
-Keep an eye on the number of peers you're currently connected to (in the above case that's `15`), as well as your [sync progress](./keep-an-eye.md#syncing-progress).
+Keep an eye on the number of peers you're currently connected to (in the above case that's `15`), as well as your [sync progress](./keep-an-eye.md#keep-track-of-your-syncing-progress).
 
 !!! note
     15 - 20 peers and an average sync speed of **0.5 - 1.0** blocks per second is normal on `Holesky` with a Pi.

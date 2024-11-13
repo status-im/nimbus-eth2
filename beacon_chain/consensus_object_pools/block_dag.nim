@@ -70,7 +70,8 @@ func init*(
     blck: bellatrix.SomeBeaconBlock | bellatrix.TrustedBeaconBlock |
           capella.SomeBeaconBlock | capella.TrustedBeaconBlock |
           deneb.SomeBeaconBlock | deneb.TrustedBeaconBlock |
-          electra.SomeBeaconBlock | electra.TrustedBeaconBlock): BlockRef =
+          electra.SomeBeaconBlock | electra.TrustedBeaconBlock |
+          fulu.SomeBeaconBlock | fulu.TrustedBeaconBlock): BlockRef =
   BlockRef.init(
     root, Opt.some blck.body.execution_payload.block_hash,
     executionValid =

@@ -303,7 +303,8 @@ iterator pop*(quarantine: var Quarantine, root: Eth2Digest):
 
 proc addBlobless*(
     quarantine: var Quarantine, finalizedSlot: Slot,
-    signedBlock: deneb.SignedBeaconBlock | electra.SignedBeaconBlock): bool =
+    signedBlock: deneb.SignedBeaconBlock | electra.SignedBeaconBlock |
+    fulu.SignedBeaconBlock): bool =
 
   if not isViable(finalizedSlot, signedBlock.message.slot):
     quarantine.addUnviable(signedBlock.root)

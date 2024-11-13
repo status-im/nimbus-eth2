@@ -285,7 +285,11 @@ type
     # balances, as used in fork choice
     effective_balances_bytes*: seq[byte]
 
-  OnBlockAdded[T: ForkyTrustedSignedBeaconBlock] = proc(
+  BlockData* = object
+    blck*: ForkedSignedBeaconBlock
+    blob*: Opt[BlobSidecars]
+
+  OnBlockAdded*[T: ForkyTrustedSignedBeaconBlock] = proc(
     blckRef: BlockRef, blck: T, epochRef: EpochRef,
     unrealized: FinalityCheckpoints) {.gcsafe, raises: [].}
   OnPhase0BlockAdded* = OnBlockAdded[phase0.TrustedSignedBeaconBlock]
@@ -294,10 +298,19 @@ type
   OnCapellaBlockAdded* = OnBlockAdded[capella.TrustedSignedBeaconBlock]
   OnDenebBlockAdded* = OnBlockAdded[deneb.TrustedSignedBeaconBlock]
   OnElectraBlockAdded* = OnBlockAdded[electra.TrustedSignedBeaconBlock]
+  OnFuluBlockAdded* = OnBlockAdded[fulu.TrustedSignedBeaconBlock]
 
   OnForkyBlockAdded* =
     OnPhase0BlockAdded | OnAltairBlockAdded | OnBellatrixBlockAdded |
-    OnCapellaBlockAdded | OnDenebBlockAdded | OnElectraBlockAdded
+    OnCapellaBlockAdded | OnDenebBlockAdded | OnElectraBlockAdded |
+    OnFuluBlockAdded
+
+  OnForkedBlockAdded* = proc(
+    blckRef: BlockRef, blck: ForkedTrustedSignedBeaconBlock, epochRef: EpochRef,
+    unrealized: FinalityCheckpoints) {.gcsafe, raises: [].}
+
+  OnStateUpdated* = proc(
+    slot: Slot): Result[void, VerifierError] {.gcsafe, raises: [].}
 
   HeadChangeInfoObject* = object
     slot*: Slot
@@ -329,7 +342,9 @@ type
     optimistic* {.serializedFieldName: "execution_optimistic".}: Option[bool]
 
 template OnBlockAddedCallback*(kind: static ConsensusFork): auto =
-  when kind == ConsensusFork.Electra:
+  when kind == ConsensusFork.Fulu:
+    typedesc[OnFuluBlockAdded]
+  elif kind == ConsensusFork.Electra:
     typedesc[OnElectraBlockAdded]
   elif kind == ConsensusFork.Deneb:
     typedesc[OnDenebBlockAdded]

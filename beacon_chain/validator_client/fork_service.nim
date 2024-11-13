@@ -69,6 +69,7 @@ proc pollForFork(vc: ValidatorClientRef) {.async: (raises: [CancelledError]).} =
 
   if (len(vc.forks) == 0) or (vc.forks != sortedForks):
     vc.forks = sortedForks
+    vc.updateForkConfig()
     notice "Fork schedule updated", fork_schedule = sortedForks
     vc.forksAvailable.fire()
 

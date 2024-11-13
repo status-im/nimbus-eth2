@@ -61,7 +61,8 @@ import # Unit test
   ./slashing_protection/test_fixtures,
   ./slashing_protection/test_slashing_protection_db,
   ./test_validator_client,
-  ./test_beacon_validators
+  ./test_beacon_validators,
+  ./test_beacon_chain_file
 
 when not defined(windows):
   import ./test_keymanager_api

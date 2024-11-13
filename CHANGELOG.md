@@ -1,3 +1,27 @@
+2024-10-29 v24.10.0
+===================
+
+Nimbus `v24.10.0` is a `low-urgency` release with performance improvements and stability fixes. It is `high-urgency` in specific cases where the beacon REST API might be externally exposed, which is not the default configuration.
+
+### Improvements
+
+* Improve performance for syncing with a timing-out or nonresponsive execution client:
+  https://github.com/status-im/nimbus-eth2/pull/6665
+
+* Increase execution payload block hash verification performance for optimistic sync by 100x:
+  https://github.com/status-im/nimbus-eth2/pull/6610
+
+* Increase validator client scalability with number of validators:
+  https://github.com/status-im/nimbus-eth2/pull/6609
+
+### Fixes
+
+* Fix crash on overlong JSON array reading:
+  https://github.com/status-im/nimbus-eth2/pull/6674
+
+* Fix infinite loop in validator client when all validators lack indices:
+  https://github.com/status-im/nimbus-eth2/pull/6615
+
 2024-09-30 v24.9.0
 ==================
 

@@ -227,7 +227,8 @@ func verify_blob_sidecar_inclusion_proof*(
   ok()
 
 func create_blob_sidecars*(
-    forkyBlck: deneb.SignedBeaconBlock | electra.SignedBeaconBlock,
+    forkyBlck: deneb.SignedBeaconBlock | electra.SignedBeaconBlock |
+    fulu.SignedBeaconBlock,
     kzg_proofs: KzgProofs,
     blobs: Blobs): seq[BlobSidecar] =
   template kzg_commitments: untyped =
@@ -382,7 +383,7 @@ func contextEpoch*(update: SomeForkyLightClientUpdate): Epoch =
 # https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.8/specs/bellatrix/beacon-chain.md#is_merge_transition_complete
 func is_merge_transition_complete*(
     state: bellatrix.BeaconState | capella.BeaconState | deneb.BeaconState |
-           electra.BeaconState): bool =
+           electra.BeaconState | fulu.BeaconState): bool =
   const defaultExecutionPayloadHeader =
     default(typeof(state.latest_execution_payload_header))
   state.latest_execution_payload_header != defaultExecutionPayloadHeader
@@ -399,7 +400,7 @@ func is_execution_block*(blck: SomeForkyBeaconBlock): bool =
 # https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.8/specs/bellatrix/beacon-chain.md#is_merge_transition_block
 func is_merge_transition_block(
     state: bellatrix.BeaconState | capella.BeaconState | deneb.BeaconState |
-           electra.BeaconState,
+           electra.BeaconState | fulu.BeaconState,
     body: bellatrix.BeaconBlockBody | bellatrix.TrustedBeaconBlockBody |
           bellatrix.SigVerifiedBeaconBlockBody |
           capella.BeaconBlockBody | capella.TrustedBeaconBlockBody |
@@ -407,7 +408,9 @@ func is_merge_transition_block(
           deneb.BeaconBlockBody | deneb.TrustedBeaconBlockBody |
           deneb.SigVerifiedBeaconBlockBody |
           electra.BeaconBlockBody | electra.TrustedBeaconBlockBody |
-          electra.SigVerifiedBeaconBlockBody): bool =
+          electra.SigVerifiedBeaconBlockBody |
+          fulu.BeaconBlockBody | fulu.TrustedBeaconBlockBody |
+          fulu.SigVerifiedBeaconBlockBody): bool =
   const defaultExecutionPayload = default(typeof(body.execution_payload))
   not is_merge_transition_complete(state) and
     body.execution_payload != defaultExecutionPayload
@@ -415,7 +418,7 @@ func is_merge_transition_block(
 # https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.8/specs/bellatrix/beacon-chain.md#is_execution_enabled
 func is_execution_enabled*(
     state: bellatrix.BeaconState | capella.BeaconState | deneb.BeaconState |
-           electra.BeaconState,
+           electra.BeaconState | fulu.BeaconState,
     body: bellatrix.BeaconBlockBody | bellatrix.TrustedBeaconBlockBody |
           bellatrix.SigVerifiedBeaconBlockBody |
           capella.BeaconBlockBody | capella.TrustedBeaconBlockBody |
@@ -423,7 +426,9 @@ func is_execution_enabled*(
           deneb.BeaconBlockBody | deneb.TrustedBeaconBlockBody |
           deneb.SigVerifiedBeaconBlockBody |
           electra.BeaconBlockBody | electra.TrustedBeaconBlockBody |
-          electra.SigVerifiedBeaconBlockBody): bool =
+          electra.SigVerifiedBeaconBlockBody |
+          fulu.BeaconBlockBody | fulu.TrustedBeaconBlockBody |
+          fulu.SigVerifiedBeaconBlockBody): bool =
   is_merge_transition_block(state, body) or is_merge_transition_complete(state)
 
 # https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.8/specs/bellatrix/beacon-chain.md#compute_timestamp_at_slot
@@ -446,29 +451,15 @@ proc computeTransactionsTrieRoot(
     payload: ForkyExecutionPayload): EthHash32 =
   orderedTrieRoot(payload.transactions.asSeq)
 
-func append*(w: var RlpWriter, request: electra.DepositRequest) =
-  w.append EthDepositRequest(
-    pubkey: Bytes48 request.pubkey.blob,
-    withdrawalCredentials: Bytes32 request.withdrawal_credentials.data,
-    amount: distinctBase(request.amount),
-    signature: Bytes96 request.signature.blob,
-    index: request.index)
-
-func append*(w: var RlpWriter, request: electra.WithdrawalRequest) =
-  w.append EthWithdrawalRequest(
-    sourceAddress: Address request.source_address.data,
-    validatorPubkey: Bytes48 request.validator_pubkey.blob,
-    amount: distinctBase(request.amount))
-
-func append*(w: var RlpWriter, request: electra.ConsolidationRequest) =
-  w.append EthConsolidationRequest(
-    sourceAddress: Address request.source_address.data,
-    sourcePubkey: Bytes48 request.source_pubkey.blob,
-    targetPubkey: Bytes48 request.target_pubkey.blob)
-
 # https://eips.ethereum.org/EIPS/eip-7685
 func computeRequestsHash(
     requests: electra.ExecutionRequests): EthHash32 =
+
+  const
+    DEPOSIT_REQUEST_TYPE = 0x00'u8  # EIP-6110
+    WITHDRAWAL_REQUEST_TYPE = 0x01'u8  # EIP-7002
+    CONSOLIDATION_REQUEST_TYPE = 0x02'u8  # EIP-7251
+
   let requestsHash = computeDigest:
     template mixInRequests(requestType, requestList): untyped =
       block:

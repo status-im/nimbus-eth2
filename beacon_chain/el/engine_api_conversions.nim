@@ -9,7 +9,7 @@
 
 import
   kzg4844/[kzg_abi, kzg],
-  ../spec/datatypes/[bellatrix, capella, deneb, electra],
+  ../spec/datatypes/[bellatrix, capella, deneb, electra, fulu],
   web3/[engine_api, engine_api_types]
 
 from std/sequtils import mapIt
@@ -19,11 +19,11 @@ type
     executionPayload*: ExecutionPayloadV1
     blockValue*: UInt256
 
-func asEth2Digest*(x: BlockHash|Bytes32): Eth2Digest =
+func asEth2Digest*(x: Hash32|Bytes32): Eth2Digest =
   Eth2Digest(data: array[32, byte](x))
 
-template asBlockHash*(x: Eth2Digest): BlockHash =
-  BlockHash(x.data)
+template asBlockHash*(x: Eth2Digest): Hash32 =
+  Hash32(x.data)
 
 func asConsensusWithdrawal*(w: WithdrawalV1): capella.Withdrawal =
   capella.Withdrawal(
@@ -156,6 +156,33 @@ func asElectraConsensusPayload(rpcExecutionPayload: ExecutionPayloadV3):
     blob_gas_used: rpcExecutionPayload.blobGasUsed.uint64,
     excess_blob_gas: rpcExecutionPayload.excessBlobGas.uint64)
 
+func asFuluConsensusPayload(rpcExecutionPayload: ExecutionPayloadV3):
+    fulu.ExecutionPayload =
+  template getTransaction(tt: TypedTransaction): bellatrix.Transaction =
+    bellatrix.Transaction.init(tt.distinctBase)
+
+  fulu.ExecutionPayload(
+    parent_hash: rpcExecutionPayload.parentHash.asEth2Digest,
+    feeRecipient:
+      ExecutionAddress(data: rpcExecutionPayload.feeRecipient.distinctBase),
+    state_root: rpcExecutionPayload.stateRoot.asEth2Digest,
+    receipts_root: rpcExecutionPayload.receiptsRoot.asEth2Digest,
+    logs_bloom: BloomLogs(data: rpcExecutionPayload.logsBloom.distinctBase),
+    prev_randao: rpcExecutionPayload.prevRandao.asEth2Digest,
+    block_number: rpcExecutionPayload.blockNumber.uint64,
+    gas_limit: rpcExecutionPayload.gasLimit.uint64,
+    gas_used: rpcExecutionPayload.gasUsed.uint64,
+    timestamp: rpcExecutionPayload.timestamp.uint64,
+    extra_data: List[byte, MAX_EXTRA_DATA_BYTES].init(rpcExecutionPayload.extraData.data),
+    base_fee_per_gas: rpcExecutionPayload.baseFeePerGas,
+    block_hash: rpcExecutionPayload.blockHash.asEth2Digest,
+    transactions: List[bellatrix.Transaction, MAX_TRANSACTIONS_PER_PAYLOAD].init(
+      mapIt(rpcExecutionPayload.transactions, it.getTransaction)),
+    withdrawals: List[capella.Withdrawal, MAX_WITHDRAWALS_PER_PAYLOAD].init(
+      mapIt(rpcExecutionPayload.withdrawals, it.asConsensusWithdrawal)),
+    blob_gas_used: rpcExecutionPayload.blobGasUsed.uint64,
+    excess_blob_gas: rpcExecutionPayload.excessBlobGas.uint64)
+
 func asConsensusType*(payload: engine_api.GetPayloadV3Response):
     deneb.ExecutionPayloadForSigning =
   deneb.ExecutionPayloadForSigning(
@@ -180,6 +207,27 @@ func asConsensusType*(
     electra.ExecutionPayloadForSigning =
   electra.ExecutionPayloadForSigning(
     executionPayload: payload.executionPayload.asElectraConsensusPayload,
+    blockValue: payload.blockValue,
+    # TODO
+    # The `mapIt` calls below are necessary only because we use different distinct
+    # types for KZG commitments and Blobs in the `web3` and the `deneb` spec types.
+    # Both are defined as `array[N, byte]` under the hood.
+    blobsBundle: deneb.BlobsBundle(
+      commitments: KzgCommitments.init(
+        payload.blobsBundle.commitments.mapIt(
+          kzg_abi.KzgCommitment(bytes: it.data))),
+      proofs: KzgProofs.init(
+        payload.blobsBundle.proofs.mapIt(
+          kzg_abi.KzgProof(bytes: it.data))),
+      blobs: Blobs.init(
+        payload.blobsBundle.blobs.mapIt(it.data))),
+    executionRequests: payload.executionRequests)
+
+func asConsensusTypeFulu*(
+    payload: GetPayloadV4Response):
+    fulu.ExecutionPayloadForSigning =
+  fulu.ExecutionPayloadForSigning(
+    executionPayload: payload.executionPayload.asFuluConsensusPayload,
     blockValue: payload.blockValue,
     # TODO
     # The `mapIt` calls below are necessary only because we use different distinct
@@ -252,7 +300,8 @@ func asEngineExecutionPayload*(blockBody: capella.BeaconBlockBody):
     withdrawals: mapIt(executionPayload.withdrawals, it.toEngineWithdrawal))
 
 func asEngineExecutionPayload*(
-    blockBody: deneb.BeaconBlockBody | electra.BeaconBlockBody):
+    blockBody: deneb.BeaconBlockBody | electra.BeaconBlockBody |
+    fulu.BeaconBlockBody):
     ExecutionPayloadV3 =
   template executionPayload(): untyped = blockBody.execution_payload
 

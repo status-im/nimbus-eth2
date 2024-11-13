@@ -66,7 +66,8 @@ proc putBlock*(
 
 proc updateState*(
     dag: ChainDAGRef, state: var ForkedHashedBeaconState, bsi: BlockSlotId,
-    save: bool, cache: var StateCache): bool {.gcsafe.}
+    save: bool, cache: var StateCache,
+    updateFlags: UpdateFlags): bool {.gcsafe.}
 
 template withUpdatedState*(
     dag: ChainDAGRef, stateParam: var ForkedHashedBeaconState,
@@ -77,7 +78,7 @@ template withUpdatedState*(
   block:
     let bsi {.inject.} = bsiParam
     var cache {.inject.} = StateCache()
-    if updateState(dag, stateParam, bsi, false, cache):
+    if updateState(dag, stateParam, bsi, false, cache, dag.updateFlags):
       template bid(): BlockId {.inject, used.} = bsi.bid
       template updatedState(): ForkedHashedBeaconState {.inject, used.} = stateParam
       okBody
@@ -265,8 +266,11 @@ proc getForkedBlock*(db: BeaconChainDB, root: Eth2Digest):
     Opt[ForkedTrustedSignedBeaconBlock] =
   # When we only have a digest, we don't know which fork it's from so we try
   # them one by one - this should be used sparingly
-  static: doAssert high(ConsensusFork) == ConsensusFork.Electra
-  if (let blck = db.getBlock(root, electra.TrustedSignedBeaconBlock);
+  static: doAssert high(ConsensusFork) == ConsensusFork.Fulu
+  if (let blck = db.getBlock(root, fulu.TrustedSignedBeaconBlock);
+      blck.isSome()):
+    ok(ForkedTrustedSignedBeaconBlock.init(blck.get()))
+  elif (let blck = db.getBlock(root, electra.TrustedSignedBeaconBlock);
       blck.isSome()):
     ok(ForkedTrustedSignedBeaconBlock.init(blck.get()))
   elif (let blck = db.getBlock(root, deneb.TrustedSignedBeaconBlock);
@@ -931,7 +935,8 @@ proc putState(dag: ChainDAGRef, state: ForkedHashedBeaconState, bid: BlockId) =
 
 proc advanceSlots*(
     dag: ChainDAGRef, state: var ForkedHashedBeaconState, slot: Slot, save: bool,
-    cache: var StateCache, info: var ForkedEpochInfo) =
+    cache: var StateCache, info: var ForkedEpochInfo,
+    updateFlags: UpdateFlags) =
   # Given a state, advance it zero or more slots by applying empty slot
   # processing - the state must be positioned at or before `slot`
   doAssert getStateField(state, slot) <= slot
@@ -945,7 +950,7 @@ proc advanceSlots*(
 
     process_slots(
       dag.cfg, state, getStateField(state, slot) + 1, cache, info,
-      dag.updateFlags).expect("process_slots shouldn't fail when state slot is correct")
+      updateFlags).expect("process_slots shouldn't fail when state slot is correct")
     if save:
       dag.putState(state, stateBid)
 
@@ -967,7 +972,8 @@ proc advanceSlots*(
 
 proc applyBlock(
     dag: ChainDAGRef, state: var ForkedHashedBeaconState, bid: BlockId,
-    cache: var StateCache, info: var ForkedEpochInfo): Result[void, cstring] =
+    cache: var StateCache, info: var ForkedEpochInfo,
+    updateFlags: UpdateFlags): Result[void, cstring] =
   loadStateCache(dag, cache, bid, getStateField(state, slot).epoch)
 
   discard case dag.cfg.consensusForkAtEpoch(bid.slot.epoch)
@@ -976,37 +982,43 @@ proc applyBlock(
       return err("Block load failed")
     ? state_transition(
       dag.cfg, state, data, cache, info,
-      dag.updateFlags + {slotProcessed}, noRollback)
+      updateFlags + {slotProcessed}, noRollback)
   of ConsensusFork.Altair:
     let data = getBlock(dag, bid, altair.TrustedSignedBeaconBlock).valueOr:
       return err("Block load failed")
     ? state_transition(
       dag.cfg, state, data, cache, info,
-      dag.updateFlags + {slotProcessed}, noRollback)
+      updateFlags + {slotProcessed}, noRollback)
   of ConsensusFork.Bellatrix:
     let data = getBlock(dag, bid, bellatrix.TrustedSignedBeaconBlock).valueOr:
       return err("Block load failed")
     ? state_transition(
       dag.cfg, state, data, cache, info,
-      dag.updateFlags + {slotProcessed}, noRollback)
+      updateFlags + {slotProcessed}, noRollback)
   of ConsensusFork.Capella:
     let data = getBlock(dag, bid, capella.TrustedSignedBeaconBlock).valueOr:
       return err("Block load failed")
     ? state_transition(
       dag.cfg, state, data, cache, info,
-      dag.updateFlags + {slotProcessed}, noRollback)
+      updateFlags + {slotProcessed}, noRollback)
   of ConsensusFork.Deneb:
     let data = getBlock(dag, bid, deneb.TrustedSignedBeaconBlock).valueOr:
       return err("Block load failed")
     ? state_transition(
       dag.cfg, state, data, cache, info,
-      dag.updateFlags + {slotProcessed}, noRollback)
+      updateFlags + {slotProcessed}, noRollback)
   of ConsensusFork.Electra:
     let data = getBlock(dag, bid, electra.TrustedSignedBeaconBlock).valueOr:
       return err("Block load failed")
     ? state_transition(
       dag.cfg, state, data, cache, info,
-      dag.updateFlags + {slotProcessed}, noRollback)
+      updateFlags + {slotProcessed}, noRollback)
+  of ConsensusFork.Fulu:
+    let data = getBlock(dag, bid, fulu.TrustedSignedBeaconBlock).valueOr:
+      return err("Block load failed")
+    ? state_transition(
+      dag.cfg, state, data, cache, info,
+      updateFlags + {slotProcessed}, noRollback)
 
   ok()
 
@@ -1140,7 +1152,7 @@ proc init*(T: type ChainDAGRef, cfg: RuntimeConfig, db: BeaconChainDB,
     while headBlocks.len > 0:
       dag.applyBlock(
         dag.headState, headBlocks.pop().bid, cache,
-        info).expect("head blocks should apply")
+        info, dag.updateFlags).expect("head blocks should apply")
 
     dag.head = headRef
     dag.heads = @[headRef]
@@ -1168,6 +1180,7 @@ proc init*(T: type ChainDAGRef, cfg: RuntimeConfig, db: BeaconChainDB,
       of ConsensusFork.Capella:   capellaFork(cfg)
       of ConsensusFork.Deneb:     denebFork(cfg)
       of ConsensusFork.Electra:   electraFork(cfg)
+      of ConsensusFork.Fulu:      fuluFork(cfg)
     stateFork = getStateField(dag.headState, fork)
 
   # Here, we check only the `current_version` field because the spec
@@ -1399,7 +1412,8 @@ proc getEpochRef*(
       return err("Requesting EpochRef for non-canonical block")
 
   var cache: StateCache
-  if not updateState(dag, dag.epochRefState, ancestor, false, cache):
+  if not updateState(dag, dag.epochRefState, ancestor, false, cache,
+                     dag.updateFlags):
     return err("Could not load requested state")
 
   ok(dag.getEpochRef(dag.epochRefState, cache))
@@ -1685,7 +1699,7 @@ proc getBlockRange*(
 
 proc updateState*(
     dag: ChainDAGRef, state: var ForkedHashedBeaconState, bsi: BlockSlotId,
-    save: bool, cache: var StateCache): bool =
+    save: bool, cache: var StateCache, updateFlags: UpdateFlags): bool =
   ## Rewind or advance state such that it matches the given block and slot -
   ## this may include replaying from an earlier snapshot if blck is on a
   ## different branch or has advanced to a higher slot number than slot
@@ -1839,7 +1853,8 @@ proc updateState*(
     # again. Also, because we're applying blocks that were loaded from the
     # database, we can skip certain checks that have already been performed
     # before adding the block to the database.
-    if (let res = dag.applyBlock(state, ancestors[i], cache, info); res.isErr):
+    if (let res = dag.applyBlock(state, ancestors[i], cache, info,
+                                 updateFlags); res.isErr):
       warn "Failed to apply block from database",
         blck = shortLog(ancestors[i]),
         state_bid = shortLog(state.latest_block_id),
@@ -1848,7 +1863,7 @@ proc updateState*(
       return false
 
   # ...and make sure to process empty slots as requested
-  dag.advanceSlots(state, bsi.slot, save, cache, info)
+  dag.advanceSlots(state, bsi.slot, save, cache, info, updateFlags)
 
   # ...and make sure to load the state cache, if it exists
   loadStateCache(dag, cache, bsi.bid, getStateField(state, slot).epoch)
@@ -2387,7 +2402,7 @@ proc updateHead*(
   # to use existing in-memory states to make this smooth
   var cache: StateCache
   if not updateState(
-      dag, dag.headState, newHead.bid.atSlot(), false, cache):
+      dag, dag.headState, newHead.bid.atSlot(), false, cache, dag.updateFlags):
     # Advancing the head state should never fail, given that the tail is
     # implicitly finalised, the head is an ancestor of the tail and we always
     # store the tail state in the database, as well as every epoch slot state in
@@ -2416,6 +2431,8 @@ proc updateHead*(
     of ConsensusFork.Electra:
       if dag.vanityLogs.onUpgradeToElectra != nil:
         dag.vanityLogs.onUpgradeToElectra()
+    of ConsensusFork.Fulu:
+      discard
 
   if  dag.vanityLogs.onKnownBlsToExecutionChange != nil and
       checkBlsToExecutionChanges(
@@ -2651,7 +2668,7 @@ proc getProposalState*(
     # it now
     if not dag.updateState(
         state[], head.atSlot(slot - 1).toBlockSlotId().expect("not nil"),
-        false, cache):
+        false, cache, dag.updateFlags):
       error "Cannot get proposal state - skipping block production, database corrupt?",
         head = shortLog(head),
         slot
@@ -2840,7 +2857,8 @@ proc rebuildIndex*(dag: ChainDAGRef) =
 
       # The slot check is needed to avoid re-applying a block
       if bids.isProposed and getStateField(state[], latest_block_header).slot < bids.bid.slot:
-        let res = dag.applyBlock(state[], bids.bid, cache, info)
+        let res = dag.applyBlock(state[], bids.bid, cache, info,
+                                 dag.updateFlags)
         if res.isErr:
           error "Failed to apply block while building index",
             state_bid = shortLog(state[].latest_block_id()),
