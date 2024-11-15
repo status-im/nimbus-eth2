@@ -4,7 +4,7 @@ This folders hold a collection of modules to:
 - configure the Eth2 P2P network
 - discover, connect, and maintain quality Eth2 peers
 
-Data received is handed other to the `../gossip_processing` modules for validation.
+Data received is handed over to the `../gossip_processing` modules for validation.
 
 ## Security concerns
 
