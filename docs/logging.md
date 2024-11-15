@@ -6,7 +6,7 @@ than suggested in the guideline for example at beacon node start or stop.
 
 The main objectives are:
 - INFO log level or higher should be suitable for long-term use, i.e. running for months or weeks. Logs are the users' main interface their beacon node and validators. In particular it should not be a denial-of-service vector, either by leading to high CPU usage of the console or filling disk space at an unsustainable rate.
-- INFO logs or higher should be target at users, logs only relevant to devs should be relegated to DEBUG or TRACE or commented out.
+- INFO logs or higher should be targeted at users, logs only relevant to devs should be relegated to DEBUG or TRACE or commented out.
 - DEBUG log level should still be readable by visual inspection during a slot time (6 seconds).
 
 Here is the suggestion of content per log level
@@ -36,7 +36,7 @@ Here is the suggestion of content per log level
   - "spammy" tasks that clutter debugging (attestations received, status/control messages)
 
 Logs done at high frequency should be summarized even at trace level to avoid drowning other subsystems.
-For example they can use an uint8 counter with
+For example they can use a uint8 counter with
 ```
 proc myHighFreqProc() =
   var counter {.threadvar.}: uint8
