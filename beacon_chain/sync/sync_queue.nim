@@ -175,7 +175,7 @@ proc checkBlobsResponse*[T](req: SyncRequest[T],
     # Impossible to verify empty response.
     return ok()
 
-  if uint64(len(data)) > (req.count * MAX_BLOBS_PER_BLOCK):
+  if lenu64(data) > (req.count * MAX_BLOBS_PER_BLOCK):
     # Number of blobs in response should be less or equal to number of
     # requested (blocks * MAX_BLOBS_PER_BLOCK).
     return err("Too many blobs received")
