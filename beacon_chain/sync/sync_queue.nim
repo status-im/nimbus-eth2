@@ -144,7 +144,7 @@ proc checkResponse*[T](req: SyncRequest[T],
     # Impossible to verify empty response.
     return ok()
 
-  if uint64(len(data)) > req.count:
+  if lenu64(data) > req.count:
     # Number of blocks in response should be less or equal to number of
     # requested blocks.
     return err("Too many blocks received")
@@ -165,7 +165,7 @@ proc checkResponse*[T](req: SyncRequest[T],
     rindex += 1'u64
 
   if dindex != len(data):
-    return err("Some blocks are outside the requested range")
+    return err("Some of the blocks are outside the requested range")
 
   ok()
 
