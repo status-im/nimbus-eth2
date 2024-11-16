@@ -164,6 +164,9 @@ proc checkResponse*[T](req: SyncRequest[T],
     slot += 1'u64
     rindex += 1'u64
 
+  if dindex != len(data):
+    return err("Some blocks are outside the requested range")
+
   ok()
 
 proc checkBlobsResponse*[T](req: SyncRequest[T],
@@ -177,12 +180,20 @@ proc checkBlobsResponse*[T](req: SyncRequest[T],
     # requested (blocks * MAX_BLOBS_PER_BLOCK).
     return err("Too many blobs received")
 
-  var pslot = data[0]
+  var
+    pslot = data[0]
+    counter = 0'u64
   for slot in data:
     if (slot < req.slot) or (slot >= req.slot + req.count):
       return err("Some of the blobs are not in requested range")
     if slot < pslot:
       return err("Incorrect order")
+    if slot == pslot:
+      inc(counter)
+      if counter > MAX_BLOBS_PER_BLOCK:
+        return err("Number of blobs in the block exceeds the limit")
+    else:
+      counter = 1'u64
     pslot = slot
 
   ok()
