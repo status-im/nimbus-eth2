@@ -74,7 +74,7 @@ OK: 4/4 Fail: 0/4 Skip: 0/4
 + sanity check phase 0 states, reusing buffers [Preset: mainnet]                             OK
 + sanity check state diff roundtrip [Preset: mainnet]                                        OK
 ```
-OK: 33/33 Fail: 0/33 Skip: 0/33
+OK: 34/34 Fail: 0/34 Skip: 0/34
 ## Beacon chain file test suite
 ```diff
 + Auto check/repair test (missing data)                                                      OK
@@ -1143,4 +1143,4 @@ OK: 2/2 Fail: 0/2 Skip: 0/2
 OK: 9/9 Fail: 0/9 Skip: 0/9
 
 ---TOTAL---
-OK: 775/780 Fail: 0/780 Skip: 5/780
+OK: 776/781 Fail: 0/781 Skip: 5/781
