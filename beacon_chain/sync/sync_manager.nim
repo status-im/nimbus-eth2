@@ -510,12 +510,14 @@ proc syncStep[A, B](
         blocks_map = getShortMap(req, blockData), request = req
 
   let slots = mapIt(blockData, it[].slot)
-  if not(checkResponse(req, slots)):
+  checkResponse(req, slots).isOkOr:
     peer.updateScore(PeerScoreBadResponse)
     man.queue.push(req)
-    warn "Received blocks sequence is not in requested range",
+    warn "Incorrect blocks sequence received",
           blocks_count = len(blockData),
-          blocks_map = getShortMap(req, blockData), request = req
+          blocks_map = getShortMap(req, blockData),
+          request = req,
+          reason = error
     return
 
   let shouldGetBlobs =
@@ -547,13 +549,14 @@ proc syncStep[A, B](
 
       if len(blobData) > 0:
         let slots = mapIt(blobData, it[].signed_block_header.message.slot)
-        if not(checkResponse(req, slots)):
+        checkBlobsResponse(req, slots).isOkOr:
           peer.updateScore(PeerScoreBadResponse)
           man.queue.push(req)
-          warn "Received blobs sequence is not in requested range",
+          warn "Incorrect blobs sequence received",
                blobs_count = len(blobData),
                blobs_map = getShortMap(req, blobData),
-               request = req
+               request = req,
+               reason = error
           return
       let groupedBlobs = groupBlobs(blockData, blobData).valueOr:
         peer.updateScore(PeerScoreNoValues)
@@ -562,14 +565,14 @@ proc syncStep[A, B](
              blobs_map = getShortMap(req, blobData),
              request = req, msg = error
         return
-      if (let checkRes = groupedBlobs.checkBlobs(); checkRes.isErr):
+      groupedBlobs.checkBlobs().isOkOr:
         peer.updateScore(PeerScoreBadResponse)
         man.queue.push(req)
-        warn "Received blobs sequence is invalid",
+        warn "Received blobs verification failed",
              blobs_count = len(blobData),
              blobs_map = getShortMap(req, blobData),
              request = req,
-             msg = checkRes.error
+             reason = error
         return
       Opt.some(groupedBlobs)
     else:

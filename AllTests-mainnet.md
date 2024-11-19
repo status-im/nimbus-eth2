@@ -993,12 +993,13 @@ OK: 7/7 Fail: 0/7 Skip: 0/7
 + [SyncQueue#Forward] Start and finish slots equal                                           OK
 + [SyncQueue#Forward] Two full requests success/fail                                         OK
 + [SyncQueue#Forward] getRewindPoint() test                                                  OK
++ [SyncQueue] checkBlobsResponse() test                                                      OK
 + [SyncQueue] checkResponse() test                                                           OK
 + [SyncQueue] contains() test                                                                OK
 + [SyncQueue] getLastNonEmptySlot() test                                                     OK
 + [SyncQueue] hasEndGap() test                                                               OK
 ```
-OK: 24/24 Fail: 0/24 Skip: 0/24
+OK: 25/25 Fail: 0/25 Skip: 0/25
 ## Type helpers
 ```diff
 + BeaconBlock                                                                                OK
@@ -1142,4 +1143,4 @@ OK: 2/2 Fail: 0/2 Skip: 0/2
 OK: 9/9 Fail: 0/9 Skip: 0/9
 
 ---TOTAL---
-OK: 775/780 Fail: 0/780 Skip: 5/780
+OK: 776/781 Fail: 0/781 Skip: 5/781
