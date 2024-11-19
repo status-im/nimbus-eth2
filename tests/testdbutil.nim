@@ -26,6 +26,7 @@ proc makeTestDB*(
     flags: UpdateFlags = {},
     cfg = defaultRuntimeConfig): BeaconChainDB =
   # Blob support requires DENEB_FORK_EPOCH != FAR_FUTURE_EPOCH
+  # Data column support requires FULU_FORK_EPOCH != FAR_FUTURE_EPOCH
   var cfg = cfg
   if cfg.CAPELLA_FORK_EPOCH == FAR_FUTURE_EPOCH:
     cfg.CAPELLA_FORK_EPOCH = 90000.Epoch
@@ -35,7 +36,6 @@ proc makeTestDB*(
     cfg.ELECTRA_FORK_EPOCH = 110000.Epoch
   if cfg.FULU_FORK_EPOCH == FAR_FUTURE_EPOCH:
     cfg.FULU_FORK_EPOCH = 120000.Epoch
-
 
   var genState = (ref ForkedHashedBeaconState)(
     kind: ConsensusFork.Phase0,

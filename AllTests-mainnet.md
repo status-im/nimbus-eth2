@@ -66,6 +66,7 @@ OK: 4/4 Fail: 0/4 Skip: 0/4
 + sanity check Fulu states [Preset: mainnet]                                                 OK
 + sanity check Fulu states, reusing buffers [Preset: mainnet]                                OK
 + sanity check blobs [Preset: mainnet]                                                       OK
++ sanity check data columns [Preset: mainnet]                                                OK
 + sanity check genesis roundtrip [Preset: mainnet]                                           OK
 + sanity check phase 0 blocks [Preset: mainnet]                                              OK
 + sanity check phase 0 getState rollback [Preset: mainnet]                                   OK
@@ -73,7 +74,7 @@ OK: 4/4 Fail: 0/4 Skip: 0/4
 + sanity check phase 0 states, reusing buffers [Preset: mainnet]                             OK
 + sanity check state diff roundtrip [Preset: mainnet]                                        OK
 ```
-OK: 33/33 Fail: 0/33 Skip: 0/33
+OK: 34/34 Fail: 0/34 Skip: 0/34
 ## Beacon chain file test suite
 ```diff
 + Auto check/repair test (missing data)                                                      OK
