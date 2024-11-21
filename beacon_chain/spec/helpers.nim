@@ -462,7 +462,7 @@ func computeRequestsHash(
 
   let requestsHash = computeDigest:
     template mixInRequests(requestType, requestList): untyped =
-      block:
+      if requestList.len > 0:
         let hash = computeDigest:
           bind h
           h.update([requestType.byte])
