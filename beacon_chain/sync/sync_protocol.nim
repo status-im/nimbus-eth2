@@ -425,7 +425,7 @@ p2pProtocol BeaconSync(version = 1,
       {.async, libp2pProtocol("data_column_sidecars_by_range", 1).} =
     
     trace "got data columns range request", peer, startSlot,
-      count = reqCount, columns, reqColumns
+      count = reqCount, columns = reqColumns
     
     if reqCount == 0 or reqColumns.len == 0:
       raise newException(InvalidInputsError, "Empty range requested")
