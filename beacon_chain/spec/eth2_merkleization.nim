@@ -34,8 +34,8 @@ type
 func hash_tree_root*(
     x: phase0.HashedBeaconState | altair.HashedBeaconState |
        bellatrix.HashedBeaconState | capella.HashedBeaconState |
-       deneb.HashedBeaconState | electra.SignedBeaconBlock |
-       fulu.SignedBeaconBlock) {.
+       deneb.HashedBeaconState | electra.HashedBeaconState |
+       fulu.HashedBeaconState) {.
   error: "HashedBeaconState should not be hashed".}
 
 func hash_tree_root*(

@@ -563,7 +563,7 @@ func process_withdrawal_request*(
 
 # https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.7/specs/electra/beacon-chain.md#new-is_valid_switch_to_compounding_request
 func is_valid_switch_to_compounding_request(
-    state: electra.BeaconState | fulu.BeaconState, 
+    state: electra.BeaconState | fulu.BeaconState,
     consolidation_request: ConsolidationRequest,
     source_validator: Validator): bool =
   # Switch to compounding requires source and target be equal
@@ -663,6 +663,15 @@ func process_consolidation_request*(
   if source_validator[].exit_epoch != FAR_FUTURE_EPOCH:
     return
   if target_validator.exit_epoch != FAR_FUTURE_EPOCH:
+    return
+
+  # Verify the source has been active long enough
+  if current_epoch <
+      source_validator.activation_epoch + cfg.SHARD_COMMITTEE_PERIOD:
+    return
+
+  # Verify the source has no pending withdrawals in the queue
+  if get_pending_balance_to_withdraw(state, source_index) > 0.Gwei:
     return
 
   # Initiate source validator exit and append pending consolidation

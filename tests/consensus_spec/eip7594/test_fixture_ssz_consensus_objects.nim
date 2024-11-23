@@ -17,8 +17,8 @@ import
   yaml,
   # Beacon chain internals
   ../../../beacon_chain/spec/datatypes/[
-    altair, 
-    deneb, 
+    altair,
+    electra,
     fulu],
   # Status libraries
   snappy,
@@ -29,7 +29,8 @@ from ../../../beacon_chain/spec/datatypes/bellatrix import PowBlock
 from ../../../beacon_chain/spec/datatypes/capella import
   BLSToExecutionChange, SignedBLSToExecutionChange, HistoricalSummary,
   Withdrawal
-
+from ../../../beacon_chain/spec/datatypes/deneb import
+  BlobIdentifier, BlobSidecar
 
 # SSZ tests of consensus objects (minimal/mainnet preset specific)
 
@@ -51,7 +52,7 @@ type
 # Checking the values against the yaml file is TODO (require more flexible Yaml parser)
 
 proc checkSSZ(
-    T: type deneb.SignedBeaconBlock,
+    T: type electra.SignedBeaconBlock,
     dir: string,
     expectedHash: SSZHashTreeRoot
 ) {.raises: [IOError, SerializationError, UnconsumedInput].} =
@@ -117,55 +118,63 @@ suite "EF - EIP7594 - SSZ consensus objects " & preset():
           let hash = loadExpectedHashTreeRoot(path)
 
           case sszType:
-          of "AggregateAndProof": checkSSZ(phase0.AggregateAndProof, path, hash)
-          of "Attestation": checkSSZ(phase0.Attestation, path, hash)
+          of "AggregateAndProof": checkSSZ(electra.AggregateAndProof, path, hash)
+          of "Attestation": checkSSZ(electra.Attestation, path, hash)
           of "AttestationData": checkSSZ(AttestationData, path, hash)
-          of "AttesterSlashing": checkSSZ(phase0.AttesterSlashing, path, hash)
-          of "BeaconBlock": checkSSZ(deneb.BeaconBlock, path, hash)
-          of "BeaconBlockBody": checkSSZ(deneb.BeaconBlockBody, path, hash)
+          of "AttesterSlashing": checkSSZ(electra.AttesterSlashing, path, hash)
+          of "BeaconBlock": checkSSZ(electra.BeaconBlock, path, hash)
+          of "BeaconBlockBody": checkSSZ(electra.BeaconBlockBody, path, hash)
           of "BeaconBlockHeader": checkSSZ(BeaconBlockHeader, path, hash)
-          of "BeaconState": checkSSZ(deneb.BeaconState, path, hash)
+          of "BeaconState": checkSSZ(electra.BeaconState, path, hash)
           of "BlobIdentifier": checkSSZ(BlobIdentifier, path, hash)
           of "BlobSidecar": checkSSZ(BlobSidecar, path, hash)
           of "BLSToExecutionChange": checkSSZ(BLSToExecutionChange, path, hash)
           of "Checkpoint": checkSSZ(Checkpoint, path, hash)
+          of "ConsolidationRequest": checkSSZ(ConsolidationRequest, path, hash)
           of "ContributionAndProof": checkSSZ(ContributionAndProof, path, hash)
           of "DataColumnSidecar": checkSSZ(DataColumnSidecar, path, hash)
           of "DataColumnIdentifier": checkSSZ(DataColumnIdentifier, path, hash)
           of "Deposit": checkSSZ(Deposit, path, hash)
           of "DepositData": checkSSZ(DepositData, path, hash)
           of "DepositMessage": checkSSZ(DepositMessage, path, hash)
+          of "DepositRequest": checkSSZ(DepositRequest, path, hash)
           of "Eth1Block": checkSSZ(Eth1Block, path, hash)
           of "Eth1Data": checkSSZ(Eth1Data, path, hash)
           of "ExecutionPayload":
-            checkSSZ(deneb.ExecutionPayload, path, hash)
+            checkSSZ(electra.ExecutionPayload, path, hash)
           of "ExecutionPayloadHeader":
-            checkSSZ(deneb.ExecutionPayloadHeader, path, hash)
+            checkSSZ(electra.ExecutionPayloadHeader, path, hash)
+          of "ExecutionRequests":
+            checkSSZ(electra.ExecutionRequests, path, hash)
           of "Fork": checkSSZ(Fork, path, hash)
           of "ForkData": checkSSZ(ForkData, path, hash)
           of "HistoricalBatch": checkSSZ(HistoricalBatch, path, hash)
           of "HistoricalSummary": checkSSZ(HistoricalSummary, path, hash)
           of "IndexedAttestation":
-            checkSSZ(phase0.IndexedAttestation, path, hash)
+            checkSSZ(electra.IndexedAttestation, path, hash)
           of "LightClientBootstrap":
-            checkSSZ(deneb.LightClientBootstrap, path, hash)
+            checkSSZ(electra.LightClientBootstrap, path, hash)
           of "LightClientHeader":
-            checkSSZ(deneb.LightClientHeader, path, hash)
+            checkSSZ(electra.LightClientHeader, path, hash)
           of "LightClientUpdate":
-            checkSSZ(deneb.LightClientUpdate, path, hash)
+            checkSSZ(electra.LightClientUpdate, path, hash)
           of "LightClientFinalityUpdate":
-            checkSSZ(deneb.LightClientFinalityUpdate, path, hash)
+            checkSSZ(electra.LightClientFinalityUpdate, path, hash)
           of "LightClientOptimisticUpdate":
-            checkSSZ(deneb.LightClientOptimisticUpdate, path, hash)
+            checkSSZ(electra.LightClientOptimisticUpdate, path, hash)
           of "MatrixEntry":
             checkSSZ(MatrixEntry, path, hash)
           of "PendingAttestation": checkSSZ(PendingAttestation, path, hash)
+          of "PendingConsolidation": checkSSZ(PendingConsolidation, path, hash)
+          of "PendingDeposit": checkSSZ(PendingDeposit, path, hash)
+          of "PendingPartialWithdrawal":
+            checkSSZ(PendingPartialWithdrawal, path, hash)
           of "PowBlock": checkSSZ(PowBlock, path, hash)
           of "ProposerSlashing": checkSSZ(ProposerSlashing, path, hash)
           of "SignedAggregateAndProof":
-            checkSSZ(phase0.SignedAggregateAndProof, path, hash)
+            checkSSZ(electra.SignedAggregateAndProof, path, hash)
           of "SignedBeaconBlock":
-            checkSSZ(deneb.SignedBeaconBlock, path, hash)
+            checkSSZ(electra.SignedBeaconBlock, path, hash)
           of "SignedBeaconBlockHeader":
             checkSSZ(SignedBeaconBlockHeader, path, hash)
           of "SignedBLSToExecutionChange":
@@ -174,6 +183,7 @@ suite "EF - EIP7594 - SSZ consensus objects " & preset():
             checkSSZ(SignedContributionAndProof, path, hash)
           of "SignedVoluntaryExit": checkSSZ(SignedVoluntaryExit, path, hash)
           of "SigningData": checkSSZ(SigningData, path, hash)
+          of "SingleAttestation": checkSSZ(SingleAttestation, path, hash)
           of "SyncAggregate": checkSSZ(SyncAggregate, path, hash)
           of "SyncAggregatorSelectionData":
             checkSSZ(SyncAggregatorSelectionData, path, hash)
@@ -182,6 +192,7 @@ suite "EF - EIP7594 - SSZ consensus objects " & preset():
             checkSSZ(SyncCommitteeContribution, path, hash)
           of "SyncCommitteeMessage": checkSSZ(SyncCommitteeMessage, path, hash)
           of "Withdrawal": checkSSZ(Withdrawal, path, hash)
+          of "WithdrawalRequest": checkSSZ(WithdrawalRequest, path, hash)
           of "Validator": checkSSZ(Validator, path, hash)
           of "VoluntaryExit": checkSSZ(VoluntaryExit, path, hash)
           else:
