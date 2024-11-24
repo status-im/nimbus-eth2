@@ -321,9 +321,9 @@ proc rebuildState(overseer: SyncOverseerRef): Future[void] {.
 
             let
               fork =
-                getStateField(dag.headState, fork)
+                getStateField(dag.clearanceState, fork)
               genesis_validators_root =
-                getStateField(dag.headState, genesis_validators_root)
+                getStateField(dag.clearanceState, genesis_validators_root)
 
             verifyBlockProposer(batchVerifier[], fork, genesis_validators_root,
                                 dag.db.immutableValidators, blocksOnly).isOkOr:
