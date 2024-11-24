@@ -77,7 +77,7 @@ proc ETHConsensusConfigCreateFromYaml(
   ## * `NULL` - If the given `config.yaml` is malformed or incompatible.
   ##
   ## See:
-  ## * https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.8/configs/README.md
+  ## * https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.9/configs/README.md
   let cfg = RuntimeConfig.new()
   try:
     cfg[] = readRuntimeConfig($configFileContent, "config.yaml")[0]
@@ -145,7 +145,7 @@ proc ETHBeaconStateCreateFromSsz(
   ## * https://github.com/ethereum/consensus-specs/blob/v1.4.0/specs/altair/beacon-chain.md#beaconstate
   ## * https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.8/specs/bellatrix/beacon-chain.md#beaconstate
   ## * https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.3/specs/capella/beacon-chain.md#beaconstate
-  ## * https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.8/configs/README.md
+  ## * https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.9/configs/README.md
   let
     consensusFork = ConsensusFork.decodeString($consensusVersion).valueOr:
       return nil
@@ -328,8 +328,8 @@ proc ETHLightClientStoreCreateFromBootstrap(
   ## See:
   ## * https://ethereum.github.io/beacon-APIs/?urls.primaryName=v2.4.1#/Beacon/getLightClientBootstrap
   ## * https://ethereum.github.io/beacon-APIs/?urls.primaryName=v2.4.1#/Events/eventstream
-  ## * https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.8/specs/altair/light-client/light-client.md
-  ## * https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.8/specs/phase0/weak-subjectivity.md#weak-subjectivity-period
+  ## * https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.9/specs/altair/light-client/light-client.md
+  ## * https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.9/specs/phase0/weak-subjectivity.md#weak-subjectivity-period
   let
     mediaType = MediaType.init($mediaType)
     consensusFork = ConsensusFork.decodeString($consensusVersion).valueOr:
@@ -735,7 +735,7 @@ func ETHLightClientStoreGetFinalizedHeader(
   ## * Latest finalized header.
   ##
   ## See:
-  ## * https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.8/specs/capella/light-client/sync-protocol.md#modified-lightclientheader
+  ## * https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.9/specs/capella/light-client/sync-protocol.md#modified-lightclientheader
   addr store[].finalized_header
 
 func ETHLightClientStoreIsNextSyncCommitteeKnown(
@@ -755,7 +755,7 @@ func ETHLightClientStoreIsNextSyncCommitteeKnown(
   ##
   ## See:
   ## * https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.3/specs/altair/light-client/sync-protocol.md#is_next_sync_committee_known
-  ## * https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.8/specs/altair/light-client/light-client.md
+  ## * https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.9/specs/altair/light-client/light-client.md
   store[].is_next_sync_committee_known
 
 func ETHLightClientStoreGetOptimisticHeader(
