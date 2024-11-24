@@ -59,7 +59,7 @@ Follow the [regular instructions](./eth1.md) for running the execution client, t
 ## Running the light client
 
 The light client starts syncing from a trusted block.
-This trusted block should be somewhat recent ([~1-2 weeks](https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.8/specs/phase0/weak-subjectivity.md)) and needs to be configured each time when starting the light client.
+This trusted block should be somewhat recent ([~1-2 weeks](https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.9/specs/phase0/weak-subjectivity.md)) and needs to be configured each time when starting the light client.
 
 ### 1. Obtaining a trusted block root
 
