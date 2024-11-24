@@ -86,7 +86,7 @@ func get_validator_from_deposit*(
 
 # https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.7/specs/electra/beacon-chain.md#deposits
 func get_validator_from_deposit*(
-    _: electra.BeaconState | fulu.BeaconState, 
+    _: electra.BeaconState | fulu.BeaconState,
     pubkey: ValidatorPubKey,
     withdrawal_credentials: Eth2Digest, amount: Gwei): Validator =
   var validator = Validator(
@@ -185,7 +185,7 @@ func get_state_exit_queue_info*(
   ExitQueueInfo(
     exit_queue_epoch: exit_queue_epoch, exit_queue_churn: exit_queue_churn)
 
-func get_state_exit_queue_info*(state: electra.BeaconState | 
+func get_state_exit_queue_info*(state: electra.BeaconState |
                                        fulu.BeaconState):
                                 ExitQueueInfo =
   # Electra initiate_validator_exit doesn't have same quadratic aspect given
@@ -381,7 +381,7 @@ func get_whistleblower_reward*(
 
 # https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.5/specs/electra/beacon-chain.md#modified-slash_validator
 func get_whistleblower_reward*(
-    state: electra.BeaconState | fulu.BeaconState, 
+    state: electra.BeaconState | fulu.BeaconState,
     validator_effective_balance: Gwei): Gwei =
   validator_effective_balance div WHISTLEBLOWER_REWARD_QUOTIENT_ELECTRA
 
@@ -982,6 +982,7 @@ proc check_attestation*(
 
   ok()
 
+# https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.9/specs/electra/beacon-chain.md#modified-process_attestation
 proc check_attestation*(
     state: electra.BeaconState | fulu.BeaconState,
     attestation: electra.Attestation | electra.TrustedAttestation,
@@ -1002,15 +1003,32 @@ proc check_attestation*(
     return err("Electra attestation data index not 0")
 
   when on_chain:
-    var participants_count = 0'u64
-    for index in attestation.committee_bits.oneIndices:
-      if not (index.uint64 < get_committee_count_per_slot(
+    var committee_offset = 0
+    for committee_index in attestation.committee_bits.oneIndices:
+      if not (committee_index.uint64 < get_committee_count_per_slot(
           state, data.target.epoch, cache)):
         return err("attestation wrong committee index len")
-      participants_count +=
-        get_beacon_committee_len(state, data.slot, index.CommitteeIndex, cache)
+      let committee = get_beacon_committee(
+        state, data.slot, committee_index.CommitteeIndex, cache)
 
-    if not (lenu64(attestation.aggregation_bits) == participants_count):
+      if attestation.aggregation_bits.len < committee_offset + len(committee):
+        # This would overflow; see invalid_too_many_committee_bits test case
+        return err("Electra attestation has too many committee bits")
+
+      # This construction modified slightly from spec version to early-exit and
+      # not create the actual set, but the result is it uses a flag variable to
+      # look similar.
+      var committee_attesters_nonzero = false
+      for i, attester_index in committee:
+        if attestation.aggregation_bits[committee_offset + i]:
+          committee_attesters_nonzero = true
+          break
+      if not committee_attesters_nonzero:
+        return err("Electra attestation committee not present in aggregated bits")
+
+      committee_offset += len(committee)
+
+    if not (len(attestation.aggregation_bits) == committee_offset):
       return err("attestation wrong aggregation bit length")
   else:
     let
@@ -1314,7 +1332,7 @@ func switch_to_compounding_validator*(
 
 # https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.8/specs/electra/beacon-chain.md#new-get_pending_balance_to_withdraw
 func get_pending_balance_to_withdraw*(
-    state: electra.BeaconState | fulu.BeaconState, 
+    state: electra.BeaconState | fulu.BeaconState,
     validator_index: ValidatorIndex): Gwei =
   var pending_balance: Gwei
   for withdrawal in state.pending_partial_withdrawals:
@@ -1409,7 +1427,7 @@ func get_expected_withdrawals*(
 # to cleanly treat the results of get_expected_withdrawals as a seq[Withdrawal]
 # are valuable enough to make that the default version of this spec function.
 template get_expected_withdrawals_with_partial_count_aux*(
-    state: electra.BeaconState | fulu.BeaconState, 
+    state: electra.BeaconState | fulu.BeaconState,
     epoch: Epoch, fetch_balance: untyped):
     (seq[Withdrawal], uint64) =
   doAssert epoch - get_current_epoch(state) in [0'u64, 1'u64]
@@ -1417,7 +1435,7 @@ template get_expected_withdrawals_with_partial_count_aux*(
   var
     withdrawal_index = state.next_withdrawal_index
     withdrawals: seq[Withdrawal] = @[]
-    partial_withdrawals_count: uint64 = 0
+    processed_partial_withdrawals_count: uint64 = 0
 
   # [New in Electra:EIP7251] Consume pending partial withdrawals
   for withdrawal in state.pending_partial_withdrawals:
@@ -1459,7 +1477,7 @@ template get_expected_withdrawals_with_partial_count_aux*(
       withdrawals.add w
       withdrawal_index += 1
 
-    partial_withdrawals_count += 1
+    processed_partial_withdrawals_count += 1
 
   let
     bound = min(len(state.validators), MAX_VALIDATORS_PER_WITHDRAWALS_SWEEP)
@@ -1470,7 +1488,14 @@ template get_expected_withdrawals_with_partial_count_aux*(
   for _ in 0 ..< bound:
     let
       validator = state.validators.item(validator_index)
-      balance = fetch_balance
+      # [Modified in Electra:EIP7251]
+      partially_withdrawn_balance = block:
+        var subtot: Gwei
+        for withdrawal in withdrawals:
+          if withdrawal.validator_index == validator_index:
+            subtot += withdrawal.amount
+        subtot
+      balance = fetch_balance - partially_withdrawn_balance
     if is_fully_withdrawable_validator(
         typeof(state).kind, validator, balance, epoch):
       var w = Withdrawal(
@@ -1494,7 +1519,7 @@ template get_expected_withdrawals_with_partial_count_aux*(
       break
     validator_index = (validator_index + 1) mod num_validators
 
-  (withdrawals, partial_withdrawals_count)
+  (withdrawals, processed_partial_withdrawals_count)
 
 template get_expected_withdrawals_with_partial_count*(
     state: electra.BeaconState | fulu.BeaconState): (seq[Withdrawal], uint64) =
@@ -1502,7 +1527,7 @@ template get_expected_withdrawals_with_partial_count*(
       state, get_current_epoch(state)) do:
     state.balances.item(validator_index)
 
-func get_expected_withdrawals*(state: electra.BeaconState | fulu.BeaconState): 
+func get_expected_withdrawals*(state: electra.BeaconState | fulu.BeaconState):
                                seq[Withdrawal] =
   get_expected_withdrawals_with_partial_count(state)[0]
 
@@ -2083,17 +2108,13 @@ func upgrade_to_electra*(
       blob_gas_used: pre.latest_execution_payload_header.blob_gas_used,
       excess_blob_gas: pre.latest_execution_payload_header.excess_blob_gas)
 
-  var max_exit_epoch = FAR_FUTURE_EPOCH
+  var earliest_exit_epoch =
+    compute_activation_exit_epoch(get_current_epoch(pre))
   for v in pre.validators:
     if v.exit_epoch != FAR_FUTURE_EPOCH:
-      max_exit_epoch =
-        if max_exit_epoch == FAR_FUTURE_EPOCH:
-          v.exit_epoch
-        else:
-          max(max_exit_epoch, v.exit_epoch)
-  if max_exit_epoch == FAR_FUTURE_EPOCH:
-    max_exit_epoch = get_current_epoch(pre)
-  let earliest_exit_epoch = max_exit_epoch + 1
+      if v.exit_epoch > earliest_exit_epoch:
+        earliest_exit_epoch = v.exit_epoch
+  earliest_exit_epoch += 1
 
   let post = (ref electra.BeaconState)(
     # Versioning

@@ -74,7 +74,7 @@ export
   tables, results, endians2, json_serialization, sszTypes, beacon_time, crypto,
   digest, presets
 
-const SPEC_VERSION* = "1.5.0-alpha.8"
+const SPEC_VERSION* = "1.5.0-alpha.9"
 ## Spec version we're aiming to be compatible with, right now
 
 const
@@ -960,7 +960,7 @@ func checkForkConsistency*(cfg: RuntimeConfig) =
   let forkVersions =
     [cfg.GENESIS_FORK_VERSION, cfg.ALTAIR_FORK_VERSION,
      cfg.BELLATRIX_FORK_VERSION, cfg.CAPELLA_FORK_VERSION,
-     cfg.DENEB_FORK_VERSION, cfg.ELECTRA_FORK_VERSION, 
+     cfg.DENEB_FORK_VERSION, cfg.ELECTRA_FORK_VERSION,
      cfg.FULU_FORK_VERSION]
 
   for i in 0 ..< forkVersions.len:
