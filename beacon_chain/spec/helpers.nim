@@ -460,15 +460,16 @@ func computeRequestsHash(
     WITHDRAWAL_REQUEST_TYPE = 0x01'u8  # EIP-7002
     CONSOLIDATION_REQUEST_TYPE = 0x02'u8  # EIP-7251
 
+  template individualHash(requestType, requestList): Digest =
+    computeDigest:
+      h.update([requestType.byte])
+      for request in requestList:
+        h.update SSZ.encode(request)
+
   let requestsHash = computeDigest:
     template mixInRequests(requestType, requestList): untyped =
-      block:
-        let hash = computeDigest:
-          bind h
-          h.update([requestType.byte])
-          for request in requestList:
-            h.update SSZ.encode(request)
-        h.update(hash.data)
+      if requestList.len > 0:
+        h.update(individualHash(requestType, requestList).data)
 
     static:
       doAssert DEPOSIT_REQUEST_TYPE < WITHDRAWAL_REQUEST_TYPE
