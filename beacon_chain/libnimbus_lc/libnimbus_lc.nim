@@ -1305,18 +1305,13 @@ proc ETHExecutionBlockHeaderCreateFromJson(
     doAssert data.withdrawalsRoot.isSome  # Checked above
 
     wds = newSeqOfCap[ETHWithdrawal](data.withdrawals.get.len)
-    for data in data.withdrawals.get:
+    for wd in data.withdrawals.get:
       # Check fork consistency
-      static: doAssert totalSerializedFields(WithdrawalObject) == 4,
+      static: doAssert totalSerializedFields(eth_types.EthWithdrawal) == 4,
         "Only update this number once code is adjusted to check new fields!"
 
       # Construct withdrawal
       let
-        wd = eth_types.EthWithdrawal(
-          index: distinctBase(data.index),
-          validatorIndex: distinctBase(data.validatorIndex),
-          address: distinctBase(data.address).to(EthAddress),
-          amount: distinctBase(data.amount))
         rlpBytes =
           try:
             rlp.encode(wd)
@@ -1599,7 +1594,7 @@ proc ETHTransactionsCreateFromJson(
         authorizationList:
           if data.authorizationList.isSome:
             data.authorizationList.get.mapIt(Authorization(
-              chainId: it.chainId.ChainId,
+              chainId: it.chainId,
               address: distinctBase(it.address).to(EthAddress),
               nonce: distinctBase(it.nonce),
               v: distinctBase(it.v),
@@ -1615,7 +1610,7 @@ proc ETHTransactionsCreateFromJson(
           rlp.encode(tx)
         except RlpError:
           raiseAssert "Unreachable"
-      hash = keccakHash(rlpBytes)
+      hash = keccak256(rlpBytes)
     if data.hash.asEth2Digest != hash:
       return nil
 
@@ -1664,7 +1659,7 @@ proc ETHTransactionsCreateFromJson(
         of DestinationType.Regular:
           tx.to.get
         of DestinationType.Create:
-          let hash = keccakHash(rlp.encodeList(fromAddress, tx.nonce))
+          let hash = keccak256(rlp.encodeList(fromAddress, tx.nonce))
           hash.to(EthAddress)
 
     # Compute authorizations
@@ -1683,7 +1678,7 @@ proc ETHTransactionsCreateFromJson(
         signature: @sig)
 
     txs.add ETHTransaction(
-      hash: keccakHash(rlpBytes),
+      hash: keccak256(rlpBytes),
       chainId: distinctBase(tx.chainId),
       `from`: ExecutionAddress(data: fromAddress),
       nonce: tx.nonce,
