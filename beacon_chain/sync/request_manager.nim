@@ -10,7 +10,7 @@
 import std/[sequtils, strutils]
 import chronos, chronicles
 import
-  ../spec/datatypes/[phase0, deneb],
+  ../spec/datatypes/[phase0, deneb, fulu],
   ../spec/[forks, network],
   ../networking/eth2_network,
   ../consensus_object_pools/block_quarantine,
