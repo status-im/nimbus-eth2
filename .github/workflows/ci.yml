@@ -54,7 +54,12 @@ jobs:
             builder: ['self-hosted','ubuntu-22.04']
           - target:
               os: macos
+              cpu: amd64
             builder: macos-13
+          - target:
+              os: macos
+              cpu: arm64
+            builder: macos-latest
           - target:
               os: windows
             builder: windows-2019
