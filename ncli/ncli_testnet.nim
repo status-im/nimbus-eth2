@@ -263,7 +263,7 @@ func `as`(blk: BlockObject, T: type bellatrix.ExecutionPayloadHeader): T =
     gas_limit: uint64 blk.gasLimit,
     gas_used: uint64 blk.gasUsed,
     timestamp: uint64 blk.timestamp,
-    extra_data: List[byte, MAX_EXTRA_DATA_BYTES].init(blk.extraData.bytes),
+    extra_data: List[byte, MAX_EXTRA_DATA_BYTES].init(blk.extraData.data),
     base_fee_per_gas: blk.baseFeePerGas.getOrDefault(),
     block_hash: blk.hash as Eth2Digest,
     transactions_root: blk.transactionsRoot as Eth2Digest)
@@ -279,7 +279,7 @@ func `as`(blk: BlockObject, T: type capella.ExecutionPayloadHeader): T =
     gas_limit: uint64 blk.gasLimit,
     gas_used: uint64 blk.gasUsed,
     timestamp: uint64 blk.timestamp,
-    extra_data: List[byte, MAX_EXTRA_DATA_BYTES].init(blk.extraData.bytes),
+    extra_data: List[byte, MAX_EXTRA_DATA_BYTES].init(blk.extraData.data),
     base_fee_per_gas: blk.baseFeePerGas.getOrDefault(),
     block_hash: blk.hash as Eth2Digest,
     transactions_root: blk.transactionsRoot as Eth2Digest,
@@ -296,7 +296,7 @@ func `as`(blk: BlockObject, T: type deneb.ExecutionPayloadHeader): T =
     gas_limit: uint64 blk.gasLimit,
     gas_used: uint64 blk.gasUsed,
     timestamp: uint64 blk.timestamp,
-    extra_data: List[byte, MAX_EXTRA_DATA_BYTES].init(blk.extraData.bytes),
+    extra_data: List[byte, MAX_EXTRA_DATA_BYTES].init(blk.extraData.data),
     base_fee_per_gas: blk.baseFeePerGas.getOrDefault(),
     block_hash: blk.hash as Eth2Digest,
     transactions_root: blk.transactionsRoot as Eth2Digest,
@@ -315,7 +315,7 @@ func `as`(blk: BlockObject, T: type electra.ExecutionPayloadHeader): T =
     gas_limit: uint64 blk.gasLimit,
     gas_used: uint64 blk.gasUsed,
     timestamp: uint64 blk.timestamp,
-    extra_data: List[byte, MAX_EXTRA_DATA_BYTES].init(blk.extraData.bytes),
+    extra_data: List[byte, MAX_EXTRA_DATA_BYTES].init(blk.extraData.data),
     base_fee_per_gas: blk.baseFeePerGas.getOrDefault(),
     block_hash: blk.hash as Eth2Digest,
     transactions_root: blk.transactionsRoot as Eth2Digest,
@@ -334,7 +334,7 @@ func `as`(blk: BlockObject, T: type fulu.ExecutionPayloadHeader): T =
     gas_limit: uint64 blk.gasLimit,
     gas_used: uint64 blk.gasUsed,
     timestamp: uint64 blk.timestamp,
-    extra_data: List[byte, MAX_EXTRA_DATA_BYTES].init(blk.extraData.bytes),
+    extra_data: List[byte, MAX_EXTRA_DATA_BYTES].init(blk.extraData.data),
     base_fee_per_gas: blk.baseFeePerGas.getOrDefault(),
     block_hash: blk.hash as Eth2Digest,
     transactions_root: blk.transactionsRoot as Eth2Digest,
@@ -562,7 +562,7 @@ when isMainModule:
     let r = await web3.send(tr)
     result = await web3.getMinedTransactionReceipt(r)
 
-  proc sendEth(web3: Web3, to: Eth1Address, valueEth: int): Future[TxHash] =
+  proc sendEth(web3: Web3, to: Eth1Address, valueEth: int): Future[Hash32] =
     let tr = TransactionArgs(
       `from`: Opt.some web3.defaultAccount,
       # TODO: Force json-rpc to generate 'data' field
