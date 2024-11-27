@@ -1557,7 +1557,7 @@ proc ETHTransactionsCreateFromJson(
     if data.authorizationList.isSome:
       for authorization in data.authorizationList.get:
         static: doAssert sizeof(uint64) == sizeof(authorization.chainId)
-        if distinctBase(authorization.v) > uint8.high:
+        if authorization.v > uint8.high:
           return nil
     let
       tx = eth_types.EthTransaction(
@@ -1578,9 +1578,7 @@ proc ETHTransactionsCreateFromJson(
         payload: data.input,
         accessList:
           if data.accessList.isSome:
-            data.accessList.get.mapIt(AccessPair(
-              address: distinctBase(it.address).to(EthAddress),
-              storageKeys: it.storageKeys.mapIt(distinctBase(it).to(Bytes32))))
+            data.accessList.get
           else:
             @[],
         maxFeePerBlobGas:
@@ -1593,13 +1591,7 @@ proc ETHTransactionsCreateFromJson(
             @[],
         authorizationList:
           if data.authorizationList.isSome:
-            data.authorizationList.get.mapIt(Authorization(
-              chainId: it.chainId,
-              address: distinctBase(it.address).to(EthAddress),
-              nonce: distinctBase(it.nonce),
-              v: distinctBase(it.v),
-              r: it.r,
-              s: it.s))
+            data.authorizationList.get
           else:
             @[],
         V: distinctBase(data.v),
