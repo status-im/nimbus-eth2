@@ -1,4 +1,4 @@
-FROM arm64v8/debian:bullseye-slim
+FROM --platform=arm64v8 debian:bullseye-slim
 
 SHELL ["/bin/bash", "-c"]
 
