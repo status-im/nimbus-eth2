@@ -19,9 +19,6 @@ import
 export base, phase0, altair, merge, chronos, chronicles, results,
        block_pools_types, helpers
 
-logScope:
-  topics = "syncqueue"
-
 type
   GetSlotCallback* = proc(): Slot {.gcsafe, raises: [].}
   GetBoolCallback* = proc(): bool {.gcsafe, raises: [].}
@@ -147,6 +144,36 @@ func getShortMap*[T](
       res.add('.')
     slider = slider + 1
   res
+
+proc getShortMap*[T](req: SyncRequest[T],
+                     data: openArray[ref BlobSidecar]): string =
+  var
+    res = newStringOfCap(req.data.count)
+    slider = req.data.slot
+    last = 0
+
+  for i in 0 ..< req.data.count:
+    if last < len(data):
+      var counter = 0
+      for k in last ..< len(data):
+        if slider < data[k][].signed_block_header.message.slot:
+          break
+        elif slider == data[k][].signed_block_header.message.slot:
+          inc(counter)
+      last = last + counter
+      if counter == 0:
+        res.add('.')
+      else:
+        res.add($counter)
+    else:
+      res.add('.')
+    slider = slider + 1
+  res
+
+proc getFullMap*[T](req: SyncRequest[T],
+                    data: openArray[ref BlobSidecar]): string =
+  data.mapIt("(" & $it[].signed_block_header.message.slot & ", " & $uint64(it[].index) & ")").join(", ")
+
 
 proc getShortMap*[T](
     req: SyncRequest[T],
@@ -311,11 +338,6 @@ proc updateLastSlot*[T](sq: SyncQueue[T], last: Slot) {.inline.} =
 
 proc getRewindPoint*[T](sq: SyncQueue[T], failSlot: Slot,
                         safeSlot: Slot): Slot =
-  logScope:
-    sync_ident = sq.ident
-    direction = sq.kind
-    topics = "syncman"
-
   case sq.kind
   of SyncQueueKind.Forward:
     # Calculate the latest finalized epoch.
@@ -347,20 +369,30 @@ proc getRewindPoint*[T](sq: SyncQueue[T], failSlot: Slot,
                 rewindPoint
           else:
             warn "Trying to rewind over the last finalized epoch",
-                 finalized_slot = safeSlot, fail_slot = failSlot,
-                 finalized_epoch = finalizedEpoch, fail_epoch = failEpoch,
+                 finalized_slot = safeSlot,
+                 fail_slot = failSlot,
+                 finalized_epoch = finalizedEpoch,
+                 fail_epoch = failEpoch,
                  rewind_epoch_count = rewind.epochCount,
-                 finalized_epoch = finalizedEpoch
+                 finalized_epoch = finalizedEpoch,
+                 sync_ident = sq.ident,
+                 direction = sq.kind,
+                 topics = "syncman"
             0'u64
         else:
           # `MissingParent` happened at different slot so we going to rewind for
           # 1 epoch only.
           if (failEpoch < 1'u64) or (failEpoch - 1'u64 < finalizedEpoch):
             warn "Сould not rewind further than the last finalized epoch",
-                 finalized_slot = safeSlot, fail_slot = failSlot,
-                 finalized_epoch = finalizedEpoch, fail_epoch = failEpoch,
+                 finalized_slot = safeSlot,
+                 fail_slot = failSlot,
+                 finalized_epoch = finalizedEpoch,
+                 fail_epoch = failEpoch,
                  rewind_epoch_count = rewind.epochCount,
-                 finalized_epoch = finalizedEpoch
+                 finalized_epoch = finalizedEpoch,
+                 sync_ident = sq.ident,
+                 direction = sq.kind,
+                 topics = "syncman"
             0'u64
           else:
             1'u64
@@ -368,18 +400,28 @@ proc getRewindPoint*[T](sq: SyncQueue[T], failSlot: Slot,
         # `MissingParent` happened first time.
         if (failEpoch < 1'u64) or (failEpoch - 1'u64 < finalizedEpoch):
           warn "Сould not rewind further than the last finalized epoch",
-               finalized_slot = safeSlot, fail_slot = failSlot,
-               finalized_epoch = finalizedEpoch, fail_epoch = failEpoch,
-               finalized_epoch = finalizedEpoch
+               finalized_slot = safeSlot,
+               fail_slot = failSlot,
+               finalized_epoch = finalizedEpoch,
+               fail_epoch = failEpoch,
+               finalized_epoch = finalizedEpoch,
+               sync_ident = sq.ident,
+               direction = sq.kind,
+               topics = "syncman"
           0'u64
         else:
           1'u64
 
     if epochCount == 0'u64:
       warn "Unable to continue syncing, please restart the node",
-           finalized_slot = safeSlot, fail_slot = failSlot,
-           finalized_epoch = finalizedEpoch, fail_epoch = failEpoch,
-           finalized_epoch = finalizedEpoch
+           finalized_slot = safeSlot,
+           fail_slot = failSlot,
+           finalized_epoch = finalizedEpoch,
+           fail_epoch = failEpoch,
+           finalized_epoch = finalizedEpoch,
+           sync_ident = sq.ident,
+           direction = sq.kind,
+           topics = "syncman"
       # Calculate the rewind epoch, which will be equal to last rewind point or
       # finalizedEpoch
       let rewindEpoch =
@@ -401,7 +443,11 @@ proc getRewindPoint*[T](sq: SyncQueue[T], failSlot: Slot,
     # latest stored block.
     if failSlot == safeSlot:
       warn "Unable to continue syncing, please restart the node",
-           safe_slot = safeSlot, fail_slot = failSlot
+           safe_slot = safeSlot,
+           fail_slot = failSlot,
+           sync_ident = sq.ident,
+           direction = sq.kind,
+           topics = "syncman"
     safeSlot
 
 func init*[T](t1: typedesc[SyncQueue], t2: typedesc[T],
@@ -470,11 +516,6 @@ proc del[T](sq: SyncQueue[T], request: SyncRequest[T]) =
 proc rewardForGaps[T](sq: SyncQueue[T], score: int) =
   mixin updateScore, getStats
 
-  logScope:
-    sync_ident = sq.ident
-    direction = sq.kind
-    topics = "syncman"
-
   for gap in sq.gapList:
     if score < 0:
       # Every empty response increases penalty by 25%, but not more than 200%.
@@ -489,8 +530,13 @@ proc rewardForGaps[T](sq: SyncQueue[T], score: int) =
           weight = int(min(emptyCount - goodCount, 8'u64))
           newScore = score + score * weight div 4
         gap.item.updateScore(newScore)
-        debug "Peer received gap penalty", peer = gap.item,
-              penalty = newScore
+        debug "Peer received gap penalty",
+              peer = gap.item,
+              penalty = newScore,
+              sync_ident = sq.ident,
+              direction = sq.kind,
+              topics = "syncman"
+
     else:
       gap.item.updateScore(score)
 
@@ -726,10 +772,6 @@ proc push*[T](
   ## Push successful result to queue ``sq``.
   mixin updateScore, updateStats, getStats
 
-  logScope:
-    sync_ident = sq.ident
-    topics = "syncman"
-
   # This is backpressure handling algorithm, this algorithm is blocking
   # all pending `push` requests if `request` is not in range.
   var
@@ -738,7 +780,11 @@ proc push*[T](
         var pos: SyncPosition
         while true:
           pos = sq.find(sr).valueOr:
-            debug "Request is no more relevant", request = sr
+            debug "Request is no more relevant",
+                  request = sr,
+                  sync_ident = sq.ident,
+                  direction = sq.kind,
+                  topics = "syncman"
             # Request is not in queue anymore, probably reset happened.
             return
 
@@ -750,7 +796,11 @@ proc push*[T](
             let res = await sq.waitForChanges()
             if res:
               # SyncQueue reset happen
-              debug "Request is no more relevant, reset happen", request = sr
+              debug "Request is no more relevant, reset happen",
+                    request = sr,
+                    sync_ident = sq.ident,
+                    direction = sq.kind,
+                    topics = "syncman"
               return
           except CancelledError as exc:
             # Removing request from queue.
@@ -763,7 +813,11 @@ proc push*[T](
     block:
       position = sq.find(sr).valueOr:
         # Queue has advanced, the request is no longer relevant.
-        debug "Request is no more relevant", request = sr
+        debug "Request is no more relevant",
+              request = sr,
+              sync_ident = sq.ident,
+              direction = sq.kind,
+              topics = "syncman"
         return
 
     if not(isNil(processingCb)):
@@ -778,7 +832,10 @@ proc push*[T](
             request = sr,
             blocks_count = len(data),
             blocks_map = getShortMap(sr, data),
-            blobs_map = getShortMap(sr, blobs)
+            blobs_map = getShortMap(sr, blobs),
+            sync_ident = sq.ident,
+            direction = sq.kind,
+            topics = "syncman"
 
       sr.item.updateStats(SyncResponseKind.Empty, 1'u64)
       sq.gapList.add(GapItem.init(sr))
@@ -790,7 +847,10 @@ proc push*[T](
             request = sr,
             blocks_count = len(data),
             blocks_map = getShortMap(sr, data),
-            blobs_map = getShortMap(sr, blobs)
+            blobs_map = getShortMap(sr, blobs),
+            sync_ident = sq.ident,
+            direction = sq.kind,
+            topics = "syncman"
       sq.gapList.reset()
       sq.advanceQueue()
 
@@ -801,7 +861,10 @@ proc push*[T](
             failures_count = sq.requests[position.qindex].failuresCount,
             blocks_count = len(data),
             blocks_map = getShortMap(sr, data),
-            blobs_map = getShortMap(sr, blobs)
+            blobs_map = getShortMap(sr, blobs),
+            sync_ident = sq.ident,
+            direction = sq.kind,
+            topics = "syncman"
 
       inc(sq.requests[position.qindex].failuresCount)
       sq.del(position)
@@ -813,7 +876,10 @@ proc push*[T](
              failures_count = sq.requests[position.qindex].failuresCount,
              blocks_count = len(data),
              blocks_map = getShortMap(sr, data),
-             blobs_map = getShortMap(sr, blobs)
+             blobs_map = getShortMap(sr, blobs),
+             sync_ident = sq.ident,
+             direction = sq.kind,
+             topics = "syncman"
 
       sr.item.updateScore(PeerScoreUnviableFork)
       inc(sq.requests[position.qindex].failuresCount)
@@ -826,7 +892,10 @@ proc push*[T](
              failures_count = sq.requests[position.qindex].failuresCount,
              blocks_count = len(data),
              blocks_map = getShortMap(sr, data),
-             blobs_map = getShortMap(sr, blobs)
+             blobs_map = getShortMap(sr, blobs),
+             sync_ident = sq.ident,
+             direction = sq.kind,
+             topics = "syncman"
 
       sr.item.updateScore(PeerScoreMissingValues)
       sq.rewardForGaps(PeerScoreMissingValues)
@@ -843,7 +912,10 @@ proc push*[T](
             failures_count = sq.requests[position.qindex].failuresCount,
             blocks_count = len(data),
             blocks_map = getShortMap(sr, data),
-            blobs_map = getShortMap(sr, blobs)
+            blobs_map = getShortMap(sr, blobs),
+            sync_ident = sq.ident,
+            direction = sq.kind,
+            topics = "syncman"
 
       sr.item.updateScore(PeerScoreMissingValues)
       sq.del(position)
@@ -864,7 +936,10 @@ proc push*[T](
         let point = sq.getRewindPoint(pres.blck.get().slot, sq.getSafeSlot())
         debug "Multiple repeating errors occured, rewinding",
               failures_count = sq.requests[position.qindex].failuresCount,
-              rewind_slot = point
+              rewind_slot = point,
+              sync_ident = sq.ident,
+              direction = sq.kind,
+              topics = "syncman"
         await sq.resetWait(point)
 
   except CancelledError as exc:

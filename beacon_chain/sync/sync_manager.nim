@@ -21,9 +21,6 @@ import
 export phase0, altair, merge, chronos, chronicles, results,
        helpers, peer_scores, sync_queue, forks, sync_protocol
 
-logScope:
-  topics = "syncman"
-
 const
   SyncWorkersCount* = 10
     ## Number of sync workers to spawn
@@ -201,18 +198,15 @@ proc getBlocks[A, B](man: SyncManager[A, B], peer: A,
                      req: SyncRequest[A]): Future[BeaconBlocksRes] {.
                      async: (raises: [CancelledError], raw: true).} =
   mixin getScore, `==`
-
-  logScope:
-    request = req
-    peer = peer
-    peer_score = peer.getScore()
-    peer_speed = peer.netKbps()
-    sync_ident = man.ident
-    direction = man.direction
-    topics = "syncman"
-
   doAssert(not(req.isEmpty()), "Request must not be empty!")
-  debug "Requesting blocks from peer"
+  debug "Requesting blocks from peer",
+        request = req,
+        peer = req.item,
+        peer_score = req.item.getScore(),
+        peer_speed = req.item.netKbps(),
+        sync_ident = man.ident,
+        direction = man.direction,
+        topics = "syncman"
 
   beaconBlocksByRange_v2(peer, req.data.slot, req.data.count, 1'u64)
 
@@ -233,17 +227,16 @@ proc getBlobSidecars[A, B](man: SyncManager[A, B], peer: A,
                            {.async: (raises: [CancelledError], raw: true).} =
   mixin getScore, `==`
 
-  logScope:
-    request = req
-    peer = peer
-    peer_score = peer.getScore()
-    peer_speed = peer.netKbps()
-    sync_ident = man.ident
-    direction = man.direction
-    topics = "syncman"
-
   doAssert(not(req.isEmpty()), "Request must not be empty!")
-  debug "Requesting blobs sidecars from peer"
+  debug "Requesting blobs sidecars from peer",
+        request = req,
+        peer = req.item,
+        peer_score = req.item.getScore(),
+        peer_speed = req.item.netKbps(),
+        sync_ident = man.ident,
+        direction = man.direction,
+        topics = "syncman"
+
   blobSidecarsByRange(peer, req.data.slot, req.data.count)
 
 proc remainingSlots(man: SyncManager): uint64 =
@@ -311,13 +304,12 @@ proc getSyncBlockData*[T](
 ): Future[SyncBlockDataRes] {.async: (raises: [CancelledError]).} =
   mixin getScore
 
-  logScope:
-    slot = slot
-    peer_score = peer.getScore()
-    peer_speed = peer.netKbps()
-    topics = "syncman"
-
-  debug "Requesting block from peer"
+  debug "Requesting block from peer",
+        slot = slot,
+        peer = peer,
+        peer_score = peer.getScore(),
+        peer_speed = peer.netKbps(),
+        topics = "syncman"
 
   let blocksRange =
     block:
@@ -336,7 +328,12 @@ proc getSyncBlockData*[T](
     return err("Incorrect number of blocks was returned by peer, " &
                $len(blocksRange))
 
-  debug "Received block on request"
+  debug "Received block on request",
+        slot = slot,
+        peer = peer,
+        peer_score = peer.getScore(),
+        peer_speed = peer.netKbps(),
+        topics = "syncman"
 
   if blocksRange[0][].slot != slot:
     peer.updateScore(PeerScoreBadResponse)
@@ -373,7 +370,13 @@ proc getSyncBlockData*[T](
         peer.updateScore(PeerScoreBadResponse)
         return err("Incorrect number of received blobs in the requested range")
 
-      debug "Received blobs on request", blobs_count = len(blobData)
+      debug "Received blobs on request",
+            slot = slot,
+            blobs_count = len(blobData),
+            peer = peer,
+            peer_score = peer.getScore(),
+            peer_speed = peer.netKbps(),
+            topics = "syncman"
 
       let groupedBlobs = groupBlobs(blocksRange, blobData).valueOr:
         peer.updateScore(PeerScoreNoValues)
@@ -394,22 +397,24 @@ proc getSyncBlockData[A, B](
     index: int,
     sr: SyncRequest[A]
 ): Future[SyncBlockDataRes] {.async: (raises: [CancelledError]).} =
-  logScope:
-    peer = sr.item
-    peer_score = sr.item.getScore()
-    peer_speed = sr.item.netKbps()
-    index = index
-    request = sr
-    sync_ident = man.ident
-    direction = man.direction
-    topics = "syncman"
-
   let
     peer = sr.item
     blocks = (await man.getBlocks(peer, sr)).valueOr:
       peer.updateScore(PeerScoreNoValues)
       return err("Failed to receive blocks on request, reason: " & $error)
     blockSlots = mapIt(blocks, it[].slot)
+
+  debug "Received blocks on request",
+        request = sr,
+        peer = sr.item,
+        peer_score = sr.item.getScore(),
+        peer_speed = sr.item.netKbps(),
+        index = index,
+        blocks_count = len(blocks),
+        blocks_map = getShortMap(sr, blocks.toSeq()),
+        sync_ident = man.ident,
+        direction = man.direction,
+        topics = "syncman"
 
   checkResponse(sr, blockSlots).isOkOr:
     peer.updateScore(PeerScoreBadResponse)
@@ -436,7 +441,18 @@ proc getSyncBlockData[A, B](
             return err("Failed to receive blobs on request, reason: " & $error)
           blobData = res.asSeq()
 
-        debug "Received blobs on request", blobs_count = len(blobData)
+        debug "Received blobs on request",
+              request = sr,
+              peer = sr.item,
+              peer_score = sr.item.getScore(),
+              peer_speed = sr.item.netKbps(),
+              index = index,
+              blobs_count = len(blobData),
+              blobs_map = getShortMap(sr, blobData),
+              debug_map = getFullMap(sr, blobData),
+              sync_ident = man.ident,
+              direction = man.direction,
+              topics = "syncman"
 
         if len(blobData) > 0:
           let blobSlots = mapIt(blobData, it[].signed_block_header.message.slot)
@@ -461,23 +477,22 @@ proc getSyncBlockData[A, B](
 proc getOrUpdatePeerStatus[A, B](
     man: SyncManager[A, B], index: int, peer: A
 ): Future[Result[Slot, string]] {.async: (raises: [CancelledError]).} =
-  logScope:
-    peer = peer
-    peer_score = peer.getScore()
-    peer_speed = peer.netKbps()
-    index = index
-    sync_ident = man.ident
-    direction = man.direction
-    topics = "syncman"
-
   let
     headSlot = man.getLocalHeadSlot()
     wallSlot = man.getLocalWallSlot()
     peerSlot = peer.getHeadSlot()
 
   debug "Peer's syncing status",
-        wall_clock_slot = wallSlot, remote_head_slot = peerSlot,
-        local_head_slot = headSlot
+        peer = peer,
+        peer_score = peer.getScore(),
+        peer_speed = peer.netKbps(),
+        index = index,
+        wall_clock_slot = wallSlot,
+        remote_head_slot = peerSlot,
+        local_head_slot = headSlot,
+        sync_ident = man.ident,
+        direction = man.direction,
+        topics = "syncman"
 
   let
     peerStatusAge = Moment.now() - peer.getStatusLastTime()
@@ -498,8 +513,16 @@ proc getOrUpdatePeerStatus[A, B](
     await sleepAsync((StatusExpirationTime div 2) - peerStatusAge)
 
   trace "Updating peer's status information",
-        wall_clock_slot = wallSlot, remote_head_slot = peerSlot,
-        local_head_slot = headSlot
+        peer = peer,
+        peer_score = peer.getScore(),
+        peer_speed = peer.netKbps(),
+        index = index,
+        wall_clock_slot = wallSlot,
+        remote_head_slot = peerSlot,
+        local_head_slot = headSlot,
+        sync_ident = man.ident,
+        direction = man.direction,
+        topics = "syncman"
 
   if not(await peer.updateStatus()):
     peer.updateScore(PeerScoreNoStatus)
@@ -509,31 +532,39 @@ proc getOrUpdatePeerStatus[A, B](
   if peerSlot >= newPeerSlot:
     peer.updateScore(PeerScoreStaleStatus)
     debug "Peer's status information is stale",
-          wall_clock_slot = wallSlot, remote_old_head_slot = peerSlot,
-          local_head_slot = headSlot, remote_new_head_slot = newPeerSlot
+          peer = peer,
+          peer_score = peer.getScore(),
+          peer_speed = peer.netKbps(),
+          index = index,
+          wall_clock_slot = wallSlot,
+          remote_old_head_slot = peerSlot,
+          local_head_slot = headSlot,
+          remote_new_head_slot = newPeerSlot,
+          sync_ident = man.ident,
+          direction = man.direction,
+          topics = "syncman"
   else:
-    debug "Peer's status information updated", wall_clock_slot = wallSlot,
-          remote_old_head_slot = peerSlot, local_head_slot = headSlot,
-          remote_new_head_slot = newPeerSlot
+    debug "Peer's status information updated",
+          peer = peer,
+          peer_score = peer.getScore(),
+          peer_speed = peer.netKbps(),
+          index = index,
+          wall_clock_slot = wallSlot,
+          remote_old_head_slot = peerSlot,
+          local_head_slot = headSlot,
+          remote_new_head_slot = newPeerSlot,
+          sync_ident = man.ident,
+          direction = man.direction,
+          topics = "syncman"
     peer.updateScore(PeerScoreGoodStatus)
   ok(newPeerSlot)
 
 proc syncStep[A, B](
     man: SyncManager[A, B], index: int, peer: A
 ) {.async: (raises: [CancelledError]).} =
-  logScope:
-    peer = peer
-    peer_score = peer.getScore()
-    peer_speed = peer.netKbps()
-    index = index
-    direction = man.direction
-    sync_ident = man.ident
-    topics = "syncman"
 
   let
     peerSlot = (await man.getOrUpdatePeerStatus(index, peer)).valueOr:
-      debug "Failed to get remote peer's status, exiting",
-            peer_head_slot = peer.getHeadSlot()
       return
     headSlot = man.getLocalHeadSlot()
     wallSlot = man.getLocalWallSlot()
@@ -541,11 +572,29 @@ proc syncStep[A, B](
   if man.remainingSlots() <= man.maxHeadAge:
     case man.direction
     of SyncQueueKind.Forward:
-      info "We are in sync with network", wall_clock_slot = wallSlot,
-            remote_head_slot = peerSlot, local_head_slot = headSlot
+      info "We are in sync with network",
+            peer = peer,
+            peer_score = peer.getScore(),
+            peer_speed = peer.netKbps(),
+            index = index,
+            wall_clock_slot = wallSlot,
+            remote_head_slot = peerSlot,
+            local_head_slot = headSlot,
+            direction = man.direction,
+            sync_ident = man.ident,
+            topics = "syncman"
     of SyncQueueKind.Backward:
-      info "Backfill complete", wall_clock_slot = wallSlot,
-            remote_head_slot = peerSlot, local_head_slot = headSlot
+      info "Backfill complete",
+            peer = peer,
+            peer_score = peer.getScore(),
+            peer_speed = peer.netKbps(),
+            index = index,
+            wall_clock_slot = wallSlot,
+            remote_head_slot = peerSlot,
+            local_head_slot = headSlot,
+            direction = man.direction,
+            sync_ident = man.ident,
+            topics = "syncman"
 
     # We clear SyncManager's `notInSyncEvent` so all the workers will become
     # sleeping soon.
@@ -566,9 +615,17 @@ proc syncStep[A, B](
     # disconnected due to low peer's score, but new fresh peers could replace
     # peers with low latest head.
     debug "Peer's head slot is lower then local head slot",
-          wall_clock_slot = wallSlot, remote_head_slot = peerSlot,
+          peer = peer,
+          peer_score = peer.getScore(),
+          peer_speed = peer.netKbps(),
+          index = index,
+          wall_clock_slot = wallSlot,
+          remote_head_slot = peerSlot,
           local_last_slot = man.getLastSlot(),
-          local_first_slot = man.getFirstSlot()
+          local_first_slot = man.getFirstSlot(),
+          direction = man.direction,
+          sync_ident = man.ident,
+          topics = "syncman"
     peer.updateScore(PeerScoreUseless)
     return
 
@@ -593,18 +650,33 @@ proc syncStep[A, B](
         # To avoid endless loop we going to wait for RESP_TIMEOUT time here.
         # This time is enough for all pending requests to finish and it is also
         # enough for main sync loop to clear ``notInSyncEvent``.
-        debug "Empty request received from queue, exiting",
+        debug "Empty request received from queue",
+              peer = peer,
+              peer_score = peer.getScore(),
+              peer_speed = peer.netKbps(),
+              index = index,
               local_head_slot = headSlot,
               remote_head_slot = peerSlot,
               queue_input_slot = man.queue.inpSlot,
               queue_output_slot = man.queue.outSlot,
-              queue_last_slot = man.queue.finalSlot
+              queue_last_slot = man.queue.finalSlot,
+              direction = man.direction,
+              sync_ident = man.ident,
+              topics = "syncman"
         await sleepAsync(RESP_TIMEOUT_DUR)
         break
 
       man.workers[index].status = SyncWorkerStatus.Downloading
       let data = (await man.getSyncBlockData(index, request)).valueOr:
-        debug "Failed to get block data", reason = error
+        debug "Failed to get block data",
+              peer = peer,
+              peer_score = peer.getScore(),
+              peer_speed = peer.netKbps(),
+              index = index,
+              reason = error,
+              direction = man.direction,
+              sync_ident = man.ident,
+              topics = "syncman"
         man.queue.push(request)
         break
 
@@ -634,13 +706,11 @@ proc syncWorker[A, B](
 ) {.async: (raises: [CancelledError]).} =
   mixin getKey, getScore, getHeadSlot
 
-  logScope:
-    index = index
-    sync_ident = man.ident
-    direction = man.direction
-    topics = "syncman"
-
-  debug "Starting syncing worker"
+  debug "Starting syncing worker",
+        index = index,
+        sync_ident = man.ident,
+        direction = man.direction,
+        topics = "syncman"
 
   var peer: A = nil
 
@@ -658,7 +728,11 @@ proc syncWorker[A, B](
     if not(isNil(peer)):
       man.pool.release(peer)
 
-  debug "Sync worker stopped"
+  debug "Sync worker stopped",
+        index = index,
+        sync_ident = man.ident,
+        direction = man.direction,
+        topics = "syncman"
 
 proc getWorkersStats[A, B](man: SyncManager[A, B]): tuple[map: string,
                                                           sleeping: int,
@@ -743,18 +817,15 @@ proc syncClose[A, B](
 proc syncLoop[A, B](
     man: SyncManager[A, B]
 ) {.async: (raises: [CancelledError]).} =
-
-  logScope:
-    sync_ident = man.ident
-    direction = man.direction
-    topics = "syncman"
-
   mixin getKey, getScore
   var pauseTime = 0
 
   man.startWorkers()
 
-  debug "Synchronization loop started"
+  debug "Synchronization loop started",
+        sync_ident = man.ident,
+        direction = man.direction,
+        topics = "syncman"
 
   proc averageSpeedTask() {.async: (raises: [CancelledError]).} =
     while true:
@@ -804,7 +875,10 @@ proc syncLoop[A, B](
             local_head_slot = headSlot,
             pause_time = $chronos.seconds(pauseTime),
             avg_sync_speed = man.avgSyncSpeed.formatBiggestFloat(ffDecimal, 4),
-            ins_sync_speed = man.insSyncSpeed.formatBiggestFloat(ffDecimal, 4)
+            ins_sync_speed = man.insSyncSpeed.formatBiggestFloat(ffDecimal, 4),
+            sync_ident = man.ident,
+            direction = man.direction,
+            topics = "syncman"
     of SyncQueueKind.Backward:
       debug "Current syncing state", workers_map = map,
             sleeping_workers_count = sleeping,
@@ -814,7 +888,10 @@ proc syncLoop[A, B](
             backfill_slot = man.getSafeSlot(),
             pause_time = $chronos.seconds(pauseTime),
             avg_sync_speed = man.avgSyncSpeed.formatBiggestFloat(ffDecimal, 4),
-            ins_sync_speed = man.insSyncSpeed.formatBiggestFloat(ffDecimal, 4)
+            ins_sync_speed = man.insSyncSpeed.formatBiggestFloat(ffDecimal, 4),
+            sync_ident = man.ident,
+            direction = man.direction,
+            topics = "syncman"
     let
       pivot = man.progressPivot
       progress =
@@ -879,10 +956,17 @@ proc syncLoop[A, B](
       # all sync workers are in `Sleeping` state.
       if pending > 0:
         debug "Synchronization loop waits for workers completion",
-              wall_head_slot = wallSlot, local_head_slot = headSlot,
-              difference = (wallSlot - headSlot), max_head_age = man.maxHeadAge,
+              wall_head_slot = wallSlot,
+              local_head_slot = headSlot,
+              difference = (wallSlot - headSlot),
+              max_head_age = man.maxHeadAge,
               sleeping_workers_count = sleeping,
-              waiting_workers_count = waiting, pending_workers_count = pending
+              waiting_workers_count = waiting,
+              pending_workers_count = pending,
+              sync_ident = man.ident,
+              direction = man.direction,
+              topics = "syncman"
+
         # We already synced, so we should reset all the pending workers from
         # any state they have.
         man.queue.clearAndWakeup()
@@ -895,21 +979,33 @@ proc syncLoop[A, B](
               await man.syncClose(averageSpeedTaskFut)
               man.inProgress = false
               debug "Forward synchronization process finished, exiting",
-                    wall_head_slot = wallSlot, local_head_slot = headSlot,
+                    wall_head_slot = wallSlot,
+                    local_head_slot = headSlot,
                     difference = (wallSlot - headSlot),
-                    max_head_age = man.maxHeadAge
+                    max_head_age = man.maxHeadAge,
+                    sync_ident = man.ident,
+                    direction = man.direction,
+                    topics = "syncman"
               break
             else:
               man.inProgress = false
               debug "Forward synchronization process finished, sleeping",
-                    wall_head_slot = wallSlot, local_head_slot = headSlot,
+                    wall_head_slot = wallSlot,
+                    local_head_slot = headSlot,
                     difference = (wallSlot - headSlot),
-                    max_head_age = man.maxHeadAge
+                    max_head_age = man.maxHeadAge,
+                    sync_ident = man.ident,
+                    direction = man.direction,
+                    topics = "syncman"
           else:
-            debug "Synchronization loop sleeping", wall_head_slot = wallSlot,
+            debug "Synchronization loop sleeping",
+                  wall_head_slot = wallSlot,
                   local_head_slot = headSlot,
                   difference = (wallSlot - headSlot),
-                  max_head_age = man.maxHeadAge
+                  max_head_age = man.maxHeadAge,
+                  sync_ident = man.ident,
+                  direction = man.direction,
+                  topics = "syncman"
         of SyncQueueKind.Backward:
           # Backward syncing is going to be executed only once, so we exit loop
           # and stop all pending tasks which belongs to this instance (sync
@@ -917,9 +1013,13 @@ proc syncLoop[A, B](
           await man.syncClose(averageSpeedTaskFut)
           man.inProgress = false
           debug "Backward synchronization process finished, exiting",
-                wall_head_slot = wallSlot, local_head_slot = headSlot,
+                wall_head_slot = wallSlot,
+                local_head_slot = headSlot,
                 backfill_slot = man.getLastSlot(),
-                max_head_age = man.maxHeadAge
+                max_head_age = man.maxHeadAge,
+                sync_ident = man.ident,
+                direction = man.direction,
+                topics = "syncman"
           break
     else:
       if not(man.notInSyncEvent.isSet()):
@@ -929,10 +1029,14 @@ proc syncLoop[A, B](
           man.notInSyncEvent.fire()
           man.inProgress = true
           debug "Node lost sync for more then preset period",
-                period = man.maxHeadAge, wall_head_slot = wallSlot,
+                period = man.maxHeadAge,
+                wall_head_slot = wallSlot,
                 local_head_slot = headSlot,
                 missing_slots = man.remainingSlots(),
-                progress = float(man.queue.progress())
+                progress = float(man.queue.progress()),
+                sync_ident = man.ident,
+                direction = man.direction,
+                topics = "syncman"
       else:
         man.notInSyncEvent.fire()
         man.inProgress = true
