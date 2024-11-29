@@ -69,7 +69,7 @@ type
     protocols: seq[ProtocolInfo]
       ## Protocols managed by the DSL and mounted on the switch
     protocolStates*: seq[RootRef]
-    metadata*: altair.MetaData
+    metadata*: fulu.MetaData
     connectTimeout*: chronos.Duration
     seenThreshold*: chronos.Duration
     connQueue: AsyncQueue[PeerAddr]
@@ -108,7 +108,7 @@ type
     lastReqTime*: Moment
     connections*: int
     enr*: Opt[enr.Record]
-    metadata*: Opt[altair.MetaData]
+    metadata*: Opt[fulu.MetaData]
     failedMetadataRequests: int
     lastMetadataTime*: Moment
     direction*: PeerType
@@ -1803,7 +1803,7 @@ proc new(T: type Eth2Node,
     let
       connectTimeout = chronos.seconds(10)
       seenThreshold = chronos.seconds(10)
-  type MetaData = altair.MetaData # Weird bug without this..
+  type MetaData = fulu.MetaData # Weird bug without this..
 
   # Versions up to v22.3.0 would write an empty `MetaData` to
   #`data-dir/node-metadata.json` which would then be reloaded on startup - don't
@@ -2082,12 +2082,32 @@ proc p2pProtocolBackendImpl*(p: P2PProtocol): Backend =
 import ./peer_protocol
 export peer_protocol
 
+proc updateMetadataV2ToV3(metadata: altair.MetaData): fulu.MetaData =
+  fulu.MetaData(
+    seq_number: metadata.seq_number,
+    attnets: metadata.attnets,
+    syncnets: metadata.syncnets)
+
+proc getMetadata_vx(node: Eth2Node, peer: Peer): 
+                    Future[NetRes[fulu.MetaData]]
+                   {.async: (raises: [CancelledError]).} =
+  let
+    res = 
+      if node.cfg.FULU_FORK_EPOCH != FAR_FUTURE_EPOCH:
+        # Directly fetch fulu metadata if available
+        await getMetadata_v3(peer)
+      else:
+        let metadata_v2_result = await getMetadata_v2(peer)
+        metadata_v2_result.map(proc (altairData: altair.MetaData): 
+                                     fulu.MetaData {.closure.} =
+          updateMetadataV2ToV3(altairData))
+  return res
+
 proc updatePeerMetadata(node: Eth2Node, peerId: PeerId) {.async: (raises: [CancelledError]).} =
   trace "updating peer metadata", peerId
-
   let
     peer = node.getPeer(peerId)
-    newMetadataRes = await peer.getMetadata_v2()
+    newMetadataRes = await node.getMetadata_vx(peer)
     newMetadata = newMetadataRes.valueOr:
       debug "Failed to retrieve metadata from peer!", peerId, error = newMetadataRes.error
       peer.failedMetadataRequests.inc()
