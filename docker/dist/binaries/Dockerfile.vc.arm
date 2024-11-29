@@ -1,4 +1,4 @@
-FROM --platform=arm32v7 debian:bullseye-slim
+FROM --platform=linux/arm/v7 debian:bookworm-slim
 
 SHELL ["/bin/bash", "-c"]
 
