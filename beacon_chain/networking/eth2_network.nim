@@ -2082,11 +2082,15 @@ proc p2pProtocolBackendImpl*(p: P2PProtocol): Backend =
 import ./peer_protocol
 export peer_protocol
 
-proc updateMetadataV2ToV3(metadata: altair.MetaData): fulu.MetaData =
-  fulu.MetaData(
-    seq_number: metadata.seq_number,
-    attnets: metadata.attnets,
-    syncnets: metadata.syncnets)
+proc updateMetadataV2ToV3(metadataRes: NetRes[altair.MetaData]): 
+                          NetRes[fulu.MetaData] =
+  if metadataRes.isOk:
+    let metadata = metadataRes.get
+    return ok(fulu.MetaData(seq_number: metadata.seq_number,
+                            attnets: metadata.attnets,
+                            syncnets: metadata.syncnets))
+  else:
+    return err(metadataRes.error)
 
 proc getMetadata_vx(node: Eth2Node, peer: Peer): 
                     Future[NetRes[fulu.MetaData]]
@@ -2097,10 +2101,7 @@ proc getMetadata_vx(node: Eth2Node, peer: Peer):
         # Directly fetch fulu metadata if available
         await getMetadata_v3(peer)
       else:
-        let metadata_v2_result = await getMetadata_v2(peer)
-        metadata_v2_result.map(proc (altairData: altair.MetaData): 
-                                     fulu.MetaData {.closure.} =
-          updateMetadataV2ToV3(altairData))
+        updateMetadataV2ToV3(await getMetadata_v2(peer))
   return res
 
 proc updatePeerMetadata(node: Eth2Node, peerId: PeerId) {.async: (raises: [CancelledError]).} =
