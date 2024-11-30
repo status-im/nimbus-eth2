@@ -2086,11 +2086,11 @@ proc updateMetadataV2ToV3(metadataRes: NetRes[altair.MetaData]):
                           NetRes[fulu.MetaData] =
   if metadataRes.isOk:
     let metadata = metadataRes.get
-    return ok(fulu.MetaData(seq_number: metadata.seq_number,
+    ok(fulu.MetaData(seq_number: metadata.seq_number,
                             attnets: metadata.attnets,
                             syncnets: metadata.syncnets))
   else:
-    return err(metadataRes.error)
+    err(metadataRes.error)
 
 proc getMetadata_vx(node: Eth2Node, peer: Peer): 
                     Future[NetRes[fulu.MetaData]]
