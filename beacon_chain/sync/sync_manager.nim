@@ -201,11 +201,9 @@ proc getBlocks[A, B](man: SyncManager[A, B], peer: A,
   doAssert(not(req.isEmpty()), "Request must not be empty!")
   debug "Requesting blocks from peer",
         request = req,
-        peer = req.item,
         peer_score = req.item.getScore(),
         peer_speed = req.item.netKbps(),
         sync_ident = man.ident,
-        direction = man.direction,
         topics = "syncman"
 
   beaconBlocksByRange_v2(peer, req.data.slot, req.data.count, 1'u64)
@@ -230,11 +228,9 @@ proc getBlobSidecars[A, B](man: SyncManager[A, B], peer: A,
   doAssert(not(req.isEmpty()), "Request must not be empty!")
   debug "Requesting blobs sidecars from peer",
         request = req,
-        peer = req.item,
         peer_score = req.item.getScore(),
         peer_speed = req.item.netKbps(),
         sync_ident = man.ident,
-        direction = man.direction,
         topics = "syncman"
 
   blobSidecarsByRange(peer, req.data.slot, req.data.count)
@@ -406,14 +402,12 @@ proc getSyncBlockData[A, B](
 
   debug "Received blocks on request",
         request = sr,
-        peer = sr.item,
         peer_score = sr.item.getScore(),
         peer_speed = sr.item.netKbps(),
         index = index,
         blocks_count = len(blocks),
         blocks_map = getShortMap(sr, blocks.toSeq()),
         sync_ident = man.ident,
-        direction = man.direction,
         topics = "syncman"
 
   checkResponse(sr, blockSlots).isOkOr:
@@ -443,15 +437,12 @@ proc getSyncBlockData[A, B](
 
         debug "Received blobs on request",
               request = sr,
-              peer = sr.item,
               peer_score = sr.item.getScore(),
               peer_speed = sr.item.netKbps(),
               index = index,
               blobs_count = len(blobData),
               blobs_map = getShortMap(sr, blobData),
-              debug_map = getFullMap(sr, blobData),
               sync_ident = man.ident,
-              direction = man.direction,
               topics = "syncman"
 
         if len(blobData) > 0:

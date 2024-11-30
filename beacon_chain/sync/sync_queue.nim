@@ -147,6 +147,9 @@ func getShortMap*[T](
 
 proc getShortMap*[T](req: SyncRequest[T],
                      data: openArray[ref BlobSidecar]): string =
+  static:
+    doAssert(MAX_BLOBS_PER_BLOCK < 10, "getShortMap(Blobs) should be revisited")
+
   var
     res = newStringOfCap(req.data.count)
     slider = req.data.slot
@@ -170,11 +173,6 @@ proc getShortMap*[T](req: SyncRequest[T],
     slider = slider + 1
   res
 
-proc getFullMap*[T](req: SyncRequest[T],
-                    data: openArray[ref BlobSidecar]): string =
-  data.mapIt("(" & $it[].signed_block_header.message.slot & ", " & $uint64(it[].index) & ")").join(", ")
-
-
 proc getShortMap*[T](
     req: SyncRequest[T],
     blobs: openArray[BlobSidecars]
@@ -190,11 +188,8 @@ proc getShortMap*[T](
   for i in 0 ..< req.data.count:
     if last < len(blobs):
       if len(blobs[last]) > 0:
-        let
-          sidecar = blobs[last][0]
-          length = len(blobs[last])
-        if sidecar.signed_block_header.message.slot == slider:
-          res.add(Base10.toString(uint64(length)))
+        if blobs[last][0][].signed_block_header.message.slot == slider:
+          res.add(Base10.toString(lenu64(blobs[last])))
           inc(last)
         else:
           res.add('.')
@@ -203,7 +198,7 @@ proc getShortMap*[T](
     else:
       res.add('.')
     inc(slider)
-  res
+  res & " (" & blobs.mapIt($len(it)).join(", ") & ")"
 
 proc getShortMap*[T](
     req: SyncRequest[T],
@@ -783,7 +778,6 @@ proc push*[T](
             debug "Request is no more relevant",
                   request = sr,
                   sync_ident = sq.ident,
-                  direction = sq.kind,
                   topics = "syncman"
             # Request is not in queue anymore, probably reset happened.
             return
@@ -799,7 +793,6 @@ proc push*[T](
               debug "Request is no more relevant, reset happen",
                     request = sr,
                     sync_ident = sq.ident,
-                    direction = sq.kind,
                     topics = "syncman"
               return
           except CancelledError as exc:
@@ -816,7 +809,6 @@ proc push*[T](
         debug "Request is no more relevant",
               request = sr,
               sync_ident = sq.ident,
-              direction = sq.kind,
               topics = "syncman"
         return
 
@@ -834,7 +826,6 @@ proc push*[T](
             blocks_map = getShortMap(sr, data),
             blobs_map = getShortMap(sr, blobs),
             sync_ident = sq.ident,
-            direction = sq.kind,
             topics = "syncman"
 
       sr.item.updateStats(SyncResponseKind.Empty, 1'u64)
@@ -849,7 +840,6 @@ proc push*[T](
             blocks_map = getShortMap(sr, data),
             blobs_map = getShortMap(sr, blobs),
             sync_ident = sq.ident,
-            direction = sq.kind,
             topics = "syncman"
       sq.gapList.reset()
       sq.advanceQueue()
@@ -863,7 +853,6 @@ proc push*[T](
             blocks_map = getShortMap(sr, data),
             blobs_map = getShortMap(sr, blobs),
             sync_ident = sq.ident,
-            direction = sq.kind,
             topics = "syncman"
 
       inc(sq.requests[position.qindex].failuresCount)
@@ -878,7 +867,6 @@ proc push*[T](
              blocks_map = getShortMap(sr, data),
              blobs_map = getShortMap(sr, blobs),
              sync_ident = sq.ident,
-             direction = sq.kind,
              topics = "syncman"
 
       sr.item.updateScore(PeerScoreUnviableFork)
@@ -907,14 +895,14 @@ proc push*[T](
       # Responses which has at least one good block and a gap does not affect
       # failures count
       debug "Unexpected missing parent, but no rewind needed",
-            request = sr, finalized_slot = sq.getSafeSlot(),
+            request = sr,
+            finalized_slot = sq.getSafeSlot(),
             missing_parent_block = pres.blck,
             failures_count = sq.requests[position.qindex].failuresCount,
             blocks_count = len(data),
             blocks_map = getShortMap(sr, data),
             blobs_map = getShortMap(sr, blobs),
             sync_ident = sq.ident,
-            direction = sq.kind,
             topics = "syncman"
 
       sr.item.updateScore(PeerScoreMissingValues)
