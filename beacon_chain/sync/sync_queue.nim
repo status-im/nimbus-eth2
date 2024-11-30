@@ -190,15 +190,15 @@ proc getShortMap*[T](
       if len(blobs[last]) > 0:
         if blobs[last][0][].signed_block_header.message.slot == slider:
           res.add(Base10.toString(lenu64(blobs[last])))
-          inc(last)
         else:
           res.add('.')
       else:
         res.add('.')
+      inc(last)
     else:
       res.add('.')
     inc(slider)
-  res & " (" & blobs.mapIt($len(it)).join(", ") & ")"
+  res
 
 proc getShortMap*[T](
     req: SyncRequest[T],
