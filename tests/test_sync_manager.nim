@@ -10,7 +10,7 @@
 
 import std/[strutils, sequtils]
 import unittest2
-import chronos, chronos/unittest2/asynctests
+import chronos, stew/base10, chronos/unittest2/asynctests
 import ../beacon_chain/networking/peer_scores
 import ../beacon_chain/gossip_processing/block_processor,
        ../beacon_chain/sync/sync_manager,
