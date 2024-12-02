@@ -7,7 +7,7 @@
 
 {.push raises: [].}
 
-import std/[deques, heapqueue, tables, strutils, sequtils, math]
+import std/[deques, heapqueue, tables, strutils, sequtils, math, typetraits]
 import stew/base10, chronos, chronicles, results
 import
   ../spec/datatypes/[base, phase0, altair],
@@ -183,21 +183,30 @@ proc getShortMap*[T](
   var
     res = newStringOfCap(req.data.count)
     slider = req.data.slot
-    last = 0
+    notFirst = false
 
-  for i in 0 ..< req.data.count:
-    if last < len(blobs):
-      if len(blobs[last]) > 0:
-        if blobs[last][0][].signed_block_header.message.slot == slider:
-          res.add(Base10.toString(lenu64(blobs[last])))
+  for i in 0 ..< int(req.data.count):
+    if i >= len(blobs):
+      res.add('.'.repeat(int(req.data.count) - len(res)))
+      return res
+
+    if len(blobs[i]) > 0:
+      let slot = blobs[i][0][].signed_block_header.message.slot
+      if not(notFirst):
+        doAssert(slot >= slider, "Incorrect slot number in blobs list")
+        let firstCount = int(slot - slider)
+        res.add('.'.repeat(firstCount))
+        res.add(Base10.toString(lenu64(blobs[i])))
+        slider = slot
+        notFirst = true
+      else:
+        if slot == slider:
+          res.add(Base10.toString(lenu64(blobs[i])))
         else:
           res.add('.')
-      else:
-        res.add('.')
-      inc(last)
     else:
-      res.add('.')
-    inc(slider)
+      if notFirst: res.add('.')
+    if notFirst: inc(slider)
   res
 
 proc getShortMap*[T](

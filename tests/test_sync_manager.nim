@@ -89,6 +89,52 @@ func createBlobs(
               inc sidecarIdx
   res
 
+func createBlobSidecars(srange: SyncRange, map: string): seq[BlobSidecars] =
+  var
+    res: seq[BlobSidecars]
+    notFirst = false
+  doAssert(lenu64(map) == srange.count,
+           "Length of map string should be equal to range size")
+  for index in 0 ..< srange.count:
+    let slot = srange.slot + index
+    if map[index] == '.':
+      if notFirst:
+        res.add(default(BlobSidecars))
+    else:
+      let count = Base10.decode(uint8, [map[index]]).get()
+      doAssert(count > 0 and count <= 9)
+      var subres: seq[ref BlobSidecar]
+      for i in 0 ..< int(count):
+        let car =
+          newClone(BlobSidecar(
+            index: uint64(i),
+            signed_block_header:
+              SignedBeaconBlockHeader(
+                message: BeaconBlockHeader(slot: slot))))
+        subres.add(car)
+      res.add(BlobSidecars(subres))
+      notFirst = true
+  res
+
+func createBlobRange(srange: SyncRange, map: string): seq[ref BlobSidecar] =
+  var res: seq[ref BlobSidecar]
+  doAssert(lenu64(map) == srange.count,
+           "Length of map string should be equal to range size")
+  for index in 0 ..< srange.count:
+    let slot = srange.slot + index
+    if map[index] != '.':
+      let count = Base10.decode(uint8, [map[index]]).get()
+      doAssert(count > 0 and count <= 9)
+      for i in 0 ..< int(count):
+        let car =
+          newClone(BlobSidecar(
+            index: uint64(i),
+            signed_block_header:
+              SignedBeaconBlockHeader(
+                message: BeaconBlockHeader(slot: slot))))
+        res.add(car)
+  res
+
 func collector(queue: AsyncQueue[BlockEntry]): BlockVerifier =
   proc verify(
       signedBlock: ForkedSignedBeaconBlock,
