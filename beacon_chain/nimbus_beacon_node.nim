@@ -553,6 +553,12 @@ proc initFullNode(
   dataColumnQuarantine[].custody_columns = 
     node.network.nodeId.get_custody_columns(max(SAMPLES_PER_SLOT.uint64,
                                             localCustodySubnets))
+
+  if node.config.subscribeAllSubnets:
+    node.network.loadCscnetMetadataAndEnr(DATA_COLUMN_SIDECAR_SUBNET_COUNT.uint8)
+  else:
+    node.network.loadCscnetMetadataAndEnr(CUSTODY_REQUIREMENT.uint8)
+
   if node.config.lightClientDataServe:
     proc scheduleSendingLightClientUpdates(slot: Slot) =
       if node.lightClientPool[].broadcastGossipFut != nil:
