@@ -24,6 +24,8 @@ const
     ## Enough for finalization in an alternative fork
   MaxBlobless = SLOTS_PER_EPOCH
     ## Arbitrary
+  MaxColumnless = SLOTS_PER_EPOCH
+    ## Arbitrary
   MaxUnviables = 16 * 1024
     ## About a day of blocks - most likely not needed but it's quite cheap..
 
@@ -57,6 +59,12 @@ type
       ## all blobs for this block, we can proceed to resolving the
       ## block as well. A blobless block inserted into this table must
       ## have a resolved parent (i.e., it is not an orphan).
+
+    columnless*: OrderedTable[Eth2Digest, ForkedSignedBeaconBlock]
+      ## Blocks that we don't have columns for. When we have received
+      ## all columns for this block, we can proceed to resolving the
+      ## block as well. A columnless block inserted into this table must
+      ## have a resolved parent (i.e., it is not an orphan)
 
     unviable*: OrderedTable[Eth2Digest, tuple[]]
       ## Unviable blocks are those that come from a history that does not
@@ -131,6 +139,10 @@ func removeOrphan*(
 func removeBlobless*(
   quarantine: var Quarantine, signedBlock: ForkySignedBeaconBlock) =
   quarantine.blobless.del(signedBlock.root)
+
+func removeColumnless*(
+  quarantine: var Quarantine, signedBlock: ForkySignedBeaconBlock) =
+  quarantine.columnless.del(signedBlock.root)
 
 func isViable(
     finalizedSlot: Slot, slot: Slot): bool =
@@ -236,6 +248,18 @@ func cleanupBlobless(quarantine: var Quarantine, finalizedSlot: Slot) =
     quarantine.addUnviable k
     quarantine.blobless.del k
 
+func cleanupColumnless(quarantine: var Quarantine, finalizedSlot: Slot) =
+  var toDel: seq[Eth2Digest]
+
+  for k, v in quarantine.columnless:
+    withBlck(v):
+      if not isViable(finalizedSlot, forkyBlck.message.slot):
+        toDel.add k
+
+  for k in toDel:
+    quarantine.addUnviable k
+    quarantine.columnless.del k
+
 func clearAfterReorg*(quarantine: var Quarantine) =
   ## Clear missing and orphans to start with a fresh slate in case of a reorg
   ## Unviables remain unviable and are not cleared.
@@ -325,6 +349,29 @@ proc addBlobless*(
   quarantine.missing.del(signedBlock.root)
   true
 
+proc addColumnless*(
+    quarantine: var Quarantine, finalizedSlot: Slot,
+    signedBlock: fulu.SignedBeaconBlock): bool =
+
+  if not isViable(finalizedSlot, signedBlock.message.slot):
+    quarantine.addUnviable(signedBlock.root)
+    return false
+
+  quarantine.cleanupColumnless(finalizedSlot)
+
+  if quarantine.columnless.lenu64 >= MaxColumnless:
+    var oldest_columnless_key: Eth2Digest
+    for k in quarantine.columnless.keys:
+      oldest_columnless_key = k
+      break
+    quarantine.blobless.del oldest_columnless_key
+
+  debug "block quarantine: Adding columnless", blck = shortLog(signedBlock)
+  quarantine.columnless[signedBlock.root] =
+    ForkedSignedBeaconBlock.init(signedBlock)
+  quarantine.missing.del(signedBlock.root)
+  true
+
 func popBlobless*(
     quarantine: var Quarantine,
     root: Eth2Digest): Opt[ForkedSignedBeaconBlock] =
@@ -334,6 +381,19 @@ func popBlobless*(
   else:
     Opt.none(ForkedSignedBeaconBlock)
 
+func popColumnless*(
+    quarantine: var Quarantine,
+    root: Eth2Digest): Opt[ForkedSignedBeaconBlock] =
+  var blck: ForkedSignedBeaconBlock
+  if quarantine.columnless.pop(root, blck):
+    Opt.some(blck)
+  else:
+    Opt.none(ForkedSignedBeaconBlock)
+
 iterator peekBlobless*(quarantine: var Quarantine): ForkedSignedBeaconBlock =
   for k, v in quarantine.blobless.mpairs():
+    yield v
+
+iterator peekColumnless*(quarantine: var Quarantine): ForkedSignedBeaconBlock =
+  for k, v in quarantine.columnless.mpairs():
     yield v
