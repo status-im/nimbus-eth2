@@ -274,10 +274,14 @@ proc fetchBlobsFromNetwork(self: RequestManager,
 proc checkPeerCustody*(rman: RequestManager,
                        peer: Peer):
                        bool =
-  ## Returns true if the peer custodies atleast
-  ## ONE of the common custody columns, straight 
-  ## away returns true if the peer is a supernode.
+  # Returns true if the peer custodies atleast
+  # ONE of the common custody columns, straight 
+  # away returns true if the peer is a supernode.
   if rman.supernode:
+    # For a supernode, it is always best/optimistic
+    # to filter other supernodes, rather than filter
+    # too many full nodes that have a subset of the custody
+    # columns
     if peer.lookupCscFromPeer() == 
         DATA_COLUMN_SIDECAR_SUBNET_COUNT.uint64:
       return true
