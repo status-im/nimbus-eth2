@@ -1891,7 +1891,7 @@ proc onSlotStart(node: BeaconNode, wallTime: BeaconTime,
 
 proc onSecond(node: BeaconNode, time: Moment) =
   # Nim GC metrics (for the main thread)
-  updateThreadMetrics()
+  # updateThreadMetrics()
 
   if node.config.stopAtSyncedEpoch != 0 and
       node.dag.head.slot.epoch >= node.config.stopAtSyncedEpoch:
@@ -2350,7 +2350,7 @@ when not defined(windows):
 
     asyncSpawn statusBarUpdatesPollingLoop()
 
-proc doRunBeaconNode(config: var BeaconNodeConf, rng: ref HmacDrbgContext) {.raises: [CatchableError].} =
+proc doRunBeaconNode*(config: var BeaconNodeConf, rng: ref HmacDrbgContext) {.raises: [CatchableError].} =
   info "Launching beacon node",
       version = fullVersionStr,
       bls_backend = $BLS_BACKEND,
@@ -2386,7 +2386,7 @@ proc doRunBeaconNode(config: var BeaconNodeConf, rng: ref HmacDrbgContext) {.rai
 
   # Nim GC metrics (for the main thread) will be collected in onSecond(), but
   # we disable piggy-backing on other metrics here.
-  setSystemMetricsAutomaticUpdate(false)
+  # setSystemMetricsAutomaticUpdate(false)
 
   # There are no managed event loops in here, to do a graceful shutdown, but
   # letting the default Ctrl+C handler exit is safe, since we only read from
@@ -2570,7 +2570,7 @@ proc handleStartUpCmd(config: var BeaconNodeConf) {.raises: [CatchableError].} =
 
 {.pop.} # TODO moduletests exceptions
 
-programMain:
+when isMainModule:
   var config = makeBannerAndConfig(clientId, copyrights, nimBanner,
                                    SPEC_VERSION, [], BeaconNodeConf).valueOr:
     stderr.write error
