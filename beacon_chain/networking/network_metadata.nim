@@ -18,7 +18,7 @@ import
 
 from std/sequtils import deduplicate, filterIt, mapIt
 from std/strutils import
-  escape, parseBiggestUInt, replace, splitLines, startsWith, strip,
+  endsWith, escape, parseBiggestUInt, replace, splitLines, startsWith, strip,
   toLowerAscii
 
 # TODO(zah):
@@ -116,6 +116,8 @@ proc readBootEnr(path: string): seq[string] {.raises: [IOError].} =
       let line = line.strip()
       if line.startsWith("- enr:"):
         res.add line[2 .. ^1]
+      elif line.startsWith("- \"enr:") and line.endsWith("\""):
+        res.add line[3 .. ^2]  # Gnosis Chiado `boot_enr.yaml`
       elif line.len == 0 or line.startsWith("#"):
         discard
       else:
