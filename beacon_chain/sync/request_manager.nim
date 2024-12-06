@@ -298,7 +298,7 @@ proc checkPeerCustody*(rman: RequestManager,
         localNodeId = rman.network.nodeId
         localCustodyColumns =
           localNodeId.get_custody_columns(max(SAMPLES_PER_SLOT.uint64,
-                                          CUSTODY_REQUIREMENT.uint64))
+                                              CUSTODY_REQUIREMENT.uint64))
 
       # Fetch the remote custody count
       let remoteCustodySubnetCount =
@@ -310,7 +310,7 @@ proc checkPeerCustody*(rman: RequestManager,
         remoteNodeId = fetchNodeIdFromPeerId(peer)
         remoteCustodyColumns =
           remoteNodeId.get_custody_columns(max(SAMPLES_PER_SLOT.uint64,
-                                              remoteCustodySubnetCount))
+                                               remoteCustodySubnetCount))
 
       for local_column in localCustodyColumns:
         if local_column notin remoteCustodyColumns:
