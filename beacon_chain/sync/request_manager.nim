@@ -64,6 +64,7 @@ type
   RequestManager* = object
     network*: Eth2Node
     supernode*: bool
+    custody_columns_set: HashSet[ColumnIndex]
     getBeaconTime: GetBeaconTimeFn
     inhibit: InhibitFn
     quarantine: ref Quarantine
@@ -85,6 +86,7 @@ func shortLog*(x: seq[FetchRecord]): string =
 
 proc init*(T: type RequestManager, network: Eth2Node,
               supernode: bool,
+              custody_columns_set: HashSet[ColumnIndex],
               denebEpoch: Epoch,
               getBeaconTime: GetBeaconTimeFn,
               inhibit: InhibitFn,
@@ -98,6 +100,7 @@ proc init*(T: type RequestManager, network: Eth2Node,
   RequestManager(
     network: network,
     supernode: supernode,
+    custody_columns_set: custody_columns_set,
     getBeaconTime: getBeaconTime,
     inhibit: inhibit,
     quarantine: quarantine,
@@ -293,12 +296,6 @@ proc checkPeerCustody*(rman: RequestManager,
 
     elif peer.lookupCscFromPeer() == 
         CUSTODY_REQUIREMENT.uint64:
-      # Fetch local custody column
-      let
-        localNodeId = rman.network.nodeId
-        localCustodyColumns =
-          localNodeId.get_custody_columns(max(SAMPLES_PER_SLOT.uint64,
-                                              CUSTODY_REQUIREMENT.uint64))
 
       # Fetch the remote custody count
       let remoteCustodySubnetCount =
@@ -309,10 +306,10 @@ proc checkPeerCustody*(rman: RequestManager,
       let
         remoteNodeId = fetchNodeIdFromPeerId(peer)
         remoteCustodyColumns =
-          remoteNodeId.get_custody_columns(max(SAMPLES_PER_SLOT.uint64,
+          remoteNodeId.get_custody_columns_set(max(SAMPLES_PER_SLOT.uint64,
                                                remoteCustodySubnetCount))
 
-      for local_column in localCustodyColumns:
+      for local_column in rman.custody_columns_set:
         if local_column notin remoteCustodyColumns:
           return false
       
@@ -556,15 +553,7 @@ proc getMissingDataColumns(rman: RequestManager): seq[DataColumnIdentifier] =
              commitments = len(forkyBlck.message.body.blob_kzg_commitments)
           for idx in missing.indices:
             let id = DataColumnIdentifier(block_root: columnless.root, index: idx)
-            let local_csc = 
-              if rman.supernode:
-                DATA_COLUMN_SIDECAR_SUBNET_COUNT.uint64
-              else:
-                CUSTODY_REQUIREMENT.uint64
-            let local_custody =
-              rman.network.nodeId.get_custody_columns(max(SAMPLES_PER_SLOT.uint64,
-                                                          local_csc))
-            if id.index in local_custody and id notin fetches and 
+            if id.index in rman.custody_columns_set and id notin fetches and 
                 len(forkyBlck.message.body.blob_kzg_commitments) != 0:
               fetches.add(id)
         else:

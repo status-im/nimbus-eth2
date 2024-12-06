@@ -422,6 +422,9 @@ proc initFullNode(
         DATA_COLUMN_SIDECAR_SUBNET_COUNT.uint64
       else:
         CUSTODY_REQUIREMENT.uint64
+    custody_columns_set =
+      node.network.nodeId.get_custody_columns_set(max(SAMPLES_PER_SLOT.uint64,
+                                                      localCustodySubnets))
     consensusManager = ConsensusManager.new(
       dag, attestationPool, quarantine, node.elManager,
       ActionTracker.init(node.network.nodeId, config.subscribeAllSubnets),
@@ -532,8 +535,8 @@ proc initFullNode(
       processor: processor,
       network: node.network)
     requestManager = RequestManager.init(
-      node.network, supernode, dag.cfg.DENEB_FORK_EPOCH, getBeaconTime,
-      (proc(): bool = syncManager.inProgress),
+      node.network, supernode, custody_columns_set, dag.cfg.DENEB_FORK_EPOCH, 
+      getBeaconTime, (proc(): bool = syncManager.inProgress),
       quarantine, blobQuarantine, dataColumnQuarantine, rmanBlockVerifier,
       rmanBlockLoader, rmanBlobLoader, rmanDataColumnLoader)
   
@@ -559,7 +562,7 @@ proc initFullNode(
   dataColumnQuarantine[].supernode = supernode
   dataColumnQuarantine[].custody_columns = 
     node.network.nodeId.get_custody_columns(max(SAMPLES_PER_SLOT.uint64,
-                                            localCustodySubnets))
+                                                localCustodySubnets))
 
   if node.config.subscribeAllSubnets:
     node.network.loadCscnetMetadataAndEnr(DATA_COLUMN_SIDECAR_SUBNET_COUNT.uint8)
