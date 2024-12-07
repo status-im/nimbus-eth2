@@ -525,7 +525,7 @@ proc requestManagerBlobLoop(
             blobs_count = len(blobIds),
             sync_speed = speed(start, finish)
 
-proc getMissingDataColumns(rman: RequestManager): seq[DataColumnIdentifier] =
+proc getMissingDataColumns(rman: RequestManager): HashSet[DataColumnIdentifier] =
   let
     wallTime = rman.getBeaconTime()
     wallSlot = wallTime.slotOrZero()
@@ -534,7 +534,7 @@ proc getMissingDataColumns(rman: RequestManager): seq[DataColumnIdentifier] =
   const waitDur = TimeDiff(nanoseconds: DATA_COLUMN_GOSSIP_WAIT_TIME_NS)
 
   var
-    fetches: seq[DataColumnIdentifier]
+    fetches: HashSet[DataColumnIdentifier]
     ready: seq[Eth2Digest]
 
   for columnless in rman.quarantine[].peekColumnless():
@@ -555,12 +555,12 @@ proc getMissingDataColumns(rman: RequestManager): seq[DataColumnIdentifier] =
             let id = DataColumnIdentifier(block_root: columnless.root, index: idx)
             if id.index in rman.custody_columns_set and id notin fetches and 
                 len(forkyBlck.message.body.blob_kzg_commitments) != 0:
-              fetches.add(id)
+              fetches.incl(id)
         else:
           # this is a programming error and it not should occur
           warn "missing column handler found columnless block with all data columns",
              blk = columnless.root,
-             commitments=len(forkyBlck.message.body.blob_kzg_commitments)
+             commitments = len(forkyBlck.message.body.blob_kzg_commitments)
           ready.add(columnless.root)
   
   for root in ready:
@@ -583,7 +583,8 @@ proc requestManagerDataColumnLoop(
 
     var columnIds: seq[DataColumnIdentifier]
     if rman.dataColumnLoader == nil:
-      columnIds = missingColumnIds
+      for item in missingColumnIds:
+        columnIds.add item
     else:
       var
         blockRoots: seq[Eth2Digest]
