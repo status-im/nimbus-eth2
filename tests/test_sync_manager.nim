@@ -77,7 +77,9 @@ suite "SyncManager test suite":
     var res = newSeq[ref BlobSidecar](len(slots))
     for blck in blocks:
       withBlck(blck[]):
-        when consensusFork >= ConsensusFork.Deneb:
+        when consensusFork == ConsensusFork.Fulu:
+          continue
+        elif consensusFork >= ConsensusFork.Deneb:
           template kzgs: untyped = forkyBlck.message.body.blob_kzg_commitments
           for i, slot in slots:
             if slot == forkyBlck.message.slot:

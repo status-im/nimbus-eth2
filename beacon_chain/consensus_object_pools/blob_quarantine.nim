@@ -73,13 +73,17 @@ func hasBlob*(
 func popBlobs*(
     quarantine: var BlobQuarantine, digest: Eth2Digest,
     blck: deneb.SignedBeaconBlock | electra.SignedBeaconBlock |
-          fulu.SignedBeaconBlock):
-    seq[ref BlobSidecar] =
+          fulu.SignedBeaconBlock): seq[ref BlobSidecar] =
   var r: seq[ref BlobSidecar] = @[]
-  for idx, kzg_commitment in blck.message.body.blob_kzg_commitments:
-    var b: ref BlobSidecar
-    if quarantine.blobs.pop((digest, BlobIndex idx, kzg_commitment), b):
-      r.add(b)
+
+  # Handle `fulu` blocks: skip processing blobs
+  when typeof(blck).kind == ConsensusFork.Fulu:
+    return r
+  else:
+    for idx, kzg_commitment in blck.message.body.blob_kzg_commitments:
+      var b: ref BlobSidecar
+      if quarantine.blobs.pop((digest, BlobIndex idx, kzg_commitment), b):
+        r.add(b)
   r
 
 func hasBlobs*(quarantine: BlobQuarantine,
@@ -87,21 +91,28 @@ func hasBlobs*(quarantine: BlobQuarantine,
           fulu.SignedBeaconBlock): bool =
     # Having a fulu SignedBeaconBlock is incorrect atm, but
     # shall be fixed once data columns are rebased to fulu
-  for idx, kzg_commitment in blck.message.body.blob_kzg_commitments:
-    if (blck.root, BlobIndex idx, kzg_commitment) notin quarantine.blobs:
-      return false
+  when typeof(blck).kind == ConsensusFork.Fulu:
+    return false
+  else:
+    for idx, kzg_commitment in blck.message.body.blob_kzg_commitments:
+      if (blck.root, BlobIndex idx, kzg_commitment) notin quarantine.blobs:
+        return false
   true
 
 func blobFetchRecord*(quarantine: BlobQuarantine,
     blck: deneb.SignedBeaconBlock | electra.SignedBeaconBlock |
           fulu.SignedBeaconBlock): BlobFetchRecord =
-  var indices: seq[BlobIndex]
-  for i in 0..<len(blck.message.body.blob_kzg_commitments):
-    let idx = BlobIndex(i)
-    if not quarantine.blobs.hasKey(
-        (blck.root, idx, blck.message.body.blob_kzg_commitments[i])):
-      indices.add(idx)
-  BlobFetchRecord(block_root: blck.root, indices: indices)
+  # Skip blob fetching logic for the Fulu fork
+  when typeof(blck).kind == ConsensusFork.Fulu:
+    return BlobFetchRecord(block_root: blck.root, indices: @[])  # Empty record
+  else:
+    var indices: seq[BlobIndex]
+    for i in 0..<len(blck.message.body.blob_kzg_commitments):
+      let idx = BlobIndex(i)
+      if not quarantine.blobs.hasKey(
+          (blck.root, idx, blck.message.body.blob_kzg_commitments[i])):
+        indices.add(idx)
+    BlobFetchRecord(block_root: blck.root, indices: indices)
 
 func init*(
     T: type BlobQuarantine, onBlobSidecarCallback: OnBlobSidecarCallback): T =

@@ -978,7 +978,10 @@ proc getBlindedBlockParts[
     template actualEPH: untyped =
       executionPayloadHeader.get.blindedBlckPart.execution_payload_header
     let
-      withdrawals_root = Opt.some actualEPH.withdrawals_root
+      withdrawals_root = when compiles(actualEPH.withdrawals_root):
+                           Opt.some(actualEPH.withdrawals_root)
+                         else:
+                           Opt.none(Eth2Digest)
       kzg_commitments = Opt.some(
         executionPayloadHeader.get.blindedBlckPart.blob_kzg_commitments)
 

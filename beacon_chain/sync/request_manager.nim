@@ -304,7 +304,10 @@ proc getMissingBlobs(rman: RequestManager): seq[BlobIdentifier] =
     ready: seq[Eth2Digest]
   for blobless in rman.quarantine[].peekBlobless():
     withBlck(blobless):
-      when consensusFork >= ConsensusFork.Deneb:
+      when consensusFork == ConsensusFork.Fulu:
+        # For Fulu, return an empty sequence
+        return fetches
+      elif consensusFork >= ConsensusFork.Deneb:
         # give blobs a chance to arrive over gossip
         if forkyBlck.message.slot == wallSlot and delay < waitDur:
           debug "Not handling missing blobs early in slot"

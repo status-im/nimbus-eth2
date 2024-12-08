@@ -246,7 +246,10 @@ func groupBlobs*(
     blob_cursor = 0
   for block_idx, blck in blocks:
     withBlck(blck[]):
-      when consensusFork >= ConsensusFork.Deneb:
+      when consensusFork == ConsensusFork.Fulu:
+        # Skip blob processing for fulu beacon blocks as they do not contain blobs
+        continue
+      elif consensusFork >= ConsensusFork.Deneb:
         template kzgs: untyped = forkyBlck.message.body.blob_kzg_commitments
         if kzgs.len == 0:
           continue

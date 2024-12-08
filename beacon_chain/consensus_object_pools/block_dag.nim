@@ -72,11 +72,18 @@ func init*(
           deneb.SomeBeaconBlock | deneb.TrustedBeaconBlock |
           electra.SomeBeaconBlock | electra.TrustedBeaconBlock |
           fulu.SomeBeaconBlock | fulu.TrustedBeaconBlock): BlockRef =
-  BlockRef.init(
-    root, Opt.some blck.body.execution_payload.block_hash,
-    executionValid =
-      executionValid or blck.body.execution_payload.block_hash == ZERO_HASH,
-    blck.slot)
+  when typeof(blck).kind < ConsensusFork.Fulu:
+    BlockRef.init(
+      root, Opt.some blck.body.execution_payload.block_hash,
+      executionValid =
+        executionValid or blck.body.execution_payload.block_hash == ZERO_HASH,
+      blck.slot)
+  else:
+    BlockRef.init(
+      root, 
+      Opt.none(Eth2Digest),
+      executionValid = true,
+      blck.slot)
 
 func parent*(bs: BlockSlot): BlockSlot =
   ## Return a blockslot representing the previous slot, using the parent block

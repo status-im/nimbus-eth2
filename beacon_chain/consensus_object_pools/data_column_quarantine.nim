@@ -37,8 +37,8 @@ type
 func init*(T: type DataColumnQuarantine): T =
   T()
 
-func shortLog*(x: seq[DataColumnFetchRecord]): string =
-  "[" & x.mapIt(shortLog(it.block_root) & shortLog(it.indices)).join(", ") & "]"
+# func shortLog*(x: seq[DataColumnFetchRecord]): string =
+#   "[" & x.mapIt(shortLog(it.block_root) & shortLog(it.indices.mapIt($it).join(", "))).join(", ") & "]"
 
 func put*(quarantine: var DataColumnQuarantine,
           dataColumnSidecar: ref DataColumnSidecar) =

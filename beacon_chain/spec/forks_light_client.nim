@@ -1204,36 +1204,60 @@ func toElectraLightClientHeader(
     execution_branch: blck.message.body.build_proof(
       capella.EXECUTION_PAYLOAD_GINDEX).get)
 
-func toElectraLightClientHeader(
-    # `SomeSignedBeaconBlock`: https://github.com/nim-lang/Nim/issues/18095
-    blck:
-      electra.SignedBeaconBlock | electra.TrustedSignedBeaconBlock |
-      fulu.SignedBeaconBlock | fulu.TrustedSignedBeaconBlock
-): electra.LightClientHeader =
-  template payload: untyped = blck.message.body.execution_payload
-  electra.LightClientHeader(
-    beacon: blck.message.toBeaconBlockHeader(),
-    execution: electra.ExecutionPayloadHeader(
-      parent_hash: payload.parent_hash,
-      fee_recipient: payload.fee_recipient,
-      state_root: payload.state_root,
-      receipts_root: payload.receipts_root,
-      logs_bloom: payload.logs_bloom,
-      prev_randao: payload.prev_randao,
-      block_number: payload.block_number,
-      gas_limit: payload.gas_limit,
-      gas_used: payload.gas_used,
-      timestamp: payload.timestamp,
-      extra_data: payload.extra_data,
-      base_fee_per_gas: payload.base_fee_per_gas,
-      block_hash: payload.block_hash,
-      transactions_root: hash_tree_root(payload.transactions),
-      withdrawals_root: hash_tree_root(payload.withdrawals),
-      blob_gas_used: payload.blob_gas_used,
-      excess_blob_gas: payload.excess_blob_gas),
-    execution_branch: blck.message.body.build_proof(
-      capella.EXECUTION_PAYLOAD_GINDEX).get)
-
+func toElectraLightClientHeader[T](blck: T): electra.LightClientHeader =
+  when T is electra.SignedBeaconBlock or T is electra.TrustedSignedBeaconBlock:
+    let payload = blck.message.body.execution_payload
+    electra.LightClientHeader(
+      beacon: blck.message.toBeaconBlockHeader(),
+      execution: electra.ExecutionPayloadHeader(
+        parent_hash: payload.parent_hash,
+        fee_recipient: payload.fee_recipient,
+        state_root: payload.state_root,
+        receipts_root: payload.receipts_root,
+        logs_bloom: payload.logs_bloom,
+        prev_randao: payload.prev_randao,
+        block_number: payload.block_number,
+        gas_limit: payload.gas_limit,
+        gas_used: payload.gas_used,
+        timestamp: payload.timestamp,
+        extra_data: payload.extra_data,
+        base_fee_per_gas: payload.base_fee_per_gas,
+        block_hash: payload.block_hash,
+        transactions_root: hash_tree_root(payload.transactions),
+        withdrawals_root: hash_tree_root(payload.withdrawals),
+        blob_gas_used: payload.blob_gas_used,
+        excess_blob_gas: payload.excess_blob_gas
+      ),
+      execution_branch: blck.message.body.build_proof(capella.EXECUTION_PAYLOAD_GINDEX).get
+    )
+  elif T is fulu.SignedBeaconBlock or T is fulu.TrustedSignedBeaconBlock:
+    let header = blck.message.body.signed_execution_payload_header.message
+    electra.LightClientHeader(
+      beacon: blck.message.toBeaconBlockHeader(),
+      execution: electra.ExecutionPayloadHeader(
+        parent_hash: header.parent_block_hash,
+        # fee_recipient: default(Address),
+        state_root: Eth2Digest(),
+        receipts_root: Eth2Digest(),
+        # logs_bloom: default(LogsBloom),
+        prev_randao: Eth2Digest(),
+        block_number: 0,
+        gas_limit: header.gas_limit,
+        gas_used: 0,
+        timestamp: 0,
+        # extra_data: @[],
+        # base_fee_per_gas: 0,
+        block_hash: Eth2Digest(),
+        transactions_root: Eth2Digest(),
+        withdrawals_root: Eth2Digest(),
+        # blob_gas_used: 0,
+        # excess_blob_gas: 0
+      ),
+      execution_branch: blck.message.body.build_proof(capella.EXECUTION_PAYLOAD_GINDEX).get
+    )
+  else:
+    raise newException(ValueError, "Unsupported block type for light client header")
+    
 func toLightClientHeader*(
     # `SomeSignedBeaconBlock`: https://github.com/nim-lang/Nim/issues/18095
     blck:

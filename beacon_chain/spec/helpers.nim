@@ -384,13 +384,18 @@ func contextEpoch*(update: SomeForkyLightClientUpdate): Epoch =
 func is_merge_transition_complete*(
     state: bellatrix.BeaconState | capella.BeaconState | deneb.BeaconState |
            electra.BeaconState | fulu.BeaconState): bool =
-  const defaultExecutionPayloadHeader =
-    default(typeof(state.latest_execution_payload_header))
-  state.latest_execution_payload_header != defaultExecutionPayloadHeader
+  when typeof(state) is fulu.BeaconState:
+    true
+  else:
+    const defaultExecutionPayloadHeader =
+      default(typeof(state.latest_execution_payload_header))
+    state.latest_execution_payload_header != defaultExecutionPayloadHeader
 
 # https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.8/sync/optimistic.md#helpers
 func is_execution_block*(blck: SomeForkyBeaconBlock): bool =
-  when typeof(blck).kind >= ConsensusFork.Bellatrix:
+  when typeof(blck).kind >= ConsensusFork.Fulu:
+    false  # Always return false for Fulu blocks
+  elif typeof(blck).kind >= ConsensusFork.Bellatrix:
     const defaultExecutionPayload =
       default(typeof(blck.body.execution_payload))
     blck.body.execution_payload != defaultExecutionPayload
@@ -411,9 +416,19 @@ func is_merge_transition_block(
           electra.SigVerifiedBeaconBlockBody |
           fulu.BeaconBlockBody | fulu.TrustedBeaconBlockBody |
           fulu.SigVerifiedBeaconBlockBody): bool =
-  const defaultExecutionPayload = default(typeof(body.execution_payload))
-  not is_merge_transition_complete(state) and
-    body.execution_payload != defaultExecutionPayload
+  # Handle Fulu block type differently
+  when typeof(body) is fulu.BeaconBlockBody or 
+       typeof(body) is fulu.TrustedBeaconBlockBody or 
+       typeof(body) is fulu.SigVerifiedBeaconBlockBody:
+    # Check if there's a signed execution payload header and it's not default
+    let defaultHeader = default(typeof(body.signed_execution_payload_header.message))
+    not is_merge_transition_complete(state) and
+      body.signed_execution_payload_header.message != defaultHeader
+  else:
+    # For other block types, use existing logic
+    const defaultExecutionPayload = default(typeof(body.execution_payload))
+    not is_merge_transition_complete(state) and
+      body.execution_payload != defaultExecutionPayload
 
 # https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.8/specs/bellatrix/beacon-chain.md#is_execution_enabled
 func is_execution_enabled*(

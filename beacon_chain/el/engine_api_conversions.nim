@@ -10,6 +10,7 @@
 import
   kzg4844/[kzg_abi, kzg],
   ../spec/datatypes/[bellatrix, capella, deneb, electra, fulu],
+  ../spec/forks,
   web3/[engine_api, engine_api_types]
 
 from std/sequtils import mapIt
@@ -300,30 +301,77 @@ func asEngineExecutionPayload*(blockBody: capella.BeaconBlockBody):
     withdrawals: mapIt(executionPayload.withdrawals, it.toEngineWithdrawal))
 
 func asEngineExecutionPayload*(
-    blockBody: deneb.BeaconBlockBody | electra.BeaconBlockBody |
-    fulu.BeaconBlockBody):
-    ExecutionPayloadV3 =
-  template executionPayload(): untyped = blockBody.execution_payload
+    blockBody: deneb.BeaconBlockBody | electra.BeaconBlockBody | fulu.BeaconBlockBody
+): ExecutionPayloadV3 =
+  let executionPayload =
+    when typeof(blockBody).kind == ConsensusFork.Electra:
+      blockBody.execution_payload
+    elif typeof(blockBody).kind == ConsensusFork.Deneb:
+      blockBody.execution_payload
+    elif typeof(blockBody).kind == ConsensusFork.Fulu:
+      blockBody.signed_execution_payload_header.message
+    else:
+      raise newException(ValueError, "Unsupported BeaconBlockBody type")
 
   template getTypedTransaction(tt: bellatrix.Transaction): TypedTransaction =
     TypedTransaction(tt.distinctBase)
 
-  engine_api.ExecutionPayloadV3(
-    parentHash: executionPayload.parent_hash.asBlockHash,
-    feeRecipient: Address(executionPayload.fee_recipient.data),
-    stateRoot: executionPayload.state_root.asBlockHash,
-    receiptsRoot: executionPayload.receipts_root.asBlockHash,
-    logsBloom:
-      FixedBytes[BYTES_PER_LOGS_BLOOM](executionPayload.logs_bloom.data),
-    prevRandao: executionPayload.prev_randao.data.to(Bytes32),
-    blockNumber: Quantity(executionPayload.block_number),
-    gasLimit: Quantity(executionPayload.gas_limit),
-    gasUsed: Quantity(executionPayload.gas_used),
-    timestamp: Quantity(executionPayload.timestamp),
-    extraData: DynamicBytes[0, MAX_EXTRA_DATA_BYTES](executionPayload.extra_data),
-    baseFeePerGas: executionPayload.base_fee_per_gas,
-    blockHash: executionPayload.block_hash.asBlockHash,
-    transactions: mapIt(executionPayload.transactions, it.getTypedTransaction),
-    withdrawals: mapIt(executionPayload.withdrawals, it.asEngineWithdrawal),
-    blobGasUsed: Quantity(executionPayload.blob_gas_used),
-    excessBlobGas: Quantity(executionPayload.excess_blob_gas))
+  when typeof(blockBody).kind == ConsensusFork.Electra:
+    result = engine_api.ExecutionPayloadV3(
+      parentHash: executionPayload.parent_hash.asBlockHash,
+      feeRecipient: Address(executionPayload.fee_recipient.data),
+      stateRoot: executionPayload.state_root.asBlockHash,
+      receiptsRoot: executionPayload.receipts_root.asBlockHash,
+      logsBloom: FixedBytes[BYTES_PER_LOGS_BLOOM](executionPayload.logs_bloom.data),
+      prevRandao: executionPayload.prev_randao.data.to(Bytes32),
+      blockNumber: Quantity(executionPayload.block_number),
+      gasLimit: Quantity(executionPayload.gas_limit),
+      gasUsed: Quantity(executionPayload.gas_used),
+      timestamp: Quantity(executionPayload.timestamp),
+      extraData: DynamicBytes[0, MAX_EXTRA_DATA_BYTES](executionPayload.extra_data),
+      baseFeePerGas: executionPayload.base_fee_per_gas,
+      blockHash: executionPayload.block_hash.asBlockHash,
+      transactions: mapIt(executionPayload.transactions, it.getTypedTransaction),
+      withdrawals: mapIt(executionPayload.withdrawals, it.asEngineWithdrawal),
+      blobGasUsed: Quantity(executionPayload.blob_gas_used),
+      excessBlobGas: Quantity(executionPayload.excess_blob_gas))
+  elif typeof(blockBody).kind == ConsensusFork.Deneb:
+    result = engine_api.ExecutionPayloadV3(
+      parentHash: executionPayload.parent_hash.asBlockHash,
+      feeRecipient: Address(executionPayload.fee_recipient.data),
+      stateRoot: executionPayload.state_root.asBlockHash,
+      receiptsRoot: executionPayload.receipts_root.asBlockHash,
+      logsBloom: FixedBytes[BYTES_PER_LOGS_BLOOM](executionPayload.logs_bloom.data),
+      prevRandao: executionPayload.prev_randao.data.to(Bytes32),
+      blockNumber: Quantity(executionPayload.block_number),
+      gasLimit: Quantity(executionPayload.gas_limit),
+      gasUsed: Quantity(executionPayload.gas_used),
+      timestamp: Quantity(executionPayload.timestamp),
+      extraData: DynamicBytes[0, MAX_EXTRA_DATA_BYTES](executionPayload.extra_data),
+      baseFeePerGas: executionPayload.base_fee_per_gas,
+      blockHash: executionPayload.block_hash.asBlockHash,
+      transactions: mapIt(executionPayload.transactions, it.getTypedTransaction),
+      withdrawals: mapIt(executionPayload.withdrawals, it.asEngineWithdrawal),
+      blobGasUsed: Quantity(executionPayload.blob_gas_used),
+      excessBlobGas: Quantity(executionPayload.excess_blob_gas))
+  elif typeof(blockBody).kind == ConsensusFork.Fulu:
+    result = engine_api.ExecutionPayloadV3(
+      parentHash: executionPayload.parent_block_hash.asBlockHash,
+      feeRecipient: default(Address),
+      stateRoot: executionPayload.parent_block_hash.asBlockHash, #[TODO]#
+      receiptsRoot: executionPayload.parent_block_hash.asBlockHash, #[TODO]#
+      logsBloom: default(FixedBytes[BYTES_PER_LOGS_BLOOM]),
+      prevRandao: default(FixedBytes[32]),
+      blockNumber: Quantity(0),
+      gasLimit: Quantity(executionPayload.gas_limit),
+      gasUsed: Quantity(0),
+      timestamp: Quantity(executionPayload.slot),
+      extraData: DynamicBytes[0, MAX_EXTRA_DATA_BYTES](@[]),
+      baseFeePerGas: default(UInt256),
+      blockHash: executionPayload.block_hash.asBlockHash,
+      transactions: @[],
+      withdrawals: @[],
+      blobGasUsed: Quantity(0),
+      excessBlobGas: Quantity(0))
+  else:
+    raise newException(ValueError, "Unsupported BeaconBlockBody type")
