@@ -104,19 +104,29 @@ proc checkResponse(roots: openArray[Eth2Digest],
 
 proc checkResponse(idList: seq[BlobIdentifier],
                    blobs: openArray[ref BlobSidecar]): bool =
-  if len(blobs) > len(idList):
+  if blobs.len > idList.len:
     return false
-  for blob in blobs:
-    let block_root = hash_tree_root(blob.signed_block_header.message)
-    var found = false
-    for id in idList:
-      if id.block_root == block_root and id.index == blob.index:
-        found = true
-        break
-    if not found:
+  
+  var i = 0
+  while i < blobs.len:
+    let
+      block_root = hash_tree_root(blobs[i].signed_block_header.message)
+      id = idList[i]
+    
+    # Check if the blob response is a subset
+    if search_sidecar_identifier(idList, blobs[i]) == -1:
+      i = if i != blobs.len - 1: i + 2 else: i + 1
+      continue
+
+    # Verify block_root and index match
+    if id.block_root != block_root or id.index != blobs[i].index:
       return false
-    blob[].verify_blob_sidecar_inclusion_proof().isOkOr:
+
+    # Verify inclusion proof
+    blobs[i][].verify_blob_sidecar_inclusion_proof().isOkOr:
       return false
+
+    inc i
   true
 
 proc requestBlocksByRoot(rman: RequestManager, items: seq[Eth2Digest]) {.async: (raises: [CancelledError]).} =

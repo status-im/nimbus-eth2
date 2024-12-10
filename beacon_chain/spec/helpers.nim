@@ -10,6 +10,7 @@
 # Uncategorized helper functions from the spec
 
 import
+  std/sequtils,
   # Status libraries
   stew/[byteutils, endians2, objects],
   nimcrypto/sha2,
@@ -250,6 +251,24 @@ func create_blob_sidecars*(
       sidecar.kzg_commitment_inclusion_proof).expect("Valid gindex")
     res.add(sidecar)
   res
+
+func search_sidecar_identifier*(
+    data: seq[BlobIdentifier] | seq[DataColumnIdentifier], 
+    target: ref BlobSidecar | ref DataColumnSidecar): int =
+  var
+    low_pt = 0
+    high_pt = data.high
+
+  while low_pt <= high_pt:
+    let mid = (low_pt + high_pt) div 2
+    if data[mid].index == target.index:
+      return mid  # Target found at index `mid`
+    elif data[mid].index < target.index:
+      low_pt = mid + 1
+    else:
+      high_pt = mid - 1
+
+  -1  # Target not found
 
 # https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.5/specs/altair/light-client/sync-protocol.md#is_sync_committee_update
 template is_sync_committee_update*(update: SomeForkyLightClientUpdate): bool =
