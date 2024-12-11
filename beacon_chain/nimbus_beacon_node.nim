@@ -63,7 +63,7 @@ declareGauge sync_committee_active,
 declareCounter db_checkpoint_seconds,
   "Time spent checkpointing the database to clear the WAL file"
 
-proc fetchGenesisState(
+proc fetchGenesisState*(
     metadata: Eth2NetworkMetadata,
     genesisState = none(InputFile),
     genesisStateUrl = none(Uri)
@@ -101,7 +101,7 @@ proc fetchGenesisState(
   else:
     nil
 
-proc doRunTrustedNodeSync(
+proc doRunTrustedNodeSync*(
     db: BeaconChainDB,
     metadata: Eth2NetworkMetadata,
     databaseDir: string,
