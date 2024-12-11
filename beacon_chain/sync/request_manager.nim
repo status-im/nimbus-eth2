@@ -106,13 +106,13 @@ proc checkResponse(idList: seq[BlobIdentifier],
                    blobs: openArray[ref BlobSidecar]): bool =
   if blobs.len > idList.len:
     return false
-  
+
   var i = 0
   while i < blobs.len:
     let
       block_root = hash_tree_root(blobs[i].signed_block_header.message)
       id = idList[i]
-    
+
     # Check if the blob response is a subset
     if search_sidecar_identifier(idList, blobs[i]) == -1:
       i = if i != blobs.len - 1: i + 2 else: i + 1
