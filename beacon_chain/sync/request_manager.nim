@@ -18,7 +18,7 @@ import
   "."/sync_protocol, "."/sync_manager,
   ../gossip_processing/block_processor
 
-from std/algorithm import binarySearch
+from std/algorithm import binarySearch, sort
 from ../beacon_clock import GetBeaconTimeFn
 export block_quarantine, sync_manager
 
@@ -203,6 +203,9 @@ proc requestBlocksByRoot(rman: RequestManager, items: seq[Eth2Digest]) {.async: 
     if not(isNil(peer)):
       rman.network.peerPool.release(peer)
 
+func cmpBlobIndexes(x, y: ref BlobSidecar): int =
+  cmp(x.index, y.index)
+
 proc fetchBlobsFromNetwork(self: RequestManager,
                            idList: seq[BlobIdentifier])
                            {.async: (raises: [CancelledError]).} =
@@ -216,8 +219,9 @@ proc fetchBlobsFromNetwork(self: RequestManager,
     let blobs = await blobSidecarsByRoot(peer, BlobIdentifierList idList)
 
     if blobs.isOk:
-      let ublobs = blobs.get()
-      if not checkResponse(idList, ublobs.asSeq()):
+      var ublobs = blobs.get().asSeq()
+      ublobs.sort(cmpBlobIndexes)
+      if not checkResponse(idList, ublobs):
         debug "Mismatched response to blobs by root",
           peer = peer, blobs = shortLog(idList), ublobs = len(ublobs)
         peer.updateScore(PeerScoreBadResponse)

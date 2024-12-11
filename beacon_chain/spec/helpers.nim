@@ -543,7 +543,6 @@ proc compute_execution_block_hash*(blck: ForkyBeaconBlock): Eth2Digest =
   rlpHash(blockToBlockHeader(blck)).to(Eth2Digest)
 
 from std/math import exp, ln
-from std/sequtils import foldl
 
 func ln_binomial(n, k: int): float64 =
   if k > n:
