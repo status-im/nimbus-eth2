@@ -26,18 +26,16 @@ import
 export results, rand, altair, phase0, taskpools, signatures
 
 type
-  TaskPoolPtr* = Taskpool
-
   BatchVerifier* = object
     sigVerifCache*: BatchedBLSVerifierCache
       ## A cache for batch BLS signature verification contexts
     rng*: ref HmacDrbgContext
       ## A reference to the Nimbus application-wide RNG
-    taskpool*: TaskPoolPtr
+    taskpool*: Taskpool
 
 proc init*(
     T: type BatchVerifier, rng: ref HmacDrbgContext,
-    taskpool: TaskPoolPtr): BatchVerifier =
+    taskpool: Taskpool): BatchVerifier =
   BatchVerifier(
     sigVerifCache: BatchedBLSVerifierCache.init(taskpool),
     rng: rng,
@@ -46,7 +44,7 @@ proc init*(
 
 proc new*(
     T: type BatchVerifier, rng: ref HmacDrbgContext,
-    taskpool: TaskPoolPtr): ref BatchVerifier =
+    taskpool: Taskpool): ref BatchVerifier =
   (ref BatchVerifier)(
     sigVerifCache: BatchedBLSVerifierCache.init(taskpool),
     rng: rng,

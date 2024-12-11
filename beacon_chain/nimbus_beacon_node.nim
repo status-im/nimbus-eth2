@@ -291,7 +291,7 @@ proc initFullNode(
     rng: ref HmacDrbgContext,
     dag: ChainDAGRef,
     clist: ChainListRef,
-    taskpool: TaskPoolPtr,
+    taskpool: Taskpool,
     getBeaconTime: GetBeaconTimeFn) {.async.} =
   template config(): auto = node.config
 
@@ -417,7 +417,7 @@ proc initFullNode(
     blobQuarantine = newClone(BlobQuarantine.init(onBlobSidecarAdded))
     dataColumnQuarantine = newClone(DataColumnQuarantine.init())
     supernode = node.config.subscribeAllSubnets
-    localCustodySubnets = 
+    localCustodySubnets =
       if supernode:
         DATA_COLUMN_SIDECAR_SUBNET_COUNT.uint64
       else:
@@ -529,28 +529,28 @@ proc initFullNode(
       (proc(): bool = syncManager.inProgress),
       quarantine, blobQuarantine, rmanBlockVerifier,
       rmanBlockLoader, rmanBlobLoader)
-  
-  # As per EIP 7594, the BN is now categorised into a 
+
+  # As per EIP 7594, the BN is now categorised into a
   # `Fullnode` and a `Supernode`, the fullnodes custodies a
   # given set of data columns, and hence ONLY subcribes to those
   # data column subnet topics, however, the supernodes subscribe
   # to all of the topics. This in turn keeps our `data column quarantine`
   # really variable. Whenever the BN is a supernode, column quarantine
-  # essentially means all the NUMBER_OF_COLUMNS, as per mentioned in the 
+  # essentially means all the NUMBER_OF_COLUMNS, as per mentioned in the
   # spec. However, in terms of fullnode, quarantine is really dependent
   # on the randomly assigned columns, by `get_custody_columns`.
 
   # Hence, in order to keep column quarantine accurate and error proof
   # the custody columns are computed once as the BN boots. Then the values
-  # are used globally around the codebase. 
+  # are used globally around the codebase.
 
   # `get_custody_columns` is not a very expensive function, but there
-  # are multiple instances of computing custody columns, especially 
+  # are multiple instances of computing custody columns, especially
   # during peer selection, sync with columns, and so on. That is why,
   # the rationale of populating it at boot and using it gloabally.
 
   dataColumnQuarantine[].supernode = supernode
-  dataColumnQuarantine[].custody_columns = 
+  dataColumnQuarantine[].custody_columns =
     node.network.nodeId.get_custody_columns(max(SAMPLES_PER_SLOT.uint64,
                                             localCustodySubnets))
   if node.config.lightClientDataServe:
@@ -654,7 +654,6 @@ proc init*(T: type BeaconNode,
            metadata: Eth2NetworkMetadata): Future[BeaconNode]
           {.async.} =
   var
-    taskpool: TaskPoolPtr
     genesisState: ref ForkedHashedBeaconState = nil
 
   template cfg: auto = metadata.cfg
@@ -690,18 +689,20 @@ proc init*(T: type BeaconNode,
                 altair_fork_epoch = metadata.cfg.ALTAIR_FORK_EPOCH
           quit 1
 
-  try:
-    if config.numThreads < 0:
-      fatal "The number of threads --numThreads cannot be negative."
+  let taskpool =
+    try:
+      if config.numThreads < 0:
+        fatal "The number of threads --num-threads cannot be negative."
+        quit 1
+      elif config.numThreads == 0:
+        Taskpool.new(numThreads = min(countProcessors(), 16))
+      else:
+        Taskpool.new(numThreads = config.numThreads)
+    except CatchableError as e:
+      fatal "Cannot start taskpool", err = e.msg
       quit 1
-    elif config.numThreads == 0:
-      taskpool = TaskPoolPtr.new(numThreads = min(countProcessors(), 16))
-    else:
-      taskpool = TaskPoolPtr.new(numThreads = config.numThreads)
 
-    info "Threadpool started", numThreads = taskpool.numThreads
-  except Exception:
-    raise newException(Defect, "Failure in taskpool initialization.")
+  info "Threadpool started", numThreads = taskpool.numThreads
 
   if metadata.genesis.kind == BakedIn:
     if config.genesisState.isSome:

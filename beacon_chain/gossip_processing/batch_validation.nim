@@ -144,7 +144,7 @@ type
 
 proc new*(
     T: type BatchCrypto, rng: ref HmacDrbgContext,
-    eager: Eager, genesis_validators_root: Eth2Digest, taskpool: TaskPoolPtr):
+    eager: Eager, genesis_validators_root: Eth2Digest, taskpool: Taskpool):
     Result[ref BatchCrypto, string] =
   let res = (ref BatchCrypto)(
     rng: rng, taskpool: taskpool,
