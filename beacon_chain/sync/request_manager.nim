@@ -18,6 +18,7 @@ import
   "."/sync_protocol, "."/sync_manager,
   ../gossip_processing/block_processor
 
+from std/algorithm import binarySearch
 from ../beacon_clock import GetBeaconTimeFn
 export block_quarantine, sync_manager
 
@@ -102,11 +103,14 @@ proc checkResponse(roots: openArray[Eth2Digest],
       checks.del(res)
   true
 
+func cmpSidecarIdentifier(x: BlobIdentifier | DataColumnIdentifier,
+                          y: ref BlobSidecar | ref DataColumnSidecar): int =
+  cmp(x.index, y.index)
+
 proc checkResponse(idList: seq[BlobIdentifier],
                    blobs: openArray[ref BlobSidecar]): bool =
   if blobs.len > idList.len:
     return false
-
   var i = 0
   while i < blobs.len:
     let
@@ -114,7 +118,7 @@ proc checkResponse(idList: seq[BlobIdentifier],
       id = idList[i]
 
     # Check if the blob response is a subset
-    if search_sidecar_identifier(idList, blobs[i]) == -1:
+    if binarySearch(idList, blobs[i], cmpSidecarIdentifier) == -1:
       i = if i != blobs.len - 1: i + 2 else: i + 1
       continue
 
@@ -125,7 +129,6 @@ proc checkResponse(idList: seq[BlobIdentifier],
     # Verify inclusion proof
     blobs[i][].verify_blob_sidecar_inclusion_proof().isOkOr:
       return false
-
     inc i
   true
 
