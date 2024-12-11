@@ -169,7 +169,7 @@ proc new*(T: type Eth2Processor,
           blobQuarantine: ref BlobQuarantine,
           rng: ref HmacDrbgContext,
           getBeaconTime: GetBeaconTimeFn,
-          taskpool: TaskPoolPtr
+          taskpool: Taskpool
          ): ref Eth2Processor =
   (ref Eth2Processor)(
     doppelgangerDetectionEnabled: doppelgangerDetectionEnabled,
