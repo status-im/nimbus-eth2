@@ -698,11 +698,11 @@ proc init*(T: type BeaconNode,
         Taskpool.new(numThreads = min(countProcessors(), 16))
       else:
         Taskpool.new(numThreads = config.numThreads)
-
-      info "Threadpool started", numThreads = taskpool.numThreads
     except CatchableError as e:
       fatal "Cannot start taskpool", err = e.msg
       quit 1
+
+  info "Threadpool started", numThreads = taskpool.numThreads
 
   if metadata.genesis.kind == BakedIn:
     if config.genesisState.isSome:
