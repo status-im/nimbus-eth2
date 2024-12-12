@@ -119,8 +119,7 @@ proc checkResponse(idList: seq[BlobIdentifier],
 
     # Check if the blob response is a subset
     if binarySearch(idList, blobs[i], cmpSidecarIdentifier) == -1:
-      i = if i != blobs.len - 1: i + 2 else: i + 1
-      continue
+      return false
 
     # Verify block_root and index match
     if id.block_root != block_root or id.index != blobs[i].index:
