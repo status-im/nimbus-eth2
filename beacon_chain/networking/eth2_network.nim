@@ -2097,7 +2097,7 @@ proc getMetadata_vx(node: Eth2Node, peer: Peer):
                    {.async: (raises: [CancelledError]).} =
   let
     res = 
-      if node.cfg.FULU_FORK_EPOCH != FAR_FUTURE_EPOCH:
+      if node.getBeaconTime().slotOrZero.epoch >= node.cfg.FULU_FORK_EPOCH:
         # Directly fetch fulu metadata if available
         await getMetadata_v3(peer)
       else:
