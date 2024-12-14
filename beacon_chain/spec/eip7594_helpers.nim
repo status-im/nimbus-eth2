@@ -35,16 +35,6 @@ func sortedColumnIndices*(columnsPerSubnet: ColumnIndex,
   res.sort
   res
 
-func sortedColumnIndicesToHashSet*(columnsPerSubnet: ColumnIndex,
-                                   subnetIds: HashSet[uint64]):
-                                   HashSet[ColumnIndex] =
-  var res: HashSet[ColumnIndex] = initHashSet[ColumnIndex]()
-  for i in 0'u64 ..< columnsPerSubnet:
-    for subnetId in subnetIds:
-      let index = DATA_COLUMN_SIDECAR_SUBNET_COUNT * i + subnetId
-      res.incl(ColumnIndex(index))  # Add to HashSet
-  res
-
 func sortedColumnIndexList*(columnsPerSubnet: ColumnIndex,
                             subnetIds: HashSet[uint64]):
                             List[ColumnIndex, NUMBER_OF_COLUMNS] =
@@ -115,7 +105,7 @@ func get_custody_columns_set*(node_id: NodeId,
     columns_per_subnet =
       NUMBER_OF_COLUMNS div DATA_COLUMN_SIDECAR_SUBNET_COUNT
 
-  sortedColumnIndicesToHashSet(ColumnIndex(columns_per_subnet), subnet_ids)
+  sortedColumnIndices(ColumnIndex(columns_per_subnet), subnet_ids).toHashSet()
 
 func get_custody_column_list*(node_id: NodeId,
                               custody_subnet_count: uint64):
