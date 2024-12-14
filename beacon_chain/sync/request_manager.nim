@@ -155,22 +155,27 @@ proc checkResponse(idList: seq[BlobIdentifier],
   true
 
 proc checkResponse(idList: seq[DataColumnIdentifier],
-                   columns: openArray[ref DataColumnSidecar]):
-                   bool =
+                   columns: openArray[ref DataColumnSidecar]): bool =
   if columns.len > idList.len:
     return false
-  for column in columns:
-    let block_root =
-      hash_tree_root(column.signed_block_header.message)
-    var found = false
-    for id in idList:
-      if id.block_root == block_root and id.index == column.index:
-        found = true
-        break
-      if not found:
-        return false
-    column[].verify_data_column_sidecar_inclusion_proof().isOkOr:
+  var i = 0
+  while i < columns.len:
+    let
+      block_root = hash_tree_root(columns[i].signed_block_header.message)
+      id = idList[i]
+
+    # Check if the column reponse is a subset
+    if binarySearch(idList, columns[i], cmpSidecarIdentifier) == -1:
       return false
+
+    # Verify block root and index match
+    if id.block_root != block_root or id.index != columns[i].index:
+      return false
+
+    # Verify inclusion proof
+    columns[i][].verify_data_column_sidecar_inclusion_proof().isOkOr:
+      return false
+    inc i
   true
 
 proc requestBlocksByRoot(rman: RequestManager, items: seq[Eth2Digest]) {.async: (raises: [CancelledError]).} =
@@ -244,7 +249,7 @@ proc requestBlocksByRoot(rman: RequestManager, items: seq[Eth2Digest]) {.async: 
     if not(isNil(peer)):
       rman.network.peerPool.release(peer)
 
-func cmpBlobIndexes(x, y: ref BlobSidecar): int =
+func cmpSidecarIndexes(x, y: ref BlobSidecar | ref DataColumnSidecar): int =
   cmp(x.index, y.index)
 
 proc fetchBlobsFromNetwork(self: RequestManager,
@@ -261,7 +266,7 @@ proc fetchBlobsFromNetwork(self: RequestManager,
 
     if blobs.isOk:
       var ublobs = blobs.get().asSeq()
-      ublobs.sort(cmpBlobIndexes)
+      ublobs.sort(cmpSidecarIndexes)
       if not checkResponse(idList, ublobs):
         debug "Mismatched response to blobs by root",
           peer = peer, blobs = shortLog(idList), ublobs = len(ublobs)
@@ -337,9 +342,8 @@ proc checkPeerCustody*(rman: RequestManager,
 proc fetchDataColumnsFromNetwork(rman: RequestManager,
                                  colIdList: seq[DataColumnIdentifier])
                                  {.async: (raises: [CancelledError]).} =
-  var peer: Peer
+  var peer = await rman.network.peerPool.acquire()
   try:
-    peer = await rman.network.peerPool.acquire()
 
     if rman.checkPeerCustody(peer):
       debug "Requesting data columns by root", peer = peer, columns = shortLog(colIdList),
@@ -347,8 +351,9 @@ proc fetchDataColumnsFromNetwork(rman: RequestManager,
       let columns = await dataColumnSidecarsByRoot(peer, DataColumnIdentifierList colIdList)
 
       if columns.isOk:
-        let ucolumns = columns.get()
-        if not checkResponse(colIdList, ucolumns.asSeq()):
+        var ucolumns = columns.get().asSeq()
+        ucolumns.sort(cmpSidecarIndexes)
+        if not checkResponse(colIdList, ucolumns):
           debug "Mismatched response to data columns by root",
             peer = peer, columns = shortLog(colIdList), ucolumns = len(ucolumns)
           peer.updateScore(PeerScoreBadResponse)

@@ -535,10 +535,10 @@ proc initFullNode(
       processor: processor,
       network: node.network)
     requestManager = RequestManager.init(
-      node.network, dag.cfg.DENEB_FORK_EPOCH, getBeaconTime,
-      (proc(): bool = syncManager.inProgress),
-      quarantine, blobQuarantine, rmanBlockVerifier,
-      rmanBlockLoader, rmanBlobLoader)
+      node.network, supernode, custody_columns_set, dag.cfg.DENEB_FORK_EPOCH, 
+      getBeaconTime, (proc(): bool = syncManager.inProgress),
+      quarantine, blobQuarantine, dataColumnQuarantine, rmanBlockVerifier,
+      rmanBlockLoader, rmanBlobLoader, rmanDataColumnLoader)
 
   # As per EIP 7594, the BN is now categorised into a
   # `Fullnode` and a `Supernode`, the fullnodes custodies a
