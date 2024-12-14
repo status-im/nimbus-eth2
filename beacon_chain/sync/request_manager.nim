@@ -19,6 +19,7 @@ import
   "."/sync_protocol, "."/sync_manager,
   ../gossip_processing/block_processor
 
+from std/algorithm import binarySearch, sort
 from ../beacon_clock import GetBeaconTimeFn
 export block_quarantine, sync_manager
 
@@ -125,21 +126,32 @@ proc checkResponse(roots: openArray[Eth2Digest],
       checks.del(res)
   true
 
+func cmpSidecarIdentifier(x: BlobIdentifier | DataColumnIdentifier,
+                          y: ref BlobSidecar | ref DataColumnSidecar): int =
+  cmp(x.index, y.index)
+
 proc checkResponse(idList: seq[BlobIdentifier],
                    blobs: openArray[ref BlobSidecar]): bool =
-  if len(blobs) > len(idList):
+  if blobs.len > idList.len:
     return false
-  for blob in blobs:
-    let block_root = hash_tree_root(blob.signed_block_header.message)
-    var found = false
-    for id in idList:
-      if id.block_root == block_root and id.index == blob.index:
-        found = true
-        break
-    if not found:
+  var i = 0
+  while i < blobs.len:
+    let
+      block_root = hash_tree_root(blobs[i].signed_block_header.message)
+      id = idList[i]
+
+    # Check if the blob response is a subset
+    if binarySearch(idList, blobs[i], cmpSidecarIdentifier) == -1:
       return false
-    blob[].verify_blob_sidecar_inclusion_proof().isOkOr:
+
+    # Verify block_root and index match
+    if id.block_root != block_root or id.index != blobs[i].index:
       return false
+
+    # Verify inclusion proof
+    blobs[i][].verify_blob_sidecar_inclusion_proof().isOkOr:
+      return false
+    inc i
   true
 
 proc checkResponse(idList: seq[DataColumnIdentifier],
@@ -232,6 +244,9 @@ proc requestBlocksByRoot(rman: RequestManager, items: seq[Eth2Digest]) {.async: 
     if not(isNil(peer)):
       rman.network.peerPool.release(peer)
 
+func cmpBlobIndexes(x, y: ref BlobSidecar): int =
+  cmp(x.index, y.index)
+
 proc fetchBlobsFromNetwork(self: RequestManager,
                            idList: seq[BlobIdentifier])
                            {.async: (raises: [CancelledError]).} =
@@ -245,8 +260,9 @@ proc fetchBlobsFromNetwork(self: RequestManager,
     let blobs = await blobSidecarsByRoot(peer, BlobIdentifierList idList)
 
     if blobs.isOk:
-      let ublobs = blobs.get()
-      if not checkResponse(idList, ublobs.asSeq()):
+      var ublobs = blobs.get().asSeq()
+      ublobs.sort(cmpBlobIndexes)
+      if not checkResponse(idList, ublobs):
         debug "Mismatched response to blobs by root",
           peer = peer, blobs = shortLog(idList), ublobs = len(ublobs)
         peer.updateScore(PeerScoreBadResponse)

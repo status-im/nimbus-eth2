@@ -1,3 +1,13 @@
+2024-12-12 v24.12.0
+===================
+
+Nimbus `v24.12.0` is a `low-urgency` release.
+
+### Improvements
+
+* Support `bootstrap_nodes.yaml` bootstrap node specification:
+  https://github.com/status-im/nimbus-eth2/pull/6751
+
 2024-11-29 v24.11.0
 ===================
 
