@@ -158,7 +158,7 @@ type
 
   # https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.7/specs/electra/beacon-chain.md#pendingpartialwithdrawal
   PendingPartialWithdrawal* = object
-    index*: uint64
+    validator_index*: uint64
     amount*: Gwei
     withdrawable_epoch*: Epoch
 

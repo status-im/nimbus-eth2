@@ -2505,69 +2505,6 @@ OK: 30/30 Fail: 0/30 Skip: 0/30
 + test_process_light_client_update_not_timeout                                               OK
 ```
 OK: 4/4 Fail: 0/4 Skip: 0/4
-## EF - EIP7594 - SSZ consensus objects  [Preset: minimal]
-```diff
-+   Testing    AggregateAndProof                                                             OK
-+   Testing    Attestation                                                                   OK
-+   Testing    AttestationData                                                               OK
-+   Testing    AttesterSlashing                                                              OK
-+   Testing    BLSToExecutionChange                                                          OK
-+   Testing    BeaconBlock                                                                   OK
-+   Testing    BeaconBlockBody                                                               OK
-+   Testing    BeaconBlockHeader                                                             OK
-+   Testing    BeaconState                                                                   OK
-+   Testing    BlobIdentifier                                                                OK
-+   Testing    BlobSidecar                                                                   OK
-+   Testing    Checkpoint                                                                    OK
-+   Testing    ConsolidationRequest                                                          OK
-+   Testing    ContributionAndProof                                                          OK
-+   Testing    DataColumnIdentifier                                                          OK
-+   Testing    DataColumnSidecar                                                             OK
-+   Testing    Deposit                                                                       OK
-+   Testing    DepositData                                                                   OK
-+   Testing    DepositMessage                                                                OK
-+   Testing    DepositRequest                                                                OK
-+   Testing    Eth1Block                                                                     OK
-+   Testing    Eth1Data                                                                      OK
-+   Testing    ExecutionPayload                                                              OK
-+   Testing    ExecutionPayloadHeader                                                        OK
-+   Testing    ExecutionRequests                                                             OK
-+   Testing    Fork                                                                          OK
-+   Testing    ForkData                                                                      OK
-+   Testing    HistoricalBatch                                                               OK
-+   Testing    HistoricalSummary                                                             OK
-+   Testing    IndexedAttestation                                                            OK
-+   Testing    LightClientBootstrap                                                          OK
-+   Testing    LightClientFinalityUpdate                                                     OK
-+   Testing    LightClientHeader                                                             OK
-+   Testing    LightClientOptimisticUpdate                                                   OK
-+   Testing    LightClientUpdate                                                             OK
-+   Testing    MatrixEntry                                                                   OK
-+   Testing    PendingAttestation                                                            OK
-+   Testing    PendingConsolidation                                                          OK
-+   Testing    PendingDeposit                                                                OK
-+   Testing    PendingPartialWithdrawal                                                      OK
-+   Testing    PowBlock                                                                      OK
-+   Testing    ProposerSlashing                                                              OK
-+   Testing    SignedAggregateAndProof                                                       OK
-+   Testing    SignedBLSToExecutionChange                                                    OK
-+   Testing    SignedBeaconBlock                                                             OK
-+   Testing    SignedBeaconBlockHeader                                                       OK
-+   Testing    SignedContributionAndProof                                                    OK
-+   Testing    SignedVoluntaryExit                                                           OK
-+   Testing    SigningData                                                                   OK
-+   Testing    SingleAttestation                                                             OK
-+   Testing    SyncAggregate                                                                 OK
-+   Testing    SyncAggregatorSelectionData                                                   OK
-+   Testing    SyncCommittee                                                                 OK
-+   Testing    SyncCommitteeContribution                                                     OK
-+   Testing    SyncCommitteeMessage                                                          OK
-+   Testing    Validator                                                                     OK
-+   Testing    VoluntaryExit                                                                 OK
-+   Testing    Withdrawal                                                                    OK
-+   Testing    WithdrawalRequest                                                             OK
-```
-OK: 59/59 Fail: 0/59 Skip: 0/59
 ## EF - Electra - Epoch Processing - Effective balance updates [Preset: minimal]
 ```diff
 + Effective balance updates - effective_balance_hysteresis [Preset: minimal]                 OK
@@ -2645,6 +2582,8 @@ OK: 12/12 Fail: 0/12 Skip: 0/12
 + Pending consolidations - all_consolidation_cases_together [Preset: minimal]                OK
 + Pending consolidations - basic_pending_consolidation [Preset: minimal]                     OK
 + Pending consolidations - consolidation_not_yet_withdrawable_validator [Preset: minimal]    OK
++ Pending consolidations - pending_consolidation_balance_computation_compounding [Preset: mi OK
++ Pending consolidations - pending_consolidation_balance_computation_eth1 [Preset: minimal]  OK
 + Pending consolidations - pending_consolidation_compounding_creds [Preset: minimal]         OK
 + Pending consolidations - pending_consolidation_future_epoch [Preset: minimal]              OK
 + Pending consolidations - pending_consolidation_source_balance_greater_than_max_effective [ OK
@@ -2654,7 +2593,7 @@ OK: 12/12 Fail: 0/12 Skip: 0/12
 + Pending consolidations - pending_consolidation_with_pending_deposit [Preset: minimal]      OK
 + Pending consolidations - skip_consolidation_when_source_slashed [Preset: minimal]          OK
 ```
-OK: 11/11 Fail: 0/11 Skip: 0/11
+OK: 13/13 Fail: 0/13 Skip: 0/13
 ## EF - Electra - Epoch Processing - Pending deposits [Preset: minimal]
 ```diff
 + Pending deposits - apply_pending_deposit_compounding_withdrawal_credentials_max [Preset: m OK
@@ -2929,7 +2868,6 @@ OK: 6/6 Fail: 0/6 Skip: 0/6
 + [Valid]   EF - Electra - Operations - Consolidation Request - basic_consolidation_in_new_c OK
 + [Valid]   EF - Electra - Operations - Consolidation Request - basic_consolidation_with_com OK
 + [Valid]   EF - Electra - Operations - Consolidation Request - basic_consolidation_with_exc OK
-+ [Valid]   EF - Electra - Operations - Consolidation Request - basic_consolidation_with_exc OK
 + [Valid]   EF - Electra - Operations - Consolidation Request - basic_consolidation_with_ins OK
 + [Valid]   EF - Electra - Operations - Consolidation Request - basic_consolidation_with_pre OK
 + [Valid]   EF - Electra - Operations - Consolidation Request - basic_switch_to_compounding  OK
@@ -2943,10 +2881,11 @@ OK: 6/6 Fail: 0/6 Skip: 0/6
 + [Valid]   EF - Electra - Operations - Consolidation Request - incorrect_inactive_target    OK
 + [Valid]   EF - Electra - Operations - Consolidation Request - incorrect_incorrect_source_a OK
 + [Valid]   EF - Electra - Operations - Consolidation Request - incorrect_no_source_executio OK
-+ [Valid]   EF - Electra - Operations - Consolidation Request - incorrect_no_target_executio OK
 + [Valid]   EF - Electra - Operations - Consolidation Request - incorrect_not_enough_consoli OK
 + [Valid]   EF - Electra - Operations - Consolidation Request - incorrect_source_has_pending OK
 + [Valid]   EF - Electra - Operations - Consolidation Request - incorrect_source_not_active_ OK
++ [Valid]   EF - Electra - Operations - Consolidation Request - incorrect_target_with_bls_cr OK
++ [Valid]   EF - Electra - Operations - Consolidation Request - incorrect_target_with_eth1_c OK
 + [Valid]   EF - Electra - Operations - Consolidation Request - incorrect_unknown_source_pub OK
 + [Valid]   EF - Electra - Operations - Consolidation Request - incorrect_unknown_target_pub OK
 + [Valid]   EF - Electra - Operations - Consolidation Request - switch_to_compounding_exited OK
@@ -3427,11 +3366,16 @@ OK: 87/87 Fail: 0/87 Skip: 0/87
 + EF - Electra - Slots - double_empty_epoch [Preset: minimal]                                OK
 + EF - Electra - Slots - empty_epoch [Preset: minimal]                                       OK
 + EF - Electra - Slots - historical_accumulator [Preset: minimal]                            OK
++ EF - Electra - Slots - multiple_pending_deposits_same_pubkey [Preset: minimal]             OK
++ EF - Electra - Slots - multiple_pending_deposits_same_pubkey_above_upward_threshold [Prese OK
++ EF - Electra - Slots - multiple_pending_deposits_same_pubkey_below_upward_threshold [Prese OK
++ EF - Electra - Slots - multiple_pending_deposits_same_pubkey_compounding [Preset: minimal] OK
 + EF - Electra - Slots - over_epoch_boundary [Preset: minimal]                               OK
++ EF - Electra - Slots - pending_consolidation [Preset: minimal]                             OK
 + EF - Electra - Slots - slots_1 [Preset: minimal]                                           OK
 + EF - Electra - Slots - slots_2 [Preset: minimal]                                           OK
 ```
-OK: 6/6 Fail: 0/6 Skip: 0/6
+OK: 11/11 Fail: 0/11 Skip: 0/11
 ## EF - Electra - Transition  [Preset: minimal]
 ```diff
 + EF - Electra - Transition - higher_churn_limit_to_lower [Preset: minimal]                  OK
@@ -3477,6 +3421,69 @@ OK: 33/33 Fail: 0/33 Skip: 0/33
 + test_process_light_client_update_not_timeout                                               OK
 ```
 OK: 4/4 Fail: 0/4 Skip: 0/4
+## EF - Fulu - SSZ consensus objects  [Preset: minimal]
+```diff
++   Testing    AggregateAndProof                                                             OK
++   Testing    Attestation                                                                   OK
++   Testing    AttestationData                                                               OK
++   Testing    AttesterSlashing                                                              OK
++   Testing    BLSToExecutionChange                                                          OK
++   Testing    BeaconBlock                                                                   OK
++   Testing    BeaconBlockBody                                                               OK
++   Testing    BeaconBlockHeader                                                             OK
++   Testing    BeaconState                                                                   OK
++   Testing    BlobIdentifier                                                                OK
++   Testing    BlobSidecar                                                                   OK
++   Testing    Checkpoint                                                                    OK
++   Testing    ConsolidationRequest                                                          OK
++   Testing    ContributionAndProof                                                          OK
++   Testing    DataColumnIdentifier                                                          OK
++   Testing    DataColumnSidecar                                                             OK
++   Testing    Deposit                                                                       OK
++   Testing    DepositData                                                                   OK
++   Testing    DepositMessage                                                                OK
++   Testing    DepositRequest                                                                OK
++   Testing    Eth1Block                                                                     OK
++   Testing    Eth1Data                                                                      OK
++   Testing    ExecutionPayload                                                              OK
++   Testing    ExecutionPayloadHeader                                                        OK
++   Testing    ExecutionRequests                                                             OK
++   Testing    Fork                                                                          OK
++   Testing    ForkData                                                                      OK
++   Testing    HistoricalBatch                                                               OK
++   Testing    HistoricalSummary                                                             OK
++   Testing    IndexedAttestation                                                            OK
++   Testing    LightClientBootstrap                                                          OK
++   Testing    LightClientFinalityUpdate                                                     OK
++   Testing    LightClientHeader                                                             OK
++   Testing    LightClientOptimisticUpdate                                                   OK
++   Testing    LightClientUpdate                                                             OK
++   Testing    MatrixEntry                                                                   OK
++   Testing    PendingAttestation                                                            OK
++   Testing    PendingConsolidation                                                          OK
++   Testing    PendingDeposit                                                                OK
++   Testing    PendingPartialWithdrawal                                                      OK
++   Testing    PowBlock                                                                      OK
++   Testing    ProposerSlashing                                                              OK
++   Testing    SignedAggregateAndProof                                                       OK
++   Testing    SignedBLSToExecutionChange                                                    OK
++   Testing    SignedBeaconBlock                                                             OK
++   Testing    SignedBeaconBlockHeader                                                       OK
++   Testing    SignedContributionAndProof                                                    OK
++   Testing    SignedVoluntaryExit                                                           OK
++   Testing    SigningData                                                                   OK
++   Testing    SingleAttestation                                                             OK
++   Testing    SyncAggregate                                                                 OK
++   Testing    SyncAggregatorSelectionData                                                   OK
++   Testing    SyncCommittee                                                                 OK
++   Testing    SyncCommitteeContribution                                                     OK
++   Testing    SyncCommitteeMessage                                                          OK
++   Testing    Validator                                                                     OK
++   Testing    VoluntaryExit                                                                 OK
++   Testing    Withdrawal                                                                    OK
++   Testing    WithdrawalRequest                                                             OK
+```
+OK: 59/59 Fail: 0/59 Skip: 0/59
 ## EF - Light client - Single merkle proof [Preset: minimal]
 ```diff
 + Light client - Single merkle proof - minimal/altair/light_client/single_merkle_proof/Beaco OK
@@ -3544,7 +3551,6 @@ OK: 30/30 Fail: 0/30 Skip: 0/30
 OK: 5/5 Fail: 0/5 Skip: 0/5
 ## EF - Merkle proof [Preset: minimal]
 ```diff
-  Merkle proof - Single merkle proof - eip7594                                               Skip
 + Merkle proof - Single merkle proof - minimal/deneb/merkle_proof/single_merkle_proof/Beacon OK
 + Merkle proof - Single merkle proof - minimal/deneb/merkle_proof/single_merkle_proof/Beacon OK
 + Merkle proof - Single merkle proof - minimal/deneb/merkle_proof/single_merkle_proof/Beacon OK
@@ -3553,8 +3559,14 @@ OK: 5/5 Fail: 0/5 Skip: 0/5
 + Merkle proof - Single merkle proof - minimal/electra/merkle_proof/single_merkle_proof/Beac OK
 + Merkle proof - Single merkle proof - minimal/electra/merkle_proof/single_merkle_proof/Beac OK
 + Merkle proof - Single merkle proof - minimal/electra/merkle_proof/single_merkle_proof/Beac OK
++ Merkle proof - Single merkle proof - minimal/fulu/merkle_proof/single_merkle_proof/BeaconB OK
++ Merkle proof - Single merkle proof - minimal/fulu/merkle_proof/single_merkle_proof/BeaconB OK
++ Merkle proof - Single merkle proof - minimal/fulu/merkle_proof/single_merkle_proof/BeaconB OK
++ Merkle proof - Single merkle proof - minimal/fulu/merkle_proof/single_merkle_proof/BeaconB OK
++ Merkle proof - Single merkle proof - minimal/fulu/merkle_proof/single_merkle_proof/BeaconB OK
++ Merkle proof - Single merkle proof - minimal/fulu/merkle_proof/single_merkle_proof/BeaconB OK
 ```
-OK: 8/9 Fail: 0/9 Skip: 1/9
+OK: 14/14 Fail: 0/14 Skip: 0/14
 ## EF - Phase 0 - Epoch Processing - Effective balance updates [Preset: minimal]
 ```diff
 + Effective balance updates - effective_balance_hysteresis [Preset: minimal]                 OK
@@ -4186,4 +4198,4 @@ OK: 185/207 Fail: 0/207 Skip: 22/207
 OK: 3/3 Fail: 0/3 Skip: 0/3
 
 ---TOTAL---
-OK: 3429/3452 Fail: 0/3452 Skip: 23/3452
+OK: 3442/3464 Fail: 0/3464 Skip: 22/3464

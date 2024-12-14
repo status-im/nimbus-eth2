@@ -25,7 +25,7 @@ proc runGetCustodyColumns(suiteName, path: string) =
   test "Networking - Get Custody Columns - " & relativePathComponent:
     type TestMetaYaml = object
       node_id: string
-      custody_subnet_count: uint64
+      custody_group_count: uint64
       result: seq[uint64]
     let
       meta = block:
@@ -35,10 +35,10 @@ proc runGetCustodyColumns(suiteName, path: string) =
         yaml.load(s, res)
         res
       node_id = UInt256.fromDecimal(meta.node_id)
-      custody_subnet_count = meta.custody_subnet_count
+      custody_group_count = meta.custody_group_count
       reslt = (meta.result).mapIt(it)
 
-    let columns = get_custody_columns(node_id, custody_subnet_count)
+    let columns = get_custody_columns(node_id, custody_group_count)
 
     for i in 0..<columns.lenu64:
       check columns[i] == reslt[i]
@@ -46,6 +46,6 @@ proc runGetCustodyColumns(suiteName, path: string) =
 suite "EF - EIP7594 - Networking" & preset():
   const presetPath = SszTestsDir/const_preset
   let basePath =
-    presetPath/"eip7594"/"networking"/"get_custody_columns"/"pyspec_tests"
+    presetPath/"fulu"/"networking"/"get_custody_columns"/"pyspec_tests"
   for kind, path in walkDir(basePath, relative = true, checkDir = true):
     runGetCustodyColumns(suiteName, basePath/path)
