@@ -38,7 +38,7 @@ from ../../../beacon_chain/spec/datatypes/deneb import
 # ----------------------------------------------------------------
 
 const
-  SSZDir = SszTestsDir/const_preset/"eip7594"/"ssz_static"
+  SSZDir = SszTestsDir/const_preset/"fulu"/"ssz_static"
 
 type
   SSZHashTreeRoot = object
@@ -101,7 +101,7 @@ proc loadExpectedHashTreeRoot(
 # Test runner
 # ----------------------------------------------------------------
 
-suite "EF - EIP7594 - SSZ consensus objects " & preset():
+suite "EF - Fulu - SSZ consensus objects " & preset():
   doAssert dirExists(SSZDir), "You need to run the \"download_test_vectors.sh\" script to retrieve the consensus spec test vectors."
   for pathKind, sszType in walkDir(SSZDir, relative = true, checkDir = true):
     doAssert pathKind == pcDir

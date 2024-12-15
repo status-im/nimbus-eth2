@@ -556,7 +556,7 @@ func process_withdrawal_request*(
 
     # In theory can fail, but failing/early returning here is indistinguishable
     discard state.pending_partial_withdrawals.add(PendingPartialWithdrawal(
-      index: index.uint64,
+      validator_index: index.uint64,
       amount: to_withdraw,
       withdrawable_epoch: withdrawable_epoch,
     ))
@@ -647,8 +647,8 @@ func process_consolidation_request*(
   if not (has_correct_credential and is_correct_source_address):
     return
 
-  # Verify that target has execution withdrawal credentials
-  if not has_execution_withdrawal_credential(target_validator):
+  # Verify that target has compounding withdrawal credentials
+  if not has_compounding_withdrawal_credential(target_validator):
     return
 
   # Verify the source and the target are active
@@ -681,10 +681,6 @@ func process_consolidation_request*(
     source_validator[].exit_epoch + cfg.MIN_VALIDATOR_WITHDRAWABILITY_DELAY
   discard state.pending_consolidations.add(PendingConsolidation(
     source_index: source_index.uint64, target_index: target_index.uint64))
-
-  # Churn any target excess active balance of target and raise its max
-  if has_eth1_withdrawal_credential(target_validator):
-    switch_to_compounding_validator(state, target_index)
 
 type
   # https://ethereum.github.io/beacon-APIs/?urls.primaryName=v2.5.0#/Rewards/getBlockRewards
@@ -1015,7 +1011,8 @@ type SomeElectraBeaconBlockBody =
 
 # https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.3/specs/electra/beacon-chain.md#modified-process_execution_payload
 proc process_execution_payload*(
-    state: var electra.BeaconState, body: SomeElectraBeaconBlockBody,
+    cfg: RuntimeConfig, state: var electra.BeaconState,
+    body: SomeElectraBeaconBlockBody,
     notify_new_payload: electra.ExecutePayload): Result[void, cstring] =
   template payload: auto = body.execution_payload
 
@@ -1034,7 +1031,7 @@ proc process_execution_payload*(
     return err("process_execution_payload: invalid timestamp")
 
   # [New in Deneb] Verify commitments are under limit
-  if not (lenu64(body.blob_kzg_commitments) <= MAX_BLOBS_PER_BLOCK):
+  if not (lenu64(body.blob_kzg_commitments) <= cfg.MAX_BLOBS_PER_BLOCK_ELECTRA):
     return err("process_execution_payload: too many KZG commitments")
 
   # Verify the execution payload is valid
@@ -1070,7 +1067,8 @@ type SomeFuluBeaconBlockBody =
 
 # https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.3/specs/electra/beacon-chain.md#modified-process_execution_payload
 proc process_execution_payload*(
-    state: var fulu.BeaconState, body: SomeFuluBeaconBlockBody,
+    cfg: RuntimeConfig, state: var fulu.BeaconState,
+    body: SomeFuluBeaconBlockBody,
     notify_new_payload: fulu.ExecutePayload): Result[void, cstring] =
   template payload: auto = body.execution_payload
 
@@ -1089,7 +1087,7 @@ proc process_execution_payload*(
     return err("process_execution_payload: invalid timestamp")
 
   # [New in Deneb] Verify commitments are under limit
-  if not (lenu64(body.blob_kzg_commitments) <= MAX_BLOBS_PER_BLOCK):
+  if not (lenu64(body.blob_kzg_commitments) <= cfg.MAX_BLOBS_PER_BLOCK_ELECTRA):
     return err("process_execution_payload: too many KZG commitments")
 
   # Verify the execution payload is valid
@@ -1364,7 +1362,7 @@ proc process_block*(
   if is_execution_enabled(state, blck.body):
     ? process_withdrawals(state, blck.body.execution_payload)
     ? process_execution_payload(
-        state, blck.body,
+        cfg, state, blck.body,
         func(_: electra.ExecutionPayload): bool = true)
   ? process_randao(state, blck.body, flags, cache)
   ? process_eth1_data(state, blck.body)
@@ -1397,7 +1395,7 @@ proc process_block*(
   if is_execution_enabled(state, blck.body):
     ? process_withdrawals(state, blck.body.execution_payload)
     ? process_execution_payload(
-        state, blck.body,
+        cfg, state, blck.body,
         func(_: fulu.ExecutionPayload): bool = true)
   ? process_randao(state, blck.body, flags, cache)
   ? process_eth1_data(state, blck.body)

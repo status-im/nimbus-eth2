@@ -200,7 +200,8 @@ suite baseDescription & "Execution Payload " & preset():
           OpExecutionPayloadDir/"pyspec_tests"/path/"execution.yaml"
         ).contains("execution_valid: true")
       func executePayload(_: electra.ExecutionPayload): bool = payloadValid
-      process_execution_payload(preState, body, executePayload)
+      process_execution_payload(
+        defaultRuntimeConfig, preState, body, executePayload)
 
   for path in walkTests(OpExecutionPayloadDir):
     let applyExecutionPayload = makeApplyExecutionPayloadCb(path)

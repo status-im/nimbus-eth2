@@ -349,8 +349,9 @@ func compute_inverted_shuffled_index*(
     countdown(SHUFFLE_ROUND_COUNT.uint8 - 1, 0'u8, 1)
 
 # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.6/specs/phase0/beacon-chain.md#compute_proposer_index
-# https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.3/specs/electra/beacon-chain.md#updated-compute_proposer_index
-template compute_proposer_index(state: ForkyBeaconState,
+template compute_proposer_index(
+    state: phase0.BeaconState | altair.BeaconState | bellatrix.BeaconState |
+           capella.BeaconState | deneb.BeaconState,
     indices: openArray[ValidatorIndex], seed: Eth2Digest,
     unshuffleTransform: untyped): Opt[ValidatorIndex] =
   ## Return from ``indices`` a random index sampled by effective balance.
@@ -381,6 +382,50 @@ template compute_proposer_index(state: ForkyBeaconState,
           MAX_EFFECTIVE_BALANCE.Gwei
       if effective_balance * MAX_RANDOM_BYTE >=
           max_effective_balance * random_byte:
+        res = Opt.some(candidate_index)
+        break
+      i += 1
+
+    doAssert res.isSome
+    res
+
+# https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.10/specs/electra/beacon-chain.md#modified-compute_proposer_index
+template compute_proposer_index(
+    state: electra.BeaconState | fulu.BeaconState,
+    indices: openArray[ValidatorIndex], seed: Eth2Digest,
+    unshuffleTransform: untyped): Opt[ValidatorIndex] =
+  ## Return from ``indices`` a random index sampled by effective balance.
+  const MAX_RANDOM_VALUE = 65536 - 1  # [Modified in Electra]
+
+  if len(indices) == 0:
+    Opt.none(ValidatorIndex)
+  else:
+    let seq_len {.inject.} = indices.lenu64
+
+    var
+      i = 0'u64
+      buffer: array[32+8, byte]
+      rv_buf: array[8, byte]
+      res: Opt[ValidatorIndex]
+    buffer[0..31] = seed.data
+    while true:
+      buffer[32..39] = uint_to_bytes(i div 16)  # [Modified in Electra]
+      let
+        shuffled_index {.inject.} =
+          compute_shuffled_index(i mod seq_len, seq_len, seed)
+        candidate_index = indices[unshuffleTransform]
+        random_bytes = eth2digest(buffer).data
+        offset = (i mod 16) * 2
+        effective_balance = state.validators[candidate_index].effective_balance
+      rv_buf[0 .. 1] = random_bytes.toOpenArray(offset, offset + 1)
+      let  random_value = bytes_to_uint64(rv_buf)
+      const max_effective_balance =
+        when typeof(state).kind >= ConsensusFork.Electra:
+          MAX_EFFECTIVE_BALANCE_ELECTRA.Gwei  # [Modified in Electra:EIP7251]
+        else:
+          MAX_EFFECTIVE_BALANCE.Gwei
+      if effective_balance * MAX_RANDOM_VALUE >=
+          max_effective_balance * random_value:
         res = Opt.some(candidate_index)
         break
       i += 1

@@ -951,7 +951,7 @@ func process_registry_updates*(
 
 # https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.5/specs/electra/beacon-chain.md#modified-process_registry_updates
 func process_registry_updates*(
-    cfg: RuntimeConfig, state: var (electra.BeaconState | fulu.BeaconState), 
+    cfg: RuntimeConfig, state: var (electra.BeaconState | fulu.BeaconState),
     cache: var StateCache): Result[void, cstring] =
   # Process activation eligibility and ejections
   for index in 0 ..< state.validators.len:
@@ -1243,7 +1243,7 @@ from ".."/validator_bucket_sort import
 # https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.7/specs/electra/beacon-chain.md#new-apply_pending_deposit
 func apply_pending_deposit(
     cfg: RuntimeConfig, state: var (electra.BeaconState | fulu.BeaconState),
-    deposit: PendingDeposit, validator_index: Opt[ValidatorIndex]): 
+    deposit: PendingDeposit, validator_index: Opt[ValidatorIndex]):
     Result[void, cstring] =
   ## Applies ``deposit`` to the ``state``.
   if validator_index.isNone:
@@ -1378,11 +1378,9 @@ func process_pending_consolidations*(
         return err("process_pending_consolidations: target index out of range")
 
     # Calculate the consolidated balance
-    let
-      max_effective_balance = get_max_effective_balance(source_validator)
-      source_effective_balance = min(
-        state.balances.item(pending_consolidation.source_index),
-        max_effective_balance)
+    let source_effective_balance = min(
+      state.balances.item(pending_consolidation.source_index),
+      source_validator.effective_balance)
 
     # Move active balance to target. Excess balance is withdrawable.
     decrease_balance(state, source_validator_index, source_effective_balance)
