@@ -93,6 +93,20 @@ func get_custody_columns*(node_id: NodeId,
 
   sortedColumnIndices(ColumnIndex(columns_per_subnet), subnet_ids)
 
+func get_custody_columns_set*(node_id: NodeId,
+                              custody_subnet_count: uint64):
+                              HashSet[ColumnIndex] =
+  # This method returns a HashSet of column indices, 
+  # the method is specifically relevant while peer filtering
+  let
+    subnet_ids =
+      get_custody_column_subnets(node_id, custody_subnet_count)
+  const
+    columns_per_subnet =
+      NUMBER_OF_COLUMNS div DATA_COLUMN_SIDECAR_SUBNET_COUNT
+
+  sortedColumnIndices(ColumnIndex(columns_per_subnet), subnet_ids).toHashSet()
+
 func get_custody_column_list*(node_id: NodeId,
                               custody_subnet_count: uint64):
                               List[ColumnIndex, NUMBER_OF_COLUMNS] =

@@ -78,7 +78,7 @@ func hasDataColumn*(
   false
 
 func peekColumnIndices*(quarantine: DataColumnQuarantine,
-                        blck: electra.SignedBeaconBlock):
+                        blck: fulu.SignedBeaconBlock):
                         seq[ColumnIndex] =
   # Peeks into the currently received column indices
   # from quarantine, necessary data availability checks
@@ -110,7 +110,7 @@ func gatherDataColumns*(quarantine: DataColumnQuarantine,
 
 func popDataColumns*(
     quarantine: var DataColumnQuarantine, digest: Eth2Digest,
-    blck: electra.SignedBeaconBlock):
+    blck: fulu.SignedBeaconBlock):
     seq[ref DataColumnSidecar] =
   var r: DataColumnSidecars
   for idx in quarantine.custody_columns:
@@ -123,7 +123,7 @@ func popDataColumns*(
   r
 
 func hasMissingDataColumns*(quarantine: DataColumnQuarantine,
-    blck: electra.SignedBeaconBlock): bool =
+    blck: fulu.SignedBeaconBlock): bool =
   # `hasMissingDataColumns` consists of the data columns that,
   # have been missed over gossip, also in case of a supernode,
   # the method would return missing columns when the supernode
@@ -149,7 +149,7 @@ func hasMissingDataColumns*(quarantine: DataColumnQuarantine,
     return true
 
 func hasEnoughDataColumns*(quarantine: DataColumnQuarantine,
-    blck: electra.SignedBeaconBlock): bool =
+    blck: fulu.SignedBeaconBlock): bool =
   # `hasEnoughDataColumns` dictates whether there is `enough`
   # data columns for a block to be enqueued, ideally for a supernode
   # if it receives atleast 50%+ gossip and RPC
@@ -175,7 +175,7 @@ func hasEnoughDataColumns*(quarantine: DataColumnQuarantine,
         return true
 
 func dataColumnFetchRecord*(quarantine: DataColumnQuarantine,
-                            blck: electra.SignedBeaconBlock):
+                            blck: fulu.SignedBeaconBlock):
                             DataColumnFetchRecord =
   var indices: seq[ColumnIndex]
   for i in quarantine.custody_columns:

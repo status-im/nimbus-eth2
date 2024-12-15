@@ -1647,6 +1647,15 @@ proc runDiscoveryLoop(node: Eth2Node) {.async: (raises: [CancelledError]).} =
     # Also, give some time to dial the discovered nodes and update stats etc
     await sleepAsync(5.seconds)
 
+proc fetchNodeIdFromPeerId*(peer: Peer): NodeId=
+  # Convert peer id to node id by extracting the peer's public key
+  let nodeId =
+    block:
+      var key: PublicKey
+      discard peer.peerId.extractPublicKey(key)
+      keys.PublicKey.fromRaw(key.skkey.getBytes()).get().toNodeId()
+  nodeId
+
 proc resolvePeer(peer: Peer) =
   # Resolve task which performs searching of peer's public key and recovery of
   # ENR using discovery5. We only resolve ENR for peers we know about to avoid
@@ -2418,6 +2427,33 @@ func announcedENR*(node: Eth2Node): enr.Record =
   doAssert node.discovery != nil, "The Eth2Node must be initialized"
   node.discovery.localNode.record
 
+proc lookupCscFromPeer*(peer: Peer): uint64 =
+  # Fetches the custody column count from a remote peer.
+  # If the peer advertises their custody column count via the `csc` ENR field,
+  # that value is returned. Otherwise, the default value `CUSTODY_REQUIREMENT`
+  # is assumed.
+
+  let metadata = peer.metadata
+  if metadata.isOk:
+    return metadata.get.custody_subnet_count
+
+  # Try getting the custody count from ENR if metadata fetch fails.
+  debug "Could not get csc from metadata, trying from ENR", 
+        peer_id = peer.peerId
+  let enrOpt = peer.enr
+  if not enrOpt.isNone:
+    let enr = enrOpt.get
+    let enrFieldOpt = enr.get(enrCustodySubnetCountField, seq[byte])
+    if enrFieldOpt.isOk:
+      try:
+        let csc = SSZ.decode(enrFieldOpt.get, uint8)
+        return csc.uint64
+      except SszError, SerializationError:
+        discard  # Ignore decoding errors and fallback to default
+
+  # Return default value if no valid custody subnet count is found.
+  return CUSTODY_REQUIREMENT.uint64
+
 func shortForm*(id: NetKeyPair): string =
   $PeerId.init(id.pubkey)
 
@@ -2578,6 +2614,20 @@ proc updateStabilitySubnetMetadata*(node: Eth2Node, attnets: AttnetBits) =
     warn "Failed to update the ENR attnets field", error = res.error
   else:
     debug "Stability subnets changed; updated ENR attnets", attnets
+
+proc loadCscnetMetadataAndEnr*(node: Eth2Node, cscnets: CscCount) =
+  node.metadata.custody_subnet_count = cscnets.uint64
+  let res =
+    node.discovery.updateRecord({
+      enrCustodySubnetCountField: SSZ.encode(cscnets)
+    })
+
+  if res.isErr:
+    # This should not occur in this scenario as the private key would always
+    # be the correct one and the ENR will not increase in size
+    warn "Failed to update the ENR csc field", error = res.error
+  else:
+    debug "Updated ENR csc", cscnets
 
 proc updateSyncnetsMetadata*(node: Eth2Node, syncnets: SyncnetBits) =
   # https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.9/specs/altair/validator.md#sync-committee-subnet-stability

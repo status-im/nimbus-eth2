@@ -11,10 +11,11 @@ import std/[sequtils, strutils]
 import chronos, chronicles
 import
   ../spec/datatypes/[phase0, deneb, fulu],
-  ../spec/[forks, network],
+  ../spec/[forks, network, eip7594_helpers],
   ../networking/eth2_network,
   ../consensus_object_pools/block_quarantine,
   ../consensus_object_pools/blob_quarantine,
+  ../consensus_object_pools/data_column_quarantine,
   "."/sync_protocol, "."/sync_manager,
   ../gossip_processing/block_processor
 
@@ -32,8 +33,13 @@ const
   PARALLEL_REQUESTS* = 2
     ## Number of peers we using to resolve our request.
 
+  PARALLEL_REQUESTS_DATA_COLUMNS* = 32
+
   BLOB_GOSSIP_WAIT_TIME_NS* = 2 * 1_000_000_000
-    ## How long to wait for blobs to arrive over gossip before fetching.
+    ## How long to wait for blobs to arri ve over gossip before fetching.
+
+  DATA_COLUMN_GOSSIP_WAIT_TIME_NS* = 2 * 1_000_000_000
+    ## How long to wait for blobs to arri ve over gossip before fetching.
 
   POLL_INTERVAL = 1.seconds
 
@@ -50,19 +56,28 @@ type
   BlobLoaderFn* = proc(
       blobId: BlobIdentifier): Opt[ref BlobSidecar] {.gcsafe, raises: [].}
 
+  DataColumnLoaderFn* = proc(
+      columnId: DataColumnIdentifier):
+      Opt[ref DataColumnSidecar] {.gcsafe, raises: [].}
+
   InhibitFn* = proc: bool {.gcsafe, raises: [].}
 
   RequestManager* = object
     network*: Eth2Node
+    supernode*: bool
+    custody_columns_set: HashSet[ColumnIndex]
     getBeaconTime: GetBeaconTimeFn
     inhibit: InhibitFn
     quarantine: ref Quarantine
     blobQuarantine: ref BlobQuarantine
+    dataColumnQuarantine: ref DataColumnQuarantine
     blockVerifier: BlockVerifierFn
     blockLoader: BlockLoaderFn
     blobLoader: BlobLoaderFn
+    dataColumnLoader: DataColumnLoaderFn
     blockLoopFuture: Future[void].Raising([CancelledError])
     blobLoopFuture: Future[void].Raising([CancelledError])
+    dataColumnLoopFuture: Future[void].Raising([CancelledError])
 
 func shortLog*(x: seq[Eth2Digest]): string =
   "[" & x.mapIt(shortLog(it)).join(", ") & "]"
@@ -71,23 +86,31 @@ func shortLog*(x: seq[FetchRecord]): string =
   "[" & x.mapIt(shortLog(it.root)).join(", ") & "]"
 
 proc init*(T: type RequestManager, network: Eth2Node,
+              supernode: bool,
+              custody_columns_set: HashSet[ColumnIndex],
               denebEpoch: Epoch,
               getBeaconTime: GetBeaconTimeFn,
               inhibit: InhibitFn,
               quarantine: ref Quarantine,
               blobQuarantine: ref BlobQuarantine,
+              dataColumnQuarantine: ref DataColumnQuarantine,
               blockVerifier: BlockVerifierFn,
               blockLoader: BlockLoaderFn = nil,
-              blobLoader: BlobLoaderFn = nil): RequestManager =
+              blobLoader: BlobLoaderFn = nil,
+              dataColumnLoader: DataColumnLoaderFn = nil): RequestManager =
   RequestManager(
     network: network,
+    supernode: supernode,
+    custody_columns_set: custody_columns_set,
     getBeaconTime: getBeaconTime,
     inhibit: inhibit,
     quarantine: quarantine,
     blobQuarantine: blobQuarantine,
+    dataColumnQuarantine: dataColumnQuarantine,
     blockVerifier: blockVerifier,
     blockLoader: blockLoader,
-    blobLoader: blobLoader)
+    blobLoader: blobLoader,
+    dataColumnLoader: dataColumnLoader)
 
 proc checkResponse(roots: openArray[Eth2Digest],
                    blocks: openArray[ref ForkedSignedBeaconBlock]): bool =
@@ -127,6 +150,30 @@ proc checkResponse(idList: seq[BlobIdentifier],
 
     # Verify inclusion proof
     blobs[i][].verify_blob_sidecar_inclusion_proof().isOkOr:
+      return false
+    inc i
+  true
+
+proc checkResponse(idList: seq[DataColumnIdentifier],
+                   columns: openArray[ref DataColumnSidecar]): bool =
+  if columns.len > idList.len:
+    return false
+  var i = 0
+  while i < columns.len:
+    let
+      block_root = hash_tree_root(columns[i].signed_block_header.message)
+      id = idList[i]
+
+    # Check if the column reponse is a subset
+    if binarySearch(idList, columns[i], cmpSidecarIdentifier) == -1:
+      return false
+
+    # Verify block root and index match
+    if id.block_root != block_root or id.index != columns[i].index:
+      return false
+
+    # Verify inclusion proof
+    columns[i][].verify_data_column_sidecar_inclusion_proof().isOkOr:
       return false
     inc i
   true
@@ -202,7 +249,7 @@ proc requestBlocksByRoot(rman: RequestManager, items: seq[Eth2Digest]) {.async: 
     if not(isNil(peer)):
       rman.network.peerPool.release(peer)
 
-func cmpBlobIndexes(x, y: ref BlobSidecar): int =
+func cmpSidecarIndexes(x, y: ref BlobSidecar | ref DataColumnSidecar): int =
   cmp(x.index, y.index)
 
 proc fetchBlobsFromNetwork(self: RequestManager,
@@ -219,7 +266,7 @@ proc fetchBlobsFromNetwork(self: RequestManager,
 
     if blobs.isOk:
       var ublobs = blobs.get().asSeq()
-      ublobs.sort(cmpBlobIndexes)
+      ublobs.sort(cmpSidecarIndexes)
       if not checkResponse(idList, ublobs):
         debug "Mismatched response to blobs by root",
           peer = peer, blobs = shortLog(idList), ublobs = len(ublobs)
@@ -247,6 +294,89 @@ proc fetchBlobsFromNetwork(self: RequestManager,
   finally:
     if not(isNil(peer)):
       self.network.peerPool.release(peer)
+
+proc checkPeerCustody*(rman: RequestManager,
+                       peer: Peer):
+                       bool =
+  # Returns true if the peer custodies atleast
+  # ONE of the common custody columns, straight 
+  # away returns true if the peer is a supernode.
+  if rman.supernode:
+    # For a supernode, it is always best/optimistic
+    # to filter other supernodes, rather than filter
+    # too many full nodes that have a subset of the custody
+    # columns
+    if peer.lookupCscFromPeer() == 
+        DATA_COLUMN_SIDECAR_SUBNET_COUNT.uint64:
+      return true
+  
+  else:
+    if peer.lookupCscFromPeer() == 
+        DATA_COLUMN_SIDECAR_SUBNET_COUNT.uint64:
+      return true
+
+    elif peer.lookupCscFromPeer() == 
+        CUSTODY_REQUIREMENT.uint64:
+
+      # Fetch the remote custody count
+      let remoteCustodySubnetCount =
+        peer.lookupCscFromPeer()
+
+      # Extract remote peer's nodeID from peerID
+      # Fetch custody columns from remote peer
+      let
+        remoteNodeId = fetchNodeIdFromPeerId(peer)
+        remoteCustodyColumns =
+          remoteNodeId.get_custody_columns_set(max(SAMPLES_PER_SLOT.uint64,
+                                               remoteCustodySubnetCount))
+
+      for local_column in rman.custody_columns_set:
+        if local_column notin remoteCustodyColumns:
+          return false
+      
+      return true
+    
+    else:
+      return false
+
+proc fetchDataColumnsFromNetwork(rman: RequestManager,
+                                 colIdList: seq[DataColumnIdentifier])
+                                 {.async: (raises: [CancelledError]).} =
+  var peer = await rman.network.peerPool.acquire()
+  try:
+
+    if rman.checkPeerCustody(peer):
+      debug "Requesting data columns by root", peer = peer, columns = shortLog(colIdList),
+                                                      peer_score = peer.getScore()
+      let columns = await dataColumnSidecarsByRoot(peer, DataColumnIdentifierList colIdList)
+
+      if columns.isOk:
+        var ucolumns = columns.get().asSeq()
+        ucolumns.sort(cmpSidecarIndexes)
+        if not checkResponse(colIdList, ucolumns):
+          debug "Mismatched response to data columns by root",
+            peer = peer, columns = shortLog(colIdList), ucolumns = len(ucolumns)
+          peer.updateScore(PeerScoreBadResponse)
+          return
+
+        for col in ucolumns:
+          rman.dataColumnQuarantine[].put(col)
+        var curRoot: Eth2Digest
+        for col in ucolumns:
+          let block_root = hash_tree_root(col.signed_block_header.message)
+          if block_root != curRoot:
+            curRoot = block_root
+            if (let o = rman.quarantine[].popColumnless(curRoot); o.isSome):
+              let col = o.unsafeGet()
+              discard await rman.blockVerifier(col, false)
+      else:
+        debug "Data columns by root request not done, peer doesn't have custody column",
+          peer = peer, columns = shortLog(colIdList), err = columns.error()
+        peer.updateScore(PeerScoreNoValues)
+
+  finally:
+    if not(isNil(peer)):
+      rman.network.peerPool.release(peer)
 
 proc requestManagerBlockLoop(
     rman: RequestManager) {.async: (raises: [CancelledError]).} =
@@ -416,10 +546,117 @@ proc requestManagerBlobLoop(
             blobs_count = len(blobIds),
             sync_speed = speed(start, finish)
 
+proc getMissingDataColumns(rman: RequestManager): HashSet[DataColumnIdentifier] =
+  let
+    wallTime = rman.getBeaconTime()
+    wallSlot = wallTime.slotOrZero()
+    delay = wallTime - wallSlot.start_beacon_time()
+  
+  const waitDur = TimeDiff(nanoseconds: DATA_COLUMN_GOSSIP_WAIT_TIME_NS)
+
+  var
+    fetches: HashSet[DataColumnIdentifier]
+    ready: seq[Eth2Digest]
+
+  for columnless in rman.quarantine[].peekColumnless():
+    withBlck(columnless):
+      when consensusFork >= ConsensusFork.Fulu:
+        # granting data columns a chance to arrive over gossip
+        if forkyBlck.message.slot == wallSlot and delay < waitDur:
+          debug "Not handling missing data columns early in slot"
+          continue
+
+        if not rman.dataColumnQuarantine[].hasMissingDataColumns(forkyBlck):
+          let missing = rman.dataColumnQuarantine[].dataColumnFetchRecord(forkyBlck)
+          if len(missing.indices) == 0:
+            warn "quarantine is missing data columns, but missing indices are empty",
+             blk = columnless.root,
+             commitments = len(forkyBlck.message.body.blob_kzg_commitments)
+          for idx in missing.indices:
+            let id = DataColumnIdentifier(block_root: columnless.root, index: idx)
+            if id.index in rman.custody_columns_set and id notin fetches and 
+                len(forkyBlck.message.body.blob_kzg_commitments) != 0:
+              fetches.incl(id)
+        else:
+          # this is a programming error and it not should occur
+          warn "missing column handler found columnless block with all data columns",
+             blk = columnless.root,
+             commitments = len(forkyBlck.message.body.blob_kzg_commitments)
+          ready.add(columnless.root)
+  
+  for root in ready:
+    let columnless = rman.quarantine[].popColumnless(root).valueOr:
+      continue
+    discard rman.blockVerifier(columnless, false)
+  fetches
+
+proc requestManagerDataColumnLoop(
+    rman: RequestManager) {.async: (raises: [CancelledError]).} =
+  while true:
+    
+    await sleepAsync(POLL_INTERVAL)
+    if rman.inhibit():
+      continue
+
+    let missingColumnIds = rman.getMissingDataColumns()
+    if missingColumnIds.len == 0:
+      continue
+
+    var columnIds: seq[DataColumnIdentifier]
+    if rman.dataColumnLoader == nil:
+      for item in missingColumnIds:
+        columnIds.add item
+    else:
+      var
+        blockRoots: seq[Eth2Digest]
+        curRoot: Eth2Digest
+      for columnId in missingColumnIds:
+        if columnId.block_root != curRoot:
+          curRoot = columnId.block_root
+          blockRoots.add curRoot
+        let data_column_sidecar = rman.dataColumnLoader(columnId).valueOr:
+          columnIds.add columnId
+          if blockRoots.len > 0 and blockRoots[^1] == curRoot:
+            # A data column is missing, remove from list of fully available data columns
+            discard blockRoots.pop()
+          continue
+        debug "Loaded orphaned data columns from storage", columnId
+        rman.dataColumnQuarantine[].put(data_column_sidecar)
+      var verifiers = newSeqOfCap[
+        Future[Result[void, VerifierError]]  
+          .Raising([CancelledError])](blockRoots.len)
+      for blockRoot in blockRoots:
+        let blck = rman.quarantine[].popColumnless(blockRoot).valueOr:
+          continue
+        verifiers.add rman.blockVerifier(blck, maybeFinalized = false)
+      try:
+        await allFutures(verifiers)
+      except CancelledError as exc:
+        var futs = newSeqOfCap[Future[void].Raising([])](verifiers.len)
+        for verifier in verifiers:
+          futs.add verifier.cancelAndWait()
+        await noCancel allFutures(futs)
+        raise exc
+    if columnIds.len > 0:
+      debug "Requesting detected missing data columns", columns = shortLog(columnIds)
+      let start = SyncMoment.now(0)
+      var workers:
+        array[PARALLEL_REQUESTS_DATA_COLUMNS, Future[void].Raising([CancelledError])]
+      for i in 0..<PARALLEL_REQUESTS_DATA_COLUMNS:
+        workers[i] = rman.fetchDataColumnsFromNetwork(columnIds)
+      
+      await allFutures(workers)
+      let finish = SyncMoment.now(uint64(len(columnIds)))
+
+      debug "Request manager data column tick",
+            data_columns_count = len(columnIds),
+            sync_speed = speed(start, finish)
+
 proc start*(rman: var RequestManager) =
   ## Start Request Manager's loops.
   rman.blockLoopFuture = rman.requestManagerBlockLoop()
   rman.blobLoopFuture = rman.requestManagerBlobLoop()
+  rman.dataColumnLoopFuture = rman.requestManagerDataColumnLoop()
 
 proc stop*(rman: RequestManager) =
   ## Stop Request Manager's loop.
@@ -427,3 +664,5 @@ proc stop*(rman: RequestManager) =
     rman.blockLoopFuture.cancelSoon()
   if not(isNil(rman.blobLoopFuture)):
     rman.blobLoopFuture.cancelSoon()
+  if not(isNil(rman.dataColumnLoopFuture)):
+    rman.dataColumnLoopFuture.cancelSoon()
