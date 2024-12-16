@@ -254,9 +254,10 @@ type
       name: "subscribe-all-subnets" .}: bool
 
     peerdasSupernode* {.
+      hidden
       defaultValue: false,
       desc: "Subscribe to all column subnets, thereby becoming a peerdas supernode"
-      name: "peerdas-supernode" .}: bool
+      name: "debug-peerdas-supernode" .}: bool
 
     slashingDbKind* {.
       hidden
