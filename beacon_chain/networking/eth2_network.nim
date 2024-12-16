@@ -284,9 +284,6 @@ declareGauge nbc_peers,
 declareCounter nbc_successful_discoveries,
   "Number of successful discoveries"
 
-declareCounter nbc_failed_discoveries,
-  "Number of failed discoveries"
-
 declareCounter nbc_cycling_kicked_peers,
   "Number of peers kicked for peer cycling"
 
@@ -2091,21 +2088,21 @@ proc p2pProtocolBackendImpl*(p: P2PProtocol): Backend =
 import ./peer_protocol
 export peer_protocol
 
-proc updateMetadataV2ToV3(metadataRes: NetRes[altair.MetaData]): 
+func updateMetadataV2ToV3(metadataRes: NetRes[altair.MetaData]):
                           NetRes[fulu.MetaData] =
   if metadataRes.isOk:
     let metadata = metadataRes.get
     ok(fulu.MetaData(seq_number: metadata.seq_number,
-                            attnets: metadata.attnets,
-                            syncnets: metadata.syncnets))
+                     attnets: metadata.attnets,
+                     syncnets: metadata.syncnets))
   else:
     err(metadataRes.error)
 
-proc getMetadata_vx(node: Eth2Node, peer: Peer): 
+proc getMetadata_vx(node: Eth2Node, peer: Peer):
                     Future[NetRes[fulu.MetaData]]
                    {.async: (raises: [CancelledError]).} =
   let
-    res = 
+    res =
       if node.getBeaconTime().slotOrZero.epoch >= node.cfg.FULU_FORK_EPOCH:
         # Directly fetch fulu metadata if available
         await getMetadata_v3(peer)
@@ -2438,7 +2435,7 @@ proc lookupCscFromPeer*(peer: Peer): uint64 =
     return metadata.get.custody_subnet_count
 
   # Try getting the custody count from ENR if metadata fetch fails.
-  debug "Could not get csc from metadata, trying from ENR", 
+  debug "Could not get csc from metadata, trying from ENR",
         peer_id = peer.peerId
   let enrOpt = peer.enr
   if not enrOpt.isNone:
