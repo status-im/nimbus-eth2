@@ -25,8 +25,8 @@ type
   ProofBytes = array[fulu.CELLS_PER_EXT_BLOB, KzgProof]
 
 func sortedColumnIndices(columnsPerSubnet: ColumnIndex,
-                          subnetIds: HashSet[uint64]):
-                          seq[ColumnIndex] =
+                         subnetIds: HashSet[uint64]):
+                         seq[ColumnIndex] =
   var res: seq[ColumnIndex] = @[]
   for i in 0'u64 ..< columnsPerSubnet:
     for subnetId in subnetIds:
@@ -36,8 +36,8 @@ func sortedColumnIndices(columnsPerSubnet: ColumnIndex,
   res
 
 func sortedColumnIndexList(columnsPerSubnet: ColumnIndex,
-                            subnetIds: HashSet[uint64]):
-                            List[ColumnIndex, NUMBER_OF_COLUMNS] =
+                           subnetIds: HashSet[uint64]):
+                           List[ColumnIndex, NUMBER_OF_COLUMNS] =
   var
     res: seq[ColumnIndex]
   for i in 0'u64 ..< columnsPerSubnet:
