@@ -253,6 +253,11 @@ type
       desc: "Subscribe to all subnet topics when gossiping"
       name: "subscribe-all-subnets" .}: bool
 
+    peerdasSupernode* {.
+      defaultValue: false,
+      desc: "Subscribe to all column subnets, thereby becoming a peerdas supernode"
+      name: "peerdas-supernode" .}: bool
+
     slashingDbKind* {.
       hidden
       defaultValue: SlashingDbKind.v2
