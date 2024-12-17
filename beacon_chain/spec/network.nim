@@ -37,7 +37,7 @@ const
   # https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.9/specs/_features/eip7594/p2p-interface.md#configuration
   MAX_REQUEST_DATA_COLUMN_SIDECARS*: uint64 =
     MAX_REQUEST_BLOCKS_DENEB * NUMBER_OF_COLUMNS
-  
+
   defaultEth2TcpPort* = 9000
   defaultEth2TcpPortDesc* = $defaultEth2TcpPort
 
