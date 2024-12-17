@@ -855,7 +855,7 @@ proc sendNewPayloadToSingleEL(
     payload: engine_api.ExecutionPayloadV3,
     versioned_hashes: seq[engine_api.VersionedHash],
     parent_beacon_block_root: FixedBytes[32],
-    executionRequests: array[3, seq[byte]]
+    executionRequests: seq[seq[byte]]
 ): Future[PayloadStatusV1] {.async: (raises: [CatchableError]).} =
   let rpcClient = await connection.connectedRpcClient()
   await rpcClient.engine_newPayloadV4(
@@ -995,15 +995,30 @@ proc sendNewPayload*(
           let req =
             when typeof(blck).kind >= ConsensusFork.Electra:
               # https://github.com/ethereum/execution-apis/blob/4140e528360fea53c34a766d86a000c6c039100e/src/engine/prague.md#engine_newpayloadv4
-              let versioned_hashes = mapIt(
-                blck.body.blob_kzg_commitments,
-                engine_api.VersionedHash(kzg_commitment_to_versioned_hash(it)))
+              let
+                versioned_hashes = mapIt(
+                  blck.body.blob_kzg_commitments,
+                  engine_api.VersionedHash(kzg_commitment_to_versioned_hash(it)))
+                # https://github.com/ethereum/execution-apis/blob/7c9772f95c2472ccfc6f6128dc2e1b568284a2da/src/engine/prague.md#request
+                # "Each list element is a `requests` byte array as defined by
+                # EIP-7685. The first byte of each element is the `request_type`
+                # and the remaining bytes are the `request_data`. Elements of
+                # the list MUST be ordered by `request_type` in ascending order.
+                # Elements with empty `request_data` MUST be excluded from the
+                # list."
+                execution_requests = block:
+                  var requests: seq[seq[byte]]
+                  for request_type, request_data in
+                      [SSZ.encode(blck.body.execution_requests.deposits),
+                       SSZ.encode(blck.body.execution_requests.withdrawals),
+                       SSZ.encode(blck.body.execution_requests.consolidations)]:
+                    if request_data.len > 0:
+                      requests.add @[request_type.byte] & request_data
+                  requests
+
               sendNewPayloadToSingleEL(
                 it, payload, versioned_hashes,
-                FixedBytes[32] blck.parent_root.data,
-                [SSZ.encode(blck.body.execution_requests.deposits),
-                 SSZ.encode(blck.body.execution_requests.withdrawals),
-                 SSZ.encode(blck.body.execution_requests.consolidations)])
+                FixedBytes[32] blck.parent_root.data, execution_requests)
             elif typeof(blck).kind == ConsensusFork.Deneb:
               # https://github.com/ethereum/consensus-specs/blob/v1.4.0-alpha.1/specs/deneb/beacon-chain.md#process_execution_payload
               # Verify the execution payload is valid

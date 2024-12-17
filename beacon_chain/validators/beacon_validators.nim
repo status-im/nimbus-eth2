@@ -43,7 +43,7 @@ import
     keystore_management, slashing_protection, validator_duties, validator_pool],
   ".."/spec/mev/[rest_deneb_mev_calls, rest_electra_mev_calls, rest_fulu_mev_calls]
 
-from std/sequtils import countIt, foldl, mapIt
+from std/sequtils import countIt, deduplicate, foldl, mapIt
 from eth/async_utils import awaitWithTimeout
 
 # Metrics for tracking attestation and beacon block loss
@@ -443,6 +443,8 @@ proc getExecutionPayload(
     PayloadType, beaconHead.blck.bid.root, executionHead, latestSafe,
     latestFinalized, timestamp, random, feeRecipient, withdrawals)
 
+from std/algorithm import isSorted
+
 # BlockRewards has issues resolving somehow otherwise
 import ".."/spec/state_transition_block
 
@@ -541,19 +543,37 @@ proc makeBeaconBlockForHeadAndSlot*(
   let execution_requests_actual =
     when PayloadType.kind >= ConsensusFork.Electra:
       # Don't want un-decoded SSZ going any further/deeper
+      var execution_requests_buffer: ExecutionRequests
+      block:
+        let request_types = mapIt(payload.executionRequests, it[0])
+        if not isSorted(request_types):
+          return err("Execution layer request types not sorted")
+        if payload.executionRequests.len !=
+            deduplicate(request_types, isSorted = true).len:
+          return err("Execution layer request types duplicated")
       try:
-        ExecutionRequests(
-          deposits: SSZ.decode(
-            payload.executionRequests[0],
-            List[DepositRequest, Limit MAX_DEPOSIT_REQUESTS_PER_PAYLOAD]),
-          withdrawals: SSZ.decode(
-            payload.executionRequests[1],
-            List[WithdrawalRequest, Limit MAX_WITHDRAWAL_REQUESTS_PER_PAYLOAD]),
-          consolidations: SSZ.decode(
-            payload.executionRequests[2],
-            List[ConsolidationRequest, Limit MAX_CONSOLIDATION_REQUESTS_PER_PAYLOAD]))
+        for request_type_and_payload in payload.executionRequests:
+          if request_type_and_payload.len < 2:
+            return err("Execution layer request too short")
+          template request_payload: untyped =
+            request_type_and_payload.toOpenArray(
+              1, request_type_and_payload.len - 1)
+          case request_type_and_payload[0]
+          of 0'u8: execution_requests_buffer.deposits = SSZ.decode(
+            request_payload,
+            List[DepositRequest, Limit MAX_DEPOSIT_REQUESTS_PER_PAYLOAD])
+          of 1'u8: execution_requests_buffer.withdrawals = SSZ.decode(
+            request_payload,
+            List[WithdrawalRequest, Limit MAX_WITHDRAWAL_REQUESTS_PER_PAYLOAD])
+          of 2'u8: execution_requests_buffer.consolidations = SSZ.decode(
+            request_payload,
+            List[ConsolidationRequest, Limit MAX_CONSOLIDATION_REQUESTS_PER_PAYLOAD])
+          else:
+            return err("Execution layer invalid request type")
       except CatchableError:
         return err("Unable to deserialize execution layer requests")
+
+      execution_requests_buffer
     else:
       default(ExecutionRequests)  # won't be used by block builder
 
