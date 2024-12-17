@@ -416,7 +416,7 @@ proc initFullNode(
       onElectraAttesterSlashingAdded))
     blobQuarantine = newClone(BlobQuarantine.init(onBlobSidecarAdded))
     dataColumnQuarantine = newClone(DataColumnQuarantine.init())
-    supernode = node.config.subscribeAllSubnets
+    supernode = node.config.peerdasSupernode
     localCustodySubnets =
       if supernode:
         DATA_COLUMN_SIDECAR_SUBNET_COUNT.uint64
@@ -564,7 +564,7 @@ proc initFullNode(
     node.network.nodeId.get_custody_columns(max(SAMPLES_PER_SLOT.uint64,
                                                 localCustodySubnets))
 
-  if node.config.subscribeAllSubnets:
+  if node.config.peerdasSupernode:
     node.network.loadCscnetMetadataAndEnr(DATA_COLUMN_SIDECAR_SUBNET_COUNT.uint8)
   else:
     node.network.loadCscnetMetadataAndEnr(CUSTODY_REQUIREMENT.uint8)
