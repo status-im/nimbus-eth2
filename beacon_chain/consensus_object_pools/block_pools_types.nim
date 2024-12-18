@@ -89,7 +89,7 @@ type
     ## instantiated: sync from genesis or checkpoint, and therefore, what
     ## features we can offer in terms of historical replay.
     ##
-    ## Beacuse the state transition is forwards-only, checkpoint sync generally
+    ## Because the state transition is forwards-only, checkpoint sync generally
     ## allows replaying states from that point onwards - anything earlier
     ## would require a backfill of blocks and a subsequent replay from genesis.
     ##
@@ -139,7 +139,7 @@ type
       ## of each potential head block in this table.
 
     genesis*: Opt[BlockId]
-      ## The root of the genesis block, iff it is known (ie if the database was
+      ## The root of the genesis block, if it is known (ie if the database was
       ## created with a genesis state available)
 
     tail*: BlockId
