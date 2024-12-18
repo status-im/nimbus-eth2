@@ -18,7 +18,7 @@ We have 2 kinds of ingoing sync, forward sync and backward sync
 
 forward sync:
 
-[https://github.com/status-im/nim-beacon-chain/blob/devel/beacon_chain/sync_manager.nim](https://github.com/status-im/nim-beacon-chain/blob/devel/beacon_chain/sync_protocol.nim)
+[https://github.com/status-im/nim-beacon-chain/blob/devel/beacon_chain/sync_manager.nim](https://github.com/status-im/nimbus-eth2/blob/stable/beacon_chain/sync/sync_protocol.nim)
 
 backward sync:
 
@@ -28,4 +28,4 @@ backward sync:
 
 *remote peers sync from us*
 
-[https://github.com/status-im/nim-beacon-chain/blob/devel/beacon_chain/sync_protocol.nim](https://github.com/status-im/nim-beacon-chain/blob/devel/beacon_chain/sync_protocol.nim)
+[https://github.com/status-im/nim-beacon-chain/blob/devel/beacon_chain/sync_protocol.nim](https://github.com/status-im/nimbus-eth2/blob/stable/beacon_chain/sync/sync_protocol.nim)
