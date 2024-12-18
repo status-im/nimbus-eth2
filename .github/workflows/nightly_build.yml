@@ -40,7 +40,7 @@ jobs:
           echo "::set-output name=archive::"${NEW_ARCHIVE_DIR}.tar.gz
           echo "::set-output name=archive_dir::"${NEW_ARCHIVE_DIR}
 
-      - name: Upload archive artefact
+      - name: Upload archive artifact
         uses: actions/upload-artifact@v3
         with:
           name: Linux_amd64_archive
@@ -49,14 +49,14 @@ jobs:
             ./dist/nimbus-eth2_Linux_amd64_nightly_latest.tar.gz
           retention-days: 2
 
-      - name: Upload BN checksum artefact
+      - name: Upload BN checksum artifact
         uses: actions/upload-artifact@v3
         with:
           name: Linux_amd64_checksum
           path: ./dist/${{ steps.make_dist.outputs.archive_dir }}/build/nimbus_beacon_node.sha512sum
           retention-days: 2
 
-      - name: Upload VC checksum artefact
+      - name: Upload VC checksum artifact
         uses: actions/upload-artifact@v3
         with:
           name: Linux_amd64_checksum
@@ -94,7 +94,7 @@ jobs:
           echo "::set-output name=archive::"${NEW_ARCHIVE_DIR}.tar.gz
           echo "::set-output name=archive_dir::"${NEW_ARCHIVE_DIR}
 
-      - name: Upload archive artefact
+      - name: Upload archive artifact
         uses: actions/upload-artifact@v3
         with:
           name: Linux_arm64_archive
@@ -103,14 +103,14 @@ jobs:
             ./dist/nimbus-eth2_Linux_arm64v8_nightly_latest.tar.gz
           retention-days: 2
 
-      - name: Upload BN checksum artefact
+      - name: Upload BN checksum artifact
         uses: actions/upload-artifact@v3
         with:
           name: Linux_arm64_checksum
           path: ./dist/${{ steps.make_dist.outputs.archive_dir }}/build/nimbus_beacon_node.sha512sum
           retention-days: 2
 
-      - name: Upload VC checksum artefact
+      - name: Upload VC checksum artifact
         uses: actions/upload-artifact@v3
         with:
           name: Linux_arm64_checksum
@@ -148,7 +148,7 @@ jobs:
           echo "::set-output name=archive::"${NEW_ARCHIVE_DIR}.tar.gz
           echo "::set-output name=archive_dir::"${NEW_ARCHIVE_DIR}
 
-      - name: Upload archive artefact
+      - name: Upload archive artifact
         uses: actions/upload-artifact@v3
         with:
           name: Linux_arm_archive
@@ -157,14 +157,14 @@ jobs:
             ./dist/nimbus-eth2_Linux_arm32v7_nightly_latest.tar.gz
           retention-days: 2
 
-      - name: Upload BN checksum artefact
+      - name: Upload BN checksum artifact
         uses: actions/upload-artifact@v3
         with:
           name: Linux_arm_checksum
           path: ./dist/${{ steps.make_dist.outputs.archive_dir }}/build/nimbus_beacon_node.sha512sum
           retention-days: 2
 
-      - name: Upload VC checksum artefact
+      - name: Upload VC checksum artifact
         uses: actions/upload-artifact@v3
         with:
           name: Linux_arm_checksum
@@ -194,7 +194,7 @@ jobs:
           echo "::set-output name=archive::"${NEW_ARCHIVE_DIR}.tar.gz
           echo "::set-output name=archive_dir::"${NEW_ARCHIVE_DIR}
 
-      - name: Upload archive artefact
+      - name: Upload archive artifact
         uses: actions/upload-artifact@v3
         with:
           name: Windows_amd64_archive
@@ -203,14 +203,14 @@ jobs:
             ./dist/nimbus-eth2_Windows_amd64_nightly_latest.tar.gz
           retention-days: 2
 
-      - name: Upload BN checksum artefact
+      - name: Upload BN checksum artifact
         uses: actions/upload-artifact@v3
         with:
           name: Windows_amd64_checksum
           path: ./dist/${{ steps.make_dist.outputs.archive_dir }}/build/nimbus_beacon_node.sha512sum
           retention-days: 2
 
-      - name: Upload VC checksum artefact
+      - name: Upload VC checksum artifact
         uses: actions/upload-artifact@v3
         with:
           name: Windows_amd64_checksum
@@ -240,7 +240,7 @@ jobs:
           echo "::set-output name=archive::"${NEW_ARCHIVE_DIR}.tar.gz
           echo "::set-output name=archive_dir::"${NEW_ARCHIVE_DIR}
 
-      - name: Upload archive artefact
+      - name: Upload archive artifact
         uses: actions/upload-artifact@v3
         with:
           name: macOS_amd64_archive
@@ -249,14 +249,14 @@ jobs:
             ./dist/nimbus-eth2_macOS_amd64_nightly_latest.tar.gz
           retention-days: 2
 
-      - name: Upload BN checksum artefact
+      - name: Upload BN checksum artifact
         uses: actions/upload-artifact@v3
         with:
           name: macOS_amd64_checksum
           path: ./dist/${{ steps.make_dist.outputs.archive_dir }}/build/nimbus_beacon_node.sha512sum
           retention-days: 2
 
-      - name: Upload VC checksum artefact
+      - name: Upload VC checksum artifact
         uses: actions/upload-artifact@v3
         with:
           name: macOS_amd64_checksum
@@ -286,7 +286,7 @@ jobs:
           echo "::set-output name=archive::"${NEW_ARCHIVE_DIR}.tar.gz
           echo "::set-output name=archive_dir::"${NEW_ARCHIVE_DIR}
 
-      - name: Upload archive artefact
+      - name: Upload archive artifact
         uses: actions/upload-artifact@v3
         with:
           name: macOS_arm64_archive
@@ -295,14 +295,14 @@ jobs:
             ./dist/nimbus-eth2_macOS_arm64_nightly_latest.tar.gz
           retention-days: 2
 
-      - name: Upload BN checksum artefact
+      - name: Upload BN checksum artifact
         uses: actions/upload-artifact@v3
         with:
           name: macOS_arm64_checksum
           path: ./dist/${{ steps.make_dist.outputs.archive_dir }}/build/nimbus_beacon_node.sha512sum
           retention-days: 2
 
-      - name: Upload VC checksum artefact
+      - name: Upload VC checksum artifact
         uses: actions/upload-artifact@v3
         with:
           name: macOS_arm64_checksum
@@ -319,7 +319,7 @@ jobs:
         with:
           ref: unstable
 
-      - name: Download artefacts
+      - name: Download artifacts
         uses: actions/download-artifact@v4.1.7
 
       - name: Create release notes
@@ -364,7 +364,7 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Delete artefacts
+      - name: Delete artifacts
         uses: geekyeggo/delete-artifact@v1
         with:
           failOnError: false
