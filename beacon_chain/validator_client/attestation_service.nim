@@ -279,6 +279,7 @@ proc produceAndPublishAttestations*(
 
       tmp.add(RegisteredAttestation(
         validator: validator,
+        validator_index: validator_index,
         committee_index: duty.data.committee_index,
         index_in_committee: duty.data.validator_committee_index,
         committee_len: int duty.data.committee_length,
@@ -512,6 +513,7 @@ proc produceAndPublishAttestationsV2*(
 
           tmp.add(RegisteredAttestation(
             validator: validator,
+            validator_index: validator_index,
             committee_index: duty.data.committee_index,
             index_in_committee: duty.data.validator_committee_index,
             committee_len: int(duty.data.committee_length),

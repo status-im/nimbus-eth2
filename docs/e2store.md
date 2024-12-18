@@ -99,7 +99,7 @@ type: [0x01, 0x00]
 data: snappyFramed(ssz(SignedBeaconBlock))
 ```
 
-`CompressedSignedBeackBlock` contain `SignedBeaconBlock` objects encoded using `SSZ` then compressed using the snappy [framing format](https://github.com/google/snappy/blob/master/framing_format.txt).
+`CompressedSignedBeaconBlock` contains `SignedBeaconBlock` objects encoded using `SSZ` then compressed using the snappy [framing format](https://github.com/google/snappy/blob/master/framing_format.txt).
 
 The encoding matches that of the `BeaconBlocksByRoot` and `BeaconBlocksByRange` requests from the p2p specification.
 
@@ -183,7 +183,7 @@ Each era is identified by when it ends. Thus, the genesis era is era `0`, follow
 
 `.era` file names follow a simple convention: `<config-name>-<era-number>-<era-count>-<short-historical-root>.era`:
 
-* `config-name` is the `CONFIG_NAME` field of the runtime configation (`mainnet`, `sepolia`, `holesky`, etc)
+* `config-name` is the `CONFIG_NAME` field of the runtime configuration (`mainnet`, `sepolia`, `holesky`, etc)
 * `era-number` is the number of the _first_ era stored in the file - for example, the genesis era file has number 0 - as a 5-digit 0-filled decimal integer
 * `short-era-root` is the first 4 bytes of the last historical root in the _last_ state in the era file, lower-case hex-encoded (8 characters), except the genesis era which instead uses the `genesis_validators_root` field from the genesis state.
   * The root is available as `state.historical_roots[era - 1]` except for genesis, which is `state.genesis_validators_root`
@@ -217,8 +217,8 @@ The `era-state` is the state in the era transition slot. The genesis group conta
 The structure of the era file gives it the following properties:
 
 * the indices at the end are fixed-length: they can be used to discover the beginning of an era if the end of it is known
-* the start slot field of the state slot index idenfifies which era the group pertains to
-* the state in the era file is the end state after having applied all the blocks in the era and, if applicable, the block at the first slot - the `block_roots` entries in the state can be used to discover the digest of the blocks - either to verify the intergrity of the era file or to quickly load block roots without computing them.
+* the start slot field of the state slot index identifies which era the group pertains to
+* the state in the era file is the end state after having applied all the blocks in the era and, if applicable, the block at the first slot - the `block_roots` entries in the state can be used to discover the digest of the blocks - either to verify the integrity of the era file or to quickly load block roots without computing them.
 * each group in the era file is full, independent era file - groups can freely be split and combined
 
 ## Reading era files
