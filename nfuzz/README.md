@@ -19,7 +19,7 @@ make libnfuzz.a
 make libnfuzz.so
 ```
 
-Default, the library is build with the `minimal` config. To select a specific config you can instead run:
+Default, the library is built with the `minimal` config. To select a specific config you can instead run:
 ```bash
 # build with mainnet config
 make libnfuzz.a NIMFLAGS="-d:const_preset=mainnet"
