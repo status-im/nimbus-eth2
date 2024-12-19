@@ -16,7 +16,7 @@ import
   # Internals
   ../spec/[
     beaconstate, state_transition_block, forks,
-    helpers, network, signatures, eip7594_helpers],
+    helpers, network, signatures, peerdas_helpers],
   ../consensus_object_pools/[
     attestation_pool, blockchain_dag, blob_quarantine, block_quarantine,
     data_column_quarantine, spec_cache, light_client_pool, sync_committee_msg_pool,
@@ -496,7 +496,7 @@ proc validateBlobSidecar*(
 # https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.8/specs/_features/eip7594/p2p-interface.md#data_column_sidecar_subnet_id
 proc validateDataColumnSidecar*(
     dag: ChainDAGRef, quarantine: ref Quarantine,
-    dataColumnQuarantine: ref DataColumnQuarantine, 
+    dataColumnQuarantine: ref DataColumnQuarantine,
     data_column_sidecar: DataColumnSidecar,
     wallTime: BeaconTime, subnet_id: uint64):
     Result[void, ValidationError] =
@@ -508,14 +508,14 @@ proc validateDataColumnSidecar*(
   if not (data_column_sidecar.index < NUMBER_OF_COLUMNS):
     return dag.checkedReject("DataColumnSidecar: The sidecar's index should be consistent with NUMBER_OF_COLUMNS")
 
-  # [REJECT] The sidecar is for the correct subnet 
+  # [REJECT] The sidecar is for the correct subnet
   # -- i.e. `compute_subnet_for_data_column_sidecar(blob_sidecar.index) == subnet_id`.
   if not (compute_subnet_for_data_column_sidecar(data_column_sidecar.index) == subnet_id):
     return dag.checkedReject("DataColumnSidecar: The sidecar is not for the correct subnet")
 
-  # [IGNORE] The sidecar is not from a future slot 
-  # (with a `MAXIMUM_GOSSIP_CLOCK_DISPARITY` allowance) -- i.e. validate that 
-  # `block_header.slot <= current_slot`(a client MAY queue future sidecars for 
+  # [IGNORE] The sidecar is not from a future slot
+  # (with a `MAXIMUM_GOSSIP_CLOCK_DISPARITY` allowance) -- i.e. validate that
+  # `block_header.slot <= current_slot`(a client MAY queue future sidecars for
   # processing at the appropriate slot).
   if not (block_header.slot <=
       (wallTime + MAXIMUM_GOSSIP_CLOCK_DISPARITY).slotOrZero):
@@ -608,7 +608,7 @@ proc validateDataColumnSidecar*(
       data_column_sidecar.signed_block_header.signature):
     return dag.checkedReject("DataColumnSidecar: Invalid proposer signature")
 
-  # [REJECT] The sidecar's column data is valid as 
+  # [REJECT] The sidecar's column data is valid as
   # verified by `verify_data_column_kzg_proofs(sidecar)`
   block:
     let r = check_data_column_sidecar_kzg_proofs(data_column_sidecar)

@@ -11,7 +11,7 @@ import std/[sequtils, strutils]
 import chronos, chronicles
 import
   ../spec/datatypes/[phase0, deneb, fulu],
-  ../spec/[forks, network, eip7594_helpers],
+  ../spec/[forks, network, peerdas_helpers],
   ../networking/eth2_network,
   ../consensus_object_pools/block_quarantine,
   ../consensus_object_pools/blob_quarantine,
@@ -299,23 +299,23 @@ proc checkPeerCustody*(rman: RequestManager,
                        peer: Peer):
                        bool =
   # Returns true if the peer custodies atleast
-  # ONE of the common custody columns, straight 
+  # ONE of the common custody columns, straight
   # away returns true if the peer is a supernode.
   if rman.supernode:
     # For a supernode, it is always best/optimistic
     # to filter other supernodes, rather than filter
     # too many full nodes that have a subset of the custody
     # columns
-    if peer.lookupCscFromPeer() == 
-        DATA_COLUMN_SIDECAR_SUBNET_COUNT.uint64:
-      return true
-  
-  else:
-    if peer.lookupCscFromPeer() == 
+    if peer.lookupCscFromPeer() ==
         DATA_COLUMN_SIDECAR_SUBNET_COUNT.uint64:
       return true
 
-    elif peer.lookupCscFromPeer() == 
+  else:
+    if peer.lookupCscFromPeer() ==
+        DATA_COLUMN_SIDECAR_SUBNET_COUNT.uint64:
+      return true
+
+    elif peer.lookupCscFromPeer() ==
         CUSTODY_REQUIREMENT.uint64:
 
       # Fetch the remote custody count
@@ -333,9 +333,9 @@ proc checkPeerCustody*(rman: RequestManager,
       for local_column in rman.custody_columns_set:
         if local_column notin remoteCustodyColumns:
           return false
-      
+
       return true
-    
+
     else:
       return false
 
@@ -551,7 +551,7 @@ proc getMissingDataColumns(rman: RequestManager): HashSet[DataColumnIdentifier] 
     wallTime = rman.getBeaconTime()
     wallSlot = wallTime.slotOrZero()
     delay = wallTime - wallSlot.start_beacon_time()
-  
+
   const waitDur = TimeDiff(nanoseconds: DATA_COLUMN_GOSSIP_WAIT_TIME_NS)
 
   var
@@ -574,7 +574,7 @@ proc getMissingDataColumns(rman: RequestManager): HashSet[DataColumnIdentifier] 
              commitments = len(forkyBlck.message.body.blob_kzg_commitments)
           for idx in missing.indices:
             let id = DataColumnIdentifier(block_root: columnless.root, index: idx)
-            if id.index in rman.custody_columns_set and id notin fetches and 
+            if id.index in rman.custody_columns_set and id notin fetches and
                 len(forkyBlck.message.body.blob_kzg_commitments) != 0:
               fetches.incl(id)
         else:
@@ -583,7 +583,7 @@ proc getMissingDataColumns(rman: RequestManager): HashSet[DataColumnIdentifier] 
              blk = columnless.root,
              commitments = len(forkyBlck.message.body.blob_kzg_commitments)
           ready.add(columnless.root)
-  
+
   for root in ready:
     let columnless = rman.quarantine[].popColumnless(root).valueOr:
       continue
@@ -593,7 +593,7 @@ proc getMissingDataColumns(rman: RequestManager): HashSet[DataColumnIdentifier] 
 proc requestManagerDataColumnLoop(
     rman: RequestManager) {.async: (raises: [CancelledError]).} =
   while true:
-    
+
     await sleepAsync(POLL_INTERVAL)
     if rman.inhibit():
       continue
@@ -623,7 +623,7 @@ proc requestManagerDataColumnLoop(
         debug "Loaded orphaned data columns from storage", columnId
         rman.dataColumnQuarantine[].put(data_column_sidecar)
       var verifiers = newSeqOfCap[
-        Future[Result[void, VerifierError]]  
+        Future[Result[void, VerifierError]]
           .Raising([CancelledError])](blockRoots.len)
       for blockRoot in blockRoots:
         let blck = rman.quarantine[].popColumnless(blockRoot).valueOr:
@@ -644,7 +644,7 @@ proc requestManagerDataColumnLoop(
         array[PARALLEL_REQUESTS_DATA_COLUMNS, Future[void].Raising([CancelledError])]
       for i in 0..<PARALLEL_REQUESTS_DATA_COLUMNS:
         workers[i] = rman.fetchDataColumnsFromNetwork(columnIds)
-      
+
       await allFutures(workers)
       let finish = SyncMoment.now(uint64(len(columnIds)))
 

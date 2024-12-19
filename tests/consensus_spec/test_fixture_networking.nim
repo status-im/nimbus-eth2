@@ -14,7 +14,7 @@ import
   kzg4844/[kzg, kzg_abi],
   stint,
   eth/p2p/discoveryv5/[node],
-  ../../beacon_chain/spec/eip7594_helpers,
+  ../../beacon_chain/spec/peerdas_helpers,
   ../testutil,
   ./fixtures_utils, ./os_ops
 
