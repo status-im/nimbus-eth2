@@ -7,8 +7,8 @@ AllTests-mainnet
 OK: 1/1 Fail: 0/1 Skip: 0/1
 ## Attestation pool electra processing [Preset: mainnet]
 ```diff
-+ Aggregated attestations with disjoint comittee bits into a single on-chain aggregate [Pres OK
-+ Attestations with disjoint comittee bits and equal data into single on-chain aggregate [Pr OK
++ Aggregated attestations with disjoint committee bits into a single on-chain aggregate [Pres OK
++ Attestations with disjoint committee bits and equal data into single on-chain aggregate [Pr OK
 + Can add and retrieve simple electra attestations [Preset: mainnet]                         OK
 + Working with electra aggregates [Preset: mainnet]                                          OK
 ```
@@ -693,7 +693,7 @@ OK: 4/4 Fail: 0/4 Skip: 0/4
 + Missing Authorization header [Beacon Node] [Preset: mainnet]                               OK
 ```
 OK: 4/4 Fail: 0/4 Skip: 0/4
-## Key spliting
+## Key splitting
 ```diff
 + k < n                                                                                      OK
 + k == n                                                                                     OK
@@ -848,7 +848,7 @@ OK: 5/5 Fail: 0/5 Skip: 0/5
 + Single remote                                                                              OK
 + Verifying Signer / Many remotes                                                            OK
 + Verifying Signer / Single remote                                                           OK
-+ vesion 1                                                                                   OK
++ version 1                                                                                   OK
 ```
 OK: 5/5 Fail: 0/5 Skip: 0/5
 ## Serialization/deserialization [Beacon Node] [Preset: mainnet]
