@@ -235,3 +235,13 @@ func getSyncSubnets*(
 iterator blobSidecarTopics*(forkDigest: ForkDigest): string =
   for subnet_id in BlobId:
     yield getBlobSidecarTopic(forkDigest, subnet_id)
+
+# https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.10/specs/fulu/p2p-interface.md#data_column_sidecar_subnet_id
+func getDataColumnSidecarTopic*(forkDigest: ForkDigest,
+                                subnet_id: uint64): string =
+  eth2Prefix(forkDigest) & "data_column_sidecar_" & $subnet_id & "/ssz_snappy"
+
+iterator dataColumnSidecarTopics*(forkDigest: ForkDigest,
+                                  targetSubnetCount: uint64): string =
+  for subnet_id in 0'u64..<targetSubnetCount:
+    yield getDataColumnSidecarTopic(forkDigest, subnet_id)
