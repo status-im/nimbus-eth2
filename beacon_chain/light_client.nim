@@ -389,8 +389,8 @@ proc updateGossipStatus*(
 
     currentEpochTargetGossipState = getTargetGossipState(
       epoch, cfg.ALTAIR_FORK_EPOCH, cfg.BELLATRIX_FORK_EPOCH,
-      cfg.CAPELLA_FORK_EPOCH, cfg.DENEB_FORK_EPOCH, FAR_FUTURE_EPOCH,
-      isBehind)
+      cfg.CAPELLA_FORK_EPOCH, cfg.DENEB_FORK_EPOCH, cfg.ELECTRA_FORK_EPOCH,
+      cfg.FULU_FORK_EPOCH, isBehind)
     targetGossipState =
       if lcBehind or epoch < 1:
         currentEpochTargetGossipState
@@ -400,8 +400,8 @@ proc updateGossipStatus*(
         # Therefore, LC topic subscriptions are kept for 1 extra epoch.
         let previousEpochTargetGossipState = getTargetGossipState(
           epoch - 1, cfg.ALTAIR_FORK_EPOCH, cfg.BELLATRIX_FORK_EPOCH,
-          cfg.CAPELLA_FORK_EPOCH, cfg.DENEB_FORK_EPOCH, FAR_FUTURE_EPOCH,
-          isBehind)
+          cfg.CAPELLA_FORK_EPOCH, cfg.DENEB_FORK_EPOCH, cfg.ELECTRA_FORK_EPOCH,
+          cfg.FULU_FORK_EPOCH, isBehind)
         currentEpochTargetGossipState + previousEpochTargetGossipState
 
   template currentGossipState(): auto = lightClient.gossipState
