@@ -204,7 +204,7 @@ func getTargetGossipState*(
   maybeIncludeFork(
     ConsensusFork.Electra,   ELECTRA_FORK_EPOCH,   FULU_FORK_EPOCH)
   maybeIncludeFork(
-    ConsensusFork.Electra,   FULU_FORK_EPOCH,   FAR_FUTURE_EPOCH)
+    ConsensusFork.Fulu,      FULU_FORK_EPOCH,   FAR_FUTURE_EPOCH)
 
   doAssert len(targetForks) <= 2
   targetForks
