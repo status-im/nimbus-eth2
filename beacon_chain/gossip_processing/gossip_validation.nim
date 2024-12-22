@@ -1061,6 +1061,16 @@ proc validateAttestation*(
   # defined by attestation.data.beacon_block_root -- i.e.
   # get_checkpoint_block(store, attestation.data.beacon_block_root,
   # store.finalized_checkpoint.epoch) == store.finalized_checkpoint.root
+
+  var sig: CookedSig
+  let shufflingRefMissing =
+    pool.dag.findShufflingRef(target.blck.bid, target.slot.epoch).isNone
+  if shufflingRefMissing:
+    # getShufflingRef might be slow here, so first try to eliminate by
+    # signature check
+    sig = attestation.signature.load().valueOr:
+      return pool.checkedReject("SingleAttestation: unable to load signature")
+
   let shufflingRef =
     pool.dag.getShufflingRef(target.blck, target.slot.epoch, false).valueOr:
       # Target is verified - shouldn't happen
@@ -1080,7 +1090,6 @@ proc validateAttestation*(
       shufflingRef, attestation.data.slot,
       attestation.committee_index.CommitteeIndex)
     index_in_committee = find(beacon_committee, validator_index)
-  doAssert index_in_committee < beacon_committee.len
   if index_in_committee < 0:
     return pool.checkedReject("SingleAttestation: attester index not in beacon committee")
 
@@ -1107,10 +1116,12 @@ proc validateAttestation*(
 
   # In the spec, is_valid_indexed_attestation is used to verify the signature -
   # here, we do a batch verification instead
-  let sig = attestation.signature.load().valueOr:
-    return pool.checkedReject("SingleAttestation: unable to load signature")
+  if not shufflingRefMissing:
+    # findShufflingRef did find a cached ShufflingRef, which means the early
+    # signature check was skipped, so do it now.
+    sig = attestation.signature.load().valueOr:
+      return pool.checkedReject("SingleAttestation: unable to load signature")
 
-  echo "FOOBAR4: ", beacon_committee.len, "; ", index_in_committee
   ok((validator_index, beacon_committee.len, index_in_committee, sig))
 
 # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.1/specs/phase0/p2p-interface.md#beacon_aggregate_and_proof

@@ -988,6 +988,8 @@ func shortLog*(v: electra.Attestation | electra.TrustedAttestation): auto =
 
 func shortLog*(v: SingleAttestation): auto =
   (
+    committee_index: v.committee_index,
+    attester_index: v.attester_index,
     data: shortLog(v.data),
     signature: shortLog(v.signature)
   )
