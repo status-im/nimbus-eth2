@@ -161,13 +161,32 @@ func check_beacon_and_target_block(
   ok(target)
 
 func check_aggregation_count(
-    attestation: phase0.Attestation | electra.Attestation, singular: bool):
+    attestation: phase0.Attestation, singular: bool):
     Result[void, ValidationError] =
   let ones = attestation.aggregation_bits.countOnes()
   if singular and ones != 1:
     return errReject("Attestation must have a single attestation bit set")
   elif not singular and ones < 1:
     return errReject("Attestation must have at least one attestation bit set")
+
+  ok()
+
+func check_aggregation_count(
+    attestation: electra.Attestation, singular: bool):
+    Result[void, ValidationError] =
+  block:
+    let ones = attestation.committee_bits.countOnes()
+    if singular and ones != 1:
+      return errReject("Attestation must have a single committee bit set")
+    elif not singular and ones < 1:
+      return errReject("Attestation must have at least one committee bit set")
+
+  block:
+    let ones = attestation.aggregation_bits.countOnes()
+    if singular and ones != 1:
+      return errReject("Attestation must have a single attestation bit set")
+    elif not singular and ones < 1:
+      return errReject("Attestation must have at least one attestation bit set")
 
   ok()
 
