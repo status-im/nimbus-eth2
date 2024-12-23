@@ -9,8 +9,7 @@
 
 # Uncategorized helper functions from the spec
 import
-  std/algorithm,
-  std/sequtils,
+  std/[algorithm, sequtils],
   results,
   eth/p2p/discoveryv5/[node],
   kzg4844/[kzg],
@@ -87,13 +86,10 @@ func get_custody_columns*(node_id: NodeId,
 
 func compute_columns_for_custody_group(custody_group: CustodyIndex):
                                        seq[ColumnIndex] =
-  const columns_per_group =
-    NUMBER_OF_COLUMNS div NUMBER_OF_CUSTODY_GROUPS
   var res: seq[ColumnIndex]
-  for i in 0'u64 ..< columns_per_group:
+  for i in 0'u64 ..< COLUMNS_PER_GROUP:
     let index = NUMBER_OF_CUSTODY_GROUPS * i + custody_group
     res.add(ColumnIndex(index))
-  res.sort()
   res
 
 func handle_custody_groups(node_id: NodeId,
@@ -124,7 +120,7 @@ func handle_custody_groups(node_id: NodeId,
     if current_id == UInt256.high.NodeId:
       # Overflow prevention
       current_id = NodeId(StUint[256].zero)
-    current_id = NodeId(StUint[256].one)
+    current_id += NodeId(StUint[256].one)
 
   custody_groups
 
@@ -136,9 +132,7 @@ func get_custody_groups*(node_id: NodeId,
     node_id.handle_custody_groups(custody_group_count)
 
   var groups: seq[CustodyIndex]
-  for item in custody_groups:
-    groups.add item
-
+  groups = custody_groups.toSeq()
   groups.sort()
   groups
 
@@ -155,7 +149,7 @@ func resolve_columns_from_custody_groups*(node_id: NodeId,
   for group in custody_groups:
     resolved_columns.add compute_columns_for_custody_group(group)
 
-  let flattened = concat(resolved_columns.mapIt(it)).mapIt(ColumnIndex(it))
+  let flattened = concat(resolved_columns).mapIt(ColumnIndex(it))
   flattened
 
 func resolve_column_sets_from_custody_groups*(node_id: NodeId,
