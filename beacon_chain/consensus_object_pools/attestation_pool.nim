@@ -33,8 +33,8 @@ const
 type
   OnPhase0AttestationCallback =
     proc(data: phase0.Attestation) {.gcsafe, raises: [].}
-  OnElectraAttestationCallback =
-    proc(data: electra.Attestation) {.gcsafe, raises: [].}
+  OnSingleAttestationCallback =
+    proc(data: SingleAttestation) {.gcsafe, raises: [].}
 
   Validation[CVBType] = object
     ## Validations collect a set of signatures for a distict attestation - in
@@ -96,7 +96,7 @@ type
     ## sequence based on validator indices
 
     onPhase0AttestationAdded: OnPhase0AttestationCallback
-    onElectraAttestationAdded: OnElectraAttestationCallback
+    onSingleAttestationAdded: OnSingleAttestationCallback
 
 logScope: topics = "attpool"
 
@@ -106,7 +106,7 @@ declareGauge attestation_pool_block_attestation_packing_time,
 proc init*(T: type AttestationPool, dag: ChainDAGRef,
            quarantine: ref Quarantine,
            onPhase0Attestation: OnPhase0AttestationCallback = nil,
-           onElectraAttestation: OnElectraAttestationCallback = nil): T =
+           onSingleAttestation: OnSingleAttestationCallback = nil): T =
   ## Initialize an AttestationPool from the dag `headState`
   ## The `finalized_root` works around the finalized_checkpoint of the genesis block
   ## holding a zero_root.
@@ -182,7 +182,7 @@ proc init*(T: type AttestationPool, dag: ChainDAGRef,
     quarantine: quarantine,
     forkChoice: forkChoice,
     onPhase0AttestationAdded: onPhase0Attestation,
-    onElectraAttestationAdded: onElectraAttestation
+    onSingleAttestationAdded: onSingleAttestation
   )
 
 proc addForkChoiceVotes(
@@ -351,13 +351,12 @@ func covers(
 
 proc addAttestation(
     entry: var AttestationEntry,
-    attestation: phase0.Attestation | electra.Attestation,
+    attestation: phase0.Attestation | electra.Attestation, _: int,
     signature: CookedSig): bool =
   logScope:
     attestation = shortLog(attestation)
 
-  let
-    singleIndex = oneIndex(attestation.aggregation_bits)
+  let singleIndex = oneIndex(attestation.aggregation_bits)
 
   if singleIndex.isSome():
     if singleIndex.get() in entry.singles:
@@ -392,6 +391,28 @@ proc addAttestation(
 
   true
 
+proc addAttestation(
+    entry: var AttestationEntry, attestation: SingleAttestation,
+    index_in_committee: int,
+    signature: CookedSig): bool =
+  logScope:
+    attestation = shortLog(attestation)
+
+  if index_in_committee in entry.singles:
+    trace "SingleAttestation already seen",
+      singles = entry.singles.len(),
+      aggregates = entry.aggregates.len()
+
+    return false
+
+  debug "SingleAttestation resolved",
+    singles = entry.singles.len(),
+    aggregates = entry.aggregates.len()
+
+  entry.singles[index_in_committee] = signature
+
+  true
+
 func getAttestationCandidateKey(
     data: AttestationData,
     committee_index: Opt[CommitteeIndex]): Eth2Digest =
@@ -403,7 +424,8 @@ func getAttestationCandidateKey(
     # i.e. no committees selected, so it can't be an actual Electra attestation
     hash_tree_root(data)
   else:
-    hash_tree_root([hash_tree_root(data), hash_tree_root(committee_index.get.uint64)])
+    hash_tree_root([hash_tree_root(data),
+                    hash_tree_root(committee_index.get.uint64)])
 
 func getAttestationCandidateKey(
     attestationDataRoot: Eth2Digest, committee_index: CommitteeIndex):
@@ -412,9 +434,9 @@ func getAttestationCandidateKey(
 
 proc addAttestation*(
     pool: var AttestationPool,
-    attestation: phase0.Attestation | electra.Attestation,
-    attesting_indices: openArray[ValidatorIndex],
-    signature: CookedSig, wallTime: BeaconTime) =
+    attestation: phase0.Attestation | electra.Attestation | SingleAttestation,
+    attesting_indices: openArray[ValidatorIndex], beacon_committee_len: int,
+    index_in_committee: int, signature: CookedSig, wallTime: BeaconTime) =
   ## Add an attestation to the pool, assuming it's been validated already.
   ##
   ## Assuming the votes in the attestation have not already been seen, the
@@ -445,12 +467,12 @@ proc addAttestation*(
     let attestation_data_root = getAttestationCandidateKey(entry.data, committee_index)
 
     attCandidates[candidateIdx.get()].withValue(attestation_data_root, entry) do:
-      if not addAttestation(entry[], attestation, signature):
+      if not addAttestation(entry[], attestation, index_in_committee, signature):
         return
     do:
       if not addAttestation(
           attCandidates[candidateIdx.get()].mgetOrPut(attestation_data_root, entry),
-          attestation, signature):
+          attestation, index_in_committee, signature):
         # Returns from overall function, not only template
         return
 
@@ -469,7 +491,7 @@ proc addAttestation*(
   template addAttToPool(_: electra.Attestation) {.used.} =
     let
       committee_index = get_committee_index_one(attestation.committee_bits).expect("TODO")
-      data =  AttestationData(
+      data = AttestationData(
         slot: attestation.data.slot,
         index: uint64 committee_index,
         beacon_block_root: attestation.data.beacon_block_root,
@@ -483,9 +505,31 @@ proc addAttestation*(
       attestation.data.slot, attesting_indices,
       attestation.data.beacon_block_root, wallTime)
 
+    # There does not seem to be an SSE stream event corresponding to this,
+    # because both attestation and single_attestation specifically specify
+    # the `beacon_attestation_{subnet_id}` topic and that in not possible,
+    # for this type, in Electra because this case is always an aggregate.
+
+  template addAttToPool(_: SingleAttestation) {.used.} =
+    let
+      data = AttestationData(
+        slot: attestation.data.slot,
+        index: uint64 attestation.committee_index,
+        beacon_block_root: attestation.data.beacon_block_root,
+        source: attestation.data.source,
+        target: attestation.data.target)
+      newAttEntry = ElectraAttestationEntry(
+        data: data, committee_len: beacon_committee_len)
+    addAttToPool(
+      pool.electraCandidates, newAttEntry,
+      Opt.some attestation.committee_index.CommitteeIndex)
+    pool.addForkChoiceVotes(
+      attestation.data.slot, attesting_indices,
+      attestation.data.beacon_block_root, wallTime)
+
     # Send notification about new attestation via callback.
-    if not(isNil(pool.onElectraAttestationAdded)):
-      pool.onElectraAttestationAdded(attestation)
+    if not(isNil(pool.onSingleAttestationAdded)):
+      pool.onSingleAttestationAdded(attestation)
 
   addAttToPool(attestation)
 

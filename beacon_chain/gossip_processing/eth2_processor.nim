@@ -338,7 +338,7 @@ func clearDoppelgangerProtection*(self: var Eth2Processor) =
 
 proc checkForPotentialDoppelganger(
     self: var Eth2Processor,
-    attestation: phase0.Attestation | electra.Attestation,
+    attestation: phase0.Attestation | electra.Attestation | SingleAttestation,
     attesterIndices: openArray[ValidatorIndex]) =
   # Only check for attestations after node launch. There might be one slot of
   # overlap in quick intra-slot restarts so trade off a few true negatives in
@@ -360,8 +360,8 @@ proc checkForPotentialDoppelganger(
 
 proc processAttestation*(
     self: ref Eth2Processor, src: MsgSource,
-    attestation: phase0.Attestation | electra.Attestation, subnet_id: SubnetId,
-    checkSignature, checkValidator: bool
+    attestation: phase0.Attestation | SingleAttestation,
+    subnet_id: SubnetId, checkSignature, checkValidator: bool
 ): Future[ValidationRes] {.async: (raises: [CancelledError]).} =
   var wallTime = self.getCurrentBeaconTime()
   let (afterGenesis, wallSlot) = wallTime.toSlot()
@@ -380,14 +380,14 @@ proc processAttestation*(
   debug "Attestation received", delay
 
   # Now proceed to validation
-  let v =
-    await self.attestationPool.validateAttestation(
-      self.batchCrypto, attestation, wallTime, subnet_id, checkSignature)
+  let v = await self.attestationPool.validateAttestation(
+    self.batchCrypto, attestation, wallTime, subnet_id, checkSignature)
   return if v.isOk():
     # Due to async validation the wallTime here might have changed
     wallTime = self.getCurrentBeaconTime()
 
-    let (attester_index, sig) = v.get()
+    let (attester_index, beacon_committee_len, index_in_committee, sig) =
+      v.get()
 
     if checkValidator and (attester_index in self.validatorPool[]):
       warn "A validator client has attempted to send an attestation from " &
@@ -400,7 +400,8 @@ proc processAttestation*(
 
       trace "Attestation validated"
       self.attestationPool[].addAttestation(
-        attestation, [attester_index], sig, wallTime)
+        attestation, [attester_index], beacon_committee_len,
+        index_in_committee, sig, wallTime)
 
       self.validatorMonitor[].registerAttestation(
         src, wallTime, attestation, attester_index)
@@ -456,8 +457,11 @@ proc processSignedAggregateAndProof*(
 
     trace "Aggregate validated"
 
+    # -1 here is the notional index in committee for which the attestation pool
+    # only requires external input regarding SingleAttestation messages.
     self.attestationPool[].addAttestation(
-      signedAggregateAndProof.message.aggregate, attesting_indices, sig,
+      signedAggregateAndProof.message.aggregate, attesting_indices,
+      signedAggregateAndProof.message.aggregate.aggregation_bits.len, -1, sig,
       wallTime)
 
     self.validatorMonitor[].registerAggregate(

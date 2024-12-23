@@ -173,13 +173,14 @@ iterator get_attesting_indices*(
       yield validator
 
 iterator get_attesting_indices*(
-    dag: ChainDAGRef, attestation: electra.TrustedAttestation,
+    dag: ChainDAGRef,
+    attestation: electra.Attestation | electra.TrustedAttestation,
     on_chain: static bool): ValidatorIndex =
   block gaiBlock: # `return` is not allowed in an inline iterator
     let
       slot =
         check_attestation_slot_target(attestation.data).valueOr:
-          warn "Invalid attestation slot in trusted attestation",
+          warn "Invalid attestation slot in attestation",
             attestation = shortLog(attestation)
           doAssert strictVerification notin dag.updateFlags
           break gaiBlock
@@ -187,7 +188,7 @@ iterator get_attesting_indices*(
         dag.getBlockRef(attestation.data.beacon_block_root).valueOr:
           # Attestation block unknown - this is fairly common because we
           # discard alternative histories on restart
-          debug "Pruned block in trusted attestation",
+          debug "Pruned block in attestation",
             attestation = shortLog(attestation)
           break gaiBlock
       target =
@@ -196,7 +197,7 @@ iterator get_attesting_indices*(
           # leading to the case where the attestation block root is the
           # finalized head (exists as BlockRef) but its target vote has
           # already been pruned
-          notice "Pruned target in trusted attestation",
+          notice "Pruned target in attestation",
             blck = shortLog(blck),
             attestation = shortLog(attestation)
           doAssert strictVerification notin dag.updateFlags

@@ -362,7 +362,7 @@ proc createAndSendAttestation(node: BeaconNode,
     res =
       if consensusFork >= ConsensusFork.Electra:
         await node.router.routeAttestation(
-          registered.toElectraAttestation(signature), subnet_id,
+          registered.toSingleAttestation(signature), subnet_id,
           checkSignature = false, checkValidator = false)
       else:
         await node.router.routeAttestation(
@@ -1579,7 +1579,8 @@ proc sendAttestations(node: BeaconNode, head: BlockRef, slot: Slot) =
             continue
 
           tmp.add((RegisteredAttestation(
-            validator: validator, committee_index: committee_index,
+            validator: validator, validator_index: validator_index,
+            committee_index: committee_index,
             index_in_committee: uint64 index_in_committee,
             committee_len: committee.len(), data: data), subnet_id
           ))

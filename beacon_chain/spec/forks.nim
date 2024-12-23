@@ -630,9 +630,9 @@ template Forky*(
     kind: static ConsensusFork): auto =
   kind.SignedBeaconBlock
 
-# Workaround method used for tests that involve walking through 
-# `nim-eth2-scnarios`fork dirs, to be removed once Fulu is 
-# included in new release. 
+# Workaround method used for tests that involve walking through
+# `nim-eth2-scenarios` fork dirs, to be removed once Fulu is
+# included in new release.
 template withAllButFulu*(
     x: typedesc[ConsensusFork], body: untyped): untyped =
   static: doAssert ConsensusFork.high == ConsensusFork.Fulu
@@ -1853,6 +1853,10 @@ func committee_index*(v: electra.Attestation, on_chain: static bool): uint64 =
     {.error: "cannot get single committee_index for on_chain attestation".}
   else:
     uint64 v.committee_bits.get_committee_index_one().expect("network attestation")
+
+func committee_index*(
+    v: SingleAttestation, on_chain: static bool = false): uint64 =
+  v.committee_index
 
 template init*(T: type ForkedAttestation,
                attestation: phase0.Attestation,
