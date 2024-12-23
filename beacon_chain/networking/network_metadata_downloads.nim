@@ -41,7 +41,7 @@ proc fetchGenesisBytes*(
     result = await downloadFile(genesisStateUrlOverride.get(parseUri metadata.genesis.url))
     # Under the built-in default URL, we serve a snappy-encoded BeaconState in order
     # to reduce the size of the downloaded file with roughly 50% (this precise ratio
-    # depends on the number of validator recors). The user is still free to provide
+    # depends on the number of validator records). The user is still free to provide
     # any URL which may serve an uncompressed state (e.g. a Beacon API endpoint)
     #
     # Since a SSZ-encoded BeaconState will start with a LittleEndian genesis time
