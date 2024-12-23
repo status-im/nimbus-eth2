@@ -25,6 +25,66 @@ type
   CellBytes = array[fulu.CELLS_PER_EXT_BLOB, Cell]
   ProofBytes = array[fulu.CELLS_PER_EXT_BLOB, KzgProof]
 
+# Shall be deprecated once alpha 11 tests are released
+func sortedColumnIndices(columnsPerSubnet: ColumnIndex,
+                         subnetIds: HashSet[uint64]):
+                         seq[ColumnIndex] =
+  var res: seq[ColumnIndex] = @[]
+  for i in 0'u64 ..< columnsPerSubnet:
+    for subnetId in subnetIds:
+      let index = DATA_COLUMN_SIDECAR_SUBNET_COUNT * i + subnetId
+      res.add(ColumnIndex(index))
+  res.sort
+  res
+
+# Shall be deprecated once alpha 11 tests are released
+func get_custody_column_subnets*(node_id: NodeId,
+                                 custody_subnet_count: uint64):
+                                 HashSet[uint64] =
+
+  # Decouples the custody subnet computation part from
+  # `get_custody_columns`, in order to later use this subnet list
+  # in order to maintain subscription to specific column subnets.
+
+  var
+    subnet_ids: HashSet[uint64]
+    current_id = node_id
+
+  while subnet_ids.lenu64 < custody_subnet_count:
+    var
+      hashed_bytes: array[8, byte]
+
+    let
+      current_id_bytes = current_id.toBytesLE()
+      hashed_current_id = eth2digest(current_id_bytes)
+
+    hashed_bytes[0..7] = hashed_current_id.data.toOpenArray(0,7)
+    let subnet_id = bytes_to_uint64(hashed_bytes) mod
+      DATA_COLUMN_SIDECAR_SUBNET_COUNT
+
+    subnet_ids.incl(subnet_id)
+
+    if current_id == UInt256.high.NodeId:
+      # Overflow prevention
+      current_id = NodeId(StUint[256].zero)
+    current_id += NodeId(StUint[256].one)
+
+  subnet_ids
+
+# https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.5/specs/_features/eip7594/das-core.md#get_custody_columns
+# Shall be deprecated once alpha 11 tests are released
+func get_custody_columns*(node_id: NodeId,
+                          custody_subnet_count: uint64):
+                          seq[ColumnIndex] =
+  let
+    subnet_ids =
+      get_custody_column_subnets(node_id, custody_subnet_count)
+  const
+    columns_per_subnet =
+      NUMBER_OF_COLUMNS div DATA_COLUMN_SIDECAR_SUBNET_COUNT
+
+  sortedColumnIndices(ColumnIndex(columns_per_subnet), subnet_ids)
+
 func compute_columns_for_custody_group(custody_group: CustodyIndex):
                                        seq[ColumnIndex] =
   const columns_per_group =
