@@ -22,7 +22,7 @@ from std/sequtils import mapIt
 
 proc runGetCustodyColumns(suiteName, path: string) =
   let relativePathComponent = path.relativeTestPathComponent()
-  test "Networking - Get Custody Columns - " & relativePathComponent:
+  test "Networking - Get Custody Groups - " & relativePathComponent:
     type TestMetaYaml = object
       node_id: string
       custody_group_count: uint64
@@ -38,13 +38,14 @@ proc runGetCustodyColumns(suiteName, path: string) =
       custody_group_count = meta.custody_group_count
       reslt = (meta.result).mapIt(it)
 
-    let columns = get_custody_columns(node_id, custody_group_count)
+    let columns = get_custody_groups(node_id, custody_group_count)
 
     for i in 0..<columns.lenu64:
       check columns[i] == reslt[i]
 
 suite "EF - EIP7594 - Networking" & preset():
   const presetPath = SszTestsDir/const_preset
+  # foldering to be resolved in alpha 11 release of consensus spec tests
   let basePath =
     presetPath/"fulu"/"networking"/"get_custody_columns"/"pyspec_tests"
   for kind, path in walkDir(basePath, relative = true, checkDir = true):
