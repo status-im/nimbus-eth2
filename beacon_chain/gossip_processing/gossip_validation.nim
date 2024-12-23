@@ -161,7 +161,7 @@ func check_beacon_and_target_block(
   ok(target)
 
 func check_aggregation_count(
-    attestation: phase0.Attestation, singular: bool):
+    attestation: phase0.Attestation | electra.Attestation, singular: bool):
     Result[void, ValidationError] =
   let ones = attestation.aggregation_bits.countOnes()
   if singular and ones != 1:
@@ -1061,22 +1061,20 @@ proc validateAttestation*(
   # defined by attestation.data.beacon_block_root -- i.e.
   # get_checkpoint_block(store, attestation.data.beacon_block_root,
   # store.finalized_checkpoint.epoch) == store.finalized_checkpoint.root
-
+  var sigchecked = false
   var sig: CookedSig
-  let shufflingRefMissing =
-    pool.dag.findShufflingRef(target.blck.bid, target.slot.epoch).isNone
-  if shufflingRefMissing:
-    # getShufflingRef might be slow here, so first try to eliminate by
-    # signature check
-    sig = attestation.signature.load().valueOr:
-      return pool.checkedReject("SingleAttestation: unable to load signature")
-
   let shufflingRef =
-    pool.dag.getShufflingRef(target.blck, target.slot.epoch, false).valueOr:
-      # Target is verified - shouldn't happen
-      warn "No shuffling for attestation - report bug",
-        attestation = shortLog(attestation), target = shortLog(target)
-      return errIgnore("SingleAttestation: no shuffling")
+    pool.dag.findShufflingRef(target.blck.bid, target.slot.epoch).valueOr:
+      # getShufflingRef might be slow here, so first try to eliminate by
+      # signature check
+      sig = attestation.signature.load().valueOr:
+        return pool.checkedReject("SingleAttestation: unable to load signature")
+      sigchecked = true
+      pool.dag.getShufflingRef(target.blck, target.slot.epoch, false).valueOr:
+        # Target is verified - shouldn't happen
+        warn "No shuffling for SingleAttestation - report bug",
+          attestation = shortLog(attestation), target = shortLog(target)
+        return errIgnore("SingleAttestation: no shuffling")
 
   if attestation.attester_index > high(ValidatorIndex).uint64:
     return errReject("SingleAttestation: attester index too high")
@@ -1116,7 +1114,7 @@ proc validateAttestation*(
 
   # In the spec, is_valid_indexed_attestation is used to verify the signature -
   # here, we do a batch verification instead
-  if not shufflingRefMissing:
+  if not sigchecked:
     # findShufflingRef did find a cached ShufflingRef, which means the early
     # signature check was skipped, so do it now.
     sig = attestation.signature.load().valueOr:
