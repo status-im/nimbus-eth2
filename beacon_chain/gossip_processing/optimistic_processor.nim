@@ -94,7 +94,7 @@ proc processSignedBeaconBlock*(
   # Block validation is delegated to the sync committee and is done with delay.
   # If we forward invalid spam blocks, we may be disconnected + IP banned,
   # so we avoid accepting any blocks. Since we don't meaningfully contribute
-  # to the blocks gossip, we may also accummulate negative peer score over time.
+  # to the blocks gossip, we may also accumulate negative peer score over time.
   # However, we are actively contributing to other topics, so some of the
   # negative peer score may be offset through those different topics.
   # The practical impact depends on the actually deployed scoring heuristics.
