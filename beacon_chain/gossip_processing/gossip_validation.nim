@@ -293,18 +293,23 @@ template checkedReject(
     pool: ValidatorChangePool, error: ValidationError): untyped =
   pool.dag.checkedReject(error)
 
+func getMaxBlobsPerBlock(cfg: RuntimeConfig, wallTime: BeaconTime): uint64 =
+  if min(wallTime, wallTime - MAXIMUM_GOSSIP_CLOCK_DISPARITY).slotOrZero.epoch >=
+      cfg.ELECTRA_FORK_EPOCH:
+    cfg.MAX_BLOBS_PER_BLOCK_ELECTRA
+  else:
+    MAX_BLOBS_PER_BLOCK
+
 template validateBeaconBlockBellatrix(
-    signed_beacon_block: phase0.SignedBeaconBlock | altair.SignedBeaconBlock,
-    parent: BlockRef): untyped =
+    _: phase0.SignedBeaconBlock | altair.SignedBeaconBlock,
+    _: BlockRef): untyped =
   discard
 
 # https://github.com/ethereum/consensus-specs/blob/v1.3.0/specs/bellatrix/p2p-interface.md#beacon_block
 template validateBeaconBlockBellatrix(
     signed_beacon_block:
-      bellatrix.SignedBeaconBlock |
-      capella.SignedBeaconBlock |
-      deneb.SignedBeaconBlock |
-      electra.SignedBeaconBlock |
+      bellatrix.SignedBeaconBlock | capella.SignedBeaconBlock |
+      deneb.SignedBeaconBlock | electra.SignedBeaconBlock |
       fulu.SignedBeaconBlock,
     parent: BlockRef): untyped =
   # If the execution is enabled for the block -- i.e.
@@ -354,6 +359,29 @@ template validateBeaconBlockBellatrix(
   # cannot occur here, because Nimbus's optimistic sync waits for either
   # `ACCEPTED` or `SYNCING` from the EL to get this far.
 
+template validateBeaconBlockDeneb(
+    _: ChainDAGRef,
+    _:
+      phase0.SignedBeaconBlock | altair.SignedBeaconBlock |
+      bellatrix.SignedBeaconBlock | capella.SignedBeaconBlock,
+    _: BeaconTime): untyped =
+  discard
+
+# https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.10/specs/deneb/p2p-interface.md#beacon_block
+# https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.10/specs/electra/p2p-interface.md#beacon_block
+template validateBeaconBlockDeneb(
+    dag: ChainDAGRef,
+    signed_beacon_block:
+      deneb.SignedBeaconBlock | electra.SignedBeaconBlock |
+      fulu.SignedBeaconBlock,
+    wallTime: BeaconTime): untyped =
+  # [REJECT] The length of KZG commitments is less than or equal to the
+  # limitation defined in Consensus Layer -- i.e. validate that
+  # len(body.signed_beacon_block.message.blob_kzg_commitments) <= MAX_BLOBS_PER_BLOCK
+  if not (lenu64(signed_beacon_block.message.body.blob_kzg_commitments) <=
+      dag.cfg.getMaxBlobsPerBlock(wallTime)):
+    return dag.checkedReject("validateBeaconBlockDeneb: too many blob commitments")
+
 # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.4/specs/deneb/p2p-interface.md#blob_sidecar_subnet_id
 proc validateBlobSidecar*(
     dag: ChainDAGRef, quarantine: ref Quarantine,
@@ -367,7 +395,7 @@ proc validateBlobSidecar*(
 
   # [REJECT] The sidecar's index is consistent with `MAX_BLOBS_PER_BLOCK`
   # -- i.e. `blob_sidecar.index < MAX_BLOBS_PER_BLOCK`
-  if not (blob_sidecar.index < MAX_BLOBS_PER_BLOCK):
+  if not (blob_sidecar.index < dag.cfg.getMaxBlobsPerBlock(wallTime)):
     return dag.checkedReject("BlobSidecar: index inconsistent")
 
   # [REJECT] The sidecar is for the correct subnet -- i.e.
@@ -759,6 +787,8 @@ proc validateBeaconBlock*(
   # appear as a `BlockRef` (and not handled above) but isn't usable for gossip
   # validation.
   validateBeaconBlockBellatrix(signed_beacon_block, parent)
+
+  dag.validateBeaconBlockDeneb(signed_beacon_block, wallTime)
 
   # [REJECT] The block is from a higher slot than its parent.
   if not (signed_beacon_block.message.slot > parent.bid.slot):
@@ -1263,6 +1293,7 @@ proc validateAggregate*(
 
   return ok((attesting_indices, sig))
 
+# https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.10/specs/electra/p2p-interface.md#beacon_aggregate_and_proof
 proc validateAggregate*(
     pool: ref AttestationPool,
     batchCrypto: ref BatchCrypto,
@@ -1283,6 +1314,50 @@ proc validateAggregate*(
       return pool.checkedReject(v.error)
     v.get()
 
+  # [IGNORE] aggregate.data.slot is within the last
+  # ATTESTATION_PROPAGATION_SLOT_RANGE slots (with a
+  # MAXIMUM_GOSSIP_CLOCK_DISPARITY allowance) -- i.e. aggregate.data.slot +
+  # ATTESTATION_PROPAGATION_SLOT_RANGE >= current_slot >= aggregate.data.slot
+  #
+  # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.2/specs/deneb/p2p-interface.md#beacon_aggregate_and_proof
+  # modifies this for Deneb and newer forks.
+  block:
+    let v = check_propagation_slot_range(
+      pool.dag.cfg.consensusForkAtEpoch(wallTime.slotOrZero.epoch), slot,
+      wallTime)
+    if v.isErr():  # [IGNORE]
+      return err(v.error())
+
+  # [IGNORE] The aggregate is the first valid aggregate received for the
+  # aggregator with index aggregate_and_proof.aggregator_index for the epoch
+  # aggregate.data.target.epoch.
+  # Slightly modified to allow only newer attestations than were previously
+  # seen (no point in propagating older votes)
+  if (pool.nextAttestationEpoch.lenu64 >
+        aggregate_and_proof.aggregator_index) and
+      pool.nextAttestationEpoch[
+          aggregate_and_proof.aggregator_index].aggregate >
+        aggregate.data.target.epoch:
+    return errIgnore("Aggregate: validator has already aggregated in epoch")
+
+  # [REJECT] The attestation has participants -- that is,
+  # len(get_attesting_indices(state, aggregate.data, aggregate.aggregation_bits)) >= 1.
+  #
+  # get_attesting_indices() is:
+  # committee = get_beacon_committee(state, data.slot, data.index)
+  # return set(index for i, index in enumerate(committee) if bits[i])
+  #
+  # the attestation doesn't have participants is iff either:
+  # (1) the aggregation bits are all 0; or
+  # (2) the non-zero aggregation bits don't overlap with extant committee
+  #     members, i.e. they counts don't match.
+  # But (2) would reflect an invalid aggregation in other ways, so reject it
+  # either way.
+  block:
+    let v = check_aggregation_count(aggregate, singular = false)
+    if v.isErr():  # [REJECT]
+      return pool.checkedReject(v.error)
+
   # [REJECT] The block being voted for (aggregate.data.beacon_block_root)
   # passes validation.
   # [IGNORE] if block is unseen so far and enqueue it in missing blocks
@@ -1292,13 +1367,12 @@ proc validateAggregate*(
       return pool.checkedResult(v.error)
     v.get()
 
-  let
-    shufflingRef =
-      pool.dag.getShufflingRef(target.blck, target.slot.epoch, false).valueOr:
-        # Target is verified - shouldn't happen
-        warn "No shuffling for attestation - report bug",
-          aggregate = shortLog(aggregate), target = shortLog(target)
-        return errIgnore("Aggregate: no shuffling")
+  let shufflingRef =
+    pool.dag.getShufflingRef(target.blck, target.slot.epoch, false).valueOr:
+      # Target is verified - shouldn't happen
+      warn "No shuffling for attestation - report bug",
+        aggregate = shortLog(aggregate), target = shortLog(target)
+      return errIgnore("Aggregate: no shuffling")
 
   # [REJECT] The committee index is within the expected range -- i.e.
   # data.index < get_committee_count_per_slot(state, data.target.epoch).
