@@ -22,7 +22,7 @@ from std/sequtils import mapIt
 
 proc runGetCustodyColumns(suiteName, path: string) =
   let relativePathComponent = path.relativeTestPathComponent()
-  test "Networking - Get Custody Column - " & relativePathComponent:
+  test "Networking - Get Custody Groups - " & relativePathComponent:
     type TestMetaYaml = object
       node_id: string
       custody_group_count: uint64
