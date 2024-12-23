@@ -1082,11 +1082,10 @@ proc validateAttestation*(
 # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.1/specs/phase0/p2p-interface.md#beacon_aggregate_and_proof
 # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.5/specs/deneb/p2p-interface.md#beacon_aggregate_and_proof
 proc validateAggregate*(
-    pool: ref AttestationPool,
-    batchCrypto: ref BatchCrypto,
-    signedAggregateAndProof: phase0.SignedAggregateAndProof,
-    wallTime: BeaconTime,
-    checkSignature = true, checkCover = true):
+    pool: ref AttestationPool, batchCrypto: ref BatchCrypto,
+    signedAggregateAndProof:
+      phase0.SignedAggregateAndProof | electra.SignedAggregateAndProof,
+    wallTime: BeaconTime, checkSignature = true, checkCover = true):
     Future[Result[
       tuple[attestingIndices: seq[ValidatorIndex], sig: CookedSig],
       ValidationError]] {.async: (raises: [CancelledError]).} =
@@ -1292,104 +1291,6 @@ proc validateAggregate*(
     aggregate.data.target.epoch + 1
 
   return ok((attesting_indices, sig))
-
-# https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.10/specs/electra/p2p-interface.md#beacon_aggregate_and_proof
-proc validateAggregate*(
-    pool: ref AttestationPool,
-    batchCrypto: ref BatchCrypto,
-    signedAggregateAndProof: electra.SignedAggregateAndProof,
-    wallTime: BeaconTime,
-    checkSignature = true, checkCover = true):
-    Future[Result[
-      tuple[attestingIndices: seq[ValidatorIndex], sig: CookedSig],
-      ValidationError]] {.async: (raises: [CancelledError]).} =
-  template aggregate_and_proof: untyped = signedAggregateAndProof.message
-  template aggregate: untyped = aggregate_and_proof.aggregate
-
-  # [REJECT] The aggregate attestation's epoch matches its target -- i.e.
-  # `aggregate.data.target.epoch == compute_epoch_at_slot(aggregate.data.slot)`
-  let slot = block:
-    let v = check_attestation_slot_target(aggregate.data)
-    if v.isErr():
-      return pool.checkedReject(v.error)
-    v.get()
-
-  # [IGNORE] aggregate.data.slot is within the last
-  # ATTESTATION_PROPAGATION_SLOT_RANGE slots (with a
-  # MAXIMUM_GOSSIP_CLOCK_DISPARITY allowance) -- i.e. aggregate.data.slot +
-  # ATTESTATION_PROPAGATION_SLOT_RANGE >= current_slot >= aggregate.data.slot
-  #
-  # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.2/specs/deneb/p2p-interface.md#beacon_aggregate_and_proof
-  # modifies this for Deneb and newer forks.
-  block:
-    let v = check_propagation_slot_range(
-      pool.dag.cfg.consensusForkAtEpoch(wallTime.slotOrZero.epoch), slot,
-      wallTime)
-    if v.isErr():  # [IGNORE]
-      return err(v.error())
-
-  # [IGNORE] The aggregate is the first valid aggregate received for the
-  # aggregator with index aggregate_and_proof.aggregator_index for the epoch
-  # aggregate.data.target.epoch.
-  # Slightly modified to allow only newer attestations than were previously
-  # seen (no point in propagating older votes)
-  if (pool.nextAttestationEpoch.lenu64 >
-        aggregate_and_proof.aggregator_index) and
-      pool.nextAttestationEpoch[
-          aggregate_and_proof.aggregator_index].aggregate >
-        aggregate.data.target.epoch:
-    return errIgnore("Aggregate: validator has already aggregated in epoch")
-
-  # [REJECT] The attestation has participants -- that is,
-  # len(get_attesting_indices(state, aggregate.data, aggregate.aggregation_bits)) >= 1.
-  #
-  # get_attesting_indices() is:
-  # committee = get_beacon_committee(state, data.slot, data.index)
-  # return set(index for i, index in enumerate(committee) if bits[i])
-  #
-  # the attestation doesn't have participants is iff either:
-  # (1) the aggregation bits are all 0; or
-  # (2) the non-zero aggregation bits don't overlap with extant committee
-  #     members, i.e. they counts don't match.
-  # But (2) would reflect an invalid aggregation in other ways, so reject it
-  # either way.
-  block:
-    let v = check_aggregation_count(aggregate, singular = false)
-    if v.isErr():  # [REJECT]
-      return pool.checkedReject(v.error)
-
-  # [REJECT] The block being voted for (aggregate.data.beacon_block_root)
-  # passes validation.
-  # [IGNORE] if block is unseen so far and enqueue it in missing blocks
-  let target = block:
-    let v = check_beacon_and_target_block(pool[], aggregate.data)
-    if v.isErr():  # [IGNORE/REJECT]
-      return pool.checkedResult(v.error)
-    v.get()
-
-  let shufflingRef =
-    pool.dag.getShufflingRef(target.blck, target.slot.epoch, false).valueOr:
-      # Target is verified - shouldn't happen
-      warn "No shuffling for attestation - report bug",
-        aggregate = shortLog(aggregate), target = shortLog(target)
-      return errIgnore("Aggregate: no shuffling")
-
-  # [REJECT] The committee index is within the expected range -- i.e.
-  # data.index < get_committee_count_per_slot(state, data.target.epoch).
-  let committee_index = block:
-    let idx = shufflingRef.get_committee_index(aggregate.data.index)
-    if idx.isErr():
-      return pool.checkedReject(
-        "Attestation: committee index not within expected range")
-    idx.get()
-  let
-    attesting_indices = get_attesting_indices(
-      shufflingRef, slot, committee_index, aggregate.aggregation_bits, false)
-    sig =
-      aggregate.signature.load().valueOr:
-        return pool.checkedReject("Aggregate: unable to load signature")
-
-  ok((attesting_indices, sig))
 
 # https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.9/specs/capella/p2p-interface.md#bls_to_execution_change
 proc validateBlsToExecutionChange*(

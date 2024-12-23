@@ -419,8 +419,9 @@ proc scheduleAttestationCheck*(
 
 proc scheduleAggregateChecks*(
       batchCrypto: ref BatchCrypto, fork: Fork,
-      signedAggregateAndProof: phase0.SignedAggregateAndProof, dag: ChainDAGRef,
-      attesting_indices: openArray[ValidatorIndex]
+      signedAggregateAndProof:
+        phase0.SignedAggregateAndProof | electra.SignedAggregateAndProof,
+      dag: ChainDAGRef, attesting_indices: openArray[ValidatorIndex]
      ): Result[tuple[
         aggregatorFut, slotFut, aggregateFut: FutureBatchResult,
         sig: CookedSig], cstring] =

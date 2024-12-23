@@ -260,9 +260,9 @@ func get_attesting_indices*(shufflingRef: ShufflingRef,
                             slot: Slot,
                             committee_index: CommitteeIndex,
                             bits: ElectraCommitteeValidatorsBits,
-                            on_chain: static bool):
+                            on_chain: static bool = true):
                               seq[ValidatorIndex] =
-  static: doAssert not on_chain, "only on_chain supported"
+  static: doAssert on_chain, "only on_chain supported"
 
   for idx in get_attesting_indices(shufflingRef, slot, committee_index, bits):
     result.add(idx)
