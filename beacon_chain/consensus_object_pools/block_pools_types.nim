@@ -89,7 +89,7 @@ type
     ## instantiated: sync from genesis or checkpoint, and therefore, what
     ## features we can offer in terms of historical replay.
     ##
-    ## Beacuse the state transition is forwards-only, checkpoint sync generally
+    ## Because the state transition is forwards-only, checkpoint sync generally
     ## allows replaying states from that point onwards - anything earlier
     ## would require a backfill of blocks and a subsequent replay from genesis.
     ##
