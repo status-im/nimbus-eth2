@@ -120,7 +120,7 @@ func handle_custody_groups(node_id: NodeId,
     if current_id == UInt256.high.NodeId:
       # Overflow prevention
       current_id = NodeId(StUint[256].zero)
-    current_id += NodeId(StUint[256].one)
+    inc current_id
 
   custody_groups
 
@@ -131,8 +131,7 @@ func get_custody_groups*(node_id: NodeId,
   let custody_groups =
     node_id.handle_custody_groups(custody_group_count)
 
-  var groups: seq[CustodyIndex]
-  groups = custody_groups.toSeq()
+  var groups = custody_groups.toSeq()
   groups.sort()
   groups
 
