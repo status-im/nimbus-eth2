@@ -37,7 +37,7 @@ type
     proc(data: electra.Attestation) {.gcsafe, raises: [].}
 
   Validation[CVBType] = object
-    ## Validations collect a set of signatures for a distict attestation - in
+    ## Validations collect a set of signatures for a distinct attestation - in
     ## eth2, a single bit is used to keep track of which signatures have been
     ## added to the aggregate meaning that only non-overlapping aggregates may
     ## be further combined.
@@ -696,7 +696,7 @@ func score(
     doAssert aggregation_bits.len() == xxx[].len(),
       "check_attestation ensures committee length"
 
-    # How many votes were in the attestation minues the votes that are the same
+    # How many votes were in the attestation minus the votes that are the same
     return bitsScore - aggregation_bits.countOverlap(xxx[])
 
   # Not found in cache - fresh vote meaning all attestations count
@@ -958,7 +958,7 @@ proc getElectraAttestationsForBlock*(
 
       #TODO: Merge candidates per block structure with the candidates one
       # and score possible on-chain attestations while collecting candidates
-      # (previous loop) and reavaluate cache key definition
+      # (previous loop) and reevaluate cache key definition
       let
         entry2 = block:
           var e2 = entry.data
@@ -1197,7 +1197,7 @@ proc selectOptimisticHead*(
 proc prune*(pool: var AttestationPool) =
   if (let v = pool.forkChoice.prune(); v.isErr):
     # If pruning fails, it's likely the result of a bug - this shouldn't happen
-    # but we'll keep running hoping that the fork chocie will recover eventually
+    # but we'll keep running hoping that the fork choice will recover eventually
     error "Couldn't prune fork choice, bug?", err = v.error()
 
 func validatorSeenAtEpoch*(pool: AttestationPool, epoch: Epoch,
