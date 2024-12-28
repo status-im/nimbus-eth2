@@ -84,13 +84,10 @@ func get_custody_columns*(node_id: NodeId,
 
   sortedColumnIndices(ColumnIndex(columns_per_subnet), subnet_ids)
 
-func compute_columns_for_custody_group(custody_group: CustodyIndex):
-                                       seq[ColumnIndex] =
-  var res: seq[ColumnIndex]
+iterator compute_columns_for_custody_group(custody_group: CustodyIndex):
+                                           ColumnIndex =
   for i in 0'u64 ..< COLUMNS_PER_GROUP:
-    let index = NUMBER_OF_CUSTODY_GROUPS * i + custody_group
-    res.add(ColumnIndex(index))
-  res
+    yield ColumnIndex(NUMBER_OF_CUSTODY_GROUPS * i + custody_group)
 
 func handle_custody_groups(node_id: NodeId,
                            custody_group_count: CustodyIndex):
@@ -139,13 +136,11 @@ func resolve_columns_from_custody_groups*(node_id: NodeId,
   let
     custody_groups = node_id.get_custody_groups(custody_group_count)
 
-  var
-    resolved_columns: seq[seq[ColumnIndex]]
-
+  var flattened =
+    newSeqOfCap[ColumnIndex](COLUMNS_PER_GROUP * custody_groups.len)
   for group in custody_groups:
-    resolved_columns.add compute_columns_for_custody_group(group)
-
-  let flattened = concat(resolved_columns).mapIt(ColumnIndex(it))
+    for index in compute_columns_for_custody_group(group):
+       flattened.add index
   flattened
 
 func resolve_column_sets_from_custody_groups*(node_id: NodeId,
