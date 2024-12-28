@@ -6,7 +6,7 @@ Nimbus has undergone an extensive multi-vendor ([ConsenSys Diligence](https://co
 During that process, we were notified of several issues within the codebase.
 These issues have been addressed, contributing significantly to the overall security of Nimbus and other applications that use its libraries.
 
-Additionally, as a result of the work done from our security vendors, we have incoroprated many new security processes and tooling to improve our ability to find security issues in the future.
+Additionally, as a result of the work done from our security vendors, we have incorporated many new security processes and tooling to improve our ability to find security issues in the future.
 
 For more information on the issues and how they were addressed, the interested reader should direct themselves to the [scoped repositories](https://github.com/status-im/nimbus-eth2/labels?q=audit); all reported issues and their mitigations are open to the public.
 
