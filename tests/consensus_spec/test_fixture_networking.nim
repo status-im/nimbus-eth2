@@ -38,7 +38,7 @@ proc runGetCustodyColumns(suiteName, path: string) =
       custody_group_count = meta.custody_group_count
       reslt = (meta.result).mapIt(it)
 
-    let columns = get_custody_columns(node_id, custody_group_count)
+    let columns = get_custody_groups(node_id, custody_group_count)
 
     for i in 0..<columns.lenu64:
       check columns[i] == reslt[i]

@@ -2407,7 +2407,7 @@ It also brings further performance optimizations.
 * A new `slashingdb` sub-command with `import` and `export` options. This allows for
   safely migrating to Nimbus from another client (as per the [EIP-3076](https://eips.ethereum.org/EIPS/eip-3076)
   slashing protection interchange format).
-  Please see the the newly prepared [migration guides](https://nimbus.guide/migration.html) for the details.
+  Please see the newly prepared [migration guides](https://nimbus.guide/migration.html) for the details.
 
 * A new `ncli_db validatorPerf` command. This can be used to perform a textual
   report for the attestation performance of a particular validator

@@ -117,9 +117,6 @@ func handle_custody_groups(node_id: NodeId,
 
     custody_groups.incl custody_group
 
-    if current_id == UInt256.high.NodeId:
-      # Overflow prevention
-      current_id = NodeId(StUint[256].zero)
     inc current_id
 
   custody_groups
