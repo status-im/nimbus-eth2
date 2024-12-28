@@ -51,7 +51,7 @@ The `stable` branch tracks the latest released version of Nimbus and is suitable
 mingw32-make # this first invocation will update the Git submodules
 ```
 
-You can now follow the instructions in this this book by replacing `make` with `mingw32-make` (you should run `mingw32` regardless of whether you're running 32-bit or 64-bit architecture):
+You can now follow the instructions in this book by replacing `make` with `mingw32-make` (you should run `mingw32` regardless of whether you're running 32-bit or 64-bit architecture):
 
 ```bash
 mingw32-make test # run the test suite
