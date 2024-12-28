@@ -59,9 +59,13 @@ const
   # https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.5/specs/_features/eip7594/das-core.md#networking
   DATA_COLUMN_SIDECAR_SUBNET_COUNT* = 128
 
-  # https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.5/specs/_features/eip7594/das-core.md#custody-setting
+  # https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.10/specs/fulu/das-core.md#custody-setting
   SAMPLES_PER_SLOT* = 8
   CUSTODY_REQUIREMENT* = 4
+  NUMBER_OF_CUSTODY_GROUPS* = 128
+
+  # Number of columns in the network per custody group
+  COLUMNS_PER_GROUP* = NUMBER_OF_COLUMNS div NUMBER_OF_CUSTODY_GROUPS
 
 type
   # https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.6/specs/_features/eip7594/polynomial-commitments-sampling.md#custom-types
@@ -74,10 +78,11 @@ type
   Cells* = KzgCells
   CellsAndProofs* = KzgCellsAndKzgProofs
 
-  # https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.5/specs/_features/eip7594/das-core.md#custom-types
+  # https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.10/specs/fulu/das-core.md#custom-types
   RowIndex* = uint64
   ColumnIndex* = uint64
   CellIndex* = uint64
+  CustodyIndex* = uint64
 
 
 type
@@ -108,16 +113,16 @@ type
     row_index*: RowIndex
 
   # Not in spec, defined in order to compute custody subnets
-  CscBits* = BitArray[DATA_COLUMN_SIDECAR_SUBNET_COUNT]
+  CgcBits* = BitArray[DATA_COLUMN_SIDECAR_SUBNET_COUNT]
 
-  CscCount* = uint8
+  CgcCount* = uint8
 
   # https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.5/specs/_features/eip7594/p2p-interface.md#metadata
   MetaData* = object
     seq_number*: uint64
     attnets*: AttnetBits
     syncnets*: SyncnetBits
-    custody_subnet_count*: uint64
+    custody_group_count*: uint64
 
   # https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.8/specs/deneb/beacon-chain.md#executionpayload
   ExecutionPayload* = object

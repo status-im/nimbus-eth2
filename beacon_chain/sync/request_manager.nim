@@ -306,29 +306,30 @@ proc checkPeerCustody*(rman: RequestManager,
     # to filter other supernodes, rather than filter
     # too many full nodes that have a subset of the custody
     # columns
-    if peer.lookupCscFromPeer() ==
-        DATA_COLUMN_SIDECAR_SUBNET_COUNT.uint64:
+    if peer.lookupCgcFromPeer() ==
+        NUMBER_OF_CUSTODY_GROUPS.uint64:
       return true
 
   else:
-    if peer.lookupCscFromPeer() ==
-        DATA_COLUMN_SIDECAR_SUBNET_COUNT.uint64:
+    if peer.lookupCgcFromPeer() ==
+        NUMBER_OF_CUSTODY_GROUPS.uint64:
       return true
 
-    elif peer.lookupCscFromPeer() ==
+    elif peer.lookupCgcFromPeer() ==
         CUSTODY_REQUIREMENT.uint64:
 
       # Fetch the remote custody count
-      let remoteCustodySubnetCount =
-        peer.lookupCscFromPeer()
+      let remoteCustodyGroupCount =
+        peer.lookupCgcFromPeer()
 
       # Extract remote peer's nodeID from peerID
       # Fetch custody columns from remote peer
       let
         remoteNodeId = fetchNodeIdFromPeerId(peer)
         remoteCustodyColumns =
-          remoteNodeId.get_custody_columns_set(max(SAMPLES_PER_SLOT.uint64,
-                                               remoteCustodySubnetCount))
+          remoteNodeId.resolve_column_sets_from_custody_groups(
+            max(SAMPLES_PER_SLOT.uint64,
+                remoteCustodyGroupCount))
 
       for local_column in rman.custody_columns_set:
         if local_column notin remoteCustodyColumns:

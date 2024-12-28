@@ -1506,7 +1506,7 @@ proc trimConnections(node: Eth2Node, count: int) =
     if toKick <= 0: return
 
 proc getLowSubnets(node: Eth2Node, epoch: Epoch):
-                  (AttnetBits, SyncnetBits, CscBits) =
+                  (AttnetBits, SyncnetBits, CgcBits) =
   # Returns the subnets required to have a healthy mesh
   # The subnets are computed, to, in order:
   # - Have 0 subnet with < `dLow` peers from topic subscription
@@ -1575,7 +1575,7 @@ proc getLowSubnets(node: Eth2Node, epoch: Epoch):
     if epoch >= node.cfg.FULU_FORK_EPOCH:
       findLowSubnets(getDataColumnSidecarTopic, uint64, (DATA_COLUMN_SIDECAR_SUBNET_COUNT).int)
     else:
-      default(CscBits)
+      default(CgcBits)
   )
 
 proc runDiscoveryLoop(node: Eth2Node) {.async: (raises: [CancelledError]).} =
@@ -1584,20 +1584,20 @@ proc runDiscoveryLoop(node: Eth2Node) {.async: (raises: [CancelledError]).} =
   while true:
     let
       currentEpoch = node.getBeaconTime().slotOrZero.epoch
-      (wantedAttnets, wantedSyncnets, wantedCscnets) = node.getLowSubnets(currentEpoch)
+      (wantedAttnets, wantedSyncnets, wantedCgcnets) = node.getLowSubnets(currentEpoch)
       wantedAttnetsCount = wantedAttnets.countOnes()
       wantedSyncnetsCount = wantedSyncnets.countOnes()
-      wantedCscnetsCount = wantedCscnets.countOnes()
+      wantedCgcnetsCount = wantedCgcnets.countOnes()
       outgoingPeers = node.peerPool.lenCurrent({PeerType.Outgoing})
       targetOutgoingPeers = max(node.wantedPeers div 10, 3)
 
     if wantedAttnetsCount > 0 or wantedSyncnetsCount > 0 or
-        wantedCscnetsCount > 0 or outgoingPeers < targetOutgoingPeers:
+        wantedCgcnetsCount > 0 or outgoingPeers < targetOutgoingPeers:
 
       let
         minScore =
           if wantedAttnetsCount > 0 or wantedSyncnetsCount > 0 or
-              wantedCscnetsCount > 0:
+              wantedCgcnetsCount > 0:
             1
           else:
             0
@@ -1605,7 +1605,7 @@ proc runDiscoveryLoop(node: Eth2Node) {.async: (raises: [CancelledError]).} =
           node.discoveryForkId,
           wantedAttnets,
           wantedSyncnets,
-          wantedCscnets,
+          wantedCgcnets,
           minScore)
 
       let newPeers = block:
@@ -2435,18 +2435,18 @@ func announcedENR*(node: Eth2Node): enr.Record =
   doAssert node.discovery != nil, "The Eth2Node must be initialized"
   node.discovery.localNode.record
 
-proc lookupCscFromPeer*(peer: Peer): uint64 =
+proc lookupCgcFromPeer*(peer: Peer): uint64 =
   # Fetches the custody column count from a remote peer.
-  # If the peer advertises their custody column count via the `csc` ENR field,
+  # If the peer advertises their custody column count via the `cgc` ENR field,
   # that value is returned. Otherwise, the default value `CUSTODY_REQUIREMENT`
   # is assumed.
 
   let metadata = peer.metadata
   if metadata.isOk:
-    return metadata.get.custody_subnet_count
+    return metadata.get.custody_group_count
 
   # Try getting the custody count from ENR if metadata fetch fails.
-  debug "Could not get csc from metadata, trying from ENR",
+  debug "Could not get cgc from metadata, trying from ENR",
         peer_id = peer.peerId
   let enrOpt = peer.enr
   if not enrOpt.isNone:
@@ -2454,8 +2454,8 @@ proc lookupCscFromPeer*(peer: Peer): uint64 =
     let enrFieldOpt = enr.get(enrCustodySubnetCountField, seq[byte])
     if enrFieldOpt.isOk:
       try:
-        let csc = SSZ.decode(enrFieldOpt.get, uint8)
-        return csc.uint64
+        let cgc = SSZ.decode(enrFieldOpt.get, uint8)
+        return cgc.uint64
       except SszError, SerializationError:
         discard  # Ignore decoding errors and fallback to default
 
@@ -2623,19 +2623,19 @@ proc updateStabilitySubnetMetadata*(node: Eth2Node, attnets: AttnetBits) =
   else:
     debug "Stability subnets changed; updated ENR attnets", attnets
 
-proc loadCscnetMetadataAndEnr*(node: Eth2Node, cscnets: CscCount) =
-  node.metadata.custody_subnet_count = cscnets.uint64
+proc loadCgcnetMetadataAndEnr*(node: Eth2Node, cgcnets: CgcCount) =
+  node.metadata.custody_group_count = cgcnets.uint64
   let res =
     node.discovery.updateRecord({
-      enrCustodySubnetCountField: SSZ.encode(cscnets)
+      enrCustodySubnetCountField: SSZ.encode(cgcnets)
     })
 
   if res.isErr:
     # This should not occur in this scenario as the private key would always
     # be the correct one and the ENR will not increase in size
-    warn "Failed to update the ENR csc field", error = res.error
+    warn "Failed to update the ENR cgc field", error = res.error
   else:
-    debug "Updated ENR csc", cscnets
+    debug "Updated ENR cgc", cgcnets
 
 proc updateSyncnetsMetadata*(node: Eth2Node, syncnets: SyncnetBits) =
   # https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.10/specs/altair/validator.md#sync-committee-subnet-stability

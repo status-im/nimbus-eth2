@@ -417,14 +417,15 @@ proc initFullNode(
     blobQuarantine = newClone(BlobQuarantine.init(onBlobSidecarAdded))
     dataColumnQuarantine = newClone(DataColumnQuarantine.init())
     supernode = node.config.peerdasSupernode
-    localCustodySubnets =
+    localCustodyGroups =
       if supernode:
-        DATA_COLUMN_SIDECAR_SUBNET_COUNT.uint64
+        NUMBER_OF_CUSTODY_GROUPS.uint64
       else:
         CUSTODY_REQUIREMENT.uint64
     custody_columns_set =
-      node.network.nodeId.get_custody_columns_set(max(SAMPLES_PER_SLOT.uint64,
-                                                      localCustodySubnets))
+      node.network.nodeId.resolve_column_sets_from_custody_groups(
+          max(SAMPLES_PER_SLOT.uint64,
+          localCustodyGroups))
     consensusManager = ConsensusManager.new(
       dag, attestationPool, quarantine, node.elManager,
       ActionTracker.init(node.network.nodeId, config.subscribeAllSubnets),
@@ -548,26 +549,27 @@ proc initFullNode(
   # really variable. Whenever the BN is a supernode, column quarantine
   # essentially means all the NUMBER_OF_COLUMNS, as per mentioned in the
   # spec. However, in terms of fullnode, quarantine is really dependent
-  # on the randomly assigned columns, by `get_custody_columns`.
+  # on the randomly assigned columns, by `resolve_columns_from_custody_groups`.
 
   # Hence, in order to keep column quarantine accurate and error proof
   # the custody columns are computed once as the BN boots. Then the values
   # are used globally around the codebase.
 
-  # `get_custody_columns` is not a very expensive function, but there
-  # are multiple instances of computing custody columns, especially
+  # `resolve_columns_from_custody_groups` is not a very expensive function,
+  # but there are multiple instances of computing custody columns, especially
   # during peer selection, sync with columns, and so on. That is why,
   # the rationale of populating it at boot and using it gloabally.
 
   dataColumnQuarantine[].supernode = supernode
   dataColumnQuarantine[].custody_columns =
-    node.network.nodeId.get_custody_columns(max(SAMPLES_PER_SLOT.uint64,
-                                                localCustodySubnets))
+    node.network.nodeId.resolve_columns_from_custody_groups(
+      max(SAMPLES_PER_SLOT.uint64,
+      localCustodyGroups))
 
   if node.config.peerdasSupernode:
-    node.network.loadCscnetMetadataAndEnr(DATA_COLUMN_SIDECAR_SUBNET_COUNT.uint8)
+    node.network.loadCgcnetMetadataAndEnr(NUMBER_OF_CUSTODY_GROUPS.uint8)
   else:
-    node.network.loadCscnetMetadataAndEnr(CUSTODY_REQUIREMENT.uint8)
+    node.network.loadCgcnetMetadataAndEnr(CUSTODY_REQUIREMENT.uint8)
 
   if node.config.lightClientDataServe:
     proc scheduleSendingLightClientUpdates(slot: Slot) =

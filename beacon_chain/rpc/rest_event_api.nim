@@ -177,7 +177,7 @@ proc installEventApiHandlers*(router: var RestRouter, node: BeaconNode) =
       discard await race(handlers)
     except ValueError:
       raiseAssert "There should be more than one event handler at this point!"
-    # One of the handlers finished, it means that connection has been droped, so
+    # One of the handlers finished, it means that connection has been dropped, so
     # we cancelling all other handlers.
     let pending =
       handlers.filterIt(not(it.finished())).mapIt(it.cancelAndWait())

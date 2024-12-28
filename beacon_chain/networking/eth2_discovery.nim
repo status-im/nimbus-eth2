@@ -127,7 +127,7 @@ proc queryRandom*(
     forkId: ENRForkID,
     wantedAttnets: AttnetBits,
     wantedSyncnets: SyncnetBits,
-    wantedCscnets: CscBits,
+    wantedCgcnets: CgcBits,
     minScore: int): Future[seq[Node]] {.async: (raises: [CancelledError]).} =
   ## Perform a discovery query for a random target
   ## (forkId) and matching at least one of the attestation subnets.
@@ -152,17 +152,17 @@ proc queryRandom*(
     if not forkId.isCompatibleForkId(peerForkId):
       continue
 
-    let cscCountBytes = n.record.get(enrCustodySubnetCountField, seq[byte])
-    if cscCountBytes.isOk():
-      let cscCountNode =
+    let cgcCountBytes = n.record.get(enrCustodySubnetCountField, seq[byte])
+    if cgcCountBytes.isOk():
+      let cgcCountNode =
         try:
-          SSZ.decode(cscCountBytes.get(), uint8)
+          SSZ.decode(cgcCountBytes.get(), uint8)
         except SerializationError as e:
-          debug "Could not decode the csc ENR field of peer",
+          debug "Could not decode the cgc ENR field of peer",
             peer = n.record.toURI(), exception = e.name, msg = e.msg
           continue
 
-      if wantedCscnets.countOnes().uint8 == cscCountNode:
+      if wantedCgcnets.countOnes().uint8 == cgcCountNode:
         score += 1
 
     let attnetsBytes = n.record.get(enrAttestationSubnetsField, seq[byte])

@@ -47,7 +47,7 @@ const
 
   enrAttestationSubnetsField* = "attnets"
   enrSyncSubnetsField* = "syncnets"
-  enrCustodySubnetCountField* = "csc"
+  enrCustodySubnetCountField* = "cgc"
   enrForkIdField* = "eth2"
 
 template eth2Prefix(forkDigest: ForkDigest): string =

@@ -9,7 +9,7 @@
 
 # Uncategorized helper functions from the spec
 import
-  std/algorithm,
+  std/[algorithm, sequtils],
   results,
   eth/p2p/discoveryv5/[node],
   kzg4844/[kzg],
@@ -24,6 +24,7 @@ type
   CellBytes = array[fulu.CELLS_PER_EXT_BLOB, Cell]
   ProofBytes = array[fulu.CELLS_PER_EXT_BLOB, KzgProof]
 
+# Shall be deprecated once alpha 11 tests are released
 func sortedColumnIndices(columnsPerSubnet: ColumnIndex,
                          subnetIds: HashSet[uint64]):
                          seq[ColumnIndex] =
@@ -35,18 +36,7 @@ func sortedColumnIndices(columnsPerSubnet: ColumnIndex,
   res.sort
   res
 
-func sortedColumnIndexList(columnsPerSubnet: ColumnIndex,
-                           subnetIds: HashSet[uint64]):
-                           List[ColumnIndex, NUMBER_OF_COLUMNS] =
-  var
-    res: seq[ColumnIndex]
-  for i in 0'u64 ..< columnsPerSubnet:
-    for subnetId in subnetIds:
-      let index = DATA_COLUMN_SIDECAR_SUBNET_COUNT * i + subnetId
-      res.add(ColumnIndex(index))
-  res.sort()
-  List[ColumnIndex, NUMBER_OF_COLUMNS].init(res)
-
+# Shall be deprecated once alpha 11 tests are released
 func get_custody_column_subnets*(node_id: NodeId,
                                  custody_subnet_count: uint64):
                                  HashSet[uint64] =
@@ -81,6 +71,7 @@ func get_custody_column_subnets*(node_id: NodeId,
   subnet_ids
 
 # https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.5/specs/_features/eip7594/das-core.md#get_custody_columns
+# Shall be deprecated once alpha 11 tests are released
 func get_custody_columns*(node_id: NodeId,
                           custody_subnet_count: uint64):
                           seq[ColumnIndex] =
@@ -93,34 +84,70 @@ func get_custody_columns*(node_id: NodeId,
 
   sortedColumnIndices(ColumnIndex(columns_per_subnet), subnet_ids)
 
-func get_custody_columns_set*(node_id: NodeId,
-                              custody_subnet_count: uint64):
-                              HashSet[ColumnIndex] =
-  # This method returns a HashSet of column indices, 
-  # the method is specifically relevant while peer filtering
+iterator compute_columns_for_custody_group(custody_group: CustodyIndex):
+                                           ColumnIndex =
+  for i in 0'u64 ..< COLUMNS_PER_GROUP:
+    yield ColumnIndex(NUMBER_OF_CUSTODY_GROUPS * i + custody_group)
+
+func handle_custody_groups(node_id: NodeId,
+                           custody_group_count: CustodyIndex):
+                           HashSet[CustodyIndex] =
+
+  # Decouples the custody group computation from
+  # `get_custody_groups`, in order to later use this custody
+  # group list across various types of output types
+
+  var
+    custody_groups: HashSet[CustodyIndex]
+    current_id = node_id
+
+  while custody_groups.lenu64 < custody_group_count:
+    var hashed_bytes: array[8, byte]
+
+    let
+      current_id_bytes = current_id.toBytesLE()
+      hashed_current_id = eth2digest(current_id_bytes)
+
+    hashed_bytes[0..7] = hashed_current_id.data.toOpenArray(0,7)
+    let custody_group = bytes_to_uint64(hashed_bytes) mod
+      NUMBER_OF_CUSTODY_GROUPS
+
+    custody_groups.incl custody_group
+
+    inc current_id
+
+  custody_groups
+
+# https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.10/specs/fulu/das-core.md#get_custody_groups
+func get_custody_groups*(node_id: NodeId,
+                        custody_group_count: CustodyIndex):
+                        seq[CustodyIndex] =
+  let custody_groups =
+    node_id.handle_custody_groups(custody_group_count)
+
+  var groups = custody_groups.toSeq()
+  groups.sort()
+  groups
+
+func resolve_columns_from_custody_groups*(node_id: NodeId,
+                                          custody_group_count: CustodyIndex):
+                                          seq[ColumnIndex] =
+
   let
-    subnet_ids =
-      get_custody_column_subnets(node_id, custody_subnet_count)
-  const
-    columns_per_subnet =
-      NUMBER_OF_COLUMNS div DATA_COLUMN_SIDECAR_SUBNET_COUNT
+    custody_groups = node_id.get_custody_groups(custody_group_count)
 
-  sortedColumnIndices(ColumnIndex(columns_per_subnet), subnet_ids).toHashSet()
+  var flattened =
+    newSeqOfCap[ColumnIndex](COLUMNS_PER_GROUP * custody_groups.len)
+  for group in custody_groups:
+    for index in compute_columns_for_custody_group(group):
+       flattened.add index
+  flattened
 
-func get_custody_column_list*(node_id: NodeId,
-                              custody_subnet_count: uint64):
-                              List[ColumnIndex, NUMBER_OF_COLUMNS] =
+func resolve_column_sets_from_custody_groups*(node_id: NodeId,
+                                    custody_group_count: CustodyIndex):
+                                    HashSet[ColumnIndex] =
 
-  # Not in spec in the exact format, but it is useful in sorting custody columns
-  # before sending, data_column_sidecars_by_range requests
-  let
-    subnet_ids =
-      get_custody_column_subnets(node_id, custody_subnet_count)
-  const
-    columns_per_subnet =
-      NUMBER_OF_COLUMNS div DATA_COLUMN_SIDECAR_SUBNET_COUNT
-
-  sortedColumnIndexList(ColumnIndex(columns_per_subnet), subnet_ids)
+  node_id.resolve_columns_from_custody_groups(custody_group_count).toHashSet()
 
 # https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.5/specs/_features/eip7594/das-core.md#compute_matrix
 proc compute_matrix*(blobs: seq[KzgBlob]): Result[seq[MatrixEntry], cstring] =
@@ -235,7 +262,7 @@ proc get_data_column_sidecars*(signed_beacon_block: electra.TrustedSignedBeaconB
 # blobs from blob bundles
 proc get_data_column_sidecars*(signed_beacon_block: electra.SignedBeaconBlock,
                                blobs: seq[KzgBlob]):
-                               Result[seq[DataColumnSidecar], string] =
+                               Result[seq[DataColumnSidecar], cstring] =
   ## Given a signed beacon block and the blobs corresponding to the block,
   ## this function assembles the sidecars which can be distributed to
   ## the peers post data column reconstruction at every slot start.
