@@ -76,7 +76,7 @@ func popBlobs*(
           fulu.SignedBeaconBlock): seq[ref BlobSidecar] =
   var r: seq[ref BlobSidecar] = @[]
 
-  # Handle `fulu` blocks: skip processing blobs
+  # skip processing blobs for fulu
   when typeof(blck).kind == ConsensusFork.Fulu:
     return r
   else:

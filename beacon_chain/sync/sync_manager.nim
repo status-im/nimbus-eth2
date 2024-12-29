@@ -324,11 +324,15 @@ proc getSyncBlockData*[T](
   let (shouldGetBlob, blobsCount) =
     withBlck(blocksRange[0][]):
       when consensusFork >= ConsensusFork.Deneb:
-        let res = len(forkyBlck.message.body.blob_kzg_commitments)
-        if res > 0:
-          (true, res)
-        else:
+        when consensusFork == ConsensusFork.Fulu:
+          # Fulu fork: No blob-related fields
           (false, 0)
+        else:
+          let res = len(forkyBlck.message.body.blob_kzg_commitments)
+          if res > 0:
+            (true, res)
+          else:
+            (false, 0)
       else:
         (false, 0)
 
@@ -528,10 +532,11 @@ proc syncStep[A, B](
       var hasBlobs = false
       for blck in blockData:
         withBlck(blck[]):
-          when consensusFork >= ConsensusFork.Deneb:
-            if forkyBlck.message.body.blob_kzg_commitments.len > 0:
-              hasBlobs = true
-              break
+          when consensusFork >= ConsensusFork.Deneb and 
+            consensusFork != ConsensusFork.Fulu:
+              if forkyBlck.message.body.blob_kzg_commitments.len > 0:
+                hasBlobs = true
+                break
       hasBlobs
 
   let blobData =

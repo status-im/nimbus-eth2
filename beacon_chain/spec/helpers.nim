@@ -231,25 +231,36 @@ func create_blob_sidecars*(
     fulu.SignedBeaconBlock,
     kzg_proofs: KzgProofs,
     blobs: Blobs): seq[BlobSidecar] =
-  template kzg_commitments: untyped =
-    forkyBlck.message.body.blob_kzg_commitments
-  doAssert kzg_proofs.len == blobs.len
-  doAssert kzg_proofs.len == kzg_commitments.len
-
-  var res = newSeqOfCap[BlobSidecar](blobs.len)
-  let signedBlockHeader = forkyBlck.toSignedBeaconBlockHeader()
-  for i in 0 ..< blobs.lenu64:
-    var sidecar = BlobSidecar(
-      index: i,
-      blob: blobs[i],
-      kzg_commitment: kzg_commitments[i],
-      kzg_proof: kzg_proofs[i],
-      signed_block_header: signedBlockHeader)
-    forkyBlck.message.body.build_proof(
-      kzg_commitment_inclusion_proof_gindex(i),
-      sidecar.kzg_commitment_inclusion_proof).expect("Valid gindex")
-    res.add(sidecar)
-  res
+  
+  when forkyBlck is fulu.SignedBeaconBlock:
+    return @[]
+  else:
+    template kzg_commitments: untyped =
+      forkyBlck.message.body.blob_kzg_commitments
+      
+    if kzg_proofs.len == 0 or blobs.len == 0 or kzg_commitments.len == 0:
+      return @[]
+      
+    doAssert kzg_proofs.len == blobs.len
+    doAssert kzg_proofs.len == kzg_commitments.len
+    
+    var res = newSeqOfCap[BlobSidecar](blobs.len)
+    let signedBlockHeader = forkyBlck.toSignedBeaconBlockHeader()
+    
+    if blobs.len > 0:
+      for i in 0 ..< blobs.lenu64:
+        var sidecar = BlobSidecar(
+          index: i,
+          blob: blobs[i],
+          kzg_commitment: kzg_commitments[i],
+          kzg_proof: kzg_proofs[i],
+          signed_block_header: signedBlockHeader)
+        forkyBlck.message.body.build_proof(
+          kzg_commitment_inclusion_proof_gindex(i),
+          sidecar.kzg_commitment_inclusion_proof).expect("Valid gindex")
+        res.add(sidecar)
+        
+    res
 
 # https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.5/specs/altair/light-client/sync-protocol.md#is_sync_committee_update
 template is_sync_committee_update*(update: SomeForkyLightClientUpdate): bool =
