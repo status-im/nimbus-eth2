@@ -960,7 +960,7 @@ proc readResponse(conn: Connection, peer: Peer,
     var results: MsgType
     while true:
       # Because we interleave networking with response processing, it may
-      # happen that reading all chunks takes longer than a strict dealine
+      # happen that reading all chunks takes longer than a strict deadline
       # timeout would allow, so we allow each chunk a new timeout instead.
       # The problem is exacerbated by the large number of round-trips to the
       # poll loop that each future along the way causes.
