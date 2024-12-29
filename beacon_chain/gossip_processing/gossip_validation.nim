@@ -1113,7 +1113,7 @@ proc validateAttestation*(
   # [REJECT] The committee index is within the expected range -- i.e.
   # data.index < get_committee_count_per_slot(state, data.target.epoch).
   let committee_index = block:
-    let idx = shufflingRef.get_committee_index(attestation.data.index)
+    let idx = shufflingRef.get_committee_index(attestation.committee_index)
     if idx.isErr():
       return pool.checkedReject(
         "Attestation: committee index not within expected range")
@@ -1231,7 +1231,12 @@ proc validateAggregate*(
   # [REJECT] The committee index is within the expected range -- i.e.
   # data.index < get_committee_count_per_slot(state, data.target.epoch).
   let committee_index = block:
-    let idx = shufflingRef.get_committee_index(aggregate.data.index)
+    when signedAggregateAndProof is electra.SignedAggregateAndProof:
+      let idx = get_committee_index_one(aggregate.committee_bits)
+    elif signedAggregateAndProof is phase0.SignedAggregateAndProof:
+      let idx = shufflingRef.get_committee_index(aggregate.data.index)
+    else:
+      static: doAssert false
     if idx.isErr():
       return pool.checkedReject(
         "Attestation: committee index not within expected range")

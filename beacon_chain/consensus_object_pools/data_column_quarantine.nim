@@ -27,7 +27,7 @@ type
     supernode*: bool
     custody_columns*: seq[ColumnIndex]
     onDataColumnSidecarCallback*: OnDataColumnSidecarCallback
-  
+
   DataColumnFetchRecord* = object
     block_root*: Eth2Digest
     indices*: seq[ColumnIndex]
@@ -48,7 +48,7 @@ func put*(quarantine: var DataColumnQuarantine,
     # insert -> block resolve -> data column insert, which leaves
     # garbage data columns.
     #
-    # This also therefore automatically garbage-collects otherwise valid 
+    # This also therefore automatically garbage-collects otherwise valid
     # data columns that are correctly signed, point to either correct block
     # root which isn't ever seen, and then for any reason simply never used.
     var oldest_column_key: DataColumnIdentifier
@@ -56,7 +56,7 @@ func put*(quarantine: var DataColumnQuarantine,
       oldest_column_key = k
       break
     quarantine.data_columns.del(oldest_column_key)
-  let block_root = 
+  let block_root =
     hash_tree_root(dataColumnSidecar.signed_block_header.message)
   discard quarantine.data_columns.hasKeyOrPut(
     DataColumnIdentifier(block_root: block_root,
@@ -91,18 +91,17 @@ func peekColumnIndices*(quarantine: DataColumnQuarantine,
   indices
 
 func gatherDataColumns*(quarantine: DataColumnQuarantine,
-                       digest: Eth2Digest): 
-                       seq[ref DataColumnSidecar] =
-  # Returns the current data columns quried by a 
-  # block header
+                        digest: Eth2Digest):
+                        seq[ref DataColumnSidecar] =
+  # Returns the current data columns queried by a block header
   var columns: seq[ref DataColumnSidecar]
   for i in quarantine.custody_columns:
-    let dc_identifier = 
+    let dc_identifier =
       DataColumnIdentifier(
         block_root: digest,
         index: i)
     if quarantine.data_columns.hasKey(dc_identifier):
-      let value = 
+      let value =
         quarantine.data_columns.getOrDefault(dc_identifier,
                                              default(ref DataColumnSidecar))
       columns.add(value)
@@ -134,7 +133,7 @@ func hasMissingDataColumns*(quarantine: DataColumnQuarantine,
   # root request columns over RPC.
   var col_counter = 0
   for idx in quarantine.custody_columns:
-    let dc_identifier = 
+    let dc_identifier =
       DataColumnIdentifier(
         block_root: blck.root,
         index: idx)
@@ -155,7 +154,7 @@ func hasEnoughDataColumns*(quarantine: DataColumnQuarantine,
   # if it receives atleast 50%+ gossip and RPC
 
   # Once 50%+ columns are available we can use this function to
-  # check it, and thereby check column reconstructability, right from 
+  # check it, and thereby check column reconstructability, right from
   # gossip validation, consequently populating the quarantine with
   # rest of the data columns.
   if quarantine.supernode:
@@ -165,7 +164,7 @@ func hasEnoughDataColumns*(quarantine: DataColumnQuarantine,
       return true
   else:
     for i in quarantine.custody_columns:
-      let dc_identifier = 
+      let dc_identifier =
         DataColumnIdentifier(
           block_root: blck.root,
           index: i)
