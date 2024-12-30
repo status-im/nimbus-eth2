@@ -1,8 +1,8 @@
 # Validator client
 
-In the most simple setup, a single beacon node paired with an execution client is all that is needed to run a successful validator setup.
+In the simplest setup, a single beacon node paired with an execution client is all that is needed to run a successful validator setup.
 
-Nimbus however also provides options for running advanded setups that provide additional security and redundancy.
+Nimbus however also provides options for running advanced setups that provide additional security and redundancy.
 
 See the [validator client page](./validator-client.md) to get started!
 

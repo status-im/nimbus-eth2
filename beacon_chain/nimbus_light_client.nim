@@ -162,7 +162,7 @@ programMain:
         db.putSyncCommittee(period, syncCommittee)
         db.putLatestFinalizedHeader(finalizedHeader)
 
-  var optimisticFcuFut: Future[(PayloadExecutionStatus, Opt[BlockHash])]
+  var optimisticFcuFut: Future[(PayloadExecutionStatus, Opt[Hash32])]
     .Raising([CancelledError])
   proc onOptimisticHeader(
       lightClient: LightClient, optimisticHeader: ForkedLightClientHeader) =
