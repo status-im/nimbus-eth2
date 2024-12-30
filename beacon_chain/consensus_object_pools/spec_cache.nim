@@ -99,21 +99,30 @@ iterator get_attesting_indices*(shufflingRef: ShufflingRef,
       if bits[index_in_committee]:
         yield validator_index
 
-# https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.0/specs/electra/beacon-chain.md#modified-get_attesting_indices
-iterator get_attesting_indices*(shufflingRef: ShufflingRef,
-                                slot: Slot,
-                                committee_bits: AttestationCommitteeBits,
-                                aggregation_bits: ElectraCommitteeValidatorsBits, on_chain: static bool):
-                                  ValidatorIndex =
+# https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.10/specs/electra/beacon-chain.md#modified-get_attesting_indices
+iterator get_attesting_indices*(
+    shufflingRef: ShufflingRef, slot: Slot,
+    committee_bits: AttestationCommitteeBits,
+    aggregation_bits: ElectraCommitteeValidatorsBits, on_chain: static bool):
+    ValidatorIndex =
   when on_chain:
-    var pos = 0
-    for committee_index in get_committee_indices(committee_bits):
-      for _, validator_index in get_beacon_committee(
-          shufflingRef, slot, committee_index):
+    var committee_offset = 0
+    for committee_index in committee_bits.oneIndices:
+      if not (committee_index.uint64 <
+          get_committee_count_per_slot(shufflingRef)):
+        continue    # invalid attestation, but found in check_attestation()
+      let committee = get_beacon_committee(
+        shufflingRef, slot, committee_index.CommitteeIndex)
 
-        if aggregation_bits[pos]:
-          yield validator_index
-          pos += 1
+      if aggregation_bits.len < committee_offset + len(committee):
+        # Would overflow, invalid attestation caught in check_attestation()
+        continue
+
+      for i, attester_index in committee:
+        if aggregation_bits[committee_offset + i]:
+          yield attester_index
+
+      committee_offset += len(committee)
   else:
     let committee_index = get_committee_index_one(committee_bits)
     for validator_index in get_attesting_indices(

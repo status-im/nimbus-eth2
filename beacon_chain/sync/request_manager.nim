@@ -164,7 +164,7 @@ proc checkResponse(idList: seq[DataColumnIdentifier],
       block_root = hash_tree_root(columns[i].signed_block_header.message)
       id = idList[i]
 
-    # Check if the column reponse is a subset
+    # Check if the column response is a subset
     if binarySearch(idList, columns[i], cmpSidecarIdentifier) == -1:
       return false
 
