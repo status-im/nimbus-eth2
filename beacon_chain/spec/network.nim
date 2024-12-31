@@ -16,12 +16,12 @@ export base
 const
   # https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.8/specs/phase0/p2p-interface.md#topics-and-messages
   # https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.9/specs/capella/p2p-interface.md#topics-and-messages
-  topicBeaconBlocksSuffix* = "beacon_block/ssz_snappy"
-  topicVoluntaryExitsSuffix* = "voluntary_exit/ssz_snappy"
-  topicProposerSlashingsSuffix* = "proposer_slashing/ssz_snappy"
-  topicAttesterSlashingsSuffix* = "attester_slashing/ssz_snappy"
-  topicAggregateAndProofsSuffix* = "beacon_aggregate_and_proof/ssz_snappy"
-  topicBlsToExecutionChangeSuffix* = "bls_to_execution_change/ssz_snappy"
+  topicBeaconBlocksSuffix = "beacon_block/ssz_snappy"
+  topicVoluntaryExitsSuffix = "voluntary_exit/ssz_snappy"
+  topicProposerSlashingsSuffix = "proposer_slashing/ssz_snappy"
+  topicAttesterSlashingsSuffix = "attester_slashing/ssz_snappy"
+  topicAggregateAndProofsSuffix = "beacon_aggregate_and_proof/ssz_snappy"
+  topicBlsToExecutionChangeSuffix = "bls_to_execution_change/ssz_snappy"
 
 const
   # The spec now includes this as a bare uint64 as `RESP_TIMEOUT`
@@ -112,7 +112,7 @@ func getBlobSidecarTopic*(forkDigest: ForkDigest,
 
 # https://github.com/ethereum/consensus-specs/blob/v1.4.0/specs/deneb/validator.md#sidecar
 func compute_subnet_for_blob_sidecar*(blob_index: BlobIndex): BlobId =
-  BlobId(blob_index mod BLOB_SIDECAR_SUBNET_COUNT)
+  BlobId(blob_index mod MAX_BLOBS_PER_BLOCK_ELECTRA)
 
 # https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.8/specs/_features/eip7594/p2p-interface.md#compute_subnet_for_data_column_sidecar
 func compute_subnet_for_data_column_sidecar*(column_index: ColumnIndex): uint64 =
