@@ -324,23 +324,16 @@ func `as`(blk: BlockObject, T: type electra.ExecutionPayloadHeader): T =
     excess_blob_gas: uint64 blk.excessBlobGas.getOrDefault())
 
 func `as`(blk: BlockObject, T: type fulu.ExecutionPayloadHeader): T =
-  T(parent_hash: blk.parentHash as Eth2Digest,
-    fee_recipient: blk.miner as ExecutionAddress,
-    state_root: blk.stateRoot as Eth2Digest,
-    receipts_root: blk.receiptsRoot as Eth2Digest,
-    logs_bloom: BloomLogs(data: distinctBase(blk.logsBloom)),
-    prev_randao: Eth2Digest(data: blk.difficulty.toByteArrayBE),
-    block_number: uint64 blk.number,
+  T(
+    parent_block_hash: blk.parentHash as Eth2Digest,
+    # fee_recipient: blk.miner as ExecutionAddress,
+    parent_block_root: blk.stateRoot as Eth2Digest,
     gas_limit: uint64 blk.gasLimit,
-    gas_used: uint64 blk.gasUsed,
-    timestamp: uint64 blk.timestamp,
-    extra_data: List[byte, MAX_EXTRA_DATA_BYTES].init(blk.extraData.bytes),
-    base_fee_per_gas: blk.baseFeePerGas.getOrDefault(),
-    block_hash: blk.hash as Eth2Digest,
-    transactions_root: blk.transactionsRoot as Eth2Digest,
-    withdrawals_root: blk.withdrawalsRoot.getOrDefault() as Eth2Digest,
-    blob_gas_used: uint64 blk.blobGasUsed.getOrDefault(),
-    excess_blob_gas: uint64 blk.excessBlobGas.getOrDefault())
+    builder_index: 0'u64,
+    slot: Slot(0),
+    value: Gwei(0'u64),
+    blob_kzg_commitments_root: KzgCommitments(@[])
+    )
 
 func createDepositContractSnapshot(
     deposits: seq[DepositData],
@@ -474,12 +467,20 @@ proc doCreateTestnet*(config: CliConfig,
     info "SSZ genesis file written",
           path = outSszGenesis, fork = kind(typeof initialState[])
 
-    SSZ.saveFile(
-      config.outputDepositTreeSnapshot.string,
-      createDepositContractSnapshot(
-        deposits,
-        genesisExecutionPayloadHeader.block_hash,
-        genesisExecutionPayloadHeader.block_number).getTreeSnapshot())
+    when genesisExecutionPayloadHeader is fulu.ExecutionPayloadHeader:
+        SSZ.saveFile(
+            config.outputDepositTreeSnapshot.string,
+            createDepositContractSnapshot(
+                deposits,
+                genesisExecutionPayloadHeader.block_hash,
+                0'u64).getTreeSnapshot())
+    else:
+        SSZ.saveFile(
+            config.outputDepositTreeSnapshot.string,
+            createDepositContractSnapshot(
+                deposits,
+                genesisExecutionPayloadHeader.block_hash,
+                genesisExecutionPayloadHeader.block_number).getTreeSnapshot())
 
     initialState[].genesis_validators_root
 

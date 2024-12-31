@@ -42,7 +42,7 @@ proc initLightClient*(
         signedBlock: ForkedSignedBeaconBlock
     ): Future[void] {.async: (raises: [CancelledError]).} =
       withBlck(signedBlock):
-        when consensusFork >= ConsensusFork.Bellatrix:
+        when consensusFork >= ConsensusFork.Bellatrix and consensusFork != ConsensusFork.Fulu:
           if forkyBlck.message.is_execution_block:
             template payload(): auto = forkyBlck.message.body.execution_payload
             if not payload.block_hash.isZero:
