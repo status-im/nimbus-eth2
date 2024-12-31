@@ -86,7 +86,10 @@ suite "Honest validator":
          "/eth2/00000000/blob_sidecar_2/ssz_snappy",
          "/eth2/00000000/blob_sidecar_3/ssz_snappy",
          "/eth2/00000000/blob_sidecar_4/ssz_snappy",
-         "/eth2/00000000/blob_sidecar_5/ssz_snappy"]
+         "/eth2/00000000/blob_sidecar_5/ssz_snappy",
+         "/eth2/00000000/blob_sidecar_6/ssz_snappy",
+         "/eth2/00000000/blob_sidecar_7/ssz_snappy",
+         "/eth2/00000000/blob_sidecar_8/ssz_snappy"]
 
   test "is_aggregator":
     check:
