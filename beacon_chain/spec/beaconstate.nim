@@ -1,5 +1,5 @@
 # beacon_chain
-# Copyright (c) 2018-2024 Status Research & Development GmbH
+# Copyright (c) 2018-2025 Status Research & Development GmbH
 # Licensed and distributed under either of
 #   * MIT license (license terms in the root directory or at https://opensource.org/licenses/MIT).
 #   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
@@ -2108,13 +2108,17 @@ func upgrade_to_electra*(
       blob_gas_used: pre.latest_execution_payload_header.blob_gas_used,
       excess_blob_gas: pre.latest_execution_payload_header.excess_blob_gas)
 
-  var earliest_exit_epoch =
-    compute_activation_exit_epoch(get_current_epoch(pre))
+  var max_exit_epoch = FAR_FUTURE_EPOCH
   for v in pre.validators:
     if v.exit_epoch != FAR_FUTURE_EPOCH:
-      if v.exit_epoch > earliest_exit_epoch:
-        earliest_exit_epoch = v.exit_epoch
-  earliest_exit_epoch += 1
+      max_exit_epoch =
+        if max_exit_epoch == FAR_FUTURE_EPOCH:
+          v.exit_epoch
+        else:
+          max(max_exit_epoch, v.exit_epoch)
+  if max_exit_epoch == FAR_FUTURE_EPOCH:
+    max_exit_epoch = get_current_epoch(pre)
+  let earliest_exit_epoch = max_exit_epoch + 1
 
   let post = (ref electra.BeaconState)(
     # Versioning

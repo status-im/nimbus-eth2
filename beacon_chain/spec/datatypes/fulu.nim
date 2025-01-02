@@ -1,5 +1,5 @@
 # beacon_chain
-# Copyright (c) 2024 Status Research & Development GmbH
+# Copyright (c) 2024-2025 Status Research & Development GmbH
 # Licensed and distributed under either of
 #   * MIT license (license terms in the root directory or at https://opensource.org/licenses/MIT).
 #   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
@@ -20,7 +20,6 @@ import
   ssz_serialization/[merkleization, proofs],
   ssz_serialization/types as sszTypes,
   kzg4844/[kzg, kzg_abi],
-  std/typetraits,
   chronicles,
   ../digest,
   "."/[base, phase0, electra],
@@ -36,11 +35,6 @@ from ./capella import
   ExecutionBranch, HistoricalSummary, SignedBLSToExecutionChangeList,
   Withdrawal, EXECUTION_PAYLOAD_GINDEX
 from ./deneb import Blobs, BlobsBundle, KzgCommitments, KzgProofs
-from ./electra import 
-  PendingDeposit, PendingPartialWithdrawal, 
-  PendingConsolidation, ExecutionPayload, Attestation, TrustedAttestation,
-  ElectraCommitteeValidatorsBits,AttesterSlashing, AttestationCommitteeBits,
-  FINALIZED_ROOT_GINDEX_ELECTRA, ExecutionRequests
 
 export json_serialization, base, kzg4844
 
@@ -130,16 +124,16 @@ const
     PTC_SIZE* = 512
 
     # https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.4/specs/_features/eip7732/beacon-chain.md#max-operations-per-block
-    MAX_PAYLOAD_ATTESTATIONS = 4
+    MAX_PAYLOAD_ATTESTATIONS* = 4
 type
 
   PTCStatus* = distinct uint64
 
   # https://github.com/ethereum/consensus-specs/blob/dev/specs/_features/eip7732/beacon-chain.md#payloadattestationdata
   PayloadAttestationData* = object
-    beaconBlockRoot*: Eth2Digest
+    beacon_block_root*: Eth2Digest
     slot*: Slot
-    payload_Status*: uint8
+    payload_status*: uint8
 
   # https://github.com/ethereum/consensus-specs/blob/dev/specs/_features/eip7732/beacon-chain.md#payloadattestation
   PayloadAttestation* = object
@@ -155,7 +149,7 @@ type
 
   # https://github.com/ethereum/consensus-specs/blob/dev/specs/_features/eip7732/beacon-chain.md#indexedpayloadattestation
   IndexedPayloadAttestation* = object
-    attestingIndices*: List[ValidatorIndex, Limit PTC_SIZE]
+    attesting_indices*: List[ValidatorIndex, Limit PTC_SIZE]
     data*: PayloadAttestationData
     signature*: ValidatorSig
 
@@ -630,9 +624,9 @@ func initHashedBeaconState*(s: BeaconState): HashedBeaconState =
 
 func shortLog*(v: PayloadAttestationData): auto =
   (
-    beaconBlockRoot: shortLog(v.beaconBlockRoot),
+    beacon_block_root: shortLog(v.beacon_block_root),
     slot: shortLog(v.slot),
-    payload_Status: $v.payload_Status
+    payload_status: $v.payload_status
   )
 
 func shortLog*(v: SomeBeaconBlock): auto =

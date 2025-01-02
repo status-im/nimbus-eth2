@@ -1,5 +1,5 @@
 # beacon_chain
-# Copyright (c) 2018-2024 Status Research & Development GmbH
+# Copyright (c) 2018-2025 Status Research & Development GmbH
 # Licensed and distributed under either of
 #   * MIT license (license terms in the root directory or at https://opensource.org/licenses/MIT).
 #   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
@@ -182,12 +182,13 @@ proc stepOnBlock(
        invalidatedHashes: Table[Eth2Digest, Eth2Digest]):
        Result[BlockRef, VerifierError] =
   # 1. Validate blobs
-  when typeof(signedBlock).kind >= ConsensusFork.Deneb:
-    let kzgCommits = signedBlock.message.body.blob_kzg_commitments.asSeq
-    if kzgCommits.len > 0 or blobData.isSome:
-      if blobData.isNone or kzgCommits.validate_blobs(
-          blobData.get.blobs, blobData.get.proofs).isErr:
-        return err(VerifierError.Invalid)
+  when typeof(signedBlock).kind >= ConsensusFork.Deneb and 
+    typeof(signedBlock).kind < ConsensusFork.Fulu:
+      let kzgCommits = signedBlock.message.body.blob_kzg_commitments.asSeq
+      if kzgCommits.len > 0 or blobData.isSome:
+        if blobData.isNone or kzgCommits.validate_blobs(
+            blobData.get.blobs, blobData.get.proofs).isErr:
+          return err(VerifierError.Invalid)
   else:
     doAssert blobData.isNone, "Pre-Deneb test with specified blob data"
 
@@ -209,21 +210,22 @@ proc stepOnBlock(
   # this wouldn't be part of this check, presumably, their FC test vector step
   # would also have `true` validity because it'd not be known they weren't, so
   # adding this mock of the block processor is realistic and sufficient.
-  when consensusFork >= ConsensusFork.Bellatrix:
-    let executionBlockHash =
-      signedBlock.message.body.execution_payload.block_hash
-    if executionBlockHash in invalidatedHashes:
-      # Mocks fork choice INVALID list application. These tests sequence this
-      # in a way the block processor does not, specifying each payload_status
-      # before the block itself, while Nimbus fork choice treats invalidating
-      # a non-existent block root as a no-op and does not remember it for the
-      # future.
-      let lvh = invalidatedHashes.getOrDefault(
-        executionBlockHash, static(default(Eth2Digest)))
-      fkChoice[].mark_root_invalid(dag.getEarliestInvalidBlockRoot(
-        signedBlock.message.parent_root, lvh, executionBlockHash))
+  when consensusFork >= ConsensusFork.Bellatrix and 
+    consensusFork < ConsensusFork.Fulu:
+      let executionBlockHash =
+        signedBlock.message.body.execution_payload.block_hash
+      if executionBlockHash in invalidatedHashes:
+        # Mocks fork choice INVALID list application. These tests sequence this
+        # in a way the block processor does not, specifying each payload_status
+        # before the block itself, while Nimbus fork choice treats invalidating
+        # a non-existent block root as a no-op and does not remember it for the
+        # future.
+        let lvh = invalidatedHashes.getOrDefault(
+          executionBlockHash, static(default(Eth2Digest)))
+        fkChoice[].mark_root_invalid(dag.getEarliestInvalidBlockRoot(
+          signedBlock.message.parent_root, lvh, executionBlockHash))
 
-      return err VerifierError.Invalid
+        return err VerifierError.Invalid
 
   let blockAdded = dag.addHeadBlock(verifier, signedBlock) do (
       blckRef: BlockRef, signedBlock: consensusFork.TrustedSignedBeaconBlock,

@@ -1,5 +1,5 @@
 # beacon_chain
-# Copyright (c) 2024 Status Research & Development GmbH
+# Copyright (c) 2024-2025 Status Research & Development GmbH
 # Licensed and distributed under either of
 #   * MIT license (license terms in the root directory or at https://opensource.org/licenses/MIT).
 #   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
@@ -125,18 +125,6 @@ template deneb_steps() =
     do_check
 
 template electra_steps() =
-  when consensusFork < ConsensusFork.Fulu:
-    check: b.message.body.execution_requests.deposits.add(
-      default(DepositRequest))
-    do_check
-    check: b.message.body.execution_requests.withdrawals.add(
-      default(WithdrawalRequest))
-    do_check
-    check: b.message.body.execution_requests.consolidations.add(
-      default(ConsolidationRequest))
-    do_check
-
-template fulu_steps() =
   when consensusFork < ConsensusFork.Fulu:
     check: b.message.body.execution_requests.deposits.add(
       default(DepositRequest))

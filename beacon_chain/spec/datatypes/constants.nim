@@ -1,5 +1,5 @@
 # beacon_chain
-# Copyright (c) 2022-2024 Status Research & Development GmbH
+# Copyright (c) 2022-2025 Status Research & Development GmbH
 # Licensed and distributed under either of
 #   * MIT license (license terms in the root directory or at https://opensource.org/licenses/MIT).
 #   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
@@ -67,6 +67,9 @@ const
   REORG_HEAD_WEIGHT_THRESHOLD*: uint64 = 20
   REORG_PARENT_WEIGHT_THRESHOLD*: uint64 = 160
   REORG_MAX_EPOCHS_SINCE_FINALIZATION* = Epoch(2)
+
+  #https://github.com/ethereum/consensus-specs/blob/dev/specs/_features/eip7732/fork-choice.md#constants
+  PROPOSER_SCORE_BOOST_EIP7732*: uint64 = 20
 
   # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.7/specs/deneb/p2p-interface.md#configuration
   BLOB_SIDECAR_SUBNET_COUNT*: uint64 = 6

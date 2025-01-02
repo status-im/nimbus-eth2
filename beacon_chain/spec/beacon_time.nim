@@ -1,5 +1,5 @@
 # beacon_chain
-# Copyright (c) 2018-2024 Status Research & Development GmbH
+# Copyright (c) 2018-2025 Status Research & Development GmbH
 # Licensed and distributed under either of
 #   * MIT license (license terms in the root directory or at https://opensource.org/licenses/MIT).
 #   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
@@ -43,8 +43,10 @@ const
   GENESIS_SLOT* = Slot(0)
   GENESIS_EPOCH* = Epoch(0) # compute_epoch_at_slot(GENESIS_SLOT)
 
+  INTERVALS_PER_SLOT* = 3
+
   # https://github.com/ethereum/consensus-specs/blob/dev/specs/_features/eip7732/fork-choice.md#constants
-  INTERVALS_PER_SLOT* = 4
+  INTERVALS_PER_SLOT_EIP7732* = 4
 
   FAR_FUTURE_BEACON_TIME* = BeaconTime(ns_since_genesis: int64.high())
 

@@ -1,5 +1,5 @@
 # beacon_chain
-# Copyright (c) 2023-2024 Status Research & Development GmbH
+# Copyright (c) 2023-2025 Status Research & Development GmbH
 # Licensed and distributed under either of
 #   * MIT license (license terms in the root directory or at https://opensource.org/licenses/MIT).
 #   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
@@ -50,12 +50,26 @@ proc getParentBlock(restClient: RestClientRef):
         return Opt.none ParentHeaderInfo
 
   withBlck(resp):
-    when consensusFork >= ConsensusFork.Capella:
-      return Opt.some ParentHeaderInfo(
-        block_number: forkyBlck.message.body.execution_payload.block_number,
-        timestamp: forkyBlck.message.body.execution_payload.timestamp)
+    when consensusFork >= ConsensusFork.Capella and 
+      consensusFork < ConsensusFork.Fulu:
+        return Opt.some ParentHeaderInfo(
+          block_number: forkyBlck.message.body.execution_payload.block_number,
+          timestamp: forkyBlck.message.body.execution_payload.timestamp)
     else:
       discard
+
+  # TODO {what is expected of eip-7732 blocks}
+  # withBlck(resp):
+  #   when consensusFork >= ConsensusFork.Fulu:
+  #     return Opt.some ParentHeaderInfo(
+  #       block_: forkyBlck.message.body.signed_execution_payload_header.message, 
+  #       timestamp: forkyBlck.message.signed_execution_payload_header.message)  
+  #   elif consensusFork >= ConsensusFork.Capella:
+  #     return Opt.some ParentHeaderInfo(
+  #       block_number: forkyBlck.message.body.execution_payload.block_number,
+  #       timestamp: forkyBlck.message.body.execution_payload.timestamp)
+  #   else:
+  #     discard
 
 proc getWithdrawals(restClient: RestClientRef):
     Future[Opt[seq[Withdrawal]]] {.async.} =

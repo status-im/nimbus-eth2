@@ -1,5 +1,5 @@
 # beacon_chain
-# Copyright (c) 2024 Status Research & Development GmbH
+# Copyright (c) 2024-2025 Status Research & Development GmbH
 # Licensed and distributed under either of
 #   * MIT license (license terms in the root directory or at https://opensource.org/licenses/MIT).
 #   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
@@ -40,10 +40,10 @@ type
     deposits*: List[Deposit, Limit MAX_DEPOSITS]
     voluntary_exits*: List[SignedVoluntaryExit, Limit MAX_VOLUNTARY_EXITS]
     sync_aggregate*: SyncAggregate
-    signed_execution_payload_header*: SignedExecutionPayloadHeader
     bls_to_execution_changes*:
-      List[SignedBLSToExecutionChange,
-        Limit MAX_BLS_TO_EXECUTION_CHANGES]
+      List[SignedBLSToExecutionChange, Limit MAX_BLS_TO_EXECUTION_CHANGES]
+    signed_execution_payload_header*: SignedExecutionPayloadHeader
+    payload_attestations*: List[PayloadAttestation, Limit MAX_PAYLOAD_ATTESTATIONS]
     # blob_kzg_commitments*: KzgCommitments # [New in Deneb]
     # execution_requests*: ExecutionRequests # [New in Electra]
 
@@ -124,6 +124,7 @@ func toSignedBlindedBeaconBlock*(blck: fulu.SignedBeaconBlock):
         deposits: blck.message.body.deposits,
         voluntary_exits: blck.message.body.voluntary_exits,
         sync_aggregate: blck.message.body.sync_aggregate,
+        bls_to_execution_changes: blck.message.body.bls_to_execution_changes,
         signed_execution_payload_header: SignedExecutionPayloadHeader(
           message: ExecutionPayloadHeader(
             parent_block_hash: blck.message.body.signed_execution_payload_header.message.parent_block_hash,
@@ -135,6 +136,6 @@ func toSignedBlindedBeaconBlock*(blck: fulu.SignedBeaconBlock):
             blob_kzg_commitments_root: blck.message.body.signed_execution_payload_header.message.blob_kzg_commitments_root,
             block_hash: blck.message.body.signed_execution_payload_header.message.block_hash
           ),
-          signature: blck.signature),
-        bls_to_execution_changes: blck.message.body.bls_to_execution_changes)),
+          signature: blck.message.body.signed_execution_payload_header.signature),
+        payload_attestations: blck.message.body.payload_attestations)),
     signature: blck.signature)
