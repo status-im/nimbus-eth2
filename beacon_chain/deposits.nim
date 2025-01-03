@@ -27,6 +27,16 @@ type
     of ValidatorStorageKind.Identifier:
       ident: ValidatorIdent
 
+static: doAssert(high(ConsensusFork) == ConsensusFork.Fulu,
+          "Update OptionalForks constant!")
+const
+  OptionalForks* = {ConsensusFork.Electra, ConsensusFork.Fulu}
+    ## When a new ConsensusFork is added and before this fork is activated on
+    ## `mainnet`, it should be part of `OptionalForks`.
+    ## In this case, the client will ignore missing <FORKNAME>_VERSION
+    ## and <FORKNAME>_EPOCH constants from the data reported by BN via
+    ## `/eth/v1/config/spec` API call.
+
 proc getSignedExitMessage(
        config: BeaconNodeConf,
        storage: ValidatorStorage,
@@ -233,7 +243,8 @@ proc restValidatorExit(config: BeaconNodeConf) {.async.} =
   let signingFork = try:
     let response = await client.getSpecVC()
     if response.status == 200:
-      let forkConfig = response.data.data.getConsensusForkConfig()
+      let forkConfig =
+        response.data.data.getConsensusForkConfig(OptionalForks)
       if forkConfig.isErr:
         raise newException(RestError, "Invalid config: " & forkConfig.error)
       let
