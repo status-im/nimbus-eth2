@@ -21,7 +21,7 @@ import
   ./spec/datatypes/[altair, bellatrix, phase0],
   ./spec/[
     deposit_snapshots, engine_authentication, weak_subjectivity,
-    eip7594_helpers],
+    peerdas_helpers],
   ./sync/[sync_protocol, light_client_protocol, sync_overseer],
   ./validators/[keystore_management, beacon_validators],
   "."/[
@@ -297,7 +297,7 @@ proc initFullNode(
 
   proc onPhase0AttestationReceived(data: phase0.Attestation) =
     node.eventBus.attestQueue.emit(data)
-  proc onElectraAttestationReceived(data: electra.Attestation) =
+  proc onSingleAttestationReceived(data: SingleAttestation) =
     debugComment "electra attestation queue"
   proc onSyncContribution(data: SignedContributionAndProof) =
     node.eventBus.contribQueue.emit(data)
@@ -405,7 +405,7 @@ proc initFullNode(
       Quarantine.init())
     attestationPool = newClone(AttestationPool.init(
       dag, quarantine, onPhase0AttestationReceived,
-      onElectraAttestationReceived))
+      onSingleAttestationReceived))
     syncCommitteeMsgPool = newClone(
       SyncCommitteeMsgPool.init(rng, dag.cfg, onSyncContribution))
     lightClientPool = newClone(
@@ -416,15 +416,16 @@ proc initFullNode(
       onElectraAttesterSlashingAdded))
     blobQuarantine = newClone(BlobQuarantine.init(onBlobSidecarAdded))
     dataColumnQuarantine = newClone(DataColumnQuarantine.init())
-    supernode = node.config.subscribeAllSubnets
-    localCustodySubnets =
+    supernode = node.config.peerdasSupernode
+    localCustodyGroups =
       if supernode:
-        DATA_COLUMN_SIDECAR_SUBNET_COUNT.uint64
+        NUMBER_OF_CUSTODY_GROUPS.uint64
       else:
         CUSTODY_REQUIREMENT.uint64
     custody_columns_set =
-      node.network.nodeId.get_custody_columns_set(max(SAMPLES_PER_SLOT.uint64,
-                                                      localCustodySubnets))
+      node.network.nodeId.resolve_column_sets_from_custody_groups(
+          max(SAMPLES_PER_SLOT.uint64,
+          localCustodyGroups))
     consensusManager = ConsensusManager.new(
       dag, attestationPool, quarantine, node.elManager,
       ActionTracker.init(node.network.nodeId, config.subscribeAllSubnets),
@@ -535,7 +536,7 @@ proc initFullNode(
       processor: processor,
       network: node.network)
     requestManager = RequestManager.init(
-      node.network, supernode, custody_columns_set, dag.cfg.DENEB_FORK_EPOCH, 
+      node.network, supernode, custody_columns_set, dag.cfg.DENEB_FORK_EPOCH,
       getBeaconTime, (proc(): bool = syncManager.inProgress),
       quarantine, blobQuarantine, dataColumnQuarantine, rmanBlockVerifier,
       rmanBlockLoader, rmanBlobLoader, rmanDataColumnLoader)
@@ -548,26 +549,27 @@ proc initFullNode(
   # really variable. Whenever the BN is a supernode, column quarantine
   # essentially means all the NUMBER_OF_COLUMNS, as per mentioned in the
   # spec. However, in terms of fullnode, quarantine is really dependent
-  # on the randomly assigned columns, by `get_custody_columns`.
+  # on the randomly assigned columns, by `resolve_columns_from_custody_groups`.
 
   # Hence, in order to keep column quarantine accurate and error proof
   # the custody columns are computed once as the BN boots. Then the values
   # are used globally around the codebase.
 
-  # `get_custody_columns` is not a very expensive function, but there
-  # are multiple instances of computing custody columns, especially
+  # `resolve_columns_from_custody_groups` is not a very expensive function,
+  # but there are multiple instances of computing custody columns, especially
   # during peer selection, sync with columns, and so on. That is why,
   # the rationale of populating it at boot and using it gloabally.
 
   dataColumnQuarantine[].supernode = supernode
   dataColumnQuarantine[].custody_columns =
-    node.network.nodeId.get_custody_columns(max(SAMPLES_PER_SLOT.uint64,
-                                                localCustodySubnets))
+    node.network.nodeId.resolve_columns_from_custody_groups(
+      max(SAMPLES_PER_SLOT.uint64,
+      localCustodyGroups))
 
-  if node.config.subscribeAllSubnets:
-    node.network.loadCscnetMetadataAndEnr(DATA_COLUMN_SIDECAR_SUBNET_COUNT.uint8)
+  if node.config.peerdasSupernode:
+    node.network.loadCgcnetMetadataAndEnr(NUMBER_OF_CUSTODY_GROUPS.uint8)
   else:
-    node.network.loadCscnetMetadataAndEnr(CUSTODY_REQUIREMENT.uint8)
+    node.network.loadCgcnetMetadataAndEnr(CUSTODY_REQUIREMENT.uint8)
 
   if node.config.lightClientDataServe:
     proc scheduleSendingLightClientUpdates(slot: Slot) =
@@ -1166,7 +1168,7 @@ proc updateBlocksGossipStatus*(
     targetGossipState = getTargetGossipState(
       slot.epoch, cfg.ALTAIR_FORK_EPOCH, cfg.BELLATRIX_FORK_EPOCH,
       cfg.CAPELLA_FORK_EPOCH, cfg.DENEB_FORK_EPOCH, cfg.ELECTRA_FORK_EPOCH,
-      isBehind)
+      cfg.FULU_FORK_EPOCH, isBehind)
 
   template currentGossipState(): auto = node.blocksGossipState
   if currentGossipState == targetGossipState:
@@ -1494,6 +1496,7 @@ proc updateGossipStatus(node: BeaconNode, slot: Slot) {.async.} =
         node.dag.cfg.CAPELLA_FORK_EPOCH,
         node.dag.cfg.DENEB_FORK_EPOCH,
         node.dag.cfg.ELECTRA_FORK_EPOCH,
+        node.dag.cfg.FULU_FORK_EPOCH,
         isBehind)
 
   doAssert targetGossipState.card <= 2
@@ -1957,7 +1960,7 @@ proc installMessageValidators(node: BeaconNode) =
             let subnet_id = it
             node.network.addAsyncValidator(
               getAttestationTopic(digest, subnet_id), proc (
-                attestation: electra.Attestation
+                attestation: SingleAttestation
               ): Future[ValidationResult] {.
                   async: (raises: [CancelledError]).} =
                 return toValidationResult(

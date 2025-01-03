@@ -119,7 +119,7 @@ type
     executionPayload*: ExecutionPayload
     blockValue*: Wei
     blobsBundle*: BlobsBundle
-    executionRequests*: array[3, seq[byte]]
+    executionRequests*: seq[seq[byte]]
 
   # https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.8/specs/deneb/beacon-chain.md#executionpayloadheader
   ExecutionPayloadHeader* = object
@@ -982,6 +982,14 @@ func shortLog*(v: electra.Attestation | electra.TrustedAttestation): auto =
   (
     aggregation_bits: v.aggregation_bits,
     committee_bits: v.committee_bits,
+    data: shortLog(v.data),
+    signature: shortLog(v.signature)
+  )
+
+func shortLog*(v: SingleAttestation): auto =
+  (
+    committee_index: v.committee_index,
+    attester_index: v.attester_index,
     data: shortLog(v.data),
     signature: shortLog(v.signature)
   )

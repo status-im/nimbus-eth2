@@ -15,7 +15,7 @@ See the [execution client comparison](https://ethereum.org/en/developers/docs/no
 
 ### 1. Install execution client
 
-Select an execution client and install it, configuring it such that that the authenticated JSON-RPC interface is enabled and a JWT secret file is created.
+Select an execution client and install it, configuring it such that the authenticated JSON-RPC interface is enabled and a JWT secret file is created.
 
 === "Nimbus"
 

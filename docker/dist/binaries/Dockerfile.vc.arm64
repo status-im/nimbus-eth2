@@ -15,7 +15,8 @@ COPY "qemu-aarch64-static" "/usr/bin/"
 
 # Likely to match the first regular user:group created on the host.
 RUN addgroup --gid 1000 user; \
-	adduser --disabled-password --gecos '' --uid 1000 --gid 1000 user;
+	adduser --disabled-password --gecos '' --uid 1000 --gid 1000 user; \
+        chmod a+rx /home/user;
 
 USER user
 

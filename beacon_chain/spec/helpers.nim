@@ -10,7 +10,6 @@
 # Uncategorized helper functions from the spec
 
 import
-  std/sequtils,
   # Status libraries
   stew/[byteutils, endians2, objects],
   nimcrypto/sha2,
@@ -553,6 +552,7 @@ proc compute_execution_block_hash*(blck: ForkyBeaconBlock): Eth2Digest =
   blck.body.compute_execution_block_hash(blck.parent_root)
 
 from std/math import exp, ln
+from std/sequtils import foldl
 
 func ln_binomial(n, k: int): float64 =
   if k > n:

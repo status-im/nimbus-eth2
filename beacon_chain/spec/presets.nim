@@ -824,6 +824,8 @@ proc readRuntimeConfig*(
   checkCompatibility MAX_REQUEST_BLOCKS_DENEB * MAX_BLOBS_PER_BLOCK,
                      "MAX_REQUEST_BLOB_SIDECARS"
   checkCompatibility BLOB_SIDECAR_SUBNET_COUNT
+  checkCompatibility MAX_BLOBS_PER_BLOCK_ELECTRA
+  checkCompatibility MAX_REQUEST_BLOB_SIDECARS_ELECTRA
 
   # https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.10/specs/phase0/fork-choice.md#configuration
   # Isn't being used as a preset in the usual way: at any time, there's one correct value

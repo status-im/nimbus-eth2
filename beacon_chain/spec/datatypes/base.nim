@@ -144,7 +144,7 @@ template ethAmountUnit*(typ: type) {.dirty.} =
 
   func u256*(n: typ): UInt256 {.borrow.}
 
-  proc toString*(B: typedesc[Base10], value: typ): string {.borrow.}
+  func toString*(B: typedesc[Base10], value: typ): string {.borrow.}
 
   proc writeValue*(writer: var JsonWriter, value: typ) {.raises: [IOError].} =
     writer.writeValue(distinctBase(value))
@@ -204,7 +204,7 @@ type
     ## blob sidecar - it is distinct from the CommitteeIndex in particular
     ##
     ## The `BlobId` type is constrained to values in the range
-    ## `[0, BLOB_SIDECAR_SUBNET_COUNT)` during initialization.
+    ## `[0, MAX_BLOBS_PER_BLOCK_ELECTRA)` during initialization.
 
   # BitVector[4] in the spec, ie 4 bits which end up encoded as a byte for
   # SSZ / hashing purposes
@@ -612,7 +612,9 @@ template makeLimitedU64*(T: untyped, limit: uint64) =
 
 makeLimitedU64(CommitteeIndex, MAX_COMMITTEES_PER_SLOT)
 makeLimitedU64(SubnetId, ATTESTATION_SUBNET_COUNT)
-makeLimitedU64(BlobId, BLOB_SIDECAR_SUBNET_COUNT)
+
+static: doAssert MAX_BLOBS_PER_BLOCK_ELECTRA >= BLOB_SIDECAR_SUBNET_COUNT
+makeLimitedU64(BlobId, MAX_BLOBS_PER_BLOCK_ELECTRA)
 
 const
   validatorIndexLimit = min(uint64(int32.high), VALIDATOR_REGISTRY_LIMIT)

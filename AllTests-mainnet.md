@@ -196,15 +196,15 @@ OK: 1/1 Fail: 0/1 Skip: 0/1
 OK: 2/2 Fail: 0/2 Skip: 0/2
 ## EF - EIP7594 - Networking [Preset: mainnet]
 ```diff
-+ Networking - Get Custody Columns - mainnet/fulu/networking/get_custody_columns/pyspec_test OK
-+ Networking - Get Custody Columns - mainnet/fulu/networking/get_custody_columns/pyspec_test OK
-+ Networking - Get Custody Columns - mainnet/fulu/networking/get_custody_columns/pyspec_test OK
-+ Networking - Get Custody Columns - mainnet/fulu/networking/get_custody_columns/pyspec_test OK
-+ Networking - Get Custody Columns - mainnet/fulu/networking/get_custody_columns/pyspec_test OK
-+ Networking - Get Custody Columns - mainnet/fulu/networking/get_custody_columns/pyspec_test OK
-+ Networking - Get Custody Columns - mainnet/fulu/networking/get_custody_columns/pyspec_test OK
-+ Networking - Get Custody Columns - mainnet/fulu/networking/get_custody_columns/pyspec_test OK
-+ Networking - Get Custody Columns - mainnet/fulu/networking/get_custody_columns/pyspec_test OK
++ Networking - Get Custody Groups - mainnet/fulu/networking/get_custody_columns/pyspec_tests OK
++ Networking - Get Custody Groups - mainnet/fulu/networking/get_custody_columns/pyspec_tests OK
++ Networking - Get Custody Groups - mainnet/fulu/networking/get_custody_columns/pyspec_tests OK
++ Networking - Get Custody Groups - mainnet/fulu/networking/get_custody_columns/pyspec_tests OK
++ Networking - Get Custody Groups - mainnet/fulu/networking/get_custody_columns/pyspec_tests OK
++ Networking - Get Custody Groups - mainnet/fulu/networking/get_custody_columns/pyspec_tests OK
++ Networking - Get Custody Groups - mainnet/fulu/networking/get_custody_columns/pyspec_tests OK
++ Networking - Get Custody Groups - mainnet/fulu/networking/get_custody_columns/pyspec_tests OK
++ Networking - Get Custody Groups - mainnet/fulu/networking/get_custody_columns/pyspec_tests OK
 ```
 OK: 9/9 Fail: 0/9 Skip: 0/9
 ## EF - KZG

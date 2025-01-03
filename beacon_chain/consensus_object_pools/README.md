@@ -15,7 +15,7 @@ After "gossip validation" the consensus objects can be rebroadcasted as they are
 For blocks, this means verifying state transition and all contained cryptographic signatures (instead of just the proposer signature).
 For other consensus objects, it is possible that gossip validation is a superset of consensus verification (TODO).
 
-The pools presenet in this folder are:
+The pools present in this folder are:
 - block_pools:
   - block_quarantine: for seemingly valid blocks that are on a fork unknown to us.
   - block_clearance: to verify (state_transition + cryptography) candidate blocks.

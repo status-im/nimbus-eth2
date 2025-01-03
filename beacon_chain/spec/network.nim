@@ -16,12 +16,12 @@ export base
 const
   # https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.8/specs/phase0/p2p-interface.md#topics-and-messages
   # https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.9/specs/capella/p2p-interface.md#topics-and-messages
-  topicBeaconBlocksSuffix* = "beacon_block/ssz_snappy"
-  topicVoluntaryExitsSuffix* = "voluntary_exit/ssz_snappy"
-  topicProposerSlashingsSuffix* = "proposer_slashing/ssz_snappy"
-  topicAttesterSlashingsSuffix* = "attester_slashing/ssz_snappy"
-  topicAggregateAndProofsSuffix* = "beacon_aggregate_and_proof/ssz_snappy"
-  topicBlsToExecutionChangeSuffix* = "bls_to_execution_change/ssz_snappy"
+  topicBeaconBlocksSuffix = "beacon_block/ssz_snappy"
+  topicVoluntaryExitsSuffix = "voluntary_exit/ssz_snappy"
+  topicProposerSlashingsSuffix = "proposer_slashing/ssz_snappy"
+  topicAttesterSlashingsSuffix = "attester_slashing/ssz_snappy"
+  topicAggregateAndProofsSuffix = "beacon_aggregate_and_proof/ssz_snappy"
+  topicBlsToExecutionChangeSuffix = "bls_to_execution_change/ssz_snappy"
 
 const
   # The spec now includes this as a bare uint64 as `RESP_TIMEOUT`
@@ -37,7 +37,7 @@ const
   # https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.9/specs/_features/eip7594/p2p-interface.md#configuration
   MAX_REQUEST_DATA_COLUMN_SIDECARS*: uint64 =
     MAX_REQUEST_BLOCKS_DENEB * NUMBER_OF_COLUMNS
-  
+
   defaultEth2TcpPort* = 9000
   defaultEth2TcpPortDesc* = $defaultEth2TcpPort
 
@@ -47,7 +47,7 @@ const
 
   enrAttestationSubnetsField* = "attnets"
   enrSyncSubnetsField* = "syncnets"
-  enrCustodySubnetCountField* = "csc"
+  enrCustodySubnetCountField* = "cgc"
   enrForkIdField* = "eth2"
 
 template eth2Prefix(forkDigest: ForkDigest): string =
@@ -112,7 +112,7 @@ func getBlobSidecarTopic*(forkDigest: ForkDigest,
 
 # https://github.com/ethereum/consensus-specs/blob/v1.4.0/specs/deneb/validator.md#sidecar
 func compute_subnet_for_blob_sidecar*(blob_index: BlobIndex): BlobId =
-  BlobId(blob_index mod BLOB_SIDECAR_SUBNET_COUNT)
+  BlobId(blob_index mod MAX_BLOBS_PER_BLOCK_ELECTRA)
 
 # https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.8/specs/_features/eip7594/p2p-interface.md#compute_subnet_for_data_column_sidecar
 func compute_subnet_for_data_column_sidecar*(column_index: ColumnIndex): uint64 =
@@ -164,7 +164,8 @@ func getDiscoveryForkID*(cfg: RuntimeConfig,
 type GossipState* = set[ConsensusFork]
 func getTargetGossipState*(
     epoch, ALTAIR_FORK_EPOCH, BELLATRIX_FORK_EPOCH, CAPELLA_FORK_EPOCH,
-    DENEB_FORK_EPOCH: Epoch, ELECTRA_FORK_EPOCH: Epoch, isBehind: bool):
+    DENEB_FORK_EPOCH, ELECTRA_FORK_EPOCH,  FULU_FORK_EPOCH: Epoch,
+    isBehind: bool):
     GossipState =
   if isBehind:
     return {}
@@ -173,6 +174,7 @@ func getTargetGossipState*(
   doAssert CAPELLA_FORK_EPOCH >= BELLATRIX_FORK_EPOCH
   doAssert DENEB_FORK_EPOCH >= CAPELLA_FORK_EPOCH
   doAssert ELECTRA_FORK_EPOCH >= DENEB_FORK_EPOCH
+  doAssert FULU_FORK_EPOCH >= ELECTRA_FORK_EPOCH
 
   # https://github.com/ethereum/consensus-specs/issues/2902
   # Don't care whether ALTAIR_FORK_EPOCH == BELLATRIX_FORK_EPOCH or
@@ -200,7 +202,9 @@ func getTargetGossipState*(
   maybeIncludeFork(
     ConsensusFork.Deneb,     DENEB_FORK_EPOCH,     ELECTRA_FORK_EPOCH)
   maybeIncludeFork(
-    ConsensusFork.Electra,   ELECTRA_FORK_EPOCH,   FAR_FUTURE_EPOCH)
+    ConsensusFork.Electra,   ELECTRA_FORK_EPOCH,   FULU_FORK_EPOCH)
+  maybeIncludeFork(
+    ConsensusFork.Fulu,      FULU_FORK_EPOCH,   FAR_FUTURE_EPOCH)
 
   doAssert len(targetForks) <= 2
   targetForks
@@ -235,3 +239,13 @@ func getSyncSubnets*(
 iterator blobSidecarTopics*(forkDigest: ForkDigest): string =
   for subnet_id in BlobId:
     yield getBlobSidecarTopic(forkDigest, subnet_id)
+
+# https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.10/specs/fulu/p2p-interface.md#data_column_sidecar_subnet_id
+func getDataColumnSidecarTopic*(forkDigest: ForkDigest,
+                                subnet_id: uint64): string =
+  eth2Prefix(forkDigest) & "data_column_sidecar_" & $subnet_id & "/ssz_snappy"
+
+iterator dataColumnSidecarTopics*(forkDigest: ForkDigest,
+                                  targetSubnetCount: uint64): string =
+  for subnet_id in 0'u64..<targetSubnetCount:
+    yield getDataColumnSidecarTopic(forkDigest, subnet_id)
