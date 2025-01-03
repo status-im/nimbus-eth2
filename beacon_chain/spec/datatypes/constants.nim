@@ -67,6 +67,9 @@ const
   # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.7/specs/deneb/p2p-interface.md#configuration
   BLOB_SIDECAR_SUBNET_COUNT*: uint64 = 6
 
+  # https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.10/specs/fulu/p2p-interface.md#configuration
+  DATA_COLUMN_SIDECAR_SUBNET_COUNT*: uint64 = 128
+
   # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.1/specs/phase0/p2p-interface.md#configuration
   MAX_REQUEST_BLOCKS* = 1024'u64
   RESP_TIMEOUT* = 10'u64
@@ -90,6 +93,13 @@ const
   # https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.10/specs/electra/beacon-chain.md#execution-1
   MAX_BLOBS_PER_BLOCK_ELECTRA* = 9'u64
 
+  # https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.10/specs/fulu/beacon-chain.md#execution
+  MAX_BLOBS_PER_BLOCK_FULU* = 12'u64
+
   # https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.10/specs/electra/p2p-interface.md#configuration
   MAX_REQUEST_BLOB_SIDECARS_ELECTRA* =
     MAX_REQUEST_BLOCKS_DENEB * MAX_BLOBS_PER_BLOCK_ELECTRA
+
+  # https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.10/specs/fulu/p2p-interface.md#configuration
+  MAX_REQUEST_BLOB_SIDECARS_FULU* =
+    MAX_REQUEST_BLOCKS_DENEB * MAX_BLOBS_PER_BLOCK_FULU

@@ -121,6 +121,12 @@ type
     MAX_BLOBS_PER_BLOCK_ELECTRA*: uint64
     MAX_REQUEST_BLOB_SIDECARS_ELECTRA*: uint64
 
+    # Fulu
+    DATA_COLUMN_SIDECAR_SUBNET_COUNT*: uint64
+    MAX_BLOBS_PER_BLOCK_FULU*: uint64
+    MAX_REQUEST_BLOB_SIDECARS_FULU*: uint64
+
+
   PresetFile* = object
     values*: Table[string, string]
     missingValues*: seq[string]
@@ -295,7 +301,15 @@ when const_preset == "mainnet":
     # `uint64(9)`
     MAX_BLOBS_PER_BLOCK_ELECTRA: 9,
     # MAX_REQUEST_BLOCKS_DENEB * MAX_BLOBS_PER_BLOCK_ELECTRA
-    MAX_REQUEST_BLOB_SIDECARS_ELECTRA: 1152
+    MAX_REQUEST_BLOB_SIDECARS_ELECTRA: 1152,
+
+    # Fulu
+    # `128`
+    DATA_COLUMN_SIDECAR_SUBNET_COUNT: 128,
+    # `uint64(12)`
+    MAX_BLOBS_PER_BLOCK_FULU: 12,
+    # MAX_REQUEST_BLOCKS_DENEB * MAX_BLOBS_PER_BLOCK_FULU
+    MAX_REQUEST_BLOB_SIDECARS_FULU: 1536
   )
 
 elif const_preset == "gnosis":
@@ -455,7 +469,15 @@ elif const_preset == "gnosis":
     # `uint64(9)`
     MAX_BLOBS_PER_BLOCK_ELECTRA: 9,
     # MAX_REQUEST_BLOCKS_DENEB * MAX_BLOBS_PER_BLOCK_ELECTRA
-    MAX_REQUEST_BLOB_SIDECARS_ELECTRA: 1152
+    MAX_REQUEST_BLOB_SIDECARS_ELECTRA: 1152,
+
+    # Fulu
+    # `128`
+    DATA_COLUMN_SIDECAR_SUBNET_COUNT: 128,
+    # `uint64(12)`
+    MAX_BLOBS_PER_BLOCK_FULU: 12,
+    # MAX_REQUEST_BLOCKS_DENEB * MAX_BLOBS_PER_BLOCK_FULU
+    MAX_REQUEST_BLOB_SIDECARS_FULU: 1536
   )
 
 elif const_preset == "minimal":
@@ -613,6 +635,14 @@ elif const_preset == "minimal":
     MAX_BLOBS_PER_BLOCK_ELECTRA: 9,
     # MAX_REQUEST_BLOCKS_DENEB * MAX_BLOBS_PER_BLOCK_ELECTRA
     MAX_REQUEST_BLOB_SIDECARS_ELECTRA: 1152,
+
+    # Fulu
+    # `128`
+    DATA_COLUMN_SIDECAR_SUBNET_COUNT: 128,
+    # `uint64(12)`
+    MAX_BLOBS_PER_BLOCK_FULU: 12,
+    # MAX_REQUEST_BLOCKS_DENEB * MAX_BLOBS_PER_BLOCK_FULU
+    MAX_REQUEST_BLOB_SIDECARS_FULU: 1536
   )
 
 else:
@@ -826,6 +856,9 @@ proc readRuntimeConfig*(
   checkCompatibility BLOB_SIDECAR_SUBNET_COUNT
   checkCompatibility MAX_BLOBS_PER_BLOCK_ELECTRA
   checkCompatibility MAX_REQUEST_BLOB_SIDECARS_ELECTRA
+  checkCompatibility DATA_COLUMN_SIDECAR_SUBNET_COUNT
+  checkCompatibility MAX_BLOBS_PER_BLOCK_FULU
+  checkCompatibility MAX_REQUEST_BLOB_SIDECARS_FULU
 
   # https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.10/specs/phase0/fork-choice.md#configuration
   # Isn't being used as a preset in the usual way: at any time, there's one correct value

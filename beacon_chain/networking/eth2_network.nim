@@ -1573,7 +1573,7 @@ proc getLowSubnets(node: Eth2Node, epoch: Epoch):
     else:
       default(SyncnetBits),
     if epoch >= node.cfg.FULU_FORK_EPOCH:
-      findLowSubnets(getDataColumnSidecarTopic, uint64, (DATA_COLUMN_SIDECAR_SUBNET_COUNT).int)
+      findLowSubnets(getDataColumnSidecarTopic, uint64, (fulu.DATA_COLUMN_SIDECAR_SUBNET_COUNT).int)
     else:
       default(CgcBits)
   )

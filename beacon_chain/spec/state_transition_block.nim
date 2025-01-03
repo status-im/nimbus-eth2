@@ -1030,7 +1030,7 @@ proc process_execution_payload*(
   if not (payload.timestamp == compute_timestamp_at_slot(state, state.slot)):
     return err("process_execution_payload: invalid timestamp")
 
-  # [New in Deneb] Verify commitments are under limit
+  # [New in Electra] Verify commitments are under limit
   if not (lenu64(body.blob_kzg_commitments) <= cfg.MAX_BLOBS_PER_BLOCK_ELECTRA):
     return err("process_execution_payload: too many KZG commitments")
 
@@ -1065,7 +1065,7 @@ type SomeFuluBeaconBlockBody =
   fulu.BeaconBlockBody | fulu.SigVerifiedBeaconBlockBody |
   fulu.TrustedBeaconBlockBody
 
-# https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.3/specs/electra/beacon-chain.md#modified-process_execution_payload
+# https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.10/specs/fulu/beacon-chain.md#modified-process_execution_payload
 proc process_execution_payload*(
     cfg: RuntimeConfig, state: var fulu.BeaconState,
     body: SomeFuluBeaconBlockBody,
@@ -1086,8 +1086,8 @@ proc process_execution_payload*(
   if not (payload.timestamp == compute_timestamp_at_slot(state, state.slot)):
     return err("process_execution_payload: invalid timestamp")
 
-  # [New in Deneb] Verify commitments are under limit
-  if not (lenu64(body.blob_kzg_commitments) <= cfg.MAX_BLOBS_PER_BLOCK_ELECTRA):
+  # [New in Fulu] Verify commitments are under limit
+  if not (lenu64(body.blob_kzg_commitments) <= cfg.MAX_BLOBS_PER_BLOCK_FULU):
     return err("process_execution_payload: too many KZG commitments")
 
   # Verify the execution payload is valid

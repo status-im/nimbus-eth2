@@ -295,6 +295,9 @@ template checkedReject(
 
 func getMaxBlobsPerBlock(cfg: RuntimeConfig, wallTime: BeaconTime): uint64 =
   if min(wallTime, wallTime - MAXIMUM_GOSSIP_CLOCK_DISPARITY).slotOrZero.epoch >=
+      cfg.FULU_FORK_EPOCH:
+    cfg.MAX_BLOBS_PER_BLOCK_FULU
+  elif min(wallTime, wallTime - MAXIMUM_GOSSIP_CLOCK_DISPARITY).slotOrZero.epoch >=
       cfg.ELECTRA_FORK_EPOCH:
     cfg.MAX_BLOBS_PER_BLOCK_ELECTRA
   else:
