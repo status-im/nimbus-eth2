@@ -1,5 +1,5 @@
 # beacon_chain
-# Copyright (c) 2018-2024 Status Research & Development GmbH
+# Copyright (c) 2018-2025 Status Research & Development GmbH
 # Licensed and distributed under either of
 #   * MIT license (license terms in the root directory or at https://opensource.org/licenses/MIT).
 #   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
@@ -26,6 +26,16 @@ type
       privateKey: ValidatorPrivKey
     of ValidatorStorageKind.Identifier:
       ident: ValidatorIdent
+
+static: doAssert(high(ConsensusFork) == ConsensusFork.Fulu,
+          "Update OptionalForks constant!")
+const
+  OptionalForks* = {ConsensusFork.Electra, ConsensusFork.Fulu}
+    ## When a new ConsensusFork is added and before this fork is activated on
+    ## `mainnet`, it should be part of `OptionalForks`.
+    ## In this case, the client will ignore missing <FORKNAME>_VERSION
+    ## and <FORKNAME>_EPOCH constants from the data reported by BN via
+    ## `/eth/v1/config/spec` API call.
 
 proc getSignedExitMessage(
        config: BeaconNodeConf,
@@ -233,7 +243,8 @@ proc restValidatorExit(config: BeaconNodeConf) {.async.} =
   let signingFork = try:
     let response = await client.getSpecVC()
     if response.status == 200:
-      let forkConfig = response.data.data.getConsensusForkConfig()
+      let forkConfig =
+        response.data.data.getConsensusForkConfig(OptionalForks)
       if forkConfig.isErr:
         raise newException(RestError, "Invalid config: " & forkConfig.error)
       let

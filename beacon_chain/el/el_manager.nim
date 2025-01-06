@@ -1,5 +1,5 @@
 # beacon_chain
-# Copyright (c) 2018-2024 Status Research & Development GmbH
+# Copyright (c) 2018-2025 Status Research & Development GmbH
 # Licensed and distributed under either of
 #   * MIT license (license terms in the root directory or at https://opensource.org/licenses/MIT).
 #   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
@@ -918,11 +918,13 @@ func compareStatuses(
 type
   ELConsensusViolationDetector = object
     selectedResponse: Opt[int]
+    selectedStatus: Opt[PayloadExecutionStatus]
     disagreementAlreadyDetected: bool
 
 func init(T: type ELConsensusViolationDetector): T =
   ELConsensusViolationDetector(
     selectedResponse: Opt.none(int),
+    selectedStatus: Opt.none(PayloadExecutionStatus),
     disagreementAlreadyDetected: false
   )
 
@@ -939,11 +941,13 @@ proc processResponse(
   let status = requests[idx].value().status
   if d.selectedResponse.isNone:
     d.selectedResponse = Opt.some(idx)
+    d.selectedStatus = Opt.some(status)
   elif not d.disagreementAlreadyDetected:
     let prevStatus = requests[d.selectedResponse.get].value().status
     case compareStatuses(status, prevStatus)
     of newStatusIsPreferable:
       d.selectedResponse = Opt.some(idx)
+      d.selectedStatus = Opt.some(status)
     of oldStatusIsOk:
       discard
     of disagreement:
@@ -954,6 +958,21 @@ proc processResponse(
             status1 = prevStatus,
             url2 = connections[idx].engineUrl.url,
             status2 = status
+
+proc couldBeBetter(d: ELConsensusViolationDetector): bool =
+  const
+    SyncingOrAccepted = {
+      PayloadExecutionStatus.syncing,
+      PayloadExecutionStatus.accepted
+    }
+  if d.disagreementAlreadyDetected:
+    return false
+  if d.selectedStatus.isNone():
+    return true
+  if d.selectedStatus.get() in SyncingOrAccepted:
+    true
+  else:
+    false
 
 proc lazyWait(futures: seq[FutureBase]) {.async: (raises: []).} =
   block:
@@ -1070,11 +1089,14 @@ proc sendNewPayload*(
           await noCancel allFutures(pending)
           return PayloadExecutionStatus.invalid
         elif responseProcessor.selectedResponse.isSome():
-          # We spawn task which will wait for all other responses which are
-          # still pending, after 30.seconds all pending requests will be
-          # cancelled.
-          asyncSpawn lazyWait(pendingRequests.mapIt(FutureBase(it)))
-          return requests[responseProcessor.selectedResponse.get].value().status
+          if (len(pendingRequests) == 0) or
+             not(responseProcessor.couldBeBetter()):
+            # We spawn task which will wait for all other responses which are
+            # still pending, after 30.seconds all pending requests will be
+            # cancelled.
+            asyncSpawn lazyWait(pendingRequests.mapIt(FutureBase(it)))
+            return
+              requests[responseProcessor.selectedResponse.get].value().status
 
         if timeoutExceeded:
           # Timeout exceeded, cancelling all pending requests.
