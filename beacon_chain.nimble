@@ -13,7 +13,7 @@ description   = "The Nimbus beacon chain node is a highly efficient Ethereum 2.0
 license       = "MIT or Apache License 2.0"
 
 requires(
-  "nim >= 1.6.12",
+  "nim == 2.0.12",
   "https://github.com/status-im/NimYAML",
   "bearssl",
   "blscurve",
@@ -48,7 +48,7 @@ requires(
   "zxcvbn"
 )
 
-requires "https://gitlab.com/status-im/nimbus-security-resources.git"
+requires "https://github.com/status-im/nimbus-security-resources.git"
 
 import std/tables
 let namedBin = {

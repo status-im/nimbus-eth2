@@ -194,7 +194,7 @@ type
     depositContractSyncStatus: DepositContractSyncStatus
       ## Are we sure that this EL has synced the deposit contract?
 
-    lastPayloadId: Opt[PayloadID]
+    lastPayloadId: Opt[Bytes8]
 
   FullBlockId* = object
     number: Eth1BlockNumber
@@ -485,7 +485,7 @@ func areSameAs(expectedParams: Option[NextExpectedPayloadParams],
     expectedParams.get.safeBlockHash == latestSafe and
     expectedParams.get.finalizedBlockHash == latestFinalized and
     expectedParams.get.payloadAttributes.timestamp.uint64 == timestamp and
-    expectedParams.get.payloadAttributes.prevRandao.bytes == randomData.data and
+    expectedParams.get.payloadAttributes.prevRandao.data == randomData.data and
     expectedParams.get.payloadAttributes.suggestedFeeRecipient == feeRecipient and
     expectedParams.get.payloadAttributes.withdrawals == withdrawals
 
