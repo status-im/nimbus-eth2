@@ -809,13 +809,18 @@ proc syncLoop[A, B](
     man: SyncManager[A, B]
 ) {.async: (raises: [CancelledError]).} =
   mixin getKey, getScore
-  var pauseTime = 0
+
+  # Update SyncQueue parameters, because callbacks used to calculate parameters
+  # could provide different values at moment when syncLoop() started.
+  man.initQueue()
 
   man.startWorkers()
 
   debug "Synchronization loop started",
         sync_ident = man.ident,
         direction = man.direction,
+        start_slot = man.queue.startSlot,
+        finish_slot = man.queue.finalSlot,
         topics = "syncman"
 
   proc averageSpeedTask() {.async: (raises: [CancelledError]).} =
@@ -864,7 +869,6 @@ proc syncLoop[A, B](
             pending_workers_count = pending,
             wall_head_slot = wallSlot,
             local_head_slot = headSlot,
-            pause_time = $chronos.seconds(pauseTime),
             avg_sync_speed = man.avgSyncSpeed.formatBiggestFloat(ffDecimal, 4),
             ins_sync_speed = man.insSyncSpeed.formatBiggestFloat(ffDecimal, 4),
             sync_ident = man.ident,
@@ -877,7 +881,6 @@ proc syncLoop[A, B](
             pending_workers_count = pending,
             wall_head_slot = wallSlot,
             backfill_slot = man.getSafeSlot(),
-            pause_time = $chronos.seconds(pauseTime),
             avg_sync_speed = man.avgSyncSpeed.formatBiggestFloat(ffDecimal, 4),
             ins_sync_speed = man.insSyncSpeed.formatBiggestFloat(ffDecimal, 4),
             sync_ident = man.ident,
