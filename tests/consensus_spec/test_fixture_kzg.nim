@@ -329,7 +329,7 @@ suite suiteName:
     for kind, path in walkDir(testsDir, relative = true, checkDir = true):
       runComputeBlobKzgProofTest(suiteName, testsDir, testsDir / path)
 
-suiteName = "EF - KZG - EIP7594"
+suiteName = "EF - KZG - PEERDAS"
 
 suite suiteName:
   const suitePath = SszTestsDir/"general"/"fulu"/"kzg"

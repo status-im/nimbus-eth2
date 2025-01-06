@@ -94,8 +94,8 @@ suite "EIP-7594 Unit Tests":
       doAssert recovered_matrix.get == extended_matrix.get, "Both matrices don't match!"
     testRecoverMatrix()
 
-suite "EIP-7594 Sampling Tests":
-  test "EIP7594: Extended Sample Count":
+suite "PeerDAS Sampling Tests":
+  test "PeerDAS: Extended Sample Count":
     proc testExtendedSampleCount() =
       let samplesPerSlot = 16
       const tests = [

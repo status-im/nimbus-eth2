@@ -417,7 +417,7 @@ p2pProtocol BeaconSync(version = 1,
       "2", peer, peer.networkState.dag, response, startSlot, reqCount,
       MAX_BLOBS_PER_BLOCK_ELECTRA, MAX_REQUEST_BLOB_SIDECARS_ELECTRA)
 
-  # https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.8/specs/_features/eip7594/p2p-interface.md#datacolumnsidecarsbyroot-v1
+  # https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.10/specs/fulu/p2p-interface.md#datacolumnsidecarsbyroot-v1
   proc dataColumnSidecarsByRoot(
       peer: Peer,
       colIds: DataColumnIdentifierList,
@@ -467,7 +467,7 @@ p2pProtocol BeaconSync(version = 1,
     debug "Data column root request done",
       peer, roots = colIds.len, count, found
 
-# https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.8/specs/_features/eip7594/p2p-interface.md#datacolumnsidecarsbyrange-v1
+# https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.10/specs/fulu/p2p-interface.md#datacolumnsidecarsbyrange-v1
   proc dataColumnSidecarsByRange(
       peer: Peer,
       startSlot: Slot,

@@ -43,7 +43,7 @@ proc runGetCustodyColumns(suiteName, path: string) =
     for i in 0..<columns.lenu64:
       check columns[i] == reslt[i]
 
-suite "EF - EIP7594 - Networking" & preset():
+suite "EF - PEERDAS - Networking" & preset():
   const presetPath = SszTestsDir/const_preset
   # foldering to be resolved in alpha 11 release of consensus spec tests
   let basePath =
