@@ -39,8 +39,8 @@ const
   MAX_ATTESTER_SLASHINGS_ELECTRA*: uint64 = 1
   # `uint64(2**3)` (= 8)
   MAX_ATTESTATIONS_ELECTRA*: uint64 = 8
-  # `uint64(2**0)` (= 1)
-  MAX_CONSOLIDATION_REQUESTS_PER_PAYLOAD*: uint64 = 1
+  # `uint64(2**1)` (= 2)
+  MAX_CONSOLIDATION_REQUESTS_PER_PAYLOAD*: uint64 = 2
 
   # Execution
   # ---------------------------------------------------------------

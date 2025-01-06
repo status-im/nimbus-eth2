@@ -79,8 +79,6 @@ type
     MIN_PER_EPOCH_CHURN_LIMIT*: uint64
     CHURN_LIMIT_QUOTIENT*: uint64
     MAX_PER_EPOCH_ACTIVATION_CHURN_LIMIT*: uint64
-    MIN_PER_EPOCH_CHURN_LIMIT_ELECTRA*: uint64
-    MAX_PER_EPOCH_ACTIVATION_EXIT_CHURN_LIMIT*: uint64
 
     # Fork choice
     # TODO PROPOSER_SCORE_BOOST*: uint64
@@ -115,6 +113,13 @@ type
     # TODO MAX_REQUEST_BLOB_SIDECARS*: uint64
     MIN_EPOCHS_FOR_BLOB_SIDECARS_REQUESTS*: uint64
     # TODO BLOB_SIDECAR_SUBNET_COUNT*: uint64
+
+    # Electra
+    MIN_PER_EPOCH_CHURN_LIMIT_ELECTRA*: uint64
+    MAX_PER_EPOCH_ACTIVATION_EXIT_CHURN_LIMIT*: uint64
+    BLOB_SIDECAR_SUBNET_COUNT_ELECTRA*: uint64
+    MAX_BLOBS_PER_BLOCK_ELECTRA*: uint64
+    MAX_REQUEST_BLOB_SIDECARS_ELECTRA*: uint64
 
   PresetFile* = object
     values*: Table[string, string]
@@ -233,10 +238,6 @@ when const_preset == "mainnet":
     CHURN_LIMIT_QUOTIENT: 65536,
     # [New in Deneb:EIP7514] 2**3 (= 8)
     MAX_PER_EPOCH_ACTIVATION_CHURN_LIMIT: 8,
-    # [New in Electra:EIP7251] 2**7 * 10**9 (= 128,000,000,000)
-    MIN_PER_EPOCH_CHURN_LIMIT_ELECTRA: 128000000000'u64,
-    # [New in Electra:EIP7251] 2**8 * 10**9 (= 256,000,000,000)
-    MAX_PER_EPOCH_ACTIVATION_EXIT_CHURN_LIMIT: 256000000000'u64,
 
     # Deposit contract
     # ---------------------------------------------------------------
@@ -283,6 +284,18 @@ when const_preset == "mainnet":
     MIN_EPOCHS_FOR_BLOB_SIDECARS_REQUESTS: 4096,
     # `6`
     # TODO BLOB_SIDECAR_SUBNET_COUNT: 6,
+
+    # Electra
+    # 2**7 * 10**9 (= 128,000,000,000)
+    MIN_PER_EPOCH_CHURN_LIMIT_ELECTRA: 128000000000'u64,
+    # 2**8 * 10**9 (= 256,000,000,000)
+    MAX_PER_EPOCH_ACTIVATION_EXIT_CHURN_LIMIT: 256000000000'u64,
+    # `9`
+    BLOB_SIDECAR_SUBNET_COUNT_ELECTRA: 9,
+    # `uint64(9)`
+    MAX_BLOBS_PER_BLOCK_ELECTRA: 9,
+    # MAX_REQUEST_BLOCKS_DENEB * MAX_BLOBS_PER_BLOCK_ELECTRA
+    MAX_REQUEST_BLOB_SIDECARS_ELECTRA: 1152
   )
 
 elif const_preset == "gnosis":
@@ -385,10 +398,6 @@ elif const_preset == "gnosis":
     CHURN_LIMIT_QUOTIENT: 4096,
     # [New in Deneb:EIP7514] 2**3 (= 8)
     MAX_PER_EPOCH_ACTIVATION_CHURN_LIMIT: 8,
-    # [New in Electra:EIP7251] 2**7 * 10**9 (= 128,000,000,000) (copied from EF mainnet)
-    MIN_PER_EPOCH_CHURN_LIMIT_ELECTRA: 128000000000'u64,
-    # [New in Electra:EIP7251] 2**8 * 10**9 (= 256,000,000,000) (copied from EF mainnet)
-    MAX_PER_EPOCH_ACTIVATION_EXIT_CHURN_LIMIT: 256000000000'u64,
 
     # Deposit contract
     # ---------------------------------------------------------------
@@ -435,6 +444,18 @@ elif const_preset == "gnosis":
     MIN_EPOCHS_FOR_BLOB_SIDECARS_REQUESTS: 16384,
     # `6`
     # TODO BLOB_SIDECAR_SUBNET_COUNT: 6,
+
+    # Electra
+    # 2**7 * 10**9 (= 128,000,000,000)
+    MIN_PER_EPOCH_CHURN_LIMIT_ELECTRA: 128000000000'u64,
+    # 2**8 * 10**9 (= 256,000,000,000)
+    MAX_PER_EPOCH_ACTIVATION_EXIT_CHURN_LIMIT: 256000000000'u64,
+    # `9`
+    BLOB_SIDECAR_SUBNET_COUNT_ELECTRA: 9,
+    # `uint64(9)`
+    MAX_BLOBS_PER_BLOCK_ELECTRA: 9,
+    # MAX_REQUEST_BLOCKS_DENEB * MAX_BLOBS_PER_BLOCK_ELECTRA
+    MAX_REQUEST_BLOB_SIDECARS_ELECTRA: 1152
   )
 
 elif const_preset == "minimal":
@@ -532,10 +553,6 @@ elif const_preset == "minimal":
     CHURN_LIMIT_QUOTIENT: 32,
     # [New in Deneb:EIP7514] [customized]
     MAX_PER_EPOCH_ACTIVATION_CHURN_LIMIT: 4,
-    # [New in Electra:EIP7251] 2**6 * 10**9 (= 64,000,000,000)
-    MIN_PER_EPOCH_CHURN_LIMIT_ELECTRA: 64000000000'u64,
-    # [New in Electra:EIP7251] 2**7 * 10**9 (= 128,000,000,000)
-    MAX_PER_EPOCH_ACTIVATION_EXIT_CHURN_LIMIT: 128000000000'u64,
 
 
     # Deposit contract
@@ -584,6 +601,18 @@ elif const_preset == "minimal":
     MIN_EPOCHS_FOR_BLOB_SIDECARS_REQUESTS: 4096,
     # `6`
     # TODO BLOB_SIDECAR_SUBNET_COUNT: 6,
+
+    # Electra
+    # [customized] 2**6 * 10**9 (= 64,000,000,000)
+    MIN_PER_EPOCH_CHURN_LIMIT_ELECTRA: 64000000000'u64,
+    # [customized] 2**7 * 10**9 (= 128,000,000,000)
+    MAX_PER_EPOCH_ACTIVATION_EXIT_CHURN_LIMIT: 128000000000'u64,
+    # `9`
+    BLOB_SIDECAR_SUBNET_COUNT_ELECTRA: 9,
+    # `uint64(9)`
+    MAX_BLOBS_PER_BLOCK_ELECTRA: 9,
+    # MAX_REQUEST_BLOCKS_DENEB * MAX_BLOBS_PER_BLOCK_ELECTRA
+    MAX_REQUEST_BLOB_SIDECARS_ELECTRA: 1152,
   )
 
 else:
@@ -795,8 +824,10 @@ proc readRuntimeConfig*(
   checkCompatibility MAX_REQUEST_BLOCKS_DENEB * MAX_BLOBS_PER_BLOCK,
                      "MAX_REQUEST_BLOB_SIDECARS"
   checkCompatibility BLOB_SIDECAR_SUBNET_COUNT
+  checkCompatibility MAX_BLOBS_PER_BLOCK_ELECTRA
+  checkCompatibility MAX_REQUEST_BLOB_SIDECARS_ELECTRA
 
-  # https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.9/specs/phase0/fork-choice.md#configuration
+  # https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.10/specs/phase0/fork-choice.md#configuration
   # Isn't being used as a preset in the usual way: at any time, there's one correct value
   checkCompatibility PROPOSER_SCORE_BOOST
   checkCompatibility REORG_HEAD_WEIGHT_THRESHOLD

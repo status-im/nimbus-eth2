@@ -144,7 +144,7 @@ type
 
 proc new*(
     T: type BatchCrypto, rng: ref HmacDrbgContext,
-    eager: Eager, genesis_validators_root: Eth2Digest, taskpool: TaskPoolPtr):
+    eager: Eager, genesis_validators_root: Eth2Digest, taskpool: Taskpool):
     Result[ref BatchCrypto, string] =
   let res = (ref BatchCrypto)(
     rng: rng, taskpool: taskpool,
@@ -419,8 +419,9 @@ proc scheduleAttestationCheck*(
 
 proc scheduleAggregateChecks*(
       batchCrypto: ref BatchCrypto, fork: Fork,
-      signedAggregateAndProof: phase0.SignedAggregateAndProof, dag: ChainDAGRef,
-      attesting_indices: openArray[ValidatorIndex]
+      signedAggregateAndProof:
+        phase0.SignedAggregateAndProof | electra.SignedAggregateAndProof,
+      dag: ChainDAGRef, attesting_indices: openArray[ValidatorIndex]
      ): Result[tuple[
         aggregatorFut, slotFut, aggregateFut: FutureBatchResult,
         sig: CookedSig], cstring] =

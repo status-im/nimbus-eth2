@@ -119,7 +119,7 @@ type
     executionPayload*: ExecutionPayload
     blockValue*: Wei
     blobsBundle*: BlobsBundle
-    executionRequests*: array[3, seq[byte]]
+    executionRequests*: seq[seq[byte]]
 
   # https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.8/specs/deneb/beacon-chain.md#executionpayloadheader
   ExecutionPayloadHeader* = object
@@ -158,7 +158,7 @@ type
 
   # https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.7/specs/electra/beacon-chain.md#pendingpartialwithdrawal
   PendingPartialWithdrawal* = object
-    index*: uint64
+    validator_index*: uint64
     amount*: Gwei
     withdrawable_epoch*: Epoch
 
@@ -186,13 +186,13 @@ type
     data*: AttestationData
     signature*: ValidatorSig
 
-  # https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.9/specs/phase0/validator.md#aggregateandproof
+  # https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.10/specs/phase0/validator.md#aggregateandproof
   AggregateAndProof* = object
     aggregator_index*: uint64 # `ValidatorIndex` after validation
     aggregate*: Attestation
     selection_proof*: ValidatorSig
 
-  # https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.9/specs/phase0/validator.md#signedaggregateandproof
+  # https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.10/specs/phase0/validator.md#signedaggregateandproof
   SignedAggregateAndProof* = object
     message*: AggregateAndProof
     signature*: ValidatorSig
@@ -982,6 +982,14 @@ func shortLog*(v: electra.Attestation | electra.TrustedAttestation): auto =
   (
     aggregation_bits: v.aggregation_bits,
     committee_bits: v.committee_bits,
+    data: shortLog(v.data),
+    signature: shortLog(v.signature)
+  )
+
+func shortLog*(v: SingleAttestation): auto =
+  (
+    committee_index: v.committee_index,
+    attester_index: v.attester_index,
     data: shortLog(v.data),
     signature: shortLog(v.signature)
   )

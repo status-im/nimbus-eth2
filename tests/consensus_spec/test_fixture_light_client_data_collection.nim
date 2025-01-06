@@ -144,7 +144,7 @@ proc runTest(suiteName, path: string, consensusFork: static ConsensusFork) =
         lcDataConfig = LightClientDataConfig(
           serve: true, importMode: LightClientDataImportMode.Full))
       rng = HmacDrbgContext.new()
-      taskpool = TaskPool.new()
+      taskpool = Taskpool.new()
     var
       verifier = BatchVerifier.init(rng, taskpool)
       quarantine = newClone(Quarantine.init())

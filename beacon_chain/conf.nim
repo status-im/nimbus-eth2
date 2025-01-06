@@ -52,7 +52,7 @@ const
   defaultSigningNodeRequestTimeout* = 60
   defaultBeaconNode* = "http://127.0.0.1:" & $defaultEth2RestPort
   defaultBeaconNodeUri* = parseUri(defaultBeaconNode)
-  defaultGasLimit* = 30_000_000
+  defaultGasLimit* = 36_000_000
   defaultAdminListenAddressDesc* = $defaultAdminListenAddress
   defaultBeaconNodeDesc = $defaultBeaconNode
 
@@ -252,6 +252,12 @@ type
       defaultValue: false,
       desc: "Subscribe to all subnet topics when gossiping"
       name: "subscribe-all-subnets" .}: bool
+
+    peerdasSupernode* {.
+      hidden
+      defaultValue: false,
+      desc: "Subscribe to all column subnets, thereby becoming a peerdas supernode"
+      name: "debug-peerdas-supernode" .}: bool
 
     slashingDbKind* {.
       hidden
