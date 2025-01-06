@@ -76,7 +76,7 @@ export
   tables, results, endians2, json_serialization, sszTypes, beacon_time, crypto,
   digest, presets, kzg4844
 
-const SPEC_VERSION* = "1.5.0-alpha.9"
+const SPEC_VERSION* = "1.5.0-alpha.10"
 ## Spec version we're aiming to be compatible with, right now
 
 const
@@ -146,7 +146,7 @@ template ethAmountUnit*(typ: type) {.dirty.} =
 
   func u256*(n: typ): UInt256 {.borrow.}
 
-  proc toString*(B: typedesc[Base10], value: typ): string {.borrow.}
+  func toString*(B: typedesc[Base10], value: typ): string {.borrow.}
 
   proc writeValue*(writer: var JsonWriter, value: typ) {.raises: [IOError].} =
     writer.writeValue(distinctBase(value))
@@ -206,7 +206,7 @@ type
     ## blob sidecar - it is distinct from the CommitteeIndex in particular
     ##
     ## The `BlobId` type is constrained to values in the range
-    ## `[0, BLOB_SIDECAR_SUBNET_COUNT)` during initialization.
+    ## `[0, MAX_BLOBS_PER_BLOCK_ELECTRA)` during initialization.
 
   # BitVector[4] in the spec, ie 4 bits which end up encoded as a byte for
   # SSZ / hashing purposes
@@ -450,7 +450,7 @@ type
 
   # https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.7/specs/electra/beacon-chain.md#pendingpartialwithdrawal
   PendingPartialWithdrawal* = object
-    index*: uint64
+    validator_index*: uint64
     amount*: Gwei
     withdrawable_epoch*: Epoch
 
@@ -512,7 +512,7 @@ type
     sync_committees*: Table[SyncCommitteePeriod, SyncCommitteeCache]
 
   # This matches the mutable state of the Solidity deposit contract
-  # https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.9/solidity_deposit_contract/deposit_contract.sol
+  # https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.10/solidity_deposit_contract/deposit_contract.sol
   DepositContractState* = object
     branch*: array[DEPOSIT_CONTRACT_TREE_DEPTH, Eth2Digest]
     deposit_count*: array[32, byte] # Uint256
@@ -724,7 +724,9 @@ template makeLimitedU64*(T: untyped, limit: uint64) =
 
 makeLimitedU64(CommitteeIndex, MAX_COMMITTEES_PER_SLOT)
 makeLimitedU64(SubnetId, ATTESTATION_SUBNET_COUNT)
-makeLimitedU64(BlobId, BLOB_SIDECAR_SUBNET_COUNT)
+
+static: doAssert MAX_BLOBS_PER_BLOCK_ELECTRA >= BLOB_SIDECAR_SUBNET_COUNT
+makeLimitedU64(BlobId, MAX_BLOBS_PER_BLOCK_ELECTRA)
 
 const
   validatorIndexLimit = min(uint64(int32.high), VALIDATOR_REGISTRY_LIMIT)

@@ -14,7 +14,7 @@ import
   kzg4844/[kzg, kzg_abi],
   stint,
   eth/p2p/discoveryv5/[node],
-  ../../beacon_chain/spec/eip7594_helpers,
+  ../../beacon_chain/spec/peerdas_helpers,
   ../testutil,
   ./fixtures_utils, ./os_ops
 
@@ -22,10 +22,10 @@ from std/sequtils import mapIt
 
 proc runGetCustodyColumns(suiteName, path: string) =
   let relativePathComponent = path.relativeTestPathComponent()
-  test "Networking - Get Custody Columns - " & relativePathComponent:
+  test "Networking - Get Custody Groups - " & relativePathComponent:
     type TestMetaYaml = object
       node_id: string
-      custody_subnet_count: uint64
+      custody_group_count: uint64
       result: seq[uint64]
     let
       meta = block:
@@ -35,17 +35,18 @@ proc runGetCustodyColumns(suiteName, path: string) =
         yaml.load(s, res)
         res
       node_id = UInt256.fromDecimal(meta.node_id)
-      custody_subnet_count = meta.custody_subnet_count
+      custody_group_count = meta.custody_group_count
       reslt = (meta.result).mapIt(it)
 
-    let columns = get_custody_columns(node_id, custody_subnet_count)
+    let columns = get_custody_groups(node_id, custody_group_count)
 
     for i in 0..<columns.lenu64:
       check columns[i] == reslt[i]
 
 suite "EF - EIP7594 - Networking" & preset():
   const presetPath = SszTestsDir/const_preset
+  # foldering to be resolved in alpha 11 release of consensus spec tests
   let basePath =
-    presetPath/"eip7594"/"networking"/"get_custody_columns"/"pyspec_tests"
+    presetPath/"fulu"/"networking"/"get_custody_columns"/"pyspec_tests"
   for kind, path in walkDir(basePath, relative = true, checkDir = true):
     runGetCustodyColumns(suiteName, basePath/path)

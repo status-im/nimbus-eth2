@@ -39,8 +39,8 @@ const
   MAX_ATTESTER_SLASHINGS_ELECTRA*: uint64 = 1
   # `uint64(2**3)` (= 8)
   MAX_ATTESTATIONS_ELECTRA*: uint64 = 8
-  # `uint64(2**0)` (= 1)
-  MAX_CONSOLIDATION_REQUESTS_PER_PAYLOAD*: uint64 = 1
+  # `uint64(2**1)` (= 2)
+  MAX_CONSOLIDATION_REQUESTS_PER_PAYLOAD*: uint64 = 2
 
   # Execution
   # ---------------------------------------------------------------
@@ -61,5 +61,5 @@ const
 
   # Misc
   # ---------------------------------------------------------------
-  # `floorlog2(get_generalized_index(BeaconBlockBody, 'blob_kzg_commitments')) + 1 + ceillog2(MAX_BLOB_COMMITMENTS_PER_BLOCK)` = 7 + 1 + 4 = 12
-  KZG_COMMITMENT_INCLUSION_PROOF_DEPTH_ELECTRA* = 12
+  # `floorlog2(get_generalized_index(BeaconBlockBody, 'blob_kzg_commitments')) + 1 + ceillog2(MAX_BLOB_COMMITMENTS_PER_BLOCK)` = 7 + 1 + 5 = 13
+  KZG_COMMITMENT_INCLUSION_PROOF_DEPTH_ELECTRA* = 13
