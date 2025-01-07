@@ -1,5 +1,5 @@
 # beacon_chain
-# Copyright (c) 2018-2024 Status Research & Development GmbH
+# Copyright (c) 2018-2025 Status Research & Development GmbH
 # Licensed and distributed under either of
 #   * MIT license (license terms in the root directory or at https://opensource.org/licenses/MIT).
 #   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
@@ -43,7 +43,7 @@ import
     keystore_management, slashing_protection, validator_duties, validator_pool],
   ".."/spec/mev/[rest_deneb_mev_calls, rest_electra_mev_calls, rest_fulu_mev_calls]
 
-from std/sequtils import countIt, deduplicate, foldl, mapIt
+from std/sequtils import mapIt
 from eth/async_utils import awaitWithTimeout
 
 # Metrics for tracking attestation and beacon block loss
@@ -443,8 +443,6 @@ proc getExecutionPayload(
     PayloadType, beaconHead.blck.bid.root, executionHead, latestSafe,
     latestFinalized, timestamp, random, feeRecipient, withdrawals)
 
-from std/algorithm import isSorted
-
 # BlockRewards has issues resolving somehow otherwise
 import ".."/spec/state_transition_block
 
@@ -543,18 +541,22 @@ proc makeBeaconBlockForHeadAndSlot*(
   let execution_requests_actual =
     when PayloadType.kind >= ConsensusFork.Electra:
       # Don't want un-decoded SSZ going any further/deeper
-      var execution_requests_buffer: ExecutionRequests
-      block:
-        let request_types = mapIt(payload.executionRequests, it[0])
-        if not isSorted(request_types):
-          return err("Execution layer request types not sorted")
-        if payload.executionRequests.len !=
-            deduplicate(request_types, isSorted = true).len:
-          return err("Execution layer request types duplicated")
+      var
+        execution_requests_buffer: ExecutionRequests
+        prev_type: Opt[byte]
       try:
         for request_type_and_payload in payload.executionRequests:
           if request_type_and_payload.len < 2:
             return err("Execution layer request too short")
+
+          let request_type = request_type_and_payload[0]
+          if prev_type.isSome:
+            if request_type < prev_type.get:
+              return err("Execution layer request types not sorted")
+            if request_type == prev_type.get:
+              return err("Execution layer request types duplicated")
+          prev_type.ok request_type
+
           template request_payload: untyped =
             request_type_and_payload.toOpenArray(
               1, request_type_and_payload.len - 1)
