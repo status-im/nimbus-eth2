@@ -1,5 +1,5 @@
 # beacon_chain
-# Copyright (c) 2024 Status Research & Development GmbH
+# Copyright (c) 2024-2025 Status Research & Development GmbH
 # Licensed and distributed under either of
 #   * MIT license (license terms in the root directory or at https://opensource.org/licenses/MIT).
 #   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
@@ -43,7 +43,7 @@ proc runGetCustodyColumns(suiteName, path: string) =
     for i in 0..<columns.lenu64:
       check columns[i] == reslt[i]
 
-suite "EF - EIP7594 - Networking" & preset():
+suite "EF - PeerDAS - Networking" & preset():
   const presetPath = SszTestsDir/const_preset
   # foldering to be resolved in alpha 11 release of consensus spec tests
   let basePath =

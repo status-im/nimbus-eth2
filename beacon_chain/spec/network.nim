@@ -1,5 +1,5 @@
 # beacon_chain
-# Copyright (c) 2018-2024 Status Research & Development GmbH
+# Copyright (c) 2018-2025 Status Research & Development GmbH
 # Licensed and distributed under either of
 #   * MIT license (license terms in the root directory or at https://opensource.org/licenses/MIT).
 #   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
@@ -34,7 +34,7 @@ const
   MAX_REQUEST_BLOB_SIDECARS*: uint64 =
     MAX_REQUEST_BLOCKS_DENEB * MAX_BLOBS_PER_BLOCK
 
-  # https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.9/specs/_features/eip7594/p2p-interface.md#configuration
+  # https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.10/specs/fulu/p2p-interface.md#configuration
   MAX_REQUEST_DATA_COLUMN_SIDECARS*: uint64 =
     MAX_REQUEST_BLOCKS_DENEB * NUMBER_OF_COLUMNS
 
@@ -114,7 +114,7 @@ func getBlobSidecarTopic*(forkDigest: ForkDigest,
 func compute_subnet_for_blob_sidecar*(blob_index: BlobIndex): BlobId =
   BlobId(blob_index mod MAX_BLOBS_PER_BLOCK_ELECTRA)
 
-# https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.8/specs/_features/eip7594/p2p-interface.md#compute_subnet_for_data_column_sidecar
+# https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.10/specs/fulu/p2p-interface.md#compute_subnet_for_data_column_sidecar
 func compute_subnet_for_data_column_sidecar*(column_index: ColumnIndex): uint64 =
     uint64(column_index mod DATA_COLUMN_SIDECAR_SUBNET_COUNT)
 

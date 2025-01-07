@@ -194,19 +194,6 @@ OK: 1/1 Fail: 0/1 Skip: 0/1
 + Tail block only in common                                                                  OK
 ```
 OK: 2/2 Fail: 0/2 Skip: 0/2
-## EF - EIP7594 - Networking [Preset: mainnet]
-```diff
-+ Networking - Get Custody Groups - mainnet/fulu/networking/get_custody_columns/pyspec_tests OK
-+ Networking - Get Custody Groups - mainnet/fulu/networking/get_custody_columns/pyspec_tests OK
-+ Networking - Get Custody Groups - mainnet/fulu/networking/get_custody_columns/pyspec_tests OK
-+ Networking - Get Custody Groups - mainnet/fulu/networking/get_custody_columns/pyspec_tests OK
-+ Networking - Get Custody Groups - mainnet/fulu/networking/get_custody_columns/pyspec_tests OK
-+ Networking - Get Custody Groups - mainnet/fulu/networking/get_custody_columns/pyspec_tests OK
-+ Networking - Get Custody Groups - mainnet/fulu/networking/get_custody_columns/pyspec_tests OK
-+ Networking - Get Custody Groups - mainnet/fulu/networking/get_custody_columns/pyspec_tests OK
-+ Networking - Get Custody Groups - mainnet/fulu/networking/get_custody_columns/pyspec_tests OK
-```
-OK: 9/9 Fail: 0/9 Skip: 0/9
 ## EF - KZG
 ```diff
 + KZG - Blob to KZG commitment - blob_to_kzg_commitment_case_invalid_blob_59d64ff6b4648fad   OK
@@ -464,7 +451,7 @@ OK: 9/9 Fail: 0/9 Skip: 0/9
 + KZG - Verify blob KZG proof batch - verify_blob_kzg_proof_batch_case_proof_length_differen OK
 ```
 OK: 253/253 Fail: 0/253 Skip: 0/253
-## EF - KZG - EIP7594
+## EF - KZG - PeerDAS
 ```diff
 + KZG - Compute Cells And Proofs - compute_cells_and_kzg_proofs_case_invalid_blob_26555bdcbf OK
 + KZG - Compute Cells And Proofs - compute_cells_and_kzg_proofs_case_invalid_blob_79fb3cb1ef OK
@@ -524,6 +511,19 @@ OK: 253/253 Fail: 0/253 Skip: 0/253
 + KZG - Verify Cell Kzg Proof Batch - verify_cell_kzg_proof_batch_case_valid_zero_cells_fbbd OK
 ```
 OK: 56/56 Fail: 0/56 Skip: 0/56
+## EF - PeerDAS - Networking [Preset: mainnet]
+```diff
++ Networking - Get Custody Groups - mainnet/fulu/networking/get_custody_columns/pyspec_tests OK
++ Networking - Get Custody Groups - mainnet/fulu/networking/get_custody_columns/pyspec_tests OK
++ Networking - Get Custody Groups - mainnet/fulu/networking/get_custody_columns/pyspec_tests OK
++ Networking - Get Custody Groups - mainnet/fulu/networking/get_custody_columns/pyspec_tests OK
++ Networking - Get Custody Groups - mainnet/fulu/networking/get_custody_columns/pyspec_tests OK
++ Networking - Get Custody Groups - mainnet/fulu/networking/get_custody_columns/pyspec_tests OK
++ Networking - Get Custody Groups - mainnet/fulu/networking/get_custody_columns/pyspec_tests OK
++ Networking - Get Custody Groups - mainnet/fulu/networking/get_custody_columns/pyspec_tests OK
++ Networking - Get Custody Groups - mainnet/fulu/networking/get_custody_columns/pyspec_tests OK
+```
+OK: 9/9 Fail: 0/9 Skip: 0/9
 ## EF - SSZ generic types
 ```diff
   Testing basic_vector inputs - invalid                                                      Skip
@@ -549,11 +549,6 @@ OK: 10/12 Fail: 0/12 Skip: 2/12
 + snapshot_cases                                                                             OK
 ```
 OK: 5/5 Fail: 0/5 Skip: 0/5
-## EIP-7594 Sampling Tests
-```diff
-+ EIP7594: Extended Sample Count                                                             OK
-```
-OK: 1/1 Fail: 0/1 Skip: 0/1
 ## EIP-7594 Unit Tests
 ```diff
 + EIP-7594: Compute Matrix                                                                   OK
@@ -810,6 +805,11 @@ OK: 17/17 Fail: 0/17 Skip: 0/17
 ## Old database versions [Preset: mainnet]
 ```diff
 + pre-1.1.0                                                                                  OK
+```
+OK: 1/1 Fail: 0/1 Skip: 0/1
+## PeerDAS Sampling Tests
+```diff
++ PeerDAS: Extended Sample Count                                                             OK
 ```
 OK: 1/1 Fail: 0/1 Skip: 0/1
 ## PeerPool testing suite

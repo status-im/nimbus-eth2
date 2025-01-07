@@ -1,5 +1,5 @@
 # beacon_chain
-# Copyright (c) 2018-2024 Status Research & Development GmbH
+# Copyright (c) 2018-2025 Status Research & Development GmbH
 # Licensed and distributed under either of
 #   * MIT license (license terms in the root directory or at https://opensource.org/licenses/MIT).
 #   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
@@ -24,66 +24,7 @@ type
   CellBytes = array[fulu.CELLS_PER_EXT_BLOB, Cell]
   ProofBytes = array[fulu.CELLS_PER_EXT_BLOB, KzgProof]
 
-# Shall be deprecated once alpha 11 tests are released
-func sortedColumnIndices(columnsPerSubnet: ColumnIndex,
-                         subnetIds: HashSet[uint64]):
-                         seq[ColumnIndex] =
-  var res: seq[ColumnIndex] = @[]
-  for i in 0'u64 ..< columnsPerSubnet:
-    for subnetId in subnetIds:
-      let index = DATA_COLUMN_SIDECAR_SUBNET_COUNT * i + subnetId
-      res.add(ColumnIndex(index))
-  res.sort
-  res
-
-# Shall be deprecated once alpha 11 tests are released
-func get_custody_column_subnets*(node_id: NodeId,
-                                 custody_subnet_count: uint64):
-                                 HashSet[uint64] =
-
-  # Decouples the custody subnet computation part from
-  # `get_custody_columns`, in order to later use this subnet list
-  # in order to maintain subscription to specific column subnets.
-
-  var
-    subnet_ids: HashSet[uint64]
-    current_id = node_id
-
-  while subnet_ids.lenu64 < custody_subnet_count:
-    var
-      hashed_bytes: array[8, byte]
-
-    let
-      current_id_bytes = current_id.toBytesLE()
-      hashed_current_id = eth2digest(current_id_bytes)
-
-    hashed_bytes[0..7] = hashed_current_id.data.toOpenArray(0,7)
-    let subnet_id = bytes_to_uint64(hashed_bytes) mod
-      DATA_COLUMN_SIDECAR_SUBNET_COUNT
-
-    subnet_ids.incl(subnet_id)
-
-    if current_id == UInt256.high.NodeId:
-      # Overflow prevention
-      current_id = NodeId(StUint[256].zero)
-    current_id += NodeId(StUint[256].one)
-
-  subnet_ids
-
-# https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.5/specs/_features/eip7594/das-core.md#get_custody_columns
-# Shall be deprecated once alpha 11 tests are released
-func get_custody_columns*(node_id: NodeId,
-                          custody_subnet_count: uint64):
-                          seq[ColumnIndex] =
-  let
-    subnet_ids =
-      get_custody_column_subnets(node_id, custody_subnet_count)
-  const
-    columns_per_subnet =
-      NUMBER_OF_COLUMNS div DATA_COLUMN_SIDECAR_SUBNET_COUNT
-
-  sortedColumnIndices(ColumnIndex(columns_per_subnet), subnet_ids)
-
+# https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.10/specs/fulu/das-core.md#compute_columns_for_custody_group
 iterator compute_columns_for_custody_group(custody_group: CustodyIndex):
                                            ColumnIndex =
   for i in 0'u64 ..< COLUMNS_PER_GROUP:
@@ -149,7 +90,7 @@ func resolve_column_sets_from_custody_groups*(node_id: NodeId,
 
   node_id.resolve_columns_from_custody_groups(custody_group_count).toHashSet()
 
-# https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.5/specs/_features/eip7594/das-core.md#compute_matrix
+# https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.10/specs/fulu/das-core.md#compute_matrix
 proc compute_matrix*(blobs: seq[KzgBlob]): Result[seq[MatrixEntry], cstring] =
   ## `compute_matrix` helper demonstrates the relationship
   ## between blobs and the `MatrixEntries`
@@ -170,7 +111,7 @@ proc compute_matrix*(blobs: seq[KzgBlob]): Result[seq[MatrixEntry], cstring] =
 
   ok(extended_matrix)
 
-# https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.5/specs/_features/eip7594/das-core.md#recover_matrix
+# https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.10/specs/fulu/das-core.md#recover_matrix
 proc recover_matrix*(partial_matrix: seq[MatrixEntry],
                      blobCount: int):
                      Result[seq[MatrixEntry], cstring] =
@@ -205,7 +146,7 @@ proc recover_matrix*(partial_matrix: seq[MatrixEntry],
 
   ok(extended_matrix)
 
-# https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.9/specs/_features/eip7594/das-core.md#get_data_column_sidecars
+# https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.10/specs/fulu/das-core.md#get_data_column_sidecars
 proc get_data_column_sidecars*(signed_beacon_block: electra.TrustedSignedBeaconBlock,
                                cellsAndProofs: seq[CellsAndProofs]):
                                seq[DataColumnSidecar] =
@@ -323,7 +264,7 @@ proc get_data_column_sidecars*(signed_beacon_block: electra.SignedBeaconBlock,
 
   ok(sidecars)
 
-# https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.9/specs/_features/eip7594/peer-sampling.md#get_extended_sample_count
+# https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.10/specs/fulu/peer-sampling.md#get_extended_sample_count
 func get_extended_sample_count*(samples_per_slot: int,
                                 allowed_failures: int):
                                 int =
@@ -349,7 +290,7 @@ func get_extended_sample_count*(samples_per_slot: int,
 
   NUMBER_OF_COLUMNS
 
-# https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.6/specs/_features/eip7594/p2p-interface.md#verify_data_column_sidecar_inclusion_proof
+# https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.10/specs/fulu/p2p-interface.md#verify_data_column_sidecar_inclusion_proof
 proc verify_data_column_sidecar_inclusion_proof*(sidecar: DataColumnSidecar):
                                                  Result[void, cstring] =
   ## Verify if the given KZG Commitments are in included
@@ -367,7 +308,7 @@ proc verify_data_column_sidecar_inclusion_proof*(sidecar: DataColumnSidecar):
 
   ok()
 
-# https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.6/specs/_features/eip7594/p2p-interface.md#verify_data_column_sidecar_kzg_proofs
+# https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.10/specs/fulu/p2p-interface.md#verify_data_column_sidecar_kzg_proofs
 proc verify_data_column_sidecar_kzg_proofs*(sidecar: DataColumnSidecar):
                                             Result[void, cstring] =
   ## Verify if the KZG Proofs consisting in the `DataColumnSidecar`

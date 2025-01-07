@@ -1,5 +1,5 @@
 # beacon_chain
-# Copyright (c) 2022-2024 Status Research & Development GmbH
+# Copyright (c) 2022-2025 Status Research & Development GmbH
 # Licensed and distributed under either of
 #   * MIT license (license terms in the root directory or at https://opensource.org/licenses/MIT).
 #   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
@@ -40,7 +40,7 @@ from ./deneb import Blobs, BlobsBundle, KzgCommitments, KzgProofs
 export json_serialization, base
 
 const
-  # https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.5/specs/_features/eip7594/polynomial-commitments-sampling.md#cells
+  # https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.10/specs/fulu/polynomial-commitments-sampling.md#cells
   FIELD_ELEMENTS_PER_EXT_BLOB* = 2 * kzg_abi.FIELD_ELEMENTS_PER_BLOB
   # Number of field elements in a Reed-Solomon extended blob |
   FIELD_ELEMENTS_PER_CELL* = 64 # Number of field elements in a cell |
@@ -49,14 +49,14 @@ const
   CELLS_PER_EXT_BLOB* = FIELD_ELEMENTS_PER_EXT_BLOB div FIELD_ELEMENTS_PER_CELL
   # The number of cells in an extended blob |
 
-  # https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.5/specs/_features/eip7594/p2p-interface.md#preset
+  # https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.10/specs/fulu/p2p-interface.md#preset
   KZG_COMMITMENTS_INCLUSION_PROOF_DEPTH* = 4
   KZG_COMMITMENTS_INCLUSION_PROOF_DEPTH_GINDEX* = 27
 
-  # https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.5/specs/_features/eip7594/das-core.md#data-size
+  # https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.10/specs/fulu/das-core.md#data-size
   NUMBER_OF_COLUMNS* = 128
 
-  # https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.5/specs/_features/eip7594/das-core.md#networking
+  # https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.10/specs/fulu/p2p-interface.md#configuration
   DATA_COLUMN_SIDECAR_SUBNET_COUNT* = 128
 
   # https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.10/specs/fulu/das-core.md#custody-setting
@@ -68,7 +68,7 @@ const
   COLUMNS_PER_GROUP* = NUMBER_OF_COLUMNS div NUMBER_OF_CUSTODY_GROUPS
 
 type
-  # https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.6/specs/_features/eip7594/polynomial-commitments-sampling.md#custom-types
+  # https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.10/specs/fulu/polynomial-commitments-sampling.md#custom-types
   BLSFieldElement* = KzgBytes32
   G2Point* = array[96, byte]
   PolynomialCoeff* = List[BLSFieldElement, FIELD_ELEMENTS_PER_EXT_BLOB]
@@ -88,7 +88,7 @@ type
 type
   DataColumn* = List[KzgCell, Limit(MAX_BLOB_COMMITMENTS_PER_BLOCK)]
 
-  # https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.9/specs/_features/eip7594/das-core.md#datacolumnsidecar
+  # https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.10/specs/fulu/das-core.md#datacolumnsidecar
   DataColumnSidecar* = object
     index*: ColumnIndex # Index of column in extended matrix
     column*: DataColumn
@@ -100,12 +100,12 @@ type
 
   DataColumnSidecars* = seq[ref DataColumnSidecar]
 
-  # https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.5/specs/_features/eip7594/p2p-interface.md#datacolumnidentifier
+  # https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.10/specs/fulu/p2p-interface.md#datacolumnidentifier
   DataColumnIdentifier* = object
     block_root*: Eth2Digest
     index*: ColumnIndex
 
-  # https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.6/specs/_features/eip7594/das-core.md#matrixentry
+  # https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.10/specs/fulu/das-core.md#matrixentry
   MatrixEntry* = object
     cell*: Cell
     kzg_proof*: KzgProof
@@ -117,14 +117,14 @@ type
 
   CgcCount* = uint8
 
-  # https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.5/specs/_features/eip7594/p2p-interface.md#metadata
+  # https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.10/specs/fulu/p2p-interface.md#metadata
   MetaData* = object
     seq_number*: uint64
     attnets*: AttnetBits
     syncnets*: SyncnetBits
     custody_group_count*: uint64
 
-  # https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.8/specs/deneb/beacon-chain.md#executionpayload
+  # https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.10/specs/deneb/beacon-chain.md#executionpayload
   ExecutionPayload* = object
     # Execution block header fields
     parent_hash*: Eth2Digest

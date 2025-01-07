@@ -1,5 +1,5 @@
 # beacon_chain
-# Copyright (c) 2024 Status Research & Development GmbH
+# Copyright (c) 2024-2025 Status Research & Development GmbH
 # Licensed and distributed under either of
 #   * MIT license (license terms in the root directory or at https://opensource.org/licenses/MIT).
 #   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
@@ -329,7 +329,7 @@ suite suiteName:
     for kind, path in walkDir(testsDir, relative = true, checkDir = true):
       runComputeBlobKzgProofTest(suiteName, testsDir, testsDir / path)
 
-suiteName = "EF - KZG - EIP7594"
+suiteName = "EF - KZG - PeerDAS"
 
 suite suiteName:
   const suitePath = SszTestsDir/"general"/"fulu"/"kzg"
