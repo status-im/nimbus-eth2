@@ -253,7 +253,7 @@ jobs:
       - name: Check copyright year
         if: ${{ !cancelled() }} && github.event_name == 'pull_request'
         run: |
-          excluded_files="config.yaml"
+          excluded_files="config.yaml|config.nims|beacon_chain.nimble"
           excluded_extensions="ans|bin|cfg|yml|json|json\\.template|md|png|service|ssz|txt|lock|nix|gitignore|envrc"
 
           current_year=$(date +"%Y")
