@@ -11,13 +11,9 @@ import std/strutils
 
 const currentDir = currentSourcePath()[0 .. ^(len("config.nims") + 1)]
 
-if getEnv("NIMBUS_BUILD_SYSTEM") == "yes" and
-   # BEWARE
-   # In Nim 1.6, config files are evaluated with a working directory
-   # matching where the Nim command was invocated. This means that we
-   # must do all file existance checks with full absolute paths:
-   system.fileExists(currentDir & "nimbus-build-system.paths"):
-  include "nimbus-build-system.paths"
+when withDir(thisDir(), system.fileExists("nimbus-build-system.paths")):
+  if getEnv("NIMBUS_BUILD_SYSTEM") == "yes":
+    include "nimbus-build-system.paths"
 
 const nimCachePathOverride {.strdefine.} = ""
 when nimCachePathOverride == "":
