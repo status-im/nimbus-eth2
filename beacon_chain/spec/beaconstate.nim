@@ -1212,11 +1212,9 @@ proc process_attestation*(
   ok(proposer_reward)
 
 # https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.9/specs/altair/beacon-chain.md#get_next_sync_committee_indices
-# https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.3/specs/electra/beacon-chain.md#modified-get_next_sync_committee_indices
 func get_next_sync_committee_keys(
     state: altair.BeaconState | bellatrix.BeaconState | capella.BeaconState |
-           deneb.BeaconState | electra.BeaconState | fulu.BeaconState):
-    array[SYNC_COMMITTEE_SIZE, ValidatorPubKey] =
+           deneb.BeaconState): array[SYNC_COMMITTEE_SIZE, ValidatorPubKey] =
   ## Return the sequence of sync committee indices, with possible duplicates,
   ## for the next sync committee.
   # The sync committe depends on seed and effective balance - it can
@@ -1244,13 +1242,51 @@ func get_next_sync_committee_keys(
       candidate_index = active_validator_indices[shuffled_index]
       random_byte = eth2digest(hash_buffer).data[i mod 32]
       effective_balance = state.validators[candidate_index].effective_balance
-    const meb =
-      when typeof(state).kind >= ConsensusFork.Electra:
-        MAX_EFFECTIVE_BALANCE_ELECTRA.Gwei  # [Modified in Electra:EIP7251]
-      else:
-        MAX_EFFECTIVE_BALANCE.Gwei
+    if effective_balance * MAX_RANDOM_BYTE >=
+        MAX_EFFECTIVE_BALANCE.Gwei * random_byte:
+      res[index] = state.validators[candidate_index].pubkey
+      inc index
+    i += 1'u64
+  res
 
-    if effective_balance * MAX_RANDOM_BYTE >= meb * random_byte:
+# https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.10/specs/electra/beacon-chain.md#modified-get_next_sync_committee_indices
+func get_next_sync_committee_keys(
+    state: electra.BeaconState | fulu.BeaconState):
+    array[SYNC_COMMITTEE_SIZE, ValidatorPubKey] =
+  ## Return the sequence of sync committee indices, with possible duplicates,
+  ## for the next sync committee.
+  # The sync committe depends on seed and effective balance - it can
+  # thus only be computed for the current epoch of the state, after balance
+  # updates have been performed
+
+  let epoch = get_current_epoch(state) + 1
+
+  const MAX_RANDOM_VALUE = 65536 - 1  # [Modified in Electra]
+  let
+    active_validator_indices = get_active_validator_indices(state, epoch)
+    active_validator_count = uint64(len(active_validator_indices))
+    seed = get_seed(state, epoch, DOMAIN_SYNC_COMMITTEE)
+  var
+    i = 0'u64
+    index = 0
+    res: array[SYNC_COMMITTEE_SIZE, ValidatorPubKey]
+    hash_buffer: array[40, byte]
+    rv_buf: array[8, byte]
+  hash_buffer[0..31] = seed.data
+  while index < SYNC_COMMITTEE_SIZE:
+    hash_buffer[32..39] = uint_to_bytes(uint64(i div 16))  # [Modified in Electra]
+    let
+      shuffled_index = compute_shuffled_index(
+        uint64(i mod active_validator_count), active_validator_count, seed)
+      candidate_index = active_validator_indices[shuffled_index]
+      random_bytes = eth2digest(hash_buffer).data
+      offset = (i mod 16) * 2
+      effective_balance = state.validators[candidate_index].effective_balance
+    rv_buf[0 .. 1] = random_bytes.toOpenArray(offset, offset + 1)
+    let random_value = bytes_to_uint64(rv_buf)
+    # [Modified in Electra:EIP7251]
+    if effective_balance * MAX_RANDOM_VALUE >=
+        MAX_EFFECTIVE_BALANCE_ELECTRA.Gwei * random_value:
       res[index] = state.validators[candidate_index].pubkey
       inc index
     i += 1'u64
@@ -1336,7 +1372,7 @@ func get_pending_balance_to_withdraw*(
     validator_index: ValidatorIndex): Gwei =
   var pending_balance: Gwei
   for withdrawal in state.pending_partial_withdrawals:
-    if withdrawal.index == validator_index:
+    if withdrawal.validator_index == validator_index:
       pending_balance += withdrawal.amount
 
   pending_balance
@@ -1444,10 +1480,10 @@ template get_expected_withdrawals_with_partial_count_aux*(
       break
 
     let
-      validator = state.validators.item(withdrawal.index)
+      validator = state.validators.item(withdrawal.validator_index)
 
       # Keep a uniform variable name available for injected code
-      validator_index {.inject.} = withdrawal.index
+      validator_index {.inject.} = withdrawal.validator_index
 
       # Here, can't use the pre-stored effective balance because this template
       # might be called on the next slot and therefore next epoch, after which
@@ -1471,7 +1507,7 @@ template get_expected_withdrawals_with_partial_count_aux*(
           withdrawal.amount)
       var w = Withdrawal(
         index: withdrawal_index,
-        validator_index: withdrawal.index,
+        validator_index: withdrawal.validator_index,
         amount: withdrawable_balance)
       w.address.data[0..19] = validator.withdrawal_credentials.data[12..^1]
       withdrawals.add w
@@ -1998,7 +2034,7 @@ func upgrade_to_capella*(cfg: RuntimeConfig, pre: bellatrix.BeaconState):
     # historical_summaries initialized to correct default automatically
   )
 
-# https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.9/specs/deneb/fork.md#upgrading-the-state
+# https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.10/specs/deneb/fork.md#upgrading-the-state
 func upgrade_to_deneb*(cfg: RuntimeConfig, pre: capella.BeaconState):
     ref deneb.BeaconState =
   let

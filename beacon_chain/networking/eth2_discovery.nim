@@ -11,7 +11,7 @@ import
   std/[algorithm, sequtils],
   chronos, chronicles,
   eth/p2p/discoveryv5/[enr, protocol, node, random2],
-  ../spec/datatypes/altair,
+  ../spec/datatypes/[altair, fulu],
   ../spec/eth2_ssz_serialization,
   ".."/[conf, conf_light_client]
 
@@ -127,6 +127,7 @@ proc queryRandom*(
     forkId: ENRForkID,
     wantedAttnets: AttnetBits,
     wantedSyncnets: SyncnetBits,
+    wantedCgcnets: CgcBits,
     minScore: int): Future[seq[Node]] {.async: (raises: [CancelledError]).} =
   ## Perform a discovery query for a random target
   ## (forkId) and matching at least one of the attestation subnets.
@@ -151,13 +152,26 @@ proc queryRandom*(
     if not forkId.isCompatibleForkId(peerForkId):
       continue
 
+    let cgcCountBytes = n.record.get(enrCustodySubnetCountField, seq[byte])
+    if cgcCountBytes.isOk():
+      let cgcCountNode =
+        try:
+          SSZ.decode(cgcCountBytes.get(), uint8)
+        except SerializationError as e:
+          debug "Could not decode the cgc ENR field of peer",
+            peer = n.record.toURI(), exception = e.name, msg = e.msg
+          continue
+
+      if wantedCgcnets.countOnes().uint8 == cgcCountNode:
+        score += 1
+
     let attnetsBytes = n.record.get(enrAttestationSubnetsField, seq[byte])
     if attnetsBytes.isOk():
       let attnetsNode =
         try:
           SSZ.decode(attnetsBytes.get(), AttnetBits)
         except SerializationError as e:
-          debug "Could not decode the attnets ERN bitfield of peer",
+          debug "Could not decode the attnets ENR bitfield of peer",
             peer = n.record.toURI(), exception = e.name, msg = e.msg
           continue
 

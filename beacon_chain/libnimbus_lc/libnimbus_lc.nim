@@ -328,7 +328,7 @@ proc ETHLightClientStoreCreateFromBootstrap(
   ## See:
   ## * https://ethereum.github.io/beacon-APIs/?urls.primaryName=v2.4.1#/Beacon/getLightClientBootstrap
   ## * https://ethereum.github.io/beacon-APIs/?urls.primaryName=v2.4.1#/Events/eventstream
-  ## * https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.9/specs/altair/light-client/light-client.md
+  ## * https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.10/specs/altair/light-client/light-client.md
   ## * https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.9/specs/phase0/weak-subjectivity.md#weak-subjectivity-period
   let
     mediaType = MediaType.init($mediaType)
@@ -735,7 +735,7 @@ func ETHLightClientStoreGetFinalizedHeader(
   ## * Latest finalized header.
   ##
   ## See:
-  ## * https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.9/specs/capella/light-client/sync-protocol.md#modified-lightclientheader
+  ## * https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.10/specs/capella/light-client/sync-protocol.md#modified-lightclientheader
   addr store[].finalized_header
 
 func ETHLightClientStoreIsNextSyncCommitteeKnown(
@@ -755,7 +755,7 @@ func ETHLightClientStoreIsNextSyncCommitteeKnown(
   ##
   ## See:
   ## * https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.3/specs/altair/light-client/sync-protocol.md#is_next_sync_committee_known
-  ## * https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.9/specs/altair/light-client/light-client.md
+  ## * https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.10/specs/altair/light-client/light-client.md
   store[].is_next_sync_committee_known
 
 func ETHLightClientStoreGetOptimisticHeader(
@@ -1328,18 +1328,13 @@ proc ETHExecutionBlockHeaderCreateFromJson(
     doAssert data.withdrawalsRoot.isSome  # Checked above
 
     wds = newSeqOfCap[ETHWithdrawal](data.withdrawals.get.len)
-    for data in data.withdrawals.get:
+    for wd in data.withdrawals.get:
       # Check fork consistency
-      static: doAssert totalSerializedFields(WithdrawalObject) == 4,
+      static: doAssert totalSerializedFields(eth_types.EthWithdrawal) == 4,
         "Only update this number once code is adjusted to check new fields!"
 
       # Construct withdrawal
       let
-        wd = eth_types.EthWithdrawal(
-          index: distinctBase(data.index),
-          validatorIndex: distinctBase(data.validatorIndex),
-          address: distinctBase(data.address).to(EthAddress),
-          amount: distinctBase(data.amount))
         rlpBytes =
           try:
             rlp.encode(wd)
@@ -1585,7 +1580,7 @@ proc ETHTransactionsCreateFromJson(
     if data.authorizationList.isSome:
       for authorization in data.authorizationList.get:
         static: doAssert sizeof(uint64) == sizeof(authorization.chainId)
-        if distinctBase(authorization.v) > uint8.high:
+        if authorization.v > uint8.high:
           return nil
     let
       tx = eth_types.EthTransaction(
@@ -1606,9 +1601,7 @@ proc ETHTransactionsCreateFromJson(
         payload: data.input,
         accessList:
           if data.accessList.isSome:
-            data.accessList.get.mapIt(AccessPair(
-              address: distinctBase(it.address).to(EthAddress),
-              storageKeys: it.storageKeys.mapIt(distinctBase(it).to(Bytes32))))
+            data.accessList.get
           else:
             @[],
         maxFeePerBlobGas:
@@ -1621,13 +1614,7 @@ proc ETHTransactionsCreateFromJson(
             @[],
         authorizationList:
           if data.authorizationList.isSome:
-            data.authorizationList.get.mapIt(Authorization(
-              chainId: eth_types.ChainId(it.chainId),
-              address: distinctBase(it.address).to(EthAddress),
-              nonce: distinctBase(it.nonce),
-              v: distinctBase(it.v),
-              r: it.r,
-              s: it.s))
+            data.authorizationList.get
           else:
             @[],
         V: distinctBase(data.v),
@@ -1638,7 +1625,7 @@ proc ETHTransactionsCreateFromJson(
           rlp.encode(tx)
         except RlpError:
           raiseAssert "Unreachable"
-      hash = keccakHash(rlpBytes)
+      hash = keccak256(rlpBytes)
     if data.hash.asEth2Digest != hash:
       return nil
 
@@ -1687,7 +1674,7 @@ proc ETHTransactionsCreateFromJson(
         of DestinationType.Regular:
           tx.to.get
         of DestinationType.Create:
-          let hash = keccakHash(rlp.encodeList(fromAddress, tx.nonce))
+          let hash = keccak256(rlp.encodeList(fromAddress, tx.nonce))
           hash.to(EthAddress)
 
     # Compute authorizations
@@ -1706,7 +1693,7 @@ proc ETHTransactionsCreateFromJson(
         signature: @sig)
 
     txs.add ETHTransaction(
-      hash: keccakHash(rlpBytes),
+      hash: keccak256(rlpBytes),
       chainId: distinctBase(tx.chainId),
       `from`: ExecutionAddress(data: fromAddress),
       nonce: tx.nonce,

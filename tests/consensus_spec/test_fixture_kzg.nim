@@ -204,7 +204,7 @@ proc runComputeBlobKzgProofTest(suiteName, suitePath, path: string) =
 proc runComputeCellsAndKzgProofsTest(suiteName, suitePath, path: string) =
   let relativePathComponent = path.relativeTestPathComponent(suitePath)
   test "KZG - Compute Cells And Proofs - " & relativePathComponent:
-    let 
+    let
       data = loadToJson(os_ops.readFile(path/"data.yaml"))[0]
       output = data["output"]
       blob = fromHex[131072](data["input"]["blob"].getStr)
@@ -236,12 +236,12 @@ proc runVerifyCellKzgProofBatchTest(suiteName, suitePath, path: string) =
       cells = data["input"]["cells"].mapIt(fromHex[2048](it.getStr))
       proofs = data["input"]["proofs"].mapIt(fromHex[48](it.getStr))
 
-    # https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.9/tests/formats/kzg_7594/verify_cell_kzg_proof_batch.md#condition
+    # https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.10/tests/formats/kzg_7594/verify_cell_kzg_proof_batch.md#condition
     # If the blob is invalid (e.g. incorrect length or one of the 32-byte
     # blocks does not represent a BLS field element) it should error, i.e. the
     # the output should be `null`.
-    if commitments.anyIt(it.isNone) or 
-        cell_indices.anyIt(it.isNone) or 
+    if commitments.anyIt(it.isNone) or
+        cell_indices.anyIt(it.isNone) or
         proofs.anyIt(it.isNone) or
         cells.anyIt(it.isNone):
       check output.kind == JNull
@@ -270,7 +270,7 @@ proc runRecoverCellsAndKzgProofsTest(suiteName, suitePath, path: string) =
     # If the blob is invalid (e.g. incorrect length or one of the 32-byte
     # blocks does not represent a BLS field element) it should error, i.e. the
     # the output should be `null`.
-    if cell_ids.anyIt(it.isNone) or 
+    if cell_ids.anyIt(it.isNone) or
         cells.anyIt(it.isNone):
       check output.kind == JNull
     else:
@@ -332,7 +332,7 @@ suite suiteName:
 suiteName = "EF - KZG - EIP7594"
 
 suite suiteName:
-  const suitePath = SszTestsDir/"general"/"eip7594"/"kzg"
+  const suitePath = SszTestsDir/"general"/"fulu"/"kzg"
 
   # TODO also check that the only direct subdirectory of each is kzg-mainnet
   doAssert sorted(mapIt(

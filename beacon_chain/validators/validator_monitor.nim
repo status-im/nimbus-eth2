@@ -654,11 +654,8 @@ template withMonitor(self: var ValidatorMonitor, idx: ValidatorIndex, body: unty
   withMonitor(self, idx.uint64, body)
 
 proc registerAttestation*(
-    self: var ValidatorMonitor,
-    src: MsgSource,
-    seen_timestamp: BeaconTime,
-    attestation: phase0.Attestation | electra.Attestation,
-    idx: ValidatorIndex) =
+    self: var ValidatorMonitor, src: MsgSource, seen_timestamp: BeaconTime,
+    attestation: phase0.Attestation | SingleAttestation, idx: ValidatorIndex) =
   let
     slot = attestation.data.slot
     delay = seen_timestamp - slot.attestation_deadline()

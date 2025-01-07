@@ -1,10 +1,18 @@
-FROM debian:bullseye-slim
+# Copyright (c) 2022-2024 Status Research & Development GmbH. Licensed under
+# either of:
+# - Apache License, version 2.0
+# - MIT license
+# at your option. This file may not be copied, modified, or distributed except
+# according to those terms.
+
+FROM debian:bookworm-slim
 
 SHELL ["/bin/bash", "-c"]
 
 # Likely to match the first regular user:group created on the host.
 RUN addgroup --gid 1000 user; \
-	adduser --disabled-password --gecos '' --uid 1000 --gid 1000 user;
+	adduser --disabled-password --gecos '' --uid 1000 --gid 1000 user; \
+        chmod a+rx /home/user;
 
 USER user
 

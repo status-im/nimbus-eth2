@@ -266,7 +266,7 @@ proc addHeadBlockWithParent*(
   var cache = StateCache()
 
   # We've verified that the slot of the new block is newer than that of the
-  # parent, so we should now be able to create an approriate clearance state
+  # parent, so we should now be able to create an appropriate clearance state
   # onto which we can apply the new block
   let clearanceBlock = BlockSlotId.init(parent.bid, signedBlock.message.slot)
   if not updateState(

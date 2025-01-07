@@ -18,7 +18,7 @@ import
 
 from std/sequtils import deduplicate, filterIt, mapIt
 from std/strutils import
-  escape, parseBiggestUInt, replace, splitLines, startsWith, strip,
+  endsWith, escape, parseBiggestUInt, replace, splitLines, startsWith, strip,
   toLowerAscii
 
 # TODO(zah):
@@ -91,23 +91,41 @@ type
 func hasGenesis*(metadata: Eth2NetworkMetadata): bool =
   metadata.genesis.kind != NoGenesis
 
-proc readBootstrapNodes*(path: string): seq[string] {.raises: [IOError].} =
+proc readBootstrapNodes(path: string): seq[string] {.raises: [IOError].} =
   # Read a list of ENR values from a YAML file containing a flat list of entries
+  var res: seq[string]
   if fileExists(path):
-    splitLines(readFile(path)).
-      filterIt(it.startsWith("enr:")).
-      mapIt(it.strip())
-  else:
-    @[]
+    for line in splitLines(readFile(path)):
+      let line = line.strip()
+      if line.startsWith("enr:"):
+        res.add line
+      elif line.len == 0 or line.startsWith("#"):
+        discard
+      else:
+        when nimvm:
+          raiseAssert "Bootstrap node invalid (" & path & "): " & line
+        else:
+          warn "Ignoring invalid bootstrap node", path, bootstrapNode = line
+  res
 
-proc readBootEnr*(path: string): seq[string] {.raises: [IOError].} =
+proc readBootEnr(path: string): seq[string] {.raises: [IOError].} =
   # Read a list of ENR values from a YAML file containing a flat list of entries
+  var res: seq[string]
   if fileExists(path):
-    splitLines(readFile(path)).
-      filterIt(it.startsWith("- enr:")).
-      mapIt(it[2..^1].strip())
-  else:
-    @[]
+    for line in splitLines(readFile(path)):
+      let line = line.strip()
+      if line.startsWith("- enr:"):
+        res.add line[2 .. ^1]
+      elif line.startsWith("- \"enr:") and line.endsWith("\""):
+        res.add line[3 .. ^2]  # Gnosis Chiado `boot_enr.yaml`
+      elif line.len == 0 or line.startsWith("#"):
+        discard
+      else:
+        when nimvm:
+          raiseAssert "Bootstrap ENR invalid (" & path & "): " & line
+        else:
+          warn "Ignoring invalid bootstrap ENR", path, bootstrapEnr = line
+  res
 
 proc loadEth2NetworkMetadata*(
     path: string,
@@ -126,7 +144,8 @@ proc loadEth2NetworkMetadata*(
       deployBlockPath = path & "/deploy_block.txt"
       depositContractBlockPath = path & "/deposit_contract_block.txt"
       depositContractBlockHashPath = path & "/deposit_contract_block_hash.txt"
-      bootstrapNodesPath = path & "/bootstrap_nodes.txt"
+      bootstrapNodesLegacyPath = path & "/bootstrap_nodes.txt"  # <= Dec 2024
+      bootstrapNodesPath = path & "/bootstrap_nodes.yaml"
       bootEnrPath = path & "/boot_enr.yaml"
       runtimeConfig = if fileExists(configPath):
         let (cfg, unknowns) = readRuntimeConfig(configPath)
@@ -178,7 +197,8 @@ proc loadEth2NetworkMetadata*(
         default(Eth2Digest)
 
       bootstrapNodes = deduplicate(
-        readBootstrapNodes(bootstrapNodesPath) &
+        readBootstrapNodes(bootstrapNodesLegacyPath) &
+        readBootEnr(bootstrapNodesPath) &
         readBootEnr(bootEnrPath))
 
     ok Eth2NetworkMetadata(
@@ -268,7 +288,7 @@ when const_preset == "gnosis":
 
     for network in [gnosisMetadata, chiadoMetadata]:
       doAssert network.cfg.DENEB_FORK_EPOCH < FAR_FUTURE_EPOCH
-      doAssert network.cfg.ELECTRA_FORK_EPOCH == FAR_FUTURE_EPOCH 
+      doAssert network.cfg.ELECTRA_FORK_EPOCH == FAR_FUTURE_EPOCH
       doAssert network.cfg.FULU_FORK_EPOCH == FAR_FUTURE_EPOCH
       doAssert ConsensusFork.high == ConsensusFork.Fulu
 

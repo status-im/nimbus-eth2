@@ -2396,77 +2396,6 @@ OK: 25/25 Fail: 0/25 Skip: 0/25
 + test_process_light_client_update_not_timeout                                               OK
 ```
 OK: 4/4 Fail: 0/4 Skip: 0/4
-## EF - EIP7594 - SSZ consensus objects  [Preset: mainnet]
-```diff
-+   Testing    AggregateAndProof                                                             OK
-+   Testing    Attestation                                                                   OK
-+   Testing    AttestationData                                                               OK
-+   Testing    AttesterSlashing                                                              OK
-+   Testing    BLSToExecutionChange                                                          OK
-+   Testing    BeaconBlock                                                                   OK
-+   Testing    BeaconBlockBody                                                               OK
-+   Testing    BeaconBlockHeader                                                             OK
-+   Testing    BeaconState                                                                   OK
-+   Testing    BlobIdentifier                                                                OK
-+   Testing    BlobSidecar                                                                   OK
-+   Testing    Checkpoint                                                                    OK
-+   Testing    ConsolidationRequest                                                          OK
-+   Testing    ContributionAndProof                                                          OK
-+   Testing    DataColumnIdentifier                                                          OK
-+   Testing    DataColumnSidecar                                                             OK
-+   Testing    Deposit                                                                       OK
-+   Testing    DepositData                                                                   OK
-+   Testing    DepositMessage                                                                OK
-+   Testing    DepositRequest                                                                OK
-+   Testing    Eth1Block                                                                     OK
-+   Testing    Eth1Data                                                                      OK
-+   Testing    ExecutionPayload                                                              OK
-+   Testing    ExecutionPayloadHeader                                                        OK
-+   Testing    ExecutionRequests                                                             OK
-+   Testing    Fork                                                                          OK
-+   Testing    ForkData                                                                      OK
-+   Testing    HistoricalBatch                                                               OK
-+   Testing    HistoricalSummary                                                             OK
-+   Testing    IndexedAttestation                                                            OK
-+   Testing    LightClientBootstrap                                                          OK
-+   Testing    LightClientFinalityUpdate                                                     OK
-+   Testing    LightClientHeader                                                             OK
-+   Testing    LightClientOptimisticUpdate                                                   OK
-+   Testing    LightClientUpdate                                                             OK
-+   Testing    MatrixEntry                                                                   OK
-+   Testing    PendingAttestation                                                            OK
-+   Testing    PendingConsolidation                                                          OK
-+   Testing    PendingDeposit                                                                OK
-+   Testing    PendingPartialWithdrawal                                                      OK
-+   Testing    PowBlock                                                                      OK
-+   Testing    ProposerSlashing                                                              OK
-+   Testing    SignedAggregateAndProof                                                       OK
-+   Testing    SignedBLSToExecutionChange                                                    OK
-+   Testing    SignedBeaconBlock                                                             OK
-+   Testing    SignedBeaconBlockHeader                                                       OK
-+   Testing    SignedContributionAndProof                                                    OK
-+   Testing    SignedVoluntaryExit                                                           OK
-+   Testing    SigningData                                                                   OK
-+   Testing    SingleAttestation                                                             OK
-+   Testing    StableAttestation                                                             OK
-+   Testing    StableAttesterSlashing                                                        OK
-+   Testing    StableBeaconBlockBody                                                         OK
-+   Testing    StableBeaconState                                                             OK
-+   Testing    StableExecutionPayload                                                        OK
-+   Testing    StableExecutionPayloadHeader                                                  OK
-+   Testing    StableExecutionRequests                                                       OK
-+   Testing    StableIndexedAttestation                                                      OK
-+   Testing    SyncAggregate                                                                 OK
-+   Testing    SyncAggregatorSelectionData                                                   OK
-+   Testing    SyncCommittee                                                                 OK
-+   Testing    SyncCommitteeContribution                                                     OK
-+   Testing    SyncCommitteeMessage                                                          OK
-+   Testing    Validator                                                                     OK
-+   Testing    VoluntaryExit                                                                 OK
-+   Testing    Withdrawal                                                                    OK
-+   Testing    WithdrawalRequest                                                             OK
-```
-OK: 67/67 Fail: 0/67 Skip: 0/67
 ## EF - Electra - Epoch Processing - Effective balance updates [Preset: mainnet]
 ```diff
 + Effective balance updates - effective_balance_hysteresis [Preset: mainnet]                 OK
@@ -2542,6 +2471,8 @@ OK: 10/10 Fail: 0/10 Skip: 0/10
 + Pending consolidations - all_consolidation_cases_together [Preset: mainnet]                OK
 + Pending consolidations - basic_pending_consolidation [Preset: mainnet]                     OK
 + Pending consolidations - consolidation_not_yet_withdrawable_validator [Preset: mainnet]    OK
++ Pending consolidations - pending_consolidation_balance_computation_compounding [Preset: ma OK
++ Pending consolidations - pending_consolidation_balance_computation_eth1 [Preset: mainnet]  OK
 + Pending consolidations - pending_consolidation_compounding_creds [Preset: mainnet]         OK
 + Pending consolidations - pending_consolidation_future_epoch [Preset: mainnet]              OK
 + Pending consolidations - pending_consolidation_source_balance_greater_than_max_effective [ OK
@@ -2551,7 +2482,7 @@ OK: 10/10 Fail: 0/10 Skip: 0/10
 + Pending consolidations - pending_consolidation_with_pending_deposit [Preset: mainnet]      OK
 + Pending consolidations - skip_consolidation_when_source_slashed [Preset: mainnet]          OK
 ```
-OK: 11/11 Fail: 0/11 Skip: 0/11
+OK: 13/13 Fail: 0/13 Skip: 0/13
 ## EF - Electra - Epoch Processing - Pending deposits [Preset: mainnet]
 ```diff
 + Pending deposits - apply_pending_deposit_compounding_withdrawal_credentials_max [Preset: m OK
@@ -3275,11 +3206,16 @@ OK: 80/80 Fail: 0/80 Skip: 0/80
 + EF - Electra - Slots - double_empty_epoch [Preset: mainnet]                                OK
 + EF - Electra - Slots - empty_epoch [Preset: mainnet]                                       OK
 + EF - Electra - Slots - historical_accumulator [Preset: mainnet]                            OK
++ EF - Electra - Slots - multiple_pending_deposits_same_pubkey [Preset: mainnet]             OK
++ EF - Electra - Slots - multiple_pending_deposits_same_pubkey_above_upward_threshold [Prese OK
++ EF - Electra - Slots - multiple_pending_deposits_same_pubkey_below_upward_threshold [Prese OK
++ EF - Electra - Slots - multiple_pending_deposits_same_pubkey_compounding [Preset: mainnet] OK
 + EF - Electra - Slots - over_epoch_boundary [Preset: mainnet]                               OK
++ EF - Electra - Slots - pending_consolidation [Preset: mainnet]                             OK
 + EF - Electra - Slots - slots_1 [Preset: mainnet]                                           OK
 + EF - Electra - Slots - slots_2 [Preset: mainnet]                                           OK
 ```
-OK: 6/6 Fail: 0/6 Skip: 0/6
+OK: 11/11 Fail: 0/11 Skip: 0/11
 ## EF - Electra - Transition  [Preset: mainnet]
 ```diff
 + EF - Electra - Transition - non_empty_historical_roots [Preset: mainnet]                   OK
@@ -3319,6 +3255,77 @@ OK: 27/27 Fail: 0/27 Skip: 0/27
 + test_process_light_client_update_not_timeout                                               OK
 ```
 OK: 4/4 Fail: 0/4 Skip: 0/4
+## EF - Fulu - SSZ consensus objects  [Preset: mainnet]
+```diff
++   Testing    AggregateAndProof                                                             OK
++   Testing    Attestation                                                                   OK
++   Testing    AttestationData                                                               OK
++   Testing    AttesterSlashing                                                              OK
++   Testing    BLSToExecutionChange                                                          OK
++   Testing    BeaconBlock                                                                   OK
++   Testing    BeaconBlockBody                                                               OK
++   Testing    BeaconBlockHeader                                                             OK
++   Testing    BeaconState                                                                   OK
++   Testing    BlobIdentifier                                                                OK
++   Testing    BlobSidecar                                                                   OK
++   Testing    Checkpoint                                                                    OK
++   Testing    ConsolidationRequest                                                          OK
++   Testing    ContributionAndProof                                                          OK
++   Testing    DataColumnIdentifier                                                          OK
++   Testing    DataColumnSidecar                                                             OK
++   Testing    Deposit                                                                       OK
++   Testing    DepositData                                                                   OK
++   Testing    DepositMessage                                                                OK
++   Testing    DepositRequest                                                                OK
++   Testing    Eth1Block                                                                     OK
++   Testing    Eth1Data                                                                      OK
++   Testing    ExecutionPayload                                                              OK
++   Testing    ExecutionPayloadHeader                                                        OK
++   Testing    ExecutionRequests                                                             OK
++   Testing    Fork                                                                          OK
++   Testing    ForkData                                                                      OK
++   Testing    HistoricalBatch                                                               OK
++   Testing    HistoricalSummary                                                             OK
++   Testing    IndexedAttestation                                                            OK
++   Testing    LightClientBootstrap                                                          OK
++   Testing    LightClientFinalityUpdate                                                     OK
++   Testing    LightClientHeader                                                             OK
++   Testing    LightClientOptimisticUpdate                                                   OK
++   Testing    LightClientUpdate                                                             OK
++   Testing    MatrixEntry                                                                   OK
++   Testing    PendingAttestation                                                            OK
++   Testing    PendingConsolidation                                                          OK
++   Testing    PendingDeposit                                                                OK
++   Testing    PendingPartialWithdrawal                                                      OK
++   Testing    PowBlock                                                                      OK
++   Testing    ProposerSlashing                                                              OK
++   Testing    SignedAggregateAndProof                                                       OK
++   Testing    SignedBLSToExecutionChange                                                    OK
++   Testing    SignedBeaconBlock                                                             OK
++   Testing    SignedBeaconBlockHeader                                                       OK
++   Testing    SignedContributionAndProof                                                    OK
++   Testing    SignedVoluntaryExit                                                           OK
++   Testing    SigningData                                                                   OK
++   Testing    SingleAttestation                                                             OK
++   Testing    StableAttestation                                                             OK
++   Testing    StableAttesterSlashing                                                        OK
++   Testing    StableBeaconBlockBody                                                         OK
++   Testing    StableBeaconState                                                             OK
++   Testing    StableExecutionPayload                                                        OK
++   Testing    StableExecutionPayloadHeader                                                  OK
++   Testing    StableExecutionRequests                                                       OK
++   Testing    StableIndexedAttestation                                                      OK
++   Testing    SyncAggregate                                                                 OK
++   Testing    SyncAggregatorSelectionData                                                   OK
++   Testing    SyncCommittee                                                                 OK
++   Testing    SyncCommitteeContribution                                                     OK
++   Testing    SyncCommitteeMessage                                                          OK
++   Testing    Validator                                                                     OK
++   Testing    VoluntaryExit                                                                 OK
++   Testing    Withdrawal                                                                    OK
++   Testing    WithdrawalRequest                                                             OK
+```
+OK: 67/67 Fail: 0/67 Skip: 0/67
 ## EF - Light client - Single merkle proof [Preset: mainnet]
 ```diff
 + Light client - Single merkle proof - mainnet/altair/light_client/single_merkle_proof/Beaco OK
@@ -3343,7 +3350,6 @@ OK: 4/4 Fail: 0/4 Skip: 0/4
 OK: 18/18 Fail: 0/18 Skip: 0/18
 ## EF - Merkle proof [Preset: mainnet]
 ```diff
-  Merkle proof - Single merkle proof - eip7594                                               Skip
 + Merkle proof - Single merkle proof - mainnet/deneb/merkle_proof/single_merkle_proof/Beacon OK
 + Merkle proof - Single merkle proof - mainnet/deneb/merkle_proof/single_merkle_proof/Beacon OK
 + Merkle proof - Single merkle proof - mainnet/deneb/merkle_proof/single_merkle_proof/Beacon OK
@@ -3352,8 +3358,14 @@ OK: 18/18 Fail: 0/18 Skip: 0/18
 + Merkle proof - Single merkle proof - mainnet/electra/merkle_proof/single_merkle_proof/Beac OK
 + Merkle proof - Single merkle proof - mainnet/electra/merkle_proof/single_merkle_proof/Beac OK
 + Merkle proof - Single merkle proof - mainnet/electra/merkle_proof/single_merkle_proof/Beac OK
++ Merkle proof - Single merkle proof - mainnet/fulu/merkle_proof/single_merkle_proof/BeaconB OK
++ Merkle proof - Single merkle proof - mainnet/fulu/merkle_proof/single_merkle_proof/BeaconB OK
++ Merkle proof - Single merkle proof - mainnet/fulu/merkle_proof/single_merkle_proof/BeaconB OK
++ Merkle proof - Single merkle proof - mainnet/fulu/merkle_proof/single_merkle_proof/BeaconB OK
++ Merkle proof - Single merkle proof - mainnet/fulu/merkle_proof/single_merkle_proof/BeaconB OK
++ Merkle proof - Single merkle proof - mainnet/fulu/merkle_proof/single_merkle_proof/BeaconB OK
 ```
-OK: 8/9 Fail: 0/9 Skip: 1/9
+OK: 14/14 Fail: 0/14 Skip: 0/14
 ## EF - Phase 0 - Epoch Processing - Effective balance updates [Preset: mainnet]
 ```diff
 + Effective balance updates - effective_balance_hysteresis [Preset: mainnet]                 OK
@@ -3856,4 +3868,4 @@ OK: 69/88 Fail: 0/88 Skip: 19/88
 OK: 3/3 Fail: 0/3 Skip: 0/3
 
 ---TOTAL---
-OK: 3130/3150 Fail: 0/3150 Skip: 20/3150
+OK: 3143/3162 Fail: 0/3162 Skip: 19/3162
