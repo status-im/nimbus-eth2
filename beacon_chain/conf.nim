@@ -1496,13 +1496,8 @@ proc engineApiUrls*(config: BeaconNodeConf): seq[EngineApiUrl] =
     config.jwtSecret.configJwtSecretOpt)
 
 proc loadKzgTrustedSetup*(): Result[void, string] =
-  const
-    vendorDir = currentSourcePath.parentDir.replace('\\', '/') & "/../vendor"
-    trustedSetup = staticRead(
-      vendorDir & "/nim-kzg4844/kzg4844/csources/src/trusted_setup.txt")
-
   static: doAssert const_preset in ["mainnet", "gnosis", "minimal"]
-  loadTrustedSetupFromString(trustedSetup, 0)
+  loadTrustedSetupFromString(kzg.trustedSetup, 0)
 
 proc loadKzgTrustedSetup*(trustedSetupPath: string): Result[void, string] =
   try:
