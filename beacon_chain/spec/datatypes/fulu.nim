@@ -124,7 +124,7 @@ type
     syncnets*: SyncnetBits
     custody_group_count*: uint64
 
-  # https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.10/specs/fulu/beacon-chain.md#execution-payload
+  # https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.10/specs/deneb/beacon-chain.md#executionpayload
   ExecutionPayload* = object
     # Execution block header fields
     parent_hash*: Eth2Digest
