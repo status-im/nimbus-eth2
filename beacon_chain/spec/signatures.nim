@@ -1,5 +1,5 @@
 # beacon_chain
-# Copyright (c) 2018-2024 Status Research & Development GmbH
+# Copyright (c) 2018-2025 Status Research & Development GmbH
 # Licensed and distributed under either of
 #   * MIT license (license terms in the root directory or at https://opensource.org/licenses/MIT).
 #   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
@@ -59,7 +59,7 @@ func compute_epoch_signing_root*(
   let domain = get_domain(fork, DOMAIN_RANDAO, epoch, genesis_validators_root)
   compute_signing_root(epoch, domain)
 
-# https://github.com/ethereum/consensus-specs/blob/v1.4.0/specs/phase0/validator.md#randao-reveal
+# https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.10/specs/phase0/validator.md#randao-reveal
 func get_epoch_signature*(
     fork: Fork, genesis_validators_root: Eth2Digest, epoch: Epoch,
     privkey: ValidatorPrivKey): CookedSig =

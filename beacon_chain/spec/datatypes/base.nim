@@ -1,5 +1,5 @@
 # beacon_chain
-# Copyright (c) 2018-2024 Status Research & Development GmbH
+# Copyright (c) 2018-2025 Status Research & Development GmbH
 # Licensed and distributed under either of
 #   * MIT license (license terms in the root directory or at https://opensource.org/licenses/MIT).
 #   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
@@ -210,7 +210,7 @@ type
   # SSZ / hashing purposes
   JustificationBits* = distinct uint8
 
-  # https://github.com/ethereum/consensus-specs/blob/v1.4.0/specs/phase0/beacon-chain.md#proposerslashing
+  # https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.10/specs/phase0/beacon-chain.md#proposerslashing
   ProposerSlashing* = object
     signed_header_1*: SignedBeaconBlockHeader
     signed_header_2*: SignedBeaconBlockHeader
@@ -262,7 +262,7 @@ type
     withdrawal_credentials*: Eth2Digest
     amount*: Gwei
 
-  # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.7/specs/phase0/beacon-chain.md#depositdata
+  # https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.10/specs/phase0/beacon-chain.md#depositdata
   DepositData* = object
     pubkey*: ValidatorPubKey
     withdrawal_credentials*: Eth2Digest
@@ -272,7 +272,7 @@ type
     signature*: ValidatorSig
       ## Signing over DepositMessage
 
-  # https://github.com/ethereum/consensus-specs/blob/v1.4.0/specs/phase0/beacon-chain.md#voluntaryexit
+  # https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.10/specs/phase0/beacon-chain.md#voluntaryexit
   VoluntaryExit* = object
     epoch*: Epoch
       ## Earliest epoch when voluntary exit can be processed

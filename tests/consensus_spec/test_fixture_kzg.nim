@@ -76,7 +76,7 @@ proc runVerifyKzgProofTest(suiteName, suitePath, path: string) =
       y = fromHex[32](data["input"]["y"].getStr)
       proof = fromHex[48](data["input"]["proof"].getStr)
 
-    # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.6/tests/formats/kzg/verify_kzg_proof.md#condition
+    # https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.10/tests/formats/kzg_4844/verify_kzg_proof.md#condition
     # "If the commitment or proof is invalid (e.g. not on the curve or not in
     # the G1 subgroup of the BLS curve) or `z` or `y` are not a valid BLS
     # field element, it should error, i.e. the output should be `null`."
