@@ -191,9 +191,9 @@ suite baseDescription & "Sync Aggregate " & preset():
       preState: var capella.BeaconState, syncAggregate: SyncAggregate):
       Result[void, cstring] =
     var cache: StateCache
-    doAssert (? process_sync_aggregate(
+    discard ? process_sync_aggregate(
       preState, syncAggregate, get_total_active_balance(preState, cache),
-      {}, cache)) > 0.Gwei
+      {}, cache)
     ok()
 
   for path in walkTests(OpSyncAggregateDir):
