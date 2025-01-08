@@ -850,6 +850,7 @@ proc process_sync_aggregate*(
 
   # Apply participant and proposer rewards
   let indices = get_sync_committee_cache(state, cache).current_sync_committee
+  var total_proposer_reward: Gwei
 
   for i in 0 ..< min(
     state.current_sync_committee.pubkeys.len,
@@ -858,10 +859,11 @@ proc process_sync_aggregate*(
     if sync_aggregate.sync_committee_bits[i]:
       increase_balance(state, participant_index, participant_reward)
       increase_balance(state, proposer_index, proposer_reward)
+      increase_balance(total_proposer_reward, proposer_reward)
     else:
       decrease_balance(state, participant_index, participant_reward)
 
-  ok(proposer_reward)
+  ok(total_proposer_reward)
 
 # https://github.com/ethereum/consensus-specs/blob/v1.3.0/specs/bellatrix/beacon-chain.md#process_execution_payload
 proc process_execution_payload*(
