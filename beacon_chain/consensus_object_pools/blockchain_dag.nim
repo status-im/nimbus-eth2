@@ -1931,7 +1931,7 @@ proc updateState*(
 proc updateState*(
     dag: ChainDAGRef, state: var ForkedHashedBeaconState, bsi: BlockSlotId,
     save: bool, cache: var StateCache,
-    updateFlags: UpdateFlags): bool {.gcsafe.}
+    updateFlags: UpdateFlags): bool {.gcsafe.} =
   updateState(dag, state, bsi, save, cache, updateFlags, Eth2Digest())
 
 proc delState(dag: ChainDAGRef, bsi: BlockSlotId) =
