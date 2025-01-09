@@ -184,7 +184,7 @@ proc updatePerformance(overseer: SyncOverseerRef, startTick: Moment,
 
   # Update status string
   overseer.statusMsg = Opt.some(
-    timeleft.toTimeLeftString() & " (" &
+    "fill: " & timeleft.toTimeLeftString() & " (" &
     (done * 100).formatBiggestFloat(ffDecimal, 2) & "%) " &
     overseer.avgSpeed.formatBiggestFloat(ffDecimal, 4) &
     "slots/s (" & $dag.head.slot & ")")
@@ -418,6 +418,15 @@ proc mainLoop*(
     clist = overseer.clist
     currentSlot = overseer.beaconClock.now().slotOrZero()
 
+  info "Sync overseer starting",
+       wall_slot = currentSlot,
+       dag_head_slot = dag.head.slot,
+       dag_finalized_head_slot = dag.finalizedHead.slot,
+       dag_horizon = dag.horizon(),
+       dag_backfill_slot = dag.backfill.slot,
+       untrusted_tail = shortLog(clist.tail),
+       untrusted_head = shortLog(clist.head)
+
   if overseer.isWithinWeakSubjectivityPeriod(currentSlot):
     # Starting forward sync manager/monitor.
     overseer.forwardSync.start()
@@ -486,6 +495,8 @@ proc mainLoop*(
         quit 1
 
       overseer.untrustedInProgress = false
+      # Reset status bar
+      overseer.statusMsg = Opt.none(string)
 
       # When we finished state rebuilding process - we could start forward
       # SyncManager which could perform finish sync.
