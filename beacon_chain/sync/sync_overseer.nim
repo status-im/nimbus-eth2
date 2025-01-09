@@ -148,6 +148,22 @@ proc isWithinWeakSubjectivityPeriod(
   is_within_weak_subjectivity_period(
     dag.cfg, currentSlot, dag.headState, checkpoint)
 
+proc getLastBlockRetentionPeriodSlot(overseer: SyncOverseerRef): Slot =
+  let
+    dag = overseer.consensusManager.dag
+    currentSlot = overseer.beaconClock.now().slotOrZero()
+    slotsCount = dag.cfg.MIN_EPOCHS_FOR_BLOCK_REQUESTS * SLOTS_PER_EPOCH
+  if currentSlot < slotsCount:
+    GENESIS_SLOT
+  else:
+    currentSlot - slotsCount
+
+proc isWithinBlockRetentionPeriod(
+    overseer: SyncOverseerRef,
+    slot: Slot
+): bool =
+  slot >= overseer.getLastBlockRetentionPeriodSlot()
+
 proc isUntrustedBackfillEmpty(clist: ChainListRef): bool =
   clist.tail.isNone()
 
@@ -442,10 +458,12 @@ proc mainLoop*(
 
     if not(isUntrustedBackfillEmpty(clist)):
       let headSlot = clist.head.get().slot
-      if not(overseer.isWithinWeakSubjectivityPeriod(headSlot)):
+      if not(overseer.isWithinBlockRetentionPeriod(headSlot)):
         # Light forward sync file is too old.
-        warn "Light client sync was started too long time ago",
-             current_slot = currentSlot, backfill_data_slot = headSlot
+        warn "Light forward sync was started too long time ago",
+             current_slot = currentSlot,
+             backfill_data_slot = headSlot,
+             retention_period_slot = overseer.getLastBlockRetentionPeriodSlot()
 
     if overseer.config.longRangeSync == LongRangeSyncMode.Lenient:
       # Starting forward sync manager/monitor only.
@@ -460,6 +478,13 @@ proc mainLoop*(
               altair_start_slot = dag.cfg.ALTAIR_FORK_EPOCH.start_slot
         quit 1
 
+      if overseer.isWithinBlockRetentionPeriod(dagHead.slot):
+        fatal "Current database head slot is not in the block retention " &
+              "period range",
+              head_slot = dagHead.slot,
+              retention_period_slot = overseer.getLastBlockRetentionPeriodSlot()
+        quit 1
+
       if isUntrustedBackfillEmpty(clist):
         overseer.untrustedInProgress = true
 
@@ -467,6 +492,7 @@ proc mainLoop*(
           await overseer.initUntrustedSync()
         except CancelledError:
           return
+
       # We need to update pivot slot to enable timeleft calculation.
       overseer.untrustedSync.updatePivot(overseer.clist.tail.get().slot)
       # Note: We should not start forward sync manager!
