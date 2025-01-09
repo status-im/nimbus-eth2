@@ -67,11 +67,6 @@ proc putBlock*(
 proc updateState*(
     dag: ChainDAGRef, state: var ForkedHashedBeaconState, bsi: BlockSlotId,
     save: bool, cache: var StateCache,
-    updateFlags: UpdateFlags, stateRoot: Eth2Digest): bool {.gcsafe.}
-
-proc updateState*(
-    dag: ChainDAGRef, state: var ForkedHashedBeaconState, bsi: BlockSlotId,
-    save: bool, cache: var StateCache,
     updateFlags: UpdateFlags): bool {.gcsafe.}
 
 template withUpdatedState*(
@@ -941,7 +936,7 @@ proc putState(dag: ChainDAGRef, state: ForkedHashedBeaconState, bid: BlockId) =
 proc advanceSlots*(
     dag: ChainDAGRef, state: var ForkedHashedBeaconState, slot: Slot, save: bool,
     cache: var StateCache, info: var ForkedEpochInfo,
-    updateFlags: UpdateFlags, stateRoot: Eth2Digest) =
+    updateFlags: UpdateFlags) =
   # Given a state, advance it zero or more slots by applying empty slot
   # processing - the state must be positioned at or before `slot`
   doAssert getStateField(state, slot) <= slot
@@ -955,7 +950,7 @@ proc advanceSlots*(
 
     process_slots(
       dag.cfg, state, getStateField(state, slot) + 1, cache, info,
-      updateFlags, stateRoot).
+      updateFlags).
       expect("process_slots shouldn't fail when state slot is correct")
 
     if save:
@@ -976,12 +971,6 @@ proc advanceSlots*(
 
           dag.validatorMonitor[].registerEpochInfo(
             forkyState.data, proposers, info)
-
-proc advanceSlots*(
-    dag: ChainDAGRef, state: var ForkedHashedBeaconState, slot: Slot,
-    save: bool, cache: var StateCache, info: var ForkedEpochInfo,
-    updateFlags: UpdateFlags) =
-  advanceSlots(dag, state, slot, save, cache, info, updateFlags, Eth2Digest())
 
 proc applyBlock(
     dag: ChainDAGRef, state: var ForkedHashedBeaconState, bid: BlockId,
@@ -1710,8 +1699,7 @@ proc getBlockRange*(
 
 proc updateState*(
     dag: ChainDAGRef, state: var ForkedHashedBeaconState, bsi: BlockSlotId,
-    save: bool, cache: var StateCache, updateFlags: UpdateFlags,
-    stateRoot: Eth2Digest): bool =
+    save: bool, cache: var StateCache, updateFlags: UpdateFlags): bool =
   ## Rewind or advance state such that it matches the given block and slot -
   ## this may include replaying from an earlier snapshot if blck is on a
   ## different branch or has advanced to a higher slot number than slot
@@ -1875,7 +1863,7 @@ proc updateState*(
       return false
 
   # ...and make sure to process empty slots as requested
-  dag.advanceSlots(state, bsi.slot, save, cache, info, updateFlags, stateRoot)
+  dag.advanceSlots(state, bsi.slot, save, cache, info, updateFlags)
 
   # ...and make sure to load the state cache, if it exists
   loadStateCache(dag, cache, bsi.bid, getStateField(state, slot).epoch)
@@ -1927,12 +1915,6 @@ proc updateState*(
       replayDur
 
   true
-
-proc updateState*(
-    dag: ChainDAGRef, state: var ForkedHashedBeaconState, bsi: BlockSlotId,
-    save: bool, cache: var StateCache,
-    updateFlags: UpdateFlags): bool {.gcsafe.} =
-  updateState(dag, state, bsi, save, cache, updateFlags, Eth2Digest())
 
 proc delState(dag: ChainDAGRef, bsi: BlockSlotId) =
   # Delete state and mapping for a particular block+slot
@@ -2686,7 +2668,7 @@ proc getProposalState*(
     # it now
     if not dag.updateState(
         state[], head.atSlot(slot - 1).toBlockSlotId().expect("not nil"),
-        false, cache, dag.updateFlags, Eth2Digest()):
+        false, cache, dag.updateFlags):
       error "Cannot get proposal state - skipping block production, database corrupt?",
         head = shortLog(head),
         slot
