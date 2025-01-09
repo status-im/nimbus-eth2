@@ -257,7 +257,8 @@ func maybeUpgradeState*(
 
 proc process_slots*(
     cfg: RuntimeConfig, state: var ForkedHashedBeaconState, slot: Slot,
-    cache: var StateCache, info: var ForkedEpochInfo, flags: UpdateFlags):
+    cache: var StateCache, info: var ForkedEpochInfo, flags: UpdateFlags,
+    stateRoot: Eth2Digest = Eth2Digest()):
     Result[void, cstring] =
   if not (getStateField(state, slot) < slot):
     if slotProcessed notin flags or getStateField(state, slot) != slot:
@@ -270,11 +271,14 @@ proc process_slots*(
         ? advance_slot(
           cfg, forkyState.data, forkyState.root, flags, cache, info)
 
-      if skipLastStateRootCalculation notin flags or
+      if {skipLastStateRootCalculation, setLastStateRoot} * flags == {} or
           forkyState.data.slot < slot:
         # Don't update state root for the slot of the block if going to process
         # block after
         forkyState.root = hash_tree_root(forkyState.data)
+
+      if setLastStateRoot in flags:
+        forkyState.root = stateRoot
 
     maybeUpgradeState(cfg, state, cache)
 

@@ -82,7 +82,8 @@ proc installRewardsApiHandlers*(router: var RestRouter, node: BeaconNode) =
       tmpState = assignClone(node.dag.headState)
 
     if not updateState(
-      node.dag, tmpState[], targetBlock, false, cache, node.dag.updateFlags):
+      node.dag, tmpState[], targetBlock, false, cache, node.dag.updateFlags,
+      Eth2Digest()):
         return RestApiResponse.jsonError(Http404, ParentBlockMissingStateError)
 
     func rollbackProc(state: var ForkedHashedBeaconState) {.
@@ -164,7 +165,8 @@ proc installRewardsApiHandlers*(router: var RestRouter, node: BeaconNode) =
       tmpState = assignClone(node.dag.headState)
 
     if not updateState(
-      node.dag, tmpState[], targetBlock, false, cache, node.dag.updateFlags):
+      node.dag, tmpState[], targetBlock, false, cache, node.dag.updateFlags,
+      Eth2Digest()):
         return RestApiResponse.jsonError(Http404, ParentBlockMissingStateError)
 
     let response =

@@ -35,7 +35,8 @@ proc updateExistingState(
     dag: ChainDAGRef, state: var ForkedHashedBeaconState, bsi: BlockSlotId,
     save: bool, cache: var StateCache): bool =
   ## Wrapper around `updateState` for states expected to exist.
-  let ok = dag.updateState(state, bsi, save, cache, dag.updateFlags)
+  let ok = dag.updateState(state, bsi, save, cache, dag.updateFlags,
+                           Eth2Digest())
   if not ok:
     error "State failed to load unexpectedly",
       bsi, tail = dag.tail.slot, backfill = shortLog(dag.backfill)

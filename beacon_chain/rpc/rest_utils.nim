@@ -193,7 +193,7 @@ template withStateForBlockSlotId*(nodeParam: BeaconNode,
         assignClone(node.dag.headState)
 
       if node.dag.updateState(stateToAdvance[], blockSlotId, false, cache,
-                              node.dag.updateFlags):
+                              node.dag.updateFlags, Eth2Digest()):
         if cachedState == nil and node.stateTtlCache != nil:
           # This was not a cached state, we can cache it now
           node.stateTtlCache.add(stateToAdvance)

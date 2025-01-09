@@ -270,7 +270,8 @@ proc addHeadBlockWithParent*(
   # onto which we can apply the new block
   let clearanceBlock = BlockSlotId.init(parent.bid, signedBlock.message.slot)
   if not updateState(
-      dag, dag.clearanceState, clearanceBlock, true, cache, dag.updateFlags):
+      dag, dag.clearanceState, clearanceBlock, true, cache, dag.updateFlags,
+      Eth2Digest()):
     # We should never end up here - the parent must be a block no older than and
     # rooted in the finalized checkpoint, hence we should always be able to
     # load its corresponding state
@@ -515,7 +516,7 @@ proc addBackfillBlockData*(
         # improvements, which is unclear.
 
     if not updateState(dag, dag.clearanceState, clearanceBlock, true, cache,
-                       updateFlags1):
+                       updateFlags1, trustedStateRoot):
       error "Unable to load clearance state for parent block, " &
             "database corrupt?", clearanceBlock = shortLog(clearanceBlock)
       return err(VerifierError.MissingParent)
