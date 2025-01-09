@@ -257,8 +257,8 @@ func maybeUpgradeState*(
 
 proc process_slots*(
     cfg: RuntimeConfig, state: var ForkedHashedBeaconState, slot: Slot,
-    cache: var StateCache, info: var ForkedEpochInfo, flags: UpdateFlags
-): Result[void, cstring] =
+    cache: var StateCache, info: var ForkedEpochInfo, flags: UpdateFlags):
+    Result[void, cstring] =
   if not (getStateField(state, slot) < slot):
     if slotProcessed notin flags or getStateField(state, slot) != slot:
       return err("process_slots: cannot rewind state to past slot")

@@ -950,8 +950,7 @@ proc advanceSlots*(
 
     process_slots(
       dag.cfg, state, getStateField(state, slot) + 1, cache, info,
-      updateFlags).
-      expect("process_slots shouldn't fail when state slot is correct")
+      updateFlags).expect("process_slots shouldn't fail when state slot is correct")
 
     if save:
       dag.putState(state, stateBid)
