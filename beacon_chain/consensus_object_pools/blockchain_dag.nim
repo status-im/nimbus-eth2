@@ -69,6 +69,11 @@ proc updateState*(
     save: bool, cache: var StateCache,
     updateFlags: UpdateFlags, stateRoot: Eth2Digest): bool {.gcsafe.}
 
+proc updateState*(
+    dag: ChainDAGRef, state: var ForkedHashedBeaconState, bsi: BlockSlotId,
+    save: bool, cache: var StateCache,
+    updateFlags: UpdateFlags): bool {.gcsafe.}
+
 template withUpdatedState*(
     dag: ChainDAGRef, stateParam: var ForkedHashedBeaconState,
     bsiParam: BlockSlotId, okBody: untyped, failureBody: untyped): untyped =
@@ -78,8 +83,7 @@ template withUpdatedState*(
   block:
     let bsi {.inject.} = bsiParam
     var cache {.inject.} = StateCache()
-    if updateState(dag, stateParam, bsi, false, cache, dag.updateFlags,
-                   Eth2Digest()):
+    if updateState(dag, stateParam, bsi, false, cache, dag.updateFlags):
       template bid(): BlockId {.inject, used.} = bsi.bid
       template updatedState(): ForkedHashedBeaconState {.inject, used.} = stateParam
       okBody
@@ -937,7 +941,7 @@ proc putState(dag: ChainDAGRef, state: ForkedHashedBeaconState, bid: BlockId) =
 proc advanceSlots*(
     dag: ChainDAGRef, state: var ForkedHashedBeaconState, slot: Slot, save: bool,
     cache: var StateCache, info: var ForkedEpochInfo,
-    updateFlags: UpdateFlags, stateRoot = Eth2Digest()) =
+    updateFlags: UpdateFlags, stateRoot: Eth2Digest) =
   # Given a state, advance it zero or more slots by applying empty slot
   # processing - the state must be positioned at or before `slot`
   doAssert getStateField(state, slot) <= slot
@@ -972,6 +976,12 @@ proc advanceSlots*(
 
           dag.validatorMonitor[].registerEpochInfo(
             forkyState.data, proposers, info)
+
+proc advanceSlots*(
+    dag: ChainDAGRef, state: var ForkedHashedBeaconState, slot: Slot,
+    save: bool, cache: var StateCache, info: var ForkedEpochInfo,
+    updateFlags: UpdateFlags) =
+  advanceSlots(dag, state, slot, save, cache, info, updateFlags, Eth2Digest())
 
 proc applyBlock(
     dag: ChainDAGRef, state: var ForkedHashedBeaconState, bid: BlockId,
@@ -1416,7 +1426,7 @@ proc getEpochRef*(
 
   var cache: StateCache
   if not updateState(dag, dag.epochRefState, ancestor, false, cache,
-                     dag.updateFlags, Eth2Digest()):
+                     dag.updateFlags):
     return err("Could not load requested state")
 
   ok(dag.getEpochRef(dag.epochRefState, cache))
@@ -1918,6 +1928,12 @@ proc updateState*(
 
   true
 
+proc updateState*(
+    dag: ChainDAGRef, state: var ForkedHashedBeaconState, bsi: BlockSlotId,
+    save: bool, cache: var StateCache,
+    updateFlags: UpdateFlags): bool {.gcsafe.}
+  updateState(dag, state, bsi, save, cache, updateFlags, Eth2Digest())
+
 proc delState(dag: ChainDAGRef, bsi: BlockSlotId) =
   # Delete state and mapping for a particular block+slot
   if not dag.isStateCheckpoint(bsi):
@@ -2404,8 +2420,7 @@ proc updateHead*(
   # to use existing in-memory states to make this smooth
   var cache: StateCache
   if not updateState(
-      dag, dag.headState, newHead.bid.atSlot(), false, cache, dag.updateFlags,
-      Eth2Digest()):
+      dag, dag.headState, newHead.bid.atSlot(), false, cache, dag.updateFlags):
     # Advancing the head state should never fail, given that the tail is
     # implicitly finalised, the head is an ancestor of the tail and we always
     # store the tail state in the database, as well as every epoch slot state in

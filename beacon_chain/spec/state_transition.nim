@@ -258,8 +258,8 @@ func maybeUpgradeState*(
 proc process_slots*(
     cfg: RuntimeConfig, state: var ForkedHashedBeaconState, slot: Slot,
     cache: var StateCache, info: var ForkedEpochInfo, flags: UpdateFlags,
-    stateRoot: Eth2Digest = Eth2Digest()):
-    Result[void, cstring] =
+    stateRoot: Eth2Digest
+): Result[void, cstring] =
   if not (getStateField(state, slot) < slot):
     if slotProcessed notin flags or getStateField(state, slot) != slot:
       return err("process_slots: cannot rewind state to past slot")
@@ -283,6 +283,12 @@ proc process_slots*(
     maybeUpgradeState(cfg, state, cache)
 
   ok()
+
+proc process_slots*(
+    cfg: RuntimeConfig, state: var ForkedHashedBeaconState, slot: Slot,
+    cache: var StateCache, info: var ForkedEpochInfo, flags: UpdateFlags
+): Result[void, cstring] =
+  process_slots(cfg, state, slot, cache, info, flags, Eth2Digest())
 
 proc state_transition_block_aux(
     cfg: RuntimeConfig,

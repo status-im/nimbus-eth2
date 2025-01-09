@@ -270,8 +270,7 @@ proc addHeadBlockWithParent*(
   # onto which we can apply the new block
   let clearanceBlock = BlockSlotId.init(parent.bid, signedBlock.message.slot)
   if not updateState(
-      dag, dag.clearanceState, clearanceBlock, true, cache, dag.updateFlags,
-      Eth2Digest()):
+      dag, dag.clearanceState, clearanceBlock, true, cache, dag.updateFlags):
     # We should never end up here - the parent must be a block no older than and
     # rooted in the finalized checkpoint, hence we should always be able to
     # load its corresponding state
