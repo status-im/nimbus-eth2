@@ -72,7 +72,7 @@ func getAggregateAndProofsTopic*(forkDigest: ForkDigest): string =
 func getBlsToExecutionChangeTopic*(forkDigest: ForkDigest): string =
   eth2Prefix(forkDigest) & topicBlsToExecutionChangeSuffix
 
-# https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.10/specs/phase0/validator.md#broadcast-attestation
+# https://github.com/ethereum/consensus-specs/blob/v1.5.0-beta.0/specs/phase0/validator.md#broadcast-attestation
 func compute_subnet_for_attestation*(
     committees_per_slot: uint64, slot: Slot, committee_index: CommitteeIndex):
     SubnetId =
@@ -88,19 +88,19 @@ func compute_subnet_for_attestation*(
     (committees_since_epoch_start + committee_index.asUInt64) mod
     ATTESTATION_SUBNET_COUNT)
 
-# https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.10/specs/phase0/validator.md#broadcast-attestation
+# https://github.com/ethereum/consensus-specs/blob/v1.5.0-beta.0/specs/phase0/validator.md#broadcast-attestation
 func getAttestationTopic*(forkDigest: ForkDigest,
                           subnetId: SubnetId): string =
   ## For subscribing and unsubscribing to/from a subnet.
   eth2Prefix(forkDigest) & "beacon_attestation_" & $(subnetId) & "/ssz_snappy"
 
-# https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.10/specs/altair/p2p-interface.md#topics-and-messages
+# https://github.com/ethereum/consensus-specs/blob/v1.5.0-beta.0/specs/altair/p2p-interface.md#topics-and-messages
 func getSyncCommitteeTopic*(forkDigest: ForkDigest,
                             subcommitteeIdx: SyncSubcommitteeIndex): string =
   ## For subscribing and unsubscribing to/from a subnet.
   eth2Prefix(forkDigest) & "sync_committee_" & $subcommitteeIdx & "/ssz_snappy"
 
-# https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.10/specs/altair/p2p-interface.md#topics-and-messages
+# https://github.com/ethereum/consensus-specs/blob/v1.5.0-beta.0/specs/altair/p2p-interface.md#topics-and-messages
 func getSyncCommitteeContributionAndProofTopic*(forkDigest: ForkDigest): string =
   ## For subscribing and unsubscribing to/from a subnet.
   eth2Prefix(forkDigest) & "sync_committee_contribution_and_proof/ssz_snappy"

@@ -1,5 +1,5 @@
 # beacon_chain
-# Copyright (c) 2018-2024 Status Research & Development GmbH
+# Copyright (c) 2018-2025 Status Research & Development GmbH
 # Licensed and distributed under either of
 #   * MIT license (license terms in the root directory or at https://opensource.org/licenses/MIT).
 #   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
@@ -90,7 +90,7 @@ type
     rewards*: List[Gwei, Limit VALIDATOR_REGISTRY_LIMIT]
     penalties*: List[Gwei, Limit VALIDATOR_REGISTRY_LIMIT]
 
-  # https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.10/specs/phase0/validator.md#eth1block
+  # https://github.com/ethereum/consensus-specs/blob/v1.5.0-beta.0/specs/phase0/validator.md#eth1block
   Eth1Block* = object
     timestamp*: uint64
     deposit_root*: Eth2Digest

@@ -102,7 +102,7 @@ func get_active_validator_indices_len*(
   withState(state):
     get_active_validator_indices_len(forkyState.data, epoch)
 
-# https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.10/specs/phase0/beacon-chain.md#get_current_epoch
+# https://github.com/ethereum/consensus-specs/blob/v1.5.0-beta.0/specs/phase0/beacon-chain.md#get_current_epoch
 func get_current_epoch*(state: ForkyBeaconState): Epoch =
   ## Return the current epoch.
   state.slot.epoch
@@ -203,7 +203,7 @@ func get_seed*(state: ForkyBeaconState, epoch: Epoch, domain_type: DomainType):
     epoch + EPOCHS_PER_HISTORICAL_VECTOR - MIN_SEED_LOOKAHEAD - 1)
   state.get_seed(epoch, domain_type, mix)
 
-# https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.10/specs/altair/beacon-chain.md#add_flag
+# https://github.com/ethereum/consensus-specs/blob/v1.5.0-beta.0/specs/altair/beacon-chain.md#add_flag
 func add_flag*(flags: ParticipationFlags, flag_index: TimelyFlag): ParticipationFlags =
   let flag = ParticipationFlags(1'u8 shl ord(flag_index))
   flags or flag
@@ -380,7 +380,7 @@ func contextEpoch*(bootstrap: ForkyLightClientBootstrap): Epoch =
 func contextEpoch*(update: SomeForkyLightClientUpdate): Epoch =
   update.attested_header.beacon.slot.epoch
 
-# https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.10/specs/bellatrix/beacon-chain.md#is_merge_transition_complete
+# https://github.com/ethereum/consensus-specs/blob/v1.5.0-beta.0/specs/bellatrix/beacon-chain.md#is_merge_transition_complete
 func is_merge_transition_complete*(
     state: bellatrix.BeaconState | capella.BeaconState | deneb.BeaconState |
            electra.BeaconState | fulu.BeaconState): bool =

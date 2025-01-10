@@ -158,7 +158,7 @@ func get_shuffled_active_validator_indices*(
   withState(state):
     cache.get_shuffled_active_validator_indices(forkyState.data, epoch)
 
-# https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.10/specs/phase0/beacon-chain.md#get_active_validator_indices
+# https://github.com/ethereum/consensus-specs/blob/v1.5.0-beta.0/specs/phase0/beacon-chain.md#get_active_validator_indices
 func count_active_validators*(state: ForkyBeaconState,
                               epoch: Epoch,
                               cache: var StateCache): uint64 =
@@ -389,7 +389,7 @@ template compute_proposer_index(
     doAssert res.isSome
     res
 
-# https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.10/specs/electra/beacon-chain.md#modified-compute_proposer_index
+# https://github.com/ethereum/consensus-specs/blob/v1.5.0-beta.0/specs/electra/beacon-chain.md#modified-compute_proposer_index
 template compute_proposer_index(
     state: electra.BeaconState | fulu.BeaconState,
     indices: openArray[ValidatorIndex], seed: Eth2Digest,

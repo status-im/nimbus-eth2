@@ -210,7 +210,7 @@ type
   # SSZ / hashing purposes
   JustificationBits* = distinct uint8
 
-  # https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.10/specs/phase0/beacon-chain.md#proposerslashing
+  # https://github.com/ethereum/consensus-specs/blob/v1.5.0-beta.0/specs/phase0/beacon-chain.md#proposerslashing
   ProposerSlashing* = object
     signed_header_1*: SignedBeaconBlockHeader
     signed_header_2*: SignedBeaconBlockHeader
@@ -262,7 +262,7 @@ type
     withdrawal_credentials*: Eth2Digest
     amount*: Gwei
 
-  # https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.10/specs/phase0/beacon-chain.md#depositdata
+  # https://github.com/ethereum/consensus-specs/blob/v1.5.0-beta.0/specs/phase0/beacon-chain.md#depositdata
   DepositData* = object
     pubkey*: ValidatorPubKey
     withdrawal_credentials*: Eth2Digest
@@ -272,7 +272,7 @@ type
     signature*: ValidatorSig
       ## Signing over DepositMessage
 
-  # https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.10/specs/phase0/beacon-chain.md#voluntaryexit
+  # https://github.com/ethereum/consensus-specs/blob/v1.5.0-beta.0/specs/phase0/beacon-chain.md#voluntaryexit
   VoluntaryExit* = object
     epoch*: Epoch
       ## Earliest epoch when voluntary exit can be processed
@@ -400,7 +400,7 @@ type
     sync_committees*: Table[SyncCommitteePeriod, SyncCommitteeCache]
 
   # This matches the mutable state of the Solidity deposit contract
-  # https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.10/solidity_deposit_contract/deposit_contract.sol
+  # https://github.com/ethereum/consensus-specs/blob/v1.5.0-beta.0/solidity_deposit_contract/deposit_contract.sol
   DepositContractState* = object
     branch*: array[DEPOSIT_CONTRACT_TREE_DEPTH, Eth2Digest]
     deposit_count*: array[32, byte] # Uint256

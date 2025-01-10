@@ -1,5 +1,5 @@
 # beacon_chain
-# Copyright (c) 2018-2024 Status Research & Development GmbH
+# Copyright (c) 2018-2025 Status Research & Development GmbH
 # Licensed and distributed under either of
 #   * MIT license (license terms in the root directory or at https://opensource.org/licenses/MIT).
 #   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
@@ -92,7 +92,7 @@ proc installConfigApiHandlers*(router: var RestRouter, node: BeaconNode) =
           MAX_VOLUNTARY_EXITS:
             Base10.toString(MAX_VOLUNTARY_EXITS),
 
-          # https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.10/presets/mainnet/altair.yaml
+          # https://github.com/ethereum/consensus-specs/blob/v1.5.0-beta.0/presets/mainnet/altair.yaml
           INACTIVITY_PENALTY_QUOTIENT_ALTAIR:
             Base10.toString(INACTIVITY_PENALTY_QUOTIENT_ALTAIR),
           MIN_SLASHING_PENALTY_QUOTIENT_ALTAIR:
@@ -108,7 +108,7 @@ proc installConfigApiHandlers*(router: var RestRouter, node: BeaconNode) =
           UPDATE_TIMEOUT:
             Base10.toString(UPDATE_TIMEOUT),
 
-          # https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.10/presets/mainnet/bellatrix.yaml
+          # https://github.com/ethereum/consensus-specs/blob/v1.5.0-beta.0/presets/mainnet/bellatrix.yaml
           INACTIVITY_PENALTY_QUOTIENT_BELLATRIX:
             Base10.toString(INACTIVITY_PENALTY_QUOTIENT_BELLATRIX),
           MIN_SLASHING_PENALTY_QUOTIENT_BELLATRIX:
@@ -124,7 +124,7 @@ proc installConfigApiHandlers*(router: var RestRouter, node: BeaconNode) =
           MAX_EXTRA_DATA_BYTES:
             Base10.toString(uint64(MAX_EXTRA_DATA_BYTES)),
 
-          # https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.10/presets/mainnet/capella.yaml
+          # https://github.com/ethereum/consensus-specs/blob/v1.5.0-beta.0/presets/mainnet/capella.yaml
           MAX_BLS_TO_EXECUTION_CHANGES:
             Base10.toString(uint64(MAX_BLS_TO_EXECUTION_CHANGES)),
           MAX_WITHDRAWALS_PER_PAYLOAD:

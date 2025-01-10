@@ -40,7 +40,7 @@ from ./deneb import Blobs, BlobsBundle, KzgCommitments, KzgProofs
 export json_serialization, base
 
 const
-  # https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.10/specs/fulu/polynomial-commitments-sampling.md#cells
+  # https://github.com/ethereum/consensus-specs/blob/v1.5.0-beta.0/specs/fulu/polynomial-commitments-sampling.md#cells
   FIELD_ELEMENTS_PER_EXT_BLOB* = 2 * kzg_abi.FIELD_ELEMENTS_PER_BLOB
   # Number of field elements in a Reed-Solomon extended blob |
   FIELD_ELEMENTS_PER_CELL* = 64 # Number of field elements in a cell |
@@ -68,7 +68,7 @@ const
   COLUMNS_PER_GROUP* = NUMBER_OF_COLUMNS div NUMBER_OF_CUSTODY_GROUPS
 
 type
-  # https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.10/specs/fulu/polynomial-commitments-sampling.md#custom-types
+  # https://github.com/ethereum/consensus-specs/blob/v1.5.0-beta.0/specs/fulu/polynomial-commitments-sampling.md#custom-types
   BLSFieldElement* = KzgBytes32
   G2Point* = array[96, byte]
   PolynomialCoeff* = List[BLSFieldElement, FIELD_ELEMENTS_PER_EXT_BLOB]
@@ -269,7 +269,7 @@ type
     LightClientBootstrap |
     SomeLightClientUpdate
 
-  # https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.10/specs/altair/light-client/sync-protocol.md#lightclientstore
+  # https://github.com/ethereum/consensus-specs/blob/v1.5.0-beta.0/specs/altair/light-client/sync-protocol.md#lightclientstore
   LightClientStore* = object
     finalized_header*: LightClientHeader
       ## Header that is finalized
@@ -441,7 +441,7 @@ type
     state_root*: Eth2Digest
     body*: TrustedBeaconBlockBody
 
-  # https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.10/specs/electra/beacon-chain.md#beaconblockbody
+  # https://github.com/ethereum/consensus-specs/blob/v1.5.0-beta.0/specs/electra/beacon-chain.md#beaconblockbody
   BeaconBlockBody* = object
     randao_reveal*: ValidatorSig
     eth1_data*: Eth1Data
