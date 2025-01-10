@@ -67,11 +67,13 @@ proc runGetCustodyGroups(suiteName, path: string) =
 suite "EF - PeerDAS - Networking" & preset():
   const presetPath = SszTestsDir/const_preset
   # foldering to be resolved in alpha 11 release of consensus spec tests
-  let basePath =
-    presetPath/"fulu"/"networking"/"get_custody_groups"/"pyspec_tests"
-  for kind, path in walkDir(basePath, relative = true, checkDir = true):
-    runGetCustodyGroups(suiteName, basePath/path)
-  # let basePath2 =
-  #   presetPath/"fulu"/"networking"/"compute_columns_for_custody_group"/"pyspec_tests"
-  # for kind, path in walkDir(basePath, relative = true, checkDir = true):
-  #   runComputeForCustodyGroup(suiteName, basePath2/path)
+  block:
+    let basePath =
+      presetPath/"fulu"/"networking"/"get_custody_groups"/"pyspec_tests"
+    for kind, path in walkDir(basePath, relative = true, checkDir = true):
+      runGetCustodyGroups(suiteName, basePath/path)
+  block:
+    let basePath =
+      presetPath/"fulu"/"networking"/"compute_columns_for_custody_group"/"pyspec_tests"
+    for kind, path in walkDir(basePath, relative = true, checkDir = true):
+      runComputeForCustodyGroup(suiteName, basePath/path)
