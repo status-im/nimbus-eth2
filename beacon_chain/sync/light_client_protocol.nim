@@ -160,7 +160,7 @@ p2pProtocol LightClientSync(version = 1,
 
     debug "LC finality update request done", peer
 
-  # https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.10/specs/altair/light-client/p2p-interface.md#getlightclientoptimisticupdate
+  # https://github.com/ethereum/consensus-specs/blob/v1.5.0-beta.0/specs/altair/light-client/p2p-interface.md#getlightclientoptimisticupdate
   proc lightClientOptimisticUpdate(
       peer: Peer,
       response: SingleChunkResponse[ForkedLightClientOptimisticUpdate])

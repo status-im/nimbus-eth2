@@ -59,7 +59,7 @@ func compute_epoch_signing_root*(
   let domain = get_domain(fork, DOMAIN_RANDAO, epoch, genesis_validators_root)
   compute_signing_root(epoch, domain)
 
-# https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.10/specs/phase0/validator.md#randao-reveal
+# https://github.com/ethereum/consensus-specs/blob/v1.5.0-beta.0/specs/phase0/validator.md#randao-reveal
 func get_epoch_signature*(
     fork: Fork, genesis_validators_root: Eth2Digest, epoch: Epoch,
     privkey: ValidatorPrivKey): CookedSig =
@@ -145,7 +145,7 @@ func compute_attestation_signing_root*(
       fork, DOMAIN_BEACON_ATTESTER, epoch, genesis_validators_root)
   compute_signing_root(attestation_data, domain)
 
-# https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.10/specs/phase0/validator.md#aggregate-signature
+# https://github.com/ethereum/consensus-specs/blob/v1.5.0-beta.0/specs/phase0/validator.md#aggregate-signature
 func get_attestation_signature*(
     fork: Fork, genesis_validators_root: Eth2Digest,
     attestation_data: AttestationData,

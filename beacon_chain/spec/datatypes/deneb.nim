@@ -50,7 +50,7 @@ type
   # https://github.com/ethereum/consensus-specs/blob/v1.4.0/specs/deneb/beacon-chain.md#custom-types
   BlobIndex* = uint64
 
-  # https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.10/specs/deneb/polynomial-commitments.md#custom-types
+  # https://github.com/ethereum/consensus-specs/blob/v1.5.0-beta.0/specs/deneb/polynomial-commitments.md#custom-types
   Blob* = array[BYTES_PER_FIELD_ELEMENT * FIELD_ELEMENTS_PER_BLOB, byte]
 
   # https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.8/specs/deneb/p2p-interface.md#blobsidecar
@@ -626,7 +626,7 @@ func kzg_commitment_inclusion_proof_gindex*(
 
   BLOB_KZG_COMMITMENTS_FIRST_GINDEX + index
 
-# https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.10/specs/deneb/light-client/sync-protocol.md#modified-get_lc_execution_root
+# https://github.com/ethereum/consensus-specs/blob/v1.5.0-beta.0/specs/deneb/light-client/sync-protocol.md#modified-get_lc_execution_root
 func get_lc_execution_root*(
     header: LightClientHeader, cfg: RuntimeConfig): Eth2Digest =
   let epoch = header.beacon.slot.epoch
@@ -657,7 +657,7 @@ func get_lc_execution_root*(
 
   ZERO_HASH
 
-# https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.10/specs/deneb/light-client/sync-protocol.md#modified-is_valid_light_client_header
+# https://github.com/ethereum/consensus-specs/blob/v1.5.0-beta.0/specs/deneb/light-client/sync-protocol.md#modified-is_valid_light_client_header
 func is_valid_light_client_header*(
     header: LightClientHeader, cfg: RuntimeConfig): bool =
   let epoch = header.beacon.slot.epoch
@@ -725,7 +725,7 @@ func upgrade_lc_update_to_deneb*(
     sync_aggregate: pre.sync_aggregate,
     signature_slot: pre.signature_slot)
 
-# https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.10/specs/deneb/light-client/fork.md#upgrading-light-client-data
+# https://github.com/ethereum/consensus-specs/blob/v1.5.0-beta.0/specs/deneb/light-client/fork.md#upgrading-light-client-data
 func upgrade_lc_finality_update_to_deneb*(
     pre: capella.LightClientFinalityUpdate): LightClientFinalityUpdate =
   LightClientFinalityUpdate(

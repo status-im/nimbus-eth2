@@ -1,5 +1,5 @@
 # beacon_chain
-# Copyright (c) 2018-2024 Status Research & Development GmbH
+# Copyright (c) 2018-2025 Status Research & Development GmbH
 # Licensed and distributed under either of
 #   * MIT license (license terms in the root directory or at https://opensource.org/licenses/MIT).
 #   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
@@ -827,7 +827,7 @@ proc readRuntimeConfig*(
   checkCompatibility MAX_BLOBS_PER_BLOCK_ELECTRA
   checkCompatibility MAX_REQUEST_BLOB_SIDECARS_ELECTRA
 
-  # https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.10/specs/phase0/fork-choice.md#configuration
+  # https://github.com/ethereum/consensus-specs/blob/v1.5.0-beta.0/specs/phase0/fork-choice.md#configuration
   # Isn't being used as a preset in the usual way: at any time, there's one correct value
   checkCompatibility PROPOSER_SCORE_BOOST
   checkCompatibility REORG_HEAD_WEIGHT_THRESHOLD
