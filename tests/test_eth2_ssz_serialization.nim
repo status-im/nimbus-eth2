@@ -107,4 +107,4 @@ suite "Size bounds":
             record(FieldType)
             discard loc.pop()
     record deneb.SignedBeaconBlock
-    check res == expected
+    check res.splitLines() == expected.splitLines()
