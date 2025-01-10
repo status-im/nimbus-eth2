@@ -9,7 +9,7 @@
 {.used.}
 
 import
-  std/[json, streams],
+  std/[json, streams, sequtils],
   yaml,
   kzg4844/[kzg, kzg_abi],
   stint,
@@ -20,7 +20,28 @@ import
 
 from std/sequtils import mapIt
 
-proc runGetCustodyColumns(suiteName, path: string) =
+proc runComputeForCustodyGroup(suiteName, path: string) =
+  let relativeTestPathComponent = path.relativeTestPathComponent()
+  test "Networking - Compute Columns for Custody Group - " &
+      relativeTestPathComponent:
+    type TestMetaYaml = object
+      custody_group: uint64
+      result: seq[uint64]
+    let
+      meta = block:
+        var s = openFileStream(path/"meta.yaml")
+        defer: close(s)
+        var res: TestMetaYaml
+        yaml.load(s, res)
+        res
+      custody_group = meta.custody_group
+      reslt = (meta.result).mapIt(it)
+    let columns = compute_columns_for_custody_group(custody_group).toSeq
+
+    for i in 0..<columns.lenu64:
+      check columns[i] == reslt[i]
+
+proc runGetCustodyGroups(suiteName, path: string) =
   let relativePathComponent = path.relativeTestPathComponent()
   test "Networking - Get Custody Groups - " & relativePathComponent:
     type TestMetaYaml = object
@@ -49,4 +70,8 @@ suite "EF - PeerDAS - Networking" & preset():
   let basePath =
     presetPath/"fulu"/"networking"/"get_custody_groups"/"pyspec_tests"
   for kind, path in walkDir(basePath, relative = true, checkDir = true):
-    runGetCustodyColumns(suiteName, basePath/path)
+    runGetCustodyGroups(suiteName, basePath/path)
+  # let basePath2 =
+  #   presetPath/"fulu"/"networking"/"compute_columns_for_custody_group"/"pyspec_tests"
+  # for kind, path in walkDir(basePath, relative = true, checkDir = true):
+  #   runComputeForCustodyGroup(suiteName, basePath2/path)
