@@ -513,15 +513,15 @@ OK: 253/253 Fail: 0/253 Skip: 0/253
 OK: 56/56 Fail: 0/56 Skip: 0/56
 ## EF - PeerDAS - Networking [Preset: mainnet]
 ```diff
-+ Networking - Get Custody Groups - mainnet/fulu/networking/get_custody_columns/pyspec_tests OK
-+ Networking - Get Custody Groups - mainnet/fulu/networking/get_custody_columns/pyspec_tests OK
-+ Networking - Get Custody Groups - mainnet/fulu/networking/get_custody_columns/pyspec_tests OK
-+ Networking - Get Custody Groups - mainnet/fulu/networking/get_custody_columns/pyspec_tests OK
-+ Networking - Get Custody Groups - mainnet/fulu/networking/get_custody_columns/pyspec_tests OK
-+ Networking - Get Custody Groups - mainnet/fulu/networking/get_custody_columns/pyspec_tests OK
-+ Networking - Get Custody Groups - mainnet/fulu/networking/get_custody_columns/pyspec_tests OK
-+ Networking - Get Custody Groups - mainnet/fulu/networking/get_custody_columns/pyspec_tests OK
-+ Networking - Get Custody Groups - mainnet/fulu/networking/get_custody_columns/pyspec_tests OK
++ Networking - Get Custody Groups - mainnet/fulu/networking/get_custody_groups/pyspec_tests/ OK
++ Networking - Get Custody Groups - mainnet/fulu/networking/get_custody_groups/pyspec_tests/ OK
++ Networking - Get Custody Groups - mainnet/fulu/networking/get_custody_groups/pyspec_tests/ OK
++ Networking - Get Custody Groups - mainnet/fulu/networking/get_custody_groups/pyspec_tests/ OK
++ Networking - Get Custody Groups - mainnet/fulu/networking/get_custody_groups/pyspec_tests/ OK
++ Networking - Get Custody Groups - mainnet/fulu/networking/get_custody_groups/pyspec_tests/ OK
++ Networking - Get Custody Groups - mainnet/fulu/networking/get_custody_groups/pyspec_tests/ OK
++ Networking - Get Custody Groups - mainnet/fulu/networking/get_custody_groups/pyspec_tests/ OK
++ Networking - Get Custody Groups - mainnet/fulu/networking/get_custody_groups/pyspec_tests/ OK
 ```
 OK: 9/9 Fail: 0/9 Skip: 0/9
 ## EF - SSZ generic types

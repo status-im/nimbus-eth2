@@ -2737,6 +2737,7 @@ OK: 5/5 Fail: 0/5 Skip: 0/5
 + EF - Electra - Fork - fork_earliest_exit_epoch_less_than_current_epoch [Preset: minimal]   OK
 + EF - Electra - Fork - fork_earliest_exit_epoch_no_validator_exits [Preset: minimal]        OK
 + EF - Electra - Fork - fork_has_compounding_withdrawal_credential [Preset: minimal]         OK
++ EF - Electra - Fork - fork_inactive_compounding_validator_with_excess_balance [Preset: min OK
 + EF - Electra - Fork - fork_many_next_epoch [Preset: minimal]                               OK
 + EF - Electra - Fork - fork_next_epoch [Preset: minimal]                                    OK
 + EF - Electra - Fork - fork_next_epoch_with_block [Preset: minimal]                         OK
@@ -2746,7 +2747,7 @@ OK: 5/5 Fail: 0/5 Skip: 0/5
 + EF - Electra - Fork - fork_random_low_balances [Preset: minimal]                           OK
 + EF - Electra - Fork - fork_random_misc_balances [Preset: minimal]                          OK
 ```
-OK: 20/20 Fail: 0/20 Skip: 0/20
+OK: 21/21 Fail: 0/21 Skip: 0/21
 ## EF - Electra - Operations - Attestation  [Preset: minimal]
 ```diff
 + [Invalid] EF - Electra - Operations - Attestation - invalid_after_max_inclusion_slot       OK
@@ -3484,6 +3485,19 @@ OK: 4/4 Fail: 0/4 Skip: 0/4
 +   Testing    WithdrawalRequest                                                             OK
 ```
 OK: 59/59 Fail: 0/59 Skip: 0/59
+## EF - Light client - Data collection [Preset: minimal]
+```diff
++ Light client - Data collection - minimal/altair/light_client/data_collection/pyspec_tests/ OK
++ Light client - Data collection - minimal/bellatrix/light_client/data_collection/pyspec_tes OK
++ Light client - Data collection - minimal/bellatrix/light_client/data_collection/pyspec_tes OK
++ Light client - Data collection - minimal/bellatrix/light_client/data_collection/pyspec_tes OK
++ Light client - Data collection - minimal/capella/light_client/data_collection/pyspec_tests OK
++ Light client - Data collection - minimal/capella/light_client/data_collection/pyspec_tests OK
++ Light client - Data collection - minimal/capella/light_client/data_collection/pyspec_tests OK
++ Light client - Data collection - minimal/deneb/light_client/data_collection/pyspec_tests/l OK
++ Light client - Data collection - minimal/electra/light_client/data_collection/pyspec_tests OK
+```
+OK: 9/9 Fail: 0/9 Skip: 0/9
 ## EF - Light client - Single merkle proof [Preset: minimal]
 ```diff
 + Light client - Single merkle proof - minimal/altair/light_client/single_merkle_proof/Beaco OK
@@ -4198,4 +4212,4 @@ OK: 185/207 Fail: 0/207 Skip: 22/207
 OK: 3/3 Fail: 0/3 Skip: 0/3
 
 ---TOTAL---
-OK: 3442/3464 Fail: 0/3464 Skip: 22/3464
+OK: 3452/3474 Fail: 0/3474 Skip: 22/3474

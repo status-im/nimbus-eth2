@@ -2608,6 +2608,7 @@ OK: 5/5 Fail: 0/5 Skip: 0/5
 + EF - Electra - Fork - fork_earliest_exit_epoch_less_than_current_epoch [Preset: mainnet]   OK
 + EF - Electra - Fork - fork_earliest_exit_epoch_no_validator_exits [Preset: mainnet]        OK
 + EF - Electra - Fork - fork_has_compounding_withdrawal_credential [Preset: mainnet]         OK
++ EF - Electra - Fork - fork_inactive_compounding_validator_with_excess_balance [Preset: mai OK
 + EF - Electra - Fork - fork_many_next_epoch [Preset: mainnet]                               OK
 + EF - Electra - Fork - fork_next_epoch [Preset: mainnet]                                    OK
 + EF - Electra - Fork - fork_next_epoch_with_block [Preset: mainnet]                         OK
@@ -2616,7 +2617,7 @@ OK: 5/5 Fail: 0/5 Skip: 0/5
 + EF - Electra - Fork - fork_random_low_balances [Preset: mainnet]                           OK
 + EF - Electra - Fork - fork_random_misc_balances [Preset: mainnet]                          OK
 ```
-OK: 18/18 Fail: 0/18 Skip: 0/18
+OK: 19/19 Fail: 0/19 Skip: 0/19
 ## EF - Electra - Operations - Attestation  [Preset: mainnet]
 ```diff
 + [Invalid] EF - Electra - Operations - Attestation - invalid_after_max_inclusion_slot       OK
@@ -3852,4 +3853,4 @@ OK: 69/88 Fail: 0/88 Skip: 19/88
 OK: 3/3 Fail: 0/3 Skip: 0/3
 
 ---TOTAL---
-OK: 3127/3146 Fail: 0/3146 Skip: 19/3146
+OK: 3128/3147 Fail: 0/3147 Skip: 19/3147
