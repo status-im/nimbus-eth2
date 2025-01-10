@@ -20,11 +20,11 @@ import
   ../fixtures_utils, ../os_ops,
   ../../helpers/debug_state
 
-from std/sequtils import mapIt, toSeq
+from std/sequtils import anyIt, mapIt, toSeq
 from std/strutils import contains
 from ../../../beacon_chain/spec/beaconstate import
   get_base_reward_per_increment, get_state_exit_queue_info,
-  get_total_active_balance, process_attestation
+  get_total_active_balance, latest_block_root, process_attestation
 
 const
   OpDir                     = SszTestsDir/const_preset/"capella"/"operations"
@@ -114,9 +114,12 @@ suite baseDescription & "Attester Slashing " & preset():
       applyAttesterSlashing, path)
 
 suite baseDescription & "Block Header " & preset():
-  func applyBlockHeader(
+  proc applyBlockHeader(
       preState: var capella.BeaconState, blck: capella.BeaconBlock):
       Result[void, cstring] =
+    if blck.is_execution_block:
+      check blck.body.execution_payload.block_hash ==
+        blck.compute_execution_block_hash()
     var cache: StateCache
     process_block_header(preState, blck, {}, cache)
 
@@ -161,6 +164,13 @@ suite baseDescription & "Execution Payload " & preset():
       let payloadValid = os_ops.readFile(
           OpExecutionPayloadDir/"pyspec_tests"/path/"execution.yaml"
         ).contains("execution_valid: true")
+      if payloadValid and body.is_execution_block and
+          not body.execution_payload.transactions.anyIt(it.len == 0):
+        let expectedOk = (path != "incorrect_block_hash")
+        check expectedOk == (body.execution_payload.block_hash ==
+          body.compute_execution_block_hash(
+            preState.latest_block_root(
+              assignClone(preState)[].hash_tree_root())))
       func executePayload(_: capella.ExecutionPayload): bool = payloadValid
       process_execution_payload(
         preState, body.execution_payload, executePayload)

@@ -1,5 +1,5 @@
 # beacon_chain
-# Copyright (c) 2021-2024 Status Research & Development GmbH
+# Copyright (c) 2021-2025 Status Research & Development GmbH
 # Licensed and distributed under either of
 #   * MIT license (license terms in the root directory or at https://opensource.org/licenses/MIT).
 #   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
@@ -16,7 +16,7 @@ import
 from std/sequtils import toSeq
 from std/streams import close, openFileStream
 from ../testutil import preset, suite, test
-from ./fixtures_utils import SszTestsDir, parseTest
+from ./fixtures_utils import SszTestsDir, loadBlock, parseTest
 
 type
   TransitionInfo = object
@@ -54,8 +54,8 @@ proc runTest(
     for i in 0 ..< numBlocks:
       if i <= fork_block:
         let
-          blck = parseTest(
-            testPath/"blocks_" & $i & ".ssz_snappy", SSZ, AnteBeaconBlock)
+          blck = loadBlock(
+            testPath/"blocks_" & $i & ".ssz_snappy", AnteBeaconBlock.kind)
           res = state_transition(
             cfg, fhPreState[], blck, cache, info,
             flags = {skipStateRootValidation}, noRollback)
@@ -65,8 +65,8 @@ proc runTest(
         discard res.expect("no failure when applying block " & $i)
       else:
         let
-          blck = parseTest(
-            testPath/"blocks_" & $i & ".ssz_snappy", SSZ, PostBeaconBlock)
+          blck = loadBlock(
+            testPath/"blocks_" & $i & ".ssz_snappy", PostBeaconBlock.kind)
           res = state_transition(
             cfg, fhPreState[], blck, cache, info,
             flags = {skipStateRootValidation}, noRollback)

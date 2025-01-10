@@ -1,5 +1,5 @@
 # beacon_chain
-# Copyright (c) 2018-2024 Status Research & Development GmbH
+# Copyright (c) 2018-2025 Status Research & Development GmbH
 # Licensed and distributed under either of
 #   * MIT license (license terms in the root directory or at https://opensource.org/licenses/MIT).
 #   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
@@ -10,8 +10,7 @@
 
 import
   chronicles,
-  ../../beacon_chain/spec/forks,
-  ../../beacon_chain/spec/[state_transition, state_transition_epoch],
+  ../../beacon_chain/spec/[helpers, state_transition, state_transition_epoch],
   ./os_ops,
   ../testutil
 
@@ -20,7 +19,8 @@ from std/strutils import toLowerAscii
 from ../../beacon_chain/spec/presets import
   const_preset, defaultRuntimeConfig
 from ./fixtures_utils import
-  SSZ, SszTestsDir, hash_tree_root, parseTest, readSszBytes, toSszType
+  SSZ, SszTestsDir, hash_tree_root, loadBlock, parseTest,
+  readSszBytes, toSszType
 from ../teststateutil import checkPerValidatorBalanceCalc
 
 proc runTest(
@@ -44,8 +44,9 @@ proc runTest(
     # so purely lexicographic sorting wouldn't sort properly.
     let numBlocks = toSeq(walkPattern(testPath/"blocks_*.ssz_snappy")).len
     for i in 0 ..< numBlocks:
-      let blck = parseTest(testPath/"blocks_" & $i & ".ssz_snappy",
-        SSZ, consensusFork.SignedBeaconBlock)
+      let blck = loadBlock(
+        testPath/"blocks_" & $i & ".ssz_snappy", consensusFork,
+        validateBlockHash = hasPostState)
 
       if hasPostState:
         # The return value is the block rewards, which aren't tested here;

@@ -389,13 +389,16 @@ func is_merge_transition_complete*(
   state.latest_execution_payload_header != defaultExecutionPayloadHeader
 
 # https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.9/sync/optimistic.md#helpers
-func is_execution_block*(blck: SomeForkyBeaconBlock): bool =
-  when typeof(blck).kind >= ConsensusFork.Bellatrix:
+func is_execution_block*(body: SomeForkyBeaconBlockBody): bool =
+  when typeof(body).kind >= ConsensusFork.Bellatrix:
     const defaultExecutionPayload =
-      default(typeof(blck.body.execution_payload))
-    blck.body.execution_payload != defaultExecutionPayload
+      default(typeof(body.execution_payload))
+    body.execution_payload != defaultExecutionPayload
   else:
     false
+
+func is_execution_block*(blck: SomeForkyBeaconBlock): bool =
+  blck.body.is_execution_block
 
 # https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.8/specs/bellatrix/beacon-chain.md#is_merge_transition_block
 func is_merge_transition_block(
@@ -480,9 +483,10 @@ func computeRequestsHash(
 
   requestsHash.to(EthHash32)
 
-proc blockToBlockHeader*(blck: ForkyBeaconBlock): EthHeader =
-  template payload: auto = blck.body.execution_payload
-
+proc toExecutionBlockHeader(
+    payload: ForkyExecutionPayload,
+    parentRoot: Eth2Digest,
+    requestsHash = Opt.none(EthHash32)): EthHeader =
   static:  # `GasInt` is signed. We only use it for hashing.
     doAssert sizeof(GasInt) == sizeof(payload.gas_limit)
     doAssert sizeof(GasInt) == sizeof(payload.gas_used)
@@ -506,12 +510,7 @@ proc blockToBlockHeader*(blck: ForkyBeaconBlock): EthHeader =
         Opt.none(uint64)
     parentBeaconBlockRoot =
       when typeof(payload).kind >= ConsensusFork.Deneb:
-        Opt.some EthHash32(blck.parent_root.data)
-      else:
-        Opt.none(EthHash32)
-    requestsHash =
-      when typeof(payload).kind >= ConsensusFork.Electra:
-        Opt.some blck.body.execution_requests.computeRequestsHash()
+        Opt.some EthHash32(parentRoot.data)
       else:
         Opt.none(EthHash32)
 
@@ -538,8 +537,19 @@ proc blockToBlockHeader*(blck: ForkyBeaconBlock): EthHeader =
     parentBeaconBlockRoot : parentBeaconBlockRoot, # EIP-4788
     requestsHash          : requestsHash)          # EIP-7685
 
+proc compute_execution_block_hash*(
+    body: ForkyBeaconBlockBody,
+    parentRoot: Eth2Digest): Eth2Digest =
+  when typeof(body).kind >= ConsensusFork.Electra:
+    body.execution_payload.toExecutionBlockHeader(
+        parentRoot, Opt.some body.execution_requests.computeRequestsHash())
+      .rlpHash().to(Eth2Digest)
+  else:
+    body.execution_payload.toExecutionBlockHeader(parentRoot)
+      .rlpHash().to(Eth2Digest)
+
 proc compute_execution_block_hash*(blck: ForkyBeaconBlock): Eth2Digest =
-  rlpHash(blockToBlockHeader(blck)).to(Eth2Digest)
+  blck.body.compute_execution_block_hash(blck.parent_root)
 
 from std/math import exp, ln
 from std/sequtils import foldl

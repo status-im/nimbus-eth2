@@ -221,7 +221,7 @@ proc runComputeCellsAndKzgProofsTest(suiteName, suitePath, path: string) =
         check output.kind == JNull
       else:
         let p_val = p[].get
-        for i in 0..<CELLS_PER_EXT_BLOB:
+        for i in 0..<kzg_abi.CELLS_PER_EXT_BLOB:
           check p_val.cells[i].bytes == fromHex[2048](output[0][i].getStr).get
           check p_val.proofs[i].bytes == fromHex[48](output[1][i].getStr).get
 
@@ -281,7 +281,7 @@ proc runRecoverCellsAndKzgProofsTest(suiteName, suitePath, path: string) =
         check output.kind == JNull
       else:
         let val = v[].get
-        for i in 0..<CELLS_PER_EXT_BLOB:
+        for i in 0..<kzg_abi.CELLS_PER_EXT_BLOB:
           check val.cells[i].bytes == fromHex[2048](output[0][i].getStr).get
           check val.proofs[i].bytes == fromHex[48](output[1][i].getStr).get
 

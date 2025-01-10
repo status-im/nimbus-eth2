@@ -9,18 +9,18 @@
 
 import
   # Standard library
-  std/[strutils, typetraits],
+  std/[sequtils, strutils, typetraits],
   # Internals
   ./os_ops,
   ../../beacon_chain/spec/datatypes/[phase0, altair, bellatrix],
   ../../beacon_chain/spec/[
-    eth2_merkleization, eth2_ssz_serialization, forks],
+    eth2_merkleization, eth2_ssz_serialization, forks, helpers],
   # Status libs,
   snappy,
   stew/byteutils
 
 export
-  eth2_merkleization, eth2_ssz_serialization
+  eth2_merkleization, eth2_ssz_serialization, helpers
 
 # Process current EF test format
 # ---------------------------------------------
@@ -174,3 +174,21 @@ proc loadForkedState*(
     forkyState.data = parseTest(path, SSZ, consensusFork.BeaconState)
     forkyState.root = hash_tree_root(forkyState.data)
   state
+
+proc loadBlock*(
+    path: string,
+    consensusFork: static ConsensusFork,
+    validateBlockHash = true): auto =
+  var blck = parseTest(path, SSZ, consensusFork.SignedBeaconBlock)
+  blck.root = hash_tree_root(blck.message)
+  when consensusFork >= ConsensusFork.Bellatrix:
+    if blck.message.is_execution_block and
+        not blck.message.body.execution_payload.transactions.anyIt(it.len == 0):
+      if blck.message.body.execution_payload.block_hash !=
+          blck.message.compute_execution_block_hash():
+        try:
+          stderr.write "Invalid `block_hash`: ", path, "\n"
+        except IOError:
+          discard
+        quit 1
+  blck
