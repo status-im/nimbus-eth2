@@ -1,5 +1,5 @@
 # beacon_chain
-# Copyright (c) 2024 Status Research & Development GmbH
+# Copyright (c) 2024-2025 Status Research & Development GmbH
 # Licensed and distributed under either of
 #   * MIT license (license terms in the root directory or at https://opensource.org/licenses/MIT).
 #   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
@@ -44,7 +44,7 @@ const
   # The first member (`genesis_time`) is 64, subsequent members +1 each.
   # If there are ever more than 64 members in `BeaconState`, indices change!
   # `FINALIZED_ROOT_GINDEX` is one layer deeper, i.e., `84 * 2 + 1`.
-  # https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.3/ssz/merkle-proofs.md
+  # https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.10/ssz/merkle-proofs.md
   # finalized_checkpoint > root
   FINALIZED_ROOT_GINDEX_ELECTRA* = 169.GeneralizedIndex
   # current_sync_committee
@@ -121,7 +121,7 @@ type
     blobsBundle*: BlobsBundle
     executionRequests*: seq[seq[byte]]
 
-  # https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.8/specs/deneb/beacon-chain.md#executionpayloadheader
+  # https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.10/specs/deneb/beacon-chain.md#executionpayloadheader
   ExecutionPayloadHeader* = object
     # Execution block header fields
     parent_hash*: Eth2Digest
@@ -162,7 +162,7 @@ type
     amount*: Gwei
     withdrawable_epoch*: Epoch
 
-  # https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.2/specs/electra/beacon-chain.md#executionlayerwithdrawalrequest
+  # https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.10/specs/electra/beacon-chain.md#withdrawalrequest
   WithdrawalRequest* = object
     source_address*: ExecutionAddress
     validator_pubkey*: ValidatorPubKey
@@ -179,7 +179,7 @@ type
     source_pubkey*: ValidatorPubKey
     target_pubkey*: ValidatorPubKey
 
-  # https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.9/specs/electra/beacon-chain.md#singleattestation
+  # https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.10/specs/electra/beacon-chain.md#singleattestation
   SingleAttestation* = object
     committee_index*: uint64
     attester_index*: uint64
@@ -605,7 +605,7 @@ type
 
   AttestationCommitteeBits* = BitArray[MAX_COMMITTEES_PER_SLOT.int]
 
-  # https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.7/specs/electra/beacon-chain.md#attestation
+  # https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.10/specs/electra/beacon-chain.md#attestation
   Attestation* = object
     aggregation_bits*: ElectraCommitteeValidatorsBits
     data*: AttestationData
@@ -793,7 +793,7 @@ func is_valid_light_client_header*(
     get_subtree_index(EXECUTION_PAYLOAD_GINDEX),
     header.beacon.body_root)
 
-# https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.3/specs/electra/light-client/fork.md#normalize_merkle_branch
+# https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.10/specs/electra/light-client/fork.md#normalize_merkle_branch
 func normalize_merkle_branch*[N](
     branch: array[N, Eth2Digest],
     gindex: static GeneralizedIndex): auto =

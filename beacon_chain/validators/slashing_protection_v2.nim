@@ -1,5 +1,5 @@
 # beacon_chain
-# Copyright (c) 2018-2024 Status Research & Development GmbH
+# Copyright (c) 2018-2025 Status Research & Development GmbH
 # Licensed and distributed under either of
 #   * MIT license (license terms in the root directory or at https://opensource.org/licenses/MIT).
 #   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
@@ -58,7 +58,7 @@ export results
 #   2. An attester can get slashed for signing
 #      two attestations that together violate
 #      the Casper FFG slashing conditions.
-# - https://github.com/ethereum/consensus-specs/blob/v1.4.0/specs/phase0/validator.md#ffg-vote
+# - https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.10/specs/phase0/validator.md#ffg-vote
 #   The "source" is the current_justified_epoch
 #   The "target" is the current_epoch
 #

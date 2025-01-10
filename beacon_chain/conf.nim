@@ -1,5 +1,5 @@
 # beacon_chain
-# Copyright (c) 2018-2024 Status Research & Development GmbH
+# Copyright (c) 2018-2025 Status Research & Development GmbH
 # Licensed and distributed under either of
 #   * MIT license (license terms in the root directory or at https://opensource.org/licenses/MIT).
 #   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
@@ -1496,13 +1496,8 @@ proc engineApiUrls*(config: BeaconNodeConf): seq[EngineApiUrl] =
     config.jwtSecret.configJwtSecretOpt)
 
 proc loadKzgTrustedSetup*(): Result[void, string] =
-  const
-    vendorDir = currentSourcePath.parentDir.replace('\\', '/') & "/../vendor"
-    trustedSetup = staticRead(
-      vendorDir & "/nim-kzg4844/kzg4844/csources/src/trusted_setup.txt")
-
   static: doAssert const_preset in ["mainnet", "gnosis", "minimal"]
-  loadTrustedSetupFromString(trustedSetup, 0)
+  loadTrustedSetupFromString(kzg.trustedSetup, 0)
 
 proc loadKzgTrustedSetup*(trustedSetupPath: string): Result[void, string] =
   try:

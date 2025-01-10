@@ -1,5 +1,5 @@
 # beacon_chain
-# Copyright (c) 2022-2024 Status Research & Development GmbH
+# Copyright (c) 2022-2025 Status Research & Development GmbH
 # Licensed and distributed under either of
 #   * MIT license (license terms in the root directory or at https://opensource.org/licenses/MIT).
 #   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
@@ -28,7 +28,7 @@ logScope: topics = "lcdata"
 # - Altair: ~38 KB per `SyncCommitteePeriod` (~1.0 MB per month)
 # - Capella: ~221 KB per `SyncCommitteePeriod` (~6.0 MB per month)
 # - Deneb: ~225 KB per `SyncCommitteePeriod` (~6.2 MB per month)
-# - Electra: ~249 KB per `SyncCommitteePeriod` (~6.8 MB per month)
+# - Electra: ~249 KB per `SyncCommitteePeriod` (~6.2 MB per month)
 #
 # `lc_xxxxx_current_branches` holds Merkle proofs needed to
 # construct `LightClientBootstrap` objects.
@@ -76,8 +76,8 @@ logScope: topics = "lcdata"
 #   600 = 32+20+32+32+256+32+8+8+8+8+4+32+32+32+32+32
 # - Deneb: 256*(112+4+616+128+40)/1024*28/1024
 #   616 = 32+20+32+32+256+32+8+8+8+8+4+32+32+32+32+32+8+8
-# - Electra: 256*(112+4+712+128+40)/1024*28/1024
-#   712 = 32+20+32+32+256+32+8+8+8+8+4+32+32+32+32+32+8+8+32+32+32
+# - Electra: 256*(112+4+616+128+40)/1024*28/1024
+#   616 = 32+20+32+32+256+32+8+8+8+8+4+32+32+32+32+32+8+8
 #
 # Committee branch computations:
 # - Altair: 256*(5*32+8)/1024*28/1024
@@ -96,9 +96,9 @@ logScope: topics = "lcdata"
 #
 # Update computations:
 # - Altair: (112+24624+5*32+112+6*32+112+8+9)/1024*28/1024
-# - Capella: (4+884+24624+5*32+4+884+6*32+112+8+9)/1024*28/1024
-# - Deneb: (4+900+24624+5*32+4+900+6*32+112+8+9)/1024*28/1024
-# - Electra: (4+996+24624+6*32+4+996+7*32+112+8+9)/1024*28/1024
+# - Capella: (4+844+24624+5*32+4+844+6*32+112+8+9)/1024*28/1024
+# - Deneb: (4+860+24624+5*32+4+860+6*32+112+8+9)/1024*28/1024
+# - Electra: (4+860+24624+6*32+4+860+7*32+112+8+9)/1024*28/1024
 
 type
   LightClientHeaderStore = object
