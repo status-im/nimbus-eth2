@@ -1,5 +1,5 @@
 # beacon_chain
-# Copyright (c) 2018-2025 Status Research & Development GmbH
+# Copyright (c) 2018-2024 Status Research & Development GmbH
 # Licensed and distributed under either of
 #   * MIT license (license terms in the root directory or at https://opensource.org/licenses/MIT).
 #   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
@@ -200,7 +200,7 @@ proc updatePerformance(overseer: SyncOverseerRef, startTick: Moment,
 
   # Update status string
   overseer.statusMsg = Opt.some(
-    "fill: " & timeleft.toTimeLeftString() & " (" &
+    timeleft.toTimeLeftString() & " (" &
     (done * 100).formatBiggestFloat(ffDecimal, 2) & "%) " &
     overseer.avgSpeed.formatBiggestFloat(ffDecimal, 4) &
     "slots/s (" & $dag.head.slot & ")")
@@ -521,8 +521,6 @@ proc mainLoop*(
         quit 1
 
       overseer.untrustedInProgress = false
-      # Reset status bar
-      overseer.statusMsg = Opt.none(string)
 
       # When we finished state rebuilding process - we could start forward
       # SyncManager which could perform finish sync.
