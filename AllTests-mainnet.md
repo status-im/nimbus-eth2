@@ -880,6 +880,11 @@ OK: 2/2 Fail: 0/2 Skip: 0/2
 + Accelerated shuffling computation (with epochRefState jump)                                OK
 ```
 OK: 2/2 Fail: 0/2 Skip: 0/2
+## Size bounds
+```diff
++ SignedBeaconBlockDeneb                                                                     OK
+```
+OK: 1/1 Fail: 0/1 Skip: 0/1
 ## Slashing Interchange tests  [Preset: mainnet]
 ```diff
 + Slashing test: duplicate_pubkey_not_slashable.json                                         OK
