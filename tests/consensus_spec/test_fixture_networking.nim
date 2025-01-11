@@ -55,12 +55,11 @@ proc runGetCustodyGroups(suiteName, path: string) =
         res
       node_id = UInt256.fromDecimal(meta.node_id)
       custody_group_count = meta.custody_group_count
-      reslt = (meta.result).mapIt(it)
 
     let columns = get_custody_groups(node_id, custody_group_count)
 
     for i in 0..<columns.lenu64:
-      check columns[i] == reslt[i]
+      check columns[i] == meta.result[i]
 
 suite "EF - PeerDAS - Networking" & preset():
   const presetPath = SszTestsDir/const_preset
