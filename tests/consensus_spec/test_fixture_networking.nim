@@ -35,11 +35,10 @@ proc runComputeForCustodyGroup(suiteName, path: string) =
         yaml.load(s, res)
         res
       custody_group = meta.custody_group
-      reslt = meta.result
 
     var counter = 0
     for column in compute_columns_for_custody_group(custody_group):
-      check column == reslt[counter]
+      check column == meta.result[counter]
       inc counter
 
 proc runGetCustodyGroups(suiteName, path: string) =
