@@ -35,11 +35,12 @@ proc runComputeForCustodyGroup(suiteName, path: string) =
         yaml.load(s, res)
         res
       custody_group = meta.custody_group
-      reslt = (meta.result).mapIt(it)
-    let columns = compute_columns_for_custody_group(custody_group).toSeq
+      reslt = meta.result
 
-    for i in 0..<columns.lenu64:
-      check columns[i] == reslt[i]
+    var counter = 0
+    for column in compute_columns_for_custody_group(custody_group):
+      check column == reslt[counter]
+      inc counter
 
 proc runGetCustodyGroups(suiteName, path: string) =
   let relativePathComponent = path.relativeTestPathComponent()
