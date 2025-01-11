@@ -26,7 +26,7 @@ type
 
 # https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.10/specs/fulu/das-core.md#compute_columns_for_custody_group
 iterator compute_columns_for_custody_group*(custody_group: CustodyIndex):
-                                           ColumnIndex =
+                                            ColumnIndex =
   for i in 0'u64 ..< COLUMNS_PER_GROUP:
     yield ColumnIndex(NUMBER_OF_CUSTODY_GROUPS * i + custody_group)
 

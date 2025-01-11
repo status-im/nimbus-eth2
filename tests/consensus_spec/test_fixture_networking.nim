@@ -9,7 +9,7 @@
 {.used.}
 
 import
-  std/[json, streams, sequtils],
+  std/[json, streams],
   yaml,
   kzg4844/[kzg, kzg_abi],
   stint,
@@ -17,8 +17,6 @@ import
   ../../beacon_chain/spec/peerdas_helpers,
   ../testutil,
   ./fixtures_utils, ./os_ops
-
-from std/sequtils import mapIt
 
 proc runComputeForCustodyGroup(suiteName, path: string) =
   let relativeTestPathComponent = path.relativeTestPathComponent()
