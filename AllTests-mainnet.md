@@ -513,15 +513,15 @@ OK: 253/253 Fail: 0/253 Skip: 0/253
 OK: 56/56 Fail: 0/56 Skip: 0/56
 ## EF - PeerDAS - Networking [Preset: mainnet]
 ```diff
-+ Networking - Get Custody Groups - mainnet/fulu/networking/get_custody_columns/pyspec_tests OK
-+ Networking - Get Custody Groups - mainnet/fulu/networking/get_custody_columns/pyspec_tests OK
-+ Networking - Get Custody Groups - mainnet/fulu/networking/get_custody_columns/pyspec_tests OK
-+ Networking - Get Custody Groups - mainnet/fulu/networking/get_custody_columns/pyspec_tests OK
-+ Networking - Get Custody Groups - mainnet/fulu/networking/get_custody_columns/pyspec_tests OK
-+ Networking - Get Custody Groups - mainnet/fulu/networking/get_custody_columns/pyspec_tests OK
-+ Networking - Get Custody Groups - mainnet/fulu/networking/get_custody_columns/pyspec_tests OK
-+ Networking - Get Custody Groups - mainnet/fulu/networking/get_custody_columns/pyspec_tests OK
-+ Networking - Get Custody Groups - mainnet/fulu/networking/get_custody_columns/pyspec_tests OK
++ Networking - Get Custody Groups - mainnet/fulu/networking/get_custody_groups/pyspec_tests/ OK
++ Networking - Get Custody Groups - mainnet/fulu/networking/get_custody_groups/pyspec_tests/ OK
++ Networking - Get Custody Groups - mainnet/fulu/networking/get_custody_groups/pyspec_tests/ OK
++ Networking - Get Custody Groups - mainnet/fulu/networking/get_custody_groups/pyspec_tests/ OK
++ Networking - Get Custody Groups - mainnet/fulu/networking/get_custody_groups/pyspec_tests/ OK
++ Networking - Get Custody Groups - mainnet/fulu/networking/get_custody_groups/pyspec_tests/ OK
++ Networking - Get Custody Groups - mainnet/fulu/networking/get_custody_groups/pyspec_tests/ OK
++ Networking - Get Custody Groups - mainnet/fulu/networking/get_custody_groups/pyspec_tests/ OK
++ Networking - Get Custody Groups - mainnet/fulu/networking/get_custody_groups/pyspec_tests/ OK
 ```
 OK: 9/9 Fail: 0/9 Skip: 0/9
 ## EF - SSZ generic types
@@ -875,6 +875,11 @@ OK: 2/2 Fail: 0/2 Skip: 0/2
 + Accelerated shuffling computation (with epochRefState jump)                                OK
 ```
 OK: 2/2 Fail: 0/2 Skip: 0/2
+## Size bounds
+```diff
++ SignedBeaconBlockDeneb                                                                     OK
+```
+OK: 1/1 Fail: 0/1 Skip: 0/1
 ## Slashing Interchange tests  [Preset: mainnet]
 ```diff
 + Slashing test: duplicate_pubkey_not_slashable.json                                         OK
@@ -1139,4 +1144,4 @@ OK: 2/2 Fail: 0/2 Skip: 0/2
 OK: 9/9 Fail: 0/9 Skip: 0/9
 
 ---TOTAL---
-OK: 772/777 Fail: 0/777 Skip: 5/777
+OK: 773/778 Fail: 0/778 Skip: 5/778
