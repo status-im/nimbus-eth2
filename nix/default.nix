@@ -16,6 +16,10 @@
   ],
 }:
 
+# The 'or' is to handle src fallback to ../. which lack submodules attribue.
+assert pkgs.lib.assertMsg ((src.submodules or true) == true)
+  "Unable to build without submodules. Append '?submodules=1#' to the URI.";
+
 let
   inherit (pkgs) stdenv lib writeScriptBin callPackage;
 
