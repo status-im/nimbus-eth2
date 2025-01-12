@@ -18,9 +18,28 @@ import
   ../testutil,
   ./fixtures_utils, ./os_ops
 
-from std/sequtils import mapIt
+proc runComputeForCustodyGroup(suiteName, path: string) =
+  let relativeTestPathComponent = path.relativeTestPathComponent()
+  test "Networking - Compute Columns for Custody Group - " &
+      relativeTestPathComponent:
+    type TestMetaYaml = object
+      custody_group: uint64
+      result: seq[uint64]
+    let
+      meta = block:
+        var s = openFileStream(path/"meta.yaml")
+        defer: close(s)
+        var res: TestMetaYaml
+        yaml.load(s, res)
+        res
+      custody_group = meta.custody_group
 
-proc runGetCustodyColumns(suiteName, path: string) =
+    var counter = 0
+    for column in compute_columns_for_custody_group(custody_group):
+      check column == meta.result[counter]
+      inc counter
+
+proc runGetCustodyGroups(suiteName, path: string) =
   let relativePathComponent = path.relativeTestPathComponent()
   test "Networking - Get Custody Groups - " & relativePathComponent:
     type TestMetaYaml = object
@@ -36,17 +55,22 @@ proc runGetCustodyColumns(suiteName, path: string) =
         res
       node_id = UInt256.fromDecimal(meta.node_id)
       custody_group_count = meta.custody_group_count
-      reslt = (meta.result).mapIt(it)
 
     let columns = get_custody_groups(node_id, custody_group_count)
 
     for i in 0..<columns.lenu64:
-      check columns[i] == reslt[i]
+      check columns[i] == meta.result[i]
 
 suite "EF - PeerDAS - Networking" & preset():
   const presetPath = SszTestsDir/const_preset
   # foldering to be resolved in alpha 11 release of consensus spec tests
-  let basePath =
-    presetPath/"fulu"/"networking"/"get_custody_groups"/"pyspec_tests"
-  for kind, path in walkDir(basePath, relative = true, checkDir = true):
-    runGetCustodyColumns(suiteName, basePath/path)
+  block:
+    let basePath =
+      presetPath/"fulu"/"networking"/"get_custody_groups"/"pyspec_tests"
+    for kind, path in walkDir(basePath, relative = true, checkDir = true):
+      runGetCustodyGroups(suiteName, basePath/path)
+  block:
+    let basePath =
+      presetPath/"fulu"/"networking"/"compute_columns_for_custody_group"/"pyspec_tests"
+    for kind, path in walkDir(basePath, relative = true, checkDir = true):
+      runComputeForCustodyGroup(suiteName, basePath/path)

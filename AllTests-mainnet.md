@@ -513,6 +513,11 @@ OK: 253/253 Fail: 0/253 Skip: 0/253
 OK: 56/56 Fail: 0/56 Skip: 0/56
 ## EF - PeerDAS - Networking [Preset: mainnet]
 ```diff
++ Networking - Compute Columns for Custody Group - mainnet/fulu/networking/compute_columns_f OK
++ Networking - Compute Columns for Custody Group - mainnet/fulu/networking/compute_columns_f OK
++ Networking - Compute Columns for Custody Group - mainnet/fulu/networking/compute_columns_f OK
++ Networking - Compute Columns for Custody Group - mainnet/fulu/networking/compute_columns_f OK
++ Networking - Compute Columns for Custody Group - mainnet/fulu/networking/compute_columns_f OK
 + Networking - Get Custody Groups - mainnet/fulu/networking/get_custody_groups/pyspec_tests/ OK
 + Networking - Get Custody Groups - mainnet/fulu/networking/get_custody_groups/pyspec_tests/ OK
 + Networking - Get Custody Groups - mainnet/fulu/networking/get_custody_groups/pyspec_tests/ OK
@@ -523,7 +528,7 @@ OK: 56/56 Fail: 0/56 Skip: 0/56
 + Networking - Get Custody Groups - mainnet/fulu/networking/get_custody_groups/pyspec_tests/ OK
 + Networking - Get Custody Groups - mainnet/fulu/networking/get_custody_groups/pyspec_tests/ OK
 ```
-OK: 9/9 Fail: 0/9 Skip: 0/9
+OK: 14/14 Fail: 0/14 Skip: 0/14
 ## EF - SSZ generic types
 ```diff
   Testing basic_vector inputs - invalid                                                      Skip
@@ -1149,4 +1154,4 @@ OK: 2/2 Fail: 0/2 Skip: 0/2
 OK: 9/9 Fail: 0/9 Skip: 0/9
 
 ---TOTAL---
-OK: 778/783 Fail: 0/783 Skip: 5/783
+OK: 783/788 Fail: 0/788 Skip: 5/788
