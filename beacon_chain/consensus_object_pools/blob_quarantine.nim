@@ -1,5 +1,5 @@
 # beacon_chain
-# Copyright (c) 2018-2024 Status Research & Development GmbH
+# Copyright (c) 2018-2025 Status Research & Development GmbH
 # Licensed and distributed under either of
 #   * MIT license (license terms in the root directory or at https://opensource.org/licenses/MIT).
 #   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
@@ -73,13 +73,17 @@ func hasBlob*(
 func popBlobs*(
     quarantine: var BlobQuarantine, digest: Eth2Digest,
     blck: deneb.SignedBeaconBlock | electra.SignedBeaconBlock |
-          fulu.SignedBeaconBlock):
-    seq[ref BlobSidecar] =
+          fulu.SignedBeaconBlock): seq[ref BlobSidecar] =
   var r: seq[ref BlobSidecar] = @[]
-  for idx, kzg_commitment in blck.message.body.blob_kzg_commitments:
-    var b: ref BlobSidecar
-    if quarantine.blobs.pop((digest, BlobIndex idx, kzg_commitment), b):
-      r.add(b)
+
+  # skip processing blobs for fulu
+  when typeof(blck).kind == ConsensusFork.Fulu:
+    return r
+  else:
+    for idx, kzg_commitment in blck.message.body.blob_kzg_commitments:
+      var b: ref BlobSidecar
+      if quarantine.blobs.pop((digest, BlobIndex idx, kzg_commitment), b):
+        r.add(b)
   r
 
 func hasBlobs*(quarantine: BlobQuarantine,
@@ -87,21 +91,28 @@ func hasBlobs*(quarantine: BlobQuarantine,
           fulu.SignedBeaconBlock): bool =
     # Having a fulu SignedBeaconBlock is incorrect atm, but
     # shall be fixed once data columns are rebased to fulu
-  for idx, kzg_commitment in blck.message.body.blob_kzg_commitments:
-    if (blck.root, BlobIndex idx, kzg_commitment) notin quarantine.blobs:
-      return false
+  when typeof(blck).kind == ConsensusFork.Fulu:
+    return false
+  else:
+    for idx, kzg_commitment in blck.message.body.blob_kzg_commitments:
+      if (blck.root, BlobIndex idx, kzg_commitment) notin quarantine.blobs:
+        return false
   true
 
 func blobFetchRecord*(quarantine: BlobQuarantine,
     blck: deneb.SignedBeaconBlock | electra.SignedBeaconBlock |
           fulu.SignedBeaconBlock): BlobFetchRecord =
-  var indices: seq[BlobIndex]
-  for i in 0..<len(blck.message.body.blob_kzg_commitments):
-    let idx = BlobIndex(i)
-    if not quarantine.blobs.hasKey(
-        (blck.root, idx, blck.message.body.blob_kzg_commitments[i])):
-      indices.add(idx)
-  BlobFetchRecord(block_root: blck.root, indices: indices)
+  # Skip blob fetching logic for the Fulu fork
+  when typeof(blck).kind == ConsensusFork.Fulu:
+    return BlobFetchRecord(block_root: blck.root, indices: @[])  # Empty record
+  else:
+    var indices: seq[BlobIndex]
+    for i in 0..<len(blck.message.body.blob_kzg_commitments):
+      let idx = BlobIndex(i)
+      if not quarantine.blobs.hasKey(
+          (blck.root, idx, blck.message.body.blob_kzg_commitments[i])):
+        indices.add(idx)
+    BlobFetchRecord(block_root: blck.root, indices: indices)
 
 func init*(
     T: type BlobQuarantine, onBlobSidecarCallback: OnBlobSidecarCallback): T =

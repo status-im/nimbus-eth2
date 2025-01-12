@@ -1,5 +1,5 @@
 # beacon_chain
-# Copyright (c) 2018-2024 Status Research & Development GmbH
+# Copyright (c) 2018-2025 Status Research & Development GmbH
 # Licensed and distributed under either of
 #   * MIT license (license terms in the root directory or at https://opensource.org/licenses/MIT).
 #   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
@@ -731,12 +731,17 @@ func constructSignableBlindedBlock[T: electra_mev.SignedBlindedBeaconBlock |
   # https://github.com/ethereum/builder-specs/blob/v0.4.0/specs/bellatrix/validator.md#block-proposal
   copyFields(blindedBlock.message, blck, blckFields)
   copyFields(blindedBlock.message.body, blck.body, blckBodyFields)
-  assign(
-    blindedBlock.message.body.execution_payload_header,
-    blindedBundle.execution_payload_header)
-  assign(
-    blindedBlock.message.body.blob_kzg_commitments,
-    blindedBundle.blob_kzg_commitments)
+  when T is fulu_mev.SignedBlindedBeaconBlock:
+    assign(
+      blindedBlock.message.body.signed_execution_payload_header,
+      blindedBundle.execution_payload_header)
+  else:
+    assign(
+      blindedBlock.message.body.execution_payload_header,
+      blindedBundle.execution_payload_header)
+    assign(
+      blindedBlock.message.body.blob_kzg_commitments,
+      blindedBundle.blob_kzg_commitments)
 
   blindedBlock
 
@@ -753,12 +758,19 @@ func constructSignableBlindedBlock[T: fulu_mev.SignedBlindedBeaconBlock](
   # https://github.com/ethereum/builder-specs/blob/v0.4.0/specs/bellatrix/validator.md#block-proposal
   copyFields(blindedBlock.message, blck, blckFields)
   copyFields(blindedBlock.message.body, blck.body, blckBodyFields)
-  assign(
-    blindedBlock.message.body.execution_payload_header,
-    blindedBundle.execution_payload_header)
-  assign(
-    blindedBlock.message.body.blob_kzg_commitments,
-    blindedBundle.blob_kzg_commitments)
+
+  when T is fulu_mev.SignedBlindedBeaconBlock:
+    assign(
+      blindedBlock.message.body.signed_execution_payload_header.message,
+      blindedBundle.execution_payload_header)
+  else:
+    assign(
+      blindedBlock.message.body.execution_payload_header,
+      blindedBundle.execution_payload_header)
+    assign(
+      blindedBlock.message.body.blob_kzg_commitments,
+      blindedBundle.blob_kzg_commitments)
+
 
   blindedBlock
 
@@ -826,11 +838,11 @@ func constructPlainBlindedBlock[T: fulu_mev.BlindedBeaconBlock](
   copyFields(blindedBlock, blck, blckFields)
   copyFields(blindedBlock.body, blck.body, blckBodyFields)
   assign(
-    blindedBlock.body.execution_payload_header,
+    blindedBlock.body.signed_execution_payload_header.message,
     blindedBundle.execution_payload_header)
-  assign(
-    blindedBlock.body.blob_kzg_commitments,
-    blindedBundle.blob_kzg_commitments)
+  # assign(
+  #   blindedBlock.body.blob_kzg_commitments,
+  #   blindedBundle.blob_kzg_commitments)
 
   blindedBlock
 
@@ -978,7 +990,10 @@ proc getBlindedBlockParts[
     template actualEPH: untyped =
       executionPayloadHeader.get.blindedBlckPart.execution_payload_header
     let
-      withdrawals_root = Opt.some actualEPH.withdrawals_root
+      withdrawals_root = when compiles(actualEPH.withdrawals_root):
+                           Opt.some(actualEPH.withdrawals_root)
+                         else:
+                           Opt.none(Eth2Digest)
       kzg_commitments = Opt.some(
         executionPayloadHeader.get.blindedBlckPart.blob_kzg_commitments)
 
@@ -994,7 +1009,10 @@ proc getBlindedBlockParts[
   let newBlock = await makeBeaconBlockForHeadAndSlot(
     PayloadType, node, randao, validator_index, graffiti, head, slot,
     execution_payload = Opt.some shimExecutionPayload,
-    transactions_root = Opt.some actualEPH.transactions_root,
+    transactions_root =  when compiles(actualEPH.withdrawals_root):
+                           Opt.some(actualEPH.withdrawals_root)
+                         else:
+                           Opt.none(Eth2Digest),
     execution_payload_root = Opt.some hash_tree_root(actualEPH),
     withdrawals_root = withdrawals_root,
     kzg_commitments = kzg_commitments,
@@ -2212,7 +2230,7 @@ proc makeMaybeBlindedBeaconBlockForHeadAndSlotImpl[ResultType](
 
   doAssert engineBid.blck.kind == consensusFork
   template forkyBlck: untyped = engineBid.blck.forky(consensusFork)
-  when consensusFork >= ConsensusFork.Deneb:
+  when consensusFork >= ConsensusFork.Deneb and consensusFork != ConsensusFork.Fulu:
     let blobsBundle = engineBid.blobsBundleOpt.get()
     doAssert blobsBundle.commitments == forkyBlck.body.blob_kzg_commitments
     ResultType.ok((
@@ -2222,6 +2240,14 @@ proc makeMaybeBlindedBeaconBlockForHeadAndSlotImpl[ResultType](
           `block`: forkyBlck,
           kzg_proofs: blobsBundle.proofs,
           blobs: blobsBundle.blobs)),
+      executionValue: Opt.some(engineBid.executionPayloadValue),
+      consensusValue: Opt.some(engineBid.consensusBlockValue)))
+  elif consensusFork == ConsensusFork.Fulu:
+    # Fulu fork: no blobs or KZG commitments
+    ResultType.ok((
+      blck: consensusFork.MaybeBlindedBeaconBlock(
+        isBlinded: false,
+        data: consensusFork.BlockContents(`block`: forkyBlck)),
       executionValue: Opt.some(engineBid.executionPayloadValue),
       consensusValue: Opt.some(engineBid.consensusBlockValue)))
   else:

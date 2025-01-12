@@ -1,5 +1,5 @@
 # beacon_chain
-# Copyright (c) 2018-2024 Status Research & Development GmbH
+# Copyright (c) 2018-2025 Status Research & Development GmbH
 # Licensed and distributed under either of
 #   * MIT license (license terms in the root directory or at https://opensource.org/licenses/MIT).
 #   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
@@ -304,7 +304,10 @@ proc getMissingBlobs(rman: RequestManager): seq[BlobIdentifier] =
     ready: seq[Eth2Digest]
   for blobless in rman.quarantine[].peekBlobless():
     withBlck(blobless):
-      when consensusFork >= ConsensusFork.Deneb:
+      when consensusFork == ConsensusFork.Fulu:
+        # For Fulu, return an empty sequence
+        return fetches
+      elif consensusFork >= ConsensusFork.Deneb:
         # give blobs a chance to arrive over gossip
         if forkyBlck.message.slot == wallSlot and delay < waitDur:
           debug "Not handling missing blobs early in slot"

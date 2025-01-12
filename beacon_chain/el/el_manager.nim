@@ -1,5 +1,5 @@
 # beacon_chain
-# Copyright (c) 2018-2024 Status Research & Development GmbH
+# Copyright (c) 2018-2025 Status Research & Development GmbH
 # Licensed and distributed under either of
 #   * MIT license (license terms in the root directory or at https://opensource.org/licenses/MIT).
 #   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
@@ -993,7 +993,12 @@ proc sendNewPayload*(
       let
         requests = m.elConnections.mapIt:
           let req =
-            when typeof(blck).kind >= ConsensusFork.Electra:
+            when typeof(blck).kind == ConsensusFork.Fulu:
+                let versioned_hashes: seq[VersionedHash] = @[]
+                sendNewPayloadToSingleEL(
+                  it, payload, versioned_hashes,
+                  FixedBytes[32] blck.parent_root.data)
+            elif typeof(blck).kind >= ConsensusFork.Electra:
               # https://github.com/ethereum/execution-apis/blob/4140e528360fea53c34a766d86a000c6c039100e/src/engine/prague.md#engine_newpayloadv4
               let versioned_hashes = mapIt(
                 blck.body.blob_kzg_commitments,

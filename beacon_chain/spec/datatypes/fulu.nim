@@ -1,5 +1,5 @@
 # beacon_chain
-# Copyright (c) 2022-2024 Status Research & Development GmbH
+# Copyright (c) 2024-2025 Status Research & Development GmbH
 # Licensed and distributed under either of
 #   * MIT license (license terms in the root directory or at https://opensource.org/licenses/MIT).
 #   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
@@ -7,7 +7,7 @@
 
 {.push raises: [].}
 
-# Types specific to Fulu (i.e. known to have changed across hard forks) - see
+# Types specific to eip-7732 (i.e. known to have changed across hard forks) - see
 # `base` for types and guidelines common across forks
 
 # TODO Careful, not nil analysis is broken / incomplete and the semantics will
@@ -16,28 +16,27 @@
 {.experimental: "notnil".}
 
 import
-  std/[sequtils, typetraits],
-  "."/[phase0, base, electra],
-  chronicles,
   json_serialization,
   ssz_serialization/[merkleization, proofs],
   ssz_serialization/types as sszTypes,
+  kzg4844/[kzg, kzg_abi],
+  chronicles,
   ../digest,
-  kzg4844/[kzg, kzg_abi]
+  "."/[base, phase0, electra],
+  std/typetraits
 
-from std/strutils import join
 from stew/bitops2 import log2trunc
-from stew/byteutils import to0xHex
+from kzg4844 import KzgCommitment, KzgProof
 from ./altair import
   EpochParticipationFlags, InactivityScores, SyncAggregate, SyncCommittee,
-  TrustedSyncAggregate, SyncnetBits, num_active_participants
+  TrustedSyncAggregate, num_active_participants, SyncnetBits
 from ./bellatrix import BloomLogs, ExecutionAddress, Transaction
 from ./capella import
-  ExecutionBranch, HistoricalSummary, SignedBLSToExecutionChange,
-  SignedBLSToExecutionChangeList, Withdrawal, EXECUTION_PAYLOAD_GINDEX
+  ExecutionBranch, HistoricalSummary, SignedBLSToExecutionChangeList,
+  Withdrawal, EXECUTION_PAYLOAD_GINDEX
 from ./deneb import Blobs, BlobsBundle, KzgCommitments, KzgProofs
 
-export json_serialization, base
+export json_serialization, base, kzg4844
 
 const
   # https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.5/specs/_features/eip7594/polynomial-commitments-sampling.md#cells
@@ -119,7 +118,51 @@ type
     syncnets*: SyncnetBits
     custody_subnet_count*: CscCount
 
-  # https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.8/specs/deneb/beacon-chain.md#executionpayload
+
+const
+    # https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.4/specs/_features/eip7732/beacon-chain.md#misc
+    PTC_SIZE* = 512
+
+    # https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.4/specs/_features/eip7732/beacon-chain.md#max-operations-per-block
+    MAX_PAYLOAD_ATTESTATIONS* = 4
+type
+
+  PTCStatus* = distinct uint64
+
+  # https://github.com/ethereum/consensus-specs/blob/dev/specs/_features/eip7732/beacon-chain.md#payloadattestationdata
+  PayloadAttestationData* = object
+    beacon_block_root*: Eth2Digest
+    slot*: Slot
+    payload_status*: uint8
+
+  # https://github.com/ethereum/consensus-specs/blob/dev/specs/_features/eip7732/beacon-chain.md#payloadattestation
+  PayloadAttestation* = object
+    aggregation_bits*: ElectraCommitteeValidatorsBits
+    data*: PayloadAttestationData
+    signature*: ValidatorSig
+
+  # https://github.com/ethereum/consensus-specs/blob/dev/specs/_features/eip7732/beacon-chain.md#payloadattestationmessage
+  PayloadAttestationMessage* = object
+    validatorIndex*: ValidatorIndex
+    data*: PayloadAttestationData
+    signature*: ValidatorSig
+
+  # https://github.com/ethereum/consensus-specs/blob/dev/specs/_features/eip7732/beacon-chain.md#indexedpayloadattestation
+  IndexedPayloadAttestation* = object
+    attesting_indices*: List[ValidatorIndex, Limit PTC_SIZE]
+    data*: PayloadAttestationData
+    signature*: ValidatorSig
+
+# https://github.com/ethereum/consensus-specs/blob/dev/specs/_features/eip7732/beacon-chain.md#payload-status
+const
+    PAYLOAD_ABSENT* = PTCStatus(0)
+    PAYLOAD_PRESENT* = PTCStatus(1)
+    PAYLOAD_WITHHELD* = PTCStatus(2)
+    PAYLOAD_INVALID_STATUS* = PTCStatus(3)
+
+type
+
+# https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.8/specs/deneb/beacon-chain.md#executionpayload
   ExecutionPayload* = object
     # Execution block header fields
     parent_hash*: Eth2Digest
@@ -151,29 +194,19 @@ type
     blobsBundle*: BlobsBundle
     executionRequests*: array[3, seq[byte]]
 
-  # https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.8/specs/deneb/beacon-chain.md#executionpayloadheader
+  # https://github.com/ethereum/consensus-specs/blob/dev/specs/_features/eip7732/beacon-chain.md#executionpayloadheader
   ExecutionPayloadHeader* = object
     # Execution block header fields
-    parent_hash*: Eth2Digest
-    fee_recipient*: ExecutionAddress
-    state_root*: Eth2Digest
-    receipts_root*: Eth2Digest
-    logs_bloom*: BloomLogs
-    prev_randao*: Eth2Digest
-    block_number*: uint64
+    parent_block_hash*: Eth2Digest 
+    parent_block_root*: Eth2Digest
     gas_limit*: uint64
-    gas_used*: uint64
-    timestamp*: uint64
-    extra_data*: List[byte, MAX_EXTRA_DATA_BYTES]
-    base_fee_per_gas*: UInt256
+    builder_index*: uint64
+    slot*: Slot
+    value*: Gwei
+    blob_kzg_commitments_root*: KzgCommitments
 
     # Extra payload fields
     block_hash*: Eth2Digest
-      ## Hash of execution block
-    transactions_root*: Eth2Digest
-    withdrawals_root*: Eth2Digest
-    blob_gas_used*: uint64
-    excess_blob_gas*: uint64
 
   ExecutePayload* = proc(
     execution_payload: ExecutionPayload): bool {.gcsafe, raises: [].}
@@ -285,88 +318,77 @@ type
       ## (used to compute safety threshold)
     current_max_active_participants*: uint64
 
-  # https://github.com/ethereum/consensus-specs/blob/82133085a1295e93394ebdf71df8f2f6e0962588/specs/electra/beacon-chain.md#beaconstate
+  # https://github.com/ethereum/consensus-specs/blob/dev/specs/_features/eip7732/beacon-chain.md#executionpayloadenvelope
+  SignedExecutionPayloadHeader* = object
+    message*: ExecutionPayloadHeader
+    signature*: ValidatorSig
+
+  # https://github.com/ethereum/consensus-specs/blob/dev/specs/_features/eip7732/beacon-chain.md#signedexecutionpayloadenvelope
+  ExecutionPayloadEnvelope* = object
+    payload*: ExecutionPayload
+    execution_requests*: ExecutionRequests
+    builder_index*: uint64
+    beacon_block_root*: Eth2Digest
+    blob_kzg_commitments*: List[KzgCommitment, Limit MAX_BLOB_COMMITMENTS_PER_BLOCK]
+    payload_withheld*: bool
+    state_root*: Eth2Digest
+
+  # https://github.com/ethereum/consensus-specs/blob/dev/specs/_features/eip7732/beacon-chain.md#signedexecutionpayloadenvelope
+  SignedExecutionPayloadEnvelope* = object
+    message*: ExecutionPayloadEnvelope
+    signature*: ValidatorSig
+
+  # https://github.com/ethereum/consensus-specs/blob/dev/specs/_features/eip7732/beacon-chain.md#beaconstate
   BeaconState* = object
     # Versioning
     genesis_time*: uint64
     genesis_validators_root*: Eth2Digest
     slot*: Slot
     fork*: Fork
-
-    # History
     latest_block_header*: BeaconBlockHeader
-      ## `latest_block_header.state_root == ZERO_HASH` temporarily
-
     block_roots*: HashArray[Limit SLOTS_PER_HISTORICAL_ROOT, Eth2Digest]
-      ## Needed to process attestations, older to newer
-
     state_roots*: HashArray[Limit SLOTS_PER_HISTORICAL_ROOT, Eth2Digest]
     historical_roots*: HashList[Eth2Digest, Limit HISTORICAL_ROOTS_LIMIT]
-      ## Frozen in Capella, replaced by historical_summaries
-
-    # Eth1
     eth1_data*: Eth1Data
     eth1_data_votes*:
       HashList[Eth1Data, Limit(EPOCHS_PER_ETH1_VOTING_PERIOD * SLOTS_PER_EPOCH)]
     eth1_deposit_index*: uint64
-
-    # Registry
     validators*: HashList[Validator, Limit VALIDATOR_REGISTRY_LIMIT]
     balances*: HashList[Gwei, Limit VALIDATOR_REGISTRY_LIMIT]
-
-    # Randomness
     randao_mixes*: HashArray[Limit EPOCHS_PER_HISTORICAL_VECTOR, Eth2Digest]
-
-    # Slashings
     slashings*: HashArray[Limit EPOCHS_PER_SLASHINGS_VECTOR, Gwei]
-      ## Per-epoch sums of slashed effective balances
-
-    # Participation
     previous_epoch_participation*: EpochParticipationFlags
     current_epoch_participation*: EpochParticipationFlags
-
-    # Finality
     justification_bits*: JustificationBits
-      ## Bit set for every recent justified epoch
-
     previous_justified_checkpoint*: Checkpoint
     current_justified_checkpoint*: Checkpoint
     finalized_checkpoint*: Checkpoint
-
-    # Inactivity
     inactivity_scores*: InactivityScores
-
-    # Light client sync committees
     current_sync_committee*: SyncCommittee
     next_sync_committee*: SyncCommittee
-
-    # Execution
     latest_execution_payload_header*: ExecutionPayloadHeader
-      ## [Modified in Electra:EIP6110:EIP7002]
-
-    # Withdrawals
     next_withdrawal_index*: WithdrawalIndex
     next_withdrawal_validator_index*: uint64
-
-    # Deep history valid from Capella onwards
     historical_summaries*:
       HashList[HistoricalSummary, Limit HISTORICAL_ROOTS_LIMIT]
 
-    deposit_requests_start_index*: uint64  # [New in Electra:EIP6110]
-    deposit_balance_to_consume*: Gwei  # [New in Electra:EIP7251]
-    exit_balance_to_consume*: Gwei  # [New in Electra:EIP7251]
-    earliest_exit_epoch*: Epoch  # [New in Electra:EIP7251]
-    consolidation_balance_to_consume*: Gwei  # [New in Electra:EIP7251]
-    earliest_consolidation_epoch*: Epoch  # [New in Electra:EIP7251]
-    pending_deposits*: HashList[PendingDeposit, Limit PENDING_DEPOSITS_LIMIT]
-      ## [New in Electra:EIP7251]
-
-    # [New in Electra:EIP7251]
+    deposit_requests_start_index*: uint64
+    deposit_balance_to_consume*: Gwei
+    exit_balance_to_consume*: Gwei
+    earliest_exit_epoch*: Epoch
+    consolidation_balance_to_consume*: Gwei
+    earliest_consolidation_epoch*: Epoch 
+    pending_deposits*: 
+      HashList[PendingDeposit, Limit PENDING_DEPOSITS_LIMIT]
     pending_partial_withdrawals*:
       HashList[PendingPartialWithdrawal, Limit PENDING_PARTIAL_WITHDRAWALS_LIMIT]
     pending_consolidations*:
       HashList[PendingConsolidation, Limit PENDING_CONSOLIDATIONS_LIMIT]
-      ## [New in Electra:EIP7251]
+    
+    # [New in PBS]
+    latest_block_hash*: Eth2Digest
+    latest_full_slot*: Slot
+    latest_withdrawals_root*: Eth2Digest
 
   # TODO Careful, not nil analysis is broken / incomplete and the semantics will
   #      likely change in future versions of the language:
@@ -379,7 +401,7 @@ type
     data*: BeaconState
     root*: Eth2Digest # hash_tree_root(data)
 
-  # https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.8/specs/phase0/beacon-chain.md#beaconblock
+  # https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.3/specs/phase0/beacon-chain.md#beaconblock
   BeaconBlock* = object
     ## For each slot, a proposer is chosen from the validator pool to propose
     ## a new block. Once the block as been proposed, it is transmitted to
@@ -436,7 +458,7 @@ type
     state_root*: Eth2Digest
     body*: TrustedBeaconBlockBody
 
-  # https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.6/specs/electra/beacon-chain.md#beaconblockbody
+  # https://github.com/ethereum/consensus-specs/blob/dev/specs/_features/eip7732/beacon-chain.md#beaconblockbody
   BeaconBlockBody* = object
     randao_reveal*: ValidatorSig
     eth1_data*: Eth1Data
@@ -456,15 +478,17 @@ type
     voluntary_exits*: List[SignedVoluntaryExit, Limit MAX_VOLUNTARY_EXITS]
 
     sync_aggregate*: SyncAggregate
+    bls_to_execution_changes*: SignedBLSToExecutionChangeList
+
+    signed_execution_payload_header*: SignedExecutionPayloadHeader
+    payload_attestations*: List[PayloadAttestation, Limit MAX_PAYLOAD_ATTESTATIONS]
 
     # Execution
-    execution_payload*: fulu.ExecutionPayload   # [Modified in Electra:EIP6110:EIP7002]
-    bls_to_execution_changes*: SignedBLSToExecutionChangeList
-    blob_kzg_commitments*: KzgCommitments
-    execution_requests*: ExecutionRequests  # [New in Electra]
+    # execution_payload*: ExecutionPayload   # [Removed in epbs]
+    # blob_kzg_commitments*: KzgCommitments # [Removed in epbs]
 
   SigVerifiedBeaconBlockBody* = object
-    ## A BeaconBlock body with signatures verified
+    ## An BeaconBlock body with signatures verified
     ## including:
     ## - Randao reveal
     ## - Attestations
@@ -498,10 +522,10 @@ type
     sync_aggregate*: TrustedSyncAggregate
 
     # Execution
-    execution_payload*: ExecutionPayload   # [Modified in Electra:EIP6110:EIP7002]
     bls_to_execution_changes*: SignedBLSToExecutionChangeList
-    blob_kzg_commitments*: KzgCommitments
-    execution_requests*: ExecutionRequests  # [New in Electra]
+    signed_execution_payload_header*: SignedExecutionPayloadHeader
+    payload_attestations*: List[PayloadAttestation, Limit MAX_PAYLOAD_ATTESTATIONS]
+
 
   TrustedBeaconBlockBody* = object
     ## A full verified block
@@ -526,10 +550,9 @@ type
     sync_aggregate*: TrustedSyncAggregate
 
     # Execution
-    execution_payload*: ExecutionPayload   # [Modified in Electra:EIP6110:EIP7002]
     bls_to_execution_changes*: SignedBLSToExecutionChangeList
-    blob_kzg_commitments*: KzgCommitments
-    execution_requests*: ExecutionRequests  # [New in Electra]
+    signed_execution_payload_header*: SignedExecutionPayloadHeader
+    payload_attestations*: List[PayloadAttestation, Limit MAX_PAYLOAD_ATTESTATIONS]
 
   # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.6/specs/phase0/beacon-chain.md#signedbeaconblock
   SignedBeaconBlock* = object
@@ -569,6 +592,13 @@ type
 
     root* {.dontSerialize.}: Eth2Digest # cached root of signed beacon block
 
+# https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.7/specs/electra/beacon-chain.md#attestation
+  Attestation* = object
+    aggregation_bits*: ElectraCommitteeValidatorsBits
+    data*: AttestationData
+    signature*: ValidatorSig
+    committee_bits*: AttestationCommitteeBits  # [New in Electra:EIP7549]
+
   SomeSignedBeaconBlock* =
     SignedBeaconBlock |
     SigVerifiedSignedBeaconBlock |
@@ -588,26 +618,16 @@ type
     kzg_proofs*: KzgProofs
     blobs*: Blobs
 
-func shortLog*(v: DataColumnSidecar): auto =
-  (
-    index: v.index,
-    kzg_commitments: v.kzg_commitments.len,
-    kzg_proofs: v.kzg_proofs.len,
-    block_header: shortLog(v.signed_block_header.message),
-  )
-
-func shortLog*(v: seq[DataColumnSidecar]): auto =
-  "[" & v.mapIt(shortLog(it)).join(", ") & "]"
-
-func shortLog*(x: seq[DataColumnIdentifier]): string =
-  "[" & x.mapIt(shortLog(it.block_root) & "/" & $it.index).join(", ") & "]"
-
-func shortLog*(x: seq[ColumnIndex]): string =
-  "<" & x.mapIt($it).join(", ") & ">"
-
 # TODO: There should be only a single generic HashedBeaconState definition
 func initHashedBeaconState*(s: BeaconState): HashedBeaconState =
   HashedBeaconState(data: s)
+
+func shortLog*(v: PayloadAttestationData): auto =
+  (
+    beacon_block_root: shortLog(v.beacon_block_root),
+    slot: shortLog(v.slot),
+    payload_status: $v.payload_status
+  )
 
 func shortLog*(v: SomeBeaconBlock): auto =
   (
@@ -623,13 +643,14 @@ func shortLog*(v: SomeBeaconBlock): auto =
     deposits_len: v.body.deposits.len(),
     voluntary_exits_len: v.body.voluntary_exits.len(),
     sync_committee_participants: v.body.sync_aggregate.num_active_participants,
-    block_number: v.body.execution_payload.block_number,
-    # TODO checksum hex? shortlog?
-    block_hash: to0xHex(v.body.execution_payload.block_hash.data),
-    parent_hash: to0xHex(v.body.execution_payload.parent_hash.data),
-    fee_recipient: to0xHex(v.body.execution_payload.fee_recipient.data),
+    
+    # Default values for missing execution_payload fields
+    block_number: uint64(0),  # Default value for block number
+    block_hash: "N/A",  # Default string for missing block hash
+    parent_hash: "N/A",  # Default string for missing parent hash
+    fee_recipient: "N/A",  # Default string for missing fee recipient
     bls_to_execution_changes_len: v.body.bls_to_execution_changes.len(),
-    blob_kzg_commitments_len: v.body.blob_kzg_commitments.len(),
+    blob_kzg_commitments_len: v.body.signed_execution_payload_header.message.blob_kzg_commitments_root.len(),
   )
 
 func shortLog*(v: SomeSignedBeaconBlock): auto =
@@ -654,8 +675,8 @@ func shortLog*(v: ExecutionPayload): auto =
     block_hash: shortLog(v.block_hash),
     num_transactions: len(v.transactions),
     num_withdrawals: len(v.withdrawals),
-    blob_gas_used: $(v.blob_gas_used),
-    excess_blob_gas: $(v.excess_blob_gas)
+    # blob_gas_used: $(v.blob_gas_used),
+    # excess_blob_gas: $(v.excess_blob_gas)
   )
 
 template asSigned*(

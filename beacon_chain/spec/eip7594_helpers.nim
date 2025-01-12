@@ -1,5 +1,5 @@
 # beacon_chain
-# Copyright (c) 2018-2024 Status Research & Development GmbH
+# Copyright (c) 2018-2025 Status Research & Development GmbH
 # Licensed and distributed under either of
 #   * MIT license (license terms in the root directory or at https://opensource.org/licenses/MIT).
 #   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
@@ -129,13 +129,12 @@ proc compute_matrix*(blobs: seq[KzgBlob]): Result[seq[MatrixEntry], cstring] =
 
   ok(extended_matrix)
 
-# https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.5/specs/_features/eip7594/das-core.md#recover_matrix
 proc recover_matrix*(partial_matrix: seq[MatrixEntry],
-                     blobCount: int):
-                     Result[seq[MatrixEntry], cstring] =
+                     blobCount: int): Result[seq[MatrixEntry], cstring] =
   ## This helper demonstrates how to apply recover_cells_and_kzg_proofs
   ## The data structure for storing cells is implementation-dependent
   var extended_matrix: seq[MatrixEntry]
+  
   for blob_index in 0..<blobCount:
     var
       cell_indices: seq[CellIndex]

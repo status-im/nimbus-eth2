@@ -1,5 +1,5 @@
 # beacon_chain
-# Copyright (c) 2019-2024 Status Research & Development GmbH
+# Copyright (c) 2019-2025 Status Research & Development GmbH
 # Licensed and distributed under either of
 #   * MIT license (license terms in the root directory or at http://opensource.org/licenses/MIT).
 #   * Apache v2 license (license terms in the root directory or at http://www.apache.org/licenses/LICENSE-2.0).
@@ -341,11 +341,14 @@ template validateBeaconBlockBellatrix(
       withState(dag.headState):
         compute_timestamp_at_slot(
           forkyState.data, signed_beacon_block.message.slot)
-    if not (signed_beacon_block.message.body.execution_payload.timestamp ==
-        timestampAtSlot):
-      quarantine[].addUnviable(signed_beacon_block.root)
-      return dag.checkedReject(
-        "BeaconBlock: mismatched execution payload timestamp")
+    when signed_beacon_block is fulu.SignedBeaconBlock:
+      discard
+    else:
+      if not (signed_beacon_block.message.body.execution_payload.timestamp ==
+          timestampAtSlot):
+        quarantine[].addUnviable(signed_beacon_block.root)
+        return dag.checkedReject(
+          "BeaconBlock: mismatched execution payload timestamp")
 
   # The condition:
   # [REJECT] The block's parent (defined by `block.parent_root`) passes all

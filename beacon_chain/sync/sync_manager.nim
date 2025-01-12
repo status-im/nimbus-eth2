@@ -1,5 +1,5 @@
 # beacon_chain
-# Copyright (c) 2018-2024 Status Research & Development GmbH
+# Copyright (c) 2018-2025 Status Research & Development GmbH
 # Licensed and distributed under either of
 #   * MIT license (license terms in the root directory or at https://opensource.org/licenses/MIT).
 #   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
@@ -246,7 +246,10 @@ func groupBlobs*(
     blob_cursor = 0
   for block_idx, blck in blocks:
     withBlck(blck[]):
-      when consensusFork >= ConsensusFork.Deneb:
+      when consensusFork == ConsensusFork.Fulu:
+        # Skip blob processing for fulu beacon blocks as they do not contain blobs
+        continue
+      elif consensusFork >= ConsensusFork.Deneb:
         template kzgs: untyped = forkyBlck.message.body.blob_kzg_commitments
         if kzgs.len == 0:
           continue
@@ -321,11 +324,15 @@ proc getSyncBlockData*[T](
   let (shouldGetBlob, blobsCount) =
     withBlck(blocksRange[0][]):
       when consensusFork >= ConsensusFork.Deneb:
-        let res = len(forkyBlck.message.body.blob_kzg_commitments)
-        if res > 0:
-          (true, res)
-        else:
+        when consensusFork == ConsensusFork.Fulu:
+          # Fulu fork: No blob-related fields
           (false, 0)
+        else:
+          let res = len(forkyBlck.message.body.blob_kzg_commitments)
+          if res > 0:
+            (true, res)
+          else:
+            (false, 0)
       else:
         (false, 0)
 
@@ -525,10 +532,11 @@ proc syncStep[A, B](
       var hasBlobs = false
       for blck in blockData:
         withBlck(blck[]):
-          when consensusFork >= ConsensusFork.Deneb:
-            if forkyBlck.message.body.blob_kzg_commitments.len > 0:
-              hasBlobs = true
-              break
+          when consensusFork >= ConsensusFork.Deneb and 
+            consensusFork != ConsensusFork.Fulu:
+              if forkyBlck.message.body.blob_kzg_commitments.len > 0:
+                hasBlobs = true
+                break
       hasBlobs
 
   let blobData =

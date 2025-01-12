@@ -1,5 +1,5 @@
 # beacon_chain
-# Copyright (c) 2024 Status Research & Development GmbH
+# Copyright (c) 2024-2025 Status Research & Development GmbH
 # Licensed and distributed under either of
 #   * MIT license (license terms in the root directory or at https://opensource.org/licenses/MIT).
 #   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
@@ -21,21 +21,28 @@ func readExecutionTransaction(
 
 # https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.4/specs/deneb/beacon-chain.md#is_valid_versioned_hashes
 func is_valid_versioned_hashes*(blck: ForkyBeaconBlock): Result[void, string] =
-  static: doAssert typeof(blck).kind >= ConsensusFork.Deneb
-  template transactions: untyped = blck.body.execution_payload.transactions
-  template commitments: untyped = blck.body.blob_kzg_commitments
+  # static: doAssert typeof(blck).kind >= ConsensusFork.Deneb
 
-  var i = 0
-  for txBytes in transactions:
-    if txBytes.len == 0 or txBytes[0] != TxEip4844.byte:
-      continue  # Only blob transactions may have blobs
-    let tx = ? txBytes.readExecutionTransaction()
-    for vHash in tx.versionedHashes:
-      if commitments.len <= i:
-        return err("Extra blobs without matching `blob_kzg_commitments`")
-      if vHash.data != kzg_commitment_to_versioned_hash(commitments[i]):
-        return err("Invalid `blob_versioned_hash` at index " & $i)
-      inc i
-  if i != commitments.len:
-    return err("Extra `blob_kzg_commitments` without matching blobs")
+  when typeof(blck).kind == ConsensusFork.Fulu:
+    # Return a descriptive error string for Fulu fork
+    debugFuluComment "Versioned hashes validation not implemented for Fulu fork"
+    return ok()
+  else:
+    static: doAssert typeof(blck).kind >= ConsensusFork.Deneb
+    template transactions: untyped = blck.body.execution_payload.transactions
+    template commitments: untyped = blck.body.blob_kzg_commitments
+    
+    var i = 0
+    for txBytes in transactions:
+      if txBytes.len == 0 or txBytes[0] != TxEip4844.byte:
+        continue  # Only blob transactions may have blobs
+      let tx = ? txBytes.readExecutionTransaction()
+      for vHash in tx.versionedHashes:
+        if commitments.len <= i:
+          return err("Extra blobs without matching `blob_kzg_commitments`")
+        if vHash.data != kzg_commitment_to_versioned_hash(commitments[i]):
+          return err("Invalid `blob_versioned_hash` at index " & $i)
+        inc i
+    if i != commitments.len:
+      return err("Extra `blob_kzg_commitments` without matching blobs")
   ok()

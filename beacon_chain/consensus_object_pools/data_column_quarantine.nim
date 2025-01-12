@@ -1,5 +1,5 @@
 # beacon_chain
-# Copyright (c) 2018-2024 Status Research & Development GmbH
+# Copyright (c) 2018-2025 Status Research & Development GmbH
 # Licensed and distributed under either of
 #   * MIT license (license terms in the root directory or at https://opensource.org/licenses/MIT).
 #   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
@@ -37,8 +37,8 @@ type
 func init*(T: type DataColumnQuarantine): T =
   T()
 
-func shortLog*(x: seq[DataColumnFetchRecord]): string =
-  "[" & x.mapIt(shortLog(it.block_root) & shortLog(it.indices)).join(", ") & "]"
+# func shortLog*(x: seq[DataColumnFetchRecord]): string =
+#   "[" & x.mapIt(shortLog(it.block_root) & shortLog(it.indices.mapIt($it).join(", "))).join(", ") & "]"
 
 func put*(quarantine: var DataColumnQuarantine,
           dataColumnSidecar: ref DataColumnSidecar) =

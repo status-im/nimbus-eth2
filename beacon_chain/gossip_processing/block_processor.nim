@@ -1,5 +1,5 @@
 # beacon_chain
-# Copyright (c) 2018-2024 Status Research & Development GmbH
+# Copyright (c) 2018-2025 Status Research & Development GmbH
 # Licensed and distributed under either of
 #   * MIT license (license terms in the root directory or at https://opensource.org/licenses/MIT).
 #   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
@@ -184,19 +184,25 @@ proc storeBackfillBlock(
   when typeof(signedBlock).kind >= ConsensusFork.Deneb:
     if blobsOpt.isSome:
       let blobs = blobsOpt.get()
-      let kzgCommits = signedBlock.message.body.blob_kzg_commitments.asSeq
-      if blobs.len > 0 or kzgCommits.len > 0:
-        let r = validate_blobs(kzgCommits, blobs.mapIt(KzgBlob(bytes: it.blob)),
-                               blobs.mapIt(it.kzg_proof))
-        if r.isErr():
-          debug "backfill blob validation failed",
-            blockRoot = shortLog(signedBlock.root),
-            blobs = shortLog(blobs),
-            blck = shortLog(signedBlock.message),
-            kzgCommits = mapIt(kzgCommits, shortLog(it)),
-            signature = shortLog(signedBlock.signature),
-            msg = r.error()
-        blobsOk = r.isOk()
+      
+      # Conditionally handle blob_kzg_commitments based on fork
+      when typeof(signedBlock).kind < ConsensusFork.Fulu:
+        let kzgCommits = signedBlock.message.body.blob_kzg_commitments.asSeq
+        if blobs.len > 0 or kzgCommits.len > 0:
+          let r = validate_blobs(kzgCommits, blobs.mapIt(KzgBlob(bytes: it.blob)),
+                                 blobs.mapIt(it.kzg_proof))
+          if r.isErr():
+            debug "backfill blob validation failed",
+              blockRoot = shortLog(signedBlock.root),
+              blobs = shortLog(blobs),
+              blck = shortLog(signedBlock.message),
+              kzgCommits = mapIt(kzgCommits, shortLog(it)),
+              signature = shortLog(signedBlock.signature),
+              msg = r.error()
+          blobsOk = r.isOk()
+      else:
+        # For Fulu fork, skip blob_kzg_commitments validation
+        blobsOk = true
 
   if not blobsOk:
     return err(VerifierError.Invalid)
@@ -249,7 +255,10 @@ proc expectValidForkchoiceUpdated(
       deadlineObj = deadlineObj,
       maxRetriesCount = maxRetriesCount)
     receivedExecutionBlockHash =
-      when typeof(receivedBlock).kind >= ConsensusFork.Bellatrix:
+      when typeof(receivedBlock).kind == ConsensusFork.Fulu:
+        debugFuluComment "Execution payload removed for Fulu"
+        (static(default(Eth2Digest)))
+      elif typeof(receivedBlock).kind >= ConsensusFork.Bellatrix:
         receivedBlock.message.body.execution_payload.block_hash
       else:
         # https://github.com/nim-lang/Nim/issues/19802
@@ -288,15 +297,19 @@ proc newExecutionPayload*(
     maxRetriesCount: int
 ): Future[Opt[PayloadExecutionStatus]] {.async: (raises: [CancelledError]).} =
 
-  template executionPayload: untyped = blck.body.execution_payload
+  template executionPayload: untyped =
+    when compiles(blck.body.execution_payload):
+      blck.body.execution_payload
+    else:
+      debug "Block body does not support execution payload"
+      default(electra.ExecutionPayload)
 
   if not elManager.hasProperlyConfiguredConnection:
     if elManager.hasConnection:
       info "No execution client connected; cannot process block payloads",
         executionPayload = shortLog(executionPayload)
     else:
-      debug "No execution client connected; cannot process block payloads",
-        executionPayload = shortLog(executionPayload)
+      debug "No execution client connected; cannot process block payloads"
     return Opt.none PayloadExecutionStatus
 
   debug "newPayload: inserting block into execution engine",
@@ -307,18 +320,18 @@ proc newExecutionPayload*(
       await elManager.sendNewPayload(blck, deadlineObj, maxRetriesCount)
 
     debug "newPayload: succeeded",
-      parentHash = executionPayload.parent_hash,
-      blockHash = executionPayload.block_hash,
-      blockNumber = executionPayload.block_number,
+      # parentHash = executionPayload.parent_hash,
+      # blockHash = executionPayload.block_hash,
+      # blockNumber = executionPayload.block_number,
       payloadStatus = $payloadStatus
 
     return Opt.some payloadStatus
   except CatchableError as err:
     warn "newPayload failed - check execution client",
-      msg = err.msg,
-      parentHash = shortLog(executionPayload.parent_hash),
-      blockHash = shortLog(executionPayload.block_hash),
-      blockNumber = executionPayload.block_number
+      msg = err.msg
+      # parentHash = shortLog(executionPayload.parent_hash),
+      # blockHash = shortLog(executionPayload.block_hash),
+      # blockNumber = executionPayload.block_number
     return Opt.none PayloadExecutionStatus
 
 proc newExecutionPayload*(
@@ -356,7 +369,7 @@ proc getExecutionValidity(
         # while for the latter, spam is limited by the request manager.
         info "execution payload invalid from EL client newPayload",
           executionPayloadStatus = $executionPayloadStatus.get,
-          executionPayload = shortLog(blck.message.body.execution_payload),
+          # executionPayload = shortLog(blck.message.body.execution_payload),
           blck = shortLog(blck)
         return NewPayloadStatus.invalid
       of PayloadExecutionStatus.syncing, PayloadExecutionStatus.accepted:
@@ -366,7 +379,7 @@ proc getExecutionValidity(
   except CatchableError as err:
     error "newPayload failed and leaked exception",
       err = err.msg,
-      executionPayload = shortLog(blck.message.body.execution_payload),
+      # executionPayload = shortLog(blck.message.body.execution_payload),
       blck = shortLog(blck)
     return NewPayloadStatus.noResponse
 
@@ -538,7 +551,9 @@ proc storeBlock(
         var blobsOk = true
         let blobs =
           withBlck(parentBlck.get()):
-            when consensusFork >= ConsensusFork.Deneb:
+            when consensusFork == ConsensusFork.Fulu:
+              Opt.none BlobSidecars
+            elif consensusFork >= ConsensusFork.Deneb:
               var blob_sidecars: BlobSidecars
               for i in 0 ..< forkyBlck.message.body.blob_kzg_commitments.len:
                 let blob = BlobSidecar.new()
@@ -570,7 +585,9 @@ proc storeBlock(
         # progress in its own sync.
         NewPayloadStatus.noResponse
       else:
-        when typeof(signedBlock).kind >= ConsensusFork.Bellatrix:
+        when typeof(signedBlock).kind == ConsensusFork.Fulu:
+          NewPayloadStatus.valid
+        elif typeof(signedBlock).kind >= ConsensusFork.Bellatrix:
           await self.consensusManager.elManager.getExecutionValidity(
             signedBlock, deadlineObj, getRetriesCount())
         else:
@@ -587,7 +604,10 @@ proc storeBlock(
     # required checks on the CL instead and proceed as if the EL was syncing
     # https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.8/specs/bellatrix/beacon-chain.md#verify_and_notify_new_payload
     # https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.8/specs/deneb/beacon-chain.md#modified-verify_and_notify_new_payload
-    when typeof(signedBlock).kind >= ConsensusFork.Bellatrix:
+    when typeof(signedBlock).kind == ConsensusFork.Fulu:
+      debugFuluComment "Payload validation skipped for Fulu fork"
+      discard
+    elif typeof(signedBlock).kind >= ConsensusFork.Bellatrix:
       if signedBlock.message.is_execution_block:
         template payload(): auto = signedBlock.message.body.execution_payload
 
@@ -625,7 +645,10 @@ proc storeBlock(
   # TODO with v1.4.0, not sure this is still relevant
   # Establish blob viability before calling addHeadBlock to avoid
   # writing the block in case of blob error.
-  when typeof(signedBlock).kind >= ConsensusFork.Deneb:
+  when typeof(signedBlock).kind == ConsensusFork.Fulu:
+    debugFuluComment "No need to establish blob validity in Beacon block for Fulu"
+    discard
+  elif typeof(signedBlock).kind >= ConsensusFork.Deneb:
     if blobsOpt.isSome:
       let blobs = blobsOpt.get()
       let kzgCommits = signedBlock.message.body.blob_kzg_commitments.asSeq
@@ -829,6 +852,9 @@ proc storeBlock(
 
     withBlck(quarantined):
       when typeof(forkyBlck).kind < ConsensusFork.Deneb:
+        self[].enqueueBlock(
+          MsgSource.gossip, quarantined, Opt.none(BlobSidecars))
+      elif typeof(forkyBlck).kind == ConsensusFork.Fulu:
         self[].enqueueBlock(
           MsgSource.gossip, quarantined, Opt.none(BlobSidecars))
       else:
