@@ -39,6 +39,9 @@ from ./deneb import Blobs, BlobsBundle, KzgCommitments, KzgProofs
 
 export json_serialization, base
 
+type
+  PTCStatus* = distinct uint64
+  
 const
   # https://github.com/ethereum/consensus-specs/blob/v1.5.0-beta.0/specs/fulu/polynomial-commitments-sampling.md#cells
   FIELD_ELEMENTS_PER_EXT_BLOB* = 2 * kzg_abi.FIELD_ELEMENTS_PER_BLOB
@@ -75,6 +78,18 @@ const
   # Number of columns in the network per custody group
   COLUMNS_PER_GROUP* = NUMBER_OF_COLUMNS div NUMBER_OF_CUSTODY_GROUPS
 
+  # https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.4/specs/_features/eip7732/beacon-chain.md#misc
+  PTC_SIZE* = 512
+
+  # https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.4/specs/_features/eip7732/beacon-chain.md#max-operations-per-block
+  MAX_PAYLOAD_ATTESTATIONS* = 4
+
+  # https://github.com/ethereum/consensus-specs/blob/dev/specs/_features/eip7732/beacon-chain.md#payload-status
+  PAYLOAD_ABSENT* = PTCStatus(0)
+  PAYLOAD_PRESENT* = PTCStatus(1)
+  PAYLOAD_WITHHELD* = PTCStatus(2)
+  PAYLOAD_INVALID_STATUS* = PTCStatus(3)
+
 type
   # https://github.com/ethereum/consensus-specs/blob/v1.5.0-beta.0/specs/fulu/polynomial-commitments-sampling.md#custom-types
   BLSFieldElement* = KzgBytes32
@@ -91,7 +106,6 @@ type
   ColumnIndex* = uint64
   CellIndex* = uint64
   CustodyIndex* = uint64
-
 
 type
   DataColumn* = List[KzgCell, Limit(MAX_BLOB_COMMITMENTS_PER_BLOCK)]
@@ -137,6 +151,32 @@ type
     attnets*: AttnetBits
     syncnets*: SyncnetBits
     custody_group_count*: uint64
+
+type
+
+  # https://github.com/ethereum/consensus-specs/blob/dev/specs/_features/eip7732/beacon-chain.md#payloadattestationdata
+  PayloadAttestationData* = object
+    beacon_block_root*: Eth2Digest
+    slot*: Slot
+    payload_status*: uint8
+
+  # https://github.com/ethereum/consensus-specs/blob/dev/specs/_features/eip7732/beacon-chain.md#payloadattestation
+  PayloadAttestation* = object
+    aggregation_bits*: ElectraCommitteeValidatorsBits
+    data*: PayloadAttestationData
+    signature*: ValidatorSig
+
+  # https://github.com/ethereum/consensus-specs/blob/dev/specs/_features/eip7732/beacon-chain.md#payloadattestationmessage
+  PayloadAttestationMessage* = object
+    validatorIndex*: ValidatorIndex
+    data*: PayloadAttestationData
+    signature*: ValidatorSig
+
+  # https://github.com/ethereum/consensus-specs/blob/dev/specs/_features/eip7732/beacon-chain.md#indexedpayloadattestation
+  IndexedPayloadAttestation* = object
+    attesting_indices*: List[ValidatorIndex, Limit PTC_SIZE]
+    data*: PayloadAttestationData
+    signature*: ValidatorSig
 
   # https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.10/specs/deneb/beacon-chain.md#executionpayload
   ExecutionPayload* = object
@@ -193,6 +233,26 @@ type
     withdrawals_root*: Eth2Digest
     blob_gas_used*: uint64
     excess_blob_gas*: uint64
+
+      # https://github.com/ethereum/consensus-specs/blob/dev/specs/_features/eip7732/beacon-chain.md#executionpayloadenvelope
+  SignedExecutionPayloadHeader* = object
+    message*: ExecutionPayloadHeader
+    signature*: ValidatorSig
+
+  # https://github.com/ethereum/consensus-specs/blob/dev/specs/_features/eip7732/beacon-chain.md#signedexecutionpayloadenvelope
+  ExecutionPayloadEnvelope* = object
+    payload*: ExecutionPayload
+    execution_requests*: ExecutionRequests
+    builder_index*: uint64
+    beacon_block_root*: Eth2Digest
+    blob_kzg_commitments*: List[KzgCommitment, Limit MAX_BLOB_COMMITMENTS_PER_BLOCK]
+    payload_withheld*: bool
+    state_root*: Eth2Digest
+
+  # https://github.com/ethereum/consensus-specs/blob/dev/specs/_features/eip7732/beacon-chain.md#signedexecutionpayloadenvelope
+  SignedExecutionPayloadEnvelope* = object
+    message*: ExecutionPayloadEnvelope
+    signature*: ValidatorSig
 
   ExecutePayload* = proc(
     execution_payload: ExecutionPayload): bool {.gcsafe, raises: [].}
