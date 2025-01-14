@@ -207,7 +207,7 @@ jobs:
       - name: Upload combined results
         uses: actions/upload-artifact@v4
         with:
-          name: Unit Test Results ${{ matrix.target.os }}-${{ matrix.target.cpu }}
+          name: Unit Test Results ${{ matrix.target.os }}-${{ matrix.target.cpu }}-${{ matrix.branch }}
           path: build/*.xml
 
   devbuild:

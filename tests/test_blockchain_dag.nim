@@ -1,5 +1,5 @@
 # beacon_chain
-# Copyright (c) 2018-2024 Status Research & Development GmbH
+# Copyright (c) 2018-2025 Status Research & Development GmbH
 # Licensed and distributed under either of
 #   * MIT license (license terms in the root directory or at https://opensource.org/licenses/MIT).
 #   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
@@ -147,41 +147,17 @@ suite "Block pool processing" & preset():
     var blocks: array[3, BlockId]
 
     check:
-      dag.getBlockRange(Slot(0), 1, blocks.toOpenArray(0, 0)) == 0
+      dag.getBlockRange(Slot(0), blocks.toOpenArray(0, 0)) == 0
       blocks[0..<1] == [dag.tail]
 
-      dag.getBlockRange(Slot(0), 1, blocks.toOpenArray(0, 1)) == 0
+      dag.getBlockRange(Slot(0), blocks.toOpenArray(0, 1)) == 0
       blocks[0..<2] == [dag.tail, b1Add[].bid]
 
-      dag.getBlockRange(Slot(0), 2, blocks.toOpenArray(0, 1)) == 0
-      blocks[0..<2] == [dag.tail, b2Add[].bid]
-
-      dag.getBlockRange(Slot(0), 3, blocks.toOpenArray(0, 1)) == 1
-      blocks[1..<2] == [dag.tail] # block 3 is missing!
-
-      dag.getBlockRange(Slot(2), 2, blocks.toOpenArray(0, 1)) == 0
-      blocks[0..<2] == [b2Add[].bid, b4Add[].bid] # block 3 is missing!
-
-      # large skip step
-      dag.getBlockRange(Slot(0), uint64.high, blocks.toOpenArray(0, 2)) == 2
-      blocks[2..2] == [dag.tail]
-
-      # large skip step
-      dag.getBlockRange(Slot(2), uint64.high, blocks.toOpenArray(0, 1)) == 1
-      blocks[1..1] == [b2Add[].bid]
-
-      # empty length
-      dag.getBlockRange(Slot(2), 2, blocks.toOpenArray(0, -1)) == 0
+      # No blocks in sight
+      dag.getBlockRange(Slot(5), blocks.toOpenArray(0, 1)) == 2
 
       # No blocks in sight
-      dag.getBlockRange(Slot(5), 1, blocks.toOpenArray(0, 1)) == 2
-
-      # No blocks in sight
-      dag.getBlockRange(Slot(uint64.high), 1, blocks.toOpenArray(0, 1)) == 2
-
-      # No blocks in sight either due to gaps
-      dag.getBlockRange(Slot(3), 2, blocks.toOpenArray(0, 1)) == 2
-      blocks[2..<2].len == 0
+      dag.getBlockRange(Slot(uint64.high), blocks.toOpenArray(0, 1)) == 2
 
     # A fork forces the clearance state to a point where it cannot be advanced
     let

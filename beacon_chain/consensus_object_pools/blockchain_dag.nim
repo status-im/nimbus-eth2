@@ -1,5 +1,5 @@
 # beacon_chain
-# Copyright (c) 2018-2024 Status Research & Development GmbH
+# Copyright (c) 2018-2025 Status Research & Development GmbH
 # Licensed and distributed under either of
 #   * MIT license (license terms in the root directory or at https://opensource.org/licenses/MIT).
 #   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
@@ -1639,11 +1639,11 @@ template forkAtEpoch*(dag: ChainDAGRef, epoch: Epoch): Fork =
   forkAtEpoch(dag.cfg, epoch)
 
 proc getBlockRange*(
-    dag: ChainDAGRef, startSlot: Slot, skipStep: uint64,
+    dag: ChainDAGRef, startSlot: Slot,
     output: var openArray[BlockId]): Natural =
   ## This function populates an `output` buffer of blocks
   ## with a slots ranging from `startSlot` up to, but not including,
-  ## `startSlot + skipStep * output.len`, skipping any slots that don't have
+  ## `startSlot + output.len`, skipping any slots that don't have
   ## a block.
   ##
   ## Blocks will be written to `output` from the end without gaps, even if
@@ -1657,7 +1657,7 @@ proc getBlockRange*(
     headSlot = dag.head.slot
 
   trace "getBlockRange entered",
-    head = shortLog(dag.head.root), requestedCount, startSlot, skipStep, headSlot
+    head = shortLog(dag.head.root), requestedCount, startSlot, headSlot
 
   if startSlot < dag.backfill.slot:
     debug "Got request for pre-backfill slot",
@@ -1671,11 +1671,9 @@ proc getBlockRange*(
     runway = uint64(headSlot - startSlot)
 
     # This is the number of blocks that will follow the start block
-    extraSlots = min(runway div skipStep, requestedCount - 1)
+    extraSlots = min(runway, requestedCount - 1)
 
-    # If `skipStep` is very large, `extraSlots` should be 0 from
-    # the previous line, so `endSlot` will be equal to `startSlot`:
-    endSlot = startSlot + extraSlots * skipStep
+    endSlot = startSlot + extraSlots
 
   var
     curSlot = endSlot
@@ -1687,7 +1685,7 @@ proc getBlockRange*(
     if bs.isSome and bs.get().isProposed():
       o -= 1
       output[o] = bs.get().bid
-    curSlot -= skipStep
+    curSlot -= 1
 
   # Handle start slot separately (to avoid underflow when computing curSlot)
   let bs = dag.getBlockIdAtSlot(startSlot)
