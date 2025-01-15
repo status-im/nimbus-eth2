@@ -210,10 +210,10 @@ libbacktrace:
 # - --base-el-rpc-port + --el-port-offset * [0, --nodes + --light-clients)
 # - --base-el-ws-port + --el-port-offset * [0, --nodes + --light-clients)
 # - --base-el-auth-rpc-port + --el-port-offset * [0, --nodes + --light-clients)
-UNIT_TEST_BASE_PORT := 9960
-REST_TEST_BASE_PORT := 9990
-MINIMAL_TESTNET_BASE_PORT := 5001
-MAINNET_TESTNET_BASE_PORT := 6501
+UNIT_TEST_BASE_PORT := 39960
+REST_TEST_BASE_PORT := 40990
+MINIMAL_TESTNET_BASE_PORT := 35001
+MAINNET_TESTNET_BASE_PORT := 36501
 
 restapi-test:
 	./tests/simulation/restapi.sh \
