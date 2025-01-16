@@ -1,5 +1,5 @@
 # beacon_chain
-# Copyright (c) 2018-2024 Status Research & Development GmbH
+# Copyright (c) 2018-2025 Status Research & Development GmbH
 # Licensed and distributed under either of
 #   * MIT license (license terms in the root directory or at https://opensource.org/licenses/MIT).
 #   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
@@ -175,9 +175,11 @@ proc checkBlobsResponse*[T](req: SyncRequest[T],
     # Impossible to verify empty response.
     return ok()
 
-  if lenu64(data) > (req.count * MAX_BLOBS_PER_BLOCK):
+  static: doAssert MAX_BLOBS_PER_BLOCK_ELECTRA >= MAX_BLOBS_PER_BLOCK
+
+  if lenu64(data) > (req.count * MAX_BLOBS_PER_BLOCK_ELECTRA):
     # Number of blobs in response should be less or equal to number of
-    # requested (blocks * MAX_BLOBS_PER_BLOCK).
+    # requested (blocks * MAX_BLOBS_PER_BLOCK_ELECTRA).
     return err("Too many blobs received")
 
   var
@@ -190,7 +192,7 @@ proc checkBlobsResponse*[T](req: SyncRequest[T],
       return err("Incorrect order")
     if slot == pslot:
       inc(counter)
-      if counter > MAX_BLOBS_PER_BLOCK:
+      if counter > MAX_BLOBS_PER_BLOCK_ELECTRA:
         return err("Number of blobs in the block exceeds the limit")
     else:
       counter = 1'u64
