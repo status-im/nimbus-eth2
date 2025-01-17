@@ -338,7 +338,7 @@ p2pProtocol BeaconSync(version = 1,
       peer: Peer,
       blobIds: BlobIdentifierList,
       response: MultipleChunksResponse[
-        ref BlobSidecar, Limit(MAX_REQUEST_BLOB_SIDECARS)])
+        ref BlobSidecar, Limit(MAX_REQUEST_BLOB_SIDECARS_ELECTRA)])
       {.async, libp2pProtocol("blob_sidecars_by_root", 1).} =
     # TODO Semantically, this request should return a non-ref, but doing so
     #      runs into extreme inefficiency due to the compiler introducing
@@ -360,7 +360,7 @@ p2pProtocol BeaconSync(version = 1,
       startSlot: Slot,
       reqCount: uint64,
       response: MultipleChunksResponse[
-        ref BlobSidecar, Limit(MAX_REQUEST_BLOB_SIDECARS)])
+        ref BlobSidecar, Limit(MAX_REQUEST_BLOB_SIDECARS_ELECTRA)])
       {.async, libp2pProtocol("blob_sidecars_by_range", 1).} =
     # TODO This code is more complicated than it needs to be, since the type
     #      of the multiple chunks response is not actually used in this server
@@ -372,7 +372,7 @@ p2pProtocol BeaconSync(version = 1,
     #      are `not-nil` in the implementation
     getBlobSidecarsByRange(
       "1", peer, peer.networkState.dag, response, startSlot, reqCount,
-      MAX_BLOBS_PER_BLOCK, MAX_REQUEST_BLOB_SIDECARS)
+      MAX_BLOBS_PER_BLOCK, MAX_REQUEST_BLOB_SIDECARS_ELECTRA)
 
   # https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.10/specs/fulu/p2p-interface.md#datacolumnsidecarsbyroot-v1
   proc dataColumnSidecarsByRoot(
