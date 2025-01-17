@@ -2369,7 +2369,7 @@ proc doRunBeaconNode*(config: var BeaconNodeConf, rng: ref HmacDrbgContext) {.ra
   ignoreDeprecatedOption validatorMonitorTotals
   ignoreDeprecatedOption web3ForcePolling
 
-  createPidFile(config.dataDir.string / "beacon_node.pid")
+  # createPidFile(config.dataDir.string / "beacon_node.pid")
 
   config.createDumpDirs()
 
