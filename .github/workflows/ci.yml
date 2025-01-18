@@ -207,7 +207,12 @@ jobs:
       - name: Upload combined results
         uses: actions/upload-artifact@v4
         with:
-          name: Unit Test Results ${{ matrix.target.os }}-${{ matrix.target.cpu }}
+          # upload-artifact requires avoiding "/", because "To maintain file
+          # system agnostic behavior, these characters are intentionally not
+          # allowed to prevent potential problems with downloads on different
+          # file systems". However, GitHub Actions workflows do not support a
+          # usual assortment of string functions.
+          name: Unit Test Results ${{ matrix.target.os }}-${{ matrix.target.cpu }}-${{ matrix.branch == 'upstream/version-2-0' && 'version-2-0' || matrix.branch }}
           path: build/*.xml
 
   devbuild:

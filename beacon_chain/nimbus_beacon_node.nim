@@ -1595,7 +1595,7 @@ proc pruneBlobs(node: BeaconNode, slot: Slot) =
     var blocks: array[SLOTS_PER_EPOCH.int, BlockId]
     var count = 0
     let startIndex = node.dag.getBlockRange(
-      blobPruneEpoch.start_slot, 1, blocks.toOpenArray(0, SLOTS_PER_EPOCH - 1))
+      blobPruneEpoch.start_slot, blocks.toOpenArray(0, SLOTS_PER_EPOCH - 1))
     for i in startIndex..<SLOTS_PER_EPOCH:
       let blck = node.dag.getForkedBlock(blocks[int(i)]).valueOr: continue
       withBlck(blck):
