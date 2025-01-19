@@ -146,8 +146,54 @@ proc recover_matrix*(partial_matrix: seq[MatrixEntry],
 
   ok(extended_matrix)
 
+proc recover_cells_and_proofs*(
+    data_columns: seq[DataColumnSidecar]):
+    Result[seq[CellsAndProofs], cstring] =
+
+  # This helper recovers blobs from the data column sidecars
+  if not (data_columns.len != 0):
+    return err("DataColumnSidecar: Length should not be 0")
+
+  var
+    columnCount = data_columns.len
+    blobCount = data_columns[0].column.len
+
+  for data_column in data_columns:
+    if not (blobCount == data_column.column.len):
+      return err ("DataColumns do not have the same length")
+
+  var
+    recovered_cps =
+      newSeq[CellsAndProofs](blobCount)
+
+  for blobIdx in 0..<blobCount:
+    var
+      bIdx = blobIdx
+      cell_ids = newSeqOfCap[CellIndex](columnCount)
+      ckzgCells = newSeqOfCap[KzgCell](columnCount)
+
+    for col in data_columns:
+      cell_ids.add col.index
+
+      let
+        column = col.column
+        cell = column[bIdx]
+
+      ckzgCells.add cell
+
+    # Recovering the cells and proofs
+    let recovered_cells_and_proofs =
+      recoverCellsAndKzgProofs(cell_ids, ckzgCells)
+    if not recovered_cells_and_proofs.isOk:
+      return err("Failed to compute cells and proofs")
+
+    recovered_cps[bIdx] =
+      recovered_cells_and_proofs.get
+
+  ok(recovered_cps)
+
 # https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.10/specs/fulu/das-core.md#get_data_column_sidecars
-proc get_data_column_sidecars*(signed_beacon_block: electra.TrustedSignedBeaconBlock,
+proc get_data_column_sidecars*(signed_beacon_block: fulu.TrustedSignedBeaconBlock,
                                cellsAndProofs: seq[CellsAndProofs]):
                                seq[DataColumnSidecar] =
   ## Given a trusted signed beacon block and the cells/proofs associated
@@ -199,9 +245,62 @@ proc get_data_column_sidecars*(signed_beacon_block: electra.TrustedSignedBeaconB
 
   sidecars
 
+# Additional overload to perform reconstruction at the time of gossip
+proc get_data_column_sidecars*(signed_beacon_block: fulu.SignedBeaconBlock,
+                               cellsAndProofs: seq[CellsAndProofs]):
+                               seq[DataColumnSidecar] =
+  ## Given a signed beacon block and the blobs corresponding to the block,
+  ## this function assembles the sidecars which can be distributed to
+  ## the peers post data column reconstruction at every slot start.
+  ##
+  ## Note: this function only accepts `SignedBeaconBlock` as
+  ## during practice we would be extracting data columns
+  ## before publishing them, all of this happens during block
+  ## production, hence the blocks are yet untrusted and have not
+  ## yet been verified.
+  template blck(): auto = signed_beacon_block.message
+  let
+    beacon_block_header =
+      BeaconBlockHeader(
+        slot: blck.slot,
+        proposer_index: blck.proposer_index,
+        parent_root: blck.parent_root,
+        state_root: blck.state_root,
+        body_root: hash_tree_root(blck.body))
+
+    signed_beacon_block_header =
+      SignedBeaconBlockHeader(
+        message: beacon_block_header,
+        signature: signed_beacon_block.signature)
+
+  var
+    sidecars =
+      newSeqOfCap[DataColumnSidecar](CELLS_PER_EXT_BLOB)
+
+  for column_index in 0..<NUMBER_OF_COLUMNS:
+    var
+      column_cells: seq[KzgCell]
+      column_proofs: seq[KzgProof]
+    for i in 0..<cellsAndProofs.len:
+      column_cells.add(cellsAndProofs[i].cells)
+      column_proofs.add(cellsAndProofs[i].proofs)
+
+    var sidecar = DataColumnSidecar(
+      index: ColumnIndex(column_index),
+      column: DataColumn.init(column_cells),
+      kzg_commitments: blck.body.blob_kzg_commitments,
+      kzg_proofs: KzgProofs.init(column_proofs),
+      signed_block_header: signed_beacon_block_header)
+    blck.body.build_proof(
+      KZG_COMMITMENTS_INCLUSION_PROOF_DEPTH_GINDEX.GeneralizedIndex,
+      sidecar.kzg_commitments_inclusion_proof).expect("Valid gindex")
+    sidecars.add(sidecar)
+
+  sidecars
+
 # Alternative approach to `get_data_column_sidecars` by directly computing
 # blobs from blob bundles
-proc get_data_column_sidecars*(signed_beacon_block: electra.SignedBeaconBlock,
+proc get_data_column_sidecars*(signed_beacon_block: fulu.SignedBeaconBlock,
                                blobs: seq[KzgBlob]):
                                Result[seq[DataColumnSidecar], cstring] =
   ## Given a signed beacon block and the blobs corresponding to the block,

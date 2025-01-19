@@ -8,14 +8,14 @@
 {.push raises: [].}
 
 import
-  std/tables,
+  std/[tables, sequtils],
   chronicles, chronos, metrics,
   taskpools,
-  ../spec/[helpers, forks],
+  ../spec/[helpers, forks, peerdas_helpers],
   ../consensus_object_pools/[
     blob_quarantine, block_clearance, block_quarantine, blockchain_dag,
-    attestation_pool, light_client_pool, sync_committee_msg_pool,
-    validator_change_pool],
+    data_column_quarantine, attestation_pool, light_client_pool,
+    sync_committee_msg_pool, validator_change_pool],
   ../validators/validator_pool,
   ../beacon_clock,
   "."/[gossip_validation, block_processor, batch_validation],
@@ -46,6 +46,10 @@ declareCounter blob_sidecars_received,
   "Number of valid blobs processed by this node"
 declareCounter blob_sidecars_dropped,
   "Number of invalid blobs dropped by this node", labels = ["reason"]
+declareCounter data_column_sidecars_received,
+  "Number of valid data columns processed by this node"
+declareCounter data_column_sidecars_dropped,
+  "Number of invalid data columns dropped by this node", labels = ["reason"]
 declareCounter beacon_attester_slashings_received,
   "Number of valid attester slashings processed by this node"
 declareCounter beacon_attester_slashings_dropped,
@@ -88,6 +92,10 @@ declareHistogram beacon_block_delay,
 
 declareHistogram blob_sidecar_delay,
   "Time(s) between slot start and blob sidecar reception", buckets = delayBuckets
+
+declareHistogram data_column_sidecar_delay,
+  "Time(s) betweeen slot start and data column sidecar reception",
+  buckets = delayBuckets
 
 type
   DoppelgangerProtection = object
@@ -143,6 +151,8 @@ type
     quarantine*: ref Quarantine
 
     blobQuarantine*: ref BlobQuarantine
+
+    dataColumnQuarantine*: ref DataColumnQuarantine
 
     # Application-provided current time provider (to facilitate testing)
     getCurrentBeaconTime*: GetBeaconTimeFn
@@ -247,9 +257,30 @@ proc processSignedBeaconBlock*(
       else:
         Opt.none(BlobSidecars)
 
+    let columns =
+      when typeof(signedBlock).kind >= ConsensusFork.Fulu:
+        if self.dataColumnQuarantine[].supernode:
+          if self.dataColumnQuarantine[].hasEnoughDataColumns(signedBlock):
+            Opt.some(self.dataColumnQuarantine[].popDataColumns(signedBlock.root,
+                                                                signedBlock))
+          else:
+            discard self.quarantine[].addColumnless(self.dag.finalizedHead.slot,
+                                                    signedBlock)
+            return v
+        else:
+          if self.dataColumnQuarantine[].hasMissingDataColumns(signedBlock):
+            Opt.some(self.dataColumnQuarantine[].popDataColumns(signedBlock.root,
+                                                                signedBlock))
+          else:
+            discard self.quarantine[].addColumnless(self.dag.finalizedHead.slot,
+                                                    signedBlock)
+      else:
+        Opt.none(DataColumnSidecars)
+
     self.blockProcessor[].enqueueBlock(
       src, ForkedSignedBeaconBlock.init(signedBlock),
       blobs,
+      columns,
       maybeFinalized = maybeFinalized,
       validationDur = nanoseconds(
         (self.getCurrentBeaconTime() - wallTime).nanoseconds))
@@ -303,7 +334,8 @@ proc processBlobSidecar*(
         if self.blobQuarantine[].hasBlobs(forkyBlck):
           self.blockProcessor[].enqueueBlock(
             MsgSource.gossip, blobless,
-            Opt.some(self.blobQuarantine[].popBlobs(block_root, forkyBlck)))
+            Opt.some(self.blobQuarantine[].popBlobs(block_root, forkyBlck)),
+            Opt.none(DataColumnSidecars))
         else:
           discard self.quarantine[].addBlobless(
             self.dag.finalizedHead.slot, forkyBlck)
@@ -312,6 +344,78 @@ proc processBlobSidecar*(
 
   blob_sidecars_received.inc()
   blob_sidecar_delay.observe(delay.toFloatSeconds())
+
+  v
+
+proc processDataColumnSidecar*(
+    self: var Eth2Processor, src: MsgSource,
+    dataColumnSidecar: DataColumnSidecar, subnet_id: uint64): ValidationRes =
+  template block_header: untyped = dataColumnSidecar.signed_block_header.message
+
+  let
+    wallTime = self.getCurrentBeaconTime()
+    (_, wallSlot) = wallTime.toSlot()
+
+  logScope:
+    dcs = shortLog(dataColumnSidecar)
+    wallSlot
+
+  # Potential under/overflows are fine; would just create odd metrics and logs
+  let delay = wallTime - block_header.slot.start_beacon_time
+  debug "Data column received", delay
+
+  let v =
+    self.dag.validateDataColumnSidecar(self.quarantine, self.dataColumnQuarantine,
+                                       dataColumnSidecar, wallTime, subnet_id)
+
+  if v.isErr():
+    debug "Dropping data column", error = v.error()
+    data_column_sidecars_dropped.inc(1, [$v.error[0]])
+    return v
+
+  debug "Data column validated, putting data column in quarantine"
+  self.dataColumnQuarantine[].put(newClone(dataColumnSidecar))
+
+  let block_root = hash_tree_root(block_header)
+  if (let o = self.quarantine[].popColumnless(block_root); o.isSome):
+    let columnless = o.unsafeGet()
+    withBlck(columnless):
+      when consensusFork >= ConsensusFork.Fulu:
+        if not self.dataColumnQuarantine[].supernode:
+          if self.dataColumnQuarantine[].hasMissingDataColumns(forkyBlck):
+            let gathered_columns =
+              self.dataColumnQuarantine[].gatherDataColumns(forkyBlck.root)
+            for gdc in gathered_columns:
+              self.dataColumnQuarantine[].put(newClone(gdc))
+            self.blockProcessor[].enqueueBlock(
+              MsgSource.gossip, columnless,
+              Opt.none(BlobSidecars),
+              Opt.some(self.dataColumnQuarantine[].popDataColumns(block_root,
+                                                                  forkyBlck)))
+        elif self.dataColumnQuarantine[].hasEnoughDataColumns(forkyBlck):
+          let
+            columns = self.dataColumnQuarantine[].gatherDataColumns(forkyBlck.root)
+          if columns.len >= (NUMBER_OF_COLUMNS div 2) and
+              self.dataColumnQuarantine[].supernode:
+            let
+              recovered_cps = recover_cells_and_proofs(columns.mapIt(it[]))
+              reconstructed_columns =
+                get_data_column_sidecars(forkyBlck, recovered_cps.get)
+            for rc in reconstructed_columns:
+              if rc notin columns.mapIt(it[]):
+                self.dataColumnQuarantine[].put(newClone(rc))
+          self.blockProcessor[].enqueueBlock(
+            MsgSource.gossip, columnless,
+            Opt.none(BlobSidecars),
+            Opt.some(self.dataColumnQuarantine[].popDataColumns(block_root, forkyBlck)))
+        else:
+          discard self.quarantine[].addColumnless(
+            self.dag.finalizedHead.slot, forkyBlck)
+      else:
+        raiseAssert "Could not have been added as columnless"
+
+  data_column_sidecars_received.inc()
+  data_column_sidecar_delay.observe(delay.toFloatSeconds())
 
   v
 
