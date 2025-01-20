@@ -453,8 +453,7 @@ proc checkBloblessSignature(
 
 proc enqueueBlock*(
     self: var BlockProcessor, src: MsgSource, blck: ForkedSignedBeaconBlock,
-    blobs: Opt[BlobSidecars],
-    data_columns: Opt[DataColumnSidecars],
+    blobs: Opt[BlobSidecars], data_columns: Opt[DataColumnSidecars],
     resfut: Future[Result[void, VerifierError]].Raising([CancelledError]) = nil,
     maybeFinalized = false,
     validationDur = Duration()) =
@@ -619,6 +618,26 @@ proc storeBlock(
             MsgSource.gossip, parentBlck.unsafeGet().asSigned(), blobs,
             Opt.none(DataColumnSidecars))
 
+        var columnsOk = true
+        let columns =
+          withBlck(parentBlck.get()):
+            when consensusFork >= ConsensusFork.Fulu:
+              var data_column_sidecars: DataColumnSidecars
+              for i in 0 ..< forkyBlck.message.body.blob_kzg_commitments.len:
+                let data_column = DataColumnSidecar.new()
+                if not dag.db.getDataColumnSidecar(parent_root, i.uint64, data_column[]):
+                  columnsOk = false
+                  break
+                data_column_sidecars.add data_column
+              Opt.some data_column_sidecars
+            else:
+              Opt.none DataColumnSidecars
+        if columnsOk:
+          debug "Loaded parent block from storage", parent_root
+          self[].enqueueBlock(
+            MsgSource.gossip, parentBlck.unsafeGet().asSigned(), Opt.none(BlobSidecars),
+            columns)
+
     return handleVerifierError(parent.error())
 
   let
@@ -705,6 +724,24 @@ proc storeBlock(
             kzgCommits = mapIt(kzgCommits, shortLog(it)),
             signature = shortLog(signedBlock.signature),
             msg = r.error()
+          return err((VerifierError.Invalid, ProcessingStatus.completed))
+
+  elif typeof(signedBlock).kind >= ConsensusFork.Fulu:
+    if dataColumnsOpt.isSome:
+      let columns = dataColumnsOpt.get()
+      let kzgCommits = signedBlock.message.body.blob_kzg_commitments.asSeq
+      if columns.len > 0 and kzgCommits.len > 0:
+        for i in 0..<columns.len:
+          let r =
+            verify_data_column_sidecar_kzg_proofs(columns[i][])
+          if r.isErr:
+            malformed_cols.add(i)
+            debug "data column validation failed",
+              blockRoot = shortLog(signedBlock.root),
+              column_sidecar = shortLog(columns[i][]),
+              blck = shortLog(signedBlock.message),
+              signature = shortLog(signedBlock.signature),
+              msg = r.error()
           return err((VerifierError.Invalid, ProcessingStatus.completed))
 
   type Trusted = typeof signedBlock.asTrusted()

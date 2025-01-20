@@ -429,6 +429,13 @@ proc initFullNode(
       node.network.nodeId.resolve_column_sets_from_custody_groups(
           max(SAMPLES_PER_SLOT.uint64,
           localCustodyGroups))
+  dataColumnQuarantine[].supernode = supernode
+  dataColumnQuarantine[].custody_columns =
+    node.network.nodeId.resolve_columns_from_custody_groups(
+      max(SAMPLES_PER_SLOT.uint64,
+          localCustodyGroups))
+
+  let
     consensusManager = ConsensusManager.new(
       dag, attestationPool, quarantine, node.elManager,
       ActionTracker.init(node.network.nodeId, config.subscribeAllSubnets),
@@ -453,7 +460,7 @@ proc initFullNode(
         maybeFinalized = maybeFinalized)
     untrustedBlockVerifier =
       proc(signedBlock: ForkedSignedBeaconBlock, blobs: Opt[BlobSidecars],
-           data_columns: Opt[DataColumnSidecars], maybeFinalized: bool):
+           maybeFinalized: bool):
            Future[Result[void, VerifierError]] {.
         async: (raises: [CancelledError], raw: true).} =
         clist.untrustedBackfillVerifier(signedBlock, blobs, maybeFinalized)
@@ -474,6 +481,27 @@ proc initFullNode(
             await blockProcessor[].addBlock(MsgSource.gossip, signedBlock,
                                       Opt.some(blobs), Opt.none(DataColumnSidecars),
                                       maybeFinalized = maybeFinalized)
+
+        elif consensusFork >= ConsensusFork.Fulu:
+          if not dataColumnQuarantine[].supernode and
+              not dataColumnQuarantine[].hasMissingDataColumns(forkyBlck):
+            if not quarantine[].addColumnless(dag.finalizedHead.slot, forkyBlck):
+              err(VerifierError.UnviableFork)
+            else:
+              err(VeriferError.MissingParent)
+          elif dataColumnQuarantine[].supernode and
+              not dataColumnQuaratine[].hasEnoughDataColumns(forkyBlck):
+            if not quarantine[].addColumnless(dag.finalizedHead.slot, forkyBlck):
+              err(VerifierError.UnviableFork)
+            else:
+              err(VeriferError.MissingParent)
+          else:
+            let dataColumns = dataColumnQuarantine[].popDataColumns(forkyBlck.root,
+                                                                forkyBlck)
+            await blockProcessor[].addBlock(MsgSource.gossip, signedBlock,
+                                      Opt.none(BlobSidecars), Opt.some(dataColumns),
+                                      maybeFinalized = maybeFinalized)
+
         else:
           await blockProcessor[].addBlock(MsgSource.gossip, signedBlock,
                                     Opt.none(BlobSidecars), Opt.none(DataColumnSidecars),
@@ -567,12 +595,6 @@ proc initFullNode(
   # during peer selection, sync with columns, and so on. That is why,
   # the rationale of populating it at boot and using it gloabally.
 
-  dataColumnQuarantine[].supernode = supernode
-  dataColumnQuarantine[].custody_columns =
-    node.network.nodeId.resolve_columns_from_custody_groups(
-      max(SAMPLES_PER_SLOT.uint64,
-      localCustodyGroups))
-
   if node.config.peerdasSupernode:
     node.network.loadCgcnetMetadataAndEnr(NUMBER_OF_CUSTODY_GROUPS.uint8)
   else:
@@ -601,6 +623,7 @@ proc initFullNode(
   node.dag = dag
   node.list = clist
   node.blobQuarantine = blobQuarantine
+  node.dataColumnQuarantine = dataColumnQuarantine
   node.quarantine = quarantine
   node.attestationPool = attestationPool
   node.syncCommitteeMsgPool = syncCommitteeMsgPool
