@@ -452,7 +452,7 @@ proc initFullNode(
       blobQuarantine, dataColumnQuarantine, getBeaconTime)
 
     blockVerifier = proc(signedBlock: ForkedSignedBeaconBlock,
-                         blobs: Opt[BlobSidecars], dataColumns: Opt[DataColumnSidecars],
+                         blobs: Opt[BlobSidecars], data_columns: Opt[DataColumnSidecars],
                          maybeFinalized: bool):
         Future[Result[void, VerifierError]] {.async: (raises: [CancelledError], raw: true).} =
       # The design with a callback for block verification is unusual compared
@@ -460,7 +460,7 @@ proc initFullNode(
       # taken in the sync/request managers - this is an architectural compromise
       # that should probably be reimagined more holistically in the future.
       blockProcessor[].addBlock(
-        MsgSource.gossip, signedBlock, blobs, dataColumns,
+        MsgSource.gossip, signedBlock, blobs, data_columns,
         maybeFinalized = maybeFinalized)
     untrustedBlockVerifier =
       proc(signedBlock: ForkedSignedBeaconBlock, blobs: Opt[BlobSidecars],
@@ -539,6 +539,8 @@ proc initFullNode(
         {SyncManagerFlag.NoGenesisSync}
       else:
         {}
+
+  let
     syncManager = newSyncManager[Peer, PeerId](
       node.network.peerPool,
       dag.cfg.DENEB_FORK_EPOCH, dag.cfg.MIN_EPOCHS_FOR_BLOB_SIDECARS_REQUESTS,
