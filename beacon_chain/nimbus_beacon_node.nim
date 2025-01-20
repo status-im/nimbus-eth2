@@ -445,14 +445,16 @@ proc initFullNode(
       blobQuarantine, getBeaconTime)
 
     blockVerifier = proc(signedBlock: ForkedSignedBeaconBlock,
-                         blobs: Opt[BlobSidecars], maybeFinalized: bool):
+                         blobs: Opt[BlobSidecars], dataColumns: Opt[DataColumnSidecars],
+                         maybeFinalized: bool):
         Future[Result[void, VerifierError]] {.async: (raises: [CancelledError], raw: true).} =
       # The design with a callback for block verification is unusual compared
       # to the rest of the application, but fits with the general approach
       # taken in the sync/request managers - this is an architectural compromise
       # that should probably be reimagined more holistically in the future.
       blockProcessor[].addBlock(
-        MsgSource.gossip, signedBlock, blobs, maybeFinalized = maybeFinalized)
+        MsgSource.gossip, signedBlock, blobs, dataColumns,
+        maybeFinalized = maybeFinalized)
     untrustedBlockVerifier =
       proc(signedBlock: ForkedSignedBeaconBlock, blobs: Opt[BlobSidecars],
            maybeFinalized: bool): Future[Result[void, VerifierError]] {.
@@ -473,11 +475,11 @@ proc initFullNode(
           else:
             let blobs = blobQuarantine[].popBlobs(forkyBlck.root, forkyBlck)
             await blockProcessor[].addBlock(MsgSource.gossip, signedBlock,
-                                      Opt.some(blobs),
+                                      Opt.some(blobs), Opt.none(DataColumnSidecars),
                                       maybeFinalized = maybeFinalized)
         else:
           await blockProcessor[].addBlock(MsgSource.gossip, signedBlock,
-                                    Opt.none(BlobSidecars),
+                                    Opt.none(BlobSidecars), Opt.none(DataColumnSidecars),
                                     maybeFinalized = maybeFinalized)
     rmanBlockLoader = proc(
         blockRoot: Eth2Digest): Opt[ForkedTrustedSignedBeaconBlock] =

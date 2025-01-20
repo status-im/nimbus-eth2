@@ -12,11 +12,13 @@ import
   chronicles,
   metrics,
   ../spec/network,
+  ../spec/peerdas_helpers,
   ../consensus_object_pools/spec_cache,
   ../gossip_processing/eth2_processor,
   ../networking/eth2_network,
   ./activity_metrics,
-  ../spec/datatypes/deneb
+  ../spec/datatypes/[deneb, fulu]
+
 from  ../spec/state_transition_block import validate_blobs
 
 export eth2_processor, eth2_network
@@ -89,7 +91,18 @@ proc routeSignedBeaconBlock*(
   ## Validate and broadcast beacon block, then add it to the block database
   ## Returns the new Head when block is added successfully to dag, none when
   ## block passes validation but is not added, and error otherwise
-  let wallTime = router[].getCurrentBeaconTime()
+  let
+    wallTime = router[].getCurrentBeaconTime()
+    dataColumnsOpt =
+      when typeof(blck).kind >= ConsensusFork.Fulu:
+        newClone get_data_column_sidecars(blck,
+                                          blobsOpt.get.mapIt(
+                                          KzgBlob(bytes: it.blob)))
+      else:
+        newClone Opt.none(seq[DataColumnSidecar])
+
+  # Data columns extraction done early in the function
+  # in order to use the columns throughout.
 
   block:
     let vindex = ValidatorIndex(blck.message.proposer_index)
@@ -129,6 +142,28 @@ proc routeSignedBeaconBlock*(
               signature = shortLog(blck.signature),
               msg = res.error()
             return err(res.error())
+
+    # May not be required as we are already
+    # kzg verifying the blobs once
+    elif typeof(blck).kind >= ConsensusFork.Fulu:
+      if dataColumnsOpt.isSome:
+        let
+          dataColumns = dataColumnsOpt.mapIt(it[].get)
+
+        let kzgCommits =
+          signedBlock.message.body.blob_kzg_commitments.asSeq
+        if dataColumns.len > 0 and kzgCommits.len > 0:
+          for i in 0..<dataColumns.len:
+            let r
+              = verify_data_column_sidecar_kzg_proofs(dataColumns[i])
+            if r.isErr:
+              warn "data column validation failed",
+                blockRoot = shortLog(signedBlock.root),
+                column_sidecar = shortLog(dataColumns[i]),
+                blck = shortLog(signedBlock.message),
+                signature = shortLog(signedBlock.signature),
+                msg = r.error()
+              return err(r.error())
 
   let
     sendTime = router[].getCurrentBeaconTime()
@@ -170,8 +205,51 @@ proc routeSignedBeaconBlock*(
         notice "Blob sent", blob = shortLog(blobs[i])
     blobRefs = Opt.some(blobs.mapIt(newClone(it)))
 
+  var dataColumnRefs =
+    Opt.none(DataColumnSidecars)
+
+  let
+    dataColumns =
+      dataColumnsOpt[].get
+
+  if dataColumns.len != 0:
+    var das_workers =
+      newSeq[Future[SendResult]](dataColumns.len)
+
+    for i in 0..<dataColumns.lenu64:
+      let subnet_id =
+        compute_subnet_for_data_column_sidecar(i)
+
+      das_workers[i] =
+        router[].network.broadcastDataColumnSidecar(subnet_id,
+                                                    data_columns[i])
+      let allres = await allFinished(das_workers)
+      for i in 0..<allres.len:
+        let res = allres[i]
+        doAssert res.finished()
+        if res.failed():
+          notice "Data columns not sent",
+            data_column = shortLog(data_columns[i]), error = res.error[]
+        else:
+          notice "Data columns sent",
+            data_column = shortLog(dataColumns[i])
+      # Push only those columns to processor for which we custody
+      let
+        metadata = router[].network.metadata.custody_group_count.uint64
+        custody_columns =
+          router[].network.nodeId.resolve_columns_from_custody_groups(
+            max(SAMPLES_PER_SLOT.uint64,
+            metadata))
+
+      var final_columns: seq[DataColumnSidecar]
+      for dc in data_columns:
+        if dc.index in custody_columns:
+          final_columns.add dc
+      dataColumnRefs = Opt.some(final_columns.mapIt(newClone(it)))
+
   let added = await router[].blockProcessor[].addBlock(
-    MsgSource.api, ForkedSignedBeaconBlock.init(blck), blobRefs)
+    MsgSource.api, ForkedSignedBeaconBlock.init(blck), blobRefs,
+    dataColumnRefs)
 
   # The boolean we return tells the caller whether the block was integrated
   # into the chain
