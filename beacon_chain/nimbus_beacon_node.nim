@@ -535,8 +535,6 @@ proc initFullNode(
         {SyncManagerFlag.NoGenesisSync}
       else:
         {}
-
-  let
     syncManager = newSyncManager[Peer, PeerId](
       node.network.peerPool,
       dag.cfg.DENEB_FORK_EPOCH, dag.cfg.MIN_EPOCHS_FOR_BLOB_SIDECARS_REQUESTS,

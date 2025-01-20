@@ -27,7 +27,9 @@ type
   GetBoolCallback* = proc(): bool {.gcsafe, raises: [].}
   ProcessingCallback* = proc() {.gcsafe, raises: [].}
   BlockVerifier* =  proc(signedBlock: ForkedSignedBeaconBlock,
-                         blobs: Opt[BlobSidecars], maybeFinalized: bool):
+                         blobs: Opt[BlobSidecars],
+                         data_columns: Opt[DataColumnSidecars],
+                         maybeFinalized: bool):
       Future[Result[void, VerifierError]] {.async: (raises: [CancelledError]).}
 
   SyncQueueKind* {.pure.} = enum
