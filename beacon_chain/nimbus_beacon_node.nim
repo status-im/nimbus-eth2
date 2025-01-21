@@ -2145,6 +2145,19 @@ proc installMessageValidators(node: BeaconNode) =
                   node.processor[].processBlobSidecar(
                     MsgSource.gossip, blobSidecar, subnet_id)))
 
+      when consensusFork >= ConsensusFork.Fulu:
+        # data_column_sidecar_{subnet_id}
+        for it in 0'u64..<NUMBER_OF_CUSTODY_GROUPS:
+          closureScope:
+            let subnet_id = it
+            node.network.addValidator(
+              getDataColumnSidecarTopic(digest, subnet_id), proc (
+                dataColumnSidecar: DataColumnSidecar
+              ): ValidationResult =
+                toValidationResult(
+                  node.processor[].processDataColumnSidecar(
+                    MsgSource.gossip, dataColumnSidecar, subnet_id)))
+
   node.installLightClientMessageValidators()
 
 proc stop(node: BeaconNode) =
