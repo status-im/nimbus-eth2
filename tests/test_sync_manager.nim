@@ -116,14 +116,15 @@ suite "SyncManager test suite":
   ): seq[ref DataColumnSidecar] =
     let blob_sidecars =  createBlobs(blocks, slots)
     var res = newSeq[ref DataColumnSidecar](len(slots))
-    for blb_scr in blob_sidecars:
-      withBlck(blck[]):
-        when consensusFork >= ConsensusFork.Fulu:
-          var count = 0
-          res[count] = get_data_column_sidecars(forkyBlck,
-                                                blb_scr.mapIt(
-                                                KzgBlob(bytes: it[].blob)))
-          inc count
+    for blck in blocks:
+      for blb_scr in blob_sidecars:
+        withBlck(blck[]):
+          when consensusFork >= ConsensusFork.Fulu:
+            var count = 0
+            res[count] = get_data_column_sidecars(forkyBlck,
+                                                  blb_scr.mapIt(
+                                                  KzgBlob(bytes: it[].blob)))
+            inc count
     res
 
   func getSlice(chain: openArray[ref ForkedSignedBeaconBlock], startSlot: Slot,
