@@ -276,6 +276,7 @@ proc processSignedBeaconBlock*(
           else:
             discard self.quarantine[].addColumnless(self.dag.finalizedHead.slot,
                                                     signedBlock)
+            return v
       else:
         Opt.none(DataColumnSidecars)
 

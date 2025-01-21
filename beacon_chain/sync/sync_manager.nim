@@ -102,6 +102,7 @@ type
   SyncBlockData* = object
     blocks*: seq[ref ForkedSignedBeaconBlock]
     blobs*: Opt[seq[BlobSidecars]]
+    dataColumns*: Opt[seq[DataColumnSidecars]]
 
   SyncBlockDataRes* = Result[SyncBlockData, string]
 
