@@ -85,10 +85,19 @@ func resolve_columns_from_custody_groups*(node_id: NodeId,
   flattened
 
 func resolve_column_sets_from_custody_groups*(node_id: NodeId,
-                                    custody_group_count: CustodyIndex):
-                                    HashSet[ColumnIndex] =
+                                              custody_group_count: CustodyIndex):
+                                              HashSet[ColumnIndex] =
 
   node_id.resolve_columns_from_custody_groups(custody_group_count).toHashSet()
+
+func resolve_column_list_from_custody_groups*(node_id: NodeId,
+                                              custody_group_count: CustodyIndex):
+                                              List[ColumnIndex, NUMBER_OF_COLUMNS] =
+
+  let list =
+    List[ColumnIndex, NUMBER_OF_COLUMNS].init(
+      node_id.resolve_columns_from_custody_groups(custody_group_count))
+  list
 
 # https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.10/specs/fulu/das-core.md#compute_matrix
 proc compute_matrix*(blobs: seq[KzgBlob]): Result[seq[MatrixEntry], cstring] =
@@ -391,7 +400,7 @@ func get_extended_sample_count*(samples_per_slot: int,
 
 # https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.10/specs/fulu/p2p-interface.md#verify_data_column_sidecar_inclusion_proof
 proc verify_data_column_sidecar_inclusion_proof*(sidecar: DataColumnSidecar):
-                                                 Result[void, cstring] =
+                                                 Result[void, string] =
   ## Verify if the given KZG Commitments are in included
   ## in the beacon block or not
   let gindex =

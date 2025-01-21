@@ -12,11 +12,13 @@ import stew/base10, chronos, chronicles, results
 import
   ../spec/datatypes/[phase0, altair],
   ../spec/eth2_apis/rest_types,
-  ../spec/[helpers, forks, network],
+  ../spec/[helpers, forks, network, peerdas_helpers],
   ../networking/[peer_pool, peer_scores, eth2_network],
   ../gossip_processing/block_processor,
   ../beacon_clock,
   "."/[sync_protocol, sync_queue]
+
+from ssz_serialization import types
 
 export phase0, altair, merge, chronos, chronicles, results,
        helpers, peer_scores, sync_queue, forks, sync_protocol
@@ -55,7 +57,11 @@ type
 
   SyncManager*[A, B] = ref object
     pool: PeerPool[A, B]
+    supernode*: bool
+    custody_columns_set*: HashSet[ColumnIndex]
+    custody_columns_list*: List[ColumnIndex, NUMBER_OF_COLUMNS]
     DENEB_FORK_EPOCH: Epoch
+    FULU_FORK_EPOCH: Epoch
     MIN_EPOCHS_FOR_BLOB_SIDECARS_REQUESTS: uint64
     responseTimeout: chronos.Duration
     maxHeadAge: uint64
@@ -90,6 +96,8 @@ type
     NetRes[List[ref ForkedSignedBeaconBlock, Limit MAX_REQUEST_BLOCKS]]
   BlobSidecarsRes =
     NetRes[List[ref BlobSidecar, Limit(MAX_REQUEST_BLOB_SIDECARS_ELECTRA)]]
+  DataColumnSidecarsRes =
+    NetRes[List[ref DataColumnSidecar, Limit(MAX_REQUEST_DATA_COLUMN_SIDECARS)]]
 
   SyncBlockData* = object
     blocks*: seq[ref ForkedSignedBeaconBlock]
@@ -132,7 +140,11 @@ proc initQueue[A, B](man: SyncManager[A, B]) =
                                man.blockVerifier, 1, man.ident)
 
 proc newSyncManager*[A, B](pool: PeerPool[A, B],
+                           supernode: bool,
+                           custody_columns_set: HashSet[ColumnIndex],
+                           custody_columns_list: List[ColumnIndex, NUMBER_OF_COLUMNS],
                            denebEpoch: Epoch,
+                           fuluEpoch: Epoch,
                            minEpochsForBlobSidecarsRequests: uint64,
                            direction: SyncQueueKind,
                            getLocalHeadSlotCb: GetSlotCallback,
@@ -157,7 +169,11 @@ proc newSyncManager*[A, B](pool: PeerPool[A, B],
 
   var res = SyncManager[A, B](
     pool: pool,
+    supernode: supernode,
+    custody_columns_set: custody_columns_set,
+    custody_columns_list: custody_columns_list,
     DENEB_FORK_EPOCH: denebEpoch,
+    FULU_FORK_EPOCH: fuluEpoch,
     MIN_EPOCHS_FOR_BLOB_SIDECARS_REQUESTS: minEpochsForBlobSidecarsRequests,
     getLocalHeadSlot: getLocalHeadSlotCb,
     getLocalWallSlot: getLocalWallSlotCb,
@@ -203,8 +219,64 @@ proc shouldGetBlobs[A, B](man: SyncManager[A, B], s: Slot): bool =
   (wallEpoch < man.MIN_EPOCHS_FOR_BLOB_SIDECARS_REQUESTS or
    epoch >=  wallEpoch - man.MIN_EPOCHS_FOR_BLOB_SIDECARS_REQUESTS)
 
+proc checkPeerCustody(man: SyncManager,
+                      peer: Peer):
+                      bool =
+  # Returns TRUE if the peer custodies atleast,
+  # ONE of the common custody columns, straight
+  # away return TRUE if the peer is a supernode.
+  if man.supernode:
+    # For a supernode, it is always best/optimistic
+    # to filter other supernodes, rather than filter
+    # too many full nodes that have a subset of the
+    # custody columns
+    if peer.lookupCgcFromPeer() ==
+        NUMBER_OF_CUSTODY_GROUPS.uint64:
+      return true
+
+  else:
+    if peer.lookupCgcFromPeer() ==
+        NUMBER_OF_CUSTODY_GROUPS.uint64:
+      return true
+
+    elif peer.lookupCgcFromPeer() ==
+        CUSTODY_REQUIREMENT.uint64:
+
+      # Fetch the remote custody count
+      let remoteCustodyGroupCount =
+        peer.lookupCgcFromPeer()
+
+      # Extract remote peer's nodeID from peerID
+      # Fetch custody groups from remote peer
+      let
+        remoteNodeId = fetchNodeIdFromPeerId(peer)
+        remoteCustodyColumns =
+          remoteNodeId.resolve_column_sets_from_custody_groups(
+            max(SAMPLES_PER_SLOT.uint64,
+                remoteCustodyGroupCount))
+
+      for local_column in man.custody_columns_set:
+        if local_column in remoteCustodyColumns:
+          return false
+
+      return true
+
+    else:
+      return false
+
 proc shouldGetBlobs[A, B](man: SyncManager[A, B], r: SyncRequest[A]): bool =
   man.shouldGetBlobs(r.slot) or man.shouldGetBlobs(r.slot + (r.count - 1))
+
+proc shouldGetDataColumns[A, B](man: SyncManager[A,B], s: Slot): bool =
+  let
+    wallEpoch = man.getLocalWallSlot().epoch
+    epoch = s.epoch()
+  (epoch >= man.FULU_FORK_EPOCH) and
+  (wallEpoch < man.MIN_EPOCHS_FOR_BLOB_SIDECARS_REQUESTS or
+   epoch >= wallEpoch - man.MIN_EPOCHS_FOR_BLOB_SIDECARS_REQUESTS)
+
+proc shouldGetDataColumns[A, B](man: SyncManager[A, B], r: SyncRequest[A]): bool =
+  man.shouldGetDataColumns(r.slot) or man.shouldGetDataColumns(r.slot + (r.count - 1))
 
 proc getBlobSidecars[A, B](man: SyncManager[A, B], peer: A,
                            req: SyncRequest[A]): Future[BlobSidecarsRes]
@@ -221,6 +293,24 @@ proc getBlobSidecars[A, B](man: SyncManager[A, B], peer: A,
   doAssert(not(req.isEmpty()), "Request must not be empty!")
   debug "Requesting blobs sidecars from peer", request = req
   blobSidecarsByRange(peer, req.slot, req.count)
+
+proc getDataColumnSidecars[A, B](man: SyncManager[A, B],
+                                 peer: A,
+                                 req: SyncRequest):
+                                 Future[DataColumnSidecarsRes]
+                                 {.async: (raises: [CancelledError], raw: true).} =
+  mixin getScore, `==`
+
+  logScope:
+    peer_score = peer.getScore()
+    peer_speed = peer.netKbps()
+    sync_ident = man.direction
+    topics = "syncman"
+
+  doAssert(not(req.isEmpty()), "Request must not be empty!")
+  debug "Requesting data column sidecars from peer", request = req
+  dataColumnSidecarsByRange(peer, req.slot, req.count, man.custody_columns_list)
+
 
 proc remainingSlots(man: SyncManager): uint64 =
   let
@@ -279,6 +369,42 @@ func checkBlobs(blobs: seq[BlobSidecars]): Result[void, string] =
   for blob_sidecars in blobs:
     for blob_sidecar in blob_sidecars:
       ? blob_sidecar[].verify_blob_sidecar_inclusion_proof()
+  ok()
+
+func groupDataColumns*(
+    blocks: seq[ref ForkedSignedBeaconBlock],
+    data_columns: seq[ref DataColumnSidecar]
+): Result[seq[DataColumnSidecars], string] =
+  var
+    grouped = newSeq[DataColumnSidecars](len(blocks))
+    column_cursor = 0
+  for block_idx, blck in blocks:
+    withBlck(blck[]):
+      when consensusFork >= ConsensusFork.Fulu:
+        template kzgs: untyped = forkyBlck.message.body.blob_kzg_commitments
+        if kzgs.len == 0:
+          continue
+        # Clients MUST include all data column sidecars of each block from which they include data column sidecars.
+        # The following data column sidecars, where they exist, MUST be sent in consecutive (slot, index) order.
+        let header = forkyBlck.toSignedBeaconBlockHeader()
+        for column_idx in 0..<data_columns.len:
+          let data_column_sidecar = data_columns[column_cursor]
+          if data_column_sidecar.signed_block_header != header:
+            return err("DataColumnSidecar: unexpected signed_block_header")
+          grouped[block_idx].add data_column_sidecar
+          inc column_cursor
+
+  Result[seq[DataColumnSidecars], string].ok grouped
+
+proc checkDataColumns(data_columns: seq[DataColumnSidecars]):
+                      Result[void, string] =
+  for data_column_sidecars in data_columns:
+    for data_column_sidecar in data_column_sidecars:
+      ? data_column_sidecar[].verify_data_column_sidecar_inclusion_proof()
+      let sync_check_dc =
+        data_column_sidecar[].verify_data_column_sidecar_kzg_proofs()
+      if sync_check_dc.isErr:
+        return err("Invalid data column received while syncing")
   ok()
 
 proc getSyncBlockData*[T](
@@ -533,6 +659,19 @@ proc syncStep[A, B](
               break
       hasBlobs
 
+  let shouldGetDataColumns =
+    if not man.shouldGetDataColumns(req):
+      false
+    else:
+      var hasDataColumns = false
+      for blck in blockData:
+        withBlck(blck[]):
+          when consensusFork >= ConsensusFork.Fulu:
+            if forkyBlck.message.body.blob_kzg_commitments.len > 0:
+              hasDataColumns = true
+              break
+      hasDataColumns
+
   let blobData =
     if shouldGetBlobs:
       let blobs = await man.getBlobSidecars(peer, req)
@@ -578,6 +717,54 @@ proc syncStep[A, B](
     else:
       Opt.none(seq[BlobSidecars])
 
+  let dataColumnData =
+    if shouldGetDataColumns and man.checkPeerCustody(peer):
+      let data_columns = await man.getDataColumnSidecars(peer, req)
+      if data_columns.isErr():
+        peer.updateScore(PeerScoreNoValues)
+        man.queue.push(req)
+        debug "Failed to receive data_columns on request",
+              request = req, err = data_columns.error
+        return
+      let dataColumnData = data_columns.get().asSeq()
+      debug "Received data columns on request",
+              data_columns_count = len(dataColumnData),
+              data_columns_map = getShortMap(req, dataColumnData),
+              request = req
+
+      if len(dataColumnData) > 0:
+        let slots =
+          mapIt(dataColumnData, it[].signed_block_header.message.slot)
+        checkDataColumnsResponse(req, slots).isOkOr:
+          peer.updateScore(PeerScoreBadResponse)
+          man.queue.push(req)
+          warn "Incorrect data column sequence received",
+                data_columns_count = len(dataColumnData),
+                data_columns_map = getShortMap(req, dataColumnData),
+                request = req,
+                reason = error
+          return
+      let groupedDataColumns = groupDataColumns(blockData, dataColumnData).valueOr:
+        peer.updateScore(PeerScoreNoValues)
+        man.queue.push(req)
+        info "Received data columns sequence is inconsistent",
+             data_columns_map = getShortMap(req, dataColumnData),
+             request = req, msg = error
+        return
+
+      groupedDataColumns.checkDataColumns().isOkOr:
+        peer.updateScore(PeerScoreBadResponse)
+        man.queue.push(req)
+        warn "Recieved data columns verification failed",
+             data_columns_count = len(dataColumnData),
+             data_columns_map = getShortMap(req, dataColumnData),
+             request = req,
+             reason = error
+        return
+      Opt.some(groupedDataColumns)
+    else:
+      Opt.none(seq[DataColumnSidecars])
+
   if len(blockData) == 0 and man.direction == SyncQueueKind.Backward and
       req.contains(man.getSafeSlot()):
     # The sync protocol does not distinguish between:
@@ -602,7 +789,9 @@ proc syncStep[A, B](
     # TODO descore peers that lie
     maybeFinalized = lastSlot < peerFinalized
 
-  await man.queue.push(req, blockData, blobData, maybeFinalized, proc() =
+  await man.queue.push(
+    req, blockData, blobData,
+    dataColumnData, maybeFinalized, proc() =
     man.workers[index].status = SyncWorkerStatus.Processing)
 
 proc syncWorker[A, B](

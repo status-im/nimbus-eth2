@@ -433,6 +433,10 @@ proc initFullNode(
       node.network.nodeId.resolve_column_sets_from_custody_groups(
           max(SAMPLES_PER_SLOT.uint64,
           localCustodyGroups))
+    custody_columns_list =
+      node.network.nodeId.resolve_column_list_from_custody_groups(
+          max(SAMPLES_PER_SLOT.uint64,
+          localCustodyGroups))
   dataColumnQuarantine[].supernode = supernode
   dataColumnQuarantine[].custody_columns =
     node.network.nodeId.resolve_columns_from_custody_groups(
@@ -540,8 +544,9 @@ proc initFullNode(
       else:
         {}
     syncManager = newSyncManager[Peer, PeerId](
-      node.network.peerPool,
-      dag.cfg.DENEB_FORK_EPOCH, dag.cfg.MIN_EPOCHS_FOR_BLOB_SIDECARS_REQUESTS,
+      node.network.peerPool, supernode, custody_columns_set,
+      custody_columns_list, dag.cfg.DENEB_FORK_EPOCH,
+      dag.cfg.FULU_FORK_EPOCH, dag.cfg.MIN_EPOCHS_FOR_BLOB_SIDECARS_REQUESTS,
       SyncQueueKind.Forward, getLocalHeadSlot,
       getLocalWallSlot, getFirstSlotAtFinalizedEpoch, getBackfillSlot,
       getFrontfillSlot, isWithinWeakSubjectivityPeriod,
@@ -549,9 +554,10 @@ proc initFullNode(
       shutdownEvent = node.shutdownEvent,
       flags = syncManagerFlags)
     backfiller = newSyncManager[Peer, PeerId](
-      node.network.peerPool,
-      dag.cfg.DENEB_FORK_EPOCH, dag.cfg.MIN_EPOCHS_FOR_BLOB_SIDECARS_REQUESTS,
-      SyncQueueKind.Backward, getLocalHeadSlot,
+      node.network.peerPool, supernode, custody_columns_set,
+      custody_columns_list, dag.cfg.DENEB_FORK_EPOCH,
+      dag.cfg.FULU_FORK_EPOCH, dag.cfg.MIN_EPOCHS_FOR_BLOB_SIDECARS_REQUESTS,
+      SyncQueueKind.Forward, getLocalHeadSlot,
       getLocalWallSlot, getFirstSlotAtFinalizedEpoch, getBackfillSlot,
       getFrontfillSlot, isWithinWeakSubjectivityPeriod,
       dag.backfill.slot, blockVerifier, maxHeadAge = 0,
@@ -563,9 +569,10 @@ proc initFullNode(
       else:
         getLocalWallSlot()
     untrustedManager = newSyncManager[Peer, PeerId](
-      node.network.peerPool,
-      dag.cfg.DENEB_FORK_EPOCH, dag.cfg.MIN_EPOCHS_FOR_BLOB_SIDECARS_REQUESTS,
-      SyncQueueKind.Backward, getLocalHeadSlot,
+      node.network.peerPool, supernode, custody_columns_set,
+      custody_columns_list, dag.cfg.DENEB_FORK_EPOCH,
+      dag.cfg.FULU_FORK_EPOCH, dag.cfg.MIN_EPOCHS_FOR_BLOB_SIDECARS_REQUESTS,
+      SyncQueueKind.Forward, getLocalHeadSlot,
       getLocalWallSlot, getFirstSlotAtFinalizedEpoch, getUntrustedBackfillSlot,
       getUntrustedFrontfillSlot, isWithinWeakSubjectivityPeriod,
       clistPivotSlot, untrustedBlockVerifier, maxHeadAge = 0,

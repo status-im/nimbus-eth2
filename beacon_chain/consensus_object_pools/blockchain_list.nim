@@ -14,7 +14,6 @@ import std/sequtils, stew/io2, chronicles, chronos, metrics,
 
 from ./block_pools_types import VerifierError, BlockData
 from ../spec/state_transition_block import validate_blobs
-from ../spec/peerdas_helpers import verify_data_column_sidecar_kzg_proofs
 from std/os import `/`
 
 export beacon_chain_file
