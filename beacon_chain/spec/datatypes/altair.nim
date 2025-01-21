@@ -96,7 +96,7 @@ type
     sync_committee_bits*: BitArray[SYNC_COMMITTEE_SIZE]
     sync_committee_signature*: TrustedSig
 
-  # https://github.com/ethereum/consensus-specs/blob/v1.4.0/specs/altair/beacon-chain.md#synccommittee
+  # https://github.com/ethereum/consensus-specs/blob/v1.5.0-beta.0/specs/altair/beacon-chain.md#synccommittee
   SyncCommittee* = object
     pubkeys*: HashArray[Limit SYNC_COMMITTEE_SIZE, ValidatorPubKey]
     aggregate_pubkey*: ValidatorPubKey

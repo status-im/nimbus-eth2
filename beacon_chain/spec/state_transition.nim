@@ -512,7 +512,7 @@ proc makeBeaconBlockWithRewards*(
             transactions_root.get
 
           when executionPayload is deneb.ExecutionPayloadForSigning:
-            # https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.10/specs/deneb/beacon-chain.md#beaconblockbody
+            # https://github.com/ethereum/consensus-specs/blob/v1.5.0-beta.0/specs/deneb/beacon-chain.md#beaconblockbody
             forkyState.data.latest_block_header.body_root = hash_tree_root(
               [hash_tree_root(randao_reveal),
                hash_tree_root(eth1_data),

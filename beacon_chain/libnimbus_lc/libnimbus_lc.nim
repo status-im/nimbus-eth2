@@ -145,7 +145,7 @@ proc ETHBeaconStateCreateFromSsz(
   ## * https://github.com/ethereum/consensus-specs/blob/v1.5.0-beta.0/specs/altair/beacon-chain.md#beaconstate
   ## * https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.8/specs/bellatrix/beacon-chain.md#beaconstate
   ## * https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.3/specs/capella/beacon-chain.md#beaconstate
-  ## * https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.9/configs/README.md
+  ## * https://github.com/ethereum/consensus-specs/blob/v1.5.0-beta.0/configs/README.md
   let
     consensusFork = ConsensusFork.decodeString($consensusVersion).valueOr:
       return nil
@@ -841,7 +841,7 @@ proc ETHLightClientHeaderCopyBeaconRoot(
   ## * Pointer to a copy of the given header's beacon block root.
   ##
   ## See:
-  ## * https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.8/specs/phase0/beacon-chain.md#hash_tree_root
+  ## * https://github.com/ethereum/consensus-specs/blob/v1.5.0-beta.0/specs/phase0/beacon-chain.md#hash_tree_root
   discard cfg  # Future-proof against new fields, see `get_lc_execution_root`.
   let root = Eth2Digest.new()
   root[] = header[].beacon.hash_tree_root()

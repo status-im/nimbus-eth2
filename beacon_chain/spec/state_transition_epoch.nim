@@ -995,7 +995,7 @@ func get_adjusted_total_slashing_balance*(
       {.fatal: "process_slashings: incorrect BeaconState type".}
   min(sum(state.slashings.data) * multiplier, total_balance)
 
-# https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.7/specs/phase0/beacon-chain.md#slashings
+# https://github.com/ethereum/consensus-specs/blob/v1.5.0-beta.0/specs/phase0/beacon-chain.md#slashings
 # https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.9/specs/altair/beacon-chain.md#slashings
 # https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.8/specs/bellatrix/beacon-chain.md#slashings
 # https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.7/specs/electra/beacon-chain.md#modified-process_slashings
@@ -1095,14 +1095,14 @@ func process_effective_balance_updates*(state: var ForkyBeaconState) =
       if new_effective_balance != effective_balance:
         state.validators.mitem(vidx).effective_balance = new_effective_balance
 
-# https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.8/specs/phase0/beacon-chain.md#slashings-balances-updates
+# https://github.com/ethereum/consensus-specs/blob/v1.5.0-beta.0/specs/phase0/beacon-chain.md#slashings-balances-updates
 func process_slashings_reset*(state: var ForkyBeaconState) =
   let next_epoch = get_current_epoch(state) + 1
 
   # Reset slashings
   state.slashings[int(next_epoch mod EPOCHS_PER_SLASHINGS_VECTOR)] = 0.Gwei
 
-# https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.6/specs/phase0/beacon-chain.md#randao-mixes-updates
+# https://github.com/ethereum/consensus-specs/blob/v1.5.0-beta.0/specs/phase0/beacon-chain.md#randao-mixes-updates
 func process_randao_mixes_reset*(state: var ForkyBeaconState) =
   let
     current_epoch = get_current_epoch(state)
@@ -1502,7 +1502,7 @@ proc process_epoch*(
   let epoch = get_current_epoch(state)
   info.init(state)
 
-  # https://github.com/ethereum/consensus-specs/blob/v1.4.0/specs/altair/beacon-chain.md#justification-and-finalization
+  # https://github.com/ethereum/consensus-specs/blob/v1.5.0-beta.0/specs/altair/beacon-chain.md#justification-and-finalization
   process_justification_and_finalization(state, info.balances, flags)
 
   # state.slot hasn't been incremented yet.

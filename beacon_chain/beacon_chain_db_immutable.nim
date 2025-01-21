@@ -1,5 +1,5 @@
 # beacon_chain
-# Copyright (c) 2021-2024 Status Research & Development GmbH
+# Copyright (c) 2021-2025 Status Research & Development GmbH
 # Licensed and distributed under either of
 #   * MIT license (license terms in the root directory or at https://opensource.org/licenses/MIT).
 #   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
@@ -132,7 +132,7 @@ type
     current_sync_committee*: SyncCommittee     # [New in Altair]
     next_sync_committee*: SyncCommittee        # [New in Altair]
 
-  # https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.8/specs/bellatrix/beacon-chain.md#beaconstate
+  # https://github.com/ethereum/consensus-specs/blob/v1.5.0-beta.0/specs/bellatrix/beacon-chain.md#beaconstate
   # Memory-representation-equivalent to a Bellatrix BeaconState for in-place SSZ
   # reading and writing
   BellatrixBeaconStateNoImmutableValidators* = object

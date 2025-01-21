@@ -274,7 +274,7 @@ proc trackFinalizedState*(chain: var Eth1Chain,
   if result:
     chain.pruneOldBlocks(finalizedStateDepositIndex)
 
-# https://github.com/ethereum/consensus-specs/blob/v1.4.0/specs/phase0/validator.md#get_eth1_data
+# https://github.com/ethereum/consensus-specs/blob/v1.5.0-beta.0/specs/phase0/validator.md#get_eth1_data
 proc getBlockProposalData*(chain: var Eth1Chain,
                            state: ForkedHashedBeaconState,
                            finalizedEth1Data: Eth1Data,

@@ -53,7 +53,7 @@ type
   # https://github.com/ethereum/consensus-specs/blob/v1.5.0-beta.0/specs/deneb/polynomial-commitments.md#custom-types
   Blob* = array[BYTES_PER_FIELD_ELEMENT * FIELD_ELEMENTS_PER_BLOB, byte]
 
-  # https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.8/specs/deneb/p2p-interface.md#blobsidecar
+  # https://github.com/ethereum/consensus-specs/blob/v1.5.0-beta.0/specs/deneb/p2p-interface.md#blobsidecar
   BlobSidecar* = object
     index*: BlobIndex
       ## Index of blob in block
@@ -186,7 +186,7 @@ type
     signature_slot*: Slot
       ## Slot at which the aggregate signature was created (untrusted)
 
-  # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.5/specs/altair/light-client/sync-protocol.md#lightclientfinalityupdate
+  # https://github.com/ethereum/consensus-specs/blob/v1.5.0-beta.0/specs/altair/light-client/sync-protocol.md#lightclientfinalityupdate
   LightClientFinalityUpdate* = object
     # Header attested to by the sync committee
     attested_header*: LightClientHeader
@@ -382,7 +382,7 @@ type
     state_root*: Eth2Digest
     body*: TrustedBeaconBlockBody
 
-  # https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.3/specs/deneb/beacon-chain.md#beaconblockbody
+  # https://github.com/ethereum/consensus-specs/blob/v1.5.0-beta.0/specs/deneb/beacon-chain.md#beaconblockbody
   BeaconBlockBody* = object
     randao_reveal*: ValidatorSig
     eth1_data*: Eth1Data
