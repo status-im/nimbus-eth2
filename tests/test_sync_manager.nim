@@ -111,20 +111,33 @@ suite "SyncManager test suite":
                 inc sidecarIdx
     res
 
-  func createDataColumns(
+  proc createDataColumns(
       blocks: var seq[ref ForkedSignedBeaconBlock], slots: seq[Slot]
   ): seq[ref DataColumnSidecar] =
-    let blob_sidecars =  createBlobs(blocks, slots)
     var res = newSeq[ref DataColumnSidecar](len(slots))
     for blck in blocks:
-      for blb_scr in blob_sidecars:
-        withBlck(blck[]):
-          when consensusFork >= ConsensusFork.Fulu:
-            var count = 0
-            res[count] = get_data_column_sidecars(forkyBlck,
-                                                  blb_scr.mapIt(
-                                                  KzgBlob(bytes: it[].blob)))
-            inc count
+      withBlck(blck[]):
+        when consensusFork >= ConsensusFork.Fulu:
+          template kzgs: untyped = forkyBlck.message.body.blob_kzg_commitments
+          for i, slot in slots:
+            if slot == forkyBlck.message.slot:
+              doAssert kzgs.add default(KzgCommitment)
+          if kzgs.len > 0:
+            forkyBlck.root = hash_tree_root(forkyBlck.message)
+            var
+              kzg_proofs: KzgProofs
+              blobs: Blobs
+            for _ in kzgs:
+              doAssert kzg_proofs.add default(KzgProof)
+              doAssert blobs.add default(Blob)
+            let bsidecars = forkyBlck.create_blob_sidecars(kzg_proofs, blobs)
+            let dcsidecars =
+              forkyBlck.get_data_column_sidecars(bsidecars.mapIt(KzgBlob(bytes: it.blob)))
+            var sidecarIdx = 0
+            for i, slot in slots:
+              if slot == forkyBlck.message.slot:
+                res[i] = newClone dcsidecars.get[sidecarIdx]
+                inc sidecarIdx
     res
 
   func getSlice(chain: openArray[ref ForkedSignedBeaconBlock], startSlot: Slot,
