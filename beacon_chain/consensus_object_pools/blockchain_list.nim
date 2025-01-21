@@ -9,6 +9,7 @@
 
 import std/sequtils, stew/io2, chronicles, chronos, metrics,
        ../spec/forks,
+       ../spec/peerdas_helpers,
        ../[beacon_chain_file, beacon_clock],
        ../sszdump
 
@@ -128,16 +129,17 @@ proc setTail*(clist: ChainListRef, bdata: BlockData) =
   clist.handle = Opt.some(handle)
 
 proc store*(clist: ChainListRef, signedBlock: ForkedSignedBeaconBlock,
-            blobs: Opt[BlobSidecars]): Result[void, string] =
+            blobs: Opt[BlobSidecars], dataColumns: Opt[DataColumnSidecars]):
+            Result[void, string] =
   if clist.handle.isNone():
     let
       filename = clist.path.chainFilePath()
       flags = {ChainFileFlag.Repair, ChainFileFlag.OpenAlways}
       handle = ? ChainFileHandle.init(filename, flags)
     clist.handle = Opt.some(handle)
-    store(handle, signedBlock, blobs)
+    store(handle, signedBlock, blobs, dataColumns)
   else:
-    store(clist.handle.get(), signedBlock, blobs)
+    store(clist.handle.get(), signedBlock, blobs, dataColumns)
 
 proc checkBlobs(signedBlock: ForkedSignedBeaconBlock,
                 blobsOpt: Opt[BlobSidecars]): Result[void, VerifierError] =
@@ -167,9 +169,31 @@ proc checkBlobs(signedBlock: ForkedSignedBeaconBlock,
             return err(VerifierError.Invalid)
   ok()
 
+proc checkDataColumns*(signedBlock: ForkedSignedBeaconBlock,
+                       dataColumnsOpt: Opt[DataColumnSidecars]):
+                       Result[void, VerifierError] =
+  withBlck(signedBlock):
+    when consensusFork >= ConsensusFork.Fulu:
+      if dataColumnsOpt.isSome:
+        let dataColumns = dataColumnsOpt.get()
+        if dataColumns.len > 0:
+          for i in 0..<dataColumns.len:
+            let r =
+              verify_data_column_sidecar_kzg_proofs(dataColumns[i][])
+            if r.isErr:
+              debug "Data column validation failed",
+                    blockRoot = shortLog(forkyBlck.root),
+                    dataColumn = shortLog(dataColumns[i][]),
+                    blck = shortLog(forkyBlck.message),
+                    signature = shortLog(forkyBlck.signature),
+                    msg = r.error()
+              return err(VerifierError.Invalid)
+
+
 proc addBackfillBlockData*(
     clist: ChainListRef, signedBlock: ForkedSignedBeaconBlock,
-    blobsOpt: Opt[BlobSidecars]): Result[void, VerifierError] =
+    blobsOpt: Opt[BlobSidecars], dataColumnsOpt: Opt[DataColumnSidecars]):
+    Result[void, VerifierError] =
   doAssert(not(isNil(clist)))
 
   logScope:
@@ -182,15 +206,17 @@ proc addBackfillBlockData*(
 
   if clist.tail.isNone():
     ? checkBlobs(signedBlock, blobsOpt)
+    ? checkDataColumns(signedBlock, dataColumnsOpt)
 
     let storeBlockTick = Moment.now()
 
-    store(clist, signedBlock, blobsOpt).isOkOr:
+    store(clist, signedBlock, blobsOpt, dataColumnsOpt).isOkOr:
       fatal "Unexpected failure while trying to store data",
             filename = chainFilePath(clist.path), reason = error
       quit 1
 
-    let bdata = BlockData(blck: signedBlock, blob: blobsOpt)
+    let bdata = BlockData(blck: signedBlock, blob: blobsOpt,
+                          dataColumn: dataColumnsOpt)
     clist.setTail(bdata)
     if clist.head.isNone():
       clist.setHead(bdata)
@@ -219,10 +245,11 @@ proc addBackfillBlockData*(
     return err(VerifierError.MissingParent)
 
   ? checkBlobs(signedBlock, blobsOpt)
+  ? checkDataColumns(signedBlock, dataColumnsOpt)
 
   let storeBlockTick = Moment.now()
 
-  store(clist, signedBlock, blobsOpt).isOkOr:
+  store(clist, signedBlock, blobsOpt, dataColumnsOpt).isOkOr:
     fatal "Unexpected failure while trying to store data",
            filename = chainFilePath(clist.path), reason = error
     quit 1
@@ -231,7 +258,7 @@ proc addBackfillBlockData*(
         verify_block_duration = shortLog(storeBlockTick - verifyBlockTick),
         store_block_duration = shortLog(Moment.now() - storeBlockTick)
 
-  clist.setTail(BlockData(blck: signedBlock, blob: blobsOpt))
+  clist.setTail(BlockData(blck: signedBlock, blob: blobsOpt, dataColumn: dataColumnsOpt))
 
   ok()
 
@@ -239,9 +266,11 @@ proc untrustedBackfillVerifier*(
     clist: ChainListRef,
     signedBlock: ForkedSignedBeaconBlock,
     blobs: Opt[BlobSidecars],
+    dataColumns: Opt[DataColumnSidecars],
     maybeFinalized: bool
 ): Future[Result[void, VerifierError]] {.
   async: (raises: [CancelledError], raw: true).} =
   let retFuture = newFuture[Result[void, VerifierError]]()
-  retFuture.complete(clist.addBackfillBlockData(signedBlock, blobs))
+  retFuture.complete(clist.addBackfillBlockData(signedBlock, blobs,
+                                                dataColumns))
   retFuture
