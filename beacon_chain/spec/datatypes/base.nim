@@ -206,6 +206,8 @@ type
     ## The `BlobId` type is constrained to values in the range
     ## `[0, MAX_BLOBS_PER_BLOCK_ELECTRA)` during initialization.
 
+
+
   # BitVector[4] in the spec, ie 4 bits which end up encoded as a byte for
   # SSZ / hashing purposes
   JustificationBits* = distinct uint8

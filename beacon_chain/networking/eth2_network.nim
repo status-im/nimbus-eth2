@@ -853,7 +853,7 @@ template gossipMaxSize(T: untyped): uint32 =
       fixedPortionSize(T).uint32
     elif T is bellatrix.SignedBeaconBlock or T is capella.SignedBeaconBlock or
          T is deneb.SignedBeaconBlock or T is electra.SignedBeaconBlock or
-         T is fulu.SignedBeaconBlock or T is fulu.DataColumnSidecar:
+         T is fulu.SignedBeaconBlock:
       GOSSIP_MAX_SIZE
     # TODO https://github.com/status-im/nim-ssz-serialization/issues/20 for
     # Attestation, AttesterSlashing, and SignedAggregateAndProof, which all
@@ -863,7 +863,7 @@ template gossipMaxSize(T: untyped): uint32 =
          T is phase0.SignedAggregateAndProof or T is phase0.SignedBeaconBlock or
          T is electra.SignedAggregateAndProof or T is electra.Attestation or
          T is electra.AttesterSlashing or T is altair.SignedBeaconBlock or
-         T is SomeForkyLightClientObject:
+         T is SomeForkyLightClientObject or T is fulu.DataColumnSidecar:
       GOSSIP_MAX_SIZE
     else:
       {.fatal: "unknown type " & name(T).}
