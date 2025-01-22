@@ -2148,7 +2148,7 @@ proc installMessageValidators(node: BeaconNode) =
             let subnet_id = it
             node.network.addValidator(
               getDataColumnSidecarTopic(digest, subnet_id), proc (
-                dataColumnSidecar: DataColumnSidecar
+                dataColumnSidecar: fulu.DataColumnSidecar
               ): ValidationResult =
                 toValidationResult(
                   node.processor[].processDataColumnSidecar(
