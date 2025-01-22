@@ -399,7 +399,6 @@ suite "SyncManager test suite":
                          Opt.none(seq[BlobSidecars]),
                          Opt.none(seq[DataColumnSidecars]))
       await validatorFut.cancelAndWait()
-
     waitFor runSmokeTest()
     case kkind
     of SyncQueueKind.Forward:
