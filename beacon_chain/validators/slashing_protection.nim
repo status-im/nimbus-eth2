@@ -17,6 +17,7 @@ import
   chronicles, chronicles/timings,
   # Internal
   ../spec/datatypes/base,
+  ../spec/defects,
   ./slashing_protection_common,
   ./slashing_protection_v2
 
@@ -95,8 +96,7 @@ proc init*(
       " for a few minutes at https://github.com/status-im/nimbus-eth2/releases/tag/v1.6.0" &
       " until the messages \"Migrating local validators slashing DB from v1 to v2\"" &
       " and \"Slashing DB migration successful.\""
-
-    quit 1
+    raiseSlashingDefect("Slashing protection database requires migration")
 
 proc init*(
        T: type SlashingProtectionDB,
@@ -131,8 +131,9 @@ proc loadUnchecked*(
     )
     result.modes.incl(kCompleteArchive)
   except CatchableError as err:
-    error "Failed to load the Slashing protection database", err = err.msg
-    quit 1
+    const msg = "Failed to load the slashing protection database"
+    fatal msg, reason = err.msg
+    raiseSlashingDefect(msg)
 
 proc close*(db: SlashingProtectionDB) =
   ## Close a slashing protection database
@@ -230,7 +231,7 @@ proc pruneBlocks*(
 
   # {.error: "This is a backend specific proc".}
   fatal "This is a backend specific proc"
-  quit 1
+  raiseSlashingDefect("Backend specific procedure")
 
 proc pruneAttestations*(
        db: SlashingProtectionDB,
@@ -245,7 +246,7 @@ proc pruneAttestations*(
 
   # {.error: "This is a backend specific proc".}
   fatal "This is a backend specific proc"
-  quit 1
+  raiseSlashingDefect("Backend specific procedure")
 
 proc pruneAfterFinalization*(
        db: SlashingProtectionDB,

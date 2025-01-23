@@ -26,8 +26,11 @@ proc doWallets*(config: BeaconNodeConf, rng: var HmacDrbgContext) {.
         echo "The Wallet '" & name.string & "' already exists."
         quit 1
 
-    var wallet = createWalletInteractively(rng, config).valueOr:
+    let walletOpt = createWalletInteractively(rng, config).valueOr:
       fatal "Unable to create wallet", err = error
+      quit 1
+    var wallet = walletOpt.valueOr:
+      fatal "Process interrupted by user"
       quit 1
     burnMem(wallet.seed)
 

@@ -25,7 +25,7 @@
 import
   stew/assign2, chronicles,
   ../extras,
-  "."/[beaconstate, eth2_merkleization, validator]
+  "."/[beaconstate, eth2_merkleization, validator, defects]
 
 from std/math import sum, `^`
 from stew/bitops2 import setBit
@@ -336,12 +336,10 @@ proc weigh_justification_and_finalization(
       epoch: previous_epoch, root: get_block_root(state, previous_epoch))
     uint8(res.justification_bits).setBit 1
   elif strictVerification in flags:
-    fatal "Low attestation participation in previous epoch",
-      total_active_balance,
-      previous_epoch_target_balance,
-      current_epoch_target_balance,
-      epoch = get_current_epoch(state)
-    quit 1
+    const msg = "Low attestation participation in previous epoch"
+    fatal msg, total_active_balance, previous_epoch_target_balance,
+          current_epoch_target_balance, epoch = get_current_epoch(state)
+    raiseStrictDefect(msg)
 
   if current_epoch_target_balance * 3 >= total_active_balance * 2:
     res.current_justified_checkpoint = Checkpoint(
@@ -1512,9 +1510,9 @@ proc process_epoch*(
     # the finalization rules triggered.
     if (epoch >= 2 and state.current_justified_checkpoint.epoch + 2 < epoch) or
        (epoch >= 3 and state.finalized_checkpoint.epoch + 3 < epoch):
-      fatal "The network did not finalize",
-             epoch, finalizedEpoch = state.finalized_checkpoint.epoch
-      quit 1
+      const msg = "The network did not finalize"
+      fatal msg, epoch, finalizedEpoch = state.finalized_checkpoint.epoch
+      raiseStrictDefect(msg)
 
   process_inactivity_updates(cfg, state, info)
 
@@ -1555,9 +1553,9 @@ proc process_epoch*(
     # the finalization rules triggered.
     if (epoch >= 2 and state.current_justified_checkpoint.epoch + 2 < epoch) or
        (epoch >= 3 and state.finalized_checkpoint.epoch + 3 < epoch):
-      fatal "The network did not finalize",
-             epoch, finalizedEpoch = state.finalized_checkpoint.epoch
-      quit 1
+      const msg = "The network did not finalize"
+      fatal msg, epoch, finalizedEpoch = state.finalized_checkpoint.epoch
+      raiseStrictDefect(msg)
 
   process_inactivity_updates(cfg, state, info)
 

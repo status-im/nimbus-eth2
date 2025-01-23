@@ -704,7 +704,9 @@ proc init*(T: type BeaconNode,
       if not is_within_weak_subjectivity_period(metadata.cfg, currentSlot,
                                                 genesisState[], checkpoint):
         # We do support any network which starts from Altair or later fork.
-        let metadata = config.loadEth2Network()
+        let metadata = config.loadEth2Network().valueOr:
+          fatal "Unable to get network metadata", reason = error
+          quit 1
         if metadata.cfg.ALTAIR_FORK_EPOCH != GENESIS_EPOCH:
           fatal WeakSubjectivityLogMessage, current_slot = currentSlot,
                 altair_fork_epoch = metadata.cfg.ALTAIR_FORK_EPOCH
@@ -841,7 +843,9 @@ proc init*(T: type BeaconNode,
         quit 1
     db.putDepositContractSnapshot(depositContractSnapshot)
 
-  let engineApiUrls = config.engineApiUrls
+  let engineApiUrls = config.engineApiUrls().valueOr:
+    fatal "Unable to get Engine API locations", reason = error
+    quit 1
 
   if engineApiUrls.len == 0:
     notice "Running without execution client - validator features disabled (see https://nimbus.guide/eth1.html)"
@@ -2392,7 +2396,9 @@ proc doRunBeaconNode(config: var BeaconNodeConf, rng: ref HmacDrbgContext) {.rai
   # There are no managed event loops in here, to do a graceful shutdown, but
   # letting the default Ctrl+C handler exit is safe, since we only read from
   # the db.
-  let metadata = config.loadEth2Network()
+  let metadata = config.loadEth2Network().valueOr:
+    fatal "Unable to get network metadata", reason = error
+    quit 1
 
   # Updating the config based on the metadata certainly is not beautiful but it
   # works
@@ -2476,11 +2482,17 @@ proc doWeb3Cmd(config: BeaconNodeConf, rng: var HmacDrbgContext)
     {.raises: [CatchableError].} =
   case config.web3Cmd:
   of Web3Cmd.test:
-    let metadata = config.loadEth2Network()
-
-    waitFor testWeb3Provider(config.web3TestUrl,
-                             metadata.cfg.DEPOSIT_CONTRACT_ADDRESS,
-                             rng.loadJwtSecret(config, allowCreate = true))
+    let
+      metadata = config.loadEth2Network().valueOr:
+        fatal "Unable to get network metadata", reason = error
+        quit 1
+      secret = rng.loadJwtSecret(config, allowCreate = true).valueOr:
+        fatal "Unable to get JWT secret", reason = error
+        quit 1
+      res = waitFor testWeb3Provider(
+        config.web3TestUrl, metadata.cfg.DEPOSIT_CONTRACT_ADDRESS,
+        Opt.some(secret))
+    quit res
 
 proc doSlashingExport(conf: BeaconNodeConf) {.raises: [IOError].}=
   let
@@ -2553,7 +2565,9 @@ proc handleStartUpCmd(config: var BeaconNodeConf) {.raises: [CatchableError].} =
       quit 1
 
     let
-      metadata = loadEth2Network(config)
+      metadata = loadEth2Network(config).valueOr:
+        fatal "Unable to get network metadata", reason = error
+        quit 1
       db = BeaconChainDB.new(config.databaseDir, metadata.cfg, inMemory = false)
       genesisState = waitFor fetchGenesisState(metadata)
     waitFor db.doRunTrustedNodeSync(

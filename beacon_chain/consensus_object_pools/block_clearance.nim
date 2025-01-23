@@ -14,7 +14,7 @@ import
   stew/assign2,
   ../spec/[
     beaconstate, forks, signatures, signatures_batch,
-    state_transition, state_transition_epoch],
+    state_transition, state_transition_epoch, defects],
   "."/[block_pools_types, block_dag, blockchain_dag,
        blockchain_dag_light_client]
 
@@ -357,7 +357,7 @@ proc addBackfillBlock*(
           fatal "Invalid proposer in backfill block - checkpoint state corrupt?",
             head = shortLog(dag.head), tail = shortLog(dag.tail)
 
-          quit 1
+          raiseClearanceDefect("Checkpoint state corruption")
 
         if not verify_block_signature(
             dag.forkAtEpoch(blck.slot.epoch),
@@ -413,7 +413,7 @@ proc addBackfillBlock*(
         # swapped or something?).
         fatal "Checkpoint given during initial startup inconsistent with genesis block - wrong network used when starting the node?",
           tail = shortLog(dag.tail), head = shortLog(dag.head)
-        quit 1
+        raiseClearanceDefect("Wrong network used")
 
       # Signal that we're done by resetting backfill
       reset(dag.backfill)

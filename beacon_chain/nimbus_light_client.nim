@@ -59,7 +59,9 @@ programMain:
     altairSyncCommittees: "altair_sync_committees")).expect("Database OK")
   defer: db.close()
 
-  let metadata = loadEth2Network(config.eth2Network)
+  let metadata = loadEth2Network(config.eth2Network).valueOr:
+    fatal "Unable to get network metadata", reason = error
+    quit 1
   for node in metadata.bootstrapNodes:
     config.bootstrapNodes.add node
   template cfg(): auto = metadata.cfg
@@ -94,7 +96,9 @@ programMain:
     network = createEth2Node(
       rng, config, netKeys, cfg,
       forkDigests, getBeaconTime, genesis_validators_root)
-    engineApiUrls = config.engineApiUrls
+    engineApiUrls = config.engineApiUrls().valueOr:
+      fatal "Unable to get Engine API locations", reason = error
+      quit 1
     elManager =
       if engineApiUrls.len > 0:
         ELManager.new(

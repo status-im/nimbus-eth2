@@ -1991,7 +1991,7 @@ proc testWeb3Provider*(
     web3Url: Uri,
     depositContractAddress: Eth1Address,
     jwtSecret: Opt[seq[byte]]
-) {.async: (raises: [CatchableError]).} =
+): Future[int] {.async: (raises: [CatchableError]).} =
 
   stdout.write "Establishing web3 connection..."
   let web3 =
@@ -2000,7 +2000,7 @@ proc testWeb3Provider*(
                     getJsonRpcRequestHeaders(jwtSecret)).wait(5.seconds)
     except CatchableError as exc:
       stdout.write "\rEstablishing web3 connection: Failure(" & exc.msg & ")\n"
-      quit 1
+      return 1
 
   stdout.write "\rEstablishing web3 connection: Connected\n"
 
@@ -2034,3 +2034,5 @@ proc testWeb3Provider*(
 
   discard request "Deposit root":
     ns.get_deposit_root.call(blockNumber = latestBlock.number)
+
+  0

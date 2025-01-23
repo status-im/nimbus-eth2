@@ -9,7 +9,7 @@
 
 import
   chronicles, chronos, metrics,
-  ../spec/[forks, helpers_el, signatures, signatures_batch],
+  ../spec/[forks, helpers_el, signatures, signatures_batch, defects],
   ../sszdump
 
 from std/deques import Deque, addLast, contains, initDeque, items, len, shrink
@@ -884,8 +884,9 @@ proc processBlock(
     (afterGenesis, _) = wallTime.toSlot()
 
   if not afterGenesis:
-    error "Processing block before genesis, clock turned back?"
-    quit 1
+    const msg = "Processing block before genesis, clock turned back?"
+    fatal msg
+    raiseProcessorDefect(msg)
 
   let res = withBlck(entry.blck):
     await self.storeBlock(

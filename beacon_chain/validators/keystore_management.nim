@@ -13,7 +13,7 @@ import
   bearssl/rand,
   serialization, blscurve, eth/common/eth_types, confutils,
   nimbus_security_resources,
-  ".."/spec/[eth2_merkleization, keystore, crypto],
+  ".."/spec/[eth2_merkleization, keystore, crypto, defects],
   ".."/spec/datatypes/base,
   stew/[io2, byteutils], libp2p/crypto/crypto as lcrypto,
   nimcrypto/utils as ncrutils,
@@ -44,6 +44,7 @@ const
   BuilderConfigPath = "payload_builder.json"
   KeyNameSize = 98 # 0x + hexadecimal key representation 96 characters.
   MaxKeystoreFileSize = 65536
+  StdinReadFailureMessage = "Failed to read password from stdin"
 
 type
   WalletPathPair* = object
@@ -759,9 +760,9 @@ iterator listLoadableKeys*(validatorsDir, secretsDir: string,
         yield cres
 
   except OSError as err:
-    error "Validator keystores directory is not accessible",
-          path = validatorsDir, err = err.msg
-    quit 1
+    const msg = "Validator keystores directory is not accessible"
+    fatal msg, path = validatorsDir, err = err.msg
+    raiseKeystoreDefect(msg)
 
 iterator listLoadableKeystores*(validatorsDir, secretsDir: string,
                                 nonInteractive: bool,
@@ -792,15 +793,16 @@ iterator listLoadableKeystores*(validatorsDir, secretsDir: string,
         let
           keystore = loadKeystore(validatorsDir, secretsDir, keyName,
                                   nonInteractive, cache).valueOr:
-            fatal "Unable to load keystore", keystore = file
-            quit 1
+            const msg = "Unable to load keystore"
+            fatal msg, keystore = file
+            raiseKeystoreDefect(msg)
 
         yield keystore
 
   except OSError as err:
-    error "Validator keystores directory is not accessible",
-          path = validatorsDir, err = err.msg
-    quit 1
+    const msg = "Validator keystores directory is not accessible"
+    fatal msg, path = validatorsDir, err = err.msg
+    raiseKeystoreDefect(msg)
 
 iterator listLoadableKeystores*(config: AnyConf,
                                 cache: KeystoreCacheRef): KeystoreData =
@@ -1902,8 +1904,9 @@ proc importKeystoresFromDir*(rng: var HmacDrbgContext, meth: ImportMethod,
           if password.len == 0:
             break
   except OSError:
-    fatal "Failed to access the imported deposits directory"
-    quit 1
+    const msg = "Failed to access the imported deposits directory"
+    fatal msg
+    raiseKeystoreDefect(msg)
 
 template ask(prompt: string): string =
   try:
@@ -1983,7 +1986,7 @@ else:
 
 proc createWalletInteractively*(
     rng: var HmacDrbgContext,
-    config: BeaconNodeConf): Result[CreatedWallet, string] =
+    config: BeaconNodeConf): Result[Opt[CreatedWallet], string] =
 
   if config.nonInteractive:
     return err "not running in interactive mode"
@@ -2004,7 +2007,7 @@ proc createWalletInteractively*(
 
   while true:
     let answer = ask "Action"
-    if answer.len > 0 and answer[0] == 'q': quit 1
+    if answer.len > 0 and answer[0] == 'q': return ok(Opt.none(CreatedWallet))
     if answer == "continue": break
     echoP "To proceed to your seed phrase, please type 'continue' (without the quotes). " &
           "Type 'q' to exit now."
@@ -2026,8 +2029,9 @@ proc createWalletInteractively*(
   try:
     discard getch()
   except IOError as err:
-    fatal "Failed to read a key from stdin", err = err.msg
-    quit 1
+    const msg = "Failed to read a key from stdin"
+    fatal msg, reason = err.msg
+    raiseKeystoreDefect(msg)
 
   clearScreen()
 
@@ -2054,7 +2058,7 @@ proc createWalletInteractively*(
             "(the first word from the seed phrase, followed by the last 3)"
       echo ""
     else:
-      quit 1
+      return ok(Opt.none(CreatedWallet))
 
   clearScreen()
 
@@ -2075,8 +2079,8 @@ proc createWalletInteractively*(
       burnMem(recoveryPassword.get)
 
   if recoveryPassword.isErr:
-    fatal "Failed to read password from stdin: "
-    quit 1
+    fatal StdinReadFailureMessage
+    raiseKeystoreDefect(StdinReadFailureMessage)
 
   var keystorePass = KeystorePass.init recoveryPassword.get
   defer: burnMem(keystorePass)
@@ -2085,7 +2089,7 @@ proc createWalletInteractively*(
   defer: burnMem(seed)
 
   let walletPath = ? pickPasswordAndSaveWallet(rng, config, seed)
-  return ok CreatedWallet(walletPath: walletPath, seed: seed)
+  ok(Opt.some(CreatedWallet(walletPath: walletPath, seed: seed)))
 
 proc restoreWalletInteractively*(rng: var HmacDrbgContext,
                                  config: BeaconNodeConf) =
@@ -2100,8 +2104,8 @@ proc restoreWalletInteractively*(rng: var HmacDrbgContext,
   echo "To restore your wallet, please enter your backed-up seed phrase."
   while true:
     if not readPasswordInput("Seedphrase: ", enteredMnemonic):
-      fatal "failure to read password from stdin"
-      quit 1
+      fatal StdinReadFailureMessage
+      raiseKeystoreDefect(StdinReadFailureMessage)
 
     if validateMnemonic(enteredMnemonic, validatedMnemonic):
       break
@@ -2119,8 +2123,8 @@ proc restoreWalletInteractively*(rng: var HmacDrbgContext,
       burnMem(recoveryPassword.get)
 
   if recoveryPassword.isErr:
-    fatal "Failed to read password from stdin"
-    quit 1
+    fatal StdinReadFailureMessage
+    raiseKeystoreDefect(StdinReadFailureMessage)
 
   var keystorePass = KeystorePass.init recoveryPassword.get
   defer: burnMem(keystorePass)

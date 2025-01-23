@@ -18,7 +18,7 @@ import
   sqlite3_abi,
   # Internal
   ../spec/datatypes/base,
-  ../spec/helpers,
+  ../spec/[helpers, defects],
   ./slashing_protection_common
 
 export results
@@ -653,10 +653,9 @@ proc getMetadataTable_DbV2*(db: SlashingProtectionDB_v2): Opt[Eth2Digest] =
   if status.isOk():
     # Privacy, don't display the user private path
     if version != db.typeof.version():
-      fatal "Incorrect DB version",
-        found = version,
-        expected = db.typeof.version()
-      quit 1
+      const msg = "Incorrect DB version"
+      fatal msg, found = version, expected = db.typeof.version()
+      raiseSlashingDefect(msg)
     return Opt.some(root)
   else:
     return Opt.none(Eth2Digest)
@@ -676,32 +675,35 @@ proc initCompatV1*(
 
   let
     alreadyExists = fileExists(databasePath / databaseName & ".sqlite3")
-    backendRes = SqStoreRef.init(databasePath, databaseName)
-    backend = backendRes.valueOr: # TODO https://github.com/nim-lang/Nim/issues/22605
-      fatal "Failed to open slashing protection database", err = backendRes.error
-      quit 1
+    backend = SqStoreRef.init(databasePath, databaseName).valueOr:
+      const msg = "Failed to open slashing protection database"
+      fatal msg, reason = error
+      raiseSlashingDefect(msg)
 
-  result.db = T(backend: backend)
-  if alreadyExists and result.db.getMetadataTable_DbV2().isSome():
-    let status = result.db.checkDB(genesis_validators_root)
-    if status.isErr:
-      fatal "Incompatible slashing protection database",
-             reason = status.error
-      quit 1
-    result.requiresMigration = false
+  var res: tuple[db: SlashingProtectionDB_v2, requiresMigration: bool]
+  res.db = T(backend: backend)
+  if alreadyExists and res.db.getMetadataTable_DbV2().isSome():
+    res.db.checkDB(genesis_validators_root).isOkOr:
+      const msg = "Incompatible slashing protection database"
+      fatal msg, reason = error
+      raiseSlashingDefect(msg)
+
+    res.requiresMigration = false
   elif alreadyExists:
-    result.db.setupDB(genesis_validators_root)
-    result.requiresMigration = true
+    res.db.setupDB(genesis_validators_root)
+    res.requiresMigration = true
   else:
-    result.db.setupDB(genesis_validators_root)
-    result.requiresMigration = false
+    res.db.setupDB(genesis_validators_root)
+    res.requiresMigration = false
 
   # Cached queries
-  result.db.setupCachedQueries()
+  res.db.setupCachedQueries()
 
   debug "Loaded slashing protection (v2)",
     genesis_validators_root = shortLog(genesis_validators_root),
-    requiresMigration = result.requiresMigration
+    requiresMigration = res.requiresMigration
+
+  res
 
 # Resource Management
 # -------------------------------------------------------------
@@ -719,42 +721,45 @@ proc init*(T: type SlashingProtectionDB_v2,
 
   let
     alreadyExists = fileExists(databasePath / databaseName & ".sqlite3")
-    backendRes = SqStoreRef.init(databasePath, databaseName,
-                                 keyspaces = [])
-    backend = backendRes.valueOr: # TODO https://github.com/nim-lang/Nim/issues/22605
-      fatal "Failed to open slashing protection database", err = backendRes.error
-      quit 1
+    backend = SqStoreRef.init(databasePath, databaseName,
+                              keyspaces = []).valueOr:
+      const msg = "Failed to open slashing protection database"
+      fatal msg, reason = error
+      raiseSlashingDefect(msg)
 
-  result = T(backend: backend)
+  var res = T(backend: backend)
   if alreadyExists:
-    let status = result.checkDB(genesis_validators_root)
-    if status.isErr:
-      fatal "Slashing protection database check error",
-             reason = status.error
-      quit 1
+    res.checkDB(genesis_validators_root).isOkOr:
+      const msg = "Slashing protection database check error"
+      fatal msg, reason = error
+      raiseSlashingDefect(msg)
   else:
-    result.setupDB(genesis_validators_root)
-
+    res.setupDB(genesis_validators_root)
   # Cached queries
-  result.setupCachedQueries()
+  res.setupCachedQueries()
+  res
 
 proc loadUnchecked*(
-       T: type SlashingProtectionDB_v2,
-       basePath, dbname: string, readOnly: bool
-     ): SlashingProtectionDB_v2 {.raises:[IOError].}=
+    T: type SlashingProtectionDB_v2,
+    basePath, dbname: string, readOnly: bool
+): SlashingProtectionDB_v2 {.raises:[IOError].}=
   ## Load a slashing protection DB
   ## Note: This is for conversion usage in ncli_slashing
   ##       this doesn't check the genesis validator root
   ##
   ## Privacy: This leaks user folder hierarchy in case the file does not exist
-  let path = basePath/dbname&".sqlite3"
-  let alreadyExists = fileExists(path)
+  let
+    path = basePath/dbname&".sqlite3"
+    alreadyExists = fileExists(path)
+
   if not alreadyExists:
     raise newException(IOError, "DB '" & path & "' does not exist.")
-  result = T(backend: SqStoreRef.init(basePath, dbname, readOnly = readOnly).get())
 
+  var res =
+    T(backend: SqStoreRef.init(basePath, dbname, readOnly = readOnly).get())
   # Cached queries
-  result.setupCachedQueries()
+  res.setupCachedQueries()
+  res
 
 proc close*(db: SlashingProtectionDB_v2) =
   ## Close a slashing protection database

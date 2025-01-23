@@ -9,7 +9,7 @@
 
 import
   chronos, metrics,
-  ../spec/light_client_sync,
+  ../spec/[light_client_sync, defects],
   ../consensus_object_pools/block_pools_types,
   ".."/[beacon_clock, sszdump],
   "."/[eth2_processor, gossip_validation]
@@ -485,8 +485,9 @@ proc addObject*(
       else:
         false
     if not mayProcessBeforeGenesis:
-      error "Processing LC object before genesis, clock turned back?"
-      quit 1
+      const msg = "Processing LC object before genesis, clock turned back?"
+      fatal msg
+      raiseProcessorDefect(msg)
 
   let res = self.storeObject(src, wallTime, obj)
 

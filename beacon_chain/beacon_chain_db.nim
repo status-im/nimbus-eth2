@@ -649,9 +649,10 @@ proc new*(T: type BeaconChainDB,
         "working database (out of memory?)")
     else:
       if (let res = secureCreatePath(dir); res.isErr):
-        fatal "Failed to create create database directory",
-          path = dir, err = ioErrorMsg(res.error)
-        quit 1
+        let msg =
+          "Failed to create create database directory, reason: " &
+          ioErrorMsg(res.error)
+        raise (ref ResultDefect)(msg: msg)
 
       SqStoreRef.init(
         dir, "nbc", readOnly = readOnly, manualCheckpoint = true).expectDb()

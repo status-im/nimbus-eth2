@@ -155,16 +155,20 @@ template databaseDir*(config: LightClientConf): string =
 template loadJwtSecret*(
     rng: var HmacDrbgContext,
     config: LightClientConf,
-    allowCreate: bool): Option[seq[byte]] =
+    allowCreate: bool
+): Result[seq[byte], string] =
   rng.loadJwtSecret(string(config.dataDir), config.jwtSecret, allowCreate)
 
-proc engineApiUrls*(config: LightClientConf): seq[EngineApiUrl] =
-  let elUrls = if config.noEl:
-    return newSeq[EngineApiUrl]()
-  elif config.elUrls.len == 0 and config.web3Urls.len == 0:
-    @[getDefaultEngineApiUrl(config.jwtSecret)]
-  else:
-    config.elUrls
+proc engineApiUrls*(
+    config: LightClientConf
+): Result[seq[EngineApiUrl], string] =
+  let elUrls =
+    if config.noEl:
+      return ok(default(seq[EngineApiUrl]))
+    elif config.elUrls.len == 0 and config.web3Urls.len == 0:
+      @[getDefaultEngineApiUrl(config.jwtSecret)]
+    else:
+      config.elUrls
 
-  (elUrls & config.web3Urls).toFinalEngineApiUrls(
-    config.jwtSecret.configJwtSecretOpt)
+  toFinalEngineApiUrls(elUrls & config.web3Urls,
+                       config.jwtSecret.configJwtSecretOpt)

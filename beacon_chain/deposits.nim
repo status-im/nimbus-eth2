@@ -372,7 +372,9 @@ proc doDeposits*(config: BeaconNodeConf, rng: var HmacDrbgContext) {.
     if config.eth2Network.isNone:
       fatal "Please specify the intended testnet for the deposits"
       quit 1
-    let metadata = config.loadEth2Network()
+    let metadata = config.loadEth2Network().valueOr:
+      fatal "Unable to get network metadata", reason = error
+      quit 1
     var seed: KeySeed
     defer: burnMem(seed)
     var walletPath: WalletPathPair
@@ -397,22 +399,23 @@ proc doDeposits*(config: BeaconNodeConf, rng: var HmacDrbgContext) {.
         # The failure will be reported in `unlockWalletInteractively`.
         quit 1
     else:
-      var walletRes = createWalletInteractively(rng, config)
-      if walletRes.isErr:
-        fatal "Unable to create wallet", err = walletRes.error
+      let walletOpt = createWalletInteractively(rng, config).valueOr:
+        fatal "Unable to create wallet", reason = error
         quit 1
-      else:
-        swap(seed, walletRes.get.seed)
-        walletPath = walletRes.get.walletPath
+      var wallet = walletOpt.valueOr:
+        fatal "Process interrupted by user"
+        quit 1
+      swap(seed, wallet.seed)
+      walletPath = wallet.walletPath
 
-    if (let res = secureCreatePath(config.outValidatorsDir); res.isErr):
+    secureCreatePath(config.outValidatorsDir).isOkOr:
       fatal "Could not create directory",
-        path = config.outValidatorsDir, err = ioErrorMsg(res.error)
+            path = config.outValidatorsDir, reason = ioErrorMsg(error)
       quit QuitFailure
 
-    if (let res = secureCreatePath(config.outSecretsDir); res.isErr):
+    secureCreatePath(config.outSecretsDir).isOkOr:
       fatal "Could not create directory",
-        path = config.outSecretsDir, err = ioErrorMsg(res.error)
+            path = config.outSecretsDir, reason = ioErrorMsg(error)
       quit QuitFailure
 
     let deposits = generateDeposits(

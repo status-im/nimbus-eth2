@@ -1414,7 +1414,9 @@ proc readValue*(r: var TomlReader, a: var Address)
   except CatchableError:
     r.raiseUnexpectedValue("string expected")
 
-proc loadEth2Network*(eth2Network: Option[string]): Eth2NetworkMetadata =
+proc loadEth2Network*(
+    eth2Network: Option[string]
+): Result[Eth2NetworkMetadata, string] =
   const defaultName =
     when const_preset == "gnosis":
       "gnosis"
@@ -1422,22 +1424,24 @@ proc loadEth2Network*(eth2Network: Option[string]): Eth2NetworkMetadata =
       "mainnet"
     else:
       "(unspecified)"
+
   network_name.set(2, labelValues = [eth2Network.get(otherwise = defaultName)])
 
   if eth2Network.isSome:
-    getMetadataForNetwork(eth2Network.get)
+    ok(getMetadataForNetwork(eth2Network.get))
   else:
     when const_preset == "gnosis":
-      getMetadataForNetwork("gnosis")
+      ok(getMetadataForNetwork("gnosis"))
     elif const_preset == "mainnet":
-      getMetadataForNetwork("mainnet")
+      ok(getMetadataForNetwork("mainnet"))
     else:
       # Presumably other configurations can have other defaults, but for now
       # this simplifies the flow
-      fatal "Must specify network on non-mainnet node"
-      quit 1
+      err("Must specify network on non-mainnet node")
 
-template loadEth2Network*(config: BeaconNodeConf): Eth2NetworkMetadata =
+template loadEth2Network*(
+    config: BeaconNodeConf
+): Result[Eth2NetworkMetadata, string] =
   loadEth2Network(config.eth2Network)
 
 func defaultFeeRecipient*(conf: AnyConf): Opt[Eth1Address] =
@@ -1457,19 +1461,15 @@ proc loadJwtSecret(
     rng: var HmacDrbgContext,
     dataDir: string,
     jwtSecret: Opt[InputFile],
-    allowCreate: bool): Opt[seq[byte]] =
+    allowCreate: bool
+): Result[seq[byte], string] =
   # Some Web3 endpoints aren't compatible with JWT, but if explicitly chosen,
   # use it regardless.
   if jwtSecret.isSome or allowCreate:
-    let secret = rng.checkJwtSecret(dataDir, jwtSecret)
-    if secret.isErr:
-      fatal "Specified a JWT secret file which couldn't be loaded",
-        err = secret.error
-      quit 1
-
-    Opt.some secret.get
+    let secret = ? rng.checkJwtSecret(dataDir, jwtSecret)
+    ok(secret)
   else:
-    Opt.none seq[byte]
+    ok(default(seq[byte]))
 
 func configJwtSecretOpt*(jwtSecret: Option[InputFile]): Opt[InputFile] =
   if jwtSecret.isSome:
@@ -1480,20 +1480,24 @@ func configJwtSecretOpt*(jwtSecret: Option[InputFile]): Opt[InputFile] =
 proc loadJwtSecret*(
     rng: var HmacDrbgContext,
     config: BeaconNodeConf,
-    allowCreate: bool): Opt[seq[byte]] =
+    allowCreate: bool
+): Result[seq[byte], string] =
   rng.loadJwtSecret(
     string(config.dataDir), config.jwtSecret.configJwtSecretOpt, allowCreate)
 
-proc engineApiUrls*(config: BeaconNodeConf): seq[EngineApiUrl] =
-  let elUrls = if config.noEl:
-    return newSeq[EngineApiUrl]()
-  elif config.elUrls.len == 0 and config.web3Urls.len == 0:
-    @[getDefaultEngineApiUrl(config.jwtSecret)]
-  else:
-    config.elUrls
+proc engineApiUrls*(
+    config: BeaconNodeConf
+): Result[seq[EngineApiUrl], string] =
+  let elUrls =
+    if config.noEl:
+      return ok(default(seq[EngineApiUrl]))
+    elif config.elUrls.len == 0 and config.web3Urls.len == 0:
+      @[getDefaultEngineApiUrl(config.jwtSecret)]
+    else:
+      config.elUrls
 
-  (elUrls & config.web3Urls).toFinalEngineApiUrls(
-    config.jwtSecret.configJwtSecretOpt)
+  toFinalEngineApiUrls(elUrls & config.web3Urls,
+                       config.jwtSecret.configJwtSecretOpt)
 
 proc loadKzgTrustedSetup*(): Result[void, string] =
   static: doAssert const_preset in ["mainnet", "gnosis", "minimal"]

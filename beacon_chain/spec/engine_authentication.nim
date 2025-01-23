@@ -12,7 +12,7 @@ import
   bearssl/rand,
   nimcrypto/[hmac, utils, sha2],
   results,
-  stew/byteutils
+  stew/[io2, byteutils]
 
 from std/base64 import encode
 from std/json import JsonNode, `$`, `%*`
@@ -61,7 +61,7 @@ func getSignedToken*(key: openArray[byte], payload: string): string =
 func getSignedIatToken*(key: openArray[byte], time: int64): string =
   getSignedToken(key, $getIatToken(time))
 
-func parseJwtTokenValue*(input: string): Result[seq[byte], cstring] =
+func parseJwtTokenValue*(input: string): Result[seq[byte], string] =
   # Secret JWT key is parsed in constant time using nimcrypto:
   # https://github.com/cheatfate/nimcrypto/pull/44
   let secret = utils.fromHex(input)
@@ -70,21 +70,23 @@ func parseJwtTokenValue*(input: string): Result[seq[byte], cstring] =
   else:
     err("The JWT secret should be 256 bits and hex-encoded")
 
-proc loadJwtSecretFile*(jwtSecretFile: InputFile): Result[seq[byte], cstring] =
+proc loadJwtSecretFile*(jwtSecretFile: InputFile): Result[seq[byte], string] =
   try:
     let lines = readLines(string jwtSecretFile, 1)
     if lines.len > 0:
       parseJwtTokenValue(lines[0])
     else:
       err("The JWT token file should not be empty")
-  except IOError:
-    err("couldn't open specified JWT secret file")
+  except IOError as exc:
+    err("couldn't open specified JWT secret file, reason: " & $exc.msg)
   except ValueError:
     err("invalid JWT hex string")
 
 proc checkJwtSecret*(
-    rng: var HmacDrbgContext, dataDir: string, jwtSecret: Opt[InputFile]):
-    Result[seq[byte], cstring] =
+    rng: var HmacDrbgContext,
+    dataDir: string,
+    jwtSecret: Opt[InputFile]
+): Result[seq[byte], string] =
   # If such a parameter is given, but the file cannot be read, or does not
   # contain a hex-encoded key of 256 bits, the client should treat this as an
   # error: either abort the startup, or show error and continue without
@@ -100,14 +102,9 @@ proc checkJwtSecret*(
     let jwtSecretPath = dataDir / jwtSecretFilename
 
     let newSecret = rng.generateBytes(JWT_SECRET_LEN)
-    try:
-      writeFile(jwtSecretPath, newSecret.to0xHex())
-    except IOError as exc:
-      # Allow continuing to run, though this is effectively fatal for a merge
-      # client using authentication. This keeps it lower-risk initially.
-      warn "Could not write JWT secret to data directory",
-        jwtSecretPath,
-        err = exc.msg
+    io2.writeFile(jwtSecretPath, newSecret.to0xHex()).isOkOr:
+      return err(
+        "Could not write JWT secret to data directory, reason: " & $error)
     return ok(newSecret)
 
   loadJwtSecretFile(jwtSecret.get)

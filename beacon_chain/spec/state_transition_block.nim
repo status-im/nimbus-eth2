@@ -28,7 +28,8 @@ import
   chronicles, metrics,
   ../extras,
   ./datatypes/[phase0, altair, bellatrix, deneb],
-  "."/[beaconstate, eth2_merkleization, helpers, validator, signatures],
+  "."/[beaconstate, eth2_merkleization, helpers, validator, signatures,
+       defects],
   kzg4844/kzg_abi, kzg4844/kzg
 
 from std/algorithm import fill, sorted
@@ -812,9 +813,9 @@ proc process_sync_aggregate*(
     template sync_committee_bits(): auto = sync_aggregate.sync_committee_bits
     let num_active_participants = countOnes(sync_committee_bits).uint64
     if num_active_participants * 3 < static(sync_committee_bits.len * 2):
-      fatal "Low sync committee participation",
-        slot = state.slot, num_active_participants
-      quit 1
+      const msg = "Low sync committee participation"
+      fatal msg, slot = state.slot, num_active_participants
+      raiseStrictDefect(msg)
 
   # Verify sync committee aggregate signature signing over the previous slot
   # block root
