@@ -994,7 +994,7 @@ proc init*(T: type BeaconNode,
     withState(dag.headState):
       getValidator(forkyState().data.validators.asSeq(), pubkey)
 
-  func getCapellaForkVersion(): Opt[Version] =
+  func getCapellaForkVersion(): Opt[presets.Version] =
     Opt.some(cfg.CAPELLA_FORK_VERSION)
 
   func getDenebForkEpoch(): Opt[Epoch] =
