@@ -139,6 +139,8 @@ proc installConfigApiHandlers*(router: var RestRouter, node: BeaconNode) =
             Base10.toString(MAX_BLOB_COMMITMENTS_PER_BLOCK),
           MAX_BLOBS_PER_BLOCK:
             Base10.toString(MAX_BLOBS_PER_BLOCK),
+          MAX_BLOBS_PER_BLOCK_ELECTRA:
+            Base10.toString(MAX_BLOBS_PER_BLOCK_ELECTRA),
           KZG_COMMITMENT_INCLUSION_PROOF_DEPTH:
             Base10.toString(uint64(KZG_COMMITMENT_INCLUSION_PROOF_DEPTH)),
 

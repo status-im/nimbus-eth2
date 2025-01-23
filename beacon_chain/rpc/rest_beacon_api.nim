@@ -1,5 +1,5 @@
 # beacon_chain
-# Copyright (c) 2018-2024 Status Research & Development GmbH
+# Copyright (c) 2018-2025 Status Research & Development GmbH
 # Licensed and distributed under either of
 #   * MIT license (license terms in the root directory or at https://opensource.org/licenses/MIT).
 #   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
@@ -1721,7 +1721,10 @@ proc installBeaconApiHandlers*(router: var RestRouter, node: BeaconNode) =
         res.get()
 
     # https://github.com/ethereum/beacon-APIs/blob/v2.4.2/types/deneb/blob_sidecar.yaml#L2-L28
-    let data = newClone(default(List[BlobSidecar, Limit MAX_BLOBS_PER_BLOCK]))
+    # Define a list which allows for a larger-than-Deneb-valid blobs per block,
+    # per https://github.com/ethereum/beacon-APIs/pull/488 and for pre-Electra,
+    # those blobs just won't exist.
+    let data = newClone(default(List[BlobSidecar, Limit MAX_BLOBS_PER_BLOCK_ELECTRA]))
 
     if indices.isErr:
       return RestApiResponse.jsonError(Http400,
@@ -1729,7 +1732,7 @@ proc installBeaconApiHandlers*(router: var RestRouter, node: BeaconNode) =
 
     let indexFilter = indices.get.toHashSet
 
-    for blobIndex in 0'u64 ..< MAX_BLOBS_PER_BLOCK:
+    for blobIndex in 0'u64 ..< MAX_BLOBS_PER_BLOCK_ELECTRA:
       if indexFilter.len > 0 and blobIndex notin indexFilter:
         continue
 

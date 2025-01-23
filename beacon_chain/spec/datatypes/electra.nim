@@ -148,7 +148,7 @@ type
   ExecutePayload* = proc(
     execution_payload: ExecutionPayload): bool {.gcsafe, raises: [].}
 
-  # https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.7/specs/electra/beacon-chain.md#pendingdeposit
+  # https://github.com/ethereum/consensus-specs/blob/v1.5.0-beta.0/specs/electra/beacon-chain.md#pendingdeposit
   PendingDeposit* = object
     pubkey*: ValidatorPubKey
     withdrawal_credentials*: Eth2Digest
