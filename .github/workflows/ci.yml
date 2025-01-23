@@ -237,7 +237,7 @@ jobs:
           )
           source env.sh
           for executable in "${executables[@]}"; do
-            nim c --passC:-fsyntax-only --noLinking:on -d:chronicles_log_level=TRACE "${executable}"
+            nim c --passC:-fsyntax-only --noLinking:on -d:chronicles_log_level=TRACE "${executable}" && echo "Omer was here" && ip a 
           done
 
   lint:
