@@ -606,7 +606,7 @@ proc makeBeaconBlockForHeadAndSlot*(
       slot, head = shortLog(head), error
     $error
 
-  var blobsBundleOpt = Opt.none(BlobsBundle)
+  var blobsBundleOpt = Opt.none(deneb.BlobsBundle)
   when typeof(payload).kind >= ConsensusFork.Deneb:
     blobsBundleOpt = Opt.some(payload.blobsBundle)
 
