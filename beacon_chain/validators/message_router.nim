@@ -185,25 +185,7 @@ proc routeSignedBeaconBlock*(
   var blobRefs = Opt.none(BlobSidecars)
   var dataColumnRefs =
     Opt.none(DataColumnSidecars)
-  when typeof(blck).kind >= ConsensusFork.Deneb:
-    if blobsOpt.isSome():
-      let blobs = blobsOpt.get()
-      var workers = newSeq[Future[SendResult]](blobs.len)
-      for i in 0..<blobs.lenu64:
-        let subnet_id = compute_subnet_for_blob_sidecar(i)
-        workers[i] = router[].network.broadcastBlobSidecar(subnet_id, blobs[i])
-      let allres = await allFinished(workers)
-      for i in 0..<allres.len:
-        let res = allres[i]
-        doAssert res.finished()
-        if res.failed():
-          notice "Blob not sent",
-            blob = shortLog(blobs[i]), error = res.error[]
-        else:
-          notice "Blob sent", blob = shortLog(blobs[i])
-      blobRefs = Opt.some(blobs.mapIt(newClone(it)))
-
-  elif typeof(blck).kind >= ConsensusFork.Fulu:
+  when typeof(blck).kind >= ConsensusFork.Fulu:
     let dataColumnsOpt =
         when typeof(blck).kind >= ConsensusFork.Fulu:
           newClone Opt.some(get_data_column_sidecars(blck,
@@ -246,6 +228,24 @@ proc routeSignedBeaconBlock*(
           if dc.index in custody_columns:
             final_columns.add dc
         dataColumnRefs = Opt.some(final_columns.mapIt(newClone(it)))
+
+  elif typeof(blck).kind >= ConsensusFork.Deneb:
+    if blobsOpt.isSome():
+      let blobs = blobsOpt.get()
+      var workers = newSeq[Future[SendResult]](blobs.len)
+      for i in 0..<blobs.lenu64:
+        let subnet_id = compute_subnet_for_blob_sidecar(i)
+        workers[i] = router[].network.broadcastBlobSidecar(subnet_id, blobs[i])
+      let allres = await allFinished(workers)
+      for i in 0..<allres.len:
+        let res = allres[i]
+        doAssert res.finished()
+        if res.failed():
+          notice "Blob not sent",
+            blob = shortLog(blobs[i]), error = res.error[]
+        else:
+          notice "Blob sent", blob = shortLog(blobs[i])
+      blobRefs = Opt.some(blobs.mapIt(newClone(it)))
 
   let added = await router[].blockProcessor[].addBlock(
     MsgSource.api, ForkedSignedBeaconBlock.init(blck), blobRefs,
