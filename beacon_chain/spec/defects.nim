@@ -6,44 +6,50 @@
 # at your option. This file may not be copied, modified, or distributed except according to those terms.
 
 type
-  DatabaseDefect* = object of Defect
-  SlashingDefect* = object of Defect
-  ClearanceDefect* = object of Defect
-  StrictDefect* = object of Defect
-  NetworkDefect* = object of Defect
-  DagDefect* = object of Defect
-  KeystoreDefect* = object of Defect
-  ProcessorDefect* = object of Defect
-  DiscoveryDefect* = object of Defect
-  ChainListDefect* = object of Defect
-  OverseerDefect* = object of Defect
+  ExitProcessDefect* = object of Defect
+    exitCode*: int16
+
+  DatabaseDefect* = object of ExitProcessDefect
+  SlashingDefect* = object of ExitProcessDefect
+  NetworkDefect* = object of ExitProcessDefect
+  ClearanceDefect* = object of ExitProcessDefect
+  StrictDefect* = object of ExitProcessDefect
+  DagDefect* = object of ExitProcessDefect
+  KeystoreDefect* = object of ExitProcessDefect
+  ProcessorDefect* = object of ExitProcessDefect
+  DiscoveryDefect* = object of ExitProcessDefect
+  ChainListDefect* = object of ExitProcessDefect
+  OverseerDefect* = object of ExitProcessDefect
 
 template raiseDatabaseDefect*(message: string) =
-  raise (ref DatabaseDefect)(msg: message)
+  raise (ref DatabaseDefect)(exitCode: 12, msg: message)
 
 template raiseSlashingDefect*(message: string) =
-  raise (ref SlashingDefect)(msg: message)
+  raise (ref SlashingDefect)(exitCode: 13, msg: message)
 
 template raiseClearanceDefect*(message: string) =
-  raise (ref ClearanceDefect)(msg: message)
+  raise (ref ClearanceDefect)(exitCode: 14, msg: message)
 
 template raiseStrictDefect*(message: string) =
-  raise (ref StrictDefect)(msg: message)
+  raise (ref StrictDefect)(exitCode: 15, msg: message)
 
 template raiseDagDefect*(message: string) =
-  raise (ref DagDefect)(msg: message)
+  raise (ref DagDefect)(exitCode: 16, msg: message)
 
 template raiseKeystoreDefect*(message: string) =
-  raise (ref KeystoreDefect)(msg: message)
+  raise (ref KeystoreDefect)(exitCode: 17, msg: message)
 
 template raiseProcessorDefect*(message: string) =
-  raise (ref ProcessorDefect)(msg: message)
+  raise (ref ProcessorDefect)(exitCode: 18, msg: message)
 
 template raiseDiscoveryDefect*(message: string) =
-  raise (ref DiscoveryDefect)(msg: message)
+  raise (ref DiscoveryDefect)(exitCode: 19, msg: message)
 
 template raiseChainListDefect*(message: string) =
-  raise (ref ChainListDefect)(msg: message)
+  raise (ref ChainListDefect)(exitCode: 20, msg: message)
 
 template raiseOverseerDefect*(message: string) =
-  raise (ref OverseerDefect)(msg: message)
+  raise (ref OverseerDefect)(exitCode: 21, msg: message)
+
+template raiseNetworkDefect*(message: string) =
+  raise (ref NetworkDefect)(exitCode: 22, msg: message)

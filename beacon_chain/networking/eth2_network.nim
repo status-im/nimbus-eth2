@@ -27,7 +27,7 @@ import
   eth/[common/keys, async_utils],
   eth/net/nat, eth/p2p/discoveryv5/[enr, node, random2],
   ".."/[version, conf, beacon_clock, conf_light_client],
-  ../spec/[eth2_ssz_serialization, network, helpers, forks],
+  ../spec/[eth2_ssz_serialization, network, helpers, forks, defects],
   ../validators/keystore_management,
   "."/[eth2_discovery, eth2_protocol_dsl, eth2_agents,
        libp2p_json_serialization, peer_pool, peer_scores]
@@ -1892,16 +1892,18 @@ proc startListening*(node: Eth2Node) {.async.} =
     try:
        node.discovery.open()
     except CatchableError as exc:
-      fatal "Failed to start discovery service. UDP port may be already in use",
-            exc = exc.msg
-      quit 1
+      const msg =
+        "Failed to start discovery service. UDP port may be already in use"
+      fatal msg, reason = exc.msg
+      raiseNetworkDefect(msg)
 
   try:
     await node.switch.start()
   except CatchableError as exc:
-    fatal "Failed to start LibP2P transport. TCP port may be already in use",
-          exc = exc.msg
-    quit 1
+    const msg =
+      "Failed to start LibP2P transport. TCP port may be already in use"
+    fatal msg, reason = exc.msg
+    raiseNetworkDefect(msg)
 
 proc peerPingerHeartbeat(node: Eth2Node): Future[void] {.async: (raises: [CancelledError]).}
 proc peerTrimmerHeartbeat(node: Eth2Node): Future[void] {.async: (raises: [CancelledError]).}
@@ -2333,16 +2335,19 @@ proc createEth2Node*(rng: ref HmacDrbgContext,
           if s.startsWith("enr:"):
             let
               enr = parseBootstrapAddress(s).valueOr:
-                fatal "Failed to parse bootstrap address", enr=s
-                quit 1
+                const msg = "Failed to parse bootstrap address"
+                fatal msg, enr = s
+                raiseNetworkDefect(msg)
               typedEnr = TypedRecord.fromRecord(enr)
               peerAddress = toPeerAddr(typedEnr, tcpProtocol).get()
             (peerAddress.peerId, peerAddress.addrs[0])
           elif s.startsWith("/"):
             parseFullAddress(s).tryGet()
           else:
-            fatal "direct peers address should start with / (multiaddress) or enr:", conf=s
-            quit 1
+            const msg =
+              "Direct peers address should start with / (multiaddress) or enr"
+            fatal msg, conf = s
+            raiseNetworkDefect(msg)
         res.mgetOrPut(peerId, @[]).add(address)
         info "Adding privileged direct peer", peerId, address
       res

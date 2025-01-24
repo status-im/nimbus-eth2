@@ -12,7 +12,7 @@ import
   chronos, chronicles,
   eth/p2p/discoveryv5/[enr, protocol, node, random2],
   ../spec/datatypes/[altair, fulu],
-  ../spec/eth2_ssz_serialization,
+  ../spec/[eth2_ssz_serialization, defects],
   ".."/[conf, conf_light_client]
 
 from std/os import splitFile
@@ -70,11 +70,13 @@ proc loadBootstrapFile*(bootstrapFile: string,
       for ln in strippedLines(bootstrapFile):
         addBootstrapNode(ln, bootstrapEnrs)
     except IOError as e:
-      error "Could not read bootstrap file", msg = e.msg
-      quit 1
+      const msg = "Could not read bootstrap file"
+      fatal msg, reason = e.msg
+      raiseNetworkDefect(msg)
   else:
-    error "Unknown bootstrap file format", ext
-    quit 1
+    const msg = "Unknown bootstrap file format"
+    fatal msg, ext
+    raiseNetworkDefect(msg)
 
 proc new*(T: type Eth2DiscoveryProtocol,
           config: BeaconNodeConf | LightClientConf,
