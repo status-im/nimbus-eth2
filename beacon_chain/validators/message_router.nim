@@ -93,13 +93,6 @@ proc routeSignedBeaconBlock*(
   ## block passes validation but is not added, and error otherwise
   let
     wallTime = router[].getCurrentBeaconTime()
-    dataColumnsOpt =
-      when typeof(blck).kind >= ConsensusFork.Fulu:
-        newClone Opt.some(get_data_column_sidecars(blck,
-                                          blobsOpt.get.mapIt(
-                                          KzgBlob(bytes: it.blob))))
-      else:
-        newClone Opt.none(seq[DataColumnSidecar])
 
   # Data columns extraction done early in the function
   # in order to use the columns throughout.
@@ -146,20 +139,22 @@ proc routeSignedBeaconBlock*(
     # May not be required as we are already
     # kzg verifying the blobs once
     elif typeof(blck).kind >= ConsensusFork.Fulu:
-      if dataColumnsOpt.isSome:
+      if blobsOpt.isSome:
         let
-          dataColumns = dataColumnsOpt.mapIt(it[].get)
-
+          dataColumns =
+            newClone get_data_column_sidecars(blck,
+                                              blobsOpt.get.mapIt(
+                                              KzgBlob(bytes: it.blob)))
         let kzgCommits =
           signedBlock.message.body.blob_kzg_commitments.asSeq
         if dataColumns.len > 0 and kzgCommits.len > 0:
-          for i in 0..<dataColumns.len:
+          for i in 0..<dataColumns[].len:
             let r
-              = verify_data_column_sidecar_kzg_proofs(dataColumns[i])
+              = verify_data_column_sidecar_kzg_proofs(dataColumns[][i])
             if r.isErr:
               warn "data column validation failed",
                 blockRoot = shortLog(signedBlock.root),
-                column_sidecar = shortLog(dataColumns[i]),
+                column_sidecar = shortLog(dataColumns[][i]),
                 blck = shortLog(signedBlock.message),
                 signature = shortLog(signedBlock.signature),
                 msg = r.error()
@@ -208,6 +203,13 @@ proc routeSignedBeaconBlock*(
   var dataColumnRefs =
     Opt.none(DataColumnSidecars)
 
+  let dataColumnsOpt =
+      when typeof(blck).kind >= ConsensusFork.Fulu:
+        newClone Opt.some(get_data_column_sidecars(blck,
+                                          blobsOpt.get.mapIt(
+                                          KzgBlob(bytes: it.blob))))
+      else:
+        newClone Opt.none(seq[DataColumnSidecar])
   if dataColumnsOpt[].isSome:
     let dataColumns = dataColumnsOpt[].get()
     var das_workers =
