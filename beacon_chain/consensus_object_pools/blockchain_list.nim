@@ -8,7 +8,7 @@
 {.push raises: [].}
 
 import std/sequtils, stew/io2, chronicles, chronos, metrics,
-       ../spec/forks,
+       ../spec/[forks, defects],
        ../[beacon_chain_file, beacon_clock],
        ../sszdump
 
@@ -41,12 +41,11 @@ proc init*(T: type ChainListRef, directory: string): ChainListRef =
       else:
         let
           flags = {ChainFileFlag.Repair}
-          res = ChainFileHandle.init(filename, flags)
-        if res.isErr():
-          fatal "Unexpected failure while loading backfill data",
-                filename = filename, reason = res.error
-          quit 1
-        Opt.some(res.get())
+          res = ChainFileHandle.init(filename, flags).valueOr:
+            const msg = "Unexpected failure while loading backfill data"
+            fatal msg, filename = filename, reason = error
+            raiseChainListDefect(msg)
+        Opt.some(res)
   ChainListRef(path: directory, handle: handle)
 
 proc init*(T: type ChainListRef, directory: string,
@@ -186,9 +185,9 @@ proc addBackfillBlockData*(
     let storeBlockTick = Moment.now()
 
     store(clist, signedBlock, blobsOpt).isOkOr:
-      fatal "Unexpected failure while trying to store data",
-            filename = chainFilePath(clist.path), reason = error
-      quit 1
+      const msg = "Unexpected failure while trying to store data"
+      fatal msg, filename = chainFilePath(clist.path), reason = error
+      raiseChainListDefect(msg)
 
     let bdata = BlockData(blck: signedBlock, blob: blobsOpt)
     clist.setTail(bdata)
@@ -223,9 +222,9 @@ proc addBackfillBlockData*(
   let storeBlockTick = Moment.now()
 
   store(clist, signedBlock, blobsOpt).isOkOr:
-    fatal "Unexpected failure while trying to store data",
-           filename = chainFilePath(clist.path), reason = error
-    quit 1
+    const msg = "Unexpected failure while trying to store data"
+    fatal msg, filename = chainFilePath(clist.path), reason = error
+    raiseChainListDefect(msg)
 
   debug "Block backfilled",
         verify_block_duration = shortLog(storeBlockTick - verifyBlockTick),

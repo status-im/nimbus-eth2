@@ -12,7 +12,8 @@ import stew/base10, chronos, chronicles, results
 import
   ../consensus_object_pools/blockchain_list,
   ../spec/eth2_apis/rest_types,
-  ../spec/[helpers, forks, network, forks_light_client, weak_subjectivity],
+  ../spec/[helpers, forks, network, forks_light_client, weak_subjectivity,
+           defects],
   ../networking/[peer_pool, peer_scores, eth2_network],
   ../gossip_processing/block_processor,
   ../[beacon_clock, beacon_node],
@@ -289,9 +290,9 @@ proc rebuildState(overseer: SyncOverseerRef): Future[void] {.
     clist =
       block:
         overseer.clist.seekForSlot(dag.head.slot).isOkOr:
-          fatal "Unable to find slot in backfill data", reason = error,
-                path = overseer.clist.path
-          quit 1
+          const msg = "Unable to find slot in backfill data"
+          fatal msg, reason = error, path = overseer.clist.path
+          raiseOverseerDefect(msg)
         overseer.clist
 
   var
@@ -308,16 +309,15 @@ proc rebuildState(overseer: SyncOverseerRef): Future[void] {.
 
   block mainLoop:
     while true:
-      let res = getChainFileTail(handle.handle)
-      if res.isErr():
-        fatal "Unable to read backfill data", reason = res.error
-        quit 1
-      let bres = res.get()
-      if bres.isNone():
+      let res = getChainFileTail(handle.handle).valueOr:
+        const msg = "Unable to read backfill data"
+        fatal msg, reason = error
+        raiseOverseerDefect(msg)
+      if res.isNone():
         return
 
       let
-        data = bres.get()
+        data = res.get()
         blockEpoch = data.blck.slot.epoch()
 
       if blockEpoch != currentEpoch:
@@ -359,8 +359,9 @@ proc rebuildState(overseer: SyncOverseerRef): Future[void] {.
               raiseAssert "Should not happen with unbounded AsyncQueue"
             let res = await bchunk.resfut
             if res.isErr():
-              fatal "Unable to add block data to database", reason = res.error
-              quit 1
+              const msg = "Unable to add block data to database"
+              fatal msg, reason = res.error
+              raiseOverseerDefect(msg)
 
           let updateTick = Moment.now()
           debug "Number of blocks injected",
@@ -453,8 +454,13 @@ proc mainLoop*(
   else:
     if dag.needsBackfill():
       # Checkpoint/Trusted state we have is too old.
-      error "Trusted node sync started too long time ago"
-      quit 1
+      const msg =
+        "Last attempt to perform trusted node sync was made long time " &
+        "ago (outside of weak subjectivity period)"
+      fatal msg, current_slot = currentSlot,
+            dag_backfill_slot = dag.backfill.slot,
+            retention_period_slot = overseer.getLastBlockRetentionPeriodSlot()
+      raiseOverseerDefect(msg)
 
     if not(isUntrustedBackfillEmpty(clist)):
       let headSlot = clist.head.get().slot
@@ -473,17 +479,17 @@ proc mainLoop*(
     if overseer.config.longRangeSync == LongRangeSyncMode.Light:
       let dagHead = dag.finalizedHead
       if dagHead.slot < dag.cfg.ALTAIR_FORK_EPOCH.start_slot:
-        fatal "Light forward syncing requires a post-Altair state",
-              head_slot = dagHead.slot,
+        const msg = "Light forward syncing requires a post-Altair state"
+        fatal msg, head_slot = dagHead.slot,
               altair_start_slot = dag.cfg.ALTAIR_FORK_EPOCH.start_slot
-        quit 1
+        raiseOverseerDefect(msg)
 
       if overseer.isWithinBlockRetentionPeriod(dagHead.slot):
-        fatal "Current database head slot is not in the block retention " &
-              "period range",
-              head_slot = dagHead.slot,
+        const msg = "Current database head slot is not in the block " &
+                    "retention period range"
+        fatal msg, head_slot = dagHead.slot,
               retention_period_slot = overseer.getLastBlockRetentionPeriodSlot()
-        quit 1
+        raiseOverseerDefect(msg)
 
       if isUntrustedBackfillEmpty(clist):
         overseer.untrustedInProgress = true
@@ -516,9 +522,9 @@ proc mainLoop*(
         return
 
       clist.clear().isOkOr:
-        warn "Unable to remove backfill data file",
-             path = clist.path.chainFilePath(), reason = error
-        quit 1
+        const msg = "Unable to remove backfill data file"
+        warn msg, path = clist.path.chainFilePath(), reason = error
+        raiseOverseerDefect(msg)
 
       overseer.untrustedInProgress = false
       # Reset status bar
@@ -532,7 +538,6 @@ proc start*(overseer: SyncOverseerRef) =
   overseer.loopFuture = overseer.mainLoop()
 
 proc stop*(overseer: SyncOverseerRef) {.async: (raises: []).} =
-  doAssert(not(isNil(overseer.loopFuture)),
-           "SyncOverseer was not started yet")
+  doAssert(not(isNil(overseer.loopFuture)), "SyncOverseer is not started yet")
   if not(overseer.loopFuture.finished()):
     await cancelAndWait(overseer.loopFuture)
