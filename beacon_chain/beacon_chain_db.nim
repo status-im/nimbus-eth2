@@ -19,7 +19,8 @@ import
           eth2_merkleization,
           forks,
           presets,
-          state_transition],
+          state_transition,
+          defects],
   "."/[beacon_chain_db_light_client, filepath]
 
 from ./spec/datatypes/capella import BeaconState
@@ -648,11 +649,10 @@ proc new*(T: type BeaconChainDB,
       SqStoreRef.init("", "test", readOnly = readOnly, inMemory = true).expect(
         "working database (out of memory?)")
     else:
-      if (let res = secureCreatePath(dir); res.isErr):
-        let msg =
-          "Failed to create create database directory, reason: " &
-          ioErrorMsg(res.error)
-        raise (ref ResultDefect)(msg: msg)
+      secureCreatePath(dir).isOkOr:
+        const msg = "Failed to create create database directory"
+        fatal msg, path = dir, err = ioErrorMsg(error)
+        raiseDatabaseDefect(msg)
 
       SqStoreRef.init(
         dir, "nbc", readOnly = readOnly, manualCheckpoint = true).expectDb()
