@@ -95,9 +95,9 @@ proc routeSignedBeaconBlock*(
     wallTime = router[].getCurrentBeaconTime()
     dataColumnsOpt =
       when typeof(blck).kind >= ConsensusFork.Fulu:
-        newClone get_data_column_sidecars(blck,
+        newClone Opt.some(get_data_column_sidecars(blck,
                                           blobsOpt.get.mapIt(
-                                          KzgBlob(bytes: it.blob)))
+                                          KzgBlob(bytes: it.blob))))
       else:
         newClone Opt.none(seq[DataColumnSidecar])
 
@@ -208,11 +208,8 @@ proc routeSignedBeaconBlock*(
   var dataColumnRefs =
     Opt.none(DataColumnSidecars)
 
-  let
-    dataColumns =
-      dataColumnsOpt[].get
-
-  if dataColumns.len != 0:
+  if dataColumnsOpt[].isSome:
+    let dataColumns = dataColumnsOpt[].get()
     var das_workers =
       newSeq[Future[SendResult]](dataColumns.len)
 
