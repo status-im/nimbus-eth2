@@ -183,68 +183,69 @@ proc routeSignedBeaconBlock*(
       signature = shortLog(blck.signature), error = res.error()
 
   var blobRefs = Opt.none(BlobSidecars)
-  if blobsOpt.isSome():
-    let blobs = blobsOpt.get()
-    var workers = newSeq[Future[SendResult]](blobs.len)
-    for i in 0..<blobs.lenu64:
-      let subnet_id = compute_subnet_for_blob_sidecar(i)
-      workers[i] = router[].network.broadcastBlobSidecar(subnet_id, blobs[i])
-    let allres = await allFinished(workers)
-    for i in 0..<allres.len:
-      let res = allres[i]
-      doAssert res.finished()
-      if res.failed():
-        notice "Blob not sent",
-          blob = shortLog(blobs[i]), error = res.error[]
-      else:
-        notice "Blob sent", blob = shortLog(blobs[i])
-    blobRefs = Opt.some(blobs.mapIt(newClone(it)))
-
   var dataColumnRefs =
     Opt.none(DataColumnSidecars)
-
-  let dataColumnsOpt =
-      when typeof(blck).kind >= ConsensusFork.Fulu:
-        newClone Opt.some(get_data_column_sidecars(blck,
-                                          blobsOpt.get.mapIt(
-                                          KzgBlob(bytes: it.blob))))
-      else:
-        newClone Opt.none(seq[DataColumnSidecar])
-  if dataColumnsOpt[].isSome:
-    let dataColumns = dataColumnsOpt[].get()
-    var das_workers =
-      newSeq[Future[SendResult]](dataColumns.len)
-
-    for i in 0..<dataColumns.lenu64:
-      let subnet_id =
-        compute_subnet_for_data_column_sidecar(i)
-
-      das_workers[i] =
-        router[].network.broadcastDataColumnSidecar(subnet_id,
-                                                    data_columns[i])
-      let allres = await allFinished(das_workers)
+  when typeof(blck).kind >= ConsensusFork.Deneb:
+    if blobsOpt.isSome():
+      let blobs = blobsOpt.get()
+      var workers = newSeq[Future[SendResult]](blobs.len)
+      for i in 0..<blobs.lenu64:
+        let subnet_id = compute_subnet_for_blob_sidecar(i)
+        workers[i] = router[].network.broadcastBlobSidecar(subnet_id, blobs[i])
+      let allres = await allFinished(workers)
       for i in 0..<allres.len:
         let res = allres[i]
         doAssert res.finished()
         if res.failed():
-          notice "Data columns not sent",
-            data_column = shortLog(data_columns[i]), error = res.error[]
+          notice "Blob not sent",
+            blob = shortLog(blobs[i]), error = res.error[]
         else:
-          notice "Data columns sent",
-            data_column = shortLog(dataColumns[i])
-      # Push only those columns to processor for which we custody
-      let
-        metadata = router[].network.metadata.custody_group_count.uint64
-        custody_columns =
-          router[].network.nodeId.resolve_columns_from_custody_groups(
-            max(SAMPLES_PER_SLOT.uint64,
-            metadata))
+          notice "Blob sent", blob = shortLog(blobs[i])
+      blobRefs = Opt.some(blobs.mapIt(newClone(it)))
 
-      var final_columns: seq[DataColumnSidecar]
-      for dc in data_columns:
-        if dc.index in custody_columns:
-          final_columns.add dc
-      dataColumnRefs = Opt.some(final_columns.mapIt(newClone(it)))
+  elif typeof(blck).kind >= ConsensusFork.Fulu:
+    let dataColumnsOpt =
+        when typeof(blck).kind >= ConsensusFork.Fulu:
+          newClone Opt.some(get_data_column_sidecars(blck,
+                                            blobsOpt.get.mapIt(
+                                            KzgBlob(bytes: it.blob))))
+        else:
+          newClone Opt.none(seq[DataColumnSidecar])
+    if dataColumnsOpt[].isSome:
+      let dataColumns = dataColumnsOpt[].get()
+      var das_workers =
+        newSeq[Future[SendResult]](dataColumns.len)
+
+      for i in 0..<dataColumns.lenu64:
+        let subnet_id =
+          compute_subnet_for_data_column_sidecar(i)
+
+        das_workers[i] =
+          router[].network.broadcastDataColumnSidecar(subnet_id,
+                                                      data_columns[i])
+        let allres = await allFinished(das_workers)
+        for i in 0..<allres.len:
+          let res = allres[i]
+          doAssert res.finished()
+          if res.failed():
+            notice "Data columns not sent",
+              data_column = shortLog(data_columns[i]), error = res.error[]
+          else:
+            notice "Data columns sent",
+              data_column = shortLog(dataColumns[i])
+        # Push only those columns to processor for which we custody
+        let
+          metadata = router[].network.metadata.custody_group_count.uint64
+          custody_columns =
+            router[].network.nodeId.resolve_columns_from_custody_groups(
+              max(SAMPLES_PER_SLOT.uint64,
+              metadata))
+
+        var final_columns: seq[DataColumnSidecar]
+        for dc in data_columns:
+          if dc.index in custody_columns:
+            final_columns.add dc
+        dataColumnRefs = Opt.some(final_columns.mapIt(newClone(it)))
 
   let added = await router[].blockProcessor[].addBlock(
     MsgSource.api, ForkedSignedBeaconBlock.init(blck), blobRefs,
