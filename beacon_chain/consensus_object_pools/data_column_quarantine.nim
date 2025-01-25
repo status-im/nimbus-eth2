@@ -139,13 +139,12 @@ func hasMissingDataColumns*(quarantine: DataColumnQuarantine,
         index: idx)
     if dc_identifier notin quarantine.data_columns:
       inc col_counter
-  if quarantine.supernode and col_counter != NUMBER_OF_COLUMNS:
-    return false
-  elif quarantine.supernode == false and
-      col_counter != max(SAMPLES_PER_SLOT, CUSTODY_REQUIREMENT):
-    return false
-  else:
+  if quarantine.supernode and col_counter == NUMBER_OF_COLUMNS:
     return true
+  if quarantine.supernode == false and
+      col_counter == max(SAMPLES_PER_SLOT, CUSTODY_REQUIREMENT):
+    return true
+  false
 
 func hasEnoughDataColumns*(quarantine: DataColumnQuarantine,
     blck: fulu.SignedBeaconBlock): bool =

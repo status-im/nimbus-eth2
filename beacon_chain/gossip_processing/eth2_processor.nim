@@ -261,22 +261,13 @@ proc processSignedBeaconBlock*(
 
     let columns =
       when typeof(signedBlock).kind >= ConsensusFork.Fulu:
-        if self.dataColumnQuarantine[].supernode:
-          if self.dataColumnQuarantine[].hasEnoughDataColumns(signedBlock):
-            Opt.some(self.dataColumnQuarantine[].popDataColumns(signedBlock.root,
-                                                                signedBlock))
-          else:
-            discard self.quarantine[].addColumnless(self.dag.finalizedHead.slot,
-                                                    signedBlock)
-            return v
+        if self.dataColumnQuarantine[].hasMissingDataColumns(signedBlock):
+          Opt.some(self.dataColumnQuarantine[].popDataColumns(signedBlock.root,
+                                                              signedBlock))
         else:
-          if self.dataColumnQuarantine[].hasMissingDataColumns(signedBlock):
-            Opt.some(self.dataColumnQuarantine[].popDataColumns(signedBlock.root,
-                                                                signedBlock))
-          else:
-            discard self.quarantine[].addColumnless(self.dag.finalizedHead.slot,
-                                                    signedBlock)
-            return v
+          discard self.quarantine[].addColumnless(self.dag.finalizedHead.slot,
+                                                  signedBlock)
+          return v
       else:
         Opt.none(DataColumnSidecars)
 

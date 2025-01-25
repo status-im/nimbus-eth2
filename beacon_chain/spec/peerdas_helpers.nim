@@ -311,7 +311,7 @@ proc get_data_column_sidecars*(signed_beacon_block: fulu.SignedBeaconBlock,
 # blobs from blob bundles
 proc get_data_column_sidecars*(signed_beacon_block: fulu.SignedBeaconBlock,
                                blobs: seq[KzgBlob]):
-                               seq[DataColumnSidecar] =
+                               Result[seq[DataColumnSidecar], string] =
   ## Given a signed beacon block and the blobs corresponding to the block,
   ## this function assembles the sidecars which can be distributed to
   ## the peers post data column reconstruction at every slot start.
@@ -368,7 +368,7 @@ proc get_data_column_sidecars*(signed_beacon_block: fulu.SignedBeaconBlock,
       sidecar.kzg_commitments_inclusion_proof).expect("Valid gindex")
     sidecars.add(sidecar)
 
-  sidecars
+  ok(sidecars)
 
 # https://github.com/ethereum/consensus-specs/blob/v1.5.0-beta.1/specs/fulu/peer-sampling.md#get_extended_sample_count
 func get_extended_sample_count*(samples_per_slot: int,
