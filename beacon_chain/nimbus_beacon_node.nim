@@ -472,21 +472,8 @@ proc initFullNode(
                              maybeFinalized: bool):
         Future[Result[void, VerifierError]] {.async: (raises: [CancelledError]).} =
       withBlck(signedBlock):
-        when consensusFork >= ConsensusFork.Deneb:
-          if not blobQuarantine[].hasBlobs(forkyBlck):
-            # We don't have all the blobs for this block, so we have
-            # to put it in blobless quarantine.
-            if not quarantine[].addBlobless(dag.finalizedHead.slot, forkyBlck):
-              err(VerifierError.UnviableFork)
-            else:
-              err(VerifierError.MissingParent)
-          else:
-            let blobs = blobQuarantine[].popBlobs(forkyBlck.root, forkyBlck)
-            await blockProcessor[].addBlock(MsgSource.gossip, signedBlock,
-                                      Opt.some(blobs), Opt.none(DataColumnSidecars),
-                                      maybeFinalized = maybeFinalized)
-
-        elif consensusFork >= ConsensusFork.Fulu:
+        # Keeping Fulu first else >= Deneb means Fulu case never hits
+        when consensusFork >= ConsensusFork.Fulu:
           if not dataColumnQuarantine[].supernode and
               not dataColumnQuarantine[].hasMissingDataColumns(forkyBlck):
             if not quarantine[].addColumnless(dag.finalizedHead.slot, forkyBlck):
@@ -504,6 +491,19 @@ proc initFullNode(
                                                                 forkyBlck)
             await blockProcessor[].addBlock(MsgSource.gossip, signedBlock,
                                       Opt.none(BlobSidecars), Opt.some(dataColumns),
+                                      maybeFinalized = maybeFinalized)
+        elif consensusFork >= ConsensusFork.Deneb:
+          if not blobQuarantine[].hasBlobs(forkyBlck):
+            # We don't have all the blobs for this block, so we have
+            # to put it in blobless quarantine.
+            if not quarantine[].addBlobless(dag.finalizedHead.slot, forkyBlck):
+              err(VerifierError.UnviableFork)
+            else:
+              err(VerifierError.MissingParent)
+          else:
+            let blobs = blobQuarantine[].popBlobs(forkyBlck.root, forkyBlck)
+            await blockProcessor[].addBlock(MsgSource.gossip, signedBlock,
+                                      Opt.some(blobs), Opt.none(DataColumnSidecars),
                                       maybeFinalized = maybeFinalized)
 
         else:
