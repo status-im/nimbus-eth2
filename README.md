@@ -44,7 +44,7 @@ The [Quickstart](https://nimbus.guide/quick-start.html) in particular will help 
 * http://testing.holesky.beacon-api.nimbus.team/
 * http://unstable.holesky.beacon-api.nimbus.team/
 
-Note that right now these are very much unstable testing instances. They may be unresponsive at times - so **please do not rely on them for validating**. We may also disable them at any time.
+Note that right now these are very unstable testing instances. They may be unresponsive at times - so **please do not rely on them for validating**. We may also disable them at any time.
 
 ## Migrate from another client
 
@@ -64,7 +64,7 @@ If you'd like to contribute to Nimbus development, our donation address is [`0x7
 ## Branch guide
 
 * `stable` - latest stable release - **this branch is recommended for most users**
-* `testing` - pre-release branch with features and bugfixes slated for the next stable release - this branch is suitable for use on testnets and for adventurous users that want to live on the edge.
+* `testing` - pre-release branch with features and bug fixes slated for the next stable release - this branch is suitable for use on testnets and for adventurous users that want to live on the edge.
 * `unstable` - main development branch against which PR's are merged - if you want to contribute to Nimbus, start here.
 
 ## Developer resources
@@ -94,7 +94,7 @@ build/block_sim --help
 
 ### Local network simulation
 
-The local network simulation will create a full peer-to-peer network of beacon nodes and validators on a single machine, and run the beacon chain in real time.
+The local network simulation will create a full peer-to-peer network of beacon nodes and validators on a single machine, and run the beacon chain in real-time.
 Parameters such as shard, validator counts, and data folders can be set in as environment variables before launching the simulation.
 
 ```bash
