@@ -94,9 +94,6 @@ proc routeSignedBeaconBlock*(
   let
     wallTime = router[].getCurrentBeaconTime()
 
-  # Data columns extraction done early in the function
-  # in order to use the columns throughout.
-
   block:
     let vindex = ValidatorIndex(blck.message.proposer_index)
     if checkValidator and (vindex in router.processor.validatorPool[]):
@@ -137,7 +134,7 @@ proc routeSignedBeaconBlock*(
             return err(res.error())
 
     # May not be required as we are already
-    # kzg verifying the blobs once
+    # KZG verifying the blobs once
     elif typeof(blck).kind >= ConsensusFork.Fulu:
       if blobsOpt.isSome:
         let
@@ -188,7 +185,7 @@ proc routeSignedBeaconBlock*(
   when typeof(blck).kind >= ConsensusFork.Fulu:
     let blobs = blobsOpt.get
     debugEcho blobs.len
-    if blobs.len != 0:
+    if blobsOpt.isSome() and blobs.len != 0:
       let dataColumnsRes =
         newClone get_data_column_sidecars(blck, blobs.mapIt(KzgBlob(bytes: it.blob)))
       if not dataColumnsRes[].isOk:
