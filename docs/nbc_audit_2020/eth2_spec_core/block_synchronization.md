@@ -6,7 +6,7 @@ category: "ETH2 Specification Core Audit"
 repositories: "nim-beacon-chain"
 ---
 
-**Note:** Currently there is an issue where ingoing block sync is slow on Medalla testnet and being investigated. There are many changes being made.
+**Note:** Currently there is an issue where ingoing block sync is slow on Medalla testnet and is being investigated. There are many changes being made.
 
 Spec: TODO
 
