@@ -552,7 +552,8 @@ proc makeBeaconBlockWithRewards*(
                hash_tree_root(sync_aggregate),
                execution_payload_root.get,
                hash_tree_root(validator_changes.bls_to_execution_changes),
-               hash_tree_root(kzg_commitments.get)
+               hash_tree_root(kzg_commitments.get),
+               hash_tree_root(execution_requests)
             ])
           else:
             raiseAssert "Attempt to use non-Electra payload with post-Deneb state"
@@ -577,7 +578,8 @@ proc makeBeaconBlockWithRewards*(
                hash_tree_root(sync_aggregate),
                execution_payload_root.get,
                hash_tree_root(validator_changes.bls_to_execution_changes),
-               hash_tree_root(kzg_commitments.get)
+               hash_tree_root(kzg_commitments.get),
+               hash_tree_root(execution_requests)
             ])
           else:
             raiseAssert "Attempt to use non-Fulu payload with post-Electra state"

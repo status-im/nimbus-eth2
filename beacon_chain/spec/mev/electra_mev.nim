@@ -20,6 +20,7 @@ type
   BuilderBid* = object
     header*: electra.ExecutionPayloadHeader
     blob_kzg_commitments*: KzgCommitments
+    execution_requests*: ExecutionRequests # [New in Electra]
     value*: UInt256
     pubkey*: ValidatorPubKey
 

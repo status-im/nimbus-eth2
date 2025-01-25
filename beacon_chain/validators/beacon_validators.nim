@@ -84,6 +84,7 @@ type
 
   BuilderBid[SBBB] = object
     blindedBlckPart*: SBBB
+    executionRequests*: Opt[ExecutionRequests]
     executionPayloadValue*: UInt256
     consensusBlockValue*: UInt256
 
@@ -707,11 +708,27 @@ proc getBlindedExecutionPayload[
       return err "getBlindedExecutionPayload: signature verification failed"
 
     template builderBid: untyped = blindedHeader.data.message
-    return ok(BuilderBid[EPH](
-      blindedBlckPart: EPH(
-        execution_payload_header: builderBid.header,
-        blob_kzg_commitments: builderBid.blob_kzg_commitments),
-      executionPayloadValue: builderBid.value))
+    when EPH is deneb_mev.BlindedExecutionPayloadAndBlobsBundle:
+      return ok(BuilderBid[EPH](
+        blindedBlckPart: EPH(
+          execution_payload_header: builderBid.header,
+          blob_kzg_commitments: builderBid.blob_kzg_commitments),
+        executionRequests: Opt.none(ExecutionRequests),
+        executionPayloadValue: builderBid.value))
+    elif EPH is electra_mev.BlindedExecutionPayloadAndBlobsBundle:
+      return ok(BuilderBid[EPH](
+        blindedBlckPart: EPH(
+          execution_payload_header: builderBid.header,
+          blob_kzg_commitments: builderBid.blob_kzg_commitments),
+        executionRequests: Opt.some(builderBid.execution_requests),
+        executionPayloadValue: builderBid.value))
+    elif EPH is fulu_mev.BlindedExecutionPayloadAndBlobsBundle:
+      return ok(BuilderBid[EPH](
+        blindedBlckPart: EPH(
+          execution_payload_header: builderBid.header,
+          blob_kzg_commitments: builderBid.blob_kzg_commitments),
+        executionRequests: Opt.some(builderBid.execution_requests),
+        executionPayloadValue: builderBid.value))
 
 from ./message_router_mev import
   copyFields, getFieldNames, unblindAndRouteBlockMEV
@@ -1072,11 +1089,26 @@ proc getBuilderBid[
   if unsignedBlindedBlock.isErr:
     return err unsignedBlindedBlock.error()
 
-  ok(BuilderBid[SBBB](
-    blindedBlckPart: unsignedBlindedBlock.get,
-    executionPayloadValue: bidValue,
-    consensusBlockValue: consensusValue
-  ))
+  template execution_requests: untyped =
+      unsignedBlindedBlock.get.message.body.execution_requests
+  when SBBB is deneb_mev.SignedBlindedBeaconBlock:
+   return ok(BuilderBid[SBBB](
+      blindedBlckPart: unsignedBlindedBlock.get,
+      executionRequests: Opt.none(ExecutionRequests),
+      executionPayloadValue: bidValue,
+      consensusBlockValue: consensusValue))
+  elif SBBB is electra_mev.SignedBlindedBeaconBlock:
+   return ok(BuilderBid[SBBB](
+      blindedBlckPart: unsignedBlindedBlock.get,
+      executionRequests: Opt.some(execution_requests),
+      executionPayloadValue: bidValue,
+      consensusBlockValue: consensusValue))
+  elif SBBB is fulu_mev.SignedBlindedBeaconBlock:
+   return ok(BuilderBid[SBBB](
+      blindedBlckPart: unsignedBlindedBlock.get,
+      executionRequests: Opt.some(execution_requests),
+      executionPayloadValue: bidValue,
+      consensusBlockValue: consensusValue))
 
 proc proposeBlockMEV(
     node: BeaconNode, payloadBuilderClient: RestClientRef,
@@ -1164,16 +1196,25 @@ proc makeBlindedBeaconBlockForHeadAndSlot*[BBB: ForkyBlindedBeaconBlock](
     blindedBlockParts.get
   withBlck(forkedBlck):
     when consensusFork >= ConsensusFork.Deneb:
-      when ((consensusFork == ConsensusFork.Deneb and
-             EPH is deneb_mev.BlindedExecutionPayloadAndBlobsBundle) or
-            (consensusFork == ConsensusFork.Electra and
-             EPH is electra_mev.BlindedExecutionPayloadAndBlobsBundle) or
-            (consensusFork == ConsensusFork.Fulu and
-             EPH is fulu_mev.BlindedExecutionPayloadAndBlobsBundle)):
+      when (consensusFork == ConsensusFork.Deneb and
+           EPH is deneb_mev.BlindedExecutionPayloadAndBlobsBundle):
         return ok(
           BuilderBid[BBB](
             blindedBlckPart:
               constructPlainBlindedBlock[BBB](forkyBlck, executionPayloadHeader),
+            executionRequests: Opt.none(ExecutionRequests),
+            executionPayloadValue: bidValue,
+            consensusBlockValue: consensusValue))
+
+      elif (consensusFork == ConsensusFork.Electra and
+           EPH is electra_mev.BlindedExecutionPayloadAndBlobsBundle) or
+           (consensusFork == ConsensusFork.Fulu and
+            EPH is fulu_mev.BlindedExecutionPayloadAndBlobsBundle):
+        return ok(
+          BuilderBid[BBB](
+            blindedBlckPart:
+              constructPlainBlindedBlock[BBB](forkyBlck, executionPayloadHeader),
+            executionRequests: Opt.some(forkyBlck.body.execution_requests),
             executionPayloadValue: bidValue,
             consensusBlockValue: consensusValue))
       else:
