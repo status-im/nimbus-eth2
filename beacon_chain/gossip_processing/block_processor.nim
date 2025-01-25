@@ -623,9 +623,9 @@ proc storeBlock(
           withBlck(parentBlck.get()):
             when consensusFork >= ConsensusFork.Fulu:
               var data_column_sidecars: DataColumnSidecars
-              for i in 0 ..< forkyBlck.message.body.blob_kzg_commitments.len:
+              for i in self.dataColumnQuarantine[].custody_columns:
                 let data_column = DataColumnSidecar.new()
-                if not dag.db.getDataColumnSidecar(parent_root, i.uint64, data_column[]):
+                if not dag.db.getDataColumnSidecar(parent_root, i.ColumnIndex, data_column[]):
                   columnsOk = false
                   break
                 data_column_sidecars.add data_column
@@ -789,6 +789,11 @@ proc storeBlock(
   let blobs = blobsOpt.valueOr: BlobSidecars @[]
   for b in blobs:
     self.consensusManager.dag.db.putBlobSidecar(b[])
+
+  # write data columns now that block has been written
+  let data_columns = dataColumnsOpt.valueOr: DataColumnSidecars @[]
+  for col in data_columns:
+    self.consensusManager.dag.db.putDataColumnSidecar(col[])
 
   let addHeadBlockTick = Moment.now()
 

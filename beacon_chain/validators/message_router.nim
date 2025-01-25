@@ -147,14 +147,14 @@ proc routeSignedBeaconBlock*(
                                               KzgBlob(bytes: it.blob)))
         let kzgCommits =
           signedBlock.message.body.blob_kzg_commitments.asSeq
-        if dataColumns.len > 0 and kzgCommits.len > 0:
+        if dataColumns[].get().len > 0 and kzgCommits.len > 0:
           for i in 0..<dataColumns[].len:
             let r
-              = verify_data_column_sidecar_kzg_proofs(dataColumns[][i])
+              = verify_data_column_sidecar_kzg_proofs(dataColumns[].get()[i])
             if r.isErr:
               warn "data column validation failed",
                 blockRoot = shortLog(signedBlock.root),
-                column_sidecar = shortLog(dataColumns[][i]),
+                column_sidecar = shortLog(dataColumns[].get()[i]),
                 blck = shortLog(signedBlock.message),
                 signature = shortLog(signedBlock.signature),
                 msg = r.error()
@@ -186,26 +186,30 @@ proc routeSignedBeaconBlock*(
   var dataColumnRefs =
     Opt.none(DataColumnSidecars)
   when typeof(blck).kind >= ConsensusFork.Fulu:
-    if blobsOpt.isSome():
-      let dataColumns =
-        get_data_column_sidecars(blck, blobsOpt.get.mapIt(KzgBlob(bytes: it.blob)))
+    let blobs = blobsOpt.get
+    if blobs.len != 0:
+      let dataColumnsRes =
+        newClone get_data_column_sidecars(blck, blobs.mapIt(KzgBlob(bytes: it.blob)))
+      if not dataColumnsRes[].isOk:
+        debug "Issue with extracting data columns from blob bundle"
+      let dataColumns = dataColumnsRes[].get()
       var das_workers =
         newSeq[Future[SendResult]](dataColumns.len)
 
       for i in 0..<dataColumns.lenu64:
         let subnet_id =
-          compute_subnet_for_data_column_sidecar(i)
+          compute_subnet_for_data_column_sidecar(dataColumns[i].index)
 
         das_workers[i] =
           router[].network.broadcastDataColumnSidecar(subnet_id,
-                                                      data_columns[i])
+                                                      dataColumns[i])
         let allres = await allFinished(das_workers)
         for i in 0..<allres.len:
           let res = allres[i]
           doAssert res.finished()
           if res.failed():
             notice "Data columns not sent",
-              data_column = shortLog(data_columns[i]), error = res.error[]
+              data_column = shortLog(dataColumns[i]), error = res.error[]
           else:
             notice "Data columns sent",
               data_column = shortLog(dataColumns[i])
