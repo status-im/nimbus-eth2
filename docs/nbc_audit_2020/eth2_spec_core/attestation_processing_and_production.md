@@ -41,7 +41,7 @@ Concretely:
 
 The main application is the **beacon_node**, it has 2 mode of operations regarding accounts. With accounts managed in an integrated manner or managed in a split manner, something we call the VC/BN split (Validator Client / Beacon Node split).
 
-In both case, there is a need of a keystore to hold the validators' **signing keys.**
+In both cases, there is a need of a keystore to hold the validators' **signing keys.**
 
 ### 2.1 Reminder on Ethereum secret keys
 
