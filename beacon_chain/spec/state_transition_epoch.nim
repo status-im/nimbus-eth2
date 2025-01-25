@@ -174,7 +174,7 @@ func is_eligible_validator*(validator: ParticipationInfo): bool =
 
 from ./datatypes/deneb import BeaconState
 
-# https://github.com/ethereum/consensus-specs/blob/v1.5.0-beta.0/specs/altair/beacon-chain.md#get_unslashed_participating_indices
+# https://github.com/ethereum/consensus-specs/blob/v1.5.0-beta.1/specs/altair/beacon-chain.md#get_unslashed_participating_indices
 func get_unslashed_participating_balances*(
     state: altair.BeaconState | bellatrix.BeaconState | capella.BeaconState |
            deneb.BeaconState | electra.BeaconState | fulu.BeaconState):
@@ -650,7 +650,7 @@ func get_base_reward_increment*(
     EFFECTIVE_BALANCE_INCREMENT.Gwei
   increments * base_reward_per_increment
 
-# https://github.com/ethereum/consensus-specs/blob/v1.5.0-beta.0/specs/altair/beacon-chain.md#get_flag_index_deltas
+# https://github.com/ethereum/consensus-specs/blob/v1.5.0-beta.1/specs/altair/beacon-chain.md#get_flag_index_deltas
 func get_flag_index_reward*(
     state: altair.BeaconState | bellatrix.BeaconState | capella.BeaconState |
            deneb.BeaconState | electra.BeaconState | fulu.BeaconState,
@@ -976,7 +976,7 @@ func process_registry_updates*(
   ok()
 
 # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.7/specs/phase0/beacon-chain.md#slashings
-# https://github.com/ethereum/consensus-specs/blob/v1.5.0-beta.0/specs/altair/beacon-chain.md#slashings
+# https://github.com/ethereum/consensus-specs/blob/v1.5.0-beta.1/specs/altair/beacon-chain.md#slashings
 # https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.8/specs/bellatrix/beacon-chain.md#slashings
 func get_adjusted_total_slashing_balance*(
     state: ForkyBeaconState, total_balance: Gwei): Gwei =
@@ -1038,7 +1038,7 @@ func get_slashing_penalty*(
 
 # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.7/specs/phase0/beacon-chain.md#slashings
 # https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.9/specs/altair/beacon-chain.md#slashings
-# https://github.com/ethereum/consensus-specs/blob/v1.5.0-beta.0/specs/bellatrix/beacon-chain.md#slashings
+# https://github.com/ethereum/consensus-specs/blob/v1.5.0-beta.1/specs/bellatrix/beacon-chain.md#slashings
 # https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.7/specs/electra/beacon-chain.md#modified-process_slashings
 func get_slashing(
     state: ForkyBeaconState, total_balance: Gwei, vidx: ValidatorIndex): Gwei =
@@ -1140,7 +1140,7 @@ func process_participation_record_updates*(state: var phase0.BeaconState) =
   state.previous_epoch_attestations.clear()
   swap(state.previous_epoch_attestations, state.current_epoch_attestations)
 
-# https://github.com/ethereum/consensus-specs/blob/v1.5.0-beta.0/specs/altair/beacon-chain.md#participation-flags-updates
+# https://github.com/ethereum/consensus-specs/blob/v1.5.0-beta.1/specs/altair/beacon-chain.md#participation-flags-updates
 func process_participation_flag_updates*(
     state: var (altair.BeaconState | bellatrix.BeaconState |
                 capella.BeaconState | deneb.BeaconState |
@@ -1502,7 +1502,7 @@ proc process_epoch*(
   let epoch = get_current_epoch(state)
   info.init(state)
 
-  # https://github.com/ethereum/consensus-specs/blob/v1.5.0-beta.0/specs/altair/beacon-chain.md#justification-and-finalization
+  # https://github.com/ethereum/consensus-specs/blob/v1.5.0-beta.1/specs/altair/beacon-chain.md#justification-and-finalization
   process_justification_and_finalization(state, info.balances, flags)
 
   # state.slot hasn't been incremented yet.
@@ -1545,7 +1545,7 @@ proc process_epoch*(
   let epoch = get_current_epoch(state)
   info.init(state)
 
-  # https://github.com/ethereum/consensus-specs/blob/v1.5.0-beta.0/specs/altair/beacon-chain.md#justification-and-finalization
+  # https://github.com/ethereum/consensus-specs/blob/v1.5.0-beta.1/specs/altair/beacon-chain.md#justification-and-finalization
   process_justification_and_finalization(state, info.balances, flags)
 
   # state.slot hasn't been incremented yet.

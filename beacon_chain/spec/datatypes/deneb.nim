@@ -382,7 +382,7 @@ type
     state_root*: Eth2Digest
     body*: TrustedBeaconBlockBody
 
-  # https://github.com/ethereum/consensus-specs/blob/v1.5.0-beta.0/specs/deneb/beacon-chain.md#beaconblockbody
+  # https://github.com/ethereum/consensus-specs/blob/v1.5.0-beta.1/specs/deneb/beacon-chain.md#beaconblockbody
   BeaconBlockBody* = object
     randao_reveal*: ValidatorSig
     eth1_data*: Eth1Data
@@ -725,7 +725,7 @@ func upgrade_lc_update_to_deneb*(
     sync_aggregate: pre.sync_aggregate,
     signature_slot: pre.signature_slot)
 
-# https://github.com/ethereum/consensus-specs/blob/v1.5.0-beta.0/specs/deneb/light-client/fork.md#upgrading-light-client-data
+# https://github.com/ethereum/consensus-specs/blob/v1.5.0-beta.1/specs/deneb/light-client/fork.md#upgrading-light-client-data
 func upgrade_lc_finality_update_to_deneb*(
     pre: capella.LightClientFinalityUpdate): LightClientFinalityUpdate =
   LightClientFinalityUpdate(
