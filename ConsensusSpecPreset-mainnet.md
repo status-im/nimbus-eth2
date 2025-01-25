@@ -2026,6 +2026,8 @@ OK: 21/21 Fail: 0/21 Skip: 0/21
 + [Valid]   EF - Deneb - Operations - Execution Payload - incorrect_transaction_length_1_ext OK
 + [Valid]   EF - Deneb - Operations - Execution Payload - incorrect_transaction_length_32_ex OK
 + [Valid]   EF - Deneb - Operations - Execution Payload - incorrect_transaction_length_empty OK
++ [Valid]   EF - Deneb - Operations - Execution Payload - incorrect_transaction_no_blobs_but OK
++ [Valid]   EF - Deneb - Operations - Execution Payload - no_commitments_for_transactions    OK
 + [Valid]   EF - Deneb - Operations - Execution Payload - no_transactions_with_commitments   OK
 + [Valid]   EF - Deneb - Operations - Execution Payload - non_empty_extra_data_first_payload OK
 + [Valid]   EF - Deneb - Operations - Execution Payload - non_empty_extra_data_regular_paylo OK
@@ -2041,7 +2043,7 @@ OK: 21/21 Fail: 0/21 Skip: 0/21
 + [Valid]   EF - Deneb - Operations - Execution Payload - zero_length_transaction_regular_pa OK
 + [Valid]   EF - Deneb - Operations - Execution Payload - zeroed_commitment                  OK
 ```
-OK: 38/38 Fail: 0/38 Skip: 0/38
+OK: 40/40 Fail: 0/40 Skip: 0/40
 ## EF - Deneb - Operations - Proposer Slashing  [Preset: mainnet]
 ```diff
 + [Invalid] EF - Deneb - Operations - Proposer Slashing - invalid_different_proposer_indices OK
@@ -2806,6 +2808,8 @@ OK: 8/8 Fail: 0/8 Skip: 0/8
 + [Valid]   EF - Electra - Operations - Execution Payload - incorrect_transaction_length_1_e OK
 + [Valid]   EF - Electra - Operations - Execution Payload - incorrect_transaction_length_32_ OK
 + [Valid]   EF - Electra - Operations - Execution Payload - incorrect_transaction_length_emp OK
++ [Valid]   EF - Electra - Operations - Execution Payload - incorrect_transaction_no_blobs_b OK
++ [Valid]   EF - Electra - Operations - Execution Payload - no_commitments_for_transactions  OK
 + [Valid]   EF - Electra - Operations - Execution Payload - no_transactions_with_commitments OK
 + [Valid]   EF - Electra - Operations - Execution Payload - non_empty_extra_data_first_paylo OK
 + [Valid]   EF - Electra - Operations - Execution Payload - non_empty_extra_data_regular_pay OK
@@ -2821,7 +2825,7 @@ OK: 8/8 Fail: 0/8 Skip: 0/8
 + [Valid]   EF - Electra - Operations - Execution Payload - zero_length_transaction_regular_ OK
 + [Valid]   EF - Electra - Operations - Execution Payload - zeroed_commitment                OK
 ```
-OK: 38/38 Fail: 0/38 Skip: 0/38
+OK: 40/40 Fail: 0/40 Skip: 0/40
 ## EF - Electra - Operations - Proposer Slashing  [Preset: mainnet]
 ```diff
 + [Invalid] EF - Electra - Operations - Proposer Slashing - invalid_different_proposer_indic OK
@@ -3149,6 +3153,7 @@ OK: 56/56 Fail: 0/56 Skip: 0/56
 + [Valid]   EF - Electra - Sanity - Blocks - deposit_in_block [Preset: mainnet]              OK
 + [Valid]   EF - Electra - Sanity - Blocks - deposit_top_up [Preset: mainnet]                OK
 + [Valid]   EF - Electra - Sanity - Blocks - deposit_transition__deposit_and_top_up_same_blo OK
++ [Valid]   EF - Electra - Sanity - Blocks - deposit_transition__deposit_with_same_pubkey_di OK
 + [Valid]   EF - Electra - Sanity - Blocks - deposit_transition__process_eth1_deposits [Pres OK
 + [Valid]   EF - Electra - Sanity - Blocks - deposit_transition__process_eth1_deposits_up_to OK
 + [Valid]   EF - Electra - Sanity - Blocks - deposit_transition__process_max_eth1_deposits [ OK
@@ -3172,6 +3177,8 @@ OK: 56/56 Fail: 0/56 Skip: 0/56
 + [Valid]   EF - Electra - Sanity - Blocks - mix_blob_tx_and_non_blob_tx [Preset: mainnet]   OK
 + [Valid]   EF - Electra - Sanity - Blocks - multiple_different_proposer_slashings_same_bloc OK
 + [Valid]   EF - Electra - Sanity - Blocks - multiple_different_validator_exits_same_block [ OK
++ [Valid]   EF - Electra - Sanity - Blocks - multiple_el_partial_withdrawal_requests_differe OK
++ [Valid]   EF - Electra - Sanity - Blocks - multiple_el_partial_withdrawal_requests_same_va OK
 + [Valid]   EF - Electra - Sanity - Blocks - one_blob [Preset: mainnet]                      OK
 + [Valid]   EF - Electra - Sanity - Blocks - one_blob_max_txs [Preset: mainnet]              OK
 + [Valid]   EF - Electra - Sanity - Blocks - one_blob_two_txs [Preset: mainnet]              OK
@@ -3193,7 +3200,7 @@ OK: 56/56 Fail: 0/56 Skip: 0/56
 + [Valid]   EF - Electra - Sanity - Blocks - withdrawal_success_two_blocks [Preset: mainnet] OK
 + [Valid]   EF - Electra - Sanity - Blocks - zero_blob [Preset: mainnet]                     OK
 ```
-OK: 80/80 Fail: 0/80 Skip: 0/80
+OK: 83/83 Fail: 0/83 Skip: 0/83
 ## EF - Electra - Sanity - Slots  [Preset: mainnet]
 ```diff
 + EF - Electra - Slots - double_empty_epoch [Preset: mainnet]                                OK
@@ -3853,4 +3860,4 @@ OK: 69/88 Fail: 0/88 Skip: 19/88
 OK: 3/3 Fail: 0/3 Skip: 0/3
 
 ---TOTAL---
-OK: 3128/3147 Fail: 0/3147 Skip: 19/3147
+OK: 3135/3154 Fail: 0/3154 Skip: 19/3154
