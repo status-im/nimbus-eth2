@@ -477,15 +477,15 @@ proc initFullNode(
           if not dataColumnQuarantine[].supernode and
               not dataColumnQuarantine[].hasMissingDataColumns(forkyBlck):
             if not quarantine[].addColumnless(dag.finalizedHead.slot, forkyBlck):
-              err(VerifierError.UnviableFork)
+              return err(VerifierError.UnviableFork)
             else:
-              err(VeriferError.MissingParent)
+              return err(VerifierError.MissingParent)
           elif dataColumnQuarantine[].supernode and
-              not dataColumnQuaratine[].hasEnoughDataColumns(forkyBlck):
+              not dataColumnQuarantine[].hasEnoughDataColumns(forkyBlck):
             if not quarantine[].addColumnless(dag.finalizedHead.slot, forkyBlck):
-              err(VerifierError.UnviableFork)
+              return err(VerifierError.UnviableFork)
             else:
-              err(VeriferError.MissingParent)
+              return err(VerifierError.MissingParent)
           else:
             let dataColumns = dataColumnQuarantine[].popDataColumns(forkyBlck.root,
                                                                 forkyBlck)
@@ -497,9 +497,9 @@ proc initFullNode(
             # We don't have all the blobs for this block, so we have
             # to put it in blobless quarantine.
             if not quarantine[].addBlobless(dag.finalizedHead.slot, forkyBlck):
-              err(VerifierError.UnviableFork)
+              return err(VerifierError.UnviableFork)
             else:
-              err(VerifierError.MissingParent)
+              return err(VerifierError.MissingParent)
           else:
             let blobs = blobQuarantine[].popBlobs(forkyBlck.root, forkyBlck)
             await blockProcessor[].addBlock(MsgSource.gossip, signedBlock,
