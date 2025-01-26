@@ -345,6 +345,8 @@ proc get_data_column_sidecars*(signed_beacon_block: fulu.SignedBeaconBlock,
   for i in 0..<blobs.len:
     let
       cell_and_proof = computeCellsAndKzgProofs(blobs[i])
+    if cell_and_proof.isErr():
+      return err("PeerDAS: Could not compute cells")
 
     cells[i] = cell_and_proof.get.cells
     proofs[i] = cell_and_proof.get.proofs
