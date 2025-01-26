@@ -459,7 +459,7 @@ proc makeBeaconBlockForHeadAndSlot*(
     execution_payload_root: Opt[Eth2Digest],
     withdrawals_root: Opt[Eth2Digest],
     kzg_commitments: Opt[KzgCommitments],
-    execution_requests: ExecutionRequests):  # TODO probably need this for builder API, otherwise remove, maybe needs to be Opt
+    execution_requests: Opt[ExecutionRequests]):
     Future[ForkedBlockResult] {.async: (raises: [CancelledError]).} =
   # Advance state to the slot that we're proposing for
   var cache = StateCache()
@@ -634,7 +634,7 @@ proc makeBeaconBlockForHeadAndSlot*(
     execution_payload_root = Opt.none(Eth2Digest),
     withdrawals_root = Opt.none(Eth2Digest),
     kzg_commitments = Opt.none(KzgCommitments),
-    execution_requests = static(default(ExecutionRequests)))
+    execution_requests = Opt.none(ExecutionRequests))
 
 proc getBlindedExecutionPayload[
     EPH: deneb_mev.BlindedExecutionPayloadAndBlobsBundle |
@@ -952,7 +952,7 @@ proc getBlindedBlockParts[
         slot, validator_index, head = shortLog(head)
       return err("loadExecutionBlockHash failed")
 
-    executionPayloadHeader =
+    blindedBlockRes =
       try:
         awaitWithTimeout(
             getBlindedExecutionPayload[EPH](
@@ -966,12 +966,12 @@ proc getBlindedBlockParts[
         BlindedBlockResult[EPH].err(
           "getBlindedExecutionPayload REST error: " & exc.msg)
 
-  if executionPayloadHeader.isErr:
+  if blindedBlockRes.isErr:
     warn "Could not obtain blinded execution payload header",
-      error = executionPayloadHeader.error, slot, validator_index,
+      error = blindedBlockRes.error, slot, validator_index,
       head = shortLog(head)
     # Haven't committed to the MEV block, so allow EL fallback.
-    return err(executionPayloadHeader.error)
+    return err(blindedBlockRes.error)
 
   # When creating this block, need to ensure it uses the MEV-provided execution
   # payload, both to avoid repeated calls to network services and to ensure the
@@ -985,11 +985,12 @@ proc getBlindedBlockParts[
   when EPH is deneb_mev.BlindedExecutionPayloadAndBlobsBundle:
     type PayloadType = deneb.ExecutionPayloadForSigning
     template actualEPH: untyped =
-      executionPayloadHeader.get.blindedBlckPart.execution_payload_header
+      blindedBlockRes.get.blindedBlckPart.execution_payload_header
     let
       withdrawals_root = Opt.some actualEPH.withdrawals_root
       kzg_commitments = Opt.some(
-        executionPayloadHeader.get.blindedBlckPart.blob_kzg_commitments)
+        blindedBlockRes.get.blindedBlckPart.blob_kzg_commitments)
+      execution_requests = Opt.none ExecutionRequests
 
     var shimExecutionPayload: PayloadType
     type DenebEPH =
@@ -1000,11 +1001,13 @@ proc getBlindedBlockParts[
     debugComment "verify (again, after change) this is what builder API needs"
     type PayloadType = electra.ExecutionPayloadForSigning
     template actualEPH: untyped =
-      executionPayloadHeader.get.blindedBlckPart.execution_payload_header
+      blindedBlockRes.get.blindedBlckPart.execution_payload_header
     let
       withdrawals_root = Opt.some actualEPH.withdrawals_root
       kzg_commitments = Opt.some(
-        executionPayloadHeader.get.blindedBlckPart.blob_kzg_commitments)
+        blindedBlockRes.get.blindedBlckPart.blob_kzg_commitments)
+      execution_requests = Opt.some(
+        blindedBlockRes.get.executionRequests.get)
 
     var shimExecutionPayload: PayloadType
     type ElectraEPH =
@@ -1015,11 +1018,13 @@ proc getBlindedBlockParts[
     debugFuluComment "verify (again, after change) this is what builder API needs"
     type PayloadType = fulu.ExecutionPayloadForSigning
     template actualEPH: untyped =
-      executionPayloadHeader.get.blindedBlckPart.execution_payload_header
+      blindedBlockRes.get.blindedBlckPart.execution_payload_header
     let
       withdrawals_root = Opt.some actualEPH.withdrawals_root
       kzg_commitments = Opt.some(
-        executionPayloadHeader.get.blindedBlckPart.blob_kzg_commitments)
+        blindedBlockRes.get.blindedBlckPart.blob_kzg_commitments)
+      execution_requests = Opt.some(
+        blindedBlockRes.get.executionRequests.get)
 
     var shimExecutionPayload: PayloadType
     type FuluEPH =
@@ -1037,7 +1042,7 @@ proc getBlindedBlockParts[
     execution_payload_root = Opt.some hash_tree_root(actualEPH),
     withdrawals_root = withdrawals_root,
     kzg_commitments = kzg_commitments,
-    execution_requests = default(ExecutionRequests))
+    execution_requests = execution_requests)
 
   if newBlock.isErr():
     # Haven't committed to the MEV block, so allow EL fallback.
@@ -1046,8 +1051,8 @@ proc getBlindedBlockParts[
   let forkedBlck = newBlock.get()
 
   return ok(
-    (executionPayloadHeader.get.blindedBlckPart,
-     executionPayloadHeader.get.executionPayloadValue,
+    (blindedBlockRes.get.blindedBlckPart,
+     blindedBlockRes.get.executionPayloadValue,
      forkedBlck.consensusBlockValue,
      forkedBlck.blck))
 
