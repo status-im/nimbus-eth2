@@ -2024,6 +2024,20 @@ proc installMessageValidators(node: BeaconNode) =
               node.processor[].processSignedBeaconBlock(
                 MsgSource.gossip, signedBlock)))
 
+      # data_column_sidecar_{subnet_id}
+      when consensusFork >= ConsensusFork.Fulu:
+        # data_column_sidecar_{subnet_id}
+        for it in 0'u64..<NUMBER_OF_CUSTODY_GROUPS:
+          closureScope:
+            let subnet_id = it
+            node.network.addValidator(
+              getDataColumnSidecarTopic(digest, subnet_id), proc (
+                dataColumnSidecar: fulu.DataColumnSidecar
+              ): ValidationResult =
+                toValidationResult(
+                  node.processor[].processDataColumnSidecar(
+                    MsgSource.gossip, dataColumnSidecar, subnet_id)))
+
       # beacon_attestation_{subnet_id}
       # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.5/specs/phase0/p2p-interface.md#beacon_attestation_subnet_id
       when consensusFork >= ConsensusFork.Electra:
@@ -2159,19 +2173,6 @@ proc installMessageValidators(node: BeaconNode) =
                 toValidationResult(
                   node.processor[].processBlobSidecar(
                     MsgSource.gossip, blobSidecar, subnet_id)))
-
-      when consensusFork >= ConsensusFork.Fulu:
-        # data_column_sidecar_{subnet_id}
-        for it in 0'u64..<NUMBER_OF_CUSTODY_GROUPS:
-          closureScope:
-            let subnet_id = it
-            node.network.addValidator(
-              getDataColumnSidecarTopic(digest, subnet_id), proc (
-                dataColumnSidecar: fulu.DataColumnSidecar
-              ): ValidationResult =
-                toValidationResult(
-                  node.processor[].processDataColumnSidecar(
-                    MsgSource.gossip, dataColumnSidecar, subnet_id)))
 
   node.installLightClientMessageValidators()
 
