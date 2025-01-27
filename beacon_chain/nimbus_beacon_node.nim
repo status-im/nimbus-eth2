@@ -1308,11 +1308,11 @@ func getSyncCommitteeSubnets(node: BeaconNode, epoch: Epoch): SyncnetBits =
 
   subnets + node.getNextSyncCommitteeSubnets(epoch)
 
-func readCustodyGroupSubnets*(node: BeaconNode): uint64=
-  var res = CUSTODY_REQUIREMENT.uint64
+func readCustodyGroupSubnets(node: BeaconNode): uint64 =
   if node.config.peerdasSupernode:
-    res = NUMBER_OF_CUSTODY_GROUPS.uint64
-  res
+    NUMBER_OF_CUSTODY_GROUPS.uint64
+  else:
+    CUSTODY_REQUIREMENT.uint64
 
 proc addAltairMessageHandlers(
     node: BeaconNode, forkDigest: ForkDigest, slot: Slot) =
@@ -1355,10 +1355,9 @@ proc addFuluMessageHandlers(
     custody = node.network.nodeId.get_custody_groups(max(SAMPLES_PER_SLOT.uint64,
                                                      targetSubnets.uint64))
 
-  for i in 0'u64..<NUMBER_OF_CUSTODY_GROUPS:
-    if i in custody:
-      let topic = getDataColumnSidecarTopic(forkDigest, i)
-      node.network.subscribe(topic, basicParams)
+  for i in custody:
+    let topic = getDataColumnSidecarTopic(forkDigest, i)
+    node.network.subscribe(topic, basicParams)
 
 proc removeAltairMessageHandlers(node: BeaconNode, forkDigest: ForkDigest) =
   node.removePhase0MessageHandlers(forkDigest)

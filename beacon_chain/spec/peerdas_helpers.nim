@@ -163,7 +163,7 @@ proc recover_cells_and_proofs*(
   if not (data_columns.len != 0):
     return err("DataColumnSidecar: Length should not be 0")
 
-  var
+  let
     columnCount = data_columns.len
     blobCount = data_columns[0].column.len
 
@@ -255,6 +255,7 @@ proc get_data_column_sidecars*(signed_beacon_block: fulu.TrustedSignedBeaconBloc
   sidecars
 
 # Additional overload to perform reconstruction at the time of gossip
+#  https://github.com/ethereum/consensus-specs/blob/v1.5.0-beta.0/specs/fulu/das-core.md#get_data_column_sidecars
 proc get_data_column_sidecars*(signed_beacon_block: fulu.SignedBeaconBlock,
                                cellsAndProofs: seq[CellsAndProofs]):
                                seq[DataColumnSidecar] =
@@ -288,8 +289,8 @@ proc get_data_column_sidecars*(signed_beacon_block: fulu.SignedBeaconBlock,
 
   for column_index in 0..<NUMBER_OF_COLUMNS:
     var
-      column_cells: seq[KzgCell]
-      column_proofs: seq[KzgProof]
+      column_cells = newSeqOfCap[KzgCell](cellsAndProofs.len)
+      column_proofs = newSeqOfCap[KzgProof](cellsAndProofs.len)
     for i in 0..<cellsAndProofs.len:
       column_cells.add(cellsAndProofs[i].cells)
       column_proofs.add(cellsAndProofs[i].proofs)
@@ -309,6 +310,7 @@ proc get_data_column_sidecars*(signed_beacon_block: fulu.SignedBeaconBlock,
 
 # Alternative approach to `get_data_column_sidecars` by directly computing
 # blobs from blob bundles
+# Similar to:  https://github.com/ethereum/consensus-specs/blob/v1.5.0-beta.0/specs/fulu/das-core.md#get_data_column_sidecars
 proc get_data_column_sidecars*(signed_beacon_block: fulu.SignedBeaconBlock,
                                blobs: seq[KzgBlob]):
                                Result[seq[DataColumnSidecar], string] =
