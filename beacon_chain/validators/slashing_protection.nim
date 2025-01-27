@@ -131,9 +131,8 @@ proc loadUnchecked*(
     )
     result.modes.incl(kCompleteArchive)
   except CatchableError as err:
-    const msg = "Failed to load the slashing protection database"
-    fatal msg, reason = err.msg
-    raiseSlashingDefect(msg)
+    fatal "Failed to load the slashing protection database", reason = err.msg
+    raiseSlashingDefect()
 
 proc close*(db: SlashingProtectionDB) =
   ## Close a slashing protection database

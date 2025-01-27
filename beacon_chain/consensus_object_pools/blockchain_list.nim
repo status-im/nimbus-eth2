@@ -42,9 +42,9 @@ proc init*(T: type ChainListRef, directory: string): ChainListRef =
         let
           flags = {ChainFileFlag.Repair}
           res = ChainFileHandle.init(filename, flags).valueOr:
-            const msg = "Unexpected failure while loading backfill data"
-            fatal msg, filename = filename, reason = error
-            raiseChainListDefect(msg)
+            fatal "Unexpected failure while loading backfill data",
+                  filename = filename, reason = error
+            raiseChainListDefect()
         Opt.some(res)
   ChainListRef(path: directory, handle: handle)
 
@@ -185,9 +185,9 @@ proc addBackfillBlockData*(
     let storeBlockTick = Moment.now()
 
     store(clist, signedBlock, blobsOpt).isOkOr:
-      const msg = "Unexpected failure while trying to store data"
-      fatal msg, filename = chainFilePath(clist.path), reason = error
-      raiseChainListDefect(msg)
+      fatal "Unexpected failure while trying to store data",
+            filename = chainFilePath(clist.path), reason = error
+      raiseChainListDefect()
 
     let bdata = BlockData(blck: signedBlock, blob: blobsOpt)
     clist.setTail(bdata)
@@ -222,9 +222,9 @@ proc addBackfillBlockData*(
   let storeBlockTick = Moment.now()
 
   store(clist, signedBlock, blobsOpt).isOkOr:
-    const msg = "Unexpected failure while trying to store data"
-    fatal msg, filename = chainFilePath(clist.path), reason = error
-    raiseChainListDefect(msg)
+    fatal "Unexpected failure while trying to store data",
+          filename = chainFilePath(clist.path), reason = error
+    raiseChainListDefect()
 
   debug "Block backfilled",
         verify_block_duration = shortLog(storeBlockTick - verifyBlockTick),

@@ -70,13 +70,11 @@ proc loadBootstrapFile*(bootstrapFile: string,
       for ln in strippedLines(bootstrapFile):
         addBootstrapNode(ln, bootstrapEnrs)
     except IOError as e:
-      const msg = "Could not read bootstrap file"
-      fatal msg, reason = e.msg
-      raiseNetworkDefect(msg)
+      fatal "Could not read bootstrap file", reason = e.msg
+      raiseNetworkDefect()
   else:
-    const msg = "Unknown bootstrap file format"
-    fatal msg, ext
-    raiseNetworkDefect(msg)
+    fatal "Unknown bootstrap file format", ext
+    raiseNetworkDefect()
 
 proc new*(T: type Eth2DiscoveryProtocol,
           config: BeaconNodeConf | LightClientConf,

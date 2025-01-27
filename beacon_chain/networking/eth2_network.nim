@@ -1892,18 +1892,16 @@ proc startListening*(node: Eth2Node) {.async.} =
     try:
        node.discovery.open()
     except CatchableError as exc:
-      const msg =
-        "Failed to start discovery service. UDP port may be already in use"
-      fatal msg, reason = exc.msg
-      raiseNetworkDefect(msg)
+      fatal "Failed to start discovery service. UDP port may be already in use",
+            reason = exc.msg
+      raiseNetworkDefect()
 
   try:
     await node.switch.start()
   except CatchableError as exc:
-    const msg =
-      "Failed to start LibP2P transport. TCP port may be already in use"
-    fatal msg, reason = exc.msg
-    raiseNetworkDefect(msg)
+    fatal "Failed to start LibP2P transport. TCP port may be already in use",
+          reason = exc.msg
+    raiseNetworkDefect()
 
 proc peerPingerHeartbeat(node: Eth2Node): Future[void] {.async: (raises: [CancelledError]).}
 proc peerTrimmerHeartbeat(node: Eth2Node): Future[void] {.async: (raises: [CancelledError]).}
@@ -2335,19 +2333,17 @@ proc createEth2Node*(rng: ref HmacDrbgContext,
           if s.startsWith("enr:"):
             let
               enr = parseBootstrapAddress(s).valueOr:
-                const msg = "Failed to parse bootstrap address"
-                fatal msg, enr = s
-                raiseNetworkDefect(msg)
+                fatal "Failed to parse bootstrap address", enr = s
+                raiseNetworkDefect()
               typedEnr = TypedRecord.fromRecord(enr)
               peerAddress = toPeerAddr(typedEnr, tcpProtocol).get()
             (peerAddress.peerId, peerAddress.addrs[0])
           elif s.startsWith("/"):
             parseFullAddress(s).tryGet()
           else:
-            const msg =
-              "Direct peers address should start with / (multiaddress) or enr"
-            fatal msg, conf = s
-            raiseNetworkDefect(msg)
+            fatal "Direct peers address should start with / (multiaddress) or enr",
+                  conf = s
+            raiseNetworkDefect()
         res.mgetOrPut(peerId, @[]).add(address)
         info "Adding privileged direct peer", peerId, address
       res

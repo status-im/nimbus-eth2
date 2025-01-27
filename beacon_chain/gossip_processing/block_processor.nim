@@ -884,9 +884,8 @@ proc processBlock(
     (afterGenesis, _) = wallTime.toSlot()
 
   if not afterGenesis:
-    const msg = "Processing block before genesis, clock turned back?"
-    fatal msg
-    raiseProcessorDefect(msg)
+    fatal "Processing block before genesis, clock turned back?"
+    raiseProcessorDefect()
 
   let res = withBlck(entry.blck):
     await self.storeBlock(

@@ -813,9 +813,9 @@ proc process_sync_aggregate*(
     template sync_committee_bits(): auto = sync_aggregate.sync_committee_bits
     let num_active_participants = countOnes(sync_committee_bits).uint64
     if num_active_participants * 3 < static(sync_committee_bits.len * 2):
-      const msg = "Low sync committee participation"
-      fatal msg, slot = state.slot, num_active_participants
-      raiseStrictDefect(msg)
+      fatal "Low sync committee participation", slot = state.slot,
+            num_active_participants
+      raiseStrictDefect()
 
   # Verify sync committee aggregate signature signing over the previous slot
   # block root

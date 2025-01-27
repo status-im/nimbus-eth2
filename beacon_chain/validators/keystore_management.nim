@@ -760,9 +760,9 @@ iterator listLoadableKeys*(validatorsDir, secretsDir: string,
         yield cres
 
   except OSError as err:
-    const msg = "Validator keystores directory is not accessible"
-    fatal msg, path = validatorsDir, err = err.msg
-    raiseKeystoreDefect(msg)
+    fatal "Validator keystores directory is not accessible",
+          path = validatorsDir, reason = err.msg
+    raiseKeystoreDefect()
 
 iterator listLoadableKeystores*(validatorsDir, secretsDir: string,
                                 nonInteractive: bool,
@@ -793,16 +793,15 @@ iterator listLoadableKeystores*(validatorsDir, secretsDir: string,
         let
           keystore = loadKeystore(validatorsDir, secretsDir, keyName,
                                   nonInteractive, cache).valueOr:
-            const msg = "Unable to load keystore"
-            fatal msg, keystore = file
-            raiseKeystoreDefect(msg)
+            fatal "Unable to load keystore", keystore = file
+            raiseKeystoreDefect()
 
         yield keystore
 
   except OSError as err:
-    const msg = "Validator keystores directory is not accessible"
-    fatal msg, path = validatorsDir, err = err.msg
-    raiseKeystoreDefect(msg)
+    fatal "Validator keystores directory is not accessible",
+          path = validatorsDir, reason = err.msg
+    raiseKeystoreDefect()
 
 iterator listLoadableKeystores*(config: AnyConf,
                                 cache: KeystoreCacheRef): KeystoreData =
@@ -1904,9 +1903,8 @@ proc importKeystoresFromDir*(rng: var HmacDrbgContext, meth: ImportMethod,
           if password.len == 0:
             break
   except OSError:
-    const msg = "Failed to access the imported deposits directory"
-    fatal msg
-    raiseKeystoreDefect(msg)
+    fatal "Failed to access the imported deposits directory"
+    raiseKeystoreDefect()
 
 template ask(prompt: string): string =
   try:
@@ -2029,9 +2027,8 @@ proc createWalletInteractively*(
   try:
     discard getch()
   except IOError as err:
-    const msg = "Failed to read a key from stdin"
-    fatal msg, reason = err.msg
-    raiseKeystoreDefect(msg)
+    fatal "Failed to read a key from stdin", reason = err.msg
+    raiseKeystoreDefect()
 
   clearScreen()
 

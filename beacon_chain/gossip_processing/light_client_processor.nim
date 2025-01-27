@@ -485,9 +485,8 @@ proc addObject*(
       else:
         false
     if not mayProcessBeforeGenesis:
-      const msg = "Processing LC object before genesis, clock turned back?"
-      fatal msg
-      raiseProcessorDefect(msg)
+      fatal "Processing LC object before genesis, clock turned back?"
+      raiseProcessorDefect()
 
   let res = self.storeObject(src, wallTime, obj)
 

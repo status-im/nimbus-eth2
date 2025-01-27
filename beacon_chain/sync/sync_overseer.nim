@@ -290,9 +290,9 @@ proc rebuildState(overseer: SyncOverseerRef): Future[void] {.
     clist =
       block:
         overseer.clist.seekForSlot(dag.head.slot).isOkOr:
-          const msg = "Unable to find slot in backfill data"
-          fatal msg, reason = error, path = overseer.clist.path
-          raiseOverseerDefect(msg)
+          fatal "Unable to find slot in backfill data", reason = error,
+                path = overseer.clist.path
+          raiseOverseerDefect()
         overseer.clist
 
   var
@@ -310,9 +310,8 @@ proc rebuildState(overseer: SyncOverseerRef): Future[void] {.
   block mainLoop:
     while true:
       let res = getChainFileTail(handle.handle).valueOr:
-        const msg = "Unable to read backfill data"
-        fatal msg, reason = error
-        raiseOverseerDefect(msg)
+        fatal "Unable to read backfill data", reason = error
+        raiseOverseerDefect()
       if res.isNone():
         return
 
@@ -359,9 +358,8 @@ proc rebuildState(overseer: SyncOverseerRef): Future[void] {.
               raiseAssert "Should not happen with unbounded AsyncQueue"
             let res = await bchunk.resfut
             if res.isErr():
-              const msg = "Unable to add block data to database"
-              fatal msg, reason = res.error
-              raiseOverseerDefect(msg)
+              fatal "Unable to add block data to database", reason = res.error
+              raiseOverseerDefect()
 
           let updateTick = Moment.now()
           debug "Number of blocks injected",
@@ -454,13 +452,11 @@ proc mainLoop*(
   else:
     if dag.needsBackfill():
       # Checkpoint/Trusted state we have is too old.
-      const msg =
-        "Last attempt to perform trusted node sync was made long time " &
-        "ago (outside of weak subjectivity period)"
-      fatal msg, current_slot = currentSlot,
-            dag_backfill_slot = dag.backfill.slot,
+      fatal "Last attempt to perform trusted node sync was made long time " &
+            "ago (outside of weak subjectivity period)",
+            current_slot = currentSlot, dag_backfill_slot = dag.backfill.slot,
             retention_period_slot = overseer.getLastBlockRetentionPeriodSlot()
-      raiseOverseerDefect(msg)
+      raiseOverseerDefect()
 
     if not(isUntrustedBackfillEmpty(clist)):
       let headSlot = clist.head.get().slot
@@ -479,17 +475,16 @@ proc mainLoop*(
     if overseer.config.longRangeSync == LongRangeSyncMode.Light:
       let dagHead = dag.finalizedHead
       if dagHead.slot < dag.cfg.ALTAIR_FORK_EPOCH.start_slot:
-        const msg = "Light forward syncing requires a post-Altair state"
-        fatal msg, head_slot = dagHead.slot,
+        fatal "Light forward syncing requires a post-Altair state",
+              head_slot = dagHead.slot,
               altair_start_slot = dag.cfg.ALTAIR_FORK_EPOCH.start_slot
-        raiseOverseerDefect(msg)
+        raiseOverseerDefect()
 
       if overseer.isWithinBlockRetentionPeriod(dagHead.slot):
-        const msg = "Current database head slot is not in the block " &
-                    "retention period range"
-        fatal msg, head_slot = dagHead.slot,
+        fatal "Current database head slot is not in the block " &
+              "retention period range", head_slot = dagHead.slot,
               retention_period_slot = overseer.getLastBlockRetentionPeriodSlot()
-        raiseOverseerDefect(msg)
+        raiseOverseerDefect()
 
       if isUntrustedBackfillEmpty(clist):
         overseer.untrustedInProgress = true
@@ -522,9 +517,9 @@ proc mainLoop*(
         return
 
       clist.clear().isOkOr:
-        const msg = "Unable to remove backfill data file"
-        warn msg, path = clist.path.chainFilePath(), reason = error
-        raiseOverseerDefect(msg)
+        fatal "Unable to remove backfill data file",
+             path = clist.path.chainFilePath(), reason = error
+        raiseOverseerDefect()
 
       overseer.untrustedInProgress = false
       # Reset status bar

@@ -1123,10 +1123,9 @@ proc init*(T: type ChainDAGRef, cfg: RuntimeConfig, db: BeaconChainDB,
           headBlocks.add curRef
         else:
           if headBlocks.len > 0:
-            const msg =
-              "Missing block needed to create head state, database corrupt?"
-            fatal msg, curRef = shortLog(curRef)
-            raiseDagDefect(msg)
+            fatal "Missing block needed to create head state, database corrupt?",
+                  curRef = shortLog(curRef)
+            raiseDagDefect()
           # Without the block data we can't form a state for this root, so
           # we'll need to move the head back
           headRef = nil
@@ -1140,9 +1139,9 @@ proc init*(T: type ChainDAGRef, cfg: RuntimeConfig, db: BeaconChainDB,
 
   if not foundHeadState:
     if not dag.getStateByParent(curRef.bid, dag.headState):
-      const msg = "Could not load head state, database corrupt?"
-      fatal msg, head = shortLog(head), tail = shortLog(dag.tail)
-      raiseDagDefect(msg)
+      fatal "Could not load head state, database corrupt?",
+            head = shortLog(head), tail = shortLog(dag.tail)
+      raiseDagDefect()
 
   block:
     # EpochRef needs an epoch boundary state
@@ -1191,10 +1190,9 @@ proc init*(T: type ChainDAGRef, cfg: RuntimeConfig, db: BeaconChainDB,
   # regular hard-fork upgrades. See for example:
   # https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.8/specs/bellatrix/beacon-chain.md#testing
   if stateFork.current_version != configFork.current_version:
-    const msg =
-      "State from database does not match network, check --network parameter"
-    fatal msg, tail = dag.tail, headRef, stateFork, configFork
-    raiseDagDefect(msg)
+    fatal "State from database does not match network, check --network parameter",
+          tail = dag.tail, headRef, stateFork, configFork
+    raiseDagDefect()
 
   # Need to load state to find genesis validators root, before loading era db
   dag.era = EraDB.new(
@@ -1244,11 +1242,10 @@ proc init*(T: type ChainDAGRef, cfg: RuntimeConfig, db: BeaconChainDB,
     let finalized = db.finalizedBlocks.get(db.finalizedBlocks.high.get()).expect(
       "tail at least")
     if finalized != dag.finalizedHead.blck.root:
-      const msg = "Head does not lead to finalized block, database corrupt?"
-      fatal msg, head = shortLog(head),
-            finalizedHead = shortLog(dag.finalizedHead),
+      fatal "Head does not lead to finalized block, database corrupt?",
+            head = shortLog(head), finalizedHead = shortLog(dag.finalizedHead),
             tail = shortLog(dag.tail), finalized = shortLog(finalized)
-      raiseDagDefect(msg)
+      raiseDagDefect()
 
   dag.backfill = block:
     let backfillSlot = db.finalizedBlocks.low.expect("tail at least")
@@ -1301,11 +1298,9 @@ proc init*(T: type ChainDAGRef, cfg: RuntimeConfig, db: BeaconChainDB,
           (bid.slot == backfillSlot and bid.root != dag.tail.root):
         # If we end up in here, we failed the root comparison just below in
         # an earlier iteration
-        const msg =
-          "Era summaries don't lead up to backfill, database or era files " &
-          "corrupt?"
-        fatal msg, bid, backfillSlot
-        raiseDagDefect(msg)
+        fatal "Era summaries don't lead up to backfill, database or era files corrupt?",
+              bid, backfillSlot
+        raiseDagDefect()
 
       # In BeaconState.block_roots, empty slots are filled with the root of
       # the previous block - in our data structure, we use a zero hash instead
@@ -2410,10 +2405,9 @@ proc updateHead*(
     # implicitly finalised, the head is an ancestor of the tail and we always
     # store the tail state in the database, as well as every epoch slot state in
     # between
-    const msg =
-      "Unable to load head state during head update, database corrupt?"
-    fatal msg, lastHead = shortLog(lastHead)
-    raiseDagDefect(msg)
+    fatal "Unable to load head state during head update, database corrupt?",
+          lastHead = shortLog(lastHead)
+    raiseDagDefect()
 
   dag.head = newHead
 
@@ -2825,11 +2819,9 @@ proc rebuildIndex*(dag: ChainDAGRef) =
         if not dag.db.getState(
             dag.cfg.consensusForkAtEpoch(slot.epoch), state_root, state[],
             noRollback):
-          const msg =
-            "Cannot load state, database corrupt or created for a different " &
-            "network?"
-          fatal msg, state_root, slot
-          raiseDagDefect(msg)
+          fatal "Cannot load state, database corrupt or created for a different network?",
+                state_root, slot
+          raiseDagDefect()
         tailBid = Opt.some state[].latest_block_id()
 
       continue

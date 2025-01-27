@@ -653,9 +653,9 @@ proc getMetadataTable_DbV2*(db: SlashingProtectionDB_v2): Opt[Eth2Digest] =
   if status.isOk():
     # Privacy, don't display the user private path
     if version != db.typeof.version():
-      const msg = "Incorrect DB version"
-      fatal msg, found = version, expected = db.typeof.version()
-      raiseSlashingDefect(msg)
+      fatal "Incorrect DB version", found = version,
+            expected = db.typeof.version()
+      raiseSlashingDefect()
     return Opt.some(root)
   else:
     return Opt.none(Eth2Digest)
@@ -676,17 +676,15 @@ proc initCompatV1*(
   let
     alreadyExists = fileExists(databasePath / databaseName & ".sqlite3")
     backend = SqStoreRef.init(databasePath, databaseName).valueOr:
-      const msg = "Failed to open slashing protection database"
-      fatal msg, reason = error
-      raiseSlashingDefect(msg)
+      fatal "Failed to open slashing protection database", reason = error
+      raiseSlashingDefect()
 
   var res: tuple[db: SlashingProtectionDB_v2, requiresMigration: bool]
   res.db = T(backend: backend)
   if alreadyExists and res.db.getMetadataTable_DbV2().isSome():
     res.db.checkDB(genesis_validators_root).isOkOr:
-      const msg = "Incompatible slashing protection database"
-      fatal msg, reason = error
-      raiseSlashingDefect(msg)
+      fatal "Incompatible slashing protection database", reason = error
+      raiseSlashingDefect()
 
     res.requiresMigration = false
   elif alreadyExists:
@@ -723,16 +721,14 @@ proc init*(T: type SlashingProtectionDB_v2,
     alreadyExists = fileExists(databasePath / databaseName & ".sqlite3")
     backend = SqStoreRef.init(databasePath, databaseName,
                               keyspaces = []).valueOr:
-      const msg = "Failed to open slashing protection database"
-      fatal msg, reason = error
-      raiseSlashingDefect(msg)
+      fatal "Failed to open slashing protection database", reason = error
+      raiseSlashingDefect()
 
   var res = T(backend: backend)
   if alreadyExists:
     res.checkDB(genesis_validators_root).isOkOr:
-      const msg = "Slashing protection database check error"
-      fatal msg, reason = error
-      raiseSlashingDefect(msg)
+      fatal "Slashing protection database check error", reason = error
+      raiseSlashingDefect()
   else:
     res.setupDB(genesis_validators_root)
   # Cached queries
