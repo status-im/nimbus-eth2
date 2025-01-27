@@ -274,7 +274,7 @@ proc restValidatorExit(config: BeaconNodeConf) {.async.} =
   if not config.printData:
     case askForExitConfirmation()
     of ClientExitAction.abort:
-      quit 0
+      raiseSuccessDefect()
     of ClientExitAction.confirm:
       discard
 
@@ -325,7 +325,7 @@ proc restValidatorExit(config: BeaconNodeConf) {.async.} =
       echo "  -H 'Accept: */*' \\"
       echo "  -H 'Content-Type: application/json' \\"
       echo "  -d '" & string.fromBytes(bytes) & "'"
-      quit 0
+      raiseSuccessDefect()
     else:
       try:
         let
@@ -411,12 +411,12 @@ proc doDeposits*(config: BeaconNodeConf, rng: var HmacDrbgContext) {.
     secureCreatePath(config.outValidatorsDir).isOkOr:
       fatal "Could not create directory",
             path = config.outValidatorsDir, reason = ioErrorMsg(error)
-      quit QuitFailure
+      raiseDepositsDefect()
 
     secureCreatePath(config.outSecretsDir).isOkOr:
       fatal "Could not create directory",
             path = config.outSecretsDir, reason = ioErrorMsg(error)
-      quit QuitFailure
+      raiseDepositsDefect()
 
     let deposits = generateDeposits(
       metadata.cfg,

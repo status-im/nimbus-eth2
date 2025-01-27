@@ -67,13 +67,13 @@ proc fetchGenesisState(
     metadata: Eth2NetworkMetadata,
     genesisState = none(InputFile),
     genesisStateUrl = none(Uri)
-): Future[ref ForkedHashedBeaconState] {.async: (raises: []).} =
+): Future[Opt[ref ForkedHashedBeaconState]] {.
+  async: (raises: [CancelledError]).} =
   let genesisBytes =
     if metadata.genesis.kind != BakedIn and genesisState.isSome:
-      let res = io2.readAllBytes(genesisState.get.string)
-      res.valueOr:
-        error "Failed to read genesis state file", err = res.error.ioErrorMsg
-        quit 1
+      io2.readAllBytes(genesisState.get.string).valueOr:
+        fatal "Failed to read genesis state file", reason = ioErrorMsg(error)
+        return Opt.none(ref ForkedHashedBeaconState)
     elif metadata.hasGenesis:
       try:
         if metadata.genesis.kind == BakedInUrl:
@@ -81,25 +81,28 @@ proc fetchGenesisState(
                sourceUrl = $genesisStateUrl
                  .get(parseUri metadata.genesis.url)
         await metadata.fetchGenesisBytes(genesisStateUrl)
-      except CatchableError as err:
-        error "Failed to obtain genesis state",
+      except CancelledError as exc:
+        raise exc
+      except CatchableError as exc:
+        fatal "Failed to obtain genesis state",
               source = metadata.genesis.sourceDesc,
-              err = err.msg
-        quit 1
+              reason = exc.msg
+        return Opt.none(ref ForkedHashedBeaconState)
     else:
       @[]
 
   if genesisBytes.len > 0:
     try:
-      newClone readSszForkedHashedBeaconState(metadata.cfg, genesisBytes)
-    except CatchableError as err:
-      error "Invalid genesis state",
+      Opt.some(
+        newClone readSszForkedHashedBeaconState(metadata.cfg, genesisBytes))
+    except CatchableError as exc:
+      fatal "Invalid genesis state",
             size = genesisBytes.len,
             digest = eth2digest(genesisBytes),
-            err = err.msg
-      quit 1
+            reason = exc.msg
+      return Opt.none(ref ForkedHashedBeaconState)
   else:
-    nil
+    Opt.none(ref ForkedHashedBeaconState)
 
 proc doRunTrustedNodeSync(
     db: BeaconChainDB,
@@ -684,8 +687,9 @@ proc init*(T: type BeaconNode,
     # If database directory missing, we going to use genesis state to check
     # for weak_subjectivity_period.
     genesisState =
-      await fetchGenesisState(
-        metadata, config.genesisState, config.genesisStateUrl)
+      (await fetchGenesisState(
+        metadata, config.genesisState, config.genesisStateUrl)).valueOr:
+      quit 1
     let
       genesisTime = getStateField(genesisState[], genesis_time)
       beaconClock = BeaconClock.init(genesisTime).valueOr:
@@ -762,8 +766,9 @@ proc init*(T: type BeaconNode,
       elif cfg.ALTAIR_FORK_EPOCH == GENESIS_EPOCH:
         # Sync can be bootstrapped from the genesis block root
         if genesisState.isNil:
-          genesisState = await fetchGenesisState(
-            metadata, config.genesisState, config.genesisStateUrl)
+          genesisState = (await fetchGenesisState(
+            metadata, config.genesisState, config.genesisStateUrl)).valueOr:
+              quit 1
         if not genesisState.isNil:
           let genesisBlockRoot = get_initial_beacon_block(genesisState[]).root
           notice "Neither `--trusted-block-root` nor `--trusted-state-root` " &
@@ -786,8 +791,9 @@ proc init*(T: type BeaconNode,
         trustedStateRoot = config.trustedStateRoot
     else:
       if genesisState.isNil:
-        genesisState = await fetchGenesisState(
-          metadata, config.genesisState, config.genesisStateUrl)
+        genesisState = (await fetchGenesisState(
+          metadata, config.genesisState, config.genesisStateUrl)).valueOr:
+            quit 1
       await db.doRunTrustedNodeSync(
         metadata,
         config.databaseDir,
@@ -859,8 +865,9 @@ proc init*(T: type BeaconNode,
         checkpointState
       else:
         if genesisState.isNil:
-          await fetchGenesisState(
-            metadata, config.genesisState, config.genesisStateUrl)
+          (await fetchGenesisState(
+            metadata, config.genesisState, config.genesisStateUrl)).valueOr:
+              quit 1
         else:
           genesisState
 
@@ -2569,7 +2576,8 @@ proc handleStartUpCmd(config: var BeaconNodeConf) {.raises: [CatchableError].} =
         fatal "Unable to get network metadata", reason = error
         quit 1
       db = BeaconChainDB.new(config.databaseDir, metadata.cfg, inMemory = false)
-      genesisState = waitFor fetchGenesisState(metadata)
+      genesisState = (waitFor fetchGenesisState(metadata)).valueOr:
+        quit 1
     waitFor db.doRunTrustedNodeSync(
       metadata,
       config.databaseDir,

@@ -2195,7 +2195,7 @@ func initNetKeys(privKey: PrivateKey): NetKeyPair =
 proc getRandomNetKeys*(rng: var HmacDrbgContext): NetKeyPair =
   let privKey = PrivateKey.random(Secp256k1, rng).valueOr:
     fatal "Could not generate random network key file"
-    quit QuitFailure
+    raiseNetworkDefect()
   initNetKeys(privKey)
 
 proc getPersistentNetKeys*(
@@ -2208,7 +2208,7 @@ proc getPersistentNetKeys*(
       keys = rng.getRandomNetKeys()
       pres = PeerId.init(keys.pubkey).valueOr:
         fatal "Could not obtain PeerId from network key", error
-        quit QuitFailure
+        raiseNetworkDefect()
     info "Generating new networking key",
       network_public_key = keys.pubkey, network_peer_id = $pres
     keys
@@ -2234,7 +2234,7 @@ proc getPersistentNetKeys*(
       let
         privKey = loadNetKeystore(keyPath, insecurePassword).valueOr:
           fatal "Could not load network key file"
-          quit QuitFailure
+          raiseNetworkDefect()
         keys = initNetKeys(privKey)
       info "Network key storage was successfully unlocked",
         network_public_key = keys.pubkey
@@ -2248,7 +2248,7 @@ proc getPersistentNetKeys*(
         sres = saveNetKeystore(rng, keyPath, keys.seckey, insecurePassword)
       if sres.isErr():
         fatal "Could not create network key file"
-        quit QuitFailure
+        raiseNetworkDefect()
 
       info "New network key storage was created",
         network_public_key = keys.pubkey

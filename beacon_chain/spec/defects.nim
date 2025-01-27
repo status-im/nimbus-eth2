@@ -9,6 +9,7 @@ type
   ExitProcessDefect* = object of Defect
     exitCode*: int16
 
+  SuccessDefect* = object of ExitProcessDefect
   DatabaseDefect* = object of ExitProcessDefect
   SlashingDefect* = object of ExitProcessDefect
   NetworkDefect* = object of ExitProcessDefect
@@ -28,6 +29,7 @@ type
   DepositsDefect* = object of ExitProcessDefect
   TrustedSyncDefect* = object of ExitProcessDefect
   WalletsDefect* = object of ExitProcessDefect
+  BeaconNodeDefect* = object of ExitProcessDefect
 
 template declareExitHelpers(defect, code: untyped): untyped =
   template `raise defect`*() =
@@ -36,6 +38,7 @@ template declareExitHelpers(defect, code: untyped): untyped =
     raise (ref defect)(exitCode: code, msg: message)
 
 # Submodules exits
+declareExitHelpers(SuccessDefect, 0)
 declareExitHelpers(DatabaseDefect, 12)
 declareExitHelpers(SlashingDefect, 13)
 declareExitHelpers(NetworkDefect, 14)
@@ -55,3 +58,4 @@ declareExitHelpers(MetadataDefect, 26)
 declareExitHelpers(DepositsDefect, 30)
 declareExitHelpers(TrustedSyncDefect, 31)
 declareExitHelpers(WalletsDefect, 32)
+declareExitHelpers(BeaconNodeDefect, 33)
