@@ -2145,7 +2145,7 @@ Of particular note: the [Keymanager API](https://nimbus.guide/keymanager-api.htm
 ### We've fixed:
 
 * Unnecessary CPU and bandwidth usage: https://github.com/status-im/nimbus-eth2/pull/3308
-  * The result of staying subsribed to sync committee topics even when there were no validators in the committee.
+  * The result of staying subscribed to sync committee topics even when there were no validators in the committee.
 * Excessive logging on beacon nodes with large numbers of validators (in particular, those with `--validator-monitor-totals` enabled): https://github.com/status-im/nimbus-eth2/pull/3332
 * Deviations from the spec in the REST API; this led to sub-optimal performance when Nimbus was paired with Vouch.
 * Naming inconsistencies in the "totals" metrics (this was produced by the [validator monitor](https://nimbus.guide/validator-monitor.html)).
