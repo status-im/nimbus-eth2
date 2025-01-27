@@ -203,7 +203,7 @@ proc routeSignedBeaconBlock*(
 
         das_workers[i] =
           router[].network.broadcastDataColumnSidecar(subnet_id,
-                                                      dataColumns[i].index)
+                                                      dataColumns[i])
         let allres = await allFinished(das_workers)
         for i in 0..<allres.len:
           let res = allres[i]
