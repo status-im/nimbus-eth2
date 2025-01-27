@@ -231,9 +231,7 @@ proc checkDataColumnsResponse*[T](req: SyncRequest[T],
     # Impossible to verify empty response
     return ok()
 
-  static: doAssert MAX_BLOBS_PER_BLOCK_ELECTRA >= MAX_BLOBS_PER_BLOCK
-
-  if lenu64(data) > (req.count * MAX_BLOBS_PER_BLOCK_ELECTRA):
+  if lenu64(data) > (req.count * NUMBER_OF_COLUMNS):
     # Number of data columns in response should be less or equal to
     # number of requested (blocks * MAX_BLOCKS_PER_BLOCK_ELECTRA).
     return err("Too many data columns received")

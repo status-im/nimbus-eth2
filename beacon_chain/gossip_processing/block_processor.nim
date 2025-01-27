@@ -190,29 +190,6 @@ proc storeBackfillBlock(
   # The block is certainly not missing any more
   self.consensusManager.quarantine[].missing.del(signedBlock.root)
 
-  # Establish blob viability before calling addbackfillBlock to avoid
-  # writing the block in case of blob error.
-  var blobsOk = true
-  when typeof(signedBlock).kind >= ConsensusFork.Deneb:
-    if blobsOpt.isSome:
-      let blobs = blobsOpt.get()
-      let kzgCommits = signedBlock.message.body.blob_kzg_commitments.asSeq
-      if blobs.len > 0 or kzgCommits.len > 0:
-        let r = validate_blobs(kzgCommits, blobs.mapIt(KzgBlob(bytes: it.blob)),
-                               blobs.mapIt(it.kzg_proof))
-        if r.isErr():
-          debug "backfill blob validation failed",
-            blockRoot = shortLog(signedBlock.root),
-            blobs = shortLog(blobs),
-            blck = shortLog(signedBlock.message),
-            kzgCommits = mapIt(kzgCommits, shortLog(it)),
-            signature = shortLog(signedBlock.signature),
-            msg = r.error()
-        blobsOk = r.isOk()
-
-  if not blobsOk:
-    return err(VerifierError.Invalid)
-
   var columnsOk = true
   when typeof(signedBlock).kind >= ConsensusFork.Fulu:
     var malformed_cols: seq[int]
@@ -252,6 +229,29 @@ proc storeBackfillBlock(
           columnsOk = true
 
   if not columnsOk:
+    return err(VerifierError.Invalid)
+
+  # Establish blob viability before calling addbackfillBlock to avoid
+  # writing the block in case of blob error.
+  var blobsOk = true
+  when typeof(signedBlock).kind >= ConsensusFork.Deneb:
+    if blobsOpt.isSome:
+      let blobs = blobsOpt.get()
+      let kzgCommits = signedBlock.message.body.blob_kzg_commitments.asSeq
+      if blobs.len > 0 or kzgCommits.len > 0:
+        let r = validate_blobs(kzgCommits, blobs.mapIt(KzgBlob(bytes: it.blob)),
+                               blobs.mapIt(it.kzg_proof))
+        if r.isErr():
+          debug "backfill blob validation failed",
+            blockRoot = shortLog(signedBlock.root),
+            blobs = shortLog(blobs),
+            blck = shortLog(signedBlock.message),
+            kzgCommits = mapIt(kzgCommits, shortLog(it)),
+            signature = shortLog(signedBlock.signature),
+            msg = r.error()
+        blobsOk = r.isOk()
+
+  if not blobsOk:
     return err(VerifierError.Invalid)
 
   let res = self.consensusManager.dag.addBackfillBlock(signedBlock)
@@ -428,19 +428,19 @@ proc getExecutionValidity(
       blck = shortLog(blck)
     return NewPayloadStatus.noResponse
 
-proc checkBloblessSignature(
+proc checkBlobOrColumnlessSignature(
     self: BlockProcessor,
     signed_beacon_block: deneb.SignedBeaconBlock | electra.SignedBeaconBlock |
                          fulu.SignedBeaconBlock):
     Result[void, cstring] =
   let dag = self.consensusManager.dag
   let parent = dag.getBlockRef(signed_beacon_block.message.parent_root).valueOr:
-    return err("checkBloblessSignature called with orphan block")
+    return err("checkBlobOrColumnlessSignature called with orphan block")
   let proposer = getProposer(
         dag, parent, signed_beacon_block.message.slot).valueOr:
-    return err("checkBloblessSignature: Cannot compute proposer")
+    return err("checkBlobOrColumnlessSignature: Cannot compute proposer")
   if distinctBase(proposer) != signed_beacon_block.message.proposer_index:
-    return err("checkBloblessSignature: Incorrect proposer")
+    return err("checkBlobOrColumnlessSignature: Incorrect proposer")
   if not verify_block_signature(
       dag.forkAtEpoch(signed_beacon_block.message.slot.epoch),
       getStateField(dag.headState, genesis_validators_root),
@@ -448,7 +448,7 @@ proc checkBloblessSignature(
       signed_beacon_block.root,
       dag.validatorKey(proposer).get(),
       signed_beacon_block.signature):
-    return err("checkBloblessSignature: Invalid proposer signature")
+    return err("checkBlobOrColumnlessSignature: Invalid proposer signature")
   ok()
 
 proc enqueueBlock*(
@@ -598,26 +598,6 @@ proc storeBlock(
         parent_root = signedBlock.message.parent_root
         parentBlck = dag.getForkedBlock(parent_root)
       if parentBlck.isSome():
-        var blobsOk = true
-        let blobs =
-          withBlck(parentBlck.get()):
-            when consensusFork >= ConsensusFork.Deneb:
-              var blob_sidecars: BlobSidecars
-              for i in 0 ..< forkyBlck.message.body.blob_kzg_commitments.len:
-                let blob = BlobSidecar.new()
-                if not dag.db.getBlobSidecar(parent_root, i.BlobIndex, blob[]):
-                  blobsOk = false  # Pruned, or inconsistent DB
-                  break
-                blob_sidecars.add blob
-              Opt.some blob_sidecars
-            else:
-              Opt.none BlobSidecars
-        if blobsOk:
-          debug "Loaded parent block from storage", parent_root
-          self[].enqueueBlock(
-            MsgSource.gossip, parentBlck.unsafeGet().asSigned(), blobs,
-            Opt.none(DataColumnSidecars))
-
         var columnsOk = true
         let columns =
           withBlck(parentBlck.get()):
@@ -632,7 +612,39 @@ proc storeBlock(
               Opt.some data_column_sidecars
             else:
               Opt.none DataColumnSidecars
-        if columnsOk:
+
+        var blobsOk = true
+        let blobs =
+          withBlck(parentBlck.get()):
+            when consensusFork >= ConsensusFork.Deneb:
+              var blob_sidecars: BlobSidecars
+              for i in 0 ..< forkyBlck.message.body.blob_kzg_commitments.len:
+                let blob = BlobSidecar.new()
+                if not dag.db.getBlobSidecar(parent_root, i.BlobIndex, blob[]):
+                  blobsOk = false  # Pruned, or inconsistent DB
+                  break
+                blob_sidecars.add blob
+              Opt.some blob_sidecars
+            else:
+              Opt.none BlobSidecars
+        # Blobs and columns can never co-exist in the same block
+        doAssert blobs.isSome and columns.isSome
+        # Block has neither blob sidecar nor data column sidecar
+        if blobs.isNone and columns.isNone:
+          debug "Loaded parent block from storage", parent_root
+          self[].enqueueBlock(
+            MsgSource.gossip, parentBlck.unsafeGet().asSigned(), Opt.none(BlobSidecars),
+            Opt.none(DataColumnSidecars))
+        # Block has blob sidecars associated and NO data column sidecars
+        # as they cannot co-exist.
+        if blobsOk and blobs.isSome:
+          debug "Loaded parent block from storage", parent_root
+          self[].enqueueBlock(
+            MsgSource.gossip, parentBlck.unsafeGet().asSigned(), blobs,
+            Opt.none(DataColumnSidecars))
+        # Block has data column sidecars associated and NO blob sidecars
+        # as they cannot co-exist.
+        if columnsOk and columns.isSome:
           debug "Loaded parent block from storage", parent_root
           self[].enqueueBlock(
             MsgSource.gossip, parentBlck.unsafeGet().asSigned(), Opt.none(BlobSidecars),
@@ -706,10 +718,26 @@ proc storeBlock(
 
   let newPayloadTick = Moment.now()
 
+  when typeof(signedBlock).kind >= ConsensusFork.Fulu:
+    if dataColumnsOpt.isSome:
+      let columns = dataColumnsOpt.get()
+      let kzgCommits = signedBlock.message.body.blob_kzg_commitments.asSeq
+      if columns.len > 0 and kzgCommits.len > 0:
+        for i in 0..<columns.len:
+          let r =
+            verify_data_column_sidecar_kzg_proofs(columns[i][])
+          if r.isErr:
+            debug "data column validation failed",
+              blockRoot = shortLog(signedBlock.root),
+              column_sidecar = shortLog(columns[i][]),
+              blck = shortLog(signedBlock.message),
+              signature = shortLog(signedBlock.signature),
+              msg = r.error()
+          return err((VerifierError.Invalid, ProcessingStatus.completed))
   # TODO with v1.4.0, not sure this is still relevant
   # Establish blob viability before calling addHeadBlock to avoid
   # writing the block in case of blob error.
-  when typeof(signedBlock).kind >= ConsensusFork.Deneb:
+  elif typeof(signedBlock).kind >= ConsensusFork.Deneb:
     if blobsOpt.isSome:
       let blobs = blobsOpt.get()
       let kzgCommits = signedBlock.message.body.blob_kzg_commitments.asSeq
@@ -724,24 +752,6 @@ proc storeBlock(
             kzgCommits = mapIt(kzgCommits, shortLog(it)),
             signature = shortLog(signedBlock.signature),
             msg = r.error()
-          return err((VerifierError.Invalid, ProcessingStatus.completed))
-
-  elif typeof(signedBlock).kind >= ConsensusFork.Fulu:
-    if dataColumnsOpt.isSome:
-      let columns = dataColumnsOpt.get()
-      let kzgCommits = signedBlock.message.body.blob_kzg_commitments.asSeq
-      if columns.len > 0 and kzgCommits.len > 0:
-        for i in 0..<columns.len:
-          let r =
-            verify_data_column_sidecar_kzg_proofs(columns[i][])
-          if r.isErr:
-            malformed_cols.add(i)
-            debug "data column validation failed",
-              blockRoot = shortLog(signedBlock.root),
-              column_sidecar = shortLog(columns[i][]),
-              blck = shortLog(signedBlock.message),
-              signature = shortLog(signedBlock.signature),
-              msg = r.error()
           return err((VerifierError.Invalid, ProcessingStatus.completed))
 
   type Trusted = typeof signedBlock.asTrusted()
@@ -939,14 +949,37 @@ proc storeBlock(
         self[].enqueueBlock(
           MsgSource.gossip, quarantined, Opt.none(BlobSidecars),
           Opt.none(DataColumnSidecars))
-      else:
+      elif typeof(forkyBlck).kind >= ConsensusFork.Fulu:
         if len(forkyBlck.message.body.blob_kzg_commitments) == 0:
           self[].enqueueBlock(
             MsgSource.gossip, quarantined, Opt.some(BlobSidecars @[]),
             Opt.some(DataColumnSidecars @[]))
         else:
-          if (let res = checkBloblessSignature(self[], forkyBlck); res.isErr):
+          if (let res = checkBlobOrColumnlessSignature(self[],
+                                                       forkyBlck);
+                                                       res.isErr):
             warn "Failed to verify signature of unorphaned blobless block",
+             blck = shortLog(forkyBlck),
+             error = res.error()
+            continue
+          if self.dataColumnQuarantine[].hasMissingDataColumns(forkyBlck):
+            let columns = self.dataColumnQuarantine[].popDataColumns(
+              forkyBlck.root, forkyBlck)
+            self[].enqueueBlock(MsgSource.gossip, quarantined, Opt.none(BlobSidecars),
+                                Opt.some(columns))
+          else:
+            discard self.consensusManager.quarantine[].addBlobless(
+              dag.finalizedHead.slot, forkyBlck)
+      elif typeof(forkyBlck).kind >= ConsensusFork.Deneb:
+        if len(forkyBlck.message.body.blob_kzg_commitments) == 0:
+          self[].enqueueBlock(
+            MsgSource.gossip, quarantined, Opt.some(BlobSidecars @[]),
+            Opt.some(DataColumnSidecars @[]))
+        else:
+          if (let res = checkBlobOrColumnlessSignature(self[],
+                                                       forkyBlck);
+                                                       res.isErr):
+            warn "Failed to verify signature of unorphaned columnless block",
              blck = shortLog(forkyBlck),
              error = res.error()
             continue
@@ -958,6 +991,7 @@ proc storeBlock(
           else:
             discard self.consensusManager.quarantine[].addBlobless(
               dag.finalizedHead.slot, forkyBlck)
+
 
   ok blck.value()
 
