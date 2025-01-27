@@ -496,7 +496,8 @@ proc initFullNode(
             await blockProcessor[].addBlock(MsgSource.gossip, signedBlock,
                                       Opt.none(BlobSidecars), Opt.some(dataColumns),
                                       maybeFinalized = maybeFinalized)
-        elif consensusFork >= ConsensusFork.Deneb:
+        elif consensusFork >= ConsensusFork.Deneb and
+            consensusFork < ConsensusFork.Fulu:
           if not blobQuarantine[].hasBlobs(forkyBlck):
             # We don't have all the blobs for this block, so we have
             # to put it in blobless quarantine.

@@ -234,7 +234,8 @@ proc storeBackfillBlock(
   # Establish blob viability before calling addbackfillBlock to avoid
   # writing the block in case of blob error.
   var blobsOk = true
-  when typeof(signedBlock).kind >= ConsensusFork.Deneb:
+  when typeof(signedBlock).kind >= ConsensusFork.Deneb and
+      typeof(signedBlock).kind < ConsensusFork.Fulu:
     if blobsOpt.isSome:
       let blobs = blobsOpt.get()
       let kzgCommits = signedBlock.message.body.blob_kzg_commitments.asSeq
@@ -616,7 +617,8 @@ proc storeBlock(
         var blobsOk = true
         let blobs =
           withBlck(parentBlck.get()):
-            when consensusFork >= ConsensusFork.Deneb:
+            when consensusFork >= ConsensusFork.Deneb and
+                consensusFork < ConsensusFork.Fulu:
               var blob_sidecars: BlobSidecars
               for i in 0 ..< forkyBlck.message.body.blob_kzg_commitments.len:
                 let blob = BlobSidecar.new()
