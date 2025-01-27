@@ -14,7 +14,7 @@ import
   web3/primitives as web3types,
   chronicles,
   eth/common/eth_types_json_serialization,
-  ../spec/[eth2_ssz_serialization, forks]
+  ../spec/[eth2_ssz_serialization, forks, defects]
 
 from std/sequtils import deduplicate, filterIt, mapIt
 from std/strutils import
@@ -353,17 +353,18 @@ proc getMetadataForNetwork*(networkName: string): Eth2NetworkMetadata =
         let res = loadEth2NetworkMetadata(networkName)
         res.valueOr:
           fatal "The selected network is not compatible with the current build",
-            reason = res.error
-          quit 1
+                reason = res.error
+          raiseMetadataDefect()
       except IOError as exc:
-        fatal "Cannot load network: IOError", msg = exc.msg, networkName
-        quit 1
+        fatal "Cannot load network: IOError", reason = exc.msg, networkName
+        raiseMetadataDefect()
       except PresetFileError as exc:
-        fatal "Cannot load network: PresetFileError", msg = exc.msg, networkName
-        quit 1
+        fatal "Cannot load network: PresetFileError", reason = exc.msg,
+              networkName
+        raiseMetadataDefect()
     else:
       fatal "config.yaml not found for network", networkName
-      quit 1
+      raiseMetadataDefect()
 
   if networkName in ["goerli", "prater"]:
     warn "Goerli is deprecated and unsupported; https://blog.ethereum.org/2023/11/30/goerli-lts-update suggests migrating to Holesky or Sepolia"

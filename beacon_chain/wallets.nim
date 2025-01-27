@@ -9,6 +9,7 @@
 
 import
   std/os,
+  ./spec/defects,
   ./validators/keystore_management,
   ./conf
 
@@ -20,18 +21,18 @@ proc doWallets*(config: BeaconNodeConf, rng: var HmacDrbgContext) {.
       let
         name = config.createdWalletNameFlag.get
         existingWallet = findWallet(config, name).valueOr:
-          fatal "Failed to locate wallet", error = error
-          quit 1
+          fatal "Failed to locate wallet", reason = error
+          raiseWalletsDefect()
       if existingWallet.isSome:
         echo "The Wallet '" & name.string & "' already exists."
-        quit 1
+        raiseWalletsDefect()
 
     let walletOpt = createWalletInteractively(rng, config).valueOr:
-      fatal "Unable to create wallet", err = error
-      quit 1
+      fatal "Unable to create wallet", reason = error
+      raiseWalletsDefect()
     var wallet = walletOpt.valueOr:
       fatal "Process interrupted by user"
-      quit 1
+      raiseWalletsDefect()
     burnMem(wallet.seed)
 
   of WalletsCmd.list:

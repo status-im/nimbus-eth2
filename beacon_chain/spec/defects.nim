@@ -20,36 +20,38 @@ type
   DiscoveryDefect* = object of ExitProcessDefect
   ChainListDefect* = object of ExitProcessDefect
   OverseerDefect* = object of ExitProcessDefect
+  MetadataDefect* = object of ExitProcessDefect
+  LogDefect* = object of ExitProcessDefect
+  ConfigDefect* = object of ExitProcessDefect
+  KeymanagerDefect* = object of ExitProcessDefect
 
-template raiseDatabaseDefect*(message: string) =
-  raise (ref DatabaseDefect)(exitCode: 12, msg: message)
+  DepositsDefect* = object of ExitProcessDefect
+  TrustedSyncDefect* = object of ExitProcessDefect
+  WalletsDefect* = object of ExitProcessDefect
 
-template raiseSlashingDefect*(message: string) =
-  raise (ref SlashingDefect)(exitCode: 13, msg: message)
+template declareExitHelpers(defect, code: untyped): untyped =
+  template `raise defect`*() =
+    raise (ref defect)(exitCode: code, msg: "")
+  template `raise defect`*(message: string) =
+    raise (ref defect)(exitCode: code, msg: message)
 
-template raiseClearanceDefect*(message: string) =
-  raise (ref ClearanceDefect)(exitCode: 14, msg: message)
-
-template raiseStrictDefect*(message: string) =
-  raise (ref StrictDefect)(exitCode: 15, msg: message)
-
-template raiseDagDefect*(message: string) =
-  raise (ref DagDefect)(exitCode: 16, msg: message)
-
-template raiseKeystoreDefect*(message: string) =
-  raise (ref KeystoreDefect)(exitCode: 17, msg: message)
-
-template raiseProcessorDefect*(message: string) =
-  raise (ref ProcessorDefect)(exitCode: 18, msg: message)
-
-template raiseDiscoveryDefect*(message: string) =
-  raise (ref DiscoveryDefect)(exitCode: 19, msg: message)
-
-template raiseChainListDefect*(message: string) =
-  raise (ref ChainListDefect)(exitCode: 20, msg: message)
-
-template raiseOverseerDefect*(message: string) =
-  raise (ref OverseerDefect)(exitCode: 21, msg: message)
-
-template raiseNetworkDefect*(message: string) =
-  raise (ref NetworkDefect)(exitCode: 22, msg: message)
+# Submodules exits
+declareExitHelpers(DatabaseDefect, 12)
+declareExitHelpers(SlashingDefect, 13)
+declareExitHelpers(NetworkDefect, 14)
+declareExitHelpers(ClearanceDefect, 15)
+declareExitHelpers(StrictDefect, 16)
+declareExitHelpers(DagDefect, 17)
+declareExitHelpers(KeystoreDefect, 18)
+declareExitHelpers(ProcessorDefect, 19)
+declareExitHelpers(DiscoveryDefect, 20)
+declareExitHelpers(ChainListDefect, 21)
+declareExitHelpers(OverseerDefect, 22)
+declareExitHelpers(LogDefect, 23)
+declareExitHelpers(ConfigDefect, 24)
+declareExitHelpers(KeymanagerDefect, 25)
+declareExitHelpers(MetadataDefect, 26)
+# Modules exits
+declareExitHelpers(DepositsDefect, 30)
+declareExitHelpers(TrustedSyncDefect, 31)
+declareExitHelpers(WalletsDefect, 32)

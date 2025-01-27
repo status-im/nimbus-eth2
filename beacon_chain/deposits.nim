@@ -12,7 +12,7 @@ import
   stew/[byteutils, base10],
   chronicles,
   ./spec/eth2_apis/rest_beacon_client,
-  ./spec/signatures,
+  ./spec/[signatures, defects],
   ./validators/keystore_management,
   "."/[conf, beacon_clock, filepath]
 
@@ -58,7 +58,7 @@ proc getSignedExitMessage(
         echo "The validator keystores directory '" & validatorsDir &
              "' does not contain a keystore for the selected validator " &
              "with public key '" & validatorKeyAsStr & "'."
-        quit 1
+        raiseDepositsDefect()
 
       let signingItem = loadKeystore(
         validatorsDir,
@@ -69,7 +69,7 @@ proc getSignedExitMessage(
 
       if signingItem.isNone:
         fatal "Unable to continue without decrypted signing key"
-        quit 1
+        raiseDepositsDefect()
 
       signingItem.get().privateKey
 
@@ -101,7 +101,7 @@ proc askForExitConfirmation(): ClientExitAction =
       stdin.readLine()
     except IOError:
       fatal "Failed to read user input from stdin"
-      quit 1
+      raiseDepositsDefect()
 
   echoP "PLEASE BEWARE!"
 
@@ -188,7 +188,7 @@ proc restValidatorExit(config: BeaconNodeConf) {.async.} =
       let validatorStorage = decryptor.getValidator(pubkey).valueOr:
         fatal "Incorrect validator index, key or keystore path specified",
               value = pubkey, reason = error
-        quit 1
+        raiseDepositsDefect()
       validators.add validatorStorage
 
   let genesis = try:
@@ -205,13 +205,13 @@ proc restValidatorExit(config: BeaconNodeConf) {.async.} =
   except CatchableError as exc:
     fatal "Failed to obtain the genesis validators root of the network",
            reason = exc.msg
-    quit 1
+    raiseDepositsDefect()
 
   let currentEpoch = block:
     let
       beaconClock = BeaconClock.init(genesis.genesis_time).valueOr:
-        error "Server returned invalid genesis time", genesis
-        quit 1
+        fatal "Server returned invalid genesis time", genesis
+        raiseDepositsDefect()
 
       time = getTime()
       slot = beaconClock.toSlot(time).slot
@@ -236,7 +236,7 @@ proc restValidatorExit(config: BeaconNodeConf) {.async.} =
   except CatchableError as exc:
     fatal "Failed to obtain the fork id of the head state",
            reason = exc.msg
-    quit 1
+    raiseDepositsDefect()
 
   # https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.8/specs/phase0/beacon-chain.md#voluntary-exits
   # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.0/specs/deneb/beacon-chain.md#modified-process_voluntary_exit
@@ -267,7 +267,7 @@ proc restValidatorExit(config: BeaconNodeConf) {.async.} =
   except CatchableError as exc:
     fatal "Failed to obtain the config spec of the beacon node",
            reason = exc.msg
-    quit 1
+    raiseDepositsDefect()
 
   debug "Signing fork obtained", fork, signingFork
 
@@ -293,7 +293,7 @@ proc restValidatorExit(config: BeaconNodeConf) {.async.} =
         raiseGenericError(response)
     except CatchableError as exc:
       fatal "Failed to obtain information for validator", reason = exc.msg
-      quit 1
+      raiseDepositsDefect()
 
     let
       validatorIdx = restValidator.index.uint64
@@ -360,7 +360,7 @@ proc restValidatorExit(config: BeaconNodeConf) {.async.} =
         hadErrors = true
 
   if hadErrors:
-    quit 1
+    raiseDepositsDefect()
 
 proc handleValidatorExitCommand(config: BeaconNodeConf) {.async.} =
   await restValidatorExit(config)
@@ -371,10 +371,10 @@ proc doDeposits*(config: BeaconNodeConf, rng: var HmacDrbgContext) {.
   of DepositsCmd.createTestnetDeposits:
     if config.eth2Network.isNone:
       fatal "Please specify the intended testnet for the deposits"
-      quit 1
+      raiseDepositsDefect()
     let metadata = config.loadEth2Network().valueOr:
       fatal "Unable to get network metadata", reason = error
-      quit 1
+      raiseDepositsDefect()
     var seed: KeySeed
     defer: burnMem(seed)
     var walletPath: WalletPathPair
@@ -384,27 +384,27 @@ proc doDeposits*(config: BeaconNodeConf, rng: var HmacDrbgContext) {.
         id = config.existingWalletId.get
         found = findWallet(config, id).valueOr:
           fatal "Failed to locate wallet", error = error
-          quit 1
+          raiseDepositsDefect()
 
       if found.isSome:
         walletPath = found.get
       else:
         fatal "Unable to find wallet with the specified name/uuid", id
-        quit 1
+        raiseDepositsDefect()
 
       var unlocked = unlockWalletInteractively(walletPath.wallet)
       if unlocked.isOk:
         swap(seed, unlocked.get)
       else:
         # The failure will be reported in `unlockWalletInteractively`.
-        quit 1
+        raiseDepositsDefect()
     else:
       let walletOpt = createWalletInteractively(rng, config).valueOr:
         fatal "Unable to create wallet", reason = error
-        quit 1
+        raiseDepositsDefect()
       var wallet = walletOpt.valueOr:
         fatal "Process interrupted by user"
-        quit 1
+        raiseDepositsDefect()
       swap(seed, wallet.seed)
       walletPath = wallet.walletPath
 
@@ -431,7 +431,7 @@ proc doDeposits*(config: BeaconNodeConf, rng: var HmacDrbgContext) {.
 
     if deposits.isErr:
       fatal "Failed to generate deposits", err = deposits.error
-      quit 1
+      raiseDepositsDefect()
 
     try:
       let depositDataPath = if config.outDepositsFile.isSome:
@@ -451,14 +451,14 @@ proc doDeposits*(config: BeaconNodeConf, rng: var HmacDrbgContext) {.
         fatal "Failed to update wallet file after generating deposits",
                 wallet = walletPath.path,
                 error = status.error
-        quit 1
+        raiseDepositsDefect()
     except CatchableError as err:
       fatal "Failed to create launchpad deposit data file", err = err.msg
-      quit 1
+      raiseDepositsDefect()
   #[
   of DepositsCmd.status:
     echo "The status command is not implemented yet"
-    quit 1
+    raiseDepositsDefect()
   ]#
 
   of DepositsCmd.`import`:
@@ -474,7 +474,7 @@ proc doDeposits*(config: BeaconNodeConf, rng: var HmacDrbgContext) {.
               " Since no such directory exists, please either provide the " &
               "correct path as an argument or copy the imported keys in the " &
               "expected location."
-        quit 1
+        raiseDepositsDefect()
 
     importKeystoresFromDir(
       rng, config.importMethod,

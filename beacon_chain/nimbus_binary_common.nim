@@ -19,7 +19,7 @@ import
   stew/io2,
 
   # Local modules
-  ./spec/[helpers, keystore],
+  ./spec/[helpers, keystore, defects],
   ./spec/datatypes/base,
   "."/[beacon_clock, beacon_node_status, conf, conf_common, version]
 
@@ -199,7 +199,7 @@ proc setupLogging*(
       stderr.write "Invalid value for --log-level. " & err.msg
     except IOError:
       echo "Invalid value for --log-level. " & err.msg
-    quit 1
+    raiseLogDefect()
 
 template makeBannerAndConfig*(clientId: string, ConfType: type): untyped =
   let
@@ -237,7 +237,7 @@ template makeBannerAndConfig*(clientId: string, ConfType: type): untyped =
                        "a properly formatted TOML array\n"
     except IOError:
       discard
-    quit 1
+    raiseConfigDefect()
   {.pop.}
   config
 
@@ -410,7 +410,7 @@ proc initKeymanagerServer*(
     if config.keymanagerTokenFile.isNone:
       echo "To enable the Keymanager API, you must also specify " &
            "the --keymanager-token-file option."
-      quit 1
+      raiseKeymanagerDefect()
 
     let
       tokenFilePath = config.keymanagerTokenFile.get.string
@@ -419,12 +419,12 @@ proc initKeymanagerServer*(
     if tokenFileReadRes.isErr:
       fatal "Failed to read the keymanager token file",
             error = $tokenFileReadRes.error
-      quit 1
+      raiseKeymanagerDefect()
 
     token = tokenFileReadRes.value.strip
     if token.len == 0:
       fatal "The keymanager token should not be empty", tokenFilePath
-      quit 1
+      raiseKeymanagerDefect()
 
     when config is BeaconNodeConf:
       if existingRestServer != nil and
