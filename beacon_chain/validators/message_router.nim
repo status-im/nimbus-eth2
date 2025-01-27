@@ -204,29 +204,29 @@ proc routeSignedBeaconBlock*(
         das_workers[i] =
           router[].network.broadcastDataColumnSidecar(subnet_id,
                                                       dataColumns[i])
-        let allres = await allFinished(das_workers)
-        for i in 0..<allres.len:
-          let res = allres[i]
-          doAssert res.finished()
-          if res.failed():
-            notice "Data columns not sent",
-              data_column = shortLog(dataColumns[i]), error = res.error[]
-          else:
-            notice "Data columns sent",
-              data_column = shortLog(dataColumns[i])
-        # Push only those columns to processor for which we custody
-        let
-          metadata = router[].network.metadata.custody_group_count.uint64
-          custody_columns =
-            router[].network.nodeId.resolve_columns_from_custody_groups(
-              max(SAMPLES_PER_SLOT.uint64,
-              metadata))
+      let allres = await allFinished(das_workers)
+      for i in 0..<allres.len:
+        let res = allres[i]
+        doAssert res.finished()
+        if res.failed():
+          notice "Data columns not sent",
+            data_column = shortLog(dataColumns[i]), error = res.error[]
+        else:
+          notice "Data columns sent",
+            data_column = shortLog(dataColumns[i])
+      # Push only those columns to processor for which we custody
+      let
+        metadata = router[].network.metadata.custody_group_count.uint64
+        custody_columns =
+          router[].network.nodeId.resolve_columns_from_custody_groups(
+            max(SAMPLES_PER_SLOT.uint64,
+            metadata))
 
-        var final_columns: seq[DataColumnSidecar]
-        for dc in dataColumns:
-          if dc.index in custody_columns:
-            final_columns.add dc
-        dataColumnRefs = Opt.some(final_columns.mapIt(newClone(it)))
+      var final_columns: seq[DataColumnSidecar]
+      for dc in dataColumns:
+        if dc.index in custody_columns:
+          final_columns.add dc
+      dataColumnRefs = Opt.some(final_columns.mapIt(newClone(it)))
 
   elif typeof(blck).kind >= ConsensusFork.Deneb:
     if blobsOpt.isSome():
