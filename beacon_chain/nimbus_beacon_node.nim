@@ -1359,6 +1359,9 @@ proc addFuluMessageHandlers(
     let topic = getDataColumnSidecarTopic(forkDigest, i)
     node.network.subscribe(topic, basicParams)
 
+  for topic in blobSidecarTopics(forkDigest):
+    node.network.unsubscribe(topic)
+
 proc removeAltairMessageHandlers(node: BeaconNode, forkDigest: ForkDigest) =
   node.removePhase0MessageHandlers(forkDigest)
 
@@ -2163,7 +2166,8 @@ proc installMessageValidators(node: BeaconNode) =
               await node.processor.processBlsToExecutionChange(
                 MsgSource.gossip, msg)))
 
-      when consensusFork >= ConsensusFork.Deneb:
+      when consensusFork >= ConsensusFork.Deneb and
+          consensusFork < ConsensusFork.Fulu:
         # blob_sidecar_{subnet_id}
         # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.5/specs/deneb/p2p-interface.md#blob_sidecar_subnet_id
         for it in BlobId:
