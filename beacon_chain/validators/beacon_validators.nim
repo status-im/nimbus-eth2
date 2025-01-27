@@ -715,14 +715,8 @@ proc getBlindedExecutionPayload[
           blob_kzg_commitments: builderBid.blob_kzg_commitments),
         executionRequests: Opt.none(ExecutionRequests),
         executionPayloadValue: builderBid.value))
-    elif EPH is electra_mev.BlindedExecutionPayloadAndBlobsBundle:
-      return ok(BuilderBid[EPH](
-        blindedBlckPart: EPH(
-          execution_payload_header: builderBid.header,
-          blob_kzg_commitments: builderBid.blob_kzg_commitments),
-        executionRequests: Opt.some(builderBid.execution_requests),
-        executionPayloadValue: builderBid.value))
-    elif EPH is fulu_mev.BlindedExecutionPayloadAndBlobsBundle:
+    elif EPH is electra_mev.BlindedExecutionPayloadAndBlobsBundle or
+        EPH is fulu_mev.BlindedExecutionPayloadAndBlobsBundle:
       return ok(BuilderBid[EPH](
         blindedBlckPart: EPH(
           execution_payload_header: builderBid.header,
@@ -998,7 +992,6 @@ proc getBlindedBlockParts[
     copyFields(
       shimExecutionPayload.executionPayload, actualEPH, getFieldNames(DenebEPH))
   elif EPH is electra_mev.BlindedExecutionPayloadAndBlobsBundle:
-    debugComment "verify (again, after change) this is what builder API needs"
     type PayloadType = electra.ExecutionPayloadForSigning
     template actualEPH: untyped =
       blindedBlockRes.get.blindedBlckPart.execution_payload_header
@@ -1102,13 +1095,8 @@ proc getBuilderBid[
       executionRequests: Opt.none(ExecutionRequests),
       executionPayloadValue: bidValue,
       consensusBlockValue: consensusValue))
-  elif SBBB is electra_mev.SignedBlindedBeaconBlock:
-   return ok(BuilderBid[SBBB](
-      blindedBlckPart: unsignedBlindedBlock.get,
-      executionRequests: Opt.some(execution_requests),
-      executionPayloadValue: bidValue,
-      consensusBlockValue: consensusValue))
-  elif SBBB is fulu_mev.SignedBlindedBeaconBlock:
+  elif SBBB is electra_mev.SignedBlindedBeaconBlock or
+      SBBB is fulu_mev.SignedBlindedBeaconBlock:
    return ok(BuilderBid[SBBB](
       blindedBlckPart: unsignedBlindedBlock.get,
       executionRequests: Opt.some(execution_requests),
