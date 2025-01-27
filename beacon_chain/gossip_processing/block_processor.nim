@@ -28,7 +28,7 @@ from ../consensus_object_pools/block_dag import BlockRef, root, shortLog, slot
 from ../consensus_object_pools/block_pools_types import
   EpochRef, VerifierError
 from ../consensus_object_pools/block_quarantine import
-  addBlobless, addOrphan, addUnviable, pop, removeOrphan
+  addBlobless, addColumnless, addOrphan, addUnviable, pop, removeOrphan
 from ../consensus_object_pools/blob_quarantine import
   BlobQuarantine, hasBlobs, popBlobs, put
 from ../consensus_object_pools/data_column_quarantine import
@@ -970,9 +970,10 @@ proc storeBlock(
             self[].enqueueBlock(MsgSource.gossip, quarantined, Opt.none(BlobSidecars),
                                 Opt.some(columns))
           else:
-            discard self.consensusManager.quarantine[].addBlobless(
+            discard self.consensusManager.quarantine[].addColumnless(
               dag.finalizedHead.slot, forkyBlck)
-      elif typeof(forkyBlck).kind >= ConsensusFork.Deneb:
+      elif typeof(forkyBlck).kind >= ConsensusFork.Deneb and
+          typeof(forkyBlck).kind < ConsensusFork.Fulu:
         if len(forkyBlck.message.body.blob_kzg_commitments) == 0:
           self[].enqueueBlock(
             MsgSource.gossip, quarantined, Opt.some(BlobSidecars @[]),
