@@ -1581,7 +1581,7 @@ A shout out to our great community for reporting and helping diagnose the issues
 * Improve Bellatrix block processing performance
   [#4085](https://github.com/status-im/nimbus-eth2/pull/4085) and [#4082](https://github.com/status-im/nimbus-eth2/pull/4082)
 
-* Optimize execution layer calls when not producing blocks, improving Besu performance and compatiblity
+* Optimize execution layer calls when not producing blocks, improving Besu performance and compatibility
   [#4055](https://github.com/status-im/nimbus-eth2/pull/4055)
 
 * Revise timing of execution layer configuration call, resolving warnings that no consensus client is present on Geth and Besu
