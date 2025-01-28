@@ -2372,40 +2372,6 @@ func upgrade_to_fulu*(
     # pending_consolidations are default empty lists
   )
 
-  post.exit_balance_to_consume =
-    get_activation_exit_churn_limit(cfg, post[], cache)
-  post.consolidation_balance_to_consume =
-    get_consolidation_churn_limit(cfg, post[], cache)
-
-  # [New in Electra:EIP7251]
-  # add validators that are not yet active to pending balance deposits
-  var pre_activation: seq[(Epoch, uint64)]
-  for index, validator in post.validators:
-    if validator.activation_epoch == FAR_FUTURE_EPOCH:
-      pre_activation.add((validator.activation_eligibility_epoch, index.uint64))
-  sort(pre_activation)
-
-  for (_, index) in pre_activation:
-    let balance = post.balances.item(index)
-    post.balances[index] = 0.Gwei
-    let validator = addr post.validators.mitem(index)
-    validator[].effective_balance = 0.Gwei
-    validator[].activation_eligibility_epoch = FAR_FUTURE_EPOCH
-    # Use bls.G2_POINT_AT_INFINITY as a signature field placeholder and
-    # GENESIS_SLOT to distinguish from a pending deposit request
-    discard post.pending_deposits.add PendingDeposit(
-      pubkey: validator[].pubkey,
-      withdrawal_credentials: validator[].withdrawal_credentials,
-      amount: balance,
-      signature: ValidatorSig.infinity,
-      slot: GENESIS_SLOT)
-
-  # Ensure early adopters of compounding credentials go through the activation
-  # churn
-  for index, validator in post.validators:
-    if has_compounding_withdrawal_credential(validator):
-      queue_excess_active_balance(post[], index.uint64)
-
   post
 
 func latest_block_root*(state: ForkyBeaconState, state_root: Eth2Digest):
