@@ -2358,13 +2358,13 @@ func upgrade_to_fulu*(
     historical_summaries: pre.historical_summaries,
 
     # [New in Electra:EIP6110]
-    deposit_requests_start_index: UNSET_DEPOSIT_REQUESTS_START_INDEX,
+    deposit_requests_start_index: pre.deposit_requests_start_index,
 
     # [New in Electra:EIP7251]
-    deposit_balance_to_consume: 0.Gwei,
-    exit_balance_to_consume: 0.Gwei,
-    earliest_exit_epoch: earliest_exit_epoch,
-    consolidation_balance_to_consume: 0.Gwei,
+    deposit_balance_to_consume: pre.deposit_balance_to_consume,
+    exit_balance_to_consume: pre.exit_balance_to_consume,
+    earliest_exit_epoch: pre.earliest_exit_epoch,
+    consolidation_balance_to_consume: pre.consolidation_balance_to_consume,
     earliest_consolidation_epoch:
       compute_activation_exit_epoch(get_current_epoch(pre))
 
