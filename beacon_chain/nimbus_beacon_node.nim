@@ -1366,7 +1366,7 @@ proc addElectraMessageHandlers(
 
 proc addFuluMessageHandlers(
     node: BeaconNode, forkDigest: ForkDigest, slot: Slot) =
-  node.addElectraMessageHandlers(forkDigest, slot)
+  node.addCapellaMessageHandlers(forkDigest, slot)
   let
     targetSubnets = node.readCustodyGroupSubnets()
     custody = node.network.nodeId.get_custody_groups(max(SAMPLES_PER_SLOT.uint64,
@@ -1401,6 +1401,14 @@ proc removeElectraMessageHandlers(node: BeaconNode, forkDigest: ForkDigest) =
 
 proc removeFuluMessageHandlers(node: BeaconNode, forkDigest: ForkDigest) =
   node.removeElectraMessageHandlers(forkDigest)
+  let
+    targetSubnets = node.readCustodyGroupSubnets()
+    custody = node.network.nodeId.get_custody_groups(max(SAMPLES_PER_SLOT.uint64,
+                                                     targetSubnets.uint64))
+
+  for i in custody:
+    let topic = getDataColumnSidecarTopic(forkDigest, i)
+    node.network.unsubscribe(topic)
 
 proc updateSyncCommitteeTopics(node: BeaconNode, slot: Slot) =
   template lastSyncUpdate: untyped =
