@@ -223,7 +223,8 @@ proc routeSignedBeaconBlock*(
           final_columns.add dc
       dataColumnRefs = Opt.some(final_columns.mapIt(newClone(it)))
 
-  elif typeof(blck).kind >= ConsensusFork.Deneb:
+  elif typeof(blck).kind >= ConsensusFork.Deneb and
+      typeof(blck).kind < ConsensusFork.Fulu:
     if blobsOpt.isSome():
       let blobs = blobsOpt.get()
       var workers = newSeq[Future[SendResult]](blobs.len)
