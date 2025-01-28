@@ -115,8 +115,8 @@ proc routeSignedBeaconBlock*(
         signature = shortLog(blck.signature), error = res.error()
       return err($(res.error()[1]))
 
-    # May not be required as we are already
-    # KZG verifying the blobs once
+    # # May not be required as we are already
+    # # KZG verifying the blobs once
     # when typeof(blck).kind >= ConsensusFork.Fulu:
     #   if blobsOpt.isSome:
     #     let
@@ -125,7 +125,7 @@ proc routeSignedBeaconBlock*(
     #                                           blobsOpt.get.mapIt(
     #                                           KzgBlob(bytes: it.blob)))
     #     let kzgCommits =
-    #       signedBlock.message.body.blob_kzg_commitments.asSeq
+    #       blck.message.body.blob_kzg_commitments.asSeq
     #     if dataColumns[].get().len > 0 and kzgCommits.len > 0:
     #       for i in 0..<dataColumns[].len:
     #         let r
