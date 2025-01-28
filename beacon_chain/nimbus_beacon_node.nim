@@ -478,24 +478,39 @@ proc initFullNode(
       withBlck(signedBlock):
         # Keeping Fulu first else >= Deneb means Fulu case never hits
         when consensusFork >= ConsensusFork.Fulu:
-          if not dataColumnQuarantine[].supernode and
-              not dataColumnQuarantine[].hasMissingDataColumns(forkyBlck):
+          let
+            accumulatedDataColumns = dataColumnQuarantine[].gatherDataColumns(forkyBlck.root)
+
+          if dataColumnQuarantine[].supernode and
+              accumulatedDataColumns.len <= dataColumnQuarantine[].custody_columns.len:
+            # We don't have the requisite number of data columns for this block yet,
+            # so we have put in columnless quarantine as a supernode
             if not quarantine[].addColumnless(dag.finalizedHead.slot, forkyBlck):
               return err(VerifierError.UnviableFork)
             else:
               return err(VerifierError.MissingParent)
+
+          elif not dataColumnQuarantine[].supernode and
+              accumulatedDataColumns.len <= dataColumnQuarantine[].custody_columns.len:
+            # We don't have the requisite number of data columns for this block yet,
+            # so we have put in columnless quarantine as fullnode
+            if not quarantine[].addColumnless(dag.finalizedHead.slot, forkyBlck):
+              return err(VerifierError.UnviableFork)
+            else:
+              return err(VerifierError.MissingParent)
+
           elif dataColumnQuarantine[].supernode and
-              not dataColumnQuarantine[].hasEnoughDataColumns(forkyBlck):
-            if not quarantine[].addColumnless(dag.finalizedHead.slot, forkyBlck):
-              return err(VerifierError.UnviableFork)
-            else:
-              return err(VerifierError.MissingParent)
-          else:
-            let dataColumns = dataColumnQuarantine[].popDataColumns(forkyBlck.root,
-                                                                forkyBlck)
+              accumulatedDataColumns.len >= (dataColumnQuarantine[].custody_columns.len div 2):
+            # We have seen 50%+ data columns, we can attempt to add this block
+            let dataColumns = dataColumnQuarantine[].popDataColumns(forkyBlck.root, forkyBlck)
             await blockProcessor[].addBlock(MsgSource.gossip, signedBlock,
-                                      Opt.none(BlobSidecars), Opt.some(dataColumns),
-                                      maybeFinalized = maybeFinalized)
+                                             Opt.none(BlobSidecars), Opt.some(dataColumns),
+                                             maybeFinalized = maybeFinalized)
+
+          else:
+            return await blockProcessor[].addBlock(MsgSource.gossip, signedBlock,
+                                             Opt.none(BlobSidecars), Opt.none(DataColumnSidecars),
+                                             maybeFinalized = maybeFinalized)
         elif consensusFork >= ConsensusFork.Deneb and
             consensusFork < ConsensusFork.Fulu:
           if not blobQuarantine[].hasBlobs(forkyBlck):
@@ -1360,9 +1375,6 @@ proc addFuluMessageHandlers(
     let topic = getDataColumnSidecarTopic(forkDigest, i)
     node.network.subscribe(topic, basicParams)
 
-  for topic in blobSidecarTopics(forkDigest):
-    node.network.unsubscribe(topic)
-
 proc removeAltairMessageHandlers(node: BeaconNode, forkDigest: ForkDigest) =
   node.removePhase0MessageHandlers(forkDigest)
 
@@ -2221,6 +2233,9 @@ proc run(node: BeaconNode) {.raises: [CatchableError].} =
 
   node.startLightClient()
   node.requestManager.start()
+  if node.network.getBeaconTime().slotOrZero.epoch >=
+      node.network.cfg.FULU_FORK_EPOCH:
+    node.requestManager.switchToColumnLoop()
   node.syncOverseer.start()
 
   waitFor node.updateGossipStatus(wallSlot)
