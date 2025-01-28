@@ -481,7 +481,12 @@ proc initFullNode(
           let
             accumulatedDataColumns = dataColumnQuarantine[].gatherDataColumns(forkyBlck.root)
 
-          if dataColumnQuarantine[].supernode and
+          if accumulatedColumns.len == 0:
+            # no data columns were sent for this post Fulu block, yet
+            return await blockProcessor[].addBlock(MsgSource.gossip, signedBlock,
+                                             Opt.none(BlobSidecars), Opt.none(DataColumnSidecars),
+                                             maybeFinalized = maybeFinalized)
+          elif dataColumnQuarantine[].supernode and
               accumulatedDataColumns.len <= dataColumnQuarantine[].custody_columns.len:
             # We don't have the requisite number of data columns for this block yet,
             # so we have put in columnless quarantine as a supernode
@@ -503,7 +508,7 @@ proc initFullNode(
               accumulatedDataColumns.len >= (dataColumnQuarantine[].custody_columns.len div 2):
             # We have seen 50%+ data columns, we can attempt to add this block
             let dataColumns = dataColumnQuarantine[].popDataColumns(forkyBlck.root, forkyBlck)
-            await blockProcessor[].addBlock(MsgSource.gossip, signedBlock,
+            return await blockProcessor[].addBlock(MsgSource.gossip, signedBlock,
                                              Opt.none(BlobSidecars), Opt.some(dataColumns),
                                              maybeFinalized = maybeFinalized)
 
