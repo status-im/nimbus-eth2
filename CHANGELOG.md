@@ -1,4 +1,4 @@
-2024-01-28 v25.1.0
+2025-01-28 v25.1.0
 ==================
 
 Nimbus `v25.1.0` is a `medium-urgency` release with a gas limit increase, along with beacon API and security fixes.
