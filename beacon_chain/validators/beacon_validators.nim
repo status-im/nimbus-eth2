@@ -459,7 +459,7 @@ proc makeBeaconBlockForHeadAndSlot*(
     execution_payload_root: Opt[Eth2Digest],
     withdrawals_root: Opt[Eth2Digest],
     kzg_commitments: Opt[KzgCommitments],
-    execution_requests: ExecutionRequests):
+    execution_requests: Opt[ExecutionRequests]):
     Future[ForkedBlockResult] {.async: (raises: [CancelledError]).} =
   # Advance state to the slot that we're proposing for
   var cache = StateCache()
@@ -634,7 +634,7 @@ proc makeBeaconBlockForHeadAndSlot*(
     execution_payload_root = Opt.none(Eth2Digest),
     withdrawals_root = Opt.none(Eth2Digest),
     kzg_commitments = Opt.none(KzgCommitments),
-    execution_requests = static(default(ExecutionRequests)))
+    execution_requests = Opt.none(ExecutionRequests))
 
 proc getBlindedExecutionPayload[
     EPH: deneb_mev.BlindedExecutionPayloadAndBlobsBundle |
@@ -986,7 +986,7 @@ proc getBlindedBlockParts[
       withdrawals_root = Opt.some actualEPH.withdrawals_root
       kzg_commitments = Opt.some(
         blindedBlockRes.get.blindedBlckPart.blob_kzg_commitments)
-      execution_requests = blindedBlockRes.get.executionRequests.get
+      execution_requests = Opt.none ExecutionRequests
 
     var shimExecutionPayload: PayloadType
     type DenebEPH =
@@ -1001,7 +1001,8 @@ proc getBlindedBlockParts[
       withdrawals_root = Opt.some actualEPH.withdrawals_root
       kzg_commitments = Opt.some(
         blindedBlockRes.get.blindedBlckPart.blob_kzg_commitments)
-      execution_requests = blindedBlockRes.get.executionRequests.get
+      execution_requests = Opt.some(
+        blindedBlockRes.get.executionRequests.get)
 
     var shimExecutionPayload: PayloadType
     type ElectraEPH =
@@ -1017,7 +1018,8 @@ proc getBlindedBlockParts[
       withdrawals_root = Opt.some actualEPH.withdrawals_root
       kzg_commitments = Opt.some(
         blindedBlockRes.get.blindedBlckPart.blob_kzg_commitments)
-      execution_requests = blindedBlockRes.get.executionRequests.get
+      execution_requests = Opt.some(
+        blindedBlockRes.get.executionRequests.get)
 
     var shimExecutionPayload: PayloadType
     type FuluEPH =
