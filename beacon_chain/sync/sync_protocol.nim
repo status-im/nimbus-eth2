@@ -368,7 +368,7 @@ p2pProtocol BeaconSync(version = 1,
     #      are `not-nil` in the implementation
     getBlobSidecarsByRange(
       "1", peer, peer.networkState.dag, response, startSlot, reqCount,
-      MAX_BLOBS_PER_BLOCK, MAX_REQUEST_BLOB_SIDECARS_ELECTRA)
+      MAX_BLOBS_PER_BLOCK_ELECTRA, MAX_REQUEST_BLOB_SIDECARS_ELECTRA)
 
   # https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.10/specs/fulu/p2p-interface.md#datacolumnsidecarsbyroot-v1
   proc dataColumnSidecarsByRoot(
