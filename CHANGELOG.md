@@ -1,3 +1,30 @@
+2024-01-28 v25.1.0
+==================
+
+Nimbus `v25.1.0` is a `medium-urgency` release with a gas limit increase, along with beacon API and security fixes.
+
+### Improvements
+
+* Increase builder API default gas limit to 36M:
+  https://github.com/status-im/nimbus-eth2/pull/6763
+
+### Fixes
+
+* With multiple execution clients, wait for valid block response before concluding block is not valid:
+  https://github.com/status-im/nimbus-eth2/pull/6812
+
+* Fix Docker image regression from v24.11.0 which could prevent starting beacon node:
+  https://github.com/status-im/nimbus-eth2/pull/6803
+
+* Fix validator voluntary exiting given potential discrepancies about future fork scheduling:
+  https://github.com/status-im/nimbus-eth2/pull/6811
+
+* Fix `sync_aggregate` value in `getBlockRewards` beacon API endpoint:
+  https://github.com/status-im/nimbus-eth2/pull/6829
+
+* Fix `last_seen_p2p_address` value in `getPeers` beacon API endpoint:
+  https://github.com/status-im/nimbus-eth2/pull/6595
+
 2024-12-12 v24.12.0
 ===================
 
