@@ -7,7 +7,7 @@
 
 type
   ExitProcessDefect* = object of Defect
-    exitCode*: int16
+    exitCode*: int8
 
   SuccessDefect* = object of ExitProcessDefect
   DatabaseDefect* = object of ExitProcessDefect
@@ -30,6 +30,9 @@ type
   TrustedSyncDefect* = object of ExitProcessDefect
   WalletsDefect* = object of ExitProcessDefect
   BeaconNodeDefect* = object of ExitProcessDefect
+  RecordDefect* = object of ExitProcessDefect
+  Web3CmdDefect* = object of ExitProcessDefect
+  SlashInterDefect* = object of ExitProcessDefect
 
 template declareExitHelpers(defect, code: untyped): untyped =
   template `raise defect`*() =
@@ -59,3 +62,15 @@ declareExitHelpers(DepositsDefect, 30)
 declareExitHelpers(TrustedSyncDefect, 31)
 declareExitHelpers(WalletsDefect, 32)
 declareExitHelpers(BeaconNodeDefect, 33)
+declareExitHelpers(RecordDefect, 34)
+declareExitHelpers(Web3CmdDefect, 35)
+declareExitHelpers(SlashInterDefect, 36)
+
+template withDefectsHandlers*(pbody, fbody: untyped) =
+  try:
+    pbody
+  except ExitProcessDefect as exc:
+    # This defects are already logged, so we just quit.
+    quit(exc.exitCode)
+  finally:
+    fbody

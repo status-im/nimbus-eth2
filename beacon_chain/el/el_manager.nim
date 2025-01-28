@@ -1987,26 +1987,34 @@ func `$`(x: Quantity): string =
 func `$`(x: BlockObject): string =
   $(x.number) & " [" & $(x.hash) & "]"
 
+proc writeOut*(s: string) =
+  try:
+    stdout.write s
+  except IOError:
+    discard
+
 proc testWeb3Provider*(
     web3Url: Uri,
     depositContractAddress: Eth1Address,
     jwtSecret: Opt[seq[byte]]
-): Future[int] {.async: (raises: [CatchableError]).} =
+): Future[int] {.async: (raises: [CancelledError]).} =
 
-  stdout.write "Establishing web3 connection..."
+  writeOut "Establishing web3 connection..."
   let web3 =
     try:
       await newWeb3($web3Url,
                     getJsonRpcRequestHeaders(jwtSecret)).wait(5.seconds)
+    except CancelledError as exc:
+      raise exc
     except CatchableError as exc:
-      stdout.write "\rEstablishing web3 connection: Failure(" & exc.msg & ")\n"
+      writeOut "\rEstablishing web3 connection: Failure(" & exc.msg & ")\n"
       return 1
 
-  stdout.write "\rEstablishing web3 connection: Connected\n"
+  writeOut "\rEstablishing web3 connection: Connected\n"
 
   template request(actionDesc: static string,
                    action: untyped): untyped =
-    stdout.write actionDesc & "..."
+    writeOut actionDesc & "..."
     stdout.flushFile()
     var res: typeof(read action)
     try:
@@ -2014,10 +2022,12 @@ proc testWeb3Provider*(
       res = await fut.wait(web3RequestsTimeout)
       when res is BlockObject:
         res = raiseIfNil res
-      stdout.write "\r" & actionDesc & ": " & $res
-    except CatchableError as err:
-      stdout.write "\r" & actionDesc & ": Error(" & err.msg & ")"
-    stdout.write "\n"
+      writeOut "\r" & actionDesc & ": " & $res
+    except CancelledError as exc:
+      raise exc
+    except CatchableError as exc:
+      writeOut "\r" & actionDesc & ": Error(" & exc.msg & ")"
+    writeOut "\n"
     res
 
   discard request "Chain ID":

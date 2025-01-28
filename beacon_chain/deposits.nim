@@ -157,7 +157,7 @@ func getIdent*(storage: ValidatorStorage): ValidatorIdent =
   of ValidatorStorageKind.Identifier:
     storage.ident
 
-proc restValidatorExit(config: BeaconNodeConf) {.async.} =
+proc restValidatorExit(config: BeaconNodeConf) {.async: (raises: []).} =
   let
     client =
       block:
@@ -168,7 +168,8 @@ proc restValidatorExit(config: BeaconNodeConf) {.async.} =
 
         RestClientRef.new(config.restUrlForExit, flags = flags,
                           socketFlags = socketFlags).valueOr:
-          raise (ref RestError)(msg: $error)
+          fatal "Unable to initialize REST client", reason = error
+          raiseDepositsDefect()
 
     stateIdHead = StateIdent(kind: StateQueryKind.Named,
                              value: StateIdentType.Head)
@@ -202,9 +203,11 @@ proc restValidatorExit(config: BeaconNodeConf) {.async.} =
       genesis.get().data
     else:
       raiseGenericError(response)
-  except CatchableError as exc:
+  except CancelledError:
+    return
+  except RestError as exc:
     fatal "Failed to obtain the genesis validators root of the network",
-           reason = exc.msg
+          reason = exc.msg
     raiseDepositsDefect()
 
   let currentEpoch = block:
@@ -233,7 +236,9 @@ proc restValidatorExit(config: BeaconNodeConf) {.async.} =
       fork.get().data
     else:
       raiseGenericError(response)
-  except CatchableError as exc:
+  except CancelledError:
+    return
+  except RestError as exc:
     fatal "Failed to obtain the fork id of the head state",
            reason = exc.msg
     raiseDepositsDefect()
@@ -264,7 +269,9 @@ proc restValidatorExit(config: BeaconNodeConf) {.async.} =
         fork, capellaForkVersion, currentEpoch, denebForkEpoch)
     else:
       raise newException(RestError, "Error response (" & $response.status & ")")
-  except CatchableError as exc:
+  except CancelledError:
+    return
+  except RestError as exc:
     fatal "Failed to obtain the config spec of the beacon node",
            reason = exc.msg
     raiseDepositsDefect()
@@ -291,7 +298,9 @@ proc restValidatorExit(config: BeaconNodeConf) {.async.} =
         validatorInfo.get().data
       else:
         raiseGenericError(response)
-    except CatchableError as exc:
+    except CancelledError:
+      return
+    except RestError as exc:
       fatal "Failed to obtain information for validator", reason = exc.msg
       raiseDepositsDefect()
 
@@ -354,19 +363,17 @@ proc restValidatorExit(config: BeaconNodeConf) {.async.} =
           for el in responseStacktraces.get():
             echo el
           echoP "Please try again."
-      except CatchableError as err:
+      except CancelledError:
+        return
+      except RestError as exc:
         fatal "Failed to send the signed exit message",
-              signedExit, reason = err.msg
+              signedExit, reason = exc.msg
         hadErrors = true
 
   if hadErrors:
     raiseDepositsDefect()
 
-proc handleValidatorExitCommand(config: BeaconNodeConf) {.async.} =
-  await restValidatorExit(config)
-
-proc doDeposits*(config: BeaconNodeConf, rng: var HmacDrbgContext) {.
-    raises: [CatchableError].} =
+proc doDeposits*(config: BeaconNodeConf, rng: var HmacDrbgContext) =
   case config.depositsCmd
   of DepositsCmd.createTestnetDeposits:
     if config.eth2Network.isNone:
@@ -465,8 +472,12 @@ proc doDeposits*(config: BeaconNodeConf, rng: var HmacDrbgContext) {.
     let validatorKeysDir = if config.importedDepositsDir.isSome:
       config.importedDepositsDir.get
     else:
-      let cwd = os.getCurrentDir()
-      if dirExists(cwd / "validator_keys"):
+      let cwd = io2.getCurrentDir().valueOr:
+        fatal "Unable to obtain current working directory",
+              reason = ioErrorMsg(error)
+        raiseDepositsDefect()
+
+      if isDir(cwd / "validator_keys"):
         InputDir(cwd / "validator_keys")
       else:
         echo "The default search path for validator keys is a sub-directory " &
@@ -482,4 +493,4 @@ proc doDeposits*(config: BeaconNodeConf, rng: var HmacDrbgContext) {.
       config.validatorsDir, config.secretsDir)
 
   of DepositsCmd.exit:
-    waitFor handleValidatorExitCommand(config)
+    waitFor restValidatorExit(config)

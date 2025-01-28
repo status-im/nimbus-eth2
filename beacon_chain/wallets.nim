@@ -1,5 +1,5 @@
 # beacon_chain
-# Copyright (c) 2018-2024 Status Research & Development GmbH
+# Copyright (c) 2018-2025 Status Research & Development GmbH
 # Licensed and distributed under either of
 #   * MIT license (license terms in the root directory or at https://opensource.org/licenses/MIT).
 #   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
@@ -13,8 +13,7 @@ import
   ./validators/keystore_management,
   ./conf
 
-proc doWallets*(config: BeaconNodeConf, rng: var HmacDrbgContext) {.
-    raises: [CatchableError].} =
+proc doWallets*(config: BeaconNodeConf, rng: var HmacDrbgContext) =
   case config.walletsCmd:
   of WalletsCmd.create:
     if config.createdWalletNameFlag.isSome:
@@ -36,18 +35,22 @@ proc doWallets*(config: BeaconNodeConf, rng: var HmacDrbgContext) {.
     burnMem(wallet.seed)
 
   of WalletsCmd.list:
-    for kind, walletFile in walkDir(config.walletsDir):
-      if kind != pcFile: continue
-      if checkSensitiveFilePermissions(walletFile):
-        let walletRes = loadWallet(walletFile)
-        if walletRes.isOk:
-          echo walletRes.get.longName
+    try:
+      for kind, walletFile in walkDir(config.walletsDir):
+        if kind != pcFile: continue
+        if checkSensitiveFilePermissions(walletFile):
+          let walletRes = loadWallet(walletFile)
+          if walletRes.isOk:
+            echo walletRes.get.longName
+          else:
+            warn "Found corrupt wallet file",
+                  wallet = walletFile, error = walletRes.error
         else:
-          warn "Found corrupt wallet file",
-                wallet = walletFile, error = walletRes.error
-      else:
-        warn "Found wallet file with insecure permissions",
-              wallet = walletFile
+          warn "Found wallet file with insecure permissions",
+                wallet = walletFile
+    except OSError as exc:
+      fatal "Unable to create wallets list", reason = exc.msg
+      raiseWalletsDefect()
 
   of WalletsCmd.restore:
     restoreWalletInteractively(rng, config)

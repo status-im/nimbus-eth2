@@ -21,7 +21,7 @@ import
   ./spec/datatypes/[altair, bellatrix, phase0],
   ./spec/[
     deposit_snapshots, engine_authentication, weak_subjectivity,
-    peerdas_helpers],
+    peerdas_helpers, defects],
   ./sync/[sync_protocol, light_client_protocol, sync_overseer],
   ./validators/[keystore_management, beacon_validators],
   "."/[
@@ -256,7 +256,7 @@ proc loadChainDag(
             networkGenesisValidatorsRoot = networkGenesisValidatorsRoot.get,
             databaseGenesisValidatorsRoot,
             dataDir = config.dataDir
-      quit 1
+      raiseBeaconNodeDefect()
 
   # The first pruning after restart may take a while..
   if config.historyMode == HistoryMode.Prune:
@@ -274,10 +274,10 @@ proc checkWeakSubjectivityCheckpoint(
       dag.cfg, currentSlot, dag.headState, wsCheckpoint)
 
   if isCheckpointStale:
-    error "Weak subjectivity checkpoint is stale",
+    fatal "Weak subjectivity checkpoint is stale",
           currentSlot, checkpoint = wsCheckpoint,
           headStateSlot = getStateField(dag.headState, slot)
-    quit 1
+    raiseBeaconNodeDefect()
 
 from ./spec/state_transition_block import kzg_commitment_to_versioned_hash
 
@@ -689,12 +689,12 @@ proc init*(T: type BeaconNode,
     genesisState =
       (await fetchGenesisState(
         metadata, config.genesisState, config.genesisStateUrl)).valueOr:
-      quit 1
+        raiseBeaconNodeDefect()
     let
       genesisTime = getStateField(genesisState[], genesis_time)
       beaconClock = BeaconClock.init(genesisTime).valueOr:
         fatal "Invalid genesis time in genesis state", genesisTime
-        quit 1
+        raiseBeaconNodeDefect()
       currentSlot = beaconClock.now().slotOrZero()
       checkpoint = Checkpoint(
         epoch: epoch(getStateField(genesisState[], slot)),
@@ -710,24 +710,24 @@ proc init*(T: type BeaconNode,
         # We do support any network which starts from Altair or later fork.
         let metadata = config.loadEth2Network().valueOr:
           fatal "Unable to get network metadata", reason = error
-          quit 1
+          raiseBeaconNodeDefect()
         if metadata.cfg.ALTAIR_FORK_EPOCH != GENESIS_EPOCH:
           fatal WeakSubjectivityLogMessage, current_slot = currentSlot,
                 altair_fork_epoch = metadata.cfg.ALTAIR_FORK_EPOCH
-          quit 1
+          raiseBeaconNodeDefect()
 
   let taskpool =
     try:
       if config.numThreads < 0:
         fatal "The number of threads --num-threads cannot be negative."
-        quit 1
+        raiseBeaconNodeDefect()
       elif config.numThreads == 0:
         Taskpool.new(numThreads = min(countProcessors(), 16))
       else:
         Taskpool.new(numThreads = config.numThreads)
     except CatchableError as e:
       fatal "Cannot start taskpool", err = e.msg
-      quit 1
+      raiseBeaconNodeDefect()
 
   info "Threadpool started", numThreads = taskpool.numThreads
 
@@ -768,7 +768,7 @@ proc init*(T: type BeaconNode,
         if genesisState.isNil:
           genesisState = (await fetchGenesisState(
             metadata, config.genesisState, config.genesisStateUrl)).valueOr:
-              quit 1
+              raiseBeaconNodeDefect()
         if not genesisState.isNil:
           let genesisBlockRoot = get_initial_beacon_block(genesisState[]).root
           notice "Neither `--trusted-block-root` nor `--trusted-state-root` " &
@@ -793,7 +793,7 @@ proc init*(T: type BeaconNode,
       if genesisState.isNil:
         genesisState = (await fetchGenesisState(
           metadata, config.genesisState, config.genesisStateUrl)).valueOr:
-            quit 1
+            raiseBeaconNodeDefect()
       await db.doRunTrustedNodeSync(
         metadata,
         config.databaseDir,
@@ -818,15 +818,15 @@ proc init*(T: type BeaconNode,
     except SszError as err:
       fatal "Checkpoint state loading failed",
             err = formatMsg(err, checkpointStatePath)
-      quit 1
+      raiseBeaconNodeDefect()
     except CatchableError as err:
       fatal "Failed to read checkpoint state file", err = err.msg
-      quit 1
+      raiseBeaconNodeDefect()
 
     if not getStateField(tmp[], slot).is_epoch:
       fatal "--finalized-checkpoint-state must point to a state for an epoch slot",
         slot = getStateField(tmp[], slot)
-      quit 1
+      raiseBeaconNodeDefect()
     tmp
   else:
     nil
@@ -840,18 +840,18 @@ proc init*(T: type BeaconNode,
         except SszError as err:
           fatal "Deposit tree snapshot loading failed",
                 err = formatMsg(err, depositTreeSnapshotPath)
-          quit 1
+          raiseBeaconNodeDefect()
         except CatchableError as err:
           fatal "Failed to read deposit tree snapshot file", err = err.msg
-          quit 1
+          raiseBeaconNodeDefect()
       depositContractSnapshot = DepositContractSnapshot.init(snapshot).valueOr:
         fatal "Invalid deposit tree snapshot file"
-        quit 1
+        raiseBeaconNodeDefect()
     db.putDepositContractSnapshot(depositContractSnapshot)
 
   let engineApiUrls = config.engineApiUrls().valueOr:
     fatal "Unable to get Engine API locations", reason = error
-    quit 1
+    raiseBeaconNodeDefect()
 
   if engineApiUrls.len == 0:
     notice "Running without execution client - validator features disabled (see https://nimbus.guide/eth1.html)"
@@ -867,14 +867,14 @@ proc init*(T: type BeaconNode,
         if genesisState.isNil:
           (await fetchGenesisState(
             metadata, config.genesisState, config.genesisStateUrl)).valueOr:
-              quit 1
+              raiseBeaconNodeDefect()
         else:
           genesisState
 
     if genesisState.isNil and checkpointState.isNil:
       fatal "No database and no genesis snapshot found. Please supply a genesis.ssz " &
             "with the network configuration"
-      quit 1
+      raiseBeaconNodeDefect()
 
     if not genesisState.isNil and not checkpointState.isNil:
       if getStateField(genesisState[], genesis_validators_root) !=
@@ -884,7 +884,7 @@ proc init*(T: type BeaconNode,
             genesisState[], genesis_validators_root),
           rootFromCheckpoint = getStateField(
             checkpointState[], genesis_validators_root)
-        quit 1
+        raiseBeaconNodeDefect()
 
     try:
       # Always store genesis state if we have it - this allows reindexing and
@@ -902,12 +902,12 @@ proc init*(T: type BeaconNode,
       doAssert ChainDAGRef.isInitialized(db).isOk(), "preInit should have initialized db"
     except CatchableError as exc:
       error "Failed to initialize database", err = exc.msg
-      quit 1
+      raiseBeaconNodeDefect()
   else:
     if not checkpointState.isNil:
       fatal "A database already exists, cannot start from given checkpoint",
         dataDir = config.dataDir
-      quit 1
+      raiseBeaconNodeDefect()
 
   # Doesn't use std/random directly, but dependencies might
   randomize(rng[].rand(high(int)))
@@ -931,7 +931,7 @@ proc init*(T: type BeaconNode,
     genesisTime = getStateField(dag.headState, genesis_time)
     beaconClock = BeaconClock.init(genesisTime).valueOr:
       fatal "Invalid genesis time in state", genesisTime
-      quit 1
+      raiseBeaconNodeDefect()
 
     getBeaconTime = beaconClock.getBeaconTimeFn()
 
@@ -951,7 +951,7 @@ proc init*(T: type BeaconNode,
           res.clear().isOkOr:
             fatal "Unable to reset backfill database",
                   path = config.databaseDir(), reason = error
-            quit 1
+            raiseBeaconNodeDefect()
       res
 
   info "Backfill database initialized", path = config.databaseDir(),
@@ -994,7 +994,7 @@ proc init*(T: type BeaconNode,
     discard
   of SlashingDbKind.v1:
     error "Slashing DB v1 is no longer supported for writing"
-    quit 1
+    raiseBeaconNodeDefect()
   of SlashingDbKind.both:
     warn "Slashing DB v1 deprecated, writing only v2"
 
@@ -1477,7 +1477,8 @@ proc maybeUpdateActionTrackerNextEpoch(
       else:
         epochRefFallback()
 
-proc updateGossipStatus(node: BeaconNode, slot: Slot) {.async.} =
+proc updateGossipStatus(node: BeaconNode, slot: Slot) {.
+  async: (raises: [CancelledError]).} =
   ## Subscribe to subnets that we are providing stability for or aggregating
   ## and unsubscribe from the ones that are no longer relevant.
 
@@ -1870,7 +1871,7 @@ proc onSlotStart(node: BeaconNode, wallTime: BeaconTime,
 
   # Check before any re-scheduling of onSlotStart()
   if checkIfShouldStopAtEpoch(wallSlot, node.config.stopAtEpoch):
-    quit(0)
+    raiseSuccessDefect()
 
   when defined(windows):
     if node.config.runAsService:
@@ -2123,7 +2124,7 @@ proc stop(node: BeaconNode) =
   node.db.close()
   notice "Databases closed"
 
-proc run(node: BeaconNode) {.raises: [CatchableError].} =
+proc run(node: BeaconNode) =
   bnStatus = BeaconNodeStatus.Running
 
   if not isNil(node.restServer):
@@ -2144,7 +2145,10 @@ proc run(node: BeaconNode) {.raises: [CatchableError].} =
   node.requestManager.start()
   node.syncOverseer.start()
 
-  waitFor node.updateGossipStatus(wallSlot)
+  try:
+    waitFor node.updateGossipStatus(wallSlot)
+  except CancelledError as exc:
+    return
 
   for web3signerUrl in node.config.web3SignerUrls:
     # TODO
@@ -2169,11 +2173,14 @@ proc run(node: BeaconNode) {.raises: [CatchableError].} =
   # time to say goodbye
   node.stop()
 
-var gPidFile: string
-proc createPidFile(filename: string) {.raises: [IOError].} =
-  writeFile filename, $os.getCurrentProcessId()
-  gPidFile = filename
-  addQuitProc proc {.noconv.} = discard io2.removeFile(gPidFile)
+var gPidFile: Opt[string]
+proc createPidFile(filename: string) =
+  io2.writeFile(filename, $os.getCurrentProcessId()).isOkOr:
+    gPidFile = Opt.some(filename)
+
+proc removePidFile() =
+  if gPidFile.isSome():
+    discard io2.removeFile(gPidFile.get())
 
 proc initializeNetworking(node: BeaconNode) {.async.} =
   node.installMessageValidators()
@@ -2186,7 +2193,7 @@ proc initializeNetworking(node: BeaconNode) {.async.} =
 
   await node.network.start()
 
-proc start*(node: BeaconNode) {.raises: [CatchableError].} =
+proc start*(node: BeaconNode) =
   let
     head = node.dag.head
     finalizedHead = node.dag.finalizedHead
@@ -2214,7 +2221,11 @@ proc start*(node: BeaconNode) {.raises: [CatchableError].} =
   if genesisTime.inFuture:
     notice "Waiting for genesis", genesisIn = genesisTime.offset
 
-  waitFor node.initializeNetworking()
+  try:
+    waitFor node.initializeNetworking()
+  except CatchableError as exc:
+    fatal "Unable to initialize networking", reason = exc.msg
+    raiseBeaconNodeDefect()
 
   node.elManager.start()
   node.run()
@@ -2362,7 +2373,7 @@ when not defined(windows):
 
     asyncSpawn statusBarUpdatesPollingLoop()
 
-proc doRunBeaconNode(config: var BeaconNodeConf, rng: ref HmacDrbgContext) {.raises: [CatchableError].} =
+proc doRunBeaconNode(config: var BeaconNodeConf, rng: ref HmacDrbgContext) =
   info "Launching beacon node",
       version = fullVersionStr,
       bls_backend = $BLS_BACKEND,
@@ -2391,10 +2402,9 @@ proc doRunBeaconNode(config: var BeaconNodeConf, rng: ref HmacDrbgContext) {.rai
       url = "http://" & $metricsAddress & ":" & $config.metricsPort & "/metrics"
     try:
       startMetricsHttpServer($metricsAddress, config.metricsPort)
-    except CatchableError as exc:
-      raise exc
     except Exception as exc:
-      raiseAssert exc.msg # TODO fix metrics
+      fatal "Could not start metrics HTTP server", reason = exc.msg
+      raiseBeaconNodeDefect()
 
   # Nim GC metrics (for the main thread) will be collected in onSecond(), but
   # we disable piggy-backing on other metrics here.
@@ -2405,7 +2415,7 @@ proc doRunBeaconNode(config: var BeaconNodeConf, rng: ref HmacDrbgContext) {.rai
   # the db.
   let metadata = config.loadEth2Network().valueOr:
     fatal "Unable to get network metadata", reason = error
-    quit 1
+    raiseBeaconNodeDefect()
 
   # Updating the config based on the metadata certainly is not beautiful but it
   # works
@@ -2442,7 +2452,12 @@ proc doRunBeaconNode(config: var BeaconNodeConf, rng: ref HmacDrbgContext) {.rai
     if res.isErr():
       raiseAssert res.error()
 
-  let node = waitFor BeaconNode.init(rng, config, metadata)
+  let node =
+    try:
+      waitFor BeaconNode.init(rng, config, metadata)
+    except CatchableError as exc:
+      fatal "Beacon node initialization unexpectedly fails", reason = exc.msg
+      raiseBeaconNodeDefect()
 
   if bnStatus == BeaconNodeStatus.Stopping:
     return
@@ -2457,8 +2472,7 @@ proc doRunBeaconNode(config: var BeaconNodeConf, rng: ref HmacDrbgContext) {.rai
   else:
     node.start()
 
-proc doRecord(config: BeaconNodeConf, rng: var HmacDrbgContext) {.
-    raises: [CatchableError].} =
+proc doRecord(config: BeaconNodeConf, rng: var HmacDrbgContext) =
   case config.recordCmd:
   of RecordCmd.create:
     let netKeys = getPersistentNetKeys(rng, config)
@@ -2467,10 +2481,16 @@ proc doRecord(config: BeaconNodeConf, rng: var HmacDrbgContext) {.
     for field in config.fields:
       let fieldPair = field.split(":")
       if fieldPair.len > 1:
-        fieldPairs.add(toFieldPair(fieldPair[0], hexToSeqByte(fieldPair[1])))
+        let data =
+          try:
+            hexToSeqByte(fieldPair[1])
+          except ValueError as exc:
+            fatal "Invalid hexadecimal encoding", reason = exc.msg
+            raiseRecordDefect()
+        fieldPairs.add(toFieldPair(fieldPair[0], data))
       else:
         fatal "Invalid field pair"
-        quit QuitFailure
+        raiseRecordDefect()
 
     let record = enr.Record.init(
       config.seqNumber,
@@ -2485,34 +2505,51 @@ proc doRecord(config: BeaconNodeConf, rng: var HmacDrbgContext) {.
   of RecordCmd.print:
     echo $config.recordPrint
 
-proc doWeb3Cmd(config: BeaconNodeConf, rng: var HmacDrbgContext)
-    {.raises: [CatchableError].} =
+proc doWeb3Cmd(config: BeaconNodeConf, rng: var HmacDrbgContext) =
   case config.web3Cmd:
   of Web3Cmd.test:
     let
       metadata = config.loadEth2Network().valueOr:
         fatal "Unable to get network metadata", reason = error
-        quit 1
+        raiseWeb3CmdDefect()
       secret = rng.loadJwtSecret(config, allowCreate = true).valueOr:
         fatal "Unable to get JWT secret", reason = error
-        quit 1
-      res = waitFor testWeb3Provider(
-        config.web3TestUrl, metadata.cfg.DEPOSIT_CONTRACT_ADDRESS,
-        Opt.some(secret))
-    quit res
+        raiseWeb3CmdDefect()
+      res =
+        try:
+          waitFor testWeb3Provider(
+            config.web3TestUrl, metadata.cfg.DEPOSIT_CONTRACT_ADDRESS,
+            Opt.some(secret))
+        except CancelledError:
+          raiseWeb3CmdDefect()
+    if res == 0:
+      raiseSuccessDefect()
+    else:
+      raiseWeb3CmdDefect()
 
-proc doSlashingExport(conf: BeaconNodeConf) {.raises: [IOError].}=
+proc doSlashingExport(conf: BeaconNodeConf) =
   let
     dir = conf.validatorsDir()
     filetrunc = SlashingDbName
   # TODO: Make it read-only https://github.com/status-im/nim-eth/issues/312
-  let db = SlashingProtectionDB.loadUnchecked(dir, filetrunc, readOnly = false)
+  let db =
+    try:
+      SlashingProtectionDB.loadUnchecked(dir, filetrunc, readOnly = false)
+    except IOError as exc:
+      fatal "Failed to load the slashing protection database", reason = exc.msg
+      raiseSlashInterDefect()
 
   let interchange = conf.exportedInterchangeFile.string
-  db.exportSlashingInterchange(interchange, conf.exportedValidators)
-  echo "Export finished: '", dir/filetrunc & ".sqlite3" , "' into '", interchange, "'"
+  try:
+    db.exportSlashingInterchange(interchange, conf.exportedValidators)
+  except IOError as exc:
+    fatal "Export failed", reason = exc.msg
+    raiseSlashInterDefect()
 
-proc doSlashingImport(conf: BeaconNodeConf) {.raises: [SerializationError, IOError].} =
+  echo "Export finished: '", dir/filetrunc & ".sqlite3" , "' into '",
+       interchange, "'"
+
+proc doSlashingImport(conf: BeaconNodeConf) =
   let
     dir = conf.validatorsDir()
     filetrunc = SlashingDbName
@@ -2524,11 +2561,17 @@ proc doSlashingImport(conf: BeaconNodeConf) {.raises: [SerializationError, IOErr
   try:
     spdir = Json.loadFile(interchange, SPDIR,
                           requireAllFields = true)
-  except SerializationError as err:
+  except IOError as exc:
+    fatal $Json & " load issue for file",
+          file_path = interchange,
+          reason = exc.msg
+    raiseSlashInterDefect()
+  except SerializationError as exc:
+    fatal $Json & " load issue for file",
+          file_path = interchange,
+          reason = exc.formatMsg(interchange)
     writeStackTrace()
-    stderr.write $Json & " load issue for file \"", interchange, "\"\n"
-    stderr.write err.formatMsg(interchange), "\n"
-    quit 1
+    raiseSlashInterDefect()
 
   # Open DB and handle migration from v1 to v2 if needed
   let db = SlashingProtectionDB.init(
@@ -2542,54 +2585,81 @@ proc doSlashingImport(conf: BeaconNodeConf) {.raises: [SerializationError, IOErr
   # Failures mode:
   # - siError can only happen with invalid genesis_validators_root which would be caught above
   # - siPartial can happen for invalid public keys, slashable blocks, slashable votes
-  let status = db.inclSPDIR(spdir)
+  let status =
+    try:
+      db.inclSPDIR(spdir)
+    except IOError as exc:
+      fatal "Slashing directory check failed",
+            path = dir,
+            reason = exc.msg
+      raiseSlashInterDefect()
+    except SerializationError as exc:
+      fatal "Slashing directory check failed",
+            path = dir,
+            reason = exc.formatMsg(dir)
+      raiseSlashInterDefect()
+
   doAssert status in {siSuccess, siPartial}
 
-  echo "Import finished: '", interchange, "' into '", dir/filetrunc & ".sqlite3", "'"
+  echo "Import finished: '", interchange, "' into '",
+       dir/filetrunc & ".sqlite3", "'"
 
-proc doSlashingInterchange(conf: BeaconNodeConf) {.raises: [CatchableError].} =
+proc doSlashingInterchange(conf: BeaconNodeConf) =
   case conf.slashingdbCmd
   of SlashProtCmd.`export`:
     conf.doSlashingExport()
   of SlashProtCmd.`import`:
     conf.doSlashingImport()
 
-proc handleStartUpCmd(config: var BeaconNodeConf) {.raises: [CatchableError].} =
+proc handleStartUpCmd(config: var BeaconNodeConf) =
   # Single RNG instance for the application - will be seeded on construction
   # and avoid using system resources (such as urandom) after that
   let rng = HmacDrbgContext.new()
 
-  case config.cmd
-  of BNStartUpCmd.noCommand: doRunBeaconNode(config, rng)
-  of BNStartUpCmd.deposits: doDeposits(config, rng[])
-  of BNStartUpCmd.wallets: doWallets(config, rng[])
-  of BNStartUpCmd.record: doRecord(config, rng[])
-  of BNStartUpCmd.web3: doWeb3Cmd(config, rng[])
-  of BNStartUpCmd.slashingdb: doSlashingInterchange(config)
-  of BNStartUpCmd.trustedNodeSync:
-    if config.blockId.isSome():
-      error "--blockId option has been removed - use --state-id instead!"
-      quit 1
+  withDefectsHandlers:
+    case config.cmd
+    of BNStartUpCmd.noCommand: doRunBeaconNode(config, rng)
+    of BNStartUpCmd.deposits: doDeposits(config, rng[])
+    of BNStartUpCmd.wallets: doWallets(config, rng[])
+    of BNStartUpCmd.record: doRecord(config, rng[])
+    of BNStartUpCmd.web3: doWeb3Cmd(config, rng[])
+    of BNStartUpCmd.slashingdb: doSlashingInterchange(config)
+    of BNStartUpCmd.trustedNodeSync:
+      if config.blockId.isSome():
+        fatal "--blockId option has been removed - use --state-id instead!"
+        raiseTrustedSyncDefect()
 
-    let
-      metadata = loadEth2Network(config).valueOr:
-        fatal "Unable to get network metadata", reason = error
-        quit 1
-      db = BeaconChainDB.new(config.databaseDir, metadata.cfg, inMemory = false)
-      genesisState = (waitFor fetchGenesisState(metadata)).valueOr:
-        quit 1
-    waitFor db.doRunTrustedNodeSync(
-      metadata,
-      config.databaseDir,
-      config.eraDir,
-      config.trustedNodeUrl,
-      config.stateId,
-      config.lcTrustedBlockRoot,
-      config.backfillBlocks,
-      config.reindex,
-      config.downloadDepositSnapshot,
-      genesisState)
-    db.close()
+      let
+        metadata = loadEth2Network(config).valueOr:
+          fatal "Unable to get network metadata", reason = error
+          raiseTrustedSyncDefect()
+        db = BeaconChainDB.new(config.databaseDir, metadata.cfg,
+                               inMemory = false)
+        genesisState =
+          try:
+            (waitFor fetchGenesisState(metadata)).valueOr:
+              raiseTrustedSyncDefect()
+          except CancelledError:
+            raiseTrustedSyncDefect()
+      try:
+        waitFor db.doRunTrustedNodeSync(
+          metadata,
+          config.databaseDir,
+          config.eraDir,
+          config.trustedNodeUrl,
+          config.stateId,
+          config.lcTrustedBlockRoot,
+          config.backfillBlocks,
+          config.reindex,
+          config.downloadDepositSnapshot,
+          genesisState)
+        db.close()
+      except CatchableError:
+        raiseTrustedSyncDefect()
+  do:
+    # This is addQuitProc() replacement which will be called even in case of
+    # defects.
+    removePidFile()
 
 {.pop.} # TODO moduletests exceptions
 
