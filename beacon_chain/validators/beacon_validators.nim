@@ -84,7 +84,7 @@ type
 
   BuilderBid[SBBB] = object
     blindedBlckPart*: SBBB
-    executionRequests*: Opt[ExecutionRequests]
+    executionRequests*: ExecutionRequests
     executionPayloadValue*: UInt256
     consensusBlockValue*: UInt256
 
@@ -459,7 +459,7 @@ proc makeBeaconBlockForHeadAndSlot*(
     execution_payload_root: Opt[Eth2Digest],
     withdrawals_root: Opt[Eth2Digest],
     kzg_commitments: Opt[KzgCommitments],
-    execution_requests: Opt[ExecutionRequests]):
+    execution_requests: ExecutionRequests):
     Future[ForkedBlockResult] {.async: (raises: [CancelledError]).} =
   # Advance state to the slot that we're proposing for
   var cache = StateCache()
@@ -634,7 +634,7 @@ proc makeBeaconBlockForHeadAndSlot*(
     execution_payload_root = Opt.none(Eth2Digest),
     withdrawals_root = Opt.none(Eth2Digest),
     kzg_commitments = Opt.none(KzgCommitments),
-    execution_requests = Opt.none(ExecutionRequests))
+    execution_requests = static(default(ExecutionRequests)))
 
 proc getBlindedExecutionPayload[
     EPH: deneb_mev.BlindedExecutionPayloadAndBlobsBundle |
@@ -713,7 +713,7 @@ proc getBlindedExecutionPayload[
         blindedBlckPart: EPH(
           execution_payload_header: builderBid.header,
           blob_kzg_commitments: builderBid.blob_kzg_commitments),
-        executionRequests: Opt.none(ExecutionRequests),
+        executionRequests: default(ExecutionRequests),
         executionPayloadValue: builderBid.value))
     elif EPH is electra_mev.BlindedExecutionPayloadAndBlobsBundle or
         EPH is fulu_mev.BlindedExecutionPayloadAndBlobsBundle:
@@ -721,7 +721,7 @@ proc getBlindedExecutionPayload[
         blindedBlckPart: EPH(
           execution_payload_header: builderBid.header,
           blob_kzg_commitments: builderBid.blob_kzg_commitments),
-        executionRequests: Opt.some(builderBid.execution_requests),
+        executionRequests: builderBid.execution_requests,
         executionPayloadValue: builderBid.value))
     else:
       static: doAssert false
@@ -986,7 +986,7 @@ proc getBlindedBlockParts[
       withdrawals_root = Opt.some actualEPH.withdrawals_root
       kzg_commitments = Opt.some(
         blindedBlockRes.get.blindedBlckPart.blob_kzg_commitments)
-      execution_requests = Opt.none ExecutionRequests
+      execution_requests = default(ExecutionRequests)
 
     var shimExecutionPayload: PayloadType
     type DenebEPH =
@@ -1001,8 +1001,7 @@ proc getBlindedBlockParts[
       withdrawals_root = Opt.some actualEPH.withdrawals_root
       kzg_commitments = Opt.some(
         blindedBlockRes.get.blindedBlckPart.blob_kzg_commitments)
-      execution_requests = Opt.some(
-        blindedBlockRes.get.executionRequests.get)
+      execution_requests = blindedBlockRes.get.executionRequests
 
     var shimExecutionPayload: PayloadType
     type ElectraEPH =
@@ -1018,8 +1017,7 @@ proc getBlindedBlockParts[
       withdrawals_root = Opt.some actualEPH.withdrawals_root
       kzg_commitments = Opt.some(
         blindedBlockRes.get.blindedBlckPart.blob_kzg_commitments)
-      execution_requests = Opt.some(
-        blindedBlockRes.get.executionRequests.get)
+      execution_requests = blindedBlockRes.get.executionRequests
 
     var shimExecutionPayload: PayloadType
     type FuluEPH =
@@ -1094,14 +1092,14 @@ proc getBuilderBid[
   when SBBB is deneb_mev.SignedBlindedBeaconBlock:
    return ok(BuilderBid[SBBB](
       blindedBlckPart: unsignedBlindedBlock.get,
-      executionRequests: Opt.none(ExecutionRequests),
+      executionRequests: default(ExecutionRequests),
       executionPayloadValue: bidValue,
       consensusBlockValue: consensusValue))
   elif SBBB is electra_mev.SignedBlindedBeaconBlock or
       SBBB is fulu_mev.SignedBlindedBeaconBlock:
    return ok(BuilderBid[SBBB](
       blindedBlckPart: unsignedBlindedBlock.get,
-      executionRequests: Opt.some(execution_requests),
+      executionRequests: execution_requests,
       executionPayloadValue: bidValue,
       consensusBlockValue: consensusValue))
   else:
@@ -1199,7 +1197,7 @@ proc makeBlindedBeaconBlockForHeadAndSlot*[BBB: ForkyBlindedBeaconBlock](
           BuilderBid[BBB](
             blindedBlckPart:
               constructPlainBlindedBlock[BBB](forkyBlck, executionPayloadHeader),
-            executionRequests: Opt.none(ExecutionRequests),
+            executionRequests: default(ExecutionRequests),
             executionPayloadValue: bidValue,
             consensusBlockValue: consensusValue))
 
@@ -1211,7 +1209,7 @@ proc makeBlindedBeaconBlockForHeadAndSlot*[BBB: ForkyBlindedBeaconBlock](
           BuilderBid[BBB](
             blindedBlckPart:
               constructPlainBlindedBlock[BBB](forkyBlck, executionPayloadHeader),
-            executionRequests: Opt.some(forkyBlck.body.execution_requests),
+            executionRequests: forkyBlck.body.execution_requests,
             executionPayloadValue: bidValue,
             consensusBlockValue: consensusValue))
       else:
