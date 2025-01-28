@@ -184,19 +184,14 @@ proc routeSignedBeaconBlock*(
     Opt.none(DataColumnSidecars)
   when typeof(blck).kind >= ConsensusFork.Fulu:
     let blobs = blobsOpt.get
-    debugEcho blobs.len
     if blobsOpt.isSome() and blobs.len != 0:
       let dataColumnsRes =
         newClone get_data_column_sidecars(blck, blobs.mapIt(KzgBlob(bytes: it.blob)))
       if not dataColumnsRes[].isOk:
         debug "Issue with extracting data columns from blob bundle"
       let dataColumns = dataColumnsRes[].get()
-      debugEcho "Datacolumns len"
-      debugEcho dataColumns.len
       var das_workers =
         newSeq[Future[SendResult]](len(dataColumnsRes[].get()))
-      debugEcho "Das workers len"
-      debugEcho das_workers.len
       for i in 0..<dataColumns.lenu64:
         let subnet_id =
           compute_subnet_for_data_column_sidecar(dataColumns[i].index)
