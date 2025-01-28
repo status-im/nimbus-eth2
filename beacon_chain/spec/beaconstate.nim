@@ -2286,18 +2286,6 @@ func upgrade_to_fulu*(
       blob_gas_used: pre.latest_execution_payload_header.blob_gas_used,
       excess_blob_gas: pre.latest_execution_payload_header.excess_blob_gas)
 
-  var max_exit_epoch = FAR_FUTURE_EPOCH
-  for v in pre.validators:
-    if v.exit_epoch != FAR_FUTURE_EPOCH:
-      max_exit_epoch =
-        if max_exit_epoch == FAR_FUTURE_EPOCH:
-          v.exit_epoch
-        else:
-          max(max_exit_epoch, v.exit_epoch)
-  if max_exit_epoch == FAR_FUTURE_EPOCH:
-    max_exit_epoch = get_current_epoch(pre)
-  let earliest_exit_epoch = max_exit_epoch + 1
-
   let post = (ref fulu.BeaconState)(
     # Versioning
     genesis_time: pre.genesis_time,
@@ -2366,10 +2354,10 @@ func upgrade_to_fulu*(
     earliest_exit_epoch: pre.earliest_exit_epoch,
     consolidation_balance_to_consume: pre.consolidation_balance_to_consume,
     earliest_consolidation_epoch:
-      compute_activation_exit_epoch(get_current_epoch(pre))
-
-    # pending_balance_deposits, pending_partial_withdrawals, and
-    # pending_consolidations are default empty lists
+      compute_activation_exit_epoch(get_current_epoch(pre)),
+    pending_deposits: pre.pending_deposits,
+    pending_partial_withdrawals: pre.pending_partial_withdrawals,
+    pending_consolidations: pre.pending_consolidations
   )
 
   post
