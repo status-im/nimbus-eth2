@@ -481,7 +481,7 @@ proc initFullNode(
           let
             accumulatedDataColumns = dataColumnQuarantine[].gatherDataColumns(forkyBlck.root)
 
-          if accumulatedColumns.len == 0:
+          if accumulatedDataColumns.len == 0:
             # no data columns were sent for this post Fulu block, yet
             return await blockProcessor[].addBlock(MsgSource.gossip, signedBlock,
                                              Opt.none(BlobSidecars), Opt.none(DataColumnSidecars),
