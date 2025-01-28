@@ -735,7 +735,7 @@ proc storeBlock(
               blck = shortLog(signedBlock.message),
               signature = shortLog(signedBlock.signature),
               msg = r.error()
-          return err((VerifierError.Invalid, ProcessingStatus.completed))
+            return err((VerifierError.Invalid, ProcessingStatus.completed))
   # TODO with v1.4.0, not sure this is still relevant
   # Establish blob viability before calling addHeadBlock to avoid
   # writing the block in case of blob error.
