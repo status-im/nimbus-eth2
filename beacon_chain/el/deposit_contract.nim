@@ -14,7 +14,7 @@ import
   ../networking/network_metadata,
   web3, web3/confutils_defs, eth/common/keys, eth/p2p/discoveryv5/random2,
   stew/[io2, byteutils],
-  ../spec/eth2_merkleization,
+  ../spec/[eth2_merkleization, defects],
   ../spec/datatypes/base,
   ../validators/keystore_management
 
@@ -217,7 +217,7 @@ proc main() {.async.} =
     if conf.remoteValidatorsCount > 0 and
        conf.remoteSignersUrls.len == 0:
       fatal "Please specify at least one remote signer URL"
-      quit 1
+      raiseDepositContractDefect()
 
     if (let res = secureCreatePath(string conf.outValidatorsDir); res.isErr):
       warn "Could not create validators folder",
@@ -241,14 +241,14 @@ proc main() {.async.} =
 
     if deposits.isErr:
       fatal "Failed to generate deposits", err = deposits.error
-      quit 1
+      raiseDepositContractDefect()
 
     let launchPadDeposits =
       mapIt(deposits.value, LaunchPadDeposit.init(cfg, it))
 
     Json.saveFile(string conf.outDepositsFile, launchPadDeposits)
     notice "Deposit data written", filename = conf.outDepositsFile
-    quit 0
+    raiseSuccessDefect()
 
   var deposits: seq[LaunchPadDeposit]
   if conf.cmd == StartUpCommand.sendDeposits:
@@ -291,7 +291,7 @@ proc main() {.async.} =
       conf.maxDelay = conf.minDelay
     elif conf.minDelay > conf.maxDelay:
       echo "The minimum delay should not be larger than the maximum delay"
-      quit 1
+      raiseDepositContractDefect()
 
     if conf.maxDelay > 0.0:
       delayGenerator = proc (): chronos.Duration =
@@ -307,4 +307,6 @@ proc main() {.async.} =
     # This is handled above before the case statement
     discard
 
-when isMainModule: waitFor main()
+when isMainModule:
+  withDefectsHandlers():
+    waitFor main()

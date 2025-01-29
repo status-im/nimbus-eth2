@@ -38,6 +38,7 @@ type
 
   ValidatorClientDefect* = object of ExitProcessDefect
   LightClientDefect* = object of ExitProcessDefect
+  DepositContractDefect* = object of ExitProcessDefect
 
 template declareExitHelpers(defect, code: untyped): untyped =
   template `raise defect`*() =
@@ -72,6 +73,7 @@ declareExitHelpers(Web3CmdDefect, 35)
 declareExitHelpers(SlashInterDefect, 36)
 declareExitHelpers(ValidatorClientDefect, 37)
 declareExitHelpers(LightClientDefect, 38)
+declareExitHelpers(DepositContractDefect, 39)
 
 template withDefectsHandlers*(pbody, fbody: untyped) =
   try:
