@@ -487,24 +487,6 @@ proc initFullNode(
                                              Opt.none(BlobSidecars), Opt.none(DataColumnSidecars),
                                              maybeFinalized = maybeFinalized)
           elif dataColumnQuarantine[].supernode and
-              accumulatedDataColumns.len <= dataColumnQuarantine[].custody_columns.len:
-            # We don't have the requisite number of data columns for this block yet,
-            # so we have put in columnless quarantine as a supernode
-            if not quarantine[].addColumnless(dag.finalizedHead.slot, forkyBlck):
-              return err(VerifierError.UnviableFork)
-            else:
-              return err(VerifierError.MissingParent)
-
-          elif not dataColumnQuarantine[].supernode and
-              accumulatedDataColumns.len <= dataColumnQuarantine[].custody_columns.len:
-            # We don't have the requisite number of data columns for this block yet,
-            # so we have put in columnless quarantine as fullnode
-            if not quarantine[].addColumnless(dag.finalizedHead.slot, forkyBlck):
-              return err(VerifierError.UnviableFork)
-            else:
-              return err(VerifierError.MissingParent)
-
-          elif dataColumnQuarantine[].supernode and
               accumulatedDataColumns.len >= (dataColumnQuarantine[].custody_columns.len div 2):
             # We have seen 50%+ data columns, we can attempt to add this block
             let dataColumns = dataColumnQuarantine[].popDataColumns(forkyBlck.root, forkyBlck)
@@ -513,8 +495,9 @@ proc initFullNode(
                                              maybeFinalized = maybeFinalized)
 
           else:
+            let dataColumns = dataColumnQuarantine[].popDataColumns(forkyBlck.root, forkyBlck)
             return await blockProcessor[].addBlock(MsgSource.gossip, signedBlock,
-                                             Opt.none(BlobSidecars), Opt.none(DataColumnSidecars),
+                                             Opt.none(BlobSidecars), Opt.some(dataColumns),
                                              maybeFinalized = maybeFinalized)
         elif consensusFork >= ConsensusFork.Deneb and
             consensusFork < ConsensusFork.Fulu:
