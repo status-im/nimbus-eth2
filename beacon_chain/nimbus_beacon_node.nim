@@ -2342,9 +2342,14 @@ when not defined(windows):
         # an error message to the user.
         "$" & expr
 
-    var statusBar = StatusBarView.init(
-      node.config.statusBarContents,
-      dataResolver)
+    var statusBar =
+      try:
+        StatusBarView.init(
+        node.config.statusBarContents,
+        dataResolver)
+      except ValueError as exc:
+        warn "Unable to initalize status bar", reason = exc.msg
+        return
 
     when compiles(defaultChroniclesStream.outputs[0].writer):
       let tmp = defaultChroniclesStream.outputs[0].writer
