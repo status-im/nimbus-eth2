@@ -2353,8 +2353,7 @@ func upgrade_to_fulu*(
     exit_balance_to_consume: pre.exit_balance_to_consume,
     earliest_exit_epoch: pre.earliest_exit_epoch,
     consolidation_balance_to_consume: pre.consolidation_balance_to_consume,
-    earliest_consolidation_epoch:
-      compute_activation_exit_epoch(get_current_epoch(pre)),
+    earliest_consolidation_epoch: pre.earliest_consolidation_epoch,
     pending_deposits: pre.pending_deposits,
     pending_partial_withdrawals: pre.pending_partial_withdrawals,
     pending_consolidations: pre.pending_consolidations
