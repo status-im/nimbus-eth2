@@ -14,7 +14,7 @@ import
   ./el/el_manager,
   ./gossip_processing/optimistic_processor,
   ./networking/[topic_params, network_metadata_downloads],
-  ./spec/beaconstate,
+  ./spec/[beaconstate, defects],
   ./spec/datatypes/[phase0, altair, bellatrix, capella, deneb],
   "."/[filepath, light_client, light_client_db, nimbus_binary_common, version]
 
@@ -354,12 +354,14 @@ programMain:
       let processingTime = finished - afterSleep
       trace "onSecond task completed", sleepTime, processingTime
 
-  onSecond(Moment.now())
-  lightClient.start()
+  withDefectsHandlers():
+    onSecond(Moment.now())
+    lightClient.start()
 
-  asyncSpawn runOnSlotLoop()
-  asyncSpawn runOnSecondLoop()
-  while globalRunning:
-    poll()
+    asyncSpawn runOnSlotLoop()
+    asyncSpawn runOnSecondLoop()
+
+    while globalRunning:
+      poll()
 
   notice "Exiting light client"
