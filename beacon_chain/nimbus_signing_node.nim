@@ -13,7 +13,7 @@ import serialization, json_serialization,
        chronos, presto, presto/secureserver, chronicles, confutils,
        results, stew/[base10, byteutils, io2, bitops2]
 import "."/spec/datatypes/[base, altair, phase0],
-       "."/spec/[crypto, digest, network, signatures, forks],
+       "."/spec/[crypto, digest, network, signatures, forks, defects],
        "."/spec/eth2_apis/[rest_types, eth2_rest_serialization],
        "."/rpc/rest_constants,
        "."/[conf, version, nimbus_binary_common],
@@ -414,7 +414,7 @@ proc asyncInit(sn: SigningNodeRef) {.async: (raises: [SigningNodeError]).} =
         raise newException(SigningNodeError, "")
       SigningNodeServer(kind: SigningNodeKind.NonSecure, nserver: res.get())
 
-proc asyncRun*(sn: SigningNodeRef) {.async: (raises: []).} =
+proc asyncRun*(sn: SigningNodeRef) {.async: (raises: [SigningNodeError]).} =
   sn.runKeystoreCachePruningLoopFut =
     runKeystoreCachePruningLoop(sn.keystoreCache)
   sn.installApiHandlers()
@@ -428,6 +428,11 @@ proc asyncRun*(sn: SigningNodeRef) {.async: (raises: []).} =
   except CatchableError as exc:
     warn "Main loop failed with unexpected error", err_name = $exc.name,
          reason = $exc.msg
+
+  # This is trick to fool asyncraises from generating warning:
+  # No exceptions possible with this operation, `error` always returns nil.
+  if false:
+    raise newException(SigningNodeError, "")
 
   debug "Stopping main processing loop"
   var pending: seq[Future[void]]
@@ -483,4 +488,6 @@ programMain:
     makeBannerAndConfig("Nimbus signing node " & fullVersionStr,
                         SigningNodeConf)
   setupLogging(config.logLevel, config.logStdout, config.logFile)
-  waitFor runSigningNode(config)
+
+  withDefectsHandlers():
+    waitFor runSigningNode(config)
