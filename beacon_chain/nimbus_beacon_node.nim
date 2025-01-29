@@ -151,7 +151,8 @@ func getVanityLogs(stdoutKind: StdoutLogKind): VanityLogs =
       onUpgradeToCapella:              capellaColor,
       onKnownBlsToExecutionChange:     capellaBlink,
       onUpgradeToDeneb:                denebColor,
-      onUpgradeToElectra:              electraColor)
+      onUpgradeToElectra:              electraColor,
+      onKnownCompoundingChange:        electraBlink)
   of StdoutLogKind.NoColors:
     VanityLogs(
       onMergeTransitionBlock:          bellatrixMono,
@@ -159,7 +160,8 @@ func getVanityLogs(stdoutKind: StdoutLogKind): VanityLogs =
       onUpgradeToCapella:              capellaMono,
       onKnownBlsToExecutionChange:     capellaMono,
       onUpgradeToDeneb:                denebMono,
-      onUpgradeToElectra:              electraMono)
+      onUpgradeToElectra:              electraMono,
+      onKnownCompoundingChange:        electraMono)
   of StdoutLogKind.Json, StdoutLogKind.None:
     VanityLogs(
       onMergeTransitionBlock:
@@ -173,7 +175,9 @@ func getVanityLogs(stdoutKind: StdoutLogKind): VanityLogs =
       onUpgradeToDeneb:
         (proc() = notice "🐟 Proto-Danksharding is ON 🐟"),
       onUpgradeToElectra:
-        (proc() = notice "🦒 Compounding is ON 🦒"))
+        (proc() = notice "🦒 Compounding is available 🦒"),
+      onKnownCompoundingChange:
+        (proc() = notice "🦒 Compounding is activated 🦒"))
 
 func getVanityMascot(consensusFork: ConsensusFork): string =
   case consensusFork
