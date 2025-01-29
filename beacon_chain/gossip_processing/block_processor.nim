@@ -630,7 +630,6 @@ proc storeBlock(
             else:
               Opt.none BlobSidecars
         # Blobs and columns can never co-exist in the same block
-        doAssert blobs.isSome and columns.isSome
         # Block has neither blob sidecar nor data column sidecar
         if blobs.isNone and columns.isNone:
           debug "Loaded parent block from storage", parent_root
