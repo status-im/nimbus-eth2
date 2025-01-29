@@ -36,6 +36,9 @@ type
   Web3CmdDefect* = object of ExitProcessDefect
   SlashInterDefect* = object of ExitProcessDefect
 
+  ValidatorClientDefect* = object of ExitProcessDefect
+  LightClientDefect* = object of ExitProcessDefect
+
 template declareExitHelpers(defect, code: untyped): untyped =
   template `raise defect`*() =
     raise (ref defect)(exitCode: code, msg: "")
@@ -67,6 +70,8 @@ declareExitHelpers(BeaconNodeDefect, 33)
 declareExitHelpers(RecordDefect, 34)
 declareExitHelpers(Web3CmdDefect, 35)
 declareExitHelpers(SlashInterDefect, 36)
+declareExitHelpers(ValidatorClientDefect, 37)
+declareExitHelpers(LightClientDefect, 38)
 
 template withDefectsHandlers*(pbody, fbody: untyped) =
   try:
@@ -76,3 +81,10 @@ template withDefectsHandlers*(pbody, fbody: untyped) =
     quit(exc.exitCode)
   finally:
     fbody
+
+template withDefectsHandlers*(pbody: untyped) =
+  try:
+    pbody
+  except ExitProcessDefect as exc:
+    # This defects are already logged, so we just quit.
+    quit(exc.exitCode)

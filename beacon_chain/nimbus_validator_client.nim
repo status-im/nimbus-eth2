@@ -9,6 +9,7 @@
 
 import
   stew/io2, presto, metrics, metrics/chronos_httpserver,
+  ./spec/defects,
   ./rpc/rest_key_management_api,
   ./validator_client/[
     common, fallback_service, duties_service, fork_service, block_service,
@@ -289,11 +290,11 @@ proc new*(
         if len(servers) == 0:
           fatal "Not enough beacon nodes available",
                 nodes_count = len(servers)
-          quit 1
+          raiseValidatorClientDefect()
         else:
           fatal "Beacon nodes do not cover all required roles",
                 missing_roles = $missingRoles, nodes_count = len(servers)
-          quit 1
+          raiseValidatorClientDefect()
       servers
 
   when declared(waitSignal):
@@ -605,4 +606,5 @@ programMain:
 
   setupFileLimits()
   setupLogging(config.logLevel, config.logStdout, config.logFile)
-  waitFor runValidatorClient(config, rng)
+  withDefectsHandlers():
+    waitFor runValidatorClient(config, rng)
