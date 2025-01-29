@@ -2249,7 +2249,7 @@ func formatGwei(amount: Gwei): string =
       result.setLen(result.len - 1)
 
 when not defined(windows):
-  proc initStatusBar(node: BeaconNode) {.raises: [ValueError].} =
+  proc initStatusBar(node: BeaconNode) =
     if not isatty(stdout): return
     if not node.config.statusBarEnabled: return
 
