@@ -9,6 +9,9 @@
 
 # Uncategorized helper functions from the spec
 import
+  taskpools,
+  chronos,
+  chronicles,
   std/[algorithm, sequtils],
   results,
   eth/p2p/discoveryv5/[node],
@@ -154,6 +157,81 @@ proc recover_matrix*(partial_matrix: seq[MatrixEntry],
       ))
 
   ok(extended_matrix)
+
+proc reconstruction_terms*(blobIdx: int,
+                           columnCount: int,
+                           data_columns: seq[DataColumnSidecar]):
+                           Result[CellsAndProofs, cstring]=
+  var
+    cell_ids = newSeqOfCap[CellIndex](columnCount)
+    ckzgCells = newSeqOfCap[KzgCell](columnCount)
+
+  cell_ids.setLen(0)
+  ckzgCells.setLen(0)
+
+  for col in data_columns:
+    cell_ids.add col.index
+    let cell = col.column[blobIdx]
+    ckzgCells.add cell
+
+
+  debugEcho "for blob index"
+  debugEcho blobIdx
+  # Call the recovery function and handle results
+  let recovered_cell_and_proof = recoverCellsAndKzgProofs(cell_ids, ckzgCells)
+  if not recovered_cell_and_proof.isOk:
+    return err("Issue with computing cells and proofs!")
+  ok(recovered_cell_and_proof.get)
+
+proc recover_cells_and_proofs_parallel*(
+    tp: Taskpool,
+    data_columns: seq[DataColumnSidecar]):
+    Result[seq[CellsAndProofs], cstring] =
+
+  let start = Moment.now()
+  # This helper recovers blobs from the data column sidecars
+  if not (data_columns.len != 0):
+    return err("DataColumnSidecar: Length should not be 0")
+
+  let columnCount = data_columns.len
+  let blobCount = data_columns[0].column.len
+  for data_column in data_columns:
+    if not (blobCount == data_column.column.len):
+      return err ("DataColumns do not have the same length")
+
+  var
+    pendingFuts = newSeq[Flowvar[Result[CellsAndProofs, cstring]]](blobCount)
+    recovered_cps = newSeq[CellsAndProofs](blobCount)
+
+  # Schedule tasks on the threadpool
+  debugEcho "Scheduling tasks on the threadpool..."
+  for blobIdx in 0..<blobCount:
+    pendingFuts[blobIdx] =
+      tp.spawn reconstruction_terms(blobIdx, columnCount, data_columns)
+
+  # Retrieve results from each Flowvar
+  for fut in pendingFuts:
+    let res = sync fut
+    if res.isOk:
+      recovered_cps.add(result.get)
+
+  let finish = Moment.now()
+  debug "Time taken to reconstruct in parallel", time = finish - start
+  ok(recovered_cps)
+
+proc parallelColumnReconstruction*(
+    data_columns: seq[DataColumnSidecar]):
+    Result[seq[CellsAndProofs], cstring]=
+
+  var tp =
+    try:
+      Taskpool.new()
+    except Exception:
+      return err("Failed to initialize Taskpool")
+  debugEcho "first call to recover c and p parallel"
+  let res = tp.recover_cells_and_proofs_parallel(data_columns)
+
+  ok(res.get)
 
 proc recover_cells_and_proofs*(
     data_columns: seq[DataColumnSidecar]):

@@ -395,7 +395,7 @@ proc processDataColumnSidecar*(
           if columns.len >= (NUMBER_OF_COLUMNS div 2) and
               self.dataColumnQuarantine[].supernode:
             let
-              recovered_cps = recover_cells_and_proofs(columns.mapIt(it[]))
+              recovered_cps = parallelColumnReconstruction(columns.mapIt(it[]))
               reconstructed_columns =
                 get_data_column_sidecars(forkyBlck, recovered_cps.get)
             for rc in reconstructed_columns:
