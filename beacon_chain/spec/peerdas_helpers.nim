@@ -161,7 +161,7 @@ proc recover_matrix*(partial_matrix: seq[MatrixEntry],
 proc reconstruction_terms*(blobIdx: int,
                            columnCount: int,
                            data_columns: seq[DataColumnSidecar]):
-                           Result[CellsAndProofs, cstring]=
+                           CellsAndProofs =
   var
     cell_ids = newSeqOfCap[CellIndex](columnCount)
     ckzgCells = newSeqOfCap[KzgCell](columnCount)
@@ -180,8 +180,8 @@ proc reconstruction_terms*(blobIdx: int,
   # Call the recovery function and handle results
   let recovered_cell_and_proof = recoverCellsAndKzgProofs(cell_ids, ckzgCells)
   if not recovered_cell_and_proof.isOk:
-    return err("Issue with computing cells and proofs!")
-  ok(recovered_cell_and_proof.get)
+    discard
+  recovered_cell_and_proof.get
 
 proc recover_cells_and_proofs_parallel*(
     tp: Taskpool,
@@ -200,7 +200,7 @@ proc recover_cells_and_proofs_parallel*(
       return err ("DataColumns do not have the same length")
 
   var
-    pendingFuts = newSeq[Flowvar[Result[CellsAndProofs, cstring]]](blobCount)
+    pendingFuts = newSeq[Flowvar[CellsAndProofs]](blobCount)
     recovered_cps = newSeq[CellsAndProofs](blobCount)
 
   # Schedule tasks on the threadpool
@@ -210,10 +210,8 @@ proc recover_cells_and_proofs_parallel*(
       tp.spawn reconstruction_terms(blobIdx, columnCount, data_columns)
 
   # Retrieve results from each Flowvar
-  for fut in pendingFuts:
-    let res = sync fut
-    if res.isOk:
-      recovered_cps.add(result.get)
+  for k in 0..<pendingFuts.len:
+    recovered_cps[k] = sync pendingFuts[k]
 
   let finish = Moment.now()
   debug "Time taken to reconstruct in parallel", time = finish - start
