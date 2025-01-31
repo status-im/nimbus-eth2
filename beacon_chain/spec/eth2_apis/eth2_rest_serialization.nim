@@ -257,6 +257,7 @@ RestJson.useDefaultSerializationFor(
   electra.LightClientUpdate,
   electra.SignedAggregateAndProof,
   electra.SignedBeaconBlock,
+  electra.SingleAttestation,
   electra.TrustedAttestation,
   electra_mev.BlindedBeaconBlock,
   electra_mev.BlindedBeaconBlockBody,
