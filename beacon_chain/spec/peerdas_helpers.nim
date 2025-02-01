@@ -10,6 +10,7 @@
 # Uncategorized helper functions from the spec
 import
   std/[algorithm, sequtils],
+  chronicles,
   results,
   eth/p2p/discoveryv5/[node],
   kzg4844/[kzg],
@@ -163,6 +164,8 @@ proc recover_cells_and_proofs*(
   if not (data_columns.len != 0):
     return err("DataColumnSidecar: Length should not be 0")
 
+  let start = Moment.now()
+
   let
     columnCount = data_columns.len
     blobCount = data_columns[0].column.len
@@ -198,7 +201,8 @@ proc recover_cells_and_proofs*(
 
     recovered_cps[bIdx] =
       recovered_cells_and_proofs.get
-
+  let finish = Moment.now()
+  debug "Time take to reconstruct sequentially", time = finish-start
   ok(recovered_cps)
 
 # https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.10/specs/fulu/das-core.md#get_data_column_sidecars
