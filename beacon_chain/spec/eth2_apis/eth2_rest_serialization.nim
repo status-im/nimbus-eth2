@@ -378,7 +378,7 @@ type
 
   EncodeArrays* =
     seq[phase0.Attestation] |
-    seq[electra.Attestation] |
+    seq[electra.SingleAttestation] |
     seq[PrepareBeaconProposer] |
     seq[RemoteKeystoreInfo] |
     seq[RestCommitteeSubscription] |
