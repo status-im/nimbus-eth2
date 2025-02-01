@@ -4526,7 +4526,7 @@
       "headers": {"Accept": "application/json"}
     },
     "response": {
-      "status": {"operator": "equals", "value": "400"}
+      "status": {"operator": "equals", "value": "410"}
     }
   },
   {
@@ -4536,7 +4536,7 @@
       "headers": {"Accept": "application/json"}
     },
     "response": {
-      "status": {"operator": "equals", "value": "400"}
+      "status": {"operator": "equals", "value": "410"}
     }
   },
   {
