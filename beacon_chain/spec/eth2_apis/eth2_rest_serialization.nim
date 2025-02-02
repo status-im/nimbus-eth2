@@ -3053,7 +3053,7 @@ proc decodeBody*(
         var res = RestJson.decode(body.data, blckType,
                                   requireAllFields = true,
                                   allowUnknownFields = true)
-        when compiles(res.signed_block.messsage):
+        when compiles(res.signed_block.message):
           {.error: "Deneb and later forks handled in case statement".}
         else:
           RestPublishedSignedBlockContents.init(
