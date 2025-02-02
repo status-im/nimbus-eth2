@@ -178,7 +178,7 @@ type
 
     web3: Opt[Web3]
       ## This will be `none` before connecting and while we are
-      ## reconnecting after a lost connetion. You can wait on
+      ## reconnecting after a lost connection. You can wait on
       ## the future below for the moment the connection is active.
 
     connectingFut: Future[Result[Web3, string]].Raising([CancelledError])
