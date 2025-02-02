@@ -500,7 +500,7 @@ func epochAncestor(dag: ChainDAGRef, bid: BlockId, epoch: Epoch):
     Opt[BlockSlotId] =
   ## The epoch ancestor is the last block that has an effect on the epoch-
   ## related state data, as updated in `process_epoch` - this block determines
-  ## effective balances, validator addtions and removals etc and serves as a
+  ## effective balances, validator additions and removals etc and serves as a
   ## base for `EpochRef` construction.
   if epoch < dag.tail.slot.epoch or bid.slot < dag.tail.slot:
     # Not enough information in database to meaningfully process pre-tail epochs
