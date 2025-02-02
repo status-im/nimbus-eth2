@@ -1,5 +1,5 @@
 # beacon_chain
-# Copyright (c) 2024 Status Research & Development GmbH
+# Copyright (c) 2025 Status Research & Development GmbH
 # Licensed and distributed under either of
 #   * MIT license (license terms in the root directory or at https://opensource.org/licenses/MIT).
 #   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
@@ -7,7 +7,7 @@
 
 {.push raises: [].}
 
-# Gnosis preset - Electra (Gnosis version not avilable yet; EF mainnet for now)
+# Gnosis preset - Electra (Gnosis version not available yet; EF mainnet for now)
 # https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.9/presets/mainnet/electra.yaml
 const
   # Gwei values
