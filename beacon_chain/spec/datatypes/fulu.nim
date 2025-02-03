@@ -146,7 +146,7 @@ type
     data*: AttestationData
     signature*: ValidatorSig
     committee_bits*: AttestationCommitteeBits  # [New in Electra:EIP7549]
-
+    
   # https://github.com/ethereum/consensus-specs/blob/dev/specs/_features/eip7732/beacon-chain.md#payloadattestationdata
   PayloadAttestationData* = object
     beacon_block_root*: Eth2Digest
