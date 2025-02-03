@@ -164,6 +164,13 @@ type
     data*: PayloadAttestationData
     signature*: ValidatorSig
 
+  # https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.7/specs/electra/beacon-chain.md#attestation
+  Attestation* = object
+    aggregation_bits*: ElectraCommitteeValidatorsBits
+    data*: AttestationData
+    signature*: ValidatorSig
+    committee_bits*: AttestationCommitteeBits  # [New in Electra:EIP7549]
+
   # https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.10/specs/deneb/beacon-chain.md#executionpayload
   ExecutionPayload* = object
     # Execution block header fields
