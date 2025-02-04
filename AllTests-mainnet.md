@@ -7,8 +7,8 @@ AllTests-mainnet
 OK: 1/1 Fail: 0/1 Skip: 0/1
 ## Attestation pool electra processing [Preset: mainnet]
 ```diff
-+ Aggregated attestations with disjoint comittee bits into a single on-chain aggregate [Pres OK
-+ Attestations with disjoint comittee bits and equal data into single on-chain aggregate [Pr OK
++ Aggregated attestations with disjoint committee bits into a single on-chain aggregate [Pres OK
++ Attestations with disjoint committee bits and equal data into single on-chain aggregate [Pr OK
 + Can add and retrieve simple electra attestations [Preset: mainnet]                         OK
 + Working with electra aggregates [Preset: mainnet]                                          OK
 ```
