@@ -8,7 +8,7 @@
 {.push raises: [].}
 
 import
-  std/[os, random, terminal, times],
+  std/[os, random, terminal, times, exitprocs],
   chronos, chronicles,
   metrics, metrics/chronos_httpserver,
   stew/[byteutils, io2],
@@ -2111,6 +2111,8 @@ proc stop(node: BeaconNode) =
   except CatchableError as exc:
     warn "Couldn't stop network", msg = exc.msg
 
+  waitFor node.metricsServer.stopMetricsServer()
+
   node.attachedValidators[].slashingProtection.close()
   node.attachedValidators[].close()
   node.db.close()
@@ -2166,7 +2168,7 @@ var gPidFile: string
 proc createPidFile(filename: string) {.raises: [IOError].} =
   writeFile filename, $os.getCurrentProcessId()
   gPidFile = filename
-  addQuitProc proc {.noconv.} = discard io2.removeFile(gPidFile)
+  addExitProc proc {.noconv.} = discard io2.removeFile(gPidFile)
 
 proc initializeNetworking(node: BeaconNode) {.async.} =
   node.installMessageValidators()
@@ -2378,16 +2380,8 @@ proc doRunBeaconNode(config: var BeaconNodeConf, rng: ref HmacDrbgContext) {.rai
 
   config.createDumpDirs()
 
-  if config.metricsEnabled:
-    let metricsAddress = config.metricsAddress
-    notice "Starting metrics HTTP server",
-      url = "http://" & $metricsAddress & ":" & $config.metricsPort & "/metrics"
-    try:
-      startMetricsHttpServer($metricsAddress, config.metricsPort)
-    except CatchableError as exc:
-      raise exc
-    except Exception as exc:
-      raiseAssert exc.msg # TODO fix metrics
+  let metricsServer = (waitFor config.initMetricsServer()).valueOr:
+    return
 
   # Nim GC metrics (for the main thread) will be collected in onSecond(), but
   # we disable piggy-backing on other metrics here.
@@ -2434,6 +2428,8 @@ proc doRunBeaconNode(config: var BeaconNodeConf, rng: ref HmacDrbgContext) {.rai
       raiseAssert res.error()
 
   let node = waitFor BeaconNode.init(rng, config, metadata)
+
+  node.metricsServer = metricsServer
 
   if bnStatus == BeaconNodeStatus.Stopping:
     return

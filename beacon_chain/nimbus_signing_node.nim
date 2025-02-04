@@ -414,7 +414,7 @@ proc asyncInit(sn: SigningNodeRef) {.async: (raises: [SigningNodeError]).} =
         raise newException(SigningNodeError, "")
       SigningNodeServer(kind: SigningNodeKind.NonSecure, nserver: res.get())
 
-proc asyncRun*(sn: SigningNodeRef) {.async: (raises: []).} =
+proc asyncRun*(sn: SigningNodeRef) {.async: (raises: [SigningNodeError]).} =
   sn.runKeystoreCachePruningLoopFut =
     runKeystoreCachePruningLoop(sn.keystoreCache)
   sn.installApiHandlers()
@@ -428,6 +428,11 @@ proc asyncRun*(sn: SigningNodeRef) {.async: (raises: []).} =
   except CatchableError as exc:
     warn "Main loop failed with unexpected error", err_name = $exc.name,
          reason = $exc.msg
+
+  # This is trick to fool `asyncraises` from generating warning:
+  # No exceptions possible with this operation, `error` always returns nil.
+  if false:
+    raise newException(SigningNodeError, "This error should never happen")
 
   debug "Stopping main processing loop"
   var pending: seq[Future[void]]
