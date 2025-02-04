@@ -1581,7 +1581,7 @@ A shout out to our great community for reporting and helping diagnose the issues
 * Improve Bellatrix block processing performance
   [#4085](https://github.com/status-im/nimbus-eth2/pull/4085) and [#4082](https://github.com/status-im/nimbus-eth2/pull/4082)
 
-* Optimize execution layer calls when not producing blocks, improving Besu performance and compatiblity
+* Optimize execution layer calls when not producing blocks, improving Besu performance and compatibility
   [#4055](https://github.com/status-im/nimbus-eth2/pull/4055)
 
 * Revise timing of execution layer configuration call, resolving warnings that no consensus client is present on Geth and Besu
@@ -2853,7 +2853,7 @@ So it's important you update at your earliest convenience.
 * A deposit merkle proofs generation issue occasionally resulting in missed
   block proposals shortly after a new Eth1 head was selected.
 
-* Slow status bar updates in the absense of logging messages.
+* Slow status bar updates in the absence of logging messages.
 
 
 2020-12-02 v1.0.1
