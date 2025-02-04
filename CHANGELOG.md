@@ -2744,7 +2744,7 @@ and further performance improvements across the board.
 
 * A bug that had the potential to completely halt all syncing activity.
 
-* Inefficient processing of blocks with Eth1 deposits which occassionally
+* Inefficient processing of blocks with Eth1 deposits which occasionally
   led to increased latencies when delivering attestations.
 
 * Outdated records in our bootstrap nodes list.
