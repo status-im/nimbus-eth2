@@ -1,5 +1,5 @@
 # beacon_chain
-# Copyright (c) 2022-2024 Status Research & Development GmbH
+# Copyright (c) 2022-2025 Status Research & Development GmbH
 # Licensed and distributed under either of
 #   * MIT license (license terms in the root directory or at https://opensource.org/licenses/MIT).
 #   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
@@ -7,9 +7,9 @@
 
 {.push raises: [].}
 
-import
-  std/os,
-  chronicles
+import chronicles
+
+from std/os import `/`
 
 type
   LogProc = proc() {.gcsafe, raises: [].}
@@ -37,6 +37,10 @@ type
     # Gets displayed on upgrade to Electra. May be displayed multiple times
     # in case of chain reorgs around the upgrade.
     onUpgradeToElectra*: LogProc
+
+    # Gets displayed on a change to compounding for a validator known to the
+    # known in a head block.
+    onKnownCompoundingChange*: LogProc
 
 # Created by https://beatscribe.com (beatscribe#1008 on Discord)
 # These need to be the main body of the log not to be reformatted or escaped.

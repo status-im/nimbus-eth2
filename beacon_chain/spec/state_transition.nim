@@ -535,7 +535,6 @@ proc makeBeaconBlockWithRewards*(
           forkyState.data.latest_execution_payload_header.transactions_root =
             transactions_root.get
 
-          debugComment "verify (again) that this is what builder API needs"
           when executionPayload is electra.ExecutionPayloadForSigning:
             # https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.3/specs/electra/beacon-chain.md#beaconblockbody
             forkyState.data.latest_block_header.body_root = hash_tree_root(
@@ -552,7 +551,8 @@ proc makeBeaconBlockWithRewards*(
                hash_tree_root(sync_aggregate),
                execution_payload_root.get,
                hash_tree_root(validator_changes.bls_to_execution_changes),
-               hash_tree_root(kzg_commitments.get)
+               hash_tree_root(kzg_commitments.get),
+               hash_tree_root(execution_requests)
             ])
           else:
             raiseAssert "Attempt to use non-Electra payload with post-Deneb state"
@@ -577,7 +577,8 @@ proc makeBeaconBlockWithRewards*(
                hash_tree_root(sync_aggregate),
                execution_payload_root.get,
                hash_tree_root(validator_changes.bls_to_execution_changes),
-               hash_tree_root(kzg_commitments.get)
+               hash_tree_root(kzg_commitments.get),
+               hash_tree_root(execution_requests)
             ])
           else:
             raiseAssert "Attempt to use non-Fulu payload with post-Electra state"
