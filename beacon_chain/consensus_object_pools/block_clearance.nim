@@ -520,10 +520,6 @@ proc addBackfillBlockData*(
             "database corrupt?", clearanceBlock = shortLog(clearanceBlock)
       return err(VerifierError.MissingParent)
 
-    # dag.clearanceState.setStateRoot(trustedStateRoot)
-    # TODO (cheatfate): This is last part of previous TODO comment, we should
-    # set state's `root` to block's `state_root`.
-
     let proposerVerifyTick = Moment.now()
 
     if not(isNil(onStateUpdated)):

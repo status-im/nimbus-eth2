@@ -385,14 +385,11 @@ proc initFullNode(
     else:
       dag.tail.slot
 
-  proc getUntrustedBackfillSlot(): Slot =
+  func getUntrustedBackfillSlot(): Slot =
     if clist.tail.isSome():
       clist.tail.get().blck.slot
     else:
-      getLocalWallSlot()
-
-  func getUntrustedFrontfillSlot(): Slot =
-    getFirstSlotAtFinalizedEpoch()
+      dag.tail.slot
 
   func getFrontfillSlot(): Slot =
     max(dag.frontfill.get(BlockId()).slot, dag.horizon)
@@ -535,7 +532,7 @@ proc initFullNode(
       dag.cfg.DENEB_FORK_EPOCH, dag.cfg.MIN_EPOCHS_FOR_BLOB_SIDECARS_REQUESTS,
       SyncQueueKind.Backward, getLocalHeadSlot,
       getLocalWallSlot, getFirstSlotAtFinalizedEpoch, getUntrustedBackfillSlot,
-      getUntrustedFrontfillSlot, isWithinWeakSubjectivityPeriod,
+      getFrontfillSlot, isWithinWeakSubjectivityPeriod,
       clistPivotSlot, untrustedBlockVerifier, maxHeadAge = 0,
       shutdownEvent = node.shutdownEvent,
       flags = syncManagerFlags)
