@@ -2286,18 +2286,6 @@ func upgrade_to_fulu*(
       blob_gas_used: pre.latest_execution_payload_header.blob_gas_used,
       excess_blob_gas: pre.latest_execution_payload_header.excess_blob_gas)
 
-  var max_exit_epoch = FAR_FUTURE_EPOCH
-  for v in pre.validators:
-    if v.exit_epoch != FAR_FUTURE_EPOCH:
-      max_exit_epoch =
-        if max_exit_epoch == FAR_FUTURE_EPOCH:
-          v.exit_epoch
-        else:
-          max(max_exit_epoch, v.exit_epoch)
-  if max_exit_epoch == FAR_FUTURE_EPOCH:
-    max_exit_epoch = get_current_epoch(pre)
-  let earliest_exit_epoch = max_exit_epoch + 1
-
   let post = (ref fulu.BeaconState)(
     # Versioning
     genesis_time: pre.genesis_time,
@@ -2358,53 +2346,18 @@ func upgrade_to_fulu*(
     historical_summaries: pre.historical_summaries,
 
     # [New in Electra:EIP6110]
-    deposit_requests_start_index: UNSET_DEPOSIT_REQUESTS_START_INDEX,
+    deposit_requests_start_index: pre.deposit_requests_start_index,
 
     # [New in Electra:EIP7251]
-    deposit_balance_to_consume: 0.Gwei,
-    exit_balance_to_consume: 0.Gwei,
-    earliest_exit_epoch: earliest_exit_epoch,
-    consolidation_balance_to_consume: 0.Gwei,
-    earliest_consolidation_epoch:
-      compute_activation_exit_epoch(get_current_epoch(pre))
-
-    # pending_balance_deposits, pending_partial_withdrawals, and
-    # pending_consolidations are default empty lists
+    deposit_balance_to_consume: pre.deposit_balance_to_consume,
+    exit_balance_to_consume: pre.exit_balance_to_consume,
+    earliest_exit_epoch: pre.earliest_exit_epoch,
+    consolidation_balance_to_consume: pre.consolidation_balance_to_consume,
+    earliest_consolidation_epoch: pre.earliest_consolidation_epoch,
+    pending_deposits: pre.pending_deposits,
+    pending_partial_withdrawals: pre.pending_partial_withdrawals,
+    pending_consolidations: pre.pending_consolidations
   )
-
-  post.exit_balance_to_consume =
-    get_activation_exit_churn_limit(cfg, post[], cache)
-  post.consolidation_balance_to_consume =
-    get_consolidation_churn_limit(cfg, post[], cache)
-
-  # [New in Electra:EIP7251]
-  # add validators that are not yet active to pending balance deposits
-  var pre_activation: seq[(Epoch, uint64)]
-  for index, validator in post.validators:
-    if validator.activation_epoch == FAR_FUTURE_EPOCH:
-      pre_activation.add((validator.activation_eligibility_epoch, index.uint64))
-  sort(pre_activation)
-
-  for (_, index) in pre_activation:
-    let balance = post.balances.item(index)
-    post.balances[index] = 0.Gwei
-    let validator = addr post.validators.mitem(index)
-    validator[].effective_balance = 0.Gwei
-    validator[].activation_eligibility_epoch = FAR_FUTURE_EPOCH
-    # Use bls.G2_POINT_AT_INFINITY as a signature field placeholder and
-    # GENESIS_SLOT to distinguish from a pending deposit request
-    discard post.pending_deposits.add PendingDeposit(
-      pubkey: validator[].pubkey,
-      withdrawal_credentials: validator[].withdrawal_credentials,
-      amount: balance,
-      signature: ValidatorSig.infinity,
-      slot: GENESIS_SLOT)
-
-  # Ensure early adopters of compounding credentials go through the activation
-  # churn
-  for index, validator in post.validators:
-    if has_compounding_withdrawal_credential(validator):
-      queue_excess_active_balance(post[], index.uint64)
 
   post
 
