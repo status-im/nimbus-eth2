@@ -178,7 +178,7 @@ type
 
   ForkyAttestation* =
     phase0.Attestation |
-    electra.Attestation
+    electra.SingleAttestation
 
   ForkedAttestation* = object
     case kind*: ConsensusFork
@@ -461,6 +461,7 @@ template kind*(
       electra.MsgTrustedSignedBeaconBlock |
       electra.TrustedSignedBeaconBlock |
       electra.Attestation |
+      electra.SingleAttestation |
       electra.AggregateAndProof |
       electra.SignedAggregateAndProof |
       electra_mev.SignedBlindedBeaconBlock]): ConsensusFork =

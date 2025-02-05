@@ -226,16 +226,16 @@ func contains*(pool: ValidatorPool, pubkey: ValidatorPubKey): bool =
   ## Returns ``true`` if validator with key ``pubkey`` present in ``pool``.
   pool.validators.contains(pubkey)
 
-proc contains*(pool: ValidatorPool, index: ValidatorIndex): bool =
+func contains*(pool: ValidatorPool, index: ValidatorIndex): bool =
   ## Returns ``true`` if validator with index ``index`` present in ``pool``.
   pool.indexSet.contains(index)
 
-proc setValidatorIndex*(pool: var ValidatorPool, validator: AttachedValidator,
+func setValidatorIndex*(pool: var ValidatorPool, validator: AttachedValidator,
                         index: ValidatorIndex) =
   pool.indexSet.incl(index)
   validator.index = Opt.some(index)
 
-proc removeValidatorIndex(pool: var ValidatorPool, index: ValidatorIndex) =
+func removeValidatorIndex(pool: var ValidatorPool, index: ValidatorIndex) =
   pool.indexSet.excl(index)
 
 proc removeValidator*(pool: var ValidatorPool, pubkey: ValidatorPubKey) =
@@ -526,7 +526,7 @@ proc signData(v: AttachedValidator,
   else:
     v.signWithDistributedKey(request)
 
-# https://github.com/ethereum/consensus-specs/blob/v1.5.0-beta.0/specs/phase0/validator.md#signature
+# https://github.com/ethereum/consensus-specs/blob/v1.5.0-beta.1/specs/phase0/validator.md#signature
 proc getBlockSignature*(v: AttachedValidator, fork: Fork,
                         genesis_validators_root: Eth2Digest, slot: Slot,
                         block_root: Eth2Digest,
@@ -882,7 +882,7 @@ proc getSyncCommitteeMessage*(v: AttachedValidator,
     )
   )
 
-# https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.10/specs/altair/validator.md#aggregation-selection
+# https://github.com/ethereum/consensus-specs/blob/v1.5.0-beta.1/specs/altair/validator.md#aggregation-selection
 proc getSyncCommitteeSelectionProof*(v: AttachedValidator, fork: Fork,
                                      genesis_validators_root: Eth2Digest,
                                      slot: Slot,
@@ -918,7 +918,7 @@ proc getContributionAndProofSignature*(v: AttachedValidator, fork: Fork,
       fork, genesis_validators_root, contribution_and_proof)
     await v.signData(request)
 
-# https://github.com/ethereum/consensus-specs/blob/v1.5.0-beta.0/specs/phase0/validator.md#randao-reveal
+# https://github.com/ethereum/consensus-specs/blob/v1.5.0-beta.1/specs/phase0/validator.md#randao-reveal
 proc getEpochSignature*(v: AttachedValidator, fork: Fork,
                         genesis_validators_root: Eth2Digest, epoch: Epoch
                        ): Future[SignatureResult]

@@ -1,5 +1,5 @@
 # beacon_chain
-# Copyright (c) 2018-2024 Status Research & Development GmbH
+# Copyright (c) 2018-2025 Status Research & Development GmbH
 # Licensed and distributed under either of
 #   * MIT license (license terms in the root directory or at https://opensource.org/licenses/MIT).
 #   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
@@ -509,15 +509,16 @@ proc addBackfillBlockData*(
         withBlck(parentBlock):
           forkyBlck.message.state_root
       clearanceBlock = BlockSlotId.init(parent.bid, forkyBlck.message.slot)
-      updateFlags1 = dag.updateFlags + {skipLastStateRootCalculation}
+      updateFlags1 = dag.updateFlags
+        # TODO (cheatfate): {skipLastStateRootCalculation} flag here could
+        # improve performance by 100%, but this approach needs some
+        # improvements, which is unclear.
 
     if not updateState(dag, dag.clearanceState, clearanceBlock, true, cache,
                        updateFlags1):
       error "Unable to load clearance state for parent block, " &
             "database corrupt?", clearanceBlock = shortLog(clearanceBlock)
       return err(VerifierError.MissingParent)
-
-    dag.clearanceState.setStateRoot(trustedStateRoot)
 
     let proposerVerifyTick = Moment.now()
 

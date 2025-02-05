@@ -1,5 +1,5 @@
 # beacon_chain
-# Copyright (c) 2018-2024 Status Research & Development GmbH
+# Copyright (c) 2018-2025 Status Research & Development GmbH
 # Licensed and distributed under either of
 #   * MIT license (license terms in the root directory or at https://opensource.org/licenses/MIT).
 #   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
@@ -161,38 +161,6 @@ proc initClock(
          current_slot = currentSlot, current_epoch = currentEpoch
   res
 
-proc initMetrics(
-    vc: ValidatorClientRef
-): Future[bool] {.async: (raises: [CancelledError]).} =
-  if vc.config.metricsEnabled:
-    let
-      metricsAddress = vc.config.metricsAddress
-      metricsPort = vc.config.metricsPort
-      url = "http://" & $metricsAddress & ":" & $metricsPort & "/metrics"
-    info "Starting metrics HTTP server", url = url
-    let server =
-      block:
-        let res = MetricsHttpServerRef.new($metricsAddress, metricsPort)
-        if res.isErr():
-          error "Could not start metrics HTTP server", url = url,
-                error_msg = res.error()
-          return false
-        res.get()
-    vc.metricsServer = Opt.some(server)
-    try:
-      await server.start()
-    except MetricsError as exc:
-      error "Could not start metrics HTTP server", url = url,
-            error_msg = exc.msg, error_name = exc.name
-      return false
-  true
-
-proc shutdownMetrics(vc: ValidatorClientRef) {.async: (raises: []).} =
-  if vc.config.metricsEnabled:
-    if vc.metricsServer.isSome():
-      info "Shutting down metrics HTTP server"
-      await vc.metricsServer.get().close()
-
 proc shutdownSlashingProtection(vc: ValidatorClientRef) =
   info "Closing slashing protection", path = vc.config.validatorsDir()
   vc.attachedValidators[].slashingProtection.close()
@@ -351,7 +319,7 @@ proc asyncInit(vc: ValidatorClientRef): Future[ValidatorClientRef] {.
 
   vc.beaconClock = await vc.initClock()
 
-  if not(await initMetrics(vc)):
+  vc.metricsServer = (await vc.config.initMetricsServer()).valueOr:
     raise newException(ValidatorClientError,
                        "Could not initialize metrics server")
 
@@ -368,7 +336,7 @@ proc asyncInit(vc: ValidatorClientRef): Future[ValidatorClientRef] {.
   vc.attachedValidators = validatorPool
 
   if not(await initValidators(vc)):
-    await vc.shutdownMetrics()
+    await vc.metricsServer.stopMetricsServer()
     raise newException(ValidatorClientError,
                        "Could not initialize local validators")
 
@@ -432,7 +400,7 @@ proc asyncInit(vc: ValidatorClientRef): Future[ValidatorClientRef] {.
         )
   except CancelledError:
     debug "Initialization process interrupted"
-    await vc.shutdownMetrics()
+    await vc.metricsServer.stopMetricsServer()
     vc.shutdownSlashingProtection()
     return
 
@@ -522,7 +490,7 @@ proc asyncRun*(
   except CancelledError:
     debug "Main loop interrupted"
 
-  await vc.shutdownMetrics()
+  await vc.metricsServer.stopMetricsServer()
   vc.shutdownSlashingProtection()
 
   if doppelEventFut.completed():

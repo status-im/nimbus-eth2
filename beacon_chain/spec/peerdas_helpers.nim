@@ -25,8 +25,8 @@ type
   ProofBytes = array[fulu.CELLS_PER_EXT_BLOB, KzgProof]
 
 # https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.10/specs/fulu/das-core.md#compute_columns_for_custody_group
-iterator compute_columns_for_custody_group(custody_group: CustodyIndex):
-                                           ColumnIndex =
+iterator compute_columns_for_custody_group*(custody_group: CustodyIndex):
+                                            ColumnIndex =
   for i in 0'u64 ..< COLUMNS_PER_GROUP:
     yield ColumnIndex(NUMBER_OF_CUSTODY_GROUPS * i + custody_group)
 
@@ -264,7 +264,7 @@ proc get_data_column_sidecars*(signed_beacon_block: electra.SignedBeaconBlock,
 
   ok(sidecars)
 
-# https://github.com/ethereum/consensus-specs/blob/v1.5.0-beta.0/specs/fulu/peer-sampling.md#get_extended_sample_count
+# https://github.com/ethereum/consensus-specs/blob/v1.5.0-beta.1/specs/fulu/peer-sampling.md#get_extended_sample_count
 func get_extended_sample_count*(samples_per_slot: int,
                                 allowed_failures: int):
                                 int =
