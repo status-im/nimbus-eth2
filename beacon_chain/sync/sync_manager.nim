@@ -387,6 +387,7 @@ func groupDataColumns*(
           continue
         # Clients MUST include all data column sidecars of each block from which they include data column sidecars.
         # The following data column sidecars, where they exist, MUST be sent in consecutive (slot, index) order.
+        # https://github.com/ethereum/consensus-specs/blob/v1.5.0-beta.1/specs/fulu/p2p-interface.md#datacolumnsidecarsbyrange-v1
         let header = forkyBlck.toSignedBeaconBlockHeader()
         for column_idx in 0..<data_columns.len:
           let data_column_sidecar = data_columns[column_cursor]

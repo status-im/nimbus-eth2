@@ -80,7 +80,7 @@ const
   BlobForkCodeRange =
     MaxForksCount .. (MaxForksCount + int(high(ConsensusFork)) - int(ConsensusFork.Deneb))
   DataColumnForkCodeRange =
-    MaxForksCount .. (MaxForksCount + int(high(ConsensusFork)) - int(ConsensusFork.Fulu))
+    MaxForksCount * 2 .. (MaxForksCount * 2 + int(high(ConsensusFork)) - int(ConsensusFork.Fulu))
 
 func getBlockForkCode(fork: ConsensusFork): uint64 =
   uint64(fork)

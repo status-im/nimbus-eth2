@@ -429,14 +429,6 @@ proc initFullNode(
         NUMBER_OF_CUSTODY_GROUPS.uint64
       else:
         CUSTODY_REQUIREMENT.uint64
-    custody_columns_set =
-      node.network.nodeId.resolve_column_sets_from_custody_groups(
-          max(SAMPLES_PER_SLOT.uint64,
-          localCustodyGroups))
-    custody_columns_list =
-      node.network.nodeId.resolve_column_list_from_custody_groups(
-          max(SAMPLES_PER_SLOT.uint64,
-          localCustodyGroups))
   dataColumnQuarantine[].supernode = supernode
   dataColumnQuarantine[].custody_columns =
     node.network.nodeId.resolve_columns_from_custody_groups(
@@ -444,6 +436,11 @@ proc initFullNode(
           localCustodyGroups))
 
   let
+    custody_columns_set =
+      dataColumnQuarantine[].custody_columns.toHashSet()
+    custody_columns_list =
+      List[ColumnIndex, NUMBER_OF_COLUMNS].init(
+        dataColumnQuarantine[].custody_columns)
     consensusManager = ConsensusManager.new(
       dag, attestationPool, quarantine, node.elManager,
       ActionTracker.init(node.network.nodeId, config.subscribeAllSubnets),
