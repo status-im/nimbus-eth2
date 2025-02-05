@@ -256,11 +256,8 @@ proc checkPeerCustody(man: SyncManager,
             max(SAMPLES_PER_SLOT.uint64,
                 remoteCustodyGroupCount))
 
-      for local_column in man.custody_columns_set:
-        if local_column in remoteCustodyColumns:
-          return false
-
-      return true
+      return disjoint(man.custody_columns_set,
+                      remoteCustodyColumns)
 
     else:
       return false
