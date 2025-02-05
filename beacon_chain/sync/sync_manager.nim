@@ -757,7 +757,7 @@ proc syncStep[A, B](
       groupedDataColumns.checkDataColumns().isOkOr:
         peer.updateScore(PeerScoreBadResponse)
         man.queue.push(req)
-        warn "Recieved data columns verification failed",
+        warn "Received data columns verification failed",
              data_columns_count = len(dataColumnData),
              data_columns_map = getShortMap(req, dataColumnData),
              request = req,
