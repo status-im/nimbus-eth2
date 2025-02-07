@@ -458,11 +458,6 @@ proc computeTransactionsTrieRoot(
 func computeRequestsHash(
     requests: electra.ExecutionRequests): EthHash32 =
 
-  const
-    DEPOSIT_REQUEST_TYPE = 0x00'u8  # EIP-6110
-    WITHDRAWAL_REQUEST_TYPE = 0x01'u8  # EIP-7002
-    CONSOLIDATION_REQUEST_TYPE = 0x02'u8  # EIP-7251
-
   template individualHash(requestType, requestList): Digest =
     computeDigest:
       h.update([requestType.byte])

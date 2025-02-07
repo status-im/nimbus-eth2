@@ -562,15 +562,18 @@ proc makeBeaconBlockForHeadAndSlot*(
             request_type_and_payload.toOpenArray(
               1, request_type_and_payload.len - 1)
           case request_type_and_payload[0]
-          of 0'u8: execution_requests_buffer.deposits = SSZ.decode(
-            request_payload,
-            List[DepositRequest, Limit MAX_DEPOSIT_REQUESTS_PER_PAYLOAD])
-          of 1'u8: execution_requests_buffer.withdrawals = SSZ.decode(
-            request_payload,
-            List[WithdrawalRequest, Limit MAX_WITHDRAWAL_REQUESTS_PER_PAYLOAD])
-          of 2'u8: execution_requests_buffer.consolidations = SSZ.decode(
-            request_payload,
-            List[ConsolidationRequest, Limit MAX_CONSOLIDATION_REQUESTS_PER_PAYLOAD])
+          of DEPOSIT_REQUEST_TYPE:
+            execution_requests_buffer.deposits =
+              SSZ.decode(request_payload,
+                List[DepositRequest, Limit MAX_DEPOSIT_REQUESTS_PER_PAYLOAD])
+          of WITHDRAWAL_REQUEST_TYPE:
+            execution_requests_buffer.withdrawals =
+              SSZ.decode(request_payload,
+                List[WithdrawalRequest, Limit MAX_WITHDRAWAL_REQUESTS_PER_PAYLOAD])
+          of CONSOLIDATION_REQUEST_TYPE:
+            execution_requests_buffer.consolidations =
+              SSZ.decode(request_payload,
+                List[ConsolidationRequest, Limit MAX_CONSOLIDATION_REQUESTS_PER_PAYLOAD])
           else:
             return err("Execution layer invalid request type")
       except CatchableError:

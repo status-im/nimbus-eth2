@@ -85,7 +85,12 @@ const
   FULL_EXIT_REQUEST_AMOUNT*: uint64 = 0
 
   # https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.5/specs/electra/beacon-chain.md#withdrawal-prefixes
-  COMPOUNDING_WITHDRAWAL_PREFIX* = 0x02
+  COMPOUNDING_WITHDRAWAL_PREFIX* = 0x02'u8
+
+  # https://github.com/ethereum/consensus-specs/blob/v1.5.0-beta.1/specs/electra/beacon-chain.md#execution-layer-triggered-requests
+  DEPOSIT_REQUEST_TYPE* = 0x00'u8
+  WITHDRAWAL_REQUEST_TYPE* = 0x01'u8
+  CONSOLIDATION_REQUEST_TYPE* = 0x02'u8
 
   # https://github.com/ethereum/consensus-specs/blob/v1.5.0-beta.0/specs/electra/beacon-chain.md#execution-1
   MAX_BLOBS_PER_BLOCK_ELECTRA* = 9'u64
