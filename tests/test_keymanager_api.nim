@@ -99,6 +99,14 @@ const
     "0x0bbca63e35c7a159fc2f187d300cad9ef5f5e73e55f78c391e7bc2c2feabc2d9d63dfe99edd7058ad0ab9d7f14aade5f"
   ]
 
+  scenarioPrivateKeys = [
+    "0x64f65f701ca61b78b986bcd609fad2ffaf1c515bb6b1dd1ca9e59b51071e7456"
+  ]
+
+  scenarioPublicKeys = [
+    "0x948994bc18b1fdd74922b949157052e37710518e0de637c9365485eb5072a5318015c9256aa4ed7c5e8951d140fc9bc0"
+  ]
+
   newPublicKeysUrl = HttpHostUri(parseUri("http://127.0.0.1/remote"))
 
   nodeDataDir = dataDir / "node-0"
@@ -1100,6 +1108,33 @@ proc runTests(keymanager: KeymanagerToTest) {.async.} =
       let finalResultFromApi = await client.listFeeRecipient(pubkey, correctTokenValue)
       check:
         finalResultFromApi == defaultFeeRecipient
+
+    asyncTest "Add validator after fee recipient being configure should success" & testFlavour:
+      let
+        seckey = ValidatorPrivKey.fromHex(scenarioPrivateKeys[0]).tryGet()
+        pubkey = ValidatorPubKey.fromHex(scenarioPublicKeys[0]).tryGet()
+        localKeystore = createKeystore(kdfPbkdf2, rng[], seckey,
+          KeystorePass.init password, salt = salt, iv = iv,
+          description = "Test local keystore",
+          path = validateKeyPath("m/12381/60/0/0").expect("Valid Keypath"))
+        localFeeRecipient = specifiedFeeRecipient(500)
+        importKeystoreBody = KeystoresAndSlashingProtection(
+          keystores: @[localKeystore],
+          passwords: @[password],
+        )
+
+      await client.setFeeRecipient(pubkey, localFeeRecipient, correctTokenValue)
+
+      let firstResultFromApi =
+        await client.listFeeRecipient(pubkey, correctTokenValue)
+      check:
+        firstResultFromApi == localFeeRecipient
+
+      let
+        response = await client.importKeystoresPlain(
+          importKeystoreBody,
+          extraHeaders = @[("Authorization", "Bearer " & correctTokenValue)])
+      echo "STATUS = ", response.status
 
   suite "Gas limit management" & testFlavour:
     asyncTest "Missing Authorization header" & testFlavour:
