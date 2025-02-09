@@ -3478,6 +3478,22 @@ OK: 1/1 Fail: 0/1 Skip: 0/1
 + [Valid]   EF - Fulu - Finality - finality_rule_4 [Preset: mainnet]                         OK
 ```
 OK: 5/5 Fail: 0/5 Skip: 0/5
+## EF - Fulu - Fork  [Preset: mainnet]
+```diff
++ EF - Fulu - Fork - fork_base_state [Preset: mainnet]                                       OK
++ EF - Fulu - Fork - fork_many_next_epoch [Preset: mainnet]                                  OK
++ EF - Fulu - Fork - fork_next_epoch [Preset: mainnet]                                       OK
++ EF - Fulu - Fork - fork_next_epoch_with_block [Preset: mainnet]                            OK
++ EF - Fulu - Fork - fork_random_low_balances [Preset: mainnet]                              OK
++ EF - Fulu - Fork - fork_random_misc_balances [Preset: mainnet]                             OK
++ EF - Fulu - Fork - fulu_fork_random_0 [Preset: mainnet]                                    OK
++ EF - Fulu - Fork - fulu_fork_random_1 [Preset: mainnet]                                    OK
++ EF - Fulu - Fork - fulu_fork_random_2 [Preset: mainnet]                                    OK
++ EF - Fulu - Fork - fulu_fork_random_3 [Preset: mainnet]                                    OK
++ EF - Fulu - Fork - fulu_fork_random_low_balances [Preset: mainnet]                         OK
++ EF - Fulu - Fork - fulu_fork_random_misc_balances [Preset: mainnet]                        OK
+```
+OK: 12/12 Fail: 0/12 Skip: 0/12
 ## EF - Fulu - Operations - Attestation  [Preset: mainnet]
 ```diff
 + [Invalid] EF - Fulu - Operations - Attestation - invalid_after_max_inclusion_slot          OK
@@ -4061,6 +4077,21 @@ OK: 59/59 Fail: 0/59 Skip: 0/59
 + [Valid]   EF - Fulu - Sanity - Blocks - zero_blob [Preset: mainnet]                        OK
 ```
 OK: 73/73 Fail: 0/73 Skip: 0/73
+## EF - Fulu - Sanity - Slots  [Preset: mainnet]
+```diff
++ EF - Fulu - Slots - double_empty_epoch [Preset: mainnet]                                   OK
++ EF - Fulu - Slots - empty_epoch [Preset: mainnet]                                          OK
++ EF - Fulu - Slots - historical_accumulator [Preset: mainnet]                               OK
++ EF - Fulu - Slots - multiple_pending_deposits_same_pubkey [Preset: mainnet]                OK
++ EF - Fulu - Slots - multiple_pending_deposits_same_pubkey_above_upward_threshold [Preset:  OK
++ EF - Fulu - Slots - multiple_pending_deposits_same_pubkey_below_upward_threshold [Preset:  OK
++ EF - Fulu - Slots - multiple_pending_deposits_same_pubkey_compounding [Preset: mainnet]    OK
++ EF - Fulu - Slots - over_epoch_boundary [Preset: mainnet]                                  OK
++ EF - Fulu - Slots - pending_consolidation [Preset: mainnet]                                OK
++ EF - Fulu - Slots - slots_1 [Preset: mainnet]                                              OK
++ EF - Fulu - Slots - slots_2 [Preset: mainnet]                                              OK
+```
+OK: 11/11 Fail: 0/11 Skip: 0/11
 ## EF - Light client - Single merkle proof [Preset: mainnet]
 ```diff
 + Light client - Single merkle proof - mainnet/altair/light_client/single_merkle_proof/Beaco OK
@@ -4651,4 +4682,4 @@ OK: 106/133 Fail: 0/133 Skip: 27/133
 OK: 5/5 Fail: 0/5 Skip: 0/5
 
 ---TOTAL---
-OK: 3798/3825 Fail: 0/3825 Skip: 27/3825
+OK: 3821/3848 Fail: 0/3848 Skip: 27/3848
