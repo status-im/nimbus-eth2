@@ -3672,6 +3672,24 @@ OK: 5/5 Fail: 0/5 Skip: 0/5
 + [Valid]   EF - Fulu - Finality - finality_rule_4 [Preset: minimal]                         OK
 ```
 OK: 5/5 Fail: 0/5 Skip: 0/5
+## EF - Fulu - Fork  [Preset: minimal]
+```diff
++ EF - Fulu - Fork - fork_base_state [Preset: minimal]                                       OK
++ EF - Fulu - Fork - fork_many_next_epoch [Preset: minimal]                                  OK
++ EF - Fulu - Fork - fork_next_epoch [Preset: minimal]                                       OK
++ EF - Fulu - Fork - fork_next_epoch_with_block [Preset: minimal]                            OK
++ EF - Fulu - Fork - fork_random_large_validator_set [Preset: minimal]                       OK
++ EF - Fulu - Fork - fork_random_low_balances [Preset: minimal]                              OK
++ EF - Fulu - Fork - fork_random_misc_balances [Preset: minimal]                             OK
++ EF - Fulu - Fork - fulu_fork_random_0 [Preset: minimal]                                    OK
++ EF - Fulu - Fork - fulu_fork_random_1 [Preset: minimal]                                    OK
++ EF - Fulu - Fork - fulu_fork_random_2 [Preset: minimal]                                    OK
++ EF - Fulu - Fork - fulu_fork_random_3 [Preset: minimal]                                    OK
++ EF - Fulu - Fork - fulu_fork_random_large_validator_set [Preset: minimal]                  OK
++ EF - Fulu - Fork - fulu_fork_random_low_balances [Preset: minimal]                         OK
++ EF - Fulu - Fork - fulu_fork_random_misc_balances [Preset: minimal]                        OK
+```
+OK: 14/14 Fail: 0/14 Skip: 0/14
 ## EF - Fulu - Operations - Attestation  [Preset: minimal]
 ```diff
 + [Invalid] EF - Fulu - Operations - Attestation - invalid_after_max_inclusion_slot          OK
@@ -4294,6 +4312,21 @@ OK: 59/59 Fail: 0/59 Skip: 0/59
 + [Valid]   EF - Fulu - Sanity - Blocks - zero_blob [Preset: minimal]                        OK
 ```
 OK: 80/80 Fail: 0/80 Skip: 0/80
+## EF - Fulu - Sanity - Slots  [Preset: minimal]
+```diff
++ EF - Fulu - Slots - double_empty_epoch [Preset: minimal]                                   OK
++ EF - Fulu - Slots - empty_epoch [Preset: minimal]                                          OK
++ EF - Fulu - Slots - historical_accumulator [Preset: minimal]                               OK
++ EF - Fulu - Slots - multiple_pending_deposits_same_pubkey [Preset: minimal]                OK
++ EF - Fulu - Slots - multiple_pending_deposits_same_pubkey_above_upward_threshold [Preset:  OK
++ EF - Fulu - Slots - multiple_pending_deposits_same_pubkey_below_upward_threshold [Preset:  OK
++ EF - Fulu - Slots - multiple_pending_deposits_same_pubkey_compounding [Preset: minimal]    OK
++ EF - Fulu - Slots - over_epoch_boundary [Preset: minimal]                                  OK
++ EF - Fulu - Slots - pending_consolidation [Preset: minimal]                                OK
++ EF - Fulu - Slots - slots_1 [Preset: minimal]                                              OK
++ EF - Fulu - Slots - slots_2 [Preset: minimal]                                              OK
+```
+OK: 11/11 Fail: 0/11 Skip: 0/11
 ## EF - Light client - Data collection [Preset: minimal]
 ```diff
 + Light client - Data collection - minimal/altair/light_client/data_collection/pyspec_tests/ OK
@@ -5131,4 +5164,4 @@ OK: 282/314 Fail: 0/314 Skip: 32/314
 OK: 5/5 Fail: 0/5 Skip: 0/5
 
 ---TOTAL---
-OK: 4237/4269 Fail: 0/4269 Skip: 32/4269
+OK: 4262/4294 Fail: 0/4294 Skip: 32/4294
