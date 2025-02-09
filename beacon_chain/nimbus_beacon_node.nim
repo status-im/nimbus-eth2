@@ -8,7 +8,7 @@
 {.push raises: [].}
 
 import
-  std/[os, random, terminal, times],
+  std/[os, random, terminal, times, exitprocs],
   chronos, chronicles,
   metrics, metrics/chronos_httpserver,
   stew/[byteutils, io2],
@@ -385,14 +385,11 @@ proc initFullNode(
     else:
       dag.tail.slot
 
-  proc getUntrustedBackfillSlot(): Slot =
+  func getUntrustedBackfillSlot(): Slot =
     if clist.tail.isSome():
       clist.tail.get().blck.slot
     else:
-      getLocalWallSlot()
-
-  func getUntrustedFrontfillSlot(): Slot =
-    getFirstSlotAtFinalizedEpoch()
+      dag.tail.slot
 
   func getFrontfillSlot(): Slot =
     max(dag.frontfill.get(BlockId()).slot, dag.horizon)
@@ -535,7 +532,7 @@ proc initFullNode(
       dag.cfg.DENEB_FORK_EPOCH, dag.cfg.MIN_EPOCHS_FOR_BLOB_SIDECARS_REQUESTS,
       SyncQueueKind.Backward, getLocalHeadSlot,
       getLocalWallSlot, getFirstSlotAtFinalizedEpoch, getUntrustedBackfillSlot,
-      getUntrustedFrontfillSlot, isWithinWeakSubjectivityPeriod,
+      getFrontfillSlot, isWithinWeakSubjectivityPeriod,
       clistPivotSlot, untrustedBlockVerifier, maxHeadAge = 0,
       shutdownEvent = node.shutdownEvent,
       flags = syncManagerFlags)
@@ -2111,6 +2108,8 @@ proc stop(node: BeaconNode) =
   except CatchableError as exc:
     warn "Couldn't stop network", msg = exc.msg
 
+  waitFor node.metricsServer.stopMetricsServer()
+
   node.attachedValidators[].slashingProtection.close()
   node.attachedValidators[].close()
   node.db.close()
@@ -2166,7 +2165,7 @@ var gPidFile: string
 proc createPidFile(filename: string) {.raises: [IOError].} =
   writeFile filename, $os.getCurrentProcessId()
   gPidFile = filename
-  addQuitProc proc {.noconv.} = discard io2.removeFile(gPidFile)
+  addExitProc proc {.noconv.} = discard io2.removeFile(gPidFile)
 
 proc initializeNetworking(node: BeaconNode) {.async.} =
   node.installMessageValidators()
@@ -2378,21 +2377,6 @@ proc doRunBeaconNode(config: var BeaconNodeConf, rng: ref HmacDrbgContext) {.rai
 
   config.createDumpDirs()
 
-  if config.metricsEnabled:
-    let metricsAddress = config.metricsAddress
-    notice "Starting metrics HTTP server",
-      url = "http://" & $metricsAddress & ":" & $config.metricsPort & "/metrics"
-    try:
-      startMetricsHttpServer($metricsAddress, config.metricsPort)
-    except CatchableError as exc:
-      raise exc
-    except Exception as exc:
-      raiseAssert exc.msg # TODO fix metrics
-
-  # Nim GC metrics (for the main thread) will be collected in onSecond(), but
-  # we disable piggy-backing on other metrics here.
-  setSystemMetricsAutomaticUpdate(false)
-
   # There are no managed event loops in here, to do a graceful shutdown, but
   # letting the default Ctrl+C handler exit is safe, since we only read from
   # the db.
@@ -2434,6 +2418,15 @@ proc doRunBeaconNode(config: var BeaconNodeConf, rng: ref HmacDrbgContext) {.rai
       raiseAssert res.error()
 
   let node = waitFor BeaconNode.init(rng, config, metadata)
+
+  let metricsServer = (waitFor config.initMetricsServer()).valueOr:
+    return
+
+  # Nim GC metrics (for the main thread) will be collected in onSecond(), but
+  # we disable piggy-backing on other metrics here.
+  setSystemMetricsAutomaticUpdate(false)
+
+  node.metricsServer = metricsServer
 
   if bnStatus == BeaconNodeStatus.Stopping:
     return

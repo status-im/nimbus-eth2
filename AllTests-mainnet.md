@@ -984,33 +984,28 @@ OK: 1/1 Fail: 0/1 Skip: 0/1
 OK: 7/7 Fail: 0/7 Skip: 0/7
 ## SyncManager test suite
 ```diff
-+ Process all unviable blocks                                                                OK
 + [SyncManager] groupBlobs() test                                                            OK
-+ [SyncQueue#Backward] Async unordered push test                                             OK
-+ [SyncQueue#Backward] Async unordered push with rewind test                                 OK
-+ [SyncQueue#Backward] Good response with missing values towards end                         OK
-+ [SyncQueue#Backward] Handle out-of-band sync progress advancement                          OK
-+ [SyncQueue#Backward] Pass through established limits test                                  OK
-+ [SyncQueue#Backward] Smoke test                                                            OK
-+ [SyncQueue#Backward] Start and finish slots equal                                          OK
-+ [SyncQueue#Backward] Two full requests success/fail                                        OK
++ [SyncQueue# & Backward] Combination of missing parent and good blocks [3 peers] test       OK
++ [SyncQueue# & Backward] Failure request push test                                          OK
++ [SyncQueue# & Backward] Invalid block [3 peers] test                                       OK
++ [SyncQueue# & Backward] Smoke [3 peers] test                                               OK
++ [SyncQueue# & Backward] Smoke [single peer] test                                           OK
++ [SyncQueue# & Backward] Unviable block [3 peers] test                                      OK
++ [SyncQueue# & Forward] Combination of missing parent and good blocks [3 peers] test        OK
++ [SyncQueue# & Forward] Failure request push test                                           OK
++ [SyncQueue# & Forward] Invalid block [3 peers] test                                        OK
++ [SyncQueue# & Forward] Smoke [3 peers] test                                                OK
++ [SyncQueue# & Forward] Smoke [single peer] test                                            OK
++ [SyncQueue# & Forward] Unviable block [3 peers] test                                       OK
++ [SyncQueue#Backward] Missing parent and exponential rewind [3 peers] test                  OK
 + [SyncQueue#Backward] getRewindPoint() test                                                 OK
-+ [SyncQueue#Forward] Async unordered push test                                              OK
-+ [SyncQueue#Forward] Async unordered push with rewind test                                  OK
-+ [SyncQueue#Forward] Good response with missing values towards end                          OK
-+ [SyncQueue#Forward] Handle out-of-band sync progress advancement                           OK
-+ [SyncQueue#Forward] Pass through established limits test                                   OK
-+ [SyncQueue#Forward] Smoke test                                                             OK
-+ [SyncQueue#Forward] Start and finish slots equal                                           OK
-+ [SyncQueue#Forward] Two full requests success/fail                                         OK
++ [SyncQueue#Forward] Missing parent and exponential rewind [3 peers] test                   OK
 + [SyncQueue#Forward] getRewindPoint() test                                                  OK
 + [SyncQueue] checkBlobsResponse() test                                                      OK
 + [SyncQueue] checkResponse() test                                                           OK
-+ [SyncQueue] contains() test                                                                OK
-+ [SyncQueue] getLastNonEmptySlot() test                                                     OK
 + [SyncQueue] hasEndGap() test                                                               OK
 ```
-OK: 25/25 Fail: 0/25 Skip: 0/25
+OK: 20/20 Fail: 0/20 Skip: 0/20
 ## Type helpers
 ```diff
 + BeaconBlock                                                                                OK
@@ -1154,4 +1149,4 @@ OK: 2/2 Fail: 0/2 Skip: 0/2
 OK: 9/9 Fail: 0/9 Skip: 0/9
 
 ---TOTAL---
-OK: 783/788 Fail: 0/788 Skip: 5/788
+OK: 778/783 Fail: 0/783 Skip: 5/783

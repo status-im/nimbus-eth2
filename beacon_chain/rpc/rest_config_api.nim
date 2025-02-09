@@ -43,8 +43,6 @@ proc installConfigApiHandlers*(router: var RestRouter, node: BeaconNode) =
             Base10.toString(MIN_DEPOSIT_AMOUNT),
           MAX_EFFECTIVE_BALANCE:
             Base10.toString(MAX_EFFECTIVE_BALANCE),
-          MAX_EFFECTIVE_BALANCE_ELECTRA:
-            Base10.toString(static(MAX_EFFECTIVE_BALANCE_ELECTRA.uint64)),
           EFFECTIVE_BALANCE_INCREMENT:
             Base10.toString(EFFECTIVE_BALANCE_INCREMENT),
           MIN_ATTESTATION_INCLUSION_DELAY:
@@ -139,8 +137,6 @@ proc installConfigApiHandlers*(router: var RestRouter, node: BeaconNode) =
             Base10.toString(MAX_BLOB_COMMITMENTS_PER_BLOCK),
           MAX_BLOBS_PER_BLOCK:
             Base10.toString(MAX_BLOBS_PER_BLOCK),
-          MAX_BLOBS_PER_BLOCK_ELECTRA:
-            Base10.toString(MAX_BLOBS_PER_BLOCK_ELECTRA),
           KZG_COMMITMENT_INCLUSION_PROOF_DEPTH:
             Base10.toString(uint64(KZG_COMMITMENT_INCLUSION_PROOF_DEPTH)),
 
@@ -325,6 +321,54 @@ proc installConfigApiHandlers*(router: var RestRouter, node: BeaconNode) =
             Base10.toString(uint64(TARGET_AGGREGATORS_PER_SYNC_SUBCOMMITTEE)),
           SYNC_COMMITTEE_SUBNET_COUNT:
             Base10.toString(uint64(SYNC_COMMITTEE_SUBNET_COUNT)),
+
+          # https://github.com/ethereum/consensus-specs/blob/v1.5.0-beta.1/specs/electra/beacon-chain.md
+          UNSET_DEPOSIT_REQUESTS_START_INDEX:
+            Base10.toString(UNSET_DEPOSIT_REQUESTS_START_INDEX),
+          FULL_EXIT_REQUEST_AMOUNT:
+            Base10.toString(FULL_EXIT_REQUEST_AMOUNT),
+          COMPOUNDING_WITHDRAWAL_PREFIX:
+            to0xHex([byte(COMPOUNDING_WITHDRAWAL_PREFIX)]),
+          DEPOSIT_REQUEST_TYPE:
+            to0xHex([byte(DEPOSIT_REQUEST_TYPE)]),
+          WITHDRAWAL_REQUEST_TYPE:
+            to0xHex([byte(WITHDRAWAL_REQUEST_TYPE)]),
+          CONSOLIDATION_REQUEST_TYPE:
+            to0xHex([byte(CONSOLIDATION_REQUEST_TYPE)]),
+          MIN_ACTIVATION_BALANCE:
+            Base10.toString(uint64(MIN_ACTIVATION_BALANCE)),
+          MAX_EFFECTIVE_BALANCE_ELECTRA:
+            Base10.toString(uint64(MAX_EFFECTIVE_BALANCE_ELECTRA)),
+          MIN_SLASHING_PENALTY_QUOTIENT_ELECTRA:
+            Base10.toString(MIN_SLASHING_PENALTY_QUOTIENT_ELECTRA),
+          WHISTLEBLOWER_REWARD_QUOTIENT_ELECTRA:
+            Base10.toString(WHISTLEBLOWER_REWARD_QUOTIENT_ELECTRA),
+          PENDING_DEPOSITS_LIMIT:
+            Base10.toString(PENDING_DEPOSITS_LIMIT),
+          PENDING_PARTIAL_WITHDRAWALS_LIMIT:
+            Base10.toString(PENDING_PARTIAL_WITHDRAWALS_LIMIT),
+          PENDING_CONSOLIDATIONS_LIMIT:
+            Base10.toString(PENDING_CONSOLIDATIONS_LIMIT),
+          MAX_ATTESTER_SLASHINGS_ELECTRA:
+            Base10.toString(MAX_ATTESTER_SLASHINGS_ELECTRA),
+          MAX_ATTESTATIONS_ELECTRA:
+            Base10.toString(MAX_ATTESTATIONS_ELECTRA),
+          MAX_DEPOSIT_REQUESTS_PER_PAYLOAD:
+            Base10.toString(uint64(MAX_DEPOSIT_REQUESTS_PER_PAYLOAD)),
+          MAX_WITHDRAWAL_REQUESTS_PER_PAYLOAD:
+            Base10.toString(uint64(MAX_WITHDRAWAL_REQUESTS_PER_PAYLOAD)),
+          MAX_CONSOLIDATION_REQUESTS_PER_PAYLOAD:
+            Base10.toString(MAX_CONSOLIDATION_REQUESTS_PER_PAYLOAD),
+          MAX_PENDING_PARTIALS_PER_WITHDRAWALS_SWEEP:
+            Base10.toString(uint64(MAX_PENDING_PARTIALS_PER_WITHDRAWALS_SWEEP)),
+          MAX_PENDING_DEPOSITS_PER_EPOCH:
+            Base10.toString(uint64(MAX_PENDING_DEPOSITS_PER_EPOCH)),
+          MAX_BLOBS_PER_BLOCK_ELECTRA:
+            Base10.toString(uint64(MAX_BLOBS_PER_BLOCK_ELECTRA)),
+          MIN_PER_EPOCH_CHURN_LIMIT_ELECTRA:
+            Base10.toString(cfg.MIN_PER_EPOCH_CHURN_LIMIT_ELECTRA),
+          MAX_PER_EPOCH_ACTIVATION_EXIT_CHURN_LIMIT:
+            Base10.toString(cfg.MAX_PER_EPOCH_ACTIVATION_EXIT_CHURN_LIMIT)
         )
       )
     cachedDepositContract =
