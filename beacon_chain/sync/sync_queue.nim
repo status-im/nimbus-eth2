@@ -824,8 +824,9 @@ proc push*[T](
 
     let pres = await sq.process(sr, data, blobs, maybeFinalized)
 
-    # We need to update position because clearAndWakeup() could cleanup whole
-    # queue.
+    # We need to update position, because while we waiting for `process()` to
+    # complete - clearAndWakeup() could be invoked which could clean whole the
+    # queue (invalidating all the positions).
     position = sq.findPosition(sr)
 
     case pres.code
