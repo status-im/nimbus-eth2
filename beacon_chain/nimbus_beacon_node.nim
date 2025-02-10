@@ -8,9 +8,10 @@
 {.push raises: [].}
 
 import
-  std/[os, random, terminal, times, exitprocs],
+  std/[os, random, terminal, times, exitprocs, sequtils],
   chronos, chronicles,
   metrics, metrics/chronos_httpserver,
+  ssz_serialization/types,
   stew/[byteutils, io2],
   eth/p2p/discoveryv5/[enr, random2],
   ./consensus_object_pools/[
@@ -452,21 +453,67 @@ proc initFullNode(
                              maybeFinalized: bool):
         Future[Result[void, VerifierError]] {.async: (raises: [CancelledError]).} =
       withBlck(signedBlock):
-        when consensusFork >= ConsensusFork.Deneb:
+        when consensusFork >= ConsensusFork.Electra:
+          # Pull blobs and proofs from the EL blob pool
+          let blobsFromElOpt = await node.elManager.sendGetBlobs(forkyBlck)
+          if blobsFromElOpt.isSome():
+            let blobsEl = blobsFromElOpt.get()
+            # check lengths of array[BlobAndProofV1] with blob
+            # kzg commitments of the signed block
+            if blobsEl.len == forkyBlck.message.body.blob_kzg_commitments.len:
+              # create blob sidecars from EL instead
+              var
+                kzgBlbs: deneb.Blobs
+                kzgPrfs: deneb.KzgProofs
+
+              for idx in 0..<blobsEl.len:
+                kzgBlbs[idx] = blobsEl[idx].blob.data
+                kzgPrfs[idx].bytes = blobsEl[idx].proof.data
+              let blob_sidecars_el =
+                 create_blob_sidecars(forkyBlck, kzgPrfs, kzgBlbs)
+
+              # populate blob quarantine to tackle blob loop
+              for blb_el in blob_sidecars_el:
+                blobQuarantine[].put(newClone blb_el)
+
+              # now pop blobQuarantine and make block available for attestation
+              let blobs = blobQuarantine[].popBlobs(forkyBlck.root, forkyBlck)
+              return await blockProcessor[].addBlock(MsgSource.gossip, signedBlock,
+                                               Opt.some(blobs),
+                                               maybeFinalized = maybeFinalized)
+
+          # in case EL does not support `engine_getBlobsV1`
+          else:
+            if not blobQuarantine[].hasBlobs(forkyBlck):
+              # We don't have all the blobs for this block, so we have
+              # to put it in blobless quarantine.
+              if not quarantine[].addBlobless(dag.finalizedHead.slot, forkyBlck):
+                return err(VerifierError.UnviableFork)
+              else:
+                return err(VerifierError.MissingParent)
+            else:
+              let blobs = blobQuarantine[].popBlobs(forkyBlck.root, forkyBlck)
+              return await blockProcessor[].addBlock(MsgSource.gossip, signedBlock,
+                                               Opt.some(blobs),
+                                               maybeFinalized = maybeFinalized)
+
+        elif consensusFork >= ConsensusFork.Deneb and
+            consensusFork < ConsensusFork.Electra:
           if not blobQuarantine[].hasBlobs(forkyBlck):
             # We don't have all the blobs for this block, so we have
             # to put it in blobless quarantine.
             if not quarantine[].addBlobless(dag.finalizedHead.slot, forkyBlck):
-              err(VerifierError.UnviableFork)
+              return err(VerifierError.UnviableFork)
             else:
-              err(VerifierError.MissingParent)
+              return err(VerifierError.MissingParent)
           else:
             let blobs = blobQuarantine[].popBlobs(forkyBlck.root, forkyBlck)
-            await blockProcessor[].addBlock(MsgSource.gossip, signedBlock,
-                                      Opt.some(blobs),
-                                      maybeFinalized = maybeFinalized)
+            return await blockProcessor[].addBlock(MsgSource.gossip, signedBlock,
+                                             Opt.some(blobs),
+                                             maybeFinalized = maybeFinalized)
+
         else:
-          await blockProcessor[].addBlock(MsgSource.gossip, signedBlock,
+          return await blockProcessor[].addBlock(MsgSource.gossip, signedBlock,
                                     Opt.none(BlobSidecars),
                                     maybeFinalized = maybeFinalized)
     rmanBlockLoader = proc(

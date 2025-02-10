@@ -57,6 +57,7 @@ type
     GetPayloadV3Response |
     GetPayloadV4Response
 
+
 contract(DepositContract):
   proc deposit(pubkey: PubKeyBytes,
                withdrawalCredentials: WithdrawalCredentialsBytes,
@@ -108,6 +109,8 @@ const
   # https://github.com/ethereum/execution-apis/blob/v1.0.0-beta.3/src/engine/shanghai.md#request-2
   GETPAYLOAD_TIMEOUT = 1.seconds
 
+  # https://github.com/ethereum/execution-apis/blob/ad9102b11212d51b736a0413c8655a8da93e55fc/src/engine/cancun.md#request-3
+  GETBLOBS_TIMEOUT = 1.seconds
   connectionStateChangeHysteresisThreshold = 15
     ## How many unsuccesful/successful requests we must see
     ## before declaring the connection as degraded/restored
@@ -862,6 +865,13 @@ proc sendNewPayloadToSingleEL(
     payload, versioned_hashes, Hash32 parent_beacon_block_root,
     executionRequests)
 
+proc sendGetBlobsToSingleEL(
+    connection: ELConnection,
+    versioned_hashes: seq[engine_api.VersionedHash]
+): Future[GetBlobsV1Response] {.async: (raises: [CatchableError]).} =
+  let rpcClient = await connection.connectedRpcClient()
+  await rpcClient.engine_getBlobsV1(versioned_hashes)
+
 type
   StatusRelation = enum
     newStatusIsPreferable
@@ -989,6 +999,61 @@ proc lazyWait(futures: seq[FutureBase]) {.async: (raises: []).} =
     let pending = futures.filterIt(not(it.finished())).mapIt(it.cancelAndWait())
     if len(pending) > 0:
       await noCancel allFutures(pending)
+
+proc sendGetBlobs*(
+    m: ELManager,
+    blck: electra.SignedBeaconBlock | fulu.SignedBeaconBlock
+): Future[Opt[seq[BlobAndProofV1]]] {.async: (raises: [CancelledError]).} =
+  if m.elConnections.len == 0:
+    return err()
+  let
+    timeout = GETBLOBS_TIMEOUT
+    deadline = sleepAsync(timeout)
+
+  var bestResponse = Opt.none(int)
+
+  while true:
+    let
+      requests = m.elConnections.mapIt(
+        sendGetBlobsToSingleEL(it, mapIt(
+            blck.message.body.blob_kzg_commitments,
+            engine_api.VersionedHash(kzg_commitment_to_versioned_hash(it)))))
+      timeoutExceeded =
+        try:
+          await allFutures(requests).wait(deadline)
+          false
+        except AsyncTimeoutError:
+          true
+        except CancelledError as exc:
+          let pending =
+            requests.filterIt(not(it.finished())).mapIt(it.cancelAndWait())
+          await noCancel allFutures(pending)
+          raise exc
+
+    for idx, req in requests:
+      if not(req.finished()):
+        warn "Timeout while getting blob and proof",
+             url = m.elConnections[idx].engineUrl.url,
+             reason = req.error.msg
+      else:
+        if bestResponse.isNone:
+          bestResponse = Opt.some(idx)
+
+    let pending =
+      requests.filterIt(not(it.finished())).mapIt(it.cancelAndWait())
+    await noCancel allFutures(pending)
+
+    if bestResponse.isSome():
+      return ok(requests[bestResponse.get()].value().blobsAndProofs)
+
+    else:
+      # should not reach this case
+      discard
+
+    if timeoutExceeded:
+      break
+
+  err()
 
 proc sendNewPayload*(
     m: ELManager,
