@@ -423,8 +423,20 @@ proc validateBlobSidecar*(
   let block_root = hash_tree_root(block_header)
   if dag.getBlockRef(block_root).isSome():
     return errIgnore("BlobSidecar: already have block")
+
+  # This adds KZG commitment matching to the spec gossip validation. It's an
+  # IGNORE condition, so it shouldn't affect Nimbus's scoring, and when some
+  # (slashable) double proposals happen with blobs present, without this one
+  # or the other block, or potentially both, won't get its full set of blobs
+  # through gossip validation and have to backfill them later. There is some
+  # cost in slightly more outgoing bandwidth on such double-proposals but it
+  # remains insignificant compared with other bandwidth usage.
+  #
+  # It would be good to fix this more properly, but this has come up often on
+  # Pectra devnet-6.
   if blobQuarantine[].hasBlob(
-      block_header.slot, block_header.proposer_index, blob_sidecar.index):
+      block_header.slot, block_header.proposer_index, blob_sidecar.index,
+      blob_sidecar.kzg_commitment):
     return errIgnore("BlobSidecar: already have valid blob from same proposer")
 
   # [REJECT] The sidecar's inclusion proof is valid as verified by
