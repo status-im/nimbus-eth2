@@ -1078,8 +1078,11 @@ proc getValidatorRegistration(
 
   if validator.externalBuilderRegistration.isSome():
     let cached = validator.externalBuilderRegistration.get()
-    if not(vc.isExpired(cached, currentSlot)):
-      return err(RegistrationKind.Cached)
+    return
+      if not(vc.isExpired(cached, currentSlot)):
+        err(RegistrationKind.Cached)
+      else:
+        ok(PendingValidatorRegistration(registration: cached, future: nil))
 
   let
     feeRecipient = vc.getFeeRecipient(validator, currentSlot.epoch())
