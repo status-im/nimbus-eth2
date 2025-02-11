@@ -456,6 +456,8 @@ proc initFullNode(
         when consensusFork >= ConsensusFork.Electra:
           # Pull blobs and proofs from the EL blob pool
           let blobsFromElOpt = await node.elManager.sendGetBlobs(forkyBlck)
+          debugEcho "pulled blobs from el"
+          debugEcho blobsFromElOpt.get.len
           if blobsFromElOpt.isSome():
             let blobsEl = blobsFromElOpt.get()
             # check lengths of array[BlobAndProofV1] with blob
@@ -472,14 +474,14 @@ proc initFullNode(
               let blob_sidecars_el =
                  create_blob_sidecars(forkyBlck, kzgPrfs, kzgBlbs)
 
-              # populate blob quarantine to tackle blob loop
-              for blb_el in blob_sidecars_el:
-                blobQuarantine[].put(newClone blb_el)
+              # # populate blob quarantine to tackle blob loop
+              # for blb_el in blob_sidecars_el:
+              #   blobQuarantine[].put(newClone blb_el)
 
-              # now pop blobQuarantine and make block available for attestation
-              let blobs = blobQuarantine[].popBlobs(forkyBlck.root, forkyBlck)
+              # # now pop blobQuarantine and make block available for attestation
+              # let blobs = blobQuarantine[].popBlobs(forkyBlck.root, forkyBlck)
               return await blockProcessor[].addBlock(MsgSource.gossip, signedBlock,
-                                               Opt.some(blobs),
+                                               Opt.some(blob_sidecars_el),
                                                maybeFinalized = maybeFinalized)
 
           # in case EL does not support `engine_getBlobsV1`
