@@ -1579,10 +1579,18 @@ func getPerValidatorDefaultFeeRecipient*(
       (static(default(Eth1Address)))
 
 proc getSuggestedFeeRecipient*(
-    host: KeymanagerHost, pubkey: ValidatorPubKey,
-    defaultFeeRecipient: Eth1Address):
-    Result[Eth1Address, ValidatorConfigFileStatus] =
-  host.validatorsDir.getSuggestedFeeRecipient(pubkey, defaultFeeRecipient)
+    host: KeymanagerHost,
+    pubkey: ValidatorPubKey,
+    defaultFeeRecipient: Eth1Address
+): Result[Eth1Address, ValidatorConfigFileStatus] =
+  let res = getSuggestedFeeRecipient(
+    host.validatorsDir, pubkey, defaultFeeRecipient).valueOr:
+    if error == ValidatorConfigFileStatus.noSuchValidator:
+      # Dynamic validators do not have directories.
+      if host.validatorPool[].isDynamic(pubkey):
+        return ok(defaultFeeRecipient)
+    return err(error)
+  ok(res)
 
 proc getSuggestedFeeRecipient(
     host: KeymanagerHost, pubkey: ValidatorPubKey,
@@ -1596,8 +1604,16 @@ proc getSuggestedFeeRecipient(
 
 proc getSuggestedGasLimit*(
     host: KeymanagerHost,
-    pubkey: ValidatorPubKey): Result[uint64, ValidatorConfigFileStatus] =
-  host.validatorsDir.getSuggestedGasLimit(pubkey, host.defaultGasLimit)
+    pubkey: ValidatorPubKey
+): Result[uint64, ValidatorConfigFileStatus] =
+  let res = getSuggestedGasLimit(
+    host.validatorsDir, pubkey, host.defaultGasLimit).valueOr:
+      if error == ValidatorConfigFileStatus.noSuchValidator:
+        # Dynamic validators do not have directories.
+        if host.validatorPool[].isDynamic(pubkey):
+          return ok(host.defaultGasLimit)
+      return err(error)
+  ok(res)
 
 proc getSuggestedGraffiti*(
     host: KeymanagerHost,

@@ -257,6 +257,15 @@ proc removeValidator*(pool: var ValidatorPool, pubkey: ValidatorPubKey) =
                validator = shortLog(validator)
     validators.set(pool.count().int64)
 
+proc isDynamic*(pool: var ValidatorPool, pubkey: ValidatorPubKey): bool =
+  ## Returns ``true`` if attached validator exists it is dynamic.
+  let validator = pool.validators.getOrDefault(pubkey)
+  if not(isNil(validator)):
+    if (validator.kind == ValidatorKind.Remote) and
+       (RemoteKeystoreFlag.DynamicKeystore in validator.data.flags):
+      return true
+  false
+
 func needsUpdate*(validator: AttachedValidator): bool =
   validator.index.isNone() or validator.activationEpoch == FAR_FUTURE_EPOCH
 
