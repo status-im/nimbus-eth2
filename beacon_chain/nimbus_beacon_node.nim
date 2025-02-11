@@ -474,12 +474,12 @@ proc initFullNode(
               let blob_sidecars_el =
                  create_blob_sidecars(forkyBlck, kzgPrfs, kzgBlbs)
 
-              # # populate blob quarantine to tackle blob loop
-              # for blb_el in blob_sidecars_el:
-              #   blobQuarantine[].put(newClone blb_el)
+              # populate blob quarantine to tackle blob loop
+              for blb_el in blob_sidecars_el:
+                blobQuarantine[].put(newClone blb_el)
 
-              # # now pop blobQuarantine and make block available for attestation
-              # let blobs = blobQuarantine[].popBlobs(forkyBlck.root, forkyBlck)
+              # now pop blobQuarantine and make block available for attestation
+              let blobs = blobQuarantine[].popBlobs(forkyBlck.root, forkyBlck)
               return await blockProcessor[].addBlock(MsgSource.gossip, signedBlock,
                                                Opt.some(blob_sidecars_el),
                                                maybeFinalized = maybeFinalized)
