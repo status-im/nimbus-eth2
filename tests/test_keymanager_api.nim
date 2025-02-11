@@ -102,7 +102,7 @@ const
     "0x0bbca63e35c7a159fc2f187d300cad9ef5f5e73e55f78c391e7bc2c2feabc2d9d63dfe99edd7058ad0ab9d7f14aade5f"
   ]
 
-  dynamicPrivateKeys = [
+  dynamicPrivateKeys {.used.} = [
     "0x30a2616ee087aaed186c43fcd2c8f6de700c36673b047973c85d9bec2a444750",
     "0x1957f3cf86be1f88689501453e3432f5d821101b9790bbd43d823b9ac1c4a18b",
     "0x41df21004d05757df5eedd2c1a4e843503b54680f2c5648235fd37e06785ff5b",
@@ -114,6 +114,21 @@ const
     "0x94f6f523782134bf87c7371a517f2035d54f4c87ec55916404de3f27c43bafc7405a40e353bf32385d37972a23486fae",
     "0xa09149fc0d3ccd425051dfc4f2c320d6845c17b27bcb5739e3a8d49820dcab7d4cabfdf60fb05d6e1bc0482bf29d04c5",
     "0xb57aa0363091b7a14bf68e588ee366559b5abf27a52efd676d39eb7a4d1e8f6f0b0b6d95e0b7041720ddf801b74211ab"
+  ]
+
+  scenarioPrivateKeys = [
+    "0x42710c38caa62d63cdac8aab59789befe6a6ac568dc45c4791cf2f5743ef15ba",
+    "0x007b6ced45bc6eaac2fa00eaffc687beda00da64c7b35f53a88c378f5a710521",
+    "0x5a1a6c80eecf980e4165f5254f2bd8cfd4a4390651be8a76deb81298328a3f11",
+    "0x05471e7d96b4a7248f6392601cc90e620074f8a6eadfc6143c8950699021e728"
+
+  ]
+
+  scenarioPublicKeys = [
+    "0xa3bdf080a33fb34e9b656bf1e145b63eb9c9db81e07e2d8b70d56bda2124b167df7ac6d6a432e091d024ae5fc352d620",
+    "0x8f1a1887263a6e5987b15f424a6d1b3128ea5357d37cb1a775a90546530a47efef3b737dde9124adde9212b2c8382cd9",
+    "0x92080e161b0601a9f75d20868b64ee573088128ec7e68c11603014b68f6b1b37bfc394ce61e5b515e538fa3f95d3ba6e",
+    "0xa3ad2269fb71074cb2166ee58008967b5e5b13d0a76e992e912ce1ed2073c79450a26406a30182f72d5c57ffa9939f51"
   ]
 
   newPublicKeysUrl = HttpHostUri(parseUri("http://127.0.0.1/remote"))
@@ -505,6 +520,46 @@ proc runTests(keymanager: KeymanagerToTest) {.async.} =
         res.add(RemoteKeystoreInfo(pubkey: allValidators[1],
                                    url: newPublicKeysUrl))
         ImportRemoteKeystoresBody(remote_keys: res)
+
+    scenarioKeystoreBody1 =
+      block:
+        let
+          privateKey = ValidatorPrivKey.fromHex(scenarioPrivateKeys[0]).tryGet()
+          store = createKeystore(kdfPbkdf2, rng[], privateKey,
+            KeystorePass.init password, salt = salt, iv = iv,
+            description = "Test keystore",
+            path = validateKeyPath("m/12381/60/0/0").expect("Valid Keypath"))
+        KeystoresAndSlashingProtection(
+          keystores: @[store],
+          passwords: @[password],
+        )
+
+    scenarioKeystoreBody2 =
+      block:
+        let
+          privateKey = ValidatorPrivKey.fromHex(scenarioPrivateKeys[1]).tryGet()
+          store = createKeystore(kdfPbkdf2, rng[], privateKey,
+            KeystorePass.init password, salt = salt, iv = iv,
+            description = "Test keystore",
+            path = validateKeyPath("m/12381/60/0/0").expect("Valid Keypath"))
+        KeystoresAndSlashingProtection(
+          keystores: @[store],
+          passwords: @[password],
+        )
+
+    scenarioKeystoreBody3 =
+      block:
+        let
+          publicKey = ValidatorPubKey.fromHex(scenarioPublicKeys[2]).tryGet()
+          store = RemoteKeystoreInfo(pubkey: publicKey, url: newPublicKeysUrl)
+        ImportRemoteKeystoresBody(remote_keys: @[store])
+
+    scenarioKeystoreBody4 =
+      block:
+        let
+          publicKey = ValidatorPubKey.fromHex(scenarioPublicKeys[3]).tryGet()
+          store = RemoteKeystoreInfo(pubkey: publicKey, url: newPublicKeysUrl)
+        ImportRemoteKeystoresBody(remote_keys: @[store])
 
   template expectedImportStatus(i: int): string =
       if i < 8:
@@ -1825,6 +1880,137 @@ proc runTests(keymanager: KeymanagerToTest) {.async.} =
       check:
         response.status == 403
         responseJson["message"].getStr() == InvalidAuthorizationError
+
+  suite "Combined scenarios" & testFlavour:
+    asyncTest "ImportKeystores should not be blocked by fee recipient setting" & testFlavour:
+      let
+        publicKey = ValidatorPubKey.fromHex(scenarioPublicKeys[0]).tryGet()
+        localFeeRecipient = specifiedFeeRecipient(500)
+
+      await client.setFeeRecipient(publicKey, localFeeRecipient,
+                                   correctTokenValue)
+
+      let firstResultFromApi =
+        await client.listFeeRecipient(publicKey, correctTokenValue)
+      check firstResultFromApi == localFeeRecipient
+
+      let
+        response = await client.importKeystoresPlain(
+          scenarioKeystoreBody1,
+          extraHeaders = @[("Authorization", "Bearer " & correctTokenValue)])
+        decoded =
+          try:
+            RestJson.decode(response.data,
+                            DataEnclosedObject[seq[RemoteKeystoreStatus]],
+                            requireAllFields = true,
+                            allowUnknownFields = true)
+          except SerializationError:
+            raiseAssert "Invalid response encoding"
+      check:
+        response.status == 200
+        len(decoded.data) == 1
+        decoded.data[0].status == KeystoreStatus.imported
+
+      let secondResultFromApi =
+        await client.listFeeRecipient(publicKey, correctTokenValue)
+      check secondResultFromApi == localFeeRecipient
+
+    asyncTest "ImportKeystores should not be blocked by gas limit setting" & testFlavour:
+      let
+        publicKey = ValidatorPubKey.fromHex(scenarioPublicKeys[0]).tryGet()
+        localGasLimit = 20_000_000'u64
+
+      await client.setGasLimit(publicKey, localGasLimit, correctTokenValue)
+
+      let firstResultFromApi =
+        await client.listGasLimit(publicKey, correctTokenValue)
+      check firstResultFromApi == localGasLimit
+
+      let
+        response = await client.importKeystoresPlain(
+          scenarioKeystoreBody2,
+          extraHeaders = @[("Authorization", "Bearer " & correctTokenValue)])
+        decoded =
+          try:
+            RestJson.decode(response.data,
+                            DataEnclosedObject[seq[RemoteKeystoreStatus]],
+                            requireAllFields = true,
+                            allowUnknownFields = true)
+          except SerializationError:
+            raiseAssert "Invalid response encoding"
+      check:
+        response.status == 200
+        len(decoded.data) == 1
+        decoded.data[0].status == KeystoreStatus.imported
+
+      let secondResultFromApi =
+        await client.listGasLimit(publicKey, correctTokenValue)
+      check secondResultFromApi == localGasLimit
+
+    asyncTest "ImportRemoteKeys should not be blocked by fee recipient setting" & testFlavour:
+      let
+        publicKey = ValidatorPubKey.fromHex(scenarioPublicKeys[2]).tryGet()
+        localFeeRecipient = specifiedFeeRecipient(600)
+
+      await client.setFeeRecipient(publicKey, localFeeRecipient,
+                                   correctTokenValue)
+
+      let firstResultFromApi =
+        await client.listFeeRecipient(publicKey, correctTokenValue)
+      check firstResultFromApi == localFeeRecipient
+
+      let
+        response = await client.importRemoteKeysPlain(
+          scenarioKeystoreBody3,
+          extraHeaders = @[("Authorization", "Bearer " & correctTokenValue)])
+        decoded =
+          try:
+            RestJson.decode(response.data,
+                            DataEnclosedObject[seq[RemoteKeystoreStatus]],
+                            requireAllFields = true,
+                            allowUnknownFields = true)
+          except SerializationError:
+            raiseAssert "Invalid response encoding"
+      check:
+        response.status == 200
+        len(decoded.data) == 1
+        decoded.data[0].status == KeystoreStatus.imported
+
+      let secondResultFromApi =
+        await client.listFeeRecipient(publicKey, correctTokenValue)
+      check secondResultFromApi == localFeeRecipient
+
+    asyncTest "ImportRemoteKeys should not be blocked by gas limit setting" & testFlavour:
+      let
+        publicKey = ValidatorPubKey.fromHex(scenarioPublicKeys[3]).tryGet()
+        localGasLimit = 80_000_000'u64
+
+      await client.setGasLimit(publicKey, localGasLimit, correctTokenValue)
+
+      let firstResultFromApi =
+        await client.listGasLimit(publicKey, correctTokenValue)
+      check firstResultFromApi == localGasLimit
+
+      let
+        response = await client.importRemoteKeysPlain(
+          scenarioKeystoreBody4,
+          extraHeaders = @[("Authorization", "Bearer " & correctTokenValue)])
+        decoded =
+          try:
+            RestJson.decode(response.data,
+                            DataEnclosedObject[seq[RemoteKeystoreStatus]],
+                            requireAllFields = true,
+                            allowUnknownFields = true)
+          except SerializationError:
+            raiseAssert "Invalid response encoding"
+      check:
+        response.status == 200
+        len(decoded.data) == 1
+        decoded.data[0].status == KeystoreStatus.imported
+
+      let secondResultFromApi =
+        await client.listGasLimit(publicKey, correctTokenValue)
+      check secondResultFromApi == localGasLimit
 
 proc delayedTests(basePort: int, pool: ref ValidatorPool,
                   host: ref KeymanagerHost) {.async.} =

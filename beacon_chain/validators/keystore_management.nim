@@ -1256,9 +1256,6 @@ proc saveLockedKeystore(
     keystoreDir = validatorsDir / keyName
     keystoreFile = keystoreDir / KeystoreFileName
 
-  if dirExists(keystoreDir):
-    return err(KeystoreGenerationError(kind: DuplicateKeystoreDir,
-      error: "Keystore directory already exists"))
   if fileExists(keystoreFile):
     return err(KeystoreGenerationError(kind: DuplicateKeystoreFile,
       error: "Keystore file already exists"))
@@ -1335,9 +1332,6 @@ proc saveLockedKeystore(
       remotes: urls,
       flags: flags)
 
-  if dirExists(keystoreDir):
-    return err(KeystoreGenerationError(kind: DuplicateKeystoreDir,
-      error: "Keystore directory already exists"))
   if fileExists(keystoreFile):
     return err(KeystoreGenerationError(kind: DuplicateKeystoreFile,
       error: "Keystore file already exists"))
