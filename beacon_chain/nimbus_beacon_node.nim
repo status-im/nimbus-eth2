@@ -481,7 +481,7 @@ proc initFullNode(
               # now pop blobQuarantine and make block available for attestation
               let blobs = blobQuarantine[].popBlobs(forkyBlck.root, forkyBlck)
               return await blockProcessor[].addBlock(MsgSource.gossip, signedBlock,
-                                               Opt.some(blob_sidecars_el),
+                                               Opt.some(blobs),
                                                maybeFinalized = maybeFinalized)
 
           # in case EL does not support `engine_getBlobsV1`
