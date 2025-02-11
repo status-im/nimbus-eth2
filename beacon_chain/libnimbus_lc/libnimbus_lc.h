@@ -672,7 +672,7 @@ void ETHLightClientHeaderDestroy(ETHLightClientHeader *header);
  *
  * @return Pointer to a copy of the given header's beacon block root.
  *
- * @see https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.8/specs/phase0/beacon-chain.md#hash_tree_root
+ * @see https://github.com/ethereum/consensus-specs/blob/v1.5.0-beta.0/specs/phase0/beacon-chain.md#hash_tree_root
  */
 ETH_RESULT_USE_CHECK
 ETHRoot *ETHLightClientHeaderCopyBeaconRoot(
