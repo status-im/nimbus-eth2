@@ -19,11 +19,12 @@ https://github.com/NixOS/nix/issues/4423
 
 It can be also done without even cloning the repo:
 ```sh
-nix build 'github:status-im/nimbus-eth2?submodules=1'
+nix build 'github:status-im/nimbus-eth2?submodules=1#'
 ```
+The trailing `#` is required due to [URI parsing bug in Nix](https://github.com/NixOS/nix/issues/6633).
 
 ## Running
 
 ```sh
-nix run 'github:status-im/nimbus-eth2?submodules=1'
+nix run 'github:status-im/nimbus-eth2?submodules=1#'
 ```

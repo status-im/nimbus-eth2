@@ -202,7 +202,7 @@ proc routeSignedBeaconBlock*(
 
 proc routeAttestation*(
     router: ref MessageRouter,
-    attestation: phase0.Attestation | electra.Attestation,
+    attestation: phase0.Attestation | SingleAttestation,
     subnet_id: SubnetId, checkSignature, checkValidator: bool):
     Future[SendResult] {.async: (raises: [CancelledError]).} =
   ## Process and broadcast attestation - processing will register the it with
@@ -236,7 +236,7 @@ proc routeAttestation*(
 
 proc routeAttestation*(
     router: ref MessageRouter,
-    attestation: phase0.Attestation | electra.Attestation,
+    attestation: phase0.Attestation | SingleAttestation,
     on_chain: static bool = false):
     Future[SendResult] {.async: (raises: [CancelledError]).} =
   # Compute subnet, then route attestation

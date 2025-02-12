@@ -1,5 +1,5 @@
 # beacon_chain
-# Copyright (c) 2018-2024 Status Research & Development GmbH
+# Copyright (c) 2018-2025 Status Research & Development GmbH
 # Licensed and distributed under either of
 #   * MIT license (license terms in the root directory or at https://opensource.org/licenses/MIT).
 #   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
@@ -99,21 +99,30 @@ iterator get_attesting_indices*(shufflingRef: ShufflingRef,
       if bits[index_in_committee]:
         yield validator_index
 
-# https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.0/specs/electra/beacon-chain.md#modified-get_attesting_indices
-iterator get_attesting_indices*(shufflingRef: ShufflingRef,
-                                slot: Slot,
-                                committee_bits: AttestationCommitteeBits,
-                                aggregation_bits: ElectraCommitteeValidatorsBits, on_chain: static bool):
-                                  ValidatorIndex =
+# https://github.com/ethereum/consensus-specs/blob/v1.5.0-beta.0/specs/electra/beacon-chain.md#modified-get_attesting_indices
+iterator get_attesting_indices*(
+    shufflingRef: ShufflingRef, slot: Slot,
+    committee_bits: AttestationCommitteeBits,
+    aggregation_bits: ElectraCommitteeValidatorsBits, on_chain: static bool):
+    ValidatorIndex =
   when on_chain:
-    var pos = 0
-    for committee_index in get_committee_indices(committee_bits):
-      for _, validator_index in get_beacon_committee(
-          shufflingRef, slot, committee_index):
+    var committee_offset = 0
+    for committee_index in committee_bits.oneIndices:
+      if not (committee_index.uint64 <
+          get_committee_count_per_slot(shufflingRef)):
+        continue    # invalid attestation, but found in check_attestation()
+      let committee = get_beacon_committee(
+        shufflingRef, slot, committee_index.CommitteeIndex)
 
-        if aggregation_bits[pos]:
-          yield validator_index
-          pos += 1
+      if aggregation_bits.len < committee_offset + len(committee):
+        # Would overflow, invalid attestation caught in check_attestation()
+        continue
+
+      for i, attester_index in committee:
+        if aggregation_bits[committee_offset + i]:
+          yield attester_index
+
+      committee_offset += len(committee)
   else:
     let committee_index = get_committee_index_one(committee_bits)
     for validator_index in get_attesting_indices(
@@ -173,13 +182,14 @@ iterator get_attesting_indices*(
       yield validator
 
 iterator get_attesting_indices*(
-    dag: ChainDAGRef, attestation: electra.TrustedAttestation,
+    dag: ChainDAGRef,
+    attestation: electra.Attestation | electra.TrustedAttestation,
     on_chain: static bool): ValidatorIndex =
   block gaiBlock: # `return` is not allowed in an inline iterator
     let
       slot =
         check_attestation_slot_target(attestation.data).valueOr:
-          warn "Invalid attestation slot in trusted attestation",
+          warn "Invalid attestation slot in attestation",
             attestation = shortLog(attestation)
           doAssert strictVerification notin dag.updateFlags
           break gaiBlock
@@ -187,7 +197,7 @@ iterator get_attesting_indices*(
         dag.getBlockRef(attestation.data.beacon_block_root).valueOr:
           # Attestation block unknown - this is fairly common because we
           # discard alternative histories on restart
-          debug "Pruned block in trusted attestation",
+          debug "Pruned block in attestation",
             attestation = shortLog(attestation)
           break gaiBlock
       target =
@@ -196,7 +206,7 @@ iterator get_attesting_indices*(
           # leading to the case where the attestation block root is the
           # finalized head (exists as BlockRef) but its target vote has
           # already been pruned
-          notice "Pruned target in trusted attestation",
+          notice "Pruned target in attestation",
             blck = shortLog(blck),
             attestation = shortLog(attestation)
           doAssert strictVerification notin dag.updateFlags
@@ -260,9 +270,9 @@ func get_attesting_indices*(shufflingRef: ShufflingRef,
                             slot: Slot,
                             committee_index: CommitteeIndex,
                             bits: ElectraCommitteeValidatorsBits,
-                            on_chain: static bool):
+                            on_chain: static bool = true):
                               seq[ValidatorIndex] =
-  static: doAssert not on_chain, "only on_chain supported"
+  static: doAssert on_chain, "only on_chain supported"
 
   for idx in get_attesting_indices(shufflingRef, slot, committee_index, bits):
     result.add(idx)
@@ -283,7 +293,7 @@ func makeAttestationData*(
 
   doAssert current_epoch == epochRef.epoch
 
-  # https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.9/specs/phase0/validator.md#attestation-data
+  # https://github.com/ethereum/consensus-specs/blob/v1.5.0-beta.0/specs/phase0/validator.md#attestation-data
   AttestationData(
     slot: slot,
     index: committee_index.asUInt64,

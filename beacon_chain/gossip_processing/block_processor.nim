@@ -351,7 +351,7 @@ proc getExecutionValidity(
       of PayloadExecutionStatus.invalid,
          PayloadExecutionStatus.invalid_block_hash:
         # Blocks come either from gossip or request manager requests. In the
-        # former case, they've passed libp2p gosisp validation which implies
+        # former case, they've passed libp2p gossip validation which implies
         # correct signature for correct proposer,which makes spam expensive,
         # while for the latter, spam is limited by the request manager.
         info "execution payload invalid from EL client newPayload",
