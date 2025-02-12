@@ -453,69 +453,23 @@ proc initFullNode(
                              maybeFinalized: bool):
         Future[Result[void, VerifierError]] {.async: (raises: [CancelledError]).} =
       withBlck(signedBlock):
-        when consensusFork >= ConsensusFork.Electra:
-          # Pull blobs and proofs from the EL blob pool
-          let blobsFromElOpt = await node.elManager.sendGetBlobs(forkyBlck)
-          debugEcho "pulled blobs from el"
-          debugEcho blobsFromElOpt.get.len
-          if blobsFromElOpt.isSome():
-            let blobsEl = blobsFromElOpt.get()
-            # check lengths of array[BlobAndProofV1] with blob
-            # kzg commitments of the signed block
-            if blobsEl.len == forkyBlck.message.body.blob_kzg_commitments.len:
-              # create blob sidecars from EL instead
-              var
-                kzgBlbs: deneb.Blobs
-                kzgPrfs: deneb.KzgProofs
-
-              for idx in 0..<blobsEl.len:
-                kzgBlbs[idx] = blobsEl[idx].blob.data
-                kzgPrfs[idx].bytes = blobsEl[idx].proof.data
-              let blob_sidecars_el =
-                 create_blob_sidecars(forkyBlck, kzgPrfs, kzgBlbs)
-
-              # populate blob quarantine to tackle blob loop
-              for blb_el in blob_sidecars_el:
-                blobQuarantine[].put(newClone blb_el)
-
-              # now pop blobQuarantine and make block available for attestation
-              let blobs = blobQuarantine[].popBlobs(forkyBlck.root, forkyBlck)
-              return await blockProcessor[].addBlock(MsgSource.gossip, signedBlock,
-                                               Opt.some(blobs),
-                                               maybeFinalized = maybeFinalized)
-
-          # in case EL does not support `engine_getBlobsV1`
-          else:
-            if not blobQuarantine[].hasBlobs(forkyBlck):
-              # We don't have all the blobs for this block, so we have
-              # to put it in blobless quarantine.
-              if not quarantine[].addBlobless(dag.finalizedHead.slot, forkyBlck):
-                return err(VerifierError.UnviableFork)
-              else:
-                return err(VerifierError.MissingParent)
-            else:
-              let blobs = blobQuarantine[].popBlobs(forkyBlck.root, forkyBlck)
-              return await blockProcessor[].addBlock(MsgSource.gossip, signedBlock,
-                                               Opt.some(blobs),
-                                               maybeFinalized = maybeFinalized)
-
-        elif consensusFork >= ConsensusFork.Deneb and
+        when consensusFork >= ConsensusFork.Deneb and
             consensusFork < ConsensusFork.Electra:
           if not blobQuarantine[].hasBlobs(forkyBlck):
             # We don't have all the blobs for this block, so we have
             # to put it in blobless quarantine.
             if not quarantine[].addBlobless(dag.finalizedHead.slot, forkyBlck):
-              return err(VerifierError.UnviableFork)
+              err(VerifierError.UnviableFork)
             else:
-              return err(VerifierError.MissingParent)
+              err(VerifierError.MissingParent)
           else:
             let blobs = blobQuarantine[].popBlobs(forkyBlck.root, forkyBlck)
-            return await blockProcessor[].addBlock(MsgSource.gossip, signedBlock,
+            await blockProcessor[].addBlock(MsgSource.gossip, signedBlock,
                                              Opt.some(blobs),
                                              maybeFinalized = maybeFinalized)
 
         else:
-          return await blockProcessor[].addBlock(MsgSource.gossip, signedBlock,
+          await blockProcessor[].addBlock(MsgSource.gossip, signedBlock,
                                     Opt.none(BlobSidecars),
                                     maybeFinalized = maybeFinalized)
     rmanBlockLoader = proc(
@@ -540,7 +494,8 @@ proc initFullNode(
       config.doppelgangerDetection,
       blockProcessor, node.validatorMonitor, dag, attestationPool,
       validatorChangePool, node.attachedValidators, syncCommitteeMsgPool,
-      lightClientPool, quarantine, blobQuarantine, rng, getBeaconTime, taskpool)
+      lightClientPool, quarantine, blobQuarantine, rng, getBeaconTime,
+      node.elManager, taskpool)
     syncManagerFlags =
       if node.config.longRangeSync != LongRangeSyncMode.Lenient:
         {SyncManagerFlag.NoGenesisSync}
@@ -2155,12 +2110,12 @@ proc installMessageValidators(node: BeaconNode) =
         for it in 0.BlobId ..< subnetCount.BlobId:
           closureScope:  # Needed for inner `proc`; don't lift it out of loop.
             let subnet_id = it
-            node.network.addValidator(
+            node.network.addAsyncValidator(
               getBlobSidecarTopic(digest, subnet_id), proc (
                 blobSidecar: deneb.BlobSidecar
-              ): ValidationResult =
-                toValidationResult(
-                  node.processor[].processBlobSidecar(
+              ): Future[ValidationResult] {.async: (raises: [CancelledError]).} =
+                return toValidationResult(
+                  await node.processor.processBlobSidecar(
                     MsgSource.gossip, blobSidecar, subnet_id)))
 
   node.installLightClientMessageValidators()

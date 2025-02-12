@@ -12,6 +12,7 @@ import
   chronicles, chronos, metrics,
   taskpools,
   ../spec/[helpers, forks],
+  ../el/el_manager,
   ../consensus_object_pools/[
     blob_quarantine, block_clearance, block_quarantine, blockchain_dag,
     attestation_pool, light_client_pool, sync_committee_msg_pool,
@@ -138,6 +139,10 @@ type
     # ----------------------------------------------------------------
     batchCrypto*: ref BatchCrypto
 
+    # EL integration
+    # ----------------------------------------------------------------
+    elManager*: ELManager
+
     # Missing information
     # ----------------------------------------------------------------
     quarantine*: ref Quarantine
@@ -169,6 +174,7 @@ proc new*(T: type Eth2Processor,
           blobQuarantine: ref BlobQuarantine,
           rng: ref HmacDrbgContext,
           getBeaconTime: GetBeaconTimeFn,
+          elManager: ELManager,
           taskpool: Taskpool
          ): ref Eth2Processor =
   (ref Eth2Processor)(
@@ -186,6 +192,7 @@ proc new*(T: type Eth2Processor,
     quarantine: quarantine,
     blobQuarantine: blobQuarantine,
     getCurrentBeaconTime: getBeaconTime,
+    elManager: elManager,
     batchCrypto: BatchCrypto.new(
       rng = rng,
       # Only run eager attestation signature verification if we're not
@@ -267,9 +274,40 @@ proc processSignedBeaconBlock*(
   v
 
 proc processBlobSidecar*(
-    self: var Eth2Processor, src: MsgSource,
-    blobSidecar: deneb.BlobSidecar, subnet_id: BlobId): ValidationRes =
+    self: ref Eth2Processor, src: MsgSource,
+    blobSidecar: deneb.BlobSidecar, subnet_id: BlobId):
+    Future[ValidationRes] {.async: (raises: [CancelledError]).} =
   template block_header: untyped = blobSidecar.signed_block_header.message
+  let block_root = hash_tree_root(block_header)
+
+  if (let o = self.quarantine[].popBlobless(block_root); o.isSome):
+    let blobless = o.get()
+    withBlck(blobless):
+      when consensusFork >= ConsensusFork.Electra:
+        let blobsFromElOpt = await self.elManager.sendGetBlobs(forkyBlck)
+        debugEcho "pulled blobs from el"
+        debugEcho blobsFromElOpt.get.len
+        if blobsFromElOpt.get.len > 0 and blobsFromElOpt.isSome():
+          let blobsEl = blobsFromElOpt.get()
+          # check lengths of array[BlobAndProofV1] with blobs
+          # kzg commitments of the signed block
+          if blobsEl.len == forkyBlck.message.body.blob_kzg_commitments.len:
+            var
+              kzgblbs: deneb.Blobs
+              kzgprfs: deneb.KzgProofs
+            for idx in 0..<blobsEl.len:
+              kzgblbs[idx] = blobsEl[idx].blob.data
+              kzgprfs[idx].bytes = blobsEl[idx].proof.data
+            let blob_sidecars_el =
+              create_blob_sidecars(forkyBlck, kzgprfs, kzgblbs)
+
+            for blb_el in blob_sidecars_el:
+              self.blobQuarantine[].put(newClone blb_el)
+
+            if self.blobQuarantine[].hasBlobs(forkyBlck):
+              self.blockProcessor[].enqueueBlock(
+                MsgSource.gossip, blobless,
+                Opt.some(self.blobQuarantine[].popBlobs(block_root, forkyBlck)))
 
   let
     wallTime = self.getCurrentBeaconTime()
@@ -295,9 +333,8 @@ proc processBlobSidecar*(
   debug "Blob validated, putting in blob quarantine"
   self.blobQuarantine[].put(newClone(blobSidecar))
 
-  let block_root = hash_tree_root(block_header)
   if (let o = self.quarantine[].popBlobless(block_root); o.isSome):
-    let blobless = o.unsafeGet()
+    let blobless = o.get()
     withBlck(blobless):
       when consensusFork >= ConsensusFork.Deneb:
         if self.blobQuarantine[].hasBlobs(forkyBlck):

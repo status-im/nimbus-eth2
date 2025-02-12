@@ -1007,8 +1007,7 @@ proc sendGetBlobs*(
   if m.elConnections.len == 0:
     return err()
   let
-    timeout = GETBLOBS_TIMEOUT
-    deadline = sleepAsync(timeout)
+    deadline = sleepAsync(GETBLOBS_TIMEOUT)
 
   var bestResponse = Opt.none(int)
 
@@ -1045,10 +1044,6 @@ proc sendGetBlobs*(
 
     if bestResponse.isSome():
       return ok(requests[bestResponse.get()].value().blobsAndProofs)
-
-    else:
-      # should not reach this case
-      discard
 
     if timeoutExceeded:
       break
