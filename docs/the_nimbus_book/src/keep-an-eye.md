@@ -53,4 +53,4 @@ The string of letters -- what we call the `sync worker map` (in the above case r
 ```
 
 !!! tip
-    You can also use you calls outlined in the [REST API page](./rest-api.md) to retrieve similar information.
+    You can also use the calls outlined in the [REST API page](./rest-api.md) to retrieve similar information.

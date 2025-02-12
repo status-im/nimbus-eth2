@@ -1,5 +1,5 @@
 # beacon_chain
-# Copyright (c) 2018-2024 Status Research & Development GmbH
+# Copyright (c) 2018-2025 Status Research & Development GmbH
 # Licensed and distributed under either of
 #   * MIT license (license terms in the root directory or at https://opensource.org/licenses/MIT).
 #   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
@@ -14,7 +14,7 @@ import
   results,
   kzg4844/[kzg_abi, kzg],
   ./consensus_spec/[os_ops, fixtures_utils],
-  ../beacon_chain/spec/[helpers, eip7594_helpers],
+  ../beacon_chain/spec/[helpers, peerdas_helpers],
   ../beacon_chain/spec/datatypes/[fulu, deneb]
 
 from std/strutils import rsplit
@@ -79,7 +79,7 @@ suite "EIP-7594 Unit Tests":
         blob_count = rng.rand(1..(NUMBER_OF_COLUMNS.int))
         blobs = createSampleKzgBlobs(blob_count, rng.rand(int))
         extended_matrix = compute_matrix(blobs)
-      
+
       # Construct a matrix with some entries missing
       var partial_matrix: seq[MatrixEntry]
       for blob_entries in chunks(extended_matrix.get, kzg_abi.CELLS_PER_EXT_BLOB):
@@ -94,8 +94,8 @@ suite "EIP-7594 Unit Tests":
       doAssert recovered_matrix.get == extended_matrix.get, "Both matrices don't match!"
     testRecoverMatrix()
 
-suite "EIP-7594 Sampling Tests":
-  test "EIP7594: Extended Sample Count":
+suite "PeerDAS Sampling Tests":
+  test "PeerDAS: Extended Sample Count":
     proc testExtendedSampleCount() =
       let samplesPerSlot = 16
       const tests = [

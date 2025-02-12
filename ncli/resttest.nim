@@ -5,6 +5,8 @@
 #   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
 # at your option. This file may not be copied, modified, or distributed except according to those terms.
 
+{.push raises: [].}
+
 import
   std/[strutils, os, options, uri, json, tables],
   results,
@@ -1031,7 +1033,7 @@ proc workerLoop(address: TransportAddress, uri: Uri, worker: int,
            worker = worker
       return
     except CatchableError as exc:
-      warn "Unexpected exception while running test test run", host = hostname,
+      warn "Unexpected exception while running test run", host = hostname,
            error_name = exc.name, error_msg = exc.msg, index = index,
            worker = worker
       return
@@ -1155,6 +1157,9 @@ proc run(conf: RestTesterConf): int =
   try:
     waitFor(checkConnection(conf, uri))
   except ConnectionError:
+    return 1
+  except CatchableError as exc:
+    fatal "Unexpected test failure", error_name = exc.name, error_msg = exc.msg
     return 1
 
   try:

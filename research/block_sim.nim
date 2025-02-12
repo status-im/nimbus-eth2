@@ -268,31 +268,24 @@ cli do(slots = SLOTS_PER_EPOCH * 7,
                   sig.toValidatorSig()).expect("valid data")
 
               attPool.addAttestation(
-                attestation, [validator_index], sig, data.slot.start_beacon_time)
+                attestation, [validator_index], attestation.aggregation_bits.len,
+                -1, sig, data.slot.start_beacon_time)
             else:
-              var
-                data = makeAttestationData(
-                  updatedState, slot, committee_index, bid.root)
-                committee_bits: BitArray[static(MAX_COMMITTEES_PER_SLOT.int)]
-                aggregation_bits = ElectraCommitteeValidatorsBits.init(committee.len)
-              let committeeidx = data.index
-              aggregation_bits.setBit(index_in_committee)
-              committee_bits.setBit(committeeidx)
-              data.index = 0   # obviously, fix in makeAttestationData for Electra
+              var data = makeAttestationData(
+                updatedState, slot, committee_index, bid.root)
+              data.index = 0   # fix in makeAttestationData for Electra
               let
-                sig =
-                  get_attestation_signature(
-                    fork, genesis_validators_root, data,
-                    MockPrivKeys[validator_index])
-                attestation = electra.Attestation(
-                  # https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.8/specs/electra/validator.md#construct-attestation
-                  aggregation_bits: aggregation_bits,
-                  data: data,
-                  committee_bits: committee_bits,
+                sig = get_attestation_signature(
+                  fork, genesis_validators_root, data,
+                  MockPrivKeys[validator_index])
+                attestation = SingleAttestation(
+                  committee_index: committee_index.distinctBase,
+                  attester_index: validator_index.uint64, data: data,
                   signature: sig.toValidatorSig())
 
               attPool.addAttestation(
-                attestation, [validator_index], sig, data.slot.start_beacon_time)
+                attestation, [validator_index], committee.len,
+                index_in_committee, sig, data.slot.start_beacon_time)
     do:
       raiseAssert "withUpdatedState failed"
 

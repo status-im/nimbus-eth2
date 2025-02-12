@@ -279,6 +279,7 @@ proc produceAndPublishAttestations*(
 
       tmp.add(RegisteredAttestation(
         validator: validator,
+        validator_index: validator_index,
         committee_index: duty.data.committee_index,
         index_in_committee: duty.data.validator_committee_index,
         committee_len: int duty.data.committee_length,
@@ -447,7 +448,7 @@ proc publishAttestationsAndAggregates(
       raise exc
 
   let aggregateTime =
-    # chronos.Duration substraction could not return negative value, in such
+    # chronos.Duration subtraction could not return negative value, in such
     # case it will return `ZeroDuration`.
     vc.beaconClock.durationToNextSlot() - OneThirdDuration
   if aggregateTime != ZeroDuration:
@@ -512,6 +513,7 @@ proc produceAndPublishAttestationsV2*(
 
           tmp.add(RegisteredAttestation(
             validator: validator,
+            validator_index: validator_index,
             committee_index: duty.data.committee_index,
             index_in_committee: duty.data.validator_committee_index,
             committee_len: int(duty.data.committee_length),
@@ -691,7 +693,7 @@ proc publishAttestationsAndAggregatesV2(
       raise exc
 
   let aggregateTime =
-    # chronos.Duration substraction could not return negative value, in such
+    # chronos.Duration subtraction could not return negative value, in such
     # case it will return `ZeroDuration`.
     vc.beaconClock.durationToNextSlot() - OneThirdDuration
   if aggregateTime != ZeroDuration:

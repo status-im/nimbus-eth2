@@ -5,6 +5,8 @@
 #   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
 # at your option. This file may not be copied, modified, or distributed except according to those terms.
 
+{.push raises: [].}
+
 import
   std/os,
   confutils,
@@ -45,9 +47,14 @@ type
       name: "out-dir" }: OutDir
 
 proc main =
-  let conf = load Config
+  let conf =
+    try:
+      load Config
+    except ConfigurationError:
+      error "Configuration error"
+      quit 1
   if conf.threshold == 0:
-    error "The specified treshold must be greater than zero"
+    error "The specified threshold must be greater than zero"
     quit 1
 
   if conf.remoteSignersUrls.len == 0:
@@ -55,7 +62,7 @@ proc main =
     quit 1
 
   if conf.threshold > conf.remoteSignersUrls.len.uint32:
-    error "The specified treshold must be lower or equal to the number of signers"
+    error "The specified threshold must be lower or equal to the number of signers"
     quit 1
 
   let rng = HmacDrbgContext.new()

@@ -162,7 +162,7 @@ programMain:
         db.putSyncCommittee(period, syncCommittee)
         db.putLatestFinalizedHeader(finalizedHeader)
 
-  var optimisticFcuFut: Future[(PayloadExecutionStatus, Opt[BlockHash])]
+  var optimisticFcuFut: Future[(PayloadExecutionStatus, Opt[Hash32])]
     .Raising([CancelledError])
   proc onOptimisticHeader(
       lightClient: LightClient, optimisticHeader: ForkedLightClientHeader) =
@@ -242,8 +242,8 @@ programMain:
 
       targetGossipState = getTargetGossipState(
         slot.epoch, cfg.ALTAIR_FORK_EPOCH, cfg.BELLATRIX_FORK_EPOCH,
-        cfg.CAPELLA_FORK_EPOCH, cfg.DENEB_FORK_EPOCH, FAR_FUTURE_EPOCH,
-        isBehind)
+        cfg.CAPELLA_FORK_EPOCH, cfg.DENEB_FORK_EPOCH, cfg.ELECTRA_FORK_EPOCH,
+        cfg.FULU_FORK_EPOCH, isBehind)
 
     template currentGossipState(): auto = blocksGossipState
     if currentGossipState == targetGossipState:

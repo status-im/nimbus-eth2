@@ -1,5 +1,5 @@
 # beacon_chain
-# Copyright (c) 2018-2024 Status Research & Development GmbH
+# Copyright (c) 2018-2025 Status Research & Development GmbH
 # Licensed and distributed under either of
 #   * MIT license (license terms in the root directory or at https://opensource.org/licenses/MIT).
 #   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
@@ -855,7 +855,7 @@ proc sendNewPayloadToSingleEL(
     payload: engine_api.ExecutionPayloadV3,
     versioned_hashes: seq[engine_api.VersionedHash],
     parent_beacon_block_root: FixedBytes[32],
-    executionRequests: array[3, seq[byte]]
+    executionRequests: seq[seq[byte]]
 ): Future[PayloadStatusV1] {.async: (raises: [CatchableError]).} =
   let rpcClient = await connection.connectedRpcClient()
   await rpcClient.engine_newPayloadV4(
@@ -918,11 +918,13 @@ func compareStatuses(
 type
   ELConsensusViolationDetector = object
     selectedResponse: Opt[int]
+    selectedStatus: Opt[PayloadExecutionStatus]
     disagreementAlreadyDetected: bool
 
 func init(T: type ELConsensusViolationDetector): T =
   ELConsensusViolationDetector(
     selectedResponse: Opt.none(int),
+    selectedStatus: Opt.none(PayloadExecutionStatus),
     disagreementAlreadyDetected: false
   )
 
@@ -939,11 +941,13 @@ proc processResponse(
   let status = requests[idx].value().status
   if d.selectedResponse.isNone:
     d.selectedResponse = Opt.some(idx)
+    d.selectedStatus = Opt.some(status)
   elif not d.disagreementAlreadyDetected:
     let prevStatus = requests[d.selectedResponse.get].value().status
     case compareStatuses(status, prevStatus)
     of newStatusIsPreferable:
       d.selectedResponse = Opt.some(idx)
+      d.selectedStatus = Opt.some(status)
     of oldStatusIsOk:
       discard
     of disagreement:
@@ -954,6 +958,21 @@ proc processResponse(
             status1 = prevStatus,
             url2 = connections[idx].engineUrl.url,
             status2 = status
+
+proc couldBeBetter(d: ELConsensusViolationDetector): bool =
+  const
+    SyncingOrAccepted = {
+      PayloadExecutionStatus.syncing,
+      PayloadExecutionStatus.accepted
+    }
+  if d.disagreementAlreadyDetected:
+    return false
+  if d.selectedStatus.isNone():
+    return true
+  if d.selectedStatus.get() in SyncingOrAccepted:
+    true
+  else:
+    false
 
 proc lazyWait(futures: seq[FutureBase]) {.async: (raises: []).} =
   block:
@@ -995,15 +1014,30 @@ proc sendNewPayload*(
           let req =
             when typeof(blck).kind >= ConsensusFork.Electra:
               # https://github.com/ethereum/execution-apis/blob/4140e528360fea53c34a766d86a000c6c039100e/src/engine/prague.md#engine_newpayloadv4
-              let versioned_hashes = mapIt(
-                blck.body.blob_kzg_commitments,
-                engine_api.VersionedHash(kzg_commitment_to_versioned_hash(it)))
+              let
+                versioned_hashes = mapIt(
+                  blck.body.blob_kzg_commitments,
+                  engine_api.VersionedHash(kzg_commitment_to_versioned_hash(it)))
+                # https://github.com/ethereum/execution-apis/blob/7c9772f95c2472ccfc6f6128dc2e1b568284a2da/src/engine/prague.md#request
+                # "Each list element is a `requests` byte array as defined by
+                # EIP-7685. The first byte of each element is the `request_type`
+                # and the remaining bytes are the `request_data`. Elements of
+                # the list MUST be ordered by `request_type` in ascending order.
+                # Elements with empty `request_data` MUST be excluded from the
+                # list."
+                execution_requests = block:
+                  var requests: seq[seq[byte]]
+                  for request_type, request_data in
+                      [SSZ.encode(blck.body.execution_requests.deposits),
+                       SSZ.encode(blck.body.execution_requests.withdrawals),
+                       SSZ.encode(blck.body.execution_requests.consolidations)]:
+                    if request_data.len > 0:
+                      requests.add @[request_type.byte] & request_data
+                  requests
+
               sendNewPayloadToSingleEL(
                 it, payload, versioned_hashes,
-                FixedBytes[32] blck.parent_root.data,
-                [SSZ.encode(blck.body.execution_requests.deposits),
-                 SSZ.encode(blck.body.execution_requests.withdrawals),
-                 SSZ.encode(blck.body.execution_requests.consolidations)])
+                FixedBytes[32] blck.parent_root.data, execution_requests)
             elif typeof(blck).kind == ConsensusFork.Deneb:
               # https://github.com/ethereum/consensus-specs/blob/v1.4.0-alpha.1/specs/deneb/beacon-chain.md#process_execution_payload
               # Verify the execution payload is valid
@@ -1055,11 +1089,14 @@ proc sendNewPayload*(
           await noCancel allFutures(pending)
           return PayloadExecutionStatus.invalid
         elif responseProcessor.selectedResponse.isSome():
-          # We spawn task which will wait for all other responses which are
-          # still pending, after 30.seconds all pending requests will be
-          # cancelled.
-          asyncSpawn lazyWait(pendingRequests.mapIt(FutureBase(it)))
-          return requests[responseProcessor.selectedResponse.get].value().status
+          if (len(pendingRequests) == 0) or
+             not(responseProcessor.couldBeBetter()):
+            # We spawn task which will wait for all other responses which are
+            # still pending, after 30.seconds all pending requests will be
+            # cancelled.
+            asyncSpawn lazyWait(pendingRequests.mapIt(FutureBase(it)))
+            return
+              requests[responseProcessor.selectedResponse.get].value().status
 
         if timeoutExceeded:
           # Timeout exceeded, cancelling all pending requests.
@@ -1130,7 +1167,7 @@ proc forkchoiceUpdated*(
   # block hash provided by this event is stubbed with
   # `0x0000000000000000000000000000000000000000000000000000000000000000`."
   # and
-  # https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.9/specs/bellatrix/validator.md#executionpayload
+  # https://github.com/ethereum/consensus-specs/blob/v1.5.0-beta.0/specs/bellatrix/validator.md#executionpayload
   # notes "`finalized_block_hash` is the hash of the latest finalized execution
   # payload (`Hash32()` if none yet finalized)"
 
