@@ -35,7 +35,7 @@ func getStats(peer: SomeTPeer, index: SyncResponseKind): uint64 =
   0
 
 func getStaticSlotCb(slot: Slot): GetSlotCallback =
-  proc getSlot(): Slot =
+  func getSlot(): Slot =
     slot
   getSlot
 
@@ -63,7 +63,7 @@ func collector(queue: AsyncQueue[BlockEntry]): BlockVerifier =
   return verify
 
 suite "SyncManager test suite":
-  proc createChain(start, finish: Slot): seq[ref ForkedSignedBeaconBlock] =
+  func createChain(start, finish: Slot): seq[ref ForkedSignedBeaconBlock] =
     doAssert(start <= finish)
     let count = int(finish - start + 1'u64)
     var res = newSeq[ref ForkedSignedBeaconBlock](count)
@@ -101,7 +101,7 @@ suite "SyncManager test suite":
                 inc sidecarIdx
     res
 
-  proc getSlice(chain: openArray[ref ForkedSignedBeaconBlock], startSlot: Slot,
+  func getSlice(chain: openArray[ref ForkedSignedBeaconBlock], startSlot: Slot,
                 request: SyncRequest[SomeTPeer]): seq[ref ForkedSignedBeaconBlock] =
     let
       startIndex = int(request.slot - startSlot)
@@ -491,7 +491,7 @@ suite "SyncManager test suite":
         else:
           sblock.fail(VerifierError.Duplicate)
 
-    proc getBackwardSafeSlotCb(): Slot =
+    func getBackwardSafeSlotCb(): Slot =
       min((Slot(counter).epoch + 1).start_slot, finish)
 
     proc forwardValidator(aq: AsyncQueue[BlockEntry]) {.async.} =
@@ -506,7 +506,7 @@ suite "SyncManager test suite":
         else:
           sblock.fail(VerifierError.Duplicate)
 
-    proc getFowardSafeSlotCb(): Slot =
+    func getFowardSafeSlotCb(): Slot =
       max(Slot(max(counter, 1) - 1).epoch.start_slot, start)
 
     var
@@ -581,11 +581,11 @@ suite "SyncManager test suite":
         let sblock = await aq.popFirst()
         sblock.fail(VerifierError.Invalid)
 
-    proc getBackwardSafeSlotCb(): Slot =
+    func getBackwardSafeSlotCb(): Slot =
       let progress = (uint64(int(finish) - counter) div chunkSize) * chunkSize
       finish - progress
 
-    proc getFowardSafeSlotCb(): Slot =
+    func getFowardSafeSlotCb(): Slot =
       let progress = (uint64(counter - int(start)) div chunkSize) * chunkSize
       start + progress
 
@@ -912,7 +912,7 @@ suite "SyncManager test suite":
       lastSafeSlot = finishSlot
       counter = int(finishSlot)
 
-    proc getSafeSlot(): Slot =
+    func getSafeSlot(): Slot =
       lastSafeSlot
 
     proc backwardValidator(aq: AsyncQueue[BlockEntry]) {.async.} =
@@ -1043,7 +1043,7 @@ suite "SyncManager test suite":
     check sr.getLastNonEmptySlot() == Slot(100)
 
   test "[SyncQueue] contains() test":
-    proc checkRange[T](req: SyncRequest[T]): bool =
+    func checkRange[T](req: SyncRequest[T]): bool =
       var slot = req.slot
       var counter = 0'u64
       while counter < req.count:
@@ -1118,9 +1118,9 @@ suite "SyncManager test suite":
       r2 = SyncRequest[SomeTPeer](slot: Slot(11), count: 2'u64)
       r3 = SyncRequest[SomeTPeer](slot: Slot(11), count: 3'u64)
 
-      d1 = Slot(11).repeat(MAX_BLOBS_PER_BLOCK)
-      d2 = Slot(12).repeat(MAX_BLOBS_PER_BLOCK)
-      d3 = Slot(13).repeat(MAX_BLOBS_PER_BLOCK)
+      d1 = Slot(11).repeat(MAX_BLOBS_PER_BLOCK_ELECTRA)
+      d2 = Slot(12).repeat(MAX_BLOBS_PER_BLOCK_ELECTRA)
+      d3 = Slot(13).repeat(MAX_BLOBS_PER_BLOCK_ELECTRA)
 
     check:
       checkBlobsResponse(r1, [Slot(11)]).isOk() == true

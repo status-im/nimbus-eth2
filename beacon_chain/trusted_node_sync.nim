@@ -1,5 +1,5 @@
 # beacon_chain
-# Copyright (c) 2018-2024 Status Research & Development GmbH
+# Copyright (c) 2018-2025 Status Research & Development GmbH
 # Licensed and distributed under either of
 #   * MIT license (license terms in the root directory or at https://opensource.org/licenses/MIT).
 #   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
@@ -178,7 +178,7 @@ proc doTrustedNodeSync*(
     let stateId =
       case syncTarget.kind
       of TrustedNodeSyncKind.TrustedBlockRoot:
-        # https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.10/specs/altair/light-client/light-client.md#light-client-sync-process
+        # https://github.com/ethereum/consensus-specs/blob/v1.5.0-beta.0/specs/altair/light-client/light-client.md#light-client-sync-process
         const lcDataFork = LightClientDataFork.high
         var bestViableCheckpoint: Opt[tuple[slot: Slot, state_root: Eth2Digest]]
         func trackBestViableCheckpoint(store: lcDataFork.LightClientStore) =

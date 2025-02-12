@@ -1,5 +1,5 @@
 # beacon_chain
-# Copyright (c) 2018-2024 Status Research & Development GmbH
+# Copyright (c) 2018-2025 Status Research & Development GmbH
 # Licensed and distributed under either of
 #   * MIT license (license terms in the root directory or at https://opensource.org/licenses/MIT).
 #   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
@@ -99,7 +99,7 @@ iterator get_attesting_indices*(shufflingRef: ShufflingRef,
       if bits[index_in_committee]:
         yield validator_index
 
-# https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.10/specs/electra/beacon-chain.md#modified-get_attesting_indices
+# https://github.com/ethereum/consensus-specs/blob/v1.5.0-beta.0/specs/electra/beacon-chain.md#modified-get_attesting_indices
 iterator get_attesting_indices*(
     shufflingRef: ShufflingRef, slot: Slot,
     committee_bits: AttestationCommitteeBits,
@@ -293,7 +293,7 @@ func makeAttestationData*(
 
   doAssert current_epoch == epochRef.epoch
 
-  # https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.10/specs/phase0/validator.md#attestation-data
+  # https://github.com/ethereum/consensus-specs/blob/v1.5.0-beta.0/specs/phase0/validator.md#attestation-data
   AttestationData(
     slot: slot,
     index: committee_index.asUInt64,

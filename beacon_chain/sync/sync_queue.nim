@@ -179,9 +179,11 @@ proc checkBlobsResponse*[T](req: SyncRequest[T],
     # Impossible to verify empty response.
     return ok()
 
-  if lenu64(data) > (req.count * MAX_BLOBS_PER_BLOCK):
+  static: doAssert MAX_BLOBS_PER_BLOCK_ELECTRA >= MAX_BLOBS_PER_BLOCK
+
+  if lenu64(data) > (req.count * MAX_BLOBS_PER_BLOCK_ELECTRA):
     # Number of blobs in response should be less or equal to number of
-    # requested (blocks * MAX_BLOBS_PER_BLOCK).
+    # requested (blocks * MAX_BLOBS_PER_BLOCK_ELECTRA).
     return err("Too many blobs received")
 
   var
@@ -194,7 +196,7 @@ proc checkBlobsResponse*[T](req: SyncRequest[T],
       return err("Incorrect order")
     if slot == pslot:
       inc(counter)
-      if counter > MAX_BLOBS_PER_BLOCK:
+      if counter > MAX_BLOBS_PER_BLOCK_ELECTRA:
         return err("Number of blobs in the block exceeds the limit")
     else:
       counter = 1'u64

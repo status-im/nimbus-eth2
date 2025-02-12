@@ -1,5 +1,5 @@
 # beacon_chain
-# Copyright (c) 2021-2024 Status Research & Development GmbH
+# Copyright (c) 2021-2025 Status Research & Development GmbH
 # Licensed and distributed under either of
 #   * MIT license (license terms in the root directory or at https://opensource.org/licenses/MIT).
 #   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
@@ -8,7 +8,7 @@
 {.push raises: [].}
 
 # Minimal preset - Altair
-# https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.10/presets/minimal/altair.yaml
+# https://github.com/ethereum/consensus-specs/blob/v1.5.0-beta.0/presets/minimal/altair.yaml
 const
   # Updated penalty values
   # ---------------------------------------------------------------

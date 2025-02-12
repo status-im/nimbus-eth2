@@ -8,7 +8,7 @@
 {.push raises: [].}
 
 import
-  std/[os, stats, tables],
+  std/tables,
   snappy,
   chronicles, confutils, stew/[byteutils, io2], eth/db/kvstore_sqlite3,
   ../beacon_chain/networking/network_metadata,
@@ -20,6 +20,9 @@ import
   ../beacon_chain/sszdump,
   ../research/simutils,
   ./era, ./ncli_common, ./validator_db_aggregator
+
+from std/os import createDir, dirExists, moveFile, `/`
+from std/stats import RunningStat
 
 when defined(posix):
   import system/ansi_c
@@ -644,7 +647,7 @@ proc cmdExportEra(conf: DbConf, cfg: RuntimeConfig) =
       if firstSlot.isSome():
         withTimer(timers[tBlocks]):
           var blocks: array[SLOTS_PER_HISTORICAL_ROOT.int, BlockId]
-          for i in dag.getBlockRange(firstSlot.get(), 1, blocks)..<blocks.len:
+          for i in dag.getBlockRange(firstSlot.get(), blocks)..<blocks.len:
             if not dag.getBlockSZ(blocks[i], tmp):
               break writeFileBlock
             group.update(e2, blocks[i].slot, tmp).get()
@@ -904,11 +907,11 @@ proc createInsertValidatorProc(db: SqStoreRef): auto =
     VALUES(?, ?);""",
     (int64, array[48, byte]), void).expect("DB")
 
-proc collectBalances(balances: var seq[uint64], forkedState: ForkedHashedBeaconState) =
+func collectBalances(balances: var seq[uint64], forkedState: ForkedHashedBeaconState) =
   withState(forkedState):
     balances = seq[uint64](forkyState.data.balances.data)
 
-proc calculateDelta(info: RewardsAndPenalties): int64 =
+func calculateDelta(info: RewardsAndPenalties): int64 =
   info.source_outcome +
   info.target_outcome +
   info.head_outcome +
