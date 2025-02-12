@@ -1,5 +1,5 @@
 # beacon_chain
-# Copyright (c) 2018-2024 Status Research & Development GmbH
+# Copyright (c) 2018-2025 Status Research & Development GmbH
 # Licensed and distributed under either of
 #   * MIT license (license terms in the root directory or at https://opensource.org/licenses/MIT).
 #   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
@@ -76,7 +76,7 @@ func is_exited_validator*(validator: Validator, epoch: Epoch): bool =
 func is_withdrawable_validator*(validator: Validator, epoch: Epoch): bool =
   epoch >= validator.withdrawable_epoch
 
-# https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.6/specs/phase0/beacon-chain.md#get_active_validator_indices
+# https://github.com/ethereum/consensus-specs/blob/v1.5.0-beta.0/specs/phase0/beacon-chain.md#get_active_validator_indices
 iterator get_active_validator_indices*(state: ForkyBeaconState, epoch: Epoch):
     ValidatorIndex =
   for vidx in state.validators.vindices:
@@ -102,7 +102,7 @@ func get_active_validator_indices_len*(
   withState(state):
     get_active_validator_indices_len(forkyState.data, epoch)
 
-# https://github.com/ethereum/consensus-specs/blob/v1.4.0/specs/phase0/beacon-chain.md#get_current_epoch
+# https://github.com/ethereum/consensus-specs/blob/v1.5.0-beta.0/specs/phase0/beacon-chain.md#get_current_epoch
 func get_current_epoch*(state: ForkyBeaconState): Epoch =
   ## Return the current epoch.
   state.slot.epoch
@@ -203,7 +203,7 @@ func get_seed*(state: ForkyBeaconState, epoch: Epoch, domain_type: DomainType):
     epoch + EPOCHS_PER_HISTORICAL_VECTOR - MIN_SEED_LOOKAHEAD - 1)
   state.get_seed(epoch, domain_type, mix)
 
-# https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.9/specs/altair/beacon-chain.md#add_flag
+# https://github.com/ethereum/consensus-specs/blob/v1.5.0-beta.0/specs/altair/beacon-chain.md#add_flag
 func add_flag*(flags: ParticipationFlags, flag_index: TimelyFlag): ParticipationFlags =
   let flag = ParticipationFlags(1'u8 shl ord(flag_index))
   flags or flag
@@ -251,7 +251,7 @@ func create_blob_sidecars*(
     res.add(sidecar)
   res
 
-# https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.5/specs/altair/light-client/sync-protocol.md#is_sync_committee_update
+# https://github.com/ethereum/consensus-specs/blob/v1.5.0-beta.0/specs/altair/light-client/sync-protocol.md#is_sync_committee_update
 template is_sync_committee_update*(update: SomeForkyLightClientUpdate): bool =
   when update is SomeForkyLightClientUpdateWithSyncCommittee:
     update.next_sync_committee_branch !=
@@ -259,7 +259,7 @@ template is_sync_committee_update*(update: SomeForkyLightClientUpdate): bool =
   else:
     false
 
-# https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.5/specs/altair/light-client/sync-protocol.md#is_finality_update
+# https://github.com/ethereum/consensus-specs/blob/v1.5.0-beta.0/specs/altair/light-client/sync-protocol.md#is_finality_update
 template is_finality_update*(update: SomeForkyLightClientUpdate): bool =
   when update is SomeForkyLightClientUpdateWithFinality:
     update.finality_branch !=
@@ -267,7 +267,7 @@ template is_finality_update*(update: SomeForkyLightClientUpdate): bool =
   else:
     false
 
-# https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.3/specs/altair/light-client/sync-protocol.md#is_next_sync_committee_known
+# https://github.com/ethereum/consensus-specs/blob/v1.5.0-beta.0/specs/altair/light-client/sync-protocol.md#is_next_sync_committee_known
 template is_next_sync_committee_known*(store: ForkyLightClientStore): bool =
   store.next_sync_committee !=
     static(default(typeof(store.next_sync_committee)))
@@ -380,7 +380,7 @@ func contextEpoch*(bootstrap: ForkyLightClientBootstrap): Epoch =
 func contextEpoch*(update: SomeForkyLightClientUpdate): Epoch =
   update.attested_header.beacon.slot.epoch
 
-# https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.8/specs/bellatrix/beacon-chain.md#is_merge_transition_complete
+# https://github.com/ethereum/consensus-specs/blob/v1.5.0-beta.0/specs/bellatrix/beacon-chain.md#is_merge_transition_complete
 func is_merge_transition_complete*(
     state: bellatrix.BeaconState | capella.BeaconState | deneb.BeaconState |
            electra.BeaconState | fulu.BeaconState): bool =
@@ -389,13 +389,16 @@ func is_merge_transition_complete*(
   state.latest_execution_payload_header != defaultExecutionPayloadHeader
 
 # https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.9/sync/optimistic.md#helpers
-func is_execution_block*(blck: SomeForkyBeaconBlock): bool =
-  when typeof(blck).kind >= ConsensusFork.Bellatrix:
+func is_execution_block*(body: SomeForkyBeaconBlockBody): bool =
+  when typeof(body).kind >= ConsensusFork.Bellatrix:
     const defaultExecutionPayload =
-      default(typeof(blck.body.execution_payload))
-    blck.body.execution_payload != defaultExecutionPayload
+      default(typeof(body.execution_payload))
+    body.execution_payload != defaultExecutionPayload
   else:
     false
+
+func is_execution_block*(blck: SomeForkyBeaconBlock): bool =
+  blck.body.is_execution_block
 
 # https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.8/specs/bellatrix/beacon-chain.md#is_merge_transition_block
 func is_merge_transition_block(
@@ -415,7 +418,7 @@ func is_merge_transition_block(
   not is_merge_transition_complete(state) and
     body.execution_payload != defaultExecutionPayload
 
-# https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.8/specs/bellatrix/beacon-chain.md#is_execution_enabled
+# https://github.com/ethereum/consensus-specs/blob/v1.5.0-beta.0/specs/bellatrix/beacon-chain.md#is_execution_enabled
 func is_execution_enabled*(
     state: bellatrix.BeaconState | capella.BeaconState | deneb.BeaconState |
            electra.BeaconState | fulu.BeaconState,
@@ -480,9 +483,10 @@ func computeRequestsHash(
 
   requestsHash.to(EthHash32)
 
-proc blockToBlockHeader*(blck: ForkyBeaconBlock): EthHeader =
-  template payload: auto = blck.body.execution_payload
-
+proc toExecutionBlockHeader(
+    payload: ForkyExecutionPayload,
+    parentRoot: Eth2Digest,
+    requestsHash = Opt.none(EthHash32)): EthHeader =
   static:  # `GasInt` is signed. We only use it for hashing.
     doAssert sizeof(GasInt) == sizeof(payload.gas_limit)
     doAssert sizeof(GasInt) == sizeof(payload.gas_used)
@@ -506,12 +510,7 @@ proc blockToBlockHeader*(blck: ForkyBeaconBlock): EthHeader =
         Opt.none(uint64)
     parentBeaconBlockRoot =
       when typeof(payload).kind >= ConsensusFork.Deneb:
-        Opt.some EthHash32(blck.parent_root.data)
-      else:
-        Opt.none(EthHash32)
-    requestsHash =
-      when typeof(payload).kind >= ConsensusFork.Electra:
-        Opt.some blck.body.execution_requests.computeRequestsHash()
+        Opt.some EthHash32(parentRoot.data)
       else:
         Opt.none(EthHash32)
 
@@ -538,8 +537,19 @@ proc blockToBlockHeader*(blck: ForkyBeaconBlock): EthHeader =
     parentBeaconBlockRoot : parentBeaconBlockRoot, # EIP-4788
     requestsHash          : requestsHash)          # EIP-7685
 
+proc compute_execution_block_hash*(
+    body: ForkyBeaconBlockBody,
+    parentRoot: Eth2Digest): Eth2Digest =
+  when typeof(body).kind >= ConsensusFork.Electra:
+    body.execution_payload.toExecutionBlockHeader(
+        parentRoot, Opt.some body.execution_requests.computeRequestsHash())
+      .rlpHash().to(Eth2Digest)
+  else:
+    body.execution_payload.toExecutionBlockHeader(parentRoot)
+      .rlpHash().to(Eth2Digest)
+
 proc compute_execution_block_hash*(blck: ForkyBeaconBlock): Eth2Digest =
-  rlpHash(blockToBlockHeader(blck)).to(Eth2Digest)
+  blck.body.compute_execution_block_hash(blck.parent_root)
 
 from std/math import exp, ln
 from std/sequtils import foldl

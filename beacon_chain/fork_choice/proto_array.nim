@@ -592,7 +592,7 @@ func propagateInvalidity*(
     if parentPhysicalIdx < 0 or parentPhysicalIdx >= self.nodes.len:
       continue
 
-    # Invalidity transmits to all descendents
+    # Invalidity transmits to all descendants
     if self.nodes.buf[parentPhysicalIdx].invalid:
       self.nodes.buf[nodePhysicalIdx].invalid = true
 

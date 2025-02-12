@@ -1,6 +1,6 @@
 #!/usr/bin/bash
 
-# Copyright (c) 2023 Status Research & Development GmbH.
+# Copyright (c) 2023-2024 Status Research & Development GmbH.
 # Licensed under either of:
 # - Apache License, version 2.0
 # - MIT license
@@ -12,7 +12,7 @@ if ! command javac > /dev/null || ! javac -version > /dev/null; then
   # Instead, macOS ships with a stub executable that displays a message that
   # Java is not installed (javac -version exits with an error code 1).
   # If the user is running under these default settings, but a homebrew
-  # installation is disovered, we are happy to use it just in this script:
+  # installation is discovered, we are happy to use it just in this script:
   if [[ -d /opt/homebrew/opt/openjdk/bin ]]; then
     export PATH="/opt/homebrew/opt/openjdk/bin:$PATH"
   fi
