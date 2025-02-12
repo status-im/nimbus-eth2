@@ -57,7 +57,6 @@ type
     GetPayloadV3Response |
     GetPayloadV4Response
 
-
 contract(DepositContract):
   proc deposit(pubkey: PubKeyBytes,
                withdrawalCredentials: WithdrawalCredentialsBytes,
