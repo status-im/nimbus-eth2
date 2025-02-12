@@ -1085,6 +1085,48 @@ proc validateAttestation*(
       return pool.checkedResult(v.error)
     v.get()
 
+  if attestation.attester_index > high(ValidatorIndex).uint64:
+    return errReject("SingleAttestation: attester index too high")
+  let validator_index = attestation.attester_index.ValidatorIndex
+
+  # [REJECT] The signature of `attestation` is valid.
+  # In the spec, is_valid_indexed_attestation is used to verify the signature -
+  # here, we do a batch verification instead
+  var sigchecked = false
+  var sig: CookedSig
+  template doSigCheck: untyped =
+    let
+      fork = pool.dag.forkAtEpoch(attestation.data.slot.epoch)
+      pubkey = pool.dag.validatorKey(validator_index).valueOr:
+        # can't happen, in theory, because we checked the aggregator index above
+        return errIgnore("Attestation: cannot find validator pubkey")
+
+    sigchecked = true
+    sig =
+      if checkSignature:
+        # Attestation signatures are batch-verified
+        let deferredCrypto = batchCrypto
+                               .scheduleAttestationCheck(
+                                fork, attestation.data, pubkey,
+                                attestation.signature)
+        if deferredCrypto.isErr():
+          return pool.checkedReject(deferredCrypto.error)
+
+        let (cryptoFut, sig) = deferredCrypto.get()
+        # Await the crypto check
+        let x = (await cryptoFut)
+        case x
+        of BatchResult.Invalid:
+          return pool.checkedReject("Attestation: invalid signature")
+        of BatchResult.Timeout:
+          beacon_attestations_dropped_queue_full.inc()
+          return errIgnore("Attestation: timeout checking signature")
+        of BatchResult.Valid:
+          sig # keep going only in this case
+      else:
+        attestation.signature.load().valueOr:
+          return pool.checkedReject("Attestation: unable to load signature")
+
   # The following rule follows implicitly from that we clear out any
   # unviable blocks from the chain dag:
   #
@@ -1092,24 +1134,25 @@ proc validateAttestation*(
   # defined by attestation.data.beacon_block_root -- i.e.
   # get_checkpoint_block(store, attestation.data.beacon_block_root,
   # store.finalized_checkpoint.epoch) == store.finalized_checkpoint.root
-  var sigchecked = false
-  var sig: CookedSig
   let shufflingRef =
     pool.dag.findShufflingRef(target.blck.bid, target.slot.epoch).valueOr:
       # getShufflingRef might be slow here, so first try to eliminate by
       # signature check
-      sig = attestation.signature.load().valueOr:
-        return pool.checkedReject("SingleAttestation: unable to load signature")
-      sigchecked = true
+      doSigCheck()
       pool.dag.getShufflingRef(target.blck, target.slot.epoch, false).valueOr:
         # Target is verified - shouldn't happen
         warn "No shuffling for SingleAttestation - report bug",
           attestation = shortLog(attestation), target = shortLog(target)
         return errIgnore("SingleAttestation: no shuffling")
 
-  if attestation.attester_index > high(ValidatorIndex).uint64:
-    return errReject("SingleAttestation: attester index too high")
-  let validator_index = attestation.attester_index.ValidatorIndex
+  # [REJECT] The committee index is within the expected range -- i.e.
+  # data.index < get_committee_count_per_slot(state, data.target.epoch).
+  let committee_index = block:
+    let idx = shufflingRef.get_committee_index(attestation.committee_index)
+    if idx.isErr():
+      return pool.checkedReject(
+        "Attestation: committee index not within expected range")
+    idx.get()
 
   # [REJECT] The attester is a member of the committee -- i.e.
   # attestation.attester_index in
@@ -1121,15 +1164,6 @@ proc validateAttestation*(
     index_in_committee = find(beacon_committee, validator_index)
   if index_in_committee < 0:
     return pool.checkedReject("SingleAttestation: attester index not in beacon committee")
-
-  # [REJECT] The committee index is within the expected range -- i.e.
-  # data.index < get_committee_count_per_slot(state, data.target.epoch).
-  let committee_index = block:
-    let idx = shufflingRef.get_committee_index(attestation.committee_index)
-    if idx.isErr():
-      return pool.checkedReject(
-        "Attestation: committee index not within expected range")
-    idx.get()
 
   # [REJECT] The attestation is for the correct subnet -- i.e.
   # compute_subnet_for_attestation(committees_per_slot,
@@ -1148,9 +1182,14 @@ proc validateAttestation*(
   if not sigchecked:
     # findShufflingRef did find a cached ShufflingRef, which means the early
     # signature check was skipped, so do it now.
-    sig = attestation.signature.load().valueOr:
-      return pool.checkedReject("SingleAttestation: unable to load signature")
+    doSigCheck()
 
+  # Only valid attestations go in the list, which keeps validator_index
+  # in range
+  if not (pool.nextAttestationEpoch.lenu64 > validator_index.uint64):
+    pool.nextAttestationEpoch.setLen(validator_index.int + 1)
+  pool.nextAttestationEpoch[validator_index].subnet =
+    attestation.data.target.epoch + 1
   ok((validator_index, beacon_committee.len, index_in_committee, sig))
 
 # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.1/specs/phase0/p2p-interface.md#beacon_aggregate_and_proof
@@ -1244,14 +1283,16 @@ proc validateAggregate*(
   # data.index < get_committee_count_per_slot(state, data.target.epoch).
   let committee_index = block:
     when signedAggregateAndProof is electra.SignedAggregateAndProof:
-      let idx = get_committee_index_one(aggregate.committee_bits)
+      let agg_idx = get_committee_index_one(aggregate.committee_bits).valueOr:
+        return pool.checkedReject("Aggregate: got multiple committee bits")
+      let idx = shufflingRef.get_committee_index(agg_idx.uint64)
     elif signedAggregateAndProof is phase0.SignedAggregateAndProof:
       let idx = shufflingRef.get_committee_index(aggregate.data.index)
     else:
       static: doAssert false
     if idx.isErr():
       return pool.checkedReject(
-        "Attestation: committee index not within expected range")
+        "Aggregate: committee index not within expected range")
     idx.get()
   if not aggregate.aggregation_bits.compatible_with_shuffling(
       shufflingRef, slot, committee_index):
