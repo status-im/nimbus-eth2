@@ -1159,8 +1159,7 @@ proc validateAttestation*(
   # get_beacon_committee(state, attestation.data.slot, index).
   let
     beacon_committee = get_beacon_committee(
-      shufflingRef, attestation.data.slot,
-      attestation.committee_index.CommitteeIndex)
+      shufflingRef, attestation.data.slot, committee_index)
     index_in_committee = find(beacon_committee, validator_index)
   if index_in_committee < 0:
     return pool.checkedReject("SingleAttestation: attester index not in beacon committee")
