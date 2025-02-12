@@ -1157,8 +1157,4 @@ OK: 2/2 Fail: 0/2 Skip: 0/2
 OK: 9/9 Fail: 0/9 Skip: 0/9
 
 ---TOTAL---
-<<<<<<< HEAD
-OK: 780/785 Fail: 0/785 Skip: 5/785
-=======
-OK: 783/788 Fail: 0/788 Skip: 5/788
->>>>>>> dev/etan/df-forkedblobs
+OK: 786/791 Fail: 0/791 Skip: 5/791
