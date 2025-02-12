@@ -1,5 +1,5 @@
 # beacon_chain
-# Copyright (c) 2024 Status Research & Development GmbH
+# Copyright (c) 2024-2025 Status Research & Development GmbH
 # Licensed and distributed under either of
 #   * MIT license (license terms in the root directory or at https://opensource.org/licenses/MIT).
 #   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
@@ -76,7 +76,7 @@ proc runVerifyKzgProofTest(suiteName, suitePath, path: string) =
       y = fromHex[32](data["input"]["y"].getStr)
       proof = fromHex[48](data["input"]["proof"].getStr)
 
-    # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.6/tests/formats/kzg/verify_kzg_proof.md#condition
+    # https://github.com/ethereum/consensus-specs/blob/v1.5.0-beta.0/tests/formats/kzg_4844/verify_kzg_proof.md#condition
     # "If the commitment or proof is invalid (e.g. not on the curve or not in
     # the G1 subgroup of the BLS curve) or `z` or `y` are not a valid BLS
     # field element, it should error, i.e. the output should be `null`."
@@ -221,7 +221,7 @@ proc runComputeCellsAndKzgProofsTest(suiteName, suitePath, path: string) =
         check output.kind == JNull
       else:
         let p_val = p[].get
-        for i in 0..<CELLS_PER_EXT_BLOB:
+        for i in 0..<kzg_abi.CELLS_PER_EXT_BLOB:
           check p_val.cells[i].bytes == fromHex[2048](output[0][i].getStr).get
           check p_val.proofs[i].bytes == fromHex[48](output[1][i].getStr).get
 
@@ -236,7 +236,7 @@ proc runVerifyCellKzgProofBatchTest(suiteName, suitePath, path: string) =
       cells = data["input"]["cells"].mapIt(fromHex[2048](it.getStr))
       proofs = data["input"]["proofs"].mapIt(fromHex[48](it.getStr))
 
-    # https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.10/tests/formats/kzg_7594/verify_cell_kzg_proof_batch.md#condition
+    # https://github.com/ethereum/consensus-specs/blob/v1.5.0-beta.0/tests/formats/kzg_7594/verify_cell_kzg_proof_batch.md#condition
     # If the blob is invalid (e.g. incorrect length or one of the 32-byte
     # blocks does not represent a BLS field element) it should error, i.e. the
     # the output should be `null`.
@@ -281,7 +281,7 @@ proc runRecoverCellsAndKzgProofsTest(suiteName, suitePath, path: string) =
         check output.kind == JNull
       else:
         let val = v[].get
-        for i in 0..<CELLS_PER_EXT_BLOB:
+        for i in 0..<kzg_abi.CELLS_PER_EXT_BLOB:
           check val.cells[i].bytes == fromHex[2048](output[0][i].getStr).get
           check val.proofs[i].bytes == fromHex[48](output[1][i].getStr).get
 
@@ -329,7 +329,7 @@ suite suiteName:
     for kind, path in walkDir(testsDir, relative = true, checkDir = true):
       runComputeBlobKzgProofTest(suiteName, testsDir, testsDir / path)
 
-suiteName = "EF - KZG - EIP7594"
+suiteName = "EF - KZG - PeerDAS"
 
 suite suiteName:
   const suitePath = SszTestsDir/"general"/"fulu"/"kzg"

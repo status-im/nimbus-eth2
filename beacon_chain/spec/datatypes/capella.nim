@@ -1,5 +1,5 @@
 # beacon_chain
-# Copyright (c) 2022-2024 Status Research & Development GmbH
+# Copyright (c) 2022-2025 Status Research & Development GmbH
 # Licensed and distributed under either of
 #   * MIT license (license terms in the root directory or at https://opensource.org/licenses/MIT).
 #   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
@@ -96,7 +96,7 @@ type
   ExecutionBranch* =
     array[log2trunc(EXECUTION_PAYLOAD_GINDEX), Eth2Digest]
 
-  # https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.10/specs/capella/light-client/sync-protocol.md#modified-lightclientheader
+  # https://github.com/ethereum/consensus-specs/blob/v1.5.0-beta.0/specs/capella/light-client/sync-protocol.md#modified-lightclientheader
   LightClientHeader* = object
     beacon*: BeaconBlockHeader
       ## Beacon block header
@@ -114,7 +114,7 @@ type
       ## Current sync committee corresponding to `header.beacon.state_root`
     current_sync_committee_branch*: altair.CurrentSyncCommitteeBranch
 
-  # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.5/specs/altair/light-client/sync-protocol.md#lightclientupdate
+  # https://github.com/ethereum/consensus-specs/blob/v1.5.0-beta.0/specs/altair/light-client/sync-protocol.md#lightclientupdate
   LightClientUpdate* = object
     attested_header*: LightClientHeader
       ## Header attested to by the sync committee
@@ -273,7 +273,7 @@ type
     data*: BeaconState
     root*: Eth2Digest # hash_tree_root(data)
 
-  # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.6/specs/phase0/beacon-chain.md#beaconblock
+  # https://github.com/ethereum/consensus-specs/blob/v1.5.0-beta.0/specs/phase0/beacon-chain.md#beaconblock
   BeaconBlock* = object
     ## For each slot, a proposer is chosen from the validator pool to propose
     ## a new block. Once the block as been proposed, it is transmitted to
@@ -418,7 +418,7 @@ type
     # Capella operations
     bls_to_execution_changes*: SignedBLSToExecutionChangeList  # [New in Capella]
 
-  # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.6/specs/phase0/beacon-chain.md#signedbeaconblock
+  # https://github.com/ethereum/consensus-specs/blob/v1.5.0-beta.0/specs/phase0/beacon-chain.md#signedbeaconblock
   SignedBeaconBlock* = object
     message*: BeaconBlock
     signature*: ValidatorSig
@@ -618,7 +618,7 @@ func get_lc_execution_root*(
 
   ZERO_HASH
 
-# https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.10/specs/capella/light-client/sync-protocol.md#modified-is_valid_light_client_header
+# https://github.com/ethereum/consensus-specs/blob/v1.5.0-beta.0/specs/capella/light-client/sync-protocol.md#modified-is_valid_light_client_header
 func is_valid_light_client_header*(
     header: LightClientHeader, cfg: RuntimeConfig): bool =
   let epoch = header.beacon.slot.epoch
@@ -635,13 +635,13 @@ func is_valid_light_client_header*(
     get_subtree_index(EXECUTION_PAYLOAD_GINDEX),
     header.beacon.body_root)
 
-# https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.10/specs/capella/light-client/fork.md#upgrading-light-client-data
+# https://github.com/ethereum/consensus-specs/blob/v1.5.0-beta.0/specs/capella/light-client/fork.md#upgrading-light-client-data
 func upgrade_lc_header_to_capella*(
     pre: altair.LightClientHeader): LightClientHeader =
   LightClientHeader(
     beacon: pre.beacon)
 
-# https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.10/specs/capella/light-client/fork.md#upgrading-light-client-data
+# https://github.com/ethereum/consensus-specs/blob/v1.5.0-beta.0/specs/capella/light-client/fork.md#upgrading-light-client-data
 func upgrade_lc_bootstrap_to_capella*(
     pre: altair.LightClientBootstrap): LightClientBootstrap =
   LightClientBootstrap(
@@ -649,7 +649,7 @@ func upgrade_lc_bootstrap_to_capella*(
     current_sync_committee: pre.current_sync_committee,
     current_sync_committee_branch: pre.current_sync_committee_branch)
 
-# https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.10/specs/capella/light-client/fork.md#upgrading-light-client-data
+# https://github.com/ethereum/consensus-specs/blob/v1.5.0-beta.0/specs/capella/light-client/fork.md#upgrading-light-client-data
 func upgrade_lc_update_to_capella*(
     pre: altair.LightClientUpdate): LightClientUpdate =
   LightClientUpdate(
@@ -661,7 +661,7 @@ func upgrade_lc_update_to_capella*(
     sync_aggregate: pre.sync_aggregate,
     signature_slot: pre.signature_slot)
 
-# https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.10/specs/capella/light-client/fork.md#upgrading-light-client-data
+# https://github.com/ethereum/consensus-specs/blob/v1.5.0-beta.0/specs/capella/light-client/fork.md#upgrading-light-client-data
 func upgrade_lc_finality_update_to_capella*(
     pre: altair.LightClientFinalityUpdate): LightClientFinalityUpdate =
   LightClientFinalityUpdate(
@@ -671,7 +671,7 @@ func upgrade_lc_finality_update_to_capella*(
     sync_aggregate: pre.sync_aggregate,
     signature_slot: pre.signature_slot)
 
-# https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.10/specs/capella/light-client/fork.md#upgrading-light-client-data
+# https://github.com/ethereum/consensus-specs/blob/v1.5.0-beta.0/specs/capella/light-client/fork.md#upgrading-light-client-data
 func upgrade_lc_optimistic_update_to_capella*(
     pre: altair.LightClientOptimisticUpdate): LightClientOptimisticUpdate =
   LightClientOptimisticUpdate(

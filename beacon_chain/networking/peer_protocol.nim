@@ -1,5 +1,5 @@
 # beacon_chain
-# Copyright (c) 2018-2024 Status Research & Development GmbH
+# Copyright (c) 2018-2025 Status Research & Development GmbH
 # Licensed and distributed under either of
 #   * MIT license (license terms in the root directory or at https://opensource.org/licenses/MIT).
 #   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
@@ -54,7 +54,7 @@ func forkDigestAtEpoch(state: PeerSyncNetworkState,
                        epoch: Epoch): ForkDigest =
   state.forkDigests[].atEpoch(epoch, state.cfg)
 
-# https://github.com/ethereum/consensus-specs/blob/v1.4.0/specs/phase0/p2p-interface.md#status
+# https://github.com/ethereum/consensus-specs/blob/v1.5.0-beta.0/specs/phase0/p2p-interface.md#status
 proc getCurrentStatus(state: PeerSyncNetworkState): StatusMsg =
   let
     dag = state.dag
@@ -249,7 +249,7 @@ proc init*(T: type PeerSync.NetworkState,
     getBeaconTime: getBeaconTime,
   )
 
-proc init*(T: type PeerSync.NetworkState,
+func init*(T: type PeerSync.NetworkState,
                      cfg: RuntimeConfig,
                      forkDigests: ref ForkDigests,
                      genesisBlockRoot: Eth2Digest,

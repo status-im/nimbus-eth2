@@ -1,5 +1,5 @@
 # beacon_chain
-# Copyright (c) 2018-2024 Status Research & Development GmbH
+# Copyright (c) 2018-2025 Status Research & Development GmbH
 # Licensed and distributed under either of
 #   * MIT license (license terms in the root directory or at https://opensource.org/licenses/MIT).
 #   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
@@ -15,7 +15,7 @@ from std/sequtils import mapIt
 from std/strutils import join
 
 const
-  MaxBlobs = 3 * SLOTS_PER_EPOCH * MAX_BLOBS_PER_BLOCK
+  MaxBlobs = 3 * SLOTS_PER_EPOCH * MAX_BLOBS_PER_BLOCK_ELECTRA
     ## Same limit as `MaxOrphans` in `block_quarantine`;
     ## blobs may arrive before an orphan is tagged `blobless`
 
