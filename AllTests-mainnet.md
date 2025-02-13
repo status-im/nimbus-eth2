@@ -159,6 +159,14 @@ OK: 2/2 Fail: 0/2 Skip: 0/2
 + parent sanity                                                                              OK
 ```
 OK: 2/2 Fail: 0/2 Skip: 0/2
+## Combined scenarios [Beacon Node] [Preset: mainnet]
+```diff
++ ImportKeystores should not be blocked by fee recipient setting [Beacon Node] [Preset: main OK
++ ImportKeystores should not be blocked by gas limit setting [Beacon Node] [Preset: mainnet] OK
++ ImportRemoteKeys should not be blocked by fee recipient setting [Beacon Node] [Preset: mai OK
++ ImportRemoteKeys should not be blocked by gas limit setting [Beacon Node] [Preset: mainnet OK
+```
+OK: 4/4 Fail: 0/4 Skip: 0/4
 ## DeleteKeys requests [Beacon Node] [Preset: mainnet]
 ```diff
 + Deleting not existing key [Beacon Node] [Preset: mainnet]                                  OK
@@ -593,14 +601,16 @@ OK: 3/3 Fail: 0/3 Skip: 0/3
 ## Fee recipient management [Beacon Node] [Preset: mainnet]
 ```diff
 + Configuring the fee recipient [Beacon Node] [Preset: mainnet]                              OK
++ Configuring the fee recipient for dynamic validator [Beacon Node] [Preset: mainnet]        OK
 + Invalid Authorization Header [Beacon Node] [Preset: mainnet]                               OK
 + Invalid Authorization Token [Beacon Node] [Preset: mainnet]                                OK
 + Missing Authorization header [Beacon Node] [Preset: mainnet]                               OK
++ Obtaining the fee recipient for dynamic validator returns suggested default [Beacon Node]  OK
 + Obtaining the fee recipient of a missing validator returns 404 [Beacon Node] [Preset: main OK
 + Obtaining the fee recipient of an unconfigured validator returns the suggested default [Be OK
 + Setting the fee recipient on a missing validator creates a record for it [Beacon Node] [Pr OK
 ```
-OK: 7/7 Fail: 0/7 Skip: 0/7
+OK: 9/9 Fail: 0/9 Skip: 0/9
 ## FinalizedBlocks [Preset: mainnet]
 ```diff
 + Basic ops [Preset: mainnet]                                                                OK
@@ -631,14 +641,16 @@ OK: 11/11 Fail: 0/11 Skip: 0/11
 ## Gas limit management [Beacon Node] [Preset: mainnet]
 ```diff
 + Configuring the gas limit [Beacon Node] [Preset: mainnet]                                  OK
++ Configuring the gas limit for dynamic validator [Beacon Node] [Preset: mainnet]            OK
 + Invalid Authorization Header [Beacon Node] [Preset: mainnet]                               OK
 + Invalid Authorization Token [Beacon Node] [Preset: mainnet]                                OK
 + Missing Authorization header [Beacon Node] [Preset: mainnet]                               OK
++ Obtaining the gas limit for dynamic validator returns suggested default [Beacon Node] [Pre OK
 + Obtaining the gas limit of a missing validator returns 404 [Beacon Node] [Preset: mainnet] OK
 + Obtaining the gas limit of an unconfigured validator returns the suggested default [Beacon OK
 + Setting the gas limit on a missing validator creates a record for it [Beacon Node] [Preset OK
 ```
-OK: 7/7 Fail: 0/7 Skip: 0/7
+OK: 9/9 Fail: 0/9 Skip: 0/9
 ## Gossip fork transition
 ```diff
 + Gossip fork transition                                                                     OK
@@ -1150,4 +1162,4 @@ OK: 2/2 Fail: 0/2 Skip: 0/2
 OK: 9/9 Fail: 0/9 Skip: 0/9
 
 ---TOTAL---
-OK: 779/784 Fail: 0/784 Skip: 5/784
+OK: 787/792 Fail: 0/792 Skip: 5/792
