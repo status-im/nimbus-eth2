@@ -1001,7 +1001,7 @@ proc lazyWait(futures: seq[FutureBase]) {.async: (raises: []).} =
 
 proc sendGetBlobs*(
     m: ELManager,
-    blck: electra.SignedBeaconBlock | fulu.SignedBeaconBlock
+    blck: electra.SignedBeaconBlock | fulu.SignedBeaconBlock,
 ): Future[Opt[seq[BlobAndProofV1]]] {.async: (raises: [CancelledError]).} =
   if m.elConnections.len == 0:
     return err()
@@ -1042,7 +1042,7 @@ proc sendGetBlobs*(
     await noCancel allFutures(pending)
 
     if bestResponse.isSome():
-      return ok(requests[bestResponse.get()].value().blobsAndProofs)
+      return ok(requests[bestResponse.get()].value())
 
     if timeoutExceeded:
       break
