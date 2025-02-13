@@ -11,7 +11,7 @@ Nimbus `v25.2.0` is a `low-urgency` release for mainnet, but `high-urgency` rele
 - Improve syncing smoothness and steadiness:
   https://github.com/status-im/nimbus-eth2/pull/6722
 
-- Initiate metrics server later in BN startup sequence, to mitigate transient metrics during validator loading:
+- Initiate metrics server later in beacon node startup sequence, to mitigate transient metrics during validator loading:
   https://github.com/status-im/nimbus-eth2/pull/6902
 
 ### Fixes
@@ -22,7 +22,7 @@ Nimbus `v25.2.0` is a `low-urgency` release for mainnet, but `high-urgency` rele
 - Update builder API registered fee recipient and gas limit from validator client without restart:
   https://github.com/status-im/nimbus-eth2/pull/6907
 
-- Fix capital case fork version name being returned in certain beacon API JSON response version` fields:
+- Fix capital case fork version name being returned in certain beacon API JSON response `version` fields:
   https://github.com/status-im/nimbus-eth2/pull/6905
 
 2025-01-28 v25.1.0
