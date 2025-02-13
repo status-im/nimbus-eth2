@@ -14,6 +14,23 @@
     "londonBlock":0,
     "shanghaiTime":SHANGHAI_FORK_TIME,
     "cancunTime":CANCUN_FORK_TIME,
+    "blobSchedule": {
+      "cancun": {
+        "target": 3,
+        "max": 6,
+        "baseFeeUpdateFraction": 3338477
+      },
+      "prague": {
+        "target": 6,
+        "max": 9,
+        "baseFeeUpdateFraction": 5007716
+      },
+      "osaka": {
+        "target": 9,
+        "max": 12,
+        "baseFeeUpdateFraction": 5007716
+      }
+    },
     "pragueTime":PRAGUE_FORK_TIME,
     "mergeForkBlock":0,
     "mergeNetsplitBlock":0,

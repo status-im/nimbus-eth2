@@ -443,13 +443,8 @@ LAST_SIGNER_NODE_IDX=$(( SIGNER_NODES - 1 ))
 if [[ "${RUN_GETH}" == "1" ]]; then
   source "${SCRIPTS_DIR}/geth_binaries.sh"
 
-  if [[ $DENEB_FORK_EPOCH -lt $STOP_AT_EPOCH ]]; then
-    download_geth_deneb
-    GETH_BINARY="$GETH_DENEB_BINARY"
-  else
-    download_geth_capella
-    GETH_BINARY="$GETH_CAPELLA_BINARY"
-  fi
+  download_geth_deneb
+  GETH_BINARY="$GETH_DENEB_BINARY"
 
   source ./scripts/geth_vars.sh
 fi
@@ -810,7 +805,7 @@ if [[ "$REUSE_EXISTING_DATA_DIR" == "0" ]]; then
     --out-secrets-dir="${SECRETS_DIR}" \
     --out-deposits-file="${DEPOSITS_FILE}" \
     --threshold=${REMOTE_SIGNER_THRESHOLD} \
-    --remote-validators-count=${REMOTE_VALIDATORS_COUNT} \
+    --remote-validators-count="${REMOTE_VALIDATORS_COUNT}" \
     ${REMOTE_URLS}
 fi
 
@@ -898,7 +893,7 @@ done
   --genesis-time=$GENESIS_TIME \
   --capella-fork-epoch=0 \
   --deneb-fork-epoch=$DENEB_FORK_EPOCH \
-  --electra-fork-epoch=$ELECTRA_FORK_EPOCH \
+  --electra-fork-epoch="${ELECTRA_FORK_EPOCH}" \
   --execution-genesis-block="$EXECUTION_GENESIS_BLOCK_JSON"
 
 DIRECTPEER_ENR=$(
@@ -995,7 +990,7 @@ CONTAINER_BOOTSTRAP_ENR="${CONTAINER_DATA_DIR}/node${BOOTSTRAP_NODE}/beacon_node
 #  --web3-url="$MAIN_WEB3_URL" \
 #  --deposit-contract=$DEPOSIT_CONTRACT_ADDRESS > "$DATA_DIR/log_deposit_maker.txt" 2>&1 &
 
-for NUM_NODE in $(seq 1 $NUM_NODES); do
+for NUM_NODE in $(seq 1 "${NUM_NODES}"); do
   # Copy validators to individual nodes.
   # The first $NODES_WITH_VALIDATORS nodes split them equally between them,
   # after skipping the first $USER_VALIDATORS.
@@ -1077,19 +1072,19 @@ for NUM_NODE in $(seq 1 "${NUM_NODES}"); do
   NODE_DATA_DIR="${DATA_DIR}/node${NUM_NODE}"
   CONTAINER_NODE_DATA_DIR="${CONTAINER_DATA_DIR}/node${NUM_NODE}"
   VALIDATOR_DATA_DIR="${DATA_DIR}/validator${NUM_NODE}"
-  if [[ ${NUM_NODE} == ${BOOTSTRAP_NODE} ]]; then
+  if [[ ${NUM_NODE} == "${BOOTSTRAP_NODE}" ]]; then
     # Due to star topology, the bootstrap node must relay all attestations,
     # even if it itself is not interested. --subscribe-all-subnets could be
     # removed by switching to a fully-connected topology.
     BOOTSTRAP_ARG="--netkey-file=${CONTAINER_BOOTSTRAP_NETWORK_KEYFILE} --insecure-netkey-password=true --subscribe-all-subnets --direct-peer=$DIRECTPEER_ENR"
-  elif [[ ${NUM_NODE} == ${DIRECTPEER_NODE} ]]; then
+  elif [[ ${NUM_NODE} == "${DIRECTPEER_NODE}" ]]; then
     # Start a node using the Direct Peer functionality instead of regular bootstraping
     BOOTSTRAP_ARG="--netkey-file=${DIRECTPEER_NETWORK_KEYFILE} --direct-peer=$(cat $CONTAINER_BOOTSTRAP_ENR) --insecure-netkey-password=true"
   else
     BOOTSTRAP_ARG="--bootstrap-file=${CONTAINER_BOOTSTRAP_ENR}"
   fi
 
-  if [[ ${NUM_NODE} != ${BOOTSTRAP_NODE} ]]; then
+  if [[ ${NUM_NODE} != "${BOOTSTRAP_NODE}" ]]; then
     if [[ "${CONST_PRESET}" == "minimal" ]]; then
       # The fast epoch and slot times in the minimal config might cause the
       # mesh to break down due to re-subscriptions happening within the prune
