@@ -1,5 +1,5 @@
 # beacon_chain
-# Copyright (c) 2018-2024 Status Research & Development GmbH
+# Copyright (c) 2018-2025 Status Research & Development GmbH
 # Licensed and distributed under either of
 #   * MIT license (license terms in the root directory or at https://opensource.org/licenses/MIT).
 #   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
@@ -112,7 +112,7 @@ proc build_empty_merge_execution_payload(state: bellatrix.BeaconState):
     timestamp: timestamp,
     base_fee_per_gas: EIP1559_INITIAL_BASE_FEE)
 
-  payload.block_hash = rlpHash blockToBlockHeader(bellatrix.BeaconBlock(body:
+  payload.block_hash = compute_execution_block_hash(bellatrix.BeaconBlock(body:
     bellatrix.BeaconBlockBody(execution_payload: payload)))
 
   bellatrix.ExecutionPayloadForSigning(executionPayload: payload,

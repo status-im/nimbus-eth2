@@ -1,5 +1,5 @@
 # beacon_chain
-# Copyright (c) 2018-2024 Status Research & Development GmbH
+# Copyright (c) 2018-2025 Status Research & Development GmbH
 # Licensed and distributed under either of
 #   * MIT license (license terms in the root directory or at https://opensource.org/licenses/MIT).
 #   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
@@ -148,6 +148,22 @@ proc isWithinWeakSubjectivityPeriod(
   is_within_weak_subjectivity_period(
     dag.cfg, currentSlot, dag.headState, checkpoint)
 
+proc getLastBlockRetentionPeriodSlot(overseer: SyncOverseerRef): Slot =
+  let
+    dag = overseer.consensusManager.dag
+    currentSlot = overseer.beaconClock.now().slotOrZero()
+    slotsCount = dag.cfg.MIN_EPOCHS_FOR_BLOCK_REQUESTS * SLOTS_PER_EPOCH
+  if currentSlot < slotsCount:
+    GENESIS_SLOT
+  else:
+    currentSlot - slotsCount
+
+proc isWithinBlockRetentionPeriod(
+    overseer: SyncOverseerRef,
+    slot: Slot
+): bool =
+  slot >= overseer.getLastBlockRetentionPeriodSlot()
+
 proc isUntrustedBackfillEmpty(clist: ChainListRef): bool =
   clist.tail.isNone()
 
@@ -184,7 +200,7 @@ proc updatePerformance(overseer: SyncOverseerRef, startTick: Moment,
 
   # Update status string
   overseer.statusMsg = Opt.some(
-    timeleft.toTimeLeftString() & " (" &
+    "fill: " & timeleft.toTimeLeftString() & " (" &
     (done * 100).formatBiggestFloat(ffDecimal, 2) & "%) " &
     overseer.avgSpeed.formatBiggestFloat(ffDecimal, 4) &
     "slots/s (" & $dag.head.slot & ")")
@@ -418,6 +434,15 @@ proc mainLoop*(
     clist = overseer.clist
     currentSlot = overseer.beaconClock.now().slotOrZero()
 
+  info "Sync overseer starting",
+       wall_slot = currentSlot,
+       dag_head_slot = dag.head.slot,
+       dag_finalized_head_slot = dag.finalizedHead.slot,
+       dag_horizon = dag.horizon(),
+       dag_backfill_slot = dag.backfill.slot,
+       untrusted_tail = shortLog(clist.tail),
+       untrusted_head = shortLog(clist.head)
+
   if overseer.isWithinWeakSubjectivityPeriod(currentSlot):
     # Starting forward sync manager/monitor.
     overseer.forwardSync.start()
@@ -433,10 +458,12 @@ proc mainLoop*(
 
     if not(isUntrustedBackfillEmpty(clist)):
       let headSlot = clist.head.get().slot
-      if not(overseer.isWithinWeakSubjectivityPeriod(headSlot)):
+      if not(overseer.isWithinBlockRetentionPeriod(headSlot)):
         # Light forward sync file is too old.
-        warn "Light client sync was started too long time ago",
-             current_slot = currentSlot, backfill_data_slot = headSlot
+        warn "Light forward sync was started too long time ago",
+             current_slot = currentSlot,
+             backfill_data_slot = headSlot,
+             retention_period_slot = overseer.getLastBlockRetentionPeriodSlot()
 
     if overseer.config.longRangeSync == LongRangeSyncMode.Lenient:
       # Starting forward sync manager/monitor only.
@@ -451,6 +478,13 @@ proc mainLoop*(
               altair_start_slot = dag.cfg.ALTAIR_FORK_EPOCH.start_slot
         quit 1
 
+      if overseer.isWithinBlockRetentionPeriod(dagHead.slot):
+        fatal "Current database head slot is not in the block retention " &
+              "period range",
+              head_slot = dagHead.slot,
+              retention_period_slot = overseer.getLastBlockRetentionPeriodSlot()
+        quit 1
+
       if isUntrustedBackfillEmpty(clist):
         overseer.untrustedInProgress = true
 
@@ -458,6 +492,7 @@ proc mainLoop*(
           await overseer.initUntrustedSync()
         except CancelledError:
           return
+
       # We need to update pivot slot to enable timeleft calculation.
       overseer.untrustedSync.updatePivot(overseer.clist.tail.get().slot)
       # Note: We should not start forward sync manager!
@@ -486,6 +521,8 @@ proc mainLoop*(
         quit 1
 
       overseer.untrustedInProgress = false
+      # Reset status bar
+      overseer.statusMsg = Opt.none(string)
 
       # When we finished state rebuilding process - we could start forward
       # SyncManager which could perform finish sync.

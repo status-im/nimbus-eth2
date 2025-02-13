@@ -1,5 +1,5 @@
 # beacon_chain
-# Copyright (c) 2018-2024 Status Research & Development GmbH
+# Copyright (c) 2018-2025 Status Research & Development GmbH
 # Licensed and distributed under either of
 #   * MIT license (license terms in the root directory or at https://opensource.org/licenses/MIT).
 #   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
@@ -55,14 +55,16 @@ type
     of opOnTick:
       tick: int
     of opOnAttestation:
-      att: phase0.Attestation
+      phase0Att: phase0.Attestation
+      electraAtt: electra.Attestation
     of opOnBlock:
       blck: ForkedSignedBeaconBlock
       blobData: Opt[BlobData]
     of opOnMergeBlock:
       powBlock: PowBlock
     of opOnAttesterSlashing:
-      attesterSlashing: phase0.AttesterSlashing
+      phase0AttesterSlashing: phase0.AttesterSlashing
+      electraAttesterSlashing: electra.AttesterSlashing
     of opInvalidateHash:
       invalidatedHash: Eth2Digest
       latestValidHash: Eth2Digest
@@ -108,21 +110,26 @@ proc loadOps(
         tick: step["tick"].getInt())
     elif step.hasKey"attestation":
       let filename = step["attestation"].getStr()
-      let att = parseTest(
-          path/filename & ".ssz_snappy",
-          SSZ, phase0.Attestation
-      )
-      result.add Operation(kind: opOnAttestation,
-        att: att)
+      if fork >= ConsensusFork.Electra:
+        let att = parseTest(
+            path/filename & ".ssz_snappy",
+            SSZ, electra.Attestation
+        )
+        result.add Operation(kind: opOnAttestation,
+          electraAtt: att)
+      else:
+        let att = parseTest(
+            path/filename & ".ssz_snappy",
+            SSZ, phase0.Attestation
+        )
+        result.add Operation(kind: opOnAttestation,
+          phase0Att: att)
     elif step.hasKey"block":
       let filename = step["block"].getStr()
       doAssert step.hasKey"blobs" == step.hasKey"proofs"
       withConsensusFork(fork):
         let
-          blck = parseTest(
-            path/filename & ".ssz_snappy",
-            SSZ, consensusFork.SignedBeaconBlock)
-
+          blck = loadBlock(path/filename & ".ssz_snappy", consensusFork)
           blobData =
             when consensusFork >= ConsensusFork.Deneb:
               if step.hasKey"blobs":
@@ -144,12 +151,20 @@ proc loadOps(
           blobData: blobData)
     elif step.hasKey"attester_slashing":
       let filename = step["attester_slashing"].getStr()
-      let attesterSlashing = parseTest(
-        path/filename & ".ssz_snappy",
-        SSZ, phase0.AttesterSlashing
-      )
-      result.add Operation(kind: opOnAttesterSlashing,
-        attesterSlashing: attesterSlashing)
+      if fork >= ConsensusFork.Electra:
+        let attesterSlashing = parseTest(
+          path/filename & ".ssz_snappy",
+          SSZ, electra.AttesterSlashing
+        )
+        result.add Operation(kind: opOnAttesterSlashing,
+          electraAttesterSlashing: attesterSlashing)
+      else:
+        let attesterSlashing = parseTest(
+          path/filename & ".ssz_snappy",
+          SSZ, phase0.AttesterSlashing
+        )
+        result.add Operation(kind: opOnAttesterSlashing,
+          phase0AttesterSlashing: attesterSlashing)
     elif step.hasKey"payload_status":
       if step["payload_status"]["status"].getStr() == "INVALID":
         result.add Operation(kind: opInvalidateHash,
@@ -326,9 +341,22 @@ proc doRunTest(
       let status = stores.fkChoice[].update_time(stores.dag, time)
       doAssert status.isOk == step.valid
     of opOnAttestation:
-      let status = stores.fkChoice[].on_attestation(
-        stores.dag, step.att.data.slot, step.att.data.beacon_block_root,
-        toSeq(stores.dag.get_attesting_indices(step.att.asTrusted)), time)
+      let status =
+        if fork >= ConsensusFork.Electra:
+          stores.fkChoice[].on_attestation(
+            stores.dag,
+            step.electraAtt.data.slot,
+            step.electraAtt.data.beacon_block_root,
+            toSeq(stores.dag.get_attesting_indices(
+              step.electraAtt.asTrusted, true)),
+            time)
+        else:
+          stores.fkChoice[].on_attestation(
+            stores.dag,
+            step.phase0Att.data.slot,
+            step.phase0Att.data.beacon_block_root,
+            toSeq(stores.dag.get_attesting_indices(step.phase0Att.asTrusted)),
+            time)
       doAssert status.isOk == step.valid
     of opOnBlock:
       withBlck(step.blck):
@@ -339,7 +367,12 @@ proc doRunTest(
         doAssert status.isOk == step.valid
     of opOnAttesterSlashing:
       let indices =
-        check_attester_slashing(state[], step.attesterSlashing, flags = {})
+        if fork >= ConsensusFork.Electra:
+          check_attester_slashing(
+            state[], step.electraAttesterSlashing, flags = {})
+        else:
+          check_attester_slashing(
+            state[], step.phase0AttesterSlashing, flags = {})
       if indices.isOk:
         for idx in indices.get:
           stores.fkChoice[].process_equivocation(idx)

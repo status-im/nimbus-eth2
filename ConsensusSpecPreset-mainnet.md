@@ -1472,6 +1472,9 @@ OK: 15/15 Fail: 0/15 Skip: 0/15
 + [Invalid] EF - Capella - Operations - Withdrawals - invalid_two_expected_partial_withdrawa OK
 + [Valid]   EF - Capella - Operations - Withdrawals - all_withdrawal                         OK
 + [Valid]   EF - Capella - Operations - Withdrawals - no_withdrawals_but_some_next_epoch     OK
++ [Valid]   EF - Capella - Operations - Withdrawals - partially_withdrawable_validator_legac OK
++ [Valid]   EF - Capella - Operations - Withdrawals - partially_withdrawable_validator_legac OK
++ [Valid]   EF - Capella - Operations - Withdrawals - partially_withdrawable_validator_legac OK
 + [Valid]   EF - Capella - Operations - Withdrawals - random_0                               OK
 + [Valid]   EF - Capella - Operations - Withdrawals - random_full_withdrawals_0              OK
 + [Valid]   EF - Capella - Operations - Withdrawals - random_full_withdrawals_1              OK
@@ -1502,7 +1505,7 @@ OK: 15/15 Fail: 0/15 Skip: 0/15
 + [Valid]   EF - Capella - Operations - Withdrawals - withdrawable_epoch_but_0_effective_bal OK
 + [Valid]   EF - Capella - Operations - Withdrawals - withdrawable_epoch_but_0_effective_bal OK
 ```
-OK: 50/50 Fail: 0/50 Skip: 0/50
+OK: 53/53 Fail: 0/53 Skip: 0/53
 ## EF - Capella - Random  [Preset: mainnet]
 ```diff
 + [Valid]   EF - Capella - Random - randomized_0 [Preset: mainnet]                           OK
@@ -2026,6 +2029,8 @@ OK: 21/21 Fail: 0/21 Skip: 0/21
 + [Valid]   EF - Deneb - Operations - Execution Payload - incorrect_transaction_length_1_ext OK
 + [Valid]   EF - Deneb - Operations - Execution Payload - incorrect_transaction_length_32_ex OK
 + [Valid]   EF - Deneb - Operations - Execution Payload - incorrect_transaction_length_empty OK
++ [Valid]   EF - Deneb - Operations - Execution Payload - incorrect_transaction_no_blobs_but OK
++ [Valid]   EF - Deneb - Operations - Execution Payload - no_commitments_for_transactions    OK
 + [Valid]   EF - Deneb - Operations - Execution Payload - no_transactions_with_commitments   OK
 + [Valid]   EF - Deneb - Operations - Execution Payload - non_empty_extra_data_first_payload OK
 + [Valid]   EF - Deneb - Operations - Execution Payload - non_empty_extra_data_regular_paylo OK
@@ -2041,7 +2046,7 @@ OK: 21/21 Fail: 0/21 Skip: 0/21
 + [Valid]   EF - Deneb - Operations - Execution Payload - zero_length_transaction_regular_pa OK
 + [Valid]   EF - Deneb - Operations - Execution Payload - zeroed_commitment                  OK
 ```
-OK: 38/38 Fail: 0/38 Skip: 0/38
+OK: 40/40 Fail: 0/40 Skip: 0/40
 ## EF - Deneb - Operations - Proposer Slashing  [Preset: mainnet]
 ```diff
 + [Invalid] EF - Deneb - Operations - Proposer Slashing - invalid_different_proposer_indices OK
@@ -2133,6 +2138,9 @@ OK: 15/15 Fail: 0/15 Skip: 0/15
 + [Invalid] EF - Deneb - Operations - Withdrawals - invalid_two_expected_partial_withdrawal_ OK
 + [Valid]   EF - Deneb - Operations - Withdrawals - all_withdrawal                           OK
 + [Valid]   EF - Deneb - Operations - Withdrawals - no_withdrawals_but_some_next_epoch       OK
++ [Valid]   EF - Deneb - Operations - Withdrawals - partially_withdrawable_validator_legacy_ OK
++ [Valid]   EF - Deneb - Operations - Withdrawals - partially_withdrawable_validator_legacy_ OK
++ [Valid]   EF - Deneb - Operations - Withdrawals - partially_withdrawable_validator_legacy_ OK
 + [Valid]   EF - Deneb - Operations - Withdrawals - random_0                                 OK
 + [Valid]   EF - Deneb - Operations - Withdrawals - random_full_withdrawals_0                OK
 + [Valid]   EF - Deneb - Operations - Withdrawals - random_full_withdrawals_1                OK
@@ -2163,7 +2171,7 @@ OK: 15/15 Fail: 0/15 Skip: 0/15
 + [Valid]   EF - Deneb - Operations - Withdrawals - withdrawable_epoch_but_0_effective_balan OK
 + [Valid]   EF - Deneb - Operations - Withdrawals - withdrawable_epoch_but_0_effective_balan OK
 ```
-OK: 50/50 Fail: 0/50 Skip: 0/50
+OK: 53/53 Fail: 0/53 Skip: 0/53
 ## EF - Deneb - Random  [Preset: mainnet]
 ```diff
 + [Valid]   EF - Deneb - Random - randomized_0 [Preset: mainnet]                             OK
@@ -2487,6 +2495,7 @@ OK: 13/13 Fail: 0/13 Skip: 0/13
 ```diff
 + Pending deposits - apply_pending_deposit_compounding_withdrawal_credentials_max [Preset: m OK
 + Pending deposits - apply_pending_deposit_compounding_withdrawal_credentials_over_max [Pres OK
++ Pending deposits - apply_pending_deposit_compounding_withdrawal_credentials_over_max_next_ OK
 + Pending deposits - apply_pending_deposit_compounding_withdrawal_credentials_under_max [Pre OK
 + Pending deposits - apply_pending_deposit_correct_sig_but_forked_state [Preset: mainnet]    OK
 + Pending deposits - apply_pending_deposit_effective_deposit_with_genesis_fork_version [Pres OK
@@ -2501,6 +2510,7 @@ OK: 13/13 Fail: 0/13 Skip: 0/13
 + Pending deposits - apply_pending_deposit_non_versioned_withdrawal_credentials [Preset: mai OK
 + Pending deposits - apply_pending_deposit_non_versioned_withdrawal_credentials_over_min_act OK
 + Pending deposits - apply_pending_deposit_over_min_activation [Preset: mainnet]             OK
++ Pending deposits - apply_pending_deposit_over_min_activation_next_increment [Preset: mainn OK
 + Pending deposits - apply_pending_deposit_success_top_up_to_withdrawn_validator [Preset: ma OK
 + Pending deposits - apply_pending_deposit_top_up__less_effective_balance [Preset: mainnet]  OK
 + Pending deposits - apply_pending_deposit_top_up__max_effective_balance_compounding [Preset OK
@@ -2517,6 +2527,7 @@ OK: 13/13 Fail: 0/13 Skip: 0/13
 + Pending deposits - process_pending_deposits_eth1_bridge_transition_pending [Preset: mainne OK
 + Pending deposits - process_pending_deposits_limit_is_reached [Preset: mainnet]             OK
 + Pending deposits - process_pending_deposits_mixture_of_skipped_and_above_churn [Preset: ma OK
++ Pending deposits - process_pending_deposits_multiple_for_new_validator [Preset: mainnet]   OK
 + Pending deposits - process_pending_deposits_multiple_pending_deposits_above_churn [Preset: OK
 + Pending deposits - process_pending_deposits_multiple_pending_deposits_below_churn [Preset: OK
 + Pending deposits - process_pending_deposits_multiple_pending_one_skipped [Preset: mainnet] OK
@@ -2527,7 +2538,7 @@ OK: 13/13 Fail: 0/13 Skip: 0/13
 + Pending deposits - process_pending_deposits_withdrawable_validator [Preset: mainnet]       OK
 + Pending deposits - process_pending_deposits_withdrawable_validator_not_churned [Preset: ma OK
 ```
-OK: 41/41 Fail: 0/41 Skip: 0/41
+OK: 44/44 Fail: 0/44 Skip: 0/44
 ## EF - Electra - Epoch Processing - RANDAO mixes reset [Preset: mainnet]
 ```diff
 + RANDAO mixes reset - updated_randao_mixes [Preset: mainnet]                                OK
@@ -2608,6 +2619,7 @@ OK: 5/5 Fail: 0/5 Skip: 0/5
 + EF - Electra - Fork - fork_earliest_exit_epoch_less_than_current_epoch [Preset: mainnet]   OK
 + EF - Electra - Fork - fork_earliest_exit_epoch_no_validator_exits [Preset: mainnet]        OK
 + EF - Electra - Fork - fork_has_compounding_withdrawal_credential [Preset: mainnet]         OK
++ EF - Electra - Fork - fork_inactive_compounding_validator_with_excess_balance [Preset: mai OK
 + EF - Electra - Fork - fork_many_next_epoch [Preset: mainnet]                               OK
 + EF - Electra - Fork - fork_next_epoch [Preset: mainnet]                                    OK
 + EF - Electra - Fork - fork_next_epoch_with_block [Preset: mainnet]                         OK
@@ -2616,7 +2628,7 @@ OK: 5/5 Fail: 0/5 Skip: 0/5
 + EF - Electra - Fork - fork_random_low_balances [Preset: mainnet]                           OK
 + EF - Electra - Fork - fork_random_misc_balances [Preset: mainnet]                          OK
 ```
-OK: 18/18 Fail: 0/18 Skip: 0/18
+OK: 19/19 Fail: 0/19 Skip: 0/19
 ## EF - Electra - Operations - Attestation  [Preset: mainnet]
 ```diff
 + [Invalid] EF - Electra - Operations - Attestation - invalid_after_max_inclusion_slot       OK
@@ -2805,6 +2817,8 @@ OK: 8/8 Fail: 0/8 Skip: 0/8
 + [Valid]   EF - Electra - Operations - Execution Payload - incorrect_transaction_length_1_e OK
 + [Valid]   EF - Electra - Operations - Execution Payload - incorrect_transaction_length_32_ OK
 + [Valid]   EF - Electra - Operations - Execution Payload - incorrect_transaction_length_emp OK
++ [Valid]   EF - Electra - Operations - Execution Payload - incorrect_transaction_no_blobs_b OK
++ [Valid]   EF - Electra - Operations - Execution Payload - no_commitments_for_transactions  OK
 + [Valid]   EF - Electra - Operations - Execution Payload - no_transactions_with_commitments OK
 + [Valid]   EF - Electra - Operations - Execution Payload - non_empty_extra_data_first_paylo OK
 + [Valid]   EF - Electra - Operations - Execution Payload - non_empty_extra_data_regular_pay OK
@@ -2820,7 +2834,7 @@ OK: 8/8 Fail: 0/8 Skip: 0/8
 + [Valid]   EF - Electra - Operations - Execution Payload - zero_length_transaction_regular_ OK
 + [Valid]   EF - Electra - Operations - Execution Payload - zeroed_commitment                OK
 ```
-OK: 38/38 Fail: 0/38 Skip: 0/38
+OK: 40/40 Fail: 0/40 Skip: 0/40
 ## EF - Electra - Operations - Proposer Slashing  [Preset: mainnet]
 ```diff
 + [Invalid] EF - Electra - Operations - Proposer Slashing - invalid_different_proposer_indic OK
@@ -2944,6 +2958,15 @@ OK: 19/19 Fail: 0/19 Skip: 0/19
 + [Invalid] EF - Electra - Operations - Withdrawals - invalid_two_expected_partial_withdrawa OK
 + [Valid]   EF - Electra - Operations - Withdrawals - all_withdrawal                         OK
 + [Valid]   EF - Electra - Operations - Withdrawals - no_withdrawals_but_some_next_epoch     OK
++ [Valid]   EF - Electra - Operations - Withdrawals - partially_withdrawable_validator_compo OK
++ [Valid]   EF - Electra - Operations - Withdrawals - partially_withdrawable_validator_compo OK
++ [Valid]   EF - Electra - Operations - Withdrawals - partially_withdrawable_validator_compo OK
++ [Valid]   EF - Electra - Operations - Withdrawals - partially_withdrawable_validator_compo OK
++ [Valid]   EF - Electra - Operations - Withdrawals - partially_withdrawable_validator_compo OK
++ [Valid]   EF - Electra - Operations - Withdrawals - partially_withdrawable_validator_compo OK
++ [Valid]   EF - Electra - Operations - Withdrawals - partially_withdrawable_validator_legac OK
++ [Valid]   EF - Electra - Operations - Withdrawals - partially_withdrawable_validator_legac OK
++ [Valid]   EF - Electra - Operations - Withdrawals - partially_withdrawable_validator_legac OK
 + [Valid]   EF - Electra - Operations - Withdrawals - pending_withdrawals_at_max             OK
 + [Valid]   EF - Electra - Operations - Withdrawals - pending_withdrawals_at_max_mixed_with_ OK
 + [Valid]   EF - Electra - Operations - Withdrawals - pending_withdrawals_exiting_validator  OK
@@ -2990,7 +3013,7 @@ OK: 19/19 Fail: 0/19 Skip: 0/19
 + [Valid]   EF - Electra - Operations - Withdrawals - withdrawable_epoch_but_0_effective_bal OK
 + [Valid]   EF - Electra - Operations - Withdrawals - withdrawable_epoch_but_0_effective_bal OK
 ```
-OK: 66/66 Fail: 0/66 Skip: 0/66
+OK: 75/75 Fail: 0/75 Skip: 0/75
 ## EF - Electra - Random  [Preset: mainnet]
 ```diff
 + [Valid]   EF - Electra - Random - randomized_0 [Preset: mainnet]                           OK
@@ -3154,8 +3177,10 @@ OK: 64/64 Fail: 0/64 Skip: 0/64
 + [Valid]   EF - Electra - Sanity - Blocks - cl_exit_and_el_withdrawal_request_in_same_block OK
 + [Valid]   EF - Electra - Sanity - Blocks - deposit_and_bls_change [Preset: mainnet]        OK
 + [Valid]   EF - Electra - Sanity - Blocks - deposit_in_block [Preset: mainnet]              OK
++ [Valid]   EF - Electra - Sanity - Blocks - deposit_request_with_same_pubkey_different_with OK
 + [Valid]   EF - Electra - Sanity - Blocks - deposit_top_up [Preset: mainnet]                OK
 + [Valid]   EF - Electra - Sanity - Blocks - deposit_transition__deposit_and_top_up_same_blo OK
++ [Valid]   EF - Electra - Sanity - Blocks - deposit_transition__deposit_with_same_pubkey_di OK
 + [Valid]   EF - Electra - Sanity - Blocks - deposit_transition__process_eth1_deposits [Pres OK
 + [Valid]   EF - Electra - Sanity - Blocks - deposit_transition__process_eth1_deposits_up_to OK
 + [Valid]   EF - Electra - Sanity - Blocks - deposit_transition__process_max_eth1_deposits [ OK
@@ -3179,6 +3204,8 @@ OK: 64/64 Fail: 0/64 Skip: 0/64
 + [Valid]   EF - Electra - Sanity - Blocks - mix_blob_tx_and_non_blob_tx [Preset: mainnet]   OK
 + [Valid]   EF - Electra - Sanity - Blocks - multiple_different_proposer_slashings_same_bloc OK
 + [Valid]   EF - Electra - Sanity - Blocks - multiple_different_validator_exits_same_block [ OK
++ [Valid]   EF - Electra - Sanity - Blocks - multiple_el_partial_withdrawal_requests_differe OK
++ [Valid]   EF - Electra - Sanity - Blocks - multiple_el_partial_withdrawal_requests_same_va OK
 + [Valid]   EF - Electra - Sanity - Blocks - one_blob [Preset: mainnet]                      OK
 + [Valid]   EF - Electra - Sanity - Blocks - one_blob_max_txs [Preset: mainnet]              OK
 + [Valid]   EF - Electra - Sanity - Blocks - one_blob_two_txs [Preset: mainnet]              OK
@@ -3197,10 +3224,12 @@ OK: 64/64 Fail: 0/64 Skip: 0/64
 + [Valid]   EF - Electra - Sanity - Blocks - top_up_and_partial_withdrawable_validator [Pres OK
 + [Valid]   EF - Electra - Sanity - Blocks - top_up_to_fully_withdrawn_validator [Preset: ma OK
 + [Valid]   EF - Electra - Sanity - Blocks - voluntary_exit [Preset: mainnet]                OK
++ [Valid]   EF - Electra - Sanity - Blocks - withdrawal_and_switch_to_compounding_request_sa OK
++ [Valid]   EF - Electra - Sanity - Blocks - withdrawal_and_withdrawal_request_same_validato OK
 + [Valid]   EF - Electra - Sanity - Blocks - withdrawal_success_two_blocks [Preset: mainnet] OK
 + [Valid]   EF - Electra - Sanity - Blocks - zero_blob [Preset: mainnet]                     OK
 ```
-OK: 80/80 Fail: 0/80 Skip: 0/80
+OK: 86/86 Fail: 0/86 Skip: 0/86
 ## EF - Electra - Sanity - Slots  [Preset: mainnet]
 ```diff
 + EF - Electra - Slots - double_empty_epoch [Preset: mainnet]                                OK
@@ -3346,8 +3375,9 @@ OK: 67/67 Fail: 0/67 Skip: 0/67
 + Light client - Single merkle proof - mainnet/electra/light_client/single_merkle_proof/Beac OK
 + Light client - Single merkle proof - mainnet/electra/light_client/single_merkle_proof/Beac OK
 + Light client - Single merkle proof - mainnet/electra/light_client/single_merkle_proof/Beac OK
++ Light client - Single merkle proof - mainnet/fulu/light_client/single_merkle_proof/BeaconB OK
 ```
-OK: 18/18 Fail: 0/18 Skip: 0/18
+OK: 19/19 Fail: 0/19 Skip: 0/19
 ## EF - Merkle proof [Preset: mainnet]
 ```diff
 + Merkle proof - Single merkle proof - mainnet/deneb/merkle_proof/single_merkle_proof/Beacon OK
@@ -3857,15 +3887,36 @@ OK: 40/40 Fail: 0/40 Skip: 0/40
 + ForkChoice - mainnet/deneb/fork_choice/on_block/pyspec_tests/proposer_boost_root_same_slot OK
 + ForkChoice - mainnet/deneb/fork_choice/on_block/pyspec_tests/simple_blob_data              OK
   ForkChoice - mainnet/deneb/fork_choice/should_override_forkchoice_update/pyspec_tests/shou Skip
++ ForkChoice - mainnet/fulu/fork_choice/ex_ante/pyspec_tests/ex_ante_attestations_is_greater OK
++ ForkChoice - mainnet/fulu/fork_choice/ex_ante/pyspec_tests/ex_ante_sandwich_with_boost_not OK
++ ForkChoice - mainnet/fulu/fork_choice/ex_ante/pyspec_tests/ex_ante_sandwich_with_honest_at OK
++ ForkChoice - mainnet/fulu/fork_choice/ex_ante/pyspec_tests/ex_ante_sandwich_without_attest OK
++ ForkChoice - mainnet/fulu/fork_choice/ex_ante/pyspec_tests/ex_ante_vanilla                 OK
++ ForkChoice - mainnet/fulu/fork_choice/get_head/pyspec_tests/chain_no_attestations          OK
++ ForkChoice - mainnet/fulu/fork_choice/get_head/pyspec_tests/discard_equivocations_on_attes OK
++ ForkChoice - mainnet/fulu/fork_choice/get_head/pyspec_tests/genesis                        OK
++ ForkChoice - mainnet/fulu/fork_choice/get_head/pyspec_tests/proposer_boost_correct_head    OK
++ ForkChoice - mainnet/fulu/fork_choice/get_head/pyspec_tests/shorter_chain_but_heavier_weig OK
++ ForkChoice - mainnet/fulu/fork_choice/get_head/pyspec_tests/split_tie_breaker_no_attestati OK
+  ForkChoice - mainnet/fulu/fork_choice/get_proposer_head/pyspec_tests/basic_is_head_root    Skip
+  ForkChoice - mainnet/fulu/fork_choice/get_proposer_head/pyspec_tests/basic_is_parent_root  Skip
++ ForkChoice - mainnet/fulu/fork_choice/on_block/pyspec_tests/basic                          OK
++ ForkChoice - mainnet/fulu/fork_choice/on_block/pyspec_tests/on_block_bad_parent_root       OK
+  ForkChoice - mainnet/fulu/fork_choice/on_block/pyspec_tests/on_block_future_block          Skip
++ ForkChoice - mainnet/fulu/fork_choice/on_block/pyspec_tests/proposer_boost                 OK
++ ForkChoice - mainnet/fulu/fork_choice/on_block/pyspec_tests/proposer_boost_is_first_block  OK
++ ForkChoice - mainnet/fulu/fork_choice/on_block/pyspec_tests/proposer_boost_root_same_slot_ OK
+  ForkChoice - mainnet/fulu/fork_choice/should_override_forkchoice_update/pyspec_tests/shoul Skip
 ```
-OK: 69/88 Fail: 0/88 Skip: 19/88
+OK: 85/108 Fail: 0/108 Skip: 23/108
 ## Sync
 ```diff
 + Sync - mainnet/bellatrix/sync/optimistic/pyspec_tests/from_syncing_to_invalid              OK
 + Sync - mainnet/capella/sync/optimistic/pyspec_tests/from_syncing_to_invalid                OK
 + Sync - mainnet/deneb/sync/optimistic/pyspec_tests/from_syncing_to_invalid                  OK
++ Sync - mainnet/fulu/sync/optimistic/pyspec_tests/from_syncing_to_invalid                   OK
 ```
-OK: 3/3 Fail: 0/3 Skip: 0/3
+OK: 4/4 Fail: 0/4 Skip: 0/4
 
 ---TOTAL---
-OK: 3143/3162 Fail: 0/3162 Skip: 19/3162
+OK: 3190/3213 Fail: 0/3213 Skip: 23/3213

@@ -34,6 +34,17 @@ RestJson.useDefaultSerializationFor(
   RestNodePeerCount,
 )
 
+proc normalize*(address: MultiAddress, value: PeerId): MaResult[MultiAddress] =
+  ## Checks if `address` has `p2p` suffix, and if not add it.
+  let
+    protos = ? address.protocols()
+    index = protos.find(multiCodec("p2p"))
+  if index == -1:
+    let suffix = ? MultiAddress.init(multiCodec("p2p"), value)
+    concat(address, suffix)
+  else:
+    ok(address)
+
 proc validateState(states: seq[PeerStateKind]): Result[ConnectionStateSet,
                                                        cstring] =
   var res: set[ConnectionState]
@@ -98,14 +109,13 @@ proc toString(direction: PeerType): string =
     "outbound"
 
 proc getLastSeenAddress(node: BeaconNode, id: PeerId): string =
-  # TODO (cheatfate): We need to provide filter here, which will be able to
-  # filter such multiaddresses like `/ip4/0.0.0.0` or local addresses or
-  # addresses with peer ids.
-  let addrs = node.network.switch.peerStore[AddressBook][id]
-  if len(addrs) > 0:
-    $addrs[len(addrs) - 1]
-  else:
-    ""
+  let
+    address = node.network.switch.peerStore[LastSeenBook][id].valueOr:
+      return ""
+    normalized = address.normalize(id).valueOr:
+      return ""
+  $normalized
+
 proc getDiscoveryAddresses(node: BeaconNode): seq[string] =
   let
     typedRec = TypedRecord.fromRecord(node.network.enrRecord())

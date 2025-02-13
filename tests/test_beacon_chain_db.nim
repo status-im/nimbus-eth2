@@ -1,5 +1,5 @@
 # beacon_chain
-# Copyright (c) 2018-2024 Status Research & Development GmbH
+# Copyright (c) 2018-2025 Status Research & Development GmbH
 # Licensed under either of
 #  * Apache License, version 2.0, ([LICENSE-APACHE](LICENSE-APACHE) or https://www.apache.org/licenses/LICENSE-2.0)
 #  * MIT license ([LICENSE-MIT](LICENSE-MIT) or https://opensource.org/licenses/MIT)
@@ -1155,7 +1155,7 @@ suite "Beacon chain DB" & preset():
       blockRoot0 = hash_tree_root(blockHeader0.message)
       blockRoot1 = hash_tree_root(blockHeader1.message)
 
-      # Ensure minimal-difference pairs on both block root and 
+      # Ensure minimal-difference pairs on both block root and
       # data column index to verify that the columnkey uses both
       dataColumnSidecar0 = DataColumnSidecar(signed_block_header: blockHeader0, index: 3)
       dataColumnSidecar1 = DataColumnSidecar(signed_block_header: blockHeader0, index: 2)
@@ -1176,7 +1176,7 @@ suite "Beacon chain DB" & preset():
       not db.getDataColumnSidecarSZ(blockRoot1, 2, buf)
 
     db.putDataColumnSidecar(dataColumnSidecar0)
-    
+
     check:
       db.getDataColumnSidecar(blockRoot0, 3, dataColumnSidecar)
       dataColumnSidecar == dataColumnSidecar0

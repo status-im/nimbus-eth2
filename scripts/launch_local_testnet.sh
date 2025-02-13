@@ -1,16 +1,13 @@
 #!/usr/bin/env bash
 
-# Copyright (c) 2020-2024 Status Research & Development GmbH. Licensed under
+# Copyright (c) 2020-2025 Status Research & Development GmbH. Licensed under
 # either of:
 # - Apache License, version 2.0
 # - MIT license
 # at your option. This file may not be copied, modified, or distributed except
 # according to those terms.
 
-# Mostly a duplication of "tests/simulation/{start.sh,run_node.sh}", but with a focus on
-# replicating testnets as closely as possible, which means following the Docker execution labyrinth.
-
-set -euo pipefail
+set -Eeuo pipefail
 
 SCRIPTS_DIR="$(dirname "${BASH_SOURCE[0]}")"
 cd "$SCRIPTS_DIR/.."
@@ -881,7 +878,7 @@ fi
 
 jq -r '.hash' "$EXECUTION_GENESIS_BLOCK_JSON" > "${DATA_DIR}/deposit_contract_block_hash.txt"
 
-for NUM_NODE in $(seq 1 $NUM_NODES); do
+for NUM_NODE in $(seq 1 "${NUM_NODES}"); do
   NODE_DATA_DIR="${DATA_DIR}/node${NUM_NODE}"
   rm -rf "${NODE_DATA_DIR}"
   scripts/makedir.sh "${NODE_DATA_DIR}" 2>&1
@@ -922,7 +919,7 @@ DIRECTPEER_ENR=$(
 
 cp "$SCRIPTS_DIR/$CONST_PRESET-non-overriden-config.yaml" "$RUNTIME_CONFIG_FILE"
 # TODO the runtime config file should be used during deposit generation as well!
-echo Wrote $RUNTIME_CONFIG_FILE:
+echo Wrote "${RUNTIME_CONFIG_FILE}":
 tee -a "$RUNTIME_CONFIG_FILE" <<EOF
 PRESET_BASE: ${CONST_PRESET}
 MIN_GENESIS_ACTIVE_VALIDATOR_COUNT: ${TOTAL_VALIDATORS}
@@ -1157,7 +1154,7 @@ for NUM_NODE in $(seq 1 "${NUM_NODES}"); do
         fi
       done
 
-      ./build/${LH_BINARY} vc \
+      ./build/"${LH_BINARY}" vc \
         --debug-level "debug" \
         --logfile-max-number 0 \
         --log-format "JSON" \
@@ -1171,7 +1168,7 @@ for NUM_NODE in $(seq 1 "${NUM_NODES}"); do
     else
       ./build/nimbus_validator_client \
         --log-level="${LOG_LEVEL}" \
-        ${STOP_AT_EPOCH_FLAG} \
+        "${STOP_AT_EPOCH_FLAG}" \
         --data-dir="${VALIDATOR_DATA_DIR}" \
         --metrics \
         --metrics-port=$(( BASE_VC_METRICS_PORT + NUM_NODE - 1 )) \
@@ -1257,7 +1254,7 @@ if [ "$LC_NODES" -ge "1" ]; then
       --trusted-block-root="${LC_TRUSTED_BLOCK_ROOT}" \
       --jwt-secret="${JWT_FILE}" \
       "${WEB3_ARG[@]}" \
-      ${STOP_AT_EPOCH_FLAG} \
+      "${STOP_AT_EPOCH_FLAG}" \
       &> "${DATA_DIR}/logs/nimbus_light_client.${NUM_LC}.jsonl" &
     PID=$!
     PIDS_TO_WAIT="${PIDS_TO_WAIT},${PID}"

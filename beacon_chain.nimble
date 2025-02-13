@@ -7,7 +7,7 @@
 
 mode = ScriptMode.Verbose
 
-version       = "1.4.2"
+version       = "24.12.0"
 author        = "Status Research & Development GmbH"
 description   = "The Nimbus beacon chain node is a highly efficient Ethereum 2.0 client"
 license       = "MIT or Apache License 2.0"
@@ -45,13 +45,15 @@ requires(
   "unittest2",
   "web3",
   "zlib",
+  "toml_serialization",
+  "https://github.com/status-im/nim-kzg4844.git",
   "zxcvbn"
 )
 
 requires "https://github.com/status-im/nimbus-security-resources.git"
 
 import std/tables
-let namedBin = {
+namedBin = {
   "beacon_chain/nimbus_beacon_node": "nimbus_beacon_node",
   "beacon_chain/nimbus_validator_client": "nimbus_validator_client",
   "ncli/ncli": "ncli",

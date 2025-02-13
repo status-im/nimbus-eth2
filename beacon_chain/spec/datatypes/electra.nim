@@ -1,5 +1,5 @@
 # beacon_chain
-# Copyright (c) 2024 Status Research & Development GmbH
+# Copyright (c) 2024-2025 Status Research & Development GmbH
 # Licensed and distributed under either of
 #   * MIT license (license terms in the root directory or at https://opensource.org/licenses/MIT).
 #   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
@@ -46,7 +46,7 @@ const
   # The first member (`genesis_time`) is 256, subsequent members +1 each.
   # If there are ever more than 128 members in `BeaconState`, indices change!
   # `FINALIZED_ROOT_GINDEX` is one layer deeper, i.e., `276 * 2 + 1`.
-  # https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.3/ssz/merkle-proofs.md
+  # https://github.com/ethereum/consensus-specs/blob/v1.5.0-beta.0/ssz/merkle-proofs.md
   # finalized_checkpoint > root
   FINALIZED_ROOT_GINDEX_ELECTRA* = 553.GeneralizedIndex
   # current_sync_committee
@@ -139,7 +139,7 @@ type
     blobsBundle*: BlobsBundle
     executionRequests*: seq[seq[byte]]
 
-  # https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.8/specs/deneb/beacon-chain.md#executionpayloadheader
+  # https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.10/specs/deneb/beacon-chain.md#executionpayloadheader
   ExecutionPayloadHeader* {.sszProfile: StableExecutionPayloadHeader.} = object
     # Execution block header fields
     parent_hash*: Eth2Digest
@@ -170,20 +170,20 @@ type
   ExecutionBranch* =
     array[log2trunc(EXECUTION_PAYLOAD_GINDEX_ELECTRA), Eth2Digest]
 
-  # https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.9/specs/electra/beacon-chain.md#singleattestation
+  # https://github.com/ethereum/consensus-specs/blob/v1.5.0-beta.0/specs/electra/beacon-chain.md#singleattestation
   SingleAttestation* = object
     committee_index*: uint64
     attester_index*: uint64
     data*: AttestationData
     signature*: ValidatorSig
 
-  # https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.10/specs/phase0/validator.md#aggregateandproof
+  # https://github.com/ethereum/consensus-specs/blob/v1.5.0-beta.0/specs/phase0/validator.md#aggregateandproof
   AggregateAndProof* = object
     aggregator_index*: uint64 # `ValidatorIndex` after validation
     aggregate*: Attestation
     selection_proof*: ValidatorSig
 
-  # https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.10/specs/phase0/validator.md#signedaggregateandproof
+  # https://github.com/ethereum/consensus-specs/blob/v1.5.0-beta.0/specs/phase0/validator.md#signedaggregateandproof
   SignedAggregateAndProof* = object
     message*: AggregateAndProof
     signature*: ValidatorSig
@@ -592,7 +592,7 @@ type
 
     root* {.dontSerialize.}: Eth2Digest # cached root of signed beacon block
 
-  # https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.7/specs/electra/beacon-chain.md#attestation
+  # https://github.com/ethereum/consensus-specs/blob/v1.5.0-beta.0/specs/electra/beacon-chain.md#attestation
   Attestation* {.sszProfile: StableAttestation.} = object
     aggregation_bits*: ElectraCommitteeValidatorsBits
     data*: AttestationData
@@ -748,7 +748,7 @@ func kzg_commitment_inclusion_proof_gindex*(
 
   BLOB_KZG_COMMITMENTS_FIRST_GINDEX + index
 
-# https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.8/specs/electra/light-client/fork.md#normalize_merkle_branch
+# https://github.com/ethereum/consensus-specs/blob/v1.5.0-beta.0/specs/electra/light-client/fork.md#normalize_merkle_branch
 func normalize_merkle_branch*[N](
     branch: array[N, Eth2Digest],
     gindex: static GeneralizedIndex): auto =
@@ -1052,6 +1052,9 @@ func shortLog*(v: SingleAttestation): auto =
     data: shortLog(v.data),
     signature: shortLog(v.signature)
   )
+
+template asTrusted*(x: Attestation): TrustedAttestation =
+  isomorphicCast[TrustedAttestation](x)
 
 func init*(
     T: type Attestation,

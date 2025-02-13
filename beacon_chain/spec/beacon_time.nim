@@ -1,5 +1,5 @@
 # beacon_chain
-# Copyright (c) 2018-2024 Status Research & Development GmbH
+# Copyright (c) 2018-2025 Status Research & Development GmbH
 # Licensed and distributed under either of
 #   * MIT license (license terms in the root directory or at https://opensource.org/licenses/MIT).
 #   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
@@ -43,12 +43,14 @@ const
   GENESIS_SLOT* = Slot(0)
   GENESIS_EPOCH* = Epoch(0) # compute_epoch_at_slot(GENESIS_SLOT)
 
-  # https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.10/specs/phase0/fork-choice.md#constant
+  # https://github.com/ethereum/consensus-specs/blob/v1.5.0-beta.0/specs/phase0/fork-choice.md#constant
   INTERVALS_PER_SLOT* = 3
 
-  FAR_FUTURE_BEACON_TIME* = BeaconTime(ns_since_genesis: int64.high())
-
   NANOSECONDS_PER_SLOT* = SECONDS_PER_SLOT * 1_000_000_000'u64
+
+  # Ensure all representable slots are complete
+  FAR_FUTURE_BEACON_TIME* =
+    BeaconTime(ns_since_genesis: int64.high() - NANOSECONDS_PER_SLOT.int64)
 
 template ethTimeUnit*(typ: type) {.dirty.} =
   func `+`*(x: typ, y: uint64): typ {.borrow.}
@@ -133,10 +135,10 @@ template `+`*(a: TimeDiff, b: Duration): TimeDiff =
 const
   # Offsets from the start of the slot to when the corresponding message should
   # be sent
-  # https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.10/specs/phase0/validator.md#attesting
+  # https://github.com/ethereum/consensus-specs/blob/v1.5.0-beta.0/specs/phase0/validator.md#attesting
   attestationSlotOffset* = TimeDiff(nanoseconds:
     NANOSECONDS_PER_SLOT.int64 div INTERVALS_PER_SLOT)
-  # https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.10/specs/phase0/validator.md#broadcast-aggregate
+  # https://github.com/ethereum/consensus-specs/blob/v1.5.0-beta.0/specs/phase0/validator.md#broadcast-aggregate
   aggregateSlotOffset* = TimeDiff(nanoseconds:
     NANOSECONDS_PER_SLOT.int64  * 2 div INTERVALS_PER_SLOT)
   # https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.10/specs/altair/validator.md#prepare-sync-committee-message
@@ -188,7 +190,7 @@ func epoch*(slot: Slot): Epoch = # aka compute_epoch_at_slot
   if slot == FAR_FUTURE_SLOT: FAR_FUTURE_EPOCH
   else: Epoch(slot div SLOTS_PER_EPOCH)
 
-# https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.10/specs/phase0/fork-choice.md#compute_slots_since_epoch_start
+# https://github.com/ethereum/consensus-specs/blob/v1.5.0-beta.0/specs/phase0/fork-choice.md#compute_slots_since_epoch_start
 func since_epoch_start*(slot: Slot): uint64 = # aka compute_slots_since_epoch_start
   ## How many slots since the beginning of the epoch (`[0..SLOTS_PER_EPOCH-1]`)
   (slot mod SLOTS_PER_EPOCH)
@@ -196,7 +198,7 @@ func since_epoch_start*(slot: Slot): uint64 = # aka compute_slots_since_epoch_st
 template is_epoch*(slot: Slot): bool =
   slot.since_epoch_start == 0
 
-# https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.8/specs/phase0/beacon-chain.md#compute_start_slot_at_epoch
+# https://github.com/ethereum/consensus-specs/blob/v1.5.0-beta.0/specs/phase0/beacon-chain.md#compute_start_slot_at_epoch
 func start_slot*(epoch: Epoch): Slot = # aka compute_start_slot_at_epoch
   ## Return the start slot of ``epoch``.
   const maxEpoch = Epoch(FAR_FUTURE_SLOT div SLOTS_PER_EPOCH)
