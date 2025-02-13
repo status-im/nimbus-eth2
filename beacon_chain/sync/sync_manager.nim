@@ -891,13 +891,15 @@ proc syncLoop[A, B](
       progress =
         case man.queue.kind
         of SyncQueueKind.Forward:
-          if man.queue.outSlot >= pivot:
-            man.queue.outSlot - pivot
+          let outSlot = min(man.queue.finalSlot, man.queue.outSlot)
+          if outSlot >= pivot:
+            outSlot - pivot
           else:
             0'u64
         of SyncQueueKind.Backward:
-          if pivot >= man.queue.outSlot:
-            pivot - man.queue.outSlot
+          let outSlot = max(man.queue.finalSlot, man.queue.outSlot)
+          if pivot >= outSlot:
+            pivot - outSlot
           else:
             0'u64
       total =
