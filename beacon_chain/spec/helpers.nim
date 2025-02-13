@@ -279,7 +279,7 @@ func get_safety_threshold*(store: ForkyLightClientStore): uint64 =
     store.current_max_active_participants
   ) div 2
 
-# https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.5/specs/altair/light-client/sync-protocol.md#is_better_update
+# https://github.com/ethereum/consensus-specs/blob/v1.5.0-beta.3/specs/altair/light-client/sync-protocol.md#is_better_update
 type LightClientUpdateMetadata* = object
   attested_slot*, finalized_slot*, signature_slot*: Slot
   has_sync_committee*, has_finality*: bool
@@ -326,10 +326,10 @@ func is_better_data*(new_meta, old_meta: LightClientUpdateMetadata): bool =
     old_has_supermajority =
       hasSupermajoritySyncParticipation(old_meta.num_active_participants)
   if new_has_supermajority != old_has_supermajority:
-    return new_has_supermajority > old_has_supermajority
-  if not new_has_supermajority:
-    if new_meta.num_active_participants != old_meta.num_active_participants:
-      return new_meta.num_active_participants > old_meta.num_active_participants
+    return new_has_supermajority
+  if not new_has_supermajority and
+      new_meta.num_active_participants != old_meta.num_active_participants:
+    return new_meta.num_active_participants > old_meta.num_active_participants
 
   # Compare presence of relevant sync committee
   let
@@ -340,11 +340,11 @@ func is_better_data*(new_meta, old_meta: LightClientUpdateMetadata): bool =
       old_meta.attested_slot.sync_committee_period ==
       old_meta.signature_slot.sync_committee_period
   if new_has_relevant_sync_committee != old_has_relevant_sync_committee:
-    return new_has_relevant_sync_committee > old_has_relevant_sync_committee
+    return new_has_relevant_sync_committee
 
   # Compare indication of any finality
   if new_meta.has_finality != old_meta.has_finality:
-    return new_meta.has_finality > old_meta.has_finality
+    return new_meta.has_finality
 
   # Compare sync committee finality
   if new_meta.has_finality:
@@ -356,14 +356,18 @@ func is_better_data*(new_meta, old_meta: LightClientUpdateMetadata): bool =
         old_meta.finalized_slot.sync_committee_period ==
         old_meta.attested_slot.sync_committee_period
     if new_has_sync_committee_finality != old_has_sync_committee_finality:
-      return new_has_sync_committee_finality > old_has_sync_committee_finality
+      return new_has_sync_committee_finality
 
   # Tiebreaker 1: Sync committee participation beyond supermajority
   if new_meta.num_active_participants != old_meta.num_active_participants:
     return new_meta.num_active_participants > old_meta.num_active_participants
 
-  # Tiebreaker 2: Prefer older data (fewer changes to best data)
-  new_meta.attested_slot < old_meta.attested_slot
+  # Tiebreaker 2: Prefer older data (fewer changes to best)
+  if new_meta.attested_slot != old_meta.attested_slot:
+    return new_meta.attested_slot < old_meta.attested_slot
+
+  # Tiebreaker 3: Prefer updates with earlier signature slots
+  new_meta.signature_slot < old_meta.signature_slot
 
 template is_better_update*[
     A, B: SomeForkyLightClientUpdate | ForkedLightClientUpdate](

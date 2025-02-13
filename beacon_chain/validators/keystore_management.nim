@@ -1,5 +1,5 @@
 # beacon_chain
-# Copyright (c) 2018-2024 Status Research & Development GmbH
+# Copyright (c) 2018-2025 Status Research & Development GmbH
 # Licensed and distributed under either of
 #   * MIT license (license terms in the root directory or at https://opensource.org/licenses/MIT).
 #   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
@@ -1491,6 +1491,7 @@ proc removeGasLimitFile*(host: KeymanagerHost,
   if fileExists(path):
     io2.removeFile(path).isOkOr:
       return err($uint(error) & " " & ioErrorMsg(error))
+    host.validatorPool[].invalidateValidatorRegistration(pubkey)
   ok()
 
 proc removeGraffitiFile*(host: KeymanagerHost,
@@ -1525,8 +1526,13 @@ proc setGasLimit*(host: KeymanagerHost,
   ? secureCreatePath(validatorKeystoreDir).mapErr(proc(e: auto): string =
     "Could not create wallet directory [" & validatorKeystoreDir & "]: " & $e)
 
-  io2.writeFile(validatorKeystoreDir / GasLimitFilename, $gasLimit)
+  let res = io2.writeFile(validatorKeystoreDir / GasLimitFilename, $gasLimit)
     .mapErr(proc(e: auto): string = "Failed to write gas limit file: " & $e)
+
+  if res.isOk:
+    host.validatorPool[].invalidateValidatorRegistration(pubkey)
+
+  res
 
 proc setGraffiti*(host: KeymanagerHost,
                   pubkey: ValidatorPubKey,
