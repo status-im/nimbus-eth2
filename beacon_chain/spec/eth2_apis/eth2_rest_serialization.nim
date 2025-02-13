@@ -85,6 +85,7 @@ RestJson.useDefaultSerializationFor(
   GetForkScheduleResponse,
   GetGenesisResponse,
   GetHistoricalSummariesV1Response,
+  GetHistoricalSummariesV1ResponseElectra,
   GetKeystoresResponse,
   GetNextWithdrawalsResponse,
   GetPoolAttesterSlashingsResponse,
@@ -133,7 +134,6 @@ RestJson.useDefaultSerializationFor(
   RestEpochSyncCommittee,
   RestExtraData,
   RestGenesis,
-  RestHistoricalSummaries,
   RestIndexedErrorMessage,
   RestIndexedErrorMessageItem,
   RestMetadata,
@@ -407,6 +407,7 @@ type
     GetBlockV2Response |
     GetDistributedKeystoresResponse |
     GetHistoricalSummariesV1Response |
+    GetHistoricalSummariesV1ResponseElectra |
     GetKeystoresResponse |
     GetRemoteKeystoresResponse |
     GetStateForkResponse |

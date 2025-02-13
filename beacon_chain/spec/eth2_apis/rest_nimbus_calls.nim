@@ -77,6 +77,64 @@ proc getTimeOffset*(client: RestClientRef,
     raise (ref RestResponseError)(
       msg: msg, status: error.code, message: error.message)
 
+func decodeSszResponse(
+    T: type ForkedHistoricalSummariesWithProof,
+    data: openArray[byte],
+    consensusFork: ConsensusFork,
+    cfg: RuntimeConfig,
+): T {.raises: [RestDecodingError].} =
+  if consensusFork >= ConsensusFork.Electra:
+    let summaries =
+      try:
+        SSZ.decode(data, GetHistoricalSummariesV1ResponseElectra)
+      except SerializationError as exc:
+        raise newException(RestDecodingError, exc.msg)
+    ForkedHistoricalSummariesWithProof.init(summaries, consensusFork)
+  elif consensusFork >= ConsensusFork.Capella:
+    let summaries =
+      try:
+        SSZ.decode(data, GetHistoricalSummariesV1Response)
+      except SerializationError as exc:
+        raise newException(RestDecodingError, exc.msg)
+    ForkedHistoricalSummariesWithProof.init(summaries, consensusFork)
+  else:
+    raiseRestDecodingBytesError(cstring("Unsupported fork: " & $consensusFork))
+
+proc decodeJsonResponse(
+    T: type ForkedHistoricalSummariesWithProof,
+    data: openArray[byte],
+    consensusFork: ConsensusFork,
+    cfg: RuntimeConfig,
+): T {.raises: [RestDecodingError].} =
+  if consensusFork >= ConsensusFork.Electra:
+    let summaries = decodeBytes(
+      GetHistoricalSummariesV1ResponseElectra, data, Opt.none(ContentTypeData)
+    ).valueOr:
+      raise newException(RestDecodingError, $error)
+    ForkedHistoricalSummariesWithProof.init(summaries, consensusFork)
+  elif consensusFork >= ConsensusFork.Capella:
+    let summaries = decodeBytes(
+      GetHistoricalSummariesV1Response, data, Opt.none(ContentTypeData)
+    ).valueOr:
+      raise newException(RestDecodingError, $error)
+    ForkedHistoricalSummariesWithProof.init(summaries, consensusFork)
+  else:
+    raiseRestDecodingBytesError(cstring("Unsupported fork: " & $consensusFork))
+
+proc decodeHttpResponse(
+    T: type ForkedHistoricalSummariesWithProof,
+    data: openArray[byte],
+    mediaType: MediaType,
+    consensusFork: ConsensusFork,
+    cfg: RuntimeConfig,
+): T {.raises: [RestDecodingError].} =
+  if mediaType == OctetStreamMediaType:
+    ForkedHistoricalSummariesWithProof.decodeSszResponse(data, consensusFork, cfg)
+  elif mediaType == ApplicationJsonMediaType:
+    ForkedHistoricalSummariesWithProof.decodeJsonResponse(data, consensusFork, cfg)
+  else:
+    raise newException(RestDecodingError, "Unsupported content-type")
+
 proc getHistoricalSummariesV1Plain*(
   state_id: StateIdent
 ): RestPlainResponse {.
@@ -88,7 +146,7 @@ proc getHistoricalSummariesV1Plain*(
 
 proc getHistoricalSummariesV1*(
     client: RestClientRef, state_id: StateIdent, cfg: RuntimeConfig, restAccept = ""
-): Future[Option[GetHistoricalSummariesV1Response]] {.
+): Future[Opt[ForkedHistoricalSummariesWithProof]] {.
     async: (
       raises: [
         CancelledError, RestEncodingError, RestDnsResolveError, RestCommunicationError,
@@ -108,24 +166,20 @@ proc getHistoricalSummariesV1*(
       if resp.contentType.isNone() or isWildCard(resp.contentType.get().mediaType):
         raise newException(RestDecodingError, "Missing or incorrect Content-Type")
       else:
-        let mediaType = resp.contentType.get().mediaType
-        if mediaType == ApplicationJsonMediaType:
-          let summaries = decodeBytes(
-            GetHistoricalSummariesV1Response, resp.data, resp.contentType
+        let
+          consensusFork = ConsensusFork.decodeString(
+            resp.headers.getString("eth-consensus-version")
           ).valueOr:
-            raise newException(RestDecodingError, $error)
-          some(summaries)
-        elif mediaType == OctetStreamMediaType:
-          let summaries =
-            try:
-              SSZ.decode(resp.data, GetHistoricalSummariesV1Response)
-            except SerializationError as exc:
-              raise newException(RestDecodingError, exc.msg)
-          some(summaries)
-        else:
-          raise newException(RestDecodingError, "Unsupported Content-Type")
+            raiseRestDecodingBytesError(error)
+          mediaType = resp.contentType.value().mediaType
+
+        Opt.some(
+          ForkedHistoricalSummariesWithProof.decodeHttpResponse(
+            resp.data, mediaType, consensusFork, cfg
+          )
+        )
     of 404:
-      none(GetHistoricalSummariesV1Response)
+      Opt.none(ForkedHistoricalSummariesWithProof)
     of 400, 500:
       let error = decodeBytes(RestErrorMessage, resp.data, resp.contentType).valueOr:
         let msg =

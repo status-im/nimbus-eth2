@@ -1,5 +1,5 @@
 # beacon_chain
-# Copyright (c) 2018-2024 Status Research & Development GmbH
+# Copyright (c) 2018-2025 Status Research & Development GmbH
 # Licensed and distributed under either of
 #   * MIT license (license terms in the root directory or at https://opensource.org/licenses/MIT).
 #   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
@@ -547,32 +547,49 @@ proc installNimbusApiHandlers*(router: var RestRouter, node: BeaconNode) =
 
     node.withStateForBlockSlotId(bslot):
       return withState(state):
-        when consensusFork >= ConsensusFork.Capella:
-          # Build the proof for historical_summaries field (28th field in BeaconState)
-          let gIndex = GeneralizedIndex(59) # 31 + 28 = 59
-          var proof: array[5, Digest]
-          if forkyState.data.build_proof(gIndex, proof).isErr:
+        when consensusFork >= ConsensusFork.Electra:
+          var proof: HistoricalSummariesProofElectra
+          if forkyState.data.build_proof(HISTORICAL_SUMMARIES_GINDEX_ELECTRA, proof).isErr:
             return RestApiResponse.jsonError(Http500, InvalidMerkleProofIndexError)
 
-          if contentType == jsonMediaType:
-            let response = RestHistoricalSummaries(
-              historical_summaries: forkyState.data.historical_summaries.asSeq(),
-              proof: proof,
-              slot: bslot.slot,
-            )
+          let response = GetHistoricalSummariesV1ResponseElectra(
+            historical_summaries: forkyState.data.historical_summaries,
+            proof: proof,
+            slot: bslot.slot,
+          )
 
-            RestApiResponse.jsonResponseFinalized(
-              response, node.getStateOptimistic(state), node.dag.isFinalized(bslot.bid)
+          if contentType == jsonMediaType:
+            RestApiResponse.jsonResponseFinalizedWVersion(
+              response,
+              node.getStateOptimistic(state),
+              node.dag.isFinalized(bslot.bid),
+              consensusFork,
             )
           elif contentType == sszMediaType:
-            let
-              headers = [("eth-consensus-version", consensusFork.toString())]
-              response = GetHistoricalSummariesV1Response(
-                historical_summaries: forkyState.data.historical_summaries,
-                proof: proof,
-                slot: bslot.slot,
-              )
+            let headers = [("eth-consensus-version", consensusFork.toString())]
+            RestApiResponse.sszResponse(response, headers)
+          else:
+            RestApiResponse.jsonError(Http500, InvalidAcceptError)
+        elif consensusFork >= ConsensusFork.Capella:
+          var proof: HistoricalSummariesProof
+          if forkyState.data.build_proof(HISTORICAL_SUMMARIES_GINDEX, proof).isErr:
+            return RestApiResponse.jsonError(Http500, InvalidMerkleProofIndexError)
 
+          let response = GetHistoricalSummariesV1Response(
+            historical_summaries: forkyState.data.historical_summaries,
+            proof: proof,
+            slot: bslot.slot,
+          )
+
+          if contentType == jsonMediaType:
+            RestApiResponse.jsonResponseFinalizedWVersion(
+              response,
+              node.getStateOptimistic(state),
+              node.dag.isFinalized(bslot.bid),
+              consensusFork,
+            )
+          elif contentType == sszMediaType:
+            let headers = [("eth-consensus-version", consensusFork.toString())]
             RestApiResponse.sszResponse(response, headers)
           else:
             RestApiResponse.jsonError(Http500, InvalidAcceptError)

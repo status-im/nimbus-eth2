@@ -15,7 +15,7 @@
 
 import
   std/[json, tables],
-  stew/base10, web3/primitives, httputils,
+  stew/base10, web3/primitives, httputils, stew/bitops2,
   ".."/[deposit_snapshots, forks]
 
 export forks, tables, httputils
@@ -343,11 +343,6 @@ type
   RestEpochRandao* = object
     randao*: Eth2Digest
 
-  RestHistoricalSummaries* = object
-    historical_summaries*: seq[HistoricalSummary]
-    proof*: array[5, Eth2Digest]
-    slot*: Slot
-
   DataEnclosedObject*[T] = object
     data*: T
 
@@ -479,11 +474,6 @@ type
   GetBlockV2Response* = ForkedSignedBeaconBlock
   GetStateV2Response* = ref ForkedHashedBeaconState
   GetAggregatedAttestationV2Response* = ForkedAttestation
-
-  GetHistoricalSummariesV1Response* = object
-    historical_summaries*: HashList[HistoricalSummary, Limit HISTORICAL_ROOTS_LIMIT]
-    proof*: array[5, Eth2Digest]
-    slot*: Slot
 
   RestRoot* = object
     root*: Eth2Digest
@@ -1085,3 +1075,88 @@ func toValidatorIndex*(value: RestValidatorIndex): Result[ValidatorIndex,
       err(ValidatorIndexError.TooHighValue)
   else:
     doAssert(false, "ValidatorIndex type size is incorrect")
+
+## Types and helpers for historical_summaries + proof endpoint
+const
+  # gIndex for historical_summaries field (27th field in BeaconState)
+  HISTORICAL_SUMMARIES_GINDEX* = GeneralizedIndex(59) # 32 + 27 = 59
+  HISTORICAL_SUMMARIES_GINDEX_ELECTRA* = GeneralizedIndex(91) # 64 + 27 = 91
+
+type
+  # Note: these could go in separate Capella/Electra spec files if they were
+  # part of the specification.
+  HistoricalSummariesProof* = array[log2trunc(HISTORICAL_SUMMARIES_GINDEX), Eth2Digest]
+  HistoricalSummariesProofElectra* =
+    array[log2trunc(HISTORICAL_SUMMARIES_GINDEX_ELECTRA), Eth2Digest]
+
+  # REST API types
+  GetHistoricalSummariesV1Response* = object
+    historical_summaries*: HashList[HistoricalSummary, Limit HISTORICAL_ROOTS_LIMIT]
+    proof*: HistoricalSummariesProof
+    slot*: Slot
+
+  GetHistoricalSummariesV1ResponseElectra* = object
+    historical_summaries*: HashList[HistoricalSummary, Limit HISTORICAL_ROOTS_LIMIT]
+    proof*: HistoricalSummariesProofElectra
+    slot*: Slot
+
+  # REST client response type
+  ForkedHistoricalSummariesWithProof* = object
+    case kind*: ConsensusFork
+    of ConsensusFork.Phase0: discard
+    of ConsensusFork.Altair: discard
+    of ConsensusFork.Bellatrix: discard
+    of ConsensusFork.Capella: capellaData*: GetHistoricalSummariesV1Response
+    of ConsensusFork.Deneb: denebData*: GetHistoricalSummariesV1Response
+    of ConsensusFork.Electra: electraData*: GetHistoricalSummariesV1ResponseElectra
+    of ConsensusFork.Fulu: fuluData*: GetHistoricalSummariesV1ResponseElectra
+
+template init*(
+    T: type ForkedHistoricalSummariesWithProof,
+    historical_summaries: GetHistoricalSummariesV1Response,
+    fork: ConsensusFork,
+): T =
+  case fork
+  of ConsensusFork.Phase0:
+    raiseAssert $fork & " fork should not be used for historical summaries"
+  of ConsensusFork.Altair:
+    raiseAssert $fork & " fork should not be used for historical summaries"
+  of ConsensusFork.Bellatrix:
+    raiseAssert $fork & " fork should not be used for historical summaries"
+  of ConsensusFork.Capella:
+    ForkedHistoricalSummariesWithProof(
+      kind: ConsensusFork.Capella, capellaData: historical_summaries
+    )
+  of ConsensusFork.Deneb:
+    ForkedHistoricalSummariesWithProof(
+      kind: ConsensusFork.Deneb, denebData: historical_summaries
+    )
+  of ConsensusFork.Electra:
+    raiseAssert $fork & " fork should not be used for this type of historical summaries"
+  of ConsensusFork.Fulu:
+    raiseAssert $fork & " fork should not be used for this type of historical summaries"
+
+template init*(
+    T: type ForkedHistoricalSummariesWithProof,
+    historical_summaries: GetHistoricalSummariesV1ResponseElectra,
+    fork: ConsensusFork,
+): T =
+  case fork
+  of ConsensusFork.Phase0:
+    raiseAssert $fork & " fork should not be used for historical summaries"
+  of ConsensusFork.Altair:
+    raiseAssert $fork & " fork should not be used for historical summaries"
+  of ConsensusFork.Bellatrix:
+    raiseAssert $fork & " fork should not be used for historical summaries"
+  of ConsensusFork.Capella:
+    raiseAssert $fork & " fork should not be used for this type of historical summaries"
+  of ConsensusFork.Deneb:
+    raiseAssert $fork & " fork should not be used for this type of historical summaries"
+  of ConsensusFork.Electra:
+    ForkedHistoricalSummariesWithProof(
+      kind: ConsensusFork.Electra, electraData: historical_summaries
+    )
+  of ConsensusFork.Fulu:
+    ForkedHistoricalSummariesWithProof(
+      kind: ConsensusFork.Fulu, fuluData: historical_summaries
+    )
