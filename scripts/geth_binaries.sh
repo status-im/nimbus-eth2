@@ -16,7 +16,6 @@ source "${SCRIPTS_DIR}/bash_utils.sh"
 
 : ${CURL_BINARY:="curl"}
 : ${STABLE_GETH_BINARY:="${BUILD_DIR}/downloads/geth$EXE_EXTENSION"}
-: ${GETH_DENEB_BINARY:="$STABLE_GETH_BINARY"}
 
 download_geth_stable() {
   if [[ ! -e "${STABLE_GETH_BINARY}" ]]; then
@@ -103,10 +102,6 @@ download_status_geth_binary() {
     chmod +x "$BINARY_FS_PATH"
     patchelf_when_on_nixos "$BINARY_FS_PATH"
   fi
-}
-
-download_geth_deneb() {
-  download_geth_stable
 }
 
 fi
