@@ -89,7 +89,7 @@ func signBlock(
 from eth/eip1559 import EIP1559_INITIAL_BASE_FEE, calcEip1599BaseFee
 from eth/common/eth_types import EMPTY_ROOT_HASH, GasInt
 
-proc build_empty_merge_execution_payload(state: bellatrix.BeaconState):
+func build_empty_merge_execution_payload(state: bellatrix.BeaconState):
     bellatrix.ExecutionPayloadForSigning =
   ## Assuming a pre-state of the same slot, build a valid ExecutionPayload
   ## without any transactions from a non-merged block.
@@ -118,7 +118,7 @@ proc build_empty_merge_execution_payload(state: bellatrix.BeaconState):
   bellatrix.ExecutionPayloadForSigning(executionPayload: payload,
                                        blockValue: Wei.zero)
 
-proc build_empty_execution_payload(
+func build_empty_execution_payload(
     state: bellatrix.BeaconState,
     feeRecipient: Eth1Address): bellatrix.ExecutionPayloadForSigning =
   ## Assuming a pre-state of the same slot, build a valid ExecutionPayload
