@@ -1160,3 +1160,35 @@ template init*(
     ForkedHistoricalSummariesWithProof(
       kind: ConsensusFork.Fulu, fuluData: historical_summaries
     )
+
+template withForkyHistoricalSummariesWithProof*(
+    x: ForkedHistoricalSummariesWithProof, body: untyped): untyped =
+  case x.kind
+  of ConsensusFork.Fulu:
+    const consensusFork {.inject, used.} = ConsensusFork.Fulu
+    template forkySummaries: untyped {.inject, used.} = x.fuluData
+    body
+  of ConsensusFork.Electra:
+    const consensusFork {.inject, used.} = ConsensusFork.Electra
+    template forkySummaries: untyped {.inject, used.} = x.electraData
+    body
+  of ConsensusFork.Deneb:
+    const consensusFork {.inject, used.} = ConsensusFork.Deneb
+    template forkySummaries: untyped {.inject, used.} = x.denebData
+    body
+  of ConsensusFork.Capella:
+    const consensusFork {.inject, used.} = ConsensusFork.Capella
+    template forkySummaries: untyped {.inject, used.} = x.capellaData
+    body
+  of ConsensusFork.Bellatrix:
+    const consensusFork {.inject, used.} = ConsensusFork.Deneb
+    template forkySummaries: untyped {.inject, used.} = GetHistoricalSummariesV1Response()
+    body
+  of ConsensusFork.Altair:
+    const consensusFork {.inject, used.} = ConsensusFork.Altair
+    template forkySummaries: untyped {.inject, used.} = GetHistoricalSummariesV1Response()
+    body
+  of ConsensusFork.Phase0:
+    const consensusFork {.inject, used.} = ConsensusFork.Phase0
+    template forkySummaries: untyped {.inject, used.} = GetHistoricalSummariesV1Response()
+    body
