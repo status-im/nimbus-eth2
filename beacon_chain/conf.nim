@@ -874,6 +874,11 @@ type
         defaultValue: false
         name: "with-deposit-snapshot" .}: bool
 
+      largeRequestsTimeout* {.
+        desc: "Timeout for large requests (in seconds)"
+        defaultValue: 120
+        name: "large-requests-timeout" .}: int
+
   ValidatorClientConf* = object
     configFile* {.
       desc: "Loads the configuration from a TOML file"

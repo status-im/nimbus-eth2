@@ -112,6 +112,7 @@ proc doRunTrustedNodeSync(
     backfill: bool,
     reindex: bool,
     downloadDepositSnapshot: bool,
+    largeRequestsTimeout: int,
     genesisState: ref ForkedHashedBeaconState) {.async.} =
   let syncTarget =
     if stateId.isSome:
@@ -139,6 +140,7 @@ proc doRunTrustedNodeSync(
     backfill,
     reindex,
     downloadDepositSnapshot,
+    largeRequestsTimeout,
     genesisState)
 
 func getVanityLogs(stdoutKind: StdoutLogKind): VanityLogs =
@@ -798,6 +800,7 @@ proc init*(T: type BeaconNode,
         backfill = false,
         reindex = false,
         downloadDepositSnapshot = false,
+        config.largeRequestsTimeout,
         genesisState)
 
   if config.finalizedCheckpointBlock.isSome:
@@ -2563,6 +2566,7 @@ proc handleStartUpCmd(config: var BeaconNodeConf) {.raises: [CatchableError].} =
       config.backfillBlocks,
       config.reindex,
       config.downloadDepositSnapshot,
+      config.largeRequestsTimeout,
       genesisState)
     db.close()
 

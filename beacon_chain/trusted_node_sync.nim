@@ -21,8 +21,8 @@ import
 from presto import RestDecodingError
 
 const
-  largeRequestsTimeout = 120.seconds # Downloading large items such as states.
   smallRequestsTimeout = 30.seconds # Downloading smaller items such as blocks and deposit snapshots.
+# largeRequestsTimeout # Downloading large items such as states. The value is set via the --large-requests-timeout parameter.
 
 proc fetchDepositSnapshot(
     client: RestClientRef
@@ -78,13 +78,14 @@ proc doTrustedNodeSync*(
     backfill: bool,
     reindex: bool,
     downloadDepositSnapshot: bool,
+    largeRequestsTimeout: int,
     genesisState: ref ForkedHashedBeaconState = nil) {.async.} =
   logScope:
     restUrl
     syncTarget
 
   notice "Starting trusted node sync",
-    databaseDir, backfill, reindex
+    databaseDir, backfill, reindex, largeRequestsTimeout
 
   var
     client = createNewRestClient(restUrl).valueOr:
@@ -145,7 +146,7 @@ proc doTrustedNodeSync*(
           try:
             awaitWithTimeout(
                 client.getStateV2(StateIdent.init(StateIdentType.Genesis), cfg),
-                largeRequestsTimeout):
+                largeRequestsTimeout.seconds):
               info "Attempt to download genesis state timed out"
               # https://github.com/nim-lang/Nim/issues/22180
               (ref ForkedHashedBeaconState)(nil)
@@ -336,7 +337,7 @@ proc doTrustedNodeSync*(
             StateIdent.init(tmp.slot.epoch().start_slot)
           else:
             tmp
-        awaitWithTimeout(client.getStateV2(id, cfg), largeRequestsTimeout):
+        awaitWithTimeout(client.getStateV2(id, cfg), largeRequestsTimeout.seconds):
           error "Attempt to download checkpoint state timed out"
           quit 1
       except CatchableError as exc:
