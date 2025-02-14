@@ -8,9 +8,10 @@
 {.push raises: [].}
 
 import
-  std/tables,
+  std/[tables, sequtils],
   chronicles, chronos, metrics,
   taskpools,
+  ssz_serialization/types,
   ../spec/[helpers, forks],
   ../el/el_manager,
   ../consensus_object_pools/[
@@ -292,14 +293,11 @@ proc processBlobSidecar*(
           # check lengths of array[BlobAndProofV1] with blobs
           # kzg commitments of the signed block
           if blobsEl.len == forkyBlck.message.body.blob_kzg_commitments.len:
-            var
-              kzgblbs: deneb.Blobs
-              kzgprfs: deneb.KzgProofs
-            for idx in 0..<blobsEl.len:
-              kzgblbs[idx] = blobsEl[idx].blob.data
-              kzgprfs[idx].bytes = blobsEl[idx].proof.data
             let blob_sidecars_el =
-              create_blob_sidecars(forkyBlck, kzgprfs, kzgblbs)
+              create_blob_sidecars(
+                forkyBlck,
+                deneb.KzgProofs.init(blobsEl.mapIt(kzg.KzgProof(bytes: it.proof.data))),
+                deneb.Blobs.init(blobsEl.mapIt(it.blob.data)))
 
             for blb_el in blob_sidecars_el:
               self.blobQuarantine[].put(newClone blb_el)
