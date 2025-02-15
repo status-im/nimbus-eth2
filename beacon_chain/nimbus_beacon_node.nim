@@ -8,7 +8,7 @@
 {.push raises: [].}
 
 import
-  std/[os, random, terminal, times, exitprocs, sequtils],
+  std/[os, random, terminal, times, exitprocs],
   chronos, chronicles,
   metrics, metrics/chronos_httpserver,
   ssz_serialization/types,

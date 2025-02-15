@@ -274,20 +274,17 @@ proc processSignedBeaconBlock*(
 
   v
 
-proc processBlobSidecar*(
-    self: ref Eth2Processor, src: MsgSource,
-    blobSidecar: deneb.BlobSidecar, subnet_id: BlobId):
-    Future[ValidationRes] {.async: (raises: [CancelledError]).} =
-  template block_header: untyped = blobSidecar.signed_block_header.message
-  let block_root = hash_tree_root(block_header)
+proc validateBlobSidecarFromEL(
+    self: ref Eth2Processor,
+    block_root: Eth2Digest):
+    Future[Result[void, ValidationError]] {.async: (raises: [CancelledError]).} =
 
   if (let o = self.quarantine[].popBlobless(block_root); o.isSome):
     let blobless = o.get()
     withBlck(blobless):
       when consensusFork >= ConsensusFork.Electra:
-        let blobsFromElOpt = await self.elManager.sendGetBlobs(forkyBlck)
-        debugEcho "pulled blobs from el"
-        debugEcho blobsFromElOpt.get.len
+        let blobsFromElOpt =
+          await self.elManager.sendGetBlobs(forkyBlck)
         if blobsFromElOpt.get.len > 0 and blobsFromElOpt.isSome():
           let blobsEl = blobsFromElOpt.get()
           # check lengths of array[BlobAndProofV1] with blobs
@@ -306,6 +303,24 @@ proc processBlobSidecar*(
               self.blockProcessor[].enqueueBlock(
                 MsgSource.gossip, blobless,
                 Opt.some(self.blobQuarantine[].popBlobs(block_root, forkyBlck)))
+
+            return ok()
+
+  else:
+    return errIgnore("EL did not respond with blobs and proofs")
+
+proc processBlobSidecar*(
+    self: ref Eth2Processor, src: MsgSource,
+    blobSidecar: deneb.BlobSidecar, subnet_id: BlobId):
+    Future[ValidationRes] {.async: (raises: [CancelledError]).} =
+  template block_header: untyped = blobSidecar.signed_block_header.message
+  let block_root = hash_tree_root(block_header)
+
+  let vEl =
+    await self.validateBlobSidecarFromEL(block_root)
+
+  if vEl.isOk():
+    return vEl
 
   let
     wallTime = self.getCurrentBeaconTime()
