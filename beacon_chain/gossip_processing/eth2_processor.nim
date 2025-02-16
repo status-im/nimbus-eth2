@@ -277,7 +277,8 @@ proc processSignedBeaconBlock*(
 proc validateBlobSidecarFromEL(
     self: ref Eth2Processor,
     block_root: Eth2Digest):
-    Future[Result[void, ValidationError]] {.async: (raises: [CancelledError]).} =
+    Future[Result[void, ValidationError]]
+    {.async: (raises: [CancelledError]).} =
 
   if (let o = self.quarantine[].popBlobless(block_root); o.isSome):
     let blobless = o.get()
@@ -287,13 +288,15 @@ proc validateBlobSidecarFromEL(
           await self.elManager.sendGetBlobs(forkyBlck)
         if blobsFromElOpt.get.len > 0 and blobsFromElOpt.isSome():
           let blobsEl = blobsFromElOpt.get()
+
           # check lengths of array[BlobAndProofV1] with blobs
           # kzg commitments of the signed block
           if blobsEl.len == forkyBlck.message.body.blob_kzg_commitments.len:
             let blob_sidecars_el =
               create_blob_sidecars(
                 forkyBlck,
-                deneb.KzgProofs.init(blobsEl.mapIt(kzg.KzgProof(bytes: it.proof.data))),
+                deneb.KzgProofs.init(blobsEl.mapIt(kzg.KzgProof(
+                                                   bytes: it.proof.data))),
                 deneb.Blobs.init(blobsEl.mapIt(it.blob.data)))
 
             for blb_el in blob_sidecars_el:
@@ -304,6 +307,8 @@ proc validateBlobSidecarFromEL(
                 MsgSource.gossip, blobless,
                 Opt.some(self.blobQuarantine[].popBlobs(block_root, forkyBlck)))
 
+            debug "Pulled blobs from EL, bypassing blob gossip validation",
+              blobs_from_el = blobsEl.len
             return ok()
 
   else:
