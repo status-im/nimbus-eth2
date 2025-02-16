@@ -64,6 +64,15 @@ const
   CUSTODY_REQUIREMENT* = 4
   NUMBER_OF_CUSTODY_GROUPS* = 128
 
+  # Minimum number of custody groups an honest node with
+  # validators attached custodies and serves samples from
+  VALIDATOR_CUSTODY_REQUIREMENT* = 8
+
+
+  # Balance increment corresponding to one additional group to custody
+  # 2**5 * 10**9 (= 32,000,000,000) Gwei
+  BALANCE_PER_ADDITIONAL_CUSTODY_GROUP*: uint64 = 32000000000'u64
+
   # Number of columns in the network per custody group
   COLUMNS_PER_GROUP* = NUMBER_OF_COLUMNS div NUMBER_OF_CUSTODY_GROUPS
 
