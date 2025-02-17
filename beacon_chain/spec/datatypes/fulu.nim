@@ -155,6 +155,13 @@ type
 type
 
   # https://github.com/ethereum/consensus-specs/blob/dev/specs/_features/eip7732/beacon-chain.md#payloadattestationdata
+    # https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.7/specs/electra/beacon-chain.md#attestation
+  Attestation* = object
+    aggregation_bits*: ElectraCommitteeValidatorsBits
+    data*: AttestationData
+    signature*: ValidatorSig
+    committee_bits*: AttestationCommitteeBits  # [New in Electra:EIP7549]
+    
   PayloadAttestationData* = object
     beacon_block_root*: Eth2Digest
     slot*: Slot
