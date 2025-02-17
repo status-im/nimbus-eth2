@@ -1450,32 +1450,13 @@ proc installBeaconApiHandlers*(router: var RestRouter, node: BeaconNode) =
       # Since our validation logic supports batch processing, we will submit all
       # attestations for validation.
       for attestation in dres.get():
-        when AttestationType is electra.Attestation:
-          let attester_indices = toSeq(
-            get_attesting_indices(node.dag, attestation, true))
-          if len(attester_indices) != 1:
-            return RestApiResponse.jsonError(Http400,
-                                             InvalidAttestationObjectError,
-                                             $dres.error)
-          let committee_index = get_committee_index_one(
-              attestation.committee_bits).valueOr:
-              return RestApiResponse.jsonError(Http400,
-                                               InvalidAttestationObjectError,
-                                               $dres.error)
-          pendingAttestations.add(node.router.routeAttestation(
-            SingleAttestation(
-              committee_index: committee_index.distinctBase,
-              attester_index: attester_indices[0].uint64,
-              data: attestation.data,
-              signature: attestation.signature)))
-        else:
-          pendingAttestations.add(node.router.routeAttestation(attestation))
+        pendingAttestations.add(node.router.routeAttestation(attestation))
 
     case consensusVersion.get():
       of ConsensusFork.Phase0 .. ConsensusFork.Deneb:
         decodeAttestations(phase0.Attestation)
       of ConsensusFork.Electra .. ConsensusFork.Fulu:
-        decodeAttestations(electra.Attestation)
+        decodeAttestations(electra.SingleAttestation)
 
     let failures =
       block:

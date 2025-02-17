@@ -1,5 +1,5 @@
 # beacon_chain
-# Copyright (c) 2018-2024 Status Research & Development GmbH
+# Copyright (c) 2018-2025 Status Research & Development GmbH
 # Licensed and distributed under either of
 #   * MIT license (license terms in the root directory or at https://opensource.org/licenses/MIT).
 #   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
@@ -53,48 +53,57 @@ func sanitySlotsDir(preset_dir: string): string {.compileTime.} =
 from ../../beacon_chain/spec/datatypes/phase0 import BeaconState
 
 suite "EF - Phase 0 - Sanity - Slots " & preset():
-  const phase0SanitySlotsDir = sanitySlotsDir("phase0")
+  const sanitySlotsDir = sanitySlotsDir("phase0")
   for kind, path in walkDir(
-      phase0SanitySlotsDir, relative = true, checkDir = true):
-    runTest(phase0.BeaconState, phase0SanitySlotsDir, "Phase 0", suiteName, path)
+      sanitySlotsDir, relative = true, checkDir = true):
+    runTest(phase0.BeaconState, sanitySlotsDir, "Phase 0", suiteName, path)
 
 from ../../beacon_chain/spec/datatypes/altair import BeaconState
 
 suite "EF - Altair - Sanity - Slots " & preset():
-  const altairSanitySlotsDir = sanitySlotsDir("altair")
+  const sanitySlotsDir = sanitySlotsDir("altair")
   for kind, path in walkDir(
-      altairSanitySlotsDir, relative = true, checkDir = true):
-    runTest(altair.BeaconState, altairSanitySlotsDir, "Altair", suiteName, path)
+      sanitySlotsDir, relative = true, checkDir = true):
+    runTest(altair.BeaconState, sanitySlotsDir, "Altair", suiteName, path)
 
 from ../../beacon_chain/spec/datatypes/bellatrix import BeaconState
 
 suite "EF - Bellatrix - Sanity - Slots " & preset():
-  const bellatrixSanitySlotsDir = sanitySlotsDir("bellatrix")
+  const sanitySlotsDir = sanitySlotsDir("bellatrix")
   for kind, path in walkDir(
-      bellatrixSanitySlotsDir, relative = true, checkDir = true):
-    runTest(bellatrix.BeaconState, bellatrixSanitySlotsDir, "Bellatrix", suiteName, path)
+      sanitySlotsDir, relative = true, checkDir = true):
+    runTest(bellatrix.BeaconState, sanitySlotsDir, "Bellatrix", suiteName, path)
 
 from ../../beacon_chain/spec/datatypes/capella import BeaconState
 
 suite "EF - Capella - Sanity - Slots " & preset():
-  const capellaSanitySlotsDir = sanitySlotsDir("capella")
+  const sanitySlotsDir = sanitySlotsDir("capella")
   for kind, path in walkDir(
-      capellaSanitySlotsDir, relative = true, checkDir = true):
-    runTest(capella.BeaconState, capellaSanitySlotsDir, "Capella", suiteName, path)
+      sanitySlotsDir, relative = true, checkDir = true):
+    runTest(capella.BeaconState, sanitySlotsDir, "Capella", suiteName, path)
 
 from ../../beacon_chain/spec/datatypes/deneb import BeaconState
 
 suite "EF - Deneb - Sanity - Slots " & preset():
-  const denebSanitySlotsDir = sanitySlotsDir("deneb")
+  const sanitySlotsDir = sanitySlotsDir("deneb")
   for kind, path in walkDir(
-      denebSanitySlotsDir, relative = true, checkDir = true):
-    runTest(deneb.BeaconState, denebSanitySlotsDir, "Deneb", suiteName, path)
+      sanitySlotsDir, relative = true, checkDir = true):
+    runTest(deneb.BeaconState, sanitySlotsDir, "Deneb", suiteName, path)
 
 from ../../beacon_chain/spec/datatypes/electra import BeaconState
 
 suite "EF - Electra - Sanity - Slots " & preset():
-  const electraSanitySlotsDir = sanitySlotsDir("electra")
+  const sanitySlotsDir = sanitySlotsDir("electra")
   for kind, path in walkDir(
-      electraSanitySlotsDir, relative = true, checkDir = true):
+      sanitySlotsDir, relative = true, checkDir = true):
     runTest(
-      electra.BeaconState, electraSanitySlotsDir, "Electra", suiteName, path)
+      electra.BeaconState, sanitySlotsDir, "Electra", suiteName, path)
+
+from ../../beacon_chain/spec/datatypes/fulu import BeaconState
+
+suite "EF - Fulu - Sanity - Slots " & preset():
+  const sanitySlotsDir = sanitySlotsDir("fulu")
+  for kind, path in walkDir(
+      sanitySlotsDir, relative = true, checkDir = true):
+    runTest(
+      fulu.BeaconState, sanitySlotsDir, "Fulu", suiteName, path)

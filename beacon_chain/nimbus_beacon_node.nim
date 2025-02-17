@@ -8,7 +8,7 @@
 {.push raises: [].}
 
 import
-  std/[os, random, terminal, times],
+  std/[os, random, terminal, times, exitprocs],
   chronos, chronicles,
   metrics, metrics/chronos_httpserver,
   stew/[byteutils, io2],
@@ -151,7 +151,8 @@ func getVanityLogs(stdoutKind: StdoutLogKind): VanityLogs =
       onUpgradeToCapella:              capellaColor,
       onKnownBlsToExecutionChange:     capellaBlink,
       onUpgradeToDeneb:                denebColor,
-      onUpgradeToElectra:              electraColor)
+      onUpgradeToElectra:              electraColor,
+      onKnownCompoundingChange:        electraBlink)
   of StdoutLogKind.NoColors:
     VanityLogs(
       onMergeTransitionBlock:          bellatrixMono,
@@ -159,7 +160,8 @@ func getVanityLogs(stdoutKind: StdoutLogKind): VanityLogs =
       onUpgradeToCapella:              capellaMono,
       onKnownBlsToExecutionChange:     capellaMono,
       onUpgradeToDeneb:                denebMono,
-      onUpgradeToElectra:              electraMono)
+      onUpgradeToElectra:              electraMono,
+      onKnownCompoundingChange:        electraMono)
   of StdoutLogKind.Json, StdoutLogKind.None:
     VanityLogs(
       onMergeTransitionBlock:
@@ -173,7 +175,9 @@ func getVanityLogs(stdoutKind: StdoutLogKind): VanityLogs =
       onUpgradeToDeneb:
         (proc() = notice "🐟 Proto-Danksharding is ON 🐟"),
       onUpgradeToElectra:
-        (proc() = notice "🦒 Compounding is ON 🦒"))
+        (proc() = notice "🦒 Compounding is available 🦒"),
+      onKnownCompoundingChange:
+        (proc() = notice "🦒 Compounding is activated 🦒"))
 
 func getVanityMascot(consensusFork: ConsensusFork): string =
   case consensusFork
@@ -381,14 +385,11 @@ proc initFullNode(
     else:
       dag.tail.slot
 
-  proc getUntrustedBackfillSlot(): Slot =
+  func getUntrustedBackfillSlot(): Slot =
     if clist.tail.isSome():
       clist.tail.get().blck.slot
     else:
-      getLocalWallSlot()
-
-  func getUntrustedFrontfillSlot(): Slot =
-    getFirstSlotAtFinalizedEpoch()
+      dag.tail.slot
 
   func getFrontfillSlot(): Slot =
     max(dag.frontfill.get(BlockId()).slot, dag.horizon)
@@ -531,7 +532,7 @@ proc initFullNode(
       dag.cfg.DENEB_FORK_EPOCH, dag.cfg.MIN_EPOCHS_FOR_BLOB_SIDECARS_REQUESTS,
       SyncQueueKind.Backward, getLocalHeadSlot,
       getLocalWallSlot, getFirstSlotAtFinalizedEpoch, getUntrustedBackfillSlot,
-      getUntrustedFrontfillSlot, isWithinWeakSubjectivityPeriod,
+      getFrontfillSlot, isWithinWeakSubjectivityPeriod,
       clistPivotSlot, untrustedBlockVerifier, maxHeadAge = 0,
       shutdownEvent = node.shutdownEvent,
       flags = syncManagerFlags)
@@ -994,7 +995,7 @@ proc init*(T: type BeaconNode,
     withState(dag.headState):
       getValidator(forkyState().data.validators.asSeq(), pubkey)
 
-  func getCapellaForkVersion(): Opt[Version] =
+  func getCapellaForkVersion(): Opt[presets.Version] =
     Opt.some(cfg.CAPELLA_FORK_VERSION)
 
   func getDenebForkEpoch(): Opt[Epoch] =
@@ -2059,7 +2060,7 @@ proc installMessageValidators(node: BeaconNode) =
                     MsgSource.gossip, msg, idx)))
 
         # sync_committee_contribution_and_proof
-        # https://github.com/ethereum/consensus-specs/blob/v1.5.0-beta.0/specs/altair/p2p-interface.md#sync_committee_contribution_and_proof
+        # https://github.com/ethereum/consensus-specs/blob/v1.5.0-beta.1/specs/altair/p2p-interface.md#sync_committee_contribution_and_proof
         node.network.addAsyncValidator(
           getSyncCommitteeContributionAndProofTopic(digest), proc (
             msg: SignedContributionAndProof
@@ -2069,7 +2070,7 @@ proc installMessageValidators(node: BeaconNode) =
                 MsgSource.gossip, msg)))
 
       when consensusFork >= ConsensusFork.Capella:
-        # https://github.com/ethereum/consensus-specs/blob/v1.5.0-beta.0/specs/capella/p2p-interface.md#bls_to_execution_change
+        # https://github.com/ethereum/consensus-specs/blob/v1.5.0-beta.1/specs/capella/p2p-interface.md#bls_to_execution_change
         node.network.addAsyncValidator(
           getBlsToExecutionChangeTopic(digest), proc (
             msg: SignedBLSToExecutionChange
@@ -2106,6 +2107,8 @@ proc stop(node: BeaconNode) =
     waitFor node.network.stop()
   except CatchableError as exc:
     warn "Couldn't stop network", msg = exc.msg
+
+  waitFor node.metricsServer.stopMetricsServer()
 
   node.attachedValidators[].slashingProtection.close()
   node.attachedValidators[].close()
@@ -2162,7 +2165,7 @@ var gPidFile: string
 proc createPidFile(filename: string) {.raises: [IOError].} =
   writeFile filename, $os.getCurrentProcessId()
   gPidFile = filename
-  addQuitProc proc {.noconv.} = discard io2.removeFile(gPidFile)
+  addExitProc proc {.noconv.} = discard io2.removeFile(gPidFile)
 
 proc initializeNetworking(node: BeaconNode) {.async.} =
   node.installMessageValidators()
@@ -2374,21 +2377,6 @@ proc doRunBeaconNode(config: var BeaconNodeConf, rng: ref HmacDrbgContext) {.rai
 
   config.createDumpDirs()
 
-  if config.metricsEnabled:
-    let metricsAddress = config.metricsAddress
-    notice "Starting metrics HTTP server",
-      url = "http://" & $metricsAddress & ":" & $config.metricsPort & "/metrics"
-    try:
-      startMetricsHttpServer($metricsAddress, config.metricsPort)
-    except CatchableError as exc:
-      raise exc
-    except Exception as exc:
-      raiseAssert exc.msg # TODO fix metrics
-
-  # Nim GC metrics (for the main thread) will be collected in onSecond(), but
-  # we disable piggy-backing on other metrics here.
-  setSystemMetricsAutomaticUpdate(false)
-
   # There are no managed event loops in here, to do a graceful shutdown, but
   # letting the default Ctrl+C handler exit is safe, since we only read from
   # the db.
@@ -2430,6 +2418,15 @@ proc doRunBeaconNode(config: var BeaconNodeConf, rng: ref HmacDrbgContext) {.rai
       raiseAssert res.error()
 
   let node = waitFor BeaconNode.init(rng, config, metadata)
+
+  let metricsServer = (waitFor config.initMetricsServer()).valueOr:
+    return
+
+  # Nim GC metrics (for the main thread) will be collected in onSecond(), but
+  # we disable piggy-backing on other metrics here.
+  setSystemMetricsAutomaticUpdate(false)
+
+  node.metricsServer = metricsServer
 
   if bnStatus == BeaconNodeStatus.Stopping:
     return
