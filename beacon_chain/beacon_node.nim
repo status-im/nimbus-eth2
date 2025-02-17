@@ -14,6 +14,7 @@ import
 
   # Nimble packages
   chronos, presto, bearssl/rand,
+  metrics, metrics/chronos_httpserver,
 
   # Local modules
   "."/[beacon_clock, beacon_chain_db, conf, light_client],
@@ -86,6 +87,7 @@ type
     elManager*: ELManager
     restServer*: RestServerRef
     keymanagerHost*: ref KeymanagerHost
+    metricsServer*: Opt[MetricsHttpServerRef]
     keymanagerServer*: RestServerRef
     keystoreCache*: KeystoreCacheRef
     eventBus*: EventBus
