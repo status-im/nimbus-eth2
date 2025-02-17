@@ -223,7 +223,7 @@ proc getBlobSidecars[A, B](man: SyncManager[A, B], peer: A,
   mixin getScore, `==`
 
   doAssert(not(req.isEmpty()), "Request must not be empty!")
-  debug "Requesting blobs sidecars from peer",
+  debug "Requesting blob sidecars from peer",
         request = req,
         peer_score = req.item.getScore(),
         peer_speed = req.item.netKbps(),
@@ -347,7 +347,12 @@ proc getSyncBlockData*[T](
     if shouldGetBlob:
       let blobData =
         block:
-          debug "Requesting blobs sidecars from peer"
+          debug "Requesting blob sidecars from peer",
+                slot = slot,
+                peer = peer,
+                peer_score = peer.getScore(),
+                peer_speed = peer.netKbps(),
+                topics = "syncman"
           let res = await blobSidecarsByRange(peer, slot, 1'u64)
           if res.isErr():
             peer.updateScore(PeerScoreNoValues)
