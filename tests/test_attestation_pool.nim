@@ -1,5 +1,5 @@
 # beacon_chain
-# Copyright (c) 2018-2024 Status Research & Development GmbH
+# Copyright (c) 2018-2025 Status Research & Development GmbH
 # Licensed and distributed under either of
 #   * MIT license (license terms in the root directory or at https://opensource.org/licenses/MIT).
 #   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
@@ -1106,3 +1106,73 @@ suite "Attestation pool electra processing" & preset():
     check:
       pool[].getElectraAggregatedAttestation(1.Slot, hash_tree_root(att4.data),
       0.CommitteeIndex).get().aggregation_bits.countOnes() == 1
+
+  proc verifyAttestationSignature(
+      pool: AttestationPool,
+      state: ref ForkedHashedBeaconState,
+      cache: var StateCache,
+      attestation: electra.Attestation): bool =
+    withState(state[]):
+      when consensusFork == ConsensusFork.Electra:
+        let
+          fork = pool.dag.cfg.forkAtEpoch(forkyState.data.slot.epoch)
+          attesting_indices = get_attesting_indices(
+            forkyState.data, attestation.data, attestation.aggregation_bits,
+            attestation.committee_bits, cache)
+        verify_attestation_signature(
+          fork, pool.dag.genesis_validators_root, attestation.data,
+          attesting_indices.mapIt(forkyState.data.validators.item(it).pubkey),
+          attestation.signature)
+      else:
+        raiseAssert "must be electra"
+
+  test "Aggregating across committees" & preset():
+    # Add attestation from different committee
+    var maxSlot = 0.Slot
+    for i in 0 ..< 4:
+      let
+        bc = get_beacon_committee(
+          state[], getStateField(state[], slot), i.CommitteeIndex, cache)
+        att = makeElectraAttestation(
+          state[], state[].latest_block_root, bc[0], cache)
+      var att2 = makeElectraAttestation(
+        state[], state[].latest_block_root, bc[1], cache)
+      att2.combine(att)
+
+      pool[].addAttestation(
+        att, @[bc[0]], att.aggregation_bits.len, att.loadSig,
+        att.data.slot.start_beacon_time)
+
+      pool[].addAttestation(
+        att2, @[bc[0], bc[1]], att2.aggregation_bits.len, att2.loadSig,
+        att2.data.slot.start_beacon_time)
+
+      pool[].addAttestation(
+        att, @[bc[0]], att.aggregation_bits.len, att.loadSig,
+        att.data.slot.start_beacon_time)
+
+      pool[].addAttestation(
+        att2, @[bc[0], bc[1]], att2.aggregation_bits.len, att2.loadSig,
+        att2.data.slot.start_beacon_time)
+
+      if att.data.slot > maxSlot:
+        maxSlot = att.data.slot
+
+    check process_slots(
+      defaultRuntimeConfig, state[],
+      maxSlot + MIN_ATTESTATION_INCLUSION_DELAY, cache,
+      info, {}).isOk()
+
+    let attestations = pool[].getElectraAttestationsForBlock(state[], cache)
+    check:
+      attestations.len() == 2
+      attestations[0].aggregation_bits.countOnes() == 4
+      attestations[0].committee_bits.countOnes() == 2
+      attestations[1].aggregation_bits.countOnes() == 4
+      attestations[1].committee_bits.countOnes() == 2
+      check_attestation(
+        state[].electraData.data, attestations[0], {}, cache, true).isOk
+      check_attestation(
+        state[].electraData.data, attestations[1], {}, cache, true).isOk
+      pool[].verifyAttestationSignature(state, cache, attestations[0])
+      pool[].verifyAttestationSignature(state, cache, attestations[1])
