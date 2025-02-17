@@ -2322,7 +2322,7 @@ proc loadExecutionBlockHash*(
 
 from std/packedsets import PackedSet, incl, items
 
-func getValidatorChangeStatuses(
+func getBlsToExecutionChangeStatuses(
     state: ForkedHashedBeaconState, vis: openArray[ValidatorIndex]):
     PackedSet[ValidatorIndex] =
   var res: PackedSet[ValidatorIndex]
@@ -2338,6 +2338,7 @@ func checkBlsToExecutionChanges(
   # Within each fork, BLS_WITHDRAWAL_PREFIX to ETH1_ADDRESS_WITHDRAWAL_PREFIX
   # and never ETH1_ADDRESS_WITHDRAWAL_PREFIX to BLS_WITHDRAWAL_PREFIX. Latter
   # can still happen via reorgs.
+  #
   # Cases:
   # 1) unchanged (BLS_WITHDRAWAL_PREFIX or ETH1_ADDRESS_WITHDRAWAL_PREFIX) from
   #    old to new head.
@@ -2352,7 +2353,25 @@ func checkBlsToExecutionChanges(
   # Since it tracks head, it's possible reorgs trigger reporting the same
   # validator indices multiple times; this is fine.
   withState(state):
-    anyIt( vis, forkyState.data.validators[it].has_eth1_withdrawal_credential)
+    anyIt(vis, forkyState.data.validators[it].has_eth1_withdrawal_credential)
+
+func getCompoundingStatuses(
+    state: ForkedHashedBeaconState, vis: openArray[ValidatorIndex]):
+    PackedSet[ValidatorIndex] =
+  var res: PackedSet[ValidatorIndex]
+  withState(state):
+    for vi in vis:
+      if  forkyState.data.validators[vi].withdrawal_credentials.data[0] !=
+          COMPOUNDING_WITHDRAWAL_PREFIX:
+        res.incl vi
+  res
+
+func checkCompoundingChanges(
+    state: ForkedHashedBeaconState, vis: PackedSet[ValidatorIndex]): bool =
+  # Since it tracks head, it's possible reorgs trigger reporting the same
+  # validator indices multiple times; this is fine.
+  withState(state):
+    anyIt(vis, forkyState.data.validators[it].has_compounding_withdrawal_credential)
 
 proc updateHead*(
     dag: ChainDAGRef, newHead: BlockRef, quarantine: var Quarantine,
@@ -2393,7 +2412,9 @@ proc updateHead*(
     lastHeadStateRoot = getStateRoot(dag.headState)
     lastHeadMergeComplete = dag.headState.is_merge_transition_complete()
     lastHeadKind = dag.headState.kind
-    lastKnownValidatorsChangeStatuses = getValidatorChangeStatuses(
+    lastKnownValidatorsChangeStatuses = getBlsToExecutionChangeStatuses(
+      dag.headState, knownValidators)
+    lastKnownCompoundingChangeStatuses = getCompoundingStatuses(
       dag.headState, knownValidators)
 
   # Start off by making sure we have the right state - updateState will try
@@ -2436,6 +2457,11 @@ proc updateHead*(
       checkBlsToExecutionChanges(
         dag.headState, lastKnownValidatorsChangeStatuses):
     dag.vanityLogs.onKnownBlsToExecutionChange()
+
+  if  dag.vanityLogs.onKnownCompoundingChange != nil and
+      checkCompoundingChanges(
+        dag.headState, lastKnownCompoundingChangeStatuses):
+    dag.vanityLogs.onKnownCompoundingChange()
 
   dag.db.putHeadBlock(newHead.root)
 

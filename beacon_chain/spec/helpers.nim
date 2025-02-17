@@ -203,7 +203,7 @@ func get_seed*(state: ForkyBeaconState, epoch: Epoch, domain_type: DomainType):
     epoch + EPOCHS_PER_HISTORICAL_VECTOR - MIN_SEED_LOOKAHEAD - 1)
   state.get_seed(epoch, domain_type, mix)
 
-# https://github.com/ethereum/consensus-specs/blob/v1.5.0-beta.0/specs/altair/beacon-chain.md#add_flag
+# https://github.com/ethereum/consensus-specs/blob/v1.5.0-beta.1/specs/altair/beacon-chain.md#add_flag
 func add_flag*(flags: ParticipationFlags, flag_index: TimelyFlag): ParticipationFlags =
   let flag = ParticipationFlags(1'u8 shl ord(flag_index))
   flags or flag
@@ -285,7 +285,7 @@ func get_safety_threshold*(store: ForkyLightClientStore): uint64 =
     store.current_max_active_participants
   ) div 2
 
-# https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.5/specs/altair/light-client/sync-protocol.md#is_better_update
+# https://github.com/ethereum/consensus-specs/blob/v1.5.0-beta.3/specs/altair/light-client/sync-protocol.md#is_better_update
 type LightClientUpdateMetadata* = object
   attested_slot*, finalized_slot*, signature_slot*: Slot
   has_sync_committee*, has_finality*: bool
@@ -332,10 +332,10 @@ func is_better_data*(new_meta, old_meta: LightClientUpdateMetadata): bool =
     old_has_supermajority =
       hasSupermajoritySyncParticipation(old_meta.num_active_participants)
   if new_has_supermajority != old_has_supermajority:
-    return new_has_supermajority > old_has_supermajority
-  if not new_has_supermajority:
-    if new_meta.num_active_participants != old_meta.num_active_participants:
-      return new_meta.num_active_participants > old_meta.num_active_participants
+    return new_has_supermajority
+  if not new_has_supermajority and
+      new_meta.num_active_participants != old_meta.num_active_participants:
+    return new_meta.num_active_participants > old_meta.num_active_participants
 
   # Compare presence of relevant sync committee
   let
@@ -346,11 +346,11 @@ func is_better_data*(new_meta, old_meta: LightClientUpdateMetadata): bool =
       old_meta.attested_slot.sync_committee_period ==
       old_meta.signature_slot.sync_committee_period
   if new_has_relevant_sync_committee != old_has_relevant_sync_committee:
-    return new_has_relevant_sync_committee > old_has_relevant_sync_committee
+    return new_has_relevant_sync_committee
 
   # Compare indication of any finality
   if new_meta.has_finality != old_meta.has_finality:
-    return new_meta.has_finality > old_meta.has_finality
+    return new_meta.has_finality
 
   # Compare sync committee finality
   if new_meta.has_finality:
@@ -362,14 +362,18 @@ func is_better_data*(new_meta, old_meta: LightClientUpdateMetadata): bool =
         old_meta.finalized_slot.sync_committee_period ==
         old_meta.attested_slot.sync_committee_period
     if new_has_sync_committee_finality != old_has_sync_committee_finality:
-      return new_has_sync_committee_finality > old_has_sync_committee_finality
+      return new_has_sync_committee_finality
 
   # Tiebreaker 1: Sync committee participation beyond supermajority
   if new_meta.num_active_participants != old_meta.num_active_participants:
     return new_meta.num_active_participants > old_meta.num_active_participants
 
-  # Tiebreaker 2: Prefer older data (fewer changes to best data)
-  new_meta.attested_slot < old_meta.attested_slot
+  # Tiebreaker 2: Prefer older data (fewer changes to best)
+  if new_meta.attested_slot != old_meta.attested_slot:
+    return new_meta.attested_slot < old_meta.attested_slot
+
+  # Tiebreaker 3: Prefer updates with earlier signature slots
+  new_meta.signature_slot < old_meta.signature_slot
 
 template is_better_update*[
     A, B: SomeForkyLightClientUpdate | ForkedLightClientUpdate](
@@ -386,7 +390,7 @@ func contextEpoch*(bootstrap: ForkyLightClientBootstrap): Epoch =
 func contextEpoch*(update: SomeForkyLightClientUpdate): Epoch =
   update.attested_header.beacon.slot.epoch
 
-# https://github.com/ethereum/consensus-specs/blob/v1.5.0-beta.0/specs/bellatrix/beacon-chain.md#is_merge_transition_complete
+# https://github.com/ethereum/consensus-specs/blob/v1.5.0-beta.1/specs/bellatrix/beacon-chain.md#is_merge_transition_complete
 func is_merge_transition_complete*(
     state: bellatrix.BeaconState | capella.BeaconState | deneb.BeaconState |
            electra.BeaconState | fulu.BeaconState): bool =
@@ -424,7 +428,7 @@ func is_merge_transition_block(
   not is_merge_transition_complete(state) and
     body.execution_payload != defaultExecutionPayload
 
-# https://github.com/ethereum/consensus-specs/blob/v1.5.0-beta.0/specs/bellatrix/beacon-chain.md#is_execution_enabled
+# https://github.com/ethereum/consensus-specs/blob/v1.5.0-beta.1/specs/bellatrix/beacon-chain.md#is_execution_enabled
 func is_execution_enabled*(
     state: bellatrix.BeaconState | capella.BeaconState | deneb.BeaconState |
            electra.BeaconState | fulu.BeaconState,
@@ -463,11 +467,6 @@ proc computeTransactionsTrieRoot(
 # https://eips.ethereum.org/EIPS/eip-7685
 func computeRequestsHash(
     requests: electra.ExecutionRequests): EthHash32 =
-
-  const
-    DEPOSIT_REQUEST_TYPE = 0x00'u8  # EIP-6110
-    WITHDRAWAL_REQUEST_TYPE = 0x01'u8  # EIP-7002
-    CONSOLIDATION_REQUEST_TYPE = 0x02'u8  # EIP-7251
 
   template individualHash(requestType, requestList): Digest =
     computeDigest:

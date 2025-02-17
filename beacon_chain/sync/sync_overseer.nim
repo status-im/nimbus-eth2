@@ -200,7 +200,7 @@ proc updatePerformance(overseer: SyncOverseerRef, startTick: Moment,
 
   # Update status string
   overseer.statusMsg = Opt.some(
-    "fill: " & timeleft.toTimeLeftString() & " (" &
+    timeleft.toTimeLeftString() & " (" &
     (done * 100).formatBiggestFloat(ffDecimal, 2) & "%) " &
     overseer.avgSpeed.formatBiggestFloat(ffDecimal, 4) &
     "slots/s (" & $dag.head.slot & ")")
@@ -521,8 +521,6 @@ proc mainLoop*(
         quit 1
 
       overseer.untrustedInProgress = false
-      # Reset status bar
-      overseer.statusMsg = Opt.none(string)
 
       # When we finished state rebuilding process - we could start forward
       # SyncManager which could perform finish sync.

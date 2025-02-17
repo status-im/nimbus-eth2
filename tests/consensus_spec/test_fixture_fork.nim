@@ -1,5 +1,5 @@
 # beacon_chain
-# Copyright (c) 2021-2024 Status Research & Development GmbH
+# Copyright (c) 2021-2025 Status Research & Development GmbH
 # Licensed and distributed under either of
 #   * MIT license (license terms in the root directory or at https://opensource.org/licenses/MIT).
 #   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
@@ -86,3 +86,12 @@ suite "EF - Electra - Fork " & preset():
   for kind, path in walkDir(OpForkDir, relative = true, checkDir = true):
     runTest(deneb.BeaconState, electra.BeaconState, "Electra", OpForkDir,
             upgrade_to_electra, suiteName, path)
+
+from ../../beacon_chain/spec/datatypes/fulu import BeaconState
+
+suite "EF - Fulu - Fork " & preset():
+  const OpForkDir =
+    SszTestsDir/const_preset/"fulu"/"fork"/"fork"/"pyspec_tests"
+  for kind, path in walkDir(OpForkDir, relative = true, checkDir = true):
+    runTest(electra.BeaconState, fulu.BeaconState, "Fulu", OpForkDir,
+            upgrade_to_fulu, suiteName, path)

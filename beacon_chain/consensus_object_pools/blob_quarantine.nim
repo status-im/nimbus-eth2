@@ -65,13 +65,15 @@ func hasBlob*(
     quarantine: BlobQuarantine,
     slot: Slot,
     proposer_index: uint64,
-    index: BlobIndex): bool =
-  for blobSidecar in quarantine.blobs.values:
+    index: BlobIndex,
+    kzg_commitment: KzgCommitment): bool =
+  for blob_sidecar in quarantine.blobs.values:
     withForkyBlob(blobSidecar):
       template block_header: untyped = forkyBlob[].signed_block_header.message
       if block_header.slot == slot and
           block_header.proposer_index == proposer_index and
-          forkyBlob[].index == index:
+          forkyBlob[].index == index and
+          forkyBlob[].kzg_commitment == kzg_commitment:
         return true
   false
 

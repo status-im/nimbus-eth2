@@ -257,6 +257,7 @@ RestJson.useDefaultSerializationFor(
   electra.LightClientUpdate,
   electra.SignedAggregateAndProof,
   electra.SignedBeaconBlock,
+  electra.SingleAttestation,
   electra.TrustedAttestation,
   electra_mev.BlindedBeaconBlock,
   electra_mev.BlindedBeaconBlockBody,
@@ -377,7 +378,7 @@ type
 
   EncodeArrays* =
     seq[phase0.Attestation] |
-    seq[electra.Attestation] |
+    seq[electra.SingleAttestation] |
     seq[PrepareBeaconProposer] |
     seq[RemoteKeystoreInfo] |
     seq[RestCommitteeSubscription] |
@@ -1988,7 +1989,7 @@ proc readValue*(reader: var JsonReader[RestJson],
 proc writeValue*(writer: var JsonWriter[RestJson],
                  proof: ForkedAggregateAndProof) {.raises: [IOError].} =
   writer.beginRecord()
-  writer.writeField("version", proof.kind)
+  writer.writeField("version", proof.kind.toString())
   withAggregateAndProof(proof):
     writer.writeField("data", forkyProof)
   writer.endRecord()
@@ -4067,7 +4068,7 @@ proc readValue*(reader: var JsonReader[RestJson],
 proc writeValue*(writer: var JsonWriter[RestJson],
                  attestation: ForkedAttestation) {.raises: [IOError].} =
   writer.beginRecord()
-  writer.writeField("version", attestation.kind)
+  writer.writeField("version", attestation.kind.toString())
   withAttestation(attestation):
     writer.writeField("data", forkyAttestation)
   writer.endRecord()
