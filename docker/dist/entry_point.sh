@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 
-# Copyright (c) 2020-2024 Status Research & Development GmbH. Licensed under
+# Copyright (c) 2020-2025 Status Research & Development GmbH. Licensed under
 # either of:
 # - Apache License, version 2.0
 # - MIT license
@@ -140,7 +140,6 @@ elif [[ "${PLATFORM}" == "macOS_amd64" ]]; then
     CC="${CC}" \
     AR="x86_64-apple-darwin${DARWIN_VER}-ar" \
     RANLIB="x86_64-apple-darwin${DARWIN_VER}-ranlib" \
-    CMAKE="x86_64-apple-darwin${DARWIN_VER}-cmake" \
     DSYMUTIL="x86_64-apple-darwin${DARWIN_VER}-dsymutil" \
     FORCE_DSYMUTIL=1 \
     USE_VENDORED_LIBUNWIND=1 \
@@ -172,7 +171,6 @@ elif [[ "${PLATFORM}" == "macOS_arm64" ]]; then
     CC="${CC}" \
     AR="arm64-apple-darwin${DARWIN_VER}-ar" \
     RANLIB="arm64-apple-darwin${DARWIN_VER}-ranlib" \
-    CMAKE="arm64-apple-darwin${DARWIN_VER}-cmake" \
     DSYMUTIL="arm64-apple-darwin${DARWIN_VER}-dsymutil" \
     FORCE_DSYMUTIL=1 \
     USE_VENDORED_LIBUNWIND=1 \
