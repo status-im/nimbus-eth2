@@ -344,12 +344,11 @@ proc verify_data_column_sidecar_kzg_proofs*(sidecar: DataColumnSidecar):
   ok()
 
 # https://github.com/ethereum/consensus-specs/blob/v1.5.0-beta.2/specs/fulu/das-core.md#validator-custody
-proc get_validators_custody_requirement*(state: fulu.BeaconState,
-                                         validator_indices: seq[ValidatorIndex]):
+func get_validators_custody_requirement*(state: fulu.BeaconState,
+                                         validatorIndices: openArray[ValidatorIndex]):
                                          uint64 =
-  let
-    totalNodeBalance =
-      validator_indices.mapIt(state.balances[it]).foldl(a + b, 0.Gwei)
-    count = totalNodeBalance div BALANCE_PER_ADDITIONAL_CUSTODY_GROUP
-
+  var totalNodeBalance: Gwei
+  for index in validatorIndices:
+    totalNodeBalance += state.balances[index]
+  let count = totalNodeBalance div BALANCE_PER_ADDITIONAL_CUSTODY_GROUP
   min(max(count.uint64, VALIDATOR_CUSTODY_REQUIREMENT.uint64), NUMBER_OF_CUSTODY_GROUPS.uint64)

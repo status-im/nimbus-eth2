@@ -59,7 +59,7 @@ const
   # https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.10/specs/fulu/p2p-interface.md#configuration
   DATA_COLUMN_SIDECAR_SUBNET_COUNT* = 128
 
-  # https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.10/specs/fulu/das-core.md#custody-setting
+  # https://github.com/ethereum/consensus-specs/blob/v1.5.0-beta.2/specs/fulu/das-core.md#custody-setting
   SAMPLES_PER_SLOT* = 8
   CUSTODY_REQUIREMENT* = 4
   NUMBER_OF_CUSTODY_GROUPS* = 128
@@ -67,7 +67,6 @@ const
   # Minimum number of custody groups an honest node with
   # validators attached custodies and serves samples from
   VALIDATOR_CUSTODY_REQUIREMENT* = 8
-
 
   # Balance increment corresponding to one additional group to custody
   # 2**5 * 10**9 (= 32,000,000,000) Gwei
