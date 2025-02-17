@@ -342,3 +342,13 @@ proc verify_data_column_sidecar_kzg_proofs*(sidecar: DataColumnSidecar):
     return err("DataColumnSidecar: validation failed")
 
   ok()
+
+# https://github.com/ethereum/consensus-specs/blob/v1.5.0-beta.2/specs/fulu/das-core.md#validator-custody
+func get_validators_custody_requirement*(state: fulu.BeaconState,
+                                         validator_indices: openArray[ValidatorIndex]):
+                                         uint64 =
+  var total_node_balance: Gwei
+  for index in validator_indices:
+    total_node_balance += state.balances[index]
+  let count = total_node_balance div BALANCE_PER_ADDITIONAL_CUSTODY_GROUP
+  min(max(count.uint64, VALIDATOR_CUSTODY_REQUIREMENT.uint64), NUMBER_OF_CUSTODY_GROUPS.uint64)
