@@ -10,12 +10,12 @@
 
 import
   # Status libraries
-  stew/byteutils, chronicles,
+  chronicles,
   taskpools,
   # Internals
-  ../../beacon_chain/spec/[helpers, forks, state_transition_block],
+  ../../beacon_chain/spec/forks,
   ../../beacon_chain/fork_choice/[fork_choice, fork_choice_types],
-  ../../beacon_chain/[beacon_chain_db, beacon_clock],
+  ../../beacon_chain/beacon_chain_db,
   ../../beacon_chain/consensus_object_pools/[
     blockchain_dag, block_clearance, block_quarantine, spec_cache],
   # Third-party
@@ -28,7 +28,10 @@ from std/json import
   JsonNode, getBool, getInt, getStr, hasKey, items, len, pairs, `$`, `[]`
 from std/sequtils import mapIt, toSeq
 from std/strutils import contains
+from stew/byteutils import fromHex
 from ../testbcutil import addHeadBlock
+from ../../beacon_chain/spec/state_transition_block import
+  check_attester_slashing, validate_blobs
 
 # Test format described at https://github.com/ethereum/consensus-specs/tree/v1.3.0/tests/formats/fork_choice
 # Note that our implementation has been optimized with "ProtoArray"
@@ -37,10 +40,12 @@ from ../testbcutil import addHeadBlock
 type
   OpKind = enum
     opOnTick
-    opOnAttestation
+    opOnPhase0Attestation
+    opOnElectraAttestation
     opOnBlock
     opOnMergeBlock
-    opOnAttesterSlashing
+    opOnPhase0AttesterSlashing
+    opOnElectraAttesterSlashing
     opInvalidateHash
     opChecks
 
@@ -54,16 +59,18 @@ type
     case kind: OpKind
     of opOnTick:
       tick: int
-    of opOnAttestation:
+    of opOnPhase0Attestation:
       phase0Att: phase0.Attestation
+    of opOnElectraAttestation:
       electraAtt: electra.Attestation
     of opOnBlock:
       blck: ForkedSignedBeaconBlock
       blobData: Opt[BlobData]
     of opOnMergeBlock:
       powBlock: PowBlock
-    of opOnAttesterSlashing:
+    of opOnPhase0AttesterSlashing:
       phase0AttesterSlashing: phase0.AttesterSlashing
+    of opOnElectraAttesterSlashing:
       electraAttesterSlashing: electra.AttesterSlashing
     of opInvalidateHash:
       invalidatedHash: Eth2Digest
@@ -111,19 +118,12 @@ proc loadOps(
     elif step.hasKey"attestation":
       let filename = step["attestation"].getStr()
       if fork >= ConsensusFork.Electra:
-        let att = parseTest(
-            path/filename & ".ssz_snappy",
-            SSZ, electra.Attestation
-        )
-        result.add Operation(kind: opOnAttestation,
-          electraAtt: att)
+        result.add Operation(
+          kind: opOnElectraAttestation, electraAtt: parseTest(
+            path/filename & ".ssz_snappy", SSZ, electra.Attestation))
       else:
-        let att = parseTest(
-            path/filename & ".ssz_snappy",
-            SSZ, phase0.Attestation
-        )
-        result.add Operation(kind: opOnAttestation,
-          phase0Att: att)
+        result.add Operation(kind: opOnPhase0Attestation, phase0Att: parseTest(
+          path/filename & ".ssz_snappy", SSZ, phase0.Attestation))
     elif step.hasKey"block":
       let filename = step["block"].getStr()
       doAssert step.hasKey"blobs" == step.hasKey"proofs"
@@ -152,19 +152,13 @@ proc loadOps(
     elif step.hasKey"attester_slashing":
       let filename = step["attester_slashing"].getStr()
       if fork >= ConsensusFork.Electra:
-        let attesterSlashing = parseTest(
-          path/filename & ".ssz_snappy",
-          SSZ, electra.AttesterSlashing
-        )
-        result.add Operation(kind: opOnAttesterSlashing,
-          electraAttesterSlashing: attesterSlashing)
+        result.add Operation(kind: opOnElectraAttesterSlashing,
+          electraAttesterSlashing: parseTest(
+            path/filename & ".ssz_snappy", SSZ, electra.AttesterSlashing))
       else:
-        let attesterSlashing = parseTest(
-          path/filename & ".ssz_snappy",
-          SSZ, phase0.AttesterSlashing
-        )
-        result.add Operation(kind: opOnAttesterSlashing,
-          phase0AttesterSlashing: attesterSlashing)
+        result.add Operation(kind: opOnPhase0AttesterSlashing,
+          phase0AttesterSlashing: parseTest(
+            path/filename & ".ssz_snappy", SSZ, phase0.AttesterSlashing))
     elif step.hasKey"payload_status":
       if step["payload_status"]["status"].getStr() == "INVALID":
         result.add Operation(kind: opInvalidateHash,
@@ -340,23 +334,16 @@ proc doRunTest(
       time = BeaconTime(ns_since_genesis: step.tick.seconds.nanoseconds)
       let status = stores.fkChoice[].update_time(stores.dag, time)
       doAssert status.isOk == step.valid
-    of opOnAttestation:
-      let status =
-        if fork >= ConsensusFork.Electra:
-          stores.fkChoice[].on_attestation(
-            stores.dag,
-            step.electraAtt.data.slot,
-            step.electraAtt.data.beacon_block_root,
-            toSeq(stores.dag.get_attesting_indices(
-              step.electraAtt.asTrusted, true)),
-            time)
-        else:
-          stores.fkChoice[].on_attestation(
-            stores.dag,
-            step.phase0Att.data.slot,
-            step.phase0Att.data.beacon_block_root,
-            toSeq(stores.dag.get_attesting_indices(step.phase0Att.asTrusted)),
-            time)
+    of opOnPhase0Attestation:
+      let status = stores.fkChoice[].on_attestation(
+        stores.dag, step.phase0Att.data.slot, step.phase0Att.data.beacon_block_root,
+        toSeq(stores.dag.get_attesting_indices(step.phase0Att.asTrusted)), time)
+      doAssert status.isOk == step.valid
+    of opOnElectraAttestation:
+      let status = stores.fkChoice[].on_attestation(
+        stores.dag, step.electraAtt.data.slot,
+        step.electraAtt.data.beacon_block_root,
+        toSeq(stores.dag.get_attesting_indices(step.electraAtt, true)), time)
       doAssert status.isOk == step.valid
     of opOnBlock:
       withBlck(step.blck):
@@ -365,14 +352,16 @@ proc doRunTest(
           verifier, state[], stateCache,
           forkyBlck, step.blobData, time, invalidatedHashes)
         doAssert status.isOk == step.valid
-    of opOnAttesterSlashing:
-      let indices =
-        if fork >= ConsensusFork.Electra:
-          check_attester_slashing(
-            state[], step.electraAttesterSlashing, flags = {})
-        else:
-          check_attester_slashing(
-            state[], step.phase0AttesterSlashing, flags = {})
+    of opOnPhase0AttesterSlashing:
+      let indices = check_attester_slashing(
+        state[], step.phase0AttesterSlashing, flags = {})
+      if indices.isOk:
+        for idx in indices.get:
+          stores.fkChoice[].process_equivocation(idx)
+      doAssert indices.isOk == step.valid
+    of opOnElectraAttesterSlashing:
+      let indices = check_attester_slashing(
+        state[], step.electraAttesterSlashing, flags = {})
       if indices.isOk:
         for idx in indices.get:
           stores.fkChoice[].process_equivocation(idx)
@@ -421,8 +410,6 @@ template fcSuite(suiteName: static[string], testPathElem: static[string]) =
     for kind, path in walkDir(presetPath, relative = true, checkDir = true):
       let testsPath = presetPath/path/testPathElem
       if kind != pcDir or not os_ops.dirExists(testsPath):
-        continue
-      if testsPath.contains("/electra/") or testsPath.contains("\\electra\\"):
         continue
       let fork = forkForPathComponent(path).valueOr:
         raiseAssert "Unknown test fork: " & testsPath

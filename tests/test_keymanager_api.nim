@@ -1,5 +1,5 @@
 # beacon_chain
-# Copyright (c) 2021-2024 Status Research & Development GmbH
+# Copyright (c) 2021-2025 Status Research & Development GmbH
 # Licensed and distributed under either of
 #   * MIT license (license terms in the root directory or at https://opensource.org/licenses/MIT).
 #   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
@@ -19,7 +19,8 @@ import
   ../beacon_chain/spec/[crypto, keystore, eth2_merkleization],
   ../beacon_chain/spec/datatypes/base,
   ../beacon_chain/spec/eth2_apis/[rest_keymanager_calls, rest_keymanager_types],
-  ../beacon_chain/validators/[keystore_management, slashing_protection_common],
+  ../beacon_chain/validators/[keystore_management, slashing_protection_common,
+                              validator_pool],
   ../beacon_chain/networking/network_metadata,
   ../beacon_chain/rpc/rest_key_management_api,
   ../beacon_chain/[conf, filepath, beacon_node,
@@ -35,6 +36,8 @@ type
     port: int
     validatorsDir: string
     secretsDir: string
+    validatorPool: ref ValidatorPool
+    keymanagerHost: ref KeymanagerHost
 
   # Individual port numbers derived by adding `ord` to configurable base port
   PortKind {.pure.} = enum
@@ -97,6 +100,35 @@ const
   unusedPublicKeys = [
     "0xc22f17216dda29dba1a9257e75b3dd8446c9ea217b563c20950c43f64300f7bd3d5f0dfa02274cab988e594552b7232d",
     "0x0bbca63e35c7a159fc2f187d300cad9ef5f5e73e55f78c391e7bc2c2feabc2d9d63dfe99edd7058ad0ab9d7f14aade5f"
+  ]
+
+  dynamicPrivateKeys {.used.} = [
+    "0x30a2616ee087aaed186c43fcd2c8f6de700c36673b047973c85d9bec2a444750",
+    "0x1957f3cf86be1f88689501453e3432f5d821101b9790bbd43d823b9ac1c4a18b",
+    "0x41df21004d05757df5eedd2c1a4e843503b54680f2c5648235fd37e06785ff5b",
+    "0x2627fd902852ea62057993a59825458684be73f05c3166953e21b35d08a00e4d"
+  ]
+
+  dynamicPublicKeys = [
+    "0xa4dc24de501e99eb1a7ad1a0a73781acfc1b4133f1b29ef1536be44d34212a23331640dd30b532fef5a2533fde7f0ef1",
+    "0x94f6f523782134bf87c7371a517f2035d54f4c87ec55916404de3f27c43bafc7405a40e353bf32385d37972a23486fae",
+    "0xa09149fc0d3ccd425051dfc4f2c320d6845c17b27bcb5739e3a8d49820dcab7d4cabfdf60fb05d6e1bc0482bf29d04c5",
+    "0xb57aa0363091b7a14bf68e588ee366559b5abf27a52efd676d39eb7a4d1e8f6f0b0b6d95e0b7041720ddf801b74211ab"
+  ]
+
+  scenarioPrivateKeys = [
+    "0x42710c38caa62d63cdac8aab59789befe6a6ac568dc45c4791cf2f5743ef15ba",
+    "0x007b6ced45bc6eaac2fa00eaffc687beda00da64c7b35f53a88c378f5a710521",
+    "0x5a1a6c80eecf980e4165f5254f2bd8cfd4a4390651be8a76deb81298328a3f11",
+    "0x05471e7d96b4a7248f6392601cc90e620074f8a6eadfc6143c8950699021e728"
+
+  ]
+
+  scenarioPublicKeys = [
+    "0xa3bdf080a33fb34e9b656bf1e145b63eb9c9db81e07e2d8b70d56bda2124b167df7ac6d6a432e091d024ae5fc352d620",
+    "0x8f1a1887263a6e5987b15f424a6d1b3128ea5357d37cb1a775a90546530a47efef3b737dde9124adde9212b2c8382cd9",
+    "0x92080e161b0601a9f75d20868b64ee573088128ec7e68c11603014b68f6b1b37bfc394ce61e5b515e538fa3f95d3ba6e",
+    "0xa3ad2269fb71074cb2166ee58008967b5e5b13d0a76e992e912ce1ed2073c79450a26406a30182f72d5c57ffa9939f51"
   ]
 
   newPublicKeysUrl = HttpHostUri(parseUri("http://127.0.0.1/remote"))
@@ -193,6 +225,33 @@ BELLATRIX_FORK_EPOCH: 0
     fatal "Failed to create token file", err = deposits.error
     quit 1
 
+proc addDynamicValidator(kmtest: KeymanagerToTest,
+                         pubkey: ValidatorPubKey) =
+  let
+    keystore = KeystoreData(
+      kind: KeystoreKind.Remote,
+      handle: FileLockHandle(opened: false),
+      pubkey: pubkey,
+      remotes: @[
+        RemoteSignerInfo(
+          url: HttpHostUri(HttpHostUri(parseUri("http://127.0.0.1"))),
+          pubkey: pubkey
+        )
+      ],
+      flags: {RemoteKeystoreFlag.DynamicKeystore},
+      remoteType: RemoteSignerType.Web3Signer)
+    withdrawalAddress =
+      kmtest.keymanagerHost[].getValidatorWithdrawalAddress(keystore.pubkey)
+    perValidatorDefaultFeeRecipient = getPerValidatorDefaultFeeRecipient(
+      Opt.some(defaultFeeRecipient), withdrawalAddress)
+    feeRecipient = kmtest.keymanagerHost[].getSuggestedFeeRecipient(
+      keystore.pubkey, perValidatorDefaultFeeRecipient).valueOr(
+        perValidatorDefaultFeeRecipient)
+    gasLimit = kmtest.keymanagerHost[].getSuggestedGasLimit(
+      keystore.pubkey).valueOr(defaultGasLimit)
+  discard
+    kmtest.validatorPool[].addValidator(keystore, feeRecipient, gasLimit)
+
 proc copyHalfValidators(dstDataDir: string, firstHalf: bool) =
   let dstValidatorsDir = dstDataDir / "validators"
 
@@ -273,11 +332,14 @@ proc addPreTestRemoteKeystores(validatorsDir: string) =
             err = res.error
       quit 1
 
-proc startBeaconNode(basePort: int) {.raises: [CatchableError].} =
+proc initBeaconNode(basePort: int): Future[BeaconNode] {.async: (raises: []).} =
   let rng = HmacDrbgContext.new()
 
-  copyHalfValidators(nodeDataDir, true)
-  addPreTestRemoteKeystores(nodeValidatorsDir)
+  try:
+    copyHalfValidators(nodeDataDir, true)
+    addPreTestRemoteKeystores(nodeValidatorsDir)
+  except CatchableError as exc:
+    raiseAssert exc.msg
 
   let runNodeConf = try: BeaconNodeConf.load(cmdLine = mapIt([
     "--tcp-port=" & $(basePort + PortKind.PeerToPeer.ord),
@@ -302,35 +364,33 @@ proc startBeaconNode(basePort: int) {.raises: [CatchableError].} =
   except Exception as exc: # TODO fix confutils exceptions
     raiseAssert exc.msg
 
-  let
-    metadata = loadEth2NetworkMetadata(dataDir).expect("Metadata is compatible")
-    node = waitFor BeaconNode.init(rng, runNodeConf, metadata)
+  try:
+    let metadata =
+      loadEth2NetworkMetadata(dataDir).expect("Metadata is compatible")
+    await BeaconNode.init(rng, runNodeConf, metadata)
+  except CatchableError as exc:
+    raiseAssert exc.msg
 
-  node.start() # This will run until the node is terminated by
-               #  setting its `bnStatus` to `Stopping`.
+# proc startValidatorClient(basePort: int) {.async, thread.} =
+#   let rng = HmacDrbgContext.new()
 
-  # os.removeDir dataDir
+#   copyHalfValidators(vcDataDir, false)
+#   addPreTestRemoteKeystores(vcValidatorsDir)
 
-proc startValidatorClient(basePort: int) {.async, thread.} =
-  let rng = HmacDrbgContext.new()
+#   let runValidatorClientConf = try: ValidatorClientConf.load(cmdLine = mapIt([
+#     "--beacon-node=http://127.0.0.1:" & $(basePort + PortKind.KeymanagerBN.ord),
+#     "--data-dir=" & vcDataDir,
+#     "--validators-dir=" & vcValidatorsDir,
+#     "--secrets-dir=" & vcSecretsDir,
+#     "--suggested-fee-recipient=" & $defaultFeeRecipient,
+#     "--keymanager=true",
+#     "--keymanager-address=127.0.0.1",
+#     "--keymanager-port=" & $(basePort + PortKind.KeymanagerVC.ord),
+#     "--keymanager-token-file=" & tokenFilePath], it))
+#   except:
+#     quit 1
 
-  copyHalfValidators(vcDataDir, false)
-  addPreTestRemoteKeystores(vcValidatorsDir)
-
-  let runValidatorClientConf = try: ValidatorClientConf.load(cmdLine = mapIt([
-    "--beacon-node=http://127.0.0.1:" & $(basePort + PortKind.KeymanagerBN.ord),
-    "--data-dir=" & vcDataDir,
-    "--validators-dir=" & vcValidatorsDir,
-    "--secrets-dir=" & vcSecretsDir,
-    "--suggested-fee-recipient=" & $defaultFeeRecipient,
-    "--keymanager=true",
-    "--keymanager-address=127.0.0.1",
-    "--keymanager-port=" & $(basePort + PortKind.KeymanagerVC.ord),
-    "--keymanager-token-file=" & tokenFilePath], it))
-  except:
-    quit 1
-
-  await runValidatorClient(runValidatorClientConf, rng)
+#   await runValidatorClient(runValidatorClientConf, rng)
 
 const
   password = "7465737470617373776f7264f09f9491"
@@ -460,6 +520,46 @@ proc runTests(keymanager: KeymanagerToTest) {.async.} =
         res.add(RemoteKeystoreInfo(pubkey: allValidators[1],
                                    url: newPublicKeysUrl))
         ImportRemoteKeystoresBody(remote_keys: res)
+
+    scenarioKeystoreBody1 =
+      block:
+        let
+          privateKey = ValidatorPrivKey.fromHex(scenarioPrivateKeys[0]).tryGet()
+          store = createKeystore(kdfPbkdf2, rng[], privateKey,
+            KeystorePass.init password, salt = salt, iv = iv,
+            description = "Test keystore",
+            path = validateKeyPath("m/12381/60/0/0").expect("Valid Keypath"))
+        KeystoresAndSlashingProtection(
+          keystores: @[store],
+          passwords: @[password],
+        )
+
+    scenarioKeystoreBody2 =
+      block:
+        let
+          privateKey = ValidatorPrivKey.fromHex(scenarioPrivateKeys[1]).tryGet()
+          store = createKeystore(kdfPbkdf2, rng[], privateKey,
+            KeystorePass.init password, salt = salt, iv = iv,
+            description = "Test keystore",
+            path = validateKeyPath("m/12381/60/0/0").expect("Valid Keypath"))
+        KeystoresAndSlashingProtection(
+          keystores: @[store],
+          passwords: @[password],
+        )
+
+    scenarioKeystoreBody3 =
+      block:
+        let
+          publicKey = ValidatorPubKey.fromHex(scenarioPublicKeys[2]).tryGet()
+          store = RemoteKeystoreInfo(pubkey: publicKey, url: newPublicKeysUrl)
+        ImportRemoteKeystoresBody(remote_keys: @[store])
+
+    scenarioKeystoreBody4 =
+      block:
+        let
+          publicKey = ValidatorPubKey.fromHex(scenarioPublicKeys[3]).tryGet()
+          store = RemoteKeystoreInfo(pubkey: publicKey, url: newPublicKeysUrl)
+        ImportRemoteKeystoresBody(remote_keys: @[store])
 
   template expectedImportStatus(i: int): string =
       if i < 8:
@@ -1101,6 +1201,52 @@ proc runTests(keymanager: KeymanagerToTest) {.async.} =
       check:
         finalResultFromApi == defaultFeeRecipient
 
+    asyncTest "Obtaining the fee recipient for dynamic validator returns suggested default" & testFlavour:
+      let
+        pubkey = ValidatorPubKey.fromHex(dynamicPublicKeys[0]).expect("valid key")
+
+      keymanager.addDynamicValidator(pubkey)
+      try:
+        let resultFromApi =
+          await client.listFeeRecipient(pubkey, correctTokenValue)
+        check: resultFromApi == defaultFeeRecipient
+      finally:
+        keymanager.validatorPool[].removeValidator(pubkey)
+
+    asyncTest "Configuring the fee recipient for dynamic validator" & testFlavour:
+      let
+        pubkey = ValidatorPubKey.fromHex(dynamicPublicKeys[1]).expect("valid key")
+        firstFeeRecipient = specifiedFeeRecipient(200)
+
+      await client.setFeeRecipient(pubkey, firstFeeRecipient, correctTokenValue)
+      let firstResultFromApi =
+        await client.listFeeRecipient(pubkey, correctTokenValue)
+
+      check firstResultFromApi == firstFeeRecipient
+
+      keymanager.addDynamicValidator(pubkey)
+      try:
+        let secondResultFromApi =
+          await client.listFeeRecipient(pubkey, correctTokenValue)
+
+        check secondResultFromApi == firstFeeRecipient
+
+        let secondFeeRecipient = specifiedFeeRecipient(300)
+        await client.setFeeRecipient(pubkey, secondFeeRecipient,
+                                     correctTokenValue)
+
+        let thirdResultFromApi =
+          await client.listFeeRecipient(pubkey, correctTokenValue)
+        check thirdResultFromApi == secondFeeRecipient
+
+        await client.deleteFeeRecipient(pubkey, correctTokenValue)
+
+        let finalResultFromApi =
+          await client.listFeeRecipient(pubkey, correctTokenValue)
+        check finalResultFromApi == defaultFeeRecipient
+      finally:
+        keymanager.validatorPool[].removeValidator(pubkey)
+
   suite "Gas limit management" & testFlavour:
     asyncTest "Missing Authorization header" & testFlavour:
       let pubkey = ValidatorPubKey.fromHex(oldPublicKeys[0]).expect("valid key")
@@ -1262,6 +1408,51 @@ proc runTests(keymanager: KeymanagerToTest) {.async.} =
       let finalResultFromApi = await client.listGasLimit(pubkey, correctTokenValue)
       check:
         finalResultFromApi == defaultGasLimit
+
+    asyncTest "Obtaining the gas limit for dynamic validator returns suggested default" & testFlavour:
+      let
+        pubkey = ValidatorPubKey.fromHex(dynamicPublicKeys[2]).expect("valid key")
+
+      keymanager.addDynamicValidator(pubkey)
+      try:
+        let resultFromApi =
+          await client.listGasLimit(pubkey, correctTokenValue)
+        check: resultFromApi == defaultGasLimit
+      finally:
+        keymanager.validatorPool[].removeValidator(pubkey)
+
+    asyncTest "Configuring the gas limit for dynamic validator" & testFlavour:
+      let
+        pubkey = ValidatorPubKey.fromHex(dynamicPublicKeys[3]).expect("valid key")
+        firstGasLimit = 40_000_000'u64
+
+      await client.setGasLimit(pubkey, firstGasLimit, correctTokenValue)
+      let firstResultFromApi =
+        await client.listGasLimit(pubkey, correctTokenValue)
+
+      check firstResultFromApi == firstGasLimit
+
+      keymanager.addDynamicValidator(pubkey)
+      try:
+        let secondResultFromApi =
+          await client.listGasLimit(pubkey, correctTokenValue)
+
+        check secondResultFromApi == firstGasLimit
+
+        let secondGasLimit = 50_000_000'u64
+        await client.setGasLimit(pubkey, secondGasLimit, correctTokenValue)
+
+        let thirdResultFromApi =
+          await client.listGasLimit(pubkey, correctTokenValue)
+        check thirdResultFromApi == secondGasLimit
+
+        await client.deleteGasLimit(pubkey, correctTokenValue)
+
+        let finalResultFromApi =
+          await client.listGasLimit(pubkey, correctTokenValue)
+        check finalResultFromApi == defaultGasLimit
+      finally:
+        keymanager.validatorPool[].removeValidator(pubkey)
 
   suite "Graffiti management" & testFlavour:
     asyncTest "Missing Authorization header" & testFlavour:
@@ -1690,24 +1881,160 @@ proc runTests(keymanager: KeymanagerToTest) {.async.} =
         response.status == 403
         responseJson["message"].getStr() == InvalidAuthorizationError
 
-proc delayedTests(basePort: int) {.async.} =
+  suite "Combined scenarios" & testFlavour:
+    asyncTest "ImportKeystores should not be blocked by fee recipient setting" & testFlavour:
+      let
+        publicKey = ValidatorPubKey.fromHex(scenarioPublicKeys[0]).tryGet()
+        localFeeRecipient = specifiedFeeRecipient(500)
+
+      await client.setFeeRecipient(publicKey, localFeeRecipient,
+                                   correctTokenValue)
+
+      let firstResultFromApi =
+        await client.listFeeRecipient(publicKey, correctTokenValue)
+      check firstResultFromApi == localFeeRecipient
+
+      let
+        response = await client.importKeystoresPlain(
+          scenarioKeystoreBody1,
+          extraHeaders = @[("Authorization", "Bearer " & correctTokenValue)])
+        decoded =
+          try:
+            RestJson.decode(response.data,
+                            DataEnclosedObject[seq[RemoteKeystoreStatus]],
+                            requireAllFields = true,
+                            allowUnknownFields = true)
+          except SerializationError:
+            raiseAssert "Invalid response encoding"
+      check:
+        response.status == 200
+        len(decoded.data) == 1
+        decoded.data[0].status == KeystoreStatus.imported
+
+      let secondResultFromApi =
+        await client.listFeeRecipient(publicKey, correctTokenValue)
+      check secondResultFromApi == localFeeRecipient
+
+    asyncTest "ImportKeystores should not be blocked by gas limit setting" & testFlavour:
+      let
+        publicKey = ValidatorPubKey.fromHex(scenarioPublicKeys[0]).tryGet()
+        localGasLimit = 20_000_000'u64
+
+      await client.setGasLimit(publicKey, localGasLimit, correctTokenValue)
+
+      let firstResultFromApi =
+        await client.listGasLimit(publicKey, correctTokenValue)
+      check firstResultFromApi == localGasLimit
+
+      let
+        response = await client.importKeystoresPlain(
+          scenarioKeystoreBody2,
+          extraHeaders = @[("Authorization", "Bearer " & correctTokenValue)])
+        decoded =
+          try:
+            RestJson.decode(response.data,
+                            DataEnclosedObject[seq[RemoteKeystoreStatus]],
+                            requireAllFields = true,
+                            allowUnknownFields = true)
+          except SerializationError:
+            raiseAssert "Invalid response encoding"
+      check:
+        response.status == 200
+        len(decoded.data) == 1
+        decoded.data[0].status == KeystoreStatus.imported
+
+      let secondResultFromApi =
+        await client.listGasLimit(publicKey, correctTokenValue)
+      check secondResultFromApi == localGasLimit
+
+    asyncTest "ImportRemoteKeys should not be blocked by fee recipient setting" & testFlavour:
+      let
+        publicKey = ValidatorPubKey.fromHex(scenarioPublicKeys[2]).tryGet()
+        localFeeRecipient = specifiedFeeRecipient(600)
+
+      await client.setFeeRecipient(publicKey, localFeeRecipient,
+                                   correctTokenValue)
+
+      let firstResultFromApi =
+        await client.listFeeRecipient(publicKey, correctTokenValue)
+      check firstResultFromApi == localFeeRecipient
+
+      let
+        response = await client.importRemoteKeysPlain(
+          scenarioKeystoreBody3,
+          extraHeaders = @[("Authorization", "Bearer " & correctTokenValue)])
+        decoded =
+          try:
+            RestJson.decode(response.data,
+                            DataEnclosedObject[seq[RemoteKeystoreStatus]],
+                            requireAllFields = true,
+                            allowUnknownFields = true)
+          except SerializationError:
+            raiseAssert "Invalid response encoding"
+      check:
+        response.status == 200
+        len(decoded.data) == 1
+        decoded.data[0].status == KeystoreStatus.imported
+
+      let secondResultFromApi =
+        await client.listFeeRecipient(publicKey, correctTokenValue)
+      check secondResultFromApi == localFeeRecipient
+
+    asyncTest "ImportRemoteKeys should not be blocked by gas limit setting" & testFlavour:
+      let
+        publicKey = ValidatorPubKey.fromHex(scenarioPublicKeys[3]).tryGet()
+        localGasLimit = 80_000_000'u64
+
+      await client.setGasLimit(publicKey, localGasLimit, correctTokenValue)
+
+      let firstResultFromApi =
+        await client.listGasLimit(publicKey, correctTokenValue)
+      check firstResultFromApi == localGasLimit
+
+      let
+        response = await client.importRemoteKeysPlain(
+          scenarioKeystoreBody4,
+          extraHeaders = @[("Authorization", "Bearer " & correctTokenValue)])
+        decoded =
+          try:
+            RestJson.decode(response.data,
+                            DataEnclosedObject[seq[RemoteKeystoreStatus]],
+                            requireAllFields = true,
+                            allowUnknownFields = true)
+          except SerializationError:
+            raiseAssert "Invalid response encoding"
+      check:
+        response.status == 200
+        len(decoded.data) == 1
+        decoded.data[0].status == KeystoreStatus.imported
+
+      let secondResultFromApi =
+        await client.listGasLimit(publicKey, correctTokenValue)
+      check secondResultFromApi == localGasLimit
+
+proc delayedTests(basePort: int, pool: ref ValidatorPool,
+                  host: ref KeymanagerHost) {.async.} =
   let
     beaconNodeKeymanager = KeymanagerToTest(
       ident: "Beacon Node",
       port: basePort + PortKind.KeymanagerBN.ord,
       validatorsDir: nodeValidatorsDir,
-      secretsDir: nodeSecretsDir)
+      secretsDir: nodeSecretsDir,
+      validatorPool: pool,
+      keymanagerHost: host)
 
     validatorClientKeymanager = KeymanagerToTest(
       ident: "Validator Client",
       port: basePort + PortKind.KeymanagerVC.ord,
       validatorsDir: vcValidatorsDir,
-      secretsDir: vcSecretsDir)
+      secretsDir: vcSecretsDir,
+      validatorPool: pool,
+      keymanagerHost: host)
 
   while bnStatus != BeaconNodeStatus.Running:
     await sleepAsync(1.seconds)
 
-  asyncSpawn startValidatorClient(basePort)
+  # asyncSpawn startValidatorClient(basePort)
 
   await sleepAsync(2.seconds)
 
@@ -1725,10 +2052,14 @@ proc main(basePort: int) {.async.} =
   if dirExists(dataDir):
     os.removeDir dataDir
 
-  asyncSpawn delayedTests(basePort)
-
   prepareNetwork()
-  startBeaconNode(basePort)
+
+  let node = await initBeaconNode(basePort)
+
+  asyncSpawn delayedTests(basePort, node.attachedValidators,
+                          node.keymanagerHost)
+
+  node.start()
 
 let
   basePortStr = os.getEnv("NIMBUS_TEST_KEYMANAGER_BASE_PORT", $defaultBasePort)

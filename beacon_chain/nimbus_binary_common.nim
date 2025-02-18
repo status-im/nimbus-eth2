@@ -1,5 +1,5 @@
 # beacon_chain
-# Copyright (c) 2018-2024 Status Research & Development GmbH
+# Copyright (c) 2018-2025 Status Research & Development GmbH
 # Licensed and distributed under either of
 #   * MIT license (license terms in the root directory or at https://opensource.org/licenses/MIT).
 #   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
@@ -16,7 +16,7 @@ import
   # Nimble packages
   chronos, confutils, presto, toml_serialization, metrics,
   chronicles, chronicles/helpers as chroniclesHelpers, chronicles/topics_registry,
-  stew/io2,
+  stew/io2, metrics, metrics/chronos_httpserver,
 
   # Local modules
   ./spec/[helpers, keystore],
@@ -447,6 +447,40 @@ proc initKeymanagerServer*(
     nil
 
   KeymanagerInitResult(server: keymanagerServer, token: token)
+
+proc initMetricsServer*(
+    config: AnyConf
+): Future[Result[Opt[MetricsHttpServerRef], string]] {.
+  async: (raises: [CancelledError]).} =
+  if config.metricsEnabled:
+    let
+      metricsAddress = config.metricsAddress
+      metricsPort = config.metricsPort
+      url = "http://" & $metricsAddress & ":" & $metricsPort & "/metrics"
+
+    info "Starting metrics HTTP server", url = url
+
+    let server = MetricsHttpServerRef.new($metricsAddress, metricsPort).valueOr:
+      fatal "Could not start metrics HTTP server",
+            url = url, reason = error
+      return err($error)
+
+    try:
+      await server.start()
+    except MetricsError as exc:
+      fatal "Could not start metrics HTTP server",
+            url = url, reason = exc.msg
+      return err(exc.msg)
+
+    ok(Opt.some(server))
+  else:
+    ok(Opt.none(MetricsHttpServerRef))
+
+proc stopMetricsServer*(v: Opt[MetricsHttpServerRef]) {.
+     async: (raises: []).} =
+  if v.isSome():
+    info "Shutting down metrics HTTP server"
+    await v.get().close()
 
 proc quitDoppelganger*() =
   # Avoid colliding with

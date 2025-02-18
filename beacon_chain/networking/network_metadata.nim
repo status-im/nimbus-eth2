@@ -1,5 +1,5 @@
 # beacon_chain
-# Copyright (c) 2018-2024 Status Research & Development GmbH
+# Copyright (c) 2018-2025 Status Research & Development GmbH
 # Licensed and distributed under either of
 #   * MIT license (license terms in the root directory or at https://opensource.org/licenses/MIT).
 #   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
@@ -340,9 +340,13 @@ elif const_preset == "mainnet":
     for network in [mainnetMetadata, sepoliaMetadata, holeskyMetadata]:
       checkForkConsistency(network.cfg)
 
+    for network in [sepoliaMetadata, holeskyMetadata]:
+      doAssert network.cfg.ELECTRA_FORK_EPOCH < FAR_FUTURE_EPOCH
+
+    doAssert mainnetMetadata.cfg.DENEB_FORK_EPOCH < FAR_FUTURE_EPOCH
+    doAssert mainnetMetadata.cfg.ELECTRA_FORK_EPOCH == FAR_FUTURE_EPOCH
+
     for network in [mainnetMetadata, sepoliaMetadata, holeskyMetadata]:
-      doAssert network.cfg.DENEB_FORK_EPOCH < FAR_FUTURE_EPOCH
-      doAssert network.cfg.ELECTRA_FORK_EPOCH == FAR_FUTURE_EPOCH
       doAssert network.cfg.FULU_FORK_EPOCH == FAR_FUTURE_EPOCH
       doAssert ConsensusFork.high == ConsensusFork.Fulu
 
