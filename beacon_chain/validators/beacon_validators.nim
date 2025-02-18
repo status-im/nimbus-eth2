@@ -84,6 +84,7 @@ type
 
   BuilderBid[SBBB] = object
     blindedBlckPart*: SBBB
+    executionRequests*: ExecutionRequests
     executionPayloadValue*: UInt256
     consensusBlockValue*: UInt256
 
@@ -458,7 +459,7 @@ proc makeBeaconBlockForHeadAndSlot*(
     execution_payload_root: Opt[Eth2Digest],
     withdrawals_root: Opt[Eth2Digest],
     kzg_commitments: Opt[KzgCommitments],
-    execution_requests: ExecutionRequests):  # TODO probably need this for builder API, otherwise remove, maybe needs to be Opt
+    execution_requests: ExecutionRequests):
     Future[ForkedBlockResult] {.async: (raises: [CancelledError]).} =
   # Advance state to the slot that we're proposing for
   var cache = StateCache()
@@ -561,15 +562,18 @@ proc makeBeaconBlockForHeadAndSlot*(
             request_type_and_payload.toOpenArray(
               1, request_type_and_payload.len - 1)
           case request_type_and_payload[0]
-          of 0'u8: execution_requests_buffer.deposits = SSZ.decode(
-            request_payload,
-            List[DepositRequest, Limit MAX_DEPOSIT_REQUESTS_PER_PAYLOAD])
-          of 1'u8: execution_requests_buffer.withdrawals = SSZ.decode(
-            request_payload,
-            List[WithdrawalRequest, Limit MAX_WITHDRAWAL_REQUESTS_PER_PAYLOAD])
-          of 2'u8: execution_requests_buffer.consolidations = SSZ.decode(
-            request_payload,
-            List[ConsolidationRequest, Limit MAX_CONSOLIDATION_REQUESTS_PER_PAYLOAD])
+          of DEPOSIT_REQUEST_TYPE:
+            execution_requests_buffer.deposits =
+              SSZ.decode(request_payload,
+                List[DepositRequest, Limit MAX_DEPOSIT_REQUESTS_PER_PAYLOAD])
+          of WITHDRAWAL_REQUEST_TYPE:
+            execution_requests_buffer.withdrawals =
+              SSZ.decode(request_payload,
+                List[WithdrawalRequest, Limit MAX_WITHDRAWAL_REQUESTS_PER_PAYLOAD])
+          of CONSOLIDATION_REQUEST_TYPE:
+            execution_requests_buffer.consolidations =
+              SSZ.decode(request_payload,
+                List[ConsolidationRequest, Limit MAX_CONSOLIDATION_REQUESTS_PER_PAYLOAD])
           else:
             return err("Execution layer invalid request type")
       except CatchableError:
@@ -606,7 +610,7 @@ proc makeBeaconBlockForHeadAndSlot*(
       slot, head = shortLog(head), error
     $error
 
-  var blobsBundleOpt = Opt.none(BlobsBundle)
+  var blobsBundleOpt = Opt.none(deneb.BlobsBundle)
   when typeof(payload).kind >= ConsensusFork.Deneb:
     blobsBundleOpt = Opt.some(payload.blobsBundle)
 
@@ -707,11 +711,23 @@ proc getBlindedExecutionPayload[
       return err "getBlindedExecutionPayload: signature verification failed"
 
     template builderBid: untyped = blindedHeader.data.message
-    return ok(BuilderBid[EPH](
-      blindedBlckPart: EPH(
-        execution_payload_header: builderBid.header,
-        blob_kzg_commitments: builderBid.blob_kzg_commitments),
-      executionPayloadValue: builderBid.value))
+    when EPH is deneb_mev.BlindedExecutionPayloadAndBlobsBundle:
+      return ok(BuilderBid[EPH](
+        blindedBlckPart: EPH(
+          execution_payload_header: builderBid.header,
+          blob_kzg_commitments: builderBid.blob_kzg_commitments),
+        executionRequests: default(ExecutionRequests),
+        executionPayloadValue: builderBid.value))
+    elif EPH is electra_mev.BlindedExecutionPayloadAndBlobsBundle or
+        EPH is fulu_mev.BlindedExecutionPayloadAndBlobsBundle:
+      return ok(BuilderBid[EPH](
+        blindedBlckPart: EPH(
+          execution_payload_header: builderBid.header,
+          blob_kzg_commitments: builderBid.blob_kzg_commitments),
+        executionRequests: builderBid.execution_requests,
+        executionPayloadValue: builderBid.value))
+    else:
+      static: doAssert false
 
 from ./message_router_mev import
   copyFields, getFieldNames, unblindAndRouteBlockMEV
@@ -935,7 +951,7 @@ proc getBlindedBlockParts[
         slot, validator_index, head = shortLog(head)
       return err("loadExecutionBlockHash failed")
 
-    executionPayloadHeader =
+    blindedBlockRes =
       try:
         awaitWithTimeout(
             getBlindedExecutionPayload[EPH](
@@ -949,12 +965,12 @@ proc getBlindedBlockParts[
         BlindedBlockResult[EPH].err(
           "getBlindedExecutionPayload REST error: " & exc.msg)
 
-  if executionPayloadHeader.isErr:
+  if blindedBlockRes.isErr:
     warn "Could not obtain blinded execution payload header",
-      error = executionPayloadHeader.error, slot, validator_index,
+      error = blindedBlockRes.error, slot, validator_index,
       head = shortLog(head)
     # Haven't committed to the MEV block, so allow EL fallback.
-    return err(executionPayloadHeader.error)
+    return err(blindedBlockRes.error)
 
   # When creating this block, need to ensure it uses the MEV-provided execution
   # payload, both to avoid repeated calls to network services and to ensure the
@@ -968,11 +984,12 @@ proc getBlindedBlockParts[
   when EPH is deneb_mev.BlindedExecutionPayloadAndBlobsBundle:
     type PayloadType = deneb.ExecutionPayloadForSigning
     template actualEPH: untyped =
-      executionPayloadHeader.get.blindedBlckPart.execution_payload_header
+      blindedBlockRes.get.blindedBlckPart.execution_payload_header
     let
       withdrawals_root = Opt.some actualEPH.withdrawals_root
       kzg_commitments = Opt.some(
-        executionPayloadHeader.get.blindedBlckPart.blob_kzg_commitments)
+        blindedBlockRes.get.blindedBlckPart.blob_kzg_commitments)
+      execution_requests = default(ExecutionRequests)
 
     var shimExecutionPayload: PayloadType
     type DenebEPH =
@@ -980,14 +997,14 @@ proc getBlindedBlockParts[
     copyFields(
       shimExecutionPayload.executionPayload, actualEPH, getFieldNames(DenebEPH))
   elif EPH is electra_mev.BlindedExecutionPayloadAndBlobsBundle:
-    debugComment "verify (again, after change) this is what builder API needs"
     type PayloadType = electra.ExecutionPayloadForSigning
     template actualEPH: untyped =
-      executionPayloadHeader.get.blindedBlckPart.execution_payload_header
+      blindedBlockRes.get.blindedBlckPart.execution_payload_header
     let
       withdrawals_root = Opt.some actualEPH.withdrawals_root
       kzg_commitments = Opt.some(
-        executionPayloadHeader.get.blindedBlckPart.blob_kzg_commitments)
+        blindedBlockRes.get.blindedBlckPart.blob_kzg_commitments)
+      execution_requests = blindedBlockRes.get.executionRequests
 
     var shimExecutionPayload: PayloadType
     type ElectraEPH =
@@ -998,11 +1015,12 @@ proc getBlindedBlockParts[
     debugFuluComment "verify (again, after change) this is what builder API needs"
     type PayloadType = fulu.ExecutionPayloadForSigning
     template actualEPH: untyped =
-      executionPayloadHeader.get.blindedBlckPart.execution_payload_header
+      blindedBlockRes.get.blindedBlckPart.execution_payload_header
     let
       withdrawals_root = Opt.some actualEPH.withdrawals_root
       kzg_commitments = Opt.some(
-        executionPayloadHeader.get.blindedBlckPart.blob_kzg_commitments)
+        blindedBlockRes.get.blindedBlckPart.blob_kzg_commitments)
+      execution_requests = blindedBlockRes.get.executionRequests
 
     var shimExecutionPayload: PayloadType
     type FuluEPH =
@@ -1020,7 +1038,7 @@ proc getBlindedBlockParts[
     execution_payload_root = Opt.some hash_tree_root(actualEPH),
     withdrawals_root = withdrawals_root,
     kzg_commitments = kzg_commitments,
-    execution_requests = default(ExecutionRequests))
+    execution_requests = execution_requests)
 
   if newBlock.isErr():
     # Haven't committed to the MEV block, so allow EL fallback.
@@ -1029,8 +1047,8 @@ proc getBlindedBlockParts[
   let forkedBlck = newBlock.get()
 
   return ok(
-    (executionPayloadHeader.get.blindedBlckPart,
-     executionPayloadHeader.get.executionPayloadValue,
+    (blindedBlockRes.get.blindedBlckPart,
+     blindedBlockRes.get.executionPayloadValue,
      forkedBlck.consensusBlockValue,
      forkedBlck.blck))
 
@@ -1072,11 +1090,23 @@ proc getBuilderBid[
   if unsignedBlindedBlock.isErr:
     return err unsignedBlindedBlock.error()
 
-  ok(BuilderBid[SBBB](
-    blindedBlckPart: unsignedBlindedBlock.get,
-    executionPayloadValue: bidValue,
-    consensusBlockValue: consensusValue
-  ))
+  template execution_requests: untyped =
+      unsignedBlindedBlock.get.message.body.execution_requests
+  when SBBB is deneb_mev.SignedBlindedBeaconBlock:
+   return ok(BuilderBid[SBBB](
+      blindedBlckPart: unsignedBlindedBlock.get,
+      executionRequests: default(ExecutionRequests),
+      executionPayloadValue: bidValue,
+      consensusBlockValue: consensusValue))
+  elif SBBB is electra_mev.SignedBlindedBeaconBlock or
+      SBBB is fulu_mev.SignedBlindedBeaconBlock:
+   return ok(BuilderBid[SBBB](
+      blindedBlckPart: unsignedBlindedBlock.get,
+      executionRequests: execution_requests,
+      executionPayloadValue: bidValue,
+      consensusBlockValue: consensusValue))
+  else:
+    static: doAssert false
 
 proc proposeBlockMEV(
     node: BeaconNode, payloadBuilderClient: RestClientRef,
@@ -1164,16 +1194,25 @@ proc makeBlindedBeaconBlockForHeadAndSlot*[BBB: ForkyBlindedBeaconBlock](
     blindedBlockParts.get
   withBlck(forkedBlck):
     when consensusFork >= ConsensusFork.Deneb:
-      when ((consensusFork == ConsensusFork.Deneb and
-             EPH is deneb_mev.BlindedExecutionPayloadAndBlobsBundle) or
-            (consensusFork == ConsensusFork.Electra and
-             EPH is electra_mev.BlindedExecutionPayloadAndBlobsBundle) or
-            (consensusFork == ConsensusFork.Fulu and
-             EPH is fulu_mev.BlindedExecutionPayloadAndBlobsBundle)):
+      when (consensusFork == ConsensusFork.Deneb and
+           EPH is deneb_mev.BlindedExecutionPayloadAndBlobsBundle):
         return ok(
           BuilderBid[BBB](
             blindedBlckPart:
               constructPlainBlindedBlock[BBB](forkyBlck, executionPayloadHeader),
+            executionRequests: default(ExecutionRequests),
+            executionPayloadValue: bidValue,
+            consensusBlockValue: consensusValue))
+
+      elif (consensusFork == ConsensusFork.Electra and
+           EPH is electra_mev.BlindedExecutionPayloadAndBlobsBundle) or
+           (consensusFork == ConsensusFork.Fulu and
+            EPH is fulu_mev.BlindedExecutionPayloadAndBlobsBundle):
+        return ok(
+          BuilderBid[BBB](
+            blindedBlckPart:
+              constructPlainBlindedBlock[BBB](forkyBlck, executionPayloadHeader),
+            executionRequests: forkyBlck.body.execution_requests,
             executionPayloadValue: bidValue,
             consensusBlockValue: consensusValue))
       else:
@@ -1770,8 +1809,8 @@ proc signAndSendAggregate(
 
     signAndSendAggregatedAttestations()
   else:
-    # https://github.com/ethereum/consensus-specs/blob/v1.5.0-beta.0/specs/phase0/validator.md#construct-aggregate
-    # https://github.com/ethereum/consensus-specs/blob/v1.5.0-beta.0/specs/phase0/validator.md#aggregateandproof
+    # https://github.com/ethereum/consensus-specs/blob/v1.5.0-beta.1/specs/phase0/validator.md#construct-aggregate
+    # https://github.com/ethereum/consensus-specs/blob/v1.5.0-beta.1/specs/phase0/validator.md#aggregateandproof
     var msg = phase0.SignedAggregateAndProof(
       message: phase0.AggregateAndProof(
         aggregator_index: distinctBase validator_index,
@@ -2110,7 +2149,7 @@ proc handleValidatorDuties*(node: BeaconNode, lastSlot, slot: Slot) {.async: (ra
 
   updateValidatorMetrics(node) # the important stuff is done, update the vanity numbers
 
-  # https://github.com/ethereum/consensus-specs/blob/v1.5.0-beta.0/specs/phase0/validator.md#broadcast-aggregate
+  # https://github.com/ethereum/consensus-specs/blob/v1.5.0-beta.1/specs/phase0/validator.md#broadcast-aggregate
   # https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.10/specs/altair/validator.md#broadcast-sync-committee-contribution
   # Wait 2 / 3 of the slot time to allow messages to propagate, then collect
   # the result in aggregates

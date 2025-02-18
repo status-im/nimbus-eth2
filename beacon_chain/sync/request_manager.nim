@@ -7,10 +7,8 @@
 
 {.push raises: [].}
 
-import std/[sequtils, strutils]
 import chronos, chronicles
 import
-  ../spec/datatypes/[phase0, deneb, fulu],
   ../spec/[forks, network, peerdas_helpers],
   ../networking/eth2_network,
   ../consensus_object_pools/block_quarantine,
@@ -20,6 +18,8 @@ import
   ../gossip_processing/block_processor
 
 from std/algorithm import binarySearch, sort
+from std/sequtils import mapIt
+from std/strutils import join
 from ../beacon_clock import GetBeaconTimeFn
 export block_quarantine, sync_manager
 
@@ -27,40 +27,40 @@ logScope:
   topics = "requman"
 
 const
-  SYNC_MAX_REQUESTED_BLOCKS* = 32 # Spec allows up to MAX_REQUEST_BLOCKS.
+  SYNC_MAX_REQUESTED_BLOCKS = 32 # Spec allows up to MAX_REQUEST_BLOCKS.
     ## Maximum number of blocks which will be requested in each
     ## `beaconBlocksByRoot` invocation.
-  PARALLEL_REQUESTS* = 2
-    ## Number of peers we using to resolve our request.
+  PARALLEL_REQUESTS = 2
+    ## Number of peers we're using to resolve our request.
 
-  PARALLEL_REQUESTS_DATA_COLUMNS* = 32
+  PARALLEL_REQUESTS_DATA_COLUMNS = 32
 
-  BLOB_GOSSIP_WAIT_TIME_NS* = 2 * 1_000_000_000
+  BLOB_GOSSIP_WAIT_TIME_NS = 2 * 1_000_000_000
     ## How long to wait for blobs to arri ve over gossip before fetching.
 
-  DATA_COLUMN_GOSSIP_WAIT_TIME_NS* = 2 * 1_000_000_000
+  DATA_COLUMN_GOSSIP_WAIT_TIME_NS = 2 * 1_000_000_000
     ## How long to wait for blobs to arri ve over gossip before fetching.
 
   POLL_INTERVAL = 1.seconds
 
 type
-  BlockVerifierFn* = proc(
+  BlockVerifierFn = proc(
       signedBlock: ForkedSignedBeaconBlock,
       maybeFinalized: bool
   ): Future[Result[void, VerifierError]] {.async: (raises: [CancelledError]).}
 
-  BlockLoaderFn* = proc(
+  BlockLoaderFn = proc(
       blockRoot: Eth2Digest
   ): Opt[ForkedTrustedSignedBeaconBlock] {.gcsafe, raises: [].}
 
   BlobLoaderFn* = proc(
       blobId: BlobIdentifier): Opt[ForkedBlobSidecar] {.gcsafe, raises: [].}
 
-  DataColumnLoaderFn* = proc(
+  DataColumnLoaderFn = proc(
       columnId: DataColumnIdentifier):
       Opt[ref DataColumnSidecar] {.gcsafe, raises: [].}
 
-  InhibitFn* = proc: bool {.gcsafe, raises: [].}
+  InhibitFn = proc: bool {.gcsafe, raises: [].}
 
   RequestManager* = object
     network*: Eth2Node
@@ -112,7 +112,7 @@ proc init*(T: type RequestManager, network: Eth2Node,
     blobLoader: blobLoader,
     dataColumnLoader: dataColumnLoader)
 
-proc checkResponse(roots: openArray[Eth2Digest],
+func checkResponse(roots: openArray[Eth2Digest],
                    blocks: openArray[ref ForkedSignedBeaconBlock]): bool =
   ## This procedure checks peer's response.
   var checks = @roots
@@ -155,7 +155,7 @@ proc checkResponse(idList: seq[BlobIdentifier],
     inc i
   true
 
-proc checkResponse(idList: seq[DataColumnIdentifier],
+func checkResponse(idList: seq[DataColumnIdentifier],
                    columns: openArray[ref DataColumnSidecar]): bool =
   if columns.len > idList.len:
     return false
@@ -307,9 +307,9 @@ proc fetchBlobsFromNetwork(self: RequestManager,
     if not(isNil(peer)):
       self.network.peerPool.release(peer)
 
-proc checkPeerCustody*(rman: RequestManager,
-                       peer: Peer):
-                       bool =
+proc checkPeerCustody(rman: RequestManager,
+                      peer: Peer):
+                      bool =
   # Returns true if the peer custodies atleast
   # ONE of the common custody columns, straight
   # away returns true if the peer is a supernode.
