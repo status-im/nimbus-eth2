@@ -609,6 +609,8 @@ func shortLog*(v: SomeBeaconBlock): auto =
     fee_recipient: "",   # Bellatrix compat
     bls_to_execution_changes_len: 0,  # Capella compat
     blob_kzg_commitments_len: 0,  # Deneb compat
+    signed_execution_payload_header: "", # Eip7732 compat
+    payload_attestations_len: 0 # Eip7732 compat
   )
 
 func shortLog*(v: SomeSignedBeaconBlock): auto =

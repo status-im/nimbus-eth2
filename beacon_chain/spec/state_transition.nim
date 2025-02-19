@@ -433,7 +433,7 @@ func partialBeaconBlock*(
   const consensusFork = typeof(state).kind
 
   # https://github.com/ethereum/consensus-specs/blob/v1.3.0/specs/phase0/validator.md#preparing-for-a-beaconblock
-  consensusFork.BeaconBlock(
+  var res =  consensusFork.BeaconBlock(
     slot: state.data.slot,
     proposer_index: proposer_index.uint64,
     parent_root: state.latest_block_root,
@@ -448,10 +448,21 @@ func partialBeaconBlock*(
       deposits: List[Deposit, Limit MAX_DEPOSITS](deposits),
       voluntary_exits: validator_changes.voluntary_exits,
       sync_aggregate: sync_aggregate,
-      execution_payload: execution_payload.executionPayload,
-      bls_to_execution_changes: validator_changes.bls_to_execution_changes,
-      blob_kzg_commitments: execution_payload.blobsBundle.commitments,
-      execution_requests: execution_requests))
+      bls_to_execution_changes: validator_changes.bls_to_execution_changes))
+
+  when consensusFork == ConsensusFork.Electra:
+    res.body.execution_payload = execution_payload.executionPayload
+    res.body.blob_kzg_commitments = 
+      execution_payload.blobsBundle.commitments
+    res.body.execution_requests = execution_requests
+
+  when consensusFork >= ConsensusFork.Fulu:
+    res.body.signed_execution_payload_header = 
+      default(fulu.SignedExecutionPayloadHeader)
+    # res.body.payload_attestations = 
+    #   List[PayloadAttestation, Limit MAX_PAYLOAD_ATTESTATIONS](payload_attestations)
+
+  res
 
 proc makeBeaconBlockWithRewards*(
     cfg: RuntimeConfig,
@@ -555,10 +566,11 @@ proc makeBeaconBlockWithRewards*(
                hash_tree_root(execution_requests)
             ])
           else:
-            raiseAssert "Attempt to use non-Electra payload with post-Deneb state"
+            raiseAssert "x"
         elif consensusFork == ConsensusFork.Fulu:
-          forkyState.data.latest_execution_payload_header.transactions_root =
-            transactions_root.get
+          # transaction root removed for epbs blocks
+          # forkyState.data.latest_execution_payload_header.transactions_root =
+          #   transactions_root.get
 
           debugFuluComment "verify (again) that this is what builder API needs"
           when executionPayload is fulu.ExecutionPayloadForSigning:

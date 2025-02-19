@@ -112,7 +112,10 @@ proc routeSignedBeaconBlock*(
         signature = shortLog(blck.signature), error = res.error()
       return err($(res.error()[1]))
 
-    when typeof(blck).kind >= ConsensusFork.Deneb:
+    when typeof(blck).kind == ConsensusFork.Fulu:
+      discard
+    elif typeof(blck).kind >= ConsensusFork.Deneb and
+      typeof(blck).kind < ConsensusFork.Fulu:
       if blobsOpt.isSome:
         let blobs = blobsOpt.get()
         let kzgCommits = blck.message.body.blob_kzg_commitments.asSeq

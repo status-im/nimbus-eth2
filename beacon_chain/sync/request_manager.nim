@@ -460,7 +460,11 @@ proc getMissingBlobs(rman: RequestManager): seq[BlobIdentifier] =
     ready: seq[Eth2Digest]
   for blobless in rman.quarantine[].peekBlobless():
     withBlck(blobless):
-      when consensusFork >= ConsensusFork.Deneb:
+      when consensusFork == ConsensusFork.Fulu:
+        # For Fulu, return an empty sequence
+        return fetches
+      elif consensusFork >= ConsensusFork.Deneb and 
+        consensusFork < ConsensusFork.Fulu:
         # give blobs a chance to arrive over gossip
         if forkyBlck.message.slot == wallSlot and delay < waitDur:
           debug "Not handling missing blobs early in slot"
@@ -575,6 +579,13 @@ proc getMissingDataColumns(rman: RequestManager): seq[DataColumnsByRootIdentifie
   for columnless in rman.quarantine[].peekColumnless():
     withBlck(columnless):
       when consensusFork >= ConsensusFork.Fulu:
+        const hasCommitmentField = compiles(forkyBlck.message.body.blob_kzg_commitments)
+        let commitmentsLen = block:
+          when hasCommitmentField:
+            len(forkyBlck.message.body.blob_kzg_commitments)
+          else:
+            0
+            
         # granting data columns a chance to arrive over gossip
         if forkyBlck.message.slot == wallSlot and delay < waitDur:
           debug "Not handling missing data columns early in slot"
@@ -601,7 +612,7 @@ proc getMissingDataColumns(rman: RequestManager): seq[DataColumnsByRootIdentifie
           # this is a programming error and it not should occur
           warn "missing column handler found columnless block with all data columns",
              blk = columnless.root,
-             commitments = len(forkyBlck.message.body.blob_kzg_commitments)
+             commitments = commitmentsLen
           ready.add(columnless.root)
 
   for root in ready:

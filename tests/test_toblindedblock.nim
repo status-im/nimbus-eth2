@@ -69,68 +69,73 @@ template bellatrix_steps() =
   do_check
   b.message.body.sync_aggregate.sync_committee_signature =
     nondefaultValidatorSig
-  do_check
-  b.message.body.execution_payload.parent_hash = Eth2Digest.fromHex(
-    "0x941bdf6ccf731a7ede6bac0c9533ecee5e3dc5081ea59d57c3fd8c624eeca85d")
-  do_check
-  b.message.body.execution_payload.fee_recipient =
-    ExecutionAddress.fromHex("0x1234567812345678123456781234567812345678")
-  do_check
-  b.message.body.execution_payload.state_root = Eth2Digest.fromHex(
-    "0x9e7d9bca96a9d0af9013ad6abb8708988beef02d58c16ba1a90075960b99c2ff")
-  do_check
-  b.message.body.execution_payload.receipts_root = Eth2Digest.fromHex(
-    "0x0e66a5007cf7bb16f4398adbbd01b34067a80faaef41a0a6be324c5fdb93a6df")
-  do_check
-  b.message.body.execution_payload.logs_bloom.data[0] = 2
-  do_check
-  b.message.body.execution_payload.prev_randao = Eth2Digest.fromHex(
-    "0x8aa830156370e6a5ec7679d7e5ee712dd87f24fef76a1954a03c1df8c68bc0fd")
-  do_check
-  b.message.body.execution_payload.block_number = 3
-  do_check
-  b.message.body.execution_payload.gas_limit = 4
-  do_check
-  b.message.body.execution_payload.gas_used = 5
-  do_check
-  b.message.body.execution_payload.timestamp = 6
-  do_check
-  check: b.message.body.execution_payload.extra_data.add 0'u8
-  do_check
-  b.message.body.execution_payload.base_fee_per_gas = 7.u256
-  do_check
-  b.message.body.execution_payload.block_hash = Eth2Digest.fromHex(
-    "0x4b1aed517ac48bfbf6ab19846923d5256897fbc934c20ca5b8c486bfe71c6ef1")
-  do_check
-  check: b.message.body.execution_payload.transactions.add default(Transaction)
-  do_check
+  when consensusFork < ConsensusFork.Fulu:
+    debugFuluComment "Execution payload removed from fulu"
+    do_check
+    b.message.body.execution_payload.parent_hash = Eth2Digest.fromHex(
+      "0x941bdf6ccf731a7ede6bac0c9533ecee5e3dc5081ea59d57c3fd8c624eeca85d")
+    do_check
+    b.message.body.execution_payload.fee_recipient =
+      ExecutionAddress.fromHex("0x1234567812345678123456781234567812345678")
+    do_check
+    b.message.body.execution_payload.state_root = Eth2Digest.fromHex(
+      "0x9e7d9bca96a9d0af9013ad6abb8708988beef02d58c16ba1a90075960b99c2ff")
+    do_check
+    b.message.body.execution_payload.receipts_root = Eth2Digest.fromHex(
+      "0x0e66a5007cf7bb16f4398adbbd01b34067a80faaef41a0a6be324c5fdb93a6df")
+    do_check
+    b.message.body.execution_payload.logs_bloom.data[0] = 2
+    do_check
+    b.message.body.execution_payload.prev_randao = Eth2Digest.fromHex(
+      "0x8aa830156370e6a5ec7679d7e5ee712dd87f24fef76a1954a03c1df8c68bc0fd")
+    do_check
+    b.message.body.execution_payload.block_number = 3
+    do_check
+    b.message.body.execution_payload.gas_limit = 4
+    do_check
+    b.message.body.execution_payload.gas_used = 5
+    do_check
+    b.message.body.execution_payload.timestamp = 6
+    do_check
+    check: b.message.body.execution_payload.extra_data.add 0'u8
+    do_check
+    b.message.body.execution_payload.base_fee_per_gas = 7.u256
+    do_check
+    b.message.body.execution_payload.block_hash = Eth2Digest.fromHex(
+      "0x4b1aed517ac48bfbf6ab19846923d5256897fbc934c20ca5b8c486bfe71c6ef1")
+    do_check
+    check: b.message.body.execution_payload.transactions.add default(Transaction)
+    do_check
 
 template capella_steps() =
   check: b.message.body.bls_to_execution_changes.add(
     default(SignedBLSToExecutionChange))
-  do_check
-  check: b.message.body.execution_payload.withdrawals.add(default(
-    Withdrawal))
-  do_check
+  when consensusFork < ConsensusFork.Fulu:
+    do_check
+    check: b.message.body.execution_payload.withdrawals.add(default(
+      Withdrawal))
+    do_check
 
 template deneb_steps() =
-  b.message.body.execution_payload.blob_gas_used = 8
-  do_check
-  b.message.body.execution_payload.excess_blob_gas = 9
-  do_check
-  check: b.message.body.blob_kzg_commitments.add(default(KzgCommitment))
-  do_check
+  when consensusFork < ConsensusFork.Fulu:
+    b.message.body.execution_payload.blob_gas_used = 8
+    do_check
+    b.message.body.execution_payload.excess_blob_gas = 9
+    do_check
+    check: b.message.body.blob_kzg_commitments.add(default(KzgCommitment))
+    do_check
 
 template electra_steps() =
-  check: b.message.body.execution_requests.deposits.add(
-    default(DepositRequest))
-  do_check
-  check: b.message.body.execution_requests.withdrawals.add(
-    default(WithdrawalRequest))
-  do_check
-  check: b.message.body.execution_requests.consolidations.add(
-    default(ConsolidationRequest))
-  do_check
+  when consensusFork < ConsensusFork.Fulu:
+    check: b.message.body.execution_requests.deposits.add(
+      default(DepositRequest))
+    do_check
+    check: b.message.body.execution_requests.withdrawals.add(
+      default(WithdrawalRequest))
+    do_check
+    check: b.message.body.execution_requests.consolidations.add(
+      default(ConsolidationRequest))
+    do_check
 
 template fulu_steps() =
   check: b.message.body.execution_requests.deposits.add(

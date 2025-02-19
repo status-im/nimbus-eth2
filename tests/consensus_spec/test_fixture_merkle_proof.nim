@@ -1,5 +1,5 @@
 # beacon_chain
-# Copyright (c) 2023-2024 Status Research & Development GmbH
+# Copyright (c) 2023-2025 Status Research & Development GmbH
 # Licensed and distributed under either of
 #   * MIT license (license terms in the root directory or at https://opensource.org/licenses/MIT).
 #   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
@@ -20,6 +20,8 @@ import
   # Test utilities
   ../testutil,
   ./fixtures_utils, ./os_ops
+
+from std/strutils import contains
 
 proc runTest[T](suiteName, path: string, objType: typedesc[T]) =
   let relativePathComponent = path.relativeTestPathComponent()
@@ -57,6 +59,8 @@ suite "EF - Merkle proof" & preset():
   for kind, path in walkDir(presetPath, relative = true, checkDir = true):
     let testsPath = presetPath/path/"merkle_proof"/"single_merkle_proof"
     if kind != pcDir or not dirExists(testsPath):
+      continue
+    if testsPath.contains("/fulu/") or testsPath.contains("\\fulu\\"):
       continue
     let fork = forkForPathComponent(path).valueOr:
       test "Merkle proof - Single merkle proof - " & path:

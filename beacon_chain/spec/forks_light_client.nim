@@ -1207,8 +1207,7 @@ func toElectraLightClientHeader(
 func toElectraLightClientHeader(
     # `SomeSignedBeaconBlock`: https://github.com/nim-lang/Nim/issues/18095
     blck:
-      electra.SignedBeaconBlock | electra.TrustedSignedBeaconBlock |
-      fulu.SignedBeaconBlock | fulu.TrustedSignedBeaconBlock
+      electra.SignedBeaconBlock | electra.TrustedSignedBeaconBlock
 ): electra.LightClientHeader =
   template payload: untyped = blck.message.body.execution_payload
   electra.LightClientHeader(
@@ -1234,6 +1233,19 @@ func toElectraLightClientHeader(
     execution_branch: blck.message.body.build_proof(
       capella.EXECUTION_PAYLOAD_GINDEX).get)
 
+func toElectraLightClientHeader(
+  # Note that during fork transitions, `finalized_header` may still
+  # point to earlier forks. Fulu-epbs blocks do not contain an
+  # `ExecutionPayload`, it was not included
+  # in the corresponding light client data. To ensure compatibility
+  # with legacy data going through `upgrade_lc_header_to_electra`,
+  # leave out execution data.
+    blck:
+      fulu.SignedBeaconBlock | fulu.TrustedSignedBeaconBlock
+): electra.LightClientHeader =
+  electra.LightClientHeader(
+    beacon: blck.message.toBeaconBlockHeader())
+  
 func toLightClientHeader*(
     # `SomeSignedBeaconBlock`: https://github.com/nim-lang/Nim/issues/18095
     blck:

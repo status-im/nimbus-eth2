@@ -836,11 +836,12 @@ proc getBlindedBlockParts[
     type PayloadType = fulu.ExecutionPayloadForSigning
     template actualEPH: untyped =
       blindedBlockRes.get.blindedBlckPart.execution_payload_header
+    # Temporary fix: `withdrawals_root` and `kzg_commitments` are removed in Epbs (EIP-7732).
+    # Only access it for compatible forks (Deneb, Electra) to prevent errors. 
     let
-      withdrawals_root = Opt.some actualEPH.withdrawals_root
-      kzg_commitments = Opt.some(
-        blindedBlockRes.get.blindedBlckPart.blob_kzg_commitments)
-      execution_requests = blindedBlockRes.get.executionRequests
+      withdrawals_root = Opt.none(Eth2Digest)
+      kzg_commitments = Opt.none(KzgCommitments)
+      execution_requests = default(ExecutionRequests)
 
     var shimExecutionPayload: PayloadType
     type FuluEPH =
@@ -853,7 +854,11 @@ proc getBlindedBlockParts[
   let newBlock = await makeBeaconBlockForHeadAndSlot(
     PayloadType, node, randao, validator_index, graffiti, head, slot,
     execution_payload = Opt.some shimExecutionPayload,
-    transactions_root = Opt.some actualEPH.transactions_root,
+    transactions_root =  
+      when compiles(actualEPH.withdrawals_root):
+        Opt.some(actualEPH.withdrawals_root)
+      else:
+        Opt.none(Eth2Digest),
     execution_payload_root = Opt.some hash_tree_root(actualEPH),
     withdrawals_root = withdrawals_root,
     kzg_commitments = kzg_commitments,
@@ -912,6 +917,12 @@ proc getBuilderBid[
     return ok(BuilderBid[SBBB](
       blindedBlckPart: unsignedBlindedBlock.get,
       executionRequests: executionRequests,
+      executionPayloadValue: bidValue,
+      consensusBlockValue: consensusValue))
+  elif SBBB is fulu_mev.SignedBlindedBeaconBlock:
+   return ok(BuilderBid[SBBB](
+      blindedBlckPart: unsignedBlindedBlock.get,
+      executionRequests: default(ExecutionRequests),
       executionPayloadValue: bidValue,
       consensusBlockValue: consensusValue))
   else:
@@ -2021,7 +2032,10 @@ proc makeMaybeBlindedBeaconBlockForHeadAndSlotImpl[ResultType](
     ResultType.ok((
       blck: consensusFork.MaybeBlindedBeaconBlock(
         isBlinded: false,
-        data: forkyBlck),
+        data: consensusFork.BlockContents(
+          `block`: forkyBlck,
+          kzg_proofs: default(KzgProofs),
+          blobs: default(Blobs))),
       executionValue: Opt.some(engineBid.executionPayloadValue),
       consensusValue: Opt.some(engineBid.consensusBlockValue)))
 

@@ -1612,7 +1612,8 @@ proc pruneBlobs(node: BeaconNode, slot: Slot) =
     for i in startIndex..<SLOTS_PER_EPOCH:
       let blck = node.dag.getForkedBlock(blocks[int(i)]).valueOr: continue
       withBlck(blck):
-        when typeof(forkyBlck).kind < ConsensusFork.Deneb: continue
+        when typeof(forkyBlck).kind < ConsensusFork.Deneb or 
+          typeof(forkyBlck).kind >= ConsensusFork.Fulu: continue
         else:
           for j in 0..len(forkyBlck.message.body.blob_kzg_commitments) - 1:
             if node.db.delBlobSidecar(blocks[int(i)].root, BlobIndex(j)):

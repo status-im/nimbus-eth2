@@ -1461,7 +1461,8 @@ proc computeRandaoMix(
     bdata: ForkedTrustedSignedBeaconBlock): Opt[Eth2Digest] =
   ## Compute the requested RANDAO mix for `bdata` without `state`, if possible.
   withBlck(bdata):
-    when consensusFork >= ConsensusFork.Bellatrix:
+    when consensusFork >= ConsensusFork.Bellatrix and 
+      consensusFork < ConsensusFork.Fulu:
       if forkyBlck.message.is_execution_block:
         var mix = eth2digest(forkyBlck.message.body.randao_reveal.toRaw())
         mix.data.mxor forkyBlck.message.body.execution_payload.prev_randao.data
@@ -2309,7 +2310,10 @@ proc loadExecutionBlockHash*(
     return Opt.none(Eth2Digest)
 
   withBlck(blockData):
-    when consensusFork >= ConsensusFork.Bellatrix:
+    when consensusFork >= ConsensusFork.Fulu:
+      Opt.some forkyBlck.message.body.
+        signed_execution_payload_header.message.block_hash
+    elif consensusFork >= ConsensusFork.Bellatrix:
       Opt.some forkyBlck.message.body.execution_payload.block_hash
     else:
       Opt.some ZERO_HASH
