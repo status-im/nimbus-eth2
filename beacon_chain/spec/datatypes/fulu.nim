@@ -27,7 +27,6 @@ import
 
 from std/strutils import join
 from stew/bitops2 import log2trunc
-from stew/byteutils import to0xHex
 from ./altair import
   EpochParticipationFlags, InactivityScores, SyncAggregate, SyncCommittee,
   TrustedSyncAggregate, SyncnetBits, num_active_participants
@@ -203,31 +202,19 @@ type
     blobsBundle*: BlobsBundle
     executionRequests*: seq[seq[byte]]
 
-  # https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.10/specs/deneb/beacon-chain.md#executionpayloadheader
+  # https://github.com/ethereum/consensus-specs/blob/dev/specs/_features/eip7732/beacon-chain.md#executionpayloadheader
   ExecutionPayloadHeader* = object
     # Execution block header fields
-    parent_hash*: Eth2Digest
-    fee_recipient*: ExecutionAddress
-    state_root*: Eth2Digest
-    receipts_root*: Eth2Digest
-    logs_bloom*: BloomLogs
-    prev_randao*: Eth2Digest
-    block_number*: uint64
-    gas_limit*: uint64
-    gas_used*: uint64
-    timestamp*: uint64
-    extra_data*: List[byte, MAX_EXTRA_DATA_BYTES]
-    base_fee_per_gas*: UInt256
-
-    # Extra payload fields
+    parent_block_hash*: Eth2Digest
+    parent_block_root*: Eth2Digest
     block_hash*: Eth2Digest
-      ## Hash of execution block
-    transactions_root*: Eth2Digest
-    withdrawals_root*: Eth2Digest
-    blob_gas_used*: uint64
-    excess_blob_gas*: uint64
+    gas_limit*: uint64
+    builder_index*: uint64
+    slot*: Slot
+    value*: Gwei
+    blob_kzg_commitments_root*: Eth2Digest
 
-      # https://github.com/ethereum/consensus-specs/blob/dev/specs/_features/eip7732/beacon-chain.md#executionpayloadenvelope
+  # https://github.com/ethereum/consensus-specs/blob/dev/specs/_features/eip7732/beacon-chain.md#executionpayloadenvelope
   SignedExecutionPayloadHeader* = object
     message*: ExecutionPayloadHeader
     signature*: ValidatorSig
@@ -239,7 +226,8 @@ type
     builder_index*: uint64
     beacon_block_root*: Eth2Digest
     slot*: Slot
-    blob_kzg_commitments*: List[KzgCommitment, Limit MAX_BLOB_COMMITMENTS_PER_BLOCK]
+    blob_kzg_commitments*: 
+      List[KzgCommitment, Limit MAX_BLOB_COMMITMENTS_PER_BLOCK]
     state_root*: Eth2Digest
 
   # https://github.com/ethereum/consensus-specs/blob/dev/specs/_features/eip7732/beacon-chain.md#signedexecutionpayloadenvelope
@@ -357,7 +345,7 @@ type
       ## (used to compute safety threshold)
     current_max_active_participants*: uint64
 
-  # https://github.com/ethereum/consensus-specs/blob/82133085a1295e93394ebdf71df8f2f6e0962588/specs/electra/beacon-chain.md#beaconstate
+  # https://github.com/ethereum/consensus-specs/blob/dev/specs/_features/eip7732/beacon-chain.md#beaconstate
   BeaconState* = object
     # Versioning
     genesis_time*: uint64
@@ -439,6 +427,11 @@ type
     pending_consolidations*:
       HashList[PendingConsolidation, Limit PENDING_CONSOLIDATIONS_LIMIT]
       ## [New in Electra:EIP7251]
+    
+    # [New in Epbs:EIP7732]
+    latest_block_hash*: Eth2Digest
+    latest_full_slot*: Slot
+    latest_withdrawals_root*: Eth2Digest
 
   # TODO Careful, not nil analysis is broken / incomplete and the semantics will
   #      likely change in future versions of the language:
@@ -508,7 +501,7 @@ type
     state_root*: Eth2Digest
     body*: TrustedBeaconBlockBody
 
-  # https://github.com/ethereum/consensus-specs/blob/v1.5.0-beta.0/specs/electra/beacon-chain.md#beaconblockbody
+  # https://github.com/ethereum/consensus-specs/blob/dev/specs/_features/eip7732/beacon-chain.md#beaconblockbody
   BeaconBlockBody* = object
     randao_reveal*: ValidatorSig
     eth1_data*: Eth1Data
@@ -530,10 +523,11 @@ type
     sync_aggregate*: SyncAggregate
 
     # Execution
-    execution_payload*: fulu.ExecutionPayload   # [Modified in Electra:EIP6110:EIP7002]
     bls_to_execution_changes*: SignedBLSToExecutionChangeList
-    blob_kzg_commitments*: KzgCommitments
-    execution_requests*: ExecutionRequests  # [New in Electra]
+    # [New in EPBS: EIP7732]
+    signed_execution_payload_header*: SignedExecutionPayloadHeader
+    payload_attestations*: 
+      List[PayloadAttestation, Limit MAX_PAYLOAD_ATTESTATIONS]
 
   SigVerifiedBeaconBlockBody* = object
     ## A BeaconBlock body with signatures verified
@@ -570,10 +564,11 @@ type
     sync_aggregate*: TrustedSyncAggregate
 
     # Execution
-    execution_payload*: ExecutionPayload   # [Modified in Electra:EIP6110:EIP7002]
     bls_to_execution_changes*: SignedBLSToExecutionChangeList
-    blob_kzg_commitments*: KzgCommitments
-    execution_requests*: ExecutionRequests  # [New in Electra]
+    # [New in EPBS: EIP7732]
+    signed_execution_payload_header*: SignedExecutionPayloadHeader
+    payload_attestations*: 
+      List[PayloadAttestation, Limit MAX_PAYLOAD_ATTESTATIONS]
 
   TrustedBeaconBlockBody* = object
     ## A full verified block
@@ -598,10 +593,11 @@ type
     sync_aggregate*: TrustedSyncAggregate
 
     # Execution
-    execution_payload*: ExecutionPayload   # [Modified in Electra:EIP6110:EIP7002]
     bls_to_execution_changes*: SignedBLSToExecutionChangeList
-    blob_kzg_commitments*: KzgCommitments
-    execution_requests*: ExecutionRequests  # [New in Electra]
+    # [New in EPBS: EIP7732]
+    signed_execution_payload_header*: SignedExecutionPayloadHeader
+    payload_attestations*: 
+      List[PayloadAttestation, Limit MAX_PAYLOAD_ATTESTATIONS]
 
   # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.6/specs/phase0/beacon-chain.md#signedbeaconblock
   SignedBeaconBlock* = object
@@ -681,6 +677,25 @@ func shortLog*(x: seq[ColumnIndex]): string =
 func initHashedBeaconState*(s: BeaconState): HashedBeaconState =
   HashedBeaconState(data: s)
 
+func shortLog*(v: ExecutionPayloadHeader): auto =
+  (
+    # Execution block header fields
+    parent_block_hash: v.parent_block_hash,
+    parent_block_root: v.parent_block_root,
+    block_hash: v.block_hash, 
+    gas_limit: v.gas_limit,
+    builder_index: v.builder_index,
+    slot: v.slot,
+    value: v.value,
+    blob_kzg_commitments_root: v.blob_kzg_commitments_root
+  )
+
+func shortLog*(v: SignedExecutionPayloadHeader): auto =
+  (
+    message: shortLog(v.message),
+    signature: v.signature
+  )
+
 func shortLog*(v: SomeBeaconBlock): auto =
   (
     slot: shortLog(v.slot),
@@ -695,13 +710,16 @@ func shortLog*(v: SomeBeaconBlock): auto =
     deposits_len: v.body.deposits.len(),
     voluntary_exits_len: v.body.voluntary_exits.len(),
     sync_committee_participants: v.body.sync_aggregate.num_active_participants,
-    block_number: v.body.execution_payload.block_number,
+    block_number: 0'u64,
     # TODO checksum hex? shortlog?
-    block_hash: to0xHex(v.body.execution_payload.block_hash.data),
-    parent_hash: to0xHex(v.body.execution_payload.parent_hash.data),
-    fee_recipient: to0xHex(v.body.execution_payload.fee_recipient.data),
+    block_hash: "",
+    parent_hash: "",
+    fee_recipient: "",
     bls_to_execution_changes_len: v.body.bls_to_execution_changes.len(),
-    blob_kzg_commitments_len: v.body.blob_kzg_commitments.len(),
+    blob_kzg_commitments_len: 0,
+    signed_execution_payload_header: $v.body.
+      signed_execution_payload_header.message.block_hash, # Eip7732 compat
+    payload_attestations_len: v.body.payload_attestations.len() # Eip7732 compat
   )
 
 func shortLog*(v: SomeSignedBeaconBlock): auto =

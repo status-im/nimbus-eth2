@@ -1390,25 +1390,25 @@ proc process_block*(
   ## update the state accordingly - the state is left in an unknown state when
   ## block application fails (!)
 
-  ? process_block_header(state, blck, flags, cache)
+  # ? process_block_header(state, blck, flags, cache)
 
-  # Consensus specs v1.4.0 unconditionally assume is_execution_enabled is
-  # true, but intentionally keep such a check.
-  if is_execution_enabled(state, blck.body):
-    ? process_withdrawals(state, blck.body.execution_payload)
-    ? process_execution_payload(
-        cfg, state, blck.body,
-        func(_: fulu.ExecutionPayload): bool = true)
-  ? process_randao(state, blck.body, flags, cache)
-  ? process_eth1_data(state, blck.body)
+  # # Consensus specs v1.4.0 unconditionally assume is_execution_enabled is
+  # # true, but intentionally keep such a check.
+  # if is_execution_enabled(state, blck.body):
+  #   ? process_withdrawals(state)  # [Modified in EIP-7732]
+  #   ? process_execution_payload_header(state, blck)  # [New in EIP-7732]
+  # ? process_randao(state, blck.body, flags, cache)
+  # ? process_eth1_data(state, blck.body)
 
-  let
-    total_active_balance = get_total_active_balance(state, cache)
-    base_reward_per_increment =
-      get_base_reward_per_increment(total_active_balance)
-  var operations_rewards = ? process_operations(
-    cfg, state, blck.body, base_reward_per_increment, flags, cache)
-  operations_rewards.sync_aggregate = ? process_sync_aggregate(
-    state, blck.body.sync_aggregate, total_active_balance, flags, cache)
+  # let
+  #   total_active_balance = get_total_active_balance(state, cache)
+  #   base_reward_per_increment =
+  #     get_base_reward_per_increment(total_active_balance)
+  # var operations_rewards = ? process_operations(
+  #   cfg, state, blck.body, base_reward_per_increment, flags, cache) # [Modified in EIP-7732]
+  # operations_rewards.sync_aggregate = ? process_sync_aggregate(
+  #   state, blck.body.sync_aggregate, total_active_balance, flags, cache)
 
+  # TODO Skipped to return empty BlockRewards just to keep this PR small
+  var operations_rewards: BlockRewards
   ok(operations_rewards)

@@ -39,9 +39,13 @@ proc addResolvedHeadBlock(
        onBlockAdded: OnForkyBlockAdded,
        stateDataDur, sigVerifyDur, stateVerifyDur: Duration
      ): BlockRef =
-  doAssert state.matches_block_slot(
-    trustedBlock.root, trustedBlock.message.slot),
-    "Given state must have the new block applied"
+  # temporary workaround for epbs blocks that are 
+  # not being properly processed yet and state not updated accordingly 
+  # (state transition is fundamentally modified in EIP-7732)
+  if state.kind < ConsensusFork.Fulu:
+    doAssert state.matches_block_slot(
+      trustedBlock.root, trustedBlock.message.slot),
+      "Given state must have the new block applied"
 
   let
     blockRoot = trustedBlock.root

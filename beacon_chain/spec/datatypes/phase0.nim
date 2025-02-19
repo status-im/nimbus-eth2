@@ -1,5 +1,5 @@
 # beacon_chain
-# Copyright (c) 2021-2024 Status Research & Development GmbH
+# Copyright (c) 2021-2025 Status Research & Development GmbH
 # Licensed and distributed under either of
 #   * MIT license (license terms in the root directory or at https://opensource.org/licenses/MIT).
 #   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
@@ -382,6 +382,8 @@ func shortLog*(v: SomeBeaconBlock): auto =
     fee_recipient: "",   # Bellatrix compat
     bls_to_execution_changes_len: 0,  # Capella compat
     blob_kzg_commitments_len: 0,  # Deneb compat
+    signed_execution_payload_header: "", # Eip7732 compat
+    payload_attestations_len: 0 # Eip7732 compat
   )
 
 # TODO: There should be only a single generic HashedBeaconState definition

@@ -9,7 +9,6 @@
 
 import ".."/datatypes/[altair, fulu]
 
-from stew/byteutils import to0xHex
 from ".."/datatypes/phase0 import AttesterSlashing
 from ../datatypes/bellatrix import ExecutionAddress
 from ".."/datatypes/capella import SignedBLSToExecutionChange
@@ -42,12 +41,12 @@ type
     deposits*: List[Deposit, Limit MAX_DEPOSITS]
     voluntary_exits*: List[SignedVoluntaryExit, Limit MAX_VOLUNTARY_EXITS]
     sync_aggregate*: SyncAggregate
-    execution_payload_header*: ExecutionPayloadHeader
     bls_to_execution_changes*:
       List[SignedBLSToExecutionChange,
         Limit MAX_BLS_TO_EXECUTION_CHANGES]
-    blob_kzg_commitments*: KzgCommitments # [New in Deneb]
-    execution_requests*: ExecutionRequests # [New in Electra]
+    signed_execution_payload_header*: SignedExecutionPayloadHeader
+    payload_attestations*: 
+      List[PayloadAttestation, Limit MAX_PAYLOAD_ATTESTATIONS]
 
   # https://github.com/ethereum/builder-specs/blob/v0.4.0/specs/bellatrix/builder.md#blindedbeaconblock
   BlindedBeaconBlock* = object
@@ -93,13 +92,16 @@ func shortLog*(v: BlindedBeaconBlock): auto =
     deposits_len: v.body.deposits.len(),
     voluntary_exits_len: v.body.voluntary_exits.len(),
     sync_committee_participants: v.body.sync_aggregate.num_active_participants,
-    block_number: v.body.execution_payload_header.block_number,
+    block_number: 0'u64,
     # TODO checksum hex? shortlog?
-    block_hash: to0xHex(v.body.execution_payload_header.block_hash.data),
-    parent_hash: to0xHex(v.body.execution_payload_header.parent_hash.data),
-    fee_recipient: to0xHex(v.body.execution_payload_header.fee_recipient.data),
+    block_hash: "",
+    parent_hash: "",
+    fee_recipient: "",
     bls_to_execution_changes_len: v.body.bls_to_execution_changes.len(),
     blob_kzg_commitments_len: 0,  # Deneb compat
+    signed_execution_payload_header: 
+      shortLog(v.body.signed_execution_payload_header.signature),
+    payload_attestations_len: v.body.payload_attestations.len()
   )
 
 func shortLog*(v: SignedBlindedBeaconBlock): auto =
@@ -108,8 +110,7 @@ func shortLog*(v: SignedBlindedBeaconBlock): auto =
     signature: shortLog(v.signature)
   )
 
-func toSignedBlindedBeaconBlock*(blck: fulu.SignedBeaconBlock):
-    SignedBlindedBeaconBlock =
+func toSignedBlindedBeaconBlock*(blck: fulu.SignedBeaconBlock): SignedBlindedBeaconBlock =
   SignedBlindedBeaconBlock(
     message: BlindedBeaconBlock(
       slot: blck.message.slot,
@@ -126,28 +127,6 @@ func toSignedBlindedBeaconBlock*(blck: fulu.SignedBeaconBlock):
         deposits: blck.message.body.deposits,
         voluntary_exits: blck.message.body.voluntary_exits,
         sync_aggregate: blck.message.body.sync_aggregate,
-        execution_payload_header: ExecutionPayloadHeader(
-          parent_hash: blck.message.body.execution_payload.parent_hash,
-          fee_recipient: blck.message.body.execution_payload.fee_recipient,
-          state_root: blck.message.body.execution_payload.state_root,
-          receipts_root: blck.message.body.execution_payload.receipts_root,
-          logs_bloom: blck.message.body.execution_payload.logs_bloom,
-          prev_randao: blck.message.body.execution_payload.prev_randao,
-          block_number: blck.message.body.execution_payload.block_number,
-          gas_limit: blck.message.body.execution_payload.gas_limit,
-          gas_used: blck.message.body.execution_payload.gas_used,
-          timestamp: blck.message.body.execution_payload.timestamp,
-          extra_data: blck.message.body.execution_payload.extra_data,
-          base_fee_per_gas:
-            blck.message.body.execution_payload.base_fee_per_gas,
-          block_hash: blck.message.body.execution_payload.block_hash,
-          transactions_root:
-            hash_tree_root(blck.message.body.execution_payload.transactions),
-          withdrawals_root:
-            hash_tree_root(blck.message.body.execution_payload.withdrawals),
-          blob_gas_used: blck.message.body.execution_payload.blob_gas_used,
-          excess_blob_gas: blck.message.body.execution_payload.excess_blob_gas),
-        bls_to_execution_changes: blck.message.body.bls_to_execution_changes,
-        blob_kzg_commitments: blck.message.body.blob_kzg_commitments,
-        execution_requests: blck.message.body.execution_requests)),
+        signed_execution_payload_header: SignedExecutionPayloadHeader(
+          message: default(fulu.ExecutionPayloadHeader)))),
     signature: blck.signature)

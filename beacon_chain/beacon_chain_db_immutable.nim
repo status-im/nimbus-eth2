@@ -502,3 +502,8 @@ type
     pending_consolidations*:
       HashList[PendingConsolidation, Limit PENDING_CONSOLIDATIONS_LIMIT]
       ## [New in Electra:EIP7251]
+       
+    # [New in Epbs:EIP7732]
+    latest_block_hash*: Eth2Digest
+    latest_full_slot*: Slot
+    latest_withdrawals_root*: Eth2Digest

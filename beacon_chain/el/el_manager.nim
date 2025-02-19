@@ -1012,7 +1012,12 @@ proc sendNewPayload*(
       let
         requests = m.elConnections.mapIt:
           let req =
-            when typeof(blck).kind >= ConsensusFork.Electra:
+            when typeof(blck).kind >= ConsensusFork.Fulu:
+              let versioned_hashes: seq[VersionedHash] = @[]
+              sendNewPayloadToSingleEL(
+                it, payload, versioned_hashes,
+                FixedBytes[32] blck.parent_root.data)
+            elif typeof(blck).kind >= ConsensusFork.Electra:
               # https://github.com/ethereum/execution-apis/blob/4140e528360fea53c34a766d86a000c6c039100e/src/engine/prague.md#engine_newpayloadv4
               let
                 versioned_hashes = mapIt(

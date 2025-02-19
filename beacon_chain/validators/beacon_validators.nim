@@ -789,12 +789,9 @@ func constructSignableBlindedBlock[T: fulu_mev.SignedBlindedBeaconBlock](
   copyFields(blindedBlock.message, blck, blckFields)
   copyFields(blindedBlock.message.body, blck.body, blckBodyFields)
   assign(
-    blindedBlock.message.body.execution_payload_header,
+    blindedBlock.message.body.signed_execution_payload_header.message,
     blindedBundle.execution_payload_header)
-  assign(
-    blindedBlock.message.body.blob_kzg_commitments,
-    blindedBundle.blob_kzg_commitments)
-
+  
   blindedBlock
 
 func constructPlainBlindedBlock[T: deneb_mev.BlindedBeaconBlock](
@@ -861,11 +858,8 @@ func constructPlainBlindedBlock[T: fulu_mev.BlindedBeaconBlock](
   copyFields(blindedBlock, blck, blckFields)
   copyFields(blindedBlock.body, blck.body, blckBodyFields)
   assign(
-    blindedBlock.body.execution_payload_header,
+    blindedBlock.body.signed_execution_payload_header.message,
     blindedBundle.execution_payload_header)
-  assign(
-    blindedBlock.body.blob_kzg_commitments,
-    blindedBundle.blob_kzg_commitments)
 
   blindedBlock
 
@@ -1013,11 +1007,12 @@ proc getBlindedBlockParts[
     type PayloadType = fulu.ExecutionPayloadForSigning
     template actualEPH: untyped =
       blindedBlockRes.get.blindedBlckPart.execution_payload_header
+    # Temporary fix: `withdrawals_root` and `kzg_commitments` are removed in Epbs (EIP-7732).
+    # Only access it for compatible forks (Deneb, Electra) to prevent errors. 
     let
-      withdrawals_root = Opt.some actualEPH.withdrawals_root
-      kzg_commitments = Opt.some(
-        blindedBlockRes.get.blindedBlckPart.blob_kzg_commitments)
-      execution_requests = blindedBlockRes.get.executionRequests
+      withdrawals_root = Opt.none(Eth2Digest)
+      kzg_commitments = Opt.none(KzgCommitments)
+      execution_requests = default(ExecutionRequests)
 
     var shimExecutionPayload: PayloadType
     type FuluEPH =
@@ -1031,7 +1026,11 @@ proc getBlindedBlockParts[
   let newBlock = await makeBeaconBlockForHeadAndSlot(
     PayloadType, node, randao, validator_index, graffiti, head, slot,
     execution_payload = Opt.some shimExecutionPayload,
-    transactions_root = Opt.some actualEPH.transactions_root,
+    transactions_root =  
+      when compiles(actualEPH.withdrawals_root):
+        Opt.some(actualEPH.withdrawals_root)
+      else:
+        Opt.none(Eth2Digest),
     execution_payload_root = Opt.some hash_tree_root(actualEPH),
     withdrawals_root = withdrawals_root,
     kzg_commitments = kzg_commitments,
@@ -1095,11 +1094,16 @@ proc getBuilderBid[
       executionRequests: default(ExecutionRequests),
       executionPayloadValue: bidValue,
       consensusBlockValue: consensusValue))
-  elif SBBB is electra_mev.SignedBlindedBeaconBlock or
-      SBBB is fulu_mev.SignedBlindedBeaconBlock:
+  elif SBBB is electra_mev.SignedBlindedBeaconBlock:
    return ok(BuilderBid[SBBB](
       blindedBlckPart: unsignedBlindedBlock.get,
       executionRequests: execution_requests,
+      executionPayloadValue: bidValue,
+      consensusBlockValue: consensusValue))
+  elif SBBB is fulu_mev.SignedBlindedBeaconBlock:
+   return ok(BuilderBid[SBBB](
+      blindedBlckPart: unsignedBlindedBlock.get,
+      executionRequests: default(ExecutionRequests),
       executionPayloadValue: bidValue,
       consensusBlockValue: consensusValue))
   else:
@@ -1200,16 +1204,22 @@ proc makeBlindedBeaconBlockForHeadAndSlot*[BBB: ForkyBlindedBeaconBlock](
             executionRequests: default(ExecutionRequests),
             executionPayloadValue: bidValue,
             consensusBlockValue: consensusValue))
-
-      elif (consensusFork == ConsensusFork.Electra and
-           EPH is electra_mev.BlindedExecutionPayloadAndBlobsBundle) or
-           (consensusFork == ConsensusFork.Fulu and
-            EPH is fulu_mev.BlindedExecutionPayloadAndBlobsBundle):
+      elif consensusFork == ConsensusFork.Electra and
+          EPH is electra_mev.BlindedExecutionPayloadAndBlobsBundle:
         return ok(
           BuilderBid[BBB](
             blindedBlckPart:
               constructPlainBlindedBlock[BBB](forkyBlck, executionPayloadHeader),
             executionRequests: forkyBlck.body.execution_requests,
+            executionPayloadValue: bidValue,
+            consensusBlockValue: consensusValue))
+      elif consensusFork == ConsensusFork.Fulu and
+          EPH is fulu_mev.BlindedExecutionPayloadAndBlobsBundle:
+        return ok(
+          BuilderBid[BBB](
+            blindedBlckPart:
+              constructPlainBlindedBlock[BBB](forkyBlck, executionPayloadHeader),
+            executionRequests: default(ExecutionRequests),
             executionPayloadValue: bidValue,
             consensusBlockValue: consensusValue))
       else:
@@ -2271,7 +2281,7 @@ proc makeMaybeBlindedBeaconBlockForHeadAndSlotImpl[ResultType](
 
   doAssert engineBid.blck.kind == consensusFork
   template forkyBlck: untyped = engineBid.blck.forky(consensusFork)
-  when consensusFork >= ConsensusFork.Deneb:
+  when consensusFork in {ConsensusFork.Deneb, ConsensusFork.Electra}:
     let blobsBundle = engineBid.blobsBundleOpt.get()
     doAssert blobsBundle.commitments == forkyBlck.body.blob_kzg_commitments
     ResultType.ok((
@@ -2287,7 +2297,10 @@ proc makeMaybeBlindedBeaconBlockForHeadAndSlotImpl[ResultType](
     ResultType.ok((
       blck: consensusFork.MaybeBlindedBeaconBlock(
         isBlinded: false,
-        data: forkyBlck),
+        data: consensusFork.BlockContents(
+          `block`: forkyBlck,
+          kzg_proofs: default(KzgProofs),
+          blobs: default(Blobs))),
       executionValue: Opt.some(engineBid.executionPayloadValue),
       consensusValue: Opt.some(engineBid.consensusBlockValue)))
 
