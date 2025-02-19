@@ -2377,13 +2377,6 @@ proc doRunBeaconNode(config: var BeaconNodeConf, rng: ref HmacDrbgContext) {.rai
 
   config.createDumpDirs()
 
-  let metricsServer = (waitFor config.initMetricsServer()).valueOr:
-    return
-
-  # Nim GC metrics (for the main thread) will be collected in onSecond(), but
-  # we disable piggy-backing on other metrics here.
-  setSystemMetricsAutomaticUpdate(false)
-
   # There are no managed event loops in here, to do a graceful shutdown, but
   # letting the default Ctrl+C handler exit is safe, since we only read from
   # the db.
@@ -2425,6 +2418,13 @@ proc doRunBeaconNode(config: var BeaconNodeConf, rng: ref HmacDrbgContext) {.rai
       raiseAssert res.error()
 
   let node = waitFor BeaconNode.init(rng, config, metadata)
+
+  let metricsServer = (waitFor config.initMetricsServer()).valueOr:
+    return
+
+  # Nim GC metrics (for the main thread) will be collected in onSecond(), but
+  # we disable piggy-backing on other metrics here.
+  setSystemMetricsAutomaticUpdate(false)
 
   node.metricsServer = metricsServer
 

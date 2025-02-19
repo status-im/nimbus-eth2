@@ -1989,7 +1989,7 @@ proc readValue*(reader: var JsonReader[RestJson],
 proc writeValue*(writer: var JsonWriter[RestJson],
                  proof: ForkedAggregateAndProof) {.raises: [IOError].} =
   writer.beginRecord()
-  writer.writeField("version", proof.kind)
+  writer.writeField("version", proof.kind.toString())
   withAggregateAndProof(proof):
     writer.writeField("data", forkyProof)
   writer.endRecord()
@@ -4068,7 +4068,7 @@ proc readValue*(reader: var JsonReader[RestJson],
 proc writeValue*(writer: var JsonWriter[RestJson],
                  attestation: ForkedAttestation) {.raises: [IOError].} =
   writer.beginRecord()
-  writer.writeField("version", attestation.kind)
+  writer.writeField("version", attestation.kind.toString())
   withAttestation(attestation):
     writer.writeField("data", forkyAttestation)
   writer.endRecord()
