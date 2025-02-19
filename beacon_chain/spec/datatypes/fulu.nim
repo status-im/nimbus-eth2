@@ -79,7 +79,7 @@ const
   # https://github.com/ethereum/consensus-specs/blob/dev/specs/_features/eip7732/beacon-chain.md#payload-status
   PAYLOAD_ABSENT* = PTCStatus(0)
   PAYLOAD_PRESENT* = PTCStatus(1)
-  PAYLOAD_WITHHELD* = PTCStatus(2)
+  PAYLOAD_WITHHELD* = PTCStatus(2) 
   PAYLOAD_INVALID_STATUS* = PTCStatus(3)
 
 type
@@ -238,8 +238,8 @@ type
     execution_requests*: ExecutionRequests
     builder_index*: uint64
     beacon_block_root*: Eth2Digest
+    slot*: Slot
     blob_kzg_commitments*: List[KzgCommitment, Limit MAX_BLOB_COMMITMENTS_PER_BLOCK]
-    payload_withheld*: bool
     state_root*: Eth2Digest
 
   # https://github.com/ethereum/consensus-specs/blob/dev/specs/_features/eip7732/beacon-chain.md#signedexecutionpayloadenvelope
