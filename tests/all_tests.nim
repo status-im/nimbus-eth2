@@ -42,6 +42,7 @@ import # Unit test
   ./test_light_client,
   ./test_message_signatures,
   ./test_network_metadata,
+  ./test_nimbus_binary_common,
   ./test_peer_pool,
   ./test_peerdas_helpers,
   ./test_remote_keystore,

@@ -23,6 +23,8 @@ import
   ./spec/datatypes/base,
   "."/[beacon_clock, beacon_node_status, conf, conf_common, version]
 
+from std/os import getHomeDir, parentDir, `/`
+
 when defined(posix):
   import termios
 
@@ -493,3 +495,22 @@ proc quitDoppelganger*() =
 
   const QuitDoppelganger = 129
   quit QuitDoppelganger
+
+## Returns default OS-specific data directory for nimbus clients.
+## Extra path levels can be added with argument "paths".
+## "paths" should be composed by slash+directory pair(s)
+proc defaultDataDir*[Conf](config: Conf, paths: string = ""): string =
+  let dataDir = when defined(windows):
+    "AppData" / "Roaming" / "Nimbus"
+  elif defined(macosx):
+    "Library" / "Application Support" / "Nimbus"
+  else:
+    ".cache" / "nimbus"
+
+  let finalPaths =
+    if paths.len > 0 and paths[0] != '/':
+      "/" / paths
+    else:
+      paths
+
+  getHomeDir() / dataDir & finalPaths

@@ -30,7 +30,7 @@ import
   ./el/el_conf,
   ./filepath
 
-from std/os import getHomeDir, parentDir, `/`
+from std/os import `/`
 from std/strutils import parseBiggestUInt, replace
 from consensus_object_pools/block_pools_types_light_client
   import LightClientDataImportMode
@@ -161,7 +161,7 @@ type
 
     dataDir* {.
       desc: "The directory where nimbus will store all blockchain data"
-      defaultValue: config.defaultDataDir()
+      defaultValue: config.defaultDataDir("BeaconNode")
       defaultValueDesc: ""
       abbr: "d"
       name: "data-dir" .}: OutDir
@@ -897,7 +897,7 @@ type
 
     dataDir* {.
       desc: "The directory where nimbus will store all blockchain data"
-      defaultValue: config.defaultDataDir()
+      defaultValue: config.defaultDataDir("BeaconNode")
       defaultValueDesc: ""
       abbr: "d"
       name: "data-dir" .}: OutDir
@@ -1078,7 +1078,7 @@ type
 
     dataDir* {.
       desc: "The directory where nimbus will store validator's keys"
-      defaultValue: config.defaultDataDir()
+      defaultValue: config.defaultDataDir("BeaconNode")
       defaultValueDesc: ""
       abbr: "d"
       name: "data-dir" .}: OutDir
@@ -1134,16 +1134,6 @@ type
   AnyConf* = BeaconNodeConf | ValidatorClientConf | SigningNodeConf
 
   Address = primitives.Address
-
-proc defaultDataDir*[Conf](config: Conf): string =
-  let dataDir = when defined(windows):
-    "AppData" / "Roaming" / "Nimbus"
-  elif defined(macosx):
-    "Library" / "Application Support" / "Nimbus"
-  else:
-    ".cache" / "nimbus"
-
-  getHomeDir() / dataDir / "BeaconNode"
 
 func dumpDir(config: AnyConf): string =
   config.dataDir / "dump"
