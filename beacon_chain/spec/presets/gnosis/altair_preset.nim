@@ -22,7 +22,7 @@ const
   # ---------------------------------------------------------------
   # 2**9 (= 512)
   SYNC_COMMITTEE_SIZE* = 512
-  # 2**8 (= 256)
+  # 2**9 (= 512)
   EPOCHS_PER_SYNC_COMMITTEE_PERIOD* {.intdefine.}: uint64 = 512
 
 
