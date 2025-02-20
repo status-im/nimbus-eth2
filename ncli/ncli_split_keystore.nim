@@ -10,6 +10,7 @@
 import
   std/os,
   confutils,
+  ../beacon_chain/nimbus_binary_common,
   ../beacon_chain/validators/keystore_management,
   ../beacon_chain/spec/[keystore, crypto],
   ../beacon_chain/conf

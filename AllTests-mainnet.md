@@ -999,6 +999,11 @@ AllTests-mainnet
 + prune heads on finalization [Preset: mainnet]                                              OK
 + shutdown during finalization [Preset: mainnet]                                             OK
 ```
+## configuration paths
+```diff
++ Default path                                                                               OK
++ Path with extra path separator                                                             OK
+```
 ## createValidatorFiles()
 ```diff
 + Add keystore files [LOCAL]                                                                 OK

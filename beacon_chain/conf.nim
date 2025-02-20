@@ -55,6 +55,7 @@ const
   defaultGasLimit* = 36_000_000
   defaultAdminListenAddressDesc* = $defaultAdminListenAddress
   defaultBeaconNodeDesc = $defaultBeaconNode
+  defaultDataDirPath* = "BeaconNode"
 
 when defined(windows):
   {.pragma: windowsOnly.}
@@ -161,7 +162,7 @@ type
 
     dataDir* {.
       desc: "The directory where nimbus will store all blockchain data"
-      defaultValue: config.defaultDataDir("BeaconNode")
+      defaultValue: config.defaultDataDir(defaultDataDirPath)
       defaultValueDesc: ""
       abbr: "d"
       name: "data-dir" .}: OutDir
@@ -897,7 +898,7 @@ type
 
     dataDir* {.
       desc: "The directory where nimbus will store all blockchain data"
-      defaultValue: config.defaultDataDir("BeaconNode")
+      defaultValue: config.defaultDataDir(defaultDataDirPath)
       defaultValueDesc: ""
       abbr: "d"
       name: "data-dir" .}: OutDir
@@ -1078,7 +1079,7 @@ type
 
     dataDir* {.
       desc: "The directory where nimbus will store validator's keys"
-      defaultValue: config.defaultDataDir("BeaconNode")
+      defaultValue: config.defaultDataDir(defaultDataDirPath)
       defaultValueDesc: ""
       abbr: "d"
       name: "data-dir" .}: OutDir

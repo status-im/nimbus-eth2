@@ -499,7 +499,7 @@ proc quitDoppelganger*() =
 ## Returns default OS-specific data directory for nimbus clients.
 ## Extra path levels can be added with argument "paths".
 ## "paths" should be composed by slash+directory pair(s)
-proc defaultDataDir*[Conf](config: Conf, paths: string = ""): string =
+proc defaultDataDir*[Conf](config: Conf, path: string = ""): string =
   let dataDir = when defined(windows):
     "AppData" / "Roaming" / "Nimbus"
   elif defined(macosx):
@@ -507,10 +507,5 @@ proc defaultDataDir*[Conf](config: Conf, paths: string = ""): string =
   else:
     ".cache" / "nimbus"
 
-  let finalPaths =
-    if paths.len > 0 and paths[0] != '/':
-      "/" / paths
-    else:
-      paths
+  getHomeDir() / dataDir / path
 
-  getHomeDir() / dataDir & finalPaths

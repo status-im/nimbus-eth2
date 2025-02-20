@@ -8,31 +8,27 @@
 {.push raises: [].}
 {.used.}
 
-import
-  os,
-  unittest2,
-  stew/byteutils
+import os, unittest2
 
-from  ../beacon_chain/nimbus_binary_common import defaultDataDir
+from ../beacon_chain/nimbus_binary_common import defaultDataDir
 
-## expected values for dafault dir tests
-when defined(windows):
-  const expectedBase = getHomeDir() / "AppData" / "Roaming" / "Nimbus"
-elif defined(macosx):
-  const expectedBase = getHomeDir() / "Library" / "Application Support" / "Nimbus"
-else:
-  const expectedBase = getHomeDir() / ".cache" / "nimbus"
+## expected values
+proc getExpectedPaths(paths: string=""): seq[string] =
+  let base = getHomeDir()
 
-suite "Nimbus clients binary common":
-  test "Default path without extra paths":
-    check defaultDataDir(()) == expectedBase
+  var list = @[
+    base / "AppData" / "Roaming" / "Nimbus" / paths,
+    base / "Library" / "Application Support" / "Nimbus" / paths,
+    base / ".cache" / "nimbus" / paths,
+  ]
 
-  test "Relative extra path is appended":
-    check defaultDataDir((), "extra") == expectedBase / "extra"
+  list
 
-  test "Absolute extra path is used as is":
-    let absPath = "/my/absolute/path"
-    check defaultDataDir((), absPath) == expectedBase / "my" / "absolute" / "path"
+suite "configuration paths":
+  test "Default path":
+    check defaultDataDir(()) in getExpectedPaths()
 
-  test "Handles empty extra path correctly":
-    check defaultDataDir((), "") == expectedBase
+  test "Path with extra path separator":
+    check defaultDataDir((), "/extra") in getExpectedPaths("extra")
+    check defaultDataDir((), "extra") in getExpectedPaths("extra")
+

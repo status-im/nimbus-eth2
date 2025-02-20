@@ -1,5 +1,5 @@
 # beacon_chain
-# Copyright (c) 2022-2024 Status Research & Development GmbH
+# Copyright (c) 2022-2025 Status Research & Development GmbH
 # Licensed and distributed under either of
 #   * MIT license (license terms in the root directory or at https://opensource.org/licenses/MIT).
 #   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
@@ -13,7 +13,7 @@ import
   chronos/unittest2/asynctests,
   presto, confutils,
   ../beacon_chain/validators/[validator_pool, keystore_management],
-  ../beacon_chain/[conf, beacon_node]
+  ../beacon_chain/[conf, beacon_node, nimbus_binary_common]
 
 func createPubKey(number: int8): ValidatorPubKey =
   var res = ValidatorPubKey()
