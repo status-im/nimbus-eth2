@@ -43,10 +43,6 @@ type
     data*: SyncRange
     item*: T
 
-  SyncRequestQueueItem*[T] = object
-    requests: seq[SyncRequest[T]]
-    data: SyncRange
-
   SyncQueueItem[T] = object
     requests: seq[SyncRequest[T]]
     data: SyncRange
