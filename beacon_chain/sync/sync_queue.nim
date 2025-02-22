@@ -28,7 +28,6 @@ type
   ProcessingCallback* = proc() {.gcsafe, raises: [].}
   BlockVerifier* =  proc(signedBlock: ForkedSignedBeaconBlock,
                          blobs: Opt[BlobSidecars],
-                         data_columns: Opt[DataColumnSidecars],
                          maybeFinalized: bool):
       Future[Result[void, VerifierError]] {.async: (raises: [CancelledError]).}
 
@@ -46,7 +45,6 @@ type
     request*: SyncRequest[T]
     data*: seq[ref ForkedSignedBeaconBlock]
     blobs*: Opt[seq[BlobSidecars]]
-    dataColumns*: Opt[seq[DataColumnSidecars]]
 
   GapItem*[T] = object
     start*: Slot
@@ -135,27 +133,6 @@ proc getShortMap*[T](req: SyncRequest[T],
       res.add('|')
   res
 
-proc getShortMap*[T](req: SyncRequest[T],
-                     data: openArray[ref DataColumnSidecar]): string =
-  ## Returns all slot numbers in ``data`` as placement map.
-  var res = newStringOfCap(req.count * MAX_BLOBS_PER_BLOCK)
-  var cur : uint64 = 0
-  for slot in req.slot..<req.slot+req.count:
-    if cur >= lenu64(data):
-      res.add('|')
-      continue
-    if slot == data[cur].signed_block_header.message.slot:
-      for k in cur..<cur+MAX_BLOBS_PER_BLOCK:
-        if k >= lenu64(data) or slot != data[k].signed_block_header.message.slot:
-          res.add('|')
-          break
-        else:
-          inc(cur)
-          res.add('x')
-    else:
-      res.add('|')
-  res
-
 proc contains*[T](req: SyncRequest[T], slot: Slot): bool {.inline.} =
   slot >= req.slot and slot < req.slot + req.count
 
@@ -221,36 +198,6 @@ proc checkBlobsResponse*[T](req: SyncRequest[T],
     else:
       counter = 1'u64
     pslot = slot
-
-  ok()
-
-proc checkDataColumnsResponse*[T](req: SyncRequest[T],
-                                  data: openArray[Slot]):
-                                  Result[void, cstring] =
-  if data.len == 0:
-    # Impossible to verify empty response
-    return ok()
-
-  if lenu64(data) > (req.count * NUMBER_OF_COLUMNS):
-    # Number of data columns in response should be less or equal to
-    # number of requested (blocks * MAX_BLOCKS_PER_BLOCK_ELECTRA).
-    return err("Too many data columns received")
-
-  var
-    pSlot = data[0]
-    counter = 0'u64
-  for slot in data:
-    if (slot < req.slot) or (slot >=  req.slot + req.count):
-      return err("Some of the data columns are not in requested range")
-    if slot < pSlot:
-      return err("incorrect order")
-    if slot == pSlot:
-      inc counter
-      if counter > MAX_BLOBS_PER_BLOCK_ELECTRA:
-        return err("Number of data columns in the block exceeds the limit")
-    else:
-      counter = 1'u64
-    pSlot = slot
 
   ok()
 
@@ -633,24 +580,15 @@ func getOpt(blobs: Opt[seq[BlobSidecars]], i: int): Opt[BlobSidecars] =
   else:
     Opt.none(BlobSidecars)
 
-# This belongs inside the blocks iterator below, but can't be there due to
-# https://github.com/nim-lang/Nim/issues/21242
-func getOpt(data_columns: Opt[seq[DataColumnSidecars]], i: int): Opt[DataColumnSidecars] =
-  if data_columns.isSome:
-    Opt.some(data_columns.get()[i])
-  else:
-    Opt.none DataColumnSidecars
-
 iterator blocks[T](sq: SyncQueue[T],
-                   sr: SyncResult[T]): (ref ForkedSignedBeaconBlock, Opt[BlobSidecars],
-                                        Opt[DataColumnSidecars]) =
+                   sr: SyncResult[T]): (ref ForkedSignedBeaconBlock, Opt[BlobSidecars]) =
   case sq.kind
   of SyncQueueKind.Forward:
     for i in countup(0, len(sr.data) - 1):
-      yield (sr.data[i], sr.blobs.getOpt(i), sr.dataColumns.getOpt(i))
+      yield (sr.data[i], sr.blobs.getOpt(i))
   of SyncQueueKind.Backward:
     for i in countdown(len(sr.data) - 1, 0):
-      yield (sr.data[i], sr.blobs.getOpt(i), sr.dataColumns.getOpt(i))
+      yield (sr.data[i], sr.blobs.getOpt(i))
 
 proc advanceOutput*[T](sq: SyncQueue[T], number: uint64) =
   case sq.kind
@@ -705,7 +643,6 @@ func numAlreadyKnownSlots[T](sq: SyncQueue[T], sr: SyncRequest[T]): uint64 =
 proc push*[T](sq: SyncQueue[T], sr: SyncRequest[T],
               data: seq[ref ForkedSignedBeaconBlock],
               blobs: Opt[seq[BlobSidecars]],
-              dataColumns: Opt[seq[DataColumnSidecars]],
               maybeFinalized: bool = false,
               processingCb: ProcessingCallback = nil) {.async: (raises: [CancelledError]).} =
   logScope:
@@ -733,8 +670,7 @@ proc push*[T](sq: SyncQueue[T], sr: SyncRequest[T],
         # SyncQueue reset happens. We are exiting to wake up sync-worker.
         return
     else:
-      let syncres = SyncResult[T](request: sr, data: data, blobs: blobs,
-                                  dataColumns: dataColumns)
+      let syncres = SyncResult[T](request: sr, data: data, blobs: blobs)
       sq.readyQueue.push(syncres)
       break
 
@@ -784,8 +720,8 @@ proc push*[T](sq: SyncQueue[T], sr: SyncRequest[T],
       res: Result[void, VerifierError]
 
     var i=0
-    for blk, blb, cols in sq.blocks(item):
-      res = await sq.blockVerifier(blk[], blb, cols, maybeFinalized)
+    for blk, blb in sq.blocks(item):
+      res = await sq.blockVerifier(blk[], blb, maybeFinalized)
       inc(i)
 
       if res.isOk():

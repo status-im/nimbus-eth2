@@ -79,8 +79,6 @@ const
     int(ConsensusFork.Phase0) .. int(high(ConsensusFork))
   BlobForkCodeRange =
     MaxForksCount .. (MaxForksCount + int(high(ConsensusFork)) - int(ConsensusFork.Deneb))
-  DataColumnForkCodeRange =
-    MaxForksCount * 2 .. (MaxForksCount * 2 + int(high(ConsensusFork)) - int(ConsensusFork.Fulu))
 
 func getBlockForkCode(fork: ConsensusFork): uint64 =
   uint64(fork)
@@ -95,13 +93,6 @@ func getBlobForkCode(fork: ConsensusFork): uint64 =
     uint64(MaxForksCount) + uint64(fork) - uint64(ConsensusFork.Electra)
   of ConsensusFork.Phase0 .. ConsensusFork.Capella:
     raiseAssert "Blobs are not supported for the fork"
-
-func getDataColumnForkCode(fork: ConsensusFork): uint64 =
-  case fork
-  of ConsensusFork.Fulu:
-    uint64(MaxForksCount)
-  of ConsensusFork.Phase0 .. ConsensusFork.Electra:
-    raiseAssert "Data columns are not supported for the fork"
 
 proc init(t: typedesc[ChainFileError], k: ChainFileErrorType,
               m: string): ChainFileError =
@@ -143,8 +134,7 @@ proc checkKind(kind: uint64): Result[void, string] =
       if res > uint64(high(int)):
         return err("Unsuppoted chunk kind value")
       int(res)
-  if (hkind in BlockForkCodeRange) or (hkind in BlobForkCodeRange) or
-     (hkind in DataColumnForkCodeRange):
+  if (hkind in BlockForkCodeRange) or (hkind in BlobForkCodeRange):
     ok()
   else:
     err("Unsuppoted chunk kind value")
@@ -270,12 +260,6 @@ template getBlobChunkKind(kind: ConsensusFork, last: bool): uint64 =
   else:
     getBlobForkCode(kind)
 
-template getDataColumnChunkKind(kind: ConsensusFork,last: bool): uint64 =
-  if last:
-    maskKind(getDataColumnForkCode(kind))
-  else:
-    getDataColumnForkCode(kind)
-
 proc getBlockConsensusFork(header: ChainFileHeader): ConsensusFork =
   let hkind = unmaskKind(header.kind)
   if int(hkind) in BlockForkCodeRange:
@@ -290,10 +274,6 @@ template isBlock(h: ChainFileHeader | ChainFileFooter): bool =
 template isBlob(h: ChainFileHeader | ChainFileFooter): bool =
   let hkind = unmaskKind(h.kind)
   int(hkind) in BlobForkCodeRange
-
-template isDataColumn(h: ChainFileHeader | ChainFileFooter): bool =
-  let hkind = unmaskKind(h.kind)
-  int(hkind) in DataColumnForkCodeRange
 
 template isLast(h: ChainFileHeader | ChainFileFooter): bool =
   h.kind.isLast()
@@ -311,7 +291,7 @@ proc setTail*(chandle: var ChainFileHandle, bdata: BlockData) =
   chandle.data.tail = Opt.some(bdata)
 
 proc store*(chandle: ChainFileHandle, signedBlock: ForkedSignedBeaconBlock,
-            blobs: Opt[BlobSidecars], dataColumns: Opt[DataColumnSidecars]):
+            blobs: Opt[BlobSidecars]):
             Result[void, string] =
   let origOffset =
     updateFilePos(chandle.handle, 0'i64, SeekPosition.SeekEnd).valueOr:
@@ -346,36 +326,6 @@ proc store*(chandle: ChainFileHandle, signedBlock: ForkedSignedBeaconBlock,
             let res = SSZ.encode(blob[])
             (snappy.encode(res), len(res))
         slot = blob[].signed_block_header.message.slot
-        buffer = Chunk.init(kind, uint64(slot), uint32(plainSize), data)
-
-      setFilePos(chandle.handle, 0'i64, SeekPosition.SeekEnd).isOkOr:
-        discard truncate(chandle.handle, origOffset)
-        discard fsync(chandle.handle)
-        return err(ioErrorMsg(error))
-
-      let
-        wrote = writeFile(chandle.handle, buffer).valueOr:
-          discard truncate(chandle.handle, origOffset)
-          discard fsync(chandle.handle)
-          return err(ioErrorMsg(error))
-      if wrote != uint(len(buffer)):
-        discard truncate(chandle.handle, origOffset)
-        discard fsync(chandle.handle)
-        return err(IncompleteWriteError)
-
-  if dataColumns.isSome():
-    let dataColumnSidecars =
-      dataColumns.get
-    for index, dataColumn in dataColumnSidecars.pairs():
-      let
-        kind =
-          getDataColumnChunkKind(signedBlock.kind, (index + 1) ==
-            len(dataColumnSidecars))
-        (data, plainSize) =
-          block:
-            let res = SSZ.encode(dataColumn[])
-            (snappy.encode(res), len(res))
-        slot = dataColumn[].signed_block_header.message.slot
         buffer = Chunk.init(kind, uint64(slot), uint32(plainSize), data)
 
       setFilePos(chandle.handle, 0'i64, SeekPosition.SeekEnd).isOkOr:
@@ -601,21 +551,6 @@ proc decodeBlob(
         return err("Incorrect blob format")
   ok(blob)
 
-proc decodeDataColumn(
-    header: ChainFileHeader,
-    data: openArray[byte],
-): Result[DataColumnSidecar, string] =
-  if header.plainSize > uint32(MaxChunkSize):
-    return err("Size of data column is enormously big")
-
-  let
-    decompressed = snappy.decode(data, uint32(header.plainSize))
-    dataColumn =
-      try:
-        SSZ.decode(decompressed, DataColumnSidecar)
-      except SerializationError:
-        return err("Incorrect data column format")
-  ok(dataColumn)
 
 proc getChainFileTail*(handle: IoHandle): Result[Opt[BlockData], string] =
   var sidecars: BlobSidecars

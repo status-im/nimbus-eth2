@@ -394,16 +394,13 @@ proc initUntrustedSync(overseer: SyncOverseerRef): Future[void] {.
   let
     blck = await overseer.getBlock(blockHeader.slot, blockHeader)
     blobsCount = if blck.blob.isNone(): 0 else: len(blck.blob.get())
-    dataColumnsCount =
-      if blck.dataColumn.isNone(): 0 else: len(blck.dataColumn.get())
 
   notice "Received beacon block", blck = shortLog(blck.blck),
-                                  blobs_count = blobsCount,
-                                  data_columns_count = dataColumnsCount
+                                  blobs_count = blobsCount
 
   overseer.statusMsg = Opt.some("storing block")
 
-  let res = overseer.clist.addBackfillBlockData(blck.blck, blck.blob, blck.dataColumn)
+  let res = overseer.clist.addBackfillBlockData(blck.blck, blck.blob)
   if res.isErr():
     warn "Unable to store initial block", reason = res.error
     return
@@ -411,8 +408,7 @@ proc initUntrustedSync(overseer: SyncOverseerRef): Future[void] {.
   overseer.statusMsg = Opt.none(string)
 
   notice "Initial block being stored",
-         blck = shortLog(blck.blck), blobs_count = blobsCount,
-         data_columns_count = dataColumnsCount
+         blck = shortLog(blck.blck), blobs_count = blobsCount
 
 proc startBackfillTask(overseer: SyncOverseerRef): Future[void] {.
      async: (raises: []).} =

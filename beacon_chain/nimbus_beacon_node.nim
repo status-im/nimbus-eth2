@@ -453,22 +453,21 @@ proc initFullNode(
       blobQuarantine, dataColumnQuarantine, getBeaconTime)
 
     blockVerifier = proc(signedBlock: ForkedSignedBeaconBlock,
-                         blobs: Opt[BlobSidecars], data_columns: Opt[DataColumnSidecars],
-                         maybeFinalized: bool):
+                         blobs: Opt[BlobSidecars], maybeFinalized: bool):
         Future[Result[void, VerifierError]] {.async: (raises: [CancelledError], raw: true).} =
       # The design with a callback for block verification is unusual compared
       # to the rest of the application, but fits with the general approach
       # taken in the sync/request managers - this is an architectural compromise
       # that should probably be reimagined more holistically in the future.
       blockProcessor[].addBlock(
-        MsgSource.gossip, signedBlock, blobs, data_columns,
+        MsgSource.gossip, signedBlock, blobs, Opt.none(DataColumnSidecars),
         maybeFinalized = maybeFinalized)
     untrustedBlockVerifier =
       proc(signedBlock: ForkedSignedBeaconBlock, blobs: Opt[BlobSidecars],
-           data_columns: Opt[DataColumnSidecars], maybeFinalized: bool):
+           maybeFinalized: bool):
            Future[Result[void, VerifierError]] {.
         async: (raises: [CancelledError], raw: true).} =
-        clist.untrustedBackfillVerifier(signedBlock, blobs, data_columns, maybeFinalized)
+        clist.untrustedBackfillVerifier(signedBlock, blobs, maybeFinalized)
     rmanBlockVerifier = proc(signedBlock: ForkedSignedBeaconBlock,
                              maybeFinalized: bool):
         Future[Result[void, VerifierError]] {.async: (raises: [CancelledError]).} =
@@ -545,9 +544,8 @@ proc initFullNode(
       else:
         {}
     syncManager = newSyncManager[Peer, PeerId](
-      node.network.peerPool, supernode, custody_columns_set,
-      custody_columns_list, dag.cfg.DENEB_FORK_EPOCH,
-      dag.cfg.FULU_FORK_EPOCH, dag.cfg.MIN_EPOCHS_FOR_BLOB_SIDECARS_REQUESTS,
+      node.network.peerPool, dag.cfg.DENEB_FORK_EPOCH,
+      dag.cfg.MIN_EPOCHS_FOR_BLOB_SIDECARS_REQUESTS,
       SyncQueueKind.Forward, getLocalHeadSlot,
       getLocalWallSlot, getFirstSlotAtFinalizedEpoch, getBackfillSlot,
       getFrontfillSlot, isWithinWeakSubjectivityPeriod,
@@ -555,9 +553,8 @@ proc initFullNode(
       shutdownEvent = node.shutdownEvent,
       flags = syncManagerFlags)
     backfiller = newSyncManager[Peer, PeerId](
-      node.network.peerPool, supernode, custody_columns_set,
-      custody_columns_list, dag.cfg.DENEB_FORK_EPOCH,
-      dag.cfg.FULU_FORK_EPOCH, dag.cfg.MIN_EPOCHS_FOR_BLOB_SIDECARS_REQUESTS,
+      node.network.peerPool, dag.cfg.DENEB_FORK_EPOCH,
+      dag.cfg.MIN_EPOCHS_FOR_BLOB_SIDECARS_REQUESTS,
       SyncQueueKind.Forward, getLocalHeadSlot,
       getLocalWallSlot, getFirstSlotAtFinalizedEpoch, getBackfillSlot,
       getFrontfillSlot, isWithinWeakSubjectivityPeriod,
@@ -570,9 +567,8 @@ proc initFullNode(
       else:
         getLocalWallSlot()
     untrustedManager = newSyncManager[Peer, PeerId](
-      node.network.peerPool, supernode, custody_columns_set,
-      custody_columns_list, dag.cfg.DENEB_FORK_EPOCH,
-      dag.cfg.FULU_FORK_EPOCH, dag.cfg.MIN_EPOCHS_FOR_BLOB_SIDECARS_REQUESTS,
+      node.network.peerPool, dag.cfg.DENEB_FORK_EPOCH,
+      dag.cfg.MIN_EPOCHS_FOR_BLOB_SIDECARS_REQUESTS,
       SyncQueueKind.Forward, getLocalHeadSlot,
       getLocalWallSlot, getFirstSlotAtFinalizedEpoch, getUntrustedBackfillSlot,
       getUntrustedFrontfillSlot, isWithinWeakSubjectivityPeriod,
