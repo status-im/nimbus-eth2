@@ -562,15 +562,18 @@ proc makeBeaconBlockForHeadAndSlot*(
             request_type_and_payload.toOpenArray(
               1, request_type_and_payload.len - 1)
           case request_type_and_payload[0]
-          of 0'u8: execution_requests_buffer.deposits = SSZ.decode(
-            request_payload,
-            List[DepositRequest, Limit MAX_DEPOSIT_REQUESTS_PER_PAYLOAD])
-          of 1'u8: execution_requests_buffer.withdrawals = SSZ.decode(
-            request_payload,
-            List[WithdrawalRequest, Limit MAX_WITHDRAWAL_REQUESTS_PER_PAYLOAD])
-          of 2'u8: execution_requests_buffer.consolidations = SSZ.decode(
-            request_payload,
-            List[ConsolidationRequest, Limit MAX_CONSOLIDATION_REQUESTS_PER_PAYLOAD])
+          of DEPOSIT_REQUEST_TYPE:
+            execution_requests_buffer.deposits =
+              SSZ.decode(request_payload,
+                List[DepositRequest, Limit MAX_DEPOSIT_REQUESTS_PER_PAYLOAD])
+          of WITHDRAWAL_REQUEST_TYPE:
+            execution_requests_buffer.withdrawals =
+              SSZ.decode(request_payload,
+                List[WithdrawalRequest, Limit MAX_WITHDRAWAL_REQUESTS_PER_PAYLOAD])
+          of CONSOLIDATION_REQUEST_TYPE:
+            execution_requests_buffer.consolidations =
+              SSZ.decode(request_payload,
+                List[ConsolidationRequest, Limit MAX_CONSOLIDATION_REQUESTS_PER_PAYLOAD])
           else:
             return err("Execution layer invalid request type")
       except CatchableError:
@@ -1806,8 +1809,8 @@ proc signAndSendAggregate(
 
     signAndSendAggregatedAttestations()
   else:
-    # https://github.com/ethereum/consensus-specs/blob/v1.5.0-beta.1/specs/phase0/validator.md#construct-aggregate
-    # https://github.com/ethereum/consensus-specs/blob/v1.5.0-beta.1/specs/phase0/validator.md#aggregateandproof
+    # https://github.com/ethereum/consensus-specs/blob/v1.5.0-beta.2/specs/phase0/validator.md#construct-aggregate
+    # https://github.com/ethereum/consensus-specs/blob/v1.5.0-beta.2/specs/phase0/validator.md#aggregateandproof
     var msg = phase0.SignedAggregateAndProof(
       message: phase0.AggregateAndProof(
         aggregator_index: distinctBase validator_index,
@@ -2162,7 +2165,7 @@ proc handleValidatorDuties*(node: BeaconNode, lastSlot, slot: Slot) {.async: (ra
 
   updateValidatorMetrics(node) # the important stuff is done, update the vanity numbers
 
-  # https://github.com/ethereum/consensus-specs/blob/v1.5.0-beta.1/specs/phase0/validator.md#broadcast-aggregate
+  # https://github.com/ethereum/consensus-specs/blob/v1.5.0-beta.2/specs/phase0/validator.md#broadcast-aggregate
   # https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.10/specs/altair/validator.md#broadcast-sync-committee-contribution
   # Wait 2 / 3 of the slot time to allow messages to propagate, then collect
   # the result in aggregates

@@ -8,10 +8,8 @@
 {.push raises: [].}
 
 import
-  std/sequtils,
   chronicles,
   results,
-  stew/assign2,
   ../spec/[
     beaconstate, forks, signatures, signatures_batch,
     state_transition, state_transition_epoch],
@@ -504,10 +502,6 @@ proc addBackfillBlockData*(
           return ok()
         return err(error)
       startTick = Moment.now()
-      parentBlock = dag.getForkedBlock(parent.bid.root).get()
-      trustedStateRoot =
-        withBlck(parentBlock):
-          forkyBlck.message.state_root
       clearanceBlock = BlockSlotId.init(parent.bid, forkyBlck.message.slot)
       updateFlags1 = dag.updateFlags
         # TODO (cheatfate): {skipLastStateRootCalculation} flag here could
@@ -519,10 +513,6 @@ proc addBackfillBlockData*(
       error "Unable to load clearance state for parent block, " &
             "database corrupt?", clearanceBlock = shortLog(clearanceBlock)
       return err(VerifierError.MissingParent)
-
-    # dag.clearanceState.setStateRoot(trustedStateRoot)
-    # TODO (cheatfate): This is last part of previous TODO comment, we should
-    # set state's `root` to block's `state_root`.
 
     let proposerVerifyTick = Moment.now()
 

@@ -1,3 +1,30 @@
+2025-02-13 v25.2.0
+==================
+
+Nimbus `v25.2.0` is a `low-urgency` release for mainnet, but `high-urgency` release for Sepolia and Holesky due to Pectra-readiness for their upcoming forks.
+
+### Improvements
+
+- Add Holesky and Sepolia Electra fork epochs:
+  https://github.com/status-im/nimbus-eth2/pull/6908
+
+- Improve syncing smoothness and steadiness:
+  https://github.com/status-im/nimbus-eth2/pull/6722
+
+- Initiate metrics server later in beacon node startup sequence, to mitigate transient metrics during validator loading:
+  https://github.com/status-im/nimbus-eth2/pull/6902
+
+### Fixes
+
+- Fix keymanager API listFeeRecipient and getGasLimit endpoints in presence of web3signer validators:
+  https://github.com/status-im/nimbus-eth2/pull/6916
+
+- Update builder API registered fee recipient and gas limit from validator client without restart:
+  https://github.com/status-im/nimbus-eth2/pull/6907
+
+- Fix capital case fork version name being returned in certain beacon API JSON response `version` fields:
+  https://github.com/status-im/nimbus-eth2/pull/6905
+
 2025-01-28 v25.1.0
 ==================
 

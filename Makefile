@@ -210,10 +210,10 @@ libbacktrace:
 # - --base-el-rpc-port + --el-port-offset * [0, --nodes + --light-clients)
 # - --base-el-ws-port + --el-port-offset * [0, --nodes + --light-clients)
 # - --base-el-auth-rpc-port + --el-port-offset * [0, --nodes + --light-clients)
-UNIT_TEST_BASE_PORT := 39960
-REST_TEST_BASE_PORT := 40990
-MINIMAL_TESTNET_BASE_PORT := 35001
-MAINNET_TESTNET_BASE_PORT := 36501
+UNIT_TEST_BASE_PORT := 29960
+REST_TEST_BASE_PORT := 30990
+MINIMAL_TESTNET_BASE_PORT := 25001
+MAINNET_TESTNET_BASE_PORT := 26501
 
 restapi-test:
 	./tests/simulation/restapi.sh \
@@ -235,7 +235,7 @@ local-testnet-minimal:
 		--remote-validators-count 512 \
 		--signer-type $(SIGNER_TYPE) \
 		--deneb-fork-epoch 0 \
-		--electra-fork-epoch 50 \
+		--electra-fork-epoch 2 \
 		--stop-at-epoch 6 \
 		--disable-htop \
 		--enable-payload-builder \
@@ -264,7 +264,7 @@ local-testnet-mainnet:
 		--data-dir $@ \
 		--nodes 2 \
 		--deneb-fork-epoch 0 \
-		--electra-fork-epoch 50 \
+		--electra-fork-epoch 2 \
 		--stop-at-epoch 6 \
 		--disable-htop \
 		--base-port $$(( $(MAINNET_TESTNET_BASE_PORT) + EXECUTOR_NUMBER * 400 + 0 )) \

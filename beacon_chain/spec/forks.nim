@@ -178,7 +178,7 @@ type
 
   ForkyAttestation* =
     phase0.Attestation |
-    electra.Attestation
+    electra.SingleAttestation
 
   ForkedAttestation* = object
     case kind*: ConsensusFork
@@ -461,6 +461,7 @@ template kind*(
       electra.MsgTrustedSignedBeaconBlock |
       electra.TrustedSignedBeaconBlock |
       electra.Attestation |
+      electra.SingleAttestation |
       electra.AggregateAndProof |
       electra.SignedAggregateAndProof |
       electra_mev.SignedBlindedBeaconBlock]): ConsensusFork =
@@ -629,31 +630,6 @@ template Forky*(
     x: typedesc[ForkedSignedBeaconBlock],
     kind: static ConsensusFork): auto =
   kind.SignedBeaconBlock
-
-# Workaround method used for tests that involve walking through
-# `nim-eth2-scenarios` fork dirs, to be removed once Fulu is
-# included in new release.
-template withAllButFulu*(
-    x: typedesc[ConsensusFork], body: untyped): untyped =
-  static: doAssert ConsensusFork.high == ConsensusFork.Fulu
-  block:
-    const consensusFork {.inject, used.} = ConsensusFork.Electra
-    body
-  block:
-    const consensusFork {.inject, used.} = ConsensusFork.Deneb
-    body
-  block:
-    const consensusFork {.inject, used.} = ConsensusFork.Capella
-    body
-  block:
-    const consensusFork {.inject, used.} = ConsensusFork.Bellatrix
-    body
-  block:
-    const consensusFork {.inject, used.} = ConsensusFork.Altair
-    body
-  block:
-    const consensusFork {.inject, used.} = ConsensusFork.Phase0
-    body
 
 template withAll*(
     x: typedesc[ConsensusFork], body: untyped): untyped =
@@ -1697,7 +1673,7 @@ func compute_fork_data_root*(current_version: Version,
     genesis_validators_root: genesis_validators_root
   ))
 
-# https://github.com/ethereum/consensus-specs/blob/v1.5.0-beta.0/specs/phase0/beacon-chain.md#compute_fork_digest
+# https://github.com/ethereum/consensus-specs/blob/v1.5.0-beta.2/specs/phase0/beacon-chain.md#compute_fork_digest
 func compute_fork_digest*(current_version: Version,
                           genesis_validators_root: Eth2Digest): ForkDigest =
   ## Return the 4-byte fork digest for the ``current_version`` and

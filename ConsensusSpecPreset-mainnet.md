@@ -4,18 +4,15 @@ ConsensusSpecPreset-mainnet
 ```diff
 + Effective balance updates - effective_balance_hysteresis [Preset: mainnet]                 OK
 ```
-OK: 1/1 Fail: 0/1 Skip: 0/1
 ## EF - Altair - Epoch Processing - Eth1 data reset [Preset: mainnet]
 ```diff
 + Eth1 data reset - eth1_vote_no_reset [Preset: mainnet]                                     OK
 + Eth1 data reset - eth1_vote_reset [Preset: mainnet]                                        OK
 ```
-OK: 2/2 Fail: 0/2 Skip: 0/2
 ## EF - Altair - Epoch Processing - Historical roots update [Preset: mainnet]
 ```diff
 + Historical roots update - historical_root_accumulator [Preset: mainnet]                    OK
 ```
-OK: 1/1 Fail: 0/1 Skip: 0/1
 ## EF - Altair - Epoch Processing - Inactivity [Preset: mainnet]
 ```diff
 + Inactivity - all_zero_inactivity_scores_empty_participation [Preset: mainnet]              OK
@@ -40,7 +37,6 @@ OK: 1/1 Fail: 0/1 Skip: 0/1
 + Inactivity - some_slashed_zero_scores_full_participation [Preset: mainnet]                 OK
 + Inactivity - some_slashed_zero_scores_full_participation_leaking [Preset: mainnet]         OK
 ```
-OK: 21/21 Fail: 0/21 Skip: 0/21
 ## EF - Altair - Epoch Processing - Justification & Finalization [Preset: mainnet]
 ```diff
 + Justification & Finalization - 123_ok_support [Preset: mainnet]                            OK
@@ -54,7 +50,6 @@ OK: 21/21 Fail: 0/21 Skip: 0/21
 + Justification & Finalization - 23_poor_support [Preset: mainnet]                           OK
 + Justification & Finalization - balance_threshold_with_exited_validators [Preset: mainnet]  OK
 ```
-OK: 10/10 Fail: 0/10 Skip: 0/10
 ## EF - Altair - Epoch Processing - Participation flag updates [Preset: mainnet]
 ```diff
 + Participation flag updates - all_zeroed [Preset: mainnet]                                  OK
@@ -68,12 +63,10 @@ OK: 10/10 Fail: 0/10 Skip: 0/10
 + Participation flag updates - random_2 [Preset: mainnet]                                    OK
 + Participation flag updates - random_genesis [Preset: mainnet]                              OK
 ```
-OK: 10/10 Fail: 0/10 Skip: 0/10
 ## EF - Altair - Epoch Processing - RANDAO mixes reset [Preset: mainnet]
 ```diff
 + RANDAO mixes reset - updated_randao_mixes [Preset: mainnet]                                OK
 ```
-OK: 1/1 Fail: 0/1 Skip: 0/1
 ## EF - Altair - Epoch Processing - Registry updates [Preset: mainnet]
 ```diff
 + Registry updates - activation_queue_activation_and_ejection__1 [Preset: mainnet]           OK
@@ -88,7 +81,6 @@ OK: 1/1 Fail: 0/1 Skip: 0/1
 + Registry updates - ejection_past_churn_limit_min [Preset: mainnet]                         OK
 + Registry updates - invalid_large_withdrawable_epoch [Preset: mainnet]                      OK
 ```
-OK: 11/11 Fail: 0/11 Skip: 0/11
 ## EF - Altair - Epoch Processing - Rewards and penalties [Preset: mainnet]
 ```diff
 + Rewards and penalties - almost_empty_attestations [Preset: mainnet]                        OK
@@ -107,7 +99,6 @@ OK: 11/11 Fail: 0/11 Skip: 0/11
 + Rewards and penalties - random_fill_attestations [Preset: mainnet]                         OK
 + Rewards and penalties - random_fill_attestations_with_leak [Preset: mainnet]               OK
 ```
-OK: 15/15 Fail: 0/15 Skip: 0/15
 ## EF - Altair - Epoch Processing - Slashings [Preset: mainnet]
 ```diff
 + Slashings - low_penalty [Preset: mainnet]                                                  OK
@@ -116,12 +107,10 @@ OK: 15/15 Fail: 0/15 Skip: 0/15
 + Slashings - scaled_penalties [Preset: mainnet]                                             OK
 + Slashings - slashings_with_random_state [Preset: mainnet]                                  OK
 ```
-OK: 5/5 Fail: 0/5 Skip: 0/5
 ## EF - Altair - Epoch Processing - Slashings reset [Preset: mainnet]
 ```diff
 + Slashings reset - flush_slashings [Preset: mainnet]                                        OK
 ```
-OK: 1/1 Fail: 0/1 Skip: 0/1
 ## EF - Altair - Finality  [Preset: mainnet]
 ```diff
 + [Valid]   EF - Altair - Finality - finality_no_updates_at_genesis [Preset: mainnet]        OK
@@ -130,7 +119,6 @@ OK: 1/1 Fail: 0/1 Skip: 0/1
 + [Valid]   EF - Altair - Finality - finality_rule_3 [Preset: mainnet]                       OK
 + [Valid]   EF - Altair - Finality - finality_rule_4 [Preset: mainnet]                       OK
 ```
-OK: 5/5 Fail: 0/5 Skip: 0/5
 ## EF - Altair - Fork  [Preset: mainnet]
 ```diff
 + EF - Altair - Fork - altair_fork_random_0 [Preset: mainnet]                                OK
@@ -148,7 +136,6 @@ OK: 5/5 Fail: 0/5 Skip: 0/5
 + EF - Altair - Fork - fork_random_low_balances [Preset: mainnet]                            OK
 + EF - Altair - Fork - fork_random_misc_balances [Preset: mainnet]                           OK
 ```
-OK: 14/14 Fail: 0/14 Skip: 0/14
 ## EF - Altair - Operations - Attestation  [Preset: mainnet]
 ```diff
 + [Invalid] EF - Altair - Operations - Attestation - invalid_after_max_inclusion_slot        OK
@@ -193,7 +180,6 @@ OK: 14/14 Fail: 0/14 Skip: 0/14
 + [Valid]   EF - Altair - Operations - Attestation - one_basic_attestation                   OK
 + [Valid]   EF - Altair - Operations - Attestation - previous_epoch                          OK
 ```
-OK: 41/41 Fail: 0/41 Skip: 0/41
 ## EF - Altair - Operations - Attester Slashing  [Preset: mainnet]
 ```diff
 + [Invalid] EF - Altair - Operations - Attester Slashing - invalid_all_empty_indices         OK
@@ -227,7 +213,6 @@ OK: 41/41 Fail: 0/41 Skip: 0/41
 + [Valid]   EF - Altair - Operations - Attester Slashing - proposer_index_slashed            OK
 + [Valid]   EF - Altair - Operations - Attester Slashing - with_effective_balance_disparity  OK
 ```
-OK: 30/30 Fail: 0/30 Skip: 0/30
 ## EF - Altair - Operations - Block Header  [Preset: mainnet]
 ```diff
 + [Invalid] EF - Altair - Operations - Block Header - invalid_multiple_blocks_single_slot    OK
@@ -237,7 +222,6 @@ OK: 30/30 Fail: 0/30 Skip: 0/30
 + [Invalid] EF - Altair - Operations - Block Header - invalid_slot_block_header              OK
 + [Valid]   EF - Altair - Operations - Block Header - basic_block_header                     OK
 ```
-OK: 6/6 Fail: 0/6 Skip: 0/6
 ## EF - Altair - Operations - Deposit  [Preset: mainnet]
 ```diff
 + [Invalid] EF - Altair - Operations - Deposit - invalid_bad_merkle_proof                    OK
@@ -260,7 +244,6 @@ OK: 6/6 Fail: 0/6 Skip: 0/6
 + [Valid]   EF - Altair - Operations - Deposit - top_up__max_effective_balance               OK
 + [Valid]   EF - Altair - Operations - Deposit - top_up__zero_balance                        OK
 ```
-OK: 19/19 Fail: 0/19 Skip: 0/19
 ## EF - Altair - Operations - Proposer Slashing  [Preset: mainnet]
 ```diff
 + [Invalid] EF - Altair - Operations - Proposer Slashing - invalid_different_proposer_indice OK
@@ -279,7 +262,6 @@ OK: 19/19 Fail: 0/19 Skip: 0/19
 + [Valid]   EF - Altair - Operations - Proposer Slashing - block_header_from_future          OK
 + [Valid]   EF - Altair - Operations - Proposer Slashing - slashed_and_proposer_index_the_sa OK
 ```
-OK: 15/15 Fail: 0/15 Skip: 0/15
 ## EF - Altair - Operations - Sync Aggregate  [Preset: mainnet]
 ```diff
 + [Invalid] EF - Altair - Operations - Sync Aggregate - invalid_signature_bad_domain         OK
@@ -309,7 +291,6 @@ OK: 15/15 Fail: 0/15 Skip: 0/15
 + [Valid]   EF - Altair - Operations - Sync Aggregate - sync_committee_with_participating_ex OK
 + [Valid]   EF - Altair - Operations - Sync Aggregate - sync_committee_with_participating_wi OK
 ```
-OK: 26/26 Fail: 0/26 Skip: 0/26
 ## EF - Altair - Operations - Voluntary Exit  [Preset: mainnet]
 ```diff
 + [Invalid] EF - Altair - Operations - Voluntary Exit - invalid_incorrect_signature          OK
@@ -322,7 +303,6 @@ OK: 26/26 Fail: 0/26 Skip: 0/26
 + [Valid]   EF - Altair - Operations - Voluntary Exit - default_exit_epoch_subsequent_exit   OK
 + [Valid]   EF - Altair - Operations - Voluntary Exit - success_exit_queue__min_churn        OK
 ```
-OK: 9/9 Fail: 0/9 Skip: 0/9
 ## EF - Altair - Random  [Preset: mainnet]
 ```diff
 + [Valid]   EF - Altair - Random - randomized_0 [Preset: mainnet]                            OK
@@ -342,7 +322,6 @@ OK: 9/9 Fail: 0/9 Skip: 0/9
 + [Valid]   EF - Altair - Random - randomized_8 [Preset: mainnet]                            OK
 + [Valid]   EF - Altair - Random - randomized_9 [Preset: mainnet]                            OK
 ```
-OK: 16/16 Fail: 0/16 Skip: 0/16
 ## EF - Altair - Rewards  [Preset: mainnet]
 ```diff
 + EF - Altair - Rewards - all_balances_too_low_for_reward [Preset: mainnet]                  OK
@@ -380,7 +359,6 @@ OK: 16/16 Fail: 0/16 Skip: 0/16
 + EF - Altair - Rewards - with_slashed_validators [Preset: mainnet]                          OK
 + EF - Altair - Rewards - with_slashed_validators_leak [Preset: mainnet]                     OK
 ```
-OK: 34/34 Fail: 0/34 Skip: 0/34
 ## EF - Altair - SSZ consensus objects  [Preset: mainnet]
 ```diff
 +   Testing    AggregateAndProof                                                             OK
@@ -423,7 +401,6 @@ OK: 34/34 Fail: 0/34 Skip: 0/34
 +   Testing    Validator                                                                     OK
 +   Testing    VoluntaryExit                                                                 OK
 ```
-OK: 39/39 Fail: 0/39 Skip: 0/39
 ## EF - Altair - Sanity - Blocks  [Preset: mainnet]
 ```diff
 + [Invalid] EF - Altair - Sanity - Blocks - invalid_all_zeroed_sig [Preset: mainnet]         OK
@@ -474,7 +451,6 @@ OK: 39/39 Fail: 0/39 Skip: 0/39
 + [Valid]   EF - Altair - Sanity - Blocks - sync_committee_committee_genesis__half [Preset:  OK
 + [Valid]   EF - Altair - Sanity - Blocks - voluntary_exit [Preset: mainnet]                 OK
 ```
-OK: 47/47 Fail: 0/47 Skip: 0/47
 ## EF - Altair - Sanity - Slots  [Preset: mainnet]
 ```diff
 + EF - Altair - Slots - double_empty_epoch [Preset: mainnet]                                 OK
@@ -484,7 +460,6 @@ OK: 47/47 Fail: 0/47 Skip: 0/47
 + EF - Altair - Slots - slots_1 [Preset: mainnet]                                            OK
 + EF - Altair - Slots - slots_2 [Preset: mainnet]                                            OK
 ```
-OK: 6/6 Fail: 0/6 Skip: 0/6
 ## EF - Altair - Transition  [Preset: mainnet]
 ```diff
 + EF - Altair - Transition - non_empty_historical_roots [Preset: mainnet]                    OK
@@ -510,7 +485,6 @@ OK: 6/6 Fail: 0/6 Skip: 0/6
 + EF - Altair - Transition - transition_with_random_half_participation [Preset: mainnet]     OK
 + EF - Altair - Transition - transition_with_random_three_quarters_participation [Preset: ma OK
 ```
-OK: 22/22 Fail: 0/22 Skip: 0/22
 ## EF - Altair - Unittests - Light client - Sync protocol [Preset: mainnet]
 ```diff
 + process_light_client_update_finality_updated                                               OK
@@ -518,23 +492,19 @@ OK: 22/22 Fail: 0/22 Skip: 0/22
 + test_process_light_client_update_at_period_boundary                                        OK
 + test_process_light_client_update_not_timeout                                               OK
 ```
-OK: 4/4 Fail: 0/4 Skip: 0/4
 ## EF - Bellatrix - Epoch Processing - Effective balance updates [Preset: mainnet]
 ```diff
 + Effective balance updates - effective_balance_hysteresis [Preset: mainnet]                 OK
 ```
-OK: 1/1 Fail: 0/1 Skip: 0/1
 ## EF - Bellatrix - Epoch Processing - Eth1 data reset [Preset: mainnet]
 ```diff
 + Eth1 data reset - eth1_vote_no_reset [Preset: mainnet]                                     OK
 + Eth1 data reset - eth1_vote_reset [Preset: mainnet]                                        OK
 ```
-OK: 2/2 Fail: 0/2 Skip: 0/2
 ## EF - Bellatrix - Epoch Processing - Historical roots update [Preset: mainnet]
 ```diff
 + Historical roots update - historical_root_accumulator [Preset: mainnet]                    OK
 ```
-OK: 1/1 Fail: 0/1 Skip: 0/1
 ## EF - Bellatrix - Epoch Processing - Inactivity [Preset: mainnet]
 ```diff
 + Inactivity - all_zero_inactivity_scores_empty_participation [Preset: mainnet]              OK
@@ -559,7 +529,6 @@ OK: 1/1 Fail: 0/1 Skip: 0/1
 + Inactivity - some_slashed_zero_scores_full_participation [Preset: mainnet]                 OK
 + Inactivity - some_slashed_zero_scores_full_participation_leaking [Preset: mainnet]         OK
 ```
-OK: 21/21 Fail: 0/21 Skip: 0/21
 ## EF - Bellatrix - Epoch Processing - Justification & Finalization [Preset: mainnet]
 ```diff
 + Justification & Finalization - 123_ok_support [Preset: mainnet]                            OK
@@ -573,7 +542,6 @@ OK: 21/21 Fail: 0/21 Skip: 0/21
 + Justification & Finalization - 23_poor_support [Preset: mainnet]                           OK
 + Justification & Finalization - balance_threshold_with_exited_validators [Preset: mainnet]  OK
 ```
-OK: 10/10 Fail: 0/10 Skip: 0/10
 ## EF - Bellatrix - Epoch Processing - Participation flag updates [Preset: mainnet]
 ```diff
 + Participation flag updates - all_zeroed [Preset: mainnet]                                  OK
@@ -587,12 +555,10 @@ OK: 10/10 Fail: 0/10 Skip: 0/10
 + Participation flag updates - random_2 [Preset: mainnet]                                    OK
 + Participation flag updates - random_genesis [Preset: mainnet]                              OK
 ```
-OK: 10/10 Fail: 0/10 Skip: 0/10
 ## EF - Bellatrix - Epoch Processing - RANDAO mixes reset [Preset: mainnet]
 ```diff
 + RANDAO mixes reset - updated_randao_mixes [Preset: mainnet]                                OK
 ```
-OK: 1/1 Fail: 0/1 Skip: 0/1
 ## EF - Bellatrix - Epoch Processing - Registry updates [Preset: mainnet]
 ```diff
 + Registry updates - activation_queue_activation_and_ejection__1 [Preset: mainnet]           OK
@@ -607,7 +573,6 @@ OK: 1/1 Fail: 0/1 Skip: 0/1
 + Registry updates - ejection_past_churn_limit_min [Preset: mainnet]                         OK
 + Registry updates - invalid_large_withdrawable_epoch [Preset: mainnet]                      OK
 ```
-OK: 11/11 Fail: 0/11 Skip: 0/11
 ## EF - Bellatrix - Epoch Processing - Rewards and penalties [Preset: mainnet]
 ```diff
 + Rewards and penalties - almost_empty_attestations [Preset: mainnet]                        OK
@@ -626,7 +591,6 @@ OK: 11/11 Fail: 0/11 Skip: 0/11
 + Rewards and penalties - random_fill_attestations [Preset: mainnet]                         OK
 + Rewards and penalties - random_fill_attestations_with_leak [Preset: mainnet]               OK
 ```
-OK: 15/15 Fail: 0/15 Skip: 0/15
 ## EF - Bellatrix - Epoch Processing - Slashings [Preset: mainnet]
 ```diff
 + Slashings - low_penalty [Preset: mainnet]                                                  OK
@@ -635,12 +599,10 @@ OK: 15/15 Fail: 0/15 Skip: 0/15
 + Slashings - scaled_penalties [Preset: mainnet]                                             OK
 + Slashings - slashings_with_random_state [Preset: mainnet]                                  OK
 ```
-OK: 5/5 Fail: 0/5 Skip: 0/5
 ## EF - Bellatrix - Epoch Processing - Slashings reset [Preset: mainnet]
 ```diff
 + Slashings reset - flush_slashings [Preset: mainnet]                                        OK
 ```
-OK: 1/1 Fail: 0/1 Skip: 0/1
 ## EF - Bellatrix - Finality  [Preset: mainnet]
 ```diff
 + [Valid]   EF - Bellatrix - Finality - finality_no_updates_at_genesis [Preset: mainnet]     OK
@@ -649,7 +611,6 @@ OK: 1/1 Fail: 0/1 Skip: 0/1
 + [Valid]   EF - Bellatrix - Finality - finality_rule_3 [Preset: mainnet]                    OK
 + [Valid]   EF - Bellatrix - Finality - finality_rule_4 [Preset: mainnet]                    OK
 ```
-OK: 5/5 Fail: 0/5 Skip: 0/5
 ## EF - Bellatrix - Fork  [Preset: mainnet]
 ```diff
 + EF - Bellatrix - Fork - bellatrix_fork_random_0 [Preset: mainnet]                          OK
@@ -665,7 +626,6 @@ OK: 5/5 Fail: 0/5 Skip: 0/5
 + EF - Bellatrix - Fork - fork_random_low_balances [Preset: mainnet]                         OK
 + EF - Bellatrix - Fork - fork_random_misc_balances [Preset: mainnet]                        OK
 ```
-OK: 12/12 Fail: 0/12 Skip: 0/12
 ## EF - Bellatrix - Operations - Attestation  [Preset: mainnet]
 ```diff
 + [Invalid] EF - Bellatrix - Operations - Attestation - invalid_after_max_inclusion_slot     OK
@@ -710,7 +670,6 @@ OK: 12/12 Fail: 0/12 Skip: 0/12
 + [Valid]   EF - Bellatrix - Operations - Attestation - one_basic_attestation                OK
 + [Valid]   EF - Bellatrix - Operations - Attestation - previous_epoch                       OK
 ```
-OK: 41/41 Fail: 0/41 Skip: 0/41
 ## EF - Bellatrix - Operations - Attester Slashing  [Preset: mainnet]
 ```diff
 + [Invalid] EF - Bellatrix - Operations - Attester Slashing - invalid_all_empty_indices      OK
@@ -744,7 +703,6 @@ OK: 41/41 Fail: 0/41 Skip: 0/41
 + [Valid]   EF - Bellatrix - Operations - Attester Slashing - proposer_index_slashed         OK
 + [Valid]   EF - Bellatrix - Operations - Attester Slashing - with_effective_balance_dispari OK
 ```
-OK: 30/30 Fail: 0/30 Skip: 0/30
 ## EF - Bellatrix - Operations - Block Header  [Preset: mainnet]
 ```diff
 + [Invalid] EF - Bellatrix - Operations - Block Header - invalid_multiple_blocks_single_slot OK
@@ -754,7 +712,6 @@ OK: 30/30 Fail: 0/30 Skip: 0/30
 + [Invalid] EF - Bellatrix - Operations - Block Header - invalid_slot_block_header           OK
 + [Valid]   EF - Bellatrix - Operations - Block Header - basic_block_header                  OK
 ```
-OK: 6/6 Fail: 0/6 Skip: 0/6
 ## EF - Bellatrix - Operations - Deposit  [Preset: mainnet]
 ```diff
 + [Invalid] EF - Bellatrix - Operations - Deposit - invalid_bad_merkle_proof                 OK
@@ -778,7 +735,6 @@ OK: 6/6 Fail: 0/6 Skip: 0/6
 + [Valid]   EF - Bellatrix - Operations - Deposit - top_up__max_effective_balance            OK
 + [Valid]   EF - Bellatrix - Operations - Deposit - top_up__zero_balance                     OK
 ```
-OK: 20/20 Fail: 0/20 Skip: 0/20
 ## EF - Bellatrix - Operations - Execution Payload  [Preset: mainnet]
 ```diff
 + [Invalid] EF - Bellatrix - Operations - Execution Payload - invalid_bad_everything_first_p OK
@@ -808,7 +764,6 @@ OK: 20/20 Fail: 0/20 Skip: 0/20
 + [Valid]   EF - Bellatrix - Operations - Execution Payload - zero_length_transaction_first_ OK
 + [Valid]   EF - Bellatrix - Operations - Execution Payload - zero_length_transaction_regula OK
 ```
-OK: 26/26 Fail: 0/26 Skip: 0/26
 ## EF - Bellatrix - Operations - Proposer Slashing  [Preset: mainnet]
 ```diff
 + [Invalid] EF - Bellatrix - Operations - Proposer Slashing - invalid_different_proposer_ind OK
@@ -827,7 +782,6 @@ OK: 26/26 Fail: 0/26 Skip: 0/26
 + [Valid]   EF - Bellatrix - Operations - Proposer Slashing - block_header_from_future       OK
 + [Valid]   EF - Bellatrix - Operations - Proposer Slashing - slashed_and_proposer_index_the OK
 ```
-OK: 15/15 Fail: 0/15 Skip: 0/15
 ## EF - Bellatrix - Operations - Sync Aggregate  [Preset: mainnet]
 ```diff
 + [Invalid] EF - Bellatrix - Operations - Sync Aggregate - invalid_signature_bad_domain      OK
@@ -857,7 +811,6 @@ OK: 15/15 Fail: 0/15 Skip: 0/15
 + [Valid]   EF - Bellatrix - Operations - Sync Aggregate - sync_committee_with_participating OK
 + [Valid]   EF - Bellatrix - Operations - Sync Aggregate - sync_committee_with_participating OK
 ```
-OK: 26/26 Fail: 0/26 Skip: 0/26
 ## EF - Bellatrix - Operations - Voluntary Exit  [Preset: mainnet]
 ```diff
 + [Invalid] EF - Bellatrix - Operations - Voluntary Exit - invalid_incorrect_signature       OK
@@ -876,7 +829,6 @@ OK: 26/26 Fail: 0/26 Skip: 0/26
 + [Valid]   EF - Bellatrix - Operations - Voluntary Exit - voluntary_exit_with_current_fork_ OK
 + [Valid]   EF - Bellatrix - Operations - Voluntary Exit - voluntary_exit_with_previous_fork OK
 ```
-OK: 15/15 Fail: 0/15 Skip: 0/15
 ## EF - Bellatrix - Random  [Preset: mainnet]
 ```diff
 + [Valid]   EF - Bellatrix - Random - randomized_0 [Preset: mainnet]                         OK
@@ -896,7 +848,6 @@ OK: 15/15 Fail: 0/15 Skip: 0/15
 + [Valid]   EF - Bellatrix - Random - randomized_8 [Preset: mainnet]                         OK
 + [Valid]   EF - Bellatrix - Random - randomized_9 [Preset: mainnet]                         OK
 ```
-OK: 16/16 Fail: 0/16 Skip: 0/16
 ## EF - Bellatrix - Rewards  [Preset: mainnet]
 ```diff
 + EF - Bellatrix - Rewards - all_balances_too_low_for_reward [Preset: mainnet]               OK
@@ -934,7 +885,6 @@ OK: 16/16 Fail: 0/16 Skip: 0/16
 + EF - Bellatrix - Rewards - with_slashed_validators [Preset: mainnet]                       OK
 + EF - Bellatrix - Rewards - with_slashed_validators_leak [Preset: mainnet]                  OK
 ```
-OK: 34/34 Fail: 0/34 Skip: 0/34
 ## EF - Bellatrix - SSZ consensus objects  [Preset: mainnet]
 ```diff
 +   Testing    AggregateAndProof                                                             OK
@@ -980,7 +930,6 @@ OK: 34/34 Fail: 0/34 Skip: 0/34
 +   Testing    Validator                                                                     OK
 +   Testing    VoluntaryExit                                                                 OK
 ```
-OK: 42/42 Fail: 0/42 Skip: 0/42
 ## EF - Bellatrix - Sanity - Blocks  [Preset: mainnet]
 ```diff
 + [Invalid] EF - Bellatrix - Sanity - Blocks - invalid_all_zeroed_sig [Preset: mainnet]      OK
@@ -1034,7 +983,6 @@ OK: 42/42 Fail: 0/42 Skip: 0/42
 + [Valid]   EF - Bellatrix - Sanity - Blocks - sync_committee_committee_genesis__half [Prese OK
 + [Valid]   EF - Bellatrix - Sanity - Blocks - voluntary_exit [Preset: mainnet]              OK
 ```
-OK: 50/50 Fail: 0/50 Skip: 0/50
 ## EF - Bellatrix - Sanity - Slots  [Preset: mainnet]
 ```diff
 + EF - Bellatrix - Slots - double_empty_epoch [Preset: mainnet]                              OK
@@ -1044,7 +992,6 @@ OK: 50/50 Fail: 0/50 Skip: 0/50
 + EF - Bellatrix - Slots - slots_1 [Preset: mainnet]                                         OK
 + EF - Bellatrix - Slots - slots_2 [Preset: mainnet]                                         OK
 ```
-OK: 6/6 Fail: 0/6 Skip: 0/6
 ## EF - Bellatrix - Transition  [Preset: mainnet]
 ```diff
 + EF - Bellatrix - Transition - non_empty_historical_roots [Preset: mainnet]                 OK
@@ -1070,23 +1017,19 @@ OK: 6/6 Fail: 0/6 Skip: 0/6
 + EF - Bellatrix - Transition - transition_with_random_half_participation [Preset: mainnet]  OK
 + EF - Bellatrix - Transition - transition_with_random_three_quarters_participation [Preset: OK
 ```
-OK: 22/22 Fail: 0/22 Skip: 0/22
 ## EF - Capella - Epoch Processing - Effective balance updates [Preset: mainnet]
 ```diff
 + Effective balance updates - effective_balance_hysteresis [Preset: mainnet]                 OK
 ```
-OK: 1/1 Fail: 0/1 Skip: 0/1
 ## EF - Capella - Epoch Processing - Eth1 data reset [Preset: mainnet]
 ```diff
 + Eth1 data reset - eth1_vote_no_reset [Preset: mainnet]                                     OK
 + Eth1 data reset - eth1_vote_reset [Preset: mainnet]                                        OK
 ```
-OK: 2/2 Fail: 0/2 Skip: 0/2
 ## EF - Capella - Epoch Processing - Historical summaries update [Preset: mainnet]
 ```diff
 + Historical summaries update - historical_summaries_accumulator [Preset: mainnet]           OK
 ```
-OK: 1/1 Fail: 0/1 Skip: 0/1
 ## EF - Capella - Epoch Processing - Inactivity [Preset: mainnet]
 ```diff
 + Inactivity - all_zero_inactivity_scores_empty_participation [Preset: mainnet]              OK
@@ -1111,7 +1054,6 @@ OK: 1/1 Fail: 0/1 Skip: 0/1
 + Inactivity - some_slashed_zero_scores_full_participation [Preset: mainnet]                 OK
 + Inactivity - some_slashed_zero_scores_full_participation_leaking [Preset: mainnet]         OK
 ```
-OK: 21/21 Fail: 0/21 Skip: 0/21
 ## EF - Capella - Epoch Processing - Justification & Finalization [Preset: mainnet]
 ```diff
 + Justification & Finalization - 123_ok_support [Preset: mainnet]                            OK
@@ -1125,7 +1067,6 @@ OK: 21/21 Fail: 0/21 Skip: 0/21
 + Justification & Finalization - 23_poor_support [Preset: mainnet]                           OK
 + Justification & Finalization - balance_threshold_with_exited_validators [Preset: mainnet]  OK
 ```
-OK: 10/10 Fail: 0/10 Skip: 0/10
 ## EF - Capella - Epoch Processing - Participation flag updates [Preset: mainnet]
 ```diff
 + Participation flag updates - all_zeroed [Preset: mainnet]                                  OK
@@ -1139,12 +1080,10 @@ OK: 10/10 Fail: 0/10 Skip: 0/10
 + Participation flag updates - random_2 [Preset: mainnet]                                    OK
 + Participation flag updates - random_genesis [Preset: mainnet]                              OK
 ```
-OK: 10/10 Fail: 0/10 Skip: 0/10
 ## EF - Capella - Epoch Processing - RANDAO mixes reset [Preset: mainnet]
 ```diff
 + RANDAO mixes reset - updated_randao_mixes [Preset: mainnet]                                OK
 ```
-OK: 1/1 Fail: 0/1 Skip: 0/1
 ## EF - Capella - Epoch Processing - Registry updates [Preset: mainnet]
 ```diff
 + Registry updates - activation_queue_activation_and_ejection__1 [Preset: mainnet]           OK
@@ -1159,7 +1098,6 @@ OK: 1/1 Fail: 0/1 Skip: 0/1
 + Registry updates - ejection_past_churn_limit_min [Preset: mainnet]                         OK
 + Registry updates - invalid_large_withdrawable_epoch [Preset: mainnet]                      OK
 ```
-OK: 11/11 Fail: 0/11 Skip: 0/11
 ## EF - Capella - Epoch Processing - Rewards and penalties [Preset: mainnet]
 ```diff
 + Rewards and penalties - almost_empty_attestations [Preset: mainnet]                        OK
@@ -1178,7 +1116,6 @@ OK: 11/11 Fail: 0/11 Skip: 0/11
 + Rewards and penalties - random_fill_attestations [Preset: mainnet]                         OK
 + Rewards and penalties - random_fill_attestations_with_leak [Preset: mainnet]               OK
 ```
-OK: 15/15 Fail: 0/15 Skip: 0/15
 ## EF - Capella - Epoch Processing - Slashings [Preset: mainnet]
 ```diff
 + Slashings - low_penalty [Preset: mainnet]                                                  OK
@@ -1187,12 +1124,10 @@ OK: 15/15 Fail: 0/15 Skip: 0/15
 + Slashings - scaled_penalties [Preset: mainnet]                                             OK
 + Slashings - slashings_with_random_state [Preset: mainnet]                                  OK
 ```
-OK: 5/5 Fail: 0/5 Skip: 0/5
 ## EF - Capella - Epoch Processing - Slashings reset [Preset: mainnet]
 ```diff
 + Slashings reset - flush_slashings [Preset: mainnet]                                        OK
 ```
-OK: 1/1 Fail: 0/1 Skip: 0/1
 ## EF - Capella - Finality  [Preset: mainnet]
 ```diff
 + [Valid]   EF - Capella - Finality - finality_no_updates_at_genesis [Preset: mainnet]       OK
@@ -1201,7 +1136,6 @@ OK: 1/1 Fail: 0/1 Skip: 0/1
 + [Valid]   EF - Capella - Finality - finality_rule_3 [Preset: mainnet]                      OK
 + [Valid]   EF - Capella - Finality - finality_rule_4 [Preset: mainnet]                      OK
 ```
-OK: 5/5 Fail: 0/5 Skip: 0/5
 ## EF - Capella - Fork  [Preset: mainnet]
 ```diff
 + EF - Capella - Fork - capella_fork_random_0 [Preset: mainnet]                              OK
@@ -1217,7 +1151,6 @@ OK: 5/5 Fail: 0/5 Skip: 0/5
 + EF - Capella - Fork - fork_random_low_balances [Preset: mainnet]                           OK
 + EF - Capella - Fork - fork_random_misc_balances [Preset: mainnet]                          OK
 ```
-OK: 12/12 Fail: 0/12 Skip: 0/12
 ## EF - Capella - Operations - Attestation  [Preset: mainnet]
 ```diff
 + [Invalid] EF - Capella - Operations - Attestation - invalid_after_max_inclusion_slot       OK
@@ -1262,7 +1195,6 @@ OK: 12/12 Fail: 0/12 Skip: 0/12
 + [Valid]   EF - Capella - Operations - Attestation - one_basic_attestation                  OK
 + [Valid]   EF - Capella - Operations - Attestation - previous_epoch                         OK
 ```
-OK: 41/41 Fail: 0/41 Skip: 0/41
 ## EF - Capella - Operations - Attester Slashing  [Preset: mainnet]
 ```diff
 + [Invalid] EF - Capella - Operations - Attester Slashing - invalid_all_empty_indices        OK
@@ -1296,7 +1228,6 @@ OK: 41/41 Fail: 0/41 Skip: 0/41
 + [Valid]   EF - Capella - Operations - Attester Slashing - proposer_index_slashed           OK
 + [Valid]   EF - Capella - Operations - Attester Slashing - with_effective_balance_disparity OK
 ```
-OK: 30/30 Fail: 0/30 Skip: 0/30
 ## EF - Capella - Operations - BLS to execution change  [Preset: mainnet]
 ```diff
 + [Invalid] EF - Capella - Operations - BLS to execution change - invalid_already_0x01       OK
@@ -1315,7 +1246,6 @@ OK: 30/30 Fail: 0/30 Skip: 0/30
 + [Valid]   EF - Capella - Operations - BLS to execution change - success_withdrawable       OK
 + [Valid]   EF - Capella - Operations - BLS to execution change - valid_signature_from_staki OK
 ```
-OK: 15/15 Fail: 0/15 Skip: 0/15
 ## EF - Capella - Operations - Block Header  [Preset: mainnet]
 ```diff
 + [Invalid] EF - Capella - Operations - Block Header - invalid_multiple_blocks_single_slot   OK
@@ -1325,7 +1255,6 @@ OK: 15/15 Fail: 0/15 Skip: 0/15
 + [Invalid] EF - Capella - Operations - Block Header - invalid_slot_block_header             OK
 + [Valid]   EF - Capella - Operations - Block Header - basic_block_header                    OK
 ```
-OK: 6/6 Fail: 0/6 Skip: 0/6
 ## EF - Capella - Operations - Deposit  [Preset: mainnet]
 ```diff
 + [Invalid] EF - Capella - Operations - Deposit - invalid_bad_merkle_proof                   OK
@@ -1350,7 +1279,6 @@ OK: 6/6 Fail: 0/6 Skip: 0/6
 + [Valid]   EF - Capella - Operations - Deposit - top_up__max_effective_balance              OK
 + [Valid]   EF - Capella - Operations - Deposit - top_up__zero_balance                       OK
 ```
-OK: 21/21 Fail: 0/21 Skip: 0/21
 ## EF - Capella - Operations - Execution Payload  [Preset: mainnet]
 ```diff
 + [Invalid] EF - Capella - Operations - Execution Payload - invalid_bad_everything_first_pay OK
@@ -1380,7 +1308,6 @@ OK: 21/21 Fail: 0/21 Skip: 0/21
 + [Valid]   EF - Capella - Operations - Execution Payload - zero_length_transaction_first_pa OK
 + [Valid]   EF - Capella - Operations - Execution Payload - zero_length_transaction_regular_ OK
 ```
-OK: 26/26 Fail: 0/26 Skip: 0/26
 ## EF - Capella - Operations - Proposer Slashing  [Preset: mainnet]
 ```diff
 + [Invalid] EF - Capella - Operations - Proposer Slashing - invalid_different_proposer_indic OK
@@ -1399,7 +1326,6 @@ OK: 26/26 Fail: 0/26 Skip: 0/26
 + [Valid]   EF - Capella - Operations - Proposer Slashing - block_header_from_future         OK
 + [Valid]   EF - Capella - Operations - Proposer Slashing - slashed_and_proposer_index_the_s OK
 ```
-OK: 15/15 Fail: 0/15 Skip: 0/15
 ## EF - Capella - Operations - Sync Aggregate  [Preset: mainnet]
 ```diff
 + [Invalid] EF - Capella - Operations - Sync Aggregate - invalid_signature_bad_domain        OK
@@ -1429,7 +1355,6 @@ OK: 15/15 Fail: 0/15 Skip: 0/15
 + [Valid]   EF - Capella - Operations - Sync Aggregate - sync_committee_with_participating_e OK
 + [Valid]   EF - Capella - Operations - Sync Aggregate - sync_committee_with_participating_w OK
 ```
-OK: 26/26 Fail: 0/26 Skip: 0/26
 ## EF - Capella - Operations - Voluntary Exit  [Preset: mainnet]
 ```diff
 + [Invalid] EF - Capella - Operations - Voluntary Exit - invalid_incorrect_signature         OK
@@ -1448,7 +1373,6 @@ OK: 26/26 Fail: 0/26 Skip: 0/26
 + [Valid]   EF - Capella - Operations - Voluntary Exit - voluntary_exit_with_current_fork_ve OK
 + [Valid]   EF - Capella - Operations - Voluntary Exit - voluntary_exit_with_previous_fork_v OK
 ```
-OK: 15/15 Fail: 0/15 Skip: 0/15
 ## EF - Capella - Operations - Withdrawals  [Preset: mainnet]
 ```diff
 + [Invalid] EF - Capella - Operations - Withdrawals - invalid_a_lot_fully_withdrawable_too_f OK
@@ -1472,6 +1396,9 @@ OK: 15/15 Fail: 0/15 Skip: 0/15
 + [Invalid] EF - Capella - Operations - Withdrawals - invalid_two_expected_partial_withdrawa OK
 + [Valid]   EF - Capella - Operations - Withdrawals - all_withdrawal                         OK
 + [Valid]   EF - Capella - Operations - Withdrawals - no_withdrawals_but_some_next_epoch     OK
++ [Valid]   EF - Capella - Operations - Withdrawals - partially_withdrawable_validator_legac OK
++ [Valid]   EF - Capella - Operations - Withdrawals - partially_withdrawable_validator_legac OK
++ [Valid]   EF - Capella - Operations - Withdrawals - partially_withdrawable_validator_legac OK
 + [Valid]   EF - Capella - Operations - Withdrawals - random_0                               OK
 + [Valid]   EF - Capella - Operations - Withdrawals - random_full_withdrawals_0              OK
 + [Valid]   EF - Capella - Operations - Withdrawals - random_full_withdrawals_1              OK
@@ -1502,7 +1429,6 @@ OK: 15/15 Fail: 0/15 Skip: 0/15
 + [Valid]   EF - Capella - Operations - Withdrawals - withdrawable_epoch_but_0_effective_bal OK
 + [Valid]   EF - Capella - Operations - Withdrawals - withdrawable_epoch_but_0_effective_bal OK
 ```
-OK: 50/50 Fail: 0/50 Skip: 0/50
 ## EF - Capella - Random  [Preset: mainnet]
 ```diff
 + [Valid]   EF - Capella - Random - randomized_0 [Preset: mainnet]                           OK
@@ -1522,7 +1448,6 @@ OK: 50/50 Fail: 0/50 Skip: 0/50
 + [Valid]   EF - Capella - Random - randomized_8 [Preset: mainnet]                           OK
 + [Valid]   EF - Capella - Random - randomized_9 [Preset: mainnet]                           OK
 ```
-OK: 16/16 Fail: 0/16 Skip: 0/16
 ## EF - Capella - Rewards  [Preset: mainnet]
 ```diff
 + EF - Capella - Rewards - all_balances_too_low_for_reward [Preset: mainnet]                 OK
@@ -1560,7 +1485,6 @@ OK: 16/16 Fail: 0/16 Skip: 0/16
 + EF - Capella - Rewards - with_slashed_validators [Preset: mainnet]                         OK
 + EF - Capella - Rewards - with_slashed_validators_leak [Preset: mainnet]                    OK
 ```
-OK: 34/34 Fail: 0/34 Skip: 0/34
 ## EF - Capella - SSZ consensus objects  [Preset: mainnet]
 ```diff
 +   Testing    AggregateAndProof                                                             OK
@@ -1610,7 +1534,6 @@ OK: 34/34 Fail: 0/34 Skip: 0/34
 +   Testing    VoluntaryExit                                                                 OK
 +   Testing    Withdrawal                                                                    OK
 ```
-OK: 46/46 Fail: 0/46 Skip: 0/46
 ## EF - Capella - Sanity - Blocks  [Preset: mainnet]
 ```diff
 + [Invalid] EF - Capella - Sanity - Blocks - invalid_all_zeroed_sig [Preset: mainnet]        OK
@@ -1676,7 +1599,6 @@ OK: 46/46 Fail: 0/46 Skip: 0/46
 + [Valid]   EF - Capella - Sanity - Blocks - voluntary_exit [Preset: mainnet]                OK
 + [Valid]   EF - Capella - Sanity - Blocks - withdrawal_success_two_blocks [Preset: mainnet] OK
 ```
-OK: 62/62 Fail: 0/62 Skip: 0/62
 ## EF - Capella - Sanity - Slots  [Preset: mainnet]
 ```diff
 + EF - Capella - Slots - double_empty_epoch [Preset: mainnet]                                OK
@@ -1686,7 +1608,6 @@ OK: 62/62 Fail: 0/62 Skip: 0/62
 + EF - Capella - Slots - slots_1 [Preset: mainnet]                                           OK
 + EF - Capella - Slots - slots_2 [Preset: mainnet]                                           OK
 ```
-OK: 6/6 Fail: 0/6 Skip: 0/6
 ## EF - Capella - Transition  [Preset: mainnet]
 ```diff
 + EF - Capella - Transition - non_empty_historical_roots [Preset: mainnet]                   OK
@@ -1712,7 +1633,6 @@ OK: 6/6 Fail: 0/6 Skip: 0/6
 + EF - Capella - Transition - transition_with_random_half_participation [Preset: mainnet]    OK
 + EF - Capella - Transition - transition_with_random_three_quarters_participation [Preset: m OK
 ```
-OK: 22/22 Fail: 0/22 Skip: 0/22
 ## EF - Capella - Unittests - Light client - Sync protocol [Preset: mainnet]
 ```diff
 + process_light_client_update_finality_updated                                               OK
@@ -1720,23 +1640,19 @@ OK: 22/22 Fail: 0/22 Skip: 0/22
 + test_process_light_client_update_at_period_boundary                                        OK
 + test_process_light_client_update_not_timeout                                               OK
 ```
-OK: 4/4 Fail: 0/4 Skip: 0/4
 ## EF - Deneb - Epoch Processing - Effective balance updates [Preset: mainnet]
 ```diff
 + Effective balance updates - effective_balance_hysteresis [Preset: mainnet]                 OK
 ```
-OK: 1/1 Fail: 0/1 Skip: 0/1
 ## EF - Deneb - Epoch Processing - Eth1 data reset [Preset: mainnet]
 ```diff
 + Eth1 data reset - eth1_vote_no_reset [Preset: mainnet]                                     OK
 + Eth1 data reset - eth1_vote_reset [Preset: mainnet]                                        OK
 ```
-OK: 2/2 Fail: 0/2 Skip: 0/2
 ## EF - Deneb - Epoch Processing - Historical summaries update [Preset: mainnet]
 ```diff
 + Historical summaries update - historical_summaries_accumulator [Preset: mainnet]           OK
 ```
-OK: 1/1 Fail: 0/1 Skip: 0/1
 ## EF - Deneb - Epoch Processing - Inactivity [Preset: mainnet]
 ```diff
 + Inactivity - all_zero_inactivity_scores_empty_participation [Preset: mainnet]              OK
@@ -1761,7 +1677,6 @@ OK: 1/1 Fail: 0/1 Skip: 0/1
 + Inactivity - some_slashed_zero_scores_full_participation [Preset: mainnet]                 OK
 + Inactivity - some_slashed_zero_scores_full_participation_leaking [Preset: mainnet]         OK
 ```
-OK: 21/21 Fail: 0/21 Skip: 0/21
 ## EF - Deneb - Epoch Processing - Justification & Finalization [Preset: mainnet]
 ```diff
 + Justification & Finalization - 123_ok_support [Preset: mainnet]                            OK
@@ -1775,7 +1690,6 @@ OK: 21/21 Fail: 0/21 Skip: 0/21
 + Justification & Finalization - 23_poor_support [Preset: mainnet]                           OK
 + Justification & Finalization - balance_threshold_with_exited_validators [Preset: mainnet]  OK
 ```
-OK: 10/10 Fail: 0/10 Skip: 0/10
 ## EF - Deneb - Epoch Processing - Participation flag updates [Preset: mainnet]
 ```diff
 + Participation flag updates - all_zeroed [Preset: mainnet]                                  OK
@@ -1789,12 +1703,10 @@ OK: 10/10 Fail: 0/10 Skip: 0/10
 + Participation flag updates - random_2 [Preset: mainnet]                                    OK
 + Participation flag updates - random_genesis [Preset: mainnet]                              OK
 ```
-OK: 10/10 Fail: 0/10 Skip: 0/10
 ## EF - Deneb - Epoch Processing - RANDAO mixes reset [Preset: mainnet]
 ```diff
 + RANDAO mixes reset - updated_randao_mixes [Preset: mainnet]                                OK
 ```
-OK: 1/1 Fail: 0/1 Skip: 0/1
 ## EF - Deneb - Epoch Processing - Registry updates [Preset: mainnet]
 ```diff
 + Registry updates - activation_queue_activation_and_ejection__1 [Preset: mainnet]           OK
@@ -1809,7 +1721,6 @@ OK: 1/1 Fail: 0/1 Skip: 0/1
 + Registry updates - ejection_past_churn_limit_min [Preset: mainnet]                         OK
 + Registry updates - invalid_large_withdrawable_epoch [Preset: mainnet]                      OK
 ```
-OK: 11/11 Fail: 0/11 Skip: 0/11
 ## EF - Deneb - Epoch Processing - Rewards and penalties [Preset: mainnet]
 ```diff
 + Rewards and penalties - almost_empty_attestations [Preset: mainnet]                        OK
@@ -1828,7 +1739,6 @@ OK: 11/11 Fail: 0/11 Skip: 0/11
 + Rewards and penalties - random_fill_attestations [Preset: mainnet]                         OK
 + Rewards and penalties - random_fill_attestations_with_leak [Preset: mainnet]               OK
 ```
-OK: 15/15 Fail: 0/15 Skip: 0/15
 ## EF - Deneb - Epoch Processing - Slashings [Preset: mainnet]
 ```diff
 + Slashings - low_penalty [Preset: mainnet]                                                  OK
@@ -1837,12 +1747,10 @@ OK: 15/15 Fail: 0/15 Skip: 0/15
 + Slashings - scaled_penalties [Preset: mainnet]                                             OK
 + Slashings - slashings_with_random_state [Preset: mainnet]                                  OK
 ```
-OK: 5/5 Fail: 0/5 Skip: 0/5
 ## EF - Deneb - Epoch Processing - Slashings reset [Preset: mainnet]
 ```diff
 + Slashings reset - flush_slashings [Preset: mainnet]                                        OK
 ```
-OK: 1/1 Fail: 0/1 Skip: 0/1
 ## EF - Deneb - Finality  [Preset: mainnet]
 ```diff
 + [Valid]   EF - Deneb - Finality - finality_no_updates_at_genesis [Preset: mainnet]         OK
@@ -1851,7 +1759,6 @@ OK: 1/1 Fail: 0/1 Skip: 0/1
 + [Valid]   EF - Deneb - Finality - finality_rule_3 [Preset: mainnet]                        OK
 + [Valid]   EF - Deneb - Finality - finality_rule_4 [Preset: mainnet]                        OK
 ```
-OK: 5/5 Fail: 0/5 Skip: 0/5
 ## EF - Deneb - Fork  [Preset: mainnet]
 ```diff
 + EF - Deneb - Fork - deneb_fork_random_0 [Preset: mainnet]                                  OK
@@ -1867,7 +1774,6 @@ OK: 5/5 Fail: 0/5 Skip: 0/5
 + EF - Deneb - Fork - fork_random_low_balances [Preset: mainnet]                             OK
 + EF - Deneb - Fork - fork_random_misc_balances [Preset: mainnet]                            OK
 ```
-OK: 12/12 Fail: 0/12 Skip: 0/12
 ## EF - Deneb - Operations - Attestation  [Preset: mainnet]
 ```diff
 + [Invalid] EF - Deneb - Operations - Attestation - invalid_after_max_inclusion_slot         OK
@@ -1912,7 +1818,6 @@ OK: 12/12 Fail: 0/12 Skip: 0/12
 + [Valid]   EF - Deneb - Operations - Attestation - one_basic_attestation                    OK
 + [Valid]   EF - Deneb - Operations - Attestation - previous_epoch                           OK
 ```
-OK: 41/41 Fail: 0/41 Skip: 0/41
 ## EF - Deneb - Operations - Attester Slashing  [Preset: mainnet]
 ```diff
 + [Invalid] EF - Deneb - Operations - Attester Slashing - invalid_all_empty_indices          OK
@@ -1946,7 +1851,6 @@ OK: 41/41 Fail: 0/41 Skip: 0/41
 + [Valid]   EF - Deneb - Operations - Attester Slashing - proposer_index_slashed             OK
 + [Valid]   EF - Deneb - Operations - Attester Slashing - with_effective_balance_disparity   OK
 ```
-OK: 30/30 Fail: 0/30 Skip: 0/30
 ## EF - Deneb - Operations - BLS to execution change  [Preset: mainnet]
 ```diff
 + [Invalid] EF - Deneb - Operations - BLS to execution change - invalid_already_0x01         OK
@@ -1964,7 +1868,6 @@ OK: 30/30 Fail: 0/30 Skip: 0/30
 + [Valid]   EF - Deneb - Operations - BLS to execution change - success_not_activated        OK
 + [Valid]   EF - Deneb - Operations - BLS to execution change - success_withdrawable         OK
 ```
-OK: 14/14 Fail: 0/14 Skip: 0/14
 ## EF - Deneb - Operations - Block Header  [Preset: mainnet]
 ```diff
 + [Invalid] EF - Deneb - Operations - Block Header - invalid_multiple_blocks_single_slot     OK
@@ -1974,7 +1877,6 @@ OK: 14/14 Fail: 0/14 Skip: 0/14
 + [Invalid] EF - Deneb - Operations - Block Header - invalid_slot_block_header               OK
 + [Valid]   EF - Deneb - Operations - Block Header - basic_block_header                      OK
 ```
-OK: 6/6 Fail: 0/6 Skip: 0/6
 ## EF - Deneb - Operations - Deposit  [Preset: mainnet]
 ```diff
 + [Invalid] EF - Deneb - Operations - Deposit - invalid_bad_merkle_proof                     OK
@@ -1999,7 +1901,6 @@ OK: 6/6 Fail: 0/6 Skip: 0/6
 + [Valid]   EF - Deneb - Operations - Deposit - top_up__max_effective_balance                OK
 + [Valid]   EF - Deneb - Operations - Deposit - top_up__zero_balance                         OK
 ```
-OK: 21/21 Fail: 0/21 Skip: 0/21
 ## EF - Deneb - Operations - Execution Payload  [Preset: mainnet]
 ```diff
 + [Invalid] EF - Deneb - Operations - Execution Payload - invalid_bad_everything_first_paylo OK
@@ -2043,7 +1944,6 @@ OK: 21/21 Fail: 0/21 Skip: 0/21
 + [Valid]   EF - Deneb - Operations - Execution Payload - zero_length_transaction_regular_pa OK
 + [Valid]   EF - Deneb - Operations - Execution Payload - zeroed_commitment                  OK
 ```
-OK: 40/40 Fail: 0/40 Skip: 0/40
 ## EF - Deneb - Operations - Proposer Slashing  [Preset: mainnet]
 ```diff
 + [Invalid] EF - Deneb - Operations - Proposer Slashing - invalid_different_proposer_indices OK
@@ -2062,7 +1962,6 @@ OK: 40/40 Fail: 0/40 Skip: 0/40
 + [Valid]   EF - Deneb - Operations - Proposer Slashing - block_header_from_future           OK
 + [Valid]   EF - Deneb - Operations - Proposer Slashing - slashed_and_proposer_index_the_sam OK
 ```
-OK: 15/15 Fail: 0/15 Skip: 0/15
 ## EF - Deneb - Operations - Sync Aggregate  [Preset: mainnet]
 ```diff
 + [Invalid] EF - Deneb - Operations - Sync Aggregate - invalid_signature_bad_domain          OK
@@ -2092,7 +1991,6 @@ OK: 15/15 Fail: 0/15 Skip: 0/15
 + [Valid]   EF - Deneb - Operations - Sync Aggregate - sync_committee_with_participating_exi OK
 + [Valid]   EF - Deneb - Operations - Sync Aggregate - sync_committee_with_participating_wit OK
 ```
-OK: 26/26 Fail: 0/26 Skip: 0/26
 ## EF - Deneb - Operations - Voluntary Exit  [Preset: mainnet]
 ```diff
 + [Invalid] EF - Deneb - Operations - Voluntary Exit - invalid_incorrect_signature           OK
@@ -2111,7 +2009,6 @@ OK: 26/26 Fail: 0/26 Skip: 0/26
 + [Valid]   EF - Deneb - Operations - Voluntary Exit - voluntary_exit_with_previous_fork_ver OK
 + [Valid]   EF - Deneb - Operations - Voluntary Exit - voluntary_exit_with_previous_fork_ver OK
 ```
-OK: 15/15 Fail: 0/15 Skip: 0/15
 ## EF - Deneb - Operations - Withdrawals  [Preset: mainnet]
 ```diff
 + [Invalid] EF - Deneb - Operations - Withdrawals - invalid_a_lot_fully_withdrawable_too_few OK
@@ -2135,6 +2032,9 @@ OK: 15/15 Fail: 0/15 Skip: 0/15
 + [Invalid] EF - Deneb - Operations - Withdrawals - invalid_two_expected_partial_withdrawal_ OK
 + [Valid]   EF - Deneb - Operations - Withdrawals - all_withdrawal                           OK
 + [Valid]   EF - Deneb - Operations - Withdrawals - no_withdrawals_but_some_next_epoch       OK
++ [Valid]   EF - Deneb - Operations - Withdrawals - partially_withdrawable_validator_legacy_ OK
++ [Valid]   EF - Deneb - Operations - Withdrawals - partially_withdrawable_validator_legacy_ OK
++ [Valid]   EF - Deneb - Operations - Withdrawals - partially_withdrawable_validator_legacy_ OK
 + [Valid]   EF - Deneb - Operations - Withdrawals - random_0                                 OK
 + [Valid]   EF - Deneb - Operations - Withdrawals - random_full_withdrawals_0                OK
 + [Valid]   EF - Deneb - Operations - Withdrawals - random_full_withdrawals_1                OK
@@ -2165,7 +2065,6 @@ OK: 15/15 Fail: 0/15 Skip: 0/15
 + [Valid]   EF - Deneb - Operations - Withdrawals - withdrawable_epoch_but_0_effective_balan OK
 + [Valid]   EF - Deneb - Operations - Withdrawals - withdrawable_epoch_but_0_effective_balan OK
 ```
-OK: 50/50 Fail: 0/50 Skip: 0/50
 ## EF - Deneb - Random  [Preset: mainnet]
 ```diff
 + [Valid]   EF - Deneb - Random - randomized_0 [Preset: mainnet]                             OK
@@ -2185,7 +2084,6 @@ OK: 50/50 Fail: 0/50 Skip: 0/50
 + [Valid]   EF - Deneb - Random - randomized_8 [Preset: mainnet]                             OK
 + [Valid]   EF - Deneb - Random - randomized_9 [Preset: mainnet]                             OK
 ```
-OK: 16/16 Fail: 0/16 Skip: 0/16
 ## EF - Deneb - Rewards  [Preset: mainnet]
 ```diff
 + EF - Deneb - Rewards - all_balances_too_low_for_reward [Preset: mainnet]                   OK
@@ -2223,7 +2121,6 @@ OK: 16/16 Fail: 0/16 Skip: 0/16
 + EF - Deneb - Rewards - with_slashed_validators [Preset: mainnet]                           OK
 + EF - Deneb - Rewards - with_slashed_validators_leak [Preset: mainnet]                      OK
 ```
-OK: 34/34 Fail: 0/34 Skip: 0/34
 ## EF - Deneb - SSZ consensus objects  [Preset: mainnet]
 ```diff
 +   Testing    AggregateAndProof                                                             OK
@@ -2275,7 +2172,6 @@ OK: 34/34 Fail: 0/34 Skip: 0/34
 +   Testing    VoluntaryExit                                                                 OK
 +   Testing    Withdrawal                                                                    OK
 ```
-OK: 48/48 Fail: 0/48 Skip: 0/48
 ## EF - Deneb - Sanity - Blocks  [Preset: mainnet]
 ```diff
 + [Invalid] EF - Deneb - Sanity - Blocks - invalid_all_zeroed_sig [Preset: mainnet]          OK
@@ -2350,7 +2246,6 @@ OK: 48/48 Fail: 0/48 Skip: 0/48
 + [Valid]   EF - Deneb - Sanity - Blocks - withdrawal_success_two_blocks [Preset: mainnet]   OK
 + [Valid]   EF - Deneb - Sanity - Blocks - zero_blob [Preset: mainnet]                       OK
 ```
-OK: 71/71 Fail: 0/71 Skip: 0/71
 ## EF - Deneb - Sanity - Slots  [Preset: mainnet]
 ```diff
 + EF - Deneb - Slots - double_empty_epoch [Preset: mainnet]                                  OK
@@ -2360,7 +2255,6 @@ OK: 71/71 Fail: 0/71 Skip: 0/71
 + EF - Deneb - Slots - slots_1 [Preset: mainnet]                                             OK
 + EF - Deneb - Slots - slots_2 [Preset: mainnet]                                             OK
 ```
-OK: 6/6 Fail: 0/6 Skip: 0/6
 ## EF - Deneb - Transition  [Preset: mainnet]
 ```diff
 + EF - Deneb - Transition - non_empty_historical_roots [Preset: mainnet]                     OK
@@ -2389,7 +2283,6 @@ OK: 6/6 Fail: 0/6 Skip: 0/6
 + EF - Deneb - Transition - transition_with_random_half_participation [Preset: mainnet]      OK
 + EF - Deneb - Transition - transition_with_random_three_quarters_participation [Preset: mai OK
 ```
-OK: 25/25 Fail: 0/25 Skip: 0/25
 ## EF - Deneb - Unittests - Light client - Sync protocol [Preset: mainnet]
 ```diff
 + process_light_client_update_finality_updated                                               OK
@@ -2397,24 +2290,20 @@ OK: 25/25 Fail: 0/25 Skip: 0/25
 + test_process_light_client_update_at_period_boundary                                        OK
 + test_process_light_client_update_not_timeout                                               OK
 ```
-OK: 4/4 Fail: 0/4 Skip: 0/4
 ## EF - Electra - Epoch Processing - Effective balance updates [Preset: mainnet]
 ```diff
 + Effective balance updates - effective_balance_hysteresis [Preset: mainnet]                 OK
 + Effective balance updates - effective_balance_hysteresis_with_compounding_credentials [Pre OK
 ```
-OK: 2/2 Fail: 0/2 Skip: 0/2
 ## EF - Electra - Epoch Processing - Eth1 data reset [Preset: mainnet]
 ```diff
 + Eth1 data reset - eth1_vote_no_reset [Preset: mainnet]                                     OK
 + Eth1 data reset - eth1_vote_reset [Preset: mainnet]                                        OK
 ```
-OK: 2/2 Fail: 0/2 Skip: 0/2
 ## EF - Electra - Epoch Processing - Historical summaries update [Preset: mainnet]
 ```diff
 + Historical summaries update - historical_summaries_accumulator [Preset: mainnet]           OK
 ```
-OK: 1/1 Fail: 0/1 Skip: 0/1
 ## EF - Electra - Epoch Processing - Inactivity [Preset: mainnet]
 ```diff
 + Inactivity - all_zero_inactivity_scores_empty_participation [Preset: mainnet]              OK
@@ -2439,7 +2328,6 @@ OK: 1/1 Fail: 0/1 Skip: 0/1
 + Inactivity - some_slashed_zero_scores_full_participation [Preset: mainnet]                 OK
 + Inactivity - some_slashed_zero_scores_full_participation_leaking [Preset: mainnet]         OK
 ```
-OK: 21/21 Fail: 0/21 Skip: 0/21
 ## EF - Electra - Epoch Processing - Justification & Finalization [Preset: mainnet]
 ```diff
 + Justification & Finalization - 123_ok_support [Preset: mainnet]                            OK
@@ -2453,7 +2341,6 @@ OK: 21/21 Fail: 0/21 Skip: 0/21
 + Justification & Finalization - 23_poor_support [Preset: mainnet]                           OK
 + Justification & Finalization - balance_threshold_with_exited_validators [Preset: mainnet]  OK
 ```
-OK: 10/10 Fail: 0/10 Skip: 0/10
 ## EF - Electra - Epoch Processing - Participation flag updates [Preset: mainnet]
 ```diff
 + Participation flag updates - all_zeroed [Preset: mainnet]                                  OK
@@ -2467,7 +2354,6 @@ OK: 10/10 Fail: 0/10 Skip: 0/10
 + Participation flag updates - random_2 [Preset: mainnet]                                    OK
 + Participation flag updates - random_genesis [Preset: mainnet]                              OK
 ```
-OK: 10/10 Fail: 0/10 Skip: 0/10
 ## EF - Electra - Epoch Processing - Pending consolidations [Preset: mainnet]
 ```diff
 + Pending consolidations - all_consolidation_cases_together [Preset: mainnet]                OK
@@ -2484,11 +2370,11 @@ OK: 10/10 Fail: 0/10 Skip: 0/10
 + Pending consolidations - pending_consolidation_with_pending_deposit [Preset: mainnet]      OK
 + Pending consolidations - skip_consolidation_when_source_slashed [Preset: mainnet]          OK
 ```
-OK: 13/13 Fail: 0/13 Skip: 0/13
 ## EF - Electra - Epoch Processing - Pending deposits [Preset: mainnet]
 ```diff
 + Pending deposits - apply_pending_deposit_compounding_withdrawal_credentials_max [Preset: m OK
 + Pending deposits - apply_pending_deposit_compounding_withdrawal_credentials_over_max [Pres OK
++ Pending deposits - apply_pending_deposit_compounding_withdrawal_credentials_over_max_next_ OK
 + Pending deposits - apply_pending_deposit_compounding_withdrawal_credentials_under_max [Pre OK
 + Pending deposits - apply_pending_deposit_correct_sig_but_forked_state [Preset: mainnet]    OK
 + Pending deposits - apply_pending_deposit_effective_deposit_with_genesis_fork_version [Pres OK
@@ -2503,6 +2389,7 @@ OK: 13/13 Fail: 0/13 Skip: 0/13
 + Pending deposits - apply_pending_deposit_non_versioned_withdrawal_credentials [Preset: mai OK
 + Pending deposits - apply_pending_deposit_non_versioned_withdrawal_credentials_over_min_act OK
 + Pending deposits - apply_pending_deposit_over_min_activation [Preset: mainnet]             OK
++ Pending deposits - apply_pending_deposit_over_min_activation_next_increment [Preset: mainn OK
 + Pending deposits - apply_pending_deposit_success_top_up_to_withdrawn_validator [Preset: ma OK
 + Pending deposits - apply_pending_deposit_top_up__less_effective_balance [Preset: mainnet]  OK
 + Pending deposits - apply_pending_deposit_top_up__max_effective_balance_compounding [Preset OK
@@ -2519,6 +2406,7 @@ OK: 13/13 Fail: 0/13 Skip: 0/13
 + Pending deposits - process_pending_deposits_eth1_bridge_transition_pending [Preset: mainne OK
 + Pending deposits - process_pending_deposits_limit_is_reached [Preset: mainnet]             OK
 + Pending deposits - process_pending_deposits_mixture_of_skipped_and_above_churn [Preset: ma OK
++ Pending deposits - process_pending_deposits_multiple_for_new_validator [Preset: mainnet]   OK
 + Pending deposits - process_pending_deposits_multiple_pending_deposits_above_churn [Preset: OK
 + Pending deposits - process_pending_deposits_multiple_pending_deposits_below_churn [Preset: OK
 + Pending deposits - process_pending_deposits_multiple_pending_one_skipped [Preset: mainnet] OK
@@ -2529,12 +2417,10 @@ OK: 13/13 Fail: 0/13 Skip: 0/13
 + Pending deposits - process_pending_deposits_withdrawable_validator [Preset: mainnet]       OK
 + Pending deposits - process_pending_deposits_withdrawable_validator_not_churned [Preset: ma OK
 ```
-OK: 41/41 Fail: 0/41 Skip: 0/41
 ## EF - Electra - Epoch Processing - RANDAO mixes reset [Preset: mainnet]
 ```diff
 + RANDAO mixes reset - updated_randao_mixes [Preset: mainnet]                                OK
 ```
-OK: 1/1 Fail: 0/1 Skip: 0/1
 ## EF - Electra - Epoch Processing - Registry updates [Preset: mainnet]
 ```diff
 + Registry updates - activation_queue_activation_and_ejection__1 [Preset: mainnet]           OK
@@ -2554,7 +2440,6 @@ OK: 1/1 Fail: 0/1 Skip: 0/1
 + Registry updates - ejection_past_churn_limit_min [Preset: mainnet]                         OK
 + Registry updates - invalid_large_withdrawable_epoch [Preset: mainnet]                      OK
 ```
-OK: 16/16 Fail: 0/16 Skip: 0/16
 ## EF - Electra - Epoch Processing - Rewards and penalties [Preset: mainnet]
 ```diff
 + Rewards and penalties - almost_empty_attestations [Preset: mainnet]                        OK
@@ -2573,7 +2458,6 @@ OK: 16/16 Fail: 0/16 Skip: 0/16
 + Rewards and penalties - random_fill_attestations [Preset: mainnet]                         OK
 + Rewards and penalties - random_fill_attestations_with_leak [Preset: mainnet]               OK
 ```
-OK: 15/15 Fail: 0/15 Skip: 0/15
 ## EF - Electra - Epoch Processing - Slashings [Preset: mainnet]
 ```diff
 + Slashings - low_penalty [Preset: mainnet]                                                  OK
@@ -2582,12 +2466,10 @@ OK: 15/15 Fail: 0/15 Skip: 0/15
 + Slashings - scaled_penalties [Preset: mainnet]                                             OK
 + Slashings - slashings_with_random_state [Preset: mainnet]                                  OK
 ```
-OK: 5/5 Fail: 0/5 Skip: 0/5
 ## EF - Electra - Epoch Processing - Slashings reset [Preset: mainnet]
 ```diff
 + Slashings reset - flush_slashings [Preset: mainnet]                                        OK
 ```
-OK: 1/1 Fail: 0/1 Skip: 0/1
 ## EF - Electra - Finality  [Preset: mainnet]
 ```diff
 + [Valid]   EF - Electra - Finality - finality_no_updates_at_genesis [Preset: mainnet]       OK
@@ -2596,7 +2478,6 @@ OK: 1/1 Fail: 0/1 Skip: 0/1
 + [Valid]   EF - Electra - Finality - finality_rule_3 [Preset: mainnet]                      OK
 + [Valid]   EF - Electra - Finality - finality_rule_4 [Preset: mainnet]                      OK
 ```
-OK: 5/5 Fail: 0/5 Skip: 0/5
 ## EF - Electra - Fork  [Preset: mainnet]
 ```diff
 + EF - Electra - Fork - electra_fork_random_0 [Preset: mainnet]                              OK
@@ -2619,7 +2500,6 @@ OK: 5/5 Fail: 0/5 Skip: 0/5
 + EF - Electra - Fork - fork_random_low_balances [Preset: mainnet]                           OK
 + EF - Electra - Fork - fork_random_misc_balances [Preset: mainnet]                          OK
 ```
-OK: 19/19 Fail: 0/19 Skip: 0/19
 ## EF - Electra - Operations - Attestation  [Preset: mainnet]
 ```diff
 + [Invalid] EF - Electra - Operations - Attestation - invalid_after_max_inclusion_slot       OK
@@ -2668,7 +2548,6 @@ OK: 19/19 Fail: 0/19 Skip: 0/19
 + [Valid]   EF - Electra - Operations - Attestation - one_basic_attestation                  OK
 + [Valid]   EF - Electra - Operations - Attestation - previous_epoch                         OK
 ```
-OK: 45/45 Fail: 0/45 Skip: 0/45
 ## EF - Electra - Operations - Attester Slashing  [Preset: mainnet]
 ```diff
 + [Invalid] EF - Electra - Operations - Attester Slashing - invalid_all_empty_indices        OK
@@ -2702,7 +2581,6 @@ OK: 45/45 Fail: 0/45 Skip: 0/45
 + [Valid]   EF - Electra - Operations - Attester Slashing - proposer_index_slashed           OK
 + [Valid]   EF - Electra - Operations - Attester Slashing - with_effective_balance_disparity OK
 ```
-OK: 30/30 Fail: 0/30 Skip: 0/30
 ## EF - Electra - Operations - BLS to execution change  [Preset: mainnet]
 ```diff
 + [Invalid] EF - Electra - Operations - BLS to execution change - invalid_already_0x01       OK
@@ -2720,7 +2598,6 @@ OK: 30/30 Fail: 0/30 Skip: 0/30
 + [Valid]   EF - Electra - Operations - BLS to execution change - success_not_activated      OK
 + [Valid]   EF - Electra - Operations - BLS to execution change - success_withdrawable       OK
 ```
-OK: 14/14 Fail: 0/14 Skip: 0/14
 ## EF - Electra - Operations - Block Header  [Preset: mainnet]
 ```diff
 + [Invalid] EF - Electra - Operations - Block Header - invalid_multiple_blocks_single_slot   OK
@@ -2730,7 +2607,6 @@ OK: 14/14 Fail: 0/14 Skip: 0/14
 + [Invalid] EF - Electra - Operations - Block Header - invalid_slot_block_header             OK
 + [Valid]   EF - Electra - Operations - Block Header - basic_block_header                    OK
 ```
-OK: 6/6 Fail: 0/6 Skip: 0/6
 ## EF - Electra - Operations - Consolidation Request  [Preset: mainnet]
 ```diff
 + [Valid]   EF - Electra - Operations - Consolidation Request - basic_switch_to_compounding  OK
@@ -2744,7 +2620,6 @@ OK: 6/6 Fail: 0/6 Skip: 0/6
 + [Valid]   EF - Electra - Operations - Consolidation Request - switch_to_compounding_with_e OK
 + [Valid]   EF - Electra - Operations - Consolidation Request - switch_to_compounding_with_p OK
 ```
-OK: 10/10 Fail: 0/10 Skip: 0/10
 ## EF - Electra - Operations - Deposit  [Preset: mainnet]
 ```diff
 + [Invalid] EF - Electra - Operations - Deposit - invalid_bad_merkle_proof                   OK
@@ -2769,7 +2644,6 @@ OK: 10/10 Fail: 0/10 Skip: 0/10
 + [Valid]   EF - Electra - Operations - Deposit - top_up__max_effective_balance              OK
 + [Valid]   EF - Electra - Operations - Deposit - top_up__zero_balance                       OK
 ```
-OK: 21/21 Fail: 0/21 Skip: 0/21
 ## EF - Electra - Operations - Deposit Request  [Preset: mainnet]
 ```diff
 + [Valid]   EF - Electra - Operations - Deposit Request - process_deposit_request_invalid_si OK
@@ -2781,7 +2655,6 @@ OK: 21/21 Fail: 0/21 Skip: 0/21
 + [Valid]   EF - Electra - Operations - Deposit Request - process_deposit_request_top_up_max OK
 + [Valid]   EF - Electra - Operations - Deposit Request - process_deposit_request_top_up_min OK
 ```
-OK: 8/8 Fail: 0/8 Skip: 0/8
 ## EF - Electra - Operations - Execution Payload  [Preset: mainnet]
 ```diff
 + [Invalid] EF - Electra - Operations - Execution Payload - invalid_bad_everything_first_pay OK
@@ -2825,7 +2698,6 @@ OK: 8/8 Fail: 0/8 Skip: 0/8
 + [Valid]   EF - Electra - Operations - Execution Payload - zero_length_transaction_regular_ OK
 + [Valid]   EF - Electra - Operations - Execution Payload - zeroed_commitment                OK
 ```
-OK: 40/40 Fail: 0/40 Skip: 0/40
 ## EF - Electra - Operations - Proposer Slashing  [Preset: mainnet]
 ```diff
 + [Invalid] EF - Electra - Operations - Proposer Slashing - invalid_different_proposer_indic OK
@@ -2844,7 +2716,6 @@ OK: 40/40 Fail: 0/40 Skip: 0/40
 + [Valid]   EF - Electra - Operations - Proposer Slashing - block_header_from_future         OK
 + [Valid]   EF - Electra - Operations - Proposer Slashing - slashed_and_proposer_index_the_s OK
 ```
-OK: 15/15 Fail: 0/15 Skip: 0/15
 ## EF - Electra - Operations - Sync Aggregate  [Preset: mainnet]
 ```diff
 + [Invalid] EF - Electra - Operations - Sync Aggregate - invalid_signature_bad_domain        OK
@@ -2874,7 +2745,6 @@ OK: 15/15 Fail: 0/15 Skip: 0/15
 + [Valid]   EF - Electra - Operations - Sync Aggregate - sync_committee_with_participating_e OK
 + [Valid]   EF - Electra - Operations - Sync Aggregate - sync_committee_with_participating_w OK
 ```
-OK: 26/26 Fail: 0/26 Skip: 0/26
 ## EF - Electra - Operations - Voluntary Exit  [Preset: mainnet]
 ```diff
 + [Invalid] EF - Electra - Operations - Voluntary Exit - invalid_incorrect_signature         OK
@@ -2902,7 +2772,6 @@ OK: 26/26 Fail: 0/26 Skip: 0/26
 + [Valid]   EF - Electra - Operations - Voluntary Exit - min_balance_exits_up_to_churn       OK
 + [Valid]   EF - Electra - Operations - Voluntary Exit - success_exit_queue__min_churn       OK
 ```
-OK: 24/24 Fail: 0/24 Skip: 0/24
 ## EF - Electra - Operations - Withdrawal Request  [Preset: mainnet]
 ```diff
 + [Valid]   EF - Electra - Operations - Withdrawal Request - activation_epoch_less_than_shar OK
@@ -2925,7 +2794,6 @@ OK: 24/24 Fail: 0/24 Skip: 0/24
 + [Valid]   EF - Electra - Operations - Withdrawal Request - pending_withdrawals_consume_all OK
 + [Valid]   EF - Electra - Operations - Withdrawal Request - unknown_pubkey                  OK
 ```
-OK: 19/19 Fail: 0/19 Skip: 0/19
 ## EF - Electra - Operations - Withdrawals  [Preset: mainnet]
 ```diff
 + [Invalid] EF - Electra - Operations - Withdrawals - invalid_a_lot_fully_withdrawable_too_f OK
@@ -2949,6 +2817,15 @@ OK: 19/19 Fail: 0/19 Skip: 0/19
 + [Invalid] EF - Electra - Operations - Withdrawals - invalid_two_expected_partial_withdrawa OK
 + [Valid]   EF - Electra - Operations - Withdrawals - all_withdrawal                         OK
 + [Valid]   EF - Electra - Operations - Withdrawals - no_withdrawals_but_some_next_epoch     OK
++ [Valid]   EF - Electra - Operations - Withdrawals - partially_withdrawable_validator_compo OK
++ [Valid]   EF - Electra - Operations - Withdrawals - partially_withdrawable_validator_compo OK
++ [Valid]   EF - Electra - Operations - Withdrawals - partially_withdrawable_validator_compo OK
++ [Valid]   EF - Electra - Operations - Withdrawals - partially_withdrawable_validator_compo OK
++ [Valid]   EF - Electra - Operations - Withdrawals - partially_withdrawable_validator_compo OK
++ [Valid]   EF - Electra - Operations - Withdrawals - partially_withdrawable_validator_compo OK
++ [Valid]   EF - Electra - Operations - Withdrawals - partially_withdrawable_validator_legac OK
++ [Valid]   EF - Electra - Operations - Withdrawals - partially_withdrawable_validator_legac OK
++ [Valid]   EF - Electra - Operations - Withdrawals - partially_withdrawable_validator_legac OK
 + [Valid]   EF - Electra - Operations - Withdrawals - pending_withdrawals_at_max             OK
 + [Valid]   EF - Electra - Operations - Withdrawals - pending_withdrawals_at_max_mixed_with_ OK
 + [Valid]   EF - Electra - Operations - Withdrawals - pending_withdrawals_exiting_validator  OK
@@ -2995,7 +2872,6 @@ OK: 19/19 Fail: 0/19 Skip: 0/19
 + [Valid]   EF - Electra - Operations - Withdrawals - withdrawable_epoch_but_0_effective_bal OK
 + [Valid]   EF - Electra - Operations - Withdrawals - withdrawable_epoch_but_0_effective_bal OK
 ```
-OK: 66/66 Fail: 0/66 Skip: 0/66
 ## EF - Electra - Random  [Preset: mainnet]
 ```diff
 + [Valid]   EF - Electra - Random - randomized_0 [Preset: mainnet]                           OK
@@ -3015,7 +2891,6 @@ OK: 66/66 Fail: 0/66 Skip: 0/66
 + [Valid]   EF - Electra - Random - randomized_8 [Preset: mainnet]                           OK
 + [Valid]   EF - Electra - Random - randomized_9 [Preset: mainnet]                           OK
 ```
-OK: 16/16 Fail: 0/16 Skip: 0/16
 ## EF - Electra - Rewards  [Preset: mainnet]
 ```diff
 + EF - Electra - Rewards - all_balances_too_low_for_reward [Preset: mainnet]                 OK
@@ -3053,7 +2928,6 @@ OK: 16/16 Fail: 0/16 Skip: 0/16
 + EF - Electra - Rewards - with_slashed_validators [Preset: mainnet]                         OK
 + EF - Electra - Rewards - with_slashed_validators_leak [Preset: mainnet]                    OK
 ```
-OK: 34/34 Fail: 0/34 Skip: 0/34
 ## EF - Electra - SSZ consensus objects  [Preset: mainnet]
 ```diff
 +   Testing    AggregateAndProof                                                             OK
@@ -3113,7 +2987,6 @@ OK: 34/34 Fail: 0/34 Skip: 0/34
 +   Testing    Withdrawal                                                                    OK
 +   Testing    WithdrawalRequest                                                             OK
 ```
-OK: 56/56 Fail: 0/56 Skip: 0/56
 ## EF - Electra - Sanity - Blocks  [Preset: mainnet]
 ```diff
 + [Invalid] EF - Electra - Sanity - Blocks - deposit_transition__invalid_eth1_deposits_overl OK
@@ -3151,6 +3024,7 @@ OK: 56/56 Fail: 0/56 Skip: 0/56
 + [Valid]   EF - Electra - Sanity - Blocks - cl_exit_and_el_withdrawal_request_in_same_block OK
 + [Valid]   EF - Electra - Sanity - Blocks - deposit_and_bls_change [Preset: mainnet]        OK
 + [Valid]   EF - Electra - Sanity - Blocks - deposit_in_block [Preset: mainnet]              OK
++ [Valid]   EF - Electra - Sanity - Blocks - deposit_request_with_same_pubkey_different_with OK
 + [Valid]   EF - Electra - Sanity - Blocks - deposit_top_up [Preset: mainnet]                OK
 + [Valid]   EF - Electra - Sanity - Blocks - deposit_transition__deposit_and_top_up_same_blo OK
 + [Valid]   EF - Electra - Sanity - Blocks - deposit_transition__deposit_with_same_pubkey_di OK
@@ -3197,10 +3071,11 @@ OK: 56/56 Fail: 0/56 Skip: 0/56
 + [Valid]   EF - Electra - Sanity - Blocks - top_up_and_partial_withdrawable_validator [Pres OK
 + [Valid]   EF - Electra - Sanity - Blocks - top_up_to_fully_withdrawn_validator [Preset: ma OK
 + [Valid]   EF - Electra - Sanity - Blocks - voluntary_exit [Preset: mainnet]                OK
++ [Valid]   EF - Electra - Sanity - Blocks - withdrawal_and_switch_to_compounding_request_sa OK
++ [Valid]   EF - Electra - Sanity - Blocks - withdrawal_and_withdrawal_request_same_validato OK
 + [Valid]   EF - Electra - Sanity - Blocks - withdrawal_success_two_blocks [Preset: mainnet] OK
 + [Valid]   EF - Electra - Sanity - Blocks - zero_blob [Preset: mainnet]                     OK
 ```
-OK: 83/83 Fail: 0/83 Skip: 0/83
 ## EF - Electra - Sanity - Slots  [Preset: mainnet]
 ```diff
 + EF - Electra - Slots - double_empty_epoch [Preset: mainnet]                                OK
@@ -3215,7 +3090,6 @@ OK: 83/83 Fail: 0/83 Skip: 0/83
 + EF - Electra - Slots - slots_1 [Preset: mainnet]                                           OK
 + EF - Electra - Slots - slots_2 [Preset: mainnet]                                           OK
 ```
-OK: 11/11 Fail: 0/11 Skip: 0/11
 ## EF - Electra - Transition  [Preset: mainnet]
 ```diff
 + EF - Electra - Transition - non_empty_historical_roots [Preset: mainnet]                   OK
@@ -3246,7 +3120,6 @@ OK: 11/11 Fail: 0/11 Skip: 0/11
 + EF - Electra - Transition - transition_with_random_half_participation [Preset: mainnet]    OK
 + EF - Electra - Transition - transition_with_random_three_quarters_participation [Preset: m OK
 ```
-OK: 27/27 Fail: 0/27 Skip: 0/27
 ## EF - Electra - Unittests - Light client - Sync protocol [Preset: mainnet]
 ```diff
 + process_light_client_update_finality_updated                                               OK
@@ -3254,7 +3127,637 @@ OK: 27/27 Fail: 0/27 Skip: 0/27
 + test_process_light_client_update_at_period_boundary                                        OK
 + test_process_light_client_update_not_timeout                                               OK
 ```
-OK: 4/4 Fail: 0/4 Skip: 0/4
+## EF - Fulu - Epoch Processing - Effective balance updates [Preset: mainnet]
+```diff
++ Effective balance updates - effective_balance_hysteresis [Preset: mainnet]                 OK
++ Effective balance updates - effective_balance_hysteresis_with_compounding_credentials [Pre OK
+```
+## EF - Fulu - Epoch Processing - Eth1 data reset [Preset: mainnet]
+```diff
++ Eth1 data reset - eth1_vote_no_reset [Preset: mainnet]                                     OK
++ Eth1 data reset - eth1_vote_reset [Preset: mainnet]                                        OK
+```
+## EF - Fulu - Epoch Processing - Historical summaries update [Preset: mainnet]
+```diff
++ Historical summaries update - historical_summaries_accumulator [Preset: mainnet]           OK
+```
+## EF - Fulu - Epoch Processing - Inactivity [Preset: mainnet]
+```diff
++ Inactivity - all_zero_inactivity_scores_empty_participation [Preset: mainnet]              OK
++ Inactivity - all_zero_inactivity_scores_empty_participation_leaking [Preset: mainnet]      OK
++ Inactivity - all_zero_inactivity_scores_full_participation [Preset: mainnet]               OK
++ Inactivity - all_zero_inactivity_scores_full_participation_leaking [Preset: mainnet]       OK
++ Inactivity - all_zero_inactivity_scores_random_participation [Preset: mainnet]             OK
++ Inactivity - all_zero_inactivity_scores_random_participation_leaking [Preset: mainnet]     OK
++ Inactivity - genesis [Preset: mainnet]                                                     OK
++ Inactivity - genesis_random_scores [Preset: mainnet]                                       OK
++ Inactivity - random_inactivity_scores_empty_participation [Preset: mainnet]                OK
++ Inactivity - random_inactivity_scores_empty_participation_leaking [Preset: mainnet]        OK
++ Inactivity - random_inactivity_scores_full_participation [Preset: mainnet]                 OK
++ Inactivity - random_inactivity_scores_full_participation_leaking [Preset: mainnet]         OK
++ Inactivity - random_inactivity_scores_random_participation [Preset: mainnet]               OK
++ Inactivity - random_inactivity_scores_random_participation_leaking [Preset: mainnet]       OK
++ Inactivity - randomized_state [Preset: mainnet]                                            OK
++ Inactivity - randomized_state_leaking [Preset: mainnet]                                    OK
++ Inactivity - some_exited_full_random_leaking [Preset: mainnet]                             OK
++ Inactivity - some_slashed_full_random [Preset: mainnet]                                    OK
++ Inactivity - some_slashed_full_random_leaking [Preset: mainnet]                            OK
++ Inactivity - some_slashed_zero_scores_full_participation [Preset: mainnet]                 OK
++ Inactivity - some_slashed_zero_scores_full_participation_leaking [Preset: mainnet]         OK
+```
+## EF - Fulu - Epoch Processing - Justification & Finalization [Preset: mainnet]
+```diff
++ Justification & Finalization - 123_ok_support [Preset: mainnet]                            OK
++ Justification & Finalization - 123_poor_support [Preset: mainnet]                          OK
++ Justification & Finalization - 12_ok_support [Preset: mainnet]                             OK
++ Justification & Finalization - 12_ok_support_messed_target [Preset: mainnet]               OK
++ Justification & Finalization - 12_poor_support [Preset: mainnet]                           OK
++ Justification & Finalization - 234_ok_support [Preset: mainnet]                            OK
++ Justification & Finalization - 234_poor_support [Preset: mainnet]                          OK
++ Justification & Finalization - 23_ok_support [Preset: mainnet]                             OK
++ Justification & Finalization - 23_poor_support [Preset: mainnet]                           OK
++ Justification & Finalization - balance_threshold_with_exited_validators [Preset: mainnet]  OK
+```
+## EF - Fulu - Epoch Processing - Participation flag updates [Preset: mainnet]
+```diff
++ Participation flag updates - all_zeroed [Preset: mainnet]                                  OK
++ Participation flag updates - current_epoch_zeroed [Preset: mainnet]                        OK
++ Participation flag updates - current_filled [Preset: mainnet]                              OK
++ Participation flag updates - filled [Preset: mainnet]                                      OK
++ Participation flag updates - previous_epoch_zeroed [Preset: mainnet]                       OK
++ Participation flag updates - previous_filled [Preset: mainnet]                             OK
++ Participation flag updates - random_0 [Preset: mainnet]                                    OK
++ Participation flag updates - random_1 [Preset: mainnet]                                    OK
++ Participation flag updates - random_2 [Preset: mainnet]                                    OK
++ Participation flag updates - random_genesis [Preset: mainnet]                              OK
+```
+## EF - Fulu - Epoch Processing - Pending consolidations [Preset: mainnet]
+```diff
++ Pending consolidations - all_consolidation_cases_together [Preset: mainnet]                OK
++ Pending consolidations - basic_pending_consolidation [Preset: mainnet]                     OK
++ Pending consolidations - consolidation_not_yet_withdrawable_validator [Preset: mainnet]    OK
++ Pending consolidations - pending_consolidation_balance_computation_compounding [Preset: ma OK
++ Pending consolidations - pending_consolidation_balance_computation_eth1 [Preset: mainnet]  OK
++ Pending consolidations - pending_consolidation_compounding_creds [Preset: mainnet]         OK
++ Pending consolidations - pending_consolidation_future_epoch [Preset: mainnet]              OK
++ Pending consolidations - pending_consolidation_source_balance_greater_than_max_effective [ OK
++ Pending consolidations - pending_consolidation_source_balance_greater_than_max_effective_c OK
++ Pending consolidations - pending_consolidation_source_balance_less_than_max_effective [Pre OK
++ Pending consolidations - pending_consolidation_source_balance_less_than_max_effective_comp OK
++ Pending consolidations - pending_consolidation_with_pending_deposit [Preset: mainnet]      OK
++ Pending consolidations - skip_consolidation_when_source_slashed [Preset: mainnet]          OK
+```
+## EF - Fulu - Epoch Processing - Pending deposits [Preset: mainnet]
+```diff
++ Pending deposits - apply_pending_deposit_compounding_withdrawal_credentials_max [Preset: m OK
++ Pending deposits - apply_pending_deposit_compounding_withdrawal_credentials_over_max [Pres OK
++ Pending deposits - apply_pending_deposit_compounding_withdrawal_credentials_over_max_next_ OK
++ Pending deposits - apply_pending_deposit_compounding_withdrawal_credentials_under_max [Pre OK
++ Pending deposits - apply_pending_deposit_correct_sig_but_forked_state [Preset: mainnet]    OK
++ Pending deposits - apply_pending_deposit_effective_deposit_with_genesis_fork_version [Pres OK
++ Pending deposits - apply_pending_deposit_eth1_withdrawal_credentials [Preset: mainnet]     OK
++ Pending deposits - apply_pending_deposit_incorrect_sig_new_deposit [Preset: mainnet]       OK
++ Pending deposits - apply_pending_deposit_incorrect_sig_top_up [Preset: mainnet]            OK
++ Pending deposits - apply_pending_deposit_incorrect_withdrawal_credentials_top_up [Preset:  OK
++ Pending deposits - apply_pending_deposit_ineffective_deposit_with_bad_fork_version [Preset OK
++ Pending deposits - apply_pending_deposit_key_validate_invalid_decompression [Preset: mainn OK
++ Pending deposits - apply_pending_deposit_key_validate_invalid_subgroup [Preset: mainnet]   OK
++ Pending deposits - apply_pending_deposit_min_activation [Preset: mainnet]                  OK
++ Pending deposits - apply_pending_deposit_non_versioned_withdrawal_credentials [Preset: mai OK
++ Pending deposits - apply_pending_deposit_non_versioned_withdrawal_credentials_over_min_act OK
++ Pending deposits - apply_pending_deposit_over_min_activation [Preset: mainnet]             OK
++ Pending deposits - apply_pending_deposit_over_min_activation_next_increment [Preset: mainn OK
++ Pending deposits - apply_pending_deposit_success_top_up_to_withdrawn_validator [Preset: ma OK
++ Pending deposits - apply_pending_deposit_top_up__less_effective_balance [Preset: mainnet]  OK
++ Pending deposits - apply_pending_deposit_top_up__max_effective_balance_compounding [Preset OK
++ Pending deposits - apply_pending_deposit_top_up__min_activation_balance [Preset: mainnet]  OK
++ Pending deposits - apply_pending_deposit_top_up__min_activation_balance_compounding [Prese OK
++ Pending deposits - apply_pending_deposit_top_up__zero_balance [Preset: mainnet]            OK
++ Pending deposits - apply_pending_deposit_under_min_activation [Preset: mainnet]            OK
++ Pending deposits - apply_pending_deposit_with_previous_fork_version [Preset: mainnet]      OK
++ Pending deposits - ineffective_deposit_with_current_fork_version [Preset: mainnet]         OK
++ Pending deposits - process_pending_deposits_balance_above_churn [Preset: mainnet]          OK
++ Pending deposits - process_pending_deposits_balance_equal_churn [Preset: mainnet]          OK
++ Pending deposits - process_pending_deposits_eth1_bridge_transition_complete [Preset: mainn OK
++ Pending deposits - process_pending_deposits_eth1_bridge_transition_not_applied [Preset: ma OK
++ Pending deposits - process_pending_deposits_eth1_bridge_transition_pending [Preset: mainne OK
++ Pending deposits - process_pending_deposits_limit_is_reached [Preset: mainnet]             OK
++ Pending deposits - process_pending_deposits_mixture_of_skipped_and_above_churn [Preset: ma OK
++ Pending deposits - process_pending_deposits_multiple_for_new_validator [Preset: mainnet]   OK
++ Pending deposits - process_pending_deposits_multiple_pending_deposits_above_churn [Preset: OK
++ Pending deposits - process_pending_deposits_multiple_pending_deposits_below_churn [Preset: OK
++ Pending deposits - process_pending_deposits_multiple_pending_one_skipped [Preset: mainnet] OK
++ Pending deposits - process_pending_deposits_multiple_skipped_deposits_exiting_validators [ OK
++ Pending deposits - process_pending_deposits_not_finalized [Preset: mainnet]                OK
++ Pending deposits - process_pending_deposits_preexisting_churn [Preset: mainnet]            OK
++ Pending deposits - process_pending_deposits_skipped_deposit_exiting_validator [Preset: mai OK
++ Pending deposits - process_pending_deposits_withdrawable_validator [Preset: mainnet]       OK
++ Pending deposits - process_pending_deposits_withdrawable_validator_not_churned [Preset: ma OK
+```
+## EF - Fulu - Epoch Processing - RANDAO mixes reset [Preset: mainnet]
+```diff
++ RANDAO mixes reset - updated_randao_mixes [Preset: mainnet]                                OK
+```
+## EF - Fulu - Epoch Processing - Registry updates [Preset: mainnet]
+```diff
++ Registry updates - activation_queue_activation_and_ejection__1 [Preset: mainnet]           OK
++ Registry updates - activation_queue_activation_and_ejection__churn_limit [Preset: mainnet] OK
++ Registry updates - activation_queue_activation_and_ejection__exceed_churn_limit [Preset: m OK
++ Registry updates - activation_queue_efficiency_min [Preset: mainnet]                       OK
++ Registry updates - activation_queue_eligibility__greater_than_min_activation_balance [Pres OK
++ Registry updates - activation_queue_eligibility__less_than_min_activation_balance [Preset: OK
++ Registry updates - activation_queue_eligibility__min_activation_balance [Preset: mainnet]  OK
++ Registry updates - activation_queue_eligibility__min_activation_balance_compounding_creds  OK
++ Registry updates - activation_queue_eligibility__min_activation_balance_eth1_creds [Preset OK
++ Registry updates - activation_queue_no_activation_no_finality [Preset: mainnet]            OK
++ Registry updates - activation_queue_sorting [Preset: mainnet]                              OK
++ Registry updates - activation_queue_to_activated_if_finalized [Preset: mainnet]            OK
++ Registry updates - add_to_activation_queue [Preset: mainnet]                               OK
++ Registry updates - ejection [Preset: mainnet]                                              OK
++ Registry updates - ejection_past_churn_limit_min [Preset: mainnet]                         OK
++ Registry updates - invalid_large_withdrawable_epoch [Preset: mainnet]                      OK
+```
+## EF - Fulu - Epoch Processing - Rewards and penalties [Preset: mainnet]
+```diff
++ Rewards and penalties - almost_empty_attestations [Preset: mainnet]                        OK
++ Rewards and penalties - almost_empty_attestations_with_leak [Preset: mainnet]              OK
++ Rewards and penalties - almost_full_attestations [Preset: mainnet]                         OK
++ Rewards and penalties - almost_full_attestations_with_leak [Preset: mainnet]               OK
++ Rewards and penalties - attestations_some_slashed [Preset: mainnet]                        OK
++ Rewards and penalties - duplicate_attestation [Preset: mainnet]                            OK
++ Rewards and penalties - full_attestation_participation [Preset: mainnet]                   OK
++ Rewards and penalties - full_attestation_participation_with_leak [Preset: mainnet]         OK
++ Rewards and penalties - full_attestations_misc_balances [Preset: mainnet]                  OK
++ Rewards and penalties - full_attestations_one_validaor_one_gwei [Preset: mainnet]          OK
++ Rewards and penalties - genesis_epoch_full_attestations_no_rewards [Preset: mainnet]       OK
++ Rewards and penalties - genesis_epoch_no_attestations_no_penalties [Preset: mainnet]       OK
++ Rewards and penalties - no_attestations_all_penalties [Preset: mainnet]                    OK
++ Rewards and penalties - random_fill_attestations [Preset: mainnet]                         OK
++ Rewards and penalties - random_fill_attestations_with_leak [Preset: mainnet]               OK
+```
+## EF - Fulu - Epoch Processing - Slashings [Preset: mainnet]
+```diff
++ Slashings - low_penalty [Preset: mainnet]                                                  OK
++ Slashings - max_penalties [Preset: mainnet]                                                OK
++ Slashings - minimal_penalty [Preset: mainnet]                                              OK
++ Slashings - scaled_penalties [Preset: mainnet]                                             OK
++ Slashings - slashings_with_random_state [Preset: mainnet]                                  OK
+```
+## EF - Fulu - Epoch Processing - Slashings reset [Preset: mainnet]
+```diff
++ Slashings reset - flush_slashings [Preset: mainnet]                                        OK
+```
+## EF - Fulu - Finality  [Preset: mainnet]
+```diff
++ [Valid]   EF - Fulu - Finality - finality_no_updates_at_genesis [Preset: mainnet]          OK
++ [Valid]   EF - Fulu - Finality - finality_rule_1 [Preset: mainnet]                         OK
++ [Valid]   EF - Fulu - Finality - finality_rule_2 [Preset: mainnet]                         OK
++ [Valid]   EF - Fulu - Finality - finality_rule_3 [Preset: mainnet]                         OK
++ [Valid]   EF - Fulu - Finality - finality_rule_4 [Preset: mainnet]                         OK
+```
+## EF - Fulu - Fork  [Preset: mainnet]
+```diff
++ EF - Fulu - Fork - fork_base_state [Preset: mainnet]                                       OK
++ EF - Fulu - Fork - fork_many_next_epoch [Preset: mainnet]                                  OK
++ EF - Fulu - Fork - fork_next_epoch [Preset: mainnet]                                       OK
++ EF - Fulu - Fork - fork_next_epoch_with_block [Preset: mainnet]                            OK
++ EF - Fulu - Fork - fork_random_low_balances [Preset: mainnet]                              OK
++ EF - Fulu - Fork - fork_random_misc_balances [Preset: mainnet]                             OK
++ EF - Fulu - Fork - fulu_fork_random_0 [Preset: mainnet]                                    OK
++ EF - Fulu - Fork - fulu_fork_random_1 [Preset: mainnet]                                    OK
++ EF - Fulu - Fork - fulu_fork_random_2 [Preset: mainnet]                                    OK
++ EF - Fulu - Fork - fulu_fork_random_3 [Preset: mainnet]                                    OK
++ EF - Fulu - Fork - fulu_fork_random_low_balances [Preset: mainnet]                         OK
++ EF - Fulu - Fork - fulu_fork_random_misc_balances [Preset: mainnet]                        OK
+```
+## EF - Fulu - Operations - Attestation  [Preset: mainnet]
+```diff
++ [Invalid] EF - Fulu - Operations - Attestation - invalid_after_max_inclusion_slot          OK
++ [Invalid] EF - Fulu - Operations - Attestation - invalid_attestation_data_index_not_zero   OK
++ [Invalid] EF - Fulu - Operations - Attestation - invalid_attestation_signature             OK
++ [Invalid] EF - Fulu - Operations - Attestation - invalid_bad_source_root                   OK
++ [Invalid] EF - Fulu - Operations - Attestation - invalid_before_inclusion_delay            OK
++ [Invalid] EF - Fulu - Operations - Attestation - invalid_committee_index                   OK
++ [Invalid] EF - Fulu - Operations - Attestation - invalid_correct_attestation_included_afte OK
++ [Invalid] EF - Fulu - Operations - Attestation - invalid_current_source_root               OK
++ [Invalid] EF - Fulu - Operations - Attestation - invalid_empty_participants_seemingly_vali OK
++ [Invalid] EF - Fulu - Operations - Attestation - invalid_empty_participants_zeroes_sig     OK
++ [Invalid] EF - Fulu - Operations - Attestation - invalid_future_target_epoch               OK
++ [Invalid] EF - Fulu - Operations - Attestation - invalid_incorrect_head_and_target_include OK
++ [Invalid] EF - Fulu - Operations - Attestation - invalid_incorrect_head_included_after_max OK
++ [Invalid] EF - Fulu - Operations - Attestation - invalid_incorrect_target_included_after_m OK
++ [Invalid] EF - Fulu - Operations - Attestation - invalid_index                             OK
++ [Invalid] EF - Fulu - Operations - Attestation - invalid_mismatched_target_and_slot        OK
++ [Invalid] EF - Fulu - Operations - Attestation - invalid_new_source_epoch                  OK
++ [Invalid] EF - Fulu - Operations - Attestation - invalid_nonset_committee_bits             OK
++ [Invalid] EF - Fulu - Operations - Attestation - invalid_old_source_epoch                  OK
++ [Invalid] EF - Fulu - Operations - Attestation - invalid_old_target_epoch                  OK
++ [Invalid] EF - Fulu - Operations - Attestation - invalid_previous_source_root              OK
++ [Invalid] EF - Fulu - Operations - Attestation - invalid_source_root_is_target_root        OK
++ [Invalid] EF - Fulu - Operations - Attestation - invalid_too_few_aggregation_bits          OK
++ [Invalid] EF - Fulu - Operations - Attestation - invalid_too_many_aggregation_bits         OK
++ [Invalid] EF - Fulu - Operations - Attestation - invalid_too_many_committee_bits           OK
++ [Invalid] EF - Fulu - Operations - Attestation - invalid_wrong_index_for_committee_signatu OK
++ [Invalid] EF - Fulu - Operations - Attestation - invalid_wrong_index_for_slot_0            OK
++ [Invalid] EF - Fulu - Operations - Attestation - invalid_wrong_index_for_slot_1            OK
++ [Valid]   EF - Fulu - Operations - Attestation - at_max_inclusion_slot                     OK
++ [Valid]   EF - Fulu - Operations - Attestation - correct_attestation_included_at_max_inclu OK
++ [Valid]   EF - Fulu - Operations - Attestation - correct_attestation_included_at_min_inclu OK
++ [Valid]   EF - Fulu - Operations - Attestation - correct_attestation_included_at_one_epoch OK
++ [Valid]   EF - Fulu - Operations - Attestation - correct_attestation_included_at_sqrt_epoc OK
++ [Valid]   EF - Fulu - Operations - Attestation - incorrect_head_and_target_included_at_epo OK
++ [Valid]   EF - Fulu - Operations - Attestation - incorrect_head_and_target_included_at_sqr OK
++ [Valid]   EF - Fulu - Operations - Attestation - incorrect_head_and_target_min_inclusion_d OK
++ [Valid]   EF - Fulu - Operations - Attestation - incorrect_head_included_at_max_inclusion_ OK
++ [Valid]   EF - Fulu - Operations - Attestation - incorrect_head_included_at_min_inclusion_ OK
++ [Valid]   EF - Fulu - Operations - Attestation - incorrect_head_included_at_sqrt_epoch_del OK
++ [Valid]   EF - Fulu - Operations - Attestation - incorrect_target_included_at_epoch_delay  OK
++ [Valid]   EF - Fulu - Operations - Attestation - incorrect_target_included_at_min_inclusio OK
++ [Valid]   EF - Fulu - Operations - Attestation - incorrect_target_included_at_sqrt_epoch_d OK
++ [Valid]   EF - Fulu - Operations - Attestation - multi_proposer_index_iterations           OK
++ [Valid]   EF - Fulu - Operations - Attestation - one_basic_attestation                     OK
++ [Valid]   EF - Fulu - Operations - Attestation - previous_epoch                            OK
+```
+## EF - Fulu - Operations - Attester Slashing  [Preset: mainnet]
+```diff
++ [Invalid] EF - Fulu - Operations - Attester Slashing - invalid_all_empty_indices           OK
++ [Invalid] EF - Fulu - Operations - Attester Slashing - invalid_att1_bad_extra_index        OK
++ [Invalid] EF - Fulu - Operations - Attester Slashing - invalid_att1_bad_replaced_index     OK
++ [Invalid] EF - Fulu - Operations - Attester Slashing - invalid_att1_duplicate_index_double OK
++ [Invalid] EF - Fulu - Operations - Attester Slashing - invalid_att1_duplicate_index_normal OK
++ [Invalid] EF - Fulu - Operations - Attester Slashing - invalid_att1_empty_indices          OK
++ [Invalid] EF - Fulu - Operations - Attester Slashing - invalid_att1_high_index             OK
++ [Invalid] EF - Fulu - Operations - Attester Slashing - invalid_att2_bad_extra_index        OK
++ [Invalid] EF - Fulu - Operations - Attester Slashing - invalid_att2_bad_replaced_index     OK
++ [Invalid] EF - Fulu - Operations - Attester Slashing - invalid_att2_duplicate_index_double OK
++ [Invalid] EF - Fulu - Operations - Attester Slashing - invalid_att2_duplicate_index_normal OK
++ [Invalid] EF - Fulu - Operations - Attester Slashing - invalid_att2_empty_indices          OK
++ [Invalid] EF - Fulu - Operations - Attester Slashing - invalid_att2_high_index             OK
++ [Invalid] EF - Fulu - Operations - Attester Slashing - invalid_incorrect_sig_1             OK
++ [Invalid] EF - Fulu - Operations - Attester Slashing - invalid_incorrect_sig_1_and_2       OK
++ [Invalid] EF - Fulu - Operations - Attester Slashing - invalid_incorrect_sig_2             OK
++ [Invalid] EF - Fulu - Operations - Attester Slashing - invalid_no_double_or_surround       OK
++ [Invalid] EF - Fulu - Operations - Attester Slashing - invalid_participants_already_slashe OK
++ [Invalid] EF - Fulu - Operations - Attester Slashing - invalid_same_data                   OK
++ [Invalid] EF - Fulu - Operations - Attester Slashing - invalid_unsorted_att_1              OK
++ [Invalid] EF - Fulu - Operations - Attester Slashing - invalid_unsorted_att_2              OK
++ [Valid]   EF - Fulu - Operations - Attester Slashing - already_exited_long_ago             OK
++ [Valid]   EF - Fulu - Operations - Attester Slashing - already_exited_recent               OK
++ [Valid]   EF - Fulu - Operations - Attester Slashing - attestation_from_future             OK
++ [Valid]   EF - Fulu - Operations - Attester Slashing - basic_double                        OK
++ [Valid]   EF - Fulu - Operations - Attester Slashing - basic_surround                      OK
++ [Valid]   EF - Fulu - Operations - Attester Slashing - low_balances                        OK
++ [Valid]   EF - Fulu - Operations - Attester Slashing - misc_balances                       OK
++ [Valid]   EF - Fulu - Operations - Attester Slashing - proposer_index_slashed              OK
++ [Valid]   EF - Fulu - Operations - Attester Slashing - with_effective_balance_disparity    OK
+```
+## EF - Fulu - Operations - BLS to execution change  [Preset: mainnet]
+```diff
++ [Invalid] EF - Fulu - Operations - BLS to execution change - invalid_already_0x01          OK
++ [Invalid] EF - Fulu - Operations - BLS to execution change - invalid_bad_signature         OK
++ [Invalid] EF - Fulu - Operations - BLS to execution change - invalid_current_fork_version  OK
++ [Invalid] EF - Fulu - Operations - BLS to execution change - invalid_genesis_validators_ro OK
++ [Invalid] EF - Fulu - Operations - BLS to execution change - invalid_incorrect_from_bls_pu OK
++ [Invalid] EF - Fulu - Operations - BLS to execution change - invalid_previous_fork_version OK
++ [Invalid] EF - Fulu - Operations - BLS to execution change - invalid_val_index_out_of_rang OK
++ [Valid]   EF - Fulu - Operations - BLS to execution change - genesis_fork_version          OK
++ [Valid]   EF - Fulu - Operations - BLS to execution change - success                       OK
++ [Valid]   EF - Fulu - Operations - BLS to execution change - success_exited                OK
++ [Valid]   EF - Fulu - Operations - BLS to execution change - success_in_activation_queue   OK
++ [Valid]   EF - Fulu - Operations - BLS to execution change - success_in_exit_queue         OK
++ [Valid]   EF - Fulu - Operations - BLS to execution change - success_not_activated         OK
++ [Valid]   EF - Fulu - Operations - BLS to execution change - success_withdrawable          OK
+```
+## EF - Fulu - Operations - Block Header  [Preset: mainnet]
+```diff
++ [Invalid] EF - Fulu - Operations - Block Header - invalid_multiple_blocks_single_slot      OK
++ [Invalid] EF - Fulu - Operations - Block Header - invalid_parent_root                      OK
++ [Invalid] EF - Fulu - Operations - Block Header - invalid_proposer_index                   OK
++ [Invalid] EF - Fulu - Operations - Block Header - invalid_proposer_slashed                 OK
++ [Invalid] EF - Fulu - Operations - Block Header - invalid_slot_block_header                OK
++ [Valid]   EF - Fulu - Operations - Block Header - basic_block_header                       OK
+```
+## EF - Fulu - Operations - Consolidation Request  [Preset: mainnet]
+```diff
++ [Valid]   EF - Fulu - Operations - Consolidation Request - basic_switch_to_compounding     OK
++ [Valid]   EF - Fulu - Operations - Consolidation Request - incorrect_not_enough_consolidat OK
++ [Valid]   EF - Fulu - Operations - Consolidation Request - switch_to_compounding_exited_so OK
++ [Valid]   EF - Fulu - Operations - Consolidation Request - switch_to_compounding_inactive_ OK
++ [Valid]   EF - Fulu - Operations - Consolidation Request - switch_to_compounding_not_autho OK
++ [Valid]   EF - Fulu - Operations - Consolidation Request - switch_to_compounding_source_bl OK
++ [Valid]   EF - Fulu - Operations - Consolidation Request - switch_to_compounding_source_co OK
++ [Valid]   EF - Fulu - Operations - Consolidation Request - switch_to_compounding_unknown_s OK
++ [Valid]   EF - Fulu - Operations - Consolidation Request - switch_to_compounding_with_exce OK
++ [Valid]   EF - Fulu - Operations - Consolidation Request - switch_to_compounding_with_pend OK
+```
+## EF - Fulu - Operations - Deposit  [Preset: mainnet]
+```diff
++ [Invalid] EF - Fulu - Operations - Deposit - invalid_bad_merkle_proof                      OK
++ [Invalid] EF - Fulu - Operations - Deposit - invalid_wrong_deposit_for_deposit_count       OK
++ [Valid]   EF - Fulu - Operations - Deposit - correct_sig_but_forked_state                  OK
++ [Valid]   EF - Fulu - Operations - Deposit - effective_deposit_with_genesis_fork_version   OK
++ [Valid]   EF - Fulu - Operations - Deposit - incorrect_sig_new_deposit                     OK
++ [Valid]   EF - Fulu - Operations - Deposit - incorrect_sig_top_up                          OK
++ [Valid]   EF - Fulu - Operations - Deposit - incorrect_withdrawal_credentials_top_up       OK
++ [Valid]   EF - Fulu - Operations - Deposit - ineffective_deposit_with_bad_fork_version     OK
++ [Valid]   EF - Fulu - Operations - Deposit - ineffective_deposit_with_current_fork_version OK
++ [Valid]   EF - Fulu - Operations - Deposit - ineffective_deposit_with_previous_fork_versio OK
++ [Valid]   EF - Fulu - Operations - Deposit - key_validate_invalid_decompression            OK
++ [Valid]   EF - Fulu - Operations - Deposit - key_validate_invalid_subgroup                 OK
++ [Valid]   EF - Fulu - Operations - Deposit - new_deposit_eth1_withdrawal_credentials       OK
++ [Valid]   EF - Fulu - Operations - Deposit - new_deposit_max                               OK
++ [Valid]   EF - Fulu - Operations - Deposit - new_deposit_non_versioned_withdrawal_credenti OK
++ [Valid]   EF - Fulu - Operations - Deposit - new_deposit_over_max                          OK
++ [Valid]   EF - Fulu - Operations - Deposit - new_deposit_under_max                         OK
++ [Valid]   EF - Fulu - Operations - Deposit - success_top_up_to_withdrawn_validator         OK
++ [Valid]   EF - Fulu - Operations - Deposit - top_up__less_effective_balance                OK
++ [Valid]   EF - Fulu - Operations - Deposit - top_up__max_effective_balance                 OK
++ [Valid]   EF - Fulu - Operations - Deposit - top_up__zero_balance                          OK
+```
+## EF - Fulu - Operations - Deposit Request  [Preset: mainnet]
+```diff
++ [Valid]   EF - Fulu - Operations - Deposit Request - process_deposit_request_invalid_sig   OK
++ [Valid]   EF - Fulu - Operations - Deposit Request - process_deposit_request_max_effective OK
++ [Valid]   EF - Fulu - Operations - Deposit Request - process_deposit_request_min_activatio OK
++ [Valid]   EF - Fulu - Operations - Deposit Request - process_deposit_request_set_start_ind OK
++ [Valid]   EF - Fulu - Operations - Deposit Request - process_deposit_request_set_start_ind OK
++ [Valid]   EF - Fulu - Operations - Deposit Request - process_deposit_request_top_up_invali OK
++ [Valid]   EF - Fulu - Operations - Deposit Request - process_deposit_request_top_up_max_ef OK
++ [Valid]   EF - Fulu - Operations - Deposit Request - process_deposit_request_top_up_min_ac OK
+```
+## EF - Fulu - Operations - Execution Payload  [Preset: mainnet]
+```diff
++ [Invalid] EF - Fulu - Operations - Execution Payload - invalid_bad_everything_first_payloa OK
++ [Invalid] EF - Fulu - Operations - Execution Payload - invalid_bad_everything_regular_payl OK
++ [Invalid] EF - Fulu - Operations - Execution Payload - invalid_bad_execution_first_payload OK
++ [Invalid] EF - Fulu - Operations - Execution Payload - invalid_bad_execution_regular_paylo OK
++ [Invalid] EF - Fulu - Operations - Execution Payload - invalid_bad_parent_hash_first_paylo OK
++ [Invalid] EF - Fulu - Operations - Execution Payload - invalid_bad_parent_hash_regular_pay OK
++ [Invalid] EF - Fulu - Operations - Execution Payload - invalid_bad_pre_randao_regular_payl OK
++ [Invalid] EF - Fulu - Operations - Execution Payload - invalid_bad_prev_randao_first_paylo OK
++ [Invalid] EF - Fulu - Operations - Execution Payload - invalid_correct_input__execution_in OK
++ [Invalid] EF - Fulu - Operations - Execution Payload - invalid_exceed_max_blobs_per_block  OK
++ [Invalid] EF - Fulu - Operations - Execution Payload - invalid_future_timestamp_first_payl OK
++ [Invalid] EF - Fulu - Operations - Execution Payload - invalid_future_timestamp_regular_pa OK
++ [Invalid] EF - Fulu - Operations - Execution Payload - invalid_past_timestamp_first_payloa OK
++ [Invalid] EF - Fulu - Operations - Execution Payload - invalid_past_timestamp_regular_payl OK
++ [Invalid] EF - Fulu - Operations - Execution Payload - invalid_randomized_non_validated_ex OK
++ [Invalid] EF - Fulu - Operations - Execution Payload - invalid_randomized_non_validated_ex OK
++ [Valid]   EF - Fulu - Operations - Execution Payload - incorrect_blob_tx_type              OK
++ [Valid]   EF - Fulu - Operations - Execution Payload - incorrect_block_hash                OK
++ [Valid]   EF - Fulu - Operations - Execution Payload - incorrect_commitment                OK
++ [Valid]   EF - Fulu - Operations - Execution Payload - incorrect_commitments_order         OK
++ [Valid]   EF - Fulu - Operations - Execution Payload - incorrect_transaction_length_1_byte OK
++ [Valid]   EF - Fulu - Operations - Execution Payload - incorrect_transaction_length_1_extr OK
++ [Valid]   EF - Fulu - Operations - Execution Payload - incorrect_transaction_length_32_ext OK
++ [Valid]   EF - Fulu - Operations - Execution Payload - incorrect_transaction_length_empty  OK
++ [Valid]   EF - Fulu - Operations - Execution Payload - incorrect_transaction_no_blobs_but_ OK
++ [Valid]   EF - Fulu - Operations - Execution Payload - no_commitments_for_transactions     OK
++ [Valid]   EF - Fulu - Operations - Execution Payload - no_transactions_with_commitments    OK
++ [Valid]   EF - Fulu - Operations - Execution Payload - non_empty_extra_data_first_payload  OK
++ [Valid]   EF - Fulu - Operations - Execution Payload - non_empty_extra_data_regular_payloa OK
++ [Valid]   EF - Fulu - Operations - Execution Payload - non_empty_transactions_first_payloa OK
++ [Valid]   EF - Fulu - Operations - Execution Payload - non_empty_transactions_regular_payl OK
++ [Valid]   EF - Fulu - Operations - Execution Payload - randomized_non_validated_execution_ OK
++ [Valid]   EF - Fulu - Operations - Execution Payload - randomized_non_validated_execution_ OK
++ [Valid]   EF - Fulu - Operations - Execution Payload - success_first_payload               OK
++ [Valid]   EF - Fulu - Operations - Execution Payload - success_first_payload_with_gap_slot OK
++ [Valid]   EF - Fulu - Operations - Execution Payload - success_regular_payload             OK
++ [Valid]   EF - Fulu - Operations - Execution Payload - success_regular_payload_with_gap_sl OK
++ [Valid]   EF - Fulu - Operations - Execution Payload - zero_length_transaction_first_paylo OK
++ [Valid]   EF - Fulu - Operations - Execution Payload - zero_length_transaction_regular_pay OK
++ [Valid]   EF - Fulu - Operations - Execution Payload - zeroed_commitment                   OK
+```
+## EF - Fulu - Operations - Proposer Slashing  [Preset: mainnet]
+```diff
++ [Invalid] EF - Fulu - Operations - Proposer Slashing - invalid_different_proposer_indices  OK
++ [Invalid] EF - Fulu - Operations - Proposer Slashing - invalid_headers_are_same_sigs_are_d OK
++ [Invalid] EF - Fulu - Operations - Proposer Slashing - invalid_headers_are_same_sigs_are_s OK
++ [Invalid] EF - Fulu - Operations - Proposer Slashing - invalid_incorrect_proposer_index    OK
++ [Invalid] EF - Fulu - Operations - Proposer Slashing - invalid_incorrect_sig_1             OK
++ [Invalid] EF - Fulu - Operations - Proposer Slashing - invalid_incorrect_sig_1_and_2       OK
++ [Invalid] EF - Fulu - Operations - Proposer Slashing - invalid_incorrect_sig_1_and_2_swap  OK
++ [Invalid] EF - Fulu - Operations - Proposer Slashing - invalid_incorrect_sig_2             OK
++ [Invalid] EF - Fulu - Operations - Proposer Slashing - invalid_proposer_is_not_activated   OK
++ [Invalid] EF - Fulu - Operations - Proposer Slashing - invalid_proposer_is_slashed         OK
++ [Invalid] EF - Fulu - Operations - Proposer Slashing - invalid_proposer_is_withdrawn       OK
++ [Invalid] EF - Fulu - Operations - Proposer Slashing - invalid_slots_of_different_epochs   OK
++ [Valid]   EF - Fulu - Operations - Proposer Slashing - basic                               OK
++ [Valid]   EF - Fulu - Operations - Proposer Slashing - block_header_from_future            OK
++ [Valid]   EF - Fulu - Operations - Proposer Slashing - slashed_and_proposer_index_the_same OK
+```
+## EF - Fulu - Operations - Sync Aggregate  [Preset: mainnet]
+```diff
++ [Invalid] EF - Fulu - Operations - Sync Aggregate - invalid_signature_bad_domain           OK
++ [Invalid] EF - Fulu - Operations - Sync Aggregate - invalid_signature_extra_participant    OK
++ [Invalid] EF - Fulu - Operations - Sync Aggregate - invalid_signature_infinite_signature_w OK
++ [Invalid] EF - Fulu - Operations - Sync Aggregate - invalid_signature_infinite_signature_w OK
++ [Invalid] EF - Fulu - Operations - Sync Aggregate - invalid_signature_missing_participant  OK
++ [Invalid] EF - Fulu - Operations - Sync Aggregate - invalid_signature_no_participants      OK
++ [Invalid] EF - Fulu - Operations - Sync Aggregate - invalid_signature_past_block           OK
++ [Valid]   EF - Fulu - Operations - Sync Aggregate - random_all_but_one_participating_with_ OK
++ [Valid]   EF - Fulu - Operations - Sync Aggregate - random_high_participation_with_duplica OK
++ [Valid]   EF - Fulu - Operations - Sync Aggregate - random_low_participation_with_duplicat OK
++ [Valid]   EF - Fulu - Operations - Sync Aggregate - random_misc_balances_and_half_particip OK
++ [Valid]   EF - Fulu - Operations - Sync Aggregate - random_only_one_participant_with_dupli OK
++ [Valid]   EF - Fulu - Operations - Sync Aggregate - random_with_exits_with_duplicates      OK
++ [Valid]   EF - Fulu - Operations - Sync Aggregate - sync_committee_rewards_duplicate_commi OK
++ [Valid]   EF - Fulu - Operations - Sync Aggregate - sync_committee_rewards_duplicate_commi OK
++ [Valid]   EF - Fulu - Operations - Sync Aggregate - sync_committee_rewards_duplicate_commi OK
++ [Valid]   EF - Fulu - Operations - Sync Aggregate - sync_committee_rewards_duplicate_commi OK
++ [Valid]   EF - Fulu - Operations - Sync Aggregate - sync_committee_rewards_duplicate_commi OK
++ [Valid]   EF - Fulu - Operations - Sync Aggregate - sync_committee_rewards_duplicate_commi OK
++ [Valid]   EF - Fulu - Operations - Sync Aggregate - sync_committee_rewards_duplicate_commi OK
++ [Valid]   EF - Fulu - Operations - Sync Aggregate - sync_committee_rewards_empty_participa OK
++ [Valid]   EF - Fulu - Operations - Sync Aggregate - sync_committee_rewards_not_full_partic OK
++ [Valid]   EF - Fulu - Operations - Sync Aggregate - sync_committee_with_nonparticipating_e OK
++ [Valid]   EF - Fulu - Operations - Sync Aggregate - sync_committee_with_nonparticipating_w OK
++ [Valid]   EF - Fulu - Operations - Sync Aggregate - sync_committee_with_participating_exit OK
++ [Valid]   EF - Fulu - Operations - Sync Aggregate - sync_committee_with_participating_with OK
+```
+## EF - Fulu - Operations - Voluntary Exit  [Preset: mainnet]
+```diff
++ [Invalid] EF - Fulu - Operations - Voluntary Exit - invalid_incorrect_signature            OK
++ [Invalid] EF - Fulu - Operations - Voluntary Exit - invalid_validator_already_exited       OK
++ [Invalid] EF - Fulu - Operations - Voluntary Exit - invalid_validator_exit_in_future       OK
++ [Invalid] EF - Fulu - Operations - Voluntary Exit - invalid_validator_has_pending_withdraw OK
++ [Invalid] EF - Fulu - Operations - Voluntary Exit - invalid_validator_incorrect_validator_ OK
++ [Invalid] EF - Fulu - Operations - Voluntary Exit - invalid_validator_not_active           OK
++ [Invalid] EF - Fulu - Operations - Voluntary Exit - invalid_validator_not_active_long_enou OK
++ [Invalid] EF - Fulu - Operations - Voluntary Exit - invalid_voluntary_exit_with_current_fo OK
++ [Invalid] EF - Fulu - Operations - Voluntary Exit - invalid_voluntary_exit_with_current_fo OK
++ [Invalid] EF - Fulu - Operations - Voluntary Exit - invalid_voluntary_exit_with_genesis_fo OK
++ [Invalid] EF - Fulu - Operations - Voluntary Exit - invalid_voluntary_exit_with_genesis_fo OK
++ [Invalid] EF - Fulu - Operations - Voluntary Exit - voluntary_exit_with_previous_fork_vers OK
++ [Invalid] EF - Fulu - Operations - Voluntary Exit - voluntary_exit_with_previous_fork_vers OK
++ [Valid]   EF - Fulu - Operations - Voluntary Exit - basic                                  OK
++ [Valid]   EF - Fulu - Operations - Voluntary Exit - default_exit_epoch_subsequent_exit     OK
++ [Valid]   EF - Fulu - Operations - Voluntary Exit - exit_existing_churn_and_balance_multip OK
++ [Valid]   EF - Fulu - Operations - Voluntary Exit - exit_existing_churn_and_churn_limit_ba OK
++ [Valid]   EF - Fulu - Operations - Voluntary Exit - exit_with_balance_equal_to_churn_limit OK
++ [Valid]   EF - Fulu - Operations - Voluntary Exit - exit_with_balance_multiple_of_churn_li OK
++ [Valid]   EF - Fulu - Operations - Voluntary Exit - max_balance_exit                       OK
++ [Valid]   EF - Fulu - Operations - Voluntary Exit - min_balance_exit                       OK
++ [Valid]   EF - Fulu - Operations - Voluntary Exit - min_balance_exits_above_churn          OK
++ [Valid]   EF - Fulu - Operations - Voluntary Exit - min_balance_exits_up_to_churn          OK
++ [Valid]   EF - Fulu - Operations - Voluntary Exit - success_exit_queue__min_churn          OK
+```
+## EF - Fulu - Operations - Withdrawal Request  [Preset: mainnet]
+```diff
++ [Valid]   EF - Fulu - Operations - Withdrawal Request - activation_epoch_less_than_shard_c OK
++ [Valid]   EF - Fulu - Operations - Withdrawal Request - basic_withdrawal_request           OK
++ [Valid]   EF - Fulu - Operations - Withdrawal Request - basic_withdrawal_request_with_comp OK
++ [Valid]   EF - Fulu - Operations - Withdrawal Request - basic_withdrawal_request_with_firs OK
++ [Valid]   EF - Fulu - Operations - Withdrawal Request - full_exit_request_has_partial_with OK
++ [Valid]   EF - Fulu - Operations - Withdrawal Request - incorrect_inactive_validator       OK
++ [Valid]   EF - Fulu - Operations - Withdrawal Request - incorrect_source_address           OK
++ [Valid]   EF - Fulu - Operations - Withdrawal Request - incorrect_withdrawal_credential_pr OK
++ [Valid]   EF - Fulu - Operations - Withdrawal Request - insufficient_balance               OK
++ [Valid]   EF - Fulu - Operations - Withdrawal Request - insufficient_effective_balance     OK
++ [Valid]   EF - Fulu - Operations - Withdrawal Request - no_compounding_credentials         OK
++ [Valid]   EF - Fulu - Operations - Withdrawal Request - no_excess_balance                  OK
++ [Valid]   EF - Fulu - Operations - Withdrawal Request - on_withdrawal_request_initiated_ex OK
++ [Valid]   EF - Fulu - Operations - Withdrawal Request - partial_withdrawal_activation_epoc OK
++ [Valid]   EF - Fulu - Operations - Withdrawal Request - partial_withdrawal_incorrect_sourc OK
++ [Valid]   EF - Fulu - Operations - Withdrawal Request - partial_withdrawal_incorrect_withd OK
++ [Valid]   EF - Fulu - Operations - Withdrawal Request - partial_withdrawal_on_exit_initiat OK
++ [Valid]   EF - Fulu - Operations - Withdrawal Request - pending_withdrawals_consume_all_ex OK
++ [Valid]   EF - Fulu - Operations - Withdrawal Request - unknown_pubkey                     OK
+```
+## EF - Fulu - Operations - Withdrawals  [Preset: mainnet]
+```diff
++ [Invalid] EF - Fulu - Operations - Withdrawals - invalid_a_lot_fully_withdrawable_too_few_ OK
++ [Invalid] EF - Fulu - Operations - Withdrawals - invalid_a_lot_mixed_withdrawable_in_queue OK
++ [Invalid] EF - Fulu - Operations - Withdrawals - invalid_a_lot_partially_withdrawable_too_ OK
++ [Invalid] EF - Fulu - Operations - Withdrawals - invalid_incorrect_address_full            OK
++ [Invalid] EF - Fulu - Operations - Withdrawals - invalid_incorrect_address_partial         OK
++ [Invalid] EF - Fulu - Operations - Withdrawals - invalid_incorrect_amount_full             OK
++ [Invalid] EF - Fulu - Operations - Withdrawals - invalid_incorrect_amount_partial          OK
++ [Invalid] EF - Fulu - Operations - Withdrawals - invalid_incorrect_withdrawal_index        OK
++ [Invalid] EF - Fulu - Operations - Withdrawals - invalid_many_incorrectly_full             OK
++ [Invalid] EF - Fulu - Operations - Withdrawals - invalid_many_incorrectly_partial          OK
++ [Invalid] EF - Fulu - Operations - Withdrawals - invalid_max_per_slot_full_withdrawals_and OK
++ [Invalid] EF - Fulu - Operations - Withdrawals - invalid_max_per_slot_partial_withdrawals_ OK
++ [Invalid] EF - Fulu - Operations - Withdrawals - invalid_non_withdrawable_non_empty_withdr OK
++ [Invalid] EF - Fulu - Operations - Withdrawals - invalid_one_expected_full_withdrawal_and_ OK
++ [Invalid] EF - Fulu - Operations - Withdrawals - invalid_one_expected_full_withdrawal_and_ OK
++ [Invalid] EF - Fulu - Operations - Withdrawals - invalid_one_expected_partial_withdrawal_a OK
++ [Invalid] EF - Fulu - Operations - Withdrawals - invalid_one_of_many_incorrectly_full      OK
++ [Invalid] EF - Fulu - Operations - Withdrawals - invalid_one_of_many_incorrectly_partial   OK
++ [Invalid] EF - Fulu - Operations - Withdrawals - invalid_two_expected_partial_withdrawal_a OK
++ [Valid]   EF - Fulu - Operations - Withdrawals - all_withdrawal                            OK
++ [Valid]   EF - Fulu - Operations - Withdrawals - no_withdrawals_but_some_next_epoch        OK
++ [Valid]   EF - Fulu - Operations - Withdrawals - partially_withdrawable_validator_compound OK
++ [Valid]   EF - Fulu - Operations - Withdrawals - partially_withdrawable_validator_compound OK
++ [Valid]   EF - Fulu - Operations - Withdrawals - partially_withdrawable_validator_compound OK
++ [Valid]   EF - Fulu - Operations - Withdrawals - partially_withdrawable_validator_compound OK
++ [Valid]   EF - Fulu - Operations - Withdrawals - partially_withdrawable_validator_compound OK
++ [Valid]   EF - Fulu - Operations - Withdrawals - partially_withdrawable_validator_compound OK
++ [Valid]   EF - Fulu - Operations - Withdrawals - partially_withdrawable_validator_legacy_e OK
++ [Valid]   EF - Fulu - Operations - Withdrawals - partially_withdrawable_validator_legacy_m OK
++ [Valid]   EF - Fulu - Operations - Withdrawals - partially_withdrawable_validator_legacy_m OK
++ [Valid]   EF - Fulu - Operations - Withdrawals - pending_withdrawals_at_max                OK
++ [Valid]   EF - Fulu - Operations - Withdrawals - pending_withdrawals_at_max_mixed_with_swe OK
++ [Valid]   EF - Fulu - Operations - Withdrawals - pending_withdrawals_exiting_validator     OK
++ [Valid]   EF - Fulu - Operations - Withdrawals - pending_withdrawals_low_effective_balance OK
++ [Valid]   EF - Fulu - Operations - Withdrawals - pending_withdrawals_mixed_with_sweep_and_ OK
++ [Valid]   EF - Fulu - Operations - Withdrawals - pending_withdrawals_next_epoch            OK
++ [Valid]   EF - Fulu - Operations - Withdrawals - pending_withdrawals_no_excess_balance     OK
++ [Valid]   EF - Fulu - Operations - Withdrawals - pending_withdrawals_one_skipped_one_effec OK
++ [Valid]   EF - Fulu - Operations - Withdrawals - pending_withdrawals_with_effective_sweep_ OK
++ [Valid]   EF - Fulu - Operations - Withdrawals - pending_withdrawals_with_ineffective_swee OK
++ [Valid]   EF - Fulu - Operations - Withdrawals - pending_withdrawals_with_ineffective_swee OK
++ [Valid]   EF - Fulu - Operations - Withdrawals - pending_withdrawals_with_sweep_different_ OK
++ [Valid]   EF - Fulu - Operations - Withdrawals - random_0                                  OK
++ [Valid]   EF - Fulu - Operations - Withdrawals - random_full_withdrawals_0                 OK
++ [Valid]   EF - Fulu - Operations - Withdrawals - random_full_withdrawals_1                 OK
++ [Valid]   EF - Fulu - Operations - Withdrawals - random_full_withdrawals_2                 OK
++ [Valid]   EF - Fulu - Operations - Withdrawals - random_full_withdrawals_3                 OK
++ [Valid]   EF - Fulu - Operations - Withdrawals - random_partial_withdrawals_1              OK
++ [Valid]   EF - Fulu - Operations - Withdrawals - random_partial_withdrawals_2              OK
++ [Valid]   EF - Fulu - Operations - Withdrawals - random_partial_withdrawals_3              OK
++ [Valid]   EF - Fulu - Operations - Withdrawals - random_partial_withdrawals_4              OK
++ [Valid]   EF - Fulu - Operations - Withdrawals - random_partial_withdrawals_5              OK
++ [Valid]   EF - Fulu - Operations - Withdrawals - success_all_fully_withdrawable_in_one_swe OK
++ [Valid]   EF - Fulu - Operations - Withdrawals - success_all_partially_withdrawable_in_one OK
++ [Valid]   EF - Fulu - Operations - Withdrawals - success_excess_balance_but_no_max_effecti OK
++ [Valid]   EF - Fulu - Operations - Withdrawals - success_excess_balance_but_no_max_effecti OK
++ [Valid]   EF - Fulu - Operations - Withdrawals - success_max_partial_withdrawable          OK
++ [Valid]   EF - Fulu - Operations - Withdrawals - success_mixed_fully_and_partial_withdrawa OK
++ [Valid]   EF - Fulu - Operations - Withdrawals - success_mixed_fully_and_partial_withdrawa OK
++ [Valid]   EF - Fulu - Operations - Withdrawals - success_no_excess_balance                 OK
++ [Valid]   EF - Fulu - Operations - Withdrawals - success_no_excess_balance_compounding     OK
++ [Valid]   EF - Fulu - Operations - Withdrawals - success_no_max_effective_balance          OK
++ [Valid]   EF - Fulu - Operations - Withdrawals - success_no_max_effective_balance_compound OK
++ [Valid]   EF - Fulu - Operations - Withdrawals - success_one_full_withdrawal               OK
++ [Valid]   EF - Fulu - Operations - Withdrawals - success_one_partial_withdrawable_active_a OK
++ [Valid]   EF - Fulu - Operations - Withdrawals - success_one_partial_withdrawable_exited   OK
++ [Valid]   EF - Fulu - Operations - Withdrawals - success_one_partial_withdrawable_exited_a OK
++ [Valid]   EF - Fulu - Operations - Withdrawals - success_one_partial_withdrawable_in_exit_ OK
++ [Valid]   EF - Fulu - Operations - Withdrawals - success_one_partial_withdrawable_not_yet_ OK
++ [Valid]   EF - Fulu - Operations - Withdrawals - success_one_partial_withdrawal            OK
++ [Valid]   EF - Fulu - Operations - Withdrawals - success_two_partial_withdrawable          OK
++ [Valid]   EF - Fulu - Operations - Withdrawals - success_zero_expected_withdrawals         OK
++ [Valid]   EF - Fulu - Operations - Withdrawals - withdrawable_epoch_but_0_balance          OK
++ [Valid]   EF - Fulu - Operations - Withdrawals - withdrawable_epoch_but_0_effective_balanc OK
++ [Valid]   EF - Fulu - Operations - Withdrawals - withdrawable_epoch_but_0_effective_balanc OK
+```
+## EF - Fulu - Random  [Preset: mainnet]
+```diff
++ [Valid]   EF - Fulu - Random - randomized_0 [Preset: mainnet]                              OK
++ [Valid]   EF - Fulu - Random - randomized_1 [Preset: mainnet]                              OK
++ [Valid]   EF - Fulu - Random - randomized_10 [Preset: mainnet]                             OK
++ [Valid]   EF - Fulu - Random - randomized_11 [Preset: mainnet]                             OK
++ [Valid]   EF - Fulu - Random - randomized_12 [Preset: mainnet]                             OK
++ [Valid]   EF - Fulu - Random - randomized_13 [Preset: mainnet]                             OK
++ [Valid]   EF - Fulu - Random - randomized_14 [Preset: mainnet]                             OK
++ [Valid]   EF - Fulu - Random - randomized_15 [Preset: mainnet]                             OK
++ [Valid]   EF - Fulu - Random - randomized_2 [Preset: mainnet]                              OK
++ [Valid]   EF - Fulu - Random - randomized_3 [Preset: mainnet]                              OK
++ [Valid]   EF - Fulu - Random - randomized_4 [Preset: mainnet]                              OK
++ [Valid]   EF - Fulu - Random - randomized_5 [Preset: mainnet]                              OK
++ [Valid]   EF - Fulu - Random - randomized_6 [Preset: mainnet]                              OK
++ [Valid]   EF - Fulu - Random - randomized_7 [Preset: mainnet]                              OK
++ [Valid]   EF - Fulu - Random - randomized_8 [Preset: mainnet]                              OK
++ [Valid]   EF - Fulu - Random - randomized_9 [Preset: mainnet]                              OK
+```
+## EF - Fulu - Rewards  [Preset: mainnet]
+```diff
++ EF - Fulu - Rewards - all_balances_too_low_for_reward [Preset: mainnet]                    OK
++ EF - Fulu - Rewards - empty [Preset: mainnet]                                              OK
++ EF - Fulu - Rewards - empty_leak [Preset: mainnet]                                         OK
++ EF - Fulu - Rewards - full_all_correct [Preset: mainnet]                                   OK
++ EF - Fulu - Rewards - full_but_partial_participation [Preset: mainnet]                     OK
++ EF - Fulu - Rewards - full_but_partial_participation_leak [Preset: mainnet]                OK
++ EF - Fulu - Rewards - full_leak [Preset: mainnet]                                          OK
++ EF - Fulu - Rewards - full_random_0 [Preset: mainnet]                                      OK
++ EF - Fulu - Rewards - full_random_1 [Preset: mainnet]                                      OK
++ EF - Fulu - Rewards - full_random_2 [Preset: mainnet]                                      OK
++ EF - Fulu - Rewards - full_random_3 [Preset: mainnet]                                      OK
++ EF - Fulu - Rewards - full_random_4 [Preset: mainnet]                                      OK
++ EF - Fulu - Rewards - full_random_leak [Preset: mainnet]                                   OK
++ EF - Fulu - Rewards - full_random_low_balances_0 [Preset: mainnet]                         OK
++ EF - Fulu - Rewards - full_random_low_balances_1 [Preset: mainnet]                         OK
++ EF - Fulu - Rewards - full_random_misc_balances [Preset: mainnet]                          OK
++ EF - Fulu - Rewards - full_random_seven_epoch_leak [Preset: mainnet]                       OK
++ EF - Fulu - Rewards - full_random_ten_epoch_leak [Preset: mainnet]                         OK
++ EF - Fulu - Rewards - full_random_without_leak_0 [Preset: mainnet]                         OK
++ EF - Fulu - Rewards - full_random_without_leak_and_current_exit_0 [Preset: mainnet]        OK
++ EF - Fulu - Rewards - half_full [Preset: mainnet]                                          OK
++ EF - Fulu - Rewards - half_full_leak [Preset: mainnet]                                     OK
++ EF - Fulu - Rewards - quarter_full [Preset: mainnet]                                       OK
++ EF - Fulu - Rewards - quarter_full_leak [Preset: mainnet]                                  OK
++ EF - Fulu - Rewards - some_very_low_effective_balances_that_attested [Preset: mainnet]     OK
++ EF - Fulu - Rewards - some_very_low_effective_balances_that_attested_leak [Preset: mainnet OK
++ EF - Fulu - Rewards - some_very_low_effective_balances_that_did_not_attest [Preset: mainne OK
++ EF - Fulu - Rewards - some_very_low_effective_balances_that_did_not_attest_leak [Preset: m OK
++ EF - Fulu - Rewards - with_exited_validators [Preset: mainnet]                             OK
++ EF - Fulu - Rewards - with_exited_validators_leak [Preset: mainnet]                        OK
++ EF - Fulu - Rewards - with_not_yet_activated_validators [Preset: mainnet]                  OK
++ EF - Fulu - Rewards - with_not_yet_activated_validators_leak [Preset: mainnet]             OK
++ EF - Fulu - Rewards - with_slashed_validators [Preset: mainnet]                            OK
++ EF - Fulu - Rewards - with_slashed_validators_leak [Preset: mainnet]                       OK
+```
 ## EF - Fulu - SSZ consensus objects  [Preset: mainnet]
 ```diff
 +   Testing    AggregateAndProof                                                             OK
@@ -3317,7 +3820,96 @@ OK: 4/4 Fail: 0/4 Skip: 0/4
 +   Testing    Withdrawal                                                                    OK
 +   Testing    WithdrawalRequest                                                             OK
 ```
-OK: 59/59 Fail: 0/59 Skip: 0/59
+## EF - Fulu - Sanity - Blocks  [Preset: mainnet]
+```diff
++ [Invalid] EF - Fulu - Sanity - Blocks - invalid_all_zeroed_sig [Preset: mainnet]           OK
++ [Invalid] EF - Fulu - Sanity - Blocks - invalid_duplicate_bls_changes_same_block [Preset:  OK
++ [Invalid] EF - Fulu - Sanity - Blocks - invalid_duplicate_deposit_same_block [Preset: main OK
++ [Invalid] EF - Fulu - Sanity - Blocks - invalid_duplicate_proposer_slashings_same_block [P OK
++ [Invalid] EF - Fulu - Sanity - Blocks - invalid_duplicate_validator_exit_same_block [Prese OK
++ [Invalid] EF - Fulu - Sanity - Blocks - invalid_incorrect_block_sig [Preset: mainnet]      OK
++ [Invalid] EF - Fulu - Sanity - Blocks - invalid_incorrect_proposer_index_sig_from_expected OK
++ [Invalid] EF - Fulu - Sanity - Blocks - invalid_incorrect_proposer_index_sig_from_proposer OK
++ [Invalid] EF - Fulu - Sanity - Blocks - invalid_incorrect_state_root [Preset: mainnet]     OK
++ [Invalid] EF - Fulu - Sanity - Blocks - invalid_is_execution_enabled_false [Preset: mainne OK
++ [Invalid] EF - Fulu - Sanity - Blocks - invalid_one_blob_max_plus_one_txs [Preset: mainnet OK
++ [Invalid] EF - Fulu - Sanity - Blocks - invalid_only_increase_deposit_count [Preset: mainn OK
++ [Invalid] EF - Fulu - Sanity - Blocks - invalid_parent_from_same_slot [Preset: mainnet]    OK
++ [Invalid] EF - Fulu - Sanity - Blocks - invalid_prev_slot_block_transition [Preset: mainne OK
++ [Invalid] EF - Fulu - Sanity - Blocks - invalid_same_slot_block_transition [Preset: mainne OK
++ [Invalid] EF - Fulu - Sanity - Blocks - invalid_similar_proposer_slashings_same_block [Pre OK
++ [Invalid] EF - Fulu - Sanity - Blocks - invalid_two_bls_changes_of_different_addresses_sam OK
++ [Invalid] EF - Fulu - Sanity - Blocks - invalid_withdrawal_fail_second_block_payload_isnt_ OK
++ [Invalid] EF - Fulu - Sanity - Blocks - slash_and_exit_same_index [Preset: mainnet]        OK
++ [Valid]   EF - Fulu - Sanity - Blocks - attestation [Preset: mainnet]                      OK
++ [Valid]   EF - Fulu - Sanity - Blocks - attester_slashing [Preset: mainnet]                OK
++ [Valid]   EF - Fulu - Sanity - Blocks - balance_driven_status_transitions [Preset: mainnet OK
++ [Valid]   EF - Fulu - Sanity - Blocks - basic_btec_and_el_withdrawal_request_in_same_block OK
++ [Valid]   EF - Fulu - Sanity - Blocks - basic_btec_before_el_withdrawal_request [Preset: m OK
++ [Valid]   EF - Fulu - Sanity - Blocks - basic_el_withdrawal_request [Preset: mainnet]      OK
++ [Valid]   EF - Fulu - Sanity - Blocks - block_transition_randomized_payload [Preset: mainn OK
++ [Valid]   EF - Fulu - Sanity - Blocks - bls_change [Preset: mainnet]                       OK
++ [Valid]   EF - Fulu - Sanity - Blocks - cl_exit_and_el_withdrawal_request_in_same_block [P OK
++ [Valid]   EF - Fulu - Sanity - Blocks - deposit_and_bls_change [Preset: mainnet]           OK
++ [Valid]   EF - Fulu - Sanity - Blocks - deposit_in_block [Preset: mainnet]                 OK
++ [Valid]   EF - Fulu - Sanity - Blocks - deposit_request_with_same_pubkey_different_withdra OK
++ [Valid]   EF - Fulu - Sanity - Blocks - deposit_top_up [Preset: mainnet]                   OK
++ [Valid]   EF - Fulu - Sanity - Blocks - duplicate_attestation_same_block [Preset: mainnet] OK
++ [Valid]   EF - Fulu - Sanity - Blocks - empty_block_transition [Preset: mainnet]           OK
++ [Valid]   EF - Fulu - Sanity - Blocks - empty_block_transition_no_tx [Preset: mainnet]     OK
++ [Valid]   EF - Fulu - Sanity - Blocks - empty_epoch_transition [Preset: mainnet]           OK
++ [Valid]   EF - Fulu - Sanity - Blocks - exit_and_bls_change [Preset: mainnet]              OK
++ [Valid]   EF - Fulu - Sanity - Blocks - full_random_operations_0 [Preset: mainnet]         OK
++ [Valid]   EF - Fulu - Sanity - Blocks - full_random_operations_1 [Preset: mainnet]         OK
++ [Valid]   EF - Fulu - Sanity - Blocks - full_random_operations_2 [Preset: mainnet]         OK
++ [Valid]   EF - Fulu - Sanity - Blocks - full_random_operations_3 [Preset: mainnet]         OK
++ [Valid]   EF - Fulu - Sanity - Blocks - full_withdrawal_in_epoch_transition [Preset: mainn OK
++ [Valid]   EF - Fulu - Sanity - Blocks - high_proposer_index [Preset: mainnet]              OK
++ [Valid]   EF - Fulu - Sanity - Blocks - historical_batch [Preset: mainnet]                 OK
++ [Valid]   EF - Fulu - Sanity - Blocks - inactivity_scores_full_participation_leaking [Pres OK
++ [Valid]   EF - Fulu - Sanity - Blocks - inactivity_scores_leaking [Preset: mainnet]        OK
++ [Valid]   EF - Fulu - Sanity - Blocks - many_partial_withdrawals_in_epoch_transition [Pres OK
++ [Valid]   EF - Fulu - Sanity - Blocks - mix_blob_tx_and_non_blob_tx [Preset: mainnet]      OK
++ [Valid]   EF - Fulu - Sanity - Blocks - multiple_different_proposer_slashings_same_block [ OK
++ [Valid]   EF - Fulu - Sanity - Blocks - multiple_different_validator_exits_same_block [Pre OK
++ [Valid]   EF - Fulu - Sanity - Blocks - multiple_el_partial_withdrawal_requests_different_ OK
++ [Valid]   EF - Fulu - Sanity - Blocks - multiple_el_partial_withdrawal_requests_same_valid OK
++ [Valid]   EF - Fulu - Sanity - Blocks - one_blob [Preset: mainnet]                         OK
++ [Valid]   EF - Fulu - Sanity - Blocks - one_blob_two_txs [Preset: mainnet]                 OK
++ [Valid]   EF - Fulu - Sanity - Blocks - partial_withdrawal_in_epoch_transition [Preset: ma OK
++ [Valid]   EF - Fulu - Sanity - Blocks - proposer_after_inactive_index [Preset: mainnet]    OK
++ [Valid]   EF - Fulu - Sanity - Blocks - proposer_self_slashing [Preset: mainnet]           OK
++ [Valid]   EF - Fulu - Sanity - Blocks - proposer_slashing [Preset: mainnet]                OK
++ [Valid]   EF - Fulu - Sanity - Blocks - skipped_slots [Preset: mainnet]                    OK
++ [Valid]   EF - Fulu - Sanity - Blocks - slash_and_exit_diff_index [Preset: mainnet]        OK
++ [Valid]   EF - Fulu - Sanity - Blocks - sync_committee_committee__empty [Preset: mainnet]  OK
++ [Valid]   EF - Fulu - Sanity - Blocks - sync_committee_committee__full [Preset: mainnet]   OK
++ [Valid]   EF - Fulu - Sanity - Blocks - sync_committee_committee__half [Preset: mainnet]   OK
++ [Valid]   EF - Fulu - Sanity - Blocks - sync_committee_committee_genesis__empty [Preset: m OK
++ [Valid]   EF - Fulu - Sanity - Blocks - sync_committee_committee_genesis__full [Preset: ma OK
++ [Valid]   EF - Fulu - Sanity - Blocks - sync_committee_committee_genesis__half [Preset: ma OK
++ [Valid]   EF - Fulu - Sanity - Blocks - top_up_and_partial_withdrawable_validator [Preset: OK
++ [Valid]   EF - Fulu - Sanity - Blocks - top_up_to_fully_withdrawn_validator [Preset: mainn OK
++ [Valid]   EF - Fulu - Sanity - Blocks - voluntary_exit [Preset: mainnet]                   OK
++ [Valid]   EF - Fulu - Sanity - Blocks - withdrawal_and_switch_to_compounding_request_same_ OK
++ [Valid]   EF - Fulu - Sanity - Blocks - withdrawal_and_withdrawal_request_same_validator [ OK
++ [Valid]   EF - Fulu - Sanity - Blocks - withdrawal_success_two_blocks [Preset: mainnet]    OK
++ [Valid]   EF - Fulu - Sanity - Blocks - zero_blob [Preset: mainnet]                        OK
+```
+## EF - Fulu - Sanity - Slots  [Preset: mainnet]
+```diff
++ EF - Fulu - Slots - double_empty_epoch [Preset: mainnet]                                   OK
++ EF - Fulu - Slots - empty_epoch [Preset: mainnet]                                          OK
++ EF - Fulu - Slots - historical_accumulator [Preset: mainnet]                               OK
++ EF - Fulu - Slots - multiple_pending_deposits_same_pubkey [Preset: mainnet]                OK
++ EF - Fulu - Slots - multiple_pending_deposits_same_pubkey_above_upward_threshold [Preset:  OK
++ EF - Fulu - Slots - multiple_pending_deposits_same_pubkey_below_upward_threshold [Preset:  OK
++ EF - Fulu - Slots - multiple_pending_deposits_same_pubkey_compounding [Preset: mainnet]    OK
++ EF - Fulu - Slots - over_epoch_boundary [Preset: mainnet]                                  OK
++ EF - Fulu - Slots - pending_consolidation [Preset: mainnet]                                OK
++ EF - Fulu - Slots - slots_1 [Preset: mainnet]                                              OK
++ EF - Fulu - Slots - slots_2 [Preset: mainnet]                                              OK
+```
 ## EF - Light client - Single merkle proof [Preset: mainnet]
 ```diff
 + Light client - Single merkle proof - mainnet/altair/light_client/single_merkle_proof/Beaco OK
@@ -3338,8 +3930,8 @@ OK: 59/59 Fail: 0/59 Skip: 0/59
 + Light client - Single merkle proof - mainnet/electra/light_client/single_merkle_proof/Beac OK
 + Light client - Single merkle proof - mainnet/electra/light_client/single_merkle_proof/Beac OK
 + Light client - Single merkle proof - mainnet/electra/light_client/single_merkle_proof/Beac OK
++ Light client - Single merkle proof - mainnet/fulu/light_client/single_merkle_proof/BeaconB OK
 ```
-OK: 18/18 Fail: 0/18 Skip: 0/18
 ## EF - Merkle proof [Preset: mainnet]
 ```diff
 + Merkle proof - Single merkle proof - mainnet/deneb/merkle_proof/single_merkle_proof/Beacon OK
@@ -3357,23 +3949,19 @@ OK: 18/18 Fail: 0/18 Skip: 0/18
 + Merkle proof - Single merkle proof - mainnet/fulu/merkle_proof/single_merkle_proof/BeaconB OK
 + Merkle proof - Single merkle proof - mainnet/fulu/merkle_proof/single_merkle_proof/BeaconB OK
 ```
-OK: 14/14 Fail: 0/14 Skip: 0/14
 ## EF - Phase 0 - Epoch Processing - Effective balance updates [Preset: mainnet]
 ```diff
 + Effective balance updates - effective_balance_hysteresis [Preset: mainnet]                 OK
 ```
-OK: 1/1 Fail: 0/1 Skip: 0/1
 ## EF - Phase 0 - Epoch Processing - Eth1 data reset [Preset: mainnet]
 ```diff
 + Eth1 data reset - eth1_vote_no_reset [Preset: mainnet]                                     OK
 + Eth1 data reset - eth1_vote_reset [Preset: mainnet]                                        OK
 ```
-OK: 2/2 Fail: 0/2 Skip: 0/2
 ## EF - Phase 0 - Epoch Processing - Historical roots update [Preset: mainnet]
 ```diff
 + Historical roots update - historical_root_accumulator [Preset: mainnet]                    OK
 ```
-OK: 1/1 Fail: 0/1 Skip: 0/1
 ## EF - Phase 0 - Epoch Processing - Justification & Finalization [Preset: mainnet]
 ```diff
 + Justification & Finalization - 123_ok_support [Preset: mainnet]                            OK
@@ -3387,17 +3975,14 @@ OK: 1/1 Fail: 0/1 Skip: 0/1
 + Justification & Finalization - 23_poor_support [Preset: mainnet]                           OK
 + Justification & Finalization - balance_threshold_with_exited_validators [Preset: mainnet]  OK
 ```
-OK: 10/10 Fail: 0/10 Skip: 0/10
 ## EF - Phase 0 - Epoch Processing - Participation record updates [Preset: mainnet]
 ```diff
 + Participation record updates - updated_participation_record [Preset: mainnet]              OK
 ```
-OK: 1/1 Fail: 0/1 Skip: 0/1
 ## EF - Phase 0 - Epoch Processing - RANDAO mixes reset [Preset: mainnet]
 ```diff
 + RANDAO mixes reset - updated_randao_mixes [Preset: mainnet]                                OK
 ```
-OK: 1/1 Fail: 0/1 Skip: 0/1
 ## EF - Phase 0 - Epoch Processing - Registry updates [Preset: mainnet]
 ```diff
 + Registry updates - activation_queue_activation_and_ejection__1 [Preset: mainnet]           OK
@@ -3412,7 +3997,6 @@ OK: 1/1 Fail: 0/1 Skip: 0/1
 + Registry updates - ejection_past_churn_limit_min [Preset: mainnet]                         OK
 + Registry updates - invalid_large_withdrawable_epoch [Preset: mainnet]                      OK
 ```
-OK: 11/11 Fail: 0/11 Skip: 0/11
 ## EF - Phase 0 - Epoch Processing - Rewards and penalties [Preset: mainnet]
 ```diff
 + Rewards and penalties - almost_empty_attestations [Preset: mainnet]                        OK
@@ -3435,7 +4019,6 @@ OK: 11/11 Fail: 0/11 Skip: 0/11
 + Rewards and penalties - random_fill_attestations [Preset: mainnet]                         OK
 + Rewards and penalties - random_fill_attestations_with_leak [Preset: mainnet]               OK
 ```
-OK: 19/19 Fail: 0/19 Skip: 0/19
 ## EF - Phase 0 - Epoch Processing - Slashings [Preset: mainnet]
 ```diff
 + Slashings - low_penalty [Preset: mainnet]                                                  OK
@@ -3444,12 +4027,10 @@ OK: 19/19 Fail: 0/19 Skip: 0/19
 + Slashings - scaled_penalties [Preset: mainnet]                                             OK
 + Slashings - slashings_with_random_state [Preset: mainnet]                                  OK
 ```
-OK: 5/5 Fail: 0/5 Skip: 0/5
 ## EF - Phase 0 - Epoch Processing - Slashings reset [Preset: mainnet]
 ```diff
 + Slashings reset - flush_slashings [Preset: mainnet]                                        OK
 ```
-OK: 1/1 Fail: 0/1 Skip: 0/1
 ## EF - Phase 0 - Operations - Attestation  [Preset: mainnet]
 ```diff
 + [Invalid] EF - Phase 0 - Operations - EF - Phase 0 - Operations - Attestation  [Preset: ma OK
@@ -3494,7 +4075,6 @@ OK: 1/1 Fail: 0/1 Skip: 0/1
 + [Valid]   EF - Phase 0 - Operations - EF - Phase 0 - Operations - Attestation  [Preset: ma OK
 + [Valid]   EF - Phase 0 - Operations - EF - Phase 0 - Operations - Attestation  [Preset: ma OK
 ```
-OK: 41/41 Fail: 0/41 Skip: 0/41
 ## EF - Phase 0 - Operations - Attester Slashing  [Preset: mainnet]
 ```diff
 + [Invalid] EF - Phase 0 - Operations - EF - Phase 0 - Operations - Attester Slashing  [Pres OK
@@ -3528,7 +4108,6 @@ OK: 41/41 Fail: 0/41 Skip: 0/41
 + [Valid]   EF - Phase 0 - Operations - EF - Phase 0 - Operations - Attester Slashing  [Pres OK
 + [Valid]   EF - Phase 0 - Operations - EF - Phase 0 - Operations - Attester Slashing  [Pres OK
 ```
-OK: 30/30 Fail: 0/30 Skip: 0/30
 ## EF - Phase 0 - Operations - Block Header  [Preset: mainnet]
 ```diff
 + [Invalid] EF - Phase 0 - Operations - EF - Phase 0 - Operations - Block Header  [Preset: m OK
@@ -3538,7 +4117,6 @@ OK: 30/30 Fail: 0/30 Skip: 0/30
 + [Invalid] EF - Phase 0 - Operations - EF - Phase 0 - Operations - Block Header  [Preset: m OK
 + [Valid]   EF - Phase 0 - Operations - EF - Phase 0 - Operations - Block Header  [Preset: m OK
 ```
-OK: 6/6 Fail: 0/6 Skip: 0/6
 ## EF - Phase 0 - Operations - Deposit  [Preset: mainnet]
 ```diff
 + [Invalid] EF - Phase 0 - Operations - EF - Phase 0 - Operations - Deposit  [Preset: mainne OK
@@ -3559,7 +4137,6 @@ OK: 6/6 Fail: 0/6 Skip: 0/6
 + [Valid]   EF - Phase 0 - Operations - EF - Phase 0 - Operations - Deposit  [Preset: mainne OK
 + [Valid]   EF - Phase 0 - Operations - EF - Phase 0 - Operations - Deposit  [Preset: mainne OK
 ```
-OK: 17/17 Fail: 0/17 Skip: 0/17
 ## EF - Phase 0 - Operations - Proposer Slashing  [Preset: mainnet]
 ```diff
 + [Invalid] EF - Phase 0 - Operations - EF - Phase 0 - Operations - Proposer Slashing  [Pres OK
@@ -3578,7 +4155,6 @@ OK: 17/17 Fail: 0/17 Skip: 0/17
 + [Valid]   EF - Phase 0 - Operations - EF - Phase 0 - Operations - Proposer Slashing  [Pres OK
 + [Valid]   EF - Phase 0 - Operations - EF - Phase 0 - Operations - Proposer Slashing  [Pres OK
 ```
-OK: 15/15 Fail: 0/15 Skip: 0/15
 ## EF - Phase 0 - Operations - Voluntary Exit  [Preset: mainnet]
 ```diff
 + [Invalid] EF - Phase 0 - Operations - EF - Phase 0 - Operations - Voluntary Exit  [Preset: OK
@@ -3591,7 +4167,6 @@ OK: 15/15 Fail: 0/15 Skip: 0/15
 + [Valid]   EF - Phase 0 - Operations - EF - Phase 0 - Operations - Voluntary Exit  [Preset: OK
 + [Valid]   EF - Phase 0 - Operations - EF - Phase 0 - Operations - Voluntary Exit  [Preset: OK
 ```
-OK: 9/9 Fail: 0/9 Skip: 0/9
 ## EF - Phase 0 - Rewards  [Preset: mainnet]
 ```diff
 + EF - Phase 0 - Rewards - all_balances_too_low_for_reward [Preset: mainnet]                 OK
@@ -3644,7 +4219,6 @@ OK: 9/9 Fail: 0/9 Skip: 0/9
 + EF - Phase 0 - Rewards - with_slashed_validators [Preset: mainnet]                         OK
 + EF - Phase 0 - Rewards - with_slashed_validators_leak [Preset: mainnet]                    OK
 ```
-OK: 49/49 Fail: 0/49 Skip: 0/49
 ## EF - Phase 0 - SSZ consensus objects  [Preset: mainnet]
 ```diff
 +   Testing    AggregateAndProof                                                             OK
@@ -3675,7 +4249,6 @@ OK: 49/49 Fail: 0/49 Skip: 0/49
 +   Testing    Validator                                                                     OK
 +   Testing    VoluntaryExit                                                                 OK
 ```
-OK: 27/27 Fail: 0/27 Skip: 0/27
 ## EF - Phase 0 - Sanity - Slots  [Preset: mainnet]
 ```diff
 + EF - Phase 0 - Slots - double_empty_epoch [Preset: mainnet]                                OK
@@ -3685,7 +4258,6 @@ OK: 27/27 Fail: 0/27 Skip: 0/27
 + EF - Phase 0 - Slots - slots_1 [Preset: mainnet]                                           OK
 + EF - Phase 0 - Slots - slots_2 [Preset: mainnet]                                           OK
 ```
-OK: 6/6 Fail: 0/6 Skip: 0/6
 ## EF - Phase0 - Finality  [Preset: mainnet]
 ```diff
 + [Valid]   EF - Phase0 - Finality - finality_no_updates_at_genesis [Preset: mainnet]        OK
@@ -3694,7 +4266,6 @@ OK: 6/6 Fail: 0/6 Skip: 0/6
 + [Valid]   EF - Phase0 - Finality - finality_rule_3 [Preset: mainnet]                       OK
 + [Valid]   EF - Phase0 - Finality - finality_rule_4 [Preset: mainnet]                       OK
 ```
-OK: 5/5 Fail: 0/5 Skip: 0/5
 ## EF - Phase0 - Random  [Preset: mainnet]
 ```diff
 + [Valid]   EF - Phase0 - Random - randomized_0 [Preset: mainnet]                            OK
@@ -3714,7 +4285,6 @@ OK: 5/5 Fail: 0/5 Skip: 0/5
 + [Valid]   EF - Phase0 - Random - randomized_8 [Preset: mainnet]                            OK
 + [Valid]   EF - Phase0 - Random - randomized_9 [Preset: mainnet]                            OK
 ```
-OK: 16/16 Fail: 0/16 Skip: 0/16
 ## EF - Phase0 - Sanity - Blocks  [Preset: mainnet]
 ```diff
 + [Invalid] EF - Phase0 - Sanity - Blocks - invalid_all_zeroed_sig [Preset: mainnet]         OK
@@ -3758,7 +4328,6 @@ OK: 16/16 Fail: 0/16 Skip: 0/16
 + [Valid]   EF - Phase0 - Sanity - Blocks - slash_and_exit_diff_index [Preset: mainnet]      OK
 + [Valid]   EF - Phase0 - Sanity - Blocks - voluntary_exit [Preset: mainnet]                 OK
 ```
-OK: 40/40 Fail: 0/40 Skip: 0/40
 ## ForkChoice
 ```diff
 + ForkChoice - mainnet/altair/fork_choice/ex_ante/pyspec_tests/ex_ante_attestations_is_great OK
@@ -3849,15 +4418,57 @@ OK: 40/40 Fail: 0/40 Skip: 0/40
 + ForkChoice - mainnet/deneb/fork_choice/on_block/pyspec_tests/proposer_boost_root_same_slot OK
 + ForkChoice - mainnet/deneb/fork_choice/on_block/pyspec_tests/simple_blob_data              OK
   ForkChoice - mainnet/deneb/fork_choice/should_override_forkchoice_update/pyspec_tests/shou Skip
++ ForkChoice - mainnet/electra/fork_choice/ex_ante/pyspec_tests/ex_ante_attestations_is_grea OK
++ ForkChoice - mainnet/electra/fork_choice/ex_ante/pyspec_tests/ex_ante_sandwich_with_boost_ OK
++ ForkChoice - mainnet/electra/fork_choice/ex_ante/pyspec_tests/ex_ante_sandwich_with_honest OK
++ ForkChoice - mainnet/electra/fork_choice/ex_ante/pyspec_tests/ex_ante_sandwich_without_att OK
++ ForkChoice - mainnet/electra/fork_choice/ex_ante/pyspec_tests/ex_ante_vanilla              OK
++ ForkChoice - mainnet/electra/fork_choice/get_head/pyspec_tests/chain_no_attestations       OK
++ ForkChoice - mainnet/electra/fork_choice/get_head/pyspec_tests/discard_equivocations_on_at OK
++ ForkChoice - mainnet/electra/fork_choice/get_head/pyspec_tests/genesis                     OK
++ ForkChoice - mainnet/electra/fork_choice/get_head/pyspec_tests/proposer_boost_correct_head OK
++ ForkChoice - mainnet/electra/fork_choice/get_head/pyspec_tests/shorter_chain_but_heavier_w OK
++ ForkChoice - mainnet/electra/fork_choice/get_head/pyspec_tests/split_tie_breaker_no_attest OK
+  ForkChoice - mainnet/electra/fork_choice/get_proposer_head/pyspec_tests/basic_is_head_root Skip
+  ForkChoice - mainnet/electra/fork_choice/get_proposer_head/pyspec_tests/basic_is_parent_ro Skip
++ ForkChoice - mainnet/electra/fork_choice/on_block/pyspec_tests/basic                       OK
++ ForkChoice - mainnet/electra/fork_choice/on_block/pyspec_tests/invalid_data_unavailable    OK
++ ForkChoice - mainnet/electra/fork_choice/on_block/pyspec_tests/invalid_incorrect_proof     OK
++ ForkChoice - mainnet/electra/fork_choice/on_block/pyspec_tests/invalid_wrong_blobs_length  OK
++ ForkChoice - mainnet/electra/fork_choice/on_block/pyspec_tests/invalid_wrong_proofs_length OK
++ ForkChoice - mainnet/electra/fork_choice/on_block/pyspec_tests/on_block_bad_parent_root    OK
+  ForkChoice - mainnet/electra/fork_choice/on_block/pyspec_tests/on_block_future_block       Skip
++ ForkChoice - mainnet/electra/fork_choice/on_block/pyspec_tests/proposer_boost              OK
++ ForkChoice - mainnet/electra/fork_choice/on_block/pyspec_tests/proposer_boost_is_first_blo OK
++ ForkChoice - mainnet/electra/fork_choice/on_block/pyspec_tests/proposer_boost_root_same_sl OK
++ ForkChoice - mainnet/electra/fork_choice/on_block/pyspec_tests/simple_blob_data            OK
+  ForkChoice - mainnet/electra/fork_choice/should_override_forkchoice_update/pyspec_tests/sh Skip
++ ForkChoice - mainnet/fulu/fork_choice/ex_ante/pyspec_tests/ex_ante_attestations_is_greater OK
++ ForkChoice - mainnet/fulu/fork_choice/ex_ante/pyspec_tests/ex_ante_sandwich_with_boost_not OK
++ ForkChoice - mainnet/fulu/fork_choice/ex_ante/pyspec_tests/ex_ante_sandwich_with_honest_at OK
++ ForkChoice - mainnet/fulu/fork_choice/ex_ante/pyspec_tests/ex_ante_sandwich_without_attest OK
++ ForkChoice - mainnet/fulu/fork_choice/ex_ante/pyspec_tests/ex_ante_vanilla                 OK
++ ForkChoice - mainnet/fulu/fork_choice/get_head/pyspec_tests/chain_no_attestations          OK
++ ForkChoice - mainnet/fulu/fork_choice/get_head/pyspec_tests/discard_equivocations_on_attes OK
++ ForkChoice - mainnet/fulu/fork_choice/get_head/pyspec_tests/genesis                        OK
++ ForkChoice - mainnet/fulu/fork_choice/get_head/pyspec_tests/proposer_boost_correct_head    OK
++ ForkChoice - mainnet/fulu/fork_choice/get_head/pyspec_tests/shorter_chain_but_heavier_weig OK
++ ForkChoice - mainnet/fulu/fork_choice/get_head/pyspec_tests/split_tie_breaker_no_attestati OK
+  ForkChoice - mainnet/fulu/fork_choice/get_proposer_head/pyspec_tests/basic_is_head_root    Skip
+  ForkChoice - mainnet/fulu/fork_choice/get_proposer_head/pyspec_tests/basic_is_parent_root  Skip
++ ForkChoice - mainnet/fulu/fork_choice/on_block/pyspec_tests/basic                          OK
++ ForkChoice - mainnet/fulu/fork_choice/on_block/pyspec_tests/on_block_bad_parent_root       OK
+  ForkChoice - mainnet/fulu/fork_choice/on_block/pyspec_tests/on_block_future_block          Skip
++ ForkChoice - mainnet/fulu/fork_choice/on_block/pyspec_tests/proposer_boost                 OK
++ ForkChoice - mainnet/fulu/fork_choice/on_block/pyspec_tests/proposer_boost_is_first_block  OK
++ ForkChoice - mainnet/fulu/fork_choice/on_block/pyspec_tests/proposer_boost_root_same_slot_ OK
+  ForkChoice - mainnet/fulu/fork_choice/should_override_forkchoice_update/pyspec_tests/shoul Skip
 ```
-OK: 69/88 Fail: 0/88 Skip: 19/88
 ## Sync
 ```diff
 + Sync - mainnet/bellatrix/sync/optimistic/pyspec_tests/from_syncing_to_invalid              OK
 + Sync - mainnet/capella/sync/optimistic/pyspec_tests/from_syncing_to_invalid                OK
 + Sync - mainnet/deneb/sync/optimistic/pyspec_tests/from_syncing_to_invalid                  OK
++ Sync - mainnet/electra/sync/optimistic/pyspec_tests/from_syncing_to_invalid                OK
++ Sync - mainnet/fulu/sync/optimistic/pyspec_tests/from_syncing_to_invalid                   OK
 ```
-OK: 3/3 Fail: 0/3 Skip: 0/3
-
----TOTAL---
-OK: 3135/3154 Fail: 0/3154 Skip: 19/3154
