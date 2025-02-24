@@ -2580,8 +2580,8 @@ programMain:
     # permissions are insecure.
     quit QuitFailure
 
-  setupFileLimits()
   setupLogging(config.logLevel, config.logStdout, config.logFile)
+  setupFileLimits()
 
   ## This Ctrl+C handler exits the program in non-graceful way.
   ## It's responsible for handling Ctrl+C in sub-commands such
