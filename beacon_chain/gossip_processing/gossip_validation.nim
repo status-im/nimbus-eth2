@@ -293,9 +293,8 @@ template checkedReject(
     pool: ValidatorChangePool, error: ValidationError): untyped =
   pool.dag.checkedReject(error)
 
-func getMaxBlobsPerBlock(cfg: RuntimeConfig, wallTime: BeaconTime): uint64 =
-  if min(wallTime, wallTime - MAXIMUM_GOSSIP_CLOCK_DISPARITY).slotOrZero.epoch >=
-      cfg.ELECTRA_FORK_EPOCH:
+func getMaxBlobsPerBlock(cfg: RuntimeConfig, slot: Slot): uint64 =
+  if slot >= cfg.ELECTRA_FORK_EPOCH.start_slot:
     cfg.MAX_BLOBS_PER_BLOCK_ELECTRA
   else:
     MAX_BLOBS_PER_BLOCK
@@ -379,7 +378,7 @@ template validateBeaconBlockDeneb(
   # limitation defined in Consensus Layer -- i.e. validate that
   # len(body.signed_beacon_block.message.blob_kzg_commitments) <= MAX_BLOBS_PER_BLOCK
   if not (lenu64(signed_beacon_block.message.body.blob_kzg_commitments) <=
-      dag.cfg.getMaxBlobsPerBlock(wallTime)):
+      dag.cfg.getMaxBlobsPerBlock(signed_beacon_block.message.slot)):
     return dag.checkedReject("validateBeaconBlockDeneb: too many blob commitments")
 
 # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.4/specs/deneb/p2p-interface.md#blob_sidecar_subnet_id
@@ -395,12 +394,13 @@ proc validateBlobSidecar*(
 
   # [REJECT] The sidecar's index is consistent with `MAX_BLOBS_PER_BLOCK`
   # -- i.e. `blob_sidecar.index < MAX_BLOBS_PER_BLOCK`
-  if not (blob_sidecar.index < dag.cfg.getMaxBlobsPerBlock(wallTime)):
+  if not (blob_sidecar.index < dag.cfg.getMaxBlobsPerBlock(block_header.slot)):
     return dag.checkedReject("BlobSidecar: index inconsistent")
 
   # [REJECT] The sidecar is for the correct subnet -- i.e.
   # `compute_subnet_for_blob_sidecar(blob_sidecar.index) == subnet_id`.
-  if not (compute_subnet_for_blob_sidecar(blob_sidecar.index) == subnet_id):
+  if not (dag.cfg.compute_subnet_for_blob_sidecar(
+      block_header.slot, blob_sidecar.index) == subnet_id):
     return dag.checkedReject("BlobSidecar: subnet incorrect")
 
   # [IGNORE] The sidecar is not from a future slot (with a
