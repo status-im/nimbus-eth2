@@ -209,22 +209,22 @@ proc installConfigApiHandlers*(router: var RestRouter, node: BeaconNode) =
             Base10.toString(REORG_PARENT_WEIGHT_THRESHOLD),
           REORG_MAX_EPOCHS_SINCE_FINALIZATION:
             Base10.toString(uint64(REORG_MAX_EPOCHS_SINCE_FINALIZATION)),
+
           DEPOSIT_CHAIN_ID:
             Base10.toString(cfg.DEPOSIT_CHAIN_ID),
           DEPOSIT_NETWORK_ID:
             Base10.toString(cfg.DEPOSIT_NETWORK_ID),
           DEPOSIT_CONTRACT_ADDRESS:
             $cfg.DEPOSIT_CONTRACT_ADDRESS,
-          GOSSIP_MAX_SIZE:
-            Base10.toString(GOSSIP_MAX_SIZE),
+
+          MAX_PAYLOAD_SIZE:
+            Base10.toString(MAX_PAYLOAD_SIZE),
           MAX_REQUEST_BLOCKS:
             Base10.toString(MAX_REQUEST_BLOCKS),
           EPOCHS_PER_SUBNET_SUBSCRIPTION:
             Base10.toString(EPOCHS_PER_SUBNET_SUBSCRIPTION),
           MIN_EPOCHS_FOR_BLOCK_REQUESTS:
             Base10.toString(cfg.MIN_EPOCHS_FOR_BLOCK_REQUESTS),
-          MAX_CHUNK_SIZE:
-            Base10.toString(MAX_CHUNK_SIZE),
           TTFB_TIMEOUT:
             Base10.toString(TTFB_TIMEOUT),
           RESP_TIMEOUT:
