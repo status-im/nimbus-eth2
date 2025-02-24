@@ -1,4 +1,4 @@
-# Copyright (c) 2018-2024 Status Research & Development GmbH
+# Copyright (c) 2018-2025 Status Research & Development GmbH
 # Licensed and distributed under either of
 #   * MIT license (license terms in the root directory or at https://opensource.org/licenses/MIT).
 #   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
@@ -1215,25 +1215,21 @@ proc installValidatorApiHandlers*(router: var RestRouter, node: BeaconNode) =
   router.api2(MethodPost,
               "/eth/v1/validator/register_validator") do (
     contentBody: Option[ContentBody]) -> RestApiResponse:
+    if contentBody.isNone():
+      return RestApiResponse.jsonError(Http400, EmptyRequestBodyError)
     let
-      body =
-        block:
-          if contentBody.isNone():
-            return RestApiResponse.jsonError(Http400, EmptyRequestBodyError)
-          let dres = decodeBody(seq[SignedValidatorRegistrationV1], contentBody.get())
-          if dres.isErr():
-            return RestApiResponse.jsonError(Http400,
-                                             InvalidPrepareBeaconProposerError)
-          dres.get()
+      body = decodeBodyJsonOrSsz(seq[SignedValidatorRegistrationV1],
+                                 contentBody.get()).valueOr:
+        return RestApiResponse.jsonError(error)
 
-    for signedValidatorRegistration in body:
+    for registration in body:
       # Don't validate beyond syntactically, because
       # "requests containing currently inactive or unknown validator pubkeys
       # will be accepted, as they may become active at a later epoch". Along
       # these lines, even if it's adding a validator the BN already has as a
       # local validator, the keymanager API might remove that from the BN.
-      node.externalBuilderRegistrations[signedValidatorRegistration.message.pubkey] =
-        signedValidatorRegistration
+      node.externalBuilderRegistrations[registration.message.pubkey] =
+        registration
 
     RestApiResponse.response(Http200)
 

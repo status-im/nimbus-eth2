@@ -5001,6 +5001,31 @@
     }
   },
   {
+    "topics": ["validator", "register_validators"],
+    "request": {
+      "url": "/eth/v1/validator/register_validator",
+      "method": "POST",
+      "headers": {"Accept": "application/json"},
+      "body": {"content-type": "application/octet-stream", "data": "64000000000000000000000000000000000000000000000000000000b5b5b76700000000a81da27d35ce91ddd3129042e47d0bf91a0ff60ed415ed25cda46b42c8d9cb91eb727966e5054828417bda9a1e5e8ba79043ce8b1542c118846537dc33ec2bfe8fa63858d8104b94b7673dd1390f05ac8ff949ba709cfde534857ddfbf757faa0af4a9e1e3743add7c51ca36223a580d2fa25b4dc46623e57f8d75fc647e6966c4828ee90c8eaf4f1babaa4b2f40d82bc8000000000000000000000000000000000000000000000000000000b5b5b76700000000886979da71af92933ebb6055a8c4a43a0c5e4ab645f9272ab6d441a5c2645c3278893439890eeda72f5580f05ae0898b8ba37e74091eb05ab1f66bf02f03ab7bfe0ee8f471ff8de8e10ef71164cef57a2ea694cde397d678a2ca18994cb2e154170e2a71a40fca2505c1e375c2ec05f9bc0a4f987968822177fe8d6326890362e0e55d18d0cf30b171ae44f969dbdf33"}
+    },
+    "response": {
+      "status": {"operator": "equals", "value": "200"}
+    }
+  },
+  {
+    "topics": ["validator", "register_validators"],
+    "request": {
+      "url": "/eth/v1/validator/register_validator",
+      "method": "POST",
+      "headers": {"Accept": "application/json"},
+      "body": {"content-type": "application/octet-stream", "data": "64000000000000000000000000000000000000000000000000000000b5b5b76700000000a81da27d35ce91ddd3129042e47d0bf91a0ff60ed415ed25cda46b42c8d9cb91eb727966e5054828417bda9a1e5e8ba79043ce8b1542c118846537dc33ec2bfe8fa63858d8104b94b7673dd1390f05ac8ff949ba709cfde534857ddfbf757faa0af4a9e1e3743add7c51ca36223a580d2fa25b4dc46623e57f8d75fc647e6966c4828ee90c8eaf4f1babaa4b2f40d82bc8000000000000000000000000000000000000000000000000000000b5b5b76700000000886979da71af92933ebb6055a8c4a43a0c5e4ab645f9272ab6d441a5c2645c3278893439890eeda72f5580f05ae0898b8ba37e74091eb05ab1f66bf02f03ab7bfe0ee8f471ff8de8e10ef71164cef57a2ea694cde397d678a2ca18994cb2e154170e2a71a40fca2505c1e375c2ec05f9bc0a4f987968822177fe8d6326890362e0e55d18d0cf30b171ae44f969dbdf"}
+    },
+    "response": {
+      "status": {"operator": "equals", "value": "400"},
+      "headers": [{"key": "Content-Type", "value": "application/json", "operator": "equals"}]
+    }
+  },
+  {
       "topics": ["key_management", "list_keys"],
       "request": {
         "url": "/eth/v1/keystores",
