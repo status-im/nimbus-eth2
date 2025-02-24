@@ -845,8 +845,8 @@ func chunkMaxSize[T](): uint32 =
   when isFixedSize(T):
     uint32 fixedPortionSize(T)
   else:
-    static: doAssert MAX_CHUNK_SIZE < high(uint32).uint64
-    MAX_CHUNK_SIZE.uint32
+    static: doAssert MAX_PAYLOAD_SIZE < high(uint32).uint64
+    MAX_PAYLOAD_SIZE.uint32
 
 template gossipMaxSize(T: untyped): uint32 =
   const maxSize = static:
@@ -855,20 +855,20 @@ template gossipMaxSize(T: untyped): uint32 =
     elif T is bellatrix.SignedBeaconBlock or T is capella.SignedBeaconBlock or
          T is deneb.SignedBeaconBlock or T is electra.SignedBeaconBlock or
          T is fulu.SignedBeaconBlock:
-      GOSSIP_MAX_SIZE
+      MAX_PAYLOAD_SIZE
     # TODO https://github.com/status-im/nim-ssz-serialization/issues/20 for
     # Attestation, AttesterSlashing, and SignedAggregateAndProof, which all
     # have lists bounded at MAX_VALIDATORS_PER_COMMITTEE (2048) items, thus
-    # having max sizes significantly smaller than GOSSIP_MAX_SIZE.
+    # having max sizes significantly smaller than MAX_PAYLOAD_SIZE.
     elif T is phase0.Attestation or T is phase0.AttesterSlashing or
          T is phase0.SignedAggregateAndProof or T is phase0.SignedBeaconBlock or
          T is electra.SignedAggregateAndProof or T is electra.Attestation or
          T is electra.AttesterSlashing or T is altair.SignedBeaconBlock or
          T is SomeForkyLightClientObject:
-      GOSSIP_MAX_SIZE
+      MAX_PAYLOAD_SIZE
     else:
       {.fatal: "unknown type " & name(T).}
-  static: doAssert maxSize <= GOSSIP_MAX_SIZE
+  static: doAssert maxSize <= MAX_PAYLOAD_SIZE
   maxSize.uint32
 
 proc readVarint2(conn: Connection): Future[NetRes[uint64]] {.
@@ -902,7 +902,7 @@ proc readChunkPayload*(conn: Connection, peer: Peer,
   if size == 0:
     return neterr ZeroSizePrefix
 
-  # The `size.int` conversion is safe because `size` is bounded to `MAX_CHUNK_SIZE`
+  # The `size.int` conversion is safe because `size` is bounded to `MAX_PAYLOAD_SIZE`
   let
     dataRes = await conn.uncompressFramedStream(size.int)
     data = dataRes.valueOr:
@@ -2417,7 +2417,7 @@ proc createEth2Node*(rng: ref HmacDrbgContext,
     try:
       # This doesn't have to be a tight bound, just enough to avoid denial of
       # service attacks.
-      let decoded = snappy.decode(m.data, static(GOSSIP_MAX_SIZE.uint32))
+      let decoded = snappy.decode(m.data, static(MAX_PAYLOAD_SIZE.uint32))
       ok(gossipId(decoded, phase0Prefix, m.topic))
     except CatchableError:
       err(ValidationResult.Reject)
@@ -2464,7 +2464,7 @@ proc createEth2Node*(rng: ref HmacDrbgContext,
       sign = false,
       verifySignature = false,
       anonymize = true,
-      maxMessageSize = static(GOSSIP_MAX_SIZE.int),
+      maxMessageSize = static(MAX_PAYLOAD_SIZE.int),
       parameters = params)
 
   switch.mount(pubsub)
@@ -2604,7 +2604,7 @@ func gossipEncode(msg: auto): seq[byte] =
   let uncompressed = SSZ.encode(msg)
   # This function only for messages we create. A message this large amounts to
   # an internal logic error.
-  doAssert uncompressed.lenu64 <= GOSSIP_MAX_SIZE
+  doAssert uncompressed.lenu64 <= MAX_PAYLOAD_SIZE
 
   snappy.encode(uncompressed)
 

@@ -1,5 +1,5 @@
 # beacon_chain
-# Copyright (c) 2018-2024 Status Research & Development GmbH
+# Copyright (c) 2018-2025 Status Research & Development GmbH
 # Licensed and distributed under either of
 #   * MIT license (license terms in the root directory or at https://opensource.org/licenses/MIT).
 #   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
@@ -71,7 +71,7 @@ const
   ChainFileVersion = 1'u32
   ChainFileHeaderValue = 0x424D494E'u32
   ChainFileBufferSize* = 4096
-  MaxChunkSize = int(GOSSIP_MAX_SIZE)
+  MaxChunkSize = int(MAX_PAYLOAD_SIZE)
   ChainFileHeaderArray = ChainFileHeaderValue.toBytesLE()
   IncompleteWriteError = "Unable to write data to file, disk full?"
   MaxForksCount* = 16384
