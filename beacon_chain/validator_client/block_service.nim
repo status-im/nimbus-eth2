@@ -108,10 +108,6 @@ proc publishBlockV3(
   let
     genesisRoot = vc.beaconGenesis.genesis_validators_root
     graffiti = vc.getGraffitiBytes(validator)
-      if vc.config.graffiti.isSome():
-        vc.config.graffiti.get()
-      else:
-        defaultGraffitiBytes()
     vindex = validator.index.get()
 
   logScope:
