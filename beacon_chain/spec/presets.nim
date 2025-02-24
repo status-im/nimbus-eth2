@@ -92,11 +92,10 @@ type
     DEPOSIT_CONTRACT_ADDRESS*: Eth1Address
 
     # Networking
-    # TODO GOSSIP_MAX_SIZE*: uint64
+    # TODO MAX_PAYLOAD_SIZE*: uint64
     # TODO MAX_REQUEST_BLOCKS*: uint64
     # TODO EPOCHS_PER_SUBNET_SUBSCRIPTION*: uint64
     MIN_EPOCHS_FOR_BLOCK_REQUESTS*: uint64
-    # TODO MAX_CHUNK_SIZE*: uint64
     # TODO TTFB_TIMEOUT*: uint64
     # TODO RESP_TIMEOUT*: uint64
     # TODO ATTESTATION_PROPAGATION_SLOT_RANGE*: uint64
@@ -249,15 +248,13 @@ when const_preset == "mainnet":
     # Networking
     # ---------------------------------------------------------------
     # `10 * 2**20` (= 10485760, 10 MiB)
-    # TODO GOSSIP_MAX_SIZE: 10485760,
+    # TODO MAX_PAYLOAD_SIZE: 10485760,
     # `2**10` (= 1024)
     # TODO MAX_REQUEST_BLOCKS: 1024,
     # `2**8` (= 256)
     # TODO EPOCHS_PER_SUBNET_SUBSCRIPTION: 256,
     # `MIN_VALIDATOR_WITHDRAWABILITY_DELAY + CHURN_LIMIT_QUOTIENT // 2` (= 33024, ~5 months)
     MIN_EPOCHS_FOR_BLOCK_REQUESTS: 33024,
-    # `10 * 2**20` (=10485760, 10 MiB)
-    # TODO MAX_CHUNK_SIZE: 10485760,
     # 5s
     # TODO TTFB_TIMEOUT: 5,
     # 10s
@@ -312,9 +309,6 @@ elif const_preset == "gnosis":
   # such as `CONFIG_NAME`, `TERMINAL_TOTAL_DIFFICULTY`, `*_FORK_EPOCH`, etc
   # which must be effectively overriden in all network (including mainnet).
   const defaultRuntimeConfig* = RuntimeConfig(
-    # Mainnet config
-
-    # Extends the mainnet preset
     PRESET_BASE: "gnosis",
 
     # Free-form short name of the network that this configuration applies to - known
@@ -372,8 +366,8 @@ elif const_preset == "gnosis":
 
     # Time parameters
     # ---------------------------------------------------------------
-    # 12 seconds
-    # TODO SECONDS_PER_SLOT: 12,
+    # 5 seconds
+    # TODO SECONDS_PER_SLOT: 5,
     # 14 (estimate from Eth1 mainnet)
     SECONDS_PER_ETH1_BLOCK: 5,
     # 2**8 (= 256) epochs ~27 hours
@@ -409,15 +403,13 @@ elif const_preset == "gnosis":
     # Networking
     # ---------------------------------------------------------------
     # `10 * 2**20` (= 10485760, 10 MiB)
-    # TODO GOSSIP_MAX_SIZE: 10485760,
+    # TODO MAX_PAYLOAD_SIZE: 10485760,
     # `2**10` (= 1024)
     # TODO MAX_REQUEST_BLOCKS: 1024,
     # `2**8` (= 256)
     # TODO EPOCHS_PER_SUBNET_SUBSCRIPTION: 256,
     # `MIN_VALIDATOR_WITHDRAWABILITY_DELAY + CHURN_LIMIT_QUOTIENT // 2` (= 33024, ~5 months)
     MIN_EPOCHS_FOR_BLOCK_REQUESTS: 33024,
-    # `10 * 2**20` (=10485760, 10 MiB)
-    # TODO MAX_CHUNK_SIZE: 10485760,
     # 5s
     # TODO TTFB_TIMEOUT: 5,
     # 10s
@@ -566,15 +558,13 @@ elif const_preset == "minimal":
     # Networking
     # ---------------------------------------------------------------
     # `10 * 2**20` (= 10485760, 10 MiB)
-    # TODO GOSSIP_MAX_SIZE: 10485760,
+    # TODO MAX_PAYLOAD_SIZE: 10485760,
     # `2**10` (= 1024)
     # TODO MAX_REQUEST_BLOCKS: 1024,
     # `2**8` (= 256)
     # TODO EPOCHS_PER_SUBNET_SUBSCRIPTION: 256,
     # [customized] `MIN_VALIDATOR_WITHDRAWABILITY_DELAY + CHURN_LIMIT_QUOTIENT // 2` (= 272)
     MIN_EPOCHS_FOR_BLOCK_REQUESTS: 272,
-    # `10 * 2**20` (=10485760, 10 MiB)
-    # TODO MAX_CHUNK_SIZE: 10485760,
     # 5s
     # TODO TTFB_TIMEOUT: 5,
     # 10s
@@ -804,10 +794,11 @@ proc readRuntimeConfig*(
   checkCompatibility DOMAIN_SYNC_COMMITTEE_SELECTION_PROOF
   checkCompatibility DOMAIN_CONTRIBUTION_AND_PROOF
 
-  checkCompatibility GOSSIP_MAX_SIZE
+  checkCompatibility MAX_PAYLOAD_SIZE
+  checkCompatibility MAX_PAYLOAD_SIZE, "GOSSIP_MAX_SIZE"
+  checkCompatibility MAX_PAYLOAD_SIZE, "MAX_CHUNK_SIZE"
   checkCompatibility MAX_REQUEST_BLOCKS
   checkCompatibility EPOCHS_PER_SUBNET_SUBSCRIPTION
-  checkCompatibility MAX_CHUNK_SIZE
   checkCompatibility TTFB_TIMEOUT
   checkCompatibility RESP_TIMEOUT
   checkCompatibility ATTESTATION_PROPAGATION_SLOT_RANGE

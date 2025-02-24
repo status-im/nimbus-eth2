@@ -73,9 +73,8 @@ const
   ATTESTATION_PROPAGATION_SLOT_RANGE*: uint64 = 32
   MAXIMUM_GOSSIP_CLOCK_DISPARITY* = 500.millis
 
-  # https://github.com/ethereum/consensus-specs/blob/v1.3.0/specs/bellatrix/p2p-interface.md#configuration
-  GOSSIP_MAX_SIZE* = 10'u64 * 1024 * 1024 # bytes
-  MAX_CHUNK_SIZE* = 10'u64 * 1024 * 1024 # bytes
+  # https://github.com/ethereum/consensus-specs/blob/v1.5.0-beta.2/specs/phase0/p2p-interface.md#configuration
+  MAX_PAYLOAD_SIZE* = 10'u64 * 1024 * 1024 # bytes
 
   # https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.8/specs/deneb/p2p-interface.md#configuration
   MAX_REQUEST_BLOCKS_DENEB*: uint64 = 128 # TODO Make use of in request code
