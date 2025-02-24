@@ -364,7 +364,7 @@ proc installConfigApiHandlers*(router: var RestRouter, node: BeaconNode) =
           MAX_PENDING_DEPOSITS_PER_EPOCH:
             Base10.toString(uint64(MAX_PENDING_DEPOSITS_PER_EPOCH)),
           MAX_BLOBS_PER_BLOCK_ELECTRA:
-            Base10.toString(uint64(MAX_BLOBS_PER_BLOCK_ELECTRA)),
+            Base10.toString(cfg.MAX_BLOBS_PER_BLOCK_ELECTRA),
           MIN_PER_EPOCH_CHURN_LIMIT_ELECTRA:
             Base10.toString(cfg.MIN_PER_EPOCH_CHURN_LIMIT_ELECTRA),
           MAX_PER_EPOCH_ACTIVATION_EXIT_CHURN_LIMIT:
