@@ -418,7 +418,8 @@ proc initFullNode(
       dag, attestationPool, onVoluntaryExitAdded, onBLSToExecutionChangeAdded,
       onProposerSlashingAdded, onPhase0AttesterSlashingAdded,
       onElectraAttesterSlashingAdded))
-    blobQuarantine = newClone(BlobQuarantine.init(onBlobSidecarAdded))
+    blobQuarantine = newClone(BlobQuarantine.init(
+      dag.cfg, onBlobSidecarAdded))
     dataColumnQuarantine = newClone(DataColumnQuarantine.init())
     supernode = node.config.peerdasSupernode
     localCustodyGroups =
