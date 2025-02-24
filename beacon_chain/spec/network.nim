@@ -110,9 +110,16 @@ func getBlobSidecarTopic*(forkDigest: ForkDigest,
                           subnet_id: BlobId): string =
   eth2Prefix(forkDigest) & "blob_sidecar_" & $subnet_id & "/ssz_snappy"
 
-# https://github.com/ethereum/consensus-specs/blob/v1.4.0/specs/deneb/validator.md#sidecar
-func compute_subnet_for_blob_sidecar*(blob_index: BlobIndex): BlobId =
-  BlobId(blob_index mod MAX_BLOBS_PER_BLOCK_ELECTRA)
+# https://github.com/ethereum/consensus-specs/blob/v1.5.0-beta.2/specs/deneb/validator.md#sidecar
+# https://github.com/ethereum/consensus-specs/blob/v1.5.0-beta.2/specs/electra/validator.md#sidecar
+func compute_subnet_for_blob_sidecar*(
+    cfg: RuntimeConfig, slot: Slot, blob_index: BlobIndex): BlobId =
+  let subnetCount =
+    if slot >= cfg.ELECTRA_FORK_EPOCH.start_slot:
+      cfg.BLOB_SIDECAR_SUBNET_COUNT_ELECTRA
+    else:
+      BLOB_SIDECAR_SUBNET_COUNT
+  BlobId(blob_index mod subnetCount)
 
 # https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.10/specs/fulu/p2p-interface.md#compute_subnet_for_data_column_sidecar
 func compute_subnet_for_data_column_sidecar*(column_index: ColumnIndex): uint64 =
