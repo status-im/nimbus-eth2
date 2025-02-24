@@ -667,15 +667,10 @@ proc installKeymanagerHandlers*(router: var RestRouter, host: KeymanagerHost) =
           decodeBody(SetGraffitiRequest, contentBody.get()).valueOr:
             return keymanagerApiError(Http400, InvalidGraffitiRequestError)
 
-    if not(host.checkValidatorKeystoreDir(pubkey)):
-      return keymanagerApiError(Http404, ValidatorNotFoundError)
+    host.setGraffiti(pubkey, GraffitiBytes.init(req.graffiti)).isOkOr:
+      return keymanagerApiError(Http500, "Failed to set graffiti: " & error)
 
-    let status = host.setGraffiti(pubkey, GraffitiBytes.init(req.graffiti))
-    if status.isOk:
-      RestApiResponse.response(Http202)
-    else:
-      keymanagerApiError(
-        Http500, "Failed to set graffiti: " & status.error)
+    RestApiResponse.response(Http202)
 
   # https://ethereum.github.io/keymanager-APIs/?urls.primaryName=dev#/Graffiti/deleteGraffiti
   router.api2(MethodDelete, "/eth/v1/validator/{pubkey}/graffiti") do (
