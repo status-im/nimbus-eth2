@@ -118,7 +118,7 @@ func compute_subnet_for_blob_sidecar*(
     if slot >= cfg.ELECTRA_FORK_EPOCH.start_slot:
       cfg.BLOB_SIDECAR_SUBNET_COUNT_ELECTRA
     else:
-      BLOB_SIDECAR_SUBNET_COUNT
+      cfg.BLOB_SIDECAR_SUBNET_COUNT
   BlobId(blob_index mod subnetCount)
 
 # https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.10/specs/fulu/p2p-interface.md#compute_subnet_for_data_column_sidecar
@@ -243,8 +243,9 @@ func getSyncSubnets*(
     res.setBit(i div (SYNC_COMMITTEE_SIZE div SYNC_COMMITTEE_SUBNET_COUNT))
   res
 
-iterator blobSidecarTopics*(forkDigest: ForkDigest): string =
-  for subnet_id in BlobId:
+iterator blobSidecarTopics*(
+    forkDigest: ForkDigest, subnetCount: uint64): string =
+  for subnet_id in 0.BlobId ..< subnetCount.BlobId:
     yield getBlobSidecarTopic(forkDigest, subnet_id)
 
 # https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.10/specs/fulu/p2p-interface.md#data_column_sidecar_subnet_id

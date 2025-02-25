@@ -201,7 +201,7 @@ type
 
   BlobId* = distinct uint8
     ## The blob id maps which gossip subscription to use to publish a
-    ## blob sidecar - it is distinct from the CommitteeIndex in particular
+    ## blob sidecar - it is distinct from the BlobIndex in particular
     ##
     ## The `BlobId` type is constrained to values in the range
     ## `[0, MAX_BLOBS_PER_BLOCK_ELECTRA)` during initialization.
