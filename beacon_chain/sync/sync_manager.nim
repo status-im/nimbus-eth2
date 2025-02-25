@@ -57,6 +57,7 @@ type
     pool: PeerPool[A, B]
     DENEB_FORK_EPOCH: Epoch
     MIN_EPOCHS_FOR_BLOB_SIDECARS_REQUESTS: uint64
+    MAX_BLOBS_PER_BLOCK_ELECTRA: uint64
     responseTimeout: chronos.Duration
     maxHeadAge: uint64
     isWithinWeakSubjectivityPeriod: GetBoolCallback
@@ -142,6 +143,7 @@ proc newSyncManager*[A, B](
     pool: PeerPool[A, B],
     denebEpoch: Epoch,
     minEpochsForBlobSidecarsRequests: uint64,
+    maxBlobsPerBlockElectra: uint64,
     direction: SyncQueueKind,
     getLocalHeadSlotCb: GetSlotCallback,
     getLocalWallSlotCb: GetSlotCallback,
@@ -170,6 +172,7 @@ proc newSyncManager*[A, B](
     pool: pool,
     DENEB_FORK_EPOCH: denebEpoch,
     MIN_EPOCHS_FOR_BLOB_SIDECARS_REQUESTS: minEpochsForBlobSidecarsRequests,
+    MAX_BLOBS_PER_BLOCK_ELECTRA: maxBlobsPerBlockElectra,
     getLocalHeadSlot: getLocalHeadSlotCb,
     getLocalWallSlot: getLocalWallSlotCb,
     isWithinWeakSubjectivityPeriod: weakSubjectivityPeriodCb,
@@ -230,7 +233,9 @@ proc getBlobSidecars[A, B](man: SyncManager[A, B], peer: A,
         sync_ident = man.ident,
         topics = "syncman"
 
-  blobSidecarsByRange(peer, req.data.slot, req.data.count)
+  blobSidecarsByRange(
+    peer, req.data.slot, req.data.count,
+    maxResponseItems = (req.data.count * man.MAX_BLOBS_PER_BLOCK_ELECTRA).Limit)
 
 proc remainingSlots(man: SyncManager): uint64 =
   let
@@ -293,7 +298,8 @@ func checkBlobs(blobs: seq[BlobSidecars]): Result[void, string] =
 
 proc getSyncBlockData*[T](
     peer: T,
-    slot: Slot
+    slot: Slot,
+    maxBlobsPerBlockElectra: uint64
 ): Future[SyncBlockDataRes] {.async: (raises: [CancelledError]).} =
   mixin getScore
 
@@ -353,7 +359,8 @@ proc getSyncBlockData*[T](
                 peer_score = peer.getScore(),
                 peer_speed = peer.netKbps(),
                 topics = "syncman"
-          let res = await blobSidecarsByRange(peer, slot, 1'u64)
+          let res = await blobSidecarsByRange(
+            peer, slot, 1'u64, maxResponseItems = maxBlobsPerBlockElectra.Limit)
           if res.isErr():
             peer.updateScore(PeerScoreNoValues)
             return err(
@@ -449,7 +456,8 @@ proc getSyncBlockData[A, B](
 
         if len(blobData) > 0:
           let blobSlots = mapIt(blobData, it[].signed_block_header.message.slot)
-          checkBlobsResponse(sr, blobSlots).isOkOr:
+          checkBlobsResponse(
+              sr, blobSlots, man.MAX_BLOBS_PER_BLOCK_ELECTRA).isOkOr:
             peer.updateScore(PeerScoreBadResponse)
             return err("Incorrect blobs sequence received, reason: " & $error)
 
