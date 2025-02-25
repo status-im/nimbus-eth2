@@ -957,7 +957,8 @@ type SomeDenebBeaconBlockBody =
 
 # https://github.com/ethereum/consensus-specs/blob/v1.3.0/specs/deneb/beacon-chain.md#process_execution_payload
 proc process_execution_payload*(
-    state: var deneb.BeaconState, body: SomeDenebBeaconBlockBody,
+    cfg: RuntimeConfig, state: var deneb.BeaconState,
+    body: SomeDenebBeaconBlockBody,
     notify_new_payload: deneb.ExecutePayload): Result[void, cstring] =
   template payload: auto = body.execution_payload
 
@@ -976,7 +977,7 @@ proc process_execution_payload*(
     return err("process_execution_payload: invalid timestamp")
 
   # [New in Deneb] Verify commitments are under limit
-  if not (lenu64(body.blob_kzg_commitments) <= MAX_BLOBS_PER_BLOCK):
+  if not (lenu64(body.blob_kzg_commitments) <= cfg.MAX_BLOBS_PER_BLOCK):
     return err("process_execution_payload: too many KZG commitments")
 
   # Verify the execution payload is valid
@@ -1329,7 +1330,7 @@ proc process_block*(
   if is_execution_enabled(state, blck.body):
     ? process_withdrawals(state, blck.body.execution_payload)
     ? process_execution_payload(
-        state, blck.body,
+        cfg, state, blck.body,
         func(_: deneb.ExecutionPayload): bool = true)  # [Modified in Deneb]
   ? process_randao(state, blck.body, flags, cache)
   ? process_eth1_data(state, blck.body)
