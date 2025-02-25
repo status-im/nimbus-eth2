@@ -80,7 +80,7 @@ suite "Honest validator":
         "/eth2/00000000/sync_committee_3/ssz_snappy"
       getBlobSidecarTopic(forkDigest, BlobId(1)) ==
         "/eth2/00000000/blob_sidecar_1/ssz_snappy"
-      toSeq(blobSidecarTopics(forkDigest)) ==
+      toSeq(blobSidecarTopics(forkDigest, subnetCount = 9)) ==
         ["/eth2/00000000/blob_sidecar_0/ssz_snappy",
          "/eth2/00000000/blob_sidecar_1/ssz_snappy",
          "/eth2/00000000/blob_sidecar_2/ssz_snappy",

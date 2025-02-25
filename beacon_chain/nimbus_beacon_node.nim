@@ -1295,15 +1295,22 @@ proc addCapellaMessageHandlers(
   node.addAltairMessageHandlers(forkDigest, slot)
   node.network.subscribe(getBlsToExecutionChangeTopic(forkDigest), basicParams)
 
+proc doAddDenebMessageHandlers(
+    node: BeaconNode, forkDigest: ForkDigest, slot: Slot,
+    blobSidecarSubnetCount: uint64) =
+  node.addCapellaMessageHandlers(forkDigest, slot)
+  for topic in blobSidecarTopics(forkDigest, blobSidecarSubnetCount):
+    node.network.subscribe(topic, basicParams)
+
 proc addDenebMessageHandlers(
     node: BeaconNode, forkDigest: ForkDigest, slot: Slot) =
-  node.addCapellaMessageHandlers(forkDigest, slot)
-  for topic in blobSidecarTopics(forkDigest):
-    node.network.subscribe(topic, basicParams)
+  node.doAddDenebMessageHandlers(
+    forkDigest, slot, node.dag.cfg.BLOB_SIDECAR_SUBNET_COUNT)
 
 proc addElectraMessageHandlers(
     node: BeaconNode, forkDigest: ForkDigest, slot: Slot) =
-  node.addDenebMessageHandlers(forkDigest, slot)
+  node.doAddDenebMessageHandlers(
+    forkDigest, slot, node.dag.cfg.BLOB_SIDECAR_SUBNET_COUNT_ELECTRA)
 
 proc addFuluMessageHandlers(
     node: BeaconNode, forkDigest: ForkDigest, slot: Slot) =
@@ -1324,13 +1331,19 @@ proc removeCapellaMessageHandlers(node: BeaconNode, forkDigest: ForkDigest) =
   node.removeAltairMessageHandlers(forkDigest)
   node.network.unsubscribe(getBlsToExecutionChangeTopic(forkDigest))
 
-proc removeDenebMessageHandlers(node: BeaconNode, forkDigest: ForkDigest) =
+proc doRemoveDenebMessageHandlers(
+    node: BeaconNode, forkDigest: ForkDigest, blobSidecarSubnetCount: uint64) =
   node.removeCapellaMessageHandlers(forkDigest)
-  for topic in blobSidecarTopics(forkDigest):
+  for topic in blobSidecarTopics(forkDigest, blobSidecarSubnetCount):
     node.network.unsubscribe(topic)
 
+proc removeDenebMessageHandlers(node: BeaconNode, forkDigest: ForkDigest) =
+  node.doRemoveDenebMessageHandlers(
+    forkDigest, node.dag.cfg.BLOB_SIDECAR_SUBNET_COUNT)
+
 proc removeElectraMessageHandlers(node: BeaconNode, forkDigest: ForkDigest) =
-  node.removeDenebMessageHandlers(forkDigest)
+  node.doRemoveDenebMessageHandlers(
+    forkDigest, node.dag.cfg.BLOB_SIDECAR_SUBNET_COUNT_ELECTRA)
 
 proc removeFuluMessageHandlers(node: BeaconNode, forkDigest: ForkDigest) =
   node.removeElectraMessageHandlers(forkDigest)
@@ -2083,7 +2096,12 @@ proc installMessageValidators(node: BeaconNode) =
       when consensusFork >= ConsensusFork.Deneb:
         # blob_sidecar_{subnet_id}
         # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.5/specs/deneb/p2p-interface.md#blob_sidecar_subnet_id
-        for it in BlobId:
+        let subnetCount =
+          when consensusFork >= ConsensusFork.Electra:
+            node.dag.cfg.BLOB_SIDECAR_SUBNET_COUNT_ELECTRA
+          else:
+            node.dag.cfg.BLOB_SIDECAR_SUBNET_COUNT
+        for it in 0.BlobId ..< subnetCount.BlobId:
           closureScope:  # Needed for inner `proc`; don't lift it out of loop.
             let subnet_id = it
             node.network.addValidator(
