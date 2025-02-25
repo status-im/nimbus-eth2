@@ -20,6 +20,25 @@ proc registerValidator*(body: seq[SignedValidatorRegistrationV1]
   ## https://github.com/ethereum/builder-specs/blob/v0.4.0/apis/builder/validators.yaml
   ## https://github.com/ethereum/beacon-APIs/blob/v2.3.0/apis/validator/register_validator.yaml
 
+## TODO (cheatfate): This is just example on how to use different encodings
+## when calling registerValidator procedure, but of course this wrappers could
+## be used instead.
+proc registerValidatorJson*(
+    client: RestClientRef,
+    body: seq[SignedValidatorRegistrationV1]
+): Future[RestPlainResponse] {.
+  async: (raises: [CancelledError, RestEncodingError, RestDnsResolveError,
+                   RestCommunicationError], raw: true).} =
+  registerValidator(client, body, restContentType = "application/json")
+
+proc registerValidatorSSZ*(
+    client: RestClientRef,
+    body: seq[SignedValidatorRegistrationV1]
+): Future[RestPlainResponse] {.
+  async: (raises: [CancelledError, RestEncodingError, RestDnsResolveError,
+                   RestCommunicationError], raw: true).} =
+  registerValidator(client, body, restContentType = "application/octet-stream")
+
 proc getHeaderDeneb*(slot: Slot,
                      parent_hash: Eth2Digest,
                      pubkey: ValidatorPubKey

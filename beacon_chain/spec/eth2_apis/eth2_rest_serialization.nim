@@ -3324,6 +3324,31 @@ proc decodeBodyJsonOrSsz*[T](t: typedesc[T],
     err(RestErrorMessage.init(Http415, InvalidContentTypeError,
                               [$body.contentType]))
 
+proc encodeBytes*(value: seq[SignedValidatorRegistrationV1],
+                  contentType: string): RestResult[seq[byte]] =
+  case contentType
+  of "application/json":
+    try:
+      var
+        stream = memoryOutput()
+        writer = JsonWriter[RestJson].init(stream)
+      writer.writeArray(value)
+      ok(stream.getOutput(seq[byte]))
+    except IOError:
+      return err("Input/output error")
+    except SerializationError:
+      return err("Serialization error")
+  of "application/octet-stream":
+    try:
+      ok(SSZ.encode(
+        init(
+          List[SignedValidatorRegistrationV1, Limit VALIDATOR_REGISTRY_LIMIT],
+          value)))
+    except SerializationError:
+      return err("Serialization error")
+  else:
+    err("Content-Type not supported")
+
 proc encodeBytes*[T: EncodeTypes](value: T,
                                   contentType: string): RestResult[seq[byte]] =
   case contentType
