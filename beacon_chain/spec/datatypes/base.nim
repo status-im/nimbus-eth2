@@ -204,7 +204,8 @@ type
     ## blob sidecar - it is distinct from the BlobIndex in particular
     ##
     ## The `BlobId` type is constrained to values in the range
-    ## `[0, MAX_BLOBS_PER_BLOCK_ELECTRA)` during initialization.
+    ## `[0, MAX_SUPPORTED_BLOB_SIDECAR_SUBNET_COUNT)` during initialization.
+    ## The network configuration may impose further restrictions on the count!
 
   # BitVector[4] in the spec, ie 4 bits which end up encoded as a byte for
   # SSZ / hashing purposes
@@ -612,9 +613,7 @@ template makeLimitedU64*(T: untyped, limit: uint64) =
 
 makeLimitedU64(CommitteeIndex, MAX_COMMITTEES_PER_SLOT)
 makeLimitedU64(SubnetId, ATTESTATION_SUBNET_COUNT)
-
-static: doAssert MAX_BLOBS_PER_BLOCK_ELECTRA >= BLOB_SIDECAR_SUBNET_COUNT
-makeLimitedU64(BlobId, MAX_BLOBS_PER_BLOCK_ELECTRA)
+makeLimitedU64(BlobId, MAX_SUPPORTED_BLOB_SIDECAR_SUBNET_COUNT)
 
 const
   validatorIndexLimit = min(uint64(int32.high), VALIDATOR_REGISTRY_LIMIT)

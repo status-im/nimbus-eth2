@@ -31,6 +31,7 @@ const
   MESSAGE_DOMAIN_INVALID_SNAPPY*: array[4, byte] = [0x00, 0x00, 0x00, 0x00]
   MESSAGE_DOMAIN_VALID_SNAPPY*: array[4, byte] = [0x01, 0x00, 0x00, 0x00]
 
+  MAX_SUPPORTED_BLOB_SIDECAR_SUBNET_COUNT*: uint64 = 9
   MAX_SUPPORTED_BLOBS_PER_BLOCK*: uint64 = 9  # revisit getShortMap(Blobs) if >9
   MAX_SUPPORTED_REQUEST_BLOB_SIDECARS*: uint64 = 1152
 
@@ -870,10 +871,10 @@ proc readRuntimeConfig*(
   checkCompatibility ATTESTATION_SUBNET_PREFIX_BITS
 
   checkCompatibility MAX_REQUEST_BLOCKS_DENEB
-  checkCompatibility BLOB_SIDECAR_SUBNET_COUNT
-  checkCompatibility MAX_BLOBS_PER_BLOCK_ELECTRA
 
   for suffix in ["", "_ELECTRA"]:
+    checkCompatibility MAX_SUPPORTED_BLOB_SIDECAR_SUBNET_COUNT,
+                       "BLOB_SIDECAR_SUBNET_COUNT" & suffix, `<=`
     checkCompatibility MAX_SUPPORTED_BLOBS_PER_BLOCK,
                        "MAX_BLOBS_PER_BLOCK" & suffix, `<=`
     checkCompatibility MAX_SUPPORTED_REQUEST_BLOB_SIDECARS,

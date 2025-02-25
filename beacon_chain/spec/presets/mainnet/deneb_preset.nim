@@ -8,13 +8,11 @@
 {.push raises: [].}
 
 # Mainnet preset - Deneb
-# https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.3/presets/mainnet/deneb.yaml
+# https://github.com/ethereum/consensus-specs/blob/v1.5.0-beta.2/presets/mainnet/deneb.yaml
 const
   # `uint64(4096)`
   FIELD_ELEMENTS_PER_BLOB*: uint64 = 4096
   # `uint64(2**12)` (= 4096)
   MAX_BLOB_COMMITMENTS_PER_BLOCK*: uint64 = 4096
-  # `uint64(6)`
-  MAX_BLOBS_PER_BLOCK*: uint64 = 6
   # `floorlog2(get_generalized_index(BeaconBlockBody, 'blob_kzg_commitments')) + 1 + ceillog2(MAX_BLOB_COMMITMENTS_PER_BLOCK)` = 4 + 1 + 12 = 17
   KZG_COMMITMENT_INCLUSION_PROOF_DEPTH* = 17

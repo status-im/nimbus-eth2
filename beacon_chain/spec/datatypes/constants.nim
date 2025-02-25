@@ -64,9 +64,6 @@ const
   REORG_PARENT_WEIGHT_THRESHOLD*: uint64 = 160
   REORG_MAX_EPOCHS_SINCE_FINALIZATION* = Epoch(2)
 
-  # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.7/specs/deneb/p2p-interface.md#configuration
-  BLOB_SIDECAR_SUBNET_COUNT*: uint64 = 6
-
   # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.1/specs/phase0/p2p-interface.md#configuration
   MAX_REQUEST_BLOCKS* = 1024'u64
   RESP_TIMEOUT* = 10'u64
@@ -90,6 +87,3 @@ const
   DEPOSIT_REQUEST_TYPE* = 0x00'u8
   WITHDRAWAL_REQUEST_TYPE* = 0x01'u8
   CONSOLIDATION_REQUEST_TYPE* = 0x02'u8
-
-  # https://github.com/ethereum/consensus-specs/blob/v1.5.0-beta.0/specs/electra/beacon-chain.md#execution-1
-  MAX_BLOBS_PER_BLOCK_ELECTRA* = 9'u64
