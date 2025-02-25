@@ -93,7 +93,3 @@ const
 
   # https://github.com/ethereum/consensus-specs/blob/v1.5.0-beta.0/specs/electra/beacon-chain.md#execution-1
   MAX_BLOBS_PER_BLOCK_ELECTRA* = 9'u64
-
-  # https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.10/specs/electra/p2p-interface.md#configuration
-  MAX_REQUEST_BLOB_SIDECARS_ELECTRA* =
-    MAX_REQUEST_BLOCKS_DENEB * MAX_BLOBS_PER_BLOCK_ELECTRA
