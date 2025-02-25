@@ -1,9 +1,11 @@
 # beacon_chain
-# Copyright (c) 2023 Status Research & Development GmbH
+# Copyright (c) 2023-2025 Status Research & Development GmbH
 # Licensed and distributed under either of
 #   * MIT license (license terms in the root directory or at https://opensource.org/licenses/MIT).
 #   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
 # at your option. This file may not be copied, modified, or distributed except according to those terms.
+
+{.push raises: [].}
 
 # Gnosis preset - Deneb
 # https://github.com/gnosischain/specs/blob/31f87ac73d271762ac35b3649e7639d00c73c66d/consensus/preset/gnosis/deneb.yaml
