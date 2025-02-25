@@ -288,7 +288,9 @@ when const_preset == "gnosis":
 
     for network in [gnosisMetadata, chiadoMetadata]:
       doAssert network.cfg.DENEB_FORK_EPOCH < FAR_FUTURE_EPOCH
-      doAssert network.cfg.ELECTRA_FORK_EPOCH == FAR_FUTURE_EPOCH
+    doAssert gnosisMetadata.cfg.ELECTRA_FORK_EPOCH == FAR_FUTURE_EPOCH
+    doAssert chiadoMetadata.cfg.ELECTRA_FORK_EPOCH != FAR_FUTURE_EPOCH
+    for network in [gnosisMetadata, chiadoMetadata]:
       doAssert network.cfg.FULU_FORK_EPOCH == FAR_FUTURE_EPOCH
       doAssert ConsensusFork.high == ConsensusFork.Fulu
 
