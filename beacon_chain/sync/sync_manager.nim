@@ -92,7 +92,7 @@ type
   BeaconBlocksRes =
     NetRes[List[ref ForkedSignedBeaconBlock, Limit MAX_REQUEST_BLOCKS]]
   BlobSidecarsRes =
-    NetRes[List[ref BlobSidecar, Limit(MAX_REQUEST_BLOB_SIDECARS_ELECTRA)]]
+    NetRes[List[ref BlobSidecar, Limit(MAX_SUPPORTED_REQUEST_BLOB_SIDECARS)]]
 
   SyncBlockData* = object
     blocks*: seq[ref ForkedSignedBeaconBlock]

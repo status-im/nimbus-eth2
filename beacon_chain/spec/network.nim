@@ -30,10 +30,6 @@ const
   # https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.9/specs/altair/light-client/p2p-interface.md#configuration
   MAX_REQUEST_LIGHT_CLIENT_UPDATES* = 128
 
-  # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.5/specs/deneb/p2p-interface.md#configuration
-  MAX_REQUEST_BLOB_SIDECARS*: uint64 =
-    MAX_REQUEST_BLOCKS_DENEB * MAX_BLOBS_PER_BLOCK
-
   # https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.10/specs/fulu/p2p-interface.md#configuration
   MAX_REQUEST_DATA_COLUMN_SIDECARS*: uint64 =
     MAX_REQUEST_BLOCKS_DENEB * NUMBER_OF_COLUMNS

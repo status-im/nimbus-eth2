@@ -32,6 +32,7 @@ const
   MESSAGE_DOMAIN_VALID_SNAPPY*: array[4, byte] = [0x01, 0x00, 0x00, 0x00]
 
   MAX_SUPPORTED_BLOBS_PER_BLOCK*: uint64 = 9  # revisit getShortMap(Blobs) if >9
+  MAX_SUPPORTED_REQUEST_BLOB_SIDECARS*: uint64 = 1152
 
 type
   Version* = distinct array[4, byte]
@@ -869,15 +870,14 @@ proc readRuntimeConfig*(
   checkCompatibility ATTESTATION_SUBNET_PREFIX_BITS
 
   checkCompatibility MAX_REQUEST_BLOCKS_DENEB
-  checkCompatibility MAX_REQUEST_BLOCKS_DENEB * MAX_BLOBS_PER_BLOCK,
-                     "MAX_REQUEST_BLOB_SIDECARS"
   checkCompatibility BLOB_SIDECAR_SUBNET_COUNT
   checkCompatibility MAX_BLOBS_PER_BLOCK_ELECTRA
-  checkCompatibility MAX_REQUEST_BLOB_SIDECARS_ELECTRA
 
   for suffix in ["", "_ELECTRA"]:
     checkCompatibility MAX_SUPPORTED_BLOBS_PER_BLOCK,
                        "MAX_BLOBS_PER_BLOCK" & suffix, `<=`
+    checkCompatibility MAX_SUPPORTED_REQUEST_BLOB_SIDECARS,
+                       "MAX_REQUEST_BLOB_SIDECARS" & suffix, `<=`
 
   # https://github.com/ethereum/consensus-specs/blob/v1.5.0-beta.0/specs/phase0/fork-choice.md#configuration
   # Isn't being used as a preset in the usual way: at any time, there's one correct value
