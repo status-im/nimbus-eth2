@@ -297,7 +297,7 @@ func getMaxBlobsPerBlock(cfg: RuntimeConfig, slot: Slot): uint64 =
   if slot >= cfg.ELECTRA_FORK_EPOCH.start_slot:
     cfg.MAX_BLOBS_PER_BLOCK_ELECTRA
   else:
-    MAX_BLOBS_PER_BLOCK
+    cfg.MAX_BLOBS_PER_BLOCK
 
 template validateBeaconBlockBellatrix(
     _: phase0.SignedBeaconBlock | altair.SignedBeaconBlock,
