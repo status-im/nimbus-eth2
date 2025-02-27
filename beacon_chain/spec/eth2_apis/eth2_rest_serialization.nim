@@ -26,6 +26,7 @@ export
   jsonSerializationResults, rest_keymanager_types
 
 from web3/primitives import Hash32, Quantity
+from json import getStr, newJString
 export primitives.Hash32, primitives.Quantity
 
 func decodeMediaType*(
@@ -82,8 +83,6 @@ RestJson.useDefaultSerializationFor(
   GetForkChoiceResponse,
   GetForkScheduleResponse,
   GetGenesisResponse,
-  GetHeaderResponseDeneb,
-  GetHeaderResponseElectra,
   GetKeystoresResponse,
   GetNextWithdrawalsResponse,
   GetPoolAttesterSlashingsResponse,
@@ -168,8 +167,6 @@ RestJson.useDefaultSerializationFor(
   SignedContributionAndProof,
   SignedValidatorRegistrationV1,
   SignedVoluntaryExit,
-  SubmitBlindedBlockResponseDeneb,
-  SubmitBlindedBlockResponseElectra,
   SyncAggregate,
   SyncAggregatorSelectionData,
   SyncCommittee,
@@ -341,6 +338,8 @@ const
   UnableDecodeVersionError = "Unable to decode version"
   UnableDecodeError = "Unable to decode data"
   UnexpectedDecodeError = "Unexpected decoding error"
+  InvalidContentTypeError* = "Invalid content type"
+  UnexpectedForkVersionError* = "Unexpected fork version received"
 
 type
   EncodeTypes* =
@@ -356,9 +355,6 @@ type
     SetGasLimitRequest |
     bellatrix_mev.SignedBlindedBeaconBlock |
     capella_mev.SignedBlindedBeaconBlock |
-    deneb_mev.SignedBlindedBeaconBlock |
-    electra_mev.SignedBlindedBeaconBlock |
-    fulu_mev.SignedBlindedBeaconBlock |
     phase0.AttesterSlashing |
     SignedValidatorRegistrationV1 |
     SignedVoluntaryExit |
@@ -374,7 +370,10 @@ type
     DenebSignedBlockContents |
     ElectraSignedBlockContents |
     FuluSignedBlockContents |
-    ForkedMaybeBlindedBeaconBlock
+    ForkedMaybeBlindedBeaconBlock |
+    deneb_mev.SignedBlindedBeaconBlock |
+    electra_mev.SignedBlindedBeaconBlock |
+    fulu_mev.SignedBlindedBeaconBlock
 
   EncodeArrays* =
     seq[phase0.Attestation] |
@@ -391,6 +390,14 @@ type
     seq[ValidatorIndex] |
     seq[RestBeaconCommitteeSelection] |
     seq[RestSyncCommitteeSelection]
+
+  MevDecodeTypes* =
+    GetHeaderResponseDeneb |
+    GetHeaderResponseElectra |
+    GetHeaderResponseFulu |
+    SubmitBlindedBlockResponseDeneb |
+    SubmitBlindedBlockResponseElectra |
+    SubmitBlindedBlockResponseFulu
 
   DecodeTypes* =
     DataEnclosedObject |
@@ -3266,10 +3273,66 @@ proc decodeBodyJsonOrSsz*(
         return err(
           RestErrorMessage.init(Http400, UnableDecodeError,
                                 [exc.formatMsg("<data>")]))
-    ok(data.toSeq)
+    ok(data.asSeq)
   else:
     err(RestErrorMessage.init(Http415, InvalidContentTypeError,
                               [$body.contentType]))
+
+proc decodeBytesJsonOrSsz*(
+    T: typedesc[MevDecodeTypes],
+    data: openArray[byte],
+    contentType: Opt[ContentTypeData],
+    version: string
+): Result[T, RestErrorMessage] =
+  var res {.noinit.}: T
+
+  let
+    typeFork = kind(typeof(res.data))
+    consensusFork = ConsensusFork.decodeString(version).valueOr:
+      return err(RestErrorMessage.init(Http400, UnableDecodeVersionError,
+                                       [version, $error]))
+  if typeFork != consensusFork:
+    return err(
+      RestErrorMessage.init(Http400, UnexpectedForkVersionError,
+                            ["eth-consensus-version", consensusFork.toString(),
+                             typeFork.toString()]))
+
+  if contentType == ApplicationJsonMediaType:
+    res =
+      try:
+        RestJson.decode(
+          data,
+          T,
+          requireAllFields = true,
+          allowUnknownFields = true)
+      except SerializationError as exc:
+        debug "Failed to deserialize REST JSON data",
+              err = exc.formatMsg("<data>")
+        return err(
+          RestErrorMessage.init(Http400, UnableDecodeError,
+                                [exc.formatMsg("<data>")]))
+    let jsonFork = ConsensusFork.decodeString(res.version.getStr()).valueOr:
+      return err(RestErrorMessage.init(Http400, UnableDecodeVersionError,
+                                       [res.version.getStr(), $error]))
+    if typeFork != jsonFork:
+      return err(
+        RestErrorMessage.init(Http400, UnexpectedForkVersionError,
+                              ["json-version", res.version.getStr(),
+                               typeFork.toString()]))
+    ok(res)
+  elif contentType == OctetStreamMediaType:
+    ok(T(
+      version: newJString(typeFork.toString()),
+      data:
+        try:
+          SSZ.decode(data, typeof(res.data))
+        except SerializationError as exc:
+          return err(
+            RestErrorMessage.init(Http400, UnableDecodeError,
+                                  [exc.formatMsg("<data>")]))))
+  else:
+    err(RestErrorMessage.init(Http415, InvalidContentTypeError,
+                              [$contentType]))
 
 proc decodeBody*[T](t: typedesc[T],
                     body: ContentBody): Result[T, cstring] =
@@ -3324,6 +3387,31 @@ proc decodeBodyJsonOrSsz*[T](t: typedesc[T],
     err(RestErrorMessage.init(Http415, InvalidContentTypeError,
                               [$body.contentType]))
 
+proc encodeBytes*(value: seq[SignedValidatorRegistrationV1],
+                  contentType: string): RestResult[seq[byte]] =
+  case contentType
+  of "application/json":
+    try:
+      var
+        stream = memoryOutput()
+        writer = JsonWriter[RestJson].init(stream)
+      writer.writeArray(value)
+      ok(stream.getOutput(seq[byte]))
+    except IOError:
+      return err("Input/output error")
+    except SerializationError:
+      return err("Serialization error")
+  of "application/octet-stream":
+    try:
+      ok(SSZ.encode(
+        init(
+          List[SignedValidatorRegistrationV1, Limit VALIDATOR_REGISTRY_LIMIT],
+          value)))
+    except SerializationError:
+      return err("Serialization error")
+  else:
+    err("Content-Type not supported")
+
 proc encodeBytes*[T: EncodeTypes](value: T,
                                   contentType: string): RestResult[seq[byte]] =
   case contentType
@@ -3363,29 +3451,26 @@ proc encodeBytes*[T: EncodeArrays](value: T,
     err("Content-Type not supported")
 
 proc encodeBytes*[T: EncodeOctetTypes](
-       value: T,
-       contentType: string
-     ): RestResult[seq[byte]] =
+    value: T,
+    contentType: string
+): RestResult[seq[byte]] =
   case contentType
   of "application/json":
-    let data =
-      try:
-        var stream = memoryOutput()
-        var writer = JsonWriter[RestJson].init(stream)
-        writer.writeValue(value)
-        stream.getOutput(seq[byte])
-      except IOError:
-        return err("Input/output error")
-      except SerializationError:
-        return err("Serialization error")
-    ok(data)
+    try:
+      var
+        stream = memoryOutput()
+        writer = JsonWriter[RestJson].init(stream)
+      writer.writeValue(value)
+      ok(stream.getOutput(seq[byte]))
+    except IOError:
+      err("Input/output error")
+    except SerializationError:
+      err("Serialization error")
   of "application/octet-stream":
-    let data =
-      try:
-        SSZ.encode(value)
-      except CatchableError:
-        return err("Serialization error")
-    ok(data)
+    try:
+      ok(SSZ.encode(value))
+    except CatchableError:
+      err("Serialization error")
   else:
     err("Content-Type not supported")
 

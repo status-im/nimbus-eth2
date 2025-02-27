@@ -518,9 +518,6 @@ type
   GetEpochCommitteesResponse* = DataEnclosedObject[seq[RestBeaconStatesCommittees]]
   GetForkScheduleResponse* = DataEnclosedObject[seq[Fork]]
   GetGenesisResponse* = DataEnclosedObject[RestGenesis]
-  GetHeaderResponseDeneb* = DataVersionEnclosedObject[deneb_mev.SignedBuilderBid]
-  GetHeaderResponseElectra* = DataVersionEnclosedObject[electra_mev.SignedBuilderBid]
-  GetHeaderResponseFulu* = DataVersionEnclosedObject[fulu_mev.SignedBuilderBid]
   GetNetworkIdentityResponse* = DataEnclosedObject[RestNetworkIdentity]
   GetPeerCountResponse* = DataMetaEnclosedObject[RestPeerCount]
   GetPeerResponse* = DataMetaEnclosedObject[RestNodePeer]
@@ -546,13 +543,17 @@ type
   GetEpochSyncCommitteesResponse* = DataEnclosedObject[RestEpochSyncCommittee]
   ProduceAttestationDataResponse* = DataEnclosedObject[AttestationData]
   ProduceSyncCommitteeContributionResponse* = DataEnclosedObject[SyncCommitteeContribution]
-  SubmitBlindedBlockResponseDeneb* = DataEnclosedObject[deneb_mev.ExecutionPayloadAndBlobsBundle]
-  SubmitBlindedBlockResponseElectra* = DataEnclosedObject[electra_mev.ExecutionPayloadAndBlobsBundle]
-  SubmitBlindedBlockResponseFulu* = DataEnclosedObject[fulu_mev.ExecutionPayloadAndBlobsBundle]
   GetValidatorsActivityResponse* = DataEnclosedObject[seq[RestActivityItem]]
   GetValidatorsLivenessResponse* = DataEnclosedObject[seq[RestLivenessItem]]
   SubmitBeaconCommitteeSelectionsResponse* = DataEnclosedObject[seq[RestBeaconCommitteeSelection]]
   SubmitSyncCommitteeSelectionsResponse* = DataEnclosedObject[seq[RestSyncCommitteeSelection]]
+
+  GetHeaderResponseDeneb* = DataVersionEnclosedObject[deneb_mev.SignedBuilderBid]
+  GetHeaderResponseElectra* = DataVersionEnclosedObject[electra_mev.SignedBuilderBid]
+  GetHeaderResponseFulu* = DataVersionEnclosedObject[fulu_mev.SignedBuilderBid]
+  SubmitBlindedBlockResponseDeneb* = DataVersionEnclosedObject[deneb_mev.ExecutionPayloadAndBlobsBundle]
+  SubmitBlindedBlockResponseElectra* = DataVersionEnclosedObject[electra_mev.ExecutionPayloadAndBlobsBundle]
+  SubmitBlindedBlockResponseFulu* = DataVersionEnclosedObject[fulu_mev.ExecutionPayloadAndBlobsBundle]
 
   RestNodeValidity* {.pure.} = enum
     valid = "VALID",

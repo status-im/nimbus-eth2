@@ -13,19 +13,33 @@ import
 
 export chronos, client, rest_types, eth2_rest_serialization
 
-proc getHeaderFulu*(slot: Slot,
-                     parent_hash: Eth2Digest,
-                     pubkey: ValidatorPubKey
-                    ): RestPlainResponse {.
-     rest, endpoint: "/eth/v1/builder/header/{slot}/{parent_hash}/{pubkey}",
-     meth: MethodGet, connection: {Dedicated, Close}.}
+proc getHeaderFuluPlain*(
+    slot: Slot,
+    parent_hash: Eth2Digest,
+    pubkey: ValidatorPubKey
+): RestPlainResponse {.
+  rest, endpoint: "/eth/v1/builder/header/{slot}/{parent_hash}/{pubkey}",
+  meth: MethodGet, connection: {Dedicated, Close}.}
   ## https://github.com/ethereum/builder-specs/blob/v0.4.0/apis/builder/header.yaml
+
+proc getHeaderFulu*(
+    client: RestClientRef,
+    slot: Slot,
+    parent_hash: Eth2Digest,
+    pubkey: ValidatorPubKey
+): Future[RestPlainResponse] {.
+  async: (raises: [CancelledError, RestEncodingError, RestDnsResolveError,
+                   RestCommunicationError], raw: true).} =
+  client.getHeaderFuluPlain(
+    slot, parent_hash, pubkey,
+    restAcceptType = "application/octet-stream,application/json;q=0.5",
+  )
 
 proc submitBlindedBlockPlain*(
     body: fulu_mev.SignedBlindedBeaconBlock
 ): RestPlainResponse {.
-   rest, endpoint: "/eth/v1/builder/blinded_blocks",
-   meth: MethodPost, connection: {Dedicated, Close}.}
+  rest, endpoint: "/eth/v1/builder/blinded_blocks",
+  meth: MethodPost, connection: {Dedicated, Close}.}
   ## https://github.com/ethereum/builder-specs/blob/v0.4.0/apis/builder/blinded_blocks.yaml
 
 proc submitBlindedBlock*(
@@ -33,9 +47,10 @@ proc submitBlindedBlock*(
   body: fulu_mev.SignedBlindedBeaconBlock
 ): Future[RestPlainResponse] {.
   async: (raises: [CancelledError, RestEncodingError, RestDnsResolveError,
-                   RestCommunicationError]).} =
+                   RestCommunicationError], raw: true).} =
   ## https://github.com/ethereum/builder-specs/blob/v0.4.0/apis/builder/blinded_blocks.yaml
-  await client.submitBlindedBlockPlain(
+  client.submitBlindedBlockPlain(
     body,
+    restAcceptType = "application/octet-stream,application/json;q=0.5",
     extraHeaders = @[("eth-consensus-version", toString(ConsensusFork.Fulu))]
   )
