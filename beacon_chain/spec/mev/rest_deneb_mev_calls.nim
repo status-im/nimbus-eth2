@@ -1,5 +1,5 @@
 # beacon_chain
-# Copyright (c) 2023-2024 Status Research & Development GmbH
+# Copyright (c) 2023-2025 Status Research & Development GmbH
 # Licensed and distributed under either of
 #   * MIT license (license terms in the root directory or at https://opensource.org/licenses/MIT).
 #   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
@@ -24,25 +24,6 @@ proc registerValidator*(body: seq[SignedValidatorRegistrationV1]
      meth: MethodPost, connection: {Dedicated, Close}.}
   ## https://github.com/ethereum/builder-specs/blob/v0.4.0/apis/builder/validators.yaml
   ## https://github.com/ethereum/beacon-APIs/blob/v2.3.0/apis/validator/register_validator.yaml
-
-## TODO (cheatfate): This is just example on how to use different encodings
-## when calling registerValidator procedure, but of course this wrappers could
-## be used instead.
-proc registerValidatorJson*(
-    client: RestClientRef,
-    body: seq[SignedValidatorRegistrationV1]
-): Future[RestPlainResponse] {.
-  async: (raises: [CancelledError, RestEncodingError, RestDnsResolveError,
-                   RestCommunicationError], raw: true).} =
-  registerValidator(client, body, restContentType = "application/json")
-
-proc registerValidatorSSZ*(
-    client: RestClientRef,
-    body: seq[SignedValidatorRegistrationV1]
-): Future[RestPlainResponse] {.
-  async: (raises: [CancelledError, RestEncodingError, RestDnsResolveError,
-                   RestCommunicationError], raw: true).} =
-  registerValidator(client, body, restContentType = "application/octet-stream")
 
 proc getHeaderDenebPlain*(
     slot: Slot,
