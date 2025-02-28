@@ -1796,7 +1796,7 @@ proc onSlotEnd(node: BeaconNode, slot: Slot) {.async.} =
       if node.dag.catchupSyncQueue.len == 0:
         var blck = beaconHead.blck
         while blck != nil:
-          node.dag.catchupSyncQueue.addLast blck.bid
+          node.dag.catchupSyncQueue.addFirst blck.bid
           blck = blck.parent
         debug "Re-issuing `engine_newPayload`",
           numQueued = node.dag.catchupSyncQueue.len
