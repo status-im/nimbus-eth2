@@ -14,6 +14,11 @@ const
     ## Score after which peer will be kicked
   PeerScoreHighLimit* = 1000
     ## Max value of peer's score
+  PeerScoreSupernode* = 700
+    ## Score assigned to a supernode in order to prevent disconnection
+  PeerScoreIntersectingColumns* = 200
+    ## Score assigned to a node with intersecting columns
+    ## to the local BN in order to prevent disconnection
   PeerScorePoorRequest* = -50
     ## This peer is not responding on time or behaving improperly otherwise
   PeerScoreInvalidRequest* = -500
