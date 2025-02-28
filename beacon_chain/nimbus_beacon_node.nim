@@ -1787,21 +1787,42 @@ proc onSlotEnd(node: BeaconNode, slot: Slot) {.async.} =
     # If the chain has halted, we have to ensure that the EL gets synced
     # so that we can perform validator duties again
     if not node.dag.head.executionValid and not node.dag.chainIsProgressing():
-      let
-        beaconHead = node.attestationPool[].getBeaconHead(head)
-        blck = node.dag.getForkedBlock(beaconHead.blck.bid)
-      if blck.isSome:
-        withBlck(blck.get):
-          when consensusFork >= ConsensusFork.Bellatrix:
-            if forkyBlck.message.is_execution_block and
-                not forkyBlck.message.body.execution_payload.block_hash.isZero:
-              # Both `engine_newPayload` and `engine_forkchoiceUpdated` are
-              # needed because the EL may have discarded the block since the
-              # last time that the stale branch was requested to be head
-              discard await node.elManager
-                .newExecutionPayload(forkyBlck.message)
-              discard await node.consensusManager
-                .updateExecutionClientHead(beaconHead)
+      let beaconHead = node.attestationPool[].getBeaconHead(head)
+
+      if node.dag.catchupSyncQueue.len > 0 and
+          node.dag.catchupSyncQueue.peekLast != beaconHead.blck.bid:
+        node.dag.catchupSyncQueue.reset()  # Head changed
+
+      if node.dag.catchupSyncQueue.len == 0:
+        var blck = beaconHead.blck
+        while blck != nil:
+          node.dag.catchupSyncQueue.addLast blck.bid
+          blck = blck.parent
+        debug "Re-issuing `engine_newPayload`",
+          numQueued = node.dag.catchupSyncQueue.len
+
+      const MAX_NEWPAYLOAD_PER_SLOT = 32
+      for i in 0 ..< MAX_NEWPAYLOAD_PER_SLOT:
+        if node.dag.catchupSyncQueue.len == 0:
+          break
+
+        # Both `engine_newPayload` and `engine_forkchoiceUpdated` are
+        # needed because the EL may have discarded the block since the
+        # last time that the stale branch was requested to be head
+        let
+          bid = node.dag.catchupSyncQueue.popFirst()
+          blck = node.dag.getForkedBlock(bid)
+        if blck.isSome:
+          withBlck(blck.get):
+            when consensusFork >= ConsensusFork.Bellatrix:
+              if forkyBlck.message.is_execution_block and not forkyBlck
+                  .message.body.execution_payload.block_hash.isZero:
+                discard await node.elManager
+                  .newExecutionPayload(forkyBlck.message)
+
+      # Retrigger `engine_forkchoiceUpdated` now that EL was fed some blocks
+      discard await node.consensusManager
+        .updateExecutionClientHead(beaconHead)
 
     # If the chain head is far behind, we have to advance it incrementally
     # to avoid lag spikes when performing validator duties
