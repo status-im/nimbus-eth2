@@ -300,7 +300,7 @@ proc initFullNode(
   template config(): auto = node.config
 
   proc onPhase0AttestationReceived(data: phase0.Attestation) =
-    node.eventBus.attestQueue.emit(data)
+    node.eventBus.phase0AttestQueue.emit(data)
   proc onSingleAttestationReceived(data: SingleAttestation) =
     node.eventBus.singleAttestQueue.emit(data)
   proc onSyncContribution(data: SignedContributionAndProof) =
@@ -312,9 +312,9 @@ proc initFullNode(
   proc onProposerSlashingAdded(data: ProposerSlashing) =
     node.eventBus.propSlashQueue.emit(data)
   proc onPhase0AttesterSlashingAdded(data: phase0.AttesterSlashing) =
-    node.eventBus.attSlashQueue.emit(data)
+    node.eventBus.phase0AttSlashQueue.emit(data)
   proc onElectraAttesterSlashingAdded(data: electra.AttesterSlashing) =
-    debugComment "electra att slasher queue"
+    node.eventBus.electraAttSlashQueue.emit(data)
   proc onBlobSidecarAdded(data: BlobSidecarInfoObject) =
     node.eventBus.blobSidecarQueue.emit(data)
   proc onBlockAdded(data: ForkedTrustedSignedBeaconBlock) =
@@ -744,12 +744,13 @@ proc init*(T: type BeaconNode,
     eventBus = EventBus(
       headQueue: newAsyncEventQueue[HeadChangeInfoObject](),
       blocksQueue: newAsyncEventQueue[EventBeaconBlockObject](),
-      attestQueue: newAsyncEventQueue[phase0.Attestation](),
+      phase0AttestQueue: newAsyncEventQueue[phase0.Attestation](),
       singleAttestQueue: newAsyncEventQueue[SingleAttestation](),
       exitQueue: newAsyncEventQueue[SignedVoluntaryExit](),
       blsToExecQueue: newAsyncEventQueue[SignedBLSToExecutionChange](),
       propSlashQueue: newAsyncEventQueue[ProposerSlashing](),
-      attSlashQueue: newAsyncEventQueue[phase0.AttesterSlashing](),
+      phase0AttSlashQueue: newAsyncEventQueue[phase0.AttesterSlashing](),
+      electraAttSlashQueue: newAsyncEventQueue[electra.AttesterSlashing](),
       blobSidecarQueue: newAsyncEventQueue[BlobSidecarInfoObject](),
       finalQueue: newAsyncEventQueue[FinalizationInfoObject](),
       reorgQueue: newAsyncEventQueue[ReorgInfoObject](),
