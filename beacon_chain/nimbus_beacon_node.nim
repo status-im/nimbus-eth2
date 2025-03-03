@@ -1801,28 +1801,27 @@ proc onSlotEnd(node: BeaconNode, slot: Slot) {.async.} =
         debug "Re-issuing `engine_newPayload`",
           numQueued = node.dag.catchupSyncQueue.len
 
-      const MAX_NEWPAYLOAD_PER_SLOT = 32
-      for i in 0 ..< MAX_NEWPAYLOAD_PER_SLOT:
-        if node.dag.catchupSyncQueue.len == 0:
-          break
-
-        # Both `engine_newPayload` and `engine_forkchoiceUpdated` are
-        # needed because the EL may have discarded the block since the
-        # last time that the stale branch was requested to be head
-        let
-          bid = node.dag.catchupSyncQueue.popFirst()
-          blck = node.dag.getForkedBlock(bid)
-        if blck.isSome:
-          withBlck(blck.get):
-            when consensusFork >= ConsensusFork.Bellatrix:
-              if forkyBlck.message.is_execution_block and not forkyBlck
-                  .message.body.execution_payload.block_hash.isZero:
-                discard await node.elManager
-                  .newExecutionPayload(forkyBlck.message)
-
-      # Retrigger `engine_forkchoiceUpdated` now that EL was fed some blocks
       discard await node.consensusManager
         .updateExecutionClientHead(beaconHead)
+
+    # Both `engine_newPayload` and `engine_forkchoiceUpdated` are
+    # needed because the EL may have discarded the block since the
+    # last time that the stale branch was requested to be head
+    const MAX_NEWPAYLOAD_PER_SLOT = 32
+    for i in 0 ..< MAX_NEWPAYLOAD_PER_SLOT:
+      if node.dag.catchupSyncQueue.len == 0:
+        break
+
+      let
+        bid = node.dag.catchupSyncQueue.popFirst()
+        blck = node.dag.getForkedBlock(bid)
+      if blck.isSome:
+        withBlck(blck.get):
+          when consensusFork >= ConsensusFork.Bellatrix:
+            if forkyBlck.message.is_execution_block and not forkyBlck
+                .message.body.execution_payload.block_hash.isZero:
+              discard await node.elManager
+                .newExecutionPayload(forkyBlck.message)
 
     # If the chain head is far behind, we have to advance it incrementally
     # to avoid lag spikes when performing validator duties
