@@ -14,13 +14,14 @@ import
 from std/sequtils import mapIt
 from std/strutils import join
 
-const
-  MaxBlobs = 3 * SLOTS_PER_EPOCH * MAX_BLOBS_PER_BLOCK_ELECTRA
-    ## Same limit as `MaxOrphans` in `block_quarantine`;
-    ## blobs may arrive before an orphan is tagged `blobless`
+func maxBlobs(MAX_BLOBS_PER_BLOCK_ELECTRA: uint64): uint64 =
+  # Same limit as `MaxOrphans` in `block_quarantine`;
+  # blobs may arrive before an orphan is tagged `blobless`
+  3 * SLOTS_PER_EPOCH * MAX_BLOBS_PER_BLOCK_ELECTRA
 
 type
   BlobQuarantine* = object
+    maxBlobs: uint64
     blobs*:
       OrderedTable[(Eth2Digest, BlobIndex, KzgCommitment), ref BlobSidecar]
     onBlobSidecarCallback*: OnBlobSidecarCallback
@@ -39,7 +40,7 @@ func shortLog*(x: seq[BlobFetchRecord]): string =
   "[" & x.mapIt(shortLog(it.block_root) & shortLog(it.indices)).join(", ") & "]"
 
 func put*(quarantine: var BlobQuarantine, blobSidecar: ref BlobSidecar) =
-  if quarantine.blobs.lenu64 >= MaxBlobs:
+  if quarantine.blobs.lenu64 >= quarantine.maxBlobs:
     # FIFO if full. For example, sync manager and request manager can race to
     # put blobs in at the same time, so one gets blob insert -> block resolve
     # -> blob insert sequence, which leaves garbage blobs.
@@ -106,5 +107,8 @@ func blobFetchRecord*(quarantine: BlobQuarantine,
   BlobFetchRecord(block_root: blck.root, indices: indices)
 
 func init*(
-    T: type BlobQuarantine, onBlobSidecarCallback: OnBlobSidecarCallback): T =
-  T(onBlobSidecarCallback: onBlobSidecarCallback)
+    T: type BlobQuarantine,
+    cfg: RuntimeConfig,
+    onBlobSidecarCallback: OnBlobSidecarCallback): T =
+  T(maxBlobs: cfg.MAX_BLOBS_PER_BLOCK_ELECTRA.maxBlobs(),
+    onBlobSidecarCallback: onBlobSidecarCallback)

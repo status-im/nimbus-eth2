@@ -175,7 +175,8 @@ suite baseDescription & "Execution Payload " & preset():
             preState.latest_block_root(
               assignClone(preState)[].hash_tree_root())))
       func executePayload(_: deneb.ExecutionPayload): bool = payloadValid
-      process_execution_payload(preState, body, executePayload)
+      process_execution_payload(
+        defaultRuntimeConfig, preState, body, executePayload)
 
   for path in walkTests(OpExecutionPayloadDir):
     let applyExecutionPayload = makeApplyExecutionPayloadCb(path)

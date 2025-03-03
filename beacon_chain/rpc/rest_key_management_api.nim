@@ -1,5 +1,5 @@
 # beacon_chain
-# Copyright (c) 2021-2024 Status Research & Development GmbH
+# Copyright (c) 2021-2025 Status Research & Development GmbH
 # Licensed and distributed under either of
 #   * MIT license (license terms in the root directory or at https://opensource.org/licenses/MIT).
 #   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
@@ -667,15 +667,10 @@ proc installKeymanagerHandlers*(router: var RestRouter, host: KeymanagerHost) =
           decodeBody(SetGraffitiRequest, contentBody.get()).valueOr:
             return keymanagerApiError(Http400, InvalidGraffitiRequestError)
 
-    if not(host.checkValidatorKeystoreDir(pubkey)):
-      return keymanagerApiError(Http404, ValidatorNotFoundError)
+    host.setGraffiti(pubkey, GraffitiBytes.init(req.graffiti)).isOkOr:
+      return keymanagerApiError(Http500, "Failed to set graffiti: " & error)
 
-    let status = host.setGraffiti(pubkey, GraffitiBytes.init(req.graffiti))
-    if status.isOk:
-      RestApiResponse.response(Http202)
-    else:
-      keymanagerApiError(
-        Http500, "Failed to set graffiti: " & status.error)
+    RestApiResponse.response(Http202)
 
   # https://ethereum.github.io/keymanager-APIs/?urls.primaryName=dev#/Graffiti/deleteGraffiti
   router.api2(MethodDelete, "/eth/v1/validator/{pubkey}/graffiti") do (

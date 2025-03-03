@@ -4,18 +4,15 @@ ConsensusSpecPreset-minimal
 ```diff
 + Effective balance updates - effective_balance_hysteresis [Preset: minimal]                 OK
 ```
-OK: 1/1 Fail: 0/1 Skip: 0/1
 ## EF - Altair - Epoch Processing - Eth1 data reset [Preset: minimal]
 ```diff
 + Eth1 data reset - eth1_vote_no_reset [Preset: minimal]                                     OK
 + Eth1 data reset - eth1_vote_reset [Preset: minimal]                                        OK
 ```
-OK: 2/2 Fail: 0/2 Skip: 0/2
 ## EF - Altair - Epoch Processing - Historical roots update [Preset: minimal]
 ```diff
 + Historical roots update - historical_root_accumulator [Preset: minimal]                    OK
 ```
-OK: 1/1 Fail: 0/1 Skip: 0/1
 ## EF - Altair - Epoch Processing - Inactivity [Preset: minimal]
 ```diff
 + Inactivity - all_zero_inactivity_scores_empty_participation [Preset: minimal]              OK
@@ -40,7 +37,6 @@ OK: 1/1 Fail: 0/1 Skip: 0/1
 + Inactivity - some_slashed_zero_scores_full_participation [Preset: minimal]                 OK
 + Inactivity - some_slashed_zero_scores_full_participation_leaking [Preset: minimal]         OK
 ```
-OK: 21/21 Fail: 0/21 Skip: 0/21
 ## EF - Altair - Epoch Processing - Justification & Finalization [Preset: minimal]
 ```diff
 + Justification & Finalization - 123_ok_support [Preset: minimal]                            OK
@@ -54,7 +50,6 @@ OK: 21/21 Fail: 0/21 Skip: 0/21
 + Justification & Finalization - 23_poor_support [Preset: minimal]                           OK
 + Justification & Finalization - balance_threshold_with_exited_validators [Preset: minimal]  OK
 ```
-OK: 10/10 Fail: 0/10 Skip: 0/10
 ## EF - Altair - Epoch Processing - Participation flag updates [Preset: minimal]
 ```diff
 + Participation flag updates - all_zeroed [Preset: minimal]                                  OK
@@ -70,12 +65,10 @@ OK: 10/10 Fail: 0/10 Skip: 0/10
 + Participation flag updates - random_genesis [Preset: minimal]                              OK
 + Participation flag updates - slightly_larger_random [Preset: minimal]                      OK
 ```
-OK: 12/12 Fail: 0/12 Skip: 0/12
 ## EF - Altair - Epoch Processing - RANDAO mixes reset [Preset: minimal]
 ```diff
 + RANDAO mixes reset - updated_randao_mixes [Preset: minimal]                                OK
 ```
-OK: 1/1 Fail: 0/1 Skip: 0/1
 ## EF - Altair - Epoch Processing - Registry updates [Preset: minimal]
 ```diff
 + Registry updates - activation_queue_activation_and_ejection__1 [Preset: minimal]           OK
@@ -94,7 +87,6 @@ OK: 1/1 Fail: 0/1 Skip: 0/1
 + Registry updates - ejection_past_churn_limit_scaled [Preset: minimal]                      OK
 + Registry updates - invalid_large_withdrawable_epoch [Preset: minimal]                      OK
 ```
-OK: 15/15 Fail: 0/15 Skip: 0/15
 ## EF - Altair - Epoch Processing - Rewards and penalties [Preset: minimal]
 ```diff
 + Rewards and penalties - almost_empty_attestations [Preset: minimal]                        OK
@@ -113,7 +105,6 @@ OK: 15/15 Fail: 0/15 Skip: 0/15
 + Rewards and penalties - random_fill_attestations [Preset: minimal]                         OK
 + Rewards and penalties - random_fill_attestations_with_leak [Preset: minimal]               OK
 ```
-OK: 15/15 Fail: 0/15 Skip: 0/15
 ## EF - Altair - Epoch Processing - Slashings [Preset: minimal]
 ```diff
 + Slashings - low_penalty [Preset: minimal]                                                  OK
@@ -122,12 +113,10 @@ OK: 15/15 Fail: 0/15 Skip: 0/15
 + Slashings - scaled_penalties [Preset: minimal]                                             OK
 + Slashings - slashings_with_random_state [Preset: minimal]                                  OK
 ```
-OK: 5/5 Fail: 0/5 Skip: 0/5
 ## EF - Altair - Epoch Processing - Slashings reset [Preset: minimal]
 ```diff
 + Slashings reset - flush_slashings [Preset: minimal]                                        OK
 ```
-OK: 1/1 Fail: 0/1 Skip: 0/1
 ## EF - Altair - Epoch Processing - Sync committee updates [Preset: minimal]
 ```diff
 + Sync committee updates - sync_committees_no_progress_not_at_period_boundary [Preset: minim OK
@@ -136,7 +125,6 @@ OK: 1/1 Fail: 0/1 Skip: 0/1
 + Sync committee updates - sync_committees_progress_misc_balances_not_genesis [Preset: minim OK
 + Sync committee updates - sync_committees_progress_not_genesis [Preset: minimal]            OK
 ```
-OK: 5/5 Fail: 0/5 Skip: 0/5
 ## EF - Altair - Finality  [Preset: minimal]
 ```diff
 + [Valid]   EF - Altair - Finality - finality_no_updates_at_genesis [Preset: minimal]        OK
@@ -145,7 +133,6 @@ OK: 5/5 Fail: 0/5 Skip: 0/5
 + [Valid]   EF - Altair - Finality - finality_rule_3 [Preset: minimal]                       OK
 + [Valid]   EF - Altair - Finality - finality_rule_4 [Preset: minimal]                       OK
 ```
-OK: 5/5 Fail: 0/5 Skip: 0/5
 ## EF - Altair - Fork  [Preset: minimal]
 ```diff
 + EF - Altair - Fork - altair_fork_random_0 [Preset: minimal]                                OK
@@ -165,7 +152,6 @@ OK: 5/5 Fail: 0/5 Skip: 0/5
 + EF - Altair - Fork - fork_random_low_balances [Preset: minimal]                            OK
 + EF - Altair - Fork - fork_random_misc_balances [Preset: minimal]                           OK
 ```
-OK: 16/16 Fail: 0/16 Skip: 0/16
 ## EF - Altair - Operations - Attestation  [Preset: minimal]
 ```diff
 + [Invalid] EF - Altair - Operations - Attestation - invalid_after_max_inclusion_slot        OK
@@ -210,7 +196,6 @@ OK: 16/16 Fail: 0/16 Skip: 0/16
 + [Valid]   EF - Altair - Operations - Attestation - one_basic_attestation                   OK
 + [Valid]   EF - Altair - Operations - Attestation - previous_epoch                          OK
 ```
-OK: 41/41 Fail: 0/41 Skip: 0/41
 ## EF - Altair - Operations - Attester Slashing  [Preset: minimal]
 ```diff
 + [Invalid] EF - Altair - Operations - Attester Slashing - invalid_all_empty_indices         OK
@@ -244,7 +229,6 @@ OK: 41/41 Fail: 0/41 Skip: 0/41
 + [Valid]   EF - Altair - Operations - Attester Slashing - proposer_index_slashed            OK
 + [Valid]   EF - Altair - Operations - Attester Slashing - with_effective_balance_disparity  OK
 ```
-OK: 30/30 Fail: 0/30 Skip: 0/30
 ## EF - Altair - Operations - Block Header  [Preset: minimal]
 ```diff
 + [Invalid] EF - Altair - Operations - Block Header - invalid_multiple_blocks_single_slot    OK
@@ -254,7 +238,6 @@ OK: 30/30 Fail: 0/30 Skip: 0/30
 + [Invalid] EF - Altair - Operations - Block Header - invalid_slot_block_header              OK
 + [Valid]   EF - Altair - Operations - Block Header - basic_block_header                     OK
 ```
-OK: 6/6 Fail: 0/6 Skip: 0/6
 ## EF - Altair - Operations - Deposit  [Preset: minimal]
 ```diff
 + [Invalid] EF - Altair - Operations - Deposit - invalid_bad_merkle_proof                    OK
@@ -277,7 +260,6 @@ OK: 6/6 Fail: 0/6 Skip: 0/6
 + [Valid]   EF - Altair - Operations - Deposit - top_up__max_effective_balance               OK
 + [Valid]   EF - Altair - Operations - Deposit - top_up__zero_balance                        OK
 ```
-OK: 19/19 Fail: 0/19 Skip: 0/19
 ## EF - Altair - Operations - Proposer Slashing  [Preset: minimal]
 ```diff
 + [Invalid] EF - Altair - Operations - Proposer Slashing - invalid_different_proposer_indice OK
@@ -296,7 +278,6 @@ OK: 19/19 Fail: 0/19 Skip: 0/19
 + [Valid]   EF - Altair - Operations - Proposer Slashing - block_header_from_future          OK
 + [Valid]   EF - Altair - Operations - Proposer Slashing - slashed_and_proposer_index_the_sa OK
 ```
-OK: 15/15 Fail: 0/15 Skip: 0/15
 ## EF - Altair - Operations - Sync Aggregate  [Preset: minimal]
 ```diff
 + [Invalid] EF - Altair - Operations - Sync Aggregate - invalid_signature_bad_domain         OK
@@ -324,7 +305,6 @@ OK: 15/15 Fail: 0/15 Skip: 0/15
 + [Valid]   EF - Altair - Operations - Sync Aggregate - sync_committee_with_participating_wi OK
 + [Valid]   EF - Altair - Operations - Sync Aggregate - valid_signature_future_committee     OK
 ```
-OK: 24/24 Fail: 0/24 Skip: 0/24
 ## EF - Altair - Operations - Voluntary Exit  [Preset: minimal]
 ```diff
 + [Invalid] EF - Altair - Operations - Voluntary Exit - invalid_incorrect_signature          OK
@@ -338,7 +318,6 @@ OK: 24/24 Fail: 0/24 Skip: 0/24
 + [Valid]   EF - Altair - Operations - Voluntary Exit - success_exit_queue__min_churn        OK
 + [Valid]   EF - Altair - Operations - Voluntary Exit - success_exit_queue__scaled_churn     OK
 ```
-OK: 10/10 Fail: 0/10 Skip: 0/10
 ## EF - Altair - Random  [Preset: minimal]
 ```diff
 + [Valid]   EF - Altair - Random - randomized_0 [Preset: minimal]                            OK
@@ -358,7 +337,6 @@ OK: 10/10 Fail: 0/10 Skip: 0/10
 + [Valid]   EF - Altair - Random - randomized_8 [Preset: minimal]                            OK
 + [Valid]   EF - Altair - Random - randomized_9 [Preset: minimal]                            OK
 ```
-OK: 16/16 Fail: 0/16 Skip: 0/16
 ## EF - Altair - Rewards  [Preset: minimal]
 ```diff
 + EF - Altair - Rewards - all_balances_too_low_for_reward [Preset: minimal]                  OK
@@ -396,7 +374,6 @@ OK: 16/16 Fail: 0/16 Skip: 0/16
 + EF - Altair - Rewards - with_slashed_validators [Preset: minimal]                          OK
 + EF - Altair - Rewards - with_slashed_validators_leak [Preset: minimal]                     OK
 ```
-OK: 34/34 Fail: 0/34 Skip: 0/34
 ## EF - Altair - SSZ consensus objects  [Preset: minimal]
 ```diff
 +   Testing    AggregateAndProof                                                             OK
@@ -439,7 +416,6 @@ OK: 34/34 Fail: 0/34 Skip: 0/34
 +   Testing    Validator                                                                     OK
 +   Testing    VoluntaryExit                                                                 OK
 ```
-OK: 39/39 Fail: 0/39 Skip: 0/39
 ## EF - Altair - Sanity - Blocks  [Preset: minimal]
 ```diff
 + [Invalid] EF - Altair - Sanity - Blocks - invalid_all_zeroed_sig [Preset: minimal]         OK
@@ -495,7 +471,6 @@ OK: 39/39 Fail: 0/39 Skip: 0/39
 + [Valid]   EF - Altair - Sanity - Blocks - sync_committee_committee_genesis__half [Preset:  OK
 + [Valid]   EF - Altair - Sanity - Blocks - voluntary_exit [Preset: minimal]                 OK
 ```
-OK: 52/52 Fail: 0/52 Skip: 0/52
 ## EF - Altair - Sanity - Slots  [Preset: minimal]
 ```diff
 + EF - Altair - Slots - double_empty_epoch [Preset: minimal]                                 OK
@@ -505,7 +480,6 @@ OK: 52/52 Fail: 0/52 Skip: 0/52
 + EF - Altair - Slots - slots_1 [Preset: minimal]                                            OK
 + EF - Altair - Slots - slots_2 [Preset: minimal]                                            OK
 ```
-OK: 6/6 Fail: 0/6 Skip: 0/6
 ## EF - Altair - Transition  [Preset: minimal]
 ```diff
 + EF - Altair - Transition - non_empty_historical_roots [Preset: minimal]                    OK
@@ -535,7 +509,6 @@ OK: 6/6 Fail: 0/6 Skip: 0/6
 + EF - Altair - Transition - transition_with_voluntary_exit_right_after_fork [Preset: minima OK
 + EF - Altair - Transition - transition_with_voluntary_exit_right_before_fork [Preset: minim OK
 ```
-OK: 26/26 Fail: 0/26 Skip: 0/26
 ## EF - Altair - Unittests - Light client - Sync protocol [Preset: minimal]
 ```diff
 + process_light_client_update_finality_updated                                               OK
@@ -543,23 +516,19 @@ OK: 26/26 Fail: 0/26 Skip: 0/26
 + test_process_light_client_update_at_period_boundary                                        OK
 + test_process_light_client_update_not_timeout                                               OK
 ```
-OK: 4/4 Fail: 0/4 Skip: 0/4
 ## EF - Bellatrix - Epoch Processing - Effective balance updates [Preset: minimal]
 ```diff
 + Effective balance updates - effective_balance_hysteresis [Preset: minimal]                 OK
 ```
-OK: 1/1 Fail: 0/1 Skip: 0/1
 ## EF - Bellatrix - Epoch Processing - Eth1 data reset [Preset: minimal]
 ```diff
 + Eth1 data reset - eth1_vote_no_reset [Preset: minimal]                                     OK
 + Eth1 data reset - eth1_vote_reset [Preset: minimal]                                        OK
 ```
-OK: 2/2 Fail: 0/2 Skip: 0/2
 ## EF - Bellatrix - Epoch Processing - Historical roots update [Preset: minimal]
 ```diff
 + Historical roots update - historical_root_accumulator [Preset: minimal]                    OK
 ```
-OK: 1/1 Fail: 0/1 Skip: 0/1
 ## EF - Bellatrix - Epoch Processing - Inactivity [Preset: minimal]
 ```diff
 + Inactivity - all_zero_inactivity_scores_empty_participation [Preset: minimal]              OK
@@ -584,7 +553,6 @@ OK: 1/1 Fail: 0/1 Skip: 0/1
 + Inactivity - some_slashed_zero_scores_full_participation [Preset: minimal]                 OK
 + Inactivity - some_slashed_zero_scores_full_participation_leaking [Preset: minimal]         OK
 ```
-OK: 21/21 Fail: 0/21 Skip: 0/21
 ## EF - Bellatrix - Epoch Processing - Justification & Finalization [Preset: minimal]
 ```diff
 + Justification & Finalization - 123_ok_support [Preset: minimal]                            OK
@@ -598,7 +566,6 @@ OK: 21/21 Fail: 0/21 Skip: 0/21
 + Justification & Finalization - 23_poor_support [Preset: minimal]                           OK
 + Justification & Finalization - balance_threshold_with_exited_validators [Preset: minimal]  OK
 ```
-OK: 10/10 Fail: 0/10 Skip: 0/10
 ## EF - Bellatrix - Epoch Processing - Participation flag updates [Preset: minimal]
 ```diff
 + Participation flag updates - all_zeroed [Preset: minimal]                                  OK
@@ -614,12 +581,10 @@ OK: 10/10 Fail: 0/10 Skip: 0/10
 + Participation flag updates - random_genesis [Preset: minimal]                              OK
 + Participation flag updates - slightly_larger_random [Preset: minimal]                      OK
 ```
-OK: 12/12 Fail: 0/12 Skip: 0/12
 ## EF - Bellatrix - Epoch Processing - RANDAO mixes reset [Preset: minimal]
 ```diff
 + RANDAO mixes reset - updated_randao_mixes [Preset: minimal]                                OK
 ```
-OK: 1/1 Fail: 0/1 Skip: 0/1
 ## EF - Bellatrix - Epoch Processing - Registry updates [Preset: minimal]
 ```diff
 + Registry updates - activation_queue_activation_and_ejection__1 [Preset: minimal]           OK
@@ -638,7 +603,6 @@ OK: 1/1 Fail: 0/1 Skip: 0/1
 + Registry updates - ejection_past_churn_limit_scaled [Preset: minimal]                      OK
 + Registry updates - invalid_large_withdrawable_epoch [Preset: minimal]                      OK
 ```
-OK: 15/15 Fail: 0/15 Skip: 0/15
 ## EF - Bellatrix - Epoch Processing - Rewards and penalties [Preset: minimal]
 ```diff
 + Rewards and penalties - almost_empty_attestations [Preset: minimal]                        OK
@@ -657,7 +621,6 @@ OK: 15/15 Fail: 0/15 Skip: 0/15
 + Rewards and penalties - random_fill_attestations [Preset: minimal]                         OK
 + Rewards and penalties - random_fill_attestations_with_leak [Preset: minimal]               OK
 ```
-OK: 15/15 Fail: 0/15 Skip: 0/15
 ## EF - Bellatrix - Epoch Processing - Slashings [Preset: minimal]
 ```diff
 + Slashings - low_penalty [Preset: minimal]                                                  OK
@@ -666,12 +629,10 @@ OK: 15/15 Fail: 0/15 Skip: 0/15
 + Slashings - scaled_penalties [Preset: minimal]                                             OK
 + Slashings - slashings_with_random_state [Preset: minimal]                                  OK
 ```
-OK: 5/5 Fail: 0/5 Skip: 0/5
 ## EF - Bellatrix - Epoch Processing - Slashings reset [Preset: minimal]
 ```diff
 + Slashings reset - flush_slashings [Preset: minimal]                                        OK
 ```
-OK: 1/1 Fail: 0/1 Skip: 0/1
 ## EF - Bellatrix - Epoch Processing - Sync committee updates [Preset: minimal]
 ```diff
 + Sync committee updates - sync_committees_no_progress_not_at_period_boundary [Preset: minim OK
@@ -680,7 +641,6 @@ OK: 1/1 Fail: 0/1 Skip: 0/1
 + Sync committee updates - sync_committees_progress_misc_balances_not_genesis [Preset: minim OK
 + Sync committee updates - sync_committees_progress_not_genesis [Preset: minimal]            OK
 ```
-OK: 5/5 Fail: 0/5 Skip: 0/5
 ## EF - Bellatrix - Finality  [Preset: minimal]
 ```diff
 + [Valid]   EF - Bellatrix - Finality - finality_no_updates_at_genesis [Preset: minimal]     OK
@@ -689,7 +649,6 @@ OK: 5/5 Fail: 0/5 Skip: 0/5
 + [Valid]   EF - Bellatrix - Finality - finality_rule_3 [Preset: minimal]                    OK
 + [Valid]   EF - Bellatrix - Finality - finality_rule_4 [Preset: minimal]                    OK
 ```
-OK: 5/5 Fail: 0/5 Skip: 0/5
 ## EF - Bellatrix - Fork  [Preset: minimal]
 ```diff
 + EF - Bellatrix - Fork - bellatrix_fork_random_0 [Preset: minimal]                          OK
@@ -707,7 +666,6 @@ OK: 5/5 Fail: 0/5 Skip: 0/5
 + EF - Bellatrix - Fork - fork_random_low_balances [Preset: minimal]                         OK
 + EF - Bellatrix - Fork - fork_random_misc_balances [Preset: minimal]                        OK
 ```
-OK: 14/14 Fail: 0/14 Skip: 0/14
 ## EF - Bellatrix - Operations - Attestation  [Preset: minimal]
 ```diff
 + [Invalid] EF - Bellatrix - Operations - Attestation - invalid_after_max_inclusion_slot     OK
@@ -752,7 +710,6 @@ OK: 14/14 Fail: 0/14 Skip: 0/14
 + [Valid]   EF - Bellatrix - Operations - Attestation - one_basic_attestation                OK
 + [Valid]   EF - Bellatrix - Operations - Attestation - previous_epoch                       OK
 ```
-OK: 41/41 Fail: 0/41 Skip: 0/41
 ## EF - Bellatrix - Operations - Attester Slashing  [Preset: minimal]
 ```diff
 + [Invalid] EF - Bellatrix - Operations - Attester Slashing - invalid_all_empty_indices      OK
@@ -786,7 +743,6 @@ OK: 41/41 Fail: 0/41 Skip: 0/41
 + [Valid]   EF - Bellatrix - Operations - Attester Slashing - proposer_index_slashed         OK
 + [Valid]   EF - Bellatrix - Operations - Attester Slashing - with_effective_balance_dispari OK
 ```
-OK: 30/30 Fail: 0/30 Skip: 0/30
 ## EF - Bellatrix - Operations - Block Header  [Preset: minimal]
 ```diff
 + [Invalid] EF - Bellatrix - Operations - Block Header - invalid_multiple_blocks_single_slot OK
@@ -796,7 +752,6 @@ OK: 30/30 Fail: 0/30 Skip: 0/30
 + [Invalid] EF - Bellatrix - Operations - Block Header - invalid_slot_block_header           OK
 + [Valid]   EF - Bellatrix - Operations - Block Header - basic_block_header                  OK
 ```
-OK: 6/6 Fail: 0/6 Skip: 0/6
 ## EF - Bellatrix - Operations - Deposit  [Preset: minimal]
 ```diff
 + [Invalid] EF - Bellatrix - Operations - Deposit - invalid_bad_merkle_proof                 OK
@@ -820,7 +775,6 @@ OK: 6/6 Fail: 0/6 Skip: 0/6
 + [Valid]   EF - Bellatrix - Operations - Deposit - top_up__max_effective_balance            OK
 + [Valid]   EF - Bellatrix - Operations - Deposit - top_up__zero_balance                     OK
 ```
-OK: 20/20 Fail: 0/20 Skip: 0/20
 ## EF - Bellatrix - Operations - Execution Payload  [Preset: minimal]
 ```diff
 + [Invalid] EF - Bellatrix - Operations - Execution Payload - invalid_bad_everything_first_p OK
@@ -850,7 +804,6 @@ OK: 20/20 Fail: 0/20 Skip: 0/20
 + [Valid]   EF - Bellatrix - Operations - Execution Payload - zero_length_transaction_first_ OK
 + [Valid]   EF - Bellatrix - Operations - Execution Payload - zero_length_transaction_regula OK
 ```
-OK: 26/26 Fail: 0/26 Skip: 0/26
 ## EF - Bellatrix - Operations - Proposer Slashing  [Preset: minimal]
 ```diff
 + [Invalid] EF - Bellatrix - Operations - Proposer Slashing - invalid_different_proposer_ind OK
@@ -869,7 +822,6 @@ OK: 26/26 Fail: 0/26 Skip: 0/26
 + [Valid]   EF - Bellatrix - Operations - Proposer Slashing - block_header_from_future       OK
 + [Valid]   EF - Bellatrix - Operations - Proposer Slashing - slashed_and_proposer_index_the OK
 ```
-OK: 15/15 Fail: 0/15 Skip: 0/15
 ## EF - Bellatrix - Operations - Sync Aggregate  [Preset: minimal]
 ```diff
 + [Invalid] EF - Bellatrix - Operations - Sync Aggregate - invalid_signature_bad_domain      OK
@@ -897,7 +849,6 @@ OK: 15/15 Fail: 0/15 Skip: 0/15
 + [Valid]   EF - Bellatrix - Operations - Sync Aggregate - sync_committee_with_participating OK
 + [Valid]   EF - Bellatrix - Operations - Sync Aggregate - valid_signature_future_committee  OK
 ```
-OK: 24/24 Fail: 0/24 Skip: 0/24
 ## EF - Bellatrix - Operations - Voluntary Exit  [Preset: minimal]
 ```diff
 + [Invalid] EF - Bellatrix - Operations - Voluntary Exit - invalid_incorrect_signature       OK
@@ -917,7 +868,6 @@ OK: 24/24 Fail: 0/24 Skip: 0/24
 + [Valid]   EF - Bellatrix - Operations - Voluntary Exit - voluntary_exit_with_current_fork_ OK
 + [Valid]   EF - Bellatrix - Operations - Voluntary Exit - voluntary_exit_with_previous_fork OK
 ```
-OK: 16/16 Fail: 0/16 Skip: 0/16
 ## EF - Bellatrix - Random  [Preset: minimal]
 ```diff
 + [Valid]   EF - Bellatrix - Random - randomized_0 [Preset: minimal]                         OK
@@ -937,7 +887,6 @@ OK: 16/16 Fail: 0/16 Skip: 0/16
 + [Valid]   EF - Bellatrix - Random - randomized_8 [Preset: minimal]                         OK
 + [Valid]   EF - Bellatrix - Random - randomized_9 [Preset: minimal]                         OK
 ```
-OK: 16/16 Fail: 0/16 Skip: 0/16
 ## EF - Bellatrix - Rewards  [Preset: minimal]
 ```diff
 + EF - Bellatrix - Rewards - all_balances_too_low_for_reward [Preset: minimal]               OK
@@ -975,7 +924,6 @@ OK: 16/16 Fail: 0/16 Skip: 0/16
 + EF - Bellatrix - Rewards - with_slashed_validators [Preset: minimal]                       OK
 + EF - Bellatrix - Rewards - with_slashed_validators_leak [Preset: minimal]                  OK
 ```
-OK: 34/34 Fail: 0/34 Skip: 0/34
 ## EF - Bellatrix - SSZ consensus objects  [Preset: minimal]
 ```diff
 +   Testing    AggregateAndProof                                                             OK
@@ -1021,7 +969,6 @@ OK: 34/34 Fail: 0/34 Skip: 0/34
 +   Testing    Validator                                                                     OK
 +   Testing    VoluntaryExit                                                                 OK
 ```
-OK: 42/42 Fail: 0/42 Skip: 0/42
 ## EF - Bellatrix - Sanity - Blocks  [Preset: minimal]
 ```diff
 + [Invalid] EF - Bellatrix - Sanity - Blocks - invalid_all_zeroed_sig [Preset: minimal]      OK
@@ -1080,7 +1027,6 @@ OK: 42/42 Fail: 0/42 Skip: 0/42
 + [Valid]   EF - Bellatrix - Sanity - Blocks - sync_committee_committee_genesis__half [Prese OK
 + [Valid]   EF - Bellatrix - Sanity - Blocks - voluntary_exit [Preset: minimal]              OK
 ```
-OK: 55/55 Fail: 0/55 Skip: 0/55
 ## EF - Bellatrix - Sanity - Slots  [Preset: minimal]
 ```diff
 + EF - Bellatrix - Slots - double_empty_epoch [Preset: minimal]                              OK
@@ -1090,7 +1036,6 @@ OK: 55/55 Fail: 0/55 Skip: 0/55
 + EF - Bellatrix - Slots - slots_1 [Preset: minimal]                                         OK
 + EF - Bellatrix - Slots - slots_2 [Preset: minimal]                                         OK
 ```
-OK: 6/6 Fail: 0/6 Skip: 0/6
 ## EF - Bellatrix - Transition  [Preset: minimal]
 ```diff
 + EF - Bellatrix - Transition - non_empty_historical_roots [Preset: minimal]                 OK
@@ -1120,23 +1065,19 @@ OK: 6/6 Fail: 0/6 Skip: 0/6
 + EF - Bellatrix - Transition - transition_with_voluntary_exit_right_after_fork [Preset: min OK
 + EF - Bellatrix - Transition - transition_with_voluntary_exit_right_before_fork [Preset: mi OK
 ```
-OK: 26/26 Fail: 0/26 Skip: 0/26
 ## EF - Capella - Epoch Processing - Effective balance updates [Preset: minimal]
 ```diff
 + Effective balance updates - effective_balance_hysteresis [Preset: minimal]                 OK
 ```
-OK: 1/1 Fail: 0/1 Skip: 0/1
 ## EF - Capella - Epoch Processing - Eth1 data reset [Preset: minimal]
 ```diff
 + Eth1 data reset - eth1_vote_no_reset [Preset: minimal]                                     OK
 + Eth1 data reset - eth1_vote_reset [Preset: minimal]                                        OK
 ```
-OK: 2/2 Fail: 0/2 Skip: 0/2
 ## EF - Capella - Epoch Processing - Historical summaries update [Preset: minimal]
 ```diff
 + Historical summaries update - historical_summaries_accumulator [Preset: minimal]           OK
 ```
-OK: 1/1 Fail: 0/1 Skip: 0/1
 ## EF - Capella - Epoch Processing - Inactivity [Preset: minimal]
 ```diff
 + Inactivity - all_zero_inactivity_scores_empty_participation [Preset: minimal]              OK
@@ -1161,7 +1102,6 @@ OK: 1/1 Fail: 0/1 Skip: 0/1
 + Inactivity - some_slashed_zero_scores_full_participation [Preset: minimal]                 OK
 + Inactivity - some_slashed_zero_scores_full_participation_leaking [Preset: minimal]         OK
 ```
-OK: 21/21 Fail: 0/21 Skip: 0/21
 ## EF - Capella - Epoch Processing - Justification & Finalization [Preset: minimal]
 ```diff
 + Justification & Finalization - 123_ok_support [Preset: minimal]                            OK
@@ -1175,7 +1115,6 @@ OK: 21/21 Fail: 0/21 Skip: 0/21
 + Justification & Finalization - 23_poor_support [Preset: minimal]                           OK
 + Justification & Finalization - balance_threshold_with_exited_validators [Preset: minimal]  OK
 ```
-OK: 10/10 Fail: 0/10 Skip: 0/10
 ## EF - Capella - Epoch Processing - Participation flag updates [Preset: minimal]
 ```diff
 + Participation flag updates - all_zeroed [Preset: minimal]                                  OK
@@ -1191,12 +1130,10 @@ OK: 10/10 Fail: 0/10 Skip: 0/10
 + Participation flag updates - random_genesis [Preset: minimal]                              OK
 + Participation flag updates - slightly_larger_random [Preset: minimal]                      OK
 ```
-OK: 12/12 Fail: 0/12 Skip: 0/12
 ## EF - Capella - Epoch Processing - RANDAO mixes reset [Preset: minimal]
 ```diff
 + RANDAO mixes reset - updated_randao_mixes [Preset: minimal]                                OK
 ```
-OK: 1/1 Fail: 0/1 Skip: 0/1
 ## EF - Capella - Epoch Processing - Registry updates [Preset: minimal]
 ```diff
 + Registry updates - activation_queue_activation_and_ejection__1 [Preset: minimal]           OK
@@ -1215,7 +1152,6 @@ OK: 1/1 Fail: 0/1 Skip: 0/1
 + Registry updates - ejection_past_churn_limit_scaled [Preset: minimal]                      OK
 + Registry updates - invalid_large_withdrawable_epoch [Preset: minimal]                      OK
 ```
-OK: 15/15 Fail: 0/15 Skip: 0/15
 ## EF - Capella - Epoch Processing - Rewards and penalties [Preset: minimal]
 ```diff
 + Rewards and penalties - almost_empty_attestations [Preset: minimal]                        OK
@@ -1234,7 +1170,6 @@ OK: 15/15 Fail: 0/15 Skip: 0/15
 + Rewards and penalties - random_fill_attestations [Preset: minimal]                         OK
 + Rewards and penalties - random_fill_attestations_with_leak [Preset: minimal]               OK
 ```
-OK: 15/15 Fail: 0/15 Skip: 0/15
 ## EF - Capella - Epoch Processing - Slashings [Preset: minimal]
 ```diff
 + Slashings - low_penalty [Preset: minimal]                                                  OK
@@ -1243,12 +1178,10 @@ OK: 15/15 Fail: 0/15 Skip: 0/15
 + Slashings - scaled_penalties [Preset: minimal]                                             OK
 + Slashings - slashings_with_random_state [Preset: minimal]                                  OK
 ```
-OK: 5/5 Fail: 0/5 Skip: 0/5
 ## EF - Capella - Epoch Processing - Slashings reset [Preset: minimal]
 ```diff
 + Slashings reset - flush_slashings [Preset: minimal]                                        OK
 ```
-OK: 1/1 Fail: 0/1 Skip: 0/1
 ## EF - Capella - Epoch Processing - Sync committee updates [Preset: minimal]
 ```diff
 + Sync committee updates - sync_committees_no_progress_not_at_period_boundary [Preset: minim OK
@@ -1257,7 +1190,6 @@ OK: 1/1 Fail: 0/1 Skip: 0/1
 + Sync committee updates - sync_committees_progress_misc_balances_not_genesis [Preset: minim OK
 + Sync committee updates - sync_committees_progress_not_genesis [Preset: minimal]            OK
 ```
-OK: 5/5 Fail: 0/5 Skip: 0/5
 ## EF - Capella - Finality  [Preset: minimal]
 ```diff
 + [Valid]   EF - Capella - Finality - finality_no_updates_at_genesis [Preset: minimal]       OK
@@ -1266,7 +1198,6 @@ OK: 5/5 Fail: 0/5 Skip: 0/5
 + [Valid]   EF - Capella - Finality - finality_rule_3 [Preset: minimal]                      OK
 + [Valid]   EF - Capella - Finality - finality_rule_4 [Preset: minimal]                      OK
 ```
-OK: 5/5 Fail: 0/5 Skip: 0/5
 ## EF - Capella - Fork  [Preset: minimal]
 ```diff
 + EF - Capella - Fork - capella_fork_random_0 [Preset: minimal]                              OK
@@ -1284,7 +1215,6 @@ OK: 5/5 Fail: 0/5 Skip: 0/5
 + EF - Capella - Fork - fork_random_low_balances [Preset: minimal]                           OK
 + EF - Capella - Fork - fork_random_misc_balances [Preset: minimal]                          OK
 ```
-OK: 14/14 Fail: 0/14 Skip: 0/14
 ## EF - Capella - Operations - Attestation  [Preset: minimal]
 ```diff
 + [Invalid] EF - Capella - Operations - Attestation - invalid_after_max_inclusion_slot       OK
@@ -1329,7 +1259,6 @@ OK: 14/14 Fail: 0/14 Skip: 0/14
 + [Valid]   EF - Capella - Operations - Attestation - one_basic_attestation                  OK
 + [Valid]   EF - Capella - Operations - Attestation - previous_epoch                         OK
 ```
-OK: 41/41 Fail: 0/41 Skip: 0/41
 ## EF - Capella - Operations - Attester Slashing  [Preset: minimal]
 ```diff
 + [Invalid] EF - Capella - Operations - Attester Slashing - invalid_all_empty_indices        OK
@@ -1363,7 +1292,6 @@ OK: 41/41 Fail: 0/41 Skip: 0/41
 + [Valid]   EF - Capella - Operations - Attester Slashing - proposer_index_slashed           OK
 + [Valid]   EF - Capella - Operations - Attester Slashing - with_effective_balance_disparity OK
 ```
-OK: 30/30 Fail: 0/30 Skip: 0/30
 ## EF - Capella - Operations - BLS to execution change  [Preset: minimal]
 ```diff
 + [Invalid] EF - Capella - Operations - BLS to execution change - invalid_already_0x01       OK
@@ -1381,7 +1309,6 @@ OK: 30/30 Fail: 0/30 Skip: 0/30
 + [Valid]   EF - Capella - Operations - BLS to execution change - success_not_activated      OK
 + [Valid]   EF - Capella - Operations - BLS to execution change - success_withdrawable       OK
 ```
-OK: 14/14 Fail: 0/14 Skip: 0/14
 ## EF - Capella - Operations - Block Header  [Preset: minimal]
 ```diff
 + [Invalid] EF - Capella - Operations - Block Header - invalid_multiple_blocks_single_slot   OK
@@ -1391,7 +1318,6 @@ OK: 14/14 Fail: 0/14 Skip: 0/14
 + [Invalid] EF - Capella - Operations - Block Header - invalid_slot_block_header             OK
 + [Valid]   EF - Capella - Operations - Block Header - basic_block_header                    OK
 ```
-OK: 6/6 Fail: 0/6 Skip: 0/6
 ## EF - Capella - Operations - Deposit  [Preset: minimal]
 ```diff
 + [Invalid] EF - Capella - Operations - Deposit - invalid_bad_merkle_proof                   OK
@@ -1416,7 +1342,6 @@ OK: 6/6 Fail: 0/6 Skip: 0/6
 + [Valid]   EF - Capella - Operations - Deposit - top_up__max_effective_balance              OK
 + [Valid]   EF - Capella - Operations - Deposit - top_up__zero_balance                       OK
 ```
-OK: 21/21 Fail: 0/21 Skip: 0/21
 ## EF - Capella - Operations - Execution Payload  [Preset: minimal]
 ```diff
 + [Invalid] EF - Capella - Operations - Execution Payload - invalid_bad_everything_first_pay OK
@@ -1446,7 +1371,6 @@ OK: 21/21 Fail: 0/21 Skip: 0/21
 + [Valid]   EF - Capella - Operations - Execution Payload - zero_length_transaction_first_pa OK
 + [Valid]   EF - Capella - Operations - Execution Payload - zero_length_transaction_regular_ OK
 ```
-OK: 26/26 Fail: 0/26 Skip: 0/26
 ## EF - Capella - Operations - Proposer Slashing  [Preset: minimal]
 ```diff
 + [Invalid] EF - Capella - Operations - Proposer Slashing - invalid_different_proposer_indic OK
@@ -1465,7 +1389,6 @@ OK: 26/26 Fail: 0/26 Skip: 0/26
 + [Valid]   EF - Capella - Operations - Proposer Slashing - block_header_from_future         OK
 + [Valid]   EF - Capella - Operations - Proposer Slashing - slashed_and_proposer_index_the_s OK
 ```
-OK: 15/15 Fail: 0/15 Skip: 0/15
 ## EF - Capella - Operations - Sync Aggregate  [Preset: minimal]
 ```diff
 + [Invalid] EF - Capella - Operations - Sync Aggregate - invalid_signature_bad_domain        OK
@@ -1493,7 +1416,6 @@ OK: 15/15 Fail: 0/15 Skip: 0/15
 + [Valid]   EF - Capella - Operations - Sync Aggregate - sync_committee_with_participating_w OK
 + [Valid]   EF - Capella - Operations - Sync Aggregate - valid_signature_future_committee    OK
 ```
-OK: 24/24 Fail: 0/24 Skip: 0/24
 ## EF - Capella - Operations - Voluntary Exit  [Preset: minimal]
 ```diff
 + [Invalid] EF - Capella - Operations - Voluntary Exit - invalid_incorrect_signature         OK
@@ -1513,7 +1435,6 @@ OK: 24/24 Fail: 0/24 Skip: 0/24
 + [Valid]   EF - Capella - Operations - Voluntary Exit - voluntary_exit_with_current_fork_ve OK
 + [Valid]   EF - Capella - Operations - Voluntary Exit - voluntary_exit_with_previous_fork_v OK
 ```
-OK: 16/16 Fail: 0/16 Skip: 0/16
 ## EF - Capella - Operations - Withdrawals  [Preset: minimal]
 ```diff
 + [Invalid] EF - Capella - Operations - Withdrawals - invalid_a_lot_fully_withdrawable_too_f OK
@@ -1571,7 +1492,6 @@ OK: 16/16 Fail: 0/16 Skip: 0/16
 + [Valid]   EF - Capella - Operations - Withdrawals - withdrawable_epoch_but_0_effective_bal OK
 + [Valid]   EF - Capella - Operations - Withdrawals - withdrawable_epoch_but_0_effective_bal OK
 ```
-OK: 54/54 Fail: 0/54 Skip: 0/54
 ## EF - Capella - Random  [Preset: minimal]
 ```diff
 + [Valid]   EF - Capella - Random - randomized_0 [Preset: minimal]                           OK
@@ -1591,7 +1511,6 @@ OK: 54/54 Fail: 0/54 Skip: 0/54
 + [Valid]   EF - Capella - Random - randomized_8 [Preset: minimal]                           OK
 + [Valid]   EF - Capella - Random - randomized_9 [Preset: minimal]                           OK
 ```
-OK: 16/16 Fail: 0/16 Skip: 0/16
 ## EF - Capella - Rewards  [Preset: minimal]
 ```diff
 + EF - Capella - Rewards - all_balances_too_low_for_reward [Preset: minimal]                 OK
@@ -1629,7 +1548,6 @@ OK: 16/16 Fail: 0/16 Skip: 0/16
 + EF - Capella - Rewards - with_slashed_validators [Preset: minimal]                         OK
 + EF - Capella - Rewards - with_slashed_validators_leak [Preset: minimal]                    OK
 ```
-OK: 34/34 Fail: 0/34 Skip: 0/34
 ## EF - Capella - SSZ consensus objects  [Preset: minimal]
 ```diff
 +   Testing    AggregateAndProof                                                             OK
@@ -1679,7 +1597,6 @@ OK: 34/34 Fail: 0/34 Skip: 0/34
 +   Testing    VoluntaryExit                                                                 OK
 +   Testing    Withdrawal                                                                    OK
 ```
-OK: 46/46 Fail: 0/46 Skip: 0/46
 ## EF - Capella - Sanity - Blocks  [Preset: minimal]
 ```diff
 + [Invalid] EF - Capella - Sanity - Blocks - invalid_all_zeroed_sig [Preset: minimal]        OK
@@ -1752,7 +1669,6 @@ OK: 46/46 Fail: 0/46 Skip: 0/46
 + [Valid]   EF - Capella - Sanity - Blocks - voluntary_exit [Preset: minimal]                OK
 + [Valid]   EF - Capella - Sanity - Blocks - withdrawal_success_two_blocks [Preset: minimal] OK
 ```
-OK: 69/69 Fail: 0/69 Skip: 0/69
 ## EF - Capella - Sanity - Slots  [Preset: minimal]
 ```diff
 + EF - Capella - Slots - double_empty_epoch [Preset: minimal]                                OK
@@ -1762,7 +1678,6 @@ OK: 69/69 Fail: 0/69 Skip: 0/69
 + EF - Capella - Slots - slots_1 [Preset: minimal]                                           OK
 + EF - Capella - Slots - slots_2 [Preset: minimal]                                           OK
 ```
-OK: 6/6 Fail: 0/6 Skip: 0/6
 ## EF - Capella - Transition  [Preset: minimal]
 ```diff
 + EF - Capella - Transition - non_empty_historical_roots [Preset: minimal]                   OK
@@ -1792,7 +1707,6 @@ OK: 6/6 Fail: 0/6 Skip: 0/6
 + EF - Capella - Transition - transition_with_voluntary_exit_right_after_fork [Preset: minim OK
 + EF - Capella - Transition - transition_with_voluntary_exit_right_before_fork [Preset: mini OK
 ```
-OK: 26/26 Fail: 0/26 Skip: 0/26
 ## EF - Capella - Unittests - Light client - Sync protocol [Preset: minimal]
 ```diff
 + process_light_client_update_finality_updated                                               OK
@@ -1800,23 +1714,19 @@ OK: 26/26 Fail: 0/26 Skip: 0/26
 + test_process_light_client_update_at_period_boundary                                        OK
 + test_process_light_client_update_not_timeout                                               OK
 ```
-OK: 4/4 Fail: 0/4 Skip: 0/4
 ## EF - Deneb - Epoch Processing - Effective balance updates [Preset: minimal]
 ```diff
 + Effective balance updates - effective_balance_hysteresis [Preset: minimal]                 OK
 ```
-OK: 1/1 Fail: 0/1 Skip: 0/1
 ## EF - Deneb - Epoch Processing - Eth1 data reset [Preset: minimal]
 ```diff
 + Eth1 data reset - eth1_vote_no_reset [Preset: minimal]                                     OK
 + Eth1 data reset - eth1_vote_reset [Preset: minimal]                                        OK
 ```
-OK: 2/2 Fail: 0/2 Skip: 0/2
 ## EF - Deneb - Epoch Processing - Historical summaries update [Preset: minimal]
 ```diff
 + Historical summaries update - historical_summaries_accumulator [Preset: minimal]           OK
 ```
-OK: 1/1 Fail: 0/1 Skip: 0/1
 ## EF - Deneb - Epoch Processing - Inactivity [Preset: minimal]
 ```diff
 + Inactivity - all_zero_inactivity_scores_empty_participation [Preset: minimal]              OK
@@ -1841,7 +1751,6 @@ OK: 1/1 Fail: 0/1 Skip: 0/1
 + Inactivity - some_slashed_zero_scores_full_participation [Preset: minimal]                 OK
 + Inactivity - some_slashed_zero_scores_full_participation_leaking [Preset: minimal]         OK
 ```
-OK: 21/21 Fail: 0/21 Skip: 0/21
 ## EF - Deneb - Epoch Processing - Justification & Finalization [Preset: minimal]
 ```diff
 + Justification & Finalization - 123_ok_support [Preset: minimal]                            OK
@@ -1855,7 +1764,6 @@ OK: 21/21 Fail: 0/21 Skip: 0/21
 + Justification & Finalization - 23_poor_support [Preset: minimal]                           OK
 + Justification & Finalization - balance_threshold_with_exited_validators [Preset: minimal]  OK
 ```
-OK: 10/10 Fail: 0/10 Skip: 0/10
 ## EF - Deneb - Epoch Processing - Participation flag updates [Preset: minimal]
 ```diff
 + Participation flag updates - all_zeroed [Preset: minimal]                                  OK
@@ -1871,12 +1779,10 @@ OK: 10/10 Fail: 0/10 Skip: 0/10
 + Participation flag updates - random_genesis [Preset: minimal]                              OK
 + Participation flag updates - slightly_larger_random [Preset: minimal]                      OK
 ```
-OK: 12/12 Fail: 0/12 Skip: 0/12
 ## EF - Deneb - Epoch Processing - RANDAO mixes reset [Preset: minimal]
 ```diff
 + RANDAO mixes reset - updated_randao_mixes [Preset: minimal]                                OK
 ```
-OK: 1/1 Fail: 0/1 Skip: 0/1
 ## EF - Deneb - Epoch Processing - Registry updates [Preset: minimal]
 ```diff
 + Registry updates - activation_churn_limit__equal_to_activation_limit [Preset: minimal]     OK
@@ -1898,7 +1804,6 @@ OK: 1/1 Fail: 0/1 Skip: 0/1
 + Registry updates - ejection_past_churn_limit_scaled [Preset: minimal]                      OK
 + Registry updates - invalid_large_withdrawable_epoch [Preset: minimal]                      OK
 ```
-OK: 18/18 Fail: 0/18 Skip: 0/18
 ## EF - Deneb - Epoch Processing - Rewards and penalties [Preset: minimal]
 ```diff
 + Rewards and penalties - almost_empty_attestations [Preset: minimal]                        OK
@@ -1917,7 +1822,6 @@ OK: 18/18 Fail: 0/18 Skip: 0/18
 + Rewards and penalties - random_fill_attestations [Preset: minimal]                         OK
 + Rewards and penalties - random_fill_attestations_with_leak [Preset: minimal]               OK
 ```
-OK: 15/15 Fail: 0/15 Skip: 0/15
 ## EF - Deneb - Epoch Processing - Slashings [Preset: minimal]
 ```diff
 + Slashings - low_penalty [Preset: minimal]                                                  OK
@@ -1926,12 +1830,10 @@ OK: 15/15 Fail: 0/15 Skip: 0/15
 + Slashings - scaled_penalties [Preset: minimal]                                             OK
 + Slashings - slashings_with_random_state [Preset: minimal]                                  OK
 ```
-OK: 5/5 Fail: 0/5 Skip: 0/5
 ## EF - Deneb - Epoch Processing - Slashings reset [Preset: minimal]
 ```diff
 + Slashings reset - flush_slashings [Preset: minimal]                                        OK
 ```
-OK: 1/1 Fail: 0/1 Skip: 0/1
 ## EF - Deneb - Epoch Processing - Sync committee updates [Preset: minimal]
 ```diff
 + Sync committee updates - sync_committees_no_progress_not_at_period_boundary [Preset: minim OK
@@ -1940,7 +1842,6 @@ OK: 1/1 Fail: 0/1 Skip: 0/1
 + Sync committee updates - sync_committees_progress_misc_balances_not_genesis [Preset: minim OK
 + Sync committee updates - sync_committees_progress_not_genesis [Preset: minimal]            OK
 ```
-OK: 5/5 Fail: 0/5 Skip: 0/5
 ## EF - Deneb - Finality  [Preset: minimal]
 ```diff
 + [Valid]   EF - Deneb - Finality - finality_no_updates_at_genesis [Preset: minimal]         OK
@@ -1949,7 +1850,6 @@ OK: 5/5 Fail: 0/5 Skip: 0/5
 + [Valid]   EF - Deneb - Finality - finality_rule_3 [Preset: minimal]                        OK
 + [Valid]   EF - Deneb - Finality - finality_rule_4 [Preset: minimal]                        OK
 ```
-OK: 5/5 Fail: 0/5 Skip: 0/5
 ## EF - Deneb - Fork  [Preset: minimal]
 ```diff
 + EF - Deneb - Fork - deneb_fork_random_0 [Preset: minimal]                                  OK
@@ -1967,7 +1867,6 @@ OK: 5/5 Fail: 0/5 Skip: 0/5
 + EF - Deneb - Fork - fork_random_low_balances [Preset: minimal]                             OK
 + EF - Deneb - Fork - fork_random_misc_balances [Preset: minimal]                            OK
 ```
-OK: 14/14 Fail: 0/14 Skip: 0/14
 ## EF - Deneb - Operations - Attestation  [Preset: minimal]
 ```diff
 + [Invalid] EF - Deneb - Operations - Attestation - invalid_after_max_inclusion_slot         OK
@@ -2012,7 +1911,6 @@ OK: 14/14 Fail: 0/14 Skip: 0/14
 + [Valid]   EF - Deneb - Operations - Attestation - one_basic_attestation                    OK
 + [Valid]   EF - Deneb - Operations - Attestation - previous_epoch                           OK
 ```
-OK: 41/41 Fail: 0/41 Skip: 0/41
 ## EF - Deneb - Operations - Attester Slashing  [Preset: minimal]
 ```diff
 + [Invalid] EF - Deneb - Operations - Attester Slashing - invalid_all_empty_indices          OK
@@ -2046,7 +1944,6 @@ OK: 41/41 Fail: 0/41 Skip: 0/41
 + [Valid]   EF - Deneb - Operations - Attester Slashing - proposer_index_slashed             OK
 + [Valid]   EF - Deneb - Operations - Attester Slashing - with_effective_balance_disparity   OK
 ```
-OK: 30/30 Fail: 0/30 Skip: 0/30
 ## EF - Deneb - Operations - BLS to execution change  [Preset: minimal]
 ```diff
 + [Invalid] EF - Deneb - Operations - BLS to execution change - invalid_already_0x01         OK
@@ -2064,7 +1961,6 @@ OK: 30/30 Fail: 0/30 Skip: 0/30
 + [Valid]   EF - Deneb - Operations - BLS to execution change - success_not_activated        OK
 + [Valid]   EF - Deneb - Operations - BLS to execution change - success_withdrawable         OK
 ```
-OK: 14/14 Fail: 0/14 Skip: 0/14
 ## EF - Deneb - Operations - Block Header  [Preset: minimal]
 ```diff
 + [Invalid] EF - Deneb - Operations - Block Header - invalid_multiple_blocks_single_slot     OK
@@ -2074,7 +1970,6 @@ OK: 14/14 Fail: 0/14 Skip: 0/14
 + [Invalid] EF - Deneb - Operations - Block Header - invalid_slot_block_header               OK
 + [Valid]   EF - Deneb - Operations - Block Header - basic_block_header                      OK
 ```
-OK: 6/6 Fail: 0/6 Skip: 0/6
 ## EF - Deneb - Operations - Deposit  [Preset: minimal]
 ```diff
 + [Invalid] EF - Deneb - Operations - Deposit - invalid_bad_merkle_proof                     OK
@@ -2099,7 +1994,6 @@ OK: 6/6 Fail: 0/6 Skip: 0/6
 + [Valid]   EF - Deneb - Operations - Deposit - top_up__max_effective_balance                OK
 + [Valid]   EF - Deneb - Operations - Deposit - top_up__zero_balance                         OK
 ```
-OK: 21/21 Fail: 0/21 Skip: 0/21
 ## EF - Deneb - Operations - Execution Payload  [Preset: minimal]
 ```diff
 + [Invalid] EF - Deneb - Operations - Execution Payload - invalid_bad_everything_first_paylo OK
@@ -2143,7 +2037,6 @@ OK: 21/21 Fail: 0/21 Skip: 0/21
 + [Valid]   EF - Deneb - Operations - Execution Payload - zero_length_transaction_regular_pa OK
 + [Valid]   EF - Deneb - Operations - Execution Payload - zeroed_commitment                  OK
 ```
-OK: 40/40 Fail: 0/40 Skip: 0/40
 ## EF - Deneb - Operations - Proposer Slashing  [Preset: minimal]
 ```diff
 + [Invalid] EF - Deneb - Operations - Proposer Slashing - invalid_different_proposer_indices OK
@@ -2162,7 +2055,6 @@ OK: 40/40 Fail: 0/40 Skip: 0/40
 + [Valid]   EF - Deneb - Operations - Proposer Slashing - block_header_from_future           OK
 + [Valid]   EF - Deneb - Operations - Proposer Slashing - slashed_and_proposer_index_the_sam OK
 ```
-OK: 15/15 Fail: 0/15 Skip: 0/15
 ## EF - Deneb - Operations - Sync Aggregate  [Preset: minimal]
 ```diff
 + [Invalid] EF - Deneb - Operations - Sync Aggregate - invalid_signature_bad_domain          OK
@@ -2190,7 +2082,6 @@ OK: 15/15 Fail: 0/15 Skip: 0/15
 + [Valid]   EF - Deneb - Operations - Sync Aggregate - sync_committee_with_participating_wit OK
 + [Valid]   EF - Deneb - Operations - Sync Aggregate - valid_signature_future_committee      OK
 ```
-OK: 24/24 Fail: 0/24 Skip: 0/24
 ## EF - Deneb - Operations - Voluntary Exit  [Preset: minimal]
 ```diff
 + [Invalid] EF - Deneb - Operations - Voluntary Exit - invalid_incorrect_signature           OK
@@ -2210,7 +2101,6 @@ OK: 24/24 Fail: 0/24 Skip: 0/24
 + [Valid]   EF - Deneb - Operations - Voluntary Exit - voluntary_exit_with_previous_fork_ver OK
 + [Valid]   EF - Deneb - Operations - Voluntary Exit - voluntary_exit_with_previous_fork_ver OK
 ```
-OK: 16/16 Fail: 0/16 Skip: 0/16
 ## EF - Deneb - Operations - Withdrawals  [Preset: minimal]
 ```diff
 + [Invalid] EF - Deneb - Operations - Withdrawals - invalid_a_lot_fully_withdrawable_too_few OK
@@ -2268,7 +2158,6 @@ OK: 16/16 Fail: 0/16 Skip: 0/16
 + [Valid]   EF - Deneb - Operations - Withdrawals - withdrawable_epoch_but_0_effective_balan OK
 + [Valid]   EF - Deneb - Operations - Withdrawals - withdrawable_epoch_but_0_effective_balan OK
 ```
-OK: 54/54 Fail: 0/54 Skip: 0/54
 ## EF - Deneb - Random  [Preset: minimal]
 ```diff
 + [Valid]   EF - Deneb - Random - randomized_0 [Preset: minimal]                             OK
@@ -2288,7 +2177,6 @@ OK: 54/54 Fail: 0/54 Skip: 0/54
 + [Valid]   EF - Deneb - Random - randomized_8 [Preset: minimal]                             OK
 + [Valid]   EF - Deneb - Random - randomized_9 [Preset: minimal]                             OK
 ```
-OK: 16/16 Fail: 0/16 Skip: 0/16
 ## EF - Deneb - Rewards  [Preset: minimal]
 ```diff
 + EF - Deneb - Rewards - all_balances_too_low_for_reward [Preset: minimal]                   OK
@@ -2326,7 +2214,6 @@ OK: 16/16 Fail: 0/16 Skip: 0/16
 + EF - Deneb - Rewards - with_slashed_validators [Preset: minimal]                           OK
 + EF - Deneb - Rewards - with_slashed_validators_leak [Preset: minimal]                      OK
 ```
-OK: 34/34 Fail: 0/34 Skip: 0/34
 ## EF - Deneb - SSZ consensus objects  [Preset: minimal]
 ```diff
 +   Testing    AggregateAndProof                                                             OK
@@ -2378,7 +2265,6 @@ OK: 34/34 Fail: 0/34 Skip: 0/34
 +   Testing    VoluntaryExit                                                                 OK
 +   Testing    Withdrawal                                                                    OK
 ```
-OK: 48/48 Fail: 0/48 Skip: 0/48
 ## EF - Deneb - Sanity - Blocks  [Preset: minimal]
 ```diff
 + [Invalid] EF - Deneb - Sanity - Blocks - invalid_all_zeroed_sig [Preset: minimal]          OK
@@ -2460,7 +2346,6 @@ OK: 48/48 Fail: 0/48 Skip: 0/48
 + [Valid]   EF - Deneb - Sanity - Blocks - withdrawal_success_two_blocks [Preset: minimal]   OK
 + [Valid]   EF - Deneb - Sanity - Blocks - zero_blob [Preset: minimal]                       OK
 ```
-OK: 78/78 Fail: 0/78 Skip: 0/78
 ## EF - Deneb - Sanity - Slots  [Preset: minimal]
 ```diff
 + EF - Deneb - Slots - double_empty_epoch [Preset: minimal]                                  OK
@@ -2470,7 +2355,6 @@ OK: 78/78 Fail: 0/78 Skip: 0/78
 + EF - Deneb - Slots - slots_1 [Preset: minimal]                                             OK
 + EF - Deneb - Slots - slots_2 [Preset: minimal]                                             OK
 ```
-OK: 6/6 Fail: 0/6 Skip: 0/6
 ## EF - Deneb - Transition  [Preset: minimal]
 ```diff
 + EF - Deneb - Transition - higher_churn_limit_to_lower [Preset: minimal]                    OK
@@ -2504,7 +2388,6 @@ OK: 6/6 Fail: 0/6 Skip: 0/6
 + EF - Deneb - Transition - transition_with_voluntary_exit_right_after_fork [Preset: minimal OK
 + EF - Deneb - Transition - transition_with_voluntary_exit_right_before_fork [Preset: minima OK
 ```
-OK: 30/30 Fail: 0/30 Skip: 0/30
 ## EF - Deneb - Unittests - Light client - Sync protocol [Preset: minimal]
 ```diff
 + process_light_client_update_finality_updated                                               OK
@@ -2512,24 +2395,20 @@ OK: 30/30 Fail: 0/30 Skip: 0/30
 + test_process_light_client_update_at_period_boundary                                        OK
 + test_process_light_client_update_not_timeout                                               OK
 ```
-OK: 4/4 Fail: 0/4 Skip: 0/4
 ## EF - Electra - Epoch Processing - Effective balance updates [Preset: minimal]
 ```diff
 + Effective balance updates - effective_balance_hysteresis [Preset: minimal]                 OK
 + Effective balance updates - effective_balance_hysteresis_with_compounding_credentials [Pre OK
 ```
-OK: 2/2 Fail: 0/2 Skip: 0/2
 ## EF - Electra - Epoch Processing - Eth1 data reset [Preset: minimal]
 ```diff
 + Eth1 data reset - eth1_vote_no_reset [Preset: minimal]                                     OK
 + Eth1 data reset - eth1_vote_reset [Preset: minimal]                                        OK
 ```
-OK: 2/2 Fail: 0/2 Skip: 0/2
 ## EF - Electra - Epoch Processing - Historical summaries update [Preset: minimal]
 ```diff
 + Historical summaries update - historical_summaries_accumulator [Preset: minimal]           OK
 ```
-OK: 1/1 Fail: 0/1 Skip: 0/1
 ## EF - Electra - Epoch Processing - Inactivity [Preset: minimal]
 ```diff
 + Inactivity - all_zero_inactivity_scores_empty_participation [Preset: minimal]              OK
@@ -2554,7 +2433,6 @@ OK: 1/1 Fail: 0/1 Skip: 0/1
 + Inactivity - some_slashed_zero_scores_full_participation [Preset: minimal]                 OK
 + Inactivity - some_slashed_zero_scores_full_participation_leaking [Preset: minimal]         OK
 ```
-OK: 21/21 Fail: 0/21 Skip: 0/21
 ## EF - Electra - Epoch Processing - Justification & Finalization [Preset: minimal]
 ```diff
 + Justification & Finalization - 123_ok_support [Preset: minimal]                            OK
@@ -2568,7 +2446,6 @@ OK: 21/21 Fail: 0/21 Skip: 0/21
 + Justification & Finalization - 23_poor_support [Preset: minimal]                           OK
 + Justification & Finalization - balance_threshold_with_exited_validators [Preset: minimal]  OK
 ```
-OK: 10/10 Fail: 0/10 Skip: 0/10
 ## EF - Electra - Epoch Processing - Participation flag updates [Preset: minimal]
 ```diff
 + Participation flag updates - all_zeroed [Preset: minimal]                                  OK
@@ -2584,7 +2461,6 @@ OK: 10/10 Fail: 0/10 Skip: 0/10
 + Participation flag updates - random_genesis [Preset: minimal]                              OK
 + Participation flag updates - slightly_larger_random [Preset: minimal]                      OK
 ```
-OK: 12/12 Fail: 0/12 Skip: 0/12
 ## EF - Electra - Epoch Processing - Pending consolidations [Preset: minimal]
 ```diff
 + Pending consolidations - all_consolidation_cases_together [Preset: minimal]                OK
@@ -2601,7 +2477,6 @@ OK: 12/12 Fail: 0/12 Skip: 0/12
 + Pending consolidations - pending_consolidation_with_pending_deposit [Preset: minimal]      OK
 + Pending consolidations - skip_consolidation_when_source_slashed [Preset: minimal]          OK
 ```
-OK: 13/13 Fail: 0/13 Skip: 0/13
 ## EF - Electra - Epoch Processing - Pending deposits [Preset: minimal]
 ```diff
 + Pending deposits - apply_pending_deposit_compounding_withdrawal_credentials_max [Preset: m OK
@@ -2650,12 +2525,10 @@ OK: 13/13 Fail: 0/13 Skip: 0/13
 + Pending deposits - process_pending_deposits_withdrawable_validator [Preset: minimal]       OK
 + Pending deposits - process_pending_deposits_withdrawable_validator_not_churned [Preset: mi OK
 ```
-OK: 45/45 Fail: 0/45 Skip: 0/45
 ## EF - Electra - Epoch Processing - RANDAO mixes reset [Preset: minimal]
 ```diff
 + RANDAO mixes reset - updated_randao_mixes [Preset: minimal]                                OK
 ```
-OK: 1/1 Fail: 0/1 Skip: 0/1
 ## EF - Electra - Epoch Processing - Registry updates [Preset: minimal]
 ```diff
 + Registry updates - activation_churn_limit__equal_to_activation_limit [Preset: minimal]     OK
@@ -2682,7 +2555,6 @@ OK: 1/1 Fail: 0/1 Skip: 0/1
 + Registry updates - ejection_past_churn_limit_scaled [Preset: minimal]                      OK
 + Registry updates - invalid_large_withdrawable_epoch [Preset: minimal]                      OK
 ```
-OK: 23/23 Fail: 0/23 Skip: 0/23
 ## EF - Electra - Epoch Processing - Rewards and penalties [Preset: minimal]
 ```diff
 + Rewards and penalties - almost_empty_attestations [Preset: minimal]                        OK
@@ -2701,7 +2573,6 @@ OK: 23/23 Fail: 0/23 Skip: 0/23
 + Rewards and penalties - random_fill_attestations [Preset: minimal]                         OK
 + Rewards and penalties - random_fill_attestations_with_leak [Preset: minimal]               OK
 ```
-OK: 15/15 Fail: 0/15 Skip: 0/15
 ## EF - Electra - Epoch Processing - Slashings [Preset: minimal]
 ```diff
 + Slashings - low_penalty [Preset: minimal]                                                  OK
@@ -2710,12 +2581,10 @@ OK: 15/15 Fail: 0/15 Skip: 0/15
 + Slashings - scaled_penalties [Preset: minimal]                                             OK
 + Slashings - slashings_with_random_state [Preset: minimal]                                  OK
 ```
-OK: 5/5 Fail: 0/5 Skip: 0/5
 ## EF - Electra - Epoch Processing - Slashings reset [Preset: minimal]
 ```diff
 + Slashings reset - flush_slashings [Preset: minimal]                                        OK
 ```
-OK: 1/1 Fail: 0/1 Skip: 0/1
 ## EF - Electra - Epoch Processing - Sync committee updates [Preset: minimal]
 ```diff
 + Sync committee updates - sync_committees_no_progress_not_at_period_boundary [Preset: minim OK
@@ -2724,7 +2593,6 @@ OK: 1/1 Fail: 0/1 Skip: 0/1
 + Sync committee updates - sync_committees_progress_misc_balances_not_genesis [Preset: minim OK
 + Sync committee updates - sync_committees_progress_not_genesis [Preset: minimal]            OK
 ```
-OK: 5/5 Fail: 0/5 Skip: 0/5
 ## EF - Electra - Finality  [Preset: minimal]
 ```diff
 + [Valid]   EF - Electra - Finality - finality_no_updates_at_genesis [Preset: minimal]       OK
@@ -2733,7 +2601,6 @@ OK: 5/5 Fail: 0/5 Skip: 0/5
 + [Valid]   EF - Electra - Finality - finality_rule_3 [Preset: minimal]                      OK
 + [Valid]   EF - Electra - Finality - finality_rule_4 [Preset: minimal]                      OK
 ```
-OK: 5/5 Fail: 0/5 Skip: 0/5
 ## EF - Electra - Fork  [Preset: minimal]
 ```diff
 + EF - Electra - Fork - electra_fork_random_0 [Preset: minimal]                              OK
@@ -2758,7 +2625,6 @@ OK: 5/5 Fail: 0/5 Skip: 0/5
 + EF - Electra - Fork - fork_random_low_balances [Preset: minimal]                           OK
 + EF - Electra - Fork - fork_random_misc_balances [Preset: minimal]                          OK
 ```
-OK: 21/21 Fail: 0/21 Skip: 0/21
 ## EF - Electra - Operations - Attestation  [Preset: minimal]
 ```diff
 + [Invalid] EF - Electra - Operations - Attestation - invalid_after_max_inclusion_slot       OK
@@ -2811,7 +2677,6 @@ OK: 21/21 Fail: 0/21 Skip: 0/21
 + [Valid]   EF - Electra - Operations - Attestation - one_committee_with_gap                 OK
 + [Valid]   EF - Electra - Operations - Attestation - previous_epoch                         OK
 ```
-OK: 49/49 Fail: 0/49 Skip: 0/49
 ## EF - Electra - Operations - Attester Slashing  [Preset: minimal]
 ```diff
 + [Invalid] EF - Electra - Operations - Attester Slashing - invalid_all_empty_indices        OK
@@ -2845,7 +2710,6 @@ OK: 49/49 Fail: 0/49 Skip: 0/49
 + [Valid]   EF - Electra - Operations - Attester Slashing - proposer_index_slashed           OK
 + [Valid]   EF - Electra - Operations - Attester Slashing - with_effective_balance_disparity OK
 ```
-OK: 30/30 Fail: 0/30 Skip: 0/30
 ## EF - Electra - Operations - BLS to execution change  [Preset: minimal]
 ```diff
 + [Invalid] EF - Electra - Operations - BLS to execution change - invalid_already_0x01       OK
@@ -2863,7 +2727,6 @@ OK: 30/30 Fail: 0/30 Skip: 0/30
 + [Valid]   EF - Electra - Operations - BLS to execution change - success_not_activated      OK
 + [Valid]   EF - Electra - Operations - BLS to execution change - success_withdrawable       OK
 ```
-OK: 14/14 Fail: 0/14 Skip: 0/14
 ## EF - Electra - Operations - Block Header  [Preset: minimal]
 ```diff
 + [Invalid] EF - Electra - Operations - Block Header - invalid_multiple_blocks_single_slot   OK
@@ -2873,7 +2736,6 @@ OK: 14/14 Fail: 0/14 Skip: 0/14
 + [Invalid] EF - Electra - Operations - Block Header - invalid_slot_block_header             OK
 + [Valid]   EF - Electra - Operations - Block Header - basic_block_header                    OK
 ```
-OK: 6/6 Fail: 0/6 Skip: 0/6
 ## EF - Electra - Operations - Consolidation Request  [Preset: minimal]
 ```diff
 + [Valid]   EF - Electra - Operations - Consolidation Request - basic_consolidation_in_curre OK
@@ -2910,7 +2772,6 @@ OK: 6/6 Fail: 0/6 Skip: 0/6
 + [Valid]   EF - Electra - Operations - Consolidation Request - switch_to_compounding_with_e OK
 + [Valid]   EF - Electra - Operations - Consolidation Request - switch_to_compounding_with_p OK
 ```
-OK: 33/33 Fail: 0/33 Skip: 0/33
 ## EF - Electra - Operations - Deposit  [Preset: minimal]
 ```diff
 + [Invalid] EF - Electra - Operations - Deposit - invalid_bad_merkle_proof                   OK
@@ -2935,7 +2796,6 @@ OK: 33/33 Fail: 0/33 Skip: 0/33
 + [Valid]   EF - Electra - Operations - Deposit - top_up__max_effective_balance              OK
 + [Valid]   EF - Electra - Operations - Deposit - top_up__zero_balance                       OK
 ```
-OK: 21/21 Fail: 0/21 Skip: 0/21
 ## EF - Electra - Operations - Deposit Request  [Preset: minimal]
 ```diff
 + [Valid]   EF - Electra - Operations - Deposit Request - process_deposit_request_invalid_si OK
@@ -2947,7 +2807,6 @@ OK: 21/21 Fail: 0/21 Skip: 0/21
 + [Valid]   EF - Electra - Operations - Deposit Request - process_deposit_request_top_up_max OK
 + [Valid]   EF - Electra - Operations - Deposit Request - process_deposit_request_top_up_min OK
 ```
-OK: 8/8 Fail: 0/8 Skip: 0/8
 ## EF - Electra - Operations - Execution Payload  [Preset: minimal]
 ```diff
 + [Invalid] EF - Electra - Operations - Execution Payload - invalid_bad_everything_first_pay OK
@@ -2991,7 +2850,6 @@ OK: 8/8 Fail: 0/8 Skip: 0/8
 + [Valid]   EF - Electra - Operations - Execution Payload - zero_length_transaction_regular_ OK
 + [Valid]   EF - Electra - Operations - Execution Payload - zeroed_commitment                OK
 ```
-OK: 40/40 Fail: 0/40 Skip: 0/40
 ## EF - Electra - Operations - Proposer Slashing  [Preset: minimal]
 ```diff
 + [Invalid] EF - Electra - Operations - Proposer Slashing - invalid_different_proposer_indic OK
@@ -3010,7 +2868,6 @@ OK: 40/40 Fail: 0/40 Skip: 0/40
 + [Valid]   EF - Electra - Operations - Proposer Slashing - block_header_from_future         OK
 + [Valid]   EF - Electra - Operations - Proposer Slashing - slashed_and_proposer_index_the_s OK
 ```
-OK: 15/15 Fail: 0/15 Skip: 0/15
 ## EF - Electra - Operations - Sync Aggregate  [Preset: minimal]
 ```diff
 + [Invalid] EF - Electra - Operations - Sync Aggregate - invalid_signature_bad_domain        OK
@@ -3038,7 +2895,6 @@ OK: 15/15 Fail: 0/15 Skip: 0/15
 + [Valid]   EF - Electra - Operations - Sync Aggregate - sync_committee_with_participating_w OK
 + [Valid]   EF - Electra - Operations - Sync Aggregate - valid_signature_future_committee    OK
 ```
-OK: 24/24 Fail: 0/24 Skip: 0/24
 ## EF - Electra - Operations - Voluntary Exit  [Preset: minimal]
 ```diff
 + [Invalid] EF - Electra - Operations - Voluntary Exit - invalid_incorrect_signature         OK
@@ -3062,7 +2918,6 @@ OK: 24/24 Fail: 0/24 Skip: 0/24
 + [Valid]   EF - Electra - Operations - Voluntary Exit - success_exit_queue__min_churn       OK
 + [Valid]   EF - Electra - Operations - Voluntary Exit - success_exit_queue__scaled_churn    OK
 ```
-OK: 20/20 Fail: 0/20 Skip: 0/20
 ## EF - Electra - Operations - Withdrawal Request  [Preset: minimal]
 ```diff
 + [Valid]   EF - Electra - Operations - Withdrawal Request - activation_epoch_less_than_shar OK
@@ -3095,7 +2950,6 @@ OK: 20/20 Fail: 0/20 Skip: 0/20
 + [Valid]   EF - Electra - Operations - Withdrawal Request - pending_withdrawals_consume_all OK
 + [Valid]   EF - Electra - Operations - Withdrawal Request - unknown_pubkey                  OK
 ```
-OK: 29/29 Fail: 0/29 Skip: 0/29
 ## EF - Electra - Operations - Withdrawals  [Preset: minimal]
 ```diff
 + [Invalid] EF - Electra - Operations - Withdrawals - invalid_a_lot_fully_withdrawable_too_f OK
@@ -3175,7 +3029,6 @@ OK: 29/29 Fail: 0/29 Skip: 0/29
 + [Valid]   EF - Electra - Operations - Withdrawals - withdrawable_epoch_but_0_effective_bal OK
 + [Valid]   EF - Electra - Operations - Withdrawals - withdrawable_epoch_but_0_effective_bal OK
 ```
-OK: 76/76 Fail: 0/76 Skip: 0/76
 ## EF - Electra - Random  [Preset: minimal]
 ```diff
 + [Valid]   EF - Electra - Random - randomized_0 [Preset: minimal]                           OK
@@ -3195,7 +3048,6 @@ OK: 76/76 Fail: 0/76 Skip: 0/76
 + [Valid]   EF - Electra - Random - randomized_8 [Preset: minimal]                           OK
 + [Valid]   EF - Electra - Random - randomized_9 [Preset: minimal]                           OK
 ```
-OK: 16/16 Fail: 0/16 Skip: 0/16
 ## EF - Electra - Rewards  [Preset: minimal]
 ```diff
 + EF - Electra - Rewards - all_balances_too_low_for_reward [Preset: minimal]                 OK
@@ -3233,7 +3085,6 @@ OK: 16/16 Fail: 0/16 Skip: 0/16
 + EF - Electra - Rewards - with_slashed_validators [Preset: minimal]                         OK
 + EF - Electra - Rewards - with_slashed_validators_leak [Preset: minimal]                    OK
 ```
-OK: 34/34 Fail: 0/34 Skip: 0/34
 ## EF - Electra - SSZ consensus objects  [Preset: minimal]
 ```diff
 +   Testing    AggregateAndProof                                                             OK
@@ -3293,7 +3144,6 @@ OK: 34/34 Fail: 0/34 Skip: 0/34
 +   Testing    Withdrawal                                                                    OK
 +   Testing    WithdrawalRequest                                                             OK
 ```
-OK: 56/56 Fail: 0/56 Skip: 0/56
 ## EF - Electra - Sanity - Blocks  [Preset: minimal]
 ```diff
 + [Invalid] EF - Electra - Sanity - Blocks - deposit_transition__invalid_eth1_deposits_overl OK
@@ -3390,7 +3240,6 @@ OK: 56/56 Fail: 0/56 Skip: 0/56
 + [Valid]   EF - Electra - Sanity - Blocks - withdrawal_success_two_blocks [Preset: minimal] OK
 + [Valid]   EF - Electra - Sanity - Blocks - zero_blob [Preset: minimal]                     OK
 ```
-OK: 93/93 Fail: 0/93 Skip: 0/93
 ## EF - Electra - Sanity - Slots  [Preset: minimal]
 ```diff
 + EF - Electra - Slots - double_empty_epoch [Preset: minimal]                                OK
@@ -3405,7 +3254,6 @@ OK: 93/93 Fail: 0/93 Skip: 0/93
 + EF - Electra - Slots - slots_1 [Preset: minimal]                                           OK
 + EF - Electra - Slots - slots_2 [Preset: minimal]                                           OK
 ```
-OK: 11/11 Fail: 0/11 Skip: 0/11
 ## EF - Electra - Transition  [Preset: minimal]
 ```diff
 + EF - Electra - Transition - higher_churn_limit_to_lower [Preset: minimal]                  OK
@@ -3442,7 +3290,6 @@ OK: 11/11 Fail: 0/11 Skip: 0/11
 + EF - Electra - Transition - transition_with_voluntary_exit_right_after_fork [Preset: minim OK
 + EF - Electra - Transition - transition_with_voluntary_exit_right_before_fork [Preset: mini OK
 ```
-OK: 33/33 Fail: 0/33 Skip: 0/33
 ## EF - Electra - Unittests - Light client - Sync protocol [Preset: minimal]
 ```diff
 + process_light_client_update_finality_updated                                               OK
@@ -3450,24 +3297,20 @@ OK: 33/33 Fail: 0/33 Skip: 0/33
 + test_process_light_client_update_at_period_boundary                                        OK
 + test_process_light_client_update_not_timeout                                               OK
 ```
-OK: 4/4 Fail: 0/4 Skip: 0/4
 ## EF - Fulu - Epoch Processing - Effective balance updates [Preset: minimal]
 ```diff
 + Effective balance updates - effective_balance_hysteresis [Preset: minimal]                 OK
 + Effective balance updates - effective_balance_hysteresis_with_compounding_credentials [Pre OK
 ```
-OK: 2/2 Fail: 0/2 Skip: 0/2
 ## EF - Fulu - Epoch Processing - Eth1 data reset [Preset: minimal]
 ```diff
 + Eth1 data reset - eth1_vote_no_reset [Preset: minimal]                                     OK
 + Eth1 data reset - eth1_vote_reset [Preset: minimal]                                        OK
 ```
-OK: 2/2 Fail: 0/2 Skip: 0/2
 ## EF - Fulu - Epoch Processing - Historical summaries update [Preset: minimal]
 ```diff
 + Historical summaries update - historical_summaries_accumulator [Preset: minimal]           OK
 ```
-OK: 1/1 Fail: 0/1 Skip: 0/1
 ## EF - Fulu - Epoch Processing - Inactivity [Preset: minimal]
 ```diff
 + Inactivity - all_zero_inactivity_scores_empty_participation [Preset: minimal]              OK
@@ -3492,7 +3335,6 @@ OK: 1/1 Fail: 0/1 Skip: 0/1
 + Inactivity - some_slashed_zero_scores_full_participation [Preset: minimal]                 OK
 + Inactivity - some_slashed_zero_scores_full_participation_leaking [Preset: minimal]         OK
 ```
-OK: 21/21 Fail: 0/21 Skip: 0/21
 ## EF - Fulu - Epoch Processing - Justification & Finalization [Preset: minimal]
 ```diff
 + Justification & Finalization - 123_ok_support [Preset: minimal]                            OK
@@ -3506,7 +3348,6 @@ OK: 21/21 Fail: 0/21 Skip: 0/21
 + Justification & Finalization - 23_poor_support [Preset: minimal]                           OK
 + Justification & Finalization - balance_threshold_with_exited_validators [Preset: minimal]  OK
 ```
-OK: 10/10 Fail: 0/10 Skip: 0/10
 ## EF - Fulu - Epoch Processing - Participation flag updates [Preset: minimal]
 ```diff
 + Participation flag updates - all_zeroed [Preset: minimal]                                  OK
@@ -3522,7 +3363,6 @@ OK: 10/10 Fail: 0/10 Skip: 0/10
 + Participation flag updates - random_genesis [Preset: minimal]                              OK
 + Participation flag updates - slightly_larger_random [Preset: minimal]                      OK
 ```
-OK: 12/12 Fail: 0/12 Skip: 0/12
 ## EF - Fulu - Epoch Processing - Pending consolidations [Preset: minimal]
 ```diff
 + Pending consolidations - all_consolidation_cases_together [Preset: minimal]                OK
@@ -3539,7 +3379,6 @@ OK: 12/12 Fail: 0/12 Skip: 0/12
 + Pending consolidations - pending_consolidation_with_pending_deposit [Preset: minimal]      OK
 + Pending consolidations - skip_consolidation_when_source_slashed [Preset: minimal]          OK
 ```
-OK: 13/13 Fail: 0/13 Skip: 0/13
 ## EF - Fulu - Epoch Processing - Pending deposits [Preset: minimal]
 ```diff
 + Pending deposits - apply_pending_deposit_compounding_withdrawal_credentials_max [Preset: m OK
@@ -3588,12 +3427,10 @@ OK: 13/13 Fail: 0/13 Skip: 0/13
 + Pending deposits - process_pending_deposits_withdrawable_validator [Preset: minimal]       OK
 + Pending deposits - process_pending_deposits_withdrawable_validator_not_churned [Preset: mi OK
 ```
-OK: 45/45 Fail: 0/45 Skip: 0/45
 ## EF - Fulu - Epoch Processing - RANDAO mixes reset [Preset: minimal]
 ```diff
 + RANDAO mixes reset - updated_randao_mixes [Preset: minimal]                                OK
 ```
-OK: 1/1 Fail: 0/1 Skip: 0/1
 ## EF - Fulu - Epoch Processing - Registry updates [Preset: minimal]
 ```diff
 + Registry updates - activation_churn_limit__equal_to_activation_limit [Preset: minimal]     OK
@@ -3620,7 +3457,6 @@ OK: 1/1 Fail: 0/1 Skip: 0/1
 + Registry updates - ejection_past_churn_limit_scaled [Preset: minimal]                      OK
 + Registry updates - invalid_large_withdrawable_epoch [Preset: minimal]                      OK
 ```
-OK: 23/23 Fail: 0/23 Skip: 0/23
 ## EF - Fulu - Epoch Processing - Rewards and penalties [Preset: minimal]
 ```diff
 + Rewards and penalties - almost_empty_attestations [Preset: minimal]                        OK
@@ -3639,7 +3475,6 @@ OK: 23/23 Fail: 0/23 Skip: 0/23
 + Rewards and penalties - random_fill_attestations [Preset: minimal]                         OK
 + Rewards and penalties - random_fill_attestations_with_leak [Preset: minimal]               OK
 ```
-OK: 15/15 Fail: 0/15 Skip: 0/15
 ## EF - Fulu - Epoch Processing - Slashings [Preset: minimal]
 ```diff
 + Slashings - low_penalty [Preset: minimal]                                                  OK
@@ -3648,12 +3483,10 @@ OK: 15/15 Fail: 0/15 Skip: 0/15
 + Slashings - scaled_penalties [Preset: minimal]                                             OK
 + Slashings - slashings_with_random_state [Preset: minimal]                                  OK
 ```
-OK: 5/5 Fail: 0/5 Skip: 0/5
 ## EF - Fulu - Epoch Processing - Slashings reset [Preset: minimal]
 ```diff
 + Slashings reset - flush_slashings [Preset: minimal]                                        OK
 ```
-OK: 1/1 Fail: 0/1 Skip: 0/1
 ## EF - Fulu - Epoch Processing - Sync committee updates [Preset: minimal]
 ```diff
 + Sync committee updates - sync_committees_no_progress_not_at_period_boundary [Preset: minim OK
@@ -3662,7 +3495,6 @@ OK: 1/1 Fail: 0/1 Skip: 0/1
 + Sync committee updates - sync_committees_progress_misc_balances_not_genesis [Preset: minim OK
 + Sync committee updates - sync_committees_progress_not_genesis [Preset: minimal]            OK
 ```
-OK: 5/5 Fail: 0/5 Skip: 0/5
 ## EF - Fulu - Finality  [Preset: minimal]
 ```diff
 + [Valid]   EF - Fulu - Finality - finality_no_updates_at_genesis [Preset: minimal]          OK
@@ -3671,7 +3503,6 @@ OK: 5/5 Fail: 0/5 Skip: 0/5
 + [Valid]   EF - Fulu - Finality - finality_rule_3 [Preset: minimal]                         OK
 + [Valid]   EF - Fulu - Finality - finality_rule_4 [Preset: minimal]                         OK
 ```
-OK: 5/5 Fail: 0/5 Skip: 0/5
 ## EF - Fulu - Fork  [Preset: minimal]
 ```diff
 + EF - Fulu - Fork - fork_base_state [Preset: minimal]                                       OK
@@ -3689,7 +3520,6 @@ OK: 5/5 Fail: 0/5 Skip: 0/5
 + EF - Fulu - Fork - fulu_fork_random_low_balances [Preset: minimal]                         OK
 + EF - Fulu - Fork - fulu_fork_random_misc_balances [Preset: minimal]                        OK
 ```
-OK: 14/14 Fail: 0/14 Skip: 0/14
 ## EF - Fulu - Operations - Attestation  [Preset: minimal]
 ```diff
 + [Invalid] EF - Fulu - Operations - Attestation - invalid_after_max_inclusion_slot          OK
@@ -3742,7 +3572,6 @@ OK: 14/14 Fail: 0/14 Skip: 0/14
 + [Valid]   EF - Fulu - Operations - Attestation - one_committee_with_gap                    OK
 + [Valid]   EF - Fulu - Operations - Attestation - previous_epoch                            OK
 ```
-OK: 49/49 Fail: 0/49 Skip: 0/49
 ## EF - Fulu - Operations - Attester Slashing  [Preset: minimal]
 ```diff
 + [Invalid] EF - Fulu - Operations - Attester Slashing - invalid_all_empty_indices           OK
@@ -3776,7 +3605,6 @@ OK: 49/49 Fail: 0/49 Skip: 0/49
 + [Valid]   EF - Fulu - Operations - Attester Slashing - proposer_index_slashed              OK
 + [Valid]   EF - Fulu - Operations - Attester Slashing - with_effective_balance_disparity    OK
 ```
-OK: 30/30 Fail: 0/30 Skip: 0/30
 ## EF - Fulu - Operations - BLS to execution change  [Preset: minimal]
 ```diff
 + [Invalid] EF - Fulu - Operations - BLS to execution change - invalid_already_0x01          OK
@@ -3794,7 +3622,6 @@ OK: 30/30 Fail: 0/30 Skip: 0/30
 + [Valid]   EF - Fulu - Operations - BLS to execution change - success_not_activated         OK
 + [Valid]   EF - Fulu - Operations - BLS to execution change - success_withdrawable          OK
 ```
-OK: 14/14 Fail: 0/14 Skip: 0/14
 ## EF - Fulu - Operations - Block Header  [Preset: minimal]
 ```diff
 + [Invalid] EF - Fulu - Operations - Block Header - invalid_multiple_blocks_single_slot      OK
@@ -3804,7 +3631,6 @@ OK: 14/14 Fail: 0/14 Skip: 0/14
 + [Invalid] EF - Fulu - Operations - Block Header - invalid_slot_block_header                OK
 + [Valid]   EF - Fulu - Operations - Block Header - basic_block_header                       OK
 ```
-OK: 6/6 Fail: 0/6 Skip: 0/6
 ## EF - Fulu - Operations - Consolidation Request  [Preset: minimal]
 ```diff
 + [Valid]   EF - Fulu - Operations - Consolidation Request - basic_consolidation_in_current_ OK
@@ -3841,7 +3667,6 @@ OK: 6/6 Fail: 0/6 Skip: 0/6
 + [Valid]   EF - Fulu - Operations - Consolidation Request - switch_to_compounding_with_exce OK
 + [Valid]   EF - Fulu - Operations - Consolidation Request - switch_to_compounding_with_pend OK
 ```
-OK: 33/33 Fail: 0/33 Skip: 0/33
 ## EF - Fulu - Operations - Deposit  [Preset: minimal]
 ```diff
 + [Invalid] EF - Fulu - Operations - Deposit - invalid_bad_merkle_proof                      OK
@@ -3866,7 +3691,6 @@ OK: 33/33 Fail: 0/33 Skip: 0/33
 + [Valid]   EF - Fulu - Operations - Deposit - top_up__max_effective_balance                 OK
 + [Valid]   EF - Fulu - Operations - Deposit - top_up__zero_balance                          OK
 ```
-OK: 21/21 Fail: 0/21 Skip: 0/21
 ## EF - Fulu - Operations - Deposit Request  [Preset: minimal]
 ```diff
 + [Valid]   EF - Fulu - Operations - Deposit Request - process_deposit_request_invalid_sig   OK
@@ -3878,7 +3702,6 @@ OK: 21/21 Fail: 0/21 Skip: 0/21
 + [Valid]   EF - Fulu - Operations - Deposit Request - process_deposit_request_top_up_max_ef OK
 + [Valid]   EF - Fulu - Operations - Deposit Request - process_deposit_request_top_up_min_ac OK
 ```
-OK: 8/8 Fail: 0/8 Skip: 0/8
 ## EF - Fulu - Operations - Execution Payload  [Preset: minimal]
 ```diff
 + [Invalid] EF - Fulu - Operations - Execution Payload - invalid_bad_everything_first_payloa OK
@@ -3922,7 +3745,6 @@ OK: 8/8 Fail: 0/8 Skip: 0/8
 + [Valid]   EF - Fulu - Operations - Execution Payload - zero_length_transaction_regular_pay OK
 + [Valid]   EF - Fulu - Operations - Execution Payload - zeroed_commitment                   OK
 ```
-OK: 40/40 Fail: 0/40 Skip: 0/40
 ## EF - Fulu - Operations - Proposer Slashing  [Preset: minimal]
 ```diff
 + [Invalid] EF - Fulu - Operations - Proposer Slashing - invalid_different_proposer_indices  OK
@@ -3941,7 +3763,6 @@ OK: 40/40 Fail: 0/40 Skip: 0/40
 + [Valid]   EF - Fulu - Operations - Proposer Slashing - block_header_from_future            OK
 + [Valid]   EF - Fulu - Operations - Proposer Slashing - slashed_and_proposer_index_the_same OK
 ```
-OK: 15/15 Fail: 0/15 Skip: 0/15
 ## EF - Fulu - Operations - Sync Aggregate  [Preset: minimal]
 ```diff
 + [Invalid] EF - Fulu - Operations - Sync Aggregate - invalid_signature_bad_domain           OK
@@ -3969,7 +3790,6 @@ OK: 15/15 Fail: 0/15 Skip: 0/15
 + [Valid]   EF - Fulu - Operations - Sync Aggregate - sync_committee_with_participating_with OK
 + [Valid]   EF - Fulu - Operations - Sync Aggregate - valid_signature_future_committee       OK
 ```
-OK: 24/24 Fail: 0/24 Skip: 0/24
 ## EF - Fulu - Operations - Voluntary Exit  [Preset: minimal]
 ```diff
 + [Invalid] EF - Fulu - Operations - Voluntary Exit - invalid_incorrect_signature            OK
@@ -3993,7 +3813,6 @@ OK: 24/24 Fail: 0/24 Skip: 0/24
 + [Valid]   EF - Fulu - Operations - Voluntary Exit - success_exit_queue__min_churn          OK
 + [Valid]   EF - Fulu - Operations - Voluntary Exit - success_exit_queue__scaled_churn       OK
 ```
-OK: 20/20 Fail: 0/20 Skip: 0/20
 ## EF - Fulu - Operations - Withdrawal Request  [Preset: minimal]
 ```diff
 + [Valid]   EF - Fulu - Operations - Withdrawal Request - activation_epoch_less_than_shard_c OK
@@ -4026,7 +3845,6 @@ OK: 20/20 Fail: 0/20 Skip: 0/20
 + [Valid]   EF - Fulu - Operations - Withdrawal Request - pending_withdrawals_consume_all_ex OK
 + [Valid]   EF - Fulu - Operations - Withdrawal Request - unknown_pubkey                     OK
 ```
-OK: 29/29 Fail: 0/29 Skip: 0/29
 ## EF - Fulu - Operations - Withdrawals  [Preset: minimal]
 ```diff
 + [Invalid] EF - Fulu - Operations - Withdrawals - invalid_a_lot_fully_withdrawable_too_few_ OK
@@ -4106,7 +3924,6 @@ OK: 29/29 Fail: 0/29 Skip: 0/29
 + [Valid]   EF - Fulu - Operations - Withdrawals - withdrawable_epoch_but_0_effective_balanc OK
 + [Valid]   EF - Fulu - Operations - Withdrawals - withdrawable_epoch_but_0_effective_balanc OK
 ```
-OK: 76/76 Fail: 0/76 Skip: 0/76
 ## EF - Fulu - Random  [Preset: minimal]
 ```diff
 + [Valid]   EF - Fulu - Random - randomized_0 [Preset: minimal]                              OK
@@ -4126,7 +3943,6 @@ OK: 76/76 Fail: 0/76 Skip: 0/76
 + [Valid]   EF - Fulu - Random - randomized_8 [Preset: minimal]                              OK
 + [Valid]   EF - Fulu - Random - randomized_9 [Preset: minimal]                              OK
 ```
-OK: 16/16 Fail: 0/16 Skip: 0/16
 ## EF - Fulu - Rewards  [Preset: minimal]
 ```diff
 + EF - Fulu - Rewards - all_balances_too_low_for_reward [Preset: minimal]                    OK
@@ -4164,7 +3980,6 @@ OK: 16/16 Fail: 0/16 Skip: 0/16
 + EF - Fulu - Rewards - with_slashed_validators [Preset: minimal]                            OK
 + EF - Fulu - Rewards - with_slashed_validators_leak [Preset: minimal]                       OK
 ```
-OK: 34/34 Fail: 0/34 Skip: 0/34
 ## EF - Fulu - SSZ consensus objects  [Preset: minimal]
 ```diff
 +   Testing    AggregateAndProof                                                             OK
@@ -4227,7 +4042,6 @@ OK: 34/34 Fail: 0/34 Skip: 0/34
 +   Testing    Withdrawal                                                                    OK
 +   Testing    WithdrawalRequest                                                             OK
 ```
-OK: 59/59 Fail: 0/59 Skip: 0/59
 ## EF - Fulu - Sanity - Blocks  [Preset: minimal]
 ```diff
 + [Invalid] EF - Fulu - Sanity - Blocks - invalid_all_zeroed_sig [Preset: minimal]           OK
@@ -4311,7 +4125,6 @@ OK: 59/59 Fail: 0/59 Skip: 0/59
 + [Valid]   EF - Fulu - Sanity - Blocks - withdrawal_success_two_blocks [Preset: minimal]    OK
 + [Valid]   EF - Fulu - Sanity - Blocks - zero_blob [Preset: minimal]                        OK
 ```
-OK: 80/80 Fail: 0/80 Skip: 0/80
 ## EF - Fulu - Sanity - Slots  [Preset: minimal]
 ```diff
 + EF - Fulu - Slots - double_empty_epoch [Preset: minimal]                                   OK
@@ -4326,7 +4139,6 @@ OK: 80/80 Fail: 0/80 Skip: 0/80
 + EF - Fulu - Slots - slots_1 [Preset: minimal]                                              OK
 + EF - Fulu - Slots - slots_2 [Preset: minimal]                                              OK
 ```
-OK: 11/11 Fail: 0/11 Skip: 0/11
 ## EF - Light client - Data collection [Preset: minimal]
 ```diff
 + Light client - Data collection - minimal/altair/light_client/data_collection/pyspec_tests/ OK
@@ -4339,7 +4151,6 @@ OK: 11/11 Fail: 0/11 Skip: 0/11
 + Light client - Data collection - minimal/deneb/light_client/data_collection/pyspec_tests/l OK
 + Light client - Data collection - minimal/electra/light_client/data_collection/pyspec_tests OK
 ```
-OK: 9/9 Fail: 0/9 Skip: 0/9
 ## EF - Light client - Single merkle proof [Preset: minimal]
 ```diff
 + Light client - Single merkle proof - minimal/altair/light_client/single_merkle_proof/Beaco OK
@@ -4362,7 +4173,6 @@ OK: 9/9 Fail: 0/9 Skip: 0/9
 + Light client - Single merkle proof - minimal/electra/light_client/single_merkle_proof/Beac OK
 + Light client - Single merkle proof - minimal/fulu/light_client/single_merkle_proof/BeaconB OK
 ```
-OK: 19/19 Fail: 0/19 Skip: 0/19
 ## EF - Light client - Sync [Preset: minimal]
 ```diff
 + Light client - Sync - minimal/altair/light_client/sync/pyspec_tests/advance_finality_witho OK
@@ -4396,7 +4206,6 @@ OK: 19/19 Fail: 0/19 Skip: 0/19
 + Light client - Sync - minimal/electra/light_client/sync/pyspec_tests/light_client_sync     OK
 + Light client - Sync - minimal/electra/light_client/sync/pyspec_tests/supply_sync_committee OK
 ```
-OK: 30/30 Fail: 0/30 Skip: 0/30
 ## EF - Light client - Update ranking [Preset: minimal]
 ```diff
 + Light client - Update ranking - minimal/altair/light_client/update_ranking/pyspec_tests/up OK
@@ -4405,7 +4214,6 @@ OK: 30/30 Fail: 0/30 Skip: 0/30
 + Light client - Update ranking - minimal/deneb/light_client/update_ranking/pyspec_tests/upd OK
 + Light client - Update ranking - minimal/electra/light_client/update_ranking/pyspec_tests/u OK
 ```
-OK: 5/5 Fail: 0/5 Skip: 0/5
 ## EF - Merkle proof [Preset: minimal]
 ```diff
 + Merkle proof - Single merkle proof - minimal/deneb/merkle_proof/single_merkle_proof/Beacon OK
@@ -4423,23 +4231,19 @@ OK: 5/5 Fail: 0/5 Skip: 0/5
 + Merkle proof - Single merkle proof - minimal/fulu/merkle_proof/single_merkle_proof/BeaconB OK
 + Merkle proof - Single merkle proof - minimal/fulu/merkle_proof/single_merkle_proof/BeaconB OK
 ```
-OK: 14/14 Fail: 0/14 Skip: 0/14
 ## EF - Phase 0 - Epoch Processing - Effective balance updates [Preset: minimal]
 ```diff
 + Effective balance updates - effective_balance_hysteresis [Preset: minimal]                 OK
 ```
-OK: 1/1 Fail: 0/1 Skip: 0/1
 ## EF - Phase 0 - Epoch Processing - Eth1 data reset [Preset: minimal]
 ```diff
 + Eth1 data reset - eth1_vote_no_reset [Preset: minimal]                                     OK
 + Eth1 data reset - eth1_vote_reset [Preset: minimal]                                        OK
 ```
-OK: 2/2 Fail: 0/2 Skip: 0/2
 ## EF - Phase 0 - Epoch Processing - Historical roots update [Preset: minimal]
 ```diff
 + Historical roots update - historical_root_accumulator [Preset: minimal]                    OK
 ```
-OK: 1/1 Fail: 0/1 Skip: 0/1
 ## EF - Phase 0 - Epoch Processing - Justification & Finalization [Preset: minimal]
 ```diff
 + Justification & Finalization - 123_ok_support [Preset: minimal]                            OK
@@ -4453,17 +4257,14 @@ OK: 1/1 Fail: 0/1 Skip: 0/1
 + Justification & Finalization - 23_poor_support [Preset: minimal]                           OK
 + Justification & Finalization - balance_threshold_with_exited_validators [Preset: minimal]  OK
 ```
-OK: 10/10 Fail: 0/10 Skip: 0/10
 ## EF - Phase 0 - Epoch Processing - Participation record updates [Preset: minimal]
 ```diff
 + Participation record updates - updated_participation_record [Preset: minimal]              OK
 ```
-OK: 1/1 Fail: 0/1 Skip: 0/1
 ## EF - Phase 0 - Epoch Processing - RANDAO mixes reset [Preset: minimal]
 ```diff
 + RANDAO mixes reset - updated_randao_mixes [Preset: minimal]                                OK
 ```
-OK: 1/1 Fail: 0/1 Skip: 0/1
 ## EF - Phase 0 - Epoch Processing - Registry updates [Preset: minimal]
 ```diff
 + Registry updates - activation_queue_activation_and_ejection__1 [Preset: minimal]           OK
@@ -4482,7 +4283,6 @@ OK: 1/1 Fail: 0/1 Skip: 0/1
 + Registry updates - ejection_past_churn_limit_scaled [Preset: minimal]                      OK
 + Registry updates - invalid_large_withdrawable_epoch [Preset: minimal]                      OK
 ```
-OK: 15/15 Fail: 0/15 Skip: 0/15
 ## EF - Phase 0 - Epoch Processing - Rewards and penalties [Preset: minimal]
 ```diff
 + Rewards and penalties - almost_empty_attestations [Preset: minimal]                        OK
@@ -4505,7 +4305,6 @@ OK: 15/15 Fail: 0/15 Skip: 0/15
 + Rewards and penalties - random_fill_attestations [Preset: minimal]                         OK
 + Rewards and penalties - random_fill_attestations_with_leak [Preset: minimal]               OK
 ```
-OK: 19/19 Fail: 0/19 Skip: 0/19
 ## EF - Phase 0 - Epoch Processing - Slashings [Preset: minimal]
 ```diff
 + Slashings - low_penalty [Preset: minimal]                                                  OK
@@ -4514,12 +4313,10 @@ OK: 19/19 Fail: 0/19 Skip: 0/19
 + Slashings - scaled_penalties [Preset: minimal]                                             OK
 + Slashings - slashings_with_random_state [Preset: minimal]                                  OK
 ```
-OK: 5/5 Fail: 0/5 Skip: 0/5
 ## EF - Phase 0 - Epoch Processing - Slashings reset [Preset: minimal]
 ```diff
 + Slashings reset - flush_slashings [Preset: minimal]                                        OK
 ```
-OK: 1/1 Fail: 0/1 Skip: 0/1
 ## EF - Phase 0 - Operations - Attestation  [Preset: minimal]
 ```diff
 + [Invalid] EF - Phase 0 - Operations - EF - Phase 0 - Operations - Attestation  [Preset: mi OK
@@ -4564,7 +4361,6 @@ OK: 1/1 Fail: 0/1 Skip: 0/1
 + [Valid]   EF - Phase 0 - Operations - EF - Phase 0 - Operations - Attestation  [Preset: mi OK
 + [Valid]   EF - Phase 0 - Operations - EF - Phase 0 - Operations - Attestation  [Preset: mi OK
 ```
-OK: 41/41 Fail: 0/41 Skip: 0/41
 ## EF - Phase 0 - Operations - Attester Slashing  [Preset: minimal]
 ```diff
 + [Invalid] EF - Phase 0 - Operations - EF - Phase 0 - Operations - Attester Slashing  [Pres OK
@@ -4598,7 +4394,6 @@ OK: 41/41 Fail: 0/41 Skip: 0/41
 + [Valid]   EF - Phase 0 - Operations - EF - Phase 0 - Operations - Attester Slashing  [Pres OK
 + [Valid]   EF - Phase 0 - Operations - EF - Phase 0 - Operations - Attester Slashing  [Pres OK
 ```
-OK: 30/30 Fail: 0/30 Skip: 0/30
 ## EF - Phase 0 - Operations - Block Header  [Preset: minimal]
 ```diff
 + [Invalid] EF - Phase 0 - Operations - EF - Phase 0 - Operations - Block Header  [Preset: m OK
@@ -4608,7 +4403,6 @@ OK: 30/30 Fail: 0/30 Skip: 0/30
 + [Invalid] EF - Phase 0 - Operations - EF - Phase 0 - Operations - Block Header  [Preset: m OK
 + [Valid]   EF - Phase 0 - Operations - EF - Phase 0 - Operations - Block Header  [Preset: m OK
 ```
-OK: 6/6 Fail: 0/6 Skip: 0/6
 ## EF - Phase 0 - Operations - Deposit  [Preset: minimal]
 ```diff
 + [Invalid] EF - Phase 0 - Operations - EF - Phase 0 - Operations - Deposit  [Preset: minima OK
@@ -4629,7 +4423,6 @@ OK: 6/6 Fail: 0/6 Skip: 0/6
 + [Valid]   EF - Phase 0 - Operations - EF - Phase 0 - Operations - Deposit  [Preset: minima OK
 + [Valid]   EF - Phase 0 - Operations - EF - Phase 0 - Operations - Deposit  [Preset: minima OK
 ```
-OK: 17/17 Fail: 0/17 Skip: 0/17
 ## EF - Phase 0 - Operations - Proposer Slashing  [Preset: minimal]
 ```diff
 + [Invalid] EF - Phase 0 - Operations - EF - Phase 0 - Operations - Proposer Slashing  [Pres OK
@@ -4648,7 +4441,6 @@ OK: 17/17 Fail: 0/17 Skip: 0/17
 + [Valid]   EF - Phase 0 - Operations - EF - Phase 0 - Operations - Proposer Slashing  [Pres OK
 + [Valid]   EF - Phase 0 - Operations - EF - Phase 0 - Operations - Proposer Slashing  [Pres OK
 ```
-OK: 15/15 Fail: 0/15 Skip: 0/15
 ## EF - Phase 0 - Operations - Voluntary Exit  [Preset: minimal]
 ```diff
 + [Invalid] EF - Phase 0 - Operations - EF - Phase 0 - Operations - Voluntary Exit  [Preset: OK
@@ -4662,7 +4454,6 @@ OK: 15/15 Fail: 0/15 Skip: 0/15
 + [Valid]   EF - Phase 0 - Operations - EF - Phase 0 - Operations - Voluntary Exit  [Preset: OK
 + [Valid]   EF - Phase 0 - Operations - EF - Phase 0 - Operations - Voluntary Exit  [Preset: OK
 ```
-OK: 10/10 Fail: 0/10 Skip: 0/10
 ## EF - Phase 0 - Rewards  [Preset: minimal]
 ```diff
 + EF - Phase 0 - Rewards - all_balances_too_low_for_reward [Preset: minimal]                 OK
@@ -4715,7 +4506,6 @@ OK: 10/10 Fail: 0/10 Skip: 0/10
 + EF - Phase 0 - Rewards - with_slashed_validators [Preset: minimal]                         OK
 + EF - Phase 0 - Rewards - with_slashed_validators_leak [Preset: minimal]                    OK
 ```
-OK: 49/49 Fail: 0/49 Skip: 0/49
 ## EF - Phase 0 - SSZ consensus objects  [Preset: minimal]
 ```diff
 +   Testing    AggregateAndProof                                                             OK
@@ -4746,7 +4536,6 @@ OK: 49/49 Fail: 0/49 Skip: 0/49
 +   Testing    Validator                                                                     OK
 +   Testing    VoluntaryExit                                                                 OK
 ```
-OK: 27/27 Fail: 0/27 Skip: 0/27
 ## EF - Phase 0 - Sanity - Slots  [Preset: minimal]
 ```diff
 + EF - Phase 0 - Slots - double_empty_epoch [Preset: minimal]                                OK
@@ -4756,7 +4545,6 @@ OK: 27/27 Fail: 0/27 Skip: 0/27
 + EF - Phase 0 - Slots - slots_1 [Preset: minimal]                                           OK
 + EF - Phase 0 - Slots - slots_2 [Preset: minimal]                                           OK
 ```
-OK: 6/6 Fail: 0/6 Skip: 0/6
 ## EF - Phase0 - Finality  [Preset: minimal]
 ```diff
 + [Valid]   EF - Phase0 - Finality - finality_no_updates_at_genesis [Preset: minimal]        OK
@@ -4765,7 +4553,6 @@ OK: 6/6 Fail: 0/6 Skip: 0/6
 + [Valid]   EF - Phase0 - Finality - finality_rule_3 [Preset: minimal]                       OK
 + [Valid]   EF - Phase0 - Finality - finality_rule_4 [Preset: minimal]                       OK
 ```
-OK: 5/5 Fail: 0/5 Skip: 0/5
 ## EF - Phase0 - Random  [Preset: minimal]
 ```diff
 + [Valid]   EF - Phase0 - Random - randomized_0 [Preset: minimal]                            OK
@@ -4785,7 +4572,6 @@ OK: 5/5 Fail: 0/5 Skip: 0/5
 + [Valid]   EF - Phase0 - Random - randomized_8 [Preset: minimal]                            OK
 + [Valid]   EF - Phase0 - Random - randomized_9 [Preset: minimal]                            OK
 ```
-OK: 16/16 Fail: 0/16 Skip: 0/16
 ## EF - Phase0 - Sanity - Blocks  [Preset: minimal]
 ```diff
 + [Invalid] EF - Phase0 - Sanity - Blocks - invalid_all_zeroed_sig [Preset: minimal]         OK
@@ -4834,7 +4620,6 @@ OK: 16/16 Fail: 0/16 Skip: 0/16
 + [Valid]   EF - Phase0 - Sanity - Blocks - slash_and_exit_diff_index [Preset: minimal]      OK
 + [Valid]   EF - Phase0 - Sanity - Blocks - voluntary_exit [Preset: minimal]                 OK
 ```
-OK: 45/45 Fail: 0/45 Skip: 0/45
 ## ForkChoice
 ```diff
 + ForkChoice - minimal/altair/fork_choice/ex_ante/pyspec_tests/ex_ante_sandwich_with_honest_ OK
@@ -5152,7 +4937,6 @@ OK: 45/45 Fail: 0/45 Skip: 0/45
 + ForkChoice - minimal/fulu/fork_choice/withholding/pyspec_tests/withholding_attack          OK
 + ForkChoice - minimal/fulu/fork_choice/withholding/pyspec_tests/withholding_attack_unviable OK
 ```
-OK: 282/314 Fail: 0/314 Skip: 32/314
 ## Sync
 ```diff
 + Sync - minimal/bellatrix/sync/optimistic/pyspec_tests/from_syncing_to_invalid              OK
@@ -5161,7 +4945,3 @@ OK: 282/314 Fail: 0/314 Skip: 32/314
 + Sync - minimal/electra/sync/optimistic/pyspec_tests/from_syncing_to_invalid                OK
 + Sync - minimal/fulu/sync/optimistic/pyspec_tests/from_syncing_to_invalid                   OK
 ```
-OK: 5/5 Fail: 0/5 Skip: 0/5
-
----TOTAL---
-OK: 4262/4294 Fail: 0/4294 Skip: 32/4294

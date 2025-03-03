@@ -1,5 +1,5 @@
 # beacon_chain
-# Copyright (c) 2020-2024 Status Research & Development GmbH
+# Copyright (c) 2020-2025 Status Research & Development GmbH
 # Licensed and distributed under either of
 #   * MIT license (license terms in the root directory or at https://opensource.org/licenses/MIT).
 #   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
@@ -80,15 +80,15 @@ type
     of slots:
       preState2* {.
         argument
-        desc: "State to which to apply specified block"}: string
+        desc: "State to which to apply specified empty slots"}: string
 
       slot* {.
         argument
-        desc: "Block to apply to preState"}: uint64
+        desc: "Empty slots to apply to preState"}: uint64
 
       postState2* {.
         argument
-        desc: "Filename of state resulting from applying blck to preState"}: string
+        desc: "Filename of state resulting from empty slots to preState"}: string
 
 template saveSSZFile(filename: string, value: ForkedHashedBeaconState) =
   try:
