@@ -55,7 +55,7 @@ def get_deposit_root() -> bytes32:
             node = sha256(concat(self.branch[height], node))
         else:
             node = sha256(concat(node, self.zero_hashes[height]))
-        size /= 2
+        size //= 2
     return sha256(concat(node, self.to_little_endian_64(self.deposit_count), slice(zero_bytes32, start=0, len=24)))
 
 
@@ -109,7 +109,7 @@ def deposit(pubkey: bytes[PUBKEY_LENGTH],
             self.branch[height] = node
             break
         node = sha256(concat(self.branch[height], node))
-        size /= 2
+        size //= 2
 
 @public
 def drain():
