@@ -31,12 +31,16 @@ const
   MESSAGE_DOMAIN_INVALID_SNAPPY*: array[4, byte] = [0x00, 0x00, 0x00, 0x00]
   MESSAGE_DOMAIN_VALID_SNAPPY*: array[4, byte] = [0x01, 0x00, 0x00, 0x00]
 
+  MAX_SUPPORTED_BLOB_SIDECAR_SUBNET_COUNT*: uint64 = 9
+  MAX_SUPPORTED_BLOBS_PER_BLOCK*: uint64 = 9  # revisit getShortMap(Blobs) if >9
+  MAX_SUPPORTED_REQUEST_BLOB_SIDECARS*: uint64 = 1152
+
 type
   Version* = distinct array[4, byte]
   Eth1Address* = web3types.Address
 
   RuntimeConfig* = object
-    ## https://github.com/ethereum/consensus-specs/tree/v1.4.0-beta.4/configs
+    ## https://github.com/ethereum/consensus-specs/tree/v1.5.0-beta.2/configs
     PRESET_BASE*: string
     CONFIG_NAME*: string
 
@@ -92,11 +96,10 @@ type
     DEPOSIT_CONTRACT_ADDRESS*: Eth1Address
 
     # Networking
-    # TODO GOSSIP_MAX_SIZE*: uint64
+    # TODO MAX_PAYLOAD_SIZE*: uint64
     # TODO MAX_REQUEST_BLOCKS*: uint64
     # TODO EPOCHS_PER_SUBNET_SUBSCRIPTION*: uint64
     MIN_EPOCHS_FOR_BLOCK_REQUESTS*: uint64
-    # TODO MAX_CHUNK_SIZE*: uint64
     # TODO TTFB_TIMEOUT*: uint64
     # TODO RESP_TIMEOUT*: uint64
     # TODO ATTESTATION_PROPAGATION_SLOT_RANGE*: uint64
@@ -110,9 +113,10 @@ type
 
     # Deneb
     # TODO MAX_REQUEST_BLOCKS_DENEB*: uint64
-    # TODO MAX_REQUEST_BLOB_SIDECARS*: uint64
     MIN_EPOCHS_FOR_BLOB_SIDECARS_REQUESTS*: uint64
-    # TODO BLOB_SIDECAR_SUBNET_COUNT*: uint64
+    BLOB_SIDECAR_SUBNET_COUNT*: uint64
+    MAX_BLOBS_PER_BLOCK*: uint64
+    MAX_REQUEST_BLOB_SIDECARS*: uint64
 
     # Electra
     MIN_PER_EPOCH_CHURN_LIMIT_ELECTRA*: uint64
@@ -120,6 +124,18 @@ type
     BLOB_SIDECAR_SUBNET_COUNT_ELECTRA*: uint64
     MAX_BLOBS_PER_BLOCK_ELECTRA*: uint64
     MAX_REQUEST_BLOB_SIDECARS_ELECTRA*: uint64
+
+    # Fulu
+    # TODO NUMBER_OF_COLUMNS*: uint64
+    # TODO NUMBER_OF_CUSTODY_GROUPS*: uint64
+    # TODO DATA_COLUMN_SIDECAR_SUBNET_COUNT*: uint64
+    # TODO MAX_REQUEST_DATA_COLUMN_SIDECARS*: uint64
+    # TODO SAMPLES_PER_SLOT*: uint64
+    # TODO CUSTODY_REQUIREMENT*: uint64
+    # TODO VALIDATOR_CUSTODY_REQUIREMENT*: uint64
+    # TODO BALANCE_PER_ADDITIONAL_CUSTODY_GROUP*: uint64
+    # TODO MAX_BLOBS_PER_BLOCK_FULU*: uint64
+    # TODO MIN_EPOCHS_FOR_DATA_COLUMN_SIDECARS_REQUESTS*: uint64
 
   PresetFile* = object
     values*: Table[string, string]
@@ -249,15 +265,13 @@ when const_preset == "mainnet":
     # Networking
     # ---------------------------------------------------------------
     # `10 * 2**20` (= 10485760, 10 MiB)
-    # TODO GOSSIP_MAX_SIZE: 10485760,
+    # TODO MAX_PAYLOAD_SIZE: 10485760,
     # `2**10` (= 1024)
     # TODO MAX_REQUEST_BLOCKS: 1024,
     # `2**8` (= 256)
     # TODO EPOCHS_PER_SUBNET_SUBSCRIPTION: 256,
     # `MIN_VALIDATOR_WITHDRAWABILITY_DELAY + CHURN_LIMIT_QUOTIENT // 2` (= 33024, ~5 months)
     MIN_EPOCHS_FOR_BLOCK_REQUESTS: 33024,
-    # `10 * 2**20` (=10485760, 10 MiB)
-    # TODO MAX_CHUNK_SIZE: 10485760,
     # 5s
     # TODO TTFB_TIMEOUT: 5,
     # 10s
@@ -278,12 +292,14 @@ when const_preset == "mainnet":
     # Deneb
     # `2**7` (=128)
     # TODO MAX_REQUEST_BLOCKS_DENEB: 128,
-    # MAX_REQUEST_BLOCKS_DENEB * MAX_BLOBS_PER_BLOCK
-    # TODO MAX_REQUEST_BLOB_SIDECARS: 768,
     # `2**12` (= 4096 epochs, ~18 days)
     MIN_EPOCHS_FOR_BLOB_SIDECARS_REQUESTS: 4096,
     # `6`
-    # TODO BLOB_SIDECAR_SUBNET_COUNT: 6,
+    BLOB_SIDECAR_SUBNET_COUNT: 6,
+    # `uint64(6)`
+    MAX_BLOBS_PER_BLOCK: 6,
+    # MAX_REQUEST_BLOCKS_DENEB * MAX_BLOBS_PER_BLOCK
+    MAX_REQUEST_BLOB_SIDECARS: 768,
 
     # Electra
     # 2**7 * 10**9 (= 128,000,000,000)
@@ -295,7 +311,19 @@ when const_preset == "mainnet":
     # `uint64(9)`
     MAX_BLOBS_PER_BLOCK_ELECTRA: 9,
     # MAX_REQUEST_BLOCKS_DENEB * MAX_BLOBS_PER_BLOCK_ELECTRA
-    MAX_REQUEST_BLOB_SIDECARS_ELECTRA: 1152
+    MAX_REQUEST_BLOB_SIDECARS_ELECTRA: 1152,
+
+    # Fulu
+    # TODO NUMBER_OF_COLUMNS: 128,
+    # TODO NUMBER_OF_CUSTODY_GROUPS: 128,
+    # TODO DATA_COLUMN_SIDECAR_SUBNET_COUNT: 128,
+    # TODO MAX_REQUEST_DATA_COLUMN_SIDECARS: 16384,
+    # TODO SAMPLES_PER_SLOT: 8,
+    # TODO CUSTODY_REQUIREMENT: 4,
+    # TODO VALIDATOR_CUSTODY_REQUIREMENT: 8,
+    # TODO BALANCE_PER_ADDITIONAL_CUSTODY_GROUP: 32000000000,
+    # TODO MAX_BLOBS_PER_BLOCK_FULU: 12,
+    # TODO MIN_EPOCHS_FOR_DATA_COLUMN_SIDECARS_REQUESTS: 4096
   )
 
 elif const_preset == "gnosis":
@@ -312,9 +340,6 @@ elif const_preset == "gnosis":
   # such as `CONFIG_NAME`, `TERMINAL_TOTAL_DIFFICULTY`, `*_FORK_EPOCH`, etc
   # which must be effectively overriden in all network (including mainnet).
   const defaultRuntimeConfig* = RuntimeConfig(
-    # Mainnet config
-
-    # Extends the mainnet preset
     PRESET_BASE: "gnosis",
 
     # Free-form short name of the network that this configuration applies to - known
@@ -372,8 +397,8 @@ elif const_preset == "gnosis":
 
     # Time parameters
     # ---------------------------------------------------------------
-    # 12 seconds
-    # TODO SECONDS_PER_SLOT: 12,
+    # 5 seconds
+    # TODO SECONDS_PER_SLOT: 5,
     # 14 (estimate from Eth1 mainnet)
     SECONDS_PER_ETH1_BLOCK: 5,
     # 2**8 (= 256) epochs ~27 hours
@@ -409,15 +434,13 @@ elif const_preset == "gnosis":
     # Networking
     # ---------------------------------------------------------------
     # `10 * 2**20` (= 10485760, 10 MiB)
-    # TODO GOSSIP_MAX_SIZE: 10485760,
+    # TODO MAX_PAYLOAD_SIZE: 10485760,
     # `2**10` (= 1024)
     # TODO MAX_REQUEST_BLOCKS: 1024,
     # `2**8` (= 256)
     # TODO EPOCHS_PER_SUBNET_SUBSCRIPTION: 256,
     # `MIN_VALIDATOR_WITHDRAWABILITY_DELAY + CHURN_LIMIT_QUOTIENT // 2` (= 33024, ~5 months)
     MIN_EPOCHS_FOR_BLOCK_REQUESTS: 33024,
-    # `10 * 2**20` (=10485760, 10 MiB)
-    # TODO MAX_CHUNK_SIZE: 10485760,
     # 5s
     # TODO TTFB_TIMEOUT: 5,
     # 10s
@@ -438,24 +461,38 @@ elif const_preset == "gnosis":
     # Deneb
     # `2**7` (=128)
     # TODO MAX_REQUEST_BLOCKS_DENEB: 128,
-    # MAX_REQUEST_BLOCKS_DENEB * MAX_BLOBS_PER_BLOCK
-    # TODO MAX_REQUEST_BLOB_SIDECARS: 768,
     # `2**12` (= 4096 epochs, ~18 days)
     MIN_EPOCHS_FOR_BLOB_SIDECARS_REQUESTS: 16384,
     # `6`
-    # TODO BLOB_SIDECAR_SUBNET_COUNT: 6,
+    BLOB_SIDECAR_SUBNET_COUNT: 6,
+    # `uint64(2)`
+    MAX_BLOBS_PER_BLOCK: 2,
+    # MAX_REQUEST_BLOCKS_DENEB * MAX_BLOBS_PER_BLOCK
+    MAX_REQUEST_BLOB_SIDECARS: 768,
 
     # Electra
     # 2**7 * 10**9 (= 128,000,000,000)
     MIN_PER_EPOCH_CHURN_LIMIT_ELECTRA: 128000000000'u64,
     # 2**8 * 10**9 (= 256,000,000,000)
     MAX_PER_EPOCH_ACTIVATION_EXIT_CHURN_LIMIT: 256000000000'u64,
-    # `9`
-    BLOB_SIDECAR_SUBNET_COUNT_ELECTRA: 9,
-    # `uint64(9)`
-    MAX_BLOBS_PER_BLOCK_ELECTRA: 9,
+    # `2`
+    BLOB_SIDECAR_SUBNET_COUNT_ELECTRA: 2,
+    # `uint64(2)`
+    MAX_BLOBS_PER_BLOCK_ELECTRA: 2,
     # MAX_REQUEST_BLOCKS_DENEB * MAX_BLOBS_PER_BLOCK_ELECTRA
-    MAX_REQUEST_BLOB_SIDECARS_ELECTRA: 1152
+    MAX_REQUEST_BLOB_SIDECARS_ELECTRA: 256,
+
+    # Fulu
+    # TODO NUMBER_OF_COLUMNS: 128,
+    # TODO NUMBER_OF_CUSTODY_GROUPS: 128,
+    # TODO DATA_COLUMN_SIDECAR_SUBNET_COUNT: 128,
+    # TODO MAX_REQUEST_DATA_COLUMN_SIDECARS: 16384,
+    # TODO SAMPLES_PER_SLOT: 8,
+    # TODO CUSTODY_REQUIREMENT: 4,
+    # TODO VALIDATOR_CUSTODY_REQUIREMENT: 8,
+    # TODO BALANCE_PER_ADDITIONAL_CUSTODY_GROUP: 32000000000,
+    # TODO MAX_BLOBS_PER_BLOCK_FULU: 12,
+    # TODO MIN_EPOCHS_FOR_DATA_COLUMN_SIDECARS_REQUESTS: 4096
   )
 
 elif const_preset == "minimal":
@@ -566,15 +603,13 @@ elif const_preset == "minimal":
     # Networking
     # ---------------------------------------------------------------
     # `10 * 2**20` (= 10485760, 10 MiB)
-    # TODO GOSSIP_MAX_SIZE: 10485760,
+    # TODO MAX_PAYLOAD_SIZE: 10485760,
     # `2**10` (= 1024)
     # TODO MAX_REQUEST_BLOCKS: 1024,
     # `2**8` (= 256)
     # TODO EPOCHS_PER_SUBNET_SUBSCRIPTION: 256,
     # [customized] `MIN_VALIDATOR_WITHDRAWABILITY_DELAY + CHURN_LIMIT_QUOTIENT // 2` (= 272)
     MIN_EPOCHS_FOR_BLOCK_REQUESTS: 272,
-    # `10 * 2**20` (=10485760, 10 MiB)
-    # TODO MAX_CHUNK_SIZE: 10485760,
     # 5s
     # TODO TTFB_TIMEOUT: 5,
     # 10s
@@ -595,12 +630,14 @@ elif const_preset == "minimal":
     # Deneb
     # `2**7` (=128)
     # TODO MAX_REQUEST_BLOCKS_DENEB: 128,
-    # MAX_REQUEST_BLOCKS_DENEB * MAX_BLOBS_PER_BLOCK
-    # TODO MAX_REQUEST_BLOB_SIDECARS: 768,
     # `2**12` (= 4096 epochs, ~18 days)
     MIN_EPOCHS_FOR_BLOB_SIDECARS_REQUESTS: 4096,
     # `6`
-    # TODO BLOB_SIDECAR_SUBNET_COUNT: 6,
+    BLOB_SIDECAR_SUBNET_COUNT: 6,
+    # `uint64(6)`
+    MAX_BLOBS_PER_BLOCK: 6,
+    # MAX_REQUEST_BLOCKS_DENEB * MAX_BLOBS_PER_BLOCK
+    MAX_REQUEST_BLOB_SIDECARS: 768,
 
     # Electra
     # [customized] 2**6 * 10**9 (= 64,000,000,000)
@@ -612,7 +649,19 @@ elif const_preset == "minimal":
     # `uint64(9)`
     MAX_BLOBS_PER_BLOCK_ELECTRA: 9,
     # MAX_REQUEST_BLOCKS_DENEB * MAX_BLOBS_PER_BLOCK_ELECTRA
-    MAX_REQUEST_BLOB_SIDECARS_ELECTRA: 1152,
+    MAX_REQUEST_BLOB_SIDECARS_ELECTRA: 1152
+
+    # Fulu
+    # TODO NUMBER_OF_COLUMNS: 128,
+    # TODO NUMBER_OF_CUSTODY_GROUPS: 128,
+    # TODO DATA_COLUMN_SIDECAR_SUBNET_COUNT: 128,
+    # TODO MAX_REQUEST_DATA_COLUMN_SIDECARS: 16384,
+    # TODO SAMPLES_PER_SLOT: 8,
+    # TODO CUSTODY_REQUIREMENT: 4,
+    # TODO VALIDATOR_CUSTODY_REQUIREMENT: 8,
+    # TODO BALANCE_PER_ADDITIONAL_CUSTODY_GROUP: 32000000000,
+    # TODO MAX_BLOBS_PER_BLOCK_FULU: 12,
+    # TODO MIN_EPOCHS_FOR_DATA_COLUMN_SIDECARS_REQUESTS: 4096
   )
 
 else:
@@ -804,10 +853,11 @@ proc readRuntimeConfig*(
   checkCompatibility DOMAIN_SYNC_COMMITTEE_SELECTION_PROOF
   checkCompatibility DOMAIN_CONTRIBUTION_AND_PROOF
 
-  checkCompatibility GOSSIP_MAX_SIZE
+  checkCompatibility MAX_PAYLOAD_SIZE
+  checkCompatibility MAX_PAYLOAD_SIZE, "GOSSIP_MAX_SIZE"
+  checkCompatibility MAX_PAYLOAD_SIZE, "MAX_CHUNK_SIZE"
   checkCompatibility MAX_REQUEST_BLOCKS
   checkCompatibility EPOCHS_PER_SUBNET_SUBSCRIPTION
-  checkCompatibility MAX_CHUNK_SIZE
   checkCompatibility TTFB_TIMEOUT
   checkCompatibility RESP_TIMEOUT
   checkCompatibility ATTESTATION_PROPAGATION_SLOT_RANGE
@@ -821,11 +871,14 @@ proc readRuntimeConfig*(
   checkCompatibility ATTESTATION_SUBNET_PREFIX_BITS
 
   checkCompatibility MAX_REQUEST_BLOCKS_DENEB
-  checkCompatibility MAX_REQUEST_BLOCKS_DENEB * MAX_BLOBS_PER_BLOCK,
-                     "MAX_REQUEST_BLOB_SIDECARS"
-  checkCompatibility BLOB_SIDECAR_SUBNET_COUNT
-  checkCompatibility MAX_BLOBS_PER_BLOCK_ELECTRA
-  checkCompatibility MAX_REQUEST_BLOB_SIDECARS_ELECTRA
+
+  for suffix in ["", "_ELECTRA"]:
+    checkCompatibility MAX_SUPPORTED_BLOB_SIDECAR_SUBNET_COUNT,
+                       "BLOB_SIDECAR_SUBNET_COUNT" & suffix, `<=`
+    checkCompatibility MAX_SUPPORTED_BLOBS_PER_BLOCK,
+                       "MAX_BLOBS_PER_BLOCK" & suffix, `<=`
+    checkCompatibility MAX_SUPPORTED_REQUEST_BLOB_SIDECARS,
+                       "MAX_REQUEST_BLOB_SIDECARS" & suffix, `<=`
 
   # https://github.com/ethereum/consensus-specs/blob/v1.5.0-beta.0/specs/phase0/fork-choice.md#configuration
   # Isn't being used as a preset in the usual way: at any time, there's one correct value
@@ -849,6 +902,12 @@ proc readRuntimeConfig*(
   # Requires initialized `cfg`
   checkCompatibility cfg.safeMinEpochsForBlockRequests(),
                      "MIN_EPOCHS_FOR_BLOCK_REQUESTS", `>=`
+  checkCompatibility MAX_REQUEST_BLOCKS_DENEB * cfg.MAX_BLOBS_PER_BLOCK,
+                     "MAX_REQUEST_BLOB_SIDECARS"
+  checkCompatibility cfg.MAX_BLOBS_PER_BLOCK,
+                     "MAX_BLOBS_PER_BLOCK_ELECTRA", `>=`
+  checkCompatibility MAX_REQUEST_BLOCKS_DENEB * cfg.MAX_BLOBS_PER_BLOCK_ELECTRA,
+                     "MAX_REQUEST_BLOB_SIDECARS_ELECTRA"
 
   var unknowns: seq[string]
   for name in values.keys:

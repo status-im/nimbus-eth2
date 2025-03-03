@@ -14,7 +14,6 @@ Check that your machine matches the [minimal system requirements](./hardware.md)
 When building from source, you will need additional build dependencies to be installed:
 
 - Developer tools (C compiler, Make, Bash, Git)
-- [CMake](https://cmake.org/)
 
 <!-- TODO: Please test whether the instructions below are correct. I think we are missing some dependencies on Windows. -->
 <!--       Microsoft offer virtual machines that you can use for testing here: -->
@@ -26,21 +25,21 @@ When building from source, you will need additional build dependencies to be ins
 
     ```sh
     # Debian and Ubuntu
-    sudo apt-get install build-essential git-lfs cmake
+    sudo apt-get install build-essential git-lfs
 
     # Fedora
-    dnf install @development-tools cmake
+    dnf install @development-tools
 
     # Arch Linux, using an AUR manager
-    yourAURmanager -S base-devel git-lfs cmake
+    yourAURmanager -S base-devel git-lfs
     ```
 
 === "macOS"
 
-    With [Homebrew](https://brew.sh/):
+    The Command Line Tools package is available as part of Xcode and can be installed via the Terminal application:
 
     ```sh
-    brew install cmake
+    xcode-select --install
     ```
 
 === "Windows"

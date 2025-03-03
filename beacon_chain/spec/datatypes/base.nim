@@ -203,10 +203,11 @@ type
 
   BlobId* = distinct uint8
     ## The blob id maps which gossip subscription to use to publish a
-    ## blob sidecar - it is distinct from the CommitteeIndex in particular
+    ## blob sidecar - it is distinct from the BlobIndex in particular
     ##
     ## The `BlobId` type is constrained to values in the range
-    ## `[0, MAX_BLOBS_PER_BLOCK_ELECTRA)` during initialization.
+    ## `[0, MAX_SUPPORTED_BLOB_SIDECAR_SUBNET_COUNT)` during initialization.
+    ## The network configuration may impose further restrictions on the count!
 
   # BitVector[4] in the spec, ie 4 bits which end up encoded as a byte for
   # SSZ / hashing purposes
@@ -422,7 +423,7 @@ type
     from_bls_pubkey*: ValidatorPubKey
     to_execution_address*: ExecutionAddress
 
-  # https://github.com/ethereum/consensus-specs/blob/v1.5.0-beta.1/specs/capella/beacon-chain.md#signedblstoexecutionchange
+  # https://github.com/ethereum/consensus-specs/blob/v1.5.0-beta.2/specs/capella/beacon-chain.md#signedblstoexecutionchange
   SignedBLSToExecutionChange* = object
     message*: BLSToExecutionChange
     signature*: ValidatorSig
@@ -470,7 +471,7 @@ type
 
   InactivityScores* = HashList[uint64, Limit VALIDATOR_REGISTRY_LIMIT]
 
-  # https://github.com/ethereum/consensus-specs/blob/v1.5.0-beta.1/specs/altair/beacon-chain.md#synccommittee
+  # https://github.com/ethereum/consensus-specs/blob/v1.5.0-beta.2/specs/altair/beacon-chain.md#synccommittee
   SyncCommittee* = object
     pubkeys*: HashArray[Limit SYNC_COMMITTEE_SIZE, ValidatorPubKey]
     aggregate_pubkey*: ValidatorPubKey
@@ -512,7 +513,7 @@ type
     sync_committees*: Table[SyncCommitteePeriod, SyncCommitteeCache]
 
   # This matches the mutable state of the Solidity deposit contract
-  # https://github.com/ethereum/consensus-specs/blob/v1.5.0-beta.1/solidity_deposit_contract/deposit_contract.sol
+  # https://github.com/ethereum/consensus-specs/blob/v1.5.0-beta.2/solidity_deposit_contract/deposit_contract.sol
   DepositContractState* = object
     branch*: array[DEPOSIT_CONTRACT_TREE_DEPTH, Eth2Digest]
     deposit_count*: array[32, byte] # Uint256
@@ -724,9 +725,7 @@ template makeLimitedU64*(T: untyped, limit: uint64) =
 
 makeLimitedU64(CommitteeIndex, MAX_COMMITTEES_PER_SLOT)
 makeLimitedU64(SubnetId, ATTESTATION_SUBNET_COUNT)
-
-static: doAssert MAX_BLOBS_PER_BLOCK_ELECTRA >= BLOB_SIDECAR_SUBNET_COUNT
-makeLimitedU64(BlobId, MAX_BLOBS_PER_BLOCK_ELECTRA)
+makeLimitedU64(BlobId, MAX_SUPPORTED_BLOB_SIDECAR_SUBNET_COUNT)
 
 const
   validatorIndexLimit = min(uint64(int32.high), VALIDATOR_REGISTRY_LIMIT)

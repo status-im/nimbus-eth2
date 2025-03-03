@@ -1709,11 +1709,13 @@ proc installBeaconApiHandlers*(router: var RestRouter, node: BeaconNode) =
 
     withBlobFork(blobForkAtConsensusFork(consensusFork).get(BlobFork.Deneb)):
       # https://github.com/ethereum/beacon-APIs/blob/v2.4.2/types/deneb/blob_sidecar.yaml#L2-L28
-      # Define a list which allows for a larger-than-Deneb-valid blobs per block,
-      # per https://github.com/ethereum/beacon-APIs/pull/488 and for pre-Electra,
-      # those blobs just won't exist.
+      # The merkleization limit of the list is `MAX_BLOB_COMMITMENTS_PER_BLOCK`,
+      # the serialization limit is configurable and is:
+      # - `MAX_BLOBS_PER_BLOCK` from Deneb onward
+      # - `MAX_BLOBS_PER_BLOCK_ELECTRA` from Electra.
       let data = newClone(
-        default(List[blobFork.BlobSidecar, Limit MAX_BLOBS_PER_BLOCK_ELECTRA]))
+        default(List[
+          blobFork.BlobSidecar, Limit MAX_BLOB_COMMITMENTS_PER_BLOCK]))
 
       if indices.isErr:
         return RestApiResponse.jsonError(Http400,
@@ -1721,7 +1723,7 @@ proc installBeaconApiHandlers*(router: var RestRouter, node: BeaconNode) =
 
       let indexFilter = indices.get.toHashSet
 
-      for blobIndex in 0'u64 ..< MAX_BLOBS_PER_BLOCK_ELECTRA:
+      for blobIndex in 0'u64 ..< node.dag.cfg.MAX_BLOBS_PER_BLOCK_ELECTRA:
         if indexFilter.len > 0 and blobIndex notin indexFilter:
           continue
 

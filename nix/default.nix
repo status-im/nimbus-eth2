@@ -35,7 +35,7 @@ in stdenv.mkDerivation rec {
     fakeGit = writeScriptBin "git" "echo ${version}";
     fakeLsbRelease = writeScriptBin "lsb_release" "echo nix";
   in
-    with pkgs; [ fakeGit fakeLsbRelease which cmake ]
+    with pkgs; [ fakeGit fakeLsbRelease which ]
     ++ lib.optionals stdenv.isDarwin [ pkgs.darwin.cctools ];
 
   enableParallelBuilding = true;

@@ -162,7 +162,9 @@ proc routeSignedBeaconBlock*(
     let blobs = blobsOpt.get()
     var workers = newSeq[Future[SendResult]](blobs.len)
     for i in 0..<blobs.lenu64:
-      let subnet_id = compute_subnet_for_blob_sidecar(i)
+      let subnet_id = router[].processor[]
+        .dag.cfg.compute_subnet_for_blob_sidecar(
+          blobs[i].signed_block_header.message.slot, i)
       workers[i] = router[].network.broadcastBlobSidecar(subnet_id, blobs[i])
     let allres = await allFinished(workers)
     for i in 0..<allres.len:

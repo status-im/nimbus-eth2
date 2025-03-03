@@ -89,7 +89,8 @@ proc getPeerBlock(
   let peer = await overseer.pool.acquire()
   try:
     let
-      res = (await getSyncBlockData(peer, slot)).valueOr:
+      maxBlobs = overseer.consensusManager.dag.cfg.MAX_BLOBS_PER_BLOCK_ELECTRA
+      res = (await getSyncBlockData(peer, slot, maxBlobs)).valueOr:
         return err(error)
       blob =
         if res.blobs.isSome():
