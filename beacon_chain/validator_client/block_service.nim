@@ -1,5 +1,5 @@
 # beacon_chain
-# Copyright (c) 2021-2024 Status Research & Development GmbH
+# Copyright (c) 2021-2025 Status Research & Development GmbH
 # Licensed and distributed under either of
 #   * MIT license (license terms in the root directory or at https://opensource.org/licenses/MIT).
 #   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
@@ -107,11 +107,7 @@ proc publishBlockV3(
 ) {.async: (raises: [CancelledError]).} =
   let
     genesisRoot = vc.beaconGenesis.genesis_validators_root
-    graffiti =
-      if vc.config.graffiti.isSome():
-        vc.config.graffiti.get()
-      else:
-        defaultGraffitiBytes()
+    graffiti = vc.getGraffitiBytes(validator)
     vindex = validator.index.get()
 
   logScope:

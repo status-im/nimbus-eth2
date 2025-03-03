@@ -1,5 +1,5 @@
 # beacon_chain
-# Copyright (c) 2019-2024 Status Research & Development GmbH
+# Copyright (c) 2019-2025 Status Research & Development GmbH
 # Licensed and distributed under either of
 #   * MIT license (license terms in the root directory or at https://opensource.org/licenses/MIT).
 #   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
@@ -16,12 +16,10 @@
 
 import
   confutils, chronicles, eth/db/kvstore_sqlite3,
-  chronos/timer, taskpools,
+  chronos, chronos/timer, taskpools,
   ../tests/testblockutil,
-  ../beacon_chain/el/eth1_chain,
   ../beacon_chain/spec/[forks, state_transition],
   ../beacon_chain/beacon_chain_db,
-  ../beacon_chain/validators/validator_pool,
   ../beacon_chain/gossip_processing/[batch_validation, gossip_validation],
   ../beacon_chain/consensus_object_pools/[blockchain_dag, block_clearance],
   ./simutils
@@ -29,13 +27,16 @@ import
 from std/random import Rand, gauss, initRand, rand
 from std/stats import RunningStat
 from ../beacon_chain/consensus_object_pools/attestation_pool import
-  AttestationPool, addAttestation, addForkChoice, getAttestationsForBlock,
+  AttestationPool, addAttestation, addForkChoice,
   getElectraAttestationsForBlock, init, prune
 from ../beacon_chain/consensus_object_pools/block_quarantine import
   Quarantine, init
 from ../beacon_chain/consensus_object_pools/sync_committee_msg_pool import
   SyncCommitteeMsgPool, addContribution, addSyncCommitteeMessage, init,
   produceContribution, produceSyncAggregate, pruneData
+from ../beacon_chain/el/eth1_chain import
+  Eth1Block, Eth1BlockNumber, Eth1BlockTimestamp, Eth1Chain, addBlock,
+  getBlockProposalData, init
 from ../beacon_chain/spec/beaconstate import
   get_beacon_committee, get_beacon_proposer_index,
   get_committee_count_per_slot, get_committee_indices
@@ -50,55 +51,6 @@ type Timers = enum
   tAttest = "Have committee attest to block"
   tSyncCommittees = "Produce sync committee actions"
   tReplay = "Replay all produced blocks"
-
-# TODO The rest of nimbus-eth2 uses only the forked version of these, and in
-# general it's better for the validator_duties caller to use the forkedstate
-# version, so isolate these here pending refactoring of block_sim to prefer,
-# when possible, to also use the forked version. It'll be worth keeping some
-# example of the non-forked version because it enables fork bootstrapping.
-proc makeSimulationBlock(
-    cfg: RuntimeConfig,
-    state: var deneb.HashedBeaconState,
-    proposer_index: ValidatorIndex,
-    randao_reveal: ValidatorSig,
-    eth1_data: Eth1Data,
-    graffiti: GraffitiBytes,
-    attestations: seq[phase0.Attestation],
-    deposits: seq[Deposit],
-    exits: BeaconBlockValidatorChanges,
-    sync_aggregate: SyncAggregate,
-    execution_payload: deneb.ExecutionPayloadForSigning,
-    bls_to_execution_changes: SignedBLSToExecutionChangeList,
-    rollback: RollbackHashedProc[deneb.HashedBeaconState],
-    cache: var StateCache,
-    # TODO:
-    # `verificationFlags` is needed only in tests and can be
-    # removed if we don't use invalid signatures there
-    verificationFlags: UpdateFlags = {}): Result[deneb.BeaconBlock, cstring] =
-  ## Create a block for the given state. The latest block applied to it will
-  ## be used for the parent_root value, and the slot will be take from
-  ## state.slot meaning process_slots must be called up to the slot for which
-  ## the block is to be created.
-
-  # To create a block, we'll first apply a partial block to the state, skipping
-  # some validations.
-
-  var blck = partialBeaconBlock(
-    cfg, state, proposer_index, randao_reveal, eth1_data, graffiti,
-    attestations, deposits, exits, sync_aggregate, execution_payload,
-    default(ExecutionRequests))
-
-  let res = process_block(
-    cfg, state.data, blck.asSigVerified(), verificationFlags, cache)
-
-  if res.isErr:
-    rollback(state)
-    return err(res.error())
-
-  state.root = hash_tree_root(state.data)
-  blck.state_root = state.root
-
-  ok(blck)
 
 proc makeSimulationBlock(
     cfg: RuntimeConfig,
@@ -402,9 +354,7 @@ cli do(slots = SLOTS_PER_EPOCH * 7,
       sync_aggregate =
         syncCommitteePool[].produceSyncAggregate(dag.head.bid, slot)
       hashedState =
-        when T is deneb.SignedBeaconBlock:
-          addr state.denebData
-        elif T is electra.SignedBeaconBlock:
+        when T is electra.SignedBeaconBlock:
           addr state.electraData
         elif T is fulu.SignedBeaconBlock:
           addr state.fuluData
@@ -420,12 +370,7 @@ cli do(slots = SLOTS_PER_EPOCH * 7,
           slot.epoch, privKey).toValidatorSig(),
         eth1ProposalData.vote,
         default(GraffitiBytes),
-        when T is electra.SignedBeaconBlock:
-          attPool.getElectraAttestationsForBlock(state, cache)
-        elif T is fulu.SignedBeaconBlock:
-          attPool.getElectraAttestationsForBlock(state, cache)
-        else:
-          attPool.getAttestationsForBlock(state, cache),
+        attPool.getElectraAttestationsForBlock(state, cache),
         eth1ProposalData.deposits,
         BeaconBlockValidatorChanges(),
         sync_aggregate,
@@ -433,8 +378,6 @@ cli do(slots = SLOTS_PER_EPOCH * 7,
           default(electra.ExecutionPayloadForSigning)
         elif T is fulu.SignedBeaconBlock:
           default(fulu.ExecutionPayloadForSigning)
-        elif T is deneb.SignedBeaconBlock:
-          default(deneb.ExecutionPayloadForSigning)
         else:
           static: doAssert false),
         static(default(SignedBLSToExecutionChangeList)),
@@ -460,28 +403,6 @@ cli do(slots = SLOTS_PER_EPOCH * 7,
   # HTTP server's state function, combine all proposeForkBlock functions into a
   # single generic function. Until https://github.com/nim-lang/Nim/issues/20811
   # is fixed, that generic function must take `blockRatio` as a parameter.
-  proc proposeDenebBlock(slot: Slot) =
-    if rand(r, 1.0) > blockRatio:
-      return
-
-    dag.withUpdatedState(tmpState[], dag.getBlockIdAtSlot(slot).expect("block")) do:
-      let
-        newBlock = getNewBlock[deneb.SignedBeaconBlock](updatedState, slot, cache)
-        added = dag.addHeadBlock(verifier, newBlock) do (
-            blckRef: BlockRef, signedBlock: deneb.TrustedSignedBeaconBlock,
-            epochRef: EpochRef, unrealized: FinalityCheckpoints):
-          # Callback add to fork choice if valid
-          attPool.addForkChoice(
-            epochRef, blckRef, unrealized, signedBlock.message,
-            blckRef.slot.start_beacon_time)
-
-      dag.updateHead(added[], quarantine[], [])
-      if dag.needStateCachesAndForkChoicePruning():
-        dag.pruneStateCachesDAG()
-        attPool.prune()
-    do:
-      raiseAssert "withUpdatedState failed"
-
   proc proposeElectraBlock(slot: Slot) =
     if rand(r, 1.0) > blockRatio:
       return
@@ -566,10 +487,9 @@ cli do(slots = SLOTS_PER_EPOCH * 7,
     if blockRatio > 0.0:
       withTimer(timers[t]):
         case dag.cfg.consensusForkAtEpoch(slot.epoch)
-        of ConsensusFork.Fulu:      proposeFuluBlock(slot)
-        of ConsensusFork.Electra:   proposeElectraBlock(slot)
-        of ConsensusFork.Deneb:     proposeDenebBlock(slot)
-        of ConsensusFork.Phase0 .. ConsensusFork.Capella:
+        of ConsensusFork.Fulu:    proposeFuluBlock(slot)
+        of ConsensusFork.Electra: proposeElectraBlock(slot)
+        of ConsensusFork.Phase0 .. ConsensusFork.Deneb:
           doAssert false
     if attesterRatio > 0.0:
       withTimer(timers[tAttest]):
