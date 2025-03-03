@@ -443,8 +443,8 @@ LAST_SIGNER_NODE_IDX=$(( SIGNER_NODES - 1 ))
 if [[ "${RUN_GETH}" == "1" ]]; then
   source "${SCRIPTS_DIR}/geth_binaries.sh"
 
-  download_geth_deneb
-  GETH_BINARY="$GETH_DENEB_BINARY"
+  download_geth_stable
+  GETH_BINARY="$STABLE_GETH_BINARY"
 
   source ./scripts/geth_vars.sh
 fi

@@ -15,13 +15,14 @@ import
   ./spec/eth2_apis/rest_beacon_client,
   ./spec/[beaconstate, eth2_merkleization, forks, light_client_sync,
           network, presets,
-          state_transition, deposit_snapshots],
-  "."/[beacon_clock, beacon_chain_db, era_db]
+          state_transition, deposit_snapshots]
 
 from presto import RestDecodingError
+from "."/beacon_clock import
+  BeaconClock, fromFloatSeconds, getBeaconTimeFn, init
 
 const
-  largeRequestsTimeout = 120.seconds # Downloading large items such as states.
+  largeRequestsTimeout = 3.minutes  # Downloading large items such as states.
   smallRequestsTimeout = 30.seconds # Downloading smaller items such as blocks and deposit snapshots.
 
 proc fetchDepositSnapshot(
@@ -337,7 +338,7 @@ proc doTrustedNodeSync*(
           else:
             tmp
         awaitWithTimeout(client.getStateV2(id, cfg), largeRequestsTimeout):
-          error "Attempt to download checkpoint state timed out"
+          error "Attempt to download checkpoint state timed out; https://nimbus.guide/trusted-node-sync.html#sync-from-checkpoint-files provides an alternative approach"
           quit 1
       except CatchableError as exc:
         error "Unable to download checkpoint state",

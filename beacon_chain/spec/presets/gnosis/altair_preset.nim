@@ -1,9 +1,11 @@
 # beacon_chain
-# Copyright (c) 2023 Status Research & Development GmbH
+# Copyright (c) 2023-2025 Status Research & Development GmbH
 # Licensed and distributed under either of
 #   * MIT license (license terms in the root directory or at https://opensource.org/licenses/MIT).
 #   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
 # at your option. This file may not be copied, modified, or distributed except according to those terms.
+
+{.push raises: [].}
 
 # Gnosis preset - Altair
 # https://github.com/gnosischain/specs/blob/1648fc86cef7bc148d74cb21921d2d12ca9442ac/consensus/preset/gnosis/altair.yaml
@@ -22,7 +24,7 @@ const
   # ---------------------------------------------------------------
   # 2**9 (= 512)
   SYNC_COMMITTEE_SIZE* = 512
-  # 2**8 (= 256)
+  # 2**9 (= 512)
   EPOCHS_PER_SYNC_COMMITTEE_PERIOD* {.intdefine.}: uint64 = 512
 
 

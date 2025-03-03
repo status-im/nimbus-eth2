@@ -16,11 +16,10 @@ source "${SCRIPTS_DIR}/bash_utils.sh"
 
 : ${CURL_BINARY:="curl"}
 : ${STABLE_GETH_BINARY:="${BUILD_DIR}/downloads/geth$EXE_EXTENSION"}
-: ${GETH_DENEB_BINARY:="$STABLE_GETH_BINARY"}
 
 download_geth_stable() {
   if [[ ! -e "${STABLE_GETH_BINARY}" ]]; then
-    GETH_VERSION="1.15.0-756cca7c"  # https://geth.ethereum.org/downloads
+    GETH_VERSION="1.15.3-612c9e0f"  # https://geth.ethereum.org/downloads
     GETH_URL="https://gethstore.blob.core.windows.net/builds/"
 
     case "${OS}-${ARCH}" in
@@ -103,10 +102,6 @@ download_status_geth_binary() {
     chmod +x "$BINARY_FS_PATH"
     patchelf_when_on_nixos "$BINARY_FS_PATH"
   fi
-}
-
-download_geth_deneb() {
-  download_geth_stable
 }
 
 fi

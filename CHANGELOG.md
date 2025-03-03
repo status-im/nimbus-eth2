@@ -1,3 +1,30 @@
+2025-03-02 v25.3.0
+==================
+
+Nimbus `v25.3.0` is a `low-urgency` release except for the Gnosis Chiado testnet, for which it's a `high-urgency` release.
+
+### Improvements
+
+- Add Gnosis Chiado testnet Electra fork support:
+  https://github.com/status-im/nimbus-eth2/pull/6968
+
+- Add SSZ support for the registerValidator beacon REST API endpoint:
+  https://github.com/status-im/nimbus-eth2/pull/6943
+
+- Increase trusted node sync state download timeout to 3 minutes:
+  https://github.com/status-im/nimbus-eth2/pull/6969
+
+- Add link to trusted node sync documentation regarding state download timeout:
+  https://github.com/status-im/nimbus-eth2/pull/6927
+
+### Fixes
+
+- Fix validator client graffiti with web3signer validators:
+  https://github.com/status-im/nimbus-eth2/pull/6927
+
+- Fix sync completion percentages exceeding 100%:
+  https://github.com/status-im/nimbus-eth2/pull/6922
+
 2025-02-13 v25.2.0
 ==================
 
