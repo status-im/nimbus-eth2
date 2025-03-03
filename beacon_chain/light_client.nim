@@ -434,10 +434,8 @@ proc updateGossipStatus*(
     if gossipFork >= ConsensusFork.Altair:
       let forkDigest = lightClient.forkDigests[].atConsensusFork(gossipFork)
       lightClient.network.subscribe(
-        getLightClientFinalityUpdateTopic(forkDigest),
-        basicParams)
+        getLightClientFinalityUpdateTopic(forkDigest), basicParams())
       lightClient.network.subscribe(
-        getLightClientOptimisticUpdateTopic(forkDigest),
-        basicParams)
+        getLightClientOptimisticUpdateTopic(forkDigest), basicParams())
 
   lightClient.gossipState = targetGossipState
