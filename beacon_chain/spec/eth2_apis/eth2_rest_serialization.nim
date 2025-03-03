@@ -3638,6 +3638,8 @@ func decodeString*(t: typedesc[EventTopic],
     ok(EventTopic.Block)
   of "attestation":
     ok(EventTopic.Attestation)
+  of "single_attestation":
+    ok(EventTopic.SingleAttestation)
   of "voluntary_exit":
     ok(EventTopic.VoluntaryExit)
   of "bls_to_execution_change":
@@ -3669,6 +3671,8 @@ func encodeString*(value: set[EventTopic]): Result[string, cstring] =
     res.add("block,")
   if EventTopic.Attestation in value:
     res.add("attestation,")
+  if EventTopic.SingleAttestation in value:
+    res.add("single_attestation,")
   if EventTopic.VoluntaryExit in value:
     res.add("voluntary_exit,")
   if EventTopic.BLSToExecutionChange in value:

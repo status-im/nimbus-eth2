@@ -964,11 +964,10 @@ template asTrusted*(
        MsgTrustedSignedBeaconBlock): TrustedSignedBeaconBlock =
   isomorphicCast[TrustedSignedBeaconBlock](x)
 
-debugComment "this whole section with getValidatorIndices/shortLog needs refactoring and probably can be combined with identical implementations elsewhere"
-
 from std/sets import toHashSet
 
-iterator getValidatorIndices*(attester_slashing: AttesterSlashing | TrustedAttesterSlashing): uint64 =
+iterator getValidatorIndices*(
+    attester_slashing: AttesterSlashing | TrustedAttesterSlashing): uint64 =
   template attestation_1(): auto = attester_slashing.attestation_1
   template attestation_2(): auto = attester_slashing.attestation_2
 

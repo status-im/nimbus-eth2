@@ -418,8 +418,10 @@ proc check_voluntary_exit*(
     return err("Exit: not in validator set long enough")
 
   when typeof(state).kind >= ConsensusFork.Electra:
+    if voluntary_exit.validator_index >= state.validators.lenu64:
+      return err("Exit: validator index out of range")
+
     # Only exit validator if it has no pending withdrawals in the queue
-    debugComment "truncating"
     if not (get_pending_balance_to_withdraw(
         state, voluntary_exit.validator_index.ValidatorIndex) == 0.Gwei):
       return err("Exit: still has pending withdrawals")
