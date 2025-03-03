@@ -1,5 +1,5 @@
 # beacon_chain
-# Copyright (c) 2024 Status Research & Development GmbH
+# Copyright (c) 2024-2025 Status Research & Development GmbH
 # Licensed and distributed under either of
 #   * MIT license (license terms in the root directory or at https://opensource.org/licenses/MIT).
 #   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
@@ -132,7 +132,6 @@ let
   responseVar*          {.compileTime.} = ident "response"
   streamVar*            {.compileTime.} = ident "stream"
   protocolVar*          {.compileTime.} = ident "protocol"
-  deadlineVar*          {.compileTime.} = ident "deadline"
   timeoutVar*           {.compileTime.} = ident "timeout"
   currentProtocolSym*   {.compileTime.} = ident "CurrentProtocol"
   resultIdent*          {.compileTime.} = ident "result"
@@ -904,4 +903,3 @@ macro emitForAllBackends(backendSyms: typed, options: untyped, body: untyped): u
 template p2pProtocol*(options: untyped, body: untyped) {.dirty.} =
   bind emitForAllBackends
   emitForAllBackends(p2pProtocolBackendImpl, options, body)
-

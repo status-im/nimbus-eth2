@@ -1,5 +1,5 @@
 # beacon_chain
-# Copyright (c) 2021-2024 Status Research & Development GmbH
+# Copyright (c) 2021-2025 Status Research & Development GmbH
 # Licensed and distributed under either of
 #   * MIT license (license terms in the root directory or at https://opensource.org/licenses/MIT).
 #   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
@@ -10,7 +10,7 @@
 import
   std/[strutils, os, options, uri, json, tables],
   results,
-  stew/[io2, base10],
+  stew/[io2, base10, byteutils],
   confutils, chronicles, httputils,
   chronos, chronos/streams/[asyncstream, tlsstream]
 
@@ -455,7 +455,15 @@ proc prepareRequest(uri: Uri,
           return err("Field `body.data` must be present")
         if bdata.kind != JString:
           return err("Field `body.data` should be string")
-        (btype.str, bdata.str)
+        if toLowerAscii(btype.str) == "application/octet-stream":
+          let data =
+            try:
+              string.fromBytes(hexToSeqByte(bdata.str))
+            except ValueError:
+              return err("Field `body.data` should be valid hexadecimal string")
+          (btype.str, data)
+        else:
+          (btype.str, bdata.str)
 
   var res = meth & " " & uri.path & requestUri & " HTTP/1.1\r\n"
   res.add("Content-Length: " & Base10.toString(uint64(len(requestBodyData))) &

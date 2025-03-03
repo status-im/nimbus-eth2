@@ -8,10 +8,8 @@
 {.push raises: [].}
 
 import
-  std/sequtils,
   chronicles,
   results,
-  stew/assign2,
   ../spec/[
     beaconstate, forks, signatures, signatures_batch,
     state_transition, state_transition_epoch],
@@ -504,10 +502,6 @@ proc addBackfillBlockData*(
           return ok()
         return err(error)
       startTick = Moment.now()
-      parentBlock = dag.getForkedBlock(parent.bid.root).get()
-      trustedStateRoot =
-        withBlck(parentBlock):
-          forkyBlck.message.state_root
       clearanceBlock = BlockSlotId.init(parent.bid, forkyBlck.message.slot)
       updateFlags1 = dag.updateFlags
         # TODO (cheatfate): {skipLastStateRootCalculation} flag here could

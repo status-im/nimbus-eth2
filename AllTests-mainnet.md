@@ -4,7 +4,6 @@ AllTests-mainnet
 ```diff
 + ancestorSlot                                                                               OK
 ```
-OK: 1/1 Fail: 0/1 Skip: 0/1
 ## Attestation pool electra processing [Preset: mainnet]
 ```diff
 + Aggregated attestations with disjoint comittee bits into a single on-chain aggregate [Pres OK
@@ -13,7 +12,6 @@ OK: 1/1 Fail: 0/1 Skip: 0/1
 + Can add and retrieve simple electra attestations [Preset: mainnet]                         OK
 + Working with electra aggregates [Preset: mainnet]                                          OK
 ```
-OK: 5/5 Fail: 0/5 Skip: 0/5
 ## Attestation pool processing [Preset: mainnet]
 ```diff
 + Attestation from different branch [Preset: mainnet]                                        OK
@@ -29,7 +27,6 @@ OK: 5/5 Fail: 0/5 Skip: 0/5
 + Trying to add a duplicate block from an old pruned epoch is tagged as an error             OK
 + Working with aggregates [Preset: mainnet]                                                  OK
 ```
-OK: 12/12 Fail: 0/12 Skip: 0/12
 ## Backfill
 ```diff
 + Backfill to genesis                                                                        OK
@@ -37,7 +34,6 @@ OK: 12/12 Fail: 0/12 Skip: 0/12
 + Reload backfill position                                                                   OK
 + Restart after each block                                                                   OK
 ```
-OK: 4/4 Fail: 0/4 Skip: 0/4
 ## Beacon chain DB [Preset: mainnet]
 ```diff
 + empty database [Preset: mainnet]                                                           OK
@@ -75,7 +71,6 @@ OK: 4/4 Fail: 0/4 Skip: 0/4
 + sanity check phase 0 states, reusing buffers [Preset: mainnet]                             OK
 + sanity check state diff roundtrip [Preset: mainnet]                                        OK
 ```
-OK: 34/34 Fail: 0/34 Skip: 0/34
 ## Beacon chain file test suite
 ```diff
 + Auto check/repair test (missing data)                                                      OK
@@ -84,7 +79,6 @@ OK: 34/34 Fail: 0/34 Skip: 0/34
 + Auto check/repair test (only header)                                                       OK
 + Fixture file validation                                                                    OK
 ```
-OK: 5/5 Fail: 0/5 Skip: 0/5
 ## Beacon state [Preset: mainnet]
 ```diff
 + Smoke test initialize_beacon_state_from_eth1 [Preset: mainnet]                             OK
@@ -95,18 +89,15 @@ OK: 5/5 Fail: 0/5 Skip: 0/5
 + merklizer state roundtrip                                                                  OK
 + process_slots                                                                              OK
 ```
-OK: 7/7 Fail: 0/7 Skip: 0/7
 ## Beacon time
 ```diff
 + Dependent slots                                                                            OK
 + basics                                                                                     OK
 ```
-OK: 2/2 Fail: 0/2 Skip: 0/2
 ## Beacon validators test suite
 ```diff
 + builderBetterBid(builderBoostFactor) test                                                  OK
 ```
-OK: 1/1 Fail: 0/1 Skip: 0/1
 ## Blinded block conversions
 ```diff
 + Bellatrix toSignedBlindedBeaconBlock                                                       OK
@@ -115,12 +106,10 @@ OK: 1/1 Fail: 0/1 Skip: 0/1
 + Electra toSignedBlindedBeaconBlock                                                         OK
 + Fulu toSignedBlindedBeaconBlock                                                            OK
 ```
-OK: 5/5 Fail: 0/5 Skip: 0/5
 ## Block pool altair processing [Preset: mainnet]
 ```diff
 + Invalid signatures [Preset: mainnet]                                                       OK
 ```
-OK: 1/1 Fail: 0/1 Skip: 0/1
 ## Block pool processing [Preset: mainnet]
 ```diff
 + Adding the same block twice returns a Duplicate error [Preset: mainnet]                    OK
@@ -129,36 +118,30 @@ OK: 1/1 Fail: 0/1 Skip: 0/1
 + updateHead updates head and headState [Preset: mainnet]                                    OK
 + updateState sanity [Preset: mainnet]                                                       OK
 ```
-OK: 5/5 Fail: 0/5 Skip: 0/5
 ## Block processor [Preset: mainnet]
 ```diff
 + Reverse order block add & get [Preset: mainnet]                                            OK
 ```
-OK: 1/1 Fail: 0/1 Skip: 0/1
 ## Block quarantine
 ```diff
 + Recursive missing parent                                                                   OK
 + Unviable smoke test                                                                        OK
 ```
-OK: 2/2 Fail: 0/2 Skip: 0/2
 ## BlockId and helpers
 ```diff
 + atSlot sanity                                                                              OK
 + parent sanity                                                                              OK
 ```
-OK: 2/2 Fail: 0/2 Skip: 0/2
 ## BlockRef and helpers
 ```diff
 + get_ancestor sanity                                                                        OK
 + isAncestorOf sanity                                                                        OK
 ```
-OK: 2/2 Fail: 0/2 Skip: 0/2
 ## BlockSlot and helpers
 ```diff
 + atSlot sanity                                                                              OK
 + parent sanity                                                                              OK
 ```
-OK: 2/2 Fail: 0/2 Skip: 0/2
 ## Combined scenarios [Beacon Node] [Preset: mainnet]
 ```diff
 + ImportKeystores should not be blocked by fee recipient setting [Beacon Node] [Preset: main OK
@@ -166,7 +149,6 @@ OK: 2/2 Fail: 0/2 Skip: 0/2
 + ImportRemoteKeys should not be blocked by fee recipient setting [Beacon Node] [Preset: mai OK
 + ImportRemoteKeys should not be blocked by gas limit setting [Beacon Node] [Preset: mainnet OK
 ```
-OK: 4/4 Fail: 0/4 Skip: 0/4
 ## DeleteKeys requests [Beacon Node] [Preset: mainnet]
 ```diff
 + Deleting not existing key [Beacon Node] [Preset: mainnet]                                  OK
@@ -174,7 +156,6 @@ OK: 4/4 Fail: 0/4 Skip: 0/4
 + Invalid Authorization Token [Beacon Node] [Preset: mainnet]                                OK
 + Missing Authorization header [Beacon Node] [Preset: mainnet]                               OK
 ```
-OK: 4/4 Fail: 0/4 Skip: 0/4
 ## DeleteRemoteKeys requests [Beacon Node] [Preset: mainnet]
 ```diff
 + Deleting existing local key and remote key [Beacon Node] [Preset: mainnet]                 OK
@@ -183,7 +164,6 @@ OK: 4/4 Fail: 0/4 Skip: 0/4
 + Invalid Authorization Token [Beacon Node] [Preset: mainnet]                                OK
 + Missing Authorization header [Beacon Node] [Preset: mainnet]                               OK
 ```
-OK: 5/5 Fail: 0/5 Skip: 0/5
 ## DepositContractSnapshot
 ```diff
 + Migration                                                                                  OK
@@ -191,18 +171,15 @@ OK: 5/5 Fail: 0/5 Skip: 0/5
 + depositCount                                                                               OK
 + isValid                                                                                    OK
 ```
-OK: 4/4 Fail: 0/4 Skip: 0/4
 ## Discovery fork ID
 ```diff
 + Expected fork IDs                                                                          OK
 ```
-OK: 1/1 Fail: 0/1 Skip: 0/1
 ## Diverging hardforks
 ```diff
 + Non-tail block in common                                                                   OK
 + Tail block only in common                                                                  OK
 ```
-OK: 2/2 Fail: 0/2 Skip: 0/2
 ## EF - KZG
 ```diff
 + KZG - Blob to KZG commitment - blob_to_kzg_commitment_case_invalid_blob_59d64ff6b4648fad   OK
@@ -459,7 +436,6 @@ OK: 2/2 Fail: 0/2 Skip: 0/2
 + KZG - Verify blob KZG proof batch - verify_blob_kzg_proof_batch_case_invalid_proof_d070689 OK
 + KZG - Verify blob KZG proof batch - verify_blob_kzg_proof_batch_case_proof_length_differen OK
 ```
-OK: 253/253 Fail: 0/253 Skip: 0/253
 ## EF - KZG - PeerDAS
 ```diff
 + KZG - Compute Cells And Proofs - compute_cells_and_kzg_proofs_case_invalid_blob_26555bdcbf OK
@@ -519,7 +495,6 @@ OK: 253/253 Fail: 0/253 Skip: 0/253
 + KZG - Verify Cell Kzg Proof Batch - verify_cell_kzg_proof_batch_case_valid_same_cell_multi OK
 + KZG - Verify Cell Kzg Proof Batch - verify_cell_kzg_proof_batch_case_valid_zero_cells_fbbd OK
 ```
-OK: 56/56 Fail: 0/56 Skip: 0/56
 ## EF - PeerDAS - Networking [Preset: mainnet]
 ```diff
 + Networking - Compute Columns for Custody Group - mainnet/fulu/networking/compute_columns_f OK
@@ -537,7 +512,6 @@ OK: 56/56 Fail: 0/56 Skip: 0/56
 + Networking - Get Custody Groups - mainnet/fulu/networking/get_custody_groups/pyspec_tests/ OK
 + Networking - Get Custody Groups - mainnet/fulu/networking/get_custody_groups/pyspec_tests/ OK
 ```
-OK: 14/14 Fail: 0/14 Skip: 0/14
 ## EF - SSZ generic types
 ```diff
   Testing basic_vector inputs - invalid                                                      Skip
@@ -553,7 +527,6 @@ OK: 14/14 Fail: 0/14 Skip: 0/14
 + Testing uints        inputs - invalid                                                      OK
 + Testing uints        inputs - valid                                                        OK
 ```
-OK: 10/12 Fail: 0/12 Skip: 2/12
 ## EIP-4881
 ```diff
 + deposit_cases                                                                              OK
@@ -562,13 +535,11 @@ OK: 10/12 Fail: 0/12 Skip: 2/12
 + invalid_snapshot                                                                           OK
 + snapshot_cases                                                                             OK
 ```
-OK: 5/5 Fail: 0/5 Skip: 0/5
 ## EIP-7594 Unit Tests
 ```diff
 + EIP-7594: Compute Matrix                                                                   OK
 + EIP:7594: Recover Matrix                                                                   OK
 ```
-OK: 2/2 Fail: 0/2 Skip: 0/2
 ## EL Configuration
 ```diff
 + Empty config file                                                                          OK
@@ -577,27 +548,23 @@ OK: 2/2 Fail: 0/2 Skip: 0/2
 + Old style config files                                                                     OK
 + URL parsing                                                                                OK
 ```
-OK: 5/5 Fail: 0/5 Skip: 0/5
 ## Engine API conversions
 ```diff
 + Roundtrip engine RPC V1 and bellatrix ExecutionPayload representations                     OK
 + Roundtrip engine RPC V2 and capella ExecutionPayload representations                       OK
 + Roundtrip engine RPC V3 and deneb ExecutionPayload representations                         OK
 ```
-OK: 3/3 Fail: 0/3 Skip: 0/3
 ## Eth1 monitor
 ```diff
 + Deposits chain                                                                             OK
 + Rewrite URLs                                                                               OK
 ```
-OK: 2/2 Fail: 0/2 Skip: 0/2
 ## Eth2 specific discovery tests
 ```diff
 + Invalid attnets field                                                                      OK
 + Subnet query                                                                               OK
 + Subnet query after ENR update                                                              OK
 ```
-OK: 3/3 Fail: 0/3 Skip: 0/3
 ## Fee recipient management [Beacon Node] [Preset: mainnet]
 ```diff
 + Configuring the fee recipient [Beacon Node] [Preset: mainnet]                              OK
@@ -610,19 +577,16 @@ OK: 3/3 Fail: 0/3 Skip: 0/3
 + Obtaining the fee recipient of an unconfigured validator returns the suggested default [Be OK
 + Setting the fee recipient on a missing validator creates a record for it [Beacon Node] [Pr OK
 ```
-OK: 9/9 Fail: 0/9 Skip: 0/9
 ## FinalizedBlocks [Preset: mainnet]
 ```diff
 + Basic ops [Preset: mainnet]                                                                OK
 ```
-OK: 1/1 Fail: 0/1 Skip: 0/1
 ## Fork id compatibility test
 ```diff
 + Digest check                                                                               OK
 + Fork check                                                                                 OK
 + Next fork epoch check                                                                      OK
 ```
-OK: 3/3 Fail: 0/3 Skip: 0/3
 ## Forked SSZ readers
 ```diff
 + load altair block                                                                          OK
@@ -637,7 +601,6 @@ OK: 3/3 Fail: 0/3 Skip: 0/3
 + load phase0 state                                                                          OK
 + should raise on unknown data                                                               OK
 ```
-OK: 11/11 Fail: 0/11 Skip: 0/11
 ## Gas limit management [Beacon Node] [Preset: mainnet]
 ```diff
 + Configuring the gas limit [Beacon Node] [Preset: mainnet]                                  OK
@@ -650,24 +613,20 @@ OK: 11/11 Fail: 0/11 Skip: 0/11
 + Obtaining the gas limit of an unconfigured validator returns the suggested default [Beacon OK
 + Setting the gas limit on a missing validator creates a record for it [Beacon Node] [Preset OK
 ```
-OK: 9/9 Fail: 0/9 Skip: 0/9
 ## Gossip fork transition
 ```diff
 + Gossip fork transition                                                                     OK
 ```
-OK: 1/1 Fail: 0/1 Skip: 0/1
 ## Gossip validation  [Preset: mainnet]
 ```diff
 + Empty committee when no committee for slot                                                 OK
 + validateAttestation                                                                        OK
 ```
-OK: 2/2 Fail: 0/2 Skip: 0/2
 ## Gossip validation - Altair
 ```diff
 + Period boundary                                                                            OK
 + validateSyncCommitteeMessage - Duplicate pubkey                                            OK
 ```
-OK: 2/2 Fail: 0/2 Skip: 0/2
 ## Graffiti management [Beacon Node] [Preset: mainnet]
 ```diff
 + Configuring the graffiti [Beacon Node] [Preset: mainnet]                                   OK
@@ -678,7 +637,6 @@ OK: 2/2 Fail: 0/2 Skip: 0/2
 + Obtaining the graffiti of an unconfigured validator returns the suggested default [Beacon  OK
 + Setting the graffiti on a missing validator creates a record for it [Beacon Node] [Preset: OK
 ```
-OK: 7/7 Fail: 0/7 Skip: 0/7
 ## Honest validator
 ```diff
 + General pubsub topics                                                                      OK
@@ -689,7 +647,6 @@ OK: 7/7 Fail: 0/7 Skip: 0/7
 + isNearSyncCommitteePeriod                                                                  OK
 + is_aggregator                                                                              OK
 ```
-OK: 7/7 Fail: 0/7 Skip: 0/7
 ## ImportKeystores requests [Beacon Node] [Preset: mainnet]
 ```diff
 + ImportKeystores/ListKeystores/DeleteKeystores [Beacon Node] [Preset: mainnet]              OK
@@ -697,7 +654,6 @@ OK: 7/7 Fail: 0/7 Skip: 0/7
 + Invalid Authorization Token [Beacon Node] [Preset: mainnet]                                OK
 + Missing Authorization header [Beacon Node] [Preset: mainnet]                               OK
 ```
-OK: 4/4 Fail: 0/4 Skip: 0/4
 ## ImportRemoteKeys/ListRemoteKeys/DeleteRemoteKeys [Beacon Node] [Preset: mainnet]
 ```diff
 + Importing list of remote keys [Beacon Node] [Preset: mainnet]                              OK
@@ -705,7 +661,6 @@ OK: 4/4 Fail: 0/4 Skip: 0/4
 + Invalid Authorization Token [Beacon Node] [Preset: mainnet]                                OK
 + Missing Authorization header [Beacon Node] [Preset: mainnet]                               OK
 ```
-OK: 4/4 Fail: 0/4 Skip: 0/4
 ## Key spliting
 ```diff
 + k < n                                                                                      OK
@@ -713,7 +668,6 @@ OK: 4/4 Fail: 0/4 Skip: 0/4
 + k == n == 100                                                                              OK
 + single share                                                                               OK
 ```
-OK: 4/4 Fail: 0/4 Skip: 0/4
 ## KeyStorage testing suite
 ```diff
 + Load Prysm keystore                                                                        OK
@@ -729,19 +683,16 @@ OK: 4/4 Fail: 0/4 Skip: 0/4
 + [SCRYPT] Network Keystore decryption                                                       OK
 + [SCRYPT] Network Keystore encryption                                                       OK
 ```
-OK: 12/12 Fail: 0/12 Skip: 0/12
 ## Latest valid hash [Preset: mainnet]
 ```diff
 + LVH searching                                                                              OK
 ```
-OK: 1/1 Fail: 0/1 Skip: 0/1
 ## Light client [Preset: mainnet]
 ```diff
 + Init from checkpoint                                                                       OK
 + Light client sync                                                                          OK
 + Pre-Altair                                                                                 OK
 ```
-OK: 3/3 Fail: 0/3 Skip: 0/3
 ## Light client processor [Preset: mainnet]
 ```diff
 + Duplicate bootstrap (Optimistic) [Preset: mainnet]                                         OK
@@ -757,7 +708,6 @@ OK: 3/3 Fail: 0/3 Skip: 0/3
 + Sync (Optimistic) [Preset: mainnet]                                                        OK
 + Sync (Strict) [Preset: mainnet]                                                            OK
 ```
-OK: 12/12 Fail: 0/12 Skip: 0/12
 ## ListKeys requests [Beacon Node] [Preset: mainnet]
 ```diff
 + Correct token provided [Beacon Node] [Preset: mainnet]                                     OK
@@ -765,7 +715,6 @@ OK: 12/12 Fail: 0/12 Skip: 0/12
 + Invalid Authorization Token [Beacon Node] [Preset: mainnet]                                OK
 + Missing Authorization header [Beacon Node] [Preset: mainnet]                               OK
 ```
-OK: 4/4 Fail: 0/4 Skip: 0/4
 ## ListRemoteKeys requests [Beacon Node] [Preset: mainnet]
 ```diff
 + Correct token provided [Beacon Node] [Preset: mainnet]                                     OK
@@ -773,7 +722,6 @@ OK: 4/4 Fail: 0/4 Skip: 0/4
 + Invalid Authorization Token [Beacon Node] [Preset: mainnet]                                OK
 + Missing Authorization header [Beacon Node] [Preset: mainnet]                               OK
 ```
-OK: 4/4 Fail: 0/4 Skip: 0/4
 ## Message signatures
 ```diff
 + Aggregate and proof signatures                                                             OK
@@ -785,20 +733,17 @@ OK: 4/4 Fail: 0/4 Skip: 0/4
 + Sync committee signed contribution and proof signatures                                    OK
 + Voluntary exit signatures                                                                  OK
 ```
-OK: 8/8 Fail: 0/8 Skip: 0/8
 ## Network metadata
 ```diff
 + mainnet                                                                                    OK
 + sepolia                                                                                    OK
 ```
-OK: 2/2 Fail: 0/2 Skip: 0/2
 ## Nimbus remote signer/signing test (verifying-web3signer)
 ```diff
 + Signing BeaconBlock (getBlockSignature(capella))                                           OK
 + Signing BeaconBlock (getBlockSignature(deneb))                                             OK
 + Waiting for signing node (/upcheck) test                                                   OK
 ```
-OK: 3/3 Fail: 0/3 Skip: 0/3
 ## Nimbus remote signer/signing test (web3signer)
 ```diff
 + Connection timeout test                                                                    OK
@@ -819,17 +764,14 @@ OK: 3/3 Fail: 0/3 Skip: 0/3
 + Signing voluntary exit (getValidatorExitSignature())                                       OK
 + Waiting for signing node (/upcheck) test                                                   OK
 ```
-OK: 17/17 Fail: 0/17 Skip: 0/17
 ## Old database versions [Preset: mainnet]
 ```diff
 + pre-1.1.0                                                                                  OK
 ```
-OK: 1/1 Fail: 0/1 Skip: 0/1
 ## PeerDAS Sampling Tests
 ```diff
 + PeerDAS: Extended Sample Count                                                             OK
 ```
-OK: 1/1 Fail: 0/1 Skip: 0/1
 ## PeerPool testing suite
 ```diff
 + Access peers by key test                                                                   OK
@@ -845,12 +787,10 @@ OK: 1/1 Fail: 0/1 Skip: 0/1
 + addPeerNoWait() test                                                                       OK
 + deletePeer() test                                                                          OK
 ```
-OK: 12/12 Fail: 0/12 Skip: 0/12
 ## Pruning
 ```diff
 + prune states                                                                               OK
 ```
-OK: 1/1 Fail: 0/1 Skip: 0/1
 ## REST JSON encoding and decoding
 ```diff
 + Blob                                                                                       OK
@@ -859,7 +799,6 @@ OK: 1/1 Fail: 0/1 Skip: 0/1
 + KzgProof                                                                                   OK
 + Validator pubkey hack                                                                      OK
 ```
-OK: 5/5 Fail: 0/5 Skip: 0/5
 ## Remove keystore testing suite
 ```diff
 + Many remotes                                                                               OK
@@ -868,36 +807,30 @@ OK: 5/5 Fail: 0/5 Skip: 0/5
 + Verifying Signer / Single remote                                                           OK
 + vesion 1                                                                                   OK
 ```
-OK: 5/5 Fail: 0/5 Skip: 0/5
 ## Serialization/deserialization [Beacon Node] [Preset: mainnet]
 ```diff
 + Deserialization test vectors                                                               OK
 ```
-OK: 1/1 Fail: 0/1 Skip: 0/1
 ## Serialization/deserialization test suite
 ```diff
 + RestErrorMessage parser tests                                                              OK
 + RestErrorMessage writer tests                                                              OK
 + strictParse(Stuint) tests                                                                  OK
 ```
-OK: 3/3 Fail: 0/3 Skip: 0/3
 ## Shufflings
 ```diff
 + Accelerated shuffling computation                                                          OK
 + Accelerated shuffling computation (with epochRefState jump)                                OK
 ```
-OK: 2/2 Fail: 0/2 Skip: 0/2
 ## Shufflings (merged)
 ```diff
 + Accelerated shuffling computation                                                          OK
 + Accelerated shuffling computation (with epochRefState jump)                                OK
 ```
-OK: 2/2 Fail: 0/2 Skip: 0/2
 ## Size bounds
 ```diff
 + SignedBeaconBlockDeneb                                                                     OK
 ```
-OK: 1/1 Fail: 0/1 Skip: 0/1
 ## Slashing Interchange tests  [Preset: mainnet]
 ```diff
 + Slashing test: duplicate_pubkey_not_slashable.json                                         OK
@@ -939,7 +872,6 @@ OK: 1/1 Fail: 0/1 Skip: 0/1
 + Slashing test: single_validator_two_blocks_no_signing_root.json                            OK
 + Slashing test: wrong_genesis_validators_root.json                                          OK
 ```
-OK: 35/38 Fail: 0/38 Skip: 3/38
 ## Slashing Protection DB [Preset: mainnet]
 ```diff
 + Attestation ordering #1698                                                                 OK
@@ -955,35 +887,29 @@ OK: 35/38 Fail: 0/38 Skip: 3/38
 + SP for surrounding attestations                                                            OK
 + Test valid attestation #1699                                                               OK
 ```
-OK: 12/12 Fail: 0/12 Skip: 0/12
 ## Spec datatypes
 ```diff
 + Graffiti bytes                                                                             OK
 ```
-OK: 1/1 Fail: 0/1 Skip: 0/1
 ## Spec helpers
 ```diff
 + build_proof - BeaconState                                                                  OK
 + hypergeom_cdf                                                                              OK
 + integer_squareroot                                                                         OK
 ```
-OK: 3/3 Fail: 0/3 Skip: 0/3
 ## Specific field types
 ```diff
 + root update                                                                                OK
 + roundtrip                                                                                  OK
 ```
-OK: 2/2 Fail: 0/2 Skip: 0/2
 ## Starting states
 ```diff
 + Starting state without block                                                               OK
 ```
-OK: 1/1 Fail: 0/1 Skip: 0/1
 ## State history
 ```diff
 + getBlockIdAtSlot                                                                           OK
 ```
-OK: 1/1 Fail: 0/1 Skip: 0/1
 ## Sync committee pool
 ```diff
 + Aggregating votes                                                                          OK
@@ -994,7 +920,6 @@ OK: 1/1 Fail: 0/1 Skip: 0/1
 + Missed slots across sync committee period boundary                                         OK
 + isSeen                                                                                     OK
 ```
-OK: 7/7 Fail: 0/7 Skip: 0/7
 ## SyncManager test suite
 ```diff
 + [SyncManager] groupBlobs() test                                                            OK
@@ -1018,12 +943,10 @@ OK: 7/7 Fail: 0/7 Skip: 0/7
 + [SyncQueue] checkResponse() test                                                           OK
 + [SyncQueue] hasEndGap() test                                                               OK
 ```
-OK: 20/20 Fail: 0/20 Skip: 0/20
 ## Type helpers
 ```diff
 + BeaconBlock                                                                                OK
 ```
-OK: 1/1 Fail: 0/1 Skip: 0/1
 ## Validator Client test suite
 ```diff
 + /eth/v1/validator/beacon_committee_selections serialization/deserialization test           OK
@@ -1041,7 +964,6 @@ OK: 1/1 Fail: 0/1 Skip: 0/1
 + getUniqueVotes() test vectors                                                              OK
 + normalizeUri() test vectors                                                                OK
 ```
-OK: 14/14 Fail: 0/14 Skip: 0/14
 ## Validator change pool testing suite
 ```diff
 + addValidatorChangeMessage/getAttesterSlashingMessage (Electra)                             OK
@@ -1052,7 +974,6 @@ OK: 14/14 Fail: 0/14 Skip: 0/14
 + addValidatorChangeMessage/getVoluntaryExitMessage                                          OK
 + pre-pre-fork voluntary exit                                                                OK
 ```
-OK: 7/7 Fail: 0/7 Skip: 0/7
 ## Validator pool
 ```diff
 + Doppelganger for genesis validator                                                         OK
@@ -1060,20 +981,17 @@ OK: 7/7 Fail: 0/7 Skip: 0/7
 + Dynamic validator set: queryValidatorsSource() test                                        OK
 + Dynamic validator set: updateDynamicValidators() test                                      OK
 ```
-OK: 4/4 Fail: 0/4 Skip: 0/4
 ## ValidatorPubKey bucket sort
 ```diff
 + incremental construction                                                                   OK
 + one-shot construction                                                                      OK
 ```
-OK: 2/2 Fail: 0/2 Skip: 0/2
 ## Zero signature sanity checks
 ```diff
 + SSZ serialization roundtrip of SignedBeaconBlockHeader                                     OK
 + Zero signatures cannot be loaded into a BLS signature object                               OK
 + default initialization of signatures                                                       OK
 ```
-OK: 3/3 Fail: 0/3 Skip: 0/3
 ## chain DAG finalization tests [Preset: mainnet]
 ```diff
 + init with gaps [Preset: mainnet]                                                           OK
@@ -1081,7 +999,6 @@ OK: 3/3 Fail: 0/3 Skip: 0/3
 + prune heads on finalization [Preset: mainnet]                                              OK
 + shutdown during finalization [Preset: mainnet]                                             OK
 ```
-OK: 4/4 Fail: 0/4 Skip: 0/4
 ## createValidatorFiles()
 ```diff
 + Add keystore files [LOCAL]                                                                 OK
@@ -1093,27 +1010,23 @@ OK: 4/4 Fail: 0/4 Skip: 0/4
 + `createLocalValidatorFiles` with `validatorsDir` without permissions                       OK
 + `createValidatorFiles` with already existing dirs and any error                            OK
 ```
-OK: 8/8 Fail: 0/8 Skip: 0/8
 ## engine API authentication
 ```diff
 + HS256 JWS iat token signing                                                                OK
 + HS256 JWS signing                                                                          OK
 + getIatToken                                                                                OK
 ```
-OK: 3/3 Fail: 0/3 Skip: 0/3
 ## eth2.0-deposits-cli compatibility
 ```diff
 + restoring mnemonic with password                                                           OK
 + restoring mnemonic without password                                                        OK
 ```
-OK: 2/2 Fail: 0/2 Skip: 0/2
 ## removeValidatorFiles()
 ```diff
 + Remove nonexistent validator                                                               OK
 + Remove validator files                                                                     OK
 + Remove validator files twice                                                               OK
 ```
-OK: 3/3 Fail: 0/3 Skip: 0/3
 ## removeValidatorFiles() multiple keystore types
 ```diff
 + Remove [LOCAL] when [LOCAL] is missing                                                     OK
@@ -1123,7 +1036,6 @@ OK: 3/3 Fail: 0/3 Skip: 0/3
 + Remove [REMOTE] when [REMOTE] is missing                                                   OK
 + Remove [REMOTE] when [REMOTE] is present                                                   OK
 ```
-OK: 6/6 Fail: 0/6 Skip: 0/6
 ## saveKeystore()
 ```diff
 + Save [LOCAL] keystore after [LOCAL] keystore with different id                             OK
@@ -1135,18 +1047,15 @@ OK: 6/6 Fail: 0/6 Skip: 0/6
 + Save [REMOTE] keystore after [REMOTE] keystore with different id                           OK
 + Save [REMOTE] keystore after [REMOTE] keystore with same id                                OK
 ```
-OK: 8/8 Fail: 0/8 Skip: 0/8
 ## state diff tests [Preset: mainnet]
 ```diff
 + random slot differences [Preset: mainnet]                                                  OK
 ```
-OK: 1/1 Fail: 0/1 Skip: 0/1
 ## subnet tracker
 ```diff
 + should register stability subnets on attester duties                                       OK
 + should register sync committee duties                                                      OK
 ```
-OK: 2/2 Fail: 0/2 Skip: 0/2
 ## weak-subjectivity-checkpoint
 ```diff
 + Correct values                                                                             OK
@@ -1159,7 +1068,3 @@ OK: 2/2 Fail: 0/2 Skip: 0/2
 + non-number epoch                                                                           OK
 + shorter root                                                                               OK
 ```
-OK: 9/9 Fail: 0/9 Skip: 0/9
-
----TOTAL---
-OK: 787/792 Fail: 0/792 Skip: 5/792
