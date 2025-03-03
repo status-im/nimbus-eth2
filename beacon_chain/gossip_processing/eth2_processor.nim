@@ -280,7 +280,7 @@ proc validateBlobSidecarFromEL(
     Future[Result[void, ValidationError]]
     {.async: (raises: [CancelledError]).} =
 
-  if (let o = self.quarantine[].popBlobless(block_root); o.isSome):
+  if (let o = self.quarantine[].getBlobless(block_root); o.isSome):
     let blobless = o.get()
     withBlck(blobless):
       when consensusFork >= ConsensusFork.Electra:
@@ -292,6 +292,11 @@ proc validateBlobSidecarFromEL(
           # check lengths of array[BlobAndProofV1] with blobs
           # kzg commitments of the signed block
           if blobsEl.len == forkyBlck.message.body.blob_kzg_commitments.len:
+
+            # we have got all blobs from EL, now we can
+            # conveniently the blobless block from quarantine
+            discard self.quarantine[].popBlobless(block_root)
+
             let blob_sidecars_el =
               create_blob_sidecars(
                 forkyBlck,
