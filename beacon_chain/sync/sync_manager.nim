@@ -56,6 +56,7 @@ type
     pool: PeerPool[A, B]
     DENEB_FORK_EPOCH: Epoch
     MIN_EPOCHS_FOR_BLOB_SIDECARS_REQUESTS: uint64
+    MAX_BLOBS_PER_BLOCK_ELECTRA: uint64
     responseTimeout: chronos.Duration
     maxHeadAge: uint64
     isWithinWeakSubjectivityPeriod: GetBoolCallback
@@ -91,7 +92,7 @@ type
   BeaconBlocksRes =
     NetRes[List[ref ForkedSignedBeaconBlock, Limit MAX_REQUEST_BLOCKS]]
   BlobSidecarsRes =
-    NetRes[List[ref BlobSidecar, Limit(MAX_REQUEST_BLOB_SIDECARS_ELECTRA)]]
+    NetRes[List[ref BlobSidecar, Limit(MAX_SUPPORTED_REQUEST_BLOB_SIDECARS)]]
 
   SyncBlockData* = object
     blocks*: seq[ref ForkedSignedBeaconBlock]
@@ -142,6 +143,7 @@ proc newSyncManager*[A, B](
     pool: PeerPool[A, B],
     denebEpoch: Epoch,
     minEpochsForBlobSidecarsRequests: uint64,
+    maxBlobsPerBlockElectra: uint64,
     direction: SyncQueueKind,
     getLocalHeadSlotCb: GetSlotCallback,
     getLocalWallSlotCb: GetSlotCallback,
@@ -170,6 +172,7 @@ proc newSyncManager*[A, B](
     pool: pool,
     DENEB_FORK_EPOCH: denebEpoch,
     MIN_EPOCHS_FOR_BLOB_SIDECARS_REQUESTS: minEpochsForBlobSidecarsRequests,
+    MAX_BLOBS_PER_BLOCK_ELECTRA: maxBlobsPerBlockElectra,
     getLocalHeadSlot: getLocalHeadSlotCb,
     getLocalWallSlot: getLocalWallSlotCb,
     isWithinWeakSubjectivityPeriod: weakSubjectivityPeriodCb,
@@ -224,14 +227,16 @@ proc getBlobSidecars[A, B](man: SyncManager[A, B], peer: A,
   mixin getScore, `==`
 
   doAssert(not(req.isEmpty()), "Request must not be empty!")
-  debug "Requesting blobs sidecars from peer",
+  debug "Requesting blob sidecars from peer",
         request = req,
         peer_score = req.item.getScore(),
         peer_speed = req.item.netKbps(),
         sync_ident = man.ident,
         topics = "syncman"
 
-  blobSidecarsByRange(peer, req.data.slot, req.data.count)
+  blobSidecarsByRange(
+    peer, req.data.slot, req.data.count,
+    maxResponseItems = (req.data.count * man.MAX_BLOBS_PER_BLOCK_ELECTRA).Limit)
 
 proc remainingSlots(man: SyncManager): uint64 =
   let
@@ -294,7 +299,8 @@ func checkBlobs(blobs: seq[BlobSidecars]): Result[void, string] =
 
 proc getSyncBlockData*[T](
     peer: T,
-    slot: Slot
+    slot: Slot,
+    maxBlobsPerBlockElectra: uint64
 ): Future[SyncBlockDataRes] {.async: (raises: [CancelledError]).} =
   mixin getScore
 
@@ -348,8 +354,14 @@ proc getSyncBlockData*[T](
     if shouldGetBlob:
       let blobData =
         block:
-          debug "Requesting blobs sidecars from peer"
-          let res = await blobSidecarsByRange(peer, slot, 1'u64)
+          debug "Requesting blob sidecars from peer",
+                slot = slot,
+                peer = peer,
+                peer_score = peer.getScore(),
+                peer_speed = peer.netKbps(),
+                topics = "syncman"
+          let res = await blobSidecarsByRange(
+            peer, slot, 1'u64, maxResponseItems = maxBlobsPerBlockElectra.Limit)
           if res.isErr():
             peer.updateScore(PeerScoreNoValues)
             return err(
@@ -445,7 +457,8 @@ proc getSyncBlockData[A, B](
 
         if len(blobData) > 0:
           let blobSlots = mapIt(blobData, it[].signed_block_header.message.slot)
-          checkBlobsResponse(sr, blobSlots).isOkOr:
+          checkBlobsResponse(
+              sr, blobSlots, man.MAX_BLOBS_PER_BLOCK_ELECTRA).isOkOr:
             peer.updateScore(PeerScoreBadResponse)
             return err("Incorrect blobs sequence received, reason: " & $error)
 
@@ -895,13 +908,15 @@ proc syncLoop[A, B](
       progress =
         case man.queue.kind
         of SyncQueueKind.Forward:
-          if man.queue.outSlot >= pivot:
-            man.queue.outSlot - pivot
+          let outSlot = min(man.queue.finalSlot, man.queue.outSlot)
+          if outSlot >= pivot:
+            outSlot - pivot
           else:
             0'u64
         of SyncQueueKind.Backward:
-          if pivot >= man.queue.outSlot:
-            pivot - man.queue.outSlot
+          let outSlot = max(man.queue.finalSlot, man.queue.outSlot)
+          if pivot >= outSlot:
+            pivot - outSlot
           else:
             0'u64
       total =

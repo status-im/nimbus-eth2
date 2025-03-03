@@ -421,7 +421,8 @@ proc initFullNode(
       dag, attestationPool, onVoluntaryExitAdded, onBLSToExecutionChangeAdded,
       onProposerSlashingAdded, onPhase0AttesterSlashingAdded,
       onElectraAttesterSlashingAdded))
-    blobQuarantine = newClone(BlobQuarantine.init(onBlobSidecarAdded))
+    blobQuarantine = newClone(BlobQuarantine.init(
+      dag.cfg, onBlobSidecarAdded))
     dataColumnQuarantine = newClone(DataColumnQuarantine.init())
     supernode = node.config.peerdasSupernode
     localCustodyGroups =
@@ -521,7 +522,9 @@ proc initFullNode(
         {}
     syncManager = newSyncManager[Peer, PeerId](
       node.network.peerPool,
-      dag.cfg.DENEB_FORK_EPOCH, dag.cfg.MIN_EPOCHS_FOR_BLOB_SIDECARS_REQUESTS,
+      dag.cfg.DENEB_FORK_EPOCH,
+      dag.cfg.MIN_EPOCHS_FOR_BLOB_SIDECARS_REQUESTS,
+      dag.cfg.MAX_BLOBS_PER_BLOCK_ELECTRA,
       SyncQueueKind.Forward, getLocalHeadSlot,
       getLocalWallSlot, getFirstSlotAtFinalizedEpoch, getBackfillSlot,
       getFrontfillSlot, isWithinWeakSubjectivityPeriod,
@@ -531,7 +534,9 @@ proc initFullNode(
       flags = syncManagerFlags)
     backfiller = newSyncManager[Peer, PeerId](
       node.network.peerPool,
-      dag.cfg.DENEB_FORK_EPOCH, dag.cfg.MIN_EPOCHS_FOR_BLOB_SIDECARS_REQUESTS,
+      dag.cfg.DENEB_FORK_EPOCH,
+      dag.cfg.MIN_EPOCHS_FOR_BLOB_SIDECARS_REQUESTS,
+      dag.cfg.MAX_BLOBS_PER_BLOCK_ELECTRA,
       SyncQueueKind.Backward, getLocalHeadSlot,
       getLocalWallSlot, getFirstSlotAtFinalizedEpoch, getBackfillSlot,
       getFrontfillSlot, isWithinWeakSubjectivityPeriod,
@@ -545,7 +550,9 @@ proc initFullNode(
         getLocalWallSlot()
     untrustedManager = newSyncManager[Peer, PeerId](
       node.network.peerPool,
-      dag.cfg.DENEB_FORK_EPOCH, dag.cfg.MIN_EPOCHS_FOR_BLOB_SIDECARS_REQUESTS,
+      dag.cfg.DENEB_FORK_EPOCH,
+      dag.cfg.MIN_EPOCHS_FOR_BLOB_SIDECARS_REQUESTS,
+      dag.cfg.MAX_BLOBS_PER_BLOCK_ELECTRA,
       SyncQueueKind.Backward, getLocalHeadSlot,
       getLocalWallSlot, getFirstSlotAtFinalizedEpoch, getUntrustedBackfillSlot,
       getFrontfillSlot, isWithinWeakSubjectivityPeriod,
@@ -1311,15 +1318,22 @@ proc addCapellaMessageHandlers(
   node.addAltairMessageHandlers(forkDigest, slot)
   node.network.subscribe(getBlsToExecutionChangeTopic(forkDigest), basicParams)
 
+proc doAddDenebMessageHandlers(
+    node: BeaconNode, forkDigest: ForkDigest, slot: Slot,
+    blobSidecarSubnetCount: uint64) =
+  node.addCapellaMessageHandlers(forkDigest, slot)
+  for topic in blobSidecarTopics(forkDigest, blobSidecarSubnetCount):
+    node.network.subscribe(topic, basicParams)
+
 proc addDenebMessageHandlers(
     node: BeaconNode, forkDigest: ForkDigest, slot: Slot) =
-  node.addCapellaMessageHandlers(forkDigest, slot)
-  for topic in blobSidecarTopics(forkDigest):
-    node.network.subscribe(topic, basicParams)
+  node.doAddDenebMessageHandlers(
+    forkDigest, slot, node.dag.cfg.BLOB_SIDECAR_SUBNET_COUNT)
 
 proc addElectraMessageHandlers(
     node: BeaconNode, forkDigest: ForkDigest, slot: Slot) =
-  node.addDenebMessageHandlers(forkDigest, slot)
+  node.doAddDenebMessageHandlers(
+    forkDigest, slot, node.dag.cfg.BLOB_SIDECAR_SUBNET_COUNT_ELECTRA)
 
 proc addFuluMessageHandlers(
     node: BeaconNode, forkDigest: ForkDigest, slot: Slot) =
@@ -1340,13 +1354,19 @@ proc removeCapellaMessageHandlers(node: BeaconNode, forkDigest: ForkDigest) =
   node.removeAltairMessageHandlers(forkDigest)
   node.network.unsubscribe(getBlsToExecutionChangeTopic(forkDigest))
 
-proc removeDenebMessageHandlers(node: BeaconNode, forkDigest: ForkDigest) =
+proc doRemoveDenebMessageHandlers(
+    node: BeaconNode, forkDigest: ForkDigest, blobSidecarSubnetCount: uint64) =
   node.removeCapellaMessageHandlers(forkDigest)
-  for topic in blobSidecarTopics(forkDigest):
+  for topic in blobSidecarTopics(forkDigest, blobSidecarSubnetCount):
     node.network.unsubscribe(topic)
 
+proc removeDenebMessageHandlers(node: BeaconNode, forkDigest: ForkDigest) =
+  node.doRemoveDenebMessageHandlers(
+    forkDigest, node.dag.cfg.BLOB_SIDECAR_SUBNET_COUNT)
+
 proc removeElectraMessageHandlers(node: BeaconNode, forkDigest: ForkDigest) =
-  node.removeDenebMessageHandlers(forkDigest)
+  node.doRemoveDenebMessageHandlers(
+    forkDigest, node.dag.cfg.BLOB_SIDECAR_SUBNET_COUNT_ELECTRA)
 
 proc removeFuluMessageHandlers(node: BeaconNode, forkDigest: ForkDigest) =
   node.removeElectraMessageHandlers(forkDigest)
@@ -2128,7 +2148,7 @@ proc installMessageValidators(node: BeaconNode) =
                 MsgSource.gossip, signedAggregateAndProof)))
 
       # attester_slashing
-      # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.5/specs/phase0/p2p-interface.md#attester_slashing
+      # https://github.com/ethereum/consensus-specs/blob/v1.5.0-beta.2/specs/phase0/p2p-interface.md#attester_slashing
       # https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.6/specs/electra/p2p-interface.md#modifications-in-electra
       when consensusFork >= ConsensusFork.Electra:
         node.network.addValidator(
@@ -2182,7 +2202,7 @@ proc installMessageValidators(node: BeaconNode) =
                     MsgSource.gossip, msg, idx)))
 
         # sync_committee_contribution_and_proof
-        # https://github.com/ethereum/consensus-specs/blob/v1.5.0-beta.1/specs/altair/p2p-interface.md#sync_committee_contribution_and_proof
+        # https://github.com/ethereum/consensus-specs/blob/v1.5.0-beta.2/specs/altair/p2p-interface.md#sync_committee_contribution_and_proof
         node.network.addAsyncValidator(
           getSyncCommitteeContributionAndProofTopic(digest), proc (
             msg: SignedContributionAndProof
@@ -2192,7 +2212,7 @@ proc installMessageValidators(node: BeaconNode) =
                 MsgSource.gossip, msg)))
 
       when consensusFork >= ConsensusFork.Capella:
-        # https://github.com/ethereum/consensus-specs/blob/v1.5.0-beta.1/specs/capella/p2p-interface.md#bls_to_execution_change
+        # https://github.com/ethereum/consensus-specs/blob/v1.5.0-beta.2/specs/capella/p2p-interface.md#bls_to_execution_change
         node.network.addAsyncValidator(
           getBlsToExecutionChangeTopic(digest), proc (
             msg: SignedBLSToExecutionChange
@@ -2204,7 +2224,12 @@ proc installMessageValidators(node: BeaconNode) =
       when consensusFork >= ConsensusFork.Deneb:
         # blob_sidecar_{subnet_id}
         # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.5/specs/deneb/p2p-interface.md#blob_sidecar_subnet_id
-        for it in BlobId:
+        let subnetCount =
+          when consensusFork >= ConsensusFork.Electra:
+            node.dag.cfg.BLOB_SIDECAR_SUBNET_COUNT_ELECTRA
+          else:
+            node.dag.cfg.BLOB_SIDECAR_SUBNET_COUNT
+        for it in 0.BlobId ..< subnetCount.BlobId:
           closureScope:  # Needed for inner `proc`; don't lift it out of loop.
             let subnet_id = it
             node.network.addValidator(
@@ -2701,8 +2726,8 @@ programMain:
     # permissions are insecure.
     quit QuitFailure
 
-  setupFileLimits()
   setupLogging(config.logLevel, config.logStdout, config.logFile)
+  setupFileLimits()
 
   ## This Ctrl+C handler exits the program in non-graceful way.
   ## It's responsible for handling Ctrl+C in sub-commands such

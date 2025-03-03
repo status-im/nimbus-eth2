@@ -1,5 +1,5 @@
 # beacon_chain
-# Copyright (c) 2020-2024 Status Research & Development GmbH
+# Copyright (c) 2020-2025 Status Research & Development GmbH
 # Licensed and distributed under either of
 #   * MIT license (license terms in the root directory or at https://opensource.org/licenses/MIT).
 #   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
@@ -61,7 +61,8 @@ func getSimulationConfig*(): RuntimeConfig {.compileTime.} =
   cfg.BELLATRIX_FORK_EPOCH = 0.Epoch
   cfg.CAPELLA_FORK_EPOCH = 0.Epoch
   cfg.DENEB_FORK_EPOCH = 0.Epoch
-  cfg.ELECTRA_FORK_EPOCH = 3.Epoch
+  cfg.ELECTRA_FORK_EPOCH = 0.Epoch
+  cfg.FULU_FORK_EPOCH = 3.Epoch
   cfg
 
 proc loadGenesis*(
@@ -139,15 +140,15 @@ proc loadGenesis*(
       depositContractState: merkleizer.toDepositContractState)
 
     let res = (ref ForkedHashedBeaconState)(
-      kind: ConsensusFork.Deneb,
-      denebData: deneb.HashedBeaconState(
+      kind: ConsensusFork.Electra,
+      electraData: electra.HashedBeaconState(
         data: initialize_beacon_state_from_eth1(
           cfg, ZERO_HASH, 0, deposits,
-          default(deneb.ExecutionPayloadHeader), {skipBlsValidation})))
+          default(electra.ExecutionPayloadHeader), {skipBlsValidation})))
 
     info "Saving genesis file", fileName = genesisFn
     try:
-      SSZ.saveFile(genesisFn, res.denebData.data)
+      SSZ.saveFile(genesisFn, res.electraData.data)
     except IOError as exc:
       fatal "Genesis file failed to save",
         fileName = genesisFn, exc = exc.msg
