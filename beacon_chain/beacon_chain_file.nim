@@ -291,8 +291,7 @@ proc setTail*(chandle: var ChainFileHandle, bdata: BlockData) =
   chandle.data.tail = Opt.some(bdata)
 
 proc store*(chandle: ChainFileHandle, signedBlock: ForkedSignedBeaconBlock,
-            blobs: Opt[BlobSidecars]):
-            Result[void, string] =
+            blobs: Opt[BlobSidecars]): Result[void, string] =
   let origOffset =
     updateFilePos(chandle.handle, 0'i64, SeekPosition.SeekEnd).valueOr:
       return err(ioErrorMsg(error))
@@ -550,7 +549,6 @@ proc decodeBlob(
       except SerializationError:
         return err("Incorrect blob format")
   ok(blob)
-
 
 proc getChainFileTail*(handle: IoHandle): Result[Opt[BlockData], string] =
   var sidecars: BlobSidecars

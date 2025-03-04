@@ -128,8 +128,7 @@ proc setTail*(clist: ChainListRef, bdata: BlockData) =
   clist.handle = Opt.some(handle)
 
 proc store*(clist: ChainListRef, signedBlock: ForkedSignedBeaconBlock,
-            blobs: Opt[BlobSidecars]):
-            Result[void, string] =
+            blobs: Opt[BlobSidecars]): Result[void, string] =
   if clist.handle.isNone():
     let
       filename = clist.path.chainFilePath()
@@ -170,8 +169,7 @@ proc checkBlobs(signedBlock: ForkedSignedBeaconBlock,
 
 proc addBackfillBlockData*(
     clist: ChainListRef, signedBlock: ForkedSignedBeaconBlock,
-    blobsOpt: Opt[BlobSidecars]):
-    Result[void, VerifierError] =
+    blobsOpt: Opt[BlobSidecars]): Result[void, VerifierError] =
   doAssert(not(isNil(clist)))
 
   logScope:

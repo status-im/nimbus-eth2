@@ -434,14 +434,6 @@ proc verify_data_column_sidecar_kzg_proofs*(sidecar: DataColumnSidecar):
 
   # Check is the sidecar column length = sidecar.kzg_commitments length
   # and sidecar.kzg_commitments length = sidecar.kzg_proofs length
-  debugEcho "sidecar column len"
-  debugEcho sidecar.column.len
-
-  debugEcho "sidecar kzg commitments len"
-  debugEcho sidecar.kzg_commitments.len
-
-  debugEcho "sidecar kzg proofs len"
-  debugEcho sidecar.kzg_proofs.len
 
   if not (sidecar.column.len == sidecar.kzg_commitments.len):
     return err("Data column sidecar length is not equal to the kzg_commitments length")
