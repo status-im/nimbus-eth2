@@ -547,47 +547,19 @@ proc installNimbusApiHandlers*(router: var RestRouter, node: BeaconNode) =
 
     node.withStateForBlockSlotId(bslot):
       return withState(state):
-        when consensusFork >= ConsensusFork.Electra:
-          var proof: HistoricalSummariesProofElectra
-          if forkyState.data.build_proof(HISTORICAL_SUMMARIES_GINDEX_ELECTRA, proof).isErr:
-            return RestApiResponse.jsonError(Http500, InvalidMerkleProofIndexError)
-
-          let response = GetHistoricalSummariesV1ResponseElectra(
+        when consensusFork >= ConsensusFork.Capella:
+          let response = consensusFork.GetHistoricalSummariesResponse(
             historical_summaries: forkyState.data.historical_summaries,
-            proof: proof,
-            slot: bslot.slot,
-          )
+            proof: forkyState.data.build_proof(
+              consensusFork.historical_summaries_gindex).expect("Valid gindex"),
+            slot: bslot.slot)
 
           if contentType == jsonMediaType:
             RestApiResponse.jsonResponseFinalizedWVersion(
               response,
               node.getStateOptimistic(state),
               node.dag.isFinalized(bslot.bid),
-              consensusFork,
-            )
-          elif contentType == sszMediaType:
-            let headers = [("eth-consensus-version", consensusFork.toString())]
-            RestApiResponse.sszResponse(response, headers)
-          else:
-            RestApiResponse.jsonError(Http500, InvalidAcceptError)
-        elif consensusFork >= ConsensusFork.Capella:
-          var proof: HistoricalSummariesProof
-          if forkyState.data.build_proof(HISTORICAL_SUMMARIES_GINDEX, proof).isErr:
-            return RestApiResponse.jsonError(Http500, InvalidMerkleProofIndexError)
-
-          let response = GetHistoricalSummariesV1Response(
-            historical_summaries: forkyState.data.historical_summaries,
-            proof: proof,
-            slot: bslot.slot,
-          )
-
-          if contentType == jsonMediaType:
-            RestApiResponse.jsonResponseFinalizedWVersion(
-              response,
-              node.getStateOptimistic(state),
-              node.dag.isFinalized(bslot.bid),
-              consensusFork,
-            )
+              consensusFork)
           elif contentType == sszMediaType:
             let headers = [("eth-consensus-version", consensusFork.toString())]
             RestApiResponse.sszResponse(response, headers)

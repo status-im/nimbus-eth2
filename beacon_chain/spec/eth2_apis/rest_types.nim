@@ -1111,6 +1111,24 @@ type
     of ConsensusFork.Electra: electraData*: GetHistoricalSummariesV1ResponseElectra
     of ConsensusFork.Fulu: fuluData*: GetHistoricalSummariesV1ResponseElectra
 
+template historical_summaries_gindex*(
+    kind: static ConsensusFork): GeneralizedIndex =
+  when kind >= ConsensusFork.Electra:
+    HISTORICAL_SUMMARIES_GINDEX_ELECTRA
+  elif kind >= ConsensusFork.Capella:
+    HISTORICAL_SUMMARIES_GINDEX
+  else:
+    {.error: "historical_summaries_gindex does not support " & $kind.}
+
+template GetHistoricalSummariesResponse*(
+    kind: static ConsensusFork): auto =
+  when kind >= ConsensusFork.Electra:
+    GetHistoricalSummariesV1ResponseElectra
+  elif kind >= ConsensusFork.Capella:
+    GetHistoricalSummariesV1Response
+  else:
+    {.error: "GetHistoricalSummariesResponse does not support " & $kind.}
+
 template init*(
     T: type ForkedHistoricalSummariesWithProof,
     historical_summaries: GetHistoricalSummariesV1Response,
