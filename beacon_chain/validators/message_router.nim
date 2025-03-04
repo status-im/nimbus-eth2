@@ -115,30 +115,6 @@ proc routeSignedBeaconBlock*(
         signature = shortLog(blck.signature), error = res.error()
       return err($(res.error()[1]))
 
-    # # May not be required as we are already
-    # # KZG verifying the blobs once
-    # when typeof(blck).kind >= ConsensusFork.Fulu:
-    #   if blobsOpt.isSome:
-    #     let
-    #       dataColumns =
-    #         newClone get_data_column_sidecars(blck,
-    #                                           blobsOpt.get.mapIt(
-    #                                           KzgBlob(bytes: it.blob)))
-    #     let kzgCommits =
-    #       blck.message.body.blob_kzg_commitments.asSeq
-    #     if dataColumns[].get().len > 0 and kzgCommits.len > 0:
-    #       for i in 0..<dataColumns[].len:
-    #         let r
-    #           = verify_data_column_sidecar_kzg_proofs(dataColumns[].get()[i])
-    #         if r.isErr:
-    #           warn "data column validation failed",
-    #             blockRoot = shortLog(signedBlock.root),
-    #             column_sidecar = shortLog(dataColumns[].get()[i]),
-    #             blck = shortLog(signedBlock.message),
-    #             signature = shortLog(signedBlock.signature),
-    #             msg = r.error()
-    #           return err(r.error())
-
     when typeof(blck).kind >= ConsensusFork.Deneb:
       if blobsOpt.isSome:
         let blobs = blobsOpt.get()
