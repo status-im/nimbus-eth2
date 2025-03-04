@@ -462,8 +462,7 @@ proc initFullNode(
         maybeFinalized = maybeFinalized)
     untrustedBlockVerifier =
       proc(signedBlock: ForkedSignedBeaconBlock, blobs: Opt[BlobSidecars],
-           maybeFinalized: bool):
-           Future[Result[void, VerifierError]] {.
+           maybeFinalized: bool): Future[Result[void, VerifierError]] {.
         async: (raises: [CancelledError], raw: true).} =
         clist.untrustedBackfillVerifier(signedBlock, blobs, maybeFinalized)
     rmanBlockVerifier = proc(signedBlock: ForkedSignedBeaconBlock,

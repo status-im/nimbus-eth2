@@ -24,8 +24,7 @@ type
   GetBoolCallback* = proc(): bool {.gcsafe, raises: [].}
   ProcessingCallback* = proc() {.gcsafe, raises: [].}
   BlockVerifier* =  proc(signedBlock: ForkedSignedBeaconBlock,
-                         blobs: Opt[BlobSidecars],
-                         maybeFinalized: bool):
+                         blobs: Opt[BlobSidecars], maybeFinalized: bool):
       Future[Result[void, VerifierError]] {.async: (raises: [CancelledError]).}
 
   SyncRange* = object
