@@ -248,7 +248,7 @@ proc isSynced*(node: BeaconNode, head: BlockRef): bool =
   ##      determine if we're in sync and should be producing blocks and
   ##      attestations. Generally, the problem is that slot time keeps advancing
   ##      even when there are no blocks being produced, so there's no way to
-  ##      distinguish validators geniunely going missing from the node not being
+  ##      distinguish validators genuinely going missing from the node not being
   ##      well connected (during a network split or an internet outage for
   ##      example). It would generally be correct to simply keep running as if
   ##      we were the only legit node left alive, but then we run into issues:
@@ -800,78 +800,6 @@ func constructSignableBlindedBlock[T: fulu_mev.SignedBlindedBeaconBlock](
 
   blindedBlock
 
-func constructPlainBlindedBlock[T: deneb_mev.BlindedBeaconBlock](
-    blck: ForkyBeaconBlock,
-    blindedBundle: deneb_mev.BlindedExecutionPayloadAndBlobsBundle): T =
-  # https://github.com/nim-lang/Nim/issues/23020 workaround
-  static: doAssert T is deneb_mev.BlindedBeaconBlock
-
-  const
-    blckFields = getFieldNames(typeof(blck))
-    blckBodyFields = getFieldNames(typeof(blck.body))
-
-  var blindedBlock: T
-
-  # https://github.com/ethereum/builder-specs/blob/v0.4.0/specs/bellatrix/validator.md#block-proposal
-  copyFields(blindedBlock, blck, blckFields)
-  copyFields(blindedBlock.body, blck.body, blckBodyFields)
-  assign(
-    blindedBlock.body.execution_payload_header,
-    blindedBundle.execution_payload_header)
-  assign(
-    blindedBlock.body.blob_kzg_commitments,
-    blindedBundle.blob_kzg_commitments)
-
-  blindedBlock
-
-func constructPlainBlindedBlock[T: electra_mev.BlindedBeaconBlock](
-    blck: ForkyBeaconBlock,
-    blindedBundle: electra_mev.BlindedExecutionPayloadAndBlobsBundle): T =
-  # https://github.com/nim-lang/Nim/issues/23020 workaround
-  static: doAssert T is electra_mev.BlindedBeaconBlock
-
-  const
-    blckFields = getFieldNames(typeof(blck))
-    blckBodyFields = getFieldNames(typeof(blck.body))
-
-  var blindedBlock: T
-
-  # https://github.com/ethereum/builder-specs/blob/v0.4.0/specs/bellatrix/validator.md#block-proposal
-  copyFields(blindedBlock, blck, blckFields)
-  copyFields(blindedBlock.body, blck.body, blckBodyFields)
-  assign(
-    blindedBlock.body.execution_payload_header,
-    blindedBundle.execution_payload_header)
-  assign(
-    blindedBlock.body.blob_kzg_commitments,
-    blindedBundle.blob_kzg_commitments)
-
-  blindedBlock
-
-func constructPlainBlindedBlock[T: fulu_mev.BlindedBeaconBlock](
-    blck: ForkyBeaconBlock,
-    blindedBundle: fulu_mev.BlindedExecutionPayloadAndBlobsBundle): T =
-  # https://github.com/nim-lang/Nim/issues/23020 workaround
-  static: doAssert T is fulu_mev.BlindedBeaconBlock
-
-  const
-    blckFields = getFieldNames(typeof(blck))
-    blckBodyFields = getFieldNames(typeof(blck.body))
-
-  var blindedBlock: T
-
-  # https://github.com/ethereum/builder-specs/blob/v0.4.0/specs/bellatrix/validator.md#block-proposal
-  copyFields(blindedBlock, blck, blckFields)
-  copyFields(blindedBlock.body, blck.body, blckBodyFields)
-  assign(
-    blindedBlock.body.execution_payload_header,
-    blindedBundle.execution_payload_header)
-  assign(
-    blindedBlock.body.blob_kzg_commitments,
-    blindedBundle.blob_kzg_commitments)
-
-  blindedBlock
-
 proc blindedBlockCheckSlashingAndSign[
     T: deneb_mev.SignedBlindedBeaconBlock |
        electra_mev.SignedBlindedBeaconBlock |
@@ -1030,7 +958,6 @@ proc getBlindedBlockParts[
   else:
     static: doAssert false
 
-  debugComment "the electra builder API bids have these requests"
   let newBlock = await makeBeaconBlockForHeadAndSlot(
     PayloadType, node, randao, validator_index, graffiti, head, slot,
     execution_payload = Opt.some shimExecutionPayload,
@@ -1144,81 +1071,6 @@ proc proposeBlockMEV(
 
 func isEFMainnet(cfg: RuntimeConfig): bool =
   cfg.DEPOSIT_CHAIN_ID == 1 and cfg.DEPOSIT_NETWORK_ID == 1
-
-proc makeBlindedBeaconBlockForHeadAndSlot*[BBB: ForkyBlindedBeaconBlock](
-    node: BeaconNode, payloadBuilderClient: RestClientRef,
-    randao_reveal: ValidatorSig, validator_index: ValidatorIndex,
-    graffiti: GraffitiBytes, head: BlockRef, slot: Slot):
-    Future[BlindedBlockResult[BBB]] {.async: (raises: [CancelledError]).} =
-  ## Requests a beacon node to produce a valid blinded block, which can then be
-  ## signed by a validator. A blinded block is a block with only a transactions
-  ## root, rather than a full transactions list.
-  ##
-  ## This function is used by the validator client, but not the beacon node for
-  ## its own validators.
-  when BBB is fulu_mev.BlindedBeaconBlock:
-    type EPH = fulu_mev.BlindedExecutionPayloadAndBlobsBundle
-  elif BBB is electra_mev.BlindedBeaconBlock:
-    type EPH = electra_mev.BlindedExecutionPayloadAndBlobsBundle
-  elif BBB is deneb_mev.BlindedBeaconBlock:
-    type EPH = deneb_mev.BlindedExecutionPayloadAndBlobsBundle
-  else:
-    static: doAssert false
-
-  let
-    pubkey =
-      # Relevant state for knowledge of validators
-      withState(node.dag.headState):
-        if node.dag.cfg.isEFMainnet and livenessFailsafeInEffect(
-            forkyState.data.block_roots.data, forkyState.data.slot):
-          # It's head block's slot which matters here, not proposal slot
-          return err("Builder API liveness failsafe in effect")
-
-        if distinctBase(validator_index) >= forkyState.data.validators.lenu64:
-          debug "makeBlindedBeaconBlockForHeadAndSlot: invalid validator index",
-            head = shortLog(head),
-            validator_index,
-            validators_len = forkyState.data.validators.len
-          return err("Invalid validator index")
-
-        forkyState.data.validators.item(validator_index).pubkey
-
-    blindedBlockParts = await getBlindedBlockParts[EPH](
-      node, payloadBuilderClient, head, pubkey, slot, randao_reveal,
-      validator_index, graffiti)
-  if blindedBlockParts.isErr:
-    # Don't try EL fallback -- VC specifically requested a blinded block
-    return err("Unable to create blinded block")
-
-  let (executionPayloadHeader, bidValue, consensusValue, forkedBlck) =
-    blindedBlockParts.get
-  withBlck(forkedBlck):
-    when consensusFork >= ConsensusFork.Deneb:
-      when (consensusFork == ConsensusFork.Deneb and
-           EPH is deneb_mev.BlindedExecutionPayloadAndBlobsBundle):
-        return ok(
-          BuilderBid[BBB](
-            blindedBlckPart:
-              constructPlainBlindedBlock[BBB](forkyBlck, executionPayloadHeader),
-            executionRequests: default(ExecutionRequests),
-            executionPayloadValue: bidValue,
-            consensusBlockValue: consensusValue))
-
-      elif (consensusFork == ConsensusFork.Electra and
-           EPH is electra_mev.BlindedExecutionPayloadAndBlobsBundle) or
-           (consensusFork == ConsensusFork.Fulu and
-            EPH is fulu_mev.BlindedExecutionPayloadAndBlobsBundle):
-        return ok(
-          BuilderBid[BBB](
-            blindedBlckPart:
-              constructPlainBlindedBlock[BBB](forkyBlck, executionPayloadHeader),
-            executionRequests: forkyBlck.body.execution_requests,
-            executionPayloadValue: bidValue,
-            consensusBlockValue: consensusValue))
-      else:
-        return err("makeBlindedBeaconBlockForHeadAndSlot: mismatched block/payload types")
-    else:
-      return err("Attempt to create pre-Deneb blinded block")
 
 proc collectBids(
     SBBB: typedesc, EPS: typedesc, node: BeaconNode,

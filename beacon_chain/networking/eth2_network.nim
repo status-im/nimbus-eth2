@@ -135,7 +135,8 @@ type
     ## Protocol requests using this type will produce request-making
     ## client-side procs that return `NetRes[MsgType]`
 
-  MultipleChunksResponse*[MsgType; maxLen: static Limit] = distinct UntypedResponse
+  MultipleChunksResponse*[
+      MsgType; maxLen: static Limit] = distinct UntypedResponse
     ## Protocol requests using this type will produce request-making
     ## client-side procs that return `NetRes[List[MsgType, maxLen]]`.
     ## In the future, such procs will return an `InputStream[NetRes[MsgType]]`.
@@ -844,8 +845,8 @@ func chunkMaxSize[T](): uint32 =
   when isFixedSize(T):
     uint32 fixedPortionSize(T)
   else:
-    static: doAssert MAX_CHUNK_SIZE < high(uint32).uint64
-    MAX_CHUNK_SIZE.uint32
+    static: doAssert MAX_PAYLOAD_SIZE < high(uint32).uint64
+    MAX_PAYLOAD_SIZE.uint32
 
 template gossipMaxSize(T: untyped): uint32 =
   const maxSize = static:
@@ -854,20 +855,20 @@ template gossipMaxSize(T: untyped): uint32 =
     elif T is bellatrix.SignedBeaconBlock or T is capella.SignedBeaconBlock or
          T is deneb.SignedBeaconBlock or T is electra.SignedBeaconBlock or
          T is fulu.SignedBeaconBlock or T is fulu.DataColumnSidecar:
-      GOSSIP_MAX_SIZE
+      MAX_PAYLOAD_SIZE
     # TODO https://github.com/status-im/nim-ssz-serialization/issues/20 for
     # Attestation, AttesterSlashing, and SignedAggregateAndProof, which all
     # have lists bounded at MAX_VALIDATORS_PER_COMMITTEE (2048) items, thus
-    # having max sizes significantly smaller than GOSSIP_MAX_SIZE.
+    # having max sizes significantly smaller than MAX_PAYLOAD_SIZE.
     elif T is phase0.Attestation or T is phase0.AttesterSlashing or
          T is phase0.SignedAggregateAndProof or T is phase0.SignedBeaconBlock or
          T is electra.SignedAggregateAndProof or T is electra.Attestation or
          T is electra.AttesterSlashing or T is altair.SignedBeaconBlock or
          T is SomeForkyLightClientObject:
-      GOSSIP_MAX_SIZE
+      MAX_PAYLOAD_SIZE
     else:
       {.fatal: "unknown type " & name(T).}
-  static: doAssert maxSize <= GOSSIP_MAX_SIZE
+  static: doAssert maxSize <= MAX_PAYLOAD_SIZE
   maxSize.uint32
 
 proc readVarint2(conn: Connection): Future[NetRes[uint64]] {.
@@ -901,7 +902,7 @@ proc readChunkPayload*(conn: Connection, peer: Peer,
   if size == 0:
     return neterr ZeroSizePrefix
 
-  # The `size.int` conversion is safe because `size` is bounded to `MAX_CHUNK_SIZE`
+  # The `size.int` conversion is safe because `size` is bounded to `MAX_PAYLOAD_SIZE`
   let
     dataRes = await conn.uncompressFramedStream(size.int)
     data = dataRes.valueOr:
@@ -952,9 +953,11 @@ proc readResponseChunk(
 
   return await readChunkPayload(conn, peer, MsgType)
 
-proc readResponse(conn: Connection, peer: Peer,
-                  MsgType: type, timeout: Duration): Future[NetRes[MsgType]]
-                  {.async: (raises: [CancelledError]).} =
+proc readResponse(
+    conn: Connection, peer: Peer,
+    MsgType: type, maxResponseItems: Limit,
+    timeout: Duration
+): Future[NetRes[MsgType]] {.async: (raises: [CancelledError]).} =
   when MsgType is List:
     type E = MsgType.T
     var results: MsgType
@@ -979,18 +982,20 @@ proc readResponse(conn: Connection, peer: Peer,
         return err nextRes.error
       else:
         trace "Got chunk", conn
-        if not results.add nextRes.value:
+        if results.len >= maxResponseItems or not results.add nextRes.value:
           return neterr(ResponseChunkOverflow)
   else:
+    discard maxResponseItems  # Always set to 1 for non-`List` responses
     let nextFut = conn.readResponseChunk(peer, MsgType)
     if not await nextFut.withTimeout(timeout):
       return neterr(ReadResponseTimeout)
     return await nextFut # Guaranteed to complete without waiting
 
-proc makeEth2Request(peer: Peer, protocolId: string, requestBytes: seq[byte],
-                     ResponseMsg: type,
-                     timeout: Duration): Future[NetRes[ResponseMsg]]
-                    {.async: (raises: [CancelledError]).} =
+proc doMakeEth2Request(
+    peer: Peer, protocolId: string, requestBytes: seq[byte],
+    ResponseMsg: type, maxResponseItems: Limit,
+    timeout: Duration
+): Future[NetRes[ResponseMsg]] {.async: (raises: [CancelledError]).} =
   let
     deadline = sleepAsync timeout
     streamRes =
@@ -1017,7 +1022,8 @@ proc makeEth2Request(peer: Peer, protocolId: string, requestBytes: seq[byte],
     nbc_reqresp_messages_sent.inc(1, [shortProtocolId(protocolId)])
 
     # Read the response
-    let res = await readResponse(stream, peer, ResponseMsg, timeout)
+    let res = await readResponse(
+      stream, peer, ResponseMsg, maxResponseItems, timeout)
     if res.isErr():
       if res.error().kind in ProtocolViolations:
         peer.updateScore(PeerScoreInvalidRequest)
@@ -1035,6 +1041,31 @@ proc makeEth2Request(peer: Peer, protocolId: string, requestBytes: seq[byte],
     except CatchableError as exc:
       debug "Unexpected error while closing stream",
         peer, protocolId, exc = exc.msg
+
+proc makeEth2Request(
+    peer: Peer, protocolId: string, requestBytes: seq[byte],
+    ResponseMsg: type,
+    timeout: Duration
+): Future[NetRes[ResponseMsg]] {.
+    async: (raises: [CancelledError], raw: true).} =
+  when ResponseMsg is List:
+    doMakeEth2Request(
+      peer, protocolId, requestBytes, ResponseMsg, ResponseMsg.maxLen, timeout)
+  else:
+    doMakeEth2Request(
+      peer, protocolId, requestBytes, ResponseMsg, 1.Limit, timeout)
+
+proc makeEth2Request(
+    peer: Peer, protocolId: string, requestBytes: seq[byte],
+    ResponseMsg: type, maxResponseItems: Limit,
+    timeout: Duration
+): Future[NetRes[ResponseMsg]] {.
+    async: (raises: [CancelledError], raw: true).} =
+  when ResponseMsg is List:
+    doMakeEth2Request(
+      peer, protocolId, requestBytes, ResponseMsg, maxResponseItems, timeout)
+  else:
+    static: raiseAssert $ResponseMsg & " does not support `maxResponseItems`"
 
 func init*(T: type MultipleChunksResponse, peer: Peer, conn: Connection): T =
   T(UntypedResponse(peer: peer, stream: conn))
@@ -1098,7 +1129,7 @@ func setEventHandlers(p: ProtocolInfo,
   p.onPeerConnected = onPeerConnected
   p.onPeerDisconnected = onPeerDisconnected
 
-proc implementSendProcBody(sendProc: SendProc) =
+proc implementSendProcBody(sendProc: SendProc, isChunkStream: bool) =
   let
     msg = sendProc.msg
     UntypedResponse = bindSym "UntypedResponse"
@@ -1109,9 +1140,16 @@ proc implementSendProcBody(sendProc: SendProc) =
       case msg.kind
       of msgRequest:
         let ResponseRecord = msg.response.recName
-        quote:
-          makeEth2Request(`peer`, `msgProto`, `bytes`,
-                          `ResponseRecord`, `timeoutVar`)
+        if isChunkStream:
+          quote:
+            makeEth2Request(
+              `peer`, `msgProto`, `bytes`,
+              `ResponseRecord`, maxResponseItems, `timeoutVar`)
+        else:
+          quote:
+            makeEth2Request(
+              `peer`, `msgProto`, `bytes`,
+              `ResponseRecord`, `timeoutVar`)
       else:
         quote: sendNotificationMsg(`peer`, `msgProto`, `bytes`)
     else:
@@ -2019,7 +2057,9 @@ proc p2pProtocolBackendImpl*(p: P2PProtocol): Backend =
     ## initialize the network object by creating handlers bound to the
     ## specific network.
     ##
-    var userHandlerCall = newTree(nnkDiscardStmt)
+    var
+      userHandlerCall = newTree(nnkDiscardStmt)
+      maxResponseItems: Opt[NimNode]
 
     if msg.userHandler != nil:
       var OutputParamType = if msg.kind == msgRequest: msg.outputParamType
@@ -2037,6 +2077,7 @@ proc p2pProtocolBackendImpl*(p: P2PProtocol): Backend =
 
         let isChunkStream = eqIdent(OutputParamType[0], "MultipleChunksResponse")
         msg.response.recName = if isChunkStream:
+          maxResponseItems.ok OutputParamType[2]
           newTree(nnkBracketExpr, ident"List", OutputParamType[1], OutputParamType[2])
         else:
           OutputParamType[1]
@@ -2074,7 +2115,16 @@ proc p2pProtocolBackendImpl*(p: P2PProtocol): Backend =
     ##
 
     var sendProc = msg.createSendProc()
-    implementSendProcBody sendProc
+    if maxResponseItems.isSome:
+      sendProc.def.params.insert(
+        sendProc.def.params.len - 1, # Insert before implicit `timeout` param
+        newTree(
+          nnkIdentDefs,
+          ident"maxResponseItems",
+          bindSym"Limit",
+          maxResponseItems.get))
+
+    implementSendProcBody(sendProc, maxResponseItems.isSome)
 
     protocol.outProcRegistrations.add(
       newCall(registerMsg,
@@ -2367,7 +2417,7 @@ proc createEth2Node*(rng: ref HmacDrbgContext,
     try:
       # This doesn't have to be a tight bound, just enough to avoid denial of
       # service attacks.
-      let decoded = snappy.decode(m.data, static(GOSSIP_MAX_SIZE.uint32))
+      let decoded = snappy.decode(m.data, static(MAX_PAYLOAD_SIZE.uint32))
       ok(gossipId(decoded, phase0Prefix, m.topic))
     except CatchableError:
       err(ValidationResult.Reject)
@@ -2414,7 +2464,7 @@ proc createEth2Node*(rng: ref HmacDrbgContext,
       sign = false,
       verifySignature = false,
       anonymize = true,
-      maxMessageSize = static(GOSSIP_MAX_SIZE.int),
+      maxMessageSize = static(MAX_PAYLOAD_SIZE.int),
       parameters = params)
 
   switch.mount(pubsub)
@@ -2554,7 +2604,7 @@ func gossipEncode(msg: auto): seq[byte] =
   let uncompressed = SSZ.encode(msg)
   # This function only for messages we create. A message this large amounts to
   # an internal logic error.
-  doAssert uncompressed.lenu64 <= GOSSIP_MAX_SIZE
+  doAssert uncompressed.lenu64 <= MAX_PAYLOAD_SIZE
 
   snappy.encode(uncompressed)
 

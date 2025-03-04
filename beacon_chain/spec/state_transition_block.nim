@@ -418,8 +418,10 @@ proc check_voluntary_exit*(
     return err("Exit: not in validator set long enough")
 
   when typeof(state).kind >= ConsensusFork.Electra:
+    if voluntary_exit.validator_index >= state.validators.lenu64:
+      return err("Exit: validator index out of range")
+
     # Only exit validator if it has no pending withdrawals in the queue
-    debugComment "truncating"
     if not (get_pending_balance_to_withdraw(
         state, voluntary_exit.validator_index.ValidatorIndex) == 0.Gwei):
       return err("Exit: still has pending withdrawals")
@@ -957,7 +959,8 @@ type SomeDenebBeaconBlockBody =
 
 # https://github.com/ethereum/consensus-specs/blob/v1.3.0/specs/deneb/beacon-chain.md#process_execution_payload
 proc process_execution_payload*(
-    state: var deneb.BeaconState, body: SomeDenebBeaconBlockBody,
+    cfg: RuntimeConfig, state: var deneb.BeaconState,
+    body: SomeDenebBeaconBlockBody,
     notify_new_payload: deneb.ExecutePayload): Result[void, cstring] =
   template payload: auto = body.execution_payload
 
@@ -976,7 +979,7 @@ proc process_execution_payload*(
     return err("process_execution_payload: invalid timestamp")
 
   # [New in Deneb] Verify commitments are under limit
-  if not (lenu64(body.blob_kzg_commitments) <= MAX_BLOBS_PER_BLOCK):
+  if not (lenu64(body.blob_kzg_commitments) <= cfg.MAX_BLOBS_PER_BLOCK):
     return err("process_execution_payload: too many KZG commitments")
 
   # Verify the execution payload is valid
@@ -1329,7 +1332,7 @@ proc process_block*(
   if is_execution_enabled(state, blck.body):
     ? process_withdrawals(state, blck.body.execution_payload)
     ? process_execution_payload(
-        state, blck.body,
+        cfg, state, blck.body,
         func(_: deneb.ExecutionPayload): bool = true)  # [Modified in Deneb]
   ? process_randao(state, blck.body, flags, cache)
   ? process_eth1_data(state, blck.body)

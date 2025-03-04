@@ -144,11 +144,6 @@ func getShortMap*[T](
 
 proc getShortMap*[T](req: SyncRequest[T],
                      data: openArray[ref BlobSidecar]): string =
-  static:
-    doAssert(MAX_BLOBS_PER_BLOCK <= MAX_BLOBS_PER_BLOCK_ELECTRA)
-    doAssert(MAX_BLOBS_PER_BLOCK_ELECTRA < 10,
-             "getShortMap(Blobs) should be revisited")
-
   var
     res = newStringOfCap(req.data.count)
     slider = req.data.slot
@@ -176,11 +171,6 @@ proc getShortMap*[T](
     req: SyncRequest[T],
     blobs: openArray[BlobSidecars]
 ): string =
-  static:
-    doAssert(MAX_BLOBS_PER_BLOCK <= MAX_BLOBS_PER_BLOCK_ELECTRA)
-    doAssert(MAX_BLOBS_PER_BLOCK_ELECTRA < 10,
-             "getShortMap(Blobs) should be revisited")
-
   var
     res = newStringOfCap(req.data.count)
     slider = req.data.slot
@@ -979,16 +969,15 @@ proc checkResponse*[T](req: SyncRequest[T],
 
   ok()
 
-proc checkBlobsResponse*[T](req: SyncRequest[T],
-                            data: openArray[Slot]): Result[void, cstring] =
-  static:
-    doAssert(MAX_BLOBS_PER_BLOCK <= MAX_BLOBS_PER_BLOCK_ELECTRA)
-
+proc checkBlobsResponse*[T](
+    req: SyncRequest[T],
+    data: openArray[Slot],
+    maxBlobsPerBlockElectra: uint64): Result[void, cstring] =
   if len(data) == 0:
     # Impossible to verify empty response.
     return ok()
 
-  if lenu64(data) > (req.data.count * MAX_BLOBS_PER_BLOCK_ELECTRA):
+  if lenu64(data) > (req.data.count * maxBlobsPerBlockElectra):
     # Number of blobs in response should be less or equal to number of
     # requested (blocks * MAX_BLOBS_PER_BLOCK_ELECTRA).
     # NOTE: This is not strict check, proper check will be done in blobs
@@ -1005,7 +994,7 @@ proc checkBlobsResponse*[T](req: SyncRequest[T],
       return err("Incorrect order")
     if slot == pslot:
       inc(counter)
-      if counter > MAX_BLOBS_PER_BLOCK_ELECTRA:
+      if counter > maxBlobsPerBlockElectra:
         # NOTE: This is not strict check, proper check will be done in blobs
         # validation.
         return err("Number of blobs in the block exceeds the limit")

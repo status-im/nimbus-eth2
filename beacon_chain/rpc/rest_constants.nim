@@ -1,5 +1,5 @@
 # beacon_chain
-# Copyright (c) 2021-2024 Status Research & Development GmbH
+# Copyright (c) 2021-2025 Status Research & Development GmbH
 # Licensed and distributed under either of
 #   * MIT license (license terms in the root directory or at https://opensource.org/licenses/MIT).
 #   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
@@ -229,6 +229,12 @@ const
   DeprecatedRemovalGetDebugChainHeadsV1* =
     "v1/debug/beacon/heads endpoint was deprecated and replaced by v2: " &
       "https://github.com/ethereum/beacon-APIs/pull/319"
+  DeprecatedRemovalProduceBlindedBlockV1* =
+    "v1/validator/blinded_blocks/{slot} was deprecated, removed, and replaced " &
+    "by produceBlockV3: https://github.com/ethereum/beacon-APIs/pull/466"
+  DeprecatedRemovalValidatorBlocksV2* =
+    "v2/validator/blocks/{slot} was deprecated, removed, and replaced " &
+    "by produceBlockV3: https://github.com/ethereum/beacon-APIs/pull/466"
   BlockIncorrectFork* =
     "Block has incorrect fork"
   ValidatorNotActive* =
@@ -271,3 +277,4 @@ const
     "Unable to load state for parent block, database corrupt?"
   RewardOverflowError* =
     "Reward value overflow"
+  InvalidContentTypeError* = "Invalid content type"

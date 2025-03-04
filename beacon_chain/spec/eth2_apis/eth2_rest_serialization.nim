@@ -3036,7 +3036,7 @@ proc decodeBody*(
                                            [version, $exc.msg]))
       ok(RestPublishedSignedBeaconBlock(ForkedSignedBeaconBlock.init(blck)))
   else:
-    err(RestErrorMessage.init(Http415, "Invalid content type",
+    err(RestErrorMessage.init(Http415, InvalidContentTypeError,
                               [version, $body.contentType]))
 
 proc decodeBody*(
@@ -3232,8 +3232,44 @@ proc decodeBody*(
       ok(RestPublishedSignedBlockContents(
         kind: ConsensusFork.Fulu, fuluData: blckContents))
   else:
-    err(RestErrorMessage.init(Http415, "Invalid content type",
+    err(RestErrorMessage.init(Http415, InvalidContentTypeError,
                               [version, $body.contentType]))
+
+proc decodeBodyJsonOrSsz*(
+    t: typedesc[seq[SignedValidatorRegistrationV1]],
+    body: ContentBody
+): Result[seq[SignedValidatorRegistrationV1], RestErrorMessage] =
+  if body.contentType == ApplicationJsonMediaType:
+    let data =
+      try:
+        RestJson.decode(
+          body.data,
+          seq[SignedValidatorRegistrationV1],
+          requireAllFields = true,
+          allowUnknownFields = true)
+      except SerializationError as exc:
+        debug "Failed to deserialize REST JSON data",
+              err = exc.formatMsg("<data>")
+        return err(
+          RestErrorMessage.init(Http400, UnableDecodeError,
+                                [exc.formatMsg("<data>")]))
+    ok(data)
+  elif body.contentType == OctetStreamMediaType:
+    let data =
+      try:
+        SSZ.decode(
+          body.data,
+          List[SignedValidatorRegistrationV1, Limit VALIDATOR_REGISTRY_LIMIT])
+      except SerializationError as exc:
+        debug "Failed to deserialize REST SSZ data",
+              err = exc.formatMsg("<data>")
+        return err(
+          RestErrorMessage.init(Http400, UnableDecodeError,
+                                [exc.formatMsg("<data>")]))
+    ok(data.toSeq)
+  else:
+    err(RestErrorMessage.init(Http415, InvalidContentTypeError,
+                              [$body.contentType]))
 
 proc decodeBody*[T](t: typedesc[T],
                     body: ContentBody): Result[T, cstring] =
@@ -3285,7 +3321,7 @@ proc decodeBodyJsonOrSsz*[T](t: typedesc[T],
             RestErrorMessage.init(Http400, UnexpectedDecodeError, [$exc.msg]))
     ok(blck)
   else:
-    err(RestErrorMessage.init(Http415, "Invalid content type",
+    err(RestErrorMessage.init(Http415, InvalidContentTypeError,
                               [$body.contentType]))
 
 proc encodeBytes*[T: EncodeTypes](value: T,
@@ -3602,6 +3638,8 @@ func decodeString*(t: typedesc[EventTopic],
     ok(EventTopic.Block)
   of "attestation":
     ok(EventTopic.Attestation)
+  of "single_attestation":
+    ok(EventTopic.SingleAttestation)
   of "voluntary_exit":
     ok(EventTopic.VoluntaryExit)
   of "bls_to_execution_change":
@@ -3633,6 +3671,8 @@ func encodeString*(value: set[EventTopic]): Result[string, cstring] =
     res.add("block,")
   if EventTopic.Attestation in value:
     res.add("attestation,")
+  if EventTopic.SingleAttestation in value:
+    res.add("single_attestation,")
   if EventTopic.VoluntaryExit in value:
     res.add("voluntary_exit,")
   if EventTopic.BLSToExecutionChange in value:

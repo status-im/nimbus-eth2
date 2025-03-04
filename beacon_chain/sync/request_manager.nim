@@ -262,7 +262,8 @@ proc fetchBlobsFromNetwork(self: RequestManager,
     debug "Requesting blobs by root", peer = peer, blobs = shortLog(idList),
                                              peer_score = peer.getScore()
 
-    let blobs = await blobSidecarsByRoot(peer, BlobIdentifierList idList)
+    let blobs = await blobSidecarsByRoot(
+      peer, BlobIdentifierList idList, maxResponseItems = idList.len)
 
     if blobs.isOk:
       var ublobs = blobs.get().asSeq()

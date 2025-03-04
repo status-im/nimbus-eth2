@@ -71,7 +71,7 @@ const
   ChainFileVersion = 1'u32
   ChainFileHeaderValue = 0x424D494E'u32
   ChainFileBufferSize* = 4096
-  MaxChunkSize = int(GOSSIP_MAX_SIZE)
+  MaxChunkSize = int(MAX_PAYLOAD_SIZE)
   ChainFileHeaderArray = ChainFileHeaderValue.toBytesLE()
   IncompleteWriteError = "Unable to write data to file, disk full?"
   MaxForksCount* = 16384
