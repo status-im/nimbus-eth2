@@ -128,24 +128,22 @@ func checkResponse(roots: openArray[Eth2Digest],
 
 func cmpSidecarIdentifier(x: BlobIdentifier | DataColumnIdentifier,
                           y: ref BlobSidecar | ref DataColumnSidecar): int =
-  cmp(x.index, y.index)
+  cmp(x.index, y[].index)
 
-func checkResponse(idList: seq[BlobIdentifier],
-                   blobs: openArray[ref BlobSidecar]): bool =
+func checkResponseSanity(idList: seq[BlobIdentifier],
+                         blobs: openArray[ref BlobSidecar]): bool =
+  # Cannot respond more than what I have asked
   if blobs.len > idList.len:
     return false
   var i = 0
   while i < blobs.len:
     let
-      block_root = hash_tree_root(blobs[i].signed_block_header.message)
-      id = idList[i]
+      block_root =
+        hash_tree_root(blobs[i][].signed_block_header.message)
+      idListKey = binarySearch(idList, blobs[i], cmpSidecarIdentifier)
 
-    # Check if the blob response is a subset
-    if binarySearch(idList, blobs[i], cmpSidecarIdentifier) == -1:
-      return false
-
-    # Verify block_root and index match
-    if id.block_root != block_root or id.index != blobs[i].index:
+    # Verify the block root
+    if idList[idListKey].block_root != block_root:
       return false
 
     # Verify inclusion proof
@@ -154,28 +152,46 @@ func checkResponse(idList: seq[BlobIdentifier],
     inc i
   true
 
-func checkResponse(idList: seq[DataColumnIdentifier],
-                   columns: openArray[ref DataColumnSidecar]): bool =
+func checkResponseSubset(idList: seq[BlobIdentifier],
+                         blobs: openArray[ref BlobSidecar]): bool =
+  ## Clients MUST respond with at least one sidecar, if they have it.
+  ## Clients MAY limit the number of blocks and sidecars in the response.
+  ## https://github.com/ethereum/consensus-specs/blob/v1.5.0-beta.2/specs/deneb/p2p-interface.md#blobsidecarsbyroot-v1
+  for blb in blobs:
+    if binarySearch(idList, blb, cmpSidecarIdentifier) == -1:
+      return false
+  true
+
+func checkResponseSanity(idList: seq[DataColumnIdentifier],
+                         columns: openArray[ref DataColumnSidecar]): bool =
+  # Cannot respond more than what I have asked
   if columns.len > idList.len:
     return false
   var i = 0
   while i < columns.len:
     let
-      block_root = hash_tree_root(columns[i].signed_block_header.message)
-      id = idList[i]
+      block_root =
+        hash_tree_root(columns[i][].signed_block_header.message)
+      idListKey = binarySearch(idList, columns[i], cmpSidecarIdentifier)
 
-    # Check if the column response is a subset
-    if binarySearch(idList, columns[i], cmpSidecarIdentifier) == -1:
-      return false
-
-    # Verify block root and index match
-    if id.block_root != block_root or id.index != columns[i].index:
+    # Verify the block root
+    if idList[idListKey].block_root != block_root:
       return false
 
     # Verify inclusion proof
     columns[i][].verify_data_column_sidecar_inclusion_proof().isOkOr:
       return false
     inc i
+  true
+
+func checkResponseSubset(idList: seq[DataColumnIdentifier],
+                         columns: openArray[ref DataColumnSidecar]): bool =
+  ## Clients MUST respond with at least one sidecar, if they have it.
+  ## Clients MAY limit the number of blocks and sidecars in the response.
+  ## https://github.com/ethereum/consensus-specs/blob/v1.5.0-beta.2/specs/fulu/p2p-interface.md#datacolumnsidecarsbyroot-v1
+  for col in columns:
+    if binarySearch(idList, col, cmpSidecarIdentifier) == -1:
+      return false
   true
 
 proc requestBlocksByRoot(rman: RequestManager, items: seq[Eth2Digest]) {.async: (raises: [CancelledError]).} =
@@ -250,7 +266,7 @@ proc requestBlocksByRoot(rman: RequestManager, items: seq[Eth2Digest]) {.async: 
       rman.network.peerPool.release(peer)
 
 func cmpSidecarIndexes(x, y: ref BlobSidecar | ref DataColumnSidecar): int =
-  cmp(x.index, y.index)
+  cmp(x[].index, y[].index)
 
 proc fetchBlobsFromNetwork(self: RequestManager,
                            idList: seq[BlobIdentifier])
@@ -268,8 +284,14 @@ proc fetchBlobsFromNetwork(self: RequestManager,
     if blobs.isOk:
       var ublobs = blobs.get().asSeq()
       ublobs.sort(cmpSidecarIndexes)
-      if not checkResponse(idList, ublobs):
-        debug "Mismatched response to blobs by root",
+      if not checkResponseSanity(idList, ublobs):
+        debug "Response to blobs by root have erroneous block root",
+          peer = peer, blobs = shortLog(idList), ublobs = len(ublobs)
+        peer.updateScore(PeerScoreBadResponse)
+        return
+
+      if not checkResponseSubset(idList, ublobs):
+        debug "Response to blobs by root is not a subset",
           peer = peer, blobs = shortLog(idList), ublobs = len(ublobs)
         peer.updateScore(PeerScoreBadResponse)
         return
@@ -346,7 +368,6 @@ proc fetchDataColumnsFromNetwork(rman: RequestManager,
                                  {.async: (raises: [CancelledError]).} =
   var peer = await rman.network.peerPool.acquire()
   try:
-
     if rman.checkPeerCustody(peer):
       debug "Requesting data columns by root", peer = peer, columns = shortLog(colIdList),
                                                       peer_score = peer.getScore()
@@ -355,8 +376,14 @@ proc fetchDataColumnsFromNetwork(rman: RequestManager,
       if columns.isOk:
         var ucolumns = columns.get().asSeq()
         ucolumns.sort(cmpSidecarIndexes)
-        if not checkResponse(colIdList, ucolumns):
-          debug "Mismatched response to data columns by root",
+        if not checkResponseSanity(colIdList, ucolumns):
+          debug "Response to columns by root have erroneous block root",
+            peer = peer, columns = shortLog(colIdList), ucolumns = len(ucolumns)
+          peer.updateScore(PeerScoreBadResponse)
+          return
+
+        if not checkResponseSubset(colIdList, ucolumns):
+          debug "Response to columns by root is not a subset",
             peer = peer, columns = shortLog(colIdList), ucolumns = len(ucolumns)
           peer.updateScore(PeerScoreBadResponse)
           return
