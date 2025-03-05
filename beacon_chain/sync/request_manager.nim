@@ -157,9 +157,8 @@ func checkResponseSubset(idList: seq[BlobIdentifier],
   ## Clients MUST respond with at least one sidecar, if they have it.
   ## Clients MAY limit the number of blocks and sidecars in the response.
   ## https://github.com/ethereum/consensus-specs/blob/v1.5.0-beta.2/specs/deneb/p2p-interface.md#blobsidecarsbyroot-v1
-  let idHSet = idList.mapIt(it.index).toHashSet()
   for blb in blobs:
-    if blb[].index notin idHSet:
+    if binarySearch(idList, blb, cmpSidecarIdentifier) == -1:
       return false
   true
 
@@ -190,9 +189,8 @@ func checkResponseSubset(idList: seq[DataColumnIdentifier],
   ## Clients MUST respond with at least one sidecar, if they have it.
   ## Clients MAY limit the number of blocks and sidecars in the response.
   ## https://github.com/ethereum/consensus-specs/blob/v1.5.0-beta.2/specs/fulu/p2p-interface.md#datacolumnsidecarsbyroot-v1
-  let idHSet = idList.mapIt(it.index).toHashSet()
   for col in columns:
-    if col[].index notin idHSet:
+    if binarySearch(idList, col, cmpSidecarIdentifier) == -1:
       return false
   true
 
