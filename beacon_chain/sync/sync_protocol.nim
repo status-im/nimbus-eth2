@@ -238,6 +238,7 @@ p2pProtocol BeaconSync(version = 1,
       # Peers that are unable to reply to block requests within the
       # `MIN_EPOCHS_FOR_BLOCK_REQUESTS` epoch range SHOULD respond with
       # error code `3: ResourceUnavailable`.
+      # https://github.com/ethereum/consensus-specs/blob/v1.5.0-beta.2/specs/phase0/p2p-interface.md#responding-side
       raise newException(ResourceUnavailableError, BlocksUnavailable)
 
     let
