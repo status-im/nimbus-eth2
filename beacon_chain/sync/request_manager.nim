@@ -157,7 +157,11 @@ func checkResponseSubset(idList: seq[BlobIdentifier],
   ## Clients MUST respond with at least one sidecar, if they have it.
   ## Clients MAY limit the number of blocks and sidecars in the response.
   ## https://github.com/ethereum/consensus-specs/blob/v1.5.0-beta.2/specs/deneb/p2p-interface.md#blobsidecarsbyroot-v1
-  idList.mapIt(it.index).toHashSet() <= blobs.mapIt(it[].index).toHashSet()
+  let idHSet = idList.mapIt(it.index).toHashSet()
+  for blb in blobs:
+    if blb[].index notin idHSet:
+      return false
+  true
 
 func checkResponseSanity(idList: seq[DataColumnIdentifier],
                          columns: openArray[ref DataColumnSidecar]): bool =
@@ -186,7 +190,11 @@ func checkResponseSubset(idList: seq[DataColumnIdentifier],
   ## Clients MUST respond with at least one sidecar, if they have it.
   ## Clients MAY limit the number of blocks and sidecars in the response.
   ## https://github.com/ethereum/consensus-specs/blob/v1.5.0-beta.2/specs/fulu/p2p-interface.md#datacolumnsidecarsbyroot-v1
-  idList.mapIt(it.index).toHashSet() <= columns.mapIt(it[].index).toHashSet()
+  let idHSet = idList.mapIt(it.index).toHashSet()
+  for col in columns:
+    if col[].index notin idHSet:
+      return false
+  true
 
 proc requestBlocksByRoot(rman: RequestManager, items: seq[Eth2Digest]) {.async: (raises: [CancelledError]).} =
   var peer: Peer
