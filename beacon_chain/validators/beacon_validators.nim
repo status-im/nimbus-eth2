@@ -248,7 +248,7 @@ proc isSynced*(node: BeaconNode, head: BlockRef): bool =
   ##      determine if we're in sync and should be producing blocks and
   ##      attestations. Generally, the problem is that slot time keeps advancing
   ##      even when there are no blocks being produced, so there's no way to
-  ##      distinguish validators geniunely going missing from the node not being
+  ##      distinguish validators genuinely going missing from the node not being
   ##      well connected (during a network split or an internet outage for
   ##      example). It would generally be correct to simply keep running as if
   ##      we were the only legit node left alive, but then we run into issues:
@@ -958,7 +958,6 @@ proc getBlindedBlockParts[
   else:
     static: doAssert false
 
-  debugComment "the electra builder API bids have these requests"
   let newBlock = await makeBeaconBlockForHeadAndSlot(
     PayloadType, node, randao, validator_index, graffiti, head, slot,
     execution_payload = Opt.some shimExecutionPayload,

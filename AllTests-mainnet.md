@@ -740,8 +740,8 @@ AllTests-mainnet
 ```
 ## Nimbus remote signer/signing test (verifying-web3signer)
 ```diff
-+ Signing BeaconBlock (getBlockSignature(capella))                                           OK
 + Signing BeaconBlock (getBlockSignature(deneb))                                             OK
++ Signing BeaconBlock (getBlockSignature(electra))                                           OK
 + Waiting for signing node (/upcheck) test                                                   OK
 ```
 ## Nimbus remote signer/signing test (web3signer)
@@ -749,8 +749,8 @@ AllTests-mainnet
 + Connection timeout test                                                                    OK
 + Public keys enumeration (/api/v1/eth2/publicKeys) test                                     OK
 + Public keys reload (/reload) test                                                          OK
-+ Signing BeaconBlock (getBlockSignature(capella))                                           OK
 + Signing BeaconBlock (getBlockSignature(deneb))                                             OK
++ Signing BeaconBlock (getBlockSignature(electra))                                           OK
 + Signing SC contribution and proof (getContributionAndProofSignature())                     OK
 + Signing SC message (getSyncCommitteeMessage())                                             OK
 + Signing SC selection proof (getSyncCommitteeSelectionProof())                              OK
