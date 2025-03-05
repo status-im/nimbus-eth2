@@ -275,7 +275,7 @@ proc syncStatus*(node: BeaconNode, head: BlockRef): ChainSyncStatus =
 
   let
     numPeers = len(node.network.peerPool)
-    minPeers = max(node.config.maxPeers div 4, SyncWorkersCount * 2)
+    minPeers = max(node.config.maxPeers div 6, SyncWorkersCount + 6)
   if numPeers <= minPeers:
     # We may have poor connectivity, wait until more peers are available.
     # This could also be intermittent, as state replays while chain is degraded

@@ -1029,7 +1029,7 @@ proc resetChainProgressWatchdog*(dag: ChainDAGRef) =
   dag.incrementalState = nil
 
 proc chainIsProgressing*(dag: ChainDAGRef): bool =
-  const watchdogDuration = chronos.minutes(60)
+  const watchdogDuration = chronos.minutes(45)
   dag.lastChainProgress + watchdogDuration >= Moment.now()
 
 proc init*(T: type ChainDAGRef, cfg: RuntimeConfig, db: BeaconChainDB,
