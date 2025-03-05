@@ -1199,14 +1199,11 @@ template withForkyHistoricalSummariesWithProof*(
     template forkySummaries: untyped {.inject, used.} = x.capellaData
     body
   of ConsensusFork.Bellatrix:
-    const consensusFork {.inject, used.} = ConsensusFork.Deneb
-    template forkySummaries: untyped {.inject, used.} = GetHistoricalSummariesV1Response()
+    const consensusFork {.inject, used.} = ConsensusFork.Bellatrix
     body
   of ConsensusFork.Altair:
     const consensusFork {.inject, used.} = ConsensusFork.Altair
-    template forkySummaries: untyped {.inject, used.} = GetHistoricalSummariesV1Response()
     body
   of ConsensusFork.Phase0:
     const consensusFork {.inject, used.} = ConsensusFork.Phase0
-    template forkySummaries: untyped {.inject, used.} = GetHistoricalSummariesV1Response()
     body
