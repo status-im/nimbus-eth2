@@ -457,10 +457,35 @@ proc initFullNode(
     branchDiscoveryBlockVerifier = proc(
         signedBlock: ForkedSignedBeaconBlock,
         blobs: Opt[BlobSidecars]
-    ): Future[Result[void, VerifierError]] {.async: (raises: [
-        CancelledError], raw: true).} =
-      blockProcessor[].addBlock(
+    ): Future[Result[void, BlockVerifierError]] {.
+        async: (raises: [CancelledError]).} =
+      let res = await blockProcessor[].addBlock(
         MsgSource.gossip, signedBlock, blobs, maybeFinalized = false)
+      if res.isErr:
+        case res.error
+        of VerifierError.Invalid:
+          if signedBlock.slot == GENESIS_SLOT:
+            if signedBlock.signature != ValidatorSig():
+              err(BlockVerifierError.InvalidProposerSignature)
+            else:
+              err(BlockVerifierError.Invalid)
+          else:
+            let proposerKey = dag.validatorKey(
+              signedBlock.getForkedBlockField(proposer_index))
+            if proposerKey.isSome and not verify_block_signature(
+                dag.forkAtEpoch(signedBlock.slot.epoch),
+                getStateField(dag.headState, genesis_validators_root),
+                signedBlock.slot, signedBlock.root,
+                proposerKey.get(), signedBlock.signature):
+              err(BlockVerifierError.InvalidProposerSignature)
+            else:
+              err(BlockVerifierError.Invalid)
+        of VerifierError.UnviableFork, VerifierError.MissingParent:
+          err(BlockVerifierError.UnviableBranch)
+        of VerifierError.Duplicate:
+          err(BlockVerifierError.Duplicate)
+      else:
+        ok()
     untrustedBlockVerifier =
       proc(signedBlock: ForkedSignedBeaconBlock, blobs: Opt[BlobSidecars],
            maybeFinalized: bool): Future[Result[void, VerifierError]] {.
@@ -511,8 +536,8 @@ proc initFullNode(
       validatorChangePool, node.attachedValidators, syncCommitteeMsgPool,
       lightClientPool, quarantine, blobQuarantine, rng, getBeaconTime, taskpool)
     branchDiscovery = BranchDiscovery[Peer, PeerId].new(
-      node.network.peerPool, getFirstSlotAtFinalizedEpoch, isBlockKnown,
-      branchDiscoveryBlockVerifier)
+      node.network.peerPool, getLocalWallSlot, getFirstSlotAtFinalizedEpoch,
+      isBlockKnown, branchDiscoveryBlockVerifier)
     fallbackSyncer = proc(peer: Peer) =
       branchDiscovery.transferOwnership(peer)
     syncManagerFlags =
