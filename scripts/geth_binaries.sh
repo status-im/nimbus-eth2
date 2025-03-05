@@ -103,5 +103,3 @@ download_status_geth_binary() {
     patchelf_when_on_nixos "$BINARY_FS_PATH"
   fi
 }
-
-fi
