@@ -16,7 +16,7 @@ import
   ../networking/[peer_pool, peer_scores, eth2_network],
   ../gossip_processing/block_processor,
   ../beacon_clock,
-  "."/[sync_protocol, sync_queue]
+  "."/[sync_protocol, sync_queue, column_syncer_assist]
 
 export phase0, altair, merge, chronos, chronicles, results,
        helpers, peer_scores, sync_queue, forks, sync_protocol
@@ -33,15 +33,6 @@ const
   StatusExpirationTime* = chronos.minutes(2)
 
 type
-  ColumnSyncRequest*[T] = object
-    slot*: Slot
-    count*: uint64
-    item*: T
-
-  ColumnSyncResult*[T] = object
-    request*: T
-    columns*: Opt[seq[DataColumnSidecars]]
-
   ColumnSyncerStatus* {.pure.} = enum
     Sleeping, WaitingPeer, UpdatingStatus, Requesting, Downloading,
     Queueing, Processing
@@ -78,6 +69,7 @@ type
     amIsupernode*: bool
     custody_columns_set*: HashSet[ColumnIndex]
     custody_columns_list*: List[ColumnIndex, NUMBER_OF_COLUMNS]
+    assist*: ColumnSyncerAssist[A]
     getLocalHeadSlot: GetSlotCallback
     getLocalWallSlot: GetSlotCallback
     getSafeSlot: GetSlotCallback
@@ -118,6 +110,11 @@ proc speed*(start, finish: ColumnSyncTimestamp): float {.inline.} =
       dur = toFloatSeconds(finish.timestamp - start.timestamp)
     slots / dur
 
+proc initColumnSyncerAssist[A, B](man: ColumnManager[A, B]) =
+  man.assist = ColumnSyncerAssist.init(A, man.getFirstSlot(),
+                                       man.getLastSlot(), man.chunkSize,
+                                       man.getSafeSlot(), 1)
+
 proc newColumnManager*[A, B](
     pool: PeerPool[A, B],
     fuluEpoch: Epoch,
@@ -133,7 +130,7 @@ proc newColumnManager*[A, B](
 ): ColumnManager[A, B] =
 
   let (getFirstSlot, getLastSlot, getSafeSlot) =
-    (getLocalHeadSlotCb, getLocalHeadSlotCb, getFinalizedSlotCb)
+    (getLocalHeadSlotCb, getLocalWallSlotCb, getFinalizedSlotCb)
 
   var res = ColumnManager[A, B](
     pool: pool,
@@ -148,7 +145,7 @@ proc newColumnManager*[A, B](
     chunkSize: chunkSize,
     flags: flags
   )
-
+  res.initColumnSyncerAssist()
   res
 
 proc shouldGetDataColumns[A, B](
@@ -183,7 +180,6 @@ proc intersectionColumns[A, B](
                resolve_column_sets_from_custody_groups(max(SAMPLES_PER_SLOT.uint64,
                                                        peer.lookupCgcFromPeer())))
 
-
 proc refreshColumnScoring[A, B](
     man: ColumnManager[A, B]) =
 
@@ -213,7 +209,6 @@ proc refreshColumnScoring[A, B](
         ## the peer to prevent disconnection
         peer.updateScore(PeerScoreIntersectingColumns)
 
-
 proc getDataColumnSidecars[A, B](man: ColumnManager[A, B],
                                  peer: A,
                                  r: ColumnSyncRequest[A],
@@ -235,7 +230,6 @@ proc filterRelevantPeers[A, B](man: ColumnManager[A, B],
   ## This iterates over the available peers
   ## and returns a refreshed peer list based on
   ## whichever's peer status is recent and relevant
-
   for peer in availablePeers(man.pool):
     var
       headSlot = man.getLocalHeadSlot()
@@ -283,7 +277,6 @@ proc filterRelevantPeers[A, B](man: ColumnManager[A, B],
         peer.updateScore(PeerScoreGoodStatus)
         peerSlot = newPeerSlot
         refreshed_peer_set.add(set)
-
 
 proc columnSyncerStrategy[A, B](
     man: ColumnManager[A, B],
@@ -347,12 +340,11 @@ proc columnSyncerStrategy[A, B](
   ##
 
   if ColumnSyncerFlag.Greedy in man.flags:
-
     var
       accumulator = 0
       requested_peer: A = nil
 
-    for peer in availablePeers(man.pool):
+    for peer in man.filterRelevantPeers(w_index):
       ## Look for the broadest intersection set among the peers
       if man.intersectionColumns(peer).len > accumulator:
         accumulator = man.intersectionColumns(peer).len
@@ -361,22 +353,23 @@ proc columnSyncerStrategy[A, B](
     # Extract the intersection columns between local and peer to request
     let int_cols = man.intersectionColumns(requested_peer)
 
+    if man.remainingSlots() <= man.maxHeadAge:
+      info "We have synced all columns from the network", wall_clock_slot = wallSlot,
+           remote_head_slot = peerSlot, local_head_slot = headSlot
 
+    # Putting all ColumnSync workers to sleep
+    man.notInSyncEvent.clear()
+    return
 
+    var
+      headSlot = man.getLocalHeadSlot()
+      wallSlot = man.getLocalWallSlot()
+      reqPeerSlot = requested_peer.getHeadSlot()
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
+    if man.getFirstSlot() >= reqPeerSlot:
+      debug "Peer's head slot is lower than local head slot", peer = requested_peer,
+            wall_clock_slot = wallSlot, remote_head_slot = reqPeerSlot,
+            local_last_slot = man.getLastSlot(),
+            local_first_slot = man.getFirstSlot()
+      requested_peer.updateScore(PeerScoreUseless)
+      return

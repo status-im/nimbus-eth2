@@ -73,9 +73,9 @@ type
     data: SyncRange
     item: T
 
-  RewindPoint = object
-    failSlot: Slot
-    epochCount: uint64
+  RewindPoint* = object
+    failSlot*: Slot
+    epochCount*: uint64
 
   SyncQueue*[T] = ref object
     kind*: SyncQueueKind

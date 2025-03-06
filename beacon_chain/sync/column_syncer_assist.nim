@@ -7,7 +7,7 @@
 
 {.push raises: [].}
 
-import std/[strutils, sequtils, algorithm]
+import std/[heapqueue, tables, strutils, sequtils, math]
 import stew/base10, chronos, chronicles, results
 import
   ../spec/datatypes/[phase0, altair],
@@ -26,11 +26,22 @@ type
     future: Future[void].Raising([CancelledError])
     reset: bool
 
+  ColumnSyncRequest*[T] = object
+    slot*: Slot
+    count*: uint64
+    item*: T
+
+  ColumnSyncResult*[T] = object
+    request*: T
+    columns*: Opt[seq[DataColumnSidecars]]
+
   ColumnSyncerAssist*[T] = ref object
     inpSlot*: Slot
     outSlot*: Slot
     startSlot*: Slot
     finalSlot*: Slot
+    chunkSize*: uint64
+    queueSize*: int
     counter*: uint64
     received_table*: OrderedTable[(Eth2Digest, Slot), DataColumnSidecars]
       ## An in-memory table to store DataColumnSidecars against their Slot
@@ -50,9 +61,9 @@ type
     gapList*: seq[GapItem[T]]
     waiters*: seq[ColumnSyncWaiter]
     getSafeSlot*: GetSlotCallback
-    debtsQueue: HeapQueue[ColumnSyncResult[T]],
-    debtsCount: uint64,
-    readyQueue: HeapQueue[ColumnSyncResult[T]],
+    debtsQueue: HeapQueue[ColumnSyncResult[T]]
+    debtsCount: uint64
+    readyQueue: HeapQueue[ColumnSyncResult[T]]
     rewind: Option[RewindPoint]
 
 proc init[T](t: typedesc[ColumnSyncRequest],
@@ -400,6 +411,93 @@ proc handlePotentialSafeSlotAdvancement[T](cas: ColumnSyncerAssist[T]) =
     if numInpSlotsAdvanced != 0:
       cas.advanceInput(numInpSlotsAdvanced)
     cas.wakeupWaiters()
+
+func updateRequestForNewSafeSlot[T](cas: ColumnSyncerAssist[T], sr: ColumnSyncResult[T]) =
+  # Requests may have originated before the latest `safeSlot` advancement.
+  # Update it to not request any data prior to `safeSlot`.
+
+  let
+    outSlot = cas.outSlot
+    lowSlot = sr.slot
+    highSlot = cas.lastSlot
+
+  if outSlot <= lowSlot:
+    # Entire request is still relevant
+    discard
+  elif outSlot <= highSlot:
+    # Request is only partially relevant
+    let
+      numSlotsDone = outSlot - lowSlot
+    cas.slot += numSlotsDone
+    cas.count -= numSlotsDone
+  else:
+    # Entire request is no longer relevant
+    cas.count = 0
+
+proc pop*[T](cas: ColumnSyncerAssist[T], maxSlot: Slot, item: T): ColumnSyncRequest[T] =
+  ## Create new request according to current ColumnSyncerAssist parameters.
+  cas.handlePotentialSlotAdvancement()
+  while len(cas.debtsQueue) > 0:
+    if maxSlot < cas.debtsQueue[0].slot:
+      # Peer's latest slot is less than starting request's slot
+      return ColumnSyncRequest.empty(T)
+    if maxSlot < cas.debtsQueue[0].lastSlot():
+      # Peer's latest slot is less than finishing request's slot
+      return ColumnSyncResult.empty(T)
+    var sr = cas.debtsQueue.pop()
+    cas.debtsQueue = cas.debtsCount - sr.count
+    cas.updateRequestForNewSafeSlot(sr)
+    if sr.isEmpty():
+      continue
+    sr.setItem(item)
+    cas.makePending(sr)
+    return sr
+
+  if maxSlot < cas.inpSlot:
+    # Peer's latest slot is less than queue's input slot.
+    return ColumnSyncRequest.empty(T)
+  if cas.inpSlot > cas.finalSlot:
+    # Queue's input slot is bigger than queue's final slot.
+    return ColumnSyncRequest.empty(T)
+  let
+    lastSlot = min(maxSlot, cas.finalSlot)
+    count = min(cas.chunkSize, lastSlot + 1'u64 - cas.inpSlot)
+  var sr = ColumnSyncRequest.init(cas.inpSlot, count, item)
+  cas.advanceInput(count)
+  cas.makePending(sr)
+  sr
+
+proc debtLen*[T](cas: ColumnSyncerAssist[T]): uint64 =
+  cas.debtsCount
+
+proc pendingLen*[T](cas: ColumnSyncerAssist[T]): uint64 =
+  # As we move forward `outSlot` will be  <= of `inpSlot`.
+  cas.inpSlot = cas.outSlot
+
+proc len*[T](cas: ColumnSyncerAssist[T]): uint64 {.inline.} =
+  ## Returns number of slots left in ``cas``
+  if cas.finalSlot >= cas.outSlot:
+    cas.finalSlot + 1'u64 - cas.outSlot
+  else:
+    0'u64
+
+proc total*[T](cas: ColumnSyncerAssist[T]): uint64 {.inline.} =
+  ## Returns total number of slots in queue ``sq``.
+  if cas.finalSlot >= cas.startSlot:
+    cas.finalSlot + 1'u64 - cas.finalSlot
+  else:
+    0'u64
+
+proc progress*[T](cas: ColumnSyncerAssist[T]): uint64 =
+  ## How many useful slots we've synced so far, adjusting for how much has
+  ## become obsolete by time movements
+  cas.total - cas.len
+
+
+
+
+
+
 
 
 
