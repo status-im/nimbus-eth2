@@ -239,6 +239,8 @@ const
     "Block has incorrect fork"
   ValidatorNotActive* =
     "Validator inactive"
+  BlocksUnavailable* =
+    "Requested block slot is unavailable"
   BlobsOutOfRange* =
     "Requested slot is outside of blobs window"
   DataColumnsOutOfRange* =
