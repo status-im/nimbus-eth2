@@ -111,9 +111,9 @@ proc contains*[T](req: ColumnSyncRequest, slot: Slot): bool {.inline.} =
 proc cmp*[T](a, b: ColumnSyncRequest[T]): int =
   cmp(uint64(a.slot), uint64(b.slot))
 
-proc checkDataColumnResponse*[T](req: ColumnSyncRequest[T],
-                                 data: openArray[Slot]):
-                                 Result[void, string] =
+proc checkDataColumnsResponse*[T](req: ColumnSyncRequest[T],
+                                  data: openArray[Slot]):
+                                  Result[void, string] =
   if data.len == 0:
     return ok()
 

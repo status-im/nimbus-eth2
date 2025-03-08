@@ -69,6 +69,21 @@ type
     amIsupernode*: bool
     custody_columns_set*: HashSet[ColumnIndex]
     custody_columns_list*: List[ColumnIndex, NUMBER_OF_COLUMNS]
+    column_syncer_table*: OrderedTable[Eth2Digest , DataColumnSidecars]
+      ## An in-memory table to store DataColumnSidecars against their
+      ## extracted block root, the reason for having block root as a
+      ## part of the key is to effectively repairing strategies if the
+      ## remote peers reply with just a part of columns than what they
+      ## were supposed to, additionally, this entire loop is independent
+      ## to block/blobs sync hence, this is the only plausible way for
+      ## us store columns against a block.
+      ##
+      ## Instead of checking whether block was Proposed or Orphaned or
+      ## any similar anomaly, one can simply lookup the table and infer
+      ## either there were no columns against that block, or there was no
+      ## block that was mutually agreed as valid, in any case we do not
+      ## have columns for that slot.
+
     assist*: ColumnSyncerAssist[A]
     getLocalHeadSlot: GetSlotCallback
     getLocalWallSlot: GetSlotCallback
@@ -278,9 +293,76 @@ proc filterRelevantPeers[A, B](man: ColumnManager[A, B],
         peerSlot = newPeerSlot
         refreshed_peer_set.add(set)
 
+func groupAndFillColumnTable*[A, B](
+    man: ColumnManager[A, B],
+    columns: seq[ref DataColumnSidecar]
+): Result[void, string] =
+
+  ## As we are NOT iterating through blocks as well
+  ## grouping columns can be complicated task. To tackle that we use the following
+  ## spec:
+  ## Clients MUST send data column sidecars in consecutive (slot, index) order
+  for i in 0..<columns.len:
+    var start, finish: int = 0
+    var acc: ColumnIndex = 0
+
+    if columns[i][].index == 0.ColumnIndex or columns[i][].index > acc:
+      start = finish
+      finish = i
+      acc = columns[i][].index
+
+      # Extract the block root from signed beacon block header
+      let block_root =
+        hash_tree_root(columns[i][].signed_block_header.message)
+
+      var extracted_columns =
+        newSeqOfCap[seq[ref DataColumnSidecar]](NUMBER_OF_COLUMNS)
+
+      extracted_columns = columns[start..<finish]
+
+      # Make a table entry to ColumnSyncerTable
+      man.column_syncer_table[block_root] = extracted_columns
+
+      return ok()
+
+    else:
+      return err("DataColumnSidecar: sorted (slot, index) order is violated")
+
+func serializeColumnTable*[A, B](
+    man: ColumnManager[A, B]
+): Result[seq[DataColumnSidecars], string] =
+  # Iterate through the key values in the table
+  for k, v in man.column_syncer_table.pairs():
+    # Checking if the table has all required columns
+    if man.column_syncer_table[k].len == NUMBER_OF_COLUMNS:
+      let
+        recovered_cps =
+          recover_cells_and_proofs(man.column_syncer_table[k].mapIt(it[]))
+        consistent_block_header =
+          man.column_syncer_table[k][0][].signed_block_header
+        consistent_kzg_commitments =
+          man.column_syncer_table[k][0][].kzg_commitments
+        consistent_inclusion_proof =
+          man.column_syncer_table[k][0][].kzg_commitments_inclusion_proof
+        reconstructed_columns =
+          get_data_column_sidecars(consistent_block_header,
+                                   consistent_inclusion_proof,
+                                   consistent_kzg_commitments,
+                                   recovered_cps.get()).mapIt(newClone it)
+
+      # Populate that particular entry with reconstructed columns now
+      man.column_syncer_table[k] = reconstructed_columns
+
+  var grouped_serialized_columns: seq[DataColumnSidecars]
+  # Iterate once more to serialize the entries
+  for _,v in man.column_syncer_table.pairs():
+    grouped_serialized_columns.add(v)
+
+  ok(grouped_serialized_columns)
+
 proc columnSyncerStrategy[A, B](
     man: ColumnManager[A, B],
-    w_index: int)
+    w_index: int):
     {.async: (raises: [CancelledError]).} =
 
   ## Nimbus cares about the representation of home
@@ -338,6 +420,8 @@ proc columnSyncerStrategy[A, B](
   ##      4             |  X  |  X  |  X  |  X  |  X  |  X  |
   ##    ..m             |  X  |  X  |  X  |  X  |  X  |  X  |
   ##
+  if ColumnSyncerFlag.Impartial in man.flags:
+
 
   if ColumnSyncerFlag.Greedy in man.flags:
     var
@@ -373,3 +457,90 @@ proc columnSyncerStrategy[A, B](
             local_first_slot = man.getFirstSlot()
       requested_peer.updateScore(PeerScoreUseless)
       return
+
+    # Wall clock keeps ticking, so we need an update
+    man.assist.updateLastSlot(man.getLastSlot())
+
+    man.workers[w_index].status = ColumnSyncerStatus.Requesting
+    let req = man.assist.pop(reqPeerSlot, requested_peer)
+    if req.isEmpty():
+      debug "Empty request received from syncer assist, exiting", peer = peer,
+            local_head_slot = headSlot, remote_head_slot = reqPeerSlot,
+            queue_input_slot = man.assist.inpSlot,
+            queue_output_slot = man.queue.outSlot,
+            queue_last_slot = man.assist.finalSlot
+      await sleepAsync(RESP_TIMEOUT_DUR)
+      return
+
+    debug "Creating a new request for the peer", wall_clock_slot = wallSlot,
+           remote_head_slot = reqPeerSlot, local_head_slot = headSlot,
+           request = req
+
+    man.workers[w_index].status = ColumnSyncerStatus.Downloading
+    debug "Requesting common columns from the best peer"
+    let columnData =
+      if shouldGetDataColumns:
+        let columns =
+          await man.getDataColumnSidecars(requested_peer, intersectionColumns)
+        if columns.isErr():
+          peer.updateScore(PeerScoreNoValues)
+          debug "Failed to receive blobs on request",
+                request = req, err = blobs.error
+          return
+        let columnData = columns.get().asSeq()
+        debug "Received data columns on request",
+               columns_count = len(columnData),
+               request = req
+
+        if len(columnData) > 0:
+          let slots = mapIt(columnData, it[].signed_block_header.message.slot)
+          checkDataColumnsResponse(req, slots).isOkOr:
+            peer.updateScore(PeerScoreBadResponse)
+            warn "Incorrect blobs sequence received",
+                  columns_count = len(columnData),
+                  request = req,
+                  reason = error
+            return
+
+        man.groupAndFillColumnTable(columnData).valueOr:
+          peer.updateScore(PeerScoreNoValues)
+          info "Received columns sequence is inconsistent",
+                request = req, msg = error
+          return
+
+        let finalColumns =
+          man.serializeColumnTable().valueOr:
+            warn "Issue in grouping reconstructed columns",
+                  request = req, msg = error
+          return
+        finalColumns.checkDataColumns().isOkOr:
+          peer.updateScore(PeerScoreBadResponse)
+          warn "Columns verification failed",
+               columns_count = len(columnData),
+               request = req,
+               reason = error
+          return
+        Opt.some(finalColumns)
+      else:
+        Opt.none(seq[DataColumnSidecars])
+
+  if len(columnData) == 0 and req.contains(man.getSafeSlot()):
+    peer.updateScore(PeerScoreNoValues)
+    debug "Response does not include known-to-exist block",
+          request = req
+    return
+
+  # Scoring will happen in `syncUpdate`.
+  man.workers[w_index].status = ColumnSyncerStatus.Queueing
+  let
+    peerFinalized
+
+
+
+
+
+
+
+
+
+
