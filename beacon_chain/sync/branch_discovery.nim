@@ -392,7 +392,6 @@ proc discoverBranch[A, B](
   if peerChain.len == 0:
     peer.updateScore(PeerScoreUseless)
     debug "Peer has no blocks of interest",
-      bid = meta.bid, numBranchBlocks = peerChain.len,
       peer, peer_score = peer.getScore()
     return
 
