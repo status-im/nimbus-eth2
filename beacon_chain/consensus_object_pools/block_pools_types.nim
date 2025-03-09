@@ -1,5 +1,5 @@
 # beacon_chain
-# Copyright (c) 2018-2024 Status Research & Development GmbH
+# Copyright (c) 2018-2025 Status Research & Development GmbH
 # Licensed and distributed under either of
 #   * MIT license (license terms in the root directory or at https://opensource.org/licenses/MIT).
 #   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
@@ -22,11 +22,11 @@ import
 from ../spec/datatypes/capella import TrustedSignedBeaconBlock
 from ../spec/datatypes/deneb import TrustedSignedBeaconBlock
 
-from "."/vanity_logs/vanity_logs import VanityLogs
+from "."/vanity_logs/vanity_logs import LogProc, VanityLogs
 
 export
   sets, tables, hashes, helpers, beacon_chain_db, era_db, block_dag,
-  block_pools_types_light_client, validator_monitor, VanityLogs
+  block_pools_types_light_client, validator_monitor, LogProc, VanityLogs
 
 # ChainDAG and types related to forming a DAG of blocks, keeping track of their
 # relationships and allowing various forms of lookups
