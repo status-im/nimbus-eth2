@@ -216,7 +216,7 @@ proc shouldGetBlobs[A, B](man: SyncManager[A, B], s: Slot): bool =
   let
     wallEpoch = man.getLocalWallSlot().epoch
     epoch = s.epoch()
-  (epoch >= man.DENEB_FORK_EPOCH) and
+  (epoch >= man.DENEB_FORK_EPOCH) and (epoch >= man.FULU_FORK_EPOCH) and
   (wallEpoch < man.MIN_EPOCHS_FOR_BLOB_SIDECARS_REQUESTS or
    epoch >=  wallEpoch - man.MIN_EPOCHS_FOR_BLOB_SIDECARS_REQUESTS)
 
@@ -334,7 +334,8 @@ func groupBlobs*(
     blob_cursor = 0
   for block_idx, blck in blocks:
     withBlck(blck[]):
-      when consensusFork >= ConsensusFork.Deneb:
+      when consensusFork >= ConsensusFork.Deneb and
+          consensusFork < ConsensusFork.Fulu:
         template kzgs: untyped = forkyBlck.message.body.blob_kzg_commitments
         if kzgs.len == 0:
           continue
@@ -445,7 +446,8 @@ proc getSyncBlockData*[T](
 
   let (shouldGetBlob, blobsCount) =
     withBlck(blocksRange[0][]):
-      when consensusFork >= ConsensusFork.Deneb:
+      when consensusFork >= ConsensusFork.Deneb and
+          consensusFork < ConsensusFork.Fulu:
         let res = len(forkyBlck.message.body.blob_kzg_commitments)
         if res > 0:
           (true, res)
@@ -652,7 +654,8 @@ proc syncStep[A, B](
       var hasBlobs = false
       for blck in blockData:
         withBlck(blck[]):
-          when consensusFork >= ConsensusFork.Deneb:
+          when consensusFork >= ConsensusFork.Deneb and
+              consensusFork < ConsensusFork.Fulu:
             if forkyBlck.message.body.blob_kzg_commitments.len > 0:
               hasBlobs = true
               break
