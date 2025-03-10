@@ -239,13 +239,56 @@ proc getDataColumnSidecars[A, B](man: ColumnManager[A, B],
   debug "Requesting data column sidecars from peer", request = req
   dataColumnSidecarsByRange(peer, r.slot, r.count, req_cols)
 
+proc columnSyncWorker[A, B](
+    man: ColumnManager[A, B],
+    index: int
+) {.async: (raises: [CancelledError]).} =
+  mixin getKey, getScore, getHeadSlot
+
+  debug "Starting column syncer"
+  if ColumnSyncerFlag.Greedy in man.flags:
+    var usefulPeers, uselessPeers: seq[A]
+
+    try:
+      while true:
+        man.workers[index].status = ColumnSyncerStatus.Sleeping
+        # This event is going to be set until we are not in sync with the network
+        await man.notInSyncEvent.wait()
+        man.workers[index].status = ColumnSyncerStatus.WaitingPeer
+        for peer in availablePeers(man.pool):
+          peer = await man.pool.acquire()
+          if intersection(
+              man.custody_columns_set,
+              resolve_column_sets_from_custody_groups(max(SAMPLES_PER_SLOT.uint64,
+              peer.lookupCgcFromPeer()))):
+            usefulPeers.add(peer)
+          else:
+            uselessPeers.add(peer)
+
+          if peer.lookupCgcFromPeer() == NUMBER_OF_COLUMNS.uint64:
+            break
+        # send back the useless peers back to pool
+        man.pool.release(uselessPeers)
+        uselessPeers.mapIt(nil)
+
+        # send the useful peers to `columnSyncingStrategy`
+        await man.columnSyncStrategyGreedy(usefulPeers, index)
+
+        man.pool.release(usefulPeers)
+        usefulPeers.mapIt(nil)
+    finally:
+      for peer in usefulPeers & uselessPeers:
+        if not isNil(peer):
+          man.pool.release(peer)
+
 proc filterRelevantPeers[A, B](man: ColumnManager[A, B],
+                               peers: seq[A],
                                w_index: int):
                                seq[A] =
   ## This iterates over the available peers
   ## and returns a refreshed peer list based on
   ## whichever's peer status is recent and relevant
-  for peer in availablePeers(man.pool):
+  for peer in peers:
     var
       headSlot = man.getLocalHeadSlot()
       wallSlot = man.getLocalWallSlot()
@@ -360,172 +403,169 @@ func serializeColumnTable*[A, B](
 
   ok(grouped_serialized_columns)
 
-proc columnSyncerStrategy[A, B](
+## Nimbus cares about the representation of home
+## stakers and solo stakers, and we understand supernodes
+## stand against the same ethos even if supernodes pose as
+## a critical modification in terms of peerdas development
+##
+## Hence, to stand with our values, we shall provide the user
+## 2 separate modes of column syncing:
+##
+## 1 - Greedy: In the `Greedy` mode we give a greater preference
+##     to supernodes or nodes that custody more than 50% of all
+##     data columns in the network for a given slot. Thereby, using
+##     either them or we are able to recover all data columns.
+##
+##     We read this by checking whether the remote peer's advertised
+##     custody group count (cgc) is greater than half of the total
+##     columns per slot or not.
+##
+## 2 - Impartial: In the `Impartial` mode we consider every peer as
+##     `equal` instead of intersecting what columns we custody and they
+##     custody, we range request all the columns with what
+##     they can serve per slot, until we move to the goal of
+##     reconstructability.
+##
+##     This way no peer in the Peer Pool becomes redundant, they were
+##     previously useful for blocks, and now they are useful for columns
+##     too.
+##
+##     Slot \ Custody |  0  |  1  |  2  |  3  |  4  | ..n |
+##     -------------- | --- | --- | --- | --- | --- | --- |
+##      0             |  X  |  X  |     |  X  |  X  |  X  |
+##      1             |  X  |  X  |  X  |     |     |  X  |
+##      2             |  X  |     |  X  |  X  |  X  |     |
+##      3             |  X  |  X  |     |  X  |  X  |  X  |
+##      4             |     |  X  |  X  |     |  X  |  X  |
+##    ..m             |  X  |     |  X  |  X  |     |  X  |
+##
+##
+##     where say,         Peerₐ → Column 1, 4, 17
+##                        Peerᵦ → Column 3, 5, 33
+##                        Peer𝒸 → Column 5, 45, 111
+##
+##                                  ||
+##                    after         ||
+##                reconstruction    \/
+##
+##
+##     Slot \ Custody |  0  |  1  |  2  |  3  |  4  | ..n |
+##     -------------- | --- | --- | --- | --- | --- | --- |
+##      0             |  X  |  X  |  X  |  X  |  X  |  X  |
+##      1             |  X  |  X  |  X  |  X  |  X  |  X  |
+##      2             |  X  |  X  |  X  |  X  |  X  |  X  |
+##      3             |  X  |  X  |  X  |  X  |  X  |  X  |
+##      4             |  X  |  X  |  X  |  X  |  X  |  X  |
+##    ..m             |  X  |  X  |  X  |  X  |  X  |  X  |
+##
+
+proc columnSyncStrategyGreedy[A, B](
     man: ColumnManager[A, B],
-    w_index: int):
+    peers: seq[A],
+    w_index: int)
     {.async: (raises: [CancelledError]).} =
 
-  ## Nimbus cares about the representation of home
-  ## stakers and solo stakers, and we understand supernodes
-  ## stand against the same ethos even if supernodes pose as
-  ## a critical modification in terms of peerdas development
-  ##
-  ## Hence, to stand with our values, we shall provide the user
-  ## 2 separate modes of column syncing:
-  ##
-  ## 1 - Greedy: In the `Greedy` mode we give a greater preference
-  ##     to supernodes or nodes that custody more than 50% of all
-  ##     data columns in the network for a given slot. Thereby, using
-  ##     either them or we are able to recover all data columns.
-  ##
-  ##     We read this by checking whether the remote peer's advertised
-  ##     custody group count (cgc) is greater than half of the total
-  ##     columns per slot or not.
-  ##
-  ## 2 - Impartial: In the `Impartial` mode we consider every peer as
-  ##     `equal` instead of intersecting what columns we custody and they
-  ##     custody, we range request all the columns with what
-  ##     they can serve per slot, until we move to the goal of
-  ##     reconstructability.
-  ##
-  ##     This way no peer in the Peer Pool becomes redundant, they were
-  ##     previously useful for blocks, and now they are useful for columns
-  ##     too.
-  ##
-  ##     Slot \ Custody |  0  |  1  |  2  |  3  |  4  | ..n |
-  ##     -------------- | --- | --- | --- | --- | --- | --- |
-  ##      0             |  X  |  X  |     |  X  |  X  |  X  |
-  ##      1             |  X  |  X  |  X  |     |     |  X  |
-  ##      2             |  X  |     |  X  |  X  |  X  |     |
-  ##      3             |  X  |  X  |     |  X  |  X  |  X  |
-  ##      4             |     |  X  |  X  |     |  X  |  X  |
-  ##    ..m             |  X  |     |  X  |  X  |     |  X  |
-  ##
-  ##
-  ##     where say,         Peerₐ → Column 1, 4, 17
-  ##                        Peerᵦ → Column 3, 5, 33
-  ##                        Peer𝒸 → Column 5, 45, 111
-  ##
-  ##                                  ||
-  ##                    after         ||
-  ##                reconstruction    \/
-  ##
-  ##
-  ##     Slot \ Custody |  0  |  1  |  2  |  3  |  4  | ..n |
-  ##     -------------- | --- | --- | --- | --- | --- | --- |
-  ##      0             |  X  |  X  |  X  |  X  |  X  |  X  |
-  ##      1             |  X  |  X  |  X  |  X  |  X  |  X  |
-  ##      2             |  X  |  X  |  X  |  X  |  X  |  X  |
-  ##      3             |  X  |  X  |  X  |  X  |  X  |  X  |
-  ##      4             |  X  |  X  |  X  |  X  |  X  |  X  |
-  ##    ..m             |  X  |  X  |  X  |  X  |  X  |  X  |
-  ##
-  if ColumnSyncerFlag.Impartial in man.flags:
+  var
+    accumulator = 0
+    requested_peer: A = nil
 
+  for peer in man.filterRelevantPeers(peers, w_index):
+    ## Look for the broadest intersection set among the peers
+    if man.intersectionColumns(peer).len > accumulator:
+      accumulator = man.intersectionColumns(peer).len
+      requested_peer = peer
 
-  if ColumnSyncerFlag.Greedy in man.flags:
-    var
-      accumulator = 0
-      requested_peer: A = nil
+  # Extract the intersection columns between local and peer to request
+  let int_cols = man.intersectionColumns(requested_peer)
 
-    for peer in man.filterRelevantPeers(w_index):
-      ## Look for the broadest intersection set among the peers
-      if man.intersectionColumns(peer).len > accumulator:
-        accumulator = man.intersectionColumns(peer).len
-        requested_peer = peer
+  if man.remainingSlots() <= man.maxHeadAge:
+    info "We have synced all columns from the network", wall_clock_slot = wallSlot,
+          remote_head_slot = peerSlot, local_head_slot = headSlot
 
-    # Extract the intersection columns between local and peer to request
-    let int_cols = man.intersectionColumns(requested_peer)
+  # Putting all ColumnSync workers to sleep
+  man.notInSyncEvent.clear()
+  return
 
-    if man.remainingSlots() <= man.maxHeadAge:
-      info "We have synced all columns from the network", wall_clock_slot = wallSlot,
-           remote_head_slot = peerSlot, local_head_slot = headSlot
+  var
+    headSlot = man.getLocalHeadSlot()
+    wallSlot = man.getLocalWallSlot()
+    reqPeerSlot = requested_peer.getHeadSlot()
 
-    # Putting all ColumnSync workers to sleep
-    man.notInSyncEvent.clear()
+  if man.getFirstSlot() >= reqPeerSlot:
+    debug "Peer's head slot is lower than local head slot", peer = requested_peer,
+          wall_clock_slot = wallSlot, remote_head_slot = reqPeerSlot,
+          local_last_slot = man.getLastSlot(),
+          local_first_slot = man.getFirstSlot()
+    requested_peer.updateScore(PeerScoreUseless)
     return
 
-    var
-      headSlot = man.getLocalHeadSlot()
-      wallSlot = man.getLocalWallSlot()
-      reqPeerSlot = requested_peer.getHeadSlot()
+  # Wall clock keeps ticking, so we need an update
+  man.assist.updateLastSlot(man.getLastSlot())
 
-    if man.getFirstSlot() >= reqPeerSlot:
-      debug "Peer's head slot is lower than local head slot", peer = requested_peer,
-            wall_clock_slot = wallSlot, remote_head_slot = reqPeerSlot,
-            local_last_slot = man.getLastSlot(),
-            local_first_slot = man.getFirstSlot()
-      requested_peer.updateScore(PeerScoreUseless)
-      return
+  man.workers[w_index].status = ColumnSyncerStatus.Requesting
+  let req = man.assist.pop(reqPeerSlot, requested_peer)
+  if req.isEmpty():
+    debug "Empty request received from syncer assist, exiting", peer = peer,
+          local_head_slot = headSlot, remote_head_slot = reqPeerSlot,
+          queue_input_slot = man.assist.inpSlot,
+          queue_output_slot = man.queue.outSlot,
+          queue_last_slot = man.assist.finalSlot
+    await sleepAsync(RESP_TIMEOUT_DUR)
+    return
 
-    # Wall clock keeps ticking, so we need an update
-    man.assist.updateLastSlot(man.getLastSlot())
+  debug "Creating a new request for the peer", wall_clock_slot = wallSlot,
+          remote_head_slot = reqPeerSlot, local_head_slot = headSlot,
+          request = req
 
-    man.workers[w_index].status = ColumnSyncerStatus.Requesting
-    let req = man.assist.pop(reqPeerSlot, requested_peer)
-    if req.isEmpty():
-      debug "Empty request received from syncer assist, exiting", peer = peer,
-            local_head_slot = headSlot, remote_head_slot = reqPeerSlot,
-            queue_input_slot = man.assist.inpSlot,
-            queue_output_slot = man.queue.outSlot,
-            queue_last_slot = man.assist.finalSlot
-      await sleepAsync(RESP_TIMEOUT_DUR)
-      return
+  man.workers[w_index].status = ColumnSyncerStatus.Downloading
+  debug "Requesting common columns from the best peer"
+  let columnData =
+    if shouldGetDataColumns:
+      let columns =
+        await man.getDataColumnSidecars(requested_peer, intersectionColumns)
+      if columns.isErr():
+        requested_peer.updateScore(PeerScoreNoValues)
+        debug "Failed to receive blobs on request",
+              request = req, err = blobs.error
+        return
+      let columnData = columns.get().asSeq()
+      debug "Received data columns on request",
+              columns_count = len(columnData),
+              request = req
 
-    debug "Creating a new request for the peer", wall_clock_slot = wallSlot,
-           remote_head_slot = reqPeerSlot, local_head_slot = headSlot,
-           request = req
-
-    man.workers[w_index].status = ColumnSyncerStatus.Downloading
-    debug "Requesting common columns from the best peer"
-    let columnData =
-      if shouldGetDataColumns:
-        let columns =
-          await man.getDataColumnSidecars(requested_peer, intersectionColumns)
-        if columns.isErr():
-          peer.updateScore(PeerScoreNoValues)
-          debug "Failed to receive blobs on request",
-                request = req, err = blobs.error
+      if len(columnData) > 0:
+        let slots = mapIt(columnData, it[].signed_block_header.message.slot)
+        checkDataColumnsResponse(req, slots).isOkOr:
+          requested_peer.updateScore(PeerScoreBadResponse)
+          warn "Incorrect blobs sequence received",
+                columns_count = len(columnData),
+                request = req,
+                reason = error
           return
-        let columnData = columns.get().asSeq()
-        debug "Received data columns on request",
-               columns_count = len(columnData),
-               request = req
 
-        if len(columnData) > 0:
-          let slots = mapIt(columnData, it[].signed_block_header.message.slot)
-          checkDataColumnsResponse(req, slots).isOkOr:
-            peer.updateScore(PeerScoreBadResponse)
-            warn "Incorrect blobs sequence received",
-                  columns_count = len(columnData),
-                  request = req,
-                  reason = error
-            return
+      man.groupAndFillColumnTable(columnData).valueOr:
+        requested_peer.updateScore(PeerScoreNoValues)
+        info "Received columns sequence is inconsistent",
+              request = req, msg = error
+        return
 
-        man.groupAndFillColumnTable(columnData).valueOr:
-          peer.updateScore(PeerScoreNoValues)
-          info "Received columns sequence is inconsistent",
+      let finalColumns =
+        man.serializeColumnTable().valueOr:
+          warn "Issue in grouping reconstructed columns",
                 request = req, msg = error
-          return
-
-        let finalColumns =
-          man.serializeColumnTable().valueOr:
-            warn "Issue in grouping reconstructed columns",
-                  request = req, msg = error
-          return
-        finalColumns.checkDataColumns().isOkOr:
-          peer.updateScore(PeerScoreBadResponse)
-          warn "Columns verification failed",
-               columns_count = len(columnData),
-               request = req,
-               reason = error
-          return
-        Opt.some(finalColumns)
-      else:
-        Opt.none(seq[DataColumnSidecars])
+      finalColumns.checkDataColumns().isOkOr:
+        requested_peer.updateScore(PeerScoreBadResponse)
+        warn "Columns verification failed",
+              columns_count = len(columnData),
+              request = req,
+              reason = error
+        return
+      Opt.some(finalColumns)
+    else:
+      Opt.none(seq[DataColumnSidecars])
 
   if len(columnData) == 0 and req.contains(man.getSafeSlot()):
-    peer.updateScore(PeerScoreNoValues)
+    requested_peer.updateScore(PeerScoreNoValues)
     debug "Response does not include known-to-exist block",
           request = req
     return
@@ -534,13 +574,4 @@ proc columnSyncerStrategy[A, B](
   man.workers[w_index].status = ColumnSyncerStatus.Queueing
   let
     peerFinalized
-
-
-
-
-
-
-
-
-
 
