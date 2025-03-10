@@ -246,7 +246,7 @@ proc checkDataColumnsResponse*[T](req: SyncRequest[T],
       return err("incorrect order")
     if slot == pSlot:
       inc counter
-      if counter > MAX_BLOBS_PER_BLOCK_ELECTRA:
+      if counter > req.count * NUMBER_OF_COLUMNS:
         return err("Number of data columns in the block exceeds the limit")
     else:
       counter = 1'u64
