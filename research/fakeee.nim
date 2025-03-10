@@ -45,15 +45,6 @@ proc setupEngineAPI*(server: RpcServer) =
       msg: "Unknown payload"
     )
 
-  # https://github.com/ethereum/execution-apis/blob/v1.0.0-beta.3/src/engine/paris.md#engine_exchangetransitionconfigurationv1
-  server.rpc("engine_exchangeTransitionConfigurationV1") do(conf: TransitionConfigurationV1) -> TransitionConfigurationV1:
-    info "engine_exchangeTransitionConfigurationV1",
-      ttd = conf.terminalTotalDifficulty,
-      number = uint64(conf.terminalBlockNumber),
-      blockHash = conf.terminalBlockHash
-
-    return conf
-
   # https://github.com/ethereum/execution-apis/blob/v1.0.0-beta.3/src/engine/paris.md#engine_forkchoiceupdatedv1
   server.rpc("engine_forkchoiceUpdatedV1") do(
       update: ForkchoiceStateV1,
