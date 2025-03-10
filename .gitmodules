@@ -199,7 +199,6 @@
 	path = vendor/nim-toml-serialization
 	url = https://github.com/status-im/nim-toml-serialization.git
 	ignore = untracked
-	branch = master
 [submodule "vendor/gnosis-chain-configs"]
 	path = vendor/gnosis-chain-configs
 	url = https://github.com/gnosischain/configs.git
@@ -234,3 +233,10 @@
 	path = vendor/nim-minilru
 	url = https://github.com/status-im/nim-minilru.git
 	branch = master
+[submodule "vendor/nim-seaqt"]
+	path = vendor/nim-seaqt
+	url = https://github.com/seaqt/nim-seaqt.git
+	branch = qt-5.15
+[submodule "vendor/nimqml-seaqt"]
+	path = vendor/nimqml-seaqt
+	url = https://github.com/seaqt/nimqml-seaqt.git
