@@ -544,6 +544,37 @@ proc columnSyncImpartial[A, B](
 
   man.workers[index].status = ColumnSyncerStatus.Requesting
   let req = man.assist.pop(peerSlot, peer)
+  if req.isEmpty():
+    debug "Empty request received from queue", peer = peer,
+          local_head_slot = headSlot, remote_head_slot = peerSlot,
+          queue_input_slot = man.assist.inpSlot,
+          queue_output_slot = man.assist.outSlot,
+          queue_last_slot = man.assist.finalSlot
+    await sleepAsync(RESP_TIMEOUT_DUR)
+    return
+
+  debug "Creating new request for peer", wall_clock_slot = wallSlot,
+        remote_head_slot = peerSlot, local_head_slot = headSlot,
+        request = req
+
+  man.workers[index].status = ColumnSyncerStatus.Downloading
+  let serveable_columns =
+    resolve_column_list_from_custody_groups(max(SAMPLES_PER_SLOT.uint64,
+                                            peer.lookupCgcFromPeer()))
+  let columnData =
+    if shouldGetDataColumns:
+      let columns =
+        await man.getDataColumnSidecars(peer, serveable_columns)
+      if columns.isErr:
+        peer.updateScore(PeerScoreNoValues)
+        debug "Failed to receive columns on request",
+              request = req, err = columns.error
+        return
+      let columnData = columns.get().asSeq()
+      debug "Received data columns on request",
+            columns_count = len(columnData)
+
+
 
 
 proc columnSyncStrategyGreedy[A, B](
@@ -612,19 +643,19 @@ proc columnSyncStrategyGreedy[A, B](
         await man.getDataColumnSidecars(requested_peer, intersectionColumns)
       if columns.isErr():
         requested_peer.updateScore(PeerScoreNoValues)
-        debug "Failed to receive blobs on request",
-              request = req, err = blobs.error
+        debug "Failed to receive columns on request",
+              request = req, err = columns.error
         return
       let columnData = columns.get().asSeq()
       debug "Received data columns on request",
-              columns_count = len(columnData),
-              request = req
+            columns_count = len(columnData),
+            request = req
 
       if len(columnData) > 0:
         let slots = mapIt(columnData, it[].signed_block_header.message.slot)
         checkDataColumnsResponse(req, slots).isOkOr:
           requested_peer.updateScore(PeerScoreBadResponse)
-          warn "Incorrect blobs sequence received",
+          warn "Incorrect columns sequence received",
                 columns_count = len(columnData),
                 request = req,
                 reason = error
