@@ -1,5 +1,5 @@
 # beacon_chain
-# Copyright (c) 2022-2024 Status Research & Development GmbH
+# Copyright (c) 2022-2025 Status Research & Development GmbH
 # Licensed and distributed under either of
 #   * MIT license (license terms in the root directory or at https://opensource.org/licenses/MIT).
 #   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
@@ -44,15 +44,6 @@ proc setupEngineAPI*(server: RpcServer) =
       code: engineApiUnknownPayload,
       msg: "Unknown payload"
     )
-
-  # https://github.com/ethereum/execution-apis/blob/v1.0.0-beta.3/src/engine/paris.md#engine_exchangetransitionconfigurationv1
-  server.rpc("engine_exchangeTransitionConfigurationV1") do(conf: TransitionConfigurationV1) -> TransitionConfigurationV1:
-    info "engine_exchangeTransitionConfigurationV1",
-      ttd = conf.terminalTotalDifficulty,
-      number = uint64(conf.terminalBlockNumber),
-      blockHash = conf.terminalBlockHash
-
-    return conf
 
   # https://github.com/ethereum/execution-apis/blob/v1.0.0-beta.3/src/engine/paris.md#engine_forkchoiceupdatedv1
   server.rpc("engine_forkchoiceUpdatedV1") do(
