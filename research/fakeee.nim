@@ -82,10 +82,10 @@ proc setupEngineAPI*(server: RpcServer) =
 
     return BlockObject(number: 1000.Quantity)
 
-  server.rpc("eth_chainId") do() -> Quantity:
+  server.rpc("eth_chainId") do() -> UInt256:
     info "eth_chainId"
 
-    return 1.Quantity
+    return 1.u256
 
 when isMainModule:
   let server = newRpcHttpServer(
