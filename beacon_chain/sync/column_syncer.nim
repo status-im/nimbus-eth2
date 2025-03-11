@@ -459,6 +459,93 @@ func serializeColumnTable*[A, B](
 ##    ..m             |  X  |  X  |  X  |  X  |  X  |  X  |
 ##
 
+proc columnSyncImpartial[A, B](
+    man: ColumnManager[A, B], index: int, peer: A
+) {.async: (raises: [CancelledError]).} =
+  logScope:
+    peer_score = peer.getScore()
+    peer_speed = peer.netKbps()
+    index = index
+
+  var
+    headSlot = man.getLocalHeadSlot()
+    wallSlot = man.getLocalWallSlot()
+    peerSlot = peer.getHeadSlot()
+
+  block:
+    logScope:
+      peer = peer
+
+    debug "Peer's syncing status", wall_clock_slot = wallSlot,
+          remote_head_slot = peerSlot, local_head_slot = headSlot
+
+    let
+      peerStatusAge = Moment.now() - peer.getStatusLastTime()
+      needsUpdate =
+        # Latest status we got is old
+        peerStatusAge >= StatusExpirationTime or
+        # The point we need to sync is close to where the peer is
+        man.getFirstSlot() >= peerSlot
+
+    if needsUpdate:
+      man.workers[index].status = ColumnSyncerStatus.UpdatingStatus
+
+      if peerStatusAge < StatusExpirationTime div 2:
+        await sleepAsync(StatusExpirationTime div 2 - peerStatusAge)
+
+      trace "Updating peer's status information", wall_clock_slot = wallSlot,
+            remote_head_slot = peerSlot, local_head_slot = headSlot
+
+      if not(await peer.updateStatus()):
+        peer.updateScore(PeerScoreNoStatus)
+        debug "Failed to get remote peer's status, exiting",
+              peer_head_slot = peerSlot
+        return
+
+      let newPeerSlot = peer.getHeadSlot()
+      if peerSlot >= newPeerSlot:
+        peer.updateScore(PeerScoreStaleStatus)
+        debug "Peer's status information is stale",
+              wall_clock_slot = wallSlot, remote_old_head_slot = peerSlot,
+              local_head_slot = headSlot, remote_new_head_slot = newPeerSlot
+      else:
+        debug "Peer's status information updated", wall_clock_slot = wallSlot,
+              remote_old_head_slot = peerSlot, local_head_slot = headSlot,
+              remote_new_head_slot = newPeerSlot
+        peer.updateScore(PeerScoreGoodStatus)
+        peerSlot = newPeerSlot
+
+    # Time passed - enough to move slots, if sleep happened
+    headSlot = man.getLocalHeadSlot()
+    wallSlot = man.getLocalWallSlot()
+
+  if man.remainingSlots() <= man.maxHeadAge:
+    logScope:
+      peer = peer
+
+    info "We are in sync with the network", wall_clock_slot = wallSlot,
+         remote_head_slot = peerSlot, local_head_slot = headSlot
+
+    # We clear ColumnManager's `notInSyncEvent` so all the workers will become
+    # sleeping down.
+    man.notInSyncEvent.clear()
+    return
+
+  if man.getFirstSlot() >= peerSlot:
+    debug "Peer's head slot is lower than local head slot", peer = peer,
+          wall_clock_slot = wallSlot, remote_head_slot = peerSlot,
+          local_last_slot = man.getLastSlot(),
+          local_first_slot = man.getFirstSlot()
+    peer.updateScore(PeerScoreUseless)
+    return
+
+  # Wall clock keeps ticking, so we need to update the queue
+  man.assist.updateLastSlot(man.getLastSlot())
+
+  man.workers[index].status = ColumnSyncerStatus.Requesting
+  let req = man.assist.pop(peerSlot, peer)
+
+
 proc columnSyncStrategyGreedy[A, B](
     man: ColumnManager[A, B],
     peers: seq[A],
