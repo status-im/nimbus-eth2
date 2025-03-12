@@ -124,6 +124,8 @@ AllTests-mainnet
 ```
 ## Block quarantine
 ```diff
++ Don't re-download unviable blocks                                                          OK
++ Keep downloading parent chain even if we hit missing limit                                 OK
 + Recursive missing parent                                                                   OK
 + Unviable smoke test                                                                        OK
 ```
