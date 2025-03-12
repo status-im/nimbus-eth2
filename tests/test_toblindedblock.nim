@@ -17,20 +17,18 @@ import
   # Test utilities
   unittest2
 
-
 template do_check() =
   check:
     hash_tree_root(b.message) == hash_tree_root(
       b.toSignedBlindedBeaconBlock.message)
     b.signature == b.toSignedBlindedBeaconBlock.signature
 
-const
-  nondefaultEth1Data = Eth1Data(
-    deposit_root: Eth2Digest.fromHex(
-      "0x55aaf2ee893f67db190d617070bd10d1583b00194fbcfda03d89baa24626f5bb"),
-    deposit_count: 1,
-    block_hash: Eth2Digest.fromHex(
-      "0xe617d58db390a10741ab7d3de0ba9460b5df5e0772e9721fe33c0422a63b2677"))
+const nondefaultEth1Data = Eth1Data(
+  deposit_root: Eth2Digest.fromHex(
+    "0x55aaf2ee893f67db190d617070bd10d1583b00194fbcfda03d89baa24626f5bb"),
+  deposit_count: 1,
+  block_hash: Eth2Digest.fromHex(
+    "0xe617d58db390a10741ab7d3de0ba9460b5df5e0772e9721fe33c0422a63b2677"))
 
 let nondefaultValidatorSig = ValidatorSig.fromHex(
     "0xac08ca70066c6ea0525aa54dd867f82b86945818cb9305aae30f3bee13275dcf13d6d0680a47e889482ff2bb9a9f3cdb0588746f9e30c04645eda6d01bbd0ce6326ceb695294cb338ebace5b130c5b8f2e4f8efa63d63d5bb255c21a39da9c12")[]
