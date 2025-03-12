@@ -573,8 +573,43 @@ proc columnSyncImpartial[A, B](
       let columnData = columns.get().asSeq()
       debug "Received data columns on request",
             columns_count = len(columnData)
+      if len(columnData) > 0:
+        let slots = mapIt(columnData, it[].signed_block_header.message.slot)
+        checkDataColumnsResponse(req, slots).isOkOr:
+          peer.updateScore(PeerScoreBadResponse)
+          warn "Incorrect columns sequence received",
+               columns_count = len(columnData),
+               request = req,
+               reason = error
+          return
 
+      man.groupAndFillColumnTable(columnData).valueOr:
+        peer.updateScore(PeerScoreNoValues)
+        info "Received column sequence is inconsistent",
+             request = req, msg = error
+        return
 
+      let finalColumns =
+        man.serializeColumnTable().valueOr:
+          warn "Issue in grouping reconstructed columns",
+               request = req, msg = error
+      finalColumns.checkDataColumns().isOkOr:
+        peer.updateScore(PeerScoreBadResponse)
+        warn "Columns verification failed",
+             columns_count = len(columnData),
+             request = req,
+             reason = error
+        return
+      
+      Opt.some(finalColumns)
+    else:
+      Opt.none(seq[DataColumnSidecars])
+
+  if len(columnData) == 0 and req.contains(man.getSafeSlot()):
+    peer.updateScore(PeerScoreNoValues)
+    debug "Response does not include known-to-exist block",
+          request = req
+    return
 
 
 proc columnSyncStrategyGreedy[A, B](
