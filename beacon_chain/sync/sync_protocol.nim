@@ -233,8 +233,15 @@ p2pProtocol BeaconSync(version = 1,
       raise newException(InvalidInputsError, "Empty range requested")
 
     var blocks: array[MAX_REQUEST_BLOCKS.int, BlockId]
+    let dag = peer.networkState.dag
+    if startSlot < dag.backfill.slot:
+      # Peers that are unable to reply to block requests within the
+      # `MIN_EPOCHS_FOR_BLOCK_REQUESTS` epoch range SHOULD respond with
+      # error code `3: ResourceUnavailable`.
+      # https://github.com/ethereum/consensus-specs/blob/v1.5.0-beta.2/specs/phase0/p2p-interface.md#responding-side
+      raise newException(ResourceUnavailableError, BlocksUnavailable)
+
     let
-      dag = peer.networkState.dag
       # Limit number of blocks in response
       count = int min(reqCount, blocks.lenu64)
       endIndex = count - 1
@@ -268,6 +275,12 @@ p2pProtocol BeaconSync(version = 1,
           peer.network.forkDigestAtEpoch(blocks[i].slot.epoch).data)
 
         inc found
+
+    if found == 0 and startSlot < dag.horizon:
+      # Distinguish empty response (we know that the slot is empty)
+      # from unavailable response (we have not backfilled / range got pruned).
+      # For slots before the horizon, data is available on a best-effort basis
+      raise newException(ResourceUnavailableError, BlocksUnavailable)
 
     debug "Block range request done", peer, startSlot, count
 

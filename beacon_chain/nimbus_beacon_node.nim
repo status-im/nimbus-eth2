@@ -146,8 +146,6 @@ func getVanityLogs(stdoutKind: StdoutLogKind): VanityLogs =
   of StdoutLogKind.Auto: raiseAssert "inadmissable here"
   of StdoutLogKind.Colors:
     VanityLogs(
-      onMergeTransitionBlock:          bellatrixColor,
-      onFinalizedMergeTransitionBlock: bellatrixBlink,
       onUpgradeToCapella:              capellaColor,
       onKnownBlsToExecutionChange:     capellaBlink,
       onUpgradeToDeneb:                denebColor,
@@ -155,8 +153,6 @@ func getVanityLogs(stdoutKind: StdoutLogKind): VanityLogs =
       onKnownCompoundingChange:        electraBlink)
   of StdoutLogKind.NoColors:
     VanityLogs(
-      onMergeTransitionBlock:          bellatrixMono,
-      onFinalizedMergeTransitionBlock: bellatrixMono,
       onUpgradeToCapella:              capellaMono,
       onKnownBlsToExecutionChange:     capellaMono,
       onUpgradeToDeneb:                denebMono,
@@ -164,10 +160,6 @@ func getVanityLogs(stdoutKind: StdoutLogKind): VanityLogs =
       onKnownCompoundingChange:        electraMono)
   of StdoutLogKind.Json, StdoutLogKind.None:
     VanityLogs(
-      onMergeTransitionBlock:
-        (proc() = notice "🐼 Proof of Stake Activated 🐼"),
-      onFinalizedMergeTransitionBlock:
-        (proc() = notice "🐼 Proof of Stake Finalized 🐼"),
       onUpgradeToCapella:
         (proc() = notice "🦉 Withdrowls now available 🦉"),
       onKnownBlsToExecutionChange:
@@ -182,7 +174,7 @@ func getVanityLogs(stdoutKind: StdoutLogKind): VanityLogs =
 func getVanityMascot(consensusFork: ConsensusFork): string =
   case consensusFork
   of ConsensusFork.Fulu:
-    "not decided yet?"
+    "❓"
   of ConsensusFork.Electra:
     "🦒"
   of ConsensusFork.Deneb:
