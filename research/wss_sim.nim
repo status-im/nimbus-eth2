@@ -115,25 +115,45 @@ cli do(validatorsDir: string, secretsDir: string,
   withBlck(blck[]):
     when consensusFork >= ConsensusFork.Bellatrix:
       if forkyBlck.message.is_execution_block:
-        template payload(): auto = forkyBlck.message.body.execution_payload
-        if not payload.block_hash.isZero:
-          notice "Syncing EL", elUrl, jwtSecret
-          while true:
-            waitFor noCancel sleepAsync(chronos.seconds(2))
-            (waitFor noCancel elManager
-                .newExecutionPayload(forkyBlck.message)).isOkOr:
-              continue
+        when consensusFork >= ConsensusFork.Fulu:
+          # For Fulu-epbs get payload info from header
+            template header(): auto = forkyBlck.message.body.signed_execution_payload_header.message
+            if not header.block_hash.isZero:
+              notice "Syncing EL", elUrl, jwtSecret
+              while true:
+                waitFor noCancel sleepAsync(chronos.seconds(2))
+                (waitFor noCancel elManager
+                    .newExecutionPayload(forkyBlck.message)).isOkOr:
+                  continue
+                let (status, _) = waitFor noCancel elManager.forkchoiceUpdated(
+                  headBlockHash = header.block_hash,
+                  safeBlockHash = header.block_hash,
+                  finalizedBlockHash = ZERO_HASH,
+                  payloadAttributes = Opt.none(consensusFork.PayloadAttributes))
+                if status != PayloadExecutionStatus.valid:
+                  continue
+                notice "EL synced", elUrl, jwtSecret
+                break
+        else:
+          template payload(): auto = forkyBlck.message.body.execution_payload
+          if not payload.block_hash.isZero:
+            notice "Syncing EL", elUrl, jwtSecret
+            while true:
+              waitFor noCancel sleepAsync(chronos.seconds(2))
+              (waitFor noCancel elManager
+                  .newExecutionPayload(forkyBlck.message)).isOkOr:
+                continue
 
-            let (status, _) = waitFor noCancel elManager.forkchoiceUpdated(
-              headBlockHash = payload.block_hash,
-              safeBlockHash = payload.block_hash,
-              finalizedBlockHash = ZERO_HASH,
-              payloadAttributes = Opt.none(consensusFork.PayloadAttributes))
-            if status != PayloadExecutionStatus.valid:
-              continue
+              let (status, _) = waitFor noCancel elManager.forkchoiceUpdated(
+                headBlockHash = payload.block_hash,
+                safeBlockHash = payload.block_hash,
+                finalizedBlockHash = ZERO_HASH,
+                payloadAttributes = Opt.none(consensusFork.PayloadAttributes))
+              if status != PayloadExecutionStatus.valid:
+                continue
 
-            notice "EL synced", elUrl, jwtSecret
-            break
+              notice "EL synced", elUrl, jwtSecret
+              break
 
   var
     clock = BeaconClock.init(getStateField(state[], genesis_time)).valueOr:
