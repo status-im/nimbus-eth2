@@ -216,7 +216,7 @@ proc shouldGetBlobs[A, B](man: SyncManager[A, B], s: Slot): bool =
   let
     wallEpoch = man.getLocalWallSlot().epoch
     epoch = s.epoch()
-  (epoch >= man.DENEB_FORK_EPOCH) and (epoch >= man.FULU_FORK_EPOCH) and
+  (epoch >= man.DENEB_FORK_EPOCH) and (epoch < man.FULU_FORK_EPOCH) and
   (wallEpoch < man.MIN_EPOCHS_FOR_BLOB_SIDECARS_REQUESTS or
    epoch >=  wallEpoch - man.MIN_EPOCHS_FOR_BLOB_SIDECARS_REQUESTS)
 
