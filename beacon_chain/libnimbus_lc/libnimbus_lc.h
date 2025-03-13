@@ -1207,6 +1207,11 @@ ETH_RESULT_USE_CHECK
 const ETHRoot *ETHTransactionGetHash(const ETHTransaction *transaction);
 
 /**
+ * Chain ID.
+ */
+typedef ETHUInt256 ETHChainId;
+
+/**
  * Obtains the chain ID of a transaction.
  *
  * - The returned value is allocated in the given transaction.
@@ -1218,7 +1223,7 @@ const ETHRoot *ETHTransactionGetHash(const ETHTransaction *transaction);
  * @return Chain ID.
  */
 ETH_RESULT_USE_CHECK
-const uint64_t *ETHTransactionGetChainId(const ETHTransaction *transaction);
+const ETHChainId *ETHTransactionGetChainId(const ETHTransaction *transaction);
 
 /**
  * Obtains the from address of a transaction.
@@ -1570,7 +1575,7 @@ const ETHAuthorization *ETHAuthorizationListGet(
  * @return Chain ID.
  */
 ETH_RESULT_USE_CHECK
-const uint64_t *ETHAuthorizationGetChainId(
+const ETHChainId *ETHAuthorizationGetChainId(
     const ETHAuthorization *authorization);
 
 /**

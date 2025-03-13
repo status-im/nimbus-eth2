@@ -1421,7 +1421,7 @@ type
     storageKeys: seq[Eth2Digest]
 
   ETHAuthorization = object
-    chainId: UInt256
+    chainId: ChainId
     address: ExecutionAddress
     nonce: uint64
     authority: ExecutionAddress
@@ -1429,7 +1429,7 @@ type
 
   ETHTransaction = object
     hash: Eth2Digest
-    chainId: UInt256
+    chainId: ChainId
     `from`: ExecutionAddress
     nonce: uint64
     maxPriorityFeePerGas: uint64
@@ -1539,8 +1539,6 @@ proc ETHTransactionsCreateFromJson(
 
     # Construct transaction
     static:
-      doAssert sizeof(UInt256) == sizeof(ChainId)
-      doAssert sizeof(UInt256) == sizeof(data.chainId.get)
       doAssert sizeof(uint64) == sizeof(data.gas)
       doAssert sizeof(uint64) == sizeof(data.gasPrice)
       doAssert sizeof(uint64) == sizeof(data.maxPriorityFeePerGas.get)
@@ -1556,13 +1554,12 @@ proc ETHTransactionsCreateFromJson(
         return nil
     if data.authorizationList.isSome:
       for authorization in data.authorizationList.get:
-        static: doAssert sizeof(UInt256) == sizeof(authorization.chainId)
         if authorization.v > uint8.high:
           return nil
     let
       tx = eth_types.EthTransaction(
         txType: txType,
-        chainId: data.chainId.get(0.u256),
+        chainId: data.chainId.get(0.chainId),
         nonce: distinctBase(data.nonce),
         gasPrice: data.gasPrice.GasInt,
         maxPriorityFeePerGas:
@@ -1755,7 +1752,7 @@ func ETHTransactionGetHash(
   addr transaction[].hash
 
 func ETHTransactionGetChainId(
-    transaction: ptr ETHTransaction): ptr UInt256 {.exported.} =
+    transaction: ptr ETHTransaction): ptr ChainId {.exported.} =
   ## Obtains the chain ID of a transaction.
   ##
   ## * The returned value is allocated in the given transaction.
@@ -2115,7 +2112,7 @@ func ETHAuthorizationListGet(
   addr authorizationList[][authorizationIndex.int]
 
 func ETHAuthorizationGetChainId(
-    authorization: ptr ETHAuthorization): ptr UInt256 {.exported.} =
+    authorization: ptr ETHAuthorization): ptr ChainId {.exported.} =
   ## Obtains the chain ID of an authorization tuple.
   ##
   ## * The returned value is allocated in the given authorization tuple.
