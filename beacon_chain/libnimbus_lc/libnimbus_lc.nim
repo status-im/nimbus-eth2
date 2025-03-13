@@ -2360,8 +2360,6 @@ proc ETHReceiptsCreateFromJson(
         return nil
       if log.blockNumber.get != data.blockNumber:
         return nil
-      if log.data.len mod 32 != 0:
-        return nil
       if log.topics.len > 4:
         return nil
 
