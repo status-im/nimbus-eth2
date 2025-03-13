@@ -2667,6 +2667,8 @@ proc ETHReceiptsCreateFromJson(
     eip6466Rec.gas_used.ok distinctBase(data.gasUsed)  # See validity checks
     if ETHTransactionIsCreatingContract(transaction):
       eip6466Rec.contract_address.ok ETHTransactionGetTo(transaction)[]
+    if rec.logs.anyIt(it.data.len > MAX_LOG_DATA_SIZE):
+      return nil
     eip6466Rec.logs.ok List[Eip6466Log, MAX_LOGS_PER_RECEIPT]
       .init(rec.logs.mapIt(Eip6466Log(
         address: ExecutionAddress(data: it.address.data),
