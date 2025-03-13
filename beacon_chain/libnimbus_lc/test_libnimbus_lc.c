@@ -592,6 +592,9 @@ int main(void)
         printHexString(transactionBytes, numTransactionBytes);
         printf("\n");
 
+        int numTransactionSnappyBytes = ETHTransactionGetNumSnappyBytes(transaction);
+        printf("    - num_snappy_bytes: %d\n", numTransactionSnappyBytes);
+
         const ETHRoot *transactionEip6404Root = ETHTransactionGetEip6404Root(transaction);
         printf("    - eip6404_root: ");
         printHexString(transactionEip6404Root, sizeof *transactionEip6404Root);
@@ -659,6 +662,9 @@ int main(void)
         printf("        - bytes: ");
         printHexString(receiptBytes, numReceiptBytes);
         printf("\n");
+
+        int numReceiptSnappyBytes = ETHReceiptGetNumSnappyBytes(receipt);
+        printf("        - num_snappy_bytes: %d\n", numReceiptSnappyBytes);
 
         int numReceiptEip6466Bytes;
         const void *receiptEip6466Bytes = ETHReceiptGetEip6466Bytes(receipt, &numReceiptEip6466Bytes);

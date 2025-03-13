@@ -2407,6 +2407,18 @@ func ETHTransactionGetBytes(
     return cast[ptr UncheckedArray[byte]](defaultBytes)
   cast[ptr UncheckedArray[byte]](addr distinctBase(transaction[].bytes)[0])
 
+func ETHTransactionGetNumSnappyBytes(
+    transaction: ptr ETHTransaction): cint {.exported.} =
+  ## Obtains the length of the Snappy compressed byte representation
+  ## of a transaction.
+  ##
+  ## Parameters:
+  ## * `transaction` - Transaction.
+  ##
+  ## Returns:
+  ## * Length of Snappy compressed transaction data.
+  snappy.encodeFramed(distinctBase(transaction[].bytes)).len.cint
+
 func ETHTransactionGetEip6404Root(
     transaction: ptr ETHTransaction): ptr Eth2Digest {.exported.} =
   ## Obtains the EIP-6404 transaction root of a transaction.
@@ -2955,6 +2967,18 @@ func ETHReceiptGetBytes(
     const defaultBytes: cstring = ""
     return cast[ptr UncheckedArray[byte]](defaultBytes)
   cast[ptr UncheckedArray[byte]](addr distinctBase(receipt[].bytes)[0])
+
+func ETHReceiptGetNumSnappyBytes(
+    receipt: ptr ETHReceipt): cint {.exported.} =
+  ## Obtains the length of the Snappy compressed byte representation
+  ## of a receipt.
+  ##
+  ## Parameters:
+  ## * `receipt` - Receipt.
+  ##
+  ## Returns:
+  ## * Length of Snappy compressed receipt data.
+  snappy.encodeFramed(receipt[].bytes).len.cint
 
 func ETHReceiptGetEip6466Bytes(
     receipt: ptr ETHReceipt,

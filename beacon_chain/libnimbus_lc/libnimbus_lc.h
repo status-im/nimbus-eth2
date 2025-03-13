@@ -1670,6 +1670,17 @@ const void *ETHTransactionGetBytes(
     int *numBytes);
 
 /**
+ * Obtains the length of the Snappy compressed byte representation
+ * of a transaction.
+ *
+ * @param      transaction          Transaction.
+ *
+ * @return Length of Snappy compressed transaction data.
+ */
+ETH_RESULT_USE_CHECK
+int ETHTransactionGetNumSnappyBytes(const ETHTransaction *transaction);
+
+/**
  * Obtains the EIP-6404 transaction root of a transaction.
  *
  * - The returned value is allocated in the given transaction.
@@ -1994,6 +2005,17 @@ ETH_RESULT_USE_CHECK
 const void *ETHReceiptGetBytes(
     const ETHReceipt *receipt,
     int *numBytes);
+
+/**
+ * Obtains the length of the Snappy compressed byte representation
+ * of a receipt.
+ *
+ * @param      receipt              Receipt.
+ *
+ * @return Length of Snappy compressed receipt data.
+ */
+ETH_RESULT_USE_CHECK
+int ETHReceiptGetNumSnappyBytes(const ETHReceipt *receipt);
 
 /**
  * Obtains the raw EIP-6466 byte representation of a receipt.
