@@ -464,12 +464,11 @@ p2pProtocol BeaconSync(version = 1,
     for i in startIndex..endIndex:
       for k in reqColumns:
         if dag.db.getDataColumnSidecarSZ(blockIds[i].root, ColumnIndex k, bytes):
-          if blockIds[i].slot.epoch >= dag.cfg.DENEB_FORK_EPOCH and
-              not dag.head.executionValid:
+          if dag.head.executionValid:
             continue
 
           let uncompressedLen = uncompressedLenFramed(bytes).valueOr:
-            warn "Cannot read data column sidecar size, database corrup?",
+            warn "Cannot read data column sidecar size, database corrupt?",
               bytes = bytes.len, blck = shortLog(blockIds[i])
             continue
 
@@ -488,6 +487,8 @@ p2pProtocol BeaconSync(version = 1,
           # additional logging for devnets
           debug "responded to data column sidecar range request",
             peer, blck = shortLog(blockIds[i]), columns = respondedCols
+        else:
+          break
 
     debug "Data column range request done",
       peer, startSlot, count = reqCount, columns = reqColumns, found
