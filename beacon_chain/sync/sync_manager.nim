@@ -818,8 +818,11 @@ proc syncWorker[A, B](
       await man.notInSyncEvent.wait()
       man.workers[index].status = SyncWorkerStatus.WaitingPeer
       peer = await man.pool.acquire()
-      await man.syncStep(index, peer)
-      man.pool.release(peer)
+      if peer.lookupCgcFromPeer ==
+          NUMBER_OF_COLUMNS.uint64:
+        await man.syncStep(index, peer)
+        man.pool.release(peer)
+        peer = nil
       peer = nil
   finally:
     if not(isNil(peer)):
