@@ -12,12 +12,12 @@ import
   std/json,
   yaml/tojson,
   kzg4844/[kzg, kzg_abi],
-  stew/byteutils,
   ../testutil,
   ./fixtures_utils, ./os_ops
 
 from std/sequtils import anyIt, mapIt, toSeq
 from std/strutils import rsplit
+from stew/byteutils import fromHex
 
 func toUInt64(s: int): Opt[uint64] =
   if s < 0:
@@ -337,8 +337,8 @@ suite suiteName:
   # TODO also check that the only direct subdirectory of each is kzg-mainnet
   doAssert sorted(mapIt(
       toSeq(walkDir(suitePath, relative = true, checkDir = true)), it.path)) ==
-    ["compute_cells_and_kzg_proofs", "recover_cells_and_kzg_proofs",
-     "verify_cell_kzg_proof_batch"]
+    ["compute_cells", "compute_cells_and_kzg_proofs",
+     "recover_cells_and_kzg_proofs", "verify_cell_kzg_proof_batch"]
 
   block:
     let testsDir = suitePath/"compute_cells_and_kzg_proofs"/"kzg-mainnet"
