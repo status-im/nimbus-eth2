@@ -82,3 +82,9 @@ when isMainModule:
     "holesky-genesis.ssz",
     waitFor holeskyMetadata.fetchGenesisBytes()
   ).expect("success")
+
+  let hoodiMetadata = getMetadataForNetwork("hoodi")
+  io2.writeFile(
+    "hoodi-genesis.ssz",
+    waitFor hoodiMetadata.fetchGenesisBytes()
+  ).expect("success")

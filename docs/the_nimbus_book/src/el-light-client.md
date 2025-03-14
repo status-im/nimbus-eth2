@@ -74,7 +74,7 @@ A block root may be obtained from another trusted beacon node, or from a trusted
     ```
 
 === "Beaconcha.in"
-    On the [beaconcha.in](https://beaconcha.in) website ([Holesky](https://holesky.beaconcha.in)), navigate to the `Epochs` section and select a recent `Finalized` epoch.
+    On the [beaconcha.in](https://beaconcha.in) website ([Hoodi](https://hoodi.beaconcha.in)), navigate to the `Epochs` section and select a recent `Finalized` epoch.
     Then, scroll down to the bottom of the page.
     If the bottom-most slot has a `Proposed` status, copy its `Root Hash`.
     Otherwise, for example if the bottom-most slot was `Missed`, go back and pick a different epoch.
@@ -97,11 +97,11 @@ To start the light client, run the following commands (inserting your own truste
         --trusted-block-root=$TRUSTED_BLOCK_ROOT
     ```
 
-=== "Holesky"
+=== "Hoodi"
     ```sh
     TRUSTED_BLOCK_ROOT=0x1234567890123456789012345678901234567890123456789012345678901234
     JWTSECRET=path/to/execution/client/jwt.hex
-    build/nimbus_light_client --network=holesky \
+    build/nimbus_light_client --network=hoodi \
         --web3-url=http://127.0.0.1:8551 --jwt-secret="$JWTSECRET" \
         --trusted-block-root=$TRUSTED_BLOCK_ROOT
     ```

@@ -36,9 +36,9 @@ Select an execution client and install it, configuring it such that the authenti
         geth --authrpc.addr localhost --authrpc.port 8551 --authrpc.vhosts localhost --authrpc.jwtsecret /tmp/jwtsecret
         ```
 
-    === "Holesky"
+    === "Hoodi"
         ```
-        geth --holesky --authrpc.addr localhost --authrpc.port 8551 --authrpc.vhosts localhost --authrpc.jwtsecret /tmp/jwtsecret
+        geth --hoodi --authrpc.addr localhost --authrpc.port 8551 --authrpc.vhosts localhost --authrpc.jwtsecret /tmp/jwtsecret
         ```
 
 === "Nethermind"
@@ -86,9 +86,9 @@ You will need to pass the path to the token file to Nimbus together with the web
       --jwt-secret=/tmp/jwtsecret
     ```
 
-=== "Holesky"
+=== "Hoodi"
     ```sh
-    ./run-holesky-beacon-node.sh \
+    ./run-hoodi-beacon-node.sh \
       --el=http://127.0.0.1:8551 \
       --jwt-secret=/tmp/jwtsecret
     ```

@@ -13,8 +13,8 @@ Running a beacon node is a [worthwhile endeavor](https://vitalik.eth.limo/genera
 The guide assumes [Ubuntu Linux](https://ubuntu.com/download/server) is being used, and therefore some familiarity with [the Linux command line](https://ubuntu.com/tutorials/command-line-for-beginners) is needed.
 
 !!! tip
-    You can practice running the node safely on the [Holesky testnet](./holesky.md).
-    Throughout, we'll provide instructions for both Holesky and Mainnet.
+    You can practice running the node safely on the [Hoodi testnet](./hoodi.md).
+    Throughout, we'll provide instructions for both Hoodi and Mainnet.
 
 
 ## Steps
@@ -71,11 +71,11 @@ cd nimbus-eth2
     ./run-mainnet-beacon-node.sh --web3-url=http://127.0.0.1:8551 --jwt-secret=/tmp/jwtsecret
     ```
 
-=== "Holesky"
+=== "Hoodi"
 
     ```sh
-    # Start a holesky testnet node
-    ./run-holesky-beacon-node.sh --web3-url=http://127.0.0.1:8551 --jwt-secret=/tmp/jwtsecret
+    # Start a hoodi testnet node
+    ./run-hoodi-beacon-node.sh --web3-url=http://127.0.0.1:8551 --jwt-secret=/tmp/jwtsecret
     ```
 
 Once the beacon node starts, you'll see it logging information to the console, like so:

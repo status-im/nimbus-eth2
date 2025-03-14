@@ -12,8 +12,7 @@ The graffiti can be either a string or, if you want to specify raw bytes, you ca
     ./run-mainnet-beacon-node.sh --graffiti="<YOUR_WORDS>"
     ```
 
-=== "Holesky"
+=== "Hoodi"
     ```sh
-    ./run-holesky-beacon-node.sh --graffiti="<YOUR_WORDS>"
+    ./run-hoodi-beacon-node.sh --graffiti="<YOUR_WORDS>"
     ```
-

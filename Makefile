@@ -28,7 +28,6 @@ BASE_METRICS_PORT := 8008
 # WARNING: Use lazy assignment to allow CI to override.
 EXECUTOR_NUMBER ?= 0
 
-SEPOLIA_WEB3_URL := "--web3-url=https://rpc.sepolia.dev --web3-url=https://www.sepoliarpc.space"
 GNOSIS_WEB3_URLS := "--web3-url=https://rpc.gnosischain.com/"
 
 VALIDATORS := 1
@@ -113,9 +112,9 @@ ifneq ($(OS), Windows_NT)
 PLATFORM_SPECIFIC_TARGETS += gnosis-build
 endif
 
-# We don't need these `vendor/holesky` files but fetching them
-# may trigger 'This repository is over its data quota' from GitHub
-GIT_SUBMODULE_CONFIG := -c lfs.fetchexclude=/public-keys/all.txt,/custom_config_data/genesis.ssz
+# We don't need these `vendor/holesky` and `vendor/hoodi` files but
+# fetching them may trigger 'This repository is over its data quota' from GitHub
+GIT_SUBMODULE_CONFIG := -c lfs.fetchexclude=/public-keys/all.txt,/metadata/genesis.ssz
 
 ifeq ($(NIM_PARAMS),)
 # "variables.mk" was not included, so we update the submodules.
@@ -124,7 +123,7 @@ ifeq ($(NIM_PARAMS),)
 # with Ctrl+C after deleting the working copy and before getting a chance to
 # restore it in $(BUILD_SYSTEM_DIR).
 
-# `vendor/holesky` requires Git LFS
+# `vendor/holesky` and `vendor/hoodi` require Git LFS
 ifeq (, $(shell which git-lfs))
 ifeq ($(shell uname), Darwin)
 $(error Git LFS not installed. Run 'brew install git-lfs' to set up)
@@ -599,35 +598,6 @@ define CLEAN_NETWORK
 	rm -rf build/data/shared_$(1)*/dump
 	rm -rf build/data/shared_$(1)*/*.log
 endef
-
-###
-### Sepolia
-###
-sepolia-build: | nimbus_beacon_node nimbus_signing_node
-
-# https://www.gnu.org/software/make/manual/html_node/Call-Function.html#Call-Function
-sepolia: | sepolia-build
-	$(call CONNECT_TO_NETWORK,sepolia,nimbus_beacon_node,$(SEPOLIA_WEB3_URL))
-
-sepolia-vc: | sepolia-build nimbus_validator_client
-	$(call CONNECT_TO_NETWORK_WITH_VALIDATOR_CLIENT,sepolia,nimbus_beacon_node,$(SEPOLIA_WEB3_URL))
-
-sepolia-lc: | nimbus_light_client
-	$(call CONNECT_TO_NETWORK_WITH_LIGHT_CLIENT,sepolia)
-
-ifneq ($(LOG_LEVEL), TRACE)
-sepolia-dev:
-	+ "$(MAKE)" LOG_LEVEL=TRACE $@
-else
-sepolia-dev: | sepolia-build
-	$(call CONNECT_TO_NETWORK_IN_DEV_MODE,sepolia,nimbus_beacon_node,$(SEPOLIA_WEB3_URL))
-endif
-
-sepolia-dev-deposit: | sepolia-build deposit_contract
-	$(call MAKE_DEPOSIT,sepolia,$(SEPOLIA_WEB3_URL))
-
-clean-sepolia:
-	$(call CLEAN_NETWORK,sepolia)
 
 ###
 ### Gnosis chain binary
