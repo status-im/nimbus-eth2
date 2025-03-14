@@ -188,7 +188,7 @@ func checkResponseSubset(idList: seq[DataColumnIdentifier],
                          columns: openArray[ref DataColumnSidecar]): bool =
   ## Clients MUST respond with at least one sidecar, if they have it.
   ## Clients MAY limit the number of blocks and sidecars in the response.
-  ## https://github.com/ethereum/consensus-specs/blob/v1.5.0-beta.2/specs/fulu/p2p-interface.md#datacolumnsidecarsbyroot-v1
+  ## https://github.com/ethereum/consensus-specs/blob/v1.5.0-beta.3/specs/fulu/p2p-interface.md#datacolumnsidecarsbyroot-v1
   for col in columns:
     if binarySearch(idList, col, cmpSidecarIdentifier) == -1:
       return false
