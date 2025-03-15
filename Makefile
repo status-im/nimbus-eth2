@@ -600,6 +600,35 @@ define CLEAN_NETWORK
 endef
 
 ###
+### Sepolia
+###
+sepolia-build: | nimbus_beacon_node nimbus_signing_node
+
+# https://www.gnu.org/software/make/manual/html_node/Call-Function.html#Call-Function
+sepolia: | sepolia-build
+	$(call CONNECT_TO_NETWORK,sepolia,nimbus_beacon_node,$(SEPOLIA_WEB3_URL))
+
+sepolia-vc: | sepolia-build nimbus_validator_client
+	$(call CONNECT_TO_NETWORK_WITH_VALIDATOR_CLIENT,sepolia,nimbus_beacon_node,$(SEPOLIA_WEB3_URL))
+
+sepolia-lc: | nimbus_light_client
+	$(call CONNECT_TO_NETWORK_WITH_LIGHT_CLIENT,sepolia)
+
+ifneq ($(LOG_LEVEL), TRACE)
+sepolia-dev:
+	+ "$(MAKE)" LOG_LEVEL=TRACE $@
+else
+sepolia-dev: | sepolia-build
+	$(call CONNECT_TO_NETWORK_IN_DEV_MODE,sepolia,nimbus_beacon_node,$(SEPOLIA_WEB3_URL))
+endif
+
+sepolia-dev-deposit: | sepolia-build deposit_contract
+	$(call MAKE_DEPOSIT,sepolia,$(SEPOLIA_WEB3_URL))
+
+clean-sepolia:
+	$(call CLEAN_NETWORK,sepolia)
+
+###
 ### Gnosis chain binary
 ###
 
