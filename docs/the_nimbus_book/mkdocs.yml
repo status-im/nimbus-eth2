@@ -86,7 +86,6 @@ nav:
     - General:
       - 'keep-updated.md'
       - 'eth1.md'
-      - 'goerli-eth.md'
       - 'beacon-node-systemd.md'
       - 'log-rotate.md'
       - 'metrics-pretty-pictures.md'

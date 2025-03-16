@@ -59,7 +59,9 @@ By default, the REST interface is disabled.
 To enable it, start the beacon node with the `--rest` option:
 
 ```
-./run-mainnet-beacon-node.sh --rest
+build/nimbus_beacon_node \
+    --data-dir=build/data/shared_mainnet_0 \
+    --rest
 ```
 
 Then access the API from `http://localhost:5052/`.

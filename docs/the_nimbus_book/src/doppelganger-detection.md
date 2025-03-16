@@ -17,12 +17,15 @@ Doppelganger detection is turned on by default - disable it with:
 
     ```sh
     # Disable doppelganger detection
-    ./run-mainnet-beacon-node.sh --doppelganger-detection=off ...
+    build/nimbus_beacon_node \
+        --data-dir=build/data/shared_mainnet_0 \
+        --doppelganger-detection=off
     ```
 
 === "Validator client"
 
     ```sh
     # Disable doppelganger detection
-    build/nimbus_validator_client --doppelganger-detection=off ...
+    build/nimbus_validator_client \
+        --doppelganger-detection=off
     ```

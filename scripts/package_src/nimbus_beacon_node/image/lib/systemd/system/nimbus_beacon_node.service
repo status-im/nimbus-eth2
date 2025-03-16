@@ -24,7 +24,7 @@ After=network-online.target
 WantedBy=multi-user.target
 
 [Service]
-# Network - use `prater` to connect to the prater testnet
+# Network - use `hoodi` to connect to the hoodi testnet
 Environment=NETWORK=mainnet
 
 # You need to have have access to an execution client - by default, we assume
@@ -38,7 +38,7 @@ Environment=JWT_SECRET=/tmp/jwtsecret
 Environment=DATA_DIR_PREFIX=/var/lib/nimbus
 
 # Default ports - if you want to run multiple instances of nimbus, for example
-# to run both prater and mainnet, separate ports must be used
+# to run both hoodi and mainnet, separate ports must be used
 Environment=TCP_PORT=9000
 Environment=UDP_PORT=9000
 Environment=REST_PORT=5052

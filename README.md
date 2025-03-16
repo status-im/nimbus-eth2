@@ -32,7 +32,7 @@ Nimbus-eth2 is an extremely efficient consensus layer (eth2) client implementati
 
 You can find the information you need to run a beacon node and operate as a validator in [The Book](https://nimbus.guide/).
 
-The [Quickstart](https://nimbus.guide/quick-start.html) in particular will help you quickly connect to either mainnet or the Prater testnet.
+The [Quickstart](https://nimbus.guide/quick-start.html) in particular will help you quickly connect to either mainnet or the Hoodi testnet.
 
 ## Quickly test your tooling against Nimbus
 

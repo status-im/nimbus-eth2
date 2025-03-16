@@ -9,10 +9,15 @@ The graffiti can be either a string or, if you want to specify raw bytes, you ca
 
 === "Mainnet"
     ```sh
-    ./run-mainnet-beacon-node.sh --graffiti="<YOUR_WORDS>"
+    build/nimbus_beacon_node \
+        --data-dir=build/data/shared_mainnet_0 \
+        --graffiti="<YOUR_WORDS>"
     ```
 
 === "Hoodi"
     ```sh
-    ./run-hoodi-beacon-node.sh --graffiti="<YOUR_WORDS>"
+    build/nimbus_beacon_node \
+        --network=hoodi \
+        --data-dir=build/data/shared_hoodi_0 \
+        --graffiti="<YOUR_WORDS>"
     ```

@@ -30,17 +30,25 @@ Additionally, the URL of the service exposing the [builder API](https://ethereum
 
 === "Mainnet Beacon Node"
     ```sh
-    ./run-mainnet-beacon-node.sh --payload-builder=true --payload-builder-url=https://${HOST}:${PORT}/
+    build/nimbus_beacon_node \
+        --data-dir=build/data/shared_mainnet_0 \
+        --payload-builder=true \
+        --payload-builder-url=https://${HOST}:${PORT}/
     ```
 
 === "Hoodi Beacon Node"
     ```sh
-    ./run-hoodi-beacon-node.sh --payload-builder=true --payload-builder-url=https://${HOST}:${PORT}/
+    build/nimbus_beacon_node \
+        --network=hoodi \
+        --data-dir=build/data/shared_hoodi_0 \
+        --payload-builder=true \
+        --payload-builder-url=https://${HOST}:${PORT}/
     ```
 
 === "Validator Client"
     ```sh
-    build/nimbus_validator_client --payload-builder=true
+    build/nimbus_validator_client \
+        --payload-builder=true
     ```
 
 ## Useful resources

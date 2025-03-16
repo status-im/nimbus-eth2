@@ -36,13 +36,16 @@ See https://nimbus.guide for full instructions on running a node.
 To connect to mainnet with default options:
 
 ```bash
-./run-mainnet-beacon-node.sh
+build/nimbus_beacon_node \
+    --data-dir=build/data/shared_mainnet_0
 ```
 
-The script will forward all supplied options to the beacon node executable:
+Additional options may be supplied to the beacon node executable:
 
 ```bash
-./run-mainnet-beacon-node.sh --log-level=DEBUG --tcp-port=9050
+build/nimbus_beacon_node \
+    --data-dir=build/data/shared_mainnet_0 \
+    --log-level=DEBUG --tcp-port=9050
 ```
 
 To monitor the Eth1 validator deposit contract, you'll need to pair
@@ -54,18 +57,23 @@ our setup guides:
 https://status-im.github.io/nimbus-eth2/eth1.html
 
 By default, the script will ask you to enter a web3 provider URL interactively,
-but this can be bypassed by specifying a websocket `WEB3_URL` environment variable:
+but this can be bypassed by specifying a websocket `--web3-url` launch argument:
 
 ```bash
 # using a local mainnet instance
-WEB3_URL="ws://localhost:8545" ./run-mainnet-beacon-node.sh
+build/nimbus_beacon_node \
+    --data-dir=build/data/shared_mainnet_0 \
+    --web3-url="ws://localhost:8545"
 ```
 
 ## Testnet
 
-The `prater` testnet runs on
+The `hoodi` testnet runs on
 
 ```bash
-# using a local Goerli instance
-WEB3_URL="ws://localhost:8545" ./run-prater-node.sh --max-peers=150
+# using a local hoodi instance
+build/nimbus_beacon_node \
+    --network=hoodi \
+    --data-dir=build/data/shared_hoodi_0 \
+    --web3-url="ws://localhost:8545"
 ```

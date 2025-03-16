@@ -386,13 +386,17 @@ To connect to Hoodi, run:
 === "Using package manager"
 
     ```sh
-    sudo -u nimbus /usr/bin/nimbus_beacon_node --network=hoodi --data-dir=/var/lib/nimbus/shared_hoodi_0
+    sudo -u nimbus /usr/bin/nimbus_beacon_node \
+        --network=hoodi \
+        --data-dir=/var/lib/nimbus/shared_hoodi_0
     ```
 
 === "Manual installation"
 
     ```sh
-    ./run-hoodi-beacon-node.sh
+    build/nimbus_beacon_node \
+        --network=hoodi \
+        --data-dir=build/data/shared_hoodi_0
     ```
 
 

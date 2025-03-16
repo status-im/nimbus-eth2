@@ -81,20 +81,20 @@ You will need to pass the path to the token file to Nimbus together with the web
 
 === "Mainnet"
     ```sh
-    ./run-mainnet-beacon-node.sh \
-      --el=http://127.0.0.1:8551 \
-      --jwt-secret=/tmp/jwtsecret
+    build/nimbus_beacon_node \
+        --data-dir=build/data/shared_mainnet_0 \
+        --el=http://127.0.0.1:8551 \
+        --jwt-secret=/tmp/jwtsecret
     ```
 
 === "Hoodi"
     ```sh
-    ./run-hoodi-beacon-node.sh \
-      --el=http://127.0.0.1:8551 \
-      --jwt-secret=/tmp/jwtsecret
+    build/nimbus_beacon_node \
+        --network=hoodi \
+        --data-dir=build/data/shared_hoodi_0 \
+        --el=http://127.0.0.1:8551 \
+        --jwt-secret=/tmp/jwtsecret
     ```
-
-
-
 
 ## Upgrade execution client
 
@@ -139,10 +139,11 @@ You can increase the resilience of your setup and eliminate any downtime during 
 To enable this mode, just specify multiple URLs through the `--el` option when starting your beacon node:
 
 ```sh
-./run-mainnet-beacon-node.sh \
-  --el=http://127.0.0.1:8551 \
-  --el=ws://other:8551 \
-  --jwt-secret=/tmp/jwtsecret
+build/nimbus_beacon_node \
+    --data-dir=build/data/shared_mainnet_0 \
+    --el=http://127.0.0.1:8551 \
+    --el=ws://other:8551 \
+    --jwt-secret=/tmp/jwtsecret
 ```
 
 !!! tip

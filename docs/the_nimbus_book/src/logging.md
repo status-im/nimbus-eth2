@@ -10,7 +10,9 @@ You can customise Nimbus' verbosity with the `--log-level` option.
 For example:
 
 ```
-./run-mainnet-beacon-node.sh --log-level=WARN
+build/nimbus_beacon_node \
+    --data-dir=build/data/shared_mainnet_0 \
+    --log-level=WARN
 ```
 
 The default value is `INFO`.
@@ -36,8 +38,13 @@ In `auto` mode, logs will be printed using either `colors` or `nocolors`.
 You can choose a log format with the `--log-format` option, which also understands `auto` and `none`:
 
 ```
-./run-mainnet-beacon-node.sh --log-format=none # disable logging to std out
-./run-mainnet-beacon-node.sh --log-format=json # print json logs, one line per item
+build/nimbus_beacon_node \
+    --data-dir=build/data/shared_mainnet_0 \
+    --log-format=none # disable logging to std out
+
+build/nimbus_beacon_node \
+    --data-dir=build/data/shared_mainnet_0 \
+    --log-format=json # print json logs, one line per item
 ```
 
 ## Logging to a file
@@ -46,7 +53,9 @@ To send logs to a file, you can redirect the stdout logs:
 
 ```
 # log json to filename.jsonl
-./run-mainnet-beacon-node.sh --log-format=json > filename.jsonl
+build/nimbus_beacon_node \
+    --data-dir=build/data/shared_mainnet_0 \
+    --log-format=json > filename.jsonl
 ```
 
 We recommend keeping an eye on the growth of this file with a [log rotator](./log-rotate.md).

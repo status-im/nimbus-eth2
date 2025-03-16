@@ -34,17 +34,23 @@ Fee recipients are recorded publicly on-chain as part of proposed blocks, so sug
 
 === "Mainnet"
     ```sh
-    ./run-mainnet-beacon-node.sh --suggested-fee-recipient=0x70E47C843E0F6ab0991A3189c28F2957eb6d3842
+    build/nimbus_beacon_node \
+        --data-dir=build/data/shared_mainnet_0 \
+        --suggested-fee-recipient=0x70E47C843E0F6ab0991A3189c28F2957eb6d3842
     ```
 
 === "Hoodi"
     ```sh
-    ./run-hoodi-beacon-node.sh --suggested-fee-recipient=0x70E47C843E0F6ab0991A3189c28F2957eb6d3842
+    build/nimbus_beacon_node \
+        --network=hoodi \
+        --data-dir=build/data/shared_hoodi_0 \
+        --suggested-fee-recipient=0x70E47C843E0F6ab0991A3189c28F2957eb6d3842
     ```
 
 === "Validator Client"
     ```sh
-    ./nimbus_validator_client --suggested-fee-recipient=0x70E47C843E0F6ab0991A3189c28F2957eb6d3842
+    ./nimbus_validator_client \
+        --suggested-fee-recipient=0x70E47C843E0F6ab0991A3189c28F2957eb6d3842
     ```
 
 ## Logs

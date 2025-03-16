@@ -14,7 +14,10 @@ You can learn more about Grafana [here](https://github.com/grafana/grafana).
 To enable the metrics server, run the beacon node  with the `--metrics` flag:
 
 ```
-./run-hoodi-beacon-node.sh --metrics
+build/nimbus_beacon_node \
+    --network=hoodi \
+    --data-dir=build/data/shared_hoodi_0 \
+    --metrics
 ```
 
 Visit [http://127.0.0.1:8008/metrics](http://127.0.0.1:8008/metrics) with a browser or `curl`.

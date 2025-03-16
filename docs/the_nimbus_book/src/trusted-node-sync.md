@@ -138,8 +138,9 @@ curl -o state.finalized.ssz \
   http://localhost:5052/eth/v2/debug/beacon/states/finalized
 
 # Start the beacon node using the downloaded state as starting point
-./run-mainnet-beacon-node.sh \
-  --finalized-checkpoint-state=state.finalized.ssz
+build/nimbus_beacon_node \
+    --data-dir=build/data/shared_mainnet_0 \
+    --finalized-checkpoint-state=state.finalized.ssz
 ```
 
 ## Recreate historical state access indices

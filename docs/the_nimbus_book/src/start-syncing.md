@@ -27,7 +27,9 @@ Later, when everything is working, you can easily switch to mainnet.
     To start syncing the `hoodi` testnet from the `nimbus-eth2` repository, run:
 
     ```
-     ./run-hoodi-beacon-node.sh
+    build/nimbus_beacon_node \
+        --network=hoodi \
+        --data-dir=build/data/shared_hoodi_0
     ```
 
 === "Mainnet"
@@ -35,7 +37,8 @@ Later, when everything is working, you can easily switch to mainnet.
     To start syncing the Ethereum beacon chain mainnet, run:
 
     ```
-     ./run-mainnet-beacon-node.sh
+    build/nimbus_beacon_node \
+        --data-dir=build/data/shared_mainnet_0
     ```
 
 ## Log output
@@ -68,7 +71,11 @@ You can add command line options to the startup command.
 For example, to change the port to 9100, use:
 
 ```sh
-./run-hoodi-beacon-node.sh --tcp-port=9100 --udp-port=9100
+build/nimbus_beacon_node \
+    --network=hoodi \
+    --data-dir=build/data/shared_hoodi_0 \
+    --tcp-port=9100 \
+    --udp-port=9100
 ```
 
 To see a list of the command line options available to you, with descriptions, run:
@@ -105,7 +112,9 @@ To use checkpoint sync, run the following commands (inserting the checkpoint syn
     ```sh
     CHECKPOINT_SYNC_ENDPOINT=http://127.0.0.1:8551
     TRUSTED_BLOCK_ROOT=0x1234567890123456789012345678901234567890123456789012345678901234
-    ./run-hoodi-beacon-node.sh \
+    build/nimbus_beacon_node \
+        --network=hoodi \
+        --data-dir=build/data/shared_hoodi_0 \
         --external-beacon-api-url=$CHECKPOINT_SYNC_ENDPOINT \
         --trusted-block-root=$TRUSTED_BLOCK_ROOT
     ```
@@ -113,7 +122,8 @@ To use checkpoint sync, run the following commands (inserting the checkpoint syn
 === "Mainnet"
     ```sh
     TRUSTED_BLOCK_ROOT=0x1234567890123456789012345678901234567890123456789012345678901234
-    ./run-mainnet-beacon-node.sh \
+    build/nimbus_beacon_node \
+        --data-dir=build/data/shared_mainnet_0 \
         --external-beacon-api-url=$CHECKPOINT_SYNC_ENDPOINT \
         --trusted-block-root=$TRUSTED_BLOCK_ROOT
     ```
