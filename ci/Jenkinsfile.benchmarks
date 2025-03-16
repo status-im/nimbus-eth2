@@ -1,5 +1,5 @@
 /* beacon_chain
- * Copyright (c) 2022-2023 Status Research & Development GmbH
+ * Copyright (c) 2022-2025 Status Research & Development GmbH
  * Licensed and distributed under either of
  *   * MIT license (license terms in the root directory or at https://opensource.org/licenses/MIT).
  *   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
@@ -23,7 +23,7 @@ node("metal") {
 				/* source code checkout */
 				checkout scm
 				/* we need to update the submodules before caching kicks in */
-				sh "git -c lfs.fetchexclude=/public-keys/all.txt,/custom_config_data/genesis.ssz submodule update --init --recursive"
+				sh "git -c lfs.fetchexclude=/public-keys/all.txt,/metadata/genesis.ssz,/parsed/parsedConsensusGenesis.json submodule update --init --recursive"
 			}
 
 			stage("Build") {

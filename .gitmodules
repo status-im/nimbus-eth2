@@ -234,3 +234,8 @@
 	path = vendor/nim-minilru
 	url = https://github.com/status-im/nim-minilru.git
 	branch = master
+[submodule "vendor/hoodi"]
+	path = vendor/hoodi
+	url = https://github.com/eth-clients/hoodi
+	ignore = untracked
+	branch = main

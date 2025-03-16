@@ -49,6 +49,7 @@ type
     mainnet
     sepolia
     holesky
+    hoodi
 
   GenesisMetadataKind* = enum
     NoGenesis
@@ -326,6 +327,11 @@ elif const_preset == "mainnet":
       Opt.some mainnet,
       useBakedInGenesis = Opt.some "mainnet")
 
+    sepoliaMetadata = loadCompileTimeNetworkMetadata(
+      vendorDir & "/sepolia/metadata",
+      Opt.some sepolia,
+      useBakedInGenesis = Opt.some "sepolia")
+
     holeskyMetadata = loadCompileTimeNetworkMetadata(
       vendorDir & "/holesky/metadata",
       Opt.some holesky,
@@ -333,22 +339,46 @@ elif const_preset == "mainnet":
         url: "https://github.com/status-im/nimbus-eth2/releases/download/v23.9.1/holesky-genesis.ssz.sz",
         digest: Eth2Digest.fromHex "0x0ea3f6f9515823b59c863454675fefcd1d8b4f2dbe454db166206a41fda060a0"))
 
-    sepoliaMetadata = loadCompileTimeNetworkMetadata(
-      vendorDir & "/sepolia/metadata",
-      Opt.some sepolia,
-      useBakedInGenesis = Opt.some "sepolia")
+    # File can be reproduced by `cd vendor/hoodi`, then `git lfs install` and
+    # `git lfs pull`, and then from repo root:
+    #
+    # let
+    #   orig = io2.readAllBytes("./vendor/hoodi/metadata/genesis.ssz").get
+    #   enc = encodeFramed(orig)
+    # discard secureWriteFile("hoodi-genesis.ssz.sz", enc)
+    # let
+    #   dec = io2.readAllBytes("hoodi-genesis.ssz.sz").get
+    #   res = decodeFramed(dec)
+    #   state = newClone(readSszForkedHashedBeaconState(
+    #     getMetadataForNetwork("hoodi").cfg, res))
+    # withState(state[]):
+    #   echo $forkyState.root
+    #
+    # Uploading as release is recommended according to guidance from Github:
+    # > We don't limit the total size of the binary files in the release or the
+    #   bandwidth used to deliver them. However, each individual file must be
+    #   smaller than 2 GiB.
+    # - https://docs.github.com/en/repositories/working-with-files/managing-large-files/about-large-files-on-github#distributing-large-binaries
+    hoodiMetadata = loadCompileTimeNetworkMetadata(
+      vendorDir & "/hoodi/metadata",
+      Opt.some hoodi,
+      downloadGenesisFrom = Opt.some DownloadInfo(
+        url: "https://github.com/eth-clients/hoodi/releases/download/genesis/hoodi-genesis.ssz.sz",
+        digest: Eth2Digest.fromHex "0x2683ebc120f91f740c7bed4c866672d01e1ba51b4cc360297138465ee5df40f0"))
 
   static:
-    for network in [mainnetMetadata, sepoliaMetadata, holeskyMetadata]:
+    for network in [
+        mainnetMetadata, sepoliaMetadata, holeskyMetadata, hoodiMetadata]:
       checkForkConsistency(network.cfg)
 
-    for network in [sepoliaMetadata, holeskyMetadata]:
+    for network in [sepoliaMetadata, holeskyMetadata, hoodiMetadata]:
       doAssert network.cfg.ELECTRA_FORK_EPOCH < FAR_FUTURE_EPOCH
 
     doAssert mainnetMetadata.cfg.DENEB_FORK_EPOCH < FAR_FUTURE_EPOCH
     doAssert mainnetMetadata.cfg.ELECTRA_FORK_EPOCH == FAR_FUTURE_EPOCH
 
-    for network in [mainnetMetadata, sepoliaMetadata, holeskyMetadata]:
+    for network in [
+        mainnetMetadata, sepoliaMetadata, holeskyMetadata, hoodiMetadata]:
       doAssert network.cfg.FULU_FORK_EPOCH == FAR_FUTURE_EPOCH
       doAssert ConsensusFork.high == ConsensusFork.Fulu
 
@@ -392,6 +422,8 @@ proc getMetadataForNetwork*(networkName: string): Eth2NetworkMetadata =
       case toLowerAscii(networkName)
       of "mainnet":
         mainnetMetadata
+      of "hoodi":
+        hoodiMetadata
       of "holesky":
         holeskyMetadata
       of "sepolia":

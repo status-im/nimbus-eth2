@@ -63,9 +63,12 @@ WEB3_URL="ws://localhost:8545" ./run-mainnet-beacon-node.sh
 
 ## Testnet
 
-The `prater` testnet runs on
+The `hoodi` testnet runs on
 
 ```bash
-# using a local Goerli instance
-WEB3_URL="ws://localhost:8545" ./run-prater-node.sh --max-peers=150
+# using a local hoodi instance
+build/nimbus_beacon_node \
+    --network=hoodi \
+    --data-dir=build/data/shared_hoodi_0 \
+    --web3-url="ws://localhost:8545"
 ```

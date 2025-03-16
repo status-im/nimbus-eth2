@@ -1345,6 +1345,7 @@ proc exchangeConfigWithSingleEL(
           of mainnet: 1.u256
           of sepolia: 11155111.u256
           of holesky: 17000.u256
+          of hoodi: 560048.u256
       if expectedChain != providerChain:
         warn "The specified EL client is connected to a different chain",
               url = connection.engineUrl,
