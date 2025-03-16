@@ -59,7 +59,6 @@ In addition to the era files themselves, you will need at least 200GB of free sp
         * https://sepolia.era.nimbus.team/
         * https://sepolia.era1.nimbus.team/
 
-
 It is recommended that you place the era files in the data directory under `era1` and `era` respectively. Era files can be shared between multiple nodes and can reside on a slow drive - use the `--era1-dir` and `--era-dir` options if they are located outside of the data directory.
 
 See the [era file guide](./era-store.md) for more information.

@@ -6,10 +6,7 @@ You pass options to the beacon node by adding them to the command line.
 For example, if you want to launch Nimbus on mainnet with different base ports than the default `9000/udp` and `9000/tcp`, say `9100/udp` and `9100/tcp`, run:
 
 ```sh
-build/nimbus_beacon_node \
-    --data-dir=build/data/shared_mainnet_0 \
-    --tcp-port=9100 \
-    --udp-port=9100
+./run-mainnet-beacon-node.sh --tcp-port=9100 --udp-port=9100
 ```
 
 ## Available options

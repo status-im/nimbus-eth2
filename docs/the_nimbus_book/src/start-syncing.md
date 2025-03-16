@@ -37,8 +37,7 @@ Later, when everything is working, you can easily switch to mainnet.
     To start syncing the Ethereum beacon chain mainnet, run:
 
     ```
-    build/nimbus_beacon_node \
-        --data-dir=build/data/shared_mainnet_0
+    ./run-mainnet-beacon-node.sh
     ```
 
 ## Log output
@@ -122,8 +121,7 @@ To use checkpoint sync, run the following commands (inserting the checkpoint syn
 === "Mainnet"
     ```sh
     TRUSTED_BLOCK_ROOT=0x1234567890123456789012345678901234567890123456789012345678901234
-    build/nimbus_beacon_node \
-        --data-dir=build/data/shared_mainnet_0 \
+    ./run-mainnet-beacon-node.sh \
         --external-beacon-api-url=$CHECKPOINT_SYNC_ENDPOINT \
         --trusted-block-root=$TRUSTED_BLOCK_ROOT
     ```

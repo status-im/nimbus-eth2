@@ -81,8 +81,7 @@ You will need to pass the path to the token file to Nimbus together with the web
 
 === "Mainnet"
     ```sh
-    build/nimbus_beacon_node \
-        --data-dir=build/data/shared_mainnet_0 \
+    ./run-mainnet-beacon-node.sh \
         --el=http://127.0.0.1:8551 \
         --jwt-secret=/tmp/jwtsecret
     ```
@@ -139,8 +138,7 @@ You can increase the resilience of your setup and eliminate any downtime during 
 To enable this mode, just specify multiple URLs through the `--el` option when starting your beacon node:
 
 ```sh
-build/nimbus_beacon_node \
-    --data-dir=build/data/shared_mainnet_0 \
+./run-mainnet-beacon-node.sh \
     --el=http://127.0.0.1:8551 \
     --el=ws://other:8551 \
     --jwt-secret=/tmp/jwtsecret

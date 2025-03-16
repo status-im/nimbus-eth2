@@ -57,7 +57,7 @@ Under typical conditions, it's expected to take 2 to 7 days.
     Do not remove the validator keys or shut down your validator software until the withdrawal operation is complete.
     Otherwise, you may incur protocol inactivity penalties.
 
-To perform the voluntary exit, make sure your beacon node is running with the `--rest` option enabled (e.g. `build/nimbus_beacon_node --rest`), then run:
+To perform the voluntary exit, make sure your beacon node is running with the `--rest` option enabled (e.g. `./run-mainnet-beacon-node.sh --rest`), then run:
 
     build/nimbus_beacon_node deposits exit --validator=<VALIDATOR_KEYSTORE_PATH>
 

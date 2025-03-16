@@ -30,8 +30,7 @@ Additionally, the URL of the service exposing the [builder API](https://ethereum
 
 === "Mainnet Beacon Node"
     ```sh
-    build/nimbus_beacon_node \
-        --data-dir=build/data/shared_mainnet_0 \
+    ./run-mainnet-beacon-node.sh \
         --payload-builder=true \
         --payload-builder-url=https://${HOST}:${PORT}/
     ```

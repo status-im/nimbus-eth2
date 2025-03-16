@@ -12,7 +12,7 @@ While a validator is exiting, it still must perform its duties in order not to l
 !!! note
     Voluntary exits won't be processed if the chain isn't finalizing.
 
-To perform a voluntary exit, make sure your beacon node is running with the `--rest` option enabled (e.g. `build/nimbus_beacon_node --rest`), then run:
+To perform a voluntary exit, make sure your beacon node is running with the `--rest` option enabled (e.g. `./run-mainnet-beacon-node.sh --rest`), then run:
 
     build/nimbus_beacon_node deposits exit --validator=<VALIDATOR_KEYSTORE_PATH>
 
@@ -25,3 +25,4 @@ To perform a voluntary exit, make sure your beacon node is running with the `--r
 ## `rest-url` parameter
 
 The `--rest-url` parameter can be used to point the exit command to a specific node for publishing the request, as long as it's compatible with the [REST API](./rest-api.md).
+

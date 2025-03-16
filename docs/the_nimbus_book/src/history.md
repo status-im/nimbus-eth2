@@ -41,8 +41,7 @@ In order to recreate deep history in a pruned node, download the [era archive of
 
 === "Mainnet"
     ```sh
-    build/nimbus_beacon_node \
-        --data-dir=build/data/shared_mainnet_0 \
+    ./run-mainnet-beacon-node.sh \
         --history=prune
     ```
 

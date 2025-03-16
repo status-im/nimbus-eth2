@@ -34,8 +34,7 @@ Fee recipients are recorded publicly on-chain as part of proposed blocks, so sug
 
 === "Mainnet"
     ```sh
-    build/nimbus_beacon_node \
-        --data-dir=build/data/shared_mainnet_0 \
+    ./run-mainnet-beacon-node.sh \
         --suggested-fee-recipient=0x70E47C843E0F6ab0991A3189c28F2957eb6d3842
     ```
 

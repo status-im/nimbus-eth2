@@ -67,8 +67,7 @@ cd nimbus-eth2
 === "Mainnet"
     ```sh
     # Start a mainnet node
-    build/nimbus_beacon_node \
-        --data-dir=build/data/shared_mainnet_0 \
+    ./run-mainnet-beacon-node.sh \
         --web3-url=http://127.0.0.1:8551 \
         --jwt-secret=/tmp/jwtsecret
     ```

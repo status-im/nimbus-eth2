@@ -30,12 +30,10 @@ Peer count low, no new peers discovered...
 
 Your node is finding it hard to find peers.
 It's possible that you  may be behind a firewall.
-Try restarting your client and passing `--nat:extip:$EXT_IP_ADDRESS` as an option to `nimbus_beacon_node`, where `$EXT_IP_ADDRESS` is your real IP. For example, if your real IP address is `1.2.3.4`, you'd run:
+Try restarting your client and passing `--nat:extip:$EXT_IP_ADDRESS` as an option to `./run-mainnet-beacon-node.sh`, where `$EXT_IP_ADDRESS` is your real IP. For example, if your real IP address is `1.2.3.4`, you'd run:
 
 ```
-build/nimbus_beacon_node \
-    --data-dir=build/data/shared_mainnet_0 \
-    --nat:extip:1.2.3.4
+./run-mainnet-beacon-node.sh --nat:extip:1.2.3.4
 ```
 
 If this doesn't improve things, you may need to [set enr-auto-update](./networking.md#set-enr-auto-update) and/or [set up port forwarding](./networking.md#set-up-port-forwarding).
@@ -71,9 +69,7 @@ cd nimbus-eth2
 git pull
 make update # Update dependencies
 make nimbus_beacon_node # Rebuild beacon node
-build/nimbus_beacon_node \
-    --data-dir=build/data/shared_mainnet_0 \
-    # Restart using same keys as last run
+./run-mainnet-beacon-node.sh # Restart using same keys as last run
 ```
 
 If you find that `make update` causes the console to hang for too long, try running `make update V=1` or `make update V=2` instead (these will print a more verbose output to the console which may make it easier to diagnose the problem).
@@ -116,10 +112,7 @@ It means that you're running another node that is using the same port as the one
 To change the base port, run:
 
 ```
-build/nimbus_beacon_node \
-    --data-dir=build/data/shared_mainnet_0 \
-    --tcp-port=9100 \
-    --udp-port=9100
+./run-mainnet-beacon-node.sh --tcp-port=9100 --udp-port=9100
 ```
 
 You can replace `9100` with a port of your choosing.
