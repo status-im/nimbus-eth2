@@ -28,6 +28,7 @@ BASE_METRICS_PORT := 8008
 # WARNING: Use lazy assignment to allow CI to override.
 EXECUTOR_NUMBER ?= 0
 
+SEPOLIA_WEB3_URL := "--web3-url=https://rpc.sepolia.dev --web3-url=https://www.sepoliarpc.space"
 GNOSIS_WEB3_URLS := "--web3-url=https://rpc.gnosischain.com/"
 
 VALIDATORS := 1
