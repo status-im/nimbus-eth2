@@ -26,6 +26,9 @@ type
     future: Future[void].Raising([CancelledError])
     reset: bool
 
+  ColumnSyncerDirection* {.pure.} = enum
+    Forward, Backward
+
   ColumnSyncRequest*[T] = object
     slot*: Slot
     count*: uint64
@@ -33,9 +36,11 @@ type
 
   ColumnSyncResult*[T] = object
     request*: T
+    data*: seq[ref ForkedSignedBeaconBlock]
     columns*: Opt[seq[DataColumnSidecars]]
 
   ColumnSyncerAssist*[T] = ref object
+    direction*: ColumnSyncerDirection
     inpSlot*: Slot
     outSlot*: Slot
     startSlot*: Slot
@@ -142,12 +147,14 @@ proc checkDataColumnsResponse*[T](req: ColumnSyncRequest[T],
   ok()
 
 proc init*[T](t1: typedesc[ColumnSyncerAssist],
+              direction: ColumnSyncerDirection,
               start, final: Slot, chunkSize: uint64,
               getSafeSlotCb: GetSlotCallback):
               ColumnSyncerAssist[T] =
 
   doAssert(chunkSize > 0'u64, "Chunk size should not be zero")
   ColumnSyncerAssist[T](
+    direction: direction,
     startSlot: start,
     finalSlot: final,
     chunkSize: chunkSize,
@@ -158,6 +165,22 @@ proc init*[T](t1: typedesc[ColumnSyncerAssist],
     inpSlot: start,
     outSlot: start
   )
+
+proc `<`*[T](a, b: ColumnSyncRequest[T]): bool =
+  doAssert(a.kind == b.kind)
+  case a.kind
+  of ColumnSyncerDirection.Forward:
+    a.slot < b.slot
+  of ColumnSyncerDirection.Backward:
+    a.slot > b.slot
+
+proc `<`*[T](a, b: ColumnSyncRequest[T]): bool =
+  doAssert(a.request.kind == b.request.kind)
+  case a.request.kind
+  of ColumnSyncerDirection.Forward:
+    a.request.slot < b.request.slot
+  of ColumnSyncerDirection.Backward:
+    a.request.slot > b.request.slot
 
 proc `==`*[T](a, b: ColumnSyncRequest[T]): bool =
   (a.slot == b.slot) and (a.count == b.count)
@@ -209,6 +232,29 @@ proc wakeupAndWaitWaiters[T](cas: ColumnSyncerAssist[T])
 proc clearAndWakeup*[T](cas: ColumnSyncerAssist[T]) =
   cas.pending.clear()
   cas.wakeUpWaiters(true)
+
+proc resetWait*[T](cas: ColumnSyncerAssist[T], toSlot: Option[Slot]) {.async: (raises: [CancelledError]).} =
+  cas.pending.clear()
+
+  let minSlot =
+    case cas.direction
+    of ColumnSyncerDirection.Forward:
+      if toSlot.isSome():
+        min(toSlot.get(), cas.outSlot)
+      else:
+        cas.outSlot
+    of ColumnSyncerDirection.Backward:
+      if toSlot.isSome():
+        toSlot.get()
+      else:
+        cas.outSlot
+  cas.debtsQueue.clear()
+  cas.debtsCount = 0
+  cas.readyQueue.clear()
+  cas.inpSlot = minSlot
+  cas.outSlot = minSlot
+  # Waking up all waiters and wait for last one.
+  await cas.wakeupAndWaitWaiters()
 
 proc isEmpty*[T](sr: ColumnSyncResult[T]): bool {.inline.} =
   ## Returns ``true`` if response chain of blocks is empty (has only
@@ -274,115 +320,148 @@ proc rewardForGaps[T](cas: ColumnSyncerAssist[T], score: int) =
 
 proc toDebtsQueue[T](cas: ColumnSyncerAssist[T], sr: ColumnSyncResult[T]) =
   cas.debtsQueue.push(sr)
-
+  cas.debtsCount = cas.debtsCount + sr.count
 
 proc getRewindPoint*[T](cas: ColumnSyncerAssist[T], failSlot: Slot,
                         safeSlot: Slot): Slot =
-  # Calculate the latest finalized epoch
-  let finalizedEpoch = epoch(safeSlot)
+  logScope:
+    direction = cas.kind
 
-  # Calculate the failure epoch
-  let failEpoch = epoch(failSlot)
+  case cas.direction
+  of ColumnSyncerDirection.Forward:
+    # Calculate the latest finalized epoch
+    let finalizedEpoch = epoch(safeSlot)
 
-  # Calculate exponential rewind point in number of epochs
-  let epochCount =
-    if cas.rewind.isSome():
-      let rewind = cas.rewind.get()
-      if failSlot == rewind.failSlot:
-        # `MissingParent` happened at same slot so we increase rewind point by
-        # factor of 2
-        if failEpoch > finalizedEpoch:
-          let rewindPoint = rewind.epochCount shl 1
-          if rewindPoint < rewind.epochCount:
-            # If exponential rewind point produces `uint64` overflow we will
-            # make rewind to latest finalized epoch
-            failEpoch - finalizedEpoch
-          else:
-            if (failEpoch < rewindPoint) or
-               (failEpoch - rewindPoint < finalizedEpoch):
-              # If exponential rewind points to position which is far
-              # behind latest finalized epoch
+    # Calculate failure epoch
+    let failEpoch = epoch(failSlot)
+
+    # Calculate exponential rewind point in number of epochs.
+    let epochCount =
+      if cas.rewind.isSome():
+        let rewind = cas.rewind.get()
+        if failSlot == rewind.failSlot:
+          # `MissingParent` happened at same slot so we increase rewind point by
+          # factor of 2.
+          if failEpoch > finalizedEpoch:
+            let rewindPoint = rewind.epochCount shl 1
+            if rewindPoint < rewind.epochCount:
+              # If exponential rewind point produces `uint64` overflow we will
+              # make rewind to latest finalized epoch
               failEpoch - finalizedEpoch
             else:
-              rewindPoint
+              if (failEpoch < rewindPoint) or
+                 (failEpoch - rewindPoint < finalizedEpoch):
+                # If exponential rewind point points to position which is far
+                # behind latest finalized epoch.
+                failEpoch - finalizedEpoch
+              else:
+                rewindPoint
+          else:
+            warn "Trying to rewind over the last finalized epoch",
+                 finalized_slot = safeSlot, fail_slot = failSlot,
+                 finalized_epoch = finalizedEpoch, fail_epoch = failEpoch,
+                 rewind_epoch_count = rewind.epochCount,
+                 finalized_epoch = finalizedEpoch
+            0'u64
         else:
-          warn "ColumnSyncer: Trying to rewind over the last finalized epoch",
-               finalized_slot = safeSlot, fail_slot = failSlot,
-               finalized_epoch = finalizedEpoch, fail_epoch = failEpoch,
-               rewind_epoch_count = rewind.epochCount,
-               finalized_epoch = finalizedEpoch
-          0'u64
+          # `MissingParent` happened at different slot so we are going to rewind
+          # for 1 epoch only.
+          if (failEpoch < 1'u64) or (failEpoch - 1'u64 < finalizedEpoch):
+            warn "Could not rewind further than the last finalized epoch",
+                 finalized_slot = safeSlot, fail_slot = failSlot,
+                 finalized_epoch = finalizedEpoch, fail_epoch = failEpoch,
+                 rewind_epoch_count = rewind.epochCount,
+                 finalized_epoch = finalizedEpoch
+            0'u64
+          else:
+            1'u64
       else:
-        # `MissingParent` happened at different slot so we are going to
-        # rewind 1 epoch only
+        # `MissingParent` happened first time.
         if (failEpoch < 1'u64) or (failEpoch - 1'u64 < finalizedEpoch):
-          warn "ColumnSyncer: Could not rewind further than the last finalized epoch",
+          warn "Could not rewind further than the last finalized slot",
                finalized_slot = safeSlot, fail_slot = failSlot,
-               finalized_epoch = finalizedEpoch, fail_epoch = failEpoch,
-               rewind_epoch_count = rewind.epochCount,
-               finalizedEpoch = finalizedEpoch
+               finalized_epoch = finalizedEpoch, fail_epoch = failEpoch
           0'u64
         else:
           1'u64
 
+    if epochCount == 0'u64:
+      warn "Unable to continue syncing, please restart the node",
+           finalized_slot = safeSlot, fail_slot = failSlot,
+           finalized_epoch = finalizedEpoch, fail_epoch = failEpoch
+      # Calculate the rewind epoch, which will be equal to last rewind point or
+      # finalizedEpoch
+      let rewindEpoch =
+        if sq.rewind.isNone():
+          finalizedEpoch
+        else:
+          epoch(cas.rewind.get().failSlot) - cas.rewind.get().epochCount
+      rewindEpoch.start_slot()
     else:
-      # `MissingParent` happened first time.
-      if (failEpoch < 1'u64) or (failEpoch - 1'u64 < finalizedEpoch):
-        warn "ColumnSyncer: Could not rewind further than the last finalized epoch",
-             finalized_slot = safeSlot, fail_slot = failSlot,
-             finalized_epoch = finalizedEpoch, fail_epoch = failEpoch,
-             rewind_epoch_count = rewind.epochCount,
-             finalizedEpoch = finalizedEpoch
-        0'u64
-      else:
-        1'u64
+      # Calculate the rewind epoch, which should not be less than the latest
+      # finalized epoch.
+      let rewindEpoch = failEpoch - epochCount
+      # Update and save new rewind point in ColumnSyncerAssist
+      cas.rewind = some(RewindPoint(failSlot, epochCount: epochCount))
+      rewindEpoch.start_slot()
 
-  if epochCount == 0'u64:
-    warn "ColumnSyncer: Unable to continue syncing, please restart the node",
-         finalized_slot = safeSlot, fail_slot = failSlot,
-         finalized_epoch = finalizedEpoch, fail_epoch = failEpoch,
-         finalized_epoch = finalizedEpoch
+  of ColumnSyncerDirection.Backward:
+    # While we perform backward sync, the only possible slot we could rewind is
+    # the latest stored block.
+    if failSlot == safeSlot:
+      warn "Unable to continue syncing, please restart the node",
+           safe_slot = safeSlot, fail_slot = failSlot
+    safeSlot
 
-    # Calculate the rewind epoch, which will be equal to last rewind point or
-    # finalizedEpoch
-    let rewindEpoch =
-      if cas.rewind.isNone():
-        finalizedEpoch
-      else:
-        epoch(cas.rewind.get().failSlot) - cas.rewind.get().epochCount
-    rewindEpoch.start_slot()
-  else:
-    # Calculate the rewind epoch, which should not be less than the latest
-    # finalized epoch.
-    let rewindEpoch = failEpoch - epochCount
-    # Update and save new rewind point in ColumnSyncerAssist
-    cas.rewind = some(RewindPoint(failSlot: failSlot, epochCount: epochCount))
-    rewindEpoch.start_slot()
+proc advanceSlotOutput*[T](cas: ColumnSyncerAssist[T], number: uint64) =
+  case cas.direction
+  of ColumnSyncDirection.Forward:
+    cas.outSlot = cas.outSlot + number
+  of ColumnSyncDirection.Backward:
+    cas.outSlot = cas.outSlot - number
 
+proc advanceInput[T](cas: ColumnSyncerAssist[T], number: uint64) =
+  case cas.direction
+  of ColumnSyncDirection.Forward:
+    cas.inpSlot = cas.inpSlot + number
+  of ColumnSyncDirection.Backward:
+    cas.inpSlot = cas.inpSlot - number
 
-proc advanceOutput*[T](cas: ColumnSyncerAssist[T], number: uint64) =
-  cas.inpSlot = cas.inpSlot + number
+proc notInRange[T](cas: ColumnSyncerAssist[T], sr: ColumnSyncResult[T]): uint64 =
+  case cas.direction:
+  of ColumnSyncDirection.Forward:
+    (cas.queueSize > 0) and (sr.slot > cas.outSlot)
+  of ColumnSyncDirection.Backward:
+    (cas.queueSize > 0) and (sr.lastSlot < cas.outSlot)
 
-proc notInRange[T](cas: ColumnSyncerAssist[T], sr: ColumnSyncResult[T]): bool =
-  (cas.slot > cas.outSlot)
-
-func numAlreadyKnownSlots[T](cas: ColumnSyncerAssist[T], sr: ColumnSyncResult[T]): uint64 =
-  ## Compute the number of slots covered by a given `ColumnSyncRequest` that are
-  ## already known and, hence, no relevant for column sync progression
+func numAlreadyKnownSlots[T](cas: ColumnSyncerAssist, sr: ColumnSyncResult[T]): uint64 =
+  ## Compute the number of slots covered by a given `ColumnSyncResult` that are
+  ## already known and, hence, no relevant for sync progressions
   let
     outSlot = cas.outSlot
-    lowSlot = cas.slot
+    lowSlot = sr.slot
     highSlot = sr.lastSlot
-
-  if outSlot > highSlot:
-    # Entire request is no longer relevant
-    sr.count
-  elif outSlot > lowSlot:
-    # Request is only partially relevant
-    outSlot - lowSlot
-  else:
-    # Entire request is still relevant
-    0
+  case cas.direction
+  of ColumnSyncDirection.Forward:
+    if outSlot > highSlot:
+      # Entire request is no longer relevant.
+      sr.count
+    elif outSlot > lowSlot:
+      # Request is only partially relevant.
+      outSlot - lowSlot
+    else:
+      # Entire request is still relevant.
+      0
+  of ColumnSyncDirection.Backward:
+    if lowSlot > outSlot:
+      # Entire request is no longer relevant
+      sr.count
+    elif highSlot > outSlot:
+      # Request is only partially relevant
+      highSlot - outSlot
+    else:
+      # Entire request is still relevant
+      0
 
 proc handlePotentialSafeSlotAdvancement[T](cas: ColumnSyncerAssist[T]) =
   # It may happen that sync progress advanced to a newer `safeSlot`, either
@@ -392,19 +471,33 @@ proc handlePotentialSafeSlotAdvancement[T](cas: ColumnSyncerAssist[T]) =
   # for data is considered immutable and no longer relevant.
 
   let safeSlot = cas.getSafeSlot()
-  func numSlotBehindSafeSlot(slot: Slot): uint64 =
-    if safeSlot > slot:
-      safeSlot - slot
-    else:
-      0
+  func numSlotsBehindSafeSlot(slot: Slot): uint64 =
+    case cas.direction
+    of ColumnSyncDirection.Forward:
+      if safeSlot > slot:
+        safeSlot - slot
+      else:
+        0
+    of ColumnSyncDirection.Backward:
+      if slot > safeSlot:
+        slot - safeSlot
+      else:
+        0
 
   let
-    numOutSlotsAdvanced = cas.outSlot.numSlotBehindSafeSlot
+    numOutSlotsAdvanced = cas.outSlot.numSlotsBehindSafeSlot
     numInpSlotsAdvanced =
-      cas.inpSlot.numSlotBehindSafeSlot
+      case cas.direction
+      of ColumnSyncDirection.Forward:
+        cas.inpSlot.numSlotsBehindSafeSlot
+      of ColumnSyncDirection.Backward:
+        if cas.inpSlot == 0xFFFF_FFFF_FFFF_FFFF'u64:
+          0'u64
+        else:
+          cas.inpSlot.numSlotBehindSafeSlot
 
   if numOutSlotsAdvanced != 0 or numInpSlotsAdvanced != 0:
-    debug "ColumnSyncer: Sync progress out-of-band",
+    debug "Sync progress advanced out-of-bound",
       safeSlot, outSlot = cas.outSlot, inpSlot = cas.inpSlot
     if numOutSlotsAdvanced != 0:
       cas.advanceOutput(numOutSlotsAdvanced)

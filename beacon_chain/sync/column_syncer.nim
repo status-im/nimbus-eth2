@@ -37,6 +37,10 @@ type
     Sleeping, WaitingPeer, UpdatingStatus, Requesting, Downloading,
     Queueing, Processing
 
+  ColumnAndBlockResponse* = object
+    blck*: ref ForkedSignedBeaconBlock
+    columns: DataColumnSidecars
+
   ColumnSyncerTable* = object
     column_table*: OrderedTable[(Eth2Digest, Slot), DataColumnSidecars]
       ## An in-memory table to store DataColumnSidecars against their Slot
@@ -69,7 +73,7 @@ type
     amIsupernode*: bool
     custody_columns_set*: HashSet[ColumnIndex]
     custody_columns_list*: List[ColumnIndex, NUMBER_OF_COLUMNS]
-    column_syncer_table*: OrderedTable[Eth2Digest , DataColumnSidecars]
+    column_syncer_table*: OrderedTable[Slot , ColumnAndBlockResponse]
       ## An in-memory table to store DataColumnSidecars against their
       ## extracted block root, the reason for having block root as a
       ## part of the key is to effectively repairing strategies if the
@@ -600,7 +604,7 @@ proc columnSyncImpartial[A, B](
              request = req,
              reason = error
         return
-      
+
       Opt.some(finalColumns)
     else:
       Opt.none(seq[DataColumnSidecars])
