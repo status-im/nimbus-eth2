@@ -476,7 +476,7 @@ proc initFullNode(
 
           if accumulatedDataColumns.len == 0:
             # no data columns were sent for this post Fulu block, yet
-            return await blockProcessor[].addBlock(MsgSource.gossip, signedBlock,
+            return await blockProcessor[].addBlock(MsgSource.sync, signedBlock,
                                              Opt.none(BlobSidecars), Opt.none(DataColumnSidecars),
                                              maybeFinalized = maybeFinalized)
           elif dataColumnQuarantine[].supernode and
@@ -498,9 +498,9 @@ proc initFullNode(
             # We don't have all the blobs for this block, so we have
             # to put it in blobless quarantine.
             if not quarantine[].addBlobless(dag.finalizedHead.slot, forkyBlck):
-              return err(VerifierError.UnviableFork)
+              err(VerifierError.UnviableFork)
             else:
-              return err(VerifierError.MissingParent)
+              err(VerifierError.MissingParent)
           else:
             let blobs = blobQuarantine[].popBlobs(forkyBlck.root, forkyBlck)
             await blockProcessor[].addBlock(MsgSource.gossip, signedBlock,
