@@ -16,12 +16,17 @@ import
   ../networking/[peer_pool, peer_scores, eth2_network],
   ../gossip_processing/block_processor,
   ../beacon_clock,
-  "."/[sync_protocol, column_syncer, sync_queue]
+  "."/[sync_protocol, sync_queue]
 
 export phase0, altair, merge, chronos, chronicles, results,
        helpers, peer_scores, sync_queue, forks, sync_protocol
 
 type
+  PeerdasBlockVerifier* = proc(signedBlock: ForkedSignedBeaconBlock,
+                               columns: Opt[DataColumnSidecars],
+                               maybeFinalized: bool):
+      Future[Result[void, VerifierError]] {.async: (raises: [CancelledError]).}
+
   ColumnSyncWaiter* = ref object
     future: Future[void].Raising([CancelledError])
     reset: bool
@@ -30,6 +35,8 @@ type
     Forward, Backward
 
   ColumnSyncRequest*[T] = object
+    direction*: ColumnSyncerDirection
+    index*: uint64
     slot*: Slot
     count*: uint64
     item*: T
@@ -70,6 +77,7 @@ type
     debtsCount: uint64
     readyQueue: HeapQueue[ColumnSyncResult[T]]
     rewind: Option[RewindPoint]
+    peerdasBlockVerifier: PeerdasBlockVerifier
 
 proc init[T](t: typedesc[ColumnSyncRequest],
              start: Slot,
@@ -93,9 +101,9 @@ proc init[T](t: typedesc[ColumnSyncRequest],
   let count = finish - start + 1'u64
   ColumnSyncRequest[T](slot: start, count: count, item: item)
 
-proc empty*[T](t: typedesc[ColumnSyncRequest]):
-               ColumnSyncRequest[T] {.inline.} =
-  ColumnSyncRequest[T](count: 0'u64)
+proc empty*[T](t: typedesc[ColumnSyncRequest], direction: ColumnSyncerDirection,
+               t2: typedesc[T]): ColumnSyncRequest[T] =
+  ColumnSyncRequest[T](direction: direction, count: 0'u64)
 
 proc setItem*[T](r: var ColumnSyncRequest[T], item: T):
                  bool {.inline.} =
@@ -149,7 +157,9 @@ proc checkDataColumnsResponse*[T](req: ColumnSyncRequest[T],
 proc init*[T](t1: typedesc[ColumnSyncerAssist],
               direction: ColumnSyncerDirection,
               start, final: Slot, chunkSize: uint64,
-              getSafeSlotCb: GetSlotCallback):
+              getSafeSlotCb: GetSlotCallback,
+              peerdasBlockVerifier: PeerdasBlockVerifier,
+              syncQueueSize: int = -1):
               ColumnSyncerAssist[T] =
 
   doAssert(chunkSize > 0'u64, "Chunk size should not be zero")
@@ -158,12 +168,14 @@ proc init*[T](t1: typedesc[ColumnSyncerAssist],
     startSlot: start,
     finalSlot: final,
     chunkSize: chunkSize,
+    queueSize: syncQueueSize,
     getSafeSlot: getSafeSlotCb,
     counter: 1'u64,
     received_table: initTable[(Eth2Digest, Slot), DataColumnSidecars](),
     pending: initTable[uint64, ColumnSyncRequest[T]](),
     inpSlot: start,
-    outSlot: start
+    outSlot: start,
+    peerdasBlockVerifier: peerdasBlockVerifier
   )
 
 proc `<`*[T](a, b: ColumnSyncRequest[T]): bool =
@@ -413,25 +425,41 @@ proc getRewindPoint*[T](cas: ColumnSyncerAssist[T], failSlot: Slot,
            safe_slot = safeSlot, fail_slot = failSlot
     safeSlot
 
-proc advanceSlotOutput*[T](cas: ColumnSyncerAssist[T], number: uint64) =
+func getOpt(columns: Opt[seq[DataColumnSidecars]], i: int): Opt[DataColumnSidecars] =
+  if columns.isSome:
+    Opt.some(columns.get()[i])
+  else:
+    Opt.none(DataColumnSidecars)
+
+iterator peerdas_blocks[T](cas: ColumnSyncerAssist[T],
+                           sr: ColumnSyncResult[T]): (ref ForkedSignedBeaconBlock, Opt[DataColumnSidecars]) =
   case cas.direction
-  of ColumnSyncDirection.Forward:
+  of ColumnSyncerDirection.Forward:
+    for i in countup(0, len(sr.data) - 1):
+      yield (sr.data[i], sr.columns.getOpt(i))
+  of ColumnSyncerDirection.Backward:
+    for i in countdown(len(sr.data) - 1, 0):
+      yield (sr.data[i], sr.columns.getOpt(i))
+
+proc advanceOutput*[T](cas: ColumnSyncerAssist[T], number: uint64) =
+  case cas.direction
+  of ColumnSyncerDirection.Forward:
     cas.outSlot = cas.outSlot + number
-  of ColumnSyncDirection.Backward:
+  of ColumnSyncerDirection.Backward:
     cas.outSlot = cas.outSlot - number
 
 proc advanceInput[T](cas: ColumnSyncerAssist[T], number: uint64) =
   case cas.direction
-  of ColumnSyncDirection.Forward:
+  of ColumnSyncerDirection.Forward:
     cas.inpSlot = cas.inpSlot + number
-  of ColumnSyncDirection.Backward:
+  of ColumnSyncerDirection.Backward:
     cas.inpSlot = cas.inpSlot - number
 
 proc notInRange[T](cas: ColumnSyncerAssist[T], sr: ColumnSyncResult[T]): uint64 =
   case cas.direction:
-  of ColumnSyncDirection.Forward:
+  of ColumnSyncerDirection.Forward:
     (cas.queueSize > 0) and (sr.slot > cas.outSlot)
-  of ColumnSyncDirection.Backward:
+  of ColumnSyncerDirection.Backward:
     (cas.queueSize > 0) and (sr.lastSlot < cas.outSlot)
 
 func numAlreadyKnownSlots[T](cas: ColumnSyncerAssist, sr: ColumnSyncResult[T]): uint64 =
@@ -442,7 +470,7 @@ func numAlreadyKnownSlots[T](cas: ColumnSyncerAssist, sr: ColumnSyncResult[T]): 
     lowSlot = sr.slot
     highSlot = sr.lastSlot
   case cas.direction
-  of ColumnSyncDirection.Forward:
+  of ColumnSyncerDirection.Forward:
     if outSlot > highSlot:
       # Entire request is no longer relevant.
       sr.count
@@ -452,7 +480,7 @@ func numAlreadyKnownSlots[T](cas: ColumnSyncerAssist, sr: ColumnSyncResult[T]): 
     else:
       # Entire request is still relevant.
       0
-  of ColumnSyncDirection.Backward:
+  of ColumnSyncerDirection.Backward:
     if lowSlot > outSlot:
       # Entire request is no longer relevant
       sr.count
@@ -462,6 +490,235 @@ func numAlreadyKnownSlots[T](cas: ColumnSyncerAssist, sr: ColumnSyncResult[T]): 
     else:
       # Entire request is still relevant
       0
+
+proc push*[T](cas: ColumnSyncerAssist[T], sr: ColumnSyncRequest[T],
+              data: seq[ref ForkedSignedBeaconBlock],
+              columns: Opt[seq[DataColumnSidecars]],
+              maybeFinalized: bool = false,
+              processingCb: ProcessingCallback = nil)
+              {.async: (raises: [CancelledError]).} =
+
+  ## Push successful result to queue
+  mixin updateScore, updateStats, getStats
+  if sr.index notin cas.pending:
+    # If request sr not in our pending list, it only means that
+    # ColumnSyncerAssist.resetWait() happens and all pending requests are expired, so
+    # we swallow `old` requests, and in such a way sync workers are able to get
+    # proper new requests from ColumnSyncerAssist
+    return
+
+  cas.pending.del(sr.index)
+
+  while true:
+    if cas.notInRange(sr):
+      let reset = await cas.waitForChanges()
+      if reset:
+        # ColumnSyncerAssist reset
+        return
+    else:
+      let syncres = ColumnSyncResult[T](request: sr, data: data, columns: columns)
+      cas.readyQueue.push(syncres)
+      break
+
+  while len(cas.readyQueue) > 0:
+    let reqres =
+      case cas.direction
+      of ColumnSyncerDirection.Forward:
+        let minSlot = cas.readyQueue[0].request.slot
+        if cas.outSlot < minSlot:
+          none[ColumnSyncResult[T]]()
+        else:
+          some(cas.readyQueue.pop())
+      of ColumnSyncerDirection.Backward:
+        let maxSlot = cas.readyQueue[0].request.slot +
+                      (cas.readyQueue[0].request.count - 1'u64)
+        if cas.outSlot > maxSlot:
+          none[ColumnSyncResult[T]]()
+        else:
+          some(cas.readyQueue.pop())
+
+    let item =
+      if reqres.isSome():
+        reqres.get()
+      else:
+        let rewindSlot = cas.getRewindPoint(cas.outSlot, cas.getSafeSlot())
+        warn "Got incorrect column sync result in queue, rewinding",
+             blocks_count = len(cas.readyQueue[0].data),
+             output_slot = cas.outSlot, input_slot = cas.inpSlot,
+             rewind_to_slot = rewindSlot, request = cas.readyQueue[0].request
+        await cas.resetWait(some(rewindSlot))
+        break
+
+    if processingCb != nil:
+      processingCb()
+
+    # Validating received blocks one by one
+    var
+      hasInvalidBlock = false
+      unviableBlock: Option[(Eth2Digest, Slot)]
+      missingParentSlot: Option[Slot]
+      goodBlock: Option[Slot]
+
+      res: Result[void, VerifierError]
+
+    var i=0
+    for blk, col in cas.peerdas_blocks(item):
+      res = await cas.peerdasBlockVerifier(blk[], cols, maybeFinalized)
+      inc i
+
+      if res.isOk:
+        goodBlock = some(blk[].slot)
+      else:
+        case res.error()
+        of VerifierError.MissingParent:
+          missingParentSlot = some(blk[].slot)
+          break
+        of VerifierError.Duplicate:
+          # Keep going, happens naturally
+          discard
+        of VerifierError.UnviableFork:
+          # Keep going as to register other unviable blocks with the
+          # quarantine
+          if unviableBlock.isNone:
+            # Remember the first unviable block, so we can log it
+            unviableBlock = some((blk[].root, blk[].slot))
+
+        of VerifierError.Invalid:
+          hasInvalidBlock = true
+
+          let req = item.request
+          notice "Received invalid sequence of blocks", request = req,
+                 blocks_count = len(item.data)
+          req.item.updateScore(PeerScoreBadValues)
+          break
+
+    # When errors happen while processing blocks, we retry the same request
+    # with, hopefully, a different peer
+    let retryRequest =
+      hasInvalidBlock or unviableBlock.isSome() or missingParentSlot.isSome()
+    if not(retryRequest):
+      let numSlotsAdvanced = item.request.count - cas.numAlreadyKnownSlots(sr)
+      cas.advanceOutput(numSlotsAdvanced)
+
+      if goodBlock.isSome():
+        # If there no error and response was not empty we should reward peer
+        # with some bonus score - not for duplicate blocks though.
+        item.request.item.updateScore(PeerScoreGoodValues)
+        item.request.item.updateScore(SyncResponseKind.Good, 1'u64)
+
+        # BlockProcessor reports good block, so we can reward all the peers
+        # who sent us empty response.
+        cas.rewardForGaps(PeerScoreGoodValues)
+        cas.gapList.reset()
+      else:
+        # Response was empty
+        item.request.item.updateStats(SyncResponseKind.Empty. 1'u64)
+
+      cas.processGap(item)
+
+      if numSlotsAdvanced > 0:
+        cas.wakeupWaiters()
+
+    else:
+      debug "Block pool rejected peer's response", request = item.request,
+            blocks_count = len(item.data),
+            ok = goodBlock.isSome(),
+            unviable = unviableBlock.isSome(),
+            missing_parent = missingParentSlot.isSome()
+
+      # We need to move failed response to the debts queue.
+      cas.toDebtsQueue(item.request)
+
+      if unviableBlock.isSome():
+        let req = item.request
+        notice "Received blocks from an unviable fork", request = req,
+               blockRoot = unviableBlock.get()[0],
+               blockSlot = unviableBlock.get()[1],
+               blocks_count = len(item.data)
+        req.item.updateScore(PeerScoreUnviableFork)
+
+      if missingParentSlot.isSome():
+        var
+          resetSlot: Option[Slot]
+          failSlot = missingParentSlot.get()
+
+        # If we get `VerfierError.MissingParent` it means that peer returns
+        # chain of blocks with holes or `block_pool` is in incomplete state. We
+        # going to rewind the ColumnSyncerAssist some distance back, but no more
+        # than `finalized_epoch`.
+
+        let
+          req = item.request
+          safeSlot = cas.getSafeSlot()
+          gapsCount = len(cas.gapList)
+
+        # We should penalize all the peers which responded with gaps.
+        cas.rewardForGaps(PeerScoreMissingValues)
+        cas.gapList.reset()
+
+        case cas.direction
+        of ColumnSyncerDirection.Forward:
+          if goodBlock.isSome():
+            # `VerifierError.MissingParent` and `Success` present in response,
+            # it means that we to request this range one more time.
+            debug "Unexpected missing parent, but no rewind needed",
+                  request = req, finalized_slot = safeSlot,
+                  last_good_slot = goodBlock.get(),
+                  missing_parent_slot = missingParentSlot.get(),
+                  blocks_count = len(item.data)
+            req.item.updateScore(PeerScoreUnviableFork)
+          else:
+            if safeSlot < req.slot:
+              let rewindSlot = cas.getRewindPoint(failSlot, safeSlot)
+              debug "Unexpected missing parent, rewind needed",
+                    request = req, rewind_to_slot = rewindSlot,
+                    rewind_point = cas.rewind, finalized_slot = safeSlot,
+                    blocks_count = len(item.data),
+                    gaps_count = gapsCount
+              resetSlot = some(rewindSlot)
+            else:
+              error "Unexpected missing parent at finalized epoch slot",
+                    request = req, rewind_to_slot = safeSlot,
+                    blocks_count = len(item.data),
+                    gaps_count = gapsCount
+              req.item.updateScore(PeerScoreBadValues)
+        of ColumnSyncerDirection.Backward:
+          if safeSlot > failSlot:
+            let rewindSlot = cas.getRewindPoint(failSlot, safeSlot)
+            # It's quite common peers us fewer blocks than we ask for
+            debug "Gap in block range response, rewinding", request = req,
+                 rewind_to_slot = rewindSlot, rewind_fail_slot = failSlot,
+                 finalized_slot = safeSlot, blocks_count = len(item.data)
+            resetSlot = some(rewindSlot)
+            req.item.updateScore(PeerScoreMissingValues)
+          else:
+            error "Unexpected missing parent at safe slot", request = req,
+                  to_slot= safeSlot, blocks_count = len(item.data)
+            req.item.updateScore(PeerScoreBadValues)
+
+        if resetSlot.isSome():
+          await cas.resetWait(resetSlot)
+          case cas.direction
+          of ColumnSyncerDirection.Forward:
+            debug "Rewind to slot has happened", reset_slot = resetSlot.get(),
+                  queue_input_slot = cas.inpSlot, queue_output_slot = cas.outSlot,
+                  rewind_point = cas.rewind, direction = cas.direction
+          of ColumnSyncerDirection.Backward:
+            debug "Rewind to slot has happened", reset_slot = resetSlot.get(),
+                  queue_input_slot = cas.inpSlot, queue_output_slot = cas.outSlot,
+                  direction = cas.direction
+      break
+
+proc push*[T](cas: ColumnSyncerAssist[T], sr: ColumnSyncRequest[T]) =
+  ## Push failed request back to queue
+  if sr.index notin cas.pending:
+    # If request `sr` not in our pending list, it only a newer `safeSlot`, either
+    # ColumnSyncerAssist.resetWait() happens and all pending requests are expired,
+    # so we swallow `old` requests, and in such way sync workers are able to get
+    # proper new requests from ColumnSyncerAssist
+    return
+  cas.pending.del(sr.index)
+  cas.toDebtsQueue(sr)
 
 proc handlePotentialSafeSlotAdvancement[T](cas: ColumnSyncerAssist[T]) =
   # It may happen that sync progress advanced to a newer `safeSlot`, either
@@ -473,12 +730,12 @@ proc handlePotentialSafeSlotAdvancement[T](cas: ColumnSyncerAssist[T]) =
   let safeSlot = cas.getSafeSlot()
   func numSlotsBehindSafeSlot(slot: Slot): uint64 =
     case cas.direction
-    of ColumnSyncDirection.Forward:
+    of ColumnSyncerDirection.Forward:
       if safeSlot > slot:
         safeSlot - slot
       else:
         0
-    of ColumnSyncDirection.Backward:
+    of ColumnSyncerDirection.Backward:
       if slot > safeSlot:
         slot - safeSlot
       else:
@@ -488,9 +745,9 @@ proc handlePotentialSafeSlotAdvancement[T](cas: ColumnSyncerAssist[T]) =
     numOutSlotsAdvanced = cas.outSlot.numSlotsBehindSafeSlot
     numInpSlotsAdvanced =
       case cas.direction
-      of ColumnSyncDirection.Forward:
+      of ColumnSyncerDirection.Forward:
         cas.inpSlot.numSlotsBehindSafeSlot
-      of ColumnSyncDirection.Backward:
+      of ColumnSyncerDirection.Backward:
         if cas.inpSlot == 0xFFFF_FFFF_FFFF_FFFF'u64:
           0'u64
         else:
@@ -508,78 +765,132 @@ proc handlePotentialSafeSlotAdvancement[T](cas: ColumnSyncerAssist[T]) =
 func updateRequestForNewSafeSlot[T](cas: ColumnSyncerAssist[T], sr: ColumnSyncResult[T]) =
   # Requests may have originated before the latest `safeSlot` advancement.
   # Update it to not request any data prior to `safeSlot`.
-
   let
     outSlot = cas.outSlot
     lowSlot = sr.slot
-    highSlot = cas.lastSlot
-
-  if outSlot <= lowSlot:
-    # Entire request is still relevant
-    discard
-  elif outSlot <= highSlot:
-    # Request is only partially relevant
-    let
-      numSlotsDone = outSlot - lowSlot
-    cas.slot += numSlotsDone
-    cas.count -= numSlotsDone
-  else:
-    # Entire request is no longer relevant
-    cas.count = 0
+    highSlot = sr.lastSlot
+  case cas.direction
+  of ColumnSyncerDirection.Forward:
+    if outSlot <= lowSlot:
+      # Entire request is still relevant
+      discard
+    elif outSlot <= highSlot:
+      # Request is only partially relevant.
+      let
+        numSlotsDone = outSlot - lowSlot
+      sr.slot += numSlotsDone
+      sr.count -= numSlotsDone
+    else:
+      # Entire request is no longer relevant
+      sr.count = 0
+  of ColumnSyncerDirection.Backward:
+    if outSlot >= highSlot:
+      # Entire request is still relevant
+      discard
+    elif outSlot >= lowSlot:
+      # Request is only partially relevant
+      let
+        numSlotsDone = highSlot - outSlot
+      sr.count -= numSlotsDone
+    else:
+      # Entire request is no longer relevant.
+      sr.count = 0
 
 proc pop*[T](cas: ColumnSyncerAssist[T], maxSlot: Slot, item: T): ColumnSyncRequest[T] =
-  ## Create new request according to current ColumnSyncerAssist parameters.
-  cas.handlePotentialSlotAdvancement()
+  ## Create new request according to current `ColumnSyncerAssist` parameters
+  cas.handlePotentialSafeSlotAdvancement()
   while len(cas.debtsQueue) > 0:
     if maxSlot < cas.debtsQueue[0].slot:
       # Peer's latest slot is less than starting request's slot
-      return ColumnSyncRequest.empty(T)
-    if maxSlot < cas.debtsQueue[0].lastSlot():
+      return ColumnSyncRequest.empty(cas.direction, T)
+    if maxSlot < cas.debtsQueue[0].slot:
       # Peer's latest slot is less than finishing request's slot
-      return ColumnSyncResult.empty(T)
+      return ColumnSyncRequest.empty(cas.direction, T)
     var sr = cas.debtsQueue.pop()
-    cas.debtsQueue = cas.debtsCount - sr.count
+    cas.debtsCount = cas.debtsCount - sr.count
     cas.updateRequestForNewSafeSlot(sr)
-    if sr.isEmpty():
+    if sr.isEmpty:
       continue
     sr.setItem(item)
     cas.makePending(sr)
     return sr
 
-  if maxSlot < cas.inpSlot:
-    # Peer's latest slot is less than queue's input slot.
-    return ColumnSyncRequest.empty(T)
-  if cas.inpSlot > cas.finalSlot:
-    # Queue's input slot is bigger than queue's final slot.
-    return ColumnSyncRequest.empty(T)
-  let
-    lastSlot = min(maxSlot, cas.finalSlot)
-    count = min(cas.chunkSize, lastSlot + 1'u64 - cas.inpSlot)
-  var sr = ColumnSyncRequest.init(cas.inpSlot, count, item)
-  cas.advanceInput(count)
-  cas.makePending(sr)
-  sr
+  case cas.direction
+  of ColumnSyncerDirection.Forward:
+    if maxSlot < cas.inpSlot:
+      # Peer's latest slot is less than queue's input slot
+      return ColumnSyncRequest.empty(cas.direction, T)
+    if cas.inpSlot > cas.finalSlot:
+      # Queue's input slot is bigger than queue's final slot
+      return ColumnSyncRequest.empty(cas.direction, T)
+    let lastSlot = min(maxSlot, cas.finalSlot)
+    let count = min(cas.chunkSize, lastSlot + 1'u64 - cas.inpSlot)
+    var sr = ColumnSyncRequest.init(cas.direction, cas.inpSlot, count, item)
+    cas.advanceInput(count)
+    cas.makePending(sr)
+    sr
+
+  of ColumnSyncerDirection.Backward:
+    if cas.inpSlot == 0xFFFF_FFFF_FFFF_FFFF'u64:
+      return ColumnSyncRequest.empty(cas.direction, T)
+    if cas.inpSlot < cas.finalSlot:
+      return ColumnSyncRequest.empty(cas.direction, T)
+    let (slot, count) =
+      block:
+        let baseSlot = cas.inpSlot + 1'u64
+        if baseSlot - cas.finalSlot < cas.chunkSize:
+          let count = uint64(baseSlot - cas.finalSlot)
+          (baseSlot - count, count)
+        else:
+          (baseSlot - cas.chunkSize, cas.chunkSize)
+    if (maxSlot + 1'u64) < slot + count:
+      # Peer's latest slot is less than queue's input slot.
+      return ColumnSyncRequest.empty(cas.direction, T)
+    var sr = ColumnSyncRequest.init(cas.direction, slot, count, item)
+    cas.advanceInput(count)
+    cas.makePending(sr)
+    sr
 
 proc debtLen*[T](cas: ColumnSyncerAssist[T]): uint64 =
   cas.debtsCount
 
-proc pendingLen*[T](cas: ColumnSyncerAssist[T]): uint64 =
-  # As we move forward `outSlot` will be  <= of `inpSlot`.
-  cas.inpSlot = cas.outSlot
+proc pendingLen*[T](cas: ColumnSyncerAssist[T]): uint64 {.inline.} =
+  ## Returns total number of slots in queue
+  case cas.direction
+  of ColumnSyncerDirection.Forward:
+    # When moving forward `outSlot` will be <= of `inpSlot`
+    cas.inpSlot - cas.outSlot
+  of ColumnSyncerDirection.Backward:
+    # When moving backward `outSlot` will be >= of `outSlot`
+    cas.outSlot - cas.inpSlot
 
 proc len*[T](cas: ColumnSyncerAssist[T]): uint64 {.inline.} =
-  ## Returns number of slots left in ``cas``
-  if cas.finalSlot >= cas.outSlot:
-    cas.finalSlot + 1'u64 - cas.outSlot
-  else:
-    0'u64
+  ## Returns number of slots left in queue
+  case cas.direction
+  of ColumnSyncerDirection.Forward:
+    if cas.finalSlot >= cas.outSlot:
+      cas.finalSlot + 1'u64 - cas.outSlot
+    else:
+      0'u64
+  of ColumnSyncerDirection.Backward:
+    if cas.outSlot >= cas.finalSlot:
+      cas.outSlot + 1'u64 - cas.finalSlot
+    else:
+      0'u64
 
 proc total*[T](cas: ColumnSyncerAssist[T]): uint64 {.inline.} =
-  ## Returns total number of slots in queue ``sq``.
-  if cas.finalSlot >= cas.startSlot:
-    cas.finalSlot + 1'u64 - cas.finalSlot
-  else:
-    0'u64
+  ## Returns total number of slots in queue
+  case cas.direction
+  of ColumnSyncerDirection.Forward:
+    if cas.finalSlot >= cas.startSlot:
+      cas.finalSlot + 1'u64 - cas.startSlot
+    else:
+      0'u64
+  of ColumnSyncerDirection.Backward:
+    if cas.startSlot >= cas.finalSlot:
+      cas.startSlot + 1'u64 - cas.finalSlot
+    else:
+      0'u64
 
 proc progress*[T](cas: ColumnSyncerAssist[T]): uint64 =
   ## How many useful slots we've synced so far, adjusting for how much has
