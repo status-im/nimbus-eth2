@@ -36,9 +36,9 @@ Select an execution client and install it, configuring it such that the authenti
         geth --authrpc.addr localhost --authrpc.port 8551 --authrpc.vhosts localhost --authrpc.jwtsecret /tmp/jwtsecret
         ```
 
-    === "Holesky"
+    === "Hoodi"
         ```
-        geth --holesky --authrpc.addr localhost --authrpc.port 8551 --authrpc.vhosts localhost --authrpc.jwtsecret /tmp/jwtsecret
+        geth --hoodi --authrpc.addr localhost --authrpc.port 8551 --authrpc.vhosts localhost --authrpc.jwtsecret /tmp/jwtsecret
         ```
 
 === "Nethermind"
@@ -82,19 +82,18 @@ You will need to pass the path to the token file to Nimbus together with the web
 === "Mainnet"
     ```sh
     ./run-mainnet-beacon-node.sh \
-      --el=http://127.0.0.1:8551 \
-      --jwt-secret=/tmp/jwtsecret
+        --el=http://127.0.0.1:8551 \
+        --jwt-secret=/tmp/jwtsecret
     ```
 
-=== "Holesky"
+=== "Hoodi"
     ```sh
-    ./run-holesky-beacon-node.sh \
-      --el=http://127.0.0.1:8551 \
-      --jwt-secret=/tmp/jwtsecret
+    build/nimbus_beacon_node \
+        --network=hoodi \
+        --data-dir=build/data/shared_hoodi_0 \
+        --el=http://127.0.0.1:8551 \
+        --jwt-secret=/tmp/jwtsecret
     ```
-
-
-
 
 ## Upgrade execution client
 
@@ -140,9 +139,9 @@ To enable this mode, just specify multiple URLs through the `--el` option when s
 
 ```sh
 ./run-mainnet-beacon-node.sh \
-  --el=http://127.0.0.1:8551 \
-  --el=ws://other:8551 \
-  --jwt-secret=/tmp/jwtsecret
+    --el=http://127.0.0.1:8551 \
+    --el=ws://other:8551 \
+    --jwt-secret=/tmp/jwtsecret
 ```
 
 !!! tip

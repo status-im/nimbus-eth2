@@ -94,7 +94,7 @@ typedef struct ETHConsensusConfig ETHConsensusConfig;
  *         based on the given `config.yaml` file content - If successful.
  * @return `NULL` - If the given `config.yaml` is malformed or incompatible.
  *
- * @see https://github.com/ethereum/consensus-specs/blob/v1.5.0-beta.2/configs/README.md
+ * @see https://github.com/ethereum/consensus-specs/blob/v1.5.0-beta.3/configs/README.md
  */
 ETH_RESULT_USE_CHECK
 ETHConsensusConfig *_Nullable ETHConsensusConfigCreateFromYaml(const char *configFileContent);
@@ -150,7 +150,7 @@ typedef struct ETHBeaconState ETHBeaconState;
  * @return `NULL` - If the given `sszBytes` is malformed.
  *
  * @see https://github.com/ethereum/consensus-specs/blob/v1.5.0-beta.0/specs/phase0/beacon-chain.md#beaconstate
- * @see https://github.com/ethereum/consensus-specs/blob/v1.5.0-beta.2/specs/altair/beacon-chain.md#beaconstate
+ * @see https://github.com/ethereum/consensus-specs/blob/v1.5.0-beta.3/specs/altair/beacon-chain.md#beaconstate
  * @see https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.8/specs/bellatrix/beacon-chain.md#beaconstate
  * @see https://github.com/ethereum/consensus-specs/blob/v1.5.0-beta.2/specs/capella/beacon-chain.md#beaconstate
  * @see https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.9/configs/README.md
@@ -1207,6 +1207,11 @@ ETH_RESULT_USE_CHECK
 const ETHRoot *ETHTransactionGetHash(const ETHTransaction *transaction);
 
 /**
+ * Chain ID.
+ */
+typedef ETHUInt256 ETHChainId;
+
+/**
  * Obtains the chain ID of a transaction.
  *
  * - The returned value is allocated in the given transaction.
@@ -1218,7 +1223,7 @@ const ETHRoot *ETHTransactionGetHash(const ETHTransaction *transaction);
  * @return Chain ID.
  */
 ETH_RESULT_USE_CHECK
-const uint64_t *ETHTransactionGetChainId(const ETHTransaction *transaction);
+const ETHChainId *ETHTransactionGetChainId(const ETHTransaction *transaction);
 
 /**
  * Obtains the from address of a transaction.
@@ -1570,7 +1575,7 @@ const ETHAuthorization *ETHAuthorizationListGet(
  * @return Chain ID.
  */
 ETH_RESULT_USE_CHECK
-const uint64_t *ETHAuthorizationGetChainId(
+const ETHChainId *ETHAuthorizationGetChainId(
     const ETHAuthorization *authorization);
 
 /**

@@ -185,10 +185,6 @@ switch("warning", "CaseTransition:off")
 # should be fixed out-of-band of `unstable` branch.
 switch("warning", "BareExcept:off")
 
-# Chronicles triggers these
-# vendor/nim-chronicles/chronicles.nim(74, 14) Warning: template 'activeChroniclesScope' is implicitly redefined; this is deprecated, add an explicit .redefine pragma [ImplicitTemplateRedefinition]
-switch("warning", "ImplicitTemplateRedefinition:off")
-
 # Too many of these because of Defect compat in 1.2
 switch("hint", "XCannotRaiseY:off")
 

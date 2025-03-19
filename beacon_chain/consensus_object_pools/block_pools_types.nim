@@ -22,11 +22,11 @@ import
 from ../spec/datatypes/capella import TrustedSignedBeaconBlock
 from ../spec/datatypes/deneb import TrustedSignedBeaconBlock
 
-from "."/vanity_logs/vanity_logs import VanityLogs
+from "."/vanity_logs/vanity_logs import LogProc, VanityLogs
 
 export
   sets, tables, hashes, helpers, beacon_chain_db, era_db, block_dag,
-  block_pools_types_light_client, validator_monitor, VanityLogs
+  block_pools_types_light_client, validator_monitor, LogProc, VanityLogs
 
 # ChainDAG and types related to forming a DAG of blocks, keeping track of their
 # relationships and allowing various forms of lookups

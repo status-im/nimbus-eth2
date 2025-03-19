@@ -24,8 +24,7 @@ import
   ../beacon_chain/networking/network_metadata,
   ../beacon_chain/rpc/rest_key_management_api,
   ../beacon_chain/[conf, filepath, beacon_node,
-                   nimbus_beacon_node, beacon_node_status,
-                   nimbus_validator_client],
+                   nimbus_beacon_node, beacon_node_status],
   ../beacon_chain/validator_client/common,
   ../ncli/ncli_testnet,
   ./testutil

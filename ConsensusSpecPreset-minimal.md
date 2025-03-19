@@ -98,7 +98,7 @@ ConsensusSpecPreset-minimal
 + Rewards and penalties - full_attestation_participation [Preset: minimal]                   OK
 + Rewards and penalties - full_attestation_participation_with_leak [Preset: minimal]         OK
 + Rewards and penalties - full_attestations_misc_balances [Preset: minimal]                  OK
-+ Rewards and penalties - full_attestations_one_validaor_one_gwei [Preset: minimal]          OK
++ Rewards and penalties - full_attestations_one_validator_one_gwei [Preset: minimal]         OK
 + Rewards and penalties - genesis_epoch_full_attestations_no_rewards [Preset: minimal]       OK
 + Rewards and penalties - genesis_epoch_no_attestations_no_penalties [Preset: minimal]       OK
 + Rewards and penalties - no_attestations_all_penalties [Preset: minimal]                    OK
@@ -614,7 +614,7 @@ ConsensusSpecPreset-minimal
 + Rewards and penalties - full_attestation_participation [Preset: minimal]                   OK
 + Rewards and penalties - full_attestation_participation_with_leak [Preset: minimal]         OK
 + Rewards and penalties - full_attestations_misc_balances [Preset: minimal]                  OK
-+ Rewards and penalties - full_attestations_one_validaor_one_gwei [Preset: minimal]          OK
++ Rewards and penalties - full_attestations_one_validator_one_gwei [Preset: minimal]         OK
 + Rewards and penalties - genesis_epoch_full_attestations_no_rewards [Preset: minimal]       OK
 + Rewards and penalties - genesis_epoch_no_attestations_no_penalties [Preset: minimal]       OK
 + Rewards and penalties - no_attestations_all_penalties [Preset: minimal]                    OK
@@ -1163,7 +1163,7 @@ ConsensusSpecPreset-minimal
 + Rewards and penalties - full_attestation_participation [Preset: minimal]                   OK
 + Rewards and penalties - full_attestation_participation_with_leak [Preset: minimal]         OK
 + Rewards and penalties - full_attestations_misc_balances [Preset: minimal]                  OK
-+ Rewards and penalties - full_attestations_one_validaor_one_gwei [Preset: minimal]          OK
++ Rewards and penalties - full_attestations_one_validator_one_gwei [Preset: minimal]         OK
 + Rewards and penalties - genesis_epoch_full_attestations_no_rewards [Preset: minimal]       OK
 + Rewards and penalties - genesis_epoch_no_attestations_no_penalties [Preset: minimal]       OK
 + Rewards and penalties - no_attestations_all_penalties [Preset: minimal]                    OK
@@ -1815,7 +1815,7 @@ ConsensusSpecPreset-minimal
 + Rewards and penalties - full_attestation_participation [Preset: minimal]                   OK
 + Rewards and penalties - full_attestation_participation_with_leak [Preset: minimal]         OK
 + Rewards and penalties - full_attestations_misc_balances [Preset: minimal]                  OK
-+ Rewards and penalties - full_attestations_one_validaor_one_gwei [Preset: minimal]          OK
++ Rewards and penalties - full_attestations_one_validator_one_gwei [Preset: minimal]         OK
 + Rewards and penalties - genesis_epoch_full_attestations_no_rewards [Preset: minimal]       OK
 + Rewards and penalties - genesis_epoch_no_attestations_no_penalties [Preset: minimal]       OK
 + Rewards and penalties - no_attestations_all_penalties [Preset: minimal]                    OK
@@ -2566,7 +2566,7 @@ ConsensusSpecPreset-minimal
 + Rewards and penalties - full_attestation_participation [Preset: minimal]                   OK
 + Rewards and penalties - full_attestation_participation_with_leak [Preset: minimal]         OK
 + Rewards and penalties - full_attestations_misc_balances [Preset: minimal]                  OK
-+ Rewards and penalties - full_attestations_one_validaor_one_gwei [Preset: minimal]          OK
++ Rewards and penalties - full_attestations_one_validator_one_gwei [Preset: minimal]         OK
 + Rewards and penalties - genesis_epoch_full_attestations_no_rewards [Preset: minimal]       OK
 + Rewards and penalties - genesis_epoch_no_attestations_no_penalties [Preset: minimal]       OK
 + Rewards and penalties - no_attestations_all_penalties [Preset: minimal]                    OK
@@ -2754,11 +2754,12 @@ ConsensusSpecPreset-minimal
 + [Valid]   EF - Electra - Operations - Consolidation Request - incorrect_exited_target      OK
 + [Valid]   EF - Electra - Operations - Consolidation Request - incorrect_inactive_source    OK
 + [Valid]   EF - Electra - Operations - Consolidation Request - incorrect_inactive_target    OK
-+ [Valid]   EF - Electra - Operations - Consolidation Request - incorrect_incorrect_source_a OK
 + [Valid]   EF - Electra - Operations - Consolidation Request - incorrect_no_source_executio OK
 + [Valid]   EF - Electra - Operations - Consolidation Request - incorrect_not_enough_consoli OK
++ [Valid]   EF - Electra - Operations - Consolidation Request - incorrect_source_address     OK
 + [Valid]   EF - Electra - Operations - Consolidation Request - incorrect_source_has_pending OK
 + [Valid]   EF - Electra - Operations - Consolidation Request - incorrect_source_not_active_ OK
++ [Valid]   EF - Electra - Operations - Consolidation Request - incorrect_source_with_bls_cr OK
 + [Valid]   EF - Electra - Operations - Consolidation Request - incorrect_target_with_bls_cr OK
 + [Valid]   EF - Electra - Operations - Consolidation Request - incorrect_target_with_eth1_c OK
 + [Valid]   EF - Electra - Operations - Consolidation Request - incorrect_unknown_source_pub OK
@@ -3468,7 +3469,7 @@ ConsensusSpecPreset-minimal
 + Rewards and penalties - full_attestation_participation [Preset: minimal]                   OK
 + Rewards and penalties - full_attestation_participation_with_leak [Preset: minimal]         OK
 + Rewards and penalties - full_attestations_misc_balances [Preset: minimal]                  OK
-+ Rewards and penalties - full_attestations_one_validaor_one_gwei [Preset: minimal]          OK
++ Rewards and penalties - full_attestations_one_validator_one_gwei [Preset: minimal]         OK
 + Rewards and penalties - genesis_epoch_full_attestations_no_rewards [Preset: minimal]       OK
 + Rewards and penalties - genesis_epoch_no_attestations_no_penalties [Preset: minimal]       OK
 + Rewards and penalties - no_attestations_all_penalties [Preset: minimal]                    OK
@@ -3649,11 +3650,12 @@ ConsensusSpecPreset-minimal
 + [Valid]   EF - Fulu - Operations - Consolidation Request - incorrect_exited_target         OK
 + [Valid]   EF - Fulu - Operations - Consolidation Request - incorrect_inactive_source       OK
 + [Valid]   EF - Fulu - Operations - Consolidation Request - incorrect_inactive_target       OK
-+ [Valid]   EF - Fulu - Operations - Consolidation Request - incorrect_incorrect_source_addr OK
 + [Valid]   EF - Fulu - Operations - Consolidation Request - incorrect_no_source_execution_w OK
 + [Valid]   EF - Fulu - Operations - Consolidation Request - incorrect_not_enough_consolidat OK
++ [Valid]   EF - Fulu - Operations - Consolidation Request - incorrect_source_address        OK
 + [Valid]   EF - Fulu - Operations - Consolidation Request - incorrect_source_has_pending_wi OK
 + [Valid]   EF - Fulu - Operations - Consolidation Request - incorrect_source_not_active_lon OK
++ [Valid]   EF - Fulu - Operations - Consolidation Request - incorrect_source_with_bls_crede OK
 + [Valid]   EF - Fulu - Operations - Consolidation Request - incorrect_target_with_bls_crede OK
 + [Valid]   EF - Fulu - Operations - Consolidation Request - incorrect_target_with_eth1_cred OK
 + [Valid]   EF - Fulu - Operations - Consolidation Request - incorrect_unknown_source_pubkey OK
@@ -4180,6 +4182,7 @@ ConsensusSpecPreset-minimal
 + Light client - Sync - minimal/altair/light_client/sync/pyspec_tests/deneb_store_with_legac OK
 + Light client - Sync - minimal/altair/light_client/sync/pyspec_tests/electra_store_with_leg OK
 + Light client - Sync - minimal/altair/light_client/sync/pyspec_tests/light_client_sync      OK
++ Light client - Sync - minimal/altair/light_client/sync/pyspec_tests/light_client_sync_no_f OK
 + Light client - Sync - minimal/altair/light_client/sync/pyspec_tests/supply_sync_committee_ OK
 + Light client - Sync - minimal/bellatrix/light_client/sync/pyspec_tests/advance_finality_wi OK
 + Light client - Sync - minimal/bellatrix/light_client/sync/pyspec_tests/capella_deneb_fork  OK
@@ -4189,6 +4192,7 @@ ConsensusSpecPreset-minimal
 + Light client - Sync - minimal/bellatrix/light_client/sync/pyspec_tests/deneb_store_with_le OK
 + Light client - Sync - minimal/bellatrix/light_client/sync/pyspec_tests/electra_store_with_ OK
 + Light client - Sync - minimal/bellatrix/light_client/sync/pyspec_tests/light_client_sync   OK
++ Light client - Sync - minimal/bellatrix/light_client/sync/pyspec_tests/light_client_sync_n OK
 + Light client - Sync - minimal/bellatrix/light_client/sync/pyspec_tests/supply_sync_committ OK
 + Light client - Sync - minimal/capella/light_client/sync/pyspec_tests/advance_finality_with OK
 + Light client - Sync - minimal/capella/light_client/sync/pyspec_tests/deneb_electra_fork    OK
@@ -4196,14 +4200,17 @@ ConsensusSpecPreset-minimal
 + Light client - Sync - minimal/capella/light_client/sync/pyspec_tests/deneb_store_with_lega OK
 + Light client - Sync - minimal/capella/light_client/sync/pyspec_tests/electra_store_with_le OK
 + Light client - Sync - minimal/capella/light_client/sync/pyspec_tests/light_client_sync     OK
++ Light client - Sync - minimal/capella/light_client/sync/pyspec_tests/light_client_sync_no_ OK
 + Light client - Sync - minimal/capella/light_client/sync/pyspec_tests/supply_sync_committee OK
 + Light client - Sync - minimal/deneb/light_client/sync/pyspec_tests/advance_finality_withou OK
 + Light client - Sync - minimal/deneb/light_client/sync/pyspec_tests/electra_fork            OK
 + Light client - Sync - minimal/deneb/light_client/sync/pyspec_tests/electra_store_with_lega OK
 + Light client - Sync - minimal/deneb/light_client/sync/pyspec_tests/light_client_sync       OK
++ Light client - Sync - minimal/deneb/light_client/sync/pyspec_tests/light_client_sync_no_fo OK
 + Light client - Sync - minimal/deneb/light_client/sync/pyspec_tests/supply_sync_committee_f OK
 + Light client - Sync - minimal/electra/light_client/sync/pyspec_tests/advance_finality_with OK
 + Light client - Sync - minimal/electra/light_client/sync/pyspec_tests/light_client_sync     OK
++ Light client - Sync - minimal/electra/light_client/sync/pyspec_tests/light_client_sync_no_ OK
 + Light client - Sync - minimal/electra/light_client/sync/pyspec_tests/supply_sync_committee OK
 ```
 ## EF - Light client - Update ranking [Preset: minimal]
@@ -4297,7 +4304,7 @@ ConsensusSpecPreset-minimal
 + Rewards and penalties - full_attestation_participation [Preset: minimal]                   OK
 + Rewards and penalties - full_attestation_participation_with_leak [Preset: minimal]         OK
 + Rewards and penalties - full_attestations_misc_balances [Preset: minimal]                  OK
-+ Rewards and penalties - full_attestations_one_validaor_one_gwei [Preset: minimal]          OK
++ Rewards and penalties - full_attestations_one_validator_one_gwei [Preset: minimal]         OK
 + Rewards and penalties - full_attestations_random_incorrect_fields [Preset: minimal]        OK
 + Rewards and penalties - genesis_epoch_full_attestations_no_rewards [Preset: minimal]       OK
 + Rewards and penalties - genesis_epoch_no_attestations_no_penalties [Preset: minimal]       OK

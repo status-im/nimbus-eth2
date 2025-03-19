@@ -608,7 +608,7 @@ proc getResponseHeadersExpect(rule: JsonNode): Result[HeadersExpect, cstring] =
       block:
         var vres: seq[string]
         let jvalue = jitem.getOrDefault("value")
-        if not isnil(jvalue):
+        if not isNil(jvalue):
           case jvalue.kind
           of JArray:
             if len(jvalue.elems) == 0:

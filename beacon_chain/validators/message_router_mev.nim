@@ -87,14 +87,17 @@ proc unblindAndRouteBlockMEV*(
       $response.status & ": " & $shortLog(blindedBlock))
 
   when blindedBlock is deneb_mev.SignedBlindedBeaconBlock:
-    let res = decodeBytes(
-      SubmitBlindedBlockResponseDeneb, response.data, response.contentType)
+    let res = decodeBytesJsonOrSsz(
+      SubmitBlindedBlockResponseDeneb, response.data, response.contentType,
+      response.headers.getString("eth-consensus-version"))
   elif blindedBlock is electra_mev.SignedBlindedBeaconBlock:
-    let res = decodeBytes(
-      SubmitBlindedBlockResponseElectra, response.data, response.contentType)
+    let res = decodeBytesJsonOrSsz(
+      SubmitBlindedBlockResponseElectra, response.data, response.contentType,
+      response.headers.getString("eth-consensus-version"))
   elif blindedBlock is fulu_mev.SignedBlindedBeaconBlock:
-    let res = decodeBytes(
-      SubmitBlindedBlockResponseFulu, response.data, response.contentType)
+    let res = decodeBytesJsonOrSsz(
+      SubmitBlindedBlockResponseFulu, response.data, response.contentType,
+      response.headers.getString("eth-consensus-version"))
   else:
     static: doAssert false
 
