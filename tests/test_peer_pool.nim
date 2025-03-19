@@ -13,9 +13,6 @@ import chronos, chronos/unittest2/asynctests
 import ../beacon_chain/networking/peer_pool
 import ./testutil
 
-template closureScope(raisesAnnotation: untyped, body: untyped): untyped =
-  (proc() {.raises: raisesAnnotation} = body)()
-
 type
   PeerTestID = string
   PeerTest = object
@@ -253,7 +250,7 @@ suite "PeerPool testing suite":
       itemFut23.finished == false
       itemFut24.finished == false
 
-  test "Acquire/Sorting and consistency test": closureScope([CatchableError]):
+  test "Acquire/Sorting and consistency test":
     const
       TestsCount = 1000
       MaxNumber = 1_000_000
@@ -427,7 +424,7 @@ suite "PeerPool testing suite":
 
     check waitFor(testPeerLifetime()) == true
 
-  test "Safe/Clear test": closureScope([CatchableError]):
+  test "Safe/Clear test":
     var pool = newPeerPool[PeerTest, PeerTestID]()
     var peer1 = PeerTest.init("peer1", 10)
     var peer2 = PeerTest.init("peer2", 9)
@@ -474,7 +471,7 @@ suite "PeerPool testing suite":
     asyncSpawn testConsumer()
     check waitFor(testClose()) == true
 
-  test "Access peers by key test": closureScope([CatchableError]):
+  test "Access peers by key test":
     var pool = newPeerPool[PeerTest, PeerTestID]()
     var peer1 = PeerTest.init("peer1", 10)
     var peer2 = PeerTest.init("peer2", 9)
