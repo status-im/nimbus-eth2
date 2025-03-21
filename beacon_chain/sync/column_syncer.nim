@@ -38,8 +38,8 @@ type
     Queueing, Processing
 
   ColumnAndBlockResponse* = object
-    blck*: ref ForkedSignedBeaconBlock
-    columns: DataColumnSidecars
+    blk*: ref ForkedSignedBeaconBlock
+    columns*: Opt[DataColumnSidecars]
 
   ColumnSyncerTable* = object
     column_table*: OrderedTable[(Eth2Digest, Slot), DataColumnSidecars]
@@ -60,6 +60,9 @@ type
   ColumnSyncerFlag* {.pure.} = enum
     Greedy, Impartial
 
+  ColumnSyncerMode* {.pure.} = enum
+    NoMonitor, NoGenesisSync
+
   ColumnSyncer*[A, B] = object
     future: Future[void].Raising([CancelledError])
     status: ColumnSyncerStatus
@@ -73,7 +76,7 @@ type
     amIsupernode*: bool
     custody_columns_set*: HashSet[ColumnIndex]
     custody_columns_list*: List[ColumnIndex, NUMBER_OF_COLUMNS]
-    column_syncer_table*: OrderedTable[Slot , ColumnAndBlockResponse]
+    column_syncer_table*: OrderedTable[Slot, ColumnAndBlockResponse]
       ## An in-memory table to store DataColumnSidecars against their
       ## extracted block root, the reason for having block root as a
       ## part of the key is to effectively repairing strategies if the
@@ -93,6 +96,7 @@ type
     getLocalWallSlot: GetSlotCallback
     getSafeSlot: GetSlotCallback
     getFirstSlot: GetSlotCallback
+    getLastSlot: GetSlotCallback
     progressPivot: Slot
     workers: array[ColumnSyncWorkerCount, ColumnSyncer[A, B]]
     notInSyncEvent: AsyncEvent
@@ -100,15 +104,21 @@ type
     rangeAge: uint64
     chunkSize: uint64
     columnSyncFut: Future[void].Raising([CancelledError])
+    peerdasBlockVerifier: PeerdasBlockVerifier
     inProgress*: bool
     insSyncSpeed*: float
     avgSyncSpeed*: float
     syncStatus*: string
+    direction: ColumnSyncerDirection
     flags: set[ColumnSyncerFlag]
+    modes: set[ColumnSyncerMode]
 
   ColumnSyncTimestamp* = object
     timestamp*: chronos.Moment
     slots*: uint64
+
+  BeaconBlocksRes =
+    NetRes[List[ref ForkedSignedBeaconBlock, Limit MAX_REQUEST_BLOCKS]]
 
   DataColumnSidecarsRes =
     NetRes[List[ref DataColumnSidecar, Limit(MAX_REQUEST_BLOB_SIDECARS_ELECTRA)]]
@@ -130,42 +140,87 @@ proc speed*(start, finish: ColumnSyncTimestamp): float {.inline.} =
     slots / dur
 
 proc initColumnSyncerAssist[A, B](man: ColumnManager[A, B]) =
-  man.assist = ColumnSyncerAssist.init(A, man.getFirstSlot(),
-                                       man.getLastSlot(), man.chunkSize,
-                                       man.getSafeSlot(), 1)
+  case man.direction
+  of ColumnSyncerDirection.Forward:
+    man.assist = ColumnSyncerAssist.init(A, man.getFirstSlot(),
+                                        man.getLastSlot(), man.chunkSize,
+                                        man.getSafeSlot(), 1)
+  of ColumnSyncerDirection.Backward:
+    let
+      firstSlot = man.getFirstSlot()
+      lastSlot = man.getLastSlot()
+      startSlot = if firstSlot == lastSlot:
+                    # This case should never happen in real life because
+                    # there is present check `needsBackfill()`.
+                    firstSlot
+                  else:
+                    firstSlot - 1'u64
+    man.assist = ColumnSyncerAssist.init(A, man.direction, startSlot, lastSlot,
+                                         man.chunkSize, man.getSafeSlot,
+                                         man.peerdasBlockVerifier, 1)
 
 proc newColumnManager*[A, B](
     pool: PeerPool[A, B],
     fuluEpoch: Epoch,
     minEpochsForBlobSidecarsRequests: uint64,
+    direction: ColumnSyncerDirection,
     getLocalHeadSlotCb: GetSlotCallback,
     getLocalWallSlotCb: GetSlotCallback,
     getFinalizedSlotCb: GetSlotCallback,
+    getBackfillSlotCb: GetSlotCallback,
+    getFrontfillSlotCb: GetSlotCallback,
     progressPivot: Slot,
+    peerdasBlockVerifier: PeerdasBlockVerifier,
     shutdownEvent: AsyncEvent,
     maxHeadAge = uint64(SLOTS_PER_EPOCH * 1),
     chunkSize = uint64(SLOTS_PER_EPOCH),
-    flags: set[ColumnSyncerFlag]
+    flags: set[ColumnSyncerFlag] = {},
+    modes: set[ColumnSyncerMode] = {}
 ): ColumnManager[A, B] =
 
-  let (getFirstSlot, getLastSlot, getSafeSlot) =
+  let (getFirstSlot, getLastSlot, getSafeSlot) = case direction
+  of ColumnSyncerDirection.Forward:
     (getLocalHeadSlotCb, getLocalWallSlotCb, getFinalizedSlotCb)
+  of ColumnSyncerDirection.Backward:
+    (getBackfillSlotCb, getFrontfillSlotCb, getBackfillSlotCb)
 
   var res = ColumnManager[A, B](
     pool: pool,
     FULU_FORK_EPOCH: fuluEpoch,
     MIN_EPOCHS_FOR_BLOB_SIDECARS_REQUESTS: minEpochsForBlobSidecarsRequests,
+    getLocalHeadSlot: getLocalHeadSlotCb,
+    getLocalWallSlot: getLocalWallSlotCb,
+    getSafeSlot: getFinalizedSlotCb,
     getFirstSlot: getLocalHeadSlotCb,
     getLastSlot: getLocalWallSlotCb,
-    getSafeSlot: getFinalizedSlotCb,
     progressPivot: progressPivot,
     shutdownEvent: shutdownEvent,
     maxHeadAge: maxHeadAge,
     chunkSize: chunkSize,
-    flags: flags
+    peerdasBlockVerifier: peerdasBlockVerifier,
+    notInSyncEvent: newAsyncEvent(),
+    direction: direction,
+    shutdownEvent: shutdownEvent,
+    flags: flags,
+    modes: modes
   )
   res.initColumnSyncerAssist()
   res
+
+proc fetchBlocksForColumnNavigation[A, B](man: ColumnManager[A, B], peer: A,
+                                            req: ColumnSyncRequest[A]): Future[BeaconBlocksRes]
+                                            {.async: (raises: [CancelledError], raw: true).} =
+  mixin getScore, `==`
+
+  logScope:
+    peer_score = peer.getScore()
+    peer_speed = peer.netKbps()
+    direction = man.direction
+
+  doAssert(not(req.isEmpty()), "Request must not be empty!")
+  debug "Requesting blocks from peer", request = req
+
+  beaconBlocksByRange_v2(peer, req.slot, req.count, 1'u64)
 
 proc shouldGetDataColumns[A, B](
     man: ColumnManager[A, B],
@@ -243,48 +298,6 @@ proc getDataColumnSidecars[A, B](man: ColumnManager[A, B],
   debug "Requesting data column sidecars from peer", request = req
   dataColumnSidecarsByRange(peer, r.slot, r.count, req_cols)
 
-proc columnSyncWorker[A, B](
-    man: ColumnManager[A, B],
-    index: int
-) {.async: (raises: [CancelledError]).} =
-  mixin getKey, getScore, getHeadSlot
-
-  debug "Starting column syncer"
-  if ColumnSyncerFlag.Greedy in man.flags:
-    var usefulPeers, uselessPeers: seq[A]
-
-    try:
-      while true:
-        man.workers[index].status = ColumnSyncerStatus.Sleeping
-        # This event is going to be set until we are not in sync with the network
-        await man.notInSyncEvent.wait()
-        man.workers[index].status = ColumnSyncerStatus.WaitingPeer
-        for peer in availablePeers(man.pool):
-          peer = await man.pool.acquire()
-          if intersection(
-              man.custody_columns_set,
-              resolve_column_sets_from_custody_groups(max(SAMPLES_PER_SLOT.uint64,
-              peer.lookupCgcFromPeer()))):
-            usefulPeers.add(peer)
-          else:
-            uselessPeers.add(peer)
-
-          if peer.lookupCgcFromPeer() == NUMBER_OF_COLUMNS.uint64:
-            break
-        # send back the useless peers back to pool
-        man.pool.release(uselessPeers)
-        uselessPeers.mapIt(nil)
-
-        # send the useful peers to `columnSyncingStrategy`
-        await man.columnSyncStrategyGreedy(usefulPeers, index)
-
-        man.pool.release(usefulPeers)
-        usefulPeers.mapIt(nil)
-    finally:
-      for peer in usefulPeers & uselessPeers:
-        if not isNil(peer):
-          man.pool.release(peer)
-
 proc filterRelevantPeers[A, B](man: ColumnManager[A, B],
                                peers: seq[A],
                                w_index: int):
@@ -342,67 +355,71 @@ proc filterRelevantPeers[A, B](man: ColumnManager[A, B],
 
 func groupAndFillColumnTable*[A, B](
     man: ColumnManager[A, B],
+    blocks: seq[ref ForkedSignedBeaconBlock],
     columns: seq[ref DataColumnSidecar]
 ): Result[void, string] =
+  var grouped = newSeqOfCap[DataColumnSidecars](blocks.len)
+  var column_cursor = 0
+  for block_idx, blck in blocks:
+    withBlck(blck[]):
+      when consensusFork >= ConsensusFork.Fulu:
+        template kzgs: untyped = forkyBlck.message.body.blob_kzg_commitments
+        if kzgs.len == 0:
+          # It means there were no columns published against this block
+          # So we will make a table entry for BlockAndColumnResponse
+          # where columns will be None
+          man.column_syncer_table[forkyBlck.message.slot] =
+            ColumnAndBlockResponse(
+              blk: forkyBlck,
+              columns: Opt.none(DataColumnSidecars))
+          continue
 
-  ## As we are NOT iterating through blocks as well
-  ## grouping columns can be complicated task. To tackle that we use the following
-  ## spec:
-  ## Clients MUST send data column sidecars in consecutive (slot, index) order
-  for i in 0..<columns.len:
-    var start, finish: int = 0
-    var acc: ColumnIndex = 0
-
-    if columns[i][].index == 0.ColumnIndex or columns[i][].index > acc:
-      start = finish
-      finish = i
-      acc = columns[i][].index
-
-      # Extract the block root from signed beacon block header
-      let block_root =
-        hash_tree_root(columns[i][].signed_block_header.message)
-
-      var extracted_columns =
-        newSeqOfCap[seq[ref DataColumnSidecar]](NUMBER_OF_COLUMNS)
-
-      extracted_columns = columns[start..<finish]
-
-      # Make a table entry to ColumnSyncerTable
-      man.column_syncer_table[block_root] = extracted_columns
-
-      return ok()
-
-    else:
-      return err("DataColumnSidecar: sorted (slot, index) order is violated")
+        let header = forkyBlck.toSignedBeaconBlockHeader()
+        for column_idx in 0..<columns.len:
+          let column_sidecar = columns[column_idx]
+          if column_cursor >= columns.len:
+            return err("DataColumnSidecar: Response is too short")
+          if column_sidecar.signed_block_header == header:
+            grouped[block_idx].add(column_sidecar)
+          else:
+            return err("DataColumnSidecar: unexpected signed_block_header")
+          inc column_cursor
+        # Make a table entry for the grouped columns
+        man.column_syncer_table[forkyBlck.message.slot] =
+          ColumnAndBlockResponse(
+            blk: forkyBlck,
+            columns: Opt.some(grouped[block_idx]))
+  ok()
 
 func serializeColumnTable*[A, B](
     man: ColumnManager[A, B]
 ): Result[seq[DataColumnSidecars], string] =
-  # Iterate through the key values in the table
+  # Iterate through the column syncer table
   for k, v in man.column_syncer_table.pairs():
-    # Checking if the table has all required columns
-    if man.column_syncer_table[k].len == NUMBER_OF_COLUMNS:
+    # Checking if the table has all the required columns
+    if v.columns.len >= (NUMBER_OF_COLUMNS div 2) and v.columns.isSome():
       let
         recovered_cps =
-          recover_cells_and_proofs(man.column_syncer_table[k].mapIt(it[]))
-        consistent_block_header =
-          man.column_syncer_table[k][0][].signed_block_header
-        consistent_kzg_commitments =
-          man.column_syncer_table[k][0][].kzg_commitments
-        consistent_inclusion_proof =
-          man.column_syncer_table[k][0][].kzg_commitments_inclusion_proof
+          recover_cells_and_proofs(v.columns.get().mapIt(it[]))
         reconstructed_columns =
-          get_data_column_sidecars(consistent_block_header,
-                                   consistent_inclusion_proof,
-                                   consistent_kzg_commitments,
-                                   recovered_cps.get()).mapIt(newClone it)
+          get_data_column_sidecars(v.blk[], recovered_cps.get()).mapIt(newClone it)
 
-      # Populate that particular entry with reconstructed columns now
-      man.column_syncer_table[k] = reconstructed_columns
+
+      # Populate that particular entry with reconstructed columns
+      man.column_syncer_table[k] =
+        ColumnAndBlockResponse(
+          blk: v.blk,
+          columns: Opt.some(reconstructed_columns))
+
+    elif v.columns.len < (NUMBER_OF_COLUMNS div 2) and v.columns.isSome():
+      return err ("Requisite number of columns not yet reached")
+
+    else:
+      discard
 
   var grouped_serialized_columns: seq[DataColumnSidecars]
   # Iterate once more to serialize the entries
-  for _,v in man.column_syncer_table.pairs():
+  for _, v in man.column_syncer_table.pairs():
     grouped_serialized_columns.add(v)
 
   ok(grouped_serialized_columns)
@@ -463,7 +480,7 @@ func serializeColumnTable*[A, B](
 ##    ..m             |  X  |  X  |  X  |  X  |  X  |  X  |
 ##
 
-proc columnSyncImpartial[A, B](
+proc columnSyncStrategyImpartial[A, B](
     man: ColumnManager[A, B], index: int, peer: A
 ) {.async: (raises: [CancelledError]).} =
   logScope:
@@ -562,6 +579,30 @@ proc columnSyncImpartial[A, B](
         request = req
 
   man.workers[index].status = ColumnSyncerStatus.Downloading
+
+  let blocks = await man.fetchBlocksForColumnNavigation(peer, req)
+  if blocks.isErr():
+    peer.updateScore(PeerScoreNoValues)
+    man.queue.push(req)
+    debug "Failed to receive blocks on request",
+          request = req, err = blocks.error
+    return
+  let blockData = blocks.get().asSeq()
+  debug "Received blocks on request",
+         blocks_count = len(blockData),
+         request = req
+
+  let slots = mapIt(blockData, it[].slot)
+  checkResponse(req, slots).isOkOr:
+    peer.updateScore(PeerScoreBadResponse)
+    man.queue.push(req)
+    warn "Incorrect blocks sequence received",
+          blocks_count = len(blockData),
+          blocks_map = getShortMap(req, blockData),
+          request = req,
+          reason = error
+    return
+
   let serveable_columns =
     resolve_column_list_from_custody_groups(max(SAMPLES_PER_SLOT.uint64,
                                             peer.lookupCgcFromPeer()))
@@ -571,6 +612,7 @@ proc columnSyncImpartial[A, B](
         await man.getDataColumnSidecars(peer, serveable_columns)
       if columns.isErr:
         peer.updateScore(PeerScoreNoValues)
+        man.assist.push(req)
         debug "Failed to receive columns on request",
               request = req, err = columns.error
         return
@@ -581,14 +623,16 @@ proc columnSyncImpartial[A, B](
         let slots = mapIt(columnData, it[].signed_block_header.message.slot)
         checkDataColumnsResponse(req, slots).isOkOr:
           peer.updateScore(PeerScoreBadResponse)
+          man.assist.push(req)
           warn "Incorrect columns sequence received",
                columns_count = len(columnData),
                request = req,
                reason = error
           return
 
-      man.groupAndFillColumnTable(columnData).valueOr:
+      man.groupAndFillColumnTable(blockData, columnData).valueOr:
         peer.updateScore(PeerScoreNoValues)
+        man.assist.push(req)
         info "Received column sequence is inconsistent",
              request = req, msg = error
         return
@@ -599,6 +643,7 @@ proc columnSyncImpartial[A, B](
                request = req, msg = error
       finalColumns.checkDataColumns().isOkOr:
         peer.updateScore(PeerScoreBadResponse)
+        man.assist.push(req)
         warn "Columns verification failed",
              columns_count = len(columnData),
              request = req,
@@ -615,6 +660,20 @@ proc columnSyncImpartial[A, B](
           request = req
     return
 
+  # Scoring will happen in `syncUpdate`
+  man.workers[index].status = ColumnSyncerStatus.Queueing
+
+  let
+    peerFinalized = peer.getFinalizedEpoch().start_slot()
+    lastSlot = req.slot + req.count
+    # The peer claims the block is finalized - our own block processing will
+    # verify this point down the line
+    maybeFinalized = lastSlot < peerFinalized
+
+  await man.assist.push(
+    req, blockData, columnData,
+    maybeFinalized, proc() =
+    man.workers[index].status = ColumnSyncerStatus.Processing)
 
 proc columnSyncStrategyGreedy[A, B](
     man: ColumnManager[A, B],
@@ -675,6 +734,20 @@ proc columnSyncStrategyGreedy[A, B](
           request = req
 
   man.workers[w_index].status = ColumnSyncerStatus.Downloading
+
+  let blocks = await man.fetchBlocksForColumnNavigation(requested_peer, req)
+  if blocks.isErr():
+    requested_peer.updateScore(PeerScoreNoValues)
+    man.assist.push(req)
+    debug "Failed to receive blocks on request",
+          request = req, err = blocks.error
+    return
+
+  let blockData = blocks.get().asSeq()
+  debug "Received blocks on request",
+        blocks_count = len(blockData),
+        request = req
+
   debug "Requesting common columns from the best peer"
   let columnData =
     if shouldGetDataColumns:
@@ -682,6 +755,7 @@ proc columnSyncStrategyGreedy[A, B](
         await man.getDataColumnSidecars(requested_peer, intersectionColumns)
       if columns.isErr():
         requested_peer.updateScore(PeerScoreNoValues)
+        man.assist.push(req)
         debug "Failed to receive columns on request",
               request = req, err = columns.error
         return
@@ -694,14 +768,16 @@ proc columnSyncStrategyGreedy[A, B](
         let slots = mapIt(columnData, it[].signed_block_header.message.slot)
         checkDataColumnsResponse(req, slots).isOkOr:
           requested_peer.updateScore(PeerScoreBadResponse)
+          man.assist.push(req)
           warn "Incorrect columns sequence received",
                 columns_count = len(columnData),
                 request = req,
                 reason = error
           return
 
-      man.groupAndFillColumnTable(columnData).valueOr:
+      man.groupAndFillColumnTable(blockData, columnData).valueOr:
         requested_peer.updateScore(PeerScoreNoValues)
+        man.assist.push(req)
         info "Received columns sequence is inconsistent",
               request = req, msg = error
         return
@@ -712,6 +788,7 @@ proc columnSyncStrategyGreedy[A, B](
                 request = req, msg = error
       finalColumns.checkDataColumns().isOkOr:
         requested_peer.updateScore(PeerScoreBadResponse)
+        man.assist.push(req)
         warn "Columns verification failed",
               columns_count = len(columnData),
               request = req,
@@ -727,8 +804,364 @@ proc columnSyncStrategyGreedy[A, B](
           request = req
     return
 
-  # Scoring will happen in `syncUpdate`.
+  # Scoring will happen in `syncUpdate`
   man.workers[w_index].status = ColumnSyncerStatus.Queueing
-  let
-    peerFinalized
 
+  let
+    peerFinalized = requested_peer.getFinalizedEpoch().start_slot()
+    lastSlot = req.slot + req.count
+    # The peer claims the block is finalized - our own block processing will
+    # verify this point down the line
+    maybeFinalized = lastSlot < peerFinalized
+
+  await man.assist.push(
+    req, blockData, columnData,
+    maybeFinalized, proc() =
+    man.workers[index].status = ColumnSyncerStatus.Processing)
+
+proc columnSyncWorkerGreedy[A, B](
+    man: ColumnManager[A, B],
+    index: int
+) {.async: (raises: [CancelledError]).} =
+  mixin getKey, getScore, getHeadSlot
+
+  debug "Starting column syncer in `Greedy` mode"
+  var usefulPeers, uselessPeers: seq[A]
+
+  try:
+    while true:
+      man.workers[index].status = ColumnSyncerStatus.Sleeping
+      # This event is going to be set until we are not in sync with the network
+      await man.notInSyncEvent.wait()
+      man.workers[index].status = ColumnSyncerStatus.WaitingPeer
+      for peer in availablePeers(man.pool):
+        peer = await man.pool.acquire()
+        if intersection(
+            man.custody_columns_set,
+            resolve_column_sets_from_custody_groups(max(SAMPLES_PER_SLOT.uint64,
+            peer.lookupCgcFromPeer()))):
+          usefulPeers.add(peer)
+        else:
+          uselessPeers.add(peer)
+
+        if peer.lookupCgcFromPeer() == NUMBER_OF_COLUMNS.uint64:
+          break
+      # send back the useless peers back to pool
+      man.pool.release(uselessPeers)
+      uselessPeers.mapIt(nil)
+
+      # send the useful peers to `columnSyncingStrategy`
+      await man.columnSyncStrategyGreedy(usefulPeers, index)
+
+      man.pool.release(usefulPeers)
+      usefulPeers.mapIt(nil)
+  finally:
+    for peer in usefulPeers & uselessPeers:
+      if not isNil(peer):
+        man.pool.release(peer)
+
+proc columnSyncWorkerImparital[A, B](
+    man: ColumnManager[A, B],
+    index: int
+) {.async: (raises: [CancelledError]).} =
+  mixin getKey, getScore, getHeadSlot
+
+  debug "Starting column syncer in `Impartial` mode"
+  var peer: A = nil
+  try:
+    while true:
+      man.workers[index].status = ColumnSyncerStatus.Sleeping
+      # This event if going to be set until we are not in sync with the network
+      await man.notInSyncEvent.wait()
+      man.workers[index].status = ColumnSyncerStatus.WaitingPeer
+      peer = await man.pool.acquire()
+      await man.columnSyncStrategyImpartial(index, peer)
+      man.pool.release(peer)
+      peer = nil
+  finally:
+    if not(isNil(peer)):
+      man.pool.release(peer)
+
+  debug "Column syncer has stopped."
+
+proc getColumnSyncerStats[A, B](man: ColumnManager[A, B]):
+                                tuple[map: string,
+                                      sleeping: int,
+                                      waiting: int,
+                                      pending: int] =
+  var map = newString(len(man.workers))
+  var sleeping, waiting, pending: int
+  for i in 0..<len(man.workers):
+    var ch: char
+    case man.workers[i].status
+      of ColumnSyncerStatus.Sleeping:
+        ch = 's'
+        inc(sleeping)
+      of ColumnSyncerStatus.WaitingPeer:
+        ch = 'w'
+        inc(waiting)
+      of ColumnSyncerStatus.UpdatingStatus:
+        ch = 'U'
+        inc(pending)
+      of ColumnSyncerStatus.Requesting:
+        ch = 'R'
+        inc(pending)
+      of ColumnSyncerStatus.Downloading:
+        ch = 'D'
+        inc(pending)
+      of ColumnSyncerStatus.Queueing:
+        ch = 'Q'
+        inc(pending)
+      of ColumnSyncerStatus.Processing:
+        ch = 'P'
+        inc(pending)
+    map[i] = ch
+  (map, sleeping, waiting, pending)
+
+proc startColumnSyncWorkers[A, B](man: ColumnManager[A, B]) =
+  # Starting all the column sync workers
+  if ColumnSyncerFlag.Greedy in man.flags:
+    for i in 0..<len(man.workers):
+      man.workers[i].future =
+        columnSyncWorkerGreedy[A, B](man, i)
+  if ColumnSyncerFlag.Impartial in man.flags:
+    for i in 0..<len(man.workers):
+      man.workers[i].future =
+        columnSyncWorkerImparital[A, B](man, i)
+
+proc stopColumnSyncWorkers[A, B](man: ColumnManager[A, B]) =
+  # Cancelling all the column sync workers
+  let pending = man.workers.mapIt(it.future.cancelAndWait())
+  await noCancel allFutures(pending)
+
+proc timeLeftForColumnSyncer*(d: Duration): string =
+  if d == InfiniteDuration:
+    "--h--m"
+  else:
+    var v = d
+    var res = ""
+    let ndays = chronos.days(v)
+    if ndays > 0:
+      res = res & (if ndays < 10: "0" & $ndays else: $ndays) & "d"
+      v = v - chronos.days(ndays)
+
+    let nhours = chronos.hours(v)
+    if nhours > 0:
+      res = res & (if nhours < 10: "0" & $nhours else: $nhours) & "h"
+      v = v - chronos.hours(nhours)
+    else:
+      res =  res & "00h"
+
+    let nmins = chronos.minutes(v)
+    if nmins > 0:
+      res = res & (if nmins < 10: "0" & $nmins else: $nmins) & "m"
+      v = v - chronos.minutes(nmins)
+    else:
+      res = res & "00m"
+    res
+
+proc columnSyncClose[A, B](
+    man: ColumnManager[A, B],
+    speedTaskFut: Future[void]
+) {.async: (raises: []).} =
+  var pending: seq[FutureBase]
+  if not(speedTaskFut.finished()):
+    pending.add(speedTaskFut.cancelAndWait())
+  for worker in man.workers:
+    doAssert(worker.status in {Sleeping, WaitingPeer})
+    pending.add(worker.future.cancelAndWait())
+  await noCancel allFutures(pending)
+
+proc columnSyncLoop[A, B](
+    man: ColumnManager[A, B]
+) {.async: (raises: []).} =
+
+  logScope:
+    direction = man.direction
+
+  mixin getKey, getScore
+  var pauseTime = 0
+
+  man.startColumnSyncWorkers()
+
+  debug "Column sync loop has started"
+
+  proc averageSpeedTask() {.async: (raises: [CancelledError]).} =
+    while true:
+      # Reset column sync speeds between each loss-of-sync event
+      man.avgSyncSpeed = 0
+      man.insSyncSpeed = 0
+
+      await man.notInSyncEvent.wait()
+
+      # Give the node time to connect to peers and get the column sync started
+      await sleepAsync(seconds(SECONDS_PER_SLOT.int64))
+
+      var
+        stamp = ColumnSyncTimestamp.now(man.assist.progress())
+        syncCount = 0
+
+      while man.inProgress:
+        await sleepAsync(seconds(SECONDS_PER_SLOT.int64))
+
+        let
+          newStamp = ColumnSyncTimestamp.now(man.assist.progress())
+          slotsPerSec = speed(stamp, newStamp)
+
+        syncCount += 1
+
+        man.insSyncSpeed = slotsPerSec
+        man.avgSyncSpeed =
+          man.avgSyncSpeed + (slotsPerSec - man.avgSyncSpeed) / float(syncCount)
+
+        stamp = newStamp
+
+  let averageSpeedTaskFut = averageSpeedTask()
+
+  while true:
+    let wallSlot = man.getLocalWallSlot()
+    let headSlot = man.getLocalHeadSlot()
+
+    let (map, sleeping, waiting, pending) = man.getWorkersStats()
+
+    case man.assist.direction
+    of ColumnSyncerDirection.Forward:
+      debug "Current column syncing state", workers_map = map,
+            sleeping_workers_count = sleeping,
+            waiting_workers_count = waiting,
+            pending_workers_count = pending,
+            wall_head_slot = wallSlot,
+            local_head_slot = headSlot,
+            pause_time = $chronos.seconds(pauseTime),
+            avg_sync_speed = man.avgSyncSpeed.formatBiggestFloat(ffDecimal, 4),
+            ins_sync_speed = man.insSyncSpeed.formatBiggestFloat(ffDecimal, 4)
+
+    let
+      pivot = man.progressPivot
+      progress =
+        case man.assist.direction
+        of ColumnSyncerDirection.Forward:
+          if man.assist.outSlot >= pivot:
+            man.assist.outSlot - pivot
+          else:
+            0'u64
+        of ColumnSyncerDirection.Backward:
+          if pivot >= man.assist.direction:
+            pivot - man.assist.outSlot
+          else:
+            0'u64
+      total =
+        case man.assist.direction
+        of ColumnSyncerDirection.Forward:
+          if man.assist.finalSlot >= pivot:
+            man.assist.finalSlot + 1'u64 - pivot
+          else:
+            0'u64
+        of ColumnSyncerDirection.Backward:
+          if pivot >= man.assist.finalSlot:
+            pivot + 1'u64 - man.assist.finalSlot
+          else:
+            0'u64
+      remaining = total - progress
+      done =
+        if total > 0:
+          progress.float / total.float
+        else:
+          1.0
+      timeleft =
+        if man.avgSyncSpeed >= 0.001:
+          Duration.fromFloatSeconds(remaining.float / man.avgSyncSpeed)
+        else:
+          InfiniteDuration
+      currentSlot = Base10.toString(
+        if man.assist.direction == ColumnSyncerDirection.Forward:
+          max(uint64(man.assist.outSlot), 1'u64) - 1'u64
+        else:
+          uint64(man.assist.outSlot) + 1'u64
+      )
+
+    # Update status string
+    man.syncStatus = timeleft.timeLeftForColumnSyncer() & " (" &
+                     (done * 100).formatBiggestFloat(ffDecimal, 2) & "%) " &
+                     man.avgSyncSpeed.formatBiggestFloat(ffDecimal, 4) &
+                     "slots/s (" & map & ":" & currentSlot & ")"
+
+    if man.remainingSlots() <= man.maxHeadAge:
+      man.notInSyncEvent.clear()
+      # We are marking SyncManager as not working only when we are in sync and
+      # all sync workers are in `Sleeping` state.
+      if pending > 0:
+        debug "Synchronization loop waits for workers completion",
+              wall_head_slot = wallSlot, local_head_slot = headSlot,
+              difference = (wallSlot - headSlot), max_head_age = man.maxHeadAge,
+              sleeping_workers_count = sleeping,
+              waiting_workers_count = waiting, pending_workers_count = pending
+        # We already synced, so we should reset all the pending workers from
+        # any state they have.
+        man.assist.clearAndWakeup()
+        man.inProgress = true
+      else:
+        case man.direction
+        of ColumnSyncerDirection.Forward:
+          if man.inProgress:
+            if ColumnSyncerMode.NoMonitor in man.modes:
+              await man.columnSyncClose(averageSpeedTaskFut)
+              man.inProgress = false
+              debug "Forward column sync process finished, exiting",
+                    wall_head_slot = wallSlot, local_head_slot = headSlot,
+                    difference = (wallSlot - headSlot),
+                    max_head_age = man.maxHeadAge
+              break
+            else:
+              man.inProgress = false
+              debug "Forward column sync process finished, sleeping",
+                    wall_head_slot = wallSlot, local_head_slot = headSlot,
+                    difference = (wallSlot - headSlot),
+                    max_head_age = man.maxHeadAge
+          else:
+            debug "Column sync loop sleeping", wall_head_slot = wallSlot,
+                  local_head_slot = headSlot,
+                  difference = (wallSlot - headSlot),
+                  max_head_Age = man.maxHeadAge
+        of ColumnSyncerDirection.Backward:
+          await man.columnSyncClose(averageSpeedTaskFut)
+          man.inProgress = false
+          debug "Backward column sync process finished, exiting",
+                wall_head_slot = wallSlot, local_head_slot = headSlot,
+                backfill_slot = man.getLastSlot(),
+                max_head_Age = man.maxHeadAge
+          break
+    else:
+      if not(man.notInSyncEvent.isSet()):
+        # We get here only if we lost sync for more than `maxHeadAge` period.
+        if pending == 0:
+          man.initColumnSyncerAssist()
+          man.notInSyncEvent.fire()
+          man.inProgress = true
+          debug "Node lost column sync for more than preset period",
+                period = man.maxHeadAge, wall_head_slot = wallSlot,
+                local_head_slot = headSlot,
+                missing_slots = man.remainingSlots(),
+                progress = float(man.assist.progress())
+        else:
+          man.notInSyncEvent.fire()
+          man.inProgress = true
+
+    await sleepAsync(chronos.seconds(2))
+
+proc start*[A, B](man: ColumnManager[A, B]) =
+  man.columnSyncerFut = man.columnSyncLoop()
+
+proc updatePivot*[A, B](man: ColumnManager[A, B], pivot: Slot) =
+  man.progressPivot = pivot
+
+proc join*[A, B](
+    man: ColumnManager[A, B]
+): Future[void] {.async: (raw: true, raises: [CancelledError]).} =
+  if man.columnSyncFut.isNil():
+    let retFuture =
+      Future[void].Raising([CancelledError]).init("nimbus-eth2.join()")
+    retFuture.complete()
+    retFuture
+  else:
+    man.columnSyncFut.join()

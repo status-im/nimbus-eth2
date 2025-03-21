@@ -179,20 +179,12 @@ proc init*[T](t1: typedesc[ColumnSyncerAssist],
   )
 
 proc `<`*[T](a, b: ColumnSyncRequest[T]): bool =
-  doAssert(a.kind == b.kind)
-  case a.kind
+  doAssert(a.direction == b.direction)
+  case a.direction
   of ColumnSyncerDirection.Forward:
     a.slot < b.slot
   of ColumnSyncerDirection.Backward:
     a.slot > b.slot
-
-proc `<`*[T](a, b: ColumnSyncRequest[T]): bool =
-  doAssert(a.request.kind == b.request.kind)
-  case a.request.kind
-  of ColumnSyncerDirection.Forward:
-    a.request.slot < b.request.slot
-  of ColumnSyncerDirection.Backward:
-    a.request.slot > b.request.slot
 
 proc `==`*[T](a, b: ColumnSyncRequest[T]): bool =
   (a.slot == b.slot) and (a.count == b.count)
@@ -404,7 +396,7 @@ proc getRewindPoint*[T](cas: ColumnSyncerAssist[T], failSlot: Slot,
       # Calculate the rewind epoch, which will be equal to last rewind point or
       # finalizedEpoch
       let rewindEpoch =
-        if sq.rewind.isNone():
+        if cas.rewind.isNone():
           finalizedEpoch
         else:
           epoch(cas.rewind.get().failSlot) - cas.rewind.get().epochCount
@@ -612,7 +604,7 @@ proc push*[T](cas: ColumnSyncerAssist[T], sr: ColumnSyncRequest[T],
         cas.gapList.reset()
       else:
         # Response was empty
-        item.request.item.updateStats(SyncResponseKind.Empty. 1'u64)
+        item.request.item.updateStats(SyncResponseKind.Empty, 1'u64)
 
       cas.processGap(item)
 

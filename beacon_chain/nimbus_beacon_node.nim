@@ -22,7 +22,9 @@ import
   ./spec/[
     deposit_snapshots, engine_authentication, weak_subjectivity,
     peerdas_helpers],
-  ./sync/[sync_protocol, light_client_protocol, sync_overseer],
+  ./sync/[
+    column_syncer, sync_protocol, light_client_protocol,
+    sync_overseer],
   ./validators/[keystore_management, beacon_validators],
   "."/[
     beacon_node, beacon_node_light_client, deposits,
@@ -445,7 +447,16 @@ proc initFullNode(
       config.dumpEnabled, config.dumpDirInvalid, config.dumpDirIncoming,
       batchVerifier, consensusManager, node.validatorMonitor,
       blobQuarantine, dataColumnQuarantine, getBeaconTime)
-
+    peerdasBlockVerifier = proc(signedBlock: ForkedSignedBeaconBlock,
+                                columns: Opt[DataColumnSidecars], maybeFinalized: bool):
+        Future[Result[void, VerifierError]] {.async: (raises: [CancelledError], raw: true).} =
+      # The design with a callback for block verification is unusual compared
+      # to the rest of the application, but fits with the general approach
+      # taken in the sync/request managers - this is an architectural compromise
+      # that should probably be reimagined more holistically in the future.
+      blockProcessor[].addBlock(
+        MsgSource.gossip, signedBlock, Opt.none(BlobSidecars), columns,
+        maybeFinalized = maybeFinalized)
     blockVerifier = proc(signedBlock: ForkedSignedBeaconBlock,
                          blobs: Opt[BlobSidecars], maybeFinalized: bool):
         Future[Result[void, VerifierError]] {.async: (raises: [CancelledError], raw: true).} =
@@ -536,6 +547,22 @@ proc initFullNode(
         {SyncManagerFlag.NoGenesisSync}
       else:
         {}
+    columnSyncerFlags =
+      if node.config.columnSyncerMode: == ColumnSyncerMode.Impartial:
+        {ColumnSyncerFlag.Impartial}
+      else:
+        {ColumnSyncerFlag.Greedy}
+
+    columnManager = newColumnManager[Peer, PeerId](
+      node.network.peerPool, dag.cfg.FULU_FORK_EPOCH,
+      dag.cfg.MIN_EPOCHS_FOR_BLOB_SIDECARS_REQUESTS,
+      ColumnSyncerDirection.Forward, getLocalHeadSlot,
+      getLocalWallSlot, getFirstSlotAtFinalizedEpoch, getBackfillSlot,
+      getFrontfillSlot, dag.tail.slot, peerdasBlockVerifier,
+      shutdownEvent = node.shutdownEvent,
+      flags = columnSyncerFlags,
+      modes =
+    )
     syncManager = newSyncManager[Peer, PeerId](
       node.network.peerPool,
       dag.cfg.DENEB_FORK_EPOCH,
