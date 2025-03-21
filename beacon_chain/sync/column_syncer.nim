@@ -41,22 +41,6 @@ type
     blk*: ref ForkedSignedBeaconBlock
     columns*: Opt[DataColumnSidecars]
 
-  ColumnSyncerTable* = object
-    column_table*: OrderedTable[(Eth2Digest, Slot), DataColumnSidecars]
-      ## An in-memory table to store DataColumnSidecars against their Slot
-      ## and extracted block root, the reason for having block root as a
-      ## part of the key is to effectively repairing strategies if the
-      ## remote peers reply with just a part of columns than what they
-      ## were supposed to, additionally, this entire loop is independent
-      ## to block/blobs sync hence, this is the only plausible way for
-      ## us store columns against a block.
-      ##
-      ## Instead of checking whether block was Proposed or Orphaned or
-      ## any similar anomaly, one can simply lookup the table and infer
-      ## either there were no columns against that block, or there was no
-      ## block that was mutually agreed as valid, in any case we do not
-      ## have columns for that slot.
-
   ColumnSyncerFlag* {.pure.} = enum
     Greedy, Impartial
 
@@ -73,20 +57,6 @@ type
     custody_columns_set*: HashSet[ColumnIndex]
     custody_columns_list*: List[ColumnIndex, NUMBER_OF_COLUMNS]
     column_syncer_table*: OrderedTable[Slot, ColumnAndBlockResponse]
-      ## An in-memory table to store DataColumnSidecars against their
-      ## extracted block root, the reason for having block root as a
-      ## part of the key is to effectively repairing strategies if the
-      ## remote peers reply with just a part of columns than what they
-      ## were supposed to, additionally, this entire loop is independent
-      ## to block/blobs sync hence, this is the only plausible way for
-      ## us store columns against a block.
-      ##
-      ## Instead of checking whether block was Proposed or Orphaned or
-      ## any similar anomaly, one can simply lookup the table and infer
-      ## either there were no columns against that block, or there was no
-      ## block that was mutually agreed as valid, in any case we do not
-      ## have columns for that slot.
-
     FULU_FORK_EPOCH: Epoch
     MIN_EPOCHS_FOR_BLOB_SIDECARS_REQUESTS: uint64
     responseTimeout: chronos.Duration
@@ -144,7 +114,7 @@ proc initColumnSyncerAssist[A, B](man: ColumnManager[A, B]) =
   of ColumnSyncerDirection.Forward:
     man.assist = ColumnSyncerAssist.init(A, man.getFirstSlot(),
                                         man.getLastSlot(), man.chunkSize,
-                                        man.getSafeSlot(), 1)
+                                        man.getSafeSlot(), man.peerdasBlockVerifier1)
   of ColumnSyncerDirection.Backward:
     let
       firstSlot = man.getFirstSlot()
