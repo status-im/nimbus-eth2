@@ -133,7 +133,7 @@ type
     Light = "light",
     Lenient = "lenient"
 
-  ColumnSyncerMode* {.pure.} = enum
+  ColumnSyncerStrategy* {.pure.} = enum
     Greedy =  "greedy"
     Impartial = "impartial"
 
@@ -563,12 +563,12 @@ type
         desc: "Maximum number of sync committee periods to retain light client data"
         name: "light-client-data-max-periods" .}: Option[uint64]
 
-      columnSyncerMode* {.
+      columnSyncerStrategy* {.
         desc: "Choose how to sync columns, " &
               " 1) Greedy would make the BN actively filter peers based on higher column custody. " &
               " 2) Impartial would rely on every peer for columns till requisite column count is reached. "
-        defaultValue: ColumnSyncerMode.Impartial
-        name: "debug-column-syncer".}: ColumnSyncerMode
+        defaultValue: ColumnSyncerStrategy.Impartial
+        name: "debug-column-syncer".}: ColumnSyncerStrategy
 
       longRangeSync* {.
         hidden

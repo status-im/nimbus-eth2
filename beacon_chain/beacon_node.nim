@@ -28,7 +28,7 @@ import
   ./spec/datatypes/[base, altair],
   ./spec/eth2_apis/dynamic_fee_recipients,
   ./spec/signatures_batch,
-  ./sync/[sync_manager, request_manager, sync_types],
+  ./sync/[sync_manager, request_manager, sync_types, column_syncer],
   ./validators/[
     action_tracker, message_router, validator_monitor, validator_pool,
     keystore_management],

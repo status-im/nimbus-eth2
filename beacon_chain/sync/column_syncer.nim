@@ -208,7 +208,6 @@ proc newColumnManager*[A, B](
     peerdasBlockVerifier: peerdasBlockVerifier,
     notInSyncEvent: newAsyncEvent(),
     direction: direction,
-    shutdownEvent: shutdownEvent,
     flags: flags,
     modes: modes
   )

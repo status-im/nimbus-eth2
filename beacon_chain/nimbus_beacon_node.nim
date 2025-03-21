@@ -548,7 +548,7 @@ proc initFullNode(
       else:
         {}
     columnSyncerFlags =
-      if node.config.columnSyncerMode: == ColumnSyncerMode.Impartial:
+      if node.config.columnSyncerStrategy == ColumnSyncerStrategy.Impartial:
         {ColumnSyncerFlag.Impartial}
       else:
         {ColumnSyncerFlag.Greedy}

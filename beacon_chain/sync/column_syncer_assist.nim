@@ -55,20 +55,6 @@ type
     chunkSize*: uint64
     queueSize*: int
     counter*: uint64
-    received_table*: OrderedTable[(Eth2Digest, Slot), DataColumnSidecars]
-      ## An in-memory table to store DataColumnSidecars against their Slot
-      ## and extracted block root, the reason for having block root as a
-      ## part of the key is to effectively repairing strategies if the
-      ## remote peers reply with just a part of columns than what they
-      ## were supposed to, additionally, this entire loop is independent
-      ## to block/blobs sync hence, this is the only plausible way for
-      ## us store columns against a block.
-      ##
-      ## Instead of checking whether block was Proposed or Orphaned or
-      ## any similar situation, one can simply lookup the table and infer
-      ## either there were no columns against that block, or there was no
-      ## block that was mutually agreed as valid, in any case we do not
-      ## have columns for that slot.
     pending*: Table[uint64, ColumnSyncRequest[T]]
     gapList*: seq[GapItem[T]]
     waiters*: seq[ColumnSyncWaiter]
@@ -171,7 +157,6 @@ proc init*[T](t1: typedesc[ColumnSyncerAssist],
     queueSize: syncQueueSize,
     getSafeSlot: getSafeSlotCb,
     counter: 1'u64,
-    received_table: initTable[(Eth2Digest, Slot), DataColumnSidecars](),
     pending: initTable[uint64, ColumnSyncRequest[T]](),
     inpSlot: start,
     outSlot: start,
