@@ -69,10 +69,6 @@ type
 
   ColumnManager*[A, B] = ref object
     pool: PeerPool[A, B]
-    FULU_FORK_EPOCH: Epoch
-    MIN_EPOCHS_FOR_BLOB_SIDECARS_REQUESTS: uint64
-    responseTimeout: chronos.Duration
-    maxHeadAge: uint64
     amIsupernode*: bool
     custody_columns_set*: HashSet[ColumnIndex]
     custody_columns_list*: List[ColumnIndex, NUMBER_OF_COLUMNS]
@@ -91,6 +87,10 @@ type
       ## block that was mutually agreed as valid, in any case we do not
       ## have columns for that slot.
 
+    FULU_FORK_EPOCH: Epoch
+    MIN_EPOCHS_FOR_BLOB_SIDECARS_REQUESTS: uint64
+    responseTimeout: chronos.Duration
+    maxHeadAge: uint64
     assist*: ColumnSyncerAssist[A]
     getLocalHeadSlot: GetSlotCallback
     getLocalWallSlot: GetSlotCallback
@@ -161,6 +161,10 @@ proc initColumnSyncerAssist[A, B](man: ColumnManager[A, B]) =
 
 proc newColumnManager*[A, B](
     pool: PeerPool[A, B],
+    amIsupernode: bool,
+    custody_columns_set: HashSet[ColumnIndex],
+    custody_columns_list: List[ColumnIndex, NUMBER_OF_COLUMNS],
+    column_syncer_table: OrderedTable[Slot, ColumnAndBlockResponse],
     fuluEpoch: Epoch,
     minEpochsForBlobSidecarsRequests: uint64,
     direction: ColumnSyncerDirection,
@@ -186,6 +190,10 @@ proc newColumnManager*[A, B](
 
   var res = ColumnManager[A, B](
     pool: pool,
+    amIsupernode: amIsupernode,
+    custody_columns_set: custody_columns_set,
+    custody_columns_list: custody_columns_list,
+    column_syncer_table: initOrderedTable[Slot, ColumnAndBlockResponse](),
     FULU_FORK_EPOCH: fuluEpoch,
     MIN_EPOCHS_FOR_BLOB_SIDECARS_REQUESTS: minEpochsForBlobSidecarsRequests,
     getLocalHeadSlot: getLocalHeadSlotCb,
@@ -650,6 +658,8 @@ proc columnSyncStrategyImpartial[A, B](
              reason = error
         return
 
+      # Reset the column syncer table for the next batch
+      man.column_syncer_table = initOrderedTable[Slot, ColumnAndBlockResponse]()
       Opt.some(finalColumns)
     else:
       Opt.none(seq[DataColumnSidecars])
@@ -794,6 +804,8 @@ proc columnSyncStrategyGreedy[A, B](
               request = req,
               reason = error
         return
+      # Reset the column syncer table for the next batch
+      man.column_syncer_table = initOrderedTable[Slot, ColumnAndBlockResponse]()
       Opt.some(finalColumns)
     else:
       Opt.none(seq[DataColumnSidecars])

@@ -554,15 +554,15 @@ proc initFullNode(
         {ColumnSyncerFlag.Greedy}
 
     columnManager = newColumnManager[Peer, PeerId](
-      node.network.peerPool, dag.cfg.FULU_FORK_EPOCH,
+      node.network.peerPool, supernode, custody_columns_set,
+      custody_columns_list, dag.cfg.FULU_FORK_EPOCH,
       dag.cfg.MIN_EPOCHS_FOR_BLOB_SIDECARS_REQUESTS,
       ColumnSyncerDirection.Forward, getLocalHeadSlot,
       getLocalWallSlot, getFirstSlotAtFinalizedEpoch, getBackfillSlot,
       getFrontfillSlot, dag.tail.slot, peerdasBlockVerifier,
       shutdownEvent = node.shutdownEvent,
       flags = columnSyncerFlags,
-      modes =
-    )
+      modes = syncManagerFlag)
     syncManager = newSyncManager[Peer, PeerId](
       node.network.peerPool,
       dag.cfg.DENEB_FORK_EPOCH,
@@ -672,6 +672,7 @@ proc initFullNode(
   node.blockProcessor = blockProcessor
   node.consensusManager = consensusManager
   node.requestManager = requestManager
+  node.columnManager = columnManager
   node.syncManager = syncManager
   node.backfiller = backfiller
   node.untrustedManager = untrustedManager

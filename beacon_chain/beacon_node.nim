@@ -96,6 +96,7 @@ type
     vcProcess*: Process
     requestManager*: RequestManager
     syncManager*: SyncManager[Peer, PeerId]
+    columnManager*: ColumnManager[Peer, PeerId]
     backfiller*: SyncManager[Peer, PeerId]
     untrustedManager*: SyncManager[Peer, PeerId]
     syncOverseer*: SyncOverseerRef
