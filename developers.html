@@ -1115,27 +1115,6 @@
   
   
     <li class="md-nav__item">
-      <a href="goerli-eth.html" class="md-nav__link">
-        
-  
-  <span class="md-ellipsis">
-    Obtain Goerli ETH
-  </span>
-  
-
-      </a>
-    </li>
-  
-
-              
-            
-              
-                
-  
-  
-  
-  
-    <li class="md-nav__item">
       <a href="beacon-node-systemd.html" class="md-nav__link">
         
   
@@ -1283,11 +1262,11 @@
   
   
     <li class="md-nav__item">
-      <a href="holesky.html" class="md-nav__link">
+      <a href="hoodi.html" class="md-nav__link">
         
   
   <span class="md-ellipsis">
-    Holešky testnet
+    Hoodi testnet
   </span>
   
 
@@ -2202,15 +2181,6 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#multi-client-interop-scripts" class="md-nav__link">
-    <span class="md-ellipsis">
-      Multi-client interop scripts
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
   <a href="#stress-testing-the-client-by-limiting-the-cpu-power" class="md-nav__link">
     <span class="md-ellipsis">
       Stress-testing the client by limiting the CPU power
@@ -2561,15 +2531,6 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#multi-client-interop-scripts" class="md-nav__link">
-    <span class="md-ellipsis">
-      Multi-client interop scripts
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
   <a href="#stress-testing-the-client-by-limiting-the-cpu-power" class="md-nav__link">
     <span class="md-ellipsis">
       Stress-testing the client by limiting the CPU power
@@ -2635,7 +2596,6 @@
 <h2 id="nim-programming-language">Nim programming language</h2>
 <p>Nimbus is built in the <a href="https://nim-lang.org">Nim language</a>.
 The compiler is automatically installed when building the project for the first time.</p>
-<p>More information — in particular security-related information about the language — can be found in the <a href="https://nimbus.guide/auditors-book/">Auditor Handbook</a>.</p>
 <h2 id="code-style">Code style</h2>
 <p>The code follows the <a href="https://status-im.github.io/nim-style-guide/">Status Nim Style Guide</a>.</p>
 <h2 id="branch-lifecycle">Branch lifecycle</h2>
@@ -2645,13 +2605,13 @@ The compiler is automatically installed when building the project for the first 
 <ul>
 <li>Features and bugfixes are generally pushed to individual branches, each with their own pull request against the <code>unstable</code> branch.</li>
 <li>Once the branch has been reviewed and passed CI, the developer or reviewer merges the branch to <code>unstable</code>.</li>
-<li>The <code>unstable</code> branch is regularly deployed to the Nimbus Prater fleet where additional testing happens.</li>
+<li>The <code>unstable</code> branch is regularly deployed to the Nimbus Hoodi fleet where additional testing happens.</li>
 </ul>
 <h3 id="testing">Testing</h3>
 <p>The <code>testing</code> branch contains features and bugfixes that have gone through CI and initial testing on the <code>unstable</code> branch and are ready to be included in the next release.</p>
 <ul>
 <li>After testing a bugfix or feature on <code>unstable</code>, the features and fixes that are planned for the next release get merged to the <code>testing</code> branch either by the release manager or team members.</li>
-<li>The <code>testing</code> branch is regularly deployed to the Nimbus prater fleet as well as a smaller mainnet fleet.</li>
+<li>The <code>testing</code> branch is regularly deployed to the Nimbus Hoodi fleet as well as a smaller mainnet fleet.</li>
 <li>The branch should remain release-ready at most times.</li>
 </ul>
 <h3 id="stable">Stable</h3>
@@ -2765,11 +2725,8 @@ This helps ensure that the correct version of Nim is used and that all dependenc
 </code></pre></div></p>
 </li>
 </ul>
-<h2 id="multi-client-interop-scripts">Multi-client interop scripts</h2>
-<p><a href="https://github.com/eth2-clients/multinet">This repository</a> contains a set of scripts used by the client implementation teams to test interop between the clients (in certain simplified scenarios).
-It mostly helps us find and debug issues.</p>
 <h2 id="stress-testing-the-client-by-limiting-the-cpu-power">Stress-testing the client by limiting the CPU power</h2>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-18-1" name="__codelineno-18-1" href="#__codelineno-18-1"></a>make<span class="w"> </span>prater<span class="w"> </span><span class="nv">CPU_LIMIT</span><span class="o">=</span><span class="m">20</span>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-18-1" name="__codelineno-18-1" href="#__codelineno-18-1"></a>make<span class="w"> </span>sepolia<span class="w"> </span><span class="nv">CPU_LIMIT</span><span class="o">=</span><span class="m">20</span>
 </code></pre></div>
 <p>The limiting is provided by the <code>cpulimit</code> utility, available on Linux and macOS.
 The specified value is a percentage of a single CPU core.

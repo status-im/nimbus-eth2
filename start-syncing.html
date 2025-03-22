@@ -1214,27 +1214,6 @@
   
   
     <li class="md-nav__item">
-      <a href="goerli-eth.html" class="md-nav__link">
-        
-  
-  <span class="md-ellipsis">
-    Obtain Goerli ETH
-  </span>
-  
-
-      </a>
-    </li>
-  
-
-              
-            
-              
-                
-  
-  
-  
-  
-    <li class="md-nav__item">
       <a href="beacon-node-systemd.html" class="md-nav__link">
         
   
@@ -1382,11 +1361,11 @@
   
   
     <li class="md-nav__item">
-      <a href="holesky.html" class="md-nav__link">
+      <a href="hoodi.html" class="md-nav__link">
         
   
   <span class="md-ellipsis">
-    Holešky testnet
+    Hoodi testnet
   </span>
   
 
@@ -2425,13 +2404,15 @@ Later, when everything is working, you can easily switch to mainnet.</p>
 <div class="tabbed-set tabbed-alternate" data-tabs="1:2"><input checked="checked" id="__tabbed_1_1" name="__tabbed_1" type="radio" /><input id="__tabbed_1_2" name="__tabbed_1" type="radio" /><div class="tabbed-labels"><label for="__tabbed_1_1">Testnet</label><label for="__tabbed_1_2">Mainnet</label></div>
 <div class="tabbed-content">
 <div class="tabbed-block">
-<p>To start syncing the <code>holesky</code> testnet from the <code>nimbus-eth2</code> repository, run:</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a> ./run-holesky-beacon-node.sh
+<p>To start syncing the <code>hoodi</code> testnet from the <code>nimbus-eth2</code> repository, run:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a>build/nimbus_beacon_node \
+<a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a>    --network=hoodi \
+<a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a>    --data-dir=build/data/shared_hoodi_0
 </code></pre></div>
 </div>
 <div class="tabbed-block">
 <p>To start syncing the Ethereum beacon chain mainnet, run:</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a> ./run-mainnet-beacon-node.sh
+<div class="highlight"><pre><span></span><code><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a>./run-mainnet-beacon-node.sh
 </code></pre></div>
 </div>
 </div>
@@ -2440,7 +2421,7 @@ Later, when everything is working, you can easily switch to mainnet.</p>
 <p>You should see the following output:</p>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a>INF 2023-10-01 11:25:33.487+01:00 Launching beacon node
 <a id="__codelineno-2-2" name="__codelineno-2-2" href="#__codelineno-2-2"></a>...
-<a id="__codelineno-2-3" name="__codelineno-2-3" href="#__codelineno-2-3"></a>INF 2023-10-01 11:25:34.556+01:00 Loading block dag from database            topics=&quot;beacnde&quot; tid=19985314 path=build/data/shared_holesky_0/db
+<a id="__codelineno-2-3" name="__codelineno-2-3" href="#__codelineno-2-3"></a>INF 2023-10-01 11:25:34.556+01:00 Loading block dag from database            topics=&quot;beacnde&quot; tid=19985314 path=build/data/shared_hoodi_0/db
 <a id="__codelineno-2-4" name="__codelineno-2-4" href="#__codelineno-2-4"></a>INF 2023-10-01 11:25:35.921+01:00 Block dag initialized
 <a id="__codelineno-2-5" name="__codelineno-2-5" href="#__codelineno-2-5"></a>INF 2023-10-01 11:25:37.073+01:00 Generating new networking key
 <a id="__codelineno-2-6" name="__codelineno-2-6" href="#__codelineno-2-6"></a>...
@@ -2457,7 +2438,11 @@ For more information, see the <a href="data-dir.html">data directory guide</a>.<
 <h2 id="command-line-options">Command line options</h2>
 <p>You can add command line options to the startup command.
 For example, to change the port to 9100, use:</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a>./run-holesky-beacon-node.sh<span class="w"> </span>--tcp-port<span class="o">=</span><span class="m">9100</span><span class="w"> </span>--udp-port<span class="o">=</span><span class="m">9100</span>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a>build/nimbus_beacon_node<span class="w"> </span><span class="se">\</span>
+<a id="__codelineno-3-2" name="__codelineno-3-2" href="#__codelineno-3-2"></a><span class="w">    </span>--network<span class="o">=</span>hoodi<span class="w"> </span><span class="se">\</span>
+<a id="__codelineno-3-3" name="__codelineno-3-3" href="#__codelineno-3-3"></a><span class="w">    </span>--data-dir<span class="o">=</span>build/data/shared_hoodi_0<span class="w"> </span><span class="se">\</span>
+<a id="__codelineno-3-4" name="__codelineno-3-4" href="#__codelineno-3-4"></a><span class="w">    </span>--tcp-port<span class="o">=</span><span class="m">9100</span><span class="w"> </span><span class="se">\</span>
+<a id="__codelineno-3-5" name="__codelineno-3-5" href="#__codelineno-3-5"></a><span class="w">    </span>--udp-port<span class="o">=</span><span class="m">9100</span>
 </code></pre></div>
 <p>To see a list of the command line options available to you, with descriptions, run:</p>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-4-1" name="__codelineno-4-1" href="#__codelineno-4-1"></a>./build/nimbus_beacon_node --help
@@ -2483,14 +2468,16 @@ For example, to change the port to 9100, use:</p>
 <p>A list of community-operated checkpoint sync nodes can be found <a href="https://eth-clients.github.io/checkpoint-sync-endpoints/">here</a>.</p>
 </div>
 <p>To use checkpoint sync, run the following commands (inserting the checkpoint sync endpoint and your own trusted block root):</p>
-<div class="tabbed-set tabbed-alternate" data-tabs="2:2"><input checked="checked" id="__tabbed_2_1" name="__tabbed_2" type="radio" /><input id="__tabbed_2_2" name="__tabbed_2" type="radio" /><div class="tabbed-labels"><label for="__tabbed_2_1">Holesky</label><label for="__tabbed_2_2">Mainnet</label></div>
+<div class="tabbed-set tabbed-alternate" data-tabs="2:2"><input checked="checked" id="__tabbed_2_1" name="__tabbed_2" type="radio" /><input id="__tabbed_2_2" name="__tabbed_2" type="radio" /><div class="tabbed-labels"><label for="__tabbed_2_1">Hoodi</label><label for="__tabbed_2_2">Mainnet</label></div>
 <div class="tabbed-content">
 <div class="tabbed-block">
 <div class="highlight"><pre><span></span><code><a id="__codelineno-5-1" name="__codelineno-5-1" href="#__codelineno-5-1"></a><span class="nv">CHECKPOINT_SYNC_ENDPOINT</span><span class="o">=</span>http://127.0.0.1:8551
 <a id="__codelineno-5-2" name="__codelineno-5-2" href="#__codelineno-5-2"></a><span class="nv">TRUSTED_BLOCK_ROOT</span><span class="o">=</span>0x1234567890123456789012345678901234567890123456789012345678901234
-<a id="__codelineno-5-3" name="__codelineno-5-3" href="#__codelineno-5-3"></a>./run-holesky-beacon-node.sh<span class="w"> </span><span class="se">\</span>
-<a id="__codelineno-5-4" name="__codelineno-5-4" href="#__codelineno-5-4"></a><span class="w">    </span>--external-beacon-api-url<span class="o">=</span><span class="nv">$CHECKPOINT_SYNC_ENDPOINT</span><span class="w"> </span><span class="se">\</span>
-<a id="__codelineno-5-5" name="__codelineno-5-5" href="#__codelineno-5-5"></a><span class="w">    </span>--trusted-block-root<span class="o">=</span><span class="nv">$TRUSTED_BLOCK_ROOT</span>
+<a id="__codelineno-5-3" name="__codelineno-5-3" href="#__codelineno-5-3"></a>build/nimbus_beacon_node<span class="w"> </span><span class="se">\</span>
+<a id="__codelineno-5-4" name="__codelineno-5-4" href="#__codelineno-5-4"></a><span class="w">    </span>--network<span class="o">=</span>hoodi<span class="w"> </span><span class="se">\</span>
+<a id="__codelineno-5-5" name="__codelineno-5-5" href="#__codelineno-5-5"></a><span class="w">    </span>--data-dir<span class="o">=</span>build/data/shared_hoodi_0<span class="w"> </span><span class="se">\</span>
+<a id="__codelineno-5-6" name="__codelineno-5-6" href="#__codelineno-5-6"></a><span class="w">    </span>--external-beacon-api-url<span class="o">=</span><span class="nv">$CHECKPOINT_SYNC_ENDPOINT</span><span class="w"> </span><span class="se">\</span>
+<a id="__codelineno-5-7" name="__codelineno-5-7" href="#__codelineno-5-7"></a><span class="w">    </span>--trusted-block-root<span class="o">=</span><span class="nv">$TRUSTED_BLOCK_ROOT</span>
 </code></pre></div>
 </div>
 <div class="tabbed-block">

@@ -1247,27 +1247,6 @@
   
   
     <li class="md-nav__item">
-      <a href="goerli-eth.html" class="md-nav__link">
-        
-  
-  <span class="md-ellipsis">
-    Obtain Goerli ETH
-  </span>
-  
-
-      </a>
-    </li>
-  
-
-              
-            
-              
-                
-  
-  
-  
-  
-    <li class="md-nav__item">
       <a href="beacon-node-systemd.html" class="md-nav__link">
         
   
@@ -1415,11 +1394,11 @@
   
   
     <li class="md-nav__item">
-      <a href="holesky.html" class="md-nav__link">
+      <a href="hoodi.html" class="md-nav__link">
         
   
   <span class="md-ellipsis">
-    Holešky testnet
+    Hoodi testnet
   </span>
   
 
@@ -2493,7 +2472,7 @@ Which means you would run the commands below with <code>--trusted-node-url=http:
 <p>The path specified for <code>--data-dir</code> must be an empty directory, as trusted node sync needs to be started from a fresh database.</p>
 </div>
 <p>To start trusted node sync, run:</p>
-<div class="tabbed-set tabbed-alternate" data-tabs="1:2"><input checked="checked" id="__tabbed_1_1" name="__tabbed_1" type="radio" /><input id="__tabbed_1_2" name="__tabbed_1" type="radio" /><div class="tabbed-labels"><label for="__tabbed_1_1">Mainnet</label><label for="__tabbed_1_2">Holesky</label></div>
+<div class="tabbed-set tabbed-alternate" data-tabs="1:2"><input checked="checked" id="__tabbed_1_1" name="__tabbed_1" type="radio" /><input id="__tabbed_1_2" name="__tabbed_1" type="radio" /><div class="tabbed-labels"><label for="__tabbed_1_1">Mainnet</label><label for="__tabbed_1_2">Hoodi</label></div>
 <div class="tabbed-content">
 <div class="tabbed-block">
 <div class="highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a>build/nimbus_beacon_node<span class="w"> </span>trustedNodeSync<span class="w"> </span><span class="se">\</span>
@@ -2504,8 +2483,8 @@ Which means you would run the commands below with <code>--trusted-node-url=http:
 </div>
 <div class="tabbed-block">
 <div class="highlight"><pre><span></span><code><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a>build/nimbus_beacon_node<span class="w"> </span>trustedNodeSync<span class="w"> </span><span class="se">\</span>
-<a id="__codelineno-1-2" name="__codelineno-1-2" href="#__codelineno-1-2"></a><span class="w">  </span>--network:holesky<span class="w"> </span><span class="se">\</span>
-<a id="__codelineno-1-3" name="__codelineno-1-3" href="#__codelineno-1-3"></a><span class="w">  </span>--data-dir<span class="o">=</span>build/data/shared_holesky_0<span class="w"> </span><span class="se">\</span>
+<a id="__codelineno-1-2" name="__codelineno-1-2" href="#__codelineno-1-2"></a><span class="w">  </span>--network:hoodi<span class="w"> </span><span class="se">\</span>
+<a id="__codelineno-1-3" name="__codelineno-1-3" href="#__codelineno-1-3"></a><span class="w">  </span>--data-dir<span class="o">=</span>build/data/shared_hoodi_0<span class="w"> </span><span class="se">\</span>
 <a id="__codelineno-1-4" name="__codelineno-1-4" href="#__codelineno-1-4"></a><span class="w">  </span>--trusted-node-url<span class="o">=</span>http://localhost:5052
 </code></pre></div>
 </div>
@@ -2584,7 +2563,7 @@ While you can choose a different sync point using a state hash or a slot number,
 <a id="__codelineno-6-5" name="__codelineno-6-5" href="#__codelineno-6-5"></a>
 <a id="__codelineno-6-6" name="__codelineno-6-6" href="#__codelineno-6-6"></a><span class="c1"># Start the beacon node using the downloaded state as starting point</span>
 <a id="__codelineno-6-7" name="__codelineno-6-7" href="#__codelineno-6-7"></a>./run-mainnet-beacon-node.sh<span class="w"> </span><span class="se">\</span>
-<a id="__codelineno-6-8" name="__codelineno-6-8" href="#__codelineno-6-8"></a><span class="w">  </span>--finalized-checkpoint-state<span class="o">=</span>state.finalized.ssz
+<a id="__codelineno-6-8" name="__codelineno-6-8" href="#__codelineno-6-8"></a><span class="w">    </span>--finalized-checkpoint-state<span class="o">=</span>state.finalized.ssz
 </code></pre></div>
 <h2 id="recreate-historical-state-access-indices">Recreate historical state access indices</h2>
 <p>When performing trusted node sync, the historical state data from the time before the trusted is not available.

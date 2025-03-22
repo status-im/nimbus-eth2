@@ -1218,27 +1218,6 @@
   
   
     <li class="md-nav__item">
-      <a href="goerli-eth.html" class="md-nav__link">
-        
-  
-  <span class="md-ellipsis">
-    Obtain Goerli ETH
-  </span>
-  
-
-      </a>
-    </li>
-  
-
-              
-            
-              
-                
-  
-  
-  
-  
-    <li class="md-nav__item">
       <a href="beacon-node-systemd.html" class="md-nav__link">
         
   
@@ -1386,11 +1365,11 @@
   
   
     <li class="md-nav__item">
-      <a href="holesky.html" class="md-nav__link">
+      <a href="hoodi.html" class="md-nav__link">
         
   
   <span class="md-ellipsis">
-    Holešky testnet
+    Hoodi testnet
   </span>
   
 
@@ -2429,7 +2408,7 @@
 </code></pre></div>
 <h3 id="run-the-build-process">Run the build process</h3>
 <p>To build the Nimbus execution client and its dependencies, make sure you have <a href="install.html">all prerequisites</a> and then run:</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a>make<span class="w"> </span>-j4<span class="w"> </span>nimbus<span class="w"> </span>nrpc
+<div class="highlight"><pre><span></span><code><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a>make<span class="w"> </span>-j4<span class="w"> </span>nimbus_execution_client<span class="w"> </span>nrpc
 </code></pre></div>
 <p>This may take a few minutes.</p>
 <p>When the process finishes, the <code>nimbus_execution_client</code> and <code>nrpc</code> executables can be found in the <code>build</code> subdirectory.</p>
@@ -2439,13 +2418,19 @@
 <div class="admonition info">
 <p class="admonition-title"><code>era</code> file download locations</p>
 <p><code>era</code> and <code>era1</code> files for testing purposes could at the time of writing be found here - these sources may or may not be available:</p>
-<div class="tabbed-set tabbed-alternate" data-tabs="1:3"><input checked="checked" id="__tabbed_1_1" name="__tabbed_1" type="radio" /><input id="__tabbed_1_2" name="__tabbed_1" type="radio" /><input id="__tabbed_1_3" name="__tabbed_1" type="radio" /><div class="tabbed-labels"><label for="__tabbed_1_1">Mainnet</label><label for="__tabbed_1_2">Holesky</label><label for="__tabbed_1_3">Sepolia</label></div>
+<div class="tabbed-set tabbed-alternate" data-tabs="1:4"><input checked="checked" id="__tabbed_1_1" name="__tabbed_1" type="radio" /><input id="__tabbed_1_2" name="__tabbed_1" type="radio" /><input id="__tabbed_1_3" name="__tabbed_1" type="radio" /><input id="__tabbed_1_4" name="__tabbed_1" type="radio" /><div class="tabbed-labels"><label for="__tabbed_1_1">Mainnet</label><label for="__tabbed_1_2">Hoodi</label><label for="__tabbed_1_3">Holesky</label><label for="__tabbed_1_4">Sepolia</label></div>
 <div class="tabbed-content">
 <div class="tabbed-block">
 <ul>
 <li>https://mainnet.era.nimbus.team/</li>
-<li>https://era1.ethportal.net/</li>
+<li>https://mainnet.era1.nimbus.team/</li>
 </ul>
+</div>
+<div class="tabbed-block">
+<ul>
+<li>https://hoodi.era.nimbus.team/</li>
+</ul>
+<p>The Hoodi network does not have <code>era1</code> files since it never operated as a proof-of-work chain</p>
 </div>
 <div class="tabbed-block">
 <ul>
@@ -2467,7 +2452,7 @@
 <div class="admonition tip">
 <p>Future versions of Nimbus will support other methods of syncing</p>
 </div>
-<div class="tabbed-set tabbed-alternate" data-tabs="2:3"><input checked="checked" id="__tabbed_2_1" name="__tabbed_2" type="radio" /><input id="__tabbed_2_2" name="__tabbed_2" type="radio" /><input id="__tabbed_2_3" name="__tabbed_2" type="radio" /><div class="tabbed-labels"><label for="__tabbed_2_1">Mainnet</label><label for="__tabbed_2_2">Holesky</label><label for="__tabbed_2_3">Sepolia</label></div>
+<div class="tabbed-set tabbed-alternate" data-tabs="2:4"><input checked="checked" id="__tabbed_2_1" name="__tabbed_2" type="radio" /><input id="__tabbed_2_2" name="__tabbed_2" type="radio" /><input id="__tabbed_2_3" name="__tabbed_2" type="radio" /><input id="__tabbed_2_4" name="__tabbed_2" type="radio" /><div class="tabbed-labels"><label for="__tabbed_2_1">Mainnet</label><label for="__tabbed_2_2">Hoodi</label><label for="__tabbed_2_3">Holesky</label><label for="__tabbed_2_4">Sepolia</label></div>
 <div class="tabbed-content">
 <div class="tabbed-block">
 <div class="admonition note">
@@ -2477,11 +2462,15 @@
 </code></pre></div>
 </div>
 <div class="tabbed-block">
-<div class="highlight"><pre><span></span><code><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a>build/nimbus_execution_client<span class="w"> </span>--network<span class="o">=</span>holesky<span class="w"> </span>--data-dir<span class="o">=</span>build/holesky<span class="w"> </span>import
+<div class="highlight"><pre><span></span><code><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a>build/nimbus_execution_client<span class="w"> </span>--network<span class="o">=</span>hoodi<span class="w"> </span>--data-dir<span class="o">=</span>build/hoodi<span class="w"> </span>import
 </code></pre></div>
 </div>
 <div class="tabbed-block">
-<div class="highlight"><pre><span></span><code><a id="__codelineno-4-1" name="__codelineno-4-1" href="#__codelineno-4-1"></a>build/nimbus_execution_client<span class="w"> </span>--network<span class="o">=</span>sepolia<span class="w"> </span>--data-dir<span class="o">=</span>build/sepolia<span class="w"> </span>import
+<div class="highlight"><pre><span></span><code><a id="__codelineno-4-1" name="__codelineno-4-1" href="#__codelineno-4-1"></a>build/nimbus_execution_client<span class="w"> </span>--network<span class="o">=</span>holesky<span class="w"> </span>--data-dir<span class="o">=</span>build/holesky<span class="w"> </span>import
+</code></pre></div>
+</div>
+<div class="tabbed-block">
+<div class="highlight"><pre><span></span><code><a id="__codelineno-5-1" name="__codelineno-5-1" href="#__codelineno-5-1"></a>build/nimbus_execution_client<span class="w"> </span>--network<span class="o">=</span>sepolia<span class="w"> </span>--data-dir<span class="o">=</span>build/sepolia<span class="w"> </span>import
 </code></pre></div>
 </div>
 </div>
@@ -2490,18 +2479,22 @@
 <p>In order for the execution client to operate, you need to connect a consensus node. This can be the <a href="quick-start.html">Nimbus beacon node</a>, a <a href="https://ethereum.org/en/developers/docs/nodes-and-clients/#consensus-clients">supported consensus client</a> or a <a href="el-light-client.html">light client</a>.</p>
 <p>The consensus node connects to the execution client via the Engine API which is enabled using <code>--engine-api</code> and by default runs on port <code>8551</code>.</p>
 <p>During startup, a <code>jwt.hex</code> file will be placed in the data directory containing authentication information that the consensus node uses to connect - make sure to use the same <code>jwt.hex</code> file on both consensus and execution node.</p>
-<div class="tabbed-set tabbed-alternate" data-tabs="3:3"><input checked="checked" id="__tabbed_3_1" name="__tabbed_3" type="radio" /><input id="__tabbed_3_2" name="__tabbed_3" type="radio" /><input id="__tabbed_3_3" name="__tabbed_3" type="radio" /><div class="tabbed-labels"><label for="__tabbed_3_1">Mainnet</label><label for="__tabbed_3_2">Holesky</label><label for="__tabbed_3_3">Sepolia</label></div>
+<div class="tabbed-set tabbed-alternate" data-tabs="3:4"><input checked="checked" id="__tabbed_3_1" name="__tabbed_3" type="radio" /><input id="__tabbed_3_2" name="__tabbed_3" type="radio" /><input id="__tabbed_3_3" name="__tabbed_3" type="radio" /><input id="__tabbed_3_4" name="__tabbed_3" type="radio" /><div class="tabbed-labels"><label for="__tabbed_3_1">Mainnet</label><label for="__tabbed_3_2">Hoodi</label><label for="__tabbed_3_3">Holesky</label><label for="__tabbed_3_4">Sepolia</label></div>
 <div class="tabbed-content">
 <div class="tabbed-block">
-<div class="highlight"><pre><span></span><code><a id="__codelineno-5-1" name="__codelineno-5-1" href="#__codelineno-5-1"></a>build/nimbus_execution_client<span class="w"> </span>--data-dir<span class="o">=</span>build/mainnet<span class="w"> </span>--engine-api
+<div class="highlight"><pre><span></span><code><a id="__codelineno-6-1" name="__codelineno-6-1" href="#__codelineno-6-1"></a>build/nimbus_execution_client<span class="w"> </span>--data-dir<span class="o">=</span>build/mainnet<span class="w"> </span>--engine-api
 </code></pre></div>
 </div>
 <div class="tabbed-block">
-<div class="highlight"><pre><span></span><code><a id="__codelineno-6-1" name="__codelineno-6-1" href="#__codelineno-6-1"></a>build/nimbus_execution_client<span class="w"> </span>--network<span class="o">=</span>holesky<span class="w"> </span>--data-dir<span class="o">=</span>build/holesky<span class="w"> </span>--engine-api
+<div class="highlight"><pre><span></span><code><a id="__codelineno-7-1" name="__codelineno-7-1" href="#__codelineno-7-1"></a>build/nimbus_execution_client<span class="w"> </span>--network<span class="o">=</span>hoodi<span class="w"> </span>--data-dir<span class="o">=</span>build/hoodi<span class="w"> </span>--engine-api
 </code></pre></div>
 </div>
 <div class="tabbed-block">
-<div class="highlight"><pre><span></span><code><a id="__codelineno-7-1" name="__codelineno-7-1" href="#__codelineno-7-1"></a>build/nimbus_execution_client<span class="w"> </span>--network<span class="o">=</span>sepolia<span class="w"> </span>--data-dir<span class="o">=</span>build/sepolia<span class="w"> </span>--engine-api
+<div class="highlight"><pre><span></span><code><a id="__codelineno-8-1" name="__codelineno-8-1" href="#__codelineno-8-1"></a>build/nimbus_execution_client<span class="w"> </span>--network<span class="o">=</span>holesky<span class="w"> </span>--data-dir<span class="o">=</span>build/holesky<span class="w"> </span>--engine-api
+</code></pre></div>
+</div>
+<div class="tabbed-block">
+<div class="highlight"><pre><span></span><code><a id="__codelineno-9-1" name="__codelineno-9-1" href="#__codelineno-9-1"></a>build/nimbus_execution_client<span class="w"> </span>--network<span class="o">=</span>sepolia<span class="w"> </span>--data-dir<span class="o">=</span>build/sepolia<span class="w"> </span>--engine-api
 </code></pre></div>
 </div>
 </div>
@@ -2509,21 +2502,26 @@
 <h2 id="top-up-blocks-from-the-consensus-node">Top up blocks from the consensus node</h2>
 <p>While era files cover the majority of chain history, Nimbus currenty relies on the consensus node to sync the most recent blocks using the <code>nrpc</code> helper.</p>
 <p>This method of syncing loads blocks from the consensus node and passes them to the execution client via the Engine API.</p>
-<div class="tabbed-set tabbed-alternate" data-tabs="4:3"><input checked="checked" id="__tabbed_4_1" name="__tabbed_4" type="radio" /><input id="__tabbed_4_2" name="__tabbed_4" type="radio" /><input id="__tabbed_4_3" name="__tabbed_4" type="radio" /><div class="tabbed-labels"><label for="__tabbed_4_1">Mainnet</label><label for="__tabbed_4_2">Holesky</label><label for="__tabbed_4_3">Sepolia</label></div>
+<div class="tabbed-set tabbed-alternate" data-tabs="4:4"><input checked="checked" id="__tabbed_4_1" name="__tabbed_4" type="radio" /><input id="__tabbed_4_2" name="__tabbed_4" type="radio" /><input id="__tabbed_4_3" name="__tabbed_4" type="radio" /><input id="__tabbed_4_4" name="__tabbed_4" type="radio" /><div class="tabbed-labels"><label for="__tabbed_4_1">Mainnet</label><label for="__tabbed_4_2">Hoodi</label><label for="__tabbed_4_3">Holesky</label><label for="__tabbed_4_4">Sepolia</label></div>
 <div class="tabbed-content">
 <div class="tabbed-block">
-<div class="highlight"><pre><span></span><code><a id="__codelineno-8-1" name="__codelineno-8-1" href="#__codelineno-8-1"></a><span class="c1"># Start `nrpc` every 2 seconds in case there is a fork or the execution client goes out of sync</span>
-<a id="__codelineno-8-2" name="__codelineno-8-2" href="#__codelineno-8-2"></a><span class="k">while</span><span class="w"> </span>true<span class="p">;</span><span class="w"> </span><span class="k">do</span><span class="w"> </span>build/nrpc<span class="w"> </span>sync<span class="w"> </span>--beacon-api<span class="o">=</span>http://localhost:5052<span class="w"> </span>--el-engine-api<span class="o">=</span>http://localhost:8550<span class="w"> </span>--jwt-secret<span class="o">=</span>build/mainnet/jwt.hex<span class="p">;</span><span class="w"> </span>sleep<span class="w"> </span><span class="m">2</span><span class="p">;</span><span class="w"> </span><span class="k">done</span>
-</code></pre></div>
-</div>
-<div class="tabbed-block">
-<div class="highlight"><pre><span></span><code><a id="__codelineno-9-1" name="__codelineno-9-1" href="#__codelineno-9-1"></a><span class="c1"># Start `nrpc` every 2 seconds in case there is a fork or the execution client goes out of sync</span>
-<a id="__codelineno-9-2" name="__codelineno-9-2" href="#__codelineno-9-2"></a><span class="k">while</span><span class="w"> </span>true<span class="p">;</span><span class="w"> </span><span class="k">do</span><span class="w"> </span>build/nrpc<span class="w"> </span>sync<span class="w"> </span>--network<span class="o">=</span>holesky<span class="w"> </span>--beacon-api<span class="o">=</span>http://localhost:5052<span class="w"> </span>--el-engine-api<span class="o">=</span>http://localhost:8550<span class="w"> </span>--jwt-secret<span class="o">=</span>build/holesky/jwt.hex<span class="p">;</span><span class="w"> </span>sleep<span class="w"> </span><span class="m">2</span><span class="p">;</span><span class="w"> </span><span class="k">done</span>
-</code></pre></div>
-</div>
-<div class="tabbed-block">
 <div class="highlight"><pre><span></span><code><a id="__codelineno-10-1" name="__codelineno-10-1" href="#__codelineno-10-1"></a><span class="c1"># Start `nrpc` every 2 seconds in case there is a fork or the execution client goes out of sync</span>
-<a id="__codelineno-10-2" name="__codelineno-10-2" href="#__codelineno-10-2"></a><span class="k">while</span><span class="w"> </span>true<span class="p">;</span><span class="w"> </span><span class="k">do</span><span class="w"> </span>build/nrpc<span class="w"> </span>sync<span class="w"> </span>--network<span class="o">=</span>sepolia<span class="w"> </span>--beacon-api<span class="o">=</span>http://localhost:5052<span class="w"> </span>--el-engine-api<span class="o">=</span>http://localhost:8550<span class="w"> </span>--jwt-secret<span class="o">=</span>build/sepolia/jwt.hex<span class="p">;</span><span class="w"> </span>sleep<span class="w"> </span><span class="m">2</span><span class="p">;</span><span class="w"> </span><span class="k">done</span>
+<a id="__codelineno-10-2" name="__codelineno-10-2" href="#__codelineno-10-2"></a><span class="k">while</span><span class="w"> </span>true<span class="p">;</span><span class="w"> </span><span class="k">do</span><span class="w"> </span>build/nrpc<span class="w"> </span>sync<span class="w"> </span>--beacon-api<span class="o">=</span>http://localhost:5052<span class="w"> </span>--el-engine-api<span class="o">=</span>http://localhost:8550<span class="w"> </span>--jwt-secret<span class="o">=</span>build/mainnet/jwt.hex<span class="p">;</span><span class="w"> </span>sleep<span class="w"> </span><span class="m">2</span><span class="p">;</span><span class="w"> </span><span class="k">done</span>
+</code></pre></div>
+</div>
+<div class="tabbed-block">
+<div class="highlight"><pre><span></span><code><a id="__codelineno-11-1" name="__codelineno-11-1" href="#__codelineno-11-1"></a><span class="c1"># Start `nrpc` every 2 seconds in case there is a fork or the execution client goes out of sync</span>
+<a id="__codelineno-11-2" name="__codelineno-11-2" href="#__codelineno-11-2"></a><span class="k">while</span><span class="w"> </span>true<span class="p">;</span><span class="w"> </span><span class="k">do</span><span class="w"> </span>build/nrpc<span class="w"> </span>sync<span class="w"> </span>--network<span class="o">=</span>hoodi<span class="w"> </span>--beacon-api<span class="o">=</span>http://localhost:5052<span class="w"> </span>--el-engine-api<span class="o">=</span>http://localhost:8550<span class="w"> </span>--jwt-secret<span class="o">=</span>build/hoodi/jwt.hex<span class="p">;</span><span class="w"> </span>sleep<span class="w"> </span><span class="m">2</span><span class="p">;</span><span class="w"> </span><span class="k">done</span>
+</code></pre></div>
+</div>
+<div class="tabbed-block">
+<div class="highlight"><pre><span></span><code><a id="__codelineno-12-1" name="__codelineno-12-1" href="#__codelineno-12-1"></a><span class="c1"># Start `nrpc` every 2 seconds in case there is a fork or the execution client goes out of sync</span>
+<a id="__codelineno-12-2" name="__codelineno-12-2" href="#__codelineno-12-2"></a><span class="k">while</span><span class="w"> </span>true<span class="p">;</span><span class="w"> </span><span class="k">do</span><span class="w"> </span>build/nrpc<span class="w"> </span>sync<span class="w"> </span>--network<span class="o">=</span>holesky<span class="w"> </span>--beacon-api<span class="o">=</span>http://localhost:5052<span class="w"> </span>--el-engine-api<span class="o">=</span>http://localhost:8550<span class="w"> </span>--jwt-secret<span class="o">=</span>build/holesky/jwt.hex<span class="p">;</span><span class="w"> </span>sleep<span class="w"> </span><span class="m">2</span><span class="p">;</span><span class="w"> </span><span class="k">done</span>
+</code></pre></div>
+</div>
+<div class="tabbed-block">
+<div class="highlight"><pre><span></span><code><a id="__codelineno-13-1" name="__codelineno-13-1" href="#__codelineno-13-1"></a><span class="c1"># Start `nrpc` every 2 seconds in case there is a fork or the execution client goes out of sync</span>
+<a id="__codelineno-13-2" name="__codelineno-13-2" href="#__codelineno-13-2"></a><span class="k">while</span><span class="w"> </span>true<span class="p">;</span><span class="w"> </span><span class="k">do</span><span class="w"> </span>build/nrpc<span class="w"> </span>sync<span class="w"> </span>--network<span class="o">=</span>sepolia<span class="w"> </span>--beacon-api<span class="o">=</span>http://localhost:5052<span class="w"> </span>--el-engine-api<span class="o">=</span>http://localhost:8550<span class="w"> </span>--jwt-secret<span class="o">=</span>build/sepolia/jwt.hex<span class="p">;</span><span class="w"> </span>sleep<span class="w"> </span><span class="m">2</span><span class="p">;</span><span class="w"> </span><span class="k">done</span>
 </code></pre></div>
 </div>
 </div>

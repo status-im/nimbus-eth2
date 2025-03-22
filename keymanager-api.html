@@ -1115,27 +1115,6 @@
   
   
     <li class="md-nav__item">
-      <a href="goerli-eth.html" class="md-nav__link">
-        
-  
-  <span class="md-ellipsis">
-    Obtain Goerli ETH
-  </span>
-  
-
-      </a>
-    </li>
-  
-
-              
-            
-              
-                
-  
-  
-  
-  
-    <li class="md-nav__item">
       <a href="beacon-node-systemd.html" class="md-nav__link">
         
   
@@ -1283,11 +1262,11 @@
   
   
     <li class="md-nav__item">
-      <a href="holesky.html" class="md-nav__link">
+      <a href="hoodi.html" class="md-nav__link">
         
   
   <span class="md-ellipsis">
-    Holešky testnet
+    Hoodi testnet
   </span>
   
 
@@ -2382,7 +2361,10 @@
 <h2 id="configuration">Configuration</h2>
 <p>By default, we disable the Keymanager API.
 To enable it, start the beacon node with the <code>--keymanager</code> option enabled:</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a>./run-holesky-beacon-node.sh --keymanager
+<div class="highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a>build/nimbus_beacon_node \
+<a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a>    --network=hoodi \
+<a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a>    --data-dir=build/data/shared_hoodi_0 \
+<a id="__codelineno-0-4" name="__codelineno-0-4" href="#__codelineno-0-4"></a>    --keymanager
 </code></pre></div>
 <p>Once the node is running, you'll be able to access the API from <a href="http://localhost:5052/">http://localhost:5052/</a>.</p>
 <h3 id="authorization-bearer-scheme">Authorization: Bearer scheme</h3>

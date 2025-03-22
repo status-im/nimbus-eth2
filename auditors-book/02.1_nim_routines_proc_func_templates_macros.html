@@ -1,5 +1,5 @@
 <!DOCTYPE HTML>
-<html lang="en" class="light" dir="ltr">
+<html lang="en" class="light sidebar-visible" dir="ltr">
     <head>
         <!-- Book generated using mdBook -->
         <meta charset="UTF-8">
@@ -7,7 +7,7 @@
 
 
         <!-- Custom HTML head -->
-        
+
         <meta name="description" content="">
         <meta name="viewport" content="width=device-width, initial-scale=1">
         <meta name="theme-color" content="#ffffff">
@@ -24,21 +24,23 @@
         <link rel="stylesheet" href="fonts/fonts.css">
 
         <!-- Highlight.js Stylesheets -->
-        <link rel="stylesheet" href="highlight.css">
-        <link rel="stylesheet" href="tomorrow-night.css">
-        <link rel="stylesheet" href="ayu-highlight.css">
+        <link rel="stylesheet" id="highlight-css" href="highlight.css">
+        <link rel="stylesheet" id="tomorrow-night-css" href="tomorrow-night.css">
+        <link rel="stylesheet" id="ayu-highlight-css" href="ayu-highlight.css">
 
         <!-- Custom theme stylesheets -->
 
-    </head>
-    <body class="sidebar-visible no-js">
-    <div id="body-container">
+
         <!-- Provide site root to javascript -->
         <script>
             var path_to_root = "";
             var default_theme = window.matchMedia("(prefers-color-scheme: dark)").matches ? "navy" : "light";
         </script>
-
+        <!-- Start loading toc.js asap -->
+        <script src="toc.js"></script>
+    </head>
+    <body>
+    <div id="body-container">
         <!-- Work around some values being stored in localStorage wrapped in quotes -->
         <script>
             try {
@@ -60,19 +62,16 @@
             var theme;
             try { theme = localStorage.getItem('mdbook-theme'); } catch(e) { }
             if (theme === null || theme === undefined) { theme = default_theme; }
-            var html = document.querySelector('html');
+            const html = document.documentElement;
             html.classList.remove('light')
             html.classList.add(theme);
-            var body = document.querySelector('body');
-            body.classList.remove('no-js')
-            body.classList.add('js');
+            html.classList.add("js");
         </script>
 
         <input type="checkbox" id="sidebar-toggle-anchor" class="hidden">
 
         <!-- Hide / unhide sidebar before it is displayed -->
         <script>
-            var body = document.querySelector('body');
             var sidebar = null;
             var sidebar_toggle = document.getElementById("sidebar-toggle-anchor");
             if (document.body.clientWidth >= 1080) {
@@ -82,45 +81,25 @@
                 sidebar = 'hidden';
             }
             sidebar_toggle.checked = sidebar === 'visible';
-            body.classList.remove('sidebar-visible');
-            body.classList.add("sidebar-" + sidebar);
+            html.classList.remove('sidebar-visible');
+            html.classList.add("sidebar-" + sidebar);
         </script>
 
         <nav id="sidebar" class="sidebar" aria-label="Table of contents">
-            <div class="sidebar-scrollbox">
-                <ol class="chapter"><li class="chapter-item expanded "><a href="01_introduction.html"><strong aria-hidden="true">1.</strong> Introduction</a></li><li class="chapter-item expanded "><a href="02_the_Nim_programming_language.html"><strong aria-hidden="true">2.</strong> The Nim Programming Language</a></li><li><ol class="section"><li class="chapter-item expanded "><a href="02.1_nim_routines_proc_func_templates_macros.html" class="active"><strong aria-hidden="true">2.1.</strong> Nim routines, procedures, functions, templates, macros</a></li><li><ol class="section"><li class="chapter-item expanded "><a href="02.1.1_operators_bit_manipulation.html"><strong aria-hidden="true">2.1.1.</strong> Operators, bit manipulation</a></li><li class="chapter-item expanded "><a href="02.1.4_closure_iterators.html"><strong aria-hidden="true">2.1.2.</strong> Closure iterators</a></li></ol></li><li class="chapter-item expanded "><a href="02.2_stack_ref_ptr_types.html"><strong aria-hidden="true">2.2.</strong> Datatypes: value, ref, ptr</a></li><li><ol class="section"><li class="chapter-item expanded "><a href="02.2.2_casting_and_low_level_memory_representation.html"><strong aria-hidden="true">2.2.1.</strong> Casting and low-level memory representation</a></li><li class="chapter-item expanded "><a href="02.2.3_memory_management_gc.html"><strong aria-hidden="true">2.2.2.</strong> Memory Management and Garbage Collection</a></li><li class="chapter-item expanded "><a href="02.2.4_generics_types_static_types.html"><strong aria-hidden="true">2.2.3.</strong> Generic types & static types</a></li><li class="chapter-item expanded "><a href="02.2.5_arrays_openarrays_strings_cstring.html"><strong aria-hidden="true">2.2.4.</strong> Arrays, openarrays, strings, C-strings</a></li></ol></li><li class="chapter-item expanded "><a href="02.3_correctness_distinct_mutability_effects_exceptions.html"><strong aria-hidden="true">2.3.</strong> Correctness: distinct, mutability, effects, exceptions</a></li><li class="chapter-item expanded "><a href="02.4_debugging_Nim_sanitizers_fuzzers.html"><strong aria-hidden="true">2.4.</strong> Debugging Nim, sanitizers, fuzzers</a></li><li class="chapter-item expanded "><a href="02.5_foreign_lang_to_from_interop.html"><strong aria-hidden="true">2.5.</strong> Foreign lang interop: C and C++</a></li><li class="chapter-item expanded "><a href="02.8_Nim_threat_model.html"><strong aria-hidden="true">2.6.</strong> Nim threat model</a></li><li class="chapter-item expanded "><a href="02.10_Nim_FAQ.html"><strong aria-hidden="true">2.7.</strong> Nim FAQ</a></li></ol></li><li class="chapter-item expanded "><a href="03_nbc_nimbus_beacon_chain.html"><strong aria-hidden="true">3.</strong> Nimbus NBC - The Nim-Beacon-Chain</a></li><li><ol class="section"><li class="chapter-item expanded "><a href="03.2_build_system_and_dependencies.html"><strong aria-hidden="true">3.1.</strong> Build system and dependencies</a></li><li class="chapter-item expanded "><a href="03.5_the_threat_model.html"><strong aria-hidden="true">3.2.</strong> Threat model</a></li></ol></li><li class="chapter-item expanded "><a href="04_serialization.html"><strong aria-hidden="true">4.</strong> Serialization</a></li><li class="chapter-item expanded "><a href="05_async_with_chronos.html"><strong aria-hidden="true">5.</strong> Async/Await with Chronos</a></li><li class="chapter-item expanded "><a href="06_cryptography_and_rng.html"><strong aria-hidden="true">6.</strong> Cryptography</a></li><li class="chapter-item expanded "><a href="07_nim-eth.html"><strong aria-hidden="true">7.</strong> Ethereum Networking</a></li></ol>
-            </div>
+            <!-- populated by js -->
+            <mdbook-sidebar-scrollbox class="sidebar-scrollbox"></mdbook-sidebar-scrollbox>
+            <noscript>
+                <iframe class="sidebar-iframe-outer" src="toc.html"></iframe>
+            </noscript>
             <div id="sidebar-resize-handle" class="sidebar-resize-handle">
                 <div class="sidebar-resize-indicator"></div>
             </div>
         </nav>
 
-        <!-- Track and set sidebar scroll position -->
-        <script>
-            var sidebarScrollbox = document.querySelector('#sidebar .sidebar-scrollbox');
-            sidebarScrollbox.addEventListener('click', function(e) {
-                if (e.target.tagName === 'A') {
-                    sessionStorage.setItem('sidebar-scroll', sidebarScrollbox.scrollTop);
-                }
-            }, { passive: true });
-            var sidebarScrollTop = sessionStorage.getItem('sidebar-scroll');
-            sessionStorage.removeItem('sidebar-scroll');
-            if (sidebarScrollTop) {
-                // preserve sidebar scroll position when navigating via links within sidebar
-                sidebarScrollbox.scrollTop = sidebarScrollTop;
-            } else {
-                // scroll sidebar to current active section when navigating via "next/previous chapter" buttons
-                var activeSection = document.querySelector('#sidebar .active');
-                if (activeSection) {
-                    activeSection.scrollIntoView({ block: 'center' });
-                }
-            }
-        </script>
-
         <div id="page-wrapper" class="page-wrapper">
 
             <div class="page">
-                                <div id="menu-bar-hover-placeholder"></div>
+                <div id="menu-bar-hover-placeholder"></div>
                 <div id="menu-bar" class="menu-bar sticky">
                     <div class="left-buttons">
                         <label id="sidebar-toggle" class="icon-button" for="sidebar-toggle-anchor" title="Toggle Table of Contents" aria-label="Toggle Table of Contents" aria-controls="sidebar">
@@ -176,7 +155,7 @@
                         <h1 id="nim-routines"><a class="header" href="#nim-routines">Nim Routines</a></h1>
 <p>!!! warning
 This auditors' handbook is frozen and obsolete; the <a href="https://nim-lang.org/docs/manual.html">Nim language manual</a> alongside <a href="https://nim-lang.org/documentation.html">other Nim documentation</a>, <a href="https://status-im.github.io/nim-style-guide/">Status Nim style guide</a>, <a href="https://github.com/status-im/nim-chronos/blob/master/docs/src/SUMMARY.md">Chronos guides</a>, and <a href="https://nim-by-example.github.io/getting_started/">Nim by Example</a> supercede it.</p>
-<p>Nim offers several kinds of &quot;routines&quot; that:</p>
+<p>Nim offers several kinds of "routines" that:</p>
 <ul>
 <li>do computation</li>
 <li>produce side-effect</li>
@@ -198,7 +177,7 @@ Also it prevents circular dependencies, this means that a procedure is
 always coming from one of the imports.</p>
 <p>Additionally, all dependencies are submodules and a proc can be found by greping
 <code>procname*</code>, the <code>*</code> being the export marker.</p>
-<p>The only exception being the standard library. Procedures from the standard library are all listed in &quot;<a href="https://nim-lang.org/docs/theindex.html">The Index</a>&quot;.</p>
+<p>The only exception being the standard library. Procedures from the standard library are all listed in "<a href="https://nim-lang.org/docs/theindex.html">The Index</a>".</p>
 <h3 id="function-call-syntax"><a class="header" href="#function-call-syntax">Function call syntax</a></h3>
 <p>Nim provides flexible call syntax, the following are possible:</p>
 <pre><code class="language-Nim">prof foo(a: int) =
@@ -210,10 +189,10 @@ a.foo()
 a.foo
 </code></pre>
 <p>Additionally this is also possible for strings:</p>
-<pre><code class="language-Nim">let a = fromHex&quot;0x12345&quot; # Without spaces
+<pre><code class="language-Nim">let a = fromHex"0x12345" # Without spaces
 </code></pre>
 <p>Nim doesn't enforce namespacing by default but is an option</p>
-<pre><code class="language-Nim">let a = byteutils.fromhex&quot;0x12345&quot;
+<pre><code class="language-Nim">let a = byteutils.fromhex"0x12345"
 </code></pre>
 <h3 id="parameters"><a class="header" href="#parameters">Parameters</a></h3>
 <p>Mutable parameters must be tagged with <code>var</code></p>
@@ -221,7 +200,7 @@ a.foo
 <h3 id="symbol-resolution"><a class="header" href="#symbol-resolution">Symbol resolution</a></h3>
 <p>If 2 procedures are visible in the same module (a module is a file) and
 have the same name the compiler will infer which to call from the arguments
-signatures. In case both are applicable, the compiler will throw an &quot;ambiguous call&quot; compile-time error.</p>
+signatures. In case both are applicable, the compiler will throw an "ambiguous call" compile-time error.</p>
 <p>Note that a procedure specialized to a concrete type has priority over a generic procedure, for example a procedure for int64 over a procedure for all number types.</p>
 <h3 id="func-and-side-effect-analysis"><a class="header" href="#func-and-side-effect-analysis"><code>func</code> and side effect analysis</a></h3>
 <p>In Nim a proc is considered to have side-effect if it accesses a global variable.
@@ -235,7 +214,7 @@ Printing to the standard output or reading the standard input is considered a si
 <ol>
 <li>The return statement</li>
 <li>The implicit <code>result</code> variable</li>
-<li>The &quot;last statement as expression&quot;</li>
+<li>The "last statement as expression"</li>
 </ol>
 <pre><code class="language-Nim">proc add1(x: int): int =
   return x + 1
@@ -257,32 +236,32 @@ as forgetting to set the value in a branch will be a compile-time error,
 for example:
 <pre><code class="language-Nim">proc select(ctl: bool, a, b: int): int =
   if ctl:
-    echo &quot;heavy processing&quot;
+    echo "heavy processing"
     a
   else:
-    echo &quot;heavy processing&quot;
+    echo "heavy processing"
     b
 </code></pre>
 Omitting <code>a</code> or <code>b</code> will be a compiletime error, unlike
 <pre><code class="language-Nim">proc select(ctl: bool, a, b: int): int =
   if ctl:
-    echo &quot;heavy processing&quot;
+    echo "heavy processing"
     return a
   else:
-    echo &quot;heavy processing&quot;
+    echo "heavy processing"
     # Forgot to return b
 </code></pre>
 <pre><code class="language-Nim">proc select(ctl: bool, a, b: int): int =
   if ctl:
-    echo &quot;heavy processing&quot;
+    echo "heavy processing"
     result = a
   else:
-    echo &quot;heavy processing&quot;
+    echo "heavy processing"
     # Forgot to result = b
 </code></pre>
 </li>
 </ol>
-<p>Due to the differences we prefer using the &quot;last statement as expression&quot; unless</p>
+<p>Due to the differences we prefer using the "last statement as expression" unless</p>
 <ul>
 <li>copying the type is expensive (SHA256 hash for example)</li>
 <li>or we need early returns</li>
@@ -304,7 +283,7 @@ Mutable arguments are always passed by pointer.</p>
 <p><code>proc</code> and <code>func</code> are materialized in the produced C code with name-mangling appended at the end. For the purpose of building Nim libraries, the name can be controlled by:</p>
 <ul>
 <li><code>{.exportc.}</code> so that the generated C name is the same as Nim</li>
-<li>`{.exportc: &quot;specific_name&quot;.} to generate a specific name</li>
+<li>`{.exportc: "specific_name".} to generate a specific name</li>
 </ul>
 <h2 id="method"><a class="header" href="#method"><code>method</code></a></h2>
 <p><code>method</code>s are used for dynamic dispatch when an object has an inherited subtype only known at runtime.</p>
@@ -389,7 +368,7 @@ for value in b.backward():
 for bit in s.unpack():
   echo s
 </code></pre>
-<p>The echo is inlined at &quot;yield&quot;.</p>
+<p>The echo is inlined at "yield".</p>
 <p>Iterators are not present in the produced C code, they are always inlined at the callsite.</p>
 <p>Iterators are prone to code bloat, for example</p>
 <pre><code class="language-Nim">iterator iterate[T](s: seq[T], backward: bool): T =
@@ -418,7 +397,7 @@ if there is respectively one and two iteration variables hence:</p>
 </code></pre>
 <p>will automatically call the <code>pairs</code> proc defined for the collection (or error)</p>
 <h3 id="fields-and-fieldpairs"><a class="header" href="#fields-and-fieldpairs"><code>fields</code> and <code>fieldPairs</code></a></h3>
-<p><code>fields</code> and <code>fieldsPairs</code> are iterator-like magic, that allow &quot;iterating&quot; on an object field. Note that those are unrolled at compile-time.</p>
+<p><code>fields</code> and <code>fieldsPairs</code> are iterator-like magic, that allow "iterating" on an object field. Note that those are unrolled at compile-time.</p>
 <h2 id="closures-and-closure-iterators"><a class="header" href="#closures-and-closure-iterators">Closures and closure iterators</a></h2>
 <p>Will be covered in a dedicated section.</p>
 <p>They are the backbone of Chronos, our async/await framework and also
@@ -427,10 +406,10 @@ have a major potential for memory leaks.</p>
 <p><code>template</code>s in Nim allows raw code substitution.</p>
 <p><code>templates</code> are hygienic and typechecked unlike the C preprocessor.
 Also they create their own scope unless tagged with the <code>{.dirty.}</code> pragma.</p>
-<p>A major issue with templates is that as they &quot;copy-paste&quot; code, it is very easy to misuse them and do a computation twice.</p>
+<p>A major issue with templates is that as they "copy-paste" code, it is very easy to misuse them and do a computation twice.</p>
 <p>For instance</p>
 <pre><code class="language-Nim">proc foo(): int =
-  echo &quot;launch missile&quot;
+  echo "launch missile"
   return 1
 
 template doSomething(a: int) =
@@ -441,7 +420,7 @@ template doSomething(a: int) =
 <pre><code class="language-Nim">process(foo())
 log(foo())
 </code></pre>
-<p>and triggers the &quot;launch missile&quot; side-effect twice.</p>
+<p>and triggers the "launch missile" side-effect twice.</p>
 <p>Another issue with templates is that they may not generate stacktraces properly as
 they are not materialized in the C code.</p>
 <h3 id="symbol-visibility-and" class="inject."><a class="header" href="#symbol-visibility-and">Symbol visibility and</a></h3>

@@ -8,13 +8,13 @@
       
       
       
-        <link rel="canonical" href="https://nimbus.guide/run-a-validator.html">
+        <link rel="canonical" href="https://nimbus.guide/hoodi.html">
       
       
-        <link rel="prev" href="quick-start.html">
+        <link rel="prev" href="health.html">
       
       
-        <link rel="next" href="el-light-client.html">
+        <link rel="next" href="preparation.html">
       
       
       <link rel="icon" href="assets/images/favicon.png">
@@ -22,7 +22,7 @@
     
     
       
-        <title>Validating - The Nimbus Guide</title>
+        <title>Hoodi testnet - The Nimbus Guide</title>
       
     
     
@@ -76,7 +76,7 @@
     <div data-md-component="skip">
       
         
-        <a href="#validating" class="md-skip">
+        <a href="#hoodi-testnet" class="md-skip">
           Skip to content
         </a>
       
@@ -110,7 +110,7 @@
         <div class="md-header__topic" data-md-component="header-topic">
           <span class="md-ellipsis">
             
-              Validating
+              Hoodi testnet
             
           </span>
         </div>
@@ -233,12 +233,10 @@
         
   
   
-    
-  
   
     
     
-      <li class="md-tabs__item md-tabs__item--active">
+      <li class="md-tabs__item">
         <a href="quick-start.html" class="md-tabs__link">
           
   
@@ -253,16 +251,20 @@
         
   
   
+    
+  
   
     
     
       
   
   
+    
+  
   
     
     
-      <li class="md-tabs__item">
+      <li class="md-tabs__item md-tabs__item--active">
         <a href="install.html" class="md-tabs__link">
           
   
@@ -448,28 +450,25 @@
       
   
   
-    
   
   
-  
     
     
     
       
-        
-        
-      
       
     
     
-    <li class="md-nav__item md-nav__item--active md-nav__item--section md-nav__item--nested">
+    <li class="md-nav__item md-nav__item--nested">
       
         
-        
-        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_2" checked>
         
           
-          <label class="md-nav__link" for="__nav_2" id="__nav_2_label" tabindex="">
+        
+        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_2" >
+        
+          
+          <label class="md-nav__link" for="__nav_2" id="__nav_2_label" tabindex="0">
             
   
   <span class="md-ellipsis">
@@ -480,7 +479,7 @@
             <span class="md-nav__icon md-icon"></span>
           </label>
         
-        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_2_label" aria-expanded="true">
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_2_label" aria-expanded="false">
           <label class="md-nav__title" for="__nav_2">
             <span class="md-nav__icon md-icon"></span>
             Getting started
@@ -512,30 +511,10 @@
                 
   
   
-    
   
   
-  
-    <li class="md-nav__item md-nav__item--active">
-      
-      <input class="md-nav__toggle md-toggle" type="checkbox" id="__toc">
-      
-      
-        
-      
-      
-        <label class="md-nav__link md-nav__link--active" for="__toc">
-          
-  
-  <span class="md-ellipsis">
-    Validating
-  </span>
-  
-
-          <span class="md-nav__icon md-icon"></span>
-        </label>
-      
-      <a href="run-a-validator.html" class="md-nav__link md-nav__link--active">
+    <li class="md-nav__item">
+      <a href="run-a-validator.html" class="md-nav__link">
         
   
   <span class="md-ellipsis">
@@ -544,152 +523,6 @@
   
 
       </a>
-      
-        
-
-<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
-  
-  
-  
-    
-  
-  
-    <label class="md-nav__title" for="__toc">
-      <span class="md-nav__icon md-icon"></span>
-      Table of contents
-    </label>
-    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
-      
-        <li class="md-nav__item">
-  <a href="#overview" class="md-nav__link">
-    <span class="md-ellipsis">
-      Overview
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#1-make-a-deposit-for-your-validator" class="md-nav__link">
-    <span class="md-ellipsis">
-      1. Make a deposit for your validator
-    </span>
-  </a>
-  
-    <nav class="md-nav" aria-label="1. Make a deposit for your validator">
-      <ul class="md-nav__list">
-        
-          <li class="md-nav__item">
-  <a href="#1-download-the-deposit-tool" class="md-nav__link">
-    <span class="md-ellipsis">
-      1. Download the deposit tool
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#2-generate-keys" class="md-nav__link">
-    <span class="md-ellipsis">
-      2. Generate keys
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#3-make-the-deposit" class="md-nav__link">
-    <span class="md-ellipsis">
-      3. Make the deposit
-    </span>
-  </a>
-  
-</li>
-        
-      </ul>
-    </nav>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#2-import-your-validator-keys" class="md-nav__link">
-    <span class="md-ellipsis">
-      2. Import your validator keys
-    </span>
-  </a>
-  
-    <nav class="md-nav" aria-label="2. Import your validator keys">
-      <ul class="md-nav__list">
-        
-          <li class="md-nav__item">
-  <a href="#command-line" class="md-nav__link">
-    <span class="md-ellipsis">
-      Command line
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#troubleshooting" class="md-nav__link">
-    <span class="md-ellipsis">
-      Troubleshooting
-    </span>
-  </a>
-  
-</li>
-        
-      </ul>
-    </nav>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#3-start-validating" class="md-nav__link">
-    <span class="md-ellipsis">
-      3. Start validating
-    </span>
-  </a>
-  
-    <nav class="md-nav" aria-label="3. Start validating">
-      <ul class="md-nav__list">
-        
-          <li class="md-nav__item">
-  <a href="#1-choose-a-fee-recipient" class="md-nav__link">
-    <span class="md-ellipsis">
-      1. Choose a fee recipient
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#2-restart-the-node" class="md-nav__link">
-    <span class="md-ellipsis">
-      2. (Re)start the node
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#3-check-the-logs" class="md-nav__link">
-    <span class="md-ellipsis">
-      3. Check the logs
-    </span>
-  </a>
-  
-</li>
-        
-      </ul>
-    </nav>
-  
-</li>
-      
-    </ul>
-  
-</nav>
-      
     </li>
   
 
@@ -769,25 +602,28 @@
       
   
   
+    
   
   
+  
     
     
     
-      
-      
-    
-    
-    <li class="md-nav__item md-nav__item--nested">
       
         
+        
+      
+      
+    
+    
+    <li class="md-nav__item md-nav__item--active md-nav__item--section md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_3" checked>
         
           
-        
-        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_3" >
-        
-          
-          <label class="md-nav__link" for="__nav_3" id="__nav_3_label" tabindex="0">
+          <label class="md-nav__link" for="__nav_3" id="__nav_3_label" tabindex="">
             
   
   <span class="md-ellipsis">
@@ -798,7 +634,7 @@
             <span class="md-nav__icon md-icon"></span>
           </label>
         
-        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_3_label" aria-expanded="false">
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_3_label" aria-expanded="true">
           <label class="md-nav__title" for="__nav_3">
             <span class="md-nav__icon md-icon"></span>
             How-to
@@ -1199,8 +1035,10 @@
                 
   
   
+    
   
   
+  
     
     
     
@@ -1208,13 +1046,11 @@
       
     
     
-    <li class="md-nav__item md-nav__item--nested">
+    <li class="md-nav__item md-nav__item--active md-nav__item--nested">
       
         
         
-          
-        
-        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_3_3" >
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_3_3" checked>
         
           
           <label class="md-nav__link" for="__nav_3_3" id="__nav_3_3_label" tabindex="0">
@@ -1228,7 +1064,7 @@
             <span class="md-nav__icon md-icon"></span>
           </label>
         
-        <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_3_3_label" aria-expanded="false">
+        <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_3_3_label" aria-expanded="true">
           <label class="md-nav__title" for="__nav_3_3">
             <span class="md-nav__icon md-icon"></span>
             General
@@ -1428,10 +1264,30 @@
                 
   
   
+    
   
   
-    <li class="md-nav__item">
-      <a href="hoodi.html" class="md-nav__link">
+  
+    <li class="md-nav__item md-nav__item--active">
+      
+      <input class="md-nav__toggle md-toggle" type="checkbox" id="__toc">
+      
+      
+        
+      
+      
+        <label class="md-nav__link md-nav__link--active" for="__toc">
+          
+  
+  <span class="md-ellipsis">
+    Hoodi testnet
+  </span>
+  
+
+          <span class="md-nav__icon md-icon"></span>
+        </label>
+      
+      <a href="hoodi.html" class="md-nav__link md-nav__link--active">
         
   
   <span class="md-ellipsis">
@@ -1440,6 +1296,71 @@
   
 
       </a>
+      
+        
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#general-preparation" class="md-nav__link">
+    <span class="md-ellipsis">
+      General Preparation
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#sync-the-beacon-node-and-execution-client" class="md-nav__link">
+    <span class="md-ellipsis">
+      Sync the beacon node and execution client
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#obtaining-genesis-file-optional" class="md-nav__link">
+    <span class="md-ellipsis">
+      Obtaining genesis file (optional)
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#begin-validating" class="md-nav__link">
+    <span class="md-ellipsis">
+      Begin validating
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#useful-resources" class="md-nav__link">
+    <span class="md-ellipsis">
+      Useful resources
+    </span>
+  </a>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+      
     </li>
   
 
@@ -2381,128 +2302,47 @@
     <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
       
         <li class="md-nav__item">
-  <a href="#overview" class="md-nav__link">
+  <a href="#general-preparation" class="md-nav__link">
     <span class="md-ellipsis">
-      Overview
+      General Preparation
     </span>
   </a>
   
 </li>
       
         <li class="md-nav__item">
-  <a href="#1-make-a-deposit-for-your-validator" class="md-nav__link">
+  <a href="#sync-the-beacon-node-and-execution-client" class="md-nav__link">
     <span class="md-ellipsis">
-      1. Make a deposit for your validator
+      Sync the beacon node and execution client
     </span>
   </a>
-  
-    <nav class="md-nav" aria-label="1. Make a deposit for your validator">
-      <ul class="md-nav__list">
-        
-          <li class="md-nav__item">
-  <a href="#1-download-the-deposit-tool" class="md-nav__link">
-    <span class="md-ellipsis">
-      1. Download the deposit tool
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#2-generate-keys" class="md-nav__link">
-    <span class="md-ellipsis">
-      2. Generate keys
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#3-make-the-deposit" class="md-nav__link">
-    <span class="md-ellipsis">
-      3. Make the deposit
-    </span>
-  </a>
-  
-</li>
-        
-      </ul>
-    </nav>
   
 </li>
       
         <li class="md-nav__item">
-  <a href="#2-import-your-validator-keys" class="md-nav__link">
+  <a href="#obtaining-genesis-file-optional" class="md-nav__link">
     <span class="md-ellipsis">
-      2. Import your validator keys
+      Obtaining genesis file (optional)
     </span>
   </a>
-  
-    <nav class="md-nav" aria-label="2. Import your validator keys">
-      <ul class="md-nav__list">
-        
-          <li class="md-nav__item">
-  <a href="#command-line" class="md-nav__link">
-    <span class="md-ellipsis">
-      Command line
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#troubleshooting" class="md-nav__link">
-    <span class="md-ellipsis">
-      Troubleshooting
-    </span>
-  </a>
-  
-</li>
-        
-      </ul>
-    </nav>
   
 </li>
       
         <li class="md-nav__item">
-  <a href="#3-start-validating" class="md-nav__link">
+  <a href="#begin-validating" class="md-nav__link">
     <span class="md-ellipsis">
-      3. Start validating
-    </span>
-  </a>
-  
-    <nav class="md-nav" aria-label="3. Start validating">
-      <ul class="md-nav__list">
-        
-          <li class="md-nav__item">
-  <a href="#1-choose-a-fee-recipient" class="md-nav__link">
-    <span class="md-ellipsis">
-      1. Choose a fee recipient
+      Begin validating
     </span>
   </a>
   
 </li>
-        
-          <li class="md-nav__item">
-  <a href="#2-restart-the-node" class="md-nav__link">
+      
+        <li class="md-nav__item">
+  <a href="#useful-resources" class="md-nav__link">
     <span class="md-ellipsis">
-      2. (Re)start the node
+      Useful resources
     </span>
   </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#3-check-the-logs" class="md-nav__link">
-    <span class="md-ellipsis">
-      3. Check the logs
-    </span>
-  </a>
-  
-</li>
-        
-      </ul>
-    </nav>
   
 </li>
       
@@ -2524,185 +2364,107 @@
   
 
 
-<h1 id="validating">Validating</h1>
-<p>Once your beacon node is <a href="quick-start.html">running</a>, the next step is to set up a validator.</p>
-<p>Nimbus <strong>doesn't require</strong> setting up a separate validator client process — the beacon node can itself perform validator duties.
-This is a simple, safe and efficient way to get started.</p>
-<div class="admonition tip">
-<p class="admonition-title">Separate validator client</p>
-<p>While not needed, advanced users may want to use a <a href="validator-client.html">separate validator client</a> instead.</p>
-</div>
-<h2 id="overview">Overview</h2>
-<p>To start validating, you need to do these three steps, explained in more detail below:</p>
+<h1 id="hoodi-testnet">Hoodi testnet</h1>
+<p><code>Hoodi</code> is the main long-running Ethereum staking, infrastructure and protocol-developer testnet.
+For testing decentralized applications, smart contracts, and other EVM functionality, please use Sepolia testnet!</p>
+<p>It provides an opportunity to verify your setup works as expected through the proof-of-stake transition and in a post-merge context as well as to safely practice node operations such as adding and removing validators, migrating between clients, and performing upgrades and backups.
+If you come across any issues, please <a href="https://github.com/status-im/nimbus-eth2/issues">report them here</a>.</p>
+<h2 id="general-preparation">General Preparation</h2>
 <ol>
-<li><a href="run-a-validator.html#1-make-a-deposit-for-your-validator">Make a deposit</a> for your validator.</li>
-<li><a href="run-a-validator.html#2-import-your-validator-keys">Import your validator keys</a> into Nimbus.</li>
-<li><a href="run-a-validator.html#3-start-validating">Start performing validator duties</a> by restarting the node.</li>
-</ol>
-<h2 id="1-make-a-deposit-for-your-validator">1. Make a deposit for your validator</h2>
-<p>To make a deposit, you will need to generate keys then submit a deposit transaction to the execution chain.</p>
-<div class="admonition tip">
-<p class="admonition-title">Launchpad</p>
-<p>The process of setting up a validator is also documented at the Ethereum launchpad site:</p>
-<ul>
-<li><a href="https://launchpad.ethereum.org/">Mainnet</a></li>
-<li><a href="https://hoodi.launchpad.ethstaker.cc/en/">Hoodi EthStaker Launchpad</a> or <a href="https://hoodi.launchpad.ethereum.org/">Hoodi EF Launchpad</a></li>
-</ul>
-</div>
-<div class="admonition tip">
-<p class="admonition-title">Tip</p>
-<p>Before running your validator on Mainnet, you can (and should) verify that your setup works as expected by running it on the <a href="hoodi.html">Hoodi testnet</a>.</p>
-</div>
-<h3 id="1-download-the-deposit-tool">1. Download the deposit tool</h3>
-<p>Start by downloading and unpacking the <a href="https://github.com/ethereum/staking-deposit-cli/releases/latest">deposit tool</a> provided by the Ethereum Foundation:</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="c1"># Enter the nimbus folder</span>
-<a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a><span class="nb">cd</span><span class="w"> </span>nimbus-eth2
-<a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a>
-<a id="__codelineno-0-4" name="__codelineno-0-4" href="#__codelineno-0-4"></a><span class="c1"># Make sure to get the latest version from the download page</span>
-<a id="__codelineno-0-5" name="__codelineno-0-5" href="#__codelineno-0-5"></a>wget<span class="w"> </span>https://github.com/ethereum/staking-deposit-cli/releases/download/v2.2.0/staking_deposit-cli-9ab0b05-linux-amd64.tar.gz
-<a id="__codelineno-0-6" name="__codelineno-0-6" href="#__codelineno-0-6"></a>
-<a id="__codelineno-0-7" name="__codelineno-0-7" href="#__codelineno-0-7"></a><span class="c1"># Unpack the archive</span>
-<a id="__codelineno-0-8" name="__codelineno-0-8" href="#__codelineno-0-8"></a>tar<span class="w"> </span>xvf<span class="w"> </span>staking_deposit-cli-9ab0b05-linux-amd64.tar.gz<span class="w"> </span>--strip-components<span class="w"> </span><span class="m">2</span>
-</code></pre></div>
-<h3 id="2-generate-keys">2. Generate keys</h3>
-<div class="admonition tip">
-<p class="admonition-title">Live image</p>
-<p>You can increase the security of this process by downloading a <a href="https://ubuntu.com/tutorials/try-ubuntu-before-you-install">Live Linux image</a>. To do so, copy <code>deposit</code> to a USB stick, boot into the live image, and run the tool from inside the image.
-Make sure you <strong>don't</strong> enable Wi-Fi and unplug any Ethernet cables when using this process.</p>
-</div>
-<p>The deposit tool generates a seed phrase, and uses this to create validator and withdrawal keys.</p>
-<div class="admonition danger">
-<p class="admonition-title">Seed phrase</p>
-<p>If you lose you seed phrase and your withdrawal key, your funds will be lost forever!</p>
-</div>
-<div class="tabbed-set tabbed-alternate" data-tabs="1:2"><input checked="checked" id="__tabbed_1_1" name="__tabbed_1" type="radio" /><input id="__tabbed_1_2" name="__tabbed_1" type="radio" /><div class="tabbed-labels"><label for="__tabbed_1_1">Mainnet</label><label for="__tabbed_1_2">Holesky</label></div>
+<li>
+<p>Generate the JWT secret with <code>openssl rand -hex 32 | tr -d "\n" &gt; "/opt/jwtsecret"</code>. This file needs to be passed to both the execution client and the consensus client.</p>
+</li>
+<li>
+<p>Choose an Ethereum address to receive transaction fees.
+   This ETH will be immediately available, not part of the staking contract.</p>
+</li>
+<li>
+<p>Download the <a href="binaries.html">latest release</a> and install it by unpacking the archive.</p>
+</li>
+<li>
+<p>Choose one of Nethermind, Erigon, or Besu as an execution client.
+   Download, install, and <a href="https://notes.ethereum.org/@launchpad/hoodi#Run-an-Execution-Layer-Client">run it</a>.</p>
+<div class="tabbed-set tabbed-alternate" data-tabs="1:3"><input checked="checked" id="__tabbed_1_1" name="__tabbed_1" type="radio" /><input id="__tabbed_1_2" name="__tabbed_1" type="radio" /><input id="__tabbed_1_3" name="__tabbed_1" type="radio" /><div class="tabbed-labels"><label for="__tabbed_1_1">Nethermind</label><label for="__tabbed_1_2">Erigon</label><label for="__tabbed_1_3">Besu</label></div>
 <div class="tabbed-content">
 <div class="tabbed-block">
-<div class="highlight"><pre><span></span><code><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a><span class="c1"># Run the deposit tool and follow the instructions on screen</span>
-<a id="__codelineno-1-2" name="__codelineno-1-2" href="#__codelineno-1-2"></a>./deposit<span class="w"> </span>new-mnemonic<span class="w"> </span>--chain<span class="w"> </span>mainnet
+<div class="highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nb">cd</span><span class="w"> </span>nethermind/src/Nethermind/Nethermind.Runner
+<a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a>dotnet<span class="w"> </span>run<span class="w"> </span>-c<span class="w"> </span>Release<span class="w"> </span>--<span class="w"> </span>--config<span class="w"> </span>hoodi<span class="w"> </span><span class="se">\</span>
+<a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a><span class="w">  </span>--JsonRpc.Host<span class="o">=</span><span class="m">0</span>.0.0.0<span class="w"> </span><span class="se">\</span>
+<a id="__codelineno-0-4" name="__codelineno-0-4" href="#__codelineno-0-4"></a><span class="w">  </span>--JsonRpc.JwtSecretFile<span class="o">=</span>/opt/jwtsecret
 </code></pre></div>
 </div>
 <div class="tabbed-block">
-<div class="highlight"><pre><span></span><code><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a><span class="c1"># Run the deposit tool and follow the instructions on screen</span>
-<a id="__codelineno-2-2" name="__codelineno-2-2" href="#__codelineno-2-2"></a>./deposit<span class="w"> </span>new-mnemonic<span class="w"> </span>--chain<span class="w"> </span>holesky
-</code></pre></div>
-</div>
-</div>
-</div>
-<h3 id="3-make-the-deposit">3. Make the deposit</h3>
-<p>Once created, the keys are used to create a deposit transaction on the Ethereum execution chain.
-Follow the instructions <a href="https://launchpad.ethereum.org/en/upload-deposit-data">here</a> to upload the deposit data.</p>
-<div class="admonition warning">
-<p class="admonition-title">Warning</p>
-<p>If you are making a mainnet deposit make sure you verify that the deposit contract you are interacting with is the correct one.</p>
-<p>You should verify that the address is indeed: <a href="https://etherscan.io/address/0x00000000219ab540356cBB839Cbe05303d7705Fa">0x00000000219ab540356cBB839Cbe05303d7705Fa</a></p>
-</div>
-<p>Once you send off your transaction(s), before your validator starts producing blocks and attestations, there are two waiting periods.</p>
-<p>First, you wait for the beacon chain to recognize the block containing the deposit.
-This usually takes around 13 hours.
-Then, you wait in the queue for validator activation.</p>
-<p>Getting through the queue may take a few hours or days (assuming the chain is finalizing).
-No validators are accepted into the validator set while the chain isn't finalizing.
-The <code>Pending Validators</code> metric on the <a href="https://beaconcha.in/">beaconcha.in</a> will give you the size of the queue.</p>
-<p>With the keys created, you're ready for the next step: importing your validator keys.</p>
-<h2 id="2-import-your-validator-keys">2. Import your validator keys</h2>
-<div class="admonition tip">
-<p class="admonition-title">Tip</p>
-<p><code>systemd</code> service file users will want to follow the <a href="beacon-node-systemd.html#import-validator-keys">service file guide</a> instead!</p>
-</div>
-<p>By finishing the first step, you will have a <code>validator_keys</code> folder containing several <code>.json</code> files in the <code>nimbus-eth2</code> directory.</p>
-<p>We'll import the signing key of each validator to the <a href="data-dir.html">data directory</a> using the <code>deposits import</code> command:</p>
-<div class="admonition note">
-<p>You'll be asked to enter the password you used when creating your keystore(s).</p>
-</div>
-<div class="tabbed-set tabbed-alternate" data-tabs="2:2"><input checked="checked" id="__tabbed_2_1" name="__tabbed_2" type="radio" /><input id="__tabbed_2_2" name="__tabbed_2" type="radio" /><div class="tabbed-labels"><label for="__tabbed_2_1">Mainnet</label><label for="__tabbed_2_2">Holesky</label></div>
-<div class="tabbed-content">
-<div class="tabbed-block">
-<div class="highlight"><pre><span></span><code><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a>build/nimbus_beacon_node<span class="w"> </span>deposits<span class="w"> </span>import<span class="w"> </span>--data-dir<span class="o">=</span>build/data/shared_mainnet_0
+<div class="highlight"><pre><span></span><code><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a>./build/bin/erigon<span class="w"> </span>--chain<span class="o">=</span>hoodi<span class="w"> </span><span class="se">\</span>
+<a id="__codelineno-1-2" name="__codelineno-1-2" href="#__codelineno-1-2"></a><span class="w">  </span>--datadir<span class="w"> </span>hoodi-testnet<span class="w"> </span><span class="se">\</span>
+<a id="__codelineno-1-3" name="__codelineno-1-3" href="#__codelineno-1-3"></a><span class="w">  </span>--authrpc.jwtsecret<span class="o">=</span>/opt/jwtsecret<span class="w"> </span><span class="se">\</span>
+<a id="__codelineno-1-4" name="__codelineno-1-4" href="#__codelineno-1-4"></a><span class="w">  </span>--http<span class="w"> </span>--http.api<span class="o">=</span>engine,net,eth
 </code></pre></div>
 </div>
 <div class="tabbed-block">
-<div class="highlight"><pre><span></span><code><a id="__codelineno-4-1" name="__codelineno-4-1" href="#__codelineno-4-1"></a>build/nimbus_beacon_node<span class="w"> </span>deposits<span class="w"> </span>import<span class="w"> </span>--data-dir<span class="o">=</span>build/data/shared_holesky_0
+<div class="highlight"><pre><span></span><code><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a>build/install/besu/bin/besu<span class="w">      </span><span class="se">\</span>
+<a id="__codelineno-2-2" name="__codelineno-2-2" href="#__codelineno-2-2"></a><span class="w">  </span>--network<span class="o">=</span>hoodi<span class="w">                </span><span class="se">\</span>
+<a id="__codelineno-2-3" name="__codelineno-2-3" href="#__codelineno-2-3"></a><span class="w">  </span>--rpc-http-enabled<span class="o">=</span><span class="nb">true</span><span class="w">        </span><span class="se">\</span>
+<a id="__codelineno-2-4" name="__codelineno-2-4" href="#__codelineno-2-4"></a><span class="w">  </span>--rpc-http-host<span class="o">=</span><span class="s2">&quot;0.0.0.0&quot;</span><span class="w">      </span><span class="se">\</span>
+<a id="__codelineno-2-5" name="__codelineno-2-5" href="#__codelineno-2-5"></a><span class="w">  </span>--rpc-http-cors-origins<span class="o">=</span><span class="s2">&quot;*&quot;</span><span class="w">    </span><span class="se">\</span>
+<a id="__codelineno-2-6" name="__codelineno-2-6" href="#__codelineno-2-6"></a><span class="w">  </span>--sync-mode<span class="o">=</span><span class="s2">&quot;X_SNAP&quot;</span><span class="w">           </span><span class="se">\</span>
+<a id="__codelineno-2-7" name="__codelineno-2-7" href="#__codelineno-2-7"></a><span class="w">  </span>--data-storage-format<span class="o">=</span><span class="s2">&quot;BONSAI&quot;</span><span class="w"> </span><span class="se">\</span>
+<a id="__codelineno-2-8" name="__codelineno-2-8" href="#__codelineno-2-8"></a><span class="w">  </span>--Xmerge-support<span class="o">=</span><span class="nb">true</span><span class="w">          </span><span class="se">\</span>
+<a id="__codelineno-2-9" name="__codelineno-2-9" href="#__codelineno-2-9"></a><span class="w">  </span>--rpc-ws-host<span class="o">=</span><span class="s2">&quot;0.0.0.0&quot;</span><span class="w">        </span><span class="se">\</span>
+<a id="__codelineno-2-10" name="__codelineno-2-10" href="#__codelineno-2-10"></a><span class="w">  </span>--host-allowlist<span class="o">=</span><span class="s2">&quot;*&quot;</span><span class="w">           </span><span class="se">\</span>
+<a id="__codelineno-2-11" name="__codelineno-2-11" href="#__codelineno-2-11"></a><span class="w">  </span>--engine-rpc-enabled<span class="o">=</span><span class="nb">true</span><span class="w">      </span><span class="se">\</span>
+<a id="__codelineno-2-12" name="__codelineno-2-12" href="#__codelineno-2-12"></a><span class="w">  </span>--engine-host-allowlist<span class="o">=</span><span class="s2">&quot;*&quot;</span><span class="w">    </span><span class="se">\</span>
+<a id="__codelineno-2-13" name="__codelineno-2-13" href="#__codelineno-2-13"></a><span class="w">  </span>--engine-jwt-enabled<span class="o">=</span><span class="nb">true</span><span class="w">      </span><span class="se">\</span>
+<a id="__codelineno-2-14" name="__codelineno-2-14" href="#__codelineno-2-14"></a><span class="w">  </span>--engine-jwt-secret<span class="o">=</span>/opt/jwtsecret
 </code></pre></div>
 </div>
 </div>
 </div>
-<p>On success, a message will be printed that your keys have been imported:
-<div class="highlight"><pre><span></span><code><a id="__codelineno-5-1" name="__codelineno-5-1" href="#__codelineno-5-1"></a>NTC 2022-07-19 17:36:37.578+02:00 Keystore imported
+<h2 id="sync-the-beacon-node-and-execution-client">Sync the beacon node and execution client</h2>
+</li>
+<li>
+<p><a href="start-syncing.html">Start syncing</a> the node consisting of Nimbus and chosen execution client, for example by running:
+    <div class="highlight"><pre><span></span><code><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a>nimbus-eth2/build/nimbus_beacon_node<span class="w"> </span><span class="se">\</span>
+<a id="__codelineno-3-2" name="__codelineno-3-2" href="#__codelineno-3-2"></a><span class="w">    </span>--network<span class="o">=</span>hoodi<span class="w"> </span><span class="se">\</span>
+<a id="__codelineno-3-3" name="__codelineno-3-3" href="#__codelineno-3-3"></a><span class="w">    </span>--web3-url<span class="o">=</span>http://127.0.0.1:8551<span class="w"> </span><span class="se">\</span>
+<a id="__codelineno-3-4" name="__codelineno-3-4" href="#__codelineno-3-4"></a><span class="w">    </span>--rest<span class="w"> </span><span class="se">\</span>
+<a id="__codelineno-3-5" name="__codelineno-3-5" href="#__codelineno-3-5"></a><span class="w">    </span>--metrics<span class="w"> </span><span class="se">\</span>
+<a id="__codelineno-3-6" name="__codelineno-3-6" href="#__codelineno-3-6"></a><span class="w">    </span>--jwt-secret<span class="o">=</span><span class="s2">&quot;/opt/jwtsecret&quot;</span><span class="w"> </span><span class="se">\</span>
+<a id="__codelineno-3-7" name="__codelineno-3-7" href="#__codelineno-3-7"></a><span class="w">    </span>--suggested-fee-recipient<span class="o">=</span>&lt;Enter-eth-address-here&gt;
 </code></pre></div></p>
-<p>After importing keys, it is time to <a href="run-a-validator.html#3-start-validating">restart the node</a> and check that the keys have been picked up by the beacon node.</p>
-<div class="admonition info">
-<p class="admonition-title">All the keys</p>
-<p>You can read more about the different types of keys <a href="https://blog.ethereum.org/2020/05/21/keys/">here</a> — the <code>deposits import</code> command will import the <strong>signing key</strong> only.</p>
+<div class="admonition tip">
+<p class="admonition-title">Tip</p>
+<p>If you want the syncing process to complete much faster, you can <a href="trusted-node-sync.html">sync from a trusted node</a>.</p>
 </div>
-<h3 id="command-line">Command line</h3>
-<p>If your <code>validator_keys</code> folder is stored elsewhere, you can pass its location to the import command:</p>
-<div class="tabbed-set tabbed-alternate" data-tabs="3:2"><input checked="checked" id="__tabbed_3_1" name="__tabbed_3" type="radio" /><input id="__tabbed_3_2" name="__tabbed_3" type="radio" /><div class="tabbed-labels"><label for="__tabbed_3_1">Mainnet</label><label for="__tabbed_3_2">Holesky</label></div>
-<div class="tabbed-content">
-<div class="tabbed-block">
-<div class="highlight"><pre><span></span><code><a id="__codelineno-6-1" name="__codelineno-6-1" href="#__codelineno-6-1"></a>build/nimbus_beacon_node<span class="w"> </span>deposits<span class="w"> </span>import<span class="w"> </span><span class="se">\</span>
-<a id="__codelineno-6-2" name="__codelineno-6-2" href="#__codelineno-6-2"></a><span class="w">  </span>--data-dir<span class="o">=</span>build/data/shared_mainnet_0<span class="w"> </span><span class="se">\</span>
-<a id="__codelineno-6-3" name="__codelineno-6-3" href="#__codelineno-6-3"></a><span class="w">  </span>/path/to/keys
-</code></pre></div>
-</div>
-<div class="tabbed-block">
-<div class="highlight"><pre><span></span><code><a id="__codelineno-7-1" name="__codelineno-7-1" href="#__codelineno-7-1"></a>build/nimbus_beacon_node<span class="w"> </span>deposits<span class="w"> </span>import<span class="w"> </span><span class="se">\</span>
-<a id="__codelineno-7-2" name="__codelineno-7-2" href="#__codelineno-7-2"></a><span class="w">  </span>--data-dir<span class="o">=</span>build/data/shared_holesky_0<span class="w"> </span><span class="se">\</span>
-<a id="__codelineno-7-3" name="__codelineno-7-3" href="#__codelineno-7-3"></a><span class="w">  </span>/path/to/keys
-</code></pre></div>
-</div>
-</div>
-</div>
-<p>Replacing <code>/path/to/keys</code> with the full pathname of where the <code>validator_keys</code> directory is found.</p>
-<h3 id="troubleshooting">Troubleshooting</h3>
-<p>If you come across an error, make sure that:</p>
+<p>One might consider here to <a href="beacon-node-systemd.html">set up a systemd service</a> to ensure this runs automatically, including after restarts.</p>
+<h2 id="obtaining-genesis-file-optional">Obtaining genesis file (optional)</h2>
+<p>By default, Nimbus will automatically download the genesis state of Hoodi from Github through the HTTPS protocol.
+If something prevents you from using this method, you may be able to work-around the issue by either instructing Nimbus to use a different URL by specifying the <code>--genesis-state-url</code> command-line parameter (for example, you can point it to the <code>/eth/v2/debug/beacon/states/genesis</code> endpoint of a trusted beacon node or a checkpoint provider) or by downloading the <code>genesis.ssz</code> file of the network through some other means and then supplying its path through the <code>--genesis-state</code> command-line parameter.</p>
+<h2 id="begin-validating">Begin validating</h2>
+</li>
+<li>
+<p>Once this Hoodi node is <a href="keep-an-eye.html#keep-track-of-your-syncing-progress">completely synced</a>, use the <a href="https://hoodi.launchpad.ethereum.org/en/">Hoodi launchpad</a> to obtain Hoodi validators.
+It might require some time before these enter and are activated on the beacon chain.
+If one does this before the node which will attest and propose using those validators has synced, one might miss attestations and block proposals.</p>
+</li>
+<li>
+<p>Follow our validating guide from <a href="run-a-validator.html#2-import-your-validator-keys">step 2 (import the validator keys) onward</a>.</p>
+</li>
+</ol>
+<h2 id="useful-resources">Useful resources</h2>
 <ul>
-<li>You are using the correct <a href="data-dir.html">data directory</a>.
-  For <code>systemd</code> users, look for the <code>--data-dir</code> option in the <code>.service</code> file.</li>
-<li>You are running the command as the correct user.
-  For <code>systemd</code> users, look for the <code>User=</code> option in the <code>.service</code>. Assuming the user is called <code>nimbus</code>,  prefix all commands with: <code>sudo -u nimbus</code>.</li>
-<li>Permissions for the data directory are wrong.
-  See <a href="data-dir.html#permissions">folder permissions</a> for how to fix this.</li>
+<li>
+<p>Hoodi <a href="https://hoodi.ethpandaops.io">landing page</a>: view block explorers, request funds from the faucet, and connect to a JSON RPC endpoint.</p>
+</li>
+<li>
+<p>Hoodi <a href="https://notes.ethereum.org/@launchpad/hoodi">EF launchpad notes</a>: how to run a node; contains instructions for how to build Nimbus from source for this purpose</p>
+</li>
+<li>
+<p>Hoodi consensus layer <a href="https://hoodi.beaconcha.in/">beacon chain explorer</a></p>
+</li>
+<li>
+<p>Hoodi execution layer <a href="https://hoodi.etherscan.io/">transaction explorer</a></p>
+</li>
 </ul>
-<h2 id="3-start-validating">3. Start validating</h2>
-<p>Once your keys have been imported, it is time to configure a <a href="suggested-fee-recipient.html">fee recipient</a> and restart the beacon node to start validating.</p>
-<h3 id="1-choose-a-fee-recipient">1. Choose a fee recipient</h3>
-<p>The <a href="suggested-fee-recipient.html">fee recipient</a> is an Ethereum address that receives transaction fees from the blocks that your validators produce.
-You can set up a separate address or reuse the address from which you funded your deposits.</p>
-<h3 id="2-restart-the-node">2. (Re)start the node</h3>
-<p>Press <code>Ctrl-c</code> to stop the beacon node if it's running, then use the same command as before to run it again, this time adding the <code>--suggested-fee-recipient</code> option in addition to <code>--web3-url</code>:</p>
-<div class="tabbed-set tabbed-alternate" data-tabs="4:2"><input checked="checked" id="__tabbed_4_1" name="__tabbed_4" type="radio" /><input id="__tabbed_4_2" name="__tabbed_4" type="radio" /><div class="tabbed-labels"><label for="__tabbed_4_1">Mainnet</label><label for="__tabbed_4_2">Holesky</label></div>
-<div class="tabbed-content">
-<div class="tabbed-block">
-<div class="highlight"><pre><span></span><code><a id="__codelineno-8-1" name="__codelineno-8-1" href="#__codelineno-8-1"></a>./run-mainnet-beacon-node.sh<span class="w"> </span><span class="se">\</span>
-<a id="__codelineno-8-2" name="__codelineno-8-2" href="#__codelineno-8-2"></a><span class="w">    </span>--web3-url<span class="o">=</span>http://127.0.0.1:8551<span class="w"> </span><span class="se">\</span>
-<a id="__codelineno-8-3" name="__codelineno-8-3" href="#__codelineno-8-3"></a><span class="w">    </span>--suggested-fee-recipient<span class="o">=</span>0x...
-</code></pre></div>
-</div>
-<div class="tabbed-block">
-<div class="highlight"><pre><span></span><code><a id="__codelineno-9-1" name="__codelineno-9-1" href="#__codelineno-9-1"></a>build/nimbus_beacon_node<span class="w"> </span><span class="se">\</span>
-<a id="__codelineno-9-2" name="__codelineno-9-2" href="#__codelineno-9-2"></a><span class="w">    </span>--network<span class="o">=</span>hoodi<span class="w"> </span><span class="se">\</span>
-<a id="__codelineno-9-3" name="__codelineno-9-3" href="#__codelineno-9-3"></a><span class="w">    </span>--data-dir<span class="o">=</span>build/data/shared_hoodi_0<span class="w"> </span><span class="se">\</span>
-<a id="__codelineno-9-4" name="__codelineno-9-4" href="#__codelineno-9-4"></a><span class="w">    </span>--web3-url<span class="o">=</span>http://127.0.0.1:8551<span class="w"> </span><span class="se">\</span>
-<a id="__codelineno-9-5" name="__codelineno-9-5" href="#__codelineno-9-5"></a><span class="w">    </span>--suggested-fee-recipient<span class="o">=</span>0x...
-</code></pre></div>
-</div>
-</div>
-</div>
-<h3 id="3-check-the-logs">3. Check the logs</h3>
-<p>Your beacon node will launch and connect your validator to the beacon chain network.
-To check that keys were imported correctly, look for <code>Local validator attached</code> in the logs:</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-10-1" name="__codelineno-10-1" href="#__codelineno-10-1"></a>INF 2020-11-18 11:20:00.181+01:00 Launching beacon node
-<a id="__codelineno-10-2" name="__codelineno-10-2" href="#__codelineno-10-2"></a>...
-<a id="__codelineno-10-3" name="__codelineno-10-3" href="#__codelineno-10-3"></a>NTC 2020-11-18 11:20:02.091+01:00 Local validator attached
-</code></pre></div>
-<p>Congratulations!
-Your node is now ready to perform validator duties and earning a small amount of ETH every 6.4 minutes in return for keeping the Ethereum network secure!
-Depending on when the deposit was made, it may take a while before the first attestation is sent — this is normal.</p>
-<div class="admonition success">
-<p class="admonition-title">What next?</p>
-<p>While that's all there is to it, it is essential that you both <a href="keep-an-eye.html">keep an eye on your validator</a> and <a href="keep-updated.html">keep Nimbus updated</a> regularly. 💫</p>
-</div>
 
 
 

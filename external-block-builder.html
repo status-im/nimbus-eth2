@@ -1178,27 +1178,6 @@
   
   
     <li class="md-nav__item">
-      <a href="goerli-eth.html" class="md-nav__link">
-        
-  
-  <span class="md-ellipsis">
-    Obtain Goerli ETH
-  </span>
-  
-
-      </a>
-    </li>
-  
-
-              
-            
-              
-                
-  
-  
-  
-  
-    <li class="md-nav__item">
       <a href="beacon-node-systemd.html" class="md-nav__link">
         
   
@@ -1346,11 +1325,11 @@
   
   
     <li class="md-nav__item">
-      <a href="holesky.html" class="md-nav__link">
+      <a href="hoodi.html" class="md-nav__link">
         
   
   <span class="md-ellipsis">
-    Holešky testnet
+    Hoodi testnet
   </span>
   
 
@@ -2354,18 +2333,25 @@ For further information, check the documentation of the block builder.</p>
 <p>Setting this flag to a non-zero value is recommended due to the additional risk introduced by the usage of an external block builder.</p>
 </div>
 <p>Additionally, the URL of the service exposing the <a href="https://ethereum.github.io/builder-specs/">builder API</a> must be provided to the beacon node:</p>
-<div class="tabbed-set tabbed-alternate" data-tabs="1:3"><input checked="checked" id="__tabbed_1_1" name="__tabbed_1" type="radio" /><input id="__tabbed_1_2" name="__tabbed_1" type="radio" /><input id="__tabbed_1_3" name="__tabbed_1" type="radio" /><div class="tabbed-labels"><label for="__tabbed_1_1">Mainnet Beacon Node</label><label for="__tabbed_1_2">Holesky Beacon Node</label><label for="__tabbed_1_3">Validator Client</label></div>
+<div class="tabbed-set tabbed-alternate" data-tabs="1:3"><input checked="checked" id="__tabbed_1_1" name="__tabbed_1" type="radio" /><input id="__tabbed_1_2" name="__tabbed_1" type="radio" /><input id="__tabbed_1_3" name="__tabbed_1" type="radio" /><div class="tabbed-labels"><label for="__tabbed_1_1">Mainnet Beacon Node</label><label for="__tabbed_1_2">Hoodi Beacon Node</label><label for="__tabbed_1_3">Validator Client</label></div>
 <div class="tabbed-content">
 <div class="tabbed-block">
-<div class="highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a>./run-mainnet-beacon-node.sh<span class="w"> </span>--payload-builder<span class="o">=</span><span class="nb">true</span><span class="w"> </span>--payload-builder-url<span class="o">=</span>https://<span class="si">${</span><span class="nv">HOST</span><span class="si">}</span>:<span class="si">${</span><span class="nv">PORT</span><span class="si">}</span>/
+<div class="highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a>./run-mainnet-beacon-node.sh<span class="w"> </span><span class="se">\</span>
+<a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a><span class="w">    </span>--payload-builder<span class="o">=</span><span class="nb">true</span><span class="w"> </span><span class="se">\</span>
+<a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a><span class="w">    </span>--payload-builder-url<span class="o">=</span>https://<span class="si">${</span><span class="nv">HOST</span><span class="si">}</span>:<span class="si">${</span><span class="nv">PORT</span><span class="si">}</span>/
 </code></pre></div>
 </div>
 <div class="tabbed-block">
-<div class="highlight"><pre><span></span><code><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a>./run-holesky-beacon-node.sh<span class="w"> </span>--payload-builder<span class="o">=</span><span class="nb">true</span><span class="w"> </span>--payload-builder-url<span class="o">=</span>https://<span class="si">${</span><span class="nv">HOST</span><span class="si">}</span>:<span class="si">${</span><span class="nv">PORT</span><span class="si">}</span>/
+<div class="highlight"><pre><span></span><code><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a>build/nimbus_beacon_node<span class="w"> </span><span class="se">\</span>
+<a id="__codelineno-1-2" name="__codelineno-1-2" href="#__codelineno-1-2"></a><span class="w">    </span>--network<span class="o">=</span>hoodi<span class="w"> </span><span class="se">\</span>
+<a id="__codelineno-1-3" name="__codelineno-1-3" href="#__codelineno-1-3"></a><span class="w">    </span>--data-dir<span class="o">=</span>build/data/shared_hoodi_0<span class="w"> </span><span class="se">\</span>
+<a id="__codelineno-1-4" name="__codelineno-1-4" href="#__codelineno-1-4"></a><span class="w">    </span>--payload-builder<span class="o">=</span><span class="nb">true</span><span class="w"> </span><span class="se">\</span>
+<a id="__codelineno-1-5" name="__codelineno-1-5" href="#__codelineno-1-5"></a><span class="w">    </span>--payload-builder-url<span class="o">=</span>https://<span class="si">${</span><span class="nv">HOST</span><span class="si">}</span>:<span class="si">${</span><span class="nv">PORT</span><span class="si">}</span>/
 </code></pre></div>
 </div>
 <div class="tabbed-block">
-<div class="highlight"><pre><span></span><code><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a>build/nimbus_validator_client<span class="w"> </span>--payload-builder<span class="o">=</span><span class="nb">true</span>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a>build/nimbus_validator_client<span class="w"> </span><span class="se">\</span>
+<a id="__codelineno-2-2" name="__codelineno-2-2" href="#__codelineno-2-2"></a><span class="w">    </span>--payload-builder<span class="o">=</span><span class="nb">true</span>
 </code></pre></div>
 </div>
 </div>
@@ -2382,7 +2368,7 @@ For further information, check the documentation of the block builder.</p>
 <p><a href="https://beaconcha.in/relays">Mainnet Relay Overview</a></p>
 </li>
 <li>
-<p><a href="https://holesky.beaconcha.in/relays">Holesky Relay Overview</a></p>
+<p><a href="https://hoodi.beaconcha.in/relays">Hoodi Relay Overview</a></p>
 </li>
 </ul>
 

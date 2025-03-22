@@ -624,15 +624,6 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#pairing-with-the-el-client" class="md-nav__link">
-    <span class="md-ellipsis">
-      Pairing with the EL client
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
   <a href="#running-the-el-client" class="md-nav__link">
     <span class="md-ellipsis">
       Running the EL client
@@ -1275,27 +1266,6 @@
   
   
     <li class="md-nav__item">
-      <a href="goerli-eth.html" class="md-nav__link">
-        
-  
-  <span class="md-ellipsis">
-    Obtain Goerli ETH
-  </span>
-  
-
-      </a>
-    </li>
-  
-
-              
-            
-              
-                
-  
-  
-  
-  
-    <li class="md-nav__item">
       <a href="beacon-node-systemd.html" class="md-nav__link">
         
   
@@ -1443,11 +1413,11 @@
   
   
     <li class="md-nav__item">
-      <a href="holesky.html" class="md-nav__link">
+      <a href="hoodi.html" class="md-nav__link">
         
   
   <span class="md-ellipsis">
-    Holešky testnet
+    Hoodi testnet
   </span>
   
 
@@ -2435,15 +2405,6 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#pairing-with-the-el-client" class="md-nav__link">
-    <span class="md-ellipsis">
-      Pairing with the EL client
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
   <a href="#running-the-el-client" class="md-nav__link">
     <span class="md-ellipsis">
       Running the EL client
@@ -2596,71 +2557,23 @@ To use Nimbus, follow the <a href="install.html">installation instructions</a>.<
 </div>
 <p>This may take a few minutes.
 When the process finishes, the <code>nimbus_light_client</code> executable can be found in the <code>build</code> subdirectory.</p>
-<h2 id="pairing-with-the-el-client">Pairing with the EL client</h2>
-<p>To ensure that only the light client can control the EL client, a file with random content (JWT secret) must be created.
-The format is 64 hexadecimal (0-9, a-f) characters.
-To create one, the following command may be used:</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a>openssl<span class="w"> </span>rand<span class="w"> </span>-hex<span class="w"> </span><span class="m">32</span><span class="w"> </span><span class="p">|</span><span class="w"> </span>tr<span class="w"> </span>-d<span class="w"> </span><span class="s2">&quot;\n&quot;</span><span class="w"> </span>&gt;<span class="w"> </span><span class="s2">&quot;</span><span class="nv">$HOME</span><span class="s2">/jwtsecret&quot;</span>
-</code></pre></div>
-<div class="admonition tip">
-<p class="admonition-title">Tip</p>
-<p>To adjust where the file is created, adjust the <code>$HOME/jwtsecret</code> portion in the command above.
-Also adjust other commands in this guide accordingly.</p>
-</div>
-<p>The JWT secret must be passed to both the EL client and the light client to complete the pairing.</p>
 <h2 id="running-the-el-client">Running the EL client</h2>
-<p>In addition to the <a href="eth1.html">regular instructions</a> to run an EL client, the JWT secret must be configured.
-The following sections explain how to do this for certain EL clients.</p>
-<div class="tabbed-set tabbed-alternate" data-tabs="1:3"><input checked="checked" id="__tabbed_1_1" name="__tabbed_1" type="radio" /><input id="__tabbed_1_2" name="__tabbed_1" type="radio" /><input id="__tabbed_1_3" name="__tabbed_1" type="radio" /><div class="tabbed-labels"><label for="__tabbed_1_1">Geth</label><label for="__tabbed_1_2">Nethermind</label><label for="__tabbed_1_3">Others</label></div>
-<div class="tabbed-content">
-<div class="tabbed-block">
-<div class="tabbed-set tabbed-alternate" data-tabs="2:2"><input checked="checked" id="__tabbed_2_1" name="__tabbed_2" type="radio" /><input id="__tabbed_2_2" name="__tabbed_2" type="radio" /><div class="tabbed-labels"><label for="__tabbed_2_1">Mainnet</label><label for="__tabbed_2_2">Holesky</label></div>
-<div class="tabbed-content">
-<div class="tabbed-block">
-<div class="highlight"><pre><span></span><code><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a>geth<span class="w"> </span>--authrpc.jwtsecret<span class="o">=</span><span class="s2">&quot;</span><span class="nv">$HOME</span><span class="s2">/jwtsecret&quot;</span>
-</code></pre></div>
-</div>
-<div class="tabbed-block">
-<div class="highlight"><pre><span></span><code><a id="__codelineno-4-1" name="__codelineno-4-1" href="#__codelineno-4-1"></a>geth<span class="w"> </span>--holesky<span class="w"> </span>--authrpc.jwtsecret<span class="o">=</span><span class="s2">&quot;</span><span class="nv">$HOME</span><span class="s2">/jwtsecret&quot;</span>
-</code></pre></div>
-</div>
-</div>
-</div>
-</div>
-<div class="tabbed-block">
-<div class="tabbed-set tabbed-alternate" data-tabs="3:2"><input checked="checked" id="__tabbed_3_1" name="__tabbed_3" type="radio" /><input id="__tabbed_3_2" name="__tabbed_3" type="radio" /><div class="tabbed-labels"><label for="__tabbed_3_1">Mainnet</label><label for="__tabbed_3_2">Holesky</label></div>
-<div class="tabbed-content">
-<div class="tabbed-block">
-<div class="highlight"><pre><span></span><code><a id="__codelineno-5-1" name="__codelineno-5-1" href="#__codelineno-5-1"></a>nethermind<span class="w"> </span>--JsonRpc.JwtSecretFile<span class="o">=</span><span class="s2">&quot;</span><span class="nv">$HOME</span><span class="s2">/jwtsecret&quot;</span>
-</code></pre></div>
-</div>
-<div class="tabbed-block">
-<div class="highlight"><pre><span></span><code><a id="__codelineno-6-1" name="__codelineno-6-1" href="#__codelineno-6-1"></a>nethermind<span class="w"> </span>--config<span class="w"> </span>holesky<span class="w"> </span>--JsonRpc.JwtSecretFile<span class="o">=</span><span class="s2">&quot;</span><span class="nv">$HOME</span><span class="s2">/jwtsecret&quot;</span>
-</code></pre></div>
-</div>
-</div>
-</div>
-</div>
-<div class="tabbed-block">
-<p>Please consult your EL client's documentation for instructions on how to configure the JWT secret and running the EL client.</p>
-</div>
-</div>
-</div>
+<p>Follow the <a href="eth1.html">regular instructions</a> for running the execution client, taking note of its JWT secret configuration that you will need in the next step.</p>
 <h2 id="running-the-light-client">Running the light client</h2>
 <p>The light client starts syncing from a trusted block.
-This trusted block should be somewhat recent (<a href="https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.8/specs/phase0/weak-subjectivity.md">~1-2 weeks</a>) and needs to be configured each time when starting the light client.</p>
+This trusted block should be somewhat recent (<a href="https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.9/specs/phase0/weak-subjectivity.md">~1-2 weeks</a>) and needs to be configured each time when starting the light client.</p>
 <h3 id="1-obtaining-a-trusted-block-root">1. Obtaining a trusted block root</h3>
 <p>A block root may be obtained from another trusted beacon node, or from a trusted provider.</p>
-<div class="tabbed-set tabbed-alternate" data-tabs="4:2"><input checked="checked" id="__tabbed_4_1" name="__tabbed_4" type="radio" /><input id="__tabbed_4_2" name="__tabbed_4" type="radio" /><div class="tabbed-labels"><label for="__tabbed_4_1">Trusted beacon node</label><label for="__tabbed_4_2">Beaconcha.in</label></div>
+<div class="tabbed-set tabbed-alternate" data-tabs="1:2"><input checked="checked" id="__tabbed_1_1" name="__tabbed_1" type="radio" /><input id="__tabbed_1_2" name="__tabbed_1" type="radio" /><div class="tabbed-labels"><label for="__tabbed_1_1">Trusted beacon node</label><label for="__tabbed_1_2">Beaconcha.in</label></div>
 <div class="tabbed-content">
 <div class="tabbed-block">
 <p>The REST interface must be enabled on the trusted beacon node (<code>--rest --rest-port=5052</code> for Nimbus).</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-7-1" name="__codelineno-7-1" href="#__codelineno-7-1"></a>curl<span class="w"> </span>-s<span class="w"> </span><span class="s2">&quot;http://localhost:5052/eth/v1/beacon/headers/finalized&quot;</span><span class="w"> </span><span class="p">|</span><span class="w"> </span><span class="se">\</span>
-<a id="__codelineno-7-2" name="__codelineno-7-2" href="#__codelineno-7-2"></a><span class="w">    </span>jq<span class="w"> </span>-r<span class="w"> </span><span class="s1">&#39;.data.root&#39;</span>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a>curl<span class="w"> </span>-s<span class="w"> </span><span class="s2">&quot;http://localhost:5052/eth/v1/beacon/headers/finalized&quot;</span><span class="w"> </span><span class="p">|</span><span class="w"> </span><span class="se">\</span>
+<a id="__codelineno-2-2" name="__codelineno-2-2" href="#__codelineno-2-2"></a><span class="w">    </span>jq<span class="w"> </span>-r<span class="w"> </span><span class="s1">&#39;.data.root&#39;</span>
 </code></pre></div>
 </div>
 <div class="tabbed-block">
-<p>On the <a href="https://beaconcha.in">beaconcha.in</a> website (<a href="https://holesky.beaconcha.in">Holesky</a>), navigate to the <code>Epochs</code> section and select a recent <code>Finalized</code> epoch.
+<p>On the <a href="https://beaconcha.in">beaconcha.in</a> website (<a href="https://hoodi.beaconcha.in">Hoodi</a>), navigate to the <code>Epochs</code> section and select a recent <code>Finalized</code> epoch.
 Then, scroll down to the bottom of the page.
 If the bottom-most slot has a <code>Proposed</code> status, copy its <code>Root Hash</code>.
 Otherwise, for example if the bottom-most slot was <code>Missed</code>, go back and pick a different epoch.</p>
@@ -2675,20 +2588,22 @@ Depending on the EL client, its database must be deleted and sync restarted from
 </div>
 <h3 id="2-starting-the-light-client">2. Starting the light client</h3>
 <p>To start the light client, run the following commands (inserting your own trusted block root):</p>
-<div class="tabbed-set tabbed-alternate" data-tabs="5:2"><input checked="checked" id="__tabbed_5_1" name="__tabbed_5" type="radio" /><input id="__tabbed_5_2" name="__tabbed_5" type="radio" /><div class="tabbed-labels"><label for="__tabbed_5_1">Mainnet</label><label for="__tabbed_5_2">Holesky</label></div>
+<div class="tabbed-set tabbed-alternate" data-tabs="2:2"><input checked="checked" id="__tabbed_2_1" name="__tabbed_2" type="radio" /><input id="__tabbed_2_2" name="__tabbed_2" type="radio" /><div class="tabbed-labels"><label for="__tabbed_2_1">Mainnet</label><label for="__tabbed_2_2">Hoodi</label></div>
 <div class="tabbed-content">
 <div class="tabbed-block">
-<div class="highlight"><pre><span></span><code><a id="__codelineno-8-1" name="__codelineno-8-1" href="#__codelineno-8-1"></a><span class="nv">TRUSTED_BLOCK_ROOT</span><span class="o">=</span>0x1234567890123456789012345678901234567890123456789012345678901234
-<a id="__codelineno-8-2" name="__codelineno-8-2" href="#__codelineno-8-2"></a>build/nimbus_light_client<span class="w"> </span><span class="se">\</span>
-<a id="__codelineno-8-3" name="__codelineno-8-3" href="#__codelineno-8-3"></a><span class="w">    </span>--web3-url<span class="o">=</span>http://127.0.0.1:8551<span class="w"> </span>--jwt-secret<span class="o">=</span><span class="s2">&quot;</span><span class="nv">$HOME</span><span class="s2">/jwtsecret&quot;</span><span class="w"> </span><span class="se">\</span>
-<a id="__codelineno-8-4" name="__codelineno-8-4" href="#__codelineno-8-4"></a><span class="w">    </span>--trusted-block-root<span class="o">=</span><span class="nv">$TRUSTED_BLOCK_ROOT</span>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a><span class="nv">TRUSTED_BLOCK_ROOT</span><span class="o">=</span>0x1234567890123456789012345678901234567890123456789012345678901234
+<a id="__codelineno-3-2" name="__codelineno-3-2" href="#__codelineno-3-2"></a><span class="nv">JWTSECRET</span><span class="o">=</span>path/to/execution/client/jwt.hex
+<a id="__codelineno-3-3" name="__codelineno-3-3" href="#__codelineno-3-3"></a>build/nimbus_light_client<span class="w"> </span><span class="se">\</span>
+<a id="__codelineno-3-4" name="__codelineno-3-4" href="#__codelineno-3-4"></a><span class="w">    </span>--web3-url<span class="o">=</span>http://127.0.0.1:8551<span class="w"> </span>--jwt-secret<span class="o">=</span><span class="s2">&quot;</span><span class="nv">$JWTSECRET</span><span class="s2">&quot;</span><span class="w"> </span><span class="se">\</span>
+<a id="__codelineno-3-5" name="__codelineno-3-5" href="#__codelineno-3-5"></a><span class="w">    </span>--trusted-block-root<span class="o">=</span><span class="nv">$TRUSTED_BLOCK_ROOT</span>
 </code></pre></div>
 </div>
 <div class="tabbed-block">
-<div class="highlight"><pre><span></span><code><a id="__codelineno-9-1" name="__codelineno-9-1" href="#__codelineno-9-1"></a><span class="nv">TRUSTED_BLOCK_ROOT</span><span class="o">=</span>0x1234567890123456789012345678901234567890123456789012345678901234
-<a id="__codelineno-9-2" name="__codelineno-9-2" href="#__codelineno-9-2"></a>build/nimbus_light_client<span class="w"> </span>--network<span class="o">=</span>holesky<span class="w"> </span><span class="se">\</span>
-<a id="__codelineno-9-3" name="__codelineno-9-3" href="#__codelineno-9-3"></a><span class="w">    </span>--web3-url<span class="o">=</span>http://127.0.0.1:8551<span class="w"> </span>--jwt-secret<span class="o">=</span><span class="s2">&quot;</span><span class="nv">$HOME</span><span class="s2">/jwtsecret&quot;</span><span class="w"> </span><span class="se">\</span>
-<a id="__codelineno-9-4" name="__codelineno-9-4" href="#__codelineno-9-4"></a><span class="w">    </span>--trusted-block-root<span class="o">=</span><span class="nv">$TRUSTED_BLOCK_ROOT</span>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-4-1" name="__codelineno-4-1" href="#__codelineno-4-1"></a><span class="nv">TRUSTED_BLOCK_ROOT</span><span class="o">=</span>0x1234567890123456789012345678901234567890123456789012345678901234
+<a id="__codelineno-4-2" name="__codelineno-4-2" href="#__codelineno-4-2"></a><span class="nv">JWTSECRET</span><span class="o">=</span>path/to/execution/client/jwt.hex
+<a id="__codelineno-4-3" name="__codelineno-4-3" href="#__codelineno-4-3"></a>build/nimbus_light_client<span class="w"> </span>--network<span class="o">=</span>hoodi<span class="w"> </span><span class="se">\</span>
+<a id="__codelineno-4-4" name="__codelineno-4-4" href="#__codelineno-4-4"></a><span class="w">    </span>--web3-url<span class="o">=</span>http://127.0.0.1:8551<span class="w"> </span>--jwt-secret<span class="o">=</span><span class="s2">&quot;</span><span class="nv">$JWTSECRET</span><span class="s2">&quot;</span><span class="w"> </span><span class="se">\</span>
+<a id="__codelineno-4-5" name="__codelineno-4-5" href="#__codelineno-4-5"></a><span class="w">    </span>--trusted-block-root<span class="o">=</span><span class="nv">$TRUSTED_BLOCK_ROOT</span>
 </code></pre></div>
 </div>
 </div>
@@ -2702,28 +2617,28 @@ Note that a new trusted block root is required when restarting.</p>
 <p>After a while, the light client will pick up beacon block headers from the Ethereum network and start informing the EL client about the latest data.
 You should see logs similar to the following:</p>
 <h3 id="nimbus">Nimbus</h3>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-10-1" name="__codelineno-10-1" href="#__codelineno-10-1"></a>NTC 2022-11-21 18:00:23.666+01:00 Starting light client                      topics=&quot;lightcl&quot; trusted_block_root=some(c092a1d110a1c8d630ac2c3fa2565813d43087f42c986855a2cd985b995a328c)
-<a id="__codelineno-10-2" name="__codelineno-10-2" href="#__codelineno-10-2"></a>...
-<a id="__codelineno-10-3" name="__codelineno-10-3" href="#__codelineno-10-3"></a>INF 2022-11-21 18:01:24.001+01:00 Slot start                                 slot=1109707 epoch=34678 sync=bootstrapping(c092a1d110a1c8d630ac2c3fa2565813d43087f42c986855a2cd985b995a328c) peers=5 head=fb9b64fe:0 finalized=fb9b64fe:0 delay=1ms495us
-<a id="__codelineno-10-4" name="__codelineno-10-4" href="#__codelineno-10-4"></a>INF 2022-11-21 18:01:24.734+01:00 Exchanged engine configuration             topics=&quot;eth1&quot; terminalTotalDifficulty=17000000000000000 terminalBlockHash=0x0000000000000000000000000000000000000000000000000000000000000000 terminalBlockNumber=0
-<a id="__codelineno-10-5" name="__codelineno-10-5" href="#__codelineno-10-5"></a>...
-<a id="__codelineno-10-6" name="__codelineno-10-6" href="#__codelineno-10-6"></a>INF 2022-11-21 18:02:48.001+01:00 Slot start                                 slot=1109714 epoch=34678 sync=bootstrapping(c092a1d110a1c8d630ac2c3fa2565813d43087f42c986855a2cd985b995a328c) peers=6 head=fb9b64fe:0 finalized=fb9b64fe:0 delay=1ms161us
-<a id="__codelineno-10-7" name="__codelineno-10-7" href="#__codelineno-10-7"></a>WRN 2022-11-21 18:02:53.603+01:00 Peer count low, no new peers discovered    topics=&quot;networking&quot; discovered_nodes=1 new_peers=@[] current_peers=6 wanted_peers=160
-<a id="__codelineno-10-8" name="__codelineno-10-8" href="#__codelineno-10-8"></a>INF 2022-11-21 18:03:00.001+01:00 Slot start                                 slot=1109715 epoch=34678 sync=bootstrapping(c092a1d110a1c8d630ac2c3fa2565813d43087f42c986855a2cd985b995a328c) peers=5 head=fb9b64fe:0 finalized=fb9b64fe:0 delay=1ms154us
-<a id="__codelineno-10-9" name="__codelineno-10-9" href="#__codelineno-10-9"></a>INF 2022-11-21 18:03:09.989+01:00 New LC optimistic header                   optimistic_header=&quot;(beacon: (slot: 1109216, proposer_index: 1813, parent_root: \&quot;0871af30\&quot;, state_root: \&quot;5c0afc98\&quot;))&quot;
-<a id="__codelineno-10-10" name="__codelineno-10-10" href="#__codelineno-10-10"></a>INF 2022-11-21 18:03:09.989+01:00 New LC finalized header                    finalized_header=&quot;(beacon: (slot: 1109216, proposer_index: 1813, parent_root: \&quot;0871af30\&quot;, state_root: \&quot;5c0afc98\&quot;))&quot;
-<a id="__codelineno-10-11" name="__codelineno-10-11" href="#__codelineno-10-11"></a>INF 2022-11-21 18:03:12.001+01:00 Slot start                                 slot=1109716 epoch=34678 sync=syncing peers=6 head=c092a1d1:1109216 finalized=c092a1d1:1109216 delay=1ms159us
-<a id="__codelineno-10-12" name="__codelineno-10-12" href="#__codelineno-10-12"></a>INF 2022-11-21 18:03:16.047+01:00 New LC optimistic header                   optimistic_header=&quot;(beacon: (slot: 1109715, proposer_index: 262, parent_root: \&quot;676f4fe4\&quot;, state_root: \&quot;2d13aa42\&quot;))&quot;
-<a id="__codelineno-10-13" name="__codelineno-10-13" href="#__codelineno-10-13"></a>INF 2022-11-21 18:03:24.001+01:00 Slot start                                 slot=1109717 epoch=34678 sync=synced peers=7 head=58cae92a:1109715 finalized=c092a1d1:1109216 delay=1ms120us
-<a id="__codelineno-10-14" name="__codelineno-10-14" href="#__codelineno-10-14"></a>INF 2022-11-21 18:03:27.984+01:00 New LC optimistic header                   optimistic_header=&quot;(beacon: (slot: 1109716, proposer_index: 1281, parent_root: \&quot;58cae92a\&quot;, state_root: \&quot;de464f71\&quot;))&quot;
-<a id="__codelineno-10-15" name="__codelineno-10-15" href="#__codelineno-10-15"></a>WRN 2022-11-21 18:03:31.419+01:00 Peer count low, no new peers discovered    topics=&quot;networking&quot; discovered_nodes=0 new_peers=@[] current_peers=7 wanted_peers=160
-<a id="__codelineno-10-16" name="__codelineno-10-16" href="#__codelineno-10-16"></a>INF 2022-11-21 18:03:36.001+01:00 Slot start                                 slot=1109718 epoch=34678 sync=synced peers=7 head=c5464508:1109716 finalized=c092a1d1:1109216 delay=1ms98us
-<a id="__codelineno-10-17" name="__codelineno-10-17" href="#__codelineno-10-17"></a>INF 2022-11-21 18:03:40.012+01:00 New LC optimistic header                   optimistic_header=&quot;(beacon: (slot: 1109717, proposer_index: 835, parent_root: \&quot;c5464508\&quot;, state_root: \&quot;13f823f8\&quot;))&quot;
-<a id="__codelineno-10-18" name="__codelineno-10-18" href="#__codelineno-10-18"></a>WRN 2022-11-21 18:03:40.422+01:00 Peer count low, no new peers discovered    topics=&quot;networking&quot; discovered_nodes=1 new_peers=@[] current_peers=7 wanted_peers=160
-<a id="__codelineno-10-19" name="__codelineno-10-19" href="#__codelineno-10-19"></a>INF 2022-11-21 18:03:48.001+01:00 Slot start                                 slot=1109719 epoch=34678 sync=synced peers=7 head=99ab28aa:1109717 finalized=c092a1d1:1109216 delay=1ms53us
-<a id="__codelineno-10-20" name="__codelineno-10-20" href="#__codelineno-10-20"></a>WRN 2022-11-21 18:03:50.205+01:00 Peer count low, no new peers discovered    topics=&quot;networking&quot; discovered_nodes=0 new_peers=@[] current_peers=7 wanted_peers=160
-<a id="__codelineno-10-21" name="__codelineno-10-21" href="#__codelineno-10-21"></a>INF 2022-11-21 18:04:00.001+01:00 Slot start                                 slot=1109720 epoch=34678 sync=synced peers=7 head=99ab28aa:1109717 finalized=c092a1d1:1109216 delay=1ms145us
-<a id="__codelineno-10-22" name="__codelineno-10-22" href="#__codelineno-10-22"></a>INF 2022-11-21 18:04:03.982+01:00 New LC optimistic header                   optimistic_header=&quot;(beacon: (slot: 1109718, proposer_index: 1202, parent_root: \&quot;99ab28aa\&quot;, state_root: \&quot;7f7f88d2\&quot;))&quot;
+<div class="highlight"><pre><span></span><code><a id="__codelineno-5-1" name="__codelineno-5-1" href="#__codelineno-5-1"></a>NTC 2022-11-21 18:00:23.666+01:00 Starting light client                      topics=&quot;lightcl&quot; trusted_block_root=some(c092a1d110a1c8d630ac2c3fa2565813d43087f42c986855a2cd985b995a328c)
+<a id="__codelineno-5-2" name="__codelineno-5-2" href="#__codelineno-5-2"></a>...
+<a id="__codelineno-5-3" name="__codelineno-5-3" href="#__codelineno-5-3"></a>INF 2022-11-21 18:01:24.001+01:00 Slot start                                 slot=1109707 epoch=34678 sync=bootstrapping(c092a1d110a1c8d630ac2c3fa2565813d43087f42c986855a2cd985b995a328c) peers=5 head=fb9b64fe:0 finalized=fb9b64fe:0 delay=1ms495us
+<a id="__codelineno-5-4" name="__codelineno-5-4" href="#__codelineno-5-4"></a>INF 2022-11-21 18:01:24.734+01:00 Exchanged engine configuration             topics=&quot;eth1&quot; terminalTotalDifficulty=17000000000000000 terminalBlockHash=0x0000000000000000000000000000000000000000000000000000000000000000 terminalBlockNumber=0
+<a id="__codelineno-5-5" name="__codelineno-5-5" href="#__codelineno-5-5"></a>...
+<a id="__codelineno-5-6" name="__codelineno-5-6" href="#__codelineno-5-6"></a>INF 2022-11-21 18:02:48.001+01:00 Slot start                                 slot=1109714 epoch=34678 sync=bootstrapping(c092a1d110a1c8d630ac2c3fa2565813d43087f42c986855a2cd985b995a328c) peers=6 head=fb9b64fe:0 finalized=fb9b64fe:0 delay=1ms161us
+<a id="__codelineno-5-7" name="__codelineno-5-7" href="#__codelineno-5-7"></a>WRN 2022-11-21 18:02:53.603+01:00 Peer count low, no new peers discovered    topics=&quot;networking&quot; discovered_nodes=1 new_peers=@[] current_peers=6 wanted_peers=160
+<a id="__codelineno-5-8" name="__codelineno-5-8" href="#__codelineno-5-8"></a>INF 2022-11-21 18:03:00.001+01:00 Slot start                                 slot=1109715 epoch=34678 sync=bootstrapping(c092a1d110a1c8d630ac2c3fa2565813d43087f42c986855a2cd985b995a328c) peers=5 head=fb9b64fe:0 finalized=fb9b64fe:0 delay=1ms154us
+<a id="__codelineno-5-9" name="__codelineno-5-9" href="#__codelineno-5-9"></a>INF 2022-11-21 18:03:09.989+01:00 New LC optimistic header                   optimistic_header=&quot;(beacon: (slot: 1109216, proposer_index: 1813, parent_root: \&quot;0871af30\&quot;, state_root: \&quot;5c0afc98\&quot;))&quot;
+<a id="__codelineno-5-10" name="__codelineno-5-10" href="#__codelineno-5-10"></a>INF 2022-11-21 18:03:09.989+01:00 New LC finalized header                    finalized_header=&quot;(beacon: (slot: 1109216, proposer_index: 1813, parent_root: \&quot;0871af30\&quot;, state_root: \&quot;5c0afc98\&quot;))&quot;
+<a id="__codelineno-5-11" name="__codelineno-5-11" href="#__codelineno-5-11"></a>INF 2022-11-21 18:03:12.001+01:00 Slot start                                 slot=1109716 epoch=34678 sync=syncing peers=6 head=c092a1d1:1109216 finalized=c092a1d1:1109216 delay=1ms159us
+<a id="__codelineno-5-12" name="__codelineno-5-12" href="#__codelineno-5-12"></a>INF 2022-11-21 18:03:16.047+01:00 New LC optimistic header                   optimistic_header=&quot;(beacon: (slot: 1109715, proposer_index: 262, parent_root: \&quot;676f4fe4\&quot;, state_root: \&quot;2d13aa42\&quot;))&quot;
+<a id="__codelineno-5-13" name="__codelineno-5-13" href="#__codelineno-5-13"></a>INF 2022-11-21 18:03:24.001+01:00 Slot start                                 slot=1109717 epoch=34678 sync=synced peers=7 head=58cae92a:1109715 finalized=c092a1d1:1109216 delay=1ms120us
+<a id="__codelineno-5-14" name="__codelineno-5-14" href="#__codelineno-5-14"></a>INF 2022-11-21 18:03:27.984+01:00 New LC optimistic header                   optimistic_header=&quot;(beacon: (slot: 1109716, proposer_index: 1281, parent_root: \&quot;58cae92a\&quot;, state_root: \&quot;de464f71\&quot;))&quot;
+<a id="__codelineno-5-15" name="__codelineno-5-15" href="#__codelineno-5-15"></a>WRN 2022-11-21 18:03:31.419+01:00 Peer count low, no new peers discovered    topics=&quot;networking&quot; discovered_nodes=0 new_peers=@[] current_peers=7 wanted_peers=160
+<a id="__codelineno-5-16" name="__codelineno-5-16" href="#__codelineno-5-16"></a>INF 2022-11-21 18:03:36.001+01:00 Slot start                                 slot=1109718 epoch=34678 sync=synced peers=7 head=c5464508:1109716 finalized=c092a1d1:1109216 delay=1ms98us
+<a id="__codelineno-5-17" name="__codelineno-5-17" href="#__codelineno-5-17"></a>INF 2022-11-21 18:03:40.012+01:00 New LC optimistic header                   optimistic_header=&quot;(beacon: (slot: 1109717, proposer_index: 835, parent_root: \&quot;c5464508\&quot;, state_root: \&quot;13f823f8\&quot;))&quot;
+<a id="__codelineno-5-18" name="__codelineno-5-18" href="#__codelineno-5-18"></a>WRN 2022-11-21 18:03:40.422+01:00 Peer count low, no new peers discovered    topics=&quot;networking&quot; discovered_nodes=1 new_peers=@[] current_peers=7 wanted_peers=160
+<a id="__codelineno-5-19" name="__codelineno-5-19" href="#__codelineno-5-19"></a>INF 2022-11-21 18:03:48.001+01:00 Slot start                                 slot=1109719 epoch=34678 sync=synced peers=7 head=99ab28aa:1109717 finalized=c092a1d1:1109216 delay=1ms53us
+<a id="__codelineno-5-20" name="__codelineno-5-20" href="#__codelineno-5-20"></a>WRN 2022-11-21 18:03:50.205+01:00 Peer count low, no new peers discovered    topics=&quot;networking&quot; discovered_nodes=0 new_peers=@[] current_peers=7 wanted_peers=160
+<a id="__codelineno-5-21" name="__codelineno-5-21" href="#__codelineno-5-21"></a>INF 2022-11-21 18:04:00.001+01:00 Slot start                                 slot=1109720 epoch=34678 sync=synced peers=7 head=99ab28aa:1109717 finalized=c092a1d1:1109216 delay=1ms145us
+<a id="__codelineno-5-22" name="__codelineno-5-22" href="#__codelineno-5-22"></a>INF 2022-11-21 18:04:03.982+01:00 New LC optimistic header                   optimistic_header=&quot;(beacon: (slot: 1109718, proposer_index: 1202, parent_root: \&quot;99ab28aa\&quot;, state_root: \&quot;7f7f88d2\&quot;))&quot;
 </code></pre></div>
 <div class="admonition note">
 <p class="admonition-title">Note</p>
@@ -2731,21 +2646,21 @@ You should see logs similar to the following:</p>
 As this is a new protocol, not all implementations are supporting it yet.
 Therefore, it may take several minutes to discover supporting peers, during which no log messages may be produced.</p>
 </div>
-<div class="tabbed-set tabbed-alternate" data-tabs="6:2"><input checked="checked" id="__tabbed_6_1" name="__tabbed_6" type="radio" /><input id="__tabbed_6_2" name="__tabbed_6" type="radio" /><div class="tabbed-labels"><label for="__tabbed_6_1">Geth</label><label for="__tabbed_6_2">Nethermind</label></div>
+<div class="tabbed-set tabbed-alternate" data-tabs="3:2"><input checked="checked" id="__tabbed_3_1" name="__tabbed_3" type="radio" /><input id="__tabbed_3_2" name="__tabbed_3" type="radio" /><div class="tabbed-labels"><label for="__tabbed_3_1">Geth</label><label for="__tabbed_3_2">Nethermind</label></div>
 <div class="tabbed-content">
 <div class="tabbed-block">
-<div class="highlight"><pre><span></span><code><a id="__codelineno-11-1" name="__codelineno-11-1" href="#__codelineno-11-1"></a>WARN [07-24|22:19:16.777] Ignoring payload with missing parent     number=12,658,012 hash=306fad..bdfd44 parent=a22dc7..093bea
-<a id="__codelineno-11-2" name="__codelineno-11-2" href="#__codelineno-11-2"></a>INFO [07-24|22:19:16.778] Forkchoice requested sync to new head    number=12,658,012 hash=306fad..bdfd44
-<a id="__codelineno-11-3" name="__codelineno-11-3" href="#__codelineno-11-3"></a>INFO [07-24|22:19:17.232] Syncing beacon headers                   downloaded=7168 left=12,650,843 eta=13m21.441s
-<a id="__codelineno-11-4" name="__codelineno-11-4" href="#__codelineno-11-4"></a>INFO [07-24|22:19:21.626] Syncing beacon headers                   downloaded=75201 left=0          eta=0s
-<a id="__codelineno-11-5" name="__codelineno-11-5" href="#__codelineno-11-5"></a>INFO [07-24|22:19:21.627] Block synchronisation started
+<div class="highlight"><pre><span></span><code><a id="__codelineno-6-1" name="__codelineno-6-1" href="#__codelineno-6-1"></a>WARN [07-24|22:19:16.777] Ignoring payload with missing parent     number=12,658,012 hash=306fad..bdfd44 parent=a22dc7..093bea
+<a id="__codelineno-6-2" name="__codelineno-6-2" href="#__codelineno-6-2"></a>INFO [07-24|22:19:16.778] Forkchoice requested sync to new head    number=12,658,012 hash=306fad..bdfd44
+<a id="__codelineno-6-3" name="__codelineno-6-3" href="#__codelineno-6-3"></a>INFO [07-24|22:19:17.232] Syncing beacon headers                   downloaded=7168 left=12,650,843 eta=13m21.441s
+<a id="__codelineno-6-4" name="__codelineno-6-4" href="#__codelineno-6-4"></a>INFO [07-24|22:19:21.626] Syncing beacon headers                   downloaded=75201 left=0          eta=0s
+<a id="__codelineno-6-5" name="__codelineno-6-5" href="#__codelineno-6-5"></a>INFO [07-24|22:19:21.627] Block synchronisation started
 </code></pre></div>
 </div>
 <div class="tabbed-block">
-<div class="highlight"><pre><span></span><code><a id="__codelineno-12-1" name="__codelineno-12-1" href="#__codelineno-12-1"></a>2022-07-24 22:09:05.0853|Received a new payload: 12657968 (0xa5eedb4e4e4b0f84238464d563b82d7dddadfc68f21cfa2bfcbbbcdb944c4b63)
-<a id="__codelineno-12-2" name="__codelineno-12-2" href="#__codelineno-12-2"></a>2022-07-24 22:09:05.1018|Insert block into cache without parent 12657968 (0xa5eedb...4c4b63)
-<a id="__codelineno-12-3" name="__codelineno-12-3" href="#__codelineno-12-3"></a>2022-07-24 22:09:05.1141|Received: ForkchoiceState: (HeadBlockHash: 0xa5eedb4e4e4b0f84238464d563b82d7dddadfc68f21cfa2bfcbbbcdb944c4b63, SafeBlockHash: 0xa5eedb4e4e4b0f84238464d563b82d7dddadfc68f21cfa2bfcbbbcdb944c4b63, FinalizedBlockHash: 0x0000000000000000000000000000000000000000000000000000000000000000) .
-<a id="__codelineno-12-4" name="__codelineno-12-4" href="#__codelineno-12-4"></a>2022-07-24 22:09:05.1141|Syncing... Block 0xa5eedb4e4e4b0f84238464d563b82d7dddadfc68f21cfa2bfcbbbcdb944c4b63 not found.
+<div class="highlight"><pre><span></span><code><a id="__codelineno-7-1" name="__codelineno-7-1" href="#__codelineno-7-1"></a>2022-07-24 22:09:05.0853|Received a new payload: 12657968 (0xa5eedb4e4e4b0f84238464d563b82d7dddadfc68f21cfa2bfcbbbcdb944c4b63)
+<a id="__codelineno-7-2" name="__codelineno-7-2" href="#__codelineno-7-2"></a>2022-07-24 22:09:05.1018|Insert block into cache without parent 12657968 (0xa5eedb...4c4b63)
+<a id="__codelineno-7-3" name="__codelineno-7-3" href="#__codelineno-7-3"></a>2022-07-24 22:09:05.1141|Received: ForkchoiceState: (HeadBlockHash: 0xa5eedb4e4e4b0f84238464d563b82d7dddadfc68f21cfa2bfcbbbcdb944c4b63, SafeBlockHash: 0xa5eedb4e4e4b0f84238464d563b82d7dddadfc68f21cfa2bfcbbbcdb944c4b63, FinalizedBlockHash: 0x0000000000000000000000000000000000000000000000000000000000000000) .
+<a id="__codelineno-7-4" name="__codelineno-7-4" href="#__codelineno-7-4"></a>2022-07-24 22:09:05.1141|Syncing... Block 0xa5eedb4e4e4b0f84238464d563b82d7dddadfc68f21cfa2bfcbbbcdb944c4b63 not found.
 </code></pre></div>
 </div>
 </div>

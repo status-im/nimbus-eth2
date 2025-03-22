@@ -1115,27 +1115,6 @@
   
   
     <li class="md-nav__item">
-      <a href="goerli-eth.html" class="md-nav__link">
-        
-  
-  <span class="md-ellipsis">
-    Obtain Goerli ETH
-  </span>
-  
-
-      </a>
-    </li>
-  
-
-              
-            
-              
-                
-  
-  
-  
-  
-    <li class="md-nav__item">
       <a href="beacon-node-systemd.html" class="md-nav__link">
         
   
@@ -1283,11 +1262,11 @@
   
   
     <li class="md-nav__item">
-      <a href="holesky.html" class="md-nav__link">
+      <a href="hoodi.html" class="md-nav__link">
         
   
   <span class="md-ellipsis">
-    Holešky testnet
+    Hoodi testnet
   </span>
   
 
@@ -2455,10 +2434,10 @@
 <p>Where:</p>
 <ul>
 <li>
-<p>The <code>network</code> can be <code>mainnet</code>, <code>holesky</code>, or <code>sepolia</code>.</p>
+<p>The <code>network</code> can be <code>mainnet</code>, <code>hoodi</code>, <code>holesky</code>, or <code>sepolia</code>.</p>
 </li>
 <li>
-<p>The default location of the <code>db</code>  is <code>build/data/shared_mainnet_0/db</code> for <code>mainnet</code>, <code>build/data/shared_holesky_0/db</code> for <code>holesky</code>, etc.</p>
+<p>The default location of the <code>db</code>  is <code>build/data/shared_mainnet_0/db</code> for <code>mainnet</code>, <code>build/data/shared_hoodi_0/db</code> for <code>hoodi</code>, etc.</p>
 </li>
 </ul>
 <p>Near the bottom, you should see:</p>
@@ -2471,11 +2450,11 @@
 </code></pre></div>
 <p>Use <code>start-slot</code> and <code>slots</code> to restrict the analysis on a specific block range.</p>
 <h3 id="3-run">3. Run</h3>
-<p>To view the performance of all validators on Holesky so far across the entire block range stored in your database, run:
+<p>To view the performance of all validators on Hoodi so far across the entire block range stored in your database, run:</p>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-4-1" name="__codelineno-4-1" href="#__codelineno-4-1"></a>build/ncli_db<span class="w"> </span>validatorPerf<span class="w"> </span><span class="se">\</span>
-<a id="__codelineno-4-2" name="__codelineno-4-2" href="#__codelineno-4-2"></a>--network<span class="o">=</span>holesky<span class="w"> </span><span class="se">\</span>
-<a id="__codelineno-4-3" name="__codelineno-4-3" href="#__codelineno-4-3"></a>--db<span class="o">=</span>build/data/shared_holesky_0/db
-</code></pre></div></p>
+<a id="__codelineno-4-2" name="__codelineno-4-2" href="#__codelineno-4-2"></a>--network<span class="o">=</span>hoodi<span class="w"> </span><span class="se">\</span>
+<a id="__codelineno-4-3" name="__codelineno-4-3" href="#__codelineno-4-3"></a>--db<span class="o">=</span>build/data/shared_hoodi_0/db
+</code></pre></div>
 <p>You should see output that looks like to the following:</p>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-5-1" name="__codelineno-5-1" href="#__codelineno-5-1"></a>validator_index,attestation_hits,attestation_misses,head_attestation_hits,head_attestation_misses,target_attestation_hits,target_attestation_misses,delay_avg,first_slot_head_attester_when_first_slot_empty,first_slot_head_attester_when_first_slot_not_empty
 <a id="__codelineno-5-2" name="__codelineno-5-2" href="#__codelineno-5-2"></a>0,128,0,127,1,128,0,1.0078125,0,3
@@ -2484,13 +2463,13 @@
 <a id="__codelineno-5-5" name="__codelineno-5-5" href="#__codelineno-5-5"></a>...
 </code></pre></div>
 <h3 id="4-adjust-to-target-a-specific-block-range">4. Adjust to target a specific block range</h3>
-<p>To restrict the analysis to the performance between slots 0 and 128, say, run:
+<p>To restrict the analysis to the performance between slots 0 and 128, say, run:</p>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-6-1" name="__codelineno-6-1" href="#__codelineno-6-1"></a>build/ncli_db<span class="w"> </span>validatorPerf<span class="w"> </span><span class="se">\</span>
-<a id="__codelineno-6-2" name="__codelineno-6-2" href="#__codelineno-6-2"></a>--network<span class="o">=</span>holesky<span class="w"> </span><span class="se">\</span>
-<a id="__codelineno-6-3" name="__codelineno-6-3" href="#__codelineno-6-3"></a>--db<span class="o">=</span>build/data/shared_holesky_0/db<span class="w"> </span><span class="se">\</span>
+<a id="__codelineno-6-2" name="__codelineno-6-2" href="#__codelineno-6-2"></a>--network<span class="o">=</span>hoodi<span class="w"> </span><span class="se">\</span>
+<a id="__codelineno-6-3" name="__codelineno-6-3" href="#__codelineno-6-3"></a>--db<span class="o">=</span>build/data/shared_hoodi_0/db<span class="w"> </span><span class="se">\</span>
 <a id="__codelineno-6-4" name="__codelineno-6-4" href="#__codelineno-6-4"></a>--start-slot<span class="o">=</span><span class="m">0</span><span class="w"> </span><span class="se">\</span>
 <a id="__codelineno-6-5" name="__codelineno-6-5" href="#__codelineno-6-5"></a>--slots<span class="o">=</span><span class="m">128</span>
-</code></pre></div></p>
+</code></pre></div>
 <h3 id="5-compare-my-validators-to-the-global-average">5. Compare my validators to the global average</h3>
 <p>We'll use <a href="https://docs.google.com/spreadsheets/d/1SNFf4LsDOK91SWuQZm9DYBoX9JNQNMKHw66Rv0l5EGo/">Paul Hauner's wonderful workbook</a> as a template.
 This workbook consists of three inter-related spreadsheets: <code>Summary</code>, <code>My Validators</code>, and <code>datasource</code>.</p>

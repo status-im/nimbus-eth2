@@ -1115,27 +1115,6 @@
   
   
     <li class="md-nav__item">
-      <a href="goerli-eth.html" class="md-nav__link">
-        
-  
-  <span class="md-ellipsis">
-    Obtain Goerli ETH
-  </span>
-  
-
-      </a>
-    </li>
-  
-
-              
-            
-              
-                
-  
-  
-  
-  
-    <li class="md-nav__item">
       <a href="beacon-node-systemd.html" class="md-nav__link">
         
   
@@ -1283,11 +1262,11 @@
   
   
     <li class="md-nav__item">
-      <a href="holesky.html" class="md-nav__link">
+      <a href="hoodi.html" class="md-nav__link">
         
   
   <span class="md-ellipsis">
-    Holešky testnet
+    Hoodi testnet
   </span>
   
 
@@ -2344,7 +2323,7 @@
 <h1 id="docker-images">Docker images</h1>
 <p>Docker images for the <a href="https://hub.docker.com/r/statusim/nimbus-eth2">Nimbus beacon node</a> and the <a href="https://hub.docker.com/r/statusim/nimbus-validator-client">Nimbus validator client</a> are available at docker hub.</p>
 <p>We have version-specific Docker tags (e.g. <code>statusim/nimbus-eth2:amd64-v1.2.3</code>) and a tag for the latest image (e.g. <code>statusim/nimbus-eth2:amd64-latest</code>).</p>
-<p>These images contain the same binaries as the <a href="binaries.html">release tarballs</a> inside a <code>debian:bullseye-slim</code> image, running under a user imaginatively named <code>user</code>, with UID:GID of 1000:1000.</p>
+<p>These images contain the same binaries as the <a href="binaries.html">release tarballs</a> inside a <code>debian:bookworm-slim</code> image, running under a user imaginatively named <code>user</code>, with UID:GID of 1000:1000.</p>
 <p>The binaries are placed under the <code>/home/user/</code> directory which is also the default <em>WORKDIR</em>.
 The <em>ENTRYPOINT</em> of the image is configured to directly launch the respective binary without any extra arguments.</p>
 <h2 id="usage">Usage</h2>

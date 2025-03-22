@@ -14,7 +14,7 @@
         <link rel="prev" href="keep-updated.html">
       
       
-        <link rel="next" href="goerli-eth.html">
+        <link rel="next" href="beacon-node-systemd.html">
       
       
       <link rel="icon" href="assets/images/favicon.png">
@@ -1235,27 +1235,6 @@
   
   
     <li class="md-nav__item">
-      <a href="goerli-eth.html" class="md-nav__link">
-        
-  
-  <span class="md-ellipsis">
-    Obtain Goerli ETH
-  </span>
-  
-
-      </a>
-    </li>
-  
-
-              
-            
-              
-                
-  
-  
-  
-  
-    <li class="md-nav__item">
       <a href="beacon-node-systemd.html" class="md-nav__link">
         
   
@@ -1403,11 +1382,11 @@
   
   
     <li class="md-nav__item">
-      <a href="holesky.html" class="md-nav__link">
+      <a href="hoodi.html" class="md-nav__link">
         
   
   <span class="md-ellipsis">
-    Holešky testnet
+    Hoodi testnet
   </span>
   
 
@@ -2457,7 +2436,7 @@ See the <a href="https://ethereum.org/en/developers/docs/nodes-and-clients/#exec
 </div>
 <h2 id="steps">Steps</h2>
 <h3 id="1-install-execution-client">1. Install execution client</h3>
-<p>Select an execution client and install it, configuring it such that that the authenticated JSON-RPC interface is enabled and a JWT secret file is created.</p>
+<p>Select an execution client and install it, configuring it such that the authenticated JSON-RPC interface is enabled and a JWT secret file is created.</p>
 <div class="tabbed-set tabbed-alternate" data-tabs="1:5"><input checked="checked" id="__tabbed_1_1" name="__tabbed_1" type="radio" /><input id="__tabbed_1_2" name="__tabbed_1" type="radio" /><input id="__tabbed_1_3" name="__tabbed_1" type="radio" /><input id="__tabbed_1_4" name="__tabbed_1" type="radio" /><input id="__tabbed_1_5" name="__tabbed_1" type="radio" /><div class="tabbed-labels"><label for="__tabbed_1_1">Nimbus</label><label for="__tabbed_1_2">Geth</label><label for="__tabbed_1_3">Nethermind</label><label for="__tabbed_1_4">Besu</label><label for="__tabbed_1_5">Erigon</label></div>
 <div class="tabbed-content">
 <div class="tabbed-block">
@@ -2468,14 +2447,14 @@ See the <a href="https://ethereum.org/en/developers/docs/nodes-and-clients/#exec
 <p>See the <a href="https://geth.ethereum.org/docs/getting-started/installing-geth">Installing Geth guide</a> for instructions on installing Geth.</p>
 <h4 id="2-start-geth">2. Start Geth</h4>
 <p>Once you have geth installed, make sure to enable the <a href="https://geth.ethereum.org/docs/getting-started/consensus-clients">authenticated JSON-RPC interface</a> when running geth:</p>
-<div class="tabbed-set tabbed-alternate" data-tabs="2:2"><input checked="checked" id="__tabbed_2_1" name="__tabbed_2" type="radio" /><input id="__tabbed_2_2" name="__tabbed_2" type="radio" /><div class="tabbed-labels"><label for="__tabbed_2_1">Mainnet</label><label for="__tabbed_2_2">Holesky</label></div>
+<div class="tabbed-set tabbed-alternate" data-tabs="2:2"><input checked="checked" id="__tabbed_2_1" name="__tabbed_2" type="radio" /><input id="__tabbed_2_2" name="__tabbed_2" type="radio" /><div class="tabbed-labels"><label for="__tabbed_2_1">Mainnet</label><label for="__tabbed_2_2">Hoodi</label></div>
 <div class="tabbed-content">
 <div class="tabbed-block">
 <div class="highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a>geth --authrpc.addr localhost --authrpc.port 8551 --authrpc.vhosts localhost --authrpc.jwtsecret /tmp/jwtsecret
 </code></pre></div>
 </div>
 <div class="tabbed-block">
-<div class="highlight"><pre><span></span><code><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a>geth --holesky --authrpc.addr localhost --authrpc.port 8551 --authrpc.vhosts localhost --authrpc.jwtsecret /tmp/jwtsecret
+<div class="highlight"><pre><span></span><code><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a>geth --hoodi --authrpc.addr localhost --authrpc.port 8551 --authrpc.vhosts localhost --authrpc.jwtsecret /tmp/jwtsecret
 </code></pre></div>
 </div>
 </div>
@@ -2510,18 +2489,20 @@ When the <code>--el</code> option is not explicitly specified, Nimbus will assum
 <p>Once started, the execution client will create a file containing a JWT secret token.
 The token file is needed for Nimbus to authenticate itself with the execution client and perform trusted operations.
 You will need to pass the path to the token file to Nimbus together with the web3 URL.</p>
-<div class="tabbed-set tabbed-alternate" data-tabs="3:2"><input checked="checked" id="__tabbed_3_1" name="__tabbed_3" type="radio" /><input id="__tabbed_3_2" name="__tabbed_3" type="radio" /><div class="tabbed-labels"><label for="__tabbed_3_1">Mainnet</label><label for="__tabbed_3_2">Holesky</label></div>
+<div class="tabbed-set tabbed-alternate" data-tabs="3:2"><input checked="checked" id="__tabbed_3_1" name="__tabbed_3" type="radio" /><input id="__tabbed_3_2" name="__tabbed_3" type="radio" /><div class="tabbed-labels"><label for="__tabbed_3_1">Mainnet</label><label for="__tabbed_3_2">Hoodi</label></div>
 <div class="tabbed-content">
 <div class="tabbed-block">
 <div class="highlight"><pre><span></span><code><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a>./run-mainnet-beacon-node.sh<span class="w"> </span><span class="se">\</span>
-<a id="__codelineno-2-2" name="__codelineno-2-2" href="#__codelineno-2-2"></a><span class="w">  </span>--el<span class="o">=</span>http://127.0.0.1:8551<span class="w"> </span><span class="se">\</span>
-<a id="__codelineno-2-3" name="__codelineno-2-3" href="#__codelineno-2-3"></a><span class="w">  </span>--jwt-secret<span class="o">=</span>/tmp/jwtsecret
+<a id="__codelineno-2-2" name="__codelineno-2-2" href="#__codelineno-2-2"></a><span class="w">    </span>--el<span class="o">=</span>http://127.0.0.1:8551<span class="w"> </span><span class="se">\</span>
+<a id="__codelineno-2-3" name="__codelineno-2-3" href="#__codelineno-2-3"></a><span class="w">    </span>--jwt-secret<span class="o">=</span>/tmp/jwtsecret
 </code></pre></div>
 </div>
 <div class="tabbed-block">
-<div class="highlight"><pre><span></span><code><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a>./run-holesky-beacon-node.sh<span class="w"> </span><span class="se">\</span>
-<a id="__codelineno-3-2" name="__codelineno-3-2" href="#__codelineno-3-2"></a><span class="w">  </span>--el<span class="o">=</span>http://127.0.0.1:8551<span class="w"> </span><span class="se">\</span>
-<a id="__codelineno-3-3" name="__codelineno-3-3" href="#__codelineno-3-3"></a><span class="w">  </span>--jwt-secret<span class="o">=</span>/tmp/jwtsecret
+<div class="highlight"><pre><span></span><code><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a>build/nimbus_beacon_node<span class="w"> </span><span class="se">\</span>
+<a id="__codelineno-3-2" name="__codelineno-3-2" href="#__codelineno-3-2"></a><span class="w">    </span>--network<span class="o">=</span>hoodi<span class="w"> </span><span class="se">\</span>
+<a id="__codelineno-3-3" name="__codelineno-3-3" href="#__codelineno-3-3"></a><span class="w">    </span>--data-dir<span class="o">=</span>build/data/shared_hoodi_0<span class="w"> </span><span class="se">\</span>
+<a id="__codelineno-3-4" name="__codelineno-3-4" href="#__codelineno-3-4"></a><span class="w">    </span>--el<span class="o">=</span>http://127.0.0.1:8551<span class="w"> </span><span class="se">\</span>
+<a id="__codelineno-3-5" name="__codelineno-3-5" href="#__codelineno-3-5"></a><span class="w">    </span>--jwt-secret<span class="o">=</span>/tmp/jwtsecret
 </code></pre></div>
 </div>
 </div>
@@ -2558,9 +2539,9 @@ Follow <a href="https://docs.nethermind.io/faq/#how-do-i-upgrade-my-node">Nether
 <p>You can increase the resilience of your setup and eliminate any downtime during upgrade procedure of the execution client software by allowing your beacon node to manage multiple execution clients.
 To enable this mode, just specify multiple URLs through the <code>--el</code> option when starting your beacon node:</p>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-5-1" name="__codelineno-5-1" href="#__codelineno-5-1"></a>./run-mainnet-beacon-node.sh<span class="w"> </span><span class="se">\</span>
-<a id="__codelineno-5-2" name="__codelineno-5-2" href="#__codelineno-5-2"></a><span class="w">  </span>--el<span class="o">=</span>http://127.0.0.1:8551<span class="w"> </span><span class="se">\</span>
-<a id="__codelineno-5-3" name="__codelineno-5-3" href="#__codelineno-5-3"></a><span class="w">  </span>--el<span class="o">=</span>ws://other:8551<span class="w"> </span><span class="se">\</span>
-<a id="__codelineno-5-4" name="__codelineno-5-4" href="#__codelineno-5-4"></a><span class="w">  </span>--jwt-secret<span class="o">=</span>/tmp/jwtsecret
+<a id="__codelineno-5-2" name="__codelineno-5-2" href="#__codelineno-5-2"></a><span class="w">    </span>--el<span class="o">=</span>http://127.0.0.1:8551<span class="w"> </span><span class="se">\</span>
+<a id="__codelineno-5-3" name="__codelineno-5-3" href="#__codelineno-5-3"></a><span class="w">    </span>--el<span class="o">=</span>ws://other:8551<span class="w"> </span><span class="se">\</span>
+<a id="__codelineno-5-4" name="__codelineno-5-4" href="#__codelineno-5-4"></a><span class="w">    </span>--jwt-secret<span class="o">=</span>/tmp/jwtsecret
 </code></pre></div>
 <div class="admonition tip">
 <p class="admonition-title">Tip</p>

@@ -1120,27 +1120,6 @@
   
   
     <li class="md-nav__item">
-      <a href="goerli-eth.html" class="md-nav__link">
-        
-  
-  <span class="md-ellipsis">
-    Obtain Goerli ETH
-  </span>
-  
-
-      </a>
-    </li>
-  
-
-              
-            
-              
-                
-  
-  
-  
-  
-    <li class="md-nav__item">
       <a href="beacon-node-systemd.html" class="md-nav__link">
         
   
@@ -1379,11 +1358,11 @@
   
   
     <li class="md-nav__item">
-      <a href="holesky.html" class="md-nav__link">
+      <a href="hoodi.html" class="md-nav__link">
         
   
   <span class="md-ellipsis">
-    Holešky testnet
+    Hoodi testnet
   </span>
   
 
@@ -2423,7 +2402,7 @@ A few log lines may be lost in the process.</p>
 </code></pre></div>
 <h2 id="using-rotatelogs">Using <code>rotatelogs</code></h2>
 <p><a href="https://httpd.apache.org/docs/2.4/programs/rotatelogs.html">rotatelogs</a> captures <code>stdout</code> logging and redirects it to a file, rotating and compressing on the fly.</p>
-<p>It is available on most servers and can be used with <code>Docker</code>, <code>Systemd</code> and manual setups to write rotated logs files.</p>
+<p>It is available on most servers and can be used with <code>docker</code>, <code>systemd</code> and manual setups to write rotated logs files.</p>
 <p>In particular, when <code>systemd</code> and its accompanying <code>journald</code> log daemon are used, this setup avoids clogging the system log by keeping the Nimbus logs in a separate location.</p>
 <h3 id="compression">Compression</h3>
 <p><code>rotatelogs</code> works by reading <code>stdin</code> and redirecting it to a file based on a name pattern.
@@ -2447,7 +2426,7 @@ The <a href="https://github.com/status-im/nimbus-eth2/tree/unstable/scripts/rota
 <h3 id="run">Run</h3>
 <p>The final step is to redirect logs to <code>rotatelogs</code> using a pipe when starting Nimbus:</p>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a>build/nimbus_beacon_node<span class="w"> </span><span class="se">\</span>
-<a id="__codelineno-3-2" name="__codelineno-3-2" href="#__codelineno-3-2"></a><span class="w">  </span>--network:holesky<span class="w"> </span><span class="se">\</span>
+<a id="__codelineno-3-2" name="__codelineno-3-2" href="#__codelineno-3-2"></a><span class="w">  </span>--network:hoodi<span class="w"> </span><span class="se">\</span>
 <a id="__codelineno-3-3" name="__codelineno-3-3" href="#__codelineno-3-3"></a><span class="w">  </span>--web3-url<span class="o">=</span><span class="s2">&quot;</span><span class="nv">$WEB3URL</span><span class="s2">&quot;</span><span class="w"> </span><span class="se">\</span>
 <a id="__codelineno-3-4" name="__codelineno-3-4" href="#__codelineno-3-4"></a><span class="w">  </span>--data-dir:<span class="nv">$DATADIR</span><span class="w"> </span><span class="m">2</span>&gt;<span class="p">&amp;</span><span class="m">1</span><span class="w"> </span><span class="p">|</span><span class="w"> </span>rotatelogs<span class="w"> </span>-L<span class="w"> </span><span class="s2">&quot;</span><span class="nv">$DATADIR</span><span class="s2">/nbc_bn.log&quot;</span><span class="w"> </span>-p<span class="w"> </span><span class="s2">&quot;/path/to/rotatelogs-compress.sh&quot;</span><span class="w"> </span>-D<span class="w"> </span>-f<span class="w"> </span>-c<span class="w"> </span><span class="s2">&quot;</span><span class="nv">$DATADIR</span><span class="s2">/log/nbc_bn_%Y%m%d%H%M%S.log&quot;</span><span class="w"> </span><span class="m">3600</span>
 </code></pre></div>

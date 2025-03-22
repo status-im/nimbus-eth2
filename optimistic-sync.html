@@ -1115,27 +1115,6 @@
   
   
     <li class="md-nav__item">
-      <a href="goerli-eth.html" class="md-nav__link">
-        
-  
-  <span class="md-ellipsis">
-    Obtain Goerli ETH
-  </span>
-  
-
-      </a>
-    </li>
-  
-
-              
-            
-              
-                
-  
-  
-  
-  
-    <li class="md-nav__item">
       <a href="beacon-node-systemd.html" class="md-nav__link">
         
   
@@ -1283,11 +1262,11 @@
   
   
     <li class="md-nav__item">
-      <a href="holesky.html" class="md-nav__link">
+      <a href="hoodi.html" class="md-nav__link">
         
   
   <span class="md-ellipsis">
-    Holešky testnet
+    Hoodi testnet
   </span>
   
 
@@ -2312,8 +2291,8 @@
 
 
 <h1 id="optimistic-sync">Optimistic sync</h1>
-<p>Optimistic sync is the process of syncing an execution and consensus client concurrently, without having the consensus client wait for the execution client.
-During optimistic sync, the consensus client quickly syncs up to the latest consensus but delays verifying block execution payloads: it continuously informs the execution client of the latest consensus head, allowing the execution client to perform a snapshot sync directly to the latest state.</p>
+<p>Optimistic sync is the process of syncing an execution and consensus client concurrently, without having the consensus client wait for the execution client.</p>
+<p>During optimistic sync, the consensus client quickly syncs up to the latest consensus but delays verifying block execution payloads: it continuously informs the execution client of the latest consensus head, allowing the execution client to perform a snapshot sync directly to the latest state.</p>
 <p>Once the execution client has caught up, the consensus and execution clients work in lock-step each validating the block.</p>
 <p>Both execution and consensus clients must be fully synced to perform validation duties: while optimistically synced, validator duties (attestation, sync committee and block production work) are skipped.</p>
 <div class="admonition info">

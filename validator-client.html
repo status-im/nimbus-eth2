@@ -1169,27 +1169,6 @@
   
   
     <li class="md-nav__item">
-      <a href="goerli-eth.html" class="md-nav__link">
-        
-  
-  <span class="md-ellipsis">
-    Obtain Goerli ETH
-  </span>
-  
-
-      </a>
-    </li>
-  
-
-              
-            
-              
-                
-  
-  
-  
-  
-    <li class="md-nav__item">
       <a href="beacon-node-systemd.html" class="md-nav__link">
         
   
@@ -1337,11 +1316,11 @@
   
   
     <li class="md-nav__item">
-      <a href="holesky.html" class="md-nav__link">
+      <a href="hoodi.html" class="md-nav__link">
         
   
   <span class="md-ellipsis">
-    Holešky testnet
+    Hoodi testnet
   </span>
   
 
@@ -2331,7 +2310,7 @@ Only use this setup if you've taken steps to mitigate the increased risk.</p>
 <p>To run a separate validator client, you must first make sure that your beacon node has its REST API enabled: start it with the <code>--rest</code> option.</p>
 <p>Next, choose a data directory for the validator client and import the keys there:</p>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a>build/nimbus_beacon_node<span class="w"> </span>deposits<span class="w"> </span>import<span class="w"> </span><span class="se">\</span>
-<a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a><span class="w">  </span>--data-dir:build/data/vc_shared_holesky_0<span class="w"> </span><span class="s2">&quot;&lt;YOUR VALIDATOR KEYS DIRECTORY&gt;&quot;</span>
+<a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a><span class="w">  </span>--data-dir:build/data/vc_shared_hoodi_0<span class="w"> </span><span class="s2">&quot;&lt;YOUR VALIDATOR KEYS DIRECTORY&gt;&quot;</span>
 </code></pre></div>
 <div class="admonition warning">
 <p class="admonition-title">Warning</p>
@@ -2344,7 +2323,7 @@ They will both try to load the same keys which may result in slashing!</p>
 </div>
 <p>With the keys imported, you are ready to start validator client:</p>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a>build/nimbus_validator_client<span class="w"> </span><span class="se">\</span>
-<a id="__codelineno-1-2" name="__codelineno-1-2" href="#__codelineno-1-2"></a><span class="w">  </span>--data-dir:build/data/vc_shared_holesky_0
+<a id="__codelineno-1-2" name="__codelineno-1-2" href="#__codelineno-1-2"></a><span class="w">  </span>--data-dir:build/data/vc_shared_hoodi_0
 </code></pre></div>
 <h1 id="options">Options</h1>
 <p>See the <a href="validator-client-options.html">validator client options</a> page for more information about beacon node roles, redundant setups and sentry nodes!</p>
