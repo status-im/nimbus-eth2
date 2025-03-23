@@ -112,9 +112,9 @@ proc speed*(start, finish: ColumnSyncTimestamp): float {.inline.} =
 proc initColumnSyncerAssist[A, B](man: ColumnManager[A, B]) =
   case man.direction
   of ColumnSyncerDirection.Forward:
-    man.assist = ColumnSyncerAssist.init(A, man.getFirstSlot(),
-                                        man.getLastSlot(), man.chunkSize,
-                                        man.getSafeSlot(), man.peerdasBlockVerifier1)
+    man.assist = ColumnSyncerAssist.init(A, man.direction, man.getFirstSlot(),
+                                         man.getLastSlot(), man.chunkSize,
+                                         man.getSafeSlot, man.peerdasBlockVerifier, 1)
   of ColumnSyncerDirection.Backward:
     let
       firstSlot = man.getFirstSlot()
@@ -134,7 +134,6 @@ proc newColumnManager*[A, B](
     amIsupernode: bool,
     custody_columns_set: HashSet[ColumnIndex],
     custody_columns_list: List[ColumnIndex, NUMBER_OF_COLUMNS],
-    column_syncer_table: OrderedTable[Slot, ColumnAndBlockResponse],
     fuluEpoch: Epoch,
     minEpochsForBlobSidecarsRequests: uint64,
     direction: ColumnSyncerDirection,
@@ -168,9 +167,9 @@ proc newColumnManager*[A, B](
     MIN_EPOCHS_FOR_BLOB_SIDECARS_REQUESTS: minEpochsForBlobSidecarsRequests,
     getLocalHeadSlot: getLocalHeadSlotCb,
     getLocalWallSlot: getLocalWallSlotCb,
-    getSafeSlot: getFinalizedSlotCb,
-    getFirstSlot: getLocalHeadSlotCb,
-    getLastSlot: getLocalWallSlotCb,
+    getSafeSlot: getSafeSlot,
+    getFirstSlot: getFirstSlot,
+    getLastSlot: getLastSlot,
     progressPivot: progressPivot,
     shutdownEvent: shutdownEvent,
     maxHeadAge: maxHeadAge,

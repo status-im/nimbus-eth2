@@ -65,39 +65,29 @@ type
     rewind: Option[RewindPoint]
     peerdasBlockVerifier: PeerdasBlockVerifier
 
-proc init[T](t: typedesc[ColumnSyncRequest],
-             start: Slot,
-             finish: Slot):
-             ColumnSyncRequest[T] =
+proc init[T](t1: typedesc[ColumnSyncRequest], direction: ColumnSyncerDirection, start: Slot,
+             finish: Slot, t2: typedesc[T]): ColumnSyncRequest[T] =
   let count = finish - start + 1'u64
-  ColumnSyncRequest[T](slot: start, count: count)
+  ColumnSyncRequest[T](direction: direction, slot: start, count: count)
 
-proc init[T](t: typedesc[ColumnSyncRequest],
-             start: Slot,
-             count: uint64,
-             item: T):
-             ColumnSyncRequest[T] =
-  ColumnSyncRequest[T](slot: start, count: count, item: item)
+proc init[T](t1: typedesc[ColumnSyncRequest], direction: ColumnSyncerDirection, slot: Slot,
+             count: uint64, item: T): ColumnSyncRequest[T] =
+  ColumnSyncRequest[T](direction: direction, slot: slot, count: count, item: item)
 
-proc init[T](t: typedesc[ColumnSyncRequest],
-             start: Slot,
-             finish: Slot,
-             item: T):
-             ColumnSyncRequest[T] =
+proc init[T](t1: typedesc[ColumnSyncRequest], direction: ColumnSyncerDirection, start: Slot,
+             finish: Slot, item: T): ColumnSyncRequest[T] =
   let count = finish - start + 1'u64
-  ColumnSyncRequest[T](slot: start, count: count, item: item)
+  ColumnSyncRequest[T](direction: direction, slot: start, count: count, item: item)
 
 proc empty*[T](t: typedesc[ColumnSyncRequest], direction: ColumnSyncerDirection,
-               t2: typedesc[T]): ColumnSyncRequest[T] =
+               t2: typedesc[T]): ColumnSyncRequest[T] {.inline.} =
   ColumnSyncRequest[T](direction: direction, count: 0'u64)
 
-proc setItem*[T](r: var ColumnSyncRequest[T], item: T):
-                 bool {.inline.} =
-  r.item = item
+proc setItem*[T](sr: var ColumnSyncRequest[T], item: T) =
+  sr.item = item
 
-proc isReqEmpty*[T](r: ColumnSyncRequest[T]):
-                    bool {.inline.} =
-  (r.count == 0'u64)
+proc isEmpty*[T](sr: ColumnSyncRequest[T]): bool {.inline.} =
+  (sr.count == 0'u64)
 
 template shortLog*[T](req: ColumnSyncRequest[T]): string =
   Base10.toString(uint64(req.slot)) & ":" &
@@ -140,7 +130,7 @@ proc checkDataColumnsResponse*[T](req: ColumnSyncRequest[T],
 
   ok()
 
-proc init*[T](t1: typedesc[ColumnSyncerAssist],
+proc init*[T](t1: typedesc[ColumnSyncerAssist], t2: typedesc[T],
               direction: ColumnSyncerDirection,
               start, final: Slot, chunkSize: uint64,
               getSafeSlotCb: GetSlotCallback,
@@ -156,12 +146,13 @@ proc init*[T](t1: typedesc[ColumnSyncerAssist],
     chunkSize: chunkSize,
     queueSize: syncQueueSize,
     getSafeSlot: getSafeSlotCb,
+    waiters: newSeq[ColumnSyncWaiter](),
     counter: 1'u64,
     pending: initTable[uint64, ColumnSyncRequest[T]](),
+    debtsQueue: initHeapQueue[ColumnSyncResult[T]](),
     inpSlot: start,
     outSlot: start,
-    peerdasBlockVerifier: peerdasBlockVerifier
-  )
+    peerdasBlockVerifier: peerdasBlockVerifier)
 
 proc `<`*[T](a, b: ColumnSyncRequest[T]): bool =
   doAssert(a.direction == b.direction)

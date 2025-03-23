@@ -24,7 +24,7 @@ import
     peerdas_helpers],
   ./sync/[
     column_syncer, sync_protocol, light_client_protocol,
-    sync_overseer],
+    sync_overseer, column_syncer_assist],
   ./validators/[keystore_management, beacon_validators],
   "."/[
     beacon_node, beacon_node_light_client, deposits,
@@ -547,6 +547,11 @@ proc initFullNode(
         {SyncManagerFlag.NoGenesisSync}
       else:
         {}
+    columnManagerModes =
+      if node.config.longRangeSync != LongRangeSyncMode.Lenient:
+        {ColumnSyncerMode.NoGenesisSync}
+      else:
+        {}
     columnSyncerFlags =
       if node.config.columnSyncerStrategy == ColumnSyncerStrategy.Impartial:
         {ColumnSyncerFlag.Impartial}
@@ -562,7 +567,7 @@ proc initFullNode(
       getFrontfillSlot, dag.tail.slot, peerdasBlockVerifier,
       shutdownEvent = node.shutdownEvent,
       flags = columnSyncerFlags,
-      modes = syncManagerFlag)
+      modes = columnManagerModes)
     syncManager = newSyncManager[Peer, PeerId](
       node.network.peerPool,
       dag.cfg.DENEB_FORK_EPOCH,
