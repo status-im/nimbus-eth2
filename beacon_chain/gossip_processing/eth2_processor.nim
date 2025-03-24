@@ -288,7 +288,7 @@ proc validateBlobSidecarFromEL(
       when consensusFork >= ConsensusFork.Electra:
         let
           start_time = Moment.now()
-          el_blob_loss = 0
+        var el_blob_loss = 0
         let blobsFromElOpt =
           await self.elManager.sendGetBlobs(forkyBlck)
         if blobsFromElOpt.get.len > 0 and blobsFromElOpt.isSome():
