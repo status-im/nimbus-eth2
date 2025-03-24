@@ -93,10 +93,6 @@ declareHistogram beacon_block_delay,
 declareHistogram blob_sidecar_delay,
   "Time(s) between slot start and blob sidecar reception", buckets = delayBuckets
 
-declareHistogram el_blob_loss,
-  "Misses of El blobs from slot start and getBlobs call", buckets = delayBuckets
-
-
 type
   DoppelgangerProtection = object
     broadcastStartEpoch*: Epoch  ##\
