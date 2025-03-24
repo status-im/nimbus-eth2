@@ -91,7 +91,7 @@ type
     NetRes[List[ref ForkedSignedBeaconBlock, Limit MAX_REQUEST_BLOCKS]]
 
   DataColumnSidecarsRes =
-    NetRes[List[ref DataColumnSidecar, Limit(MAX_REQUEST_BLOB_SIDECARS_ELECTRA)]]
+    NetRes[List[ref DataColumnSidecar, Limit(NUMBER_OF_COLUMNS)]]
 
 proc now*(cst: typedesc[ColumnSyncTimestamp],
           slots: uint64):
