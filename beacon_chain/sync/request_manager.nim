@@ -662,7 +662,7 @@ proc start*(rman: var RequestManager) =
 proc switchToColumnLoop*(rman: var RequestManager) =
   rman.dataColumnLoopFuture = rman.requestManagerDataColumnLoop()
   if not(isNil(rman.blobLoopFuture)):
-    rman.blobLoopFuture.cancelSoon()
+    discard rman.blobLoopFuture.cancelAndWait()
 
 proc stop*(rman: RequestManager) =
   ## Stop Request Manager's loop.
