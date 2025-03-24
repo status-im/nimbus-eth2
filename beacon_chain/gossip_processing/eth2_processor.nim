@@ -76,6 +76,8 @@ declareCounter beacon_light_client_optimistic_update_received,
   "Number of valid light client optimistic update processed by this node"
 declareCounter beacon_light_client_optimistic_update_dropped,
   "Number of invalid light client optimistic update dropped by this node", labels = ["reason"]
+declareCounter el_blob_loss,
+  "Number of EL blob misses while calling `engine_getBlobsV1`"
 
 const delayBuckets = [2.0, 4.0, 6.0, 8.0, 10.0, 12.0, 14.0, Inf]
 
@@ -90,6 +92,10 @@ declareHistogram beacon_block_delay,
 
 declareHistogram blob_sidecar_delay,
   "Time(s) between slot start and blob sidecar reception", buckets = delayBuckets
+
+declareHistogram el_blob_loss,
+  "Misses of El blobs from slot start and getBlobs call", buckets = delayBuckets
+
 
 type
   DoppelgangerProtection = object
@@ -284,6 +290,9 @@ proc validateBlobSidecarFromEL(
     let blobless = o.get()
     withBlck(blobless):
       when consensusFork >= ConsensusFork.Electra:
+        let
+          start_time = Moment.now()
+          el_blob_loss = 0
         let blobsFromElOpt =
           await self.elManager.sendGetBlobs(forkyBlck)
         if blobsFromElOpt.get.len > 0 and blobsFromElOpt.isSome():
@@ -311,10 +320,26 @@ proc validateBlobSidecarFromEL(
               self.blockProcessor[].enqueueBlock(
                 MsgSource.gossip, blobless,
                 Opt.some(self.blobQuarantine[].popBlobs(block_root, forkyBlck)))
-
+            let end_time = Moment.now()
+            debug "Time taken to get 100% response from EL and bypass blob gossip validation",
+                  time_taken = end_time - start_time
             debug "Pulled blobs from EL, bypassing blob gossip validation",
               blobs_from_el = blobsEl.len
             return ok()
+
+          elif blobsEl.len < forkyBlck.message.body.blob_kzg_commitments.len and
+              blobsEl.len != 0:
+            let end_time = Moment.now()
+
+            el_blob_loss = forkyBlck.message.body.blob_kzg_commitments.len - blobsEl.len
+
+            debug "Time taken to receive partially response from EL",
+                  received_percent = float((blobsEl.len div forkyBlck.message.body.blob_kzg_commitments.len) * 100),
+                  time_taken = end_time - start_time
+          else:
+            let end_time = Moment.now()
+            debug "Empty response received from EL",
+                  time_elapsed = end_time - start_time
 
   else:
     return errIgnore("EL did not respond with blobs and proofs")
