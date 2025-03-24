@@ -172,7 +172,6 @@ type
   NetworkStateInitializer* = proc(network: Eth2Node): RootRef {.gcsafe, raises: [].}
   OnPeerConnectedHandler* = proc(peer: Peer, incoming: bool): Future[void] {.async: (raises: [CancelledError]).}
   OnPeerDisconnectedHandler* = proc(peer: Peer): Future[void] {.async: (raises: [CancelledError]).}
-  ThunkProc* = LPProtoHandler
   MounterProc* = proc(network: Eth2Node) {.gcsafe, raises: [].}
   MessageContentPrinter* = proc(msg: pointer): string {.gcsafe, raises: [].}
 
@@ -1896,7 +1895,10 @@ proc new(T: type Eth2Node,
     quota: TokenBucket.new(maxGlobalQuota, fullReplenishTime)
   )
 
-  proc peerHook(peerId: PeerId, event: ConnEvent): Future[void] {.gcsafe.} =
+  proc peerHook(
+      peerId: PeerId,
+      event: ConnEvent
+  ): Future[void] {.async: (raises: [CancelledError], raw: true), gcsafe.} =
     onConnEvent(node, peerId, event)
 
   switch.addConnEventHandler(peerHook, ConnEventKind.Connected)
@@ -2097,10 +2099,13 @@ proc p2pProtocolBackendImpl*(p: P2PProtocol): Backend =
         `userHandlerCall`
 
       proc `protocolMounterName`(`networkVar`: `Eth2Node`) {.raises: [].} =
-        proc snappyThunk(`streamVar`: `Connection`,
-                         `protocolVar`: string): Future[void] {.gcsafe.} =
-          return handleIncomingStream(`networkVar`, `streamVar`, `protocolVar`,
-                                      `MsgStrongRecName`)
+        proc snappyThunk(
+            `streamVar`: `Connection`,
+            `protocolVar`: string
+        ): Future[void] {.
+            async: (raises: [CancelledError], raw: true), gcsafe.} =
+          handleIncomingStream(
+            `networkVar`, `streamVar`, `protocolVar`, `MsgStrongRecName`)
 
         try:
           mount `networkVar`.switch,

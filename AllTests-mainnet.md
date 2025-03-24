@@ -125,6 +125,8 @@ AllTests-mainnet
 ```
 ## Block quarantine
 ```diff
++ Don't re-download unviable blocks                                                          OK
++ Keep downloading parent chain even if we hit missing limit                                 OK
 + Recursive missing parent                                                                   OK
 + Unviable smoke test                                                                        OK
 ```
@@ -725,6 +727,18 @@ AllTests-mainnet
 + Invalid Authorization Token [Beacon Node] [Preset: mainnet]                                OK
 + Missing Authorization header [Beacon Node] [Preset: mainnet]                               OK
 ```
+## MEV calls serialization/deserialization and behavior test suite
+```diff
++ /eth/v1/builder/blinded_blocks [json/json] test                                            OK
++ /eth/v1/builder/blinded_blocks [json/ssz] test                                             OK
++ /eth/v1/builder/blinded_blocks [ssz/json] test                                             OK
++ /eth/v1/builder/blinded_blocks [ssz/ssz] test                                              OK
++ /eth/v1/builder/header [json] test                                                         OK
++ /eth/v1/builder/header [ssz] test                                                          OK
++ /eth/v1/builder/status test                                                                OK
++ /eth/v1/builder/validators [json] test                                                     OK
++ /eth/v1/builder/validators [ssz] test                                                      OK
+```
 ## Message signatures
 ```diff
 + Aggregate and proof signatures                                                             OK
@@ -743,8 +757,8 @@ AllTests-mainnet
 ```
 ## Nimbus remote signer/signing test (verifying-web3signer)
 ```diff
-+ Signing BeaconBlock (getBlockSignature(capella))                                           OK
 + Signing BeaconBlock (getBlockSignature(deneb))                                             OK
++ Signing BeaconBlock (getBlockSignature(electra))                                           OK
 + Waiting for signing node (/upcheck) test                                                   OK
 ```
 ## Nimbus remote signer/signing test (web3signer)
@@ -752,8 +766,8 @@ AllTests-mainnet
 + Connection timeout test                                                                    OK
 + Public keys enumeration (/api/v1/eth2/publicKeys) test                                     OK
 + Public keys reload (/reload) test                                                          OK
-+ Signing BeaconBlock (getBlockSignature(capella))                                           OK
 + Signing BeaconBlock (getBlockSignature(deneb))                                             OK
++ Signing BeaconBlock (getBlockSignature(electra))                                           OK
 + Signing SC contribution and proof (getContributionAndProofSignature())                     OK
 + Signing SC message (getSyncCommitteeMessage())                                             OK
 + Signing SC selection proof (getSyncCommitteeSelectionProof())                              OK

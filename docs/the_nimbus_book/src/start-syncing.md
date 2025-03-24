@@ -24,10 +24,12 @@ Later, when everything is working, you can easily switch to mainnet.
 
 === "Testnet"
 
-    To start syncing the `holesky` testnet from the `nimbus-eth2` repository, run:
+    To start syncing the `hoodi` testnet from the `nimbus-eth2` repository, run:
 
     ```
-     ./run-holesky-beacon-node.sh
+    build/nimbus_beacon_node \
+        --network=hoodi \
+        --data-dir=build/data/shared_hoodi_0
     ```
 
 === "Mainnet"
@@ -35,7 +37,7 @@ Later, when everything is working, you can easily switch to mainnet.
     To start syncing the Ethereum beacon chain mainnet, run:
 
     ```
-     ./run-mainnet-beacon-node.sh
+    ./run-mainnet-beacon-node.sh
     ```
 
 ## Log output
@@ -45,7 +47,7 @@ You should see the following output:
 ```
 INF 2023-10-01 11:25:33.487+01:00 Launching beacon node
 ...
-INF 2023-10-01 11:25:34.556+01:00 Loading block dag from database            topics="beacnde" tid=19985314 path=build/data/shared_holesky_0/db
+INF 2023-10-01 11:25:34.556+01:00 Loading block dag from database            topics="beacnde" tid=19985314 path=build/data/shared_hoodi_0/db
 INF 2023-10-01 11:25:35.921+01:00 Block dag initialized
 INF 2023-10-01 11:25:37.073+01:00 Generating new networking key
 ...
@@ -68,7 +70,11 @@ You can add command line options to the startup command.
 For example, to change the port to 9100, use:
 
 ```sh
-./run-holesky-beacon-node.sh --tcp-port=9100 --udp-port=9100
+build/nimbus_beacon_node \
+    --network=hoodi \
+    --data-dir=build/data/shared_hoodi_0 \
+    --tcp-port=9100 \
+    --udp-port=9100
 ```
 
 To see a list of the command line options available to you, with descriptions, run:
@@ -101,11 +107,13 @@ You can use an existing synced node or a third-party service to accelerate sync 
 
 To use checkpoint sync, run the following commands (inserting the checkpoint sync endpoint and your own trusted block root):
 
-=== "Holesky"
+=== "Hoodi"
     ```sh
     CHECKPOINT_SYNC_ENDPOINT=http://127.0.0.1:8551
     TRUSTED_BLOCK_ROOT=0x1234567890123456789012345678901234567890123456789012345678901234
-    ./run-holesky-beacon-node.sh \
+    build/nimbus_beacon_node \
+        --network=hoodi \
+        --data-dir=build/data/shared_hoodi_0 \
         --external-beacon-api-url=$CHECKPOINT_SYNC_ENDPOINT \
         --trusted-block-root=$TRUSTED_BLOCK_ROOT
     ```

@@ -137,8 +137,8 @@ suite "Remove keystore testing suite":
       check keystore.provenBlockProperties.len == 1
       check keystore.provenBlockProperties[0].capellaIndex == some GeneralizedIndex(401)
       check keystore.provenBlockProperties[0].denebIndex == some GeneralizedIndex(801)
-      check keystore.provenBlockProperties[0].electraIndex == some GeneralizedIndex(801)
-      check keystore.provenBlockProperties[0].fuluIndex == some GeneralizedIndex(801)
+      check keystore.provenBlockProperties[0].electraIndex == some GeneralizedIndex(17537)
+      check keystore.provenBlockProperties[0].fuluIndex == some GeneralizedIndex(17537)
 
   test "Verifying Signer / Many remotes":
     for version in [3]:
@@ -187,5 +187,5 @@ suite "Remove keystore testing suite":
       check keystore.provenBlockProperties.len == 1
       check keystore.provenBlockProperties[0].capellaIndex == some GeneralizedIndex(401)
       check keystore.provenBlockProperties[0].denebIndex == some GeneralizedIndex(801)
-      check keystore.provenBlockProperties[0].electraIndex == some GeneralizedIndex(801)
-      check keystore.provenBlockProperties[0].fuluIndex == some GeneralizedIndex(801)
+      check keystore.provenBlockProperties[0].electraIndex == some GeneralizedIndex(17537)
+      check keystore.provenBlockProperties[0].fuluIndex == some GeneralizedIndex(17537)

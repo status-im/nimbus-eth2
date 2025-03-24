@@ -142,10 +142,10 @@ proc ETHBeaconStateCreateFromSsz(
   ##
   ## See:
   ## * https://github.com/ethereum/consensus-specs/blob/v1.4.0/specs/phase0/beacon-chain.md#beaconstate
-  ## * https://github.com/ethereum/consensus-specs/blob/v1.5.0-beta.2/specs/altair/beacon-chain.md#beaconstate
+  ## * https://github.com/ethereum/consensus-specs/blob/v1.5.0-beta.3/specs/altair/beacon-chain.md#beaconstate
   ## * https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.8/specs/bellatrix/beacon-chain.md#beaconstate
   ## * https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.3/specs/capella/beacon-chain.md#beaconstate
-  ## * https://github.com/ethereum/consensus-specs/blob/v1.5.0-beta.2/configs/README.md
+  ## * https://github.com/ethereum/consensus-specs/blob/v1.5.0-beta.3/configs/README.md
   let
     consensusFork = ConsensusFork.decodeString($consensusVersion).valueOr:
       return nil
@@ -1421,7 +1421,7 @@ type
     storageKeys: seq[Eth2Digest]
 
   ETHAuthorization = object
-    chainId: uint64
+    chainId: ChainId
     address: ExecutionAddress
     nonce: uint64
     authority: ExecutionAddress
@@ -1429,7 +1429,7 @@ type
 
   ETHTransaction = object
     hash: Eth2Digest
-    chainId: uint64
+    chainId: ChainId
     `from`: ExecutionAddress
     nonce: uint64
     maxPriorityFeePerGas: uint64
@@ -1539,8 +1539,6 @@ proc ETHTransactionsCreateFromJson(
 
     # Construct transaction
     static:
-      doAssert sizeof(uint64) == sizeof(ChainId)
-      doAssert sizeof(uint64) == sizeof(data.chainId.get)
       doAssert sizeof(uint64) == sizeof(data.gas)
       doAssert sizeof(uint64) == sizeof(data.gasPrice)
       doAssert sizeof(uint64) == sizeof(data.maxPriorityFeePerGas.get)
@@ -1556,13 +1554,12 @@ proc ETHTransactionsCreateFromJson(
         return nil
     if data.authorizationList.isSome:
       for authorization in data.authorizationList.get:
-        static: doAssert sizeof(uint64) == sizeof(authorization.chainId)
         if authorization.v > uint8.high:
           return nil
     let
       tx = eth_types.EthTransaction(
         txType: txType,
-        chainId: data.chainId.get(0.Quantity).ChainId,
+        chainId: data.chainId.get(0.chainId),
         nonce: distinctBase(data.nonce),
         gasPrice: data.gasPrice.GasInt,
         maxPriorityFeePerGas:
@@ -1663,7 +1660,7 @@ proc ETHTransactionsCreateFromJson(
         authority = recoverSignerAddress(sig, auth.rlpHashForSigning).valueOr:
           return nil
       authorizationList.add ETHAuthorization(
-        chainId: distinctBase(auth.chainId),
+        chainId: auth.chainId,
         address: ExecutionAddress(data: auth.address.data),
         nonce: auth.nonce,
         authority: ExecutionAddress(data: authority),
@@ -1671,7 +1668,7 @@ proc ETHTransactionsCreateFromJson(
 
     txs.add ETHTransaction(
       hash: keccak256(rlpBytes),
-      chainId: distinctBase(tx.chainId),
+      chainId: tx.chainId,
       `from`: ExecutionAddress(data: fromAddress),
       nonce: tx.nonce,
       maxPriorityFeePerGas: tx.maxPriorityFeePerGas.uint64,
@@ -1755,7 +1752,7 @@ func ETHTransactionGetHash(
   addr transaction[].hash
 
 func ETHTransactionGetChainId(
-    transaction: ptr ETHTransaction): ptr uint64 {.exported.} =
+    transaction: ptr ETHTransaction): ptr ChainId {.exported.} =
   ## Obtains the chain ID of a transaction.
   ##
   ## * The returned value is allocated in the given transaction.
@@ -2115,7 +2112,7 @@ func ETHAuthorizationListGet(
   addr authorizationList[][authorizationIndex.int]
 
 func ETHAuthorizationGetChainId(
-    authorization: ptr ETHAuthorization): ptr uint64 {.exported.} =
+    authorization: ptr ETHAuthorization): ptr ChainId {.exported.} =
   ## Obtains the chain ID of an authorization tuple.
   ##
   ## * The returned value is allocated in the given authorization tuple.
@@ -2362,8 +2359,6 @@ proc ETHReceiptsCreateFromJson(
       if log.blockNumber.isNone:
         return nil
       if log.blockNumber.get != data.blockNumber:
-        return nil
-      if log.data.len mod 32 != 0:
         return nil
       if log.topics.len > 4:
         return nil

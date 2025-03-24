@@ -1,5 +1,5 @@
 # beacon_chain
-# Copyright (c) 2022-2024 Status Research & Development GmbH
+# Copyright (c) 2022-2025 Status Research & Development GmbH
 # Licensed and distributed under either of
 #   * MIT license (license terms in the root directory or at https://opensource.org/licenses/MIT).
 #   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
@@ -17,7 +17,7 @@ import
   chronicles
 
 proc setupEngineAPI*(server: RpcServer) =
-  # https://github.com/ethereum/execution-apis/blob/v1.0.0-beta.3/src/engine/paris.md#engine_newpayloadv1
+  # https://github.com/ethereum/execution-apis/blob/v1.0.0-beta.4/src/engine/paris.md#engine_newpayloadv1
   # cannot use `params` as param name. see https:#github.com/status-im/nim-json-rpc/issues/128
   server.rpc("engine_newPayloadV1") do(payload: ExecutionPayloadV1) -> PayloadStatusV1:
     info "engine_newPayloadV1",
@@ -27,7 +27,7 @@ proc setupEngineAPI*(server: RpcServer) =
       status: PayloadExecutionStatus.syncing,
     )
 
-  # https://github.com/ethereum/execution-apis/blob/v1.0.0-beta.3/src/engine/shanghai.md#engine_newpayloadv2
+  # https://github.com/ethereum/execution-apis/blob/v1.0.0-beta.4/src/engine/shanghai.md#engine_newpayloadv2
   server.rpc("engine_newPayloadV2") do(payload: ExecutionPayloadV2) -> PayloadStatusV1:
     info "engine_newPayloadV2", payload
 
@@ -35,7 +35,7 @@ proc setupEngineAPI*(server: RpcServer) =
       status: PayloadExecutionStatus.syncing,
     )
 
-  # https://github.com/ethereum/execution-apis/blob/v1.0.0-beta.3/src/engine/paris.md#engine_getpayloadv1
+  # https://github.com/ethereum/execution-apis/blob/v1.0.0-beta.4/src/engine/paris.md#engine_getpayloadv1
   server.rpc("engine_getPayloadV1") do(payloadId: PayloadID) -> ExecutionPayloadV1:
     info "engine_getPayloadV1",
       id = payloadId.toHex
@@ -45,16 +45,7 @@ proc setupEngineAPI*(server: RpcServer) =
       msg: "Unknown payload"
     )
 
-  # https://github.com/ethereum/execution-apis/blob/v1.0.0-beta.3/src/engine/paris.md#engine_exchangetransitionconfigurationv1
-  server.rpc("engine_exchangeTransitionConfigurationV1") do(conf: TransitionConfigurationV1) -> TransitionConfigurationV1:
-    info "engine_exchangeTransitionConfigurationV1",
-      ttd = conf.terminalTotalDifficulty,
-      number = uint64(conf.terminalBlockNumber),
-      blockHash = conf.terminalBlockHash
-
-    return conf
-
-  # https://github.com/ethereum/execution-apis/blob/v1.0.0-beta.3/src/engine/paris.md#engine_forkchoiceupdatedv1
+  # https://github.com/ethereum/execution-apis/blob/v1.0.0-beta.4/src/engine/paris.md#engine_forkchoiceupdatedv1
   server.rpc("engine_forkchoiceUpdatedV1") do(
       update: ForkchoiceStateV1,
       payloadAttributes: Opt[PayloadAttributesV1]) -> ForkchoiceUpdatedResponse:
@@ -66,7 +57,7 @@ proc setupEngineAPI*(server: RpcServer) =
       payloadStatus: PayloadStatusV1(
       status: PayloadExecutionStatus.syncing))
 
-  # https://github.com/ethereum/execution-apis/blob/v1.0.0-beta.3/src/engine/shanghai.md#engine_forkchoiceupdatedv2
+  # https://github.com/ethereum/execution-apis/blob/v1.0.0-beta.4/src/engine/shanghai.md#engine_forkchoiceupdatedv2
   server.rpc("engine_forkchoiceUpdatedV2") do(
       forkchoiceState: ForkchoiceStateV1, payloadAttributes: Opt[PayloadAttributesV2]) -> ForkchoiceUpdatedResponse:
     info "engine_forkchoiceUpdatedV2",
@@ -91,10 +82,10 @@ proc setupEngineAPI*(server: RpcServer) =
 
     return BlockObject(number: 1000.Quantity)
 
-  server.rpc("eth_chainId") do() -> Quantity:
+  server.rpc("eth_chainId") do() -> UInt256:
     info "eth_chainId"
 
-    return 1.Quantity
+    return 1.u256
 
 when isMainModule:
   let server = newRpcHttpServer(

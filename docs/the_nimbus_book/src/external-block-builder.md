@@ -30,17 +30,24 @@ Additionally, the URL of the service exposing the [builder API](https://ethereum
 
 === "Mainnet Beacon Node"
     ```sh
-    ./run-mainnet-beacon-node.sh --payload-builder=true --payload-builder-url=https://${HOST}:${PORT}/
+    ./run-mainnet-beacon-node.sh \
+        --payload-builder=true \
+        --payload-builder-url=https://${HOST}:${PORT}/
     ```
 
-=== "Holesky Beacon Node"
+=== "Hoodi Beacon Node"
     ```sh
-    ./run-holesky-beacon-node.sh --payload-builder=true --payload-builder-url=https://${HOST}:${PORT}/
+    build/nimbus_beacon_node \
+        --network=hoodi \
+        --data-dir=build/data/shared_hoodi_0 \
+        --payload-builder=true \
+        --payload-builder-url=https://${HOST}:${PORT}/
     ```
 
 === "Validator Client"
     ```sh
-    build/nimbus_validator_client --payload-builder=true
+    build/nimbus_validator_client \
+        --payload-builder=true
     ```
 
 ## Useful resources
@@ -51,4 +58,4 @@ Additionally, the URL of the service exposing the [builder API](https://ethereum
 
 - [Mainnet Relay Overview](https://beaconcha.in/relays)
 
-- [Holesky Relay Overview](https://holesky.beaconcha.in/relays)
+- [Hoodi Relay Overview](https://hoodi.beaconcha.in/relays)

@@ -35,11 +35,11 @@ To start trusted node sync, run:
       --trusted-node-url=http://localhost:5052
     ```
 
-=== "Holesky"
+=== "Hoodi"
     ```sh
     build/nimbus_beacon_node trustedNodeSync \
-      --network:holesky \
-      --data-dir=build/data/shared_holesky_0 \
+      --network:hoodi \
+      --data-dir=build/data/shared_hoodi_0 \
       --trusted-node-url=http://localhost:5052
     ```
 
@@ -139,7 +139,7 @@ curl -o state.finalized.ssz \
 
 # Start the beacon node using the downloaded state as starting point
 ./run-mainnet-beacon-node.sh \
-  --finalized-checkpoint-state=state.finalized.ssz
+    --finalized-checkpoint-state=state.finalized.ssz
 ```
 
 ## Recreate historical state access indices

@@ -59,7 +59,7 @@ const
   # https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.10/specs/fulu/p2p-interface.md#configuration
   DATA_COLUMN_SIDECAR_SUBNET_COUNT* = 128
 
-  # https://github.com/ethereum/consensus-specs/blob/v1.5.0-beta.2/specs/fulu/das-core.md#custody-setting
+  # https://github.com/ethereum/consensus-specs/blob/v1.5.0-beta.3/specs/fulu/das-core.md#custody-setting
   SAMPLES_PER_SLOT* = 8
   CUSTODY_REQUIREMENT* = 4
   NUMBER_OF_CUSTODY_GROUPS* = 128
@@ -96,7 +96,7 @@ type
 type
   DataColumn* = List[KzgCell, Limit(MAX_BLOB_COMMITMENTS_PER_BLOCK)]
 
-  # https://github.com/ethereum/consensus-specs/blob/v1.5.0-beta.2/specs/fulu/das-core.md#datacolumnsidecar
+  # https://github.com/ethereum/consensus-specs/blob/v1.5.0-beta.3/specs/fulu/das-core.md#datacolumnsidecar
   DataColumnSidecar* = object
     index*: ColumnIndex # Index of column in extended matrix
     column*: DataColumn

@@ -462,7 +462,9 @@ template kind*(
       deneb.SigVerifiedSignedBeaconBlock |
       deneb.MsgTrustedSignedBeaconBlock |
       deneb.TrustedSignedBeaconBlock |
-      deneb_mev.SignedBlindedBeaconBlock]): ConsensusFork =
+      deneb_mev.SignedBlindedBeaconBlock |
+      deneb_mev.SignedBuilderBid |
+      deneb_mev.ExecutionPayloadAndBlobsBundle]): ConsensusFork =
   ConsensusFork.Deneb
 
 template kind*(
@@ -485,7 +487,9 @@ template kind*(
       electra.SingleAttestation |
       electra.AggregateAndProof |
       electra.SignedAggregateAndProof |
-      electra_mev.SignedBlindedBeaconBlock]): ConsensusFork =
+      electra_mev.SignedBlindedBeaconBlock |
+      electra_mev.SignedBuilderBid |
+      electra_mev.ExecutionPayloadAndBlobsBundle]): ConsensusFork =
   ConsensusFork.Electra
 
 template kind*(
@@ -504,7 +508,9 @@ template kind*(
       fulu.SigVerifiedSignedBeaconBlock |
       fulu.MsgTrustedSignedBeaconBlock |
       fulu.TrustedSignedBeaconBlock |
-      fulu_mev.SignedBlindedBeaconBlock]): ConsensusFork =
+      fulu_mev.SignedBlindedBeaconBlock |
+      fulu_mev.SignedBuilderBid |
+      fulu_mev.ExecutionPayloadAndBlobsBundle]): ConsensusFork =
   ConsensusFork.Fulu
 
 template BeaconState*(kind: static ConsensusFork): auto =
@@ -1828,7 +1834,7 @@ func compute_fork_data_root*(current_version: Version,
     genesis_validators_root: genesis_validators_root
   ))
 
-# https://github.com/ethereum/consensus-specs/blob/v1.5.0-beta.2/specs/phase0/beacon-chain.md#compute_fork_digest
+# https://github.com/ethereum/consensus-specs/blob/v1.5.0-beta.3/specs/phase0/beacon-chain.md#compute_fork_digest
 func compute_fork_digest*(current_version: Version,
                           genesis_validators_root: Eth2Digest): ForkDigest =
   ## Return the 4-byte fork digest for the ``current_version`` and
