@@ -12,14 +12,11 @@ import stew/base10, chronos, chronicles, results
 import
   ../spec/datatypes/[phase0, altair],
   ../spec/eth2_apis/rest_types,
-  ../spec/[helpers, forks, network, peerdas_helpers],
+  ../spec/[helpers, forks, network],
   ../networking/[peer_pool, peer_scores, eth2_network],
   ../gossip_processing/block_processor,
   ../beacon_clock,
   "."/[sync_protocol, sync_queue]
-
-export phase0, altair, merge, chronos, chronicles, results,
-       helpers, peer_scores, sync_queue, forks, sync_protocol
 
 type
   PeerdasBlockVerifier* = proc(signedBlock: ForkedSignedBeaconBlock,
