@@ -450,19 +450,14 @@ proc cmdDumpBlock(conf: DbConf) =
     if shouldShutDown: quit QuitSuccess
     try:
       let root = Eth2Digest.fromHex(blockRoot)
-      if (let blck = db.getBlock(
-          root, phase0.TrustedSignedBeaconBlock); blck.isSome):
-        dump("./", blck.get())
-      elif (let blck = db.getBlock(
-          root, altair.TrustedSignedBeaconBlock); blck.isSome):
-        dump("./", blck.get())
-      elif (let blck = db.getBlock(root, bellatrix.TrustedSignedBeaconBlock); blck.isSome):
-        dump("./", blck.get())
-      elif (let blck = db.getBlock(root, capella.TrustedSignedBeaconBlock); blck.isSome):
-        dump("./", blck.get())
-      elif (let blck = db.getBlock(root, deneb.TrustedSignedBeaconBlock); blck.isSome):
-        dump("./", blck.get())
-      else:
+      var found = false
+      withAll(ConsensusFork):
+        if not found:
+          let blck = db.getBlock(root, consensusFork.TrustedSignedBeaconBlock)
+          if blck.isSome:
+            found = true
+            dump("./", blck.get())
+      if not found:
         echo "Couldn't load ", blockRoot
     except CatchableError as e:
       echo "Couldn't load ", blockRoot, ": ", e.msg

@@ -32,17 +32,19 @@ Nimbus-eth2 is an extremely efficient consensus layer (eth2) client implementati
 
 You can find the information you need to run a beacon node and operate as a validator in [The Book](https://nimbus.guide/).
 
-The [Quickstart](https://nimbus.guide/quick-start.html) in particular will help you quickly connect to either mainnet or the Prater testnet.
+The [Quickstart](https://nimbus.guide/quick-start.html) in particular will help you quickly connect to either mainnet or the Hoodi testnet.
 
 ## Quickly test your tooling against Nimbus
 
  The [Nimbus REST api](https://nimbus.guide/rest-api.html) is now available from:
 
-* http://unstable.mainnet.beacon-api.nimbus.team/
 * http://testing.mainnet.beacon-api.nimbus.team/
-* http://unstable.sepolia.beacon-api.nimbus.team/
+* http://unstable.mainnet.beacon-api.nimbus.team/
+* http://testing.hoodi.beacon-api.nimbus.team/
+* http://unstable.hoodi.beacon-api.nimbus.team/
 * http://testing.holesky.beacon-api.nimbus.team/
 * http://unstable.holesky.beacon-api.nimbus.team/
+* http://unstable.sepolia.beacon-api.nimbus.team/
 
 Note that right now these are very much unstable testing instances. They may be unresponsive at times - so **please do not rely on them for validating**. We may also disable them at any time.
 

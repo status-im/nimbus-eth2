@@ -1,6 +1,6 @@
 /**
  * beacon_chain
- * Copyright (c) 2023-2024 Status Research & Development GmbH
+ * Copyright (c) 2023-2025 Status Research & Development GmbH
  * Licensed and distributed under either of
  *   * MIT license (license terms in the root directory or at https://opensource.org/licenses/MIT).
  *   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
@@ -464,7 +464,7 @@ int main(void)
         printHexString(transactionHash, sizeof *transactionHash);
         printf("\n");
 
-        const uint64_t *transactionChainId = ETHTransactionGetChainId(transaction);
+        const ETHChainId *transactionChainId = ETHTransactionGetChainId(transaction);
         printf("    - chain_id: ");
         printHexStringReversed(transactionChainId, sizeof *transactionChainId);
         printf("\n");
@@ -558,7 +558,7 @@ int main(void)
             printHexString(authority, sizeof *authority);
             printf("\n");
 
-            const uint64_t *chainId = ETHAuthorizationGetChainId(authorization);
+            const ETHChainId *chainId = ETHAuthorizationGetChainId(authorization);
             printf("            - chain_id: ");
             printHexStringReversed(chainId, sizeof *chainId);
             printf("\n");

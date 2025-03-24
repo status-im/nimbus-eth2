@@ -1,5 +1,5 @@
 # beacon_chain
-# Copyright (c) 2023-2024 Status Research & Development GmbH
+# Copyright (c) 2023-2025 Status Research & Development GmbH
 # Licensed and distributed under either of
 #   * MIT license (license terms in the root directory or at https://opensource.org/licenses/MIT).
 #   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
@@ -13,6 +13,11 @@ import
 
 export chronos, client, rest_types, eth2_rest_serialization
 
+proc getStatus*(): RestPlainResponse {.
+     rest, endpoint: "/eth/v1/builder/status",
+     meth: MethodGet.}
+  ## https://ethereum.github.io/builder-specs/#/Builder/status
+
 proc registerValidator*(body: seq[SignedValidatorRegistrationV1]
                        ): RestPlainResponse {.
      rest, endpoint: "/eth/v1/builder/validators",
@@ -20,19 +25,33 @@ proc registerValidator*(body: seq[SignedValidatorRegistrationV1]
   ## https://github.com/ethereum/builder-specs/blob/v0.4.0/apis/builder/validators.yaml
   ## https://github.com/ethereum/beacon-APIs/blob/v2.3.0/apis/validator/register_validator.yaml
 
-proc getHeaderDeneb*(slot: Slot,
-                     parent_hash: Eth2Digest,
-                     pubkey: ValidatorPubKey
-                    ): RestPlainResponse {.
-     rest, endpoint: "/eth/v1/builder/header/{slot}/{parent_hash}/{pubkey}",
-     meth: MethodGet, connection: {Dedicated, Close}.}
+proc getHeaderDenebPlain*(
+    slot: Slot,
+    parent_hash: Eth2Digest,
+    pubkey: ValidatorPubKey
+): RestPlainResponse {.
+  rest, endpoint: "/eth/v1/builder/header/{slot}/{parent_hash}/{pubkey}",
+  meth: MethodGet, connection: {Dedicated, Close}.}
   ## https://github.com/ethereum/builder-specs/blob/v0.4.0/apis/builder/header.yaml
+
+proc getHeaderDeneb*(
+    client: RestClientRef,
+    slot: Slot,
+    parent_hash: Eth2Digest,
+    pubkey: ValidatorPubKey
+): Future[RestPlainResponse] {.
+  async: (raises: [CancelledError, RestEncodingError, RestDnsResolveError,
+                   RestCommunicationError], raw: true).} =
+  client.getHeaderDenebPlain(
+    slot, parent_hash, pubkey,
+    restAcceptType = "application/octet-stream,application/json;q=0.5",
+  )
 
 proc submitBlindedBlockPlain*(
     body: deneb_mev.SignedBlindedBeaconBlock
 ): RestPlainResponse {.
-   rest, endpoint: "/eth/v1/builder/blinded_blocks",
-   meth: MethodPost, connection: {Dedicated, Close}.}
+  rest, endpoint: "/eth/v1/builder/blinded_blocks",
+  meth: MethodPost, connection: {Dedicated, Close}.}
   ## https://github.com/ethereum/builder-specs/blob/v0.4.0/apis/builder/blinded_blocks.yaml
 
 proc submitBlindedBlock*(
@@ -40,9 +59,10 @@ proc submitBlindedBlock*(
   body: deneb_mev.SignedBlindedBeaconBlock
 ): Future[RestPlainResponse] {.
   async: (raises: [CancelledError, RestEncodingError, RestDnsResolveError,
-                   RestCommunicationError]).} =
+                   RestCommunicationError], raw: true).} =
   ## https://github.com/ethereum/builder-specs/blob/v0.4.0/apis/builder/blinded_blocks.yaml
-  await client.submitBlindedBlockPlain(
+  client.submitBlindedBlockPlain(
     body,
+    restAcceptType = "application/octet-stream,application/json;q=0.5",
     extraHeaders = @[("eth-consensus-version", toString(ConsensusFork.Deneb))]
   )

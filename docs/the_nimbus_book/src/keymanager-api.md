@@ -8,7 +8,10 @@ By default, we disable the Keymanager API.
 To enable it, start the beacon node with the `--keymanager` option enabled:
 
 ```
-./run-holesky-beacon-node.sh --keymanager
+build/nimbus_beacon_node \
+    --network=hoodi \
+    --data-dir=build/data/shared_hoodi_0 \
+    --keymanager
 ```
 
 Once the node is running, you'll be able to access the API from [http://localhost:5052/](http://localhost:5052/).

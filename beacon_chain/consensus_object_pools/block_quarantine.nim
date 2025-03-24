@@ -1,5 +1,5 @@
 # beacon_chain
-# Copyright (c) 2018-2024 Status Research & Development GmbH
+# Copyright (c) 2018-2025 Status Research & Development GmbH
 # Licensed and distributed under either of
 #   * MIT license (license terms in the root directory or at https://opensource.org/licenses/MIT).
 #   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
@@ -18,7 +18,7 @@ export tables, forks
 const
   MaxRetriesPerMissingItem = 7
     ## Exponential backoff, double interval between each attempt
-  MaxMissingItems = 1024
+  MaxMissingItems* = 1024
     ## Arbitrary
   MaxOrphans = SLOTS_PER_EPOCH * 3
     ## Enough for finalization in an alternative fork
@@ -215,6 +215,9 @@ func removeUnviableBloblessTree(
     toRemove.setLen(0)
 
 func addUnviable*(quarantine: var Quarantine, root: Eth2Digest) =
+  # Unviable - don't try to download again!
+  quarantine.missing.del(root)
+
   if root in quarantine.unviable:
     return
 
@@ -281,8 +284,9 @@ func addOrphan*(
     quarantine: var Quarantine, finalizedSlot: Slot,
     signedBlock: ForkedSignedBeaconBlock): Result[void, cstring] =
   ## Adds block to quarantine's `orphans` and `missing` lists.
+
   if not isViable(finalizedSlot, getForkedBlockField(signedBlock, slot)):
-    quarantine.addUnviable(signedBlock.root)
+    quarantine.addUnviable(signedBlock.root) # will remove from missing
     return err("block unviable")
 
   quarantine.cleanupOrphans(finalizedSlot)
@@ -290,8 +294,13 @@ func addOrphan*(
   let parent_root = getForkedBlockField(signedBlock, parent_root)
 
   if parent_root in quarantine.unviable:
-    quarantine.unviable[signedBlock.root] = ()
+    quarantine.addUnviable(signedBlock.root)
     return err("block parent unviable")
+
+  # It's no longer missing if we downloaded it - remove before adding to make
+  # sure parent chains get downloaded even if missing list is full (works as
+  # long as the orphan was in the missing list, which is likely)
+  quarantine.missing.del(signedBlock.root)
 
   # Even if the quarantine is full, we need to schedule its parent for
   # downloading or we'll never get to the bottom of things
@@ -307,7 +316,6 @@ func addOrphan*(
     quarantine.blobless.del oldest_orphan_key[0]
 
   quarantine.orphans[(signedBlock.root, signedBlock.signature)] = signedBlock
-  quarantine.missing.del(signedBlock.root)
 
   ok()
 

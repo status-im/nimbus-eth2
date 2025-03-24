@@ -41,10 +41,14 @@ In order to recreate deep history in a pruned node, download the [era archive of
 
 === "Mainnet"
     ```sh
-    ./run-mainnet-beacon-node.sh --history=prune ...
+    ./run-mainnet-beacon-node.sh \
+        --history=prune
     ```
 
-=== "Holesky"
+=== "Hoodi"
     ```sh
-    ./run-holesky-beacon-node.sh --history=prune ...
+    build/nimbus_beacon_node \
+        --network=hoodi \
+        --data-dir=build/data/shared_hoodi_0 \
+        --history=prune
     ```
