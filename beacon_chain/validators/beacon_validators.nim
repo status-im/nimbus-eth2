@@ -358,24 +358,14 @@ proc createAndSendAttestation(node: BeaconNode,
   registered.validator.doppelgangerActivity(epoch)
 
   # Logged in the router
-  let
-    consensusFork = node.dag.cfg.consensusForkAtEpoch(epoch)
-    res =
-      if consensusFork >= ConsensusFork.Electra:
-        await node.router.routeAttestation(
-          registered.toSingleAttestation(signature), subnet_id,
-          checkSignature = false, checkValidator = false)
-      else:
-        await node.router.routeAttestation(
-          registered.toAttestation(signature), subnet_id,
-          checkSignature = false, checkValidator = false)
-  if not res.isOk():
-    return
-
-  if node.config.dumpEnabled:
-    dump(
-      node.config.dumpDirOutgoing, registered.data,
-      registered.validator.pubkey)
+  if node.dag.cfg.consensusForkAtEpoch(epoch) >= ConsensusFork.Electra:
+    discard await node.router.routeAttestation(
+      registered.toSingleAttestation(signature), subnet_id,
+      checkSignature = false, checkValidator = false)
+  else:
+    discard await node.router.routeAttestation(
+      registered.toAttestation(signature), subnet_id,
+      checkSignature = false, checkValidator = false)
 
 proc getBlockProposalEth1Data*(node: BeaconNode,
                                state: ForkedHashedBeaconState):
