@@ -31,6 +31,11 @@ type
   ColumnSyncerDirection* {.pure.} = enum
     Forward, Backward
 
+  GapColumn*[T] = object
+    start*: Slot
+    finish*: Slot
+    item*: T
+
   ColumnSyncRequest*[T] = object
     direction*: ColumnSyncerDirection
     index*: uint64
@@ -53,7 +58,7 @@ type
     queueSize*: int
     counter*: uint64
     pending*: Table[uint64, ColumnSyncRequest[T]]
-    gapList*: seq[GapItem[T]]
+    gapList*: seq[GapColumn[T]]
     waiters*: seq[ColumnSyncWaiter]
     getSafeSlot*: GetSlotCallback
     debtsQueue: HeapQueue[ColumnSyncResult[T]]
@@ -260,13 +265,13 @@ proc getLastNonEmptySlot*[T](sr: ColumnSyncResult[T]): Slot {.inline.} =
 
 proc processGap[T](cas: ColumnSyncerAssist[T], sr: ColumnSyncResult[T]) =
   if sr.isEmpty():
-    let gitem = GapItem[T](start: sr.request.slot,
+    let gitem = GapColumn[T](start: sr.request.slot,
                            finish: sr.request.slot + sr.request.count - 1'u64,
                            item: sr.request.item)
     cas.gapList.add(gitem)
   else:
     if sr.hasEndGap():
-      let gitem = GapItem[T](start: sr.getLastNonEmptySlot() + 1'u64,
+      let gitem = GapColumn[T](start: sr.getLastNonEmptySlot() + 1'u64,
                              finish: sr.request.slot + sr.request.count - 1'u64,
                              item: sr.request.item)
       cas.gapList.add(gitem)
