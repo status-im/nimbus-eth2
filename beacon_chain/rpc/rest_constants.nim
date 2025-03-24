@@ -239,6 +239,8 @@ const
     "Block has incorrect fork"
   ValidatorNotActive* =
     "Validator inactive"
+  BlocksUnavailable* =
+    "Requested block slot is unavailable"
   BlobsOutOfRange* =
     "Requested slot is outside of blobs window"
   DataColumnsOutOfRange* =
@@ -277,4 +279,3 @@ const
     "Unable to load state for parent block, database corrupt?"
   RewardOverflowError* =
     "Reward value overflow"
-  InvalidContentTypeError* = "Invalid content type"

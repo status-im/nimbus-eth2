@@ -35,9 +35,9 @@ The following options are available:
 
 Where:
 
-- The `network` can be `mainnet`, `holesky`, or `sepolia`.
+- The `network` can be `mainnet`, `hoodi`, `holesky`, or `sepolia`.
 
-- The default location of the `db`  is `build/data/shared_mainnet_0/db` for `mainnet`, `build/data/shared_holesky_0/db` for `holesky`, etc.
+- The default location of the `db`  is `build/data/shared_mainnet_0/db` for `mainnet`, `build/data/shared_hoodi_0/db` for `hoodi`, etc.
 
 
 Near the bottom, you should see:
@@ -55,11 +55,12 @@ Use `start-slot` and `slots` to restrict the analysis on a specific block range.
 
 ### 3. Run
 
-To view the performance of all validators on Holesky so far across the entire block range stored in your database, run:
+To view the performance of all validators on Hoodi so far across the entire block range stored in your database, run:
+
 ```sh
 build/ncli_db validatorPerf \
---network=holesky \
---db=build/data/shared_holesky_0/db
+--network=hoodi \
+--db=build/data/shared_hoodi_0/db
 ```
 
 You should see output that looks like to the following:
@@ -75,10 +76,11 @@ validator_index,attestation_hits,attestation_misses,head_attestation_hits,head_a
 ### 4. Adjust to target a specific block range
 
 To restrict the analysis to the performance between slots 0 and 128, say, run:
+
 ```sh
 build/ncli_db validatorPerf \
---network=holesky \
---db=build/data/shared_holesky_0/db \
+--network=hoodi \
+--db=build/data/shared_hoodi_0/db \
 --start-slot=0 \
 --slots=128
 ```
@@ -104,4 +106,3 @@ This workbook consists of three inter-related spreadsheets: `Summary`, `My Valid
 ## Resources
 
 The workbook's method is explained [here](https://hackmd.io/xQfi83kHQpm05-aAFVV0DA?view).
-

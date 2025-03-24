@@ -12,16 +12,9 @@ import chronicles
 from std/os import `/`
 
 type
-  LogProc = proc() {.gcsafe, raises: [].}
+  LogProc* = proc() {.gcsafe, raises: [].}
 
   VanityLogs* = object
-    # Upon the merge activating, these get displayed, at least once when the
-    # head becomes post-merge and then when the merge is finalized. If chain
-    # reorgs happen around the initial merge onMergeTransitionBlock might be
-    # called several times.
-    onMergeTransitionBlock*: LogProc
-    onFinalizedMergeTransitionBlock*: LogProc
-
     # Gets displayed on upgrade to Capella. May be displayed multiple times
     # in case of chain reorgs around the upgrade.
     onUpgradeToCapella*: LogProc
@@ -44,10 +37,8 @@ type
 
 # Created by https://beatscribe.com (beatscribe#1008 on Discord)
 # These need to be the main body of the log not to be reformatted or escaped.
-
-proc bellatrixMono*()  = notice "\n" & staticRead("bellatrix" / "mono.txt")
-proc bellatrixColor*() = notice "\n" & staticRead("bellatrix" / "color.ans")
-proc bellatrixBlink*() = notice "\n" & staticRead("bellatrix" / "blink.ans")
+#
+# Policy: Retain retired art files in the directory, but don't link them anymore
 
 proc capellaMono*()  = notice "\n" & staticRead("capella" / "mono.txt")
 proc capellaColor*() = notice "\n" & staticRead("capella" / "color.ans")

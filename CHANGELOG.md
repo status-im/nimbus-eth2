@@ -1,3 +1,35 @@
+2025-03-21 v25.3.1
+==================
+
+Nimbus `v25.3.1` is a `low-urgency` release except for the Hoodi testnet, for which it's a `high-urgency` release.
+
+### Improvements
+
+- Add Hoodi testnet support:
+  https://github.com/status-im/nimbus-eth2/pull/7021
+  https://github.com/status-im/nimbus-eth2/pull/7022
+  https://github.com/status-im/nimbus-eth2/pull/7025
+
+- Improve block quarantine performance on forked chains:
+  https://github.com/status-im/nimbus-eth2/pull/7006
+
+- Implement getPendingDeposits and getPendingPartialWithdrawals beacon API endpoints:
+  https://github.com/status-im/nimbus-eth2/pull/7010
+
+- Add SSZ encoding support to builder API client calls:
+  https://github.com/status-im/nimbus-eth2/pull/6970
+
+- Stop the `--dump` command-line option dumping correct outgoing attestations:
+  https://github.com/status-im/nimbus-eth2/pull/7012
+
+### Fixes
+
+- Improve partial blob sidecar response checking:
+  https://github.com/status-im/nimbus-eth2/pull/6985
+
+- Respond to un-synced blocks requests with `ResourceUnavailable`:
+  https://github.com/status-im/nimbus-eth2/pull/6977
+
 2025-03-02 v25.3.0
 ==================
 

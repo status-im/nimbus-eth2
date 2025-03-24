@@ -33,7 +33,7 @@ Environment=BEACON_NODE=http://127.0.0.1:5052
 Environment=DATA_DIR_PREFIX=/var/lib/nimbus
 
 # Default ports - if you want to run multiple instances of nimbus, for example
-# to run both prater and mainnet, separate ports must be used
+# to run both hoodi and mainnet, separate ports must be used
 Environment=METRICS_PORT=8108
 
 # Interaction and monitoring

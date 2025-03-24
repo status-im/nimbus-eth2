@@ -45,6 +45,11 @@ In addition to the era files themselves, you will need at least 200GB of free sp
         * https://mainnet.era.nimbus.team/
         * https://mainnet.era1.nimbus.team/
 
+    === "Hoodi"
+        * https://hoodi.era.nimbus.team/
+
+        The Hoodi network does not have `era1` files since it never operated as a proof-of-work chain
+
     === "Holesky"
         * https://holesky.era.nimbus.team/
 
@@ -70,6 +75,11 @@ See the [era file guide](./era-store.md) for more information.
     ```
 
 
+=== "Hoodi"
+    ```sh
+    build/nimbus_execution_client --network=hoodi --data-dir=build/hoodi import
+    ```
+
 === "Holesky"
     ```sh
     build/nimbus_execution_client --network=holesky --data-dir=build/holesky import
@@ -93,6 +103,11 @@ During startup, a `jwt.hex` file will be placed in the data directory containing
     build/nimbus_execution_client --data-dir=build/mainnet --engine-api
     ```
 
+=== "Hoodi"
+    ```sh
+    build/nimbus_execution_client --network=hoodi --data-dir=build/hoodi --engine-api
+    ```
+
 === "Holesky"
     ```sh
     build/nimbus_execution_client --network=holesky --data-dir=build/holesky --engine-api
@@ -113,6 +128,12 @@ This method of syncing loads blocks from the consensus node and passes them to t
     ```sh
     # Start `nrpc` every 2 seconds in case there is a fork or the execution client goes out of sync
     while true; do build/nrpc sync --beacon-api=http://localhost:5052 --el-engine-api=http://localhost:8550 --jwt-secret=build/mainnet/jwt.hex; sleep 2; done
+    ```
+
+=== "Hoodi"
+    ```sh
+    # Start `nrpc` every 2 seconds in case there is a fork or the execution client goes out of sync
+    while true; do build/nrpc sync --network=hoodi --beacon-api=http://localhost:5052 --el-engine-api=http://localhost:8550 --jwt-secret=build/hoodi/jwt.hex; sleep 2; done
     ```
 
 === "Holesky"

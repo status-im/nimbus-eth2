@@ -809,7 +809,7 @@ func normalize_merkle_branch*[N](
     res[0 ..< depth] = branch[num_extra ..< branch.len]
   res
 
-# https://github.com/ethereum/consensus-specs/blob/v1.5.0-beta.2/specs/electra/light-client/fork.md#upgrading-light-client-data
+# https://github.com/ethereum/consensus-specs/blob/v1.5.0-beta.3/specs/electra/light-client/fork.md#upgrading-light-client-data
 func upgrade_lc_header_to_electra*(
     pre: deneb.LightClientHeader): LightClientHeader =
   LightClientHeader(
