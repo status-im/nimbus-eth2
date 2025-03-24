@@ -178,6 +178,7 @@ when const_preset == "mainnet":
     # * 'mainnet' - there can be only one
     # * 'sepolia' - testnet
     # * 'holesky' - testnet
+    # * 'hoodi' - testnet
     # Must match the regex: [a-z0-9\-]
     CONFIG_NAME: "",
 
@@ -344,9 +345,8 @@ elif const_preset == "gnosis":
 
     # Free-form short name of the network that this configuration applies to - known
     # canonical network names include:
-    # * 'mainnet' - there can be only one
-    # * 'sepolia' - testnet
-    # * 'holesky' - testnet
+    # * 'gnosis' - there can be only one
+    # * 'chiado' - testnet
     # Must match the regex: [a-z0-9\-]
     CONFIG_NAME: "",
 
@@ -510,9 +510,7 @@ elif const_preset == "minimal":
 
     # Free-form short name of the network that this configuration applies to - known
     # canonical network names include:
-    # * 'mainnet' - there can be only one
-    # * 'sepolia' - testnet
-    # * 'holesky' - testnet
+    # * 'minimal' - spec-testing
     # Must match the regex: [a-z0-9\-]
     CONFIG_NAME: "minimal",
 

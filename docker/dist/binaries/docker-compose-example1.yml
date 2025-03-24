@@ -21,9 +21,9 @@ services:
       - ./data:/home/user/nimbus-eth2/build/data
     # you need to make sure that port 9000 is accesible from outside; no automagic port forwarding here
     command: >-
-      --network=prater
-      --data-dir=/home/user/nimbus-eth2/build/data/shared_prater_0
-      --web3-url=wss://goerli.infura.io/ws/v3/YOUR_TOKEN
+      --network=hoodi
+      --data-dir=/home/user/nimbus-eth2/build/data/shared_hoodi_0
+      --web3-url=wss://hoodi.infura.io/ws/v3/YOUR_TOKEN
       --nat=extip:YOUR_EXTERNAL_IP
       --log-level=info
       --tcp-port=9000
@@ -34,4 +34,3 @@ services:
       --metrics
       --metrics-address=0.0.0.0
       --metrics-port=8008
-

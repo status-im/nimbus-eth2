@@ -92,7 +92,7 @@ ConsensusSpecPreset-mainnet
 + Rewards and penalties - full_attestation_participation [Preset: mainnet]                   OK
 + Rewards and penalties - full_attestation_participation_with_leak [Preset: mainnet]         OK
 + Rewards and penalties - full_attestations_misc_balances [Preset: mainnet]                  OK
-+ Rewards and penalties - full_attestations_one_validaor_one_gwei [Preset: mainnet]          OK
++ Rewards and penalties - full_attestations_one_validator_one_gwei [Preset: mainnet]         OK
 + Rewards and penalties - genesis_epoch_full_attestations_no_rewards [Preset: mainnet]       OK
 + Rewards and penalties - genesis_epoch_no_attestations_no_penalties [Preset: mainnet]       OK
 + Rewards and penalties - no_attestations_all_penalties [Preset: mainnet]                    OK
@@ -584,7 +584,7 @@ ConsensusSpecPreset-mainnet
 + Rewards and penalties - full_attestation_participation [Preset: mainnet]                   OK
 + Rewards and penalties - full_attestation_participation_with_leak [Preset: mainnet]         OK
 + Rewards and penalties - full_attestations_misc_balances [Preset: mainnet]                  OK
-+ Rewards and penalties - full_attestations_one_validaor_one_gwei [Preset: mainnet]          OK
++ Rewards and penalties - full_attestations_one_validator_one_gwei [Preset: mainnet]         OK
 + Rewards and penalties - genesis_epoch_full_attestations_no_rewards [Preset: mainnet]       OK
 + Rewards and penalties - genesis_epoch_no_attestations_no_penalties [Preset: mainnet]       OK
 + Rewards and penalties - no_attestations_all_penalties [Preset: mainnet]                    OK
@@ -1109,7 +1109,7 @@ ConsensusSpecPreset-mainnet
 + Rewards and penalties - full_attestation_participation [Preset: mainnet]                   OK
 + Rewards and penalties - full_attestation_participation_with_leak [Preset: mainnet]         OK
 + Rewards and penalties - full_attestations_misc_balances [Preset: mainnet]                  OK
-+ Rewards and penalties - full_attestations_one_validaor_one_gwei [Preset: mainnet]          OK
++ Rewards and penalties - full_attestations_one_validator_one_gwei [Preset: mainnet]         OK
 + Rewards and penalties - genesis_epoch_full_attestations_no_rewards [Preset: mainnet]       OK
 + Rewards and penalties - genesis_epoch_no_attestations_no_penalties [Preset: mainnet]       OK
 + Rewards and penalties - no_attestations_all_penalties [Preset: mainnet]                    OK
@@ -1732,7 +1732,7 @@ ConsensusSpecPreset-mainnet
 + Rewards and penalties - full_attestation_participation [Preset: mainnet]                   OK
 + Rewards and penalties - full_attestation_participation_with_leak [Preset: mainnet]         OK
 + Rewards and penalties - full_attestations_misc_balances [Preset: mainnet]                  OK
-+ Rewards and penalties - full_attestations_one_validaor_one_gwei [Preset: mainnet]          OK
++ Rewards and penalties - full_attestations_one_validator_one_gwei [Preset: mainnet]         OK
 + Rewards and penalties - genesis_epoch_full_attestations_no_rewards [Preset: mainnet]       OK
 + Rewards and penalties - genesis_epoch_no_attestations_no_penalties [Preset: mainnet]       OK
 + Rewards and penalties - no_attestations_all_penalties [Preset: mainnet]                    OK
@@ -2451,7 +2451,7 @@ ConsensusSpecPreset-mainnet
 + Rewards and penalties - full_attestation_participation [Preset: mainnet]                   OK
 + Rewards and penalties - full_attestation_participation_with_leak [Preset: mainnet]         OK
 + Rewards and penalties - full_attestations_misc_balances [Preset: mainnet]                  OK
-+ Rewards and penalties - full_attestations_one_validaor_one_gwei [Preset: mainnet]          OK
++ Rewards and penalties - full_attestations_one_validator_one_gwei [Preset: mainnet]         OK
 + Rewards and penalties - genesis_epoch_full_attestations_no_rewards [Preset: mainnet]       OK
 + Rewards and penalties - genesis_epoch_no_attestations_no_penalties [Preset: mainnet]       OK
 + Rewards and penalties - no_attestations_all_penalties [Preset: mainnet]                    OK
@@ -3288,7 +3288,7 @@ ConsensusSpecPreset-mainnet
 + Rewards and penalties - full_attestation_participation [Preset: mainnet]                   OK
 + Rewards and penalties - full_attestation_participation_with_leak [Preset: mainnet]         OK
 + Rewards and penalties - full_attestations_misc_balances [Preset: mainnet]                  OK
-+ Rewards and penalties - full_attestations_one_validaor_one_gwei [Preset: mainnet]          OK
++ Rewards and penalties - full_attestations_one_validator_one_gwei [Preset: mainnet]         OK
 + Rewards and penalties - genesis_epoch_full_attestations_no_rewards [Preset: mainnet]       OK
 + Rewards and penalties - genesis_epoch_no_attestations_no_penalties [Preset: mainnet]       OK
 + Rewards and penalties - no_attestations_all_penalties [Preset: mainnet]                    OK
@@ -4011,7 +4011,7 @@ ConsensusSpecPreset-mainnet
 + Rewards and penalties - full_attestation_participation [Preset: mainnet]                   OK
 + Rewards and penalties - full_attestation_participation_with_leak [Preset: mainnet]         OK
 + Rewards and penalties - full_attestations_misc_balances [Preset: mainnet]                  OK
-+ Rewards and penalties - full_attestations_one_validaor_one_gwei [Preset: mainnet]          OK
++ Rewards and penalties - full_attestations_one_validator_one_gwei [Preset: mainnet]         OK
 + Rewards and penalties - full_attestations_random_incorrect_fields [Preset: mainnet]        OK
 + Rewards and penalties - genesis_epoch_full_attestations_no_rewards [Preset: mainnet]       OK
 + Rewards and penalties - genesis_epoch_no_attestations_no_penalties [Preset: mainnet]       OK
