@@ -319,61 +319,140 @@ suite "PeerPool testing suite":
 
     check waitFor(testAcquireRelease()) == TestsCount
 
-  test "deletePeer() test":
-    proc testDeletePeer(): Future[bool] {.async.} =
-      var pool = newPeerPool[PeerTest, PeerTestID]()
-      var peer = PeerTest.init("deletePeer")
+  asyncTest "deletePeer() test":
+    var pool = newPeerPool[PeerTest, PeerTestID]()
 
-      ## Delete available peer
-      doAssert(pool.addPeerNoWait(peer,
-                                  PeerType.Incoming) == PeerStatus.Success)
-      doAssert(pool.len == 1)
-      doAssert(pool.lenAvailable == 1)
-      doAssert(pool.lenAvailable({PeerType.Outgoing}) == 0)
-      doAssert(pool.lenAvailable({PeerType.Incoming}) == 1)
-      doAssert(pool.deletePeer(peer) == true)
-      doAssert(pool.len == 0)
-      doAssert(pool.lenAvailable == 0)
-      doAssert(pool.lenAvailable({PeerType.Outgoing}) == 0)
-      doAssert(pool.lenAvailable({PeerType.Incoming}) == 0)
+    ## Delete available peer
+    block:
+      let peer = PeerTest.init("deletePeer")
+      check:
+        pool.addPeerNoWait(peer, PeerType.Incoming) == PeerStatus.Success
+        pool.len == 1
+        pool.lenAvailable == 1
+        pool.lenAvailable({PeerType.Outgoing}) == 0
+        pool.lenAvailable({PeerType.Incoming}) == 1
+        pool.deletePeer(peer) == true
+        pool.len == 0
+        pool.lenAvailable == 0
+        pool.lenAvailable({PeerType.Outgoing}) == 0
+        pool.lenAvailable({PeerType.Incoming}) == 0
 
-      ## Delete acquired peer
-      peer = PeerTest.init("closingPeer")
-      doAssert(pool.addPeerNoWait(peer,
-                                  PeerType.Incoming) == PeerStatus.Success)
-      doAssert(pool.len == 1)
-      doAssert(pool.lenAvailable == 1)
-      doAssert(pool.lenAvailable({PeerType.Outgoing}) == 0)
-      doAssert(pool.lenAvailable({PeerType.Incoming}) == 1)
-      var apeer = await pool.acquire()
-      doAssert(pool.deletePeer(peer) == true)
-      doAssert(pool.len == 1)
-      doAssert(pool.lenAvailable == 0)
-      doAssert(pool.lenAvailable({PeerType.Outgoing}) == 0)
-      doAssert(pool.lenAvailable({PeerType.Incoming}) == 0)
+    ## Delete acquired peer
+    block:
+      let peer = PeerTest.init("closingPeer")
+      check:
+        pool.addPeerNoWait(peer, PeerType.Incoming) == PeerStatus.Success
+        pool.len == 1
+        pool.lenAvailable == 1
+        pool.lenAvailable({PeerType.Outgoing}) == 0
+        pool.lenAvailable({PeerType.Incoming}) == 1
+      let apeer = await pool.acquire()
+      check:
+        pool.deletePeer(peer) == true
+        pool.len == 1
+        pool.lenAvailable == 0
+        pool.lenAvailable({PeerType.Outgoing}) == 0
+        pool.lenAvailable({PeerType.Incoming}) == 0
       pool.release(apeer)
-      doAssert(pool.len == 0)
-      doAssert(pool.lenAvailable == 0)
-      doAssert(pool.lenAvailable({PeerType.Outgoing}) == 0)
-      doAssert(pool.lenAvailable({PeerType.Incoming}) == 0)
+      check:
+        pool.len == 0
+        pool.lenAvailable == 0
+        pool.lenAvailable({PeerType.Outgoing}) == 0
+        pool.lenAvailable({PeerType.Incoming}) == 0
 
-      ## Force delete acquired peer
-      peer = PeerTest.init("closingPeer")
-      doAssert(pool.addPeerNoWait(peer,
-                                  PeerType.Incoming) == PeerStatus.Success)
-      doAssert(pool.len == 1)
-      doAssert(pool.lenAvailable == 1)
-      doAssert(pool.lenAvailable({PeerType.Outgoing}) == 0)
-      doAssert(pool.lenAvailable({PeerType.Incoming}) == 1)
-      apeer = await pool.acquire()
-      doAssert(pool.deletePeer(peer, true) == true)
-      doAssert(pool.len == 0)
-      doAssert(pool.lenAvailable == 0)
-      doAssert(pool.lenAvailable({PeerType.Outgoing}) == 0)
-      doAssert(pool.lenAvailable({PeerType.Incoming}) == 0)
+    ## Force delete acquired peer
+    block:
+      let peer = PeerTest.init("closingPeer")
+      check:
+        pool.addPeerNoWait(peer, PeerType.Incoming) == PeerStatus.Success
+        pool.len == 1
+        pool.lenAvailable == 1
+        pool.lenAvailable({PeerType.Outgoing}) == 0
+        pool.lenAvailable({PeerType.Incoming}) == 1
+      let apeer = await pool.acquire()
+      check:
+        pool.deletePeer(apeer, true) == true
+        pool.len == 0
+        pool.lenAvailable == 0
+        pool.lenAvailable({PeerType.Outgoing}) == 0
+        pool.lenAvailable({PeerType.Incoming}) == 0
 
-      result = true
-    check waitFor(testDeletePeer()) == true
+    ## Delete single available peer in pool full of peers
+    block:
+      for i in 0 ..< 100:
+        let peer = PeerTest.init("peer" & $i)
+        check pool.addPeerNoWait(peer, PeerType.Incoming) == PeerStatus.Success
+      for i in 100 ..< 200:
+        let peer = PeerTest.init("peer" & $i)
+        check pool.addPeerNoWait(peer, PeerType.Outgoing) == PeerStatus.Success
+      check:
+        pool.len == 200
+        pool.lenAvailable == 200
+        pool.lenAvailable({PeerType.Outgoing}) == 100
+        pool.lenAvailable({PeerType.Incoming}) == 100
+      for i in 0 ..< 20:
+        let
+          index = 90 + i
+          peerKey = "peer" & $index
+          dpeer = pool.getOrDefault(peerKey, default(PeerTest))
+        check:
+          pool.deletePeer(dpeer) == true
+          pool.hasPeer(peerKey) == false
+      check:
+        pool.len == 180
+        pool.lenAvailable == 180
+        pool.lenAvailable({PeerType.Outgoing}) == 90
+        pool.lenAvailable({PeerType.Incoming}) == 90
+      pool.clear()
+
+    ## Delete single acquired peer in pool full of peers
+    block:
+      for i in 0 ..< 100:
+        let peer = PeerTest.init("peer" & $i)
+        check pool.addPeerNoWait(peer, PeerType.Incoming) == PeerStatus.Success
+      for i in 100 ..< 200:
+        let peer = PeerTest.init("peer" & $i)
+        check pool.addPeerNoWait(peer, PeerType.Outgoing) == PeerStatus.Success
+      check:
+        pool.len == 200
+        pool.lenAvailable == 200
+        pool.lenAvailable({PeerType.Outgoing}) == 100
+        pool.lenAvailable({PeerType.Incoming}) == 100
+
+      for i in 0 ..< 20:
+        let apeer = await pool.acquire()
+        check pool.deletePeer(apeer) == true
+        pool.release(apeer)
+        check pool.hasPeer(apeer.getKey()) == false
+
+      check:
+        pool.len == 180
+        pool.lenAvailable == 180
+      pool.clear()
+
+    ## Force delete single acquired peer in pool full of peers
+    block:
+      for i in 0 ..< 100:
+        let peer = PeerTest.init("peer" & $i)
+        check pool.addPeerNoWait(peer, PeerType.Incoming) == PeerStatus.Success
+      for i in 100 ..< 200:
+        let peer = PeerTest.init("peer" & $i)
+        check pool.addPeerNoWait(peer, PeerType.Outgoing) == PeerStatus.Success
+      check:
+        pool.len == 200
+        pool.lenAvailable == 200
+        pool.lenAvailable({PeerType.Outgoing}) == 100
+        pool.lenAvailable({PeerType.Incoming}) == 100
+
+      for i in 0 ..< 20:
+        let apeer = await pool.acquire()
+        check:
+          pool.deletePeer(apeer, true) == true
+          pool.hasPeer(apeer.getKey()) == false
+
+      check:
+        pool.len == 180
+        pool.lenAvailable == 180
 
   test "Peer lifetime test":
     proc testPeerLifetime(): Future[bool] {.async.} =

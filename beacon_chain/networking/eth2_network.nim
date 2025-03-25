@@ -481,7 +481,7 @@ func netKbps*(peer: Peer): float {.inline.} =
   round(((peer.netThroughput.average / 1024) * 10_000) / 10_000)
 
 # /!\ Must be exported to be seen by `peerpool`.
-proc cmp*(a, b: Peer): int =
+func cmp*(a, b: Peer): int =
   if a.score == b.score:
     cmp(a.netThroughput.average, b.netThroughput.average)
   else:
