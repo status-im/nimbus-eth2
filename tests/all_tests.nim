@@ -35,7 +35,6 @@ import # Unit test
   ./test_gossip_validation,
   ./test_helpers,
   ./test_honest_validator,
-  ./test_keymanager_api,
   ./test_keystore,
   ./test_keystore_management,
   ./test_key_splitting,
@@ -64,6 +63,7 @@ import # Unit test
   ./test_validator_client,
   ./test_beacon_validators,
   ./test_beacon_chain_file,
-  ./test_mev_calls
+  ./test_mev_calls,
+  ./test_keymanager_api   # currently has to run after test_remote_keystore
 
 summarizeLongTests("AllTests")
