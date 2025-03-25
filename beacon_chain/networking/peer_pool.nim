@@ -7,7 +7,7 @@
 
 {.push raises: [].}
 
-import std/[tables, heapqueue, algorithm, sequtils]
+import std/[tables, heapqueue, algorithm]
 import chronos
 
 export tables
@@ -26,7 +26,7 @@ type
     LowScoreError,  ## Peer has too low score.
     DeadPeerError   ## Peer is already dead.
 
-  PeerIndex = distinct int
+  PeerIndex = int
 
   PeerItem[T] = object
     data: T
@@ -47,7 +47,6 @@ type
     storage: seq[PeerItem[A]]
     registry: Table[B, PeerIndex]
     sorted: seq[PeerIndex]
-    unsorted: seq[PeerIndex]
     empties: seq[PeerIndex]
     scoreCheck: PeerScoreCheckCallback[A]
     onDeletePeer: PeerOnDeleteCallback[A]
@@ -62,24 +61,34 @@ type
 
   PeerPoolError* = object of CatchableError
 
-proc `==`*(a, b: PeerIndex): bool {.borrow.}
-
 iterator pairs*[A, B](pool: PeerPool[A, B]): (B, A) =
   for peerId, pindex in pool.registry:
-    yield (peerId, pool.storage[int(pindex)].data)
+    yield (peerId, pool.storage[pindex].data)
 
-proc resort[A, B](pool: PeerPool[A, B],
-                  unsorted: openArray[PeerIndex]): seq[PeerIndex] =
+proc resort[A, B](
+    pool: PeerPool[A, B],
+    unsorted: openArray[PeerIndex]
+): seq[PeerIndex] =
   mixin `cmp`
   proc pcmp(a, b: PeerIndex): int {.closure, raises: [].} =
-    cmp(pool.storage[int(a)].data, pool.storage[int(b)].data)
+    cmp(pool.storage[a].data, pool.storage[b].data)
   unsorted.sorted(pcmp, order = SortOrder.Descending)
+
+proc bsearch[A, B](
+    pool: PeerPool[A, B],
+    sorted: openArray[PeerIndex],
+    index: PeerIndex
+): int =
+  mixin `cmp`
+  proc pcmp(a, b: PeerIndex): int {.closure, raises: [].} =
+    cmp(pool.storage[a].data, pool.storage[b].data)
+  sorted.binarySearch(index, pcmp)
 
 proc addToStorage[A, B](pool: PeerPool[A, B], item: PeerItem[A]): PeerIndex =
   var indexedItem = item
   if len(pool.empties) > 0:
     indexedItem.index = pool.empties[0]
-    pool.storage[int(indexedItem.index)] = indexedItem
+    pool.storage[indexedItem.index] = indexedItem
     pool.empties.del(0)
   else:
     indexedItem.index = PeerIndex(len(pool.storage))
@@ -140,9 +149,6 @@ proc newPeerPool*[A, B](
       scoreCheck: scoreCheckCb,
       peerCounter: peerCounterCb,
       onDeletePeer: onDeleteCb,
-      storage: newSeq[PeerItem[A]](),
-      unsorted: newSeq[PeerIndex](),
-      sorted: newSeq[PeerIndex](),
       maxPeersCount: maxPeersCount,
       maxIncPeersCount: maxIncPeersCount,
       maxOutPeersCount: maxOutPeersCount,
@@ -160,7 +166,7 @@ proc len*[A, B](pool: PeerPool[A, B]): int =
 
 proc lenCurrent*[A, B](pool: PeerPool[A, B],
                        filter = {PeerType.Incoming,
-                                 PeerType.Outgoing}): int {.inline.} =
+                                 PeerType.Outgoing}): int =
   ## Returns number of registered peers in PeerPool ``pool`` which satisfies
   ## filter ``filter``.
   (if PeerType.Incoming in filter: pool.curIncPeersCount else: 0) +
@@ -169,7 +175,7 @@ proc lenCurrent*[A, B](pool: PeerPool[A, B],
 proc lenAvailable*[A, B](
     pool: PeerPool[A, B],
     filter = {PeerType.Incoming, PeerType.Outgoing}
-): int {.inline.} =
+): int =
   ## Returns number of peers available for acquisition in PeerPool
   ## ``pool`` which satisfies filter ``filter``.
   (if PeerType.Incoming in filter:
@@ -192,8 +198,8 @@ proc lenAvailable*[A, B](
   ## Note: This is O(n) operation.
   let available = pool.lenAvailable(filter)
   var res = 0
-  for sindex, pindex in pool.sorted.pairs():
-    let item = addr(pool.storage[int(pindex)])
+  for pindex in pool.sorted.items():
+    let item = addr(pool.storage[pindex])
     if (PeerFlags.Acquired notin item[].flags) and
        (item[].peerType in filter) and
        (isNil(customFilter) or customFilter(item[].data)):
@@ -207,7 +213,7 @@ proc lenAvailable*[A, B](
 proc lenAcquired*[A, B](
     pool: PeerPool[A, B],
     filter = {PeerType.Incoming, PeerType.Outgoing}
-): int {.inline.} =
+): int =
   ## Returns number of acquired peers in PeerPool ``pool`` which satisifies
   ## filter ``filter``.
   (if PeerType.Incoming in filter: pool.acqIncPeersCount else: 0) +
@@ -216,7 +222,7 @@ proc lenAcquired*[A, B](
 proc lenSpace*[A, B](
     pool: PeerPool[A, B],
     filter = {PeerType.Incoming, PeerType.Outgoing}
-): int {.inline.} =
+): int =
   ## Returns number of available space for peers in PeerPool ``pool`` which
   ## satisfies filter ``filter``.
   let
@@ -274,14 +280,14 @@ proc deletePeerImpl[A, B](
     key: B,
     pindex: PeerIndex
 ) =
-  pool.storage[int(pindex)] = PeerItem[A](index: PeerIndex(-1))
+  pool.storage[pindex] = PeerItem[A](index: PeerIndex(-1))
   pool.empties.add(pindex)
   pool.registry.del(key)
-  let uindex = pool.unsorted.find(pindex)
-  # `unsorted` keeps only peers which are available for acquisition,
-  if uindex >= 0:
-    pool.unsorted.del(uindex)
-  pool.sorted = pool.resort(pool.unsorted)
+  # let sindex = pool.sorted.find(pindex)
+  let sindex = pool.bsearch(pool.sorted, pindex)
+  if sindex >= 0:
+    pool.sorted.del(sindex)
+    pool.sorted = pool.resort(pool.sorted)
   # Indicate that we have an empty space
   pool.changeEvent.fire()
   pool.peerDeleted(peer)
@@ -303,7 +309,7 @@ proc deletePeer*[A, B](pool: PeerPool[A, B], peer: A, force = false): bool =
           return false
         res
 
-  var item = addr(pool.storage[int(pindex)])
+  var item = addr(pool.storage[pindex])
   if (PeerFlags.Acquired in item[].flags):
     if not(force):
       item[].flags.incl(PeerFlags.DeleteOnRelease)
@@ -335,11 +341,12 @@ proc addPeerImpl[A, B](pool: PeerPool[A, B], peer: A, peerKey: B,
   let
     item = PeerItem[A](data: peer, peerType: peerType)
     pindex = pool.addToStorage(item)
-    pitem = addr(pool.storage[int(pindex)])
+    pitem = addr(pool.storage[pindex])
 
   pool.registry[peerKey] = pindex
-  pool.unsorted.add(pindex)
-  pool.sorted = pool.resort(pool.unsorted)
+  pool.sorted.add(pindex)
+  pool.sorted = pool.resort(pool.sorted)
+
   pitem[].data.getFuture().addCallback(onPeerClosed)
   case peerType
   of PeerType.Incoming:
@@ -454,14 +461,14 @@ proc acquireItemImpl[A, B](
     pool: PeerPool[A, B],
     filter: set[PeerType],
     customFilter: PeerCustomFilterCallback[A] = nil
-): A {.inline.} =
+): A =
   let (sindex, pitem) =
     block:
       var
         rindex: PeerIndex = PeerIndex(-1)
         res: ptr PeerItem[A] = nil
       for sindex, pindex in pool.sorted.pairs():
-        res = addr(pool.storage[int(pindex)])
+        res = addr(pool.storage[pindex])
         if (PeerFlags.Acquired notin res[].flags) and
              (res[].peerType in filter) and
              (isNil(customFilter) or customFilter(res[].data)):
@@ -471,9 +478,6 @@ proc acquireItemImpl[A, B](
 
   doAssert(not(isNil(pitem)))
   doAssert(PeerFlags.Acquired notin pitem[].flags)
-  doAssert(len(pool.sorted) == len(pool.unsorted))
-  let uindex = pool.unsorted.find(pool.sorted[int(sindex)])
-  doAssert(uindex >= 0, "unsorted and sorted arrays should be equal!")
 
   case pitem[].peerType
   of PeerType.Incoming:
@@ -481,8 +485,8 @@ proc acquireItemImpl[A, B](
   of PeerType.Outgoing:
     inc(pool.acqOutPeersCount)
 
-  pool.unsorted.del(uindex)
-  pool.sorted = pool.resort(pool.unsorted)
+  pool.sorted.del(sindex)
+  pool.sorted = pool.resort(pool.sorted)
 
   pitem[].flags.incl(PeerFlags.Acquired)
   pitem[].data
@@ -557,7 +561,7 @@ proc release*[A, B](pool: PeerPool[A, B], peer: A) =
         if res == PeerIndex(-1):
           return
         res
-    item = addr(pool.storage[int(pindex)])
+    item = addr(pool.storage[pindex])
 
   if PeerFlags.Acquired in item[].flags:
     if not(pool.checkPeerScore(peer)):
@@ -578,11 +582,12 @@ proc release*[A, B](pool: PeerPool[A, B], peer: A) =
         dec(pool.acqIncPeersCount)
       of PeerType.Outgoing:
         dec(pool.acqOutPeersCount)
-      pool.unsorted.add(pindex)
-      pool.sorted = pool.resort(pool.unsorted)
+
+      pool.sorted.add(pindex)
+      pool.sorted = pool.resort(pool.sorted)
       pool.changeEvent.fire()
 
-proc release*[A, B](pool: PeerPool[A, B], peers: openArray[A]) {.inline.} =
+proc release*[A, B](pool: PeerPool[A, B], peers: openArray[A]) =
   ## Release array of peers ``peers`` back to PeerPool ``pool``.
   for item in peers:
     pool.release(item)
@@ -595,7 +600,7 @@ proc acquire*[A, B](
   ## Acquire ``number`` number of peers from PeerPool ``pool``, which match the
   ## filter ``filter``.
   doAssert(filter != {}, "Filter must not be empty")
-  var peers = newSeq[A]()
+  var peers: seq[A]
   try:
     if number > 0:
       while true:
@@ -626,7 +631,7 @@ proc acquire*[A, B](
   ## wait for ``number`` of peers which satisfy filter will become available
   ## and acquired.
   doAssert(filter != {}, "Filter must not be empty")
-  var peers = newSeq[A]()
+  var peers: seq[A]
   try:
     if number > 0:
       while true:
@@ -655,7 +660,7 @@ proc acquireNoWait*[A, B](
   ## filter ``filter``. This procedure does not wait for peers, it will raise
   ## `PeerPoolError` if peers matching the filters are not available.
   doAssert(filter != {}, "Filter must not be empty")
-  var peers = newSeq[A]()
+  var peers: seq[A]
   if pool.lenAvailable(filter) < number:
     raise newException(PeerPoolError, "Not enough peers in pool")
   for i in 0 ..< number:
@@ -673,7 +678,7 @@ proc acquireNoWait*[A, B](
   ## wait for peers, it will raise `PeerPoolError` if peers matching the
   ## filters are not available.
   doAssert(filter != {}, "Filter must not be empty")
-  var peers = newSeq[A]()
+  var peers: seq[A]
   if pool.lenAvailable(filter, customFilter) < number:
     raise newException(PeerPoolError, "Not enough peers in pool")
   for i in 0 ..< number:
@@ -716,13 +721,12 @@ iterator peers*[A, B](
   ## will be first.
   var unsorted: seq[PeerIndex]
   for pindex in pool.registry.values():
-    if pool.storage[int(pindex)].peerType in filter:
+    if pool.storage[pindex].peerType in filter:
       unsorted.add(pindex)
 
-  let sorted = pool.resort(unsorted).mapIt(pool.storage[int(it)].data)
-
-  for item in sorted:
-    yield item
+  let sorted = pool.resort(unsorted)
+  for sindex in sorted:
+    yield pool.storage[sindex].data
 
 iterator peers*[A, B](
     pool: PeerPool[A, B],
@@ -735,15 +739,14 @@ iterator peers*[A, B](
   ## will be first.
   var unsorted: seq[PeerIndex]
   for pindex in pool.registry.values():
-    let item = addr(pool.storage[int(pindex)])
+    let item = addr(pool.storage[pindex])
     if (item[].peerType in filter) and
        (isNil(customFilter) or customFilter(item[].data)):
       unsorted.add(pindex)
 
-  let sorted = pool.resort(unsorted).mapIt(pool.storage[int(it)].data)
-
-  for item in sorted:
-    yield item
+  let sorted = pool.resort(unsorted)
+  for sindex in sorted:
+    yield pool.storage[sindex].data
 
 iterator availablePeers*[A, B](
     pool: PeerPool[A, B],
@@ -754,9 +757,9 @@ iterator availablePeers*[A, B](
   ## All peers will be sorted by equation `>`(Peer1, Peer2), so biggest values
   ## will be first.
   for pindex in pool.sorted:
-    if (PeerFlags.Acquired notin pool.storage[int(pindex)].flags) and
-       (pool.storage[int(pindex)].peerType in filter):
-      yield pool.storage[int(pindex)].data
+    if (PeerFlags.Acquired notin pool.storage[pindex].flags) and
+       (pool.storage[pindex].peerType in filter):
+      yield pool.storage[pindex].data
 
 iterator availablePeers*[A, B](
     pool: PeerPool[A, B],
@@ -768,7 +771,7 @@ iterator availablePeers*[A, B](
   ## All peers will be sorted by equation `>`(Peer1, Peer2), so biggest values
   ## will be first.
   for pindex in pool.sorted:
-    let item = addr(pool.storage[int(pindex)])
+    let item = addr(pool.storage[pindex])
     if (PeerFlags.Acquired notin item[].flags) and
        (item[].peerType in filter) and
        (isNil(customFilter) or customFilter(item[].data)):
@@ -782,36 +785,29 @@ iterator acquiredPeers*[A, B](
   ##
   ## All peers will be sorted by equation `>`(Peer1, Peer2), so biggest values
   ## will be first.
-  mixin `cmp`
-  proc pcmp(a, b: PeerIndex): int {.closure, raises: [].} =
-    cmp(pool.storage[int(a)].data, pool.storage[int(b)].data)
-
   var unsorted: seq[PeerIndex]
   for pindex in pool.registry.values():
-    if (PeerFlags.Acquired in pool.storage[int(pindex)].flags) and
-       (pool.storage[int(pindex)].peerType in filter):
+    if (PeerFlags.Acquired in pool.storage[pindex].flags) and
+       (pool.storage[pindex].peerType in filter):
       unsorted.add(pindex)
 
-  let sorted =
-    unsorted.sorted(pcmp, order = SortOrder.Descending).
-      mapIt(pool.storage[int(it)].data)
-
-  for item in sorted:
-    yield item
+  let sorted = pool.resort(unsorted)
+  for sindex in sorted:
+    yield pool.storage[sindex].data
 
 proc `[]`*[A, B](
     pool: PeerPool[A, B],
     key: B
 ): A {.inline, raises: [KeyError].} =
   ## Retrieve peer with key ``key`` from PeerPool ``pool``.
-  pool.storage[int(pool.registry[key])].data
+  pool.storage[pool.registry[key]].data
 
 proc `[]`*[A, B](
     pool: var PeerPool[A, B],
     key: B
 ): var A {.inline, raises: [KeyError].} =
   ## Retrieve peer with key ``key`` from PeerPool ``pool``.
-  pool.storage[int(pool.registry[key])].data
+  pool.storage[pool.registry[key]].data
 
 proc hasPeer*[A, B](pool: PeerPool[A, B], key: B): bool {.inline.} =
   ## Returns ``true`` if peer with ``key`` present in PeerPool ``pool``.
@@ -823,7 +819,7 @@ proc getOrDefault*[A, B](pool: PeerPool[A, B], key: B): A {.inline.} =
   ## (e.g. 0 for any integer type).
   let pindex = pool.registry.getOrDefault(key, PeerIndex(-1))
   if pindex != PeerIndex(-1):
-    pool.storage[int(pindex)].data
+    pool.storage[pindex].data
   else:
     A()
 
@@ -833,18 +829,19 @@ proc getOrDefault*[A, B](pool: PeerPool[A, B], key: B,
   ## not present, default value ``default`` is returned.
   let pindex = pool.registry.getOrDefault(key, PeerIndex(-1))
   if pindex != PeerIndex(-1):
-    pool.storage[int(pindex)].data
+    pool.storage[pindex].data
   else:
     default
 
 proc clear*[A, B](pool: PeerPool[A, B]) =
   ## Performs PeerPool's ``pool`` storage and counters reset.
   pool.registry.clear()
+
   pool.sorted.reset()
-  pool.unsorted.reset()
   for i in 0 ..< len(pool.storage):
     pool.storage[i] = PeerItem[A]()
-  pool.storage.setLen(0)
+  pool.empties.reset()
+  pool.storage.reset()
   pool.curIncPeersCount = 0
   pool.curOutPeersCount = 0
   pool.acqIncPeersCount = 0
