@@ -19,9 +19,9 @@ services:
       - 127.0.0.1:8008:8008/tcp
     volumes:
       - ./data:/home/user/nimbus-eth2/build/data
-    entrypoint: /home/user/nimbus-eth2/run-prater-beacon-node.sh
+    entrypoint: /home/user/nimbus-eth2/run-holesky-beacon-node.sh
     environment:
-      WEB3_URL: wss://goerli.infura.io/ws/v3/YOUR_TOKEN
+      WEB3_URL: wss://holesky.infura.io/ws/v3/YOUR_TOKEN
     # you need to make sure that port 9000 is accesible from outside; no automagic port forwarding here
     command: >-
       --nat=extip:YOUR_EXTERNAL_IP
@@ -29,4 +29,3 @@ services:
       --rest-address=0.0.0.0
       --metrics
       --metrics-address=0.0.0.0
-

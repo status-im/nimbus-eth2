@@ -2624,6 +2624,30 @@
     }
   },
   {
+    "topics": ["beacon", "states_pending_deposits"],
+    "request": {
+      "url": "/eth/v1/beacon/states/head/pending_deposits",
+      "headers": {"Accept": "application/json"}
+    },
+    "response": {
+      "status": {"operator": "equals", "value": "400"},
+      "headers": [{"key": "Content-Type", "value": "application/json", "operator": "equals"}],
+      "body": [{"operator": "jstructcmpns", "value": {"code": 400, "message": ""}}]
+    }
+  },
+  {
+    "topics": ["beacon", "states_pending_partial_withdrawals"],
+    "request": {
+      "url": "/eth/v1/beacon/states/head/pending_partial_withdrawals",
+      "headers": {"Accept": "application/json"}
+    },
+    "response": {
+      "status": {"operator": "equals", "value": "400"},
+      "headers": [{"key": "Content-Type", "value": "application/json", "operator": "equals"}],
+      "body": [{"operator": "jstructcmpns", "value": {"code": 400, "message": ""}}]
+    }
+  },
+  {
     "topics": ["beacon", "beacon_headers"],
     "request": {
       "url": "/eth/v1/beacon/headers",

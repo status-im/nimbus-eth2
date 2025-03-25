@@ -1,5 +1,5 @@
 # beacon_chain
-# Copyright (c) 2024 Status Research & Development GmbH
+# Copyright (c) 2024-2025 Status Research & Development GmbH
 # Licensed and distributed under either of
 #   * MIT license (license terms in the root directory or at https://opensource.org/licenses/MIT).
 #   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
@@ -11,7 +11,9 @@ import
   ssz_serialization,
   ./base
 
-export base
+from eth/common/base as ethBase import ChainId
+
+export base, ChainId
 
 const
   # https://eips.ethereum.org/EIPS/eip-7688
@@ -47,7 +49,6 @@ type
     secp256k1*: Opt[array[SECP256K1_SIGNATURE_SIZE, byte]]
 
   TransactionType* = uint8
-  ChainId* = uint64
 
   Eip6404FeesPerGas* {.sszStableContainer: MAX_FEES_PER_GAS_FIELDS.} = object
     regular*: Opt[UInt256]

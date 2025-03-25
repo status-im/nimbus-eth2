@@ -114,7 +114,6 @@ proc installEventApiHandlers*(router: var RestRouter, node: BeaconNode) =
       # so there no need to respond with HTTP error response.
       return
 
-    debugComment "add single_attestation handler"
     let handlers =
       block:
         var res: seq[Future[void]]
@@ -127,8 +126,12 @@ proc installEventApiHandlers*(router: var RestRouter, node: BeaconNode) =
                                               "block")
           res.add(handler)
         if EventTopic.Attestation in eventTopics:
-          let handler = response.eventHandler(node.eventBus.attestQueue,
+          let handler = response.eventHandler(node.eventBus.phase0AttestQueue,
                                               "attestation")
+          res.add(handler)
+        if EventTopic.Attestation in eventTopics:
+          let handler = response.eventHandler(node.eventBus.singleAttestQueue,
+                                              "single_attestation")
           res.add(handler)
         if EventTopic.VoluntaryExit in eventTopics:
           let handler = response.eventHandler(node.eventBus.exitQueue,
@@ -143,9 +146,15 @@ proc installEventApiHandlers*(router: var RestRouter, node: BeaconNode) =
                                               "proposer_slashing")
           res.add(handler)
         if EventTopic.AttesterSlashing in eventTopics:
-          let handler = response.eventHandler(node.eventBus.attSlashQueue,
-                                              "attester_slashing")
-          res.add(handler)
+          block:
+            let handler = response.eventHandler(node.eventBus.phase0AttSlashQueue,
+                                                "attester_slashing")
+            res.add(handler)
+
+          block:
+            let handler = response.eventHandler(node.eventBus.electraAttSlashQueue,
+                                                "attester_slashing")
+            res.add(handler)
         if EventTopic.BlobSidecar in eventTopics:
           let handler = response.eventHandler(node.eventBus.blobSidecarQueue,
                                               "blob_sidecar")
@@ -179,7 +188,7 @@ proc installEventApiHandlers*(router: var RestRouter, node: BeaconNode) =
     except ValueError:
       raiseAssert "There should be more than one event handler at this point!"
     # One of the handlers finished, it means that connection has been dropped, so
-    # we cancelling all other handlers.
+    # we are cancelling all other handlers.
     let pending =
       handlers.filterIt(not(it.finished())).mapIt(it.cancelAndWait())
     await noCancel allFutures(pending)

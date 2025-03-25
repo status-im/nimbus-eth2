@@ -142,9 +142,9 @@ func asElectraConsensusPayload(rpcExecutionPayload: ExecutionPayloadV4):
             Opt.none(uint8),
         chain_id:
           if tt.payload.chainId.isSome:
-            Opt.some(distinctBase(tt.payload.chainId.get))
+            Opt.some(tt.payload.chainId.get)
           else:
-            Opt.none(electra.ChainId),
+            Opt.none(ChainId),
         nonce:
           if tt.payload.nonce.isSome:
             Opt.some(tt.payload.nonce.get.uint64)
@@ -236,9 +236,9 @@ func asElectraConsensusPayload(rpcExecutionPayload: ExecutionPayloadV4):
                           Opt.none(TransactionType),
                       chainId:
                         if it.payload.chainId.isSome:
-                          Opt.some(distinctBase(it.payload.chainId.get))
+                          Opt.some(it.payload.chainId.get)
                         else:
-                          Opt.none(electra.ChainId),
+                          Opt.none(ChainId),
                       address:
                         if it.payload.address.isSome:
                           Opt.some(ExecutionAddress(
@@ -303,9 +303,9 @@ func asFuluConsensusPayload(rpcExecutionPayload: ExecutionPayloadV4):
             Opt.none(uint8),
         chain_id:
           if tt.payload.chainId.isSome:
-            Opt.some(distinctBase(tt.payload.chainId.get))
+            Opt.some(tt.payload.chainId.get)
           else:
-            Opt.none(electra.ChainId),
+            Opt.none(ChainId),
         nonce:
           if tt.payload.nonce.isSome:
             Opt.some(tt.payload.nonce.get.uint64)
@@ -397,9 +397,9 @@ func asFuluConsensusPayload(rpcExecutionPayload: ExecutionPayloadV4):
                           Opt.none(TransactionType),
                       chainId:
                         if it.payload.chainId.isSome:
-                          Opt.some(distinctBase(it.payload.chainId.get))
+                          Opt.some(it.payload.chainId.get)
                         else:
-                          Opt.none(electra.ChainId),
+                          Opt.none(ChainId),
                       address:
                         if it.payload.address.isSome:
                           Opt.some(ExecutionAddress(
@@ -610,9 +610,9 @@ func asEngineExecutionPayload*(
             Opt.none(Quantity),
         chainId:
           if tt.payload.chain_id.isSome:
-            Opt.some(tt.payload.chain_id.get.Quantity)
+            Opt.some(tt.payload.chain_id.get)
           else:
-            Opt.none(Quantity),
+            Opt.none(ChainId),
         nonce:
           if tt.payload.nonce.isSome:
             Opt.some(tt.payload.nonce.get.Quantity)
@@ -697,9 +697,9 @@ func asEngineExecutionPayload*(
                       Opt.none(Quantity),
                   chainId:
                     if it.payload.chain_id.isSome:
-                      Opt.some(it.payload.chain_id.get.Quantity)
+                      Opt.some(it.payload.chain_id.get.UInt256)
                     else:
-                      Opt.none(Quantity),
+                      Opt.none(ChainId),
                   address:
                     if it.payload.address.isSome:
                       Opt.some(Address(it.payload.address.get.data))

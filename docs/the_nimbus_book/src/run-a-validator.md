@@ -29,10 +29,10 @@ To make a deposit, you will need to generate keys then submit a deposit transact
     The process of setting up a validator is also documented at the Ethereum launchpad site:
 
     * [Mainnet](https://launchpad.ethereum.org/)
-    * [Holesky EthStaker Launchpad](https://holesky.launchpad.ethstaker.cc/en/) or [Holesky EF Launchpad](https://holesky.launchpad.ethereum.org/)
+    * [Hoodi EthStaker Launchpad](https://hoodi.launchpad.ethstaker.cc/en/) or [Hoodi EF Launchpad](https://hoodi.launchpad.ethereum.org/)
 
 !!! tip
-    Before running your validator on Mainnet, you can (and should) verify that your setup works as expected by running it on the [Holesky testnet](./holesky.md).
+    Before running your validator on Mainnet, you can (and should) verify that your setup works as expected by running it on the [Hoodi testnet](./hoodi.md).
 
 
 ### 1. Download the deposit tool
@@ -183,12 +183,18 @@ Press `Ctrl-c` to stop the beacon node if it's running, then use the same comman
 
 === "Mainnet"
     ```sh
-    ./run-mainnet-beacon-node.sh --web3-url=http://127.0.0.1:8551 --suggested-fee-recipient=0x...
+    ./run-mainnet-beacon-node.sh \
+        --web3-url=http://127.0.0.1:8551 \
+        --suggested-fee-recipient=0x...
     ```
 
 === "Holesky"
     ```sh
-    ./run-holesky-beacon-node.sh --web3-url=http://127.0.0.1:8551 --suggested-fee-recipient=0x...
+    build/nimbus_beacon_node \
+        --network=hoodi \
+        --data-dir=build/data/shared_hoodi_0 \
+        --web3-url=http://127.0.0.1:8551 \
+        --suggested-fee-recipient=0x...
     ```
 
 ### 3. Check the logs

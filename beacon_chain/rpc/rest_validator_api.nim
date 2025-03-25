@@ -14,11 +14,7 @@ import ".."/[beacon_chain_db, beacon_node],
                                     attestation_pool, sync_committee_msg_pool],
        ".."/validators/beacon_validators,
        ".."/spec/[beaconstate, forks, network, state_transition_block],
-       ".."/spec/datatypes/[phase0, altair],
        "."/[rest_utils, state_ttl_cache]
-
-from ".."/spec/datatypes/bellatrix import ExecutionPayload
-from ".."/spec/datatypes/capella import ExecutionPayload
 
 export rest_utils
 
@@ -533,7 +529,10 @@ proc installValidatorApiHandlers*(router: var RestRouter, node: BeaconNode) =
               return RestApiResponse.jsonError(Http400,
                                                InvalidCommitteeIndexValueError,
                                                $res.error())
-            res.get()
+            if node.dag.cfg.consensusForkAtEpoch(qslot.epoch) >= ConsensusFork.Electra:
+              0.CommitteeIndex
+            else:
+              res.get()
         let qhead =
           block:
             let res = node.getSyncedHead(qslot)

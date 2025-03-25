@@ -16,7 +16,7 @@ import
   # Nimble packages
   chronos, confutils, presto, toml_serialization, metrics,
   chronicles, chronicles/helpers as chroniclesHelpers, chronicles/topics_registry,
-  stew/io2, metrics, metrics/chronos_httpserver,
+  stew/io2, metrics/chronos_httpserver,
 
   # Local modules
   ./spec/[helpers, keystore],

@@ -2,7 +2,7 @@
 
 !!! note
     The commands on this page refer to mainnet.
-    If you're running on `holesky` or another testnet, replace `mainnet` accordingly.
+    If you're running on `hoodi` or another testnet, replace `mainnet` accordingly.
 
 We are continuously making improvements to both stability and resource usage.
 If you run into any problem with Nimbus and are not running the latest version, chances are they have already been fixed.
@@ -162,4 +162,3 @@ See our page on [monitoring the health of your node](./health.md) for more.
 
 We have seen reports of degraded performance when using several types of USB3.0 to SSD adapters or when using native USB3.0 disk drives.
 [This post on RPi forums](https://forums.raspberrypi.com/viewtopic.php?t=245931#p1501426 ) details why there is a difference in behaviour from models prior to Pi 4 and the recommended workaround.
-

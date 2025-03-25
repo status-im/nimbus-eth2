@@ -62,7 +62,7 @@ While we strongly recommend against it, you can disable doppelganger detection w
 
 ### What is the best way to stress test my execution+consensus setup before committing with real ETH?
 
-We recommend running [a Nimbus beacon node](./quick-start.md) on [Holesky](./holesky.md) and a mainnet [execution client](./eth1.md) on the same machine.
+We recommend running [a Nimbus beacon node](./quick-start.md) on [Hoodi](./hoodi.md) and a mainnet [execution client](./eth1.md) on the same machine.
 This will simulate the load of running a mainnet validator.
 
 ### How do I add an additional validator?
@@ -181,7 +181,7 @@ In other words, if you stood to earn ≈0.01 ETH, you would instead be penalized
 
 ### How can I keep track of my validator?
 
-One way of keeping track is using an online service such as beaconcha.in: [Mainnet](https://beaconcha.in/) or [Holesky](https://holesky.beaconcha.in).
+One way of keeping track is using an online service such as beaconcha.in: [Mainnet](https://beaconcha.in/) or [Hoodi](https://hoodi.beaconcha.in).
 
 Another way is to set up [validator monitoring](./validator-monitor.md) together with a [dashboard](./metrics-pretty-pictures.md) to keep track of its performance.
 
@@ -334,4 +334,3 @@ In a nutshell, security.
 The signing key must be available at all times.
 As such, it will need to be held online.
 Since anything online is vulnerable to being hacked, it's not a good idea to use the same key for withdrawals.
-

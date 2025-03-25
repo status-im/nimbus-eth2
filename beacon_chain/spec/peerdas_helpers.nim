@@ -343,7 +343,7 @@ proc verify_data_column_sidecar_kzg_proofs*(sidecar: DataColumnSidecar):
 
   ok()
 
-# https://github.com/ethereum/consensus-specs/blob/v1.5.0-beta.2/specs/fulu/das-core.md#validator-custody
+# https://github.com/ethereum/consensus-specs/blob/v1.5.0-beta.3/specs/fulu/das-core.md#validator-custody
 func get_validators_custody_requirement*(state: fulu.BeaconState,
                                          validator_indices: openArray[ValidatorIndex]):
                                          uint64 =

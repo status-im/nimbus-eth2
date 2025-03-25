@@ -146,8 +146,6 @@ func getVanityLogs(stdoutKind: StdoutLogKind): VanityLogs =
   of StdoutLogKind.Auto: raiseAssert "inadmissable here"
   of StdoutLogKind.Colors:
     VanityLogs(
-      onMergeTransitionBlock:          bellatrixColor,
-      onFinalizedMergeTransitionBlock: bellatrixBlink,
       onUpgradeToCapella:              capellaColor,
       onKnownBlsToExecutionChange:     capellaBlink,
       onUpgradeToDeneb:                denebColor,
@@ -155,8 +153,6 @@ func getVanityLogs(stdoutKind: StdoutLogKind): VanityLogs =
       onKnownCompoundingChange:        electraBlink)
   of StdoutLogKind.NoColors:
     VanityLogs(
-      onMergeTransitionBlock:          bellatrixMono,
-      onFinalizedMergeTransitionBlock: bellatrixMono,
       onUpgradeToCapella:              capellaMono,
       onKnownBlsToExecutionChange:     capellaMono,
       onUpgradeToDeneb:                denebMono,
@@ -164,10 +160,6 @@ func getVanityLogs(stdoutKind: StdoutLogKind): VanityLogs =
       onKnownCompoundingChange:        electraMono)
   of StdoutLogKind.Json, StdoutLogKind.None:
     VanityLogs(
-      onMergeTransitionBlock:
-        (proc() = notice "🐼 Proof of Stake Activated 🐼"),
-      onFinalizedMergeTransitionBlock:
-        (proc() = notice "🐼 Proof of Stake Finalized 🐼"),
       onUpgradeToCapella:
         (proc() = notice "🦉 Withdrowls now available 🦉"),
       onKnownBlsToExecutionChange:
@@ -182,7 +174,7 @@ func getVanityLogs(stdoutKind: StdoutLogKind): VanityLogs =
 func getVanityMascot(consensusFork: ConsensusFork): string =
   case consensusFork
   of ConsensusFork.Fulu:
-    "not decided yet?"
+    "❓"
   of ConsensusFork.Electra:
     "🦒"
   of ConsensusFork.Deneb:
@@ -300,7 +292,7 @@ proc initFullNode(
   template config(): auto = node.config
 
   proc onPhase0AttestationReceived(data: phase0.Attestation) =
-    node.eventBus.attestQueue.emit(data)
+    node.eventBus.phase0AttestQueue.emit(data)
   proc onSingleAttestationReceived(data: SingleAttestation) =
     node.eventBus.singleAttestQueue.emit(data)
   proc onSyncContribution(data: SignedContributionAndProof) =
@@ -312,9 +304,9 @@ proc initFullNode(
   proc onProposerSlashingAdded(data: ProposerSlashing) =
     node.eventBus.propSlashQueue.emit(data)
   proc onPhase0AttesterSlashingAdded(data: phase0.AttesterSlashing) =
-    node.eventBus.attSlashQueue.emit(data)
+    node.eventBus.phase0AttSlashQueue.emit(data)
   proc onElectraAttesterSlashingAdded(data: electra.AttesterSlashing) =
-    debugComment "electra att slasher queue"
+    node.eventBus.electraAttSlashQueue.emit(data)
   proc onBlobSidecarAdded(data: BlobSidecarInfoObject) =
     node.eventBus.blobSidecarQueue.emit(data)
   proc onBlockAdded(data: ForkedTrustedSignedBeaconBlock) =
@@ -752,12 +744,13 @@ proc init*(T: type BeaconNode,
     eventBus = EventBus(
       headQueue: newAsyncEventQueue[HeadChangeInfoObject](),
       blocksQueue: newAsyncEventQueue[EventBeaconBlockObject](),
-      attestQueue: newAsyncEventQueue[phase0.Attestation](),
+      phase0AttestQueue: newAsyncEventQueue[phase0.Attestation](),
       singleAttestQueue: newAsyncEventQueue[SingleAttestation](),
       exitQueue: newAsyncEventQueue[SignedVoluntaryExit](),
       blsToExecQueue: newAsyncEventQueue[SignedBLSToExecutionChange](),
       propSlashQueue: newAsyncEventQueue[ProposerSlashing](),
-      attSlashQueue: newAsyncEventQueue[phase0.AttesterSlashing](),
+      phase0AttSlashQueue: newAsyncEventQueue[phase0.AttesterSlashing](),
+      electraAttSlashQueue: newAsyncEventQueue[electra.AttesterSlashing](),
       blobSidecarQueue: newAsyncEventQueue[BlobSidecarInfoObject](),
       finalQueue: newAsyncEventQueue[FinalizationInfoObject](),
       reorgQueue: newAsyncEventQueue[ReorgInfoObject](),
@@ -2098,7 +2091,7 @@ proc installMessageValidators(node: BeaconNode) =
                 MsgSource.gossip, msg)))
 
       when consensusFork >= ConsensusFork.Capella:
-        # https://github.com/ethereum/consensus-specs/blob/v1.5.0-beta.2/specs/capella/p2p-interface.md#bls_to_execution_change
+        # https://github.com/ethereum/consensus-specs/blob/v1.5.0-beta.3/specs/capella/p2p-interface.md#bls_to_execution_change
         node.network.addAsyncValidator(
           getBlsToExecutionChangeTopic(digest), proc (
             msg: SignedBLSToExecutionChange

@@ -15,6 +15,7 @@ If you wish to expose the beacon node to the public internet, it is recommended 
 
 * `http://testing.mainnet.beacon-api.nimbus.team/`
 * `http://unstable.mainnet.beacon-api.nimbus.team/`
+* `http://unstable.hoodi.beacon-api.nimbus.team/`
 * `http://unstable.holesky.beacon-api.nimbus.team/`
 * `http://unstable.sepolia.beacon-api.nimbus.team/`
 
@@ -28,6 +29,11 @@ You can make requests as follows (here we are requesting the version the Nimbus 
 === "Mainnet unstable branch"
     ```
     curl -X GET http://unstable.mainnet.beacon-api.nimbus.team/eth/v1/node/version
+    ```
+
+=== "Hoodi unstable branch"
+    ```
+    curl -X GET  http://unstable.hoodi.beacon-api.nimbus.team/eth/v1/node/version
     ```
 
 === "Holesky unstable branch"
@@ -184,4 +190,3 @@ In addition to supporting the standard endpoints, Nimbus has a set of specific e
 - The complete API specification is well documented [here](https://ethereum.github.io/beacon-APIs/)
 
 - See the repository Readme [here](https://github.com/ethereum/beacon-APIs)
-
