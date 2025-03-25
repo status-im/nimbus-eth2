@@ -600,9 +600,9 @@ proc initFullNode(
   # the rationale of populating it at boot and using it gloabally.
 
   if node.config.peerdasSupernode:
-    node.network.loadCgcnetMetadataAndEnr(node.dag.cfg.NUMBER_OF_CUSTODY_GROUPS.uint8)
+    node.network.loadCgcnetMetadataAndEnr(dag.cfg.NUMBER_OF_CUSTODY_GROUPS.uint8)
   else:
-    node.network.loadCgcnetMetadataAndEnr(node.dag.cfg.CUSTODY_REQUIREMENT.uint8)
+    node.network.loadCgcnetMetadataAndEnr(dag.cfg.CUSTODY_REQUIREMENT.uint8)
 
   if node.config.lightClientDataServe:
     proc scheduleSendingLightClientUpdates(slot: Slot) =
