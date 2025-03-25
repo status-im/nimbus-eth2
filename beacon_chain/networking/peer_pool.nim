@@ -280,14 +280,15 @@ proc deletePeerImpl[A, B](
     key: B,
     pindex: PeerIndex
 ) =
+  let sindex = pool.bsearch(pool.sorted, pindex)
   pool.storage[pindex] = PeerItem[A](index: PeerIndex(-1))
   pool.empties.add(pindex)
   pool.registry.del(key)
-  # let sindex = pool.sorted.find(pindex)
-  let sindex = pool.bsearch(pool.sorted, pindex)
   if sindex >= 0:
-    pool.sorted.del(sindex)
+    # sindex == 0 when deleting peer which was acquired (not in `sorted` array).
     pool.sorted = pool.resort(pool.sorted)
+    pool.sorted.del(sindex)
+
   # Indicate that we have an empty space
   pool.changeEvent.fire()
   pool.peerDeleted(peer)
