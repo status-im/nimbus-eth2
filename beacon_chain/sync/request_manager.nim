@@ -65,6 +65,7 @@ type
   RequestManager* = object
     network*: Eth2Node
     supernode*: bool
+    cfg*: RuntimeConfig
     custody_columns_set: HashSet[ColumnIndex]
     getBeaconTime: GetBeaconTimeFn
     inhibit: InhibitFn
@@ -87,6 +88,7 @@ func shortLog*(x: seq[FetchRecord]): string =
 
 proc init*(T: type RequestManager, network: Eth2Node,
               supernode: bool,
+              cfg: RuntimeConfig,
               custody_columns_set: HashSet[ColumnIndex],
               denebEpoch: Epoch,
               getBeaconTime: GetBeaconTimeFn,
@@ -101,6 +103,7 @@ proc init*(T: type RequestManager, network: Eth2Node,
   RequestManager(
     network: network,
     supernode: supernode,
+    cfg: cfg,
     custody_columns_set: custody_columns_set,
     getBeaconTime: getBeaconTime,
     inhibit: inhibit,
@@ -350,12 +353,13 @@ proc checkPeerCustody(rman: RequestManager,
       let
         remoteNodeId = fetchNodeIdFromPeerId(peer)
         remoteCustodyColumns =
-          remoteNodeId.resolve_column_sets_from_custody_groups(
-            max(SAMPLES_PER_SLOT.uint64,
+          rman.cfg.resolve_columns_from_custody_groups(
+            remoteNodeId,
+            max(rman.cfg.SAMPLES_PER_SLOT.uint64,
                 remoteCustodyGroupCount))
 
       for local_column in rman.custody_columns_set:
-        if local_column notin remoteCustodyColumns:
+        if local_column notin remoteCustodyColumns.toHashSet():
           return false
 
       return true
@@ -595,7 +599,7 @@ proc getMissingDataColumns(rman: RequestManager): HashSet[DataColumnIdentifier] 
           debug "Not handling missing data columns early in slot"
           continue
 
-        if not rman.dataColumnQuarantine[].hasMissingDataColumns(forkyBlck):
+        if not rman.dataColumnQuarantine[].hasMissingDataColumns(forkyBlck, rman.cfg):
           let missing = rman.dataColumnQuarantine[].dataColumnFetchRecord(forkyBlck)
           if len(missing.indices) == 0:
             warn "quarantine is missing data columns, but missing indices are empty",

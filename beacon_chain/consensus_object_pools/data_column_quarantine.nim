@@ -15,13 +15,14 @@ import
 from std/sequtils import mapIt
 from std/strutils import join
 
-const
-  MaxDataColumns = 3 * SLOTS_PER_EPOCH * NUMBER_OF_COLUMNS
+func maxColumns(MAX_BLOBS_PER_BLOCK_FULU: uint64): uint64 =
   ## Same limit as `MaxOrphans` in `block_quarantine`
   ## data columns may arrive before an orphan is tagged `columnless`
+  8 * SLOTS_PER_EPOCH * MAX_BLOBS_PER_BLOCK_FULU
 
 type
   DataColumnQuarantine* = object
+    maxColumns: uint64
     data_columns*:
       OrderedTable[DataColumnIdentifier, ref DataColumnSidecar]
     supernode*: bool
@@ -34,15 +35,15 @@ type
 
   OnDataColumnSidecarCallback = proc(data: DataColumnSidecar) {.gcsafe, raises: [].}
 
-func init*(T: type DataColumnQuarantine): T =
-  T()
+func init*(T: type DataColumnQuarantine, cfg: RuntimeConfig): T =
+  T(maxColumns: cfg.MAX_BLOBS_PER_BLOCK_FULU.maxColumns)
 
 func shortLog*(x: seq[DataColumnFetchRecord]): string =
   "[" & x.mapIt(shortLog(it.block_root) & shortLog(it.indices)).join(", ") & "]"
 
 func put*(quarantine: var DataColumnQuarantine,
           dataColumnSidecar: ref DataColumnSidecar) =
-  if quarantine.data_columns.len >= static(MaxDataColumns.int):
+  if quarantine.data_columns.lenu64 >= quarantine.maxColumns:
     # FIFO if full. For example, sync manager and request manager can race
     # to put data columns in at the same time, so one gets data column
     # insert -> block resolve -> data column insert, which leaves
@@ -122,7 +123,7 @@ func popDataColumns*(
   r
 
 func hasMissingDataColumns*(quarantine: DataColumnQuarantine,
-    blck: fulu.SignedBeaconBlock): bool =
+    blck: fulu.SignedBeaconBlock, cfg: RuntimeConfig): bool =
   # `hasMissingDataColumns` consists of the data columns that,
   # have been missed over gossip, also in case of a supernode,
   # the method would return missing columns when the supernode
@@ -131,7 +132,7 @@ func hasMissingDataColumns*(quarantine: DataColumnQuarantine,
 
   # This method shall be actively used by the `RequestManager` to
   # root request columns over RPC.
-  var col_counter = 0
+  var col_counter: uint64 = 0
   for idx in quarantine.custody_columns:
     let dc_identifier =
       DataColumnIdentifier(
@@ -139,10 +140,10 @@ func hasMissingDataColumns*(quarantine: DataColumnQuarantine,
         index: idx)
     if dc_identifier notin quarantine.data_columns:
       inc col_counter
-  if quarantine.supernode and col_counter == NUMBER_OF_COLUMNS:
+  if quarantine.supernode and col_counter == cfg.NUMBER_OF_COLUMNS:
     return true
   if quarantine.supernode == false and
-      col_counter == max(SAMPLES_PER_SLOT, CUSTODY_REQUIREMENT):
+      col_counter == max(cfg.SAMPLES_PER_SLOT, cfg.CUSTODY_REQUIREMENT):
     return true
   false
 

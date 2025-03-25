@@ -31,7 +31,42 @@ iterator compute_columns_for_custody_group*(custody_group: CustodyIndex):
   for i in 0'u64 ..< COLUMNS_PER_GROUP:
     yield ColumnIndex(NUMBER_OF_CUSTODY_GROUPS * i + custody_group)
 
+iterator compute_columns_for_custody_group*(cfg: RuntimeConfig,
+                                            custody_group: CustodyIndex):
+                                            ColumnIndex =
+  for i in 0'u64 ..< COLUMNS_PER_GROUP:
+    yield ColumnIndex(cfg.NUMBER_OF_CUSTODY_GROUPS * i + custody_group)
+
 func handle_custody_groups(node_id: NodeId,
+                           custody_group_count: CustodyIndex):
+                           HashSet[CustodyIndex] =
+
+  # Decouples the custody group computation from
+  # `get_custody_groups`, in order to later use this custody
+  # group list across various types of output types
+
+  var
+    custody_groups: HashSet[CustodyIndex]
+    current_id = node_id
+
+  while custody_groups.lenu64 < custody_group_count:
+    var hashed_bytes: array[8, byte]
+
+    let
+      current_id_bytes = current_id.toBytesLE()
+      hashed_current_id = eth2digest(current_id_bytes)
+
+    hashed_bytes[0..7] = hashed_current_id.data.toOpenArray(0,7)
+    let custody_group = bytes_to_uint64(hashed_bytes) mod
+      NUMBER_OF_CUSTODY_GROUPS
+
+    custody_groups.incl custody_group
+
+    inc current_id
+
+  custody_groups
+
+func handle_custody_groups(cfg: RuntimeConfig, node_id: NodeId,
                            custody_group_count: CustodyIndex):
                            HashSet[CustodyIndex] =
 
@@ -62,8 +97,8 @@ func handle_custody_groups(node_id: NodeId,
 
 # https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.10/specs/fulu/das-core.md#get_custody_groups
 func get_custody_groups*(node_id: NodeId,
-                        custody_group_count: CustodyIndex):
-                        seq[CustodyIndex] =
+                         custody_group_count: CustodyIndex):
+                         seq[CustodyIndex] =
   let custody_groups =
     node_id.handle_custody_groups(custody_group_count)
 
@@ -71,7 +106,17 @@ func get_custody_groups*(node_id: NodeId,
   groups.sort()
   groups
 
-func resolve_columns_from_custody_groups*(node_id: NodeId,
+func get_custody_groups*(cfg: RuntimeConfig, node_id: NodeId,
+                         custody_group_count: CustodyIndex):
+                         seq[CustodyIndex] =
+  let custody_groups =
+    cfg.handle_custody_groups(node_id, custody_group_count)
+
+  var groups = custody_groups.toSeq()
+  groups.sort()
+  groups
+
+func resolve_columns_from_custody_groups*(cfg: RuntimeConfig, node_id: NodeId,
                                           custody_group_count: CustodyIndex):
                                           seq[ColumnIndex] =
 
@@ -81,24 +126,9 @@ func resolve_columns_from_custody_groups*(node_id: NodeId,
   var flattened =
     newSeqOfCap[ColumnIndex](COLUMNS_PER_GROUP * custody_groups.len)
   for group in custody_groups:
-    for index in compute_columns_for_custody_group(group):
+    for index in compute_columns_for_custody_group(cfg, group):
        flattened.add index
   flattened
-
-func resolve_column_sets_from_custody_groups*(node_id: NodeId,
-                                              custody_group_count: CustodyIndex):
-                                              HashSet[ColumnIndex] =
-
-  node_id.resolve_columns_from_custody_groups(custody_group_count).toHashSet()
-
-func resolve_column_list_from_custody_groups*(node_id: NodeId,
-                                              custody_group_count: CustodyIndex):
-                                              List[ColumnIndex, NUMBER_OF_COLUMNS] =
-
-  let list =
-    List[ColumnIndex, NUMBER_OF_COLUMNS].init(
-      node_id.resolve_columns_from_custody_groups(custody_group_count))
-  list
 
 # https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.10/specs/fulu/das-core.md#compute_matrix
 proc compute_matrix*(blobs: seq[KzgBlob]): Result[seq[MatrixEntry], cstring] =
@@ -457,11 +487,12 @@ proc verify_data_column_sidecar_kzg_proofs*(sidecar: DataColumnSidecar):
   ok()
 
 # https://github.com/ethereum/consensus-specs/blob/v1.5.0-beta.3/specs/fulu/das-core.md#validator-custody
-func get_validators_custody_requirement*(state: fulu.BeaconState,
+func get_validators_custody_requirement*(cfg: RuntimeConfig, state: fulu.BeaconState,
                                          validator_indices: openArray[ValidatorIndex]):
                                          uint64 =
   var total_node_balance: Gwei
   for index in validator_indices:
     total_node_balance += state.balances[index]
   let count = total_node_balance div BALANCE_PER_ADDITIONAL_CUSTODY_GROUP
-  min(max(count.uint64, VALIDATOR_CUSTODY_REQUIREMENT.uint64), NUMBER_OF_CUSTODY_GROUPS.uint64)
+  min(max(count.uint64, cfg.VALIDATOR_CUSTODY_REQUIREMENT),
+      cfg.NUMBER_OF_CUSTODY_GROUPS.uint64)
