@@ -854,8 +854,8 @@ proc readValue*(reader: var JsonReader, value: var RemoteKeystore)
         elif prop.path == ".graffiti":
           prop.capellaIndex = some GeneralizedIndex(18)
           prop.denebIndex = some GeneralizedIndex(18)
-          prop.electraIndex = some GeneralizedIndex(801)
-          prop.fuluIndex = some GeneralizedIndex(801)
+          prop.electraIndex = some GeneralizedIndex(18)
+          prop.fuluIndex = some GeneralizedIndex(18)
         else:
           reader.raiseUnexpectedValue("Keystores with proven properties different than " &
                                       "`.execution_payload.fee_recipient` and `.graffiti` " &
