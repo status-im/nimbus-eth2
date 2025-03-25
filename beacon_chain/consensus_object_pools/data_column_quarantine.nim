@@ -36,7 +36,7 @@ type
   OnDataColumnSidecarCallback = proc(data: DataColumnSidecar) {.gcsafe, raises: [].}
 
 func init*(T: type DataColumnQuarantine, cfg: RuntimeConfig): T =
-  T(maxColumns: cfg.MAX_BLOBS_PER_BLOCK_FULU.maxColumns)
+  T(maxColumns: cfg.MAX_BLOBS_PER_BLOCK_FULU.maxColumns())
 
 func shortLog*(x: seq[DataColumnFetchRecord]): string =
   "[" & x.mapIt(shortLog(it.block_root) & shortLog(it.indices)).join(", ") & "]"
