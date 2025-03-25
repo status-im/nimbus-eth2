@@ -416,14 +416,14 @@ proc initFullNode(
     supernode = node.config.peerdasSupernode
     localCustodyGroups =
       if supernode:
-        node.dag.cfg.NUMBER_OF_CUSTODY_GROUPS.uint64
+        dag.cfg.NUMBER_OF_CUSTODY_GROUPS
       else:
-        node.dag.cfg.CUSTODY_REQUIREMENT.uint64
+        dag.cfg.CUSTODY_REQUIREMENT
   dataColumnQuarantine[].supernode = supernode
   dataColumnQuarantine[].custody_columns =
-    node.dag.cfg.resolve_columns_from_custody_groups(
-      node.network.node_id,
-      max(node.dag.cfg.SAMPLES_PER_SLOT.uint64,
+    dag.cfg.resolve_columns_from_custody_groups(
+      node.network.nodeId,
+      max(dag.cfg.SAMPLES_PER_SLOT.uint64,
           localCustodyGroups))
 
   let
@@ -575,7 +575,7 @@ proc initFullNode(
       processor: processor,
       network: node.network)
     requestManager = RequestManager.init(
-      node.network, supernode, node.dag.cfg,custody_columns_set,
+      node.network, supernode, dag.cfg, custody_columns_set,
       dag.cfg.DENEB_FORK_EPOCH, getBeaconTime, (proc(): bool = syncManager.inProgress),
       quarantine, blobQuarantine, dataColumnQuarantine, rmanBlockVerifier,
       rmanBlockLoader, rmanBlobLoader, rmanDataColumnLoader)
