@@ -1,5 +1,5 @@
 # beacon_chain
-# Copyright (c) 2022-2024 Status Research & Development GmbH
+# Copyright (c) 2022-2025 Status Research & Development GmbH
 # Licensed and distributed under either of
 #   * MIT license (license terms in the root directory or at https://opensource.org/licenses/MIT).
 #   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
@@ -10,6 +10,7 @@
 
 import
   unittest2,
+  chronicles,
   ../beacon_chain/spec/forks,
   ../beacon_chain/spec/datatypes/[phase0, deneb],
   ../beacon_chain/consensus_object_pools/block_quarantine
@@ -117,4 +118,40 @@ suite "Block quarantine":
       quarantine.addOrphan(Slot 0, b2).isOk
       b0.root in quarantine.missing
       b1.root notin quarantine.missing
+      b2.root notin quarantine.missing
+
+  test "Keep downloading parent chain even if we hit missing limit":
+    var quarantine: Quarantine
+    var blocks = @[makeBlock(Slot 0, ZERO_HASH)]
+    for i in 0..<MaxMissingItems:
+      blocks.add makeBlock(blocks[^1].slot + 1, blocks[^1].root)
+
+    # Fill missing list with junk
+    for i in 0..<MaxMissingItems:
+      quarantine.addMissing(blocks[^(i + 1)].root)
+
+    check:
+      blocks[0].root notin quarantine.missing
+      quarantine.addOrphan(Slot 0, blocks[1]) == Result[void, cstring].ok()
+      blocks[0].root in quarantine.missing
+
+  test "Don't re-download unviable blocks":
+    var quarantine: Quarantine
+    let
+      b0 = makeBlock(Slot 0, ZERO_HASH)
+      b1 = makeBlock(Slot 1, b0.root)
+      b2 = makeBlock(Slot 2, b1.root)
+
+    quarantine.addMissing(b1.root)
+    quarantine.addMissing(b2.root)
+
+    check:
+      b2.root in quarantine.missing
+
+    quarantine.addUnviable(b1.root)
+    check:
+      b1.root notin quarantine.missing
+
+    check:
+      quarantine.addOrphan(Slot 0, b2).isErr()
       b2.root notin quarantine.missing

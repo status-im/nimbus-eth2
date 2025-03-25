@@ -2435,7 +2435,6 @@ proc updateHead*(
 
   let
     lastHeadStateRoot = getStateRoot(dag.headState)
-    lastHeadMergeComplete = dag.headState.is_merge_transition_complete()
     lastHeadKind = dag.headState.kind
     lastKnownValidatorsChangeStatuses = getBlsToExecutionChangeStatuses(
       dag.headState, knownValidators)
@@ -2458,26 +2457,20 @@ proc updateHead*(
   dag.head = newHead
   dag.resetChainProgressWatchdog()
 
-  if  dag.headState.is_merge_transition_complete() and not
-      lastHeadMergeComplete and
-      dag.vanityLogs.onMergeTransitionBlock != nil:
-    dag.vanityLogs.onMergeTransitionBlock()
-
   if dag.headState.kind > lastHeadKind:
-    case dag.headState.kind
-    of ConsensusFork.Phase0 .. ConsensusFork.Bellatrix:
-      discard
-    of ConsensusFork.Capella:
-      if dag.vanityLogs.onUpgradeToCapella != nil:
-        dag.vanityLogs.onUpgradeToCapella()
-    of ConsensusFork.Deneb:
-      if dag.vanityLogs.onUpgradeToDeneb != nil:
-        dag.vanityLogs.onUpgradeToDeneb()
-    of ConsensusFork.Electra:
-      if dag.vanityLogs.onUpgradeToElectra != nil:
-        dag.vanityLogs.onUpgradeToElectra()
-    of ConsensusFork.Fulu:
-      discard
+    proc logForkUpgrade(consensusFork: ConsensusFork, handler: LogProc) =
+      if handler != nil and
+          dag.headState.kind >= consensusFork and
+          lastHeadKind < consensusFork:
+        handler()
+
+    # Policy: Retain back through Mainnet's second latest fork.
+    ConsensusFork.Capella.logForkUpgrade(
+      dag.vanityLogs.onUpgradeToCapella)
+    ConsensusFork.Deneb.logForkUpgrade(
+      dag.vanityLogs.onUpgradeToDeneb)
+    ConsensusFork.Electra.logForkUpgrade(
+      dag.vanityLogs.onUpgradeToElectra)
 
   if  dag.vanityLogs.onKnownBlsToExecutionChange != nil and
       checkBlsToExecutionChanges(
@@ -2592,13 +2585,6 @@ proc updateHead*(
       dag.finalizedHead = finalizedHead
 
       dag.db.updateFinalizedBlocks(newFinalized)
-
-    let oldBlockHash = dag.loadExecutionBlockHash(oldFinalizedHead.blck)
-    if oldBlockHash.isSome and oldBlockHash.unsafeGet.isZero:
-      let newBlockHash = dag.loadExecutionBlockHash(dag.finalizedHead.blck)
-      if newBlockHash.isSome and not newBlockHash.unsafeGet.isZero:
-        if dag.vanityLogs.onFinalizedMergeTransitionBlock != nil:
-          dag.vanityLogs.onFinalizedMergeTransitionBlock()
 
     # Pruning the block dag is required every time the finalized head changes
     # in order to clear out blocks that are no longer viable and should

@@ -391,7 +391,7 @@ proc get_builder_signature*(
 
 proc verify_builder_signature*(
     fork: Fork, msg: deneb_mev.BuilderBid | electra_mev.BuilderBid |
-    fulu_mev.BuilderBid,
+    fulu_mev.BuilderBid | ValidatorRegistrationV1,
     pubkey: ValidatorPubKey | CookedPubKey, signature: SomeSig): bool =
   let signing_root = compute_builder_signing_root(fork, msg)
   blsVerify(pubkey, signing_root.data, signature)

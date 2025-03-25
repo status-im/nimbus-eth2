@@ -424,24 +424,14 @@ proc createAndSendAttestation(node: BeaconNode,
   registered.validator.doppelgangerActivity(epoch)
 
   # Logged in the router
-  let
-    consensusFork = node.dag.cfg.consensusForkAtEpoch(epoch)
-    res =
-      if consensusFork >= ConsensusFork.Electra:
-        await node.router.routeAttestation(
-          registered.toSingleAttestation(signature), subnet_id,
-          checkSignature = false, checkValidator = false)
-      else:
-        await node.router.routeAttestation(
-          registered.toAttestation(signature), subnet_id,
-          checkSignature = false, checkValidator = false)
-  if not res.isOk():
-    return
-
-  if node.config.dumpEnabled:
-    dump(
-      node.config.dumpDirOutgoing, registered.data,
-      registered.validator.pubkey)
+  if node.dag.cfg.consensusForkAtEpoch(epoch) >= ConsensusFork.Electra:
+    discard await node.router.routeAttestation(
+      registered.toSingleAttestation(signature), subnet_id,
+      checkSignature = false, checkValidator = false)
+  else:
+    discard await node.router.routeAttestation(
+      registered.toAttestation(signature), subnet_id,
+      checkSignature = false, checkValidator = false)
 
 proc getBlockProposalEth1Data*(node: BeaconNode,
                                state: ForkedHashedBeaconState):
@@ -722,8 +712,9 @@ proc getBlindedExecutionPayload[
         BUILDER_PROPOSAL_DELAY_TOLERANCE):
           return err "Timeout obtaining Deneb blinded header from builder"
 
-      res = decodeBytes(
-        GetHeaderResponseDeneb, response.data, response.contentType)
+      res = decodeBytesJsonOrSsz(
+        GetHeaderResponseDeneb, response.data, response.contentType,
+        response.headers.getString("eth-consensus-version"))
 
       blindedHeader = res.valueOr:
         return err(
@@ -738,8 +729,9 @@ proc getBlindedExecutionPayload[
         BUILDER_PROPOSAL_DELAY_TOLERANCE):
           return err "Timeout obtaining Electra blinded header from builder"
 
-      res = decodeBytes(
-        GetHeaderResponseElectra, response.data, response.contentType)
+      res = decodeBytesJsonOrSsz(
+        GetHeaderResponseElectra, response.data, response.contentType,
+        response.headers.getString("eth-consensus-version"))
 
       blindedHeader = res.valueOr:
         return err(
@@ -756,8 +748,9 @@ proc getBlindedExecutionPayload[
         BUILDER_PROPOSAL_DELAY_TOLERANCE):
           return err "Timeout obtaining Fulu blinded header from builder"
 
-      res = decodeBytes(
-        GetHeaderResponseFulu, response.data, response.contentType)
+      res = decodeBytesJsonOrSsz(
+        GetHeaderResponseFulu, response.data, response.contentType,
+        response.headers.getString("eth-consensus-version"))
 
       blindedHeader = res.valueOr:
         return err(
@@ -1024,7 +1017,6 @@ proc getBlindedBlockParts[
   else:
     static: doAssert false
 
-  debugComment "the electra builder API bids have these requests"
   let newBlock = await makeBeaconBlockForHeadAndSlot(
     PayloadType, node, randao, validator_index, graffiti, head, slot,
     execution_payload = Opt.some shimExecutionPayload,

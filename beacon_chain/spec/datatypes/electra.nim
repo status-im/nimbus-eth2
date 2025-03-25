@@ -809,7 +809,7 @@ func normalize_merkle_branch*[N](
     res[0 ..< depth] = branch[num_extra ..< branch.len]
   res
 
-# https://github.com/ethereum/consensus-specs/blob/v1.5.0-beta.2/specs/electra/light-client/fork.md#upgrading-light-client-data
+# https://github.com/ethereum/consensus-specs/blob/v1.5.0-beta.3/specs/electra/light-client/fork.md#upgrading-light-client-data
 func upgrade_lc_header_to_electra*(
     pre: deneb.LightClientHeader): LightClientHeader =
   LightClientHeader(
@@ -964,11 +964,10 @@ template asTrusted*(
        MsgTrustedSignedBeaconBlock): TrustedSignedBeaconBlock =
   isomorphicCast[TrustedSignedBeaconBlock](x)
 
-debugComment "this whole section with getValidatorIndices/shortLog needs refactoring and probably can be combined with identical implementations elsewhere"
-
 from std/sets import toHashSet
 
-iterator getValidatorIndices*(attester_slashing: AttesterSlashing | TrustedAttesterSlashing): uint64 =
+iterator getValidatorIndices*(
+    attester_slashing: AttesterSlashing | TrustedAttesterSlashing): uint64 =
   template attestation_1(): auto = attester_slashing.attestation_1
   template attestation_2(): auto = attester_slashing.attestation_2
 
