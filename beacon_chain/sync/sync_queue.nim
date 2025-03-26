@@ -692,7 +692,7 @@ iterator blocks(
 proc push*[T](sq: SyncQueue[T], sr: SyncRequest[T]) =
   ## Push failed request back to queue.
   let pos = sq.find(sr).valueOr:
-    debug "Request is no more relevant", request = sr
+    debug "Request is not relevant anymore", request = sr
     return
   sq.del(pos)
 
@@ -768,7 +768,7 @@ proc push*[T](
 
   template findPosition(sq, sr: untyped): SyncPosition =
     sq.find(sr).valueOr:
-      debug "Request is no more relevant",
+      debug "Request is not relevant anymore",
             request = sr, sync_ident = sq.ident, topics = "syncman"
       # Request is not in queue anymore, probably reset happened.
       return
@@ -790,7 +790,7 @@ proc push*[T](
             let res = await sq.waitForChanges()
             if res:
               # SyncQueue reset happen
-              debug "Request is no more relevant, reset happen",
+              debug "Request is not relevant anymore, reset has happened",
                     request = sr,
                     sync_ident = sq.ident,
                     topics = "syncman"

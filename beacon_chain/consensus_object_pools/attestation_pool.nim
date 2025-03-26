@@ -1,5 +1,5 @@
 # beacon_chain
-# Copyright (c) 2018-2024 Status Research & Development GmbH
+# Copyright (c) 2018-2025 Status Research & Development GmbH
 # Licensed and distributed under either of
 #   * MIT license (license terms in the root directory or at https://opensource.org/licenses/MIT).
 #   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
@@ -65,6 +65,10 @@ type
     ## Depending on the world view of the various validators, they may have
     ## voted on different states - this map keeps track of each vote keyed by
     ## getAttestationCandidateKey()
+
+  CandidateIdxType {.pure.} = enum
+    phase0Idx
+    electraIdx
 
   AttestationPool* = object
     ## The attestation pool keeps track of all attestations that potentially
@@ -198,11 +202,12 @@ proc addForkChoiceVotes(
       # hopefully the fork choice will heal itself over time.
       error "Couldn't add attestation to fork choice, bug?", err = v.error()
 
-func candidateIdx(pool: AttestationPool, slot: Slot,
-  isElectra: bool = false): Opt[int] =
+func candidateIdx(
+    pool: AttestationPool, slot: Slot, candidateIdxType: CandidateIdxType):
+    Opt[int] =
   static: doAssert pool.phase0Candidates.len == pool.electraCandidates.len
 
-  let poolLength = if isElectra:
+  let poolLength = if candidateIdxtype == CandidateIdxType.electraIdx:
     pool.electraCandidates.lenu64 else: pool.phase0Candidates.lenu64
 
   if slot >= pool.startingSlot and
@@ -450,7 +455,14 @@ proc addAttestation*(
 
   updateCurrent(pool, wallTime.slotOrZero)
 
-  let candidateIdx = pool.candidateIdx(attestation.data.slot)
+  when kind(typeof(attestation)) == ConsensusFork.Electra:
+    let candidateIdx = pool.candidateIdx(
+      attestation.data.slot, CandidateIdxType.electraIdx)
+  elif kind(typeof(attestation)) == ConsensusFork.Phase0:
+    let candidateIdx = pool.candidateIdx(
+      attestation.data.slot, CandidateIdxType.phase0Idx)
+  else:
+    static: doAssert false
   if candidateIdx.isNone:
     debug "Skipping old attestation for block production",
       startingSlot = pool.startingSlot
@@ -540,7 +552,7 @@ func covers*(
   ## the existing aggregates, making it redundant
   ## the `var` attestation pool is needed to use `withValue`, else Table becomes
   ## unusably inefficient
-  let candidateIdx = pool.candidateIdx(data.slot)
+  let candidateIdx = pool.candidateIdx(data.slot, CandidateIdxType.phase0Idx)
   if candidateIdx.isNone:
     return false
 
@@ -558,7 +570,7 @@ func covers*(
   ## the existing aggregates, making it redundant
   ## the `var` attestation pool is needed to use `withValue`, else Table becomes
   ## unusably inefficient
-  let candidateIdx = pool.candidateIdx(data.slot)
+  let candidateIdx = pool.candidateIdx(data.slot, CandidateIdxType.electraIdx)
   if candidateIdx.isNone:
     return false
 
@@ -593,7 +605,8 @@ iterator attestations*(
     committee_index: Opt[CommitteeIndex]): phase0.Attestation =
   let candidateIndices =
     if slot.isSome():
-      let candidateIdx = pool.candidateIdx(slot.get())
+      let candidateIdx = pool.candidateIdx(
+        slot.get(), CandidateIdxType.phase0Idx)
       if candidateIdx.isSome():
         candidateIdx.get() .. candidateIdx.get()
       else:
@@ -622,7 +635,8 @@ iterator electraAttestations*(
     committee_index: Opt[CommitteeIndex]): electra.Attestation =
   let candidateIndices =
     if slot.isSome():
-      let candidateIdx = pool.candidateIdx(slot.get(), true)
+      let candidateIdx = pool.candidateIdx(
+        slot.get(), CandidateIdxType.electraIdx)
       if candidateIdx.isSome():
         candidateIdx.get() .. candidateIdx.get()
       else:
@@ -795,7 +809,7 @@ proc getAttestationsForBlock*(pool: var AttestationPool,
 
     let
       slot = Slot(maxAttestationSlot - i)
-      candidateIdx = pool.candidateIdx(slot)
+      candidateIdx = pool.candidateIdx(slot, CandidateIdxType.phase0Idx)
 
     if candidateIdx.isNone():
       # Passed the collection horizon - shouldn't happen because it's based on
@@ -931,7 +945,7 @@ proc getElectraAttestationsForBlock*(
 
     let
       slot = Slot(maxAttestationSlot - i)
-      candidateIdx = pool.candidateIdx(slot)
+      candidateIdx = pool.candidateIdx(slot, CandidateIdxType.electraIdx)
 
     if candidateIdx.isNone():
       # Passed the collection horizon - shouldn't happen because it's based on
@@ -1096,7 +1110,7 @@ func getElectraAggregatedAttestation*(
     Opt[electra.Attestation] =
 
   let
-    candidateIdx = pool.candidateIdx(slot)
+    candidateIdx = pool.candidateIdx(slot, CandidateIdxType.electraIdx)
   if candidateIdx.isNone:
     return Opt.none(electra.Attestation)
 
@@ -1124,7 +1138,7 @@ func getElectraAggregatedAttestation*(
   # be used here, because otherwise they wouldn't have the same value. It thus
   # leaves the cross-committee aggregation for getElectraAttestationsForBlock,
   # which does do this.
-  let candidateIdx = pool.candidateIdx(slot)
+  let candidateIdx = pool.candidateIdx(slot, CandidateIdxType.electraIdx)
   if candidateIdx.isNone:
     return Opt.none(electra.Attestation)
 
@@ -1147,7 +1161,7 @@ func getPhase0AggregatedAttestation*(
     pool: var AttestationPool, slot: Slot, attestation_data_root: Eth2Digest):
     Opt[phase0.Attestation] =
   let
-    candidateIdx = pool.candidateIdx(slot)
+    candidateIdx = pool.candidateIdx(slot, CandidateIdxType.phase0Idx)
   if candidateIdx.isNone:
     return Opt.none(phase0.Attestation)
 
@@ -1168,7 +1182,7 @@ func getPhase0AggregatedAttestation*(
   ## Select the attestation that has the most votes going for it in the given
   ## slot/index
   ## https://github.com/ethereum/consensus-specs/blob/v1.4.0/specs/phase0/validator.md#construct-aggregate
-  let candidateIdx = pool.candidateIdx(slot)
+  let candidateIdx = pool.candidateIdx(slot, CandidateIdxType.phase0Idx)
   if candidateIdx.isNone:
     return Opt.none(phase0.Attestation)
 
