@@ -378,22 +378,35 @@ func serializeColumnTable*[A, B](
   # Iterate through the column syncer table
   for k, v in man.column_syncer_table.pairs():
     # Checking if the table has all the required columns
-    if v.columns.len >= (NUMBER_OF_COLUMNS div 2) and v.columns.isSome():
-      let
-        recovered_cps =
-          recover_cells_and_proofs(v.columns.get().mapIt(it[]))
-        reconstructed_columns =
-          get_data_column_sidecars(v.blk[], recovered_cps.get()).mapIt(newClone it)
+    if man.amIsupernode:
+      if v.columns.len >= (man.cfg.NUMBER_OF_COLUMNS div 2) and
+          v.columns.isSome():
+        let
+          recovered_cps =
+            recover_cells_and_proofs(v.columns.get().mapIt(it[]))
+          reconstructed_columns =
+            get_data_column_sidecars(v.blk[], recovered_cps.get()).mapIt(newClone it)
 
 
-      # Populate that particular entry with reconstructed columns
-      man.column_syncer_table[k] =
-        ColumnAndBlockResponse(
-          blk: v.blk,
-          columns: Opt.some(reconstructed_columns))
+        # Populate that particular entry with reconstructed columns
+        man.column_syncer_table[k] =
+          ColumnAndBlockResponse(
+            blk: v.blk,
+            columns: Opt.some(reconstructed_columns))
 
-    elif v.columns.len < (NUMBER_OF_COLUMNS div 2) and v.columns.isSome():
-      return err ("Requisite number of columns not yet reached")
+      elif v.columns.len < (NUMBER_OF_COLUMNS div 2) and v.columns.isSome():
+        return err ("Requisite number of columns not yet reached")
+
+    elif man.amIsupernode == false:
+      if v.columns.len == max(man.cfg.CUSTODY_REQUIREMENT, man.cfg.SAMPLES_PER_SLOT) and
+          v.columns.isSome:
+
+        # Do nothing, table entry is fine
+      elif v.columns.len == max(man.cfg.CUSTODY_REQUIREMENT, man.cfg.SAMPLES_PER_SLOT) and
+          v.columns.isSome:
+
+        # Retry as custody has not been reached yet
+        return err ("Requisite number of columns not yet reached")
 
     else:
       discard
