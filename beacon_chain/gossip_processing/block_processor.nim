@@ -215,7 +215,8 @@ proc storeBackfillBlock(
       # this repairing will almost never happen unless these malformed
       # columns coming via req/resp.
       if not columnsOk:
-        if dataColumnsOpt.get.len >= (NUMBER_OF_COLUMNS div 2):
+        if dataColumnsOpt.get.lenu64 >=
+            (self.consensusManager.dag.cfg.NUMBER_OF_COLUMNS div 2):
           let
             recovered_cps =
               recover_cells_and_proofs(columns.mapIt(it[]))
@@ -963,7 +964,8 @@ proc storeBlock(
              blck = shortLog(forkyBlck),
              error = res.error()
             continue
-          if self.dataColumnQuarantine[].hasMissingDataColumns(forkyBlck):
+          if self.dataColumnQuarantine[].hasMissingDataColumns(forkyBlck,
+                                                               self.consensusManager.dag.cfg):
             let columns = self.dataColumnQuarantine[].popDataColumns(
               forkyBlck.root, forkyBlck)
             self[].enqueueBlock(MsgSource.gossip, quarantined, Opt.none(BlobSidecars),

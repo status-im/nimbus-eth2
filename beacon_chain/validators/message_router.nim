@@ -187,9 +187,10 @@ proc routeSignedBeaconBlock*(
             data_column = shortLog(dataColumns[i])
       # Push only those columns to processor for which we custody
       let
-        metadata = router[].network.metadata.custody_group_count.uint64
+        metadata = router[].network.metadata.custody_group_count
         custody_columns =
-          router[].network.nodeId.resolve_columns_from_custody_groups(
+          router[].network.cfg.resolve_columns_from_custody_groups(
+            router[].network.node_id,
             max(SAMPLES_PER_SLOT.uint64,
             metadata))
 

@@ -262,7 +262,7 @@ proc processSignedBeaconBlock*(
 
     let columns =
       when typeof(signedBlock).kind >= ConsensusFork.Fulu:
-        if self.dataColumnQuarantine[].hasMissingDataColumns(signedBlock):
+        if self.dataColumnQuarantine[].hasMissingDataColumns(signedBlock, self.dag.cfg):
           Opt.some(self.dataColumnQuarantine[].popDataColumns(signedBlock.root,
                                                               signedBlock))
         else:
@@ -379,7 +379,7 @@ proc processDataColumnSidecar*(
     withBlck(columnless):
       when consensusFork >= ConsensusFork.Fulu:
         if not self.dataColumnQuarantine[].supernode:
-          if self.dataColumnQuarantine[].hasMissingDataColumns(forkyBlck):
+          if self.dataColumnQuarantine[].hasMissingDataColumns(forkyBlck, self.dag.cfg):
             let gathered_columns =
               self.dataColumnQuarantine[].gatherDataColumns(forkyBlck.root)
             for gdc in gathered_columns:
@@ -392,7 +392,7 @@ proc processDataColumnSidecar*(
         elif self.dataColumnQuarantine[].hasEnoughDataColumns(forkyBlck):
           let
             columns = self.dataColumnQuarantine[].gatherDataColumns(forkyBlck.root)
-          if columns.len >= (NUMBER_OF_COLUMNS div 2) and
+          if columns.lenu64 >= (self.dag.cfg.NUMBER_OF_COLUMNS div 2) and
               self.dataColumnQuarantine[].supernode:
             let
               recovered_cps = recover_cells_and_proofs(columns.mapIt(it[]))

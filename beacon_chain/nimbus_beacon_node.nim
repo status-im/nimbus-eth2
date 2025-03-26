@@ -412,17 +412,18 @@ proc initFullNode(
       onElectraAttesterSlashingAdded))
     blobQuarantine = newClone(BlobQuarantine.init(
       dag.cfg, onBlobSidecarAdded))
-    dataColumnQuarantine = newClone(DataColumnQuarantine.init())
+    dataColumnQuarantine = newClone(DataColumnQuarantine.init(dag.cfg))
     supernode = node.config.peerdasSupernode
     localCustodyGroups =
       if supernode:
-        NUMBER_OF_CUSTODY_GROUPS.uint64
+        dag.cfg.NUMBER_OF_CUSTODY_GROUPS
       else:
-        CUSTODY_REQUIREMENT.uint64
+        dag.cfg.CUSTODY_REQUIREMENT
   dataColumnQuarantine[].supernode = supernode
   dataColumnQuarantine[].custody_columns =
-    node.network.nodeId.resolve_columns_from_custody_groups(
-      max(SAMPLES_PER_SLOT.uint64,
+    dag.cfg.resolve_columns_from_custody_groups(
+      node.network.nodeId,
+      max(dag.cfg.SAMPLES_PER_SLOT.uint64,
           localCustodyGroups))
 
   let
@@ -574,8 +575,8 @@ proc initFullNode(
       processor: processor,
       network: node.network)
     requestManager = RequestManager.init(
-      node.network, supernode, custody_columns_set, dag.cfg.DENEB_FORK_EPOCH,
-      getBeaconTime, (proc(): bool = syncManager.inProgress),
+      node.network, supernode, dag.cfg, custody_columns_set,
+      dag.cfg.DENEB_FORK_EPOCH, getBeaconTime, (proc(): bool = syncManager.inProgress),
       quarantine, blobQuarantine, dataColumnQuarantine, rmanBlockVerifier,
       rmanBlockLoader, rmanBlobLoader, rmanDataColumnLoader)
 
@@ -599,9 +600,9 @@ proc initFullNode(
   # the rationale of populating it at boot and using it gloabally.
 
   if node.config.peerdasSupernode:
-    node.network.loadCgcnetMetadataAndEnr(NUMBER_OF_CUSTODY_GROUPS.uint8)
+    node.network.loadCgcnetMetadataAndEnr(dag.cfg.NUMBER_OF_CUSTODY_GROUPS.uint8)
   else:
-    node.network.loadCgcnetMetadataAndEnr(CUSTODY_REQUIREMENT.uint8)
+    node.network.loadCgcnetMetadataAndEnr(dag.cfg.CUSTODY_REQUIREMENT.uint8)
 
   if node.config.lightClientDataServe:
     proc scheduleSendingLightClientUpdates(slot: Slot) =
@@ -1303,9 +1304,9 @@ func getSyncCommitteeSubnets(node: BeaconNode, epoch: Epoch): SyncnetBits =
 
 func readCustodyGroupSubnets(node: BeaconNode): uint64 =
   if node.config.peerdasSupernode:
-    NUMBER_OF_CUSTODY_GROUPS.uint64
+    node.dag.cfg.NUMBER_OF_CUSTODY_GROUPS.uint64
   else:
-    CUSTODY_REQUIREMENT.uint64
+    node.dag.cfg.CUSTODY_REQUIREMENT.uint64
 
 proc addAltairMessageHandlers(
     node: BeaconNode, forkDigest: ForkDigest, slot: Slot) =
@@ -1352,7 +1353,7 @@ proc addFuluMessageHandlers(
   node.addCapellaMessageHandlers(forkDigest, slot)
   let
     targetSubnets = node.readCustodyGroupSubnets()
-    custody = node.network.nodeId.get_custody_groups(max(SAMPLES_PER_SLOT.uint64,
+    custody = node.network.nodeId.get_custody_groups(max(node.dag.cfg.SAMPLES_PER_SLOT.uint64,
                                                      targetSubnets.uint64))
 
   for i in custody:
@@ -1392,7 +1393,7 @@ proc removeFuluMessageHandlers(node: BeaconNode, forkDigest: ForkDigest) =
   node.removeCapellaMessageHandlers(forkDigest)
   let
     targetSubnets = node.readCustodyGroupSubnets()
-    custody = node.network.nodeId.get_custody_groups(max(SAMPLES_PER_SLOT.uint64,
+    custody = node.network.nodeId.get_custody_groups(max(node.dag.cfg.SAMPLES_PER_SLOT.uint64,
                                                      targetSubnets.uint64))
 
   for i in custody:
@@ -1686,7 +1687,7 @@ proc pruneDataColumns(node: BeaconNode, slot: Slot) =
       withBlck(blck):
         when typeof(forkyBlck).kind < ConsensusFork.Fulu: continue
         else:
-          for j in 0..<NUMBER_OF_CUSTODY_GROUPS:
+          for j in 0..<node.dag.cfg.NUMBER_OF_CUSTODY_GROUPS:
             if node.db.delDataColumnSidecar(blocks[int(i)].root, ColumnIndex(j)):
               count = count + 1
     debug "pruned data columns", count, dataColumnPruneEpoch
@@ -2166,7 +2167,7 @@ proc installMessageValidators(node: BeaconNode) =
       # data_column_sidecar_{subnet_id}
       when consensusFork >= ConsensusFork.Fulu:
         # data_column_sidecar_{subnet_id}
-        for it in 0'u64..<NUMBER_OF_CUSTODY_GROUPS:
+        for it in 0'u64..<node.dag.cfg.NUMBER_OF_CUSTODY_GROUPS:
           closureScope:
             let subnet_id = it
             node.network.addValidator(
