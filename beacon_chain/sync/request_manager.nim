@@ -357,9 +357,9 @@ proc checkPeerCustody(rman: RequestManager,
             remoteNodeId,
             max(rman.cfg.SAMPLES_PER_SLOT.uint64,
                 remoteCustodyGroupCount))
-
+        remoteSet = remoteCustodyColumns.toHashSet()
       for local_column in rman.custody_columns_set:
-        if local_column notin remoteCustodyColumns.toHashSet():
+        if local_column notin remoteSet:
           return false
 
       return true
