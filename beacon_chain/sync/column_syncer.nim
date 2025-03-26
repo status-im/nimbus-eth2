@@ -53,6 +53,7 @@ type
 
   ColumnManager*[A, B] = ref object
     pool: PeerPool[A, B]
+    cfg*: RuntimeConfig
     amIsupernode*: bool
     custody_columns_set*: HashSet[ColumnIndex]
     custody_columns_list*: List[ColumnIndex, NUMBER_OF_COLUMNS]
@@ -131,6 +132,7 @@ proc initColumnSyncerAssist[A, B](man: ColumnManager[A, B]) =
 
 proc newColumnManager*[A, B](
     pool: PeerPool[A, B],
+    cfg: RuntimeConfig,
     amIsupernode: bool,
     custody_columns_set: HashSet[ColumnIndex],
     custody_columns_list: List[ColumnIndex, NUMBER_OF_COLUMNS],
@@ -159,6 +161,7 @@ proc newColumnManager*[A, B](
 
   var res = ColumnManager[A, B](
     pool: pool,
+    cfg: cfg,
     amIsupernode: amIsupernode,
     custody_columns_set: custody_columns_set,
     custody_columns_list: custody_columns_list,
@@ -226,9 +229,11 @@ proc checkDataColumns(data_columns: seq[DataColumnSidecars]):
 proc intersectionColumns[A, B](
     man: ColumnManager[A, B],
     peer: A): List[ColumnIndex, NUMBER_OF_COLUMNS] =
+  let remoteNodeId =
+    fetchNodeIdFromPeerId(peer)
   intersection(man.custody_columns_set,
-               resolve_column_sets_from_custody_groups(max(SAMPLES_PER_SLOT.uint64,
-                                                       peer.lookupCgcFromPeer())))
+               resolve_columns_from_custody_groups(remoteNodeId, max(SAMPLES_PER_SLOT.uint64,
+                                                   peer.lookupCgcFromPeer()).toHashSet()))
 
 proc refreshColumnScoring[A, B](
     man: ColumnManager[A, B]) =
@@ -579,9 +584,12 @@ proc columnSyncStrategyImpartial[A, B](
           reason = error
     return
 
-  let serveable_columns =
-    resolve_column_list_from_custody_groups(max(SAMPLES_PER_SLOT.uint64,
-                                            peer.lookupCgcFromPeer()))
+  let
+    remoteNodeId =
+      fetchNodeIdFromPeerId(peer)
+    serveable_columns =
+      man.cfg.resolve_columns_from_custody_groups(remoteNodeId, max(SAMPLES_PER_SLOT.uint64,
+                                                peer.lookupCgcFromPeer()))
   let columnData =
     if shouldGetDataColumns:
       let columns =
@@ -818,8 +826,9 @@ proc columnSyncWorkerGreedy[A, B](
         peer = await man.pool.acquire()
         if intersection(
             man.custody_columns_set,
-            resolve_column_sets_from_custody_groups(max(SAMPLES_PER_SLOT.uint64,
-            peer.lookupCgcFromPeer()))):
+            resolve_columns_from_custody_groups(fetchNodeIdFromPeerId(peer),
+                                                max(SAMPLES_PER_SLOT.uint64,
+                                                peer.lookupCgcFromPeer()).toHashSet())):
           usefulPeers.add(peer)
         else:
           uselessPeers.add(peer)

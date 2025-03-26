@@ -559,7 +559,7 @@ proc initFullNode(
         {ColumnSyncerFlag.Greedy}
 
     columnManager = newColumnManager[Peer, PeerId](
-      node.network.peerPool, supernode, custody_columns_set,
+      node.network.peerPool, dag.cfg, supernode, custody_columns_set,
       custody_columns_list, dag.cfg.FULU_FORK_EPOCH,
       dag.cfg.MIN_EPOCHS_FOR_BLOB_SIDECARS_REQUESTS,
       ColumnSyncerDirection.Forward, getLocalHeadSlot,
