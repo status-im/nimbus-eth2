@@ -402,9 +402,9 @@ func serializeColumnTable*[A, B](
           v.columns.isSome:
 
         # Do nothing, table entry is fine
+        discard
       elif v.columns.len == max(man.cfg.CUSTODY_REQUIREMENT, man.cfg.SAMPLES_PER_SLOT) and
           v.columns.isSome:
-        discard
 
         # Retry as custody has not been reached yet
         return err ("Requisite number of columns not yet reached")
