@@ -7,7 +7,7 @@
 
 {.push raises: [].}
 
-import std/[tables, heapqueue, algorithm]
+import std/[tables, heapqueue, algorithm, sequtils]
 import chronos
 
 export tables
@@ -725,9 +725,11 @@ iterator peers*[A, B](
     if pool.storage[pindex].peerType in filter:
       unsorted.add(pindex)
 
-  let sorted = pool.resort(unsorted)
-  for sindex in sorted:
-    yield pool.storage[sindex].data
+  # We allocate new sequence here to avoid problems with missing indices when
+  # await operation could be part of iteration.
+  let sortedPeers = pool.resort(unsorted).mapIt(pool.storage[it].data)
+  for peer in sortedPeers:
+    yield peer
 
 iterator peers*[A, B](
     pool: PeerPool[A, B],
@@ -745,9 +747,11 @@ iterator peers*[A, B](
        (isNil(customFilter) or customFilter(item[].data)):
       unsorted.add(pindex)
 
-  let sorted = pool.resort(unsorted)
-  for sindex in sorted:
-    yield pool.storage[sindex].data
+  # We allocate new sequence here to avoid problems with missing indices when
+  # await operation could be part of iteration.
+  let sortedPeers = pool.resort(unsorted).mapIt(pool.storage[it].data)
+  for peer in sortedPeers:
+    yield peer
 
 iterator availablePeers*[A, B](
     pool: PeerPool[A, B],
@@ -757,10 +761,17 @@ iterator availablePeers*[A, B](
   ##
   ## All peers will be sorted by equation `>`(Peer1, Peer2), so biggest values
   ## will be first.
-  for pindex in pool.sorted:
-    if (PeerFlags.Acquired notin pool.storage[pindex].flags) and
-       (pool.storage[pindex].peerType in filter):
-      yield pool.storage[pindex].data
+
+  # We allocate new sequence here to avoid problems with missing indices when
+  # await operation could be part of iteration.
+  let sortedPeers =
+    pool.sorted.filterIt(
+      (PeerFlags.Acquired notin pool.storage[it].flags) and
+      (pool.storage[it].peerType in filter)).
+    mapIt(pool.storage[it].data)
+
+  for peer in sortedPeers:
+    yield peer
 
 iterator availablePeers*[A, B](
     pool: PeerPool[A, B],
@@ -771,12 +782,18 @@ iterator availablePeers*[A, B](
   ##
   ## All peers will be sorted by equation `>`(Peer1, Peer2), so biggest values
   ## will be first.
-  for pindex in pool.sorted:
-    let item = addr(pool.storage[pindex])
-    if (PeerFlags.Acquired notin item[].flags) and
-       (item[].peerType in filter) and
-       (isNil(customFilter) or customFilter(item[].data)):
-      yield item[].data
+
+  # We allocate new sequence here to avoid problems with missing indices when
+  # await operation could be part of iteration.
+  let sortedPeers =
+    pool.sorted.filterIt(
+      (PeerFlags.Acquired notin pool.storage[it].flags) and
+      (pool.storage[it].peerType in filter) and
+      (isNil(customFilter) or customFilter(pool.storage[it].data))).
+    mapIt(pool.storage[it].data)
+
+  for peer in sortedPeers:
+    yield peer
 
 iterator acquiredPeers*[A, B](
     pool: PeerPool[A, B],
@@ -792,9 +809,11 @@ iterator acquiredPeers*[A, B](
        (pool.storage[pindex].peerType in filter):
       unsorted.add(pindex)
 
-  let sorted = pool.resort(unsorted)
-  for sindex in sorted:
-    yield pool.storage[sindex].data
+  # We allocate new sequence here to avoid problems with missing indices when
+  # await operation could be part of iteration.
+  let sortedPeers = pool.resort(unsorted).mapIt(pool.storage[it].data)
+  for peer in sortedPeers:
+    yield peer
 
 proc `[]`*[A, B](
     pool: PeerPool[A, B],
