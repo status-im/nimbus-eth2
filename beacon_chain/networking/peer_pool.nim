@@ -720,6 +720,10 @@ iterator peers*[A, B](
   ##
   ## All peers will be sorted by equation `>`(Peer1, Peer2), so biggest values
   ## will be first.
+  ##
+  ## NOTE: While it safe to use this iterator in combination with await calls,
+  ## consider that right after `await` call PeerPool could becomed different
+  ## from the snapshot this iterator provides.
   var unsorted: seq[PeerIndex]
   for pindex in pool.registry.values():
     if pool.storage[pindex].peerType in filter:
@@ -740,6 +744,10 @@ iterator peers*[A, B](
   ##
   ## All peers will be sorted by equation `>`(Peer1, Peer2), so biggest values
   ## will be first.
+  ##
+  ## NOTE: While it safe to use this iterator in combination with await calls,
+  ## consider that right after `await` call PeerPool could becomed different
+  ## from the snapshot this iterator provides.
   var unsorted: seq[PeerIndex]
   for pindex in pool.registry.values():
     let item = addr(pool.storage[pindex])
@@ -761,6 +769,10 @@ iterator availablePeers*[A, B](
   ##
   ## All peers will be sorted by equation `>`(Peer1, Peer2), so biggest values
   ## will be first.
+  ##
+  ## NOTE: While it safe to use this iterator in combination with await calls,
+  ## consider that right after `await` call PeerPool could becomed different
+  ## from the snapshot this iterator provides.
 
   # We allocate new sequence here to avoid problems with missing indices when
   # await operation could be part of iteration.
@@ -782,6 +794,10 @@ iterator availablePeers*[A, B](
   ##
   ## All peers will be sorted by equation `>`(Peer1, Peer2), so biggest values
   ## will be first.
+  ##
+  ## NOTE: While it safe to use this iterator in combination with await calls,
+  ## consider that right after `await` call PeerPool could becomed different
+  ## from the snapshot this iterator provides.
 
   # We allocate new sequence here to avoid problems with missing indices when
   # await operation could be part of iteration.
@@ -803,6 +819,10 @@ iterator acquiredPeers*[A, B](
   ##
   ## All peers will be sorted by equation `>`(Peer1, Peer2), so biggest values
   ## will be first.
+  ##
+  ## NOTE: While it safe to use this iterator in combination with await calls,
+  ## consider that right after `await` call PeerPool could becomed different
+  ## from the snapshot this iterator provides.
   var unsorted: seq[PeerIndex]
   for pindex in pool.registry.values():
     if (PeerFlags.Acquired in pool.storage[pindex].flags) and
