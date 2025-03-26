@@ -722,7 +722,7 @@ iterator peers*[A, B](
   ## will be first.
   ##
   ## NOTE: While it safe to use this iterator in combination with await calls,
-  ## consider that right after `await` call PeerPool could becomed different
+  ## consider that right after `await` call, PeerPool could become different
   ## from the snapshot this iterator provides.
   var unsorted: seq[PeerIndex]
   for pindex in pool.registry.values():
@@ -746,7 +746,7 @@ iterator peers*[A, B](
   ## will be first.
   ##
   ## NOTE: While it safe to use this iterator in combination with await calls,
-  ## consider that right after `await` call PeerPool could becomed different
+  ## consider that right after `await` call, PeerPool could become different
   ## from the snapshot this iterator provides.
   var unsorted: seq[PeerIndex]
   for pindex in pool.registry.values():
@@ -771,7 +771,7 @@ iterator availablePeers*[A, B](
   ## will be first.
   ##
   ## NOTE: While it safe to use this iterator in combination with await calls,
-  ## consider that right after `await` call PeerPool could becomed different
+  ## consider that right after `await` call, PeerPool could become different
   ## from the snapshot this iterator provides.
 
   # We allocate new sequence here to avoid problems with missing indices when
@@ -796,7 +796,7 @@ iterator availablePeers*[A, B](
   ## will be first.
   ##
   ## NOTE: While it safe to use this iterator in combination with await calls,
-  ## consider that right after `await` call PeerPool could becomed different
+  ## consider that right after `await` call, PeerPool could become different
   ## from the snapshot this iterator provides.
 
   # We allocate new sequence here to avoid problems with missing indices when
@@ -821,7 +821,7 @@ iterator acquiredPeers*[A, B](
   ## will be first.
   ##
   ## NOTE: While it safe to use this iterator in combination with await calls,
-  ## consider that right after `await` call PeerPool could becomed different
+  ## consider that right after `await` call, PeerPool could become different
   ## from the snapshot this iterator provides.
   var unsorted: seq[PeerIndex]
   for pindex in pool.registry.values():
