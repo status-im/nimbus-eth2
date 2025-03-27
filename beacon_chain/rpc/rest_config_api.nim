@@ -285,21 +285,21 @@ proc installConfigApiHandlers*(router: var RestRouter, node: BeaconNode) =
             Base10.toString(cfg.MAX_REQUEST_BLOB_SIDECARS_ELECTRA),
 
           NUMBER_OF_COLUMNS:
-            Base10.toString(NUMBER_OF_COLUMNS.uint64),
+            Base10.toString(cfg.NUMBER_OF_COLUMNS.uint64),
           NUMBER_OF_CUSTODY_GROUPS:
-            Base10.toString(NUMBER_OF_CUSTODY_GROUPS.uint64),
+            Base10.toString(cfg.NUMBER_OF_CUSTODY_GROUPS.uint64),
           DATA_COLUMN_SIDECAR_SUBNET_COUNT:
-            Base10.toString(DATA_COLUMN_SIDECAR_SUBNET_COUNT.uint64),
+            Base10.toString(cfg.DATA_COLUMN_SIDECAR_SUBNET_COUNT.uint64),
           MAX_REQUEST_DATA_COLUMN_SIDECARS:
-            Base10.toString(MAX_REQUEST_DATA_COLUMN_SIDECARS),
+            Base10.toString(cfg.MAX_REQUEST_DATA_COLUMN_SIDECARS),
           SAMPLES_PER_SLOT:
-            Base10.toString(SAMPLES_PER_SLOT.uint64),
+            Base10.toString(cfg.SAMPLES_PER_SLOT.uint64),
           CUSTODY_REQUIREMENT:
-            Base10.toString(CUSTODY_REQUIREMENT.uint64),
+            Base10.toString(cfg.CUSTODY_REQUIREMENT.uint64),
           VALIDATOR_CUSTODY_REQUIREMENT:
-            Base10.toString(VALIDATOR_CUSTODY_REQUIREMENT.uint64),
+            Base10.toString(cfg.VALIDATOR_CUSTODY_REQUIREMENT.uint64),
           BALANCE_PER_ADDITIONAL_CUSTODY_GROUP:
-            Base10.toString(BALANCE_PER_ADDITIONAL_CUSTODY_GROUP),
+            Base10.toString(cfg.BALANCE_PER_ADDITIONAL_CUSTODY_GROUP),
           # MAX_BLOBS_PER_BLOCK_FULU:
           #   Base10.toString(cfg.MAX_BLOBS_PER_BLOCK_FULU),
           # MIN_EPOCHS_FOR_DATA_COLUMN_SIDECARS_REQUESTS:
