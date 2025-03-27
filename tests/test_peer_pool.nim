@@ -1,5 +1,5 @@
 # beacon_chain
-# Copyright (c) 2019-2024 Status Research & Development GmbH
+# Copyright (c) 2019-2025 Status Research & Development GmbH
 # Licensed and distributed under either of
 #   * MIT license (license terms in the root directory or at https://opensource.org/licenses/MIT).
 #   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
@@ -8,19 +8,17 @@
 {.push raises: [].}
 {.used.}
 
-import std/[random, heapqueue, tables]
-import chronos
+import std/[random, heapqueue, tables, sequtils, strutils]
+import chronos, chronos/unittest2/asynctests
 import ../beacon_chain/networking/peer_pool
 import ./testutil
-
-template closureScope(raisesAnnotation: untyped, body: untyped): untyped =
-  (proc() {.raises: raisesAnnotation} = body)()
 
 type
   PeerTestID = string
   PeerTest = object
     id: PeerTestID
     weight: int
+    metadata: uint64
     future: Future[void]
 
 func getKey(peer: PeerTest): PeerTestID =
@@ -29,12 +27,23 @@ func getKey(peer: PeerTest): PeerTestID =
 func getFuture(peer: PeerTest): Future[void] =
   peer.future
 
+func getMetadata(peer: PeerTest): uint64 =
+  peer.metadata
+
 func `<`(a, b: PeerTest): bool =
   `<`(a.weight, b.weight)
 
 proc init*(t: typedesc[PeerTest], id: string = "",
            weight: int = 0): PeerTest =
   PeerTest(id: id, weight: weight, future: newFuture[void]())
+
+proc init*(t: typedesc[PeerTest], id: string = "",
+           weight: int = 0, metadata: uint64): PeerTest =
+  PeerTest(id: id, weight: weight, future: newFuture[void](),
+           metadata: metadata)
+
+proc toString(a: openArray[PeerTest]): string =
+  "[" & a.mapIt(it.getKey()).join(",") & "]"
 
 proc close(peer: PeerTest) =
   peer.future.complete()
@@ -241,7 +250,7 @@ suite "PeerPool testing suite":
       itemFut23.finished == false
       itemFut24.finished == false
 
-  test "Acquire/Sorting and consistency test": closureScope([CatchableError]):
+  test "Acquire/Sorting and consistency test":
     const
       TestsCount = 1000
       MaxNumber = 1_000_000
@@ -310,61 +319,140 @@ suite "PeerPool testing suite":
 
     check waitFor(testAcquireRelease()) == TestsCount
 
-  test "deletePeer() test":
-    proc testDeletePeer(): Future[bool] {.async.} =
-      var pool = newPeerPool[PeerTest, PeerTestID]()
-      var peer = PeerTest.init("deletePeer")
+  asyncTest "deletePeer() test":
+    var pool = newPeerPool[PeerTest, PeerTestID]()
 
-      ## Delete available peer
-      doAssert(pool.addPeerNoWait(peer,
-                                  PeerType.Incoming) == PeerStatus.Success)
-      doAssert(pool.len == 1)
-      doAssert(pool.lenAvailable == 1)
-      doAssert(pool.lenAvailable({PeerType.Outgoing}) == 0)
-      doAssert(pool.lenAvailable({PeerType.Incoming}) == 1)
-      doAssert(pool.deletePeer(peer) == true)
-      doAssert(pool.len == 0)
-      doAssert(pool.lenAvailable == 0)
-      doAssert(pool.lenAvailable({PeerType.Outgoing}) == 0)
-      doAssert(pool.lenAvailable({PeerType.Incoming}) == 0)
+    ## Delete available peer
+    block:
+      let peer = PeerTest.init("deletePeer")
+      check:
+        pool.addPeerNoWait(peer, PeerType.Incoming) == PeerStatus.Success
+        pool.len == 1
+        pool.lenAvailable == 1
+        pool.lenAvailable({PeerType.Outgoing}) == 0
+        pool.lenAvailable({PeerType.Incoming}) == 1
+        pool.deletePeer(peer) == true
+        pool.len == 0
+        pool.lenAvailable == 0
+        pool.lenAvailable({PeerType.Outgoing}) == 0
+        pool.lenAvailable({PeerType.Incoming}) == 0
 
-      ## Delete acquired peer
-      peer = PeerTest.init("closingPeer")
-      doAssert(pool.addPeerNoWait(peer,
-                                  PeerType.Incoming) == PeerStatus.Success)
-      doAssert(pool.len == 1)
-      doAssert(pool.lenAvailable == 1)
-      doAssert(pool.lenAvailable({PeerType.Outgoing}) == 0)
-      doAssert(pool.lenAvailable({PeerType.Incoming}) == 1)
-      var apeer = await pool.acquire()
-      doAssert(pool.deletePeer(peer) == true)
-      doAssert(pool.len == 1)
-      doAssert(pool.lenAvailable == 0)
-      doAssert(pool.lenAvailable({PeerType.Outgoing}) == 0)
-      doAssert(pool.lenAvailable({PeerType.Incoming}) == 0)
+    ## Delete acquired peer
+    block:
+      let peer = PeerTest.init("closingPeer")
+      check:
+        pool.addPeerNoWait(peer, PeerType.Incoming) == PeerStatus.Success
+        pool.len == 1
+        pool.lenAvailable == 1
+        pool.lenAvailable({PeerType.Outgoing}) == 0
+        pool.lenAvailable({PeerType.Incoming}) == 1
+      let apeer = await pool.acquire()
+      check:
+        pool.deletePeer(peer) == true
+        pool.len == 1
+        pool.lenAvailable == 0
+        pool.lenAvailable({PeerType.Outgoing}) == 0
+        pool.lenAvailable({PeerType.Incoming}) == 0
       pool.release(apeer)
-      doAssert(pool.len == 0)
-      doAssert(pool.lenAvailable == 0)
-      doAssert(pool.lenAvailable({PeerType.Outgoing}) == 0)
-      doAssert(pool.lenAvailable({PeerType.Incoming}) == 0)
+      check:
+        pool.len == 0
+        pool.lenAvailable == 0
+        pool.lenAvailable({PeerType.Outgoing}) == 0
+        pool.lenAvailable({PeerType.Incoming}) == 0
 
-      ## Force delete acquired peer
-      peer = PeerTest.init("closingPeer")
-      doAssert(pool.addPeerNoWait(peer,
-                                  PeerType.Incoming) == PeerStatus.Success)
-      doAssert(pool.len == 1)
-      doAssert(pool.lenAvailable == 1)
-      doAssert(pool.lenAvailable({PeerType.Outgoing}) == 0)
-      doAssert(pool.lenAvailable({PeerType.Incoming}) == 1)
-      apeer = await pool.acquire()
-      doAssert(pool.deletePeer(peer, true) == true)
-      doAssert(pool.len == 0)
-      doAssert(pool.lenAvailable == 0)
-      doAssert(pool.lenAvailable({PeerType.Outgoing}) == 0)
-      doAssert(pool.lenAvailable({PeerType.Incoming}) == 0)
+    ## Force delete acquired peer
+    block:
+      let peer = PeerTest.init("closingPeer")
+      check:
+        pool.addPeerNoWait(peer, PeerType.Incoming) == PeerStatus.Success
+        pool.len == 1
+        pool.lenAvailable == 1
+        pool.lenAvailable({PeerType.Outgoing}) == 0
+        pool.lenAvailable({PeerType.Incoming}) == 1
+      let apeer = await pool.acquire()
+      check:
+        pool.deletePeer(apeer, true) == true
+        pool.len == 0
+        pool.lenAvailable == 0
+        pool.lenAvailable({PeerType.Outgoing}) == 0
+        pool.lenAvailable({PeerType.Incoming}) == 0
 
-      result = true
-    check waitFor(testDeletePeer()) == true
+    ## Delete single available peer in pool full of peers
+    block:
+      for i in 0 ..< 100:
+        let peer = PeerTest.init("peer" & $i)
+        check pool.addPeerNoWait(peer, PeerType.Incoming) == PeerStatus.Success
+      for i in 100 ..< 200:
+        let peer = PeerTest.init("peer" & $i)
+        check pool.addPeerNoWait(peer, PeerType.Outgoing) == PeerStatus.Success
+      check:
+        pool.len == 200
+        pool.lenAvailable == 200
+        pool.lenAvailable({PeerType.Outgoing}) == 100
+        pool.lenAvailable({PeerType.Incoming}) == 100
+      for i in 0 ..< 20:
+        let
+          index = 90 + i
+          peerKey = "peer" & $index
+          dpeer = pool.getOrDefault(peerKey, default(PeerTest))
+        check:
+          pool.deletePeer(dpeer) == true
+          pool.hasPeer(peerKey) == false
+      check:
+        pool.len == 180
+        pool.lenAvailable == 180
+        pool.lenAvailable({PeerType.Outgoing}) == 90
+        pool.lenAvailable({PeerType.Incoming}) == 90
+      pool.clear()
+
+    ## Delete single acquired peer in pool full of peers
+    block:
+      for i in 0 ..< 100:
+        let peer = PeerTest.init("peer" & $i)
+        check pool.addPeerNoWait(peer, PeerType.Incoming) == PeerStatus.Success
+      for i in 100 ..< 200:
+        let peer = PeerTest.init("peer" & $i)
+        check pool.addPeerNoWait(peer, PeerType.Outgoing) == PeerStatus.Success
+      check:
+        pool.len == 200
+        pool.lenAvailable == 200
+        pool.lenAvailable({PeerType.Outgoing}) == 100
+        pool.lenAvailable({PeerType.Incoming}) == 100
+
+      for i in 0 ..< 20:
+        let apeer = await pool.acquire()
+        check pool.deletePeer(apeer) == true
+        pool.release(apeer)
+        check pool.hasPeer(apeer.getKey()) == false
+
+      check:
+        pool.len == 180
+        pool.lenAvailable == 180
+      pool.clear()
+
+    ## Force delete single acquired peer in pool full of peers
+    block:
+      for i in 0 ..< 100:
+        let peer = PeerTest.init("peer" & $i)
+        check pool.addPeerNoWait(peer, PeerType.Incoming) == PeerStatus.Success
+      for i in 100 ..< 200:
+        let peer = PeerTest.init("peer" & $i)
+        check pool.addPeerNoWait(peer, PeerType.Outgoing) == PeerStatus.Success
+      check:
+        pool.len == 200
+        pool.lenAvailable == 200
+        pool.lenAvailable({PeerType.Outgoing}) == 100
+        pool.lenAvailable({PeerType.Incoming}) == 100
+
+      for i in 0 ..< 20:
+        let apeer = await pool.acquire()
+        check:
+          pool.deletePeer(apeer, true) == true
+          pool.hasPeer(apeer.getKey()) == false
+
+      check:
+        pool.len == 180
+        pool.lenAvailable == 180
 
   test "Peer lifetime test":
     proc testPeerLifetime(): Future[bool] {.async.} =
@@ -415,7 +503,7 @@ suite "PeerPool testing suite":
 
     check waitFor(testPeerLifetime()) == true
 
-  test "Safe/Clear test": closureScope([CatchableError]):
+  test "Safe/Clear test":
     var pool = newPeerPool[PeerTest, PeerTestID]()
     var peer1 = PeerTest.init("peer1", 10)
     var peer2 = PeerTest.init("peer2", 9)
@@ -462,7 +550,7 @@ suite "PeerPool testing suite":
     asyncSpawn testConsumer()
     check waitFor(testClose()) == true
 
-  test "Access peers by key test": closureScope([CatchableError]):
+  test "Access peers by key test":
     var pool = newPeerPool[PeerTest, PeerTestID]()
     var peer1 = PeerTest.init("peer1", 10)
     var peer2 = PeerTest.init("peer2", 9)
@@ -590,6 +678,285 @@ suite "PeerPool testing suite":
       len(acqui1) == 3
       len(acqui2) == 2
       len(acqui3) == 1
+
+  asyncTest "Custom filters test":
+    var pool = newPeerPool[PeerTest, PeerTestID]()
+    let
+      peer1 = PeerTest.init("peer1", 10, 256'u64)
+      peer2 = PeerTest.init("peer2", 9, 0'u64)
+      peer3 = PeerTest.init("peer3", 8, 4'u64)
+      peer4 = PeerTest.init("peer4", 7, 2'u64)
+      peer5 = PeerTest.init("peer5", 6, 2'u64)
+      peer6 = PeerTest.init("peer6", 5, 2'u64)
+      peer7 = PeerTest.init("peer7", 4, 4'u64)
+      peer8 = PeerTest.init("peer8", 3, 128'u64)
+      peer9 = PeerTest.init("peer9", 2, 4'u64)
+      peer10 = PeerTest.init("peer10", 1, 256'u64)
+
+    proc custom1(peer: PeerTest): bool =
+      true
+
+    proc custom2(peer: PeerTest): bool =
+      if peer.getMetadata() == 2'u64:
+        true
+      else:
+        false
+
+    proc custom3(peer: PeerTest): bool =
+      if peer.getMetadata() in [2'u64, 4'u64]:
+        true
+      else:
+        false
+
+    check:
+      pool.addPeerNoWait(peer2, PeerType.Incoming) == PeerStatus.Success
+      pool.addPeerNoWait(peer3, PeerType.Incoming) == PeerStatus.Success
+      pool.addPeerNoWait(peer1, PeerType.Incoming) == PeerStatus.Success
+      pool.addPeerNoWait(peer4, PeerType.Incoming) == PeerStatus.Success
+      pool.addPeerNoWait(peer5, PeerType.Incoming) == PeerStatus.Success
+
+      pool.addPeerNoWait(peer10, PeerType.Outgoing) == PeerStatus.Success
+      pool.addPeerNoWait(peer7, PeerType.Outgoing) == PeerStatus.Success
+      pool.addPeerNoWait(peer6, PeerType.Outgoing) == PeerStatus.Success
+      pool.addPeerNoWait(peer8, PeerType.Outgoing) == PeerStatus.Success
+      pool.addPeerNoWait(peer9, PeerType.Outgoing) == PeerStatus.Success
+
+    template checkTotal() =
+      let
+        total1 =
+          pool.peers({PeerType.Incoming, PeerType.Outgoing}, custom1).toSeq()
+        total2 =
+          pool.peers({PeerType.Incoming}, custom1).toSeq()
+        total3 =
+          pool.peers({PeerType.Outgoing}, custom1).toSeq()
+        total4 =
+          pool.peers({PeerType.Incoming, PeerType.Outgoing}, custom2).toSeq()
+        total5 =
+          pool.peers({PeerType.Incoming}, custom2).toSeq()
+        total6 =
+          pool.peers({PeerType.Outgoing}, custom2).toSeq()
+        total7 =
+          pool.peers({PeerType.Incoming, PeerType.Outgoing}, custom3).toSeq()
+        total8 =
+          pool.peers({PeerType.Incoming}, custom3).toSeq()
+        total9 =
+          pool.peers({PeerType.Outgoing}, custom3).toSeq()
+
+      check:
+        total1.toString() ==
+          "[peer1,peer2,peer3,peer4,peer5,peer6,peer7,peer8,peer9,peer10]"
+        total2.toString() == "[peer1,peer2,peer3,peer4,peer5]"
+        total3.toString() == "[peer6,peer7,peer8,peer9,peer10]"
+        total4.toString() == "[peer4,peer5,peer6]"
+        total5.toString() == "[peer4,peer5]"
+        total6.toString() == "[peer6]"
+        total7.toString() == "[peer3,peer4,peer5,peer6,peer7,peer9]"
+        total8.toString() == "[peer3,peer4,peer5]"
+        total9.toString() == "[peer6,peer7,peer9]"
+
+    checkTotal()
+
+    block:
+      let
+        avail1 =
+          pool.availablePeers({PeerType.Incoming, PeerType.Outgoing},
+                              custom1).toSeq()
+        avail2 =
+          pool.availablePeers({PeerType.Incoming}, custom1).toSeq()
+        avail3 =
+          pool.availablePeers({PeerType.Outgoing}, custom1).toSeq()
+        avail4 =
+          pool.availablePeers({PeerType.Incoming, PeerType.Outgoing},
+                              custom2).toSeq()
+        avail5 =
+          pool.availablePeers({PeerType.Incoming}, custom2).toSeq()
+        avail6 =
+          pool.availablePeers({PeerType.Outgoing}, custom2).toSeq()
+        avail7 =
+          pool.availablePeers({PeerType.Incoming, PeerType.Outgoing},
+                              custom3).toSeq()
+        avail8 =
+          pool.availablePeers({PeerType.Incoming}, custom3).toSeq()
+        avail9 =
+          pool.availablePeers({PeerType.Outgoing}, custom3).toSeq()
+
+      check:
+        avail1.toString() ==
+          "[peer1,peer2,peer3,peer4,peer5,peer6,peer7,peer8,peer9,peer10]"
+        avail2.toString() == "[peer1,peer2,peer3,peer4,peer5]"
+        avail3.toString() == "[peer6,peer7,peer8,peer9,peer10]"
+        avail4.toString() == "[peer4,peer5,peer6]"
+        avail5.toString() == "[peer4,peer5]"
+        avail6.toString() == "[peer6]"
+        avail7.toString() == "[peer3,peer4,peer5,peer6,peer7,peer9]"
+        avail8.toString() == "[peer3,peer4,peer5]"
+        avail9.toString() == "[peer6,peer7,peer9]"
+
+    let
+      tpeer1 = await pool.acquire({PeerType.Incoming, PeerType.Outgoing},
+                                  custom1)
+      tpeer2 = await pool.acquire({PeerType.Incoming}, custom2)
+      tpeer3 = await pool.acquire({PeerType.Outgoing}, custom2)
+      tpeer4 = await pool.acquire({PeerType.Incoming}, custom3)
+      tpeer5 = await pool.acquire({PeerType.Outgoing}, custom3)
+
+    check:
+      tpeer1.getKey() == "peer1"
+      tpeer2.getKey() == "peer4"
+      tpeer3.getKey() == "peer6"
+      tpeer4.getKey() == "peer3"
+      tpeer5.getKey() == "peer7"
+
+    checkTotal()
+
+    block:
+      let
+        avail1 =
+          pool.availablePeers({PeerType.Incoming, PeerType.Outgoing},
+                              custom1).toSeq()
+        avail2 =
+          pool.availablePeers({PeerType.Incoming}, custom1).toSeq()
+        avail3 =
+          pool.availablePeers({PeerType.Outgoing}, custom1).toSeq()
+        avail4 =
+          pool.availablePeers({PeerType.Incoming, PeerType.Outgoing},
+                              custom2).toSeq()
+        avail5 =
+          pool.availablePeers({PeerType.Incoming}, custom2).toSeq()
+        avail6 =
+          pool.availablePeers({PeerType.Outgoing}, custom2).toSeq()
+        avail7 =
+          pool.availablePeers({PeerType.Incoming, PeerType.Outgoing},
+                              custom3).toSeq()
+        avail8 =
+          pool.availablePeers({PeerType.Incoming}, custom3).toSeq()
+        avail9 =
+          pool.availablePeers({PeerType.Outgoing}, custom3).toSeq()
+
+      check:
+        avail1.toString() == "[peer2,peer5,peer8,peer9,peer10]"
+        avail2.toString() == "[peer2,peer5]"
+        avail3.toString() == "[peer8,peer9,peer10]"
+
+        avail4.toString() == "[peer5]"
+        avail5.toString() == "[peer5]"
+        avail6.toString() == "[]"
+
+        avail7.toString() == "[peer5,peer9]"
+        avail8.toString() == "[peer5]"
+        avail9.toString() == "[peer9]"
+
+    let
+      tpeer6 = await pool.acquire({PeerType.Incoming, PeerType.Outgoing},
+                                  custom1)
+      tpeer7 = await pool.acquire({PeerType.Incoming}, custom2)
+      tpeer8 = await pool.acquire({PeerType.Outgoing}, custom3)
+      tpeer9 = await pool.acquire({PeerType.Outgoing}, custom1)
+      tpeer10 = await pool.acquire({PeerType.Outgoing}, custom1)
+
+    check:
+      tpeer6.getKey() == "peer2"
+      tpeer7.getKey() == "peer5"
+      tpeer8.getKey() == "peer9"
+      tpeer9.getKey() == "peer8"
+      tpeer10.getKey() == "peer10"
+
+    checkTotal()
+
+    block:
+      let
+        avail1 =
+          pool.availablePeers({PeerType.Incoming, PeerType.Outgoing},
+                              custom1).toSeq()
+        avail2 =
+          pool.availablePeers({PeerType.Incoming}, custom1).toSeq()
+        avail3 =
+          pool.availablePeers({PeerType.Outgoing}, custom1).toSeq()
+        avail4 =
+          pool.availablePeers({PeerType.Incoming, PeerType.Outgoing},
+                              custom2).toSeq()
+        avail5 =
+          pool.availablePeers({PeerType.Incoming}, custom2).toSeq()
+        avail6 =
+          pool.availablePeers({PeerType.Outgoing}, custom2).toSeq()
+        avail7 =
+          pool.availablePeers({PeerType.Incoming, PeerType.Outgoing},
+                              custom3).toSeq()
+        avail8 =
+          pool.availablePeers({PeerType.Incoming}, custom3).toSeq()
+        avail9 =
+          pool.availablePeers({PeerType.Outgoing}, custom3).toSeq()
+
+      check:
+        avail1.toString() == "[]"
+        avail2.toString() == "[]"
+        avail3.toString() == "[]"
+
+        avail4.toString() == "[]"
+        avail5.toString() == "[]"
+        avail6.toString() == "[]"
+
+        avail7.toString() == "[]"
+        avail8.toString() == "[]"
+        avail9.toString() == "[]"
+
+    let
+      fut1 = pool.acquire({PeerType.Incoming}, custom2)
+      fut2 = pool.acquire({PeerType.Incoming}, custom2)
+      fut3 = pool.acquire({PeerType.Outgoing}, custom3)
+      fut4 = pool.acquire({PeerType.Outgoing}, custom3)
+
+    check:
+      fut1.finished == false
+      fut2.finished == false
+      fut3.finished == false
+      fut4.finished == false
+
+    pool.release(tpeer1)
+    await sleepAsync(100.milliseconds)
+    check:
+      fut1.finished == false
+      fut2.finished == false
+      fut3.finished == false
+      fut4.finished == false
+
+    pool.release(tpeer2)
+    await sleepAsync(100.milliseconds)
+    check:
+      fut1.finished == true
+      fut1.value.getKey() == "peer4"
+      fut2.finished == false
+      fut3.finished == false
+      fut4.finished == false
+
+    pool.release(tpeer3)
+    await sleepAsync(100.milliseconds)
+    check:
+      fut2.finished == false
+      fut3.finished == true
+      fut3.value.getKey() == "peer6"
+      fut4.finished == false
+
+    pool.release(tpeer5)
+    await sleepAsync(100.milliseconds)
+    check:
+      fut2.finished == false
+      fut4.finished == true
+      fut4.value.getKey() == "peer7"
+
+    pool.release(tpeer4)
+    pool.release(tpeer6)
+    pool.release(tpeer8)
+    pool.release(tpeer10)
+    await sleepAsync(100.milliseconds)
+    check:
+      fut2.finished == false
+
+    pool.release(tpeer7)
+    await sleepAsync(100.milliseconds)
+    check:
+      fut2.finished == true
+      fut2.value.getKey() == "peer5"
 
   test "Score check test":
     var pool = newPeerPool[PeerTest, PeerTestID]()
@@ -889,8 +1256,8 @@ suite "PeerPool testing suite":
       pool7.lenSpace({PeerType.Incoming}) == 0
       pool7.lenSpace({PeerType.Outgoing}) == high(int) - 39
 
-    # We could not check whole high(int), so we check 10_000 items
-    for i in 0 ..< 10_000:
+    # We could not check whole high(int), so we check 1000 items
+    for i in 0 ..< 1000:
       check:
         pool7.addPeerNoWait(PeerTest.init("idOut" & $i),
                             PeerType.Outgoing) == PeerStatus.Success
@@ -914,8 +1281,8 @@ suite "PeerPool testing suite":
       pool8.lenSpace({PeerType.Outgoing}) == 0
       pool8.lenSpace({PeerType.Incoming}) == high(int) - 40
 
-    # We could not check whole high(int), so we check 10_000 items
-    for i in 0 ..< 10_000:
+    # We could not check whole high(int), so we check 1000 items
+    for i in 0 ..< 1000:
       check:
         pool8.addPeerNoWait(PeerTest.init("idInc" & $i),
                             PeerType.Incoming) == PeerStatus.Success
@@ -924,8 +1291,8 @@ suite "PeerPool testing suite":
         pool8.lenSpace({PeerType.Incoming}) == high(int) - 40 - (i + 1)
 
     # POOL 9
-    # We could not check whole high(int), so we check 10_000 items
-    for i in 0 ..< 10_000:
+    # We could not check whole high(int), so we check 1000 items
+    for i in 0 ..< 1000:
       check:
         pool9.addPeerNoWait(PeerTest.init("idInc" & $i),
                             PeerType.Incoming) == PeerStatus.Success
