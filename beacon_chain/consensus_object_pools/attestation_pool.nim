@@ -8,7 +8,6 @@
 {.push raises: [].}
 
 import
-  std/algorithm,
   # Status libraries
   metrics,
   chronicles, stew/byteutils,
@@ -19,6 +18,7 @@ import
   ../fork_choice/fork_choice,
   ../beacon_clock
 
+from std/algorithm import sort
 from std/sequtils import keepItIf, maxIndex
 
 export blockchain_dag, fork_choice
@@ -419,6 +419,11 @@ proc addAttestation(
   true
 
 func getAttestationCandidateKey(
+    attestationDataRoot: Eth2Digest, committee_index: CommitteeIndex):
+    Eth2Digest =
+  hash_tree_root([attestationDataRoot, hash_tree_root(committee_index.uint64)])
+
+func getAttestationCandidateKey(
     data: AttestationData,
     committee_index: Opt[CommitteeIndex]): Eth2Digest =
   # Some callers might have used for the key just htr(data), so rather than
@@ -429,13 +434,7 @@ func getAttestationCandidateKey(
     # i.e. no committees selected, so it can't be an actual Electra attestation
     hash_tree_root(data)
   else:
-    hash_tree_root([hash_tree_root(data),
-                    hash_tree_root(committee_index.get.uint64)])
-
-func getAttestationCandidateKey(
-    attestationDataRoot: Eth2Digest, committee_index: CommitteeIndex):
-    Eth2Digest =
-  hash_tree_root([attestationDataRoot, hash_tree_root(committee_index.uint64)])
+    getAttestationCandidateKey(hash_tree_root(data), committee_index.get)
 
 proc addAttestation*(
     pool: var AttestationPool,
@@ -476,14 +475,20 @@ proc addAttestation*(
   #      creating an unnecessary AttestationEntry on the hot path and avoiding
   #      multiple lookups
   template addAttToPool(attCandidates: untyped, entry: untyped, committee_index: untyped) =
-    let attestation_data_root = getAttestationCandidateKey(entry.data, committee_index)
+    # `AttestationData.index == 0` in Electra, but the attestation pool always
+    # represents an AttestationEntry regardless as having the actual committee
+    # index. The entry, therefore, is not the same as the AttestationData, and
+    # thus cannot function as the basis for deriving the hashtable key for the
+    # entry. Instead use the (correctly data.index == 0) attestation passed to
+    # addAttestation.
+    let candidate_key = getAttestationCandidateKey(attestation.data, committee_index)
 
-    attCandidates[candidateIdx.get()].withValue(attestation_data_root, entry) do:
+    attCandidates[candidateIdx.get()].withValue(candidate_key, entry) do:
       if not addAttestation(entry[], attestation, index_in_committee, signature):
         return
     do:
       if not addAttestation(
-          attCandidates[candidateIdx.get()].mgetOrPut(attestation_data_root, entry),
+          attCandidates[candidateIdx.get()].mgetOrPut(candidate_key, entry),
           attestation, index_in_committee, signature):
         # Returns from overall function, not only template
         return

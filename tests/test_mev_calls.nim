@@ -9,7 +9,7 @@
 {.used.}
 
 import
-  stew/[bitseqs, endians2, objects, byteutils],
+  stew/[bitseqs, endians2, objects],
   blscurve, bearssl/rand,
   results, chronos, presto, unittest2,
   chronos/unittest2/asynctests,
