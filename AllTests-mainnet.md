@@ -11,6 +11,7 @@ AllTests-mainnet
 + Attestations with disjoint comittee bits and equal data into single on-chain aggregate [Pr OK
 + Can add and retrieve simple electra attestations [Preset: mainnet]                         OK
 + Working with electra aggregates [Preset: mainnet]                                          OK
++ simple add and get with electra nonzero committee [Preset: mainnet]                        OK
 ```
 ## Attestation pool processing [Preset: mainnet]
 ```diff
