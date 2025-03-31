@@ -464,8 +464,8 @@ proc initFullNode(
           else:
             let blobs = blobQuarantine[].popBlobs(forkyBlck.root, forkyBlck)
             await blockProcessor[].addBlock(MsgSource.gossip, signedBlock,
-                                             Opt.some(blobs),
-                                             maybeFinalized = maybeFinalized)
+                                      Opt.some(blobs),
+                                      maybeFinalized = maybeFinalized)
 
         else:
           await blockProcessor[].addBlock(MsgSource.gossip, signedBlock,
