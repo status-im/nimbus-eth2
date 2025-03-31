@@ -2123,7 +2123,7 @@ proc installMessageValidators(node: BeaconNode) =
                                                        blobSidecar,
                                                        subnet_id))
 
-                return waitFor toValidationRace(fut1, fut2))
+                return await toValidationRace(fut1, fut2))
 
       when consensusFork >= ConsensusFork.Deneb:
         # blob_sidecar_{subnet_id}
