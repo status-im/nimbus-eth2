@@ -500,6 +500,7 @@ proc initFullNode(
     syncManager = newSyncManager[Peer, PeerId](
       node.network.peerPool,
       dag.cfg.DENEB_FORK_EPOCH,
+      dag.cfg.FULU_FORK_EPOCH,
       dag.cfg.MIN_EPOCHS_FOR_BLOB_SIDECARS_REQUESTS,
       dag.cfg.MAX_BLOBS_PER_BLOCK_ELECTRA,
       SyncQueueKind.Forward, getLocalHeadSlot,
@@ -511,6 +512,7 @@ proc initFullNode(
     backfiller = newSyncManager[Peer, PeerId](
       node.network.peerPool,
       dag.cfg.DENEB_FORK_EPOCH,
+      dag.cfg.FULU_FORK_EPOCH,
       dag.cfg.MIN_EPOCHS_FOR_BLOB_SIDECARS_REQUESTS,
       dag.cfg.MAX_BLOBS_PER_BLOCK_ELECTRA,
       SyncQueueKind.Backward, getLocalHeadSlot,
@@ -527,6 +529,7 @@ proc initFullNode(
     untrustedManager = newSyncManager[Peer, PeerId](
       node.network.peerPool,
       dag.cfg.DENEB_FORK_EPOCH,
+      dag.cfg.FULU_FORK_EPOCH,
       dag.cfg.MIN_EPOCHS_FOR_BLOB_SIDECARS_REQUESTS,
       dag.cfg.MAX_BLOBS_PER_BLOCK_ELECTRA,
       SyncQueueKind.Backward, getLocalHeadSlot,
