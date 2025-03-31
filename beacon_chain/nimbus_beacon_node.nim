@@ -2115,8 +2115,15 @@ proc installMessageValidators(node: BeaconNode) =
               getBlobSidecarTopic(digest, subnet_id), proc (
                 blobSidecar: deneb.BlobSidecar
               ): Future[ValidationResult] {.async: (raises: [CancelledError]).} =
-                return toValidationResult(
-                  await node.processor.processBlobSidecarFromEL(blobSidecar)))
+                let
+                  fut1 =
+                    (node.processor.processBlobSidecarFromEL(blobSidecar))
+                  fut2 =
+                    (node.processor.processBlobSidecar(MsgSource.gossip,
+                                                       blobSidecar,
+                                                       subnet_id))
+
+                return waitFor toValidationRace(fut1, fut2))
 
       when consensusFork >= ConsensusFork.Deneb:
         # blob_sidecar_{subnet_id}

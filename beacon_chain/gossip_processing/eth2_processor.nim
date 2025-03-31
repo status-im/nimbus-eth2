@@ -157,8 +157,40 @@ type
 
   ValidationRes* = Result[void, ValidationError]
 
+
 func toValidationResult*(res: ValidationRes): ValidationResult =
   if res.isOk(): ValidationResult.Accept else: res.error()[0]
+
+proc toValidationRace*(
+    f1, f2: Future[ValidationRes]
+): Future[ValidationResult] {.async: (raises: [CancelledError]).} =
+  let
+    f1b = noCancel(f1)
+    f2b = noCancel(f2)
+
+  var raced: FutureBase
+  try:
+    raced = await race([f1b, f2b])
+  except ValueError:
+    # This shouldn't normally happen with 2 futures
+    return ValidationResult.Ignore
+
+  let
+    first = if raced == f1b: f1 else: f2
+    second = if raced == f1b: f2 else: f1
+
+  try:
+    let res1 = await first
+    if res1.isOk():
+      return ValidationResult.Accept
+  except CatchableError:
+    discard
+
+  try:
+    let res2 = await second
+    return toValidationResult(res2)
+  except CatchableError:
+    return ValidationResult.Ignore
 
 # Initialization
 # ------------------------------------------------------------------------------
