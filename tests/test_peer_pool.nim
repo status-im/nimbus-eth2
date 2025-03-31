@@ -15,7 +15,7 @@ import ./testutil
 
 type
   PeerTestID = string
-  PeerTest = object
+  PeerTest = ref object
     id: PeerTestID
     weight: int
     metadata: uint64
@@ -30,8 +30,11 @@ func getFuture(peer: PeerTest): Future[void] =
 func getMetadata(peer: PeerTest): uint64 =
   peer.metadata
 
-func `<`(a, b: PeerTest): bool =
-  `<`(a.weight, b.weight)
+func cmp*(a, b: PeerTest): int =
+  if a.weight == b.weight:
+    cmp(a.throughput, b.throughput)
+  else:
+    cmp(a.weight, b.weight)
 
 proc init*(t: typedesc[PeerTest], id: string = "",
            weight: int = 0): PeerTest =
