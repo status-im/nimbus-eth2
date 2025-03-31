@@ -276,12 +276,13 @@ proc processSignedBeaconBlock*(
 
   v
 
-proc validateBlobSidecarFromEL(
+proc processBlobSidecarFromEL*(
     self: ref Eth2Processor,
-    block_root: Eth2Digest):
-    Future[Result[void, ValidationError]]
+    blobSidecar: deneb.BlobSidecar):
+    Future[ValidationRes]
     {.async: (raises: [CancelledError]).} =
-
+  template block_header: untyped = blobSidecar.signed_block_header.message
+  let block_root = hash_tree_root(block_header)
   if (let o = self.quarantine[].getBlobless(block_root); o.isSome):
     let blobless = o.get()
     withBlck(blobless):
@@ -346,12 +347,6 @@ proc processBlobSidecar*(
     Future[ValidationRes] {.async: (raises: [CancelledError]).} =
   template block_header: untyped = blobSidecar.signed_block_header.message
   let block_root = hash_tree_root(block_header)
-
-  let vEl =
-    await self.validateBlobSidecarFromEL(block_root)
-
-  if vEl.isOk():
-    return vEl
 
   let
     wallTime = self.getCurrentBeaconTime()
