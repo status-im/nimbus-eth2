@@ -31,10 +31,7 @@ func getMetadata(peer: PeerTest): uint64 =
   peer.metadata
 
 func cmp*(a, b: PeerTest): int =
-  if a.weight == b.weight:
-    cmp(a.throughput, b.throughput)
-  else:
-    cmp(a.weight, b.weight)
+  cmp(a.weight, b.weight)
 
 proc init*(t: typedesc[PeerTest], id: string = "",
            weight: int = 0): PeerTest =
