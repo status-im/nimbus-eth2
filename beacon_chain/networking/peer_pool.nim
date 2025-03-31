@@ -71,12 +71,20 @@ iterator pairs*[A, B](pool: PeerPool[A, B]): (B, A) =
 
 proc resort[A, B](
     pool: PeerPool[A, B],
-    unsorted: openArray[PeerIndex]
-): seq[PeerIndex] =
+    unsorted: var openArray[PeerIndex]
+) =
   mixin `cmp`
   proc pcmp(a, b: PeerIndex): int {.closure, raises: [].} =
     cmp(pool.storage[distinctBase(a)].data, pool.storage[distinctBase(b)].data)
-  unsorted.sorted(pcmp, order = SortOrder.Descending)
+  unsorted.sort(pcmp, order = SortOrder.Descending)
+
+proc resorted[A, B](
+    pool: PeerPool[A, B],
+    unsorted: openArray[PeerIndex]
+): seq[PeerIndex] =
+  var res = @unsorted
+  pool.resort(res)
+  res
 
 proc addToStorage[A, B](pool: PeerPool[A, B], item: PeerItem[A]): PeerIndex =
   var indexedItem = item
@@ -280,8 +288,7 @@ proc deletePeerImpl[A, B](
   pool.registry.del(key)
   if sindex >= 0:
     # sindex == -1 when deleting peer which was acquired (not in `sorted` array).
-    pool.sorted.del(sindex)
-    pool.sorted = pool.resort(pool.sorted)
+    pool.sorted.delete(sindex)
 
   # Indicate that we have an empty space
   pool.changeEvent.fire()
@@ -340,7 +347,7 @@ proc addPeerImpl[A, B](pool: PeerPool[A, B], peer: A, peerKey: B,
 
   pool.registry[peerKey] = pindex
   pool.sorted.add(pindex)
-  pool.sorted = pool.resort(pool.sorted)
+  pool.resort(pool.sorted)
 
   pitem[].data.getFuture().addCallback(onPeerClosed)
   case peerType
@@ -479,8 +486,7 @@ proc acquireItemImpl[A, B](
   of PeerType.Outgoing:
     inc(pool.acqOutPeersCount)
 
-  pool.sorted.del(sindex)
-  pool.sorted = pool.resort(pool.sorted)
+  pool.sorted.delete(sindex)
 
   pitem[].flags.incl(PeerFlags.Acquired)
   pitem[].data
@@ -578,7 +584,7 @@ proc release*[A, B](pool: PeerPool[A, B], peer: A) =
         dec(pool.acqOutPeersCount)
 
       pool.sorted.add(pindex)
-      pool.sorted = pool.resort(pool.sorted)
+      pool.resort(pool.sorted)
       pool.changeEvent.fire()
 
 proc release*[A, B](pool: PeerPool[A, B], peers: openArray[A]) =
@@ -725,7 +731,7 @@ iterator peers*[A, B](
   # We allocate new sequence here to avoid problems with missing indices when
   # await operation could be part of iteration.
   let sortedPeers =
-    pool.resort(unsorted).mapIt(pool.storage[distinctBase(it)].data)
+    pool.resorted(unsorted).mapIt(pool.storage[distinctBase(it)].data)
   for peer in sortedPeers:
     yield peer
 
@@ -752,7 +758,7 @@ iterator peers*[A, B](
   # We allocate new sequence here to avoid problems with missing indices when
   # await operation could be part of iteration.
   let sortedPeers =
-    pool.resort(unsorted).mapIt(pool.storage[distinctBase(it)].data)
+    pool.resorted(unsorted).mapIt(pool.storage[distinctBase(it)].data)
   for peer in sortedPeers:
     yield peer
 
@@ -828,7 +834,7 @@ iterator acquiredPeers*[A, B](
   # We allocate new sequence here to avoid problems with missing indices when
   # await operation could be part of iteration.
   let sortedPeers =
-    pool.resort(unsorted).mapIt(pool.storage[distinctBase(it)].data)
+    pool.resorted(unsorted).mapIt(pool.storage[distinctBase(it)].data)
   for peer in sortedPeers:
     yield peer
 
