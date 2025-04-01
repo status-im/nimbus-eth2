@@ -197,7 +197,10 @@ proc fetchBlocksForColumnNavigation[A, B](man: ColumnManager[A, B], peer: A,
     direction = man.direction
 
   doAssert(not(req.isEmpty()), "Request must not be empty!")
-  debug "Requesting blocks from peer", request = req
+  debug "Requesting blocks from peer", request = req,
+         peer_score = req.item.getScore(),
+         peer_speed = req.item.netKbps(),
+         topics = "columnsync"
 
   beaconBlocksByRange_v2(peer, req.slot, req.count, 1'u64)
 
@@ -276,7 +279,10 @@ proc getDataColumnSidecars[A, B](man: ColumnManager[A, B],
     peer_speed = peer.netKbps()
 
   doAssert(not(req.isEmpty()), "Request must not be empty")
-  debug "Requesting data column sidecars from peer", request = req
+  debug "Requesting data column sidecars from peer", request = req,
+         peer_score = req.item.getScore(),
+         peer_speed = req.item.netKbps(),
+         topics = "columnsync"
   dataColumnSidecarsByRange(peer, r.slot, r.count, req_cols)
 
 proc filterRelevantPeers[A, B](man: ColumnManager[A, B],
@@ -293,8 +299,11 @@ proc filterRelevantPeers[A, B](man: ColumnManager[A, B],
       peerSlot = peer.getHeadSlot()
       refreshed_peer_set: seq[A]
 
-    debug "Peer's syncing status", wall_clock_slot = wallSlot,
-          remote_head_slot = peerSlot, local_head_slot = headSlot
+    debug "Peer's syncing status", peer = peer,
+           peer_score = peer.getScore(), peer_speed = peer.netKbps(),
+           wall_clock_slot = wallSlot, remote_head_slot = peerSlot,
+           local_head_slot = headSlot, direction = man.direction,
+           topics = "columnsync"
 
     let
       peerStatusAge = Moment.now() - peer.getStatusLastTime()
@@ -311,8 +320,12 @@ proc filterRelevantPeers[A, B](man: ColumnManager[A, B],
       if peerStatusAge < StatusExpirationTime div 2:
         await sleepAsync(StatusExpirationTime div 2 - peerStatusAge)
 
-      trace "Updating peer's status information", wall_clock_slot = wallSlot,
-            remote_head_slot = peerSlot, local_head_slot = headSlot
+      trace "Updating peer's status information",
+             peer = peer, peer_score = peer.getScore(),
+             peer_speed = peer.netKbps(), wall_clock_slot = wallSlot,
+             remote_head_slot = peerSlot, local_head_slot = headSlot,
+             direction = man.direction, topics = "columnsync"
+
 
       if not(await peer.updateStatus()):
         peer.updateScore(PeerScoreNoStatus)
@@ -493,7 +506,8 @@ proc columnSyncStrategyImpartial[A, B](
       peer = peer
 
     debug "Peer's syncing status", wall_clock_slot = wallSlot,
-          remote_head_slot = peerSlot, local_head_slot = headSlot
+          remote_head_slot = peerSlot, local_head_slot = headSlot,
+          direction = man.direction, topics = "columnsync"
 
     let
       peerStatusAge = Moment.now() - peer.getStatusLastTime()
@@ -510,7 +524,8 @@ proc columnSyncStrategyImpartial[A, B](
         await sleepAsync(StatusExpirationTime div 2 - peerStatusAge)
 
       trace "Updating peer's status information", wall_clock_slot = wallSlot,
-            remote_head_slot = peerSlot, local_head_slot = headSlot
+            remote_head_slot = peerSlot, local_head_slot = headSlot,
+            direction = man.direction, topics = "columnsync"
 
       if not(await peer.updateStatus()):
         peer.updateScore(PeerScoreNoStatus)
@@ -523,11 +538,13 @@ proc columnSyncStrategyImpartial[A, B](
         peer.updateScore(PeerScoreStaleStatus)
         debug "Peer's status information is stale",
               wall_clock_slot = wallSlot, remote_old_head_slot = peerSlot,
-              local_head_slot = headSlot, remote_new_head_slot = newPeerSlot
+              local_head_slot = headSlot, remote_new_head_slot = newPeerSlot,
+              direction = man.direction, topics = "columnsync"
       else:
         debug "Peer's status information updated", wall_clock_slot = wallSlot,
               remote_old_head_slot = peerSlot, local_head_slot = headSlot,
-              remote_new_head_slot = newPeerSlot
+              remote_new_head_slot = newPeerSlot, direction = man.direction,
+              topics = "columnsync"
         peer.updateScore(PeerScoreGoodStatus)
         peerSlot = newPeerSlot
 
@@ -540,7 +557,8 @@ proc columnSyncStrategyImpartial[A, B](
       peer = peer
 
     info "We are in sync with the network", wall_clock_slot = wallSlot,
-         remote_head_slot = peerSlot, local_head_slot = headSlot
+         remote_head_slot = peerSlot, local_head_slot = headSlot,
+         direction = man.direction, topics = "columnsync"
 
     # We clear ColumnManager's `notInSyncEvent` so all the workers will become
     # sleeping down.
