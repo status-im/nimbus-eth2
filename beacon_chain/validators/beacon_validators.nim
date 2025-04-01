@@ -648,7 +648,7 @@ proc getBlindedExecutionPayload[
 
       res = decodeBytesJsonOrSsz(
         GetHeaderResponseDeneb, response.data, response.contentType,
-        response.headers.getString("eth-consensus-version"))
+        response.headers.getString("eth-consensus-version"), false)
 
       blindedHeader = res.valueOr:
         return err(
@@ -665,7 +665,7 @@ proc getBlindedExecutionPayload[
 
       res = decodeBytesJsonOrSsz(
         GetHeaderResponseElectra, response.data, response.contentType,
-        response.headers.getString("eth-consensus-version"))
+        response.headers.getString("eth-consensus-version"), true)
 
       blindedHeader = res.valueOr:
         return err(
@@ -684,7 +684,7 @@ proc getBlindedExecutionPayload[
 
       res = decodeBytesJsonOrSsz(
         GetHeaderResponseFulu, response.data, response.contentType,
-        response.headers.getString("eth-consensus-version"))
+        response.headers.getString("eth-consensus-version"), true)
 
       blindedHeader = res.valueOr:
         return err(

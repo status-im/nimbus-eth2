@@ -89,15 +89,15 @@ proc unblindAndRouteBlockMEV*(
   when blindedBlock is deneb_mev.SignedBlindedBeaconBlock:
     let res = decodeBytesJsonOrSsz(
       SubmitBlindedBlockResponseDeneb, response.data, response.contentType,
-      response.headers.getString("eth-consensus-version"))
+      response.headers.getString("eth-consensus-version"), false)
   elif blindedBlock is electra_mev.SignedBlindedBeaconBlock:
     let res = decodeBytesJsonOrSsz(
       SubmitBlindedBlockResponseElectra, response.data, response.contentType,
-      response.headers.getString("eth-consensus-version"))
+      response.headers.getString("eth-consensus-version"), true)
   elif blindedBlock is fulu_mev.SignedBlindedBeaconBlock:
     let res = decodeBytesJsonOrSsz(
       SubmitBlindedBlockResponseFulu, response.data, response.contentType,
-      response.headers.getString("eth-consensus-version"))
+      response.headers.getString("eth-consensus-version"), true)
   else:
     static: doAssert false
 

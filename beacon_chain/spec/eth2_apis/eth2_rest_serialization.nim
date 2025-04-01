@@ -3282,15 +3282,21 @@ proc decodeBytesJsonOrSsz*(
     T: typedesc[MevDecodeTypes],
     data: openArray[byte],
     contentType: Opt[ContentTypeData],
-    version: string
+    version: string,
+    strictDecode: bool = false
 ): Result[T, RestErrorMessage] =
   var res {.noinit.}: T
 
   let
     typeFork = kind(typeof(res.data))
-    consensusFork = ConsensusFork.decodeString(version).valueOr:
-      return err(RestErrorMessage.init(Http400, UnableDecodeVersionError,
-                                       [version, $error]))
+    consensusFork =
+      if strictDecode:
+        ConsensusFork.decodeString(version).valueOr:
+          return err(RestErrorMessage.init(Http400, UnableDecodeVersionError,
+                                           [version, $error]))
+      else:
+        typeFork
+
   if typeFork != consensusFork:
     return err(
       RestErrorMessage.init(Http400, UnexpectedForkVersionError,
