@@ -1,5 +1,5 @@
 # beacon_chain
-# Copyright (c) 2022-2025 Status Research & Development GmbH
+# Copyright (c) 2022-2024 Status Research & Development GmbH
 # Licensed and distributed under either of
 #   * MIT license (license terms in the root directory or at https://opensource.org/licenses/MIT).
 #   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
@@ -87,17 +87,14 @@ proc unblindAndRouteBlockMEV*(
       $response.status & ": " & $shortLog(blindedBlock))
 
   when blindedBlock is deneb_mev.SignedBlindedBeaconBlock:
-    let res = decodeBytesJsonOrSsz(
-      SubmitBlindedBlockResponseDeneb, response.data, response.contentType,
-      response.headers.getString("eth-consensus-version"))
+    let res = decodeBytes(
+      SubmitBlindedBlockResponseDeneb, response.data, response.contentType)
   elif blindedBlock is electra_mev.SignedBlindedBeaconBlock:
-    let res = decodeBytesJsonOrSsz(
-      SubmitBlindedBlockResponseElectra, response.data, response.contentType,
-      response.headers.getString("eth-consensus-version"))
+    let res = decodeBytes(
+      SubmitBlindedBlockResponseElectra, response.data, response.contentType)
   elif blindedBlock is fulu_mev.SignedBlindedBeaconBlock:
-    let res = decodeBytesJsonOrSsz(
-      SubmitBlindedBlockResponseFulu, response.data, response.contentType,
-      response.headers.getString("eth-consensus-version"))
+    let res = decodeBytes(
+      SubmitBlindedBlockResponseFulu, response.data, response.contentType)
   else:
     static: doAssert false
 
