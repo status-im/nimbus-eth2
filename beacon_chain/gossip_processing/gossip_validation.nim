@@ -1287,13 +1287,13 @@ proc validateAggregate*(
   # [REJECT] The committee index is within the expected range -- i.e.
   # data.index < get_committee_count_per_slot(state, data.target.epoch).
   let committee_index = block:
-    when signedAggregateAndProof is electra.SignedAggregateAndProof:
+    when kind(typeof(signedAggregateAndProof)) == ConsensusFork.Electra:
       # [REJECT] len(committee_indices) == 1, where committee_indices =
       # get_committee_indices(aggregate)
       let agg_idx = get_committee_index_one(aggregate.committee_bits).valueOr:
         return pool.checkedReject("Aggregate: got multiple committee bits")
       let idx = shufflingRef.get_committee_index(agg_idx.uint64)
-    elif signedAggregateAndProof is phase0.SignedAggregateAndProof:
+    elif kind(typeof(signedAggregateAndProof)) == ConsensusFork.Phase0:
       let idx = shufflingRef.get_committee_index(aggregate.data.index)
     else:
       static: doAssert false
@@ -1306,13 +1306,19 @@ proc validateAggregate*(
     return pool.checkedReject(
       "Aggregate: number of aggregation bits and committee size mismatch")
 
-  if checkCover and
-      pool[].covers(aggregate.data, aggregate.aggregation_bits):
-    # [IGNORE] A valid aggregate attestation defined by
-    # `hash_tree_root(aggregate.data)` whose `aggregation_bits` is a non-strict
-    # superset has _not_ already been seen.
-    # https://github.com/ethereum/consensus-specs/pull/2847
-    return errIgnore("Aggregate: already covered")
+  # [IGNORE] A valid aggregate attestation defined by
+  # `hash_tree_root(aggregate.data)` whose `aggregation_bits` is a non-strict
+  # superset has _not_ already been seen.
+  # https://github.com/ethereum/consensus-specs/pull/2847
+  when kind(typeof(signedAggregateAndProof)) == ConsensusFork.Electra:
+    if checkCover and
+        pool[].covers(aggregate.data, aggregate.aggregation_bits,
+        aggregate.committee_bits):
+      return errIgnore("Aggregate: already covered")
+  else:
+    if checkCover and
+        pool[].covers(aggregate.data, aggregate.aggregation_bits):
+      return errIgnore("Aggregate: already covered")
 
   # [REJECT] aggregate_and_proof.selection_proof selects the validator as an
   # aggregator for the slot -- i.e. is_aggregator(state, aggregate.data.slot,
