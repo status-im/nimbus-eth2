@@ -646,9 +646,8 @@ proc getBlindedExecutionPayload[
         BUILDER_PROPOSAL_DELAY_TOLERANCE):
           return err "Timeout obtaining Deneb blinded header from builder"
 
-      res = decodeBytesJsonOrSsz(
-        GetHeaderResponseDeneb, response.data, response.contentType,
-        response.headers.getString("eth-consensus-version"))
+      res = decodeBytes(
+        GetHeaderResponseDeneb, response.data, response.contentType)
 
       blindedHeader = res.valueOr:
         return err(
@@ -663,9 +662,8 @@ proc getBlindedExecutionPayload[
         BUILDER_PROPOSAL_DELAY_TOLERANCE):
           return err "Timeout obtaining Electra blinded header from builder"
 
-      res = decodeBytesJsonOrSsz(
-        GetHeaderResponseElectra, response.data, response.contentType,
-        response.headers.getString("eth-consensus-version"))
+      res = decodeBytes(
+        GetHeaderResponseElectra, response.data, response.contentType)
 
       blindedHeader = res.valueOr:
         return err(
@@ -682,9 +680,8 @@ proc getBlindedExecutionPayload[
         BUILDER_PROPOSAL_DELAY_TOLERANCE):
           return err "Timeout obtaining Fulu blinded header from builder"
 
-      res = decodeBytesJsonOrSsz(
-        GetHeaderResponseFulu, response.data, response.contentType,
-        response.headers.getString("eth-consensus-version"))
+      res = decodeBytes(
+        GetHeaderResponseFulu, response.data, response.contentType)
 
       blindedHeader = res.valueOr:
         return err(

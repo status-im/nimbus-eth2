@@ -441,9 +441,7 @@ template kind*(
       deneb.SigVerifiedSignedBeaconBlock |
       deneb.MsgTrustedSignedBeaconBlock |
       deneb.TrustedSignedBeaconBlock |
-      deneb_mev.SignedBlindedBeaconBlock |
-      deneb_mev.SignedBuilderBid |
-      deneb_mev.ExecutionPayloadAndBlobsBundle]): ConsensusFork =
+      deneb_mev.SignedBlindedBeaconBlock]): ConsensusFork =
   ConsensusFork.Deneb
 
 template kind*(
@@ -466,9 +464,7 @@ template kind*(
       electra.SingleAttestation |
       electra.AggregateAndProof |
       electra.SignedAggregateAndProof |
-      electra_mev.SignedBlindedBeaconBlock |
-      electra_mev.SignedBuilderBid |
-      electra_mev.ExecutionPayloadAndBlobsBundle]): ConsensusFork =
+      electra_mev.SignedBlindedBeaconBlock]): ConsensusFork =
   ConsensusFork.Electra
 
 template kind*(
@@ -487,9 +483,7 @@ template kind*(
       fulu.SigVerifiedSignedBeaconBlock |
       fulu.MsgTrustedSignedBeaconBlock |
       fulu.TrustedSignedBeaconBlock |
-      fulu_mev.SignedBlindedBeaconBlock |
-      fulu_mev.SignedBuilderBid |
-      fulu_mev.ExecutionPayloadAndBlobsBundle]): ConsensusFork =
+      fulu_mev.SignedBlindedBeaconBlock]): ConsensusFork =
   ConsensusFork.Fulu
 
 template BeaconState*(kind: static ConsensusFork): auto =
