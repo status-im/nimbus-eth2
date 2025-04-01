@@ -164,7 +164,8 @@ proc installNodeApiHandlers*(router: var RestRouter, node: BeaconNode) =
         metadata: (
           seq_number: node.network.metadata.seq_number,
           syncnets: to0xHex(node.network.metadata.syncnets.bytes),
-          attnets: to0xHex(node.network.metadata.attnets.bytes)
+          attnets: to0xHex(node.network.metadata.attnets.bytes),
+          custody_group_count: node.network.metadata.custody_group_count
         )
       )
     )
