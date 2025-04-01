@@ -1193,6 +1193,7 @@ proc validateAttestation*(
 
 # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.1/specs/phase0/p2p-interface.md#beacon_aggregate_and_proof
 # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.5/specs/deneb/p2p-interface.md#beacon_aggregate_and_proof
+# https://github.com/ethereum/consensus-specs/blob/v1.5.0-beta.4/specs/electra/p2p-interface.md#beacon_aggregate_and_proof
 proc validateAggregate*(
     pool: ref AttestationPool, batchCrypto: ref BatchCrypto,
     signedAggregateAndProof:
@@ -1216,6 +1217,11 @@ proc validateAggregate*(
     if v.isErr():
       return pool.checkedReject(v.error)
     v.get()
+
+  # [REJECT] aggregate.data.index == 0
+  when signedAggregateAndProof is electra.SignedAggregateAndProof:
+    if not(aggregate.data.index == 0):
+      return pool.checkedReject("Aggregate: Electra aggregate.data.index != 0")
 
   # [IGNORE] aggregate.data.slot is within the last
   # ATTESTATION_PROPAGATION_SLOT_RANGE slots (with a
@@ -1282,6 +1288,8 @@ proc validateAggregate*(
   # data.index < get_committee_count_per_slot(state, data.target.epoch).
   let committee_index = block:
     when signedAggregateAndProof is electra.SignedAggregateAndProof:
+      # [REJECT] len(committee_indices) == 1, where committee_indices =
+      # get_committee_indices(aggregate)
       let agg_idx = get_committee_index_one(aggregate.committee_bits).valueOr:
         return pool.checkedReject("Aggregate: got multiple committee bits")
       let idx = shufflingRef.get_committee_index(agg_idx.uint64)
