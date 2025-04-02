@@ -10,7 +10,7 @@
 import
   ./datatypes/base, ./beaconstate, ./forks, ./helpers
 
-# https://github.com/ethereum/consensus-specs/blob/v1.5.0-beta.0/specs/phase0/weak-subjectivity.md#configuration
+# https://github.com/ethereum/consensus-specs/blob/v1.5.0-beta.4/specs/phase0/weak-subjectivity.md#configuration
 const SAFETY_DECAY* = 10'u64
 
 # https://github.com/ethereum/consensus-specs/blob/v1.5.0-beta.0/specs/phase0/weak-subjectivity.md#compute_weak_subjectivity_period

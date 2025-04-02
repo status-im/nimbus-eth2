@@ -333,7 +333,7 @@ proc getBlockProposalData*(chain: var Eth1Chain,
         totalDepositsInNewBlock =
           withState(state):
             when consensusFork >= ConsensusFork.Electra:
-              # https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.10/specs/electra/validator.md#deposits
+              # https://github.com/ethereum/consensus-specs/blob/v1.5.0-beta.4/specs/electra/validator.md#deposits
               let eth1_deposit_index_limit = min(
                 forkyState.data.eth1_data.deposit_count,
                 forkyState.data.deposit_requests_start_index)
