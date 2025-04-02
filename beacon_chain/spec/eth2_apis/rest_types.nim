@@ -274,6 +274,7 @@ type
     seq_number*: string
     syncnets*: string
     attnets*: string
+    custody_group_count*: string
 
   RestNetworkIdentity* = object
     peer_id*: string
