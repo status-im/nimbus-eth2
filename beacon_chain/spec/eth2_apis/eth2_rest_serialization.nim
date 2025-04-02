@@ -3285,17 +3285,7 @@ proc decodeBytesJsonOrSsz*(
     version: string
 ): Result[T, RestErrorMessage] =
   var res {.noinit.}: T
-
-  let
-    typeFork = kind(typeof(res.data))
-    consensusFork = ConsensusFork.decodeString(version).valueOr:
-      return err(RestErrorMessage.init(Http400, UnableDecodeVersionError,
-                                       [version, $error]))
-  if typeFork != consensusFork:
-    return err(
-      RestErrorMessage.init(Http400, UnexpectedForkVersionError,
-                            ["eth-consensus-version", consensusFork.toString(),
-                             typeFork.toString()]))
+  const typeFork = kind(typeof(res.data))
 
   if contentType == ApplicationJsonMediaType:
     res =
@@ -3321,6 +3311,17 @@ proc decodeBytesJsonOrSsz*(
                                typeFork.toString()]))
     ok(res)
   elif contentType == OctetStreamMediaType:
+    let consensusFork =
+      ConsensusFork.decodeString(version).valueOr:
+        return err(RestErrorMessage.init(Http400, UnableDecodeVersionError,
+                                         [version, $error]))
+    if typeFork != consensusFork:
+      return err(
+        RestErrorMessage.init(
+          Http400, UnexpectedForkVersionError,
+          ["eth-consensus-version", consensusFork.toString(),
+           typeFork.toString()]))
+
     ok(T(
       version: newJString(typeFork.toString()),
       data:
