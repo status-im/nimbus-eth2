@@ -3285,7 +3285,7 @@ proc decodeBytesJsonOrSsz*(
     version: string
 ): Result[T, RestErrorMessage] =
   var res {.noinit.}: T
-  let typeFork = kind(typeof(res.data))
+  const typeFork = kind(typeof(res.data))
 
   if contentType == ApplicationJsonMediaType:
     res =
