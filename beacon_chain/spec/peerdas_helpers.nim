@@ -288,44 +288,6 @@ proc get_data_column_sidecars*(signed_beacon_block: fulu.TrustedSignedBeaconBloc
 
   sidecars
 
-proc get_data_column_sidecars*(
-    signed_block_header: fulu.SignedBeaconBlockHeader,
-    inclusion_proof: array[KZG_COMMITMENTS_INCLUSION_PROOF_DEPTH, Eth2Digest],
-    kzg_commitments: KzgCommitments,
-    cellsAndProofs: seq[CellsAndProofs]
-): seq[DataColumnSidecar] =
-  ## Given a trusted signed beacon block and the cells/proofs associated
-  ## with each data column (thereby blob as well) corresponding to the block,
-  ## this function assembles the sidecars which can be distributed to
-  ## the peers post data column reconstruction at every slot start.
-  ##
-  ## Note: this function only accepts `TrustedSignedBeaconBlock` as
-  ## during practice we would be computing cells and proofs from
-  ## data columns only after retrieving them from the database, where
-  ## they we were already verified and persisted.
-  var
-    sidecars =
-      newSeqOfCap[DataColumnSidecar](CELLS_PER_EXT_BLOB)
-
-  for column_index in 0..<NUMBER_OF_COLUMNS:
-    var
-      column_cells: seq[KzgCell]
-      column_proofs: seq[KzgProof]
-    for i in 0..<cellsAndProofs.len:
-      column_cells.add(cellsAndProofs[i].cells)
-      column_proofs.add(cellsAndProofs[i].proofs)
-
-    var sidecar = DataColumnSidecar(
-      index: ColumnIndex(column_index),
-      column: DataColumn.init(column_cells),
-      kzg_commitments: kzg_commitments,
-      kzg_proofs: KzgProofs.init(column_proofs),
-      signed_block_header: signed_block_header,
-      kzg_commitments_inclusion_proof: inclusion_proof)
-    sidecars.add(sidecar)
-
-  sidecars
-
 # Additional overload to perform reconstruction at the time of gossip
 #  https://github.com/ethereum/consensus-specs/blob/v1.5.0-beta.0/specs/fulu/das-core.md#get_data_column_sidecars
 proc get_data_column_sidecars*(signed_beacon_block: fulu.SignedBeaconBlock,
