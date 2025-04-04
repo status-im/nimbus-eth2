@@ -564,6 +564,7 @@ type
         name: "light-client-data-max-periods" .}: Option[uint64]
 
       columnSyncerStrategy* {.
+        hidden
         desc: "Choose how to sync columns, " &
               " 1) Greedy would make the BN actively filter peers based on higher column custody. " &
               " 2) Impartial would rely on every peer for columns till requisite column count is reached. "
