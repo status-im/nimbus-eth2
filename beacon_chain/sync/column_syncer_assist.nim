@@ -909,19 +909,3 @@ proc progress*[T](cas: ColumnSyncerAssist[T]): uint64 =
   ## How many useful slots we've synced so far, adjusting for how much has
   ## become obsolete by time movements
   cas.total - cas.len
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
