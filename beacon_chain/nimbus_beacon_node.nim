@@ -562,6 +562,7 @@ proc initFullNode(
       node.network.peerPool, dag.cfg, supernode, custody_columns_set,
       custody_columns_list, dag.cfg.FULU_FORK_EPOCH,
       dag.cfg.MIN_EPOCHS_FOR_BLOB_SIDECARS_REQUESTS,
+      dag.cfg.MAX_BLOBS_PER_BLOCK_ELECTRA,
       ColumnSyncerDirection.Forward, getLocalHeadSlot,
       getLocalWallSlot, getFirstSlotAtFinalizedEpoch, getBackfillSlot,
       getFrontfillSlot, dag.tail.slot, peerdasBlockVerifier,
@@ -2289,6 +2290,7 @@ proc run(node: BeaconNode) {.raises: [CatchableError].} =
       node.network.cfg.FULU_FORK_EPOCH:
     node.requestManager.switchToColumnLoop()
   node.syncOverseer.start()
+  node.columnManager.start()
 
   waitFor node.updateGossipStatus(wallSlot)
 

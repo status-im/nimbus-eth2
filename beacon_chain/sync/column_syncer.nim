@@ -38,7 +38,7 @@ type
     Queueing, Processing
 
   ColumnAndBlockResponse* = object
-    blk*: ref ForkedSignedBeaconBlock
+    blk*: fulu.SignedBeaconBlock
     columns*: Opt[DataColumnSidecars]
 
   ColumnSyncerFlag* {.pure.} = enum
@@ -60,6 +60,7 @@ type
     column_syncer_table*: OrderedTable[Slot, ColumnAndBlockResponse]
     FULU_FORK_EPOCH: Epoch
     MIN_EPOCHS_FOR_BLOB_SIDECARS_REQUESTS: uint64
+    MAX_BLOBS_PER_BLOCK_ELECTRA: uint64
     responseTimeout: chronos.Duration
     maxHeadAge: uint64
     assist*: ColumnSyncerAssist[A]
@@ -92,7 +93,7 @@ type
     NetRes[List[ref ForkedSignedBeaconBlock, Limit MAX_REQUEST_BLOCKS]]
 
   DataColumnSidecarsRes =
-    NetRes[List[ref DataColumnSidecar, Limit(NUMBER_OF_COLUMNS)]]
+    NetRes[List[ref DataColumnSidecar, Limit MAX_REQUEST_DATA_COLUMN_SIDECARS]]
 
 proc now*(cst: typedesc[ColumnSyncTimestamp],
           slots: uint64):
@@ -138,6 +139,7 @@ proc newColumnManager*[A, B](
     custody_columns_list: List[ColumnIndex, NUMBER_OF_COLUMNS],
     fuluEpoch: Epoch,
     minEpochsForBlobSidecarsRequests: uint64,
+    maxBlobsPerBlockElectra: uint64,
     direction: ColumnSyncerDirection,
     getLocalHeadSlotCb: GetSlotCallback,
     getLocalWallSlotCb: GetSlotCallback,
@@ -168,6 +170,7 @@ proc newColumnManager*[A, B](
     column_syncer_table: initOrderedTable[Slot, ColumnAndBlockResponse](),
     FULU_FORK_EPOCH: fuluEpoch,
     MIN_EPOCHS_FOR_BLOB_SIDECARS_REQUESTS: minEpochsForBlobSidecarsRequests,
+    MAX_BLOBS_PER_BLOCK_ELECTRA: maxBlobsPerBlockElectra,
     getLocalHeadSlot: getLocalHeadSlotCb,
     getLocalWallSlot: getLocalWallSlotCb,
     getSafeSlot: getSafeSlot,
@@ -197,7 +200,7 @@ proc fetchBlocksForColumnNavigation[A, B](man: ColumnManager[A, B], peer: A,
     direction = man.direction
 
   doAssert(not(req.isEmpty()), "Request must not be empty!")
-  debug "Requesting blocks from peer", request = req,
+  debug "Requesting blocks from peer",
          peer_score = req.item.getScore(),
          peer_speed = req.item.netKbps(),
          topics = "columnsync"
@@ -232,11 +235,24 @@ proc checkDataColumns(data_columns: seq[DataColumnSidecars]):
 proc intersectionColumns[A, B](
     man: ColumnManager[A, B],
     peer: A): List[ColumnIndex, NUMBER_OF_COLUMNS] =
-  let remoteNodeId =
-    fetchNodeIdFromPeerId(peer)
-  intersection(man.custody_columns_set,
-               resolve_columns_from_custody_groups(remoteNodeId, max(SAMPLES_PER_SLOT.uint64,
-                                                   peer.lookupCgcFromPeer()).toHashSet()))
+  let
+    remoteNodeId =
+      fetchNodeIdFromPeerId(peer)
+    peer_cgc =
+      peer.lookupCgcFromPeer()
+    intersect_cgc =
+      intersection(
+        man.custody_columns_set,
+        man.cfg.resolve_columns_from_custody_groups(remoteNodeId,
+                                                    max(SAMPLES_PER_SLOT.uint64,
+                                                    peer_cgc)).toHashSet())
+  var
+    intersect_list: List[ColumnIndex, NUMBER_OF_COLUMNS]
+
+  for item in intersect_cgc:
+    discard intersect_list.add item
+
+  intersect_list
 
 proc refreshColumnScoring[A, B](
     man: ColumnManager[A, B]) =
@@ -267,37 +283,53 @@ proc refreshColumnScoring[A, B](
         ## the peer to prevent disconnection
         peer.updateScore(PeerScoreIntersectingColumns)
 
-proc getDataColumnSidecars[A, B](man: ColumnManager[A, B],
+proc getDataColumnSidecarsByRange[A, B](man: ColumnManager[A, B],
                                  peer: A,
                                  r: ColumnSyncRequest[A],
                                  req_cols: List[ColumnIndex, NUMBER_OF_COLUMNS]):
-                                 Future[DataColumnSidecarsRes] =
+                                 Future[DataColumnSidecarsRes]
+                                 {.async: (raises: [CancelledError], raw: true).} =
   mixin getScore, `==`
 
   logScope:
     peer_score = peer.getScore()
     peer_speed = peer.netKbps()
+    topics = "columnsync"
 
-  doAssert(not(req.isEmpty()), "Request must not be empty")
-  debug "Requesting data column sidecars from peer", request = req,
-         peer_score = req.item.getScore(),
-         peer_speed = req.item.netKbps(),
-         topics = "columnsync"
+  doAssert(not(r.isEmpty()), "Request must not be empty")
+  debug "Requesting data column sidecars from peer"
   dataColumnSidecarsByRange(peer, r.slot, r.count, req_cols)
+
+proc remainingSlots(man: ColumnManager): uint64 =
+  let
+    first = man.getFirstSlot()
+    last = man.getLastSlot()
+  if man.direction == ColumnSyncerDirection.Forward:
+    if last > first:
+      man.getLastSlot() - man.getFirstSlot()
+    else:
+      0'u64
+  else:
+    if first > last:
+      man.getFirstSlot() - man.getLastSlot()
+    else:
+      0'u64
 
 proc filterRelevantPeers[A, B](man: ColumnManager[A, B],
                                peers: seq[A],
                                w_index: int):
-                               seq[A] =
+                               Future[seq[A]] {.async: (raises: [CancelledError]).} =
   ## This iterates over the available peers
   ## and returns a refreshed peer list based on
   ## whichever's peer status is recent and relevant
+  ##
+  var
+    refreshed_peer_set: seq[A]
   for peer in peers:
     var
       headSlot = man.getLocalHeadSlot()
       wallSlot = man.getLocalWallSlot()
       peerSlot = peer.getHeadSlot()
-      refreshed_peer_set: seq[A]
 
     debug "Peer's syncing status", peer = peer,
            peer_score = peer.getScore(), peer_speed = peer.netKbps(),
@@ -345,7 +377,9 @@ proc filterRelevantPeers[A, B](man: ColumnManager[A, B],
               remote_new_head_slot = newPeerSlot
         peer.updateScore(PeerScoreGoodStatus)
         peerSlot = newPeerSlot
-        refreshed_peer_set.add(set)
+        refreshed_peer_set.add(peer)
+
+  refreshed_peer_set
 
 func groupAndFillColumnTable*[A, B](
     man: ColumnManager[A, B],
@@ -385,50 +419,45 @@ func groupAndFillColumnTable*[A, B](
             columns: Opt.some(grouped[block_idx]))
   ok()
 
-func serializeColumnTable*[A, B](
+proc serializeColumnTable*[A, B](
     man: ColumnManager[A, B]
 ): Result[seq[DataColumnSidecars], string] =
   # Iterate through the column syncer table
   for k, v in man.column_syncer_table.pairs():
-    # Checking if the table has all the required columns
     if man.amIsupernode:
-      if v.columns.len >= (man.cfg.NUMBER_OF_COLUMNS div 2) and
+      if v.columns.get.lenu64 >= (man.cfg.NUMBER_OF_COLUMNS div 2) and
           v.columns.isSome():
         let
           recovered_cps =
             recover_cells_and_proofs(v.columns.get().mapIt(it[]))
           reconstructed_columns =
-            get_data_column_sidecars(v.blk[], recovered_cps.get()).mapIt(newClone it)
-
-
+            get_data_column_sidecars(v.blk, recovered_cps.get()).mapIt(newClone it)
         # Populate that particular entry with reconstructed columns
         man.column_syncer_table[k] =
           ColumnAndBlockResponse(
             blk: v.blk,
             columns: Opt.some(reconstructed_columns))
 
-      elif v.columns.len < (NUMBER_OF_COLUMNS div 2) and v.columns.isSome():
+      elif v.columns.get.lenu64 < (man.cfg.NUMBER_OF_COLUMNS div 2) and
+          v.columns.isSome():
         return err ("Requisite number of columns not yet reached")
 
-    elif man.amIsupernode == false:
-      if v.columns.len == max(man.cfg.CUSTODY_REQUIREMENT, man.cfg.SAMPLES_PER_SLOT) and
+    else:
+      if v.columns.get.lenu64 == max(man.cfg.CUSTODY_REQUIREMENT, man.cfg.SAMPLES_PER_SLOT) and
           v.columns.isSome:
 
         # Do nothing, table entry is fine
         discard
-      elif v.columns.len == max(man.cfg.CUSTODY_REQUIREMENT, man.cfg.SAMPLES_PER_SLOT) and
+      elif v.columns.get.lenu64 == max(man.cfg.CUSTODY_REQUIREMENT, man.cfg.SAMPLES_PER_SLOT) and
           v.columns.isSome:
 
         # Retry as custody has not been reached yet
         return err ("Requisite number of columns not yet reached")
 
-    else:
-      discard
-
   var grouped_serialized_columns: seq[DataColumnSidecars]
   # Iterate once more to serialize the entries
   for _, v in man.column_syncer_table.pairs():
-    grouped_serialized_columns.add(v)
+    grouped_serialized_columns.add(v.columns.get)
 
   ok(grouped_serialized_columns)
 
@@ -588,81 +617,95 @@ proc columnSyncStrategyImpartial[A, B](
     return
 
   debug "Creating new request for peer", wall_clock_slot = wallSlot,
-        remote_head_slot = peerSlot, local_head_slot = headSlot,
-        request = req
+        remote_head_slot = peerSlot, local_head_slot = headSlot
 
   man.workers[index].status = ColumnSyncerStatus.Downloading
 
   let blocks = await man.fetchBlocksForColumnNavigation(peer, req)
   if blocks.isErr():
     peer.updateScore(PeerScoreNoValues)
-    man.queue.push(req)
+    man.assist.push(req)
     debug "Failed to receive blocks on request",
-          request = req, err = blocks.error
+           err = blocks.error
     return
   let blockData = blocks.get().asSeq()
   debug "Received blocks on request",
-         blocks_count = len(blockData),
-         request = req
+         blocks_count = len(blockData)
 
   let slots = mapIt(blockData, it[].slot)
   checkResponse(req, slots).isOkOr:
     peer.updateScore(PeerScoreBadResponse)
-    man.queue.push(req)
+    man.assist.push(req)
     warn "Incorrect blocks sequence received",
           blocks_count = len(blockData),
-          blocks_map = getShortMap(req, blockData),
-          request = req,
           reason = error
     return
+
+  let shouldGetDataColumns =
+    if not man.shouldGetDataColumns(req):
+      false
+    else:
+      var hasColumns = false
+      for blck in blockData:
+        withBlck(blck[]):
+          when consensusFork >= ConsensusFork.Fulu:
+            if forkyBlck.message.body.blob_kzg_commitments.len > 0:
+              hasColumns = true
+              break
+      hasColumns
 
   let
     remoteNodeId =
       fetchNodeIdFromPeerId(peer)
+    peer_cgc =
+      peer.lookupCgcFromPeer()
     serveable_columns =
-      man.cfg.resolve_columns_from_custody_groups(remoteNodeId, max(SAMPLES_PER_SLOT.uint64,
-                                                peer.lookupCgcFromPeer()))
+      List[ColumnIndex, NUMBER_OF_COLUMNS].init(
+        man.cfg.resolve_columns_from_custody_groups(
+          remoteNodeId,
+          max(SAMPLES_PER_SLOT.uint64,
+          peer_cgc)))
+
   let columnData =
     if shouldGetDataColumns:
       let columns =
-        await man.getDataColumnSidecars(peer, serveable_columns)
+        await man.getDataColumnSidecarsByRange(peer, req, serveable_columns)
       if columns.isErr:
         peer.updateScore(PeerScoreNoValues)
         man.assist.push(req)
         debug "Failed to receive columns on request",
-              request = req, err = columns.error
+               err = columns.error
         return
       let columnData = columns.get().asSeq()
       debug "Received data columns on request",
             columns_count = len(columnData)
       if len(columnData) > 0:
         let slots = mapIt(columnData, it[].signed_block_header.message.slot)
-        checkDataColumnsResponse(req, slots).isOkOr:
+        checkDataColumnsResponse(req, slots, man.MAX_BLOBS_PER_BLOCK_ELECTRA).isOkOr:
           peer.updateScore(PeerScoreBadResponse)
           man.assist.push(req)
           warn "Incorrect columns sequence received",
                columns_count = len(columnData),
-               request = req,
                reason = error
           return
 
-      man.groupAndFillColumnTable(blockData, columnData).valueOr:
+      man.groupAndFillColumnTable(blockData, columnData).isOkOr:
         peer.updateScore(PeerScoreNoValues)
         man.assist.push(req)
         info "Received column sequence is inconsistent",
-             request = req, msg = error
+              msg = error
         return
 
       let finalColumns =
         man.serializeColumnTable().valueOr:
           warn "Issue in grouping reconstructed columns",
-               request = req, msg = error
+                msg = error
+          return
       finalColumns.checkDataColumns().isOkOr:
         peer.updateScore(PeerScoreBadResponse)
         man.assist.push(req)
         warn "Columns verification failed",
              columns_count = len(columnData),
-             request = req,
              reason = error
         return
 
@@ -672,10 +715,9 @@ proc columnSyncStrategyImpartial[A, B](
     else:
       Opt.none(seq[DataColumnSidecars])
 
-  if len(columnData) == 0 and req.contains(man.getSafeSlot()):
+  if len(blockData) == 0 and req.contains(man.getSafeSlot()):
     peer.updateScore(PeerScoreNoValues)
-    debug "Response does not include known-to-exist block",
-          request = req
+    debug "Response does not include known-to-exist block"
     return
 
   # Scoring will happen in `syncUpdate`
@@ -703,7 +745,8 @@ proc columnSyncStrategyGreedy[A, B](
     accumulator = 0
     requested_peer: A = nil
 
-  for peer in man.filterRelevantPeers(peers, w_index):
+  let filtered_peers = await man.filterRelevantPeers(peers, w_index)
+  for peer in filtered_peers:
     ## Look for the broadest intersection set among the peers
     if man.intersectionColumns(peer).len > accumulator:
       accumulator = man.intersectionColumns(peer).len
@@ -713,12 +756,10 @@ proc columnSyncStrategyGreedy[A, B](
   let int_cols = man.intersectionColumns(requested_peer)
 
   if man.remainingSlots() <= man.maxHeadAge:
-    info "We have synced all columns from the network", wall_clock_slot = wallSlot,
-          remote_head_slot = peerSlot, local_head_slot = headSlot
-
-  # Putting all ColumnSync workers to sleep
-  man.notInSyncEvent.clear()
-  return
+    info "We have synced all columns from the network"
+    # Putting all ColumnSync workers to sleep
+    man.notInSyncEvent.clear()
+    return
 
   var
     headSlot = man.getLocalHeadSlot()
@@ -739,17 +780,16 @@ proc columnSyncStrategyGreedy[A, B](
   man.workers[w_index].status = ColumnSyncerStatus.Requesting
   let req = man.assist.pop(reqPeerSlot, requested_peer)
   if req.isEmpty():
-    debug "Empty request received from syncer assist, exiting", peer = peer,
+    debug "Empty request received from syncer assist, exiting", peer = requested_peer,
           local_head_slot = headSlot, remote_head_slot = reqPeerSlot,
           queue_input_slot = man.assist.inpSlot,
-          queue_output_slot = man.queue.outSlot,
+          queue_output_slot = man.assist.outSlot,
           queue_last_slot = man.assist.finalSlot
     await sleepAsync(RESP_TIMEOUT_DUR)
     return
 
   debug "Creating a new request for the peer", wall_clock_slot = wallSlot,
-          remote_head_slot = reqPeerSlot, local_head_slot = headSlot,
-          request = req
+          remote_head_slot = reqPeerSlot, local_head_slot = headSlot
 
   man.workers[w_index].status = ColumnSyncerStatus.Downloading
 
@@ -758,58 +798,77 @@ proc columnSyncStrategyGreedy[A, B](
     requested_peer.updateScore(PeerScoreNoValues)
     man.assist.push(req)
     debug "Failed to receive blocks on request",
-          request = req, err = blocks.error
+           err = blocks.error
     return
 
   let blockData = blocks.get().asSeq()
   debug "Received blocks on request",
-        blocks_count = len(blockData),
-        request = req
+        blocks_count = len(blockData)
+
+  let slots = mapIt(blockData, it[].slot)
+  checkResponse(req, slots).isOkOr:
+    requested_peer.updateScore(PeerScoreBadResponse)
+    man.assist.push(req)
+    warn "Incorrect blocks sequence received",
+          blocks_count = len(blockData),
+          reason = error
+    return
+
+  let shouldGetDataColumns =
+    if not man.shouldGetDataColumns(req):
+      false
+    else:
+      var hasColumns = false
+      for blck in blockData:
+        withBlck(blck[]):
+          when consensusFork >= ConsensusFork.Fulu:
+            if forkyBlck.message.body.blob_kzg_commitments.len > 0:
+              hasColumns = true
+              break
+      hasColumns
 
   debug "Requesting common columns from the best peer"
   let columnData =
     if shouldGetDataColumns:
       let columns =
-        await man.getDataColumnSidecars(requested_peer, intersectionColumns)
+        await man.getDataColumnSidecarsByRange(requested_peer, req, int_cols)
       if columns.isErr():
         requested_peer.updateScore(PeerScoreNoValues)
         man.assist.push(req)
         debug "Failed to receive columns on request",
-              request = req, err = columns.error
+               err = columns.error
         return
       let columnData = columns.get().asSeq()
       debug "Received data columns on request",
-            columns_count = len(columnData),
-            request = req
+            columns_count = len(columnData)
 
       if len(columnData) > 0:
         let slots = mapIt(columnData, it[].signed_block_header.message.slot)
-        checkDataColumnsResponse(req, slots).isOkOr:
+        checkDataColumnsResponse(req, slots, man.MAX_BLOBS_PER_BLOCK_ELECTRA).isOkOr:
           requested_peer.updateScore(PeerScoreBadResponse)
           man.assist.push(req)
           warn "Incorrect columns sequence received",
                 columns_count = len(columnData),
-                request = req,
                 reason = error
           return
 
-      man.groupAndFillColumnTable(blockData, columnData).valueOr:
+      man.groupAndFillColumnTable(blockData, columnData).isOkOr:
         requested_peer.updateScore(PeerScoreNoValues)
         man.assist.push(req)
         info "Received columns sequence is inconsistent",
-              request = req, msg = error
+              msg = error
         return
 
       let finalColumns =
         man.serializeColumnTable().valueOr:
           warn "Issue in grouping reconstructed columns",
-                request = req, msg = error
+                msg = error
+          return
       finalColumns.checkDataColumns().isOkOr:
         requested_peer.updateScore(PeerScoreBadResponse)
         man.assist.push(req)
         warn "Columns verification failed",
               columns_count = len(columnData),
-              request = req,
               reason = error
         return
       # Reset the column syncer table for the next batch
@@ -818,10 +877,9 @@ proc columnSyncStrategyGreedy[A, B](
     else:
       Opt.none(seq[DataColumnSidecars])
 
-  if len(columnData) == 0 and req.contains(man.getSafeSlot()):
+  if len(blockData) == 0 and req.contains(man.getSafeSlot()):
     requested_peer.updateScore(PeerScoreNoValues)
-    debug "Response does not include known-to-exist block",
-          request = req
+    debug "Response does not include known-to-exist block"
     return
 
   # Scoring will happen in `syncUpdate`
@@ -837,7 +895,7 @@ proc columnSyncStrategyGreedy[A, B](
   await man.assist.push(
     req, blockData, columnData,
     maybeFinalized, proc() =
-    man.workers[index].status = ColumnSyncerStatus.Processing)
+    man.workers[w_index].status = ColumnSyncerStatus.Processing)
 
 proc columnSyncWorkerGreedy[A, B](
     man: ColumnManager[A, B],
@@ -854,13 +912,19 @@ proc columnSyncWorkerGreedy[A, B](
       # This event is going to be set until we are not in sync with the network
       await man.notInSyncEvent.wait()
       man.workers[index].status = ColumnSyncerStatus.WaitingPeer
-      for peer in availablePeers(man.pool):
+      for _ in 0..<10:
+        var peer: A = nil
         peer = await man.pool.acquire()
-        if intersection(
-            man.custody_columns_set,
-            resolve_columns_from_custody_groups(fetchNodeIdFromPeerId(peer),
-                                                max(SAMPLES_PER_SLOT.uint64,
-                                                peer.lookupCgcFromPeer()).toHashSet())):
+        let
+          peer_nodeid = peer.fetchNodeIdFromPeerId()
+          peer_cgc = peer.lookupCgcFromPeer()
+          intersect_cgc =
+              intersection(
+              man.custody_columns_set,
+              man.cfg.resolve_columns_from_custody_groups(peer_nodeid,
+                                                        max(SAMPLES_PER_SLOT.uint64,
+                                                        peer_cgc)).toHashSet())
+        if intersect_cgc.len > 0:
           usefulPeers.add(peer)
         else:
           uselessPeers.add(peer)
@@ -869,13 +933,11 @@ proc columnSyncWorkerGreedy[A, B](
           break
       # send back the useless peers back to pool
       man.pool.release(uselessPeers)
-      uselessPeers.mapIt(nil)
 
       # send the useful peers to `columnSyncingStrategy`
       await man.columnSyncStrategyGreedy(usefulPeers, index)
 
       man.pool.release(usefulPeers)
-      usefulPeers.mapIt(nil)
   finally:
     for peer in usefulPeers & uselessPeers:
       if not isNil(peer):
@@ -995,7 +1057,7 @@ proc columnSyncClose[A, B](
 
 proc columnSyncLoop[A, B](
     man: ColumnManager[A, B]
-) {.async: (raises: []).} =
+) {.async: (raises: [CancelledError]).} =
 
   logScope:
     direction = man.direction
@@ -1043,7 +1105,7 @@ proc columnSyncLoop[A, B](
     let wallSlot = man.getLocalWallSlot()
     let headSlot = man.getLocalHeadSlot()
 
-    let (map, sleeping, waiting, pending) = man.getWorkersStats()
+    let (map, sleeping, waiting, pending) = man.getColumnSyncerStats()
 
     case man.assist.direction
     of ColumnSyncerDirection.Forward:
@@ -1056,6 +1118,16 @@ proc columnSyncLoop[A, B](
             pause_time = $chronos.seconds(pauseTime),
             avg_sync_speed = man.avgSyncSpeed.formatBiggestFloat(ffDecimal, 4),
             ins_sync_speed = man.insSyncSpeed.formatBiggestFloat(ffDecimal, 4)
+    of ColumnSyncerDirection.Backward:
+      debug "Current syncing state", workers_map = map,
+             sleeping_workers_count = sleeping,
+             waiting_workers_count = waiting,
+             pending_workers_count = pending,
+             wall_head_slot = wallSlot,
+             backfill_slot = man.getSafeSlot(),
+             pause_time = $chronos.seconds(pauseTime),
+             avg_sync_speed = man.avgSyncSpeed.formatBiggestFloat(ffDecimal, 4),
+             ins_sync_speed = man.insSyncSpeed.formatBiggestFloat(ffDecimal, 4)
 
     let
       pivot = man.progressPivot
@@ -1067,7 +1139,7 @@ proc columnSyncLoop[A, B](
           else:
             0'u64
         of ColumnSyncerDirection.Backward:
-          if pivot >= man.assist.direction:
+          if pivot >= man.assist.outSlot:
             pivot - man.assist.outSlot
           else:
             0'u64
@@ -1171,7 +1243,7 @@ proc columnSyncLoop[A, B](
     await sleepAsync(chronos.seconds(2))
 
 proc start*[A, B](man: ColumnManager[A, B]) =
-  man.columnSyncerFut = man.columnSyncLoop()
+  man.columnSyncFut = man.columnSyncLoop()
 
 proc updatePivot*[A, B](man: ColumnManager[A, B], pivot: Slot) =
   man.progressPivot = pivot

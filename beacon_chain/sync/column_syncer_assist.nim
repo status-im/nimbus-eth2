@@ -44,7 +44,7 @@ type
     item*: T
 
   ColumnSyncResult*[T] = object
-    request*: T
+    request*: ColumnSyncRequest[T]
     data*: seq[ref ForkedSignedBeaconBlock]
     columns*: Opt[seq[DataColumnSidecars]]
 
@@ -61,7 +61,7 @@ type
     gapList*: seq[GapColumn[T]]
     waiters*: seq[ColumnSyncWaiter]
     getSafeSlot*: GetSlotCallback
-    debtsQueue: HeapQueue[ColumnSyncResult[T]]
+    debtsQueue: HeapQueue[ColumnSyncRequest[T]]
     debtsCount: uint64
     readyQueue: HeapQueue[ColumnSyncResult[T]]
     rewind: Option[RewindPoint]
@@ -88,7 +88,7 @@ proc empty*[T](t: typedesc[ColumnSyncRequest], direction: ColumnSyncerDirection,
 proc setItem*[T](sr: var ColumnSyncRequest[T], item: T) =
   sr.item = item
 
-proc isEmpty*[T](sr: ColumnSyncRequest[T]): bool {.inline.} =
+proc isEmpty*[T](sr: ColumnSyncRequest[T]): bool =
   (sr.count == 0'u64)
 
 template shortLog*[T](req: ColumnSyncRequest[T]): string =
@@ -96,14 +96,46 @@ template shortLog*[T](req: ColumnSyncRequest[T]): string =
   Base10.toString(req.count) & "@" &
   Base10.toString(req.index)
 
-proc contains*[T](req: ColumnSyncRequest, slot: Slot): bool {.inline.} =
+proc contains*[T](req: ColumnSyncRequest[T], slot: Slot): bool {.inline.} =
   slot >= req.slot and slot < req.slot + req.count
 
 proc cmp*[T](a, b: ColumnSyncRequest[T]): int =
   cmp(uint64(a.slot), uint64(b.slot))
 
+proc checkResponse*[T](req: ColumnSyncRequest[T],
+                       data: openArray[Slot]): Result[void, cstring] =
+  if len(data) == 0:
+    # Impossible to verify empty response.
+    return ok()
+
+  if lenu64(data) > req.count:
+    # Number of blocks in response should be less or equal to number of
+    # requested blocks.
+    return err("Too many blocks received")
+
+  var
+    slot = req.slot
+    rindex = 0'u64
+    dindex = 0
+
+  while (rindex < req.count) and (dindex < len(data)):
+    if slot < data[dindex]:
+      discard
+    elif slot == data[dindex]:
+      inc(dindex)
+    else:
+      return err("Incorrect order or duplicate blocks found")
+    slot += 1'u64
+    rindex += 1'u64
+
+  if dindex != len(data):
+    return err("Some of the blocks are outside the requested range")
+
+  ok()
+
 proc checkDataColumnsResponse*[T](req: ColumnSyncRequest[T],
-                                  data: openArray[Slot]):
+                                  data: openArray[Slot],
+                                  maxBlobsPerBlockElectra: uint64):
                                   Result[void, string] =
   if data.len == 0:
     return ok()
@@ -124,7 +156,7 @@ proc checkDataColumnsResponse*[T](req: ColumnSyncRequest[T],
     if slot == pSlot:
       inc counter
       # keeping this constant Electra until Fulu comes in
-      if counter > MAX_BLOBS_PER_BLOCK_ELECTRA:
+      if counter > maxBlobsPerBlockElectra * NUMBER_OF_COLUMNS:
         return err ("Number of data columns in the block has exceeded the limit")
     else:
       counter = 1'u64
@@ -151,7 +183,7 @@ proc init*[T](t1: typedesc[ColumnSyncerAssist], t2: typedesc[T],
     waiters: newSeq[ColumnSyncWaiter](),
     counter: 1'u64,
     pending: initTable[uint64, ColumnSyncRequest[T]](),
-    debtsQueue: initHeapQueue[ColumnSyncResult[T]](),
+    debtsQueue: initHeapQueue[ColumnSyncRequest[T]](),
     inpSlot: start,
     outSlot: start,
     peerdasBlockVerifier: peerdasBlockVerifier)
@@ -163,6 +195,14 @@ proc `<`*[T](a, b: ColumnSyncRequest[T]): bool =
     a.slot < b.slot
   of ColumnSyncerDirection.Backward:
     a.slot > b.slot
+
+proc `<`*[T](a, b: ColumnSyncResult[T]): bool =
+  doAssert(a.request.direction == b.request.direction)
+  case a.request.direction
+  of ColumnSyncerDirection.Forward:
+    a.request.slot < b.request.slot
+  of ColumnSyncerDirection.Backward:
+    a.request.slot > b.request.slot
 
 proc `==`*[T](a, b: ColumnSyncRequest[T]): bool =
   (a.slot == b.slot) and (a.count == b.count)
@@ -300,7 +340,7 @@ proc rewardForGaps[T](cas: ColumnSyncerAssist[T], score: int) =
     else:
       gap.item.updateScore(score)
 
-proc toDebtsQueue[T](cas: ColumnSyncerAssist[T], sr: ColumnSyncResult[T]) =
+proc toDebtsQueue[T](cas: ColumnSyncerAssist[T], sr: ColumnSyncRequest[T]) =
   cas.debtsQueue.push(sr)
   cas.debtsCount = cas.debtsCount + sr.count
 
@@ -384,7 +424,7 @@ proc getRewindPoint*[T](cas: ColumnSyncerAssist[T], failSlot: Slot,
       # finalized epoch.
       let rewindEpoch = failEpoch - epochCount
       # Update and save new rewind point in ColumnSyncerAssist
-      cas.rewind = some(RewindPoint(failSlot, epochCount: epochCount))
+      cas.rewind = some(RewindPoint(failSlot: failSlot, epochCount: epochCount))
       rewindEpoch.start_slot()
 
   of ColumnSyncerDirection.Backward:
@@ -425,14 +465,14 @@ proc advanceInput[T](cas: ColumnSyncerAssist[T], number: uint64) =
   of ColumnSyncerDirection.Backward:
     cas.inpSlot = cas.inpSlot - number
 
-proc notInRange[T](cas: ColumnSyncerAssist[T], sr: ColumnSyncResult[T]): uint64 =
-  case cas.direction:
+proc notInRange[T](cas: ColumnSyncerAssist[T], sr: ColumnSyncRequest[T]): bool =
+  case cas.direction
   of ColumnSyncerDirection.Forward:
     (cas.queueSize > 0) and (sr.slot > cas.outSlot)
   of ColumnSyncerDirection.Backward:
     (cas.queueSize > 0) and (sr.lastSlot < cas.outSlot)
 
-func numAlreadyKnownSlots[T](cas: ColumnSyncerAssist, sr: ColumnSyncResult[T]): uint64 =
+func numAlreadyKnownSlots[T](cas: ColumnSyncerAssist, sr: ColumnSyncRequest[T]): uint64 =
   ## Compute the number of slots covered by a given `ColumnSyncResult` that are
   ## already known and, hence, no relevant for sync progressions
   let
@@ -467,6 +507,9 @@ proc push*[T](cas: ColumnSyncerAssist[T], sr: ColumnSyncRequest[T],
               maybeFinalized: bool = false,
               processingCb: ProcessingCallback = nil)
               {.async: (raises: [CancelledError]).} =
+
+  logScope:
+    topics = "columnsync"
 
   ## Push successful result to queue
   mixin updateScore, updateStats, getStats
@@ -515,7 +558,7 @@ proc push*[T](cas: ColumnSyncerAssist[T], sr: ColumnSyncRequest[T],
         warn "Got incorrect column sync result in queue, rewinding",
              blocks_count = len(cas.readyQueue[0].data),
              output_slot = cas.outSlot, input_slot = cas.inpSlot,
-             rewind_to_slot = rewindSlot, request = cas.readyQueue[0].request
+             rewind_to_slot = rewindSlot
         await cas.resetWait(some(rewindSlot))
         break
 
@@ -533,7 +576,7 @@ proc push*[T](cas: ColumnSyncerAssist[T], sr: ColumnSyncRequest[T],
 
     var i=0
     for blk, col in cas.peerdas_blocks(item):
-      res = await cas.peerdasBlockVerifier(blk[], cols, maybeFinalized)
+      res = await cas.peerdasBlockVerifier(blk[], col, maybeFinalized)
       inc i
 
       if res.isOk:
@@ -557,8 +600,8 @@ proc push*[T](cas: ColumnSyncerAssist[T], sr: ColumnSyncRequest[T],
           hasInvalidBlock = true
 
           let req = item.request
-          notice "Received invalid sequence of blocks", request = req,
-                 blocks_count = len(item.data)
+          notice "Received invalid sequence of blocks",
+                  blocks_count = len(item.data)
           req.item.updateScore(PeerScoreBadValues)
           break
 
@@ -574,7 +617,7 @@ proc push*[T](cas: ColumnSyncerAssist[T], sr: ColumnSyncRequest[T],
         # If there no error and response was not empty we should reward peer
         # with some bonus score - not for duplicate blocks though.
         item.request.item.updateScore(PeerScoreGoodValues)
-        item.request.item.updateScore(SyncResponseKind.Good, 1'u64)
+        item.request.item.updateStats(SyncResponseKind.Good, 1'u64)
 
         # BlockProcessor reports good block, so we can reward all the peers
         # who sent us empty response.
@@ -590,21 +633,21 @@ proc push*[T](cas: ColumnSyncerAssist[T], sr: ColumnSyncRequest[T],
         cas.wakeupWaiters()
 
     else:
-      debug "Block pool rejected peer's response", request = item.request,
-            blocks_count = len(item.data),
-            ok = goodBlock.isSome(),
-            unviable = unviableBlock.isSome(),
-            missing_parent = missingParentSlot.isSome()
+      debug "Block pool rejected peer's response",
+             blocks_count = len(item.data),
+             ok = goodBlock.isSome(),
+             unviable = unviableBlock.isSome(),
+             missing_parent = missingParentSlot.isSome()
 
       # We need to move failed response to the debts queue.
       cas.toDebtsQueue(item.request)
 
       if unviableBlock.isSome():
         let req = item.request
-        notice "Received blocks from an unviable fork", request = req,
-               blockRoot = unviableBlock.get()[0],
-               blockSlot = unviableBlock.get()[1],
-               blocks_count = len(item.data)
+        notice "Received blocks from an unviable fork",
+                blockRoot = unviableBlock.get()[0],
+                blockSlot = unviableBlock.get()[1],
+                blocks_count = len(item.data)
         req.item.updateScore(PeerScoreUnviableFork)
 
       if missingParentSlot.isSome():
@@ -632,38 +675,38 @@ proc push*[T](cas: ColumnSyncerAssist[T], sr: ColumnSyncRequest[T],
             # `VerifierError.MissingParent` and `Success` present in response,
             # it means that we to request this range one more time.
             debug "Unexpected missing parent, but no rewind needed",
-                  request = req, finalized_slot = safeSlot,
-                  last_good_slot = goodBlock.get(),
-                  missing_parent_slot = missingParentSlot.get(),
-                  blocks_count = len(item.data)
+                   finalized_slot = safeSlot,
+                   last_good_slot = goodBlock.get(),
+                   missing_parent_slot = missingParentSlot.get(),
+                   blocks_count = len(item.data)
             req.item.updateScore(PeerScoreUnviableFork)
           else:
             if safeSlot < req.slot:
               let rewindSlot = cas.getRewindPoint(failSlot, safeSlot)
               debug "Unexpected missing parent, rewind needed",
-                    request = req, rewind_to_slot = rewindSlot,
-                    rewind_point = cas.rewind, finalized_slot = safeSlot,
-                    blocks_count = len(item.data),
-                    gaps_count = gapsCount
+                     rewind_to_slot = rewindSlot,
+                     rewind_point = cas.rewind, finalized_slot = safeSlot,
+                     blocks_count = len(item.data),
+                     gaps_count = gapsCount
               resetSlot = some(rewindSlot)
             else:
               error "Unexpected missing parent at finalized epoch slot",
-                    request = req, rewind_to_slot = safeSlot,
-                    blocks_count = len(item.data),
-                    gaps_count = gapsCount
+                     rewind_to_slot = safeSlot,
+                     blocks_count = len(item.data),
+                     gaps_count = gapsCount
               req.item.updateScore(PeerScoreBadValues)
         of ColumnSyncerDirection.Backward:
           if safeSlot > failSlot:
             let rewindSlot = cas.getRewindPoint(failSlot, safeSlot)
             # It's quite common peers us fewer blocks than we ask for
-            debug "Gap in block range response, rewinding", request = req,
-                 rewind_to_slot = rewindSlot, rewind_fail_slot = failSlot,
-                 finalized_slot = safeSlot, blocks_count = len(item.data)
+            debug "Gap in block range response, rewinding",
+                   rewind_to_slot = rewindSlot, rewind_fail_slot = failSlot,
+                   finalized_slot = safeSlot, blocks_count = len(item.data)
             resetSlot = some(rewindSlot)
             req.item.updateScore(PeerScoreMissingValues)
           else:
-            error "Unexpected missing parent at safe slot", request = req,
-                  to_slot= safeSlot, blocks_count = len(item.data)
+            error "Unexpected missing parent at safe slot",
+                   to_slot= safeSlot, blocks_count = len(item.data)
             req.item.updateScore(PeerScoreBadValues)
 
         if resetSlot.isSome():
@@ -671,12 +714,12 @@ proc push*[T](cas: ColumnSyncerAssist[T], sr: ColumnSyncRequest[T],
           case cas.direction
           of ColumnSyncerDirection.Forward:
             debug "Rewind to slot has happened", reset_slot = resetSlot.get(),
-                  queue_input_slot = cas.inpSlot, queue_output_slot = cas.outSlot,
-                  rewind_point = cas.rewind, direction = cas.direction
+                   queue_input_slot = cas.inpSlot, queue_output_slot = cas.outSlot,
+                   rewind_point = cas.rewind, direction = cas.direction
           of ColumnSyncerDirection.Backward:
             debug "Rewind to slot has happened", reset_slot = resetSlot.get(),
-                  queue_input_slot = cas.inpSlot, queue_output_slot = cas.outSlot,
-                  direction = cas.direction
+                   queue_input_slot = cas.inpSlot, queue_output_slot = cas.outSlot,
+                   direction = cas.direction
       break
 
 proc push*[T](cas: ColumnSyncerAssist[T], sr: ColumnSyncRequest[T]) =
@@ -721,18 +764,18 @@ proc handlePotentialSafeSlotAdvancement[T](cas: ColumnSyncerAssist[T]) =
         if cas.inpSlot == 0xFFFF_FFFF_FFFF_FFFF'u64:
           0'u64
         else:
-          cas.inpSlot.numSlotBehindSafeSlot
+          cas.inpSlot.numSlotsBehindSafeSlot
 
   if numOutSlotsAdvanced != 0 or numInpSlotsAdvanced != 0:
     debug "Sync progress advanced out-of-bound",
-      safeSlot, outSlot = cas.outSlot, inpSlot = cas.inpSlot
+           safeSlot, outSlot = cas.outSlot, inpSlot = cas.inpSlot
     if numOutSlotsAdvanced != 0:
       cas.advanceOutput(numOutSlotsAdvanced)
     if numInpSlotsAdvanced != 0:
       cas.advanceInput(numInpSlotsAdvanced)
     cas.wakeupWaiters()
 
-func updateRequestForNewSafeSlot[T](cas: ColumnSyncerAssist[T], sr: ColumnSyncResult[T]) =
+func updateRequestForNewSafeSlot[T](cas: ColumnSyncerAssist[T], sr: var ColumnSyncRequest[T]) =
   # Requests may have originated before the latest `safeSlot` advancement.
   # Update it to not request any data prior to `safeSlot`.
   let
