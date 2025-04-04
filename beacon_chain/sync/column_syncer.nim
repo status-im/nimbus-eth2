@@ -1258,3 +1258,4 @@ proc join*[A, B](
     retFuture
   else:
     man.columnSyncFut.join()
+
