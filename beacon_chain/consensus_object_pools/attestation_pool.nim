@@ -1033,7 +1033,7 @@ proc getElectraAttestationsForBlock*(
           var e2 = entry.data
           e2.index = 0
           e2
-        key: CandidateKey = (hash_tree_root(entry2), entry.data.slot.Slot)
+        key = (hash_tree_root(entry2), entry.data.slot.Slot)
         newAtt = entry[].toElectraAttestation(entry[].aggregates[j])
 
       candidatesPerBlock.mGetOrPut(key, @[]).add(newAtt)
