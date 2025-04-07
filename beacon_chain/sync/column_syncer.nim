@@ -413,11 +413,19 @@ func groupAndFillColumnTable*[A, B](
             return err("DataColumnSidecar: unexpected signed_block_header")
           inc column_cursor
         # Make a table entry for the grouped columns
-        man.column_syncer_table[forkyBlck.message.slot] =
-          ColumnAndBlockResponse(
-            blk: forkyBlck,
-            columns: Opt.some(grouped[block_idx]))
-  ok()
+        if grouped[block_idx].len > 0:
+          man.column_syncer_table[forkyBlck.message.slot] =
+            ColumnAndBlockResponse(
+              blk: forkyBlck,
+              columns: Opt.some(grouped[block_idx]))
+
+  if column_cursor != columns.len:
+    # we reached the end of blocks without consuming all columns,
+    # so either we got too few blocks in the paired request, or the
+    # columns sent to us by the peer is malicious
+    ok()
+  else:
+    return err("DataColumnSidecar: invalid block/column is received")
 
 proc serializeColumnTable*[A, B](
     man: ColumnManager[A, B]
