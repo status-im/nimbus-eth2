@@ -952,7 +952,7 @@ proc getEpochSignature*(v: AttachedValidator, fork: Fork,
   v.epochSignature = Opt.some((epoch, signature.get))
   signature
 
-# https://github.com/ethereum/consensus-specs/blob/v1.4.0/specs/phase0/validator.md#aggregation-selection
+# https://github.com/ethereum/consensus-specs/blob/v1.5.0-beta.4/specs/phase0/validator.md#aggregation-selection
 proc getSlotSignature*(v: AttachedValidator, fork: Fork,
                        genesis_validators_root: Eth2Digest, slot: Slot
                       ): Future[SignatureResult]

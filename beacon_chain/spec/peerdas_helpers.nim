@@ -130,7 +130,7 @@ func resolve_columns_from_custody_groups*(cfg: RuntimeConfig, node_id: NodeId,
        flattened.add index
   flattened
 
-# https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.10/specs/fulu/das-core.md#compute_matrix
+# https://github.com/ethereum/consensus-specs/blob/v1.5.0-beta.4/specs/fulu/das-core.md#compute_matrix
 proc compute_matrix*(blobs: seq[KzgBlob]): Result[seq[MatrixEntry], cstring] =
   ## `compute_matrix` helper demonstrates the relationship
   ## between blobs and the `MatrixEntries`

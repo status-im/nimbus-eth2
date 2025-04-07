@@ -162,7 +162,7 @@ type
     amount*: Gwei
     withdrawable_epoch*: Epoch
 
-  # https://github.com/ethereum/consensus-specs/blob/v1.5.0-beta.0/specs/electra/beacon-chain.md#withdrawalrequest
+  # https://github.com/ethereum/consensus-specs/blob/v1.5.0-beta.4/specs/electra/beacon-chain.md#withdrawalrequest
   WithdrawalRequest* = object
     source_address*: ExecutionAddress
     validator_pubkey*: ValidatorPubKey

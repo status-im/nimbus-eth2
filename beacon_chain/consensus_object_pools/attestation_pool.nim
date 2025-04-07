@@ -507,7 +507,8 @@ proc addAttestation*(
 
   template addAttToPool(_: electra.Attestation) {.used.} =
     let
-      committee_index = get_committee_index_one(attestation.committee_bits).expect("TODO")
+      committee_index = get_committee_index_one(
+        attestation.committee_bits).expect("Gossip validation requires this")
       data = AttestationData(
         slot: attestation.data.slot,
         index: uint64 committee_index,
@@ -557,11 +558,10 @@ func covers*(
   ## the existing aggregates, making it redundant
   ## the `var` attestation pool is needed to use `withValue`, else Table becomes
   ## unusably inefficient
-  let candidateIdx = pool.candidateIdx(data.slot, CandidateIdxType.phase0Idx)
-  if candidateIdx.isNone:
+  let candidateIdx = pool.candidateIdx(data.slot, CandidateIdxType.phase0Idx).valueOr:
     return false
 
-  pool.phase0Candidates[candidateIdx.get()].withValue(
+  pool.phase0Candidates[candidateIdx].withValue(
       getAttestationCandidateKey(data, Opt.none CommitteeIndex), entry):
     if entry[].covers(bits):
       return true
@@ -570,21 +570,21 @@ func covers*(
 
 func covers*(
     pool: var AttestationPool, data: AttestationData,
-    bits: ElectraCommitteeValidatorsBits): bool =
+    aggregation_bits: ElectraCommitteeValidatorsBits,
+    committee_bits: AttestationCommitteeBits): bool =
   ## Return true iff the given attestation already is fully covered by one of
   ## the existing aggregates, making it redundant
   ## the `var` attestation pool is needed to use `withValue`, else Table becomes
   ## unusably inefficient
-  let candidateIdx = pool.candidateIdx(data.slot, CandidateIdxType.electraIdx)
-  if candidateIdx.isNone:
+  let candidateIdx = pool.candidateIdx(data.slot, CandidateIdxType.electraIdx).valueOr:
     return false
 
-  debugComment "foo"
-  # needs to know more than attestationdata now
-  #let attestation_data_root = hash_tree_root(data)
-  #pool.electraCandidates[candidateIdx.get()].withValue(attestation_data_root, entry):
-  #  if entry[].covers(bits):
-  #    return true
+  pool.electraCandidates[candidateIdx].withValue(
+      getAttestationCandidateKey(
+        data, Opt.some get_committee_index_one(
+          committee_bits).expect("Gossip validation requires this")), entry):
+    if entry[].covers(aggregation_bits):
+      return true
 
   false
 

@@ -480,15 +480,12 @@ func netKbps*(peer: Peer): float {.inline.} =
   ## Returns current network throughput average value in Kbps for peer ``peer``.
   round(((peer.netThroughput.average / 1024) * 10_000) / 10_000)
 
-# /!\ Must be exported to be seen by `peerCmp`
-func `<`*(a, b: Peer): bool =
-  ## Comparison function indicating `true` if peer `a` ranks worse than peer `b`
-  if a.score != b.score:
-    a.score < b.score
-  elif a.netThroughput.average != b.netThroughput.average:
-    a.netThroughput.average < b.netThroughput.average
+# /!\ Must be exported to be seen by `peerpool`.
+func cmp*(a, b: Peer): int =
+  if a.score == b.score:
+    cmp(a.netThroughput.average, b.netThroughput.average)
   else:
-    system.`<`(a, b)
+    cmp(a.score, b.score)
 
 const
   maxRequestQuota = 1000000
