@@ -236,6 +236,8 @@ proc processSignedBeaconBlock*(
     # propagation of seemingly good blocks
     trace "Block validated"
 
+    self.dag.onBlockGossipAdded(ForkedSignedBeaconBlock.init(signedBlock))
+
     let blobs =
       when typeof(signedBlock).kind >= ConsensusFork.Deneb:
         if self.blobQuarantine[].hasBlobs(signedBlock):
