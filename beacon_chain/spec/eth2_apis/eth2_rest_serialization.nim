@@ -69,6 +69,7 @@ RestJson.useDefaultSerializationFor(
   EmptyBody,
   Eth1Data,
   EventBeaconBlockObject,
+  EventBeaconBlockGossipObject,
   ExecutionRequests,
   Fork,
   FuluSignedBlockContents,
@@ -4039,6 +4040,15 @@ func decodeString*(t: typedesc[ConsensusFork],
 
 proc decodeString*(t: typedesc[EventBeaconBlockObject],
                    value: string): Result[EventBeaconBlockObject, string] =
+  try:
+    ok(RestJson.decode(value, t,
+                       requireAllFields = true,
+                       allowUnknownFields = true))
+  except SerializationError as exc:
+    err(exc.formatMsg("<data>"))
+
+proc decodeString*(t: typedesc[EventBeaconBlockGossipObject],
+                   value: string): Result[EventBeaconBlockGossipObject, string] =
   try:
     ok(RestJson.decode(value, t,
                        requireAllFields = true,

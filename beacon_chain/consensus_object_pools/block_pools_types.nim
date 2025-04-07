@@ -341,6 +341,10 @@ type
     block_root* {.serializedFieldName: "block".}: Eth2Digest
     optimistic* {.serializedFieldName: "execution_optimistic".}: Option[bool]
 
+  EventBeaconBlockGossipObject* = object
+    slot*: Slot
+    block_root* {.serializedFieldName: "block".}: Eth2Digest
+
 template OnBlockAddedCallback*(kind: static ConsensusFork): auto =
   when kind == ConsensusFork.Fulu:
     typedesc[OnFuluBlockAdded]
@@ -475,4 +479,12 @@ func init*(t: typedesc[EventBeaconBlockObject],
       slot: forkyBlck.message.slot,
       block_root: forkyBlck.root,
       optimistic: optimistic
+    )
+
+func init*(t: typedesc[EventBeaconBlockGossipObject],
+           v: ForkedSignedBeaconBlock): EventBeaconBlockGossipObject =
+  withBlck(v):
+    EventBeaconBlockGossipObject(
+      slot: forkyBlck.message.slot,
+      block_root: forkyBlck.root
     )
