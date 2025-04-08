@@ -4051,15 +4051,6 @@ proc decodeString*(t: typedesc[EventBeaconBlockObject],
   except SerializationError as exc:
     err(exc.formatMsg("<data>"))
 
-proc decodeString*(t: typedesc[EventBeaconBlockGossipObject],
-                   value: string): Result[EventBeaconBlockGossipObject, string] =
-  try:
-    ok(RestJson.decode(value, t,
-                       requireAllFields = true,
-                       allowUnknownFields = true))
-  except SerializationError as exc:
-    err(exc.formatMsg("<data>"))
-
 ## ValidatorIdent
 proc writeValue*(w: var JsonWriter[RestJson],
                  value: ValidatorIdent) {.raises: [IOError].} =
