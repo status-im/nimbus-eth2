@@ -977,9 +977,12 @@ iterator getValidatorIndices*(
       continue
     yield validator_index
 
+func shortLog*(v: ElectraCommitteeValidatorsBits): auto =
+  $v.countOnes() & "/" & $v.len()
+
 func shortLog*(v: electra.Attestation | electra.TrustedAttestation): auto =
   (
-    aggregation_bits: v.aggregation_bits,
+    aggregation_bits: shortLog(v.aggregation_bits),
     committee_bits: v.committee_bits,
     data: shortLog(v.data),
     signature: shortLog(v.signature)
