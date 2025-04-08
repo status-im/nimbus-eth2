@@ -69,6 +69,7 @@ RestJson.useDefaultSerializationFor(
   EmptyBody,
   Eth1Data,
   EventBeaconBlockObject,
+  EventBeaconBlockGossipObject,
   ExecutionRequests,
   Fork,
   FuluSignedBlockContents,
@@ -3722,6 +3723,8 @@ func decodeString*(t: typedesc[EventTopic],
     ok(EventTopic.Head)
   of "block":
     ok(EventTopic.Block)
+  of "block_gossip":
+    ok(EventTopic.BlockGossip)
   of "attestation":
     ok(EventTopic.Attestation)
   of "single_attestation":
@@ -3755,6 +3758,8 @@ func encodeString*(value: set[EventTopic]): Result[string, cstring] =
     res.add("head,")
   if EventTopic.Block in value:
     res.add("block,")
+  if EventTopic.BlockGossip in value:
+    res.add("block_gossip,")
   if EventTopic.Attestation in value:
     res.add("attestation,")
   if EventTopic.SingleAttestation in value:

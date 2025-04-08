@@ -51,6 +51,8 @@ type
 
   OnBlockCallback* =
     proc(data: ForkedTrustedSignedBeaconBlock) {.gcsafe, raises: [].}
+  OnBlockGossipCallback* =
+    proc(data: ForkedSignedBeaconBlock) {.gcsafe, raises: [].}
   OnHeadCallback* =
     proc(data: HeadChangeInfoObject) {.gcsafe, raises: [].}
   OnReorgCallback* =
@@ -233,6 +235,8 @@ type
 
     onBlockAdded*: OnBlockCallback
       ## On block added callback
+    onBlockGossipAdded*: OnBlockGossipCallback
+      ## On block gossip added callback
     onHeadChanged*: OnHeadCallback
       ## On head changed callback
     onReorgHappened*: OnReorgCallback
@@ -341,6 +345,10 @@ type
     block_root* {.serializedFieldName: "block".}: Eth2Digest
     optimistic* {.serializedFieldName: "execution_optimistic".}: Option[bool]
 
+  EventBeaconBlockGossipObject* = object
+    slot*: Slot
+    block_root* {.serializedFieldName: "block".}: Eth2Digest
+
 template OnBlockAddedCallback*(kind: static ConsensusFork): auto =
   when kind == ConsensusFork.Fulu:
     typedesc[OnFuluBlockAdded]
@@ -400,6 +408,9 @@ template setFinalizationCb*(dag: ChainDAGRef, cb: OnFinalizedCallback) =
 
 template setBlockCb*(dag: ChainDAGRef, cb: OnBlockCallback) =
   dag.onBlockAdded = cb
+
+template setBlockGossipCb*(dag: ChainDAGRef, cb: OnBlockGossipCallback) =
+  dag.onBlockGossipAdded = cb
 
 template setHeadCb*(dag: ChainDAGRef, cb: OnHeadCallback) =
   dag.onHeadChanged = cb
@@ -475,4 +486,12 @@ func init*(t: typedesc[EventBeaconBlockObject],
       slot: forkyBlck.message.slot,
       block_root: forkyBlck.root,
       optimistic: optimistic
+    )
+
+func init*(t: typedesc[EventBeaconBlockGossipObject],
+           v: ForkedSignedBeaconBlock): EventBeaconBlockGossipObject =
+  withBlck(v):
+    EventBeaconBlockGossipObject(
+      slot: forkyBlck.message.slot,
+      block_root: forkyBlck.root
     )

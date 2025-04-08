@@ -317,6 +317,9 @@ proc initFullNode(
         none[bool]()
     node.eventBus.blocksQueue.emit(
       EventBeaconBlockObject.init(data, optimistic))
+  proc onBlockGossipAdded(data: ForkedSignedBeaconBlock) =
+    node.eventBus.blockGossipQueue.emit(
+      EventBeaconBlockGossipObject.init(data))
   proc onHeadChanged(data: HeadChangeInfoObject) =
     let eventData =
       if node.currentSlot().epoch() >= dag.cfg.BELLATRIX_FORK_EPOCH:
@@ -594,6 +597,7 @@ proc initFullNode(
 
   dag.setFinalizationCb makeOnFinalizationCb(node.eventBus, node.elManager)
   dag.setBlockCb(onBlockAdded)
+  dag.setBlockGossipCb(onBlockGossipAdded)
   dag.setHeadCb(onHeadChanged)
   dag.setReorgCb(onChainReorg)
 
@@ -739,6 +743,7 @@ proc init*(T: type BeaconNode,
     eventBus = EventBus(
       headQueue: newAsyncEventQueue[HeadChangeInfoObject](),
       blocksQueue: newAsyncEventQueue[EventBeaconBlockObject](),
+      blockGossipQueue: newAsyncEventQueue[EventBeaconBlockGossipObject](),
       phase0AttestQueue: newAsyncEventQueue[phase0.Attestation](),
       singleAttestQueue: newAsyncEventQueue[SingleAttestation](),
       exitQueue: newAsyncEventQueue[SignedVoluntaryExit](),
