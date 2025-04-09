@@ -102,6 +102,12 @@ type
     onPhase0AttestationAdded: OnPhase0AttestationCallback
     onSingleAttestationAdded: OnSingleAttestationCallback
 
+  CandidateKey = tuple
+    ## Search key for selecting the final candidates for
+    ## electra chain aggregates.
+    hash: Eth2Digest
+    slot: Slot
+
 logScope: topics = "attpool"
 
 declareGauge attestation_pool_block_attestation_packing_time,
@@ -1005,7 +1011,7 @@ proc getElectraAttestationsForBlock*(
   # For each round, we'll look for the best attestation and add it to the result
   # then re-score the other candidates.
   var
-    candidatesPerBlock: Table[(Eth2Digest, Slot), seq[electra.Attestation]]
+    candidatesPerBlock: OrderedTable[CandidateKey, seq[electra.Attestation]]
 
   let totalCandidates = candidates.len()
   while candidates.len > 0 and candidatesPerBlock.lenu64() <
@@ -1027,13 +1033,10 @@ proc getElectraAttestationsForBlock*(
           var e2 = entry.data
           e2.index = 0
           e2
-        key = (hash_tree_root(entry2), entry.data.slot)
+        key = (hash_tree_root(entry2), entry.data.slot.Slot)
         newAtt = entry[].toElectraAttestation(entry[].aggregates[j])
 
-      candidatesPerBlock.withValue(key, candidate):
-        candidate[].add newAtt
-      do:
-        candidatesPerBlock[key] = @[newAtt]
+      candidatesPerBlock.mGetOrPut(key, @[]).add(newAtt)
 
       # Update cache so that the new votes are taken into account when updating
       # the score below

@@ -1186,7 +1186,7 @@ suite "Attestation pool electra processing" & preset():
       pool[].verifyAttestationSignature(state, cache, attestations[0])
       pool[].verifyAttestationSignature(state, cache, attestations[1])
 
-  test "simple add and get with electra nonzero committee" & preset():
+  test "Simple add and get with electra nonzero committee" & preset():
      let
        bc0 = get_beacon_committee(
          state[], getStateField(state[], slot), 0.CommitteeIndex, cache)
@@ -1219,3 +1219,57 @@ suite "Attestation pool electra processing" & preset():
            0.CommitteeIndex).isOk
        pool[].getElectraAggregatedAttestation(1.Slot, hash_tree_root(attestation_2.data),
            1.CommitteeIndex).isOk
+
+  test "Cache coherence on chain aggregates" & preset():
+      # Add attestation from different committee
+      var maxSlot = 0.Slot
+
+      for i in 0 ..< 4:
+        let
+          bc = get_beacon_committee(
+            state[], getStateField(state[], slot), i.CommitteeIndex, cache)
+          att = makeElectraAttestation(
+            state[], state[].latest_block_root, bc[0], cache)
+        var att2 = makeElectraAttestation(
+          state[], state[].latest_block_root, bc[1], cache)
+
+        pool[].addAttestation(
+          att, @[bc[0]], att.aggregation_bits.len, att.loadSig,
+          att.data.slot.start_beacon_time)
+
+        if att.data.slot < 2:
+          pool[].addAttestation(
+            att2, @[bc[1]], att2.aggregation_bits.len, att2.loadSig,
+            att2.data.slot.start_beacon_time)
+
+        if att.data.slot > maxSlot:
+          maxSlot = att.data.slot
+
+      check process_slots(
+        defaultRuntimeConfig, state[],
+        maxSlot + MIN_ATTESTATION_INCLUSION_DELAY, cache,
+        info, {}).isOk()
+
+      let attestations = pool[].getElectraAttestationsForBlock(state[], cache)
+      check:
+        ## Considering that all structures in getElectraAttestationsForBlock
+        ## are sorted, the most relevant should be at sequence head.
+        ## Given the attestations added, the most "scored" is on
+        ## slot 1
+        attestations.len() == 2
+
+        attestations[0].aggregation_bits.countOnes() == 4
+        attestations[0].committee_bits.countOnes() == 2
+        attestations[0].data.slot == 1.Slot
+
+
+        attestations[1].aggregation_bits.countOnes() == 2
+        attestations[1].committee_bits.countOnes() == 2
+        attestations[1].data.slot == 2.Slot
+
+        check_attestation(
+          state[].electraData.data, attestations[0], {}, cache, true).isOk
+        check_attestation(
+          state[].electraData.data, attestations[1], {}, cache, true).isOk
+        pool[].verifyAttestationSignature(state, cache, attestations[0])
+        pool[].verifyAttestationSignature(state, cache, attestations[1])
