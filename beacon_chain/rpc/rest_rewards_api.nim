@@ -169,11 +169,11 @@ proc installRewardsApiHandlers*(router: var RestRouter, node: BeaconNode) =
 
     let response =
       withState(tmpState[]):
-        let total_active_balance =
-          get_total_active_balance(forkyState.data, cache)
         var resp: seq[RestSyncCommitteeReward]
         when consensusFork > ConsensusFork.Phase0:
           let
+            total_active_balance =
+              get_total_active_balance(forkyState.data, cache)
             keys =
               block:
                 var res: HashSet[ValidatorPubKey]

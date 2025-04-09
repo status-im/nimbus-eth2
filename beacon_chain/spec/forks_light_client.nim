@@ -958,13 +958,13 @@ func migrateToDataFork*(
     discard
   elif newKind < x.kind:
     # Downgrade not supported, re-initialize
-    x = ForkedLightClientStore(kind: newKind)
+    x = static(ForkedLightClientStore(kind: newKind))
   else:
     # Upgrade to Altair
     when newKind >= LightClientDataFork.Altair:
       if x.kind == LightClientDataFork.None:
-        x = ForkedLightClientStore(
-          kind: LightClientDataFork.Altair)
+        x = static(ForkedLightClientStore(
+          kind: LightClientDataFork.Altair))
 
     # Upgrade to Capella
     when newKind >= LightClientDataFork.Capella:
