@@ -530,7 +530,7 @@ proc initFullNode(
       blockProcessor, node.validatorMonitor, dag, attestationPool,
       validatorChangePool, node.attachedValidators, syncCommitteeMsgPool,
       lightClientPool, quarantine, blobQuarantine, dataColumnQuarantine,
-      rng, getBeaconTime, taskpool)
+      rng, getBeaconTime, node.elManager, taskpool)
     syncManagerFlags =
       if node.config.longRangeSync != LongRangeSyncMode.Lenient:
         {SyncManagerFlag.NoGenesisSync}
@@ -2178,13 +2178,18 @@ proc installMessageValidators(node: BeaconNode) =
         for it in 0'u64..<node.dag.cfg.NUMBER_OF_CUSTODY_GROUPS:
           closureScope:
             let subnet_id = it
-            node.network.addValidator(
+            node.network.addAsyncValidator(
               getDataColumnSidecarTopic(digest, subnet_id), proc (
                 dataColumnSidecar: fulu.DataColumnSidecar
-              ): ValidationResult =
-                toValidationResult(
-                  node.processor[].processDataColumnSidecar(
-                    MsgSource.gossip, dataColumnSidecar, subnet_id)))
+              ): Future[ValidationResult] {.async: (raises: [CancelledError]).} =
+                let
+                  fut1 =
+                    (node.processor.processDataColumnSidecarFromEL(dataColumnSidecar))
+                  fut2 =
+                    (node.processor.processDataColumnSidecar(MsgSource.gossip,
+                                                             dataColumnSidecar,
+                                                             subnet_id))
+                return await toValidationRace(fut1, fut2))
 
       when consensusFork >= ConsensusFork.Deneb:
         # blob_sidecar_{subnet_id}

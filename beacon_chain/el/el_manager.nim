@@ -55,7 +55,8 @@ type
     BellatrixExecutionPayloadWithValue |
     GetPayloadV2Response |
     GetPayloadV3Response |
-    GetPayloadV4Response
+    GetPayloadV4Response |
+    GetPayloadV5Response
 
 contract(DepositContract):
   proc deposit(pubkey: PubKeyBytes,
@@ -107,6 +108,8 @@ const
   # https://github.com/ethereum/execution-apis/blob/v1.0.0-beta.3/src/engine/paris.md#request-2
   # https://github.com/ethereum/execution-apis/blob/v1.0.0-beta.3/src/engine/shanghai.md#request-2
   GETPAYLOAD_TIMEOUT = 1.seconds
+
+  GETBLOBS_TIMEOUT = 1.seconds
 
   connectionStateChangeHysteresisThreshold = 15
     ## How many unsuccesful/successful requests we must see
@@ -545,7 +548,8 @@ proc getPayloadFromSingleEL(
             suggestedFeeRecipient: suggestedFeeRecipient,
             withdrawals: withdrawals))
       elif  GetPayloadResponseType is engine_api.GetPayloadV3Response or
-            GetPayloadResponseType is engine_api.GetPayloadV4Response:
+            GetPayloadResponseType is engine_api.GetPayloadV4Response or
+            GetPayloadResponseType is engine_api.GetPayloadV5Response:
         # https://github.com/ethereum/execution-apis/blob/90a46e9137c89d58e818e62fa33a0347bba50085/src/engine/prague.md
         # does not define any new forkchoiceUpdated, so reuse V3 from Dencun
         let response = await rpcClient.forkchoiceUpdated(
@@ -598,7 +602,7 @@ template EngineApiResponseType*(T: type electra.ExecutionPayloadForSigning): typ
   engine_api.GetPayloadV4Response
 
 template EngineApiResponseType*(T: type fulu.ExecutionPayloadForSigning): type =
-  engine_api.GetPayloadV4Response
+  engine_api.GetPayloadV5Response
 
 template toEngineWithdrawals*(withdrawals: seq[capella.Withdrawal]): seq[WithdrawalV1] =
   mapIt(withdrawals, toEngineWithdrawal(it))
@@ -862,6 +866,13 @@ proc sendNewPayloadToSingleEL(
     payload, versioned_hashes, Hash32 parent_beacon_block_root,
     executionRequests)
 
+proc sendGetBlobsV2toSingleEl(
+    connection: ELConnection,
+    versioned_hashes: seq[engine_api.VersionedHash]
+): Future[GetBlobsV2Response] {.async: (raises: [CatchableError]).} =
+  let rpcClient = await connection.connectedRpcClient()
+  await rpcClient.engine_getBlobsV2(versioned_hashes)
+
 type
   StatusRelation = enum
     newStatusIsPreferable
@@ -989,6 +1000,56 @@ proc lazyWait(futures: seq[FutureBase]) {.async: (raises: []).} =
     let pending = futures.filterIt(not(it.finished())).mapIt(it.cancelAndWait())
     if len(pending) > 0:
       await noCancel allFutures(pending)
+
+proc sendGetBlobsV2*(
+    m: ELManager,
+    blck: electra.SignedBeaconBlock | fulu.SignedBeaconBlock,
+): Future[Opt[seq[BlobAndProofV2]]] {.async: (raises: [CancelledError]).} =
+  if m.elConnections.len == 0:
+    return err()
+  let
+    deadline = sleepAsync(GETBLOBS_TIMEOUT)
+
+  var bestResponse = Opt.none(int)
+
+  while true:
+    let
+      requests = m.elConnections.mapIt(
+        sendGetBlobsV2toSingleEl(it, mapIt(
+            blck.message.body.blob_kzg_commitments,
+            engine_api.VersionedHash(kzg_commitment_to_versioned_hash(it)))))
+      timeoutExceeded =
+        try:
+          await allFutures(requests).wait(deadline)
+          false
+        except AsyncTimeoutError:
+          true
+        except CancelledError as exc:
+          let pending =
+            requests.filterIt(not(it.finished())).mapIt(it.cancelAndWait())
+          await noCancel allFutures(pending)
+          raise exc
+
+    for idx, req in requests:
+      if not(req.finished()):
+        warn "Timeout while getting blob and proofs",
+             url = m.elConnections[idx].engineUrl.url,
+             reason = req.error.msg
+      else:
+        if bestResponse.isNone:
+          bestResponse = Opt.some(idx)
+
+    let pending =
+      requests.filterIt(not(it.finished())).mapIt(it.cancelAndWait())
+    await noCancel allFutures(pending)
+
+    if bestResponse.isSome():
+      return ok(requests[bestResponse.get()].value())
+
+    if timeoutExceeded:
+      break
+
+  err()
 
 proc sendNewPayload*(
     m: ELManager,

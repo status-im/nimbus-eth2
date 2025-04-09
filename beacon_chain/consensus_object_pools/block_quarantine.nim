@@ -389,6 +389,16 @@ func popBlobless*(
   else:
     Opt.none(ForkedSignedBeaconBlock)
 
+func getColumnless*(
+    quarantine: var Quarantine,
+    root: Eth2Digest): Opt[ForkedSignedBeaconBlock] =
+  if quarantine.columnless.hasKey(root):
+    Opt.some((quarantine.columnless.getOrDefault(
+              root,
+              default(ForkedSignedBeaconBlock))))
+  else:
+    Opt.none(ForkedSignedBeaconBlock)
+
 func popColumnless*(
     quarantine: var Quarantine,
     root: Eth2Digest): Opt[ForkedSignedBeaconBlock] =

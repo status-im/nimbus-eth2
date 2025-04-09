@@ -11,7 +11,10 @@ import
   std/[tables, sequtils],
   chronicles, chronos, metrics,
   taskpools,
+  kzg4844/kzg,
+  ssz_serialization/types,
   ../spec/[helpers, forks, peerdas_helpers],
+  ../el/el_manager,
   ../consensus_object_pools/[
     blob_quarantine, block_clearance, block_quarantine, blockchain_dag,
     data_column_quarantine, attestation_pool, light_client_pool,
@@ -78,6 +81,9 @@ declareCounter beacon_light_client_optimistic_update_received,
   "Number of valid light client optimistic update processed by this node"
 declareCounter beacon_light_client_optimistic_update_dropped,
   "Number of invalid light client optimistic update dropped by this node", labels = ["reason"]
+declareCounter el_blob_loss,
+  "Number of EL blob misses while calling `engine_getBlobsV2`"
+
 
 const delayBuckets = [2.0, 4.0, 6.0, 8.0, 10.0, 12.0, 14.0, Inf]
 
@@ -146,6 +152,10 @@ type
     # ----------------------------------------------------------------
     batchCrypto*: ref BatchCrypto
 
+    # EL integration
+    # ----------------------------------------------------------------
+    elManager*: ELManager
+
     # Missing information
     # ----------------------------------------------------------------
     quarantine*: ref Quarantine
@@ -161,6 +171,37 @@ type
 
 func toValidationResult*(res: ValidationRes): ValidationResult =
   if res.isOk(): ValidationResult.Accept else: res.error()[0]
+
+proc toValidationRace*(
+    f1, f2: Future[ValidationRes]
+): Future[ValidationResult] {.async: (raises: [CancelledError]).} =
+  let
+    f1b = noCancel(f1)
+    f2b = noCancel(f2)
+
+  var raced: FutureBase
+  try:
+    raced = await race([f1b, f2b])
+  except ValueError:
+    # This shouldn't normally happen with 2 futures
+    return ValidationResult.Ignore
+
+  let
+    first = if raced == f1b: f1 else: f2
+    second = if raced == f1b: f2 else: f1
+
+  try:
+    let res1 = await first
+    if res1.isOk():
+      return ValidationResult.Accept
+  except CatchableError:
+    discard
+
+  try:
+    let res2 = await second
+    return toValidationResult(res2)
+  except CatchableError:
+    return ValidationResult.Ignore
 
 # Initialization
 # ------------------------------------------------------------------------------
@@ -180,6 +221,7 @@ proc new*(T: type Eth2Processor,
           dataColumnQuarantine: ref DataColumnQuarantine,
           rng: ref HmacDrbgContext,
           getBeaconTime: GetBeaconTimeFn,
+          elManager: ELManager,
           taskpool: Taskpool
          ): ref Eth2Processor =
   (ref Eth2Processor)(
@@ -198,6 +240,7 @@ proc new*(T: type Eth2Processor,
     blobQuarantine: blobQuarantine,
     dataColumnQuarantine: dataColumnQuarantine,
     getCurrentBeaconTime: getBeaconTime,
+    elManager: elManager,
     batchCrypto: BatchCrypto.new(
       rng = rng,
       # Only run eager attestation signature verification if we're not
@@ -346,9 +389,79 @@ proc processBlobSidecar*(
 
   v
 
+proc processDataColumnSidecarFromEL*(
+    self: ref Eth2Processor,
+    dataColumnSidecar: DataColumnSidecar):
+    Future[ValidationRes]
+    {.async: (raises: [CancelledError]).} =
+  template block_header: untyped = dataColumnSidecar.signed_block_header.message
+  let block_root = hash_tree_root(block_header)
+  if (let o = self.quarantine[].getColumnless(block_root); o.isSome):
+    let columnless = o.get()
+    withBlck(columnless):
+      when consensusFork >= ConsensusFork.Fulu:
+        let
+          start_time = Moment.now()
+        var el_blob_loss = 0
+        let blobsFromElOpt =
+          await self.elManager.sendGetBlobsV2(forkyBlck)
+        if blobsFromElOpt.get.len > 0 and blobsFromElOpt.isSome():
+          let blobsEl = blobsFromElOpt.get()
+
+          # check lengths of array[BlobAndProofV2 with blobs
+          # kzg commitments of the signed block
+          if blobsEl.len == forkyBlck.message.body.blob_kzg_commitments.len:
+            # we have got all the blobs from EL, now we can
+            # conveniently the blobless block from qurantine
+            discard self.quarantine[].popColumnless(block_root)
+            # var assembled_cell_proofs: seq[kzg.KzgProof]
+            # assembled_cell_proofs.add(blobsEl[0].proofs)
+
+            let
+              computed_cells =
+                compute_cells_batch(blobsEl.mapIt(kzg.KzgBlob(bytes: it.blob.data))).valueOr:
+                  return errIgnore("Could not batch compute cells")
+              recovered_columns =
+                get_data_column_sidecars(
+                  forkyBlck,
+                  computed_cells,
+                  @(blobsEl[0].proofs.mapIt(kzg.KzgProof(bytes: it.data))))
+
+            for rc in recovered_columns:
+              self.dataColumnQuarantine[].put(newClone rc)
+
+            if self.dataColumnQuarantine[].hasMissingDataColumns(forkyBlck, self.dag.cfg):
+              self.blockProcessor[].enqueueBlock(
+                MsgSource.gossip, columnless,
+                Opt.none(BlobSidecars),
+                Opt.some(self.dataColumnQuarantine[].popDataColumns(block_root, forkyBlck)))
+            let end_time = Moment.now()
+            debug "Time taken to get 100% response from EL and bypass blob gossip validation",
+                   time_taken = end_time - start_time
+            debug "Pulled blobs from EL, bypassing blob gossip validation",
+              blobs_from_el = blobsEl.len
+            return ok()
+
+          elif blobsEl.len < forkyBlck.message.body.blob_kzg_commitments.len and
+              blobsEl.len != 0:
+            let end_time = Moment.now()
+            el_blob_loss = forkyBlck.message.body.blob_kzg_commitments.len - blobsEl.len
+
+            debug "Time taken to receive partially response from EL",
+                  received_percent = float((blobsEl.len div forkyBlck.message.body.blob_kzg_commitments.len) * 100),
+                  time_taken = end_time - start_time
+          else:
+            let end_time = Moment.now()
+            debug "Empty response received from EL",
+                  time_elapsed = end_time - start_time
+
+  else:
+    return errIgnore("EL did not respond with blobs and proofs")
+
 proc processDataColumnSidecar*(
-    self: var Eth2Processor, src: MsgSource,
-    dataColumnSidecar: DataColumnSidecar, subnet_id: uint64): ValidationRes =
+    self: ref Eth2Processor, src: MsgSource,
+    dataColumnSidecar: DataColumnSidecar, subnet_id: uint64):
+    Future[ValidationRes] {.async: (raises: [CancelledError]).} =
   template block_header: untyped = dataColumnSidecar.signed_block_header.message
 
   let
