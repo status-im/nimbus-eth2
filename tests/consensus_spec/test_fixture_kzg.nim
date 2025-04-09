@@ -201,6 +201,26 @@ proc runComputeBlobKzgProofTest(suiteName, suitePath, path: string) =
       else:
         check p.get.bytes == fromHex[48](output.getStr).get
 
+proc runComputeCellsTest(suiteName, suitePath, path: string) =
+  let relativePathComponent = path.relativeTestPathComponent(suitePath)
+  test "KZG - Compute Cells - " & relativePathComponent:
+    let
+      data = loadToJson(os_ops.readFile(path/"data.yaml"))[0]
+      output = data["output"]
+      blob = fromHex[131072](data["input"]["blob"].getStr)
+
+    # https://github.com/ethereum/consensus-specs/blob/v1.5.0-beta.4/tests/formats/kzg_7594/compute_cells.md#condition
+    if blob.isNone:
+      check output.kind == JNull
+    else:
+      let p = newClone computeCells(KzgBlob(bytes: blob.get))
+      if p[].isErr:
+        check output.kind == JNull
+      else:
+        let p_val = p[].get
+        for i in 0..<len(p[].get):
+          check p_val[i].bytes == fromHex[2048](output[i].getStr).get
+
 proc runComputeCellsAndKzgProofsTest(suiteName, suitePath, path: string) =
   let relativePathComponent = path.relativeTestPathComponent(suitePath)
   test "KZG - Compute Cells And Proofs - " & relativePathComponent:
@@ -339,6 +359,11 @@ suite suiteName:
       toSeq(walkDir(suitePath, relative = true, checkDir = true)), it.path)) ==
     ["compute_cells", "compute_cells_and_kzg_proofs",
      "recover_cells_and_kzg_proofs", "verify_cell_kzg_proof_batch"]
+
+  block:
+    let testsDir = suitePath/"compute_cells"/"kzg-mainnet"
+    for kind, path in walkDir(testsDir, relative = true, checkDir = true):
+      runComputeCellsTest(suiteName, testsDir, testsDir/path)
 
   block:
     let testsDir = suitePath/"compute_cells_and_kzg_proofs"/"kzg-mainnet"
