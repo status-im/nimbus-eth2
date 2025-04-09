@@ -209,10 +209,7 @@ proc runComputeCellsTest(suiteName, suitePath, path: string) =
       output = data["output"]
       blob = fromHex[131072](data["input"]["blob"].getStr)
 
-    # https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.2/tests/formats/kzg_7594/verify_cell_kzg_proof.md#condition
-    # If the blob is invalid (e.g. incorrect length or one of the 32-byte
-    # blocks does not represent a BLS field element) it should error, i.e. the
-    # the output should be `null`.
+    # https://github.com/ethereum/consensus-specs/blob/v1.5.0-beta.4/tests/formats/kzg_7594/compute_cells.md#condition
     if blob.isNone:
       check output.kind == JNull
     else:
