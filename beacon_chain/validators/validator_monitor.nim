@@ -212,6 +212,7 @@ type
     gossip = "gossip"
     api = "api"
     sync = "sync"
+    el = "el"
 
 template toGaugeValue(v: bool): int64 =
   if v: 1 else: 0
