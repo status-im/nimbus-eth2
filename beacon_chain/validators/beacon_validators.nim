@@ -28,7 +28,8 @@ import
 
   # Local modules
   ../spec/[
-    eth2_merkleization, forks, helpers, network, signatures, state_transition,
+    eth2_merkleization, forks, helpers, peerdas_helpers,
+    network, signatures, state_transition,
     validator],
   ../consensus_object_pools/[
     spec_cache, blockchain_dag, block_clearance, attestation_pool,
@@ -1309,16 +1310,27 @@ proc proposeBlockAux(
       signedBlock = consensusFork.SignedBeaconBlock(
         message: forkyBlck, signature: signature, root: blockRoot)
       blobsOpt =
-        when consensusFork >= ConsensusFork.Deneb:
+        when consensusFork >= ConsensusFork.Deneb and
+            consensusFork < ConsensusFork.Fulu:
           template blobsBundle: untyped =
             engineBid.blobsBundleOpt.get
           Opt.some(signedBlock.create_blob_sidecars(
             blobsBundle.proofs, blobsBundle.blobs))
         else:
           Opt.none(seq[BlobSidecar])
+      columnsOpt =
+        when consensusFork >= ConsensusFork.Fulu:
+          template blobsBundle: untyped =
+            engineBid.blobsBundleOpt.get
+          Opt.some(signedBlock.assemble_data_column_sidecars(
+            blobsBundle.blobs.mapIt(kzg.KzgBlob(bytes: it)),
+            @(blobsBundle.proofs.mapIt(kzg.KzgProof(it)))))
+        else:
+          Opt.none(seq[DataColumnSidecar])
+
       newBlockRef = (
         await node.router.routeSignedBeaconBlock(signedBlock, blobsOpt,
-          checkValidator = false)
+          columnsOpt, checkValidator = false)
       ).valueOr:
         return head # Errors logged in router
 

@@ -462,6 +462,15 @@ proc compute_cells_batch*(blobs: seq[KzgBlob]):
 
   ok(batch_cells)
 
+proc assemble_data_column_sidecars*(signed_beacon_block: fulu.SignedBeaconBlock,
+                                    blobs: seq[KzgBlob],
+                                    cell_proofs: seq[KzgProof]):
+                                    seq[DataColumnSidecar] =
+  let computed_cells = compute_cells_batch(blobs).get
+  return get_data_column_sidecars(signed_beacon_block,
+                                  computed_cells,
+                                  cell_proofs)
+
 # https://github.com/ethereum/consensus-specs/blob/v1.5.0-beta.2/specs/fulu/peer-sampling.md#get_extended_sample_count
 func get_extended_sample_count*(samples_per_slot: int,
                                 allowed_failures: int):

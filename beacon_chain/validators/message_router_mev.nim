@@ -11,6 +11,7 @@ import std/macros
 import metrics
 import stew/assign2
 import ../beacon_node
+import ../spec/peerdas_helpers
 
 from ../spec/datatypes/bellatrix import SignedBeaconBlock
 from ../spec/mev/rest_deneb_mev_calls import submitBlindedBlock
@@ -129,7 +130,8 @@ proc unblindAndRouteBlockMEV*(
   doAssert signedBlock.root == hash_tree_root(blindedBlock.message)
 
   let blobsOpt =
-    when consensusFork >= ConsensusFork.Deneb:
+    when consensusFork >= ConsensusFork.Deneb and
+        consensusFork < ConsensusFork.Fulu:
       template blobs_bundle: untyped = bundle.data.blobs_bundle
       if blindedBlock.message.body.blob_kzg_commitments !=
           bundle.data.blobs_bundle.commitments:
@@ -146,12 +148,37 @@ proc unblindAndRouteBlockMEV*(
     else:
       Opt.none(seq[BlobSidecar])
 
+  let columnsOpt =
+    when consensusFork >= ConsensusFork.Fulu:
+      template blobs_bundle: untyped = bundle.data.blobs_bundle
+      if blindedBlock.message.body.blob_kzg_commitments !=
+          bundle.data.blobs_bundle.commitments:
+        return err("unblinded blobs bundle has unexpected commitments")
+      let columns =
+        signedBlock.assemble_data_column_sidecars(
+          blobsBundle.blobs.mapIt(kzg.KzgBlob(bytes: it)),
+          @(blobsBundle.proofs.mapIt(kzg.KzgProof(it))))
+      var cellIndices = newSeqOfCap[CellIndex](columns[0].column.len)
+      for _ in 0..<columns[0].column.len:
+        cellIndices.add(CellIndex(columns[0].index))
+      let ok = verifyCellKzgProofBatch(
+          asSeq blobs_bundle.commitments,
+          cell_indices,
+          asSeq columns[0].column,
+          asSeq blobs_bundle.proofs).valueOr:
+        return err("unblinded blobs bundle fails verification")
+      if not ok:
+        return err("unblinded blobs bundle is invalid")
+      Opt.some(columns)
+    else:
+      Opt.none(seq[DataColumnSidecar])
+
   debug "unblindAndRouteBlockMEV: proposing unblinded block",
     blck = shortLog(signedBlock)
 
   let newBlockRef =
     (await node.router.routeSignedBeaconBlock(
-      signedBlock, blobsOpt, checkValidator = false)).valueOr:
+      signedBlock, blobsOpt, columnsOpt, checkValidator = false)).valueOr:
       # submitBlindedBlock has run, so don't allow fallback to run
       return err("routeSignedBeaconBlock error") # Errors logged in router
 
