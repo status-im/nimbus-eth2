@@ -545,7 +545,7 @@ proc validateDataColumnSidecar*(
 
   # [REJECT] The sidecar's index is consistent with `NUMBER_OF_COLUMNS`
   # -- i.e. `data_column_sidecar.index < NUMBER_OF_COLUMNS`
-  if not (data_column_sidecar.index < NUMBER_OF_COLUMNS):
+  if not (data_column_sidecar.index < dag.cfg.NUMBER_OF_COLUMNS):
     return dag.checkedReject("DataColumnSidecar: The sidecar's index should be consistent with NUMBER_OF_COLUMNS")
 
   # [REJECT] The sidecar is for the correct subnet
