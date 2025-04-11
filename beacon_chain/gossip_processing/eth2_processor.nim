@@ -397,7 +397,7 @@ proc processDataColumnSidecarFromEL*(
   template block_header: untyped = dataColumnSidecar.signed_block_header.message
   let block_root = hash_tree_root(block_header)
   if (let o = self.quarantine[].getColumnless(block_root); o.isSome):
-    let columnless = o.get()
+    let columnless = o.unsafeGet()
     withBlck(columnless):
       when consensusFork >= ConsensusFork.Fulu:
         let
@@ -413,7 +413,7 @@ proc processDataColumnSidecarFromEL*(
           if blobsEl.len == forkyBlck.message.body.blob_kzg_commitments.len:
             # we have got all the blobs from EL, now we can
             # conveniently the blobless block from qurantine
-            discard self.quarantine[].popColumnless(block_root)
+            self.quarantine[].removeColumnless(forkyBlck)
             # var assembled_cell_proofs: seq[kzg.KzgProof]
             # assembled_cell_proofs.add(blobsEl[0].proofs)
 
@@ -428,19 +428,22 @@ proc processDataColumnSidecarFromEL*(
                   @(blobsEl[0].proofs.mapIt(kzg.KzgProof(bytes: it.data))))
 
             for rc in recovered_columns:
+              self.dag.db.putDataColumnSidecar(rc)
               self.dataColumnQuarantine[].put(newClone rc)
 
             if self.dataColumnQuarantine[].hasMissingDataColumns(forkyBlck, self.dag.cfg):
+              let end_time = Moment.now()
+              debug "Time taken to get 100% response from EL and bypass blob gossip validation",
+                    time_taken = end_time - start_time
+              debug "Pulled blobs from EL, bypassing blob gossip validation",
+                blobs_from_el = blobsEl.len
               self.blockProcessor[].enqueueBlock(
                 MsgSource.gossip, columnless,
                 Opt.none(BlobSidecars),
                 Opt.some(self.dataColumnQuarantine[].popDataColumns(block_root, forkyBlck)))
-            let end_time = Moment.now()
-            debug "Time taken to get 100% response from EL and bypass blob gossip validation",
-                   time_taken = end_time - start_time
-            debug "Pulled blobs from EL, bypassing blob gossip validation",
-              blobs_from_el = blobsEl.len
-            return ok()
+            else:
+              discard self.quarantine[].addColumnless(
+                self.dag.finalizedHead.slot, forkyBlck)
 
           elif blobsEl.len < forkyBlck.message.body.blob_kzg_commitments.len and
               blobsEl.len != 0:
@@ -454,9 +457,7 @@ proc processDataColumnSidecarFromEL*(
             let end_time = Moment.now()
             debug "Empty response received from EL",
                   time_elapsed = end_time - start_time
-
-  else:
-    return errIgnore("EL did not respond with blobs and proofs")
+  ok()
 
 proc processDataColumnSidecar*(
     self: ref Eth2Processor, src: MsgSource,

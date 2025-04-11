@@ -115,7 +115,8 @@ proc routeSignedBeaconBlock*(
         signature = shortLog(blck.signature), error = res.error()
       return err($(res.error()[1]))
 
-    when typeof(blck).kind >= ConsensusFork.Deneb:
+    when typeof(blck).kind >= ConsensusFork.Deneb and
+        typeof(blck).kind < ConsensusFork.Fulu:
       if blobsOpt.isSome:
         let blobs = blobsOpt.get()
         let kzgCommits = blck.message.body.blob_kzg_commitments.asSeq
@@ -159,9 +160,8 @@ proc routeSignedBeaconBlock*(
   var dataColumnRefs =
     Opt.none(DataColumnSidecars)
   when typeof(blck).kind >= ConsensusFork.Fulu:
-    let blobs = blobsOpt.get
-    if blobsOpt.isSome() and blobs.len != 0:
-      let dataColumns = dataColumnsOpt.get()
+    let dataColumns = dataColumnsOpt.get()
+    if dataColumnsOpt.isSome() and dataColumns.len != 0:
       var das_workers =
         newSeq[Future[SendResult]](len(dataColumns))
       for i in 0..<dataColumns.lenu64:
