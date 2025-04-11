@@ -43,6 +43,16 @@ declareCounter beacon_sync_messages_dropped_queue_full,
 declareCounter beacon_contributions_dropped_queue_full,
   "Number of sync committee contributions dropped because queue is full"
 
+declareCounter beacon_data_column_sidecar_processing_requests_total,
+"Number of data column sidecars submitted for processing"
+
+declareCounter  beacon_data_column_sidecar_processing_successes_total,
+"Number of data column sidecars verified for gossip"
+
+declareHistogram beacon_data_column_sidecar_gossip_verification_seconds,
+"Full runtime of data column sidecars gossip verification",
+buckets = [0.005, 0.01, 0.025, 0.05, 0.075, 0.1, 0.25, 0.5, 0.75, 1.0, 2.5, 5.0, 7.5, 10.0, Inf]
+
 # This result is a little messy in that it returns Result.ok for
 # ValidationResult.Accept and an err for the others - this helps transport
 # an error message to callers but could arguably be done in an cleaner way.
@@ -543,6 +553,11 @@ proc validateDataColumnSidecar*(
 
   template block_header: untyped = data_column_sidecar.signed_block_header.message
 
+  beacon_data_column_sidecar_processing_requests_total.inc()
+
+  let
+    startTick = Moment.now()
+
   # [REJECT] The sidecar's index is consistent with `NUMBER_OF_COLUMNS`
   # -- i.e. `data_column_sidecar.index < NUMBER_OF_COLUMNS`
   if not (data_column_sidecar.index < NUMBER_OF_COLUMNS):
@@ -656,6 +671,14 @@ proc validateDataColumnSidecar*(
   # Send notification about new data column sidecar via callback
   if not(isNil(dataColumnQuarantine.onDataColumnSidecarCallback)):
     dataColumnQuarantine.onDataColumnSidecarCallback(data_column_sidecar)
+
+  let
+    validationTick = Moment.now()
+    validationDur = validationTick - startTick
+
+  beacon_data_column_sidecar_gossip_verification_seconds.observe(validationDur.toFloatSeconds())
+
+  beacon_data_column_sidecar_processing_successes_total.inc()
 
   ok()
 
