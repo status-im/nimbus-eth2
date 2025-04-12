@@ -396,7 +396,7 @@ proc processDataColumnSidecarFromEL*(
     {.async: (raises: [CancelledError]).} =
   template block_header: untyped = dataColumnSidecar.signed_block_header.message
   let block_root = hash_tree_root(block_header)
-  if (let o = self.quarantine[].getColumnless(block_root); o.isSome):
+  if (let o = self.quarantine[].popColumnless(block_root); o.isSome):
     let columnless = o.unsafeGet()
     withBlck(columnless):
       when consensusFork >= ConsensusFork.Fulu:
@@ -411,12 +411,6 @@ proc processDataColumnSidecarFromEL*(
           # check lengths of array[BlobAndProofV2 with blobs
           # kzg commitments of the signed block
           if blobsEl.len == forkyBlck.message.body.blob_kzg_commitments.len:
-            # we have got all the blobs from EL, now we can
-            # conveniently the blobless block from qurantine
-            self.quarantine[].removeColumnless(forkyBlck)
-            # var assembled_cell_proofs: seq[kzg.KzgProof]
-            # assembled_cell_proofs.add(blobsEl[0].proofs)
-
             let
               computed_cells =
                 compute_cells_batch(blobsEl.mapIt(kzg.KzgBlob(bytes: it.blob.data))).valueOr:
@@ -440,7 +434,7 @@ proc processDataColumnSidecarFromEL*(
               self.blockProcessor[].enqueueBlock(
                 MsgSource.gossip, columnless,
                 Opt.none(BlobSidecars),
-                Opt.some(self.dataColumnQuarantine[].popDataColumns(block_root, forkyBlck)))
+                Opt.some(self.dataColumnQuarantine[].gatherDataColumns(block_root)))
             else:
               discard self.quarantine[].addColumnless(
                 self.dag.finalizedHead.slot, forkyBlck)
