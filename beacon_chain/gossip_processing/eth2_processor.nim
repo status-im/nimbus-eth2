@@ -451,6 +451,8 @@ proc processDataColumnSidecarFromEL*(
             let end_time = Moment.now()
             debug "Empty response received from EL",
                   time_elapsed = end_time - start_time
+      else:
+        raiseAssert "Could not have been added to columnless"
   ok()
 
 proc processDataColumnSidecar*(
