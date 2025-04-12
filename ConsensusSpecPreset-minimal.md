@@ -473,6 +473,7 @@ ConsensusSpecPreset-minimal
 ```
 ## EF - Altair - Sanity - Slots  [Preset: minimal]
 ```diff
++ EF - Altair - Slots - balance_change_affects_proposer [Preset: minimal]                    OK
 + EF - Altair - Slots - double_empty_epoch [Preset: minimal]                                 OK
 + EF - Altair - Slots - empty_epoch [Preset: minimal]                                        OK
 + EF - Altair - Slots - historical_accumulator [Preset: minimal]                             OK
@@ -1029,6 +1030,7 @@ ConsensusSpecPreset-minimal
 ```
 ## EF - Bellatrix - Sanity - Slots  [Preset: minimal]
 ```diff
++ EF - Bellatrix - Slots - balance_change_affects_proposer [Preset: minimal]                 OK
 + EF - Bellatrix - Slots - double_empty_epoch [Preset: minimal]                              OK
 + EF - Bellatrix - Slots - empty_epoch [Preset: minimal]                                     OK
 + EF - Bellatrix - Slots - historical_accumulator [Preset: minimal]                          OK
@@ -1671,6 +1673,7 @@ ConsensusSpecPreset-minimal
 ```
 ## EF - Capella - Sanity - Slots  [Preset: minimal]
 ```diff
++ EF - Capella - Slots - balance_change_affects_proposer [Preset: minimal]                   OK
 + EF - Capella - Slots - double_empty_epoch [Preset: minimal]                                OK
 + EF - Capella - Slots - empty_epoch [Preset: minimal]                                       OK
 + EF - Capella - Slots - historical_accumulator [Preset: minimal]                            OK
@@ -2348,6 +2351,7 @@ ConsensusSpecPreset-minimal
 ```
 ## EF - Deneb - Sanity - Slots  [Preset: minimal]
 ```diff
++ EF - Deneb - Slots - balance_change_affects_proposer [Preset: minimal]                     OK
 + EF - Deneb - Slots - double_empty_epoch [Preset: minimal]                                  OK
 + EF - Deneb - Slots - empty_epoch [Preset: minimal]                                         OK
 + EF - Deneb - Slots - historical_accumulator [Preset: minimal]                              OK
@@ -2756,6 +2760,7 @@ ConsensusSpecPreset-minimal
 + [Valid]   EF - Electra - Operations - Consolidation Request - incorrect_inactive_target    OK
 + [Valid]   EF - Electra - Operations - Consolidation Request - incorrect_no_source_executio OK
 + [Valid]   EF - Electra - Operations - Consolidation Request - incorrect_not_enough_consoli OK
++ [Valid]   EF - Electra - Operations - Consolidation Request - incorrect_same_source_target OK
 + [Valid]   EF - Electra - Operations - Consolidation Request - incorrect_source_address     OK
 + [Valid]   EF - Electra - Operations - Consolidation Request - incorrect_source_has_pending OK
 + [Valid]   EF - Electra - Operations - Consolidation Request - incorrect_source_not_active_ OK
@@ -3185,6 +3190,7 @@ ConsensusSpecPreset-minimal
 + [Valid]   EF - Electra - Sanity - Blocks - block_transition_randomized_payload [Preset: mi OK
 + [Valid]   EF - Electra - Sanity - Blocks - bls_change [Preset: minimal]                    OK
 + [Valid]   EF - Electra - Sanity - Blocks - cl_exit_and_el_withdrawal_request_in_same_block OK
++ [Valid]   EF - Electra - Sanity - Blocks - consolidation_requests_when_pending_consolidati OK
 + [Valid]   EF - Electra - Sanity - Blocks - deposit_and_bls_change [Preset: minimal]        OK
 + [Valid]   EF - Electra - Sanity - Blocks - deposit_in_block [Preset: minimal]              OK
 + [Valid]   EF - Electra - Sanity - Blocks - deposit_request_with_same_pubkey_different_with OK
@@ -3230,6 +3236,8 @@ ConsensusSpecPreset-minimal
 + [Valid]   EF - Electra - Sanity - Blocks - proposer_slashing [Preset: minimal]             OK
 + [Valid]   EF - Electra - Sanity - Blocks - skipped_slots [Preset: minimal]                 OK
 + [Valid]   EF - Electra - Sanity - Blocks - slash_and_exit_diff_index [Preset: minimal]     OK
++ [Valid]   EF - Electra - Sanity - Blocks - switch_to_compounding_requests_when_pending_con OK
++ [Valid]   EF - Electra - Sanity - Blocks - switch_to_compounding_requests_when_too_little_ OK
 + [Valid]   EF - Electra - Sanity - Blocks - sync_committee_committee__empty [Preset: minima OK
 + [Valid]   EF - Electra - Sanity - Blocks - sync_committee_committee__full [Preset: minimal OK
 + [Valid]   EF - Electra - Sanity - Blocks - sync_committee_committee__half [Preset: minimal OK
@@ -3242,11 +3250,13 @@ ConsensusSpecPreset-minimal
 + [Valid]   EF - Electra - Sanity - Blocks - withdrawal_and_consolidation_effective_balance_ OK
 + [Valid]   EF - Electra - Sanity - Blocks - withdrawal_and_switch_to_compounding_request_sa OK
 + [Valid]   EF - Electra - Sanity - Blocks - withdrawal_and_withdrawal_request_same_validato OK
++ [Valid]   EF - Electra - Sanity - Blocks - withdrawal_requests_when_pending_withdrawal_que OK
 + [Valid]   EF - Electra - Sanity - Blocks - withdrawal_success_two_blocks [Preset: minimal] OK
 + [Valid]   EF - Electra - Sanity - Blocks - zero_blob [Preset: minimal]                     OK
 ```
 ## EF - Electra - Sanity - Slots  [Preset: minimal]
 ```diff
++ EF - Electra - Slots - balance_change_affects_proposer [Preset: minimal]                   OK
 + EF - Electra - Slots - double_empty_epoch [Preset: minimal]                                OK
 + EF - Electra - Slots - empty_epoch [Preset: minimal]                                       OK
 + EF - Electra - Slots - historical_accumulator [Preset: minimal]                            OK
@@ -3657,6 +3667,7 @@ ConsensusSpecPreset-minimal
 + [Valid]   EF - Fulu - Operations - Consolidation Request - incorrect_inactive_target       OK
 + [Valid]   EF - Fulu - Operations - Consolidation Request - incorrect_no_source_execution_w OK
 + [Valid]   EF - Fulu - Operations - Consolidation Request - incorrect_not_enough_consolidat OK
++ [Valid]   EF - Fulu - Operations - Consolidation Request - incorrect_same_source_target    OK
 + [Valid]   EF - Fulu - Operations - Consolidation Request - incorrect_source_address        OK
 + [Valid]   EF - Fulu - Operations - Consolidation Request - incorrect_source_has_pending_wi OK
 + [Valid]   EF - Fulu - Operations - Consolidation Request - incorrect_source_not_active_lon OK
@@ -4068,6 +4079,7 @@ ConsensusSpecPreset-minimal
 ```
 ## EF - Fulu - Sanity - Slots  [Preset: minimal]
 ```diff
++ EF - Fulu - Slots - balance_change_affects_proposer [Preset: minimal]                      OK
 + EF - Fulu - Slots - double_empty_epoch [Preset: minimal]                                   OK
 + EF - Fulu - Slots - empty_epoch [Preset: minimal]                                          OK
 + EF - Fulu - Slots - historical_accumulator [Preset: minimal]                               OK
@@ -4486,6 +4498,7 @@ ConsensusSpecPreset-minimal
 ```
 ## EF - Phase 0 - Sanity - Slots  [Preset: minimal]
 ```diff
++ EF - Phase 0 - Slots - balance_change_affects_proposer [Preset: minimal]                   OK
 + EF - Phase 0 - Slots - double_empty_epoch [Preset: minimal]                                OK
 + EF - Phase 0 - Slots - empty_epoch [Preset: minimal]                                       OK
 + EF - Phase 0 - Slots - historical_accumulator [Preset: minimal]                            OK
