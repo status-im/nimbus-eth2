@@ -217,9 +217,9 @@ proc runComputeCellsTest(suiteName, suitePath, path: string) =
       if p[].isErr:
         check output.kind == JNull
       else:
-        let p_val = p[].get
+        let p_val = newClone p[].get
         for i in 0..<len(p[].get):
-          check p_val[i].bytes == fromHex[2048](output[i].getStr).get
+          check p_val[][i].bytes == fromHex[2048](output[i].getStr).get
 
 proc runComputeCellsAndKzgProofsTest(suiteName, suitePath, path: string) =
   let relativePathComponent = path.relativeTestPathComponent(suitePath)
@@ -240,7 +240,7 @@ proc runComputeCellsAndKzgProofsTest(suiteName, suitePath, path: string) =
       if p[].isErr:
         check output.kind == JNull
       else:
-        let p_val = p[].get
+        let p_val = newClone p[].get
         for i in 0..<kzg_abi.CELLS_PER_EXT_BLOB:
           check p_val.cells[i].bytes == fromHex[2048](output[0][i].getStr).get
           check p_val.proofs[i].bytes == fromHex[48](output[1][i].getStr).get
