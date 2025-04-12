@@ -453,6 +453,7 @@ ConsensusSpecPreset-mainnet
 ```
 ## EF - Altair - Sanity - Slots  [Preset: mainnet]
 ```diff
++ EF - Altair - Slots - balance_change_affects_proposer [Preset: mainnet]                    OK
 + EF - Altair - Slots - double_empty_epoch [Preset: mainnet]                                 OK
 + EF - Altair - Slots - empty_epoch [Preset: mainnet]                                        OK
 + EF - Altair - Slots - historical_accumulator [Preset: mainnet]                             OK
@@ -985,6 +986,7 @@ ConsensusSpecPreset-mainnet
 ```
 ## EF - Bellatrix - Sanity - Slots  [Preset: mainnet]
 ```diff
++ EF - Bellatrix - Slots - balance_change_affects_proposer [Preset: mainnet]                 OK
 + EF - Bellatrix - Slots - double_empty_epoch [Preset: mainnet]                              OK
 + EF - Bellatrix - Slots - empty_epoch [Preset: mainnet]                                     OK
 + EF - Bellatrix - Slots - historical_accumulator [Preset: mainnet]                          OK
@@ -1601,6 +1603,7 @@ ConsensusSpecPreset-mainnet
 ```
 ## EF - Capella - Sanity - Slots  [Preset: mainnet]
 ```diff
++ EF - Capella - Slots - balance_change_affects_proposer [Preset: mainnet]                   OK
 + EF - Capella - Slots - double_empty_epoch [Preset: mainnet]                                OK
 + EF - Capella - Slots - empty_epoch [Preset: mainnet]                                       OK
 + EF - Capella - Slots - historical_accumulator [Preset: mainnet]                            OK
@@ -2248,6 +2251,7 @@ ConsensusSpecPreset-mainnet
 ```
 ## EF - Deneb - Sanity - Slots  [Preset: mainnet]
 ```diff
++ EF - Deneb - Slots - balance_change_affects_proposer [Preset: mainnet]                     OK
 + EF - Deneb - Slots - double_empty_epoch [Preset: mainnet]                                  OK
 + EF - Deneb - Slots - empty_epoch [Preset: mainnet]                                         OK
 + EF - Deneb - Slots - historical_accumulator [Preset: mainnet]                              OK
@@ -3065,6 +3069,7 @@ ConsensusSpecPreset-mainnet
 + [Valid]   EF - Electra - Sanity - Blocks - proposer_slashing [Preset: mainnet]             OK
 + [Valid]   EF - Electra - Sanity - Blocks - skipped_slots [Preset: mainnet]                 OK
 + [Valid]   EF - Electra - Sanity - Blocks - slash_and_exit_diff_index [Preset: mainnet]     OK
++ [Valid]   EF - Electra - Sanity - Blocks - switch_to_compounding_requests_when_too_little_ OK
 + [Valid]   EF - Electra - Sanity - Blocks - sync_committee_committee__empty [Preset: mainne OK
 + [Valid]   EF - Electra - Sanity - Blocks - sync_committee_committee__full [Preset: mainnet OK
 + [Valid]   EF - Electra - Sanity - Blocks - sync_committee_committee__half [Preset: mainnet OK
@@ -3081,6 +3086,7 @@ ConsensusSpecPreset-mainnet
 ```
 ## EF - Electra - Sanity - Slots  [Preset: mainnet]
 ```diff
++ EF - Electra - Slots - balance_change_affects_proposer [Preset: mainnet]                   OK
 + EF - Electra - Slots - double_empty_epoch [Preset: mainnet]                                OK
 + EF - Electra - Slots - empty_epoch [Preset: mainnet]                                       OK
 + EF - Electra - Slots - historical_accumulator [Preset: mainnet]                            OK
@@ -3836,6 +3842,7 @@ ConsensusSpecPreset-mainnet
 ```
 ## EF - Fulu - Sanity - Slots  [Preset: mainnet]
 ```diff
++ EF - Fulu - Slots - balance_change_affects_proposer [Preset: mainnet]                      OK
 + EF - Fulu - Slots - double_empty_epoch [Preset: mainnet]                                   OK
 + EF - Fulu - Slots - empty_epoch [Preset: mainnet]                                          OK
 + EF - Fulu - Slots - historical_accumulator [Preset: mainnet]                               OK
@@ -4191,6 +4198,7 @@ ConsensusSpecPreset-mainnet
 ```
 ## EF - Phase 0 - Sanity - Slots  [Preset: mainnet]
 ```diff
++ EF - Phase 0 - Slots - balance_change_affects_proposer [Preset: mainnet]                   OK
 + EF - Phase 0 - Slots - double_empty_epoch [Preset: mainnet]                                OK
 + EF - Phase 0 - Slots - empty_epoch [Preset: mainnet]                                       OK
 + EF - Phase 0 - Slots - historical_accumulator [Preset: mainnet]                            OK
