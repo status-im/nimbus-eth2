@@ -10,11 +10,12 @@
 import
   chronos, presto/client, chronicles,
   ".."/".."/validators/slashing_protection_common,
-  ".."/mev/[bellatrix_mev, capella_mev],
   ".."/[helpers, forks, keystore, eth2_ssz_serialization],
   "."/[rest_types, rest_common, eth2_rest_serialization]
 
-from ".."/datatypes/capella import SignedBeaconBlock
+from ../mev/bellatrix_mev import SignedBlindedBeaconBlock
+from ../mev/capella_mev import SignedBlindedBeaconBlock
+from ../mev/deneb_mev import SignedBlindedBeaconBlock
 
 export chronos, client, rest_types, eth2_rest_serialization
 
