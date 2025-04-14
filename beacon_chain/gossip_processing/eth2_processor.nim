@@ -172,37 +172,6 @@ type
 func toValidationResult*(res: ValidationRes): ValidationResult =
   if res.isOk(): ValidationResult.Accept else: res.error()[0]
 
-proc toValidationRace*(
-    f1, f2: Future[ValidationRes]
-): Future[ValidationResult] {.async: (raises: [CancelledError]).} =
-  let
-    f1b = noCancel(f1)
-    f2b = noCancel(f2)
-
-  var raced: FutureBase
-  try:
-    raced = await race([f1b, f2b])
-  except ValueError:
-    # This shouldn't normally happen with 2 futures
-    return ValidationResult.Ignore
-
-  let
-    first = if raced == f1b: f1 else: f2
-    second = if raced == f1b: f2 else: f1
-
-  try:
-    let res1 = await first
-    if res1.isOk():
-      return ValidationResult.Accept
-  except CatchableError:
-    discard
-
-  try:
-    let res2 = await second
-    return toValidationResult(res2)
-  except CatchableError:
-    return ValidationResult.Ignore
-
 # Initialization
 # ------------------------------------------------------------------------------
 
@@ -389,13 +358,11 @@ proc processBlobSidecar*(
 
   v
 
-proc processDataColumnSidecarFromEL*(
+proc validateDataColumnSidecarFromEL*(
     self: ref Eth2Processor,
-    dataColumnSidecar: DataColumnSidecar):
+    block_root: Eth2Digest):
     Future[ValidationRes]
     {.async: (raises: [CancelledError]).} =
-  template block_header: untyped = dataColumnSidecar.signed_block_header.message
-  let block_root = hash_tree_root(block_header)
   if (let o = self.quarantine[].popColumnless(block_root); o.isSome):
     let columnless = o.unsafeGet()
     withBlck(columnless):
@@ -434,10 +401,13 @@ proc processDataColumnSidecarFromEL*(
               self.blockProcessor[].enqueueBlock(
                 MsgSource.gossip, columnless,
                 Opt.none(BlobSidecars),
-                Opt.some(self.dataColumnQuarantine[].gatherDataColumns(block_root)))
+                Opt.some(self.dataColumnQuarantine[].popDataColumns(block_root, forkyBlck)))
+
+              return ok()
             else:
               discard self.quarantine[].addColumnless(
                 self.dag.finalizedHead.slot, forkyBlck)
+              return errIgnore ("Could not apply block with columns received from EL")
 
           elif blobsEl.len < forkyBlck.message.body.blob_kzg_commitments.len and
               blobsEl.len != 0:
@@ -447,19 +417,27 @@ proc processDataColumnSidecarFromEL*(
             debug "Time taken to receive partially response from EL",
                   received_percent = float((blobsEl.len div forkyBlck.message.body.blob_kzg_commitments.len) * 100),
                   time_taken = end_time - start_time
+            return errIgnore ("Received partial response from EL, cannot proceed")
           else:
             let end_time = Moment.now()
             debug "Empty response received from EL",
                   time_elapsed = end_time - start_time
-      else:
-        raiseAssert "Could not have been added to columnless"
-  ok()
+            return errIgnore ("Received empty response from EL, cannot proceed")
+  else:
+    return errIgnore ("Could not pull blobs and proofs from EL")
 
 proc processDataColumnSidecar*(
     self: ref Eth2Processor, src: MsgSource,
     dataColumnSidecar: DataColumnSidecar, subnet_id: uint64):
     Future[ValidationRes] {.async: (raises: [CancelledError]).} =
   template block_header: untyped = dataColumnSidecar.signed_block_header.message
+  let block_root = hash_tree_root(block_header)
+
+  let vEL =
+    await self.validateDataColumnSidecarFromEL(block_root)
+
+  if vEL.isOk():
+    return vEL
 
   let
     wallTime = self.getCurrentBeaconTime()
@@ -486,7 +464,6 @@ proc processDataColumnSidecar*(
   self.dataColumnQuarantine[].put(newClone(dataColumnSidecar))
   self.dag.db.putDataColumnSidecar(dataColumnSidecar)
 
-  let block_root = hash_tree_root(block_header)
   if (let o = self.quarantine[].popColumnless(block_root); o.isSome):
     let columnless = o.unsafeGet()
     withBlck(columnless):

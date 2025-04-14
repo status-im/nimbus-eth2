@@ -2182,14 +2182,9 @@ proc installMessageValidators(node: BeaconNode) =
               getDataColumnSidecarTopic(digest, subnet_id), proc (
                 dataColumnSidecar: fulu.DataColumnSidecar
               ): Future[ValidationResult] {.async: (raises: [CancelledError]).} =
-                let
-                  fut1 =
-                    (node.processor.processDataColumnSidecarFromEL(dataColumnSidecar))
-                  fut2 =
-                    (node.processor.processDataColumnSidecar(MsgSource.gossip,
-                                                             dataColumnSidecar,
-                                                             subnet_id))
-                return await toValidationRace(fut1, fut2))
+                toValidationResult(
+                  await node.processor.processDataColumnSidecar(
+                    MsgSource.gossip, dataColumnSidecar, subnet_id)))
 
       when consensusFork >= ConsensusFork.Deneb:
         # blob_sidecar_{subnet_id}
