@@ -373,6 +373,7 @@ proc validateDataColumnSidecarFromEL*(
         let blobsFromElOpt =
           await self.elManager.sendGetBlobsV2(forkyBlck)
         if blobsFromElOpt.get.len > 0 and blobsFromElOpt.isSome():
+          debug "Blobs and proofs received from EL"
           let blobsEl = blobsFromElOpt.get()
 
           # check lengths of array[BlobAndProofV2 with blobs
@@ -383,6 +384,7 @@ proc validateDataColumnSidecarFromEL*(
             # hence we can safely remove the columnless block from quarantine
             self.quarantine[].removeColumnless(forkyBlck)
 
+            debug "Recovering data column sidecars, from EL blobs"
             let
               recovered_columns =
                 assemble_data_column_sidecars(

@@ -437,8 +437,10 @@ proc assemble_data_column_sidecars*(signed_beacon_block: fulu.SignedBeaconBlock,
     let kzgcells = computeCells(blobs[i])
 
     cells[i] = kzgcells.get
+    var tmp: ProofBytes
     for j in 0..<CELLS_PER_EXT_BLOB:
-      proofs[i][j] = cell_proofs[i * CELLS_PER_EXT_BLOB + j]
+      tmp[j] = cell_proofs[i * CELLS_PER_EXT_BLOB + j]
+    proofs[i] = tmp
 
   for columnIndex in 0..<CELLS_PER_EXT_BLOB:
     var
