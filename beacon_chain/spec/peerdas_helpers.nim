@@ -413,6 +413,13 @@ proc assemble_data_column_sidecars*(signed_beacon_block: fulu.SignedBeaconBlock,
                                cell_proofs: seq[KzgProof]):
                                seq[DataColumnSidecar] =
   template blck(): auto = signed_beacon_block.message
+  var
+    sidecars =
+      newSeqOfCap[DataColumnSidecar](CELLS_PER_EXT_BLOB)
+  template kzg_commitments: untyped =
+    signed_beacon_block.message.body.blob_kzg_commitments
+  if kzg_commitments.len == 0:
+    return sidecars
   let
     beacon_block_header =
       BeaconBlockHeader(
@@ -428,8 +435,6 @@ proc assemble_data_column_sidecars*(signed_beacon_block: fulu.SignedBeaconBlock,
         signature: signed_beacon_block.signature)
 
   var
-    sidecars =
-      newSeqOfCap[DataColumnSidecar](CELLS_PER_EXT_BLOB)
     cells = newSeq[CellBytes](blobs.len)
     proofs = newSeq[ProofBytes](blobs.len)
 
