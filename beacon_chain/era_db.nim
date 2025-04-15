@@ -1,5 +1,5 @@
 # beacon_chain
-# Copyright (c) 2018-2024 Status Research & Development GmbH
+# Copyright (c) 2018-2025 Status Research & Development GmbH
 # Licensed and distributed under either of
 #   * MIT license (license terms in the root directory or at https://opensource.org/licenses/MIT).
 #   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
@@ -12,7 +12,6 @@ import
   chronicles,
   results, snappy, taskpools,
   ../ncli/era,
-  ./spec/datatypes/[altair, bellatrix, phase0],
   ./spec/[beaconstate, forks, signatures_batch],
   ./consensus_object_pools/block_dag # TODO move to somewhere else to avoid circular deps
 

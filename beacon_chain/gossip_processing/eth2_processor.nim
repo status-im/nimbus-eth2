@@ -1,5 +1,5 @@
 # beacon_chain
-# Copyright (c) 2018-2024 Status Research & Development GmbH
+# Copyright (c) 2018-2025 Status Research & Development GmbH
 # Licensed and distributed under either of
 #   * MIT license (license terms in the root directory or at https://opensource.org/licenses/MIT).
 #   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
@@ -235,6 +235,9 @@ proc processSignedBeaconBlock*(
     # sync, we don't lose the gossip blocks, but also don't block the gossip
     # propagation of seemingly good blocks
     trace "Block validated"
+
+    if not(isNil(self.dag.onBlockGossipAdded)):
+      self.dag.onBlockGossipAdded(ForkedSignedBeaconBlock.init(signedBlock))
 
     let blobs =
       when typeof(signedBlock).kind >= ConsensusFork.Deneb:

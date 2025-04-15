@@ -63,9 +63,7 @@ import # Unit test
   ./test_validator_client,
   ./test_beacon_validators,
   ./test_beacon_chain_file,
-  ./test_mev_calls
-
-when not defined(windows):
-  import ./test_keymanager_api
+  ./test_mev_calls,
+  ./test_keymanager_api   # currently has to run after test_remote_keystore
 
 summarizeLongTests("AllTests")

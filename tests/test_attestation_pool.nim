@@ -11,20 +11,22 @@
 import
   # Status lib
   unittest2,
-  chronicles, chronos,
-  stew/[byteutils, endians2],
-  taskpools,
+  chronicles,
   # Internal
-  ../beacon_chain/gossip_processing/[gossip_validation],
-  ../beacon_chain/fork_choice/[fork_choice_types, fork_choice],
   ../beacon_chain/consensus_object_pools/[
-    block_quarantine, blockchain_dag, block_clearance, attestation_pool],
-  ../beacon_chain/spec/[beaconstate, helpers, state_transition, validator],
+    blockchain_dag, block_clearance, attestation_pool],
+  ../beacon_chain/spec/[state_transition, validator],
   ../beacon_chain/beacon_clock,
   # Test utilities
   ./testutil, ./testdbutil, ./testblockutil, ./consensus_spec/fixtures_utils
 
 from std/sequtils import mapIt, toSeq
+from stew/byteutils import `<`
+from ../beacon_chain/consensus_object_pools/block_quarantine import
+  Quarantine, init
+from ../beacon_chain/spec/beaconstate import
+  attester_dependent_root, check_attestation, get_attesting_indices,
+  latest_block_root
 from ./testbcutil import addHeadBlock
 
 func combine(tgt: var (phase0.Attestation | electra.Attestation),
@@ -321,6 +323,7 @@ suite "Attestation pool processing" & preset():
 
     check:
       not pool[].covers(att0.data, att0.aggregation_bits)
+      not pool[].covers(att1.data, att1.aggregation_bits)
 
     pool[].addAttestation(
       att0, @[bc0[0], bc0[2]], att0.aggregation_bits.len, att0.loadSig,
@@ -337,6 +340,7 @@ suite "Attestation pool processing" & preset():
 
     check:
       pool[].covers(att0.data, att0.aggregation_bits)
+      pool[].covers(att1.data, att1.aggregation_bits)
       pool[].getAttestationsForBlock(state[], cache).len() == 2
       # Can get either aggregate here, random!
       pool[].getPhase0AggregatedAttestation(1.Slot, 0.CommitteeIndex).isSome()
@@ -873,8 +877,7 @@ suite "Attestation pool electra processing" & preset():
          get().aggregation_bits.countOnes() == 2
       # requests to get and aggregate from different committees should be empty
       pool[].getElectraAggregatedAttestation(
-        2.Slot, combined[0].data.beacon_block_root, 1.CommitteeIndex).isNone()
-
+        2.Slot, hash_tree_root(combined[0].data), 1.CommitteeIndex).isNone()
 
   test "Attestations with disjoint comittee bits and equal data into single on-chain aggregate" & preset():
     let
@@ -1034,7 +1037,9 @@ suite "Attestation pool electra processing" & preset():
     check:
       verifyAttestationSignature(att0)
       verifyAttestationSignature(att1)
-      not pool[].covers(att0.data, att0.aggregation_bits)
+      not pool[].covers(att0.data, att0.aggregation_bits, att0.committee_bits)
+      not pool[].covers(att1.data, att1.aggregation_bits, att1.committee_bits)
+      not pool[].covers(att2.data, att2.aggregation_bits, att2.committee_bits)
 
     pool[].addAttestation(
       att0, @[bc0[0], bc0[2]], att0.aggregation_bits.len, att0.loadSig,
@@ -1047,6 +1052,10 @@ suite "Attestation pool electra processing" & preset():
       check: verifyAttestationSignature(att)
 
     check:
+      pool[].covers(att0.data, att0.aggregation_bits, att0.committee_bits)
+      pool[].covers(att1.data, att1.aggregation_bits, att1.committee_bits)
+      pool[].covers(att2.data, att2.aggregation_bits, att2.committee_bits)
+
       process_slots(
         defaultRuntimeConfig, state[],
         getStateField(state[], slot) + MIN_ATTESTATION_INCLUSION_DELAY, cache,
@@ -1176,3 +1185,91 @@ suite "Attestation pool electra processing" & preset():
         state[].electraData.data, attestations[1], {}, cache, true).isOk
       pool[].verifyAttestationSignature(state, cache, attestations[0])
       pool[].verifyAttestationSignature(state, cache, attestations[1])
+
+  test "Simple add and get with electra nonzero committee" & preset():
+     let
+       bc0 = get_beacon_committee(
+         state[], getStateField(state[], slot), 0.CommitteeIndex, cache)
+
+       bc1 = get_beacon_committee(
+         state[], getStateField(state[], slot), 1.CommitteeIndex, cache)
+
+       attestation_1 = makeElectraAttestation(
+         state[], state[].latest_block_root, bc0[0], cache)
+
+       attestation_2 = makeElectraAttestation(
+         state[], state[].latest_block_root, bc1[0], cache)
+
+     pool[].addAttestation(
+       attestation_1, @[bc0[0]], attestation_1.aggregation_bits.len,
+       attestation_1.loadSig, attestation_1.data.slot.start_beacon_time)
+
+     pool[].addAttestation(
+       attestation_2, @[bc1[0]], attestation_2.aggregation_bits.len,
+       attestation_2.loadSig, attestation_2.data.slot.start_beacon_time)
+
+     check:
+       process_slots(
+         defaultRuntimeConfig, state[],
+         getStateField(state[], slot) + MIN_ATTESTATION_INCLUSION_DELAY, cache,
+         info, {}).isOk()
+
+     check:
+       pool[].getElectraAggregatedAttestation(1.Slot, hash_tree_root(attestation_1.data),
+           0.CommitteeIndex).isOk
+       pool[].getElectraAggregatedAttestation(1.Slot, hash_tree_root(attestation_2.data),
+           1.CommitteeIndex).isOk
+
+  test "Cache coherence on chain aggregates" & preset():
+      # Add attestation from different committee
+      var maxSlot = 0.Slot
+
+      for i in 0 ..< 4:
+        let
+          bc = get_beacon_committee(
+            state[], getStateField(state[], slot), i.CommitteeIndex, cache)
+          att = makeElectraAttestation(
+            state[], state[].latest_block_root, bc[0], cache)
+        var att2 = makeElectraAttestation(
+          state[], state[].latest_block_root, bc[1], cache)
+
+        pool[].addAttestation(
+          att, @[bc[0]], att.aggregation_bits.len, att.loadSig,
+          att.data.slot.start_beacon_time)
+
+        if att.data.slot < 2:
+          pool[].addAttestation(
+            att2, @[bc[1]], att2.aggregation_bits.len, att2.loadSig,
+            att2.data.slot.start_beacon_time)
+
+        if att.data.slot > maxSlot:
+          maxSlot = att.data.slot
+
+      check process_slots(
+        defaultRuntimeConfig, state[],
+        maxSlot + MIN_ATTESTATION_INCLUSION_DELAY, cache,
+        info, {}).isOk()
+
+      let attestations = pool[].getElectraAttestationsForBlock(state[], cache)
+      check:
+        ## Considering that all structures in getElectraAttestationsForBlock
+        ## are sorted, the most relevant should be at sequence head.
+        ## Given the attestations added, the most "scored" is on
+        ## slot 1
+        attestations.len() == 2
+
+        attestations[0].aggregation_bits.countOnes() == 4
+        attestations[0].committee_bits.countOnes() == 2
+        attestations[0].data.slot == 1.Slot
+
+
+        attestations[1].aggregation_bits.countOnes() == 2
+        attestations[1].committee_bits.countOnes() == 2
+        attestations[1].data.slot == 2.Slot
+
+        check_attestation(
+          state[].electraData.data, attestations[0], {}, cache, true).isOk
+        check_attestation(
+          state[].electraData.data, attestations[1], {}, cache, true).isOk
+        pool[].verifyAttestationSignature(state, cache, attestations[0])
+        pool[].verifyAttestationSignature(state, cache, attestations[1])

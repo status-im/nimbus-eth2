@@ -274,7 +274,7 @@ proc checkWeakSubjectivityCheckpoint(
 
 from ./spec/state_transition_block import kzg_commitment_to_versioned_hash
 
-proc isSlotWithinWeakSubjectivityPeriod(dag: ChainDagRef, slot: Slot): bool =
+proc isSlotWithinWeakSubjectivityPeriod(dag: ChainDAGRef, slot: Slot): bool =
   let
     checkpoint = Checkpoint(
       epoch: epoch(getStateField(dag.headState, slot)),
@@ -317,6 +317,9 @@ proc initFullNode(
         none[bool]()
     node.eventBus.blocksQueue.emit(
       EventBeaconBlockObject.init(data, optimistic))
+  proc onBlockGossipAdded(data: ForkedSignedBeaconBlock) =
+    node.eventBus.blockGossipQueue.emit(
+      EventBeaconBlockGossipObject.init(data))
   proc onHeadChanged(data: HeadChangeInfoObject) =
     let eventData =
       if node.currentSlot().epoch() >= dag.cfg.BELLATRIX_FORK_EPOCH:
@@ -500,6 +503,7 @@ proc initFullNode(
     syncManager = newSyncManager[Peer, PeerId](
       node.network.peerPool,
       dag.cfg.DENEB_FORK_EPOCH,
+      dag.cfg.FULU_FORK_EPOCH,
       dag.cfg.MIN_EPOCHS_FOR_BLOB_SIDECARS_REQUESTS,
       dag.cfg.MAX_BLOBS_PER_BLOCK_ELECTRA,
       SyncQueueKind.Forward, getLocalHeadSlot,
@@ -511,6 +515,7 @@ proc initFullNode(
     backfiller = newSyncManager[Peer, PeerId](
       node.network.peerPool,
       dag.cfg.DENEB_FORK_EPOCH,
+      dag.cfg.FULU_FORK_EPOCH,
       dag.cfg.MIN_EPOCHS_FOR_BLOB_SIDECARS_REQUESTS,
       dag.cfg.MAX_BLOBS_PER_BLOCK_ELECTRA,
       SyncQueueKind.Backward, getLocalHeadSlot,
@@ -527,6 +532,7 @@ proc initFullNode(
     untrustedManager = newSyncManager[Peer, PeerId](
       node.network.peerPool,
       dag.cfg.DENEB_FORK_EPOCH,
+      dag.cfg.FULU_FORK_EPOCH,
       dag.cfg.MIN_EPOCHS_FOR_BLOB_SIDECARS_REQUESTS,
       dag.cfg.MAX_BLOBS_PER_BLOCK_ELECTRA,
       SyncQueueKind.Backward, getLocalHeadSlot,
@@ -591,6 +597,7 @@ proc initFullNode(
 
   dag.setFinalizationCb makeOnFinalizationCb(node.eventBus, node.elManager)
   dag.setBlockCb(onBlockAdded)
+  dag.setBlockGossipCb(onBlockGossipAdded)
   dag.setHeadCb(onHeadChanged)
   dag.setReorgCb(onChainReorg)
 
@@ -736,6 +743,7 @@ proc init*(T: type BeaconNode,
     eventBus = EventBus(
       headQueue: newAsyncEventQueue[HeadChangeInfoObject](),
       blocksQueue: newAsyncEventQueue[EventBeaconBlockObject](),
+      blockGossipQueue: newAsyncEventQueue[EventBeaconBlockGossipObject](),
       phase0AttestQueue: newAsyncEventQueue[phase0.Attestation](),
       singleAttestQueue: newAsyncEventQueue[SingleAttestation](),
       exitQueue: newAsyncEventQueue[SignedVoluntaryExit](),
@@ -1405,7 +1413,8 @@ proc doppelgangerChecked(node: BeaconNode, epoch: Epoch) =
       validator.doppelgangerChecked(epoch - 1)
 
 proc maybeUpdateActionTrackerNextEpoch(
-    node: BeaconNode, forkyState: ForkyHashedBeaconState, nextEpoch: Epoch) =
+    node: BeaconNode, forkyState: ForkyHashedBeaconState, currentSlot: Slot) =
+  let nextEpoch = currentSlot.epoch + 1
   if node.consensusManager[].actionTracker.needsUpdate(
       forkyState, nextEpoch):
     template epochRefFallback() =
@@ -1466,7 +1475,12 @@ proc maybeUpdateActionTrackerNextEpoch(
         effective_balance = forkyState.data.validators.item(
           nextEpochFirstProposer).effective_balance
 
-      if  participation_flags.has_flag(TIMELY_SOURCE_FLAG_INDEX) and
+      # Maximal potential accuracy primarily useful during the last slot of
+      # each epoch to prepare for a possible proposal the first slot of the
+      # next epoch. Otherwise, epochRefFallback is potentially very slow as
+      # it can induce a lengthy state replay.
+      if (not (currentSlot + 1).is_epoch) or
+         (participation_flags.has_flag(TIMELY_SOURCE_FLAG_INDEX) and
           participation_flags.has_flag(TIMELY_TARGET_FLAG_INDEX) and
           effective_balance == MAX_EFFECTIVE_BALANCE.Gwei and
           forkyState.data.slot.epoch != GENESIS_EPOCH and
@@ -1474,7 +1488,7 @@ proc maybeUpdateActionTrackerNextEpoch(
             nextEpochFirstProposer) == 0 and
           not effective_balance_might_update(
             forkyState.data.balances.item(nextEpochFirstProposer),
-            effective_balance):
+            effective_balance)):
         node.consensusManager[].actionTracker.updateActions(
           shufflingRef, nextEpochProposers)
       else:
@@ -1559,7 +1573,7 @@ proc updateGossipStatus(node: BeaconNode, slot: Slot) {.async.} =
         node.consensusManager[].actionTracker.updateActions(
           epochRef.shufflingRef, epochRef.beacon_proposers)
 
-      node.maybeUpdateActionTrackerNextEpoch(forkyState, slot.epoch + 1)
+      node.maybeUpdateActionTrackerNextEpoch(forkyState, slot)
 
   if node.gossipState.card > 0 and targetGossipState.card == 0:
     debug "Disabling topic subscriptions",
@@ -1705,7 +1719,7 @@ proc onSlotEnd(node: BeaconNode, slot: Slot) {.async.} =
       # missed sync committee participation via process_sync_aggregate(), but
       # attestation penalties for example, need, specific handling.
       # checked by maybeUpdateActionTrackerNextEpoch.
-      node.maybeUpdateActionTrackerNextEpoch(forkyState, slot.epoch + 1)
+      node.maybeUpdateActionTrackerNextEpoch(forkyState, slot)
 
   let
     nextAttestationSlot =
@@ -2083,7 +2097,7 @@ proc installMessageValidators(node: BeaconNode) =
                 MsgSource.gossip, msg)))
 
       when consensusFork >= ConsensusFork.Capella:
-        # https://github.com/ethereum/consensus-specs/blob/v1.5.0-beta.3/specs/capella/p2p-interface.md#bls_to_execution_change
+        # https://github.com/ethereum/consensus-specs/blob/v1.5.0-beta.4/specs/capella/p2p-interface.md#bls_to_execution_change
         node.network.addAsyncValidator(
           getBlsToExecutionChangeTopic(digest), proc (
             msg: SignedBLSToExecutionChange

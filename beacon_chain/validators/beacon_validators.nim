@@ -1011,16 +1011,16 @@ proc getBuilderBid[
     return err unsignedBlindedBlock.error()
 
   template execution_requests: untyped =
-      unsignedBlindedBlock.get.message.body.execution_requests
+    unsignedBlindedBlock.get.message.body.execution_requests
   when SBBB is deneb_mev.SignedBlindedBeaconBlock:
-   return ok(BuilderBid[SBBB](
+    return ok(BuilderBid[SBBB](
       blindedBlckPart: unsignedBlindedBlock.get,
       executionRequests: default(ExecutionRequests),
       executionPayloadValue: bidValue,
       consensusBlockValue: consensusValue))
   elif SBBB is electra_mev.SignedBlindedBeaconBlock or
       SBBB is fulu_mev.SignedBlindedBeaconBlock:
-   return ok(BuilderBid[SBBB](
+    return ok(BuilderBid[SBBB](
       blindedBlckPart: unsignedBlindedBlock.get,
       executionRequests: execution_requests,
       executionPayloadValue: bidValue,
