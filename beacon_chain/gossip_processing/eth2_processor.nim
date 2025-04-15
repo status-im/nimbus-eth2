@@ -363,7 +363,7 @@ proc validateDataColumnSidecarFromEL*(
     block_root: Eth2Digest):
     Future[ValidationRes]
     {.async: (raises: [CancelledError]).} =
-  if (let o = self.quarantine[].popColumnless(block_root); o.isSome):
+  if (let o = self.quarantine[].getColumnless(block_root); o.isSome):
     let columnless = o.unsafeGet()
     withBlck(columnless):
       when consensusFork >= ConsensusFork.Fulu:
@@ -378,6 +378,11 @@ proc validateDataColumnSidecarFromEL*(
           # check lengths of array[BlobAndProofV2 with blobs
           # kzg commitments of the signed block
           if blobsEl.len == forkyBlck.message.body.blob_kzg_commitments.len:
+
+            # we have received all columns from the EL
+            # hence we can safely remove the columnless block from quarantine
+            self.quarantine[].removeColumnless(forkyBlck)
+
             let
               recovered_columns =
                 assemble_data_column_sidecars(
