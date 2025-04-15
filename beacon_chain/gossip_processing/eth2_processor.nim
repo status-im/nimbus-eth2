@@ -372,6 +372,8 @@ proc validateDataColumnSidecarFromEL*(
         var el_blob_loss = 0
         let blobsFromElOpt =
           await self.elManager.sendGetBlobsV2(forkyBlck)
+        debugEcho "blobs from el"
+        debugEcho blobsFromElOpt.get.len
         if blobsFromElOpt.get.len > 0 and blobsFromElOpt.isSome():
           debug "Blobs and proofs received from EL"
           let blobsEl = blobsFromElOpt.get()
@@ -393,8 +395,9 @@ proc validateDataColumnSidecarFromEL*(
                   @(blobsEl[0].proofs.mapIt(kzg.KzgProof(bytes: it.data))))
 
             for rc in recovered_columns:
-              self.dag.db.putDataColumnSidecar(rc)
-              self.dataColumnQuarantine[].put(newClone rc)
+              if rc.index in self.dataColumnQuarantine[].custody_columns:
+                self.dag.db.putDataColumnSidecar(rc)
+                self.dataColumnQuarantine[].put(newClone rc)
 
             if self.dataColumnQuarantine[].hasMissingDataColumns(forkyBlck, self.dag.cfg):
               let end_time = Moment.now()
@@ -408,11 +411,6 @@ proc validateDataColumnSidecarFromEL*(
                 Opt.some(self.dataColumnQuarantine[].popDataColumns(block_root, forkyBlck)))
 
               return ok()
-            else:
-              discard self.quarantine[].addColumnless(
-                self.dag.finalizedHead.slot, forkyBlck)
-              return errIgnore ("Could not apply block with columns received from EL")
-
           elif blobsEl.len < forkyBlck.message.body.blob_kzg_commitments.len and
               blobsEl.len != 0:
             let end_time = Moment.now()
@@ -421,12 +419,10 @@ proc validateDataColumnSidecarFromEL*(
             debug "Time taken to receive partially response from EL",
                   received_percent = float((blobsEl.len div forkyBlck.message.body.blob_kzg_commitments.len) * 100),
                   time_taken = end_time - start_time
-            return errIgnore ("Received partial response from EL, cannot proceed")
           else:
             let end_time = Moment.now()
             debug "Empty response received from EL",
                   time_elapsed = end_time - start_time
-            return errIgnore ("Received empty response from EL, cannot proceed")
   else:
     return errIgnore ("Could not pull blobs and proofs from EL")
 
