@@ -379,13 +379,10 @@ proc validateDataColumnSidecarFromEL*(
           # kzg commitments of the signed block
           if blobsEl.len == forkyBlck.message.body.blob_kzg_commitments.len:
             let
-              computed_cells =
-                compute_cells_batch(blobsEl.mapIt(kzg.KzgBlob(bytes: it.blob.data))).valueOr:
-                  return errIgnore("Could not batch compute cells")
               recovered_columns =
-                get_data_column_sidecars(
+                assemble_data_column_sidecars(
                   forkyBlck,
-                  computed_cells,
+                  blobsEl.mapIt(kzg.KzgBlob(bytes: it.blob.data)),
                   @(blobsEl[0].proofs.mapIt(kzg.KzgProof(bytes: it.data))))
 
             for rc in recovered_columns:
