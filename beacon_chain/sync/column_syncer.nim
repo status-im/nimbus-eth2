@@ -198,12 +198,12 @@ proc fetchBlocksForColumnNavigation[A, B](man: ColumnManager[A, B], peer: A,
     peer_score = peer.getScore()
     peer_speed = peer.netKbps()
     direction = man.direction
+    topics = "columnsync"
 
   doAssert(not(req.isEmpty()), "Request must not be empty!")
   debug "Requesting blocks from peer",
          peer_score = req.item.getScore(),
-         peer_speed = req.item.netKbps(),
-         topics = "columnsync"
+         peer_speed = req.item.netKbps()
 
   beaconBlocksByRange_v2(peer, req.slot, req.count, 1'u64)
 
@@ -297,7 +297,8 @@ proc getDataColumnSidecarsByRange[A, B](man: ColumnManager[A, B],
     topics = "columnsync"
 
   doAssert(not(r.isEmpty()), "Request must not be empty")
-  debug "Requesting data column sidecars from peer"
+  debug "Requesting data column sidecars from peer",
+         topics = "columnsync"
   dataColumnSidecarsByRange(peer, r.slot, r.count, req_cols)
 
 proc remainingSlots(man: ColumnManager): uint64 =
@@ -362,19 +363,20 @@ proc filterRelevantPeers[A, B](man: ColumnManager[A, B],
       if not(await peer.updateStatus()):
         peer.updateScore(PeerScoreNoStatus)
         debug "Failed to get remote peer's status, not including in refreshed list",
-              peer_head_slot = peerSlot
+              peer_head_slot = peerSlot, topics = "columnsync"
 
       let newPeerSlot = peer.getHeadSlot()
       if peerSlot >= newPeerSlot:
         peer.updateScore(PeerScoreStaleStatus)
         debug "Peer's status information is stale",
                wall_clock_slot = wallSlot, remote_old_head_slot = peerSlot,
-               local_head_slot = headSlot, remote_new_head_slot = newPeerSlot
+               local_head_slot = headSlot, remote_new_head_slot = newPeerSlot,
+               topics = "columnsync"
 
       else:
         debug "Peer's status information updated", wall_clock_slot = wallSlot,
               remote_head_slot = peerSlot, local_head_slot = headSlot,
-              remote_new_head_slot = newPeerSlot
+              remote_new_head_slot = newPeerSlot, topics = "columnsync"
         peer.updateScore(PeerScoreGoodStatus)
         peerSlot = newPeerSlot
         refreshed_peer_set.add(peer)
@@ -567,7 +569,7 @@ proc columnSyncStrategyImpartial[A, B](
       if not(await peer.updateStatus()):
         peer.updateScore(PeerScoreNoStatus)
         debug "Failed to get remote peer's status, exiting",
-              peer_head_slot = peerSlot
+              peer_head_slot = peerSlot, topics = "columnsync"
         return
 
       let newPeerSlot = peer.getHeadSlot()
@@ -606,7 +608,8 @@ proc columnSyncStrategyImpartial[A, B](
     debug "Peer's head slot is lower than local head slot", peer = peer,
           wall_clock_slot = wallSlot, remote_head_slot = peerSlot,
           local_last_slot = man.getLastSlot(),
-          local_first_slot = man.getFirstSlot()
+          local_first_slot = man.getFirstSlot(),
+          topics = "columnsync"
     peer.updateScore(PeerScoreUseless)
     return
 
@@ -620,7 +623,8 @@ proc columnSyncStrategyImpartial[A, B](
           local_head_slot = headSlot, remote_head_slot = peerSlot,
           queue_input_slot = man.assist.inpSlot,
           queue_output_slot = man.assist.outSlot,
-          queue_last_slot = man.assist.finalSlot
+          queue_last_slot = man.assist.finalSlot,
+          topics = "columnsync"
     await sleepAsync(RESP_TIMEOUT_DUR)
     return
 
@@ -634,11 +638,11 @@ proc columnSyncStrategyImpartial[A, B](
     peer.updateScore(PeerScoreNoValues)
     man.assist.push(req)
     debug "Failed to receive blocks on request",
-           err = blocks.error
+           err = blocks.error, topics = "columnsync"
     return
   let blockData = blocks.get().asSeq()
   debug "Received blocks on request",
-         blocks_count = len(blockData)
+         blocks_count = len(blockData), topics = "columnsync"
 
   let slots = mapIt(blockData, it[].slot)
   checkResponse(req, slots).isOkOr:
@@ -646,7 +650,7 @@ proc columnSyncStrategyImpartial[A, B](
     man.assist.push(req)
     warn "Incorrect blocks sequence received",
           blocks_count = len(blockData),
-          reason = error
+          reason = error, topics = columnsync
     return
 
   let shouldGetDataColumns =
@@ -682,11 +686,11 @@ proc columnSyncStrategyImpartial[A, B](
         peer.updateScore(PeerScoreNoValues)
         man.assist.push(req)
         debug "Failed to receive columns on request",
-               err = columns.error
+               err = columns.error, topics = "columnsync"
         return
       let columnData = columns.get().asSeq()
       debug "Received data columns on request",
-            columns_count = len(columnData)
+            columns_count = len(columnData), topics = "columnsync"
       if len(columnData) > 0:
         let slots = mapIt(columnData, it[].signed_block_header.message.slot)
         checkDataColumnsResponse(req, slots, man.MAX_BLOBS_PER_BLOCK_ELECTRA).isOkOr:
@@ -694,27 +698,27 @@ proc columnSyncStrategyImpartial[A, B](
           man.assist.push(req)
           warn "Incorrect columns sequence received",
                columns_count = len(columnData),
-               reason = error
+               reason = error, topics = "columnsync"
           return
 
       man.groupAndFillColumnTable(blockData, columnData).isOkOr:
         peer.updateScore(PeerScoreNoValues)
         man.assist.push(req)
         info "Received column sequence is inconsistent",
-              msg = error
+              msg = error, topics = "columnsync"
         return
 
       let finalColumns =
         man.serializeColumnTable().valueOr:
           warn "Issue in grouping reconstructed columns",
-                msg = error
+                msg = error, topics = "columnsync"
           return
       finalColumns.checkDataColumns().isOkOr:
         peer.updateScore(PeerScoreBadResponse)
         man.assist.push(req)
         warn "Columns verification failed",
              columns_count = len(columnData),
-             reason = error
+             reason = error, topics = "columnsync"
         return
 
       # Reset the column syncer table for the next batch
@@ -725,7 +729,8 @@ proc columnSyncStrategyImpartial[A, B](
 
   if len(blockData) == 0 and req.contains(man.getSafeSlot()):
     peer.updateScore(PeerScoreNoValues)
-    debug "Response does not include known-to-exist block"
+    debug "Response does not include known-to-exist block",
+          topics = "columnsync"
     return
 
   # Scoring will happen in `syncUpdate`
@@ -764,7 +769,8 @@ proc columnSyncStrategyGreedy[A, B](
   let int_cols = man.intersectionColumns(requested_peer)
 
   if man.remainingSlots() <= man.maxHeadAge:
-    info "We have synced all columns from the network"
+    info "We have synced all columns from the network",
+          topics = "columnsync"
     # Putting all ColumnSync workers to sleep
     man.notInSyncEvent.clear()
     return
@@ -778,7 +784,8 @@ proc columnSyncStrategyGreedy[A, B](
     debug "Peer's head slot is lower than local head slot", peer = requested_peer,
           wall_clock_slot = wallSlot, remote_head_slot = reqPeerSlot,
           local_last_slot = man.getLastSlot(),
-          local_first_slot = man.getFirstSlot()
+          local_first_slot = man.getFirstSlot(),
+          topics = "columnsync"
     requested_peer.updateScore(PeerScoreUseless)
     return
 
@@ -792,12 +799,14 @@ proc columnSyncStrategyGreedy[A, B](
           local_head_slot = headSlot, remote_head_slot = reqPeerSlot,
           queue_input_slot = man.assist.inpSlot,
           queue_output_slot = man.assist.outSlot,
-          queue_last_slot = man.assist.finalSlot
+          queue_last_slot = man.assist.finalSlot,
+          topics = "columnsync"
     await sleepAsync(RESP_TIMEOUT_DUR)
     return
 
   debug "Creating a new request for the peer", wall_clock_slot = wallSlot,
-          remote_head_slot = reqPeerSlot, local_head_slot = headSlot
+          remote_head_slot = reqPeerSlot, local_head_slot = headSlot,
+          topics = "columnsync"
 
   man.workers[w_index].status = ColumnSyncerStatus.Downloading
 
@@ -806,7 +815,7 @@ proc columnSyncStrategyGreedy[A, B](
     requested_peer.updateScore(PeerScoreNoValues)
     man.assist.push(req)
     debug "Failed to receive blocks on request",
-           err = blocks.error
+           err = blocks.error, topics = "columnsync"
     return
 
   let blockData = blocks.get().asSeq()
@@ -819,7 +828,7 @@ proc columnSyncStrategyGreedy[A, B](
     man.assist.push(req)
     warn "Incorrect blocks sequence received",
           blocks_count = len(blockData),
-          reason = error
+          reason = error, topics = "columnsync"
     return
 
   let shouldGetDataColumns =
@@ -835,7 +844,7 @@ proc columnSyncStrategyGreedy[A, B](
               break
       hasColumns
 
-  debug "Requesting common columns from the best peer"
+  debug "Requesting common columns from the best peer", topics = "columnsync"
   let columnData =
     if shouldGetDataColumns:
       let columns =
@@ -844,11 +853,11 @@ proc columnSyncStrategyGreedy[A, B](
         requested_peer.updateScore(PeerScoreNoValues)
         man.assist.push(req)
         debug "Failed to receive columns on request",
-               err = columns.error
+               err = columns.error, topics = "columnsync"
         return
       let columnData = columns.get().asSeq()
       debug "Received data columns on request",
-            columns_count = len(columnData)
+            columns_count = len(columnData), topics = "columnsync"
 
       if len(columnData) > 0:
         let slots = mapIt(columnData, it[].signed_block_header.message.slot)
@@ -857,27 +866,27 @@ proc columnSyncStrategyGreedy[A, B](
           man.assist.push(req)
           warn "Incorrect columns sequence received",
                 columns_count = len(columnData),
-                reason = error
+                reason = error, topics = "columnsync"
           return
 
       man.groupAndFillColumnTable(blockData, columnData).isOkOr:
         requested_peer.updateScore(PeerScoreNoValues)
         man.assist.push(req)
         info "Received columns sequence is inconsistent",
-              msg = error
+              msg = error, topics = "columnsync"
         return
 
       let finalColumns =
         man.serializeColumnTable().valueOr:
           warn "Issue in grouping reconstructed columns",
-                msg = error
+                msg = error, topics = "columnsync"
           return
       finalColumns.checkDataColumns().isOkOr:
         requested_peer.updateScore(PeerScoreBadResponse)
         man.assist.push(req)
         warn "Columns verification failed",
               columns_count = len(columnData),
-              reason = error
+              reason = error, topics = "columnsync"
         return
       # Reset the column syncer table for the next batch
       man.column_syncer_table = initOrderedTable[Slot, ColumnAndBlockResponse]()
@@ -887,7 +896,7 @@ proc columnSyncStrategyGreedy[A, B](
 
   if len(blockData) == 0 and req.contains(man.getSafeSlot()):
     requested_peer.updateScore(PeerScoreNoValues)
-    debug "Response does not include known-to-exist block"
+    debug "Response does not include known-to-exist block", topics = "columnsync"
     return
 
   # Scoring will happen in `syncUpdate`
@@ -911,7 +920,7 @@ proc columnSyncWorkerGreedy[A, B](
 ) {.async: (raises: [CancelledError]).} =
   mixin getKey, getScore, getHeadSlot
 
-  debug "Starting column syncer in `Greedy` mode"
+  debug "Starting column syncer in `Greedy` mode", topics = "columnsync"
   var usefulPeers, uselessPeers: seq[A]
 
   try:
@@ -957,7 +966,8 @@ proc columnSyncWorkerImparital[A, B](
 ) {.async: (raises: [CancelledError]).} =
   mixin getKey, getScore, getHeadSlot
 
-  debug "Starting column syncer in `Impartial` mode"
+  debug "Starting column syncer in `Impartial` mode",
+         topics = "columnsync"
   var peer: A = nil
   try:
     while true:
@@ -973,7 +983,7 @@ proc columnSyncWorkerImparital[A, B](
     if not(isNil(peer)):
       man.pool.release(peer)
 
-  debug "Column syncer has stopped."
+  debug "Column syncer has stopped.", topics = "columnsync"
 
 proc getColumnSyncerStats[A, B](man: ColumnManager[A, B]):
                                 tuple[map: string,
@@ -1069,13 +1079,15 @@ proc columnSyncLoop[A, B](
 
   logScope:
     direction = man.direction
+    topics = "columnsync"
 
   mixin getKey, getScore
   var pauseTime = 0
 
   man.startColumnSyncWorkers()
 
-  debug "Column sync loop has started"
+  debug "Column sync loop has started",
+         topics = "columnsync"
 
   proc averageSpeedTask() {.async: (raises: [CancelledError]).} =
     while true:
@@ -1125,7 +1137,8 @@ proc columnSyncLoop[A, B](
             local_head_slot = headSlot,
             pause_time = $chronos.seconds(pauseTime),
             avg_sync_speed = man.avgSyncSpeed.formatBiggestFloat(ffDecimal, 4),
-            ins_sync_speed = man.insSyncSpeed.formatBiggestFloat(ffDecimal, 4)
+            ins_sync_speed = man.insSyncSpeed.formatBiggestFloat(ffDecimal, 4),
+            topics = "columnsync"
     of ColumnSyncerDirection.Backward:
       debug "Current syncing state", workers_map = map,
              sleeping_workers_count = sleeping,
@@ -1135,7 +1148,8 @@ proc columnSyncLoop[A, B](
              backfill_slot = man.getSafeSlot(),
              pause_time = $chronos.seconds(pauseTime),
              avg_sync_speed = man.avgSyncSpeed.formatBiggestFloat(ffDecimal, 4),
-             ins_sync_speed = man.insSyncSpeed.formatBiggestFloat(ffDecimal, 4)
+             ins_sync_speed = man.insSyncSpeed.formatBiggestFloat(ffDecimal, 4),
+             topics = "columnsync"
 
     let
       pivot = man.progressPivot
@@ -1196,7 +1210,8 @@ proc columnSyncLoop[A, B](
               wall_head_slot = wallSlot, local_head_slot = headSlot,
               difference = (wallSlot - headSlot), max_head_age = man.maxHeadAge,
               sleeping_workers_count = sleeping,
-              waiting_workers_count = waiting, pending_workers_count = pending
+              waiting_workers_count = waiting, pending_workers_count = pending,
+              topics = "columnsync"
         # We already synced, so we should reset all the pending workers from
         # any state they have.
         man.assist.clearAndWakeup()
@@ -1211,26 +1226,30 @@ proc columnSyncLoop[A, B](
               debug "Forward column sync process finished, exiting",
                     wall_head_slot = wallSlot, local_head_slot = headSlot,
                     difference = (wallSlot - headSlot),
-                    max_head_age = man.maxHeadAge
+                    max_head_age = man.maxHeadAge,
+                    topics = "columnsync"
               break
             else:
               man.inProgress = false
               debug "Forward column sync process finished, sleeping",
                     wall_head_slot = wallSlot, local_head_slot = headSlot,
                     difference = (wallSlot - headSlot),
-                    max_head_age = man.maxHeadAge
+                    max_head_age = man.maxHeadAge,
+                    topics = "columnsync"
           else:
             debug "Column sync loop sleeping", wall_head_slot = wallSlot,
                   local_head_slot = headSlot,
                   difference = (wallSlot - headSlot),
-                  max_head_Age = man.maxHeadAge
+                  max_head_Age = man.maxHeadAge,
+                  topics = "columnsync"
         of ColumnSyncerDirection.Backward:
           await man.columnSyncClose(averageSpeedTaskFut)
           man.inProgress = false
           debug "Backward column sync process finished, exiting",
                 wall_head_slot = wallSlot, local_head_slot = headSlot,
                 backfill_slot = man.getLastSlot(),
-                max_head_Age = man.maxHeadAge
+                max_head_Age = man.maxHeadAge,
+                topics = "columnsync"
           break
     else:
       if not(man.notInSyncEvent.isSet()):
@@ -1243,7 +1262,8 @@ proc columnSyncLoop[A, B](
                 period = man.maxHeadAge, wall_head_slot = wallSlot,
                 local_head_slot = headSlot,
                 missing_slots = man.remainingSlots(),
-                progress = float(man.assist.progress())
+                progress = float(man.assist.progress()),
+                topics = "columnsync"
         else:
           man.notInSyncEvent.fire()
           man.inProgress = true

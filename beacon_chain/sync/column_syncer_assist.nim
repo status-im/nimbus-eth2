@@ -336,7 +336,7 @@ proc rewardForGaps[T](cas: ColumnSyncerAssist[T], score: int) =
           newScore = score + score * weight div 4
         gap.item.updateScore(newScore)
         debug "Peer received gap penalty, for missing columns in response",
-              peer = gap.item, penalty = newScore
+              peer = gap.item, penalty = newScore, topics = "columnsync"
     else:
       gap.item.updateScore(score)
 
@@ -637,7 +637,8 @@ proc push*[T](cas: ColumnSyncerAssist[T], sr: ColumnSyncRequest[T],
              blocks_count = len(item.data),
              ok = goodBlock.isSome(),
              unviable = unviableBlock.isSome(),
-             missing_parent = missingParentSlot.isSome()
+             missing_parent = missingParentSlot.isSome(),
+             topics = "columnsync"
 
       # We need to move failed response to the debts queue.
       cas.toDebtsQueue(item.request)
@@ -678,7 +679,8 @@ proc push*[T](cas: ColumnSyncerAssist[T], sr: ColumnSyncRequest[T],
                    finalized_slot = safeSlot,
                    last_good_slot = goodBlock.get(),
                    missing_parent_slot = missingParentSlot.get(),
-                   blocks_count = len(item.data)
+                   blocks_count = len(item.data),
+                   topics = "columnsync"
             req.item.updateScore(PeerScoreUnviableFork)
           else:
             if safeSlot < req.slot:
@@ -687,13 +689,15 @@ proc push*[T](cas: ColumnSyncerAssist[T], sr: ColumnSyncRequest[T],
                      rewind_to_slot = rewindSlot,
                      rewind_point = cas.rewind, finalized_slot = safeSlot,
                      blocks_count = len(item.data),
-                     gaps_count = gapsCount
+                     gaps_count = gapsCount,
+                     topics = "columnsync"
               resetSlot = some(rewindSlot)
             else:
               error "Unexpected missing parent at finalized epoch slot",
                      rewind_to_slot = safeSlot,
                      blocks_count = len(item.data),
-                     gaps_count = gapsCount
+                     gaps_count = gapsCount,
+                     topics = "columnsync"
               req.item.updateScore(PeerScoreBadValues)
         of ColumnSyncerDirection.Backward:
           if safeSlot > failSlot:
@@ -701,7 +705,8 @@ proc push*[T](cas: ColumnSyncerAssist[T], sr: ColumnSyncRequest[T],
             # It's quite common peers us fewer blocks than we ask for
             debug "Gap in block range response, rewinding",
                    rewind_to_slot = rewindSlot, rewind_fail_slot = failSlot,
-                   finalized_slot = safeSlot, blocks_count = len(item.data)
+                   finalized_slot = safeSlot, blocks_count = len(item.data),
+                   topics = "columnsync"
             resetSlot = some(rewindSlot)
             req.item.updateScore(PeerScoreMissingValues)
           else:
@@ -715,11 +720,12 @@ proc push*[T](cas: ColumnSyncerAssist[T], sr: ColumnSyncRequest[T],
           of ColumnSyncerDirection.Forward:
             debug "Rewind to slot has happened", reset_slot = resetSlot.get(),
                    queue_input_slot = cas.inpSlot, queue_output_slot = cas.outSlot,
-                   rewind_point = cas.rewind, direction = cas.direction
+                   rewind_point = cas.rewind, direction = cas.direction,
+                   topics = "columnsync"
           of ColumnSyncerDirection.Backward:
             debug "Rewind to slot has happened", reset_slot = resetSlot.get(),
                    queue_input_slot = cas.inpSlot, queue_output_slot = cas.outSlot,
-                   direction = cas.direction
+                   direction = cas.direction, topics = "columnsync"
       break
 
 proc push*[T](cas: ColumnSyncerAssist[T], sr: ColumnSyncRequest[T]) =
@@ -768,7 +774,8 @@ proc handlePotentialSafeSlotAdvancement[T](cas: ColumnSyncerAssist[T]) =
 
   if numOutSlotsAdvanced != 0 or numInpSlotsAdvanced != 0:
     debug "Sync progress advanced out-of-bound",
-           safeSlot, outSlot = cas.outSlot, inpSlot = cas.inpSlot
+           safeSlot, outSlot = cas.outSlot, inpSlot = cas.inpSlot,
+           topics = "columnsync"
     if numOutSlotsAdvanced != 0:
       cas.advanceOutput(numOutSlotsAdvanced)
     if numInpSlotsAdvanced != 0:
