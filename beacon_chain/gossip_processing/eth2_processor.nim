@@ -387,12 +387,17 @@ proc validateDataColumnSidecarFromEL*(
             self.quarantine[].removeColumnless(forkyBlck)
 
             debug "Recovering data column sidecars, from EL blobs"
+            var flat_proof: seq[kzg.KzgProof] = @[]
+            for item in blobsEl:
+              for proof in item.proofs:
+                flat_proof.add(kzg.KzgProof(bytes: proof.data))
+
             let
               recovered_columns =
                 assemble_data_column_sidecars(
                   forkyBlck,
                   blobsEl.mapIt(kzg.KzgBlob(bytes: it.blob.data)),
-                  @(blobsEl[0].proofs.mapIt(kzg.KzgProof(bytes: it.data))))
+                  flat_proof)
 
             for rc in recovered_columns:
               if rc.index in self.dataColumnQuarantine[].custody_columns:
