@@ -284,14 +284,14 @@ proc fetchBlobsFromNetwork(self: RequestManager,
     if blobs.isOk:
       var ublobs = blobs.get().asSeq()
       ublobs.sort(cmpSidecarIndexes)
-      if not checkResponseSanity(idList, ublobs):
-        debug "Response to blobs by root have erroneous block root",
+      if not checkResponseSubset(idList, ublobs):
+        debug "Response to blobs by root is not a subset",
           peer = peer, blobs = shortLog(idList), ublobs = len(ublobs)
         peer.updateScore(PeerScoreBadResponse)
         return
 
-      if not checkResponseSubset(idList, ublobs):
-        debug "Response to blobs by root is not a subset",
+      if not checkResponseSanity(idList, ublobs):
+        debug "Response to blobs by root have erroneous block root",
           peer = peer, blobs = shortLog(idList), ublobs = len(ublobs)
         peer.updateScore(PeerScoreBadResponse)
         return
@@ -376,14 +376,14 @@ proc fetchDataColumnsFromNetwork(rman: RequestManager,
       if columns.isOk:
         var ucolumns = columns.get().asSeq()
         ucolumns.sort(cmpSidecarIndexes)
-        if not checkResponseSanity(colIdList, ucolumns):
-          debug "Response to columns by root have erroneous block root",
+        if not checkResponseSubset(colIdList, ucolumns):
+          debug "Response to columns by root is not a subset",
             peer = peer, columns = shortLog(colIdList), ucolumns = len(ucolumns)
           peer.updateScore(PeerScoreBadResponse)
           return
 
-        if not checkResponseSubset(colIdList, ucolumns):
-          debug "Response to columns by root is not a subset",
+        if not checkResponseSanity(colIdList, ucolumns):
+          debug "Response to columns by root have erroneous block root",
             peer = peer, columns = shortLog(colIdList), ucolumns = len(ucolumns)
           peer.updateScore(PeerScoreBadResponse)
           return
