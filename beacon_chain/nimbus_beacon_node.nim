@@ -274,7 +274,7 @@ proc checkWeakSubjectivityCheckpoint(
 
 from ./spec/state_transition_block import kzg_commitment_to_versioned_hash
 
-proc isSlotWithinWeakSubjectivityPeriod(dag: ChainDagRef, slot: Slot): bool =
+proc isSlotWithinWeakSubjectivityPeriod(dag: ChainDAGRef, slot: Slot): bool =
   let
     checkpoint = Checkpoint(
       epoch: epoch(getStateField(dag.headState, slot)),
@@ -1466,7 +1466,8 @@ proc doppelgangerChecked(node: BeaconNode, epoch: Epoch) =
       validator.doppelgangerChecked(epoch - 1)
 
 proc maybeUpdateActionTrackerNextEpoch(
-    node: BeaconNode, forkyState: ForkyHashedBeaconState, nextEpoch: Epoch) =
+    node: BeaconNode, forkyState: ForkyHashedBeaconState, currentSlot: Slot) =
+  let nextEpoch = currentSlot.epoch + 1
   if node.consensusManager[].actionTracker.needsUpdate(
       forkyState, nextEpoch):
     template epochRefFallback() =
@@ -1527,7 +1528,12 @@ proc maybeUpdateActionTrackerNextEpoch(
         effective_balance = forkyState.data.validators.item(
           nextEpochFirstProposer).effective_balance
 
-      if  participation_flags.has_flag(TIMELY_SOURCE_FLAG_INDEX) and
+      # Maximal potential accuracy primarily useful during the last slot of
+      # each epoch to prepare for a possible proposal the first slot of the
+      # next epoch. Otherwise, epochRefFallback is potentially very slow as
+      # it can induce a lengthy state replay.
+      if (not (currentSlot + 1).is_epoch) or
+         (participation_flags.has_flag(TIMELY_SOURCE_FLAG_INDEX) and
           participation_flags.has_flag(TIMELY_TARGET_FLAG_INDEX) and
           effective_balance == MAX_EFFECTIVE_BALANCE.Gwei and
           forkyState.data.slot.epoch != GENESIS_EPOCH and
@@ -1535,7 +1541,7 @@ proc maybeUpdateActionTrackerNextEpoch(
             nextEpochFirstProposer) == 0 and
           not effective_balance_might_update(
             forkyState.data.balances.item(nextEpochFirstProposer),
-            effective_balance):
+            effective_balance)):
         node.consensusManager[].actionTracker.updateActions(
           shufflingRef, nextEpochProposers)
       else:
@@ -1620,7 +1626,7 @@ proc updateGossipStatus(node: BeaconNode, slot: Slot) {.async.} =
         node.consensusManager[].actionTracker.updateActions(
           epochRef.shufflingRef, epochRef.beacon_proposers)
 
-      node.maybeUpdateActionTrackerNextEpoch(forkyState, slot.epoch + 1)
+      node.maybeUpdateActionTrackerNextEpoch(forkyState, slot)
 
   if node.gossipState.card > 0 and targetGossipState.card == 0:
     debug "Disabling topic subscriptions",
@@ -1785,7 +1791,7 @@ proc onSlotEnd(node: BeaconNode, slot: Slot) {.async.} =
       # missed sync committee participation via process_sync_aggregate(), but
       # attestation penalties for example, need, specific handling.
       # checked by maybeUpdateActionTrackerNextEpoch.
-      node.maybeUpdateActionTrackerNextEpoch(forkyState, slot.epoch + 1)
+      node.maybeUpdateActionTrackerNextEpoch(forkyState, slot)
 
   let
     nextAttestationSlot =
