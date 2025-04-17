@@ -1498,12 +1498,19 @@ template get_expected_withdrawals_with_partial_count_aux*(
 
       has_sufficient_effective_balance =
         effective_balance_at_slot >= static(MIN_ACTIVATION_BALANCE.Gwei)
-      has_excess_balance = fetch_balance > static(MIN_ACTIVATION_BALANCE.Gwei)
+      total_withdrawn = block:
+        var res: Gwei
+        for w in withdrawals:
+          if w.validator_index == validator_index:
+            res += w.amount
+        res
+      balance = fetch_balance - total_withdrawn
+      has_excess_balance = balance > static(MIN_ACTIVATION_BALANCE.Gwei)
     if  validator.exit_epoch == FAR_FUTURE_EPOCH and
         has_sufficient_effective_balance and has_excess_balance:
       let
         withdrawable_balance = min(
-          fetch_balance - static(MIN_ACTIVATION_BALANCE.Gwei),
+          balance - static(MIN_ACTIVATION_BALANCE.Gwei),
           withdrawal.amount)
       var w = Withdrawal(
         index: withdrawal_index,
