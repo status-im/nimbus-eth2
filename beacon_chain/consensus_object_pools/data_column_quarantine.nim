@@ -132,20 +132,12 @@ func hasMissingDataColumns*(quarantine: DataColumnQuarantine,
 
   # This method shall be actively used by the `RequestManager` to
   # root request columns over RPC.
-  var col_counter: uint64 = 0
-  for idx in quarantine.custody_columns:
-    let dc_identifier =
-      DataColumnIdentifier(
-        block_root: blck.root,
-        index: idx)
-    if dc_identifier notin quarantine.data_columns:
-      inc col_counter
-  if quarantine.supernode and col_counter == cfg.NUMBER_OF_COLUMNS:
-    return true
-  if quarantine.supernode == false and
-      col_counter == max(cfg.SAMPLES_PER_SLOT, cfg.CUSTODY_REQUIREMENT):
-    return true
-  false
+  let collected_columns =
+    quarantine.gatherDataColumns(blck.root)
+  if collected_columns.len == quarantine.custody_columns.len:
+    true
+  else:
+    false
 
 func hasEnoughDataColumns*(quarantine: DataColumnQuarantine,
     blck: fulu.SignedBeaconBlock): bool =
@@ -157,21 +149,18 @@ func hasEnoughDataColumns*(quarantine: DataColumnQuarantine,
   # check it, and thereby check column reconstructability, right from
   # gossip validation, consequently populating the quarantine with
   # rest of the data columns.
+  let
+    collectedColumns = quarantine.gatherDataColumns(blck.root)
   if quarantine.supernode:
-    let
-      collectedColumns = quarantine.gatherDataColumns(blck.root)
     if collectedColumns.len >= (quarantine.custody_columns.len div 2):
-      return true
+      true
+    else:
+      false
   else:
-    for i in quarantine.custody_columns:
-      let dc_identifier =
-        DataColumnIdentifier(
-          block_root: blck.root,
-          index: i)
-      if dc_identifier notin quarantine.data_columns:
-        return false
-      else:
-        return true
+    if collectedColumns.len == quarantine.custody_columns.len:
+      true
+    else:
+      false
 
 func dataColumnFetchRecord*(quarantine: DataColumnQuarantine,
                             blck: fulu.SignedBeaconBlock):

@@ -442,6 +442,17 @@ AllTests-mainnet
 ```
 ## EF - KZG - PeerDAS
 ```diff
++ KZG - Compute Cells - compute_cells_case_valid_419245fbfe69f145                            OK
++ KZG - Compute Cells - compute_cells_case_valid_4aedd1a2a3933c3e                            OK
++ KZG - Compute Cells - compute_cells_case_valid_6e773f256383918c                            OK
++ KZG - Compute Cells - compute_cells_case_valid_b0731ef77b166ca8                            OK
++ KZG - Compute Cells - compute_cells_case_valid_b81d309b22788820                            OK
++ KZG - Compute Cells - compute_cells_case_valid_ed8b5001151417d5                            OK
++ KZG - Compute Cells - compute_cells_case_valid_edeb8500a6507818                            OK
++ KZG - Compute Cells - compute_cells_invalid_blob_26555bdcbf18a267                          OK
++ KZG - Compute Cells - compute_cells_invalid_blob_79fb3cb1ef585a86                          OK
++ KZG - Compute Cells - compute_cells_invalid_blob_7e99dea8893c104a                          OK
++ KZG - Compute Cells - compute_cells_invalid_blob_9d88c33852eb782d                          OK
 + KZG - Compute Cells And Proofs - compute_cells_and_kzg_proofs_case_invalid_blob_26555bdcbf OK
 + KZG - Compute Cells And Proofs - compute_cells_and_kzg_proofs_case_invalid_blob_79fb3cb1ef OK
 + KZG - Compute Cells And Proofs - compute_cells_and_kzg_proofs_case_invalid_blob_7e99dea889 OK

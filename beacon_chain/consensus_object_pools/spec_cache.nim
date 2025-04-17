@@ -8,18 +8,18 @@
 {.push raises: [].}
 
 import
-  std/sequtils,
   results,
   chronicles,
-  ../extras,
-  ../spec/[beaconstate, helpers, network, signatures, validator],
+  ../spec/[beaconstate, helpers, signatures, validator],
   ../spec/datatypes/base,
   ./block_pools_types, blockchain_dag
 
+from std/sequtils import anyIt
 from ../spec/datatypes/electra import shortLog
+from ../spec/network import compute_subnet_for_attestation
 
 export
-  base, extras, block_pools_types, results
+  base, block_pools_types, results
 
 logScope: topics = "spec_cache"
 

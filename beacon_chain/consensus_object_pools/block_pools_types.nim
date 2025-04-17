@@ -9,12 +9,11 @@
 
 import
   # Standard library
-  std/[sets, tables, hashes],
+  std/[tables, hashes],
   # Status libraries
   chronicles,
   # Internals
   ../spec/[signatures_batch, forks, helpers],
-  ../spec/datatypes/[phase0, altair, bellatrix],
   ".."/[beacon_chain_db, era_db],
   ../validators/validator_monitor,
   ./block_dag, block_pools_types_light_client

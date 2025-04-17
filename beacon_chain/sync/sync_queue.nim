@@ -10,7 +10,6 @@
 import std/[deques, heapqueue, tables, strutils, sequtils, math, typetraits]
 import stew/base10, chronos, chronicles, results
 import
-  ../spec/datatypes/[base, phase0, altair],
   ../spec/[helpers, forks],
   ../networking/[peer_pool, eth2_network],
   ../gossip_processing/block_processor,

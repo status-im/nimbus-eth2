@@ -76,7 +76,7 @@ proc runVerifyKzgProofTest(suiteName, suitePath, path: string) =
       y = fromHex[32](data["input"]["y"].getStr)
       proof = fromHex[48](data["input"]["proof"].getStr)
 
-    # https://github.com/ethereum/consensus-specs/blob/v1.5.0-beta.4/tests/formats/kzg_4844/verify_kzg_proof.md#condition
+    # https://github.com/ethereum/consensus-specs/blob/v1.5.0-beta.5/tests/formats/kzg_4844/verify_kzg_proof.md#condition
     # "If the commitment or proof is invalid (e.g. not on the curve or not in
     # the G1 subgroup of the BLS curve) or `z` or `y` are not a valid BLS
     # field element, it should error, i.e. the output should be `null`."
@@ -201,6 +201,26 @@ proc runComputeBlobKzgProofTest(suiteName, suitePath, path: string) =
       else:
         check p.get.bytes == fromHex[48](output.getStr).get
 
+proc runComputeCellsTest(suiteName, suitePath, path: string) =
+  let relativePathComponent = path.relativeTestPathComponent(suitePath)
+  test "KZG - Compute Cells - " & relativePathComponent:
+    let
+      data = loadToJson(os_ops.readFile(path/"data.yaml"))[0]
+      output = data["output"]
+      blob = fromHex[131072](data["input"]["blob"].getStr)
+
+    # https://github.com/ethereum/consensus-specs/blob/v1.5.0-beta.5/tests/formats/kzg_7594/compute_cells.md#condition
+    if blob.isNone:
+      check output.kind == JNull
+    else:
+      let p = newClone computeCells(KzgBlob(bytes: blob.get))
+      if p[].isErr:
+        check output.kind == JNull
+      else:
+        let p_val = newClone p[].get
+        for i in 0..<len(p[].get):
+          check p_val[][i].bytes == fromHex[2048](output[i].getStr).get
+
 proc runComputeCellsAndKzgProofsTest(suiteName, suitePath, path: string) =
   let relativePathComponent = path.relativeTestPathComponent(suitePath)
   test "KZG - Compute Cells And Proofs - " & relativePathComponent:
@@ -220,7 +240,7 @@ proc runComputeCellsAndKzgProofsTest(suiteName, suitePath, path: string) =
       if p[].isErr:
         check output.kind == JNull
       else:
-        let p_val = p[].get
+        let p_val = newClone p[].get
         for i in 0..<kzg_abi.CELLS_PER_EXT_BLOB:
           check p_val.cells[i].bytes == fromHex[2048](output[0][i].getStr).get
           check p_val.proofs[i].bytes == fromHex[48](output[1][i].getStr).get
@@ -236,7 +256,7 @@ proc runVerifyCellKzgProofBatchTest(suiteName, suitePath, path: string) =
       cells = data["input"]["cells"].mapIt(fromHex[2048](it.getStr))
       proofs = data["input"]["proofs"].mapIt(fromHex[48](it.getStr))
 
-    # https://github.com/ethereum/consensus-specs/blob/v1.5.0-beta.4/tests/formats/kzg_7594/verify_cell_kzg_proof_batch.md#condition
+    # https://github.com/ethereum/consensus-specs/blob/v1.5.0-beta.5/tests/formats/kzg_7594/verify_cell_kzg_proof_batch.md#condition
     # If the blob is invalid (e.g. incorrect length or one of the 32-byte
     # blocks does not represent a BLS field element) it should error, i.e. the
     # the output should be `null`.
@@ -339,6 +359,11 @@ suite suiteName:
       toSeq(walkDir(suitePath, relative = true, checkDir = true)), it.path)) ==
     ["compute_cells", "compute_cells_and_kzg_proofs",
      "recover_cells_and_kzg_proofs", "verify_cell_kzg_proof_batch"]
+
+  block:
+    let testsDir = suitePath/"compute_cells"/"kzg-mainnet"
+    for kind, path in walkDir(testsDir, relative = true, checkDir = true):
+      runComputeCellsTest(suiteName, testsDir, testsDir/path)
 
   block:
     let testsDir = suitePath/"compute_cells_and_kzg_proofs"/"kzg-mainnet"

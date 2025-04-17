@@ -213,7 +213,7 @@ func candidateIdx(
     Opt[int] =
   static: doAssert pool.phase0Candidates.len == pool.electraCandidates.len
 
-  let poolLength = if candidateIdxtype == CandidateIdxType.electraIdx:
+  let poolLength = if candidateIdxType == CandidateIdxType.electraIdx:
     pool.electraCandidates.lenu64 else: pool.phase0Candidates.lenu64
 
   if slot >= pool.startingSlot and
@@ -1033,10 +1033,10 @@ proc getElectraAttestationsForBlock*(
           var e2 = entry.data
           e2.index = 0
           e2
-        key = (hash_tree_root(entry2), entry.data.slot.Slot)
+        key = (hash_tree_root(entry2), entry.data.slot)
         newAtt = entry[].toElectraAttestation(entry[].aggregates[j])
 
-      candidatesPerBlock.mGetOrPut(key, @[]).add(newAtt)
+      candidatesPerBlock.mgetOrPut(key, @[]).add(newAtt)
 
       # Update cache so that the new votes are taken into account when updating
       # the score below

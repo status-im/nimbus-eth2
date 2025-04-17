@@ -8,7 +8,7 @@
 {.push raises: [].}
 
 # Minimal preset - Bellatrix
-# https://github.com/ethereum/consensus-specs/blob/v1.5.0-beta.4/presets/minimal/bellatrix.yaml
+# https://github.com/ethereum/consensus-specs/blob/v1.5.0-beta.5/presets/minimal/bellatrix.yaml
 const
   # Updated penalty values
   # ---------------------------------------------------------------
