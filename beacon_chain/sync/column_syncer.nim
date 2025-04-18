@@ -388,7 +388,7 @@ func groupAndFillColumnTable*[A, B](
     blocks: seq[ref ForkedSignedBeaconBlock],
     columns: seq[ref DataColumnSidecar]
 ): Result[void, string] =
-  var grouped = newSeqOfCap[DataColumnSidecars](blocks.len)
+  var grouped = newSeq[DataColumnSidecars](blocks.len)
   var column_cursor = 0
   for block_idx, blck in blocks:
     withBlck(blck[]):
