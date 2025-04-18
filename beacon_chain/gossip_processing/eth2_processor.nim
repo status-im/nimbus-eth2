@@ -384,7 +384,7 @@ proc processDataColumnSidecar*(
         if not self.dataColumnQuarantine[].supernode:
           if self.dataColumnQuarantine[].hasMissingDataColumns(forkyBlck, self.dag.cfg):
             let gathered_columns =
-              self.dataColumnQuarantine[].gatherDataColumns(forkyBlck.root)
+              self.dataColumnQuarantine[].gatherDataColumns(block_root)
             for gdc in gathered_columns:
               self.dataColumnQuarantine[].put(newClone(gdc))
             self.blockProcessor[].enqueueBlock(
@@ -394,7 +394,7 @@ proc processDataColumnSidecar*(
                                                                   forkyBlck)))
         elif self.dataColumnQuarantine[].hasEnoughDataColumns(forkyBlck):
           let
-            columns = self.dataColumnQuarantine[].gatherDataColumns(forkyBlck.root)
+            columns = self.dataColumnQuarantine[].gatherDataColumns(block_root)
           if columns.lenu64 >= (self.dag.cfg.NUMBER_OF_COLUMNS div 2) and
               self.dataColumnQuarantine[].supernode:
             let

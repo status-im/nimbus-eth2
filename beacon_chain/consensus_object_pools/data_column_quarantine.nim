@@ -134,7 +134,7 @@ func hasMissingDataColumns*(quarantine: DataColumnQuarantine,
   # root request columns over RPC.
   let collected_columns =
     quarantine.gatherDataColumns(blck.root)
-  if collected_columns.len == quarantine.custody_columns.len:
+  if collected_columns.lenu64 == cfg.SAMPLES_PER_SLOT.uint64:
     true
   else:
     false
