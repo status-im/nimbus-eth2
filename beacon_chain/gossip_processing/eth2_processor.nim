@@ -384,7 +384,7 @@ proc processDataColumnSidecar*(
         if not self.dataColumnQuarantine[].supernode:
           if self.dataColumnQuarantine[].hasExactDataColumns(forkyBlck, self.dag.cfg):
             let gathered_columns =
-              self.dataColumnQuarantine[].gatherDataColumns(forkyBlck)
+              self.dataColumnQuarantine[].gatherDataColumns(forkyBlck.root)
             for gdc in gathered_columns:
               self.dataColumnQuarantine[].put(newClone(gdc))
             self.blockProcessor[].enqueueBlock(
