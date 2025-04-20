@@ -32,7 +32,7 @@ from ../consensus_object_pools/block_quarantine import
 from ../consensus_object_pools/blob_quarantine import
   BlobQuarantine, hasBlobs, popBlobs, put
 from ../consensus_object_pools/data_column_quarantine import
-  DataColumnQuarantine, hasMissingDataColumns, hasEnoughDataColumns,
+  DataColumnQuarantine, hasExactDataColumns, hasEnoughDataColumns,
   popDataColumns, put
 from ../validators/validator_monitor import
   MsgSource, ValidatorMonitor, registerAttestationInBlock, registerBeaconBlock,
@@ -964,8 +964,8 @@ proc storeBlock(
              blck = shortLog(forkyBlck),
              error = res.error()
             continue
-          if self.dataColumnQuarantine[].hasMissingDataColumns(forkyBlck,
-                                                               self.consensusManager.dag.cfg):
+          if self.dataColumnQuarantine[].hasExactDataColumns(forkyBlck,
+                                                             self.consensusManager.dag.cfg):
             let columns = self.dataColumnQuarantine[].popDataColumns(
               forkyBlck.root, forkyBlck)
             self[].enqueueBlock(MsgSource.gossip, quarantined, Opt.none(BlobSidecars),

@@ -599,12 +599,23 @@ proc getMissingDataColumns(rman: RequestManager): HashSet[DataColumnIdentifier] 
           debug "Not handling missing data columns early in slot"
           continue
 
-        if not rman.dataColumnQuarantine[].hasMissingDataColumns(forkyBlck, rman.cfg):
-          let missing = rman.dataColumnQuarantine[].dataColumnFetchRecord(forkyBlck)
+        if not rman.dataColumnQuarantine[].hasEnoughDataColumns(forkyBlck):
+          var missing = rman.dataColumnQuarantine[].dataColumnFetchRecord(forkyBlck)
           if len(missing.indices) == 0:
             warn "quarantine is missing data columns, but missing indices are empty",
              blk = columnless.root,
              commitments = len(forkyBlck.message.body.blob_kzg_commitments)
+          elif len(missing.indices) < (rman.custody_columns_set.len div 2):
+            let
+              columns = rman.dataColumnQuarantine[].gatherDataColumns(columnless.root)
+              recovered_cps =
+                recover_cells_and_proofs(columns.mapIt(it[]))
+              reconstructed_columns =
+                get_data_column_sidecars(forkyBlck, recovered_cps.get)
+            for rc in reconstructed_columns:
+              if rc notin columns.mapIt(it[]):
+                rman.dataColumnQuarantine[].put(newClone rc)
+          missing = rman.dataColumnQuarantine[].dataColumnFetchRecord(forkyBlck)
           for idx in missing.indices:
             let id = DataColumnIdentifier(block_root: columnless.root, index: idx)
             if id.index in rman.custody_columns_set and id notin fetches and

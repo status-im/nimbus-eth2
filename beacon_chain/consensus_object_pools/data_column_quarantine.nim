@@ -122,9 +122,9 @@ func popDataColumns*(
       r.add(c)
   r
 
-func hasMissingDataColumns*(quarantine: DataColumnQuarantine,
+func hasExactDataColumns*(quarantine: DataColumnQuarantine,
     blck: fulu.SignedBeaconBlock, cfg: RuntimeConfig): bool =
-  # `hasMissingDataColumns` consists of the data columns that,
+  # `hasExactDataColumns` consists of the data columns that,
   # have been missed over gossip, also in case of a supernode,
   # the method would return missing columns when the supernode
   # has not received data columns upto the requisite limit (i.e 50%

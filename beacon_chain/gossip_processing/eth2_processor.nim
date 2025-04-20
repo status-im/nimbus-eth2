@@ -265,7 +265,7 @@ proc processSignedBeaconBlock*(
 
     let columns =
       when typeof(signedBlock).kind >= ConsensusFork.Fulu:
-        if self.dataColumnQuarantine[].hasMissingDataColumns(signedBlock, self.dag.cfg):
+        if self.dataColumnQuarantine[].hasExactDataColumns(signedBlock, self.dag.cfg):
           Opt.some(self.dataColumnQuarantine[].popDataColumns(signedBlock.root,
                                                               signedBlock))
         else:
@@ -382,9 +382,9 @@ proc processDataColumnSidecar*(
     withBlck(columnless):
       when consensusFork >= ConsensusFork.Fulu:
         if not self.dataColumnQuarantine[].supernode:
-          if self.dataColumnQuarantine[].hasMissingDataColumns(forkyBlck, self.dag.cfg):
+          if self.dataColumnQuarantine[].hasExactDataColumns(forkyBlck, self.dag.cfg):
             let gathered_columns =
-              self.dataColumnQuarantine[].gatherDataColumns(block_root)
+              self.dataColumnQuarantine[].gatherDataColumns(forkyBlck)
             for gdc in gathered_columns:
               self.dataColumnQuarantine[].put(newClone(gdc))
             self.blockProcessor[].enqueueBlock(
