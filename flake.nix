@@ -3,6 +3,11 @@
 
   inputs.nixpkgs.url = github:NixOS/nixpkgs/master;
 
+  inputs.self = {
+    submodules = true;
+    lfs = false;
+  };
+
   outputs = { self, nixpkgs }:
     let
       stableSystems = [

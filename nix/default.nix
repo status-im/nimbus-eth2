@@ -17,7 +17,7 @@
 }:
 
 # The 'or' is to handle src fallback to ../. which lack submodules attribue.
-assert pkgs.lib.assertMsg ((src.submodules or true) == true)
+assert pkgs.lib.assertMsg (src.submodules == true)
   "Unable to build without submodules. Append '?submodules=1#' to the URI.";
 
 let
@@ -54,6 +54,11 @@ in stdenv.mkDerivation rec {
 
   # Generate the nimbus-build-system.paths file.
   configurePhase = ''
+    echo '---------------------------------------------------'
+    du -hsc vendor/holesky/metadata/genesis.ssz vendor/holesky/public-keys/all.txt
+    du -hsc vendor/hoodi/metadata/genesis.ssz vendor/hoodi/parsed/parsedConsensusGenesis.json
+    echo '---------------------------------------------------'
+
     patchShebangs scripts vendor/nimbus-build-system > /dev/null
     make nimbus-build-system-paths
   '';
