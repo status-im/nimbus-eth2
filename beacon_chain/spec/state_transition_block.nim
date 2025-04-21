@@ -528,7 +528,7 @@ func process_withdrawal_request*(
   if is_full_exit_request:
     # Only exit validator if it has no pending withdrawals in the queue
     if pending_balance_to_withdraw == 0.Gwei:
-      initiate_validator_exit(cfg, state, index, default(ExitQueueInfo),
+      discard initiate_validator_exit(cfg, state, index, default(ExitQueueInfo),
           cache)
     return
 
