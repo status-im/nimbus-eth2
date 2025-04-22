@@ -619,7 +619,7 @@ proc writeChunkSZ(
     uncompressedLenBytes = toBytes(uncompressedLen, Leb128)
 
   var
-    data = newSeqUninitialized[byte](
+    data = newSeqUninit[byte](
       ord(responseCode.isSome) + contextBytes.len + uncompressedLenBytes.len +
       payloadSZ.len)
     pos = 0
@@ -638,7 +638,7 @@ proc writeChunk(conn: Connection,
   let
     uncompressedLenBytes = toBytes(payload.lenu64, Leb128)
   var
-    data = newSeqUninitialized[byte](
+    data = newSeqUninit[byte](
       ord(responseCode.isSome) + contextBytes.len + uncompressedLenBytes.len +
       snappy.maxCompressedLenFramed(payload.len).int)
     pos = 0
@@ -752,8 +752,8 @@ proc uncompressFramedStream(conn: Connection,
     doAssert maxCompressedFrameDataLen >= maxUncompressedFrameDataLen.uint64
 
   var
-    frameData = newSeqUninitialized[byte](maxCompressedFrameDataLen + 4)
-    output = newSeqUninitialized[byte](expectedSize)
+    frameData = newSeqUninit[byte](maxCompressedFrameDataLen + 4)
+    output = newSeqUninit[byte](expectedSize)
     written = 0
 
   while written < expectedSize:

@@ -126,7 +126,7 @@ proc getBlockSSZ*(
   if len > int.high.uint64:
     return err("Invalid uncompressed size")
 
-  bytes = newSeqUninitialized[byte](len)
+  bytes = newSeqUninit[byte](len)
 
   # Where it matters, we will integrity-check the data with SSZ - no
   # need to waste cycles on crc32
@@ -171,7 +171,7 @@ proc getStateSSZ*(
         min(len, partial.get().uint64 + maxUncompressedFrameDataLen - 1)
       else: len
 
-  bytes = newSeqUninitialized[byte](wanted)
+  bytes = newSeqUninit[byte](wanted)
 
   # Where it matters, we will integrity-check the data with SSZ - no
   # need to waste cycles on crc32
