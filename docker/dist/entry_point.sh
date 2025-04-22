@@ -55,12 +55,13 @@ if [[ "${PLATFORM}" == "Windows_amd64" ]]; then
     -C vendor/nim-nat-traversal/vendor/miniupnp/miniupnpc \
     -f Makefile.mingw \
     CC="${CC}" \
+    CFLAGS="-Os -fPIC" \
     libminiupnpc.a &>/dev/null
   make \
     -j$(nproc) \
     -C vendor/nim-nat-traversal/vendor/libnatpmp-upstream \
     CC="${CC}" \
-    CFLAGS="-Wall -Os -DWIN32 -DNATPMP_STATICLIB -DENABLE_STRNATPMPERR -DNATPMP_MAX_RETRIES=4 ${CFLAGS}" \
+    CFLAGS="-Wall -Os -fPIC -DWIN32 -DNATPMP_STATICLIB -DENABLE_STRNATPMPERR -DNATPMP_MAX_RETRIES=4 ${CFLAGS}" \
     libnatpmp.a &>/dev/null
   # We set CXX and add CXXFLAGS for libunwind's C++ code, even though we don't
   # use those C++ objects. I don't see an easy way of disabling the C++ parts in
