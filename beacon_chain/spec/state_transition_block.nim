@@ -741,8 +741,7 @@ proc process_operations(
         default(ExitQueueInfo)  # not used
     bsv_use =
       when typeof(body).kind >= ConsensusFork.Electra:
-        body.deposits.len + body.execution_requests.deposits.len +
-          body.execution_requests.withdrawals.len +
+        body.deposits.len + body.execution_requests.withdrawals.len +
           body.execution_requests.consolidations.len > 0
       else:
         body.deposits.len > 0

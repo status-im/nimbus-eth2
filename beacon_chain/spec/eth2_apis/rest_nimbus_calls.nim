@@ -1,5 +1,5 @@
 # beacon_chain
-# Copyright (c) 2018-2024 Status Research & Development GmbH
+# Copyright (c) 2018-2025 Status Research & Development GmbH
 # Licensed and distributed under either of
 #   * MIT license (license terms in the root directory or at https://opensource.org/licenses/MIT).
 #   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
@@ -17,7 +17,7 @@ proc getValidatorsActivity*(epoch: Epoch,
      rest, endpoint: "/nimbus/v1/validator/activity/{epoch}",
      meth: MethodPost.}
 
-proc getTimesyncInifo*(body: RestNimbusTimestamp1): RestPlainResponse {.
+proc getTimesyncInfo(body: RestNimbusTimestamp1): RestPlainResponse {.
      rest, endpoint: "/nimbus/v1/timesync", meth: MethodPost.}
 
 proc getTimeOffset*(client: RestClientRef,
@@ -26,7 +26,7 @@ proc getTimeOffset*(client: RestClientRef,
   let
     timestamp1 = getTimestamp()
     data = RestNimbusTimestamp1(timestamp1: timestamp1)
-    resp = await client.getTimesyncInifo(data)
+    resp = await client.getTimesyncInfo(data)
     timestamp4 = getTimestamp()
 
   case resp.status
