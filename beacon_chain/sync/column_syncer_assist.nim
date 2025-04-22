@@ -65,6 +65,7 @@ type
     debtsCount: uint64
     readyQueue: HeapQueue[ColumnSyncResult[T]]
     rewind: Option[RewindPoint]
+    db: BeaconChainDB
     peerdasBlockVerifier: PeerdasBlockVerifier
 
 proc init[T](t1: typedesc[ColumnSyncRequest], direction: ColumnSyncerDirection, start: Slot,
@@ -587,8 +588,16 @@ proc push*[T](cas: ColumnSyncerAssist[T], sr: ColumnSyncRequest[T],
           missingParentSlot = some(blk[].slot)
           break
         of VerifierError.Duplicate:
-          # Keep going, happens naturally
-          discard
+          debug "Attempting to persist downloaded columns into store",
+                 topics = "columnsync"
+          # it means the block syncer has enqueued
+          # the block first, and we can now call the
+          # block reliable, hence we can directly
+          # attempt to persist the data column sidecar
+          # into the columns store
+          for cl in col.get:
+            cas.db.putDataColumnSidecar(cl[])
+
         of VerifierError.UnviableFork:
           # Keep going as to register other unviable blocks with the
           # quarantine
@@ -601,7 +610,7 @@ proc push*[T](cas: ColumnSyncerAssist[T], sr: ColumnSyncRequest[T],
 
           let req = item.request
           notice "Received invalid sequence of blocks",
-                  blocks_count = len(item.data)
+                  blocks_count = len(item.data), topics = "columnsync"
           req.item.updateScore(PeerScoreBadValues)
           break
 

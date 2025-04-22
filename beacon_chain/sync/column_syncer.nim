@@ -21,9 +21,6 @@ import
 export phase0, altair, merge, chronos, chronicles, results,
        helpers, peer_scores, sync_queue, forks, sync_protocol
 
-logScope:
-  topics = "columnsync"
-
 const
   ColumnSyncWorkerCount* = 15
     ## Number of workers to spawn for column syncing
@@ -63,6 +60,7 @@ type
     MAX_BLOBS_PER_BLOCK_ELECTRA: uint64
     responseTimeout: chronos.Duration
     maxHeadAge: uint64
+    isWithinWeakSubjectivityPeriod: GetBoolCallback
     assist*: ColumnSyncerAssist[A]
     getLocalHeadSlot: GetSlotCallback
     getLocalWallSlot: GetSlotCallback
@@ -146,6 +144,7 @@ proc newColumnManager*[A, B](
     getFinalizedSlotCb: GetSlotCallback,
     getBackfillSlotCb: GetSlotCallback,
     getFrontfillSlotCb: GetSlotCallback,
+    weakSubjectivityPeriodCb: GetBoolCallback,
     progressPivot: Slot,
     peerdasBlockVerifier: PeerdasBlockVerifier,
     shutdownEvent: AsyncEvent,
@@ -173,6 +172,7 @@ proc newColumnManager*[A, B](
     MAX_BLOBS_PER_BLOCK_ELECTRA: maxBlobsPerBlockElectra,
     getLocalHeadSlot: getLocalHeadSlotCb,
     getLocalWallSlot: getLocalWallSlotCb,
+    isWithinWeakSubjectivityPeriod: weakSubjectivityPeriodCb,
     getSafeSlot: getSafeSlot,
     getFirstSlot: getFirstSlot,
     getLastSlot: getLastSlot,
@@ -194,22 +194,21 @@ proc fetchBlocksForColumnNavigation[A, B](man: ColumnManager[A, B], peer: A,
                                             {.async: (raises: [CancelledError], raw: true).} =
   mixin getScore, `==`
 
-  logScope:
-    peer_score = peer.getScore()
-    peer_speed = peer.netKbps()
-    direction = man.direction
-    topics = "columnsync"
+  debugEcho "fetching block for column navigation"
 
   doAssert(not(req.isEmpty()), "Request must not be empty!")
   debug "Requesting blocks from peer",
          peer_score = req.item.getScore(),
-         peer_speed = req.item.netKbps()
+         peer_speed = req.item.netKbps(),
+         topics = "columnsync"
 
   beaconBlocksByRange_v2(peer, req.slot, req.count, 1'u64)
 
 proc shouldGetDataColumns[A, B](
     man: ColumnManager[A, B],
     s: Slot): bool =
+
+  debugEcho "checking if we should get data columns in the current fork"
   let
     wallEpoch = man.getLocalWallSlot().epoch
     epoch = s.epoch()
@@ -224,6 +223,7 @@ proc shouldGetDataColumns[A, B](
 
 proc checkDataColumns(data_columns: seq[DataColumnSidecars]):
                       Result[void, string] =
+  debugEcho "verifying data columns from column syncer"
   for data_column_sidecars in data_columns:
     for data_column_sidecar in data_column_sidecars:
       ? data_column_sidecar[].verify_data_column_sidecar_inclusion_proof()
@@ -235,6 +235,7 @@ proc checkDataColumns(data_columns: seq[DataColumnSidecars]):
 proc intersectionColumns[A, B](
     man: ColumnManager[A, B],
     peer: A): List[ColumnIndex, NUMBER_OF_COLUMNS] =
+  debugEcho "computing interesecting columns for the current peer"
   let
     remoteNodeId =
       fetchNodeIdFromPeerId(peer)
@@ -291,13 +292,8 @@ proc getDataColumnSidecarsByRange[A, B](man: ColumnManager[A, B],
                                  {.async: (raises: [CancelledError], raw: true).} =
   mixin getScore, `==`
 
-  logScope:
-    peer_score = peer.getScore()
-    peer_speed = peer.netKbps()
-    topics = "columnsync"
-
   doAssert(not(r.isEmpty()), "Request must not be empty")
-  debug "Requesting data column sidecars from peer",
+  debug "Requesting data column sidecars by range from peer",
          topics = "columnsync"
   dataColumnSidecarsByRange(peer, r.slot, r.count, req_cols)
 
@@ -324,6 +320,9 @@ proc filterRelevantPeers[A, B](man: ColumnManager[A, B],
   ## and returns a refreshed peer list based on
   ## whichever's peer status is recent and relevant
   ##
+
+
+
   var
     refreshed_peer_set: seq[A]
   for peer in peers:
@@ -530,10 +529,6 @@ proc serializeColumnTable*[A, B](
 proc columnSyncStrategyImpartial[A, B](
     man: ColumnManager[A, B], index: int, peer: A
 ) {.async: (raises: [CancelledError]).} =
-  logScope:
-    peer_score = peer.getScore()
-    peer_speed = peer.netKbps()
-    index = index
 
   var
     headSlot = man.getLocalHeadSlot()
@@ -541,9 +536,6 @@ proc columnSyncStrategyImpartial[A, B](
     peerSlot = peer.getHeadSlot()
 
   block:
-    logScope:
-      peer = peer
-
     debug "Peer's syncing status", wall_clock_slot = wallSlot,
           remote_head_slot = peerSlot, local_head_slot = headSlot,
           direction = man.direction, topics = "columnsync"
@@ -592,10 +584,7 @@ proc columnSyncStrategyImpartial[A, B](
     wallSlot = man.getLocalWallSlot()
 
   if man.remainingSlots() <= man.maxHeadAge:
-    logScope:
-      peer = peer
-
-    info "We are in sync with the network", wall_clock_slot = wallSlot,
+    info "Column syncing is completed", wall_clock_slot = wallSlot,
          remote_head_slot = peerSlot, local_head_slot = headSlot,
          direction = man.direction, topics = "columnsync"
 
@@ -629,7 +618,8 @@ proc columnSyncStrategyImpartial[A, B](
     return
 
   debug "Creating new request for peer", wall_clock_slot = wallSlot,
-        remote_head_slot = peerSlot, local_head_slot = headSlot
+        remote_head_slot = peerSlot, local_head_slot = headSlot,
+        topics = "columnsync"
 
   man.workers[index].status = ColumnSyncerStatus.Downloading
 
@@ -650,7 +640,7 @@ proc columnSyncStrategyImpartial[A, B](
     man.assist.push(req)
     warn "Incorrect blocks sequence received",
           blocks_count = len(blockData),
-          reason = error, topics = columnsync
+          reason = error, topics = "columnsync"
     return
 
   let shouldGetDataColumns =
@@ -1030,7 +1020,8 @@ proc startColumnSyncWorkers[A, B](man: ColumnManager[A, B]) =
       man.workers[i].future =
         columnSyncWorkerImparital[A, B](man, i)
 
-proc stopColumnSyncWorkers[A, B](man: ColumnManager[A, B]) =
+proc stopColumnSyncWorkers[A, B](man: ColumnManager[A, B])
+                                {.async: (raises: []).} =
   # Cancelling all the column sync workers
   let pending = man.workers.mapIt(it.future.cancelAndWait())
   await noCancel allFutures(pending)
@@ -1077,13 +1068,10 @@ proc columnSyncLoop[A, B](
     man: ColumnManager[A, B]
 ) {.async: (raises: [CancelledError]).} =
 
-  logScope:
-    direction = man.direction
-    topics = "columnsync"
-
   mixin getKey, getScore
   var pauseTime = 0
 
+  man.initColumnSyncerAssist()
   man.startColumnSyncWorkers()
 
   debug "Column sync loop has started",
@@ -1200,6 +1188,14 @@ proc columnSyncLoop[A, B](
                      (done * 100).formatBiggestFloat(ffDecimal, 2) & "%) " &
                      man.avgSyncSpeed.formatBiggestFloat(ffDecimal, 4) &
                      "slots/s (" & map & ":" & currentSlot & ")"
+
+    if (man.assist.direction == ColumnSyncerDirection.Forward) and
+       (ColumnSyncerMode.NoGenesisSync in man.modes):
+      if not(man.isWithinWeakSubjectivityPeriod()):
+        fatal WeakSubjectivityLogMessage, current_slot = wallSlot
+        await man.stopColumnSyncWorkers()
+        man.shutdownEvent.fire()
+        return
 
     if man.remainingSlots() <= man.maxHeadAge:
       man.notInSyncEvent.clear()

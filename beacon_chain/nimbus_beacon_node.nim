@@ -565,7 +565,8 @@ proc initFullNode(
       dag.cfg.MAX_BLOBS_PER_BLOCK_ELECTRA,
       ColumnSyncerDirection.Forward, getLocalHeadSlot,
       getLocalWallSlot, getFirstSlotAtFinalizedEpoch, getBackfillSlot,
-      getFrontfillSlot, dag.tail.slot, peerdasBlockVerifier,
+      getFrontfillSlot, isWithinWeakSubjectivityPeriod,
+      dag.tail.slot, peerdasBlockVerifier,
       shutdownEvent = node.shutdownEvent,
       flags = columnSyncerFlags,
       modes = columnManagerModes)
