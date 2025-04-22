@@ -136,13 +136,13 @@ func addValidatorChangeMessage(
   subpool.addLast(validatorChangeMessage)
   doAssert subpool.lenu64 <= bound
 
-iterator getValidatorIndices(proposer_slashing: ProposerSlashing): uint64 =
+iterator getValidatorIndices*(proposer_slashing: ProposerSlashing): uint64 =
   yield proposer_slashing.signed_header_1.message.proposer_index
 
-iterator getValidatorIndices(voluntary_exit: SignedVoluntaryExit): uint64 =
+iterator getValidatorIndices*(voluntary_exit: SignedVoluntaryExit): uint64 =
   yield voluntary_exit.message.validator_index
 
-iterator getValidatorIndices(
+iterator getValidatorIndices*(
     bls_to_execution_change: SignedBLSToExecutionChange): uint64 =
   yield bls_to_execution_change.message.validator_index
 
