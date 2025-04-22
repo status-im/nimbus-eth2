@@ -504,6 +504,15 @@ proc processBlsToExecutionChange*(
 
   return v
 
+proc checkAttachedValidatorSlashing(
+    self: var Eth2Processor,
+    msg: ProposerSlashing | phase0.AttesterSlashing | electra.AttesterSlashing) =
+  for idx in getValidatorIndices(msg):
+    let i = ValidatorIndex.init(idx).valueOr:
+      continue
+    if self.validatorPool[].contains(i):
+      quitSlashing()
+
 proc processAttesterSlashing*(
     self: var Eth2Processor, src: MsgSource,
     attesterSlashing: phase0.AttesterSlashing | electra.AttesterSlashing):
@@ -517,6 +526,8 @@ proc processAttesterSlashing*(
 
   if v.isOk():
     trace "Attester slashing validated"
+
+    self.checkAttachedValidatorSlashing(attesterSlashing)
 
     self.validatorChangePool[].addMessage(attesterSlashing)
 
@@ -540,6 +551,8 @@ proc processProposerSlashing*(
   let v = self.validatorChangePool[].validateProposerSlashing(proposerSlashing)
   if v.isOk():
     trace "Proposer slashing validated"
+
+    self.checkAttachedValidatorSlashing(proposerSlashing)
 
     self.validatorChangePool[].addMessage(proposerSlashing)
 
