@@ -579,6 +579,17 @@ int main(void)
             printf("\n");
         }
 
+        printf("    - initcodes:\n");
+        int numInitcodes = ETHTransactionGetNumInitcodes(transaction);
+        for (int initcodeIndex = 0; initcodeIndex < numInitcodes; initcodeIndex++) {
+            int numInitcodeBytes;
+            const void *initcodeBytes =
+                ETHTransactionGetInitcodeBytes(transaction, initcodeIndex, &numInitcodeBytes);
+                printf("        - ");
+            printHexString(initcodeBytes, numInitcodeBytes);
+            printf("\n");
+        }
+
         int numTransactionSignatureBytes;
         const void *transactionSignatureBytes =
             ETHTransactionGetSignatureBytes(transaction, &numTransactionSignatureBytes);

@@ -18,8 +18,6 @@ import
 # TODO remove this dependency
 from std/random import rand
 
-from eth/common/eth_types_rlp import rlpHash
-
 type
   MockPrivKeysT = object
   MockPubKeysT = object
