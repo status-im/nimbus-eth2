@@ -414,6 +414,11 @@ proc validateDataColumnSidecarFromEL*(
                 Opt.some(self.dataColumnQuarantine[].popDataColumns(block_root, forkyBlck)))
 
               return ok()
+            else:
+              discard self.quarantine[].addColumnless(
+                self.dag.finalizedHead.slot, forkyBlck)
+
+              return errIgnore ("Could not apply block to block validation pipeline")
           elif blobsEl.len < forkyBlck.message.body.blob_kzg_commitments.len and
               blobsEl.len != 0:
             let end_time = Moment.now()
@@ -422,10 +427,13 @@ proc validateDataColumnSidecarFromEL*(
             debug "Time taken to receive partially response from EL",
                   received_percent = float((blobsEl.len div forkyBlck.message.body.blob_kzg_commitments.len) * 100),
                   time_taken = end_time - start_time
+
+            return errIgnore ("EL sent partial responses")
           else:
             let end_time = Moment.now()
             debug "Empty response received from EL",
                   time_elapsed = end_time - start_time
+            return errIgnore ("EL did not respond with el blobs")
   else:
     return errIgnore ("Could not pull blobs and proofs from EL")
 
