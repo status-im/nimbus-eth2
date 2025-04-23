@@ -1,3 +1,36 @@
+2025-04-21 v25.4.0
+==================
+
+Nimbus `v25.4.0` is a high-urgency release for Ethereum Foundation and Gnosis mainnets due to their Pectra hardforks.
+
+### Improvements
+
+- Add Ethereum Foundation mainnet Pectra support:
+  https://github.com/status-im/nimbus-eth2/pull/7063
+
+- Add Gnosis mainnet Pectra support:
+  https://github.com/status-im/nimbus-eth2/pull/7062
+
+- Improve Electra attestation packing quality:
+  https://github.com/status-im/nimbus-eth2/pull/7053
+
+- Reduce unnecessary state replays on low-participation networks:
+  https://github.com/status-im/nimbus-eth2/pull/7072
+
+- Implement `block_gossip` beacon API SSE stream support:
+  https://github.com/status-im/nimbus-eth2/pull/7054
+
+- Reduce unnecessary Electra attestation logging verbosity:
+  https://github.com/status-im/nimbus-eth2/pull/7058
+
+### Fixes
+
+- Fix compatibility with certain builder API relays:
+  https://github.com/status-im/nimbus-eth2/pull/7045
+
+- Fix getAggregatedAttestationV2 beacon API endpoint for non-zero committee indices:
+  https://github.com/status-im/nimbus-eth2/pull/7037
+
 2025-03-21 v25.3.1
 ==================
 

@@ -542,10 +542,10 @@ proc compute_execution_block_hash*(
   when typeof(body).kind >= ConsensusFork.Electra:
     body.execution_payload.toExecutionBlockHeader(
         parentRoot, Opt.some body.execution_requests.computeRequestsHash())
-      .rlpHash().to(Eth2Digest)
+      .computeRlpHash().to(Eth2Digest)
   else:
     body.execution_payload.toExecutionBlockHeader(parentRoot)
-      .rlpHash().to(Eth2Digest)
+      .computeRlpHash().to(Eth2Digest)
 
 proc compute_execution_block_hash*(blck: ForkyBeaconBlock): Eth2Digest =
   blck.body.compute_execution_block_hash(blck.parent_root)

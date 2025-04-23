@@ -185,6 +185,9 @@ switch("warning", "CaseTransition:off")
 # should be fixed out-of-band of `unstable` branch.
 switch("warning", "BareExcept:off")
 
+# Transitional for Nim v2.2, due to newSeqUninit replacing newSeqUninitialized.
+switch("warning", "Deprecated:off")
+
 # Too many of these because of Defect compat in 1.2
 switch("hint", "XCannotRaiseY:off")
 

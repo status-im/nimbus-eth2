@@ -1641,6 +1641,39 @@ const void *ETHAuthorizationGetSignatureBytes(
     int *numBytes);
 
 /**
+ * Indicates the total number of initcodes of a transaction.
+ *
+ * - Individual initcodes may be inspected using
+ *   `ETHTransactionGetInitcode`.
+ *
+ * @param      transaction          Transaction.
+ *
+ * @return Number of available initcodes.
+ */
+ETH_RESULT_USE_CHECK
+int ETHTransactionGetNumInitcodes(const ETHTransaction *transaction);
+
+/**
+ * Obtains an individual initcode by sequential index
+ * in a transaction.
+ *
+ * - The returned value is allocated in the given transaction.
+ *   It must neither be released nor written to, and the transaction
+ *   must not be released while the returned value is in use.
+ *
+ * @param      transaction          Transaction.
+ * @param      initcodeIndex        Sequential initcode index.
+ * @param[out] numBytes             Length of buffer.
+ *
+ * @return Buffer with initcode.
+ */
+ETH_RESULT_USE_CHECK
+const void *ETHTransactionGetInitcodeBytes(
+    const ETHTransaction *transaction,
+    int initcodeIndex,
+    int *numBytes);
+
+/**
  * Obtains the signature of a transaction.
  *
  * - The returned value is allocated in the given transaction.

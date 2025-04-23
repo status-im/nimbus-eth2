@@ -1296,7 +1296,7 @@ proc ETHExecutionBlockHeaderCreateFromJson(
         Opt.some data.requestsHash.get.asEth2Digest.to(Hash32)
       else:
         Opt.none(Hash32))
-  if rlpHash(blockHeader) != executionHash[]:
+  if blockHeader.computeRlpHash() != executionHash[]:
     return nil
 
   # Construct withdrawals
@@ -1444,6 +1444,7 @@ type
     blobVersionedHashes: seq[Eth2Digest]
     hasAuthorizationList: bool
     authorizationList: seq[ETHAuthorization]
+    initcodes: seq[seq[byte]]
     signature: seq[byte]
     bytes: TypedTransaction
 
@@ -1491,7 +1492,7 @@ proc ETHTransactionsCreateFromJson(
       return nil
 
     # Check fork consistency
-    static: doAssert totalSerializedFields(TransactionObject) == 23,
+    static: doAssert totalSerializedFields(TransactionObject) == 24,
       "Only update this number once code is adjusted to check new fields!"
     let txType =
       case data.`type`.get(0.Quantity):
@@ -1499,7 +1500,7 @@ proc ETHTransactionsCreateFromJson(
         if data.yParity.isSome or data.accessList.isSome or
             data.maxFeePerGas.isSome or data.maxPriorityFeePerGas.isSome or
             data.maxFeePerBlobGas.isSome or data.blobVersionedHashes.isSome or
-            data.authorizationList.isSome:
+            data.authorizationList.isSome or data.initCodes.isSome:
           return nil
         TxLegacy
       of 1.Quantity:
@@ -1507,7 +1508,7 @@ proc ETHTransactionsCreateFromJson(
           return nil
         if data.maxFeePerGas.isSome or data.maxPriorityFeePerGas.isSome or
             data.maxFeePerBlobGas.isSome or data.blobVersionedHashes.isSome or
-            data.authorizationList.isSome:
+            data.authorizationList.isSome or data.initCodes.isSome:
           return nil
         TxEip2930
       of 2.Quantity:
@@ -1515,7 +1516,7 @@ proc ETHTransactionsCreateFromJson(
             data.maxFeePerGas.isNone or data.maxPriorityFeePerGas.isNone:
           return nil
         if data.maxFeePerBlobGas.isSome or data.blobVersionedHashes.isSome or
-            data.authorizationList.isSome:
+            data.authorizationList.isSome or data.initCodes.isSome:
           return nil
         TxEip1559
       of 3.Quantity:
@@ -1523,7 +1524,7 @@ proc ETHTransactionsCreateFromJson(
             data.maxFeePerGas.isNone or data.maxPriorityFeePerGas.isNone or
             data.maxFeePerBlobGas.isNone or data.blobVersionedHashes.isNone:
           return nil
-        if data.authorizationList.isSome:
+        if data.authorizationList.isSome or data.initCodes.isSome:
           return nil
         TxEip4844
       of 4.Quantity:
@@ -1531,9 +1532,19 @@ proc ETHTransactionsCreateFromJson(
             data.maxFeePerGas.isNone or data.maxPriorityFeePerGas.isNone or
             data.authorizationList.isNone:
           return nil
-        if data.maxFeePerBlobGas.isSome or data.blobVersionedHashes.isSome:
+        if data.maxFeePerBlobGas.isSome or data.blobVersionedHashes.isSome or
+            data.initCodes.isSome:
           return nil
         TxEip7702
+      of 6.Quantity:
+        if data.to.isNone or data.chainId.isNone or data.accessList.isNone or
+            data.maxFeePerGas.isNone or data.maxPriorityFeePerGas.isNone or
+            data.initCodes.isNone:
+          return nil
+        if data.maxFeePerBlobGas.isSome or data.blobVersionedHashes.isSome or
+            data.authorizationList.isSome:
+          return nil
+        TxEip7873
       else:
         return nil
 
@@ -1555,6 +1566,17 @@ proc ETHTransactionsCreateFromJson(
     if data.authorizationList.isSome:
       for authorization in data.authorizationList.get:
         if authorization.v > uint8.high:
+          return nil
+    if data.initCodes.isSome:
+      const MAX_INITCODE_COUNT = 256
+      if data.initCodes.get.len == 0 or
+          data.initCodes.get.len > MAX_INITCODE_COUNT:
+        return nil
+      for initCode in data.initCodes.get:
+        const
+          MAX_CODE_SIZE = 0x6000
+          MAX_INITCODE_SIZE = 2 * MAX_CODE_SIZE
+        if initCode.len == 0 or initCode.len > MAX_INITCODE_SIZE:
           return nil
     let
       tx = eth_types.EthTransaction(
@@ -1589,6 +1611,11 @@ proc ETHTransactionsCreateFromJson(
         authorizationList:
           if data.authorizationList.isSome:
             data.authorizationList.get
+          else:
+            @[],
+        initCodes:
+          if data.initCodes.isSome:
+            data.initCodes.get
           else:
             @[],
         V: distinctBase(data.v),
@@ -1685,6 +1712,7 @@ proc ETHTransactionsCreateFromJson(
       blobVersionedHashes: tx.versionedHashes.mapIt(Eth2Digest(data: it.data)),
       hasAuthorizationList: tx.txType == TxEip7702,
       authorizationList: authorizationList,
+      initcodes: tx.initCodes,
       signature: @rawSig,
       bytes: rlpBytes.TypedTransaction)
 
@@ -2195,6 +2223,46 @@ func ETHAuthorizationGetSignatureBytes(
     return cast[ptr UncheckedArray[byte]](defaultBytes)
   cast[ptr UncheckedArray[byte]](
     addr distinctBase(authorization[].signature)[0])
+
+func ETHTransactionGetNumInitcodes(
+    transaction: ptr ETHTransaction): cint {.exported.} =
+  ## Indicates the total number of initcodes of a transaction.
+  ##
+  ## * Individual initcodes may be inspected using
+  ##   `ETHTransactionGetInitcode`.
+  ##
+  ## Parameters:
+  ## * `transaction` - Transaction.
+  ##
+  ## Returns:
+  ## * Number of available initcodes.
+  transaction[].initcodes.len.cint
+
+func ETHTransactionGetInitcodeBytes(
+    transaction: ptr ETHTransaction,
+    initcodeIndex: cint,
+    numBytes #[out]#: ptr cint): ptr UncheckedArray[byte] {.exported.} =
+  ## Obtains an individual initcode by sequential index
+  ## in a transaction.
+  ##
+  ## * The returned value is allocated in the given transaction.
+  ##   It must neither be released nor written to, and the transaction
+  ##   must not be released while the returned value is in use.
+  ##
+  ## Parameters:
+  ## * `transaction` - Transaction.
+  ## * `initcodeIndex` - Sequential initcode index.
+  ## * `numBytes` [out] - Length of buffer.
+  ##
+  ## Returns:
+  ## * Buffer with initcode.
+  numBytes[] = transaction[].initcodes[initcodeIndex.int].len.cint
+  if transaction[].initcodes[initcodeIndex.int].len == 0:
+    # https://github.com/nim-lang/Nim/issues/22389
+    const defaultBytes: cstring = ""
+    return cast[ptr UncheckedArray[byte]](defaultBytes)
+  cast[ptr UncheckedArray[byte]](
+    addr transaction[].initcodes[initcodeIndex.int][0])
 
 func ETHTransactionGetSignatureBytes(
     transaction: ptr ETHTransaction,
