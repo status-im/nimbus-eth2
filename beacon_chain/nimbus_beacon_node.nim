@@ -444,18 +444,17 @@ proc initFullNode(
         Future[Result[void, VerifierError]] {.async: (raises: [CancelledError]).} =
       withBlck(signedBlock):
         when consensusFork >= ConsensusFork.Deneb:
-          if not blobQuarantine[].hasBlobs(forkyBlck):
+          let bres = blobQuarantine[].popSidecars(forkyBlck.root, forkyBlck)
+          if bres.isSome():
+            await blockProcessor[].addBlock(MsgSource.gossip, signedBlock, bres,
+                                            maybeFinalized = maybeFinalized)
+          else:
             # We don't have all the blobs for this block, so we have
             # to put it in blobless quarantine.
             if not quarantine[].addBlobless(dag.finalizedHead.slot, forkyBlck):
               err(VerifierError.UnviableFork)
             else:
               err(VerifierError.MissingParent)
-          else:
-            let blobs = blobQuarantine[].popBlobs(forkyBlck.root, forkyBlck)
-            await blockProcessor[].addBlock(MsgSource.gossip, signedBlock,
-                                      Opt.some(blobs),
-                                      maybeFinalized = maybeFinalized)
         else:
           await blockProcessor[].addBlock(MsgSource.gossip, signedBlock,
                                     Opt.none(BlobSidecars),

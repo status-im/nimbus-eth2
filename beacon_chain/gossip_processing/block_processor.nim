@@ -28,7 +28,7 @@ from ../consensus_object_pools/block_pools_types import
 from ../consensus_object_pools/block_quarantine import
   addBlobless, addOrphan, addUnviable, pop, removeOrphan
 from ../consensus_object_pools/blob_quarantine import
-  BlobQuarantine, hasBlobs, popBlobs, put
+  BlobQuarantine, popSidecars, put
 from ../validators/validator_monitor import
   MsgSource, ValidatorMonitor, registerAttestationInBlock, registerBeaconBlock,
   registerSyncAggregateInBlock
@@ -500,8 +500,7 @@ proc storeBlock(
           err = r.error()
       else:
         if blobsOpt.isSome:
-          for blobSidecar in blobsOpt.get:
-            self.blobQuarantine[].put(blobSidecar)
+          self.blobQuarantine[].put(blobsOpt.get)
         debug "Block quarantined",
           blockRoot = shortLog(signedBlock.root),
           blck = shortLog(signedBlock.message),
@@ -852,10 +851,10 @@ proc storeBlock(
              blck = shortLog(forkyBlck),
              error = res.error()
             continue
-          if self.blobQuarantine[].hasBlobs(forkyBlck):
-            let blobs = self.blobQuarantine[].popBlobs(
-              forkyBlck.root, forkyBlck)
-            self[].enqueueBlock(MsgSource.gossip, quarantined, Opt.some(blobs))
+          let bres =
+            self.blobQuarantine[].popSidecars(forkyBlck.root, forkyBlck)
+          if bres.isSome():
+            self[].enqueueBlock(MsgSource.gossip, quarantined, bres)
           else:
             discard self.consensusManager.quarantine[].addBlobless(
               dag.finalizedHead.slot, forkyBlck)

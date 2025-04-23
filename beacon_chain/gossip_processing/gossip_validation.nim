@@ -434,9 +434,8 @@ proc validateBlobSidecar*(
   #
   # It would be good to fix this more properly, but this has come up often on
   # Pectra devnet-6.
-  if blobQuarantine[].hasBlob(
-      block_header.slot, block_header.proposer_index, blob_sidecar.index,
-      blob_sidecar.kzg_commitment):
+  if blobQuarantine[].hasSidecar(block_header.slot, block_header.proposer_index,
+                                 blob_sidecar.index):
     return errIgnore("BlobSidecar: already have valid blob from same proposer")
 
   # [REJECT] The sidecar's inclusion proof is valid as verified by
@@ -522,9 +521,10 @@ proc validateBlobSidecar*(
       return dag.checkedReject("BlobSidecar: blob invalid")
 
   # Send notification about new blob sidecar via callback
-  if not(isNil(blobQuarantine.onBlobSidecarCallback)):
-    blobQuarantine.onBlobSidecarCallback BlobSidecarInfoObject(
-      block_root: hash_tree_root(blob_sidecar.signed_block_header.message),
+  let onBlobSidecarCallback = blobQuarantine[].onBlobSidecarCallback()
+  if not(isNil(onBlobSidecarCallback)):
+    onBlobSidecarCallback BlobSidecarInfoObject(
+      block_root: block_root,
       index: blob_sidecar.index,
       slot: blob_sidecar.signed_block_header.message.slot,
       kzg_commitment: blob_sidecar.kzg_commitment,
