@@ -372,8 +372,6 @@ proc validateDataColumnSidecarFromEL*(
         var el_blob_loss = 0
         let blobsFromElOpt =
           await self.elManager.sendGetBlobsV2(forkyBlck)
-        debugEcho "blobs from el"
-        debugEcho blobsFromElOpt.get.len
         if blobsFromElOpt.get.len > 0 and blobsFromElOpt.isSome():
           debug "Blobs and proofs received from EL"
           let blobsEl = blobsFromElOpt.get()
