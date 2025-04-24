@@ -1,5 +1,5 @@
 # beacon_chain
-# Copyright (c) 2018-2024 Status Research & Development GmbH
+# Copyright (c) 2018-2025 Status Research & Development GmbH
 # Licensed and distributed under either of
 #   * MIT license (license terms in the root directory or at https://opensource.org/licenses/MIT).
 #   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
@@ -89,7 +89,7 @@ func signBlock(
 from eth/eip1559 import EIP1559_INITIAL_BASE_FEE, calcEip1599BaseFee
 from eth/common/eth_types import EMPTY_ROOT_HASH, GasInt
 
-proc build_empty_merge_execution_payload(state: bellatrix.BeaconState):
+func build_empty_merge_execution_payload(state: bellatrix.BeaconState):
     bellatrix.ExecutionPayloadForSigning =
   ## Assuming a pre-state of the same slot, build a valid ExecutionPayload
   ## without any transactions from a non-merged block.
@@ -112,13 +112,13 @@ proc build_empty_merge_execution_payload(state: bellatrix.BeaconState):
     timestamp: timestamp,
     base_fee_per_gas: EIP1559_INITIAL_BASE_FEE)
 
-  payload.block_hash = rlpHash blockToBlockHeader(bellatrix.BeaconBlock(body:
+  payload.block_hash = compute_execution_block_hash(bellatrix.BeaconBlock(body:
     bellatrix.BeaconBlockBody(execution_payload: payload)))
 
   bellatrix.ExecutionPayloadForSigning(executionPayload: payload,
                                        blockValue: Wei.zero)
 
-proc build_empty_execution_payload(
+func build_empty_execution_payload(
     state: bellatrix.BeaconState,
     feeRecipient: Eth1Address): bellatrix.ExecutionPayloadForSigning =
   ## Assuming a pre-state of the same slot, build a valid ExecutionPayload
@@ -218,6 +218,8 @@ proc addTestBlock*(
         block_hash: eth1_data.block_hash),
       graffiti,
       when consensusFork == ConsensusFork.Electra:
+        electraAttestations
+      elif consensusFork == ConsensusFork.Fulu:
         electraAttestations
       elif consensusFork == ConsensusFork.Fulu:
         electraAttestations

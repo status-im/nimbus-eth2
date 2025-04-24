@@ -1,5 +1,5 @@
 # beacon_chain
-# Copyright (c) 2018-2024 Status Research & Development GmbH
+# Copyright (c) 2018-2025 Status Research & Development GmbH
 # Licensed and distributed under either of
 #   * MIT license (license terms in the root directory or at https://opensource.org/licenses/MIT).
 #   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
@@ -9,12 +9,11 @@
 
 import
   # Standard library
-  std/[sets, tables, hashes],
+  std/[tables, hashes],
   # Status libraries
   chronicles,
   # Internals
   ../spec/[signatures_batch, forks, helpers],
-  ../spec/datatypes/[phase0, altair, bellatrix],
   ".."/[beacon_chain_db, era_db],
   ../validators/validator_monitor,
   ./block_dag, block_pools_types_light_client
@@ -22,11 +21,11 @@ import
 from ../spec/datatypes/capella import TrustedSignedBeaconBlock
 from ../spec/datatypes/deneb import TrustedSignedBeaconBlock
 
-from "."/vanity_logs/vanity_logs import VanityLogs
+from "."/vanity_logs/vanity_logs import LogProc, VanityLogs
 
 export
   sets, tables, hashes, helpers, beacon_chain_db, era_db, block_dag,
-  block_pools_types_light_client, validator_monitor, VanityLogs
+  block_pools_types_light_client, validator_monitor, LogProc, VanityLogs
 
 # ChainDAG and types related to forming a DAG of blocks, keeping track of their
 # relationships and allowing various forms of lookups
@@ -51,6 +50,8 @@ type
 
   OnBlockCallback* =
     proc(data: ForkedTrustedSignedBeaconBlock) {.gcsafe, raises: [].}
+  OnBlockGossipCallback* =
+    proc(data: ForkedSignedBeaconBlock) {.gcsafe, raises: [].}
   OnHeadCallback* =
     proc(data: HeadChangeInfoObject) {.gcsafe, raises: [].}
   OnReorgCallback* =
@@ -89,7 +90,7 @@ type
     ## instantiated: sync from genesis or checkpoint, and therefore, what
     ## features we can offer in terms of historical replay.
     ##
-    ## Beacuse the state transition is forwards-only, checkpoint sync generally
+    ## Because the state transition is forwards-only, checkpoint sync generally
     ## allows replaying states from that point onwards - anything earlier
     ## would require a backfill of blocks and a subsequent replay from genesis.
     ##
@@ -233,6 +234,8 @@ type
 
     onBlockAdded*: OnBlockCallback
       ## On block added callback
+    onBlockGossipAdded*: OnBlockGossipCallback
+      ## On block gossip added callback
     onHeadChanged*: OnHeadCallback
       ## On head changed callback
     onReorgHappened*: OnReorgCallback
@@ -341,6 +344,10 @@ type
     block_root* {.serializedFieldName: "block".}: Eth2Digest
     optimistic* {.serializedFieldName: "execution_optimistic".}: Option[bool]
 
+  EventBeaconBlockGossipObject* = object
+    slot*: Slot
+    block_root* {.serializedFieldName: "block".}: Eth2Digest
+
 template OnBlockAddedCallback*(kind: static ConsensusFork): auto =
   when kind == ConsensusFork.Fulu:
     typedesc[OnFuluBlockAdded]
@@ -400,6 +407,9 @@ template setFinalizationCb*(dag: ChainDAGRef, cb: OnFinalizedCallback) =
 
 template setBlockCb*(dag: ChainDAGRef, cb: OnBlockCallback) =
   dag.onBlockAdded = cb
+
+template setBlockGossipCb*(dag: ChainDAGRef, cb: OnBlockGossipCallback) =
+  dag.onBlockGossipAdded = cb
 
 template setHeadCb*(dag: ChainDAGRef, cb: OnHeadCallback) =
   dag.onHeadChanged = cb
@@ -475,4 +485,12 @@ func init*(t: typedesc[EventBeaconBlockObject],
       slot: forkyBlck.message.slot,
       block_root: forkyBlck.root,
       optimistic: optimistic
+    )
+
+func init*(t: typedesc[EventBeaconBlockGossipObject],
+           v: ForkedSignedBeaconBlock): EventBeaconBlockGossipObject =
+  withBlck(v):
+    EventBeaconBlockGossipObject(
+      slot: forkyBlck.message.slot,
+      block_root: forkyBlck.root
     )

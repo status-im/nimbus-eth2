@@ -1,5 +1,5 @@
 # beacon_chain
-# Copyright (c) 2018-2024 Status Research & Development GmbH
+# Copyright (c) 2018-2025 Status Research & Development GmbH
 # Licensed and distributed under either of
 #   * MIT license (license terms in the root directory or at https://opensource.org/licenses/MIT).
 #   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
@@ -11,20 +11,22 @@
 import
   # Status lib
   unittest2,
-  chronicles, chronos,
-  stew/[byteutils, endians2],
-  taskpools,
+  chronicles,
   # Internal
-  ../beacon_chain/gossip_processing/[gossip_validation],
-  ../beacon_chain/fork_choice/[fork_choice_types, fork_choice],
   ../beacon_chain/consensus_object_pools/[
-    block_quarantine, blockchain_dag, block_clearance, attestation_pool],
-  ../beacon_chain/spec/[beaconstate, helpers, state_transition, validator],
+    blockchain_dag, block_clearance, attestation_pool],
+  ../beacon_chain/spec/[state_transition, validator],
   ../beacon_chain/beacon_clock,
   # Test utilities
   ./testutil, ./testdbutil, ./testblockutil, ./consensus_spec/fixtures_utils
 
 from std/sequtils import mapIt, toSeq
+from stew/byteutils import `<`
+from ../beacon_chain/consensus_object_pools/block_quarantine import
+  Quarantine, init
+from ../beacon_chain/spec/beaconstate import
+  attester_dependent_root, check_attestation, get_attesting_indices,
+  latest_block_root
 from ./testbcutil import addHeadBlock
 
 func combine(tgt: var (phase0.Attestation | electra.Attestation),
@@ -56,6 +58,12 @@ proc pruneAtFinalization(dag: ChainDAGRef, attPool: AttestationPool) =
   if dag.needStateCachesAndForkChoicePruning():
     dag.pruneStateCachesDAG()
     # pool[].prune() # We test logic without attestation pool / fork choice pruning
+
+# -1 here is the notional index in committee for which the attestation pool
+# only requires external input regarding SingleAttestation messages. If, or
+# when, this module starts testing SingleAttestation, those can't use this.
+template addAttestation(a, b, c, d, e, f: untyped): untyped =
+  addAttestation(a, b, c, d, -1, e, f)
 
 suite "Attestation pool processing" & preset():
   ## For now just test that we can compile and execute block processing with
@@ -186,8 +194,8 @@ suite "Attestation pool processing" & preset():
         state[], state[].latest_block_root, bc0[0], cache)
 
     pool[].addAttestation(
-      attestation, @[bc0[0]], attestation.loadSig,
-      attestation.data.slot.start_beacon_time)
+      attestation, @[bc0[0]], attestation.aggregation_bits.len,
+      attestation.loadSig, attestation.data.slot.start_beacon_time)
 
     check:
       # Added attestation, should get it back
@@ -240,7 +248,8 @@ suite "Attestation pool processing" & preset():
       pool[].getAttestationsForBlock(state[], cache) == []
 
     pool[].addAttestation(
-      att1, @[bc1[0]], att1.loadSig, att1.data.slot.start_beacon_time)
+      att1, @[bc1[0]], att1.aggregation_bits.len, att1.loadSig,
+      att1.data.slot.start_beacon_time)
 
     check:
       # but new ones should go in
@@ -249,7 +258,8 @@ suite "Attestation pool processing" & preset():
     let
       att2 = makeAttestation(state[], root1, bc1[1], cache)
     pool[].addAttestation(
-      att2, @[bc1[1]], att2.loadSig, att2.data.slot.start_beacon_time)
+      att2, @[bc1[1]], att2.aggregation_bits.len, att2.loadSig,
+      att2.data.slot.start_beacon_time)
 
     let
       combined = pool[].getAttestationsForBlock(state[], cache)
@@ -260,8 +270,8 @@ suite "Attestation pool processing" & preset():
       combined[0].aggregation_bits.countOnes() == 2
 
     pool[].addAttestation(
-      combined[0], @[bc1[1], bc1[0]], combined[0].loadSig,
-      combined[0].data.slot.start_beacon_time)
+      combined[0], @[bc1[1], bc1[0]], combined[0].aggregation_bits.len,
+      combined[0].loadSig, combined[0].data.slot.start_beacon_time)
 
     check:
       # readding the combined attestation shouldn't have an effect
@@ -271,7 +281,8 @@ suite "Attestation pool processing" & preset():
       # Someone votes for a different root
       att3 = makeAttestation(state[], ZERO_HASH, bc1[2], cache)
     pool[].addAttestation(
-      att3, @[bc1[2]], att3.loadSig, att3.data.slot.start_beacon_time)
+      att3, @[bc1[2]], att3.aggregation_bits.len, att3.loadSig,
+      att3.data.slot.start_beacon_time)
 
     check:
       # We should now get both attestations for the block, but the aggregate
@@ -286,7 +297,8 @@ suite "Attestation pool processing" & preset():
       # Someone votes for a different root
       att4 = makeAttestation(state[], ZERO_HASH, bc1[2], cache)
     pool[].addAttestation(
-      att4, @[bc1[2]], att3.loadSig, att3.data.slot.start_beacon_time)
+      att4, @[bc1[2]], att4.aggregation_bits.len, att3.loadSig,
+      att3.data.slot.start_beacon_time)
 
   test "Working with aggregates" & preset():
     let
@@ -311,11 +323,14 @@ suite "Attestation pool processing" & preset():
 
     check:
       not pool[].covers(att0.data, att0.aggregation_bits)
+      not pool[].covers(att1.data, att1.aggregation_bits)
 
     pool[].addAttestation(
-      att0, @[bc0[0], bc0[2]], att0.loadSig, att0.data.slot.start_beacon_time)
+      att0, @[bc0[0], bc0[2]], att0.aggregation_bits.len, att0.loadSig,
+      att0.data.slot.start_beacon_time)
     pool[].addAttestation(
-      att1, @[bc0[1], bc0[2]], att1.loadSig, att1.data.slot.start_beacon_time)
+      att1, @[bc0[1], bc0[2]], att1.aggregation_bits.len, att1.loadSig,
+      att1.data.slot.start_beacon_time)
 
     check:
       process_slots(
@@ -325,13 +340,15 @@ suite "Attestation pool processing" & preset():
 
     check:
       pool[].covers(att0.data, att0.aggregation_bits)
+      pool[].covers(att1.data, att1.aggregation_bits)
       pool[].getAttestationsForBlock(state[], cache).len() == 2
       # Can get either aggregate here, random!
       pool[].getPhase0AggregatedAttestation(1.Slot, 0.CommitteeIndex).isSome()
 
     # Add in attestation 3 - both aggregates should now have it added
     pool[].addAttestation(
-      att3, @[bc0[3]], att3.loadSig, att3.data.slot.start_beacon_time)
+      att3, @[bc0[3]], att3.aggregation_bits.len, att3.loadSig,
+      att3.data.slot.start_beacon_time)
 
     block:
       let attestations = pool[].getAttestationsForBlock(state[], cache)
@@ -344,7 +361,8 @@ suite "Attestation pool processing" & preset():
     # Add in attestation 0 as single - attestation 1 is now a superset of the
     # aggregates in the pool, so everything else should be removed
     pool[].addAttestation(
-      att0x, @[bc0[0]], att0x.loadSig, att0x.data.slot.start_beacon_time)
+      att0x, @[bc0[0]], att0x.aggregation_bits.len, att0x.loadSig,
+      att0x.data.slot.start_beacon_time)
 
     block:
       let attestations = pool[].getAttestationsForBlock(state[], cache)
@@ -366,7 +384,8 @@ suite "Attestation pool processing" & preset():
         root.data[8..<16] = toBytesBE(j.uint64)
         let att = makeAttestation(state[], root, bc0[j], cache)
         pool[].addAttestation(
-          att, @[bc0[j]], att.loadSig, att.data.slot.start_beacon_time)
+          att, @[bc0[j]], att.aggregation_bits.len, att.loadSig,
+          att.data.slot.start_beacon_time)
         inc attestations
 
       check:
@@ -405,11 +424,11 @@ suite "Attestation pool processing" & preset():
 
     # test reverse order
     pool[].addAttestation(
-      attestation1, @[bc1[0]], attestation1.loadSig,
-      attestation1.data.slot.start_beacon_time)
+      attestation1, @[bc1[0]], attestation1.aggregation_bits.len,
+      attestation1.loadSig, attestation1.data.slot.start_beacon_time)
     pool[].addAttestation(
-      attestation0, @[bc0[0]], attestation0.loadSig,
-      attestation0.data.slot.start_beacon_time)
+      attestation0, @[bc0[0]], attestation0.aggregation_bits.len,
+      attestation0.loadSig, attestation0.data.slot.start_beacon_time)
 
     let attestations = pool[].getAttestationsForBlock(state[], cache)
 
@@ -428,11 +447,11 @@ suite "Attestation pool processing" & preset():
         makeAttestation(state[], state[].latest_block_root, bc0[1], cache)
 
     pool[].addAttestation(
-      attestation0, @[bc0[0]], attestation0.loadSig,
-      attestation0.data.slot.start_beacon_time)
+      attestation0, @[bc0[0]], attestation0.aggregation_bits.len,
+      attestation0.loadSig, attestation0.data.slot.start_beacon_time)
     pool[].addAttestation(
-      attestation1, @[bc0[1]], attestation1.loadSig,
-      attestation1.data.slot.start_beacon_time)
+      attestation1, @[bc0[1]], attestation1.aggregation_bits.len,
+      attestation1.loadSig, attestation1.data.slot.start_beacon_time)
 
     check:
       process_slots(
@@ -459,11 +478,11 @@ suite "Attestation pool processing" & preset():
     attestation0.combine(attestation1)
 
     pool[].addAttestation(
-      attestation0, @[bc0[0]], attestation0.loadSig,
-      attestation0.data.slot.start_beacon_time)
+      attestation0, @[bc0[0]], attestation0.aggregation_bits.len,
+      attestation0.loadSig, attestation0.data.slot.start_beacon_time)
     pool[].addAttestation(
-      attestation1, @[bc0[1]], attestation1.loadSig,
-      attestation1.data.slot.start_beacon_time)
+      attestation1, @[bc0[1]], attestation1.aggregation_bits.len,
+      attestation1.loadSig, attestation1.data.slot.start_beacon_time)
 
     check:
       process_slots(
@@ -489,11 +508,11 @@ suite "Attestation pool processing" & preset():
     attestation0.combine(attestation1)
 
     pool[].addAttestation(
-      attestation1, @[bc0[1]], attestation1.loadSig,
-      attestation1.data.slot.start_beacon_time)
+      attestation1, @[bc0[1]], attestation1.aggregation_bits.len,
+      attestation1.loadSig, attestation1.data.slot.start_beacon_time)
     pool[].addAttestation(
-      attestation0, @[bc0[0]], attestation0.loadSig,
-      attestation0.data.slot.start_beacon_time)
+      attestation0, @[bc0[0]], attestation0.aggregation_bits.len,
+      attestation0.loadSig, attestation0.data.slot.start_beacon_time)
 
     check:
       process_slots(
@@ -576,8 +595,8 @@ suite "Attestation pool processing" & preset():
       attestation0 = makeAttestation(state[], b10.root, bc1[0], cache)
 
     pool[].addAttestation(
-      attestation0, @[bc1[0]], attestation0.loadSig,
-      attestation0.data.slot.start_beacon_time)
+      attestation0, @[bc1[0]], attestation0.aggregation_bits.len,
+      attestation0.loadSig, attestation0.data.slot.start_beacon_time)
 
     let head2 =
       pool[].selectOptimisticHead(b10Add[].slot.start_beacon_time).get().blck
@@ -590,8 +609,8 @@ suite "Attestation pool processing" & preset():
       attestation1 = makeAttestation(state[], b11.root, bc1[1], cache)
       attestation2 = makeAttestation(state[], b11.root, bc1[2], cache)
     pool[].addAttestation(
-      attestation1, @[bc1[1]], attestation1.loadSig,
-      attestation1.data.slot.start_beacon_time)
+      attestation1, @[bc1[1]], attestation1.aggregation_bits.len,
+      attestation1.loadSig, attestation1.data.slot.start_beacon_time)
 
     let head3 =
       pool[].selectOptimisticHead(b10Add[].slot.start_beacon_time).get().blck
@@ -602,8 +621,8 @@ suite "Attestation pool processing" & preset():
       head3 == bigger[]
 
     pool[].addAttestation(
-      attestation2, @[bc1[2]], attestation2.loadSig,
-      attestation2.data.slot.start_beacon_time)
+      attestation2, @[bc1[2]], attestation2.aggregation_bits.len,
+      attestation2.loadSig, attestation2.data.slot.start_beacon_time)
 
     let head4 =
       pool[].selectOptimisticHead(b11Add[].slot.start_beacon_time).get().blck
@@ -775,8 +794,8 @@ suite "Attestation pool electra processing" & preset():
         state[], state[].latest_block_root, bc0[0], cache)
 
     pool[].addAttestation(
-      attestation, @[bc0[0]], attestation.loadSig,
-      attestation.data.slot.start_beacon_time)
+      attestation, @[bc0[0]], attestation.aggregation_bits.len,
+      attestation.loadSig, attestation.data.slot.start_beacon_time)
 
     check:
       process_slots(
@@ -812,7 +831,8 @@ suite "Attestation pool electra processing" & preset():
       pool[].getElectraAttestationsForBlock(state[], cache) == []
 
     pool[].addAttestation(
-      att1, @[bc1[0]], att1.loadSig, att1.data.slot.start_beacon_time)
+      att1, @[bc1[0]], att1.aggregation_bits.len, att1.loadSig,
+      att1.data.slot.start_beacon_time)
 
     check:
       # but new ones should go in
@@ -821,7 +841,8 @@ suite "Attestation pool electra processing" & preset():
     let
       att2 = makeElectraAttestation(state[], root1, bc1[1], cache)
     pool[].addAttestation(
-      att2, @[bc1[1]], att2.loadSig, att2.data.slot.start_beacon_time)
+      att2, @[bc1[1]], att2.aggregation_bits.len, att2.loadSig,
+      att2.data.slot.start_beacon_time)
 
     let
       combined = pool[].getElectraAttestationsForBlock(state[], cache)
@@ -832,8 +853,8 @@ suite "Attestation pool electra processing" & preset():
       combined[0].aggregation_bits.countOnes() == 2
 
     pool[].addAttestation(
-      combined[0], @[bc1[1], bc1[0]], combined[0].loadSig,
-      combined[0].data.slot.start_beacon_time)
+      combined[0], @[bc1[1], bc1[0]], combined[0].aggregation_bits.len,
+      combined[0].loadSig, combined[0].data.slot.start_beacon_time)
 
     check:
       # readding the combined attestation shouldn't have an effect
@@ -843,7 +864,8 @@ suite "Attestation pool electra processing" & preset():
       # Someone votes for a different root
       att3 = makeElectraAttestation(state[], ZERO_HASH, bc1[2], cache)
     pool[].addAttestation(
-      att3, @[bc1[2]], att3.loadSig, att3.data.slot.start_beacon_time)
+      att3, @[bc1[2]], att3.aggregation_bits.len, att3.loadSig,
+      att3.data.slot.start_beacon_time)
 
     check:
       # We should now get both attestations for the block, but the aggregate
@@ -855,8 +877,7 @@ suite "Attestation pool electra processing" & preset():
          get().aggregation_bits.countOnes() == 2
       # requests to get and aggregate from different committees should be empty
       pool[].getElectraAggregatedAttestation(
-        2.Slot, combined[0].data.beacon_block_root, 1.CommitteeIndex).isNone()
-
+        2.Slot, hash_tree_root(combined[0].data), 1.CommitteeIndex).isNone()
 
   test "Attestations with disjoint comittee bits and equal data into single on-chain aggregate" & preset():
     let
@@ -876,12 +897,12 @@ suite "Attestation pool electra processing" & preset():
         state[], state[].latest_block_root, bc1[1], cache)
 
     pool[].addAttestation(
-      attestation_1, @[bc0[0]], attestation_1.loadSig,
-      attestation_1.data.slot.start_beacon_time)
+      attestation_1, @[bc0[0]], attestation_1.aggregation_bits.len,
+      attestation_1.loadSig, attestation_1.data.slot.start_beacon_time)
 
     pool[].addAttestation(
-      attestation_2, @[bc0[1]], attestation_2.loadSig,
-      attestation_2.data.slot.start_beacon_time)
+      attestation_2, @[bc0[1]], attestation_2.aggregation_bits.len,
+      attestation_2.loadSig, attestation_2.data.slot.start_beacon_time)
 
     check:
       process_slots(
@@ -940,16 +961,16 @@ suite "Attestation pool electra processing" & preset():
       verifyAttestationSignature(attestation_3)
 
     pool[].addAttestation(
-      attestation_1, @[bc0[0]], attestation_1.loadSig,
-      attestation_1.data.slot.start_beacon_time)
+      attestation_1, @[bc0[0]], attestation_1.aggregation_bits.len,
+      attestation_1.loadSig, attestation_1.data.slot.start_beacon_time)
 
     pool[].addAttestation(
-      attestation_2, @[bc0[1]], attestation_2.loadSig,
-      attestation_2.data.slot.start_beacon_time)
+      attestation_2, @[bc0[1]], attestation_2.aggregation_bits.len,
+      attestation_2.loadSig, attestation_2.data.slot.start_beacon_time)
 
     pool[].addAttestation(
-      attestation_3, @[bc1[1]], attestation_3.loadSig,
-      attestation_3.data.slot.start_beacon_time)
+      attestation_3, @[bc1[1]], attestation_3.aggregation_bits.len,
+      attestation_3.loadSig, attestation_3.data.slot.start_beacon_time)
 
     check:
       process_slots(
@@ -1016,17 +1037,25 @@ suite "Attestation pool electra processing" & preset():
     check:
       verifyAttestationSignature(att0)
       verifyAttestationSignature(att1)
-      not pool[].covers(att0.data, att0.aggregation_bits)
+      not pool[].covers(att0.data, att0.aggregation_bits, att0.committee_bits)
+      not pool[].covers(att1.data, att1.aggregation_bits, att1.committee_bits)
+      not pool[].covers(att2.data, att2.aggregation_bits, att2.committee_bits)
 
     pool[].addAttestation(
-      att0, @[bc0[0], bc0[2]], att0.loadSig, att0.data.slot.start_beacon_time)
+      att0, @[bc0[0], bc0[2]], att0.aggregation_bits.len, att0.loadSig,
+      att0.data.slot.start_beacon_time)
     pool[].addAttestation(
-      att1, @[bc0[1], bc0[2]], att1.loadSig, att1.data.slot.start_beacon_time)
+      att1, @[bc0[1], bc0[2]], att1.aggregation_bits.len, att1.loadSig,
+      att1.data.slot.start_beacon_time)
 
     for att in pool[].electraAttestations(Opt.none Slot, Opt.none CommitteeIndex):
       check: verifyAttestationSignature(att)
 
     check:
+      pool[].covers(att0.data, att0.aggregation_bits, att0.committee_bits)
+      pool[].covers(att1.data, att1.aggregation_bits, att1.committee_bits)
+      pool[].covers(att2.data, att2.aggregation_bits, att2.committee_bits)
+
       process_slots(
         defaultRuntimeConfig, state[],
         getStateField(state[], slot) + MIN_ATTESTATION_INCLUSION_DELAY, cache,
@@ -1043,7 +1072,8 @@ suite "Attestation pool electra processing" & preset():
 
     # Add in attestation 3 - both aggregates should now have it added
     pool[].addAttestation(
-      att3, @[bc0[3]], att3.loadSig, att3.data.slot.start_beacon_time)
+      att3, @[bc0[3]], att3.aggregation_bits.len, att3.loadSig,
+      att3.data.slot.start_beacon_time)
 
     block:
       let attestations = pool[].getElectraAttestationsForBlock(state[], cache)
@@ -1060,7 +1090,8 @@ suite "Attestation pool electra processing" & preset():
     # Add in attestation 0 as single - attestation 1 is now a superset of the
     # aggregates in the pool, so everything else should be removed
     pool[].addAttestation(
-      att0x, @[bc0[0]], att0x.loadSig, att0x.data.slot.start_beacon_time)
+      att0x, @[bc0[0]], att0x.aggregation_bits.len, att0x.loadSig,
+      att0x.data.slot.start_beacon_time)
 
     block:
       let attestations = pool[].getElectraAttestationsForBlock(state[], cache)
@@ -1077,9 +1108,168 @@ suite "Attestation pool electra processing" & preset():
     let att4 = makeElectraAttestation(state[], ZERO_HASH, bc0[4], cache)
     check: verifyAttestationSignature(att4)
     pool[].addAttestation(
-      att4, @[bc0[4]], att4.loadSig, att4.data.slot.start_beacon_time)
+      att4, @[bc0[4]], att4.aggregation_bits.len, att4.loadSig,
+      att4.data.slot.start_beacon_time)
 
     # Total aggregations size should be one for that root
     check:
       pool[].getElectraAggregatedAttestation(1.Slot, hash_tree_root(att4.data),
       0.CommitteeIndex).get().aggregation_bits.countOnes() == 1
+
+  proc verifyAttestationSignature(
+      pool: AttestationPool,
+      state: ref ForkedHashedBeaconState,
+      cache: var StateCache,
+      attestation: electra.Attestation): bool =
+    withState(state[]):
+      when consensusFork == ConsensusFork.Electra:
+        let
+          fork = pool.dag.cfg.forkAtEpoch(forkyState.data.slot.epoch)
+          attesting_indices = get_attesting_indices(
+            forkyState.data, attestation.data, attestation.aggregation_bits,
+            attestation.committee_bits, cache)
+        verify_attestation_signature(
+          fork, pool.dag.genesis_validators_root, attestation.data,
+          attesting_indices.mapIt(forkyState.data.validators.item(it).pubkey),
+          attestation.signature)
+      else:
+        raiseAssert "must be electra"
+
+  test "Aggregating across committees" & preset():
+    # Add attestation from different committee
+    var maxSlot = 0.Slot
+    for i in 0 ..< 4:
+      let
+        bc = get_beacon_committee(
+          state[], getStateField(state[], slot), i.CommitteeIndex, cache)
+        att = makeElectraAttestation(
+          state[], state[].latest_block_root, bc[0], cache)
+      var att2 = makeElectraAttestation(
+        state[], state[].latest_block_root, bc[1], cache)
+      att2.combine(att)
+
+      pool[].addAttestation(
+        att, @[bc[0]], att.aggregation_bits.len, att.loadSig,
+        att.data.slot.start_beacon_time)
+
+      pool[].addAttestation(
+        att2, @[bc[0], bc[1]], att2.aggregation_bits.len, att2.loadSig,
+        att2.data.slot.start_beacon_time)
+
+      pool[].addAttestation(
+        att, @[bc[0]], att.aggregation_bits.len, att.loadSig,
+        att.data.slot.start_beacon_time)
+
+      pool[].addAttestation(
+        att2, @[bc[0], bc[1]], att2.aggregation_bits.len, att2.loadSig,
+        att2.data.slot.start_beacon_time)
+
+      if att.data.slot > maxSlot:
+        maxSlot = att.data.slot
+
+    check process_slots(
+      defaultRuntimeConfig, state[],
+      maxSlot + MIN_ATTESTATION_INCLUSION_DELAY, cache,
+      info, {}).isOk()
+
+    let attestations = pool[].getElectraAttestationsForBlock(state[], cache)
+    check:
+      attestations.len() == 2
+      attestations[0].aggregation_bits.countOnes() == 4
+      attestations[0].committee_bits.countOnes() == 2
+      attestations[1].aggregation_bits.countOnes() == 4
+      attestations[1].committee_bits.countOnes() == 2
+      check_attestation(
+        state[].electraData.data, attestations[0], {}, cache, true).isOk
+      check_attestation(
+        state[].electraData.data, attestations[1], {}, cache, true).isOk
+      pool[].verifyAttestationSignature(state, cache, attestations[0])
+      pool[].verifyAttestationSignature(state, cache, attestations[1])
+
+  test "Simple add and get with electra nonzero committee" & preset():
+     let
+       bc0 = get_beacon_committee(
+         state[], getStateField(state[], slot), 0.CommitteeIndex, cache)
+
+       bc1 = get_beacon_committee(
+         state[], getStateField(state[], slot), 1.CommitteeIndex, cache)
+
+       attestation_1 = makeElectraAttestation(
+         state[], state[].latest_block_root, bc0[0], cache)
+
+       attestation_2 = makeElectraAttestation(
+         state[], state[].latest_block_root, bc1[0], cache)
+
+     pool[].addAttestation(
+       attestation_1, @[bc0[0]], attestation_1.aggregation_bits.len,
+       attestation_1.loadSig, attestation_1.data.slot.start_beacon_time)
+
+     pool[].addAttestation(
+       attestation_2, @[bc1[0]], attestation_2.aggregation_bits.len,
+       attestation_2.loadSig, attestation_2.data.slot.start_beacon_time)
+
+     check:
+       process_slots(
+         defaultRuntimeConfig, state[],
+         getStateField(state[], slot) + MIN_ATTESTATION_INCLUSION_DELAY, cache,
+         info, {}).isOk()
+
+     check:
+       pool[].getElectraAggregatedAttestation(1.Slot, hash_tree_root(attestation_1.data),
+           0.CommitteeIndex).isOk
+       pool[].getElectraAggregatedAttestation(1.Slot, hash_tree_root(attestation_2.data),
+           1.CommitteeIndex).isOk
+
+  test "Cache coherence on chain aggregates" & preset():
+      # Add attestation from different committee
+      var maxSlot = 0.Slot
+
+      for i in 0 ..< 4:
+        let
+          bc = get_beacon_committee(
+            state[], getStateField(state[], slot), i.CommitteeIndex, cache)
+          att = makeElectraAttestation(
+            state[], state[].latest_block_root, bc[0], cache)
+        var att2 = makeElectraAttestation(
+          state[], state[].latest_block_root, bc[1], cache)
+
+        pool[].addAttestation(
+          att, @[bc[0]], att.aggregation_bits.len, att.loadSig,
+          att.data.slot.start_beacon_time)
+
+        if att.data.slot < 2:
+          pool[].addAttestation(
+            att2, @[bc[1]], att2.aggregation_bits.len, att2.loadSig,
+            att2.data.slot.start_beacon_time)
+
+        if att.data.slot > maxSlot:
+          maxSlot = att.data.slot
+
+      check process_slots(
+        defaultRuntimeConfig, state[],
+        maxSlot + MIN_ATTESTATION_INCLUSION_DELAY, cache,
+        info, {}).isOk()
+
+      let attestations = pool[].getElectraAttestationsForBlock(state[], cache)
+      check:
+        ## Considering that all structures in getElectraAttestationsForBlock
+        ## are sorted, the most relevant should be at sequence head.
+        ## Given the attestations added, the most "scored" is on
+        ## slot 1
+        attestations.len() == 2
+
+        attestations[0].aggregation_bits.countOnes() == 4
+        attestations[0].committee_bits.countOnes() == 2
+        attestations[0].data.slot == 1.Slot
+
+
+        attestations[1].aggregation_bits.countOnes() == 2
+        attestations[1].committee_bits.countOnes() == 2
+        attestations[1].data.slot == 2.Slot
+
+        check_attestation(
+          state[].electraData.data, attestations[0], {}, cache, true).isOk
+        check_attestation(
+          state[].electraData.data, attestations[1], {}, cache, true).isOk
+        pool[].verifyAttestationSignature(state, cache, attestations[0])
+        pool[].verifyAttestationSignature(state, cache, attestations[1])

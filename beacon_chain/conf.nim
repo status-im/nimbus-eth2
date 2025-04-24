@@ -1,5 +1,5 @@
 # beacon_chain
-# Copyright (c) 2018-2024 Status Research & Development GmbH
+# Copyright (c) 2018-2025 Status Research & Development GmbH
 # Licensed and distributed under either of
 #   * MIT license (license terms in the root directory or at https://opensource.org/licenses/MIT).
 #   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
@@ -52,7 +52,7 @@ const
   defaultSigningNodeRequestTimeout* = 60
   defaultBeaconNode* = "http://127.0.0.1:" & $defaultEth2RestPort
   defaultBeaconNodeUri* = parseUri(defaultBeaconNode)
-  defaultGasLimit* = 30_000_000
+  defaultGasLimit* = 36_000_000
   defaultAdminListenAddressDesc* = $defaultAdminListenAddress
   defaultBeaconNodeDesc = $defaultBeaconNode
 
@@ -252,6 +252,12 @@ type
       defaultValue: false,
       desc: "Subscribe to all subnet topics when gossiping"
       name: "subscribe-all-subnets" .}: bool
+
+    peerdasSupernode* {.
+      hidden
+      defaultValue: false,
+      desc: "Subscribe to all column subnets, thereby becoming a peerdas supernode"
+      name: "debug-peerdas-supernode" .}: bool
 
     slashingDbKind* {.
       hidden
@@ -570,7 +576,7 @@ type
         name: "discv5" .}: bool
 
       dumpEnabled* {.
-        desc: "Write SSZ dumps of blocks, attestations and states to data dir"
+        desc: "Write SSZ dumps of blocks and states to data dir"
         defaultValue: false
         name: "dump" .}: bool
 
@@ -1490,13 +1496,8 @@ proc engineApiUrls*(config: BeaconNodeConf): seq[EngineApiUrl] =
     config.jwtSecret.configJwtSecretOpt)
 
 proc loadKzgTrustedSetup*(): Result[void, string] =
-  const
-    vendorDir = currentSourcePath.parentDir.replace('\\', '/') & "/../vendor"
-    trustedSetup = staticRead(
-      vendorDir & "/nim-kzg4844/kzg4844/csources/src/trusted_setup.txt")
-
   static: doAssert const_preset in ["mainnet", "gnosis", "minimal"]
-  loadTrustedSetupFromString(trustedSetup, 0)
+  loadTrustedSetupFromString(kzg.trustedSetup, 0)
 
 proc loadKzgTrustedSetup*(trustedSetupPath: string): Result[void, string] =
   try:

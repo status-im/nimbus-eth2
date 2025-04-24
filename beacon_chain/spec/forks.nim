@@ -1,5 +1,5 @@
 # beacon_chain
-# Copyright (c) 2021-2024 Status Research & Development GmbH
+# Copyright (c) 2021-2025 Status Research & Development GmbH
 # Licensed and distributed under either of
 #   * MIT license (license terms in the root directory or at https://opensource.org/licenses/MIT).
 #   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
@@ -178,7 +178,7 @@ type
 
   ForkyAttestation* =
     phase0.Attestation |
-    electra.Attestation
+    electra.SingleAttestation
 
   ForkedAttestation* = object
     case kind*: ConsensusFork
@@ -441,7 +441,9 @@ template kind*(
       deneb.SigVerifiedSignedBeaconBlock |
       deneb.MsgTrustedSignedBeaconBlock |
       deneb.TrustedSignedBeaconBlock |
-      deneb_mev.SignedBlindedBeaconBlock]): ConsensusFork =
+      deneb_mev.SignedBlindedBeaconBlock |
+      deneb_mev.SignedBuilderBid |
+      deneb_mev.ExecutionPayloadAndBlobsBundle]): ConsensusFork =
   ConsensusFork.Deneb
 
 template kind*(
@@ -461,9 +463,12 @@ template kind*(
       electra.MsgTrustedSignedBeaconBlock |
       electra.TrustedSignedBeaconBlock |
       electra.Attestation |
+      electra.SingleAttestation |
       electra.AggregateAndProof |
       electra.SignedAggregateAndProof |
-      electra_mev.SignedBlindedBeaconBlock]): ConsensusFork =
+      electra_mev.SignedBlindedBeaconBlock |
+      electra_mev.SignedBuilderBid |
+      electra_mev.ExecutionPayloadAndBlobsBundle]): ConsensusFork =
   ConsensusFork.Electra
 
 template kind*(
@@ -482,7 +487,9 @@ template kind*(
       fulu.SigVerifiedSignedBeaconBlock |
       fulu.MsgTrustedSignedBeaconBlock |
       fulu.TrustedSignedBeaconBlock |
-      fulu_mev.SignedBlindedBeaconBlock]): ConsensusFork =
+      fulu_mev.SignedBlindedBeaconBlock |
+      fulu_mev.SignedBuilderBid |
+      fulu_mev.ExecutionPayloadAndBlobsBundle]): ConsensusFork =
   ConsensusFork.Fulu
 
 template BeaconState*(kind: static ConsensusFork): auto =
@@ -1697,7 +1704,7 @@ func compute_fork_data_root*(current_version: Version,
     genesis_validators_root: genesis_validators_root
   ))
 
-# https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.6/specs/phase0/beacon-chain.md#compute_fork_digest
+# https://github.com/ethereum/consensus-specs/blob/v1.5.0-beta.4/specs/phase0/beacon-chain.md#compute_fork_digest
 func compute_fork_digest*(current_version: Version,
                           genesis_validators_root: Eth2Digest): ForkDigest =
   ## Return the 4-byte fork digest for the ``current_version`` and
@@ -1853,6 +1860,10 @@ func committee_index*(v: electra.Attestation, on_chain: static bool): uint64 =
     {.error: "cannot get single committee_index for on_chain attestation".}
   else:
     uint64 v.committee_bits.get_committee_index_one().expect("network attestation")
+
+func committee_index*(
+    v: SingleAttestation, on_chain: static bool = false): uint64 =
+  v.committee_index
 
 template init*(T: type ForkedAttestation,
                attestation: phase0.Attestation,

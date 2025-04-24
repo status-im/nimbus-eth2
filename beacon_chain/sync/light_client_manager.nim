@@ -1,5 +1,5 @@
 # beacon_chain
-# Copyright (c) 2022-2024 Status Research & Development GmbH
+# Copyright (c) 2022-2025 Status Research & Development GmbH
 # Licensed and distributed under either of
 #   * MIT license (license terms in the root directory or at https://opensource.org/licenses/MIT).
 #   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
@@ -330,9 +330,12 @@ template query[E](
 ): Future[bool].Raising([CancelledError]) =
   self.query(e, Nothing())
 
-# https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.8/specs/altair/light-client/light-client.md#light-client-sync-process
+# https://github.com/ethereum/consensus-specs/blob/v1.5.0-beta.0/specs/altair/light-client/light-client.md#light-client-sync-process
 proc loop(self: LightClientManager) {.async: (raises: [CancelledError]).} =
-  var nextSyncTaskTime = self.getBeaconTime()
+  var
+    nextSyncTaskTime = self.getBeaconTime()
+    wasGossipSupported = false
+    haveFinalityUpdate = false
   while true:
     # Periodically wake and check for changes
     let wallTime = self.getBeaconTime()
@@ -373,16 +376,32 @@ proc loop(self: LightClientManager) {.async: (raises: [CancelledError]).} =
           await self.query(UpdatesByRange,
             (startPeriod: syncTask.startPeriod, count: syncTask.count))
         of LcSyncKind.FinalityUpdate:
+          haveFinalityUpdate = true
           await self.query(FinalityUpdate)
         of LcSyncKind.OptimisticUpdate:
-          await self.query(OptimisticUpdate)
+          if not haveFinalityUpdate:
+            haveFinalityUpdate = true
+            await self.query(FinalityUpdate)
+          else:
+            await self.query(OptimisticUpdate)
 
-    nextSyncTaskTime = wallTime + self.rng.nextLcSyncTaskDelay(
-      wallTime,
-      finalized = self.getFinalizedPeriod(),
-      optimistic = self.getOptimisticPeriod(),
-      isNextSyncCommitteeKnown = self.isNextSyncCommitteeKnown(),
-      didLatestSyncTaskProgress = didProgress)
+    let
+      finalized = self.getFinalizedPeriod()
+      optimistic = self.getOptimisticPeriod()
+      isNextSyncCommitteeKnown = self.isNextSyncCommitteeKnown()
+      isGossipSupported =
+        current.isGossipSupported(finalized, isNextSyncCommitteeKnown)
+    nextSyncTaskTime =
+      if not wasGossipSupported and isGossipSupported:
+        # Obtain an extra finality update after finishing sync
+        # to avoid having to wait several minutes for finality gossip
+        haveFinalityUpdate = false
+        wallTime
+      else:
+        wallTime + self.rng.nextLcSyncTaskDelay(
+          wallTime, finalized, optimistic, isNextSyncCommitteeKnown,
+          didLatestSyncTaskProgress = didProgress)
+    wasGossipSupported = isGossipSupported
 
 proc start*(self: var LightClientManager) =
   ## Start light client manager's loop.

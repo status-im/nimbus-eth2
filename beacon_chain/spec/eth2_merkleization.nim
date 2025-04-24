@@ -1,5 +1,5 @@
 # beacon_chain
-# Copyright (c) 2018-2024 Status Research & Development GmbH
+# Copyright (c) 2018-2025 Status Research & Development GmbH
 # Licensed and distributed under either of
 #   * MIT license (license terms in the root directory or at https://opensource.org/licenses/MIT).
 #   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
@@ -34,8 +34,8 @@ type
 func hash_tree_root*(
     x: phase0.HashedBeaconState | altair.HashedBeaconState |
        bellatrix.HashedBeaconState | capella.HashedBeaconState |
-       deneb.HashedBeaconState | electra.SignedBeaconBlock |
-       fulu.SignedBeaconBlock) {.
+       deneb.HashedBeaconState | electra.HashedBeaconState |
+       fulu.HashedBeaconState) {.
   error: "HashedBeaconState should not be hashed".}
 
 func hash_tree_root*(

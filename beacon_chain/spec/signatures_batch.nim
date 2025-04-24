@@ -1,5 +1,5 @@
 # beacon_chain
-# Copyright (c) 2018-2024 Status Research & Development GmbH
+# Copyright (c) 2018-2025 Status Research & Development GmbH
 # Licensed and distributed under either of
 #   * MIT license (license terms in the root directory or at https://opensource.org/licenses/MIT).
 #   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
@@ -26,18 +26,16 @@ import
 export results, rand, altair, phase0, taskpools, signatures
 
 type
-  TaskPoolPtr* = Taskpool
-
   BatchVerifier* = object
     sigVerifCache*: BatchedBLSVerifierCache
       ## A cache for batch BLS signature verification contexts
     rng*: ref HmacDrbgContext
       ## A reference to the Nimbus application-wide RNG
-    taskpool*: TaskPoolPtr
+    taskpool*: Taskpool
 
 proc init*(
     T: type BatchVerifier, rng: ref HmacDrbgContext,
-    taskpool: TaskPoolPtr): BatchVerifier =
+    taskpool: Taskpool): BatchVerifier =
   BatchVerifier(
     sigVerifCache: BatchedBLSVerifierCache.init(taskpool),
     rng: rng,
@@ -46,7 +44,7 @@ proc init*(
 
 proc new*(
     T: type BatchVerifier, rng: ref HmacDrbgContext,
-    taskpool: TaskPoolPtr): ref BatchVerifier =
+    taskpool: Taskpool): ref BatchVerifier =
   (ref BatchVerifier)(
     sigVerifCache: BatchedBLSVerifierCache.init(taskpool),
     rng: rng,
@@ -109,7 +107,7 @@ func aggregateAttesters(
     # Aggregation spec requires non-empty collection
     # - https://tools.ietf.org/html/draft-irtf-cfrg-bls-signature-04
     # Consensus specs require at least one attesting index in attestation
-    # - https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.6/specs/phase0/beacon-chain.md#is_valid_indexed_attestation
+    # - https://github.com/ethereum/consensus-specs/blob/v1.5.0-beta.4/specs/phase0/beacon-chain.md#is_valid_indexed_attestation
     return err("aggregateAttesters: no attesting indices")
 
   var attestersAgg{.noinit.}: AggregatePublicKey
@@ -164,7 +162,7 @@ func block_signature_set*(
 # See also: verify_aggregate_and_proof_signature
 func aggregate_and_proof_signature_set*(
     fork: Fork, genesis_validators_root: Eth2Digest,
-    aggregate_and_proof: phase0.AggregateAndProof,
+    aggregate_and_proof: phase0.AggregateAndProof | electra.AggregateAndProof,
     pubkey: CookedPubKey, signature: CookedSig): SignatureSet =
   let signing_root = compute_aggregate_and_proof_signing_root(
     fork, genesis_validators_root, aggregate_and_proof)

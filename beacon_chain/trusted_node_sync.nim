@@ -1,5 +1,5 @@
 # beacon_chain
-# Copyright (c) 2018-2024 Status Research & Development GmbH
+# Copyright (c) 2018-2025 Status Research & Development GmbH
 # Licensed and distributed under either of
 #   * MIT license (license terms in the root directory or at https://opensource.org/licenses/MIT).
 #   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
@@ -15,13 +15,14 @@ import
   ./spec/eth2_apis/rest_beacon_client,
   ./spec/[beaconstate, eth2_merkleization, forks, light_client_sync,
           network, presets,
-          state_transition, deposit_snapshots],
-  "."/[beacon_clock, beacon_chain_db, era_db]
+          state_transition, deposit_snapshots]
 
 from presto import RestDecodingError
+from "."/beacon_clock import
+  BeaconClock, fromFloatSeconds, getBeaconTimeFn, init
 
 const
-  largeRequestsTimeout = 120.seconds # Downloading large items such as states.
+  largeRequestsTimeout = 3.minutes  # Downloading large items such as states.
   smallRequestsTimeout = 30.seconds # Downloading smaller items such as blocks and deposit snapshots.
 
 proc fetchDepositSnapshot(
@@ -178,7 +179,7 @@ proc doTrustedNodeSync*(
     let stateId =
       case syncTarget.kind
       of TrustedNodeSyncKind.TrustedBlockRoot:
-        # https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.8/specs/altair/light-client/light-client.md#light-client-sync-process
+        # https://github.com/ethereum/consensus-specs/blob/v1.5.0-beta.0/specs/altair/light-client/light-client.md#light-client-sync-process
         const lcDataFork = LightClientDataFork.high
         var bestViableCheckpoint: Opt[tuple[slot: Slot, state_root: Eth2Digest]]
         func trackBestViableCheckpoint(store: lcDataFork.LightClientStore) =
@@ -337,7 +338,7 @@ proc doTrustedNodeSync*(
           else:
             tmp
         awaitWithTimeout(client.getStateV2(id, cfg), largeRequestsTimeout):
-          error "Attempt to download checkpoint state timed out"
+          error "Attempt to download checkpoint state timed out; https://nimbus.guide/trusted-node-sync.html#sync-from-checkpoint-files provides an alternative approach"
           quit 1
       except CatchableError as exc:
         error "Unable to download checkpoint state",

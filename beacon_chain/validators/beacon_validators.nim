@@ -1,5 +1,5 @@
 # beacon_chain
-# Copyright (c) 2018-2024 Status Research & Development GmbH
+# Copyright (c) 2018-2025 Status Research & Development GmbH
 # Licensed and distributed under either of
 #   * MIT license (license terms in the root directory or at https://opensource.org/licenses/MIT).
 #   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
@@ -43,7 +43,7 @@ import
     keystore_management, slashing_protection, validator_duties, validator_pool],
   ".."/spec/mev/[rest_deneb_mev_calls, rest_electra_mev_calls, rest_fulu_mev_calls]
 
-from std/sequtils import countIt, foldl, mapIt
+from std/sequtils import mapIt
 from eth/async_utils import awaitWithTimeout
 
 # Metrics for tracking attestation and beacon block loss
@@ -84,6 +84,7 @@ type
 
   BuilderBid[SBBB] = object
     blindedBlckPart*: SBBB
+    executionRequests*: ExecutionRequests
     executionPayloadValue*: UInt256
     consensusBlockValue*: UInt256
 
@@ -247,7 +248,7 @@ proc isSynced*(node: BeaconNode, head: BlockRef): bool =
   ##      determine if we're in sync and should be producing blocks and
   ##      attestations. Generally, the problem is that slot time keeps advancing
   ##      even when there are no blocks being produced, so there's no way to
-  ##      distinguish validators geniunely going missing from the node not being
+  ##      distinguish validators genuinely going missing from the node not being
   ##      well connected (during a network split or an internet outage for
   ##      example). It would generally be correct to simply keep running as if
   ##      we were the only legit node left alive, but then we run into issues:
@@ -357,24 +358,14 @@ proc createAndSendAttestation(node: BeaconNode,
   registered.validator.doppelgangerActivity(epoch)
 
   # Logged in the router
-  let
-    consensusFork = node.dag.cfg.consensusForkAtEpoch(epoch)
-    res =
-      if consensusFork >= ConsensusFork.Electra:
-        await node.router.routeAttestation(
-          registered.toElectraAttestation(signature), subnet_id,
-          checkSignature = false, checkValidator = false)
-      else:
-        await node.router.routeAttestation(
-          registered.toAttestation(signature), subnet_id,
-          checkSignature = false, checkValidator = false)
-  if not res.isOk():
-    return
-
-  if node.config.dumpEnabled:
-    dump(
-      node.config.dumpDirOutgoing, registered.data,
-      registered.validator.pubkey)
+  if node.dag.cfg.consensusForkAtEpoch(epoch) >= ConsensusFork.Electra:
+    discard await node.router.routeAttestation(
+      registered.toSingleAttestation(signature), subnet_id,
+      checkSignature = false, checkValidator = false)
+  else:
+    discard await node.router.routeAttestation(
+      registered.toAttestation(signature), subnet_id,
+      checkSignature = false, checkValidator = false)
 
 proc getBlockProposalEth1Data*(node: BeaconNode,
                                state: ForkedHashedBeaconState):
@@ -458,7 +449,7 @@ proc makeBeaconBlockForHeadAndSlot*(
     execution_payload_root: Opt[Eth2Digest],
     withdrawals_root: Opt[Eth2Digest],
     kzg_commitments: Opt[KzgCommitments],
-    execution_requests: ExecutionRequests):  # TODO probably need this for builder API, otherwise remove, maybe needs to be Opt
+    execution_requests: ExecutionRequests):
     Future[ForkedBlockResult] {.async: (raises: [CancelledError]).} =
   # Advance state to the slot that we're proposing for
   var cache = StateCache()
@@ -541,19 +532,44 @@ proc makeBeaconBlockForHeadAndSlot*(
   let execution_requests_actual =
     when PayloadType.kind >= ConsensusFork.Electra:
       # Don't want un-decoded SSZ going any further/deeper
+      var
+        execution_requests_buffer: ExecutionRequests
+        prev_type: Opt[byte]
       try:
-        ExecutionRequests(
-          deposits: SSZ.decode(
-            payload.executionRequests[0],
-            List[DepositRequest, Limit MAX_DEPOSIT_REQUESTS_PER_PAYLOAD]),
-          withdrawals: SSZ.decode(
-            payload.executionRequests[1],
-            List[WithdrawalRequest, Limit MAX_WITHDRAWAL_REQUESTS_PER_PAYLOAD]),
-          consolidations: SSZ.decode(
-            payload.executionRequests[2],
-            List[ConsolidationRequest, Limit MAX_CONSOLIDATION_REQUESTS_PER_PAYLOAD]))
+        for request_type_and_payload in payload.executionRequests:
+          if request_type_and_payload.len < 2:
+            return err("Execution layer request too short")
+
+          let request_type = request_type_and_payload[0]
+          if prev_type.isSome:
+            if request_type < prev_type.get:
+              return err("Execution layer request types not sorted")
+            if request_type == prev_type.get:
+              return err("Execution layer request types duplicated")
+          prev_type.ok request_type
+
+          template request_payload: untyped =
+            request_type_and_payload.toOpenArray(
+              1, request_type_and_payload.len - 1)
+          case request_type_and_payload[0]
+          of DEPOSIT_REQUEST_TYPE:
+            execution_requests_buffer.deposits =
+              SSZ.decode(request_payload,
+                List[DepositRequest, Limit MAX_DEPOSIT_REQUESTS_PER_PAYLOAD])
+          of WITHDRAWAL_REQUEST_TYPE:
+            execution_requests_buffer.withdrawals =
+              SSZ.decode(request_payload,
+                List[WithdrawalRequest, Limit MAX_WITHDRAWAL_REQUESTS_PER_PAYLOAD])
+          of CONSOLIDATION_REQUEST_TYPE:
+            execution_requests_buffer.consolidations =
+              SSZ.decode(request_payload,
+                List[ConsolidationRequest, Limit MAX_CONSOLIDATION_REQUESTS_PER_PAYLOAD])
+          else:
+            return err("Execution layer invalid request type")
       except CatchableError:
         return err("Unable to deserialize execution layer requests")
+
+      execution_requests_buffer
     else:
       default(ExecutionRequests)  # won't be used by block builder
 
@@ -584,7 +600,7 @@ proc makeBeaconBlockForHeadAndSlot*(
       slot, head = shortLog(head), error
     $error
 
-  var blobsBundleOpt = Opt.none(BlobsBundle)
+  var blobsBundleOpt = Opt.none(deneb.BlobsBundle)
   when typeof(payload).kind >= ConsensusFork.Deneb:
     blobsBundleOpt = Opt.some(payload.blobsBundle)
 
@@ -630,8 +646,9 @@ proc getBlindedExecutionPayload[
         BUILDER_PROPOSAL_DELAY_TOLERANCE):
           return err "Timeout obtaining Deneb blinded header from builder"
 
-      res = decodeBytes(
-        GetHeaderResponseDeneb, response.data, response.contentType)
+      res = decodeBytesJsonOrSsz(
+        GetHeaderResponseDeneb, response.data, response.contentType,
+        response.headers.getString("eth-consensus-version"))
 
       blindedHeader = res.valueOr:
         return err(
@@ -646,8 +663,9 @@ proc getBlindedExecutionPayload[
         BUILDER_PROPOSAL_DELAY_TOLERANCE):
           return err "Timeout obtaining Electra blinded header from builder"
 
-      res = decodeBytes(
-        GetHeaderResponseElectra, response.data, response.contentType)
+      res = decodeBytesJsonOrSsz(
+        GetHeaderResponseElectra, response.data, response.contentType,
+        response.headers.getString("eth-consensus-version"))
 
       blindedHeader = res.valueOr:
         return err(
@@ -664,8 +682,9 @@ proc getBlindedExecutionPayload[
         BUILDER_PROPOSAL_DELAY_TOLERANCE):
           return err "Timeout obtaining Fulu blinded header from builder"
 
-      res = decodeBytes(
-        GetHeaderResponseFulu, response.data, response.contentType)
+      res = decodeBytesJsonOrSsz(
+        GetHeaderResponseFulu, response.data, response.contentType,
+        response.headers.getString("eth-consensus-version"))
 
       blindedHeader = res.valueOr:
         return err(
@@ -685,11 +704,23 @@ proc getBlindedExecutionPayload[
       return err "getBlindedExecutionPayload: signature verification failed"
 
     template builderBid: untyped = blindedHeader.data.message
-    return ok(BuilderBid[EPH](
-      blindedBlckPart: EPH(
-        execution_payload_header: builderBid.header,
-        blob_kzg_commitments: builderBid.blob_kzg_commitments),
-      executionPayloadValue: builderBid.value))
+    when EPH is deneb_mev.BlindedExecutionPayloadAndBlobsBundle:
+      return ok(BuilderBid[EPH](
+        blindedBlckPart: EPH(
+          execution_payload_header: builderBid.header,
+          blob_kzg_commitments: builderBid.blob_kzg_commitments),
+        executionRequests: default(ExecutionRequests),
+        executionPayloadValue: builderBid.value))
+    elif EPH is electra_mev.BlindedExecutionPayloadAndBlobsBundle or
+        EPH is fulu_mev.BlindedExecutionPayloadAndBlobsBundle:
+      return ok(BuilderBid[EPH](
+        blindedBlckPart: EPH(
+          execution_payload_header: builderBid.header,
+          blob_kzg_commitments: builderBid.blob_kzg_commitments),
+        executionRequests: builderBid.execution_requests,
+        executionPayloadValue: builderBid.value))
+    else:
+      static: doAssert false
 
 from ./message_router_mev import
   copyFields, getFieldNames, unblindAndRouteBlockMEV
@@ -758,54 +789,6 @@ func constructSignableBlindedBlock[T: fulu_mev.SignedBlindedBeaconBlock](
     blindedBundle.execution_payload_header)
   assign(
     blindedBlock.message.body.blob_kzg_commitments,
-    blindedBundle.blob_kzg_commitments)
-
-  blindedBlock
-
-func constructPlainBlindedBlock[T: deneb_mev.BlindedBeaconBlock](
-    blck: ForkyBeaconBlock,
-    blindedBundle: deneb_mev.BlindedExecutionPayloadAndBlobsBundle): T =
-  # https://github.com/nim-lang/Nim/issues/23020 workaround
-  static: doAssert T is deneb_mev.BlindedBeaconBlock
-
-  const
-    blckFields = getFieldNames(typeof(blck))
-    blckBodyFields = getFieldNames(typeof(blck.body))
-
-  var blindedBlock: T
-
-  # https://github.com/ethereum/builder-specs/blob/v0.4.0/specs/bellatrix/validator.md#block-proposal
-  copyFields(blindedBlock, blck, blckFields)
-  copyFields(blindedBlock.body, blck.body, blckBodyFields)
-  assign(
-    blindedBlock.body.execution_payload_header,
-    blindedBundle.execution_payload_header)
-  assign(
-    blindedBlock.body.blob_kzg_commitments,
-    blindedBundle.blob_kzg_commitments)
-
-  blindedBlock
-
-func constructPlainBlindedBlock[T: electra_mev.BlindedBeaconBlock](
-    blck: ForkyBeaconBlock,
-    blindedBundle: electra_mev.BlindedExecutionPayloadAndBlobsBundle): T =
-  # https://github.com/nim-lang/Nim/issues/23020 workaround
-  static: doAssert T is electra_mev.BlindedBeaconBlock
-
-  const
-    blckFields = getFieldNames(typeof(blck))
-    blckBodyFields = getFieldNames(typeof(blck.body))
-
-  var blindedBlock: T
-
-  # https://github.com/ethereum/builder-specs/blob/v0.4.0/specs/bellatrix/validator.md#block-proposal
-  copyFields(blindedBlock, blck, blckFields)
-  copyFields(blindedBlock.body, blck.body, blckBodyFields)
-  assign(
-    blindedBlock.body.execution_payload_header,
-    blindedBundle.execution_payload_header)
-  assign(
-    blindedBlock.body.blob_kzg_commitments,
     blindedBundle.blob_kzg_commitments)
 
   blindedBlock
@@ -913,7 +896,7 @@ proc getBlindedBlockParts[
         slot, validator_index, head = shortLog(head)
       return err("loadExecutionBlockHash failed")
 
-    executionPayloadHeader =
+    blindedBlockRes =
       try:
         awaitWithTimeout(
             getBlindedExecutionPayload[EPH](
@@ -927,12 +910,12 @@ proc getBlindedBlockParts[
         BlindedBlockResult[EPH].err(
           "getBlindedExecutionPayload REST error: " & exc.msg)
 
-  if executionPayloadHeader.isErr:
+  if blindedBlockRes.isErr:
     warn "Could not obtain blinded execution payload header",
-      error = executionPayloadHeader.error, slot, validator_index,
+      error = blindedBlockRes.error, slot, validator_index,
       head = shortLog(head)
     # Haven't committed to the MEV block, so allow EL fallback.
-    return err(executionPayloadHeader.error)
+    return err(blindedBlockRes.error)
 
   # When creating this block, need to ensure it uses the MEV-provided execution
   # payload, both to avoid repeated calls to network services and to ensure the
@@ -946,11 +929,12 @@ proc getBlindedBlockParts[
   when EPH is deneb_mev.BlindedExecutionPayloadAndBlobsBundle:
     type PayloadType = deneb.ExecutionPayloadForSigning
     template actualEPH: untyped =
-      executionPayloadHeader.get.blindedBlckPart.execution_payload_header
+      blindedBlockRes.get.blindedBlckPart.execution_payload_header
     let
       withdrawals_root = Opt.some actualEPH.withdrawals_root
       kzg_commitments = Opt.some(
-        executionPayloadHeader.get.blindedBlckPart.blob_kzg_commitments)
+        blindedBlockRes.get.blindedBlckPart.blob_kzg_commitments)
+      execution_requests = default(ExecutionRequests)
 
     var shimExecutionPayload: PayloadType
     type DenebEPH =
@@ -958,14 +942,14 @@ proc getBlindedBlockParts[
     copyFields(
       shimExecutionPayload.executionPayload, actualEPH, getFieldNames(DenebEPH))
   elif EPH is electra_mev.BlindedExecutionPayloadAndBlobsBundle:
-    debugComment "verify (again, after change) this is what builder API needs"
     type PayloadType = electra.ExecutionPayloadForSigning
     template actualEPH: untyped =
-      executionPayloadHeader.get.blindedBlckPart.execution_payload_header
+      blindedBlockRes.get.blindedBlckPart.execution_payload_header
     let
       withdrawals_root = Opt.some actualEPH.withdrawals_root
       kzg_commitments = Opt.some(
-        executionPayloadHeader.get.blindedBlckPart.blob_kzg_commitments)
+        blindedBlockRes.get.blindedBlckPart.blob_kzg_commitments)
+      execution_requests = blindedBlockRes.get.executionRequests
 
     var shimExecutionPayload: PayloadType
     type ElectraEPH =
@@ -976,11 +960,12 @@ proc getBlindedBlockParts[
     debugFuluComment "verify (again, after change) this is what builder API needs"
     type PayloadType = fulu.ExecutionPayloadForSigning
     template actualEPH: untyped =
-      executionPayloadHeader.get.blindedBlckPart.execution_payload_header
+      blindedBlockRes.get.blindedBlckPart.execution_payload_header
     let
       withdrawals_root = Opt.some actualEPH.withdrawals_root
       kzg_commitments = Opt.some(
-        executionPayloadHeader.get.blindedBlckPart.blob_kzg_commitments)
+        blindedBlockRes.get.blindedBlckPart.blob_kzg_commitments)
+      execution_requests = blindedBlockRes.get.executionRequests
 
     var shimExecutionPayload: PayloadType
     type FuluEPH =
@@ -990,7 +975,6 @@ proc getBlindedBlockParts[
   else:
     static: doAssert false
 
-  debugComment "the electra builder API bids have these requests"
   let newBlock = await makeBeaconBlockForHeadAndSlot(
     PayloadType, node, randao, validator_index, graffiti, head, slot,
     execution_payload = Opt.some shimExecutionPayload,
@@ -998,7 +982,7 @@ proc getBlindedBlockParts[
     execution_payload_root = Opt.some hash_tree_root(actualEPH),
     withdrawals_root = withdrawals_root,
     kzg_commitments = kzg_commitments,
-    execution_requests = default(ExecutionRequests))
+    execution_requests = execution_requests)
 
   if newBlock.isErr():
     # Haven't committed to the MEV block, so allow EL fallback.
@@ -1007,8 +991,8 @@ proc getBlindedBlockParts[
   let forkedBlck = newBlock.get()
 
   return ok(
-    (executionPayloadHeader.get.blindedBlckPart,
-     executionPayloadHeader.get.executionPayloadValue,
+    (blindedBlockRes.get.blindedBlckPart,
+     blindedBlockRes.get.executionPayloadValue,
      forkedBlck.consensusBlockValue,
      forkedBlck.blck))
 
@@ -1050,11 +1034,23 @@ proc getBuilderBid[
   if unsignedBlindedBlock.isErr:
     return err unsignedBlindedBlock.error()
 
-  ok(BuilderBid[SBBB](
-    blindedBlckPart: unsignedBlindedBlock.get,
-    executionPayloadValue: bidValue,
-    consensusBlockValue: consensusValue
-  ))
+  template execution_requests: untyped =
+    unsignedBlindedBlock.get.message.body.execution_requests
+  when SBBB is deneb_mev.SignedBlindedBeaconBlock:
+    return ok(BuilderBid[SBBB](
+      blindedBlckPart: unsignedBlindedBlock.get,
+      executionRequests: default(ExecutionRequests),
+      executionPayloadValue: bidValue,
+      consensusBlockValue: consensusValue))
+  elif SBBB is electra_mev.SignedBlindedBeaconBlock or
+      SBBB is fulu_mev.SignedBlindedBeaconBlock:
+    return ok(BuilderBid[SBBB](
+      blindedBlckPart: unsignedBlindedBlock.get,
+      executionRequests: execution_requests,
+      executionPayloadValue: bidValue,
+      consensusBlockValue: consensusValue))
+  else:
+    static: doAssert false
 
 proc proposeBlockMEV(
     node: BeaconNode, payloadBuilderClient: RestClientRef,
@@ -1092,72 +1088,6 @@ proc proposeBlockMEV(
 
 func isEFMainnet(cfg: RuntimeConfig): bool =
   cfg.DEPOSIT_CHAIN_ID == 1 and cfg.DEPOSIT_NETWORK_ID == 1
-
-proc makeBlindedBeaconBlockForHeadAndSlot*[BBB: ForkyBlindedBeaconBlock](
-    node: BeaconNode, payloadBuilderClient: RestClientRef,
-    randao_reveal: ValidatorSig, validator_index: ValidatorIndex,
-    graffiti: GraffitiBytes, head: BlockRef, slot: Slot):
-    Future[BlindedBlockResult[BBB]] {.async: (raises: [CancelledError]).} =
-  ## Requests a beacon node to produce a valid blinded block, which can then be
-  ## signed by a validator. A blinded block is a block with only a transactions
-  ## root, rather than a full transactions list.
-  ##
-  ## This function is used by the validator client, but not the beacon node for
-  ## its own validators.
-  when BBB is fulu_mev.BlindedBeaconBlock:
-    type EPH = fulu_mev.BlindedExecutionPayloadAndBlobsBundle
-  elif BBB is electra_mev.BlindedBeaconBlock:
-    type EPH = electra_mev.BlindedExecutionPayloadAndBlobsBundle
-  elif BBB is deneb_mev.BlindedBeaconBlock:
-    type EPH = deneb_mev.BlindedExecutionPayloadAndBlobsBundle
-  else:
-    static: doAssert false
-
-  let
-    pubkey =
-      # Relevant state for knowledge of validators
-      withState(node.dag.headState):
-        if node.dag.cfg.isEFMainnet and livenessFailsafeInEffect(
-            forkyState.data.block_roots.data, forkyState.data.slot):
-          # It's head block's slot which matters here, not proposal slot
-          return err("Builder API liveness failsafe in effect")
-
-        if distinctBase(validator_index) >= forkyState.data.validators.lenu64:
-          debug "makeBlindedBeaconBlockForHeadAndSlot: invalid validator index",
-            head = shortLog(head),
-            validator_index,
-            validators_len = forkyState.data.validators.len
-          return err("Invalid validator index")
-
-        forkyState.data.validators.item(validator_index).pubkey
-
-    blindedBlockParts = await getBlindedBlockParts[EPH](
-      node, payloadBuilderClient, head, pubkey, slot, randao_reveal,
-      validator_index, graffiti)
-  if blindedBlockParts.isErr:
-    # Don't try EL fallback -- VC specifically requested a blinded block
-    return err("Unable to create blinded block")
-
-  let (executionPayloadHeader, bidValue, consensusValue, forkedBlck) =
-    blindedBlockParts.get
-  withBlck(forkedBlck):
-    when consensusFork >= ConsensusFork.Deneb:
-      when ((consensusFork == ConsensusFork.Deneb and
-             EPH is deneb_mev.BlindedExecutionPayloadAndBlobsBundle) or
-            (consensusFork == ConsensusFork.Electra and
-             EPH is electra_mev.BlindedExecutionPayloadAndBlobsBundle) or
-            (consensusFork == ConsensusFork.Fulu and
-             EPH is fulu_mev.BlindedExecutionPayloadAndBlobsBundle)):
-        return ok(
-          BuilderBid[BBB](
-            blindedBlckPart:
-              constructPlainBlindedBlock[BBB](forkyBlck, executionPayloadHeader),
-            executionPayloadValue: bidValue,
-            consensusBlockValue: consensusValue))
-      else:
-        return err("makeBlindedBeaconBlockForHeadAndSlot: mismatched block/payload types")
-    else:
-      return err("Attempt to create pre-Deneb blinded block")
 
 proc collectBids(
     SBBB: typedesc, EPS: typedesc, node: BeaconNode,
@@ -1559,7 +1489,8 @@ proc sendAttestations(node: BeaconNode, head: BlockRef, slot: Slot) =
             continue
 
           tmp.add((RegisteredAttestation(
-            validator: validator, committee_index: committee_index,
+            validator: validator, validator_index: validator_index,
+            committee_index: committee_index,
             index_in_committee: uint64 index_in_committee,
             committee_len: committee.len(), data: data), subnet_id
           ))
@@ -1747,8 +1678,8 @@ proc signAndSendAggregate(
 
     signAndSendAggregatedAttestations()
   else:
-    # https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.8/specs/phase0/validator.md#construct-aggregate
-    # https://github.com/ethereum/consensus-specs/blob/v1.4.0/specs/phase0/validator.md#aggregateandproof
+    # https://github.com/ethereum/consensus-specs/blob/v1.5.0-beta.2/specs/phase0/validator.md#construct-aggregate
+    # https://github.com/ethereum/consensus-specs/blob/v1.5.0-beta.2/specs/phase0/validator.md#aggregateandproof
     var msg = phase0.SignedAggregateAndProof(
       message: phase0.AggregateAndProof(
         aggregator_index: distinctBase validator_index,
@@ -2103,8 +2034,8 @@ proc handleValidatorDuties*(node: BeaconNode, lastSlot, slot: Slot) {.async: (ra
 
   updateValidatorMetrics(node) # the important stuff is done, update the vanity numbers
 
-  # https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.8/specs/phase0/validator.md#broadcast-aggregate
-  # https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.8/specs/altair/validator.md#broadcast-sync-committee-contribution
+  # https://github.com/ethereum/consensus-specs/blob/v1.5.0-beta.2/specs/phase0/validator.md#broadcast-aggregate
+  # https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.10/specs/altair/validator.md#broadcast-sync-committee-contribution
   # Wait 2 / 3 of the slot time to allow messages to propagate, then collect
   # the result in aggregates
   static:

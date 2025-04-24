@@ -1,5 +1,5 @@
 # beacon_chain
-# Copyright (c) 2021-2024 Status Research & Development GmbH
+# Copyright (c) 2021-2025 Status Research & Development GmbH
 # Licensed and distributed under either of
 #   * MIT license (license terms in the root directory or at https://opensource.org/licenses/MIT).
 #   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
@@ -72,10 +72,12 @@ proc serveAttestation(
     logScope:
       attestation = shortLog(atst)
     try:
-      when atst is electra.Attestation:
+      when atst is electra.SingleAttestation:
         await vc.submitPoolAttestationsV2(@[atst], ApiStrategyKind.First)
-      else:
+      elif atst is phase0.Attestation:
         await vc.submitPoolAttestations(@[atst], ApiStrategyKind.First)
+      else:
+        static: doAssert false
     except ValidatorApiError as exc:
       warn "Unable to publish attestation", reason = exc.getFailureReason()
       return false
@@ -85,7 +87,7 @@ proc serveAttestation(
 
   let res =
     if afterElectra:
-      let attestation = registered.toElectraAttestation(signature)
+      let attestation = registered.toSingleAttestation(signature)
       submitAttestation(attestation)
     else:
       let attestation = registered.toAttestation(signature)
@@ -279,6 +281,7 @@ proc produceAndPublishAttestations*(
 
       tmp.add(RegisteredAttestation(
         validator: validator,
+        validator_index: validator_index,
         committee_index: duty.data.committee_index,
         index_in_committee: duty.data.validator_committee_index,
         committee_len: int duty.data.committee_length,
@@ -447,7 +450,7 @@ proc publishAttestationsAndAggregates(
       raise exc
 
   let aggregateTime =
-    # chronos.Duration substraction could not return negative value, in such
+    # chronos.Duration subtraction could not return negative value, in such
     # case it will return `ZeroDuration`.
     vc.beaconClock.durationToNextSlot() - OneThirdDuration
   if aggregateTime != ZeroDuration:
@@ -512,6 +515,7 @@ proc produceAndPublishAttestationsV2*(
 
           tmp.add(RegisteredAttestation(
             validator: validator,
+            validator_index: validator_index,
             committee_index: duty.data.committee_index,
             index_in_committee: duty.data.validator_committee_index,
             committee_len: int(duty.data.committee_length),
@@ -691,7 +695,7 @@ proc publishAttestationsAndAggregatesV2(
       raise exc
 
   let aggregateTime =
-    # chronos.Duration substraction could not return negative value, in such
+    # chronos.Duration subtraction could not return negative value, in such
     # case it will return `ZeroDuration`.
     vc.beaconClock.durationToNextSlot() - OneThirdDuration
   if aggregateTime != ZeroDuration:

@@ -1,5 +1,5 @@
 # beacon_chain
-# Copyright (c) 2019-2024 Status Research & Development GmbH
+# Copyright (c) 2019-2025 Status Research & Development GmbH
 # Licensed and distributed under either of
 #   * MIT license (license terms in the root directory or at https://opensource.org/licenses/MIT).
 #   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
@@ -167,7 +167,7 @@ proc nfuzz_voluntary_exit(input: openArray[byte], xoutput: ptr byte,
 
 # Note: Could also accept raw input pointer and access list_size + seed here.
 # However, list_size needs to be known also outside this proc to allocate xoutput.
-# TODO: rework to copy immediatly in an uint8 openArray, considering we have to
+# TODO: rework to copy immediately in an uint8 openArray, considering we have to
 # go over the list anyhow?
 func nfuzz_shuffle(input_seed: ptr byte, xoutput: var openArray[uint64]): bool
     {.exportc, raises: [].} =

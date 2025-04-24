@@ -1,5 +1,5 @@
 # beacon_chain
-# Copyright (c) 2024 Status Research & Development GmbH
+# Copyright (c) 2024-2025 Status Research & Development GmbH
 # Licensed and distributed under either of
 #   * MIT license (license terms in the root directory or at https://opensource.org/licenses/MIT).
 #   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
@@ -144,7 +144,7 @@ proc runTest(suiteName, path: string, consensusFork: static ConsensusFork) =
         lcDataConfig = LightClientDataConfig(
           serve: true, importMode: LightClientDataImportMode.Full))
       rng = HmacDrbgContext.new()
-      taskpool = TaskPool.new()
+      taskpool = Taskpool.new()
     var
       verifier = BatchVerifier.init(rng, taskpool)
       quarantine = newClone(Quarantine.init())

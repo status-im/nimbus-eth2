@@ -1,5 +1,5 @@
 # beacon_chain
-# Copyright (c) 2020-2024 Status Research & Development GmbH
+# Copyright (c) 2020-2025 Status Research & Development GmbH
 # Licensed and distributed under either of
 #   * MIT license (license terms in the root directory or at https://opensource.org/licenses/MIT).
 #   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
@@ -37,17 +37,17 @@ jobs:
             cpu: arm64
           - os: windows
             cpu: amd64
-        branch: [~, upstream/version-2-0]
+        branch: [~, upstream/version-2-2]
         exclude:
           - target:
               os: macos
-            branch: upstream/version-2-0
+            branch: upstream/version-2-2
           - target:
               os: windows
-            branch: upstream/version-2-0
+            branch: upstream/version-2-2
         include:
-          - branch: upstream/version-2-0
-            branch-short: version-2-0
+          - branch: upstream/version-2-2
+            branch-short: version-2-2
             nimflags-extra: --mm:refc
           - target:
               os: linux
@@ -205,9 +205,14 @@ jobs:
       # The upload creates a combined report that gets posted as a comment on the PR
       # https://github.com/EnricoMi/publish-unit-test-result-action
       - name: Upload combined results
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         with:
-          name: Unit Test Results ${{ matrix.target.os }}-${{ matrix.target.cpu }}
+          # upload-artifact requires avoiding "/", because "To maintain file
+          # system agnostic behavior, these characters are intentionally not
+          # allowed to prevent potential problems with downloads on different
+          # file systems". However, GitHub Actions workflows do not support a
+          # usual assortment of string functions.
+          name: Unit Test Results ${{ matrix.target.os }}-${{ matrix.target.cpu }}-${{ matrix.branch == 'upstream/version-2-2' && 'version-2-2' || matrix.branch }}
           path: build/*.xml
 
   devbuild:
@@ -253,8 +258,8 @@ jobs:
       - name: Check copyright year
         if: ${{ !cancelled() }} && github.event_name == 'pull_request'
         run: |
-          excluded_files="config.yaml"
-          excluded_extensions="ans|bin|cfg|json|json\\.template|md|png|service|ssz|txt|lock|nix"
+          excluded_files="config.yaml|config.nims|beacon_chain.nimble"
+          excluded_extensions="ans|bin|cfg|yml|json|json\\.template|md|png|service|ssz|tpl|txt|lock|nix|gitignore|envrc"
 
           current_year=$(date +"%Y")
           problematic_files=()
@@ -327,7 +332,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Upload
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         with:
           name: Event File
           path: ${{ github.event_path }}

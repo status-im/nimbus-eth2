@@ -1,5 +1,5 @@
 # beacon_chain
-# Copyright (c) 2022-2024 Status Research & Development GmbH
+# Copyright (c) 2022-2025 Status Research & Development GmbH
 # Licensed and distributed under either of
 #   * MIT license (license terms in the root directory or at https://opensource.org/licenses/MIT).
 #   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
@@ -7,21 +7,14 @@
 
 {.push raises: [].}
 
-import
-  std/os,
-  chronicles
+import chronicles
+
+from std/os import `/`
 
 type
-  LogProc = proc() {.gcsafe, raises: [].}
+  LogProc* = proc() {.gcsafe, raises: [].}
 
   VanityLogs* = object
-    # Upon the merge activating, these get displayed, at least once when the
-    # head becomes post-merge and then when the merge is finalized. If chain
-    # reorgs happen around the initial merge onMergeTransitionBlock might be
-    # called several times.
-    onMergeTransitionBlock*: LogProc
-    onFinalizedMergeTransitionBlock*: LogProc
-
     # Gets displayed on upgrade to Capella. May be displayed multiple times
     # in case of chain reorgs around the upgrade.
     onUpgradeToCapella*: LogProc
@@ -38,12 +31,14 @@ type
     # in case of chain reorgs around the upgrade.
     onUpgradeToElectra*: LogProc
 
-# Created by http://beatscribe.com/ (beatscribe#1008 on Discord)
-# These need to be the main body of the log not to be reformatted or escaped.
+    # Gets displayed on a change to compounding for a validator known to the
+    # known in a head block.
+    onKnownCompoundingChange*: LogProc
 
-proc bellatrixMono*()  = notice "\n" & staticRead("bellatrix" / "mono.txt")
-proc bellatrixColor*() = notice "\n" & staticRead("bellatrix" / "color.ans")
-proc bellatrixBlink*() = notice "\n" & staticRead("bellatrix" / "blink.ans")
+# Created by https://beatscribe.com (beatscribe#1008 on Discord)
+# These need to be the main body of the log not to be reformatted or escaped.
+#
+# Policy: Retain retired art files in the directory, but don't link them anymore
 
 proc capellaMono*()  = notice "\n" & staticRead("capella" / "mono.txt")
 proc capellaColor*() = notice "\n" & staticRead("capella" / "color.ans")
@@ -54,3 +49,4 @@ proc denebColor*() = notice "\n" & staticRead("deneb" / "color.ans")
 
 proc electraMono*()  = notice "\n" & staticRead("electra" / "mono.txt")
 proc electraColor*() = notice "\n" & staticRead("electra" / "color.ans")
+proc electraBlink*() = notice "\n" & staticRead("electra" / "blink.ans")

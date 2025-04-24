@@ -1,5 +1,5 @@
 # beacon_chain
-# Copyright (c) 2018-2024 Status Research & Development GmbH
+# Copyright (c) 2018-2025 Status Research & Development GmbH
 # Licensed and distributed under either of
 #   * MIT license (license terms in the root directory or at https://opensource.org/licenses/MIT).
 #   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
@@ -221,23 +221,17 @@ proc updateExecutionClientHead*(
 
 func getKnownValidatorsForBlsChangeTracking(
     self: ConsensusManager, newHead: BlockRef): seq[ValidatorIndex] =
-  # Ensure that large nodes won't be overloaded by a nice-to-have, but
+  # Ensure that large nodes won't be overwhelmed by a nice-to-have, but
   # inessential cosmetic feature.
-  const MAX_CHECKED_INDICES = 64
+  const MAX_CHECKED_INDICES = 32
 
-  if newHead.bid.slot.epoch >= self.dag.cfg.CAPELLA_FORK_EPOCH:
-    var res = newSeqOfCap[ValidatorIndex](min(
-      len(self.actionTracker.knownValidators), MAX_CHECKED_INDICES))
-    for vi in self.actionTracker.knownValidators.keys():
-      res.add vi
-      if res.len >= MAX_CHECKED_INDICES:
-        break
-    res
-  else:
-    # It is not possible for any BLS to execution changes, for any validator,
-    # to have been yet processed.
-    # https://github.com/nim-lang/Nim/issues/19802
-    (static(@[]))
+  var res = newSeqOfCap[ValidatorIndex](min(
+    len(self.actionTracker.knownValidators), MAX_CHECKED_INDICES))
+  for vi in self.actionTracker.knownValidators.keys():
+    res.add vi
+    if res.len >= MAX_CHECKED_INDICES:
+      break
+  res
 
 proc updateHead*(self: var ConsensusManager, newHead: BlockRef) =
   ## Trigger fork choice and update the DAG with the new head block

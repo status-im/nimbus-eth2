@@ -1,5 +1,5 @@
 # beacon_chain
-# Copyright (c) 2018-2024 Status Research & Development GmbH
+# Copyright (c) 2018-2025 Status Research & Development GmbH
 # Licensed and distributed under either of
 #   * MIT license (license terms in the root directory or at https://opensource.org/licenses/MIT).
 #   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
@@ -169,11 +169,11 @@ proc installRewardsApiHandlers*(router: var RestRouter, node: BeaconNode) =
 
     let response =
       withState(tmpState[]):
-        let total_active_balance =
-          get_total_active_balance(forkyState.data, cache)
         var resp: seq[RestSyncCommitteeReward]
         when consensusFork > ConsensusFork.Phase0:
           let
+            total_active_balance =
+              get_total_active_balance(forkyState.data, cache)
             keys =
               block:
                 var res: HashSet[ValidatorPubKey]

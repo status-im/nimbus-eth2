@@ -1,5 +1,5 @@
 # beacon_chain
-# Copyright (c) 2021-2024 Status Research & Development GmbH
+# Copyright (c) 2021-2025 Status Research & Development GmbH
 # Licensed and distributed under either of
 #   * MIT license (license terms in the root directory or at https://opensource.org/licenses/MIT).
 #   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
@@ -236,7 +236,6 @@ type
     beaconGenesis*: RestGenesis
     proposerTasks*: Table[Slot, seq[ProposerTask]]
     dynamicFeeRecipientsStore*: ref DynamicFeeRecipientsStore
-    validatorsRegCache*: Table[ValidatorPubKey, SignedValidatorRegistrationV1]
     blocksSeen*: Table[Slot, BlockDataItem]
     rootsSeen*: Table[Eth2Digest, Slot]
     processingDelay*: Opt[Duration]
@@ -1059,18 +1058,17 @@ proc isExpired(vc: ValidatorClientRef,
       EPOCHS_BETWEEN_VALIDATOR_REGISTRATION
 
 proc getValidatorRegistration(
-       vc: ValidatorClientRef,
-       validator: AttachedValidator,
-       timestamp: Time,
-       fork: Fork
-     ): Result[PendingValidatorRegistration, RegistrationKind] =
+    vc: ValidatorClientRef,
+    validator: AttachedValidator,
+    timestamp: Time,
+    fork: Fork
+): Result[PendingValidatorRegistration, RegistrationKind] =
   if validator.index.isNone():
     debug "Validator registration missing validator index",
           validator = validatorLog(validator)
     return err(RegistrationKind.MissingIndex)
 
   let
-    cached = vc.validatorsRegCache.getOrDefault(validator.pubkey)
     currentSlot =
       block:
         let res = vc.beaconClock.toSlot(timestamp)
@@ -1078,49 +1076,46 @@ proc getValidatorRegistration(
           return err(RegistrationKind.IncorrectTime)
         res.slot
 
-  if cached.isDefault() or vc.isExpired(cached, currentSlot):
-    if not cached.isDefault():
-      # Want to send it to relay, but not recompute perfectly fine cache
-      return ok(PendingValidatorRegistration(registration: cached, future: nil))
+  if validator.externalBuilderRegistration.isSome():
+    let cached = validator.externalBuilderRegistration.get()
+    return
+      if not(vc.isExpired(cached, currentSlot)):
+        err(RegistrationKind.Cached)
+      else:
+        ok(PendingValidatorRegistration(registration: cached, future: nil))
 
-    let
-      feeRecipient = vc.getFeeRecipient(validator, currentSlot.epoch())
-      gasLimit = vc.getGasLimit(validator)
-    var registration =
-      SignedValidatorRegistrationV1(
-        message: ValidatorRegistrationV1(
-          fee_recipient: ExecutionAddress(data: distinctBase(feeRecipient)),
-          gas_limit: gasLimit,
-          timestamp: uint64(timestamp.toUnix()),
-          pubkey: validator.pubkey
-        )
+  let
+    feeRecipient = vc.getFeeRecipient(validator, currentSlot.epoch())
+    gasLimit = vc.getGasLimit(validator)
+
+  var registration =
+    SignedValidatorRegistrationV1(
+      message: ValidatorRegistrationV1(
+        fee_recipient: ExecutionAddress(data: distinctBase(feeRecipient)),
+        gas_limit: gasLimit,
+        timestamp: uint64(timestamp.toUnix()),
+        pubkey: validator.pubkey
       )
+    )
 
-    let sigfut = validator.getBuilderSignature(fork, registration.message)
-    if sigfut.finished():
-      # This is short-path if we able to create signature locally.
-      if not(sigfut.completed()):
-        let exc = sigfut.error()
-        debug "Got unexpected exception while signing validator registration",
-              validator = validatorLog(validator), error = exc.name,
-              reason = exc.msg
-        return err(RegistrationKind.ErrorSignature)
-      let sigres = sigfut.value()
-      if sigres.isErr():
-        debug "Failed to get signature for validator registration",
-              validator = validatorLog(validator), reason = sigres.error()
-        return err(RegistrationKind.NoSignature)
-      registration.signature = sigres.get()
-      # Updating cache table with new signed registration data
-      vc.validatorsRegCache[registration.message.pubkey] = registration
-      ok(PendingValidatorRegistration(registration: registration, future: nil))
-    else:
-      # Remote signature service involved, cache will be updated later.
-      ok(PendingValidatorRegistration(registration: registration,
-                                      future: sigfut))
+  let sigfut = validator.getBuilderSignature(fork, registration.message)
+  if sigfut.finished():
+    # This is short-path if we able to create signature locally.
+    if not(sigfut.completed()):
+      let exc = sigfut.error()
+      debug "Got unexpected exception while signing validator registration",
+            validator = validatorLog(validator), error = exc.name,
+            reason = exc.msg
+      return err(RegistrationKind.ErrorSignature)
+
+    registration.signature = sigfut.value().valueOr:
+      debug "Failed to get signature for validator registration",
+            validator = validatorLog(validator), reason = error
+      return err(RegistrationKind.NoSignature)
+
+    ok(PendingValidatorRegistration(registration: registration, future: nil))
   else:
-    # Returning cached result.
-    err(RegistrationKind.Cached)
+    ok(PendingValidatorRegistration(registration: registration, future: sigfut))
 
 proc prepareRegistrationList*(
     vc: ValidatorClientRef,
@@ -1131,6 +1126,7 @@ proc prepareRegistrationList*(
 
   var
     messages: seq[SignedValidatorRegistrationV1]
+    validators: seq[AttachedValidator]
     futures: seq[Future[SignatureResult]]
     registrations: seq[SignedValidatorRegistrationV1]
     total = vc.attachedValidators[].count()
@@ -1151,6 +1147,7 @@ proc prepareRegistrationList*(
         registrations.add(preg.registration)
       else:
         messages.add(preg.registration)
+        validators.add(validator)
         futures.add(preg.future)
     else:
       case res.error()
@@ -1174,8 +1171,7 @@ proc prepareRegistrationList*(
         var reg = messages[index]
         reg.signature = sres.get()
         registrations.add(reg)
-        # Updating cache table
-        vc.validatorsRegCache[reg.message.pubkey] = reg
+        validators[index].externalBuilderRegistration = Opt.some(reg)
         inc(succeed)
       else:
         inc(bad)

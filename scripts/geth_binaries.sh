@@ -1,5 +1,5 @@
 # beacon_chain
-# Copyright (c) 2023-2024 Status Research & Development GmbH
+# Copyright (c) 2023-2025 Status Research & Development GmbH
 # Licensed and distributed under either of
 #   * MIT license (license terms in the root directory or at https://opensource.org/licenses/MIT).
 #   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
@@ -16,12 +16,10 @@ source "${SCRIPTS_DIR}/bash_utils.sh"
 
 : ${CURL_BINARY:="curl"}
 : ${STABLE_GETH_BINARY:="${BUILD_DIR}/downloads/geth$EXE_EXTENSION"}
-: ${GETH_CAPELLA_BINARY:="$STABLE_GETH_BINARY"}
-: ${GETH_DENEB_BINARY:="$STABLE_GETH_BINARY"}
 
 download_geth_stable() {
   if [[ ! -e "${STABLE_GETH_BINARY}" ]]; then
-    GETH_VERSION="1.14.11-f3c696fa"  # https://geth.ethereum.org/downloads
+    GETH_VERSION="1.15.6-19d2b4c8"  # https://geth.ethereum.org/downloads
     GETH_URL="https://gethstore.blob.core.windows.net/builds/"
 
     case "${OS}-${ARCH}" in
@@ -104,14 +102,6 @@ download_status_geth_binary() {
     chmod +x "$BINARY_FS_PATH"
     patchelf_when_on_nixos "$BINARY_FS_PATH"
   fi
-}
-
-download_geth_capella() {
-  download_geth_stable
-}
-
-download_geth_deneb() {
-  download_geth_stable
 }
 
 fi

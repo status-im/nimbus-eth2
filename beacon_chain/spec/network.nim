@@ -1,5 +1,5 @@
 # beacon_chain
-# Copyright (c) 2018-2024 Status Research & Development GmbH
+# Copyright (c) 2018-2025 Status Research & Development GmbH
 # Licensed and distributed under either of
 #   * MIT license (license terms in the root directory or at https://opensource.org/licenses/MIT).
 #   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
@@ -14,25 +14,25 @@ import
 export base
 
 const
-  # https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.8/specs/phase0/p2p-interface.md#topics-and-messages
-  # https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.8/specs/capella/p2p-interface.md#topics-and-messages
-  topicBeaconBlocksSuffix* = "beacon_block/ssz_snappy"
-  topicVoluntaryExitsSuffix* = "voluntary_exit/ssz_snappy"
-  topicProposerSlashingsSuffix* = "proposer_slashing/ssz_snappy"
-  topicAttesterSlashingsSuffix* = "attester_slashing/ssz_snappy"
-  topicAggregateAndProofsSuffix* = "beacon_aggregate_and_proof/ssz_snappy"
-  topicBlsToExecutionChangeSuffix* = "bls_to_execution_change/ssz_snappy"
+  # https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.10/specs/phase0/p2p-interface.md#topics-and-messages
+  # https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.9/specs/capella/p2p-interface.md#topics-and-messages
+  topicBeaconBlocksSuffix = "beacon_block/ssz_snappy"
+  topicVoluntaryExitsSuffix = "voluntary_exit/ssz_snappy"
+  topicProposerSlashingsSuffix = "proposer_slashing/ssz_snappy"
+  topicAttesterSlashingsSuffix = "attester_slashing/ssz_snappy"
+  topicAggregateAndProofsSuffix = "beacon_aggregate_and_proof/ssz_snappy"
+  topicBlsToExecutionChangeSuffix = "bls_to_execution_change/ssz_snappy"
 
 const
   # The spec now includes this as a bare uint64 as `RESP_TIMEOUT`
   RESP_TIMEOUT_DUR* = RESP_TIMEOUT.int64.seconds
 
-  # https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.8/specs/altair/light-client/p2p-interface.md#configuration
+  # https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.9/specs/altair/light-client/p2p-interface.md#configuration
   MAX_REQUEST_LIGHT_CLIENT_UPDATES* = 128
 
-  # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.5/specs/deneb/p2p-interface.md#configuration
-  MAX_REQUEST_BLOB_SIDECARS*: uint64 =
-    MAX_REQUEST_BLOCKS_DENEB * MAX_BLOBS_PER_BLOCK
+  # https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.10/specs/fulu/p2p-interface.md#configuration
+  MAX_REQUEST_DATA_COLUMN_SIDECARS*: uint64 =
+    MAX_REQUEST_BLOCKS_DENEB * NUMBER_OF_COLUMNS
 
   defaultEth2TcpPort* = 9000
   defaultEth2TcpPortDesc* = $defaultEth2TcpPort
@@ -43,6 +43,7 @@ const
 
   enrAttestationSubnetsField* = "attnets"
   enrSyncSubnetsField* = "syncnets"
+  enrCustodySubnetCountField* = "cgc"
   enrForkIdField* = "eth2"
 
 template eth2Prefix(forkDigest: ForkDigest): string =
@@ -63,11 +64,11 @@ func getAttesterSlashingsTopic*(forkDigest: ForkDigest): string =
 func getAggregateAndProofsTopic*(forkDigest: ForkDigest): string =
   eth2Prefix(forkDigest) & topicAggregateAndProofsSuffix
 
-# https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.8/specs/capella/p2p-interface.md#topics-and-messages
+# https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.9/specs/capella/p2p-interface.md#topics-and-messages
 func getBlsToExecutionChangeTopic*(forkDigest: ForkDigest): string =
   eth2Prefix(forkDigest) & topicBlsToExecutionChangeSuffix
 
-# https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.8/specs/phase0/validator.md#broadcast-attestation
+# https://github.com/ethereum/consensus-specs/blob/v1.5.0-beta.2/specs/phase0/validator.md#broadcast-attestation
 func compute_subnet_for_attestation*(
     committees_per_slot: uint64, slot: Slot, committee_index: CommitteeIndex):
     SubnetId =
@@ -83,33 +84,40 @@ func compute_subnet_for_attestation*(
     (committees_since_epoch_start + committee_index.asUInt64) mod
     ATTESTATION_SUBNET_COUNT)
 
-# https://github.com/ethereum/consensus-specs/blob/v1.4.0/specs/phase0/validator.md#broadcast-attestation
+# https://github.com/ethereum/consensus-specs/blob/v1.5.0-beta.2/specs/phase0/validator.md#broadcast-attestation
 func getAttestationTopic*(forkDigest: ForkDigest,
                           subnetId: SubnetId): string =
   ## For subscribing and unsubscribing to/from a subnet.
   eth2Prefix(forkDigest) & "beacon_attestation_" & $(subnetId) & "/ssz_snappy"
 
-# https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.8/specs/altair/p2p-interface.md#topics-and-messages
+# https://github.com/ethereum/consensus-specs/blob/v1.5.0-beta.2/specs/altair/p2p-interface.md#topics-and-messages
 func getSyncCommitteeTopic*(forkDigest: ForkDigest,
                             subcommitteeIdx: SyncSubcommitteeIndex): string =
   ## For subscribing and unsubscribing to/from a subnet.
   eth2Prefix(forkDigest) & "sync_committee_" & $subcommitteeIdx & "/ssz_snappy"
 
-# https://github.com/ethereum/consensus-specs/blob/v1.4.0/specs/altair/p2p-interface.md#topics-and-messages
+# https://github.com/ethereum/consensus-specs/blob/v1.5.0-beta.2/specs/altair/p2p-interface.md#topics-and-messages
 func getSyncCommitteeContributionAndProofTopic*(forkDigest: ForkDigest): string =
   ## For subscribing and unsubscribing to/from a subnet.
   eth2Prefix(forkDigest) & "sync_committee_contribution_and_proof/ssz_snappy"
 
-# https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.5/specs/deneb/p2p-interface.md#blob_sidecar_subnet_id
+# https://github.com/ethereum/consensus-specs/blob/v1.5.0-beta.4/specs/deneb/p2p-interface.md#blob_sidecar_subnet_id
 func getBlobSidecarTopic*(forkDigest: ForkDigest,
                           subnet_id: BlobId): string =
   eth2Prefix(forkDigest) & "blob_sidecar_" & $subnet_id & "/ssz_snappy"
 
-# https://github.com/ethereum/consensus-specs/blob/v1.4.0/specs/deneb/validator.md#sidecar
-func compute_subnet_for_blob_sidecar*(blob_index: BlobIndex): BlobId =
-  BlobId(blob_index mod BLOB_SIDECAR_SUBNET_COUNT)
+# https://github.com/ethereum/consensus-specs/blob/v1.5.0-beta.3/specs/deneb/validator.md#sidecar
+# https://github.com/ethereum/consensus-specs/blob/v1.5.0-beta.2/specs/electra/validator.md#sidecar
+func compute_subnet_for_blob_sidecar*(
+    cfg: RuntimeConfig, slot: Slot, blob_index: BlobIndex): BlobId =
+  let subnetCount =
+    if slot >= cfg.ELECTRA_FORK_EPOCH.start_slot:
+      cfg.BLOB_SIDECAR_SUBNET_COUNT_ELECTRA
+    else:
+      cfg.BLOB_SIDECAR_SUBNET_COUNT
+  BlobId(blob_index mod subnetCount)
 
-# https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.8/specs/_features/eip7594/p2p-interface.md#compute_subnet_for_data_column_sidecar
+# https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.10/specs/fulu/p2p-interface.md#compute_subnet_for_data_column_sidecar
 func compute_subnet_for_data_column_sidecar*(column_index: ColumnIndex): uint64 =
     uint64(column_index mod DATA_COLUMN_SIDECAR_SUBNET_COUNT)
 
@@ -159,7 +167,8 @@ func getDiscoveryForkID*(cfg: RuntimeConfig,
 type GossipState* = set[ConsensusFork]
 func getTargetGossipState*(
     epoch, ALTAIR_FORK_EPOCH, BELLATRIX_FORK_EPOCH, CAPELLA_FORK_EPOCH,
-    DENEB_FORK_EPOCH: Epoch, ELECTRA_FORK_EPOCH: Epoch, isBehind: bool):
+    DENEB_FORK_EPOCH, ELECTRA_FORK_EPOCH,  FULU_FORK_EPOCH: Epoch,
+    isBehind: bool):
     GossipState =
   if isBehind:
     return {}
@@ -168,6 +177,7 @@ func getTargetGossipState*(
   doAssert CAPELLA_FORK_EPOCH >= BELLATRIX_FORK_EPOCH
   doAssert DENEB_FORK_EPOCH >= CAPELLA_FORK_EPOCH
   doAssert ELECTRA_FORK_EPOCH >= DENEB_FORK_EPOCH
+  doAssert FULU_FORK_EPOCH >= ELECTRA_FORK_EPOCH
 
   # https://github.com/ethereum/consensus-specs/issues/2902
   # Don't care whether ALTAIR_FORK_EPOCH == BELLATRIX_FORK_EPOCH or
@@ -195,13 +205,15 @@ func getTargetGossipState*(
   maybeIncludeFork(
     ConsensusFork.Deneb,     DENEB_FORK_EPOCH,     ELECTRA_FORK_EPOCH)
   maybeIncludeFork(
-    ConsensusFork.Electra,   ELECTRA_FORK_EPOCH,   FAR_FUTURE_EPOCH)
+    ConsensusFork.Electra,   ELECTRA_FORK_EPOCH,   FULU_FORK_EPOCH)
+  maybeIncludeFork(
+    ConsensusFork.Fulu,      FULU_FORK_EPOCH,   FAR_FUTURE_EPOCH)
 
   doAssert len(targetForks) <= 2
   targetForks
 
 func nearSyncCommitteePeriod*(epoch: Epoch): Opt[uint64] =
-  # https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.8/specs/altair/validator.md#sync-committee-subnet-stability
+  # https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.10/specs/altair/validator.md#sync-committee-subnet-stability
   if epoch.is_sync_committee_period():
     return Opt.some 0'u64
   let epochsBefore =
@@ -220,13 +232,24 @@ func getSyncSubnets*(
     if not nodeHasPubkey(pubkey):
       continue
 
-    # https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.8/specs/altair/validator.md#broadcast-sync-committee-message
+    # https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.10/specs/altair/validator.md#broadcast-sync-committee-message
     # The first quarter of the pubkeys map to subnet 0, the second quarter to
     # subnet 1, the third quarter to subnet 2 and the final quarter to subnet
     # 3.
     res.setBit(i div (SYNC_COMMITTEE_SIZE div SYNC_COMMITTEE_SUBNET_COUNT))
   res
 
-iterator blobSidecarTopics*(forkDigest: ForkDigest): string =
-  for subnet_id in BlobId:
+iterator blobSidecarTopics*(
+    forkDigest: ForkDigest, subnetCount: uint64): string =
+  for subnet_id in 0.BlobId ..< subnetCount.BlobId:
     yield getBlobSidecarTopic(forkDigest, subnet_id)
+
+# https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.10/specs/fulu/p2p-interface.md#data_column_sidecar_subnet_id
+func getDataColumnSidecarTopic*(forkDigest: ForkDigest,
+                                subnet_id: uint64): string =
+  eth2Prefix(forkDigest) & "data_column_sidecar_" & $subnet_id & "/ssz_snappy"
+
+iterator dataColumnSidecarTopics*(forkDigest: ForkDigest,
+                                  targetSubnetCount: uint64): string =
+  for subnet_id in 0'u64..<targetSubnetCount:
+    yield getDataColumnSidecarTopic(forkDigest, subnet_id)

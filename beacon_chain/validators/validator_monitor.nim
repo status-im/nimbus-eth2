@@ -1,5 +1,5 @@
 # beacon_chain
-# Copyright (c) 2021-2024 Status Research & Development GmbH
+# Copyright (c) 2021-2025 Status Research & Development GmbH
 # Licensed and distributed under either of
 #   * MIT license (license terms in the root directory or at https://opensource.org/licenses/MIT).
 #   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
@@ -212,6 +212,7 @@ type
     gossip = "gossip"
     api = "api"
     sync = "sync"
+    el = "el"
 
 template toGaugeValue(v: bool): int64 =
   if v: 1 else: 0
@@ -654,11 +655,8 @@ template withMonitor(self: var ValidatorMonitor, idx: ValidatorIndex, body: unty
   withMonitor(self, idx.uint64, body)
 
 proc registerAttestation*(
-    self: var ValidatorMonitor,
-    src: MsgSource,
-    seen_timestamp: BeaconTime,
-    attestation: phase0.Attestation | electra.Attestation,
-    idx: ValidatorIndex) =
+    self: var ValidatorMonitor, src: MsgSource, seen_timestamp: BeaconTime,
+    attestation: phase0.Attestation | SingleAttestation, idx: ValidatorIndex) =
   let
     slot = attestation.data.slot
     delay = seen_timestamp - slot.attestation_deadline()

@@ -1,5 +1,5 @@
 # beacon_chain
-# Copyright (c) 2024 Status Research & Development GmbH
+# Copyright (c) 2024-2025 Status Research & Development GmbH
 # Licensed and distributed under either of
 #   * MIT license (license terms in the root directory or at https://opensource.org/licenses/MIT).
 #   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
@@ -12,12 +12,12 @@ import
   std/json,
   yaml/tojson,
   kzg4844/[kzg, kzg_abi],
-  stew/byteutils,
   ../testutil,
   ./fixtures_utils, ./os_ops
 
 from std/sequtils import anyIt, mapIt, toSeq
 from std/strutils import rsplit
+from stew/byteutils import fromHex
 
 func toUInt64(s: int): Opt[uint64] =
   if s < 0:
@@ -76,7 +76,7 @@ proc runVerifyKzgProofTest(suiteName, suitePath, path: string) =
       y = fromHex[32](data["input"]["y"].getStr)
       proof = fromHex[48](data["input"]["proof"].getStr)
 
-    # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.6/tests/formats/kzg/verify_kzg_proof.md#condition
+    # https://github.com/ethereum/consensus-specs/blob/v1.5.0-beta.5/tests/formats/kzg_4844/verify_kzg_proof.md#condition
     # "If the commitment or proof is invalid (e.g. not on the curve or not in
     # the G1 subgroup of the BLS curve) or `z` or `y` are not a valid BLS
     # field element, it should error, i.e. the output should be `null`."
@@ -201,10 +201,30 @@ proc runComputeBlobKzgProofTest(suiteName, suitePath, path: string) =
       else:
         check p.get.bytes == fromHex[48](output.getStr).get
 
+proc runComputeCellsTest(suiteName, suitePath, path: string) =
+  let relativePathComponent = path.relativeTestPathComponent(suitePath)
+  test "KZG - Compute Cells - " & relativePathComponent:
+    let
+      data = loadToJson(os_ops.readFile(path/"data.yaml"))[0]
+      output = data["output"]
+      blob = fromHex[131072](data["input"]["blob"].getStr)
+
+    # https://github.com/ethereum/consensus-specs/blob/v1.5.0-beta.5/tests/formats/kzg_7594/compute_cells.md#condition
+    if blob.isNone:
+      check output.kind == JNull
+    else:
+      let p = newClone computeCells(KzgBlob(bytes: blob.get))
+      if p[].isErr:
+        check output.kind == JNull
+      else:
+        let p_val = newClone p[].get
+        for i in 0..<len(p[].get):
+          check p_val[][i].bytes == fromHex[2048](output[i].getStr).get
+
 proc runComputeCellsAndKzgProofsTest(suiteName, suitePath, path: string) =
   let relativePathComponent = path.relativeTestPathComponent(suitePath)
   test "KZG - Compute Cells And Proofs - " & relativePathComponent:
-    let 
+    let
       data = loadToJson(os_ops.readFile(path/"data.yaml"))[0]
       output = data["output"]
       blob = fromHex[131072](data["input"]["blob"].getStr)
@@ -220,8 +240,8 @@ proc runComputeCellsAndKzgProofsTest(suiteName, suitePath, path: string) =
       if p[].isErr:
         check output.kind == JNull
       else:
-        let p_val = p[].get
-        for i in 0..<CELLS_PER_EXT_BLOB:
+        let p_val = newClone p[].get
+        for i in 0..<kzg_abi.CELLS_PER_EXT_BLOB:
           check p_val.cells[i].bytes == fromHex[2048](output[0][i].getStr).get
           check p_val.proofs[i].bytes == fromHex[48](output[1][i].getStr).get
 
@@ -236,12 +256,12 @@ proc runVerifyCellKzgProofBatchTest(suiteName, suitePath, path: string) =
       cells = data["input"]["cells"].mapIt(fromHex[2048](it.getStr))
       proofs = data["input"]["proofs"].mapIt(fromHex[48](it.getStr))
 
-    # https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.8/tests/formats/kzg_7594/verify_cell_kzg_proof_batch.md#condition
+    # https://github.com/ethereum/consensus-specs/blob/v1.5.0-beta.5/tests/formats/kzg_7594/verify_cell_kzg_proof_batch.md#condition
     # If the blob is invalid (e.g. incorrect length or one of the 32-byte
     # blocks does not represent a BLS field element) it should error, i.e. the
     # the output should be `null`.
-    if commitments.anyIt(it.isNone) or 
-        cell_indices.anyIt(it.isNone) or 
+    if commitments.anyIt(it.isNone) or
+        cell_indices.anyIt(it.isNone) or
         proofs.anyIt(it.isNone) or
         cells.anyIt(it.isNone):
       check output.kind == JNull
@@ -270,7 +290,7 @@ proc runRecoverCellsAndKzgProofsTest(suiteName, suitePath, path: string) =
     # If the blob is invalid (e.g. incorrect length or one of the 32-byte
     # blocks does not represent a BLS field element) it should error, i.e. the
     # the output should be `null`.
-    if cell_ids.anyIt(it.isNone) or 
+    if cell_ids.anyIt(it.isNone) or
         cells.anyIt(it.isNone):
       check output.kind == JNull
     else:
@@ -281,7 +301,7 @@ proc runRecoverCellsAndKzgProofsTest(suiteName, suitePath, path: string) =
         check output.kind == JNull
       else:
         let val = v[].get
-        for i in 0..<CELLS_PER_EXT_BLOB:
+        for i in 0..<kzg_abi.CELLS_PER_EXT_BLOB:
           check val.cells[i].bytes == fromHex[2048](output[0][i].getStr).get
           check val.proofs[i].bytes == fromHex[48](output[1][i].getStr).get
 
@@ -329,16 +349,21 @@ suite suiteName:
     for kind, path in walkDir(testsDir, relative = true, checkDir = true):
       runComputeBlobKzgProofTest(suiteName, testsDir, testsDir / path)
 
-suiteName = "EF - KZG - EIP7594"
+suiteName = "EF - KZG - PeerDAS"
 
 suite suiteName:
-  const suitePath = SszTestsDir/"general"/"eip7594"/"kzg"
+  const suitePath = SszTestsDir/"general"/"fulu"/"kzg"
 
   # TODO also check that the only direct subdirectory of each is kzg-mainnet
   doAssert sorted(mapIt(
       toSeq(walkDir(suitePath, relative = true, checkDir = true)), it.path)) ==
-    ["compute_cells_and_kzg_proofs", "recover_cells_and_kzg_proofs",
-     "verify_cell_kzg_proof_batch"]
+    ["compute_cells", "compute_cells_and_kzg_proofs",
+     "recover_cells_and_kzg_proofs", "verify_cell_kzg_proof_batch"]
+
+  block:
+    let testsDir = suitePath/"compute_cells"/"kzg-mainnet"
+    for kind, path in walkDir(testsDir, relative = true, checkDir = true):
+      runComputeCellsTest(suiteName, testsDir, testsDir/path)
 
   block:
     let testsDir = suitePath/"compute_cells_and_kzg_proofs"/"kzg-mainnet"

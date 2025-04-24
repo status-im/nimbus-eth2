@@ -1,5 +1,5 @@
 # beacon_chain
-# Copyright (c) 2018-2024 Status Research & Development GmbH
+# Copyright (c) 2018-2025 Status Research & Development GmbH
 # Licensed and distributed under either of
 #   * MIT license (license terms in the root directory or at https://opensource.org/licenses/MIT).
 #   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
@@ -258,12 +258,12 @@ func `as`(blk: BlockObject, T: type bellatrix.ExecutionPayloadHeader): T =
     state_root: blk.stateRoot as Eth2Digest,
     receipts_root: blk.receiptsRoot as Eth2Digest,
     logs_bloom: BloomLogs(data: distinctBase(blk.logsBloom)),
-    prev_randao: Eth2Digest(data: blk.difficulty.toByteArrayBE), # Is BE correct here?
+    prev_randao: Eth2Digest(data: blk.difficulty.toBytesBE), # Is BE correct here?
     block_number: uint64 blk.number,
     gas_limit: uint64 blk.gasLimit,
     gas_used: uint64 blk.gasUsed,
     timestamp: uint64 blk.timestamp,
-    extra_data: List[byte, MAX_EXTRA_DATA_BYTES].init(blk.extraData.bytes),
+    extra_data: List[byte, MAX_EXTRA_DATA_BYTES].init(blk.extraData.data),
     base_fee_per_gas: blk.baseFeePerGas.getOrDefault(),
     block_hash: blk.hash as Eth2Digest,
     transactions_root: blk.transactionsRoot as Eth2Digest)
@@ -274,12 +274,12 @@ func `as`(blk: BlockObject, T: type capella.ExecutionPayloadHeader): T =
     state_root: blk.stateRoot as Eth2Digest,
     receipts_root: blk.receiptsRoot as Eth2Digest,
     logs_bloom: BloomLogs(data: distinctBase(blk.logsBloom)),
-    prev_randao: Eth2Digest(data: blk.difficulty.toByteArrayBE),
+    prev_randao: Eth2Digest(data: blk.difficulty.toBytesBE),
     block_number: uint64 blk.number,
     gas_limit: uint64 blk.gasLimit,
     gas_used: uint64 blk.gasUsed,
     timestamp: uint64 blk.timestamp,
-    extra_data: List[byte, MAX_EXTRA_DATA_BYTES].init(blk.extraData.bytes),
+    extra_data: List[byte, MAX_EXTRA_DATA_BYTES].init(blk.extraData.data),
     base_fee_per_gas: blk.baseFeePerGas.getOrDefault(),
     block_hash: blk.hash as Eth2Digest,
     transactions_root: blk.transactionsRoot as Eth2Digest,
@@ -291,12 +291,12 @@ func `as`(blk: BlockObject, T: type deneb.ExecutionPayloadHeader): T =
     state_root: blk.stateRoot as Eth2Digest,
     receipts_root: blk.receiptsRoot as Eth2Digest,
     logs_bloom: BloomLogs(data: distinctBase(blk.logsBloom)),
-    prev_randao: Eth2Digest(data: blk.difficulty.toByteArrayBE),
+    prev_randao: Eth2Digest(data: blk.difficulty.toBytesBE),
     block_number: uint64 blk.number,
     gas_limit: uint64 blk.gasLimit,
     gas_used: uint64 blk.gasUsed,
     timestamp: uint64 blk.timestamp,
-    extra_data: List[byte, MAX_EXTRA_DATA_BYTES].init(blk.extraData.bytes),
+    extra_data: List[byte, MAX_EXTRA_DATA_BYTES].init(blk.extraData.data),
     base_fee_per_gas: blk.baseFeePerGas.getOrDefault(),
     block_hash: blk.hash as Eth2Digest,
     transactions_root: blk.transactionsRoot as Eth2Digest,
@@ -310,12 +310,12 @@ func `as`(blk: BlockObject, T: type electra.ExecutionPayloadHeader): T =
     state_root: blk.stateRoot as Eth2Digest,
     receipts_root: blk.receiptsRoot as Eth2Digest,
     logs_bloom: BloomLogs(data: distinctBase(blk.logsBloom)),
-    prev_randao: Eth2Digest(data: blk.difficulty.toByteArrayBE),
+    prev_randao: Eth2Digest(data: blk.difficulty.toBytesBE),
     block_number: uint64 blk.number,
     gas_limit: uint64 blk.gasLimit,
     gas_used: uint64 blk.gasUsed,
     timestamp: uint64 blk.timestamp,
-    extra_data: List[byte, MAX_EXTRA_DATA_BYTES].init(blk.extraData.bytes),
+    extra_data: List[byte, MAX_EXTRA_DATA_BYTES].init(blk.extraData.data),
     base_fee_per_gas: blk.baseFeePerGas.getOrDefault(),
     block_hash: blk.hash as Eth2Digest,
     transactions_root: blk.transactionsRoot as Eth2Digest,
@@ -562,7 +562,7 @@ when isMainModule:
     let r = await web3.send(tr)
     result = await web3.getMinedTransactionReceipt(r)
 
-  proc sendEth(web3: Web3, to: Eth1Address, valueEth: int): Future[TxHash] =
+  proc sendEth(web3: Web3, to: Eth1Address, valueEth: int): Future[Hash32] =
     let tr = TransactionArgs(
       `from`: Opt.some web3.defaultAccount,
       # TODO: Force json-rpc to generate 'data' field

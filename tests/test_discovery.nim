@@ -1,5 +1,5 @@
 # beacon_chain
-# Copyright (c) 2021-2024 Status Research & Development GmbH
+# Copyright (c) 2021-2025 Status Research & Development GmbH
 # Licensed and distributed under either of
 #   * MIT license (license terms in the root directory or at https://opensource.org/licenses/MIT).
 #   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
@@ -36,6 +36,7 @@ proc generateNode(rng: ref HmacDrbgContext, port: Port,
 
 # TODO: Add tests with a syncnets preference
 const noSyncnetsPreference = SyncnetBits()
+const noCgcnetsPreference = CgcBits()
 
 procSuite "Eth2 specific discovery tests":
   let
@@ -67,7 +68,8 @@ procSuite "Eth2 specific discovery tests":
     attnetsSelected.setBit(34)
 
     let discovered = await node1.queryRandom(
-      enrForkId, attnetsSelected, noSyncnetsPreference, 1)
+      enrForkId, attnetsSelected, noSyncnetsPreference,
+      noCgcnetsPreference, 1)
     check discovered.len == 1
 
     await node1.closeWait()
@@ -105,7 +107,8 @@ procSuite "Eth2 specific discovery tests":
     attnetsSelected.setBit(42)
 
     let discovered = await node1.queryRandom(
-      enrForkId, attnetsSelected, noSyncnetsPreference, 1)
+      enrForkId, attnetsSelected, noSyncnetsPreference,
+      noCgcnetsPreference, 1)
     check discovered.len == 1
 
     await node1.closeWait()
@@ -133,7 +136,8 @@ procSuite "Eth2 specific discovery tests":
 
     block:
       let discovered = await node1.queryRandom(
-        enrForkId, attnetsSelected, noSyncnetsPreference, 1)
+        enrForkId, attnetsSelected, noSyncnetsPreference,
+        noCgcnetsPreference, 1)
       check discovered.len == 0
 
     block:
@@ -148,7 +152,8 @@ procSuite "Eth2 specific discovery tests":
       discard node1.addNode(nodes[][0])
 
       let discovered = await node1.queryRandom(
-        enrForkId, attnetsSelected, noSyncnetsPreference, 1)
+        enrForkId, attnetsSelected, noSyncnetsPreference,
+        noCgcnetsPreference, 1)
       check discovered.len == 1
 
     await node1.closeWait()

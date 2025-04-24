@@ -1,5 +1,5 @@
 # beacon_chain
-# Copyright (c) 2018-2024 Status Research & Development GmbH
+# Copyright (c) 2018-2025 Status Research & Development GmbH
 # Licensed and distributed under either of
 #   * MIT license (license terms in the root directory or at https://opensource.org/licenses/MIT).
 #   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
@@ -351,7 +351,7 @@ proc getExecutionValidity(
       of PayloadExecutionStatus.invalid,
          PayloadExecutionStatus.invalid_block_hash:
         # Blocks come either from gossip or request manager requests. In the
-        # former case, they've passed libp2p gosisp validation which implies
+        # former case, they've passed libp2p gossip validation which implies
         # correct signature for correct proposer,which makes spam expensive,
         # while for the latter, spam is limited by the request manager.
         info "execution payload invalid from EL client newPayload",
@@ -898,7 +898,7 @@ proc processBlock(
     # - MUST NOT optimistically import the block.
     # - MUST NOT apply the block to the fork choice store.
     # - MAY queue the block for later processing.
-    # https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.8/sync/optimistic.md#execution-engine-errors
+    # https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.9/sync/optimistic.md#execution-engine-errors
     await sleepAsync(chronos.seconds(1))
     self[].enqueueBlock(
       entry.src, entry.blck, entry.blobs, entry.resfut, entry.maybeFinalized,

@@ -1,5 +1,5 @@
 # beacon_chain
-# Copyright (c) 2021-2024 Status Research & Development GmbH
+# Copyright (c) 2021-2025 Status Research & Development GmbH
 # Licensed and distributed under either of
 #   * MIT license (license terms in the root directory or at https://opensource.org/licenses/MIT).
 #   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
@@ -59,7 +59,7 @@ func initialize_light_client_store*(
     current_sync_committee: bootstrap.current_sync_committee,
     optimistic_header: bootstrap.header))
 
-# https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.5/specs/altair/light-client/sync-protocol.md#validate_light_client_update
+# https://github.com/ethereum/consensus-specs/blob/v1.5.0-beta.4/specs/altair/light-client/sync-protocol.md#validate_light_client_update
 proc validate_light_client_update*(
     store: ForkyLightClientStore,
     update: SomeForkyLightClientUpdate,
@@ -180,7 +180,7 @@ proc validate_light_client_update*(
 
   ok()
 
-# https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.5/specs/altair/light-client/sync-protocol.md#apply_light_client_update
+# https://github.com/ethereum/consensus-specs/blob/v1.5.0-beta.2/specs/altair/light-client/sync-protocol.md#apply_light_client_update
 func apply_light_client_update(
     store: var ForkyLightClientStore,
     update: SomeForkyLightClientUpdate): bool =
@@ -211,7 +211,7 @@ func apply_light_client_update(
     didProgress = true
   didProgress
 
-# https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.8/specs/altair/light-client/sync-protocol.md#process_light_client_store_force_update
+# https://github.com/ethereum/consensus-specs/blob/v1.5.0-beta.0/specs/altair/light-client/sync-protocol.md#process_light_client_store_force_update
 type
   ForceUpdateResult* = enum
     NoUpdate,

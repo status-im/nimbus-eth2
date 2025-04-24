@@ -1,3 +1,3 @@
 This page has been removed.
 
-Use the [Holešky testnet](./holesky.md).
+Use the [Hoodi testnet](./hoodi.md).

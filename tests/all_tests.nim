@@ -1,5 +1,5 @@
 # beacon_chain
-# Copyright (c) 2018-2024 Status Research & Development GmbH
+# Copyright (c) 2018-2025 Status Research & Development GmbH
 # Licensed and distributed under either of
 #   * MIT license (license terms in the root directory or at https://opensource.org/licenses/MIT).
 #   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
@@ -27,7 +27,6 @@ import # Unit test
   ./test_discovery,
   ./test_engine_api_conversions,
   ./test_engine_authentication,
-  ./test_eip7594_helpers,
   ./test_el_manager,
   ./test_el_conf,
   ./test_eth2_ssz_serialization,
@@ -44,6 +43,7 @@ import # Unit test
   ./test_message_signatures,
   ./test_network_metadata,
   ./test_peer_pool,
+  ./test_peerdas_helpers,
   ./test_remote_keystore,
   ./test_rest_json_serialization,
   ./test_serialization,
@@ -62,9 +62,8 @@ import # Unit test
   ./slashing_protection/test_slashing_protection_db,
   ./test_validator_client,
   ./test_beacon_validators,
-  ./test_beacon_chain_file
-
-when not defined(windows):
-  import ./test_keymanager_api
+  ./test_beacon_chain_file,
+  ./test_mev_calls,
+  ./test_keymanager_api   # currently has to run after test_remote_keystore
 
 summarizeLongTests("AllTests")

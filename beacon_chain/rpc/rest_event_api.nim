@@ -1,5 +1,5 @@
 # beacon_chain
-# Copyright (c) 2018-2024 Status Research & Development GmbH
+# Copyright (c) 2018-2025 Status Research & Development GmbH
 # Licensed and distributed under either of
 #   * MIT license (license terms in the root directory or at https://opensource.org/licenses/MIT).
 #   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
@@ -125,9 +125,17 @@ proc installEventApiHandlers*(router: var RestRouter, node: BeaconNode) =
           let handler = response.eventHandler(node.eventBus.blocksQueue,
                                               "block")
           res.add(handler)
+        if EventTopic.BlockGossip in eventTopics:
+          let handler = response.eventHandler(node.eventBus.blockGossipQueue,
+                                              "block_gossip")
+          res.add(handler)
         if EventTopic.Attestation in eventTopics:
-          let handler = response.eventHandler(node.eventBus.attestQueue,
+          let handler = response.eventHandler(node.eventBus.phase0AttestQueue,
                                               "attestation")
+          res.add(handler)
+        if EventTopic.Attestation in eventTopics:
+          let handler = response.eventHandler(node.eventBus.singleAttestQueue,
+                                              "single_attestation")
           res.add(handler)
         if EventTopic.VoluntaryExit in eventTopics:
           let handler = response.eventHandler(node.eventBus.exitQueue,
@@ -142,9 +150,15 @@ proc installEventApiHandlers*(router: var RestRouter, node: BeaconNode) =
                                               "proposer_slashing")
           res.add(handler)
         if EventTopic.AttesterSlashing in eventTopics:
-          let handler = response.eventHandler(node.eventBus.attSlashQueue,
-                                              "attester_slashing")
-          res.add(handler)
+          block:
+            let handler = response.eventHandler(node.eventBus.phase0AttSlashQueue,
+                                                "attester_slashing")
+            res.add(handler)
+
+          block:
+            let handler = response.eventHandler(node.eventBus.electraAttSlashQueue,
+                                                "attester_slashing")
+            res.add(handler)
         if EventTopic.BlobSidecar in eventTopics:
           let handler = response.eventHandler(node.eventBus.blobSidecarQueue,
                                               "blob_sidecar")
@@ -177,8 +191,8 @@ proc installEventApiHandlers*(router: var RestRouter, node: BeaconNode) =
       discard await race(handlers)
     except ValueError:
       raiseAssert "There should be more than one event handler at this point!"
-    # One of the handlers finished, it means that connection has been droped, so
-    # we cancelling all other handlers.
+    # One of the handlers finished, it means that connection has been dropped, so
+    # we are cancelling all other handlers.
     let pending =
       handlers.filterIt(not(it.finished())).mapIt(it.cancelAndWait())
     await noCancel allFutures(pending)

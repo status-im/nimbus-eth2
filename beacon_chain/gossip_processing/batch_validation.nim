@@ -1,5 +1,5 @@
 # beacon_chain
-# Copyright (c) 2019-2024 Status Research & Development GmbH
+# Copyright (c) 2019-2025 Status Research & Development GmbH
 # Licensed and distributed under either of
 #   * MIT license (license terms in the root directory or at http://opensource.org/licenses/MIT).
 #   * Apache v2 license (license terms in the root directory or at http://www.apache.org/licenses/LICENSE-2.0).
@@ -144,7 +144,7 @@ type
 
 proc new*(
     T: type BatchCrypto, rng: ref HmacDrbgContext,
-    eager: Eager, genesis_validators_root: Eth2Digest, taskpool: TaskPoolPtr):
+    eager: Eager, genesis_validators_root: Eth2Digest, taskpool: Taskpool):
     Result[ref BatchCrypto, string] =
   let res = (ref BatchCrypto)(
     rng: rng, taskpool: taskpool,
@@ -419,8 +419,9 @@ proc scheduleAttestationCheck*(
 
 proc scheduleAggregateChecks*(
       batchCrypto: ref BatchCrypto, fork: Fork,
-      signedAggregateAndProof: phase0.SignedAggregateAndProof, dag: ChainDAGRef,
-      attesting_indices: openArray[ValidatorIndex]
+      signedAggregateAndProof:
+        phase0.SignedAggregateAndProof | electra.SignedAggregateAndProof,
+      dag: ChainDAGRef, attesting_indices: openArray[ValidatorIndex]
      ): Result[tuple[
         aggregatorFut, slotFut, aggregateFut: FutureBatchResult,
         sig: CookedSig], cstring] =

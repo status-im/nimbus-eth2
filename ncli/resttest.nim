@@ -1,14 +1,16 @@
 # beacon_chain
-# Copyright (c) 2021-2024 Status Research & Development GmbH
+# Copyright (c) 2021-2025 Status Research & Development GmbH
 # Licensed and distributed under either of
 #   * MIT license (license terms in the root directory or at https://opensource.org/licenses/MIT).
 #   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
 # at your option. This file may not be copied, modified, or distributed except according to those terms.
 
+{.push raises: [].}
+
 import
   std/[strutils, os, options, uri, json, tables],
   results,
-  stew/[io2, base10],
+  stew/[io2, base10, byteutils],
   confutils, chronicles, httputils,
   chronos, chronos/streams/[asyncstream, tlsstream]
 
@@ -453,7 +455,15 @@ proc prepareRequest(uri: Uri,
           return err("Field `body.data` must be present")
         if bdata.kind != JString:
           return err("Field `body.data` should be string")
-        (btype.str, bdata.str)
+        if toLowerAscii(btype.str) == "application/octet-stream":
+          let data =
+            try:
+              string.fromBytes(hexToSeqByte(bdata.str))
+            except ValueError:
+              return err("Field `body.data` should be valid hexadecimal string")
+          (btype.str, data)
+        else:
+          (btype.str, bdata.str)
 
   var res = meth & " " & uri.path & requestUri & " HTTP/1.1\r\n"
   res.add("Content-Length: " & Base10.toString(uint64(len(requestBodyData))) &
@@ -598,7 +608,7 @@ proc getResponseHeadersExpect(rule: JsonNode): Result[HeadersExpect, cstring] =
       block:
         var vres: seq[string]
         let jvalue = jitem.getOrDefault("value")
-        if not isnil(jvalue):
+        if not isNil(jvalue):
           case jvalue.kind
           of JArray:
             if len(jvalue.elems) == 0:
@@ -1031,7 +1041,7 @@ proc workerLoop(address: TransportAddress, uri: Uri, worker: int,
            worker = worker
       return
     except CatchableError as exc:
-      warn "Unexpected exception while running test test run", host = hostname,
+      warn "Unexpected exception while running test run", host = hostname,
            error_name = exc.name, error_msg = exc.msg, index = index,
            worker = worker
       return
@@ -1155,6 +1165,9 @@ proc run(conf: RestTesterConf): int =
   try:
     waitFor(checkConnection(conf, uri))
   except ConnectionError:
+    return 1
+  except CatchableError as exc:
+    fatal "Unexpected test failure", error_name = exc.name, error_msg = exc.msg
     return 1
 
   try:

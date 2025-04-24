@@ -1,5 +1,5 @@
 # beacon_chain
-# Copyright (c) 2018-2024 Status Research & Development GmbH
+# Copyright (c) 2018-2025 Status Research & Development GmbH
 # Licensed and distributed under either of
 #   * MIT license (license terms in the root directory or at https://opensource.org/licenses/MIT).
 #   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
@@ -74,7 +74,7 @@ export
   tables, results, endians2, json_serialization, sszTypes, beacon_time, crypto,
   digest, presets
 
-const SPEC_VERSION* = "1.5.0-alpha.8"
+const SPEC_VERSION* = "1.5.0-beta.5"
 ## Spec version we're aiming to be compatible with, right now
 
 const
@@ -144,7 +144,7 @@ template ethAmountUnit*(typ: type) {.dirty.} =
 
   func u256*(n: typ): UInt256 {.borrow.}
 
-  proc toString*(B: typedesc[Base10], value: typ): string {.borrow.}
+  func toString*(B: typedesc[Base10], value: typ): string {.borrow.}
 
   proc writeValue*(writer: var JsonWriter, value: typ) {.raises: [IOError].} =
     writer.writeValue(distinctBase(value))
@@ -201,16 +201,17 @@ type
 
   BlobId* = distinct uint8
     ## The blob id maps which gossip subscription to use to publish a
-    ## blob sidecar - it is distinct from the CommitteeIndex in particular
+    ## blob sidecar - it is distinct from the BlobIndex in particular
     ##
     ## The `BlobId` type is constrained to values in the range
-    ## `[0, BLOB_SIDECAR_SUBNET_COUNT)` during initialization.
+    ## `[0, MAX_SUPPORTED_BLOB_SIDECAR_SUBNET_COUNT)` during initialization.
+    ## The network configuration may impose further restrictions on the count!
 
   # BitVector[4] in the spec, ie 4 bits which end up encoded as a byte for
   # SSZ / hashing purposes
   JustificationBits* = distinct uint8
 
-  # https://github.com/ethereum/consensus-specs/blob/v1.4.0/specs/phase0/beacon-chain.md#proposerslashing
+  # https://github.com/ethereum/consensus-specs/blob/v1.5.0-beta.4/specs/phase0/beacon-chain.md#proposerslashing
   ProposerSlashing* = object
     signed_header_1*: SignedBeaconBlockHeader
     signed_header_2*: SignedBeaconBlockHeader
@@ -231,7 +232,7 @@ type
     current_version*: Version
     genesis_validators_root*: Eth2Digest
 
-  # https://github.com/ethereum/consensus-specs/blob/v1.4.0/specs/phase0/beacon-chain.md#checkpoint
+  # https://github.com/ethereum/consensus-specs/blob/v1.5.0-beta.0/specs/phase0/beacon-chain.md#checkpoint
   Checkpoint* = object
     epoch*: Epoch
     root*: Eth2Digest
@@ -262,7 +263,7 @@ type
     withdrawal_credentials*: Eth2Digest
     amount*: Gwei
 
-  # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.7/specs/phase0/beacon-chain.md#depositdata
+  # https://github.com/ethereum/consensus-specs/blob/v1.5.0-beta.0/specs/phase0/beacon-chain.md#depositdata
   DepositData* = object
     pubkey*: ValidatorPubKey
     withdrawal_credentials*: Eth2Digest
@@ -272,7 +273,7 @@ type
     signature*: ValidatorSig
       ## Signing over DepositMessage
 
-  # https://github.com/ethereum/consensus-specs/blob/v1.4.0/specs/phase0/beacon-chain.md#voluntaryexit
+  # https://github.com/ethereum/consensus-specs/blob/v1.5.0-beta.0/specs/phase0/beacon-chain.md#voluntaryexit
   VoluntaryExit* = object
     epoch*: Epoch
       ## Earliest epoch when voluntary exit can be processed
@@ -335,12 +336,12 @@ type
 
     proposer_index*: uint64 # `ValidatorIndex` after validation
 
-  # https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.8/specs/phase0/beacon-chain.md#historicalbatch
+  # https://github.com/ethereum/consensus-specs/blob/v1.5.0-beta.0/specs/phase0/beacon-chain.md#historicalbatch
   HistoricalBatch* = object
     block_roots* : array[SLOTS_PER_HISTORICAL_ROOT, Eth2Digest]
     state_roots* : array[SLOTS_PER_HISTORICAL_ROOT, Eth2Digest]
 
-  # https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.8/specs/phase0/beacon-chain.md#fork
+  # https://github.com/ethereum/consensus-specs/blob/v1.5.0-beta.0/specs/phase0/beacon-chain.md#fork
   Fork* = object
     previous_version*: Version
     current_version*: Version
@@ -354,7 +355,7 @@ type
     deposit_count*: uint64
     block_hash*: Eth2Digest
 
-  # https://github.com/ethereum/consensus-specs/blob/v1.4.0/specs/phase0/beacon-chain.md#signedvoluntaryexit
+  # https://github.com/ethereum/consensus-specs/blob/v1.5.0-beta.0/specs/phase0/beacon-chain.md#signedvoluntaryexit
   SignedVoluntaryExit* = object
     message*: VoluntaryExit
     signature*: ValidatorSig
@@ -400,7 +401,7 @@ type
     sync_committees*: Table[SyncCommitteePeriod, SyncCommitteeCache]
 
   # This matches the mutable state of the Solidity deposit contract
-  # https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.8/solidity_deposit_contract/deposit_contract.sol
+  # https://github.com/ethereum/consensus-specs/blob/v1.5.0-beta.5/solidity_deposit_contract/deposit_contract.sol
   DepositContractState* = object
     branch*: array[DEPOSIT_CONTRACT_TREE_DEPTH, Eth2Digest]
     deposit_count*: array[32, byte] # Uint256
@@ -612,7 +613,7 @@ template makeLimitedU64*(T: untyped, limit: uint64) =
 
 makeLimitedU64(CommitteeIndex, MAX_COMMITTEES_PER_SLOT)
 makeLimitedU64(SubnetId, ATTESTATION_SUBNET_COUNT)
-makeLimitedU64(BlobId, BLOB_SIDECAR_SUBNET_COUNT)
+makeLimitedU64(BlobId, MAX_SUPPORTED_BLOB_SIDECAR_SUBNET_COUNT)
 
 const
   validatorIndexLimit = min(uint64(int32.high), VALIDATOR_REGISTRY_LIMIT)
@@ -960,7 +961,7 @@ func checkForkConsistency*(cfg: RuntimeConfig) =
   let forkVersions =
     [cfg.GENESIS_FORK_VERSION, cfg.ALTAIR_FORK_VERSION,
      cfg.BELLATRIX_FORK_VERSION, cfg.CAPELLA_FORK_VERSION,
-     cfg.DENEB_FORK_VERSION, cfg.ELECTRA_FORK_VERSION, 
+     cfg.DENEB_FORK_VERSION, cfg.ELECTRA_FORK_VERSION,
      cfg.FULU_FORK_VERSION]
 
   for i in 0 ..< forkVersions.len:
@@ -987,8 +988,6 @@ func ofLen*[T, N](ListType: type List[T, N], n: int): ListType =
     distinctBase(result).setLen(n)
   else:
     raise newException(SszSizeMismatchError)
-
-template debugComment*(s: string) = discard
 
 # Specifically has the `Fulu` naming, for easy debugging.
 template debugFuluComment* (s: string) = discard

@@ -1,5 +1,5 @@
 # beacon_chain
-# Copyright (c) 2018-2024 Status Research & Development GmbH
+# Copyright (c) 2018-2025 Status Research & Development GmbH
 # Licensed and distributed under either of
 #   * MIT license (license terms in the root directory or at https://opensource.org/licenses/MIT).
 #   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
@@ -14,13 +14,14 @@ import
 from std/sequtils import mapIt
 from std/strutils import join
 
-const
-  MaxBlobs = 3 * SLOTS_PER_EPOCH * MAX_BLOBS_PER_BLOCK
-    ## Same limit as `MaxOrphans` in `block_quarantine`;
-    ## blobs may arrive before an orphan is tagged `blobless`
+func maxBlobs(MAX_BLOBS_PER_BLOCK_ELECTRA: uint64): uint64 =
+  # Same limit as `MaxOrphans` in `block_quarantine`;
+  # blobs may arrive before an orphan is tagged `blobless`
+  3 * SLOTS_PER_EPOCH * MAX_BLOBS_PER_BLOCK_ELECTRA
 
 type
   BlobQuarantine* = object
+    maxBlobs: uint64
     blobs*:
       OrderedTable[(Eth2Digest, BlobIndex, KzgCommitment), ref BlobSidecar]
     onBlobSidecarCallback*: OnBlobSidecarCallback
@@ -39,7 +40,7 @@ func shortLog*(x: seq[BlobFetchRecord]): string =
   "[" & x.mapIt(shortLog(it.block_root) & shortLog(it.indices)).join(", ") & "]"
 
 func put*(quarantine: var BlobQuarantine, blobSidecar: ref BlobSidecar) =
-  if quarantine.blobs.lenu64 >= MaxBlobs:
+  if quarantine.blobs.lenu64 >= quarantine.maxBlobs:
     # FIFO if full. For example, sync manager and request manager can race to
     # put blobs in at the same time, so one gets blob insert -> block resolve
     # -> blob insert sequence, which leaves garbage blobs.
@@ -61,12 +62,14 @@ func hasBlob*(
     quarantine: BlobQuarantine,
     slot: Slot,
     proposer_index: uint64,
-    index: BlobIndex): bool =
+    index: BlobIndex,
+    kzg_commitment: KzgCommitment): bool =
   for blob_sidecar in quarantine.blobs.values:
     template block_header: untyped = blob_sidecar.signed_block_header.message
     if block_header.slot == slot and
         block_header.proposer_index == proposer_index and
-        blob_sidecar.index == index:
+        blob_sidecar.index == index and
+        blob_sidecar.kzg_commitment == kzg_commitment:
       return true
   false
 
@@ -104,5 +107,8 @@ func blobFetchRecord*(quarantine: BlobQuarantine,
   BlobFetchRecord(block_root: blck.root, indices: indices)
 
 func init*(
-    T: type BlobQuarantine, onBlobSidecarCallback: OnBlobSidecarCallback): T =
-  T(onBlobSidecarCallback: onBlobSidecarCallback)
+    T: type BlobQuarantine,
+    cfg: RuntimeConfig,
+    onBlobSidecarCallback: OnBlobSidecarCallback): T =
+  T(maxBlobs: cfg.MAX_BLOBS_PER_BLOCK_ELECTRA.maxBlobs(),
+    onBlobSidecarCallback: onBlobSidecarCallback)

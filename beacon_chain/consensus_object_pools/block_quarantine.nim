@@ -1,5 +1,5 @@
 # beacon_chain
-# Copyright (c) 2018-2024 Status Research & Development GmbH
+# Copyright (c) 2018-2025 Status Research & Development GmbH
 # Licensed and distributed under either of
 #   * MIT license (license terms in the root directory or at https://opensource.org/licenses/MIT).
 #   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
@@ -8,9 +8,8 @@
 {.push raises: [].}
 
 import
+  std/tables,
   chronicles,
-  std/[options, tables],
-  stew/bitops2,
   ../spec/forks
 
 export tables, forks
@@ -18,11 +17,13 @@ export tables, forks
 const
   MaxRetriesPerMissingItem = 7
     ## Exponential backoff, double interval between each attempt
-  MaxMissingItems = 1024
+  MaxMissingItems* = 1024
     ## Arbitrary
   MaxOrphans = SLOTS_PER_EPOCH * 3
     ## Enough for finalization in an alternative fork
   MaxBlobless = SLOTS_PER_EPOCH
+    ## Arbitrary
+  MaxColumnless = SLOTS_PER_EPOCH
     ## Arbitrary
   MaxUnviables = 16 * 1024
     ## About a day of blocks - most likely not needed but it's quite cheap..
@@ -57,6 +58,12 @@ type
       ## all blobs for this block, we can proceed to resolving the
       ## block as well. A blobless block inserted into this table must
       ## have a resolved parent (i.e., it is not an orphan).
+
+    columnless*: OrderedTable[Eth2Digest, ForkedSignedBeaconBlock]
+      ## Blocks that we don't have columns for. When we have received
+      ## all columns for this block, we can proceed to resolving the
+      ## block as well. A columnless block inserted into this table must
+      ## have a resolved parent (i.e., it is not an orphan)
 
     unviable*: OrderedTable[Eth2Digest, tuple[]]
       ## Unviable blocks are those that come from a history that does not
@@ -132,6 +139,10 @@ func removeBlobless*(
   quarantine: var Quarantine, signedBlock: ForkySignedBeaconBlock) =
   quarantine.blobless.del(signedBlock.root)
 
+func removeColumnless*(
+  quarantine: var Quarantine, signedBlock: ForkySignedBeaconBlock) =
+  quarantine.columnless.del(signedBlock.root)
+
 func isViable(
     finalizedSlot: Slot, slot: Slot): bool =
   # The orphan must be newer than the finalization point so that its parent
@@ -203,6 +214,9 @@ func removeUnviableBloblessTree(
     toRemove.setLen(0)
 
 func addUnviable*(quarantine: var Quarantine, root: Eth2Digest) =
+  # Unviable - don't try to download again!
+  quarantine.missing.del(root)
+
   if root in quarantine.unviable:
     return
 
@@ -236,6 +250,18 @@ func cleanupBlobless(quarantine: var Quarantine, finalizedSlot: Slot) =
     quarantine.addUnviable k
     quarantine.blobless.del k
 
+func cleanupColumnless(quarantine: var Quarantine, finalizedSlot: Slot) =
+  var toDel: seq[Eth2Digest]
+
+  for k, v in quarantine.columnless:
+    withBlck(v):
+      if not isViable(finalizedSlot, forkyBlck.message.slot):
+        toDel.add k
+
+  for k in toDel:
+    quarantine.addUnviable k
+    quarantine.columnless.del k
+
 func clearAfterReorg*(quarantine: var Quarantine) =
   ## Clear missing and orphans to start with a fresh slate in case of a reorg
   ## Unviables remain unviable and are not cleared.
@@ -257,8 +283,9 @@ func addOrphan*(
     quarantine: var Quarantine, finalizedSlot: Slot,
     signedBlock: ForkedSignedBeaconBlock): Result[void, cstring] =
   ## Adds block to quarantine's `orphans` and `missing` lists.
+
   if not isViable(finalizedSlot, getForkedBlockField(signedBlock, slot)):
-    quarantine.addUnviable(signedBlock.root)
+    quarantine.addUnviable(signedBlock.root) # will remove from missing
     return err("block unviable")
 
   quarantine.cleanupOrphans(finalizedSlot)
@@ -266,8 +293,13 @@ func addOrphan*(
   let parent_root = getForkedBlockField(signedBlock, parent_root)
 
   if parent_root in quarantine.unviable:
-    quarantine.unviable[signedBlock.root] = ()
+    quarantine.addUnviable(signedBlock.root)
     return err("block parent unviable")
+
+  # It's no longer missing if we downloaded it - remove before adding to make
+  # sure parent chains get downloaded even if missing list is full (works as
+  # long as the orphan was in the missing list, which is likely)
+  quarantine.missing.del(signedBlock.root)
 
   # Even if the quarantine is full, we need to schedule its parent for
   # downloading or we'll never get to the bottom of things
@@ -283,7 +315,6 @@ func addOrphan*(
     quarantine.blobless.del oldest_orphan_key[0]
 
   quarantine.orphans[(signedBlock.root, signedBlock.signature)] = signedBlock
-  quarantine.missing.del(signedBlock.root)
 
   ok()
 
@@ -325,6 +356,29 @@ proc addBlobless*(
   quarantine.missing.del(signedBlock.root)
   true
 
+proc addColumnless*(
+    quarantine: var Quarantine, finalizedSlot: Slot,
+    signedBlock: fulu.SignedBeaconBlock): bool =
+
+  if not isViable(finalizedSlot, signedBlock.message.slot):
+    quarantine.addUnviable(signedBlock.root)
+    return false
+
+  quarantine.cleanupColumnless(finalizedSlot)
+
+  if quarantine.columnless.lenu64 >= MaxColumnless:
+    var oldest_columnless_key: Eth2Digest
+    for k in quarantine.columnless.keys:
+      oldest_columnless_key = k
+      break
+    quarantine.blobless.del oldest_columnless_key
+
+  debug "block quarantine: Adding columnless", blck = shortLog(signedBlock)
+  quarantine.columnless[signedBlock.root] =
+    ForkedSignedBeaconBlock.init(signedBlock)
+  quarantine.missing.del(signedBlock.root)
+  true
+
 func popBlobless*(
     quarantine: var Quarantine,
     root: Eth2Digest): Opt[ForkedSignedBeaconBlock] =
@@ -334,6 +388,19 @@ func popBlobless*(
   else:
     Opt.none(ForkedSignedBeaconBlock)
 
+func popColumnless*(
+    quarantine: var Quarantine,
+    root: Eth2Digest): Opt[ForkedSignedBeaconBlock] =
+  var blck: ForkedSignedBeaconBlock
+  if quarantine.columnless.pop(root, blck):
+    Opt.some(blck)
+  else:
+    Opt.none(ForkedSignedBeaconBlock)
+
 iterator peekBlobless*(quarantine: var Quarantine): ForkedSignedBeaconBlock =
   for k, v in quarantine.blobless.mpairs():
+    yield v
+
+iterator peekColumnless*(quarantine: var Quarantine): ForkedSignedBeaconBlock =
+  for k, v in quarantine.columnless.mpairs():
     yield v

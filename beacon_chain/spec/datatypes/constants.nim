@@ -1,5 +1,5 @@
 # beacon_chain
-# Copyright (c) 2022-2024 Status Research & Development GmbH
+# Copyright (c) 2022-2025 Status Research & Development GmbH
 # Licensed and distributed under either of
 #   * MIT license (license terms in the root directory or at https://opensource.org/licenses/MIT).
 #   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
@@ -14,7 +14,7 @@ type
   Epoch* = distinct uint64
   SyncCommitteePeriod* = distinct uint64
 
-  # https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.8/specs/capella/beacon-chain.md#custom-types
+  # https://github.com/ethereum/consensus-specs/blob/v1.5.0-beta.2/specs/capella/beacon-chain.md#custom-types
   WithdrawalIndex* = uint64
 
   DomainType* = distinct array[4, byte]
@@ -55,7 +55,7 @@ const
   DOMAIN_SYNC_COMMITTEE_SELECTION_PROOF* = DomainType([byte 0x08, 0x00, 0x00, 0x00])
   DOMAIN_CONTRIBUTION_AND_PROOF* = DomainType([byte 0x09, 0x00, 0x00, 0x00])
 
-  # https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.8/specs/capella/beacon-chain.md#domain-types
+  # https://github.com/ethereum/consensus-specs/blob/v1.5.0-beta.2/specs/capella/beacon-chain.md#domain-types
   DOMAIN_BLS_TO_EXECUTION_CHANGE* = DomainType([byte 0x0a, 0x00, 0x00, 0x00])
 
   # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.5/specs/phase0/fork-choice.md#configuration
@@ -64,18 +64,14 @@ const
   REORG_PARENT_WEIGHT_THRESHOLD*: uint64 = 160
   REORG_MAX_EPOCHS_SINCE_FINALIZATION* = Epoch(2)
 
-  # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.7/specs/deneb/p2p-interface.md#configuration
-  BLOB_SIDECAR_SUBNET_COUNT*: uint64 = 6
-
   # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.1/specs/phase0/p2p-interface.md#configuration
   MAX_REQUEST_BLOCKS* = 1024'u64
   RESP_TIMEOUT* = 10'u64
   ATTESTATION_PROPAGATION_SLOT_RANGE*: uint64 = 32
   MAXIMUM_GOSSIP_CLOCK_DISPARITY* = 500.millis
 
-  # https://github.com/ethereum/consensus-specs/blob/v1.3.0/specs/bellatrix/p2p-interface.md#configuration
-  GOSSIP_MAX_SIZE* = 10'u64 * 1024 * 1024 # bytes
-  MAX_CHUNK_SIZE* = 10'u64 * 1024 * 1024 # bytes
+  # https://github.com/ethereum/consensus-specs/blob/v1.5.0-beta.2/specs/phase0/p2p-interface.md#configuration
+  MAX_PAYLOAD_SIZE* = 10'u64 * 1024 * 1024 # bytes
 
   # https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.8/specs/deneb/p2p-interface.md#configuration
   MAX_REQUEST_BLOCKS_DENEB*: uint64 = 128 # TODO Make use of in request code
@@ -85,4 +81,9 @@ const
   FULL_EXIT_REQUEST_AMOUNT*: uint64 = 0
 
   # https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.5/specs/electra/beacon-chain.md#withdrawal-prefixes
-  COMPOUNDING_WITHDRAWAL_PREFIX* = 0x02
+  COMPOUNDING_WITHDRAWAL_PREFIX* = 0x02'u8
+
+  # https://github.com/ethereum/consensus-specs/blob/v1.5.0-beta.1/specs/electra/beacon-chain.md#execution-layer-triggered-requests
+  DEPOSIT_REQUEST_TYPE* = 0x00'u8
+  WITHDRAWAL_REQUEST_TYPE* = 0x01'u8
+  CONSOLIDATION_REQUEST_TYPE* = 0x02'u8

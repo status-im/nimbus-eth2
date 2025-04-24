@@ -1,5 +1,5 @@
 # beacon_chain
-# Copyright (c) 2020-2024 Status Research & Development GmbH
+# Copyright (c) 2020-2025 Status Research & Development GmbH
 # Licensed and distributed under either of
 #   * MIT license (license terms in the root directory or at https://opensource.org/licenses/MIT).
 #   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
@@ -8,7 +8,7 @@
 {.push raises: [].}
 
 import
-  std/[os, stats, tables],
+  std/tables,
   snappy,
   chronicles, confutils, stew/[byteutils, io2], eth/db/kvstore_sqlite3,
   ../beacon_chain/networking/network_metadata,
@@ -20,6 +20,9 @@ import
   ../beacon_chain/sszdump,
   ../research/simutils,
   ./era, ./ncli_common, ./validator_db_aggregator
+
+from std/os import createDir, dirExists, moveFile, `/`
+from std/stats import RunningStat
 
 when defined(posix):
   import system/ansi_c
@@ -447,19 +450,14 @@ proc cmdDumpBlock(conf: DbConf) =
     if shouldShutDown: quit QuitSuccess
     try:
       let root = Eth2Digest.fromHex(blockRoot)
-      if (let blck = db.getBlock(
-          root, phase0.TrustedSignedBeaconBlock); blck.isSome):
-        dump("./", blck.get())
-      elif (let blck = db.getBlock(
-          root, altair.TrustedSignedBeaconBlock); blck.isSome):
-        dump("./", blck.get())
-      elif (let blck = db.getBlock(root, bellatrix.TrustedSignedBeaconBlock); blck.isSome):
-        dump("./", blck.get())
-      elif (let blck = db.getBlock(root, capella.TrustedSignedBeaconBlock); blck.isSome):
-        dump("./", blck.get())
-      elif (let blck = db.getBlock(root, deneb.TrustedSignedBeaconBlock); blck.isSome):
-        dump("./", blck.get())
-      else:
+      var found = false
+      withAll(ConsensusFork):
+        if not found:
+          let blck = db.getBlock(root, consensusFork.TrustedSignedBeaconBlock)
+          if blck.isSome:
+            found = true
+            dump("./", blck.get())
+      if not found:
         echo "Couldn't load ", blockRoot
     except CatchableError as e:
       echo "Couldn't load ", blockRoot, ": ", e.msg
@@ -641,7 +639,7 @@ proc cmdExportEra(conf: DbConf, cfg: RuntimeConfig) =
       if firstSlot.isSome():
         withTimer(timers[tBlocks]):
           var blocks: array[SLOTS_PER_HISTORICAL_ROOT.int, BlockId]
-          for i in dag.getBlockRange(firstSlot.get(), 1, blocks)..<blocks.len:
+          for i in dag.getBlockRange(firstSlot.get(), blocks)..<blocks.len:
             if not dag.getBlockSZ(blocks[i], tmp):
               break writeFileBlock
             group.update(e2, blocks[i].slot, tmp).get()
@@ -901,11 +899,11 @@ proc createInsertValidatorProc(db: SqStoreRef): auto =
     VALUES(?, ?);""",
     (int64, array[48, byte]), void).expect("DB")
 
-proc collectBalances(balances: var seq[uint64], forkedState: ForkedHashedBeaconState) =
+func collectBalances(balances: var seq[uint64], forkedState: ForkedHashedBeaconState) =
   withState(forkedState):
     balances = seq[uint64](forkyState.data.balances.data)
 
-proc calculateDelta(info: RewardsAndPenalties): int64 =
+func calculateDelta(info: RewardsAndPenalties): int64 =
   info.source_outcome +
   info.target_outcome +
   info.head_outcome +

@@ -1,5 +1,5 @@
 # beacon_chain
-# Copyright (c) 2018-2024 Status Research & Development GmbH
+# Copyright (c) 2018-2025 Status Research & Development GmbH
 # Licensed and distributed under either of
 #   * MIT license (license terms in the root directory or at https://opensource.org/licenses/MIT).
 #   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
@@ -1639,11 +1639,11 @@ template forkAtEpoch*(dag: ChainDAGRef, epoch: Epoch): Fork =
   forkAtEpoch(dag.cfg, epoch)
 
 proc getBlockRange*(
-    dag: ChainDAGRef, startSlot: Slot, skipStep: uint64,
+    dag: ChainDAGRef, startSlot: Slot,
     output: var openArray[BlockId]): Natural =
   ## This function populates an `output` buffer of blocks
   ## with a slots ranging from `startSlot` up to, but not including,
-  ## `startSlot + skipStep * output.len`, skipping any slots that don't have
+  ## `startSlot + output.len`, skipping any slots that don't have
   ## a block.
   ##
   ## Blocks will be written to `output` from the end without gaps, even if
@@ -1657,7 +1657,7 @@ proc getBlockRange*(
     headSlot = dag.head.slot
 
   trace "getBlockRange entered",
-    head = shortLog(dag.head.root), requestedCount, startSlot, skipStep, headSlot
+    head = shortLog(dag.head.root), requestedCount, startSlot, headSlot
 
   if startSlot < dag.backfill.slot:
     debug "Got request for pre-backfill slot",
@@ -1671,11 +1671,9 @@ proc getBlockRange*(
     runway = uint64(headSlot - startSlot)
 
     # This is the number of blocks that will follow the start block
-    extraSlots = min(runway div skipStep, requestedCount - 1)
+    extraSlots = min(runway, requestedCount - 1)
 
-    # If `skipStep` is very large, `extraSlots` should be 0 from
-    # the previous line, so `endSlot` will be equal to `startSlot`:
-    endSlot = startSlot + extraSlots * skipStep
+    endSlot = startSlot + extraSlots
 
   var
     curSlot = endSlot
@@ -1687,7 +1685,7 @@ proc getBlockRange*(
     if bs.isSome and bs.get().isProposed():
       o -= 1
       output[o] = bs.get().bid
-    curSlot -= skipStep
+    curSlot -= 1
 
   # Handle start slot separately (to avoid underflow when computing curSlot)
   let bs = dag.getBlockIdAtSlot(startSlot)
@@ -1984,7 +1982,7 @@ proc pruneBlocksDAG(dag: ChainDAGRef) =
     prunedHeads = hlen - dag.heads.len,
     dagPruneDur = Moment.now() - startTick
 
-# https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.8/sync/optimistic.md#helpers
+# https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.9/sync/optimistic.md#helpers
 func is_optimistic*(dag: ChainDAGRef, bid: BlockId): bool =
   let blck =
     if bid.slot <= dag.finalizedHead.slot:
@@ -2324,7 +2322,7 @@ proc loadExecutionBlockHash*(
 
 from std/packedsets import PackedSet, incl, items
 
-func getValidatorChangeStatuses(
+func getBlsToExecutionChangeStatuses(
     state: ForkedHashedBeaconState, vis: openArray[ValidatorIndex]):
     PackedSet[ValidatorIndex] =
   var res: PackedSet[ValidatorIndex]
@@ -2340,6 +2338,7 @@ func checkBlsToExecutionChanges(
   # Within each fork, BLS_WITHDRAWAL_PREFIX to ETH1_ADDRESS_WITHDRAWAL_PREFIX
   # and never ETH1_ADDRESS_WITHDRAWAL_PREFIX to BLS_WITHDRAWAL_PREFIX. Latter
   # can still happen via reorgs.
+  #
   # Cases:
   # 1) unchanged (BLS_WITHDRAWAL_PREFIX or ETH1_ADDRESS_WITHDRAWAL_PREFIX) from
   #    old to new head.
@@ -2354,7 +2353,25 @@ func checkBlsToExecutionChanges(
   # Since it tracks head, it's possible reorgs trigger reporting the same
   # validator indices multiple times; this is fine.
   withState(state):
-    anyIt( vis, forkyState.data.validators[it].has_eth1_withdrawal_credential)
+    anyIt(vis, forkyState.data.validators[it].has_eth1_withdrawal_credential)
+
+func getCompoundingStatuses(
+    state: ForkedHashedBeaconState, vis: openArray[ValidatorIndex]):
+    PackedSet[ValidatorIndex] =
+  var res: PackedSet[ValidatorIndex]
+  withState(state):
+    for vi in vis:
+      if  forkyState.data.validators[vi].withdrawal_credentials.data[0] !=
+          COMPOUNDING_WITHDRAWAL_PREFIX:
+        res.incl vi
+  res
+
+func checkCompoundingChanges(
+    state: ForkedHashedBeaconState, vis: PackedSet[ValidatorIndex]): bool =
+  # Since it tracks head, it's possible reorgs trigger reporting the same
+  # validator indices multiple times; this is fine.
+  withState(state):
+    anyIt(vis, forkyState.data.validators[it].has_compounding_withdrawal_credential)
 
 proc updateHead*(
     dag: ChainDAGRef, newHead: BlockRef, quarantine: var Quarantine,
@@ -2393,9 +2410,10 @@ proc updateHead*(
 
   let
     lastHeadStateRoot = getStateRoot(dag.headState)
-    lastHeadMergeComplete = dag.headState.is_merge_transition_complete()
     lastHeadKind = dag.headState.kind
-    lastKnownValidatorsChangeStatuses = getValidatorChangeStatuses(
+    lastKnownValidatorsChangeStatuses = getBlsToExecutionChangeStatuses(
+      dag.headState, knownValidators)
+    lastKnownCompoundingChangeStatuses = getCompoundingStatuses(
       dag.headState, knownValidators)
 
   # Start off by making sure we have the right state - updateState will try
@@ -2413,31 +2431,30 @@ proc updateHead*(
 
   dag.head = newHead
 
-  if  dag.headState.is_merge_transition_complete() and not
-      lastHeadMergeComplete and
-      dag.vanityLogs.onMergeTransitionBlock != nil:
-    dag.vanityLogs.onMergeTransitionBlock()
-
   if dag.headState.kind > lastHeadKind:
-    case dag.headState.kind
-    of ConsensusFork.Phase0 .. ConsensusFork.Bellatrix:
-      discard
-    of ConsensusFork.Capella:
-      if dag.vanityLogs.onUpgradeToCapella != nil:
-        dag.vanityLogs.onUpgradeToCapella()
-    of ConsensusFork.Deneb:
-      if dag.vanityLogs.onUpgradeToDeneb != nil:
-        dag.vanityLogs.onUpgradeToDeneb()
-    of ConsensusFork.Electra:
-      if dag.vanityLogs.onUpgradeToElectra != nil:
-        dag.vanityLogs.onUpgradeToElectra()
-    of ConsensusFork.Fulu:
-      discard
+    proc logForkUpgrade(consensusFork: ConsensusFork, handler: LogProc) =
+      if handler != nil and
+          dag.headState.kind >= consensusFork and
+          lastHeadKind < consensusFork:
+        handler()
+
+    # Policy: Retain back through Mainnet's second latest fork.
+    ConsensusFork.Capella.logForkUpgrade(
+      dag.vanityLogs.onUpgradeToCapella)
+    ConsensusFork.Deneb.logForkUpgrade(
+      dag.vanityLogs.onUpgradeToDeneb)
+    ConsensusFork.Electra.logForkUpgrade(
+      dag.vanityLogs.onUpgradeToElectra)
 
   if  dag.vanityLogs.onKnownBlsToExecutionChange != nil and
       checkBlsToExecutionChanges(
         dag.headState, lastKnownValidatorsChangeStatuses):
     dag.vanityLogs.onKnownBlsToExecutionChange()
+
+  if  dag.vanityLogs.onKnownCompoundingChange != nil and
+      checkCompoundingChanges(
+        dag.headState, lastKnownCompoundingChangeStatuses):
+    dag.vanityLogs.onKnownCompoundingChange()
 
   dag.db.putHeadBlock(newHead.root)
 
@@ -2542,13 +2559,6 @@ proc updateHead*(
       dag.finalizedHead = finalizedHead
 
       dag.db.updateFinalizedBlocks(newFinalized)
-
-    let oldBlockHash = dag.loadExecutionBlockHash(oldFinalizedHead.blck)
-    if oldBlockHash.isSome and oldBlockHash.unsafeGet.isZero:
-      let newBlockHash = dag.loadExecutionBlockHash(dag.finalizedHead.blck)
-      if newBlockHash.isSome and not newBlockHash.unsafeGet.isZero:
-        if dag.vanityLogs.onFinalizedMergeTransitionBlock != nil:
-          dag.vanityLogs.onFinalizedMergeTransitionBlock()
 
     # Pruning the block dag is required every time the finalized head changes
     # in order to clear out blocks that are no longer viable and should

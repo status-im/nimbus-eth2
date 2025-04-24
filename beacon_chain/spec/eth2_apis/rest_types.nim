@@ -1,5 +1,5 @@
 # beacon_chain
-# Copyright (c) 2018-2024 Status Research & Development GmbH
+# Copyright (c) 2018-2025 Status Research & Development GmbH
 # Licensed and distributed under either of
 #   * MIT license (license terms in the root directory or at https://opensource.org/licenses/MIT).
 #   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
@@ -56,10 +56,10 @@ static:
 type
   # https://github.com/ethereum/beacon-APIs/blob/v2.4.2/apis/eventstream/index.yaml
   EventTopic* {.pure.} = enum
-    Head, Block, Attestation, VoluntaryExit, BLSToExecutionChange,
-    ProposerSlashing, AttesterSlashing, BlobSidecar, FinalizedCheckpoint,
-    ChainReorg, ContributionAndProof, LightClientFinalityUpdate,
-    LightClientOptimisticUpdate
+    Head, Block, Attestation, BlockGossip, VoluntaryExit, BLSToExecutionChange,
+    ProposerSlashing, AttesterSlashing, BlobSidecar, SingleAttestation,
+    FinalizedCheckpoint, ChainReorg, ContributionAndProof,
+    LightClientFinalityUpdate, LightClientOptimisticUpdate
 
   EventTopics* = set[EventTopic]
 
@@ -274,6 +274,7 @@ type
     seq_number*: string
     syncnets*: string
     attnets*: string
+    custody_group_count*: string
 
   RestNetworkIdentity* = object
     peer_id*: string
@@ -518,9 +519,6 @@ type
   GetEpochCommitteesResponse* = DataEnclosedObject[seq[RestBeaconStatesCommittees]]
   GetForkScheduleResponse* = DataEnclosedObject[seq[Fork]]
   GetGenesisResponse* = DataEnclosedObject[RestGenesis]
-  GetHeaderResponseDeneb* = DataVersionEnclosedObject[deneb_mev.SignedBuilderBid]
-  GetHeaderResponseElectra* = DataVersionEnclosedObject[electra_mev.SignedBuilderBid]
-  GetHeaderResponseFulu* = DataVersionEnclosedObject[fulu_mev.SignedBuilderBid]
   GetNetworkIdentityResponse* = DataEnclosedObject[RestNetworkIdentity]
   GetPeerCountResponse* = DataMetaEnclosedObject[RestPeerCount]
   GetPeerResponse* = DataMetaEnclosedObject[RestNodePeer]
@@ -546,13 +544,17 @@ type
   GetEpochSyncCommitteesResponse* = DataEnclosedObject[RestEpochSyncCommittee]
   ProduceAttestationDataResponse* = DataEnclosedObject[AttestationData]
   ProduceSyncCommitteeContributionResponse* = DataEnclosedObject[SyncCommitteeContribution]
-  SubmitBlindedBlockResponseDeneb* = DataEnclosedObject[deneb_mev.ExecutionPayloadAndBlobsBundle]
-  SubmitBlindedBlockResponseElectra* = DataEnclosedObject[electra_mev.ExecutionPayloadAndBlobsBundle]
-  SubmitBlindedBlockResponseFulu* = DataEnclosedObject[fulu_mev.ExecutionPayloadAndBlobsBundle]
   GetValidatorsActivityResponse* = DataEnclosedObject[seq[RestActivityItem]]
   GetValidatorsLivenessResponse* = DataEnclosedObject[seq[RestLivenessItem]]
   SubmitBeaconCommitteeSelectionsResponse* = DataEnclosedObject[seq[RestBeaconCommitteeSelection]]
   SubmitSyncCommitteeSelectionsResponse* = DataEnclosedObject[seq[RestSyncCommitteeSelection]]
+
+  GetHeaderResponseDeneb* = DataVersionEnclosedObject[deneb_mev.SignedBuilderBid]
+  GetHeaderResponseElectra* = DataVersionEnclosedObject[electra_mev.SignedBuilderBid]
+  GetHeaderResponseFulu* = DataVersionEnclosedObject[fulu_mev.SignedBuilderBid]
+  SubmitBlindedBlockResponseDeneb* = DataVersionEnclosedObject[deneb_mev.ExecutionPayloadAndBlobsBundle]
+  SubmitBlindedBlockResponseElectra* = DataVersionEnclosedObject[electra_mev.ExecutionPayloadAndBlobsBundle]
+  SubmitBlindedBlockResponseFulu* = DataVersionEnclosedObject[fulu_mev.ExecutionPayloadAndBlobsBundle]
 
   RestNodeValidity* {.pure.} = enum
     valid = "VALID",

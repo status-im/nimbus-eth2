@@ -1,5 +1,5 @@
 # beacon_chain
-# Copyright (c) 2018-2024 Status Research & Development GmbH
+# Copyright (c) 2018-2025 Status Research & Development GmbH
 # Licensed and distributed under either of
 #   * MIT license (license terms in the root directory or at https://opensource.org/licenses/MIT).
 #   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
@@ -1445,8 +1445,8 @@ proc installBeaconApiHandlers*(router: var RestRouter, node: BeaconNode) =
       let dres = decodeBody(seq[AttestationType], contentBody.get())
       if dres.isErr():
         return RestApiResponse.jsonError(Http400,
-                                          InvalidAttestationObjectError,
-                                          $dres.error)
+                                         InvalidAttestationObjectError,
+                                         $dres.error)
       # Since our validation logic supports batch processing, we will submit all
       # attestations for validation.
       for attestation in dres.get():
@@ -1456,7 +1456,7 @@ proc installBeaconApiHandlers*(router: var RestRouter, node: BeaconNode) =
       of ConsensusFork.Phase0 .. ConsensusFork.Deneb:
         decodeAttestations(phase0.Attestation)
       of ConsensusFork.Electra .. ConsensusFork.Fulu:
-        decodeAttestations(electra.Attestation)
+        decodeAttestations(electra.SingleAttestation)
 
     let failures =
       block:
@@ -1515,7 +1515,7 @@ proc installBeaconApiHandlers*(router: var RestRouter, node: BeaconNode) =
 
     let contextFork =
       node.dag.cfg.consensusForkAtEpoch(node.currentSlot.epoch)
-  
+
     withConsensusFork(contextFork):
       when consensusFork < ConsensusFork.Electra:
         RestApiResponse.jsonResponseWVersion(
@@ -1702,7 +1702,12 @@ proc installBeaconApiHandlers*(router: var RestRouter, node: BeaconNode) =
         res.get()
 
     # https://github.com/ethereum/beacon-APIs/blob/v2.4.2/types/deneb/blob_sidecar.yaml#L2-L28
-    let data = newClone(default(List[BlobSidecar, Limit MAX_BLOBS_PER_BLOCK]))
+    # The merkleization limit of the list is `MAX_BLOB_COMMITMENTS_PER_BLOCK`,
+    # the serialization limit is configurable and is:
+    # - `MAX_BLOBS_PER_BLOCK` from Deneb onward
+    # - `MAX_BLOBS_PER_BLOCK_ELECTRA` from Electra.
+    let data = newClone(default(
+      List[BlobSidecar, Limit MAX_BLOB_COMMITMENTS_PER_BLOCK]))
 
     if indices.isErr:
       return RestApiResponse.jsonError(Http400,
@@ -1710,7 +1715,7 @@ proc installBeaconApiHandlers*(router: var RestRouter, node: BeaconNode) =
 
     let indexFilter = indices.get.toHashSet
 
-    for blobIndex in 0'u64 ..< MAX_BLOBS_PER_BLOCK:
+    for blobIndex in 0'u64 ..< node.dag.cfg.MAX_BLOBS_PER_BLOCK_ELECTRA:
       if indexFilter.len > 0 and blobIndex notin indexFilter:
         continue
 
@@ -1727,3 +1732,63 @@ proc installBeaconApiHandlers*(router: var RestRouter, node: BeaconNode) =
       RestApiResponse.jsonResponse(data)
     else:
       RestApiResponse.jsonError(Http500, InvalidAcceptError)
+
+  # https://ethereum.github.io/beacon-APIs/?urls.primaryName=v3.0.0#/Beacon/getPendingDeposits
+  router.metricsApi2(
+    MethodGet, "/eth/v1/beacon/states/{state_id}/pending_deposits",
+    {RestServerMetricsType.Status, Response}) do (
+    state_id: StateIdent) -> RestApiResponse:
+    let
+      sid = state_id.valueOr:
+        return RestApiResponse.jsonError(Http400, InvalidStateIdValueError,
+                                         $error)
+      bslot = node.getBlockSlotId(sid).valueOr:
+        if sid.kind == StateQueryKind.Root:
+          # TODO (cheatfate): Its impossible to retrieve state by `state_root`
+          # in current version of database.
+          return RestApiResponse.jsonError(Http500, NoImplementationError)
+        return RestApiResponse.jsonError(Http404, StateNotFoundError,
+                                          $error)
+
+    node.withStateForBlockSlotId(bslot):
+      return withState(state):
+        when consensusFork >= ConsensusFork.Electra:
+          RestApiResponse.jsonResponseFinalized(
+            forkyState.data.pending_deposits,
+            node.getStateOptimistic(state),
+            node.dag.isFinalized(bslot.bid))
+        else:
+          RestApiResponse.jsonError(Http400, SlotFromTheIncorrectForkError,
+                                    $error)
+
+    RestApiResponse.jsonError(Http404, StateNotFoundError)
+
+  # https://ethereum.github.io/beacon-APIs/?urls.primaryName=v3.0.0#/Beacon/getPendingPartialWithdrawals
+  router.metricsApi2(
+    MethodGet, "/eth/v1/beacon/states/{state_id}/pending_partial_withdrawals",
+    {RestServerMetricsType.Status, Response}) do (
+    state_id: StateIdent) -> RestApiResponse:
+    let
+      sid = state_id.valueOr:
+        return RestApiResponse.jsonError(Http400, InvalidStateIdValueError,
+                                         $error)
+      bslot = node.getBlockSlotId(sid).valueOr:
+        if sid.kind == StateQueryKind.Root:
+          # TODO (cheatfate): Its impossible to retrieve state by `state_root`
+          # in current version of database.
+          return RestApiResponse.jsonError(Http500, NoImplementationError)
+        return RestApiResponse.jsonError(Http404, StateNotFoundError,
+                                          $error)
+
+    node.withStateForBlockSlotId(bslot):
+      return withState(state):
+        when consensusFork >= ConsensusFork.Electra:
+          RestApiResponse.jsonResponseFinalized(
+            forkyState.data.pending_partial_withdrawals,
+            node.getStateOptimistic(state),
+            node.dag.isFinalized(bslot.bid))
+        else:
+          RestApiResponse.jsonError(Http400, SlotFromTheIncorrectForkError,
+                                    $error)
+
+    RestApiResponse.jsonError(Http404, StateNotFoundError)

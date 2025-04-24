@@ -1,5 +1,5 @@
 # beacon_chain
-# Copyright (c) 2018-2024 Status Research & Development GmbH
+# Copyright (c) 2018-2025 Status Research & Development GmbH
 # Licensed and distributed under either of
 #   * MIT license (license terms in the root directory or at https://opensource.org/licenses/MIT).
 #   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
@@ -8,10 +8,8 @@
 {.push raises: [].}
 
 import
-  std/sequtils,
   chronicles,
   results,
-  stew/assign2,
   ../spec/[
     beaconstate, forks, signatures, signatures_batch,
     state_transition, state_transition_epoch],
@@ -266,7 +264,7 @@ proc addHeadBlockWithParent*(
   var cache = StateCache()
 
   # We've verified that the slot of the new block is newer than that of the
-  # parent, so we should now be able to create an approriate clearance state
+  # parent, so we should now be able to create an appropriate clearance state
   # onto which we can apply the new block
   let clearanceBlock = BlockSlotId.init(parent.bid, signedBlock.message.slot)
   if not updateState(
@@ -504,20 +502,17 @@ proc addBackfillBlockData*(
           return ok()
         return err(error)
       startTick = Moment.now()
-      parentBlock = dag.getForkedBlock(parent.bid.root).get()
-      trustedStateRoot =
-        withBlck(parentBlock):
-          forkyBlck.message.state_root
       clearanceBlock = BlockSlotId.init(parent.bid, forkyBlck.message.slot)
-      updateFlags1 = dag.updateFlags + {skipLastStateRootCalculation}
+      updateFlags1 = dag.updateFlags
+        # TODO (cheatfate): {skipLastStateRootCalculation} flag here could
+        # improve performance by 100%, but this approach needs some
+        # improvements, which is unclear.
 
     if not updateState(dag, dag.clearanceState, clearanceBlock, true, cache,
                        updateFlags1):
       error "Unable to load clearance state for parent block, " &
             "database corrupt?", clearanceBlock = shortLog(clearanceBlock)
       return err(VerifierError.MissingParent)
-
-    dag.clearanceState.setStateRoot(trustedStateRoot)
 
     let proposerVerifyTick = Moment.now()
 

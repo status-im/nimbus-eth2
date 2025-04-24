@@ -1,5 +1,5 @@
 # beacon_chain
-# Copyright (c) 2018-2024 Status Research & Development GmbH
+# Copyright (c) 2018-2025 Status Research & Development GmbH
 # Licensed and distributed under either of
 #   * MIT license (license terms in the root directory or at https://opensource.org/licenses/MIT).
 #   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
@@ -25,24 +25,32 @@ type
     # the slashing protection database and is therefore ready to be signed and
     # sent
     validator*: AttachedValidator
+    validator_index*: ValidatorIndex
     committee_index*: CommitteeIndex
     index_in_committee*: uint64
     committee_len*: int
     data*: AttestationData
 
-proc toAttestation*(
+func toAttestation*(
     registered: RegisteredAttestation, signature: ValidatorSig):
     phase0.Attestation =
   phase0.Attestation.init(
     [registered.index_in_committee], registered.committee_len,
     registered.data, signature).expect("valid data")
 
-proc toElectraAttestation*(
+func toElectraAttestation*(
     registered: RegisteredAttestation, signature: ValidatorSig):
     electra.Attestation =
   electra.Attestation.init(
     registered.committee_index, [registered.index_in_committee],
     registered.committee_len, registered.data, signature).expect("valid data")
+
+func toSingleAttestation*(
+    registered: RegisteredAttestation, signature: ValidatorSig): SingleAttestation =
+  SingleAttestation(
+    committee_index: registered.committee_index.distinctBase,
+    attester_index: registered.validator_index.uint64, data: registered.data,
+    signature: signature)
 
 proc waitAfterBlockCutoff*(clock: BeaconClock, slot: Slot,
                            head: Opt[BlockRef] = Opt.none(BlockRef))

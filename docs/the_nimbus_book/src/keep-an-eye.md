@@ -2,7 +2,7 @@
 
 Once your validator has been activated, you can set up [validator monitoring](./validator-monitor.md) together with a [dashboard](./metrics-pretty-pictures.md) to keep track of its performance.
 
-Another way of keeping track is using an online service such as beaconcha.in: [Mainnet](https://beaconcha.in/) or [Holesky](https://holesky.beaconcha.in).
+Another way of keeping track is using an online service such as beaconcha.in: [Mainnet](https://beaconcha.in/) or [Hoodi](https://hoodi.beaconcha.in).
 
 Both online services and dashboards allow setting up alerts for when the validator is offline.
 
@@ -53,4 +53,4 @@ The string of letters -- what we call the `sync worker map` (in the above case r
 ```
 
 !!! tip
-    You can also use you calls outlined in the [REST API page](./rest-api.md) to retrieve similar information.
+    You can also use the calls outlined in the [REST API page](./rest-api.md) to retrieve similar information.

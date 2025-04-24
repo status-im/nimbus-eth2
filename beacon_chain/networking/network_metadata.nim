@@ -1,5 +1,5 @@
 # beacon_chain
-# Copyright (c) 2018-2024 Status Research & Development GmbH
+# Copyright (c) 2018-2025 Status Research & Development GmbH
 # Licensed and distributed under either of
 #   * MIT license (license terms in the root directory or at https://opensource.org/licenses/MIT).
 #   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
@@ -18,7 +18,7 @@ import
 
 from std/sequtils import deduplicate, filterIt, mapIt
 from std/strutils import
-  escape, parseBiggestUInt, replace, splitLines, startsWith, strip,
+  endsWith, escape, parseBiggestUInt, replace, splitLines, startsWith, strip,
   toLowerAscii
 
 # TODO(zah):
@@ -49,6 +49,7 @@ type
     mainnet
     sepolia
     holesky
+    hoodi
 
   GenesisMetadataKind* = enum
     NoGenesis
@@ -91,23 +92,41 @@ type
 func hasGenesis*(metadata: Eth2NetworkMetadata): bool =
   metadata.genesis.kind != NoGenesis
 
-proc readBootstrapNodes*(path: string): seq[string] {.raises: [IOError].} =
+proc readBootstrapNodes(path: string): seq[string] {.raises: [IOError].} =
   # Read a list of ENR values from a YAML file containing a flat list of entries
+  var res: seq[string]
   if fileExists(path):
-    splitLines(readFile(path)).
-      filterIt(it.startsWith("enr:")).
-      mapIt(it.strip())
-  else:
-    @[]
+    for line in splitLines(readFile(path)):
+      let line = line.strip()
+      if line.startsWith("enr:"):
+        res.add line
+      elif line.len == 0 or line.startsWith("#"):
+        discard
+      else:
+        when nimvm:
+          raiseAssert "Bootstrap node invalid (" & path & "): " & line
+        else:
+          warn "Ignoring invalid bootstrap node", path, bootstrapNode = line
+  res
 
-proc readBootEnr*(path: string): seq[string] {.raises: [IOError].} =
+proc readBootEnr(path: string): seq[string] {.raises: [IOError].} =
   # Read a list of ENR values from a YAML file containing a flat list of entries
+  var res: seq[string]
   if fileExists(path):
-    splitLines(readFile(path)).
-      filterIt(it.startsWith("- enr:")).
-      mapIt(it[2..^1].strip())
-  else:
-    @[]
+    for line in splitLines(readFile(path)):
+      let line = line.strip()
+      if line.startsWith("- enr:"):
+        res.add line[2 .. ^1]
+      elif line.startsWith("- \"enr:") and line.endsWith("\""):
+        res.add line[3 .. ^2]  # Gnosis Chiado `boot_enr.yaml`
+      elif line.len == 0 or line.startsWith("#"):
+        discard
+      else:
+        when nimvm:
+          raiseAssert "Bootstrap ENR invalid (" & path & "): " & line
+        else:
+          warn "Ignoring invalid bootstrap ENR", path, bootstrapEnr = line
+  res
 
 proc loadEth2NetworkMetadata*(
     path: string,
@@ -126,7 +145,8 @@ proc loadEth2NetworkMetadata*(
       deployBlockPath = path & "/deploy_block.txt"
       depositContractBlockPath = path & "/deposit_contract_block.txt"
       depositContractBlockHashPath = path & "/deposit_contract_block_hash.txt"
-      bootstrapNodesPath = path & "/bootstrap_nodes.txt"
+      bootstrapNodesLegacyPath = path & "/bootstrap_nodes.txt"  # <= Dec 2024
+      bootstrapNodesPath = path & "/bootstrap_nodes.yaml"
       bootEnrPath = path & "/boot_enr.yaml"
       runtimeConfig = if fileExists(configPath):
         let (cfg, unknowns) = readRuntimeConfig(configPath)
@@ -178,7 +198,8 @@ proc loadEth2NetworkMetadata*(
         default(Eth2Digest)
 
       bootstrapNodes = deduplicate(
-        readBootstrapNodes(bootstrapNodesPath) &
+        readBootstrapNodes(bootstrapNodesLegacyPath) &
+        readBootEnr(bootstrapNodesPath) &
         readBootEnr(bootEnrPath))
 
     ok Eth2NetworkMetadata(
@@ -265,13 +286,9 @@ when const_preset == "gnosis":
   static:
     for network in [gnosisMetadata, chiadoMetadata]:
       checkForkConsistency(network.cfg)
-
-    for network in [gnosisMetadata, chiadoMetadata]:
-      doAssert network.cfg.DENEB_FORK_EPOCH < FAR_FUTURE_EPOCH
-      doAssert network.cfg.ELECTRA_FORK_EPOCH == FAR_FUTURE_EPOCH 
+      doAssert network.cfg.ELECTRA_FORK_EPOCH < FAR_FUTURE_EPOCH
       doAssert network.cfg.FULU_FORK_EPOCH == FAR_FUTURE_EPOCH
       doAssert ConsensusFork.high == ConsensusFork.Fulu
-
 
 elif const_preset == "mainnet":
   when incbinEnabled:
@@ -304,6 +321,11 @@ elif const_preset == "mainnet":
       Opt.some mainnet,
       useBakedInGenesis = Opt.some "mainnet")
 
+    sepoliaMetadata = loadCompileTimeNetworkMetadata(
+      vendorDir & "/sepolia/metadata",
+      Opt.some sepolia,
+      useBakedInGenesis = Opt.some "sepolia")
+
     holeskyMetadata = loadCompileTimeNetworkMetadata(
       vendorDir & "/holesky/metadata",
       Opt.some holesky,
@@ -311,18 +333,38 @@ elif const_preset == "mainnet":
         url: "https://github.com/status-im/nimbus-eth2/releases/download/v23.9.1/holesky-genesis.ssz.sz",
         digest: Eth2Digest.fromHex "0x0ea3f6f9515823b59c863454675fefcd1d8b4f2dbe454db166206a41fda060a0"))
 
-    sepoliaMetadata = loadCompileTimeNetworkMetadata(
-      vendorDir & "/sepolia/metadata",
-      Opt.some sepolia,
-      useBakedInGenesis = Opt.some "sepolia")
+    # File can be reproduced by `cd vendor/hoodi`, then `git lfs install` and
+    # `git lfs pull`, and then from repo root:
+    #
+    # let
+    #   orig = io2.readAllBytes("./vendor/hoodi/metadata/genesis.ssz").get
+    #   enc = encodeFramed(orig)
+    # discard secureWriteFile("hoodi-genesis.ssz.sz", enc)
+    # let
+    #   dec = io2.readAllBytes("hoodi-genesis.ssz.sz").get
+    #   res = decodeFramed(dec)
+    #   state = newClone(readSszForkedHashedBeaconState(
+    #     getMetadataForNetwork("hoodi").cfg, res))
+    # withState(state[]):
+    #   echo $forkyState.root
+    #
+    # Uploading as release is recommended according to guidance from Github:
+    # > We don't limit the total size of the binary files in the release or the
+    #   bandwidth used to deliver them. However, each individual file must be
+    #   smaller than 2 GiB.
+    # - https://docs.github.com/en/repositories/working-with-files/managing-large-files/about-large-files-on-github#distributing-large-binaries
+    hoodiMetadata = loadCompileTimeNetworkMetadata(
+      vendorDir & "/hoodi/metadata",
+      Opt.some hoodi,
+      downloadGenesisFrom = Opt.some DownloadInfo(
+        url: "https://github.com/eth-clients/hoodi/releases/download/genesis/hoodi-genesis.ssz.sz",
+        digest: Eth2Digest.fromHex "0x2683ebc120f91f740c7bed4c866672d01e1ba51b4cc360297138465ee5df40f0"))
 
   static:
-    for network in [mainnetMetadata, sepoliaMetadata, holeskyMetadata]:
+    for network in [
+        mainnetMetadata, sepoliaMetadata, holeskyMetadata, hoodiMetadata]:
       checkForkConsistency(network.cfg)
-
-    for network in [mainnetMetadata, sepoliaMetadata, holeskyMetadata]:
-      doAssert network.cfg.DENEB_FORK_EPOCH < FAR_FUTURE_EPOCH
-      doAssert network.cfg.ELECTRA_FORK_EPOCH == FAR_FUTURE_EPOCH
+      doAssert network.cfg.ELECTRA_FORK_EPOCH < FAR_FUTURE_EPOCH
       doAssert network.cfg.FULU_FORK_EPOCH == FAR_FUTURE_EPOCH
       doAssert ConsensusFork.high == ConsensusFork.Fulu
 
@@ -366,6 +408,8 @@ proc getMetadataForNetwork*(networkName: string): Eth2NetworkMetadata =
       case toLowerAscii(networkName)
       of "mainnet":
         mainnetMetadata
+      of "hoodi":
+        hoodiMetadata
       of "holesky":
         holeskyMetadata
       of "sepolia":

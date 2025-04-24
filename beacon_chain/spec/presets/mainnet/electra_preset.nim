@@ -1,5 +1,5 @@
 # beacon_chain
-# Copyright (c) 2024 Status Research & Development GmbH
+# Copyright (c) 2024-2025 Status Research & Development GmbH
 # Licensed and distributed under either of
 #   * MIT license (license terms in the root directory or at https://opensource.org/licenses/MIT).
 #   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
@@ -8,7 +8,7 @@
 {.push raises: [].}
 
 # Electra preset - Electra
-# https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.8/presets/mainnet/electra.yaml
+# https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.9/presets/mainnet/electra.yaml
 const
   # Gwei values
   # ---------------------------------------------------------------
@@ -39,8 +39,8 @@ const
   MAX_ATTESTER_SLASHINGS_ELECTRA*: uint64 = 1
   # `uint64(2**3)` (= 8)
   MAX_ATTESTATIONS_ELECTRA*: uint64 = 8
-  # `uint64(2**0)` (= 1)
-  MAX_CONSOLIDATION_REQUESTS_PER_PAYLOAD*: uint64 = 1
+  # `uint64(2**1)` (= 2)
+  MAX_CONSOLIDATION_REQUESTS_PER_PAYLOAD*: uint64 = 2
 
   # Execution
   # ---------------------------------------------------------------

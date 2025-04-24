@@ -4,7 +4,7 @@ Docker images for the [Nimbus beacon node](https://hub.docker.com/r/statusim/nim
 
 We have version-specific Docker tags (e.g. `statusim/nimbus-eth2:amd64-v1.2.3`) and a tag for the latest image (e.g. `statusim/nimbus-eth2:amd64-latest`).
 
-These images contain the same binaries as the [release tarballs](./binaries.md) inside a `debian:bullseye-slim` image, running under a user imaginatively named `user`, with UID:GID of 1000:1000.
+These images contain the same binaries as the [release tarballs](./binaries.md) inside a `debian:bookworm-slim` image, running under a user imaginatively named `user`, with UID:GID of 1000:1000.
 
 The binaries are placed under the `/home/user/` directory which is also the default *WORKDIR*.
 The *ENTRYPOINT* of the image is configured to directly launch the respective binary without any extra arguments.

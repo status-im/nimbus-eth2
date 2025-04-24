@@ -1,4 +1,4 @@
-# Copyright (c) 2021-2024 Status Research & Development GmbH
+# Copyright (c) 2021-2025 Status Research & Development GmbH
 # Licensed and distributed under either of
 #   * MIT license (license terms in the root directory or at https://opensource.org/licenses/MIT).
 #   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
@@ -33,6 +33,17 @@ type
 RestJson.useDefaultSerializationFor(
   RestNodePeerCount,
 )
+
+proc normalize*(address: MultiAddress, value: PeerId): MaResult[MultiAddress] =
+  ## Checks if `address` has `p2p` suffix, and if not add it.
+  let
+    protos = ? address.protocols()
+    index = protos.find(multiCodec("p2p"))
+  if index == -1:
+    let suffix = ? MultiAddress.init(multiCodec("p2p"), value)
+    concat(address, suffix)
+  else:
+    ok(address)
 
 proc validateState(states: seq[PeerStateKind]): Result[ConnectionStateSet,
                                                        cstring] =
@@ -98,14 +109,13 @@ proc toString(direction: PeerType): string =
     "outbound"
 
 proc getLastSeenAddress(node: BeaconNode, id: PeerId): string =
-  # TODO (cheatfate): We need to provide filter here, which will be able to
-  # filter such multiaddresses like `/ip4/0.0.0.0` or local addresses or
-  # addresses with peer ids.
-  let addrs = node.network.switch.peerStore[AddressBook][id]
-  if len(addrs) > 0:
-    $addrs[len(addrs) - 1]
-  else:
-    ""
+  let
+    address = node.network.switch.peerStore[LastSeenBook][id].valueOr:
+      return ""
+    normalized = address.normalize(id).valueOr:
+      return ""
+  $normalized
+
 proc getDiscoveryAddresses(node: BeaconNode): seq[string] =
   let
     typedRec = TypedRecord.fromRecord(node.network.enrRecord())
@@ -154,7 +164,8 @@ proc installNodeApiHandlers*(router: var RestRouter, node: BeaconNode) =
         metadata: (
           seq_number: node.network.metadata.seq_number,
           syncnets: to0xHex(node.network.metadata.syncnets.bytes),
-          attnets: to0xHex(node.network.metadata.attnets.bytes)
+          attnets: to0xHex(node.network.metadata.attnets.bytes),
+          custody_group_count: node.network.metadata.custody_group_count
         )
       )
     )

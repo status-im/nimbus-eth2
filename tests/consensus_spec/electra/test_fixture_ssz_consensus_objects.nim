@@ -1,5 +1,5 @@
 # beacon_chain
-# Copyright (c) 2024 Status Research & Development GmbH
+# Copyright (c) 2024-2025 Status Research & Development GmbH
 # Licensed and distributed under either of
 #   * MIT license (license terms in the root directory or at https://opensource.org/licenses/MIT).
 #   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
@@ -175,6 +175,7 @@ suite "EF - Electra - SSZ consensus objects " & preset():
             checkSSZ(SignedContributionAndProof, path, hash)
           of "SignedVoluntaryExit": checkSSZ(SignedVoluntaryExit, path, hash)
           of "SigningData": checkSSZ(SigningData, path, hash)
+          of "SingleAttestation": checkSSZ(SingleAttestation, path, hash)
           of "SyncAggregate": checkSSZ(SyncAggregate, path, hash)
           of "SyncAggregatorSelectionData":
             checkSSZ(SyncAggregatorSelectionData, path, hash)

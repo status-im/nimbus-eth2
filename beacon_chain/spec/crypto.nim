@@ -1,15 +1,11 @@
 # beacon_chain
-# Copyright (c) 2018-2024 Status Research & Development GmbH
+# Copyright (c) 2018-2025 Status Research & Development GmbH
 # Licensed and distributed under either of
 #   * MIT license (license terms in the root directory or at https://opensource.org/licenses/MIT).
 #   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
 # at your option. This file may not be copied, modified, or distributed except according to those terms.
 
 {.push raises: [].}
-
-# At the time of writing, the exact definitions of what should be used for
-# cryptography in the spec is in flux, with sizes and test vectors still being
-# hashed out. This layer helps isolate those chagnes.
 
 # BLS signatures can be combined such that multiple signatures are aggregated.
 # Each time a new signature is added, the corresponding public key must be
@@ -207,7 +203,7 @@ func finish*(agg: AggregateSignature): CookedSig {.inline.} =
   sig.finish(agg)
   CookedSig(sig)
 
-# https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.8/specs/phase0/beacon-chain.md#bls-signatures
+# https://github.com/ethereum/consensus-specs/blob/v1.5.0-beta.4/specs/phase0/beacon-chain.md#bls-signatures
 func blsVerify*(
     pubkey: CookedPubKey, message: openArray[byte],
     signature: CookedSig): bool =

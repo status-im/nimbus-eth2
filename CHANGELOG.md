@@ -1,3 +1,147 @@
+2025-03-21 v25.3.1
+==================
+
+Nimbus `v25.3.1` is a `low-urgency` release except for the Hoodi testnet, for which it's a `high-urgency` release.
+
+### Improvements
+
+- Add Hoodi testnet support:
+  https://github.com/status-im/nimbus-eth2/pull/7021
+  https://github.com/status-im/nimbus-eth2/pull/7022
+  https://github.com/status-im/nimbus-eth2/pull/7025
+
+- Improve block quarantine performance on forked chains:
+  https://github.com/status-im/nimbus-eth2/pull/7006
+
+- Implement getPendingDeposits and getPendingPartialWithdrawals beacon API endpoints:
+  https://github.com/status-im/nimbus-eth2/pull/7010
+
+- Add SSZ encoding support to builder API client calls:
+  https://github.com/status-im/nimbus-eth2/pull/6970
+
+- Stop the `--dump` command-line option dumping correct outgoing attestations:
+  https://github.com/status-im/nimbus-eth2/pull/7012
+
+### Fixes
+
+- Improve partial blob sidecar response checking:
+  https://github.com/status-im/nimbus-eth2/pull/6985
+
+- Respond to un-synced blocks requests with `ResourceUnavailable`:
+  https://github.com/status-im/nimbus-eth2/pull/6977
+
+2025-03-02 v25.3.0
+==================
+
+Nimbus `v25.3.0` is a `low-urgency` release except for the Gnosis Chiado testnet, for which it's a `high-urgency` release.
+
+### Improvements
+
+- Add Gnosis Chiado testnet Electra fork support:
+  https://github.com/status-im/nimbus-eth2/pull/6968
+
+- Add SSZ support for the registerValidator beacon REST API endpoint:
+  https://github.com/status-im/nimbus-eth2/pull/6943
+
+- Increase trusted node sync state download timeout to 3 minutes:
+  https://github.com/status-im/nimbus-eth2/pull/6969
+
+- Add link to trusted node sync documentation regarding state download timeout:
+  https://github.com/status-im/nimbus-eth2/pull/6927
+
+### Fixes
+
+- Fix validator client graffiti with web3signer validators:
+  https://github.com/status-im/nimbus-eth2/pull/6927
+
+- Fix sync completion percentages exceeding 100%:
+  https://github.com/status-im/nimbus-eth2/pull/6922
+
+2025-02-13 v25.2.0
+==================
+
+Nimbus `v25.2.0` is a `low-urgency` release for mainnet, but `high-urgency` release for Sepolia and Holesky due to Pectra-readiness for their upcoming forks.
+
+### Improvements
+
+- Add Holesky and Sepolia Electra fork epochs:
+  https://github.com/status-im/nimbus-eth2/pull/6908
+
+- Improve syncing smoothness and steadiness:
+  https://github.com/status-im/nimbus-eth2/pull/6722
+
+- Initiate metrics server later in beacon node startup sequence, to mitigate transient metrics during validator loading:
+  https://github.com/status-im/nimbus-eth2/pull/6902
+
+### Fixes
+
+- Fix keymanager API listFeeRecipient and getGasLimit endpoints in presence of web3signer validators:
+  https://github.com/status-im/nimbus-eth2/pull/6916
+
+- Update builder API registered fee recipient and gas limit from validator client without restart:
+  https://github.com/status-im/nimbus-eth2/pull/6907
+
+- Fix capital case fork version name being returned in certain beacon API JSON response `version` fields:
+  https://github.com/status-im/nimbus-eth2/pull/6905
+
+2025-01-28 v25.1.0
+==================
+
+Nimbus `v25.1.0` is a `medium-urgency` release with a gas limit increase, along with beacon API and security fixes.
+
+### Improvements
+
+* Increase builder API default gas limit to 36M:
+  https://github.com/status-im/nimbus-eth2/pull/6763
+
+### Fixes
+
+* With multiple execution clients, wait for valid block response before concluding block is not valid:
+  https://github.com/status-im/nimbus-eth2/pull/6812
+
+* Fix Docker image regression from v24.11.0 which could prevent starting beacon node:
+  https://github.com/status-im/nimbus-eth2/pull/6803
+
+* Fix validator voluntary exiting given potential discrepancies about future fork scheduling:
+  https://github.com/status-im/nimbus-eth2/pull/6811
+
+* Fix `sync_aggregate` value in `getBlockRewards` beacon API endpoint:
+  https://github.com/status-im/nimbus-eth2/pull/6829
+
+* Fix `last_seen_p2p_address` value in `getPeers` beacon API endpoint:
+  https://github.com/status-im/nimbus-eth2/pull/6595
+
+2024-12-12 v24.12.0
+===================
+
+Nimbus `v24.12.0` is a `low-urgency` release.
+
+### Improvements
+
+* Support `bootstrap_nodes.yaml` bootstrap node specification:
+  https://github.com/status-im/nimbus-eth2/pull/6751
+
+2024-11-29 v24.11.0
+===================
+
+Nimbus `v24.11.0` is a `low-urgency` release with performance and compatibility improvements.
+
+### Improvements
+
+* Update Holesky bootnodes:
+  https://github.com/status-im/nimbus-eth2/pull/6703
+
+* Improve forward syncing performance:
+  https://github.com/status-im/nimbus-eth2/pull/6682
+
+* Experimental light client-based sync method, for testing only:
+  https://github.com/status-im/nimbus-eth2/pull/6515
+
+### Fixes
+
+* Avoid validator client network configuration mismatch errors pertaining to unscheduled forks:
+  https://github.com/status-im/nimbus-eth2/pull/6698
+
 2024-10-29 v24.10.0
 ===================
 
@@ -2376,7 +2520,7 @@ It also brings further performance optimizations.
 * A new `slashingdb` sub-command with `import` and `export` options. This allows for
   safely migrating to Nimbus from another client (as per the [EIP-3076](https://eips.ethereum.org/EIPS/eip-3076)
   slashing protection interchange format).
-  Please see the the newly prepared [migration guides](https://nimbus.guide/migration.html) for the details.
+  Please see the newly prepared [migration guides](https://nimbus.guide/migration.html) for the details.
 
 * A new `ncli_db validatorPerf` command. This can be used to perform a textual
   report for the attestation performance of a particular validator
