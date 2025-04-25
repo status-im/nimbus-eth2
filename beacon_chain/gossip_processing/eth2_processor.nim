@@ -414,11 +414,7 @@ proc validateDataColumnSidecarFromEL*(
                 Opt.some(self.dataColumnQuarantine[].popDataColumns(block_root, forkyBlck)))
 
               return ok()
-            else:
-              discard self.quarantine[].addColumnless(
-                self.dag.finalizedHead.slot, forkyBlck)
 
-              return errIgnore ("Could not apply block to block validation pipeline")
           elif blobsEl.len < forkyBlck.message.body.blob_kzg_commitments.len and
               blobsEl.len != 0:
             let end_time = Moment.now()
