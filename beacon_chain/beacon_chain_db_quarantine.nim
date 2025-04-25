@@ -189,27 +189,27 @@ func getDataSidecar*[T: ForkyDataSidecar](
     db: QuarantineDB, blockRoot: Eth2Digest, index: uint64): Opt[T] =
   if distinctBase(db.dataSidecars[T.kind].getStmt) == nil:
     return Opt.none(T)
-  var dataSidecars: seq[byte]
+  var dataSidecar: seq[byte]
   let blockRootIndex = blockRoot.dataSidecarKey(index)
-  for res in db.dataSidecars[T.kind].getStmt.exec(blockRootIndex, dataSidecars):
+  for res in db.dataSidecars[T.kind].getStmt.exec(blockRootIndex, dataSidecar):
     res.expect("SQL query OK")
     var res: T
-    if not decodeSZSSZ(dataSidecars, res):
+    if not decodeSZSSZ(dataSidecar, res):
       return Opt.none(T)
     return ok res
 
 func putDataSidecar*[T: ForkyDataSidecar](
-    db: QuarantineDB, dataSidecars: T, blockRoot = Opt.none(Eth2Digest)) =
+    db: QuarantineDB, dataSidecar: T, blockRoot = Opt.none(Eth2Digest)) =
   doAssert not db.backend.readOnly and
     distinctBase(db.dataSidecars[T.kind].putStmt) != nil
   let
     blockRoot = blockRoot.get(
-      dataSidecars.signed_block_header.message.hash_tree_root())
-    index = dataSidecars.index
+      dataSidecar.signed_block_header.message.hash_tree_root())
+    index = dataSidecar.index
     key = blockRoot.dataSidecarKey(index)
-    slot = dataSidecars.signed_block_header.message.slot
+    slot = dataSidecar.signed_block_header.message.slot
     res = db.dataSidecars[T.kind].putStmt.exec(
-      (key, slot.int64, encodeSZSSZ(dataSidecars)))
+      (key, slot.int64, encodeSZSSZ(dataSidecar)))
   res.expect("SQL query OK")
 
 func delByBlockRoot*(
