@@ -673,8 +673,7 @@ proc getBlindedExecutionPayload[
             " with HTTP status " & $response.status & ", Content-Type " &
             $response.contentType & " and content " & $response.data)
   elif EPH is fulu_mev.BlindedExecutionPayloadAndBlobsBundle:
-
-    debugFuluComment "Because electra MEV isn't working yet, this is a placeholder copy"
+    debugFuluComment "Because fulu MEV isn't working yet, this is a placeholder copy"
     let
       response = awaitWithTimeout(
         payloadBuilderClient.getHeaderFulu(
@@ -727,7 +726,8 @@ from ./message_router_mev import
 
 func constructSignableBlindedBlock[T: deneb_mev.SignedBlindedBeaconBlock](
     blck: deneb.BeaconBlock,
-    blindedBundle: deneb_mev.BlindedExecutionPayloadAndBlobsBundle): T =
+    blindedBundle: deneb_mev.BlindedExecutionPayloadAndBlobsBundle,
+    _: ExecutionRequests): T =
   # Leaves signature field default, to be filled in by caller
   const
     blckFields = getFieldNames(typeof(blck))
@@ -747,11 +747,13 @@ func constructSignableBlindedBlock[T: deneb_mev.SignedBlindedBeaconBlock](
 
   blindedBlock
 
-func constructSignableBlindedBlock[T: electra_mev.SignedBlindedBeaconBlock |
-    fulu_mev.SignedBlindedBeaconBlock](
+func constructSignableBlindedBlock[T:
+      electra_mev.SignedBlindedBeaconBlock | fulu_mev.SignedBlindedBeaconBlock](
     blck: electra.BeaconBlock | fulu.BeaconBlock,
-    blindedBundle: electra_mev.BlindedExecutionPayloadAndBlobsBundle |
-    fulu_mev.BlindedExecutionPayloadAndBlobsBundle): T =
+    blindedBundle:
+      electra_mev.BlindedExecutionPayloadAndBlobsBundle |
+      fulu_mev.BlindedExecutionPayloadAndBlobsBundle,
+    executionRequests: ExecutionRequests): T =
   # Leaves signature field default, to be filled in by caller
   const
     blckFields = getFieldNames(typeof(blck))
@@ -768,28 +770,9 @@ func constructSignableBlindedBlock[T: electra_mev.SignedBlindedBeaconBlock |
   assign(
     blindedBlock.message.body.blob_kzg_commitments,
     blindedBundle.blob_kzg_commitments)
-
-  blindedBlock
-
-func constructSignableBlindedBlock[T: fulu_mev.SignedBlindedBeaconBlock](
-    blck: fulu.BeaconBlock,
-    blindedBundle: fulu_mev.BlindedExecutionPayloadAndBlobsBundle): T =
-  # Leaves signature field default, to be filled in by caller
-  const
-    blckFields = getFieldNames(typeof(blck))
-    blckBodyFields = getFieldNames(typeof(blck.body))
-
-  var blindedBlock: T
-
-  # https://github.com/ethereum/builder-specs/blob/v0.4.0/specs/bellatrix/validator.md#block-proposal
-  copyFields(blindedBlock.message, blck, blckFields)
-  copyFields(blindedBlock.message.body, blck.body, blckBodyFields)
   assign(
-    blindedBlock.message.body.execution_payload_header,
-    blindedBundle.execution_payload_header)
-  assign(
-    blindedBlock.message.body.blob_kzg_commitments,
-    blindedBundle.blob_kzg_commitments)
+    blindedBlock.message.body.execution_requests,
+    executionRequests)
 
   blindedBlock
 
@@ -836,8 +819,8 @@ func getUnsignedBlindedBeaconBlock[
     validator_index: ValidatorIndex, forkedBlock: ForkedBeaconBlock,
     executionPayloadHeader: deneb_mev.BlindedExecutionPayloadAndBlobsBundle |
                             electra_mev.BlindedExecutionPayloadAndBlobsBundle |
-                            fulu_mev.BlindedExecutionPayloadAndBlobsBundle):
-    Result[T, string] =
+                            fulu_mev.BlindedExecutionPayloadAndBlobsBundle,
+    executionRequests: ExecutionRequests): Result[T, string] =
   withBlck(forkedBlock):
     when consensusFork >= ConsensusFork.Deneb:
       when not (
@@ -850,7 +833,7 @@ func getUnsignedBlindedBeaconBlock[
         return err("getUnsignedBlindedBeaconBlock: mismatched block/payload types")
       else:
         return ok constructSignableBlindedBlock[T](
-          forkyBlck, executionPayloadHeader)
+          forkyBlck, executionPayloadHeader, executionRequests)
     else:
       return err("getUnsignedBlindedBeaconBlock: attempt to construct pre-Deneb blinded block")
 
@@ -861,7 +844,7 @@ proc getBlindedBlockParts[
     node: BeaconNode, payloadBuilderClient: RestClientRef, head: BlockRef,
     pubkey: ValidatorPubKey, slot: Slot, randao: ValidatorSig,
     validator_index: ValidatorIndex, graffiti: GraffitiBytes):
-    Future[Result[(EPH, UInt256, UInt256, ForkedBeaconBlock), string]]
+    Future[Result[(EPH, UInt256, UInt256, ForkedBeaconBlock, ExecutionRequests), string]]
     {.async: (raises: [CancelledError]).} =
   let
     executionBlockHash = node.dag.loadExecutionBlockHash(head).valueOr:
@@ -968,9 +951,8 @@ proc getBlindedBlockParts[
 
   return ok(
     (blindedBlockRes.get.blindedBlckPart,
-     blindedBlockRes.get.executionPayloadValue,
-     forkedBlck.consensusBlockValue,
-     forkedBlck.blck))
+     blindedBlockRes.get.executionPayloadValue, forkedBlck.consensusBlockValue,
+     forkedBlck.blck, execution_requests))
 
 proc getBuilderBid[
     SBBB: deneb_mev.SignedBlindedBeaconBlock |
@@ -1001,17 +983,17 @@ proc getBuilderBid[
 
   # These, together, get combined into the blinded block for signing and
   # proposal through the relay network.
-  let (executionPayloadHeader, bidValue, consensusValue, forkedBlck) =
+  let (executionPayloadHeader, bidValue, consensusValue, forkedBlck,
+       executionRequests) =
     blindedBlockParts.get
 
   let unsignedBlindedBlock = getUnsignedBlindedBeaconBlock[SBBB](
-    node, slot, validator_index, forkedBlck, executionPayloadHeader)
+    node, slot, validator_index, forkedBlck, executionPayloadHeader,
+    executionRequests)
 
   if unsignedBlindedBlock.isErr:
     return err unsignedBlindedBlock.error()
 
-  template execution_requests: untyped =
-    unsignedBlindedBlock.get.message.body.execution_requests
   when SBBB is deneb_mev.SignedBlindedBeaconBlock:
     return ok(BuilderBid[SBBB](
       blindedBlckPart: unsignedBlindedBlock.get,
@@ -1022,7 +1004,7 @@ proc getBuilderBid[
       SBBB is fulu_mev.SignedBlindedBeaconBlock:
     return ok(BuilderBid[SBBB](
       blindedBlckPart: unsignedBlindedBlock.get,
-      executionRequests: execution_requests,
+      executionRequests: executionRequests,
       executionPayloadValue: bidValue,
       consensusBlockValue: consensusValue))
   else:
