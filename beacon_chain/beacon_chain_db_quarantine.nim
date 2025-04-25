@@ -100,7 +100,7 @@ func close(store: var BlockStore) =
   store.delStmt.disposeSafe()
   store.keepFromStmt.disposeSafe()
 
-proc getBlock*[T: ForkySignedBeaconBlock](
+func getBlock*[T: ForkySignedBeaconBlock](
     db: QuarantineDB, blockRoot: Eth2Digest): Opt[T] =
   if distinctBase(db.blocks[T.kind].getStmt) == nil:
     return Opt.none(T)
