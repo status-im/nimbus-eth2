@@ -449,7 +449,7 @@ proc makeBeaconBlockForHeadAndSlot*(
     execution_payload_root: Opt[Eth2Digest],
     withdrawals_root: Opt[Eth2Digest],
     kzg_commitments: Opt[KzgCommitments],
-    execution_requests: ExecutionRequests):
+    builder_execution_requests: Opt[ExecutionRequests]):
     Future[ForkedBlockResult] {.async: (raises: [CancelledError]).} =
   # Advance state to the slot that we're proposing for
   var cache = StateCache()
@@ -528,8 +528,7 @@ proc makeBeaconBlockForHeadAndSlot*(
         slot, validator_index
       return err("Unable to get execution payload")
 
-  # Don't use the requests passed in, TODO remove that
-  let execution_requests_actual =
+  let execution_requests_actual = builder_execution_requests.valueOr:
     when PayloadType.kind >= ConsensusFork.Electra:
       # Don't want un-decoded SSZ going any further/deeper
       var
@@ -614,7 +613,9 @@ proc makeBeaconBlockForHeadAndSlot*(
   else:
     err(res.error)
 
-# TODO what is this for
+# For VC, which only uses this for pre-Bellatrix blocks.
+# TODO move this into VC and just have it specify all these
+# Opt.none()'s directly
 proc makeBeaconBlockForHeadAndSlot*(
     PayloadType: type ForkyExecutionPayloadForSigning, node: BeaconNode, randao_reveal: ValidatorSig,
     validator_index: ValidatorIndex, graffiti: GraffitiBytes, head: BlockRef,
@@ -627,7 +628,7 @@ proc makeBeaconBlockForHeadAndSlot*(
     execution_payload_root = Opt.none(Eth2Digest),
     withdrawals_root = Opt.none(Eth2Digest),
     kzg_commitments = Opt.none(KzgCommitments),
-    execution_requests = static(default(ExecutionRequests)))
+    builder_execution_requests = static(Opt.none(ExecutionRequests)))
 
 proc getBlindedExecutionPayload[
     EPH: deneb_mev.BlindedExecutionPayloadAndBlobsBundle |
@@ -771,8 +772,7 @@ func constructSignableBlindedBlock[T:
     blindedBlock.message.body.blob_kzg_commitments,
     blindedBundle.blob_kzg_commitments)
   assign(
-    blindedBlock.message.body.execution_requests,
-    executionRequests)
+    blindedBlock.message.body.execution_requests, executionRequests)
 
   blindedBlock
 
@@ -941,7 +941,7 @@ proc getBlindedBlockParts[
     execution_payload_root = Opt.some hash_tree_root(actualEPH),
     withdrawals_root = withdrawals_root,
     kzg_commitments = kzg_commitments,
-    execution_requests = execution_requests)
+    builder_execution_requests = Opt.some execution_requests)
 
   if newBlock.isErr():
     # Haven't committed to the MEV block, so allow EL fallback.
