@@ -215,14 +215,15 @@ func putDataSidecar*[T: ForkyDataSidecar](
 func delByBlockRoot*(
     db: QuarantineDB, blockRoot: Eth2Digest) =
   doAssert not db.backend.readOnly
-  for dataSidecarFork, store in db.dataSidecars:
-    if dataSidecarFork > DataSidecarFork.None and
-        distinctBase(store.delStmt) != nil:
-      let
-        minKey = blockRoot.dataSidecarKey(uint64.low)
-        maxKey = blockRoot.dataSidecarKey(uint64.high)
-        res = store.delStmt.exec((minKey, maxKey))
-      res.expect("SQL query OK")
+  block:
+    let
+      minKey = blockRoot.dataSidecarKey(uint64.low)
+      maxKey = blockRoot.dataSidecarKey(uint64.high)
+    for dataSidecarFork, store in db.dataSidecars:
+      if dataSidecarFork > DataSidecarFork.None and
+          distinctBase(store.delStmt) != nil:
+        let res = store.delStmt.exec((minKey, maxKey))
+        res.expect("SQL query OK")
   for consensusFork, store in db.blocks:
     if distinctBase(store.delStmt) != nil:
       let res = store.delStmt.exec(blockRoot.data)
