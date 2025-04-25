@@ -8,9 +8,10 @@
 {.push raises: [].}
 
 import
-  stew/shims/[sets, hashes], chronicles,
+  stew/shims/hashes, chronicles,
   ../spec/forks
 
+from stew/shims/sets import keepItIf
 from ../spec/validator import compute_subscribed_subnets
 from ../consensus_object_pools/block_pools_types import ShufflingRef
 from ../consensus_object_pools/spec_cache import
@@ -61,9 +62,8 @@ type
       ## for internal validators
 
     knownValidators*: Table[ValidatorIndex, Slot]
-      ## Validators that we've recently seen - we'll subscribe to one stability
-      ## subnet for each such validator - the slot is used to expire validators
-      ## that no longer are posting duties
+      ## Validators that we've recently seen - the slot is used to expire
+      ## validators that no longer are posting duties
 
     duties: HashSet[AggregatorDuty]
       ## Known aggregation duties in the near future - before each such
