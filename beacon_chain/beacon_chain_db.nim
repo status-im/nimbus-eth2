@@ -19,7 +19,10 @@ import
           forks,
           presets,
           state_transition],
-  "."/[beacon_chain_db_light_client, filepath]
+  "."/[beacon_chain_db_light_client,
+       beacon_chain_db_quarantine,
+       db_utils,
+       filepath]
 
 from ./spec/datatypes/capella import BeaconState
 from ./spec/datatypes/deneb import TrustedSignedBeaconBlock
@@ -151,6 +154,10 @@ type
       ## May contain entries for blocks that are not stored in the database.
       ##
       ## See `summaries` for an index in the other direction.
+
+    quarantine: QuarantineDB
+      ## Pending data that passed basic checks including proposer signature
+      ## but that is not fully validated / trusted yet.
 
     lcData: LightClientDataDB
       ## Persistent light client data to avoid expensive recomputations
@@ -593,6 +600,36 @@ proc new*(T: type BeaconChainDB,
   if cfg.FULU_FORK_EPOCH != FAR_FUTURE_EPOCH:
     columns = kvStore db.openKvStore("fulu_columns").expectDb()
 
+  let quarantine = db.initQuarantineDB(QuarantineDBNames(
+    # TODO Set these to non-empty string to actually use them
+    # once we have a new quarantine implemented. If empty string is used,
+    # no database table is created!
+    phase0Blocks:
+      "",  # "blocks_quarantine"
+    altairBlocks:
+      "",  # "altair_blocks_quarantine"
+    bellatrixBlocks:
+      "",  # "bellatrix_blocks_quarantine"
+    capellaBlocks:
+      "",  # "capella_blocks_quarantine"
+    denebBlocks:
+      "",  # "deneb_blocks_quarantine"
+    electraBlocks:
+      "",  # "electra_blocks_quarantine"
+    fuluBlocks:
+      if cfg.FULU_FORK_EPOCH != FAR_FUTURE_EPOCH:
+        ""  # "fulu_blocks_quarantine"
+      else:
+        "",
+    denebDataSidecars:
+      "",  # "deneb_blobs_quarantine"
+    fuluDataSidecars:
+      if cfg.FULU_FORK_EPOCH != FAR_FUTURE_EPOCH:
+        ""  # "fulu_columns_quarantine"
+      else:
+        "")).expectDb()
+  static: doAssert ConsensusFork.high == ConsensusFork.Fulu
+
   # Versions prior to 1.4.0 (altair) stored validators in `immutable_validators`
   # which stores validator keys in compressed format - this is
   # slow to load and has been superceded by `immutable_validators2` which uses
@@ -634,6 +671,7 @@ proc new*(T: type BeaconChainDB,
     stateDiffs: stateDiffs,
     summaries: summaries,
     finalizedBlocks: finalizedBlocks,
+    quarantine: quarantine,
     lcData: lcData
   )
 
@@ -656,6 +694,9 @@ proc new*(T: type BeaconChainDB,
       SqStoreRef.init(
         dir, "nbc", readOnly = readOnly, manualCheckpoint = true).expectDb()
   BeaconChainDB.new(db, cfg)
+
+template getQuarantineDB*(db: BeaconChainDB): QuarantineDB =
+  db.quarantine
 
 template getLightClientDataDB*(db: BeaconChainDB): LightClientDataDB =
   db.lcData
@@ -683,18 +724,6 @@ proc decodeSnappySSZ[T](data: openArray[byte], output: var T): bool =
       err = e.msg, typ = name(T), dataLen = data.len
     false
 
-proc decodeSZSSZ[T](data: openArray[byte], output: var T): bool =
-  try:
-    let decompressed = decodeFramed(data, checkIntegrity = false)
-    readSszBytes(decompressed, output, updateRoot = false)
-    true
-  except CatchableError as e:
-    # If the data can't be deserialized, it could be because it's from a
-    # version of the software that uses a different SSZ encoding
-    warn "Unable to deserialize data, old database?",
-      err = e.msg, typ = name(T), dataLen = data.len
-    false
-
 func encodeSSZ*(v: auto): seq[byte] =
   try:
     SSZ.encode(v)
@@ -704,14 +733,6 @@ func encodeSSZ*(v: auto): seq[byte] =
 func encodeSnappySSZ(v: auto): seq[byte] =
   try:
     snappy.encode(SSZ.encode(v))
-  except CatchableError as err:
-    # In-memory encode shouldn't fail!
-    raiseAssert err.msg
-
-func encodeSZSSZ(v: auto): seq[byte] =
-  # https://github.com/google/snappy/blob/main/framing_format.txt
-  try:
-    encodeFramed(SSZ.encode(v))
   except CatchableError as err:
     # In-memory encode shouldn't fail!
     raiseAssert err.msg
@@ -796,6 +817,7 @@ proc close*(db: BeaconChainDB) =
   if db.db == nil: return
 
   # Close things roughly in reverse order
+  db.quarantine.close()
   if not isNil(db.columns):
     discard db.columns.close()
   if not isNil(db.blobs):
