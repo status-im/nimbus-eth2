@@ -369,10 +369,9 @@ proc validateDataColumnSidecarFromEL*(
       when consensusFork >= ConsensusFork.Fulu:
         let
           start_time = Moment.now()
-        var el_blob_loss = 0
         let blobsFromElOpt =
           await self.elManager.sendGetBlobsV2(forkyBlck)
-        if blobsFromElOpt.get.len > 0 and blobsFromElOpt.isSome():
+        if blobsFromElOpt.isSome():
           debug "Blobs and proofs received from EL"
           let blobsEl = blobsFromElOpt.get()
 
@@ -414,12 +413,6 @@ proc validateDataColumnSidecarFromEL*(
                 Opt.some(self.dataColumnQuarantine[].popDataColumns(block_root, forkyBlck)))
 
               return ok()
-
-          else:
-            let end_time = Moment.now()
-            debug "Empty response received from EL",
-                  time_elapsed = end_time - start_time
-            return errIgnore ("EL did not respond with el blobs")
   else:
     return errIgnore ("Could not pull blobs and proofs from EL")
 
