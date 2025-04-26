@@ -363,7 +363,7 @@ proc validateDataColumnSidecarFromEL*(
     block_root: Eth2Digest):
     Future[ValidationRes]
     {.async: (raises: [CancelledError]).} =
-  if (let o = self.quarantine[].getColumnless(block_root); o.isSome):
+  if (let o = self.quarantine[].popColumnless(block_root); o.isSome):
     let columnless = o.unsafeGet()
     withBlck(columnless):
       when consensusFork >= ConsensusFork.Fulu:
@@ -372,7 +372,6 @@ proc validateDataColumnSidecarFromEL*(
         let blobsFromElOpt =
           await self.elManager.sendGetBlobsV2(forkyBlck)
         if blobsFromElOpt.isSome():
-          debug "Blobs and proofs received from EL"
           let blobsEl = blobsFromElOpt.get()
 
           # check lengths of array[BlobAndProofV2 with blobs
@@ -382,8 +381,6 @@ proc validateDataColumnSidecarFromEL*(
             # we have received all columns from the EL
             # hence we can safely remove the columnless block from quarantine
             self.quarantine[].removeColumnless(forkyBlck)
-
-            debug "Recovering data column sidecars, from EL blobs"
             var flat_proof: seq[kzg.KzgProof] = @[]
             for item in blobsEl:
               for proof in item.proofs:
@@ -406,13 +403,17 @@ proc validateDataColumnSidecarFromEL*(
               debug "Time taken to get 100% response from EL and bypass blob gossip validation",
                     time_taken = end_time - start_time
               debug "Pulled blobs from EL, bypassing blob gossip validation",
-                blobs_from_el = blobsEl.len
+                     blobs_from_el = blobsEl.len
               self.blockProcessor[].enqueueBlock(
                 MsgSource.gossip, columnless,
                 Opt.none(BlobSidecars),
                 Opt.some(self.dataColumnQuarantine[].popDataColumns(block_root, forkyBlck)))
-
               return ok()
+            else:
+              discard self.quarantine[].addColumnless(
+                self.dag.finalizedHead.slot, forkyBlck)
+      else:
+        raiseAssert "Could not have been added as columnless"
   else:
     return errIgnore ("Could not pull blobs and proofs from EL")
 
