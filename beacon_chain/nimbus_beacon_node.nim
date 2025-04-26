@@ -1930,6 +1930,28 @@ func formatNextConsensusFork(
     (if withVanityArt: nextConsensusFork.getVanityMascot & " " else: "") &
     $nextConsensusFork & ":" & $nextForkEpoch)
 
+func columnSyncStatus(node: BeaconNode, wallSlot: Slot): string =
+  let optimisticHead = not node.dag.head.executionValid
+  if node.columnManager.inProgress:
+    let
+      optimisticSuffix =
+        if optimisticHead:
+          "/opt"
+        else:
+          ""
+      lightClientSuffix =
+        if node.consensusManager[].shouldSyncOptimistically(wallSlot):
+          " - lc: " & $shortLog(node.consensusManager[].optimisticHead)
+        else:
+          ""
+    node.columnManager.syncStatus & optimisticSuffix & lightClientSuffix
+  elif node.backfiller.inProgress:
+    "backfill: " & node.backfiller.syncStatus
+  elif optimistic_head:
+    "synced/opt"
+  else:
+    "synced"
+
 func syncStatus(node: BeaconNode, wallSlot: Slot): string =
   node.syncOverseer.statusMsg.valueOr:
     let optimisticHead = not node.dag.head.executionValid
@@ -1981,6 +2003,7 @@ proc onSlotStart(node: BeaconNode, wallTime: BeaconTime,
       slot = shortLog(wallSlot)
       epoch = shortLog(wallSlot.epoch)
       sync = node.syncStatus(wallSlot)
+      columnSync = node.columnSyncStatus(wallSlot)
       peers = len(node.network.peerPool)
       head = shortLog(node.dag.head)
       finalized = shortLog(getStateField(
@@ -2474,6 +2497,9 @@ when not defined(windows):
 
       of "sync_status":
         node.syncStatus(node.currentSlot)
+
+      of "column_sync_status":
+        node.columnSyncStatus(node.currentSlot)
       else:
         # We ignore typos for now and just render the expression
         # as it was written. TODO: come up with a good way to show
