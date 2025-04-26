@@ -233,7 +233,7 @@ proc addDynamicValidator(kmtest: KeymanagerToTest,
       pubkey: pubkey,
       remotes: @[
         RemoteSignerInfo(
-          url: HttpHostUri(HttpHostUri(parseUri("http://127.0.0.1"))),
+          url: HttpHostUri(parseUri("http://127.0.0.1")),
           pubkey: pubkey
         )
       ],

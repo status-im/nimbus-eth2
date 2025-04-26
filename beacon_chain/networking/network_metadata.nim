@@ -286,12 +286,7 @@ when const_preset == "gnosis":
   static:
     for network in [gnosisMetadata, chiadoMetadata]:
       checkForkConsistency(network.cfg)
-
-    for network in [gnosisMetadata, chiadoMetadata]:
-      doAssert network.cfg.DENEB_FORK_EPOCH < FAR_FUTURE_EPOCH
-    doAssert gnosisMetadata.cfg.ELECTRA_FORK_EPOCH == FAR_FUTURE_EPOCH
-    doAssert chiadoMetadata.cfg.ELECTRA_FORK_EPOCH != FAR_FUTURE_EPOCH
-    for network in [gnosisMetadata, chiadoMetadata]:
+      doAssert network.cfg.ELECTRA_FORK_EPOCH < FAR_FUTURE_EPOCH
       doAssert network.cfg.FULU_FORK_EPOCH == FAR_FUTURE_EPOCH
       doAssert ConsensusFork.high == ConsensusFork.Fulu
 
@@ -370,15 +365,7 @@ elif const_preset == "mainnet":
     for network in [
         mainnetMetadata, sepoliaMetadata, holeskyMetadata, hoodiMetadata]:
       checkForkConsistency(network.cfg)
-
-    for network in [sepoliaMetadata, holeskyMetadata, hoodiMetadata]:
       doAssert network.cfg.ELECTRA_FORK_EPOCH < FAR_FUTURE_EPOCH
-
-    doAssert mainnetMetadata.cfg.DENEB_FORK_EPOCH < FAR_FUTURE_EPOCH
-    doAssert mainnetMetadata.cfg.ELECTRA_FORK_EPOCH == FAR_FUTURE_EPOCH
-
-    for network in [
-        mainnetMetadata, sepoliaMetadata, holeskyMetadata, hoodiMetadata]:
       doAssert network.cfg.FULU_FORK_EPOCH == FAR_FUTURE_EPOCH
       doAssert ConsensusFork.high == ConsensusFork.Fulu
 
