@@ -181,7 +181,8 @@ proc loadBlock*(
     validateBlockHash = true): auto =
   var blck = parseTest(path, SSZ, consensusFork.SignedBeaconBlock)
   blck.root = hash_tree_root(blck.message)
-  when consensusFork >= ConsensusFork.Bellatrix:
+  when consensusFork >= ConsensusFork.Bellatrix and 
+    consensusFork < ConsensusFork.Fulu:
     if blck.message.is_execution_block and
         not blck.message.body.execution_payload.transactions.anyIt(it.len == 0):
       if blck.message.body.execution_payload.block_hash !=

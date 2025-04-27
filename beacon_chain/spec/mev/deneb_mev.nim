@@ -1,5 +1,5 @@
 # beacon_chain
-# Copyright (c) 2023-2024 Status Research & Development GmbH
+# Copyright (c) 2023-2025 Status Research & Development GmbH
 # Licensed and distributed under either of
 #   * MIT license (license terms in the root directory or at https://opensource.org/licenses/MIT).
 #   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
@@ -122,6 +122,8 @@ func shortLog*(v: BlindedBeaconBlock): auto =
     fee_recipient: to0xHex(v.body.execution_payload_header.fee_recipient.data),
     bls_to_execution_changes_len: v.body.bls_to_execution_changes.len(),
     blob_kzg_commitments_len: 0,  # Deneb compat
+    signed_execution_payload_header: "", # Eip7732 compat
+    payload_attestations_len: 0, # Eip7732 compat
   )
 
 func shortLog*(v: SignedBlindedBeaconBlock): auto =

@@ -231,25 +231,35 @@ func create_blob_sidecars*(
     fulu.SignedBeaconBlock,
     kzg_proofs: KzgProofs,
     blobs: Blobs): seq[BlobSidecar] =
-  template kzg_commitments: untyped =
-    forkyBlck.message.body.blob_kzg_commitments
-  doAssert kzg_proofs.len == blobs.len
-  doAssert kzg_proofs.len == kzg_commitments.len
+  
+  when compiles(forkyBlck.message.body.blob_kzg_commitments):
+    template kzg_commitments: untyped =
+      forkyBlck.message.body.blob_kzg_commitments
+    doAssert kzg_proofs.len == blobs.len
+    doAssert kzg_proofs.len == kzg_commitments.len
 
-  var res = newSeqOfCap[BlobSidecar](blobs.len)
-  let signedBlockHeader = forkyBlck.toSignedBeaconBlockHeader()
-  for i in 0 ..< blobs.lenu64:
-    var sidecar = BlobSidecar(
-      index: i,
-      blob: blobs[i],
-      kzg_commitment: kzg_commitments[i],
-      kzg_proof: kzg_proofs[i],
-      signed_block_header: signedBlockHeader)
-    forkyBlck.message.body.build_proof(
-      kzg_commitment_inclusion_proof_gindex(i),
-      sidecar.kzg_commitment_inclusion_proof).expect("Valid gindex")
-    res.add(sidecar)
-  res
+    var res = newSeqOfCap[BlobSidecar](blobs.len)
+    let signedBlockHeader = forkyBlck.toSignedBeaconBlockHeader()
+    for i in 0 ..< blobs.lenu64:
+      var sidecar = BlobSidecar(
+        index: i,
+        blob: blobs[i],
+        kzg_commitment: kzg_commitments[i],
+        kzg_proof: kzg_proofs[i],
+        signed_block_header: signedBlockHeader)
+      forkyBlck.message.body.build_proof(
+        kzg_commitment_inclusion_proof_gindex(i),
+        sidecar.kzg_commitment_inclusion_proof).expect("Valid gindex")
+      res.add(sidecar)
+    res
+  else:
+    when forkyBlck is fulu.SignedBeaconBlock:
+      # EIP7732 blocks doesn;t contain blob side cars
+      newSeq[BlobSidecar](0)
+    else:
+      # This should never happen if all post capella non-Fulu forks have blob_kzg_commitments
+      {.error: "Unexpected fork without blob_kzg_commitments".}
+      newSeq[BlobSidecar](0)
 
 # https://github.com/ethereum/consensus-specs/blob/v1.5.0-beta.0/specs/altair/light-client/sync-protocol.md#is_sync_committee_update
 template is_sync_committee_update*(update: SomeForkyLightClientUpdate): bool =
@@ -383,14 +393,23 @@ func contextEpoch*(update: SomeForkyLightClientUpdate): Epoch =
 # https://github.com/ethereum/consensus-specs/blob/v1.5.0-beta.1/specs/bellatrix/beacon-chain.md#is_merge_transition_complete
 func is_merge_transition_complete*(
     state: bellatrix.BeaconState | capella.BeaconState | deneb.BeaconState |
-           electra.BeaconState | fulu.BeaconState): bool =
+           electra.BeaconState): bool =
   const defaultExecutionPayloadHeader =
     default(typeof(state.latest_execution_payload_header))
   state.latest_execution_payload_header != defaultExecutionPayloadHeader
 
+# https://github.com/ethereum/consensus-specs/blob/dev/specs/_features/eip7732/beacon-chain.md#modified-is_merge_transition_complete
+func is_merge_transition_complete*(state: fulu.BeaconState): bool =
+  # TODO this is a placeholder
+  true
+
 # https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.9/sync/optimistic.md#helpers
 func is_execution_block*(body: SomeForkyBeaconBlockBody): bool =
-  when typeof(body).kind >= ConsensusFork.Bellatrix:
+  when typeof(body).kind >= ConsensusFork.Fulu:
+    const defaultExecutionPayloadHeader = 
+      default(typeof(body.signed_execution_payload_header))
+    body.signed_execution_payload_header != defaultExecutionPayloadHeader
+  elif typeof(body).kind >= ConsensusFork.Bellatrix:
     const defaultExecutionPayload =
       default(typeof(body.execution_payload))
     body.execution_payload != defaultExecutionPayload
@@ -411,13 +430,21 @@ func is_merge_transition_block(
           deneb.BeaconBlockBody | deneb.TrustedBeaconBlockBody |
           deneb.SigVerifiedBeaconBlockBody |
           electra.BeaconBlockBody | electra.TrustedBeaconBlockBody |
-          electra.SigVerifiedBeaconBlockBody |
-          fulu.BeaconBlockBody | fulu.TrustedBeaconBlockBody |
-          fulu.SigVerifiedBeaconBlockBody): bool =
+          electra.SigVerifiedBeaconBlockBody): bool =
   const defaultExecutionPayload = default(typeof(body.execution_payload))
   not is_merge_transition_complete(state) and
     body.execution_payload != defaultExecutionPayload
 
+# https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.8/specs/bellatrix/beacon-chain.md#is_merge_transition_block
+func is_merge_transition_block(
+    state: fulu.BeaconState,
+    body: fulu.BeaconBlockBody | fulu.TrustedBeaconBlockBody |
+          fulu.SigVerifiedBeaconBlockBody): bool =
+  const defaultExecutionPayloadHeader = 
+    default(typeof(body.signed_execution_payload_header))
+  not is_merge_transition_complete(state) and
+    body.signed_execution_payload_header != defaultExecutionPayloadHeader
+    
 # https://github.com/ethereum/consensus-specs/blob/v1.5.0-beta.1/specs/bellatrix/beacon-chain.md#is_execution_enabled
 func is_execution_enabled*(
     state: bellatrix.BeaconState | capella.BeaconState | deneb.BeaconState |

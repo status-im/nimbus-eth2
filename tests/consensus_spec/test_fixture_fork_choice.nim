@@ -179,12 +179,13 @@ proc stepOnBlock(
        invalidatedHashes: Table[Eth2Digest, Eth2Digest]):
        Result[BlockRef, VerifierError] =
   # 1. Validate blobs
-  when typeof(signedBlock).kind >= ConsensusFork.Deneb:
-    let kzgCommits = signedBlock.message.body.blob_kzg_commitments.asSeq
-    if kzgCommits.len > 0 or blobData.isSome:
-      if blobData.isNone or kzgCommits.validate_blobs(
-          blobData.get.blobs, blobData.get.proofs).isErr:
-        return err(VerifierError.Invalid)
+  when typeof(signedBlock).kind >= ConsensusFork.Deneb and 
+    typeof(signedBlock).kind < ConsensusFork.Fulu:
+      let kzgCommits = signedBlock.message.body.blob_kzg_commitments.asSeq
+      if kzgCommits.len > 0 or blobData.isSome:
+        if blobData.isNone or kzgCommits.validate_blobs(
+            blobData.get.blobs, blobData.get.proofs).isErr:
+          return err(VerifierError.Invalid)
   else:
     doAssert blobData.isNone, "Pre-Deneb test with specified blob data"
 
@@ -207,8 +208,13 @@ proc stepOnBlock(
   # would also have `true` validity because it'd not be known they weren't, so
   # adding this mock of the block processor is realistic and sufficient.
   when consensusFork >= ConsensusFork.Bellatrix:
-    let executionBlockHash =
-      signedBlock.message.body.execution_payload.block_hash
+    let executionBlockHash = 
+      when consensusFork >= ConsensusFork.Fulu:
+        signedBlock.message.body.
+          signed_execution_payload_header.message.block_hash
+      else:
+        signedBlock.message.body.execution_payload.block_hash
+      
     if executionBlockHash in invalidatedHashes:
       # Mocks fork choice INVALID list application. These tests sequence this
       # in a way the block processor does not, specifying each payload_status

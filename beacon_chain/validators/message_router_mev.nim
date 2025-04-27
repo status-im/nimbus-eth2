@@ -1,5 +1,5 @@
 # beacon_chain
-# Copyright (c) 2022-2024 Status Research & Development GmbH
+# Copyright (c) 2022-2025 Status Research & Development GmbH
 # Licensed and distributed under either of
 #   * MIT license (license terms in the root directory or at https://opensource.org/licenses/MIT).
 #   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
@@ -38,7 +38,9 @@ macro copyFields*(
         "transactions_root", "execution_payload",
         "execution_payload_header", "body", "withdrawals_root",
         "deposit_requests_root", "withdrawal_requests_root",
-        "consolidation_requests_root"]:
+        "consolidation_requests_root", "parent_block_hash",
+        "parent_block_root", "builder_index", "payload_attestations",
+        "slot", "value", "blob_kzg_commitments_root"]:
       # TODO use stew/assign2
       result.add newAssignment(
         newDotExpr(dst, ident(name)), newDotExpr(src, ident(name)))
@@ -105,10 +107,16 @@ proc unblindAndRouteBlockMEV*(
 
   template execution_payload: untyped = bundle.data.execution_payload
 
-  if hash_tree_root(blindedBlock.message.body.execution_payload_header) !=
-      hash_tree_root(execution_payload):
-    return err("unblinded payload doesn't match blinded payload header: " &
-      $blindedBlock.message.body.execution_payload_header)
+  when blindedBlock is fulu_mev.SignedBlindedBeaconBlock:
+    if hash_tree_root(blindedBlock.message.body.signed_execution_payload_header.message) !=
+        hash_tree_root(execution_payload):
+      return err("unblinded payload doesn't match blinded payload header: " &
+        $blindedBlock.message.body.signed_execution_payload_header)
+  else:
+    if hash_tree_root(blindedBlock.message.body.execution_payload_header) !=
+        hash_tree_root(execution_payload):
+      return err("unblinded payload doesn't match blinded payload header: " &
+        $blindedBlock.message.body.execution_payload_header)
 
   # Signature provided is consistent with unblinded execution payload,
   # so construct full beacon block
@@ -121,12 +129,18 @@ proc unblindAndRouteBlockMEV*(
   copyFields(
     signedBlock.message.body, blindedBlock.message.body,
     getFieldNames(typeof(signedBlock.message.body)))
-  assign(signedBlock.message.body.execution_payload, execution_payload)
+  when blindedBlock is fulu_mev.SignedBlindedBeaconBlock:
+    # TODO: Properly construct `ExecutionPayloadHeader` for Eip7732
+    discard
+  else:
+    assign(signedBlock.message.body.execution_payload, execution_payload)
   signedBlock.root = hash_tree_root(signedBlock.message)
   doAssert signedBlock.root == hash_tree_root(blindedBlock.message)
 
   let blobsOpt =
-    when consensusFork >= ConsensusFork.Deneb:
+    when consensusFork >= ConsensusFork.Fulu:
+      Opt.none(seq[BlobSidecar])
+    elif consensusFork >= ConsensusFork.Deneb:
       template blobs_bundle: untyped = bundle.data.blobs_bundle
       if blindedBlock.message.body.blob_kzg_commitments !=
           bundle.data.blobs_bundle.commitments:

@@ -1,5 +1,5 @@
 # beacon_chain
-# Copyright (c) 2024 Status Research & Development GmbH
+# Copyright (c) 2024-2025 Status Research & Development GmbH
 # Licensed and distributed under either of
 #   * MIT license (license terms in the root directory or at https://opensource.org/licenses/MIT).
 #   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
@@ -300,9 +300,8 @@ func asEngineExecutionPayload*(blockBody: capella.BeaconBlockBody):
     withdrawals: mapIt(executionPayload.withdrawals, it.toEngineWithdrawal))
 
 func asEngineExecutionPayload*(
-    blockBody: deneb.BeaconBlockBody | electra.BeaconBlockBody |
-    fulu.BeaconBlockBody):
-    ExecutionPayloadV3 =
+    blockBody: deneb.BeaconBlockBody | electra.BeaconBlockBody
+    ):ExecutionPayloadV3 =
   template executionPayload(): untyped = blockBody.execution_payload
 
   template getTypedTransaction(tt: bellatrix.Transaction): TypedTransaction =
@@ -327,3 +326,31 @@ func asEngineExecutionPayload*(
     withdrawals: mapIt(executionPayload.withdrawals, it.asEngineWithdrawal),
     blobGasUsed: Quantity(executionPayload.blob_gas_used),
     excessBlobGas: Quantity(executionPayload.excess_blob_gas))
+
+func asEngineExecutionPayload*(
+    blockBody: fulu.BeaconBlockBody
+    ):ExecutionPayloadV3 =
+  template executionPayload(): untyped = 
+    blockBody.signed_execution_payload_header.message
+
+  template getTypedTransaction(tt: bellatrix.Transaction): TypedTransaction =
+    TypedTransaction(tt.distinctBase)
+
+    engine_api.ExecutionPayloadV3(
+      parentHash: executionPayload.parent_block_hash.asBlockHash,
+      feeRecipient: default(Address),
+      stateRoot: default(Hash32),
+      receiptsRoot: default(Hash32),
+      logsBloom: default(FixedBytes[BYTES_PER_LOGS_BLOOM]),
+      prevRandao: default(FixedBytes[32]),
+      blockNumber: Quantity(0),
+      gasLimit: Quantity(executionPayload.gas_limit),
+      gasUsed: Quantity(0),
+      timestamp: Quantity(executionPayload.slot),
+      extraData: DynamicBytes[0, MAX_EXTRA_DATA_BYTES](@[]),
+      baseFeePerGas: default(UInt256),
+      blockHash: executionPayload.block_hash.asBlockHash,
+      transactions: @[],
+      withdrawals: @[],
+      blobGasUsed: Quantity(0),
+      excessBlobGas: Quantity(0))

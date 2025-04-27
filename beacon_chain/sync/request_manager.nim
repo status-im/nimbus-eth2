@@ -1,5 +1,5 @@
 # beacon_chain
-# Copyright (c) 2018-2024 Status Research & Development GmbH
+# Copyright (c) 2018-2025 Status Research & Development GmbH
 # Licensed and distributed under either of
 #   * MIT license (license terms in the root directory or at https://opensource.org/licenses/MIT).
 #   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
@@ -451,7 +451,11 @@ proc getMissingBlobs(rman: RequestManager): seq[BlobIdentifier] =
     ready: seq[Eth2Digest]
   for blobless in rman.quarantine[].peekBlobless():
     withBlck(blobless):
-      when consensusFork >= ConsensusFork.Deneb:
+      when consensusFork == ConsensusFork.Fulu:
+        # For Fulu, return an empty sequence
+        return fetches
+      elif consensusFork >= ConsensusFork.Deneb and 
+        consensusFork < ConsensusFork.Fulu:
         # give blobs a chance to arrive over gossip
         if forkyBlck.message.slot == wallSlot and delay < waitDur:
           debug "Not handling missing blobs early in slot"
@@ -562,6 +566,13 @@ proc getMissingDataColumns(rman: RequestManager): HashSet[DataColumnIdentifier] 
   for columnless in rman.quarantine[].peekColumnless():
     withBlck(columnless):
       when consensusFork >= ConsensusFork.Fulu:
+        const hasCommitmentField = compiles(forkyBlck.message.body.blob_kzg_commitments)
+        let commitmentsLen = block:
+          when hasCommitmentField:
+            len(forkyBlck.message.body.blob_kzg_commitments)
+          else:
+            0
+            
         # granting data columns a chance to arrive over gossip
         if forkyBlck.message.slot == wallSlot and delay < waitDur:
           debug "Not handling missing data columns early in slot"
@@ -572,17 +583,17 @@ proc getMissingDataColumns(rman: RequestManager): HashSet[DataColumnIdentifier] 
           if len(missing.indices) == 0:
             warn "quarantine is missing data columns, but missing indices are empty",
              blk = columnless.root,
-             commitments = len(forkyBlck.message.body.blob_kzg_commitments)
+             commitments = commitmentsLen
           for idx in missing.indices:
             let id = DataColumnIdentifier(block_root: columnless.root, index: idx)
             if id.index in rman.custody_columns_set and id notin fetches and
-                len(forkyBlck.message.body.blob_kzg_commitments) != 0:
+                commitmentsLen != 0:
               fetches.incl(id)
         else:
           # this is a programming error and it not should occur
           warn "missing column handler found columnless block with all data columns",
              blk = columnless.root,
-             commitments = len(forkyBlck.message.body.blob_kzg_commitments)
+             commitments = commitmentsLen
           ready.add(columnless.root)
 
   for root in ready:

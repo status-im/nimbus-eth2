@@ -346,11 +346,14 @@ template validateBeaconBlockBellatrix(
       withState(dag.headState):
         compute_timestamp_at_slot(
           forkyState.data, signed_beacon_block.message.slot)
-    if not (signed_beacon_block.message.body.execution_payload.timestamp ==
-        timestampAtSlot):
-      quarantine[].addUnviable(signed_beacon_block.root)
-      return dag.checkedReject(
-        "BeaconBlock: mismatched execution payload timestamp")
+    when signed_beacon_block is fulu.SignedBeaconBlock:
+      discard
+    else:
+      if not (signed_beacon_block.message.body.execution_payload.timestamp ==
+          timestampAtSlot):
+        quarantine[].addUnviable(signed_beacon_block.root)
+        return dag.checkedReject(
+          "BeaconBlock: mismatched execution payload timestamp")
 
   # The condition:
   # [REJECT] The block's parent (defined by `block.parent_root`) passes all
@@ -378,9 +381,13 @@ template validateBeaconBlockDeneb(
   # [REJECT] The length of KZG commitments is less than or equal to the
   # limitation defined in Consensus Layer -- i.e. validate that
   # len(body.signed_beacon_block.message.blob_kzg_commitments) <= MAX_BLOBS_PER_BLOCK
-  if not (lenu64(signed_beacon_block.message.body.blob_kzg_commitments) <=
-      dag.cfg.getMaxBlobsPerBlock(wallTime)):
-    return dag.checkedReject("validateBeaconBlockDeneb: too many blob commitments")
+  when signed_beacon_block is fulu.SignedBeaconBlock:
+    discard   # No `blobs` in fulu BeaconBlocks
+  elif signed_beacon_block is deneb.SignedBeaconBlock or
+    signed_beacon_block is electra.SignedBeaconBlock:
+    if not (lenu64(signed_beacon_block.message.body.blob_kzg_commitments) <=
+        dag.cfg.getMaxBlobsPerBlock(wallTime)):
+      return dag.checkedReject("validateBeaconBlockDeneb: too many blob commitments")
 
 # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.4/specs/deneb/p2p-interface.md#blob_sidecar_subnet_id
 proc validateBlobSidecar*(

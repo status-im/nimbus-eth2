@@ -2268,23 +2268,14 @@ func upgrade_to_fulu*(
   let
     epoch = get_current_epoch(pre)
     latest_execution_payload_header = fulu.ExecutionPayloadHeader(
-      parent_hash: pre.latest_execution_payload_header.parent_hash,
-      fee_recipient: pre.latest_execution_payload_header.fee_recipient,
-      state_root: pre.latest_execution_payload_header.state_root,
-      receipts_root: pre.latest_execution_payload_header.receipts_root,
-      logs_bloom: pre.latest_execution_payload_header.logs_bloom,
-      prev_randao: pre.latest_execution_payload_header.prev_randao,
-      block_number: pre.latest_execution_payload_header.block_number,
-      gas_limit: pre.latest_execution_payload_header.gas_limit,
-      gas_used: pre.latest_execution_payload_header.gas_used,
-      timestamp: pre.latest_execution_payload_header.timestamp,
-      extra_data: pre.latest_execution_payload_header.extra_data,
-      base_fee_per_gas: pre.latest_execution_payload_header.base_fee_per_gas,
+      parent_block_hash: pre.latest_execution_payload_header.parent_hash,
+      parent_block_root: Eth2Digest(),
       block_hash: pre.latest_execution_payload_header.block_hash,
-      transactions_root: pre.latest_execution_payload_header.transactions_root,
-      withdrawals_root: pre.latest_execution_payload_header.withdrawals_root,
-      blob_gas_used: pre.latest_execution_payload_header.blob_gas_used,
-      excess_blob_gas: pre.latest_execution_payload_header.excess_blob_gas)
+      gas_limit: 0.uint64,
+      builder_index: 0.uint64,
+      slot: 0.Slot,
+      value: 0.Gwei,
+      blob_kzg_commitments_root: Eth2Digest())
 
   var max_exit_epoch = FAR_FUTURE_EPOCH
   for v in pre.validators:
@@ -2366,10 +2357,15 @@ func upgrade_to_fulu*(
     earliest_exit_epoch: earliest_exit_epoch,
     consolidation_balance_to_consume: 0.Gwei,
     earliest_consolidation_epoch:
-      compute_activation_exit_epoch(get_current_epoch(pre))
+      compute_activation_exit_epoch(get_current_epoch(pre)),
+    # New fields in EPBS:EIP7732
+    latest_block_hash: Eth2Digest(),  # Initialize missing field
+    latest_full_slot: Slot(0),  # Initialize missing field
+    latest_withdrawals_root: Eth2Digest()  # Initialize missing field
 
     # pending_balance_deposits, pending_partial_withdrawals, and
     # pending_consolidations are default empty lists
+    
   )
 
   post.exit_balance_to_consume =
