@@ -546,7 +546,6 @@ proc getBlockSignature*(v: AttachedValidator, fork: Fork,
                        ): Future[SignatureResult]
                        {.async: (raises: [CancelledError]).} =
   type SomeBlockBody =
-    capella.BeaconBlockBody |
     deneb.BeaconBlockBody |
     electra.BeaconBlockBody |
     electra_mev.BlindedBeaconBlockBody |
@@ -557,15 +556,14 @@ proc getBlockSignature*(v: AttachedValidator, fork: Fork,
                                  forkIndexField: untyped): seq[Web3SignerMerkleProof] =
     var proofs: seq[Web3SignerMerkleProof]
     for prop in v.data.provenBlockProperties:
-      if prop.forkIndexField.isSome:
-        let
-          idx = prop.forkIndexField.get
-          proofRes = build_proof(blockBody, idx)
-        if proofRes.isErr:
-          return err proofRes.error
-        proofs.add Web3SignerMerkleProof(
-          index: idx,
-          proof: proofRes.get)
+      let
+        idx = prop.forkIndexField
+        proofRes = build_proof(blockBody, idx)
+      if proofRes.isErr:
+        return err proofRes.error
+      proofs.add Web3SignerMerkleProof(
+        index: idx,
+        proof: proofRes.get)
     proofs
 
   case v.kind
