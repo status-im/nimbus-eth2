@@ -265,8 +265,7 @@ func getRemoteKeystoreData(data: string, basePort: int,
             path: ".execution_payload.fee_recipient",
             fuluIndex: some GeneralizedIndex(801),
             electraIndex: some GeneralizedIndex(801),
-            denebIndex: some GeneralizedIndex(801),
-            capellaIndex: some GeneralizedIndex(401)
+            denebIndex: some GeneralizedIndex(801)
           )
         ],
         version: uint64(4),

@@ -150,7 +150,6 @@ type
   ProvenProperty* = object
     path*: string
     description*: Option[string]
-    capellaIndex*: Option[GeneralizedIndex]
     denebIndex*: Option[GeneralizedIndex]
     electraIndex*: Option[GeneralizedIndex]
     fuluIndex*: Option[GeneralizedIndex]
@@ -730,14 +729,12 @@ func parseProvenBlockProperty*(propertyPath: string): Result[ProvenProperty, str
     debugFuluComment "We don't know yet if `GeneralizedIndex` will stay same in Fulu yet."
     ok ProvenProperty(
       path: propertyPath,
-      capellaIndex: some GeneralizedIndex(401),
       denebIndex: some GeneralizedIndex(801),
       electraIndex: some GeneralizedIndex(801),
       fuluIndex: some GeneralizedIndex(801))
   elif propertyPath == ".graffiti":
     ok ProvenProperty(
       path: propertyPath,
-      capellaIndex: some GeneralizedIndex(18),
       denebIndex: some GeneralizedIndex(18),
       electraIndex: some GeneralizedIndex(18),
       fuluIndex: some GeneralizedIndex(18))
@@ -847,12 +844,10 @@ proc readValue*(reader: var JsonReader, value: var RemoteKeystore)
       var provenProperties = reader.readValue(seq[ProvenProperty])
       for prop in provenProperties.mitems:
         if prop.path == ".execution_payload.fee_recipient":
-          prop.capellaIndex = some GeneralizedIndex(401)
           prop.denebIndex = some GeneralizedIndex(801)
           prop.electraIndex = some GeneralizedIndex(801)
           prop.fuluIndex = some GeneralizedIndex(801)
         elif prop.path == ".graffiti":
-          prop.capellaIndex = some GeneralizedIndex(18)
           prop.denebIndex = some GeneralizedIndex(18)
           prop.electraIndex = some GeneralizedIndex(18)
           prop.fuluIndex = some GeneralizedIndex(18)
