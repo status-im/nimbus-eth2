@@ -209,7 +209,6 @@ BELLATRIX_FORK_EPOCH: 0
     "--total-validators=" & $simulationDepositsCount,
     "--deposits-file=" & depositsFile,
     "--output-genesis=" & genesisFile,
-    "--output-deposit-tree-snapshot=" & depositTreeSnapshotFile,
     "--output-bootstrap-file=" & bootstrapEnrFile,
     "--netkey-file=network_key.json",
     "--insecure-netkey-password=true",

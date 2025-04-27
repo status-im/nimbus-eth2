@@ -885,7 +885,6 @@ done
   --total-validators=$TOTAL_VALIDATORS \
   --output-genesis="$CONTAINER_DATA_DIR/genesis.ssz" \
   --output-bootstrap-file="$CONTAINER_DATA_DIR/bootstrap_nodes.txt" \
-  --output-deposit-tree-snapshot="$CONTAINER_DEPOSIT_TREE_SNAPSHOT_FILE" \
   --bootstrap-address=127.0.0.1 \
   --bootstrap-port=$(( BASE_PORT + BOOTSTRAP_NODE - 1 )) \
   --netkey-file=$CONTAINER_BOOTSTRAP_NETWORK_KEYFILE \
@@ -1130,7 +1129,6 @@ for NUM_NODE in $(seq 1 "${NUM_NODES}"); do
     ${STOP_AT_EPOCH_FLAG} \
     ${KEYMANAGER_FLAG} \
     --keymanager-token-file="${DATA_DIR}/keymanager-token" \
-    --finalized-deposit-tree-snapshot="$CONTAINER_DEPOSIT_TREE_SNAPSHOT_FILE" \
     --rest-port="$(( BASE_REST_PORT + NUM_NODE - 1 ))" \
     --metrics-port="$(( BASE_METRICS_PORT + NUM_NODE - 1 ))" \
     --doppelganger-detection=off \

@@ -572,7 +572,6 @@ AllTests-mainnet
 ```
 ## Eth1 monitor
 ```diff
-+ Deposits chain                                                                             OK
 + Rewrite URLs                                                                               OK
 ```
 ## Eth2 specific discovery tests

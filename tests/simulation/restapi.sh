@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 #
 # beacon_chain
-# Copyright (c) 2021-2023 Status Research & Development GmbH
+# Copyright (c) 2021-2025 Status Research & Development GmbH
 # Licensed and distributed under either of
 #   * MIT license (license terms in the root directory or at https://opensource.org/licenses/MIT).
 #   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
@@ -226,7 +226,6 @@ ${LOCAL_TESTNET_SIMULATION_BIN} \
   --deposits-file="${DEPOSITS_FILE}" \
   --total-validators="${NUM_VALIDATORS}" \
   --output-genesis="${SNAPSHOT_FILE}" \
-  --output-deposit-tree-snapshot="${DEPOSIT_TREE_SNAPSHOT_FILE}" \
   --output-bootstrap-file="${NETWORK_BOOTSTRAP_FILE}" \
   --netkey-file=network_key.json \
   --capella-fork-epoch=9000 \

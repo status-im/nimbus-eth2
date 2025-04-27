@@ -8,7 +8,7 @@
 {.push raises: [].}
 
 import
-  std/[sequtils],
+  std/sequtils,
   stew/base10,
   chronicles,
   chronos/apps/http/httpdebug,
@@ -16,7 +16,6 @@ import
   libp2p/protocols/pubsub/pubsubpeer,
   ./rest_utils,
   ../el/el_manager,
-  ../validators/beacon_validators,
   ../spec/[forks, beacon_time],
   ../beacon_node, ../nimbus_binary_common
 
@@ -107,8 +106,6 @@ type
     connected*: bool
 
 RestJson.useDefaultSerializationFor(
-  BlockProposalEth1Data,
-  Eth1BlockObj,
   RestChronosMetricsInfo,
   RestConnectionInfo,
   RestFutureInfo,
@@ -255,32 +252,6 @@ proc installNimbusApiHandlers*(router: var RestRouter, node: BeaconNode) =
         except ValueError:
           return RestApiResponse.jsonResponse((result: false))
     RestApiResponse.jsonResponse((result: true))
-
-  router.api2(MethodGet, "/nimbus/v1/eth1/chain") do () -> RestApiResponse:
-    let res = mapIt(node.elManager.eth1ChainBlocks, it)
-    RestApiResponse.jsonResponse(res)
-
-  router.api2(MethodGet, "/nimbus/v1/eth1/proposal_data") do (
-    ) -> RestApiResponse:
-    let wallSlot = node.beaconClock.now.slotOrZero
-    let head =
-      block:
-        let res = node.getSyncedHead(wallSlot)
-        if res.isErr():
-          return RestApiResponse.jsonError(Http503, BeaconNodeInSyncError,
-                                           $res.error())
-        let tres = res.get()
-        if not tres.executionValid:
-          return RestApiResponse.jsonError(Http503, BeaconNodeInSyncError)
-        tres
-    let proposalState = assignClone(node.dag.headState)
-    node.dag.withUpdatedState(
-        proposalState[],
-        head.atSlot(wallSlot).toBlockSlotId().expect("not nil")):
-      return RestApiResponse.jsonResponse(
-        node.getBlockProposalEth1Data(updatedState))
-    do:
-      return RestApiResponse.jsonError(Http400, PrunedStateError)
 
   router.api2(MethodGet, "/nimbus/v1/debug/chronos/futures") do (
     ) -> RestApiResponse:

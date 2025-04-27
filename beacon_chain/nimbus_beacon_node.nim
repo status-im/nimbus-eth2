@@ -111,7 +111,6 @@ proc doRunTrustedNodeSync(
     trustedBlockRoot: Option[Eth2Digest],
     backfill: bool,
     reindex: bool,
-    downloadDepositSnapshot: bool,
     genesisState: ref ForkedHashedBeaconState) {.async.} =
   let syncTarget =
     if stateId.isSome:
@@ -138,7 +137,6 @@ proc doRunTrustedNodeSync(
     syncTarget,
     backfill,
     reindex,
-    downloadDepositSnapshot,
     genesisState)
 
 func getVanityLogs(stdoutKind: StdoutLogKind): VanityLogs =
@@ -343,11 +341,6 @@ proc initFullNode(
       elManager: ELManager): OnFinalizedCallback {.nimcall.} =
     static: doAssert (elManager is ref)
     return proc(dag: ChainDAGRef, data: FinalizationInfoObject) =
-      if elManager != nil:
-        let finalizedEpochRef = dag.getFinalizedEpochRef()
-        discard trackFinalizedState(elManager,
-                                    finalizedEpochRef.eth1_data,
-                                    finalizedEpochRef.eth1_deposit_index)
       node.updateLightClientFromDag()
       let eventData =
         if node.currentSlot().epoch() >= dag.cfg.BELLATRIX_FORK_EPOCH:
@@ -801,7 +794,6 @@ proc init*(T: type BeaconNode,
         trustedBlockRoot,
         backfill = false,
         reindex = false,
-        downloadDepositSnapshot = false,
         genesisState)
 
   if config.finalizedCheckpointBlock.isSome:
@@ -955,13 +947,7 @@ proc init*(T: type BeaconNode,
     dag.checkWeakSubjectivityCheckpoint(
       config.weakSubjectivityCheckpoint.get, beaconClock)
 
-  let elManager = ELManager.new(
-    cfg,
-    metadata.depositContractBlock,
-    metadata.depositContractBlockHash,
-    db,
-    engineApiUrls,
-    eth1Network)
+  let elManager = ELManager.new(cfg, engineApiUrls, eth1Network)
 
   if config.rpcEnabled.isSome:
     warn "Nimbus's JSON-RPC server has been removed. This includes the --rpc, --rpc-port, and --rpc-address configuration options. https://nimbus.guide/rest-api.html shows how to enable and configure the REST Beacon API server which replaces it."
@@ -2612,7 +2598,6 @@ proc handleStartUpCmd(config: var BeaconNodeConf) {.raises: [CatchableError].} =
       config.lcTrustedBlockRoot,
       config.backfillBlocks,
       config.reindex,
-      config.downloadDepositSnapshot,
       genesisState)
     db.close()
 

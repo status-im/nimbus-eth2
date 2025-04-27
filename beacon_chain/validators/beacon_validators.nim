@@ -367,14 +367,6 @@ proc createAndSendAttestation(node: BeaconNode,
       registered.toAttestation(signature), subnet_id,
       checkSignature = false, checkValidator = false)
 
-proc getBlockProposalEth1Data*(node: BeaconNode,
-                               state: ForkedHashedBeaconState):
-                               BlockProposalEth1Data =
-  let finalizedEpochRef = node.dag.getFinalizedEpochRef()
-  result = node.elManager.getBlockProposalData(
-    state, finalizedEpochRef.eth1_data,
-    finalizedEpochRef.eth1_deposit_index)
-
 proc getFeeRecipient(node: BeaconNode,
                      pubkey: ValidatorPubKey,
                      validatorIdx: ValidatorIndex,
@@ -504,13 +496,6 @@ proc makeBeaconBlockForHeadAndSlot*(
         # Create execution payload while packing attestations
         getExecutionPayload(PayloadType, node, head, state, validator_index)
 
-    eth1Proposal = node.getBlockProposalEth1Data(state[])
-
-  if eth1Proposal.hasMissingDeposits:
-    beacon_block_production_errors.inc()
-    warn "Eth1 deposits not available. Skipping block proposal", slot
-    return err("Eth1 deposits not available")
-
   let
     attestations =
       when PayloadType.kind >= ConsensusFork.Electra:
@@ -577,10 +562,10 @@ proc makeBeaconBlockForHeadAndSlot*(
       state[],
       validator_index,
       randao_reveal,
-      eth1Proposal.vote,
+      Eth1Data(),
       graffiti,
       attestations,
-      eth1Proposal.deposits,
+      @[],
       exits,
       node.syncCommitteeMsgPool[].produceSyncAggregate(head.bid, slot),
       payload,
