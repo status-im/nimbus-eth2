@@ -548,23 +548,28 @@ proc installNimbusApiHandlers*(router: var RestRouter, node: BeaconNode) =
     node.withStateForBlockSlotId(bslot):
       return withState(state):
         when consensusFork >= ConsensusFork.Capella:
-          let response = consensusFork.GetHistoricalSummariesResponse(
-            historical_summaries: forkyState.data.historical_summaries,
-            proof: forkyState.data.build_proof(
-              consensusFork.historical_summaries_gindex).expect("Valid gindex"),
-            slot: bslot.slot)
+          let summariesFork = historicalSummariesForkAtConsensusFork(consensusFork).valueOr:
+            return RestApiResponse.jsonError(Http404, HistoricalSummariesUnavailable)
 
-          if contentType == jsonMediaType:
-            RestApiResponse.jsonResponseFinalizedWVersion(
-              response,
-              node.getStateOptimistic(state),
-              node.dag.isFinalized(bslot.bid),
-              consensusFork)
-          elif contentType == sszMediaType:
-            let headers = [("eth-consensus-version", consensusFork.toString())]
-            RestApiResponse.sszResponse(response, headers)
-          else:
-            RestApiResponse.jsonError(Http500, InvalidAcceptError)
+          withHistoricalSummariesFork(summariesFork):
+            let response = getHistoricalSummariesResponse(historicalSummariesFork)(
+              historical_summaries: forkyState.data.historical_summaries,
+              proof: forkyState.data.build_proof(
+                historicalSummariesFork.historical_summaries_gindex).expect("Valid gindex"),
+              slot: bslot.slot)
+
+            if contentType == jsonMediaType:
+              RestApiResponse.jsonResponseFinalizedWVersion(
+                response,
+                node.getStateOptimistic(state),
+                node.dag.isFinalized(bslot.bid),
+                consensusFork)
+            elif contentType == sszMediaType:
+              let headers = [("eth-consensus-version", consensusFork.toString())]
+              RestApiResponse.sszResponse(response, headers)
+            else:
+              RestApiResponse.jsonError(Http500, InvalidAcceptError)
+
         else:
           RestApiResponse.jsonError(Http404, HistoricalSummariesUnavailable)
 

@@ -80,46 +80,44 @@ proc getTimeOffset*(client: RestClientRef,
 func decodeSszResponse(
     T: type ForkedHistoricalSummariesWithProof,
     data: openArray[byte],
-    consensusFork: ConsensusFork,
+    historicalSummariesFork: HistoricalSummariesFork,
     cfg: RuntimeConfig,
 ): T {.raises: [RestDecodingError].} =
-  if consensusFork >= ConsensusFork.Electra:
+  case historicalSummariesFork
+  of HistoricalSummariesFork.Electra:
     let summaries =
       try:
         SSZ.decode(data, GetHistoricalSummariesV1ResponseElectra)
       except SerializationError as exc:
         raise newException(RestDecodingError, exc.msg)
-    ForkedHistoricalSummariesWithProof.init(summaries, consensusFork)
-  elif consensusFork >= ConsensusFork.Capella:
+    ForkedHistoricalSummariesWithProof.init(summaries)
+  of HistoricalSummariesFork.Capella:
     let summaries =
       try:
         SSZ.decode(data, GetHistoricalSummariesV1Response)
       except SerializationError as exc:
         raise newException(RestDecodingError, exc.msg)
-    ForkedHistoricalSummariesWithProof.init(summaries, consensusFork)
-  else:
-    raiseRestDecodingBytesError(cstring("Unsupported fork: " & $consensusFork))
+    ForkedHistoricalSummariesWithProof.init(summaries)
 
 proc decodeJsonResponse(
     T: type ForkedHistoricalSummariesWithProof,
     data: openArray[byte],
-    consensusFork: ConsensusFork,
+    historicalSummariesFork: HistoricalSummariesFork,
     cfg: RuntimeConfig,
 ): T {.raises: [RestDecodingError].} =
-  if consensusFork >= ConsensusFork.Electra:
+  case historicalSummariesFork
+  of HistoricalSummariesFork.Electra:
     let summaries = decodeBytes(
       GetHistoricalSummariesV1ResponseElectra, data, Opt.none(ContentTypeData)
     ).valueOr:
       raise newException(RestDecodingError, $error)
-    ForkedHistoricalSummariesWithProof.init(summaries, consensusFork)
-  elif consensusFork >= ConsensusFork.Capella:
+    ForkedHistoricalSummariesWithProof.init(summaries)
+  of HistoricalSummariesFork.Capella:
     let summaries = decodeBytes(
       GetHistoricalSummariesV1Response, data, Opt.none(ContentTypeData)
     ).valueOr:
       raise newException(RestDecodingError, $error)
-    ForkedHistoricalSummariesWithProof.init(summaries, consensusFork)
-  else:
-    raiseRestDecodingBytesError(cstring("Unsupported fork: " & $consensusFork))
+    ForkedHistoricalSummariesWithProof.init(summaries)
 
 proc decodeHttpResponse(
     T: type ForkedHistoricalSummariesWithProof,
@@ -128,10 +126,13 @@ proc decodeHttpResponse(
     consensusFork: ConsensusFork,
     cfg: RuntimeConfig,
 ): T {.raises: [RestDecodingError].} =
+  let historicalSummariesFork = historicalSummariesForkAtConsensusFork(consensusFork).valueOr:
+    raiseRestDecodingBytesError(cstring("Unsupported fork: " & $consensusFork))
+
   if mediaType == OctetStreamMediaType:
-    ForkedHistoricalSummariesWithProof.decodeSszResponse(data, consensusFork, cfg)
+    ForkedHistoricalSummariesWithProof.decodeSszResponse(data, historicalSummariesFork, cfg)
   elif mediaType == ApplicationJsonMediaType:
-    ForkedHistoricalSummariesWithProof.decodeJsonResponse(data, consensusFork, cfg)
+    ForkedHistoricalSummariesWithProof.decodeJsonResponse(data, historicalSummariesFork, cfg)
   else:
     raise newException(RestDecodingError, "Unsupported content-type")
 

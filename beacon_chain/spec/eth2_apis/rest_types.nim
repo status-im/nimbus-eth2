@@ -1100,110 +1100,77 @@ type
     proof*: HistoricalSummariesProofElectra
     slot*: Slot
 
+  ForkyGetHistoricalSummariesV1Response* =
+    GetHistoricalSummariesV1Response |
+    GetHistoricalSummariesV1ResponseElectra
+
+  HistoricalSummariesFork* {.pure.} = enum
+    Capella = 0,
+    Electra = 1
+
   # REST client response type
   ForkedHistoricalSummariesWithProof* = object
-    case kind*: ConsensusFork
-    of ConsensusFork.Phase0: discard
-    of ConsensusFork.Altair: discard
-    of ConsensusFork.Bellatrix: discard
-    of ConsensusFork.Capella: capellaData*: GetHistoricalSummariesV1Response
-    of ConsensusFork.Deneb: denebData*: GetHistoricalSummariesV1Response
-    of ConsensusFork.Electra: electraData*: GetHistoricalSummariesV1ResponseElectra
-    of ConsensusFork.Fulu: fuluData*: GetHistoricalSummariesV1ResponseElectra
+    case kind*: HistoricalSummariesFork
+    of HistoricalSummariesFork.Capella: capellaData*: GetHistoricalSummariesV1Response
+    of HistoricalSummariesFork.Electra: electraData*: GetHistoricalSummariesV1ResponseElectra
 
 template historical_summaries_gindex*(
-    kind: static ConsensusFork): GeneralizedIndex =
-  when kind >= ConsensusFork.Electra:
+    kind: static HistoricalSummariesFork): GeneralizedIndex =
+  case kind
+  of HistoricalSummariesFork.Electra:
     HISTORICAL_SUMMARIES_GINDEX_ELECTRA
-  elif kind >= ConsensusFork.Capella:
+  of HistoricalSummariesFork.Capella:
     HISTORICAL_SUMMARIES_GINDEX
-  else:
-    {.error: "historical_summaries_gindex does not support " & $kind.}
 
-template GetHistoricalSummariesResponse*(
-    kind: static ConsensusFork): auto =
-  when kind >= ConsensusFork.Electra:
+template getHistoricalSummariesResponse*(
+    kind: static HistoricalSummariesFork): auto =
+  when kind >= HistoricalSummariesFork.Electra:
     GetHistoricalSummariesV1ResponseElectra
-  elif kind >= ConsensusFork.Capella:
+  elif kind >= HistoricalSummariesFork.Capella:
     GetHistoricalSummariesV1Response
-  else:
-    {.error: "GetHistoricalSummariesResponse does not support " & $kind.}
 
 template init*(
     T: type ForkedHistoricalSummariesWithProof,
     historical_summaries: GetHistoricalSummariesV1Response,
-    fork: ConsensusFork,
 ): T =
-  case fork
-  of ConsensusFork.Phase0:
-    raiseAssert $fork & " fork should not be used for historical summaries"
-  of ConsensusFork.Altair:
-    raiseAssert $fork & " fork should not be used for historical summaries"
-  of ConsensusFork.Bellatrix:
-    raiseAssert $fork & " fork should not be used for historical summaries"
-  of ConsensusFork.Capella:
     ForkedHistoricalSummariesWithProof(
-      kind: ConsensusFork.Capella, capellaData: historical_summaries
+      kind: HistoricalSummariesFork.Capella, capellaData: historical_summaries
     )
-  of ConsensusFork.Deneb:
-    ForkedHistoricalSummariesWithProof(
-      kind: ConsensusFork.Deneb, denebData: historical_summaries
-    )
-  of ConsensusFork.Electra:
-    raiseAssert $fork & " fork should not be used for this type of historical summaries"
-  of ConsensusFork.Fulu:
-    raiseAssert $fork & " fork should not be used for this type of historical summaries"
 
 template init*(
     T: type ForkedHistoricalSummariesWithProof,
     historical_summaries: GetHistoricalSummariesV1ResponseElectra,
-    fork: ConsensusFork,
 ): T =
-  case fork
-  of ConsensusFork.Phase0:
-    raiseAssert $fork & " fork should not be used for historical summaries"
-  of ConsensusFork.Altair:
-    raiseAssert $fork & " fork should not be used for historical summaries"
-  of ConsensusFork.Bellatrix:
-    raiseAssert $fork & " fork should not be used for historical summaries"
-  of ConsensusFork.Capella:
-    raiseAssert $fork & " fork should not be used for this type of historical summaries"
-  of ConsensusFork.Deneb:
-    raiseAssert $fork & " fork should not be used for this type of historical summaries"
-  of ConsensusFork.Electra:
     ForkedHistoricalSummariesWithProof(
-      kind: ConsensusFork.Electra, electraData: historical_summaries
-    )
-  of ConsensusFork.Fulu:
-    ForkedHistoricalSummariesWithProof(
-      kind: ConsensusFork.Fulu, fuluData: historical_summaries
+      kind: HistoricalSummariesFork.Electra, electraData: historical_summaries
     )
 
 template withForkyHistoricalSummariesWithProof*(
     x: ForkedHistoricalSummariesWithProof, body: untyped): untyped =
   case x.kind
-  of ConsensusFork.Fulu:
-    const consensusFork {.inject, used.} = ConsensusFork.Fulu
-    template forkySummaries: untyped {.inject, used.} = x.fuluData
-    body
-  of ConsensusFork.Electra:
-    const consensusFork {.inject, used.} = ConsensusFork.Electra
+  of HistoricalSummariesFork.Electra:
+    const historicalFork {.inject, used.} = HistoricalSummariesFork.Electra
     template forkySummaries: untyped {.inject, used.} = x.electraData
     body
-  of ConsensusFork.Deneb:
-    const consensusFork {.inject, used.} = ConsensusFork.Deneb
-    template forkySummaries: untyped {.inject, used.} = x.denebData
-    body
-  of ConsensusFork.Capella:
-    const consensusFork {.inject, used.} = ConsensusFork.Capella
+  of HistoricalSummariesFork.Capella:
+    const historicalFork {.inject, used.} = HistoricalSummariesFork.Capella
     template forkySummaries: untyped {.inject, used.} = x.capellaData
     body
-  of ConsensusFork.Bellatrix:
-    const consensusFork {.inject, used.} = ConsensusFork.Bellatrix
+
+func historicalSummariesForkAtConsensusFork*(consensusFork: ConsensusFork): Opt[HistoricalSummariesFork] =
+  static: doAssert HistoricalSummariesFork.high == HistoricalSummariesFork.Electra
+  if consensusFork >= ConsensusFork.Electra:
+    Opt.some HistoricalSummariesFork.Electra
+  elif consensusFork >= ConsensusFork.Capella:
+    Opt.some HistoricalSummariesFork.Capella
+  else:
+    Opt.none HistoricalSummariesFork
+
+template withHistoricalSummariesFork*(x: HistoricalSummariesFork, body: untyped): untyped =
+  case x
+  of HistoricalSummariesFork.Electra:
+    const historicalSummariesFork {.inject, used.} = HistoricalSummariesFork.Electra
     body
-  of ConsensusFork.Altair:
-    const consensusFork {.inject, used.} = ConsensusFork.Altair
-    body
-  of ConsensusFork.Phase0:
-    const consensusFork {.inject, used.} = ConsensusFork.Phase0
+  of HistoricalSummariesFork.Capella:
+    const historicalSummariesFork {.inject, used.} = HistoricalSummariesFork.Capella
     body
