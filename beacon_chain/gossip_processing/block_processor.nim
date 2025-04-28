@@ -500,7 +500,7 @@ proc storeBlock(
           err = r.error()
       else:
         if blobsOpt.isSome:
-          self.blobQuarantine[].put(blobsOpt.get)
+          self.blobQuarantine[].put(signedBlock.root, blobsOpt.get)
         debug "Block quarantined",
           blockRoot = shortLog(signedBlock.root),
           blck = shortLog(signedBlock.message),

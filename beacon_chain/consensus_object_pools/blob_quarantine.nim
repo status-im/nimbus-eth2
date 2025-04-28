@@ -20,7 +20,7 @@ from std/strutils import join
 export results
 
 type
-  ColumnMap = object
+  ColumnMap* = object
     data: array[2, uint64]
 
   RootTableRecord[A] = object
@@ -41,7 +41,7 @@ type
     custodyMap: ColumnMap
     roots: Table[Eth2Digest, RootTableRecord[A]]
     slots: Table[Slot, SlotTableRecord[A]]
-    usage: OrderedSet[Slot]
+    usage: OrderedSet[Eth2Digest]
     indexMap: seq[int]
     onSidecarCallback*: B
 
@@ -55,7 +55,7 @@ type
   ColumnQuarantine* =
     SidecarQuarantine[DataColumnSidecar, OnDataColumnSidecarCallback]
 
-func init(t: typedesc[ColumnMap], columns: openArray[ColumnIndex]): ColumnMap =
+func init*(t: typedesc[ColumnMap], columns: openArray[ColumnIndex]): ColumnMap =
   var res: ColumnMap
   for column in columns:
     let
@@ -67,7 +67,7 @@ func init(t: typedesc[ColumnMap], columns: openArray[ColumnIndex]): ColumnMap =
 # func `xor`(a, b: ColumnMap): ColumnMap =
 #   ColumnMap(data: [a.data[0] xor b.data[0], a.data[1] xor b.data[1]])
 
-func `and`(a, b: ColumnMap): ColumnMap =
+func `and`*(a, b: ColumnMap): ColumnMap =
   ColumnMap(data: [a.data[0] and b.data[0], a.data[1] and b.data[1]])
 
 # func `or`(a, b: ColumnMap): ColumnMap =
@@ -79,7 +79,7 @@ func `and`(a, b: ColumnMap): ColumnMap =
 # func `==`(a, b: ColumnMap): bool =
 #   (a.data[0] == b.data[0]) and (a.data[1] == b.data[1])
 
-func toSeq(a: ColumnMap): seq[ColumnIndex] =
+func toSeq*(a: ColumnMap): seq[ColumnIndex] =
   var
     res1: seq[ColumnIndex]
     res2: seq[ColumnIndex]
@@ -90,8 +90,8 @@ func toSeq(a: ColumnMap): seq[ColumnIndex] =
       res2.add(ColumnIndex(64 + i))
   res1 & res2
 
-# func `$`(a: ColumnMap): string =
-#   "[" & a.toSeq().mapIt($it).join(", ") & "]"
+func `$`*(a: ColumnMap): string =
+  "[" & a.toSeq().mapIt($it).join(", ") & "]"
 
 func maxSidecars(maxSidecarsPerBlock: uint64): int =
   # Same limit as `MaxOrphans` in `block_quarantine`;
@@ -122,67 +122,84 @@ func `$`*[A](r: RootTableRecord[A]): string =
     return "<empty>"
   r.sidecars.mapIt(if isNil(it): "." else: "x").join("")
 
-func remove(
-    quarantine: var BlobQuarantine,
+func del[A](records: var seq[SlotRecord[A]], blockRoot: Eth2Digest) =
+  for index in 0 ..< len(records):
+    if records[index].blockRoot == blockRoot:
+      records.del(index)
+      return
+
+func removeRootsInSlot[A, B](
+    quarantine: var SidecarQuarantine[A, B],
+    slot: Slot,
+    indices: openArray[int],
     blockRoot: Eth2Digest
 ) =
-  var rootRecord: RootTableRecord[BlobSidecar]
-  if quarantine.roots.pop(blockRoot, rootRecord):
-    for index in 0 ..< len(rootRecord.sidecars):
-      rootRecord.sidecars[index] = nil
+  quarantine.slots.withValue(slot, records):
+    for index in indices:
+      if index < len(records[]):
+        records[][index].del(blockRoot)
 
-func remove(
-    quarantine: var ColumnQuarantine,
-    blockRoot: Eth2Digest
+func removeRoot[A, B](
+    quarantine: var SidecarQuarantine[A, B],
+    blockRoot: Eth2Digest,
+    cleanSlot: bool,
 ) =
-  var rootRecord: RootTableRecord[DataColumnSidecar]
+  var
+    slot = FAR_FUTURE_SLOT
+    indices: seq[int]
+    rootRecord: RootTableRecord[A]
+
   if quarantine.roots.pop(blockRoot, rootRecord):
     for index in 0 ..< len(rootRecord.sidecars):
-      rootRecord.sidecars[index] = nil
+      if not(rootRecord.sidecars[index].isNil()):
+        slot = rootRecord.sidecars[index].signed_block_header.message.slot
+        rootRecord.sidecars[index] = nil
+        if cleanSlot:
+          indices.add(index)
+        dec(quarantine.sidecarsCount)
 
-func remove*(
-    quarantine: var BlobQuarantine,
+  if cleanSlot and slot != FAR_FUTURE_SLOT:
+    quarantine.removeRootsInSlot(slot, indices, blockRoot)
+
+  quarantine.usage.excl(blockRoot)
+
+func remove*[A, B](
+    quarantine: var SidecarQuarantine[A, B],
     slot: Slot
 ) =
-  ## Remove all the blobs related to the slot ``slot`` from the
+  ## Remove all the data columns or blobs related to the slot ``slot`` from the
   ## quarantine ``quarantine``.
-  var slotRecords: SlotTableRecord[BlobSidecar]
+  ##
+  ## Function do nothing, if ``slot`` is not part of quarantine.
+  var slotRecords: SlotTableRecord[A]
+
   if quarantine.slots.pop(slot, slotRecords):
     for recordsList in slotRecords.mitems():
       for record in recordsList.mitems():
         record.sidecar = nil
-        quarantine.remove(record.blockRoot)
-        dec(quarantine.sidecarsCount)
+        quarantine.removeRoot(record.blockRoot, false)
     slotRecords.reset()
-    quarantine.usage.excl(slot)
 
-func remove*(
-    quarantine: var ColumnQuarantine,
-    slot: Slot
+func remove*[A, B](
+    quarantine: var SidecarQuarantine[A, B],
+    blockRoot: Eth2Digest
 ) =
-  ## Remove all the blobs related to the block root ``blockRoot`` from the
-  ## quarantine ``quarantine``. Function is nop operation if ``blockRoot`` is
-  ## not part of quarantine.
-  var slotRecords: SlotTableRecord[DataColumnSidecar]
-  if quarantine.slots.pop(slot, slotRecords):
-    for recordsList in slotRecords.mitems():
-      for record in recordsList.mitems():
-        record.sidecar = nil
-        quarantine.remove(record.blockRoot)
-        dec(quarantine.sidecarsCount)
-    slotRecords.reset()
-    quarantine.usage.excl(slot)
+  ## Remove all the data columns or blobs related to the block root ``blockRoot`
+  ## from the quarantine ``quarantine``.
+  ##
+  ## Function do nothing, if ``blockRoot` is not part of the quarantine.
+  quarantine.removeRoot(blockRoot, true)
 
-func pruneSlot[A, B](quarantine: var SidecarQuarantine[A, B]) =
+func pruneRoot[A, B](quarantine: var SidecarQuarantine[A, B]) =
   # Remove the all the blobs related to the oldest block root from the
   # quarantine ``quarantine``.
   if len(quarantine.usage) == 0:
     return
-  var startSlot = FAR_FUTURE_SLOT
-  for slot in quarantine.usage:
-    startSlot = slot
+  var oldestRoot: Eth2Digest
+  for blockRoot in quarantine.usage:
+    oldestRoot = blockRoot
     break
-  quarantine.remove(startSlot)
+  quarantine.remove(oldestRoot)
 
 func getIndex(quarantine: BlobQuarantine, index: BlobIndex): int =
   doAssert(index < lenu64(quarantine.indexMap))
@@ -197,10 +214,6 @@ template slot(b: BlobSidecar|DataColumnSidecar): Slot =
 
 template proposer_index(b: BlobSidecar|DataColumnSidecar): uint64 =
   b.signed_block_header.message.proposer_index
-
-func maintainSlot[A, B](quarantine: var SidecarQuarantine[A, B], slot: Slot) =
-  # quarantine.slot is the lowest slot number of all the blobs in quarantine.
-  discard quarantine.usage.containsOrIncl(slot)
 
 func put[A, B](record: var RootTableRecord[A], q: SidecarQuarantine[A, B],
                sidecars: openArray[ref A]) =
@@ -232,6 +245,8 @@ func put*[A, B](
     blockRoot: Eth2Digest,
     sidecar: ref A
 ) =
+  ## Function adds blob or data column sidecar associated with block root
+  ## ``blockRoot`` to the quarantine ``quarantine``.
   while quarantine.sidecarsCount >= quarantine.maxSidecarsCount:
     # FIFO if full. For example, sync manager and request manager can race to
     # put blobs in at the same time, so one gets blob insert -> block resolve
@@ -241,24 +256,25 @@ func put*[A, B](
     # blobs which are correctly signed, point to either correct block roots or a
     # block root which isn't ever seen, and then are for any reason simply never
     # used.
-    quarantine.pruneSlot()
+    quarantine.pruneRoot()
 
   let
-    slot = sidecar[].slot
     rootRecord = RootTableRecord.init(quarantine)
     slotRecord = SlotTableRecord.init(quarantine)
   quarantine.roots.mgetOrPut(blockRoot, rootRecord).put(
     quarantine, [sidecar])
   quarantine.slots.mgetOrPut(sidecar[].slot(), slotRecord).put(
     quarantine, blockRoot, [sidecar])
-  quarantine.maintainSlot(slot)
+  discard quarantine.usage.containsOrIncl(blockRoot)
   inc(quarantine.sidecarsCount)
 
 func put*[A, B](
     quarantine: var SidecarQuarantine[A, B],
+    blockRoot: Eth2Digest,
     blobSidecars: openArray[ref A]
 ) =
-  ## Add all block's blobs to quarantine.
+  ## Function adds number of blobs or data columns sidecars associated to single
+  ## block with root ``blockRoot`` to the quarantine ``quarantine``.
   if len(blobSidecars) == 0:
     return
 
@@ -271,16 +287,11 @@ func put*[A, B](
     # blobs which are correctly signed, point to either correct block roots or a
     # block root which isn't ever seen, and then are for any reason simply never
     # used.
-    quarantine.pruneSlot()
+    quarantine.pruneRoot()
 
   let
-    blockRoot =
-      # Because all the blobs related to single block we could calculate
-      # `block_root` only once.
-      hash_tree_root(blobSidecars[0][].signed_block_header.message)
     slot =
-      # Because all the blobs related to single block we could calculate
-      # `slot` only once.
+      # All the blobs related to single block we could get `slot` once.
       blobSidecars[0][].slot()
     rootRecord = RootTableRecord.init(quarantine)
     slotRecord = SlotTableRecord.init(quarantine)
@@ -289,7 +300,8 @@ func put*[A, B](
     quarantine, blobSidecars)
   quarantine.slots.mgetOrPut(slot, slotRecord).put(
       quarantine, blockRoot, blobSidecars)
-  quarantine.maintainSlot(slot)
+  discard quarantine.usage.containsOrIncl(blockRoot)
+  inc(quarantine.sidecarsCount, len(blobSidecars))
 
 template hasSidecarImpl(slot: Slot, proposerIndex: uint64,
                         sidecarIndex: typed): bool =
@@ -332,10 +344,12 @@ func hasSidecars*(
   ## Function returns ``true`` if quarantine has all the blobs for block
   ## ``blck`` with block root ``blockRoot``.
   let record = quarantine.roots.getOrDefault(blockRoot)
+  if len(record.sidecars) == 0:
+    # block root not found, record.sidecars sequence was not initialized.
+    return false
   if len(blck.message.body.blob_kzg_commitments) == 0:
     return true
-  if len(record.sidecars) == 0:
-    return false
+
   if record.count < len(blck.message.body.blob_kzg_commitments):
     # Quarantine does not hold enough blob sidecars.
     return false
@@ -349,10 +363,11 @@ func hasSidecars*(
   ## Function returns ``true`` if quarantine has all the columns for block
   ## ``blck`` with block root ``blockRoot``.
   let record = quarantine.roots.getOrDefault(blockRoot)
+  if len(record.sidecars) == 0:
+    # block root not found, record.sidecars sequence was not initialized.
+    return false
   if len(blck.message.body.blob_kzg_commitments) == 0:
     return true
-  if len(record.sidecars) == 0:
-    return false
 
   let
     supernode = (len(quarantine.custodyColumns) == NUMBER_OF_COLUMNS)
@@ -396,7 +411,7 @@ func popSidecars*(
   ## If block do not have any blob sidecars Opt.some([]) is returned.
   let record = quarantine.roots.getOrDefault(blockRoot)
   if len(record.sidecars) == 0:
-    # block root not found, record.sidecars sequence was not allocated.
+    # block root not found, record.sidecars sequence was not initialized.
     return Opt.none(seq[ref BlobSidecar])
 
   let sidecarsCount = len(blck.message.body.blob_kzg_commitments)
@@ -514,8 +529,8 @@ func fetchMissingSidecars*(
     blck: fulu.SignedBeaconBlock,
     peerCustodyColumns: openArray[ColumnIndex] = []
 ): seq[DataColumnIdentifier] =
-  ## Function returns sequence of BlobIdentifiers for columns which are missing
-  ## for block root ``blockRoot`` and block ``blck``.
+  ## Function returns sequence of DataColumnIdentifier's for data columns which
+  ## are missing for block associated with root ``blockRoot`` and block ``blck``.
   var res: seq[DataColumnIdentifier]
   let record = quarantine.roots.getOrDefault(blockRoot)
 
@@ -532,24 +547,24 @@ func fetchMissingSidecars*(
         len(quarantine.custodyColumns)
 
   if supernode:
+    let
+      columns =
+        if len(peerCustodyColumns) > 0:
+          @peerCustodyColumns
+        else:
+          quarantine.custodyColumns
     if len(record.sidecars) == 0:
-      let
-        columns =
-          if len(peerCustodyColumns) > 0:
-            @peerCustodyColumns
-          else:
-            quarantine.custodyColumns
+      var columnsRequested = 0
       for column in columns:
+        if columnsRequested >= columnsCount:
+          # We don't need to request more than (NUMBER_OF_COLUMNS div 2 + 1)
+          # columns.
+          break
         res.add(DataColumnIdentifier(block_root: blockRoot, index: column))
+        inc(columnsRequested)
     else:
       if record.count >= columnsCount:
         return res
-      let
-        columns =
-          if len(peerCustodyColumns) > 0:
-            @peerCustodyColumns
-          else:
-            quarantine.custodyColumns
       var columnsRequested = 0
       for column in columns:
         if record.count + columnsRequested >= columnsCount:
@@ -561,7 +576,11 @@ func fetchMissingSidecars*(
           res.add(DataColumnIdentifier(block_root: blockRoot, index: column))
           inc(columnsRequested)
   else:
-    let peerMap = ColumnMap.init(peerCustodyColumns)
+    let peerMap =
+      if len(peerCustodyColumns) > 0:
+        ColumnMap.init(peerCustodyColumns)
+      else:
+        ColumnMap.init(quarantine.custodyColumns)
     if len(record.sidecars) == 0:
       for column in (peerMap and quarantine.custodyMap).toSeq():
         res.add(DataColumnIdentifier(block_root: blockRoot, index: column))
@@ -588,7 +607,7 @@ func init*(
     onBlobSidecarCallback: OnBlobSidecarCallback
 ): BlobQuarantine =
   # BlobSidecars maps are trivial, but still useful
-  var indexMap = newSeq[int](cfg.MAX_BLOBS_PER_BLOCK_ELECTRA)
+  var indexMap = newSeqUninit[int](cfg.MAX_BLOBS_PER_BLOCK_ELECTRA)
   for index in 0 ..< len(indexMap):
     indexMap[index] = index
 
@@ -607,11 +626,12 @@ func init*(
     custodyColumns: openArray[ColumnIndex],
     onBlobSidecarCallback: OnDataColumnSidecarCallback
 ): ColumnQuarantine =
-  let size = maxSidecars(cfg.MAX_BLOBS_PER_BLOCK_ELECTRA)
-
-  var indexMap = newSeq[int](NUMBER_OF_COLUMNS)
-  for i in 0 ..< len(indexMap):
-    indexMap[i] = -1
+  doAssert(len(custodyColumns) <= NUMBER_OF_COLUMNS)
+  let size = maxSidecars(NUMBER_OF_COLUMNS)
+  var indexMap = newSeqUninit[int](NUMBER_OF_COLUMNS)
+  if len(custodyColumns) < NUMBER_OF_COLUMNS:
+    for i in 0 ..< len(indexMap):
+      indexMap[i] = -1
   for index, item in custodyColumns.pairs():
     doAssert(item < uint64(NUMBER_OF_COLUMNS))
     indexMap[int(item)] = index
@@ -621,7 +641,7 @@ func init*(
     maxSidecarsCount: size,
     sidecarsCount: 0,
     indexMap: indexMap,
-    custodyColumns: custodyColumns,
+    custodyColumns: @custodyColumns,
     custodyMap: ColumnMap.init(custodyColumns),
     onSidecarCallback: onBlobSidecarCallback
   )
