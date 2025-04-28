@@ -369,53 +369,49 @@ proc validateDataColumnSidecarFromEL*(
       when consensusFork >= ConsensusFork.Fulu:
         let
           start_time = Moment.now()
-        ## As we are sending several calls to the EL,
-        ## it's crucial to check the column quarantine situation,
-        ## hence only calling to EL when absolutely necessary
-        if not self.dataColumnQuarantine[].hasMissingDataColumns(forkyBlck, self.dag.cfg):
-          let blobsFromElOpt =
-            await self.elManager.sendGetBlobsV2(forkyBlck)
-          if blobsFromElOpt.isSome():
-            let blobsEl = blobsFromElOpt.get()
+        let blobsFromElOpt =
+          await self.elManager.sendGetBlobsV2(forkyBlck)
+        if blobsFromElOpt.isSome():
+          let blobsEl = blobsFromElOpt.get()
 
-            # check lengths of array[BlobAndProofV2 with blobs
-            # kzg commitments of the signed block
-            if blobsEl.len == forkyBlck.message.body.blob_kzg_commitments.len:
+          # check lengths of array[BlobAndProofV2 with blobs
+          # kzg commitments of the signed block
+          if blobsEl.len == forkyBlck.message.body.blob_kzg_commitments.len:
 
-              # we have received all columns from the EL
-              # hence we can safely remove the columnless block from quarantine
-              self.quarantine[].removeColumnless(forkyBlck)
-              var flat_proof: seq[kzg.KzgProof] = @[]
-              for item in blobsEl:
-                for proof in item.proofs:
-                  flat_proof.add(kzg.KzgProof(bytes: proof.data))
+            # we have received all columns from the EL
+            # hence we can safely remove the columnless block from quarantine
+            self.quarantine[].removeColumnless(forkyBlck)
+            var flat_proof: seq[kzg.KzgProof] = @[]
+            for item in blobsEl:
+              for proof in item.proofs:
+                flat_proof.add(kzg.KzgProof(bytes: proof.data))
 
-              let
-                recovered_columns =
-                  assemble_data_column_sidecars(
-                    forkyBlck,
-                    blobsEl.mapIt(kzg.KzgBlob(bytes: it.blob.data)),
-                    flat_proof)
+            let
+              recovered_columns =
+                assemble_data_column_sidecars(
+                  forkyBlck,
+                  blobsEl.mapIt(kzg.KzgBlob(bytes: it.blob.data)),
+                  flat_proof)
 
-              for rc in recovered_columns:
-                if rc.index in self.dataColumnQuarantine[].custody_columns:
-                  self.dag.db.putDataColumnSidecar(rc)
-                  self.dataColumnQuarantine[].put(newClone rc)
+            for rc in recovered_columns:
+              if rc.index in self.dataColumnQuarantine[].custody_columns:
+                self.dag.db.putDataColumnSidecar(rc)
+                self.dataColumnQuarantine[].put(newClone rc)
 
-              if self.dataColumnQuarantine[].hasMissingDataColumns(forkyBlck, self.dag.cfg):
-                let end_time = Moment.now()
-                debug "Time taken to get 100% response from EL and bypass blob gossip validation",
-                      time_taken = end_time - start_time
-                debug "Pulled blobs from EL, bypassing blob gossip validation",
-                      blobs_from_el = blobsEl.len
-                self.blockProcessor[].enqueueBlock(
-                  MsgSource.gossip, columnless,
-                  Opt.none(BlobSidecars),
-                  Opt.some(self.dataColumnQuarantine[].popDataColumns(block_root, forkyBlck)))
-                return ok()
-              else:
-                discard self.quarantine[].addColumnless(
-                  self.dag.finalizedHead.slot, forkyBlck)
+            if self.dataColumnQuarantine[].hasMissingDataColumns(forkyBlck, self.dag.cfg):
+              let end_time = Moment.now()
+              debug "Time taken to get 100% response from EL and bypass blob gossip validation",
+                    time_taken = end_time - start_time
+              debug "Pulled blobs from EL, bypassing blob gossip validation",
+                    blobs_from_el = blobsEl.len
+              self.blockProcessor[].enqueueBlock(
+                MsgSource.gossip, columnless,
+                Opt.none(BlobSidecars),
+                Opt.some(self.dataColumnQuarantine[].popDataColumns(block_root, forkyBlck)))
+              return ok()
+            else:
+              discard self.quarantine[].addColumnless(
+                self.dag.finalizedHead.slot, forkyBlck)
       else:
         raiseAssert "Could not have been added as columnless"
   else:
