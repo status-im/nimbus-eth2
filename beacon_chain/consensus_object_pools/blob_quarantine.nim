@@ -343,12 +343,13 @@ func hasSidecars*(
 ): bool =
   ## Function returns ``true`` if quarantine has all the blobs for block
   ## ``blck`` with block root ``blockRoot``.
+  if len(blck.message.body.blob_kzg_commitments) == 0:
+    return true
+
   let record = quarantine.roots.getOrDefault(blockRoot)
   if len(record.sidecars) == 0:
     # block root not found, record.sidecars sequence was not initialized.
     return false
-  if len(blck.message.body.blob_kzg_commitments) == 0:
-    return true
 
   if record.count < len(blck.message.body.blob_kzg_commitments):
     # Quarantine does not hold enough blob sidecars.
@@ -362,12 +363,13 @@ func hasSidecars*(
 ): bool =
   ## Function returns ``true`` if quarantine has all the columns for block
   ## ``blck`` with block root ``blockRoot``.
+  if len(blck.message.body.blob_kzg_commitments) == 0:
+    return true
+
   let record = quarantine.roots.getOrDefault(blockRoot)
   if len(record.sidecars) == 0:
     # block root not found, record.sidecars sequence was not initialized.
     return false
-  if len(blck.message.body.blob_kzg_commitments) == 0:
-    return true
 
   let
     supernode = (len(quarantine.custodyColumns) == NUMBER_OF_COLUMNS)
@@ -409,17 +411,16 @@ func popSidecars*(
   ## block ``blck``.
   ## If some of the blob sidecars are missing Opt.none() is returned.
   ## If block do not have any blob sidecars Opt.some([]) is returned.
+  let sidecarsCount = len(blck.message.body.blob_kzg_commitments)
+  if sidecarsCount == 0:
+    # Block does not have any blob sidecars.
+    quarantine.remove(blockRoot)
+    return Opt.some(default(seq[ref BlobSidecar]))
+
   let record = quarantine.roots.getOrDefault(blockRoot)
   if len(record.sidecars) == 0:
     # block root not found, record.sidecars sequence was not initialized.
     return Opt.none(seq[ref BlobSidecar])
-
-  let sidecarsCount = len(blck.message.body.blob_kzg_commitments)
-
-  if sidecarsCount == 0:
-    # Block does not have any blob sidecars.
-    quarantine.remove(blck.message.slot)
-    return Opt.some(default(seq[ref BlobSidecar]))
 
   if record.count < sidecarsCount:
     # Quarantine does not hold enough blob sidecars.
@@ -443,17 +444,16 @@ func popSidecars*(
   ## and block ``blck``.
   ## If some of the column sidecars are missing Opt.none() is returned.
   ## If block do not have any column sidecars bundledd Opt.some([]) is returned.
+  let sidecarsCount = len(blck.message.body.blob_kzg_commitments)
+  if sidecarsCount == 0:
+    # Block does not have any blob sidecars.
+    quarantine.remove(blockRoot)
+    return Opt.some(default(seq[ref DataColumnSidecar]))
+
   let record = quarantine.roots.getOrDefault(blockRoot)
   if len(record.sidecars) == 0:
     # block root not found, record.sidecars sequence was not allocated.
     return Opt.none(seq[ref DataColumnSidecar])
-
-  let sidecarsCount = len(blck.message.body.blob_kzg_commitments)
-
-  if sidecarsCount == 0:
-    # Block does not have any blob sidecars.
-    quarantine.remove(blck.message.slot)
-    return Opt.some(default(seq[ref DataColumnSidecar]))
 
   let
     supernode = (len(quarantine.custodyColumns) == NUMBER_OF_COLUMNS)
