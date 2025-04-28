@@ -494,7 +494,8 @@ proc initFullNode(
       config.doppelgangerDetection,
       blockProcessor, node.validatorMonitor, dag, attestationPool,
       validatorChangePool, node.attachedValidators, syncCommitteeMsgPool,
-      lightClientPool, quarantine, blobQuarantine, rng, getBeaconTime, taskpool)
+      lightClientPool, consensusManager,
+      quarantine, blobQuarantine, rng, getBeaconTime, taskpool)
     syncManagerFlags =
       if node.config.longRangeSync != LongRangeSyncMode.Lenient:
         {SyncManagerFlag.NoGenesisSync}

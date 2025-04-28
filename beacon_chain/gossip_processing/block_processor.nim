@@ -146,12 +146,6 @@ proc new*(T: type BlockProcessor,
 func hasBlocks*(self: BlockProcessor): bool =
   self.blockQueue.len() > 0
 
-# Validator status
-# ------------------------------------------------------------------------------
-
-proc hasKnownValidator*(self: var BlockProcessor, idx: ValidatorIndex): bool =
-  self.consensusManager[].actionTracker.knownValidators.hasKey(idx)
-
 # Storage
 # ------------------------------------------------------------------------------
 
