@@ -79,7 +79,7 @@ func `and`*(a, b: ColumnMap): ColumnMap =
 # func `==`(a, b: ColumnMap): bool =
 #   (a.data[0] == b.data[0]) and (a.data[1] == b.data[1])
 
-func toSeq*(a: ColumnMap): seq[ColumnIndex] =
+func asSeq(a: ColumnMap): seq[ColumnIndex] =
   var
     res1: seq[ColumnIndex]
     res2: seq[ColumnIndex]
@@ -91,7 +91,7 @@ func toSeq*(a: ColumnMap): seq[ColumnIndex] =
   res1 & res2
 
 func `$`*(a: ColumnMap): string =
-  "[" & a.toSeq().mapIt($it).join(", ") & "]"
+  "[" & a.asSeq().mapIt($it).join(", ") & "]"
 
 func maxSidecars(maxSidecarsPerBlock: uint64): int =
   # Same limit as `MaxOrphans` in `block_quarantine`;
@@ -582,10 +582,10 @@ func fetchMissingSidecars*(
       else:
         ColumnMap.init(quarantine.custodyColumns)
     if len(record.sidecars) == 0:
-      for column in (peerMap and quarantine.custodyMap).toSeq():
+      for column in (peerMap and quarantine.custodyMap).asSeq():
         res.add(DataColumnIdentifier(block_root: blockRoot, index: column))
     else:
-      for column in (peerMap and quarantine.custodyMap).toSeq():
+      for column in (peerMap and quarantine.custodyMap).asSeq():
         let index = quarantine.getIndex(column)
         if (index == -1) or (record.sidecars[index].isNil()):
           res.add(DataColumnIdentifier(block_root: blockRoot, index: column))
