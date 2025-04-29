@@ -113,6 +113,10 @@ type
     block_root*: Eth2Digest
     index*: ColumnIndex
 
+  DataColumnsByRootIdentifier* = object
+    block_root*: Eth2Digest
+    indices*: List[ColumnIndex, Limit NUMBER_OF_COLUMNS]
+
   # https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.10/specs/fulu/das-core.md#matrixentry
   MatrixEntry* = object
     cell*: Cell
@@ -614,6 +618,15 @@ func shortLog*(v: seq[DataColumnSidecar]): auto =
 
 func shortLog*(x: seq[DataColumnIdentifier]): string =
   "[" & x.mapIt(shortLog(it.block_root) & "/" & $it.index).join(", ") & "]"
+
+func shortLog*(xs: seq[DataColumnsByRootIdentifier]): string =
+  ## Formats like:  [abcd…/0,2,4,  ef09…/1,3]
+  "[" &
+    xs.mapIt(
+      shortLog(it.block_root) & "/" &
+      it.indices.mapIt($it).join(",")
+    ).join(", ") &
+  "]"
 
 func shortLog*(x: seq[ColumnIndex]): string =
   "<" & x.mapIt($it).join(", ") & ">"
