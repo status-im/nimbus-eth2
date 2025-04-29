@@ -482,14 +482,13 @@ proc initFullNode(
         Opt.some blob_sidecar
       else:
         Opt.none(ref BlobSidecar)
-    rmanDataColumnsLoader = proc(
-        columnId: DataColumnsByRootIdentifier): Opt[ref DataColumnSidecar] =
+    rmanDataColumnLoader = proc(
+        columnId: DataColumnIdentifier): Opt[ref DataColumnSidecar] =
       var data_column_sidecar = DataColumnSidecar.new()
-      for index in columnId.indices:
-        if dag.db.getDataColumnSidecar(columnId.block_root, index, data_column_sidecar[]):
-          Opt.some data_column_sidecar
-        else:
-          Opt.none(ref DataColumnSidecar)
+      if dag.db.getDataColumnSidecar(columnId.block_root, columnId.index, data_column_sidecar[]):
+        Opt.some data_column_sidecar
+      else:
+        Opt.none(ref DataColumnSidecar)
 
     processor = Eth2Processor.new(
       config.doppelgangerDetection,

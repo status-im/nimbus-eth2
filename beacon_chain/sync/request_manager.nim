@@ -57,9 +57,9 @@ type
   BlobLoaderFn = proc(
       blobId: BlobIdentifier): Opt[ref BlobSidecar] {.gcsafe, raises: [].}
 
-  DataColumnsLoaderFn = proc(
-      columnIds: DataColumnsByRootIdentifier):
-      Opt[DataColumnSidecars] {.gcsafe, raises: [].}
+  DataColumnLoaderFn = proc(
+      columnIds: DataColumnIdentifier):
+      Opt[ref DataColumnSidecar] {.gcsafe, raises: [].}
 
   InhibitFn = proc: bool {.gcsafe, raises: [].}
 
@@ -634,14 +634,18 @@ proc requestManagerDataColumnLoop(
         if columnId.block_root != curRoot:
           curRoot = columnId.block_root
           blockRoots.add curRoot
-        let data_column_sidecar = rman.dataColumnLoader(columnId).valueOr:
-          columnIds.add columnId
-          if blockRoots.len > 0 and blockRoots[^1] == curRoot:
-            # A data column is missing, remove from list of fully available data columns
-            discard blockRoots.pop()
-          continue
-        debug "Loaded orphaned data columns from storage", columnId
-        rman.dataColumnQuarantine[].put(data_column_sidecar)
+        for index in columnId.indices:
+          let loaderElem = DataColumnIdentifier(
+            block_root: columnId.block_root,
+            index: index)
+          let data_column_sidecar = rman.dataColumnLoader(loaderElem).valueOr:
+            columnIds.add columnId
+            if blockRoots.len > 0 and blockRoots[^1] == curRoot:
+              # A data column is missing, remove from list of fully available data columns
+              discard blockRoots.pop()
+            continue
+          debug "Loaded orphaned data columns from storage", columnId
+          rman.dataColumnQuarantine[].put(data_column_sidecar)
       var verifiers = newSeqOfCap[
         Future[Result[void, VerifierError]]
           .Raising([CancelledError])](blockRoots.len)
