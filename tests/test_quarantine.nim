@@ -131,7 +131,7 @@ func supernodeColumns(): seq[ColumnIndex] =
     res.add(ColumnIndex(i))
   res
 
-suite "BlobQuarantine datastructure test suite " & preset():
+suite "BlobQuarantine data structure test suite " & preset():
   setup:
     let cfg = defaultRuntimeConfig
 
@@ -463,7 +463,7 @@ suite "BlobQuarantine datastructure test suite " & preset():
           index = sidecars[i].sidecar[].index
         ) == false
 
-suite "ColumnQuarantine datastructure test suite " & preset():
+suite "ColumnQuarantine data structure test suite " & preset():
   setup:
     let cfg {.used.} = defaultRuntimeConfig
 
