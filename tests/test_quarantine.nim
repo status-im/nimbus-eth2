@@ -378,6 +378,40 @@ suite "BlobQuarantine datastructure test suite " & preset():
     bq.remove(Slot(1))
     check len(bq) == 0
 
+  test "popSidecars()/hasSidecars() return []/true on block without blobs":
+    var
+      bq = BlobQuarantine.init(cfg, nil)
+    let
+      blockRoot1 = genBlockRoot(100)
+      blockRoot2 = genBlockRoot(5337)
+      blockRoot3 = genBlockRoot(191925)
+      blockRoot4 = genBlockRoot(1294967295)
+      denebBlock1 = genDenebSignedBeaconBlock(blockRoot1, [])
+      denebBlock2 = genDenebSignedBeaconBlock(blockRoot2, [])
+      electraBlock1 = genElectraSignedBeaconBlock(blockRoot3, [])
+      electraBlock2 = genElectraSignedBeaconBlock(blockRoot4, [])
+    check:
+      bq.hasSidecars(denebBlock1.root, denebBlock1) == true
+      bq.hasSidecars(denebBlock2.root, denebBlock2) == true
+      bq.hasSidecars(electraBlock1.root, electraBlock1) == true
+      bq.hasSidecars(electraBlock2.root, electraBlock2) == true
+
+    let
+      res1 = bq.popSidecars(denebBlock1.root, denebBlock1)
+      res2 = bq.popSidecars(denebBlock2.root, denebBlock2)
+      res3 = bq.popSidecars(electraBlock1.root, electraBlock1)
+      res4 = bq.popSidecars(electraBlock2.root, electraBlock2)
+
+    check:
+      res1.isOk()
+      len(res1.get()) == 0
+      res2.isOk()
+      len(res2.get()) == 0
+      res3.isOk()
+      len(res3.get()) == 0
+      res4.isOk()
+      len(res4.get()) == 0
+
   test "overfill protection test":
     var bq = BlobQuarantine.init(cfg, nil)
     var sidecars: seq[tuple[sidecar: ref BlobSidecar, blockRoot: Eth2Digest]]
@@ -987,6 +1021,38 @@ suite "ColumnQuarantine datastructure test suite " & preset():
     bq.remove(Slot(1))
     bq.remove(Slot(2))
     check len(bq) == 0
+
+  test "popSidecars()/hasSidecars() return []/true on block without columns":
+    let
+      custodyColumns =
+        [63, 64, 65, 66, 95, 96, 97, 98].mapIt(ColumnIndex(it))
+    var
+      bq = ColumnQuarantine.init(cfg, custodyColumns, nil)
+    let
+      blockRoot1 = genBlockRoot(100)
+      blockRoot2 = genBlockRoot(5337)
+      blockRoot3 = genBlockRoot(1294967295)
+      fuluBlock1 = genFuluSignedBeaconBlock(blockRoot1, [])
+      fuluBlock2 = genFuluSignedBeaconBlock(blockRoot2, [])
+      fuluBlock3 = genFuluSignedBeaconBlock(blockRoot3, [])
+
+    check:
+      bq.hasSidecars(fuluBlock1.root, fuluBlock1) == true
+      bq.hasSidecars(fuluBlock2.root, fuluBlock2) == true
+      bq.hasSidecars(fuluBlock3.root, fuluBlock3) == true
+
+    let
+      res1 = bq.popSidecars(fuluBlock1.root, fuluBlock1)
+      res2 = bq.popSidecars(fuluBlock2.root, fuluBlock2)
+      res3 = bq.popSidecars(fuluBlock3.root, fuluBlock3)
+
+    check:
+      res1.isOk()
+      len(res1.get()) == 0
+      res2.isOk()
+      len(res2.get()) == 0
+      res3.isOk()
+      len(res3.get()) == 0
 
   test "overfill protection test":
     let
