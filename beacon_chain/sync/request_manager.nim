@@ -57,9 +57,9 @@ type
   BlobLoaderFn = proc(
       blobId: BlobIdentifier): Opt[ref BlobSidecar] {.gcsafe, raises: [].}
 
-  DataColumnLoaderFn = proc(
+  DataColumnsLoaderFn = proc(
       columnIds: DataColumnsByRootIdentifier):
-      Opt[ref DataColumnSidecar] {.gcsafe, raises: [].}
+      Opt[DataColumnSidecars] {.gcsafe, raises: [].}
 
   InhibitFn = proc: bool {.gcsafe, raises: [].}
 
@@ -561,7 +561,7 @@ proc requestManagerBlobLoop(
             blobs_count = len(blobIds),
             sync_speed = speed(start, finish)
 
-proc getMissingDataColumns(rman: RequestManager): HashSet[DataColumnsByRootIdentifier] =
+proc getMissingDataColumns(rman: RequestManager): seq[DataColumnsByRootIdentifier] =
   let
     wallTime = rman.getBeaconTime()
     wallSlot = wallTime.slotOrZero()
@@ -570,7 +570,7 @@ proc getMissingDataColumns(rman: RequestManager): HashSet[DataColumnsByRootIdent
   const waitDur = TimeDiff(nanoseconds: DATA_COLUMN_GOSSIP_WAIT_TIME_NS)
 
   var
-    fetches: HashSet[DataColumnsByRootIdentifier]
+    fetches: seq[DataColumnsByRootIdentifier]
     ready: seq[Eth2Digest]
 
   for columnless in rman.quarantine[].peekColumnless():
@@ -590,14 +590,14 @@ proc getMissingDataColumns(rman: RequestManager): HashSet[DataColumnsByRootIdent
 
           let id = DataColumnsByRootIdentifier(
             block_root: columnless.root,
-            indices:   List[ColumnIndex, NUMBER_OF_COLUMNS].init(missing.indices))
-          for index in id.indices:
+            indices:  ColumnIndices.init(missing.indices))
+          for index in id.indices.asSeq:
             if not(index in rman.custody_columns_set and id notin fetches and
                 len(forkyBlck.message.body.blob_kzg_commitments) != 0):
               # do not include to fetches
               discard
             else:
-              fetches.incl(id)
+              fetches.add(id)
         else:
           # this is a programming error and it not should occur
           warn "missing column handler found columnless block with all data columns",
@@ -625,8 +625,7 @@ proc requestManagerDataColumnLoop(
 
     var columnIds: seq[DataColumnsByRootIdentifier]
     if rman.dataColumnLoader == nil:
-      for item in missingColumnIds:
-        columnIds.add item
+      columnIds = missingColumnIds
     else:
       var
         blockRoots: seq[Eth2Digest]
