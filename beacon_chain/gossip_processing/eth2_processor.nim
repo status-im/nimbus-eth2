@@ -15,7 +15,7 @@ import
   ../consensus_object_pools/[
     blob_quarantine, block_clearance, block_quarantine, blockchain_dag,
     attestation_pool, light_client_pool, sync_committee_msg_pool,
-    validator_change_pool, consensus_manager],
+    validator_change_pool],
   ../validators/validator_pool,
   ../beacon_clock,
   "."/[gossip_validation, block_processor, batch_validation],
@@ -120,7 +120,6 @@ type
     validatorPool*: ref ValidatorPool
     syncCommitteeMsgPool: ref SyncCommitteeMsgPool
     lightClientPool: ref LightClientPool
-    consensusManager: ref ConsensusManager
 
     doppelgangerDetection*: DoppelgangerProtection
 
@@ -166,7 +165,6 @@ proc new*(T: type Eth2Processor,
           validatorPool: ref ValidatorPool,
           syncCommitteeMsgPool: ref SyncCommitteeMsgPool,
           lightClientPool: ref LightClientPool,
-          consensusManager: ref ConsensusManager,
           quarantine: ref Quarantine,
           blobQuarantine: ref BlobQuarantine,
           rng: ref HmacDrbgContext,
@@ -185,7 +183,6 @@ proc new*(T: type Eth2Processor,
     validatorPool: validatorPool,
     syncCommitteeMsgPool: syncCommitteeMsgPool,
     lightClientPool: lightClientPool,
-    consensusManager: consensusManager,
     quarantine: quarantine,
     blobQuarantine: blobQuarantine,
     getCurrentBeaconTime: getBeaconTime,
@@ -513,7 +510,7 @@ proc checkKnownValidatorSlashing(
   for idx in getValidatorIndices(msg):
     let i = ValidatorIndex.init(idx).valueOr:
       continue
-    if self.consensusManager[].actionTracker.knownValidators.hasKey(i):
+    if self.blockProcessor[].hasKnownValidator(i):
       quitSlashing()
 
 proc processAttesterSlashing*(
