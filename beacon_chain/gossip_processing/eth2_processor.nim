@@ -510,7 +510,7 @@ proc checkKnownValidatorSlashing(
   for idx in getValidatorIndices(msg):
     let i = ValidatorIndex.init(idx).valueOr:
       continue
-    if self.blockProcessor[].hasKnownValidator(i):
+    if self.blockProcessor[].consensusManager[].actionTracker.knownValidators.hasKey(i):
       quitSlashing()
 
 proc processAttesterSlashing*(
