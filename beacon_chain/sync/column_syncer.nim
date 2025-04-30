@@ -21,6 +21,8 @@ import
 export phase0, altair, merge, chronos, chronicles, results,
        helpers, peer_scores, sync_queue, forks, sync_protocol
 
+logScope: topics = "columnsync"
+
 const
   ColumnSyncWorkerCount* = 15
     ## Number of workers to spawn for column syncing
@@ -950,13 +952,15 @@ proc columnSyncWorkerGreedy[A, B](
       if not isNil(peer):
         man.pool.release(peer)
 
-proc columnSyncWorkerImparital[A, B](
+proc columnSyncWorkerImpartial[A, B](
     man: ColumnManager[A, B],
     index: int
 ) {.async: (raises: [CancelledError]).} =
   mixin getKey, getScore, getHeadSlot
 
   debug "Starting column syncer in `Impartial` mode",
+         index = index,
+         direction = man.direction
          topics = "columnsync"
   var peer: A = nil
   try:
@@ -1018,7 +1022,7 @@ proc startColumnSyncWorkers[A, B](man: ColumnManager[A, B]) =
   if ColumnSyncerFlag.Impartial in man.flags:
     for i in 0..<len(man.workers):
       man.workers[i].future =
-        columnSyncWorkerImparital[A, B](man, i)
+        columnSyncWorkerImpartial[A, B](man, i)
 
 proc stopColumnSyncWorkers[A, B](man: ColumnManager[A, B])
                                 {.async: (raises: []).} =
