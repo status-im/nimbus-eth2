@@ -58,7 +58,7 @@ type
       blobId: BlobIdentifier): Opt[ref BlobSidecar] {.gcsafe, raises: [].}
 
   DataColumnLoaderFn = proc(
-      columnIds: DataColumnIdentifier):
+      columnId: DataColumnIdentifier):
       Opt[ref DataColumnSidecar] {.gcsafe, raises: [].}
 
   InhibitFn = proc: bool {.gcsafe, raises: [].}
