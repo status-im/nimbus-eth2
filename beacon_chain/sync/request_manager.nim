@@ -590,7 +590,7 @@ proc getMissingDataColumns(rman: RequestManager): seq[DataColumnsByRootIdentifie
 
           let id = DataColumnsByRootIdentifier(
             block_root: columnless.root,
-            indices:  ColumnIndices.init(missing.indices))
+            indices:  DataColumnIndices.init(missing.indices))
           for index in id.indices.asSeq:
             if not(index in rman.custody_columns_set and id notin fetches and
                 len(forkyBlck.message.body.blob_kzg_commitments) != 0):
