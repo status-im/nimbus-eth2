@@ -960,7 +960,7 @@ proc columnSyncWorkerImpartial[A, B](
 
   debug "Starting column syncer in `Impartial` mode",
          index = index,
-         direction = man.direction
+         direction = man.direction,
          topics = "columnsync"
   var peer: A = nil
   try:
