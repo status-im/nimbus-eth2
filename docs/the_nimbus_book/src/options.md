@@ -183,4 +183,4 @@ Here is an example config file illustrating all of the above:
 | 0         | Successful exit                                                       |
 | 1         | Generic failure or unspecified error                                  |
 | 129       | Doppelganger detection; one might prefer not to restart automatically |
-| 160       | Slashing detection; one might prefer not to restart automatically     |
+| 198       | Slashing detection; one might prefer not to restart automatically     |
