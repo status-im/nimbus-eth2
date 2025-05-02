@@ -828,15 +828,8 @@ AllTests-mainnet
 ```
 ## Quarantine [Preset: mainnet]
 ```diff
-+ altair.SignedBeaconBlock [Preset: mainnet]                                                 OK
-+ bellatrix.SignedBeaconBlock [Preset: mainnet]                                              OK
-+ capella.SignedBeaconBlock [Preset: mainnet]                                                OK
 + deneb.BlobSidecar [Preset: mainnet]                                                        OK
-+ deneb.SignedBeaconBlock [Preset: mainnet]                                                  OK
-+ electra.SignedBeaconBlock [Preset: mainnet]                                                OK
 + fulu.DataColumnSidecar [Preset: mainnet]                                                   OK
-+ fulu.SignedBeaconBlock [Preset: mainnet]                                                   OK
-+ phase0.SignedBeaconBlock [Preset: mainnet]                                                 OK
 ```
 ## REST JSON encoding and decoding
 ```diff

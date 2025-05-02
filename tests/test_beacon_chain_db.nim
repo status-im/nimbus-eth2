@@ -1253,46 +1253,6 @@ suite "Quarantine" & preset():
     res.FULU_FORK_EPOCH = 6.Epoch
     res
 
-  proc runBlockTest[T: ForkySignedBeaconBlock](
-      quarantine: QuarantineDB, blck: T) =
-    proc checkDoesNotExist =
-      var res: Opt[bool]
-      quarantine.withBlck(blck.root) do:
-        check res.isNone
-        res.ok true
-      do:
-        check res.isNone
-        res.ok false
-      check res == Opt.some false
-
-    proc checkExists =
-      var res: Opt[bool]
-      quarantine.withBlck(blck.root) do:
-        check:
-          res.isNone
-          consensusFork == T.kind
-          forkyBlck.root == blck.root
-        res.ok true
-      do:
-        check res.isNone
-        res.ok false
-      check res == Opt.some true
-
-    checkDoesNotExist()
-
-    quarantine.putBlock blck
-    checkExists()
-
-    quarantine.delByBlockRoot blck.root
-    checkDoesNotExist()
-
-    quarantine.putBlock blck
-    let slot = blck.message.slot
-    quarantine.keepEpochsFrom(slot.epoch)
-    checkExists()
-    quarantine.keepEpochsFrom(slot.epoch + 1)
-    checkDoesNotExist()
-
   proc runDataSidecarTest[T: ForkyDataSidecar](
       quarantine: QuarantineDB, dataSidecar: T) =
     let blockRoot = dataSidecar.signed_block_header.message.hash_tree_root()
@@ -1329,27 +1289,6 @@ suite "Quarantine" & preset():
 
   teardown:
     db.close()
-
-  withAll(ConsensusFork):
-    test ($consensusFork).toLowerAscii() & ".SignedBeaconBlock" & preset():
-      var blck: consensusFork.SignedBeaconBlock
-      case consensusFork
-      of ConsensusFork.Fulu:
-        blck.message.slot = cfg.FULU_FORK_EPOCH.start_slot()
-      of ConsensusFork.Electra:
-        blck.message.slot = cfg.ELECTRA_FORK_EPOCH.start_slot()
-      of ConsensusFork.Deneb:
-        blck.message.slot = cfg.DENEB_FORK_EPOCH.start_slot()
-      of ConsensusFork.Capella:
-        blck.message.slot = cfg.CAPELLA_FORK_EPOCH.start_slot()
-      of ConsensusFork.Bellatrix:
-        blck.message.slot = cfg.BELLATRIX_FORK_EPOCH.start_slot()
-      of ConsensusFork.Altair:
-        blck.message.slot = cfg.ALTAIR_FORK_EPOCH.start_slot()
-      of ConsensusFork.Phase0:
-        blck.message.slot = GENESIS_EPOCH.start_slot()
-      blck.root = blck.message.hash_tree_root()
-      quarantine.runBlockTest(blck)
 
   withAll(DataSidecarFork):
     when dataSidecarFork > DataSidecarFork.None:

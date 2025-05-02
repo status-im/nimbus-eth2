@@ -602,7 +602,6 @@ proc new*(T: type BeaconChainDB,
 
   let quarantine = db.initQuarantineDB(
     QuarantineDBNames(
-      blocks: "quarantine_blocks",
       dataSidecars: "quarantine_data_sidecars",
     ), ForkEpochs.init(cfg)).expectDb()
 

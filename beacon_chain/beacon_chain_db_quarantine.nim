@@ -18,12 +18,6 @@ import
 logScope: topics = "qudata"
 
 type
-  BlockStore = object
-    getStmt: SqliteStmt[array[32, byte], (int64, seq[byte])]
-    putStmt: SqliteStmt[(array[32, byte], int64, seq[byte]), void]
-    delStmt: SqliteStmt[array[32, byte], void]
-    keepFromStmt: SqliteStmt[int64, void]
-
   DataSidecarFork* {.pure.} = enum  # Append only, used in DB data!
     None = 0,  # only use non-0 in DB to detect accidentally uninitialized data
     Deneb,
@@ -45,105 +39,9 @@ type
     backend: SqStoreRef
       ## SQLite backend
 
-    blocks: BlockStore
-      ## Eth2Digest -> (Slot, SignedBeaconBlock)
-      ## Proposer signature verified blocks.
-
     dataSidecars: DataSidecarStore
       ## (Eth2Digest | index) -> (Slot, DataSidecar)
       ## Proposer signature verified data sidecars.
-
-proc initBlockStore(
-    backend: SqStoreRef,
-    name: string): KvResult[BlockStore] =
-  if name == "":
-    return ok BlockStore()
-  if not backend.readOnly:
-    ? backend.exec("""
-      CREATE TABLE IF NOT EXISTS `""" & name & """` (
-        `block_root` BLOB PRIMARY KEY,  -- `Eth2Digest`
-        `slot` INTEGER,                 -- `Slot`
-        `signed_block` BLOB             -- `SignedBeaconBlock` (SZSSZ)
-      );
-    """)
-  if not ? backend.hasTable(name):
-    return ok BlockStore()
-
-  let
-    getStmt = backend.prepareStmt("""
-      SELECT `slot`, `signed_block`
-      FROM `""" & name & """`
-      WHERE `block_root` = ?;
-    """, array[32, byte], (int64, seq[byte]), managed = false)
-      .expect("SQL query OK")
-    putStmt = backend.prepareStmt("""
-      REPLACE INTO `""" & name & """` (
-        `block_root`, `slot`, `signed_block`
-      ) VALUES (?, ?, ?);
-    """, (array[32, byte], int64, seq[byte]), void, managed = false)
-      .expect("SQL query OK")
-    delStmt = backend.prepareStmt("""
-      DELETE FROM `""" & name & """`
-      WHERE `block_root` = ?;
-    """, array[32, byte], void, managed = false).expect("SQL query OK")
-    keepFromStmt = backend.prepareStmt("""
-      DELETE FROM `""" & name & """`
-      WHERE `slot` < ?;
-    """, int64, void, managed = false).expect("SQL query OK")
-
-  ok BlockStore(
-    getStmt: getStmt,
-    putStmt: putStmt,
-    delStmt: delStmt,
-    keepFromStmt: keepFromStmt)
-
-func close(store: var BlockStore) =
-  store.getStmt.disposeSafe()
-  store.putStmt.disposeSafe()
-  store.delStmt.disposeSafe()
-  store.keepFromStmt.disposeSafe()
-
-template withBlck*(
-    db: QuarantineDB, blockRootParam: Eth2Digest,
-    okBody: untyped, failureBody: untyped): untyped =
-  # if ok:
-  #   const consensusFork {.inject.}: ConsensusFork
-  #   var forkyBlck {.inject.}: consensusFork.SignedBeaconBlock
-  #   okBody
-  # else:
-  #   failureBody
-  block:
-    var ok = false
-    if distinctBase(db.blocks.getStmt) != nil:
-      var blck: (int64, seq[byte])
-      for res in db.blocks.getStmt.exec(blockRootParam.data, blck):
-        res.expect("SQL query OK")
-        let fork = db.forkEpochs.consensusForkAtEpoch(blck[0].uint64.Slot.epoch)
-        withConsensusFork(fork):
-          var forkyBlck {.inject.}: consensusFork.SignedBeaconBlock
-          if decodeSZSSZ(blck[1], forkyBlck, updateRoot = true):
-            blck[1].reset()  # Release encoded data
-            forkyBlck.root = hash_tree_root(forkyBlck.message)
-            ok = true
-            okBody
-          else:
-            error "Quarantine store corrupted", store = "blocks",
-              blockRoot = blockRootParam, slot = blck[0], kind = consensusFork
-    if not ok:
-      failureBody
-
-func putBlock*[T: ForkySignedBeaconBlock](
-    db: QuarantineDB, blck: T) =
-  doAssert not db.backend.readOnly and distinctBase(db.blocks.putStmt) != nil
-  let
-    slot = blck.message.slot
-    consensusFork = db.forkEpochs.consensusForkAtEpoch(slot.epoch)
-  doAssert consensusFork == T.kind, "Quarantine fork schedule misconfigured"
-  let
-    blockRoot = blck.root
-    res = db.blocks.putStmt.exec(
-      (blockRoot.data, slot.int64, encodeSZSSZ(blck)))
-  res.expect("SQL query OK")
 
 proc initDataSidecarStore(
     backend: SqStoreRef,
@@ -286,9 +184,6 @@ func delByBlockRoot*(
       maxKey = blockRoot.dataSidecarKey(uint64.high)
       res = db.dataSidecars.delStmt.exec((minKey, maxKey))
     res.expect("SQL query OK")
-  if distinctBase(db.blocks.delStmt) != nil:
-    let res = db.blocks.delStmt.exec(blockRoot.data)
-    res.expect("SQL query OK")
 
 func keepEpochsFrom*(
     db: QuarantineDB, minEpoch: Epoch) =
@@ -297,12 +192,8 @@ func keepEpochsFrom*(
   if distinctBase(db.dataSidecars.keepFromStmt) != nil:
     let res = db.dataSidecars.keepFromStmt.exec(minSlot.int64)
     res.expect("SQL query OK")
-  if distinctBase(db.blocks.keepFromStmt) != nil:
-    let res = db.blocks.keepFromStmt.exec(minSlot.int64)
-    res.expect("SQL query OK")
 
 type QuarantineDBNames* = object
-  blocks*: string
   dataSidecars*: string
 
 proc initQuarantineDB*(
@@ -310,17 +201,14 @@ proc initQuarantineDB*(
     names: QuarantineDBNames,
     forkEpochs: ForkEpochs): KvResult[QuarantineDB] =
   let
-    blocks = ? backend.initBlockStore(names.blocks)
     dataSidecars = ? backend.initDataSidecarStore(names.dataSidecars)
 
   ok QuarantineDB(
     forkEpochs: forkEpochs,
     backend: backend,
-    blocks: blocks,
     dataSidecars: dataSidecars)
 
 proc close*(db: QuarantineDB) =
   if db.backend != nil:
-    db.blocks.close()
     db.dataSidecars.close()
     db[].reset()
