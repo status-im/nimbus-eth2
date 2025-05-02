@@ -604,23 +604,8 @@ proc new*(T: type BeaconChainDB,
     # TODO Set these to non-empty string to actually use them
     # once we have a new quarantine implemented. If empty string is used,
     # no database table is created!
-    phase0Blocks:
+    blocks:
       "",  # "blocks_quarantine"
-    altairBlocks:
-      "",  # "altair_blocks_quarantine"
-    bellatrixBlocks:
-      "",  # "bellatrix_blocks_quarantine"
-    capellaBlocks:
-      "",  # "capella_blocks_quarantine"
-    denebBlocks:
-      "",  # "deneb_blocks_quarantine"
-    electraBlocks:
-      "",  # "electra_blocks_quarantine"
-    fuluBlocks:
-      if cfg.FULU_FORK_EPOCH != FAR_FUTURE_EPOCH:
-        ""  # "fulu_blocks_quarantine"
-      else:
-        "",
     denebDataSidecars:
       "",  # "deneb_blobs_quarantine"
     fuluDataSidecars:

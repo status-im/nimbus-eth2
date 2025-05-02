@@ -41,7 +41,7 @@ export
 # these types and converters :)
 
 type
-  ConsensusFork* {.pure.} = enum
+  ConsensusFork* {.pure.} = enum  # Append only, used in DB data!
     Phase0,
     Altair,
     Bellatrix,

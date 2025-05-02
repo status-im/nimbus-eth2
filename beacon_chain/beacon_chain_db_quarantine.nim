@@ -19,8 +19,8 @@ logScope: topics = "qudata"
 
 type
   BlockStore = object
-    getStmt: SqliteStmt[array[32, byte], seq[byte]]
-    putStmt: SqliteStmt[(array[32, byte], int64, seq[byte]), void]
+    getStmt: SqliteStmt[array[32, byte], (int64, seq[byte])]
+    putStmt: SqliteStmt[(array[32, byte], int64, int64, seq[byte]), void]
     delStmt: SqliteStmt[array[32, byte], void]
     keepFromStmt: SqliteStmt[int64, void]
 
@@ -43,8 +43,8 @@ type
     backend: SqStoreRef
       ## SQLite backend
 
-    blocks: array[ConsensusFork, BlockStore]
-      ## Eth2Digest -> (Slot, SignedBeaconBlock)
+    blocks: BlockStore
+      ## Eth2Digest -> (Slot, ConsensusFork, SignedBeaconBlock)
       ## Proposer signature verified blocks.
 
     dataSidecars: array[DataSidecarFork, DataSidecarStore]
@@ -53,7 +53,7 @@ type
 
 proc initBlockStore(
     backend: SqStoreRef,
-    name, typeName: string): KvResult[BlockStore] =
+    name: string): KvResult[BlockStore] =
   if name == "":
     return ok BlockStore()
   if not backend.readOnly:
@@ -61,7 +61,8 @@ proc initBlockStore(
       CREATE TABLE IF NOT EXISTS `""" & name & """` (
         `block_root` BLOB PRIMARY KEY,  -- `Eth2Digest`
         `slot` INTEGER,                 -- `Slot`
-        `signed_block` BLOB             -- `""" & typeName & """` (SZSSZ)
+        `kind` INTEGER,                 -- `ConsensusFork`
+        `signed_block` BLOB             -- `SignedBeaconBlock` (SZSSZ)
       );
     """)
   if not ? backend.hasTable(name):
@@ -69,16 +70,17 @@ proc initBlockStore(
 
   let
     getStmt = backend.prepareStmt("""
-      SELECT `signed_block`
+      SELECT `kind`, `signed_block`
       FROM `""" & name & """`
       WHERE `block_root` = ?;
-    """, array[32, byte], seq[byte], managed = false).expect("SQL query OK")
+    """, array[32, byte], (int64, seq[byte]), managed = false)
+      .expect("SQL query OK")
     putStmt = backend.prepareStmt("""
       REPLACE INTO `""" & name & """` (
-        `block_root`, `slot`, `signed_block`
-      ) VALUES (?, ?, ?);
-    """, (array[32, byte], int64, seq[byte]),
-      void, managed = false).expect("SQL query OK")
+        `block_root`, `slot`, `kind`, `signed_block`
+      ) VALUES (?, ?, ?, ?);
+    """, (array[32, byte], int64, int64, seq[byte]), void, managed = false)
+      .expect("SQL query OK")
     delStmt = backend.prepareStmt("""
       DELETE FROM `""" & name & """`
       WHERE `block_root` = ?;
@@ -100,17 +102,30 @@ func close(store: var BlockStore) =
   store.delStmt.disposeSafe()
   store.keepFromStmt.disposeSafe()
 
-func getBlock*[T: ForkySignedBeaconBlock](
-    db: QuarantineDB, blockRoot: Eth2Digest): Opt[T] =
-  if distinctBase(db.blocks[T.kind].getStmt) == nil:
-    return Opt.none(T)
-  var blck: seq[byte]
-  for res in db.blocks[T.kind].getStmt.exec(blockRoot.data, blck):
-    res.expect("SQL query OK")
-    var res: T
-    if not decodeSZSSZ(blck, res):
-      return Opt.none(T)
-    return ok res
+template withBlck*(
+    db: QuarantineDB, blockRoot: Eth2Digest,
+    okBody: untyped, failureBody: untyped): untyped =
+  block:
+    var ok = false
+    if distinctBase(db.blocks.getStmt) != nil:
+      var blck: (int64, seq[byte])
+      for res in db.blocks.getStmt.exec(blockRoot.data, blck):
+        res.expect("SQL query OK")
+        withAll(ConsensusFork):
+          if not ok and blck[0] == ord(consensusFork).int64:
+            var forkyBlck {.inject, used.}: consensusFork.SignedBeaconBlock
+            if decodeSZSSZ(blck[1], forkyBlck):
+              blck.reset()
+              ok = true
+              okBody
+            else:
+              error "Quarantine store corrupted", store = "blocks",
+                blockRoot, kind = blck[0]
+        if not ok:
+          warn "Unsupported quarantine store kind", store = "blocks",
+            blockRoot, kind = blck[0]
+    if not ok:
+      failureBody
 
 func putBlock*[T: ForkySignedBeaconBlock](
     db: QuarantineDB, blck: T) =
@@ -120,7 +135,7 @@ func putBlock*[T: ForkySignedBeaconBlock](
     blockRoot = blck.root
     slot = blck.message.slot
     res = db.blocks[T.kind].putStmt.exec(
-      (blockRoot.data, slot.int64, encodeSZSSZ(blck)))
+      (blockRoot.data, slot.int64, typeof(blck).kind.int64, encodeSZSSZ(blck)))
   res.expect("SQL query OK")
 
 proc initDataSidecarStore(
@@ -224,10 +239,9 @@ func delByBlockRoot*(
           distinctBase(store.delStmt) != nil:
         let res = store.delStmt.exec((minKey, maxKey))
         res.expect("SQL query OK")
-  for consensusFork, store in db.blocks:
-    if distinctBase(store.delStmt) != nil:
-      let res = store.delStmt.exec(blockRoot.data)
-      res.expect("SQL query OK")
+  if distinctBase(db.blocks.delStmt) != nil:
+    let res = db.blocks.delStmt.exec(blockRoot.data)
+    res.expect("SQL query OK")
 
 func keepEpochsFrom*(
     db: QuarantineDB, minEpoch: Epoch) =
@@ -238,19 +252,12 @@ func keepEpochsFrom*(
         distinctBase(store.keepFromStmt) != nil:
       let res = store.keepFromStmt.exec(minSlot.int64)
       res.expect("SQL query OK")
-  for consensusFork, store in db.blocks:
-    if distinctBase(store.keepFromStmt) != nil:
-      let res = store.keepFromStmt.exec(minSlot.int64)
-      res.expect("SQL query OK")
+  if distinctBase(db.blocks.keepFromStmt) != nil:
+    let res = db.blocks.keepFromStmt.exec(minSlot.int64)
+    res.expect("SQL query OK")
 
 type QuarantineDBNames* = object
-  phase0Blocks*: string
-  altairBlocks*: string
-  bellatrixBlocks*: string
-  capellaBlocks*: string
-  denebBlocks*: string
-  electraBlocks*: string
-  fuluBlocks*: string
+  blocks*: string
   denebDataSidecars*: string
   fuluDataSidecars*: string
 
@@ -259,29 +266,7 @@ proc initQuarantineDB*(
     names: QuarantineDBNames): KvResult[QuarantineDB] =
   static: doAssert ConsensusFork.high == ConsensusFork.Fulu
   let
-    blocks = [
-      # ConsensusFork.Phase0
-      ? backend.initBlockStore(
-        names.phase0Blocks, "phase0.SignedBeaconBlock"),
-      # ConsensusFork.Altair
-      ? backend.initBlockStore(
-        names.altairBlocks, "altair.SignedBeaconBlock"),
-      # ConsensusFork.Bellatrix
-      ? backend.initBlockStore(
-        names.bellatrixBlocks, "bellatrix.SignedBeaconBlock"),
-      # ConsensusFork.Capella
-      ? backend.initBlockStore(
-        names.capellaBlocks, "capella.SignedBeaconBlock"),
-      # ConsensusFork.Deneb
-      ? backend.initBlockStore(
-        names.denebBlocks, "deneb.SignedBeaconBlock"),
-      # ConsensusFork.Electra
-      ? backend.initBlockStore(
-        names.electraBlocks, "electra.SignedBeaconBlock"),
-      # ConsensusFork.Fulu
-      ? backend.initBlockStore(
-        names.fuluBlocks, "fulu.SignedBeaconBlock"),
-    ]
+    blocks = ? backend.initBlockStore(names.blocks)
     dataSidecars = [
       # DataSidecarFork.None
       DataSidecarStore(),
@@ -299,8 +284,7 @@ proc initQuarantineDB*(
 
 proc close*(db: QuarantineDB) =
   if db.backend != nil:
-    for consensusFork in ConsensusFork:
-      db.blocks[consensusFork].close()
+    db.blocks.close()
     for dataSidecarFork in DataSidecarFork:
       if dataSidecarFork > DataSidecarFork.None:
         db.dataSidecars[dataSidecarFork].close()
