@@ -1261,13 +1261,14 @@ suite "Quarantine" & preset():
 
     quarantine.putDataSidecar dataSidecar
     withAll(DataSidecarFork):
-      when dataSidecarFork > DataSidecarFork.None:
-        let res = getDataSidecar[dataSidecarFork.DataSidecar](
-          quarantine, blockRoot, dataSidecar.index)
-        when dataSidecarFork == T.kind:
-          check res == Opt.some dataSidecar
-        else:
-          check res == Opt.none dataSidecarFork.DataSidecar
+      closureScope:  # Workaround for `-d:limitStackUsage`
+        when dataSidecarFork > DataSidecarFork.None:
+          let res = getDataSidecar[dataSidecarFork.DataSidecar](
+            quarantine, blockRoot, dataSidecar.index)
+          when dataSidecarFork == T.kind:
+            check res == Opt.some dataSidecar
+          else:
+            check res == Opt.none dataSidecarFork.DataSidecar
 
     quarantine.delByBlockRoot blockRoot
     check getDataSidecar[T](
