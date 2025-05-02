@@ -1,5 +1,5 @@
 # beacon_chain
-# Copyright (c) 2018-2024 Status Research & Development GmbH
+# Copyright (c) 2018-2025 Status Research & Development GmbH
 # Licensed under either of
 #  * Apache License, version 2.0, ([LICENSE-APACHE](LICENSE-APACHE) or https://www.apache.org/licenses/LICENSE-2.0)
 #  * MIT license ([LICENSE-MIT](LICENSE-MIT) or https://opensource.org/licenses/MIT)
@@ -10,13 +10,14 @@
 
 import
   unittest2,
-  ../beacon_chain/beacon_chain_db,
+  ../beacon_chain/[beacon_chain_db, beacon_chain_db_quarantine],
   ../beacon_chain/consensus_object_pools/block_dag,
   ../beacon_chain/spec/forks,
   ./testutil
 
 from std/algorithm import sort
 from std/sequtils import toSeq
+from std/strutils import toLowerAscii
 from snappy import encodeFramed, uncompressedLenFramed
 from ../beacon_chain/consensus_object_pools/block_pools_types import
   ChainDAGRef
@@ -1151,7 +1152,7 @@ suite "Beacon chain DB" & preset():
       blockRoot0 = hash_tree_root(blockHeader0.message)
       blockRoot1 = hash_tree_root(blockHeader1.message)
 
-      # Ensure minimal-difference pairs on both block root and 
+      # Ensure minimal-difference pairs on both block root and
       # data column index to verify that the columnkey uses both
       dataColumnSidecar0 = DataColumnSidecar(signed_block_header: blockHeader0, index: 3)
       dataColumnSidecar1 = DataColumnSidecar(signed_block_header: blockHeader0, index: 2)
@@ -1172,7 +1173,7 @@ suite "Beacon chain DB" & preset():
       not db.getDataColumnSidecarSZ(blockRoot1, 2, buf)
 
     db.putDataColumnSidecar(dataColumnSidecar0)
-    
+
     check:
       db.getDataColumnSidecar(blockRoot0, 3, dataColumnSidecar)
       dataColumnSidecar == dataColumnSidecar0
@@ -1239,6 +1240,132 @@ suite "Beacon chain DB" & preset():
       not db.getDataColumnSidecarSZ(blockRoot1, 2, buf)
 
     db.close()
+
+suite "Quarantine" & preset():
+  const cfg = block:
+    static: doAssert ConsensusFork.high == ConsensusFork.Fulu
+    var res = defaultRuntimeConfig
+    res.ALTAIR_FORK_EPOCH = 1.Epoch
+    res.BELLATRIX_FORK_EPOCH = 2.Epoch
+    res.CAPELLA_FORK_EPOCH = 3.Epoch
+    res.DENEB_FORK_EPOCH = 4.Epoch
+    res.ELECTRA_FORK_EPOCH = 5.Epoch
+    res.FULU_FORK_EPOCH = 6.Epoch
+    res
+
+  proc runBlockTest[T: ForkySignedBeaconBlock](
+      quarantine: QuarantineDB, blck: T) =
+    proc checkDoesNotExist =
+      var res: Opt[bool]
+      quarantine.withBlck(blck.root) do:
+        check res.isNone
+        res.ok true
+      do:
+        check res.isNone
+        res.ok false
+      check res == Opt.some false
+
+    proc checkExists =
+      var res: Opt[bool]
+      quarantine.withBlck(blck.root) do:
+        check:
+          res.isNone
+          consensusFork == T.kind
+          forkyBlck.root == blck.root
+        res.ok true
+      do:
+        check res.isNone
+        res.ok false
+      check res == Opt.some true
+
+    checkDoesNotExist()
+
+    quarantine.putBlock blck
+    checkExists()
+
+    quarantine.delByBlockRoot blck.root
+    checkDoesNotExist()
+
+    quarantine.putBlock blck
+    let slot = blck.message.slot
+    quarantine.keepEpochsFrom(slot.epoch)
+    checkExists()
+    quarantine.keepEpochsFrom(slot.epoch + 1)
+    checkDoesNotExist()
+
+  proc runDataSidecarTest[T: ForkyDataSidecar](
+      quarantine: QuarantineDB, dataSidecar: T) =
+    let blockRoot = dataSidecar.signed_block_header.message.hash_tree_root()
+    check getDataSidecar[T](
+      quarantine, blockRoot, dataSidecar.index) == Opt.none T
+
+    quarantine.putDataSidecar dataSidecar
+    withAll(DataSidecarFork):
+      when dataSidecarFork > DataSidecarFork.None:
+        let res = getDataSidecar[dataSidecarFork.DataSidecar](
+          quarantine, blockRoot, dataSidecar.index)
+        when dataSidecarFork == T.kind:
+          check res == Opt.some dataSidecar
+        else:
+          check res == Opt.none dataSidecarFork.DataSidecar
+
+    quarantine.delByBlockRoot blockRoot
+    check getDataSidecar[T](
+      quarantine, blockRoot, dataSidecar.index) == Opt.none T
+
+    quarantine.putDataSidecar dataSidecar
+    let slot = dataSidecar.signed_block_header.message.slot
+    quarantine.keepEpochsFrom(slot.epoch)
+    check getDataSidecar[T](
+      quarantine, blockRoot, dataSidecar.index) == Opt.some dataSidecar
+    quarantine.keepEpochsFrom(slot.epoch + 1)
+    check getDataSidecar[T](
+      quarantine, blockRoot, dataSidecar.index) == Opt.none T
+
+  setup:
+    let
+      db = BeaconChainDB.new("", inMemory = true, cfg = cfg)
+      quarantine = db.getQuarantineDB()
+
+  teardown:
+    db.close()
+
+  withAll(ConsensusFork):
+    test ($consensusFork).toLowerAscii() & ".SignedBeaconBlock" & preset():
+      var blck: consensusFork.SignedBeaconBlock
+      case consensusFork
+      of ConsensusFork.Fulu:
+        blck.message.slot = cfg.FULU_FORK_EPOCH.start_slot()
+      of ConsensusFork.Electra:
+        blck.message.slot = cfg.ELECTRA_FORK_EPOCH.start_slot()
+      of ConsensusFork.Deneb:
+        blck.message.slot = cfg.DENEB_FORK_EPOCH.start_slot()
+      of ConsensusFork.Capella:
+        blck.message.slot = cfg.CAPELLA_FORK_EPOCH.start_slot()
+      of ConsensusFork.Bellatrix:
+        blck.message.slot = cfg.BELLATRIX_FORK_EPOCH.start_slot()
+      of ConsensusFork.Altair:
+        blck.message.slot = cfg.ALTAIR_FORK_EPOCH.start_slot()
+      of ConsensusFork.Phase0:
+        blck.message.slot = GENESIS_EPOCH.start_slot()
+      blck.root = blck.message.hash_tree_root()
+      quarantine.runBlockTest(blck)
+
+  withAll(DataSidecarFork):
+    when dataSidecarFork > DataSidecarFork.None:
+      test ($dataSidecarFork).toLowerAscii() & "." &
+          $(dataSidecarFork.DataSidecar) & preset():
+        var dataSidecar: dataSidecarFork.DataSidecar
+        case dataSidecarFork
+        of DataSidecarFork.Fulu:
+          dataSidecar.signed_block_header.message.slot =
+            cfg.FULU_FORK_EPOCH.start_slot()
+        of DataSidecarFork.Deneb:
+          dataSidecar.signed_block_header.message.slot =
+            cfg.DENEB_FORK_EPOCH.start_slot()
+        of DataSidecarFork.None:
+          discard
+        quarantine.runDataSidecarTest(dataSidecar)
 
 suite "FinalizedBlocks" & preset():
   test "Basic ops" & preset():

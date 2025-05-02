@@ -24,10 +24,11 @@ template disposeSafe*(s: untyped): untyped =
     s.dispose()
     s = typeof(s)(nil)
 
-proc decodeSZSSZ*[T](data: openArray[byte], output: var T): bool =
+proc decodeSZSSZ*[T](
+    data: openArray[byte], output: var T, updateRoot = false): bool =
   try:
     let decompressed = decodeFramed(data, checkIntegrity = false)
-    readSszBytes(decompressed, output, updateRoot = false)
+    readSszBytes(decompressed, output, updateRoot)
     true
   except CatchableError as e:
     # If the data can't be deserialized, it could be because it's from a

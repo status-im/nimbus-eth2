@@ -354,6 +354,14 @@ type
     electra*:   ForkDigest
     fulu*:      ForkDigest
 
+  ForkEpochs* = object
+    altair: Epoch
+    bellatrix: Epoch
+    capella: Epoch
+    deneb: Epoch
+    electra: Epoch
+    fulu: Epoch
+
 template kind*(
     x: typedesc[
       phase0.BeaconState |
@@ -1111,6 +1119,17 @@ func consensusForkAtEpoch*(cfg: RuntimeConfig, epoch: Epoch): ConsensusFork =
   elif epoch >= cfg.ALTAIR_FORK_EPOCH:    ConsensusFork.Altair
   else:                                   ConsensusFork.Phase0
 
+func consensusForkAtEpoch*(
+    forkEpochs: ForkEpochs, epoch: Epoch): ConsensusFork =
+  static: doAssert high(ConsensusFork) == ConsensusFork.Fulu
+  if   epoch >= forkEpochs.fulu:      ConsensusFork.Fulu
+  elif epoch >= forkEpochs.electra:   ConsensusFork.Electra
+  elif epoch >= forkEpochs.deneb:     ConsensusFork.Deneb
+  elif epoch >= forkEpochs.capella:   ConsensusFork.Capella
+  elif epoch >= forkEpochs.bellatrix: ConsensusFork.Bellatrix
+  elif epoch >= forkEpochs.altair:    ConsensusFork.Altair
+  else:                               ConsensusFork.Phase0
+
 func consensusForkForDigest*(
     forkDigests: ForkDigests, forkDigest: ForkDigest): Opt[ConsensusFork] =
   static: doAssert high(ConsensusFork) == ConsensusFork.Fulu
@@ -1696,6 +1715,17 @@ func init*(T: type ForkDigests,
       compute_fork_digest(cfg.ELECTRA_FORK_VERSION, genesis_validators_root),
     fulu:
       compute_fork_digest(cfg.FULU_FORK_VERSION, genesis_validators_root)
+  )
+
+func init*(T: type ForkEpochs, cfg: RuntimeConfig): T =
+  static: doAssert high(ConsensusFork) == ConsensusFork.Fulu
+  T(
+    altair: cfg.ALTAIR_FORK_EPOCH,
+    bellatrix: cfg.BELLATRIX_FORK_EPOCH,
+    capella: cfg.CAPELLA_FORK_EPOCH,
+    deneb: cfg.DENEB_FORK_EPOCH,
+    electra: cfg.ELECTRA_FORK_EPOCH,
+    fulu: cfg.FULU_FORK_EPOCH,
   )
 
 func toBlockId*(header: BeaconBlockHeader): BlockId =

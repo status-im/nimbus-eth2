@@ -600,20 +600,11 @@ proc new*(T: type BeaconChainDB,
   if cfg.FULU_FORK_EPOCH != FAR_FUTURE_EPOCH:
     columns = kvStore db.openKvStore("fulu_columns").expectDb()
 
-  let quarantine = db.initQuarantineDB(QuarantineDBNames(
-    # TODO Set these to non-empty string to actually use them
-    # once we have a new quarantine implemented. If empty string is used,
-    # no database table is created!
-    blocks:
-      "",  # "blocks_quarantine"
-    denebDataSidecars:
-      "",  # "deneb_blobs_quarantine"
-    fuluDataSidecars:
-      if cfg.FULU_FORK_EPOCH != FAR_FUTURE_EPOCH:
-        ""  # "fulu_columns_quarantine"
-      else:
-        "")).expectDb()
-  static: doAssert ConsensusFork.high == ConsensusFork.Fulu
+  let quarantine = db.initQuarantineDB(
+    QuarantineDBNames(
+      blocks: "quarantine_blocks",
+      dataSidecars: "quarantine_data_sidecars",
+    ), ForkEpochs.init(cfg)).expectDb()
 
   # Versions prior to 1.4.0 (altair) stored validators in `immutable_validators`
   # which stores validator keys in compressed format - this is
