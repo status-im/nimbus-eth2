@@ -1384,7 +1384,7 @@ proc addFuluMessageHandlers(
 
   for i in custody:
     let topic = getDataColumnSidecarTopic(forkDigest, i)
-    node.network.subscribe(topic, basicParams)
+    node.network.subscribe(topic, basicParams())
 
 proc removeAltairMessageHandlers(node: BeaconNode, forkDigest: ForkDigest) =
   node.removePhase0MessageHandlers(forkDigest)
