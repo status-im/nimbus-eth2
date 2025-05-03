@@ -14,7 +14,7 @@ import
   ../spec/[beaconstate, eth2_merkleization, eth2_ssz_serialization, helpers,
     state_transition, validator],
   ../spec/forks,
-  ".."/[beacon_chain_db, beacon_clock, era_db],
+  ".."/[beacon_chain_db, beacon_chain_db_quarantine, beacon_clock, era_db],
   "."/[block_pools_types, block_quarantine]
 
 export
@@ -110,6 +110,13 @@ proc updateFinalizedBlocks*(db: BeaconChainDB, newFinalized: openArray[BlockId])
   db.withManyWrites:
     for bid in newFinalized:
       db.finalizedBlocks.insert(bid.slot, bid.root)
+
+proc cleanupQuarantine*(db: BeaconChainDB, finalizedHead: BlockId) =
+  if db.db.readOnly: return # TODO abstraction leak - where to put this?
+
+  let startTick = Moment.now()
+  db.getQuarantineDB().keepEpochsFrom(finalizedHead.slot.epoch)
+  debug "Cleaned quarantine", cleanupDur = Moment.now() - startTick
 
 proc updateFrontfillBlocks*(dag: ChainDAGRef) =
   # When backfilling is done and manages to reach the frontfill point, we can
@@ -1234,6 +1241,7 @@ proc init*(T: type ChainDAGRef, cfg: RuntimeConfig, db: BeaconChainDB,
         newFinalized.add(BlockId(slot: blck.summary.slot, root: blck.root))
 
       db.updateFinalizedBlocks(newFinalized)
+    db.cleanupQuarantine(dag.finalizedHead.blck.bid)
 
   doAssert dag.finalizedHead.blck.parent == nil,
     "The finalized head is the last BlockRef with a parent"
@@ -2557,6 +2565,7 @@ proc updateHead*(
       dag.finalizedHead = finalizedHead
 
       dag.db.updateFinalizedBlocks(newFinalized)
+      dag.db.cleanupQuarantine(dag.finalizedHead.blck.bid)
 
     # Pruning the block dag is required every time the finalized head changes
     # in order to clear out blocks that are no longer viable and should
