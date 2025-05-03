@@ -1256,32 +1256,36 @@ suite "Quarantine" & preset():
   proc runDataSidecarTest[T: ForkyDataSidecar](
       quarantine: QuarantineDB, dataSidecar: T) =
     let blockRoot = dataSidecar.signed_block_header.message.hash_tree_root()
-    check getDataSidecar[T](
-      quarantine, blockRoot, dataSidecar.index) == Opt.none T
+
+    proc checkDoesNotExist =
+      check getDataSidecar[T](
+        quarantine, blockRoot, dataSidecar.index) == Opt.none T
+
+    proc checkExists =
+      withAll(DataSidecarFork):
+        closureScope:  # Workaround for `-d:limitStackUsage`
+          when dataSidecarFork > DataSidecarFork.None:
+            let res = getDataSidecar[dataSidecarFork.DataSidecar](
+              quarantine, blockRoot, dataSidecar.index)
+            when dataSidecarFork == T.kind:
+              check res == Opt.some dataSidecar
+            else:
+              check res == Opt.none dataSidecarFork.DataSidecar
+
+    checkDoesNotExist()
 
     quarantine.putDataSidecar dataSidecar
-    withAll(DataSidecarFork):
-      closureScope:  # Workaround for `-d:limitStackUsage`
-        when dataSidecarFork > DataSidecarFork.None:
-          let res = getDataSidecar[dataSidecarFork.DataSidecar](
-            quarantine, blockRoot, dataSidecar.index)
-          when dataSidecarFork == T.kind:
-            check res == Opt.some dataSidecar
-          else:
-            check res == Opt.none dataSidecarFork.DataSidecar
+    checkExists()
 
     quarantine.delByBlockRoot blockRoot
-    check getDataSidecar[T](
-      quarantine, blockRoot, dataSidecar.index) == Opt.none T
+    checkDoesNotExist()
 
     quarantine.putDataSidecar dataSidecar
     let slot = dataSidecar.signed_block_header.message.slot
     quarantine.keepEpochsFrom(slot.epoch)
-    check getDataSidecar[T](
-      quarantine, blockRoot, dataSidecar.index) == Opt.some dataSidecar
+    checkExists()
     quarantine.keepEpochsFrom(slot.epoch + 1)
-    check getDataSidecar[T](
-      quarantine, blockRoot, dataSidecar.index) == Opt.none T
+    checkDoesNotExist()
 
   setup:
     let
