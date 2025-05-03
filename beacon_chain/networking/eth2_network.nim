@@ -2635,15 +2635,13 @@ proc broadcast(node: Eth2Node, topic: string, msg: auto):
   broadcast(node, topic, gossipEncode(msg))
 
 proc subscribeAttestationSubnets*(
-    node: Eth2Node, subnets: AttnetBits, forkDigest: ForkDigest) =
+    node: Eth2Node, subnets: AttnetBits, forkDigest: ForkDigest,
+    topicParams: TopicParams) =
   # https://github.com/ethereum/consensus-specs/blob/v1.5.0-beta.0/specs/phase0/p2p-interface.md#attestations-and-aggregation
-  # Nimbus won't score attestation subnets for now, we just rely on block and
-  # aggregate which are more stable and reliable
-
   for subnet_id, enabled in subnets:
     if enabled:
       node.subscribe(getAttestationTopic(
-        forkDigest, SubnetId(subnet_id)), TopicParams.init()) # don't score attestation subnets for now
+        forkDigest, SubnetId(subnet_id)), topicParams)
 
 proc unsubscribeAttestationSubnets*(
     node: Eth2Node, subnets: AttnetBits, forkDigest: ForkDigest) =

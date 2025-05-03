@@ -421,8 +421,8 @@ proc getPartialState(
   try:
     readSszBytes(tmp.toOpenArray(0, partialBytes - 1), output)
     true
-  except CatchableError:
-    # TODO log?
+  except CatchableError as exc:
+    error "Failed to parse partial beacon state", slot = slot, msg = exc.msg
     false
 
 iterator getBlockIds*(

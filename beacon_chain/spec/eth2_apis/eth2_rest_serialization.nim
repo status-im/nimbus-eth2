@@ -15,7 +15,7 @@ import results, stew/[assign2, base10, byteutils, endians2], presto/common,
        stint, chronicles
 import ".."/[eth2_ssz_serialization, forks, keystore],
        ".."/../consensus_object_pools/block_pools_types,
-       ".."/mev/[bellatrix_mev, capella_mev],
+       ".."/mev/[bellatrix_mev, capella_mev, deneb_mev],
        ".."/../validators/slashing_protection_common,
        "."/[rest_types, rest_keymanager_types]
 import nimcrypto/utils as ncrutils
@@ -234,10 +234,7 @@ RestJson.useDefaultSerializationFor(
   deneb.SignedBeaconBlock,
   deneb_mev.BlindedBeaconBlock,
   deneb_mev.BlindedBeaconBlockBody,
-  deneb_mev.BuilderBid,
-  deneb_mev.ExecutionPayloadAndBlobsBundle,
   deneb_mev.SignedBlindedBeaconBlock,
-  deneb_mev.SignedBuilderBid,
   electra.AggregateAndProof,
   electra.Attestation,
   electra.AttesterSlashing,
@@ -393,10 +390,8 @@ type
     seq[RestSyncCommitteeSelection]
 
   MevDecodeTypes* =
-    GetHeaderResponseDeneb |
     GetHeaderResponseElectra |
     GetHeaderResponseFulu |
-    SubmitBlindedBlockResponseDeneb |
     SubmitBlindedBlockResponseElectra |
     SubmitBlindedBlockResponseFulu
 
@@ -440,9 +435,8 @@ type
 
   RestBlockTypes* = phase0.BeaconBlock | altair.BeaconBlock |
                     bellatrix.BeaconBlock | capella.BeaconBlock |
-                    deneb.BlockContents | deneb_mev.BlindedBeaconBlock |
-                    electra.BlockContents | fulu.BlockContents |
-                    electra_mev.BlindedBeaconBlock |
+                    deneb.BlockContents | electra.BlockContents |
+                    fulu.BlockContents | electra_mev.BlindedBeaconBlock |
                     fulu_mev.BlindedBeaconBlock
 
 func readStrictHexChar(c: char, radix: static[uint8]): Result[int8, cstring] =
@@ -2883,7 +2877,7 @@ proc readValue*(reader: var JsonReader[RestJson],
     reader.raiseUnexpectedValue("Field `data` is missing")
 
   withConsensusFork(version.get):
-    when consensusFork >= ConsensusFork.Deneb:
+    when consensusFork >= ConsensusFork.Electra:
       if blinded.get:
         value = ForkedMaybeBlindedBeaconBlock.init(
           RestJson.decode(
@@ -3542,7 +3536,7 @@ proc decodeBytes*[T: ProduceBlockResponseV3](
           except ValueError:
             return err("Incorrect `Eth-Consensus-Block-Value` header value")
     withConsensusFork(fork):
-      when consensusFork >= ConsensusFork.Deneb:
+      when consensusFork >= ConsensusFork.Electra:
         if blinded:
           let contents =
             ? readSszResBytes(consensusFork.BlindedBlockContents, value)

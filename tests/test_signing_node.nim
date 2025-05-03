@@ -263,10 +263,9 @@ func getRemoteKeystoreData(data: string, basePort: int,
         provenBlockProperties: @[
           ProvenProperty(
             path: ".execution_payload.fee_recipient",
-            fuluIndex: some GeneralizedIndex(801),
-            electraIndex: some GeneralizedIndex(801),
-            denebIndex: some GeneralizedIndex(801),
-            capellaIndex: some GeneralizedIndex(401)
+            fuluIndex: GeneralizedIndex(801),
+            electraIndex: GeneralizedIndex(801),
+            denebIndex: GeneralizedIndex(801)
           )
         ],
         version: uint64(4),

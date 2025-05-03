@@ -16,10 +16,9 @@
 import
   std/[json, tables],
   stew/base10, web3/primitives, httputils,
-  ".."/[deposit_snapshots, forks],
-  ".."/mev/[deneb_mev]
+  ".."/[deposit_snapshots, forks]
 
-export forks, phase0, altair, bellatrix, capella, deneb_mev, tables, httputils
+export forks, tables, httputils
 
 const
   # https://github.com/ethereum/eth2.0-APIs/blob/master/apis/beacon/states/validator_balances.yaml#L17
@@ -549,10 +548,8 @@ type
   SubmitBeaconCommitteeSelectionsResponse* = DataEnclosedObject[seq[RestBeaconCommitteeSelection]]
   SubmitSyncCommitteeSelectionsResponse* = DataEnclosedObject[seq[RestSyncCommitteeSelection]]
 
-  GetHeaderResponseDeneb* = DataVersionEnclosedObject[deneb_mev.SignedBuilderBid]
   GetHeaderResponseElectra* = DataVersionEnclosedObject[electra_mev.SignedBuilderBid]
   GetHeaderResponseFulu* = DataVersionEnclosedObject[fulu_mev.SignedBuilderBid]
-  SubmitBlindedBlockResponseDeneb* = DataVersionEnclosedObject[deneb_mev.ExecutionPayloadAndBlobsBundle]
   SubmitBlindedBlockResponseElectra* = DataVersionEnclosedObject[electra_mev.ExecutionPayloadAndBlobsBundle]
   SubmitBlindedBlockResponseFulu* = DataVersionEnclosedObject[fulu_mev.ExecutionPayloadAndBlobsBundle]
 

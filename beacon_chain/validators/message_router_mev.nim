@@ -13,8 +13,8 @@ import stew/assign2
 import ../beacon_node
 
 from ../spec/datatypes/bellatrix import SignedBeaconBlock
-from ../spec/mev/rest_deneb_mev_calls import submitBlindedBlock
 from ../spec/mev/rest_electra_mev_calls import submitBlindedBlock
+from ../spec/mev/rest_fulu_mev_calls import submitBlindedBlock
 
 const
   BUILDER_BLOCK_SUBMISSION_DELAY_TOLERANCE = 5.seconds
@@ -46,7 +46,6 @@ macro copyFields*(
 proc unblindAndRouteBlockMEV*(
     node: BeaconNode, payloadBuilderRestClient: RestClientRef,
     blindedBlock:
-      deneb_mev.SignedBlindedBeaconBlock |
       electra_mev.SignedBlindedBeaconBlock |
       fulu_mev.SignedBlindedBeaconBlock):
     Future[Result[Opt[BlockRef], string]] {.async: (raises: [CancelledError]).} =
@@ -86,11 +85,7 @@ proc unblindAndRouteBlockMEV*(
     return err("submitBlindedBlock failed with HTTP error code " &
       $response.status & ": " & $shortLog(blindedBlock))
 
-  when blindedBlock is deneb_mev.SignedBlindedBeaconBlock:
-    let res = decodeBytesJsonOrSsz(
-      SubmitBlindedBlockResponseDeneb, response.data, response.contentType,
-      response.headers.getString("eth-consensus-version"))
-  elif blindedBlock is electra_mev.SignedBlindedBeaconBlock:
+  when blindedBlock is electra_mev.SignedBlindedBeaconBlock:
     let res = decodeBytesJsonOrSsz(
       SubmitBlindedBlockResponseElectra, response.data, response.contentType,
       response.headers.getString("eth-consensus-version"))

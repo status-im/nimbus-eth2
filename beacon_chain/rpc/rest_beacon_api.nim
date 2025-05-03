@@ -16,8 +16,11 @@ import
   ../beacon_node,
   ../consensus_object_pools/[blockchain_dag, spec_cache, validator_change_pool],
   ../spec/[deposit_snapshots, eth2_merkleization, forks, network, validator],
-  ../spec/mev/[bellatrix_mev, capella_mev],
   ../validators/message_router_mev
+
+from ../spec/mev/bellatrix_mev import toSignedBlindedBeaconBlock
+from ../spec/mev/capella_mev import toSignedBlindedBeaconBlock
+from ../spec/mev/deneb_mev import toSignedBlindedBeaconBlock
 
 export rest_utils
 
@@ -1078,7 +1081,7 @@ proc installBeaconApiHandlers*(router: var RestRouter, node: BeaconNode) =
       return RestApiResponse.jsonError(Http400, BlockIncorrectFork)
 
     withConsensusFork(currentEpochFork):
-      when consensusFork >= ConsensusFork.Deneb:
+      when consensusFork >= ConsensusFork.Electra:
         let
           restBlock = decodeBodyJsonOrSsz(
               consensusFork.SignedBlindedBeaconBlock, body).valueOr:
@@ -1161,7 +1164,7 @@ proc installBeaconApiHandlers*(router: var RestRouter, node: BeaconNode) =
 
     withConsensusFork(currentEpochFork):
       # TODO (cheatfate): handle broadcast_validation flag
-      when consensusFork >= ConsensusFork.Deneb:
+      when consensusFork >= ConsensusFork.Electra:
         let
           restBlock = decodeBodyJsonOrSsz(
               consensusFork.SignedBlindedBeaconBlock, body).valueOr:
