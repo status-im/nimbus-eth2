@@ -1263,8 +1263,8 @@ suite "Quarantine" & preset():
 
     proc checkExists =
       withAll(DataSidecarFork):
-        closureScope:  # Workaround for `-d:limitStackUsage`
-          when dataSidecarFork > DataSidecarFork.None:
+        when dataSidecarFork > DataSidecarFork.None:
+          closureScope:  # Workaround for `-d:limitStackUsage`
             let res = getDataSidecar[dataSidecarFork.DataSidecar](
               quarantine, blockRoot, dataSidecar.index)
             when dataSidecarFork == T.kind:
@@ -1299,17 +1299,18 @@ suite "Quarantine" & preset():
     when dataSidecarFork > DataSidecarFork.None:
       test ($dataSidecarFork).toLowerAscii() & "." &
           $(dataSidecarFork.DataSidecar) & preset():
-        var dataSidecar: dataSidecarFork.DataSidecar
-        case dataSidecarFork
-        of DataSidecarFork.Fulu:
-          dataSidecar.signed_block_header.message.slot =
-            cfg.FULU_FORK_EPOCH.start_slot()
-        of DataSidecarFork.Deneb:
-          dataSidecar.signed_block_header.message.slot =
-            cfg.DENEB_FORK_EPOCH.start_slot()
-        of DataSidecarFork.None:
-          discard
-        quarantine.runDataSidecarTest(dataSidecar)
+        closureScope:  # Workaround for `-d:limitStackUsage`
+          var dataSidecar: dataSidecarFork.DataSidecar
+          case dataSidecarFork
+          of DataSidecarFork.Fulu:
+            dataSidecar.signed_block_header.message.slot =
+              cfg.FULU_FORK_EPOCH.start_slot()
+          of DataSidecarFork.Deneb:
+            dataSidecar.signed_block_header.message.slot =
+              cfg.DENEB_FORK_EPOCH.start_slot()
+          of DataSidecarFork.None:
+            discard
+          quarantine.runDataSidecarTest(dataSidecar)
 
 suite "FinalizedBlocks" & preset():
   test "Basic ops" & preset():
