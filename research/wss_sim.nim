@@ -94,7 +94,7 @@ cli do(validatorsDir: string, secretsDir: string,
         fatal "failed to read EL URL", err = finalUrl.error
         quit QuitFailure
       finalUrl.get
-    elManager = ELManager.new(cfg, @[engineApiUrl], metadata.eth1Network)
+    elManager = ELManager.new(@[engineApiUrl], metadata.eth1Network)
     feeRecipient =
       try:
         Address.fromHex(suggestedFeeRecipient)

@@ -66,12 +66,6 @@ contract(DepositContract):
   proc get_deposit_root(): FixedBytes[32]
   proc get_deposit_count(): Int64LeBytes
 
-  proc DepositEvent(pubkey: PubKeyBytes,
-                    withdrawalCredentials: WithdrawalCredentialsBytes,
-                    amount: Int64LeBytes,
-                    signature: SignatureBytes,
-                    index: Int64LeBytes) {.event.}
-
 const
   noTimeout = WithoutTimeout(0)
 
@@ -98,8 +92,6 @@ type
     eth1Network: Opt[Eth1Network]
       ## If this value is supplied the EL manager will check whether
       ## all configured EL nodes are connected to the same network.
-
-    depositContractAddress*: Eth1Address
 
     elConnections: seq[ELConnection]
       ## All active EL connections
@@ -134,21 +126,9 @@ type
 
     state: ELConnectionState
     hysteresisCounter: int
-
     lastPayloadId: Opt[Bytes8]
 
-  DataProviderFailure* = object of CatchableError
-  DataProviderTimeout* = object of DataProviderFailure
-
-  DisconnectHandler* = proc () {.gcsafe, raises: [].}
-
-  DepositEventHandler* = proc (
-    pubkey: PubKeyBytes,
-    withdrawalCredentials: WithdrawalCredentialsBytes,
-    amount: Int64LeBytes,
-    signature: SignatureBytes,
-    merkleTreeIndex: Int64LeBytes,
-    j: JsonNode) {.gcsafe, raises: [].}
+  DataProviderTimeout* = object of CatchableError
 
 declareCounter engine_api_responses,
   "Number of successful requests to the newPayload Engine API end-point",
@@ -170,7 +150,7 @@ declareCounter engine_api_last_minute_forkchoice_updates_sent,
 proc init*(t: typedesc[DeadlineObject], d: Duration): DeadlineObject =
   DeadlineObject(future: sleepAsync(d))
 
-proc variedSleep*(
+proc variedSleep(
     counter: var int,
     durations: openArray[Duration]
 ): Future[void] {.async: (raises: [CancelledError], raw: true).} =
@@ -197,14 +177,14 @@ proc close(connection: ELConnection): Future[void] {.async: (raises: []).} =
       debug "Failed to close execution layer", error = $exc.name,
             reason = $exc.msg
 
-proc increaseCounterTowardsStateChange(connection: ELConnection): bool =
+func increaseCounterTowardsStateChange(connection: ELConnection): bool =
   result = connection.hysteresisCounter >= connectionStateChangeHysteresisThreshold
   if result:
     connection.hysteresisCounter = 0
   else:
     inc connection.hysteresisCounter
 
-proc decreaseCounterTowardsStateChange(connection: ELConnection) =
+func decreaseCounterTowardsStateChange(connection: ELConnection) =
   if connection.hysteresisCounter > 0:
     # While we increase the counter by 1, we decreate it by 20% in order
     # to require a steady and affirmative change instead of allowing
@@ -304,15 +284,14 @@ func raiseIfNil(web3block: BlockObject): BlockObject {.raises: [ValueError].} =
     raise newException(ValueError, "EL returned 'null' result for block")
   web3block
 
-func hasJwtSecret*(m: ELManager): bool =
+func hasJwtSecret(m: ELManager): bool =
   for c in m.elConnections:
     if c.engineUrl.jwtSecret.isSome:
       return true
+  false
 
 # TODO: Add cfg validation
 # MIN_GENESIS_ACTIVE_VALIDATOR_COUNT should be larger than SLOTS_PER_EPOCH
-#  doAssert SECONDS_PER_ETH1_BLOCK * cfg.ETH1_FOLLOW_DISTANCE < GENESIS_DELAY,
-#             "Invalid configuration: GENESIS_DELAY is set too low"
 
 func isConnected(connection: ELConnection): bool =
   connection.web3.isSome
@@ -763,7 +742,7 @@ proc processResponse(
             url2 = connections[idx].engineUrl.url,
             status2 = status
 
-proc couldBeBetter(d: ELConsensusViolationDetector): bool =
+func couldBeBetter(d: ELConsensusViolationDetector): bool =
   const
     SyncingOrAccepted = {
       PayloadExecutionStatus.syncing,
@@ -1210,11 +1189,9 @@ func new*(T: type ELConnection, engineUrl: EngineApiUrl): T =
   ELConnection(engineUrl: engineUrl)
 
 func new*(T: type ELManager,
-          cfg: RuntimeConfig,
           engineApiUrls: seq[EngineApiUrl],
           eth1Network: Opt[Eth1Network]): T =
-  T(depositContractAddress: cfg.DEPOSIT_CONTRACT_ADDRESS,
-    elConnections: mapIt(engineApiUrls, ELConnection.new(it)),
+  T(elConnections: mapIt(engineApiUrls, ELConnection.new(it)),
     eth1Network: eth1Network)
 
 func hasConnection*(m: ELManager): bool =
@@ -1255,9 +1232,7 @@ func `$`(x: BlockObject): string =
   $(x.number) & " [" & $(x.hash) & "]"
 
 proc testWeb3Provider*(
-    web3Url: Uri,
-    depositContractAddress: Eth1Address,
-    jwtSecret: Opt[seq[byte]]
+    web3Url: Uri, jwtSecret: Opt[seq[byte]]
 ) {.async: (raises: [CatchableError]).} =
 
   stdout.write "Establishing web3 connection..."
@@ -1293,11 +1268,5 @@ proc testWeb3Provider*(
   discard request "Sync status":
     web3.provider.eth_syncing()
 
-  let
-    latestBlock = request "Latest block":
-      web3.provider.eth_getBlockByNumber(blockId("latest"), false)
-
-    ns = web3.contractSender(DepositContract, depositContractAddress)
-
-  discard request "Deposit root":
-    ns.get_deposit_root.call(blockNumber = latestBlock.number)
+  discard request "Latest block":
+    web3.provider.eth_getBlockByNumber(blockId("latest"), false)

@@ -97,7 +97,7 @@ programMain:
     engineApiUrls = config.engineApiUrls
     elManager =
       if engineApiUrls.len > 0:
-        ELManager.new(cfg, engineApiUrls, metadata.eth1Network)
+        ELManager.new(engineApiUrls, metadata.eth1Network)
       else:
         nil
 
