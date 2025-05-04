@@ -188,6 +188,6 @@ For a quick guide on how to set up a systemd service, see [our systemd guide](./
 
 ## Final thoughts
 
-If you are unsure of the safety of a step, please get in touch with us directly on [discord](https://discord.gg/nnNEBvHu3m).
+If you are unsure of the safety of a step, please get in touch with us directly on [Discord](https://discord.gg/XRxWahP).
 Additionally, we recommend testing the migration works correctly on a testnet before going ahead on mainnet.
 
