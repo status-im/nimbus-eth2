@@ -147,7 +147,7 @@ func checkResponseSanity(
     return Opt.none(seq[BlobResponseRecord])
 
   var
-    checks = @idents
+    checks = idents.toHashSet()
     records: seq[BlobResponseRecord]
 
   for sidecar in blobs.items():
@@ -157,11 +157,9 @@ func checkResponseSanity(
       sidecarIdent =
         BlobIdentifier(block_root: block_root, index: sidecar[].index)
 
-    let res = checks.find(sidecarIdent)
-    if res == -1:
+    if checks.missingOrExcl(sidecarIdent):
       return Opt.none(seq[BlobResponseRecord])
 
-    checks.del(res)
     # Verify inclusion proof
     sidecar[].verify_blob_sidecar_inclusion_proof().isOkOr:
       return Opt.none(seq[BlobResponseRecord])
