@@ -8,9 +8,8 @@
 {.push raises: [].}
 
 import
+  std/tables,
   chronicles,
-  std/[options, tables],
-  stew/bitops2,
   ../spec/forks
 
 export tables, forks

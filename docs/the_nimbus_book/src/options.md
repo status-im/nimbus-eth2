@@ -116,7 +116,7 @@ The following options are available:
                                keys of the validators what to sign and when) and load the validators in the
                                beacon node itself [=true].
      --discv5                  Enable Discovery v5 [=true].
-     --dump                    Write SSZ dumps of blocks, attestations and states to data dir [=false].
+     --dump                    Write SSZ dumps of blocks and states to data dir [=false].
      --direct-peer             The list of privileged, secure and known peers to connect and maintain the
                                connection to. This requires a not random netkey-file. In the multiaddress
                                format like: /ip4/<address>/tcp/<port>/p2p/<peerId-public-key>, or enr format

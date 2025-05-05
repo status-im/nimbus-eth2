@@ -56,7 +56,7 @@ static:
 type
   # https://github.com/ethereum/beacon-APIs/blob/v2.4.2/apis/eventstream/index.yaml
   EventTopic* {.pure.} = enum
-    Head, Block, Attestation, VoluntaryExit, BLSToExecutionChange,
+    Head, Block, Attestation, BlockGossip, VoluntaryExit, BLSToExecutionChange,
     ProposerSlashing, AttesterSlashing, BlobSidecar, SingleAttestation,
     FinalizedCheckpoint, ChainReorg, ContributionAndProof,
     LightClientFinalityUpdate, LightClientOptimisticUpdate
@@ -274,6 +274,7 @@ type
     seq_number*: string
     syncnets*: string
     attnets*: string
+    custody_group_count*: string
 
   RestNetworkIdentity* = object
     peer_id*: string

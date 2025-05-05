@@ -1,5 +1,5 @@
 # beacon_chain
-# Copyright (c) 2023-2024 Status Research & Development GmbH
+# Copyright (c) 2023-2025 Status Research & Development GmbH
 # Licensed and distributed under either of
 #   * MIT license (license terms in the root directory or at https://opensource.org/licenses/MIT).
 #   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
@@ -958,13 +958,13 @@ func migrateToDataFork*(
     discard
   elif newKind < x.kind:
     # Downgrade not supported, re-initialize
-    x = ForkedLightClientStore(kind: newKind)
+    x = static(ForkedLightClientStore(kind: newKind))
   else:
     # Upgrade to Altair
     when newKind >= LightClientDataFork.Altair:
       if x.kind == LightClientDataFork.None:
-        x = ForkedLightClientStore(
-          kind: LightClientDataFork.Altair)
+        x = static(ForkedLightClientStore(
+          kind: LightClientDataFork.Altair))
 
     # Upgrade to Capella
     when newKind >= LightClientDataFork.Capella:
