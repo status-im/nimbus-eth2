@@ -17,14 +17,13 @@
 import
   confutils, chronicles, eth/db/kvstore_sqlite3,
   chronos, chronos/timer, taskpools,
-  ../tests/testblockutil,
   ../beacon_chain/spec/[forks, state_transition],
   ../beacon_chain/beacon_chain_db,
   ../beacon_chain/gossip_processing/[batch_validation, gossip_validation],
   ../beacon_chain/consensus_object_pools/[blockchain_dag, block_clearance],
   ./simutils
 
-from std/random import Rand, gauss, initRand, rand
+from std/random import initRand, rand
 from std/stats import RunningStat
 from ../beacon_chain/consensus_object_pools/attestation_pool import
   AttestationPool, addAttestation, addForkChoice,
@@ -34,14 +33,12 @@ from ../beacon_chain/consensus_object_pools/block_quarantine import
 from ../beacon_chain/consensus_object_pools/sync_committee_msg_pool import
   SyncCommitteeMsgPool, addContribution, addSyncCommitteeMessage, init,
   produceContribution, produceSyncAggregate, pruneData
-from ../beacon_chain/el/eth1_chain import
-  Eth1Block, Eth1BlockNumber, Eth1BlockTimestamp, Eth1Chain, addBlock,
-  getBlockProposalData, init
 from ../beacon_chain/spec/beaconstate import
   get_beacon_committee, get_beacon_proposer_index,
   get_committee_count_per_slot, get_committee_indices
 from ../beacon_chain/spec/state_transition_block import process_block
 from ../tests/testbcutil import addHeadBlock
+from ../tests/testblockutil import makeAttestationData, MockPrivKeys, `[]`
 
 type Timers = enum
   tBlock = "Process non-epoch slot with block"
@@ -57,10 +54,7 @@ proc makeSimulationBlock(
     state: var electra.HashedBeaconState,
     proposer_index: ValidatorIndex,
     randao_reveal: ValidatorSig,
-    eth1_data: Eth1Data,
-    graffiti: GraffitiBytes,
     attestations: seq[electra.Attestation],
-    deposits: seq[Deposit],
     exits: BeaconBlockValidatorChanges,
     sync_aggregate: SyncAggregate,
     execution_payload: electra.ExecutionPayloadForSigning,
@@ -80,9 +74,9 @@ proc makeSimulationBlock(
   # some validations.
 
   var blck = partialBeaconBlock(
-    cfg, state, proposer_index, randao_reveal, eth1_data, graffiti,
-    attestations, deposits, exits, sync_aggregate, execution_payload,
-    default(ExecutionRequests))
+    cfg, state, proposer_index, randao_reveal, Eth1Data(),
+    default(GraffitiBytes), attestations, @[], exits, sync_aggregate,
+    execution_payload, ExecutionRequests())
 
   let res = process_block(
     cfg, state.data, blck.asSigVerified(), verificationFlags, cache)
@@ -101,10 +95,7 @@ proc makeSimulationBlock(
     state: var fulu.HashedBeaconState,
     proposer_index: ValidatorIndex,
     randao_reveal: ValidatorSig,
-    eth1_data: Eth1Data,
-    graffiti: GraffitiBytes,
     attestations: seq[electra.Attestation],
-    deposits: seq[Deposit],
     exits: BeaconBlockValidatorChanges,
     sync_aggregate: SyncAggregate,
     execution_payload: fulu.ExecutionPayloadForSigning,
@@ -124,9 +115,9 @@ proc makeSimulationBlock(
   # some validations.
 
   var blck = partialBeaconBlock(
-    cfg, state, proposer_index, randao_reveal, eth1_data, graffiti,
-    attestations, deposits, exits, sync_aggregate, execution_payload,
-    default(ExecutionRequests))
+    cfg, state, proposer_index, randao_reveal, Eth1Data(),
+    default(GraffitiBytes), attestations, @[], exits, sync_aggregate,
+    execution_payload, ExecutionRequests())
 
   let res = process_block(
     cfg, state.data, blck.asSigVerified(), verificationFlags, cache)
@@ -147,9 +138,7 @@ cli do(slots = SLOTS_PER_EPOCH * 7,
        syncCommitteeRatio {.desc: "ratio of validators that perform sync committee actions in each round"} = 0.82,
        blockRatio {.desc: "ratio of slots with blocks"} = 1.0,
        replay = true):
-  let
-    (genesisState, depositTreeSnapshot) = loadGenesis(validators, false)
-    genesisTime = float getStateField(genesisState[], genesis_time)
+  let (genesisState, depositTreeSnapshot) = loadGenesis(validators, false)
   const cfg = getSimulationConfig()
 
   echo "Starting simulation..."
@@ -164,8 +153,6 @@ cli do(slots = SLOTS_PER_EPOCH * 7,
   var
     validatorMonitor = newClone(ValidatorMonitor.init())
     dag = ChainDAGRef.init(cfg, db, validatorMonitor, {})
-    eth1Chain = Eth1Chain.init(cfg, db, 0, default Eth2Digest)
-    merkleizer = DepositsMerkleizer.init(depositTreeSnapshot.depositContractState)
     taskpool =
       try:
         Taskpool.new()
@@ -183,10 +170,6 @@ cli do(slots = SLOTS_PER_EPOCH * 7,
     attesters: RunningStat
     r = initRand(1)
     tmpState = assignClone(dag.headState)
-
-  eth1Chain.addBlock Eth1Block(
-    number: Eth1BlockNumber 1,
-    timestamp: Eth1BlockTimestamp genesisTime)
 
   let replayState = assignClone(dag.headState)
 
@@ -343,14 +326,9 @@ cli do(slots = SLOTS_PER_EPOCH * 7,
   proc getNewBlock[T](
       state: var ForkedHashedBeaconState, slot: Slot, cache: var StateCache): T =
     let
-      finalizedEpochRef = dag.getFinalizedEpochRef()
       proposerIdx = get_beacon_proposer_index(
         state, cache, getStateField(state, slot)).get()
       privKey = MockPrivKeys[proposerIdx]
-      eth1ProposalData = eth1Chain.getBlockProposalData(
-        state,
-        finalizedEpochRef.eth1_data,
-        finalizedEpochRef.eth1_deposit_index)
       sync_aggregate =
         syncCommitteePool[].produceSyncAggregate(dag.head.bid, slot)
       hashedState =
@@ -368,10 +346,7 @@ cli do(slots = SLOTS_PER_EPOCH * 7,
           getStateField(state, fork),
           getStateField(state, genesis_validators_root),
           slot.epoch, privKey).toValidatorSig(),
-        eth1ProposalData.vote,
-        default(GraffitiBytes),
         attPool.getElectraAttestationsForBlock(state, cache),
-        eth1ProposalData.deposits,
         BeaconBlockValidatorChanges(),
         sync_aggregate,
         (when T is electra.SignedBeaconBlock:
@@ -447,42 +422,12 @@ cli do(slots = SLOTS_PER_EPOCH * 7,
     do:
       raiseAssert "withUpdatedState failed"
 
-  var
-    lastEth1BlockAt = genesisTime
-    eth1BlockNum = 1000
-
   for i in 0..<slots:
     let
       slot = Slot(i + 1)
       t =
         if slot.is_epoch: tEpoch
         else: tBlock
-      now = genesisTime + float(slot * SECONDS_PER_SLOT)
-
-    while true:
-      let nextBlockTime = lastEth1BlockAt +
-                          max(1.0, gauss(r, float cfg.SECONDS_PER_ETH1_BLOCK, 3.0))
-      if nextBlockTime > now:
-        break
-
-      inc eth1BlockNum
-      var eth1Block = Eth1Block(
-        hash: makeFakeHash(eth1BlockNum),
-        number: Eth1BlockNumber eth1BlockNum,
-        timestamp: Eth1BlockTimestamp nextBlockTime)
-
-      let newDeposits = int clamp(gauss(r, 5.0, 8.0), 0.0, 1000.0)
-      for i in 0 ..< newDeposits:
-        let validatorIdx = merkleizer.getChunkCount.int
-        let d = makeDeposit(validatorIdx, {skipBlsValidation})
-        eth1Block.deposits.add d
-        merkleizer.addChunk hash_tree_root(d).data
-
-      eth1Block.depositRoot = merkleizer.getDepositsRoot
-      eth1Block.depositCount = merkleizer.getChunkCount
-
-      eth1Chain.addBlock eth1Block
-      lastEth1BlockAt = nextBlockTime
 
     if blockRatio > 0.0:
       withTimer(timers[t]):

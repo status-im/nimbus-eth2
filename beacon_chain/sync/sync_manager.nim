@@ -10,7 +10,6 @@
 import std/[strutils, sequtils, algorithm]
 import stew/base10, chronos, chronicles, results
 import
-  ../spec/datatypes/[phase0, altair],
   ../spec/eth2_apis/rest_types,
   ../spec/[helpers, forks, network],
   ../networking/[peer_pool, peer_scores, eth2_network],
@@ -55,6 +54,7 @@ type
   SyncManager*[A, B] = ref object
     pool: PeerPool[A, B]
     DENEB_FORK_EPOCH: Epoch
+    FULU_FORK_EPOCH: Epoch
     MIN_EPOCHS_FOR_BLOB_SIDECARS_REQUESTS: uint64
     MAX_BLOBS_PER_BLOCK_ELECTRA: uint64
     responseTimeout: chronos.Duration
@@ -142,6 +142,7 @@ proc initQueue[A, B](man: SyncManager[A, B]) =
 proc newSyncManager*[A, B](
     pool: PeerPool[A, B],
     denebEpoch: Epoch,
+    fuluEpoch: Epoch,
     minEpochsForBlobSidecarsRequests: uint64,
     maxBlobsPerBlockElectra: uint64,
     direction: SyncQueueKind,
@@ -171,6 +172,7 @@ proc newSyncManager*[A, B](
   var res = SyncManager[A, B](
     pool: pool,
     DENEB_FORK_EPOCH: denebEpoch,
+    FULU_FORK_EPOCH: fuluEpoch,
     MIN_EPOCHS_FOR_BLOB_SIDECARS_REQUESTS: minEpochsForBlobSidecarsRequests,
     MAX_BLOBS_PER_BLOCK_ELECTRA: maxBlobsPerBlockElectra,
     getLocalHeadSlot: getLocalHeadSlotCb,
@@ -213,7 +215,7 @@ proc shouldGetBlobs[A, B](man: SyncManager[A, B], s: Slot): bool =
   let
     wallEpoch = man.getLocalWallSlot().epoch
     epoch = s.epoch()
-  (epoch >= man.DENEB_FORK_EPOCH) and
+  (epoch >= man.DENEB_FORK_EPOCH) and (epoch < man.FULU_FORK_EPOCH) and
   (wallEpoch < man.MIN_EPOCHS_FOR_BLOB_SIDECARS_REQUESTS or
    epoch >=  wallEpoch - man.MIN_EPOCHS_FOR_BLOB_SIDECARS_REQUESTS)
 

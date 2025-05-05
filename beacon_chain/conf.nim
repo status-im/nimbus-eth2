@@ -576,7 +576,7 @@ type
         name: "discv5" .}: bool
 
       dumpEnabled* {.
-        desc: "Write SSZ dumps of blocks, attestations and states to data dir"
+        desc: "Write SSZ dumps of blocks and states to data dir"
         defaultValue: false
         name: "dump" .}: bool
 
