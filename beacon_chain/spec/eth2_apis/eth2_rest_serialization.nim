@@ -75,6 +75,7 @@ RestJson.useDefaultSerializationFor(
   EmptyBody,
   Eth1Data,
   EventBeaconBlockObject,
+  EventBeaconBlockGossipObject,
   ExecutionRequests,
   Fork,
   FuluSignedBlockContents,
@@ -3307,17 +3308,7 @@ proc decodeBytesJsonOrSsz*(
     version: string
 ): Result[T, RestErrorMessage] =
   var res {.noinit.}: T
-
-  let
-    typeFork = kind(typeof(res.data))
-    consensusFork = ConsensusFork.decodeString(version).valueOr:
-      return err(RestErrorMessage.init(Http400, UnableDecodeVersionError,
-                                       [version, $error]))
-  if typeFork != consensusFork:
-    return err(
-      RestErrorMessage.init(Http400, UnexpectedForkVersionError,
-                            ["eth-consensus-version", consensusFork.toString(),
-                             typeFork.toString()]))
+  const typeFork = kind(typeof(res.data))
 
   if contentType == ApplicationJsonMediaType:
     res =
@@ -3343,6 +3334,17 @@ proc decodeBytesJsonOrSsz*(
                                typeFork.toString()]))
     ok(res)
   elif contentType == OctetStreamMediaType:
+    let consensusFork =
+      ConsensusFork.decodeString(version).valueOr:
+        return err(RestErrorMessage.init(Http400, UnableDecodeVersionError,
+                                         [version, $error]))
+    if typeFork != consensusFork:
+      return err(
+        RestErrorMessage.init(
+          Http400, UnexpectedForkVersionError,
+          ["eth-consensus-version", consensusFork.toString(),
+           typeFork.toString()]))
+
     ok(T(
       version: newJString(typeFork.toString()),
       data:
@@ -3743,6 +3745,8 @@ func decodeString*(t: typedesc[EventTopic],
     ok(EventTopic.Head)
   of "block":
     ok(EventTopic.Block)
+  of "block_gossip":
+    ok(EventTopic.BlockGossip)
   of "attestation":
     ok(EventTopic.Attestation)
   of "single_attestation":
@@ -3776,6 +3780,8 @@ func encodeString*(value: set[EventTopic]): Result[string, cstring] =
     res.add("head,")
   if EventTopic.Block in value:
     res.add("block,")
+  if EventTopic.BlockGossip in value:
+    res.add("block_gossip,")
   if EventTopic.Attestation in value:
     res.add("attestation,")
   if EventTopic.SingleAttestation in value:

@@ -155,7 +155,7 @@ func get_validator_activation_churn_limit*(
     cfg.MAX_PER_EPOCH_ACTIVATION_CHURN_LIMIT,
     get_validator_churn_limit(cfg, state, cache))
 
-# https://github.com/ethereum/consensus-specs/blob/v1.4.0/specs/phase0/beacon-chain.md#initiate_validator_exit
+# https://github.com/ethereum/consensus-specs/blob/v1.5.0-beta.4/specs/phase0/beacon-chain.md#initiate_validator_exit
 func get_state_exit_queue_info*(
     state: phase0.BeaconState | altair.BeaconState | bellatrix.BeaconState |
     capella.BeaconState | deneb.BeaconState): ExitQueueInfo =
@@ -247,7 +247,7 @@ func get_balance_churn_limit(
   )
   churn - churn mod EFFECTIVE_BALANCE_INCREMENT.Gwei
 
-# https://github.com/ethereum/consensus-specs/blob/v1.5.0-beta.0/specs/electra/beacon-chain.md#new-get_activation_exit_churn_limit
+# https://github.com/ethereum/consensus-specs/blob/v1.5.0-beta.4/specs/electra/beacon-chain.md#new-get_activation_exit_churn_limit
 func get_activation_exit_churn_limit*(
     cfg: RuntimeConfig, state: electra.BeaconState | fulu.BeaconState, cache: var StateCache):
     Gwei =
@@ -370,8 +370,8 @@ func get_slashing_penalty*(
   else:
     {.fatal: "invalid BeaconState type".}
 
-# https://github.com/ethereum/consensus-specs/blob/v1.5.0-beta.3/specs/phase0/beacon-chain.md#slash_validator
-# https://github.com/ethereum/consensus-specs/blob/v1.5.0-beta.3/specs/altair/beacon-chain.md#modified-slash_validator
+# https://github.com/ethereum/consensus-specs/blob/v1.5.0-beta.4/specs/phase0/beacon-chain.md#slash_validator
+# https://github.com/ethereum/consensus-specs/blob/v1.5.0-beta.4/specs/altair/beacon-chain.md#modified-slash_validator
 # https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.8/specs/bellatrix/beacon-chain.md#modified-slash_validator
 func get_whistleblower_reward*(
     state: phase0.BeaconState | altair.BeaconState | bellatrix.BeaconState |
@@ -385,8 +385,8 @@ func get_whistleblower_reward*(
     validator_effective_balance: Gwei): Gwei =
   validator_effective_balance div WHISTLEBLOWER_REWARD_QUOTIENT_ELECTRA
 
-# https://github.com/ethereum/consensus-specs/blob/v1.5.0-beta.3/specs/phase0/beacon-chain.md#slash_validator
-# https://github.com/ethereum/consensus-specs/blob/v1.5.0-beta.3/specs/altair/beacon-chain.md#modified-slash_validator
+# https://github.com/ethereum/consensus-specs/blob/v1.5.0-beta.4/specs/phase0/beacon-chain.md#slash_validator
+# https://github.com/ethereum/consensus-specs/blob/v1.5.0-beta.4/specs/altair/beacon-chain.md#modified-slash_validator
 # https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.8/specs/bellatrix/beacon-chain.md#modified-slash_validator
 func get_proposer_reward(state: ForkyBeaconState, whistleblower_reward: Gwei): Gwei =
   when state is phase0.BeaconState:
@@ -398,8 +398,8 @@ func get_proposer_reward(state: ForkyBeaconState, whistleblower_reward: Gwei): G
   else:
     {.fatal: "invalid BeaconState type".}
 
-# https://github.com/ethereum/consensus-specs/blob/v1.5.0-beta.3/specs/phase0/beacon-chain.md#slash_validator
-# https://github.com/ethereum/consensus-specs/blob/v1.5.0-beta.3/specs/altair/beacon-chain.md#modified-slash_validator
+# https://github.com/ethereum/consensus-specs/blob/v1.5.0-beta.4/specs/phase0/beacon-chain.md#slash_validator
+# https://github.com/ethereum/consensus-specs/blob/v1.5.0-beta.4/specs/altair/beacon-chain.md#modified-slash_validator
 # https://github.com/ethereum/consensus-specs/blob/v1.5.0-beta.3/specs/bellatrix/beacon-chain.md#modified-slash_validator
 proc slash_validator*(
     cfg: RuntimeConfig, state: var ForkyBeaconState,
@@ -908,7 +908,7 @@ func get_attestation_participation_flag_indices(
 # TODO these duplicate some stuff in state_transition_epoch which uses TotalBalances
 # better to centralize around that if feasible
 
-# https://github.com/ethereum/consensus-specs/blob/v1.5.0-beta.3/specs/phase0/beacon-chain.md#get_total_active_balance
+# https://github.com/ethereum/consensus-specs/blob/v1.5.0-beta.4/specs/phase0/beacon-chain.md#get_total_active_balance
 func get_total_active_balance*(state: ForkyBeaconState, cache: var StateCache): Gwei =
   ## Return the combined effective balance of the active validators.
   ## Note: ``get_total_balance`` returns ``EFFECTIVE_BALANCE_INCREMENT`` Gwei
@@ -935,7 +935,7 @@ func get_base_reward_per_increment*(
   get_base_reward_per_increment_sqrt(
     integer_squareroot(distinctBase(total_active_balance)))
 
-# https://github.com/ethereum/consensus-specs/blob/v1.5.0-beta.3/specs/altair/beacon-chain.md#get_base_reward
+# https://github.com/ethereum/consensus-specs/blob/v1.5.0-beta.4/specs/altair/beacon-chain.md#get_base_reward
 func get_base_reward(
     state: altair.BeaconState | bellatrix.BeaconState | capella.BeaconState |
            deneb.BeaconState | electra.BeaconState | fulu.BeaconState,
@@ -1358,7 +1358,7 @@ func queue_excess_active_balance(
       signature: ValidatorSig.infinity,
       slot: GENESIS_SLOT))
 
-# https://github.com/ethereum/consensus-specs/blob/v1.5.0-beta.0/specs/electra/beacon-chain.md#new-switch_to_compounding_validator
+# https://github.com/ethereum/consensus-specs/blob/v1.5.0-beta.4/specs/electra/beacon-chain.md#new-switch_to_compounding_validator
 func switch_to_compounding_validator*(
     state: var (electra.BeaconState | fulu.BeaconState),
     index: ValidatorIndex) =
@@ -1498,12 +1498,19 @@ template get_expected_withdrawals_with_partial_count_aux*(
 
       has_sufficient_effective_balance =
         effective_balance_at_slot >= static(MIN_ACTIVATION_BALANCE.Gwei)
-      has_excess_balance = fetch_balance > static(MIN_ACTIVATION_BALANCE.Gwei)
+      total_withdrawn = block:
+        var res: Gwei
+        for w in withdrawals:
+          if w.validator_index == validator_index:
+            res += w.amount
+        res
+      balance = fetch_balance - total_withdrawn
+      has_excess_balance = balance > static(MIN_ACTIVATION_BALANCE.Gwei)
     if  validator.exit_epoch == FAR_FUTURE_EPOCH and
         has_sufficient_effective_balance and has_excess_balance:
       let
         withdrawable_balance = min(
-          fetch_balance - static(MIN_ACTIVATION_BALANCE.Gwei),
+          balance - static(MIN_ACTIVATION_BALANCE.Gwei),
           withdrawal.amount)
       var w = Withdrawal(
         index: withdrawal_index,
