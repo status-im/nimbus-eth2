@@ -1,5 +1,5 @@
 # beacon_chain
-# Copyright (c) 2021-2024 Status Research & Development GmbH
+# Copyright (c) 2021-2025 Status Research & Development GmbH
 # Licensed and distributed under either of
 #   * MIT license (license terms in the root directory or at https://opensource.org/licenses/MIT).
 #   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
@@ -176,11 +176,7 @@ suite "Sync committee pool":
     let
       fork = altairFork(cfg)
       genesis_validators_root = eth2digest(@[5.byte, 6, 7])
-
-      privkey1 = MockPrivKeys[1.ValidatorIndex]
-      privkey2 = MockPrivKeys[2.ValidatorIndex]
-      privkey3 = MockPrivKeys[3.ValidatorIndex]
-      privkey4 = MockPrivKeys[4.ValidatorIndex]
+      privkey = MockPrivKeys[1.ValidatorIndex]
 
       bid1 = BlockId(slot: Slot(100), root: eth2digest(@[1.byte]))
       bid2 = BlockId(slot: Slot(101), root: eth2digest(@[1.byte, 2]))
@@ -190,16 +186,15 @@ suite "Sync committee pool":
       subcommittee2 = SyncSubcommitteeIndex(1)
 
       sig1 = get_sync_committee_message_signature(
-        fork, genesis_validators_root, bid1.slot, bid1.root, privkey1)
+        fork, genesis_validators_root, bid1.slot, bid1.root, privkey)
       sig2 = get_sync_committee_message_signature(
-        fork, genesis_validators_root, bid2.slot, bid2.root, privkey1)
+        fork, genesis_validators_root, bid2.slot, bid2.root, privkey)
       sig3 = get_sync_committee_message_signature(
-        fork, genesis_validators_root, bid3.slot, bid3.root, privkey1)
+        fork, genesis_validators_root, bid3.slot, bid3.root, privkey)
       sig4 = get_sync_committee_message_signature(
-        fork, genesis_validators_root, bid3.slot, bid2.root, privkey1)
+        fork, genesis_validators_root, bid3.slot, bid2.root, privkey)
 
     # Inserting sync committee messages
-    #
     pool.addSyncCommitteeMessage(
       bid1.slot, bid1, 1, sig1, subcommittee1, @[1'u64])
     pool.addSyncCommitteeMessage(

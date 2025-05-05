@@ -70,6 +70,7 @@ type
     message*: BlindedBeaconBlock
     signature*: ValidatorSig
 
+  # https://github.com/ethereum/builder-specs/blob/v0.5.0/specs/deneb/builder.md#executionpayloadandblobsbundle
   ExecutionPayloadAndBlobsBundle* = object
     execution_payload*: ExecutionPayload
     blobs_bundle*: BlobsBundle

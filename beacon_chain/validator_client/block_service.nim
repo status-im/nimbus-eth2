@@ -387,7 +387,7 @@ proc addOrReplaceProposers*(vc: ValidatorClientRef, epoch: Epoch,
 
           for task in epochDuties.duties:
             if task notin duties:
-              # Task is no more relevant, so cancel it.
+              # Task is not relevant anymore, so cancel it.
               debug "Cancelling running proposal duty tasks",
                     slot = task.duty.slot,
                     pubkey = shortLog(task.duty.pubkey)
