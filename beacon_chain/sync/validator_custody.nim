@@ -39,6 +39,7 @@ type
     older_column_set*: HashSet[ColumnIndex]
     newer_column_set*: HashSet[ColumnIndex]
     global_refill_list*: HashSet[DataColumnIdentifier]
+    requested_columns*: seq[DataColumnsByRootIdentifier]
     fuluEpoch*: Epoch
     getBeaconTime: GetBeaconTimeFn
     inhibit: InhibitFn
@@ -66,10 +67,12 @@ proc init*(T: type ValidatorCustody, network: Eth2Node,
     inhibit: inhibit,
     dataColumnQuarantine: dataColumnQuarantine)
 
-proc detectNewValidatorCustody(vcus: var ValidatorCustody): HashSet[ColumnIndex] =
+proc detectNewValidatorCustody(vcus: var ValidatorCustody): seq[ColumnIndex] =
   let
     headState =  vcus.dag.headState
-  var diff_set: HashSet[ColumnIndex]
+  var
+    res: seq[ColumnIndex]
+    diff_set: HashSet[ColumnIndex]
   withState(headState):
     when consensusFork >= ConsensusFork.Fulu:
       var validator_indices =
@@ -94,11 +97,16 @@ proc detectNewValidatorCustody(vcus: var ValidatorCustody): HashSet[ColumnIndex]
         diff_set = newer_column_set.difference(vcus.older_column_set)
       vcus.newer_column_set = newer_column_set
 
-  diff_set
+  for i in diff_set.items():
+    res.add(i)
+
+  res
+
 
 proc makeRefillList(vcus: var ValidatorCustody) =
   let
     slot = vcus.getLocalHeadSlot()
+    diff = vcus.detectNewValidatorCustody()
   let dataColumnRefillEpoch = (slot.epoch -
                               vcus.dag.cfg.MIN_EPOCHS_FOR_BLOB_SIDECARS_REQUESTS - 1)
   if slot.is_epoch() and dataColumnRefillEpoch >= vcus.dag.cfg.FULU_FORK_EPOCH:
@@ -110,11 +118,53 @@ proc makeRefillList(vcus: var ValidatorCustody) =
       withBlck(blck):
         when typeof(forkyBlck).kind < ConsensusFork.Fulu: continue
         else:
+          let entry1 =
+            DataColumnsByRootIdentifier(block_root: blocks[int(i)].root,
+                                        indices: DataColumnIndices.init(diff))
+          vcus.requested_columns.add entry1
           for column in vcus.newer_column_set:
-            let entry =
+            let entry2 =
               DataColumnIdentifier(block_root: blocks[int(i)].root,
                                    index: ColumnIndex(column))
-            vcus.global_refill_list.incl(entry)
+            vcus.global_refill_list.incl(entry2)
+
+
+proc checkInteresectingCustody(vcus: ValidatorCustody,
+                               peer: Peer): seq[DataColumnsByRootIdentifier] =
+  var columnList: seq[DataColumnsByRootIdentifier]
+
+  # Fetch the remote custody count
+  let remoteCustodyGroupCount =
+    peer.lookupCgcFromPeer()
+
+  # Extract remote peer's nodeID from peerID
+  # Fetch custody columns form remote peer
+  let
+    remoteNodeId = fetchNodeIdFromPeerId(peer)
+    remoteCustodyColumns =
+      vcus.dag.cfg.resolve_columns_from_custody_groups(
+        remoteNodeId,
+        max(vcus.dag.cfg.SAMPLES_PER_SLOT.uint64,
+            remoteCustodyGroupCount))
+  for request_item in vcus.requested_columns:
+    var colIds: seq[ColumnIndex]
+    for cindex in request_item.indices:
+      let lookup = DataColumnIdentifier(block_root: request_item.block_root,
+                                        index: cindex)
+      if lookup notin vcus.global_refill_list and cindex in remoteCustodyColumns:
+        colIds.add cindex
+    columnList.add DataColumnsByRootIdentifier(block_root: request_item.block_root,
+                                               indices: DataColumnIndices.init(colIds))
+
+  columnList
+
+proc refillDataColumnsFromNetwork(vcus: ValidatorCustody.
+                                  colIdList: seq[DataColumnsByRootIdentifier])
+                                  {.async: (raise: [CancelledError]).} =
+  var peer = await vcus.network.peerPool.acquire()
+
+
+
 
 
 
