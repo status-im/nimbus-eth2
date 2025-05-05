@@ -39,7 +39,8 @@ If you come across any issues, please [report them here](https://github.com/stat
         ./build/bin/erigon --chain=hoodi \
           --datadir hoodi-testnet \
           --authrpc.jwtsecret=/opt/jwtsecret \
-          --http --http.api=engine,net,eth
+          --http --http.api=engine,net,eth \
+          --externalcl
         ```
 
     === "Besu"

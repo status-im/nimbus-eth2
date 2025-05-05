@@ -11,9 +11,9 @@ Gossip validation is different from consensus verification in particular for blo
 
 - Blocks: https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.8/specs/phase0/p2p-interface.md#beacon_block
 - Attestations (aggregated): https://github.com/ethereum/consensus-specs/blob/v1.5.0-beta.0/specs/phase0/p2p-interface.md#beacon_aggregate_and_proof
-- Attestations (unaggregated): https://github.com/ethereum/consensus-specs/blob/v1.4.0/specs/phase0/p2p-interface.md#attestation-subnets
+- Attestations (unaggregated): https://github.com/ethereum/consensus-specs/blob/v1.5.0-beta.4/specs/phase0/p2p-interface.md#attestation-subnets
 - Voluntary exits: https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.4/specs/phase0/p2p-interface.md#voluntary_exit
-- Proposer slashings: https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.10/specs/phase0/p2p-interface.md#proposer_slashing
+- Proposer slashings: https://github.com/ethereum/consensus-specs/blob/v1.5.0-beta.4/specs/phase0/p2p-interface.md#proposer_slashing
 - Attester slashing: https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.8/specs/phase0/p2p-interface.md#attester_slashing
 
 There are multiple consumers of validated consensus objects:

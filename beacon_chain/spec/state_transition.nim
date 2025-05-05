@@ -70,7 +70,7 @@ proc verify_block_signature(
 
   ok()
 
-# https://github.com/ethereum/consensus-specs/blob/v1.4.0/specs/phase0/beacon-chain.md#beacon-chain-state-transition-function
+# https://github.com/ethereum/consensus-specs/blob/v1.5.0-beta.4/specs/phase0/beacon-chain.md#beacon-chain-state-transition-function
 func verifyStateRoot(
     state: ForkyBeaconState,
     blck: ForkyBeaconBlock | ForkySigVerifiedBeaconBlock):
@@ -681,4 +681,4 @@ proc makeBeaconBlock*(
     transactions_root = Opt.none Eth2Digest,
     execution_payload_root = Opt.none Eth2Digest,
     kzg_commitments = Opt.none KzgCommitments,
-    execution_requests = default(ExecutionRequests))
+    execution_requests = static(default(ExecutionRequests)))
