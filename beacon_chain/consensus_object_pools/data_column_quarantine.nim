@@ -97,16 +97,16 @@ func gatherDataColumns*(quarantine: DataColumnQuarantine,
   # Returns the current data columns queried by a block header
   var columns: seq[ref DataColumnSidecar]
   for i in quarantine.custody_columns:
-    let dc_identifier =
-      DataColumnIdentifier(
-        block_root: digest,
-        index: i)
-    if quarantine.data_columns.hasKey(dc_identifier):
-      let value =
-        quarantine.data_columns.getOrDefault(dc_identifier,
-                                             default(ref DataColumnSidecar))
+    let dc_identifier = DataColumnIdentifier(
+      block_root: digest,
+      index: i)
+    let value =
+      quarantine.data_columns.getOrDefault(dc_identifier, nil)
+    # Only add if we got something
+    if value != nil:
       columns.add(value)
   columns
+
 
 func popDataColumns*(
     quarantine: var DataColumnQuarantine, digest: Eth2Digest,

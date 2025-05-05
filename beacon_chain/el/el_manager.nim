@@ -55,7 +55,9 @@ type
     BellatrixExecutionPayloadWithValue |
     GetPayloadV2Response |
     GetPayloadV3Response |
-    GetPayloadV4Response
+    GetPayloadV4Response |
+    GetPayloadV5Response
+
 
 contract(DepositContract):
   proc deposit(pubkey: PubKeyBytes,
@@ -107,6 +109,8 @@ const
   # https://github.com/ethereum/execution-apis/blob/v1.0.0-beta.3/src/engine/paris.md#request-2
   # https://github.com/ethereum/execution-apis/blob/v1.0.0-beta.3/src/engine/shanghai.md#request-2
   GETPAYLOAD_TIMEOUT = 1.seconds
+
+  GETBLOBS_TIMEOUT = 200.milliseconds
 
   connectionStateChangeHysteresisThreshold = 15
     ## How many unsuccesful/successful requests we must see
@@ -545,7 +549,8 @@ proc getPayloadFromSingleEL(
             suggestedFeeRecipient: suggestedFeeRecipient,
             withdrawals: withdrawals))
       elif  GetPayloadResponseType is engine_api.GetPayloadV3Response or
-            GetPayloadResponseType is engine_api.GetPayloadV4Response:
+            GetPayloadResponseType is engine_api.GetPayloadV4Response or
+            GetPayloadResponseType is engine_api.GetPayloadV5Response:
         # https://github.com/ethereum/execution-apis/blob/90a46e9137c89d58e818e62fa33a0347bba50085/src/engine/prague.md
         # does not define any new forkchoiceUpdated, so reuse V3 from Dencun
         let response = await rpcClient.forkchoiceUpdated(
@@ -598,7 +603,7 @@ template EngineApiResponseType*(T: type electra.ExecutionPayloadForSigning): typ
   engine_api.GetPayloadV4Response
 
 template EngineApiResponseType*(T: type fulu.ExecutionPayloadForSigning): type =
-  engine_api.GetPayloadV4Response
+  engine_api.GetPayloadV5Response
 
 template toEngineWithdrawals*(withdrawals: seq[capella.Withdrawal]): seq[WithdrawalV1] =
   mapIt(withdrawals, toEngineWithdrawal(it))
@@ -862,6 +867,13 @@ proc sendNewPayloadToSingleEL(
     payload, versioned_hashes, Hash32 parent_beacon_block_root,
     executionRequests)
 
+proc sendGetBlobsV2toSingleEl(
+    connection: ELConnection,
+    versioned_hashes: seq[engine_api.VersionedHash]
+): Future[GetBlobsV2Response] {.async: (raises: [CatchableError]).} =
+  let rpcClient = await connection.connectedRpcClient()
+  await rpcClient.engine_getBlobsV2(versioned_hashes)
+
 type
   StatusRelation = enum
     newStatusIsPreferable
@@ -989,6 +1001,69 @@ proc lazyWait(futures: seq[FutureBase]) {.async: (raises: []).} =
     let pending = futures.filterIt(not(it.finished())).mapIt(it.cancelAndWait())
     if len(pending) > 0:
       await noCancel allFutures(pending)
+
+proc sendGetBlobsV2*(
+    m: ELManager,
+    blck: electra.SignedBeaconBlock | fulu.SignedBeaconBlock,
+): Future[Opt[seq[BlobAndProofV2]]] {.async: (raises: [CancelledError]).} =
+
+  if m.elConnections.len == 0:
+    return err()
+
+  let deadline = sleepAsync(GETBLOBS_TIMEOUT)
+
+  var bestIdx: Opt[int] = Opt.none(int)
+
+  while true:
+    let requests = m.elConnections.mapIt(
+      sendGetBlobsV2toSingleEl(it,
+        mapIt(blck.message.body.blob_kzg_commitments,
+              engine_api.VersionedHash(kzg_commitment_to_versioned_hash(it)))
+      )
+    )
+
+    let timeoutExceeded =
+      try:
+        await allFutures(requests).wait(deadline)
+        false
+      except AsyncTimeoutError:
+        true
+      except CancelledError as exc:
+        ## cancel anything still running, then re-raise
+        await noCancel allFutures(
+          requests.filterIt(not it.finished()).mapIt(it.cancelAndWait())
+        )
+        raise exc
+
+    for idx, req in requests:
+      if req.finished():
+        ## choose the first successful (not failed) response
+        if req.error.isNil and bestIdx.isNone:
+          bestIdx = Opt.some(idx)
+      else:
+        ## finished == false
+        let errmsg =
+          if req.error.isNil: "request still pending"
+          else: req.error.msg
+        warn "Timeout while getting blobs & proofs",
+             url = m.elConnections[idx].engineUrl.url,
+             reason = errmsg
+
+    await noCancel allFutures(
+      requests.filterIt(not it.finished()).mapIt(it.cancelAndWait())
+    )
+
+    if bestIdx.isSome():
+      let chosen = requests[bestIdx.get()]
+      ## chosen is finished; but could still be an error, so guard again
+      if chosen.error.isNil:
+        return ok(chosen.value())
+      else:
+        warn "Chosen EL failed unexpectedly", reason = chosen.error.msg
+    if timeoutExceeded:
+      break
+
+  err()
 
 proc sendNewPayload*(
     m: ELManager,

@@ -11,6 +11,9 @@ import
   std/[tables, sequtils],
   chronicles, chronos, metrics,
   taskpools,
+  kzg4844/kzg,
+  ssz_serialization/types,
+  ../el/el_manager,
   ../spec/[helpers, forks, peerdas_helpers],
   ../consensus_object_pools/[
     blob_quarantine, block_clearance, block_quarantine, blockchain_dag,
@@ -146,6 +149,10 @@ type
     # ----------------------------------------------------------------
     batchCrypto*: ref BatchCrypto
 
+    # EL integration
+    # ----------------------------------------------------------------
+    elManager*: ELManager
+
     # Missing information
     # ----------------------------------------------------------------
     quarantine*: ref Quarantine
@@ -180,6 +187,7 @@ proc new*(T: type Eth2Processor,
           dataColumnQuarantine: ref DataColumnQuarantine,
           rng: ref HmacDrbgContext,
           getBeaconTime: GetBeaconTimeFn,
+          elManager: ELManager,
           taskpool: Taskpool
          ): ref Eth2Processor =
   (ref Eth2Processor)(
@@ -198,6 +206,7 @@ proc new*(T: type Eth2Processor,
     blobQuarantine: blobQuarantine,
     dataColumnQuarantine: dataColumnQuarantine,
     getCurrentBeaconTime: getBeaconTime,
+    elManager: elManager,
     batchCrypto: BatchCrypto.new(
       rng = rng,
       # Only run eager attestation signature verification if we're not
@@ -346,10 +355,78 @@ proc processBlobSidecar*(
 
   v
 
+proc validateDataColumnSidecarFromEL*(
+    self: ref Eth2Processor,
+    block_root: Eth2Digest):
+    Future[ValidationRes]
+    {.async: (raises: [CancelledError]).} =
+  if (let o = self.quarantine[].popColumnless(block_root); o.isSome):
+    let columnless = o.unsafeGet()
+    withBlck(columnless):
+      when consensusFork >= ConsensusFork.Fulu:
+        let
+          start_time = Moment.now()
+        let blobsFromElOpt =
+          await self.elManager.sendGetBlobsV2(forkyBlck)
+        if blobsFromElOpt.isSome():
+          let blobsEl = blobsFromElOpt.get()
+
+          # check lengths of array[BlobAndProofV2 with blobs
+          # kzg commitments of the signed block
+          if blobsEl.len == forkyBlck.message.body.blob_kzg_commitments.len:
+
+            # we have received all columns from the EL
+            # hence we can safely remove the columnless block from quarantine
+            self.quarantine[].removeColumnless(forkyBlck)
+            var flat_proof: seq[kzg.KzgProof] = @[]
+            for item in blobsEl:
+              for proof in item.proofs:
+                flat_proof.add(kzg.KzgProof(bytes: proof.data))
+
+            let
+              recovered_columns =
+                assemble_data_column_sidecars(
+                  forkyBlck,
+                  blobsEl.mapIt(kzg.KzgBlob(bytes: it.blob.data)),
+                  flat_proof)
+
+            for rc in recovered_columns:
+              if rc.index in self.dataColumnQuarantine[].custody_columns:
+                self.dag.db.putDataColumnSidecar(rc)
+                self.dataColumnQuarantine[].put(newClone rc)
+
+            if self.dataColumnQuarantine[].hasExactDataColumns(forkyBlck, self.dag.cfg):
+              let end_time = Moment.now()
+              debug "Time taken to get 100% response from EL and bypass blob gossip validation",
+                    time_taken = end_time - start_time
+              debug "Pulled blobs from EL, bypassing blob gossip validation",
+                    blobs_from_el = blobsEl.len
+              self.blockProcessor[].enqueueBlock(
+                MsgSource.gossip, columnless,
+                Opt.none(BlobSidecars),
+                Opt.some(self.dataColumnQuarantine[].popDataColumns(block_root, forkyBlck)))
+              return ok()
+            else:
+              discard self.quarantine[].addColumnless(
+                self.dag.finalizedHead.slot, forkyBlck)
+      else:
+        raiseAssert "Could not have been added as columnless"
+  else:
+    return errIgnore ("Could not pull blobs and proofs from EL")
+
+
 proc processDataColumnSidecar*(
-    self: var Eth2Processor, src: MsgSource,
-    dataColumnSidecar: DataColumnSidecar, subnet_id: uint64): ValidationRes =
+    self: ref Eth2Processor, src: MsgSource,
+    dataColumnSidecar: DataColumnSidecar, subnet_id: uint64):
+    Future[ValidationRes] {.async: (raises: [CancelledError]).} =
   template block_header: untyped = dataColumnSidecar.signed_block_header.message
+  let block_root = hash_tree_root(block_header)
+
+  let vEL =
+    await self.validateDataColumnSidecarFromEL(block_root)
+
+  if vEL.isOk():
+    return vEL
 
   let
     wallTime = self.getCurrentBeaconTime()
@@ -376,7 +453,6 @@ proc processDataColumnSidecar*(
   self.dataColumnQuarantine[].put(newClone(dataColumnSidecar))
   self.dag.db.putDataColumnSidecar(dataColumnSidecar)
 
-  let block_root = hash_tree_root(block_header)
   if (let o = self.quarantine[].popColumnless(block_root); o.isSome):
     let columnless = o.unsafeGet()
     withBlck(columnless):

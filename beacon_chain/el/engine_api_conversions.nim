@@ -224,7 +224,7 @@ func asConsensusType*(
     executionRequests: payload.executionRequests)
 
 func asConsensusTypeFulu*(
-    payload: GetPayloadV4Response):
+    payload: GetPayloadV5Response):
     fulu.ExecutionPayloadForSigning =
   fulu.ExecutionPayloadForSigning(
     executionPayload: payload.executionPayload.asFuluConsensusPayload,
