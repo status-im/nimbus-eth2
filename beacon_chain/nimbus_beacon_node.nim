@@ -22,7 +22,7 @@ import
   ./spec/[
     deposit_snapshots, engine_authentication, weak_subjectivity,
     peerdas_helpers],
-  ./sync/[sync_protocol, light_client_protocol, sync_overseer],
+  ./sync/[sync_protocol, light_client_protocol, sync_overseer, validator_custody],
   ./validators/[keystore_management, beacon_validators],
   "."/[
     beacon_node, beacon_node_light_client, deposits,
@@ -585,6 +585,9 @@ proc initFullNode(
       dag.cfg.DENEB_FORK_EPOCH, getBeaconTime, (proc(): bool = syncManager.inProgress),
       quarantine, blobQuarantine, dataColumnQuarantine, rmanBlockVerifier,
       rmanBlockLoader, rmanBlobLoader, rmanDataColumnLoader)
+    validatorCustody = ValidatorCustodyRef.init(node.network, dag, supernode,
+      getLocalHeadSlot, custody_columns_set, getBeaconTime,
+      (proc(): bool = syncManager.inProgress), dataColumnQuarantine)
 
   # As per EIP 7594, the BN is now categorised into a
   # `Fullnode` and a `Supernode`, the fullnodes custodies a
@@ -645,6 +648,7 @@ proc initFullNode(
   node.blockProcessor = blockProcessor
   node.consensusManager = consensusManager
   node.requestManager = requestManager
+  node.validatorCustody = validatorCustody
   node.syncManager = syncManager
   node.backfiller = backfiller
   node.untrustedManager = untrustedManager
@@ -2280,6 +2284,7 @@ proc run(node: BeaconNode) {.raises: [CatchableError].} =
   if node.network.getBeaconTime().slotOrZero.epoch >=
       node.network.cfg.FULU_FORK_EPOCH:
     node.requestManager.switchToColumnLoop()
+    node.validatorCustody.start()
   node.syncOverseer.start()
 
   waitFor node.updateGossipStatus(wallSlot)

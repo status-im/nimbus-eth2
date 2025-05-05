@@ -16,11 +16,9 @@ import
   ../consensus_object_pools/blockchain_dag,
   ../consensus_object_pools/block_dag,
   ../consensus_object_pools/data_column_quarantine,
-  "."/[request_manager, sync_protocol]
+  "."/[request_manager,  sync_manager, sync_protocol]
 
 from std/algorithm import binarySearch, sort
-from std/sequtils import mapIt
-from std/strutils import join
 from ../beacon_clock import GetBeaconTimeFn
 
 logScope: topics = "validator_custody"
@@ -40,34 +38,33 @@ type
     newer_column_set*: HashSet[ColumnIndex]
     global_refill_list*: HashSet[DataColumnIdentifier]
     requested_columns*: seq[DataColumnsByRootIdentifier]
-    fuluEpoch*: Epoch
     getBeaconTime: GetBeaconTimeFn
     inhibit: InhibitFn
     dataColumnQuarantine: ref DataColumnQuarantine
     validatorCustodyLoopFuture: Future[void].Raising([CancelledError])
 
-proc init*(T: type ValidatorCustody, network: Eth2Node,
-              dag: ChainDAGRef,
-              supernode: bool,
-              getLocalHeadSlotCb: GetSlotCallback,
-              older_column_set: HashSet[ColumnIndex],
-              fuluEpoch: Epoch,
-              getBeaconTime: GetBeaconTimeFn,
-              inhibit: InhibitFn,
-              dataColumnQuarantine: ref DataColumnQuarantine): ValidatorCustody =
+  ValidatorCustodyRef* = ref ValidatorCustody
+
+proc init*(T: type ValidatorCustodyRef, network: Eth2Node,
+           dag: ChainDAGRef,
+           supernode: bool,
+           getLocalHeadSlotCb: GetSlotCallback,
+           older_column_set: HashSet[ColumnIndex],
+           getBeaconTime: GetBeaconTimeFn,
+           inhibit: InhibitFn,
+           dataColumnQuarantine: ref DataColumnQuarantine): ValidatorCustodyRef =
   let localHeadSlot = getLocalHeadSlotCb
-  ValidatorCustody(
+  (ValidatorCustodyRef)(
     network: network,
     dag: dag,
     supernode: supernode,
     getLocalHeadSlot: getLocalHeadSlotCb,
     older_column_set: older_column_set,
-    fuluEpoch: fuluEpoch,
     getBeaconTime: getBeaconTime,
     inhibit: inhibit,
     dataColumnQuarantine: dataColumnQuarantine)
 
-proc detectNewValidatorCustody(vcus: var ValidatorCustody): seq[ColumnIndex] =
+proc detectNewValidatorCustody(vcus: ValidatorCustodyRef): seq[ColumnIndex] =
   let
     headState =  vcus.dag.headState
   var
@@ -102,11 +99,10 @@ proc detectNewValidatorCustody(vcus: var ValidatorCustody): seq[ColumnIndex] =
 
   res
 
-
-proc makeRefillList(vcus: var ValidatorCustody) =
+proc makeRefillList(vcus: ValidatorCustodyRef, diff: seq[ColumnIndex]) =
   let
     slot = vcus.getLocalHeadSlot()
-    diff = vcus.detectNewValidatorCustody()
+
   let dataColumnRefillEpoch = (slot.epoch -
                               vcus.dag.cfg.MIN_EPOCHS_FOR_BLOB_SIDECARS_REQUESTS - 1)
   if slot.is_epoch() and dataColumnRefillEpoch >= vcus.dag.cfg.FULU_FORK_EPOCH:
@@ -128,9 +124,8 @@ proc makeRefillList(vcus: var ValidatorCustody) =
                                    index: ColumnIndex(column))
             vcus.global_refill_list.incl(entry2)
 
-
-proc checkInteresectingCustody(vcus: ValidatorCustody,
-                               peer: Peer): seq[DataColumnsByRootIdentifier] =
+proc checkIntersectingCustody(vcus: ValidatorCustodyRef,
+                              peer: Peer): seq[DataColumnsByRootIdentifier] =
   var columnList: seq[DataColumnsByRootIdentifier]
 
   # Fetch the remote custody count
@@ -158,24 +153,94 @@ proc checkInteresectingCustody(vcus: ValidatorCustody,
 
   columnList
 
-proc refillDataColumnsFromNetwork(vcus: ValidatorCustody.
-                                  colIdList: seq[DataColumnsByRootIdentifier])
-                                  {.async: (raise: [CancelledError]).} =
+proc refillDataColumnsFromNetwork(vcus: ValidatorCustodyRef)
+                                 {.async: (raises: [CancelledError]).} =
   var peer = await vcus.network.peerPool.acquire()
+  let colIdList = vcus.checkIntersectingCustody(peer)
+  try:
+    if colIdList.len > 0:
+      debug "Requesting data columns by root for refill", peer = peer,
+             columns = shortLog(colIdList), peer_score = peer.getScore()
+    let columns =
+      await dataColumnSidecarsByRoot(peer, DataColumnsByRootIdentifierList colIdList)
+    if columns.isOk:
+      var ucolumns = columns.get().asSeq()
+      ucolumns.sort(cmpSidecarIndexes)
+      if not checkColumnResponse(colIdList, ucolumns):
+        debug "Response to columns by root is not a subset",
+          peer = peer, columns = shortLog(colIdList), ucolumns = len(ucolumns)
+        peer.updateScore(PeerScoreBadResponse)
+        return
+      for col in ucolumns:
+        let
+          block_root =
+            hash_tree_root(col[].signed_block_header.message)
+          exclude =
+            DataColumnIdentifier(block_root: block_root,
+                                 index: col[].index)
+        vcus.global_refill_list.excl(exclude)
+        # write new columns to database, no need of BlockVerifier
+        # in this scenario as the columns historically did pass DA,
+        # and did meet the historical custody requirements
+        vcus.dag.db.putDataColumnSidecar(col[])
 
+    else:
+      debug "Data columns by root request not done, peer doesn't have custody column",
+        peer = peer, columns = shortLog(colIdList), err = columns.error()
+      peer.updateScore(PeerScoreNoValues)
 
+  finally:
+    if not(isNil(peer)):
+      vcus.network.peerPool.release(peer)
 
+proc validatorCustodyColumnLoop(
+    vcus: ValidatorCustodyRef) {.async: (raises: [CancelledError]).} =
 
+  while true:
+    let diff = vcus.detectNewValidatorCustody()
 
+    await sleepAsync(POLL_INTERVAL)
+    if diff.len == 0:
+      # Validator custody same as previous interval
+      continue
 
+    if vcus.inhibit():
+      continue
 
+    vcus.makeRefillList(diff)
 
+    if vcus.global_refill_list.len != 0:
+      debug "Requesting detected missing data columns for refill",
+            columns = shortLog(vcus.requested_columns)
+      let start = SyncMoment.now(0)
+      var workers:
+        array[PARALLEL_REFILL_REQUESTS, Future[void].Raising([CancelledError])]
+      for i in 0..<PARALLEL_REFILL_REQUESTS:
+        workers[i] = vcus.refillDataColumnsFromNetwork()
 
+      await allFutures(workers)
+      let finish = SyncMoment.now(uint64(len(vcus.global_refill_list)))
 
+      debug "Validator custody backfill tick",
+            backfill_speed = speed(start, finish)
 
+    else:
+      ## Done with column refilling
+      ## hence now advertise the updated cgc count
+      ## in ENR and metadata.
+      if vcus.older_column_set.len != vcus.newer_column_set.len:
+        # Newer cgc count can also drop from previous if validators detach
+        vcus.network.loadCgcnetMetadataAndEnr(CgcCount vcus.newer_column_set.lenu64)
+        # Make the newer set older
+        vcus.older_column_set = vcus.newer_column_set
+        # Clear the newer for future validator custody detection
+        vcus.newer_column_set.clear()
 
+proc start*(vcus: ValidatorCustodyRef) =
+  ## Start Validator Custody detection loop
+  vcus.validatorCustodyLoopFuture = vcus.validatorCustodyColumnLoop()
 
-
-
-
-
+proc stop*(vcus: ValidatorCustodyRef) =
+  ## Stop Request Manager's loop.
+  if not(isNil(vcus.validatorCustodyLoopFuture)):
+    vcus.validatorCustodyLoopFuture.cancelSoon()

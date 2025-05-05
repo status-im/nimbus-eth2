@@ -42,7 +42,7 @@ const
   DATA_COLUMN_GOSSIP_WAIT_TIME_NS = 2 * 1_000_000_000
     ## How long to wait for blobs to arri ve over gossip before fetching.
 
-  POLL_INTERVAL = 1.seconds
+  POLL_INTERVAL* = 1.seconds
 
 type
   BlockVerifierFn = proc(
@@ -169,7 +169,7 @@ func checkResponseSubset(idList: seq[BlobIdentifier],
       return false
   true
 
-func checkColumnResponse(idList: seq[DataColumnsByRootIdentifier],
+func checkColumnResponse*(idList: seq[DataColumnsByRootIdentifier],
                     columns: openArray[ref DataColumnSidecar]): bool =
   for colresp in columns:
     let block_root =
@@ -260,7 +260,7 @@ proc requestBlocksByRoot(rman: RequestManager, items: seq[Eth2Digest]) {.async: 
     if not(isNil(peer)):
       rman.network.peerPool.release(peer)
 
-func cmpSidecarIndexes(x, y: ref BlobSidecar | ref DataColumnSidecar): int =
+func cmpSidecarIndexes*(x, y: ref BlobSidecar | ref DataColumnSidecar): int =
   cmp(x[].index, y[].index)
 
 proc fetchBlobsFromNetwork(self: RequestManager,
