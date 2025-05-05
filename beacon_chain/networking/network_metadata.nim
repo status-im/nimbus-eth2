@@ -9,7 +9,7 @@
 
 import
   std/os,
-  stew/[byteutils, objects], stew/shims/macros, nimcrypto/hash,
+  stew/byteutils, stew/shims/macros, nimcrypto/hash,
   web3/[conversions],
   web3/primitives as web3types,
   chronicles,
@@ -84,9 +84,6 @@ type
     # Parsing `enr.Records` is still not possible at compile-time
     bootstrapNodes*: seq[string]
 
-    depositContractBlock*: uint64
-    depositContractBlockHash*: Eth2Digest
-
     genesis*: GenesisMetadata
 
 func hasGenesis*(metadata: Eth2NetworkMetadata): bool =
@@ -142,9 +139,6 @@ proc loadEth2NetworkMetadata*(
     let
       genesisPath = path & "/genesis.ssz"
       configPath = path & "/config.yaml"
-      deployBlockPath = path & "/deploy_block.txt"
-      depositContractBlockPath = path & "/deposit_contract_block.txt"
-      depositContractBlockHashPath = path & "/deposit_contract_block_hash.txt"
       bootstrapNodesLegacyPath = path & "/bootstrap_nodes.txt"  # <= Dec 2024
       bootstrapNodesPath = path & "/bootstrap_nodes.yaml"
       bootEnrPath = path & "/boot_enr.yaml"
@@ -160,43 +154,6 @@ proc loadEth2NetworkMetadata*(
       else:
         defaultRuntimeConfig
 
-      depositContractBlockStr = if fileExists(depositContractBlockPath):
-        readFile(depositContractBlockPath).strip
-      else:
-        ""
-
-      depositContractBlockHashStr = if fileExists(depositContractBlockHashPath):
-        readFile(depositContractBlockHashPath).strip
-      else:
-        ""
-
-      deployBlockStr = if fileExists(deployBlockPath):
-        readFile(deployBlockPath).strip
-      else:
-        ""
-
-      depositContractBlock = if depositContractBlockStr.len > 0:
-        parseBiggestUInt depositContractBlockStr
-      elif deployBlockStr.len > 0:
-        parseBiggestUInt deployBlockStr
-      elif not runtimeConfig.DEPOSIT_CONTRACT_ADDRESS.isDefaultValue:
-        raise newException(ValueError,
-          "A network with deposit contract should specify the " &
-          "deposit contract deployment block in a file named " &
-          "deposit_contract_block.txt or deploy_block.txt")
-      else:
-        1'u64
-
-      depositContractBlockHash = if depositContractBlockHashStr.len > 0:
-        Eth2Digest.strictParse(depositContractBlockHashStr)
-      elif not runtimeConfig.DEPOSIT_CONTRACT_ADDRESS.isDefaultValue:
-        raise newException(ValueError,
-          "A network with deposit contract should specify the " &
-          "deposit contract deployment block hash in a file " &
-          "name deposit_contract_block_hash.txt")
-      else:
-        default(Eth2Digest)
-
       bootstrapNodes = deduplicate(
         readBootstrapNodes(bootstrapNodesLegacyPath) &
         readBootEnr(bootstrapNodesPath) &
@@ -206,8 +163,6 @@ proc loadEth2NetworkMetadata*(
       eth1Network: eth1Network,
       cfg: runtimeConfig,
       bootstrapNodes: bootstrapNodes,
-      depositContractBlock: depositContractBlock,
-      depositContractBlockHash: depositContractBlockHash,
       genesis:
         if downloadGenesisFrom.isSome:
           GenesisMetadata(kind: BakedInUrl,
