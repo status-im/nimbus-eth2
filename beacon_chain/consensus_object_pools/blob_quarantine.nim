@@ -19,6 +19,9 @@ from std/strutils import join
 
 export results
 
+static:
+  doAssert(NUMBER_OF_COLUMNS == 2 * 64, "ColumnMap should be updated")
+
 type
   ColumnMap* = object
     data: array[2, uint64]
@@ -64,20 +67,8 @@ func init*(t: typedesc[ColumnMap], columns: openArray[ColumnIndex]): ColumnMap =
     res.data[index].setBit(offset)
   res
 
-# func `xor`(a, b: ColumnMap): ColumnMap =
-#   ColumnMap(data: [a.data[0] xor b.data[0], a.data[1] xor b.data[1]])
-
 func `and`*(a, b: ColumnMap): ColumnMap =
   ColumnMap(data: [a.data[0] and b.data[0], a.data[1] and b.data[1]])
-
-# func `or`(a, b: ColumnMap): ColumnMap =
-#   ColumnMap(data: [a.data[0] or b.data[0], a.data[1] or b.data[1]])
-
-# func `not`(a: ColumnMap): ColumnMap =
-#   ColumnMap(data: [not(a.data[0]), not(a.data[1])])
-
-# func `==`(a, b: ColumnMap): bool =
-#   (a.data[0] == b.data[0]) and (a.data[1] == b.data[1])
 
 func asSeq(a: ColumnMap): seq[ColumnIndex] =
   var
@@ -271,14 +262,14 @@ func put*[A, B](
 func put*[A, B](
     quarantine: var SidecarQuarantine[A, B],
     blockRoot: Eth2Digest,
-    blobSidecars: openArray[ref A]
+    sidecars: openArray[ref A]
 ) =
   ## Function adds number of blobs or data columns sidecars associated to single
   ## block with root ``blockRoot`` to the quarantine ``quarantine``.
-  if len(blobSidecars) == 0:
+  if len(sidecars) == 0:
     return
 
-  while quarantine.sidecarsCount >= quarantine.maxSidecarsCount:
+  while quarantine.sidecarsCount + len(sidecars) >= quarantine.maxSidecarsCount:
     # FIFO if full. For example, sync manager and request manager can race to
     # put blobs in at the same time, so one gets blob insert -> block resolve
     # -> blob insert sequence, which leaves garbage blobs.
@@ -292,16 +283,16 @@ func put*[A, B](
   let
     slot =
       # All the blobs related to single block we could get `slot` once.
-      blobSidecars[0][].slot()
+      sidecars[0][].slot()
     rootRecord = RootTableRecord.init(quarantine)
     slotRecord = SlotTableRecord.init(quarantine)
 
   quarantine.roots.mgetOrPut(blockRoot, rootRecord).put(
-    quarantine, blobSidecars)
+    quarantine, sidecars)
   quarantine.slots.mgetOrPut(slot, slotRecord).put(
-      quarantine, blockRoot, blobSidecars)
+      quarantine, blockRoot, sidecars)
   discard quarantine.usage.containsOrIncl(blockRoot)
-  inc(quarantine.sidecarsCount, len(blobSidecars))
+  inc(quarantine.sidecarsCount, len(sidecars))
 
 template hasSidecarImpl(slot: Slot, proposerIndex: uint64,
                         sidecarIndex: typed): bool =

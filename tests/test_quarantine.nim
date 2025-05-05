@@ -428,6 +428,8 @@ suite "BlobQuarantine data structure test suite " & preset():
     for item in sidecars:
       bq.put(item.blockRoot, item.sidecar)
 
+    # put(sidecar) test
+
     check len(bq) == maxSidecars
 
     for i in 0 ..< int(cfg.MAX_BLOBS_PER_BLOCK_ELECTRA):
@@ -461,6 +463,51 @@ suite "BlobQuarantine data structure test suite " & preset():
           proposer_index =
             sidecars[i].sidecar[].signed_block_header.message.proposer_index,
           index = sidecars[i].sidecar[].index
+        ) == false
+
+    # put(openArray[sidecar]) test
+
+    let
+      msidecars =
+        block:
+          var res: seq[ref BlobSidecar]
+          for i in 0 ..< int(cfg.MAX_BLOBS_PER_BLOCK_ELECTRA):
+            let sidecar =
+              newClone(genBlobSidecar(index = i, slot = 100_000, 200000,
+                                      proposer_index = 2000000))
+            res.add(sidecar)
+          res
+      mblockRoot = genBlockRoot(20000)
+
+    check:
+      len(bq) == (len(sidecars) - int(cfg.MAX_BLOBS_PER_BLOCK_ELECTRA) + 1)
+
+    let beforeLength = len(bq)
+
+    for s in msidecars:
+      check:
+        bq.hasSidecar(s.signed_block_header.message.slot,
+                      s.signed_block_header.message.proposer_index,
+                      s.index) == false
+
+    bq.put(mblockRoot, msidecars)
+    check len(bq) == beforeLength
+
+    for s in msidecars:
+      check:
+        bq.hasSidecar(s.signed_block_header.message.slot,
+                      s.signed_block_header.message.proposer_index,
+                      s.index) == true
+
+    for i in 0 ..< int(cfg.MAX_BLOBS_PER_BLOCK_ELECTRA):
+      let j = int(cfg.MAX_BLOBS_PER_BLOCK_ELECTRA) + i
+      check:
+        bq.hasSidecar(
+          slot =
+            sidecars[j].sidecar[].signed_block_header.message.slot,
+          proposer_index =
+            sidecars[j].sidecar[].signed_block_header.message.proposer_index,
+          index = sidecars[j].sidecar[].index
         ) == false
 
 suite "ColumnQuarantine data structure test suite " & preset():
@@ -1080,7 +1127,9 @@ suite "ColumnQuarantine data structure test suite " & preset():
 
     check len(bq) == maxSidecars
 
-    for i in 0 ..< int(NUMBER_OF_COLUMNS):
+    # put(sidecar) test
+
+    for i in 0 ..< len(custodyColumns):
       check:
         bq.hasSidecar(
           slot =
@@ -1112,4 +1161,50 @@ suite "ColumnQuarantine data structure test suite " & preset():
           proposer_index =
             sidecars[i].sidecar[].signed_block_header.message.proposer_index,
           index = sidecars[i].sidecar[].index
+        ) == false
+
+    # put(openArray[sidecar]) test
+
+    let
+      msidecars =
+        block:
+          var res: seq[ref DataColumnSidecar]
+          for i in 0 ..< len(custodyColumns):
+            let sidecar =
+              newClone(genDataColumnSidecar(index = int(custodyColumns[i]),
+                                            slot = 100_000,
+                                            proposer_index = 2000000))
+            res.add(sidecar)
+          res
+      mblockRoot = genBlockRoot(20000)
+
+    check:
+      len(bq) == (len(sidecars) - len(custodyColumns) + 1)
+
+    let beforeLength = len(bq)
+
+    for s in msidecars:
+      check:
+        bq.hasSidecar(s.signed_block_header.message.slot,
+                      s.signed_block_header.message.proposer_index,
+                      s.index) == false
+
+    bq.put(mblockRoot, msidecars)
+    check len(bq) == beforeLength
+
+    for s in msidecars:
+      check:
+        bq.hasSidecar(s.signed_block_header.message.slot,
+                      s.signed_block_header.message.proposer_index,
+                      s.index) == true
+
+    for i in 0 ..< len(custodyColumns):
+      let j = len(custodyColumns) + i
+      check:
+        bq.hasSidecar(
+          slot =
+            sidecars[j].sidecar[].signed_block_header.message.slot,
+          proposer_index =
+            sidecars[j].sidecar[].signed_block_header.message.proposer_index,
+          index = sidecars[j].sidecar[].index
         ) == false
