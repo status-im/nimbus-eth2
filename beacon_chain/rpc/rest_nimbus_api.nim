@@ -548,28 +548,31 @@ proc installNimbusApiHandlers*(router: var RestRouter, node: BeaconNode) =
     node.withStateForBlockSlotId(bslot):
       return withState(state):
         when consensusFork >= ConsensusFork.Capella:
-          let summariesFork = historicalSummariesForkAtConsensusFork(consensusFork).valueOr:
-            return RestApiResponse.jsonError(Http404, HistoricalSummariesUnavailable)
+          const historicalSummariesFork = historicalSummariesForkAtConsensusFork(
+              consensusFork
+            )
+            .expect("HistoricalSummariesFork for Capella onwards")
 
-          withHistoricalSummariesFork(summariesFork):
-            let response = getHistoricalSummariesResponse(historicalSummariesFork)(
-              historical_summaries: forkyState.data.historical_summaries,
-              proof: forkyState.data.build_proof(
-                historicalSummariesFork.historical_summaries_gindex).expect("Valid gindex"),
-              slot: bslot.slot)
+          let response = getHistoricalSummariesResponse(historicalSummariesFork)(
+            historical_summaries: forkyState.data.historical_summaries,
+            proof: forkyState.data
+              .build_proof(historicalSummariesFork.historical_summaries_gindex)
+              .expect("Valid gindex"),
+            slot: bslot.slot,
+          )
 
-            if contentType == jsonMediaType:
-              RestApiResponse.jsonResponseFinalizedWVersion(
-                response,
-                node.getStateOptimistic(state),
-                node.dag.isFinalized(bslot.bid),
-                consensusFork)
-            elif contentType == sszMediaType:
-              let headers = [("eth-consensus-version", consensusFork.toString())]
-              RestApiResponse.sszResponse(response, headers)
-            else:
-              RestApiResponse.jsonError(Http500, InvalidAcceptError)
-
+          if contentType == jsonMediaType:
+            RestApiResponse.jsonResponseFinalizedWVersion(
+              response,
+              node.getStateOptimistic(state),
+              node.dag.isFinalized(bslot.bid),
+              consensusFork,
+            )
+          elif contentType == sszMediaType:
+            let headers = [("eth-consensus-version", consensusFork.toString())]
+            RestApiResponse.sszResponse(response, headers)
+          else:
+            RestApiResponse.jsonError(Http500, InvalidAcceptError)
         else:
           RestApiResponse.jsonError(Http404, HistoricalSummariesUnavailable)
 

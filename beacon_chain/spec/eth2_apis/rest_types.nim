@@ -1165,12 +1165,3 @@ func historicalSummariesForkAtConsensusFork*(consensusFork: ConsensusFork): Opt[
     Opt.some HistoricalSummariesFork.Capella
   else:
     Opt.none HistoricalSummariesFork
-
-template withHistoricalSummariesFork*(x: HistoricalSummariesFork, body: untyped): untyped =
-  case x
-  of HistoricalSummariesFork.Electra:
-    const historicalSummariesFork {.inject, used.} = HistoricalSummariesFork.Electra
-    body
-  of HistoricalSummariesFork.Capella:
-    const historicalSummariesFork {.inject, used.} = HistoricalSummariesFork.Capella
-    body
