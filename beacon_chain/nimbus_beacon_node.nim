@@ -146,22 +146,18 @@ func getVanityLogs(stdoutKind: StdoutLogKind): VanityLogs =
   of StdoutLogKind.Auto: raiseAssert "inadmissable here"
   of StdoutLogKind.Colors:
     VanityLogs(
-      onUpgradeToCapella:              capellaColor,
       onKnownBlsToExecutionChange:     capellaBlink,
       onUpgradeToDeneb:                denebColor,
       onUpgradeToElectra:              electraColor,
       onKnownCompoundingChange:        electraBlink)
   of StdoutLogKind.NoColors:
     VanityLogs(
-      onUpgradeToCapella:              capellaMono,
       onKnownBlsToExecutionChange:     capellaMono,
       onUpgradeToDeneb:                denebMono,
       onUpgradeToElectra:              electraMono,
       onKnownCompoundingChange:        electraMono)
   of StdoutLogKind.Json, StdoutLogKind.None:
     VanityLogs(
-      onUpgradeToCapella:
-        (proc() = notice "🦉 Withdrowls now available 🦉"),
       onKnownBlsToExecutionChange:
         (proc() = notice "🦉 BLS to execution changed 🦉"),
       onUpgradeToDeneb:
