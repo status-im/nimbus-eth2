@@ -149,6 +149,10 @@ func build_empty_execution_payload(
 
   payload
 
+func lastPremergeSlotInTestCfg*(cfg: RuntimeConfig): Slot =
+  # Merge shortly after Bellatrix
+  cfg.BELLATRIX_FORK_EPOCH.start_slot + 10
+
 proc addTestBlock*(
     state: var ForkedHashedBeaconState,
     cache: var StateCache,
@@ -191,9 +195,7 @@ proc addTestBlock*(
           # test relies on merging. So, merge only if no Capella transition.
           default(bellatrix.ExecutionPayloadForSigning)
         else:
-          # Merge shortly after Bellatrix
-          if  forkyState.data.slot >
-              cfg.BELLATRIX_FORK_EPOCH * SLOTS_PER_EPOCH + 10:
+          if forkyState.data.slot > cfg.lastPremergeSlotInTestCfg:
             if is_merge_transition_complete(forkyState.data):
               const feeRecipient = default(Eth1Address)
               build_empty_execution_payload(forkyState.data, feeRecipient)
