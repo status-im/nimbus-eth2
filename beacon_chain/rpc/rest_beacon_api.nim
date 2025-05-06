@@ -1732,7 +1732,10 @@ proc installBeaconApiHandlers*(router: var RestRouter, node: BeaconNode) =
         data[], headers = [("eth-consensus-version",
           node.dag.cfg.consensusForkAtEpoch(bid.slot.epoch).toString())])
     elif contentType == jsonMediaType:
-      RestApiResponse.jsonResponse(data)
+      RestApiResponse.jsonResponseBlobSidecars(
+        data[].asSeq(), node.dag.cfg.consensusForkAtEpoch(bid.slot.epoch),
+        Opt.some(node.dag.is_optimistic(bid)),
+        node.dag.isFinalized(bid))
     else:
       RestApiResponse.jsonError(Http500, InvalidAcceptError)
 

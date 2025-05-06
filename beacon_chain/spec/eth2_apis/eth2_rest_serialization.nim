@@ -646,6 +646,31 @@ proc jsonResponseBlock*(t: typedesc[RestApiResponse],
         default(seq[byte])
   RestApiResponse.response(res, Http200, "application/json", headers = headers)
 
+proc jsonResponseBlobSidecars*(
+    t: typedesc[RestApiResponse],
+    data: openArray[BlobSidecar],
+    version: ConsensusFork,
+    execOpt: Opt[bool],
+    finalized: bool
+): RestApiResponse =
+  let
+    headers = [("eth-consensus-version", version.toString())]
+    res =
+      try:
+        var stream = memoryOutput()
+        var writer = JsonWriter[RestJson].init(stream)
+        writer.beginRecord()
+        writer.writeField("version", version.toString())
+        if execOpt.isSome():
+          writer.writeField("execution_optimistic", execOpt.get())
+        writer.writeField("finalized", finalized)
+        writer.writeField("data", data)
+        writer.endRecord()
+        stream.getOutput(seq[byte])
+      except IOError:
+        default(seq[byte])
+  RestApiResponse.response(res, Http200, "application/json", headers = headers)
+
 proc jsonResponseState*(t: typedesc[RestApiResponse],
                         data: ForkedHashedBeaconState,
                         execOpt: Opt[bool]): RestApiResponse =
