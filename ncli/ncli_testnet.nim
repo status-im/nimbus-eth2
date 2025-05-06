@@ -510,12 +510,12 @@ proc doCreateTestnet*(config: CliConfig,
     echo "Wrote ", bootstrapFile
 
 type
-  DelayGenerator = proc(): chronos.Duration {.gcsafe, raises: [].}
+  DelayGenerator {.used.} = proc(): chronos.Duration {.gcsafe, raises: [].}
 
-func ethToWei(eth: UInt256): UInt256 =
+func ethToWei(eth: UInt256): UInt256 {.used.} =
   eth * 1000000000000000000.u256
 
-proc initWeb3(web3Url, privateKey: string): Future[Web3] {.async.} =
+proc initWeb3(web3Url, privateKey: string): Future[Web3] {.async, used.} =
   result = await newWeb3(web3Url)
   if privateKey.len != 0:
     result.privateKey = Opt.some(keys.PrivateKey.fromHex(privateKey)[])

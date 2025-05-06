@@ -954,7 +954,7 @@ proc installBeaconApiHandlers*(router: var RestRouter, node: BeaconNode) =
       block:
         let
           version = request.headers.getString("eth-consensus-version")
-          validation =
+          validation {.used.} =
             block:
               let res =
                 if broadcast_validation.isNone():
@@ -1143,7 +1143,7 @@ proc installBeaconApiHandlers*(router: var RestRouter, node: BeaconNode) =
       currentEpochFork =
         node.dag.cfg.consensusForkAtEpoch(node.currentSlot().epoch())
       version = request.headers.getString("eth-consensus-version")
-      validation =
+      validation {.used.} =
         if broadcast_validation.isNone():
           BroadcastValidationType.Gossip
         else:

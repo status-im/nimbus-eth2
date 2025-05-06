@@ -48,14 +48,14 @@ suite "Block pool processing" & preset():
       validatorMonitor = newClone(ValidatorMonitor.init())
       dag = init(ChainDAGRef, defaultRuntimeConfig, db, validatorMonitor, {})
       taskpool = Taskpool.new()
-      verifier = BatchVerifier.init(rng, taskpool)
-      quarantine = Quarantine.init()
+      verifier {.used.} = BatchVerifier.init(rng, taskpool)
+      quarantine {.used.} = Quarantine.init()
       state = newClone(dag.headState)
       cache = StateCache()
-      info = ForkedEpochInfo()
+      info {.used.} = ForkedEpochInfo()
       att0 = makeFullAttestations(state[], dag.tail.root, 0.Slot, cache)
-      b1 = addTestBlock(state[], cache, attestations = att0).phase0Data
-      b2 = addTestBlock(state[], cache).phase0Data
+      b1 {.used.} = addTestBlock(state[], cache, attestations = att0).phase0Data
+      b2 {.used.} = addTestBlock(state[], cache).phase0Data
 
   test "basic ops":
     check:
@@ -362,7 +362,7 @@ suite "chain DAG finalization tests" & preset():
       verifier = BatchVerifier.init(rng, taskpool)
       quarantine = Quarantine.init()
       cache = StateCache()
-      info = ForkedEpochInfo()
+      info {.used.} = ForkedEpochInfo()
 
   test "prune heads on finalization" & preset():
     # Create a fork that will not be taken

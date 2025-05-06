@@ -21,7 +21,7 @@ from ../beacon_chain/spec/state_transition import process_slots
 
 suite "Beacon state" & preset():
   setup:
-    let cfg = defaultRuntimeConfig
+    let cfg {.used.} = defaultRuntimeConfig
 
   test "Smoke test initialize_beacon_state_from_eth1" & preset():
     let state = newClone(initialize_beacon_state_from_eth1(

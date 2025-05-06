@@ -240,8 +240,8 @@ let
 
 suite "KeyStorage testing suite":
   setup:
-    let secret = ValidatorPrivKey.fromRaw(secretBytes).get
-    let nsecret = init(lcrypto.PrivateKey, secretNetBytes).get
+    let secret {.used.} = ValidatorPrivKey.fromRaw(secretBytes).get
+    let nsecret {.used.} = init(lcrypto.PrivateKey, secretNetBytes).get
 
   test "Load Prysm keystore":
     let keystore = parseKeystore(prysmKeystore)

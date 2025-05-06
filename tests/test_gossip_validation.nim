@@ -45,13 +45,13 @@ suite "Gossip validation " & preset():
         ChainDAGRef, defaultRuntimeConfig, makeTestDB(SLOTS_PER_EPOCH * 3),
         validatorMonitor, {})
       taskpool = Taskpool.new()
-      verifier = BatchVerifier.init(rng, taskpool)
+      verifier {.used.} = BatchVerifier.init(rng, taskpool)
       quarantine = newClone(Quarantine.init())
-      pool = newClone(AttestationPool.init(dag, quarantine))
+      pool {.used.} = newClone(AttestationPool.init(dag, quarantine))
       state = newClone(dag.headState)
       cache = StateCache()
       info = ForkedEpochInfo()
-      batchCrypto = BatchCrypto.new(
+      batchCrypto {.used.} = BatchCrypto.new(
         rng, eager = proc(): bool = false,
         genesis_validators_root = dag.genesis_validators_root, taskpool).expect(
           "working batcher")
