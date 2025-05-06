@@ -284,7 +284,6 @@ suite "Block pool altair processing" & preset():
       dag = init(ChainDAGRef, cfg, db, validatorMonitor, {})
       taskpool = Taskpool.new()
       verifier = BatchVerifier.init(rng, taskpool)
-      quarantine = Quarantine.init()
       state = newClone(dag.headState)
       cache = StateCache()
       info = ForkedEpochInfo()
@@ -670,7 +669,6 @@ suite "Old database versions" & preset():
     var
       taskpool = Taskpool.new()
       verifier = BatchVerifier.init(rng, taskpool)
-      quarantine = Quarantine.init()
 
   test "pre-1.1.0":
     # only kvstore, no immutable validator keys

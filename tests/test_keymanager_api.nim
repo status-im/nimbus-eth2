@@ -136,9 +136,9 @@ const
   nodeValidatorsDir = nodeDataDir / "validators"
   nodeSecretsDir = nodeDataDir / "secrets"
 
-  vcDataDir = dataDir / "validator-0"
-  vcValidatorsDir = vcDataDir / "validators"
-  vcSecretsDir = vcDataDir / "secrets"
+  # vcDataDir = dataDir / "validator-0"
+  # vcValidatorsDir = vcDataDir / "validators"
+  # vcSecretsDir = vcDataDir / "secrets"
 
 func specifiedFeeRecipient(x: int): Eth1Address =
   copyMem(addr result, unsafeAddr x, sizeof x)
@@ -2022,13 +2022,13 @@ proc delayedTests(basePort: int, pool: ref ValidatorPool,
       validatorPool: pool,
       keymanagerHost: host)
 
-    validatorClientKeymanager = KeymanagerToTest(
-      ident: "Validator Client",
-      port: basePort + PortKind.KeymanagerVC.ord,
-      validatorsDir: vcValidatorsDir,
-      secretsDir: vcSecretsDir,
-      validatorPool: pool,
-      keymanagerHost: host)
+    # validatorClientKeymanager = KeymanagerToTest(
+    #   ident: "Validator Client",
+    #   port: basePort + PortKind.KeymanagerVC.ord,
+    #   validatorsDir: vcValidatorsDir,
+    #   secretsDir: vcSecretsDir,
+    #   validatorPool: pool,
+    #   keymanagerHost: host)
 
   while bnStatus != BeaconNodeStatus.Running:
     await sleepAsync(1.seconds)

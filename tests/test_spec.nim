@@ -103,7 +103,6 @@ suite "Beacon state" & preset():
           makeInitialDeposits(SLOTS_PER_EPOCH, {}), {skipBlsValidation}))
       genBlock = get_initial_beacon_block(state[])
       cache: StateCache
-      info: ForkedEpochInfo
 
     check:
       state[].phase0Data.dependent_root(Epoch(0)) == genBlock.root
@@ -143,7 +142,6 @@ suite "Beacon state" & preset():
           makeInitialDeposits(SLOTS_PER_EPOCH, {}), {skipBlsValidation}))
       genBlock = get_initial_beacon_block(state[])
       cache: StateCache
-      info: ForkedEpochInfo
 
     check:
       state[].can_advance_slots(genBlock.root, Slot(0))

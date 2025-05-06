@@ -17,7 +17,6 @@ import
 template checkRoot(name, root) =
   let
     metadata = getMetadataForNetwork(name)
-    cfg = metadata.cfg
     state = newClone(readSszForkedHashedBeaconState(
       metadata.cfg, metadata.genesis.bakedBytes))
 

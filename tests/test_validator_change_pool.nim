@@ -200,7 +200,6 @@ suite "Validator change pool testing suite":
       dag.cfg, dag.headState,
       Epoch(dag.cfg.SHARD_COMMITTEE_PERIOD).start_slot + 1 + SLOTS_PER_EPOCH * 1,
       cache, info, {}).expect("ok")
-    let fork = dag.forkAtEpoch(dag.headState.get_current_epoch())
 
     for i in 0'u64 .. MAX_BLS_TO_EXECUTION_CHANGES + 5:
       for j in 0'u64 .. i:
@@ -231,7 +230,6 @@ suite "Validator change pool testing suite":
       dag.cfg, dag.headState,
       Epoch(dag.cfg.SHARD_COMMITTEE_PERIOD).start_slot + 1 + SLOTS_PER_EPOCH * 2,
       cache, info, {}).expect("ok")
-    let fork = dag.forkAtEpoch(dag.headState.get_current_epoch())
 
     for i in 0'u64 .. MAX_BLS_TO_EXECUTION_CHANGES + 5:
       var priorityMessages: seq[SignedBLSToExecutionChange]
