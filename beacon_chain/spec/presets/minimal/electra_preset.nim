@@ -44,10 +44,10 @@ const
 
   # Execution
   # ---------------------------------------------------------------
-  # [customized]
-  MAX_DEPOSIT_REQUESTS_PER_PAYLOAD* = 4
-  # [customized] 2**1 (= 2) withdrawal requests
-  MAX_WITHDRAWAL_REQUESTS_PER_PAYLOAD* = 2
+  # 2**13 (= 8,192) deposit requests
+  MAX_DEPOSIT_REQUESTS_PER_PAYLOAD* = 8192
+  # 2**4 (= 16) withdrawal requests
+  MAX_WITHDRAWAL_REQUESTS_PER_PAYLOAD* = 16
 
   # Withdrawals processing
   # ---------------------------------------------------------------

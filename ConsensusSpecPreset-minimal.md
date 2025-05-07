@@ -867,7 +867,6 @@ ConsensusSpecPreset-minimal
 + [Valid]   EF - Bellatrix - Operations - Voluntary Exit - success_exit_queue__min_churn     OK
 + [Valid]   EF - Bellatrix - Operations - Voluntary Exit - success_exit_queue__scaled_churn  OK
 + [Valid]   EF - Bellatrix - Operations - Voluntary Exit - voluntary_exit_with_current_fork_ OK
-+ [Valid]   EF - Bellatrix - Operations - Voluntary Exit - voluntary_exit_with_previous_fork OK
 ```
 ## EF - Bellatrix - Random  [Preset: minimal]
 ```diff
@@ -1435,7 +1434,6 @@ ConsensusSpecPreset-minimal
 + [Valid]   EF - Capella - Operations - Voluntary Exit - success_exit_queue__min_churn       OK
 + [Valid]   EF - Capella - Operations - Voluntary Exit - success_exit_queue__scaled_churn    OK
 + [Valid]   EF - Capella - Operations - Voluntary Exit - voluntary_exit_with_current_fork_ve OK
-+ [Valid]   EF - Capella - Operations - Voluntary Exit - voluntary_exit_with_previous_fork_v OK
 ```
 ## EF - Capella - Operations - Withdrawals  [Preset: minimal]
 ```diff
@@ -2745,6 +2743,7 @@ ConsensusSpecPreset-minimal
 + [Valid]   EF - Electra - Operations - Consolidation Request - basic_consolidation_in_curre OK
 + [Valid]   EF - Electra - Operations - Consolidation Request - basic_consolidation_in_new_c OK
 + [Valid]   EF - Electra - Operations - Consolidation Request - basic_consolidation_source_h OK
++ [Valid]   EF - Electra - Operations - Consolidation Request - basic_consolidation_target_h OK
 + [Valid]   EF - Electra - Operations - Consolidation Request - basic_consolidation_with_com OK
 + [Valid]   EF - Electra - Operations - Consolidation Request - basic_consolidation_with_exc OK
 + [Valid]   EF - Electra - Operations - Consolidation Request - basic_consolidation_with_ins OK
@@ -2764,6 +2763,7 @@ ConsensusSpecPreset-minimal
 + [Valid]   EF - Electra - Operations - Consolidation Request - incorrect_source_address     OK
 + [Valid]   EF - Electra - Operations - Consolidation Request - incorrect_source_has_pending OK
 + [Valid]   EF - Electra - Operations - Consolidation Request - incorrect_source_not_active_ OK
++ [Valid]   EF - Electra - Operations - Consolidation Request - incorrect_source_pubkey_is_t OK
 + [Valid]   EF - Electra - Operations - Consolidation Request - incorrect_source_with_bls_cr OK
 + [Valid]   EF - Electra - Operations - Consolidation Request - incorrect_target_with_bls_cr OK
 + [Valid]   EF - Electra - Operations - Consolidation Request - incorrect_target_with_eth1_c OK
@@ -2804,6 +2804,8 @@ ConsensusSpecPreset-minimal
 ```
 ## EF - Electra - Operations - Deposit Request  [Preset: minimal]
 ```diff
++ [Valid]   EF - Electra - Operations - Deposit Request - process_deposit_request_extra_gwei OK
++ [Valid]   EF - Electra - Operations - Deposit Request - process_deposit_request_greater_th OK
 + [Valid]   EF - Electra - Operations - Deposit Request - process_deposit_request_invalid_si OK
 + [Valid]   EF - Electra - Operations - Deposit Request - process_deposit_request_max_effect OK
 + [Valid]   EF - Electra - Operations - Deposit Request - process_deposit_request_min_activa OK
@@ -2812,6 +2814,7 @@ ConsensusSpecPreset-minimal
 + [Valid]   EF - Electra - Operations - Deposit Request - process_deposit_request_top_up_inv OK
 + [Valid]   EF - Electra - Operations - Deposit Request - process_deposit_request_top_up_max OK
 + [Valid]   EF - Electra - Operations - Deposit Request - process_deposit_request_top_up_min OK
++ [Valid]   EF - Electra - Operations - Deposit Request - process_deposit_request_top_up_sti OK
 ```
 ## EF - Electra - Operations - Execution Payload  [Preset: minimal]
 ```diff
@@ -2923,6 +2926,7 @@ ConsensusSpecPreset-minimal
 + [Valid]   EF - Electra - Operations - Voluntary Exit - min_balance_exits_up_to_churn       OK
 + [Valid]   EF - Electra - Operations - Voluntary Exit - success_exit_queue__min_churn       OK
 + [Valid]   EF - Electra - Operations - Voluntary Exit - success_exit_queue__scaled_churn    OK
++ [Valid]   EF - Electra - Operations - Voluntary Exit - voluntary_exit_with_pending_deposit OK
 ```
 ## EF - Electra - Operations - Withdrawal Request  [Preset: minimal]
 ```diff
@@ -2999,6 +3003,8 @@ ConsensusSpecPreset-minimal
 + [Valid]   EF - Electra - Operations - Withdrawals - pending_withdrawals_next_epoch         OK
 + [Valid]   EF - Electra - Operations - Withdrawals - pending_withdrawals_no_excess_balance  OK
 + [Valid]   EF - Electra - Operations - Withdrawals - pending_withdrawals_one_skipped_one_ef OK
++ [Valid]   EF - Electra - Operations - Withdrawals - pending_withdrawals_two_partial_withdr OK
++ [Valid]   EF - Electra - Operations - Withdrawals - pending_withdrawals_two_partial_withdr OK
 + [Valid]   EF - Electra - Operations - Withdrawals - pending_withdrawals_with_effective_swe OK
 + [Valid]   EF - Electra - Operations - Withdrawals - pending_withdrawals_with_ineffective_s OK
 + [Valid]   EF - Electra - Operations - Withdrawals - pending_withdrawals_with_ineffective_s OK
@@ -3193,6 +3199,7 @@ ConsensusSpecPreset-minimal
 + [Valid]   EF - Electra - Sanity - Blocks - consolidation_requests_when_pending_consolidati OK
 + [Valid]   EF - Electra - Sanity - Blocks - deposit_and_bls_change [Preset: minimal]        OK
 + [Valid]   EF - Electra - Sanity - Blocks - deposit_in_block [Preset: minimal]              OK
++ [Valid]   EF - Electra - Sanity - Blocks - deposit_request_max_per_payload [Preset: minima OK
 + [Valid]   EF - Electra - Sanity - Blocks - deposit_request_with_same_pubkey_different_with OK
 + [Valid]   EF - Electra - Sanity - Blocks - deposit_top_up [Preset: minimal]                OK
 + [Valid]   EF - Electra - Sanity - Blocks - deposit_transition__deposit_and_top_up_same_blo OK
@@ -3223,6 +3230,7 @@ ConsensusSpecPreset-minimal
 + [Valid]   EF - Electra - Sanity - Blocks - many_partial_withdrawals_in_epoch_transition [P OK
 + [Valid]   EF - Electra - Sanity - Blocks - max_blobs_per_block [Preset: minimal]           OK
 + [Valid]   EF - Electra - Sanity - Blocks - mix_blob_tx_and_non_blob_tx [Preset: minimal]   OK
++ [Valid]   EF - Electra - Sanity - Blocks - multi_epoch_consolidation_chain [Preset: minima OK
 + [Valid]   EF - Electra - Sanity - Blocks - multiple_different_proposer_slashings_same_bloc OK
 + [Valid]   EF - Electra - Sanity - Blocks - multiple_different_validator_exits_same_block [ OK
 + [Valid]   EF - Electra - Sanity - Blocks - multiple_el_partial_withdrawal_requests_differe OK
@@ -3267,6 +3275,7 @@ ConsensusSpecPreset-minimal
 + EF - Electra - Slots - multiple_pending_deposits_same_pubkey_different_signature [Preset:  OK
 + EF - Electra - Slots - over_epoch_boundary [Preset: minimal]                               OK
 + EF - Electra - Slots - pending_consolidation [Preset: minimal]                             OK
++ EF - Electra - Slots - pending_deposit_extra_gwei [Preset: minimal]                        OK
 + EF - Electra - Slots - slots_1 [Preset: minimal]                                           OK
 + EF - Electra - Slots - slots_2 [Preset: minimal]                                           OK
 ```
@@ -3652,6 +3661,7 @@ ConsensusSpecPreset-minimal
 + [Valid]   EF - Fulu - Operations - Consolidation Request - basic_consolidation_in_current_ OK
 + [Valid]   EF - Fulu - Operations - Consolidation Request - basic_consolidation_in_new_cons OK
 + [Valid]   EF - Fulu - Operations - Consolidation Request - basic_consolidation_source_has_ OK
++ [Valid]   EF - Fulu - Operations - Consolidation Request - basic_consolidation_target_has_ OK
 + [Valid]   EF - Fulu - Operations - Consolidation Request - basic_consolidation_with_compou OK
 + [Valid]   EF - Fulu - Operations - Consolidation Request - basic_consolidation_with_excess OK
 + [Valid]   EF - Fulu - Operations - Consolidation Request - basic_consolidation_with_insuff OK
@@ -3671,6 +3681,7 @@ ConsensusSpecPreset-minimal
 + [Valid]   EF - Fulu - Operations - Consolidation Request - incorrect_source_address        OK
 + [Valid]   EF - Fulu - Operations - Consolidation Request - incorrect_source_has_pending_wi OK
 + [Valid]   EF - Fulu - Operations - Consolidation Request - incorrect_source_not_active_lon OK
++ [Valid]   EF - Fulu - Operations - Consolidation Request - incorrect_source_pubkey_is_targ OK
 + [Valid]   EF - Fulu - Operations - Consolidation Request - incorrect_source_with_bls_crede OK
 + [Valid]   EF - Fulu - Operations - Consolidation Request - incorrect_target_with_bls_crede OK
 + [Valid]   EF - Fulu - Operations - Consolidation Request - incorrect_target_with_eth1_cred OK
@@ -3710,6 +3721,8 @@ ConsensusSpecPreset-minimal
 ```
 ## EF - Fulu - Operations - Deposit Request  [Preset: minimal]
 ```diff
++ [Valid]   EF - Fulu - Operations - Deposit Request - process_deposit_request_extra_gwei    OK
++ [Valid]   EF - Fulu - Operations - Deposit Request - process_deposit_request_greater_than_ OK
 + [Valid]   EF - Fulu - Operations - Deposit Request - process_deposit_request_invalid_sig   OK
 + [Valid]   EF - Fulu - Operations - Deposit Request - process_deposit_request_max_effective OK
 + [Valid]   EF - Fulu - Operations - Deposit Request - process_deposit_request_min_activatio OK
@@ -3718,6 +3731,7 @@ ConsensusSpecPreset-minimal
 + [Valid]   EF - Fulu - Operations - Deposit Request - process_deposit_request_top_up_invali OK
 + [Valid]   EF - Fulu - Operations - Deposit Request - process_deposit_request_top_up_max_ef OK
 + [Valid]   EF - Fulu - Operations - Deposit Request - process_deposit_request_top_up_min_ac OK
++ [Valid]   EF - Fulu - Operations - Deposit Request - process_deposit_request_top_up_still_ OK
 ```
 ## EF - Fulu - Operations - Execution Payload  [Preset: minimal]
 ```diff
@@ -3813,6 +3827,7 @@ ConsensusSpecPreset-minimal
 + [Valid]   EF - Fulu - Operations - Voluntary Exit - min_balance_exits_up_to_churn          OK
 + [Valid]   EF - Fulu - Operations - Voluntary Exit - success_exit_queue__min_churn          OK
 + [Valid]   EF - Fulu - Operations - Voluntary Exit - success_exit_queue__scaled_churn       OK
++ [Valid]   EF - Fulu - Operations - Voluntary Exit - voluntary_exit_with_pending_deposit    OK
 ```
 ## EF - Fulu - Operations - Withdrawal Request  [Preset: minimal]
 ```diff
@@ -3868,6 +3883,8 @@ ConsensusSpecPreset-minimal
 + [Valid]   EF - Fulu - Operations - Withdrawals - pending_withdrawals_next_epoch            OK
 + [Valid]   EF - Fulu - Operations - Withdrawals - pending_withdrawals_no_excess_balance     OK
 + [Valid]   EF - Fulu - Operations - Withdrawals - pending_withdrawals_one_skipped_one_effec OK
++ [Valid]   EF - Fulu - Operations - Withdrawals - pending_withdrawals_two_partial_withdrawa OK
++ [Valid]   EF - Fulu - Operations - Withdrawals - pending_withdrawals_two_partial_withdrawa OK
 + [Valid]   EF - Fulu - Operations - Withdrawals - pending_withdrawals_with_effective_sweep_ OK
 + [Valid]   EF - Fulu - Operations - Withdrawals - pending_withdrawals_with_ineffective_swee OK
 + [Valid]   EF - Fulu - Operations - Withdrawals - pending_withdrawals_with_ineffective_swee OK
@@ -3966,8 +3983,8 @@ ConsensusSpecPreset-minimal
 +   Testing    Checkpoint                                                                    OK
 +   Testing    ConsolidationRequest                                                          OK
 +   Testing    ContributionAndProof                                                          OK
-+   Testing    DataColumnIdentifier                                                          OK
 +   Testing    DataColumnSidecar                                                             OK
++   Testing    DataColumnsByRootIdentifier                                                   OK
 +   Testing    Deposit                                                                       OK
 +   Testing    DepositData                                                                   OK
 +   Testing    DepositMessage                                                                OK
@@ -4090,6 +4107,7 @@ ConsensusSpecPreset-minimal
 + EF - Fulu - Slots - multiple_pending_deposits_same_pubkey_different_signature [Preset: min OK
 + EF - Fulu - Slots - over_epoch_boundary [Preset: minimal]                                  OK
 + EF - Fulu - Slots - pending_consolidation [Preset: minimal]                                OK
++ EF - Fulu - Slots - pending_deposit_extra_gwei [Preset: minimal]                           OK
 + EF - Fulu - Slots - slots_1 [Preset: minimal]                                              OK
 + EF - Fulu - Slots - slots_2 [Preset: minimal]                                              OK
 ```

@@ -37,8 +37,9 @@ const
   SyncCommitteeDir =             RootDir/"sync_committee_updates"
   RewardsAndPenaltiesDir =       RootDir/"rewards_and_penalties"
 
+# TODO remove the workaround for v1.5.0 test vectors
 doAssert (toHashSet(mapIt(toSeq(walkDir(RootDir, relative = false)), it.path)) -
-    toHashSet([SyncCommitteeDir])) ==
+    toHashSet([SyncCommitteeDir, RootDir/"participation_record_updates"])) ==
   toHashSet([
     JustificationFinalizationDir, InactivityDir, RegistryUpdatesDir,
     SlashingsDir, Eth1DataResetDir, EffectiveBalanceUpdatesDir,
@@ -142,7 +143,7 @@ runSuite(ParticipationFlagDir, "Participation flag updates"):
 # ---------------------------------------------------------------
 
 # These are only for minimal, not mainnet
-when const_preset == "minimal":
+when true or const_preset == "minimal":
   runSuite(SyncCommitteeDir, "Sync committee updates"):
     process_sync_committee_updates(state)
     Result[void, cstring].ok()

@@ -828,7 +828,6 @@ ConsensusSpecPreset-mainnet
 + [Valid]   EF - Bellatrix - Operations - Voluntary Exit - default_exit_epoch_subsequent_exi OK
 + [Valid]   EF - Bellatrix - Operations - Voluntary Exit - success_exit_queue__min_churn     OK
 + [Valid]   EF - Bellatrix - Operations - Voluntary Exit - voluntary_exit_with_current_fork_ OK
-+ [Valid]   EF - Bellatrix - Operations - Voluntary Exit - voluntary_exit_with_previous_fork OK
 ```
 ## EF - Bellatrix - Random  [Preset: mainnet]
 ```diff
@@ -1373,7 +1372,6 @@ ConsensusSpecPreset-mainnet
 + [Valid]   EF - Capella - Operations - Voluntary Exit - default_exit_epoch_subsequent_exit  OK
 + [Valid]   EF - Capella - Operations - Voluntary Exit - success_exit_queue__min_churn       OK
 + [Valid]   EF - Capella - Operations - Voluntary Exit - voluntary_exit_with_current_fork_ve OK
-+ [Valid]   EF - Capella - Operations - Voluntary Exit - voluntary_exit_with_previous_fork_v OK
 ```
 ## EF - Capella - Operations - Withdrawals  [Preset: mainnet]
 ```diff
@@ -2650,6 +2648,8 @@ ConsensusSpecPreset-mainnet
 ```
 ## EF - Electra - Operations - Deposit Request  [Preset: mainnet]
 ```diff
++ [Valid]   EF - Electra - Operations - Deposit Request - process_deposit_request_extra_gwei OK
++ [Valid]   EF - Electra - Operations - Deposit Request - process_deposit_request_greater_th OK
 + [Valid]   EF - Electra - Operations - Deposit Request - process_deposit_request_invalid_si OK
 + [Valid]   EF - Electra - Operations - Deposit Request - process_deposit_request_max_effect OK
 + [Valid]   EF - Electra - Operations - Deposit Request - process_deposit_request_min_activa OK
@@ -2658,6 +2658,7 @@ ConsensusSpecPreset-mainnet
 + [Valid]   EF - Electra - Operations - Deposit Request - process_deposit_request_top_up_inv OK
 + [Valid]   EF - Electra - Operations - Deposit Request - process_deposit_request_top_up_max OK
 + [Valid]   EF - Electra - Operations - Deposit Request - process_deposit_request_top_up_min OK
++ [Valid]   EF - Electra - Operations - Deposit Request - process_deposit_request_top_up_sti OK
 ```
 ## EF - Electra - Operations - Execution Payload  [Preset: mainnet]
 ```diff
@@ -2775,6 +2776,7 @@ ConsensusSpecPreset-mainnet
 + [Valid]   EF - Electra - Operations - Voluntary Exit - min_balance_exits_above_churn       OK
 + [Valid]   EF - Electra - Operations - Voluntary Exit - min_balance_exits_up_to_churn       OK
 + [Valid]   EF - Electra - Operations - Voluntary Exit - success_exit_queue__min_churn       OK
++ [Valid]   EF - Electra - Operations - Voluntary Exit - voluntary_exit_with_pending_deposit OK
 ```
 ## EF - Electra - Operations - Withdrawal Request  [Preset: mainnet]
 ```diff
@@ -2841,6 +2843,8 @@ ConsensusSpecPreset-mainnet
 + [Valid]   EF - Electra - Operations - Withdrawals - pending_withdrawals_next_epoch         OK
 + [Valid]   EF - Electra - Operations - Withdrawals - pending_withdrawals_no_excess_balance  OK
 + [Valid]   EF - Electra - Operations - Withdrawals - pending_withdrawals_one_skipped_one_ef OK
++ [Valid]   EF - Electra - Operations - Withdrawals - pending_withdrawals_two_partial_withdr OK
++ [Valid]   EF - Electra - Operations - Withdrawals - pending_withdrawals_two_partial_withdr OK
 + [Valid]   EF - Electra - Operations - Withdrawals - pending_withdrawals_with_effective_swe OK
 + [Valid]   EF - Electra - Operations - Withdrawals - pending_withdrawals_with_ineffective_s OK
 + [Valid]   EF - Electra - Operations - Withdrawals - pending_withdrawals_with_ineffective_s OK
@@ -3031,6 +3035,7 @@ ConsensusSpecPreset-mainnet
 + [Valid]   EF - Electra - Sanity - Blocks - cl_exit_and_el_withdrawal_request_in_same_block OK
 + [Valid]   EF - Electra - Sanity - Blocks - deposit_and_bls_change [Preset: mainnet]        OK
 + [Valid]   EF - Electra - Sanity - Blocks - deposit_in_block [Preset: mainnet]              OK
++ [Valid]   EF - Electra - Sanity - Blocks - deposit_request_max_per_payload [Preset: mainne OK
 + [Valid]   EF - Electra - Sanity - Blocks - deposit_request_with_same_pubkey_different_with OK
 + [Valid]   EF - Electra - Sanity - Blocks - deposit_top_up [Preset: mainnet]                OK
 + [Valid]   EF - Electra - Sanity - Blocks - deposit_transition__deposit_and_top_up_same_blo OK
@@ -3097,6 +3102,7 @@ ConsensusSpecPreset-mainnet
 + EF - Electra - Slots - multiple_pending_deposits_same_pubkey_different_signature [Preset:  OK
 + EF - Electra - Slots - over_epoch_boundary [Preset: mainnet]                               OK
 + EF - Electra - Slots - pending_consolidation [Preset: mainnet]                             OK
++ EF - Electra - Slots - pending_deposit_extra_gwei [Preset: mainnet]                        OK
 + EF - Electra - Slots - slots_1 [Preset: mainnet]                                           OK
 + EF - Electra - Slots - slots_2 [Preset: mainnet]                                           OK
 ```
@@ -3485,6 +3491,8 @@ ConsensusSpecPreset-mainnet
 ```
 ## EF - Fulu - Operations - Deposit Request  [Preset: mainnet]
 ```diff
++ [Valid]   EF - Fulu - Operations - Deposit Request - process_deposit_request_extra_gwei    OK
++ [Valid]   EF - Fulu - Operations - Deposit Request - process_deposit_request_greater_than_ OK
 + [Valid]   EF - Fulu - Operations - Deposit Request - process_deposit_request_invalid_sig   OK
 + [Valid]   EF - Fulu - Operations - Deposit Request - process_deposit_request_max_effective OK
 + [Valid]   EF - Fulu - Operations - Deposit Request - process_deposit_request_min_activatio OK
@@ -3493,6 +3501,7 @@ ConsensusSpecPreset-mainnet
 + [Valid]   EF - Fulu - Operations - Deposit Request - process_deposit_request_top_up_invali OK
 + [Valid]   EF - Fulu - Operations - Deposit Request - process_deposit_request_top_up_max_ef OK
 + [Valid]   EF - Fulu - Operations - Deposit Request - process_deposit_request_top_up_min_ac OK
++ [Valid]   EF - Fulu - Operations - Deposit Request - process_deposit_request_top_up_still_ OK
 ```
 ## EF - Fulu - Operations - Execution Payload  [Preset: mainnet]
 ```diff
@@ -3594,6 +3603,7 @@ ConsensusSpecPreset-mainnet
 + [Valid]   EF - Fulu - Operations - Voluntary Exit - min_balance_exits_above_churn          OK
 + [Valid]   EF - Fulu - Operations - Voluntary Exit - min_balance_exits_up_to_churn          OK
 + [Valid]   EF - Fulu - Operations - Voluntary Exit - success_exit_queue__min_churn          OK
++ [Valid]   EF - Fulu - Operations - Voluntary Exit - voluntary_exit_with_pending_deposit    OK
 ```
 ## EF - Fulu - Operations - Withdrawal Request  [Preset: mainnet]
 ```diff
@@ -3639,6 +3649,8 @@ ConsensusSpecPreset-mainnet
 + [Valid]   EF - Fulu - Operations - Withdrawals - pending_withdrawals_next_epoch            OK
 + [Valid]   EF - Fulu - Operations - Withdrawals - pending_withdrawals_no_excess_balance     OK
 + [Valid]   EF - Fulu - Operations - Withdrawals - pending_withdrawals_one_skipped_one_effec OK
++ [Valid]   EF - Fulu - Operations - Withdrawals - pending_withdrawals_two_partial_withdrawa OK
++ [Valid]   EF - Fulu - Operations - Withdrawals - pending_withdrawals_two_partial_withdrawa OK
 + [Valid]   EF - Fulu - Operations - Withdrawals - pending_withdrawals_with_effective_sweep_ OK
 + [Valid]   EF - Fulu - Operations - Withdrawals - pending_withdrawals_with_ineffective_swee OK
 + [Valid]   EF - Fulu - Operations - Withdrawals - pending_withdrawals_with_ineffective_swee OK
@@ -3736,8 +3748,8 @@ ConsensusSpecPreset-mainnet
 +   Testing    Checkpoint                                                                    OK
 +   Testing    ConsolidationRequest                                                          OK
 +   Testing    ContributionAndProof                                                          OK
-+   Testing    DataColumnIdentifier                                                          OK
 +   Testing    DataColumnSidecar                                                             OK
++   Testing    DataColumnsByRootIdentifier                                                   OK
 +   Testing    Deposit                                                                       OK
 +   Testing    DepositData                                                                   OK
 +   Testing    DepositMessage                                                                OK
@@ -3853,6 +3865,7 @@ ConsensusSpecPreset-mainnet
 + EF - Fulu - Slots - multiple_pending_deposits_same_pubkey_different_signature [Preset: mai OK
 + EF - Fulu - Slots - over_epoch_boundary [Preset: mainnet]                                  OK
 + EF - Fulu - Slots - pending_consolidation [Preset: mainnet]                                OK
++ EF - Fulu - Slots - pending_deposit_extra_gwei [Preset: mainnet]                           OK
 + EF - Fulu - Slots - slots_1 [Preset: mainnet]                                              OK
 + EF - Fulu - Slots - slots_2 [Preset: mainnet]                                              OK
 ```
@@ -4391,8 +4404,6 @@ ConsensusSpecPreset-mainnet
 + ForkChoice - mainnet/electra/fork_choice/on_block/pyspec_tests/proposer_boost_root_same_sl OK
 + ForkChoice - mainnet/electra/fork_choice/on_block/pyspec_tests/simple_blob_data            OK
   ForkChoice - mainnet/electra/fork_choice/should_override_forkchoice_update/pyspec_tests/sh Skip
-+ ForkChoice - mainnet/fulu/fork_choice/ex_ante/pyspec_tests/ex_ante_attestations_is_greater OK
-+ ForkChoice - mainnet/fulu/fork_choice/ex_ante/pyspec_tests/ex_ante_sandwich_with_boost_not OK
 + ForkChoice - mainnet/fulu/fork_choice/ex_ante/pyspec_tests/ex_ante_sandwich_with_honest_at OK
 + ForkChoice - mainnet/fulu/fork_choice/ex_ante/pyspec_tests/ex_ante_sandwich_without_attest OK
 + ForkChoice - mainnet/fulu/fork_choice/ex_ante/pyspec_tests/ex_ante_vanilla                 OK
