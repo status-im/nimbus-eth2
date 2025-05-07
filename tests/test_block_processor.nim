@@ -59,6 +59,7 @@ suite "Block processor" & preset():
       processor = BlockProcessor.new(
         false, "", "", batchVerifier, consensusManager,
         validatorMonitor, blobQuarantine, getTimeFn)
+      discard processor.runQueueProcessingLoop()
 
   asyncTest "Reverse order block add & get" & preset():
     let
