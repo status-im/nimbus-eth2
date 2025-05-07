@@ -1,5 +1,5 @@
 # beacon_chain
-# Copyright (c) 2018-2024 Status Research & Development GmbH
+# Copyright (c) 2018-2025 Status Research & Development GmbH
 # Licensed and distributed under either of
 #   * MIT license (license terms in the root directory or at https://opensource.org/licenses/MIT).
 #   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
@@ -87,6 +87,7 @@ type
     dumpEnabled: bool
     dumpDirInvalid: string
     dumpDirIncoming: string
+    invalidBlockRoots: seq[Eth2Digest]
 
     # Producers
     # ----------------------------------------------------------------
@@ -127,11 +128,17 @@ proc new*(T: type BlockProcessor,
           consensusManager: ref ConsensusManager,
           validatorMonitor: ref ValidatorMonitor,
           blobQuarantine: ref BlobQuarantine,
-          getBeaconTime: GetBeaconTimeFn): ref BlockProcessor =
+          getBeaconTime: GetBeaconTimeFn,
+          invalidBlockRoots: seq[Eth2Digest] = @[]): ref BlockProcessor =
+  if invalidBlockRoots.len > 0:
+    warn "Config requests blocks to be treated as invalid",
+      debugInvalidateBlockRoot = invalidBlockRoots
+
   (ref BlockProcessor)(
     dumpEnabled: dumpEnabled,
     dumpDirInvalid: dumpDirInvalid,
     dumpDirIncoming: dumpDirIncoming,
+    invalidBlockRoots: invalidBlockRoots,
     blockQueue: newAsyncQueue[BlockEntry](),
     consensusManager: consensusManager,
     validatorMonitor: validatorMonitor,
@@ -619,6 +626,10 @@ proc storeBlock(
           # based on payload timestamp (only allowed post Deneb);
           # There are no `blob_kzg_commitments` before Deneb to compare against
           discard
+
+        if signedBlock.root in self.invalidBlockRoots:
+          returnWithError "Block root treated as invalid via config",
+            $signedBlock.root
 
   let newPayloadTick = Moment.now()
 

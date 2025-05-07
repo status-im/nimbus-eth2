@@ -122,6 +122,7 @@ AllTests-mainnet
 ```
 ## Block processor [Preset: mainnet]
 ```diff
++ Invalidate block root [Preset: mainnet]                                                    OK
 + Reverse order block add & get [Preset: mainnet]                                            OK
 ```
 ## Block quarantine
