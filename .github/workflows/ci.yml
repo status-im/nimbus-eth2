@@ -224,10 +224,6 @@ jobs:
         with:
           fetch-depth: 1
 
-      - name: Build with developer flags
-        run: |
-          make -j nimbus_beacon_node LOG_LEVEL=TRACE NIMFLAGS="-d:has_deposit_root_checks=1"
-
       - name: Build files with isMainModule
         run: |
           executables=(
