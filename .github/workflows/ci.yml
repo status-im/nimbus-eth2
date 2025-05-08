@@ -236,6 +236,7 @@ jobs:
             "benchmarks/rest_api_benchmark"
             "tests/mocking/mock_genesis"
           )
+          make -j update
           source env.sh
           for executable in "${executables[@]}"; do
             nim c --passC:-fsyntax-only --noLinking:on -d:chronicles_log_level=TRACE "${executable}"
