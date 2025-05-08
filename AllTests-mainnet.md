@@ -169,13 +169,6 @@ AllTests-mainnet
 + Invalid Authorization Token [Beacon Node] [Preset: mainnet]                                OK
 + Missing Authorization header [Beacon Node] [Preset: mainnet]                               OK
 ```
-## DepositContractSnapshot
-```diff
-+ Migration                                                                                  OK
-+ SSZ                                                                                        OK
-+ depositCount                                                                               OK
-+ isValid                                                                                    OK
-```
 ## Discovery fork ID
 ```diff
 + Expected fork IDs                                                                          OK
@@ -542,14 +535,6 @@ AllTests-mainnet
 + Testing containers   inputs - valid - skipping BitsStruct                                  OK
 + Testing uints        inputs - invalid                                                      OK
 + Testing uints        inputs - valid                                                        OK
-```
-## EIP-4881
-```diff
-+ deposit_cases                                                                              OK
-+ empty_root                                                                                 OK
-+ finalization                                                                               OK
-+ invalid_snapshot                                                                           OK
-+ snapshot_cases                                                                             OK
 ```
 ## EIP-7594 Unit Tests
 ```diff
