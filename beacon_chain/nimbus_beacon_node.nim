@@ -20,8 +20,7 @@ import
   ./rpc/[rest_api, state_ttl_cache],
   ./spec/datatypes/[altair, bellatrix, phase0],
   ./spec/[
-    deposit_snapshots, engine_authentication, weak_subjectivity,
-    peerdas_helpers],
+    engine_authentication, weak_subjectivity, peerdas_helpers],
   ./sync/[sync_protocol, light_client_protocol, sync_overseer],
   ./validators/[keystore_management, beacon_validators],
   "."/[
@@ -819,24 +818,6 @@ proc init*(T: type BeaconNode,
     tmp
   else:
     nil
-
-  if config.finalizedDepositTreeSnapshot.isSome:
-    let
-      depositTreeSnapshotPath = config.finalizedDepositTreeSnapshot.get.string
-      snapshot =
-        try:
-          SSZ.loadFile(depositTreeSnapshotPath, DepositTreeSnapshot)
-        except SszError as err:
-          fatal "Deposit tree snapshot loading failed",
-                err = formatMsg(err, depositTreeSnapshotPath)
-          quit 1
-        except CatchableError as err:
-          fatal "Failed to read deposit tree snapshot file", err = err.msg
-          quit 1
-      depositContractSnapshot = DepositContractSnapshot.init(snapshot).valueOr:
-        fatal "Invalid deposit tree snapshot file"
-        quit 1
-    db.putDepositContractSnapshot(depositContractSnapshot)
 
   let engineApiUrls = config.engineApiUrls
 

@@ -16,7 +16,7 @@
 import
   std/[json, tables],
   stew/base10, web3/primitives, httputils, stew/bitops2,
-  ".."/[deposit_snapshots, forks]
+  ".."/forks
 
 export forks, tables, httputils
 

@@ -9,7 +9,7 @@
 
 import
   std/os,
-  stew/byteutils, stew/shims/macros, nimcrypto/hash,
+  stew/byteutils, stew/shims/macros,
   web3/[conversions],
   web3/primitives as web3types,
   chronicles,

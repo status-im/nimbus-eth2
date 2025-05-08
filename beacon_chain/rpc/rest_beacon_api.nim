@@ -15,7 +15,7 @@ import
   ./state_ttl_cache,
   ../beacon_node,
   ../consensus_object_pools/[blockchain_dag, spec_cache, validator_change_pool],
-  ../spec/[deposit_snapshots, eth2_merkleization, forks, network, validator],
+  ../spec/[eth2_merkleization, forks, network, validator],
   ../validators/message_router_mev
 
 from ../spec/mev/bellatrix_mev import toSignedBlindedBeaconBlock
@@ -136,15 +136,8 @@ proc installBeaconApiHandlers*(router: var RestRouter, node: BeaconNode) =
   # https://github.com/ethereum/EIPs/blob/master/EIPS/eip-4881.md
   router.api2(MethodGet, "/eth/v1/beacon/deposit_snapshot") do (
     ) -> RestApiResponse:
-    let snapshot = node.db.getDepositContractSnapshot().valueOr:
-      # This can happen in a very short window after the client is started,
-      # but the snapshot record still haven't been upgraded in the database.
-      # Returning 404 should be easy to handle for the clients - they just need
-      # to retry.
-      return RestApiResponse.jsonError(Http404,
-                                       NoFinalizedSnapshotAvailableError)
-
-    RestApiResponse.jsonResponse(snapshot.getTreeSnapshot())
+    return RestApiResponse.jsonError(Http404,
+                                     NoFinalizedSnapshotAvailableError)
 
   # https://ethereum.github.io/beacon-APIs/#/Beacon/getGenesis
   router.api2(MethodGet, "/eth/v1/beacon/genesis") do () -> RestApiResponse:
