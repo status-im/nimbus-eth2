@@ -328,10 +328,6 @@ type
 
   VCRuntimeConfig* = Table[string, string]
 
-  RestDepositContract* = object
-    chain_id*: string
-    address*: string
-
   RestBlockInfo* = object
     slot*: Slot
     blck* {.serializedFieldName: "block".}: Eth2Digest
@@ -513,8 +509,6 @@ type
   GetBlockHeadersResponse* = DataEnclosedObject[seq[RestBlockHeaderInfo]]
   GetBlockRootResponse* = DataOptimisticObject[RestRoot]
   GetDebugChainHeadsV2Response* = DataEnclosedObject[seq[RestChainHeadV2]]
-  GetDepositContractResponse* = DataEnclosedObject[RestDepositContract]
-  GetDepositSnapshotResponse* = DataEnclosedObject[DepositTreeSnapshot]
   GetEpochCommitteesResponse* = DataEnclosedObject[seq[RestBeaconStatesCommittees]]
   GetForkScheduleResponse* = DataEnclosedObject[seq[Fork]]
   GetGenesisResponse* = DataEnclosedObject[RestGenesis]
