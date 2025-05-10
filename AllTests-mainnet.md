@@ -88,7 +88,6 @@ AllTests-mainnet
 + dependent_root                                                                             OK
 + get_beacon_proposer_index                                                                  OK
 + latest_block_root                                                                          OK
-+ merklizer state roundtrip                                                                  OK
 + process_slots                                                                              OK
 ```
 ## Beacon time

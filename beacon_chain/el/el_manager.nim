@@ -8,7 +8,7 @@
 {.push raises: [].}
 
 import
-  std/[strformat, typetraits, json, sequtils],
+  std/json,
   # Nimble packages:
   chronos, metrics, chronicles/timings,
   json_rpc/[client, errors],
@@ -18,14 +18,14 @@ import
   kzg4844/[kzg_abi, kzg],
   stew/[assign2, byteutils, objects],
   # Local modules:
-  ../spec/[eth2_merkleization, forks],
+  ../spec/forks,
   ../networking/network_metadata,
-  ".."/beacon_chain_db,
   "."/[el_conf, engine_api_conversions]
 
+from std/sequtils import anyIt, filterIt, mapIt
 from std/times import getTime, inSeconds, initTime, `-`
+from std/typetraits import distinctBase
 from ../spec/engine_authentication import getSignedIatToken
-from ../spec/helpers import bytes_to_uint64
 from ../spec/state_transition_block import kzg_commitment_to_versioned_hash
 
 export
@@ -39,7 +39,7 @@ const
     [100.milliseconds, 200.milliseconds, 500.milliseconds, 1.seconds]
 
 type
-  FixedBytes[N: static int] =  web3.FixedBytes[N]
+  FixedBytes[N: static int] = web3.FixedBytes[N]
   PubKeyBytes = DynamicBytes[48, 48]
   WithdrawalCredentialsBytes = DynamicBytes[32, 32]
   SignatureBytes = DynamicBytes[96, 96]
@@ -109,7 +109,7 @@ type
     Working
     Degraded
 
-  ELConnection* = ref object
+  ELConnection = ref object
     engineUrl: EngineApiUrl
 
     web3: Opt[Web3]
@@ -752,10 +752,7 @@ func couldBeBetter(d: ELConsensusViolationDetector): bool =
     return false
   if d.selectedStatus.isNone():
     return true
-  if d.selectedStatus.get() in SyncingOrAccepted:
-    true
-  else:
-    false
+  d.selectedStatus.get() in SyncingOrAccepted
 
 proc lazyWait(futures: seq[FutureBase]) {.async: (raises: []).} =
   block:
