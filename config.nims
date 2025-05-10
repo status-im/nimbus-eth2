@@ -96,8 +96,8 @@ if defined(windows):
 if defined(disableMarchNative):
   if defined(i386) or defined(amd64):
     if defined(macosx):
-      # https://support.apple.com/en-us/102861
-      # "macOS Ventura is compatible with these computers" lists current oldest
+      # https://support.apple.com/en-us/105113
+      # "macOS Sonoma is compatible with these computers" lists current oldest
       # supported x86 models, all of which have Kaby Lake or newer CPUs.
       switch("passC", "-march=skylake -mtune=generic")
       switch("passL", "-march=skylake -mtune=generic")
