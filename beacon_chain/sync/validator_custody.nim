@@ -8,17 +8,18 @@
 {.push raises: [].}
 
 import chronos, chronicles
-import ssz_serialization/types
+import ssz_serialization/[proofs, types]
 import
   ../validators/action_tracker,
-  ../spec/[forks, network, helpers, peerdas_helpers],
+  ../spec/[beaconstate, forks, network, helpers, peerdas_helpers],
   ../networking/eth2_network,
   ../consensus_object_pools/blockchain_dag,
   ../consensus_object_pools/block_dag,
   ../consensus_object_pools/data_column_quarantine,
-  "."/[request_manager,  sync_manager, sync_protocol]
+  "."/[request_manager, sync_manager, sync_protocol]
 
-from std/algorithm import binarySearch, sort
+from std/algorithm import sort
+from std/sequtils import toSeq
 from ../beacon_clock import GetBeaconTimeFn
 
 logScope: topics = "validator_custody"
@@ -65,17 +66,15 @@ proc init*(T: type ValidatorCustodyRef, network: Eth2Node,
     dataColumnQuarantine: dataColumnQuarantine)
 
 proc detectNewValidatorCustody(vcus: ValidatorCustodyRef): seq[ColumnIndex] =
-  let
-    headState =  vcus.dag.headState
   var
-    res: seq[ColumnIndex]
+    cache = StateCache()
     diff_set: HashSet[ColumnIndex]
-  withState(headState):
+  withState(vcus.dag.headState):
     when consensusFork >= ConsensusFork.Fulu:
-      var validator_indices =
-        get_active_validator_indices(forkyState.data, vcus.network.getBeaconTime().slotOrZero.epoch)
+      let total_node_balance =
+        get_total_active_balance(forkyState.data, cache)
       let vcustody =
-        vcus.dag.cfg.get_validators_custody_requirement(forkyState, validator_indices)
+        vcus.dag.cfg.get_validators_custody_requirement(forkyState, total_node_balance)
 
       let
         newer_columns =
@@ -94,10 +93,7 @@ proc detectNewValidatorCustody(vcus: ValidatorCustodyRef): seq[ColumnIndex] =
         diff_set = newer_column_set.difference(vcus.older_column_set)
       vcus.newer_column_set = newer_column_set
 
-  for i in diff_set.items():
-    res.add(i)
-
-  res
+  toSeq(diff_set)
 
 proc makeRefillList(vcus: ValidatorCustodyRef, diff: seq[ColumnIndex]) =
   let

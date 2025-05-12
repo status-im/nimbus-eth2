@@ -486,15 +486,11 @@ proc verify_data_column_sidecar_kzg_proofs*(sidecar: DataColumnSidecar):
 
   ok()
 
-# https://github.com/ethereum/consensus-specs/blob/v1.5.0-beta.3/specs/fulu/das-core.md#validator-custody
-proc get_validators_custody_requirement*(cfg: RuntimeConfig,
+# https://github.com/ethereum/consensus-specs/blob/v1.5.0-beta.5/specs/fulu/validator.md#validator-custody
+func get_validators_custody_requirement*(cfg: RuntimeConfig,
                                          hstate: ForkyHashedBeaconState,
-                                         validator_indices: openArray[ValidatorIndex]):
+                                         total_node_balance: Gwei):
                                          uint64 =
-  let state = hstate.data
-  var total_node_balance: Gwei
-  for index in validator_indices:
-    total_node_balance += state.balances[index]
   let count = total_node_balance div BALANCE_PER_ADDITIONAL_CUSTODY_GROUP
   min(max(count.uint64, cfg.VALIDATOR_CUSTODY_REQUIREMENT),
       cfg.NUMBER_OF_CUSTODY_GROUPS.uint64)
