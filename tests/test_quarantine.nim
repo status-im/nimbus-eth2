@@ -507,7 +507,7 @@ suite "BlobQuarantine data structure test suite " & preset():
 
     for s in msidecars:
       check:
-        bq.hasSidecar(mBlockRoot,
+        bq.hasSidecar(mblockRoot,
                       s.signed_block_header.message.slot,
                       s.signed_block_header.message.proposer_index,
                       s.index) == false
@@ -517,7 +517,7 @@ suite "BlobQuarantine data structure test suite " & preset():
 
     for s in msidecars:
       check:
-        bq.hasSidecar(mBlockRoot,
+        bq.hasSidecar(mblockRoot,
                       s.signed_block_header.message.slot,
                       s.signed_block_header.message.proposer_index,
                       s.index) == true
@@ -535,6 +535,117 @@ suite "BlobQuarantine data structure test suite " & preset():
             sidecars[j].sidecar[].signed_block_header.message.proposer_index,
           index = sidecars[j].sidecar[].index
         ) == false
+
+  test "pruneAfterFinalization() test":
+    const TestVectors = [
+      (root: 1, slot: 1, kzg: 1, index: 0, proposer_index: 20),
+      (root: 1, slot: 1, kzg: 2, index: 1, proposer_index: 20),
+      (root: 1, slot: 1, kzg: 3, index: 2, proposer_index: 20),
+      (root: 1, slot: 1, kzg: 4, index: 3, proposer_index: 20),
+      (root: 1, slot: 1, kzg: 5, index: 4, proposer_index: 20),
+      (root: 2, slot: 32, kzg: 6, index: 0, proposer_index: 21),
+      (root: 2, slot: 32, kzg: 7, index: 1, proposer_index: 21),
+      (root: 2, slot: 32, kzg: 8, index: 2, proposer_index: 21),
+      (root: 3, slot: 33, kzg: 9, index: 3, proposer_index: 22),
+      (root: 3, slot: 33, kzg: 10, index: 4, proposer_index: 22),
+      (root: 4, slot: 63, kzg: 11, index: 5, proposer_index: 23),
+      (root: 5, slot: 64, kzg: 12, index: 0, proposer_index: 24),
+      (root: 5, slot: 64, kzg: 13, index: 1, proposer_index: 24),
+      (root: 5, slot: 64, kzg: 14, index: 2, proposer_index: 24),
+      (root: 6, slot: 65, kzg: 15, index: 0, proposer_index: 25),
+      (root: 6, slot: 65, kzg: 16, index: 1, proposer_index: 25),
+      (root: 7, slot: 67, kzg: 17, index: 0, proposer_index: 26),
+      (root: 7, slot: 67, kzg: 18, index: 1, proposer_index: 26),
+      (root: 8, slot: 95, kzg: 19, index: 0, proposer_index: 27),
+      (root: 8, slot: 95, kzg: 20, index: 1, proposer_index: 27),
+      (root: 8, slot: 95, kzg: 21, index: 2, proposer_index: 27),
+      (root: 8, slot: 95, kzg: 22, index: 3, proposer_index: 27),
+      (root: 8, slot: 95, kzg: 23, index: 4, proposer_index: 27),
+      (root: 9, slot: 96, kzg: 24, index: 0, proposer_index: 28),
+      (root: 9, slot: 96, kzg: 25, index: 1, proposer_index: 28),
+      (root: 9, slot: 96, kzg: 26, index: 2, proposer_index: 28),
+      (root: 9, slot: 96, kzg: 27, index: 3, proposer_index: 28),
+      (root: 9, slot: 96, kzg: 28, index: 4, proposer_index: 28),
+      (root: 9, slot: 96, kzg: 29, index: 5, proposer_index: 28),
+      (root: 9, slot: 96, kzg: 30, index: 6, proposer_index: 28),
+      (root: 9, slot: 96, kzg: 31, index: 7, proposer_index: 28),
+      (root: 9, slot: 96, kzg: 32, index: 8, proposer_index: 28),
+      (root: 10, slot: 127, kzg: 33, index: 0, proposer_index: 29),
+      (root: 10, slot: 127, kzg: 34, index: 1, proposer_index: 29),
+      (root: 10, slot: 127, kzg: 35, index: 2, proposer_index: 29)
+    ]
+
+    var bq = BlobQuarantine.init(cfg, nil)
+    for item in TestVectors:
+      let sidecar =
+        newClone(
+          genBlobSidecar(index = item.index, slot = item.slot, item.kzg,
+                         proposer_index = item.proposer_index))
+      bq.put(genBlockRoot(item.root), sidecar)
+
+    check:
+      len(bq) == len(TestVectors)
+
+    for item in TestVectors:
+      check:
+        bq.hasSidecar(
+          genBlockRoot(item.root), Slot(item.slot),
+          uint64(item.proposer_index), BlobIndex(item.index)) == true
+
+    bq.pruneAfterFinalization(Epoch(1))
+    check:
+      len(bq) == len(TestVectors) - 5
+
+    for item in TestVectors:
+      let res =
+        if item.root == 1:
+          false
+        else:
+          true
+      check:
+        bq.hasSidecar(
+          genBlockRoot(item.root), Slot(item.slot),
+          uint64(item.proposer_index), BlobIndex(item.index)) == res
+
+    bq.pruneAfterFinalization(Epoch(2))
+    check:
+      len(bq) == len(TestVectors) - 5 - 6
+
+    for item in TestVectors:
+      let res =
+        if item.root in [1, 2, 3, 4]:
+          false
+        else:
+          true
+      check:
+        bq.hasSidecar(
+          genBlockRoot(item.root), Slot(item.slot),
+          uint64(item.proposer_index), BlobIndex(item.index)) == res
+
+    bq.pruneAfterFinalization(Epoch(3))
+    check:
+      len(bq) == len(TestVectors) - 5 - 6 - 12
+
+    for item in TestVectors:
+      let res =
+        if item.root in [1, 2, 3, 4, 5, 6, 7, 8]:
+          false
+        else:
+          true
+      check:
+        bq.hasSidecar(
+          genBlockRoot(item.root), Slot(item.slot),
+          uint64(item.proposer_index), BlobIndex(item.index)) == res
+
+    bq.pruneAfterFinalization(Epoch(4))
+    check:
+      len(bq) == 0
+
+    for item in TestVectors:
+      check:
+        bq.hasSidecar(
+          genBlockRoot(item.root), Slot(item.slot),
+          uint64(item.proposer_index), BlobIndex(item.index)) == false
 
 suite "ColumnQuarantine data structure test suite " & preset():
   setup:
@@ -1261,3 +1372,118 @@ suite "ColumnQuarantine data structure test suite " & preset():
             sidecars[j].sidecar[].signed_block_header.message.proposer_index,
           index = sidecars[j].sidecar[].index
         ) == false
+
+
+  test "pruneAfterFinalization() test":
+    let
+      custodyColumns =
+        [63, 64, 65, 66, 95, 96, 97, 98].mapIt(ColumnIndex(it))
+
+    const TestVectors = [
+      (root: 1, slot: 1, index: 63, proposer_index: 20),
+      (root: 1, slot: 1, index: 64, proposer_index: 20),
+      (root: 1, slot: 1, index: 65, proposer_index: 20),
+      (root: 1, slot: 1, index: 66, proposer_index: 20),
+      (root: 1, slot: 1, index: 96, proposer_index: 20),
+      (root: 2, slot: 32, index: 63, proposer_index: 21),
+      (root: 2, slot: 32, index: 64, proposer_index: 21),
+      (root: 2, slot: 32, index: 65, proposer_index: 21),
+      (root: 3, slot: 33, index: 63, proposer_index: 22),
+      (root: 3, slot: 33, index: 64, proposer_index: 22),
+      (root: 4, slot: 63, index: 63, proposer_index: 23),
+      (root: 5, slot: 64, index: 63, proposer_index: 24),
+      (root: 5, slot: 64, index: 64, proposer_index: 24),
+      (root: 5, slot: 64, index: 65, proposer_index: 24),
+      (root: 6, slot: 65, index: 63, proposer_index: 25),
+      (root: 6, slot: 65, index: 64, proposer_index: 25),
+      (root: 7, slot: 67, index: 63, proposer_index: 26),
+      (root: 7, slot: 67, index: 64, proposer_index: 26),
+      (root: 8, slot: 95, index: 63, proposer_index: 27),
+      (root: 8, slot: 95, index: 64, proposer_index: 27),
+      (root: 8, slot: 95, index: 65, proposer_index: 27),
+      (root: 8, slot: 95, index: 66, proposer_index: 27),
+      (root: 8, slot: 95, index: 98, proposer_index: 27),
+      (root: 9, slot: 96, index: 63, proposer_index: 28),
+      (root: 9, slot: 96, index: 64, proposer_index: 28),
+      (root: 9, slot: 96, index: 65, proposer_index: 28),
+      (root: 9, slot: 96, index: 66, proposer_index: 28),
+      (root: 9, slot: 96, index: 95, proposer_index: 28),
+      (root: 9, slot: 96, index: 96, proposer_index: 28),
+      (root: 9, slot: 96, index: 97, proposer_index: 28),
+      (root: 9, slot: 96, index: 98, proposer_index: 28),
+      (root: 10, slot: 127, index: 96, proposer_index: 29),
+      (root: 10, slot: 127, index: 97, proposer_index: 29),
+      (root: 10, slot: 127, index: 98, proposer_index: 29)
+    ]
+
+    var bq = ColumnQuarantine.init(cfg, custodyColumns, nil)
+    for item in TestVectors:
+      let sidecar =
+        newClone(
+          genDataColumnSidecar(index = item.index, slot = item.slot,
+                               proposer_index = item.proposer_index))
+      bq.put(genBlockRoot(item.root), sidecar)
+
+    check:
+      len(bq) == len(TestVectors)
+
+    for item in TestVectors:
+      check:
+        bq.hasSidecar(
+          genBlockRoot(item.root), Slot(item.slot),
+          uint64(item.proposer_index), BlobIndex(item.index)) == true
+
+    bq.pruneAfterFinalization(Epoch(1))
+    check:
+      len(bq) == len(TestVectors) - 5
+
+    for item in TestVectors:
+      let res =
+        if item.root == 1:
+          false
+        else:
+          true
+      check:
+        bq.hasSidecar(
+          genBlockRoot(item.root), Slot(item.slot),
+          uint64(item.proposer_index), BlobIndex(item.index)) == res
+
+    bq.pruneAfterFinalization(Epoch(2))
+    check:
+      len(bq) == len(TestVectors) - 5 - 6
+
+    for item in TestVectors:
+      let res =
+        if item.root in [1, 2, 3, 4]:
+          false
+        else:
+          true
+      check:
+        bq.hasSidecar(
+          genBlockRoot(item.root), Slot(item.slot),
+          uint64(item.proposer_index), BlobIndex(item.index)) == res
+
+    bq.pruneAfterFinalization(Epoch(3))
+    check:
+      len(bq) == len(TestVectors) - 5 - 6 - 12
+
+    for item in TestVectors:
+      let res =
+        if item.root in [1, 2, 3, 4, 5, 6, 7, 8]:
+          false
+        else:
+          true
+      check:
+        bq.hasSidecar(
+          genBlockRoot(item.root), Slot(item.slot),
+          uint64(item.proposer_index), BlobIndex(item.index)) == res
+
+    bq.pruneAfterFinalization(Epoch(4))
+    check:
+      len(bq) == 0
+
+    for item in TestVectors:
+      check:
+        bq.hasSidecar(
+          genBlockRoot(item.root), Slot(item.slot),
+          uint64(item.proposer_index), BlobIndex(item.index)) == false

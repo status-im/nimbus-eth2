@@ -208,11 +208,7 @@ func put*[A, B](
     # used.
     quarantine.pruneRoot()
 
-  let
-    slot =
-      # All the blobs related to single block we could get `slot` once.
-      sidecars[0][].slot()
-    rootRecord = RootTableRecord.init(quarantine)
+  let rootRecord = RootTableRecord.init(quarantine)
 
   quarantine.roots.mgetOrPut(blockRoot, rootRecord).put(
     quarantine, sidecars)
@@ -510,6 +506,32 @@ func fetchMissingSidecars*(
         if (index == -1) or (record.sidecars[index].isNil()):
           res.add(DataColumnIdentifier(block_root: blockRoot, index: column))
   res
+
+func pruneAfterFinalization*[A, B](
+    quarantine: var SidecarQuarantine[A, B],
+    epoch: Epoch
+) =
+  let epochSlot = epoch.start_slot()
+  var
+    sidecarsCount = 0
+    rootsToRemove: seq[Eth2Digest]
+
+  for mkey, mrecord in quarantine.roots.mpairs():
+    var removeRoot = false
+    for index in 0 ..< len(mrecord.sidecars):
+      if not(isNil(mrecord.sidecars[index])) and
+         mrecord.sidecars[index][].slot < epochSlot:
+        removeRoot = true
+        # Preemptively freeing `ref` object reference.
+        mrecord.sidecars[index] = nil
+        inc(sidecarsCount)
+    if removeRoot:
+      rootsToRemove.add(mkey)
+
+  for root in rootsToRemove:
+    quarantine.roots.del(root)
+
+  dec(quarantine.sidecarsCount, sidecarsCount)
 
 template onBlobSidecarCallback*(
     quarantine: BlobQuarantine
