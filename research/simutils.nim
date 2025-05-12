@@ -16,7 +16,6 @@ from std/stats import RunningStat, mean, push, standardDeviationS
 from std/strformat import `&`
 from std/times import cpuTime
 from ../beacon_chain/filepath import secureCreatePath
-from ../beacon_chain/spec/deposit_snapshots import DepositContractSnapshot
 
 template withTimer*(stats: var RunningStat, body: untyped) =
   # TODO unify timing somehow
@@ -66,8 +65,7 @@ func getSimulationConfig*(): RuntimeConfig {.compileTime.} =
   cfg
 
 proc loadGenesis*(
-    validators: Natural,
-    validate: bool): (ref ForkedHashedBeaconState, DepositContractSnapshot) =
+    validators: Natural, validate: bool): ref ForkedHashedBeaconState =
   const genesisDir = "test_sim"
   if (let res = secureCreatePath(genesisDir); res.isErr):
     fatal "Could not create directory",
@@ -110,19 +108,7 @@ proc loadGenesis*(
       info "Loaded genesis file", fileName = genesisFn
 
       # TODO check that the private keys are EF test keys
-
-      let contractSnapshot =
-        try:
-          SSZ.loadFile(contractSnapshotFn, DepositContractSnapshot)
-        except IOError as exc:
-          fatal "Deposit contract snapshot failed to load",
-            fileName = contractSnapshotFn, exc = exc.msg
-          quit 1
-        except SerializationError as exc:
-          fatal "Deposit contract snapshot malformed",
-            fileName = contractSnapshotFn, exc = exc.msg
-          quit 1
-      (res, contractSnapshot)
+      res
   else:
     warn "Genesis file not found, making one up",
       hint = "use nimbus_beacon_node createTestnet to make one"
@@ -133,12 +119,6 @@ proc loadGenesis*(
       deposits = makeInitialDeposits(validators.uint64, flags)
 
     info "Generating Genesis..."
-    var merkleizer = init DepositsMerkleizer
-    for d in deposits:
-      merkleizer.addChunk hash_tree_root(d).data
-    let contractSnapshot = DepositContractSnapshot(
-      depositContractState: merkleizer.toDepositContractState)
-
     let res = (ref ForkedHashedBeaconState)(
       kind: ConsensusFork.Electra,
       electraData: electra.HashedBeaconState(
@@ -153,15 +133,8 @@ proc loadGenesis*(
       fatal "Genesis file failed to save",
         fileName = genesisFn, exc = exc.msg
       quit 1
-    info "Saving deposit contract snapshot", fileName = contractSnapshotFn
-    try:
-      SSZ.saveFile(contractSnapshotFn, contractSnapshot)
-    except IOError as exc:
-      fatal "Deposit contract snapshot failed to save",
-        fileName = contractSnapshotFn, exc = exc.msg
-      quit 1
 
-    (res, contractSnapshot)
+    res
 
 proc printTimers*[Timers: enum](
     validate: bool,

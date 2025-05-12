@@ -580,6 +580,34 @@ type
         defaultValue: false
         name: "dump" .}: bool
 
+      # Because certain EL (e.g., Geth) may return SYNCING/ACCEPTED even for
+      # execution payloads that have already been deemed INVALID in the past,
+      # this flag is needed to avoid optimistically importing beacon blocks
+      # that contain such payloads into fork choice when Nimbus is restarted.
+      # This helps manual recovery when the justified checkpoint is advanced
+      # optimistically based on attestations in blocks with invalid payloads,
+      # such as the botched Prague/Electra deployment onto the Holesky testnet.
+      #
+      # The recovery flow is as follows:
+      # (1) Upgrade to an EL version that correctly identifies the invalid block
+      # (2) Restart Nimbus with `--debug-invalidate-block-root` set to the first
+      #     block known to have an invalid execution payload. Multiple blocks
+      #     may be specified if necessary
+      # (3) If Nimbus is already synced to the canonical (but invalid) branch,
+      #     wait until the EL informs Nimbus that this head is INVALID.
+      #     Nimbus then rewinds back to the latest valid head
+      # (4) Restart Nimbus again, ensuring that `--debug-invalidate-block-root`
+      #     is set up correctly. Nimbus will re-discover the invalid branch,
+      #     but this time will not optimistically import it, preventing the
+      #     invalid branch to become canonical in its local fork choice
+      # (5) Wait for a different branch to become canonical, and keep the
+      #     `--debug-invalidate-block-root` flag present until finality has
+      #     advanced beyond the problematic chain segment
+      invalidBlockRoots* {.
+        hidden
+        desc: "List of beacon block roots that, if the EL responds with SYNCING/ACCEPTED, are treated as if their execution payload was INVALID"
+        name: "debug-invalidate-block-root" .}: seq[Eth2Digest]
+
       directPeers* {.
         desc: "The list of privileged, secure and known peers to connect and maintain the connection to. This requires a not random netkey-file. In the multiaddress format like: /ip4/<address>/tcp/<port>/p2p/<peerId-public-key>, or enr format (enr:-xx). Peering agreements are established out of band and must be reciprocal"
         name: "direct-peer" .}: seq[string]

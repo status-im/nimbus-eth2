@@ -1,5 +1,5 @@
 # beacon_chain
-# Copyright (c) 2018-2024 Status Research & Development GmbH
+# Copyright (c) 2018-2025 Status Research & Development GmbH
 # Licensed and distributed under either of
 #   * MIT license (license terms in the root directory or at https://opensource.org/licenses/MIT).
 #   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
@@ -168,10 +168,6 @@ type
       outputGenesis* {.
         desc: "Output file where to write the initial state snapshot"
         name: "output-genesis" .}: OutFile
-
-      outputDepositTreeSnapshot* {.
-        desc: "Output file where to write the initial deposit tree snapshot"
-        name: "output-deposit-tree-snapshot" .}: OutFile
 
       outputBootstrapFile* {.
         desc: "Output file with list of bootstrap nodes for the network"
@@ -342,20 +338,6 @@ func `as`(blk: BlockObject, T: type fulu.ExecutionPayloadHeader): T =
     blob_gas_used: uint64 blk.blobGasUsed.getOrDefault(),
     excess_blob_gas: uint64 blk.excessBlobGas.getOrDefault())
 
-func createDepositContractSnapshot(
-    deposits: seq[DepositData],
-    blockHash: Eth2Digest,
-    blockHeight: uint64): DepositContractSnapshot =
-  var merkleizer = DepositsMerkleizer.init()
-  for i, deposit in deposits:
-    let htr = hash_tree_root(deposit)
-    merkleizer.addChunk(htr.data)
-
-  DepositContractSnapshot(
-    eth1Block: blockHash,
-    depositContractState: merkleizer.toDepositContractState,
-    blockHeight: blockHeight)
-
 proc writeValue*(writer: var JsonWriter, value: DateTime) {.
      raises: [IOError].} =
   writer.writeValue($value)
@@ -474,13 +456,6 @@ proc doCreateTestnet*(config: CliConfig,
     info "SSZ genesis file written",
           path = outSszGenesis, fork = kind(typeof initialState[])
 
-    SSZ.saveFile(
-      config.outputDepositTreeSnapshot.string,
-      createDepositContractSnapshot(
-        deposits,
-        genesisExecutionPayloadHeader.block_hash,
-        genesisExecutionPayloadHeader.block_number).getTreeSnapshot())
-
     initialState[].genesis_validators_root
 
   let genesisValidatorsRoot =
@@ -509,21 +484,6 @@ proc doCreateTestnet*(config: CliConfig,
     writeFile(bootstrapFile, enr.toURI)
     echo "Wrote ", bootstrapFile
 
-type
-  DelayGenerator = proc(): chronos.Duration {.gcsafe, raises: [].}
-
-func ethToWei(eth: UInt256): UInt256 =
-  eth * 1000000000000000000.u256
-
-proc initWeb3(web3Url, privateKey: string): Future[Web3] {.async.} =
-  result = await newWeb3(web3Url)
-  if privateKey.len != 0:
-    result.privateKey = Opt.some(keys.PrivateKey.fromHex(privateKey)[])
-  else:
-    let accounts = await result.provider.eth_accounts()
-    doAssert(accounts.len > 0)
-    result.defaultAccount = accounts[0]
-
 {.pop.} # TODO confutils.nim(775, 17) Error: can raise an unlisted exception: ref IOError
 
 when isMainModule:
@@ -533,6 +493,21 @@ when isMainModule:
 
   from std/sequtils import mapIt, toSeq
   from std/terminal import readPasswordFromStdin
+
+  type
+    DelayGenerator = proc(): chronos.Duration {.gcsafe, raises: [].}
+
+  func ethToWei(eth: UInt256): UInt256 =
+    eth * 1000000000000000000.u256
+
+  proc initWeb3(web3Url, privateKey: string): Future[Web3] {.async.} =
+    result = await newWeb3(web3Url)
+    if privateKey.len != 0:
+      result.privateKey = Opt.some(keys.PrivateKey.fromHex(privateKey)[])
+    else:
+      let accounts = await result.provider.eth_accounts()
+      doAssert(accounts.len > 0)
+      result.defaultAccount = accounts[0]
 
   # Compiled version of /scripts/depositContract.v.py in this repo
   # The contract was compiled in Remix (https://remix.ethereum.org/) with vyper (remote) compiler.

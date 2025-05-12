@@ -1,3 +1,13 @@
+2025-05-08 v25.5.0
+==================
+
+Nimbus `v25.5.0` does not alter the beacon node, is a low-urgency release for nodes which don't use the Nimbus validator client with a non-Nimbus BN, and a high-urgency release for nodes which do use the Nimbus validator client with a non-Nimbus beacon node.
+
+### Fixes
+
+- fix missing Eth-Consensus-Version header in validator client publishBlindedBlockV2 beacon API requests:
+  https://github.com/status-im/nimbus-eth2/pull/7140
+
 2025-04-26 v25.4.1
 ==================
 
