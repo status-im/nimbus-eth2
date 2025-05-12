@@ -78,7 +78,7 @@ suite "Attestation pool processing" & preset():
         ChainDAGRef, defaultRuntimeConfig, makeTestDB(SLOTS_PER_EPOCH * 6),
         validatorMonitor, {})
       taskpool = Taskpool.new()
-      verifier = BatchVerifier.init(rng, taskpool)
+      verifier {.used.} = BatchVerifier.init(rng, taskpool)
       quarantine = newClone(Quarantine.init())
       pool = newClone(AttestationPool.init(dag, quarantine))
       state = newClone(dag.headState)
@@ -759,7 +759,6 @@ suite "Attestation pool electra processing" & preset():
   setup:
     # Genesis state that results in 6 members per committee (2 committees total)
     const TOTAL_COMMITTEES = 2
-    let rng = HmacDrbgContext.new()
     var
       validatorMonitor = newClone(ValidatorMonitor.init())
       cfg = genesisTestRuntimeConfig(ConsensusFork.Electra)
@@ -768,8 +767,6 @@ suite "Attestation pool electra processing" & preset():
         makeTestDB(
           TOTAL_COMMITTEES * TARGET_COMMITTEE_SIZE * SLOTS_PER_EPOCH, cfg = cfg),
         validatorMonitor, {})
-      taskpool = Taskpool.new()
-      verifier = BatchVerifier.init(rng, taskpool)
       quarantine = newClone(Quarantine.init())
       pool = newClone(AttestationPool.init(dag, quarantine))
       state = newClone(dag.headState)

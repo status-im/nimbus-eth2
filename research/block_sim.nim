@@ -138,7 +138,7 @@ cli do(slots = SLOTS_PER_EPOCH * 7,
        syncCommitteeRatio {.desc: "ratio of validators that perform sync committee actions in each round"} = 0.82,
        blockRatio {.desc: "ratio of slots with blocks"} = 1.0,
        replay = true):
-  let (genesisState, depositTreeSnapshot) = loadGenesis(validators, false)
+  let genesisState = loadGenesis(validators, false)
   const cfg = getSimulationConfig()
 
   echo "Starting simulation..."
@@ -147,8 +147,6 @@ cli do(slots = SLOTS_PER_EPOCH * 7,
   defer: db.close()
 
   ChainDAGRef.preInit(db, genesisState[])
-  db.putDepositContractSnapshot(depositTreeSnapshot)
-
   let rng = HmacDrbgContext.new()
   var
     validatorMonitor = newClone(ValidatorMonitor.init())

@@ -1,5 +1,5 @@
 # beacon_chain
-# Copyright (c) 2018-2024 Status Research & Development GmbH
+# Copyright (c) 2018-2025 Status Research & Development GmbH
 # Licensed and distributed under either of
 #   * MIT license (license terms in the root directory or at https://opensource.org/licenses/MIT).
 #   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
@@ -14,8 +14,7 @@ import
   serialization, chronicles, snappy,
   eth/db/[kvstore, kvstore_sqlite3],
   ./networking/network_metadata, ./beacon_chain_db_immutable,
-  ./spec/[deposit_snapshots,
-          eth2_ssz_serialization,
+  ./spec/[eth2_ssz_serialization,
           eth2_merkleization,
           forks,
           presets,
@@ -27,7 +26,7 @@ from ./spec/datatypes/deneb import TrustedSignedBeaconBlock
 
 export
   phase0, altair, eth2_ssz_serialization, eth2_merkleization, kvstore,
-  kvstore_sqlite3, deposit_snapshots
+  kvstore_sqlite3
 
 logScope: topics = "bc_db"
 
@@ -980,38 +979,6 @@ proc putTailBlock*(db: BeaconChainDB, key: Eth2Digest) =
 proc putGenesisBlock*(db: BeaconChainDB, key: Eth2Digest) =
   db.keyValues.putRaw(subkey(kGenesisBlock), key)
 
-proc putDepositContractSnapshot*(
-    db: BeaconChainDB, snapshot: DepositContractSnapshot) =
-  db.withManyWrites:
-    db.keyValues.putSnappySSZ(subkey(kDepositContractSnapshot),
-                              snapshot)
-    # TODO: We currently store this redundant old snapshot in order
-    #       to allow the users to rollback to a previous version
-    #       of Nimbus without problems. It would be reasonable
-    #       to remove this in Nimbus 23.2
-    db.keyValues.putSnappySSZ(subkey(kOldDepositContractSnapshot),
-                              snapshot.toOldDepositContractSnapshot)
-
-proc hasDepositContractSnapshot*(db: BeaconChainDB): bool =
-  expectDb(subkey(kDepositContractSnapshot) in db.keyValues)
-
-proc getDepositContractSnapshot*(db: BeaconChainDB): Opt[DepositContractSnapshot] =
-  result.ok(default DepositContractSnapshot)
-  let r = db.keyValues.getSnappySSZ(
-    subkey(kDepositContractSnapshot), result.get)
-  if r != GetResult.found: result.err()
-
-proc getUpgradableDepositSnapshot*(db: BeaconChainDB): Option[OldDepositContractSnapshot] =
-  var dcs: OldDepositContractSnapshot
-  let oldKey = subkey(kOldDepositContractSnapshot)
-  if db.keyValues.getSnappySSZ(oldKey, dcs) != GetResult.found:
-    # Old record is not present in the current database.
-    # We need to take a look in the v0 database as well.
-    if db.v0.backend.getSnappySSZ(oldKey, dcs) != GetResult.found:
-      return
-
-  return some dcs
-
 proc getPhase0Block(
     db: BeaconChainDBV0, key: Eth2Digest): Opt[phase0.TrustedSignedBeaconBlock] =
   # We only store blocks that we trust in the database
@@ -1131,7 +1098,7 @@ proc getBlobSidecar*(db: BeaconChainDB, root: Eth2Digest, index: BlobIndex,
                      value: var BlobSidecar): bool =
   db.blobs.getSZSSZ(blobkey(root, index), value) == GetResult.found
 
-proc getDataColumnSidecarSZ*(db: BeaconChainDB, root: Eth2Digest, 
+proc getDataColumnSidecarSZ*(db: BeaconChainDB, root: Eth2Digest,
                              index: ColumnIndex, data: var seq[byte]): bool =
   let dataPtr = addr data # Short-lived
   func decode(data: openArray[byte]) =

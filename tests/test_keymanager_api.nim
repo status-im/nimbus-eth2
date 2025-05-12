@@ -136,9 +136,9 @@ const
   nodeValidatorsDir = nodeDataDir / "validators"
   nodeSecretsDir = nodeDataDir / "secrets"
 
-  vcDataDir = dataDir / "validator-0"
-  vcValidatorsDir = vcDataDir / "validators"
-  vcSecretsDir = vcDataDir / "secrets"
+  # vcDataDir = dataDir / "validator-0"
+  # vcValidatorsDir = vcDataDir / "validators"
+  # vcSecretsDir = vcDataDir / "secrets"
 
 func specifiedFeeRecipient(x: int): Eth1Address =
   copyMem(addr result, unsafeAddr x, sizeof x)
@@ -209,7 +209,6 @@ BELLATRIX_FORK_EPOCH: 0
     "--total-validators=" & $simulationDepositsCount,
     "--deposits-file=" & depositsFile,
     "--output-genesis=" & genesisFile,
-    "--output-deposit-tree-snapshot=" & depositTreeSnapshotFile,
     "--output-bootstrap-file=" & bootstrapEnrFile,
     "--netkey-file=network_key.json",
     "--insecure-netkey-password=true",
@@ -2022,13 +2021,13 @@ proc delayedTests(basePort: int, pool: ref ValidatorPool,
       validatorPool: pool,
       keymanagerHost: host)
 
-    validatorClientKeymanager = KeymanagerToTest(
-      ident: "Validator Client",
-      port: basePort + PortKind.KeymanagerVC.ord,
-      validatorsDir: vcValidatorsDir,
-      secretsDir: vcSecretsDir,
-      validatorPool: pool,
-      keymanagerHost: host)
+    # validatorClientKeymanager = KeymanagerToTest(
+    #   ident: "Validator Client",
+    #   port: basePort + PortKind.KeymanagerVC.ord,
+    #   validatorsDir: vcValidatorsDir,
+    #   secretsDir: vcSecretsDir,
+    #   validatorPool: pool,
+    #   keymanagerHost: host)
 
   while bnStatus != BeaconNodeStatus.Running:
     await sleepAsync(1.seconds)

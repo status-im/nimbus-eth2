@@ -88,7 +88,6 @@ AllTests-mainnet
 + dependent_root                                                                             OK
 + get_beacon_proposer_index                                                                  OK
 + latest_block_root                                                                          OK
-+ merklizer state roundtrip                                                                  OK
 + process_slots                                                                              OK
 ```
 ## Beacon time
@@ -122,6 +121,7 @@ AllTests-mainnet
 ```
 ## Block processor [Preset: mainnet]
 ```diff
++ Invalidate block root [Preset: mainnet]                                                    OK
 + Reverse order block add & get [Preset: mainnet]                                            OK
 ```
 ## Block quarantine
@@ -167,13 +167,6 @@ AllTests-mainnet
 + Invalid Authorization Header [Beacon Node] [Preset: mainnet]                               OK
 + Invalid Authorization Token [Beacon Node] [Preset: mainnet]                                OK
 + Missing Authorization header [Beacon Node] [Preset: mainnet]                               OK
-```
-## DepositContractSnapshot
-```diff
-+ Migration                                                                                  OK
-+ SSZ                                                                                        OK
-+ depositCount                                                                               OK
-+ isValid                                                                                    OK
 ```
 ## Discovery fork ID
 ```diff
@@ -542,14 +535,6 @@ AllTests-mainnet
 + Testing uints        inputs - invalid                                                      OK
 + Testing uints        inputs - valid                                                        OK
 ```
-## EIP-4881
-```diff
-+ deposit_cases                                                                              OK
-+ empty_root                                                                                 OK
-+ finalization                                                                               OK
-+ invalid_snapshot                                                                           OK
-+ snapshot_cases                                                                             OK
-```
 ## EIP-7594 Unit Tests
 ```diff
 + EIP-7594: Compute Matrix                                                                   OK
@@ -571,7 +556,6 @@ AllTests-mainnet
 ```
 ## Eth1 monitor
 ```diff
-+ Deposits chain                                                                             OK
 + Rewrite URLs                                                                               OK
 ```
 ## Eth2 specific discovery tests

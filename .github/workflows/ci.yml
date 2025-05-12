@@ -224,10 +224,6 @@ jobs:
         with:
           fetch-depth: 1
 
-      - name: Build with developer flags
-        run: |
-          make -j nimbus_beacon_node LOG_LEVEL=TRACE NIMFLAGS="-d:has_deposit_root_checks=1"
-
       - name: Build files with isMainModule
         run: |
           executables=(
@@ -240,6 +236,7 @@ jobs:
             "benchmarks/rest_api_benchmark"
             "tests/mocking/mock_genesis"
           )
+          make -j update
           source env.sh
           for executable in "${executables[@]}"; do
             nim c --passC:-fsyntax-only --noLinking:on -d:chronicles_log_level=TRACE "${executable}"

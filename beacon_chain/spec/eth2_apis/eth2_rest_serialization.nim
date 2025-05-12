@@ -63,7 +63,6 @@ RestJson.useDefaultSerializationFor(
   Deposit,
   DepositData,
   DepositRequest,
-  DepositTreeSnapshot,
   DistributedKeystoreInfo,
   ElectraSignedBlockContents,
   EmptyBody,
@@ -76,14 +75,14 @@ RestJson.useDefaultSerializationFor(
   GetBlockAttestationsResponse,
   GetBlockHeaderResponse,
   GetBlockHeadersResponse,
-  GetDepositContractResponse,
-  GetDepositSnapshotResponse,
   GetDistributedKeystoresResponse,
   GetEpochCommitteesResponse,
   GetEpochSyncCommitteesResponse,
   GetForkChoiceResponse,
   GetForkScheduleResponse,
   GetGenesisResponse,
+  GetHistoricalSummariesV1Response,
+  GetHistoricalSummariesV1ResponseElectra,
   GetKeystoresResponse,
   GetNextWithdrawalsResponse,
   GetPoolAttesterSlashingsResponse,
@@ -127,7 +126,6 @@ RestJson.useDefaultSerializationFor(
   RestChainHeadV2,
   RestCommitteeSubscription,
   RestContributionAndProof,
-  RestDepositContract,
   RestEpochRandao,
   RestEpochSyncCommittee,
   RestExtraData,
@@ -404,6 +402,8 @@ type
     DataOptimisticAndFinalizedObject |
     GetBlockV2Response |
     GetDistributedKeystoresResponse |
+    GetHistoricalSummariesV1Response |
+    GetHistoricalSummariesV1ResponseElectra |
     GetKeystoresResponse |
     GetRemoteKeystoresResponse |
     GetStateForkResponse |
@@ -636,6 +636,31 @@ proc jsonResponseBlock*(t: typedesc[RestApiResponse],
         writer.writeField("finalized", finalized)
         withBlck(data):
           writer.writeField("data", forkyBlck)
+        writer.endRecord()
+        stream.getOutput(seq[byte])
+      except IOError:
+        default(seq[byte])
+  RestApiResponse.response(res, Http200, "application/json", headers = headers)
+
+proc jsonResponseBlobSidecars*(
+    t: typedesc[RestApiResponse],
+    data: openArray[BlobSidecar],
+    version: ConsensusFork,
+    execOpt: Opt[bool],
+    finalized: bool
+): RestApiResponse =
+  let
+    headers = [("eth-consensus-version", version.toString())]
+    res =
+      try:
+        var stream = memoryOutput()
+        var writer = JsonWriter[RestJson].init(stream)
+        writer.beginRecord()
+        writer.writeField("version", version.toString())
+        if execOpt.isSome():
+          writer.writeField("execution_optimistic", execOpt.get())
+        writer.writeField("finalized", finalized)
+        writer.writeField("data", data)
         writer.endRecord()
         stream.getOutput(seq[byte])
       except IOError:
