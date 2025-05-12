@@ -49,6 +49,13 @@ logScope: topics = "gossip_blocks"
 # ------------------------------------------------------------------------------
 # The block processor moves blocks from "Incoming" to "Consensus verified"
 
+declareCounter  beacon_data_availability_reconstructed_columns_total,
+  "Total count of reconstructed columns"
+
+declareHistogram beacon_data_availability_reconstruction_time_seconds,
+  "Time taken to reconstruct columns",
+  buckets = [0.005, 0.01, 0.025, 0.05, 0.075, 0.1, 0.25, 0.5, 0.75, 1.0, 2.5, 5.0, 7.5, 10.0, Inf]
+
 declareHistogram beacon_store_block_duration_seconds,
   "storeBlock() duration", buckets = [0.25, 0.5, 1, 2, 4, 8, Inf]
 
@@ -224,10 +231,16 @@ proc storeBackfillBlock(
         if dataColumnsOpt.get.lenu64 >=
             (self.consensusManager.dag.cfg.NUMBER_OF_COLUMNS div 2):
           let
+            startTick = Moment.now()
             recovered_cps =
               recover_cells_and_proofs(columns.mapIt(it[]))
+            validationTick = Moment.now()
             recovered_columns =
               signedBlock.get_data_column_sidecars(recovered_cps.get)
+            validationDur = validationTick - startTick
+            recovered_columns_diff = recovered_columns.len - columns.len
+          beacon_data_availability_reconstruction_time_seconds.observe(validationDur.toFloatSeconds())
+          beacon_data_availability_reconstructed_columns_total.inc(recovered_columns_diff)
 
           for mc in malformed_cols:
             # copy the healed columns only into the
