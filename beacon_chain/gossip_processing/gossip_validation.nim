@@ -721,11 +721,11 @@ proc validateDataColumnSidecar*(
   # verified by `verify_data_column_kzg_proofs(sidecar)`
   block:
     let
-      startTick = Moment.now()
+      kzgStartTick = Moment.now()
       r = check_data_column_sidecar_kzg_proofs(data_column_sidecar)
-      validationTick = Moment.now()
-      validationDur = validationTick - startTick
-    beacon_data_column_sidecar_inclusion_proof_verification_seconds.observe(validationDur.toFloatSeconds())
+      kzgValidationTick = Moment.now()
+      kzgValidationDur = kzgValidationTick - kzgStartTick
+    beacon_data_column_sidecar_inclusion_proof_verification_seconds.observe(kzgValidationDur.toFloatSeconds())
     if r.isErr:
       return dag.checkedReject(r.error)
 
