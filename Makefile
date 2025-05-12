@@ -234,8 +234,8 @@ local-testnet-minimal:
 		--signer-nodes 1 \
 		--remote-validators-count 512 \
 		--signer-type $(SIGNER_TYPE) \
-		--deneb-fork-epoch 0 \
 		--electra-fork-epoch 0 \
+		--fulu-fork-epoch 100000 \
 		--stop-at-epoch 6 \
 		--disable-htop \
 		--enable-payload-builder \
@@ -263,8 +263,8 @@ local-testnet-mainnet:
 	./scripts/launch_local_testnet.sh \
 		--data-dir $@ \
 		--nodes 2 \
-		--deneb-fork-epoch 0 \
 		--electra-fork-epoch 0 \
+		--fulu-fork-epoch 100000 \
 		--stop-at-epoch 6 \
 		--disable-htop \
 		--base-port $$(( $(MAINNET_TESTNET_BASE_PORT) + EXECUTOR_NUMBER * 400 + 0 )) \
