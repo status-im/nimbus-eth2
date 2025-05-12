@@ -53,6 +53,10 @@ declareHistogram beacon_data_column_sidecar_gossip_verification_seconds,
   "Full runtime of data column sidecars gossip verification",
   buckets = [0.005, 0.01, 0.025, 0.05, 0.075, 0.1, 0.25, 0.5, 0.75, 1.0, 2.5, 5.0, 7.5, 10.0, Inf]
 
+declareHistogram beacon_data_column_sidecar_inclusion_proof_verification_seconds,
+  "Time taken to verify data column sidecar inclusion proof",
+  buckets = [0.005, 0.01, 0.025, 0.05, 0.075, 0.1, 0.25, 0.5, 0.75, 1.0, 2.5, 5.0, 7.5, 10.0, Inf]
+
 # This result is a little messy in that it returns Result.ok for
 # ValidationResult.Accept and an err for the others - this helps transport
 # an error message to callers but could arguably be done in an cleaner way.
@@ -645,7 +649,12 @@ proc validateDataColumnSidecar*(
   # [REJECT] The sidecar's `kzg_commitments` inclusion proof is valid as verified by
   # `verify_data_column_sidecar_inclusion_proof(sidecar)`.
   block:
-    let v = check_data_column_sidecar_inclusion_proof(data_column_sidecar)
+    let
+      startTick = Moment.now()
+      v = check_data_column_sidecar_inclusion_proof(data_column_sidecar)
+      validationTick = Moment.now()
+      validationDur = validationTick - startTick
+    beacon_data_column_sidecar_inclusion_proof_verification_seconds.observe(validationDur.toFloatSeconds())
     if v.isErr:
       return dag.checkedReject(v.error)
 
