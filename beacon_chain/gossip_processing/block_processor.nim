@@ -52,6 +52,10 @@ logScope: topics = "gossip_blocks"
 declareHistogram beacon_store_block_duration_seconds,
   "storeBlock() duration", buckets = [0.25, 0.5, 1, 2, 4, 8, Inf]
 
+declareHistogram beacon_data_column_sidecar_computation_seconds,
+  "Time taken to compute data column sidecar, including cells and inclusion proof",
+  buckets = [0.005, 0.01, 0.025, 0.05, 0.075, 0.1, 0.25, 0.5, 0.75, 1.0, 2.5, 5.0, 7.5, 10.0, Inf]
+
 const
   SLOTS_PER_PAYLOAD = SLOTS_PER_HISTORICAL_ROOT
     ## Number of slots we process between each execution payload execution, while
@@ -224,10 +228,14 @@ proc storeBackfillBlock(
         if dataColumnsOpt.get.lenu64 >=
             (self.consensusManager.dag.cfg.NUMBER_OF_COLUMNS div 2):
           let
+            recoverStartTick = Moment.now()
             recovered_cps =
               recover_cells_and_proofs(columns.mapIt(it[]))
+            recoverTick = Moment.now()
             recovered_columns =
               signedBlock.get_data_column_sidecars(recovered_cps.get)
+            recoverDur = recoverTick - recoverStartTick
+            beacon_data_column_sidecar_computation_seconds.observe(recoverDur.toFloatSeconds())
 
           for mc in malformed_cols:
             # copy the healed columns only into the
