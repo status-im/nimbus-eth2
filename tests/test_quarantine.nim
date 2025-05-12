@@ -142,6 +142,7 @@ suite "BlobQuarantine data structure test suite " & preset():
       broot2 = genBlockRoot(2)
       broot3 = genBlockRoot(3)
       broot4 = genBlockRoot(4)
+      broot5 = genBlockRoot(5)
       sidecar1 =
         newClone(genBlobSidecar(index = 0, slot = 1, 1, proposer_index = 5))
       sidecar2 =
@@ -156,112 +157,123 @@ suite "BlobQuarantine data structure test suite " & preset():
         newClone(genBlobSidecar(index = 6, slot = 3, 6, proposer_index = 8))
 
     check:
-      bq.hasSidecar(Slot(1), uint64(5), BlobIndex(0)) == false
-      bq.hasSidecar(Slot(1), uint64(5), BlobIndex(1)) == false
-      bq.hasSidecar(Slot(1), uint64(5), BlobIndex(2)) == false
-      bq.hasSidecar(Slot(2), uint64(5), BlobIndex(4)) == false
-      bq.hasSidecar(Slot(3), uint64(5), BlobIndex(5)) == false
-      bq.hasSidecar(Slot(3), uint64(5), BlobIndex(6)) == false
-      bq.hasSidecar(Slot(10), uint64(100), BlobIndex(3)) == false
+      bq.hasSidecar(broot1, Slot(1), uint64(5), BlobIndex(0)) == false
+      bq.hasSidecar(broot1, Slot(1), uint64(5), BlobIndex(1)) == false
+      bq.hasSidecar(broot1, Slot(1), uint64(5), BlobIndex(2)) == false
+      bq.hasSidecar(broot2, Slot(2), uint64(5), BlobIndex(4)) == false
+      bq.hasSidecar(broot3, Slot(3), uint64(5), BlobIndex(5)) == false
+      bq.hasSidecar(broot4, Slot(3), uint64(5), BlobIndex(6)) == false
+      bq.hasSidecar(broot5, Slot(10), uint64(100), BlobIndex(3)) == false
 
     bq.put(broot1, sidecar1)
 
     check:
-      bq.hasSidecar(Slot(1), uint64(5), BlobIndex(0)) == true
-      bq.hasSidecar(Slot(1), uint64(5), BlobIndex(1)) == false
-      bq.hasSidecar(Slot(1), uint64(5), BlobIndex(2)) == false
-      bq.hasSidecar(Slot(2), uint64(6), BlobIndex(4)) == false
-      bq.hasSidecar(Slot(3), uint64(7), BlobIndex(5)) == false
-      bq.hasSidecar(Slot(3), uint64(8), BlobIndex(6)) == false
-      bq.hasSidecar(Slot(10), uint64(100), BlobIndex(3)) == false
+      bq.hasSidecar(broot1, Slot(1), uint64(5), BlobIndex(0)) == true
+      bq.hasSidecar(broot1, Slot(1), uint64(5), BlobIndex(1)) == false
+      bq.hasSidecar(broot1, Slot(1), uint64(5), BlobIndex(2)) == false
+      bq.hasSidecar(broot2, Slot(2), uint64(6), BlobIndex(4)) == false
+      bq.hasSidecar(broot3, Slot(3), uint64(7), BlobIndex(5)) == false
+      bq.hasSidecar(broot4, Slot(3), uint64(8), BlobIndex(6)) == false
+      bq.hasSidecar(broot5, Slot(10), uint64(100), BlobIndex(3)) == false
 
     bq.put(broot1, sidecar2)
 
     check:
-      bq.hasSidecar(Slot(1), uint64(5), BlobIndex(0)) == true
-      bq.hasSidecar(Slot(1), uint64(5), BlobIndex(1)) == true
-      bq.hasSidecar(Slot(1), uint64(5), BlobIndex(2)) == false
-      bq.hasSidecar(Slot(2), uint64(6), BlobIndex(4)) == false
-      bq.hasSidecar(Slot(3), uint64(7), BlobIndex(5)) == false
-      bq.hasSidecar(Slot(3), uint64(8), BlobIndex(6)) == false
-      bq.hasSidecar(Slot(10), uint64(100), BlobIndex(3)) == false
+      bq.hasSidecar(broot1, Slot(1), uint64(5), BlobIndex(0)) == true
+      bq.hasSidecar(broot1, Slot(1), uint64(5), BlobIndex(1)) == true
+      bq.hasSidecar(broot1, Slot(1), uint64(5), BlobIndex(2)) == false
+      bq.hasSidecar(broot2, Slot(2), uint64(6), BlobIndex(4)) == false
+      bq.hasSidecar(broot3, Slot(3), uint64(7), BlobIndex(5)) == false
+      bq.hasSidecar(broot4, Slot(3), uint64(8), BlobIndex(6)) == false
+      bq.hasSidecar(broot5, Slot(10), uint64(100), BlobIndex(3)) == false
 
     bq.put(broot1, sidecar3)
 
     check:
-      bq.hasSidecar(Slot(1), uint64(5), BlobIndex(0)) == true
-      bq.hasSidecar(Slot(1), uint64(5), BlobIndex(1)) == true
-      bq.hasSidecar(Slot(1), uint64(5), BlobIndex(2)) == true
-      bq.hasSidecar(Slot(2), uint64(6), BlobIndex(4)) == false
-      bq.hasSidecar(Slot(3), uint64(7), BlobIndex(5)) == false
-      bq.hasSidecar(Slot(3), uint64(8), BlobIndex(6)) == false
-      bq.hasSidecar(Slot(10), uint64(100), BlobIndex(3)) == false
+      bq.hasSidecar(broot1, Slot(1), uint64(5), BlobIndex(0)) == true
+      bq.hasSidecar(broot1, Slot(1), uint64(5), BlobIndex(1)) == true
+      bq.hasSidecar(broot1, Slot(1), uint64(5), BlobIndex(2)) == true
+      bq.hasSidecar(broot2, Slot(2), uint64(6), BlobIndex(4)) == false
+      bq.hasSidecar(broot3, Slot(3), uint64(7), BlobIndex(5)) == false
+      bq.hasSidecar(broot4, Slot(3), uint64(8), BlobIndex(6)) == false
+      bq.hasSidecar(broot5, Slot(10), uint64(100), BlobIndex(3)) == false
 
     bq.put(broot2, sidecar4)
 
     check:
-      bq.hasSidecar(Slot(1), uint64(5), BlobIndex(0)) == true
-      bq.hasSidecar(Slot(1), uint64(5), BlobIndex(1)) == true
-      bq.hasSidecar(Slot(1), uint64(5), BlobIndex(2)) == true
-      bq.hasSidecar(Slot(2), uint64(6), BlobIndex(4)) == true
-      bq.hasSidecar(Slot(3), uint64(7), BlobIndex(5)) == false
-      bq.hasSidecar(Slot(3), uint64(8), BlobIndex(6)) == false
-      bq.hasSidecar(Slot(10), uint64(100), BlobIndex(3)) == false
+      bq.hasSidecar(broot1, Slot(1), uint64(5), BlobIndex(0)) == true
+      bq.hasSidecar(broot1, Slot(1), uint64(5), BlobIndex(1)) == true
+      bq.hasSidecar(broot1, Slot(1), uint64(5), BlobIndex(2)) == true
+      bq.hasSidecar(broot2, Slot(2), uint64(6), BlobIndex(4)) == true
+      bq.hasSidecar(broot3, Slot(3), uint64(7), BlobIndex(5)) == false
+      bq.hasSidecar(broot4, Slot(3), uint64(8), BlobIndex(6)) == false
+      bq.hasSidecar(broot5, Slot(10), uint64(100), BlobIndex(3)) == false
 
     bq.put(broot3, sidecar5)
 
     check:
-      bq.hasSidecar(Slot(1), uint64(5), BlobIndex(0)) == true
-      bq.hasSidecar(Slot(1), uint64(5), BlobIndex(1)) == true
-      bq.hasSidecar(Slot(1), uint64(5), BlobIndex(2)) == true
-      bq.hasSidecar(Slot(2), uint64(6), BlobIndex(4)) == true
-      bq.hasSidecar(Slot(3), uint64(7), BlobIndex(5)) == true
-      bq.hasSidecar(Slot(3), uint64(8), BlobIndex(6)) == false
-      bq.hasSidecar(Slot(10), uint64(100), BlobIndex(3)) == false
+      bq.hasSidecar(broot1, Slot(1), uint64(5), BlobIndex(0)) == true
+      bq.hasSidecar(broot1, Slot(1), uint64(5), BlobIndex(1)) == true
+      bq.hasSidecar(broot1, Slot(1), uint64(5), BlobIndex(2)) == true
+      bq.hasSidecar(broot2, Slot(2), uint64(6), BlobIndex(4)) == true
+      bq.hasSidecar(broot3, Slot(3), uint64(7), BlobIndex(5)) == true
+      bq.hasSidecar(broot4, Slot(3), uint64(8), BlobIndex(6)) == false
+      bq.hasSidecar(broot5, Slot(10), uint64(100), BlobIndex(3)) == false
 
     bq.put(broot4, sidecar6)
 
     check:
-      bq.hasSidecar(Slot(1), uint64(5), BlobIndex(0)) == true
-      bq.hasSidecar(Slot(1), uint64(5), BlobIndex(1)) == true
-      bq.hasSidecar(Slot(1), uint64(5), BlobIndex(2)) == true
-      bq.hasSidecar(Slot(2), uint64(6), BlobIndex(4)) == true
-      bq.hasSidecar(Slot(3), uint64(7), BlobIndex(5)) == true
-      bq.hasSidecar(Slot(3), uint64(8), BlobIndex(6)) == true
-      bq.hasSidecar(Slot(10), uint64(100), BlobIndex(3)) == false
+      bq.hasSidecar(broot1, Slot(1), uint64(5), BlobIndex(0)) == true
+      bq.hasSidecar(broot1, Slot(1), uint64(5), BlobIndex(1)) == true
+      bq.hasSidecar(broot1, Slot(1), uint64(5), BlobIndex(2)) == true
+      bq.hasSidecar(broot2, Slot(2), uint64(6), BlobIndex(4)) == true
+      bq.hasSidecar(broot3, Slot(3), uint64(7), BlobIndex(5)) == true
+      bq.hasSidecar(broot4, Slot(3), uint64(8), BlobIndex(6)) == true
+      bq.hasSidecar(broot5, Slot(10), uint64(100), BlobIndex(3)) == false
 
-    bq.remove(Slot(3))
-
-    check:
-      bq.hasSidecar(Slot(1), uint64(5), BlobIndex(0)) == true
-      bq.hasSidecar(Slot(1), uint64(5), BlobIndex(1)) == true
-      bq.hasSidecar(Slot(1), uint64(5), BlobIndex(2)) == true
-      bq.hasSidecar(Slot(2), uint64(6), BlobIndex(4)) == true
-      bq.hasSidecar(Slot(3), uint64(7), BlobIndex(5)) == false
-      bq.hasSidecar(Slot(3), uint64(8), BlobIndex(6)) == false
-      bq.hasSidecar(Slot(10), uint64(100), BlobIndex(3)) == false
-
-    bq.remove(Slot(2))
+    bq.remove(broot4)
 
     check:
-      bq.hasSidecar(Slot(1), uint64(5), BlobIndex(0)) == true
-      bq.hasSidecar(Slot(1), uint64(5), BlobIndex(1)) == true
-      bq.hasSidecar(Slot(1), uint64(5), BlobIndex(2)) == true
-      bq.hasSidecar(Slot(2), uint64(6), BlobIndex(4)) == false
-      bq.hasSidecar(Slot(3), uint64(7), BlobIndex(5)) == false
-      bq.hasSidecar(Slot(3), uint64(8), BlobIndex(6)) == false
-      bq.hasSidecar(Slot(10), uint64(100), BlobIndex(3)) == false
+      bq.hasSidecar(broot1, Slot(1), uint64(5), BlobIndex(0)) == true
+      bq.hasSidecar(broot1, Slot(1), uint64(5), BlobIndex(1)) == true
+      bq.hasSidecar(broot1, Slot(1), uint64(5), BlobIndex(2)) == true
+      bq.hasSidecar(broot2, Slot(2), uint64(6), BlobIndex(4)) == true
+      bq.hasSidecar(broot3, Slot(3), uint64(7), BlobIndex(5)) == true
+      bq.hasSidecar(broot4, Slot(3), uint64(8), BlobIndex(6)) == false
+      bq.hasSidecar(broot5, Slot(10), uint64(100), BlobIndex(3)) == false
 
-    bq.remove(Slot(1))
+    bq.remove(broot3)
 
     check:
-      bq.hasSidecar(Slot(1), uint64(5), BlobIndex(0)) == false
-      bq.hasSidecar(Slot(1), uint64(5), BlobIndex(1)) == false
-      bq.hasSidecar(Slot(1), uint64(5), BlobIndex(2)) == false
-      bq.hasSidecar(Slot(2), uint64(6), BlobIndex(4)) == false
-      bq.hasSidecar(Slot(3), uint64(7), BlobIndex(5)) == false
-      bq.hasSidecar(Slot(3), uint64(8), BlobIndex(6)) == false
-      bq.hasSidecar(Slot(10), uint64(100), BlobIndex(3)) == false
+      bq.hasSidecar(broot1, Slot(1), uint64(5), BlobIndex(0)) == true
+      bq.hasSidecar(broot1, Slot(1), uint64(5), BlobIndex(1)) == true
+      bq.hasSidecar(broot1, Slot(1), uint64(5), BlobIndex(2)) == true
+      bq.hasSidecar(broot2, Slot(2), uint64(6), BlobIndex(4)) == true
+      bq.hasSidecar(broot3, Slot(3), uint64(7), BlobIndex(5)) == false
+      bq.hasSidecar(broot4, Slot(3), uint64(8), BlobIndex(6)) == false
+      bq.hasSidecar(broot5, Slot(10), uint64(100), BlobIndex(3)) == false
+
+    bq.remove(broot2)
+
+    check:
+      bq.hasSidecar(broot1, Slot(1), uint64(5), BlobIndex(0)) == true
+      bq.hasSidecar(broot1, Slot(1), uint64(5), BlobIndex(1)) == true
+      bq.hasSidecar(broot1, Slot(1), uint64(5), BlobIndex(2)) == true
+      bq.hasSidecar(broot2, Slot(2), uint64(6), BlobIndex(4)) == false
+      bq.hasSidecar(broot3, Slot(3), uint64(7), BlobIndex(5)) == false
+      bq.hasSidecar(broot4, Slot(3), uint64(8), BlobIndex(6)) == false
+      bq.hasSidecar(broot5, Slot(10), uint64(100), BlobIndex(3)) == false
+
+    bq.remove(broot1)
+
+    check:
+      bq.hasSidecar(broot1, Slot(1), uint64(5), BlobIndex(0)) == false
+      bq.hasSidecar(broot1, Slot(1), uint64(5), BlobIndex(1)) == false
+      bq.hasSidecar(broot1, Slot(1), uint64(5), BlobIndex(2)) == false
+      bq.hasSidecar(broot2, Slot(2), uint64(6), BlobIndex(4)) == false
+      bq.hasSidecar(broot3, Slot(3), uint64(7), BlobIndex(5)) == false
+      bq.hasSidecar(broot4, Slot(3), uint64(8), BlobIndex(6)) == false
+      bq.hasSidecar(broot5, Slot(10), uint64(100), BlobIndex(3)) == false
       len(bq) == 0
 
   test "put(sidecar)/put([sidecars])/hasSidecars/popSidecars/remove() test":
@@ -330,7 +342,8 @@ suite "BlobQuarantine data structure test suite " & preset():
       eres.isOk()
       compareSidecars(eres.get(), sidecars2) == true
 
-    bq.remove(Slot(1))
+    bq.remove(broot1)
+    bq.remove(broot2)
     check:
       len(bq) == 0
 
@@ -375,7 +388,8 @@ suite "BlobQuarantine data structure test suite " & preset():
       bq.put(broot1, sidecars1[i])
       bq.put(broot2, sidecars2[i])
 
-    bq.remove(Slot(1))
+    bq.remove(broot1)
+    bq.remove(broot2)
     check len(bq) == 0
 
   test "popSidecars()/hasSidecars() return []/true on block without blobs":
@@ -413,8 +427,9 @@ suite "BlobQuarantine data structure test suite " & preset():
       len(res4.get()) == 0
 
   test "overfill protection test":
-    var bq = BlobQuarantine.init(cfg, nil)
-    var sidecars: seq[tuple[sidecar: ref BlobSidecar, blockRoot: Eth2Digest]]
+    var
+      bq = BlobQuarantine.init(cfg, nil)
+      sidecars: seq[tuple[sidecar: ref BlobSidecar, blockRoot: Eth2Digest]]
 
     let maxSidecars = int(cfg.MAX_BLOBS_PER_BLOCK_ELECTRA * SLOTS_PER_EPOCH) * 3
     for i in 0 ..< maxSidecars:
@@ -435,6 +450,9 @@ suite "BlobQuarantine data structure test suite " & preset():
     for i in 0 ..< int(cfg.MAX_BLOBS_PER_BLOCK_ELECTRA):
       check:
         bq.hasSidecar(
+          blockRoot =
+            genBlockRoot(
+              int(sidecars[i].sidecar[].signed_block_header.message.slot)),
           slot =
             sidecars[i].sidecar[].signed_block_header.message.slot,
           proposer_index =
@@ -447,17 +465,20 @@ suite "BlobQuarantine data structure test suite " & preset():
                                         proposer_index = 1000000))
       blockRoot = genBlockRoot(10000)
     check:
-      bq.hasSidecar(slot = Slot(10000), proposer_index = 1000000'u64,
-                    index = BlobIndex(0)) == false
+      bq.hasSidecar(blockRoot = blockRoot, slot = Slot(10000),
+                    proposer_index = 1000000'u64, index = BlobIndex(0)) == false
     bq.put(blockRoot, sidecar)
     check:
       len(bq) == (len(sidecars) - int(cfg.MAX_BLOBS_PER_BLOCK_ELECTRA) + 1)
-      bq.hasSidecar(slot = Slot(10000), proposer_index = 1000000'u64,
-                    index = BlobIndex(0)) == true
+      bq.hasSidecar(blockRoot = blockRoot, slot = Slot(10000),
+                    proposer_index = 1000000'u64, index = BlobIndex(0)) == true
 
     for i in 0 ..< int(cfg.MAX_BLOBS_PER_BLOCK_ELECTRA):
       check:
         bq.hasSidecar(
+          blockRoot =
+            genBlockRoot(
+              int(sidecars[i].sidecar[].signed_block_header.message.slot)),
           slot =
             sidecars[i].sidecar[].signed_block_header.message.slot,
           proposer_index =
@@ -486,7 +507,8 @@ suite "BlobQuarantine data structure test suite " & preset():
 
     for s in msidecars:
       check:
-        bq.hasSidecar(s.signed_block_header.message.slot,
+        bq.hasSidecar(mBlockRoot,
+                      s.signed_block_header.message.slot,
                       s.signed_block_header.message.proposer_index,
                       s.index) == false
 
@@ -495,7 +517,8 @@ suite "BlobQuarantine data structure test suite " & preset():
 
     for s in msidecars:
       check:
-        bq.hasSidecar(s.signed_block_header.message.slot,
+        bq.hasSidecar(mBlockRoot,
+                      s.signed_block_header.message.slot,
                       s.signed_block_header.message.proposer_index,
                       s.index) == true
 
@@ -503,6 +526,9 @@ suite "BlobQuarantine data structure test suite " & preset():
       let j = int(cfg.MAX_BLOBS_PER_BLOCK_ELECTRA) + i
       check:
         bq.hasSidecar(
+          blockRoot =
+            genBlockRoot(
+              int(sidecars[j].sidecar[].signed_block_header.message.slot)),
           slot =
             sidecars[j].sidecar[].signed_block_header.message.slot,
           proposer_index =
@@ -597,6 +623,7 @@ suite "ColumnQuarantine data structure test suite " & preset():
       broot2 = genBlockRoot(2)
       broot3 = genBlockRoot(3)
       broot4 = genBlockRoot(4)
+      broot5 = genBlockRoot(5)
       sidecar1 =
         newClone(genDataColumnSidecar(
           index = 0, slot = 1, proposer_index = 5))
@@ -617,112 +644,123 @@ suite "ColumnQuarantine data structure test suite " & preset():
           index = 31, slot = 3, proposer_index = 8))
 
     check:
-      bq.hasSidecar(Slot(1), uint64(5), ColumnIndex(0)) == false
-      bq.hasSidecar(Slot(1), uint64(5), ColumnIndex(31)) == false
-      bq.hasSidecar(Slot(1), uint64(5), ColumnIndex(32)) == false
-      bq.hasSidecar(Slot(2), uint64(5), ColumnIndex(127)) == false
-      bq.hasSidecar(Slot(3), uint64(5), ColumnIndex(0)) == false
-      bq.hasSidecar(Slot(3), uint64(5), ColumnIndex(31)) == false
-      bq.hasSidecar(Slot(10), uint64(100), ColumnIndex(3)) == false
+      bq.hasSidecar(broot1, Slot(1), uint64(5), ColumnIndex(0)) == false
+      bq.hasSidecar(broot1, Slot(1), uint64(5), ColumnIndex(31)) == false
+      bq.hasSidecar(broot1, Slot(1), uint64(5), ColumnIndex(32)) == false
+      bq.hasSidecar(broot2, Slot(2), uint64(5), ColumnIndex(127)) == false
+      bq.hasSidecar(broot3, Slot(3), uint64(5), ColumnIndex(0)) == false
+      bq.hasSidecar(broot4, Slot(3), uint64(5), ColumnIndex(31)) == false
+      bq.hasSidecar(broot5, Slot(10), uint64(100), ColumnIndex(3)) == false
 
     bq.put(broot1, sidecar1)
 
     check:
-      bq.hasSidecar(Slot(1), uint64(5), ColumnIndex(0)) == true
-      bq.hasSidecar(Slot(1), uint64(5), ColumnIndex(31)) == false
-      bq.hasSidecar(Slot(1), uint64(5), ColumnIndex(32)) == false
-      bq.hasSidecar(Slot(2), uint64(6), ColumnIndex(127)) == false
-      bq.hasSidecar(Slot(3), uint64(7), ColumnIndex(0)) == false
-      bq.hasSidecar(Slot(3), uint64(8), ColumnIndex(31)) == false
-      bq.hasSidecar(Slot(10), uint64(100), ColumnIndex(3)) == false
+      bq.hasSidecar(broot1, Slot(1), uint64(5), ColumnIndex(0)) == true
+      bq.hasSidecar(broot1, Slot(1), uint64(5), ColumnIndex(31)) == false
+      bq.hasSidecar(broot1, Slot(1), uint64(5), ColumnIndex(32)) == false
+      bq.hasSidecar(broot2, Slot(2), uint64(6), ColumnIndex(127)) == false
+      bq.hasSidecar(broot3, Slot(3), uint64(7), ColumnIndex(0)) == false
+      bq.hasSidecar(broot4, Slot(3), uint64(8), ColumnIndex(31)) == false
+      bq.hasSidecar(broot5, Slot(10), uint64(100), ColumnIndex(3)) == false
 
     bq.put(broot1, sidecar2)
 
     check:
-      bq.hasSidecar(Slot(1), uint64(5), ColumnIndex(0)) == true
-      bq.hasSidecar(Slot(1), uint64(5), ColumnIndex(31)) == true
-      bq.hasSidecar(Slot(1), uint64(5), ColumnIndex(32)) == false
-      bq.hasSidecar(Slot(2), uint64(6), ColumnIndex(127)) == false
-      bq.hasSidecar(Slot(3), uint64(7), ColumnIndex(0)) == false
-      bq.hasSidecar(Slot(3), uint64(8), ColumnIndex(31)) == false
-      bq.hasSidecar(Slot(10), uint64(100), ColumnIndex(3)) == false
+      bq.hasSidecar(broot1, Slot(1), uint64(5), ColumnIndex(0)) == true
+      bq.hasSidecar(broot1, Slot(1), uint64(5), ColumnIndex(31)) == true
+      bq.hasSidecar(broot1, Slot(1), uint64(5), ColumnIndex(32)) == false
+      bq.hasSidecar(broot2, Slot(2), uint64(6), ColumnIndex(127)) == false
+      bq.hasSidecar(broot3, Slot(3), uint64(7), ColumnIndex(0)) == false
+      bq.hasSidecar(broot4, Slot(3), uint64(8), ColumnIndex(31)) == false
+      bq.hasSidecar(broot5, Slot(10), uint64(100), ColumnIndex(3)) == false
 
     bq.put(broot1, sidecar3)
 
     check:
-      bq.hasSidecar(Slot(1), uint64(5), ColumnIndex(0)) == true
-      bq.hasSidecar(Slot(1), uint64(5), ColumnIndex(31)) == true
-      bq.hasSidecar(Slot(1), uint64(5), ColumnIndex(32)) == true
-      bq.hasSidecar(Slot(2), uint64(6), ColumnIndex(127)) == false
-      bq.hasSidecar(Slot(3), uint64(7), ColumnIndex(0)) == false
-      bq.hasSidecar(Slot(3), uint64(8), ColumnIndex(31)) == false
-      bq.hasSidecar(Slot(10), uint64(100), ColumnIndex(3)) == false
+      bq.hasSidecar(broot1, Slot(1), uint64(5), ColumnIndex(0)) == true
+      bq.hasSidecar(broot1, Slot(1), uint64(5), ColumnIndex(31)) == true
+      bq.hasSidecar(broot1, Slot(1), uint64(5), ColumnIndex(32)) == true
+      bq.hasSidecar(broot2, Slot(2), uint64(6), ColumnIndex(127)) == false
+      bq.hasSidecar(broot3, Slot(3), uint64(7), ColumnIndex(0)) == false
+      bq.hasSidecar(broot4, Slot(3), uint64(8), ColumnIndex(31)) == false
+      bq.hasSidecar(broot5, Slot(10), uint64(100), ColumnIndex(3)) == false
 
     bq.put(broot2, sidecar4)
 
     check:
-      bq.hasSidecar(Slot(1), uint64(5), ColumnIndex(0)) == true
-      bq.hasSidecar(Slot(1), uint64(5), ColumnIndex(31)) == true
-      bq.hasSidecar(Slot(1), uint64(5), ColumnIndex(32)) == true
-      bq.hasSidecar(Slot(2), uint64(6), ColumnIndex(127)) == true
-      bq.hasSidecar(Slot(3), uint64(7), ColumnIndex(0)) == false
-      bq.hasSidecar(Slot(3), uint64(8), ColumnIndex(31)) == false
-      bq.hasSidecar(Slot(10), uint64(100), ColumnIndex(3)) == false
+      bq.hasSidecar(broot1, Slot(1), uint64(5), ColumnIndex(0)) == true
+      bq.hasSidecar(broot1, Slot(1), uint64(5), ColumnIndex(31)) == true
+      bq.hasSidecar(broot1, Slot(1), uint64(5), ColumnIndex(32)) == true
+      bq.hasSidecar(broot2, Slot(2), uint64(6), ColumnIndex(127)) == true
+      bq.hasSidecar(broot3, Slot(3), uint64(7), ColumnIndex(0)) == false
+      bq.hasSidecar(broot4, Slot(3), uint64(8), ColumnIndex(31)) == false
+      bq.hasSidecar(broot5, Slot(10), uint64(100), ColumnIndex(3)) == false
 
     bq.put(broot3, sidecar5)
 
     check:
-      bq.hasSidecar(Slot(1), uint64(5), ColumnIndex(0)) == true
-      bq.hasSidecar(Slot(1), uint64(5), ColumnIndex(31)) == true
-      bq.hasSidecar(Slot(1), uint64(5), ColumnIndex(32)) == true
-      bq.hasSidecar(Slot(2), uint64(6), ColumnIndex(127)) == true
-      bq.hasSidecar(Slot(3), uint64(7), ColumnIndex(0)) == true
-      bq.hasSidecar(Slot(3), uint64(8), ColumnIndex(31)) == false
-      bq.hasSidecar(Slot(10), uint64(100), ColumnIndex(3)) == false
+      bq.hasSidecar(broot1, Slot(1), uint64(5), ColumnIndex(0)) == true
+      bq.hasSidecar(broot1, Slot(1), uint64(5), ColumnIndex(31)) == true
+      bq.hasSidecar(broot1, Slot(1), uint64(5), ColumnIndex(32)) == true
+      bq.hasSidecar(broot2, Slot(2), uint64(6), ColumnIndex(127)) == true
+      bq.hasSidecar(broot3, Slot(3), uint64(7), ColumnIndex(0)) == true
+      bq.hasSidecar(broot4, Slot(3), uint64(8), ColumnIndex(31)) == false
+      bq.hasSidecar(broot5, Slot(10), uint64(100), ColumnIndex(3)) == false
 
     bq.put(broot4, sidecar6)
 
     check:
-      bq.hasSidecar(Slot(1), uint64(5), ColumnIndex(0)) == true
-      bq.hasSidecar(Slot(1), uint64(5), ColumnIndex(31)) == true
-      bq.hasSidecar(Slot(1), uint64(5), ColumnIndex(32)) == true
-      bq.hasSidecar(Slot(2), uint64(6), ColumnIndex(127)) == true
-      bq.hasSidecar(Slot(3), uint64(7), ColumnIndex(0)) == true
-      bq.hasSidecar(Slot(3), uint64(8), ColumnIndex(31)) == true
-      bq.hasSidecar(Slot(10), uint64(100), ColumnIndex(3)) == false
+      bq.hasSidecar(broot1, Slot(1), uint64(5), ColumnIndex(0)) == true
+      bq.hasSidecar(broot1, Slot(1), uint64(5), ColumnIndex(31)) == true
+      bq.hasSidecar(broot1, Slot(1), uint64(5), ColumnIndex(32)) == true
+      bq.hasSidecar(broot2, Slot(2), uint64(6), ColumnIndex(127)) == true
+      bq.hasSidecar(broot3, Slot(3), uint64(7), ColumnIndex(0)) == true
+      bq.hasSidecar(broot4, Slot(3), uint64(8), ColumnIndex(31)) == true
+      bq.hasSidecar(broot5, Slot(10), uint64(100), ColumnIndex(3)) == false
 
-    bq.remove(Slot(3))
-
-    check:
-      bq.hasSidecar(Slot(1), uint64(5), ColumnIndex(0)) == true
-      bq.hasSidecar(Slot(1), uint64(5), ColumnIndex(31)) == true
-      bq.hasSidecar(Slot(1), uint64(5), ColumnIndex(32)) == true
-      bq.hasSidecar(Slot(2), uint64(6), ColumnIndex(127)) == true
-      bq.hasSidecar(Slot(3), uint64(7), ColumnIndex(0)) == false
-      bq.hasSidecar(Slot(3), uint64(8), ColumnIndex(31)) == false
-      bq.hasSidecar(Slot(10), uint64(100), ColumnIndex(3)) == false
-
-    bq.remove(Slot(2))
+    bq.remove(broot4)
 
     check:
-      bq.hasSidecar(Slot(1), uint64(5), ColumnIndex(0)) == true
-      bq.hasSidecar(Slot(1), uint64(5), ColumnIndex(31)) == true
-      bq.hasSidecar(Slot(1), uint64(5), ColumnIndex(32)) == true
-      bq.hasSidecar(Slot(2), uint64(6), ColumnIndex(127)) == false
-      bq.hasSidecar(Slot(3), uint64(7), ColumnIndex(0)) == false
-      bq.hasSidecar(Slot(3), uint64(8), ColumnIndex(31)) == false
-      bq.hasSidecar(Slot(10), uint64(100), ColumnIndex(3)) == false
+      bq.hasSidecar(broot1, Slot(1), uint64(5), ColumnIndex(0)) == true
+      bq.hasSidecar(broot1, Slot(1), uint64(5), ColumnIndex(31)) == true
+      bq.hasSidecar(broot1, Slot(1), uint64(5), ColumnIndex(32)) == true
+      bq.hasSidecar(broot2, Slot(2), uint64(6), ColumnIndex(127)) == true
+      bq.hasSidecar(broot3, Slot(3), uint64(7), ColumnIndex(0)) == true
+      bq.hasSidecar(broot4, Slot(3), uint64(8), ColumnIndex(31)) == false
+      bq.hasSidecar(broot5, Slot(10), uint64(100), ColumnIndex(3)) == false
 
-    bq.remove(Slot(1))
+    bq.remove(broot3)
 
     check:
-      bq.hasSidecar(Slot(1), uint64(5), ColumnIndex(0)) == false
-      bq.hasSidecar(Slot(1), uint64(5), ColumnIndex(31)) == false
-      bq.hasSidecar(Slot(1), uint64(5), ColumnIndex(32)) == false
-      bq.hasSidecar(Slot(2), uint64(6), ColumnIndex(127)) == false
-      bq.hasSidecar(Slot(3), uint64(7), ColumnIndex(0)) == false
-      bq.hasSidecar(Slot(3), uint64(8), ColumnIndex(31)) == false
-      bq.hasSidecar(Slot(10), uint64(100), ColumnIndex(3)) == false
+      bq.hasSidecar(broot1, Slot(1), uint64(5), ColumnIndex(0)) == true
+      bq.hasSidecar(broot1, Slot(1), uint64(5), ColumnIndex(31)) == true
+      bq.hasSidecar(broot1, Slot(1), uint64(5), ColumnIndex(32)) == true
+      bq.hasSidecar(broot2, Slot(2), uint64(6), ColumnIndex(127)) == true
+      bq.hasSidecar(broot3, Slot(3), uint64(7), ColumnIndex(0)) == false
+      bq.hasSidecar(broot4, Slot(3), uint64(8), ColumnIndex(31)) == false
+      bq.hasSidecar(broot5, Slot(10), uint64(100), ColumnIndex(3)) == false
+
+    bq.remove(broot2)
+
+    check:
+      bq.hasSidecar(broot1, Slot(1), uint64(5), ColumnIndex(0)) == true
+      bq.hasSidecar(broot1, Slot(1), uint64(5), ColumnIndex(31)) == true
+      bq.hasSidecar(broot1, Slot(1), uint64(5), ColumnIndex(32)) == true
+      bq.hasSidecar(broot2, Slot(2), uint64(6), ColumnIndex(127)) == false
+      bq.hasSidecar(broot3, Slot(3), uint64(7), ColumnIndex(0)) == false
+      bq.hasSidecar(broot4, Slot(3), uint64(8), ColumnIndex(31)) == false
+      bq.hasSidecar(broot5, Slot(10), uint64(100), ColumnIndex(3)) == false
+
+    bq.remove(broot1)
+
+    check:
+      bq.hasSidecar(broot1, Slot(1), uint64(5), ColumnIndex(0)) == false
+      bq.hasSidecar(broot1, Slot(1), uint64(5), ColumnIndex(31)) == false
+      bq.hasSidecar(broot1, Slot(1), uint64(5), ColumnIndex(32)) == false
+      bq.hasSidecar(broot2, Slot(2), uint64(6), ColumnIndex(127)) == false
+      bq.hasSidecar(broot3, Slot(3), uint64(7), ColumnIndex(0)) == false
+      bq.hasSidecar(broot4, Slot(3), uint64(8), ColumnIndex(31)) == false
+      bq.hasSidecar(broot5, Slot(10), uint64(100), ColumnIndex(3)) == false
       len(bq) == 0
 
   test "put(sidecar)/put([sidecars])/hasSidecars/popSidecars/remove() [node] test":
@@ -800,7 +838,8 @@ suite "ColumnQuarantine data structure test suite " & preset():
       eres.isOk()
       compareSidecars(eres.get(), sidecars2) == true
 
-    bq.remove(Slot(1))
+    bq.remove(broot1)
+    bq.remove(broot2)
     check len(bq) == 0
 
   test "put(sidecar)/put([sidecars])/hasSidecars/popSidecars/remove() [supernode] test":
@@ -877,7 +916,8 @@ suite "ColumnQuarantine data structure test suite " & preset():
       eres.isOk()
       compareSidecars(eres.get(), sidecars2) == true
 
-    bq.remove(Slot(1))
+    bq.remove(broot1)
+    bq.remove(broot2)
     check len(bq) == 0
 
   test "put()/fetchMissingSidecars/remove test [node]":
@@ -976,8 +1016,8 @@ suite "ColumnQuarantine data structure test suite " & preset():
       bq.put(broot1, sidecars1[i])
       bq.put(broot2, sidecars2[i])
 
-    bq.remove(Slot(1))
-    bq.remove(Slot(2))
+    bq.remove(broot1)
+    bq.remove(broot2)
     check len(bq) == 0
 
   test "put()/fetchMissingSidecars/remove test [supernode]":
@@ -1065,8 +1105,8 @@ suite "ColumnQuarantine data structure test suite " & preset():
       bq.put(broot1, sidecars1[i])
       bq.put(broot2, sidecars2[i])
 
-    bq.remove(Slot(1))
-    bq.remove(Slot(2))
+    bq.remove(broot1)
+    bq.remove(broot2)
     check len(bq) == 0
 
   test "popSidecars()/hasSidecars() return []/true on block without columns":
@@ -1132,6 +1172,9 @@ suite "ColumnQuarantine data structure test suite " & preset():
     for i in 0 ..< len(custodyColumns):
       check:
         bq.hasSidecar(
+          blockRoot =
+            genBlockRoot(
+              int(sidecars[i].sidecar[].signed_block_header.message.slot)),
           slot =
             sidecars[i].sidecar[].signed_block_header.message.slot,
           proposer_index =
@@ -1145,17 +1188,22 @@ suite "ColumnQuarantine data structure test suite " & preset():
                              slot = 10000, proposer_index = 1000000))
       blockRoot = genBlockRoot(10000)
     check:
-      bq.hasSidecar(slot = Slot(10000), proposer_index = 1000000'u64,
+      bq.hasSidecar(blockRoot = blockRoot, slot = Slot(10000),
+                    proposer_index = 1000000'u64,
                     index = custodyColumns[0]) == false
     bq.put(blockRoot, sidecar)
     check:
       len(bq) == (len(sidecars) - len(custodyColumns) + 1)
-      bq.hasSidecar(slot = Slot(10000), proposer_index = 1000000'u64,
+      bq.hasSidecar(blockRoot = blockRoot, slot = Slot(10000),
+                    proposer_index = 1000000'u64,
                     index = custodyColumns[0]) == true
 
     for i in 0 ..< len(custodyColumns):
       check:
         bq.hasSidecar(
+          blockRoot =
+            genBlockRoot(
+              int(sidecars[i].sidecar[].signed_block_header.message.slot)),
           slot =
             sidecars[i].sidecar[].signed_block_header.message.slot,
           proposer_index =
@@ -1185,7 +1233,8 @@ suite "ColumnQuarantine data structure test suite " & preset():
 
     for s in msidecars:
       check:
-        bq.hasSidecar(s.signed_block_header.message.slot,
+        bq.hasSidecar(mblockRoot,
+                      s.signed_block_header.message.slot,
                       s.signed_block_header.message.proposer_index,
                       s.index) == false
 
@@ -1194,7 +1243,8 @@ suite "ColumnQuarantine data structure test suite " & preset():
 
     for s in msidecars:
       check:
-        bq.hasSidecar(s.signed_block_header.message.slot,
+        bq.hasSidecar(mblockRoot,
+                      s.signed_block_header.message.slot,
                       s.signed_block_header.message.proposer_index,
                       s.index) == true
 
@@ -1202,6 +1252,9 @@ suite "ColumnQuarantine data structure test suite " & preset():
       let j = len(custodyColumns) + i
       check:
         bq.hasSidecar(
+          blockRoot =
+            genBlockRoot(
+              int(sidecars[j].sidecar[].signed_block_header.message.slot)),
           slot =
             sidecars[j].sidecar[].signed_block_header.message.slot,
           proposer_index =

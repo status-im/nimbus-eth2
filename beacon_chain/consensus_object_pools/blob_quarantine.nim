@@ -30,12 +30,6 @@ type
     sidecars: seq[ref A]
     count: int
 
-  SlotRecord[A] = object
-    blockRoot: Eth2Digest
-    sidecar: ref A
-
-  SlotTableRecord[A] = seq[seq[SlotRecord[A]]]
-
   SidecarQuarantine[A, B] = object
     maxSidecarsCount: int
     maxSidecarsPerBlockCount: int
@@ -43,7 +37,6 @@ type
     custodyColumns: seq[ColumnIndex]
     custodyMap: ColumnMap
     roots: Table[Eth2Digest, RootTableRecord[A]]
-    slots: Table[Slot, SlotTableRecord[A]]
     usage: OrderedSet[Eth2Digest]
     indexMap: seq[int]
     onSidecarCallback*: B
@@ -99,12 +92,6 @@ func init[A, B](
   RootTableRecord[A](
     sidecars: newSeq[ref A](q.maxSidecarsPerBlockCount), count: 0)
 
-func init[A, B](
-  t: typedesc[SlotTableRecord],
-  q: SidecarQuarantine[A, B]
-): SlotTableRecord[A] =
-  newSeq[seq[SlotRecord[A]]](q.maxSidecarsPerBlockCount)
-
 func len*[A, B](quarantine: SidecarQuarantine[A, B]): int =
   quarantine.sidecarsCount
 
@@ -113,63 +100,20 @@ func `$`*[A](r: RootTableRecord[A]): string =
     return "<empty>"
   r.sidecars.mapIt(if isNil(it): "." else: "x").join("")
 
-func del[A](records: var seq[SlotRecord[A]], blockRoot: Eth2Digest) =
-  for index in 0 ..< len(records):
-    if records[index].blockRoot == blockRoot:
-      records.del(index)
-      return
-
-func removeRootsInSlot[A, B](
-    quarantine: var SidecarQuarantine[A, B],
-    slot: Slot,
-    indices: openArray[int],
-    blockRoot: Eth2Digest
-) =
-  quarantine.slots.withValue(slot, records):
-    for index in indices:
-      if index < len(records[]):
-        records[][index].del(blockRoot)
-
 func removeRoot[A, B](
     quarantine: var SidecarQuarantine[A, B],
-    blockRoot: Eth2Digest,
-    cleanSlot: bool,
+    blockRoot: Eth2Digest
 ) =
   var
-    slot = FAR_FUTURE_SLOT
-    indices: seq[int]
     rootRecord: RootTableRecord[A]
 
   if quarantine.roots.pop(blockRoot, rootRecord):
     for index in 0 ..< len(rootRecord.sidecars):
       if not(rootRecord.sidecars[index].isNil()):
-        slot = rootRecord.sidecars[index].signed_block_header.message.slot
         rootRecord.sidecars[index] = nil
-        if cleanSlot:
-          indices.add(index)
         dec(quarantine.sidecarsCount)
 
-  if cleanSlot and slot != FAR_FUTURE_SLOT:
-    quarantine.removeRootsInSlot(slot, indices, blockRoot)
-
   quarantine.usage.excl(blockRoot)
-
-func remove*[A, B](
-    quarantine: var SidecarQuarantine[A, B],
-    slot: Slot
-) =
-  ## Remove all the data columns or blobs related to the slot ``slot`` from the
-  ## quarantine ``quarantine``.
-  ##
-  ## Function do nothing, if ``slot`` is not part of quarantine.
-  var slotRecords: SlotTableRecord[A]
-
-  if quarantine.slots.pop(slot, slotRecords):
-    for recordsList in slotRecords.mitems():
-      for record in recordsList.mitems():
-        record.sidecar = nil
-        quarantine.removeRoot(record.blockRoot, false)
-    slotRecords.reset()
 
 func remove*[A, B](
     quarantine: var SidecarQuarantine[A, B],
@@ -179,7 +123,7 @@ func remove*[A, B](
   ## from the quarantine ``quarantine``.
   ##
   ## Function do nothing, if ``blockRoot` is not part of the quarantine.
-  quarantine.removeRoot(blockRoot, true)
+  quarantine.removeRoot(blockRoot)
 
 func pruneRoot[A, B](quarantine: var SidecarQuarantine[A, B]) =
   # Remove the all the blobs related to the oldest block root from the
@@ -219,18 +163,6 @@ func put[A, B](record: var RootTableRecord[A], q: SidecarQuarantine[A, B],
     record.sidecars[index] = sidecar
     inc(record.count)
 
-func put[A, B](record: var SlotTableRecord[A], q: SidecarQuarantine[A, B],
-               blockRoot: Eth2Digest, sidecars: openArray[ref A]) =
-  for sidecar in sidecars:
-    # Sidecar should pass validation before being added to quarantine,
-    # so we assume that
-    # 1. sidecar.index is < MAX_BLOBS_PER_BLOCK for `deneb` and.
-    # 2. sidecar.index is < MAX_BLOBS_PER_BLOCK_ELECTRA for `electra`.
-    # 3. sidecar.index is in custody columns set for `fulu`.
-    let index = q.getIndex(sidecar.index)
-    doAssert(index >= 0, "Incorrect sidecar index [" & $sidecar.index & "]")
-    record[index].add(SlotRecord[A](block_root: blockRoot, sidecar: sidecar))
-
 func put*[A, B](
     quarantine: var SidecarQuarantine[A, B],
     blockRoot: Eth2Digest,
@@ -249,13 +181,9 @@ func put*[A, B](
     # used.
     quarantine.pruneRoot()
 
-  let
-    rootRecord = RootTableRecord.init(quarantine)
-    slotRecord = SlotTableRecord.init(quarantine)
+  let rootRecord = RootTableRecord.init(quarantine)
   quarantine.roots.mgetOrPut(blockRoot, rootRecord).put(
     quarantine, [sidecar])
-  quarantine.slots.mgetOrPut(sidecar[].slot(), slotRecord).put(
-    quarantine, blockRoot, [sidecar])
   discard quarantine.usage.containsOrIncl(blockRoot)
   inc(quarantine.sidecarsCount)
 
@@ -285,46 +213,50 @@ func put*[A, B](
       # All the blobs related to single block we could get `slot` once.
       sidecars[0][].slot()
     rootRecord = RootTableRecord.init(quarantine)
-    slotRecord = SlotTableRecord.init(quarantine)
 
   quarantine.roots.mgetOrPut(blockRoot, rootRecord).put(
     quarantine, sidecars)
-  quarantine.slots.mgetOrPut(slot, slotRecord).put(
-      quarantine, blockRoot, sidecars)
   discard quarantine.usage.containsOrIncl(blockRoot)
   inc(quarantine.sidecarsCount, len(sidecars))
 
-template hasSidecarImpl(slot: Slot, proposerIndex: uint64,
-                        sidecarIndex: typed): bool =
-  let
-    slotRecord = quarantine.slots.getOrDefault(slot)
-    sindex = quarantine.getIndex(sidecarIndex)
-  if (sindex == -1) or (sindex >= len(slotRecord)):
+template hasSidecarImpl(
+    blockRoot: Eth2Digest,
+    slot: Slot,
+    proposerIndex: uint64,
+    sidecarIndex: typed
+): bool =
+  let rootRecord = quarantine.roots.getOrDefault(blockRoot)
+  if rootRecord.count == 0:
     return false
-  for record in slotRecord[sindex]:
-    if record.sidecar[].proposer_index() == proposerIndex:
-      return true
-  false
+  let index = quarantine.getIndex(index)
+  if (index == -1) or (isNil(rootRecord.sidecars[index])):
+    return false
+  if (rootRecord.sidecars[index][].proposer_index() != proposer_index) or
+     (rootRecord.sidecars[index][].slot() != slot):
+    return false
+  true
 
 func hasSidecar*(
     quarantine: BlobQuarantine,
+    blockRoot: Eth2Digest,
     slot: Slot,
     proposer_index: uint64,
     index: BlobIndex,
 ): bool =
   ## Function returns ``true``if quarantine has blob corresponding to specific
-  ## ``index``, ``slot`` and ``proposer_index``.
-  hasSidecarImpl(slot, proposer_index, index)
+  ## ``block root``, ``index``, ``slot`` and ``proposer_index``.
+  hasSidecarImpl(blockRoot, slot, proposer_index, index)
 
 func hasSidecar*(
     quarantine: ColumnQuarantine,
+    blockRoot: Eth2Digest,
     slot: Slot,
     proposer_index: uint64,
     index: ColumnIndex
 ): bool =
   ## Function returns ``true``if quarantine has column corresponding to specific
   ## ``index``, ``slot`` and ``proposer_index``.
-  hasSidecarImpl(slot, proposer_index, index)
+  hasSidecarImpl(blockRoot, slot, proposer_index, index)
 
 func hasSidecars*(
     quarantine: BlobQuarantine,
@@ -423,7 +355,6 @@ func popSidecars*(
     doAssert(not(isNil(record.sidecars[index])),
       "Record should not store nil values when record's count is correct")
     sidecars.add(record.sidecars[index])
-  quarantine.remove(blck.message.slot)
   Opt.some(sidecars)
 
 func popSidecars*(
@@ -466,7 +397,6 @@ func popSidecars*(
         sidecars.add(sidecar)
     doAssert(len(sidecars) >= (NUMBER_OF_COLUMNS div 2 + 1),
              "Incorrect amount of sidecars in record")
-    quarantine.remove(blck.message.slot)
     Opt.some(sidecars)
   else:
     for cindex in quarantine.custodyColumns:
@@ -474,7 +404,6 @@ func popSidecars*(
       doAssert(not(isNil(record.sidecars[index])),
         "Record should not store nil values when record's count is correct")
       sidecars.add(record.sidecars[index])
-    quarantine.remove(blck.message.slot)
     Opt.some(sidecars)
 
 func popSidecars*(

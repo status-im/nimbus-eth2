@@ -424,7 +424,7 @@ proc validateBlobSidecar*(
   if dag.getBlockRef(block_root).isSome():
     return errIgnore("BlobSidecar: already have block")
 
-  # This adds KZG commitment matching to the spec gossip validation. It's an
+  # This adds block root matching to the spec gossip validation. It's an
   # IGNORE condition, so it shouldn't affect Nimbus's scoring, and when some
   # (slashable) double proposals happen with blobs present, without this one
   # or the other block, or potentially both, won't get its full set of blobs
@@ -434,7 +434,50 @@ proc validateBlobSidecar*(
   #
   # It would be good to fix this more properly, but this has come up often on
   # Pectra devnet-6.
-  if blobQuarantine[].hasSidecar(block_header.slot, block_header.proposer_index,
+  #
+  # Detailed explanation:
+  #
+  # There were regular double-proposer, slashable events (some of which got
+  # slashed, but that takes at least a couple of slots typically to be noticed,
+  # it's not instant). What would happen is, Nimbus would be going fine,
+  # following the chain, until one of these double proposals came up.
+  # Each had, independently, some set of blobs:
+  #
+  # * separately valid block 1, with a set of valid blobs; and
+  # * separately valid block 2, with a set of valid blobs (different than the
+  #   first set, created by a different node).
+  #
+  # Both of these proposals shared a slot and proposer index, because they were
+  # the same proposer. Indeed, the signatures were all valid too, because, well,
+  # they were both legitimately running that private key.
+  #
+  # But what would happen is,
+  #   * if block 1's blobs came in, and block 1 came in, and block 1 turned out
+  #     to be the one the chain followed, then, great, the IGNORE condition here
+  #     worked fine (WLOG extend to block 2); but
+  #   * if the blobs came in interleaved, this wasn't always true, and,
+  #     crucially, this gossip condition as spec-written prevented Nimbus's
+  #     gossip from being able to collect all the blobs from block 1.
+  #
+  # Maybe other clients did/do this by having a very efficient
+  # request manager-equivalent, I'm not sure. But without something, either
+  # receiving via gossip or req/resp, Nimbus just got stuck until a suitable
+  # reorg happened, typically dozens of slots later, because this gossip
+  # condition prevented it from seeing all the blobs corresponding to either
+  # block.
+  #
+  # Also, it would be basically random chance which, if asked by req/resp,
+  # of the two different (or more, but the devnet-6 case was two slashable
+  # blocks at a time) sets of blobs would be returned, so it seemed to
+  # sometimes have to retry this. All of this took enough time Nimbus lost the
+  # chain basically deterministically every time this slashable double-proposal
+  # situation came up.
+  #
+  # I don't see anything obviously corresponding to this in the tests, either,
+  # to show this is otherwise addressed.
+
+  if blobQuarantine[].hasSidecar(block_root, block_header.slot,
+                                 block_header.proposer_index,
                                  blob_sidecar.index):
     return errIgnore("BlobSidecar: already have valid blob from same proposer")
 
