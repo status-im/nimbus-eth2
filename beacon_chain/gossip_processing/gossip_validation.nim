@@ -650,11 +650,11 @@ proc validateDataColumnSidecar*(
   # `verify_data_column_sidecar_inclusion_proof(sidecar)`.
   block:
     let
-      startTick = Moment.now()
+      inclusionProofStartTick = Moment.now()
       v = check_data_column_sidecar_inclusion_proof(data_column_sidecar)
-      validationTick = Moment.now()
-      validationDur = validationTick - startTick
-    beacon_data_column_sidecar_inclusion_proof_verification_seconds.observe(validationDur.toFloatSeconds())
+      inclusionProofValidationTick = Moment.now()
+      inclusionProofValidationDur = inclusionProofValidationTick - inclusionProofStartTick
+    beacon_data_column_sidecar_inclusion_proof_verification_seconds.observe(inclusionProofValidationDur.toFloatSeconds())
     if v.isErr:
       return dag.checkedReject(v.error)
 
