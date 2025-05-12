@@ -482,7 +482,7 @@ proc getMissingBlobs(rman: RequestManager): seq[BlobIdentifier] =
                  commitments = len(forkyBlck.message.body.blob_kzg_commitments)
             ready.add(blobless.root)
           else:
-            # This should not be happen too...
+            # This should not happen either...
             warn "quarantine missing blobs, but missing indices is empty",
                  blk = blobless.root,
                  commitments = len(forkyBlck.message.body.blob_kzg_commitments)
