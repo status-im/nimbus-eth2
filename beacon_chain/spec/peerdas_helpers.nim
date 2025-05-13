@@ -486,7 +486,7 @@ proc verify_data_column_sidecar_kzg_proofs*(sidecar: DataColumnSidecar):
 
   ok()
 
-# https://github.com/ethereum/consensus-specs/blob/v1.5.0-beta.5/specs/fulu/validator.md#validator-custody
+# https://github.com/ethereum/consensus-specs/blob/v1.5.0/specs/fulu/validator.md#validator-custody
 func get_validators_custody_requirement*(cfg: RuntimeConfig,
                                          hstate: ForkyHashedBeaconState,
                                          total_node_balance: Gwei):

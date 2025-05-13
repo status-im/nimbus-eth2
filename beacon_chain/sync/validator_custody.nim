@@ -65,9 +65,8 @@ proc init*(T: type ValidatorCustodyRef, network: Eth2Node,
     inhibit: inhibit,
     dataColumnQuarantine: dataColumnQuarantine)
 
-proc detectNewValidatorCustody(vcus: ValidatorCustodyRef): seq[ColumnIndex] =
+proc detectNewValidatorCustody(vcus: ValidatorCustodyRef, cache: var StateCache): seq[ColumnIndex] =
   var
-    cache = StateCache()
     diff_set: HashSet[ColumnIndex]
   withState(vcus.dag.headState):
     when consensusFork >= ConsensusFork.Fulu:
@@ -108,17 +107,16 @@ proc makeRefillList(vcus: ValidatorCustodyRef, diff: seq[ColumnIndex]) =
     for i in startIndex..<SLOTS_PER_EPOCH:
       let blck = vcus.dag.getForkedBlock(blocks[int(i)]).valueOr: continue
       withBlck(blck):
-        when typeof(forkyBlck).kind < ConsensusFork.Fulu: continue
-        else:
-          let entry1 =
-            DataColumnsByRootIdentifier(block_root: blocks[int(i)].root,
-                                        indices: DataColumnIndices.init(diff))
-          vcus.requested_columns.add entry1
-          for column in vcus.newer_column_set:
-            let entry2 =
-              DataColumnIdentifier(block_root: blocks[int(i)].root,
-                                   index: ColumnIndex(column))
-            vcus.global_refill_list.incl(entry2)
+        # No need to check for fork version, as this loop is triggered post Fulu
+        let entry1 =
+          DataColumnsByRootIdentifier(block_root: blocks[int(i)].root,
+                                      indices: DataColumnIndices.init(diff))
+        vcus.requested_columns.add entry1
+        for column in vcus.newer_column_set:
+          let entry2 =
+            DataColumnIdentifier(block_root: blocks[int(i)].root,
+                                  index: ColumnIndex(column))
+          vcus.global_refill_list.incl(entry2)
 
 proc checkIntersectingCustody(vcus: ValidatorCustodyRef,
                               peer: Peer): seq[DataColumnsByRootIdentifier] =
@@ -193,7 +191,8 @@ proc validatorCustodyColumnLoop(
     vcus: ValidatorCustodyRef) {.async: (raises: [CancelledError]).} =
 
   while true:
-    let diff = vcus.detectNewValidatorCustody()
+    var cache = StateCache()
+    let diff = vcus.detectNewValidatorCustody(cache)
 
     await sleepAsync(POLL_INTERVAL)
     if diff.len == 0:
