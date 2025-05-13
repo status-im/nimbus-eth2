@@ -14,7 +14,7 @@ import
   ../spec/datatypes/[deneb, electra, fulu],
   ../spec/[presets, helpers]
 
-from std/sequtils import mapIt
+from std/sequtils import mapIt, toSeq
 from std/strutils import join
 
 export results
@@ -63,19 +63,29 @@ func init*(t: typedesc[ColumnMap], columns: openArray[ColumnIndex]): ColumnMap =
 func `and`*(a, b: ColumnMap): ColumnMap =
   ColumnMap(data: [a.data[0] and b.data[0], a.data[1] and b.data[1]])
 
-func asSeq(a: ColumnMap): seq[ColumnIndex] =
+iterator items*(a: ColumnMap): ColumnIndex =
   var
-    res1: seq[ColumnIndex]
-    res2: seq[ColumnIndex]
-  for i in 0 ..< 64:
-    if a.data[0].getBit(i):
-      res1.add(ColumnIndex(i))
-    if a.data[1].getBit(i):
-      res2.add(ColumnIndex(64 + i))
-  res1 & res2
+    data0 = a.data[0]
+    data1 = a.data[1]
+
+  while data0 != 0'u64:
+    let
+      # t = data0 and -data0
+      t = data0 and ((0xFFFF_FFFF_FFFF_FFFF'u64 - data0) + 1'u64)
+      res = firstOne(data0)
+    yield ColumnIndex(res - 1)
+    data0 = data0 xor t
+
+  while data1 != 0'u64:
+    let
+      # t = data0 and -data0
+      t = data1 and ((0xFFFF_FFFF_FFFF_FFFF'u64 - data1) + 1'u64)
+      res = firstOne(data1)
+    yield ColumnIndex(64 + res - 1)
+    data1 = data1 xor t
 
 func `$`*(a: ColumnMap): string =
-  "[" & a.asSeq().mapIt($it).join(", ") & "]"
+  "[" & a.items().toSeq().mapIt($it).join(", ") & "]"
 
 func maxSidecars(maxSidecarsPerBlock: uint64): int =
   # Same limit as `MaxOrphans` in `block_quarantine`;
@@ -496,10 +506,10 @@ func fetchMissingSidecars*(
       else:
         ColumnMap.init(quarantine.custodyColumns)
     if len(record.sidecars) == 0:
-      for column in (peerMap and quarantine.custodyMap).asSeq():
+      for column in (peerMap and quarantine.custodyMap).items():
         res.add(DataColumnIdentifier(block_root: blockRoot, index: column))
     else:
-      for column in (peerMap and quarantine.custodyMap).asSeq():
+      for column in (peerMap and quarantine.custodyMap).items():
         let index = quarantine.getIndex(column)
         if (index == -1) or (record.sidecars[index].isNil()):
           res.add(DataColumnIdentifier(block_root: blockRoot, index: column))

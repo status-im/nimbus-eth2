@@ -786,6 +786,27 @@ suite "ColumnQuarantine data structure test suite " & preset():
       check:
         $(map1 and map2) == vector[2]
 
+    for vector in TestVectors:
+      let
+        map1 = ColumnMap.init(vector[0].mapIt(ColumnIndex(it)))
+        map2 = ColumnMap.init(vector[1].mapIt(ColumnIndex(it)))
+        map3 = map1 and map2
+
+      check:
+        map1.items().toSeq().mapIt($int(it)).join(", ") ==
+          vector[0].mapIt($it).join(", ")
+        map2.items().toSeq().mapIt($int(it)).join(", ") ==
+          vector[1].mapIt($it).join(", ")
+        "[" & map3.items().toSeq().mapIt($int(it)).join(", ") & "]" ==
+          vector[2]
+
+    var columns: seq[ColumnIndex]
+    for i in 0 ..< NUMBER_OF_COLUMNS:
+      columns.add(ColumnIndex(i))
+    let map = ColumnMap.init(columns)
+    check:
+      map.items().toSeq().mapIt($int(it)).join(", ") ==
+        columns.mapIt($it).join(", ")
 
   test "put()/hasSidecar(index, slot, proposer_index)/remove() test":
     let custodyColumns =
