@@ -137,11 +137,9 @@ func pruneRoot[A, B](quarantine: var SidecarQuarantine[A, B]) =
   quarantine.remove(oldestRoot)
 
 func getIndex(quarantine: BlobQuarantine, index: BlobIndex): int =
-  doAssert(index < lenu64(quarantine.indexMap))
   quarantine.indexMap[int(index)]
 
 func getIndex(quarantine: ColumnQuarantine, index: ColumnIndex): int =
-  doAssert(index < lenu64(quarantine.indexMap))
   quarantine.indexMap[int(index)]
 
 template slot(b: BlobSidecar|DataColumnSidecar): Slot =
@@ -150,7 +148,7 @@ template slot(b: BlobSidecar|DataColumnSidecar): Slot =
 template proposer_index(b: BlobSidecar|DataColumnSidecar): uint64 =
   b.signed_block_header.message.proposer_index
 
-func put[A, B](record: var RootTableRecord[A], q: SidecarQuarantine[A, B],
+func put[A, B](record: var RootTableRecord[A], q: var SidecarQuarantine[A, B],
                sidecars: openArray[ref A]) =
   for sidecar in sidecars:
     # Sidecar should pass validation before being added to quarantine,
@@ -160,8 +158,10 @@ func put[A, B](record: var RootTableRecord[A], q: SidecarQuarantine[A, B],
     # 3. sidecar.index is in custody columns set for `fulu`.
     let index = q.getIndex(sidecar.index)
     doAssert(index >= 0, "Incorrect sidecar index [" & $sidecar.index & "]")
+    if isNil(record.sidecars[index]):
+      inc(q.sidecarsCount)
+      inc(record.count)
     record.sidecars[index] = sidecar
-    inc(record.count)
 
 func put*[A, B](
     quarantine: var SidecarQuarantine[A, B],
@@ -184,8 +184,7 @@ func put*[A, B](
   let rootRecord = RootTableRecord.init(quarantine)
   quarantine.roots.mgetOrPut(blockRoot, rootRecord).put(
     quarantine, [sidecar])
-  discard quarantine.usage.containsOrIncl(blockRoot)
-  inc(quarantine.sidecarsCount)
+  quarantine.usage.incl(blockRoot)
 
 func put*[A, B](
     quarantine: var SidecarQuarantine[A, B],
@@ -212,8 +211,7 @@ func put*[A, B](
 
   quarantine.roots.mgetOrPut(blockRoot, rootRecord).put(
     quarantine, sidecars)
-  discard quarantine.usage.containsOrIncl(blockRoot)
-  inc(quarantine.sidecarsCount, len(sidecars))
+  quarantine.usage.incl(blockRoot)
 
 template hasSidecarImpl(
     blockRoot: Eth2Digest,

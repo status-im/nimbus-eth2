@@ -536,6 +536,68 @@ suite "BlobQuarantine data structure test suite " & preset():
           index = sidecars[j].sidecar[].index
         ) == false
 
+  test "put() duplicate items should not affect counters":
+    var
+      bq = BlobQuarantine.init(cfg, nil)
+      sidecars1: seq[ref BlobSidecar]
+      sidecars1d: seq[ref BlobSidecar]
+      sidecars2: seq[ref BlobSidecar]
+      sidecars2d: seq[ref BlobSidecar]
+
+    for index in 0 ..< cfg.MAX_BLOBS_PER_BLOCK_ELECTRA:
+      let
+        sidecar1 = newClone(genBlobSidecar(int(index), 1, int(index), 64))
+        sidecar1d = newClone(genBlobSidecar(int(index), 1, int(index), 64))
+        sidecar2 = newClone(genBlobSidecar(int(index), 2, 50 + int(index), 65))
+        sidecar2d = newClone(genBlobSidecar(int(index), 2, 50 + int(index), 65))
+      sidecars1.add(sidecar1)
+      sidecars1d.add(sidecar1d)
+      sidecars2.add(sidecar2)
+      sidecars2d.add(sidecar2d)
+
+    let
+      broot1 = genBlockRoot(100)
+      broot2 = genBlockRoot(200)
+
+      electraBlock1 = genElectraSignedBeaconBlock(broot1, sidecars1)
+      electraBlock2 = genElectraSignedBeaconBlock(broot2, sidecars2)
+
+    check:
+      len(bq) == 0
+      len(bq.fetchMissingSidecars(broot1, electraBlock1)) ==
+        int(cfg.MAX_BLOBS_PER_BLOCK_ELECTRA)
+      len(bq.fetchMissingSidecars(broot2, electraBlock2)) ==
+        int(cfg.MAX_BLOBS_PER_BLOCK_ELECTRA)
+
+    for index in 0 ..< int(cfg.MAX_BLOBS_PER_BLOCK_ELECTRA):
+      bq.put(broot1, sidecars1[index])
+      check:
+        len(bq) == (index + 1)
+        len(bq.fetchMissingSidecars(broot1, electraBlock1)) ==
+          int(cfg.MAX_BLOBS_PER_BLOCK_ELECTRA) - (index + 1)
+      bq.put(broot1, sidecars1d[index])
+      check:
+        len(bq) == (index + 1)
+        len(bq.fetchMissingSidecars(broot1, electraBlock1)) ==
+          int(cfg.MAX_BLOBS_PER_BLOCK_ELECTRA) - (index + 1)
+
+    for index in 0 ..< int(cfg.MAX_BLOBS_PER_BLOCK_ELECTRA):
+      bq.put(broot2, sidecars2[index])
+      check:
+        len(bq) == int(cfg.MAX_BLOBS_PER_BLOCK_ELECTRA) + (index + 1)
+        len(bq.fetchMissingSidecars(broot2, electraBlock2)) ==
+          int(cfg.MAX_BLOBS_PER_BLOCK_ELECTRA) - (index + 1)
+      bq.put(broot2, sidecars2d[index])
+      check:
+        len(bq) == int(cfg.MAX_BLOBS_PER_BLOCK_ELECTRA) + (index + 1)
+        len(bq.fetchMissingSidecars(broot2, electraBlock2)) ==
+          int(cfg.MAX_BLOBS_PER_BLOCK_ELECTRA) - (index + 1)
+
+    bq.remove(broot2)
+    check len(bq) == int(cfg.MAX_BLOBS_PER_BLOCK_ELECTRA)
+    bq.remove(broot1)
+    check len(bq) == 0
+
   test "pruneAfterFinalization() test":
     const TestVectors = [
       (root: 1, slot: 1, kzg: 1, index: 0, proposer_index: 20),
@@ -1373,6 +1435,69 @@ suite "ColumnQuarantine data structure test suite " & preset():
           index = sidecars[j].sidecar[].index
         ) == false
 
+  test "put() duplicate items should not affect counters":
+    let
+      custodyColumns =
+        [63, 64, 65, 66, 95, 96, 97, 98].mapIt(ColumnIndex(it))
+    var
+      bq = ColumnQuarantine.init(cfg, custodyColumns, nil)
+      sidecars1: seq[ref DataColumnSidecar]
+      sidecars1d: seq[ref DataColumnSidecar]
+      sidecars2: seq[ref DataColumnSidecar]
+      sidecars2d: seq[ref DataColumnSidecar]
+
+    for index in custodyColumns:
+      let
+        sidecar1 = newClone(genDataColumnSidecar(int(index), 1, 64))
+        sidecar1d = newClone(genDataColumnSidecar(int(index), 1, 64))
+        sidecar2 = newClone(genDataColumnSidecar(int(index), 2, 65))
+        sidecar2d = newClone(genDataColumnSidecar(int(index), 2, 65))
+      sidecars1.add(sidecar1)
+      sidecars1d.add(sidecar1d)
+      sidecars2.add(sidecar2)
+      sidecars2d.add(sidecar2d)
+
+    let
+      broot1 = genBlockRoot(100)
+      broot2 = genBlockRoot(200)
+      fuluBlock1 = genFuluSignedBeaconBlock(broot1, [genKzgCommitment(1)])
+      fuluBlock2 = genFuluSignedBeaconBlock(broot2, [genKzgCommitment(2)])
+
+    check:
+      len(bq) == 0
+      len(bq.fetchMissingSidecars(broot1, fuluBlock1, custodyColumns)) ==
+        len(custodyColumns)
+      len(bq.fetchMissingSidecars(broot2, fuluBlock2, custodyColumns)) ==
+        len(custodyColumns)
+
+    for index in 0 ..< len(custodyColumns):
+      bq.put(broot1, sidecars1[index])
+      check:
+        len(bq) == (index + 1)
+        len(bq.fetchMissingSidecars(broot1, fuluBlock1, custodyColumns)) ==
+          len(custodyColumns) - (index + 1)
+      bq.put(broot1, sidecars1d[index])
+      check:
+        len(bq) == (index + 1)
+        len(bq.fetchMissingSidecars(broot1, fuluBlock1, custodyColumns)) ==
+          len(custodyColumns) - (index + 1)
+
+    for index in 0 ..< len(custodyColumns):
+      bq.put(broot2, sidecars2[index])
+      check:
+        len(bq) == len(custodyColumns) + (index + 1)
+        len(bq.fetchMissingSidecars(broot2, fuluBlock2, custodyColumns)) ==
+          len(custodyColumns) - (index + 1)
+      bq.put(broot2, sidecars2d[index])
+      check:
+        len(bq) == len(custodyColumns) + (index + 1)
+        len(bq.fetchMissingSidecars(broot2, fuluBlock2, custodyColumns)) ==
+          len(custodyColumns) - (index + 1)
+
+    bq.remove(broot2)
+    check len(bq) == len(custodyColumns)
+    bq.remove(broot1)
+    check len(bq) == 0
 
   test "pruneAfterFinalization() test":
     let
