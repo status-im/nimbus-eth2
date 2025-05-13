@@ -14,8 +14,8 @@ from ".."/datatypes/phase0 import AttesterSlashing
 from ../datatypes/bellatrix import ExecutionAddress
 from ".."/datatypes/capella import SignedBLSToExecutionChange
 from ".."/datatypes/deneb import BlobsBundle, KzgCommitments
-from ".."/datatypes/electra import Attestation, AttesterSlashing,
-  ExecutionRequests
+from ".."/datatypes/electra import
+  Attestation, AttesterSlashing, ExecutionRequests
 from ".."/eth2_merkleization import hash_tree_root
 
 type
@@ -26,7 +26,7 @@ type
     value*: UInt256
     pubkey*: ValidatorPubKey
 
-  # https://github.com/ethereum/builder-specs/blob/v0.4.0/specs/bellatrix/builder.md#signedbuilderbid
+  # https://github.com/ethereum/builder-specs/blob/v0.5.0/specs/bellatrix/builder.md#signedbuilderbid
   SignedBuilderBid* = object
     message*: BuilderBid
     signature*: ValidatorSig
@@ -49,7 +49,7 @@ type
     blob_kzg_commitments*: KzgCommitments # [New in Deneb]
     execution_requests*: ExecutionRequests # [New in Electra]
 
-  # https://github.com/ethereum/builder-specs/blob/v0.4.0/specs/bellatrix/builder.md#blindedbeaconblock
+  # https://github.com/ethereum/builder-specs/blob/v0.5.0/specs/bellatrix/builder.md#blindedbeaconblock
   BlindedBeaconBlock* = object
     slot*: Slot
     proposer_index*: uint64
@@ -64,8 +64,8 @@ type
     of true:
       blindedData*: BlindedBeaconBlock
 
-  # https://github.com/ethereum/builder-specs/blob/v0.4.0/specs/bellatrix/builder.md#signedblindedbeaconblock
-  # https://github.com/ethereum/builder-specs/blob/v0.4.0/specs/capella/builder.md#blindedbeaconblockbody
+  # https://github.com/ethereum/builder-specs/blob/v0.5.0/specs/bellatrix/builder.md#signedblindedbeaconblock
+  # https://github.com/ethereum/builder-specs/blob/v0.5.0/specs/capella/builder.md#blindedbeaconblockbody
   SignedBlindedBeaconBlock* = object
     message*: BlindedBeaconBlock
     signature*: ValidatorSig

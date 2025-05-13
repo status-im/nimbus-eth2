@@ -1,5 +1,5 @@
 # beacon_chain
-# Copyright (c) 2022-2024 Status Research & Development GmbH
+# Copyright (c) 2022-2025 Status Research & Development GmbH
 # Licensed and distributed under either of
 #   * MIT license (license terms in the root directory or at https://opensource.org/licenses/MIT).
 #   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
@@ -94,13 +94,7 @@ cli do(validatorsDir: string, secretsDir: string,
         fatal "failed to read EL URL", err = finalUrl.error
         quit QuitFailure
       finalUrl.get
-    elManager = ELManager.new(
-      cfg,
-      metadata.depositContractBlock,
-      metadata.depositContractBlockHash,
-      db = nil,
-      @[engineApiUrl],
-      metadata.eth1Network)
+    elManager = ELManager.new(@[engineApiUrl], metadata.eth1Network)
     feeRecipient =
       try:
         Address.fromHex(suggestedFeeRecipient)

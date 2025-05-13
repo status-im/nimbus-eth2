@@ -95,6 +95,7 @@ type
 
 type
   DataColumn* = List[KzgCell, Limit(MAX_BLOB_COMMITMENTS_PER_BLOCK)]
+  DataColumnIndices* = List[ColumnIndex, Limit(NUMBER_OF_COLUMNS)]
 
   # https://github.com/ethereum/consensus-specs/blob/v1.5.0-beta.3/specs/fulu/das-core.md#datacolumnsidecar
   DataColumnSidecar* = object
@@ -112,6 +113,11 @@ type
   DataColumnIdentifier* = object
     block_root*: Eth2Digest
     index*: ColumnIndex
+
+  # https://github.com/ethereum/consensus-specs/blob/b8b5fbb8d16f52d42a716fa93289062fe2124c7c/specs/fulu/p2p-interface.md#datacolumnsbyrootidentifier
+  DataColumnsByRootIdentifier* = object
+    block_root*: Eth2Digest
+    indices*: DataColumnIndices
 
   # https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.10/specs/fulu/das-core.md#matrixentry
   MatrixEntry* = object
@@ -614,6 +620,15 @@ func shortLog*(v: seq[DataColumnSidecar]): auto =
 
 func shortLog*(x: seq[DataColumnIdentifier]): string =
   "[" & x.mapIt(shortLog(it.block_root) & "/" & $it.index).join(", ") & "]"
+
+func shortLog*(xs: seq[DataColumnsByRootIdentifier]): string =
+  ## Formats like:  [abcd…/0,2,4,  ef09…/1,3]
+  "[" &
+    xs.mapIt(
+      shortLog(it.block_root) & "/" &
+      it.indices.mapIt($it).join(",")
+    ).join(", ") &
+  "]"
 
 func shortLog*(x: seq[ColumnIndex]): string =
   "<" & x.mapIt($it).join(", ") & ">"

@@ -15,11 +15,10 @@
 
 import
   std/[json, tables],
-  stew/base10, web3/primitives, httputils,
-  ".."/[deposit_snapshots, forks],
-  ".."/mev/[deneb_mev]
+  stew/base10, web3/primitives, httputils, stew/bitops2,
+  ".."/forks
 
-export forks, phase0, altair, bellatrix, capella, deneb_mev, tables, httputils
+export forks, tables, httputils
 
 const
   # https://github.com/ethereum/eth2.0-APIs/blob/master/apis/beacon/states/validator_balances.yaml#L17
@@ -329,10 +328,6 @@ type
 
   VCRuntimeConfig* = Table[string, string]
 
-  RestDepositContract* = object
-    chain_id*: string
-    address*: string
-
   RestBlockInfo* = object
     slot*: Slot
     blck* {.serializedFieldName: "block".}: Eth2Digest
@@ -514,8 +509,6 @@ type
   GetBlockHeadersResponse* = DataEnclosedObject[seq[RestBlockHeaderInfo]]
   GetBlockRootResponse* = DataOptimisticObject[RestRoot]
   GetDebugChainHeadsV2Response* = DataEnclosedObject[seq[RestChainHeadV2]]
-  GetDepositContractResponse* = DataEnclosedObject[RestDepositContract]
-  GetDepositSnapshotResponse* = DataEnclosedObject[DepositTreeSnapshot]
   GetEpochCommitteesResponse* = DataEnclosedObject[seq[RestBeaconStatesCommittees]]
   GetForkScheduleResponse* = DataEnclosedObject[seq[Fork]]
   GetGenesisResponse* = DataEnclosedObject[RestGenesis]
@@ -549,10 +542,8 @@ type
   SubmitBeaconCommitteeSelectionsResponse* = DataEnclosedObject[seq[RestBeaconCommitteeSelection]]
   SubmitSyncCommitteeSelectionsResponse* = DataEnclosedObject[seq[RestSyncCommitteeSelection]]
 
-  GetHeaderResponseDeneb* = DataVersionEnclosedObject[deneb_mev.SignedBuilderBid]
   GetHeaderResponseElectra* = DataVersionEnclosedObject[electra_mev.SignedBuilderBid]
   GetHeaderResponseFulu* = DataVersionEnclosedObject[fulu_mev.SignedBuilderBid]
-  SubmitBlindedBlockResponseDeneb* = DataVersionEnclosedObject[deneb_mev.ExecutionPayloadAndBlobsBundle]
   SubmitBlindedBlockResponseElectra* = DataVersionEnclosedObject[electra_mev.ExecutionPayloadAndBlobsBundle]
   SubmitBlindedBlockResponseFulu* = DataVersionEnclosedObject[fulu_mev.ExecutionPayloadAndBlobsBundle]
 
@@ -1078,3 +1069,93 @@ func toValidatorIndex*(value: RestValidatorIndex): Result[ValidatorIndex,
       err(ValidatorIndexError.TooHighValue)
   else:
     doAssert(false, "ValidatorIndex type size is incorrect")
+
+## Types and helpers for historical_summaries + proof endpoint
+const
+  # gIndex for historical_summaries field (27th field in BeaconState)
+  HISTORICAL_SUMMARIES_GINDEX* = GeneralizedIndex(59) # 32 + 27 = 59
+  HISTORICAL_SUMMARIES_GINDEX_ELECTRA* = GeneralizedIndex(91) # 64 + 27 = 91
+
+type
+  # Note: these could go in separate Capella/Electra spec files if they were
+  # part of the specification.
+  HistoricalSummariesProof* = array[log2trunc(HISTORICAL_SUMMARIES_GINDEX), Eth2Digest]
+  HistoricalSummariesProofElectra* =
+    array[log2trunc(HISTORICAL_SUMMARIES_GINDEX_ELECTRA), Eth2Digest]
+
+  # REST API types
+  GetHistoricalSummariesV1Response* = object
+    historical_summaries*: HashList[HistoricalSummary, Limit HISTORICAL_ROOTS_LIMIT]
+    proof*: HistoricalSummariesProof
+    slot*: Slot
+
+  GetHistoricalSummariesV1ResponseElectra* = object
+    historical_summaries*: HashList[HistoricalSummary, Limit HISTORICAL_ROOTS_LIMIT]
+    proof*: HistoricalSummariesProofElectra
+    slot*: Slot
+
+  ForkyGetHistoricalSummariesV1Response* =
+    GetHistoricalSummariesV1Response |
+    GetHistoricalSummariesV1ResponseElectra
+
+  HistoricalSummariesFork* {.pure.} = enum
+    Capella = 0,
+    Electra = 1
+
+  # REST client response type
+  ForkedHistoricalSummariesWithProof* = object
+    case kind*: HistoricalSummariesFork
+    of HistoricalSummariesFork.Capella: capellaData*: GetHistoricalSummariesV1Response
+    of HistoricalSummariesFork.Electra: electraData*: GetHistoricalSummariesV1ResponseElectra
+
+template historical_summaries_gindex*(
+    kind: static HistoricalSummariesFork): GeneralizedIndex =
+  case kind
+  of HistoricalSummariesFork.Electra:
+    HISTORICAL_SUMMARIES_GINDEX_ELECTRA
+  of HistoricalSummariesFork.Capella:
+    HISTORICAL_SUMMARIES_GINDEX
+
+template getHistoricalSummariesResponse*(
+    kind: static HistoricalSummariesFork): auto =
+  when kind >= HistoricalSummariesFork.Electra:
+    GetHistoricalSummariesV1ResponseElectra
+  elif kind >= HistoricalSummariesFork.Capella:
+    GetHistoricalSummariesV1Response
+
+template init*(
+    T: type ForkedHistoricalSummariesWithProof,
+    historical_summaries: GetHistoricalSummariesV1Response,
+): T =
+    ForkedHistoricalSummariesWithProof(
+      kind: HistoricalSummariesFork.Capella, capellaData: historical_summaries
+    )
+
+template init*(
+    T: type ForkedHistoricalSummariesWithProof,
+    historical_summaries: GetHistoricalSummariesV1ResponseElectra,
+): T =
+    ForkedHistoricalSummariesWithProof(
+      kind: HistoricalSummariesFork.Electra, electraData: historical_summaries
+    )
+
+template withForkyHistoricalSummariesWithProof*(
+    x: ForkedHistoricalSummariesWithProof, body: untyped): untyped =
+  case x.kind
+  of HistoricalSummariesFork.Electra:
+    const historicalFork {.inject, used.} = HistoricalSummariesFork.Electra
+    template forkySummaries: untyped {.inject, used.} = x.electraData
+    body
+  of HistoricalSummariesFork.Capella:
+    const historicalFork {.inject, used.} = HistoricalSummariesFork.Capella
+    template forkySummaries: untyped {.inject, used.} = x.capellaData
+    body
+
+func historicalSummariesForkAtConsensusFork*(consensusFork: ConsensusFork): Opt[HistoricalSummariesFork] =
+  static: doAssert HistoricalSummariesFork.high == HistoricalSummariesFork.Electra
+  if consensusFork >= ConsensusFork.Electra:
+    Opt.some HistoricalSummariesFork.Electra
+  elif consensusFork >= ConsensusFork.Capella:
+    Opt.some HistoricalSummariesFork.Capella
+  else:
+    Opt.none HistoricalSummariesFork

@@ -52,7 +52,7 @@ type
 template errIgnore*(msg: cstring): untyped =
   err((ValidationResult.Ignore, cstring msg))
 template errReject*(msg: cstring): untyped =
-  err((ValidationResult.Reject, cstring msg))
+  err((ValidationResult.Reject, msg))
 
 # Internal checks
 # ----------------------------------------------------------------
@@ -206,7 +206,7 @@ func check_blob_sidecar_inclusion_proof(
     blob_sidecar: deneb.BlobSidecar): Result[void, ValidationError] =
   let res = blob_sidecar.verify_blob_sidecar_inclusion_proof()
   if res.isErr:
-    return errReject(res.error)
+    return errReject(cstring res.error)
 
   ok()
 

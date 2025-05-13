@@ -32,6 +32,7 @@
       }
     },
     "pragueTime":PRAGUE_FORK_TIME,
+    "osakaTime":OSAKA_FORK_TIME,
     "mergeForkBlock":0,
     "mergeNetsplitBlock":0,
     "terminalTotalDifficulty":0,

@@ -17,6 +17,19 @@ from ".."/datatypes/deneb import BlobsBundle, KzgCommitments
 from ".."/eth2_merkleization import hash_tree_root
 
 type
+  # https://github.com/ethereum/builder-specs/blob/v0.5.0/specs/bellatrix/builder.md#validatorregistrationv1
+  ValidatorRegistrationV1* = object
+    fee_recipient*: ExecutionAddress
+    gas_limit*: uint64
+    timestamp*: uint64
+    pubkey*: ValidatorPubKey
+
+  # https://github.com/ethereum/builder-specs/blob/v0.5.0/specs/bellatrix/builder.md#signedvalidatorregistrationv1
+  SignedValidatorRegistrationV1* = object
+    message*: ValidatorRegistrationV1
+    signature*: ValidatorSig
+
+  # https://github.com/ethereum/builder-specs/blob/v0.5.0/specs/electra/builder.md#builderbid
   BuilderBid* = object
     header*: electra.ExecutionPayloadHeader
     blob_kzg_commitments*: KzgCommitments
@@ -24,11 +37,12 @@ type
     value*: UInt256
     pubkey*: ValidatorPubKey
 
-  # https://github.com/ethereum/builder-specs/blob/v0.4.0/specs/bellatrix/builder.md#signedbuilderbid
+  # https://github.com/ethereum/builder-specs/blob/v0.5.0/specs/bellatrix/builder.md#signedbuilderbid
   SignedBuilderBid* = object
     message*: BuilderBid
     signature*: ValidatorSig
 
+  # https://github.com/ethereum/builder-specs/blob/v0.5.0/specs/electra/builder.md#blindedbeaconblockbody
   BlindedBeaconBlockBody* = object
     randao_reveal*: ValidatorSig
     eth1_data*: Eth1Data
@@ -44,10 +58,10 @@ type
     bls_to_execution_changes*:
       List[SignedBLSToExecutionChange,
         Limit MAX_BLS_TO_EXECUTION_CHANGES]
-    blob_kzg_commitments*: KzgCommitments # [New in Deneb]
+    blob_kzg_commitments*: KzgCommitments
     execution_requests*: ExecutionRequests # [New in Electra]
 
-  # https://github.com/ethereum/builder-specs/blob/v0.4.0/specs/bellatrix/builder.md#blindedbeaconblock
+  # https://github.com/ethereum/builder-specs/blob/v0.5.0/specs/bellatrix/builder.md#blindedbeaconblock
   BlindedBeaconBlock* = object
     slot*: Slot
     proposer_index*: uint64
@@ -62,8 +76,7 @@ type
     of true:
       blindedData*: BlindedBeaconBlock
 
-  # https://github.com/ethereum/builder-specs/blob/v0.4.0/specs/bellatrix/builder.md#signedblindedbeaconblock
-  # https://github.com/ethereum/builder-specs/blob/v0.4.0/specs/capella/builder.md#blindedbeaconblockbody
+  # https://github.com/ethereum/builder-specs/blob/v0.5.0/specs/bellatrix/builder.md#signedblindedbeaconblock
   SignedBlindedBeaconBlock* = object
     message*: BlindedBeaconBlock
     signature*: ValidatorSig
@@ -77,6 +90,17 @@ type
   BlindedExecutionPayloadAndBlobsBundle* = object
     execution_payload_header*: electra.ExecutionPayloadHeader
     blob_kzg_commitments*: KzgCommitments # [New in Deneb]
+
+const
+  # https://github.com/ethereum/builder-specs/blob/v0.5.0/specs/bellatrix/builder.md#domain-types
+  DOMAIN_APPLICATION_BUILDER* = DomainType([byte 0x00, 0x00, 0x00, 0x01])
+
+  # https://github.com/ethereum/builder-specs/blob/v0.5.0/specs/bellatrix/validator.md#constants
+  EPOCHS_PER_VALIDATOR_REGISTRATION_SUBMISSION* = 1
+
+  # Spec is 1 second, but mev-boost indirection can induce delay when the relay
+  # itself has already consumed the entire second.
+  BUILDER_PROPOSAL_DELAY_TOLERANCE* = 1500.milliseconds
 
 func shortLog*(v: BlindedBeaconBlock): auto =
   (
