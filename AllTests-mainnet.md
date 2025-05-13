@@ -111,6 +111,8 @@ AllTests-mainnet
 ```diff
 + overfill protection test                                                                   OK
 + popSidecars()/hasSidecars() return []/true on block without blobs                          OK
++ pruneAfterFinalization() test                                                              OK
++ put() duplicate items should not affect counters                                           OK
 + put()/fetchMissingSidecars/remove test                                                     OK
 + put()/hasSidecar(index, slot, proposer_index)/remove() test                                OK
 + put(sidecar)/put([sidecars])/hasSidecars/popSidecars/remove() test                         OK
@@ -159,6 +161,8 @@ AllTests-mainnet
 + ColumnMap test                                                                             OK
 + overfill protection test                                                                   OK
 + popSidecars()/hasSidecars() return []/true on block without columns                        OK
++ pruneAfterFinalization() test                                                              OK
++ put() duplicate items should not affect counters                                           OK
 + put()/fetchMissingSidecars/remove test [node]                                              OK
 + put()/fetchMissingSidecars/remove test [supernode]                                         OK
 + put()/hasSidecar(index, slot, proposer_index)/remove() test                                OK
