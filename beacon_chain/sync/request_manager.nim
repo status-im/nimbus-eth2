@@ -456,7 +456,7 @@ proc getMissingBlobs(rman: RequestManager): seq[BlobIdentifier] =
     waitDur = TimeDiff(nanoseconds: BLOB_GOSSIP_WAIT_TIME_NS)
 
   var
-    idents: HashSet[BlobIdentifier]
+    idents: seq[BlobIdentifier]
     ready: seq[Eth2Digest]
   for blobless in rman.quarantine[].peekBlobless():
     withBlck(blobless):
@@ -473,7 +473,7 @@ proc getMissingBlobs(rman: RequestManager): seq[BlobIdentifier] =
 
         if len(missing) > 0:
           for ident in missing:
-            idents.incl(ident)
+            idents.add(ident)
         else:
           if commitmentsCount == 0:
             # this is a programming error should it occur.
@@ -491,7 +491,7 @@ proc getMissingBlobs(rman: RequestManager): seq[BlobIdentifier] =
     let blobless = rman.quarantine[].popBlobless(root).valueOr:
       continue
     discard rman.blockVerifier(blobless, false)
-  idents.items.toSeq()
+  idents
 
 proc requestManagerBlobLoop(
     rman: RequestManager) {.async: (raises: [CancelledError]).} =
