@@ -438,7 +438,8 @@ func fetchMissingSidecars*(
 
   let commitmentsCount = len(blck.message.body.blob_kzg_commitments)
   if (commitmentsCount == 0) or (record.count == commitmentsCount):
-    # Fast-path if block do not have any blobs or record holds all the blobs.
+    # Fast-path if ``blck`` does not have any blobs or if quarantine's record
+    # holds enough blobs.
     return res
 
   for bindex in 0 ..< commitmentsCount:
