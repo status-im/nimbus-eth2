@@ -608,7 +608,8 @@ proc initFullNode(
   if node.config.peerdasSupernode:
     node.network.loadCgcnetMetadataAndEnr(dag.cfg.NUMBER_OF_CUSTODY_GROUPS.uint8)
   else:
-    node.network.loadCgcnetMetadataAndEnr(dag.cfg.CUSTODY_REQUIREMENT.uint8)
+    node.network.loadCgcnetMetadataAndEnr(dag.cfg.SAMPLES_PER_SLOT.uint8,
+                                          dag.cfg.CUSTODY_REQUIREMENT.uint8)
 
   if node.config.lightClientDataServe:
     proc scheduleSendingLightClientUpdates(slot: Slot) =
