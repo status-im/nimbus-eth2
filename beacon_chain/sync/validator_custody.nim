@@ -34,7 +34,6 @@ type
     network*: Eth2Node
     dag*: ChainDAGRef
     supernode*: bool
-    cache*: StateCache
     getLocalHeadSlot*: GetSlotCallback
     older_column_set*: HashSet[ColumnIndex]
     newer_column_set*: HashSet[ColumnIndex]
@@ -56,25 +55,23 @@ proc init*(T: type ValidatorCustodyRef, network: Eth2Node,
            inhibit: InhibitFn,
            dataColumnQuarantine: ref DataColumnQuarantine): ValidatorCustodyRef =
   let localHeadSlot = getLocalHeadSlotCb
-  var cache = StateCache()
   (ValidatorCustodyRef)(
     network: network,
     dag: dag,
     supernode: supernode,
-    cache: cache,
     getLocalHeadSlot: getLocalHeadSlotCb,
     older_column_set: older_column_set,
     getBeaconTime: getBeaconTime,
     inhibit: inhibit,
     dataColumnQuarantine: dataColumnQuarantine)
 
-proc detectNewValidatorCustody(vcus: ValidatorCustodyRef): seq[ColumnIndex] =
+proc detectNewValidatorCustody(vcus: ValidatorCustodyRef, cache: var StateCache): seq[ColumnIndex] =
   var
     diff_set: HashSet[ColumnIndex]
   withState(vcus.dag.headState):
     when consensusFork >= ConsensusFork.Fulu:
       let total_node_balance =
-        get_total_active_balance(forkyState.data, vcus.cache)
+        get_total_active_balance(forkyState.data, cache)
       let vcustody =
         vcus.dag.cfg.get_validators_custody_requirement(forkyState, total_node_balance)
 
@@ -192,9 +189,9 @@ proc refillDataColumnsFromNetwork(vcus: ValidatorCustodyRef)
 
 proc validatorCustodyColumnLoop(
     vcus: ValidatorCustodyRef) {.async: (raises: [CancelledError]).} =
-
+  var cache = StateCache()
   while true:
-    let diff = vcus.detectNewValidatorCustody()
+    let diff = vcus.detectNewValidatorCustody(cache)
 
     await sleepAsync(POLL_INTERVAL)
     if diff.len == 0:
