@@ -681,4 +681,4 @@ proc makeBeaconBlock*(
     transactions_root = Opt.none Eth2Digest,
     execution_payload_root = Opt.none Eth2Digest,
     kzg_commitments = Opt.none KzgCommitments,
-    execution_requests = default(ExecutionRequests))
+    execution_requests = static(default(ExecutionRequests)))

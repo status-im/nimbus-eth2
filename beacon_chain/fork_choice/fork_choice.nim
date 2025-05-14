@@ -9,7 +9,7 @@
 
 import
   # Standard library
-  std/[sequtils, tables],
+  std/tables,
   # Status libraries
   results, chronicles,
   # Internal
@@ -19,6 +19,7 @@ import
   ./fork_choice_types, ./proto_array,
   ../consensus_object_pools/[spec_cache, blockchain_dag]
 
+from std/sequtils import keepItIf
 export results, fork_choice_types
 export proto_array.len
 
@@ -487,7 +488,7 @@ when isMainModule:
     echo "    fork_choice compute_deltas - test zero votes"
 
     const validator_count = 16
-    var deltas = newSeqUninitialized[Delta](validator_count)
+    var deltas = newSeqUninit[Delta](validator_count)
 
     var indices: Table[Eth2Digest, Index]
     var votes: seq[VoteTracker]
@@ -518,7 +519,7 @@ when isMainModule:
     const
       Balance = Gwei(42)
       validator_count = 16
-    var deltas = newSeqUninitialized[Delta](validator_count)
+    var deltas = newSeqUninit[Delta](validator_count)
 
     var indices: Table[Eth2Digest, Index]
     var votes: seq[VoteTracker]
@@ -557,7 +558,7 @@ when isMainModule:
     const
       Balance = Gwei(42)
       validator_count = 16
-    var deltas = newSeqUninitialized[Delta](validator_count)
+    var deltas = newSeqUninit[Delta](validator_count)
 
     var indices: Table[Eth2Digest, Index]
     var votes: seq[VoteTracker]
@@ -594,7 +595,7 @@ when isMainModule:
       Balance = Gwei(42)
       validator_count = 16
       TotalDeltas = Delta(Balance * validator_count)
-    var deltas = newSeqUninitialized[Delta](validator_count)
+    var deltas = newSeqUninit[Delta](validator_count)
 
     var indices: Table[Eth2Digest, Index]
     var votes: seq[VoteTracker]
@@ -642,7 +643,7 @@ when isMainModule:
     indices.add fakeHash(1), 0
 
     # 2 validators
-    var deltas = newSeqUninitialized[Delta](2)
+    var deltas = newSeqUninit[Delta](2)
     let old_balances = @[Balance, Balance]
     let new_balances = @[Balance, Balance]
 
@@ -681,7 +682,7 @@ when isMainModule:
       validator_count = 16
       TotalOldDeltas = Delta(OldBalance * validator_count)
       TotalNewDeltas = Delta(NewBalance * validator_count)
-    var deltas = newSeqUninitialized[Delta](validator_count)
+    var deltas = newSeqUninit[Delta](validator_count)
 
     var indices: Table[Eth2Digest, Index]
     var votes: seq[VoteTracker]
@@ -730,7 +731,7 @@ when isMainModule:
     indices.add fakeHash(2), 1
 
     # 1 validator at the start, 2 at the end
-    var deltas = newSeqUninitialized[Delta](2)
+    var deltas = newSeqUninit[Delta](2)
     let old_balances = @[Balance]
     let new_balances = @[Balance, Balance]
 
@@ -769,7 +770,7 @@ when isMainModule:
     indices.add fakeHash(2), 1
 
     # 2 validator at the start, 1 at the end
-    var deltas = newSeqUninitialized[Delta](2)
+    var deltas = newSeqUninit[Delta](2)
     let old_balances = @[Balance, Balance]
     let new_balances = @[Balance]
 

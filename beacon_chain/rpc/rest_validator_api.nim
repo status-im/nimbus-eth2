@@ -429,7 +429,7 @@ proc installValidatorApiHandlers*(router: var RestRouter, node: BeaconNode) =
       return RestApiResponse.jsonError(Http400, InvalidRandaoRevealValue)
 
     withConsensusFork(node.dag.cfg.consensusForkAtEpoch(qslot.epoch)):
-      when consensusFork >= ConsensusFork.Deneb:
+      when consensusFork >= ConsensusFork.Electra:
         let
           message = (await node.makeMaybeBlindedBeaconBlockForHeadAndSlot(
               consensusFork, qrandao, qgraffiti, qhead, qslot,
@@ -481,7 +481,15 @@ proc installValidatorApiHandlers*(router: var RestRouter, node: BeaconNode) =
           RestApiResponse.sszResponse(forkyBlck, headers)
         elif contentType == jsonMediaType:
           let forked =
-            when consensusFork >= ConsensusFork.Bellatrix:
+            when consensusFork >= ConsensusFork.Deneb:
+              ForkedMaybeBlindedBeaconBlock.init(
+                consensusFork.BlockContents(
+                  `block`: forkyBlck,
+                  kzg_proofs: message.blobsBundle.proofs,
+                  blobs: message.blobsBundle.blobs),
+                cvalue = consensusValue,
+                evalue = executionValue)
+            elif consensusFork >= ConsensusFork.Bellatrix:
               ForkedMaybeBlindedBeaconBlock.init(
                 forkyBlck, executionValue, consensusValue)
             else:

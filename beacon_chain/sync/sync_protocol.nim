@@ -41,6 +41,8 @@ type
     BlobIdentifier, Limit MAX_SUPPORTED_REQUEST_BLOB_SIDECARS]
   DataColumnIdentifierList* = List[
     DataColumnIdentifier, Limit (MAX_REQUEST_DATA_COLUMN_SIDECARS)]
+  DataColumnsByRootIdentifierList* = List[
+    DataColumnsByRootIdentifier, Limit (MAX_REQUEST_BLOCKS_DENEB)]
 
 proc readChunkPayload*(
     conn: Connection, peer: Peer, MsgType: type (ref ForkedSignedBeaconBlock)):
@@ -390,10 +392,10 @@ p2pProtocol BeaconSync(version = 1,
       peer.networkState.dag.cfg.MAX_BLOBS_PER_BLOCK_ELECTRA,
       peer.networkState.dag.cfg.MAX_REQUEST_BLOB_SIDECARS_ELECTRA)
 
-  # https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.10/specs/fulu/p2p-interface.md#datacolumnsidecarsbyroot-v1
+  # https://github.com/ethereum/consensus-specs/blob/b8b5fbb8d16f52d42a716fa93289062fe2124c7c/specs/fulu/p2p-interface.md#datacolumnsidecarsbyroot-v1
   proc dataColumnSidecarsByRoot(
       peer: Peer,
-      colIds: DataColumnIdentifierList,
+      colIds: DataColumnsByRootIdentifierList,
       response: MultipleChunksResponse[
         ref DataColumnSidecar, Limit(MAX_REQUEST_DATA_COLUMN_SIDECARS)])
       {.async, libp2pProtocol("data_column_sidecars_by_root", 1).} =
@@ -402,7 +404,7 @@ p2pProtocol BeaconSync(version = 1,
     if colIds.len == 0:
       raise newException(InvalidInputsError, "No data columns request for root")
 
-    if colIds.lenu64 > MAX_REQUEST_DATA_COLUMN_SIDECARS:
+    if colIds.lenu64 > MAX_REQUEST_BLOCKS_DENEB:
       raise newException(InvalidInputsError, "Exceeding data column request limit")
 
     let
@@ -417,25 +419,26 @@ p2pProtocol BeaconSync(version = 1,
       let blockRef =
         dag.getBlockRef(colIds[i].block_root).valueOr:
           continue
-      let index =
-        colIds[i].index
-      if dag.db.getDataColumnSidecarSZ(blockRef.bid.root, index, bytes):
-        let uncompressedLen = uncompressedLenFramed(bytes).valueOr:
-          warn "Cannot read data column size, database corrupt?",
-            bytes = bytes.len, blck = shortLog(blockRef), columnIndex = index
-          continue
+      let indices =
+        colIds[i].indices
+      for id in indices:
+        if dag.db.getDataColumnSidecarSZ(blockRef.bid.root, id, bytes):
+          let uncompressedLen = uncompressedLenFramed(bytes).valueOr:
+            warn "Cannot read data column size, database corrupt?",
+              bytes = bytes.len, blck = shortLog(blockRef), columnIndex = id
+            continue
 
-        peer.awaitQuota(dataColumnResponseCost, "data_column_sidecars_by_root/1")
-        peer.network.awaitQuota(dataColumnResponseCost, "data_column_sidecars_by_root/1")
+          peer.awaitQuota(dataColumnResponseCost, "data_column_sidecars_by_root/1")
+          peer.network.awaitQuota(dataColumnResponseCost, "data_column_sidecars_by_root/1")
 
-        await response.writeBytesSZ(
-          uncompressedLen, bytes,
-          peer.network.forkDigestAtEpoch(blockRef.slot.epoch).data)
-        inc found
+          await response.writeBytesSZ(
+            uncompressedLen, bytes,
+            peer.network.forkDigestAtEpoch(blockRef.slot.epoch).data)
+          inc found
 
-        # additional logging for devnets
-        debug "responsded to data column sidecar by root request",
-          peer, blck = shortLog(blockRef), columnIndex = index
+          # additional logging for devnets
+          debug "responsded to data column sidecar by root request",
+            peer, blck = shortLog(blockRef), columnIndex = id
 
     debug "Data column root request done",
       peer, roots = colIds.len, count, found

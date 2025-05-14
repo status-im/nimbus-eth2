@@ -7,7 +7,8 @@
 
 {.push raises: [].}
 
-import chronos, chronicles
+import std/[sets, sequtils], chronos, chronicles
+import ssz_serialization/types
 import
   ../spec/[forks, network, peerdas_helpers],
   ../networking/eth2_network,
@@ -61,6 +62,10 @@ type
       Opt[ref DataColumnSidecar] {.gcsafe, raises: [].}
 
   InhibitFn = proc: bool {.gcsafe, raises: [].}
+
+  BlobResponseRecord = object
+    block_root: Eth2Digest
+    sidecar: ref BlobSidecar
 
   RequestManager* = object
     network*: Eth2Node
@@ -130,68 +135,57 @@ func cmpSidecarIdentifier(x: BlobIdentifier | DataColumnIdentifier,
                           y: ref BlobSidecar | ref DataColumnSidecar): int =
   cmp(x.index, y[].index)
 
-func checkResponseSanity(idList: seq[BlobIdentifier],
-                         blobs: openArray[ref BlobSidecar]): bool =
-  # Cannot respond more than what I have asked
-  if blobs.len > idList.len:
-    return false
-  var i = 0
-  while i < blobs.len:
-    let
-      block_root =
-        hash_tree_root(blobs[i][].signed_block_header.message)
-      idListKey = binarySearch(idList, blobs[i], cmpSidecarIdentifier)
+func cmpColumnIndex(x: ColumnIndex, y: ref DataColumnSidecar): int =
+  cmp(x, y[].index)
 
-    # Verify the block root
-    if idList[idListKey].block_root != block_root:
-      return false
+func checkResponseSanity(
+    idents: openArray[BlobIdentifier],
+    blobs: openArray[ref BlobSidecar]
+): Opt[seq[BlobResponseRecord]] =
+  # Cannot respond more than what I have asked
+  if len(blobs) > len(idents):
+    return Opt.none(seq[BlobResponseRecord])
+
+  var
+    checks = idents.toHashSet()
+    records: seq[BlobResponseRecord]
+
+  for sidecar in blobs.items():
+    let
+      slot = sidecar[].signed_block_header.message.slot
+      block_root = hash_tree_root(sidecar[].signed_block_header.message)
+      sidecarIdent =
+        BlobIdentifier(block_root: block_root, index: sidecar[].index)
+
+    if checks.missingOrExcl(sidecarIdent):
+      return Opt.none(seq[BlobResponseRecord])
 
     # Verify inclusion proof
-    blobs[i][].verify_blob_sidecar_inclusion_proof().isOkOr:
-      return false
-    inc i
-  true
+    sidecar[].verify_blob_sidecar_inclusion_proof().isOkOr:
+      return Opt.none(seq[BlobResponseRecord])
 
-func checkResponseSubset(idList: seq[BlobIdentifier],
-                         blobs: openArray[ref BlobSidecar]): bool =
-  ## Clients MUST respond with at least one sidecar, if they have it.
-  ## Clients MAY limit the number of blocks and sidecars in the response.
-  ## https://github.com/ethereum/consensus-specs/blob/v1.5.0-beta.2/specs/deneb/p2p-interface.md#blobsidecarsbyroot-v1
-  for blb in blobs:
-    if binarySearch(idList, blb, cmpSidecarIdentifier) == -1:
-      return false
-  true
+    records.add(BlobResponseRecord(block_root: block_root, sidecar: sidecar))
 
-func checkResponseSanity(idList: seq[DataColumnIdentifier],
-                         columns: openArray[ref DataColumnSidecar]): bool =
-  # Cannot respond more than what I have asked
-  if columns.len > idList.len:
-    return false
-  var i = 0
-  while i < columns.len:
-    let
-      block_root =
-        hash_tree_root(columns[i][].signed_block_header.message)
-      idListKey = binarySearch(idList, columns[i], cmpSidecarIdentifier)
+  Opt.some(records)
 
-    # Verify the block root
-    if idList[idListKey].block_root != block_root:
+func checkColumnResponse(idList: seq[DataColumnsByRootIdentifier],
+                    columns: openArray[ref DataColumnSidecar]): bool =
+  for colresp in columns:
+    let block_root =
+      hash_tree_root(colresp[].signed_block_header.message)
+    if block_root notin idList.mapIt(it.block_root):
+      # received a response that does not match the
+      # block root of any of the items that were requested
       return false
-
-    # Verify inclusion proof
-    columns[i][].verify_data_column_sidecar_inclusion_proof().isOkOr:
-      return false
-    inc i
-  true
-
-func checkResponseSubset(idList: seq[DataColumnIdentifier],
-                         columns: openArray[ref DataColumnSidecar]): bool =
-  ## Clients MUST respond with at least one sidecar, if they have it.
-  ## Clients MAY limit the number of blocks and sidecars in the response.
-  ## https://github.com/ethereum/consensus-specs/blob/v1.5.0-beta.3/specs/fulu/p2p-interface.md#datacolumnsidecarsbyroot-v1
-  for col in columns:
-    if binarySearch(idList, col, cmpSidecarIdentifier) == -1:
-      return false
+    for id in idList:
+      if id.block_root == block_root:
+        if binarySearch(id.indices.asSeq, colresp, cmpColumnIndex) == -1:
+          # at the common block root level, the response
+          # is NOT a subset of the request ids
+          return false
+        # verify the inclusion proof
+        colresp[].verify_data_column_sidecar_inclusion_proof().isOkOr:
+          return false
   true
 
 proc requestBlocksByRoot(rman: RequestManager, items: seq[Eth2Digest]) {.async: (raises: [CancelledError]).} =
@@ -283,35 +277,28 @@ proc fetchBlobsFromNetwork(self: RequestManager,
 
     if blobs.isOk:
       var ublobs = blobs.get().asSeq()
-      ublobs.sort(cmpSidecarIndexes)
-      if not checkResponseSubset(idList, ublobs):
-        debug "Response to blobs by root is not a subset",
-          peer = peer, blobs = shortLog(idList), ublobs = len(ublobs)
+      let records = checkResponseSanity(idList, ublobs).valueOr:
+        debug "Response to blobs by root is incorrect",
+              peer = peer, blobs = shortLog(idList), ublobs = len(ublobs)
         peer.updateScore(PeerScoreBadResponse)
         return
 
-      if not checkResponseSanity(idList, ublobs):
-        debug "Response to blobs by root have erroneous block root",
-          peer = peer, blobs = shortLog(idList), ublobs = len(ublobs)
-        peer.updateScore(PeerScoreBadResponse)
-        return
+      for b in records:
+        self.blobQuarantine[].put(b.block_root, b.sidecar)
 
-      for b in ublobs:
-        self.blobQuarantine[].put(b)
       var curRoot: Eth2Digest
-      for b in ublobs:
-        let block_root = hash_tree_root(b.signed_block_header.message)
-        if block_root != curRoot:
-          curRoot = block_root
+      for record in records:
+        if record.block_root != curRoot:
+          curRoot = record.block_root
           if (let o = self.quarantine[].popBlobless(curRoot); o.isSome):
-            let b = o.unsafeGet()
-            discard await self.blockVerifier(b, false)
+            let blck = o.unsafeGet()
+            discard await self.blockVerifier(blck, false)
             # TODO:
             # If appropriate, return a VerifierError.InvalidBlob from
             # verification, check for it here, and penalize the peer accordingly
     else:
       debug "Blobs by root request failed",
-        peer = peer, blobs = shortLog(idList), err = blobs.error()
+            peer = peer, blobs = shortLog(idList), err = blobs.error()
       peer.updateScore(PeerScoreNoValues)
 
   finally:
@@ -364,26 +351,20 @@ proc checkPeerCustody(rman: RequestManager,
       return false
 
 proc fetchDataColumnsFromNetwork(rman: RequestManager,
-                                 colIdList: seq[DataColumnIdentifier])
+                                 colIdList: seq[DataColumnsByRootIdentifier])
                                  {.async: (raises: [CancelledError]).} =
   var peer = await rman.network.peerPool.acquire()
   try:
     if rman.checkPeerCustody(peer):
       debug "Requesting data columns by root", peer = peer, columns = shortLog(colIdList),
                                                       peer_score = peer.getScore()
-      let columns = await dataColumnSidecarsByRoot(peer, DataColumnIdentifierList colIdList)
+      let columns = await dataColumnSidecarsByRoot(peer, DataColumnsByRootIdentifierList colIdList)
 
       if columns.isOk:
         var ucolumns = columns.get().asSeq()
         ucolumns.sort(cmpSidecarIndexes)
-        if not checkResponseSubset(colIdList, ucolumns):
+        if not checkColumnResponse(colIdList, ucolumns):
           debug "Response to columns by root is not a subset",
-            peer = peer, columns = shortLog(colIdList), ucolumns = len(ucolumns)
-          peer.updateScore(PeerScoreBadResponse)
-          return
-
-        if not checkResponseSanity(colIdList, ucolumns):
-          debug "Response to columns by root have erroneous block root",
             peer = peer, columns = shortLog(colIdList), ucolumns = len(ucolumns)
           peer.updateScore(PeerScoreBadResponse)
           return
@@ -475,7 +456,7 @@ proc getMissingBlobs(rman: RequestManager): seq[BlobIdentifier] =
     waitDur = TimeDiff(nanoseconds: BLOB_GOSSIP_WAIT_TIME_NS)
 
   var
-    fetches: seq[BlobIdentifier]
+    idents: seq[BlobIdentifier]
     ready: seq[Eth2Digest]
   for blobless in rman.quarantine[].peekBlobless():
     withBlck(blobless):
@@ -485,28 +466,32 @@ proc getMissingBlobs(rman: RequestManager): seq[BlobIdentifier] =
           debug "Not handling missing blobs early in slot"
           continue
 
-        if not rman.blobQuarantine[].hasBlobs(forkyBlck):
-          let missing = rman.blobQuarantine[].blobFetchRecord(forkyBlck)
-          if len(missing.indices) == 0:
-            warn "quarantine missing blobs, but missing indices is empty",
-             blk=blobless.root,
-             commitments=len(forkyBlck.message.body.blob_kzg_commitments)
-          for idx in missing.indices:
-            let id = BlobIdentifier(block_root: blobless.root, index: idx)
-            if id notin fetches:
-              fetches.add(id)
+        let
+          commitmentsCount = len(forkyBlck.message.body.blob_kzg_commitments)
+          missing =
+            rman.blobQuarantine[].fetchMissingSidecars(blobless.root, forkyBlck)
+
+        if len(missing) > 0:
+          for ident in missing:
+            idents.add(ident)
         else:
-          # this is a programming error should it occur.
-          warn "missing blob handler found blobless block with all blobs",
-             blk=blobless.root,
-             commitments=len(forkyBlck.message.body.blob_kzg_commitments)
-          ready.add(blobless.root)
+          if commitmentsCount == 0:
+            # this is a programming error should it occur.
+            warn "missing blob handler found blobless block with all blobs",
+                 blk = blobless.root,
+                 commitments = len(forkyBlck.message.body.blob_kzg_commitments)
+            ready.add(blobless.root)
+          else:
+            # This should not happen either...
+            warn "quarantine missing blobs, but missing indices is empty",
+                 blk = blobless.root,
+                 commitments = len(forkyBlck.message.body.blob_kzg_commitments)
 
   for root in ready:
     let blobless = rman.quarantine[].popBlobless(root).valueOr:
       continue
     discard rman.blockVerifier(blobless, false)
-  fetches
+  idents
 
 proc requestManagerBlobLoop(
     rman: RequestManager) {.async: (raises: [CancelledError]).} =
@@ -543,7 +528,7 @@ proc requestManagerBlobLoop(
             discard blockRoots.pop()
           continue
         debug "Loaded orphaned blob from storage", blobId
-        rman.blobQuarantine[].put(blob_sidecar)
+        rman.blobQuarantine[].put(curRoot, blob_sidecar)
       var verifiers = newSeqOfCap[
         Future[Result[void, VerifierError]]
           .Raising([CancelledError])](blockRoots.len)
@@ -575,7 +560,7 @@ proc requestManagerBlobLoop(
             blobs_count = len(blobIds),
             sync_speed = speed(start, finish)
 
-proc getMissingDataColumns(rman: RequestManager): HashSet[DataColumnIdentifier] =
+proc getMissingDataColumns(rman: RequestManager): seq[DataColumnsByRootIdentifier] =
   let
     wallTime = rman.getBeaconTime()
     wallSlot = wallTime.slotOrZero()
@@ -584,7 +569,7 @@ proc getMissingDataColumns(rman: RequestManager): HashSet[DataColumnIdentifier] 
   const waitDur = TimeDiff(nanoseconds: DATA_COLUMN_GOSSIP_WAIT_TIME_NS)
 
   var
-    fetches: HashSet[DataColumnIdentifier]
+    fetches: seq[DataColumnsByRootIdentifier]
     ready: seq[Eth2Digest]
 
   for columnless in rman.quarantine[].peekColumnless():
@@ -601,11 +586,17 @@ proc getMissingDataColumns(rman: RequestManager): HashSet[DataColumnIdentifier] 
             warn "quarantine is missing data columns, but missing indices are empty",
              blk = columnless.root,
              commitments = len(forkyBlck.message.body.blob_kzg_commitments)
-          for idx in missing.indices:
-            let id = DataColumnIdentifier(block_root: columnless.root, index: idx)
-            if id.index in rman.custody_columns_set and id notin fetches and
-                len(forkyBlck.message.body.blob_kzg_commitments) != 0:
-              fetches.incl(id)
+
+          let id = DataColumnsByRootIdentifier(
+            block_root: columnless.root,
+            indices:  DataColumnIndices.init(missing.indices))
+          for index in id.indices.asSeq:
+            if not(index in rman.custody_columns_set and id notin fetches and
+                len(forkyBlck.message.body.blob_kzg_commitments) != 0):
+              # do not include to fetches
+              discard
+            else:
+              fetches.add(id)
         else:
           # this is a programming error and it not should occur
           warn "missing column handler found columnless block with all data columns",
@@ -631,10 +622,9 @@ proc requestManagerDataColumnLoop(
     if missingColumnIds.len == 0:
       continue
 
-    var columnIds: seq[DataColumnIdentifier]
+    var columnIds: seq[DataColumnsByRootIdentifier]
     if rman.dataColumnLoader == nil:
-      for item in missingColumnIds:
-        columnIds.add item
+      columnIds = missingColumnIds
     else:
       var
         blockRoots: seq[Eth2Digest]
@@ -643,14 +633,18 @@ proc requestManagerDataColumnLoop(
         if columnId.block_root != curRoot:
           curRoot = columnId.block_root
           blockRoots.add curRoot
-        let data_column_sidecar = rman.dataColumnLoader(columnId).valueOr:
-          columnIds.add columnId
-          if blockRoots.len > 0 and blockRoots[^1] == curRoot:
-            # A data column is missing, remove from list of fully available data columns
-            discard blockRoots.pop()
-          continue
-        debug "Loaded orphaned data columns from storage", columnId
-        rman.dataColumnQuarantine[].put(data_column_sidecar)
+        for index in columnId.indices:
+          let loaderElem = DataColumnIdentifier(
+            block_root: columnId.block_root,
+            index: index)
+          let data_column_sidecar = rman.dataColumnLoader(loaderElem).valueOr:
+            columnIds.add columnId
+            if blockRoots.len > 0 and blockRoots[^1] == curRoot:
+              # A data column is missing, remove from list of fully available data columns
+              discard blockRoots.pop()
+            continue
+          debug "Loaded orphaned data columns from storage", columnId
+          rman.dataColumnQuarantine[].put(data_column_sidecar)
       var verifiers = newSeqOfCap[
         Future[Result[void, VerifierError]]
           .Raising([CancelledError])](blockRoots.len)

@@ -130,7 +130,7 @@ _Alternatively, fire up our [experimental Vagrant instance with Nim pre-installe
 
 <!-- TODO: Is this up to date? -->
 
-The [generic instructions from the Nimbus repo](https://github.com/status-im/nimbus/#metric-visualisation) apply here as well.
+The [generic instructions from the Nimbus repo](https://github.com/status-im/nimbus-eth1/#metric-visualisation) apply here as well.
 
 Specific steps:
 

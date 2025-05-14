@@ -1,5 +1,5 @@
 # beacon_chain
-# Copyright (c) 2018-2024 Status Research & Development GmbH
+# Copyright (c) 2018-2025 Status Research & Development GmbH
 # Licensed and distributed under either of
 #   * MIT license (license terms in the root directory or at https://opensource.org/licenses/MIT).
 #   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
@@ -59,8 +59,6 @@ suite "BlockSlot and helpers":
       s1 = BlockRef(bid: BlockId(slot: Slot(1)), parent: s0)
       s2 = BlockRef(bid: BlockId(slot: Slot(2)), parent: s1)
       s4 = BlockRef(bid: BlockId(slot: Slot(4)), parent: s2)
-      se1 = BlockRef(bid:
-        BlockId(slot: Epoch(1).start_slot()), parent: s2)
 
     check:
       s0.atSlot(Slot(0)).blck == s0

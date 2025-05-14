@@ -28,7 +28,7 @@ from ../consensus_object_pools/block_pools_types import
 from ../consensus_object_pools/block_quarantine import
   addBlobless, addOrphan, addUnviable, pop, removeOrphan
 from ../consensus_object_pools/blob_quarantine import
-  BlobQuarantine, hasBlobs, popBlobs, put
+  BlobQuarantine, popSidecars, put
 from ../validators/validator_monitor import
   MsgSource, ValidatorMonitor, registerAttestationInBlock, registerBeaconBlock,
   registerSyncAggregateInBlock
@@ -87,6 +87,7 @@ type
     dumpEnabled: bool
     dumpDirInvalid: string
     dumpDirIncoming: string
+    invalidBlockRoots: seq[Eth2Digest]
 
     # Producers
     # ----------------------------------------------------------------
@@ -127,11 +128,17 @@ proc new*(T: type BlockProcessor,
           consensusManager: ref ConsensusManager,
           validatorMonitor: ref ValidatorMonitor,
           blobQuarantine: ref BlobQuarantine,
-          getBeaconTime: GetBeaconTimeFn): ref BlockProcessor =
+          getBeaconTime: GetBeaconTimeFn,
+          invalidBlockRoots: seq[Eth2Digest] = @[]): ref BlockProcessor =
+  if invalidBlockRoots.len > 0:
+    warn "Config requests blocks to be treated as invalid",
+      debugInvalidateBlockRoot = invalidBlockRoots
+
   (ref BlockProcessor)(
     dumpEnabled: dumpEnabled,
     dumpDirInvalid: dumpDirInvalid,
     dumpDirIncoming: dumpDirIncoming,
+    invalidBlockRoots: invalidBlockRoots,
     blockQueue: newAsyncQueue[BlockEntry](),
     consensusManager: consensusManager,
     validatorMonitor: validatorMonitor,
@@ -493,8 +500,7 @@ proc storeBlock(
           err = r.error()
       else:
         if blobsOpt.isSome:
-          for blobSidecar in blobsOpt.get:
-            self.blobQuarantine[].put(blobSidecar)
+          self.blobQuarantine[].put(signedBlock.root, blobsOpt.get)
         debug "Block quarantined",
           blockRoot = shortLog(signedBlock.root),
           blck = shortLog(signedBlock.message),
@@ -619,6 +625,10 @@ proc storeBlock(
           # based on payload timestamp (only allowed post Deneb);
           # There are no `blob_kzg_commitments` before Deneb to compare against
           discard
+
+        if signedBlock.root in self.invalidBlockRoots:
+          returnWithError "Block root treated as invalid via config",
+            $signedBlock.root
 
   let newPayloadTick = Moment.now()
 
@@ -841,10 +851,10 @@ proc storeBlock(
              blck = shortLog(forkyBlck),
              error = res.error()
             continue
-          if self.blobQuarantine[].hasBlobs(forkyBlck):
-            let blobs = self.blobQuarantine[].popBlobs(
-              forkyBlck.root, forkyBlck)
-            self[].enqueueBlock(MsgSource.gossip, quarantined, Opt.some(blobs))
+          let bres =
+            self.blobQuarantine[].popSidecars(forkyBlck.root, forkyBlck)
+          if bres.isSome():
+            self[].enqueueBlock(MsgSource.gossip, quarantined, bres)
           else:
             discard self.consensusManager.quarantine[].addBlobless(
               dag.finalizedHead.slot, forkyBlck)

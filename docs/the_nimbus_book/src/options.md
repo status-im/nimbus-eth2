@@ -78,7 +78,6 @@ The following options are available:
                                built-in genesis state).
      --genesis-state-url       URL for obtaining the genesis state of the network (for networks without a
                                built-in genesis state).
-     --finalized-deposit-tree-snapshot  SSZ file specifying a recent finalized EIP-4881 deposit tree snapshot.
      --node-name               A name for this node that will appear in the logs. If you set this to 'auto', a
                                persistent automatically generated ID will be selected for each --data-dir
                                folder.
