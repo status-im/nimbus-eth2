@@ -17,7 +17,6 @@ import
 
 from std/algorithm import sort
 from std/sequtils import toSeq
-from std/strutils import toLowerAscii
 from snappy import encodeFramed, uncompressedLenFramed
 from ../beacon_chain/consensus_object_pools/block_pools_types import
   ChainDAGRef
