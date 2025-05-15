@@ -178,14 +178,11 @@ if canEnableDebuggingSymbols:
 
 --define:nimOldCaseObjects # https://github.com/status-im/nim-confutils/issues/9
 
+switch("warningAsError", "BareExcept:on")
 switch("warningAsError", "UnusedImport:on")
 
 # `switch("warning[CaseTransition]", "off")` fails with "Error: invalid command line option: '--warning[CaseTransition]'"
 switch("warning", "CaseTransition:off")
-
-# Too many right now to read compiler output. Warnings are legitimate, but
-# should be fixed out-of-band of `unstable` branch.
-switch("warning", "BareExcept:off")
 
 # Transitional for Nim v2.2, due to newSeqUninit replacing newSeqUninitialized.
 switch("warning", "Deprecated:off")
