@@ -600,17 +600,12 @@ clean-sepolia:
 ### Gnosis chain binary
 ###
 
-# TODO The `-d:gnosisChainBinary` override can be removed if the web3 library
-#      gains support for multiple "Chain Profiles" that consist of a set of
-#      consensus object (such as blocks and transactions) that are specific
-#      to the chain.
 gnosis-build gnosis-chain-build: | build deps
 	+ echo -e $(BUILD_MSG) "build/nimbus_beacon_node_gnosis" && \
 		MAKE="$(MAKE)" V="$(V)" $(ENV_SCRIPT) scripts/compile_nim_program.sh \
 			nimbus_beacon_node_gnosis \
 			beacon_chain/nimbus_beacon_node.nim \
 			$(NIM_PARAMS) \
-			-d:gnosisChainBinary \
 			-d:const_preset=gnosis \
 			&& \
 		echo -e $(BUILD_END_MSG) "build/nimbus_beacon_node_gnosis"
@@ -621,7 +616,6 @@ gnosis-vc-build: | build deps
 			nimbus_validator_client_gnosis \
 			beacon_chain/nimbus_validator_client.nim \
 			$(NIM_PARAMS) \
-			-d:gnosisChainBinary \
 			-d:const_preset=gnosis \
 			&& \
 		echo -e $(BUILD_END_MSG) "build/nimbus_validator_client_gnosis"
