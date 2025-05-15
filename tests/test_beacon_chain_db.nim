@@ -1301,6 +1301,39 @@ suite "Quarantine" & preset():
         return false
     true
 
+  proc generateBlobSidecars(): seq[ref BlobSidecar] =
+    @[
+      newClone(genBlobSidecar(0, 100, 10, 24)),
+      newClone(genBlobSidecar(1, 100, 11, 24)),
+      newClone(genBlobSidecar(2, 100, 12, 24)),
+      newClone(genBlobSidecar(3, 100, 13, 24)),
+      newClone(genBlobSidecar(4, 100, 14, 24)),
+      newClone(genBlobSidecar(5, 100, 15, 24)),
+      newClone(genBlobSidecar(6, 100, 16, 24)),
+      newClone(genBlobSidecar(7, 100, 17, 24)),
+      newClone(genBlobSidecar(8, 100, 18, 24))
+    ]
+
+  proc generateDataColumnSidecars(): seq[ref DataColumnSidecar] =
+    @[
+      newClone(genDataColumnSidecar(0, 200, 100234)),
+      newClone(genDataColumnSidecar(7, 200, 100234)),
+      newClone(genDataColumnSidecar(14, 200, 100234)),
+      newClone(genDataColumnSidecar(21, 200, 100234)),
+      newClone(genDataColumnSidecar(28, 200, 100234)),
+      newClone(genDataColumnSidecar(35, 200, 100234)),
+      newClone(genDataColumnSidecar(42, 200, 100234)),
+      newClone(genDataColumnSidecar(49, 200, 100234)),
+      newClone(genDataColumnSidecar(56, 200, 100234)),
+      newClone(genDataColumnSidecar(63, 200, 100234)),
+      newClone(genDataColumnSidecar(70, 200, 100234)),
+      newClone(genDataColumnSidecar(77, 200, 100234)),
+      newClone(genDataColumnSidecar(84, 200, 100234)),
+      newClone(genDataColumnSidecar(91, 200, 100234)),
+      newClone(genDataColumnSidecar(98, 200, 100234)),
+      newClone(genDataColumnSidecar(127, 200, 100234)),
+    ]
+
   proc runDataSidecarTest(
       quarantine: QuarantineDB,
       T: typedesc[ForkyDataSidecar]
@@ -1311,36 +1344,9 @@ suite "Quarantine" & preset():
       ]
       sidecars =
         when T is deneb.BlobSidecar:
-          @[
-            newClone(genBlobSidecar(0, 100, 10, 24)),
-            newClone(genBlobSidecar(1, 100, 11, 24)),
-            newClone(genBlobSidecar(2, 100, 12, 24)),
-            newClone(genBlobSidecar(3, 100, 13, 24)),
-            newClone(genBlobSidecar(4, 100, 14, 24)),
-            newClone(genBlobSidecar(5, 100, 15, 24)),
-            newClone(genBlobSidecar(6, 100, 16, 24)),
-            newClone(genBlobSidecar(7, 100, 17, 24)),
-            newClone(genBlobSidecar(8, 100, 18, 24))
-          ]
+          generateBlobSidecars()
         else:
-          @[
-            newClone(genDataColumnSidecar(0, 200, 100234)),
-            newClone(genDataColumnSidecar(7, 200, 100234)),
-            newClone(genDataColumnSidecar(14, 200, 100234)),
-            newClone(genDataColumnSidecar(21, 200, 100234)),
-            newClone(genDataColumnSidecar(28, 200, 100234)),
-            newClone(genDataColumnSidecar(35, 200, 100234)),
-            newClone(genDataColumnSidecar(42, 200, 100234)),
-            newClone(genDataColumnSidecar(49, 200, 100234)),
-            newClone(genDataColumnSidecar(56, 200, 100234)),
-            newClone(genDataColumnSidecar(63, 200, 100234)),
-            newClone(genDataColumnSidecar(70, 200, 100234)),
-            newClone(genDataColumnSidecar(77, 200, 100234)),
-            newClone(genDataColumnSidecar(84, 200, 100234)),
-            newClone(genDataColumnSidecar(91, 200, 100234)),
-            newClone(genDataColumnSidecar(98, 200, 100234)),
-            newClone(genDataColumnSidecar(127, 200, 100234)),
-          ]
+          generateDataColumnSidecars()
       offsets =
         when T is deneb.BlobSidecar:
           @[(0, 8), (0, 3), (0, 5)]
