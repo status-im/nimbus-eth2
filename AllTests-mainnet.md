@@ -828,8 +828,8 @@ AllTests-mainnet
 ```
 ## Quarantine [Preset: mainnet]
 ```diff
-+ deneb.BlobSidecar [Preset: mainnet]                                                        OK
-+ fulu.DataColumnSidecar [Preset: mainnet]                                                   OK
++ put/iterate/remove test [BlobSidecars]                                                     OK
++ put/iterate/remove test [DataColumnSidecar]                                                OK
 ```
 ## REST JSON encoding and decoding
 ```diff
