@@ -71,7 +71,7 @@ suite "Block processor" & preset():
       batchVerifier = BatchVerifier.new(rng, taskpool)
       processor = BlockProcessor.new(
         false, "", "", batchVerifier, consensusManager,
-        validatorMonitor, blobQuarantine, dataColumnQuarantine, 
+        validatorMonitor, blobQuarantine, dataColumnQuarantine,
         getTimeFn)
     discard processor.runQueueProcessingLoop()
 
@@ -137,15 +137,15 @@ suite "Block processor" & preset():
     let
       processor = BlockProcessor.new(
         false, "", "", batchVerifier, consensusManager,
-        validatorMonitor, blobQuarantine, getTimeFn,
-        invalidBlockRoots = @[b2.root])
+        validatorMonitor, blobQuarantine, dataColumnQuarantine,
+        getTimeFn, invalidBlockRoots = @[b2.root])
       processorFut = processor.runQueueProcessingLoop()
     defer: await processorFut.cancelAndWait()
 
     block:
       let res = await processor[].addBlock(
         MsgSource.gossip, ForkedSignedBeaconBlock.init(b2),
-        Opt.none(BlobSidecars))
+        Opt.none(BlobSidecars), Opt.none(DataColumnSidecars))
       check:
         res.isErr
         not dag.containsForkBlock(b1.root)
@@ -154,7 +154,7 @@ suite "Block processor" & preset():
     block:
       let res = await processor[].addBlock(
         MsgSource.gossip, ForkedSignedBeaconBlock.init(b1),
-        Opt.none(BlobSidecars))
+        Opt.none(BlobSidecars), Opt.none(DataColumnSidecars))
       check:
         res.isOk
         dag.containsForkBlock(b1.root)
@@ -168,7 +168,7 @@ suite "Block processor" & preset():
     block:
       let res = await processor[].addBlock(
         MsgSource.gossip, ForkedSignedBeaconBlock.init(b2),
-        Opt.none(BlobSidecars))
+        Opt.none(BlobSidecars), Opt.none(DataColumnSidecars))
       check:
         res == Result[void, VerifierError].err VerifierError.Invalid
         dag.containsForkBlock(b1.root)
