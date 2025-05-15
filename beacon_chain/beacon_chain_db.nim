@@ -600,10 +600,7 @@ proc new*(T: type BeaconChainDB,
   if cfg.FULU_FORK_EPOCH != FAR_FUTURE_EPOCH:
     columns = kvStore db.openKvStore("fulu_columns").expectDb()
 
-  let quarantine = db.initQuarantineDB(
-    QuarantineDBNames(
-      dataSidecars: "quarantine_data_sidecars",
-    ), ForkEpochs.init(cfg)).expectDb()
+  let quarantine = db.initQuarantineDB().expectDb()
 
   # Versions prior to 1.4.0 (altair) stored validators in `immutable_validators`
   # which stores validator keys in compressed format - this is

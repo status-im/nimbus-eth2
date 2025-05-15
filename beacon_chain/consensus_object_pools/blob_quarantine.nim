@@ -71,7 +71,7 @@ iterator items*(a: ColumnMap): ColumnIndex =
   while data0 != 0'u64:
     let
       # t = data0 and -data0
-      t = data0 and ((0xFFFF_FFFF_FFFF_FFFF'u64 - data0) + 1'u64)
+      t = data0 and (not(data0) + 1'u64)
       res = firstOne(data0)
     yield ColumnIndex(res - 1)
     data0 = data0 xor t
@@ -79,7 +79,7 @@ iterator items*(a: ColumnMap): ColumnIndex =
   while data1 != 0'u64:
     let
       # t = data0 and -data0
-      t = data1 and ((0xFFFF_FFFF_FFFF_FFFF'u64 - data1) + 1'u64)
+      t = data1 and (not(data1) + 1'u64)
       res = firstOne(data1)
     yield ColumnIndex(64 + res - 1)
     data1 = data1 xor t
