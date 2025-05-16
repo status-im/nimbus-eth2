@@ -1290,13 +1290,13 @@ suite "Quarantine" & preset():
           proposer_index: uint64(proposer_index))))
 
   proc cmp(
-      a: openArray[BlobSidecar|DataColumnSidecar],
+      a: openArray[ref BlobSidecar|ref DataColumnSidecar],
       b: openArray[ref BlobSidecar|ref DataColumnSidecar]
   ): bool =
     if len(a) != len(b):
       return false
     for index in 0 ..< len(a):
-      if a[index] != b[index][]:
+      if a[index][] != b[index][]:
         return false
     true
 
@@ -1333,6 +1333,16 @@ suite "Quarantine" & preset():
       newClone(genDataColumnSidecar(127, 200, 100234)),
     ]
 
+  proc getSidecars(
+      quarantine: QuarantineDB,
+      T: typedesc[BlobSidecar|DataColumnSidecar],
+      blockRoot: Eth2Digest
+  ): seq[ref T] =
+    var res: seq[ref T]
+    for item in quarantine.sidecars(T, blockRoot):
+      res.add(newClone(item))
+    res
+
   proc runDataSidecarTest(
       quarantine: QuarantineDB,
       T: typedesc[ForkyDataSidecar]
@@ -1353,44 +1363,44 @@ suite "Quarantine" & preset():
           @[(0, 15), (4, 11), (0, 7)]
 
     check:
-      len(quarantine.sidecars(T, broots[0]).toSeq()) == 0
-      len(quarantine.sidecars(T, broots[1]).toSeq()) == 0
-      len(quarantine.sidecars(T, broots[2]).toSeq()) == 0
+      len(quarantine.getSidecars(T, broots[0])) == 0
+      len(quarantine.getSidecars(T, broots[1])) == 0
+      len(quarantine.getSidecars(T, broots[2])) == 0
 
     quarantine.putDataSidecars(broots[0],
       sidecars.toOpenArray(offsets[0][0], offsets[0][1]))
 
     closureScope:
       let
-        res1 = quarantine.sidecars(T, broots[0]).toSeq()
+        res1 = quarantine.getSidecars(T, broots[0])
       check:
         len(res1) == (offsets[0][1] - offsets[0][0] + 1)
         cmp(res1, sidecars.toOpenArray(offsets[0][0], offsets[0][1])) == true
-        len(quarantine.sidecars(T, broots[1]).toSeq()) == 0
-        len(quarantine.sidecars(T, broots[2]).toSeq()) == 0
+        len(quarantine.getSidecars(T, broots[1])) == 0
+        len(quarantine.getSidecars(T, broots[2])) == 0
 
     quarantine.putDataSidecars(broots[1],
       sidecars.toOpenArray(offsets[1][0], offsets[1][1]))
 
     closureScope:
       let
-        res1 = quarantine.sidecars(T, broots[0]).toSeq()
-        res2 = quarantine.sidecars(T, broots[1]).toSeq()
+        res1 = quarantine.getSidecars(T, broots[0])
+        res2 = quarantine.getSidecars(T, broots[1])
       check:
         len(res1) == (offsets[0][1] - offsets[0][0] + 1)
         len(res2) == (offsets[1][1] - offsets[1][0] + 1)
         cmp(res1, sidecars.toOpenArray(offsets[0][0], offsets[0][1])) == true
         cmp(res2, sidecars.toOpenArray(offsets[1][0], offsets[1][1])) == true
-        len(quarantine.sidecars(T, broots[2]).toSeq()) == 0
+        len(quarantine.getSidecars(T, broots[2])) == 0
 
     quarantine.putDataSidecars(broots[2],
       sidecars.toOpenArray(offsets[2][0], offsets[2][1]))
 
     closureScope:
       let
-        res1 = quarantine.sidecars(T, broots[0]).toSeq()
-        res2 = quarantine.sidecars(T, broots[1]).toSeq()
-        res3 = quarantine.sidecars(T, broots[2]).toSeq()
+        res1 = quarantine.getSidecars(T, broots[0])
+        res2 = quarantine.getSidecars(T, broots[1])
+        res3 = quarantine.getSidecars(T, broots[2])
       check:
         len(res1) == (offsets[0][1] - offsets[0][0] + 1)
         len(res2) == (offsets[1][1] - offsets[1][0] + 1)
@@ -1403,12 +1413,12 @@ suite "Quarantine" & preset():
 
     closureScope:
       let
-        res1 = quarantine.sidecars(T, broots[0]).toSeq()
-        res3 = quarantine.sidecars(T, broots[2]).toSeq()
+        res1 = quarantine.getSidecars(T, broots[0])
+        res3 = quarantine.getSidecars(T, broots[2])
       check:
         len(res1) == (offsets[0][1] - offsets[0][0] + 1)
         cmp(res1, sidecars.toOpenArray(offsets[0][0], offsets[0][1])) == true
-        len(quarantine.sidecars(T, broots[1]).toSeq()) == 0
+        len(quarantine.getSidecars(T, broots[1])) == 0
         len(res3) == (offsets[2][1] - offsets[2][0] + 1)
         cmp(res3, sidecars.toOpenArray(offsets[2][0], offsets[2][1])) == true
 
@@ -1416,19 +1426,19 @@ suite "Quarantine" & preset():
 
     closureScope:
       let
-        res3 = quarantine.sidecars(T, broots[2]).toSeq()
+        res3 = quarantine.getSidecars(T, broots[2])
       check:
-        len(quarantine.sidecars(T, broots[0]).toSeq()) == 0
-        len(quarantine.sidecars(T, broots[1]).toSeq()) == 0
+        len(quarantine.getSidecars(T, broots[0])) == 0
+        len(quarantine.getSidecars(T, broots[1])) == 0
         len(res3) == (offsets[2][1] - offsets[2][0] + 1)
         cmp(res3, sidecars.toOpenArray(offsets[2][0], offsets[2][1])) == true
 
     quarantine.removeDataSidecars(T, broots[2])
 
     check:
-      len(quarantine.sidecars(T, broots[0]).toSeq()) == 0
-      len(quarantine.sidecars(T, broots[1]).toSeq()) == 0
-      len(quarantine.sidecars(T, broots[2]).toSeq()) == 0
+      len(quarantine.getSidecars(T, broots[0])) == 0
+      len(quarantine.getSidecars(T, broots[1])) == 0
+      len(quarantine.getSidecars(T, broots[2])) == 0
 
   test "put/iterate/remove test [BlobSidecars]":
     quarantine.runDataSidecarTest(deneb.BlobSidecar)
