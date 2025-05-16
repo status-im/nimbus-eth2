@@ -1370,7 +1370,7 @@ suite "Quarantine" & preset():
     quarantine.putDataSidecars(broots[0],
       sidecars.toOpenArray(offsets[0][0], offsets[0][1]))
 
-    closureScope:
+    block:
       let
         res1 = quarantine.getSidecars(T, broots[0])
       check:
@@ -1382,7 +1382,7 @@ suite "Quarantine" & preset():
     quarantine.putDataSidecars(broots[1],
       sidecars.toOpenArray(offsets[1][0], offsets[1][1]))
 
-    closureScope:
+    block:
       let
         res1 = quarantine.getSidecars(T, broots[0])
         res2 = quarantine.getSidecars(T, broots[1])
@@ -1396,7 +1396,7 @@ suite "Quarantine" & preset():
     quarantine.putDataSidecars(broots[2],
       sidecars.toOpenArray(offsets[2][0], offsets[2][1]))
 
-    closureScope:
+    block:
       let
         res1 = quarantine.getSidecars(T, broots[0])
         res2 = quarantine.getSidecars(T, broots[1])
@@ -1411,7 +1411,7 @@ suite "Quarantine" & preset():
 
     quarantine.removeDataSidecars(T, broots[1])
 
-    closureScope:
+    block:
       let
         res1 = quarantine.getSidecars(T, broots[0])
         res3 = quarantine.getSidecars(T, broots[2])
@@ -1424,7 +1424,7 @@ suite "Quarantine" & preset():
 
     quarantine.removeDataSidecars(T, broots[0])
 
-    closureScope:
+    block:
       let
         res3 = quarantine.getSidecars(T, broots[2])
       check:
