@@ -149,10 +149,6 @@ type
     # ----------------------------------------------------------------
     batchCrypto*: ref BatchCrypto
 
-    # EL integration
-    # ----------------------------------------------------------------
-    elManager*: ELManager
-
     # Missing information
     # ----------------------------------------------------------------
     quarantine*: ref Quarantine
@@ -187,7 +183,6 @@ proc new*(T: type Eth2Processor,
           dataColumnQuarantine: ref DataColumnQuarantine,
           rng: ref HmacDrbgContext,
           getBeaconTime: GetBeaconTimeFn,
-          elManager: ELManager,
           taskpool: Taskpool
          ): ref Eth2Processor =
   (ref Eth2Processor)(
@@ -206,7 +201,6 @@ proc new*(T: type Eth2Processor,
     blobQuarantine: blobQuarantine,
     dataColumnQuarantine: dataColumnQuarantine,
     getCurrentBeaconTime: getBeaconTime,
-    elManager: elManager,
     batchCrypto: BatchCrypto.new(
       rng = rng,
       # Only run eager attestation signature verification if we're not
@@ -360,6 +354,7 @@ proc validateDataColumnSidecarFromEL*(
     block_root: Eth2Digest):
     Future[ValidationRes]
     {.async: (raises: [CancelledError]).} =
+  let elManager = self.blockProcessor[].consensusManager.elManager
   if (let o = self.quarantine[].popColumnless(block_root); o.isSome):
     let columnless = o.unsafeGet()
     withBlck(columnless):
@@ -367,7 +362,7 @@ proc validateDataColumnSidecarFromEL*(
         let
           start_time = Moment.now()
         let blobsFromElOpt =
-          await self.elManager.sendGetBlobsV2(forkyBlck)
+          await elManager.sendGetBlobsV2(forkyBlck)
         if blobsFromElOpt.isSome():
           let blobsEl = blobsFromElOpt.get()
 

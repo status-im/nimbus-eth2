@@ -553,6 +553,7 @@ proc getPayloadFromSingleEL(
             GetPayloadResponseType is engine_api.GetPayloadV5Response:
         # https://github.com/ethereum/execution-apis/blob/90a46e9137c89d58e818e62fa33a0347bba50085/src/engine/prague.md
         # does not define any new forkchoiceUpdated, so reuse V3 from Dencun
+        # https://github.com/ethereum/execution-apis/blob/5d634063ccfd897a6974ea589c00e2c1d889abc9/src/engine/osaka.md
         let response = await rpcClient.forkchoiceUpdated(
           ForkchoiceStateV1(
             headBlockHash: headBlock.asBlockHash,
@@ -1004,7 +1005,7 @@ proc lazyWait(futures: seq[FutureBase]) {.async: (raises: []).} =
 
 proc sendGetBlobsV2*(
     m: ELManager,
-    blck: electra.SignedBeaconBlock | fulu.SignedBeaconBlock,
+    blck: fulu.SignedBeaconBlock,
 ): Future[Opt[seq[BlobAndProofV2]]] {.async: (raises: [CancelledError]).} =
 
   if m.elConnections.len == 0:
@@ -1029,7 +1030,7 @@ proc sendGetBlobsV2*(
       except AsyncTimeoutError:
         true
       except CancelledError as exc:
-        ## cancel anything still running, then re-raise
+        # cancel anything still running, then re-raise
         await noCancel allFutures(
           requests.filterIt(not it.finished()).mapIt(it.cancelAndWait())
         )
@@ -1037,11 +1038,11 @@ proc sendGetBlobsV2*(
 
     for idx, req in requests:
       if req.finished():
-        ## choose the first successful (not failed) response
+        # choose the first successful (not failed) response
         if req.error.isNil and bestIdx.isNone:
           bestIdx = Opt.some(idx)
       else:
-        ## finished == false
+        # finished == false
         let errmsg =
           if req.error.isNil: "request still pending"
           else: req.error.msg
@@ -1055,7 +1056,7 @@ proc sendGetBlobsV2*(
 
     if bestIdx.isSome():
       let chosen = requests[bestIdx.get()]
-      ## chosen is finished; but could still be an error, so guard again
+      # chosen is finished; but could still be an error, so guard again
       if chosen.error.isNil:
         return ok(chosen.value())
       else:

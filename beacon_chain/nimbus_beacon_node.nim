@@ -530,7 +530,7 @@ proc initFullNode(
       blockProcessor, node.validatorMonitor, dag, attestationPool,
       validatorChangePool, node.attachedValidators, syncCommitteeMsgPool,
       lightClientPool, quarantine, blobQuarantine, dataColumnQuarantine,
-      rng, getBeaconTime, node.elManager, taskpool)
+      rng, getBeaconTime, taskpool)
     syncManagerFlags =
       if node.config.longRangeSync != LongRangeSyncMode.Lenient:
         {SyncManagerFlag.NoGenesisSync}
