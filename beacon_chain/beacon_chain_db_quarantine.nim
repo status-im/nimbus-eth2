@@ -23,7 +23,7 @@ type
   DataSidecarStore = object
     getStmt: SqliteStmt[array[32, byte], seq[byte]]
     putStmt: SqliteStmt[(array[32, byte], seq[byte]), void]
-    delStmt: SqliteStmt[array[32, byte], void]
+    delStmt: SqliteStmt[array[32, byte], int64]
 
   QuarantineDB* = ref object
     backend: SqStoreRef
@@ -78,9 +78,8 @@ proc initDataSidecarStore(
       ) VALUES (?, ?);
     """, (array[32, byte], seq[byte]), void, managed = false).expect("SQL query OK")
     delStmt = backend.prepareStmt("""
-      DELETE FROM `""" & name & """` WHERE `block_root` == ?;
-    """, (array[32, byte]),
-      void, managed = false).expect("SQL query OK")
+      DELETE FROM `""" & name & """` WHERE `block_root` == ? RETURNING ROWID;
+    """, array[32, byte], (int64), managed = false).expect("SQL query OK")
 
   ok(DataSidecarStore(getStmt: getStmt, putStmt: putStmt, delStmt: delStmt))
 
@@ -142,7 +141,8 @@ proc removeDataSidecars*(
     db: QuarantineDB,
     T: typedesc[ForkyDataSidecar],
     blockRoot: Eth2Digest
-) =
+): int =
+  var res = 0
   doAssert not(db.backend.readOnly)
 
   when T is deneb.BlobSidecar:
@@ -153,7 +153,11 @@ proc removeDataSidecars*(
       db.fuluDataSidecar.delStmt
 
   if not(isNil(distinctBase(statement))):
-    statement.exec(blockRoot.data).expect("SQL query OK")
+    var row: statement.Result
+    for rowRes in statement.exec(blockRoot.data, row):
+      rowRes.expect("SQL query OK")
+      inc(res)
+  res
 
 proc clearDataSidecars*(
     db: QuarantineDB,
