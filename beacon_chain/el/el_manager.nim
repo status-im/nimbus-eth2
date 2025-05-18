@@ -16,7 +16,7 @@ import
   eth/common/eth_types,
   results,
   kzg4844/[kzg_abi, kzg],
-  stew/[assign2, byteutils, objects],
+  stew/objects,
   # Local modules:
   ../spec/forks,
   ../networking/network_metadata,
@@ -40,11 +40,7 @@ const
 
 type
   FixedBytes[N: static int] = web3.FixedBytes[N]
-  PubKeyBytes = DynamicBytes[48, 48]
-  WithdrawalCredentialsBytes = DynamicBytes[32, 32]
-  SignatureBytes = DynamicBytes[96, 96]
-  Int64LeBytes = DynamicBytes[8, 8]
-  WithoutTimeout* = distinct int
+  WithoutTimeout = distinct int
 
   DeadlineObject* = object
     # TODO (cheatfate): This object declaration could be removed when
@@ -57,24 +53,15 @@ type
     GetPayloadV3Response |
     GetPayloadV4Response
 
-contract(DepositContract):
-  proc deposit(pubkey: PubKeyBytes,
-               withdrawalCredentials: WithdrawalCredentialsBytes,
-               signature: SignatureBytes,
-               deposit_data_root: FixedBytes[32])
-
-  proc get_deposit_root(): FixedBytes[32]
-  proc get_deposit_count(): Int64LeBytes
-
 const
   noTimeout = WithoutTimeout(0)
 
   # Engine API timeouts
-  engineApiConnectionTimeout = 5.seconds  # How much we wait before giving up connecting to the Engine API
-  web3RequestsTimeout* = 8.seconds # How much we wait for eth_* requests (e.g. eth_getBlockByHash)
+  engineApiConnectionTimeout = 5.seconds  # How long we wait before giving up connecting to the Engine API
+  web3RequestsTimeout = 8.seconds # How long we wait for eth_* requests
 
-  # https://github.com/ethereum/execution-apis/blob/v1.0.0-beta.3/src/engine/paris.md#request-2
-  # https://github.com/ethereum/execution-apis/blob/v1.0.0-beta.3/src/engine/shanghai.md#request-2
+  # https://github.com/ethereum/execution-apis/blob/v1.0.0-beta.4/src/engine/paris.md#request-2
+  # https://github.com/ethereum/execution-apis/blob/v1.0.0-beta.4/src/engine/shanghai.md#request-2
   GETPAYLOAD_TIMEOUT = 1.seconds
 
   connectionStateChangeHysteresisThreshold = 15
@@ -82,11 +69,11 @@ const
     ## before declaring the connection as degraded/restored
 
 type
-  NextExpectedPayloadParams* = object
-    headBlockHash*: Eth2Digest
-    safeBlockHash*: Eth2Digest
-    finalizedBlockHash*: Eth2Digest
-    payloadAttributes*: PayloadAttributesV3
+  NextExpectedPayloadParams = object
+    headBlockHash: Eth2Digest
+    safeBlockHash: Eth2Digest
+    finalizedBlockHash: Eth2Digest
+    payloadAttributes: PayloadAttributesV3
 
   ELManager* = ref object
     eth1Network: Opt[Eth1Network]
@@ -96,10 +83,10 @@ type
     elConnections: seq[ELConnection]
       ## All active EL connections
 
-    exchangeTransitionConfigurationLoopFut: Future[void]
-    nextExpectedPayloadParams*: Option[NextExpectedPayloadParams]
+    checkChainIdLoopFut: Future[void]
+    nextExpectedPayloadParams: Opt[NextExpectedPayloadParams]
 
-  EtcStatus {.pure.} = enum
+  ChainIdStatus {.pure.} = enum
     notExchangedYet
     mismatch
     match
@@ -120,9 +107,8 @@ type
     connectingFut: Future[Result[Web3, string]].Raising([CancelledError])
       ## This future will be replaced when the connection is lost.
 
-    etcStatus: EtcStatus
-      ## The latest status of the `exchangeTransitionConfiguration`
-      ## exchange.
+    chainIdStatus: ChainIdStatus
+      ## The latest status of the `checkChainId` exchange.
 
     state: ELConnectionState
     hysteresisCounter: int
@@ -349,7 +335,7 @@ proc connectedRpcClient(connection: ELConnection): Future[RpcClient] {.
 
   connection.web3.get.provider
 
-func areSameAs(expectedParams: Option[NextExpectedPayloadParams],
+func areSameAs(expectedParams: Opt[NextExpectedPayloadParams],
                latestHead, latestSafe, latestFinalized: Eth2Digest,
                timestamp: uint64,
                randomData: Eth2Digest,
@@ -1044,13 +1030,11 @@ proc forkchoiceUpdated*(
           # matches, and similarly that if the fcU fails or times out for other
           # reasons, the expected payload params remain synchronized with
           # EL state.
-          assign(
-            m.nextExpectedPayloadParams,
-            some NextExpectedPayloadParams(
-              headBlockHash: headBlockHash,
-              safeBlockHash: safeBlockHash,
-              finalizedBlockHash: finalizedBlockHash,
-              payloadAttributes: payloadAttributesV3))
+          m.nextExpectedPayloadParams = Opt.some NextExpectedPayloadParams(
+            headBlockHash: headBlockHash,
+            safeBlockHash: safeBlockHash,
+            finalizedBlockHash: finalizedBlockHash,
+            payloadAttributes: payloadAttributesV3)
 
         template getSelected: untyped =
           let data = requests[responseProcessor.selectedResponse.get].value()
@@ -1103,17 +1087,14 @@ proc forkchoiceUpdated*(
     payloadAttributes, DeadlineObject.init(FORKCHOICEUPDATED_TIMEOUT),
     high(int))
 
-# TODO can't be defined within exchangeConfigWithSingleEL
-func `==`(x, y: Quantity): bool {.borrow.}
-
-proc exchangeConfigWithSingleEL(
+proc checkChainIdWithSingleEL(
     m: ELManager,
     connection: ELConnection
 ) {.async: (raises: [CancelledError]).} =
   let rpcClient = await connection.connectedRpcClient()
 
   if m.eth1Network.isSome and
-     connection.etcStatus == EtcStatus.notExchangedYet:
+     connection.chainIdStatus == ChainIdStatus.notExchangedYet:
     try:
       let
         providerChain = await connection.engineApiRequest(
@@ -1131,7 +1112,7 @@ proc exchangeConfigWithSingleEL(
               url = connection.engineUrl,
               expectedChain = distinctBase(expectedChain),
               actualChain = distinctBase(providerChain)
-        connection.etcStatus = EtcStatus.mismatch
+        connection.chainIdStatus = ChainIdStatus.mismatch
         return
     except CancelledError as exc:
       debug "Configuration exchange was interrupted"
@@ -1141,15 +1122,15 @@ proc exchangeConfigWithSingleEL(
       # endpoint has been otherwise working.
       debug "Failed to obtain eth_chainId", reason = exc.msg
 
-  connection.etcStatus = EtcStatus.match
+  connection.chainIdStatus = ChainIdStatus.match
 
-proc exchangeTransitionConfiguration*(
+proc checkChainId(
     m: ELManager
 ) {.async: (raises: [CancelledError]).} =
   if m.elConnections.len == 0:
     return
 
-  let requests = m.elConnections.mapIt(m.exchangeConfigWithSingleEL(it))
+  let requests = m.elConnections.mapIt(m.checkChainIdWithSingleEL(it))
   try:
     await allFutures(requests).wait(3.seconds)
   except AsyncTimeoutError:
@@ -1199,28 +1180,26 @@ func hasAnyWorkingConnection*(m: ELManager): bool =
 
 func hasProperlyConfiguredConnection*(m: ELManager): bool =
   for connection in m.elConnections:
-    if connection.etcStatus == EtcStatus.match:
+    if connection.chainIdStatus == ChainIdStatus.match:
       return true
 
   false
 
-proc startExchangeTransitionConfigurationLoop(
+proc startCheckChainIdLoop(
     m: ELManager
 ) {.async: (raises: [CancelledError]).} =
-  debug "Starting exchange transition configuration loop"
+  debug "Starting chain ID checking loop"
 
   while true:
-    # https://github.com/ethereum/execution-apis/blob/v1.0.0-beta.3/src/engine/paris.md#specification-3
-    await m.exchangeTransitionConfiguration()
+    await m.checkChainId()
     await sleepAsync(60.seconds)
 
 proc start*(m: ELManager, syncChain = true) {.gcsafe.} =
   if m.elConnections.len == 0:
     return
 
-  if m.hasJwtSecret and m.exchangeTransitionConfigurationLoopFut.isNil:
-    m.exchangeTransitionConfigurationLoopFut =
-      m.startExchangeTransitionConfigurationLoop()
+  if m.hasJwtSecret and m.checkChainIdLoopFut.isNil:
+    m.checkChainIdLoopFut = m.startCheckChainIdLoop()
 
 func `$`(x: Quantity): string =
   $(x.uint64)
