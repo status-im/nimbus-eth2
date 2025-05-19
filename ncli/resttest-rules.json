@@ -2624,6 +2624,18 @@
     }
   },
   {
+    "topics": ["beacon", "states_pending_consolidations"],
+    "request": {
+      "url": "/eth/v1/beacon/states/head/pending_consolidations",
+      "headers": {"Accept": "application/json"}
+    },
+    "response": {
+      "status": {"operator": "equals", "value": "400"},
+      "headers": [{"key": "Content-Type", "value": "application/json", "operator": "equals"}],
+      "body": [{"operator": "jstructcmpns", "value": {"code": 400, "message": ""}}]
+    }
+  },
+  {
     "topics": ["beacon", "states_pending_deposits"],
     "request": {
       "url": "/eth/v1/beacon/states/head/pending_deposits",

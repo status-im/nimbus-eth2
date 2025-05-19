@@ -1672,7 +1672,7 @@ proc generateDeposits*(cfg: RuntimeConfig,
     var derivedKey = baseKey
     defer: burnMem(derivedKey)
     derivedKey = deriveChildKey(derivedKey, validatorIdx)
-    derivedKey = deriveChildKey(derivedKey, 0) # This is witdrawal key
+    derivedKey = deriveChildKey(derivedKey, 0) # This is withdrawal key
     let withdrawalPubKey = derivedKey.toPubKey
     derivedKey = deriveChildKey(derivedKey, 0) # This is the signing key
     let signingPubKey = derivedKey.toPubKey
@@ -1693,7 +1693,7 @@ proc generateDeposits*(cfg: RuntimeConfig,
     var derivedKey = baseKey
     defer: burnMem(derivedKey)
     derivedKey = deriveChildKey(derivedKey, validatorIdx)
-    derivedKey = deriveChildKey(derivedKey, 0) # This is witdrawal key
+    derivedKey = deriveChildKey(derivedKey, 0) # This is withdrawal key
     let withdrawalPubKey = derivedKey.toPubKey
     derivedKey = deriveChildKey(derivedKey, 0) # This is the signing key
     let signingPubKey = derivedKey.toPubKey

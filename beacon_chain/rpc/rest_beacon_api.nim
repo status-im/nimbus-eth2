@@ -1732,7 +1732,7 @@ proc installBeaconApiHandlers*(router: var RestRouter, node: BeaconNode) =
     else:
       RestApiResponse.jsonError(Http500, InvalidAcceptError)
 
-  # https://ethereum.github.io/beacon-APIs/?urls.primaryName=v3.0.0#/Beacon/getPendingDeposits
+  # https://ethereum.github.io/beacon-APIs/?urls.primaryName=v3.1.0#/Beacon/getPendingDeposits
   router.metricsApi2(
     MethodGet, "/eth/v1/beacon/states/{state_id}/pending_deposits",
     {RestServerMetricsType.Status, Response}) do (
@@ -1752,17 +1752,18 @@ proc installBeaconApiHandlers*(router: var RestRouter, node: BeaconNode) =
     node.withStateForBlockSlotId(bslot):
       return withState(state):
         when consensusFork >= ConsensusFork.Electra:
-          RestApiResponse.jsonResponseFinalized(
+          RestApiResponse.jsonResponseFinalizedWVersion(
             forkyState.data.pending_deposits,
             node.getStateOptimistic(state),
-            node.dag.isFinalized(bslot.bid))
+            node.dag.isFinalized(bslot.bid),
+            consensusFork)
         else:
           RestApiResponse.jsonError(Http400, SlotFromTheIncorrectForkError,
                                     $error)
 
     RestApiResponse.jsonError(Http404, StateNotFoundError)
 
-  # https://ethereum.github.io/beacon-APIs/?urls.primaryName=v3.0.0#/Beacon/getPendingPartialWithdrawals
+  # https://ethereum.github.io/beacon-APIs/?urls.primaryName=v3.1.0#/Beacon/getPendingPartialWithdrawals
   router.metricsApi2(
     MethodGet, "/eth/v1/beacon/states/{state_id}/pending_partial_withdrawals",
     {RestServerMetricsType.Status, Response}) do (
@@ -1782,10 +1783,42 @@ proc installBeaconApiHandlers*(router: var RestRouter, node: BeaconNode) =
     node.withStateForBlockSlotId(bslot):
       return withState(state):
         when consensusFork >= ConsensusFork.Electra:
-          RestApiResponse.jsonResponseFinalized(
+          RestApiResponse.jsonResponseFinalizedWVersion(
             forkyState.data.pending_partial_withdrawals,
             node.getStateOptimistic(state),
-            node.dag.isFinalized(bslot.bid))
+            node.dag.isFinalized(bslot.bid),
+            consensusFork)
+        else:
+          RestApiResponse.jsonError(Http400, SlotFromTheIncorrectForkError,
+                                    $error)
+
+    RestApiResponse.jsonError(Http404, StateNotFoundError)
+
+  # https://ethereum.github.io/beacon-APIs/?urls.primaryName=v3.1.0#/Beacon/getPendingConsolidations
+  router.metricsApi2(
+    MethodGet, "/eth/v1/beacon/states/{state_id}/pending_consolidations",
+    {RestServerMetricsType.Status, Response}) do (
+    state_id: StateIdent) -> RestApiResponse:
+    let
+      sid = state_id.valueOr:
+        return RestApiResponse.jsonError(Http400, InvalidStateIdValueError,
+                                         $error)
+      bslot = node.getBlockSlotId(sid).valueOr:
+        if sid.kind == StateQueryKind.Root:
+          # TODO (cheatfate): Its impossible to retrieve state by `state_root`
+          # in current version of database.
+          return RestApiResponse.jsonError(Http500, NoImplementationError)
+        return RestApiResponse.jsonError(Http404, StateNotFoundError,
+                                          $error)
+
+    node.withStateForBlockSlotId(bslot):
+      return withState(state):
+        when consensusFork >= ConsensusFork.Electra:
+          RestApiResponse.jsonResponseFinalizedWVersion(
+            forkyState.data.pending_consolidations,
+            node.getStateOptimistic(state),
+            node.dag.isFinalized(bslot.bid),
+            consensusFork)
         else:
           RestApiResponse.jsonError(Http400, SlotFromTheIncorrectForkError,
                                     $error)
