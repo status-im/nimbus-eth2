@@ -439,7 +439,17 @@ func is_merge_transition_block(
   not is_merge_transition_complete(state) and
     body.execution_payload != defaultExecutionPayload
 
-# https://github.com/ethereum/consensus-specs/blob/v1.5.0-beta.3/specs/bellatrix/beacon-chain.md#is_execution_enabled
+# https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.8/specs/bellatrix/beacon-chain.md#is_merge_transition_block
+func is_merge_transition_block(
+    state: fulu.BeaconState,
+    body: fulu.BeaconBlockBody | fulu.TrustedBeaconBlockBody |
+          fulu.SigVerifiedBeaconBlockBody): bool =
+  const defaultExecutionPayloadHeader = 
+    default(typeof(body.signed_execution_payload_header))
+  not is_merge_transition_complete(state) and
+    body.signed_execution_payload_header != defaultExecutionPayloadHeader
+    
+# https://github.com/ethereum/consensus-specs/blob/v1.5.0-beta.1/specs/bellatrix/beacon-chain.md#is_execution_enabled
 func is_execution_enabled*(
     state: bellatrix.BeaconState | capella.BeaconState | deneb.BeaconState |
            electra.BeaconState | fulu.BeaconState,

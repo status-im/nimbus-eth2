@@ -226,18 +226,44 @@ func put*[A, B](
 template hasSidecarImpl(
     blockRoot: Eth2Digest,
     slot: Slot,
-    proposerIndex: uint64,
-    sidecarIndex: typed
-): bool =
-  let rootRecord = quarantine.roots.getOrDefault(blockRoot)
-  if rootRecord.count == 0:
-    return false
-  let index = quarantine.getIndex(index)
-  if (index == -1) or (isNil(rootRecord.sidecars[index])):
-    return false
-  if (rootRecord.sidecars[index][].proposer_index() != proposer_index) or
-     (rootRecord.sidecars[index][].slot() != slot):
-    return false
+    proposer_index: uint64,
+    index: BlobIndex): bool =
+  for blob_sidecar in quarantine.blobs.values:
+    template block_header: untyped = blob_sidecar.signed_block_header.message
+    if block_header.slot == slot and
+        block_header.proposer_index == proposer_index and
+        blob_sidecar.index == index:
+      return true
+  false
+
+func popBlobs*(
+    quarantine: var BlobQuarantine, digest: Eth2Digest,
+    blck: deneb.SignedBeaconBlock | electra.SignedBeaconBlock |
+          fulu.SignedBeaconBlock):
+    seq[ref BlobSidecar] =
+  var r: seq[ref BlobSidecar] = @[]
+  when typeof(blck).kind == ConsensusFork.Fulu:
+    return r
+  else:
+    for idx, kzg_commitment in blck.message.body.blob_kzg_commitments:
+      var b: ref BlobSidecar
+      if quarantine.blobs.pop((digest, BlobIndex idx, kzg_commitment), b):
+        r.add(b)
+  r
+
+func hasBlobs*(quarantine: BlobQuarantine,
+    blck: deneb.SignedBeaconBlock | electra.SignedBeaconBlock |
+          fulu.SignedBeaconBlock): bool =
+    # Having a fulu SignedBeaconBlock is incorrect atm, but
+    # shall be fixed once data columns are rebased to fulu
+  # KZG commitments are no longer included in the beacon block 
+  # but rather in the ExecutionPayloadEnvelope
+  when typeof(blck).kind == ConsensusFork.Fulu:
+    return false # there should be a check against the commitmnets root
+  else:
+    for idx, kzg_commitment in blck.message.body.blob_kzg_commitments:
+      if (blck.root, BlobIndex idx, kzg_commitment) notin quarantine.blobs:
+        return false
   true
 
 func hasSidecar*(
@@ -266,333 +292,18 @@ func hasSidecars*(
     quarantine: BlobQuarantine,
     blockRoot: Eth2Digest,
     blck: deneb.SignedBeaconBlock | electra.SignedBeaconBlock |
-          fulu.SignedBeaconBlock
-): bool =
-  ## Function returns ``true`` if quarantine has all the blobs for block
-  ## ``blck`` with block root ``blockRoot``.
-  if len(blck.message.body.blob_kzg_commitments) == 0:
-    return true
-
-  let record = quarantine.roots.getOrDefault(blockRoot)
-  if len(record.sidecars) == 0:
-    # block root not found, record.sidecars sequence was not initialized.
-    return false
-
-  if record.count < len(blck.message.body.blob_kzg_commitments):
-    # Quarantine does not hold enough blob sidecars.
-    return false
-  true
-
-func hasSidecars*(
-    quarantine: ColumnQuarantine,
-    blockRoot: Eth2Digest,
-    blck: fulu.SignedBeaconBlock
-): bool =
-  ## Function returns ``true`` if quarantine has all the columns for block
-  ## ``blck`` with block root ``blockRoot``.
-  if len(blck.message.body.blob_kzg_commitments) == 0:
-    return true
-
-  let record = quarantine.roots.getOrDefault(blockRoot)
-  if len(record.sidecars) == 0:
-    # block root not found, record.sidecars sequence was not initialized.
-    return false
-
-  let
-    supernode = (len(quarantine.custodyColumns) == NUMBER_OF_COLUMNS)
-    columnsCount =
-      if supernode:
-        (NUMBER_OF_COLUMNS div 2 + 1)
-      else:
-        len(quarantine.custodyColumns)
-
-  if record.count < columnsCount:
-    # Quarantine does not hold enough column sidecars.
-    return false
-  true
-
-func hasSidecars*(
-    quarantine: BlobQuarantine,
-    blck: deneb.SignedBeaconBlock | electra.SignedBeaconBlock |
-          fulu.SignedBeaconBlock
-): bool =
-  ## Function returns ``true`` if quarantine has all the blobs for block
-  ## ``blck`` with block root ``blockRoot``.
-  hasSidecars(quarantine, blck.root, blck)
-
-func hasSidecars*(
-    quarantine: ColumnQuarantine,
-    blck: fulu.SignedBeaconBlock
-): bool =
-  ## Function returns ``true`` if quarantine has all the columns for block
-  ## ``blck`` with block root ``blockRoot``.
-  hasSidecars(quarantine, blck.root, blck)
-
-func popSidecars*(
-    quarantine: var BlobQuarantine,
-    blockRoot: Eth2Digest,
-    blck: deneb.SignedBeaconBlock | electra.SignedBeaconBlock |
-          fulu.SignedBeaconBlock
-): Opt[seq[ref BlobSidecar]] =
-  ## Function returns sequence of blob sidecars for block root ``blockRoot`` and
-  ## block ``blck``.
-  ## If some of the blob sidecars are missing Opt.none() is returned.
-  ## If block do not have any blob sidecars Opt.some([]) is returned.
-  let sidecarsCount = len(blck.message.body.blob_kzg_commitments)
-  if sidecarsCount == 0:
-    # Block does not have any blob sidecars.
-    quarantine.remove(blockRoot)
-    return Opt.some(default(seq[ref BlobSidecar]))
-
-  let record = quarantine.roots.getOrDefault(blockRoot)
-  if len(record.sidecars) == 0:
-    # block root not found, record.sidecars sequence was not initialized.
-    return Opt.none(seq[ref BlobSidecar])
-
-  if record.count < sidecarsCount:
-    # Quarantine does not hold enough blob sidecars.
-    return Opt.none(seq[ref BlobSidecar])
-
-  var sidecars: seq[ref BlobSidecar]
-  for bindex in 0 ..< len(blck.message.body.blob_kzg_commitments):
-    let index = quarantine.getIndex(BlobIndex(bindex))
-    doAssert(not(isNil(record.sidecars[index])),
-      "Record should not store nil values when record's count is correct")
-    sidecars.add(record.sidecars[index])
-  Opt.some(sidecars)
-
-func popSidecars*(
-    quarantine: var ColumnQuarantine,
-    blockRoot: Eth2Digest,
-    blck: fulu.SignedBeaconBlock
-): Opt[seq[ref DataColumnSidecar]] =
-  ## Function returns sequence of column sidecars for block root ``blockRoot``
-  ## and block ``blck``.
-  ## If some of the column sidecars are missing Opt.none() is returned.
-  ## If block do not have any column sidecars bundledd Opt.some([]) is returned.
-  let sidecarsCount = len(blck.message.body.blob_kzg_commitments)
-  if sidecarsCount == 0:
-    # Block does not have any blob sidecars.
-    quarantine.remove(blockRoot)
-    return Opt.some(default(seq[ref DataColumnSidecar]))
-
-  let record = quarantine.roots.getOrDefault(blockRoot)
-  if len(record.sidecars) == 0:
-    # block root not found, record.sidecars sequence was not allocated.
-    return Opt.none(seq[ref DataColumnSidecar])
-
-  let
-    supernode = (len(quarantine.custodyColumns) == NUMBER_OF_COLUMNS)
-    columnsCount =
-      if supernode:
-        (NUMBER_OF_COLUMNS div 2 + 1)
-      else:
-        len(quarantine.custodyColumns)
-
-  if record.count < columnsCount:
-    # Quarantine does not hold enough column sidecars.
-    return Opt.none(seq[ref DataColumnSidecar])
-
-  var sidecars: seq[ref DataColumnSidecar]
-  if supernode:
-    for sidecar in record.sidecars:
-      # Supernode could have some of the columns not filled.
-      if not(isNil(sidecar)):
-        sidecars.add(sidecar)
-    doAssert(len(sidecars) >= (NUMBER_OF_COLUMNS div 2 + 1),
-             "Incorrect amount of sidecars in record")
-    Opt.some(sidecars)
+          fulu.SignedBeaconBlock): BlobFetchRecord =
+  var indices: seq[BlobIndex]
+  when typeof(blck).kind == ConsensusFork.Fulu:
+    return BlobFetchRecord(block_root: blck.root, indices: indices)  # Empty record
   else:
-    for cindex in quarantine.custodyColumns:
-      let index = quarantine.getIndex(cindex)
-      doAssert(not(isNil(record.sidecars[index])),
-        "Record should not store nil values when record's count is correct")
-      sidecars.add(record.sidecars[index])
-    Opt.some(sidecars)
-
-func popSidecars*(
-    quarantine: var BlobQuarantine,
-    blck: deneb.SignedBeaconBlock | electra.SignedBeaconBlock |
-          fulu.SignedBeaconBlock
-): Opt[seq[ref BlobSidecar]] =
-  ## Alias for `popSidecars()`.
-  popSidecars(quarantine, blck.root, blck)
-
-func popSidecars*(
-    quarantine: var ColumnQuarantine,
-    blck: fulu.SignedBeaconBlock
-): Opt[seq[ref DataColumnSidecar]] =
-  ## Alias for `popSidecars()`.
-  popSidecars(quarantine, blck.root, blck)
-
-func fetchMissingSidecars*(
-    quarantine: BlobQuarantine,
-    blockRoot: Eth2Digest,
-    blck: deneb.SignedBeaconBlock | electra.SignedBeaconBlock |
-    fulu.SignedBeaconBlock
-): seq[BlobIdentifier] =
-  ## Function returns sequence of BlobIdentifiers for blobs which are missing
-  ## for block root ``blockRoot`` and block ``blck``.
-  var res: seq[BlobIdentifier]
-  let record = quarantine.roots.getOrDefault(blockRoot)
-
-  let commitmentsCount = len(blck.message.body.blob_kzg_commitments)
-  if (commitmentsCount == 0) or (record.count == commitmentsCount):
-    # Fast-path if ``blck`` does not have any blobs or if quarantine's record
-    # holds enough blobs.
-    return res
-
-  for bindex in 0 ..< commitmentsCount:
-    let index = quarantine.getIndex(BlobIndex(bindex))
-    if len(record.sidecars) == 0 or (record.sidecars[index].isNil()):
-      res.add(BlobIdentifier(block_root: blockRoot, index: BlobIndex(bindex)))
-  res
-
-func fetchMissingSidecars*(
-    quarantine: ColumnQuarantine,
-    blockRoot: Eth2Digest,
-    blck: fulu.SignedBeaconBlock,
-    peerCustodyColumns: openArray[ColumnIndex] = []
-): seq[DataColumnIdentifier] =
-  ## Function returns sequence of DataColumnIdentifier's for data columns which
-  ## are missing for block associated with root ``blockRoot`` and block ``blck``.
-  var res: seq[DataColumnIdentifier]
-  let record = quarantine.roots.getOrDefault(blockRoot)
-
-  if len(blck.message.body.blob_kzg_commitments) == 0:
-    # Fast-path if block do not have any columns
-    return res
-
-  let
-    supernode = (len(quarantine.custodyColumns) == NUMBER_OF_COLUMNS)
-    columnsCount =
-      if supernode:
-        (NUMBER_OF_COLUMNS div 2 + 1)
-      else:
-        len(quarantine.custodyColumns)
-
-  if supernode:
-    let
-      columns =
-        if len(peerCustodyColumns) > 0:
-          @peerCustodyColumns
-        else:
-          quarantine.custodyColumns
-    if len(record.sidecars) == 0:
-      var columnsRequested = 0
-      for column in columns:
-        if columnsRequested >= columnsCount:
-          # We don't need to request more than (NUMBER_OF_COLUMNS div 2 + 1)
-          # columns.
-          break
-        res.add(DataColumnIdentifier(block_root: blockRoot, index: column))
-        inc(columnsRequested)
-    else:
-      if record.count >= columnsCount:
-        return res
-      var columnsRequested = 0
-      for column in columns:
-        if record.count + columnsRequested >= columnsCount:
-          # We don't need to request more than (NUMBER_OF_COLUMNS div 2 + 1)
-          # columns.
-          break
-        let index = quarantine.getIndex(column)
-        if (index == -1) or record.sidecars[index].isNil():
-          res.add(DataColumnIdentifier(block_root: blockRoot, index: column))
-          inc(columnsRequested)
-  else:
-    let peerMap =
-      if len(peerCustodyColumns) > 0:
-        ColumnMap.init(peerCustodyColumns)
-      else:
-        ColumnMap.init(quarantine.custodyColumns)
-    if len(record.sidecars) == 0:
-      for column in (peerMap and quarantine.custodyMap).items():
-        res.add(DataColumnIdentifier(block_root: blockRoot, index: column))
-    else:
-      for column in (peerMap and quarantine.custodyMap).items():
-        let index = quarantine.getIndex(column)
-        if (index == -1) or (record.sidecars[index].isNil()):
-          res.add(DataColumnIdentifier(block_root: blockRoot, index: column))
-  res
-
-func pruneAfterFinalization*[A, B](
-    quarantine: var SidecarQuarantine[A, B],
-    epoch: Epoch
-) =
-  let epochSlot = epoch.start_slot()
-  var
-    sidecarsCount = 0
-    rootsToRemove: seq[Eth2Digest]
-
-  for mkey, mrecord in quarantine.roots.mpairs():
-    var removeRoot = false
-    for index in 0 ..< len(mrecord.sidecars):
-      if not(isNil(mrecord.sidecars[index])) and
-         mrecord.sidecars[index][].slot < epochSlot:
-        removeRoot = true
-        # Preemptively freeing `ref` object reference.
-        mrecord.sidecars[index] = nil
-        inc(sidecarsCount)
-    if removeRoot:
-      rootsToRemove.add(mkey)
-
-  for root in rootsToRemove:
-    quarantine.roots.del(root)
-
-  dec(quarantine.sidecarsCount, sidecarsCount)
-
-template onBlobSidecarCallback*(
-    quarantine: BlobQuarantine
-): OnBlobSidecarCallback =
-  quarantine.onSidecarCallback
-
-template onDataColumnSidecarCallback*(
-    quarantine: ColumnQuarantine
-): OnDataColumnSidecarCallback =
-  quarantine.onSidecarCallback
+    for i in 0..<len(blck.message.body.blob_kzg_commitments):
+      let idx = BlobIndex(i)
+      if not quarantine.blobs.hasKey(
+          (blck.root, idx, blck.message.body.blob_kzg_commitments[i])):
+        indices.add(idx)
+    BlobFetchRecord(block_root: blck.root, indices: indices)
 
 func init*(
-    T: typedesc[BlobQuarantine],
-    cfg: RuntimeConfig,
-    onBlobSidecarCallback: OnBlobSidecarCallback
-): BlobQuarantine =
-  # BlobSidecars maps are trivial, but still useful
-  var indexMap = newSeqUninit[int](cfg.MAX_BLOBS_PER_BLOCK_ELECTRA)
-  for index in 0 ..< len(indexMap):
-    indexMap[index] = index
-
-  let size = maxSidecars(cfg.MAX_BLOBS_PER_BLOCK_ELECTRA)
-  BlobQuarantine(
-    maxSidecarsPerBlockCount: int(cfg.MAX_BLOBS_PER_BLOCK_ELECTRA),
-    maxSidecarsCount: size,
-    sidecarsCount: 0,
-    indexMap: indexMap,
-    onSidecarCallback: onBlobSidecarCallback
-  )
-
-func init*(
-    T: typedesc[ColumnQuarantine],
-    cfg: RuntimeConfig,
-    custodyColumns: openArray[ColumnIndex],
-    onBlobSidecarCallback: OnDataColumnSidecarCallback
-): ColumnQuarantine =
-  doAssert(len(custodyColumns) <= NUMBER_OF_COLUMNS)
-  let size = maxSidecars(NUMBER_OF_COLUMNS)
-  var indexMap = newSeqUninit[int](NUMBER_OF_COLUMNS)
-  if len(custodyColumns) < NUMBER_OF_COLUMNS:
-    for i in 0 ..< len(indexMap):
-      indexMap[i] = -1
-  for index, item in custodyColumns.pairs():
-    doAssert(item < uint64(NUMBER_OF_COLUMNS))
-    indexMap[int(item)] = index
-
-  ColumnQuarantine(
-    maxSidecarsPerBlockCount: len(custodyColumns),
-    maxSidecarsCount: size,
-    sidecarsCount: 0,
-    indexMap: indexMap,
-    custodyColumns: @custodyColumns,
-    custodyMap: ColumnMap.init(custodyColumns),
-    onSidecarCallback: onBlobSidecarCallback
-  )
+    T: type BlobQuarantine, onBlobSidecarCallback: OnBlobSidecarCallback): T =
+  T(onBlobSidecarCallback: onBlobSidecarCallback)

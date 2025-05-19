@@ -2354,7 +2354,11 @@ func upgrade_to_fulu*(
     earliest_consolidation_epoch: pre.earliest_consolidation_epoch,
     pending_deposits: pre.pending_deposits,
     pending_partial_withdrawals: pre.pending_partial_withdrawals,
-    pending_consolidations: pre.pending_consolidations
+    pending_consolidations: pre.pending_consolidations,
+    # [New fields in EIP7732]
+    latest_block_hash: Eth2Digest(),  # Initialize missing field
+    latest_full_slot: Slot(0),  # Initialize missing field
+    latest_withdrawals_root: Eth2Digest()  # Initialize missing field
   )
 
   post

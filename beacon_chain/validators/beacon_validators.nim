@@ -2016,18 +2016,19 @@ proc makeMaybeBlindedBeaconBlockForHeadAndSlotImpl[ResultType](
 
   doAssert engineBid.blck.kind == consensusFork
   template forkyBlck: untyped = engineBid.blck.forky(consensusFork)
-  when consensusFork >= ConsensusFork.Deneb:
-    doAssert engineBid.blobsBundle.commitments ==
-      forkyBlck.body.blob_kzg_commitments
-    ResultType.ok((
-      blck: consensusFork.MaybeBlindedBeaconBlock(
-        isBlinded: false,
-        data: consensusFork.BlockContents(
-          `block`: forkyBlck,
-          kzg_proofs: engineBid.blobsBundle.proofs,
-          blobs: engineBid.blobsBundle.blobs)),
-      executionValue: Opt.some(engineBid.executionPayloadValue),
-      consensusValue: Opt.some(engineBid.consensusBlockValue)))
+  when consensusFork >= ConsensusFork.Deneb and 
+    consensusFork < ConsensusFork.Fulu:
+      doAssert engineBid.blobsBundle.commitments ==
+        forkyBlck.body.blob_kzg_commitments
+      ResultType.ok((
+        blck: consensusFork.MaybeBlindedBeaconBlock(
+          isBlinded: false,
+          data: consensusFork.BlockContents(
+            `block`: forkyBlck,
+            kzg_proofs: engineBid.blobsBundle.proofs,
+            blobs: engineBid.blobsBundle.blobs)),
+        executionValue: Opt.some(engineBid.executionPayloadValue),
+        consensusValue: Opt.some(engineBid.consensusBlockValue)))
   else:
     ResultType.ok((
       blck: consensusFork.MaybeBlindedBeaconBlock(
