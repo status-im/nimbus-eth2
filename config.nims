@@ -214,6 +214,10 @@ put("assembly.always", "-fno-lto")
 # -fomit-frame-pointer for https://github.com/status-im/nimbus-eth2/issues/6324
 put("secp256k1.always", "-fno-lto -fomit-frame-pointer")
 
+# OpenSSL by way of PicoTLS
+put("openssl.always", "-fno-lto")
+put("picotls.always", "-fno-lto")
+
 # BearSSL - only RNGs
 put("aesctr_drbg.always", "-fno-lto")
 put("hmac_drbg.always", "-fno-lto")
