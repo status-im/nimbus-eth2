@@ -493,3 +493,9 @@ proc quitDoppelganger*() =
 
   const QuitDoppelganger = 129
   quit QuitDoppelganger
+
+proc quitSlashing*() =
+  fatal "A known validator is slashed"
+
+  const QuitSlashing = 198
+  quit QuitSlashing

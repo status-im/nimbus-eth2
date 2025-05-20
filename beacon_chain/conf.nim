@@ -374,7 +374,7 @@ type
         name: "genesis-state-url" .}: Option[Uri]
 
       finalizedDepositTreeSnapshot* {.
-        desc: "SSZ file specifying a recent finalized EIP-4881 deposit tree snapshot"
+        hidden
         name: "finalized-deposit-tree-snapshot" .}: Option[InputFile]
 
       finalizedCheckpointBlock* {.

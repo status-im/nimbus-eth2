@@ -227,7 +227,6 @@ jobs:
       - name: Build files with isMainModule
         run: |
           executables=(
-            "beacon_chain/el/deposit_contract"
             "beacon_chain/fork_choice/fork_choice"
             "beacon_chain/fork_choice/proto_array"
             "beacon_chain/networking/network_metadata_downloads"

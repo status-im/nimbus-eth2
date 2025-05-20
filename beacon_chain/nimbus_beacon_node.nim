@@ -479,18 +479,19 @@ proc initFullNode(
         elif consensusFork >= ConsensusFork.Deneb and
             consensusFork < ConsensusFork.Fulu:
           if not blobQuarantine[].hasBlobs(forkyBlck):
+        when consensusFork >= ConsensusFork.Deneb:
+          let bres = blobQuarantine[].popSidecars(forkyBlck.root, forkyBlck)
+          if bres.isSome():
+            await blockProcessor[].addBlock(MsgSource.gossip, signedBlock, bres,
+                                            Opt.none(DataColumnSidecars),
+                                            maybeFinalized = maybeFinalized)
+          else:
             # We don't have all the blobs for this block, so we have
             # to put it in blobless quarantine.
             if not quarantine[].addBlobless(dag.finalizedHead.slot, forkyBlck):
               err(VerifierError.UnviableFork)
             else:
               err(VerifierError.MissingParent)
-          else:
-            let blobs = blobQuarantine[].popBlobs(forkyBlck.root, forkyBlck)
-            await blockProcessor[].addBlock(MsgSource.gossip, signedBlock,
-                                      Opt.some(blobs), Opt.none(DataColumnSidecars),
-                                      maybeFinalized = maybeFinalized)
-
         else:
           await blockProcessor[].addBlock(MsgSource.gossip, signedBlock,
                                     Opt.none(BlobSidecars), Opt.none(DataColumnSidecars),
@@ -1712,6 +1713,8 @@ proc onSlotEnd(node: BeaconNode, slot: Slot) {.async.} =
           .pruneAfterFinalization(
             node.dag.finalizedHead.slot.epoch()
           )
+    node.processor.blobQuarantine[].pruneAfterFinalization(
+      node.dag.finalizedHead.slot.epoch())
 
   # Delay part of pruning until latency critical duties are done.
   # The other part of pruning, `pruneBlocksDAG`, is done eagerly.
@@ -2478,6 +2481,7 @@ proc doRunBeaconNode(config: var BeaconNodeConf, rng: ref HmacDrbgContext) {.rai
   ignoreDeprecatedOption optimistic
   ignoreDeprecatedOption validatorMonitorTotals
   ignoreDeprecatedOption web3ForcePolling
+  ignoreDeprecatedOption finalizedDepositTreeSnapshot
 
   createPidFile(config.dataDir.string / "beacon_node.pid")
 

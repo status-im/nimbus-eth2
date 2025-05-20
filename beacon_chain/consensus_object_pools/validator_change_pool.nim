@@ -1,5 +1,5 @@
 # beacon_chain
-# Copyright (c) 2020-2024 Status Research & Development GmbH
+# Copyright (c) 2020-2025 Status Research & Development GmbH
 # Licensed and distributed under either of
 #   * MIT license (license terms in the root directory or at https://opensource.org/licenses/MIT).
 #   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
@@ -136,7 +136,7 @@ func addValidatorChangeMessage(
   subpool.addLast(validatorChangeMessage)
   doAssert subpool.lenu64 <= bound
 
-iterator getValidatorIndices(proposer_slashing: ProposerSlashing): uint64 =
+iterator getValidatorIndices*(proposer_slashing: ProposerSlashing): uint64 =
   yield proposer_slashing.signed_header_1.message.proposer_index
 
 iterator getValidatorIndices(voluntary_exit: SignedVoluntaryExit): uint64 =
