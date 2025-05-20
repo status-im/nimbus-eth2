@@ -478,8 +478,6 @@ proc initFullNode(
                                              maybeFinalized = maybeFinalized)
         elif consensusFork >= ConsensusFork.Deneb and
             consensusFork < ConsensusFork.Fulu:
-          if not blobQuarantine[].hasBlobs(forkyBlck):
-        when consensusFork >= ConsensusFork.Deneb:
           let bres = blobQuarantine[].popSidecars(forkyBlck.root, forkyBlck)
           if bres.isSome():
             await blockProcessor[].addBlock(MsgSource.gossip, signedBlock, bres,

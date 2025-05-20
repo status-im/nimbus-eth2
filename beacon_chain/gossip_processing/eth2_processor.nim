@@ -254,10 +254,6 @@ proc processSignedBeaconBlock*(
     let blobs =
       when typeof(signedBlock).kind >= ConsensusFork.Deneb and
           typeof(signedBlock).kind < ConsensusFork.Fulu:
-        if self.blobQuarantine[].hasBlobs(signedBlock):
-          Opt.some(self.blobQuarantine[].popBlobs(signedBlock.root, signedBlock))
-      when typeof(signedBlock).kind >= ConsensusFork.Deneb and
-          typeof(signedBlock).kind < ConsensusFork.Fulu::
         let bres =
           self.blobQuarantine[].popSidecars(signedBlock.root, signedBlock)
         if bres.isSome():

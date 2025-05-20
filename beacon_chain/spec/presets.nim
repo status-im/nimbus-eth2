@@ -328,7 +328,7 @@ when const_preset == "mainnet":
     VALIDATOR_CUSTODY_REQUIREMENT: 8,
     BALANCE_PER_ADDITIONAL_CUSTODY_GROUP: 32000000000'u64,
     MAX_BLOBS_PER_BLOCK_FULU: 12,
-    MIN_EPOCHS_FOR_DATA_COLUMN_SIDECARS_REQUESTS: 4096
+    MIN_EPOCHS_FOR_DATA_COLUMN_SIDECARS_REQUESTS: 4096,
     # https://github.com/ethereum/consensus-specs/blob/v1.6.0-alpha.0/specs/fulu/das-core.md#get_max_blobs_per_block
     # provides sorting rules.
     BLOB_SCHEDULE: @[
@@ -668,7 +668,7 @@ elif const_preset == "minimal":
     VALIDATOR_CUSTODY_REQUIREMENT: 8,
     BALANCE_PER_ADDITIONAL_CUSTODY_GROUP: 32000000000'u64,
     MAX_BLOBS_PER_BLOCK_FULU: 12,
-    MIN_EPOCHS_FOR_DATA_COLUMN_SIDECARS_REQUESTS: 4096
+    MIN_EPOCHS_FOR_DATA_COLUMN_SIDECARS_REQUESTS: 4096,
     # https://github.com/ethereum/consensus-specs/blob/v1.6.0-alpha.0/specs/fulu/das-core.md#get_max_blobs_per_block
     # provides sorting rules.
     BLOB_SCHEDULE: @[
