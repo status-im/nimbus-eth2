@@ -2399,7 +2399,6 @@ ConsensusSpecPreset-mainnet
 + Pending deposits - apply_pending_deposit_top_up__max_effective_balance_compounding [Preset OK
 + Pending deposits - apply_pending_deposit_top_up__min_activation_balance [Preset: mainnet]  OK
 + Pending deposits - apply_pending_deposit_top_up__min_activation_balance_compounding [Prese OK
-+ Pending deposits - apply_pending_deposit_top_up__zero_balance [Preset: mainnet]            OK
 + Pending deposits - apply_pending_deposit_under_min_activation [Preset: mainnet]            OK
 + Pending deposits - apply_pending_deposit_with_previous_fork_version [Preset: mainnet]      OK
 + Pending deposits - ineffective_deposit_with_current_fork_version [Preset: mainnet]         OK
@@ -2650,6 +2649,8 @@ ConsensusSpecPreset-mainnet
 ```
 ## EF - Electra - Operations - Deposit Request  [Preset: mainnet]
 ```diff
++ [Valid]   EF - Electra - Operations - Deposit Request - process_deposit_request_extra_gwei OK
++ [Valid]   EF - Electra - Operations - Deposit Request - process_deposit_request_greater_th OK
 + [Valid]   EF - Electra - Operations - Deposit Request - process_deposit_request_invalid_si OK
 + [Valid]   EF - Electra - Operations - Deposit Request - process_deposit_request_max_effect OK
 + [Valid]   EF - Electra - Operations - Deposit Request - process_deposit_request_min_activa OK
@@ -2658,6 +2659,7 @@ ConsensusSpecPreset-mainnet
 + [Valid]   EF - Electra - Operations - Deposit Request - process_deposit_request_top_up_inv OK
 + [Valid]   EF - Electra - Operations - Deposit Request - process_deposit_request_top_up_max OK
 + [Valid]   EF - Electra - Operations - Deposit Request - process_deposit_request_top_up_min OK
++ [Valid]   EF - Electra - Operations - Deposit Request - process_deposit_request_top_up_sti OK
 ```
 ## EF - Electra - Operations - Execution Payload  [Preset: mainnet]
 ```diff
@@ -2775,6 +2777,7 @@ ConsensusSpecPreset-mainnet
 + [Valid]   EF - Electra - Operations - Voluntary Exit - min_balance_exits_above_churn       OK
 + [Valid]   EF - Electra - Operations - Voluntary Exit - min_balance_exits_up_to_churn       OK
 + [Valid]   EF - Electra - Operations - Voluntary Exit - success_exit_queue__min_churn       OK
++ [Valid]   EF - Electra - Operations - Voluntary Exit - voluntary_exit_with_pending_deposit OK
 ```
 ## EF - Electra - Operations - Withdrawal Request  [Preset: mainnet]
 ```diff
@@ -2841,6 +2844,8 @@ ConsensusSpecPreset-mainnet
 + [Valid]   EF - Electra - Operations - Withdrawals - pending_withdrawals_next_epoch         OK
 + [Valid]   EF - Electra - Operations - Withdrawals - pending_withdrawals_no_excess_balance  OK
 + [Valid]   EF - Electra - Operations - Withdrawals - pending_withdrawals_one_skipped_one_ef OK
++ [Valid]   EF - Electra - Operations - Withdrawals - pending_withdrawals_two_partial_withdr OK
++ [Valid]   EF - Electra - Operations - Withdrawals - pending_withdrawals_two_partial_withdr OK
 + [Valid]   EF - Electra - Operations - Withdrawals - pending_withdrawals_with_effective_swe OK
 + [Valid]   EF - Electra - Operations - Withdrawals - pending_withdrawals_with_ineffective_s OK
 + [Valid]   EF - Electra - Operations - Withdrawals - pending_withdrawals_with_ineffective_s OK
@@ -3031,6 +3036,7 @@ ConsensusSpecPreset-mainnet
 + [Valid]   EF - Electra - Sanity - Blocks - cl_exit_and_el_withdrawal_request_in_same_block OK
 + [Valid]   EF - Electra - Sanity - Blocks - deposit_and_bls_change [Preset: mainnet]        OK
 + [Valid]   EF - Electra - Sanity - Blocks - deposit_in_block [Preset: mainnet]              OK
++ [Valid]   EF - Electra - Sanity - Blocks - deposit_request_max_per_payload [Preset: mainne OK
 + [Valid]   EF - Electra - Sanity - Blocks - deposit_request_with_same_pubkey_different_with OK
 + [Valid]   EF - Electra - Sanity - Blocks - deposit_top_up [Preset: mainnet]                OK
 + [Valid]   EF - Electra - Sanity - Blocks - deposit_transition__deposit_and_top_up_same_blo OK
@@ -3097,6 +3103,7 @@ ConsensusSpecPreset-mainnet
 + EF - Electra - Slots - multiple_pending_deposits_same_pubkey_different_signature [Preset:  OK
 + EF - Electra - Slots - over_epoch_boundary [Preset: mainnet]                               OK
 + EF - Electra - Slots - pending_consolidation [Preset: mainnet]                             OK
++ EF - Electra - Slots - pending_deposit_extra_gwei [Preset: mainnet]                        OK
 + EF - Electra - Slots - slots_1 [Preset: mainnet]                                           OK
 + EF - Electra - Slots - slots_2 [Preset: mainnet]                                           OK
 ```
@@ -3242,7 +3249,6 @@ ConsensusSpecPreset-mainnet
 + Pending deposits - apply_pending_deposit_top_up__max_effective_balance_compounding [Preset OK
 + Pending deposits - apply_pending_deposit_top_up__min_activation_balance [Preset: mainnet]  OK
 + Pending deposits - apply_pending_deposit_top_up__min_activation_balance_compounding [Prese OK
-+ Pending deposits - apply_pending_deposit_top_up__zero_balance [Preset: mainnet]            OK
 + Pending deposits - apply_pending_deposit_under_min_activation [Preset: mainnet]            OK
 + Pending deposits - apply_pending_deposit_with_previous_fork_version [Preset: mainnet]      OK
 + Pending deposits - ineffective_deposit_with_current_fork_version [Preset: mainnet]         OK
@@ -3479,12 +3485,15 @@ ConsensusSpecPreset-mainnet
 + [Valid]   EF - Fulu - Operations - Deposit - new_deposit_non_versioned_withdrawal_credenti OK
 + [Valid]   EF - Fulu - Operations - Deposit - new_deposit_over_max                          OK
 + [Valid]   EF - Fulu - Operations - Deposit - new_deposit_under_max                         OK
++ [Valid]   EF - Fulu - Operations - Deposit - success_top_up_to_withdrawn_validator         OK
 + [Valid]   EF - Fulu - Operations - Deposit - top_up__less_effective_balance                OK
 + [Valid]   EF - Fulu - Operations - Deposit - top_up__max_effective_balance                 OK
 + [Valid]   EF - Fulu - Operations - Deposit - top_up__zero_balance                          OK
 ```
 ## EF - Fulu - Operations - Deposit Request  [Preset: mainnet]
 ```diff
++ [Valid]   EF - Fulu - Operations - Deposit Request - process_deposit_request_extra_gwei    OK
++ [Valid]   EF - Fulu - Operations - Deposit Request - process_deposit_request_greater_than_ OK
 + [Valid]   EF - Fulu - Operations - Deposit Request - process_deposit_request_invalid_sig   OK
 + [Valid]   EF - Fulu - Operations - Deposit Request - process_deposit_request_max_effective OK
 + [Valid]   EF - Fulu - Operations - Deposit Request - process_deposit_request_min_activatio OK
@@ -3493,11 +3502,14 @@ ConsensusSpecPreset-mainnet
 + [Valid]   EF - Fulu - Operations - Deposit Request - process_deposit_request_top_up_invali OK
 + [Valid]   EF - Fulu - Operations - Deposit Request - process_deposit_request_top_up_max_ef OK
 + [Valid]   EF - Fulu - Operations - Deposit Request - process_deposit_request_top_up_min_ac OK
++ [Valid]   EF - Fulu - Operations - Deposit Request - process_deposit_request_top_up_still_ OK
 ```
 ## EF - Fulu - Operations - Execution Payload  [Preset: mainnet]
 ```diff
 + [Invalid] EF - Fulu - Operations - Execution Payload - invalid_bad_everything_first_payloa OK
 + [Invalid] EF - Fulu - Operations - Execution Payload - invalid_bad_everything_regular_payl OK
++ [Invalid] EF - Fulu - Operations - Execution Payload - invalid_bad_execution_first_payload OK
++ [Invalid] EF - Fulu - Operations - Execution Payload - invalid_bad_execution_regular_paylo OK
 + [Invalid] EF - Fulu - Operations - Execution Payload - invalid_bad_parent_hash_first_paylo OK
 + [Invalid] EF - Fulu - Operations - Execution Payload - invalid_bad_parent_hash_regular_pay OK
 + [Invalid] EF - Fulu - Operations - Execution Payload - invalid_bad_pre_randao_regular_payl OK
@@ -3508,6 +3520,8 @@ ConsensusSpecPreset-mainnet
 + [Invalid] EF - Fulu - Operations - Execution Payload - invalid_future_timestamp_regular_pa OK
 + [Invalid] EF - Fulu - Operations - Execution Payload - invalid_past_timestamp_first_payloa OK
 + [Invalid] EF - Fulu - Operations - Execution Payload - invalid_past_timestamp_regular_payl OK
++ [Invalid] EF - Fulu - Operations - Execution Payload - invalid_randomized_non_validated_ex OK
++ [Invalid] EF - Fulu - Operations - Execution Payload - invalid_randomized_non_validated_ex OK
 + [Valid]   EF - Fulu - Operations - Execution Payload - incorrect_blob_tx_type              OK
 + [Valid]   EF - Fulu - Operations - Execution Payload - incorrect_block_hash                OK
 + [Valid]   EF - Fulu - Operations - Execution Payload - incorrect_commitment                OK
@@ -3519,6 +3533,18 @@ ConsensusSpecPreset-mainnet
 + [Valid]   EF - Fulu - Operations - Execution Payload - incorrect_transaction_no_blobs_but_ OK
 + [Valid]   EF - Fulu - Operations - Execution Payload - no_commitments_for_transactions     OK
 + [Valid]   EF - Fulu - Operations - Execution Payload - no_transactions_with_commitments    OK
++ [Valid]   EF - Fulu - Operations - Execution Payload - non_empty_extra_data_first_payload  OK
++ [Valid]   EF - Fulu - Operations - Execution Payload - non_empty_extra_data_regular_payloa OK
++ [Valid]   EF - Fulu - Operations - Execution Payload - non_empty_transactions_first_payloa OK
++ [Valid]   EF - Fulu - Operations - Execution Payload - non_empty_transactions_regular_payl OK
++ [Valid]   EF - Fulu - Operations - Execution Payload - randomized_non_validated_execution_ OK
++ [Valid]   EF - Fulu - Operations - Execution Payload - randomized_non_validated_execution_ OK
++ [Valid]   EF - Fulu - Operations - Execution Payload - success_first_payload               OK
++ [Valid]   EF - Fulu - Operations - Execution Payload - success_first_payload_with_gap_slot OK
++ [Valid]   EF - Fulu - Operations - Execution Payload - success_regular_payload             OK
++ [Valid]   EF - Fulu - Operations - Execution Payload - success_regular_payload_with_gap_sl OK
++ [Valid]   EF - Fulu - Operations - Execution Payload - zero_length_transaction_first_paylo OK
++ [Valid]   EF - Fulu - Operations - Execution Payload - zero_length_transaction_regular_pay OK
 + [Valid]   EF - Fulu - Operations - Execution Payload - zeroed_commitment                   OK
 ```
 ## EF - Fulu - Operations - Proposer Slashing  [Preset: mainnet]
@@ -3594,6 +3620,7 @@ ConsensusSpecPreset-mainnet
 + [Valid]   EF - Fulu - Operations - Voluntary Exit - min_balance_exits_above_churn          OK
 + [Valid]   EF - Fulu - Operations - Voluntary Exit - min_balance_exits_up_to_churn          OK
 + [Valid]   EF - Fulu - Operations - Voluntary Exit - success_exit_queue__min_churn          OK
++ [Valid]   EF - Fulu - Operations - Voluntary Exit - voluntary_exit_with_pending_deposit    OK
 ```
 ## EF - Fulu - Operations - Withdrawal Request  [Preset: mainnet]
 ```diff
@@ -3619,9 +3646,30 @@ ConsensusSpecPreset-mainnet
 ```
 ## EF - Fulu - Operations - Withdrawals  [Preset: mainnet]
 ```diff
++ [Invalid] EF - Fulu - Operations - Withdrawals - invalid_a_lot_fully_withdrawable_too_few_ OK
++ [Invalid] EF - Fulu - Operations - Withdrawals - invalid_a_lot_mixed_withdrawable_in_queue OK
++ [Invalid] EF - Fulu - Operations - Withdrawals - invalid_a_lot_partially_withdrawable_too_ OK
++ [Invalid] EF - Fulu - Operations - Withdrawals - invalid_incorrect_address_full            OK
++ [Invalid] EF - Fulu - Operations - Withdrawals - invalid_incorrect_address_partial         OK
++ [Invalid] EF - Fulu - Operations - Withdrawals - invalid_incorrect_amount_full             OK
++ [Invalid] EF - Fulu - Operations - Withdrawals - invalid_incorrect_amount_partial          OK
++ [Invalid] EF - Fulu - Operations - Withdrawals - invalid_incorrect_withdrawal_index        OK
++ [Invalid] EF - Fulu - Operations - Withdrawals - invalid_many_incorrectly_full             OK
++ [Invalid] EF - Fulu - Operations - Withdrawals - invalid_many_incorrectly_partial          OK
++ [Invalid] EF - Fulu - Operations - Withdrawals - invalid_max_per_slot_full_withdrawals_and OK
++ [Invalid] EF - Fulu - Operations - Withdrawals - invalid_max_per_slot_partial_withdrawals_ OK
++ [Invalid] EF - Fulu - Operations - Withdrawals - invalid_non_withdrawable_non_empty_withdr OK
++ [Invalid] EF - Fulu - Operations - Withdrawals - invalid_one_expected_full_withdrawal_and_ OK
++ [Invalid] EF - Fulu - Operations - Withdrawals - invalid_one_expected_full_withdrawal_and_ OK
++ [Invalid] EF - Fulu - Operations - Withdrawals - invalid_one_expected_partial_withdrawal_a OK
++ [Invalid] EF - Fulu - Operations - Withdrawals - invalid_one_of_many_incorrectly_full      OK
++ [Invalid] EF - Fulu - Operations - Withdrawals - invalid_one_of_many_incorrectly_partial   OK
++ [Invalid] EF - Fulu - Operations - Withdrawals - invalid_two_expected_partial_withdrawal_a OK
++ [Valid]   EF - Fulu - Operations - Withdrawals - all_withdrawal                            OK
 + [Valid]   EF - Fulu - Operations - Withdrawals - full_pending_withdrawals_but_first_skippe OK
 + [Valid]   EF - Fulu - Operations - Withdrawals - full_pending_withdrawals_but_first_skippe OK
 + [Valid]   EF - Fulu - Operations - Withdrawals - full_pending_withdrawals_but_first_skippe OK
++ [Valid]   EF - Fulu - Operations - Withdrawals - no_withdrawals_but_some_next_epoch        OK
 + [Valid]   EF - Fulu - Operations - Withdrawals - partially_withdrawable_validator_compound OK
 + [Valid]   EF - Fulu - Operations - Withdrawals - partially_withdrawable_validator_compound OK
 + [Valid]   EF - Fulu - Operations - Withdrawals - partially_withdrawable_validator_compound OK
@@ -3639,30 +3687,45 @@ ConsensusSpecPreset-mainnet
 + [Valid]   EF - Fulu - Operations - Withdrawals - pending_withdrawals_next_epoch            OK
 + [Valid]   EF - Fulu - Operations - Withdrawals - pending_withdrawals_no_excess_balance     OK
 + [Valid]   EF - Fulu - Operations - Withdrawals - pending_withdrawals_one_skipped_one_effec OK
++ [Valid]   EF - Fulu - Operations - Withdrawals - pending_withdrawals_two_partial_withdrawa OK
++ [Valid]   EF - Fulu - Operations - Withdrawals - pending_withdrawals_two_partial_withdrawa OK
 + [Valid]   EF - Fulu - Operations - Withdrawals - pending_withdrawals_with_effective_sweep_ OK
 + [Valid]   EF - Fulu - Operations - Withdrawals - pending_withdrawals_with_ineffective_swee OK
 + [Valid]   EF - Fulu - Operations - Withdrawals - pending_withdrawals_with_ineffective_swee OK
 + [Valid]   EF - Fulu - Operations - Withdrawals - pending_withdrawals_with_sweep_different_ OK
 + [Valid]   EF - Fulu - Operations - Withdrawals - random_0                                  OK
++ [Valid]   EF - Fulu - Operations - Withdrawals - random_full_withdrawals_0                 OK
++ [Valid]   EF - Fulu - Operations - Withdrawals - random_full_withdrawals_1                 OK
++ [Valid]   EF - Fulu - Operations - Withdrawals - random_full_withdrawals_2                 OK
++ [Valid]   EF - Fulu - Operations - Withdrawals - random_full_withdrawals_3                 OK
 + [Valid]   EF - Fulu - Operations - Withdrawals - random_partial_withdrawals_1              OK
 + [Valid]   EF - Fulu - Operations - Withdrawals - random_partial_withdrawals_2              OK
 + [Valid]   EF - Fulu - Operations - Withdrawals - random_partial_withdrawals_3              OK
 + [Valid]   EF - Fulu - Operations - Withdrawals - random_partial_withdrawals_4              OK
 + [Valid]   EF - Fulu - Operations - Withdrawals - random_partial_withdrawals_5              OK
++ [Valid]   EF - Fulu - Operations - Withdrawals - success_all_fully_withdrawable_in_one_swe OK
++ [Valid]   EF - Fulu - Operations - Withdrawals - success_all_partially_withdrawable_in_one OK
 + [Valid]   EF - Fulu - Operations - Withdrawals - success_excess_balance_but_no_max_effecti OK
 + [Valid]   EF - Fulu - Operations - Withdrawals - success_excess_balance_but_no_max_effecti OK
 + [Valid]   EF - Fulu - Operations - Withdrawals - success_max_partial_withdrawable          OK
++ [Valid]   EF - Fulu - Operations - Withdrawals - success_mixed_fully_and_partial_withdrawa OK
 + [Valid]   EF - Fulu - Operations - Withdrawals - success_mixed_fully_and_partial_withdrawa OK
 + [Valid]   EF - Fulu - Operations - Withdrawals - success_no_excess_balance                 OK
 + [Valid]   EF - Fulu - Operations - Withdrawals - success_no_excess_balance_compounding     OK
 + [Valid]   EF - Fulu - Operations - Withdrawals - success_no_max_effective_balance          OK
 + [Valid]   EF - Fulu - Operations - Withdrawals - success_no_max_effective_balance_compound OK
++ [Valid]   EF - Fulu - Operations - Withdrawals - success_one_full_withdrawal               OK
 + [Valid]   EF - Fulu - Operations - Withdrawals - success_one_partial_withdrawable_active_a OK
 + [Valid]   EF - Fulu - Operations - Withdrawals - success_one_partial_withdrawable_exited   OK
 + [Valid]   EF - Fulu - Operations - Withdrawals - success_one_partial_withdrawable_exited_a OK
 + [Valid]   EF - Fulu - Operations - Withdrawals - success_one_partial_withdrawable_in_exit_ OK
 + [Valid]   EF - Fulu - Operations - Withdrawals - success_one_partial_withdrawable_not_yet_ OK
++ [Valid]   EF - Fulu - Operations - Withdrawals - success_one_partial_withdrawal            OK
 + [Valid]   EF - Fulu - Operations - Withdrawals - success_two_partial_withdrawable          OK
++ [Valid]   EF - Fulu - Operations - Withdrawals - success_zero_expected_withdrawals         OK
++ [Valid]   EF - Fulu - Operations - Withdrawals - withdrawable_epoch_but_0_balance          OK
++ [Valid]   EF - Fulu - Operations - Withdrawals - withdrawable_epoch_but_0_effective_balanc OK
++ [Valid]   EF - Fulu - Operations - Withdrawals - withdrawable_epoch_but_0_effective_balanc OK
 ```
 ## EF - Fulu - Random  [Preset: mainnet]
 ```diff
@@ -3736,8 +3799,8 @@ ConsensusSpecPreset-mainnet
 +   Testing    Checkpoint                                                                    OK
 +   Testing    ConsolidationRequest                                                          OK
 +   Testing    ContributionAndProof                                                          OK
-+   Testing    DataColumnIdentifier                                                          OK
 +   Testing    DataColumnSidecar                                                             OK
++   Testing    DataColumnsByRootIdentifier                                                   OK
 +   Testing    Deposit                                                                       OK
 +   Testing    DepositData                                                                   OK
 +   Testing    DepositMessage                                                                OK
@@ -3793,6 +3856,8 @@ ConsensusSpecPreset-mainnet
 + [Invalid] EF - Fulu - Sanity - Blocks - invalid_incorrect_proposer_index_sig_from_expected OK
 + [Invalid] EF - Fulu - Sanity - Blocks - invalid_incorrect_proposer_index_sig_from_proposer OK
 + [Invalid] EF - Fulu - Sanity - Blocks - invalid_incorrect_state_root [Preset: mainnet]     OK
++ [Invalid] EF - Fulu - Sanity - Blocks - invalid_is_execution_enabled_false [Preset: mainne OK
++ [Invalid] EF - Fulu - Sanity - Blocks - invalid_one_blob_max_plus_one_txs [Preset: mainnet OK
 + [Invalid] EF - Fulu - Sanity - Blocks - invalid_only_increase_deposit_count [Preset: mainn OK
 + [Invalid] EF - Fulu - Sanity - Blocks - invalid_parent_from_same_slot [Preset: mainnet]    OK
 + [Invalid] EF - Fulu - Sanity - Blocks - invalid_prev_slot_block_transition [Preset: mainne OK
@@ -3804,31 +3869,46 @@ ConsensusSpecPreset-mainnet
 + [Valid]   EF - Fulu - Sanity - Blocks - attestation [Preset: mainnet]                      OK
 + [Valid]   EF - Fulu - Sanity - Blocks - attester_slashing [Preset: mainnet]                OK
 + [Valid]   EF - Fulu - Sanity - Blocks - balance_driven_status_transitions [Preset: mainnet OK
++ [Valid]   EF - Fulu - Sanity - Blocks - basic_btec_and_el_withdrawal_request_in_same_block OK
++ [Valid]   EF - Fulu - Sanity - Blocks - basic_btec_before_el_withdrawal_request [Preset: m OK
++ [Valid]   EF - Fulu - Sanity - Blocks - basic_el_withdrawal_request [Preset: mainnet]      OK
++ [Valid]   EF - Fulu - Sanity - Blocks - block_transition_randomized_payload [Preset: mainn OK
 + [Valid]   EF - Fulu - Sanity - Blocks - bls_change [Preset: mainnet]                       OK
++ [Valid]   EF - Fulu - Sanity - Blocks - cl_exit_and_el_withdrawal_request_in_same_block [P OK
 + [Valid]   EF - Fulu - Sanity - Blocks - deposit_and_bls_change [Preset: mainnet]           OK
 + [Valid]   EF - Fulu - Sanity - Blocks - deposit_in_block [Preset: mainnet]                 OK
++ [Valid]   EF - Fulu - Sanity - Blocks - deposit_request_max_per_payload [Preset: mainnet]  OK
++ [Valid]   EF - Fulu - Sanity - Blocks - deposit_request_with_same_pubkey_different_withdra OK
 + [Valid]   EF - Fulu - Sanity - Blocks - deposit_top_up [Preset: mainnet]                   OK
 + [Valid]   EF - Fulu - Sanity - Blocks - duplicate_attestation_same_block [Preset: mainnet] OK
 + [Valid]   EF - Fulu - Sanity - Blocks - empty_block_transition [Preset: mainnet]           OK
++ [Valid]   EF - Fulu - Sanity - Blocks - empty_block_transition_no_tx [Preset: mainnet]     OK
 + [Valid]   EF - Fulu - Sanity - Blocks - empty_epoch_transition [Preset: mainnet]           OK
 + [Valid]   EF - Fulu - Sanity - Blocks - exit_and_bls_change [Preset: mainnet]              OK
 + [Valid]   EF - Fulu - Sanity - Blocks - full_random_operations_0 [Preset: mainnet]         OK
 + [Valid]   EF - Fulu - Sanity - Blocks - full_random_operations_1 [Preset: mainnet]         OK
 + [Valid]   EF - Fulu - Sanity - Blocks - full_random_operations_2 [Preset: mainnet]         OK
 + [Valid]   EF - Fulu - Sanity - Blocks - full_random_operations_3 [Preset: mainnet]         OK
++ [Valid]   EF - Fulu - Sanity - Blocks - full_withdrawal_in_epoch_transition [Preset: mainn OK
 + [Valid]   EF - Fulu - Sanity - Blocks - high_proposer_index [Preset: mainnet]              OK
 + [Valid]   EF - Fulu - Sanity - Blocks - historical_batch [Preset: mainnet]                 OK
 + [Valid]   EF - Fulu - Sanity - Blocks - inactivity_scores_full_participation_leaking [Pres OK
 + [Valid]   EF - Fulu - Sanity - Blocks - inactivity_scores_leaking [Preset: mainnet]        OK
 + [Valid]   EF - Fulu - Sanity - Blocks - many_partial_withdrawals_in_epoch_transition [Pres OK
++ [Valid]   EF - Fulu - Sanity - Blocks - mix_blob_tx_and_non_blob_tx [Preset: mainnet]      OK
 + [Valid]   EF - Fulu - Sanity - Blocks - multiple_different_proposer_slashings_same_block [ OK
 + [Valid]   EF - Fulu - Sanity - Blocks - multiple_different_validator_exits_same_block [Pre OK
++ [Valid]   EF - Fulu - Sanity - Blocks - multiple_el_partial_withdrawal_requests_different_ OK
++ [Valid]   EF - Fulu - Sanity - Blocks - multiple_el_partial_withdrawal_requests_same_valid OK
++ [Valid]   EF - Fulu - Sanity - Blocks - one_blob [Preset: mainnet]                         OK
++ [Valid]   EF - Fulu - Sanity - Blocks - one_blob_two_txs [Preset: mainnet]                 OK
 + [Valid]   EF - Fulu - Sanity - Blocks - partial_withdrawal_in_epoch_transition [Preset: ma OK
 + [Valid]   EF - Fulu - Sanity - Blocks - proposer_after_inactive_index [Preset: mainnet]    OK
 + [Valid]   EF - Fulu - Sanity - Blocks - proposer_self_slashing [Preset: mainnet]           OK
 + [Valid]   EF - Fulu - Sanity - Blocks - proposer_slashing [Preset: mainnet]                OK
 + [Valid]   EF - Fulu - Sanity - Blocks - skipped_slots [Preset: mainnet]                    OK
 + [Valid]   EF - Fulu - Sanity - Blocks - slash_and_exit_diff_index [Preset: mainnet]        OK
++ [Valid]   EF - Fulu - Sanity - Blocks - switch_to_compounding_requests_when_too_little_con OK
 + [Valid]   EF - Fulu - Sanity - Blocks - sync_committee_committee__empty [Preset: mainnet]  OK
 + [Valid]   EF - Fulu - Sanity - Blocks - sync_committee_committee__full [Preset: mainnet]   OK
 + [Valid]   EF - Fulu - Sanity - Blocks - sync_committee_committee__half [Preset: mainnet]   OK
@@ -3838,7 +3918,10 @@ ConsensusSpecPreset-mainnet
 + [Valid]   EF - Fulu - Sanity - Blocks - top_up_and_partial_withdrawable_validator [Preset: OK
 + [Valid]   EF - Fulu - Sanity - Blocks - top_up_to_fully_withdrawn_validator [Preset: mainn OK
 + [Valid]   EF - Fulu - Sanity - Blocks - voluntary_exit [Preset: mainnet]                   OK
++ [Valid]   EF - Fulu - Sanity - Blocks - withdrawal_and_switch_to_compounding_request_same_ OK
++ [Valid]   EF - Fulu - Sanity - Blocks - withdrawal_and_withdrawal_request_same_validator [ OK
 + [Valid]   EF - Fulu - Sanity - Blocks - withdrawal_success_two_blocks [Preset: mainnet]    OK
++ [Valid]   EF - Fulu - Sanity - Blocks - zero_blob [Preset: mainnet]                        OK
 ```
 ## EF - Fulu - Sanity - Slots  [Preset: mainnet]
 ```diff
@@ -3853,11 +3936,13 @@ ConsensusSpecPreset-mainnet
 + EF - Fulu - Slots - multiple_pending_deposits_same_pubkey_different_signature [Preset: mai OK
 + EF - Fulu - Slots - over_epoch_boundary [Preset: mainnet]                                  OK
 + EF - Fulu - Slots - pending_consolidation [Preset: mainnet]                                OK
++ EF - Fulu - Slots - pending_deposit_extra_gwei [Preset: mainnet]                           OK
 + EF - Fulu - Slots - slots_1 [Preset: mainnet]                                              OK
 + EF - Fulu - Slots - slots_2 [Preset: mainnet]                                              OK
 ```
 ## EF - Light client - Single merkle proof [Preset: mainnet]
 ```diff
+  Light client - Single merkle proof - eip7805                                               Skip
 + Light client - Single merkle proof - mainnet/altair/light_client/single_merkle_proof/Beaco OK
 + Light client - Single merkle proof - mainnet/altair/light_client/single_merkle_proof/Beaco OK
 + Light client - Single merkle proof - mainnet/altair/light_client/single_merkle_proof/Beaco OK
@@ -3876,9 +3961,12 @@ ConsensusSpecPreset-mainnet
 + Light client - Single merkle proof - mainnet/electra/light_client/single_merkle_proof/Beac OK
 + Light client - Single merkle proof - mainnet/electra/light_client/single_merkle_proof/Beac OK
 + Light client - Single merkle proof - mainnet/electra/light_client/single_merkle_proof/Beac OK
++ Light client - Single merkle proof - mainnet/fulu/light_client/single_merkle_proof/BeaconB OK
 ```
 ## EF - Merkle proof [Preset: mainnet]
 ```diff
+  Merkle proof - Single merkle proof - eip7732                                               Skip
+  Merkle proof - Single merkle proof - eip7805                                               Skip
 + Merkle proof - Single merkle proof - mainnet/deneb/merkle_proof/single_merkle_proof/Beacon OK
 + Merkle proof - Single merkle proof - mainnet/deneb/merkle_proof/single_merkle_proof/Beacon OK
 + Merkle proof - Single merkle proof - mainnet/deneb/merkle_proof/single_merkle_proof/Beacon OK
@@ -4399,14 +4487,18 @@ ConsensusSpecPreset-mainnet
 + ForkChoice - mainnet/fulu/fork_choice/get_head/pyspec_tests/chain_no_attestations          OK
 + ForkChoice - mainnet/fulu/fork_choice/get_head/pyspec_tests/discard_equivocations_on_attes OK
 + ForkChoice - mainnet/fulu/fork_choice/get_head/pyspec_tests/genesis                        OK
++ ForkChoice - mainnet/fulu/fork_choice/get_head/pyspec_tests/proposer_boost_correct_head    OK
 + ForkChoice - mainnet/fulu/fork_choice/get_head/pyspec_tests/shorter_chain_but_heavier_weig OK
 + ForkChoice - mainnet/fulu/fork_choice/get_head/pyspec_tests/split_tie_breaker_no_attestati OK
+  ForkChoice - mainnet/fulu/fork_choice/get_proposer_head/pyspec_tests/basic_is_head_root    Skip
+  ForkChoice - mainnet/fulu/fork_choice/get_proposer_head/pyspec_tests/basic_is_parent_root  Skip
 + ForkChoice - mainnet/fulu/fork_choice/on_block/pyspec_tests/basic                          OK
 + ForkChoice - mainnet/fulu/fork_choice/on_block/pyspec_tests/on_block_bad_parent_root       OK
   ForkChoice - mainnet/fulu/fork_choice/on_block/pyspec_tests/on_block_future_block          Skip
 + ForkChoice - mainnet/fulu/fork_choice/on_block/pyspec_tests/proposer_boost                 OK
 + ForkChoice - mainnet/fulu/fork_choice/on_block/pyspec_tests/proposer_boost_is_first_block  OK
 + ForkChoice - mainnet/fulu/fork_choice/on_block/pyspec_tests/proposer_boost_root_same_slot_ OK
+  ForkChoice - mainnet/fulu/fork_choice/should_override_forkchoice_update/pyspec_tests/shoul Skip
 ```
 ## Sync
 ```diff
@@ -4414,4 +4506,5 @@ ConsensusSpecPreset-mainnet
 + Sync - mainnet/capella/sync/optimistic/pyspec_tests/from_syncing_to_invalid                OK
 + Sync - mainnet/deneb/sync/optimistic/pyspec_tests/from_syncing_to_invalid                  OK
 + Sync - mainnet/electra/sync/optimistic/pyspec_tests/from_syncing_to_invalid                OK
++ Sync - mainnet/fulu/sync/optimistic/pyspec_tests/from_syncing_to_invalid                   OK
 ```

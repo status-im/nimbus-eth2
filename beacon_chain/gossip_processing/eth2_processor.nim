@@ -257,8 +257,10 @@ proc processSignedBeaconBlock*(
     let blobs =
       when typeof(signedBlock).kind >= ConsensusFork.Deneb and
           typeof(signedBlock).kind < ConsensusFork.Fulu:
-        if self.blobQuarantine[].hasBlobs(signedBlock):
-          Opt.some(self.blobQuarantine[].popBlobs(signedBlock.root, signedBlock))
+        let bres =
+          self.blobQuarantine[].popSidecars(signedBlock.root, signedBlock)
+        if bres.isSome():
+          bres
         else:
           discard self.quarantine[].addBlobless(self.dag.finalizedHead.slot,
                                                 signedBlock)
@@ -324,20 +326,19 @@ proc processBlobSidecar*(
     blob_sidecars_dropped.inc(1, [$v.error[0]])
     return v
 
-  debug "Blob validated, putting in blob quarantine"
-  self.blobQuarantine[].put(newClone(blobSidecar))
-
   let block_root = hash_tree_root(block_header)
+  debug "Blob validated, putting in blob quarantine"
+  self.blobQuarantine[].put(block_root, newClone(blobSidecar))
+
   if (let o = self.quarantine[].popBlobless(block_root); o.isSome):
     let blobless = o.unsafeGet()
     withBlck(blobless):
       when consensusFork >= ConsensusFork.Deneb and
           consensusFork < ConsensusFork.Fulu:
-        if self.blobQuarantine[].hasBlobs(forkyBlck):
-          self.blockProcessor[].enqueueBlock(
-            MsgSource.gossip, blobless,
-            Opt.some(self.blobQuarantine[].popBlobs(block_root, forkyBlck)),
-            Opt.none(DataColumnSidecars))
+        let bres = self.blobQuarantine[].popSidecars(block_root, forkyBlck)
+        if bres.isSome():
+          self.blockProcessor[].enqueueBlock(MsgSource.gossip, blobless, bres,
+                                             Opt.none(DataColumnSidecars))
         else:
           discard self.quarantine[].addBlobless(
             self.dag.finalizedHead.slot, forkyBlck)
@@ -676,6 +677,15 @@ proc processBlsToExecutionChange*(
 
   return v
 
+proc checkKnownValidatorSlashing(
+    self: var Eth2Processor,
+    msg: ProposerSlashing | phase0.AttesterSlashing | electra.AttesterSlashing) =
+  for idx in getValidatorIndices(msg):
+    let i = ValidatorIndex.init(idx).valueOr:
+      continue
+    if self.blockProcessor[].consensusManager[].actionTracker.knownValidators.hasKey(i):
+      quitSlashing()
+
 proc processAttesterSlashing*(
     self: var Eth2Processor, src: MsgSource,
     attesterSlashing: phase0.AttesterSlashing | electra.AttesterSlashing):
@@ -689,6 +699,8 @@ proc processAttesterSlashing*(
 
   if v.isOk():
     trace "Attester slashing validated"
+
+    self.checkKnownValidatorSlashing(attesterSlashing)
 
     self.validatorChangePool[].addMessage(attesterSlashing)
 
@@ -712,6 +724,8 @@ proc processProposerSlashing*(
   let v = self.validatorChangePool[].validateProposerSlashing(proposerSlashing)
   if v.isOk():
     trace "Proposer slashing validated"
+
+    self.checkKnownValidatorSlashing(proposerSlashing)
 
     self.validatorChangePool[].addMessage(proposerSlashing)
 

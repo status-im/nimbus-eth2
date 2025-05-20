@@ -328,41 +328,6 @@ proc publishSszBlindedBlock*(
 
 proc publishBlindedBlockV2*(
     broadcast_validation: Option[BroadcastValidationType],
-    body: phase0.SignedBeaconBlock
-): RestPlainResponse {.rest, endpoint: "/eth/v2/beacon/blinded_blocks",
-   meth: MethodPost.}
-  ## https://ethereum.github.io/beacon-APIs/#/Beacon/publishBlindedBlock
-
-proc publishBlindedBlockV2*(
-    broadcast_validation: Option[BroadcastValidationType],
-    body: altair.SignedBeaconBlock
-): RestPlainResponse {.rest, endpoint: "/eth/v2/beacon/blinded_blocks",
-   meth: MethodPost.}
-  ## https://ethereum.github.io/beacon-APIs/#/Beacon/publishBlindedBlock
-
-proc publishBlindedBlockV2*(
-    broadcast_validation: Option[BroadcastValidationType],
-    body: bellatrix_mev.SignedBlindedBeaconBlock
-): RestPlainResponse {.rest, endpoint: "/eth/v2/beacon/blinded_blocks",
-   meth: MethodPost.}
-  ## https://ethereum.github.io/beacon-APIs/#/Beacon/publishBlindedBlock
-
-proc publishBlindedBlockV2*(
-    broadcast_validation: Option[BroadcastValidationType],
-    body: capella_mev.SignedBlindedBeaconBlock
-): RestPlainResponse {.rest, endpoint: "/eth/v2/beacon/blinded_blocks",
-   meth: MethodPost.}
-  ## https://ethereum.github.io/beacon-APIs/#/Beacon/publishBlindedBlock
-
-proc publishBlindedBlockV2*(
-    broadcast_validation: Option[BroadcastValidationType],
-    body: deneb_mev.SignedBlindedBeaconBlock
-): RestPlainResponse {.rest, endpoint: "/eth/v2/beacon/blinded_blocks",
-   meth: MethodPost.}
-  ## https://ethereum.github.io/beacon-APIs/#/Beacon/publishBlindedBlock
-
-proc publishBlindedBlockV2*(
-    broadcast_validation: Option[BroadcastValidationType],
     body: electra_mev.SignedBlindedBeaconBlock
 ): RestPlainResponse {.rest, endpoint: "/eth/v2/beacon/blinded_blocks",
    meth: MethodPost.}
@@ -375,7 +340,7 @@ proc publishBlindedBlockV2*(
    meth: MethodPost.}
   ## https://ethereum.github.io/beacon-APIs/#/Beacon/publishBlindedBlock
 
-proc publishBlindedBlockV2*(
+proc publishJsonBlindedBlockV2*(
     client: RestClientRef,
     broadcast_validation: Option[BroadcastValidationType],
     blck: ForkySignedBlindedBeaconBlock
@@ -559,8 +524,3 @@ proc submitPoolVoluntaryExit*(body: SignedVoluntaryExit): RestPlainResponse {.
      rest, endpoint: "/eth/v1/beacon/pool/voluntary_exits",
      meth: MethodPost.}
   ## https://ethereum.github.io/beacon-APIs/#/Beacon/submitPoolVoluntaryExit
-
-proc getDepositSnapshot*(): RestResponse[GetDepositSnapshotResponse] {.
-     rest, endpoint: "/eth/v1/beacon/deposit_snapshot",
-     meth: MethodGet.}
-  ## https://github.com/ethereum/EIPs/blob/master/EIPS/eip-4881.md

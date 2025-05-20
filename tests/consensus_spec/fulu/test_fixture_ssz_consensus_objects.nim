@@ -1,5 +1,5 @@
 # beacon_chain
-# Copyright (c) 2022-2024 Status Research & Development GmbH
+# Copyright (c) 2024-2025 Status Research & Development GmbH
 # Licensed and distributed under either of
 #   * MIT license (license terms in the root directory or at https://opensource.org/licenses/MIT).
 #   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
@@ -133,7 +133,8 @@ suite "EF - Fulu - SSZ consensus objects " & preset():
           of "ConsolidationRequest": checkSSZ(ConsolidationRequest, path, hash)
           of "ContributionAndProof": checkSSZ(ContributionAndProof, path, hash)
           of "DataColumnSidecar": checkSSZ(DataColumnSidecar, path, hash)
-          of "DataColumnIdentifier": checkSSZ(DataColumnIdentifier, path, hash)
+          of "DataColumnsByRootIdentifier":
+            checkSSZ(DataColumnsByRootIdentifier, path, hash)
           of "Deposit": checkSSZ(Deposit, path, hash)
           of "DepositData": checkSSZ(DepositData, path, hash)
           of "DepositMessage": checkSSZ(DepositMessage, path, hash)

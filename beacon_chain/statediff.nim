@@ -1,5 +1,5 @@
 # beacon_chain
-# Copyright (c) 2020-2024 Status Research & Development GmbH
+# Copyright (c) 2020-2025 Status Research & Development GmbH
 # Licensed and distributed under either of
 #   * MIT license (license terms in the root directory or at https://opensource.org/licenses/MIT).
 #   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
@@ -11,19 +11,20 @@ import
   stew/assign2,
   ./spec/forks
 
-func diffModIncEpoch[maxLen, T](hl: HashArray[maxLen, T], startSlot: uint64):
-    array[SLOTS_PER_EPOCH, T] =
-  static: doAssert maxLen.uint64 mod SLOTS_PER_EPOCH == 0
+func diffModIncEpoch[maxLength, T](
+    hl: HashArray[maxLength, T], startSlot: uint64): array[SLOTS_PER_EPOCH, T] =
+  static: doAssert maxLength.uint64 mod SLOTS_PER_EPOCH == 0
   doAssert startSlot mod SLOTS_PER_EPOCH == 0
   for i in startSlot ..< startSlot + SLOTS_PER_EPOCH:
-    result[i mod SLOTS_PER_EPOCH] = hl[i mod maxLen.uint64]
+    result[i mod SLOTS_PER_EPOCH] = hl[i mod maxLength.uint64]
 
-func applyModIncrement[maxLen, T](
-    ha: var HashArray[maxLen, T], hl: array[SLOTS_PER_EPOCH, T], slot: uint64) =
+func applyModIncrement[maxLength, T](
+    ha: var HashArray[maxLength, T], hl: array[SLOTS_PER_EPOCH, T],
+    slot: uint64) =
   var indexSlot = slot
 
   for item in hl:
-    ha[indexSlot mod maxLen.uint64] = item
+    ha[indexSlot mod maxLength.uint64] = item
     indexSlot += 1
 
 func applyValidatorIdentities(
@@ -51,9 +52,9 @@ func setValidatorStatusesNoWithdrawals(
     validator[].exit_epoch = hl[i].exit_epoch
     validator[].withdrawable_epoch = hl[i].withdrawable_epoch
 
-func replaceOrAddEncodeEth1Votes[T, maxLen](
-    votes0: openArray[T], votes0_len: int, votes1: HashList[T, maxLen]):
-    (bool, List[T, maxLen]) =
+func replaceOrAddEncodeEth1Votes[T, maxLength](
+    votes0: openArray[T], votes0_len: int, votes1: HashList[T, maxLength]):
+    (bool, List[T, maxLength]) =
   let
     num_votes0 = votes0.len
     lower_bound =
@@ -67,17 +68,17 @@ func replaceOrAddEncodeEth1Votes[T, maxLen](
       else:
         num_votes0
 
-  var res = (lower_bound == 0, default(List[T, maxLen]))
+  var res = (lower_bound == 0, default(List[T, maxLength]))
   for i in lower_bound ..< votes1.len:
     if not result[1].add votes1[i]:
       raiseAssert "same limit"
   res
 
-func replaceOrAddDecodeEth1Votes[T, maxLen](
-    votes0: var HashList[T, maxLen], eth1_data_votes_replaced: bool,
-    votes1: List[T, maxLen]) =
+func replaceOrAddDecodeEth1Votes[T, maxLength](
+    votes0: var HashList[T, maxLength], eth1_data_votes_replaced: bool,
+    votes1: List[T, maxLength]) =
   if eth1_data_votes_replaced:
-    votes0 = HashList[T, maxLen]()
+    votes0 = HashList[T, maxLength]()
 
   for item in votes1:
     if not votes0.add item:
@@ -209,8 +210,8 @@ func applyDiff*(
     state: var capella.BeaconState,
     immutableValidators: openArray[ImmutableValidatorData2],
     stateDiff: BeaconStateDiff) =
-  template assign[T, maxLen](
-      tgt: var HashList[T, maxLen], src: List[T, maxLen]) =
+  template assign[T, maxLength](
+      tgt: var HashList[T, maxLength], src: List[T, maxLength]) =
     assign(tgt.data, src)
     tgt.resetCache()
 

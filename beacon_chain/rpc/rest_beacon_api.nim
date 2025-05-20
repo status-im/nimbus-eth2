@@ -138,15 +138,8 @@ proc installBeaconApiHandlers*(router: var RestRouter, node: BeaconNode) =
   # https://github.com/ethereum/EIPs/blob/master/EIPS/eip-4881.md
   router.api2(MethodGet, "/eth/v1/beacon/deposit_snapshot") do (
     ) -> RestApiResponse:
-    let snapshot = node.db.getDepositContractSnapshot().valueOr:
-      # This can happen in a very short window after the client is started,
-      # but the snapshot record still haven't been upgraded in the database.
-      # Returning 404 should be easy to handle for the clients - they just need
-      # to retry.
-      return RestApiResponse.jsonError(Http404,
-                                       NoFinalizedSnapshotAvailableError)
-
-    RestApiResponse.jsonResponse(snapshot.getTreeSnapshot())
+    return RestApiResponse.jsonError(Http404,
+                                     NoFinalizedSnapshotAvailableError)
 
   # https://ethereum.github.io/beacon-APIs/#/Beacon/getGenesis
   router.api2(MethodGet, "/eth/v1/beacon/genesis") do () -> RestApiResponse:
@@ -769,8 +762,8 @@ proc installBeaconApiHandlers*(router: var RestRouter, node: BeaconNode) =
 
     RestApiResponse.jsonError(Http404, StateNotFoundError)
 
-  # https://ethereum.github.io/beacon-APIs/?urls.primaryName=dev#/Beacon/getStateRandao
-  # https://github.com/ethereum/beacon-APIs/blob/b3c4defa238aaa74bf22aa602aa1b24b68a4c78e/apis/beacon/states/randao.yaml
+  # https://ethereum.github.io/beacon-APIs/?urls.primaryName=v3.1.0#/Beacon/getStateRandao
+  # https://github.com/ethereum/beacon-APIs/blob/v3.1.0/apis/beacon/states/randao.yaml
   router.metricsApi2(
     MethodGet, "/eth/v1/beacon/states/{state_id}/randao",
     {RestServerMetricsType.Status, Response}) do (
@@ -813,9 +806,11 @@ proc installBeaconApiHandlers*(router: var RestRouter, node: BeaconNode) =
     if bsi.isSome:
       let mix = node.dag.computeRandaoMix(bsi.get.bid)
       if mix.isSome:
-        return RestApiResponse.jsonResponseWOpt(
+        let bid = bsi.get.bid
+        return RestApiResponse.jsonResponseFinalized(
           RestEpochRandao(randao: mix.get),
-          node.getBidOptimistic(bsi.get.bid)
+          node.getBidOptimistic(bid),
+          node.dag.isFinalized(bid)
         )
 
     # Fall back to full state computation
@@ -968,7 +963,7 @@ proc installBeaconApiHandlers*(router: var RestRouter, node: BeaconNode) =
       block:
         let
           version = request.headers.getString("eth-consensus-version")
-          validation =
+          validation {.used.} =
             block:
               let res =
                 if broadcast_validation.isNone():
@@ -1170,7 +1165,7 @@ proc installBeaconApiHandlers*(router: var RestRouter, node: BeaconNode) =
       currentEpochFork =
         node.dag.cfg.consensusForkAtEpoch(node.currentSlot().epoch())
       version = request.headers.getString("eth-consensus-version")
-      validation =
+      validation {.used.} =
         if broadcast_validation.isNone():
           BroadcastValidationType.Gossip
         else:
@@ -1760,11 +1755,14 @@ proc installBeaconApiHandlers*(router: var RestRouter, node: BeaconNode) =
         data[], headers = [("eth-consensus-version",
           node.dag.cfg.consensusForkAtEpoch(bid.slot.epoch).toString())])
     elif contentType == jsonMediaType:
-      RestApiResponse.jsonResponse(data)
+      RestApiResponse.jsonResponseBlobSidecars(
+        data[].asSeq(), node.dag.cfg.consensusForkAtEpoch(bid.slot.epoch),
+        Opt.some(node.dag.is_optimistic(bid)),
+        node.dag.isFinalized(bid))
     else:
       RestApiResponse.jsonError(Http500, InvalidAcceptError)
 
-  # https://ethereum.github.io/beacon-APIs/?urls.primaryName=v3.0.0#/Beacon/getPendingDeposits
+  # https://ethereum.github.io/beacon-APIs/?urls.primaryName=v3.1.0#/Beacon/getPendingDeposits
   router.metricsApi2(
     MethodGet, "/eth/v1/beacon/states/{state_id}/pending_deposits",
     {RestServerMetricsType.Status, Response}) do (
@@ -1784,17 +1782,18 @@ proc installBeaconApiHandlers*(router: var RestRouter, node: BeaconNode) =
     node.withStateForBlockSlotId(bslot):
       return withState(state):
         when consensusFork >= ConsensusFork.Electra:
-          RestApiResponse.jsonResponseFinalized(
+          RestApiResponse.jsonResponseFinalizedWVersion(
             forkyState.data.pending_deposits,
             node.getStateOptimistic(state),
-            node.dag.isFinalized(bslot.bid))
+            node.dag.isFinalized(bslot.bid),
+            consensusFork)
         else:
           RestApiResponse.jsonError(Http400, SlotFromTheIncorrectForkError,
                                     $error)
 
     RestApiResponse.jsonError(Http404, StateNotFoundError)
 
-  # https://ethereum.github.io/beacon-APIs/?urls.primaryName=v3.0.0#/Beacon/getPendingPartialWithdrawals
+  # https://ethereum.github.io/beacon-APIs/?urls.primaryName=v3.1.0#/Beacon/getPendingPartialWithdrawals
   router.metricsApi2(
     MethodGet, "/eth/v1/beacon/states/{state_id}/pending_partial_withdrawals",
     {RestServerMetricsType.Status, Response}) do (
@@ -1814,10 +1813,42 @@ proc installBeaconApiHandlers*(router: var RestRouter, node: BeaconNode) =
     node.withStateForBlockSlotId(bslot):
       return withState(state):
         when consensusFork >= ConsensusFork.Electra:
-          RestApiResponse.jsonResponseFinalized(
+          RestApiResponse.jsonResponseFinalizedWVersion(
             forkyState.data.pending_partial_withdrawals,
             node.getStateOptimistic(state),
-            node.dag.isFinalized(bslot.bid))
+            node.dag.isFinalized(bslot.bid),
+            consensusFork)
+        else:
+          RestApiResponse.jsonError(Http400, SlotFromTheIncorrectForkError,
+                                    $error)
+
+    RestApiResponse.jsonError(Http404, StateNotFoundError)
+
+  # https://ethereum.github.io/beacon-APIs/?urls.primaryName=v3.1.0#/Beacon/getPendingConsolidations
+  router.metricsApi2(
+    MethodGet, "/eth/v1/beacon/states/{state_id}/pending_consolidations",
+    {RestServerMetricsType.Status, Response}) do (
+    state_id: StateIdent) -> RestApiResponse:
+    let
+      sid = state_id.valueOr:
+        return RestApiResponse.jsonError(Http400, InvalidStateIdValueError,
+                                         $error)
+      bslot = node.getBlockSlotId(sid).valueOr:
+        if sid.kind == StateQueryKind.Root:
+          # TODO (cheatfate): Its impossible to retrieve state by `state_root`
+          # in current version of database.
+          return RestApiResponse.jsonError(Http500, NoImplementationError)
+        return RestApiResponse.jsonError(Http404, StateNotFoundError,
+                                          $error)
+
+    node.withStateForBlockSlotId(bslot):
+      return withState(state):
+        when consensusFork >= ConsensusFork.Electra:
+          RestApiResponse.jsonResponseFinalizedWVersion(
+            forkyState.data.pending_consolidations,
+            node.getStateOptimistic(state),
+            node.dag.isFinalized(bslot.bid),
+            consensusFork)
         else:
           RestApiResponse.jsonError(Http400, SlotFromTheIncorrectForkError,
                                     $error)

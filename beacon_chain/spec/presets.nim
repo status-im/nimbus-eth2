@@ -38,6 +38,9 @@ const
 type
   Version* = distinct array[4, byte]
   Eth1Address* = web3types.Address
+  BPOForkInfo* = object
+    EPOCH*: Epoch
+    MAX_BLOBS_PER_BLOCK*: uint64
 
   RuntimeConfig* = object
     ## https://github.com/ethereum/consensus-specs/tree/v1.5.0-beta.2/configs
@@ -136,6 +139,7 @@ type
     BALANCE_PER_ADDITIONAL_CUSTODY_GROUP*: uint64
     MAX_BLOBS_PER_BLOCK_FULU*: uint64
     MIN_EPOCHS_FOR_DATA_COLUMN_SIDECARS_REQUESTS*: uint64
+    BLOB_SCHEDULE*: seq[BPOForkInfo]
 
   PresetFile* = object
     values*: Table[string, string]
@@ -324,7 +328,12 @@ when const_preset == "mainnet":
     VALIDATOR_CUSTODY_REQUIREMENT: 8,
     BALANCE_PER_ADDITIONAL_CUSTODY_GROUP: 32000000000'u64,
     MAX_BLOBS_PER_BLOCK_FULU: 12,
-    MIN_EPOCHS_FOR_DATA_COLUMN_SIDECARS_REQUESTS: 4096
+    MIN_EPOCHS_FOR_DATA_COLUMN_SIDECARS_REQUESTS: 4096,
+    # https://github.com/ethereum/consensus-specs/blob/v1.6.0-alpha.0/specs/fulu/das-core.md#get_max_blobs_per_block
+    # provides sorting rules.
+    BLOB_SCHEDULE: @[
+      BPOForkInfo(EPOCH: 364032.Epoch, MAX_BLOBS_PER_BLOCK: 9),
+      BPOForkInfo(EPOCH: 269568.Epoch, MAX_BLOBS_PER_BLOCK: 6)],
   )
 
 elif const_preset == "gnosis":
@@ -659,7 +668,12 @@ elif const_preset == "minimal":
     VALIDATOR_CUSTODY_REQUIREMENT: 8,
     BALANCE_PER_ADDITIONAL_CUSTODY_GROUP: 32000000000'u64,
     MAX_BLOBS_PER_BLOCK_FULU: 12,
-    MIN_EPOCHS_FOR_DATA_COLUMN_SIDECARS_REQUESTS: 4096
+    MIN_EPOCHS_FOR_DATA_COLUMN_SIDECARS_REQUESTS: 4096,
+    # https://github.com/ethereum/consensus-specs/blob/v1.6.0-alpha.0/specs/fulu/das-core.md#get_max_blobs_per_block
+    # provides sorting rules.
+    BLOB_SCHEDULE: @[
+      BPOForkInfo(EPOCH: FAR_FUTURE_EPOCH, MAX_BLOBS_PER_BLOCK: 6),
+      BPOForkInfo(EPOCH: FAR_FUTURE_EPOCH, MAX_BLOBS_PER_BLOCK: 9)],
   )
 
 else:
@@ -887,11 +901,14 @@ proc readRuntimeConfig*(
 
   for name, field in cfg.fieldPairs():
     if name in values:
-      try:
-        field = parse(typeof(field), values[name])
-        values.del name
-      except ValueError:
-        raise (ref PresetFileError)(msg: "Unable to parse " & name)
+      when field is seq[BPOForkInfo]:
+        discard
+      else:
+        try:
+          field = parse(typeof(field), values[name])
+          values.del name
+        except ValueError:
+          raise (ref PresetFileError)(msg: "Unable to parse " & name)
 
   if cfg.PRESET_BASE != const_preset:
     raise (ref PresetIncompatibleError)(

@@ -14,8 +14,7 @@ import
   ./consensus_object_pools/[block_clearance, blockchain_dag],
   ./spec/eth2_apis/rest_beacon_client,
   ./spec/[beaconstate, eth2_merkleization, forks, light_client_sync,
-          network, presets,
-          state_transition, deposit_snapshots]
+          network, presets, state_transition]
 
 from presto import RestDecodingError
 from "."/beacon_clock import
@@ -24,20 +23,6 @@ from "."/beacon_clock import
 const
   largeRequestsTimeout = 3.minutes  # Downloading large items such as states.
   smallRequestsTimeout = 30.seconds # Downloading smaller items such as blocks and deposit snapshots.
-
-proc fetchDepositSnapshot(
-    client: RestClientRef
-): Future[Result[DepositContractSnapshot, string]] {.async.} =
-  let resp = try:
-    awaitWithTimeout(client.getDepositSnapshot(), smallRequestsTimeout):
-      return err "Fetching /eth/v1/beacon/deposit_snapshot timed out"
-  except CatchableError as e:
-    return err("The trusted node likely does not support the /eth/v1/beacon/deposit_snapshot end-point:" & e.msg)
-
-  let snapshot = DepositContractSnapshot.init(resp.data.data).valueOr:
-    return err "The obtained deposit snapshot contains self-contradictory data"
-
-  ok snapshot
 
 from ./spec/datatypes/deneb import asSigVerified, shortLog
 
@@ -78,7 +63,6 @@ proc doTrustedNodeSync*(
     syncTarget: TrustedNodeSyncTarget,
     backfill: bool,
     reindex: bool,
-    downloadDepositSnapshot: bool,
     genesisState: ref ForkedHashedBeaconState = nil) {.async.} =
   logScope:
     restUrl
@@ -386,20 +370,6 @@ proc doTrustedNodeSync*(
     else:
       ChainDAGRef.preInit(db, state[])
 
-    if downloadDepositSnapshot:
-      # Fetch deposit snapshot.  This API endpoint is still optional.
-      let depositSnapshot = await fetchDepositSnapshot(client)
-      if depositSnapshot.isOk:
-        if depositSnapshot.get.matches(getStateField(state[], eth1_data)):
-          info "Writing deposit contracts snapshot",
-               depositRoot = depositSnapshot.get.getDepositRoot(),
-               depositCount = depositSnapshot.get.getDepositCountU64
-          db.putDepositContractSnapshot(depositSnapshot.get)
-        else:
-          warn "The downloaded deposit snapshot does not agree with the downloaded state"
-      else:
-        warn "Deposit tree snapshot was not imported", reason = depositSnapshot.error
-
   else:
     notice "Skipping checkpoint download, database already exists (remove db directory to get a fresh snapshot)",
       databaseDir, head = shortLog(head.get())
@@ -555,5 +525,5 @@ when isMainModule:
     db = BeaconChainDB.new(databaseDir, cfg, inMemory = false)
   waitFor db.doTrustedNodeSync(
     cfg, databaseDir, os.paramStr(3),
-    os.paramStr(4), syncTarget, backfill, false, true)
+    os.paramStr(4), syncTarget, backfill, false)
   db.close()

@@ -152,15 +152,9 @@ func hasEnoughDataColumns*(quarantine: DataColumnQuarantine,
   let
     collectedColumns = quarantine.gatherDataColumns(blck.root)
   if quarantine.supernode:
-    if collectedColumns.len >= (quarantine.custody_columns.len div 2):
-      true
-    else:
-      false
+    collectedColumns.len >= (quarantine.custody_columns.len div 2)
   else:
-    if collectedColumns.len == quarantine.custody_columns.len:
-      true
-    else:
-      false
+    collectedColumns.len == quarantine.custody_columns.len
 
 func dataColumnFetchRecord*(quarantine: DataColumnQuarantine,
                             blck: fulu.SignedBeaconBlock):

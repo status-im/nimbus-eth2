@@ -17,7 +17,7 @@ import
   json_rpc/jsonmarshal,
   secp256k1,
   web3/[engine_api_types, eth_api_types, conversions],
-  ../el/[engine_api_conversions, eth1_chain],
+  ../el/engine_api_conversions,
   ../spec/eth2_apis/[eth2_rest_serialization, rest_light_client_calls],
   ../spec/[helpers, light_client_sync],
   ../sync/light_client_sync_helpers,
@@ -145,7 +145,7 @@ proc ETHBeaconStateCreateFromSsz(
   ## * https://github.com/ethereum/consensus-specs/blob/v1.5.0-beta.4/specs/altair/beacon-chain.md#beaconstate
   ## * https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.8/specs/bellatrix/beacon-chain.md#beaconstate
   ## * https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.3/specs/capella/beacon-chain.md#beaconstate
-  ## * https://github.com/ethereum/consensus-specs/blob/v1.5.0-beta.5/configs/README.md
+  ## * https://github.com/ethereum/consensus-specs/blob/v1.5.0/configs/README.md
   let
     consensusFork = ConsensusFork.decodeString($consensusVersion).valueOr:
       return nil

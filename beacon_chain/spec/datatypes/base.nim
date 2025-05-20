@@ -74,7 +74,7 @@ export
   tables, results, endians2, json_serialization, sszTypes, beacon_time, crypto,
   digest, presets
 
-const SPEC_VERSION* = "1.5.0-beta.5"
+const SPEC_VERSION* = "1.6.0-alpha.0"
 ## Spec version we're aiming to be compatible with, right now
 
 const
@@ -399,23 +399,6 @@ type
     shuffled_active_validator_indices*: Table[Epoch, seq[ValidatorIndex]]
     beacon_proposer_indices*: Table[Slot, Opt[ValidatorIndex]]
     sync_committees*: Table[SyncCommitteePeriod, SyncCommitteeCache]
-
-  # This matches the mutable state of the Solidity deposit contract
-  # https://github.com/ethereum/consensus-specs/blob/v1.5.0-beta.5/solidity_deposit_contract/deposit_contract.sol
-  DepositContractState* = object
-    branch*: array[DEPOSIT_CONTRACT_TREE_DEPTH, Eth2Digest]
-    deposit_count*: array[32, byte] # Uint256
-
-  # https://eips.ethereum.org/EIPS/eip-4881
-  FinalizedDepositTreeBranch* =
-    List[Eth2Digest, Limit DEPOSIT_CONTRACT_TREE_DEPTH]
-
-  DepositTreeSnapshot* = object
-    finalized*: FinalizedDepositTreeBranch
-    deposit_root*: Eth2Digest
-    deposit_count*: uint64
-    execution_block_hash*: Eth2Digest
-    execution_block_height*: uint64
 
   # https://github.com/ethereum/consensus-specs/blob/v1.4.0/specs/phase0/beacon-chain.md#validator
   ValidatorStatus* = object

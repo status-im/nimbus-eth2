@@ -2439,8 +2439,6 @@ proc updateHead*(
         handler()
 
     # Policy: Retain back through Mainnet's second latest fork.
-    ConsensusFork.Capella.logForkUpgrade(
-      dag.vanityLogs.onUpgradeToCapella)
     ConsensusFork.Deneb.logForkUpgrade(
       dag.vanityLogs.onUpgradeToDeneb)
     ConsensusFork.Electra.logForkUpgrade(
