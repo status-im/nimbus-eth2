@@ -133,7 +133,8 @@ suite "EF - Fulu - SSZ consensus objects " & preset():
           of "ConsolidationRequest": checkSSZ(ConsolidationRequest, path, hash)
           of "ContributionAndProof": checkSSZ(ContributionAndProof, path, hash)
           of "DataColumnSidecar": checkSSZ(DataColumnSidecar, path, hash)
-          of "DataColumnIdentifier": checkSSZ(DataColumnIdentifier, path, hash)
+          of "DataColumnsByRootIdentifier":
+            checkSSZ(DataColumnsByRootIdentifier, path, hash)
           of "Deposit": checkSSZ(Deposit, path, hash)
           of "DepositData": checkSSZ(DepositData, path, hash)
           of "DepositMessage": checkSSZ(DepositMessage, path, hash)

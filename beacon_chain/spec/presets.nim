@@ -38,6 +38,9 @@ const
 type
   Version* = distinct array[4, byte]
   Eth1Address* = web3types.Address
+  BPOForkInfo* = object
+    EPOCH*: Epoch
+    MAX_BLOBS_PER_BLOCK*: uint64
 
   RuntimeConfig* = object
     ## https://github.com/ethereum/consensus-specs/tree/v1.5.0-beta.2/configs
@@ -134,8 +137,8 @@ type
     # TODO CUSTODY_REQUIREMENT*: uint64
     # TODO VALIDATOR_CUSTODY_REQUIREMENT*: uint64
     # TODO BALANCE_PER_ADDITIONAL_CUSTODY_GROUP*: uint64
-    # TODO MAX_BLOBS_PER_BLOCK_FULU*: uint64
     # TODO MIN_EPOCHS_FOR_DATA_COLUMN_SIDECARS_REQUESTS*: uint64
+    BLOB_SCHEDULE*: seq[BPOForkInfo]
 
   PresetFile* = object
     values*: Table[string, string]
@@ -315,6 +318,11 @@ when const_preset == "mainnet":
     MAX_REQUEST_BLOB_SIDECARS_ELECTRA: 1152,
 
     # Fulu
+    # https://github.com/ethereum/consensus-specs/blob/v1.6.0-alpha.0/specs/fulu/das-core.md#get_max_blobs_per_block
+    # provides sorting rules.
+    BLOB_SCHEDULE: @[
+      BPOForkInfo(EPOCH: 364032.Epoch, MAX_BLOBS_PER_BLOCK: 9),
+      BPOForkInfo(EPOCH: 269568.Epoch, MAX_BLOBS_PER_BLOCK: 6)],
     # TODO NUMBER_OF_COLUMNS: 128,
     # TODO NUMBER_OF_CUSTODY_GROUPS: 128,
     # TODO DATA_COLUMN_SIDECAR_SUBNET_COUNT: 128,
@@ -323,7 +331,6 @@ when const_preset == "mainnet":
     # TODO CUSTODY_REQUIREMENT: 4,
     # TODO VALIDATOR_CUSTODY_REQUIREMENT: 8,
     # TODO BALANCE_PER_ADDITIONAL_CUSTODY_GROUP: 32000000000,
-    # TODO MAX_BLOBS_PER_BLOCK_FULU: 12,
     # TODO MIN_EPOCHS_FOR_DATA_COLUMN_SIDECARS_REQUESTS: 4096
   )
 
@@ -491,7 +498,6 @@ elif const_preset == "gnosis":
     # TODO CUSTODY_REQUIREMENT: 4,
     # TODO VALIDATOR_CUSTODY_REQUIREMENT: 8,
     # TODO BALANCE_PER_ADDITIONAL_CUSTODY_GROUP: 32000000000,
-    # TODO MAX_BLOBS_PER_BLOCK_FULU: 12,
     # TODO MIN_EPOCHS_FOR_DATA_COLUMN_SIDECARS_REQUESTS: 4096
   )
 
@@ -647,9 +653,14 @@ elif const_preset == "minimal":
     # `uint64(9)`
     MAX_BLOBS_PER_BLOCK_ELECTRA: 9,
     # MAX_REQUEST_BLOCKS_DENEB * MAX_BLOBS_PER_BLOCK_ELECTRA
-    MAX_REQUEST_BLOB_SIDECARS_ELECTRA: 1152
+    MAX_REQUEST_BLOB_SIDECARS_ELECTRA: 1152,
 
     # Fulu
+    # https://github.com/ethereum/consensus-specs/blob/v1.6.0-alpha.0/specs/fulu/das-core.md#get_max_blobs_per_block
+    # provides sorting rules.
+    BLOB_SCHEDULE: @[
+      BPOForkInfo(EPOCH: FAR_FUTURE_EPOCH, MAX_BLOBS_PER_BLOCK: 6),
+      BPOForkInfo(EPOCH: FAR_FUTURE_EPOCH, MAX_BLOBS_PER_BLOCK: 9)],
     # TODO NUMBER_OF_COLUMNS: 128,
     # TODO NUMBER_OF_CUSTODY_GROUPS: 128,
     # TODO DATA_COLUMN_SIDECAR_SUBNET_COUNT: 128,
@@ -658,7 +669,6 @@ elif const_preset == "minimal":
     # TODO CUSTODY_REQUIREMENT: 4,
     # TODO VALIDATOR_CUSTODY_REQUIREMENT: 8,
     # TODO BALANCE_PER_ADDITIONAL_CUSTODY_GROUP: 32000000000,
-    # TODO MAX_BLOBS_PER_BLOCK_FULU: 12,
     # TODO MIN_EPOCHS_FOR_DATA_COLUMN_SIDECARS_REQUESTS: 4096
   )
 
@@ -887,11 +897,14 @@ proc readRuntimeConfig*(
 
   for name, field in cfg.fieldPairs():
     if name in values:
-      try:
-        field = parse(typeof(field), values[name])
-        values.del name
-      except ValueError:
-        raise (ref PresetFileError)(msg: "Unable to parse " & name)
+      when field is seq[BPOForkInfo]:
+        discard
+      else:
+        try:
+          field = parse(typeof(field), values[name])
+          values.del name
+        except ValueError:
+          raise (ref PresetFileError)(msg: "Unable to parse " & name)
 
   if cfg.PRESET_BASE != const_preset:
     raise (ref PresetIncompatibleError)(

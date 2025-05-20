@@ -32,7 +32,7 @@ import
   kzg4844/kzg_abi, kzg4844/kzg
 
 from std/algorithm import fill, sorted
-from std/sequtils import count, filterIt, mapIt
+from std/sequtils import count, foldl, filterIt, mapIt
 from ./datatypes/capella import
   BeaconState, MAX_WITHDRAWALS_PER_PAYLOAD, SignedBLSToExecutionChange,
   Withdrawal
@@ -687,6 +687,24 @@ type
     proposer_slashings*: Gwei
     attester_slashings*: Gwei
 
+# https://github.com/ethereum/consensus-specs/blob/v1.6.0-alpha.0/specs/fulu/das-core.md#get_max_blobs_per_block
+func get_max_blobs_per_block(cfg: RuntimeConfig, epoch: Epoch): Opt[uint64] =
+  ## Return the maximum number of blobs that can be included in a block for a
+  ## given epoch.
+  if not len(cfg.BLOB_SCHEDULE) > 0:
+    return Opt.none(uint64)
+
+  # Spec version of function sorts every time, which should happen only once at
+  # loading.
+  for entry in cfg.BLOB_SCHEDULE:
+    if epoch >= entry.EPOCH:
+      return Opt.some entry.MAX_BLOBS_PER_BLOCK
+
+  # This is effectively a constant per node instance.
+  Opt.some foldl(
+    cfg.BLOB_SCHEDULE, min(a, b.MAX_BLOBS_PER_BLOCK),
+    cfg.BLOB_SCHEDULE[0].MAX_BLOBS_PER_BLOCK)
+
 # https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.8/specs/phase0/beacon-chain.md#operations
 # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.5/specs/capella/beacon-chain.md#modified-process_operations
 # https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.8/specs/electra/beacon-chain.md#modified-process_operations
@@ -1064,7 +1082,7 @@ type SomeFuluBeaconBlockBody =
   fulu.BeaconBlockBody | fulu.SigVerifiedBeaconBlockBody |
   fulu.TrustedBeaconBlockBody
 
-# https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.3/specs/electra/beacon-chain.md#modified-process_execution_payload
+# https://github.com/ethereum/consensus-specs/blob/v1.6.0-alpha.0/specs/fulu/beacon-chain.md#modified-process_execution_payload
 proc process_execution_payload*(
     cfg: RuntimeConfig, state: var fulu.BeaconState,
     body: SomeFuluBeaconBlockBody,
@@ -1085,8 +1103,11 @@ proc process_execution_payload*(
   if not (payload.timestamp == compute_timestamp_at_slot(state, state.slot)):
     return err("process_execution_payload: invalid timestamp")
 
-  # [New in Deneb] Verify commitments are under limit
-  if not (lenu64(body.blob_kzg_commitments) <= cfg.MAX_BLOBS_PER_BLOCK_ELECTRA):
+  # Verify commitments are under limit
+  let max_blobs_per_block =
+    cfg.get_max_blobs_per_block(get_current_epoch(state)).valueOr:
+      return err("process_execution_payload: missing blob schedule")
+  if not (lenu64(body.blob_kzg_commitments) <= max_blobs_per_block):
     return err("process_execution_payload: too many KZG commitments")
 
   # Verify the execution payload is valid

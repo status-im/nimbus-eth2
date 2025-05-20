@@ -300,8 +300,6 @@ proc installConfigApiHandlers*(router: var RestRouter, node: BeaconNode) =
             Base10.toString(VALIDATOR_CUSTODY_REQUIREMENT.uint64),
           BALANCE_PER_ADDITIONAL_CUSTODY_GROUP:
             Base10.toString(BALANCE_PER_ADDITIONAL_CUSTODY_GROUP),
-          # MAX_BLOBS_PER_BLOCK_FULU:
-          #   Base10.toString(cfg.MAX_BLOBS_PER_BLOCK_FULU),
           # MIN_EPOCHS_FOR_DATA_COLUMN_SIDECARS_REQUESTS:
           #   Base10.toString(cfg.MIN_EPOCHS_FOR_DATA_COLUMN_SIDECARS_REQUESTS),
 
