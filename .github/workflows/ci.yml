@@ -89,23 +89,6 @@ jobs:
           7z x -y "external/mingw-${{ matrix.target.cpu }}.zip" -oexternal/mingw-${{ matrix.target.cpu }}/
           mv external/mingw-${{ matrix.target.cpu }}/**/* ./external/mingw-${{ matrix.target.cpu }}
 
-      - name: Restore Nim DLLs dependencies (Windows) from cache
-        if: runner.os == 'Windows'
-        id: windows-dlls-cache
-        uses: actions/cache@v4
-        with:
-          path: external/dlls-${{ matrix.target.cpu }}
-          key: 'dlls-${{ matrix.target.cpu }}'
-
-      - name: Install DLLs dependencies (Windows)
-        if: >
-          steps.windows-dlls-cache.outputs.cache-hit != 'true' &&
-          runner.os == 'Windows'
-        run: |
-          mkdir -p external
-          curl -L "https://nim-lang.org/download/windeps.zip" -o external/windeps.zip
-          7z x -y external/windeps.zip -oexternal/dlls-${{ matrix.target.cpu }}
-
       - name: Path to cached dependencies (Windows)
         if: >
           runner.os == 'Windows'
