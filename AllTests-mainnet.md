@@ -109,6 +109,8 @@ AllTests-mainnet
 ```
 ## BlobQuarantine data structure test suite  [Preset: mainnet]
 ```diff
++ database and memory overfill protection and pruning test                                   OK
++ database unload/load test                                                                  OK
 + overfill protection test                                                                   OK
 + popSidecars()/hasSidecars() return []/true on block without blobs                          OK
 + pruneAfterFinalization() test                                                              OK
@@ -159,6 +161,8 @@ AllTests-mainnet
 ## ColumnQuarantine data structure test suite  [Preset: mainnet]
 ```diff
 + ColumnMap test                                                                             OK
++ database and memory overfill protection and pruning test                                   OK
++ database unload/load test                                                                  OK
 + overfill protection test                                                                   OK
 + popSidecars()/hasSidecars() return []/true on block without columns                        OK
 + pruneAfterFinalization() test                                                              OK
