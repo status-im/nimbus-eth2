@@ -81,8 +81,7 @@ type
 proc initialLoad(
     path: string, db: BeaconChainDB,
     StateType, BlockType: typedesc
-): tuple[dag: ChainDAGRef, fkChoice: ref ForkChoice] {.raises: [
-    IOError, UnconsumedInput].} =
+): tuple[dag: ChainDAGRef, fkChoice: ref ForkChoice] =
   let
     forkedState = loadForkedState(
       path/"anchor_state.ssz_snappy",
@@ -102,9 +101,7 @@ proc initialLoad(
 proc loadOps(
     path: string,
     fork: ConsensusFork
-): seq[Operation] {.raises: [
-    IOError, KeyError, UnconsumedInput, ValueError,
-    YamlConstructionError, YamlParserError].} =
+): seq[Operation] {.raises: [KeyError, ValueError].} =
   let stepsYAML = os_ops.readFile(path/"steps.yaml")
   let steps = loadToJson(stepsYAML)
 
@@ -297,11 +294,7 @@ proc stepChecks(
       raiseAssert "Unsupported check '" & $check & "'"
 
 proc doRunTest(
-    path: string,
-    fork: ConsensusFork
-) {.raises: [
-    IOError, KeyError, UnconsumedInput, ValueError,
-    YamlConstructionError, YamlParserError].} =
+    path: string, fork: ConsensusFork) {.raises: [KeyError, ValueError].} =
   let db = BeaconChainDB.new("", inMemory = true)
   defer:
     db.close()

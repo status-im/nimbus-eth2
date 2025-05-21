@@ -187,7 +187,16 @@ switch("warning", "CaseTransition:off")
 # Transitional for Nim v2.2, due to newSeqUninit replacing newSeqUninitialized.
 switch("warning", "Deprecated:off")
 
-# Too many of these because of Defect compat in 1.2
+#   1 nimbus-eth2/tests/consensus_spec/test_fixture_ssz_generic_types.nim(238, 28) Hint: 'sszCheck' cannot raise 'YamlConstructionError' [XCannotRaiseY]
+#   1 nimbus-eth2/tests/consensus_spec/test_fixture_ssz_generic_types.nim(238, 51) Hint: 'sszCheck' cannot raise 'YamlParserError' [XCannotRaiseY]
+#   1 nimbus-eth2/vendor/nim-testutils/testutils/moduletests.nim(17, 24) Hint: 'main' cannot raise 'CatchableError' [XCannotRaiseY]
+#   2 nimbus-eth2/tests/consensus_spec/test_fixture_light_client_sync.nim(135, 20) Hint: 'loadTestMeta' cannot raise 'YamlConstructionError' [XCannotRaiseY]
+#   2 nimbus-eth2/tests/consensus_spec/test_fixture_light_client_sync.nim(135, 43) Hint: 'loadTestMeta' cannot raise 'YamlParserError' [XCannotRaiseY]
+#   2 nimbus-eth2/vendor/nim-toml-serialization/toml_serialization/reader.nim(213, 58) Hint: 'readValue' cannot raise 'IOError' [XCannotRaiseY]
+#   3 nimbus-eth2/vendor/nim-toml-serialization/toml_serialization/reader.nim(369, 38) Hint: 'readValue' cannot raise 'SerializationError' [XCannotRaiseY]
+#   3 nimbus-eth2/vendor/nim-toml-serialization/toml_serialization/reader.nim(369, 58) Hint: 'readValue' cannot raise 'IOError' [XCannotRaiseY]
+#   4 nimbus-eth2/vendor/nim-serialization/serialization.nim(27, 86) Hint: 'readValue' cannot raise 'IOError' [XCannotRaiseY]
+# 116 nimbus-eth2/vendor/nim-ssz-serialization/ssz_serialization.nim(51, 77) Hint: 'writeFixedSized' cannot raise 'IOError' [XCannotRaiseY]
 switch("hint", "XCannotRaiseY:off")
 
 # Useful for Chronos metrics.

@@ -92,8 +92,7 @@ func getNodePort(basePort: int, rt: RemoteSignerType): int =
 
 proc getBlock(
     fork: ConsensusFork,
-    feeRecipient = SigningExpectedFeeRecipient
-): ForkedBeaconBlock {.raises: [ResultError[cstring]].} =
+    feeRecipient = SigningExpectedFeeRecipient): ForkedBeaconBlock =
   try:
     case fork
     of ConsensusFork.Phase0 .. ConsensusFork.Capella:
