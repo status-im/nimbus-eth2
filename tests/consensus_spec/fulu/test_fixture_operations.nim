@@ -198,7 +198,7 @@ suite baseDescription & "Execution Payload " & preset():
   func makeApplyExecutionPayloadCb(path: string): auto =
     return proc(
         preState: var fulu.BeaconState, body: fulu.BeaconBlockBody):
-        Result[void, cstring] {.raises: [IOError].} =
+        Result[void, cstring] =
       let payloadValid = os_ops.readFile(
           OpExecutionPayloadDir/"pyspec_tests"/path/"execution.yaml"
         ).contains("execution_valid: true")

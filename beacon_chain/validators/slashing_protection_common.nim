@@ -1,5 +1,5 @@
 # beacon_chain
-# Copyright (c) 2018-2024 Status Research & Development GmbH
+# Copyright (c) 2018-2025 Status Research & Development GmbH
 # Licensed and distributed under either of
 #   * MIT license (license terms in the root directory or at https://opensource.org/licenses/MIT).
 #   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
@@ -277,10 +277,7 @@ chronicles.formatIt SPDIR_SignedAttestation: it.shortLog
 # --------------------------------------------
 
 proc importInterchangeV5Impl*(
-       db: auto,
-       spdir: var SPDIR
-     ): SlashingImportStatus
-      {.raises: [SerializationError, IOError].} =
+    db: auto, spdir: var SPDIR): SlashingImportStatus =
   ## Common implementation of interchange import
   ## according to https://eips.ethereum.org/EIPS/eip-3076
   ## spdir needs to be `var` as it will be sorted in-place

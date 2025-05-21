@@ -1845,7 +1845,7 @@ proc new(T: type Eth2Node,
          ip: Opt[IpAddress], tcpPort, udpPort: Opt[Port],
          privKey: keys.PrivateKey, discovery: bool,
          directPeers: DirectPeers, announcedAddresses: openArray[MultiAddress],
-         rng: ref HmacDrbgContext): T {.raises: [CatchableError].} =
+         rng: ref HmacDrbgContext): T =
   when not defined(local_testnet):
     let
       connectTimeout = chronos.minutes(1)

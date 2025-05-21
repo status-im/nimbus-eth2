@@ -2506,7 +2506,7 @@ proc doSlashingExport(conf: BeaconNodeConf) {.raises: [IOError].}=
   db.exportSlashingInterchange(interchange, conf.exportedValidators)
   echo "Export finished: '", dir/filetrunc & ".sqlite3" , "' into '", interchange, "'"
 
-proc doSlashingImport(conf: BeaconNodeConf) {.raises: [SerializationError, IOError].} =
+proc doSlashingImport(conf: BeaconNodeConf) {.raises: [IOError].} =
   let
     dir = conf.validatorsDir()
     filetrunc = SlashingDbName

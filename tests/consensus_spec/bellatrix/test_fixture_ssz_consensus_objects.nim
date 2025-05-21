@@ -80,10 +80,8 @@ proc checkSSZ(
 
   # TODO check the value (requires YAML loader)
 
-proc loadExpectedHashTreeRoot(
-    dir: string
-): SSZHashTreeRoot {.raises: [
-    Exception, IOError, OSError, YamlConstructionError, YamlParserError].} =
+proc loadExpectedHashTreeRoot(dir: string): SSZHashTreeRoot
+    {.raises: [IOError, OSError, YamlConstructionError, YamlParserError].} =
   let s = openFileStream(dir/"roots.yaml")
   yaml.load(s, result)
   s.close()
