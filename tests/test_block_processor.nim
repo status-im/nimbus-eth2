@@ -15,8 +15,7 @@ import
   taskpools,
   ../beacon_chain/conf,
   ../beacon_chain/spec/[
-      beaconstate, forks, helpers,
-      peerdas_helpers, state_transition],
+      beaconstate, forks, helpers, state_transition],
   ../beacon_chain/spec/datatypes/[deneb, fulu],
   ../beacon_chain/gossip_processing/block_processor,
   ../beacon_chain/consensus_object_pools/[
