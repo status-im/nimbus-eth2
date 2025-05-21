@@ -15,6 +15,13 @@ import
   spec/helpers,
   ./db_utils
 
+# Without this export compilation fails with error
+# vendor\nim-chronicles\chronicles.nim(352, 21) Error: undeclared identifier: 'activeChroniclesStream'
+# It actually does not needed, because chronicles is not used in this file,
+# but because decodeSZSSZ() generic and uses chronicles generic expansion
+# introduces an issue.
+export chronicles
+
 logScope: topics = "qudata"
 
 type
@@ -23,7 +30,8 @@ type
   DataSidecarStore = object
     getStmt: SqliteStmt[array[32, byte], seq[byte]]
     putStmt: SqliteStmt[(array[32, byte], seq[byte]), void]
-    delStmt: SqliteStmt[array[32, byte], int64]
+    delStmt: SqliteStmt[array[32, byte], void]
+    countStmt: SqliteStmt[NoParams, int64]
 
   QuarantineDB* = ref object
     backend: SqStoreRef
@@ -78,15 +86,24 @@ proc initDataSidecarStore(
       ) VALUES (?, ?);
     """, (array[32, byte], seq[byte]), void, managed = false).expect("SQL query OK")
     delStmt = backend.prepareStmt("""
-      DELETE FROM `""" & name & """` WHERE `block_root` == ? RETURNING ROWID;
-    """, array[32, byte], (int64), managed = false).expect("SQL query OK")
+      DELETE FROM `""" & name & """` WHERE `block_root` == ?;
+    """, array[32, byte], void, managed = false).expect("SQL query OK")
+    countStmt = backend.prepareStmt("""
+      SELECT COUNT(1) FROM `""" & name & """`;
+    """, NoParams, int64, managed = false).expect("SQL query OK")
 
-  ok(DataSidecarStore(getStmt: getStmt, putStmt: putStmt, delStmt: delStmt))
+  ok(DataSidecarStore(
+    getStmt: getStmt,
+    putStmt: putStmt,
+    delStmt: delStmt,
+    countStmt: countStmt
+  ))
 
 func close(store: var DataSidecarStore) =
   if not(isNil(distinctBase(store.getStmt))): store.getStmt.disposeSafe()
   if not(isNil(distinctBase(store.putStmt))): store.putStmt.disposeSafe()
   if not(isNil(distinctBase(store.delStmt))): store.delStmt.disposeSafe()
+  if not(isNil(distinctBase(store.countStmt))): store.countStmt.disposeSafe()
 
 iterator sidecars*(
     db: QuarantineDB,
@@ -120,7 +137,7 @@ proc putDataSidecars*[T: ForkyDataSidecar](
     blockRoot: Eth2Digest,
     dataSidecars: openArray[ref T]
 ) =
-  doAssert not(db.backend.readOnly)
+  doAssert(not(db.backend.readOnly))
 
   when T is deneb.BlobSidecar:
     template statement: untyped =
@@ -141,8 +158,7 @@ proc removeDataSidecars*(
     db: QuarantineDB,
     T: typedesc[ForkyDataSidecar],
     blockRoot: Eth2Digest
-): int =
-  var res = 0
+) =
   doAssert not(db.backend.readOnly)
 
   when T is deneb.BlobSidecar:
@@ -153,18 +169,25 @@ proc removeDataSidecars*(
       db.fuluDataSidecar.delStmt
 
   if not(isNil(distinctBase(statement))):
-    var row: statement.Result
-    for rowRes in statement.exec(blockRoot.data, row):
-      rowRes.expect("SQL query OK")
-      inc(res)
-  res
+    statement.exec(blockRoot.data).expect("SQL query OK")
 
-proc clearDataSidecars*(
+proc sidecarsCount*(
     db: QuarantineDB,
     T: typedesc[ForkyDataSidecar],
-) =
-  doAssert not(db.backend.readOnly)
-  db.backend.exec("DELETE FROM `" & tableName(T) & "`;").expect("SQL query OK")
+): int64 =
+  var recordCount = 0'i64
+
+  when T is deneb.BlobSidecar:
+    template statement: untyped =
+      db.electraDataSidecar.countStmt
+  else:
+    template statement: untyped =
+      db.fuluDataSidecar.countStmt
+
+  if not(isNil(distinctBase(statement))):
+    discard statement.exec do (res: int64):
+      recordCount = res
+  recordCount
 
 proc initQuarantineDB*(
     backend: SqStoreRef,

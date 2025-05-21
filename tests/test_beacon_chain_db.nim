@@ -1366,11 +1366,11 @@ suite "Quarantine" & preset():
       len(quarantine.getSidecars(T, broots[0])) == 0
       len(quarantine.getSidecars(T, broots[1])) == 0
       len(quarantine.getSidecars(T, broots[2])) == 0
+      quarantine.sidecarsCount(T) == 0
 
-    check:
-      quarantine.removeDataSidecars(T, broots[0]) == 0
-      quarantine.removeDataSidecars(T, broots[1]) == 0
-      quarantine.removeDataSidecars(T, broots[2]) == 0
+    quarantine.removeDataSidecars(T, broots[0])
+    quarantine.removeDataSidecars(T, broots[1])
+    quarantine.removeDataSidecars(T, broots[2])
 
     quarantine.putDataSidecars(broots[0],
       sidecars.toOpenArray(offsets[0][0], offsets[0][1]))
@@ -1379,6 +1379,7 @@ suite "Quarantine" & preset():
       let
         res1 = quarantine.getSidecars(T, broots[0])
       check:
+        quarantine.sidecarsCount(T) == len(res1)
         len(res1) == (offsets[0][1] - offsets[0][0] + 1)
         cmp(res1, sidecars.toOpenArray(offsets[0][0], offsets[0][1])) == true
         len(quarantine.getSidecars(T, broots[1])) == 0
@@ -1392,6 +1393,7 @@ suite "Quarantine" & preset():
         res1 = quarantine.getSidecars(T, broots[0])
         res2 = quarantine.getSidecars(T, broots[1])
       check:
+        quarantine.sidecarsCount(T) == len(res1) + len(res2)
         len(res1) == (offsets[0][1] - offsets[0][0] + 1)
         len(res2) == (offsets[1][1] - offsets[1][0] + 1)
         cmp(res1, sidecars.toOpenArray(offsets[0][0], offsets[0][1])) == true
@@ -1410,13 +1412,12 @@ suite "Quarantine" & preset():
         len(res1) == (offsets[0][1] - offsets[0][0] + 1)
         len(res2) == (offsets[1][1] - offsets[1][0] + 1)
         len(res3) == (offsets[2][1] - offsets[2][0] + 1)
+        quarantine.sidecarsCount(T) == len(res1) + len(res2) + len(res3)
         cmp(res1, sidecars.toOpenArray(offsets[0][0], offsets[0][1])) == true
         cmp(res2, sidecars.toOpenArray(offsets[1][0], offsets[1][1])) == true
         cmp(res3, sidecars.toOpenArray(offsets[2][0], offsets[2][1])) == true
 
-    check:
-      quarantine.removeDataSidecars(T, broots[1]) ==
-        (offsets[1][1] - offsets[1][0] + 1)
+    quarantine.removeDataSidecars(T, broots[1])
 
     block:
       let
@@ -1428,10 +1429,9 @@ suite "Quarantine" & preset():
         len(quarantine.getSidecars(T, broots[1])) == 0
         len(res3) == (offsets[2][1] - offsets[2][0] + 1)
         cmp(res3, sidecars.toOpenArray(offsets[2][0], offsets[2][1])) == true
+        quarantine.sidecarsCount(T) == len(res1) + len(res3)
 
-    check:
-      quarantine.removeDataSidecars(T, broots[0]) ==
-        (offsets[0][1] - offsets[0][0] + 1)
+    quarantine.removeDataSidecars(T, broots[0])
 
     block:
       let
@@ -1441,15 +1441,15 @@ suite "Quarantine" & preset():
         len(quarantine.getSidecars(T, broots[1])) == 0
         len(res3) == (offsets[2][1] - offsets[2][0] + 1)
         cmp(res3, sidecars.toOpenArray(offsets[2][0], offsets[2][1])) == true
+        quarantine.sidecarsCount(T) == len(res3)
 
-    check:
-      quarantine.removeDataSidecars(T, broots[2]) ==
-        (offsets[2][1] - offsets[2][0] + 1)
+    quarantine.removeDataSidecars(T, broots[2])
 
     check:
       len(quarantine.getSidecars(T, broots[0])) == 0
       len(quarantine.getSidecars(T, broots[1])) == 0
       len(quarantine.getSidecars(T, broots[2])) == 0
+      quarantine.sidecarsCount(T) == 0
 
   test "put/iterate/remove test [BlobSidecars]":
     quarantine.runDataSidecarTest(deneb.BlobSidecar)
