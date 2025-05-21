@@ -19,7 +19,7 @@ import
     helpers, network, signatures, peerdas_helpers],
   ../consensus_object_pools/[
     attestation_pool, blockchain_dag, blob_quarantine, block_quarantine,
-    data_column_quarantine, spec_cache, light_client_pool, sync_committee_msg_pool,
+    spec_cache, light_client_pool, sync_committee_msg_pool,
     validator_change_pool],
   ".."/[beacon_clock],
   ./batch_validation
@@ -579,7 +579,7 @@ proc validateBlobSidecar*(
 # https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.10/specs/fulu/p2p-interface.md#data_column_sidecar_subnet_id
 proc validateDataColumnSidecar*(
     dag: ChainDAGRef, quarantine: ref Quarantine,
-    dataColumnQuarantine: ref DataColumnQuarantine,
+    dataColumnQuarantine: ref ColumnQuarantine,
     data_column_sidecar: DataColumnSidecar,
     wallTime: BeaconTime, subnet_id: uint64):
     Result[void, ValidationError] =
@@ -614,8 +614,8 @@ proc validateDataColumnSidecar*(
   # (block_header.slot, block_header.proposer_index, data_column_sidecar.index)
   # with valid header signature, sidecar inclusion proof, and kzg proof.
   let block_root = hash_tree_root(block_header)
-  if dataColumnQuarantine[].hasDataColumn(
-      block_header.slot, block_header.proposer_index, data_column_sidecar.index):
+  if dataColumnQuarantine[].hasSidecar(
+      block_root, block_header.slot, block_header.proposer_index, data_column_sidecar.index):
     return errIgnore("DataColumnSidecar: already have valid data column from same proposer")
 
   # [REJECT] The sidecar's `kzg_commitments` inclusion proof is valid as verified by
@@ -697,8 +697,10 @@ proc validateDataColumnSidecar*(
       return dag.checkedReject(r.error)
 
   # Send notification about new data column sidecar via callback
-  if not(isNil(dataColumnQuarantine.onDataColumnSidecarCallback)):
-    dataColumnQuarantine.onDataColumnSidecarCallback(data_column_sidecar)
+  let onDataColumnSidecarCallback =
+    dataColumnQuarantine[].onDataColumnSidecarCallback()
+  if not(isNil(onDataColumnSidecarCallback)):
+    onDataColumnSidecarCallback data_column_sidecar
 
   ok()
 
