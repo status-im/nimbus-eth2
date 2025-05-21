@@ -143,7 +143,7 @@ suite baseDescription & "Execution Payload " & preset():
   proc makeApplyExecutionPayloadCb(path: string): auto =
     return proc(
         preState: var bellatrix.BeaconState, body: bellatrix.BeaconBlockBody):
-        Result[void, cstring] {.raises: [IOError].} =
+        Result[void, cstring] =
       let payloadValid = os_ops.readFile(
           OpExecutionPayloadDir/"pyspec_tests"/path/"execution.yaml"
         ).contains("execution_valid: true")

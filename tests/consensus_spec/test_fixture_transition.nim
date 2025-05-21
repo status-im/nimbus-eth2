@@ -26,8 +26,8 @@ type
     fork_block {.defaultVal: -1.}: int
     bls_setting {.defaultVal: 1.}: int
 
-proc getTransitionInfo(
-    testPath: string): TransitionInfo {.raises: [Exception, IOError].} =
+proc getTransitionInfo(testPath: string): TransitionInfo
+    {.raises: [IOError, OSError, YamlConstructionError, YamlParserError].} =
   var transitionInfo: TransitionInfo
   let s = openFileStream(testPath/"meta.yaml")
   defer: close(s)

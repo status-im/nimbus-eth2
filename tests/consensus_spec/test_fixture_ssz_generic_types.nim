@@ -1,5 +1,5 @@
 # beacon_chain
-# Copyright (c) 2018-2024 Status Research & Development GmbH
+# Copyright (c) 2018-2025 Status Research & Development GmbH
 # Licensed and distributed under either of
 #   * MIT license (license terms in the root directory or at https://opensource.org/licenses/MIT).
 #   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
@@ -233,11 +233,9 @@ proc checkBitList(
 # Test dispatch for valid inputs
 # ------------------------------------------------------------------------
 
-proc sszCheck(
-    baseDir, sszType, sszSubType: string
-) {.raises: [
-    Exception, IOError, SerializationError,
-    TestSizeError, UnconsumedInput, ValueError].} =
+proc sszCheck(baseDir, sszType, sszSubType: string)
+    {.raises: [IOError, OSError, SerializationError, UnconsumedInput,
+               ValueError, YamlConstructionError, YamlParserError].} =
   let dir = baseDir/sszSubType
 
   # Hash tree root
