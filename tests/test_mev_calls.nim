@@ -89,19 +89,40 @@ proc prepare(
     privateKey: ValidatorPrivKey
 ): T =
   var tmp: T
-  let
-    blindedBlock = typeof(tmp.message)(
+  
+  let blindedBlock = when typeof(tmp.message.body) is 
+    fulu_mev.BlindedBeaconBlockBody:
+    typeof(tmp.message)(
+      slot: slot,
+      proposer_index: proposer_index,
+      body: typeof(tmp.message.body)(
+        signed_execution_payload_header:
+          typeof(tmp.message.body.signed_execution_payload_header)(
+            message: fulu.ExecutionPayloadHeader(
+              parent_block_hash: parent_hash
+            )
+          )
+      )
+    )
+  elif typeof(tmp.message.body) is electra_mev.BlindedBeaconBlockBody:
+    typeof(tmp.message)(
       slot: slot,
       proposer_index: proposer_index,
       body: typeof(tmp.message.body)(
         execution_payload_header:
           typeof(tmp.message.body.execution_payload_header)(
             parent_hash: parent_hash
-    )))
-    block_root = hash_tree_root(blindedBlock)
+          )
+      )
+    )
+  else:
+    {.error: "Unsupported MevBlocks type".}
+
+  let block_root = hash_tree_root(blindedBlock)
+  
   T(message: blindedBlock,
     signature: get_block_signature(emptyFork, emptyRoot, slot, block_root,
-                                   privateKey).toValidatorSig())
+                                 privateKey).toValidatorSig())
 
 proc jsonResponseSignedBuilderBid(
     t: typedesc[RestApiResponse],
@@ -234,7 +255,10 @@ proc setupEngineAPI*(router: var RestRouter, node: TestNodeRef) =
     elif qslot == FuluSlot:
       let bid = fulu_mev.SignedBuilderBid(
         message: fulu_mev.BuilderBid(
-          header: fulu.ExecutionPayloadHeader(parent_hash: qhash))
+          header: fulu.SignedExecutionPayloadHeader(
+            message: fulu.ExecutionPayloadHeader(parent_block_hash: qhash),
+            signature: default(ValidatorSig))
+        )
       )
       respondSszOrJson(contentType, bid)
     else:
@@ -286,7 +310,8 @@ proc setupEngineAPI*(router: var RestRouter, node: TestNodeRef) =
             return RestApiResponse.jsonError(error)
         payload = fulu_mev.ExecutionPayloadAndBlobsBundle(
           execution_payload: fulu.ExecutionPayload(
-            parent_hash: blck.message.body.execution_payload_header.parent_hash
+            parent_hash: blck.message.body.
+              signed_execution_payload_header.message.parent_block_hash
           ),
           blobs_bundle: BlobsBundle()
         )
@@ -407,7 +432,7 @@ proc testSuite() =
         bid3res.isOk()
         bid1res.get().data.message.header.parent_hash == parent_hash
         bid2res.get().data.message.header.parent_hash == parent_hash
-        bid3res.get().data.message.header.parent_hash == parent_hash
+        bid3res.get().data.message.header.message.parent_block_hash == parent_hash
 
     template submitBlindedBlockTest(
         requestKind: TestKind,

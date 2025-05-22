@@ -79,14 +79,27 @@ func genElectraSignedBeaconBlock(
     root: blockRoot)
 
 func genFuluSignedBeaconBlock(
-    blockRoot: Eth2Digest,
+    blockRoot: Eth2Digest, 
     commitments: openArray[KzgCommitment]
 ): fulu.SignedBeaconBlock =
   var res = @commitments
+  
+  let commitmentRoot = if res.len > 0:
+    hash_tree_root(KzgCommitments(res))
+  else:
+    Eth2Digest()
+    
+  let payloadHeader = fulu.ExecutionPayloadHeader(
+    blob_kzg_commitments_root: commitmentRoot
+  )
+  
   fulu.SignedBeaconBlock(
     message: fulu.BeaconBlock(
-      body: fulu.BeaconBlockBody(blob_kzg_commitments: KzgCommitments(res))),
-    root: blockRoot)
+      body: fulu.BeaconBlockBody(
+        signed_execution_payload_header: fulu.SignedExecutionPayloadHeader(
+          message: payloadHeader))),
+    root: blockRoot
+  )
 
 func compareSidecars(
     a, b: openArray[ref BlobSidecar|ref DataColumnSidecar]

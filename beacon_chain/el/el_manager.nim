@@ -793,7 +793,7 @@ proc sendNewPayload*(
         requests = m.elConnections.mapIt:
           let req =
             when typeof(blck).kind >= ConsensusFork.Fulu:
-              let versioned_hashes: seq[VersionedHash] = @[]
+              let versioned_hashes: seq[engine_api.VersionedHash] = @[]
               sendNewPayloadToSingleEL(
                 it, payload, versioned_hashes,
                 FixedBytes[32] blck.parent_root.data)

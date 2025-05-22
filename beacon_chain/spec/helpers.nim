@@ -566,10 +566,15 @@ proc toExecutionBlockHeader(
 proc compute_execution_block_hash*(
     body: ForkyBeaconBlockBody,
     parentRoot: Eth2Digest): Eth2Digest =
-  when typeof(body).kind >= ConsensusFork.Electra:
+  when typeof(body).kind >= ConsensusFork.Electra and
+       typeof(body).kind < ConsensusFork.Fulu:
     body.execution_payload.toExecutionBlockHeader(
         parentRoot, Opt.some body.execution_requests.computeRequestsHash())
       .computeRlpHash().to(Eth2Digest)
+  elif typeof(body).kind == ConsensusFork.Fulu:
+    # In epbs, we leverage the signed_execution_payload_header
+    # Instead of computing the hash, we use the block_hash directly
+    body.signed_execution_payload_header.message.block_hash
   else:
     body.execution_payload.toExecutionBlockHeader(parentRoot)
       .computeRlpHash().to(Eth2Digest)

@@ -454,27 +454,51 @@ proc getMissingBlobs(rman: RequestManager): seq[BlobIdentifier] =
     wallSlot = wallTime.slotOrZero()
     delay = wallTime - wallSlot.start_beacon_time()
     waitDur = TimeDiff(nanoseconds: BLOB_GOSSIP_WAIT_TIME_NS)
-
   var
     idents: seq[BlobIdentifier]
     ready: seq[Eth2Digest]
   for blobless in rman.quarantine[].peekBlobless():
     withBlck(blobless):
       when consensusFork == ConsensusFork.Fulu:
-        # For Fulu, return an empty sequence
-        return fetches
-      elif consensusFork >= ConsensusFork.Deneb and 
+        # For Fulu, check if the block needs blobs by checking the
+        # blob_kzg_commitments_root in the signed_execution_payload_header
+        let hasBlobs = 
+          forkyBlck.message.body.signed_execution_payload_header
+            .message.blob_kzg_commitments_root != 
+              Eth2Digest()
+        
+        if not hasBlobs:
+          # If no blobs needed, mark as ready
+          ready.add(blobless.root)
+          continue
+        
+        # For blocks with blobs, give them a chance to arrive over gossip
+        if forkyBlck.message.slot == wallSlot and delay < waitDur:
+          debug "Not handling missing blobs early in slot"
+          continue
+          
+        # Check for missing sidecars using for Fulu
+        let missing = rman.blobQuarantine[].fetchMissingSidecars(
+          blobless.root, forkyBlck)
+          
+        if len(missing) > 0:
+          for ident in missing:
+            idents.add(ident)
+        else:
+          # No missing blobs found despite needing them
+          warn "quarantine missing blobs, but missing indices is empty",
+               blk = blobless.root
+          
+      elif consensusFork >= ConsensusFork.Deneb and
         consensusFork < ConsensusFork.Fulu:
         # give blobs a chance to arrive over gossip
         if forkyBlck.message.slot == wallSlot and delay < waitDur:
           debug "Not handling missing blobs early in slot"
           continue
-
         let
           commitmentsCount = len(forkyBlck.message.body.blob_kzg_commitments)
           missing =
             rman.blobQuarantine[].fetchMissingSidecars(blobless.root, forkyBlck)
-
         if len(missing) > 0:
           for ident in missing:
             idents.add(ident)
@@ -490,7 +514,6 @@ proc getMissingBlobs(rman: RequestManager): seq[BlobIdentifier] =
             warn "quarantine missing blobs, but missing indices is empty",
                  blk = blobless.root,
                  commitments = len(forkyBlck.message.body.blob_kzg_commitments)
-
   for root in ready:
     let blobless = rman.quarantine[].popBlobless(root).valueOr:
       continue
@@ -579,16 +602,10 @@ proc getMissingDataColumns(rman: RequestManager): seq[DataColumnsByRootIdentifie
   for columnless in rman.quarantine[].peekColumnless():
     withBlck(columnless):
       when consensusFork >= ConsensusFork.Fulu:
-        const hasCommitmentField = compiles(forkyBlck.message.body.blob_kzg_commitments)
-        let commitmentsLen = block:
-          when hasCommitmentField:
-            len(forkyBlck.message.body.blob_kzg_commitments)
-          else:
-            0
-            
+        const commitmentsCountEip7732 = 0
         # granting data columns a chance to arrive over gossip
         if forkyBlck.message.slot == wallSlot and delay < waitDur:
-          debug "Not handling missing data columns early in slot"
+          debug "Not handling missing data columns early in slot*"
           continue
 
         if not rman.dataColumnQuarantine[].hasMissingDataColumns(forkyBlck):
@@ -596,14 +613,14 @@ proc getMissingDataColumns(rman: RequestManager): seq[DataColumnsByRootIdentifie
           if len(missing.indices) == 0:
             warn "quarantine is missing data columns, but missing indices are empty",
              blk = columnless.root,
-             commitments = len(forkyBlck.message.body.blob_kzg_commitments)
+             commitments = commitmentsCountEip7732
 
           let id = DataColumnsByRootIdentifier(
             block_root: columnless.root,
             indices:  DataColumnIndices.init(missing.indices))
           for index in id.indices.asSeq:
             if not(index in rman.custody_columns_set and id notin fetches and
-                len(forkyBlck.message.body.blob_kzg_commitments) != 0):
+                commitmentsCountEip7732 != 0): # will always be zero
               # do not include to fetches
               discard
             else:
@@ -612,7 +629,7 @@ proc getMissingDataColumns(rman: RequestManager): seq[DataColumnsByRootIdentifie
           # this is a programming error and it not should occur
           warn "missing column handler found columnless block with all data columns",
              blk = columnless.root,
-             commitments = commitmentsLen
+             commitments = commitmentsCountEip7732
           ready.add(columnless.root)
 
   for root in ready:

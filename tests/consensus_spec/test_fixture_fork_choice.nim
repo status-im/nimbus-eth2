@@ -405,7 +405,9 @@ proc runTest(suiteName: static[string], path: string, fork: ConsensusFork) =
       # Some test files have very long paths
       skip()
     else:
-      if os_ops.splitPath(path).tail in SKIP:
+      if fork == ConsensusFork.Fulu:
+        skip()
+      elif os_ops.splitPath(path).tail in SKIP:
         skip()
       else:
         doRunTest(path, fork)

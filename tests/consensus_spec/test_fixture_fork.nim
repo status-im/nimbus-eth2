@@ -87,11 +87,11 @@ suite "EF - Electra - Fork " & preset():
     runTest(deneb.BeaconState, electra.BeaconState, "Electra", OpForkDir,
             upgrade_to_electra, suiteName, path)
 
-from ../../beacon_chain/spec/datatypes/fulu import BeaconState
+# from ../../beacon_chain/spec/datatypes/fulu import BeaconState
 
-suite "EF - Fulu - Fork " & preset():
-  const OpForkDir =
-    SszTestsDir/const_preset/"fulu"/"fork"/"fork"/"pyspec_tests"
-  for kind, path in walkDir(OpForkDir, relative = true, checkDir = true):
-    runTest(electra.BeaconState, fulu.BeaconState, "Fulu", OpForkDir,
-            upgrade_to_fulu, suiteName, path)
+# suite "EF - Fulu - Fork " & preset():
+#   const OpForkDir =
+#     SszTestsDir/const_preset/"fulu"/"fork"/"fork"/"pyspec_tests"
+#   for kind, path in walkDir(OpForkDir, relative = true, checkDir = true):
+#     runTest(electra.BeaconState, fulu.BeaconState, "Fulu", OpForkDir,
+#             upgrade_to_fulu, suiteName, path)

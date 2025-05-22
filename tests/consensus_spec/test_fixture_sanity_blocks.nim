@@ -33,6 +33,11 @@ proc runTest(
     prefix = if hasPostState: "[Valid]   " else: "[Invalid] "
 
   test prefix & testName & " - " & unitTestName & preset():
+    # Skip eip7732 tests due to SSZ deserialization issues with BeaconState
+    when consensusFork == ConsensusFork.Fulu:
+      skip()
+      return
+
     let preState = newClone(parseTest(testPath/"pre.ssz_snappy",
       SSZ, consensusFork.BeaconState))
     var

@@ -138,14 +138,38 @@ template electra_steps() =
     do_check
 
 template fulu_steps() =
-  check: b.message.body.execution_requests.deposits.add(
-    default(DepositRequest))
+  # In Fulu, test the signed_execution_payload_header and payload_attestations fields
+  
+  # Create a default SignedExecutionPayloadHeader with non-default values
+  var headerMessage = default(fulu.ExecutionPayloadHeader)
+  headerMessage.parent_block_hash = Eth2Digest.fromHex(
+    "0x941bdf6ccf731a7ede6bac0c9533ecee5e3dc5081ea59d57c3fd8624eeca85d")
+  headerMessage.block_hash = Eth2Digest.fromHex(
+    "0x4b1aed517ac48bfbf6ab19846923d5256897fbc934c20ca5b8c486bfe71c6ef1")
+  headerMessage.gas_limit = 4
+  headerMessage.builder_index = 123'u64
+  headerMessage.slot = 42.Slot
+  headerMessage.value = 100.Gwei
+  headerMessage.blob_kzg_commitments_root = Eth2Digest.fromHex(
+    "0x9e7d9bca96a9d0af9013ad6abb8708988beef02d58c16ba1a90075960b99c2ff")
+  
+  b.message.body.signed_execution_payload_header = SignedExecutionPayloadHeader(
+    message: headerMessage,
+    signature: nondefaultValidatorSig)
   do_check
-  check: b.message.body.execution_requests.withdrawals.add(
-    default(WithdrawalRequest))
+  
+  # Test adding and modifying payload attestations
+  check: b.message.body.payload_attestations.add(default(PayloadAttestation))
   do_check
-  check: b.message.body.execution_requests.consolidations.add(
-    default(ConsolidationRequest))
+  
+  var attestation = default(PayloadAttestation)
+  attestation.data.beacon_block_root = Eth2Digest.fromHex(
+    "0x4b1aed517ac48bfbf6ab19846923d5256897fbc934c20ca5b8c486bfe71c6ef1")
+  attestation.data.slot = 42.Slot
+  attestation.data.payload_status = 1'u8  # Some non-default status
+  attestation.signature = nondefaultValidatorSig
+  
+  check: b.message.body.payload_attestations.add(attestation)
   do_check
 
 suite "Blinded block conversions":

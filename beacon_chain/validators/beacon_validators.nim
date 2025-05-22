@@ -671,11 +671,19 @@ proc getBlindedExecutionPayload[
       return err "getBlindedExecutionPayload: signature verification failed"
 
     template builderBid: untyped = blindedHeader.data.message
-    when EPH is electra_mev.BlindedExecutionPayloadAndBlobsBundle or
-        EPH is fulu_mev.BlindedExecutionPayloadAndBlobsBundle:
+    
+    when EPH is electra_mev.BlindedExecutionPayloadAndBlobsBundle:
       return ok(BuilderBid[EPH](
         blindedBlckPart: EPH(
           execution_payload_header: builderBid.header,
+          blob_kzg_commitments: builderBid.blob_kzg_commitments),
+        executionRequests: builderBid.execution_requests,
+        executionPayloadValue: builderBid.value))
+    elif EPH is fulu_mev.BlindedExecutionPayloadAndBlobsBundle:
+      # For Fulu, use signed_execution_payload_header
+      return ok(BuilderBid[EPH](
+        blindedBlckPart: EPH(
+          signed_execution_payload_header: builderBid.header,
           blob_kzg_commitments: builderBid.blob_kzg_commitments),
         executionRequests: builderBid.execution_requests,
         executionPayloadValue: builderBid.value))
@@ -685,23 +693,18 @@ proc getBlindedExecutionPayload[
 from ./message_router_mev import
   copyFields, getFieldNames, unblindAndRouteBlockMEV
 
-func constructSignableBlindedBlock[T:
-      electra_mev.SignedBlindedBeaconBlock | fulu_mev.SignedBlindedBeaconBlock](
-    blck: electra.BeaconBlock | fulu.BeaconBlock,
-    blindedBundle:
-      electra_mev.BlindedExecutionPayloadAndBlobsBundle |
-      fulu_mev.BlindedExecutionPayloadAndBlobsBundle,
-    executionRequests: ExecutionRequests): T =
-  # Leaves signature field default, to be filled in by caller
+func constructSignableBlindedBlock(
+    blck: electra.BeaconBlock,
+    blindedBundle: electra_mev.BlindedExecutionPayloadAndBlobsBundle,
+    executionRequests: ExecutionRequests): electra_mev.SignedBlindedBeaconBlock =
   const
     blckFields = getFieldNames(typeof(blck))
     blckBodyFields = getFieldNames(typeof(blck.body))
-
-  var blindedBlock: T
-
-  # https://github.com/ethereum/builder-specs/blob/v0.4.0/specs/bellatrix/validator.md#block-proposal
+  var blindedBlock: electra_mev.SignedBlindedBeaconBlock
+  
   copyFields(blindedBlock.message, blck, blckFields)
   copyFields(blindedBlock.message.body, blck.body, blckBodyFields)
+  
   assign(
     blindedBlock.message.body.execution_payload_header,
     blindedBundle.execution_payload_header)
@@ -709,8 +712,27 @@ func constructSignableBlindedBlock[T:
     blindedBlock.message.body.blob_kzg_commitments,
     blindedBundle.blob_kzg_commitments)
   assign(
-    blindedBlock.message.body.execution_requests, executionRequests)
+    blindedBlock.message.body.execution_requests, 
+    executionRequests)
+  
+  blindedBlock
 
+func constructSignableBlindedBlock(
+    blck: fulu.BeaconBlock,
+    blindedBundle: fulu_mev.BlindedExecutionPayloadAndBlobsBundle,
+    executionRequests: ExecutionRequests): fulu_mev.SignedBlindedBeaconBlock =
+  const
+    blckFields = getFieldNames(typeof(blck))
+    blckBodyFields = getFieldNames(typeof(blck.body))
+  var blindedBlock: fulu_mev.SignedBlindedBeaconBlock
+  
+  copyFields(blindedBlock.message, blck, blckFields)
+  copyFields(blindedBlock.message.body, blck.body, blckBodyFields)
+  
+  assign(
+    blindedBlock.message.body.signed_execution_payload_header,
+    blindedBundle.signed_execution_payload_header)
+  
   blindedBlock
 
 proc blindedBlockCheckSlashingAndSign[
@@ -764,7 +786,7 @@ func getUnsignedBlindedBeaconBlock[
            consensusFork == ConsensusFork.Fulu)):
         return err("getUnsignedBlindedBeaconBlock: mismatched block/payload types")
       else:
-        return ok constructSignableBlindedBlock[T](
+        return ok constructSignableBlindedBlock(
           forkyBlck, executionPayloadHeader, executionRequests)
     else:
       return err("getUnsignedBlindedBeaconBlock: attempt to construct pre-Deneb blinded block")
@@ -835,17 +857,16 @@ proc getBlindedBlockParts[
     debugFuluComment "verify (again, after change) this is what builder API needs"
     type PayloadType = fulu.ExecutionPayloadForSigning
     template actualEPH: untyped =
-      blindedBlockRes.get.blindedBlckPart.execution_payload_header
-    # Temporary fix: `withdrawals_root` and `kzg_commitments` are removed in Epbs (EIP-7732).
-    # Only access it for compatible forks (Deneb, Electra) to prevent errors. 
+      blindedBlockRes.get.blindedBlckPart.signed_execution_payload_header.message
+    # Temporary fix: `withdrawals_root` and `kzg_commitments` are removed in Epbs (EIP-7732)
     let
       withdrawals_root = Opt.none(Eth2Digest)
       kzg_commitments = Opt.none(KzgCommitments)
       execution_requests = default(ExecutionRequests)
 
     var shimExecutionPayload: PayloadType
-    type FuluEPH =
-      fulu_mev.BlindedExecutionPayloadAndBlobsBundle.execution_payload_header
+    type FuluEPH = typeof(
+      fulu_mev.BlindedExecutionPayloadAndBlobsBundle().signed_execution_payload_header.message)
     copyFields(
       shimExecutionPayload.executionPayload, actualEPH, getFieldNames(FuluEPH))
   else:

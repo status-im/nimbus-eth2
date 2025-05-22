@@ -19,7 +19,7 @@ from ".."/eth2_merkleization import hash_tree_root
 
 type
   BuilderBid* = object
-    header*: ExecutionPayloadHeader
+    header*: SignedExecutionPayloadHeader
     blob_kzg_commitments*: KzgCommitments
     execution_requests*: ExecutionRequests # [New in Electra]
     value*: UInt256
@@ -76,7 +76,7 @@ type
 
   # Not spec, but suggested by spec
   BlindedExecutionPayloadAndBlobsBundle* = object
-    execution_payload_header*: ExecutionPayloadHeader
+    signed_execution_payload_header*: SignedExecutionPayloadHeader
     blob_kzg_commitments*: KzgCommitments # [New in Deneb]
 
 func shortLog*(v: BlindedBeaconBlock): auto =
