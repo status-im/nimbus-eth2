@@ -30,10 +30,7 @@ from ../consensus_object_pools/block_pools_types import
 from ../consensus_object_pools/block_quarantine import
   addBlobless, addColumnless, addOrphan, addUnviable, pop, removeOrphan
 from ../consensus_object_pools/blob_quarantine import
-  BlobQuarantine, popSidecars, put
-from ../consensus_object_pools/data_column_quarantine import
-  DataColumnQuarantine, hasExactDataColumns, hasEnoughDataColumns,
-  popDataColumns, put
+  BlobQuarantine, ColumnQuarantine, popSidecars, put
 from ../validators/validator_monitor import
   MsgSource, ValidatorMonitor, registerAttestationInBlock, registerBeaconBlock,
   registerSyncAggregateInBlock
@@ -109,7 +106,7 @@ type
     getBeaconTime: GetBeaconTimeFn
 
     blobQuarantine: ref BlobQuarantine
-    dataColumnQuarantine: ref DataColumnQuarantine
+    dataColumnQuarantine: ref ColumnQuarantine
     verifier: BatchVerifier
 
     lastPayload: Slot
@@ -136,7 +133,7 @@ proc new*(T: type BlockProcessor,
           consensusManager: ref ConsensusManager,
           validatorMonitor: ref ValidatorMonitor,
           blobQuarantine: ref BlobQuarantine,
-          dataColumnQuarantine: ref DataColumnQuarantine,
+          dataColumnQuarantine: ref ColumnQuarantine,
           getBeaconTime: GetBeaconTimeFn,
           invalidBlockRoots: seq[Eth2Digest] = @[]): ref BlockProcessor =
   if invalidBlockRoots.len > 0:
@@ -221,11 +218,11 @@ proc storeBackfillBlock(
       # this repairing will almost never happen unless these malformed
       # columns coming via req/resp.
       if not columnsOk:
-        if dataColumnsOpt.get.lenu64 >=
+        if dataColumnsOpt.get.lenu64 >
             (self.consensusManager.dag.cfg.NUMBER_OF_COLUMNS div 2):
           let
             recovered_cps =
-              recover_cells_and_proofs(columns.mapIt(it[]))
+              recover_cells_and_proofs(columns)
             recovered_columns =
               signedBlock.get_data_column_sidecars(recovered_cps.get)
 
@@ -563,9 +560,8 @@ proc storeBlock(
         if blobsOpt.isSome:
           self.blobQuarantine[].put(signedBlock.root, blobsOpt.get)
         if dataColumnsOpt.isSome:
-          for dataColumnSidecar in dataColumnsOpt.get:
-            self.dataColumnQuarantine[].put(dataColumnSidecar)
-            
+          self.dataColumnQuarantine[].put(signedBlock.root, dataColumnsOpt.get)
+
         debug "Block quarantined",
           blockRoot = shortLog(signedBlock.root),
           blck = shortLog(signedBlock.message),
@@ -611,7 +607,7 @@ proc storeBlock(
           withBlck(parentBlck.get()):
             when consensusFork >= ConsensusFork.Fulu:
               var data_column_sidecars: DataColumnSidecars
-              for i in self.dataColumnQuarantine[].custody_columns:
+              for i in self.dataColumnQuarantine[].custodyColumns:
                 let data_column = DataColumnSidecar.new()
                 if not dag.db.getDataColumnSidecar(parent_root, i.ColumnIndex, data_column[]):
                   columnsOk = false
@@ -974,14 +970,14 @@ proc storeBlock(
              blck = shortLog(forkyBlck),
              error = res.error()
             continue
-          if self.dataColumnQuarantine[].hasExactDataColumns(forkyBlck,
-                                                             self.consensusManager.dag.cfg):
-            let columns = self.dataColumnQuarantine[].popDataColumns(
-              forkyBlck.root, forkyBlck)
-            self[].enqueueBlock(MsgSource.gossip, quarantined, Opt.none(BlobSidecars),
-                                Opt.some(columns))
+          let cres =
+            self.dataColumnQuarantine[].popSidecars(forkyBlck.root, forkyBlck)
+          if cres.isSome:
+            self[].enqueueBlock(
+              MsgSource.gossip, quarantined, Opt.none(BlobSidecars),
+              cres)
           else:
-            discard self.consensusManager.quarantine[].addColumnless(
+            discard self.consensusManager.quarantine[].addBlobless(
               dag.finalizedHead.slot, forkyBlck)
       elif typeof(forkyBlck).kind >= ConsensusFork.Deneb and
           typeof(forkyBlck).kind < ConsensusFork.Fulu:
@@ -1005,7 +1001,6 @@ proc storeBlock(
           else:
             discard self.consensusManager.quarantine[].addBlobless(
               dag.finalizedHead.slot, forkyBlck)
-
 
   ok blck.value()
 

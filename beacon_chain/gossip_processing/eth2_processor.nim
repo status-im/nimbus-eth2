@@ -8,13 +8,13 @@
 {.push raises: [].}
 
 import
-  std/[tables, sequtils],
+  std/[tables],
   chronicles, chronos, metrics,
   taskpools,
   ../spec/[helpers, forks, peerdas_helpers],
   ../consensus_object_pools/[
     blob_quarantine, block_clearance, block_quarantine, blockchain_dag,
-    data_column_quarantine, attestation_pool, light_client_pool,
+    attestation_pool, light_client_pool,
     sync_committee_msg_pool, validator_change_pool],
   ../validators/validator_pool,
   ../beacon_clock,
@@ -152,7 +152,7 @@ type
 
     blobQuarantine*: ref BlobQuarantine
 
-    dataColumnQuarantine*: ref DataColumnQuarantine
+    dataColumnQuarantine*: ref ColumnQuarantine
 
     # Application-provided current time provider (to facilitate testing)
     getCurrentBeaconTime*: GetBeaconTimeFn
@@ -177,7 +177,7 @@ proc new*(T: type Eth2Processor,
           lightClientPool: ref LightClientPool,
           quarantine: ref Quarantine,
           blobQuarantine: ref BlobQuarantine,
-          dataColumnQuarantine: ref DataColumnQuarantine,
+          dataColumnQuarantine: ref ColumnQuarantine,
           rng: ref HmacDrbgContext,
           getBeaconTime: GetBeaconTimeFn,
           taskpool: Taskpool
@@ -267,9 +267,11 @@ proc processSignedBeaconBlock*(
 
     let columns =
       when typeof(signedBlock).kind >= ConsensusFork.Fulu:
-        if self.dataColumnQuarantine[].hasExactDataColumns(signedBlock, self.dag.cfg):
-          Opt.some(self.dataColumnQuarantine[].popDataColumns(signedBlock.root,
-                                                              signedBlock))
+        let cres =
+          self.dataColumnQuarantine[].popSidecars(signedBlock.root,
+                                                  signedBlock)
+        if cres.isSome():
+          cres
         else:
           discard self.quarantine[].addColumnless(self.dag.finalizedHead.slot,
                                                   signedBlock)
@@ -355,6 +357,7 @@ proc processDataColumnSidecar*(
   let
     wallTime = self.getCurrentBeaconTime()
     (_, wallSlot) = wallTime.toSlot()
+    block_root = hash_tree_root(block_header)
 
   logScope:
     dcs = shortLog(dataColumnSidecar)
@@ -374,41 +377,27 @@ proc processDataColumnSidecar*(
     return v
 
   debug "Data column validated, putting data column in quarantine"
-  self.dataColumnQuarantine[].put(newClone(dataColumnSidecar))
+  self.dataColumnQuarantine[].put(block_root, newClone(dataColumnSidecar))
   self.dag.db.putDataColumnSidecar(dataColumnSidecar)
 
-  let block_root = hash_tree_root(block_header)
   if (let o = self.quarantine[].popColumnless(block_root); o.isSome):
     let columnless = o.unsafeGet()
     withBlck(columnless):
       when consensusFork >= ConsensusFork.Fulu:
-        if not self.dataColumnQuarantine[].supernode:
-          if self.dataColumnQuarantine[].hasExactDataColumns(forkyBlck, self.dag.cfg):
-            let gathered_columns =
-              self.dataColumnQuarantine[].gatherDataColumns(forkyBlck.root)
-            for gdc in gathered_columns:
-              self.dataColumnQuarantine[].put(newClone(gdc))
+        let cres =
+          self.dataColumnQuarantine[].popSidecars(block_root, forkyBlck)
+        if cres.isSome():
+          if cres.get().lenu64 > (self.dag.cfg.NUMBER_OF_COLUMNS div 2):
+            # We have enough data columns to reconstruct the rest
+            let
+              recovered_cps = recover_cells_and_proofs(cres.get())
+              reconstructed_columns =
+                reconstruct_data_column_sidecars(forkyBlck, recovered_cps.get)
+
             self.blockProcessor[].enqueueBlock(
               MsgSource.gossip, columnless,
               Opt.none(BlobSidecars),
-              Opt.some(self.dataColumnQuarantine[].popDataColumns(block_root,
-                                                                  forkyBlck)))
-        elif self.dataColumnQuarantine[].hasEnoughDataColumns(forkyBlck):
-          let
-            columns = self.dataColumnQuarantine[].gatherDataColumns(block_root)
-          if columns.lenu64 >= (self.dag.cfg.NUMBER_OF_COLUMNS div 2) and
-              self.dataColumnQuarantine[].supernode:
-            let
-              recovered_cps = recover_cells_and_proofs(columns.mapIt(it[]))
-              reconstructed_columns =
-                get_data_column_sidecars(forkyBlck, recovered_cps.get)
-            for rc in reconstructed_columns:
-              if rc notin columns.mapIt(it[]):
-                self.dataColumnQuarantine[].put(newClone(rc))
-          self.blockProcessor[].enqueueBlock(
-            MsgSource.gossip, columnless,
-            Opt.none(BlobSidecars),
-            Opt.some(self.dataColumnQuarantine[].popDataColumns(block_root, forkyBlck)))
+              Opt.some(reconstructed_columns))
         else:
           discard self.quarantine[].addColumnless(
             self.dag.finalizedHead.slot, forkyBlck)

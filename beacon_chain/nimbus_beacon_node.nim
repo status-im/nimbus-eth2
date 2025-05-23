@@ -14,7 +14,7 @@ import
   stew/[byteutils, io2],
   eth/p2p/discoveryv5/[enr, random2],
   ./consensus_object_pools/[
-    blob_quarantine, data_column_quarantine, blockchain_list],
+    blob_quarantine, blockchain_list],
   ./consensus_object_pools/vanity_logs/vanity_logs,
   ./networking/[topic_params, network_metadata_downloads],
   ./rpc/[rest_api, state_ttl_cache],
@@ -302,6 +302,8 @@ proc initFullNode(
     node.eventBus.electraAttSlashQueue.emit(data)
   proc onBlobSidecarAdded(data: BlobSidecarInfoObject) =
     node.eventBus.blobSidecarQueue.emit(data)
+  proc onDataColumnSidecarCallback(data: DataColumnSidecar) =
+    node.eventBus.columnSidecarQueue.emit(data)
   proc onBlockAdded(data: ForkedTrustedSignedBeaconBlock) =
     let optimistic =
       if node.currentSlot().epoch() >= dag.cfg.BELLATRIX_FORK_EPOCH:
@@ -403,26 +405,24 @@ proc initFullNode(
       onElectraAttesterSlashingAdded))
     blobQuarantine = newClone(BlobQuarantine.init(
       dag.cfg, onBlobSidecarAdded))
-    dataColumnQuarantine = newClone(DataColumnQuarantine.init(dag.cfg))
     supernode = node.config.peerdasSupernode
     localCustodyGroups =
       if supernode:
         dag.cfg.NUMBER_OF_CUSTODY_GROUPS
       else:
         dag.cfg.CUSTODY_REQUIREMENT
-  dataColumnQuarantine[].supernode = supernode
-  dataColumnQuarantine[].custody_columns =
-    dag.cfg.resolve_columns_from_custody_groups(
-      node.network.nodeId,
-      max(dag.cfg.SAMPLES_PER_SLOT.uint64,
-          localCustodyGroups))
-
-  let
+    custodyColumns =
+      dag.cfg.resolve_columns_from_custody_groups(
+        node.network.nodeId,
+        max(dag.cfg.SAMPLES_PER_SLOT.uint64,
+            localCustodyGroups))
+    dataColumnQuarantine = newClone(ColumnQuarantine.init(
+      dag.cfg, custodyColumns, onDataColumnSidecarCallback))
     custody_columns_set =
-      dataColumnQuarantine[].custody_columns.toHashSet()
+      dataColumnQuarantine[].custodyColumns.toHashSet()
     custody_columns_list =
       List[ColumnIndex, NUMBER_OF_COLUMNS].init(
-        dataColumnQuarantine[].custody_columns)
+        dataColumnQuarantine[].custodyColumns)
     consensusManager = ConsensusManager.new(
       dag, attestationPool, quarantine, node.elManager,
       ActionTracker.init(node.network.nodeId, config.subscribeAllSubnets),
@@ -455,27 +455,33 @@ proc initFullNode(
       withBlck(signedBlock):
         # Keeping Fulu first else >= Deneb means Fulu case never hits
         when consensusFork >= ConsensusFork.Fulu:
-          let
-            accumulatedDataColumns = dataColumnQuarantine[].gatherDataColumns(forkyBlck.root)
+          let cres = dataColumnQuarantine[].popSidecars(forkyBlck.root, forkyBlck)
+          if cres.isSome():
+            if cres.get().lenu64 >= (NUMBER_OF_COLUMNS div 2):
+              # We have enough data columns to reconstruct the rest
+              let
+                recoveredCps =
+                  recover_cells_and_proofs(cres.get())
+                reconstructedColumns =
+                  reconstruct_data_column_sidecars(forkyBlck, recoveredCps.get)
 
-          if accumulatedDataColumns.len == 0:
-            # no data columns were sent for this post Fulu block, yet
-            return await blockProcessor[].addBlock(MsgSource.sync, signedBlock,
-                                             Opt.none(BlobSidecars), Opt.none(DataColumnSidecars),
-                                             maybeFinalized = maybeFinalized)
-          elif dataColumnQuarantine[].supernode and
-              accumulatedDataColumns.len >= (dataColumnQuarantine[].custody_columns.len div 2):
-            # We have seen 50%+ data columns, we can attempt to add this block
-            let dataColumns = dataColumnQuarantine[].popDataColumns(forkyBlck.root, forkyBlck)
-            return await blockProcessor[].addBlock(MsgSource.gossip, signedBlock,
-                                             Opt.none(BlobSidecars), Opt.some(dataColumns),
-                                             maybeFinalized = maybeFinalized)
+              return await blockProcessor[].addBlock(MsgSource.gossip, signedBlock,
+                                              Opt.none(BlobSidecars),
+                                              Opt.some(reconstructedColumns),
+                                              maybeFinalized = maybeFinalized)
 
+            await blockProcessor[].addBlock(MsgSource.gossip, signedBlock,
+                                      Opt.none(BlobSidecars),
+                                      cres,
+                                      maybeFinalized = maybeFinalized)
           else:
-            let dataColumns = dataColumnQuarantine[].popDataColumns(forkyBlck.root, forkyBlck)
-            return await blockProcessor[].addBlock(MsgSource.gossip, signedBlock,
-                                             Opt.none(BlobSidecars), Opt.some(dataColumns),
-                                             maybeFinalized = maybeFinalized)
+            # We don't have all the columns for this block, so we have
+            # to put it in columnless quarantine.
+            if not quarantine[].addColumnless(dag.finalizedHead.slot, forkyBlck):
+              err(VerifierError.UnviableFork)
+            else:
+              err(VerifierError.MissingParent)
+
         elif consensusFork >= ConsensusFork.Deneb and
             consensusFork < ConsensusFork.Fulu:
           let bres = blobQuarantine[].popSidecars(forkyBlck.root, forkyBlck)
