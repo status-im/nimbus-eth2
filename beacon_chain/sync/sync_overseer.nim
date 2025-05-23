@@ -423,23 +423,19 @@ proc initUntrustedSync(overseer: SyncOverseerRef): Future[void] {.
 proc startBackfillTask(overseer: SyncOverseerRef): Future[void] {.
      async: (raises: []).} =
   # This procedure performs delayed start of backfilling process.
-  debug "Backfill monitoring task started",
-        need_backfill = overseer.consensusManager.dag.needsBackfill,
-        sync_distance = overseer.syncDistance,
-        is_started = overseer.backwardSync.isStarted(),
-        is_paused = overseer.backwardSync.isPaused()
-
   while overseer.consensusManager.dag.needsBackfill:
-    debug "Backfill monitor status",
+    debug "Sync overseer backfill monitor status",
           need_backfill = overseer.consensusManager.dag.needsBackfill,
           sync_distance = overseer.syncDistance,
           is_started = overseer.backwardSync.isStarted(),
           is_paused = overseer.backwardSync.isPaused()
 
-    if overseer.syncDistance() <= 1'u64:
+    if overseer.syncDistance() <= 2'u64:
       # Only allow backfiller to work if it's needed _and_ head sync has
       # completed - if we lose sync after having synced head, we pause the
       # backfilller.
+      #
+      # 2 slots distance here is experimental number.
       if not(overseer.backwardSync.isStarted()):
         overseer.backwardSync.start()
       else:
