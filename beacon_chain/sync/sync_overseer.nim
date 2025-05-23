@@ -60,6 +60,15 @@ iterator chunks*(data: openArray[BlockData],
     yield BlockDataChunk.init(stateCallback,
       data.toOpenArray(i, min(i + maxCount, len(data)) - 1))
 
+proc syncDistance*(
+    overseer: SyncOverseerRef
+): uint64 =
+  let
+    dag = overseer.consensusManager.dag
+    wallSlot = overseer.getBeaconTimeFn().slotOrZero()
+    headSlot = dag.head.slot
+  wallSlot - headSlot
+
 proc getLatestBeaconHeader(
     overseer: SyncOverseerRef
 ): Future[BeaconBlockHeader] {.async: (raises: [CancelledError]).} =
@@ -415,13 +424,18 @@ proc startBackfillTask(overseer: SyncOverseerRef): Future[void] {.
      async: (raises: []).} =
   # This procedure performs delayed start of backfilling process.
   while overseer.consensusManager.dag.needsBackfill:
-    if not(overseer.forwardSync.inProgress):
-      # Only start the backfiller if it's needed _and_ head sync has completed -
-      # if we lose sync after having synced head, we could stop the backfilller,
-      # but this should be a fringe case - might as well keep the logic simple
-      # for now.
-      overseer.backwardSync.start()
-      return
+    if overseer.syncDistance() <= 1'u64:
+      # Only allow backfiller to work if it's needed _and_ head sync has
+      # completed - if we lose sync after having synced head, we pause the
+      # backfilller.
+      if overseer.backwardSync.isPaused():
+        overseer.backwardSync.resume()
+      else:
+        overseer.backwardSync.start()
+    else:
+      if overseer.backwardSync.isStarted():
+        if not(overseer.backwardSync.isPaused()):
+          overseer.backwardSync.pause()
     try:
       await sleepAsync(chronos.seconds(2))
     except CancelledError:
@@ -446,9 +460,11 @@ proc mainLoop*(
 
   if overseer.isWithinWeakSubjectivityPeriod(currentSlot):
     # Starting forward sync manager/monitor.
+    overseer.syncKind = SyncKind.ForwardSync
     overseer.forwardSync.start()
     # Starting backfill/backward sync manager.
     if dag.needsBackfill():
+      overseer.syncKind = SyncKind.TrustedNodeSync
       asyncSpawn overseer.startBackfillTask()
     return
   else:
@@ -468,6 +484,7 @@ proc mainLoop*(
 
     if overseer.config.longRangeSync == LongRangeSyncMode.Lenient:
       # Starting forward sync manager/monitor only.
+      overseer.syncKind = SyncKind.ForwardSync
       overseer.forwardSync.start()
       return
 
@@ -490,6 +507,7 @@ proc mainLoop*(
         overseer.untrustedInProgress = true
 
         try:
+          overseer.syncKind = SyncKind.UntrustedSyncInit
           await overseer.initUntrustedSync()
         except CancelledError:
           return
@@ -497,6 +515,7 @@ proc mainLoop*(
       # We need to update pivot slot to enable timeleft calculation.
       overseer.untrustedSync.updatePivot(overseer.clist.tail.get().slot)
       # Note: We should not start forward sync manager!
+      overseer.syncKind = SyncKind.UntrustedSyncDownload
       overseer.untrustedSync.start()
 
       # Waiting until untrusted backfilling will not be complete
@@ -511,6 +530,7 @@ proc mainLoop*(
       let blockProcessingFut = overseer.blockProcessingLoop()
 
       try:
+        overseer.syncKind = SyncKind.UntrustedSyncRebuild
         await overseer.rebuildState()
       except CancelledError:
         await cancelAndWait(blockProcessingFut)
@@ -525,6 +545,7 @@ proc mainLoop*(
 
       # When we finished state rebuilding process - we could start forward
       # SyncManager which could perform finish sync.
+      overseer.syncKind = SyncKind.ForwardSync
       overseer.forwardSync.start()
 
 proc start*(overseer: SyncOverseerRef) =
@@ -535,3 +556,50 @@ proc stop*(overseer: SyncOverseerRef) {.async: (raises: []).} =
            "SyncOverseer was not started yet")
   if not(overseer.loopFuture.finished()):
     await cancelAndWait(overseer.loopFuture)
+
+proc syncStatusMessage*(
+    overseer: SyncOverseerRef,
+): string =
+  let
+    dag = overseer.consensusManager.dag
+    wallSlot = overseer.getBeaconTimeFn().slotOrZero()
+    optimistic = not(dag.head.executionValid)
+    optSuffix =
+      if not(dag.head.executionValid):
+        "/opt"
+      else:
+        ""
+    lcSuffix =
+      if overseer.consensusManager[].shouldSyncOptimistically(wallSlot):
+        " - lc: " & $shortLog(overseer.consensusManager[].optimisticHead)
+      else:
+        ""
+    res =
+      case overseer.syncKind
+      of SyncKind.ForwardSync:
+        overseer.forwardSync.syncStatus & optSuffix & lcSuffix
+      of SyncKind.TrustedNodeSync:
+        if overseer.backwardSync.inProgress:
+          "backfill: " & overseer.backwardSync.syncStatus
+        else:
+          overseer.forwardSync.syncStatus & optSuffix & lcSuffix
+      of SyncKind.UntrustedSyncInit:
+        if overseer.statusMsg.isSome():
+          "untrusted: " & overseer.statusMsg.get()
+        else:
+          ""
+      of SyncKind.UntrustedSyncDownload:
+        "untrusted: " & overseer.untrustedSync.syncStatus
+      of SyncKind.UntrustedSyncRebuild:
+        if overseer.statusMsg.isSome():
+          "untrusted: " & overseer.statusMsg.get()
+        else:
+          ""
+
+  if len(res) == 0:
+    if optimistic:
+      "synced/opt"
+    else:
+      "synced"
+  else:
+    res

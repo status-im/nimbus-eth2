@@ -25,6 +25,12 @@ type
     onStateUpdatedCb*: OnStateUpdated
     blocks*: seq[BlockData]
 
+  SyncKind* {.pure.} = enum
+    ForwardSync, TrustedNodeSync,
+    UntrustedSyncInit,
+    UntrustedSyncDownload,
+    UntrustedSyncRebuild
+
   SyncOverseer* = object
     statusMsg*: Opt[string]
     consensusManager*: ref ConsensusManager
@@ -44,6 +50,7 @@ type
     avgSpeed*: float
     blocksQueue*: AsyncQueue[BlockDataChunk]
     untrustedInProgress*: bool
+    syncKind*: SyncKind
 
   SyncOverseerRef* = ref SyncOverseer
 

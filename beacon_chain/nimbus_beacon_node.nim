@@ -1809,30 +1809,8 @@ func formatNextConsensusFork(
     (if withVanityArt: nextConsensusFork.getVanityMascot & " " else: "") &
     $nextConsensusFork & ":" & $nextForkEpoch)
 
-func syncStatus(node: BeaconNode, wallSlot: Slot): string =
-  node.syncOverseer.statusMsg.valueOr:
-    let optimisticHead = not node.dag.head.executionValid
-    if node.syncManager.inProgress:
-      let
-        optimisticSuffix =
-          if optimisticHead:
-            "/opt"
-          else:
-            ""
-        lightClientSuffix =
-          if node.consensusManager[].shouldSyncOptimistically(wallSlot):
-            " - lc: " & $shortLog(node.consensusManager[].optimisticHead)
-          else:
-            ""
-      node.syncManager.syncStatus & optimisticSuffix & lightClientSuffix
-    elif node.untrustedManager.inProgress:
-      "untrusted: " & node.untrustedManager.syncStatus
-    elif node.backfiller.inProgress:
-      "backfill: " & node.backfiller.syncStatus
-    elif optimisticHead:
-      "synced/opt"
-    else:
-      "synced"
+proc syncStatus(node: BeaconNode, wallSlot: Slot): string =
+  node.syncOverseer.syncStatusMessage()
 
 when defined(windows):
   from winservice import establishWindowsService, reportServiceStatusSuccess
