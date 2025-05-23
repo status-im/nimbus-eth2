@@ -432,12 +432,12 @@ proc startBackfillTask(overseer: SyncOverseerRef): Future[void] {.
           forward_status = overseer.forwardSync.getStatus(),
           forward_queue = overseer.forwardSync.queueLen()
 
-    if overseer.syncDistance() <= 2'u64:
+    if overseer.syncDistance() <= 1'u64:
       # Only allow backfiller to work if it's needed _and_ head sync has
       # completed - if we lose sync after having synced head, we pause the
       # backfilller.
       #
-      # 2 slots distance here is experimental number.
+      # 1 slots distance here is experimental number.
       if not(overseer.backwardSync.isStarted()):
         overseer.backwardSync.start()
       else:

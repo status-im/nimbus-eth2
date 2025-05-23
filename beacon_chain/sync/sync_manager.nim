@@ -1094,12 +1094,13 @@ func getStatus*[A, B](man: SyncManager[A, B]): string =
   var res: seq[string]
   if man.isStarted():
     res.add("started")
-  if man.inProgress:
-    res.add("running")
-  else:
-    res.add("stopped")
   if man.isPaused():
     res.add("paused")
+  else:
+    if man.inProgress:
+      res.add("running")
+    else:
+      res.add("stopped")
   "(" & res.join(", ") & ")"
 
 func queueLen*[A, B](man: SyncManager[A, B]): uint64 =
