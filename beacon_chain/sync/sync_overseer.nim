@@ -614,9 +614,15 @@ proc syncStatusMessage*(
           ""
 
   if len(res) == 0:
-    if optimistic:
-      "synced/opt"
+    if overseer.syncDistance() <= 1:
+      if optimistic:
+        "synced/opt"
+      else:
+        "synced"
     else:
-      "synced"
+      if optimistic:
+        "almost synced/opt"
+      else:
+        "almost synced"
   else:
     res
