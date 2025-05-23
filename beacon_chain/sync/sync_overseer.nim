@@ -452,6 +452,15 @@ proc startBackfillTask(overseer: SyncOverseerRef): Future[void] {.
     except CancelledError:
       return
 
+  debug "Backfill process finished",
+        need_backfill = overseer.consensusManager.dag.needsBackfill,
+        sync_distance = overseer.syncDistance,
+        backward_status = overseer.backwardSync.getStatus(),
+        backward_queue = overseer.backwardSync.queueLen(),
+        forward_status = overseer.forwardSync.getStatus(),
+        forward_queue = overseer.forwardSync.queueLen()
+  overseer.syncKind = SyncKind.ForwardSync
+
 proc mainLoop*(
     overseer: SyncOverseerRef
 ): Future[void] {.async: (raises: []).} =
