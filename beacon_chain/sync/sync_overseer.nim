@@ -427,8 +427,10 @@ proc startBackfillTask(overseer: SyncOverseerRef): Future[void] {.
     debug "Sync overseer backfill monitor status",
           need_backfill = overseer.consensusManager.dag.needsBackfill,
           sync_distance = overseer.syncDistance,
-          is_started = overseer.backwardSync.isStarted(),
-          is_paused = overseer.backwardSync.isPaused()
+          backward_status = overseer.backwardSync.getStatus(),
+          backward_queue = overseer.backwardSync.queueLen(),
+          forward_status = overseer.forwardSync.getStatus(),
+          forward_queue = overseer.forwardSync.queueLen()
 
     if overseer.syncDistance() <= 2'u64:
       # Only allow backfiller to work if it's needed _and_ head sync has
@@ -591,7 +593,10 @@ proc syncStatusMessage*(
         if overseer.backwardSync.inProgress:
           "backfill: " & overseer.backwardSync.syncStatus
         else:
-          overseer.forwardSync.syncStatus & optSuffix & lcSuffix
+          if overseer.backwardSync.inProgress:
+            overseer.forwardSync.syncStatus & optSuffix & lcSuffix
+          else:
+            ""
       of SyncKind.UntrustedSyncInit:
         if overseer.statusMsg.isSome():
           "untrusted: " & overseer.statusMsg.get()

@@ -1090,6 +1090,21 @@ proc updatePivot*[A, B](man: SyncManager[A, B], pivot: Slot) =
   ## Update progress pivot slot.
   man.progressPivot = pivot
 
+func getStatus*[A, B](man: SyncManager[A, B]): string =
+  var res: seq[string]
+  if man.isStarted():
+    res.add("started")
+  if man.inProgress:
+    res.add("running")
+  else:
+    res.add("stopped")
+  if man.isPaused():
+    res.add("paused")
+  "(" & res.join(", ") & ")"
+
+func queueLen*[A, B](man: SyncManager[A, B]): uint64 =
+  len(man.queue)
+
 proc join*[A, B](
     man: SyncManager[A, B]
 ): Future[void] {.async: (raw: true, raises: [CancelledError]).} =
