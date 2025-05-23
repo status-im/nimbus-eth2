@@ -588,12 +588,15 @@ proc syncStatusMessage*(
     res =
       case overseer.syncKind
       of SyncKind.ForwardSync:
-        overseer.forwardSync.syncStatus & optSuffix & lcSuffix
+        if overseer.forwardSync.inProgress:
+          overseer.forwardSync.syncStatus & optSuffix & lcSuffix
+        else:
+          ""
       of SyncKind.TrustedNodeSync:
         if overseer.backwardSync.inProgress:
           "backfill: " & overseer.backwardSync.syncStatus
         else:
-          if overseer.backwardSync.inProgress:
+          if overseer.forwardSync.inProgress:
             overseer.forwardSync.syncStatus & optSuffix & lcSuffix
           else:
             ""
