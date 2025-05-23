@@ -33,7 +33,7 @@ type
   SidecarQuarantine[A, B] = object
     maxSidecarsCount: int
     maxSidecarsPerBlockCount: int
-    sidecarsCount*: int
+    sidecarsCount: int
     custodyColumns*: seq[ColumnIndex]
     custodyMap: ColumnMap
     roots: Table[Eth2Digest, RootTableRecord[A]]

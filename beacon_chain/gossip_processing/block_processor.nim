@@ -218,7 +218,7 @@ proc storeBackfillBlock(
       # this repairing will almost never happen unless these malformed
       # columns coming via req/resp.
       if not columnsOk:
-        if dataColumnsOpt.get.lenu64 >=
+        if dataColumnsOpt.get.lenu64 >
             (self.consensusManager.dag.cfg.NUMBER_OF_COLUMNS div 2):
           let
             recovered_cps =

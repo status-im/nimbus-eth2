@@ -387,7 +387,7 @@ proc processDataColumnSidecar*(
         let cres =
           self.dataColumnQuarantine[].popSidecars(block_root, forkyBlck)
         if cres.isSome():
-          if cres.get().lenu64 >= (self.dag.cfg.NUMBER_OF_COLUMNS div 2):
+          if cres.get().lenu64 > (self.dag.cfg.NUMBER_OF_COLUMNS div 2):
             # We have enough data columns to reconstruct the rest
             let
               recovered_cps = recover_cells_and_proofs(cres.get())
