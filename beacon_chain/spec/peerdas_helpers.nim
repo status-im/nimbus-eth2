@@ -187,7 +187,7 @@ proc recover_matrix*(partial_matrix: seq[MatrixEntry],
   ok(extended_matrix)
 
 proc recover_cells_and_proofs*(
-    data_columns: seq[DataColumnSidecar]):
+    data_columns: seq[ref DataColumnSidecar]):
     Result[seq[CellsAndProofs], cstring] =
 
   # This helper recovers blobs from the data column sidecars
@@ -215,10 +215,10 @@ proc recover_cells_and_proofs*(
       ckzgCells = newSeqOfCap[KzgCell](columnCount)
 
     for col in data_columns:
-      cell_ids.add col.index
+      cell_ids.add col[].index
 
       let
-        column = col.column
+        column = col[].column
         cell = column[bIdx]
 
       ckzgCells.add cell
@@ -236,9 +236,10 @@ proc recover_cells_and_proofs*(
   ok(recovered_cps)
 
 # https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.10/specs/fulu/das-core.md#get_data_column_sidecars
-proc get_data_column_sidecars*(signed_beacon_block: fulu.TrustedSignedBeaconBlock,
-                               cellsAndProofs: seq[CellsAndProofs]):
-                               seq[DataColumnSidecar] =
+proc reconstruct_data_column_sidecars*(
+    signed_beacon_block: fulu.SignedBeaconBlock,
+    cellsAndProofs: seq[CellsAndProofs]):
+    seq[ref DataColumnSidecar] =
   ## Given a trusted signed beacon block and the cells/proofs associated
   ## with each data column (thereby blob as well) corresponding to the block,
   ## this function assembles the sidecars which can be distributed to
@@ -261,11 +262,11 @@ proc get_data_column_sidecars*(signed_beacon_block: fulu.TrustedSignedBeaconBloc
     signed_beacon_block_header =
       SignedBeaconBlockHeader(
         message: beacon_block_header,
-        signature: signed_beacon_block.signature.toValidatorSig)
+        signature: signed_beacon_block.signature)
 
   var
     sidecars =
-      newSeqOfCap[DataColumnSidecar](CELLS_PER_EXT_BLOB)
+      newSeqOfCap[ref DataColumnSidecar](CELLS_PER_EXT_BLOB)
 
   for column_index in 0..<NUMBER_OF_COLUMNS:
     var
@@ -284,7 +285,7 @@ proc get_data_column_sidecars*(signed_beacon_block: fulu.TrustedSignedBeaconBloc
     blck.body.build_proof(
       KZG_COMMITMENTS_INCLUSION_PROOF_DEPTH_GINDEX.GeneralizedIndex,
       sidecar.kzg_commitments_inclusion_proof).expect("Valid gindex")
-    sidecars.add(sidecar)
+    sidecars.add(newClone sidecar)
 
   sidecars
 

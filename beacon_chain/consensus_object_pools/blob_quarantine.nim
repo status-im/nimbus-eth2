@@ -564,6 +564,8 @@ func fetchMissingColumnsByRoot*(
       var columnsRequested = 0
       for column in columns:
         if columnsRequested >= columnsCount:
+          # We don't need to request more than (NUMBER_OF_COLUMNS div 2 + 1)
+          # columns.
           break
         discard missingIndices.add(column)
         inc(columnsRequested)
@@ -573,6 +575,8 @@ func fetchMissingColumnsByRoot*(
       var columnsRequested = 0
       for column in columns:
         if record.count + columnsRequested >= columnsCount:
+          # We don't need to request more than (NUMBER_OF_COLUMNS div 2 + 1)
+          # columns.
           break
         let index = quarantine.getIndex(column)
         if (index == -1) or record.sidecars[index].isNil():

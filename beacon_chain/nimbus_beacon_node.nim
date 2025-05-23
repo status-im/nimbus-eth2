@@ -455,23 +455,25 @@ proc initFullNode(
       withBlck(signedBlock):
         # Keeping Fulu first else >= Deneb means Fulu case never hits
         when consensusFork >= ConsensusFork.Fulu:
-          if dataColumnQuarantine[].hasSidecars(forkyBlck):
-            let lookedupColumns = dataColumnQuarantine[].peekSidecars(forkyBlck.root)
-            if lookedupColumns.lenu64 >= (NUMBER_OF_COLUMNS div 2):
-              # We have enough data columns to reconstruct the rest
-              let
-                recoveredCps = recover_cells_and_proofs(lookedupColumns)
-                reconstructedColumns = get_data_column_sidecars(forkyBlck, recoveredCps.get)
-              for rc in reconstructedColumns:
-                if rc notin lookedupColumns:
-                  dataColumnQuarantine[].put(forkyBlck.root, newClone(rc))
-
           let cres = dataColumnQuarantine[].popSidecars(forkyBlck.root, forkyBlck)
           if cres.isSome():
+            if cres.get().lenu64 >= (NUMBER_OF_COLUMNS div 2):
+              # We have enough data columns to reconstruct the rest
+              let
+                recoveredCps =
+                  recover_cells_and_proofs(cres.get())
+                reconstructedColumns =
+                  reconstruct_data_column_sidecars(forkyBlck, recoveredCps.get)
+
+              return await blockProcessor[].addBlock(MsgSource.gossip, signedBlock,
+                                              Opt.none(BlobSidecars),
+                                              Opt.some(reconstructedColumns),
+                                              maybeFinalized = maybeFinalized)
+
             await blockProcessor[].addBlock(MsgSource.gossip, signedBlock,
-                                            Opt.none(BlobSidecars),
-                                            cres,
-                                            maybeFinalized = maybeFinalized)
+                                      Opt.none(BlobSidecars),
+                                      cres,
+                                      maybeFinalized = maybeFinalized)
           else:
             # We don't have all the columns for this block, so we have
             # to put it in columnless quarantine.

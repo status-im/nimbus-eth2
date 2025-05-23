@@ -384,31 +384,20 @@ proc processDataColumnSidecar*(
     let columnless = o.unsafeGet()
     withBlck(columnless):
       when consensusFork >= ConsensusFork.Fulu:
-        if self.dataColumnQuarantine[].hasSidecars(forkyBlck):
-          let
-            lookedupColumns =
-              self.dataColumnQuarantine[].peekSidecars(forkyBlck.root)
-          if lookedupColumns.lenu64 >= (self.dag.cfg.NUMBER_OF_COLUMNS div 2):
-            # We have enough data columns to reconstruct the block
+        let cres =
+          self.dataColumnQuarantine[].popSidecars(block_root, forkyBlck)
+        if cres.isSome():
+          if cres.get().lenu64 >= (self.dag.cfg.NUMBER_OF_COLUMNS div 2):
+            # We have enough data columns to reconstruct the rest
             let
-              recovered_cps = recover_cells_and_proofs(lookedupColumns)
+              recovered_cps = recover_cells_and_proofs(cres.get())
               reconstructed_columns =
-                get_data_column_sidecars(forkyBlck, recovered_cps.get)
-            for rc in reconstructed_columns:
-              if rc notin lookedupColumns:
-                self.dataColumnQuarantine[].put(block_root, newClone(rc))
+                reconstruct_data_column_sidecars(forkyBlck, recovered_cps.get)
 
-          let cres =
-            self.dataColumnQuarantine[].popSidecars(forkyBlck.root,
-                                                    forkyBlck)
-          if cres.isSome():
             self.blockProcessor[].enqueueBlock(
               MsgSource.gossip, columnless,
               Opt.none(BlobSidecars),
-              cres)
-          else:
-            discard self.quarantine[].addColumnless(self.dag.finalizedHead.slot,
-                                                    forkyBlck)
+              Opt.some(reconstructed_columns))
         else:
           discard self.quarantine[].addColumnless(
             self.dag.finalizedHead.slot, forkyBlck)

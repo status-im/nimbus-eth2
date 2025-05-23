@@ -30,7 +30,7 @@ from ../consensus_object_pools/block_pools_types import
 from ../consensus_object_pools/block_quarantine import
   addBlobless, addColumnless, addOrphan, addUnviable, pop, removeOrphan
 from ../consensus_object_pools/blob_quarantine import
-  BlobQuarantine, ColumnQuarantine, popSidecars, hasSidecars, put
+  BlobQuarantine, ColumnQuarantine, popSidecars, put
 from ../validators/validator_monitor import
   MsgSource, ValidatorMonitor, registerAttestationInBlock, registerBeaconBlock,
   registerSyncAggregateInBlock
@@ -222,7 +222,7 @@ proc storeBackfillBlock(
             (self.consensusManager.dag.cfg.NUMBER_OF_COLUMNS div 2):
           let
             recovered_cps =
-              recover_cells_and_proofs(columns.mapIt(it[]))
+              recover_cells_and_proofs(columns)
             recovered_columns =
               signedBlock.get_data_column_sidecars(recovered_cps.get)
 
@@ -970,16 +970,15 @@ proc storeBlock(
              blck = shortLog(forkyBlck),
              error = res.error()
             continue
-          if self.dataColumnQuarantine[].hasSidecars(forkyBlck):
-            let columns = self.dataColumnQuarantine[].popSidecars(
-              forkyBlck.root, forkyBlck)
-            if columns.isSome:
-              self[].enqueueBlock(
-                MsgSource.gossip, quarantined, Opt.none(BlobSidecars),
-                columns)
-            else:
-              discard self.consensusManager.quarantine[].addBlobless(
-                dag.finalizedHead.slot, forkyBlck)
+          let cres =
+            self.dataColumnQuarantine[].popSidecars(forkyBlck.root, forkyBlck)
+          if cres.isSome:
+            self[].enqueueBlock(
+              MsgSource.gossip, quarantined, Opt.none(BlobSidecars),
+              cres)
+          else:
+            discard self.consensusManager.quarantine[].addBlobless(
+              dag.finalizedHead.slot, forkyBlck)
       elif typeof(forkyBlck).kind >= ConsensusFork.Deneb and
           typeof(forkyBlck).kind < ConsensusFork.Fulu:
         if len(forkyBlck.message.body.blob_kzg_commitments) == 0:
@@ -1002,7 +1001,6 @@ proc storeBlock(
           else:
             discard self.consensusManager.quarantine[].addBlobless(
               dag.finalizedHead.slot, forkyBlck)
-
 
   ok blck.value()
 
