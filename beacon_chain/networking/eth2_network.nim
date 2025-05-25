@@ -2637,7 +2637,7 @@ proc broadcast(node: Eth2Node, topic: string, msg: auto):
 proc subscribeAttestationSubnets*(
     node: Eth2Node, subnets: AttnetBits, forkDigest: ForkDigest,
     topicParams: TopicParams) =
-  # https://github.com/ethereum/consensus-specs/blob/v1.5.0-beta.0/specs/phase0/p2p-interface.md#attestations-and-aggregation
+  # https://github.com/ethereum/consensus-specs/blob/v1.6.0-alpha.0/specs/phase0/p2p-interface.md#attestations-and-aggregation
   for subnet_id, enabled in subnets:
     if enabled:
       node.subscribe(getAttestationTopic(

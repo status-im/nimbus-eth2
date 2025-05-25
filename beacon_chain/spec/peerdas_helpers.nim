@@ -111,7 +111,7 @@ proc compute_matrix*(blobs: seq[KzgBlob]): Result[seq[MatrixEntry], cstring] =
 
   ok(extended_matrix)
 
-# https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.10/specs/fulu/das-core.md#recover_matrix
+# https://github.com/ethereum/consensus-specs/blob/v1.6.0-alpha.0/specs/fulu/das-core.md#recover_matrix
 proc recover_matrix*(partial_matrix: seq[MatrixEntry],
                      blobCount: int):
                      Result[seq[MatrixEntry], cstring] =
