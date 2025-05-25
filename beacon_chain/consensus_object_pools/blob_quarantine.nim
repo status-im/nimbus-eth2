@@ -34,7 +34,7 @@ type
     maxSidecarsCount: int
     maxSidecarsPerBlockCount: int
     sidecarsCount: int
-    custodyColumns: seq[ColumnIndex]
+    custodyColumns*: seq[ColumnIndex]
     custodyMap: ColumnMap
     roots: Table[Eth2Digest, RootTableRecord[A]]
     usage: OrderedSet[Eth2Digest]
@@ -328,6 +328,19 @@ func hasSidecars*(
   ## ``blck`` with block root ``blockRoot``.
   hasSidecars(quarantine, blck.root, blck)
 
+func peekSidecars*(
+    quarantine: ColumnQuarantine,
+    blockRoot: Eth2Digest
+): seq[DataColumnSidecar] =
+  ## Function returns the sidecars stored in the ColumnQuarantine
+  ## for a specific block root ``blockRoot``.
+  let record = quarantine.roots.getOrDefault(blockRoot)
+  if len(record.sidecars) == 0:
+    # Block root not found or sidecars sequence was not initialized.
+    return @[]
+
+  record.sidecars.mapIt(it[]) # Dereference and return the sidecars
+
 func popSidecars*(
     quarantine: var BlobQuarantine,
     blockRoot: Eth2Digest,
@@ -516,6 +529,78 @@ func fetchMissingSidecars*(
           res.add(DataColumnIdentifier(block_root: blockRoot, index: column))
   res
 
+func fetchMissingColumnsByRoot*(
+    quarantine: ColumnQuarantine,
+    blockRoot: Eth2Digest,
+    blck: fulu.SignedBeaconBlock,
+    peerCustodyColumns: openArray[ColumnIndex] = []
+): seq[DataColumnsByRootIdentifier] =
+  ## Function returns a sequence of DataColumnsByRootIdentifier for data columns
+  ## which are missing for the block associated with root ``blockRoot`` and block ``blck``.
+  var res: seq[DataColumnsByRootIdentifier]
+  var missingIndices: DataColumnIndices
+  let record = quarantine.roots.getOrDefault(blockRoot)
+
+  if len(blck.message.body.blob_kzg_commitments) == 0:
+    # Fast-path if block does not have any columns
+    return res
+
+  let
+    supernode = (len(quarantine.custodyColumns) == NUMBER_OF_COLUMNS)
+    columnsCount =
+      if supernode:
+        (NUMBER_OF_COLUMNS div 2 + 1)
+      else:
+        len(quarantine.custodyColumns)
+
+  if supernode:
+    let
+      columns =
+        if len(peerCustodyColumns) > 0:
+          @peerCustodyColumns
+        else:
+          quarantine.custodyColumns
+    if len(record.sidecars) == 0:
+      var columnsRequested = 0
+      for column in columns:
+        if columnsRequested >= columnsCount:
+          # We don't need to request more than (NUMBER_OF_COLUMNS div 2 + 1)
+          # columns.
+          break
+        discard missingIndices.add(column)
+        inc(columnsRequested)
+    else:
+      if record.count >= columnsCount:
+        return res
+      var columnsRequested = 0
+      for column in columns:
+        if record.count + columnsRequested >= columnsCount:
+          # We don't need to request more than (NUMBER_OF_COLUMNS div 2 + 1)
+          # columns.
+          break
+        let index = quarantine.getIndex(column)
+        if (index == -1) or record.sidecars[index].isNil():
+          discard missingIndices.add(column)
+          inc(columnsRequested)
+  else:
+    let peerMap =
+      if len(peerCustodyColumns) > 0:
+        ColumnMap.init(peerCustodyColumns)
+      else:
+        ColumnMap.init(quarantine.custodyColumns)
+    if len(record.sidecars) == 0:
+      for column in (peerMap and quarantine.custodyMap).items():
+        discard missingIndices.add(column)
+    else:
+      for column in (peerMap and quarantine.custodyMap).items():
+        let index = quarantine.getIndex(column)
+        if (index == -1) or (record.sidecars[index].isNil()):
+          discard missingIndices.add(column)
+
+  if missingIndices.len > 0:
+    res.add(DataColumnsByRootIdentifier(block_root: blockRoot, indices: missingIndices))
+  res
+
 func pruneAfterFinalization*[A, B](
     quarantine: var SidecarQuarantine[A, B],
     epoch: Epoch
@@ -575,7 +660,7 @@ func init*(
     T: typedesc[ColumnQuarantine],
     cfg: RuntimeConfig,
     custodyColumns: openArray[ColumnIndex],
-    onBlobSidecarCallback: OnDataColumnSidecarCallback
+    onDataColumnSidecarCallback: OnDataColumnSidecarCallback
 ): ColumnQuarantine =
   doAssert(len(custodyColumns) <= NUMBER_OF_COLUMNS)
   let size = maxSidecars(NUMBER_OF_COLUMNS)
@@ -594,5 +679,5 @@ func init*(
     indexMap: indexMap,
     custodyColumns: @custodyColumns,
     custodyMap: ColumnMap.init(custodyColumns),
-    onSidecarCallback: onBlobSidecarCallback
+    onSidecarCallback: onDataColumnSidecarCallback
   )

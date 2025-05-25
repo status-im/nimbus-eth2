@@ -20,7 +20,7 @@ import
   ../beacon_chain/gossip_processing/block_processor,
   ../beacon_chain/consensus_object_pools/[
     attestation_pool, blockchain_dag, blob_quarantine, block_quarantine,
-    block_clearance, consensus_manager, data_column_quarantine],
+    block_clearance, consensus_manager],
   ../beacon_chain/el/el_manager,
   ./testutil, ./testdbutil, ./testblockutil
 
@@ -50,7 +50,7 @@ suite "Block processor" & preset():
       taskpool = Taskpool.new()
       quarantine = newClone(Quarantine.init())
       blobQuarantine = newClone(BlobQuarantine())
-      dataColumnQuarantine = newClone(DataColumnQuarantine())
+      dataColumnQuarantine = newClone(ColumnQuarantine())
       attestationPool = newClone(AttestationPool.init(dag, quarantine))
       elManager = new ELManager # TODO: initialise this properly
       actionTracker: ActionTracker
