@@ -8,7 +8,7 @@
 {.push raises: [].}
 
 import
-  std/[tables],
+  std/[tables, sequtils],
   chronicles, chronos, metrics,
   taskpools,
   kzg4844/kzg,
@@ -391,9 +391,11 @@ proc validateDataColumnSidecarFromEL*(
             for rc in recovered_columns:
               if rc.index in self.dataColumnQuarantine[].custody_columns:
                 self.dag.db.putDataColumnSidecar(rc)
-                self.dataColumnQuarantine[].put(newClone rc)
+                self.dataColumnQuarantine[].put(block_root, newClone rc)
 
-            if self.dataColumnQuarantine[].hasExactDataColumns(forkyBlck, self.dag.cfg):
+            let cres =
+              self.dataColumnQuarantine[].popSidecars(block_root, forkyBlck)
+            if cres.isSome():
               let end_time = Moment.now()
               debug "Time taken to get 100% response from EL and bypass blob gossip validation",
                     time_taken = end_time - start_time
@@ -402,7 +404,7 @@ proc validateDataColumnSidecarFromEL*(
               self.blockProcessor[].enqueueBlock(
                 MsgSource.gossip, columnless,
                 Opt.none(BlobSidecars),
-                Opt.some(self.dataColumnQuarantine[].popDataColumns(block_root, forkyBlck)))
+                cres)
               return ok()
             else:
               discard self.quarantine[].addColumnless(
@@ -429,7 +431,6 @@ proc processDataColumnSidecar*(
   let
     wallTime = self.getCurrentBeaconTime()
     (_, wallSlot) = wallTime.toSlot()
-    block_root = hash_tree_root(block_header)
 
   logScope:
     dcs = shortLog(dataColumnSidecar)

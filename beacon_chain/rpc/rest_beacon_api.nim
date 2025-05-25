@@ -16,8 +16,8 @@ import
   ../beacon_node,
   ../consensus_object_pools/[blockchain_dag, spec_cache, validator_change_pool],
   ../spec/[
-      peerdas_helpers, deposit_snapshots,
-      eth2_merkleization, forks, network, validator],
+      peerdas_helpers, eth2_merkleization,
+      forks, network, validator],
   ../validators/message_router_mev
 
 from ../spec/mev/bellatrix_mev import toSignedBlindedBeaconBlock
