@@ -150,7 +150,7 @@ typedef struct ETHBeaconState ETHBeaconState;
  * @return `NULL` - If the given `sszBytes` is malformed.
  *
  * @see https://github.com/ethereum/consensus-specs/blob/v1.5.0-beta.0/specs/phase0/beacon-chain.md#beaconstate
- * @see https://github.com/ethereum/consensus-specs/blob/v1.5.0-beta.4/specs/altair/beacon-chain.md#beaconstate
+ * @see https://github.com/ethereum/consensus-specs/blob/v1.6.0-alpha.0/specs/altair/beacon-chain.md#beaconstate
  * @see https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.8/specs/bellatrix/beacon-chain.md#beaconstate
  * @see https://github.com/ethereum/consensus-specs/blob/v1.5.0-beta.2/specs/capella/beacon-chain.md#beaconstate
  * @see https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.9/configs/README.md
@@ -326,7 +326,7 @@ typedef struct ETHLightClientStore ETHLightClientStore;
  * @see https://ethereum.github.io/beacon-APIs/?urls.primaryName=v2.4.1#/Beacon/getLightClientBootstrap
  * @see https://ethereum.github.io/beacon-APIs/?urls.primaryName=v2.4.1#/Events/eventstream
  * @see https://github.com/ethereum/consensus-specs/blob/v1.5.0-beta.0/specs/altair/light-client/light-client.md
- * @see https://github.com/ethereum/consensus-specs/blob/v1.5.0-beta.4/specs/phase0/weak-subjectivity.md#weak-subjectivity-period
+ * @see https://github.com/ethereum/consensus-specs/blob/v1.6.0-alpha.0/specs/phase0/weak-subjectivity.md#weak-subjectivity-period
  */
 ETH_RESULT_USE_CHECK
 ETHLightClientStore *_Nullable ETHLightClientStoreCreateFromBootstrap(
@@ -634,7 +634,7 @@ const ETHLightClientHeader *ETHLightClientStoreGetOptimisticHeader(
  *
  * @return Light client store safety threshold.
  *
- * @see https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.5/specs/altair/light-client/sync-protocol.md#get_safety_threshold
+ * @see https://github.com/ethereum/consensus-specs/blob/v1.6.0-alpha.0/specs/altair/light-client/sync-protocol.md#get_safety_threshold
  */
 ETH_RESULT_USE_CHECK
 int ETHLightClientStoreGetSafetyThreshold(const ETHLightClientStore *store);
@@ -775,7 +775,7 @@ const ETHRoot *ETHBeaconBlockHeaderGetBodyRoot(const ETHBeaconBlockHeader *beaco
  *
  * @return Pointer to a copy of the given header's execution block hash.
  *
- * @see https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.10/specs/deneb/beacon-chain.md#executionpayloadheader
+ * @see https://github.com/ethereum/consensus-specs/blob/v1.6.0-alpha.0/specs/deneb/beacon-chain.md#executionpayloadheader
  */
 ETH_RESULT_USE_CHECK
 ETHRoot *ETHLightClientHeaderCopyExecutionHash(

@@ -158,13 +158,13 @@ func get_shuffled_active_validator_indices*(
   withState(state):
     cache.get_shuffled_active_validator_indices(forkyState.data, epoch)
 
-# https://github.com/ethereum/consensus-specs/blob/v1.5.0-beta.0/specs/phase0/beacon-chain.md#get_active_validator_indices
+# https://github.com/ethereum/consensus-specs/blob/v1.6.0-alpha.0/specs/phase0/beacon-chain.md#get_active_validator_indices
 func count_active_validators*(state: ForkyBeaconState,
                               epoch: Epoch,
                               cache: var StateCache): uint64 =
   cache.get_shuffled_active_validator_indices(state, epoch).lenu64
 
-# https://github.com/ethereum/consensus-specs/blob/v1.4.0/specs/phase0/beacon-chain.md#get_committee_count_per_slot
+# https://github.com/ethereum/consensus-specs/blob/v1.6.0-alpha.0/specs/phase0/beacon-chain.md#get_committee_count_per_slot
 func get_committee_count_per_slot*(num_active_validators: uint64): uint64 =
   clamp(
     num_active_validators div SLOTS_PER_EPOCH div TARGET_COMMITTEE_SIZE,
@@ -189,7 +189,7 @@ iterator get_committee_indices*(committee_count_per_slot: uint64): CommitteeInde
     let committee_index = CommitteeIndex.init(idx).expect("value clamped")
     yield committee_index
 
-# https://github.com/ethereum/consensus-specs/blob/v1.5.0-beta.4/specs/phase0/beacon-chain.md#compute_committee
+# https://github.com/ethereum/consensus-specs/blob/v1.6.0-alpha.0/specs/phase0/beacon-chain.md#compute_committee
 func compute_committee_slice*(
     active_validators, index, count: uint64): Slice[int] =
   doAssert active_validators <= ValidatorIndex.high.uint64
@@ -299,7 +299,7 @@ func get_beacon_committee_len*(
   withState(state):
     get_beacon_committee_len(forkyState.data, slot, index, cache)
 
-# https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.6/specs/phase0/beacon-chain.md#compute_shuffled_index
+# https://github.com/ethereum/consensus-specs/blob/v1.6.0-alpha.0/specs/phase0/beacon-chain.md#compute_shuffled_index
 template compute_shuffled_index_aux(
     index: uint64, index_count: uint64, seed: Eth2Digest, iter: untyped):
     uint64 =
@@ -439,7 +439,7 @@ func compute_proposer_index(state: ForkyBeaconState,
   ## Return from ``indices`` a random index sampled by effective balance.
   compute_proposer_index(state, indices, seed, shuffled_index)
 
-# https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.8/specs/phase0/beacon-chain.md#get_beacon_proposer_index
+# https://github.com/ethereum/consensus-specs/blob/v1.6.0-alpha.0/specs/phase0/beacon-chain.md#get_beacon_proposer_index
 func get_beacon_proposer_index*(
     state: ForkyBeaconState, cache: var StateCache, slot: Slot):
     Opt[ValidatorIndex] =
@@ -474,7 +474,7 @@ func get_beacon_proposer_index*(
 
     return res
 
-# https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.6/specs/phase0/beacon-chain.md#get_beacon_proposer_index
+# https://github.com/ethereum/consensus-specs/blob/v1.6.0-alpha.0/specs/phase0/beacon-chain.md#get_beacon_proposer_index
 func get_beacon_proposer_indices*(
     state: ForkyBeaconState, shuffled_indices: openArray[ValidatorIndex], epoch: Epoch):
     seq[Opt[ValidatorIndex]] =
