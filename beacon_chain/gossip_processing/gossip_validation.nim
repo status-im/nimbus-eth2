@@ -105,7 +105,7 @@ func check_propagation_slot_range(
         pastSlot.slot:
       return errIgnore("Attestation slot in the past")
   else:
-    # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.2/specs/deneb/p2p-interface.md#beacon_attestation_subnet_id
+    # https://github.com/ethereum/consensus-specs/blob/v1.6.0-alpha.0/specs/deneb/p2p-interface.md#beacon_attestation_subnet_id
     # "[IGNORE] the epoch of attestation.data.slot is either the current or
     # previous epoch (with a MAXIMUM_GOSSIP_CLOCK_DISPARITY allowance) -- i.e.
     # compute_epoch_at_slot(attestation.data.slot) in
@@ -304,7 +304,7 @@ template validateBeaconBlockBellatrix(
     _: BlockRef): untyped =
   discard
 
-# https://github.com/ethereum/consensus-specs/blob/v1.3.0/specs/bellatrix/p2p-interface.md#beacon_block
+# https://github.com/ethereum/consensus-specs/blob/v1.6.0-alpha.0/specs/bellatrix/p2p-interface.md#beacon_block
 template validateBeaconBlockBellatrix(
     signed_beacon_block:
       bellatrix.SignedBeaconBlock | capella.SignedBeaconBlock |

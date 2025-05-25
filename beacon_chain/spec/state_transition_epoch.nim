@@ -377,7 +377,7 @@ proc weigh_justification_and_finalization(
 
   res
 
-# https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.6/specs/phase0/beacon-chain.md#justification-and-finalization
+# https://github.com/ethereum/consensus-specs/blob/v1.6.0-alpha.0/specs/phase0/beacon-chain.md#justification-and-finalization
 proc process_justification_and_finalization*(
     state: var phase0.BeaconState,
     balances: TotalBalances, flags: UpdateFlags = {}) =
@@ -638,7 +638,7 @@ func get_attestation_deltas(
         info.validators[proposer_index].delta.add(
           proposer_delta.get()[1])
 
-# https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.9/specs/altair/beacon-chain.md#get_base_reward
+# https://github.com/ethereum/consensus-specs/blob/v1.6.0-alpha.0/specs/altair/beacon-chain.md#get_base_reward
 func get_base_reward_increment*(
     state: altair.BeaconState | bellatrix.BeaconState | capella.BeaconState |
            deneb.BeaconState | electra.BeaconState | fulu.BeaconState,
@@ -1480,7 +1480,7 @@ proc process_epoch*(
   # https://github.com/ethereum/consensus-specs/blob/v1.5.0-beta.0/specs/phase0/beacon-chain.md#registry-updates
   ? process_registry_updates(cfg, state, cache)
 
-  # https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.9/specs/altair/beacon-chain.md#slashings
+  # https://github.com/ethereum/consensus-specs/blob/v1.6.0-alpha.0/specs/altair/beacon-chain.md#slashings
   process_slashings(state, info.balances.current_epoch)  # [Modified in Altair]
 
   process_eth1_data_reset(state)
@@ -1537,7 +1537,7 @@ proc process_epoch*(
 
   ok()
 
-# https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.1/specs/electra/beacon-chain.md#epoch-processing
+# https://github.com/ethereum/consensus-specs/blob/v1.6.0-alpha.0/specs/electra/beacon-chain.md#epoch-processing
 proc process_epoch*(
     cfg: RuntimeConfig, state: var (electra.BeaconState | fulu.BeaconState),
     flags: UpdateFlags, cache: var StateCache, info: var altair.EpochInfo):
@@ -1567,7 +1567,7 @@ proc process_epoch*(
   # https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.8/specs/phase0/beacon-chain.md#registry-updates
   ? process_registry_updates(cfg, state, cache)  # [Modified in Electra:EIP7251]
 
-  # https://github.com/ethereum/consensus-specs/blob/v1.4.0/specs/altair/beacon-chain.md#slashings
+  # https://github.com/ethereum/consensus-specs/blob/v1.6.0-alpha.0/specs/altair/beacon-chain.md#slashings
   process_slashings(state, info.balances.current_epoch)
 
   process_eth1_data_reset(state)

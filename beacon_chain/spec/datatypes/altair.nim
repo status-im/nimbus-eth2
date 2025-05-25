@@ -60,7 +60,7 @@ const
   # The first member (`genesis_time`) is 32, subsequent members +1 each.
   # If there are ever more than 32 members in `BeaconState`, indices change!
   # `FINALIZED_ROOT_GINDEX` is one layer deeper, i.e., `52 * 2 + 1`.
-  # https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.3/ssz/merkle-proofs.md
+  # https://github.com/ethereum/consensus-specs/blob/v1.6.0-alpha.0/ssz/merkle-proofs.md
   # finalized_checkpoint > root
   FINALIZED_ROOT_GINDEX* = 105.GeneralizedIndex
   # current_sync_committee
@@ -455,7 +455,7 @@ type
 
   SyncnetBits* = BitArray[SYNC_COMMITTEE_SUBNET_COUNT]
 
-  # https://github.com/ethereum/consensus-specs/blob/v1.4.0/specs/altair/p2p-interface.md#metadata
+  # https://github.com/ethereum/consensus-specs/blob/v1.6.0-alpha.0/specs/altair/p2p-interface.md#metadata
   MetaData* = object
     seq_number*: uint64
     attnets*: AttnetBits
