@@ -332,11 +332,8 @@ when const_preset == "mainnet":
     # https://github.com/ethereum/consensus-specs/blob/v1.6.0-alpha.0/specs/fulu/das-core.md#get_max_blobs_per_block
     # provides sorting rules.
     BLOB_SCHEDULE: @[
-      BPOForkInfo(EPOCH: 5.Epoch, MAX_BLOBS_PER_BLOCK: 9),
-      BPOForkInfo(EPOCH: 4.Epoch, MAX_BLOBS_PER_BLOCK: 18),
-      BPOForkInfo(EPOCH: 3.Epoch, MAX_BLOBS_PER_BLOCK: 9),
-      BPOForkInfo(EPOCH: 2.Epoch, MAX_BLOBS_PER_BLOCK: 6),
-      BPOForkInfo(EPOCH: 1.Epoch, MAX_BLOBS_PER_BLOCK: 12)],
+      BPOForkInfo(EPOCH: 364032.Epoch, MAX_BLOBS_PER_BLOCK: 9),
+      BPOForkInfo(EPOCH: 269568.Epoch, MAX_BLOBS_PER_BLOCK: 6)],
   )
 
 elif const_preset == "gnosis":
@@ -675,11 +672,8 @@ elif const_preset == "minimal":
     # https://github.com/ethereum/consensus-specs/blob/v1.6.0-alpha.0/specs/fulu/das-core.md#get_max_blobs_per_block
     # provides sorting rules.
     BLOB_SCHEDULE: @[
-      BPOForkInfo(EPOCH: 5.Epoch, MAX_BLOBS_PER_BLOCK: 9),
-      BPOForkInfo(EPOCH: 4.Epoch, MAX_BLOBS_PER_BLOCK: 18),
-      BPOForkInfo(EPOCH: 3.Epoch, MAX_BLOBS_PER_BLOCK: 9),
-      BPOForkInfo(EPOCH: 2.Epoch, MAX_BLOBS_PER_BLOCK: 6),
-      BPOForkInfo(EPOCH: 1.Epoch, MAX_BLOBS_PER_BLOCK: 12)],
+      BPOForkInfo(EPOCH: FAR_FUTURE_EPOCH, MAX_BLOBS_PER_BLOCK: 6),
+      BPOForkInfo(EPOCH: FAR_FUTURE_EPOCH, MAX_BLOBS_PER_BLOCK: 9)],
   )
 
 else:
@@ -776,64 +770,76 @@ proc readRuntimeConfig*(
   for name, field in cfg.fieldPairs():
     names.add name
 
-  var
-    values: Table[string, string]
-    blobScheduleEntries: seq[BPOForkInfo]
-    inBlobSchedule = false
-    currentBPO: BPOForkInfo
-
+  var values: Table[string, string]
   for line in splitLines(fileContent):
     inc lineNum
     if line.len == 0 or line[0] == '#': continue
     # remove any trailing comments
-    let cleanLine = line.split("#")[0].strip()
-
-    # Handle BLOB_SCHEDULE section
-    if cleanLine == "BLOB_SCHEDULE:":
-      inBlobSchedule = true
-      continue
-
-    if inBlobSchedule:
-      if cleanLine.startsWith("  - EPOCH:"):
-        # Start new BPO entry, save previous if exists
-        if currentBPO.EPOCH.uint64 != 0.uint64:
-          blobScheduleEntries.add(currentBPO)
-        currentBPO = BPOForkInfo()
-        let epochStr = cleanLine.split(":")[1].strip()
-        try:
-          currentBPO.EPOCH = Epoch(parse(uint64, epochStr))
-        except ValueError:
-          raise (ref PresetFileError)(msg: "Unable to parse EPOCH value in BLOB_SCHEDULE: " & epochStr)
-        continue
-      elif cleanLine.startsWith("    MAX_BLOBS_PER_BLOCK:"):
-        let maxBlobsStr = cleanLine.split(":")[1].strip()
-        try:
-          currentBPO.MAX_BLOBS_PER_BLOCK = parse(uint64, maxBlobsStr)
-        except ValueError:
-          raise (ref PresetFileError)(msg: "Unable to parse MAX_BLOBS_PER_BLOCK value in BLOB_SCHEDULE: " & maxBlobsStr)
-        continue
-      elif not cleanLine.startsWith("  ") and
-          not cleanLine.startsWith("    "):
-        # End of BLOB_SCHEDULE section
-        if currentBPO.EPOCH.uint64 != 0.uint64:
-          blobScheduleEntries.add(currentBPO)
-          currentBPO = BPOForkInfo()
-        inBlobSchedule = false
-        # Fall through to process this line normally
-
-    # Skip if still in BLOB_SCHEDULE section
-    if inBlobSchedule:
-      continue
-
-    let lineParts = cleanLine.split(":")
+    let line = line.split("#")[0]
+    let lineParts = line.split(":")
     if lineParts.len != 2:
       fail "Invalid syntax: A preset file should include only assignments in the form 'ConstName: Value'"
 
     if lineParts[0] in ignoredValues: continue
 
     values[lineParts[0]] = lineParts[1].strip
+  # Accumulate BLOB_SCHEDULE entries
+  var
+    blobScheduleEntries: seq[BPOForkInfo]
+    inBlobSchedule = false
+    currentBPO: BPOForkInfo
 
-  # Don't forget the last BPO entry if we ended in BLOB_SCHEDULE
+  for rawLine in splitLines(fileContent):
+    inc lineNum
+    # Skip blank lines or full-line comments
+    if rawLine.len == 0 or rawLine[0] == '#':
+      continue
+
+    # Remove trailing comments but preserve leading whitespace for indentation
+    let noComment = rawLine.split("#")[0]
+    let clean = noComment.strip()
+
+    # Enter the BLOB_SCHEDULE block
+    if clean == "BLOB_SCHEDULE:":
+      inBlobSchedule = true
+      continue
+
+    if inBlobSchedule:
+      let entry = strip(noComment, leading=true, trailing=false)
+      if entry.startsWith("- EPOCH:"):
+        if currentBPO.EPOCH.uint64 != 0.uint64:
+          blobScheduleEntries.add(currentBPO)
+        currentBPO = BPOForkInfo()
+        let epochStr = entry.split(":")[1].strip()
+        try:
+          currentBPO.EPOCH = Epoch(parse(uint64, epochStr))
+        except ValueError:
+          fail("Unable to parse EPOCH: " & epochStr)
+        continue
+      elif entry.startsWith("MAX_BLOBS_PER_BLOCK:"):
+        let maxStr = entry.split(":")[1].strip()
+        try:
+          currentBPO.MAX_BLOBS_PER_BLOCK = parse(uint64, maxStr)
+        except ValueError:
+          fail("Unable to parse MAX_BLOBS_PER_BLOCK: " & maxStr)
+        continue
+      # Exit section on non-indented line
+      elif noComment[0] notin {' ', '\t'}:
+        if currentBPO.EPOCH.uint64 != 0.uint64:
+          blobScheduleEntries.add(currentBPO)
+        inBlobSchedule = false
+      else:
+        continue
+
+    # Handle normal key: value assignments
+    if not inBlobSchedule:
+      let parts = clean.split(":")
+      if parts.len != 2:
+        fail("Invalid syntax: expected 'Key: Value'")
+      if parts[0] notin ignoredValues:
+        values[parts[0]] = parts[1].strip()
+
+  # Finalize last BPO entry if file ended inside schedule
   if inBlobSchedule and currentBPO.EPOCH.uint64 != 0.uint64:
     blobScheduleEntries.add(currentBPO)
 
@@ -955,18 +961,13 @@ proc readRuntimeConfig*(
   for name, field in cfg.fieldPairs():
     if name in values:
       when field is seq[BPOForkInfo]:
-        # Use the parsed BLOB_SCHEDULE entries
-        field = blobScheduleEntries
+        discard
       else:
         try:
           field = parse(typeof(field), values[name])
           values.del name
         except ValueError:
           raise (ref PresetFileError)(msg: "Unable to parse " & name)
-    elif name == "BLOB_SCHEDULE":
-      # Set the BLOB_SCHEDULE field with parsed entries
-      when field is seq[BPOForkInfo]:
-        field = blobScheduleEntries
 
   if cfg.PRESET_BASE != const_preset:
     raise (ref PresetIncompatibleError)(
