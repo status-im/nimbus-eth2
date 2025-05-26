@@ -332,8 +332,11 @@ when const_preset == "mainnet":
     # https://github.com/ethereum/consensus-specs/blob/v1.6.0-alpha.0/specs/fulu/das-core.md#get_max_blobs_per_block
     # provides sorting rules.
     BLOB_SCHEDULE: @[
-      BPOForkInfo(EPOCH: 364032.Epoch, MAX_BLOBS_PER_BLOCK: 9),
-      BPOForkInfo(EPOCH: 269568.Epoch, MAX_BLOBS_PER_BLOCK: 6)],
+      BPOForkInfo(EPOCH: 5.Epoch, MAX_BLOBS_PER_BLOCK: 9),
+      BPOForkInfo(EPOCH: 4.Epoch, MAX_BLOBS_PER_BLOCK: 18),
+      BPOForkInfo(EPOCH: 3.Epoch, MAX_BLOBS_PER_BLOCK: 9),
+      BPOForkInfo(EPOCH: 2.Epoch, MAX_BLOBS_PER_BLOCK: 6),
+      BPOForkInfo(EPOCH: 1.Epoch, MAX_BLOBS_PER_BLOCK: 12)],
   )
 
 elif const_preset == "gnosis":
@@ -672,8 +675,11 @@ elif const_preset == "minimal":
     # https://github.com/ethereum/consensus-specs/blob/v1.6.0-alpha.0/specs/fulu/das-core.md#get_max_blobs_per_block
     # provides sorting rules.
     BLOB_SCHEDULE: @[
-      BPOForkInfo(EPOCH: FAR_FUTURE_EPOCH, MAX_BLOBS_PER_BLOCK: 6),
-      BPOForkInfo(EPOCH: FAR_FUTURE_EPOCH, MAX_BLOBS_PER_BLOCK: 9)],
+      BPOForkInfo(EPOCH: 5.Epoch, MAX_BLOBS_PER_BLOCK: 9),
+      BPOForkInfo(EPOCH: 4.Epoch, MAX_BLOBS_PER_BLOCK: 18),
+      BPOForkInfo(EPOCH: 3.Epoch, MAX_BLOBS_PER_BLOCK: 9),
+      BPOForkInfo(EPOCH: 2.Epoch, MAX_BLOBS_PER_BLOCK: 6),
+      BPOForkInfo(EPOCH: 1.Epoch, MAX_BLOBS_PER_BLOCK: 12)],
   )
 
 else:
