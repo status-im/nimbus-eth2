@@ -800,6 +800,7 @@ proc readRuntimeConfig*(
     let clean = noComment.strip()
 
     # Enter the BLOB_SCHEDULE block
+    # Begin BLOB_SCHEDULE section
     if clean == "BLOB_SCHEDULE:":
       inBlobSchedule = true
       continue
@@ -831,15 +832,16 @@ proc readRuntimeConfig*(
       else:
         continue
 
-    # Handle normal key: value assignments
+    # Key: Value parsing
     if not inBlobSchedule:
       let parts = clean.split(":")
       if parts.len != 2:
         fail("Invalid syntax: expected 'Key: Value'")
-      if parts[0] notin ignoredValues:
-        values[parts[0]] = parts[1].strip()
+      let key = parts[0]
+      if key notin ignoredValues:
+        values[key] = parts[1].strip()
 
-  # Finalize last BPO entry if file ended inside schedule
+  # Final BLOB_SCHEDULE entry
   if inBlobSchedule and currentBPO.EPOCH.uint64 != 0.uint64:
     blobScheduleEntries.add(currentBPO)
 
@@ -959,15 +961,18 @@ proc readRuntimeConfig*(
   checkCompatibility REORG_MAX_EPOCHS_SINCE_FINALIZATION
 
   for name, field in cfg.fieldPairs():
-    if name in values:
+    if values.hasKey(name):
       when field is seq[BPOForkInfo]:
-        discard
+        field = blobScheduleEntries
       else:
         try:
           field = parse(typeof(field), values[name])
-          values.del name
         except ValueError:
-          raise (ref PresetFileError)(msg: "Unable to parse " & name)
+          fail("Unable to parse " & name)
+      values.del(name)
+    elif name == "BLOB_SCHEDULE":
+      when field is seq[BPOForkInfo]:
+        field = blobScheduleEntries
 
   if cfg.PRESET_BASE != const_preset:
     raise (ref PresetIncompatibleError)(
