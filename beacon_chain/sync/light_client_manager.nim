@@ -112,7 +112,7 @@ proc isGossipSupported*(
     finalizedPeriod = self.getFinalizedPeriod(),
     isNextSyncCommitteeKnown = self.isNextSyncCommitteeKnown())
 
-# https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.5/specs/altair/light-client/p2p-interface.md#getlightclientbootstrap
+# https://github.com/ethereum/consensus-specs/blob/v1.6.0-alpha.0/specs/altair/light-client/p2p-interface.md#getlightclientbootstrap
 proc doRequest(
     e: typedesc[Bootstrap],
     peer: Peer,
@@ -120,7 +120,7 @@ proc doRequest(
 ): Future[NetRes[ForkedLightClientBootstrap]] {.async: (raises: [CancelledError], raw: true).} =
   peer.lightClientBootstrap(blockRoot)
 
-# https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.5/specs/altair/light-client/p2p-interface.md#lightclientupdatesbyrange
+# https://github.com/ethereum/consensus-specs/blob/v1.6.0-alpha.0/specs/altair/light-client/p2p-interface.md#lightclientupdatesbyrange
 type LightClientUpdatesByRangeResponse =
   NetRes[List[ForkedLightClientUpdate, MAX_REQUEST_LIGHT_CLIENT_UPDATES]]
 proc doRequest(
@@ -138,7 +138,7 @@ proc doRequest(
       raise newException(ResponseError, e.error)
   return response
 
-# https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.5/specs/altair/light-client/p2p-interface.md#getlightclientfinalityupdate
+# https://github.com/ethereum/consensus-specs/blob/v1.6.0-alpha.0/specs/altair/light-client/p2p-interface.md#getlightclientfinalityupdate
 proc doRequest(
     e: typedesc[FinalityUpdate],
     peer: Peer

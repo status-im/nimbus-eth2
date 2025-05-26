@@ -59,7 +59,7 @@ func initialize_light_client_store*(
     current_sync_committee: bootstrap.current_sync_committee,
     optimistic_header: bootstrap.header))
 
-# https://github.com/ethereum/consensus-specs/blob/v1.5.0-beta.4/specs/altair/light-client/sync-protocol.md#validate_light_client_update
+# https://github.com/ethereum/consensus-specs/blob/v1.6.0-alpha.0/specs/altair/light-client/sync-protocol.md#validate_light_client_update
 proc validate_light_client_update*(
     store: ForkyLightClientStore,
     update: SomeForkyLightClientUpdate,
