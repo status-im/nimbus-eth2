@@ -776,10 +776,11 @@ proc readRuntimeConfig*(
   for name, field in cfg.fieldPairs():
     names.add name
 
-  var values: Table[string, string]
-  var blobScheduleEntries: seq[BPOForkInfo]
-  var inBlobSchedule = false
-  var currentBPO: BPOForkInfo
+  var
+    values: Table[string, string]
+    blobScheduleEntries: seq[BPOForkInfo]
+    inBlobSchedule = false
+    currentBPO: BPOForkInfo
 
   for line in splitLines(fileContent):
     inc lineNum
@@ -811,7 +812,8 @@ proc readRuntimeConfig*(
         except ValueError:
           raise (ref PresetFileError)(msg: "Unable to parse MAX_BLOBS_PER_BLOCK value in BLOB_SCHEDULE: " & maxBlobsStr)
         continue
-      elif not cleanLine.startsWith("  ") and not cleanLine.startsWith("    "):
+      elif not cleanLine.startsWith("  ") and
+          not cleanLine.startsWith("    "):
         # End of BLOB_SCHEDULE section
         if currentBPO.EPOCH.uint64 != 0.uint64:
           blobScheduleEntries.add(currentBPO)
