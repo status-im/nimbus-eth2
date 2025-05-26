@@ -830,10 +830,10 @@ proc push*[T](
 
       sr.item.updateStats(SyncResponseKind.Empty, 1'u64)
       inc(sq.requests[position.qindex].voidsCount)
-      # With empty response - move forward only when `requestsCount`
-      # number of different peers returns empty response for the same range.
+      sq.gapList.add(GapItem.init(sr))
+      # With empty response - advance only when `requestsCount` of different
+      # peers returns empty response for the same range.
       if sq.requests[position.qindex].voidsCount >= sq.requestsCount:
-        sq.gapList.add(GapItem.init(sr))
         sq.advanceQueue()
 
     of SyncProcessError.Duplicate:
