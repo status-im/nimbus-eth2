@@ -294,7 +294,16 @@ template checkedReject(
   pool.dag.checkedReject(error)
 
 func getMaxBlobsPerBlock(cfg: RuntimeConfig, slot: Slot): uint64 =
-  if slot >= cfg.ELECTRA_FORK_EPOCH.start_slot:
+  if slot >= cfg.FULU_FORK_EPOCH.start_slot:
+    let
+      epoch: Epoch = Epoch(uint64(slot) div SLOTS_PER_EPOCH)
+      maxBlobs = get_max_blobs_per_block_bpo(cfg, epoch)
+    if maxBlobs.isSome():
+      maxBlobs.get()
+    else:
+      # If the max blobs per block is not set, use the default value
+      cfg.MAX_BLOBS_PER_BLOCK_ELECTRA
+  elif slot >= cfg.ELECTRA_FORK_EPOCH.start_slot:
     cfg.MAX_BLOBS_PER_BLOCK_ELECTRA
   else:
     cfg.MAX_BLOBS_PER_BLOCK

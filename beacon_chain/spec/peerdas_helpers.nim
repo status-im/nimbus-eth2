@@ -558,3 +558,21 @@ func get_validators_custody_requirement*(cfg: RuntimeConfig, state: fulu.BeaconS
   let count = total_node_balance div BALANCE_PER_ADDITIONAL_CUSTODY_GROUP
   min(max(count.uint64, cfg.VALIDATOR_CUSTODY_REQUIREMENT),
       cfg.NUMBER_OF_CUSTODY_GROUPS.uint64)
+
+# https://github.com/ethereum/consensus-specs/blob/v1.6.0-alpha.0/specs/fulu/das-core.md#get_max_blobs_per_block
+func get_max_blobs_per_block_bpo*(cfg: RuntimeConfig, epoch: Epoch): Opt[uint64] =
+  ## Return the maximum number of blobs that can be included in a block for a
+  ## given epoch.
+  if not len(cfg.BLOB_SCHEDULE) > 0:
+    return Opt.none(uint64)
+
+  # Spec version of function sorts every time, which should happen only once at
+  # loading.
+  for entry in cfg.BLOB_SCHEDULE:
+    if epoch >= entry.EPOCH:
+      return Opt.some entry.MAX_BLOBS_PER_BLOCK
+
+  # This is effectively a constant per node instance.
+  Opt.some foldl(
+    cfg.BLOB_SCHEDULE, min(a, b.MAX_BLOBS_PER_BLOCK),
+    cfg.BLOB_SCHEDULE[0].MAX_BLOBS_PER_BLOCK)
