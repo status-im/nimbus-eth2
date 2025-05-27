@@ -696,12 +696,6 @@ proc validateDataColumnSidecar*(
     if r.isErr:
       return dag.checkedReject(r.error)
 
-  # Send notification about new data column sidecar via callback
-  let onDataColumnSidecarCallback =
-    dataColumnQuarantine[].onDataColumnSidecarCallback()
-  if not(isNil(onDataColumnSidecarCallback)):
-    onDataColumnSidecarCallback data_column_sidecar
-
   ok()
 
 # https://github.com/ethereum/consensus-specs/blob/v1.3.0/specs/phase0/p2p-interface.md#beacon_block
