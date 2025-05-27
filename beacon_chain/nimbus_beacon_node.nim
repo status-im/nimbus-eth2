@@ -302,8 +302,6 @@ proc initFullNode(
     node.eventBus.electraAttSlashQueue.emit(data)
   proc onBlobSidecarAdded(data: BlobSidecarInfoObject) =
     node.eventBus.blobSidecarQueue.emit(data)
-  proc onDataColumnSidecarCallback(data: DataColumnSidecar) =
-    node.eventBus.columnSidecarQueue.emit(data)
   proc onBlockAdded(data: ForkedTrustedSignedBeaconBlock) =
     let optimistic =
       if node.currentSlot().epoch() >= dag.cfg.BELLATRIX_FORK_EPOCH:
@@ -417,7 +415,7 @@ proc initFullNode(
         max(dag.cfg.SAMPLES_PER_SLOT.uint64,
             localCustodyGroups))
     dataColumnQuarantine = newClone(ColumnQuarantine.init(
-      dag.cfg, custodyColumns, onDataColumnSidecarCallback))
+      dag.cfg, custodyColumns))
     custody_columns_set =
       dataColumnQuarantine[].custodyColumns.toHashSet()
     custody_columns_list =
