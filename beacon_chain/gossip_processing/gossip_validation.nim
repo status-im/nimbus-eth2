@@ -846,7 +846,7 @@ proc validateBeaconBlock*(
   # validation.
   validateBeaconBlockBellatrix(signed_beacon_block, parent)
 
-  dag.validateBeaconBlockDeneb(signed_beacon_block, wallTime)
+  # dag.validateBeaconBlockDeneb(signed_beacon_block, wallTime)
 
   # [REJECT] The block is from a higher slot than its parent.
   if not (signed_beacon_block.message.slot > parent.bid.slot):
