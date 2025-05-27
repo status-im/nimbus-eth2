@@ -729,8 +729,11 @@ proc storeBlock(
 
   when typeof(signedBlock).kind >= ConsensusFork.Fulu:
     if dataColumnsOpt.isSome:
-      let columns0 = dataColumnsOpt.get()
-      if columns0.len > 0:
+      let
+        columns0 = dataColumnsOpt.get()
+        supernodeCount = self.consensusManager.dag.cfg.NUMBER_OF_COLUMNS
+      if columns0.lenu64 > (supernodeCount div 2) and
+          columns0.lenu64 < supernodeCount:
         let
           recovered_cps =
             recover_cells_and_proofs(columns0)
@@ -746,6 +749,21 @@ proc storeBlock(
               debug "data column validation failed",
                 blockRoot = shortLog(signedBlock.root),
                 column_sidecar = shortLog(columns[i][]),
+                blck = shortLog(signedBlock.message),
+                signature = shortLog(signedBlock.signature),
+                msg = r.error()
+              return err((VerifierError.Invalid, ProcessingStatus.completed))
+
+      else:
+        let kzgCommits = signedBlock.message.body.blob_kzg_commitments.asSeq
+        if columns0.len > 0 and kzgCommits.len > 0:
+          for i in 0..<columns0.len:
+            let r =
+              verify_data_column_sidecar_kzg_proofs(columns0[i][])
+            if r.isErr:
+              debug "data column validation failed",
+                blockRoot = shortLog(signedBlock.root),
+                column_sidecar = shortLog(columns0[i][]),
                 blck = shortLog(signedBlock.message),
                 signature = shortLog(signedBlock.signature),
                 msg = r.error()
