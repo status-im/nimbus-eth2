@@ -729,26 +729,27 @@ proc storeBlock(
 
   when typeof(signedBlock).kind >= ConsensusFork.Fulu:
     if dataColumnsOpt.isSome:
-      let
-        columns0 = dataColumnsOpt.get()
-        recovered_cps =
-          recover_cells_and_proofs(columns0)
-        columns =
-          signedBlock.reconstruct_data_column_sidecars(recovered_cps.get)
+      let columns0 = dataColumnsOpt.get()
+      if columns0.len > 0:
+        let
+          recovered_cps =
+            recover_cells_and_proofs(columns0)
+          columns =
+            signedBlock.reconstruct_data_column_sidecars(recovered_cps.get)
 
-      let kzgCommits = signedBlock.message.body.blob_kzg_commitments.asSeq
-      if columns.len > 0 and kzgCommits.len > 0:
-        for i in 0..<columns.len:
-          let r =
-            verify_data_column_sidecar_kzg_proofs(columns[i][])
-          if r.isErr:
-            debug "data column validation failed",
-              blockRoot = shortLog(signedBlock.root),
-              column_sidecar = shortLog(columns[i][]),
-              blck = shortLog(signedBlock.message),
-              signature = shortLog(signedBlock.signature),
-              msg = r.error()
-            return err((VerifierError.Invalid, ProcessingStatus.completed))
+        let kzgCommits = signedBlock.message.body.blob_kzg_commitments.asSeq
+        if columns.len > 0 and kzgCommits.len > 0:
+          for i in 0..<columns.len:
+            let r =
+              verify_data_column_sidecar_kzg_proofs(columns[i][])
+            if r.isErr:
+              debug "data column validation failed",
+                blockRoot = shortLog(signedBlock.root),
+                column_sidecar = shortLog(columns[i][]),
+                blck = shortLog(signedBlock.message),
+                signature = shortLog(signedBlock.signature),
+                msg = r.error()
+              return err((VerifierError.Invalid, ProcessingStatus.completed))
   # TODO with v1.4.0, not sure this is still relevant
   # Establish blob viability before calling addHeadBlock to avoid
   # writing the block in case of blob error.
