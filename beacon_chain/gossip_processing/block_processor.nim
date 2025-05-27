@@ -283,7 +283,8 @@ proc storeBackfillBlock(
     self.consensusManager.dag.db.putBlobSidecar(b[])
 
   # Only store data columns after successfully establishing block validity
-  let columns = dataColumnsOpt.valueOr: DataColumnSidecars @[]
+  let
+    columns = dataColumnsOpt.valueOr: DataColumnSidecars @[]
   for c in columns:
     self.consensusManager.dag.db.putDataColumnSidecar(c[])
 
@@ -728,7 +729,13 @@ proc storeBlock(
 
   when typeof(signedBlock).kind >= ConsensusFork.Fulu:
     if dataColumnsOpt.isSome:
-      let columns = dataColumnsOpt.get()
+      let
+        columns0 = dataColumnsOpt.get()
+        recovered_cps =
+          recover_cells_and_proofs(columns0)
+        columns =
+          signedBlock.reconstruct_data_column_sidecars(recovered_cps.get)
+
       let kzgCommits = signedBlock.message.body.blob_kzg_commitments.asSeq
       if columns.len > 0 and kzgCommits.len > 0:
         for i in 0..<columns.len:
