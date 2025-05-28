@@ -375,7 +375,6 @@ proc validateDataColumnSidecarFromEL*(
 
             # we have received all columns from the EL
             # hence we can safely remove the columnless block from quarantine
-            self.quarantine[].removeColumnless(forkyBlck)
             var flat_proof: seq[kzg.KzgProof] = @[]
             for item in blobsEl:
               for proof in item.proofs:
