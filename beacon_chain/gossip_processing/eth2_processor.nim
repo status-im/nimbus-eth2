@@ -388,32 +388,28 @@ proc validateDataColumnSidecarFromEL*(
                   blobsEl.mapIt(kzg.KzgBlob(bytes: it.blob.data)),
                   flat_proof)
 
-            for rc in recovered_columns:
-              if rc.index in self.dataColumnQuarantine[].custody_columns:
-                self.dag.db.putDataColumnSidecar(rc)
-                self.dataColumnQuarantine[].put(block_root, newClone rc)
+            # Pop out the column sidecars as we have all columns from the EL
+            discard self.dataColumnQuarantine[].popSidecars(block_root,
+                                                            forkyBlck)
 
-            let cres =
-              self.dataColumnQuarantine[].popSidecars(block_root, forkyBlck)
-            if cres.isSome():
-              let end_time = Moment.now()
-              debug "Time taken to get 100% response from EL and bypass blob gossip validation",
-                    time_taken = end_time - start_time
-              debug "Pulled blobs from EL, bypassing blob gossip validation",
-                    blobs_from_el = blobsEl.len
-              self.blockProcessor[].enqueueBlock(
-                MsgSource.gossip, columnless,
-                Opt.none(BlobSidecars),
-                cres)
-              return ok()
-            else:
-              discard self.quarantine[].addColumnless(
-                self.dag.finalizedHead.slot, forkyBlck)
+            let end_time = Moment.now()
+            debug "Time taken to get 100% response from EL and bypass blob gossip validation",
+                  time_taken = end_time - start_time
+            debug "Pulled blobs from EL, bypassing blob gossip validation",
+                  blobs_from_el = blobsEl.len
+            self.blockProcessor[].enqueueBlock(
+              MsgSource.gossip, columnless,
+              Opt.none(BlobSidecars),
+              Opt.some(recovered_columns.mapIt(newClone it)))
+            return ok()
+
+          else:
+            discard self.quarantine[].addColumnless(
+              self.dag.finalizedHead.slot, forkyBlck)
       else:
-        raiseAssert "Could not have been added as columnless"
+          raiseAssert "Could not have been added as columnless"
   else:
     return errIgnore ("Could not pull blobs and proofs from EL")
-
 
 proc processDataColumnSidecar*(
     self: ref Eth2Processor, src: MsgSource,
