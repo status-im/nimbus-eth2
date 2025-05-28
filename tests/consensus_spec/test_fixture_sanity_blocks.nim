@@ -21,7 +21,6 @@ from ../../beacon_chain/spec/presets import
 from ./fixtures_utils import
   SSZ, SszTestsDir, hash_tree_root, loadBlock, parseTest,
   readSszBytes, toSszType
-from ../teststateutil import checkPerValidatorBalanceCalc
 
 proc runTest(
     consensusFork: static ConsensusFork,
@@ -54,15 +53,6 @@ proc runTest(
         discard state_transition(
           defaultRuntimeConfig, fhPreState[], blck, cache, info, flags = {},
           noRollback).expect("should apply block")
-        withState(fhPreState[]):
-          when consensusFork == ConsensusFork.Deneb:
-            if unitTestName != "randomized_14":
-              # TODO this test as of v1.5.0-beta.2 breaks, but also probably
-              # just remove Deneb-only infrastructure of this sort, since it
-              # doesn't readily adapt to Electra regardless. For now keep to
-              # point to a potentially fixable/unexpected test case which is
-              # involves code not run outside the test suite to begin with.
-              check checkPerValidatorBalanceCalc(forkyState.data)
       else:
         let res = state_transition(
           defaultRuntimeConfig, fhPreState[], blck, cache, info, flags = {},

@@ -1583,8 +1583,7 @@ proc process_epoch*(
   ok()
 
 proc get_validator_balance_after_epoch*(
-    cfg: RuntimeConfig, state: deneb.BeaconState | electra.BeaconState |
-    fulu.BeaconState,
+    cfg: RuntimeConfig, state: electra.BeaconState | fulu.BeaconState,
     cache: var StateCache, info: var altair.EpochInfo,
     index: ValidatorIndex): Gwei =
   # Run a subset of process_epoch() which affects an individual validator,
@@ -1668,14 +1667,6 @@ proc get_validator_balance_after_epoch*(
       discard
 
   post_epoch_balance
-
-proc get_next_slot_expected_withdrawals*(
-    cfg: RuntimeConfig, state: deneb.BeaconState, cache: var StateCache,
-    info: var altair.EpochInfo): seq[Withdrawal] =
-  get_expected_withdrawals_aux(state, (state.slot + 1).epoch) do:
-    # validator_index is defined by an injected symbol within the template
-    get_validator_balance_after_epoch(
-      cfg, state, cache, info, validator_index.ValidatorIndex)
 
 proc get_next_slot_expected_withdrawals*(
     cfg: RuntimeConfig, state: electra.BeaconState, cache: var StateCache,
