@@ -13,6 +13,8 @@ import
   stew/[byteutils], stint, web3/primitives as web3types,
   ./datatypes/constants
 
+from std/algorithm import sort
+
 export constants
 
 export stint, web3types.toHex, web3types.`==`
@@ -38,7 +40,7 @@ const
 type
   Version* = distinct array[4, byte]
   Eth1Address* = web3types.Address
-  BPOForkInfo* = object
+  BPOForkInfo = object
     EPOCH*: Epoch
     MAX_BLOBS_PER_BLOCK*: uint64
 
@@ -752,6 +754,10 @@ func parse(T: type DomainType, input: string): T
            {.raises: [ValueError].} =
   DomainType hexToByteArray(input, 4)
 
+func cmpBPOForkInfo*(x, y: BPOForkInfo): int =
+  # Don't care about ties and want reverse order.
+  cmp(y.EPOCH.distinctBase, x.EPOCH.distinctBase)
+
 proc readRuntimeConfig*(
     fileContent: string, path: string): (RuntimeConfig, seq[string]) {.
     raises: [PresetFileError, PresetIncompatibleError].} =
@@ -844,6 +850,9 @@ proc readRuntimeConfig*(
   # Final BLOB_SCHEDULE entry
   if inBlobSchedule and currentBPO.EPOCH.uint64 != 0.uint64:
     blobScheduleEntries.add(currentBPO)
+
+  # BPO entries must be sorted in reverse epoch order
+  blobScheduleEntries.sort(cmp = cmpBPOForkInfo)
 
   # Certain config keys are baked into the binary at compile-time
   # and cannot be overridden via config.
