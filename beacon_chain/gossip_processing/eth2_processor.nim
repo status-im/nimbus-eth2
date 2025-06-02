@@ -375,7 +375,6 @@ proc validateDataColumnSidecarFromEL*(
 
             # we have received all columns from the EL
             # hence we can safely remove the columnless block from quarantine
-            self.quarantine[].removeColumnless(forkyBlck)
             var flat_proof: seq[kzg.KzgProof] = @[]
             for item in blobsEl:
               for proof in item.proofs:
@@ -388,32 +387,28 @@ proc validateDataColumnSidecarFromEL*(
                   blobsEl.mapIt(kzg.KzgBlob(bytes: it.blob.data)),
                   flat_proof)
 
-            for rc in recovered_columns:
-              if rc.index in self.dataColumnQuarantine[].custody_columns:
-                self.dag.db.putDataColumnSidecar(rc)
-                self.dataColumnQuarantine[].put(block_root, newClone rc)
+            # Pop out the column sidecars as we have all columns from the EL
+            discard self.dataColumnQuarantine[].popSidecars(block_root,
+                                                            forkyBlck)
 
-            let cres =
-              self.dataColumnQuarantine[].popSidecars(block_root, forkyBlck)
-            if cres.isSome():
-              let end_time = Moment.now()
-              debug "Time taken to get 100% response from EL and bypass blob gossip validation",
-                    time_taken = end_time - start_time
-              debug "Pulled blobs from EL, bypassing blob gossip validation",
-                    blobs_from_el = blobsEl.len
-              self.blockProcessor[].enqueueBlock(
-                MsgSource.gossip, columnless,
-                Opt.none(BlobSidecars),
-                cres)
-              return ok()
-            else:
-              discard self.quarantine[].addColumnless(
-                self.dag.finalizedHead.slot, forkyBlck)
+            let end_time = Moment.now()
+            debug "Time taken to get 100% response from EL and bypass blob gossip validation",
+                  time_taken = end_time - start_time
+            debug "Pulled blobs from EL, bypassing blob gossip validation",
+                  blobs_from_el = blobsEl.len
+            self.blockProcessor[].enqueueBlock(
+              MsgSource.gossip, columnless,
+              Opt.none(BlobSidecars),
+              Opt.some(recovered_columns.mapIt(newClone it)))
+            return ok()
+
+          else:
+            discard self.quarantine[].addColumnless(
+              self.dag.finalizedHead.slot, forkyBlck)
       else:
-        raiseAssert "Could not have been added as columnless"
+          raiseAssert "Could not have been added as columnless"
   else:
     return errIgnore ("Could not pull blobs and proofs from EL")
-
 
 proc processDataColumnSidecar*(
     self: ref Eth2Processor, src: MsgSource,
@@ -460,17 +455,10 @@ proc processDataColumnSidecar*(
         let cres =
           self.dataColumnQuarantine[].popSidecars(block_root, forkyBlck)
         if cres.isSome():
-          if cres.get().lenu64 > (self.dag.cfg.NUMBER_OF_COLUMNS div 2):
-            # We have enough data columns to reconstruct the rest
-            let
-              recovered_cps = recover_cells_and_proofs(cres.get())
-              reconstructed_columns =
-                reconstruct_data_column_sidecars(forkyBlck, recovered_cps.get)
-
-            self.blockProcessor[].enqueueBlock(
-              MsgSource.gossip, columnless,
-              Opt.none(BlobSidecars),
-              Opt.some(reconstructed_columns))
+          self.blockProcessor[].enqueueBlock(
+            MsgSource.gossip, columnless,
+            Opt.none(BlobSidecars),
+            cres)
         else:
           discard self.quarantine[].addColumnless(
             self.dag.finalizedHead.slot, forkyBlck)
