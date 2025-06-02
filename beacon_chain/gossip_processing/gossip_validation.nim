@@ -728,11 +728,7 @@ proc validateDataColumnSidecar*(
     beacon_data_column_sidecar_inclusion_proof_verification_seconds.observe(kzgValidationDur.toFloatSeconds())
     if r.isErr:
       return dag.checkedReject(r.error)
-
-  # Send notification about new data column sidecar via callback
-  if not(isNil(dataColumnQuarantine.onDataColumnSidecarCallback)):
-    dataColumnQuarantine.onDataColumnSidecarCallback(data_column_sidecar)
-
+ 
   let
     validationTick = Moment.now()
     validationDur = validationTick - startTick
