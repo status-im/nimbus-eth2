@@ -741,7 +741,7 @@ func shortLog*(v: SomeBeaconBlock): auto =
     bls_to_execution_changes_len: v.body.bls_to_execution_changes.len(),
     blob_kzg_commitments_len: 0,
     signed_execution_payload_header: $v.body.
-      signed_execution_payload_header.message.block_hash, # Eip7732 compat
+      signed_execution_payload_header, # Eip7732 compat
     payload_attestations_len: v.body.payload_attestations.len() # Eip7732 compat
   )
 

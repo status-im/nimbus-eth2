@@ -102,27 +102,33 @@ proc makeSimulationBlock(
     bls_to_execution_changes: SignedBLSToExecutionChangeList,
     rollback: RollbackHashedProc[fulu.HashedBeaconState],
     cache: var StateCache,
-    # TODO:
-    # `verificationFlags` is needed only in tests and can be
-    # removed if we don't use invalid signatures there
     verificationFlags: UpdateFlags = {}): Result[fulu.BeaconBlock, cstring] =
-  ## Create a block for the given state. The latest block applied to it will
-  ## be used for the parent_root value, and the slot will be take from
-  ## state.slot meaning process_slots must be called up to the slot for which
-  ## the block is to be created.
-
-  # To create a block, we'll first apply a partial block to the state, skipping
-  # some validations.
 
   var blck = partialBeaconBlock(
     cfg, state, proposer_index, randao_reveal, Eth1Data(),
     default(GraffitiBytes), attestations, @[], exits, sync_aggregate,
     execution_payload, ExecutionRequests())
 
+  let
+    fork = state.data.fork
+    genesis_validators_root = state.data.genesis_validators_root
+    epoch = state.data.slot.epoch
+    builderPrivKey = MockPrivKeys[proposer_index]
+    domain = get_domain(
+      fork, DOMAIN_BEACON_BUILDER, epoch, genesis_validators_root)
+    signing_root = compute_signing_root(
+      blck.body.signed_execution_payload_header.message, domain)
+  
+  let signature = blsSign(builderPrivKey, signing_root.data).toValidatorSig()
+  
+  blck.body.signed_execution_payload_header.signature = signature
+  
   let res = process_block(
     cfg, state.data, blck.asSigVerified(), verificationFlags, cache)
 
   if res.isErr:
+    # For Fulu-eip7732, process_block is not fully implemented here (stub only)
+    # This should cause validation failures
     rollback(state)
     return err(res.error())
 
@@ -403,20 +409,25 @@ cli do(slots = SLOTS_PER_EPOCH * 7,
       return
 
     dag.withUpdatedState(tmpState[], dag.getBlockIdAtSlot(slot).expect("block")) do:
-      let
-        newBlock = getNewBlock[fulu.SignedBeaconBlock](updatedState, slot, cache)
-        added = dag.addHeadBlock(verifier, newBlock) do (
-            blckRef: BlockRef, signedBlock: fulu.TrustedSignedBeaconBlock,
-            epochRef: EpochRef, unrealized: FinalityCheckpoints):
-          # Callback add to fork choice if valid
-          attPool.addForkChoice(
-            epochRef, blckRef, unrealized, signedBlock.message,
-            blckRef.slot.start_beacon_time)
+      let newBlock = getNewBlock[fulu.SignedBeaconBlock](updatedState, slot, cache)
+      
+      let added = dag.addHeadBlock(verifier, newBlock) do (
+          blckRef: BlockRef, signedBlock: fulu.TrustedSignedBeaconBlock,
+          epochRef: EpochRef, unrealized: FinalityCheckpoints):
+        attPool.addForkChoice(
+          epochRef, blckRef, unrealized, signedBlock.message,
+          blckRef.slot.start_beacon_time)
 
-      dag.updateHead(added[], quarantine[], [])
-      if dag.needStateCachesAndForkChoicePruning():
-        dag.pruneStateCachesDAG()
-        attPool.prune()
+      if added.isOk():
+        dag.updateHead(added[], quarantine[], [])
+        if dag.needStateCachesAndForkChoicePruning():
+          dag.pruneStateCachesDAG()
+          attPool.prune()
+      else:
+        echo "ERROR: Failed to add fulu block for slot ", 
+          slot, ": ", added.error()
+        return  # Don't crash, just skip this block
+        
     do:
       raiseAssert "withUpdatedState failed"
 

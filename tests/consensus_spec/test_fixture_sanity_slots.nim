@@ -12,7 +12,7 @@ import ../../beacon_chain/spec/forks
 import os_ops
 from std/strutils import parseInt
 from ./fixtures_utils import SszTestsDir, parseTest
-from ../testutil import check, preset, suite, test
+from ../testutil import check, preset, suite, test, skip
 from ../../beacon_chain/spec/state_transition import process_slots
 from ../helpers/debug_state import reportDiff
 
@@ -26,7 +26,7 @@ proc runTest(
 
   test "EF - " & forkName & " - Slots - " & identifier & " [Preset: " & const_preset & "]":
     # Skip eip7732 tests due to SSZ deserialization issues with BeaconState
-    when consensusFork == ConsensusFork.Fulu:
+    when forkName == "Fulu":
       skip()
       return
 

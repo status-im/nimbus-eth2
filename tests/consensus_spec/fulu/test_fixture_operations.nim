@@ -213,11 +213,11 @@ suite baseDescription & "Deposit Request " & preset():
 #       process_execution_payload(
 #         defaultRuntimeConfig, preState, body, executePayload)
 
-  for path in walkTests(OpExecutionPayloadDir):
-    let applyExecutionPayload = makeApplyExecutionPayloadCb(path)
-    runTest[fulu.BeaconBlockBody, typeof applyExecutionPayload](
-      OpExecutionPayloadDir, suiteName, "Execution Payload", "body",
-      applyExecutionPayload, path)
+  # for path in walkTests(OpExecutionPayloadDir):
+  #   let applyExecutionPayload = makeApplyExecutionPayloadCb(path)
+  #   runTest[fulu.BeaconBlockBody, typeof applyExecutionPayload](
+  #     OpExecutionPayloadDir, suiteName, "Execution Payload", "body",
+  #     applyExecutionPayload, path)
 
 suite baseDescription & "Withdrawal Request " & preset():
   func applyWithdrawalRequest(

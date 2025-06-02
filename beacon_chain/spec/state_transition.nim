@@ -419,7 +419,7 @@ func partialBeaconBlock*(
 
 func partialBeaconBlock*(
     cfg: RuntimeConfig,
-    state: var (electra.HashedBeaconState | fulu.HashedBeaconState),
+    state: var electra.HashedBeaconState,
     proposer_index: ValidatorIndex,
     randao_reveal: ValidatorSig,
     eth1_data: Eth1Data,
@@ -428,41 +428,82 @@ func partialBeaconBlock*(
     deposits: seq[Deposit],
     validator_changes: BeaconBlockValidatorChanges,
     sync_aggregate: SyncAggregate,
-    execution_payload: ForkyExecutionPayloadForSigning,
-    execution_requests: ExecutionRequests): auto =
-  const consensusFork = typeof(state).kind
+    execution_payload: electra.ExecutionPayloadForSigning,
+    execution_requests: ExecutionRequests): electra.BeaconBlock =
 
   # https://github.com/ethereum/consensus-specs/blob/v1.3.0/specs/phase0/validator.md#preparing-for-a-beaconblock
-  var res =  consensusFork.BeaconBlock(
+  electra.BeaconBlock(
     slot: state.data.slot,
     proposer_index: proposer_index.uint64,
     parent_root: state.latest_block_root,
-    body: consensusFork.BeaconBlockBody(
+    body: electra.BeaconBlockBody(
       randao_reveal: randao_reveal,
       eth1_data: eth1_data,
       graffiti: graffiti,
       proposer_slashings: validator_changes.proposer_slashings,
       attester_slashings: validator_changes.electra_attester_slashings,
-      attestations:
+      attestations: 
         List[electra.Attestation, Limit MAX_ATTESTATIONS_ELECTRA](attestations),
       deposits: List[Deposit, Limit MAX_DEPOSITS](deposits),
       voluntary_exits: validator_changes.voluntary_exits,
       sync_aggregate: sync_aggregate,
-      bls_to_execution_changes: validator_changes.bls_to_execution_changes))
+      bls_to_execution_changes: validator_changes.bls_to_execution_changes,
+      execution_payload: execution_payload.executionPayload,
+      blob_kzg_commitments: execution_payload.blobsBundle.commitments,
+      execution_requests: execution_requests
+    )
+  )
 
-  when consensusFork == ConsensusFork.Electra:
-    res.body.execution_payload = execution_payload.executionPayload
-    res.body.blob_kzg_commitments = 
-      execution_payload.blobsBundle.commitments
-    res.body.execution_requests = execution_requests
+func partialBeaconBlock*(
+    cfg: RuntimeConfig,
+    state: var fulu.HashedBeaconState,
+    proposer_index: ValidatorIndex,
+    randao_reveal: ValidatorSig,
+    eth1_data: Eth1Data,
+    graffiti: GraffitiBytes,
+    attestations: seq[electra.Attestation],
+    deposits: seq[Deposit],
+    validator_changes: BeaconBlockValidatorChanges,
+    sync_aggregate: SyncAggregate,
+    execution_payload: fulu.ExecutionPayloadForSigning,
+    execution_requests: ExecutionRequests): fulu.BeaconBlock =
 
-  when consensusFork >= ConsensusFork.Fulu:
-    res.body.signed_execution_payload_header = 
-      default(fulu.SignedExecutionPayloadHeader)
-    # res.body.payload_attestations = 
-    #   List[PayloadAttestation, Limit MAX_PAYLOAD_ATTESTATIONS](payload_attestations)
+  let executionPayloadHeader = fulu.ExecutionPayloadHeader(
+    parent_block_hash: execution_payload.executionPayload.parent_hash,
+    parent_block_root: state.data.latest_block_header.parent_root,
+    block_hash: execution_payload.executionPayload.block_hash,
+    gas_limit: execution_payload.executionPayload.gas_limit,
+    builder_index: proposer_index.uint64,
+    slot: state.data.slot,
+    value: 0.Gwei,
+    blob_kzg_commitments_root: 
+      hash_tree_root(execution_payload.blobsBundle.commitments)
+  )
 
-  res
+  fulu.BeaconBlock(
+    slot: state.data.slot,
+    proposer_index: proposer_index.uint64,
+    parent_root: state.latest_block_root,
+    body: fulu.BeaconBlockBody(
+      randao_reveal: randao_reveal,
+      eth1_data: eth1_data,
+      graffiti: graffiti,
+      proposer_slashings: validator_changes.proposer_slashings,
+      attester_slashings: validator_changes.electra_attester_slashings,
+      attestations: 
+        List[electra.Attestation, Limit MAX_ATTESTATIONS_ELECTRA](attestations),
+      deposits: List[Deposit, Limit MAX_DEPOSITS](deposits),
+      voluntary_exits: validator_changes.voluntary_exits,
+      sync_aggregate: sync_aggregate,
+      bls_to_execution_changes: validator_changes.bls_to_execution_changes,
+      signed_execution_payload_header: fulu.SignedExecutionPayloadHeader(
+        message: executionPayloadHeader,
+        signature: default(ValidatorSig)
+      ),
+      payload_attestations: 
+        List[PayloadAttestation, Limit MAX_PAYLOAD_ATTESTATIONS](@[])
+    )
+  )
 
 proc makeBeaconBlockWithRewards*(
     cfg: RuntimeConfig,

@@ -101,7 +101,7 @@ func shortLog*(v: BlindedBeaconBlock): auto =
     bls_to_execution_changes_len: v.body.bls_to_execution_changes.len(),
     blob_kzg_commitments_len: 0,  # Deneb compat
     signed_execution_payload_header: 
-      shortLog(v.body.signed_execution_payload_header.signature),
+      shortLog(v.body.signed_execution_payload_header.message.block_hash),
     payload_attestations_len: v.body.payload_attestations.len()
   )
 
@@ -128,6 +128,30 @@ func toSignedBlindedBeaconBlock*(blck: fulu.SignedBeaconBlock): SignedBlindedBea
         deposits: blck.message.body.deposits,
         voluntary_exits: blck.message.body.voluntary_exits,
         sync_aggregate: blck.message.body.sync_aggregate,
+        bls_to_execution_changes: blck.message.body.bls_to_execution_changes,
         signed_execution_payload_header: SignedExecutionPayloadHeader(
-          message: default(fulu.ExecutionPayloadHeader)))),
+          message: ExecutionPayloadHeader(
+            parent_block_hash: blck.message.body.
+              signed_execution_payload_header.message.parent_block_hash,
+            parent_block_root: blck.message.body.
+              signed_execution_payload_header.message.parent_block_root,
+            block_hash: blck.message.body.
+              signed_execution_payload_header.message.block_hash,
+            gas_limit: blck.message.body.
+              signed_execution_payload_header.message.gas_limit,
+            builder_index: blck.message.body.
+              signed_execution_payload_header.message.builder_index,
+            slot: blck.message.body.
+              signed_execution_payload_header.message.slot,
+            value: blck.message.body.
+              signed_execution_payload_header.message.value,
+            blob_kzg_commitments_root: blck.message.body.
+              signed_execution_payload_header.message.blob_kzg_commitments_root
+          ),
+          signature: blck.message.body.
+            signed_execution_payload_header.signature
+        ),
+        payload_attestations: blck.message.body.payload_attestations
+      )
+    ),
     signature: blck.signature)

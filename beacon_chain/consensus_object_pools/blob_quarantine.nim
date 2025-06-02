@@ -294,7 +294,8 @@ func hasSidecars*(
   # For Fulu fork, check if blob commitments exist from the blob_kzg_commitments_root
   # in the signed_execution_payload_header
   let hasBlobs = 
-    blck.message.body.signed_execution_payload_header.message.blob_kzg_commitments_root != 
+    blck.message.body.signed_execution_payload_header.
+      message.blob_kzg_commitments_root != 
       Eth2Digest()  # Compare against empty/zero digest
   
   # If there are no blob commitments, no sidecars are needed
@@ -355,8 +356,7 @@ func popSidecars*(
     if blck.message.body.signed_execution_payload_header.message.blob_kzg_commitments_root != 
          Eth2Digest():
       # We know there are blobs, but we don't know exactly how many from just the block
-      # This will need to be determined from the envelope or other sources
-      # For now, we can check how many sidecars we have and use that count
+      # This will need to be determined from the envelope
       let record = quarantine.roots.getOrDefault(blockRoot)
       if len(record.sidecars) > 0:
         record.count

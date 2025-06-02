@@ -138,9 +138,8 @@ template electra_steps() =
     do_check
 
 template fulu_steps() =
-  # In Fulu, test the signed_execution_payload_header and payload_attestations fields
-  
-  # Create a default SignedExecutionPayloadHeader with non-default values
+  # test the signed_execution_payload_header 
+  # and payload_attestations fields
   var headerMessage = default(fulu.ExecutionPayloadHeader)
   headerMessage.parent_block_hash = Eth2Digest.fromHex(
     "0x941bdf6ccf731a7ede6bac0c9533ecee5e3dc5081ea59d57c3fd8624eeca85d")
@@ -153,23 +152,42 @@ template fulu_steps() =
   headerMessage.blob_kzg_commitments_root = Eth2Digest.fromHex(
     "0x9e7d9bca96a9d0af9013ad6abb8708988beef02d58c16ba1a90075960b99c2ff")
   
-  b.message.body.signed_execution_payload_header = SignedExecutionPayloadHeader(
-    message: headerMessage,
-    signature: nondefaultValidatorSig)
+  b.message.body.signed_execution_payload_header = 
+    SignedExecutionPayloadHeader(
+      message: headerMessage,
+      signature: nondefaultValidatorSig)
   do_check
   
-  # Test adding and modifying payload attestations
-  check: b.message.body.payload_attestations.add(default(PayloadAttestation))
-  do_check
+  var attestation = PayloadAttestation()
   
-  var attestation = default(PayloadAttestation)
-  attestation.data.beacon_block_root = Eth2Digest.fromHex(
-    "0x4b1aed517ac48bfbf6ab19846923d5256897fbc934c20ca5b8c486bfe71c6ef1")
-  attestation.data.slot = 42.Slot
-  attestation.data.payload_status = 1'u8  # Some non-default status
+  attestation.aggregation_bits = ElectraCommitteeValidatorsBits.init(1)
+  attestation.aggregation_bits[0] = true
+  
+  attestation.data = PayloadAttestationData(
+    beacon_block_root: Eth2Digest.fromHex(
+      "0x4b1aed517ac48bfbf6ab19846923d5256897fbc934c20ca5b8c486bfe71c6ef1"),
+    slot: 42.Slot,
+    payload_status: 1'u8
+  )
   attestation.signature = nondefaultValidatorSig
   
   check: b.message.body.payload_attestations.add(attestation)
+  do_check
+  
+  var attestation2 = PayloadAttestation()
+  attestation2.aggregation_bits = ElectraCommitteeValidatorsBits.init(2)
+  attestation2.aggregation_bits[0] = true
+  attestation2.aggregation_bits[1] = false
+  
+  attestation2.data = PayloadAttestationData(
+    beacon_block_root: Eth2Digest.fromHex(
+      "0x2f6eaa73ec39aeb864884a2371f3e4a8abc29d277074459e46c987418f5df430"),
+    slot: 43.Slot,
+    payload_status: 2'u8
+  )
+  attestation2.signature = nondefaultValidatorSig
+  
+  check: b.message.body.payload_attestations.add(attestation2)
   do_check
 
 suite "Blinded block conversions":
