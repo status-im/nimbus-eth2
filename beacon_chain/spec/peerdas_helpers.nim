@@ -448,6 +448,9 @@ proc assemble_data_column_sidecars*(signed_beacon_block: fulu.SignedBeaconBlock,
       tmp[j] = cell_proofs[i * CELLS_PER_EXT_BLOB + j]
     proofs[i] = tmp
 
+  # TODO can we not refactor the above 4 lines to something like:
+  # proofs[i] = cell_proofs[i * CELLS_PER_EXT_BLOB .. (i+1) * CELLS_PER_EXT_BLOB - 1]
+
   for columnIndex in 0..<CELLS_PER_EXT_BLOB:
     var
       column = newSeqOfCap[KzgCell](blobs.len)
