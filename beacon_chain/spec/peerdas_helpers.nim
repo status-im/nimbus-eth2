@@ -450,8 +450,8 @@ proc assemble_data_column_sidecars*(signed_beacon_block: fulu.SignedBeaconBlock,
 
   for columnIndex in 0..<CELLS_PER_EXT_BLOB:
     var
-      column: seq[KzgCell]
-      kzgProofOfColumn: seq[KzgProof]
+      column = newSeqOfCap[KzgCell](blobs.len)
+      kzgProofOfColumn = newSeqOfCap[KzgProof](blobs.len)
     for rowIndex in 0..<blobs.len:
       column.add(cells[rowIndex][columnIndex])
       kzgProofOfColumn.add(proofs[rowIndex][columnIndex])
