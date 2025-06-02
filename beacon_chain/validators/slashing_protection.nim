@@ -1,5 +1,5 @@
 # beacon_chain
-# Copyright (c) 2018-2024 Status Research & Development GmbH
+# Copyright (c) 2018-2025 Status Research & Development GmbH
 # Licensed and distributed under either of
 #   * MIT license (license terms in the root directory or at https://opensource.org/licenses/MIT).
 #   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
@@ -115,8 +115,7 @@ proc init*(
 
 proc loadUnchecked*(
        T: type SlashingProtectionDB,
-       basePath, dbname: string, readOnly: bool
-     ): SlashingProtectionDB {.raises:[IOError].}=
+       basePath, dbname: string, readOnly: bool): SlashingProtectionDB =
   ## Load a slashing protection DB
   ## Note: This is for CLI tool usage
   ##       this doesn't check the genesis validator root
@@ -282,12 +281,10 @@ proc registerSyntheticAttestation*(db: SlashingProtectionDB,
        source, target: Epoch) =
   db.db_v2.registerSyntheticAttestation(validator, source, target)
 
-proc inclSPDIR*(db: SlashingProtectionDB, spdir: SPDIR): SlashingImportStatus
-             {.raises: [SerializationError, IOError].} =
+proc inclSPDIR*(db: SlashingProtectionDB, spdir: SPDIR): SlashingImportStatus =
   db.db_v2.inclSPDIR(spdir)
 
-proc toSPDIR*(db: SlashingProtectionDB): SPDIR
-             {.raises: [IOError].} =
+proc toSPDIR*(db: SlashingProtectionDB): SPDIR =
   db.db_v2.toSPDIR()
 
 proc exportSlashingInterchange*(

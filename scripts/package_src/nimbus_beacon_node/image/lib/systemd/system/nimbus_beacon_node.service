@@ -57,8 +57,8 @@ WorkingDirectory=/var/lib/nimbus
 TimeoutSec=1200
 Restart=always
 
-# Don't restart when Doppelganger detection has been activated
-RestartPreventExitStatus=129
+# Don't restart when Doppelganger or slashing detection has been activated
+RestartPreventExitStatus=129 198
 
 ExecStart=/usr/bin/nimbus_beacon_node \
   --network=${NETWORK} \

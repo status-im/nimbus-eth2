@@ -14,7 +14,7 @@ import
   stew/[byteutils, io2],
   eth/p2p/discoveryv5/[enr, random2],
   ./consensus_object_pools/[
-    blob_quarantine, data_column_quarantine, blockchain_list],
+    blob_quarantine, blockchain_list],
   ./consensus_object_pools/vanity_logs/vanity_logs,
   ./networking/[topic_params, network_metadata_downloads],
   ./rpc/[rest_api, state_ttl_cache],
@@ -403,26 +403,24 @@ proc initFullNode(
       onElectraAttesterSlashingAdded))
     blobQuarantine = newClone(BlobQuarantine.init(
       dag.cfg, onBlobSidecarAdded))
-    dataColumnQuarantine = newClone(DataColumnQuarantine.init(dag.cfg))
     supernode = node.config.peerdasSupernode
     localCustodyGroups =
       if supernode:
         dag.cfg.NUMBER_OF_CUSTODY_GROUPS
       else:
         dag.cfg.CUSTODY_REQUIREMENT
-  dataColumnQuarantine[].supernode = supernode
-  dataColumnQuarantine[].custody_columns =
-    dag.cfg.resolve_columns_from_custody_groups(
-      node.network.nodeId,
-      max(dag.cfg.SAMPLES_PER_SLOT.uint64,
-          localCustodyGroups))
-
-  let
+    custodyColumns =
+      dag.cfg.resolve_columns_from_custody_groups(
+        node.network.nodeId,
+        max(dag.cfg.SAMPLES_PER_SLOT.uint64,
+            localCustodyGroups))
+    dataColumnQuarantine = newClone(ColumnQuarantine.init(
+      dag.cfg, custodyColumns))
     custody_columns_set =
-      dataColumnQuarantine[].custody_columns.toHashSet()
+      dataColumnQuarantine[].custodyColumns.toHashSet()
     custody_columns_list =
       List[ColumnIndex, NUMBER_OF_COLUMNS].init(
-        dataColumnQuarantine[].custody_columns)
+        dataColumnQuarantine[].custodyColumns)
     consensusManager = ConsensusManager.new(
       dag, attestationPool, quarantine, node.elManager,
       ActionTracker.init(node.network.nodeId, config.subscribeAllSubnets),
@@ -455,42 +453,34 @@ proc initFullNode(
       withBlck(signedBlock):
         # Keeping Fulu first else >= Deneb means Fulu case never hits
         when consensusFork >= ConsensusFork.Fulu:
-          let
-            accumulatedDataColumns = dataColumnQuarantine[].gatherDataColumns(forkyBlck.root)
-
-          if accumulatedDataColumns.len == 0:
-            # no data columns were sent for this post Fulu block, yet
-            return await blockProcessor[].addBlock(MsgSource.sync, signedBlock,
-                                             Opt.none(BlobSidecars), Opt.none(DataColumnSidecars),
-                                             maybeFinalized = maybeFinalized)
-          elif dataColumnQuarantine[].supernode and
-              accumulatedDataColumns.len >= (dataColumnQuarantine[].custody_columns.len div 2):
-            # We have seen 50%+ data columns, we can attempt to add this block
-            let dataColumns = dataColumnQuarantine[].popDataColumns(forkyBlck.root, forkyBlck)
-            return await blockProcessor[].addBlock(MsgSource.gossip, signedBlock,
-                                             Opt.none(BlobSidecars), Opt.some(dataColumns),
-                                             maybeFinalized = maybeFinalized)
-
+          let cres = dataColumnQuarantine[].popSidecars(forkyBlck.root, forkyBlck)
+          if cres.isSome():
+            await blockProcessor[].addBlock(MsgSource.gossip, signedBlock,
+                                      Opt.none(BlobSidecars),
+                                      cres,
+                                      maybeFinalized = maybeFinalized)
           else:
-            let dataColumns = dataColumnQuarantine[].popDataColumns(forkyBlck.root, forkyBlck)
-            return await blockProcessor[].addBlock(MsgSource.gossip, signedBlock,
-                                             Opt.none(BlobSidecars), Opt.some(dataColumns),
-                                             maybeFinalized = maybeFinalized)
+            # We don't have all the columns for this block, so we have
+            # to put it in columnless quarantine.
+            if not quarantine[].addColumnless(dag.finalizedHead.slot, forkyBlck):
+              err(VerifierError.UnviableFork)
+            else:
+              err(VerifierError.MissingParent)
+
         elif consensusFork >= ConsensusFork.Deneb and
             consensusFork < ConsensusFork.Fulu:
-          if not blobQuarantine[].hasBlobs(forkyBlck):
+          let bres = blobQuarantine[].popSidecars(forkyBlck.root, forkyBlck)
+          if bres.isSome():
+            await blockProcessor[].addBlock(MsgSource.gossip, signedBlock, bres,
+                                            Opt.none(DataColumnSidecars),
+                                            maybeFinalized = maybeFinalized)
+          else:
             # We don't have all the blobs for this block, so we have
             # to put it in blobless quarantine.
             if not quarantine[].addBlobless(dag.finalizedHead.slot, forkyBlck):
               err(VerifierError.UnviableFork)
             else:
               err(VerifierError.MissingParent)
-          else:
-            let blobs = blobQuarantine[].popBlobs(forkyBlck.root, forkyBlck)
-            await blockProcessor[].addBlock(MsgSource.gossip, signedBlock,
-                                      Opt.some(blobs), Opt.none(DataColumnSidecars),
-                                      maybeFinalized = maybeFinalized)
-
         else:
           await blockProcessor[].addBlock(MsgSource.gossip, signedBlock,
                                     Opt.none(BlobSidecars), Opt.none(DataColumnSidecars),
@@ -596,7 +586,8 @@ proc initFullNode(
   if node.config.peerdasSupernode:
     node.network.loadCgcnetMetadataAndEnr(dag.cfg.NUMBER_OF_CUSTODY_GROUPS.uint8)
   else:
-    node.network.loadCgcnetMetadataAndEnr(dag.cfg.CUSTODY_REQUIREMENT.uint8)
+    node.network.loadCgcnetMetadataAndEnr(max(dag.cfg.SAMPLES_PER_SLOT.uint8,
+                                          dag.cfg.CUSTODY_REQUIREMENT.uint8))
 
   if node.config.lightClientDataServe:
     proc scheduleSendingLightClientUpdates(slot: Slot) =
@@ -1712,6 +1703,8 @@ proc onSlotEnd(node: BeaconNode, slot: Slot) {.async.} =
           .pruneAfterFinalization(
             node.dag.finalizedHead.slot.epoch()
           )
+    node.processor.blobQuarantine[].pruneAfterFinalization(
+      node.dag.finalizedHead.slot.epoch())
 
   # Delay part of pruning until latency critical duties are done.
   # The other part of pruning, `pruneBlocksDAG`, is done eagerly.
@@ -2071,7 +2064,7 @@ proc installMessageValidators(node: BeaconNode) =
                     checkSignature = true, checkValidator = false)))
 
       # beacon_aggregate_and_proof
-      # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.4/specs/phase0/p2p-interface.md#beacon_aggregate_and_proof
+      # https://github.com/ethereum/consensus-specs/blob/v1.6.0-alpha.0/specs/phase0/p2p-interface.md#beacon_aggregate_and_proof
       when consensusFork >= ConsensusFork.Electra:
         node.network.addAsyncValidator(
           getAggregateAndProofsTopic(digest), proc (
@@ -2169,12 +2162,12 @@ proc installMessageValidators(node: BeaconNode) =
         for it in 0'u64..<node.dag.cfg.NUMBER_OF_CUSTODY_GROUPS:
           closureScope:
             let subnet_id = it
-            node.network.addValidator(
+            node.network.addAsyncValidator(
               getDataColumnSidecarTopic(digest, subnet_id), proc (
                 dataColumnSidecar: fulu.DataColumnSidecar
-              ): ValidationResult =
+              ): Future[ValidationResult] {.async: (raises: [CancelledError]).} =
                 toValidationResult(
-                  node.processor[].processDataColumnSidecar(
+                  await node.processor.processDataColumnSidecar(
                     MsgSource.gossip, dataColumnSidecar, subnet_id)))
 
       when consensusFork >= ConsensusFork.Deneb:
@@ -2478,6 +2471,7 @@ proc doRunBeaconNode(config: var BeaconNodeConf, rng: ref HmacDrbgContext) {.rai
   ignoreDeprecatedOption optimistic
   ignoreDeprecatedOption validatorMonitorTotals
   ignoreDeprecatedOption web3ForcePolling
+  ignoreDeprecatedOption finalizedDepositTreeSnapshot
 
   createPidFile(config.dataDir.string / "beacon_node.pid")
 
@@ -2593,7 +2587,7 @@ proc doSlashingExport(conf: BeaconNodeConf) {.raises: [IOError].}=
   db.exportSlashingInterchange(interchange, conf.exportedValidators)
   echo "Export finished: '", dir/filetrunc & ".sqlite3" , "' into '", interchange, "'"
 
-proc doSlashingImport(conf: BeaconNodeConf) {.raises: [SerializationError, IOError].} =
+proc doSlashingImport(conf: BeaconNodeConf) {.raises: [IOError].} =
   let
     dir = conf.validatorsDir()
     filetrunc = SlashingDbName

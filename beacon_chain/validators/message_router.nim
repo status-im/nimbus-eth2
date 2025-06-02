@@ -86,8 +86,8 @@ template getCurrentBeaconTime(router: MessageRouter): BeaconTime =
 type RouteBlockResult = Result[Opt[BlockRef], string]
 proc routeSignedBeaconBlock*(
     router: ref MessageRouter, blck: ForkySignedBeaconBlock,
-    blobsOpt: Opt[seq[BlobSidecar]], checkValidator: bool):
-    Future[RouteBlockResult] {.async: (raises: [CancelledError]).} =
+    blobsOpt: Opt[seq[BlobSidecar]], dataColumnsOpt: Opt[seq[DataColumnSidecar]],
+    checkValidator: bool): Future[RouteBlockResult] {.async: (raises: [CancelledError]).} =
   ## Validate and broadcast beacon block, then add it to the block database
   ## Returns the new Head when block is added successfully to dag, none when
   ## block passes validation but is not added, and error otherwise
@@ -115,7 +115,8 @@ proc routeSignedBeaconBlock*(
         signature = shortLog(blck.signature), error = res.error()
       return err($(res.error()[1]))
 
-    when typeof(blck).kind >= ConsensusFork.Deneb:
+    when typeof(blck).kind >= ConsensusFork.Deneb and
+        typeof(blck).kind < ConsensusFork.Fulu:
       if blobsOpt.isSome:
         let blobs = blobsOpt.get()
         let kzgCommits = blck.message.body.blob_kzg_commitments.asSeq
@@ -159,15 +160,10 @@ proc routeSignedBeaconBlock*(
   var dataColumnRefs =
     Opt.none(DataColumnSidecars)
   when typeof(blck).kind >= ConsensusFork.Fulu:
-    let blobs = blobsOpt.get
-    if blobsOpt.isSome() and blobs.len != 0:
-      let dataColumnsRes =
-        newClone get_data_column_sidecars(blck, blobs.mapIt(KzgBlob(bytes: it.blob)))
-      if not dataColumnsRes[].isOk:
-        debug "Issue with extracting data columns from blob bundle"
-      let dataColumns = dataColumnsRes[].get()
+    let dataColumns = dataColumnsOpt.get()
+    if dataColumnsOpt.isSome() and dataColumns.len != 0:
       var das_workers =
-        newSeq[Future[SendResult]](len(dataColumnsRes[].get()))
+        newSeq[Future[SendResult]](len(dataColumns))
       for i in 0..<dataColumns.lenu64:
         let subnet_id =
           compute_subnet_for_data_column_sidecar(dataColumns[i].index)

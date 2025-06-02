@@ -1,5 +1,5 @@
 # beacon_chain
-# Copyright (c) 2024 Status Research & Development GmbH
+# Copyright (c) 2024-2025 Status Research & Development GmbH
 # Licensed and distributed under either of
 #   * MIT license (license terms in the root directory or at https://opensource.org/licenses/MIT).
 #   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
@@ -44,10 +44,10 @@ const
 
   # Execution
   # ---------------------------------------------------------------
-  # [customized]
-  MAX_DEPOSIT_REQUESTS_PER_PAYLOAD* = 4
-  # [customized] 2**1 (= 2) withdrawal requests
-  MAX_WITHDRAWAL_REQUESTS_PER_PAYLOAD* = 2
+  # 2**13 (= 8,192) deposit requests
+  MAX_DEPOSIT_REQUESTS_PER_PAYLOAD* = 8192
+  # 2**4 (= 16) withdrawal requests
+  MAX_WITHDRAWAL_REQUESTS_PER_PAYLOAD* = 16
 
   # Withdrawals processing
   # ---------------------------------------------------------------

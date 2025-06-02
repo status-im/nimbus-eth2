@@ -70,11 +70,13 @@ import
   ../../version,
   ".."/[beacon_time, crypto, digest, presets]
 
+from std/algorithm import isSorted
+
 export
   tables, results, endians2, json_serialization, sszTypes, beacon_time, crypto,
   digest, presets
 
-const SPEC_VERSION* = "1.5.0-beta.5"
+const SPEC_VERSION* = "1.6.0-alpha.0"
 ## Spec version we're aiming to be compatible with, right now
 
 const
@@ -965,6 +967,8 @@ func checkForkConsistency*(cfg: RuntimeConfig) =
   assertForkEpochOrder(cfg.CAPELLA_FORK_EPOCH, cfg.DENEB_FORK_EPOCH)
   assertForkEpochOrder(cfg.DENEB_FORK_EPOCH, cfg.ELECTRA_FORK_EPOCH)
   assertForkEpochOrder(cfg.ELECTRA_FORK_EPOCH, cfg.FULU_FORK_EPOCH)
+
+  doAssert isSorted(cfg.BLOB_SCHEDULE, cmp = cmpBPOForkInfo)
 
 func ofLen*[T, N](ListType: type List[T, N], n: int): ListType =
   if n < N:

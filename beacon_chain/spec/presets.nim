@@ -13,6 +13,8 @@ import
   stew/[byteutils], stint, web3/primitives as web3types,
   ./datatypes/constants
 
+from std/algorithm import sort
+
 export constants
 
 export stint, web3types.toHex, web3types.`==`
@@ -38,6 +40,9 @@ const
 type
   Version* = distinct array[4, byte]
   Eth1Address* = web3types.Address
+  BPOForkInfo = object
+    EPOCH*: Epoch
+    MAX_BLOBS_PER_BLOCK*: uint64
 
   RuntimeConfig* = object
     ## https://github.com/ethereum/consensus-specs/tree/v1.5.0-beta.2/configs
@@ -136,6 +141,7 @@ type
     BALANCE_PER_ADDITIONAL_CUSTODY_GROUP*: uint64
     MAX_BLOBS_PER_BLOCK_FULU*: uint64
     MIN_EPOCHS_FOR_DATA_COLUMN_SIDECARS_REQUESTS*: uint64
+    BLOB_SCHEDULE*: seq[BPOForkInfo]
 
   PresetFile* = object
     values*: Table[string, string]
@@ -324,7 +330,12 @@ when const_preset == "mainnet":
     VALIDATOR_CUSTODY_REQUIREMENT: 8,
     BALANCE_PER_ADDITIONAL_CUSTODY_GROUP: 32000000000'u64,
     MAX_BLOBS_PER_BLOCK_FULU: 12,
-    MIN_EPOCHS_FOR_DATA_COLUMN_SIDECARS_REQUESTS: 4096
+    MIN_EPOCHS_FOR_DATA_COLUMN_SIDECARS_REQUESTS: 4096,
+    # https://github.com/ethereum/consensus-specs/blob/v1.6.0-alpha.0/specs/fulu/das-core.md#get_max_blobs_per_block
+    # provides sorting rules.
+    BLOB_SCHEDULE: @[
+      BPOForkInfo(EPOCH: 364032.Epoch, MAX_BLOBS_PER_BLOCK: 9),
+      BPOForkInfo(EPOCH: 269568.Epoch, MAX_BLOBS_PER_BLOCK: 6)],
   )
 
 elif const_preset == "gnosis":
@@ -659,7 +670,12 @@ elif const_preset == "minimal":
     VALIDATOR_CUSTODY_REQUIREMENT: 8,
     BALANCE_PER_ADDITIONAL_CUSTODY_GROUP: 32000000000'u64,
     MAX_BLOBS_PER_BLOCK_FULU: 12,
-    MIN_EPOCHS_FOR_DATA_COLUMN_SIDECARS_REQUESTS: 4096
+    MIN_EPOCHS_FOR_DATA_COLUMN_SIDECARS_REQUESTS: 4096,
+    # https://github.com/ethereum/consensus-specs/blob/v1.6.0-alpha.0/specs/fulu/das-core.md#get_max_blobs_per_block
+    # provides sorting rules.
+    BLOB_SCHEDULE: @[
+      BPOForkInfo(EPOCH: FAR_FUTURE_EPOCH, MAX_BLOBS_PER_BLOCK: 6),
+      BPOForkInfo(EPOCH: FAR_FUTURE_EPOCH, MAX_BLOBS_PER_BLOCK: 9)],
   )
 
 else:
@@ -738,6 +754,10 @@ func parse(T: type DomainType, input: string): T
            {.raises: [ValueError].} =
   DomainType hexToByteArray(input, 4)
 
+func cmpBPOForkInfo*(x, y: BPOForkInfo): int =
+  # Don't care about ties and want reverse order.
+  cmp(y.EPOCH.distinctBase, x.EPOCH.distinctBase)
+
 proc readRuntimeConfig*(
     fileContent: string, path: string): (RuntimeConfig, seq[string]) {.
     raises: [PresetFileError, PresetIncompatibleError].} =
@@ -769,6 +789,70 @@ proc readRuntimeConfig*(
     if lineParts[0] in ignoredValues: continue
 
     values[lineParts[0]] = lineParts[1].strip
+  # Accumulate BLOB_SCHEDULE entries
+  var
+    blobScheduleEntries: seq[BPOForkInfo]
+    inBlobSchedule = false
+    currentBPO: BPOForkInfo
+
+  for rawLine in splitLines(fileContent):
+    inc lineNum
+    # Skip blank lines or full-line comments
+    if rawLine.len == 0 or rawLine[0] == '#':
+      continue
+
+    # Remove trailing comments but preserve leading whitespace for indentation
+    let noComment = rawLine.split("#")[0]
+    let clean = noComment.strip()
+
+    # Enter the BLOB_SCHEDULE block
+    # Begin BLOB_SCHEDULE section
+    if clean == "BLOB_SCHEDULE:":
+      inBlobSchedule = true
+      continue
+
+    if inBlobSchedule:
+      let entry = strip(noComment, leading=true, trailing=false)
+      if entry.startsWith("- EPOCH:"):
+        if currentBPO.EPOCH.uint64 != 0.uint64:
+          blobScheduleEntries.add(currentBPO)
+        currentBPO = BPOForkInfo()
+        let epochStr = entry.split(":")[1].strip()
+        try:
+          currentBPO.EPOCH = Epoch(parse(uint64, epochStr))
+        except ValueError:
+          fail("Unable to parse EPOCH: " & epochStr)
+        continue
+      elif entry.startsWith("MAX_BLOBS_PER_BLOCK:"):
+        let maxStr = entry.split(":")[1].strip()
+        try:
+          currentBPO.MAX_BLOBS_PER_BLOCK = parse(uint64, maxStr)
+        except ValueError:
+          fail("Unable to parse MAX_BLOBS_PER_BLOCK: " & maxStr)
+        continue
+      # Exit section on non-indented line
+      elif noComment[0] notin {' ', '\t'}:
+        if currentBPO.EPOCH.uint64 != 0.uint64:
+          blobScheduleEntries.add(currentBPO)
+        inBlobSchedule = false
+      else:
+        continue
+
+    # Key: Value parsing
+    if not inBlobSchedule:
+      let parts = clean.split(":")
+      if parts.len != 2:
+        fail("Invalid syntax: expected 'Key: Value'")
+      let key = parts[0]
+      if key notin ignoredValues:
+        values[key] = parts[1].strip()
+
+  # Final BLOB_SCHEDULE entry
+  if inBlobSchedule and currentBPO.EPOCH.uint64 != 0.uint64:
+    blobScheduleEntries.add(currentBPO)
+
+  # BPO entries must be sorted in reverse epoch order
+  blobScheduleEntries.sort(cmp = cmpBPOForkInfo)
 
   # Certain config keys are baked into the binary at compile-time
   # and cannot be overridden via config.
@@ -886,12 +970,18 @@ proc readRuntimeConfig*(
   checkCompatibility REORG_MAX_EPOCHS_SINCE_FINALIZATION
 
   for name, field in cfg.fieldPairs():
-    if name in values:
-      try:
-        field = parse(typeof(field), values[name])
-        values.del name
-      except ValueError:
-        raise (ref PresetFileError)(msg: "Unable to parse " & name)
+    if values.hasKey(name):
+      when field is seq[BPOForkInfo]:
+        field = blobScheduleEntries
+      else:
+        try:
+          field = parse(typeof(field), values[name])
+        except ValueError:
+          fail("Unable to parse " & name)
+      values.del(name)
+    elif name == "BLOB_SCHEDULE":
+      when field is seq[BPOForkInfo]:
+        field = blobScheduleEntries
 
   if cfg.PRESET_BASE != const_preset:
     raise (ref PresetIncompatibleError)(
