@@ -15,13 +15,12 @@ import
   taskpools,
   ../beacon_chain/conf,
   ../beacon_chain/spec/[
-      beaconstate, forks, helpers,
-      peerdas_helpers, state_transition],
+      beaconstate, forks, helpers, state_transition],
   ../beacon_chain/spec/datatypes/[deneb, fulu],
   ../beacon_chain/gossip_processing/block_processor,
   ../beacon_chain/consensus_object_pools/[
     attestation_pool, blockchain_dag, blob_quarantine, block_quarantine,
-    block_clearance, consensus_manager, data_column_quarantine],
+    block_clearance, consensus_manager],
   ../beacon_chain/el/el_manager,
   ./testutil, ./testdbutil, ./testblockutil
 
@@ -51,7 +50,7 @@ suite "Block processor" & preset():
       taskpool = Taskpool.new()
       quarantine = newClone(Quarantine.init())
       blobQuarantine = newClone(BlobQuarantine())
-      dataColumnQuarantine = newClone(DataColumnQuarantine())
+      dataColumnQuarantine = newClone(ColumnQuarantine())
       attestationPool = newClone(AttestationPool.init(dag, quarantine))
       elManager = new ELManager # TODO: initialise this properly
       actionTracker: ActionTracker
@@ -71,7 +70,7 @@ suite "Block processor" & preset():
       batchVerifier = BatchVerifier.new(rng, taskpool)
       processor = BlockProcessor.new(
         false, "", "", batchVerifier, consensusManager,
-        validatorMonitor, blobQuarantine, dataColumnQuarantine, 
+        validatorMonitor, blobQuarantine, dataColumnQuarantine,
         getTimeFn)
     discard processor.runQueueProcessingLoop()
 
@@ -137,15 +136,15 @@ suite "Block processor" & preset():
     let
       processor = BlockProcessor.new(
         false, "", "", batchVerifier, consensusManager,
-        validatorMonitor, blobQuarantine, getTimeFn,
-        invalidBlockRoots = @[b2.root])
+        validatorMonitor, blobQuarantine, dataColumnQuarantine,
+        getTimeFn, invalidBlockRoots = @[b2.root])
       processorFut = processor.runQueueProcessingLoop()
     defer: await processorFut.cancelAndWait()
 
     block:
       let res = await processor[].addBlock(
         MsgSource.gossip, ForkedSignedBeaconBlock.init(b2),
-        Opt.none(BlobSidecars))
+        Opt.none(BlobSidecars), Opt.none(DataColumnSidecars))
       check:
         res.isErr
         not dag.containsForkBlock(b1.root)
@@ -154,7 +153,7 @@ suite "Block processor" & preset():
     block:
       let res = await processor[].addBlock(
         MsgSource.gossip, ForkedSignedBeaconBlock.init(b1),
-        Opt.none(BlobSidecars))
+        Opt.none(BlobSidecars), Opt.none(DataColumnSidecars))
       check:
         res.isOk
         dag.containsForkBlock(b1.root)
@@ -168,7 +167,7 @@ suite "Block processor" & preset():
     block:
       let res = await processor[].addBlock(
         MsgSource.gossip, ForkedSignedBeaconBlock.init(b2),
-        Opt.none(BlobSidecars))
+        Opt.none(BlobSidecars), Opt.none(DataColumnSidecars))
       check:
         res == Result[void, VerifierError].err VerifierError.Invalid
         dag.containsForkBlock(b1.root)

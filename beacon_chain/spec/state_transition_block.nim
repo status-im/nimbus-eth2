@@ -27,12 +27,13 @@
 import
   chronicles, metrics,
   ../extras,
+  ./peerdas_helpers,
   ./datatypes/[phase0, altair, bellatrix, deneb],
   "."/[beaconstate, eth2_merkleization, helpers, validator, signatures],
   kzg4844/kzg_abi, kzg4844/kzg
 
 from std/algorithm import fill, sorted
-from std/sequtils import count, filterIt, mapIt
+from std/sequtils import count, foldl, filterIt, mapIt
 from ./datatypes/capella import
   BeaconState, MAX_WITHDRAWALS_PER_PAYLOAD, SignedBLSToExecutionChange,
   Withdrawal
@@ -135,7 +136,7 @@ func is_slashable_validator(validator: Validator, epoch: Epoch): bool =
     (validator.activation_epoch <= epoch) and
     (epoch < validator.withdrawable_epoch)
 
-# https://github.com/ethereum/consensus-specs/blob/v1.5.0-beta.4/specs/phase0/beacon-chain.md#proposer-slashings
+# https://github.com/ethereum/consensus-specs/blob/v1.6.0-alpha.0/specs/phase0/beacon-chain.md#proposer-slashings
 proc check_proposer_slashing*(
     state: ForkyBeaconState, proposer_slashing: SomeProposerSlashing,
     flags: UpdateFlags):
@@ -383,7 +384,7 @@ func process_deposit_request*(
   else:
     err("process_deposit_request: couldn't add deposit to pending_deposits")
 
-# https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.8/specs/phase0/beacon-chain.md#voluntary-exits
+# https://github.com/ethereum/consensus-specs/blob/v1.6.0-alpha.0/specs/phase0/beacon-chain.md#voluntary-exits
 # https://github.com/ethereum/consensus-specs/blob/v1.4.0/specs/deneb/beacon-chain.md#modified-process_voluntary_exit
 # https://github.com/ethereum/consensus-specs/blob/v1.5.0-beta.0/specs/electra/beacon-chain.md#modified-process_voluntary_exit
 proc check_voluntary_exit*(
@@ -689,7 +690,7 @@ type
 
 # https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.8/specs/phase0/beacon-chain.md#operations
 # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.5/specs/capella/beacon-chain.md#modified-process_operations
-# https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.8/specs/electra/beacon-chain.md#modified-process_operations
+# https://github.com/ethereum/consensus-specs/blob/v1.6.0-alpha.0/specs/electra/beacon-chain.md#modified-process_operations
 proc process_operations(
     cfg: RuntimeConfig, state: var ForkyBeaconState,
     body: SomeForkyBeaconBlockBody, base_reward_per_increment: Gwei,
@@ -1064,7 +1065,7 @@ type SomeFuluBeaconBlockBody =
   fulu.BeaconBlockBody | fulu.SigVerifiedBeaconBlockBody |
   fulu.TrustedBeaconBlockBody
 
-# https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.3/specs/electra/beacon-chain.md#modified-process_execution_payload
+# https://github.com/ethereum/consensus-specs/blob/v1.6.0-alpha.0/specs/fulu/beacon-chain.md#modified-process_execution_payload
 proc process_execution_payload*(
     cfg: RuntimeConfig, state: var fulu.BeaconState,
     body: SomeFuluBeaconBlockBody,
@@ -1085,8 +1086,11 @@ proc process_execution_payload*(
   if not (payload.timestamp == compute_timestamp_at_slot(state, state.slot)):
     return err("process_execution_payload: invalid timestamp")
 
-  # [New in Deneb] Verify commitments are under limit
-  if not (lenu64(body.blob_kzg_commitments) <= cfg.MAX_BLOBS_PER_BLOCK_FULU):
+  # Verify commitments are under limit
+  let max_blobs_per_block =
+    cfg.get_max_blobs_per_block_bpo(get_current_epoch(state)).valueOr:
+      return err("process_execution_payload: missing blob schedule")
+  if not (lenu64(body.blob_kzg_commitments) <= max_blobs_per_block):
     return err("process_execution_payload: too many KZG commitments")
 
   # Verify the execution payload is valid
@@ -1173,7 +1177,7 @@ func process_withdrawals*(
 # https://github.com/ethereum/consensus-specs/blob/v1.4.0/specs/deneb/beacon-chain.md#kzg_commitment_to_versioned_hash
 func kzg_commitment_to_versioned_hash*(
     kzg_commitment: KzgCommitment): VersionedHash =
-  # https://github.com/ethereum/consensus-specs/blob/v1.4.0/specs/deneb/beacon-chain.md#blob
+  # https://github.com/ethereum/consensus-specs/blob/v1.6.0-alpha.0/specs/deneb/beacon-chain.md#blob
   const VERSIONED_HASH_VERSION_KZG = 0x01'u8
 
   var res: VersionedHash

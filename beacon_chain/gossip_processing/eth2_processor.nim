@@ -11,10 +11,13 @@ import
   std/[tables, sequtils],
   chronicles, chronos, metrics,
   taskpools,
+  kzg4844/kzg,
+  ssz_serialization/types,
+  ../el/el_manager,
   ../spec/[helpers, forks, peerdas_helpers],
   ../consensus_object_pools/[
     blob_quarantine, block_clearance, block_quarantine, blockchain_dag,
-    data_column_quarantine, attestation_pool, light_client_pool,
+    attestation_pool, light_client_pool,
     sync_committee_msg_pool, validator_change_pool],
   ../validators/validator_pool,
   ../beacon_clock,
@@ -152,7 +155,7 @@ type
 
     blobQuarantine*: ref BlobQuarantine
 
-    dataColumnQuarantine*: ref DataColumnQuarantine
+    dataColumnQuarantine*: ref ColumnQuarantine
 
     # Application-provided current time provider (to facilitate testing)
     getCurrentBeaconTime*: GetBeaconTimeFn
@@ -177,7 +180,7 @@ proc new*(T: type Eth2Processor,
           lightClientPool: ref LightClientPool,
           quarantine: ref Quarantine,
           blobQuarantine: ref BlobQuarantine,
-          dataColumnQuarantine: ref DataColumnQuarantine,
+          dataColumnQuarantine: ref ColumnQuarantine,
           rng: ref HmacDrbgContext,
           getBeaconTime: GetBeaconTimeFn,
           taskpool: Taskpool
@@ -254,8 +257,10 @@ proc processSignedBeaconBlock*(
     let blobs =
       when typeof(signedBlock).kind >= ConsensusFork.Deneb and
           typeof(signedBlock).kind < ConsensusFork.Fulu:
-        if self.blobQuarantine[].hasBlobs(signedBlock):
-          Opt.some(self.blobQuarantine[].popBlobs(signedBlock.root, signedBlock))
+        let bres =
+          self.blobQuarantine[].popSidecars(signedBlock.root, signedBlock)
+        if bres.isSome():
+          bres
         else:
           discard self.quarantine[].addBlobless(self.dag.finalizedHead.slot,
                                                 signedBlock)
@@ -265,9 +270,11 @@ proc processSignedBeaconBlock*(
 
     let columns =
       when typeof(signedBlock).kind >= ConsensusFork.Fulu:
-        if self.dataColumnQuarantine[].hasExactDataColumns(signedBlock, self.dag.cfg):
-          Opt.some(self.dataColumnQuarantine[].popDataColumns(signedBlock.root,
-                                                              signedBlock))
+        let cres =
+          self.dataColumnQuarantine[].popSidecars(signedBlock.root,
+                                                  signedBlock)
+        if cres.isSome():
+          cres
         else:
           discard self.quarantine[].addColumnless(self.dag.finalizedHead.slot,
                                                   signedBlock)
@@ -321,20 +328,19 @@ proc processBlobSidecar*(
     blob_sidecars_dropped.inc(1, [$v.error[0]])
     return v
 
-  debug "Blob validated, putting in blob quarantine"
-  self.blobQuarantine[].put(newClone(blobSidecar))
-
   let block_root = hash_tree_root(block_header)
+  debug "Blob validated, putting in blob quarantine"
+  self.blobQuarantine[].put(block_root, newClone(blobSidecar))
+
   if (let o = self.quarantine[].popBlobless(block_root); o.isSome):
     let blobless = o.unsafeGet()
     withBlck(blobless):
       when consensusFork >= ConsensusFork.Deneb and
           consensusFork < ConsensusFork.Fulu:
-        if self.blobQuarantine[].hasBlobs(forkyBlck):
-          self.blockProcessor[].enqueueBlock(
-            MsgSource.gossip, blobless,
-            Opt.some(self.blobQuarantine[].popBlobs(block_root, forkyBlck)),
-            Opt.none(DataColumnSidecars))
+        let bres = self.blobQuarantine[].popSidecars(block_root, forkyBlck)
+        if bres.isSome():
+          self.blockProcessor[].enqueueBlock(MsgSource.gossip, blobless, bres,
+                                             Opt.none(DataColumnSidecars))
         else:
           discard self.quarantine[].addBlobless(
             self.dag.finalizedHead.slot, forkyBlck)
@@ -346,10 +352,76 @@ proc processBlobSidecar*(
 
   v
 
+proc validateDataColumnSidecarFromEL*(
+    self: ref Eth2Processor,
+    block_root: Eth2Digest):
+    Future[ValidationRes]
+    {.async: (raises: [CancelledError]).} =
+  let elManager = self.blockProcessor[].consensusManager.elManager
+  if (let o = self.quarantine[].popColumnless(block_root); o.isSome):
+    let columnless = o.unsafeGet()
+    withBlck(columnless):
+      when consensusFork >= ConsensusFork.Fulu:
+        let
+          start_time = Moment.now()
+        let blobsFromElOpt =
+          await elManager.sendGetBlobsV2(forkyBlck)
+        if blobsFromElOpt.isSome():
+          let blobsEl = blobsFromElOpt.get()
+
+          # check lengths of array[BlobAndProofV2 with blobs
+          # kzg commitments of the signed block
+          if blobsEl.len == forkyBlck.message.body.blob_kzg_commitments.len:
+
+            # we have received all columns from the EL
+            # hence we can safely remove the columnless block from quarantine
+            var flat_proof: seq[kzg.KzgProof] = @[]
+            for item in blobsEl:
+              for proof in item.proofs:
+                flat_proof.add(kzg.KzgProof(bytes: proof.data))
+
+            let
+              recovered_columns =
+                assemble_data_column_sidecars(
+                  forkyBlck,
+                  blobsEl.mapIt(kzg.KzgBlob(bytes: it.blob.data)),
+                  flat_proof)
+
+            # Pop out the column sidecars as we have all columns from the EL
+            discard self.dataColumnQuarantine[].popSidecars(block_root,
+                                                            forkyBlck)
+
+            let end_time = Moment.now()
+            debug "Time taken to get 100% response from EL and bypass blob gossip validation",
+                  time_taken = end_time - start_time
+            debug "Pulled blobs from EL, bypassing blob gossip validation",
+                  blobs_from_el = blobsEl.len
+            self.blockProcessor[].enqueueBlock(
+              MsgSource.gossip, columnless,
+              Opt.none(BlobSidecars),
+              Opt.some(recovered_columns.mapIt(newClone it)))
+            return ok()
+
+          else:
+            discard self.quarantine[].addColumnless(
+              self.dag.finalizedHead.slot, forkyBlck)
+      else:
+          raiseAssert "Could not have been added as columnless"
+  else:
+    return errIgnore ("Could not pull blobs and proofs from EL")
+
 proc processDataColumnSidecar*(
-    self: var Eth2Processor, src: MsgSource,
-    dataColumnSidecar: DataColumnSidecar, subnet_id: uint64): ValidationRes =
+    self: ref Eth2Processor, src: MsgSource,
+    dataColumnSidecar: DataColumnSidecar, subnet_id: uint64):
+    Future[ValidationRes] {.async: (raises: [CancelledError]).} =
   template block_header: untyped = dataColumnSidecar.signed_block_header.message
+  let block_root = hash_tree_root(block_header)
+
+  let vEL =
+    await self.validateDataColumnSidecarFromEL(block_root)
+
+  if vEL.isOk():
+    return vEL
 
   let
     wallTime = self.getCurrentBeaconTime()
@@ -373,41 +445,20 @@ proc processDataColumnSidecar*(
     return v
 
   debug "Data column validated, putting data column in quarantine"
-  self.dataColumnQuarantine[].put(newClone(dataColumnSidecar))
+  self.dataColumnQuarantine[].put(block_root, newClone(dataColumnSidecar))
   self.dag.db.putDataColumnSidecar(dataColumnSidecar)
 
-  let block_root = hash_tree_root(block_header)
   if (let o = self.quarantine[].popColumnless(block_root); o.isSome):
     let columnless = o.unsafeGet()
     withBlck(columnless):
       when consensusFork >= ConsensusFork.Fulu:
-        if not self.dataColumnQuarantine[].supernode:
-          if self.dataColumnQuarantine[].hasExactDataColumns(forkyBlck, self.dag.cfg):
-            let gathered_columns =
-              self.dataColumnQuarantine[].gatherDataColumns(forkyBlck.root)
-            for gdc in gathered_columns:
-              self.dataColumnQuarantine[].put(newClone(gdc))
-            self.blockProcessor[].enqueueBlock(
-              MsgSource.gossip, columnless,
-              Opt.none(BlobSidecars),
-              Opt.some(self.dataColumnQuarantine[].popDataColumns(block_root,
-                                                                  forkyBlck)))
-        elif self.dataColumnQuarantine[].hasEnoughDataColumns(forkyBlck):
-          let
-            columns = self.dataColumnQuarantine[].gatherDataColumns(block_root)
-          if columns.lenu64 >= (self.dag.cfg.NUMBER_OF_COLUMNS div 2) and
-              self.dataColumnQuarantine[].supernode:
-            let
-              recovered_cps = recover_cells_and_proofs(columns.mapIt(it[]))
-              reconstructed_columns =
-                get_data_column_sidecars(forkyBlck, recovered_cps.get)
-            for rc in reconstructed_columns:
-              if rc notin columns.mapIt(it[]):
-                self.dataColumnQuarantine[].put(newClone(rc))
+        let cres =
+          self.dataColumnQuarantine[].popSidecars(block_root, forkyBlck)
+        if cres.isSome():
           self.blockProcessor[].enqueueBlock(
             MsgSource.gossip, columnless,
             Opt.none(BlobSidecars),
-            Opt.some(self.dataColumnQuarantine[].popDataColumns(block_root, forkyBlck)))
+            cres)
         else:
           discard self.quarantine[].addColumnless(
             self.dag.finalizedHead.slot, forkyBlck)
@@ -605,6 +656,15 @@ proc processBlsToExecutionChange*(
 
   return v
 
+proc checkKnownValidatorSlashing(
+    self: var Eth2Processor,
+    msg: ProposerSlashing | phase0.AttesterSlashing | electra.AttesterSlashing) =
+  for idx in getValidatorIndices(msg):
+    let i = ValidatorIndex.init(idx).valueOr:
+      continue
+    if self.blockProcessor[].consensusManager[].actionTracker.knownValidators.hasKey(i):
+      quitSlashing()
+
 proc processAttesterSlashing*(
     self: var Eth2Processor, src: MsgSource,
     attesterSlashing: phase0.AttesterSlashing | electra.AttesterSlashing):
@@ -618,6 +678,8 @@ proc processAttesterSlashing*(
 
   if v.isOk():
     trace "Attester slashing validated"
+
+    self.checkKnownValidatorSlashing(attesterSlashing)
 
     self.validatorChangePool[].addMessage(attesterSlashing)
 
@@ -641,6 +703,8 @@ proc processProposerSlashing*(
   let v = self.validatorChangePool[].validateProposerSlashing(proposerSlashing)
   if v.isOk():
     trace "Proposer slashing validated"
+
+    self.checkKnownValidatorSlashing(proposerSlashing)
 
     self.validatorChangePool[].addMessage(proposerSlashing)
 

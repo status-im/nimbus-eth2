@@ -23,7 +23,7 @@ const
   # https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.8/specs/phase0/p2p-interface.md#constants
   NODE_ID_BITS* = 256
 
-  # https://github.com/ethereum/consensus-specs/blob/v1.4.0/specs/phase0/p2p-interface.md#configuration
+  # https://github.com/ethereum/consensus-specs/blob/v1.6.0-alpha.0/specs/phase0/p2p-interface.md#configuration
   EPOCHS_PER_SUBNET_SUBSCRIPTION* = 256'u64
   SUBNETS_PER_NODE* = 2'u64
   ATTESTATION_SUBNET_COUNT*: uint64 = 64

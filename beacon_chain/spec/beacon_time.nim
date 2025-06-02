@@ -150,7 +150,7 @@ const
   # https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.9/specs/altair/light-client/p2p-interface.md#sync-committee
   lightClientFinalityUpdateSlotOffset* = TimeDiff(nanoseconds:
     NANOSECONDS_PER_SLOT.int64 div INTERVALS_PER_SLOT)
-  # https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.9/specs/altair/light-client/p2p-interface.md#sync-committee
+  # https://github.com/ethereum/consensus-specs/blob/v1.6.0-alpha.0/specs/altair/light-client/p2p-interface.md#sync-committee
   lightClientOptimisticUpdateSlotOffset* = TimeDiff(nanoseconds:
     NANOSECONDS_PER_SLOT.int64 div INTERVALS_PER_SLOT)
 
@@ -184,7 +184,7 @@ func slotOrZero*(time: BeaconTime): Slot =
   if exSlot.afterGenesis: exSlot.slot
   else: Slot(0)
 
-# https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.6/specs/phase0/beacon-chain.md#compute_epoch_at_slot
+# https://github.com/ethereum/consensus-specs/blob/v1.6.0-alpha.0/specs/phase0/beacon-chain.md#compute_epoch_at_slot
 func epoch*(slot: Slot): Epoch = # aka compute_epoch_at_slot
   ## Return the epoch number at ``slot``.
   if slot == FAR_FUTURE_SLOT: FAR_FUTURE_EPOCH

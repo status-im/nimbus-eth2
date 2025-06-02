@@ -28,11 +28,11 @@ import
 export json_serialization, base
 
 const
-  # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.5/specs/capella/light-client/sync-protocol.md#constants
+  # https://github.com/ethereum/consensus-specs/blob/v1.6.0-alpha.0/specs/capella/light-client/sync-protocol.md#constants
   # This index is rooted in `BeaconBlockBody`.
   # The first member (`randao_reveal`) is 16, subsequent members +1 each.
   # If there are ever more than 16 members in `BeaconBlockBody`, indices change!
-  # https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.6/ssz/merkle-proofs.md
+  # https://github.com/ethereum/consensus-specs/blob/v1.6.0-alpha.0/ssz/merkle-proofs.md
   # execution_payload
   EXECUTION_PAYLOAD_GINDEX* = 25.GeneralizedIndex
 
@@ -47,7 +47,7 @@ type
     address*: ExecutionAddress
     amount*: Gwei
 
-  # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.5/specs/capella/beacon-chain.md#blstoexecutionchange
+  # https://github.com/ethereum/consensus-specs/blob/v1.6.0-alpha.0/specs/capella/beacon-chain.md#blstoexecutionchange
   BLSToExecutionChange* = object
     validator_index*: uint64
     from_bls_pubkey*: ValidatorPubKey
@@ -58,7 +58,7 @@ type
     message*: BLSToExecutionChange
     signature*: ValidatorSig
 
-  # https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.9/specs/capella/beacon-chain.md#historicalsummary
+  # https://github.com/ethereum/consensus-specs/blob/v1.6.0-alpha.0/specs/capella/beacon-chain.md#historicalsummary
   HistoricalSummary* = object
     # `HistoricalSummary` matches the components of the phase0
     # `HistoricalBatch` making the two hash_tree_root-compatible.
@@ -133,7 +133,7 @@ type
       ## Execution payload header corresponding to `beacon.body_root` (from Capella onward)
     execution_branch*: ExecutionBranch
 
-  # https://github.com/ethereum/consensus-specs/blob/v1.5.0-beta.4/specs/altair/light-client/sync-protocol.md#lightclientbootstrap
+  # https://github.com/ethereum/consensus-specs/blob/v1.6.0-alpha.0/specs/altair/light-client/sync-protocol.md#lightclientbootstrap
   LightClientBootstrap* = object
     header*: LightClientHeader
       ## Header matching the requested beacon block root

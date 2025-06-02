@@ -56,7 +56,6 @@ TOOLS_CORE_CUSTOMCOMPILE := \
 	libnimbus_lc.a
 
 TOOLS_CORE := \
-	deposit_contract \
 	resttest \
 	mev_mock \
 	ncli \
@@ -80,7 +79,6 @@ TOOLS := $(TOOLS_CORE) nimbus_beacon_node
 
 TOOLS_DIRS := \
 	beacon_chain \
-	beacon_chain/el \
 	ncli \
 	research \
 	tools
@@ -566,34 +564,6 @@ define CONNECT_TO_NETWORK_WITH_LIGHT_CLIENT
 		--trusted-block-root="$(LC_TRUSTED_BLOCK_ROOT)"
 endef
 
-define MAKE_DEPOSIT_DATA
-	build/nimbus_beacon_node deposits createTestnetDeposits \
-		--network=$(1) \
-		--new-wallet-file=build/data/shared_$(1)_$(NODE_ID)/wallet.json \
-		--out-validators-dir=build/data/shared_$(1)_$(NODE_ID)/validators \
-		--out-secrets-dir=build/data/shared_$(1)_$(NODE_ID)/secrets \
-		--out-deposits-file=$(1)-deposits_data-$$(date +"%Y%m%d%H%M%S").json \
-		--count=$(VALIDATORS)
-endef
-
-define MAKE_DEPOSIT
-	build/nimbus_beacon_node deposits createTestnetDeposits \
-		--network=$(1) \
-		--out-deposits-file=nbc-$(1)-deposits.json \
-		--new-wallet-file=build/data/shared_$(1)_$(NODE_ID)/wallet.json \
-		--out-validators-dir=build/data/shared_$(1)_$(NODE_ID)/validators \
-		--out-secrets-dir=build/data/shared_$(1)_$(NODE_ID)/secrets \
-		--count=$(VALIDATORS)
-
-	build/deposit_contract sendDeposits \
-		$(2) \
-		--deposit-contract=$$(cat vendor/$(1)/metadata/deposit_contract.txt) \
-		--deposits-file=nbc-$(1)-deposits.json \
-		--min-delay=$(DEPOSITS_DELAY) \
-		--max-delay=$(DEPOSITS_DELAY) \
-		--ask-for-key
-endef
-
 define CLEAN_NETWORK
 	rm -rf build/data/shared_$(1)*/db
 	rm -rf build/data/shared_$(1)*/dump
@@ -623,9 +593,6 @@ sepolia-dev: | sepolia-build
 	$(call CONNECT_TO_NETWORK_IN_DEV_MODE,sepolia,nimbus_beacon_node,$(SEPOLIA_WEB3_URL))
 endif
 
-sepolia-dev-deposit: | sepolia-build deposit_contract
-	$(call MAKE_DEPOSIT,sepolia,$(SEPOLIA_WEB3_URL))
-
 clean-sepolia:
 	$(call CLEAN_NETWORK,sepolia)
 
@@ -633,17 +600,12 @@ clean-sepolia:
 ### Gnosis chain binary
 ###
 
-# TODO The `-d:gnosisChainBinary` override can be removed if the web3 library
-#      gains support for multiple "Chain Profiles" that consist of a set of
-#      consensus object (such as blocks and transactions) that are specific
-#      to the chain.
 gnosis-build gnosis-chain-build: | build deps
 	+ echo -e $(BUILD_MSG) "build/nimbus_beacon_node_gnosis" && \
 		MAKE="$(MAKE)" V="$(V)" $(ENV_SCRIPT) scripts/compile_nim_program.sh \
 			nimbus_beacon_node_gnosis \
 			beacon_chain/nimbus_beacon_node.nim \
 			$(NIM_PARAMS) \
-			-d:gnosisChainBinary \
 			-d:const_preset=gnosis \
 			&& \
 		echo -e $(BUILD_END_MSG) "build/nimbus_beacon_node_gnosis"
@@ -654,7 +616,6 @@ gnosis-vc-build: | build deps
 			nimbus_validator_client_gnosis \
 			beacon_chain/nimbus_validator_client.nim \
 			$(NIM_PARAMS) \
-			-d:gnosisChainBinary \
 			-d:const_preset=gnosis \
 			&& \
 		echo -e $(BUILD_END_MSG) "build/nimbus_validator_client_gnosis"
@@ -669,9 +630,6 @@ else
 gnosis-dev: | gnosis-build
 	$(call CONNECT_TO_NETWORK_IN_DEV_MODE,gnosis,nimbus_beacon_node_gnosis,$(GNOSIS_WEB3_URLS))
 endif
-
-gnosis-dev-deposit: | gnosis-build deposit_contract
-	$(call MAKE_DEPOSIT,gnosis,$(GNOSIS_WEB3_URLS))
 
 clean-gnosis:
 	$(call CLEAN_NETWORK,gnosis)
@@ -689,10 +647,6 @@ gnosis-chain-dev: | gnosis-build
 	echo `gnosis-chain-dev` is deprecated, use `gnosis-dev` instead
 	$(call CONNECT_TO_NETWORK_IN_DEV_MODE,gnosis-chain,nimbus_beacon_node_gnosis,$(GNOSIS_WEB3_URLS))
 endif
-
-gnosis-chain-dev-deposit: | gnosis-build deposit_contract
-	echo `gnosis-chain-dev-deposit` is deprecated, use `gnosis-chain-dev-deposit` instead
-	$(call MAKE_DEPOSIT,gnosis-chain,$(GNOSIS_WEB3_URLS))
 
 clean-gnosis-chain:
 	$(call CLEAN_NETWORK,gnosis-chain)
