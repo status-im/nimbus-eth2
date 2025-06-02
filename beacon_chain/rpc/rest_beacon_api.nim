@@ -15,7 +15,9 @@ import
   ./state_ttl_cache,
   ../beacon_node,
   ../consensus_object_pools/[blockchain_dag, spec_cache, validator_change_pool],
-  ../spec/[eth2_merkleization, forks, network, validator],
+  ../spec/[
+      peerdas_helpers, eth2_merkleization,
+      forks, network, validator],
   ../validators/message_router_mev
 
 from ../spec/mev/bellatrix_mev import toSignedBlindedBeaconBlock
@@ -923,14 +925,26 @@ proc installBeaconApiHandlers*(router: var RestRouter, node: BeaconNode) =
             doAssert strictVerification notin node.dag.updateFlags
             return RestApiResponse.jsonError(Http400, InvalidBlockObjectError)
 
-          when consensusFork >= ConsensusFork.Deneb:
+          when consensusFork >= ConsensusFork.Deneb and
+              consensusFork < ConsensusFork.Fulu:
             await node.router.routeSignedBeaconBlock(
               forkyBlck, Opt.some(
                 forkyBlck.create_blob_sidecars(kzg_proofs, blobs)),
+              Opt.none(seq[DataColumnSidecar]),
+              checkValidator = true)
+          elif consensusFork >= ConsensusFork.Fulu:
+            let data_columns =
+              assemble_data_column_sidecars(
+                forkyBlck, blobs.mapIt(kzg.KzgBlob(bytes: it)),
+                @(kzg_proofs.mapIt(kzg.KzgProof(it))))
+            await node.router.routeSignedBeaconBlock(
+              forkyBlck, Opt.none(seq[BlobSidecar]),
+              Opt.some(data_columns),
               checkValidator = true)
           else:
             await node.router.routeSignedBeaconBlock(
               forkyBlck, Opt.none(seq[BlobSidecar]),
+              Opt.none(seq[DataColumnSidecar]),
               checkValidator = true)
 
     if res.isErr():
@@ -980,14 +994,26 @@ proc installBeaconApiHandlers*(router: var RestRouter, node: BeaconNode) =
             doAssert strictVerification notin node.dag.updateFlags
             return RestApiResponse.jsonError(Http400, InvalidBlockObjectError)
 
-          when consensusFork >= ConsensusFork.Deneb:
+          when consensusFork >= ConsensusFork.Deneb and
+              consensusFork < ConsensusFork.Fulu:
             await node.router.routeSignedBeaconBlock(
               forkyBlck, Opt.some(
                 forkyBlck.create_blob_sidecars(kzg_proofs, blobs)),
+              Opt.none(seq[DataColumnSidecar]),
+              checkValidator = true)
+          elif consensusFork >= ConsensusFork.Fulu:
+            let data_columns =
+              assemble_data_column_sidecars(
+                forkyBlck, blobs.mapIt(kzg.KzgBlob(bytes: it)),
+                @(kzg_proofs.mapIt(kzg.KzgProof(it))))
+            await node.router.routeSignedBeaconBlock(
+              forkyBlck, Opt.none(seq[BlobSidecar]),
+              Opt.some(data_columns),
               checkValidator = true)
           else:
             await node.router.routeSignedBeaconBlock(
               forkyBlck, Opt.none(seq[BlobSidecar]),
+              Opt.none(seq[DataColumnSidecar]),
               checkValidator = true)
 
     if res.isErr():
@@ -1117,6 +1143,7 @@ proc installBeaconApiHandlers*(router: var RestRouter, node: BeaconNode) =
           forkyBlck.root = hash_tree_root(forkyBlck.message)
           await node.router.routeSignedBeaconBlock(
             forkyBlck, Opt.none(seq[BlobSidecar]),
+            Opt.none(seq[DataColumnSidecar]),
             checkValidator = true)
 
         if res.isErr():
@@ -1200,6 +1227,7 @@ proc installBeaconApiHandlers*(router: var RestRouter, node: BeaconNode) =
           forkyBlck.root = hash_tree_root(forkyBlck.message)
           await node.router.routeSignedBeaconBlock(
             forkyBlck, Opt.none(seq[BlobSidecar]),
+            Opt.none(seq[DataColumnSidecar]),
             checkValidator = true)
 
         if res.isErr():

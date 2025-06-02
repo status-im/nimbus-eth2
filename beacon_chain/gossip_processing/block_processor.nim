@@ -283,7 +283,8 @@ proc storeBackfillBlock(
     self.consensusManager.dag.db.putBlobSidecar(b[])
 
   # Only store data columns after successfully establishing block validity
-  let columns = dataColumnsOpt.valueOr: DataColumnSidecars @[]
+  let
+    columns = dataColumnsOpt.valueOr: DataColumnSidecars @[]
   for c in columns:
     self.consensusManager.dag.db.putDataColumnSidecar(c[])
 
@@ -728,16 +729,17 @@ proc storeBlock(
 
   when typeof(signedBlock).kind >= ConsensusFork.Fulu:
     if dataColumnsOpt.isSome:
-      let columns = dataColumnsOpt.get()
-      let kzgCommits = signedBlock.message.body.blob_kzg_commitments.asSeq
-      if columns.len > 0 and kzgCommits.len > 0:
-        for i in 0..<columns.len:
+      let
+        columns0 = dataColumnsOpt.get()
+        kzgCommits = signedBlock.message.body.blob_kzg_commitments.asSeq
+      if columns0.len > 0 and kzgCommits.len > 0:
+        for i in 0..<columns0.len:
           let r =
-            verify_data_column_sidecar_kzg_proofs(columns[i][])
+            verify_data_column_sidecar_kzg_proofs(columns0[i][])
           if r.isErr:
             debug "data column validation failed",
               blockRoot = shortLog(signedBlock.root),
-              column_sidecar = shortLog(columns[i][]),
+              column_sidecar = shortLog(columns0[i][]),
               blck = shortLog(signedBlock.message),
               signature = shortLog(signedBlock.signature),
               msg = r.error()

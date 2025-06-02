@@ -302,8 +302,6 @@ proc initFullNode(
     node.eventBus.electraAttSlashQueue.emit(data)
   proc onBlobSidecarAdded(data: BlobSidecarInfoObject) =
     node.eventBus.blobSidecarQueue.emit(data)
-  proc onDataColumnSidecarCallback(data: DataColumnSidecar) =
-    node.eventBus.columnSidecarQueue.emit(data)
   proc onBlockAdded(data: ForkedTrustedSignedBeaconBlock) =
     let optimistic =
       if node.currentSlot().epoch() >= dag.cfg.BELLATRIX_FORK_EPOCH:
@@ -417,7 +415,7 @@ proc initFullNode(
         max(dag.cfg.SAMPLES_PER_SLOT.uint64,
             localCustodyGroups))
     dataColumnQuarantine = newClone(ColumnQuarantine.init(
-      dag.cfg, custodyColumns, onDataColumnSidecarCallback))
+      dag.cfg, custodyColumns))
     custody_columns_set =
       dataColumnQuarantine[].custodyColumns.toHashSet()
     custody_columns_list =
@@ -457,19 +455,6 @@ proc initFullNode(
         when consensusFork >= ConsensusFork.Fulu:
           let cres = dataColumnQuarantine[].popSidecars(forkyBlck.root, forkyBlck)
           if cres.isSome():
-            if cres.get().lenu64 >= (NUMBER_OF_COLUMNS div 2):
-              # We have enough data columns to reconstruct the rest
-              let
-                recoveredCps =
-                  recover_cells_and_proofs(cres.get())
-                reconstructedColumns =
-                  reconstruct_data_column_sidecars(forkyBlck, recoveredCps.get)
-
-              return await blockProcessor[].addBlock(MsgSource.gossip, signedBlock,
-                                              Opt.none(BlobSidecars),
-                                              Opt.some(reconstructedColumns),
-                                              maybeFinalized = maybeFinalized)
-
             await blockProcessor[].addBlock(MsgSource.gossip, signedBlock,
                                       Opt.none(BlobSidecars),
                                       cres,
@@ -601,7 +586,8 @@ proc initFullNode(
   if node.config.peerdasSupernode:
     node.network.loadCgcnetMetadataAndEnr(dag.cfg.NUMBER_OF_CUSTODY_GROUPS.uint8)
   else:
-    node.network.loadCgcnetMetadataAndEnr(dag.cfg.CUSTODY_REQUIREMENT.uint8)
+    node.network.loadCgcnetMetadataAndEnr(max(dag.cfg.SAMPLES_PER_SLOT.uint8,
+                                          dag.cfg.CUSTODY_REQUIREMENT.uint8))
 
   if node.config.lightClientDataServe:
     proc scheduleSendingLightClientUpdates(slot: Slot) =
@@ -2176,12 +2162,12 @@ proc installMessageValidators(node: BeaconNode) =
         for it in 0'u64..<node.dag.cfg.NUMBER_OF_CUSTODY_GROUPS:
           closureScope:
             let subnet_id = it
-            node.network.addValidator(
+            node.network.addAsyncValidator(
               getDataColumnSidecarTopic(digest, subnet_id), proc (
                 dataColumnSidecar: fulu.DataColumnSidecar
-              ): ValidationResult =
+              ): Future[ValidationResult] {.async: (raises: [CancelledError]).} =
                 toValidationResult(
-                  node.processor[].processDataColumnSidecar(
+                  await node.processor.processDataColumnSidecar(
                     MsgSource.gossip, dataColumnSidecar, subnet_id)))
 
       when consensusFork >= ConsensusFork.Deneb:

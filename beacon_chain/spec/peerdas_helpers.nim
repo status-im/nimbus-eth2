@@ -22,8 +22,8 @@ import
   ./datatypes/[fulu]
 
 type
-  CellBytes = array[fulu.CELLS_PER_EXT_BLOB, Cell]
-  ProofBytes = array[fulu.CELLS_PER_EXT_BLOB, KzgProof]
+  CellBytes* = array[fulu.CELLS_PER_EXT_BLOB, Cell]
+  ProofBytes* = array[fulu.CELLS_PER_EXT_BLOB, KzgProof]
 
 # https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.10/specs/fulu/das-core.md#compute_columns_for_custody_group
 iterator compute_columns_for_custody_group*(custody_group: CustodyIndex):
@@ -409,6 +409,70 @@ proc get_data_column_sidecars*(signed_beacon_block: fulu.SignedBeaconBlock,
 
   ok(sidecars)
 
+proc assemble_data_column_sidecars*(signed_beacon_block: fulu.SignedBeaconBlock,
+                                    blobs: seq[KzgBlob],
+                                    cell_proofs: seq[KzgProof]):
+                                    seq[DataColumnSidecar] =
+  template blck(): auto = signed_beacon_block.message
+  var
+    sidecars =
+      newSeqOfCap[DataColumnSidecar](CELLS_PER_EXT_BLOB)
+  template kzg_commitments: untyped =
+    signed_beacon_block.message.body.blob_kzg_commitments
+  if kzg_commitments.len == 0:
+    return sidecars
+  let
+    beacon_block_header =
+      BeaconBlockHeader(
+        slot: blck.slot,
+        proposer_index: blck.proposer_index,
+        parent_root: blck.parent_root,
+        state_root: blck.state_root,
+        body_root: hash_tree_root(blck.body))
+
+    signed_beacon_block_header =
+      SignedBeaconBlockHeader(
+        message: beacon_block_header,
+        signature: signed_beacon_block.signature)
+
+  var
+    cells = newSeq[CellBytes](blobs.len)
+    proofs = newSeq[ProofBytes](blobs.len)
+
+  for i in 0..<blobs.len:
+    let kzgcells = computeCells(blobs[i])
+
+    cells[i] = kzgcells.get
+    var tmp: ProofBytes
+    for j in 0..<CELLS_PER_EXT_BLOB:
+      tmp[j] = cell_proofs[i * CELLS_PER_EXT_BLOB + j]
+    proofs[i] = tmp
+
+  # TODO can we not refactor the above 4 lines to something like:
+  # proofs[i] = cell_proofs[i * CELLS_PER_EXT_BLOB .. (i+1) * CELLS_PER_EXT_BLOB - 1]
+
+  for columnIndex in 0..<CELLS_PER_EXT_BLOB:
+    var
+      column = newSeqOfCap[KzgCell](blobs.len)
+      kzgProofOfColumn = newSeqOfCap[KzgProof](blobs.len)
+    for rowIndex in 0..<blobs.len:
+      column.add(cells[rowIndex][columnIndex])
+      kzgProofOfColumn.add(proofs[rowIndex][columnIndex])
+
+    var sidecar = DataColumnSidecar(
+      index: ColumnIndex(columnIndex),
+      column: DataColumn.init(column),
+      kzg_commitments: blck.body.blob_kzg_commitments,
+      kzg_proofs: KzgProofs.init(kzgProofOfColumn),
+      signed_block_header: signed_beacon_block_header)
+    blck.body.build_proof(
+      KZG_COMMITMENTS_INCLUSION_PROOF_DEPTH_GINDEX.GeneralizedIndex,
+      sidecar.kzg_commitments_inclusion_proof).expect("Valid gindex")
+    sidecars.add(sidecar)
+
+  sidecars
+
+
 # https://github.com/ethereum/consensus-specs/blob/v1.5.0-beta.2/specs/fulu/peer-sampling.md#get_extended_sample_count
 func get_extended_sample_count*(samples_per_slot: int,
                                 allowed_failures: int):
@@ -497,3 +561,21 @@ func get_validators_custody_requirement*(cfg: RuntimeConfig, state: fulu.BeaconS
   let count = total_node_balance div BALANCE_PER_ADDITIONAL_CUSTODY_GROUP
   min(max(count.uint64, cfg.VALIDATOR_CUSTODY_REQUIREMENT),
       cfg.NUMBER_OF_CUSTODY_GROUPS.uint64)
+
+# https://github.com/ethereum/consensus-specs/blob/v1.6.0-alpha.0/specs/fulu/das-core.md#get_max_blobs_per_block
+func get_max_blobs_per_block_bpo*(cfg: RuntimeConfig, epoch: Epoch): Opt[uint64] =
+  ## Return the maximum number of blobs that can be included in a block for a
+  ## given epoch.
+  if not len(cfg.BLOB_SCHEDULE) > 0:
+    return Opt.none(uint64)
+
+  # Spec version of function sorts every time, which should happen only once at
+  # loading.
+  for entry in cfg.BLOB_SCHEDULE:
+    if epoch >= entry.EPOCH:
+      return Opt.some entry.MAX_BLOBS_PER_BLOCK
+
+  # This is effectively a constant per node instance.
+  Opt.some foldl(
+    cfg.BLOB_SCHEDULE, min(a, b.MAX_BLOBS_PER_BLOCK),
+    cfg.BLOB_SCHEDULE[0].MAX_BLOBS_PER_BLOCK)
