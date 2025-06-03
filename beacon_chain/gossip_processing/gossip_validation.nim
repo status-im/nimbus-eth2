@@ -54,6 +54,10 @@ declareHistogram beacon_data_column_sidecar_gossip_verification_seconds,
   buckets = [0.005, 0.01, 0.025, 0.05, 0.075, 0.1, 0.25, 0.5, 0.75, 1.0, 2.5, 5.0, 7.5, 10.0, Inf]
 
 declareHistogram beacon_data_column_sidecar_inclusion_proof_verification_seconds,
+  "Time taken to verify data column sidecar inclusion proof",
+  buckets = [0.005, 0.01, 0.025, 0.05, 0.075, 0.1, 0.25, 0.5, 0.75, 1.0, 2.5, 5.0, 7.5, 10.0, Inf]
+
+declareHistogram beacon_kzg_verification_data_column_batch_seconds,
   "Runtime of batched data column kzg verification",
   buckets = [0.005, 0.01, 0.025, 0.05, 0.075, 0.1, 0.25, 0.5, 0.75, 1.0, 2.5, 5.0, 7.5, 10.0, Inf]
 
@@ -649,7 +653,12 @@ proc validateDataColumnSidecar*(
   # [REJECT] The sidecar's `kzg_commitments` inclusion proof is valid as verified by
   # `verify_data_column_sidecar_inclusion_proof(sidecar)`.
   block:
-    let v = check_data_column_sidecar_inclusion_proof(data_column_sidecar)
+    let
+      inclusionProofStartTick = Moment.now()
+      v = check_data_column_sidecar_inclusion_proof(data_column_sidecar)
+      inclusionProofValidationTick = Moment.now()
+      inclusionProofValidationDur = inclusionProofValidationTick - inclusionProofStartTick
+    beacon_data_column_sidecar_inclusion_proof_verification_seconds.observe(inclusionProofValidationDur.toFloatSeconds())
     if v.isErr:
       return dag.checkedReject(v.error)
 
@@ -725,10 +734,10 @@ proc validateDataColumnSidecar*(
       r = check_data_column_sidecar_kzg_proofs(data_column_sidecar)
       kzgValidationTick = Moment.now()
       kzgValidationDur = kzgValidationTick - kzgStartTick
-    beacon_data_column_sidecar_inclusion_proof_verification_seconds.observe(kzgValidationDur.toFloatSeconds())
+    beacon_kzg_verification_data_column_batch_seconds.observe(kzgValidationDur.toFloatSeconds())
     if r.isErr:
       return dag.checkedReject(r.error)
- 
+
   let
     validationTick = Moment.now()
     validationDur = validationTick - startTick
