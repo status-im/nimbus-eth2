@@ -100,6 +100,10 @@ declareHistogram data_column_sidecar_delay,
   "Time(s) betweeen slot start and data column sidecar reception",
   buckets = delayBuckets
 
+declareHistogram beacon_data_column_sidecar_computation_seconds,
+  "Time taken to compute data column sidecar, including cells and inclusion proof",
+  buckets = [0.005, 0.01, 0.025, 0.05, 0.075, 0.1, 0.25, 0.5, 0.75, 1.0, 2.5, 5.0, 7.5, 10.0, Inf]
+
 type
   DoppelgangerProtection = object
     broadcastStartEpoch*: Epoch  ##\
@@ -381,11 +385,15 @@ proc validateDataColumnSidecarFromEL*(
                 flat_proof.add(kzg.KzgProof(bytes: proof.data))
 
             let
+              recover_start_time = Moment.now()
               recovered_columns =
                 assemble_data_column_sidecars(
                   forkyBlck,
                   blobsEl.mapIt(kzg.KzgBlob(bytes: it.blob.data)),
                   flat_proof)
+              recover_end_time = Moment.now()
+              recover_dur = recover_end_time - recover_start_time
+            beacon_data_column_sidecar_computation_seconds.observe(recover_dur.toFloatSeconds())
 
             # Pop out the column sidecars as we have all columns from the EL
             discard self.dataColumnQuarantine[].popSidecars(block_root,
