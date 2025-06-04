@@ -1296,7 +1296,7 @@ proc ETHExecutionBlockHeaderCreateFromJson(
         Opt.some data.requestsHash.get.asEth2Digest.to(Hash32)
       else:
         Opt.none(Hash32))
-  if blockHeader.computeRlpHash() != executionHash[]:
+  if blockHeader.computeRlpHash().asEth2Digest() != executionHash[]:
     return nil
 
   # Construct withdrawals
@@ -1326,15 +1326,15 @@ proc ETHExecutionBlockHeaderCreateFromJson(
         bytes: rlpBytes)
 
     let tr = orderedTrieRoot(wds)
-    if tr != data.withdrawalsRoot.get.asEth2Digest:
+    if tr != data.withdrawalsRoot.get:
       return nil
 
   let executionBlockHeader = ETHExecutionBlockHeader.new()
   executionBlockHeader[] = ETHExecutionBlockHeader(
-    transactionsRoot: blockHeader.txRoot,
-    withdrawalsRoot: blockHeader.withdrawalsRoot.get(zeroHash32),
+    transactionsRoot: blockHeader.txRoot.asEth2Digest(),
+    withdrawalsRoot: blockHeader.withdrawalsRoot.get(zeroHash32).asEth2Digest(),
     withdrawals: wds,
-    requestsHash: blockHeader.requestsHash.get(zeroHash32))
+    requestsHash: blockHeader.requestsHash.get(zeroHash32).asEth2Digest())
   executionBlockHeader.toUnmanagedPtr()
 
 proc ETHExecutionBlockHeaderDestroy(
@@ -1600,7 +1600,7 @@ proc ETHTransactionsCreateFromJson(
         except RlpError:
           raiseAssert "Unreachable"
       hash = keccak256(rlpBytes)
-    if data.hash.asEth2Digest != hash:
+    if data.hash != hash:
       return nil
 
     func packSignature(r, s: UInt256, yParity: uint8): array[65, byte] =
@@ -1667,7 +1667,7 @@ proc ETHTransactionsCreateFromJson(
         signature: @sig)
 
     txs.add ETHTransaction(
-      hash: keccak256(rlpBytes),
+      hash: keccak256(rlpBytes).asEth2Digest,
       chainId: tx.chainId,
       `from`: ExecutionAddress(data: fromAddress),
       nonce: tx.nonce,
@@ -1688,7 +1688,7 @@ proc ETHTransactionsCreateFromJson(
       signature: @rawSig,
       bytes: rlpBytes.TypedTransaction)
 
-  if orderedTrieRoot(txs) != transactionsRoot[]:
+  if orderedTrieRoot(txs).asEth2Digest() != transactionsRoot[]:
     return nil
 
   let transactions = seq[ETHTransaction].new()
@@ -2396,7 +2396,7 @@ proc ETHReceiptsCreateFromJson(
           ReceiptStatusType.Root
         else:
           ReceiptStatusType.Status,
-      root: rec.hash,
+      root: rec.hash.asEth2Digest(),
       status: rec.status,
       gasUsed: distinctBase(data.gasUsed),  # Validated during sanity checks.
       logsBloom: BloomLogs(data: rec.logsBloom.data),
@@ -2406,7 +2406,7 @@ proc ETHReceiptsCreateFromJson(
         data: it.data)),
       bytes: rlpBytes)
 
-  if orderedTrieRoot(recs) != receiptsRoot[]:
+  if orderedTrieRoot(recs).asEth2Digest() != receiptsRoot[]:
     return nil
 
   let receipts = seq[ETHReceipt].new()

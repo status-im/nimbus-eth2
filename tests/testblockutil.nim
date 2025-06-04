@@ -11,6 +11,7 @@ import
   chronicles,
   stew/endians2,
   ../beacon_chain/consensus_object_pools/sync_committee_msg_pool,
+  ../beacon_chain/el/engine_api_conversions,
   ../beacon_chain/spec/datatypes/bellatrix,
   ../beacon_chain/spec/[
     beaconstate, helpers, keystore, signatures, state_transition, validator]
@@ -102,7 +103,7 @@ func build_empty_merge_execution_payload(state: bellatrix.BeaconState):
   var payload = bellatrix.ExecutionPayload(
     parent_hash: latest.block_hash,
     state_root: latest.state_root, # no changes to the state
-    receipts_root: EMPTY_ROOT_HASH,
+    receipts_root: EMPTY_ROOT_HASH.asEth2Digest,
     block_number: latest.block_number + 1,
     prev_randao: randao_mix,
     gas_limit: 30000000, # retain same limit
@@ -134,7 +135,7 @@ func build_empty_execution_payload(
       parent_hash: latest.block_hash,
       fee_recipient: bellatrix.ExecutionAddress(data: distinctBase(feeRecipient)),
       state_root: latest.state_root, # no changes to the state
-      receipts_root: EMPTY_ROOT_HASH,
+      receipts_root: EMPTY_ROOT_HASH.asEth2Digest,
       block_number: latest.block_number + 1,
       prev_randao: randao_mix,
       gas_limit: latest.gas_limit, # retain same limit
