@@ -34,7 +34,7 @@ type
     maxSidecarsCount: int
     maxSidecarsPerBlockCount: int
     sidecarsCount: int
-    custodyColumns*: seq[ColumnIndex]
+    custodyColumns*: HashSet[ColumnIndex]
     custodyMap: ColumnMap
     roots: Table[Eth2Digest, RootTableRecord[A]]
     usage: OrderedSet[Eth2Digest]
@@ -52,7 +52,7 @@ type
   ColumnQuarantine* =
     SidecarQuarantine[DataColumnSidecar, OnDataColumnSidecarCallback]
 
-func init*(t: typedesc[ColumnMap], columns: openArray[ColumnIndex]): ColumnMap =
+func init*(t: typedesc[ColumnMap], columns: HashSet[ColumnIndex]): ColumnMap =
   var res: ColumnMap
   for column in columns:
     let
@@ -491,7 +491,7 @@ func fetchMissingSidecars*(
         if len(peerCustodyColumns) > 0:
           @peerCustodyColumns
         else:
-          quarantine.custodyColumns
+          quarantine.custodyColumns.toSeq()
     if len(record.sidecars) == 0:
       var columnsRequested = 0
       for column in columns:
@@ -517,7 +517,7 @@ func fetchMissingSidecars*(
   else:
     let peerMap =
       if len(peerCustodyColumns) > 0:
-        ColumnMap.init(peerCustodyColumns)
+        ColumnMap.init(peerCustodyColumns.toHashSet())
       else:
         ColumnMap.init(quarantine.custodyColumns)
     if len(record.sidecars) == 0:
@@ -560,7 +560,7 @@ func fetchMissingColumnsByRoot*(
         if len(peerCustodyColumns) > 0:
           @peerCustodyColumns
         else:
-          quarantine.custodyColumns
+          quarantine.custodyColumns.toSeq()
     if len(record.sidecars) == 0:
       var columnsRequested = 0
       for column in columns:
@@ -586,7 +586,7 @@ func fetchMissingColumnsByRoot*(
   else:
     let peerMap =
       if len(peerCustodyColumns) > 0:
-        ColumnMap.init(peerCustodyColumns)
+        ColumnMap.init(peerCustodyColumns.toHashSet())
       else:
         ColumnMap.init(quarantine.custodyColumns)
     if len(record.sidecars) == 0:
@@ -655,23 +655,24 @@ func init*(
 func init*(
     T: typedesc[ColumnQuarantine],
     cfg: RuntimeConfig,
-    custodyColumns: openArray[ColumnIndex],
+    custodyColumns: HashSet[ColumnIndex],
 ): ColumnQuarantine =
-  doAssert(len(custodyColumns) <= NUMBER_OF_COLUMNS)
+  doAssert(custodyColumns.len <= NUMBER_OF_COLUMNS)
   let size = maxSidecars(NUMBER_OF_COLUMNS)
   var indexMap = newSeqUninit[int](NUMBER_OF_COLUMNS)
-  if len(custodyColumns) < NUMBER_OF_COLUMNS:
-    for i in 0 ..< len(indexMap):
-      indexMap[i] = -1
-  for index, item in custodyColumns.pairs():
+  for i in 0 ..< len(indexMap):
+    indexMap[i] = -1
+  var idx = 0
+  for item in custodyColumns:
     doAssert(item < uint64(NUMBER_OF_COLUMNS))
-    indexMap[int(item)] = index
+    indexMap[int(item)] = idx
+    inc idx
 
   ColumnQuarantine(
-    maxSidecarsPerBlockCount: len(custodyColumns),
+    maxSidecarsPerBlockCount: custodyColumns.len,
     maxSidecarsCount: size,
     sidecarsCount: 0,
     indexMap: indexMap,
-    custodyColumns: @custodyColumns,
+    custodyColumns: custodyColumns,
     custodyMap: ColumnMap.init(custodyColumns),
   )

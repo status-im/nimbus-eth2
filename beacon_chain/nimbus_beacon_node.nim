@@ -416,11 +416,6 @@ proc initFullNode(
             localCustodyGroups))
     dataColumnQuarantine = newClone(ColumnQuarantine.init(
       dag.cfg, custodyColumns))
-    custody_columns_set =
-      dataColumnQuarantine[].custodyColumns.toHashSet()
-    custody_columns_list =
-      List[ColumnIndex, NUMBER_OF_COLUMNS].init(
-        dataColumnQuarantine[].custodyColumns)
     consensusManager = ConsensusManager.new(
       dag, attestationPool, quarantine, node.elManager,
       ActionTracker.init(node.network.nodeId, config.subscribeAllSubnets),
@@ -559,7 +554,7 @@ proc initFullNode(
       processor: processor,
       network: node.network)
     requestManager = RequestManager.init(
-      node.network, supernode, dag.cfg, custody_columns_set,
+      node.network, supernode, dag.cfg, custodyColumns,
       dag.cfg.DENEB_FORK_EPOCH, getBeaconTime, (proc(): bool = syncManager.inProgress),
       quarantine, blobQuarantine, dataColumnQuarantine, rmanBlockVerifier,
       rmanBlockLoader, rmanBlobLoader, rmanDataColumnLoader)
