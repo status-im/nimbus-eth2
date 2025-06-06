@@ -1,6 +1,7 @@
 # Nimbus Eth2 (Beacon Chain)
 
 [![Github Actions CI](https://github.com/status-im/nimbus-eth2/actions/workflows/ci.yml/badge.svg?branch=stable)](https://github.com/status-im/nimbus-eth2/actions/workflows/ci.yml?query=branch%3Astable)
+[![Release](https://img.shields.io/github/v/release/status-im/nimbus-eth2)](https://github.com/status-im/nimbus-eth2/releases)
 [![License: Apache](https://img.shields.io/badge/License-Apache%202.0-blue.svg)](https://opensource.org/licenses/Apache-2.0)
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](https://opensource.org/licenses/MIT)
 
