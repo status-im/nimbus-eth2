@@ -118,17 +118,14 @@ func get_custody_groups*(cfg: RuntimeConfig, node_id: NodeId,
 
 func resolve_columns_from_custody_groups*(cfg: RuntimeConfig, node_id: NodeId,
                                           custody_group_count: CustodyIndex):
-                                          seq[ColumnIndex] =
-
-  let
-    custody_groups = node_id.get_custody_groups(custody_group_count)
-
-  var flattened =
-    newSeqOfCap[ColumnIndex](COLUMNS_PER_GROUP * custody_groups.len)
+                                          HashSet[ColumnIndex] =
+  ## Returns a set of unique columns for the custody groups of a node.
+  let custody_groups = node_id.get_custody_groups(custody_group_count)
+  var columns: HashSet[ColumnIndex]
   for group in custody_groups:
     for index in compute_columns_for_custody_group(cfg, group):
-       flattened.add index
-  flattened
+      columns.incl index
+  columns
 
 # https://github.com/ethereum/consensus-specs/blob/v1.5.0-beta.4/specs/fulu/das-core.md#compute_matrix
 proc compute_matrix*(blobs: seq[KzgBlob]): Result[seq[MatrixEntry], cstring] =

@@ -9,7 +9,7 @@
 
 import
   stew/bitops2,
-  std/[sets, tables],
+  std/[sets, tables, algorithm],
   results,
   ../spec/datatypes/[deneb, electra, fulu],
   ../spec/[presets, helpers]
@@ -34,7 +34,7 @@ type
     maxSidecarsCount: int
     maxSidecarsPerBlockCount: int
     sidecarsCount: int
-    custodyColumns*: seq[ColumnIndex]
+    custodyColumns*: HashSet[ColumnIndex]
     custodyMap: ColumnMap
     roots: Table[Eth2Digest, RootTableRecord[A]]
     usage: OrderedSet[Eth2Digest]
@@ -52,9 +52,12 @@ type
   ColumnQuarantine* =
     SidecarQuarantine[DataColumnSidecar, OnDataColumnSidecarCallback]
 
-func init*(t: typedesc[ColumnMap], columns: openArray[ColumnIndex]): ColumnMap =
-  var res: ColumnMap
-  for column in columns:
+func init*(t: typedesc[ColumnMap], columns: HashSet[ColumnIndex]): ColumnMap =
+  var
+    res: ColumnMap
+    sortedColumns = columns.toSeq()
+  sortedColumns.sort()
+  for column in sortedColumns:
     let
       index = int(uint64(column) shr 6)
       offset = int(uint64(column) and 0x3F'u64)
@@ -385,6 +388,8 @@ func popSidecars*(
   ## If some of the column sidecars are missing Opt.none() is returned.
   ## If block do not have any column sidecars bundledd Opt.some([]) is returned.
   let sidecarsCount = len(blck.message.body.blob_kzg_commitments)
+  var sortedColumns = quarantine.custodyColumns.toSeq()
+  sort(sortedColumns)
   if sidecarsCount == 0:
     # Block does not have any blob sidecars.
     quarantine.remove(blockRoot)
@@ -407,7 +412,8 @@ func popSidecars*(
     # Quarantine does not hold enough column sidecars.
     return Opt.none(seq[ref DataColumnSidecar])
 
-  var sidecars: seq[ref DataColumnSidecar]
+  var
+    sidecars: seq[ref DataColumnSidecar]
   if supernode:
     for sidecar in record.sidecars:
       # Supernode could have some of the columns not filled.
@@ -416,8 +422,9 @@ func popSidecars*(
     doAssert(len(sidecars) >= (NUMBER_OF_COLUMNS div 2 + 1),
              "Incorrect amount of sidecars in record")
     Opt.some(sidecars)
+
   else:
-    for cindex in quarantine.custodyColumns:
+    for cindex in sortedColumns:
       let index = quarantine.getIndex(cindex)
       doAssert(not(isNil(record.sidecars[index])),
         "Record should not store nil values when record's count is correct")
@@ -486,12 +493,12 @@ func fetchMissingSidecars*(
         len(quarantine.custodyColumns)
 
   if supernode:
-    let
-      columns =
-        if len(peerCustodyColumns) > 0:
-          @peerCustodyColumns
-        else:
-          quarantine.custodyColumns
+    var columns: seq[ColumnIndex]
+    if len(peerCustodyColumns) > 0:
+      columns = @peerCustodyColumns
+    else:
+      columns = quarantine.custodyColumns.toSeq()
+      columns.sort()
     if len(record.sidecars) == 0:
       var columnsRequested = 0
       for column in columns:
@@ -517,7 +524,7 @@ func fetchMissingSidecars*(
   else:
     let peerMap =
       if len(peerCustodyColumns) > 0:
-        ColumnMap.init(peerCustodyColumns)
+        ColumnMap.init(peerCustodyColumns.toHashSet())
       else:
         ColumnMap.init(quarantine.custodyColumns)
     if len(record.sidecars) == 0:
@@ -555,12 +562,12 @@ func fetchMissingColumnsByRoot*(
         len(quarantine.custodyColumns)
 
   if supernode:
-    let
-      columns =
-        if len(peerCustodyColumns) > 0:
-          @peerCustodyColumns
-        else:
-          quarantine.custodyColumns
+    var columns: seq[ColumnIndex]
+    if len(peerCustodyColumns) > 0:
+      columns = @peerCustodyColumns
+    else:
+      columns = quarantine.custodyColumns.toSeq()
+      columns.sort()
     if len(record.sidecars) == 0:
       var columnsRequested = 0
       for column in columns:
@@ -586,7 +593,7 @@ func fetchMissingColumnsByRoot*(
   else:
     let peerMap =
       if len(peerCustodyColumns) > 0:
-        ColumnMap.init(peerCustodyColumns)
+        ColumnMap.init(peerCustodyColumns.toHashSet())
       else:
         ColumnMap.init(quarantine.custodyColumns)
     if len(record.sidecars) == 0:
@@ -655,23 +662,24 @@ func init*(
 func init*(
     T: typedesc[ColumnQuarantine],
     cfg: RuntimeConfig,
-    custodyColumns: openArray[ColumnIndex],
+    custodyColumns: HashSet[ColumnIndex],
 ): ColumnQuarantine =
-  doAssert(len(custodyColumns) <= NUMBER_OF_COLUMNS)
+  doAssert(custodyColumns.len <= NUMBER_OF_COLUMNS)
   let size = maxSidecars(NUMBER_OF_COLUMNS)
   var indexMap = newSeqUninit[int](NUMBER_OF_COLUMNS)
-  if len(custodyColumns) < NUMBER_OF_COLUMNS:
-    for i in 0 ..< len(indexMap):
-      indexMap[i] = -1
-  for index, item in custodyColumns.pairs():
+  for i in 0 ..< len(indexMap):
+    indexMap[i] = -1
+  var idx = 0
+  for item in custodyColumns:
     doAssert(item < uint64(NUMBER_OF_COLUMNS))
-    indexMap[int(item)] = index
+    indexMap[int(item)] = idx
+    inc idx
 
   ColumnQuarantine(
-    maxSidecarsPerBlockCount: len(custodyColumns),
+    maxSidecarsPerBlockCount: custodyColumns.len,
     maxSidecarsCount: size,
     sidecarsCount: 0,
     indexMap: indexMap,
-    custodyColumns: @custodyColumns,
+    custodyColumns: custodyColumns,
     custodyMap: ColumnMap.init(custodyColumns),
   )
