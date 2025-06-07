@@ -2362,6 +2362,8 @@ func upgrade_to_fulu*(
     pending_deposits: pre.pending_deposits,
     pending_partial_withdrawals: pre.pending_partial_withdrawals,
     pending_consolidations: pre.pending_consolidations
+
+    # proposer_lookahead is default empty array
   )
 
   post
