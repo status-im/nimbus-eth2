@@ -202,9 +202,6 @@ proc installNodeApiHandlers*(router: var RestRouter, node: BeaconNode) =
           last_seen_p2p_address: getLastSeenAddress(node, peer.peerId),
           state: peer.connectionState.toString(),
           direction: peer.direction.toString(),
-          # Fields `agent` and `proto` are not part of specification
-          agent: node.network.switch.peerStore[AgentBook][peer.peerId],
-          proto: node.network.switch.peerStore[ProtoVersionBook][peer.peerId]
         )
         res.add(peer)
     RestApiResponse.jsonResponseWMeta(res, (count: RestNumeric(len(res))))
@@ -245,10 +242,6 @@ proc installNodeApiHandlers*(router: var RestRouter, node: BeaconNode) =
         last_seen_p2p_address: getLastSeenAddress(node, peer.peerId),
         state: peer.connectionState.toString(),
         direction: peer.direction.toString(),
-        agent: node.network.switch.peerStore[AgentBook][peer.peerId],
-          # Fields `agent` and `proto` are not part of specification
-        proto: node.network.switch.peerStore[ProtoVersionBook][peer.peerId]
-          # Fields `agent` and `proto` are not part of specification
       )
     )
 

@@ -245,8 +245,6 @@ type
     last_seen_p2p_address*: string
     state*: string
     direction*: string
-    agent*: string # This is not part of specification
-    proto*: string # This is not part of specification
 
   RestNodeVersion* = object
     version*: string
