@@ -509,12 +509,30 @@ proc process_proposer_lookahead*(state: var fulu.BeaconState,
 
   let
     next_epoch    = Epoch(get_current_epoch(state) + MIN_SEED_LOOKAHEAD + 1)
-    indices       = get_active_validator_indices(state, next_epoch)
     new_proposers =
       cache.shuffled_active_validator_indices.getOrDefault(state.slot.epoch())
 
   for i in 0 ..< SLOTS_PER_EPOCH:
     mitem(state.proposer_lookahead, last_epoch_start + i) = new_proposers[i].uint64
+
+proc initialize_proposer_lookahead*(state: electra.BeaconState,
+                                    cache: var StateCache):
+                                    HashArray[Limit (MIN_SEED_LOOKAHEAD + 1) * SLOTS_PER_EPOCH, uint64] =
+  ## Return the proposer indices for the full available lookahead starting from the current epoch.
+  let current_epoch = state.slot.epoch()
+  var lookahead: HashArray[Limit (MIN_SEED_LOOKAHEAD + 1) * SLOTS_PER_EPOCH, uint64]
+
+  for i in 0 ..< (MIN_SEED_LOOKAHEAD + 1):
+    let
+      epoch_i   = Epoch(current_epoch + i)
+      proposers =
+        cache.shuffled_active_validator_indices.getOrDefault(state.slot.epoch())
+    assert proposers.lenu64 == SLOTS_PER_EPOCH, "Unexpected proposer count"
+    for j in 0 ..< SLOTS_PER_EPOCH:
+      # mitem clears the relevant cache before writing
+      mitem(lookahead, i * SLOTS_PER_EPOCH + j) = proposers[j].uint64
+
+  lookahead
 
 # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.6/specs/phase0/beacon-chain.md#get_beacon_proposer_index
 func get_beacon_proposer_index*(state: ForkyBeaconState, cache: var StateCache):
