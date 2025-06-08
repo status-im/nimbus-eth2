@@ -509,28 +509,32 @@ proc process_proposer_lookahead*(state: var fulu.BeaconState,
 
   let
     next_epoch    = Epoch(get_current_epoch(state) + MIN_SEED_LOOKAHEAD + 1)
-    new_proposers =
+    indices =
       cache.shuffled_active_validator_indices.getOrDefault(state.slot.epoch())
+    new_proposers =
+      get_beacon_proposer_indices(state, indices, next_epoch)
 
   for i in 0 ..< SLOTS_PER_EPOCH:
-    mitem(state.proposer_lookahead, last_epoch_start + i) = new_proposers[i].uint64
+    if new_proposers[i].isSome():
+      mitem(state.proposer_lookahead, last_epoch_start + i) = new_proposers[i].get.uint64
 
 proc initialize_proposer_lookahead*(state: electra.BeaconState,
                                     cache: var StateCache):
                                     HashArray[Limit (MIN_SEED_LOOKAHEAD + 1) * SLOTS_PER_EPOCH, uint64] =
-  ## Return the proposer indices for the full available lookahead starting from the current epoch.
   let current_epoch = state.slot.epoch()
   var lookahead: HashArray[Limit (MIN_SEED_LOOKAHEAD + 1) * SLOTS_PER_EPOCH, uint64]
 
   for i in 0 ..< (MIN_SEED_LOOKAHEAD + 1):
     let
       epoch_i   = Epoch(current_epoch + i)
-      proposers =
+      indices =
         cache.shuffled_active_validator_indices.getOrDefault(state.slot.epoch())
-    assert proposers.lenu64 == SLOTS_PER_EPOCH, "Unexpected proposer count"
+      proposers =
+        get_beacon_proposer_indices(state, indices, epoch_i)
+
     for j in 0 ..< SLOTS_PER_EPOCH:
-      # mitem clears the relevant cache before writing
-      mitem(lookahead, i * SLOTS_PER_EPOCH + j) = proposers[j].uint64
+      if proposers[j].isSome():
+        mitem(lookahead, i * SLOTS_PER_EPOCH + j) = proposers[j].get.uint64
 
   lookahead
 
