@@ -1624,7 +1624,7 @@ proc process_epoch*(
   ? process_historical_summaries_update(state)  # [Modified in Capella]
   process_participation_flag_updates(state)
   process_sync_committee_updates(state)
-  process_proposer_lookahead(state) # [New in Fulu:EIP7917]
+  process_proposer_lookahead(state, cache) # [New in Fulu:EIP7917]
 
   ok()
 

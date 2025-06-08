@@ -497,22 +497,24 @@ func get_beacon_proposer_indices*(
   res
 
 # https://github.com/ethereum/consensus-specs/blob/v1.6.0-alpha.1/specs/fulu/beacon-chain.md#new-process_proposer_lookahead
-proc process_proposer_lookahead*(state: var fulu.BeaconState) =
+proc process_proposer_lookahead*(state: var fulu.BeaconState,
+                                 cache: var StateCache) =
   let
     total_slots      = state.proposer_lookahead.data.lenu64
     last_epoch_start = total_slots - SLOTS_PER_EPOCH
 
   for i in 0 ..< last_epoch_start:
-    mitem(state.proposer_lookahead, i) = mitem(state.proposer_lookahead, i + SLOTS_PER_EPOCH)
+    mitem(state.proposer_lookahead, i) =
+      mitem(state.proposer_lookahead, i + SLOTS_PER_EPOCH)
 
   let
     next_epoch    = Epoch(get_current_epoch(state) + MIN_SEED_LOOKAHEAD + 1)
     indices       = get_active_validator_indices(state, next_epoch)
-    new_proposers = get_beacon_proposer_indices(state, indices, next_epoch)
+    new_proposers =
+      cache.shuffled_active_validator_indices.getOrDefault(state.slot.epoch())
 
   for i in 0 ..< SLOTS_PER_EPOCH:
-    if new_proposers[i].isSome:
-      mitem(state.proposer_lookahead, last_epoch_start + i) = new_proposers[i].get.uint64
+    mitem(state.proposer_lookahead, last_epoch_start + i) = new_proposers[i].uint64
 
 # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.6/specs/phase0/beacon-chain.md#get_beacon_proposer_index
 func get_beacon_proposer_index*(state: ForkyBeaconState, cache: var StateCache):
