@@ -1393,6 +1393,29 @@ func process_pending_consolidations*(
 
   ok()
 
+# https://github.com/ethereum/consensus-specs/blob/v1.6.0-alpha.1/specs/fulu/beacon-chain.md#new-process_proposer_lookahead
+proc process_proposer_lookahead*(state: var fulu.BeaconState,
+                                 cache: var StateCache):
+                                 Result[void, cstring] =
+  let
+    total_slots      = state.proposer_lookahead.data.lenu64
+    last_epoch_start = total_slots - SLOTS_PER_EPOCH
+
+  for i in 0 ..< last_epoch_start:
+    mitem(state.proposer_lookahead, i) =
+      mitem(state.proposer_lookahead, i + SLOTS_PER_EPOCH)
+
+  let
+    next_epoch    = Epoch(get_current_epoch(state) + MIN_SEED_LOOKAHEAD + 1)
+    new_proposers =
+      get_beacon_proposer_indices(state, next_epoch)
+
+  for i in 0 ..< SLOTS_PER_EPOCH:
+    if new_proposers[i].isSome():
+      mitem(state.proposer_lookahead, last_epoch_start + i) = new_proposers[i].get.uint64
+
+  ok()
+
 # https://github.com/ethereum/consensus-specs/blob/v1.4.0/specs/phase0/beacon-chain.md#epoch-processing
 proc process_epoch*(
     cfg: RuntimeConfig, state: var phase0.BeaconState, flags: UpdateFlags,
@@ -1624,7 +1647,7 @@ proc process_epoch*(
   ? process_historical_summaries_update(state)  # [Modified in Capella]
   process_participation_flag_updates(state)
   process_sync_committee_updates(state)
-  process_proposer_lookahead(state, cache) # [New in Fulu:EIP7917]
+  ? process_proposer_lookahead(state, cache) # [New in Fulu:EIP7917]
 
   ok()
 

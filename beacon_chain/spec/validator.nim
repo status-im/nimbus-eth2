@@ -439,6 +439,26 @@ func compute_proposer_index(state: ForkyBeaconState,
   ## Return from ``indices`` a random index sampled by effective balance.
   compute_proposer_index(state, indices, seed, shuffled_index)
 
+func compute_proposer_indices*(
+    state: ForkyBeaconState,
+    epoch: Epoch, seed: Eth2Digest,
+    indices: seq[ValidatorIndex]
+): seq[Opt[ValidatorIndex]] =
+  let startSlot = epoch.start_slot()
+  var seeds: seq[Eth2Digest]
+  var proposerIndices: seq[Opt[ValidatorIndex]]
+
+  for i in 0..<SLOTS_PER_EPOCH:
+    var buffer: array[32 + 8, byte]
+    buffer[0..31] = seed.data
+    buffer[32..39] = uint_to_bytes(Slot(startSlot + i).asUInt64)
+
+    let slotSeed = eth2digest(buffer)  # Concatenate manually using buffer
+    let proposerIndex = compute_proposer_index(state, indices, slotSeed)
+    proposerIndices.add(proposerIndex)
+
+  proposerIndices
+
 # https://github.com/ethereum/consensus-specs/blob/v1.6.0-alpha.0/specs/phase0/beacon-chain.md#get_beacon_proposer_index
 func get_beacon_proposer_index*(
     state: ForkyBeaconState, cache: var StateCache, slot: Slot):
@@ -496,41 +516,36 @@ func get_beacon_proposer_indices*(
 
   res
 
-# https://github.com/ethereum/consensus-specs/blob/v1.6.0-alpha.1/specs/fulu/beacon-chain.md#new-process_proposer_lookahead
-proc process_proposer_lookahead*(state: var fulu.BeaconState,
-                                 cache: var StateCache) =
-  let
-    total_slots      = state.proposer_lookahead.data.lenu64
-    last_epoch_start = total_slots - SLOTS_PER_EPOCH
+func get_beacon_proposer_indices*(
+    state: ForkyBeaconState, epoch: Epoch
+): seq[Opt[ValidatorIndex]] =
+  ## Return the proposer indices for the given `epoch`.
+  let indices = get_active_validator_indices(state, epoch)
+  let seed = get_seed(state, epoch, DOMAIN_BEACON_PROPOSER)
+  return compute_proposer_indices(state, epoch, seed, indices)
 
-  for i in 0 ..< last_epoch_start:
-    mitem(state.proposer_lookahead, i) =
-      mitem(state.proposer_lookahead, i + SLOTS_PER_EPOCH)
-
-  let
-    next_epoch    = Epoch(get_current_epoch(state) + MIN_SEED_LOOKAHEAD + 1)
-    indices =
-      cache.shuffled_active_validator_indices.getOrDefault(state.slot.epoch())
-    new_proposers =
-      get_beacon_proposer_indices(state, indices, next_epoch)
-
+proc read_beacon_proposer_indices_from_cache*(state: electra.BeaconState | fulu.BeaconState,
+                                              cache: var StateCache, epoch: Epoch):
+                                              seq[Opt[ValidatorIndex]] =
+  var res: seq[Opt[ValidatorIndex]]
   for i in 0 ..< SLOTS_PER_EPOCH:
-    if new_proposers[i].isSome():
-      mitem(state.proposer_lookahead, last_epoch_start + i) = new_proposers[i].get.uint64
+    let
+      proposer =
+        get_beacon_proposer_index(state, cache, epoch.start_slot + i)
+    res.add(proposer)
+  res
 
 proc initialize_proposer_lookahead*(state: electra.BeaconState,
                                     cache: var StateCache):
-                                    HashArray[Limit (MIN_SEED_LOOKAHEAD + 1) * SLOTS_PER_EPOCH, uint64] =
+                                    HashArray[Limit ((MIN_SEED_LOOKAHEAD + 1) * SLOTS_PER_EPOCH), uint64] =
   let current_epoch = state.slot.epoch()
-  var lookahead: HashArray[Limit (MIN_SEED_LOOKAHEAD + 1) * SLOTS_PER_EPOCH, uint64]
+  var lookahead: HashArray[Limit ((MIN_SEED_LOOKAHEAD + 1) * SLOTS_PER_EPOCH), uint64]
 
   for i in 0 ..< (MIN_SEED_LOOKAHEAD + 1):
     let
       epoch_i   = Epoch(current_epoch + i)
-      indices =
-        cache.shuffled_active_validator_indices.getOrDefault(state.slot.epoch())
       proposers =
-        get_beacon_proposer_indices(state, indices, epoch_i)
+        get_beacon_proposer_indices(state, epoch_i)
 
     for j in 0 ..< SLOTS_PER_EPOCH:
       if proposers[j].isSome():
