@@ -424,8 +424,6 @@ cli do(slots = SLOTS_PER_EPOCH * 7,
           dag.pruneStateCachesDAG()
           attPool.prune()
       else:
-        echo "ERROR: Failed to add fulu block for slot ", 
-          slot, ": ", added.error()
         return  # Don't crash, just skip this block
         
     do:

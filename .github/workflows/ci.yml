@@ -54,7 +54,7 @@ jobs:
             builder: ['self-hosted','ubuntu-22.04']
           - target:
               os: macos
-            builder: macos-13
+            builder: macos-14
           - target:
               os: windows
             builder: windows-2019
