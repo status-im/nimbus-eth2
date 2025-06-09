@@ -123,7 +123,7 @@ suite "EF - Fulu - SSZ consensus objects " & preset():
           of "BeaconBlock": checkSSZ(electra.BeaconBlock, path, hash)
           of "BeaconBlockBody": checkSSZ(electra.BeaconBlockBody, path, hash)
           of "BeaconBlockHeader": checkSSZ(BeaconBlockHeader, path, hash)
-          of "BeaconState": checkSSZ(electra.BeaconState, path, hash)
+          of "BeaconState": checkSSZ(fulu.BeaconState, path, hash)
           of "BlobIdentifier": checkSSZ(BlobIdentifier, path, hash)
           of "BlobSidecar": checkSSZ(BlobSidecar, path, hash)
           of "BLSToExecutionChange": checkSSZ(BLSToExecutionChange, path, hash)

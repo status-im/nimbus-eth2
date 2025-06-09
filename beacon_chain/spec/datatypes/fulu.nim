@@ -385,6 +385,11 @@ type
       HashList[PendingPartialWithdrawal, Limit PENDING_PARTIAL_WITHDRAWALS_LIMIT]
     pending_consolidations*:
       HashList[PendingConsolidation, Limit PENDING_CONSOLIDATIONS_LIMIT]
+
+    # [New in Fulu:EIP7917]
+    proposer_lookahead*:
+        HashArray[Limit ((MIN_SEED_LOOKAHEAD + 1) * SLOTS_PER_EPOCH), uint64]
+
       ## [New in Electra:EIP7251]
 
   # TODO Careful, not nil analysis is broken / incomplete and the semantics will

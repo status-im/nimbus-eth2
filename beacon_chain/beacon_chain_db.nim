@@ -248,17 +248,18 @@ func subkey(root: Eth2Digest, slot: Slot): array[40, byte] =
   ret
 
 func blobkey(root: Eth2Digest, index: BlobIndex) : array[40, byte] =
+  # Note that this was botched. Data corresponding to the same block should be
+  # located close together, but instead, the logic groups data by `index`, i.e.,
+  # all the index 0 blobs from all blocks come first, then all index 1 blobs etc
   var ret: array[40, byte]
-  ret[0..<8] = toBytes(index)
+  ret[0..<8] = toBytes(index)  # Also botched, endian-dependent and should be BE
   ret[8..<40] = root.data
-
   ret
 
 func columnkey(root: Eth2Digest, index: ColumnIndex) : array[40, byte] =
   var ret: array[40, byte]
-  ret[0..<8] = toBytes(index)
-  ret[8..<40] = root.data
-
+  ret[0..<32] = root.data          # 1. Group by block `root`
+  ret[32..<40] = toBytesBE(index)  # 2. Order by `index`
   ret
 
 template expectDb(x: auto): untyped =
