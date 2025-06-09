@@ -42,7 +42,8 @@ export extras, phase0, altair
 
 # https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.8/specs/phase0/beacon-chain.md#block-header
 func process_block_header*(
-    state: var ForkyBeaconState, blck: SomeForkyBeaconBlock,
+    state: var ForkyBeaconState,
+    blck: SomeForkyBeaconBlock,
     flags: UpdateFlags, cache: var StateCache): Result[void, cstring] =
   # Verify that the slots match
   if not (blck.slot == state.slot):
@@ -52,7 +53,6 @@ func process_block_header*(
   if not (blck.slot > state.latest_block_header.slot):
     return err("process_block_header: block not newer than latest block header")
 
-  # Verify that proposer index is the correct index
   let proposer_index = get_beacon_proposer_index(state, cache).valueOr:
     return err("process_block_header: proposer missing")
 

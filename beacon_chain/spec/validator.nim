@@ -465,34 +465,39 @@ func get_beacon_proposer_index*(
     Opt[ValidatorIndex] =
   let epoch = get_current_epoch(state)
 
-  if slot.epoch() != epoch:
-    # compute_proposer_index depends on `effective_balance`, therefore the
-    # beacon proposer index can only be computed for the "current" epoch:
-    # https://github.com/ethereum/consensus-specs/pull/772#issuecomment-475574357
-    return Opt.none(ValidatorIndex)
+  when typeof(state).kind >= ConsensusFork.Fulu:
+    return Opt.some(ValidatorIndex item(state.proposer_lookahead, state.slot mod SLOTS_PER_EPOCH))
 
-  cache.beacon_proposer_indices.withValue(slot, proposer) do:
-    return proposer[]
-  do:
-    ## Return the beacon proposer index at the current slot.
 
-    var buffer: array[32 + 8, byte]
-    buffer[0..31] = get_seed(state, epoch, DOMAIN_BEACON_PROPOSER).data
+  else:
+    if slot.epoch() != epoch:
+      # compute_proposer_index depends on `effective_balance`, therefore the
+      # beacon proposer index can only be computed for the "current" epoch:
+      # https://github.com/ethereum/consensus-specs/pull/772#issuecomment-475574357
+      return Opt.none(ValidatorIndex)
 
-    # There's exactly one beacon proposer per slot - the same validator may
-    # however propose several times in the same epoch (however unlikely)
-    let indices = get_active_validator_indices(state, epoch)
-    var res: Opt[ValidatorIndex]
+    cache.beacon_proposer_indices.withValue(slot, proposer) do:
+      return proposer[]
+    do:
+      ## Return the beacon proposer index at the current slot.
 
-    for epoch_slot in epoch.slots():
-      buffer[32..39] = uint_to_bytes(epoch_slot.asUInt64)
-      let seed = eth2digest(buffer)
-      let pi = compute_proposer_index(state, indices, seed)
-      if epoch_slot == slot:
-        res = pi
-      cache.beacon_proposer_indices[epoch_slot] = pi
+      var buffer: array[32 + 8, byte]
+      buffer[0..31] = get_seed(state, epoch, DOMAIN_BEACON_PROPOSER).data
 
-    return res
+      # There's exactly one beacon proposer per slot - the same validator may
+      # however propose several times in the same epoch (however unlikely)
+      let indices = get_active_validator_indices(state, epoch)
+      var res: Opt[ValidatorIndex]
+
+      for epoch_slot in epoch.slots():
+        buffer[32..39] = uint_to_bytes(epoch_slot.asUInt64)
+        let seed = eth2digest(buffer)
+        let pi = compute_proposer_index(state, indices, seed)
+        if epoch_slot == slot:
+          res = pi
+        cache.beacon_proposer_indices[epoch_slot] = pi
+
+      return res
 
 # https://github.com/ethereum/consensus-specs/blob/v1.6.0-alpha.0/specs/phase0/beacon-chain.md#get_beacon_proposer_index
 func get_beacon_proposer_indices*(
