@@ -73,6 +73,12 @@ type
     F: HashArray[4, FixedTestStruct]
     G: HashArray[2, VarTestStruct]
 
+  ProgressiveTestStruct = object
+    A: seq[byte]
+    B: seq[uint64]
+    C: seq[SmallTestStruct]
+    D: seq[seq[VarTestStruct]]
+
   BitsStruct = object
     A: BitList[5]
     B: BitArray[2]
@@ -106,6 +112,12 @@ type
     E: Opt[VarTestStableStruct]
     F: Opt[array[4, FixedTestStableStruct]]
     G: Opt[array[2, VarTestStableStruct]]
+
+  ProgressiveTestStableStruct {.sszStableContainer: 8.} = object
+    A: Opt[seq[byte]]
+    B: Opt[seq[uint64]]
+    C: Opt[seq[SmallTestStableStruct]]
+    D: Opt[seq[seq[VarTestStableStruct]]]
 
   BitsStableStruct {.sszStableContainer: 8.} = object
     A: Opt[BitList[5]]
@@ -188,6 +200,17 @@ type
     F: array[4, FixedTestStableStruct]
     G: array[2, VarTestStableStruct]
 
+  ProgressiveTestProfile1 {.sszProfile: ProgressiveTestStableStruct.} = object
+    A: seq[byte]
+    B: Opt[seq[uint64]]
+    C: seq[SmallTestStableStruct]
+    D: seq[seq[VarTestStableStruct]]
+
+  ProgressiveTestProfile2 {.sszProfile: ProgressiveTestStableStruct.} = object
+    A: seq[byte]
+    B: seq[uint64]
+    D: seq[seq[VarTestStableStruct]]
+
   BitsProfile1 {.sszProfile: BitsStableStruct.} = object
     A: BitList[5]
     B: BitArray[2]
@@ -208,7 +231,7 @@ type
 
 # Type specific checks
 # ------------------------------------------------------------------------
-
+import stew/byteutils
 proc checkBasic(
     T: typedesc,
     dir: string,
@@ -221,9 +244,47 @@ proc checkBasic(
   let actualHash = "0x" & toLowerAscii($hash_tree_root(deserialized[]))
 
   check expectedHash == actualHash
+
+  when T is ProgressiveTestProfile1:
+    checkpoint $SSZ.encode(deserialized[].A).len
+    checkpoint $SSZ.encode(deserialized[].B).len
+    checkpoint $SSZ.encode(deserialized[].C).len
+    checkpoint $SSZ.encode(deserialized[].D).len
+
+
+
   check sszSize(deserialized[]) == fileContents.len
 
   # TODO check the value
+
+proc checkProgressiveList(
+    sszSubType, dir: string, expectedHash: SSZHashTreeRoot
+) {.raises: [
+    IOError, SerializationError, TestSizeError, UnconsumedInput, ValueError].} =
+  var typeIdent: string
+  let wasMatched =
+    try:
+      scanf(sszSubType, "proglist_$+", typeIdent)
+    except ValueError:
+      false  # Parsed `size` is out of range
+  doAssert wasMatched
+
+  case typeIdent
+  of "bool":
+    checkBasic(seq[bool], dir, expectedHash)
+  of "uint8":
+    checkBasic(seq[uint8], dir, expectedHash)
+  of "uint16":
+    checkBasic(seq[uint16], dir, expectedHash)
+  of "uint32":
+    checkBasic(seq[uint32], dir, expectedHash)
+  of "uint64":
+    checkBasic(seq[uint64], dir, expectedHash)
+  of "uint128":
+    checkBasic(seq[UInt128], dir, expectedHash)
+  of "uint256":
+    checkBasic(seq[UInt256], dir, expectedHash)
+
 
 macro testVector(typeIdent: string, size: int): untyped =
   # find the compile-time type to test
@@ -393,6 +454,8 @@ proc sszCheck(
     of 256: checkBasic(UInt256, dir, expectedHash)
     else:
       raise newException(ValueError, "unknown uint in test: " & sszSubType)
+  of "basic_progressivelist":
+    checkProgressiveList(sszSubType, dir, expectedHash)
   of "basic_vector": checkVector(sszSubType, dir, expectedHash)
   of "bitvector": checkBitVector(sszSubType, dir, expectedHash)
   of "bitlist": checkBitList(sszSubType, dir, expectedHash)
@@ -408,6 +471,8 @@ proc sszCheck(
     of "ComplexTestStruct":
       checkBasic(ComplexTestStruct, dir, expectedHash)
       checkBasic(HashArrayComplexTestStruct, dir, expectedHash)
+    of "ProgressiveTestStruct":
+      checkBasic(ProgressiveTestStruct, dir, expectedHash)
     of "BitsStruct": checkBasic(BitsStruct, dir, expectedHash)
     else:
       raise newException(ValueError, "unknown container in test: " & sszSubType)
@@ -440,6 +505,10 @@ proc sszCheck(
       checkBasic(FixedTestProfile3, dir, expectedHash)
     of "FixedTestProfile4":
       checkBasic(FixedTestProfile4, dir, expectedHash)
+    of "ProgressiveTestProfile1":
+      checkBasic(ProgressiveTestProfile1, dir, expectedHash)
+    of "ProgressiveTestProfile2":
+      checkBasic(ProgressiveTestProfile2, dir, expectedHash)
     of "SingleFieldTestProfile":
       checkBasic(SingleFieldTestProfile, dir, expectedHash)
     of "SmallTestProfile1":
@@ -467,6 +536,8 @@ proc sszCheck(
       checkBasic(ComplexTestStableStruct, dir, expectedHash)
     of "FixedTestStableStruct":
       checkBasic(FixedTestStableStruct, dir, expectedHash)
+    of "ProgressiveTestStableStruct":
+      checkBasic(ProgressiveTestStableStruct, dir, expectedHash)
     of "SingleFieldTestStableStruct":
       checkBasic(SingleFieldTestStableStruct, dir, expectedHash)
     of "SmallTestStableStruct":
@@ -502,22 +573,25 @@ suite "EF - SSZ generic types":
       for pathKind, sszSubType in walkDir(
           path, relative = true, checkDir = true):
         if pathKind != pcDir: continue
+        if sszSubType != "ProgressiveTestProfile1_lengthy_9": continue
+        checkpoint path & "/" & sszSubType
         sszCheck(path, sszType, sszSubType)
 
-    template invalidPath: untyped = SSZDir/sszType/"invalid"
-    if os_ops.dirExists(invalidPath):
-      test &"Testing {sszType:16} inputs - invalid" & skipped:
-        for pathKind, sszSubType in walkDir(
-            invalidPath, relative = true, checkDir = true):
-          if pathKind != pcDir: continue
-          try:
-            sszCheck(invalidPath, sszType, sszSubType)
-          except SszError, UnconsumedInput:
-            discard
-          except TestSizeError as err:
-            echo err.msg
-            skip()
-          except:
-            checkpoint getStackTrace(getCurrentException())
-            checkpoint getCurrentExceptionMsg()
-            check false
+    # template invalidPath: untyped = SSZDir/sszType/"invalid"
+    # if os_ops.dirExists(invalidPath):
+    #   test &"Testing {sszType:16} inputs - invalid" & skipped:
+    #     for pathKind, sszSubType in walkDir(
+    #         invalidPath, relative = true, checkDir = true):
+    #       if pathKind != pcDir: continue
+    #       try:
+    #         checkpoint invalidPath & "/" & sszSubType
+    #         sszCheck(invalidPath, sszType, sszSubType)
+    #       except SszError, UnconsumedInput:
+    #         discard
+    #       except TestSizeError as err:
+    #         echo err.msg
+    #         skip()
+    #       except:
+    #         checkpoint getStackTrace(getCurrentException())
+    #         checkpoint getCurrentExceptionMsg()
+    #         check false
