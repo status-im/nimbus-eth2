@@ -17,9 +17,9 @@ import
 
 # Without this export compilation fails with error
 # vendor\nim-chronicles\chronicles.nim(352, 21) Error: undeclared identifier: 'activeChroniclesStream'
-# It actually does not needed, because chronicles is not used in this file,
-# but because decodeSZSSZ() generic and uses chronicles generic expansion
-# introduces an issue.
+# It actually is not needed, because chronicles is not used in this file,
+# but because decodeSZSSZ() is generic and uses chronicles - generic expansion
+# introduces this issue.
 export chronicles
 
 logScope: topics = "qudata"
@@ -45,16 +45,15 @@ type
 template tableName(sidecar: typedesc[ForkyDataSidecar]): string =
   when sidecar is deneb.BlobSidecar:
     "electra_sidecars_quarantine"
-  else:
+  elif sidecar is fulu.DataColumnSidecar:
     "fulu_sidecars_quarantine"
+  else:
+    static: raiseAssert "Sidecar's fork is not supported"
 
 proc initDataSidecarStore(
     backend: SqStoreRef,
     name: string
 ): KvResult[DataSidecarStore] =
-  if name == "":
-    return ok(DataSidecarStore())
-
   if not(backend.readOnly):
     ? backend.exec("BEGIN TRANSACTION;")
     ? backend.exec("DROP INDEX IF EXISTS `" & name & "_iblock_root`;")
@@ -115,11 +114,13 @@ iterator sidecars*(
       db.electraDataSidecar.getStmt
     template storeName: untyped =
       "electraDataSidecar"
-  else:
+  elif T is fulu.DataColumnSidecar:
     template statement: untyped =
       db.fuluDataSidecar.getStmt
     template storeName: untyped =
       "fuluDataSidecar"
+  else:
+    static: raiseAssert "Sidecar's fork is not supported"
 
   if not(isNil(distinctBase(statement))):
     var row: statement.Result
@@ -142,9 +143,11 @@ proc putDataSidecars*[T: ForkyDataSidecar](
   when T is deneb.BlobSidecar:
     template statement: untyped =
       db.electraDataSidecar.putStmt
-  else:
+  elif T is fulu.DataColumnSidecar:
     template statement: untyped =
       db.fuluDataSidecar.putStmt
+  else:
+    static: raiseAssert "Sidecar's fork is not supported"
 
   if not(isNil(distinctBase(statement))):
     db.backend.exec("BEGIN TRANSACTION;").expect("SQL query OK")
@@ -164,9 +167,11 @@ proc removeDataSidecars*(
   when T is deneb.BlobSidecar:
     template statement: untyped =
       db.electraDataSidecar.delStmt
-  else:
+  elif T is fulu.DataColumnSidecar:
     template statement: untyped =
       db.fuluDataSidecar.delStmt
+  else:
+    static: raiseAssert "Sidecar's fork is not supported"
 
   if not(isNil(distinctBase(statement))):
     statement.exec(blockRoot.data).expect("SQL query OK")
@@ -180,9 +185,11 @@ proc sidecarsCount*(
   when T is deneb.BlobSidecar:
     template statement: untyped =
       db.electraDataSidecar.countStmt
-  else:
+  elif T is fulu.DataColumnSidecar:
     template statement: untyped =
       db.fuluDataSidecar.countStmt
+  else:
+    static: raiseAssert "Sidecar's fork is not supported"
 
   if not(isNil(distinctBase(statement))):
     discard statement.exec do (res: int64):
@@ -192,6 +199,10 @@ proc sidecarsCount*(
 proc initQuarantineDB*(
     backend: SqStoreRef,
 ): KvResult[QuarantineDB] =
+  # Please note that all quarantine tables are temporary, each time the node is
+  # restarted these tables will be wiped out completely.
+  # Therefore there is no need to maintain forward or backward compatibility
+  # guarantees.
   let
     electraDataSidecar =
       ? backend.initDataSidecarStore(tableName(deneb.BlobSidecar))
