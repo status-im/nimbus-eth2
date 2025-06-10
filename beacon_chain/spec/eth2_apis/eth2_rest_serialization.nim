@@ -2858,7 +2858,13 @@ proc readValue*(reader: var JsonReader[RestJson],
                 value: var VCRuntimeConfig) {.
      raises: [SerializationError, IOError].} =
   for fieldName in readObjectFields(reader):
-    let fieldValue = reader.readValue(string)
+    let fieldValue =
+      case toLowerAscii(fieldName)
+      of "blob_schedule":
+        string(reader.readValue(JsonString))
+      else:
+        reader.readValue(string)
+
     if value.hasKeyOrPut(toUpperAscii(fieldName), fieldValue):
       let msg = "Multiple `" & fieldName & "` fields found"
       reader.raiseUnexpectedField(msg, "VCRuntimeConfig")
