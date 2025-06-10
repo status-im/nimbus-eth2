@@ -470,7 +470,7 @@ func get_beacon_proposer_index*(
     # https://github.com/ethereum/consensus-specs/pull/772#issuecomment-475574357
     return Opt.none(ValidatorIndex)
   when typeof(state).kind >= ConsensusFork.Fulu:
-    let pi = Opt.some(ValidatorIndex item(state.proposer_lookahead, state.slot mod SLOTS_PER_EPOCH))
+    let pi = Opt.some(ValidatorIndex item(state.proposer_lookahead, slot mod SLOTS_PER_EPOCH))
     cache.beacon_proposer_indices[slot] = pi
     return pi
   else:
