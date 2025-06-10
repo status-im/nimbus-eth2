@@ -528,17 +528,6 @@ func get_beacon_proposer_indices*(
   let seed = get_seed(state, epoch, DOMAIN_BEACON_PROPOSER)
   return compute_proposer_indices(state, cache, epoch, seed, indices)
 
-proc read_beacon_proposer_indices_from_cache*(state: electra.BeaconState | fulu.BeaconState,
-                                              cache: var StateCache, epoch: Epoch):
-                                              seq[Opt[ValidatorIndex]] =
-  var res: seq[Opt[ValidatorIndex]]
-  for i in 0 ..< SLOTS_PER_EPOCH:
-    let
-      proposer =
-        get_beacon_proposer_index(state, cache, epoch.start_slot + i)
-    res.add(proposer)
-  res
-
 proc initialize_proposer_lookahead*(state: electra.BeaconState,
                                     cache: var StateCache):
                                     HashArray[Limit ((MIN_SEED_LOOKAHEAD + 1) * SLOTS_PER_EPOCH), uint64] =
