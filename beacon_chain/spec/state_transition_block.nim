@@ -840,7 +840,9 @@ proc process_sync_aggregate*(
     participant_reward = get_participant_reward(total_active_balance)
     proposer_reward = state_transition_block.get_proposer_reward(participant_reward)
     # https://github.com/ethereum/consensus-specs/blob/v1.6.0-alpha.1/specs/fulu/beacon-chain.md#modified-get_beacon_proposer_index
-    proposer_index = ValidatorIndex mitem(state.proposer_lookahead, state.slot mod SLOTS_PER_EPOCH)
+    proposer_index = get_beacon_proposer_index(state, cache).valueOr:
+      # We're processing a block, so this can't happen, in theory (!)
+      return err("process_sync_aggregate: no proposer")
   # Apply participant and proposer rewards
   let indices = get_sync_committee_cache(state, cache).current_sync_committee
   var total_proposer_reward: Gwei
