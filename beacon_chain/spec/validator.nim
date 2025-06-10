@@ -464,18 +464,14 @@ func get_beacon_proposer_index*(
     state: ForkyBeaconState, cache: var StateCache, slot: Slot):
     Opt[ValidatorIndex] =
   let epoch = get_current_epoch(state)
-
+  if slot.epoch() != epoch:
+    # compute_proposer_index depends on `effective_balance`, therefore the
+    # beacon proposer index can only be computed for the "current" epoch:
+    # https://github.com/ethereum/consensus-specs/pull/772#issuecomment-475574357
+    return Opt.none(ValidatorIndex)
   when typeof(state).kind >= ConsensusFork.Fulu:
     return Opt.some(ValidatorIndex item(state.proposer_lookahead, state.slot mod SLOTS_PER_EPOCH))
-
-
   else:
-    if slot.epoch() != epoch:
-      # compute_proposer_index depends on `effective_balance`, therefore the
-      # beacon proposer index can only be computed for the "current" epoch:
-      # https://github.com/ethereum/consensus-specs/pull/772#issuecomment-475574357
-      return Opt.none(ValidatorIndex)
-
     cache.beacon_proposer_indices.withValue(slot, proposer) do:
       return proposer[]
     do:
