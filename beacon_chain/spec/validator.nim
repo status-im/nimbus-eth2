@@ -441,6 +441,7 @@ func compute_proposer_index(state: ForkyBeaconState,
 
 func compute_proposer_indices*(
     state: ForkyBeaconState,
+    cache: var StateCache,
     epoch: Epoch, seed: Eth2Digest,
     indices: seq[ValidatorIndex]
 ): seq[Opt[ValidatorIndex]] =
@@ -448,13 +449,14 @@ func compute_proposer_indices*(
   var seeds: seq[Eth2Digest]
   var proposerIndices: seq[Opt[ValidatorIndex]]
 
-  for i in 0..<SLOTS_PER_EPOCH:
+  for epochSlot in epoch.slots():
     var buffer: array[32 + 8, byte]
     buffer[0..31] = seed.data
-    buffer[32..39] = uint_to_bytes(Slot(startSlot + i).asUInt64)
+    buffer[32..39] = uint_to_bytes(epoch_slot.asUInt64)
 
     let slotSeed = eth2digest(buffer)  # Concatenate manually using buffer
     let proposerIndex = compute_proposer_index(state, indices, slotSeed)
+    cache.beacon_proposer_indices[epoch_slot] = proposerIndex
     proposerIndices.add(proposerIndex)
 
   proposerIndices
@@ -518,12 +520,13 @@ func get_beacon_proposer_indices*(
   res
 
 func get_beacon_proposer_indices*(
-    state: ForkyBeaconState, epoch: Epoch
+    state: ForkyBeaconState,
+    cache: var StateCache, epoch: Epoch
 ): seq[Opt[ValidatorIndex]] =
   ## Return the proposer indices for the given `epoch`.
   let indices = get_active_validator_indices(state, epoch)
   let seed = get_seed(state, epoch, DOMAIN_BEACON_PROPOSER)
-  return compute_proposer_indices(state, epoch, seed, indices)
+  return compute_proposer_indices(state, cache, epoch, seed, indices)
 
 proc read_beacon_proposer_indices_from_cache*(state: electra.BeaconState | fulu.BeaconState,
                                               cache: var StateCache, epoch: Epoch):
@@ -546,7 +549,7 @@ proc initialize_proposer_lookahead*(state: electra.BeaconState,
     let
       epoch_i   = Epoch(current_epoch + i)
       proposers =
-        get_beacon_proposer_indices(state, epoch_i)
+        get_beacon_proposer_indices(state, cache, epoch_i)
 
     for j in 0 ..< SLOTS_PER_EPOCH:
       if proposers[j].isSome():
