@@ -441,7 +441,6 @@ func compute_proposer_index(state: ForkyBeaconState,
 
 func compute_proposer_indices*(
     state: ForkyBeaconState,
-    cache: var StateCache,
     epoch: Epoch, seed: Eth2Digest,
     indices: seq[ValidatorIndex]
 ): seq[Opt[ValidatorIndex]] =
@@ -456,7 +455,6 @@ func compute_proposer_indices*(
 
     let slotSeed = eth2digest(buffer)  # Concatenate manually using buffer
     let proposerIndex = compute_proposer_index(state, indices, slotSeed)
-    cache.beacon_proposer_indices[epoch_slot] = proposerIndex
     proposerIndices.add(proposerIndex)
 
   proposerIndices
@@ -472,7 +470,9 @@ func get_beacon_proposer_index*(
     # https://github.com/ethereum/consensus-specs/pull/772#issuecomment-475574357
     return Opt.none(ValidatorIndex)
   when typeof(state).kind >= ConsensusFork.Fulu:
-    return Opt.some(ValidatorIndex item(state.proposer_lookahead, state.slot mod SLOTS_PER_EPOCH))
+    let pi = Opt.some(ValidatorIndex item(state.proposer_lookahead, state.slot mod SLOTS_PER_EPOCH))
+    cache.beacon_proposer_indices[slot] = pi
+    return pi
   else:
     cache.beacon_proposer_indices.withValue(slot, proposer) do:
       return proposer[]
@@ -521,12 +521,12 @@ func get_beacon_proposer_indices*(
 
 func get_beacon_proposer_indices*(
     state: ForkyBeaconState,
-    cache: var StateCache, epoch: Epoch
+    epoch: Epoch
 ): seq[Opt[ValidatorIndex]] =
   ## Return the proposer indices for the given `epoch`.
   let indices = get_active_validator_indices(state, epoch)
   let seed = get_seed(state, epoch, DOMAIN_BEACON_PROPOSER)
-  return compute_proposer_indices(state, cache, epoch, seed, indices)
+  return compute_proposer_indices(state, epoch, seed, indices)
 
 proc initialize_proposer_lookahead*(state: electra.BeaconState,
                                     cache: var StateCache):
@@ -538,7 +538,7 @@ proc initialize_proposer_lookahead*(state: electra.BeaconState,
     let
       epoch_i   = Epoch(current_epoch + i)
       proposers =
-        get_beacon_proposer_indices(state, cache, epoch_i)
+        get_beacon_proposer_indices(state, epoch_i)
 
     for j in 0 ..< SLOTS_PER_EPOCH:
       if proposers[j].isSome():
