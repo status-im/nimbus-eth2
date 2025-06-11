@@ -333,6 +333,44 @@ proc installBeaconApiHandlers*(router: var RestRouter, node: BeaconNode) =
       )
     RestApiResponse.jsonError(Http404, StateNotFoundError)
 
+  proc getValidatorIdentities(
+         node: BeaconNode,
+         bslot: BlockSlotId,
+         validatorIds: openArray[ValidatorIdent]
+       ): RestApiResponse =
+    node.withStateForBlockSlotId(bslot):
+      let
+        indices = node.getIndices(validatorIds, state).valueOr:
+          return RestApiResponse.jsonError(error)
+        response =
+          block:
+            var res: seq[RestValidatorIdentity]
+            if len(indices) == 0:
+              # Case when `len(indices) == 0 and len(validatorIds) != 0` means
+              # that we can't find validator identifiers in state, so we should
+              # return empty response.
+              if len(validatorIds) == 0:
+                # There are no indices, so we're going to filter all the
+                # validators.
+                for index, validator in getStateField(state, validators):
+                  res.add(RestValidatorIdentity.init(ValidatorIndex(index),
+                                                     validator.pubkeyData,
+                                                     validator.activation_epoch))
+            else:
+              for index in indices:
+                let
+                  validator = getStateField(state, validators).item(index)
+                res.add(RestValidatorIdentity.init(index,
+                                                   validator.pubkeyData,
+                                                   validator.activation_epoch))
+            res
+      return RestApiResponse.jsonResponseFinalized(
+        response,
+        node.getStateOptimistic(state),
+        node.dag.isFinalized(bslot.bid)
+      )
+    RestApiResponse.jsonError(Http404, StateNotFoundError)
+
   proc getBalances(
          node: BeaconNode,
          bslot: BlockSlotId,
@@ -556,6 +594,31 @@ proc installBeaconApiHandlers*(router: var RestRouter, node: BeaconNode) =
           return RestApiResponse.jsonError(Http500, NoImplementationError)
         return RestApiResponse.jsonError(Http404, StateNotFoundError, $error)
     getBalances(node, bslot, validatorIds)
+
+  # https://ethereum.github.io/beacon-APIs/#/Beacon/postStateValidatorIdentities
+  router.metricsApi2(
+    MethodPost, "/eth/v1/beacon/states/{state_id}/validator_identities",
+    {RestServerMetricsType.Status, Response}) do (
+    state_id: StateIdent, contentBody: Option[ContentBody]) -> RestApiResponse:
+    let
+      validatorIds =
+        block:
+          if contentBody.isNone():
+            return RestApiResponse.jsonError(Http400, EmptyRequestBodyError)
+          let body = contentBody.get()
+          decodeBody(seq[ValidatorIdent], body).valueOr:
+            return RestApiResponse.jsonError(
+              Http400, InvalidValidatorIdValueError, $error)
+      sid = state_id.valueOr:
+        return RestApiResponse.jsonError(Http400, InvalidStateIdValueError,
+                                         $error)
+      bslot = node.getBlockSlotId(sid).valueOr:
+        if sid.kind == StateQueryKind.Root:
+          # TODO (cheatfate): Its impossible to retrieve state by `state_root`
+          # in current version of database.
+          return RestApiResponse.jsonError(Http500, NoImplementationError)
+        return RestApiResponse.jsonError(Http404, StateNotFoundError, $error)
+    getValidatorIdentities(node, bslot, validatorIds)
 
   # https://ethereum.github.io/beacon-APIs/#/Beacon/getEpochCommittees
   router.metricsApi2(
