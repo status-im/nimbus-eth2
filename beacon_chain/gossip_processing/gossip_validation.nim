@@ -24,6 +24,7 @@ import
   ".."/[beacon_clock],
   ./batch_validation
 
+from std/sequtils import mapIt
 from libp2p/protocols/pubsub/errors import ValidationResult
 
 export results, ValidationResult
@@ -235,7 +236,7 @@ func flattenVersionedHashes(
   result = newSeqOfCap[byte](items.len * 32)
   for d in items:
     let b = d.versionedHashesToBytes()
-    for i in 0 ..< d.dataLength:
+    for i in 0 ..< 32:
       result.add b[i]
 
 # Gossip Validation
@@ -720,8 +721,11 @@ proc validateDataColumnSidecar*(
   # Send notification about new data column sidecar via callback
   let onDataColumnSidecarCallback =
     dataColumnQuarantine[].onDataColumnSidecarCallback()
+  let versioned_hashes = mapIt(
+    data_column_sidecar.kzg_commitments,
+    VersionedHash(kzg_commitment_to_versioned_hash(it)))
   let flattened_hashes =
-    flattenVersionedHashes(data_column_sidecar.kzg_commitments)
+    flattenVersionedHashes(versioned_hashes)
   if not(isNil(onDataColumnSidecarCallback)):
     onDataColumnSidecarCallback DataColumnSidecarInfoObject(
       block_root: block_root,

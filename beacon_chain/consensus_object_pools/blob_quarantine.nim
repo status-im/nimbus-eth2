@@ -44,7 +44,7 @@ type
   OnBlobSidecarCallback* = proc(
     data: BlobSidecarInfoObject) {.gcsafe, raises: [].}
   OnDataColumnSidecarCallback* = proc(
-    data: BlobSidecarInfoObject) {.gcsafe, raises: [].}
+    data: DataColumnSidecarInfoObject) {.gcsafe, raises: [].}
 
   BlobQuarantine* =
     SidecarQuarantine[BlobSidecar, OnBlobSidecarCallback]
