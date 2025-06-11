@@ -50,6 +50,7 @@ RestJson.useDefaultSerializationFor(
   Checkpoint,
   ConsolidationRequest,
   ContributionAndProof,
+  DataColumnSidecarInfoObject,
   DataEnclosedObject,
   DataMetaEnclosedObject,
   DataOptimisticAndFinalizedObject,
@@ -340,6 +341,7 @@ const
 type
   EncodeTypes* =
     BlobSidecarInfoObject |
+    DataColumnSidecarInfoObject |
     DeleteKeystoresBody |
     EmptyBody |
     ImportDistributedKeystoresBody |

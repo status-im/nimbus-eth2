@@ -811,7 +811,7 @@ suite "ColumnQuarantine data structure test suite " & preset():
   test "put()/hasSidecar(index, slot, proposer_index)/remove() test":
     let custodyColumns =
       [0, 31, 32, 63, 64, 95, 96, 127].mapIt(ColumnIndex(it))
-    var bq = ColumnQuarantine.init(cfg, custodyColumns.toHashSet())
+    var bq = ColumnQuarantine.init(cfg, custodyColumns.toHashSet(), nil)
     let
       broot1 = genBlockRoot(1)
       broot2 = genBlockRoot(2)
@@ -960,7 +960,7 @@ suite "ColumnQuarantine data structure test suite " & preset():
   test "put(sidecar)/put([sidecars])/hasSidecars/popSidecars/remove() [node] test":
     let custodyColumns =
       [0, 31, 32, 63, 64, 95, 96, 127].mapIt(ColumnIndex(it))
-    var bq = ColumnQuarantine.init(cfg, custodyColumns.toHashSet())
+    var bq = ColumnQuarantine.init(cfg, custodyColumns.toHashSet(), nil)
     let
       broot1 = genBlockRoot(1)
       broot2 = genBlockRoot(2)
@@ -1038,7 +1038,7 @@ suite "ColumnQuarantine data structure test suite " & preset():
 
   test "put(sidecar)/put([sidecars])/hasSidecars/popSidecars/remove() [supernode] test":
     let custodyColumns = supernodeColumns()
-    var bq = ColumnQuarantine.init(cfg, custodyColumns.toHashSet())
+    var bq = ColumnQuarantine.init(cfg, custodyColumns.toHashSet(), nil)
     let
       broot1 = genBlockRoot(1)
       broot2 = genBlockRoot(2)
@@ -1123,7 +1123,7 @@ suite "ColumnQuarantine data structure test suite " & preset():
       peerCustodyColumns2 =
         [1, 2, 3, 4, 5, 6, 7, 8].mapIt(ColumnIndex(it))
 
-    var bq = ColumnQuarantine.init(cfg, custodyColumns.toHashSet())
+    var bq = ColumnQuarantine.init(cfg, custodyColumns.toHashSet(), nil)
     let
       broot1 = genBlockRoot(1)
       broot2 = genBlockRoot(2)
@@ -1220,7 +1220,7 @@ suite "ColumnQuarantine data structure test suite " & preset():
       peerCustodyColumns1 =
         [63, 64, 65, 66, 95, 96, 97, 98].mapIt(ColumnIndex(it))
 
-    var bq = ColumnQuarantine.init(cfg, custodyColumns.toHashSet())
+    var bq = ColumnQuarantine.init(cfg, custodyColumns.toHashSet(), nil)
     let
       broot1 = genBlockRoot(1)
       broot2 = genBlockRoot(2)
@@ -1562,7 +1562,7 @@ suite "ColumnQuarantine data structure test suite " & preset():
       (root: 10, slot: 127, index: 98, proposer_index: 29)
     ]
 
-    var bq = ColumnQuarantine.init(cfg, custodyColumns.toHashSet())
+    var bq = ColumnQuarantine.init(cfg, custodyColumns.toHashSet(), nil)
     for item in TestVectors:
       let sidecar =
         newClone(

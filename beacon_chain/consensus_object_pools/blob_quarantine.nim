@@ -44,11 +44,11 @@ type
   OnBlobSidecarCallback* = proc(
     data: BlobSidecarInfoObject) {.gcsafe, raises: [].}
   OnDataColumnSidecarCallback* = proc(
-    data: DataColumnSidecar) {.gcsafe, raises: [].}
+    data: BlobSidecarInfoObject) {.gcsafe, raises: [].}
 
   BlobQuarantine* =
     SidecarQuarantine[BlobSidecar, OnBlobSidecarCallback]
-  # TODO this OnDataColumnSidecarCallback tpe is notional/unused
+
   ColumnQuarantine* =
     SidecarQuarantine[DataColumnSidecar, OnDataColumnSidecarCallback]
 
@@ -640,6 +640,11 @@ template onBlobSidecarCallback*(
 ): OnBlobSidecarCallback =
   quarantine.onSidecarCallback
 
+template onDataColumnSidecarCallback*(
+    quarantine: ColumnQuarantine
+): OnDataColumnSidecarCallback =
+  quarantine.onSidecarCallback
+
 func init*(
     T: typedesc[BlobQuarantine],
     cfg: RuntimeConfig,
@@ -663,6 +668,7 @@ func init*(
     T: typedesc[ColumnQuarantine],
     cfg: RuntimeConfig,
     custodyColumns: HashSet[ColumnIndex],
+    onDataColumnSidecarCallback: OnDataColumnSidecarCallback
 ): ColumnQuarantine =
   doAssert(custodyColumns.len <= NUMBER_OF_COLUMNS)
   let size = maxSidecars(NUMBER_OF_COLUMNS)
@@ -682,4 +688,5 @@ func init*(
     indexMap: indexMap,
     custodyColumns: custodyColumns,
     custodyMap: ColumnMap.init(custodyColumns),
+    onSidecarCallback: onDataColumnSidecarCallback
   )

@@ -211,7 +211,7 @@ func check_blob_sidecar_inclusion_proof(
   ok()
 
 func check_data_column_sidecar_inclusion_proof(
-  data_column_sidecar: DataColumnSidecar): Result[void, ValidationError] =
+    data_column_sidecar: DataColumnSidecar): Result[void, ValidationError] =
   let res = data_column_sidecar.verify_data_column_sidecar_inclusion_proof()
   if res.isErr:
     return errReject(res.error)
@@ -219,12 +219,24 @@ func check_data_column_sidecar_inclusion_proof(
   ok()
 
 proc check_data_column_sidecar_kzg_proofs(
-  data_column_sidecar: DataColumnSidecar): Result[void, ValidationError] =
+    data_column_sidecar: DataColumnSidecar): Result[void, ValidationError] =
   let res = data_column_sidecar.verify_data_column_sidecar_kzg_proofs()
   if res.isErr:
     return errReject(res.error)
 
   ok()
+
+proc versionedHashesToBytes(
+    d: VersionedHash): ptr UncheckedArray[byte] {.inline.} =
+  cast[ptr UncheckedArray[byte]](unsafeAddr(d))
+
+func flattenVersionedHashes(
+    items: openArray[VersionedHash]): seq[byte] =
+  result = newSeqOfCap[byte](items.len * 32)
+  for d in items:
+    let b = d.versionedHashesToBytes()
+    for i in 0 ..< d.dataLength:
+      result.add b[i]
 
 # Gossip Validation
 # ----------------------------------------------------------------
@@ -704,6 +716,19 @@ proc validateDataColumnSidecar*(
     let r = check_data_column_sidecar_kzg_proofs(data_column_sidecar)
     if r.isErr:
       return dag.checkedReject(r.error)
+
+  # Send notification about new data column sidecar via callback
+  let onDataColumnSidecarCallback =
+    dataColumnQuarantine[].onDataColumnSidecarCallback()
+  let flattened_hashes =
+    flattenVersionedHashes(data_column_sidecar.kzg_commitments)
+  if not(isNil(onDataColumnSidecarCallback)):
+    onDataColumnSidecarCallback DataColumnSidecarInfoObject(
+      block_root: block_root,
+      index: data_column_sidecar.index,
+      slot: data_column_sidecar.signed_block_header.message.slot,
+      kzg_commitments: data_column_sidecar.kzg_commitments,
+      versioned_hashes: flattened_hashes.to0xHex())
 
   ok()
 
