@@ -152,6 +152,7 @@ RestJson.useDefaultSerializationFor(
   RestSyncCommitteeSubscription,
   RestSyncInfo,
   RestValidator,
+  RestValidatorIdentity,
   RestValidatorBalance,
   SPDIR,
   SPDIR_Meta,
