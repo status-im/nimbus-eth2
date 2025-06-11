@@ -104,10 +104,10 @@ declareHistogram beacon_data_column_sidecar_computation_seconds,
   "Time taken to compute data column sidecar, including cells and inclusion proof",
   buckets = [0.005, 0.01, 0.025, 0.05, 0.075, 0.1, 0.25, 0.5, 0.75, 1.0, 2.5, 5.0, Inf]
 
-declareCounter beacon_engine_getBlobsV2_requests_total,
+declareCounter beacon_engine_getBlobsV2_requests,
   "Total number of engine_getBlobsV2 requests sent"
 
-declareCounter beacon_engine_getBlobsV2_responses_total,
+declareCounter beacon_engine_getBlobsV2_responses,
   "Total number of engine_getBlobsV2 successful responses received"
 
 declareHistogram beacon_engine_getBlobsV2_request_duration_seconds,
@@ -376,7 +376,7 @@ proc validateDataColumnSidecarFromEL*(
     let columnless = o.unsafeGet()
     withBlck(columnless):
       when consensusFork >= ConsensusFork.Fulu:
-        beacon_engine_getBlobsV2_requests_total.inc()
+        beacon_engine_getBlobsV2_requests.inc()
         let
           start_time = Moment.now()
           blobsFromElOpt =
@@ -386,7 +386,7 @@ proc validateDataColumnSidecarFromEL*(
         beacon_engine_getBlobsV2_request_duration_seconds.observe(getBlobsV2_dur.toFloatSeconds())
         if blobsFromElOpt.isSome():
           let blobsEl = blobsFromElOpt.get()
-          beacon_engine_getBlobsV2_responses_total.inc()
+          beacon_engine_getBlobsV2_responses.inc()
 
           # check lengths of array[BlobAndProofV2 with blobs
           # kzg commitments of the signed block

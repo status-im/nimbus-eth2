@@ -43,10 +43,10 @@ declareCounter beacon_sync_messages_dropped_queue_full,
 declareCounter beacon_contributions_dropped_queue_full,
   "Number of sync committee contributions dropped because queue is full"
 
-declareCounter beacon_data_column_sidecar_processing_requests_total,
+declareCounter beacon_data_column_sidecar_processing_requests,
   "Number of data column sidecars submitted for processing"
 
-declareCounter  beacon_data_column_sidecar_processing_successes_total,
+declareCounter  beacon_data_column_sidecar_processing_successes,
   "Number of data column sidecars verified for gossip"
 
 declareHistogram beacon_data_column_sidecar_gossip_verification_seconds,
@@ -613,7 +613,7 @@ proc validateDataColumnSidecar*(
 
   template block_header: untyped = data_column_sidecar.signed_block_header.message
 
-  beacon_data_column_sidecar_processing_requests_total.inc()
+  beacon_data_column_sidecar_processing_requests.inc()
 
   let
     startTick = Moment.now()
@@ -744,7 +744,7 @@ proc validateDataColumnSidecar*(
 
   beacon_data_column_sidecar_gossip_verification_seconds.observe(validationDur.toFloatSeconds())
 
-  beacon_data_column_sidecar_processing_successes_total.inc()
+  beacon_data_column_sidecar_processing_successes.inc()
 
   ok()
 
