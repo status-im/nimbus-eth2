@@ -1308,7 +1308,7 @@ suite "ColumnQuarantine data structure test suite " & preset():
       custodyColumns =
         [63, 64, 65, 66, 95, 96, 97, 98].mapIt(ColumnIndex(it))
     var
-      bq = ColumnQuarantine.init(cfg, custodyColumns.toHashSet())
+      bq = ColumnQuarantine.init(cfg, custodyColumns.toHashSet(), nil)
     let
       blockRoot1 = genBlockRoot(100)
       blockRoot2 = genBlockRoot(5337)
@@ -1341,7 +1341,7 @@ suite "ColumnQuarantine data structure test suite " & preset():
         [63, 64, 65, 66, 95, 96, 97, 98].mapIt(ColumnIndex(it))
 
     var
-      bq = ColumnQuarantine.init(cfg, custodyColumns.toHashSet())
+      bq = ColumnQuarantine.init(cfg, custodyColumns.toHashSet(), nil)
       sidecars: seq[tuple[sidecar: ref DataColumnSidecar,
                           blockRoot: Eth2Digest]]
 
@@ -1461,7 +1461,7 @@ suite "ColumnQuarantine data structure test suite " & preset():
       custodyColumns =
         [63, 64, 65, 66, 95, 96, 97, 98].mapIt(ColumnIndex(it))
     var
-      bq = ColumnQuarantine.init(cfg, custodyColumns.toHashSet())
+      bq = ColumnQuarantine.init(cfg, custodyColumns.toHashSet(), nil)
       sidecars1: seq[ref DataColumnSidecar]
       sidecars1d: seq[ref DataColumnSidecar]
       sidecars2: seq[ref DataColumnSidecar]
