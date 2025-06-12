@@ -732,7 +732,7 @@ suite "ColumnQuarantine data structure test suite " & preset():
           numbers.add(k)
 
         check:
-          $ColumnMap.init(columns.toHashSet()) ==
+          $ColumnMap.init(columns) ==
             "[" & $ numbers.mapIt($it).join(", ") & "]"
 
       if lastColumnSize > 0:
@@ -747,7 +747,7 @@ suite "ColumnQuarantine data structure test suite " & preset():
           numbers.add(k)
 
         check:
-          $ColumnMap.init(columns.toHashSet()) ==
+          $ColumnMap.init(columns) ==
             "[" & $ numbers.mapIt($it).join(", ") & "]"
 
     # Verify `and` operation is correct
@@ -781,15 +781,15 @@ suite "ColumnQuarantine data structure test suite " & preset():
 
     for vector in TestVectors:
       let
-        map1 = ColumnMap.init(vector[0].mapIt(ColumnIndex(it)).toHashSet())
-        map2 = ColumnMap.init(vector[1].mapIt(ColumnIndex(it)).toHashSet())
+        map1 = ColumnMap.init(vector[0].mapIt(ColumnIndex(it)))
+        map2 = ColumnMap.init(vector[1].mapIt(ColumnIndex(it)))
       check:
         $(map1 and map2) == vector[2]
 
     for vector in TestVectors:
       let
-        map1 = ColumnMap.init(vector[0].mapIt(ColumnIndex(it)).toHashSet())
-        map2 = ColumnMap.init(vector[1].mapIt(ColumnIndex(it)).toHashSet())
+        map1 = ColumnMap.init(vector[0].mapIt(ColumnIndex(it)))
+        map2 = ColumnMap.init(vector[1].mapIt(ColumnIndex(it)))
         map3 = map1 and map2
 
       check:
@@ -803,7 +803,7 @@ suite "ColumnQuarantine data structure test suite " & preset():
     var columns: seq[ColumnIndex]
     for i in 0 ..< NUMBER_OF_COLUMNS:
       columns.add(ColumnIndex(i))
-    let map = ColumnMap.init(columns.toHashSet())
+    let map = ColumnMap.init(columns)
     check:
       map.items().toSeq().mapIt($int(it)).join(", ") ==
         columns.mapIt($it).join(", ")
@@ -811,7 +811,7 @@ suite "ColumnQuarantine data structure test suite " & preset():
   test "put()/hasSidecar(index, slot, proposer_index)/remove() test":
     let custodyColumns =
       [0, 31, 32, 63, 64, 95, 96, 127].mapIt(ColumnIndex(it))
-    var bq = ColumnQuarantine.init(cfg, custodyColumns.toHashSet(), nil)
+    var bq = ColumnQuarantine.init(cfg, custodyColumns, nil)
     let
       broot1 = genBlockRoot(1)
       broot2 = genBlockRoot(2)
@@ -960,7 +960,7 @@ suite "ColumnQuarantine data structure test suite " & preset():
   test "put(sidecar)/put([sidecars])/hasSidecars/popSidecars/remove() [node] test":
     let custodyColumns =
       [0, 31, 32, 63, 64, 95, 96, 127].mapIt(ColumnIndex(it))
-    var bq = ColumnQuarantine.init(cfg, custodyColumns.toHashSet(), nil)
+    var bq = ColumnQuarantine.init(cfg, custodyColumns, nil)
     let
       broot1 = genBlockRoot(1)
       broot2 = genBlockRoot(2)
@@ -1038,7 +1038,7 @@ suite "ColumnQuarantine data structure test suite " & preset():
 
   test "put(sidecar)/put([sidecars])/hasSidecars/popSidecars/remove() [supernode] test":
     let custodyColumns = supernodeColumns()
-    var bq = ColumnQuarantine.init(cfg, custodyColumns.toHashSet(), nil)
+    var bq = ColumnQuarantine.init(cfg, custodyColumns, nil)
     let
       broot1 = genBlockRoot(1)
       broot2 = genBlockRoot(2)
@@ -1123,7 +1123,7 @@ suite "ColumnQuarantine data structure test suite " & preset():
       peerCustodyColumns2 =
         [1, 2, 3, 4, 5, 6, 7, 8].mapIt(ColumnIndex(it))
 
-    var bq = ColumnQuarantine.init(cfg, custodyColumns.toHashSet(), nil)
+    var bq = ColumnQuarantine.init(cfg, custodyColumns, nil)
     let
       broot1 = genBlockRoot(1)
       broot2 = genBlockRoot(2)
@@ -1220,7 +1220,7 @@ suite "ColumnQuarantine data structure test suite " & preset():
       peerCustodyColumns1 =
         [63, 64, 65, 66, 95, 96, 97, 98].mapIt(ColumnIndex(it))
 
-    var bq = ColumnQuarantine.init(cfg, custodyColumns.toHashSet(), nil)
+    var bq = ColumnQuarantine.init(cfg, custodyColumns, nil)
     let
       broot1 = genBlockRoot(1)
       broot2 = genBlockRoot(2)
@@ -1308,7 +1308,7 @@ suite "ColumnQuarantine data structure test suite " & preset():
       custodyColumns =
         [63, 64, 65, 66, 95, 96, 97, 98].mapIt(ColumnIndex(it))
     var
-      bq = ColumnQuarantine.init(cfg, custodyColumns.toHashSet(), nil)
+      bq = ColumnQuarantine.init(cfg, custodyColumns, nil)
     let
       blockRoot1 = genBlockRoot(100)
       blockRoot2 = genBlockRoot(5337)
@@ -1341,7 +1341,7 @@ suite "ColumnQuarantine data structure test suite " & preset():
         [63, 64, 65, 66, 95, 96, 97, 98].mapIt(ColumnIndex(it))
 
     var
-      bq = ColumnQuarantine.init(cfg, custodyColumns.toHashSet(), nil)
+      bq = ColumnQuarantine.init(cfg, custodyColumns, nil)
       sidecars: seq[tuple[sidecar: ref DataColumnSidecar,
                           blockRoot: Eth2Digest]]
 
@@ -1461,7 +1461,7 @@ suite "ColumnQuarantine data structure test suite " & preset():
       custodyColumns =
         [63, 64, 65, 66, 95, 96, 97, 98].mapIt(ColumnIndex(it))
     var
-      bq = ColumnQuarantine.init(cfg, custodyColumns.toHashSet(), nil)
+      bq = ColumnQuarantine.init(cfg, custodyColumns, nil)
       sidecars1: seq[ref DataColumnSidecar]
       sidecars1d: seq[ref DataColumnSidecar]
       sidecars2: seq[ref DataColumnSidecar]
@@ -1562,7 +1562,7 @@ suite "ColumnQuarantine data structure test suite " & preset():
       (root: 10, slot: 127, index: 98, proposer_index: 29)
     ]
 
-    var bq = ColumnQuarantine.init(cfg, custodyColumns.toHashSet(), nil)
+    var bq = ColumnQuarantine.init(cfg, custodyColumns, nil)
     for item in TestVectors:
       let sidecar =
         newClone(

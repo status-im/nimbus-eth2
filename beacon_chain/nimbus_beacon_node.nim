@@ -8,7 +8,7 @@
 {.push raises: [].}
 
 import
-  std/[os, random, terminal, times, exitprocs],
+  std/[os, random, terminal, times, exitprocs, algorithm],
   chronos, chronicles,
   metrics, metrics/chronos_httpserver,
   stew/[byteutils, io2],
@@ -31,6 +31,9 @@ when defined(posix):
   import system/ansi_c
 
 from ./spec/datatypes/deneb import SignedBeaconBlock
+
+from std/sequtils import toSeq
+
 
 from
   libp2p/protocols/pubsub/gossipsub
@@ -416,8 +419,13 @@ proc initFullNode(
         node.network.nodeId,
         max(dag.cfg.SAMPLES_PER_SLOT.uint64,
             localCustodyGroups))
+
+  var sortedColumns = custodyColumns.toSeq()
+  sort(sortedColumns)
+
+  let
     dataColumnQuarantine = newClone(ColumnQuarantine.init(
-      dag.cfg, custodyColumns, onColumnSidecarAdded))
+      dag.cfg, sortedColumns, onColumnSidecarAdded))
     consensusManager = ConsensusManager.new(
       dag, attestationPool, quarantine, node.elManager,
       ActionTracker.init(node.network.nodeId, config.subscribeAllSubnets),
