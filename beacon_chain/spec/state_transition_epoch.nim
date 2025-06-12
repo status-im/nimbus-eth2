@@ -1393,6 +1393,29 @@ func process_pending_consolidations*(
 
   ok()
 
+# https://github.com/ethereum/consensus-specs/blob/v1.6.0-alpha.1/specs/fulu/beacon-chain.md#new-process_proposer_lookahead
+proc process_proposer_lookahead*(state: var fulu.BeaconState,
+                                 cache: var StateCache):
+                                 Result[void, cstring] =
+  let
+    total_slots      = state.proposer_lookahead.data.lenu64
+    last_epoch_start = total_slots - SLOTS_PER_EPOCH
+
+  for i in 0 ..< last_epoch_start:
+    mitem(state.proposer_lookahead, i) =
+      mitem(state.proposer_lookahead, i + SLOTS_PER_EPOCH)
+
+  let
+    next_epoch    = Epoch(get_current_epoch(state) + MIN_SEED_LOOKAHEAD + 1)
+    new_proposers =
+      get_beacon_proposer_indices(state, next_epoch)
+
+  for i in 0 ..< SLOTS_PER_EPOCH:
+    if new_proposers[i].isSome():
+      mitem(state.proposer_lookahead, last_epoch_start + i) = new_proposers[i].get.uint64
+
+  ok()
+
 # https://github.com/ethereum/consensus-specs/blob/v1.4.0/specs/phase0/beacon-chain.md#epoch-processing
 proc process_epoch*(
     cfg: RuntimeConfig, state: var phase0.BeaconState, flags: UpdateFlags,
@@ -1539,7 +1562,7 @@ proc process_epoch*(
 
 # https://github.com/ethereum/consensus-specs/blob/v1.6.0-alpha.0/specs/electra/beacon-chain.md#epoch-processing
 proc process_epoch*(
-    cfg: RuntimeConfig, state: var (electra.BeaconState | fulu.BeaconState),
+    cfg: RuntimeConfig, state: var electra.BeaconState,
     flags: UpdateFlags, cache: var StateCache, info: var altair.EpochInfo):
     Result[void, cstring] =
   let epoch = get_current_epoch(state)
@@ -1579,6 +1602,52 @@ proc process_epoch*(
   ? process_historical_summaries_update(state)  # [Modified in Capella]
   process_participation_flag_updates(state)
   process_sync_committee_updates(state)
+
+  ok()
+
+# https://github.com/ethereum/consensus-specs/blob/v1.6.0-alpha.1/specs/fulu/beacon-chain.md#modified-process_epoch
+proc process_epoch*(
+    cfg: RuntimeConfig, state: var fulu.BeaconState,
+    flags: UpdateFlags, cache: var StateCache, info: var altair.EpochInfo):
+    Result[void, cstring] =
+  let epoch = get_current_epoch(state)
+  info.init(state)
+
+  # https://github.com/ethereum/consensus-specs/blob/v1.5.0-beta.4/specs/altair/beacon-chain.md#justification-and-finalization
+  process_justification_and_finalization(state, info.balances, flags)
+
+  # state.slot hasn't been incremented yet.
+  if strictVerification in flags:
+    # Rule 2/3/4 finalization results in the most pessimal case. The other
+    # three finalization rules finalize more quickly as long as the any of
+    # the finalization rules triggered.
+    if (epoch >= 2 and state.current_justified_checkpoint.epoch + 2 < epoch) or
+       (epoch >= 3 and state.finalized_checkpoint.epoch + 3 < epoch):
+      fatal "The network did not finalize",
+             epoch, finalizedEpoch = state.finalized_checkpoint.epoch
+      quit 1
+
+  process_inactivity_updates(cfg, state, info)
+
+  # https://github.com/ethereum/consensus-specs/blob/v1.4.0/specs/altair/beacon-chain.md#rewards-and-penalties
+  process_rewards_and_penalties(cfg, state, info)
+
+  # https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.8/specs/phase0/beacon-chain.md#registry-updates
+  ? process_registry_updates(cfg, state, cache)  # [Modified in Electra:EIP7251]
+
+  # https://github.com/ethereum/consensus-specs/blob/v1.6.0-alpha.0/specs/altair/beacon-chain.md#slashings
+  process_slashings(state, info.balances.current_epoch)
+
+  process_eth1_data_reset(state)
+  ? process_pending_deposits(cfg, state, cache)  # [New in Electra:EIP7251]
+  ? process_pending_consolidations(cfg, state)   # [New in Electra:EIP7251]
+  process_effective_balance_updates(state)  # [Modified in Electra:EIP7251]
+  process_slashings_reset(state)
+  process_randao_mixes_reset(state)
+  ? process_historical_summaries_update(state)  # [Modified in Capella]
+  process_participation_flag_updates(state)
+  process_sync_committee_updates(state)
+  ? process_proposer_lookahead(state, cache) # [New in Fulu:EIP7917]
 
   ok()
 

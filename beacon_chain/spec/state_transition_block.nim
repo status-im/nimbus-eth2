@@ -42,7 +42,8 @@ export extras, phase0, altair
 
 # https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.8/specs/phase0/beacon-chain.md#block-header
 func process_block_header*(
-    state: var ForkyBeaconState, blck: SomeForkyBeaconBlock,
+    state: var ForkyBeaconState,
+    blck: SomeForkyBeaconBlock,
     flags: UpdateFlags, cache: var StateCache): Result[void, cstring] =
   # Verify that the slots match
   if not (blck.slot == state.slot):
@@ -52,7 +53,6 @@ func process_block_header*(
   if not (blck.slot > state.latest_block_header.slot):
     return err("process_block_header: block not newer than latest block header")
 
-  # Verify that proposer index is the correct index
   let proposer_index = get_beacon_proposer_index(state, cache).valueOr:
     return err("process_block_header: proposer missing")
 
@@ -817,9 +817,67 @@ func get_proposer_reward*(participant_reward: Gwei): Gwei =
 
 # https://github.com/ethereum/consensus-specs/blob/v1.5.0-beta.4/specs/altair/beacon-chain.md#sync-aggregate-processing
 proc process_sync_aggregate*(
+    state: var fulu.BeaconState,
+    sync_aggregate: SomeSyncAggregate, total_active_balance: Gwei,
+    flags: UpdateFlags, cache: var StateCache): Result[Gwei, cstring] =
+  if strictVerification in flags and state.slot > 1.Slot:
+    template sync_committee_bits(): auto = sync_aggregate.sync_committee_bits
+    let num_active_participants = countOnes(sync_committee_bits).uint64
+    if num_active_participants * 3 < static(sync_committee_bits.len * 2):
+      fatal "Low sync committee participation",
+        slot = state.slot, num_active_participants
+      quit 1
+
+  # Verify sync committee aggregate signature signing over the previous slot
+  # block root
+  when sync_aggregate.sync_committee_signature isnot TrustedSig:
+    var participant_pubkeys: seq[ValidatorPubKey]
+    for i in 0 ..< state.current_sync_committee.pubkeys.len:
+      if sync_aggregate.sync_committee_bits[i]:
+        participant_pubkeys.add state.current_sync_committee.pubkeys.data[i]
+
+    # p2p-interface message validators check for empty sync committees, so it
+    # shouldn't run except as part of test suite.
+    if participant_pubkeys.len == 0:
+      if sync_aggregate.sync_committee_signature != ValidatorSig.infinity():
+        return err("process_sync_aggregate: empty sync aggregates need signature of point at infinity")
+    else:
+      # Empty participants allowed
+      let
+        previous_slot = max(state.slot, Slot(1)) - 1
+        beacon_block_root = get_block_root_at_slot(state, previous_slot)
+      if not verify_sync_committee_signature(
+          state.fork, state.genesis_validators_root, previous_slot,
+          beacon_block_root, participant_pubkeys,
+          sync_aggregate.sync_committee_signature):
+        return err("process_sync_aggregate: invalid signature")
+
+  # Compute participant and proposer rewards
+  let
+    participant_reward = get_participant_reward(total_active_balance)
+    proposer_reward = state_transition_block.get_proposer_reward(participant_reward)
+    # https://github.com/ethereum/consensus-specs/blob/v1.6.0-alpha.1/specs/fulu/beacon-chain.md#modified-get_beacon_proposer_index
+    proposer_index = ValidatorIndex mitem(state.proposer_lookahead, state.slot mod SLOTS_PER_EPOCH)
+  # Apply participant and proposer rewards
+  let indices = get_sync_committee_cache(state, cache).current_sync_committee
+  var total_proposer_reward: Gwei
+
+  for i in 0 ..< min(
+    state.current_sync_committee.pubkeys.len,
+    sync_aggregate.sync_committee_bits.len):
+    let participant_index = indices[i]
+    if sync_aggregate.sync_committee_bits[i]:
+      increase_balance(state, participant_index, participant_reward)
+      increase_balance(state, proposer_index, proposer_reward)
+      increase_balance(total_proposer_reward, proposer_reward)
+    else:
+      decrease_balance(state, participant_index, participant_reward)
+
+  ok(total_proposer_reward)
+
+proc process_sync_aggregate*(
     state: var (altair.BeaconState | bellatrix.BeaconState |
-                capella.BeaconState | deneb.BeaconState | electra.BeaconState |
-                fulu.BeaconState),
+                capella.BeaconState | deneb.BeaconState | electra.BeaconState),
     sync_aggregate: SomeSyncAggregate, total_active_balance: Gwei,
     flags: UpdateFlags, cache: var StateCache): Result[Gwei, cstring] =
   if strictVerification in flags and state.slot > 1.Slot:

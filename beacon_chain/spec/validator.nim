@@ -439,40 +439,65 @@ func compute_proposer_index(state: ForkyBeaconState,
   ## Return from ``indices`` a random index sampled by effective balance.
   compute_proposer_index(state, indices, seed, shuffled_index)
 
+func compute_proposer_indices*(
+    state: ForkyBeaconState,
+    epoch: Epoch, seed: Eth2Digest,
+    indices: seq[ValidatorIndex]
+): seq[Opt[ValidatorIndex]] =
+  let startSlot = epoch.start_slot()
+  var seeds: seq[Eth2Digest]
+  var proposerIndices: seq[Opt[ValidatorIndex]]
+
+  for i in 0..<SLOTS_PER_EPOCH:
+    var buffer: array[32 + 8, byte]
+    buffer[0..31] = seed.data
+    buffer[32..39] = uint_to_bytes(Slot(startSlot + i).asUInt64)
+
+    let slotSeed = eth2digest(buffer)  # Concatenate manually using buffer
+    let proposerIndex = compute_proposer_index(state, indices, slotSeed)
+    proposerIndices.add(proposerIndex)
+
+  proposerIndices
+
 # https://github.com/ethereum/consensus-specs/blob/v1.6.0-alpha.0/specs/phase0/beacon-chain.md#get_beacon_proposer_index
 func get_beacon_proposer_index*(
     state: ForkyBeaconState, cache: var StateCache, slot: Slot):
     Opt[ValidatorIndex] =
   let epoch = get_current_epoch(state)
 
-  if slot.epoch() != epoch:
-    # compute_proposer_index depends on `effective_balance`, therefore the
-    # beacon proposer index can only be computed for the "current" epoch:
-    # https://github.com/ethereum/consensus-specs/pull/772#issuecomment-475574357
-    return Opt.none(ValidatorIndex)
+  when typeof(state).kind >= ConsensusFork.Fulu:
+    return Opt.some(ValidatorIndex item(state.proposer_lookahead, state.slot mod SLOTS_PER_EPOCH))
 
-  cache.beacon_proposer_indices.withValue(slot, proposer) do:
-    return proposer[]
-  do:
-    ## Return the beacon proposer index at the current slot.
 
-    var buffer: array[32 + 8, byte]
-    buffer[0..31] = get_seed(state, epoch, DOMAIN_BEACON_PROPOSER).data
+  else:
+    if slot.epoch() != epoch:
+      # compute_proposer_index depends on `effective_balance`, therefore the
+      # beacon proposer index can only be computed for the "current" epoch:
+      # https://github.com/ethereum/consensus-specs/pull/772#issuecomment-475574357
+      return Opt.none(ValidatorIndex)
 
-    # There's exactly one beacon proposer per slot - the same validator may
-    # however propose several times in the same epoch (however unlikely)
-    let indices = get_active_validator_indices(state, epoch)
-    var res: Opt[ValidatorIndex]
+    cache.beacon_proposer_indices.withValue(slot, proposer) do:
+      return proposer[]
+    do:
+      ## Return the beacon proposer index at the current slot.
 
-    for epoch_slot in epoch.slots():
-      buffer[32..39] = uint_to_bytes(epoch_slot.asUInt64)
-      let seed = eth2digest(buffer)
-      let pi = compute_proposer_index(state, indices, seed)
-      if epoch_slot == slot:
-        res = pi
-      cache.beacon_proposer_indices[epoch_slot] = pi
+      var buffer: array[32 + 8, byte]
+      buffer[0..31] = get_seed(state, epoch, DOMAIN_BEACON_PROPOSER).data
 
-    return res
+      # There's exactly one beacon proposer per slot - the same validator may
+      # however propose several times in the same epoch (however unlikely)
+      let indices = get_active_validator_indices(state, epoch)
+      var res: Opt[ValidatorIndex]
+
+      for epoch_slot in epoch.slots():
+        buffer[32..39] = uint_to_bytes(epoch_slot.asUInt64)
+        let seed = eth2digest(buffer)
+        let pi = compute_proposer_index(state, indices, seed)
+        if epoch_slot == slot:
+          res = pi
+        cache.beacon_proposer_indices[epoch_slot] = pi
+
+      return res
 
 # https://github.com/ethereum/consensus-specs/blob/v1.6.0-alpha.0/specs/phase0/beacon-chain.md#get_beacon_proposer_index
 func get_beacon_proposer_indices*(
@@ -495,6 +520,43 @@ func get_beacon_proposer_indices*(
           shuffled_index, seq_len, epoch_shuffle_seed))
 
   res
+
+func get_beacon_proposer_indices*(
+    state: ForkyBeaconState, epoch: Epoch
+): seq[Opt[ValidatorIndex]] =
+  ## Return the proposer indices for the given `epoch`.
+  let indices = get_active_validator_indices(state, epoch)
+  let seed = get_seed(state, epoch, DOMAIN_BEACON_PROPOSER)
+  return compute_proposer_indices(state, epoch, seed, indices)
+
+proc read_beacon_proposer_indices_from_cache*(state: electra.BeaconState | fulu.BeaconState,
+                                              cache: var StateCache, epoch: Epoch):
+                                              seq[Opt[ValidatorIndex]] =
+  var res: seq[Opt[ValidatorIndex]]
+  for i in 0 ..< SLOTS_PER_EPOCH:
+    let
+      proposer =
+        get_beacon_proposer_index(state, cache, epoch.start_slot + i)
+    res.add(proposer)
+  res
+
+proc initialize_proposer_lookahead*(state: electra.BeaconState,
+                                    cache: var StateCache):
+                                    HashArray[Limit ((MIN_SEED_LOOKAHEAD + 1) * SLOTS_PER_EPOCH), uint64] =
+  let current_epoch = state.slot.epoch()
+  var lookahead: HashArray[Limit ((MIN_SEED_LOOKAHEAD + 1) * SLOTS_PER_EPOCH), uint64]
+
+  for i in 0 ..< (MIN_SEED_LOOKAHEAD + 1):
+    let
+      epoch_i   = Epoch(current_epoch + i)
+      proposers =
+        get_beacon_proposer_indices(state, epoch_i)
+
+    for j in 0 ..< SLOTS_PER_EPOCH:
+      if proposers[j].isSome():
+        mitem(lookahead, i * SLOTS_PER_EPOCH + j) = proposers[j].get.uint64
+
+  lookahead
 
 # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.6/specs/phase0/beacon-chain.md#get_beacon_proposer_index
 func get_beacon_proposer_index*(state: ForkyBeaconState, cache: var StateCache):

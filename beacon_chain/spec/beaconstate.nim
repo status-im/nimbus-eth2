@@ -2361,7 +2361,8 @@ func upgrade_to_fulu*(
     earliest_consolidation_epoch: pre.earliest_consolidation_epoch,
     pending_deposits: pre.pending_deposits,
     pending_partial_withdrawals: pre.pending_partial_withdrawals,
-    pending_consolidations: pre.pending_consolidations
+    pending_consolidations: pre.pending_consolidations,
+    proposer_lookahead: initialize_proposer_lookahead(pre, cache)
   )
 
   post
