@@ -121,11 +121,12 @@ elif defined(riscv64):
 else:
   switch("passC", "-march=native")
   switch("passL", "-march=native")
-  if defined(windows):
-    # https://gcc.gnu.org/bugzilla/show_bug.cgi?id=65782
-    # ("-fno-asynchronous-unwind-tables" breaks Nim's exception raising, sometimes)
-    switch("passC", "-mno-avx512f")
-    switch("passL", "-mno-avx512f")
+  # https://gcc.gnu.org/bugzilla/show_bug.cgi?id=65782
+  # ("-fno-asynchronous-unwind-tables" breaks Nim's exception raising, sometimes)
+  # For non-Windows targets, https://github.com/bitcoin-core/secp256k1/issues/1623
+  # also suggests disabling the same flag to address Ubuntu 22.04/recent AMD CPUs.
+  switch("passC", "-mno-avx512f")
+  switch("passL", "-mno-avx512f")
 
 # omitting frame pointers in nim breaks the GC
 # https://github.com/nim-lang/Nim/issues/10625
