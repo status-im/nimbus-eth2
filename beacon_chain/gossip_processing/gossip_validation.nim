@@ -227,18 +227,6 @@ proc check_data_column_sidecar_kzg_proofs(
 
   ok()
 
-proc versionedHashesToBytes(
-    d: VersionedHash): ptr UncheckedArray[byte] {.inline.} =
-  cast[ptr UncheckedArray[byte]](unsafeAddr(d))
-
-func flattenVersionedHashes(
-    items: openArray[VersionedHash]): seq[byte] =
-  result = newSeqOfCap[byte](items.len * 32)
-  for d in items:
-    let b = d.versionedHashesToBytes()
-    for i in 0 ..< 32:
-      result.add b[i]
-
 # Gossip Validation
 # ----------------------------------------------------------------
 
@@ -721,9 +709,6 @@ proc validateDataColumnSidecar*(
   # Send notification about new data column sidecar via callback
   let onDataColumnSidecarCallback =
     dataColumnQuarantine[].onDataColumnSidecarCallback()
-  let versioned_hashes = mapIt(
-    data_column_sidecar.kzg_commitments,
-    VersionedHash(kzg_commitment_to_versioned_hash(it)))
   let flattened_hashes =
     flattenVersionedHashes(versioned_hashes)
   if not(isNil(onDataColumnSidecarCallback)):
@@ -731,8 +716,7 @@ proc validateDataColumnSidecar*(
       block_root: block_root,
       index: data_column_sidecar.index,
       slot: data_column_sidecar.signed_block_header.message.slot,
-      kzg_commitments: data_column_sidecar.kzg_commitments,
-      versioned_hashes: flattened_hashes.to0xHex())
+      kzg_commitments: data_column_sidecar.kzg_commitments)
 
   ok()
 
