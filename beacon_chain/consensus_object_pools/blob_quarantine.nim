@@ -674,7 +674,7 @@ func init*(
   let size = maxSidecars(NUMBER_OF_COLUMNS)
   var indexMap = newSeqUninit[int](NUMBER_OF_COLUMNS)
   var sortedColumns = custodyColumns.toSeq()
-  sort(sortedColumns)
+  # sort(sortedColumns)
   for i in 0 ..< len(indexMap):
     indexMap[i] = -1
   var idx = 0

@@ -709,8 +709,7 @@ proc validateDataColumnSidecar*(
   # Send notification about new data column sidecar via callback
   let onDataColumnSidecarCallback =
     dataColumnQuarantine[].onDataColumnSidecarCallback()
-  let flattened_hashes =
-    flattenVersionedHashes(versioned_hashes)
+
   if not(isNil(onDataColumnSidecarCallback)):
     onDataColumnSidecarCallback DataColumnSidecarInfoObject(
       block_root: block_root,
