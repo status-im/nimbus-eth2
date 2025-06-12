@@ -673,10 +673,12 @@ func init*(
   doAssert(custodyColumns.len <= NUMBER_OF_COLUMNS)
   let size = maxSidecars(NUMBER_OF_COLUMNS)
   var indexMap = newSeqUninit[int](NUMBER_OF_COLUMNS)
+  var sortedColumns = custodyColumns.toSeq()
+  sort(sortedColumns)
   for i in 0 ..< len(indexMap):
     indexMap[i] = -1
   var idx = 0
-  for item in custodyColumns:
+  for item in sortedColumns:
     doAssert(item < uint64(NUMBER_OF_COLUMNS))
     indexMap[int(item)] = idx
     inc idx
