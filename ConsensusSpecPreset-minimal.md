@@ -3210,6 +3210,7 @@ ConsensusSpecPreset-minimal
 + [Valid]   EF - Electra - Sanity - Blocks - deposit_transition__process_max_eth1_deposits [ OK
 + [Valid]   EF - Electra - Sanity - Blocks - deposit_transition__start_index_is_set [Preset: OK
 + [Valid]   EF - Electra - Sanity - Blocks - duplicate_attestation_same_block [Preset: minim OK
++ [Valid]   EF - Electra - Sanity - Blocks - effective_balance_increase_changes_lookahead [P OK
 + [Valid]   EF - Electra - Sanity - Blocks - empty_block_transition [Preset: minimal]        OK
 + [Valid]   EF - Electra - Sanity - Blocks - empty_block_transition_large_validator_set [Pre OK
 + [Valid]   EF - Electra - Sanity - Blocks - empty_block_transition_no_tx [Preset: minimal]  OK
@@ -3452,6 +3453,10 @@ ConsensusSpecPreset-minimal
 + Pending deposits - process_pending_deposits_withdrawable_validator [Preset: minimal]       OK
 + Pending deposits - process_pending_deposits_withdrawable_validator_not_churned [Preset: mi OK
 ```
+## EF - Fulu - Epoch Processing - Proposer lookahead [Preset: minimal]
+```diff
++ Proposer lookahead - proposer_lookahead_in_state_matches_computed_lookahead [Preset: minim OK
+```
 ## EF - Fulu - Epoch Processing - RANDAO mixes reset [Preset: minimal]
 ```diff
 + RANDAO mixes reset - updated_randao_mixes [Preset: minimal]                                OK
@@ -3544,6 +3549,7 @@ ConsensusSpecPreset-minimal
 + EF - Fulu - Fork - fulu_fork_random_large_validator_set [Preset: minimal]                  OK
 + EF - Fulu - Fork - fulu_fork_random_low_balances [Preset: minimal]                         OK
 + EF - Fulu - Fork - fulu_fork_random_misc_balances [Preset: minimal]                        OK
++ EF - Fulu - Fork - lookahead_consistency_at_fork [Preset: minimal]                         OK
 ```
 ## EF - Fulu - Operations - Attestation  [Preset: minimal]
 ```diff
@@ -4119,6 +4125,7 @@ ConsensusSpecPreset-minimal
 + [Valid]   EF - Fulu - Sanity - Blocks - deposit_request_with_same_pubkey_different_withdra OK
 + [Valid]   EF - Fulu - Sanity - Blocks - deposit_top_up [Preset: minimal]                   OK
 + [Valid]   EF - Fulu - Sanity - Blocks - duplicate_attestation_same_block [Preset: minimal] OK
++ [Valid]   EF - Fulu - Sanity - Blocks - effective_balance_increase_changes_lookahead [Pres OK
 + [Valid]   EF - Fulu - Sanity - Blocks - empty_block_transition [Preset: minimal]           OK
 + [Valid]   EF - Fulu - Sanity - Blocks - empty_block_transition_large_validator_set [Preset OK
 + [Valid]   EF - Fulu - Sanity - Blocks - empty_block_transition_no_tx [Preset: minimal]     OK

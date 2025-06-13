@@ -776,7 +776,6 @@ AllTests-mainnet
 ```
 ## Nimbus remote signer/signing test (verifying-web3signer)
 ```diff
-+ Signing BeaconBlock (getBlockSignature(deneb))                                             OK
 + Signing BeaconBlock (getBlockSignature(electra))                                           OK
 + Waiting for signing node (/upcheck) test                                                   OK
 ```
@@ -785,7 +784,6 @@ AllTests-mainnet
 + Connection timeout test                                                                    OK
 + Public keys enumeration (/api/v1/eth2/publicKeys) test                                     OK
 + Public keys reload (/reload) test                                                          OK
-+ Signing BeaconBlock (getBlockSignature(deneb))                                             OK
 + Signing BeaconBlock (getBlockSignature(electra))                                           OK
 + Signing SC contribution and proof (getContributionAndProofSignature())                     OK
 + Signing SC message (getSyncCommitteeMessage())                                             OK
@@ -961,12 +959,14 @@ AllTests-mainnet
 ```diff
 + [SyncManager] groupBlobs() test                                                            OK
 + [SyncQueue# & Backward] Combination of missing parent and good blocks [3 peers] test       OK
++ [SyncQueue# & Backward] Empty responses should not advance queue until other peers will no OK
 + [SyncQueue# & Backward] Failure request push test                                          OK
 + [SyncQueue# & Backward] Invalid block [3 peers] test                                       OK
 + [SyncQueue# & Backward] Smoke [3 peers] test                                               OK
 + [SyncQueue# & Backward] Smoke [single peer] test                                           OK
 + [SyncQueue# & Backward] Unviable block [3 peers] test                                      OK
 + [SyncQueue# & Forward] Combination of missing parent and good blocks [3 peers] test        OK
++ [SyncQueue# & Forward] Empty responses should not advance queue until other peers will not OK
 + [SyncQueue# & Forward] Failure request push test                                           OK
 + [SyncQueue# & Forward] Invalid block [3 peers] test                                        OK
 + [SyncQueue# & Forward] Smoke [3 peers] test                                                OK

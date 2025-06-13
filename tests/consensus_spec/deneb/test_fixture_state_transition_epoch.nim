@@ -1,5 +1,5 @@
 # beacon_chain
-# Copyright (c) 2022-2024 Status Research & Development GmbH
+# Copyright (c) 2022-2025 Status Research & Development GmbH
 # Licensed and distributed under either of
 #   * MIT license (license terms in the root directory or at https://opensource.org/licenses/MIT).
 #   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
@@ -23,7 +23,6 @@ import
 from std/sequtils import mapIt, toSeq
 from std/strutils import rsplit
 from ../../../beacon_chain/spec/datatypes/deneb import BeaconState
-from ../../teststateutil import checkPerValidatorBalanceCalc
 
 const
   RootDir = SszTestsDir/const_preset/"deneb"/"epoch_processing"
@@ -75,7 +74,6 @@ template runSuite(
 # ---------------------------------------------------------------
 runSuite(JustificationFinalizationDir, "Justification & Finalization"):
   let info = altair.EpochInfo.init(state)
-  check checkPerValidatorBalanceCalc(state)
   process_justification_and_finalization(state, info.balances)
   Result[void, cstring].ok()
 
@@ -83,7 +81,6 @@ runSuite(JustificationFinalizationDir, "Justification & Finalization"):
 # ---------------------------------------------------------------
 runSuite(InactivityDir, "Inactivity"):
   let info = altair.EpochInfo.init(state)
-  check checkPerValidatorBalanceCalc(state)
   process_inactivity_updates(cfg, state, info)
   Result[void, cstring].ok()
 

@@ -721,6 +721,140 @@ suite "SyncManager test suite":
 
       await noCancel wait(verifier.verifier, 2.seconds)
 
+    asyncTest "[SyncQueue# & " & $kind & "] Empty responses should not " &
+              "advance queue until other peers will not confirm [3 peers] " &
+              "test":
+      var emptyResponse: seq[ref ForkedSignedBeaconBlock]
+
+      let
+        scenario =
+          case kind
+          of SyncQueueKind.Forward:
+            [
+              (Slot(32) .. Slot(63), Opt.none(VerifierError)),
+              (Slot(64) .. Slot(95), Opt.none(VerifierError)),
+            ]
+          of SyncQueueKind.Backward:
+            [
+              (Slot(32) .. Slot(63), Opt.none(VerifierError)),
+              (Slot(0) .. Slot(31), Opt.none(VerifierError))
+            ]
+        verifier = setupVerifier(kind, scenario)
+        sq =
+          case kind
+          of SyncQueueKind.Forward:
+            SyncQueue.init(SomeTPeer, kind, Slot(0), Slot(95),
+                           32'u64, # 32 slots per request
+                           3, # 3 concurrent requests
+                           2, # 2 failures allowed
+                           getStaticSlotCb(Slot(0)),
+                           verifier.collector)
+          of SyncQueueKind.Backward:
+            SyncQueue.init(SomeTPeer, kind, Slot(95), Slot(0),
+                           32'u64, # 32 slots per request
+                           3, # 3 concurrent requests
+                           2, # 2 failures allowed
+                           getStaticSlotCb(Slot(127)),
+                           verifier.collector)
+        peer1 = SomeTPeer.init("1")
+        peer2 = SomeTPeer.init("2")
+        peer3 = SomeTPeer.init("3")
+        startSlot =
+          case kind
+          of SyncQueueKind.Forward:
+            Slot(0)
+          of SyncQueueKind.Backward:
+            Slot(95)
+        finishSlot =
+          case kind
+          of SyncQueueKind.Forward:
+            Slot(96)
+          of SyncQueueKind.Backward:
+            Slot(0)
+        middleSlot1 =
+          case kind
+          of SyncQueueKind.Forward:
+            Slot(32)
+          of SyncQueueKind.Backward:
+            Slot(63)
+        middleSlot2 =
+          case kind
+          of SyncQueueKind.Forward:
+            Slot(64)
+          of SyncQueueKind.Backward:
+            Slot(31)
+
+      check:
+        sq.inpSlot == startSlot
+        sq.outSlot == startSlot
+
+      let
+        r11 = sq.pop(Slot(127), peer1)
+      await sq.push(r11, emptyResponse, Opt.none(seq[BlobSidecars]))
+      check:
+        # No movement after 1st empty response
+        sq.inpSlot == startSlot
+        sq.outSlot == startSlot
+
+      let
+        r12 = sq.pop(Slot(127), peer2)
+      await sq.push(r12, emptyResponse, Opt.none(seq[BlobSidecars]))
+      check:
+        # No movement after 2nd empty response
+        sq.inpSlot == startSlot
+        sq.outSlot == startSlot
+
+      let
+        r13 = sq.pop(Slot(127), peer3)
+      await sq.push(r13, emptyResponse, Opt.none(seq[BlobSidecars]))
+      check:
+        # After 3rd empty response we moving forward
+        sq.inpSlot == middleSlot1
+        sq.outSlot == middleSlot1
+
+      let
+        r21 = sq.pop(Slot(127), peer1)
+      await sq.push(r21, emptyResponse, Opt.none(seq[BlobSidecars]))
+      check:
+        # No movement after 1st empty response
+        sq.inpSlot == middleSlot1
+        sq.outSlot == middleSlot1
+
+      let
+        r22 = sq.pop(Slot(127), peer2)
+      await sq.push(r22, emptyResponse, Opt.none(seq[BlobSidecars]))
+      check:
+        # No movement after 2nd empty response
+        sq.inpSlot == middleSlot1
+        sq.outSlot == middleSlot1
+
+      let
+        r23 = sq.pop(Slot(127), peer3)
+        d23 = createChain(r23.data)
+
+      await sq.push(r23, d23, Opt.none(seq[BlobSidecars]))
+      check:
+        # We got non-empty response so we should advance
+        sq.inpSlot == middleSlot2
+        sq.outSlot == middleSlot2
+
+      let
+        r31 = sq.pop(Slot(127), peer1)
+      await sq.push(r31, emptyResponse, Opt.none(seq[BlobSidecars]))
+      check:
+        # No movement after 1st empty response
+        sq.inpSlot == middleSlot2
+        sq.outSlot == middleSlot2
+
+      let
+        r32 = sq.pop(Slot(127), peer2)
+        d32 = createChain(r32.data)
+      await sq.push(r32, d32, Opt.none(seq[BlobSidecars]))
+      check:
+        # We got non-empty response, so we should advance
+        sq.inpSlot == finishSlot
+        sq.outSlot == finishSlot
+
     asyncTest "[SyncQueue# & " & $kind & "] Combination of missing parent " &
               "and good blocks [3 peers] test":
       let

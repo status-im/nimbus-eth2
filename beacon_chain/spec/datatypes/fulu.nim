@@ -109,6 +109,12 @@ type
 
   DataColumnSidecars* = seq[ref DataColumnSidecar]
 
+  DataColumnSidecarInfoObject* = object
+    block_root*: Eth2Digest
+    index*: ColumnIndex
+    slot*: Slot
+    kzg_commitments*: KzgCommitments
+
   # https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.10/specs/fulu/p2p-interface.md#datacolumnidentifier
   DataColumnIdentifier* = object
     block_root*: Eth2Digest
@@ -131,12 +137,13 @@ type
 
   CgcCount* = uint8
 
-  # https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.10/specs/fulu/p2p-interface.md#metadata
+  # https://github.com/ethereum/consensus-specs/blob/v1.6.0-alpha.2/specs/fulu/p2p-interface.md#enr-structure
   MetaData* = object
     seq_number*: uint64
     attnets*: AttnetBits
     syncnets*: SyncnetBits
     custody_group_count*: uint64
+    next_fork_digest*: ForkDigest
 
   # https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.10/specs/deneb/beacon-chain.md#executionpayload
   ExecutionPayload* = object
@@ -385,6 +392,11 @@ type
       HashList[PendingPartialWithdrawal, Limit PENDING_PARTIAL_WITHDRAWALS_LIMIT]
     pending_consolidations*:
       HashList[PendingConsolidation, Limit PENDING_CONSOLIDATIONS_LIMIT]
+
+    # [New in Fulu:EIP7917]
+    proposer_lookahead*:
+        HashArray[Limit ((MIN_SEED_LOOKAHEAD + 1) * SLOTS_PER_EPOCH), uint64]
+
       ## [New in Electra:EIP7251]
 
   # TODO Careful, not nil analysis is broken / incomplete and the semantics will

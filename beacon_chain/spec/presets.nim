@@ -40,7 +40,8 @@ const
 type
   Version* = distinct array[4, byte]
   Eth1Address* = web3types.Address
-  BPOForkInfo = object
+  # https://github.com/ethereum/consensus-specs/blob/v1.6.0-alpha.2/specs/fulu/beacon-chain.md#new-blobparameters
+  BlobParameters* = object
     EPOCH*: Epoch
     MAX_BLOBS_PER_BLOCK*: uint64
 
@@ -141,7 +142,7 @@ type
     BALANCE_PER_ADDITIONAL_CUSTODY_GROUP*: uint64
     MAX_BLOBS_PER_BLOCK_FULU*: uint64
     MIN_EPOCHS_FOR_DATA_COLUMN_SIDECARS_REQUESTS*: uint64
-    BLOB_SCHEDULE*: seq[BPOForkInfo]
+    BLOB_SCHEDULE*: seq[BlobParameters]
 
   PresetFile* = object
     values*: Table[string, string]
@@ -334,8 +335,8 @@ when const_preset == "mainnet":
     # https://github.com/ethereum/consensus-specs/blob/v1.6.0-alpha.0/specs/fulu/das-core.md#get_max_blobs_per_block
     # provides sorting rules.
     BLOB_SCHEDULE: @[
-      BPOForkInfo(EPOCH: 364032.Epoch, MAX_BLOBS_PER_BLOCK: 9),
-      BPOForkInfo(EPOCH: 269568.Epoch, MAX_BLOBS_PER_BLOCK: 6)],
+      BlobParameters(EPOCH: 364032.Epoch, MAX_BLOBS_PER_BLOCK: 9),
+      BlobParameters(EPOCH: 269568.Epoch, MAX_BLOBS_PER_BLOCK: 6)],
   )
 
 elif const_preset == "gnosis":
@@ -674,8 +675,8 @@ elif const_preset == "minimal":
     # https://github.com/ethereum/consensus-specs/blob/v1.6.0-alpha.0/specs/fulu/das-core.md#get_max_blobs_per_block
     # provides sorting rules.
     BLOB_SCHEDULE: @[
-      BPOForkInfo(EPOCH: FAR_FUTURE_EPOCH, MAX_BLOBS_PER_BLOCK: 6),
-      BPOForkInfo(EPOCH: FAR_FUTURE_EPOCH, MAX_BLOBS_PER_BLOCK: 9)],
+      BlobParameters(EPOCH: FAR_FUTURE_EPOCH, MAX_BLOBS_PER_BLOCK: 6),
+      BlobParameters(EPOCH: FAR_FUTURE_EPOCH, MAX_BLOBS_PER_BLOCK: 9)],
   )
 
 else:
@@ -754,7 +755,7 @@ func parse(T: type DomainType, input: string): T
            {.raises: [ValueError].} =
   DomainType hexToByteArray(input, 4)
 
-func cmpBPOForkInfo*(x, y: BPOForkInfo): int =
+func cmpBlobParameters*(x, y: BlobParameters): int =
   # Don't care about ties and want reverse order.
   cmp(y.EPOCH.distinctBase, x.EPOCH.distinctBase)
 
@@ -791,9 +792,9 @@ proc readRuntimeConfig*(
     values[lineParts[0]] = lineParts[1].strip
   # Accumulate BLOB_SCHEDULE entries
   var
-    blobScheduleEntries: seq[BPOForkInfo]
+    blobScheduleEntries: seq[BlobParameters]
     inBlobSchedule = false
-    currentBPO: BPOForkInfo
+    currentBPO: BlobParameters
 
   for rawLine in splitLines(fileContent):
     inc lineNum
@@ -816,7 +817,7 @@ proc readRuntimeConfig*(
       if entry.startsWith("- EPOCH:"):
         if currentBPO.EPOCH.uint64 != 0.uint64:
           blobScheduleEntries.add(currentBPO)
-        currentBPO = BPOForkInfo()
+        currentBPO = BlobParameters()
         let epochStr = entry.split(":")[1].strip()
         try:
           currentBPO.EPOCH = Epoch(parse(uint64, epochStr))
@@ -852,7 +853,7 @@ proc readRuntimeConfig*(
     blobScheduleEntries.add(currentBPO)
 
   # BPO entries must be sorted in reverse epoch order
-  blobScheduleEntries.sort(cmp = cmpBPOForkInfo)
+  blobScheduleEntries.sort(cmp = cmpBlobParameters)
 
   # Certain config keys are baked into the binary at compile-time
   # and cannot be overridden via config.
@@ -971,7 +972,7 @@ proc readRuntimeConfig*(
 
   for name, field in cfg.fieldPairs():
     if values.hasKey(name):
-      when field is seq[BPOForkInfo]:
+      when field is seq[BlobParameters]:
         field = blobScheduleEntries
       else:
         try:
@@ -980,7 +981,7 @@ proc readRuntimeConfig*(
           fail("Unable to parse " & name)
       values.del(name)
     elif name == "BLOB_SCHEDULE":
-      when field is seq[BPOForkInfo]:
+      when field is seq[BlobParameters]:
         field = blobScheduleEntries
 
   if cfg.PRESET_BASE != const_preset:

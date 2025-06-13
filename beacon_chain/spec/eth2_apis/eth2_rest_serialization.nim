@@ -50,6 +50,7 @@ RestJson.useDefaultSerializationFor(
   Checkpoint,
   ConsolidationRequest,
   ContributionAndProof,
+  DataColumnSidecarInfoObject,
   DataEnclosedObject,
   DataMetaEnclosedObject,
   DataOptimisticAndFinalizedObject,
@@ -340,6 +341,7 @@ const
 type
   EncodeTypes* =
     BlobSidecarInfoObject |
+    DataColumnSidecarInfoObject |
     DeleteKeystoresBody |
     EmptyBody |
     ImportDistributedKeystoresBody |
@@ -2858,7 +2860,13 @@ proc readValue*(reader: var JsonReader[RestJson],
                 value: var VCRuntimeConfig) {.
      raises: [SerializationError, IOError].} =
   for fieldName in readObjectFields(reader):
-    let fieldValue = reader.readValue(string)
+    let fieldValue =
+      case toLowerAscii(fieldName)
+      of "blob_schedule":
+        string(reader.readValue(JsonString))
+      else:
+        reader.readValue(string)
+
     if value.hasKeyOrPut(toUpperAscii(fieldName), fieldValue):
       let msg = "Multiple `" & fieldName & "` fields found"
       reader.raiseUnexpectedField(msg, "VCRuntimeConfig")

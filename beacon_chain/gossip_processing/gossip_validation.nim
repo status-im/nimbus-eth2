@@ -24,6 +24,7 @@ import
   ".."/[beacon_clock],
   ./batch_validation
 
+from std/sequtils import mapIt
 from libp2p/protocols/pubsub/errors import ValidationResult
 
 export results, ValidationResult
@@ -229,7 +230,7 @@ func check_blob_sidecar_inclusion_proof(
   ok()
 
 func check_data_column_sidecar_inclusion_proof(
-  data_column_sidecar: DataColumnSidecar): Result[void, ValidationError] =
+    data_column_sidecar: DataColumnSidecar): Result[void, ValidationError] =
   let res = data_column_sidecar.verify_data_column_sidecar_inclusion_proof()
   if res.isErr:
     return errReject(res.error)
@@ -237,7 +238,7 @@ func check_data_column_sidecar_inclusion_proof(
   ok()
 
 proc check_data_column_sidecar_kzg_proofs(
-  data_column_sidecar: DataColumnSidecar): Result[void, ValidationError] =
+    data_column_sidecar: DataColumnSidecar): Result[void, ValidationError] =
   let res = data_column_sidecar.verify_data_column_sidecar_kzg_proofs()
   if res.isErr:
     return errReject(res.error)
@@ -745,6 +746,17 @@ proc validateDataColumnSidecar*(
   beacon_data_column_sidecar_gossip_verification_seconds.observe(validationDur.toFloatSeconds())
 
   beacon_data_column_sidecar_processing_successes.inc()
+
+  # Send notification about new data column sidecar via callback
+  let onDataColumnSidecarCallback =
+    dataColumnQuarantine[].onDataColumnSidecarCallback()
+
+  if not(isNil(onDataColumnSidecarCallback)):
+    onDataColumnSidecarCallback DataColumnSidecarInfoObject(
+      block_root: block_root,
+      index: data_column_sidecar.index,
+      slot: data_column_sidecar.signed_block_header.message.slot,
+      kzg_commitments: data_column_sidecar.kzg_commitments)
 
   ok()
 
