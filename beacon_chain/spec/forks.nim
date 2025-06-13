@@ -1076,6 +1076,16 @@ func setStateRoot*(x: var ForkedHashedBeaconState, root: Eth2Digest) =
   withState(x): forkyState.root = root
 {.pop.}
 
+# https://github.com/ethereum/consensus-specs/blob/v1.6.0-alpha.2/specs/fulu/beacon-chain.md#new-get_blob_parameters
+func get_blob_parameters(cfg: RuntimeConfig, epoch: Epoch): BlobParameters =
+  ## Return the blob parameters at a given epoch.
+  for entry in cfg.BLOB_SCHEDULE:
+    if epoch >= entry.EPOCH:
+      return entry
+  BlobParameters(
+    EPOCH: cfg.ELECTRA_FORK_EPOCH,
+    MAX_BLOBS_PER_BLOCK: cfg.MAX_BLOBS_PER_BLOCK_ELECTRA)
+
 func consensusForkEpoch*(
     cfg: RuntimeConfig, consensusFork: ConsensusFork): Epoch =
   case consensusFork
@@ -1157,8 +1167,17 @@ func atConsensusFork*(
 
 template atEpoch*(
     forkDigests: ForkDigests, epoch: Epoch, cfg: RuntimeConfig): ForkDigest =
-  # TODO
-  forkDigests.atConsensusFork(cfg.consensusForkAtEpoch(epoch))
+  if epoch >= cfg.FULU_FORK_EPOCH:
+    var res: Opt[ForkDigest]
+    for (bpoEpoch, _, forkDigest) in forkDigests.bpos:
+      if epoch >= bpoEpoch:
+        res = Opt[ForkDigest].ok(forkDigest)
+        break
+    res.valueOr:
+      # In BPO-compatible fork, without BPOs
+      forkDigests.atConsensusFork(cfg.consensusForkAtEpoch(epoch))
+  else:
+    forkDigests.atConsensusFork(cfg.consensusForkAtEpoch(epoch))
 
 template asSigned*(
     x: ForkedMsgTrustedSignedBeaconBlock |
@@ -1683,16 +1702,6 @@ func compute_fork_digest*(current_version: Version,
   array[4, byte](result)[0..3] =
     compute_fork_data_root(
       current_version, genesis_validators_root).data.toOpenArray(0, 3)
-
-# https://github.com/ethereum/consensus-specs/blob/v1.6.0-alpha.2/specs/fulu/beacon-chain.md#new-get_blob_parameters
-func get_blob_parameters(cfg: RuntimeConfig, epoch: Epoch): BlobParameters =
-  ## Return the blob parameters at a given epoch.
-  for entry in cfg.BLOB_SCHEDULE:
-    if epoch >= entry.EPOCH:
-      return entry
-  BlobParameters(
-    EPOCH: cfg.ELECTRA_FORK_EPOCH,
-    MAX_BLOBS_PER_BLOCK: cfg.MAX_BLOBS_PER_BLOCK_ELECTRA)
 
 # https://github.com/ethereum/consensus-specs/blob/v1.6.0-alpha.2/specs/fulu/beacon-chain.md#modified-compute_fork_digest
 func compute_fork_digest_fulu*(
