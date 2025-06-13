@@ -38,7 +38,9 @@ const
 type
   Version* = distinct array[4, byte]
   Eth1Address* = web3types.Address
-  BPOForkInfo* = object
+
+  # https://github.com/ethereum/consensus-specs/blob/v1.6.0-alpha.2/specs/fulu/beacon-chain.md#new-blobparameters
+  BlobParameters* = object
     EPOCH*: Epoch
     MAX_BLOBS_PER_BLOCK*: uint64
 
@@ -138,7 +140,7 @@ type
     # TODO VALIDATOR_CUSTODY_REQUIREMENT*: uint64
     # TODO BALANCE_PER_ADDITIONAL_CUSTODY_GROUP*: uint64
     # TODO MIN_EPOCHS_FOR_DATA_COLUMN_SIDECARS_REQUESTS*: uint64
-    BLOB_SCHEDULE*: seq[BPOForkInfo]
+    BLOB_SCHEDULE*: seq[BlobParameters]
 
   PresetFile* = object
     values*: Table[string, string]
@@ -321,8 +323,8 @@ when const_preset == "mainnet":
     # https://github.com/ethereum/consensus-specs/blob/v1.6.0-alpha.0/specs/fulu/das-core.md#get_max_blobs_per_block
     # provides sorting rules.
     BLOB_SCHEDULE: @[
-      BPOForkInfo(EPOCH: 364032.Epoch, MAX_BLOBS_PER_BLOCK: 9),
-      BPOForkInfo(EPOCH: 269568.Epoch, MAX_BLOBS_PER_BLOCK: 6)],
+      BlobParameters(EPOCH: 364032.Epoch, MAX_BLOBS_PER_BLOCK: 9),
+      BlobParameters(EPOCH: 269568.Epoch, MAX_BLOBS_PER_BLOCK: 6)],
     # TODO NUMBER_OF_COLUMNS: 128,
     # TODO NUMBER_OF_CUSTODY_GROUPS: 128,
     # TODO DATA_COLUMN_SIDECAR_SUBNET_COUNT: 128,
@@ -659,8 +661,8 @@ elif const_preset == "minimal":
     # https://github.com/ethereum/consensus-specs/blob/v1.6.0-alpha.0/specs/fulu/das-core.md#get_max_blobs_per_block
     # provides sorting rules.
     BLOB_SCHEDULE: @[
-      BPOForkInfo(EPOCH: FAR_FUTURE_EPOCH, MAX_BLOBS_PER_BLOCK: 6),
-      BPOForkInfo(EPOCH: FAR_FUTURE_EPOCH, MAX_BLOBS_PER_BLOCK: 9)],
+      BlobParameters(EPOCH: FAR_FUTURE_EPOCH, MAX_BLOBS_PER_BLOCK: 6),
+      BlobParameters(EPOCH: FAR_FUTURE_EPOCH, MAX_BLOBS_PER_BLOCK: 9)],
     # TODO NUMBER_OF_COLUMNS: 128,
     # TODO NUMBER_OF_CUSTODY_GROUPS: 128,
     # TODO DATA_COLUMN_SIDECAR_SUBNET_COUNT: 128,
@@ -897,7 +899,7 @@ proc readRuntimeConfig*(
 
   for name, field in cfg.fieldPairs():
     if name in values:
-      when field is seq[BPOForkInfo]:
+      when field is seq[BlobParameters]:
         discard
       else:
         try:
