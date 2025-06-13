@@ -8,7 +8,7 @@
 {.push raises: [].}
 
 import
-  std/[os, random, terminal, times, exitprocs],
+  std/[os, random, terminal, times, exitprocs, algorithm],
   chronos, chronicles,
   metrics, metrics/chronos_httpserver,
   stew/[byteutils, io2],
@@ -31,6 +31,9 @@ when defined(posix):
   import system/ansi_c
 
 from ./spec/datatypes/deneb import SignedBeaconBlock
+
+from std/sequtils import toSeq
+
 
 from
   libp2p/protocols/pubsub/gossipsub
@@ -302,6 +305,8 @@ proc initFullNode(
     node.eventBus.electraAttSlashQueue.emit(data)
   proc onBlobSidecarAdded(data: BlobSidecarInfoObject) =
     node.eventBus.blobSidecarQueue.emit(data)
+  proc onColumnSidecarAdded(data: DataColumnSidecarInfoObject) =
+    node.eventBus.columnSidecarQueue.emit(data)
   proc onBlockAdded(data: ForkedTrustedSignedBeaconBlock) =
     let optimistic =
       if node.currentSlot().epoch() >= dag.cfg.BELLATRIX_FORK_EPOCH:
@@ -414,8 +419,13 @@ proc initFullNode(
         node.network.nodeId,
         max(dag.cfg.SAMPLES_PER_SLOT.uint64,
             localCustodyGroups))
+
+  var sortedColumns = custodyColumns.toSeq()
+  sort(sortedColumns)
+
+  let
     dataColumnQuarantine = newClone(ColumnQuarantine.init(
-      dag.cfg, custodyColumns))
+      dag.cfg, sortedColumns, onColumnSidecarAdded))
     consensusManager = ConsensusManager.new(
       dag, attestationPool, quarantine, node.elManager,
       ActionTracker.init(node.network.nodeId, config.subscribeAllSubnets),
@@ -757,6 +767,7 @@ proc init*(T: type BeaconNode,
       phase0AttSlashQueue: newAsyncEventQueue[phase0.AttesterSlashing](),
       electraAttSlashQueue: newAsyncEventQueue[electra.AttesterSlashing](),
       blobSidecarQueue: newAsyncEventQueue[BlobSidecarInfoObject](),
+      columnSidecarQueue: newAsyncEventQueue[DataColumnSidecarInfoObject](),
       finalQueue: newAsyncEventQueue[FinalizationInfoObject](),
       reorgQueue: newAsyncEventQueue[ReorgInfoObject](),
       contribQueue: newAsyncEventQueue[SignedContributionAndProof](),
