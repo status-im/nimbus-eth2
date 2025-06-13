@@ -1198,11 +1198,11 @@ proc updateBlocksGossipStatus*(
     oldGossipForks = currentGossipState - targetGossipState
 
   for gossipFork in oldGossipForks:
-    let forkDigest = node.dag.forkDigests[].atConsensusFork(gossipFork)
+    let forkDigest = node.dag.forkDigests[].atEpoch(slot.epoch, cfg)
     node.network.unsubscribe(getBeaconBlocksTopic(forkDigest))
 
   for gossipFork in newGossipForks:
-    let forkDigest = node.dag.forkDigests[].atConsensusFork(gossipFork)
+    let forkDigest = node.dag.forkDigests[].atEpoch(slot.epoch, cfg)
     node.network.subscribe(
       getBeaconBlocksTopic(forkDigest), getBlockTopicParams(),
       enableTopicMetrics = true)

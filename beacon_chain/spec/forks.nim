@@ -1148,7 +1148,7 @@ func consensusForkForDigest*(
     err()
 
 func atConsensusFork*(
-    forkDigests: ForkDigests, consensusFork: ConsensusFork): ForkDigest =
+    forkDigests: ForkDigests, consensusFork: ConsensusFork): ForkDigest {.deprecated.} =
   case consensusFork
   of ConsensusFork.Fulu:
     forkDigests.fulu
