@@ -76,7 +76,7 @@ export
   tables, results, endians2, json_serialization, sszTypes, beacon_time, crypto,
   digest, presets
 
-const SPEC_VERSION* = "1.6.0-alpha.1"
+const SPEC_VERSION* = "1.6.0-alpha.2-hotfix.0"
 ## Spec version we're aiming to be compatible with, right now
 
 const
@@ -968,7 +968,7 @@ func checkForkConsistency*(cfg: RuntimeConfig) =
   assertForkEpochOrder(cfg.DENEB_FORK_EPOCH, cfg.ELECTRA_FORK_EPOCH)
   assertForkEpochOrder(cfg.ELECTRA_FORK_EPOCH, cfg.FULU_FORK_EPOCH)
 
-  doAssert isSorted(cfg.BLOB_SCHEDULE, cmp = cmpBPOForkInfo)
+  doAssert isSorted(cfg.BLOB_SCHEDULE, cmp = cmpBlobParameters)
 
 func ofLen*[T, N](ListType: type List[T, N], n: int): ListType =
   if n < N:

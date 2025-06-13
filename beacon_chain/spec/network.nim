@@ -44,6 +44,7 @@ const
   enrAttestationSubnetsField* = "attnets"
   enrSyncSubnetsField* = "syncnets"
   enrCustodySubnetCountField* = "cgc"
+  enrNextForkDigestField* = "nfd"
   enrForkIdField* = "eth2"
 
 template eth2Prefix(forkDigest: ForkDigest): string =
@@ -131,6 +132,14 @@ func getLightClientOptimisticUpdateTopic*(forkDigest: ForkDigest): string =
   ## For broadcasting or obtaining the latest `LightClientOptimisticUpdate`.
   eth2Prefix(forkDigest) & "light_client_optimistic_update/ssz_snappy"
 
+func getForkDigest(
+    cfg: RuntimeConfig, genesis_validators_root: Eth2Digest,
+    current_fork_version: Version, epoch: Epoch): ForkDigest =
+  if epoch >= cfg.FULU_FORK_EPOCH:
+    compute_fork_digest_fulu(cfg, genesis_validators_root, epoch)
+  else:
+    compute_fork_digest(current_fork_version, genesis_validators_root)
+
 func getENRForkID*(cfg: RuntimeConfig,
                    epoch: Epoch,
                    genesis_validators_root: Eth2Digest): ENRForkID =
@@ -140,8 +149,8 @@ func getENRForkID*(cfg: RuntimeConfig,
       current_fork_version
     else:
       cfg.forkVersionAtEpoch(cfg.nextForkEpochAtEpoch(epoch))
-    fork_digest = compute_fork_digest(current_fork_version,
-                                      genesis_validators_root)
+    fork_digest = cfg.getForkDigest(
+      genesis_validators_root, current_fork_version, epoch)
   ENRForkID(
     fork_digest: fork_digest,
     next_fork_version: next_fork_version,
@@ -156,8 +165,8 @@ func getDiscoveryForkID*(cfg: RuntimeConfig,
   else:
     let
       current_fork_version = cfg.forkVersionAtEpoch(epoch)
-      fork_digest = compute_fork_digest(current_fork_version,
-                                        genesis_validators_root)
+      fork_digest = cfg.getForkDigest(
+        genesis_validators_root, current_fork_version, epoch)
     ENRForkID(
       fork_digest: fork_digest,
       next_fork_version: current_fork_version,

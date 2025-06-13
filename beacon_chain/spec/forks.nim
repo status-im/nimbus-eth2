@@ -19,6 +19,8 @@ import
   ./datatypes/[phase0, altair, bellatrix, capella, deneb, electra, fulu],
   ./mev/[bellatrix_mev, capella_mev, deneb_mev, electra_mev, fulu_mev]
 
+from std/sequtils import mapIt
+
 export
   extras, block_id, phase0, altair, bellatrix, capella, deneb, electra,
   fulu, eth2_merkleization, eth2_ssz_serialization, forks_light_client,
@@ -353,6 +355,7 @@ type
     deneb*:     ForkDigest
     electra*:   ForkDigest
     fulu*:      ForkDigest
+    bpos*:      seq[(Epoch, ConsensusFork, ForkDigest)]
 
 template kind*(
     x: typedesc[
@@ -1073,6 +1076,16 @@ func setStateRoot*(x: var ForkedHashedBeaconState, root: Eth2Digest) =
   withState(x): forkyState.root = root
 {.pop.}
 
+# https://github.com/ethereum/consensus-specs/blob/v1.6.0-alpha.2/specs/fulu/beacon-chain.md#new-get_blob_parameters
+func get_blob_parameters(cfg: RuntimeConfig, epoch: Epoch): BlobParameters =
+  ## Return the blob parameters at a given epoch.
+  for entry in cfg.BLOB_SCHEDULE:
+    if epoch >= entry.EPOCH:
+      return entry
+  BlobParameters(
+    EPOCH: cfg.ELECTRA_FORK_EPOCH,
+    MAX_BLOBS_PER_BLOCK: cfg.MAX_BLOBS_PER_BLOCK_ELECTRA)
+
 func consensusForkEpoch*(
     cfg: RuntimeConfig, consensusFork: ConsensusFork): Epoch =
   case consensusFork
@@ -1129,6 +1142,9 @@ func consensusForkForDigest*(
   elif forkDigest == forkDigests.phase0:
     ok ConsensusFork.Phase0
   else:
+    for (epoch, consensusFork, bpoForkDigest) in forkDigests.bpos:
+      if forkDigest == bpoForkDigest:
+        return ok consensusFork
     err()
 
 func atConsensusFork*(
@@ -1151,7 +1167,17 @@ func atConsensusFork*(
 
 template atEpoch*(
     forkDigests: ForkDigests, epoch: Epoch, cfg: RuntimeConfig): ForkDigest =
-  forkDigests.atConsensusFork(cfg.consensusForkAtEpoch(epoch))
+  if epoch >= cfg.FULU_FORK_EPOCH:
+    var res: Opt[ForkDigest]
+    for (bpoEpoch, _, forkDigest) in forkDigests.bpos:
+      if epoch >= bpoEpoch:
+        res = Opt[ForkDigest].ok(forkDigest)
+        break
+    res.valueOr:
+      # In BPO-compatible fork, without BPOs
+      forkDigests.atConsensusFork(cfg.consensusForkAtEpoch(epoch))
+  else:
+    forkDigests.atConsensusFork(cfg.consensusForkAtEpoch(epoch))
 
 template asSigned*(
     x: ForkedMsgTrustedSignedBeaconBlock |
@@ -1677,6 +1703,30 @@ func compute_fork_digest*(current_version: Version,
     compute_fork_data_root(
       current_version, genesis_validators_root).data.toOpenArray(0, 3)
 
+# https://github.com/ethereum/consensus-specs/blob/v1.6.0-alpha.2/specs/fulu/beacon-chain.md#modified-compute_fork_digest
+func compute_fork_digest_fulu*(
+    cfg: RuntimeConfig, genesis_validators_root: Eth2Digest, epoch: Epoch):
+    ForkDigest =
+  ## Return the 4-byte fork digest for the ``version`` and
+  ## ``genesis_validators_root`` XOR'd with the hash of the blob parameters for
+  ## ``epoch``.
+  ##
+  ## This is a digest primarily used for domain separation on the p2p layer.
+  ## 4-bytes suffices for practical separation of forks/chains.
+  let
+    fork_version = forkVersionAtEpoch(cfg, epoch)
+    base_digest = compute_fork_data_root(fork_version, genesis_validators_root)
+    blob_parameters = get_blob_parameters(cfg, epoch)
+
+  var bpo_buf: array[16, byte]
+  bpo_buf[0 .. 7] = toBytesLE(distinctBase(blob_parameters.EPOCH))
+  bpo_buf[8 .. 15] = toBytesLE(blob_parameters.MAX_BLOBS_PER_BLOCK)
+  let bpo_digest = eth2digest(bpo_buf)
+  var res: array[4, byte]
+  for i in 0 ..< 3:
+    res[i] = base_digest.data[i] xor bpo_digest.data[i]
+  ForkDigest(res)
+
 func init*(T: type ForkDigests,
            cfg: RuntimeConfig,
            genesis_validators_root: Eth2Digest): T =
@@ -1695,7 +1745,13 @@ func init*(T: type ForkDigests,
     electra:
       compute_fork_digest(cfg.ELECTRA_FORK_VERSION, genesis_validators_root),
     fulu:
-      compute_fork_digest(cfg.FULU_FORK_VERSION, genesis_validators_root)
+      compute_fork_digest(cfg.FULU_FORK_VERSION, genesis_validators_root),
+    bpos: mapIt(
+      cfg.BLOB_SCHEDULE,
+      (
+        it.EPOCH,
+        consensusForkAtEpoch(cfg, it.EPOCH),
+        compute_fork_digest_fulu(cfg, genesis_validators_root, it.EPOCH)))
   )
 
 func toBlockId*(header: BeaconBlockHeader): BlockId =

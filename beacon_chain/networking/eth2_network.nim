@@ -2702,6 +2702,24 @@ proc updateSyncnetsMetadata*(node: Eth2Node, syncnets: SyncnetBits) =
   else:
     debug "Sync committees changed; updated ENR syncnets", syncnets
 
+proc updateNextForkDigest(node: Eth2Node, next_fork_digest: ForkDigest) =
+  # https://github.com/ethereum/consensus-specs/blob/v1.6.0-alpha.2/specs/fulu/p2p-interface.md#next-fork-digest
+  if node.metadata.next_fork_digest == next_fork_digest:
+    return
+
+  node.metadata.seq_number += 1
+  node.metadata.next_fork_digest = next_fork_digest
+
+  let res = node.discovery.updateRecord({
+    enrNextForkDigestField: SSZ.encode(next_fork_digest)
+  })
+  if res.isErr():
+    # This should not occur in this scenario as the private key would always
+    # be the correct one and the ENR will not increase in size.
+    warn "Failed to update the ENR nfd field", error = res.error
+  else:
+    debug "Next fork digest changed; updated ENR nfd", next_fork_digest
+
 proc updateForkId(node: Eth2Node, value: ENRForkID) =
   node.forkId = value
   let res = node.discovery.updateRecord({enrForkIdField: SSZ.encode value})
