@@ -50,6 +50,7 @@ RestJson.useDefaultSerializationFor(
   Checkpoint,
   ConsolidationRequest,
   ContributionAndProof,
+  DataColumnSidecar,
   DataEnclosedObject,
   DataMetaEnclosedObject,
   DataOptimisticAndFinalizedObject,
@@ -642,9 +643,9 @@ proc jsonResponseBlock*(t: typedesc[RestApiResponse],
         default(seq[byte])
   RestApiResponse.response(res, Http200, "application/json", headers = headers)
 
-proc jsonResponseBlobSidecars*(
+proc jsonResponseDataSidecars*(
     t: typedesc[RestApiResponse],
-    data: openArray[BlobSidecar],
+    data: openArray[BlobSidecar] | openArray[DataColumnSidecar],
     version: ConsensusFork,
     execOpt: Opt[bool],
     finalized: bool

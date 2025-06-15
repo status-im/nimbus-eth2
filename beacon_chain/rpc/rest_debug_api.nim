@@ -1,5 +1,5 @@
 # beacon_chain
-# Copyright (c) 2021-2024 Status Research & Development GmbH
+# Copyright (c) 2021-2025 Status Research & Development GmbH
 # Licensed and distributed under either of
 #   * MIT license (license terms in the root directory or at https://opensource.org/licenses/MIT).
 #   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
@@ -11,7 +11,7 @@ import std/sequtils
 import chronicles, metrics
 import ".."/beacon_node,
        ".."/spec/forks,
-       "."/[rest_utils, state_ttl_cache]
+       "."/[rest_beacon_api, rest_utils, state_ttl_cache]
 
 from ../fork_choice/proto_array import ProtoArrayItem, items
 
@@ -20,6 +20,19 @@ export rest_utils
 logScope: topics = "rest_debug"
 
 proc installDebugApiHandlers*(router: var RestRouter, node: BeaconNode) =
+  # https://ethereum.github.io/beacon-APIs/?urls.primaryName=dev#/Debug/getDebugDataColumnSidecars
+  # https://github.com/ethereum/beacon-APIs/blob/v4.0.0-alpha.0/apis/debug/data_column_sidecars.yaml
+  router.api2(
+      MethodGet, "/eth/v1/debug/beacon/data_column_sidecars/{block_id}") do (
+      block_id: BlockIdent, indices: seq[uint64]) -> RestApiResponse:
+    handleDataSidecarRequest[
+      InvalidDataColumnSidecarIndexValueError,
+      List[DataColumnSidecar, NUMBER_OF_COLUMNS],
+      getDataColumnSidecar
+    ](
+      node, preferredContentType(jsonMediaType, sszMediaType),
+      block_id, indices)
+
   # https://ethereum.github.io/beacon-APIs/#/Debug/getState
   router.api2(MethodGet, "/eth/v1/debug/beacon/states/{state_id}") do (
     state_id: StateIdent) -> RestApiResponse:
