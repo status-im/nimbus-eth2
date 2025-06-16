@@ -132,7 +132,7 @@ proc toString*(kind: ValidatorFilterKind): string =
   of ValidatorFilterKind.WithdrawalDone:
     "withdrawal_done"
 
-func handleDataSidecarRequest*[
+proc handleDataSidecarRequest*[
     InvalidIndexValueError: static string,
     DataSidecarsType: typedesc[List];
     getDataSidecar: static proc
@@ -141,7 +141,7 @@ func handleDataSidecarRequest*[
     mediaType: Result[MediaType, cstring],
     block_id: Result[BlockIdent, cstring],
     indices: Result[seq[uint64], cstring],
-    maxDataSidecars = DataSidecarsType.maxLen.uint64): RestApiResponse =
+    maxDataSidecars: uint64): RestApiResponse =
   let
     contentType = mediaType.valueOr:
       return RestApiResponse.jsonError(
@@ -160,7 +160,7 @@ func handleDataSidecarRequest*[
   for dataIndex in 0'u64 ..< maxDataSidecars:
     if indexFilter.len > 0 and dataIndex notin indexFilter:
       continue
-    var dataSidecar = new ElemType(DataSidecarsType)()
+    var dataSidecar = new DataSidecarsType.T
     if getDataSidecar(node.dag.db, bid.root, dataIndex, dataSidecar[]):
       discard data[].add dataSidecar[]
 
@@ -174,6 +174,19 @@ func handleDataSidecarRequest*[
       Opt.some(node.dag.is_optimistic(bid)), node.dag.isFinalized(bid))
   else:
     RestApiResponse.jsonError(Http500, InvalidAcceptError)
+
+proc handleDataSidecarRequest*[
+    InvalidIndexValueError: static string,
+    DataSidecarsType: typedesc[List];
+    getDataSidecar: static proc
+](
+    node: BeaconNode,
+    mediaType: Result[MediaType, cstring],
+    block_id: Result[BlockIdent, cstring],
+    indices: Result[seq[uint64], cstring]): RestApiResponse =
+  handleDataSidecarRequest[
+    InvalidIndexValueError, DataSidecarsType, getDataSidecar
+  ](node, mediaType, block_id, indices, DataSidecarsType.maxLen.uint64)
 
 proc installBeaconApiHandlers*(router: var RestRouter, node: BeaconNode) =
   # https://github.com/ethereum/EIPs/blob/master/EIPS/eip-4881.md

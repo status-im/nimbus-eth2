@@ -645,7 +645,7 @@ proc jsonResponseBlock*(t: typedesc[RestApiResponse],
 
 proc jsonResponseDataSidecars*(
     t: typedesc[RestApiResponse],
-    data: openArray[BlobSidecar] | openArray[DataColumnSidecar],
+    data: openArray[BlobSidecar | DataColumnSidecar],
     version: ConsensusFork,
     execOpt: Opt[bool],
     finalized: bool
@@ -1407,11 +1407,10 @@ proc writeValue*(
 ) {.raises: [IOError].} =
   writeValue(writer, hexOriginal(distinctBase(value)))
 
-## KzgCommitment and KzgProof; both are the same type, but this makes it
-## explicit.
+## KzgCommitment, KzgProof, and KzgCell
 ## https://github.com/ethereum/beacon-APIs/blob/v2.4.2/types/primitive.yaml#L135-L146
 proc readValue*(reader: var JsonReader[RestJson],
-     value: var (KzgCommitment|KzgProof)) {.
+     value: var (KzgCommitment|KzgProof|KzgCell)) {.
      raises: [IOError, SerializationError].} =
   try:
     hexToByteArray(reader.readValue(string), distinctBase(value.bytes))
@@ -1420,7 +1419,7 @@ proc readValue*(reader: var JsonReader[RestJson],
                          "KzgCommitment value should be a valid hex string")
 
 proc writeValue*(
-    writer: var JsonWriter[RestJson], value: KzgCommitment | KzgProof
+    writer: var JsonWriter[RestJson], value: KzgCommitment | KzgProof | KzgCell
 ) {.raises: [IOError].} =
   writeValue(writer, hexOriginal(distinctBase(value.bytes)))
 
