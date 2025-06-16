@@ -225,7 +225,7 @@ type
 
   RestValidatorIdentity* = object
     index*: ValidatorIndex
-    pubkeyData*{.serializedFieldName: "pubkey".}: HashedValidatorPubKey
+    pubkey*: ValidatorPubkey
     activation_epoch*: Epoch
 
   RestBlockHeader* = object
@@ -781,9 +781,9 @@ func init*(t: typedesc[RestValidator], index: ValidatorIndex,
                 status: status, validator: validator)
 
 func init*(t: typedesc[RestValidatorIdentity], index: ValidatorIndex,
-           pubkeyData: HashedValidatorPubKey,
+           pubkey: ValidatorPubKey,
            activation_epoch: Epoch): RestValidatorIdentity =
-  RestValidatorIdentity(index: index, pubkeyData: pubkeyData,
+  RestValidatorIdentity(index: index, pubkey: pubkey,
                         activation_epoch: activation_epoch)
 
 func init*(t: typedesc[RestValidatorBalance], index: ValidatorIndex,

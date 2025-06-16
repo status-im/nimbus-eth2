@@ -354,14 +354,14 @@ proc installBeaconApiHandlers*(router: var RestRouter, node: BeaconNode) =
                 # validators.
                 for index, validator in getStateField(state, validators):
                   res.add(RestValidatorIdentity.init(ValidatorIndex(index),
-                                                     validator.pubkeyData,
+                                                     validator.pubkeyData.pubkey(),
                                                      validator.activation_epoch))
             else:
               for index in indices:
                 let
                   validator = getStateField(state, validators).item(index)
                 res.add(RestValidatorIdentity.init(index,
-                                                   validator.pubkeyData,
+                                                   validator.pubkeyData.pubkey(),
                                                    validator.activation_epoch))
             res
       return RestApiResponse.jsonResponseFinalized(
