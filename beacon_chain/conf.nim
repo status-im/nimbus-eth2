@@ -202,7 +202,6 @@ type
 
     web3ForcePolling* {.
       hidden
-      desc: "Force the use of polling when determining the head block of Eth1 (obsolete)"
       name: "web3-force-polling" .}: Option[bool]
 
     web3Urls* {.

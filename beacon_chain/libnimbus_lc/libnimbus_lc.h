@@ -94,7 +94,7 @@ typedef struct ETHConsensusConfig ETHConsensusConfig;
  *         based on the given `config.yaml` file content - If successful.
  * @return `NULL` - If the given `config.yaml` is malformed or incompatible.
  *
- * @see https://github.com/ethereum/consensus-specs/blob/v1.5.0/configs/README.md
+ * @see https://github.com/ethereum/consensus-specs/blob/v1.6.0-alpha.2/configs/README.md
  */
 ETH_RESULT_USE_CHECK
 ETHConsensusConfig *_Nullable ETHConsensusConfigCreateFromYaml(const char *configFileContent);
