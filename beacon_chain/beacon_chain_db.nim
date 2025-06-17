@@ -1108,6 +1108,8 @@ proc getDataColumnSidecarSZ*(db: BeaconChainDB, root: Eth2Digest,
 
 proc getDataColumnSidecar*(db: BeaconChainDB, root: Eth2Digest, index: ColumnIndex,
                            value: var DataColumnSidecar): bool =
+  if db.columns == nil:  # Fulu has not been scheduled; DB table does not exist
+    return false
   db.columns.getSZSSZ(columnkey(root, index), value) == GetResult.found
 
 proc getBlockSZ*(

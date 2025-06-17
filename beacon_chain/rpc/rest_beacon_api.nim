@@ -160,7 +160,7 @@ proc handleDataSidecarRequest*[
   for dataIndex in 0'u64 ..< maxDataSidecars:
     if indexFilter.len > 0 and dataIndex notin indexFilter:
       continue
-    var dataSidecar = new DataSidecarsType.T
+    let dataSidecar = new DataSidecarsType.T
     if getDataSidecar(node.dag.db, bid.root, dataIndex, dataSidecar[]):
       discard data[].add dataSidecar[]
 
