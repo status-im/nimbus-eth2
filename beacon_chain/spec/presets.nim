@@ -401,7 +401,7 @@ elif const_preset == "gnosis":
     ELECTRA_FORK_VERSION: Version [byte 0x05, 0x00, 0x00, 0x64],
     ELECTRA_FORK_EPOCH: FAR_FUTURE_EPOCH,
     # Fulu
-    FULU_FORK_VERSION: Version [byte 0x06, 0x00, 0x00, 0x00],
+    FULU_FORK_VERSION: Version [byte 0x06, 0x00, 0x00, 0x64],
     FULU_FORK_EPOCH: FAR_FUTURE_EPOCH,
 
     # Time parameters
