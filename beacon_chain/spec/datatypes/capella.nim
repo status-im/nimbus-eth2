@@ -28,7 +28,7 @@ import
 export json_serialization, base
 
 const
-  # https://github.com/ethereum/consensus-specs/blob/v1.6.0-alpha.0/specs/capella/light-client/sync-protocol.md#constants
+  # https://github.com/ethereum/consensus-specs/blob/v1.6.0-alpha.2/specs/capella/light-client/sync-protocol.md#constants
   # This index is rooted in `BeaconBlockBody`.
   # The first member (`randao_reveal`) is 16, subsequent members +1 each.
   # If there are ever more than 16 members in `BeaconBlockBody`, indices change!

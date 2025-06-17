@@ -57,7 +57,7 @@ jobs:
             builder: macos-13
           - target:
               os: windows
-            builder: windows-2019
+            builder: windows-2022
 
     defaults:
       run:
