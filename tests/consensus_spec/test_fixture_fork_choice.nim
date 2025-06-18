@@ -295,7 +295,9 @@ proc stepChecks(
 
 proc doRunTest(
     path: string, fork: ConsensusFork) {.raises: [KeyError, ValueError].} =
-  let db = BeaconChainDB.new("", inMemory = true)
+  let db = withConsensusFork(fork):
+    BeaconChainDB.new(
+      "", consensusFork.genesisTestRuntimeConfig, inMemory = true)
   defer:
     db.close()
 

@@ -25,6 +25,7 @@ from ../beacon_chain/spec/beaconstate import
   initialize_hashed_beacon_state_from_eth1
 from ../beacon_chain/spec/state_transition import noRollback
 from ../beacon_chain/validators/validator_monitor import ValidatorMonitor
+from ./consensus_spec/fixtures_utils import genesisTestruntimeConfig
 from ./mocking/mock_genesis import mockEth1BlockHash
 from ./testblockutil import makeInitialDeposits
 from ./testdbutil import makeTestDB
@@ -171,7 +172,8 @@ suite "Beacon chain DB" & preset():
       db.getBlock(ZERO_HASH, phase0.TrustedSignedBeaconBlock).isNone
 
   test "sanity check phase 0 blocks" & preset():
-    let db = BeaconChainDB.new("", inMemory = true)
+    let db = BeaconChainDB.new(
+      "", ConsensusFork.Phase0.genesisTestRuntimeConfig, inMemory = true)
 
     let
       signedBlock = withDigest((phase0.TrustedBeaconBlock)())
@@ -221,7 +223,8 @@ suite "Beacon chain DB" & preset():
     db.close()
 
   test "sanity check Altair blocks" & preset():
-    let db = BeaconChainDB.new("", inMemory = true)
+    let db = BeaconChainDB.new(
+      "", ConsensusFork.Altair.genesisTestRuntimeConfig, inMemory = true)
 
     let
       signedBlock = withDigest((altair.TrustedBeaconBlock)())
@@ -272,7 +275,8 @@ suite "Beacon chain DB" & preset():
     db.close()
 
   test "sanity check Bellatrix blocks" & preset():
-    let db = BeaconChainDB.new("", inMemory = true)
+    let db = BeaconChainDB.new(
+      "", ConsensusFork.Bellatrix.genesisTestRuntimeConfig, inMemory = true)
 
     let
       signedBlock = withDigest((bellatrix.TrustedBeaconBlock)())
@@ -323,7 +327,8 @@ suite "Beacon chain DB" & preset():
     db.close()
 
   test "sanity check Capella blocks" & preset():
-    let db = BeaconChainDB.new("", inMemory = true)
+    let db = BeaconChainDB.new(
+      "", ConsensusFork.Capella.genesisTestRuntimeConfig, inMemory = true)
 
     let
       signedBlock = withDigest((capella.TrustedBeaconBlock)())
@@ -374,7 +379,8 @@ suite "Beacon chain DB" & preset():
     db.close()
 
   test "sanity check Deneb blocks" & preset():
-    let db = BeaconChainDB.new("", inMemory = true)
+    let db = BeaconChainDB.new(
+      "", ConsensusFork.Deneb.genesisTestRuntimeConfig, inMemory = true)
 
     let
       signedBlock = withDigest((deneb.TrustedBeaconBlock)())
@@ -424,7 +430,8 @@ suite "Beacon chain DB" & preset():
     db.close()
 
   test "sanity check Electra blocks" & preset():
-    let db = BeaconChainDB.new("", inMemory = true)
+    let db = BeaconChainDB.new(
+      "", ConsensusFork.Electra.genesisTestRuntimeConfig, inMemory = true)
 
     let
       signedBlock = withDigest((electra.TrustedBeaconBlock)())
@@ -473,7 +480,8 @@ suite "Beacon chain DB" & preset():
     db.close()
 
   test "sanity check Fulu blocks" & preset():
-    let db = BeaconChainDB.new("", inMemory = true)
+    let db = BeaconChainDB.new(
+      "", ConsensusFork.Fulu.genesisTestRuntimeConfig, inMemory = true)
 
     let
       signedBlock = withDigest((fulu.TrustedBeaconBlock)())
@@ -1151,7 +1159,7 @@ suite "Beacon chain DB" & preset():
       blockRoot0 = hash_tree_root(blockHeader0.message)
       blockRoot1 = hash_tree_root(blockHeader1.message)
 
-      # Ensure minimal-difference pairs on both block root and 
+      # Ensure minimal-difference pairs on both block root and
       # data column index to verify that the columnkey uses both
       dataColumnSidecar0 = DataColumnSidecar(signed_block_header: blockHeader0, index: 3)
       dataColumnSidecar1 = DataColumnSidecar(signed_block_header: blockHeader0, index: 2)
@@ -1172,7 +1180,7 @@ suite "Beacon chain DB" & preset():
       not db.getDataColumnSidecarSZ(blockRoot1, 2, buf)
 
     db.putDataColumnSidecar(dataColumnSidecar0)
-    
+
     check:
       db.getDataColumnSidecar(blockRoot0, 3, dataColumnSidecar)
       dataColumnSidecar == dataColumnSidecar0
