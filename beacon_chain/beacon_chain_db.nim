@@ -515,6 +515,10 @@ proc new*(T: type BeaconChainDB,
     if db.exec("DROP TABLE IF EXISTS validatorIndexFromPubKey;").isErr:
       debug "Failed to drop the validatorIndexFromPubKey table"
 
+    # 2025-06: Empty name table that was accidentally added before Fulu (#6677)
+    if db.exec("DROP TABLE IF EXISTS ``;").isErr:
+      debug "Failed to drop the `` table"
+
   var
     genesisDepositsSeq =
       DbSeq[DepositData].init(db, "genesis_deposits").expectDb()
@@ -523,43 +527,33 @@ proc new*(T: type BeaconChainDB,
 
     # V1 - expected-to-be small rows get without rowid optimizations
     keyValues = kvStore db.openKvStore("key_values", true).expectDb()
-    blocks = if cfg.FULU_FORK_EPOCH != FAR_FUTURE_EPOCH: [
+    blocks = [
       kvStore db.openKvStore("blocks").expectDb(),
       kvStore db.openKvStore("altair_blocks").expectDb(),
       kvStore db.openKvStore("bellatrix_blocks").expectDb(),
       kvStore db.openKvStore("capella_blocks").expectDb(),
       kvStore db.openKvStore("deneb_blocks").expectDb(),
       kvStore db.openKvStore("electra_blocks").expectDb(),
-      kvStore db.openKvStore("fulu_blocks").expectDb()]
-
-      else: [
-      kvStore db.openKvStore("blocks").expectDb(),
-      kvStore db.openKvStore("altair_blocks").expectDb(),
-      kvStore db.openKvStore("bellatrix_blocks").expectDb(),
-      kvStore db.openKvStore("capella_blocks").expectDb(),
-      kvStore db.openKvStore("deneb_blocks").expectDb(),
-      kvStore db.openKvStore("electra_blocks").expectDb(),
-      kvStore db.openKvStore("").expectDb()]
+      if cfg.FULU_FORK_EPOCH != FAR_FUTURE_EPOCH:
+        kvStore db.openKvStore("fulu_blocks").expectDb()
+      else:
+        nil
+    ]
 
     stateRoots = kvStore db.openKvStore("state_roots", true).expectDb()
 
-    statesNoVal = if cfg.FULU_FORK_EPOCH != FAR_FUTURE_EPOCH: [
-        kvStore db.openKvStore("state_no_validators").expectDb(),
-        kvStore db.openKvStore("altair_state_no_validators").expectDb(),
-        kvStore db.openKvStore("bellatrix_state_no_validators").expectDb(),
-        kvStore db.openKvStore("capella_state_no_validator_pubkeys").expectDb(),
-        kvStore db.openKvStore("deneb_state_no_validator_pubkeys").expectDb(),
-        kvStore db.openKvStore("electra_state_no_validator_pubkeys").expectDb(),
-        kvStore db.openKvStore("fulu_state_no_validator_pubkeys").expectDb()]
-
-      else: [
-        kvStore db.openKvStore("state_no_validators").expectDb(),
-        kvStore db.openKvStore("altair_state_no_validators").expectDb(),
-        kvStore db.openKvStore("bellatrix_state_no_validators").expectDb(),
-        kvStore db.openKvStore("capella_state_no_validator_pubkeys").expectDb(),
-        kvStore db.openKvStore("deneb_state_no_validator_pubkeys").expectDb(),
-        kvStore db.openKvStore("electra_state_no_validator_pubkeys").expectDb(),
-        kvStore db.openKvStore("").expectDb()]
+    statesNoVal = [
+      kvStore db.openKvStore("state_no_validators").expectDb(),
+      kvStore db.openKvStore("altair_state_no_validators").expectDb(),
+      kvStore db.openKvStore("bellatrix_state_no_validators").expectDb(),
+      kvStore db.openKvStore("capella_state_no_validator_pubkeys").expectDb(),
+      kvStore db.openKvStore("deneb_state_no_validator_pubkeys").expectDb(),
+      kvStore db.openKvStore("electra_state_no_validator_pubkeys").expectDb(),
+      if cfg.FULU_FORK_EPOCH != FAR_FUTURE_EPOCH:
+        kvStore db.openKvStore("fulu_state_no_validator_pubkeys").expectDb()
+      else:
+        nil
+    ]
 
     stateDiffs = kvStore db.openKvStore("state_diffs").expectDb()
     summaries = kvStore db.openKvStore("beacon_block_summaries", true).expectDb()
@@ -799,10 +793,12 @@ proc close*(db: BeaconChainDB) =
   discard db.summaries.close()
   discard db.stateDiffs.close()
   for kv in db.statesNoVal:
-    discard kv.close()
+    if kv != nil:
+      discard kv.close()
   discard db.stateRoots.close()
   for kv in db.blocks:
-    discard kv.close()
+    if kv != nil:
+      discard kv.close()
   discard db.keyValues.close()
 
   db.immutableValidatorsDb.close()
@@ -826,6 +822,7 @@ proc putBeaconBlockSummary*(
 proc putBlock*(
     db: BeaconChainDB,
     value: phase0.TrustedSignedBeaconBlock | altair.TrustedSignedBeaconBlock) =
+  doAssert db.blocks[type(value).kind] != nil
   db.withManyWrites:
     db.blocks[type(value).kind].putSnappySSZ(value.root.data, value)
     db.putBeaconBlockSummary(value.root, value.message.toBeaconBlockSummary())
@@ -835,6 +832,7 @@ proc putBlock*(
     value: bellatrix.TrustedSignedBeaconBlock |
            capella.TrustedSignedBeaconBlock | deneb.TrustedSignedBeaconBlock |
            electra.TrustedSignedBeaconBlock | fulu.TrustedSignedBeaconBlock) =
+  doAssert db.blocks[type(value).kind] != nil
   db.withManyWrites:
     db.blocks[type(value).kind].putSZSSZ(value.root.data, value)
     db.putBeaconBlockSummary(value.root, value.message.toBeaconBlockSummary())
@@ -906,6 +904,7 @@ template toBeaconStateNoImmutableValidators(state: fulu.BeaconState):
 proc putState*(
     db: BeaconChainDB, key: Eth2Digest,
     value: phase0.BeaconState | altair.BeaconState) =
+  doAssert db.statesNoVal[type(value).kind] != nil
   db.updateImmutableValidators(value.validators.asSeq())
   db.statesNoVal[type(value).kind].putSnappySSZ(
     key.data, toBeaconStateNoImmutableValidators(value))
@@ -914,6 +913,7 @@ proc putState*(
     db: BeaconChainDB, key: Eth2Digest,
     value: bellatrix.BeaconState | capella.BeaconState | deneb.BeaconState |
            electra.BeaconState | fulu.BeaconState) =
+  doAssert db.statesNoVal[type(value).kind] != nil
   db.updateImmutableValidators(value.validators.asSeq())
   db.statesNoVal[type(value).kind].putSZSSZ(
     key.data, toBeaconStateNoImmutableValidators(value))
@@ -926,6 +926,7 @@ proc putState*(db: BeaconChainDB, state: ForkyHashedBeaconState) =
 # For testing rollback
 proc putCorruptState*(
     db: BeaconChainDB, fork: static ConsensusFork, key: Eth2Digest) =
+  doAssert db.statesNoVal[fork] != nil
   db.statesNoVal[fork].putSnappySSZ(key.data, Validator())
 
 func stateRootKey(root: Eth2Digest, slot: Slot): array[40, byte] =
@@ -944,6 +945,7 @@ proc putStateDiff*(db: BeaconChainDB, root: Eth2Digest, value: BeaconStateDiff) 
   db.stateDiffs.putSnappySSZ(root.data, value)
 
 proc delBlock*(db: BeaconChainDB, fork: ConsensusFork, key: Eth2Digest): bool =
+  doAssert db.blocks[fork] != nil
   var deleted = false
   db.withManyWrites:
     discard db.summaries.del(key.data).expectDb()
@@ -951,12 +953,15 @@ proc delBlock*(db: BeaconChainDB, fork: ConsensusFork, key: Eth2Digest): bool =
   deleted
 
 proc delState*(db: BeaconChainDB, fork: ConsensusFork, key: Eth2Digest) =
+  doAssert db.statesNoVal[fork] != nil
   discard db.statesNoVal[fork].del(key.data).expectDb()
 
 proc clearBlocks*(db: BeaconChainDB, fork: ConsensusFork): bool =
+  doAssert db.blocks[fork] != nil
   db.blocks[fork].clear().expectDb()
 
 proc clearStates*(db: BeaconChainDB, fork: ConsensusFork): bool =
+  doAssert db.statesNoVal[fork] != nil
   db.statesNoVal[fork].clear().expectDb()
 
 proc delStateRoot*(db: BeaconChainDB, root: Eth2Digest, slot: Slot) =
@@ -1016,7 +1021,8 @@ proc getBlock*[
     T: type X): Opt[T] =
   # We only store blocks that we trust in the database
   result.ok(default(T))
-  if db.blocks[T.kind].getSZSSZ(key.data, result.get) == GetResult.found:
+  if db.blocks[T.kind] != nil and
+      db.blocks[T.kind].getSZSSZ(key.data, result.get) == GetResult.found:
     # set root after deserializing (so it doesn't get zeroed)
     result.get().root = key
   else:
@@ -1069,6 +1075,8 @@ proc getBlockSSZ*[
        deneb.TrustedSignedBeaconBlock | electra.TrustedSignedBeaconBlock |
        fulu.TrustedSignedBeaconBlock](
     db: BeaconChainDB, key: Eth2Digest, data: var seq[byte], T: type X): bool =
+  if db.blocks[T.kind] == nil:
+    return false
   let dataPtr = addr data # Short-lived
   var success = true
   func decode(data: openArray[byte]) =
@@ -1132,6 +1140,8 @@ proc getBlockSZ*[
        deneb.TrustedSignedBeaconBlock | electra.TrustedSignedBeaconBlock |
        fulu.TrustedSignedBeaconBlock](
     db: BeaconChainDB, key: Eth2Digest, data: var seq[byte], T: type X): bool =
+  if db.blocks[T.kind] == nil:
+    return false
   let dataPtr = addr data # Short-lived
   func decode(data: openArray[byte]) =
     assign(dataPtr[], data)
@@ -1326,6 +1336,7 @@ proc getState*(
   # TODO rollback is needed to deal with bug - use `noRollback` to ignore:
   #      https://github.com/nim-lang/Nim/issues/14126
   type T = type(output)
+  db.statesNoVal[T.kind] != nil and
   getStateOnlyMutableValidators(
     db.immutableValidators, db.statesNoVal[T.kind], key.data, output,
     rollback)
@@ -1397,12 +1408,16 @@ proc containsBlock*[
        capella.TrustedSignedBeaconBlock | deneb.TrustedSignedBeaconBlock |
        electra.TrustedSignedBeaconBlock | fulu.TrustedSignedBeaconBlock](
     db: BeaconChainDB, key: Eth2Digest, T: type X): bool =
+  db.blocks[X.kind] != nil and
   db.blocks[X.kind].contains(key.data).expectDb()
 
 proc containsBlock*(db: BeaconChainDB, key: Eth2Digest, fork: ConsensusFork): bool =
   case fork
-  of ConsensusFork.Phase0: containsBlock(db, key, phase0.TrustedSignedBeaconBlock)
-  else: db.blocks[fork].contains(key.data).expectDb()
+  of ConsensusFork.Phase0:
+    containsBlock(db, key, phase0.TrustedSignedBeaconBlock)
+  else:
+    db.blocks[fork] != nil and
+    db.blocks[fork].contains(key.data).expectDb()
 
 proc containsBlock*(db: BeaconChainDB, key: Eth2Digest): bool =
   for fork in countdown(ConsensusFork.high, ConsensusFork.low):
@@ -1418,13 +1433,15 @@ proc containsState*(db: BeaconChainDBV0, key: Eth2Digest): bool =
 
 proc containsState*(db: BeaconChainDB, fork: ConsensusFork, key: Eth2Digest,
     legacy: bool = true): bool =
+  if db.statesNoVal[fork] == nil: return false
   if db.statesNoVal[fork].contains(key.data).expectDb(): return true
 
   (legacy and fork == ConsensusFork.Phase0 and db.v0.containsState(key))
 
 proc containsState*(db: BeaconChainDB, key: Eth2Digest, legacy: bool = true): bool =
   for fork in countdown(ConsensusFork.high, ConsensusFork.low):
-    if db.statesNoVal[fork].contains(key.data).expectDb(): return true
+    if db.statesNoVal[fork] != nil and
+        db.statesNoVal[fork].contains(key.data).expectDb(): return true
 
   (legacy and db.v0.containsState(key))
 
