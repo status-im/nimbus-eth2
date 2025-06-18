@@ -670,7 +670,8 @@ proc jsonResponseDataSidecars*(
 
 proc jsonResponseState*(t: typedesc[RestApiResponse],
                         data: ForkedHashedBeaconState,
-                        execOpt: Opt[bool]): RestApiResponse =
+                        execOpt: Opt[bool],
+                        finalized: bool): RestApiResponse =
   let
     headers = [("eth-consensus-version", data.kind.toString())]
     res =
@@ -681,6 +682,7 @@ proc jsonResponseState*(t: typedesc[RestApiResponse],
         writer.writeField("version", data.kind.toString())
         if execOpt.isSome():
           writer.writeField("execution_optimistic", execOpt.get())
+        writer.writeField("finalized", finalized)
         withState(data):
           writer.writeField("data", forkyState.data)
         writer.endRecord()

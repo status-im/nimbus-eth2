@@ -39,7 +39,8 @@ proc installDebugApiHandlers*(router: var RestRouter, node: BeaconNode) =
     RestApiResponse.jsonError(
       Http410, DeprecatedRemovalBeaconBlocksDebugStateV1)
 
-  # https://ethereum.github.io/beacon-APIs/#/Debug/getStateV2
+  # https://ethereum.github.io/beacon-APIs/?urls.primaryName=v3.1.0#/Debug/getStateV2
+  # https://github.com/ethereum/beacon-APIs/blob/v4.0.0-alpha.0/apis/debug/state.v2.yaml
   router.metricsApi2(
     MethodGet, "/eth/v2/debug/beacon/states/{state_id}",
     {RestServerMetricsType.Status, Response}) do (
@@ -66,7 +67,8 @@ proc installDebugApiHandlers*(router: var RestRouter, node: BeaconNode) =
       return
         if contentType == jsonMediaType:
           RestApiResponse.jsonResponseState(
-            state, node.getStateOptimistic(state))
+            state, node.getStateOptimistic(state),
+            node.dag.isFinalized(bslot.bid))
         elif contentType == sszMediaType:
           let headers = [("eth-consensus-version", state.kind.toString())]
           withState(state):

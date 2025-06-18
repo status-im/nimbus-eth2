@@ -19,7 +19,6 @@ import
   ../gossip_processing/block_processor
 
 from std/algorithm import binarySearch, sort
-from std/sequtils import mapIt
 from std/strutils import join
 from ../beacon_clock import GetBeaconTimeFn
 export block_quarantine, sync_manager
@@ -152,7 +151,6 @@ func checkResponseSanity(
 
   for sidecar in blobs.items():
     let
-      slot = sidecar[].signed_block_header.message.slot
       block_root = hash_tree_root(sidecar[].signed_block_header.message)
       sidecarIdent =
         BlobIdentifier(block_root: block_root, index: sidecar[].index)
