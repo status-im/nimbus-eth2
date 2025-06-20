@@ -522,6 +522,22 @@ func get_beacon_proposer_indices*(
   let seed = get_seed(state, epoch, DOMAIN_BEACON_PROPOSER)
   return compute_proposer_indices(state, epoch, seed, indices)
 
+func get_beacon_proposer_indices*(
+    state: phase0.BeaconState | altair.BeaconState | bellatrix.BeaconState | capella.BeacoState |
+           deneb.BeaconState | electra.BeaconState,
+    shuffled_indices: openArray[ValidatorIndex], epoch: Epoch):
+    seq[Opt[ValidatorIndex]] =
+  ## Adapter function to get the proposer indices for the given `epoch`,
+  ## depending on the consensus fork.
+  get_beacon_proposer_indices(state, shuffled_indices, epoch)
+
+func get_beacon_proposer_indices*(
+    state: fulu.BeaconState, shuffled_indices: openArray[ValidatorIndex], epoch: Epoch):
+    seq[Opt[ValidatorIndex]] =
+  ## Adapter function to get the proposer indices for the given `epoch`,
+  ## depending on the consensus fork.
+  get_beacon_proposer_indices(state, epoch)
+
 proc initialize_proposer_lookahead*(state: electra.BeaconState,
                                     cache: var StateCache):
                                     HashArray[Limit ((MIN_SEED_LOOKAHEAD + 1) * SLOTS_PER_EPOCH), uint64] =
