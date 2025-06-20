@@ -523,7 +523,7 @@ func get_beacon_proposer_indices*(
   return compute_proposer_indices(state, epoch, seed, indices)
 
 func get_beacon_proposer_indices*(
-    state: phase0.BeaconState | altair.BeaconState | bellatrix.BeaconState | capella.BeacoState |
+    state: phase0.BeaconState | altair.BeaconState | bellatrix.BeaconState | capella.BeaconState |
            deneb.BeaconState | electra.BeaconState,
     shuffled_indices: openArray[ValidatorIndex], epoch: Epoch):
     seq[Opt[ValidatorIndex]] =

@@ -1425,7 +1425,7 @@ proc maybeUpdateActionTrackerNextEpoch(
           # epochRefFallback() won't work in this case either
           return
           # using the separate method of proposer indices calculation in Fulu
-        nextEpochProposers = func get_beacon_proposer_indices(
+        nextEpochProposers = get_beacon_proposer_indices(
           forkyState.data, shufflingRef.shuffled_active_validator_indices,
           nextEpoch)
         nextEpochFirstProposer = nextEpochProposers[0].valueOr:
