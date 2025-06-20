@@ -492,28 +492,6 @@ func get_beacon_proposer_index*(
         cache.beacon_proposer_indices[epoch_slot] = pi
       return res
 
-# https://github.com/ethereum/consensus-specs/blob/v1.6.0-alpha.0/specs/phase0/beacon-chain.md#get_beacon_proposer_index
-func get_beacon_proposer_indices*(
-    state: ForkyBeaconState, shuffled_indices: openArray[ValidatorIndex], epoch: Epoch):
-    seq[Opt[ValidatorIndex]] =
-  ## Return the beacon proposer indices at the current epoch, using shuffled
-  ## rather than sorted active validator indices.
-  var
-    buffer {.noinit.}: array[32 + 8, byte]
-    res: seq[Opt[ValidatorIndex]]
-
-  buffer[0..31] = get_seed(state, epoch, DOMAIN_BEACON_PROPOSER).data
-  let epoch_shuffle_seed = get_seed(state, epoch, DOMAIN_BEACON_ATTESTER)
-
-  for epoch_slot in epoch.slots():
-    buffer[32..39] = uint_to_bytes(epoch_slot.asUInt64)
-    res.add (
-      compute_proposer_index(state, shuffled_indices, eth2digest(buffer)) do:
-        compute_inverted_shuffled_index(
-          shuffled_index, seq_len, epoch_shuffle_seed))
-
-  res
-
 func get_beacon_proposer_indices*(
     state: ForkyBeaconState, epoch: Epoch
 ): seq[Opt[ValidatorIndex]] =
@@ -522,21 +500,48 @@ func get_beacon_proposer_indices*(
   let seed = get_seed(state, epoch, DOMAIN_BEACON_PROPOSER)
   return compute_proposer_indices(state, epoch, seed, indices)
 
+# https://github.com/ethereum/consensus-specs/blob/v1.6.0-alpha.0/specs/phase0/beacon-chain.md#get_beacon_proposer_index
 func get_beacon_proposer_indices*(
-    state: phase0.BeaconState | altair.BeaconState | bellatrix.BeaconState | capella.BeaconState |
-           deneb.BeaconState | electra.BeaconState,
-    shuffled_indices: openArray[ValidatorIndex], epoch: Epoch):
+    state: ForkyBeaconState, shuffled_indices: openArray[ValidatorIndex], epoch: Epoch):
     seq[Opt[ValidatorIndex]] =
-  ## Adapter function to get the proposer indices for the given `epoch`,
-  ## depending on the consensus fork.
-  get_beacon_proposer_indices(state, shuffled_indices, epoch)
+  ## Return the beacon proposer indices at the current epoch, using shuffled
+  ## rather than sorted active validator indices.
+  when typeof(state).kind < ConsensusFork.Fulu:
+    var
+      buffer {.noinit.}: array[32 + 8, byte]
+      res: seq[Opt[ValidatorIndex]]
 
-func get_beacon_proposer_indices*(
-    state: fulu.BeaconState, shuffled_indices: openArray[ValidatorIndex], epoch: Epoch):
-    seq[Opt[ValidatorIndex]] =
-  ## Adapter function to get the proposer indices for the given `epoch`,
-  ## depending on the consensus fork.
-  get_beacon_proposer_indices(state, epoch)
+    buffer[0..31] = get_seed(state, epoch, DOMAIN_BEACON_PROPOSER).data
+    let epoch_shuffle_seed = get_seed(state, epoch, DOMAIN_BEACON_ATTESTER)
+
+    for epoch_slot in epoch.slots():
+      buffer[32..39] = uint_to_bytes(epoch_slot.asUInt64)
+      res.add (
+        compute_proposer_index(state, shuffled_indices, eth2digest(buffer)) do:
+          compute_inverted_shuffled_index(
+            shuffled_index, seq_len, epoch_shuffle_seed))
+
+    return res
+
+  else:
+    get_beacon_proposer_indices(state, epoch)
+
+
+#func get_beacon_proposer_indices*(
+#    state: phase0.BeaconState | altair.BeaconState | bellatrix.BeaconState | capella.BeaconState |
+#           deneb.BeaconState | electra.BeaconState,
+#    shuffled_indices: openArray[ValidatorIndex], epoch: Epoch):
+#    seq[Opt[ValidatorIndex]] =
+#  ## Adapter function to get the proposer indices for the given `epoch`,
+#  ## depending on the consensus fork.
+#  get_beacon_proposer_indices(state, shuffled_indices, epoch)
+
+#func get_beacon_proposer_indices*(
+#    state: fulu.BeaconState, shuffled_indices: openArray[ValidatorIndex], epoch: Epoch):
+#    seq[Opt[ValidatorIndex]] =
+#  ## Adapter function to get the proposer indices for the given `epoch`,
+#  ## depending on the consensus fork.
+#  get_beacon_proposer_indices(state, epoch)
 
 proc initialize_proposer_lookahead*(state: electra.BeaconState,
                                     cache: var StateCache):
