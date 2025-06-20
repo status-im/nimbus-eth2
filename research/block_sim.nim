@@ -143,7 +143,7 @@ cli do(slots = SLOTS_PER_EPOCH * 7,
 
   echo "Starting simulation..."
 
-  let db = BeaconChainDB.new("block_sim_db")
+  let db = BeaconChainDB.new("block_sim_db", cfg)
   defer: db.close()
 
   ChainDAGRef.preInit(db, genesisState[])

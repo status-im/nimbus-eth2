@@ -4242,6 +4242,30 @@
     }
   },
   {
+    "topics": ["debug", "beacon_data_column_sidecars_blockid"],
+    "request": {
+      "url": "/eth/v1/debug/beacon/data_column_sidecars/head",
+      "headers": {"Accept": "application/json"}
+    },
+    "response": {"status": {"operator": "equals", "value": "200"}}
+  },
+  {
+    "topics": ["debug", "beacon_data_column_sidecars_blockid"],
+    "request": {
+      "url": "/eth/v1/debug/beacon/data_column_sidecars/finalized",
+      "headers": {"Accept": "application/json"}
+    },
+    "response": {"status": {"operator": "equals", "value": "200"}}
+  },
+  {
+    "topics": ["debug", "beacon_data_column_sidecars_blockid"],
+    "request": {
+      "url": "/eth/v1/debug/beacon/data_column_sidecars/0x0000000000000000000000000000000000000000000000000000000000000000",
+      "headers": {"Accept": "application/json"}
+    },
+    "response": {"status": {"operator": "equals", "value": "404"}}
+  },
+  {
     "topics": ["debug", "beacon_states_head_slow", "slow"],
     "request": {
       "url": "/eth/v1/debug/beacon/states/head",

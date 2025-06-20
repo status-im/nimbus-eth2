@@ -134,6 +134,62 @@ proc toString*(kind: ValidatorFilterKind): string =
   of ValidatorFilterKind.WithdrawalDone:
     "withdrawal_done"
 
+proc handleDataSidecarRequest*[
+    InvalidIndexValueError: static string,
+    DataSidecarsType: typedesc[List];
+    getDataSidecar: static proc
+](
+    node: BeaconNode,
+    mediaType: Result[MediaType, cstring],
+    block_id: Result[BlockIdent, cstring],
+    indices: Result[seq[uint64], cstring],
+    maxDataSidecars: uint64): RestApiResponse =
+  let
+    contentType = mediaType.valueOr:
+      return RestApiResponse.jsonError(
+        Http406, ContentNotAcceptableError)
+    blockIdent = block_id.valueOr:
+      return RestApiResponse.jsonError(
+        Http400, InvalidBlockIdValueError, $error)
+    bid = node.getBlockId(blockIdent).valueOr:
+      return RestApiResponse.jsonError(
+        Http404, BlockNotFoundError)
+    indexFilter = (block: indices.valueOr:
+      return RestApiResponse.jsonError(
+        Http400, InvalidIndexValueError, $error)).toHashSet()
+
+    data = newClone(default(DataSidecarsType))
+  for dataIndex in 0'u64 ..< maxDataSidecars:
+    if indexFilter.len > 0 and dataIndex notin indexFilter:
+      continue
+    let dataSidecar = new DataSidecarsType.T
+    if getDataSidecar(node.dag.db, bid.root, dataIndex, dataSidecar[]):
+      discard data[].add dataSidecar[]
+
+  if contentType == sszMediaType:
+    RestApiResponse.sszResponse(
+      data[], headers = [("eth-consensus-version",
+        node.dag.cfg.consensusForkAtEpoch(bid.slot.epoch).toString())])
+  elif contentType == jsonMediaType:
+    RestApiResponse.jsonResponseDataSidecars(
+      data[].asSeq(), node.dag.cfg.consensusForkAtEpoch(bid.slot.epoch),
+      Opt.some(node.dag.is_optimistic(bid)), node.dag.isFinalized(bid))
+  else:
+    RestApiResponse.jsonError(Http500, InvalidAcceptError)
+
+proc handleDataSidecarRequest*[
+    InvalidIndexValueError: static string,
+    DataSidecarsType: typedesc[List];
+    getDataSidecar: static proc
+](
+    node: BeaconNode,
+    mediaType: Result[MediaType, cstring],
+    block_id: Result[BlockIdent, cstring],
+    indices: Result[seq[uint64], cstring]): RestApiResponse =
+  handleDataSidecarRequest[
+    InvalidIndexValueError, DataSidecarsType, getDataSidecar
+  ](node, mediaType, block_id, indices, DataSidecarsType.maxLen.uint64)
+
 proc installBeaconApiHandlers*(router: var RestRouter, node: BeaconNode) =
   # https://github.com/ethereum/EIPs/blob/master/EIPS/eip-4881.md
   router.api2(MethodGet, "/eth/v1/beacon/deposit_snapshot") do (
@@ -1712,55 +1768,19 @@ proc installBeaconApiHandlers*(router: var RestRouter, node: BeaconNode) =
   # https://ethereum.github.io/beacon-APIs/?urls.primaryName=v2.4.2#/Beacon/getBlobSidecars
   # https://github.com/ethereum/beacon-APIs/blob/v2.4.2/apis/beacon/blob_sidecars/blob_sidecars.yaml
   router.api2(MethodGet, "/eth/v1/beacon/blob_sidecars/{block_id}") do (
-    block_id: BlockIdent, indices: seq[uint64]) -> RestApiResponse:
-    let
-      blockIdent = block_id.valueOr:
-        return RestApiResponse.jsonError(Http400, InvalidBlockIdValueError,
-                                         $error)
-      bid = node.getBlockId(blockIdent).valueOr:
-        return RestApiResponse.jsonError(Http404, BlockNotFoundError)
-
-      contentType = block:
-        let res = preferredContentType(jsonMediaType,
-                                       sszMediaType)
-        if res.isErr():
-          return RestApiResponse.jsonError(Http406, ContentNotAcceptableError)
-        res.get()
-
+      block_id: BlockIdent, indices: seq[uint64]) -> RestApiResponse:
     # https://github.com/ethereum/beacon-APIs/blob/v2.4.2/types/deneb/blob_sidecar.yaml#L2-L28
     # The merkleization limit of the list is `MAX_BLOB_COMMITMENTS_PER_BLOCK`,
     # the serialization limit is configurable and is:
     # - `MAX_BLOBS_PER_BLOCK` from Deneb onward
     # - `MAX_BLOBS_PER_BLOCK_ELECTRA` from Electra.
-    let data = newClone(default(
-      List[BlobSidecar, Limit MAX_BLOB_COMMITMENTS_PER_BLOCK]))
-
-    if indices.isErr:
-      return RestApiResponse.jsonError(Http400,
-                                       InvalidSidecarIndexValueError)
-
-    let indexFilter = indices.get.toHashSet
-
-    for blobIndex in 0'u64 ..< node.dag.cfg.MAX_BLOBS_PER_BLOCK_ELECTRA:
-      if indexFilter.len > 0 and blobIndex notin indexFilter:
-        continue
-
-      var blobSidecar = new BlobSidecar
-
-      if node.dag.db.getBlobSidecar(bid.root, blobIndex, blobSidecar[]):
-        discard data[].add blobSidecar[]
-
-    if contentType == sszMediaType:
-      RestApiResponse.sszResponse(
-        data[], headers = [("eth-consensus-version",
-          node.dag.cfg.consensusForkAtEpoch(bid.slot.epoch).toString())])
-    elif contentType == jsonMediaType:
-      RestApiResponse.jsonResponseBlobSidecars(
-        data[].asSeq(), node.dag.cfg.consensusForkAtEpoch(bid.slot.epoch),
-        Opt.some(node.dag.is_optimistic(bid)),
-        node.dag.isFinalized(bid))
-    else:
-      RestApiResponse.jsonError(Http500, InvalidAcceptError)
+    handleDataSidecarRequest[
+      InvalidBlobSidecarIndexValueError,
+      List[BlobSidecar, Limit MAX_BLOB_COMMITMENTS_PER_BLOCK],
+      getBlobSidecar
+    ](
+      node, preferredContentType(jsonMediaType, sszMediaType),
+      block_id, indices, node.dag.cfg.MAX_BLOBS_PER_BLOCK_ELECTRA)
 
   # https://ethereum.github.io/beacon-APIs/?urls.primaryName=v3.1.0#/Beacon/getPendingDeposits
   router.metricsApi2(

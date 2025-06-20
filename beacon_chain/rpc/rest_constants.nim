@@ -267,8 +267,10 @@ const
     "Failed to obtain fork information"
   InvalidTimestampValue* =
     "Invalid or missing timestamp value"
-  InvalidSidecarIndexValueError* =
+  InvalidBlobSidecarIndexValueError* =
     "Invalid blob index"
+  InvalidDataColumnSidecarIndexValueError* =
+    "Invalid data column index"
   InvalidBroadcastValidationType* =
     "Invalid broadcast_validation type value"
   PathNotFoundError* =

@@ -149,13 +149,17 @@ func getVanityLogs(stdoutKind: StdoutLogKind): VanityLogs =
       onKnownBlsToExecutionChange:     capellaBlink,
       onUpgradeToDeneb:                denebColor,
       onUpgradeToElectra:              electraColor,
-      onKnownCompoundingChange:        electraBlink)
+      onKnownCompoundingChange:        electraBlink,
+      onUpgradeToFulu:                 fuluColor,
+      onBlobParametersUpdate:          fuluColor)
   of StdoutLogKind.NoColors:
     VanityLogs(
       onKnownBlsToExecutionChange:     capellaMono,
       onUpgradeToDeneb:                denebMono,
       onUpgradeToElectra:              electraMono,
-      onKnownCompoundingChange:        electraMono)
+      onKnownCompoundingChange:        electraMono,
+      onUpgradeToFulu:                 fuluMono,
+      onBlobParametersUpdate:          fuluMono)
   of StdoutLogKind.Json, StdoutLogKind.None:
     VanityLogs(
       onKnownBlsToExecutionChange:
@@ -165,12 +169,16 @@ func getVanityLogs(stdoutKind: StdoutLogKind): VanityLogs =
       onUpgradeToElectra:
         (proc() = notice "🦒 Compounding is available 🦒"),
       onKnownCompoundingChange:
-        (proc() = notice "🦒 Compounding is activated 🦒"))
+        (proc() = notice "🦒 Compounding is activated 🦒"),
+      onUpgradeToFulu:
+        (proc() = notice "🐅 Blobs columnized 🐅"),
+      onBlobParametersUpdate:
+        (proc() = notice "🐅 Blob parameters updated 🐅"))
 
 func getVanityMascot(consensusFork: ConsensusFork): string =
   case consensusFork
   of ConsensusFork.Fulu:
-    "❓"
+    "🐅"
   of ConsensusFork.Electra:
     "🦒"
   of ConsensusFork.Deneb:
@@ -407,7 +415,7 @@ proc initFullNode(
       onProposerSlashingAdded, onPhase0AttesterSlashingAdded,
       onElectraAttesterSlashingAdded))
     blobQuarantine = newClone(BlobQuarantine.init(
-      dag.cfg, onBlobSidecarAdded))
+      dag.cfg, dag.db.getQuarantineDB(), 10, onBlobSidecarAdded))
     supernode = node.config.peerdasSupernode
     localCustodyGroups =
       if supernode:

@@ -445,7 +445,6 @@ func compute_proposer_indices*(
     indices: seq[ValidatorIndex]
 ): seq[Opt[ValidatorIndex]] =
   let startSlot = epoch.start_slot()
-  var seeds: seq[Eth2Digest]
   var proposerIndices: seq[Opt[ValidatorIndex]]
 
   for epochSlot in epoch.slots():
@@ -536,7 +535,7 @@ proc initialize_proposer_lookahead*(state: electra.BeaconState,
 
   for i in 0 ..< (MIN_SEED_LOOKAHEAD + 1):
     let
-      epoch_i   = Epoch(current_epoch + i)
+      epoch_i   = current_epoch + i
       proposers =
         get_beacon_proposer_indices(state, epoch_i)
 
