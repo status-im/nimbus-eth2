@@ -433,7 +433,8 @@ proc initFullNode(
 
   let
     dataColumnQuarantine = newClone(ColumnQuarantine.init(
-      dag.cfg, sortedColumns, onColumnSidecarAdded))
+      dag.cfg, sortedColumns, dag.db.getQuarantineDB(), 10, 
+      onColumnSidecarAdded))
     consensusManager = ConsensusManager.new(
       dag, attestationPool, quarantine, node.elManager,
       ActionTracker.init(node.network.nodeId, config.subscribeAllSubnets),

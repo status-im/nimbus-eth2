@@ -59,7 +59,7 @@ type
     maxDiskSidecarsCount: int
     diskSidecarsCount: int
     maxSidecarsPerBlockCount: int
-    custodyColumns: seq[ColumnIndex]
+    custodyColumns*: seq[ColumnIndex]
     custodyMap: ColumnMap
     roots: Table[Eth2Digest, RootTableRecord[A]]
     memUsage: OrderedSet[Eth2Digest]
@@ -749,7 +749,7 @@ func fetchMissingColumnsByRoot*(
           # columns.
           break
         let index = quarantine.getIndex(column)
-        if (index == -1) or record.sidecars[index].isNil():
+        if (index == -1) or record.sidecars[index].isEmpty():
           discard missingIndices.add(column)
           inc(columnsRequested)
   else:
@@ -764,7 +764,7 @@ func fetchMissingColumnsByRoot*(
     else:
       for column in (peerMap and quarantine.custodyMap).items():
         let index = quarantine.getIndex(column)
-        if (index == -1) or (record.sidecars[index].isNil()):
+        if (index == -1) or (record.sidecars[index].isEmpty()):
           discard missingIndices.add(column)
 
   if missingIndices.len > 0:
