@@ -54,10 +54,10 @@ type
   # https://github.com/ethereum/consensus-specs/blob/v1.6.0-alpha.2/specs/_features/eip7805/beacon-chain.md#modified-newpayloadrequest
   NewPayloadRequest* = object
     executionPayload*: ExecutionPayloadV3
-    versioned_hashes*: seq[VersionedHash]
+    versioned_hashes*: seq[deneb.VersionedHash]
     parent_beacon_block_root*: Eth2Digest
     execution_requests*: seq[seq[byte]]
-    inclusion_list_transactions*: seq[bellatrix.Transactions] # [New in EIP-7805]
+    inclusion_list_transactions*: seq[bellatrix.Transaction] # [New in EIP-7805]
 
   SomeEnginePayloadWithValue =
     BellatrixExecutionPayloadWithValue |
