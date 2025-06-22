@@ -19,6 +19,7 @@ import
   std/[sequtils, typetraits],
   "."/[phase0, base, electra],
   chronicles,
+  chronos,
   json_serialization,
   ssz_serialization/[merkleization, proofs],
   ssz_serialization/types as sszTypes,
@@ -45,6 +46,14 @@ const
   DOMAIN_INCLUSION_LIST_COMMITTEE* = DomainType([byte 0x0c, 0x00, 0x00, 0x00])
   # https://github.com/ethereum/consensus-specs/blob/v1.6.0-alpha.2/specs/_features/eip7805/beacon-chain.md#preset
   INCLUSION_LIST_COMMITTEE_SIZE* = 16'u64
+  # https://github.com/ethereum/consensus-specs/blob/v1.6.0-alpha.2/specs/_features/eip7805/fork-choice.md#time-parameters
+  VIEW_FREEZE_DEADLINE* = (SECONDS_PER_SLOT * 2 div 3 + 1).seconds
+  # https://github.com/ethereum/consensus-specs/blob/v1.6.0-alpha.2/specs/_features/eip7805/p2p-interface.md#configuration
+  ATTESTATION_DEADLINE* = (SECONDS_PER_SLOT div 3).seconds
+  MAX_REQUEST_INCLUSION_LIST* = 16'u64
+  MAX_BYTES_PER_INCLUSION_LIST* = 8192'u64
+  # https://github.com/ethereum/consensus-specs/blob/v1.6.0-alpha.2/specs/_features/eip7805/validator.md#configuration
+  PROPOSER_INCLUSION_LIST_CUT_OFF = (SECONDS_PER_SLOT - 1).seconds
 
 type
   # https://github.com/ethereum/consensus-specs/blob/v1.6.0-alpha.2/specs/_features/eip7805/beacon-chain.md#inclusionlist
