@@ -526,6 +526,9 @@ func get_beacon_proposer_indices*(
     res
 
   else:
+    # Not using shuffled indices here is not a bug,
+    # as the method of computing proposer in the below
+    # function does not require shuffled indices post Fulu
     get_beacon_proposer_indices(state, epoch)
 
 
