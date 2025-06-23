@@ -181,9 +181,6 @@ template getBlobSidecarsByRange(
   for i in startIndex..endIndex:
     for j in 0..<blobsPerBlock:
       if dag.db.getBlobSidecarSZ(blockIds[i].root, BlobIndex(j), bytes):
-        if not dag.head.executionValid:
-          continue
-
         let uncompressedLen = uncompressedLenFramed(bytes).valueOr:
           warn "Cannot read blobs sidecar size, database corrupt?",
             bytes = bytes.len(), blck = shortLog(blockIds[i])
@@ -256,13 +253,6 @@ p2pProtocol BeaconSync(version = 1,
 
     for i in startIndex..endIndex:
       if dag.getBlockSZ(blocks[i], bytes):
-        # In general, there is not much intermediate time between post-merge
-        # blocks all being optimistic and none of them being optimistic. The
-        # EL catches up, tells the CL the head is verified, and that's it.
-        if  blocks[i].slot.epoch >= dag.cfg.BELLATRIX_FORK_EPOCH and
-            not dag.head.executionValid:
-          continue
-
         let uncompressedLen = uncompressedLenFramed(bytes).valueOr:
           warn "Cannot read block size, database corrupt?",
             bytes = bytes.len(), blck = shortLog(blocks[i])
@@ -323,13 +313,6 @@ p2pProtocol BeaconSync(version = 1,
           continue
 
       if dag.getBlockSZ(blockRef.bid, bytes):
-        # In general, there is not much intermediate time between post-merge
-        # blocks all being optimistic and none of them being optimistic. The
-        # EL catches up, tells the CL the head is verified, and that's it.
-        if  blockRef.slot.epoch >= dag.cfg.BELLATRIX_FORK_EPOCH and
-            not dag.head.executionValid:
-          continue
-
         let uncompressedLen = uncompressedLenFramed(bytes).valueOr:
           warn "Cannot read block size, database corrupt?",
             bytes = bytes.len(), blck = shortLog(blockRef)
@@ -487,10 +470,6 @@ p2pProtocol BeaconSync(version = 1,
     for i in startIndex..endIndex:
       for k in reqColumns:
         if dag.db.getDataColumnSidecarSZ(blockIds[i].root, ColumnIndex k, bytes):
-          if blockIds[i].slot.epoch >= dag.cfg.DENEB_FORK_EPOCH and
-              not dag.head.executionValid:
-            continue
-
           let uncompressedLen = uncompressedLenFramed(bytes).valueOr:
             warn "Cannot read data column sidecar size, database corrup?",
               bytes = bytes.len, blck = shortLog(blockIds[i])

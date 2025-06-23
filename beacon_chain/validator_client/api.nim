@@ -1,5 +1,5 @@
 # beacon_chain
-# Copyright (c) 2021-2024 Status Research & Development GmbH
+# Copyright (c) 2021-2025 Status Research & Development GmbH
 # Licensed and distributed under either of
 #   * MIT license (license terms in the root directory or at https://opensource.org/licenses/MIT).
 #   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
@@ -2734,26 +2734,13 @@ proc publishBlindedBlockV2*(
                               ViableNodeStatus,
                               {BeaconNodeRole.BlockProposalPublish}):
         case data.kind
-        of ConsensusFork.Phase0:
-          publishBlindedBlockV2(it, some(broadcast_validation),
-            data.phase0Data)
-        of ConsensusFork.Altair:
-          publishBlindedBlockV2(it, some(broadcast_validation),
-            data.altairData)
-        of ConsensusFork.Bellatrix:
-          publishBlindedBlockV2(it, some(broadcast_validation),
-            data.bellatrixData)
-        of ConsensusFork.Capella:
-          publishBlindedBlockV2(it, some(broadcast_validation),
-            data.capellaData)
-        of ConsensusFork.Deneb:
-          publishBlindedBlockV2(it, some(broadcast_validation),
-            data.denebData)
+        of ConsensusFork.Phase0 .. ConsensusFork.Deneb:
+          raiseAssert "Unable to publish block of that kind"
         of ConsensusFork.Electra:
-          publishBlindedBlockV2(it, some(broadcast_validation),
+          publishJsonBlindedBlockV2(it, some(broadcast_validation),
             data.electraData)
         of ConsensusFork.Fulu:
-          publishBlindedBlockV2(it, some(broadcast_validation),
+          publishJsonBlindedBlockV2(it, some(broadcast_validation),
             data.fuluData)
       do:
         if apiResponse.isErr():
@@ -2793,26 +2780,13 @@ proc publishBlindedBlockV2*(
                               ViableNodeStatus,
                               {BeaconNodeRole.BlockProposalPublish}):
       case data.kind
-      of ConsensusFork.Phase0:
-        publishBlindedBlockV2(it, some(broadcast_validation),
-          data.phase0Data)
-      of ConsensusFork.Altair:
-        publishBlindedBlockV2(it, some(broadcast_validation),
-          data.altairData)
-      of ConsensusFork.Bellatrix:
-        publishBlindedBlockV2(it, some(broadcast_validation),
-          data.bellatrixData)
-      of ConsensusFork.Capella:
-        publishBlindedBlockV2(it, some(broadcast_validation),
-          data.capellaData)
-      of ConsensusFork.Deneb:
-        publishBlindedBlockV2(it, some(broadcast_validation),
-          data.denebData)
+      of ConsensusFork.Phase0 .. ConsensusFork.Deneb:
+        raiseAssert "Unable to publish block of that kind"
       of ConsensusFork.Electra:
-        publishBlindedBlockV2(it, some(broadcast_validation),
+        publishJsonBlindedBlockV2(it, some(broadcast_validation),
           data.electraData)
       of ConsensusFork.Fulu:
-        publishBlindedBlockV2(it, some(broadcast_validation),
+        publishJsonBlindedBlockV2(it, some(broadcast_validation),
           data.fuluData)
     do:
       if apiResponse.isErr():

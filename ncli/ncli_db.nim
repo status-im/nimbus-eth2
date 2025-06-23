@@ -663,9 +663,11 @@ proc cmdExportEra(conf: DbConf, cfg: RuntimeConfig) =
       if (let e = io2.removeFile(name); e.isErr):
         warn "Failed to clean up incomplete era file", tmpName, error = e.error
 
-  if missingHistory:
-    notice "Some era files were not written due to missing state history - see https://nimbus.guide/trusted-node-sync.html#recreate-historical-state-access-indices for more information"
   printTimers(true, timers)
+
+  if missingHistory:
+    warn "Some era files were not written due to missing state history - see https://nimbus.guide/trusted-node-sync.html#recreate-historical-state-access-indices for more information"
+    quit QuitFailure
 
 proc cmdImportEra(conf: DbConf, cfg: RuntimeConfig) =
   let db = BeaconChainDB.new(conf.databaseDir.string)

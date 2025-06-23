@@ -23,7 +23,6 @@ import # Unit test
   ./test_block_quarantine,
   ./test_conf,
   ./test_datatypes,
-  ./test_deposit_snapshots,
   ./test_discovery,
   ./test_engine_api_conversions,
   ./test_engine_authentication,
@@ -64,6 +63,7 @@ import # Unit test
   ./test_beacon_validators,
   ./test_beacon_chain_file,
   ./test_mev_calls,
+  ./test_quarantine,
   ./test_keymanager_api   # currently has to run after test_remote_keystore
 
 summarizeLongTests("AllTests")

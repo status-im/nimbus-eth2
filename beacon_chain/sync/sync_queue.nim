@@ -46,6 +46,7 @@ type
     requests: seq[SyncRequest[T]]
     data: SyncRange
     failuresCount: Natural
+    voidsCount: Natural
 
   SyncWaiterItem[T] = ref object
     future: Future[void].Raising([CancelledError])
@@ -819,6 +820,8 @@ proc push*[T](
       # Empty responses does not affect failures count
       debug "Received empty response",
             request = sr,
+            voids_count = sq.requests[position.qindex].voidsCount,
+            failures_count = sq.requests[position.qindex].failuresCount,
             blocks_count = len(data),
             blocks_map = getShortMap(sr, data),
             blobs_map = getShortMap(sr, blobs),
@@ -826,13 +829,19 @@ proc push*[T](
             topics = "syncman"
 
       sr.item.updateStats(SyncResponseKind.Empty, 1'u64)
+      inc(sq.requests[position.qindex].voidsCount)
       sq.gapList.add(GapItem.init(sr))
-      sq.advanceQueue()
+      # With empty response - advance only when `requestsCount` of different
+      # peers returns empty response for the same range.
+      if sq.requests[position.qindex].voidsCount >= sq.requestsCount:
+        sq.advanceQueue()
 
     of SyncProcessError.Duplicate:
       # Duplicate responses does not affect failures count
       debug "Received duplicate response",
             request = sr,
+            voids_count = sq.requests[position.qindex].voidsCount,
+            failures_count = sq.requests[position.qindex].failuresCount,
             blocks_count = len(data),
             blocks_map = getShortMap(sr, data),
             blobs_map = getShortMap(sr, blobs),
@@ -845,6 +854,7 @@ proc push*[T](
       debug "Block pool rejected peer's response",
             request = sr,
             invalid_block = pres.blck,
+            voids_count = sq.requests[position.qindex].voidsCount,
             failures_count = sq.requests[position.qindex].failuresCount,
             blocks_count = len(data),
             blocks_map = getShortMap(sr, data),
@@ -859,6 +869,7 @@ proc push*[T](
       notice "Received blocks from an unviable fork",
              request = sr,
              unviable_block = pres.blck,
+             voids_count = sq.requests[position.qindex].voidsCount,
              failures_count = sq.requests[position.qindex].failuresCount,
              blocks_count = len(data),
              blocks_map = getShortMap(sr, data),
@@ -874,6 +885,7 @@ proc push*[T](
       debug "Unexpected missing parent",
              request = sr,
              missing_parent_block = pres.blck,
+             voids_count = sq.requests[position.qindex].voidsCount,
              failures_count = sq.requests[position.qindex].failuresCount,
              blocks_count = len(data),
              blocks_map = getShortMap(sr, data),
@@ -895,6 +907,7 @@ proc push*[T](
             request = sr,
             finalized_slot = sq.getSafeSlot(),
             missing_parent_block = pres.blck,
+            voids_count = sq.requests[position.qindex].voidsCount,
             failures_count = sq.requests[position.qindex].failuresCount,
             blocks_count = len(data),
             blocks_map = getShortMap(sr, data),
@@ -920,6 +933,7 @@ proc push*[T](
       if sq.requests[position.qindex].failuresCount >= sq.failureResetThreshold:
         let point = sq.getRewindPoint(pres.blck.get().slot, sq.getSafeSlot())
         debug "Multiple repeating errors occured, rewinding",
+              voids_count = sq.requests[position.qindex].voidsCount,
               failures_count = sq.requests[position.qindex].failuresCount,
               rewind_slot = point,
               sync_ident = sq.ident,

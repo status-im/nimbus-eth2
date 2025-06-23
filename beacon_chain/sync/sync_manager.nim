@@ -43,7 +43,7 @@ const
 type
   SyncWorkerStatus* {.pure.} = enum
     Sleeping, WaitingPeer, UpdatingStatus, Requesting, Downloading, Queueing,
-    Processing
+    Processing, Paused
 
   SyncManagerFlag* {.pure.} = enum
     NoMonitor, NoGenesisSync
@@ -69,6 +69,7 @@ type
     progressPivot: Slot
     workers: array[SyncWorkersCount, SyncWorker[A, B]]
     notInSyncEvent: AsyncEvent
+    resumeSyncEvent: AsyncEvent
     shutdownEvent: AsyncEvent
     rangeAge: uint64
     chunkSize: uint64
@@ -186,6 +187,7 @@ proc newSyncManager*[A, B](
     chunkSize: chunkSize,
     blockVerifier: blockVerifier,
     notInSyncEvent: newAsyncEvent(),
+    resumeSyncEvent: newAsyncEvent(),
     direction: direction,
     shutdownEvent: shutdownEvent,
     ident: ident,
@@ -720,6 +722,11 @@ proc syncWorker[A, B](
   try:
     while true:
       man.workers[index].status = SyncWorkerStatus.Sleeping
+
+      if not(man.resumeSyncEvent.isSet()):
+        man.workers[index].status = SyncWorkerStatus.Paused
+      await man.resumeSyncEvent.wait()
+
       # This event is going to be set until we are not in sync with network
       await man.notInSyncEvent.wait()
       man.workers[index].status = SyncWorkerStatus.WaitingPeer
@@ -767,6 +774,9 @@ proc getWorkersStats[A, B](man: SyncManager[A, B]): tuple[map: string,
       of SyncWorkerStatus.Processing:
         ch = 'P'
         inc(pending)
+      of SyncWorkerStatus.Paused:
+        ch = 'p'
+        inc(sleeping)
     map[i] = ch
   (map, sleeping, waiting, pending)
 
@@ -822,6 +832,8 @@ proc syncLoop[A, B](
 ) {.async: (raises: [CancelledError]).} =
   mixin getKey, getScore
 
+  man.resumeSyncEvent.fire()
+
   # Update SyncQueue parameters, because callbacks used to calculate parameters
   # could provide different values at moment when syncLoop() started.
   man.initQueue()
@@ -840,6 +852,8 @@ proc syncLoop[A, B](
       # Reset sync speeds between each loss-of-sync event
       man.avgSyncSpeed = 0
       man.insSyncSpeed = 0
+
+      await man.resumeSyncEvent.wait()
 
       await man.notInSyncEvent.wait()
 
@@ -944,11 +958,12 @@ proc syncLoop[A, B](
           uint64(man.queue.outSlot) + 1'u64
       )
 
-    # Update status string
-    man.syncStatus = timeleft.toTimeLeftString() & " (" &
-                    (done * 100).formatBiggestFloat(ffDecimal, 2) & "%) " &
-                    man.avgSyncSpeed.formatBiggestFloat(ffDecimal, 4) &
-                    "slots/s (" & map & ":" & currentSlot & ")"
+    if man.resumeSyncEvent.isSet():
+      # Update status string
+      man.syncStatus = timeleft.toTimeLeftString() & " (" &
+                      (done * 100).formatBiggestFloat(ffDecimal, 2) & "%) " &
+                      man.avgSyncSpeed.formatBiggestFloat(ffDecimal, 4) &
+                      "slots/s (" & map & ":" & currentSlot & ")"
 
     if (man.queue.kind == SyncQueueKind.Forward) and
        (SyncManagerFlag.NoGenesisSync in man.flags):
@@ -1055,9 +1070,41 @@ proc start*[A, B](man: SyncManager[A, B]) =
   ## Starts SyncManager's main loop.
   man.syncFut = man.syncLoop()
 
+proc pause*[A, B](man: SyncManager[A, B]) =
+  ## Pause all the workers
+  man.resumeSyncEvent.clear()
+  man.inProgress = false
+
+proc resume*[A, B](man: SyncManager[A, B]) =
+  ## Resume all workers
+  man.resumeSyncEvent.fire()
+  man.inProgress = true
+
+func isStarted*[A, B](man: SyncManager[A, B]): bool =
+  not(isNil(man.syncFut)) and not(man.syncFut.finished())
+
+func isPaused*[A, B](man: SyncManager[A, B]): bool =
+  not(man.resumeSyncEvent.isSet())
+
 proc updatePivot*[A, B](man: SyncManager[A, B], pivot: Slot) =
   ## Update progress pivot slot.
   man.progressPivot = pivot
+
+func getStatus*[A, B](man: SyncManager[A, B]): string =
+  var res: seq[string]
+  if man.isStarted():
+    res.add("started")
+  if man.isPaused():
+    res.add("paused")
+  else:
+    if man.inProgress:
+      res.add("running")
+    else:
+      res.add("stopped")
+  "(" & res.join(", ") & ")"
+
+func queueLen*[A, B](man: SyncManager[A, B]): uint64 =
+  len(man.queue)
 
 proc join*[A, B](
     man: SyncManager[A, B]

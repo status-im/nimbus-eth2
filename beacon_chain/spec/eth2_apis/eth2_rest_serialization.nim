@@ -50,6 +50,8 @@ RestJson.useDefaultSerializationFor(
   Checkpoint,
   ConsolidationRequest,
   ContributionAndProof,
+  DataColumnSidecarInfoObject,
+  DataColumnSidecar,
   DataEnclosedObject,
   DataMetaEnclosedObject,
   DataOptimisticAndFinalizedObject,
@@ -63,7 +65,6 @@ RestJson.useDefaultSerializationFor(
   Deposit,
   DepositData,
   DepositRequest,
-  DepositTreeSnapshot,
   DistributedKeystoreInfo,
   ElectraSignedBlockContents,
   EmptyBody,
@@ -76,14 +77,14 @@ RestJson.useDefaultSerializationFor(
   GetBlockAttestationsResponse,
   GetBlockHeaderResponse,
   GetBlockHeadersResponse,
-  GetDepositContractResponse,
-  GetDepositSnapshotResponse,
   GetDistributedKeystoresResponse,
   GetEpochCommitteesResponse,
   GetEpochSyncCommitteesResponse,
   GetForkChoiceResponse,
   GetForkScheduleResponse,
   GetGenesisResponse,
+  GetHistoricalSummariesV1Response,
+  GetHistoricalSummariesV1ResponseElectra,
   GetKeystoresResponse,
   GetNextWithdrawalsResponse,
   GetPoolAttesterSlashingsResponse,
@@ -127,7 +128,6 @@ RestJson.useDefaultSerializationFor(
   RestChainHeadV2,
   RestCommitteeSubscription,
   RestContributionAndProof,
-  RestDepositContract,
   RestEpochRandao,
   RestEpochSyncCommittee,
   RestExtraData,
@@ -342,6 +342,7 @@ const
 type
   EncodeTypes* =
     BlobSidecarInfoObject |
+    DataColumnSidecarInfoObject |
     DeleteKeystoresBody |
     EmptyBody |
     ImportDistributedKeystoresBody |
@@ -404,6 +405,8 @@ type
     DataOptimisticAndFinalizedObject |
     GetBlockV2Response |
     GetDistributedKeystoresResponse |
+    GetHistoricalSummariesV1Response |
+    GetHistoricalSummariesV1ResponseElectra |
     GetKeystoresResponse |
     GetRemoteKeystoresResponse |
     GetStateForkResponse |
@@ -642,9 +645,35 @@ proc jsonResponseBlock*(t: typedesc[RestApiResponse],
         default(seq[byte])
   RestApiResponse.response(res, Http200, "application/json", headers = headers)
 
+proc jsonResponseDataSidecars*(
+    t: typedesc[RestApiResponse],
+    data: openArray[BlobSidecar | DataColumnSidecar],
+    version: ConsensusFork,
+    execOpt: Opt[bool],
+    finalized: bool
+): RestApiResponse =
+  let
+    headers = [("eth-consensus-version", version.toString())]
+    res =
+      try:
+        var stream = memoryOutput()
+        var writer = JsonWriter[RestJson].init(stream)
+        writer.beginRecord()
+        writer.writeField("version", version.toString())
+        if execOpt.isSome():
+          writer.writeField("execution_optimistic", execOpt.get())
+        writer.writeField("finalized", finalized)
+        writer.writeField("data", data)
+        writer.endRecord()
+        stream.getOutput(seq[byte])
+      except IOError:
+        default(seq[byte])
+  RestApiResponse.response(res, Http200, "application/json", headers = headers)
+
 proc jsonResponseState*(t: typedesc[RestApiResponse],
                         data: ForkedHashedBeaconState,
-                        execOpt: Opt[bool]): RestApiResponse =
+                        execOpt: Opt[bool],
+                        finalized: bool): RestApiResponse =
   let
     headers = [("eth-consensus-version", data.kind.toString())]
     res =
@@ -655,6 +684,7 @@ proc jsonResponseState*(t: typedesc[RestApiResponse],
         writer.writeField("version", data.kind.toString())
         if execOpt.isSome():
           writer.writeField("execution_optimistic", execOpt.get())
+        writer.writeField("finalized", finalized)
         withState(data):
           writer.writeField("data", forkyState.data)
         writer.endRecord()
@@ -1381,11 +1411,10 @@ proc writeValue*(
 ) {.raises: [IOError].} =
   writeValue(writer, hexOriginal(distinctBase(value)))
 
-## KzgCommitment and KzgProof; both are the same type, but this makes it
-## explicit.
+## KzgCommitment, KzgProof, and KzgCell
 ## https://github.com/ethereum/beacon-APIs/blob/v2.4.2/types/primitive.yaml#L135-L146
 proc readValue*(reader: var JsonReader[RestJson],
-     value: var (KzgCommitment|KzgProof)) {.
+     value: var (KzgCommitment|KzgProof|KzgCell)) {.
      raises: [IOError, SerializationError].} =
   try:
     hexToByteArray(reader.readValue(string), distinctBase(value.bytes))
@@ -1394,7 +1423,7 @@ proc readValue*(reader: var JsonReader[RestJson],
                          "KzgCommitment value should be a valid hex string")
 
 proc writeValue*(
-    writer: var JsonWriter[RestJson], value: KzgCommitment | KzgProof
+    writer: var JsonWriter[RestJson], value: KzgCommitment | KzgProof | KzgCell
 ) {.raises: [IOError].} =
   writeValue(writer, hexOriginal(distinctBase(value.bytes)))
 
@@ -2833,7 +2862,13 @@ proc readValue*(reader: var JsonReader[RestJson],
                 value: var VCRuntimeConfig) {.
      raises: [SerializationError, IOError].} =
   for fieldName in readObjectFields(reader):
-    let fieldValue = reader.readValue(string)
+    let fieldValue =
+      case toLowerAscii(fieldName)
+      of "blob_schedule":
+        string(reader.readValue(JsonString))
+      else:
+        reader.readValue(string)
+
     if value.hasKeyOrPut(toUpperAscii(fieldName), fieldValue):
       let msg = "Multiple `" & fieldName & "` fields found"
       reader.raiseUnexpectedField(msg, "VCRuntimeConfig")

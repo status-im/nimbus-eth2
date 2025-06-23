@@ -1,5 +1,5 @@
 # beacon_chain
-# Copyright (c) 2022-2024 Status Research & Development GmbH
+# Copyright (c) 2024-2025 Status Research & Development GmbH
 # Licensed and distributed under either of
 #   * MIT license (license terms in the root directory or at https://opensource.org/licenses/MIT).
 #   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
@@ -90,10 +90,8 @@ proc checkSSZ(
 
   # TODO check the value (requires YAML loader)
 
-proc loadExpectedHashTreeRoot(
-    dir: string
-): SSZHashTreeRoot {.raises: [
-    Exception, IOError, OSError, YamlConstructionError, YamlParserError].} =
+proc loadExpectedHashTreeRoot(dir: string): SSZHashTreeRoot
+    {.raises: [IOError, OSError, YamlConstructionError, YamlParserError].} =
   let s = openFileStream(dir/"roots.yaml")
   yaml.load(s, result)
   s.close()
@@ -125,7 +123,7 @@ suite "EF - Fulu - SSZ consensus objects " & preset():
           of "BeaconBlock": checkSSZ(electra.BeaconBlock, path, hash)
           of "BeaconBlockBody": checkSSZ(electra.BeaconBlockBody, path, hash)
           of "BeaconBlockHeader": checkSSZ(BeaconBlockHeader, path, hash)
-          of "BeaconState": checkSSZ(electra.BeaconState, path, hash)
+          of "BeaconState": checkSSZ(fulu.BeaconState, path, hash)
           of "BlobIdentifier": checkSSZ(BlobIdentifier, path, hash)
           of "BlobSidecar": checkSSZ(BlobSidecar, path, hash)
           of "BLSToExecutionChange": checkSSZ(BLSToExecutionChange, path, hash)
@@ -133,7 +131,8 @@ suite "EF - Fulu - SSZ consensus objects " & preset():
           of "ConsolidationRequest": checkSSZ(ConsolidationRequest, path, hash)
           of "ContributionAndProof": checkSSZ(ContributionAndProof, path, hash)
           of "DataColumnSidecar": checkSSZ(DataColumnSidecar, path, hash)
-          of "DataColumnIdentifier": checkSSZ(DataColumnIdentifier, path, hash)
+          of "DataColumnsByRootIdentifier":
+            checkSSZ(DataColumnsByRootIdentifier, path, hash)
           of "Deposit": checkSSZ(Deposit, path, hash)
           of "DepositData": checkSSZ(DepositData, path, hash)
           of "DepositMessage": checkSSZ(DepositMessage, path, hash)

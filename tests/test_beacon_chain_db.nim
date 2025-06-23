@@ -1,5 +1,5 @@
 # beacon_chain
-# Copyright (c) 2018-2024 Status Research & Development GmbH
+# Copyright (c) 2018-2025 Status Research & Development GmbH
 # Licensed under either of
 #  * Apache License, version 2.0, ([LICENSE-APACHE](LICENSE-APACHE) or https://www.apache.org/licenses/LICENSE-2.0)
 #  * MIT license ([LICENSE-MIT](LICENSE-MIT) or https://opensource.org/licenses/MIT)
@@ -10,7 +10,7 @@
 
 import
   unittest2,
-  ../beacon_chain/beacon_chain_db,
+  ../beacon_chain/[beacon_chain_db, beacon_chain_db_quarantine],
   ../beacon_chain/consensus_object_pools/block_dag,
   ../beacon_chain/spec/forks,
   ./testutil
@@ -25,6 +25,7 @@ from ../beacon_chain/spec/beaconstate import
   initialize_hashed_beacon_state_from_eth1
 from ../beacon_chain/spec/state_transition import noRollback
 from ../beacon_chain/validators/validator_monitor import ValidatorMonitor
+from ./consensus_spec/fixtures_utils import genesisTestruntimeConfig
 from ./mocking/mock_genesis import mockEth1BlockHash
 from ./testblockutil import makeInitialDeposits
 from ./testdbutil import makeTestDB
@@ -171,7 +172,8 @@ suite "Beacon chain DB" & preset():
       db.getBlock(ZERO_HASH, phase0.TrustedSignedBeaconBlock).isNone
 
   test "sanity check phase 0 blocks" & preset():
-    let db = BeaconChainDB.new("", inMemory = true)
+    let db = BeaconChainDB.new(
+      "", ConsensusFork.Phase0.genesisTestRuntimeConfig, inMemory = true)
 
     let
       signedBlock = withDigest((phase0.TrustedBeaconBlock)())
@@ -221,7 +223,8 @@ suite "Beacon chain DB" & preset():
     db.close()
 
   test "sanity check Altair blocks" & preset():
-    let db = BeaconChainDB.new("", inMemory = true)
+    let db = BeaconChainDB.new(
+      "", ConsensusFork.Altair.genesisTestRuntimeConfig, inMemory = true)
 
     let
       signedBlock = withDigest((altair.TrustedBeaconBlock)())
@@ -272,7 +275,8 @@ suite "Beacon chain DB" & preset():
     db.close()
 
   test "sanity check Bellatrix blocks" & preset():
-    let db = BeaconChainDB.new("", inMemory = true)
+    let db = BeaconChainDB.new(
+      "", ConsensusFork.Bellatrix.genesisTestRuntimeConfig, inMemory = true)
 
     let
       signedBlock = withDigest((bellatrix.TrustedBeaconBlock)())
@@ -323,7 +327,8 @@ suite "Beacon chain DB" & preset():
     db.close()
 
   test "sanity check Capella blocks" & preset():
-    let db = BeaconChainDB.new("", inMemory = true)
+    let db = BeaconChainDB.new(
+      "", ConsensusFork.Capella.genesisTestRuntimeConfig, inMemory = true)
 
     let
       signedBlock = withDigest((capella.TrustedBeaconBlock)())
@@ -374,7 +379,8 @@ suite "Beacon chain DB" & preset():
     db.close()
 
   test "sanity check Deneb blocks" & preset():
-    let db = BeaconChainDB.new("", inMemory = true)
+    let db = BeaconChainDB.new(
+      "", ConsensusFork.Deneb.genesisTestRuntimeConfig, inMemory = true)
 
     let
       signedBlock = withDigest((deneb.TrustedBeaconBlock)())
@@ -424,7 +430,8 @@ suite "Beacon chain DB" & preset():
     db.close()
 
   test "sanity check Electra blocks" & preset():
-    let db = BeaconChainDB.new("", inMemory = true)
+    let db = BeaconChainDB.new(
+      "", ConsensusFork.Electra.genesisTestRuntimeConfig, inMemory = true)
 
     let
       signedBlock = withDigest((electra.TrustedBeaconBlock)())
@@ -473,7 +480,8 @@ suite "Beacon chain DB" & preset():
     db.close()
 
   test "sanity check Fulu blocks" & preset():
-    let db = BeaconChainDB.new("", inMemory = true)
+    let db = BeaconChainDB.new(
+      "", ConsensusFork.Fulu.genesisTestRuntimeConfig, inMemory = true)
 
     let
       signedBlock = withDigest((fulu.TrustedBeaconBlock)())
@@ -1151,7 +1159,7 @@ suite "Beacon chain DB" & preset():
       blockRoot0 = hash_tree_root(blockHeader0.message)
       blockRoot1 = hash_tree_root(blockHeader1.message)
 
-      # Ensure minimal-difference pairs on both block root and 
+      # Ensure minimal-difference pairs on both block root and
       # data column index to verify that the columnkey uses both
       dataColumnSidecar0 = DataColumnSidecar(signed_block_header: blockHeader0, index: 3)
       dataColumnSidecar1 = DataColumnSidecar(signed_block_header: blockHeader0, index: 2)
@@ -1172,7 +1180,7 @@ suite "Beacon chain DB" & preset():
       not db.getDataColumnSidecarSZ(blockRoot1, 2, buf)
 
     db.putDataColumnSidecar(dataColumnSidecar0)
-    
+
     check:
       db.getDataColumnSidecar(blockRoot0, 3, dataColumnSidecar)
       dataColumnSidecar == dataColumnSidecar0
@@ -1239,6 +1247,223 @@ suite "Beacon chain DB" & preset():
       not db.getDataColumnSidecarSZ(blockRoot1, 2, buf)
 
     db.close()
+
+suite "Quarantine" & preset():
+  const cfg = defaultRuntimeConfig
+
+  setup:
+    let
+      db = BeaconChainDB.new("", inMemory = true, cfg = cfg)
+      quarantine = db.getQuarantineDB()
+
+  teardown:
+    db.close()
+
+  func genBlockRoot(index: int): Eth2Digest =
+    var res: Eth2Digest
+    let tmp = uint64(index).toBytesLE()
+    copyMem(addr res.data[0], unsafeAddr tmp[0], sizeof(uint64))
+    res
+
+  func genKzgCommitment(index: int): KzgCommitment =
+    var res: KzgCommitment
+    let tmp = uint64(index).toBytesLE()
+    copyMem(addr res.bytes[0], unsafeAddr tmp[0], sizeof(uint64))
+    res
+
+  func genBlobSidecar(
+      index: int,
+      slot: int,
+      kzg_commitment: int,
+      proposer_index: int
+  ): BlobSidecar =
+    BlobSidecar(
+      index: BlobIndex(index),
+      kzg_commitment: genKzgCommitment(kzg_commitment),
+      signed_block_header: SignedBeaconBlockHeader(
+        message: BeaconBlockHeader(
+          slot: Slot(slot),
+          proposer_index: uint64(proposer_index))))
+
+  func genDataColumnSidecar(
+      index: int,
+      slot: int,
+      proposer_index: int
+  ): DataColumnSidecar =
+    DataColumnSidecar(
+      index: ColumnIndex(index),
+      signed_block_header: SignedBeaconBlockHeader(
+        message: BeaconBlockHeader(
+          slot: Slot(slot),
+          proposer_index: uint64(proposer_index))))
+
+  proc cmp(
+      a: openArray[ref BlobSidecar|ref DataColumnSidecar],
+      b: openArray[ref BlobSidecar|ref DataColumnSidecar]
+  ): bool =
+    if len(a) != len(b):
+      return false
+    for index in 0 ..< len(a):
+      if a[index][] != b[index][]:
+        return false
+    true
+
+  proc generateBlobSidecars(): seq[ref BlobSidecar] =
+    @[
+      newClone(genBlobSidecar(0, 100, 10, 24)),
+      newClone(genBlobSidecar(1, 100, 11, 24)),
+      newClone(genBlobSidecar(2, 100, 12, 24)),
+      newClone(genBlobSidecar(3, 100, 13, 24)),
+      newClone(genBlobSidecar(4, 100, 14, 24)),
+      newClone(genBlobSidecar(5, 100, 15, 24)),
+      newClone(genBlobSidecar(6, 100, 16, 24)),
+      newClone(genBlobSidecar(7, 100, 17, 24)),
+      newClone(genBlobSidecar(8, 100, 18, 24))
+    ]
+
+  proc generateDataColumnSidecars(): seq[ref DataColumnSidecar] =
+    @[
+      newClone(genDataColumnSidecar(0, 200, 100234)),
+      newClone(genDataColumnSidecar(7, 200, 100234)),
+      newClone(genDataColumnSidecar(14, 200, 100234)),
+      newClone(genDataColumnSidecar(21, 200, 100234)),
+      newClone(genDataColumnSidecar(28, 200, 100234)),
+      newClone(genDataColumnSidecar(35, 200, 100234)),
+      newClone(genDataColumnSidecar(42, 200, 100234)),
+      newClone(genDataColumnSidecar(49, 200, 100234)),
+      newClone(genDataColumnSidecar(56, 200, 100234)),
+      newClone(genDataColumnSidecar(63, 200, 100234)),
+      newClone(genDataColumnSidecar(70, 200, 100234)),
+      newClone(genDataColumnSidecar(77, 200, 100234)),
+      newClone(genDataColumnSidecar(84, 200, 100234)),
+      newClone(genDataColumnSidecar(91, 200, 100234)),
+      newClone(genDataColumnSidecar(98, 200, 100234)),
+      newClone(genDataColumnSidecar(127, 200, 100234)),
+    ]
+
+  proc getSidecars(
+      quarantine: QuarantineDB,
+      T: typedesc[BlobSidecar|DataColumnSidecar],
+      blockRoot: Eth2Digest
+  ): seq[ref T] =
+    var res: seq[ref T]
+    for item in quarantine.sidecars(T, blockRoot):
+      res.add(newClone(item))
+    res
+
+  proc runDataSidecarTest(
+      quarantine: QuarantineDB,
+      T: typedesc[ForkyDataSidecar]
+  ) =
+    let
+      broots = @[
+        genBlockRoot(100), genBlockRoot(200), genBlockRoot(300)
+      ]
+      sidecars =
+        when T is deneb.BlobSidecar:
+          generateBlobSidecars()
+        else:
+          generateDataColumnSidecars()
+      offsets =
+        when T is deneb.BlobSidecar:
+          @[(0, 8), (0, 3), (0, 5)]
+        else:
+          @[(0, 15), (4, 11), (0, 7)]
+
+    check:
+      len(quarantine.getSidecars(T, broots[0])) == 0
+      len(quarantine.getSidecars(T, broots[1])) == 0
+      len(quarantine.getSidecars(T, broots[2])) == 0
+      quarantine.sidecarsCount(T) == 0
+
+    quarantine.removeDataSidecars(T, broots[0])
+    quarantine.removeDataSidecars(T, broots[1])
+    quarantine.removeDataSidecars(T, broots[2])
+
+    quarantine.putDataSidecars(broots[0],
+      sidecars.toOpenArray(offsets[0][0], offsets[0][1]))
+
+    block:
+      let
+        res1 = quarantine.getSidecars(T, broots[0])
+      check:
+        quarantine.sidecarsCount(T) == len(res1)
+        len(res1) == (offsets[0][1] - offsets[0][0] + 1)
+        cmp(res1, sidecars.toOpenArray(offsets[0][0], offsets[0][1])) == true
+        len(quarantine.getSidecars(T, broots[1])) == 0
+        len(quarantine.getSidecars(T, broots[2])) == 0
+
+    quarantine.putDataSidecars(broots[1],
+      sidecars.toOpenArray(offsets[1][0], offsets[1][1]))
+
+    block:
+      let
+        res1 = quarantine.getSidecars(T, broots[0])
+        res2 = quarantine.getSidecars(T, broots[1])
+      check:
+        quarantine.sidecarsCount(T) == len(res1) + len(res2)
+        len(res1) == (offsets[0][1] - offsets[0][0] + 1)
+        len(res2) == (offsets[1][1] - offsets[1][0] + 1)
+        cmp(res1, sidecars.toOpenArray(offsets[0][0], offsets[0][1])) == true
+        cmp(res2, sidecars.toOpenArray(offsets[1][0], offsets[1][1])) == true
+        len(quarantine.getSidecars(T, broots[2])) == 0
+
+    quarantine.putDataSidecars(broots[2],
+      sidecars.toOpenArray(offsets[2][0], offsets[2][1]))
+
+    block:
+      let
+        res1 = quarantine.getSidecars(T, broots[0])
+        res2 = quarantine.getSidecars(T, broots[1])
+        res3 = quarantine.getSidecars(T, broots[2])
+      check:
+        len(res1) == (offsets[0][1] - offsets[0][0] + 1)
+        len(res2) == (offsets[1][1] - offsets[1][0] + 1)
+        len(res3) == (offsets[2][1] - offsets[2][0] + 1)
+        quarantine.sidecarsCount(T) == len(res1) + len(res2) + len(res3)
+        cmp(res1, sidecars.toOpenArray(offsets[0][0], offsets[0][1])) == true
+        cmp(res2, sidecars.toOpenArray(offsets[1][0], offsets[1][1])) == true
+        cmp(res3, sidecars.toOpenArray(offsets[2][0], offsets[2][1])) == true
+
+    quarantine.removeDataSidecars(T, broots[1])
+
+    block:
+      let
+        res1 = quarantine.getSidecars(T, broots[0])
+        res3 = quarantine.getSidecars(T, broots[2])
+      check:
+        len(res1) == (offsets[0][1] - offsets[0][0] + 1)
+        cmp(res1, sidecars.toOpenArray(offsets[0][0], offsets[0][1])) == true
+        len(quarantine.getSidecars(T, broots[1])) == 0
+        len(res3) == (offsets[2][1] - offsets[2][0] + 1)
+        cmp(res3, sidecars.toOpenArray(offsets[2][0], offsets[2][1])) == true
+        quarantine.sidecarsCount(T) == len(res1) + len(res3)
+
+    quarantine.removeDataSidecars(T, broots[0])
+
+    block:
+      let
+        res3 = quarantine.getSidecars(T, broots[2])
+      check:
+        len(quarantine.getSidecars(T, broots[0])) == 0
+        len(quarantine.getSidecars(T, broots[1])) == 0
+        len(res3) == (offsets[2][1] - offsets[2][0] + 1)
+        cmp(res3, sidecars.toOpenArray(offsets[2][0], offsets[2][1])) == true
+        quarantine.sidecarsCount(T) == len(res3)
+
+    quarantine.removeDataSidecars(T, broots[2])
+
+    check:
+      len(quarantine.getSidecars(T, broots[0])) == 0
+      len(quarantine.getSidecars(T, broots[1])) == 0
+      len(quarantine.getSidecars(T, broots[2])) == 0
+      quarantine.sidecarsCount(T) == 0
+
+  test "put/iterate/remove test [BlobSidecars]":
+    quarantine.runDataSidecarTest(deneb.BlobSidecar)
+
+  test "put/iterate/remove test [DataColumnSidecar]":
+    quarantine.runDataSidecarTest(fulu.DataColumnSidecar)
 
 suite "FinalizedBlocks" & preset():
   test "Basic ops" & preset():

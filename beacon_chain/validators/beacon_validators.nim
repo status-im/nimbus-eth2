@@ -28,7 +28,8 @@ import
 
   # Local modules
   ../spec/[
-    eth2_merkleization, forks, helpers, network, signatures, state_transition,
+    eth2_merkleization, forks, helpers, peerdas_helpers,
+    network, signatures, state_transition,
     validator],
   ../consensus_object_pools/[
     spec_cache, blockchain_dag, block_clearance, attestation_pool,
@@ -367,14 +368,6 @@ proc createAndSendAttestation(node: BeaconNode,
       registered.toAttestation(signature), subnet_id,
       checkSignature = false, checkValidator = false)
 
-proc getBlockProposalEth1Data*(node: BeaconNode,
-                               state: ForkedHashedBeaconState):
-                               BlockProposalEth1Data =
-  let finalizedEpochRef = node.dag.getFinalizedEpochRef()
-  result = node.elManager.getBlockProposalData(
-    state, finalizedEpochRef.eth1_data,
-    finalizedEpochRef.eth1_deposit_index)
-
 proc getFeeRecipient(node: BeaconNode,
                      pubkey: ValidatorPubKey,
                      validatorIdx: ValidatorIndex,
@@ -504,13 +497,6 @@ proc makeBeaconBlockForHeadAndSlot*(
         # Create execution payload while packing attestations
         getExecutionPayload(PayloadType, node, head, state, validator_index)
 
-    eth1Proposal = node.getBlockProposalEth1Data(state[])
-
-  if eth1Proposal.hasMissingDeposits:
-    beacon_block_production_errors.inc()
-    warn "Eth1 deposits not available. Skipping block proposal", slot
-    return err("Eth1 deposits not available")
-
   let
     attestations =
       when PayloadType.kind >= ConsensusFork.Electra:
@@ -577,10 +563,10 @@ proc makeBeaconBlockForHeadAndSlot*(
       state[],
       validator_index,
       randao_reveal,
-      eth1Proposal.vote,
+      Eth1Data(),
       graffiti,
       attestations,
-      eth1Proposal.deposits,
+      @[],
       exits,
       node.syncCommitteeMsgPool[].produceSyncAggregate(head.bid, slot),
       payload,
@@ -965,8 +951,10 @@ proc proposeBlockMEV(
         "Unblinded block not returned to proposer"
     err errMsg
 
-func isEFMainnet(cfg: RuntimeConfig): bool =
-  cfg.DEPOSIT_CHAIN_ID == 1 and cfg.DEPOSIT_NETWORK_ID == 1
+func isExcludedTestnet(cfg: RuntimeConfig): bool =
+  ## Ensure that builder API testing can still occur in certain circumstances.
+  cfg.DEPOSIT_CHAIN_ID == cfg.DEPOSIT_NETWORK_ID and cfg.DEPOSIT_CHAIN_ID in [
+    11155111'u64, 17000, 560048]  # Sepolia, Holesky, and Hoodi, respectively
 
 proc collectBids(
     SBBB: typedesc, EPS: typedesc, node: BeaconNode,
@@ -982,7 +970,7 @@ proc collectBids(
         # EL fails -- i.e. it would change priorities, so any block from the
         # execution layer client would override builder API. But it seems an
         # odd requirement to produce no block at all in those conditions.
-        (not node.dag.cfg.isEFMainnet) or (not livenessFailsafeInEffect(
+        (node.dag.cfg.isExcludedTestnet) or (not livenessFailsafeInEffect(
           forkyState.data.block_roots.data, forkyState.data.slot))
     else:
       false
@@ -1212,14 +1200,23 @@ proc proposeBlockAux(
       signedBlock = consensusFork.SignedBeaconBlock(
         message: forkyBlck, signature: signature, root: blockRoot)
       blobsOpt =
-        when consensusFork >= ConsensusFork.Deneb:
+        when consensusFork >= ConsensusFork.Deneb and
+            consensusFork < ConsensusFork.Fulu:
           Opt.some(signedBlock.create_blob_sidecars(
             engineBid.blobsBundle.proofs, engineBid.blobsBundle.blobs))
         else:
           Opt.none(seq[BlobSidecar])
+      columnsOpt =
+        when consensusFork >= ConsensusFork.Fulu:
+          Opt.some(signedBlock.assemble_data_column_sidecars(
+            engineBid.blobsBundle.blobs.mapIt(kzg.KzgBlob(bytes: it)),
+            @(engineBid.blobsBundle.proofs.mapIt(kzg.KzgProof(it)))))
+        else:
+          Opt.none(seq[DataColumnSidecar])
+
       newBlockRef = (
         await node.router.routeSignedBeaconBlock(signedBlock, blobsOpt,
-          checkValidator = false)
+          columnsOpt, checkValidator = false)
       ).valueOr:
         return head # Errors logged in router
 

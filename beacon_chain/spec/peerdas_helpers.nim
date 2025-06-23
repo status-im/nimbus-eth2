@@ -22,8 +22,8 @@ import
   ./datatypes/[fulu]
 
 type
-  CellBytes = array[fulu.CELLS_PER_EXT_BLOB, Cell]
-  ProofBytes = array[fulu.CELLS_PER_EXT_BLOB, KzgProof]
+  CellBytes* = array[fulu.CELLS_PER_EXT_BLOB, Cell]
+  ProofBytes* = array[fulu.CELLS_PER_EXT_BLOB, KzgProof]
 
 # https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.10/specs/fulu/das-core.md#compute_columns_for_custody_group
 iterator compute_columns_for_custody_group*(custody_group: CustodyIndex):
@@ -118,17 +118,14 @@ func get_custody_groups*(cfg: RuntimeConfig, node_id: NodeId,
 
 func resolve_columns_from_custody_groups*(cfg: RuntimeConfig, node_id: NodeId,
                                           custody_group_count: CustodyIndex):
-                                          seq[ColumnIndex] =
-
-  let
-    custody_groups = node_id.get_custody_groups(custody_group_count)
-
-  var flattened =
-    newSeqOfCap[ColumnIndex](COLUMNS_PER_GROUP * custody_groups.len)
+                                          HashSet[ColumnIndex] =
+  ## Returns a set of unique columns for the custody groups of a node.
+  let custody_groups = node_id.get_custody_groups(custody_group_count)
+  var columns: HashSet[ColumnIndex]
   for group in custody_groups:
     for index in compute_columns_for_custody_group(cfg, group):
-       flattened.add index
-  flattened
+      columns.incl index
+  columns
 
 # https://github.com/ethereum/consensus-specs/blob/v1.5.0-beta.4/specs/fulu/das-core.md#compute_matrix
 proc compute_matrix*(blobs: seq[KzgBlob]): Result[seq[MatrixEntry], cstring] =
@@ -151,7 +148,7 @@ proc compute_matrix*(blobs: seq[KzgBlob]): Result[seq[MatrixEntry], cstring] =
 
   ok(extended_matrix)
 
-# https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.10/specs/fulu/das-core.md#recover_matrix
+# https://github.com/ethereum/consensus-specs/blob/v1.6.0-alpha.0/specs/fulu/das-core.md#recover_matrix
 proc recover_matrix*(partial_matrix: seq[MatrixEntry],
                      blobCount: int):
                      Result[seq[MatrixEntry], cstring] =
@@ -187,7 +184,7 @@ proc recover_matrix*(partial_matrix: seq[MatrixEntry],
   ok(extended_matrix)
 
 proc recover_cells_and_proofs*(
-    data_columns: seq[DataColumnSidecar]):
+    data_columns: seq[ref DataColumnSidecar]):
     Result[seq[CellsAndProofs], cstring] =
 
   # This helper recovers blobs from the data column sidecars
@@ -215,10 +212,10 @@ proc recover_cells_and_proofs*(
       ckzgCells = newSeqOfCap[KzgCell](columnCount)
 
     for col in data_columns:
-      cell_ids.add col.index
+      cell_ids.add col[].index
 
       let
-        column = col.column
+        column = col[].column
         cell = column[bIdx]
 
       ckzgCells.add cell
@@ -236,9 +233,10 @@ proc recover_cells_and_proofs*(
   ok(recovered_cps)
 
 # https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.10/specs/fulu/das-core.md#get_data_column_sidecars
-proc get_data_column_sidecars*(signed_beacon_block: fulu.TrustedSignedBeaconBlock,
-                               cellsAndProofs: seq[CellsAndProofs]):
-                               seq[DataColumnSidecar] =
+proc reconstruct_data_column_sidecars*(
+    signed_beacon_block: fulu.SignedBeaconBlock,
+    cellsAndProofs: seq[CellsAndProofs]):
+    seq[ref DataColumnSidecar] =
   ## Given a trusted signed beacon block and the cells/proofs associated
   ## with each data column (thereby blob as well) corresponding to the block,
   ## this function assembles the sidecars which can be distributed to
@@ -261,11 +259,11 @@ proc get_data_column_sidecars*(signed_beacon_block: fulu.TrustedSignedBeaconBloc
     signed_beacon_block_header =
       SignedBeaconBlockHeader(
         message: beacon_block_header,
-        signature: signed_beacon_block.signature.toValidatorSig)
+        signature: signed_beacon_block.signature)
 
   var
     sidecars =
-      newSeqOfCap[DataColumnSidecar](CELLS_PER_EXT_BLOB)
+      newSeqOfCap[ref DataColumnSidecar](CELLS_PER_EXT_BLOB)
 
   for column_index in 0..<NUMBER_OF_COLUMNS:
     var
@@ -284,7 +282,7 @@ proc get_data_column_sidecars*(signed_beacon_block: fulu.TrustedSignedBeaconBloc
     blck.body.build_proof(
       KZG_COMMITMENTS_INCLUSION_PROOF_DEPTH_GINDEX.GeneralizedIndex,
       sidecar.kzg_commitments_inclusion_proof).expect("Valid gindex")
-    sidecars.add(sidecar)
+    sidecars.add(newClone sidecar)
 
   sidecars
 
@@ -408,6 +406,70 @@ proc get_data_column_sidecars*(signed_beacon_block: fulu.SignedBeaconBlock,
 
   ok(sidecars)
 
+proc assemble_data_column_sidecars*(signed_beacon_block: fulu.SignedBeaconBlock,
+                                    blobs: seq[KzgBlob],
+                                    cell_proofs: seq[KzgProof]):
+                                    seq[DataColumnSidecar] =
+  template blck(): auto = signed_beacon_block.message
+  var
+    sidecars =
+      newSeqOfCap[DataColumnSidecar](CELLS_PER_EXT_BLOB)
+  template kzg_commitments: untyped =
+    signed_beacon_block.message.body.blob_kzg_commitments
+  if kzg_commitments.len == 0:
+    return sidecars
+  let
+    beacon_block_header =
+      BeaconBlockHeader(
+        slot: blck.slot,
+        proposer_index: blck.proposer_index,
+        parent_root: blck.parent_root,
+        state_root: blck.state_root,
+        body_root: hash_tree_root(blck.body))
+
+    signed_beacon_block_header =
+      SignedBeaconBlockHeader(
+        message: beacon_block_header,
+        signature: signed_beacon_block.signature)
+
+  var
+    cells = newSeq[CellBytes](blobs.len)
+    proofs = newSeq[ProofBytes](blobs.len)
+
+  for i in 0..<blobs.len:
+    let kzgcells = computeCells(blobs[i])
+
+    cells[i] = kzgcells.get
+    var tmp: ProofBytes
+    for j in 0..<CELLS_PER_EXT_BLOB:
+      tmp[j] = cell_proofs[i * CELLS_PER_EXT_BLOB + j]
+    proofs[i] = tmp
+
+  # TODO can we not refactor the above 4 lines to something like:
+  # proofs[i] = cell_proofs[i * CELLS_PER_EXT_BLOB .. (i+1) * CELLS_PER_EXT_BLOB - 1]
+
+  for columnIndex in 0..<CELLS_PER_EXT_BLOB:
+    var
+      column = newSeqOfCap[KzgCell](blobs.len)
+      kzgProofOfColumn = newSeqOfCap[KzgProof](blobs.len)
+    for rowIndex in 0..<blobs.len:
+      column.add(cells[rowIndex][columnIndex])
+      kzgProofOfColumn.add(proofs[rowIndex][columnIndex])
+
+    var sidecar = DataColumnSidecar(
+      index: ColumnIndex(columnIndex),
+      column: DataColumn.init(column),
+      kzg_commitments: blck.body.blob_kzg_commitments,
+      kzg_proofs: KzgProofs.init(kzgProofOfColumn),
+      signed_block_header: signed_beacon_block_header)
+    blck.body.build_proof(
+      KZG_COMMITMENTS_INCLUSION_PROOF_DEPTH_GINDEX.GeneralizedIndex,
+      sidecar.kzg_commitments_inclusion_proof).expect("Valid gindex")
+    sidecars.add(sidecar)
+
+  sidecars
+
+
 # https://github.com/ethereum/consensus-specs/blob/v1.5.0-beta.2/specs/fulu/peer-sampling.md#get_extended_sample_count
 func get_extended_sample_count*(samples_per_slot: int,
                                 allowed_failures: int):
@@ -494,3 +556,21 @@ func get_validators_custody_requirement*(cfg: RuntimeConfig,
   let count = total_node_balance div BALANCE_PER_ADDITIONAL_CUSTODY_GROUP
   min(max(count.uint64, cfg.VALIDATOR_CUSTODY_REQUIREMENT),
       cfg.NUMBER_OF_CUSTODY_GROUPS.uint64)
+
+# https://github.com/ethereum/consensus-specs/blob/v1.6.0-alpha.0/specs/fulu/das-core.md#get_max_blobs_per_block
+func get_max_blobs_per_block_bpo*(cfg: RuntimeConfig, epoch: Epoch): Opt[uint64] =
+  ## Return the maximum number of blobs that can be included in a block for a
+  ## given epoch.
+  if not len(cfg.BLOB_SCHEDULE) > 0:
+    return Opt.none(uint64)
+
+  # Spec version of function sorts every time, which should happen only once at
+  # loading.
+  for entry in cfg.BLOB_SCHEDULE:
+    if epoch >= entry.EPOCH:
+      return Opt.some entry.MAX_BLOBS_PER_BLOCK
+
+  # This is effectively a constant per node instance.
+  Opt.some foldl(
+    cfg.BLOB_SCHEDULE, min(a, b.MAX_BLOBS_PER_BLOCK),
+    cfg.BLOB_SCHEDULE[0].MAX_BLOBS_PER_BLOCK)

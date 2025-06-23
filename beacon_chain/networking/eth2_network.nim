@@ -1845,7 +1845,7 @@ proc new(T: type Eth2Node,
          ip: Opt[IpAddress], tcpPort, udpPort: Opt[Port],
          privKey: keys.PrivateKey, discovery: bool,
          directPeers: DirectPeers, announcedAddresses: openArray[MultiAddress],
-         rng: ref HmacDrbgContext): T {.raises: [CatchableError].} =
+         rng: ref HmacDrbgContext): T =
   when not defined(local_testnet):
     let
       connectTimeout = chronos.minutes(1)
@@ -2637,7 +2637,7 @@ proc broadcast(node: Eth2Node, topic: string, msg: auto):
 proc subscribeAttestationSubnets*(
     node: Eth2Node, subnets: AttnetBits, forkDigest: ForkDigest,
     topicParams: TopicParams) =
-  # https://github.com/ethereum/consensus-specs/blob/v1.5.0-beta.0/specs/phase0/p2p-interface.md#attestations-and-aggregation
+  # https://github.com/ethereum/consensus-specs/blob/v1.6.0-alpha.0/specs/phase0/p2p-interface.md#attestations-and-aggregation
   for subnet_id, enabled in subnets:
     if enabled:
       node.subscribe(getAttestationTopic(
@@ -2701,6 +2701,24 @@ proc updateSyncnetsMetadata*(node: Eth2Node, syncnets: SyncnetBits) =
     warn "Failed to update the ENR syncnets field", error = res.error
   else:
     debug "Sync committees changed; updated ENR syncnets", syncnets
+
+proc updateNextForkDigest(node: Eth2Node, next_fork_digest: ForkDigest) =
+  # https://github.com/ethereum/consensus-specs/blob/v1.6.0-alpha.2/specs/fulu/p2p-interface.md#next-fork-digest
+  if node.metadata.next_fork_digest == next_fork_digest:
+    return
+
+  node.metadata.seq_number += 1
+  node.metadata.next_fork_digest = next_fork_digest
+
+  let res = node.discovery.updateRecord({
+    enrNextForkDigestField: SSZ.encode(next_fork_digest)
+  })
+  if res.isErr():
+    # This should not occur in this scenario as the private key would always
+    # be the correct one and the ENR will not increase in size.
+    warn "Failed to update the ENR nfd field", error = res.error
+  else:
+    debug "Next fork digest changed; updated ENR nfd", next_fork_digest
 
 proc updateForkId(node: Eth2Node, value: ENRForkID) =
   node.forkId = value

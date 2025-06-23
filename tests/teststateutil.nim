@@ -1,5 +1,5 @@
 # beacon_chain
-# Copyright (c) 2021-2024 Status Research & Development GmbH
+# Copyright (c) 2021-2025 Status Research & Development GmbH
 # Licensed under either of
 #  * Apache License, version 2.0, ([LICENSE-APACHE](LICENSE-APACHE) or https://www.apache.org/licenses/LICENSE-2.0)
 #  * MIT license ([LICENSE-MIT](LICENSE-MIT) or https://opensource.org/licenses/MIT)
@@ -111,8 +111,7 @@ from std/sequtils import allIt
 from ".."/beacon_chain/spec/beaconstate import get_expected_withdrawals
 
 proc checkPerValidatorBalanceCalc*(
-    state: deneb.BeaconState | electra.BeaconState |
-           fulu.BeaconState): bool =
+    state: electra.BeaconState | fulu.BeaconState): bool =
   var
     info: altair.EpochInfo
     cache: StateCache

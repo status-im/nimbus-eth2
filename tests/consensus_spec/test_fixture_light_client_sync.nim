@@ -1,5 +1,5 @@
 # beacon_chain
-# Copyright (c) 2022-2024 Status Research & Development GmbH
+# Copyright (c) 2022-2025 Status Research & Development GmbH
 # Licensed and distributed under either of
 #   * MIT license (license terms in the root directory or at https://opensource.org/licenses/MIT).
 #   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
@@ -56,8 +56,7 @@ type
 proc loadSteps(
     path: string,
     fork_digests: ForkDigests
-): seq[TestStep] {.raises: [
-    KeyError, ValueError, YamlConstructionError, YamlParserError].} =
+): seq[TestStep] {.raises: [KeyError, ValueError].} =
   let stepsYAML = os_ops.readFile(path/"steps.yaml")
   let steps = loadToJson(stepsYAML)
 
@@ -130,8 +129,10 @@ proc runTest(suiteName, path: string) =
   let relativePathComponent = path.relativeTestPathComponent()
   test "Light client - Sync - " & relativePathComponent:
     # Reduce stack size by making this a `proc`
-    proc loadTestMeta(): (RuntimeConfig, TestMeta) {.raises: [
-        Exception, IOError, PresetFileError, PresetIncompatibleError].} =
+    proc loadTestMeta(): (RuntimeConfig, TestMeta)
+        {.raises: [IOError, OSError, PresetFileError,
+                   PresetIncompatibleError, ValueError,
+                   YamlConstructionError, YamlParserError].} =
       let (cfg, _) = readRuntimeConfig(path/"config.yaml")
 
       type TestMetaYaml {.sparse.} = object

@@ -27,12 +27,13 @@
 import
   chronicles, metrics,
   ../extras,
+  ./peerdas_helpers,
   ./datatypes/[phase0, altair, bellatrix, deneb],
   "."/[beaconstate, eth2_merkleization, helpers, validator, signatures],
   kzg4844/kzg_abi, kzg4844/kzg
 
 from std/algorithm import fill, sorted
-from std/sequtils import count, filterIt, mapIt
+from std/sequtils import count, foldl, filterIt, mapIt
 from ./datatypes/capella import
   BeaconState, MAX_WITHDRAWALS_PER_PAYLOAD, SignedBLSToExecutionChange,
   Withdrawal
@@ -42,7 +43,8 @@ export extras, phase0, altair
 
 # https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.8/specs/phase0/beacon-chain.md#block-header
 func process_block_header*(
-    state: var ForkyBeaconState, blck: SomeForkyBeaconBlock,
+    state: var ForkyBeaconState,
+    blck: SomeForkyBeaconBlock,
     flags: UpdateFlags, cache: var StateCache): Result[void, cstring] =
   # Verify that the slots match
   if not (blck.slot == state.slot):
@@ -52,7 +54,6 @@ func process_block_header*(
   if not (blck.slot > state.latest_block_header.slot):
     return err("process_block_header: block not newer than latest block header")
 
-  # Verify that proposer index is the correct index
   let proposer_index = get_beacon_proposer_index(state, cache).valueOr:
     return err("process_block_header: proposer missing")
 
@@ -135,7 +136,7 @@ func is_slashable_validator(validator: Validator, epoch: Epoch): bool =
     (validator.activation_epoch <= epoch) and
     (epoch < validator.withdrawable_epoch)
 
-# https://github.com/ethereum/consensus-specs/blob/v1.5.0-beta.4/specs/phase0/beacon-chain.md#proposer-slashings
+# https://github.com/ethereum/consensus-specs/blob/v1.6.0-alpha.0/specs/phase0/beacon-chain.md#proposer-slashings
 proc check_proposer_slashing*(
     state: ForkyBeaconState, proposer_slashing: SomeProposerSlashing,
     flags: UpdateFlags):
@@ -383,7 +384,7 @@ func process_deposit_request*(
   else:
     err("process_deposit_request: couldn't add deposit to pending_deposits")
 
-# https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.8/specs/phase0/beacon-chain.md#voluntary-exits
+# https://github.com/ethereum/consensus-specs/blob/v1.6.0-alpha.0/specs/phase0/beacon-chain.md#voluntary-exits
 # https://github.com/ethereum/consensus-specs/blob/v1.4.0/specs/deneb/beacon-chain.md#modified-process_voluntary_exit
 # https://github.com/ethereum/consensus-specs/blob/v1.5.0-beta.0/specs/electra/beacon-chain.md#modified-process_voluntary_exit
 proc check_voluntary_exit*(
@@ -689,7 +690,7 @@ type
 
 # https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.8/specs/phase0/beacon-chain.md#operations
 # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.5/specs/capella/beacon-chain.md#modified-process_operations
-# https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.8/specs/electra/beacon-chain.md#modified-process_operations
+# https://github.com/ethereum/consensus-specs/blob/v1.6.0-alpha.0/specs/electra/beacon-chain.md#modified-process_operations
 proc process_operations(
     cfg: RuntimeConfig, state: var ForkyBeaconState,
     body: SomeForkyBeaconBlockBody, base_reward_per_increment: Gwei,
@@ -799,9 +800,69 @@ func get_proposer_reward*(participant_reward: Gwei): Gwei =
 
 # https://github.com/ethereum/consensus-specs/blob/v1.5.0-beta.4/specs/altair/beacon-chain.md#sync-aggregate-processing
 proc process_sync_aggregate*(
+    state: var fulu.BeaconState,
+    sync_aggregate: SomeSyncAggregate, total_active_balance: Gwei,
+    flags: UpdateFlags, cache: var StateCache): Result[Gwei, cstring] =
+  if strictVerification in flags and state.slot > 1.Slot:
+    template sync_committee_bits(): auto = sync_aggregate.sync_committee_bits
+    let num_active_participants = countOnes(sync_committee_bits).uint64
+    if num_active_participants * 3 < static(sync_committee_bits.len * 2):
+      fatal "Low sync committee participation",
+        slot = state.slot, num_active_participants
+      quit 1
+
+  # Verify sync committee aggregate signature signing over the previous slot
+  # block root
+  when sync_aggregate.sync_committee_signature isnot TrustedSig:
+    var participant_pubkeys: seq[ValidatorPubKey]
+    for i in 0 ..< state.current_sync_committee.pubkeys.len:
+      if sync_aggregate.sync_committee_bits[i]:
+        participant_pubkeys.add state.current_sync_committee.pubkeys.data[i]
+
+    # p2p-interface message validators check for empty sync committees, so it
+    # shouldn't run except as part of test suite.
+    if participant_pubkeys.len == 0:
+      if sync_aggregate.sync_committee_signature != ValidatorSig.infinity():
+        return err("process_sync_aggregate: empty sync aggregates need signature of point at infinity")
+    else:
+      # Empty participants allowed
+      let
+        previous_slot = max(state.slot, Slot(1)) - 1
+        beacon_block_root = get_block_root_at_slot(state, previous_slot)
+      if not verify_sync_committee_signature(
+          state.fork, state.genesis_validators_root, previous_slot,
+          beacon_block_root, participant_pubkeys,
+          sync_aggregate.sync_committee_signature):
+        return err("process_sync_aggregate: invalid signature")
+
+  # Compute participant and proposer rewards
+  let
+    participant_reward = get_participant_reward(total_active_balance)
+    proposer_reward = state_transition_block.get_proposer_reward(participant_reward)
+    # https://github.com/ethereum/consensus-specs/blob/v1.6.0-alpha.1/specs/fulu/beacon-chain.md#modified-get_beacon_proposer_index
+    proposer_index = get_beacon_proposer_index(state, cache).valueOr:
+      # We're processing a block, so this can't happen, in theory (!)
+      return err("process_sync_aggregate: no proposer")
+  # Apply participant and proposer rewards
+  let indices = get_sync_committee_cache(state, cache).current_sync_committee
+  var total_proposer_reward: Gwei
+
+  for i in 0 ..< min(
+    state.current_sync_committee.pubkeys.len,
+    sync_aggregate.sync_committee_bits.len):
+    let participant_index = indices[i]
+    if sync_aggregate.sync_committee_bits[i]:
+      increase_balance(state, participant_index, participant_reward)
+      increase_balance(state, proposer_index, proposer_reward)
+      increase_balance(total_proposer_reward, proposer_reward)
+    else:
+      decrease_balance(state, participant_index, participant_reward)
+
+  ok(total_proposer_reward)
+
+proc process_sync_aggregate*(
     state: var (altair.BeaconState | bellatrix.BeaconState |
-                capella.BeaconState | deneb.BeaconState | electra.BeaconState |
-                fulu.BeaconState),
+                capella.BeaconState | deneb.BeaconState | electra.BeaconState),
     sync_aggregate: SomeSyncAggregate, total_active_balance: Gwei,
     flags: UpdateFlags, cache: var StateCache): Result[Gwei, cstring] =
   if strictVerification in flags and state.slot > 1.Slot:
@@ -1064,7 +1125,7 @@ type SomeFuluBeaconBlockBody =
   fulu.BeaconBlockBody | fulu.SigVerifiedBeaconBlockBody |
   fulu.TrustedBeaconBlockBody
 
-# https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.3/specs/electra/beacon-chain.md#modified-process_execution_payload
+# https://github.com/ethereum/consensus-specs/blob/v1.6.0-alpha.0/specs/fulu/beacon-chain.md#modified-process_execution_payload
 proc process_execution_payload*(
     cfg: RuntimeConfig, state: var fulu.BeaconState,
     body: SomeFuluBeaconBlockBody,
@@ -1085,8 +1146,11 @@ proc process_execution_payload*(
   if not (payload.timestamp == compute_timestamp_at_slot(state, state.slot)):
     return err("process_execution_payload: invalid timestamp")
 
-  # [New in Deneb] Verify commitments are under limit
-  if not (lenu64(body.blob_kzg_commitments) <= cfg.MAX_BLOBS_PER_BLOCK_FULU):
+  # Verify commitments are under limit
+  let max_blobs_per_block =
+    cfg.get_max_blobs_per_block_bpo(get_current_epoch(state)).valueOr:
+      return err("process_execution_payload: missing blob schedule")
+  if not (lenu64(body.blob_kzg_commitments) <= max_blobs_per_block):
     return err("process_execution_payload: too many KZG commitments")
 
   # Verify the execution payload is valid
@@ -1173,7 +1237,7 @@ func process_withdrawals*(
 # https://github.com/ethereum/consensus-specs/blob/v1.4.0/specs/deneb/beacon-chain.md#kzg_commitment_to_versioned_hash
 func kzg_commitment_to_versioned_hash*(
     kzg_commitment: KzgCommitment): VersionedHash =
-  # https://github.com/ethereum/consensus-specs/blob/v1.4.0/specs/deneb/beacon-chain.md#blob
+  # https://github.com/ethereum/consensus-specs/blob/v1.6.0-alpha.0/specs/deneb/beacon-chain.md#blob
   const VERSIONED_HASH_VERSION_KZG = 0x01'u8
 
   var res: VersionedHash

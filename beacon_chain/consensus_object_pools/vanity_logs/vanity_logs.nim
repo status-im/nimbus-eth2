@@ -15,10 +15,6 @@ type
   LogProc* = proc() {.gcsafe, raises: [].}
 
   VanityLogs* = object
-    # Gets displayed on upgrade to Capella. May be displayed multiple times
-    # in case of chain reorgs around the upgrade.
-    onUpgradeToCapella*: LogProc
-
     # Gets displayed on when a BLS to execution change message for a validator
     # known by this node appears in a head block
     onKnownBlsToExecutionChange*: LogProc
@@ -35,13 +31,20 @@ type
     # known in a head block.
     onKnownCompoundingChange*: LogProc
 
+    # Gets displayed on upgrade to Fulu. May be displayed multiple times
+    # in case of chain reorgs around the upgrade.
+    onUpgradeToFulu*: LogProc
+
+    # Gets displayed on a blob parameters update.
+    # May be displayed multiple times in case of chain reorgs.
+    onBlobParametersUpdate*: LogProc
+
 # Created by https://beatscribe.com (beatscribe#1008 on Discord)
 # These need to be the main body of the log not to be reformatted or escaped.
 #
 # Policy: Retain retired art files in the directory, but don't link them anymore
 
 proc capellaMono*()  = notice "\n" & staticRead("capella" / "mono.txt")
-proc capellaColor*() = notice "\n" & staticRead("capella" / "color.ans")
 proc capellaBlink*() = notice "\n" & staticRead("capella" / "blink.ans")
 
 proc denebMono*()  = notice "\n" & staticRead("deneb" / "mono.txt")
@@ -50,3 +53,6 @@ proc denebColor*() = notice "\n" & staticRead("deneb" / "color.ans")
 proc electraMono*()  = notice "\n" & staticRead("electra" / "mono.txt")
 proc electraColor*() = notice "\n" & staticRead("electra" / "color.ans")
 proc electraBlink*() = notice "\n" & staticRead("electra" / "blink.ans")
+
+proc fuluMono*()  = notice "\n" & staticRead("fulu" / "mono.txt")
+proc fuluColor*() = notice "\n" & staticRead("fulu" / "color.ans")

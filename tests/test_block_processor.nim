@@ -15,13 +15,12 @@ import
   taskpools,
   ../beacon_chain/conf,
   ../beacon_chain/spec/[
-      beaconstate, forks, helpers,
-      peerdas_helpers, state_transition],
+      beaconstate, forks, helpers, state_transition],
   ../beacon_chain/spec/datatypes/[deneb, fulu],
   ../beacon_chain/gossip_processing/block_processor,
   ../beacon_chain/consensus_object_pools/[
     attestation_pool, blockchain_dag, blob_quarantine, block_quarantine,
-    block_clearance, consensus_manager, data_column_quarantine],
+    block_clearance, consensus_manager],
   ../beacon_chain/el/el_manager,
   ./testutil, ./testdbutil, ./testblockutil
 
@@ -37,15 +36,21 @@ proc pruneAtFinalization(dag: ChainDAGRef) =
 
 suite "Block processor" & preset():
   setup:
-    let rng = HmacDrbgContext.new()
-    var
-      db = makeTestDB(SLOTS_PER_EPOCH)
+    let
+      rng = HmacDrbgContext.new()
+      cfg = block:
+        var res = defaultRuntimeConfig
+        res.ALTAIR_FORK_EPOCH = GENESIS_EPOCH
+        res.BELLATRIX_FORK_EPOCH = GENESIS_EPOCH
+        res
+      db = makeTestDB(SLOTS_PER_EPOCH, cfg = cfg)
       validatorMonitor = newClone(ValidatorMonitor.init())
-      dag = init(ChainDAGRef, defaultRuntimeConfig, db, validatorMonitor, {})
+      dag = init(ChainDAGRef, cfg, db, validatorMonitor, {})
+    var
       taskpool = Taskpool.new()
       quarantine = newClone(Quarantine.init())
       blobQuarantine = newClone(BlobQuarantine())
-      dataColumnQuarantine = newClone(DataColumnQuarantine())
+      dataColumnQuarantine = newClone(ColumnQuarantine())
       attestationPool = newClone(AttestationPool.init(dag, quarantine))
       elManager = new ELManager # TODO: initialise this properly
       actionTracker: ActionTracker
@@ -54,16 +59,20 @@ suite "Block processor" & preset():
         newClone(DynamicFeeRecipientsStore.init()), "",
         Opt.some default(Eth1Address), defaultGasLimit)
       state = newClone(dag.headState)
-      cache = StateCache()
-      b1 = addTestBlock(state[], cache).phase0Data
-      b2 = addTestBlock(state[], cache).phase0Data
+      cache: StateCache
+      info: ForkedEpochInfo
+    cfg.process_slots(
+      state[], cfg.lastPremergeSlotInTestCfg, cache, info, {}).expect("OK")
+    var
+      b1 = addTestBlock(state[], cache, cfg = cfg).bellatrixData
+      b2 = addTestBlock(state[], cache, cfg = cfg).bellatrixData
       getTimeFn = proc(): BeaconTime = b2.message.slot.start_beacon_time()
       batchVerifier = BatchVerifier.new(rng, taskpool)
       processor = BlockProcessor.new(
         false, "", "", batchVerifier, consensusManager,
         validatorMonitor, blobQuarantine, dataColumnQuarantine,
         getTimeFn)
-      processorFut = processor.runQueueProcessingLoop()
+    discard processor.runQueueProcessingLoop()
 
   asyncTest "Reverse order block add & get" & preset():
     let
@@ -112,7 +121,7 @@ suite "Block processor" & preset():
     # check that init also reloads block graph
     var
       validatorMonitor2 = newClone(ValidatorMonitor.init())
-      dag2 = init(ChainDAGRef, defaultRuntimeConfig, db, validatorMonitor2, {})
+      dag2 = init(ChainDAGRef, cfg, db, validatorMonitor2, {})
 
     check:
       # ensure we loaded the correct head state
@@ -122,3 +131,44 @@ suite "Block processor" & preset():
       dag2.getBlockRef(b2.root).isSome()
       dag2.heads.len == 1
       dag2.heads[0].root == b2.root
+
+  asyncTest "Invalidate block root" & preset():
+    let
+      processor = BlockProcessor.new(
+        false, "", "", batchVerifier, consensusManager,
+        validatorMonitor, blobQuarantine, dataColumnQuarantine,
+        getTimeFn, invalidBlockRoots = @[b2.root])
+      processorFut = processor.runQueueProcessingLoop()
+    defer: await processorFut.cancelAndWait()
+
+    block:
+      let res = await processor[].addBlock(
+        MsgSource.gossip, ForkedSignedBeaconBlock.init(b2),
+        Opt.none(BlobSidecars), Opt.none(DataColumnSidecars))
+      check:
+        res.isErr
+        not dag.containsForkBlock(b1.root)
+        not dag.containsForkBlock(b2.root)
+
+    block:
+      let res = await processor[].addBlock(
+        MsgSource.gossip, ForkedSignedBeaconBlock.init(b1),
+        Opt.none(BlobSidecars), Opt.none(DataColumnSidecars))
+      check:
+        res.isOk
+        dag.containsForkBlock(b1.root)
+        not dag.containsForkBlock(b2.root)
+      while processor[].hasBlocks():
+        poll()
+      check:
+        dag.containsForkBlock(b1.root)
+        not dag.containsForkBlock(b2.root)
+
+    block:
+      let res = await processor[].addBlock(
+        MsgSource.gossip, ForkedSignedBeaconBlock.init(b2),
+        Opt.none(BlobSidecars), Opt.none(DataColumnSidecars))
+      check:
+        res == Result[void, VerifierError].err VerifierError.Invalid
+        dag.containsForkBlock(b1.root)
+        not dag.containsForkBlock(b2.root)

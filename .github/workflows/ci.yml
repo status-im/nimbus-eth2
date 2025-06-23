@@ -57,7 +57,7 @@ jobs:
             builder: macos-13
           - target:
               os: windows
-            builder: windows-2019
+            builder: windows-2022
 
     defaults:
       run:
@@ -88,23 +88,6 @@ jobs:
           curl -L "$MINGW_URL" -o "external/mingw-${{ matrix.target.cpu }}.zip"
           7z x -y "external/mingw-${{ matrix.target.cpu }}.zip" -oexternal/mingw-${{ matrix.target.cpu }}/
           mv external/mingw-${{ matrix.target.cpu }}/**/* ./external/mingw-${{ matrix.target.cpu }}
-
-      - name: Restore Nim DLLs dependencies (Windows) from cache
-        if: runner.os == 'Windows'
-        id: windows-dlls-cache
-        uses: actions/cache@v4
-        with:
-          path: external/dlls-${{ matrix.target.cpu }}
-          key: 'dlls-${{ matrix.target.cpu }}'
-
-      - name: Install DLLs dependencies (Windows)
-        if: >
-          steps.windows-dlls-cache.outputs.cache-hit != 'true' &&
-          runner.os == 'Windows'
-        run: |
-          mkdir -p external
-          curl -L "https://nim-lang.org/download/windeps.zip" -o external/windeps.zip
-          7z x -y external/windeps.zip -oexternal/dlls-${{ matrix.target.cpu }}
 
       - name: Path to cached dependencies (Windows)
         if: >
@@ -224,14 +207,9 @@ jobs:
         with:
           fetch-depth: 1
 
-      - name: Build with developer flags
-        run: |
-          make -j nimbus_beacon_node LOG_LEVEL=TRACE NIMFLAGS="-d:has_deposit_root_checks=1"
-
       - name: Build files with isMainModule
         run: |
           executables=(
-            "beacon_chain/el/deposit_contract"
             "beacon_chain/fork_choice/fork_choice"
             "beacon_chain/fork_choice/proto_array"
             "beacon_chain/networking/network_metadata_downloads"
@@ -240,6 +218,7 @@ jobs:
             "benchmarks/rest_api_benchmark"
             "tests/mocking/mock_genesis"
           )
+          make -j update
           source env.sh
           for executable in "${executables[@]}"; do
             nim c --passC:-fsyntax-only --noLinking:on -d:chronicles_log_level=TRACE "${executable}"

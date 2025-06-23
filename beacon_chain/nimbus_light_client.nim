@@ -97,13 +97,7 @@ programMain:
     engineApiUrls = config.engineApiUrls
     elManager =
       if engineApiUrls.len > 0:
-        ELManager.new(
-          cfg,
-          metadata.depositContractBlock,
-          metadata.depositContractBlockHash,
-          db = nil,
-          engineApiUrls,
-          metadata.eth1Network)
+        ELManager.new(engineApiUrls, metadata.eth1Network)
       else:
         nil
 
