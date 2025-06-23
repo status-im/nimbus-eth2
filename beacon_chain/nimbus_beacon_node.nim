@@ -1424,7 +1424,7 @@ proc maybeUpdateActionTrackerNextEpoch(
         shufflingRef = node.dag.getShufflingRef(node.dag.head, nextEpoch, false).valueOr:
           # epochRefFallback() won't work in this case either
           return
-          # using the separate method of proposer indices calculation in Fulu
+        # using the separate method of proposer indices calculation in Fulu
         nextEpochProposers = get_beacon_proposer_indices(
           forkyState.data, shufflingRef.shuffled_active_validator_indices,
           nextEpoch)

@@ -500,7 +500,7 @@ func get_beacon_proposer_indices*(
   ## Return the proposer indices for the given `epoch`.
   let indices = get_active_validator_indices(state, epoch)
   let seed = get_seed(state, epoch, DOMAIN_BEACON_PROPOSER)
-  return compute_proposer_indices(state, epoch, seed, indices)
+  compute_proposer_indices(state, epoch, seed, indices)
 
 # https://github.com/ethereum/consensus-specs/blob/v1.6.0-alpha.0/specs/phase0/beacon-chain.md#get_beacon_proposer_index
 func get_beacon_proposer_indices*(
@@ -523,7 +523,7 @@ func get_beacon_proposer_indices*(
           compute_inverted_shuffled_index(
             shuffled_index, seq_len, epoch_shuffle_seed))
 
-    return res
+    res
 
   else:
     get_beacon_proposer_indices(state, epoch)
