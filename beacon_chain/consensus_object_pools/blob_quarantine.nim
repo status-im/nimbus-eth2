@@ -10,14 +10,20 @@
 import
   stew/bitops2,
   std/[sets, tables],
-  results,
+  results, metrics,
   ../spec/datatypes/[deneb, electra, fulu],
-  ../spec/[presets, helpers]
+  ../spec/[presets, helpers],
+  ../beacon_chain_db_quarantine
 
 from std/sequtils import mapIt, toSeq
 from std/strutils import join
 
 export results
+
+declareGauge blob_quarantine_memory_slots_total, "Total count of available memory slots inside blob quarantine"
+declareGauge blob_quarantine_memory_slots_occupied, "Number of occupied memory slots inside blob quarantine"
+declareGauge blob_quarantine_database_slots_total, "Total count of availble database slots inside blob quarantine"
+declareGauge blob_quarantine_database_slots_occupied, "Number of occupied database slots inside blob quarantine"
 
 static:
   doAssert(NUMBER_OF_COLUMNS == 2 * 64, "ColumnMap should be updated")
@@ -26,19 +32,40 @@ type
   ColumnMap* = object
     data: array[2, uint64]
 
+  SidecarHolderKind {.pure.} = enum
+    Empty, Loaded, Unloaded
+
+  SidecarHolder[A] = object
+    index: uint64
+    proposer_index: uint64
+    slot: Slot
+    case kind: SidecarHolderKind
+    of SidecarHolderKind.Empty:
+      discard
+    of SidecarHolderKind.Unloaded:
+      discard
+    of SidecarHolderKind.Loaded:
+      data: ref A
+
   RootTableRecord[A] = object
-    sidecars: seq[ref A]
+    sidecars: seq[SidecarHolder[A]]
+    slot: Slot
+    unloaded: int
     count: int
 
   SidecarQuarantine[A, B] = object
-    maxSidecarsCount: int
+    maxMemSidecarsCount: int
+    memSidecarsCount: int
+    maxDiskSidecarsCount: int
+    diskSidecarsCount: int
     maxSidecarsPerBlockCount: int
-    sidecarsCount: int
     custodyColumns: seq[ColumnIndex]
     custodyMap: ColumnMap
     roots: Table[Eth2Digest, RootTableRecord[A]]
-    usage: OrderedSet[Eth2Digest]
+    memUsage: OrderedSet[Eth2Digest]
+    diskUsage: OrderedSet[Eth2Digest]
     indexMap: seq[int]
+    db: QuarantineDB
     onSidecarCallback*: B
 
   OnBlobSidecarCallback* = proc(
@@ -50,6 +77,15 @@ type
     SidecarQuarantine[BlobSidecar, OnBlobSidecarCallback]
   ColumnQuarantine* =
     SidecarQuarantine[DataColumnSidecar, OnDataColumnSidecarCallback]
+
+func isEmpty[A](holder: SidecarHolder[A]): bool =
+  holder.kind == SidecarHolderKind.Empty
+
+func isUnloaded[A](holder: SidecarHolder[A]): bool =
+  holder.kind == SidecarHolderKind.Unloaded
+
+func isLoaded[A](holder: SidecarHolder[A]): bool =
+  holder.kind == SidecarHolderKind.Loaded
 
 func init*(t: typedesc[ColumnMap], columns: openArray[ColumnIndex]): ColumnMap =
   var res: ColumnMap
@@ -71,7 +107,7 @@ iterator items*(a: ColumnMap): ColumnIndex =
   while data0 != 0'u64:
     let
       # t = data0 and -data0
-      t = data0 and ((0xFFFF_FFFF_FFFF_FFFF'u64 - data0) + 1'u64)
+      t = data0 and (not(data0) + 1'u64)
       res = firstOne(data0)
     yield ColumnIndex(res - 1)
     data0 = data0 xor t
@@ -79,7 +115,7 @@ iterator items*(a: ColumnMap): ColumnIndex =
   while data1 != 0'u64:
     let
       # t = data0 and -data0
-      t = data1 and ((0xFFFF_FFFF_FFFF_FFFF'u64 - data1) + 1'u64)
+      t = data1 and (not(data1) + 1'u64)
       res = firstOne(data1)
     yield ColumnIndex(64 + res - 1)
     data1 = data1 xor t
@@ -87,45 +123,61 @@ iterator items*(a: ColumnMap): ColumnIndex =
 func `$`*(a: ColumnMap): string =
   "[" & a.items().toSeq().mapIt($it).join(", ") & "]"
 
-func maxSidecars(maxSidecarsPerBlock: uint64): int =
+func maxSidecars*(maxSidecarsPerBlock: uint64): int =
   # Same limit as `MaxOrphans` in `block_quarantine`;
   # blobs may arrive before an orphan is tagged `blobless`
   3 * int(SLOTS_PER_EPOCH) * int(maxSidecarsPerBlock)
-
-func shortLog*(x: seq[BlobIndex]): string =
-  "<" & x.mapIt($it).join(", ") & ">"
 
 func init[A, B](
     t: typedesc[RootTableRecord],
     q: SidecarQuarantine[A, B]
 ): RootTableRecord[A] =
   RootTableRecord[A](
-    sidecars: newSeq[ref A](q.maxSidecarsPerBlockCount), count: 0)
+    sidecars: newSeq[SidecarHolder[A]](q.maxSidecarsPerBlockCount),
+    count: 0, unloaded: 0, slot: FAR_FUTURE_SLOT)
 
 func len*[A, B](quarantine: SidecarQuarantine[A, B]): int =
-  quarantine.sidecarsCount
+  quarantine.memSidecarsCount + quarantine.diskSidecarsCount
 
-func `$`*[A](r: RootTableRecord[A]): string =
-  if len(r.sidecars) == 0:
-    return "<empty>"
-  r.sidecars.mapIt(if isNil(it): "." else: "x").join("")
+func lenMemory*[A, B](quarantine: SidecarQuarantine[A, B]): int =
+  quarantine.memSidecarsCount
 
-func removeRoot[A, B](
+func lenDisk*[A, B](quarantine: SidecarQuarantine[A, B]): int =
+  quarantine.diskSidecarsCount
+
+proc removeRoot[A, B](
     quarantine: var SidecarQuarantine[A, B],
     blockRoot: Eth2Digest
 ) =
+  # This procedore removes all the sidecars associated with `blockRoot` from
+  # memory and from disk.
   var
     rootRecord: RootTableRecord[A]
+    sidecarsOnDisk = 0
 
   if quarantine.roots.pop(blockRoot, rootRecord):
     for index in 0 ..< len(rootRecord.sidecars):
-      if not(rootRecord.sidecars[index].isNil()):
-        rootRecord.sidecars[index] = nil
-        dec(quarantine.sidecarsCount)
+      case rootRecord.sidecars[index].kind
+      of SidecarHolderKind.Empty:
+        discard
+      of SidecarHolderKind.Loaded:
+        rootRecord.sidecars[index].data = nil
+        dec(quarantine.memSidecarsCount)
+        blob_quarantine_memory_slots_occupied.set(
+          quarantine.memSidecarsCount)
+      of SidecarHolderKind.Unloaded:
+        dec(quarantine.diskSidecarsCount)
+        blob_quarantine_database_slots_occupied.set(
+          quarantine.diskSidecarsCount)
+        inc(sidecarsOnDisk)
 
-  quarantine.usage.excl(blockRoot)
+    if sidecarsOnDisk > 0 and quarantine.maxMemSidecarsCount > 0:
+      quarantine.db.removeDataSidecars(A, blockRoot)
+      quarantine.diskUsage.excl(blockRoot)
 
-func remove*[A, B](
+    quarantine.memUsage.excl(blockRoot)
+
+proc remove*[A, B](
     quarantine: var SidecarQuarantine[A, B],
     blockRoot: Eth2Digest
 ) =
@@ -135,16 +187,44 @@ func remove*[A, B](
   ## Function do nothing, if ``blockRoot` is not part of the quarantine.
   quarantine.removeRoot(blockRoot)
 
-func pruneRoot[A, B](quarantine: var SidecarQuarantine[A, B]) =
-  # Remove the all the blobs related to the oldest block root from the
-  # quarantine ``quarantine``.
-  if len(quarantine.usage) == 0:
-    return
+func getOldestInMemoryRoot[A, B](
+    quarantine: SidecarQuarantine[A, B]
+): Eth2Digest =
   var oldestRoot: Eth2Digest
-  for blockRoot in quarantine.usage:
+  for blockRoot in quarantine.memUsage:
     oldestRoot = blockRoot
     break
-  quarantine.remove(oldestRoot)
+  oldestRoot
+
+func getOldestOnDiskRoot[A, B](
+    quarantine: SidecarQuarantine[A, B]
+): Eth2Digest =
+  var oldestRoot: Eth2Digest
+  for blockRoot in quarantine.diskUsage:
+    oldestRoot = blockRoot
+    break
+  oldestRoot
+
+func fitsInMemory[A, B](quarantine: SidecarQuarantine[A, B], count: int): bool =
+  quarantine.memSidecarsCount + count <= quarantine.maxMemSidecarsCount
+
+func fitsOnDisk[A, B](quarantine: SidecarQuarantine[A, B], count: int): bool =
+  quarantine.diskSidecarsCount + count <= quarantine.maxDiskSidecarsCount
+
+proc pruneInMemoryRoot[A, B](quarantine: var SidecarQuarantine[A, B]) =
+  # Remove the all the blobs related to the oldest block root from the memory
+  # storage of quarantine ``quarantine``.
+  if len(quarantine.memUsage) == 0:
+    return
+  quarantine.remove(quarantine.getOldestInMemoryRoot())
+
+proc pruneOnDiskRoot[A, B](quarantine: var SidecarQuarantine[A, B]) =
+  # Remove the all the blobs related to the oldest block root from the disk
+  # storage of quarantine ``quarantine``.
+  # Returns `true` if oldest block root on disk is equal to `unloadRoot`.
+  if len(quarantine.diskUsage) == 0:
+    return
+  quarantine.remove(quarantine.getOldestOnDiskRoot())
 
 func getIndex(quarantine: BlobQuarantine, index: BlobIndex): int =
   quarantine.indexMap[int(index)]
@@ -158,7 +238,74 @@ template slot(b: BlobSidecar|DataColumnSidecar): Slot =
 template proposer_index(b: BlobSidecar|DataColumnSidecar): uint64 =
   b.signed_block_header.message.proposer_index
 
-func put[A, B](record: var RootTableRecord[A], q: var SidecarQuarantine[A, B],
+func unload[A](holder: var SidecarHolder[A]): ref A =
+  doAssert(holder.kind == SidecarHolderKind.Loaded)
+  let res = holder.data
+  holder.data = nil
+  holder = SidecarHolder[A](
+    kind: SidecarHolderKind.Unloaded,
+    slot: holder.slot,
+    index: holder.index,
+    proposer_index: holder.proposer_index,
+  )
+  res
+
+func load[A](holder: var SidecarHolder[A], sidecar: ref A) =
+  holder = SidecarHolder[A](
+    kind: SidecarHolderKind.Loaded,
+    slot: holder.slot,
+    index: holder.index,
+    proposer_index: holder.proposer_index,
+    data: sidecar
+  )
+
+proc unloadRoot[A, B](quarantine: var SidecarQuarantine[A, B]) =
+  doAssert(len(quarantine.memUsage) > 0)
+
+  if quarantine.maxDiskSidecarsCount == 0:
+    # Disk storage is disabled, so we use should prune memory storage instead.
+    quarantine.pruneInMemoryRoot()
+    return
+
+  let blockRoot = quarantine.getOldestInMemoryRoot()
+
+  quarantine.roots.withValue(blockRoot, record):
+    if not(quarantine.fitsOnDisk(record[].count)):
+      quarantine.pruneOnDiskRoot()
+      # Pruning on disk also removes sidecars from memory, so this could be
+      # enough
+      return
+
+    var res: seq[ref A]
+    for index in 0 ..< len(record[].sidecars):
+      if record[].sidecars[index].kind == SidecarHolderKind.Loaded:
+        res.add(record[].sidecars[index].unload())
+        dec(quarantine.memSidecarsCount)
+        inc(quarantine.diskSidecarsCount)
+        blob_quarantine_memory_slots_occupied.set(
+          quarantine.memSidecarsCount)
+        blob_quarantine_database_slots_occupied.set(
+          quarantine.diskSidecarsCount)
+        inc(record[].unloaded)
+
+    if len(res) > 0:
+      quarantine.db.putDataSidecars(blockRoot, res)
+      quarantine.memUsage.excl(blockRoot)
+      quarantine.diskUsage.incl(blockRoot)
+
+proc loadRoot[A, B](quarantine: var SidecarQuarantine[A, B],
+                    blockRoot: Eth2Digest,
+                    record: var RootTableRecord[A]) =
+  for sidecar in quarantine.db.sidecars(A, blockRoot):
+    let index = quarantine.getIndex(sidecar.index)
+    doAssert(index >= 0, "Incorrect sidecar index [" & $sidecar.index & "]")
+    doAssert(record.sidecars[index].isUnloaded(),
+             "Database storage is inconsistent")
+    record.sidecars[index].load(newClone(sidecar))
+    dec(record.unloaded)
+  doAssert(record.unloaded == 0, "Record's unload counter should be zero")
+
+proc put[A, B](record: var RootTableRecord[A], q: var SidecarQuarantine[A, B],
                sidecars: openArray[ref A]) =
   for sidecar in sidecars:
     # Sidecar should pass validation before being added to quarantine,
@@ -168,19 +315,29 @@ func put[A, B](record: var RootTableRecord[A], q: var SidecarQuarantine[A, B],
     # 3. sidecar.index is in custody columns set for `fulu`.
     let index = q.getIndex(sidecar.index)
     doAssert(index >= 0, "Incorrect sidecar index [" & $sidecar.index & "]")
-    if isNil(record.sidecars[index]):
-      inc(q.sidecarsCount)
-      inc(record.count)
-    record.sidecars[index] = sidecar
 
-func put*[A, B](
+    if isEmpty(record.sidecars[index]):
+      inc(q.memSidecarsCount)
+      blob_quarantine_memory_slots_occupied.set(q.memSidecarsCount)
+      inc(record.count)
+      record.slot = sidecar[].slot()
+
+    record.sidecars[index] = SidecarHolder[A](
+      kind: SidecarHolderKind.Loaded,
+      slot: sidecar[].slot(),
+      index: uint64(sidecar[].index),
+      proposer_index: sidecar[].proposer_index(),
+      data: sidecar
+    )
+
+proc put*[A, B](
     quarantine: var SidecarQuarantine[A, B],
     blockRoot: Eth2Digest,
     sidecar: ref A
 ) =
   ## Function adds blob or data column sidecar associated with block root
   ## ``blockRoot`` to the quarantine ``quarantine``.
-  while quarantine.sidecarsCount >= quarantine.maxSidecarsCount:
+  while not(quarantine.fitsInMemory(1)):
     # FIFO if full. For example, sync manager and request manager can race to
     # put blobs in at the same time, so one gets blob insert -> block resolve
     # -> blob insert sequence, which leaves garbage blobs.
@@ -189,14 +346,14 @@ func put*[A, B](
     # blobs which are correctly signed, point to either correct block roots or a
     # block root which isn't ever seen, and then are for any reason simply never
     # used.
-    quarantine.pruneRoot()
+    quarantine.unloadRoot()
 
   let rootRecord = RootTableRecord.init(quarantine)
   quarantine.roots.mgetOrPut(blockRoot, rootRecord).put(
     quarantine, [sidecar])
-  quarantine.usage.incl(blockRoot)
+  quarantine.memUsage.incl(blockRoot)
 
-func put*[A, B](
+proc put*[A, B](
     quarantine: var SidecarQuarantine[A, B],
     blockRoot: Eth2Digest,
     sidecars: openArray[ref A]
@@ -206,7 +363,7 @@ func put*[A, B](
   if len(sidecars) == 0:
     return
 
-  while quarantine.sidecarsCount + len(sidecars) >= quarantine.maxSidecarsCount:
+  while not(quarantine.fitsInMemory(len(sidecars))):
     # FIFO if full. For example, sync manager and request manager can race to
     # put blobs in at the same time, so one gets blob insert -> block resolve
     # -> blob insert sequence, which leaves garbage blobs.
@@ -215,13 +372,13 @@ func put*[A, B](
     # blobs which are correctly signed, point to either correct block roots or a
     # block root which isn't ever seen, and then are for any reason simply never
     # used.
-    quarantine.pruneRoot()
+    quarantine.unloadRoot()
 
   let rootRecord = RootTableRecord.init(quarantine)
 
   quarantine.roots.mgetOrPut(blockRoot, rootRecord).put(
     quarantine, sidecars)
-  quarantine.usage.incl(blockRoot)
+  quarantine.memUsage.incl(blockRoot)
 
 template hasSidecarImpl(
     blockRoot: Eth2Digest,
@@ -233,10 +390,10 @@ template hasSidecarImpl(
   if rootRecord.count == 0:
     return false
   let index = quarantine.getIndex(index)
-  if (index == -1) or (isNil(rootRecord.sidecars[index])):
+  if (index == -1) or rootRecord.sidecars[index].isEmpty():
     return false
-  if (rootRecord.sidecars[index][].proposer_index() != proposer_index) or
-     (rootRecord.sidecars[index][].slot() != slot):
+  if (rootRecord.sidecars[index].proposer_index != proposer_index) or
+     (rootRecord.sidecars[index].slot != slot):
     return false
   true
 
@@ -274,8 +431,8 @@ func hasSidecars*(
     return true
 
   let record = quarantine.roots.getOrDefault(blockRoot)
-  if len(record.sidecars) == 0:
-    # block root not found, record.sidecars sequence was not initialized.
+  if record.count == 0:
+    # block root not found.
     return false
 
   if record.count < len(blck.message.body.blob_kzg_commitments):
@@ -328,7 +485,7 @@ func hasSidecars*(
   ## ``blck`` with block root ``blockRoot``.
   hasSidecars(quarantine, blck.root, blck)
 
-func popSidecars*(
+proc popSidecars*(
     quarantine: var BlobQuarantine,
     blockRoot: Eth2Digest,
     blck: deneb.SignedBeaconBlock | electra.SignedBeaconBlock |
@@ -344,7 +501,7 @@ func popSidecars*(
     quarantine.remove(blockRoot)
     return Opt.some(default(seq[ref BlobSidecar]))
 
-  let record = quarantine.roots.getOrDefault(blockRoot)
+  var record = quarantine.roots.getOrDefault(blockRoot)
   if len(record.sidecars) == 0:
     # block root not found, record.sidecars sequence was not initialized.
     return Opt.none(seq[ref BlobSidecar])
@@ -353,15 +510,24 @@ func popSidecars*(
     # Quarantine does not hold enough blob sidecars.
     return Opt.none(seq[ref BlobSidecar])
 
+  if record.unloaded > 0:
+    # Quarantine unloaded some blobs to disk, we should load it back.
+    quarantine.loadRoot(blockRoot, record)
+
   var sidecars: seq[ref BlobSidecar]
   for bindex in 0 ..< len(blck.message.body.blob_kzg_commitments):
     let index = quarantine.getIndex(BlobIndex(bindex))
-    doAssert(not(isNil(record.sidecars[index])),
-      "Record should not store nil values when record's count is correct")
-    sidecars.add(record.sidecars[index])
+    doAssert(record.sidecars[index].isLoaded(),
+      "Record should only have loaded values at this point")
+    sidecars.add(record.sidecars[index].data)
+
+  # popSidecars() should remove all the artifacts from the quarantine in both
+  # memory and disk.
+  quarantine.removeRoot(blockRoot)
+
   Opt.some(sidecars)
 
-func popSidecars*(
+proc popSidecars*(
     quarantine: var ColumnQuarantine,
     blockRoot: Eth2Digest,
     blck: fulu.SignedBeaconBlock
@@ -376,7 +542,7 @@ func popSidecars*(
     quarantine.remove(blockRoot)
     return Opt.some(default(seq[ref DataColumnSidecar]))
 
-  let record = quarantine.roots.getOrDefault(blockRoot)
+  var record = quarantine.roots.getOrDefault(blockRoot)
   if len(record.sidecars) == 0:
     # block root not found, record.sidecars sequence was not allocated.
     return Opt.none(seq[ref DataColumnSidecar])
@@ -393,24 +559,40 @@ func popSidecars*(
     # Quarantine does not hold enough column sidecars.
     return Opt.none(seq[ref DataColumnSidecar])
 
+  if record.unloaded > 0:
+    # Quarantine unloaded some blobs to disk, we should load it back.
+    quarantine.loadRoot(blockRoot, record)
+
   var sidecars: seq[ref DataColumnSidecar]
   if supernode:
     for sidecar in record.sidecars:
       # Supernode could have some of the columns not filled.
-      if not(isNil(sidecar)):
-        sidecars.add(sidecar)
+      if not(sidecar.isEmpty()):
+        doAssert(sidecar.isLoaded(),
+                 "Sidecars should be loaded at this moment")
+        sidecars.add(sidecar.data)
+      if len(sidecars) >= (NUMBER_OF_COLUMNS div 2 + 1):
+        break
+
     doAssert(len(sidecars) >= (NUMBER_OF_COLUMNS div 2 + 1),
              "Incorrect amount of sidecars in record")
-    Opt.some(sidecars)
   else:
     for cindex in quarantine.custodyColumns:
       let index = quarantine.getIndex(cindex)
-      doAssert(not(isNil(record.sidecars[index])),
-        "Record should not store nil values when record's count is correct")
-      sidecars.add(record.sidecars[index])
-    Opt.some(sidecars)
+      doAssert(record.sidecars[index].isLoaded(),
+               "Sidecars should be loaded at this moment")
+      sidecars.add(record.sidecars[index].data)
 
-func popSidecars*(
+    doAssert(len(sidecars) == len(quarantine.custodyColumns),
+             "Incorrect amount of sidecars in record")
+
+  # popSidecars() should remove all the artifacts from the quarantine in both
+  # memory and disk.
+  quarantine.removeRoot(blockRoot)
+
+  Opt.some(sidecars)
+
+proc popSidecars*(
     quarantine: var BlobQuarantine,
     blck: deneb.SignedBeaconBlock | electra.SignedBeaconBlock |
           fulu.SignedBeaconBlock
@@ -418,7 +600,7 @@ func popSidecars*(
   ## Alias for `popSidecars()`.
   popSidecars(quarantine, blck.root, blck)
 
-func popSidecars*(
+proc popSidecars*(
     quarantine: var ColumnQuarantine,
     blck: fulu.SignedBeaconBlock
 ): Opt[seq[ref DataColumnSidecar]] =
@@ -444,7 +626,7 @@ func fetchMissingSidecars*(
 
   for bindex in 0 ..< commitmentsCount:
     let index = quarantine.getIndex(BlobIndex(bindex))
-    if len(record.sidecars) == 0 or (record.sidecars[index].isNil()):
+    if len(record.sidecars) == 0 or record.sidecars[index].isEmpty():
       res.add(BlobIdentifier(block_root: blockRoot, index: BlobIndex(bindex)))
   res
 
@@ -497,7 +679,7 @@ func fetchMissingSidecars*(
           # columns.
           break
         let index = quarantine.getIndex(column)
-        if (index == -1) or record.sidecars[index].isNil():
+        if (index == -1) or record.sidecars[index].isEmpty():
           res.add(DataColumnIdentifier(block_root: blockRoot, index: column))
           inc(columnsRequested)
   else:
@@ -512,35 +694,23 @@ func fetchMissingSidecars*(
     else:
       for column in (peerMap and quarantine.custodyMap).items():
         let index = quarantine.getIndex(column)
-        if (index == -1) or (record.sidecars[index].isNil()):
+        if (index == -1) or record.sidecars[index].isEmpty():
           res.add(DataColumnIdentifier(block_root: blockRoot, index: column))
   res
 
-func pruneAfterFinalization*[A, B](
+proc pruneAfterFinalization*[A, B](
     quarantine: var SidecarQuarantine[A, B],
     epoch: Epoch
 ) =
-  let epochSlot = epoch.start_slot()
-  var
-    sidecarsCount = 0
-    rootsToRemove: seq[Eth2Digest]
+  let epochSlot = (epoch + 1).start_slot()
+  var rootsToRemove: seq[Eth2Digest]
 
   for mkey, mrecord in quarantine.roots.mpairs():
-    var removeRoot = false
-    for index in 0 ..< len(mrecord.sidecars):
-      if not(isNil(mrecord.sidecars[index])) and
-         mrecord.sidecars[index][].slot < epochSlot:
-        removeRoot = true
-        # Preemptively freeing `ref` object reference.
-        mrecord.sidecars[index] = nil
-        inc(sidecarsCount)
-    if removeRoot:
+    if (mrecord.count > 0) and (mrecord.slot < epochSlot):
       rootsToRemove.add(mkey)
 
   for root in rootsToRemove:
-    quarantine.roots.del(root)
-
-  dec(quarantine.sidecarsCount, sidecarsCount)
+    quarantine.removeRoot(root)
 
 template onBlobSidecarCallback*(
     quarantine: BlobQuarantine
@@ -552,9 +722,11 @@ template onDataColumnSidecarCallback*(
 ): OnDataColumnSidecarCallback =
   quarantine.onSidecarCallback
 
-func init*(
+proc init*(
     T: typedesc[BlobQuarantine],
     cfg: RuntimeConfig,
+    database: QuarantineDB,
+    maxDiskSizeMultipler: int,
     onBlobSidecarCallback: OnBlobSidecarCallback
 ): BlobQuarantine =
   # BlobSidecars maps are trivial, but still useful
@@ -563,22 +735,32 @@ func init*(
     indexMap[index] = index
 
   let size = maxSidecars(cfg.MAX_BLOBS_PER_BLOCK_ELECTRA)
+
+  blob_quarantine_memory_slots_total.set(size)
+  blob_quarantine_database_slots_total.set(size * maxDiskSizeMultipler)
+  blob_quarantine_memory_slots_occupied.set(0)
+  blob_quarantine_database_slots_occupied.set(0)
+
   BlobQuarantine(
     maxSidecarsPerBlockCount: int(cfg.MAX_BLOBS_PER_BLOCK_ELECTRA),
-    maxSidecarsCount: size,
-    sidecarsCount: 0,
+    maxMemSidecarsCount: size,
+    maxDiskSidecarsCount: size * maxDiskSizeMultipler,
+    memSidecarsCount: 0,
+    diskSidecarsCount: 0,
     indexMap: indexMap,
-    onSidecarCallback: onBlobSidecarCallback
+    onSidecarCallback: onBlobSidecarCallback,
+    db: database
   )
 
-func init*(
+proc init*(
     T: typedesc[ColumnQuarantine],
     cfg: RuntimeConfig,
     custodyColumns: openArray[ColumnIndex],
+    database: QuarantineDB,
+    maxDiskSizeMultipler: int,
     onBlobSidecarCallback: OnDataColumnSidecarCallback
 ): ColumnQuarantine =
   doAssert(len(custodyColumns) <= NUMBER_OF_COLUMNS)
-  let size = maxSidecars(NUMBER_OF_COLUMNS)
   var indexMap = newSeqUninit[int](NUMBER_OF_COLUMNS)
   if len(custodyColumns) < NUMBER_OF_COLUMNS:
     for i in 0 ..< len(indexMap):
@@ -587,12 +769,22 @@ func init*(
     doAssert(item < uint64(NUMBER_OF_COLUMNS))
     indexMap[int(item)] = index
 
+  let size = maxSidecars(NUMBER_OF_COLUMNS)
+
+  blob_quarantine_memory_slots_total.set(size)
+  blob_quarantine_database_slots_total.set(size * maxDiskSizeMultipler)
+  blob_quarantine_memory_slots_occupied.set(0)
+  blob_quarantine_database_slots_occupied.set(0)
+
   ColumnQuarantine(
     maxSidecarsPerBlockCount: len(custodyColumns),
-    maxSidecarsCount: size,
-    sidecarsCount: 0,
+    maxMemSidecarsCount: size,
+    maxDiskSidecarsCount: size * maxDiskSizeMultipler,
+    memSidecarsCount: 0,
+    diskSidecarsCount: 0,
     indexMap: indexMap,
     custodyColumns: @custodyColumns,
     custodyMap: ColumnMap.init(custodyColumns),
+    db: database,
     onSidecarCallback: onBlobSidecarCallback
   )

@@ -2373,6 +2373,53 @@ func checkCompoundingChanges(
   withState(state):
     anyIt(vis, forkyState.data.validators[it].has_compounding_withdrawal_credential)
 
+func trackVanityState(
+    dag: ChainDAGRef, knownValidators: openArray[ValidatorIndex]): auto =
+  (
+    lastHeadKind: dag.headState.kind,
+    lastHeadEpoch: getStateField(dag.headState, slot).epoch,
+    lastKnownValidatorsChangeStatuses:
+      dag.headState.getBlsToExecutionChangeStatuses(knownValidators),
+    lastKnownCompoundingChangeStatuses:
+      dag.headState.getCompoundingStatuses(knownValidators)
+  )
+
+proc processVanityLogs(dag: ChainDAGRef, vanityState: auto) =
+  if dag.headState.kind > vanityState.lastHeadKind:
+    proc logForkUpgrade(consensusFork: ConsensusFork, handler: LogProc) =
+      if handler != nil and
+          dag.headState.kind >= consensusFork and
+          vanityState.lastHeadKind < consensusFork:
+        handler()
+
+    # Policy: Retain back through Mainnet's second latest fork.
+    ConsensusFork.Deneb.logForkUpgrade(
+      dag.vanityLogs.onUpgradeToDeneb)
+    ConsensusFork.Electra.logForkUpgrade(
+      dag.vanityLogs.onUpgradeToElectra)
+    ConsensusFork.Fulu.logForkUpgrade(
+      dag.vanityLogs.onUpgradeToFulu)
+  else:
+    if dag.vanityLogs.onBlobParametersUpdate != nil and
+        dag.headState.kind >= ConsensusFork.Fulu:
+      let headEpoch = getStateField(dag.headState, slot).epoch
+      if headEpoch > vanityState.lastHeadEpoch:
+        for entry in dag.cfg.BLOB_SCHEDULE:
+          if headEpoch >= entry.EPOCH:
+            if vanityState.lastHeadEpoch < entry.EPOCH:
+              dag.vanityLogs.onBlobParametersUpdate()
+            break
+
+  if  dag.vanityLogs.onKnownBlsToExecutionChange != nil and
+      checkBlsToExecutionChanges(
+        dag.headState, vanityState.lastKnownValidatorsChangeStatuses):
+    dag.vanityLogs.onKnownBlsToExecutionChange()
+
+  if  dag.vanityLogs.onKnownCompoundingChange != nil and
+      checkCompoundingChanges(
+        dag.headState, vanityState.lastKnownCompoundingChangeStatuses):
+    dag.vanityLogs.onKnownCompoundingChange()
+
 proc updateHead*(
     dag: ChainDAGRef, newHead: BlockRef, quarantine: var Quarantine,
     knownValidators: openArray[ValidatorIndex]) =
@@ -2410,11 +2457,7 @@ proc updateHead*(
 
   let
     lastHeadStateRoot = getStateRoot(dag.headState)
-    lastHeadKind = dag.headState.kind
-    lastKnownValidatorsChangeStatuses = getBlsToExecutionChangeStatuses(
-      dag.headState, knownValidators)
-    lastKnownCompoundingChangeStatuses = getCompoundingStatuses(
-      dag.headState, knownValidators)
+    vanityState = dag.trackVanityState(knownValidators)
 
   # Start off by making sure we have the right state - updateState will try
   # to use existing in-memory states to make this smooth
@@ -2430,30 +2473,7 @@ proc updateHead*(
     quit 1
 
   dag.head = newHead
-
-  if dag.headState.kind > lastHeadKind:
-    proc logForkUpgrade(consensusFork: ConsensusFork, handler: LogProc) =
-      if handler != nil and
-          dag.headState.kind >= consensusFork and
-          lastHeadKind < consensusFork:
-        handler()
-
-    # Policy: Retain back through Mainnet's second latest fork.
-    ConsensusFork.Deneb.logForkUpgrade(
-      dag.vanityLogs.onUpgradeToDeneb)
-    ConsensusFork.Electra.logForkUpgrade(
-      dag.vanityLogs.onUpgradeToElectra)
-
-  if  dag.vanityLogs.onKnownBlsToExecutionChange != nil and
-      checkBlsToExecutionChanges(
-        dag.headState, lastKnownValidatorsChangeStatuses):
-    dag.vanityLogs.onKnownBlsToExecutionChange()
-
-  if  dag.vanityLogs.onKnownCompoundingChange != nil and
-      checkCompoundingChanges(
-        dag.headState, lastKnownCompoundingChangeStatuses):
-    dag.vanityLogs.onKnownCompoundingChange()
-
+  dag.processVanityLogs(vanityState)
   dag.db.putHeadBlock(newHead.root)
 
   updateBeaconMetrics(dag.headState, dag.head.bid, cache)

@@ -1406,7 +1406,7 @@ proc process_proposer_lookahead*(state: var fulu.BeaconState,
       mitem(state.proposer_lookahead, i + SLOTS_PER_EPOCH)
 
   let
-    next_epoch    = Epoch(get_current_epoch(state) + MIN_SEED_LOOKAHEAD + 1)
+    next_epoch    = get_current_epoch(state) + MIN_SEED_LOOKAHEAD + 1
     new_proposers =
       get_beacon_proposer_indices(state, next_epoch)
 

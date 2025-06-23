@@ -1243,6 +1243,3 @@ proc testWeb3Provider*(
 
   discard request "Sync status":
     web3.provider.eth_syncing()
-
-  discard request "Latest block":
-    web3.provider.eth_getBlockByNumber(blockId("latest"), false)

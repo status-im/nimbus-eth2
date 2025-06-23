@@ -1,3 +1,33 @@
+2025-06-16 v25.6.0
+==================
+
+Nimbus `v25.6.0` is a `low-urgency` release.
+
+### Improvements
+
+- Exit on first slashing of a validator for which it is responsible:
+  https://github.com/status-im/nimbus-eth2/pull/7091
+
+- Reduce the extent to which backfilling can hinder forward sync or chain progress:
+  https://github.com/status-im/nimbus-eth2/pull/7191
+
+- Prevent empty block responses from peers from causing forward sync to overshoot:
+  https://github.com/status-im/nimbus-eth2/pull/7197
+
+- Provide blocks and blobs over req/resp regardless of payload validation status:
+  https://github.com/status-im/nimbus-eth2/pull/7198
+
+- Remove deprecated Eth1Data polling for deposits in favor of EIP6110:
+  https://github.com/status-im/nimbus-eth2/pull/7114
+
+### Fixes
+
+- Implement getPendingConsolidations and add `version` field to getPendingDeposits and getPendingPartialWithdrawals beacon API endpoints:
+  https://github.com/status-im/nimbus-eth2/pull/7170
+
+- Add missing `finalized` field to getStateRandao beacon API endpoint:
+  https://github.com/status-im/nimbus-eth2/pull/7171
+
 2025-05-08 v25.5.0
 ==================
 

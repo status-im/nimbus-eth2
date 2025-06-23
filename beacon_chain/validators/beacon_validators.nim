@@ -950,8 +950,10 @@ proc proposeBlockMEV(
         "Unblinded block not returned to proposer"
     err errMsg
 
-func isEFMainnet(cfg: RuntimeConfig): bool =
-  cfg.DEPOSIT_CHAIN_ID == 1 and cfg.DEPOSIT_NETWORK_ID == 1
+func isExcludedTestnet(cfg: RuntimeConfig): bool =
+  ## Ensure that builder API testing can still occur in certain circumstances.
+  cfg.DEPOSIT_CHAIN_ID == cfg.DEPOSIT_NETWORK_ID and cfg.DEPOSIT_CHAIN_ID in [
+    11155111'u64, 17000, 560048]  # Sepolia, Holesky, and Hoodi, respectively
 
 proc collectBids(
     SBBB: typedesc, EPS: typedesc, node: BeaconNode,
@@ -967,7 +969,7 @@ proc collectBids(
         # EL fails -- i.e. it would change priorities, so any block from the
         # execution layer client would override builder API. But it seems an
         # odd requirement to produce no block at all in those conditions.
-        (not node.dag.cfg.isEFMainnet) or (not livenessFailsafeInEffect(
+        (node.dag.cfg.isExcludedTestnet) or (not livenessFailsafeInEffect(
           forkyState.data.block_roots.data, forkyState.data.slot))
     else:
       false

@@ -52,7 +52,7 @@ const
   defaultSigningNodeRequestTimeout* = 60
   defaultBeaconNode* = "http://127.0.0.1:" & $defaultEth2RestPort
   defaultBeaconNodeUri* = parseUri(defaultBeaconNode)
-  defaultGasLimit* = 36_000_000
+  defaultGasLimit* = 45_000_000
   defaultAdminListenAddressDesc* = $defaultAdminListenAddress
   defaultBeaconNodeDesc = $defaultBeaconNode
 
@@ -202,7 +202,6 @@ type
 
     web3ForcePolling* {.
       hidden
-      desc: "Force the use of polling when determining the head block of Eth1 (obsolete)"
       name: "web3-force-polling" .}: Option[bool]
 
     web3Urls* {.

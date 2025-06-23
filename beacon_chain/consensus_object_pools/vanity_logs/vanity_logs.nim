@@ -31,6 +31,14 @@ type
     # known in a head block.
     onKnownCompoundingChange*: LogProc
 
+    # Gets displayed on upgrade to Fulu. May be displayed multiple times
+    # in case of chain reorgs around the upgrade.
+    onUpgradeToFulu*: LogProc
+
+    # Gets displayed on a blob parameters update.
+    # May be displayed multiple times in case of chain reorgs.
+    onBlobParametersUpdate*: LogProc
+
 # Created by https://beatscribe.com (beatscribe#1008 on Discord)
 # These need to be the main body of the log not to be reformatted or escaped.
 #
@@ -45,3 +53,6 @@ proc denebColor*() = notice "\n" & staticRead("deneb" / "color.ans")
 proc electraMono*()  = notice "\n" & staticRead("electra" / "mono.txt")
 proc electraColor*() = notice "\n" & staticRead("electra" / "color.ans")
 proc electraBlink*() = notice "\n" & staticRead("electra" / "blink.ans")
+
+proc fuluMono*()  = notice "\n" & staticRead("fulu" / "mono.txt")
+proc fuluColor*() = notice "\n" & staticRead("fulu" / "color.ans")

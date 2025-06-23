@@ -15,7 +15,7 @@ export base
 
 const
   # https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.10/specs/phase0/p2p-interface.md#topics-and-messages
-  # https://github.com/ethereum/consensus-specs/blob/v1.6.0-alpha.0/specs/capella/p2p-interface.md#topics-and-messages
+  # https://github.com/ethereum/consensus-specs/blob/v1.6.0-alpha.2/specs/capella/p2p-interface.md#topics-and-messages
   topicBeaconBlocksSuffix = "beacon_block/ssz_snappy"
   topicVoluntaryExitsSuffix = "voluntary_exit/ssz_snappy"
   topicProposerSlashingsSuffix = "proposer_slashing/ssz_snappy"
@@ -44,6 +44,7 @@ const
   enrAttestationSubnetsField* = "attnets"
   enrSyncSubnetsField* = "syncnets"
   enrCustodySubnetCountField* = "cgc"
+  enrNextForkDigestField* = "nfd"
   enrForkIdField* = "eth2"
 
 template eth2Prefix(forkDigest: ForkDigest): string =
@@ -121,7 +122,7 @@ func compute_subnet_for_blob_sidecar*(
 func compute_subnet_for_data_column_sidecar*(column_index: ColumnIndex): uint64 =
     uint64(column_index mod DATA_COLUMN_SIDECAR_SUBNET_COUNT)
 
-# https://github.com/ethereum/consensus-specs/blob/v1.6.0-alpha.0/specs/altair/light-client/p2p-interface.md#light_client_finality_update
+# https://github.com/ethereum/consensus-specs/blob/v1.6.0-alpha.2/specs/altair/light-client/p2p-interface.md#light_client_finality_update
 func getLightClientFinalityUpdateTopic*(forkDigest: ForkDigest): string =
   ## For broadcasting or obtaining the latest `LightClientFinalityUpdate`.
   eth2Prefix(forkDigest) & "light_client_finality_update/ssz_snappy"
@@ -130,6 +131,14 @@ func getLightClientFinalityUpdateTopic*(forkDigest: ForkDigest): string =
 func getLightClientOptimisticUpdateTopic*(forkDigest: ForkDigest): string =
   ## For broadcasting or obtaining the latest `LightClientOptimisticUpdate`.
   eth2Prefix(forkDigest) & "light_client_optimistic_update/ssz_snappy"
+
+func getForkDigest(
+    cfg: RuntimeConfig, genesis_validators_root: Eth2Digest,
+    current_fork_version: Version, epoch: Epoch): ForkDigest =
+  if epoch >= cfg.FULU_FORK_EPOCH:
+    compute_fork_digest_fulu(cfg, genesis_validators_root, epoch)
+  else:
+    compute_fork_digest(current_fork_version, genesis_validators_root)
 
 func getENRForkID*(cfg: RuntimeConfig,
                    epoch: Epoch,
@@ -140,8 +149,8 @@ func getENRForkID*(cfg: RuntimeConfig,
       current_fork_version
     else:
       cfg.forkVersionAtEpoch(cfg.nextForkEpochAtEpoch(epoch))
-    fork_digest = compute_fork_digest(current_fork_version,
-                                      genesis_validators_root)
+    fork_digest = cfg.getForkDigest(
+      genesis_validators_root, current_fork_version, epoch)
   ENRForkID(
     fork_digest: fork_digest,
     next_fork_version: next_fork_version,
@@ -156,8 +165,8 @@ func getDiscoveryForkID*(cfg: RuntimeConfig,
   else:
     let
       current_fork_version = cfg.forkVersionAtEpoch(epoch)
-      fork_digest = compute_fork_digest(current_fork_version,
-                                        genesis_validators_root)
+      fork_digest = cfg.getForkDigest(
+        genesis_validators_root, current_fork_version, epoch)
     ENRForkID(
       fork_digest: fork_digest,
       next_fork_version: current_fork_version,
